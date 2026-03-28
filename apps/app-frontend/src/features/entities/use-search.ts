@@ -76,7 +76,7 @@ export function useEntitySearch(props: { entitySchema: AppEntitySchema }) {
 		() => ["entity-search-ensured-entity", props.entitySchema.id],
 		[props.entitySchema.id],
 	);
-	const enqueueEntityImport = apiClient.useMutation("post", "/entity-schemas/import");
+	const enqueueEntityImport = apiClient.useMutation("post", "/entities/import");
 	const entitySearchQueryKey = useMemo(
 		() => ["entity-search", props.entitySchema.id],
 		[props.entitySchema.id],
@@ -149,7 +149,7 @@ export function useEntitySearch(props: { entitySchema: AppEntitySchema }) {
 					throwIfAborted(signal);
 					// oxlint-disable-next-line no-await-in-loop
 					const result = await queryClient.fetchQuery({
-						...apiClient.queryOptions("get", "/entity-schemas/import/{jobId}", {
+						...apiClient.queryOptions("get", "/entities/import/{jobId}", {
 							params: { path: { jobId } },
 						}),
 						staleTime: 0,

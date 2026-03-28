@@ -1693,7 +1693,7 @@ async function importMediaEntity(
 ): Promise<SeedEntity | null> {
 	const client = apiClient.getClient();
 	apiClient.incrementRequestCount();
-	const { data: importData, response: importResp } = await client.POST("/entity-schemas/import", {
+	const { data: importData, response: importResp } = await client.POST("/entities/import", {
 		body: { scriptId, externalId, entitySchemaId },
 	});
 	if (!importResp.ok || !importData?.data) {
@@ -1704,10 +1704,9 @@ async function importMediaEntity(
 	while (true) {
 		apiClient.incrementRequestCount();
 		// oxlint-disable-next-line no-await-in-loop
-		const { data: pollData, response: pollResp } = await client.GET(
-			"/entity-schemas/import/{jobId}",
-			{ params: { path: { jobId } } },
-		);
+		const { data: pollData, response: pollResp } = await client.GET("/entities/import/{jobId}", {
+			params: { path: { jobId } },
+		});
 		if (!pollResp.ok || !pollData?.data) {
 			return null;
 		}

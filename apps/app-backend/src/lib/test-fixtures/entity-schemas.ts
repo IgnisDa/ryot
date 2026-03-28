@@ -1,12 +1,9 @@
 import { withOverrides } from "~/lib/test-fixtures/fixture-helpers";
 import { createOptionalTitlePropertiesSchema } from "~/lib/test-fixtures/property-schemas";
 import type { ListedEntity } from "~/modules/entities";
+import type { EntityImportDeps } from "~/modules/entities/service";
 import type { CreateEntitySchemaBody, ListedEntitySchema } from "~/modules/entity-schemas";
-import type {
-	EntityImportDeps,
-	EntitySchemaServiceDeps,
-	EntitySearchDeps,
-} from "~/modules/entity-schemas/service";
+import type { EntitySchemaServiceDeps, EntitySearchDeps } from "~/modules/entity-schemas/service";
 import type { PollSandboxResult, SandboxEnqueueResult } from "~/modules/sandbox";
 
 const listedEntitySchemaDefaults: ListedEntitySchema = {

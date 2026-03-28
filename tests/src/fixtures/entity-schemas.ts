@@ -10,7 +10,7 @@ type EnqueueEntitySearchBody = NonNullable<
 >["content"]["application/json"];
 
 type EnqueueEntityImportBody = NonNullable<
-	paths["/entity-schemas/import"]["post"]["requestBody"]
+	paths["/entities/import"]["post"]["requestBody"]
 >["content"]["application/json"];
 
 export type AppPropertyDefinition = components["schemas"]["AppPropertyDefinition"];
@@ -180,7 +180,7 @@ export async function enqueueEntityImport(
 	cookies: string,
 	body: EnqueueEntityImportBody,
 ) {
-	const { data, response } = await client.POST("/entity-schemas/import", {
+	const { data, response } = await client.POST("/entities/import", {
 		body,
 		headers: { Cookie: cookies },
 	});
@@ -202,7 +202,7 @@ export async function pollEntityImportResult(
 	return pollUntil(
 		`entity import job '${jobId}'`,
 		async () => {
-			const { data, response } = await client.GET("/entity-schemas/import/{jobId}", {
+			const { data, response } = await client.GET("/entities/import/{jobId}", {
 				params: { path: { jobId } },
 				headers: { Cookie: cookies },
 			});
