@@ -137,8 +137,8 @@ function SearchResultRow(props: {
 export function SearchEntityModal(props: {
 	opened: boolean;
 	onClose: () => void;
-	entitySchema: AppEntitySchema;
 	onEntityAdded: () => void;
+	entitySchema: AppEntitySchema;
 }) {
 	const {
 		page,
@@ -186,15 +186,15 @@ export function SearchEntityModal(props: {
 					<TextInput
 						flex={1}
 						value={query}
+						disabled={isSearching}
 						placeholder="Search..."
 						onChange={(e) => setQuery(e.currentTarget.value)}
+						leftSection={<Search size={16} strokeWidth={1.5} />}
 						onKeyDown={(e) => {
 							if (e.key === "Enter") {
 								search();
 							}
 						}}
-						leftSection={<Search size={16} strokeWidth={1.5} />}
-						disabled={isSearching}
 					/>
 					<Button
 						onClick={search}
