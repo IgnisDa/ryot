@@ -214,6 +214,7 @@ const normalizeQueryDefinition = (
 ): SavedViewQueryDefinition => ({
 	...queryDefinition,
 	eventJoins: queryDefinition.eventJoins ?? [],
+	computedFields: queryDefinition.computedFields ?? [],
 });
 
 const buildRuntimeFields = (input: {
@@ -287,6 +288,7 @@ const buildRuntimeRequest = (input: {
 		sort: input.queryDefinition.sort,
 		filters: input.queryDefinition.filters,
 		eventJoins: input.queryDefinition.eventJoins,
+		computedFields: input.queryDefinition.computedFields,
 		entitySchemaSlugs: input.queryDefinition.entitySchemaSlugs,
 	};
 };
@@ -305,10 +307,14 @@ const validateSavedViewDefinition = (input: {
 		}),
 		{ schemaMap: input.schemaMap, eventJoinMap: input.eventJoinMap },
 	);
-	validateSavedViewDisplayConfiguration(input.displayConfiguration, {
-		schemaMap: input.schemaMap,
-		eventJoinMap: input.eventJoinMap,
-	});
+	validateSavedViewDisplayConfiguration(
+		input.displayConfiguration,
+		{
+			schemaMap: input.schemaMap,
+			eventJoinMap: input.eventJoinMap,
+		},
+		input.queryDefinition.computedFields,
+	);
 };
 
 const createPreparedView = (

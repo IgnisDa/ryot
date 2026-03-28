@@ -4,8 +4,9 @@ import type { RuntimeRef } from "./expression";
 
 export type PropertyType = AppPropertyDefinition["type"];
 
-const entityReferencePrefix = "entity";
 const eventReferencePrefix = "event";
+const entityReferencePrefix = "entity";
+const computedReferencePrefix = "computed";
 
 export type ViewRuntimeSchemaLike = {
 	slug: string;
@@ -125,6 +126,14 @@ const stringifyPropertyDefinition = (property: AppPropertyDefinition) => {
 
 export const parseFieldPath = (field: string): RuntimeRef => {
 	const [namespace, segment, tail, ...rest] = field.split(".");
+	if (namespace === computedReferencePrefix) {
+		if (!segment || tail || rest.length > 0) {
+			throw new Error(`Invalid field path: ${field}`);
+		}
+
+		return { key: segment, type: "computed-field" };
+	}
+
 	if (namespace === eventReferencePrefix) {
 		if (!segment || !tail || rest.length > 0) {
 			throw new Error(`Invalid field path: ${field}`);
@@ -183,6 +192,7 @@ export const buildEventJoinMap = <TJoin extends { key: string }>(
 export const resolveRuntimeReference = (reference: string): RuntimeRef => {
 	try {
 		if (
+			reference.startsWith(`${computedReferencePrefix}.`) ||
 			reference.startsWith(`${entityReferencePrefix}.`) ||
 			reference.startsWith(`${eventReferencePrefix}.`)
 		) {

@@ -1,7 +1,12 @@
 import type { DisplayConfiguration } from "~/modules/saved-views/schemas";
 import type { ViewRuntimeRequest } from "~/modules/view-runtime/schemas";
+import { buildComputedFieldMap, orderComputedFields } from "./computed-fields";
 import { ViewRuntimeValidationError } from "./errors";
-import type { RuntimeRef, ViewExpression } from "./expression";
+import type {
+	RuntimeRef,
+	ViewComputedField,
+	ViewExpression,
+} from "./expression";
 import { validateFilterExpressionAgainstSchemas } from "./predicate-validator";
 import {
 	displayBuiltins,
@@ -29,6 +34,12 @@ export const validateRuntimeReferenceAgainstSchemas = (
 	>,
 	validBuiltins: ReadonlySet<string>,
 ): void => {
+	if (reference.type === "computed-field") {
+		throw new ViewRuntimeValidationError(
+			"Computed field references are not allowed in this context",
+		);
+	}
+
 	if (reference.type === "entity-column") {
 		getSchemaForReference(context.schemaMap, reference);
 		if (!validBuiltins.has(reference.column)) {
@@ -99,12 +110,23 @@ export const validateExpressionAgainstSchemas = (
 		ValidationEventJoinRow
 	>,
 	validBuiltins: ReadonlySet<string>,
+	computedFieldMap: Map<string, ViewComputedField> = new Map(),
 ): void => {
 	if (expression.type === "literal") {
 		return;
 	}
 
 	if (expression.type === "reference") {
+		if (expression.reference.type === "computed-field") {
+			if (!computedFieldMap.has(expression.reference.key)) {
+				throw new ViewRuntimeValidationError(
+					`Computed field '${expression.reference.key}' is not part of this runtime request`,
+				);
+			}
+
+			return;
+		}
+
 		validateRuntimeReferenceAgainstSchemas(
 			expression.reference,
 			context,
@@ -114,8 +136,36 @@ export const validateExpressionAgainstSchemas = (
 	}
 
 	for (const value of expression.values) {
-		validateExpressionAgainstSchemas(value, context, validBuiltins);
+		validateExpressionAgainstSchemas(
+			value,
+			context,
+			validBuiltins,
+			computedFieldMap,
+		);
 	}
+};
+
+const validateComputedFields = (input: {
+	validBuiltins: ReadonlySet<string>;
+	computedFields?: ViewComputedField[];
+	context: ViewRuntimeReferenceContext<
+		ValidationSchemaRow,
+		ValidationEventJoinRow
+	>;
+}) => {
+	const computedFieldMap = buildComputedFieldMap(input.computedFields);
+	const orderedComputedFields = orderComputedFields(input.computedFields);
+
+	for (const computedField of orderedComputedFields) {
+		validateExpressionAgainstSchemas(
+			computedField.expression,
+			input.context,
+			input.validBuiltins,
+			computedFieldMap,
+		);
+	}
+
+	return computedFieldMap;
 };
 
 export const validateViewRuntimeReferences = (
@@ -125,6 +175,12 @@ export const validateViewRuntimeReferences = (
 		ValidationEventJoinRow
 	>,
 ): void => {
+	const computedFieldMap = validateComputedFields({
+		context,
+		validBuiltins: displayBuiltins,
+		computedFields: request.computedFields,
+	});
+
 	for (const field of request.sort.fields) {
 		validateReferenceAgainstSchemas(field, context, sortFilterBuiltins);
 	}
@@ -139,6 +195,7 @@ export const validateViewRuntimeReferences = (
 			field.expression,
 			context,
 			displayBuiltins,
+			computedFieldMap,
 		);
 	}
 };
@@ -149,7 +206,14 @@ export const validateSavedViewDisplayConfiguration = (
 		ValidationSchemaRow,
 		ValidationEventJoinRow
 	>,
+	computedFields?: ViewComputedField[],
 ): void => {
+	const computedFieldMap = validateComputedFields({
+		context,
+		computedFields,
+		validBuiltins: displayBuiltins,
+	});
+
 	for (const refs of [
 		displayConfiguration.grid.imageProperty,
 		displayConfiguration.grid.titleProperty,
@@ -161,7 +225,12 @@ export const validateSavedViewDisplayConfiguration = (
 		displayConfiguration.list.subtitleProperty,
 	]) {
 		if (refs) {
-			validateExpressionAgainstSchemas(refs, context, displayBuiltins);
+			validateExpressionAgainstSchemas(
+				refs,
+				context,
+				displayBuiltins,
+				computedFieldMap,
+			);
 		}
 	}
 
@@ -170,6 +239,7 @@ export const validateSavedViewDisplayConfiguration = (
 			column.expression,
 			context,
 			displayBuiltins,
+			computedFieldMap,
 		);
 	}
 };

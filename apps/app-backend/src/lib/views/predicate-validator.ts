@@ -67,6 +67,12 @@ const getPropertyDefinitionForFilter = <TSchema extends ViewRuntimeSchemaLike>(
 		return property;
 	}
 
+	if (reference.type === "computed-field") {
+		throw new ViewRuntimeValidationError(
+			"Computed field references are not supported in filters",
+		);
+	}
+
 	const schema = getSchemaForReference(context.schemaMap, reference);
 	const property = schema.propertiesSchema.fields[reference.property];
 	if (!property) {

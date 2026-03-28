@@ -13,8 +13,8 @@ For concrete executable examples, also see:
 `/view-runtime/execute` runs a query and resolves a set of requested output fields.
 
 - You send query inputs plus ordered `fields`.
-- Each field has a `key` and one or more `references`.
-- The backend resolves the first non-null reference for each field.
+- Query definitions can also declare reusable `computedFields`.
+- Each field has a `key` and a single `expression`.
 - The response returns entities plus resolved `fields` as `{ key, kind, value }`.
 
 ## Request Shape
@@ -30,16 +30,31 @@ For concrete executable examples, also see:
     "limit": 20
   },
   "eventJoins": [],
+  "computedFields": [
+    {
+      "key": "displayName",
+      "expression": {
+        "type": "reference",
+        "reference": { "type": "entity-column", "slug": "book", "column": "name" }
+      }
+    }
+  ],
   "filters": [],
   "entitySchemaSlugs": ["book"],
   "fields": [
     {
       "key": "title",
-      "references": ["entity.book.@name"]
+      "expression": {
+        "type": "reference",
+        "reference": { "type": "computed-field", "key": "displayName" }
+      }
     },
     {
       "key": "image",
-      "references": ["entity.book.@image"]
+      "expression": {
+        "type": "reference",
+        "reference": { "type": "entity-column", "slug": "book", "column": "image" }
+      }
     }
   ]
 }
@@ -54,6 +69,7 @@ For concrete executable examples, also see:
 - `entitySchemaSlugs`: one or more schema slugs included in the query
 - `filters`: zero or more filter expressions
 - `eventJoins`: zero or more event join definitions
+- `computedFields`: zero or more named reusable expressions
 - `fields`: ordered list of output fields
 
 ## Field Selection
@@ -63,20 +79,58 @@ Each field looks like this:
 ```json
 {
   "key": "subtitle",
-  "references": [
-    "entity.smartphone.manufacturer",
-    "entity.tablet.manufacturer"
-  ]
+  "expression": {
+    "type": "coalesce",
+    "values": [
+      {
+        "type": "reference",
+        "reference": { "type": "schema-property", "slug": "smartphone", "property": "manufacturer" }
+      },
+      {
+        "type": "reference",
+        "reference": { "type": "schema-property", "slug": "tablet", "property": "manufacturer" }
+      }
+    ]
+  }
 }
 ```
 
 Rules:
 
 - `key` must be non-empty and unique within the request.
-- `references` is an ordered fallback list.
-- The backend resolves the first non-null reference.
-- Use multiple references for cross-schema coalescing.
+- `expression` is a single AST node.
+- Use `coalesce` for ordered fallback behavior.
 - The `fields` array itself is an array, never `null`.
+
+## Computed Fields
+
+Computed fields are named expressions declared once and reused anywhere display expressions are accepted.
+
+```json
+{
+  "key": "reviewOrTitle",
+  "expression": {
+    "type": "coalesce",
+    "values": [
+      {
+        "type": "reference",
+        "reference": { "type": "event-join-property", "joinKey": "review", "property": "rating" }
+      },
+      {
+        "type": "reference",
+        "reference": { "type": "computed-field", "key": "displayName" }
+      }
+    ]
+  }
+}
+```
+
+Rules:
+
+- `computedFields[].key` must be unique.
+- Computed fields can reference entity fields, latest-event fields, and other computed fields.
+- Missing latest-event rows still resolve as `null`, so `coalesce` works the same way through computed fields.
+- Computed-field dependency cycles are rejected.
 
 ## Reference Syntax
 

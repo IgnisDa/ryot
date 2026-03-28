@@ -211,6 +211,7 @@ export const executePreparedViewQuery = async (input: {
 		context,
 		alias: "paginated_entities",
 		fields: input.request.fields,
+		computedFields: input.request.computedFields,
 	});
 	const direction = sql.raw(input.request.sort.direction.toUpperCase());
 	const filterClause = filterWhereClause ?? sql`true`;

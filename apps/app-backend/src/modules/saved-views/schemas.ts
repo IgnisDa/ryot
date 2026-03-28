@@ -1,7 +1,10 @@
 import { zodBoolAsString } from "@ryot/ts-utils";
 import { z } from "zod";
 import { itemDataSchema, listDataSchema } from "~/lib/openapi";
-import { viewExpressionSchema } from "~/lib/views/expression";
+import {
+	computedFieldArraySchema,
+	viewExpressionSchema,
+} from "~/lib/views/expression";
 import { filterExpressionSchema } from "~/lib/views/filtering";
 import {
 	createIdParamsSchema,
@@ -91,6 +94,7 @@ export type DisplayConfiguration = z.infer<typeof displayConfigurationSchema>;
 
 export const savedViewQueryDefinitionSchema = z.object({
 	sort: sortDefinitionSchema,
+	computedFields: computedFieldArraySchema,
 	eventJoins: eventJoinDefinitionArraySchema,
 	entitySchemaSlugs: entitySchemaSlugArraySchema,
 	filters: z.array(filterExpressionSchema),
