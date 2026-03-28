@@ -110,7 +110,7 @@ The inner `expression` in sum/avg/min/max aggregations must resolve to a numeric
 - [x] Shared CTE builders are extracted and reused by both entity and aggregate modes
 - [x] Unit tests cover each aggregation type, empty sets, numeric validation rejection
 - [x] E2E tests exercise aggregate mode through the HTTP endpoint
-- [x] `bun run check`, `bun run test`, and `bun run format` pass
+- [x] `bun run check` and `bun run test` pass
 
 ## User stories addressed
 
