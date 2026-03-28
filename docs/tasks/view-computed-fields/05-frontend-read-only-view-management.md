@@ -14,6 +14,8 @@ The end-to-end behavior: users can still load saved views, execute them, switch 
 
 See the parent PRD sections "Implementation Decisions" and "Out of Scope" for the no-builder stance and direct-payload authoring model.
 
+Backward compatibility is not needed in this slice. Remove the old editing experience and its assumptions instead of trying to adapt it to both contracts.
+
 ## Acceptance criteria
 
 - [ ] Saved-view execution in the frontend uses the new expression-based backend contract without relying on legacy reference arrays
