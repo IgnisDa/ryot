@@ -2,6 +2,8 @@ import { sql } from "drizzle-orm";
 
 import type { DbClient } from "~/lib/db";
 
+import { quoteNullableSqlString, quoteSqlString } from "./shared";
+
 type MetadataMigrationTarget = {
 	lot: string;
 	source: string;
@@ -156,15 +158,17 @@ const metadataMigrationTargetValuesSql = sql.join(
 );
 
 const buildMetadataMigrationTargetValuesSql = (targets: ResolvedMetadataMigrationTarget[]) =>
-	sql.join(
-		targets.map(
-			(target) =>
-				sql`(${target.lot}, ${target.source}, ${target.entitySchemaId}, ${target.sandboxScriptId})`,
-		),
-		sql`, `,
-	);
+	targets
+		.map(
+			(t) =>
+				`(${quoteSqlString(t.lot)}, ${quoteSqlString(t.source)}, ${quoteSqlString(t.entitySchemaId)}, ${quoteNullableSqlString(t.sandboxScriptId)})`,
+		)
+		.join(", ");
 
-export const buildMetadataMigrationSql = (targets: ResolvedMetadataMigrationTarget[]) => sql`
+export const buildMetadataMigrationSql = (targets: ResolvedMetadataMigrationTarget[]) => `
+DO $$
+DECLARE rows_inserted int;
+BEGIN
 	WITH metadata_targets (lot, source, entity_schema_id, sandbox_script_id) AS (
 		VALUES ${buildMetadataMigrationTargetValuesSql(targets)}
 	)
@@ -206,6 +210,9 @@ export const buildMetadataMigrationSql = (targets: ResolvedMetadataMigrationTarg
 	FROM metadata
 	INNER JOIN metadata_targets ON metadata_targets.lot = metadata.lot AND metadata_targets.source = metadata.source
 	ON CONFLICT ("id") DO NOTHING;
+	GET DIAGNOSTICS rows_inserted = ROW_COUNT;
+	RAISE NOTICE 'metadata -> entity: % row(s) migrated', rows_inserted;
+END $$;
 `;
 
 export const getUnsupportedMetadataSources = async (database: DbClient) => {
