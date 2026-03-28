@@ -135,7 +135,6 @@ function SortableTracker(props: {
 					root: {
 						padding: "10px 14px",
 						borderLeft: "2px solid transparent",
-						opacity: props.tracker.isDisabled ? 0.48 : 1,
 						"&:hover": {
 							borderLeftColor: color.base,
 							backgroundColor: color.muted,
@@ -283,7 +282,6 @@ function SortableTracker(props: {
 							styles={{
 								root: {
 									paddingLeft: "40px",
-									opacity: view.isDisabled ? 0.48 : 1,
 									"&:hover": { backgroundColor: color.muted },
 								},
 								label: {
@@ -305,7 +303,9 @@ export function Sidebar(props: SidebarProps) {
 	const state = useTrackerSidebarState();
 	const actions = useTrackerSidebarActions();
 	const computedColorScheme = useColorScheme();
-	const savedViewsQuery = useSavedViewsQuery();
+	const savedViewsQuery = useSavedViewsQuery({
+		includeDisabled: state.isCustomizeMode,
+	});
 	const savedViewMutations = useSavedViewMutations();
 	const { hovered, ref } = useHover<HTMLDivElement>();
 	const [searchQuery, setSearchQuery] = useState("");
@@ -313,9 +313,10 @@ export function Sidebar(props: SidebarProps) {
 		Record<string, boolean>
 	>({ key: STORAGE_KEYS.sidebarExpandedTrackers, defaultValue: {} });
 	const sidebarData = toSidebarData({
-		trackers: state.trackers,
+		trackers: state.isCustomizeMode
+			? state.trackers
+			: state.trackers.filter((tracker) => !tracker.isDisabled),
 		views: savedViewsQuery.savedViews,
-		isCustomizeMode: state.isCustomizeMode,
 	});
 
 	const isDark = computedColorScheme === "dark";
@@ -596,7 +597,6 @@ export function Sidebar(props: SidebarProps) {
 					<NavLink
 						key={view.id}
 						label={view.name}
-						disabled={state.isCustomizeMode}
 						leftSection={<ViewIcon view={view} />}
 						onClick={!state.isCustomizeMode ? handleNavLinkClick : undefined}
 						renderRoot={
@@ -609,6 +609,30 @@ export function Sidebar(props: SidebarProps) {
 										/>
 									)
 								: undefined
+						}
+						rightSection={
+							state.isCustomizeMode ? (
+								<ActionIcon
+									size="sm"
+									variant="subtle"
+									disabled={savedViewMutations.isPending}
+									aria-label={view.isDisabled ? "Enable view" : "Disable view"}
+									onClick={(event) => {
+										event.preventDefault();
+										event.stopPropagation();
+										void savedViewMutations.toggleViewById(
+											view.id,
+											savedViewsQuery.savedViews,
+										);
+									}}
+								>
+									{view.isDisabled ? (
+										<ToggleLeft size={14} strokeWidth={1.8} />
+									) : (
+										<ToggleRight size={14} strokeWidth={1.8} />
+									)}
+								</ActionIcon>
+							) : undefined
 						}
 						styles={{
 							label: {
