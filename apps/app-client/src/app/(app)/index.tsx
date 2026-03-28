@@ -4,18 +4,13 @@ import { AsyncResult } from "effect/unstable/reactivity";
 import { router } from "expo-router";
 import { Pressable, ScrollView, Text, View } from "react-native";
 
-import { AppQueryApi } from "@/api/app-api";
-import { withQueryDefaults } from "@/api/query";
+import { appQueryClient } from "@/api/query-client";
 import { useAuthClient } from "@/modules/auth/client";
 
-const notificationChannelsAtom = withQueryDefaults(
-	AppQueryApi.query("notifications", "listChannels", {}),
-);
-const savedViewsAtom = withQueryDefaults(
-	AppQueryApi.query("savedViews", "list", {
-		query: { includeDisabled: true },
-	}),
-);
+const notificationChannelsAtom = appQueryClient.query("notifications", "listChannels", {});
+const savedViewsAtom = appQueryClient.query("savedViews", "list", {
+	query: { includeDisabled: true },
+});
 
 export default function AppHome() {
 	const client = useAuthClient();
