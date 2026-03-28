@@ -157,8 +157,8 @@ function SearchResultRow(props: {
 
 export function SearchEntityModal(props: {
 	opened: boolean;
+	onBack: () => void;
 	onClose: () => void;
-	onBack?: () => void;
 	onEntityAdded: () => void;
 	entitySchema: AppEntitySchema;
 }) {
@@ -193,25 +193,19 @@ export function SearchEntityModal(props: {
 			opened={props.opened}
 			onClose={props.onClose}
 			title={
-				props.onBack ? (
-					<Group gap="xs">
-						<ActionIcon
-							size="sm"
-							variant="subtle"
-							onClick={props.onBack}
-							aria-label="Back to type picker"
-						>
-							<ChevronLeft size={16} />
-						</ActionIcon>
-						<Text ff="var(--mantine-headings-font-family)" fw={600} fz="md">
-							Add {props.entitySchema.name}
-						</Text>
-					</Group>
-				) : (
+				<Group gap="xs">
+					<ActionIcon
+						size="sm"
+						variant="subtle"
+						onClick={props.onBack}
+						aria-label="Back to type picker"
+					>
+						<ChevronLeft size={16} />
+					</ActionIcon>
 					<Text ff="var(--mantine-headings-font-family)" fw={600} fz="md">
 						Add {props.entitySchema.name}
 					</Text>
-				)
+				</Group>
 			}
 			overlayProps={{ backgroundOpacity: 0.55, blur: 3 }}
 		>
