@@ -1,18 +1,18 @@
 import type { AppSchema } from "@ryot/ts-utils";
 import { and, desc, eq, isNull, or } from "drizzle-orm";
 import { db } from "~/lib/db";
-import { entity, entitySchema, event, eventSchema } from "~/lib/db/schema";
+import {
+	entity,
+	entityAccessScopeWithSchemaJoinSelection,
+	entitySchema,
+	event,
+	eventSchema,
+} from "~/lib/db/schema";
 import type { ListedEvent } from "./schemas";
 import type { EventPropertiesShape } from "./service";
 
 type EventRow = Omit<ListedEvent, "properties"> & {
 	properties: unknown;
-};
-
-const entityScopeSelection = {
-	entityId: entity.id,
-	isBuiltin: entitySchema.isBuiltin,
-	entitySchemaId: entity.entitySchemaId,
 };
 
 const listedEventSelection = {
@@ -51,7 +51,7 @@ export const getEntityScopeForUser = async (input: {
 	entityId: string;
 }) => {
 	const [foundEntity] = await db
-		.select(entityScopeSelection)
+		.select(entityAccessScopeWithSchemaJoinSelection)
 		.from(entity)
 		.innerJoin(entitySchema, eq(entity.entitySchemaId, entitySchema.id))
 		.where(and(eq(entity.id, input.entityId), eq(entity.userId, input.userId)))
