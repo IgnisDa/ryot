@@ -157,7 +157,7 @@ The test query to confirm bootstrap ran: `SELECT count(*) FROM tracker WHERE use
 - Multi-provider OIDC (only one provider is supported and tested).
 - Testing Better Auth internals (token signing, session expiry, cookie semantics).
 - Load or performance testing of the OIDC flow.
-- Testing the legacy bootstrap migration module (`modules/legacyBootstrap`).
+- Testing the legacy bootstrap migration module (`modules/legacy-bootstrap`).
 
 ## Further Notes
 

@@ -4,7 +4,7 @@ import {
 	dropLegacyTables,
 	migrateLegacyTables,
 	renameLegacyTables,
-} from "~/modules/legacyBootstrap";
+} from "~/modules/legacy-bootstrap";
 
 import { db } from "./index";
 import { seedInitialDatabase } from "./seed";
