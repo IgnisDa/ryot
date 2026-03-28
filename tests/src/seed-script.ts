@@ -1,5 +1,7 @@
 // delete this file eventually
 import { faker } from "@faker-js/faker";
+import type { paths } from "@ryot/generated/openapi/app-backend";
+import createClient from "openapi-fetch";
 
 const API_BASE_URL = "http://localhost:3000/api";
 const API_KEY = process.env.API_KEY;
@@ -7,108 +9,33 @@ if (!API_KEY) {
 	throw new Error("API_KEY environment variable is not set");
 }
 
-type PropertyDefinition =
-	| {
-			type: "string" | "number" | "integer" | "boolean" | "date";
-			required?: true;
-	  }
-	| { type: "array"; items: PropertyDefinition; required?: true }
-	| {
-			type: "object";
-			properties: Record<string, PropertyDefinition>;
-			required?: true;
-	  };
+type Client = ReturnType<typeof createClient<paths>>;
 
-type PropertiesSchema = Record<string, PropertyDefinition>;
-
-interface Tracker {
-	id: string;
-	name: string;
-	slug: string;
-	icon: string;
-	accentColor: string;
-	description?: string;
-}
-
-interface EntitySchema {
-	id: string;
-	name: string;
-	slug: string;
-	trackerId: string;
-	icon: string;
-	accentColor: string;
-	propertiesSchema: PropertiesSchema;
-}
-
-interface EventSchema {
-	id: string;
-	name: string;
-	slug: string;
-	entitySchemaId: string;
-	propertiesSchema: PropertiesSchema;
-}
-
-interface Entity {
-	id: string;
-	name: string;
-	entitySchemaId: string;
-	properties: Record<string, unknown>;
-	image: { kind: "remote"; url: string } | null;
-}
-
-interface SavedView {
-	id: string;
-	name: string;
-	icon: string;
-	accentColor: string;
-	trackerId: string | null;
-	queryDefinition: {
-		filters: unknown[];
-		entitySchemaSlugs: string[];
-		sort: { field: string[]; direction: "asc" | "desc" };
-	};
-	displayConfiguration: {
-		layout: "grid" | "list" | "table";
-		grid: {
-			imageProperty: string[] | null;
-			titleProperty: string[] | null;
-			badgeProperty: string[] | null;
-			subtitleProperty: string[] | null;
-		};
-		list: {
-			imageProperty: string[] | null;
-			titleProperty: string[] | null;
-			badgeProperty: string[] | null;
-			subtitleProperty: string[] | null;
-		};
-		table: {
-			columns: { property: string[] }[];
-		};
-	};
-}
+type PropertiesSchema = Record<
+	string,
+	{
+		type: "string" | "number" | "integer" | "boolean" | "date";
+		required?: true;
+	}
+>;
 
 class APIClient {
+	private client: Client;
 	private requestCount = 0;
 
-	async post<T>(endpoint: string, body: unknown): Promise<T> {
-		this.requestCount++;
-
-		const response = await fetch(`${API_BASE_URL}${endpoint}`, {
-			method: "POST",
-			body: JSON.stringify(body),
-			headers: {
-				"X-Api-Key": `${API_KEY}`,
-				"Content-Type": "application/json",
-			},
+	constructor() {
+		this.client = createClient<paths>({
+			baseUrl: API_BASE_URL,
+			headers: { "X-Api-Key": API_KEY },
 		});
+	}
 
-		if (!response.ok) {
-			const errorText = await response.text();
-			throw new Error(`API Error (${response.status}): ${errorText}`);
-		}
+	getClient(): Client {
+		return this.client;
+	}
 
-		const result = await response.json();
-		return result.data;
+	incrementRequestCount(): void {
+		this.requestCount++;
 	}
 
 	getRequestCount(): number {
@@ -129,114 +56,144 @@ function generateImageUrl(seed: string, width: number, height: number): string {
 }
 
 async function createTracker(
-	client: APIClient,
+	apiClient: APIClient,
 	name: string,
 	slug: string,
 	icon: string,
 	accentColor: string,
 	description?: string,
-): Promise<Tracker> {
+) {
 	console.log(`  Creating tracker: ${name}...`);
-	const tracker = await client.post<Tracker>("/trackers", {
-		name,
-		slug,
-		icon,
-		accentColor,
-		description,
+	apiClient.incrementRequestCount();
+	const client = apiClient.getClient();
+	const { data, response } = await client.POST("/trackers", {
+		body: { name, slug, icon, accentColor, description },
 	});
-	console.log(`  ✓ Created tracker: ${name} (${tracker.id})`);
-	return tracker;
+
+	if (!response.ok || !data?.data) {
+		throw new Error(`Failed to create tracker: ${response.statusText}`);
+	}
+
+	console.log(`  ✓ Created tracker: ${name} (${data.data.id})`);
+	return data.data;
 }
 
 async function createEntitySchema(
-	client: APIClient,
+	apiClient: APIClient,
 	name: string,
 	slug: string,
 	trackerId: string,
 	icon: string,
 	accentColor: string,
 	propertiesSchema: PropertiesSchema,
-): Promise<EntitySchema> {
+) {
 	console.log(`    Creating entity schema: ${name}...`);
-	const schema = await client.post<EntitySchema>("/entity-schemas", {
-		name,
-		slug,
-		trackerId,
-		icon,
-		accentColor,
-		propertiesSchema,
+	apiClient.incrementRequestCount();
+	const client = apiClient.getClient();
+	const { data, response } = await client.POST("/entity-schemas", {
+		body: { name, slug, trackerId, icon, accentColor, propertiesSchema },
 	});
-	console.log(`    ✓ Created entity schema: ${name} (${schema.id})`);
-	return schema;
+
+	if (!response.ok || !data?.data) {
+		throw new Error(`Failed to create entity schema: ${response.statusText}`);
+	}
+
+	console.log(`    ✓ Created entity schema: ${name} (${data.data.id})`);
+	return data.data;
 }
 
 async function createEventSchema(
-	client: APIClient,
+	apiClient: APIClient,
 	name: string,
 	slug: string,
 	entitySchemaId: string,
 	propertiesSchema: PropertiesSchema,
-): Promise<EventSchema> {
+) {
 	console.log(`      Creating event schema: ${name}...`);
-	const schema = await client.post<EventSchema>("/event-schemas", {
-		name,
-		slug,
-		entitySchemaId,
-		propertiesSchema,
+	apiClient.incrementRequestCount();
+	const client = apiClient.getClient();
+	const { data, response } = await client.POST("/event-schemas", {
+		body: { name, slug, entitySchemaId, propertiesSchema },
 	});
-	console.log(`      ✓ Created event schema: ${name} (${schema.id})`);
-	return schema;
+
+	if (!response.ok || !data?.data) {
+		throw new Error(`Failed to create event schema: ${response.statusText}`);
+	}
+
+	console.log(`      ✓ Created event schema: ${name} (${data.data.id})`);
+	return data.data;
 }
 
 async function createEntity(
-	client: APIClient,
+	apiClient: APIClient,
 	name: string,
 	entitySchemaId: string,
 	properties: Record<string, unknown>,
 	imageUrl: string | null,
-): Promise<Entity> {
-	const entity = await client.post<Entity>("/entities", {
-		name,
-		properties,
-		entitySchemaId,
-		image: imageUrl ? { kind: "remote", url: imageUrl } : null,
+) {
+	apiClient.incrementRequestCount();
+	const client = apiClient.getClient();
+	const { data, response } = await client.POST("/entities", {
+		body: {
+			name,
+			properties,
+			entitySchemaId,
+			image: imageUrl ? { kind: "remote", url: imageUrl } : null,
+		},
 	});
-	return entity;
+
+	if (!response.ok || !data?.data) {
+		throw new Error(`Failed to create entity: ${response.statusText}`);
+	}
+
+	return data.data;
 }
 
 async function createEvent(
-	client: APIClient,
+	apiClient: APIClient,
 	entityId: string,
 	eventSchemaId: string,
 	properties: Record<string, unknown>,
 	occurredAt: string,
 ): Promise<void> {
-	await client.post("/events", {
-		entityId,
-		occurredAt,
-		properties,
-		eventSchemaId,
+	apiClient.incrementRequestCount();
+	const client = apiClient.getClient();
+	const { response } = await client.POST("/events", {
+		body: { entityId, occurredAt, properties, eventSchemaId },
 	});
+
+	if (!response.ok) {
+		throw new Error(`Failed to create event: ${response.statusText}`);
+	}
 }
 
 async function createSavedView(
-	client: APIClient,
+	apiClient: APIClient,
 	name: string,
 	icon: string,
 	accentColor: string,
-	queryDefinition: SavedView["queryDefinition"],
-	displayConfiguration: SavedView["displayConfiguration"],
+	queryDefinition: unknown,
+	displayConfiguration: unknown,
 	trackerId?: string,
-): Promise<SavedView> {
-	const savedView = await client.post<SavedView>("/saved-views", {
-		name,
-		icon,
-		accentColor,
-		trackerId,
-		queryDefinition,
-		displayConfiguration,
+) {
+	apiClient.incrementRequestCount();
+	const client = apiClient.getClient();
+	const { data, response } = await client.POST("/saved-views", {
+		body: {
+			name,
+			icon,
+			accentColor,
+			trackerId,
+			queryDefinition: queryDefinition as any,
+			displayConfiguration: displayConfiguration as any,
+		},
 	});
-	return savedView;
+
+	if (!response.ok || !data?.data) {
+		throw new Error(`Failed to create saved view: ${response.statusText}`);
+	}
+
+	return data.data;
 }
 
 function generateWhiskey(): {
@@ -450,7 +407,7 @@ async function seedWhiskeys(client: APIClient) {
 	const entityCount = randomInt(90, 110);
 	console.log(`\n  Creating ${entityCount} whiskey entities...`);
 
-	const entities: Entity[] = [];
+	const entities: Awaited<ReturnType<typeof createEntity>>[] = [];
 	for (let i = 0; i < entityCount; i++) {
 		const whiskey = generateWhiskey();
 		const entity = await createEntity(
@@ -568,7 +525,7 @@ async function seedPlaces(client: APIClient) {
 	const entityCount = randomInt(90, 110);
 	console.log(`\n  Creating ${entityCount} place entities...`);
 
-	const entities: Entity[] = [];
+	const entities: Awaited<ReturnType<typeof createEntity>>[] = [];
 	for (let i = 0; i < entityCount; i++) {
 		const place = generatePlace();
 		const entity = await createEntity(
@@ -759,7 +716,7 @@ async function seedSavedViews(
 ) {
 	console.log("\n💾 Seeding Saved Views...");
 
-	const savedViews: SavedView[] = [];
+	const savedViews: Awaited<ReturnType<typeof createSavedView>>[] = [];
 
 	console.log("  Creating whiskey-related saved views...");
 	savedViews.push(
