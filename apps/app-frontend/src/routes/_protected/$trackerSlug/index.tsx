@@ -406,7 +406,7 @@ function RouteComponent() {
 	return (
 		<Container size="xl" py={56}>
 			{tracker.isBuiltin ? (
-				<BuiltinMediaTrackerOverview />
+				<BuiltinMediaTrackerOverview tracker={tracker} />
 			) : (
 				<TrackerSchemaSection tracker={tracker} />
 			)}
