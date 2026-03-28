@@ -3,6 +3,31 @@ import { and, eq, isNull, sql } from "drizzle-orm";
 import type { DbClient } from "~/lib/db";
 import { entitySchema, sandboxScript } from "~/lib/db/schema";
 
+const legacyMigrationsTableExistsSql = sql`
+SELECT to_regclass('public.seaql_migrations') IS NOT NULL AS "present";
+`;
+
+const legacyUserTableExistsSql = sql`
+SELECT
+	to_regclass('public.old_user') IS NOT NULL
+	OR EXISTS (
+		SELECT 1
+		FROM information_schema.columns
+		WHERE table_schema = 'public'
+			AND table_name = 'user'
+			AND column_name = 'lot'
+	)
+	AS "present";
+`;
+
+const dropLegacyMigrationsTableSql = sql`
+DROP TABLE IF EXISTS public.seaql_migrations;
+`;
+
+const dropLegacyUserTableSql = sql`
+DROP TABLE IF EXISTS public.old_user;
+`;
+
 type MetadataMigrationTarget = {
 	lot: string;
 	source: string;
@@ -207,7 +232,35 @@ BEGIN
 END $$;
 `;
 
+const hasLegacyMigrationsTable = async (database: DbClient) => {
+	const result = await database.execute(legacyMigrationsTableExistsSql);
+
+	return result.rows[0]?.present === true;
+};
+
+const hasLegacyUserTable = async (database: DbClient) => {
+	const result = await database.execute(legacyUserTableExistsSql);
+
+	return result.rows[0]?.present === true;
+};
+
+const shouldRunLegacyBootstrap = async (database: DbClient) => {
+	return (await hasLegacyMigrationsTable(database)) || (await hasLegacyUserTable(database));
+};
+
+const dropLegacyMigrationsTable = async (database: DbClient) => {
+	await database.execute(dropLegacyMigrationsTableSql);
+};
+
+const dropLegacyUserTable = async (database: DbClient) => {
+	await database.execute(dropLegacyUserTableSql);
+};
+
 export const renameLegacyTables = async (database: DbClient) => {
+	if (!(await shouldRunLegacyBootstrap(database))) {
+		return;
+	}
+
 	await database.execute(renameLegacyTablesSql);
 };
 
@@ -347,6 +400,10 @@ END $$;
 `;
 
 export const migrateLegacyTables = async (database: DbClient) => {
+	if (!(await shouldRunLegacyBootstrap(database))) {
+		return;
+	}
+
 	const entitySchemas = await database
 		.select({
 			id: entitySchema.id,
@@ -390,4 +447,6 @@ export const migrateLegacyTables = async (database: DbClient) => {
 
 	await database.execute(buildMetadataMigrationSql(resolvedTargets));
 	await database.execute(migrateUserTableSql);
+	await dropLegacyMigrationsTable(database);
+	await dropLegacyUserTable(database);
 };

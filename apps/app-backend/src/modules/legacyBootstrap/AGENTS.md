@@ -7,6 +7,8 @@ TypeScript backend (`apps/app-backend`) during startup.
 
 - Keep all legacy bootstrap-specific logic inside this module.
 - `index.ts` must stay small and only re-export the startup entrypoints.
+- Do not edit `src/lib/db/migrate.ts` unless the change has been discussed first.
+- Keep the `index.ts` API surface minimal; only re-export the startup entrypoints.
 - Run the legacy table rename before Drizzle migrations.
 - Run the legacy table data copy after Drizzle migrations have created the new tables.
 - Prefer SQL for set-based work. Use TypeScript only for orchestration.
