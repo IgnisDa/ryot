@@ -51,8 +51,7 @@ const toListedEntitySchema = (row: EntitySchemaRow): ListedEntitySchema => ({
 	propertiesSchema: row.propertiesSchema as EntitySchemaPropertiesShape,
 });
 
-export const listEntitySchemasByTrackerForUser = async (input: {
-	userId: string;
+export const listEntitySchemasByTracker = async (input: {
 	trackerId: string;
 }) => {
 	const rows = await db
@@ -66,7 +65,6 @@ export const listEntitySchemasByTrackerForUser = async (input: {
 		.where(
 			and(
 				eq(tracker.id, input.trackerId),
-				eq(tracker.userId, input.userId),
 				eq(trackerEntitySchema.isDisabled, false),
 			),
 		)
