@@ -1,13 +1,19 @@
 import { Autocomplete } from "@mantine/core";
 import type { AppEntitySchema } from "#/features/entity-schemas/model";
 
-const BUILTIN_PATHS_WITH_IMAGE = [
-	"@name",
-	"@image",
-	"@createdAt",
-	"@updatedAt",
-];
-const BUILTIN_PATHS_WITHOUT_IMAGE = ["@name", "@createdAt", "@updatedAt"];
+const buildEntityBuiltinPaths = (schemaSlug: string, excludeImage: boolean) => {
+	const paths = [
+		`entity.${schemaSlug}.@name`,
+		`entity.${schemaSlug}.@createdAt`,
+		`entity.${schemaSlug}.@updatedAt`,
+	];
+
+	if (!excludeImage) {
+		paths.splice(1, 0, `entity.${schemaSlug}.@image`);
+	}
+
+	return paths;
+};
 
 type PropertyPathAutocompleteProps = {
 	label?: string;
@@ -25,20 +31,19 @@ type PropertyPathAutocompleteProps = {
 export function PropertyPathAutocomplete(props: PropertyPathAutocompleteProps) {
 	const isEmpty = props.schemas.length === 0;
 
-	const builtinPaths = props.excludeImage
-		? BUILTIN_PATHS_WITHOUT_IMAGE
-		: BUILTIN_PATHS_WITH_IMAGE;
-
 	const schemaGroups = props.schemas
 		.map((schema) => {
-			const items = Object.keys(schema.propertiesSchema.fields).map(
-				(key) => `${schema.slug}.${key}`,
-			);
+			const items = [
+				...buildEntityBuiltinPaths(schema.slug, props.excludeImage),
+				...Object.keys(schema.propertiesSchema.fields).map(
+					(key) => `entity.${schema.slug}.${key}`,
+				),
+			];
 			return { group: schema.slug, items };
 		})
 		.filter((group) => group.items.length > 0);
 
-	const data = [...schemaGroups, { group: "Built-in", items: builtinPaths }];
+	const data = schemaGroups;
 
 	return (
 		<Autocomplete
@@ -48,8 +53,8 @@ export function PropertyPathAutocomplete(props: PropertyPathAutocompleteProps) {
 			onBlur={props.onBlur}
 			value={props.value ?? ""}
 			required={props.required}
-			disabled={props.disabled || isEmpty}
 			onChange={props.onChange}
+			disabled={props.disabled || isEmpty}
 			placeholder={
 				isEmpty ? "Add entity schemas first" : (props.placeholder ?? "")
 			}

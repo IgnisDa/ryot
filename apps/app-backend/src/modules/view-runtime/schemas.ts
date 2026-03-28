@@ -4,6 +4,7 @@ import { dataSchema } from "~/lib/openapi";
 import { filterExpressionSchema } from "~/lib/views/filtering";
 import { timestampFields } from "~/lib/zod/base";
 import {
+	eventJoinDefinitionArraySchema,
 	gridConfigSchema,
 	listConfigSchema,
 	sortDefinitionSchema,
@@ -18,6 +19,7 @@ const paginationSchema = z.object({
 const executeViewRuntimeBaseBody = z.object({
 	sort: sortDefinitionSchema,
 	pagination: paginationSchema,
+	eventJoins: eventJoinDefinitionArraySchema,
 	filters: z.array(filterExpressionSchema),
 	entitySchemaSlugs: z
 		.array(z.string())

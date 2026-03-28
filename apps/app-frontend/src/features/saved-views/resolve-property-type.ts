@@ -24,17 +24,18 @@ export function resolvePropertyType(
 		return null;
 	}
 
-	if (field.startsWith("@")) {
-		return BUILTIN_TYPES[field] ?? null;
-	}
-
-	const dotIndex = field.indexOf(".");
-	if (dotIndex === -1) {
+	if (field.startsWith("event.")) {
 		return null;
 	}
 
-	const slug = field.substring(0, dotIndex);
-	const property = field.substring(dotIndex + 1);
+	const [namespace, slug, property, ...rest] = field.split(".");
+	if (namespace !== "entity" || !slug || !property || rest.length > 0) {
+		return null;
+	}
+
+	if (property.startsWith("@")) {
+		return BUILTIN_TYPES[property] ?? null;
+	}
 
 	const schema = schemas.find((s) => s.slug === slug);
 	if (!schema) {

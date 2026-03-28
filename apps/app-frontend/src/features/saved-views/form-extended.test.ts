@@ -17,7 +17,17 @@ function toPropertyRows(values: string[]) {
 }
 
 function schemaField(schemaSlug: string, property: string) {
-	return `${schemaSlug}.${property}`;
+	if (
+		property === "name" ||
+		property === "image" ||
+		property === "createdAt" ||
+		property === "updatedAt" ||
+		property.startsWith("@")
+	) {
+		return `entity.${schemaSlug}.${property.startsWith("@") ? property : `@${property}`}`;
+	}
+
+	return `entity.${schemaSlug}.${property}`;
 }
 
 function toTableColumn(label: string, property: string[]) {
@@ -32,7 +42,12 @@ describe("savedViewExtendedFormSchema", () => {
 	it("rejects empty entitySchemaSlugs array", () => {
 		const result = savedViewExtendedFormSchema.safeParse({
 			filters: [],
+			eventJoins: [],
 			entitySchemaSlugs: [],
+			sort: {
+				direction: "asc",
+				fields: [{ id: "1", value: schemaField("smartphones", "@name") }],
+			},
 			displayConfiguration: {
 				table: { columns: [] },
 				list: {
@@ -48,7 +63,6 @@ describe("savedViewExtendedFormSchema", () => {
 					subtitleProperty: null,
 				},
 			},
-			sort: { direction: "asc", fields: [{ id: "1", value: "@name" }] },
 		});
 
 		expect(result.success).toBe(false);
@@ -57,8 +71,12 @@ describe("savedViewExtendedFormSchema", () => {
 	it("accepts valid extended form values", () => {
 		const result = savedViewExtendedFormSchema.safeParse({
 			filters: [],
+			eventJoins: [],
 			entitySchemaSlugs: ["smartphones", "tablets"],
-			sort: { fields: [{ id: "1", value: "@name" }], direction: "desc" },
+			sort: {
+				fields: [{ id: "1", value: schemaField("smartphones", "@name") }],
+				direction: "desc",
+			},
 			displayConfiguration: {
 				table: { columns: [] },
 				grid: {
@@ -80,17 +98,25 @@ describe("savedViewExtendedFormSchema", () => {
 		if (result.success) {
 			expect(result.data.entitySchemaSlugs).toEqual(["smartphones", "tablets"]);
 			expect(result.data.sort.direction).toBe("desc");
-			expect(result.data.sort.fields[0]?.value).toBe("@name");
+			expect(result.data.sort.fields[0]?.value).toBe(
+				schemaField("smartphones", "@name"),
+			);
 		}
 	});
 
 	it("rejects table columns without a label", () => {
 		const result = savedViewExtendedFormSchema.safeParse({
 			filters: [],
+			eventJoins: [],
 			entitySchemaSlugs: ["smartphones", "tablets"],
-			sort: { fields: [{ id: "1", value: "@name" }], direction: "desc" },
+			sort: {
+				fields: [{ id: "1", value: schemaField("smartphones", "@name") }],
+				direction: "desc",
+			},
 			displayConfiguration: {
-				table: { columns: [toTableColumn("", ["@name"])] },
+				table: {
+					columns: [toTableColumn("", [schemaField("smartphones", "@name")])],
+				},
 				grid: {
 					badgeProperty: null,
 					subtitleProperty: null,
@@ -112,6 +138,7 @@ describe("savedViewExtendedFormSchema", () => {
 	it("rejects empty sort fields array", () => {
 		const result = savedViewExtendedFormSchema.safeParse({
 			filters: [],
+			eventJoins: [],
 			entitySchemaSlugs: ["smartphones"],
 			sort: { direction: "asc", fields: [] },
 			displayConfiguration: {
@@ -137,6 +164,7 @@ describe("savedViewExtendedFormSchema", () => {
 	it("accepts multiple sort fields", () => {
 		const result = savedViewExtendedFormSchema.safeParse({
 			filters: [],
+			eventJoins: [],
 			entitySchemaSlugs: ["smartphones", "tablets"],
 			displayConfiguration: {
 				table: { columns: [] },
@@ -156,9 +184,9 @@ describe("savedViewExtendedFormSchema", () => {
 			sort: {
 				direction: "asc",
 				fields: [
-					{ id: "1", value: "@name" },
-					{ id: "2", value: "smartphones.year" },
-					{ id: "3", value: "tablets.release_year" },
+					{ id: "1", value: schemaField("smartphones", "@name") },
+					{ id: "2", value: "entity.smartphones.year" },
+					{ id: "3", value: "entity.tablets.release_year" },
 				],
 			},
 		});
@@ -166,9 +194,9 @@ describe("savedViewExtendedFormSchema", () => {
 		expect(result.success).toBe(true);
 		if (result.success) {
 			expect(result.data.sort.fields.map((f) => f.value)).toEqual([
-				"@name",
-				"smartphones.year",
-				"tablets.release_year",
+				schemaField("smartphones", "@name"),
+				"entity.smartphones.year",
+				"entity.tablets.release_year",
 			]);
 			expect(result.data.sort.direction).toBe("asc");
 		}
@@ -177,8 +205,12 @@ describe("savedViewExtendedFormSchema", () => {
 	it("validates grid display configuration with all four properties", () => {
 		const result = savedViewExtendedFormSchema.safeParse({
 			filters: [],
+			eventJoins: [],
 			entitySchemaSlugs: ["smartphones"],
-			sort: { direction: "asc", fields: [{ id: "1", value: "@name" }] },
+			sort: {
+				direction: "asc",
+				fields: [{ id: "1", value: schemaField("smartphones", "@name") }],
+			},
 			displayConfiguration: {
 				table: { columns: [] },
 				list: {
@@ -197,7 +229,7 @@ describe("savedViewExtendedFormSchema", () => {
 						schemaField("smartphones", "photo"),
 					]),
 					titleProperty: toPropertyRows([
-						"@name",
+						schemaField("smartphones", "@name"),
 						schemaField("smartphones", "brand"),
 					]),
 				},
@@ -219,7 +251,10 @@ describe("savedViewExtendedFormSchema", () => {
 				result.data.displayConfiguration.grid.titleProperty?.map(
 					(row) => row.value,
 				),
-			).toEqual(["@name", schemaField("smartphones", "brand")]);
+			).toEqual([
+				schemaField("smartphones", "@name"),
+				schemaField("smartphones", "brand"),
+			]);
 			expect(
 				result.data.displayConfiguration.grid.subtitleProperty?.map(
 					(row) => row.value,
@@ -236,14 +271,18 @@ describe("savedViewExtendedFormSchema", () => {
 	it("allows badgeProperty to be null", () => {
 		const result = savedViewExtendedFormSchema.safeParse({
 			filters: [],
+			eventJoins: [],
 			entitySchemaSlugs: ["smartphones"],
-			sort: { direction: "asc", fields: [{ id: "1", value: "@name" }] },
+			sort: {
+				direction: "asc",
+				fields: [{ id: "1", value: schemaField("smartphones", "@name") }],
+			},
 			displayConfiguration: {
 				table: { columns: [] },
 				grid: {
 					badgeProperty: null,
 					imageProperty: toPropertyRows([schemaField("smartphones", "image")]),
-					titleProperty: toPropertyRows(["@name"]),
+					titleProperty: toPropertyRows([schemaField("smartphones", "@name")]),
 					subtitleProperty: toPropertyRows([
 						schemaField("smartphones", "year"),
 					]),
@@ -266,15 +305,19 @@ describe("savedViewExtendedFormSchema", () => {
 	it("allows grid properties to be null", () => {
 		const result = savedViewExtendedFormSchema.safeParse({
 			filters: [],
+			eventJoins: [],
 			entitySchemaSlugs: ["smartphones"],
-			sort: { direction: "asc", fields: [{ id: "1", value: "@name" }] },
+			sort: {
+				direction: "asc",
+				fields: [{ id: "1", value: schemaField("smartphones", "@name") }],
+			},
 			displayConfiguration: {
 				table: { columns: [] },
 				grid: {
 					imageProperty: null,
 					badgeProperty: null,
 					subtitleProperty: null,
-					titleProperty: toPropertyRows(["@name"]),
+					titleProperty: toPropertyRows([schemaField("smartphones", "@name")]),
 				},
 				list: {
 					imageProperty: null,
@@ -291,7 +334,7 @@ describe("savedViewExtendedFormSchema", () => {
 				result.data.displayConfiguration.grid.titleProperty?.map(
 					(row) => row.value,
 				),
-			).toEqual(["@name"]);
+			).toEqual([schemaField("smartphones", "@name")]);
 			expect(result.data.displayConfiguration.grid.imageProperty).toBeNull();
 		}
 	});
@@ -299,14 +342,18 @@ describe("savedViewExtendedFormSchema", () => {
 	it("rejects non-array values for grid properties", () => {
 		const result = savedViewExtendedFormSchema.safeParse({
 			filters: [],
+			eventJoins: [],
 			entitySchemaSlugs: ["smartphones"],
-			sort: { direction: "asc", fields: [{ id: "1", value: "@name" }] },
+			sort: {
+				direction: "asc",
+				fields: [{ id: "1", value: schemaField("smartphones", "@name") }],
+			},
 			displayConfiguration: {
 				table: {},
 				grid: {
 					badgeProperty: null,
 					subtitleProperty: null,
-					titleProperty: ["@name"],
+					titleProperty: [schemaField("smartphones", "@name")],
 					imageProperty: "not-an-array",
 				},
 				list: {
@@ -332,8 +379,33 @@ describe("buildSavedViewExtendedFormValues", () => {
 			accentColor: "#2DD4BF",
 			queryDefinition: {
 				filters: [],
+				eventJoins: [],
 				entitySchemaSlugs: ["smartphones", "tablets"],
-				sort: { direction: "asc", fields: ["@name"] },
+				sort: {
+					direction: "asc",
+					fields: [schemaField("smartphones", "@name")],
+				},
+			},
+			displayConfiguration: {
+				...defaultSavedViewDisplayConfiguration,
+				grid: {
+					...defaultSavedViewDisplayConfiguration.grid,
+					titleProperty: [schemaField("smartphones", "@name")],
+					imageProperty: [schemaField("smartphones", "@image")],
+				},
+				list: {
+					...defaultSavedViewDisplayConfiguration.list,
+					titleProperty: [schemaField("smartphones", "@name")],
+					imageProperty: [schemaField("smartphones", "@image")],
+				},
+				table: {
+					columns: [
+						{
+							label: "Name",
+							property: [schemaField("smartphones", "@name")],
+						},
+					],
+				},
 			},
 		});
 
@@ -342,28 +414,41 @@ describe("buildSavedViewExtendedFormValues", () => {
 		expect(values.entitySchemaSlugs).toEqual(["smartphones", "tablets"]);
 		expect(values.filters).toEqual([]);
 		expect(values.sort.fields.length).toBe(1);
-		expect(values.sort.fields[0]?.value).toBe("@name");
+		expect(values.sort.fields[0]?.value).toBe(
+			schemaField("smartphones", "@name"),
+		);
 		expect(values.sort.direction).toBe("asc");
 		expect(
 			values.displayConfiguration.grid.titleProperty?.map((row) => row.value),
-		).toEqual(["@name"]);
+		).toEqual([schemaField("smartphones", "@name")]);
 		expect(
 			values.displayConfiguration.list.imageProperty?.map((row) => row.value),
-		).toEqual(["@image"]);
+		).toEqual([schemaField("smartphones", "@image")]);
 		expect(
 			values.displayConfiguration.table.columns[0]?.property.map(
 				(row) => row.value,
 			),
-		).toEqual(["@name"]);
+		).toEqual([schemaField("smartphones", "@name")]);
 	});
 });
 
 describe("savedViewExtendedFormSchema - filters", () => {
 	it("accepts valid filter row with eq operator", () => {
 		const result = savedViewExtendedFormSchema.safeParse({
+			eventJoins: [],
 			entitySchemaSlugs: ["smartphones"],
-			filters: [{ id: "1", field: "@name", op: "eq", value: "iPhone" }],
-			sort: { direction: "asc", fields: [{ id: "1", value: "@name" }] },
+			filters: [
+				{
+					id: "1",
+					field: schemaField("smartphones", "@name"),
+					op: "eq",
+					value: "iPhone",
+				},
+			],
+			sort: {
+				direction: "asc",
+				fields: [{ id: "1", value: schemaField("smartphones", "@name") }],
+			},
 			displayConfiguration: {
 				table: { columns: [] },
 				list: {
@@ -386,7 +471,7 @@ describe("savedViewExtendedFormSchema - filters", () => {
 			expect(result.data.filters[0]).toEqual({
 				id: "1",
 				op: "eq",
-				field: "@name",
+				field: schemaField("smartphones", "@name"),
 				value: "iPhone",
 			});
 		}
@@ -394,9 +479,20 @@ describe("savedViewExtendedFormSchema - filters", () => {
 
 	it("rejects invalid operator", () => {
 		const result = savedViewExtendedFormSchema.safeParse({
+			eventJoins: [],
 			entitySchemaSlugs: ["smartphones"],
-			sort: { direction: "asc", fields: [{ id: "1", value: "@name" }] },
-			filters: [{ id: "1", field: "@name", op: "invalid", value: "test" }],
+			sort: {
+				direction: "asc",
+				fields: [{ id: "1", value: schemaField("smartphones", "@name") }],
+			},
+			filters: [
+				{
+					id: "1",
+					field: schemaField("smartphones", "@name"),
+					op: "invalid",
+					value: "test",
+				},
+			],
 			displayConfiguration: {
 				table: { columns: [] },
 				list: {
@@ -419,9 +515,20 @@ describe("savedViewExtendedFormSchema - filters", () => {
 
 	it("accepts filter with isNull operator", () => {
 		const result = savedViewExtendedFormSchema.safeParse({
+			eventJoins: [],
 			entitySchemaSlugs: ["smartphones"],
-			sort: { direction: "asc", fields: [{ id: "1", value: "@name" }] },
-			filters: [{ id: "1", field: "@description", op: "isNull", value: "" }],
+			sort: {
+				direction: "asc",
+				fields: [{ id: "1", value: schemaField("smartphones", "@name") }],
+			},
+			filters: [
+				{
+					id: "1",
+					field: schemaField("smartphones", "description"),
+					op: "isNull",
+					value: "",
+				},
+			],
 			displayConfiguration: {
 				table: { columns: [] },
 				list: {
@@ -452,8 +559,12 @@ describe("savedViewExtendedFormSchema - filters", () => {
 					value: "Apple,Samsung",
 				},
 			],
+			eventJoins: [],
 			entitySchemaSlugs: ["smartphones"],
-			sort: { direction: "asc", fields: [{ id: "1", value: "@name" }] },
+			sort: {
+				direction: "asc",
+				fields: [{ id: "1", value: schemaField("smartphones", "@name") }],
+			},
 			displayConfiguration: {
 				table: { columns: [] },
 				list: {
@@ -477,6 +588,7 @@ describe("savedViewExtendedFormSchema - filters", () => {
 	it("rejects unqualified property references", () => {
 		const result = savedViewExtendedFormSchema.safeParse({
 			filters: [{ id: "1", field: "brand", op: "eq", value: "Apple" }],
+			eventJoins: [],
 			entitySchemaSlugs: ["smartphones"],
 			sort: { direction: "asc", fields: [{ id: "1", value: "year" }] },
 			displayConfiguration: {
@@ -501,8 +613,12 @@ describe("savedViewExtendedFormSchema - filters", () => {
 
 	it("accepts filter with contains operator", () => {
 		const result = savedViewExtendedFormSchema.safeParse({
+			eventJoins: [],
 			entitySchemaSlugs: ["smartphones"],
-			sort: { direction: "asc", fields: [{ id: "1", value: "@name" }] },
+			sort: {
+				direction: "asc",
+				fields: [{ id: "1", value: schemaField("smartphones", "@name") }],
+			},
 			filters: [
 				{
 					id: "1",
@@ -538,8 +654,12 @@ describe("savedViewExtendedFormSchema - filters", () => {
 	it("accepts empty filters array", () => {
 		const result = savedViewExtendedFormSchema.safeParse({
 			filters: [],
+			eventJoins: [],
 			entitySchemaSlugs: ["smartphones"],
-			sort: { direction: "asc", fields: [{ id: "1", value: "@name" }] },
+			sort: {
+				direction: "asc",
+				fields: [{ id: "1", value: schemaField("smartphones", "@name") }],
+			},
 			displayConfiguration: {
 				table: { columns: [] },
 				list: {
@@ -584,12 +704,17 @@ describe("buildSavedViewExtendedUpdatePayload", () => {
 			accentColor: "#2DD4BF",
 			queryDefinition: {
 				filters: [],
+				eventJoins: [],
 				entitySchemaSlugs: ["old-schema"],
-				sort: { direction: "asc", fields: ["@name"] },
+				sort: {
+					direction: "asc",
+					fields: [schemaField("old-schema", "@name")],
+				},
 			},
 		});
 
 		const formValues = {
+			eventJoins: [],
 			entitySchemaSlugs: ["smartphones", "tablets"],
 			filters: [
 				{
@@ -602,7 +727,7 @@ describe("buildSavedViewExtendedUpdatePayload", () => {
 			sort: {
 				direction: "desc" as const,
 				fields: [
-					{ id: "1", value: "@name" },
+					{ id: "1", value: schemaField("smartphones", "@name") },
 					{ id: "2", value: schemaField("smartphones", "year") },
 				],
 			},
@@ -651,7 +776,7 @@ describe("buildSavedViewExtendedUpdatePayload", () => {
 			{ field: schemaField("smartphones", "year"), op: "gte", value: 2020 },
 		]);
 		expect(payload.queryDefinition.sort.fields).toEqual([
-			"@name",
+			schemaField("smartphones", "@name"),
 			schemaField("smartphones", "year"),
 		]);
 		expect(payload.queryDefinition.sort.direction).toBe("desc");
@@ -681,8 +806,12 @@ describe("buildSavedViewExtendedUpdatePayload", () => {
 			updatedAt: "2026-03-22T10:00:00.000Z",
 			queryDefinition: {
 				filters: [],
+				eventJoins: [],
 				entitySchemaSlugs: ["smartphones"],
-				sort: { fields: ["@name"], direction: "asc" },
+				sort: {
+					fields: [schemaField("smartphones", "@name")],
+					direction: "asc",
+				},
 			},
 			displayConfiguration: {
 				...defaultSavedViewDisplayConfiguration,
@@ -691,18 +820,19 @@ describe("buildSavedViewExtendedUpdatePayload", () => {
 					imageProperty: null,
 					badgeProperty: null,
 					subtitleProperty: null,
-					titleProperty: ["@name"],
+					titleProperty: [schemaField("smartphones", "@name")],
 				},
 				list: {
 					imageProperty: null,
 					badgeProperty: null,
 					subtitleProperty: null,
-					titleProperty: ["@name"],
+					titleProperty: [schemaField("smartphones", "@name")],
 				},
 			},
 		});
 
 		const formValues = {
+			eventJoins: [],
 			entitySchemaSlugs: ["smartphones"],
 			filters: [
 				{
@@ -716,7 +846,7 @@ describe("buildSavedViewExtendedUpdatePayload", () => {
 				buildSavedViewExtendedFormValues(view).displayConfiguration,
 			sort: {
 				direction: "asc" as const,
-				fields: [{ id: "1", value: "@name" }],
+				fields: [{ id: "1", value: schemaField("smartphones", "@name") }],
 			},
 		};
 
@@ -742,8 +872,12 @@ describe("buildSavedViewExtendedUpdatePayload", () => {
 			updatedAt: "2026-03-22T10:00:00.000Z",
 			queryDefinition: {
 				filters: [],
+				eventJoins: [],
 				entitySchemaSlugs: ["smartphones"],
-				sort: { fields: ["@name"], direction: "asc" },
+				sort: {
+					fields: [schemaField("smartphones", "@name")],
+					direction: "asc",
+				},
 			},
 			displayConfiguration: {
 				...defaultSavedViewDisplayConfiguration,
@@ -752,24 +886,25 @@ describe("buildSavedViewExtendedUpdatePayload", () => {
 					imageProperty: null,
 					badgeProperty: null,
 					subtitleProperty: null,
-					titleProperty: ["@name"],
+					titleProperty: [schemaField("smartphones", "@name")],
 				},
 				list: {
 					imageProperty: null,
 					badgeProperty: null,
 					subtitleProperty: null,
-					titleProperty: ["@name"],
+					titleProperty: [schemaField("smartphones", "@name")],
 				},
 			},
 		});
 
 		const formValues = {
+			eventJoins: [],
 			entitySchemaSlugs: ["smartphones"],
 			displayConfiguration:
 				buildSavedViewExtendedFormValues(view).displayConfiguration,
 			sort: {
 				direction: "asc" as const,
-				fields: [{ id: "1", value: "@name" }],
+				fields: [{ id: "1", value: schemaField("smartphones", "@name") }],
 			},
 			filters: [
 				{
@@ -795,6 +930,7 @@ describe("buildSavedViewExtendedUpdatePayload", () => {
 	it("passes number comparison value through as-is without coercion", () => {
 		const view = createSavedViewFixture({ trackerId: null });
 		const formValues = {
+			eventJoins: [],
 			entitySchemaSlugs: ["smartphones"],
 			filters: [
 				{
@@ -808,7 +944,7 @@ describe("buildSavedViewExtendedUpdatePayload", () => {
 				buildSavedViewExtendedFormValues(view).displayConfiguration,
 			sort: {
 				direction: "asc" as const,
-				fields: [{ id: "1", value: "@name" }],
+				fields: [{ id: "1", value: schemaField("smartphones", "@name") }],
 			},
 		};
 		const payload = buildSavedViewExtendedUpdatePayload(view, formValues);
@@ -822,6 +958,7 @@ describe("buildSavedViewExtendedUpdatePayload", () => {
 	it("passes boolean comparison value through as-is without coercion", () => {
 		const view = createSavedViewFixture({ trackerId: null });
 		const formValues = {
+			eventJoins: [],
 			entitySchemaSlugs: ["smartphones"],
 			filters: [
 				{
@@ -835,7 +972,7 @@ describe("buildSavedViewExtendedUpdatePayload", () => {
 				buildSavedViewExtendedFormValues(view).displayConfiguration,
 			sort: {
 				direction: "asc" as const,
-				fields: [{ id: "1", value: "@name" }],
+				fields: [{ id: "1", value: schemaField("smartphones", "@name") }],
 			},
 		};
 		const payload = buildSavedViewExtendedUpdatePayload(view, formValues);
@@ -849,12 +986,13 @@ describe("buildSavedViewExtendedUpdatePayload", () => {
 	it("splits in operator value by comma with trimming", () => {
 		const view = createSavedViewFixture({ trackerId: null });
 		const formValues = {
+			eventJoins: [],
 			entitySchemaSlugs: ["smartphones"],
 			displayConfiguration:
 				buildSavedViewExtendedFormValues(view).displayConfiguration,
 			sort: {
 				direction: "asc" as const,
-				fields: [{ id: "1", value: "@name" }],
+				fields: [{ id: "1", value: schemaField("smartphones", "@name") }],
 			},
 			filters: [
 				{
@@ -879,6 +1017,7 @@ describe("buildSavedViewExtendedUpdatePayload", () => {
 	it("sets isNull filter value to null regardless of form value", () => {
 		const view = createSavedViewFixture({ trackerId: null });
 		const formValues = {
+			eventJoins: [],
 			entitySchemaSlugs: ["smartphones"],
 			displayConfiguration:
 				buildSavedViewExtendedFormValues(view).displayConfiguration,
@@ -892,7 +1031,7 @@ describe("buildSavedViewExtendedUpdatePayload", () => {
 			],
 			sort: {
 				direction: "asc" as const,
-				fields: [{ id: "1", value: "@name" }],
+				fields: [{ id: "1", value: schemaField("smartphones", "@name") }],
 			},
 		};
 		const payload = buildSavedViewExtendedUpdatePayload(view, formValues);
@@ -905,12 +1044,13 @@ describe("buildSavedViewExtendedUpdatePayload", () => {
 	it("passes contains filter value through as-is", () => {
 		const view = createSavedViewFixture({ trackerId: null });
 		const formValues = {
+			eventJoins: [],
 			entitySchemaSlugs: ["smartphones"],
 			displayConfiguration:
 				buildSavedViewExtendedFormValues(view).displayConfiguration,
 			sort: {
 				direction: "asc" as const,
-				fields: [{ id: "1", value: "@name" }],
+				fields: [{ id: "1", value: schemaField("smartphones", "@name") }],
 			},
 			filters: [
 				{
@@ -947,25 +1087,26 @@ describe("buildSavedViewExtendedUpdatePayload", () => {
 					imageProperty: null,
 					badgeProperty: null,
 					subtitleProperty: null,
-					titleProperty: ["@name"],
+					titleProperty: [schemaField("new-schema", "@name")],
 				},
 				list: {
 					imageProperty: null,
 					badgeProperty: null,
 					subtitleProperty: null,
-					titleProperty: ["@name"],
+					titleProperty: [schemaField("new-schema", "@name")],
 				},
 			},
 		});
 
 		const formValues = {
 			filters: [],
+			eventJoins: [],
 			entitySchemaSlugs: ["new-schema"],
 			displayConfiguration:
 				buildSavedViewExtendedFormValues(view).displayConfiguration,
 			sort: {
 				direction: "asc" as const,
-				fields: [{ id: "1", value: "@name" }],
+				fields: [{ id: "1", value: schemaField("new-schema", "@name") }],
 			},
 		};
 

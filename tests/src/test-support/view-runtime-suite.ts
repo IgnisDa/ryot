@@ -8,11 +8,26 @@ import {
 	createAuthenticatedClient,
 	createCrossSchemaRuntimeFixture,
 	createEntitySchema,
+	createEventSchema,
 	createRuntimeEntity,
+	createRuntimeEvent,
 	createSingleSchemaRuntimeFixture,
 	createTracker,
 	executeViewRuntime,
 } from "src/fixtures";
+
+const entityField = (schemaSlug: string, property: string) => {
+	if (
+		property === "name" ||
+		property === "image" ||
+		property === "createdAt" ||
+		property === "updatedAt"
+	) {
+		return `entity.${schemaSlug}.@${property}`;
+	}
+
+	return `entity.${schemaSlug}.${property}`;
+};
 
 type ViewRuntimeItem = NonNullable<
 	Awaited<ReturnType<typeof executeViewRuntime>>["data"]
@@ -71,6 +86,91 @@ async function createImageFallbackFixture() {
 	return { client, cookies, schema };
 }
 
+async function createLatestEventJoinFixture() {
+	const { client, cookies, entityIdsByName, schema } =
+		await createSingleSchemaRuntimeFixture();
+	const alphaPhoneId = entityIdsByName["Alpha Phone"];
+	const gammaPhoneId = entityIdsByName["Gamma Phone"];
+	if (!alphaPhoneId || !gammaPhoneId) {
+		throw new Error(
+			"Missing runtime entity fixture ids for latest event join test",
+		);
+	}
+	const reviewSchema = await createEventSchema(client, cookies, {
+		name: "Review",
+		slug: "review",
+		entitySchemaId: schema.schemaId,
+		propertiesSchema: {
+			fields: { note: { type: "string" }, rating: { type: "number" } },
+		},
+	});
+
+	await createRuntimeEvent({
+		client,
+		cookies,
+		entityId: alphaPhoneId,
+		eventSchemaId: reviewSchema.id,
+		properties: { rating: 2, note: "draft" },
+	});
+	await createRuntimeEvent({
+		client,
+		cookies,
+		entityId: alphaPhoneId,
+		eventSchemaId: reviewSchema.id,
+		properties: { rating: 5, note: "final" },
+	});
+	await createRuntimeEvent({
+		client,
+		cookies,
+		entityId: gammaPhoneId,
+		eventSchemaId: reviewSchema.id,
+		properties: { rating: 4, note: "solid" },
+	});
+
+	return { client, cookies, schema };
+}
+
+async function createMixedLatestEventJoinFixture() {
+	const {
+		client,
+		cookies,
+		tabletSlug,
+		smartphoneSlug,
+		entityIdsByName,
+		smartphoneSchema,
+	} = await createCrossSchemaRuntimeFixture();
+	const alphaPhoneId = entityIdsByName["Alpha Phone"];
+	const gammaPhoneId = entityIdsByName["Gamma Phone"];
+	if (!alphaPhoneId || !gammaPhoneId) {
+		throw new Error(
+			"Missing mixed runtime entity fixture ids for latest event join test",
+		);
+	}
+	const reviewSchema = await createEventSchema(client, cookies, {
+		name: "Review",
+		slug: "review",
+		entitySchemaId: smartphoneSchema.schemaId,
+		propertiesSchema: { fields: { rating: { type: "number" } } },
+	});
+
+	await createRuntimeEvent({
+		client,
+		cookies,
+		entityId: alphaPhoneId,
+		properties: { rating: 5 },
+		eventSchemaId: reviewSchema.id,
+	});
+	await createRuntimeEvent({
+		client,
+		cookies,
+		entityId: gammaPhoneId,
+		properties: { rating: 4 },
+		eventSchemaId: reviewSchema.id,
+	});
+
+	return { client, cookies, smartphoneSlug, tabletSlug };
+}
+
 export function registerViewRuntimePresentationAndErrorTests() {
 	it("returns semantic keys for grid and list layouts with raw image unions", async () => {
 		const { client, cookies, schema } =
@@ -124,10 +224,10 @@ export function registerViewRuntimePresentationAndErrorTests() {
 			buildGridRequest({
 				entitySchemaSlugs: [schema.slug],
 				pagination: { page: 1, limit: 1 },
-				displayConfiguration: buildGridDisplayConfiguration({
-					badgeProperty: [],
-					subtitleProperty: [],
-				}),
+				displayConfiguration: buildGridDisplayConfiguration(
+					{ badgeProperty: [], subtitleProperty: [] },
+					[schema.slug],
+				),
 			}),
 		);
 
@@ -153,8 +253,8 @@ export function registerViewRuntimePresentationAndErrorTests() {
 				entitySchemaSlugs: [schema.slug],
 				pagination: { page: 1, limit: 1 },
 				displayConfiguration: buildTableDisplayConfiguration([
-					{ label: "Name", property: ["@name"] },
-					{ label: "Year", property: [`${schema.slug}.year`] },
+					{ label: "Name", property: [entityField(schema.slug, "name")] },
+					{ label: "Year", property: [entityField(schema.slug, "year")] },
 					{ label: "Empty", property: [] },
 				]),
 			}),
@@ -187,18 +287,24 @@ export function registerViewRuntimePresentationAndErrorTests() {
 				entitySchemaSlugs: [smartphoneSlug, tabletSlug],
 				sort: {
 					direction: "asc",
-					fields: [`${smartphoneSlug}.year`, `${tabletSlug}.releaseYear`],
+					fields: [
+						entityField(smartphoneSlug, "year"),
+						entityField(tabletSlug, "releaseYear"),
+					],
 				},
-				displayConfiguration: buildGridDisplayConfiguration({
-					badgeProperty: [
-						`${smartphoneSlug}.year`,
-						`${tabletSlug}.releaseYear`,
-					],
-					subtitleProperty: [
-						`${smartphoneSlug}.manufacturer`,
-						`${tabletSlug}.maker`,
-					],
-				}),
+				displayConfiguration: buildGridDisplayConfiguration(
+					{
+						badgeProperty: [
+							entityField(smartphoneSlug, "year"),
+							entityField(tabletSlug, "releaseYear"),
+						],
+						subtitleProperty: [
+							entityField(smartphoneSlug, "manufacturer"),
+							entityField(tabletSlug, "maker"),
+						],
+					},
+					[smartphoneSlug, tabletSlug],
+				),
 			}),
 		);
 
@@ -231,12 +337,21 @@ export function registerViewRuntimePresentationAndErrorTests() {
 			cookies,
 			buildGridRequest({
 				entitySchemaSlugs: [schema.slug],
-				filters: [{ op: "eq", field: "@name", value: "No Image Device" }],
+				filters: [
+					{
+						op: "eq",
+						value: "No Image Device",
+						field: entityField(schema.slug, "name"),
+					},
+				],
 				displayConfiguration: {
 					badgeProperty: null,
 					subtitleProperty: null,
-					titleProperty: ["@name"],
-					imageProperty: ["@image", `${schema.slug}.category`],
+					titleProperty: [entityField(schema.slug, "name")],
+					imageProperty: [
+						entityField(schema.slug, "image"),
+						entityField(schema.slug, "category"),
+					],
 				},
 			}),
 		);
@@ -259,12 +374,21 @@ export function registerViewRuntimePresentationAndErrorTests() {
 			cookies,
 			buildListRequest({
 				entitySchemaSlugs: [schema.slug],
-				filters: [{ op: "eq", field: "@name", value: "No Image Device" }],
+				filters: [
+					{
+						op: "eq",
+						value: "No Image Device",
+						field: entityField(schema.slug, "name"),
+					},
+				],
 				displayConfiguration: {
 					badgeProperty: null,
 					subtitleProperty: null,
-					titleProperty: ["@name"],
-					imageProperty: ["@image", `${schema.slug}.category`],
+					titleProperty: [entityField(schema.slug, "name")],
+					imageProperty: [
+						entityField(schema.slug, "image"),
+						entityField(schema.slug, "category"),
+					],
 				},
 			}),
 		);
@@ -287,10 +411,22 @@ export function registerViewRuntimePresentationAndErrorTests() {
 			cookies,
 			buildTableRequest({
 				entitySchemaSlugs: [schema.slug],
-				filters: [{ op: "eq", field: "@name", value: "No Image Device" }],
+				filters: [
+					{
+						op: "eq",
+						value: "No Image Device",
+						field: entityField(schema.slug, "name"),
+					},
+				],
 				displayConfiguration: buildTableDisplayConfiguration([
-					{ label: "Image", property: ["@image", `${schema.slug}.category`] },
-					{ label: "Name", property: ["@name"] },
+					{
+						label: "Image",
+						property: [
+							entityField(schema.slug, "image"),
+							entityField(schema.slug, "category"),
+						],
+					},
+					{ label: "Name", property: [entityField(schema.slug, "name")] },
 				]),
 			}),
 		);
@@ -311,6 +447,80 @@ export function registerViewRuntimePresentationAndErrorTests() {
 		});
 	});
 
+	it("filters, sorts, and displays latest-event join data", async () => {
+		const { client, cookies, schema } = await createLatestEventJoinFixture();
+		const { data, response } = await executeViewRuntime(
+			client,
+			cookies,
+			buildTableRequest({
+				entitySchemaSlugs: [schema.slug],
+				sort: { fields: ["event.review.rating"], direction: "desc" },
+				filters: [{ op: "gte", field: "event.review.rating", value: 4 }],
+				eventJoins: [
+					{ key: "review", kind: "latestEvent", eventSchemaSlug: "review" },
+				],
+				displayConfiguration: buildTableDisplayConfiguration([
+					{ label: "Name", property: [entityField(schema.slug, "name")] },
+					{ label: "Rating", property: ["event.review.rating"] },
+					{ label: "Reviewed", property: ["event.review.@createdAt"] },
+				]),
+			}),
+		);
+
+		expect(response.status).toBe(200);
+		expect(data?.data.items.map((item) => item.name)).toEqual([
+			"Alpha Phone",
+			"Gamma Phone",
+		]);
+		expect(getTableItem(data?.data.items[0])).toMatchObject({
+			cells: [
+				{ key: "column_0", kind: "text", value: "Alpha Phone" },
+				{ key: "column_1", kind: "number", value: 5 },
+				{ key: "column_2", kind: "date" },
+			],
+		});
+		expect(getTableItem(data?.data.items[1])).toMatchObject({
+			cells: [
+				{ key: "column_0", kind: "text", value: "Gamma Phone" },
+				{ key: "column_1", kind: "number", value: 4 },
+				{ key: "column_2", kind: "date" },
+			],
+		});
+	});
+
+	it("treats missing event schemas and missing event rows as null join values", async () => {
+		const { client, cookies, smartphoneSlug, tabletSlug } =
+			await createMixedLatestEventJoinFixture();
+		const { data, response } = await executeViewRuntime(
+			client,
+			cookies,
+			buildGridRequest({
+				entitySchemaSlugs: [smartphoneSlug, tabletSlug],
+				filters: [{ op: "isNull", field: "event.review.rating" }],
+				eventJoins: [
+					{ key: "review", kind: "latestEvent", eventSchemaSlug: "review" },
+				],
+				displayConfiguration: buildGridDisplayConfiguration({
+					subtitleProperty: null,
+					badgeProperty: ["event.review.rating"],
+				}),
+			}),
+		);
+
+		expect(response.status).toBe(200);
+		expect(data?.data.items.map((item) => item.name)).toEqual([
+			"Beta Tablet",
+			"Delta Tablet",
+			"Omega Phone",
+		]);
+		for (const item of data?.data.items ?? []) {
+			expect(getSemanticItem(item).resolvedProperties.badgeProperty).toEqual({
+				kind: "null",
+				value: null,
+			});
+		}
+	});
+
 	it("returns 404 and 400 errors for invalid runtime requests", async () => {
 		const { client, cookies, schema } =
 			await createSingleSchemaRuntimeFixture();
@@ -325,7 +535,11 @@ export function registerViewRuntimePresentationAndErrorTests() {
 			buildGridRequest({
 				entitySchemaSlugs: [schema.slug],
 				filters: [
-					{ op: "eq", field: `${schema.slug}.missingProperty`, value: "phone" },
+					{
+						op: "eq",
+						value: "phone",
+						field: entityField(schema.slug, "missingProperty"),
+					},
 				],
 			}),
 		);
@@ -334,7 +548,9 @@ export function registerViewRuntimePresentationAndErrorTests() {
 			cookies,
 			buildGridRequest({
 				entitySchemaSlugs: [schema.slug],
-				filters: [{ op: "eq", field: `${schema.slug}.year`, value: "2020" }],
+				filters: [
+					{ op: "eq", field: entityField(schema.slug, "year"), value: "2020" },
+				],
 			}),
 		);
 
@@ -348,7 +564,7 @@ export function registerViewRuntimePresentationAndErrorTests() {
 		);
 		expect(mismatchedValueResult.response.status).toBe(400);
 		expect(mismatchedValueResult.error?.error?.message).toBe(
-			`Filter value for '${schema.slug}.year' must match the 'integer' property type`,
+			`Filter value for '${entityField(schema.slug, "year")}' must match the 'integer' property type`,
 		);
 	});
 }

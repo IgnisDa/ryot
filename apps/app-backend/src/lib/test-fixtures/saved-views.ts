@@ -12,26 +12,33 @@ import type {
 } from "~/modules/saved-views/schemas";
 import type { SavedViewServiceDeps } from "~/modules/saved-views/service";
 
+const entityField = (schemaSlug: string, field: string) => {
+	return `entity.${schemaSlug}.${field}`;
+};
+
 const queryDefinitionDefaults: SavedViewQueryDefinition = {
 	filters: [],
+	eventJoins: [],
 	entitySchemaSlugs: ["books"],
-	sort: { fields: ["@name"], direction: "asc" },
+	sort: { fields: [entityField("books", "@name")], direction: "asc" },
 };
 
 const displayConfigurationDefaults: CreateSavedViewBody["displayConfiguration"] =
 	{
-		table: { columns: [{ label: "Name", property: ["@name"] }] },
+		table: {
+			columns: [{ label: "Name", property: [entityField("books", "@name")] }],
+		},
 		grid: {
 			badgeProperty: null,
 			subtitleProperty: null,
-			titleProperty: ["@name"],
-			imageProperty: ["@image"],
+			titleProperty: [entityField("books", "@name")],
+			imageProperty: [entityField("books", "@image")],
 		},
 		list: {
 			badgeProperty: null,
 			subtitleProperty: null,
-			titleProperty: ["@name"],
-			imageProperty: ["@image"],
+			titleProperty: [entityField("books", "@name")],
+			imageProperty: [entityField("books", "@image")],
 		},
 	};
 

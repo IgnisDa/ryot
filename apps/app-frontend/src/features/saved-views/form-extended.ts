@@ -1,13 +1,20 @@
 import { z } from "zod";
 import type { AppSavedView, SavedViewQueryDefinition } from "./model";
 
-const schemaQualifiedPropertyPattern = /^[^.\s]+\.[^.\s]+$/;
-const builtinPropertyPattern = /^@[^.\s]+$/;
+const entityQualifiedPropertyPattern =
+	/^entity\.[^.\s]+\.(?:@[^.\s]+|[^.\s]+)$/;
+const eventQualifiedPropertyPattern = /^event\.[^.\s]+\.(?:@[^.\s]+|[^.\s]+)$/;
+
+const eventJoinSchema = z.object({
+	kind: z.literal("latestEvent"),
+	key: z.string(),
+	eventSchemaSlug: z.string(),
+});
 
 function isValidPropertyReference(value: string) {
 	return (
-		builtinPropertyPattern.test(value) ||
-		schemaQualifiedPropertyPattern.test(value)
+		entityQualifiedPropertyPattern.test(value) ||
+		eventQualifiedPropertyPattern.test(value)
 	);
 }
 
@@ -15,7 +22,7 @@ const propertyReferenceSchema = z
 	.string()
 	.refine(
 		isValidPropertyReference,
-		"Use a built-in field or schema.property path",
+		"Use an entity.schema.field path or event.join.field path",
 	);
 
 const sortFieldRowSchema = z.object({
@@ -130,6 +137,7 @@ const displayConfigurationSchema = z.object({
 });
 
 export const savedViewExtendedFormSchema = z.object({
+	eventJoins: z.array(eventJoinSchema),
 	filters: z.array(filterRowSchema),
 	displayConfiguration: displayConfigurationSchema,
 	entitySchemaSlugs: z.array(z.string()).min(1, "At least one schema required"),
@@ -142,6 +150,13 @@ export const savedViewExtendedFormSchema = z.object({
 export type SavedViewExtendedFormValues = z.infer<
 	typeof savedViewExtendedFormSchema
 >;
+
+type SavedViewExtendedUpdateValues = Omit<
+	SavedViewExtendedFormValues,
+	"eventJoins"
+> & {
+	eventJoins?: SavedViewExtendedFormValues["eventJoins"];
+};
 
 function buildDisplayPropertyRows(value: string[] | null) {
 	if (value === null) {
@@ -165,6 +180,7 @@ export function buildSavedViewExtendedFormValues(
 	view: AppSavedView,
 ): SavedViewExtendedFormValues {
 	return {
+		eventJoins: view.queryDefinition.eventJoins ?? [],
 		entitySchemaSlugs: view.queryDefinition.entitySchemaSlugs,
 		sort: {
 			direction: view.queryDefinition.sort.direction,
@@ -255,7 +271,7 @@ function buildApiDisplayProperty(value: PropertyPathRow[] | null) {
 
 export function buildSavedViewExtendedUpdatePayload(
 	view: AppSavedView,
-	values: SavedViewExtendedFormValues,
+	values: SavedViewExtendedUpdateValues,
 ) {
 	return {
 		name: view.name,
@@ -264,6 +280,7 @@ export function buildSavedViewExtendedUpdatePayload(
 		accentColor: view.accentColor,
 		queryDefinition: {
 			entitySchemaSlugs: values.entitySchemaSlugs,
+			eventJoins: values.eventJoins ?? view.queryDefinition.eventJoins ?? [],
 			filters: values.filters.map((filter) => buildApiFilter(filter)),
 			sort: {
 				direction: values.sort.direction,

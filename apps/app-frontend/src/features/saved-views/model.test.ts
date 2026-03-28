@@ -28,7 +28,7 @@ describe("toAppSavedView", () => {
 			queryDefinition: {
 				filters: [],
 				entitySchemaSlugs: ["schema-1", "schema-2"],
-				sort: { fields: ["@name"], direction: "asc" },
+				sort: { fields: ["entity.schema-1.@name"], direction: "asc" },
 			},
 		});
 

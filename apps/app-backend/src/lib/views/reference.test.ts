@@ -7,6 +7,10 @@ import { buildSchemaMap, getPropertyType, parseFieldPath } from "./reference";
 
 const smartphoneSchema = createSmartphoneSchema();
 
+const entityField = (schemaSlug: string, field: string) => {
+	return `entity.${schemaSlug}.${field}`;
+};
+
 describe("getPropertyType", () => {
 	it("returns property types for supported primitives", () => {
 		expect(getPropertyType(smartphoneSchema, "nameplate")).toBe("string");
@@ -34,25 +38,49 @@ describe("buildSchemaMap", () => {
 });
 
 describe("parseFieldPath", () => {
-	it("parses top-level references", () => {
-		expect(parseFieldPath("@name")).toEqual({
+	it("parses entity-qualified built-in references", () => {
+		expect(parseFieldPath(entityField("smartphones", "@name"))).toEqual({
 			column: "name",
-			type: "top-level",
+			slug: "smartphones",
+			type: "entity-column",
 		});
 	});
 
-	it("parses schema-qualified property references", () => {
-		expect(parseFieldPath("smartphones.year")).toEqual({
+	it("parses entity-qualified property references", () => {
+		expect(parseFieldPath(entityField("smartphones", "year"))).toEqual({
 			property: "year",
 			slug: "smartphones",
 			type: "schema-property",
 		});
 	});
 
+	it("parses joined event property references", () => {
+		expect(parseFieldPath("event.review.rating")).toEqual({
+			joinKey: "review",
+			property: "rating",
+			type: "event-join-property",
+		});
+	});
+
+	it("parses joined event column references", () => {
+		expect(parseFieldPath("event.review.@createdAt")).toEqual({
+			joinKey: "review",
+			column: "createdAt",
+			type: "event-join-column",
+		});
+	});
+
 	it("rejects malformed field paths", () => {
+		expect(() => parseFieldPath("@name")).toThrow("Invalid field path: @name");
 		expect(() => parseFieldPath("year")).toThrow("Invalid field path: year");
-		expect(() => parseFieldPath("smartphones.year.value")).toThrow(
-			"Invalid field path: smartphones.year.value",
+		expect(() => parseFieldPath("smartphones.year")).toThrow(
+			"Invalid field path: smartphones.year",
+		);
+		expect(() => parseFieldPath("entity.smartphones.year.value")).toThrow(
+			"Invalid field path: entity.smartphones.year.value",
+		);
+		expect(() => parseFieldPath("event.review")).toThrow(
+			"Invalid field path: event.review",
 		);
 	});
 });

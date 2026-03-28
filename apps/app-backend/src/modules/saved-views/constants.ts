@@ -1,25 +1,57 @@
 import type { DisplayConfiguration, SavedViewQueryDefinition } from "./schemas";
 
-export const defaultDisplayConfiguration: DisplayConfiguration = {
-	table: { columns: [{ label: "Name", property: ["@name"] }] },
+export const buildEntityFieldReference = (
+	schemaSlug: string,
+	field: string,
+) => {
+	return `entity.${schemaSlug}.${field}`;
+};
+
+export const createDefaultDisplayConfiguration = (
+	entitySchemaSlug?: string,
+): DisplayConfiguration => ({
+	table: {
+		columns: entitySchemaSlug
+			? [
+					{
+						label: "Name",
+						property: [buildEntityFieldReference(entitySchemaSlug, "@name")],
+					},
+				]
+			: [],
+	},
 	grid: {
 		badgeProperty: null,
 		subtitleProperty: null,
-		titleProperty: ["@name"],
-		imageProperty: ["@image"],
+		titleProperty: entitySchemaSlug
+			? [buildEntityFieldReference(entitySchemaSlug, "@name")]
+			: null,
+		imageProperty: entitySchemaSlug
+			? [buildEntityFieldReference(entitySchemaSlug, "@image")]
+			: null,
 	},
 	list: {
 		badgeProperty: null,
 		subtitleProperty: null,
-		titleProperty: ["@name"],
-		imageProperty: ["@image"],
+		titleProperty: entitySchemaSlug
+			? [buildEntityFieldReference(entitySchemaSlug, "@name")]
+			: null,
+		imageProperty: entitySchemaSlug
+			? [buildEntityFieldReference(entitySchemaSlug, "@image")]
+			: null,
 	},
-};
+});
 
 export const createDefaultQueryDefinition = (
 	entitySchemaSlugs: string[],
 ): SavedViewQueryDefinition => ({
 	filters: [],
+	eventJoins: [],
 	entitySchemaSlugs,
-	sort: { fields: ["@name"], direction: "asc" },
+	sort: {
+		direction: "asc",
+		fields: entitySchemaSlugs[0]
+			? [buildEntityFieldReference(entitySchemaSlugs[0], "@name")]
+			: [],
+	},
 });
