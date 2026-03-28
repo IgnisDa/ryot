@@ -60,6 +60,32 @@ export const createProgressPercentPropertiesSchema = () => ({
 	},
 });
 
+export const createCompletePropertiesSchema = () => ({
+	fields: {
+		startedOn: { type: "date" as const },
+		completedOn: { type: "date" as const },
+		completionMode: {
+			type: "string" as const,
+			validation: {
+				required: true as const,
+				pattern: "^(just_now|unknown|custom_dates)$",
+			},
+		},
+	},
+	rules: [
+		{
+			kind: "validation" as const,
+			path: ["completedOn"],
+			validation: { required: true as const },
+			when: {
+				value: "custom_dates",
+				operator: "eq" as const,
+				path: ["completionMode"],
+			},
+		},
+	],
+});
+
 export const createReviewPropertiesSchema = () => ({
 	fields: {
 		review: { type: "string" as const },
