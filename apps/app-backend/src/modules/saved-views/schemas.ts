@@ -5,7 +5,7 @@ import {
 	computedFieldArraySchema,
 	viewExpressionSchema,
 } from "~/lib/views/expression";
-import { filterExpressionSchema } from "~/lib/views/filtering";
+import { viewPredicateSchema } from "~/lib/views/filtering";
 import {
 	createIdParamsSchema,
 	createNonEmptyStringArraySchema,
@@ -15,10 +15,6 @@ import {
 	sortOrderSchema,
 	timestampFields,
 } from "~/lib/zod/base";
-
-const sortFieldsSchema = createNonEmptyStringArraySchema(
-	"Sort fields are required",
-);
 
 const entitySchemaSlugArraySchema = createNonEmptyStringArraySchema(
 	"At least one entity schema slug is required",
@@ -40,7 +36,7 @@ const createEntityCardDisplayConfigSchema = () =>
 	});
 
 export const sortDefinitionSchema = z.object({
-	fields: sortFieldsSchema,
+	expression: viewExpressionSchema,
 	direction: z.enum(["asc", "desc"]),
 });
 
@@ -97,7 +93,7 @@ export const savedViewQueryDefinitionSchema = z.object({
 	computedFields: computedFieldArraySchema,
 	eventJoins: eventJoinDefinitionArraySchema,
 	entitySchemaSlugs: entitySchemaSlugArraySchema,
-	filters: z.array(filterExpressionSchema),
+	filter: viewPredicateSchema.nullable().default(null),
 });
 
 export type SavedViewQueryDefinition = z.infer<
