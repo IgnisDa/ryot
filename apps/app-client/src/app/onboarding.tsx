@@ -4,11 +4,11 @@ import { router } from "expo-router";
 import { useState } from "react";
 import { KeyboardAvoidingView, Platform, Pressable, Text, TextInput, View } from "react-native";
 
-import { connectToServerAtom } from "@/lib/api";
-import { getRedirectDestination } from "@/lib/redirect";
-import { resolveServerUrl } from "@/lib/server";
-import { useSetServerUrl } from "@/lib/store/server";
-import { useSafeRedirectTo } from "@/lib/use-redirect-to";
+import { getRedirectDestination } from "@/modules/navigation/redirect";
+import { useSafeRedirectTo } from "@/modules/navigation/use-safe-redirect-to";
+import { connectToServerAtom } from "@/modules/server/api";
+import { useSetServerUrl } from "@/modules/server/state";
+import { resolveServerUrl } from "@/modules/server/url";
 
 type ServerMode = "cloud" | "self-hosted";
 

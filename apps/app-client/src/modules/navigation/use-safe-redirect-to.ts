@@ -1,6 +1,6 @@
 import { useLocalSearchParams } from "expo-router";
 
-import { getSafeRedirectTo } from "./redirect";
+import { getSafeRedirectTo } from "@/modules/navigation/redirect";
 
 type RedirectToParams = { redirectTo?: string | string[] };
 
