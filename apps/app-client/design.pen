@@ -10395,7 +10395,10 @@
                                             {
                                               "type": "text",
                                               "id": "AjQjc",
+                                              "x": 2,
+                                              "y": 6,
                                               "name": "Cutoff Label",
+                                              "enabled": false,
                                               "fill": "$--text-subtle",
                                               "content": "↑ shown in mobile tab bar",
                                               "fontFamily": "$--font-mono",
@@ -11577,7 +11580,10 @@
                                             {
                                               "type": "text",
                                               "id": "H1m0B",
+                                              "x": 2,
+                                              "y": 6,
                                               "name": "Cutoff Label",
+                                              "enabled": false,
                                               "fill": "$--text-subtle",
                                               "content": "↑ shown in mobile tab bar",
                                               "fontFamily": "$--font-mono",
@@ -14294,7 +14300,10 @@
                                             {
                                               "type": "text",
                                               "id": "Bwatz",
+                                              "x": 2,
+                                              "y": 6,
                                               "name": "Cutoff Label",
+                                              "enabled": false,
                                               "fill": "$--text-subtle",
                                               "content": "↑ shown in mobile tab bar",
                                               "fontFamily": "$--font-mono",
