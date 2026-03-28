@@ -7,6 +7,9 @@ type CreateSavedViewBody = NonNullable<
 type UpdateSavedViewBody = NonNullable<
 	paths["/saved-views/{viewId}"]["put"]["requestBody"]
 >["content"]["application/json"];
+type ReorderSavedViewsBody = NonNullable<
+	paths["/saved-views/reorder"]["post"]["requestBody"]
+>["content"]["application/json"];
 const defaultQueryDefinition = {
 	filters: [],
 	entitySchemaSlugs: ["book"],
@@ -185,6 +188,23 @@ export async function deleteSavedView(
 
 	if (response.status !== 200 || !data?.data) {
 		throw new Error(`Failed to delete saved view '${viewId}'`);
+	}
+
+	return data.data;
+}
+
+export async function reorderSavedViews(
+	client: Client,
+	cookies: string,
+	body: ReorderSavedViewsBody,
+) {
+	const { data, response } = await client.POST("/saved-views/reorder", {
+		body,
+		headers: { Cookie: cookies },
+	});
+
+	if (response.status !== 200 || !data?.data) {
+		throw new Error("Failed to reorder saved views");
 	}
 
 	return data.data;
