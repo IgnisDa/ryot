@@ -31,9 +31,15 @@ type TextFieldProps = {
 };
 
 export function normalizeNumberInputValue(value: number | string) {
-	if (typeof value === "number") return value;
-	if (value.trim() === "") return value;
-	if (/^-?\d+(\.\d+)?$/.test(value)) return Number(value);
+	if (typeof value === "number") {
+		return value;
+	}
+	if (value.trim() === "") {
+		return value;
+	}
+	if (/^-?\d+(\.\d+)?$/.test(value)) {
+		return Number(value);
+	}
 
 	return value;
 }
@@ -175,7 +181,9 @@ function ImageField(props: ImageFieldProps) {
 					headers: { "Content-Type": selectedFile.type },
 				});
 
-				if (!uploadResponse.ok) throw new Error("Failed to upload file to S3");
+				if (!uploadResponse.ok) {
+					throw new Error("Failed to upload file to S3");
+				}
 
 				field.handleChange({ kind: "s3", key });
 			} catch (error) {
@@ -194,8 +202,11 @@ function ImageField(props: ImageFieldProps) {
 
 	const handleUrlChange = (url: string) => {
 		setTempUrl(url);
-		if (url.trim()) field.handleChange({ kind: "remote", url: url.trim() });
-		else field.handleChange(null);
+		if (url.trim()) {
+			field.handleChange({ kind: "remote", url: url.trim() });
+		} else {
+			field.handleChange(null);
+		}
 	};
 
 	const currentPreview = uploadMode === "url" ? tempUrl : previewUrl;

@@ -51,7 +51,9 @@ export interface TrackerOverviewData {
 function sortEntitiesByRecent(entities: AppEntity[]) {
 	return [...entities].sort((a, b) => {
 		const updatedAtDiff = b.updatedAt.getTime() - a.updatedAt.getTime();
-		if (updatedAtDiff !== 0) return updatedAtDiff;
+		if (updatedAtDiff !== 0) {
+			return updatedAtDiff;
+		}
 		return b.createdAt.getTime() - a.createdAt.getTime();
 	});
 }
@@ -61,20 +63,29 @@ function getRelativeTimeLabel(date: Date) {
 	const diffMinutes = Math.round(diffMs / 60000);
 	const formatter = new Intl.RelativeTimeFormat(undefined, { numeric: "auto" });
 
-	if (Math.abs(diffMinutes) < 60)
+	if (Math.abs(diffMinutes) < 60) {
 		return formatter.format(diffMinutes, "minute");
+	}
 
 	const diffHours = Math.round(diffMinutes / 60);
-	if (Math.abs(diffHours) < 24) return formatter.format(diffHours, "hour");
+	if (Math.abs(diffHours) < 24) {
+		return formatter.format(diffHours, "hour");
+	}
 
 	const diffDays = Math.round(diffHours / 24);
-	if (Math.abs(diffDays) < 7) return formatter.format(diffDays, "day");
+	if (Math.abs(diffDays) < 7) {
+		return formatter.format(diffDays, "day");
+	}
 
 	const diffWeeks = Math.round(diffDays / 7);
-	if (Math.abs(diffWeeks) < 5) return formatter.format(diffWeeks, "week");
+	if (Math.abs(diffWeeks) < 5) {
+		return formatter.format(diffWeeks, "week");
+	}
 
 	const diffMonths = Math.round(diffDays / 30);
-	if (Math.abs(diffMonths) < 12) return formatter.format(diffMonths, "month");
+	if (Math.abs(diffMonths) < 12) {
+		return formatter.format(diffMonths, "month");
+	}
 
 	const diffYears = Math.round(diffDays / 365);
 	return formatter.format(diffYears, "year");
@@ -105,7 +116,9 @@ export function useTrackerOverviewData(input: {
 
 	const entitiesWithSchema = entityQueries.flatMap((query, index) => {
 		const schema = input.entitySchemas[index];
-		if (!schema) return [];
+		if (!schema) {
+			return [];
+		}
 
 		return (query.data?.data ?? []).map((entity) => ({
 			entity: toAppEntity(entity),
@@ -141,7 +154,9 @@ export function useTrackerOverviewData(input: {
 	const eventSchemasBySchemaId = new Map<string, AppEventSchema[]>();
 	eventSchemaQueries.forEach((query, index) => {
 		const schema = input.entitySchemas[index];
-		if (!schema) return;
+		if (!schema) {
+			return;
+		}
 
 		eventSchemasBySchemaId.set(
 			schema.id,
@@ -232,7 +247,9 @@ export function useTrackerOverviewData(input: {
 }
 
 export function getLastActivityLabel(date: Date | undefined) {
-	if (!date) return "No activity";
+	if (!date) {
+		return "No activity";
+	}
 	return getRelativeTimeLabel(date);
 }
 

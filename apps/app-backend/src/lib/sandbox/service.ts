@@ -57,11 +57,12 @@ export class SandboxService {
 				maxHeapMB: options.maxHeapMB,
 			});
 
-			if (!job.id)
+			if (!job.id) {
 				return {
 					success: false,
 					error: "Could not create sandbox run job",
 				};
+			}
 
 			const result = await job.waitUntilFinished(
 				queues.sandboxScriptQueueEvents,
@@ -69,29 +70,33 @@ export class SandboxService {
 			);
 
 			const parsedResult = sandboxRunJobResult.safeParse(result);
-			if (!parsedResult.success)
+			if (!parsedResult.success) {
 				return {
 					success: false,
 					error: "Sandbox job returned invalid payload",
 				};
+			}
 
 			return parsedResult.data;
 		} catch (error) {
 			if (
 				error instanceof Error &&
 				error.message.toLowerCase().includes("timed out")
-			)
+			) {
 				return {
 					success: false,
 					error: "Sandbox job timed out",
 				};
+			}
 
 			return {
 				success: false,
 				error: error instanceof Error ? error.message : "Sandbox job failed",
 			};
 		} finally {
-			if (apiFunctionsId) this.queuedApiFunctions.delete(apiFunctionsId);
+			if (apiFunctionsId) {
+				this.queuedApiFunctions.delete(apiFunctionsId);
+			}
 		}
 	}
 
@@ -112,8 +117,9 @@ export class SandboxService {
 		const bridgePort = this.bridgeServer.getPort();
 		const runnerPath = this.runnerManager.getPath();
 
-		if (!bridgePort || !runnerPath)
+		if (!bridgePort || !runnerPath) {
 			throw new Error("Sandbox service is not initialized");
+		}
 
 		const context = options.context ?? {};
 		const timeoutMs = options.timeoutMs ?? defaultTimeoutMs;
@@ -158,11 +164,12 @@ export class SandboxService {
 				env: { PATH: process.env.PATH },
 			});
 
-			if (!proc.stdin)
+			if (!proc.stdin) {
 				return {
 					success: false,
 					error: "Sandbox stdin is unavailable",
 				};
+			}
 
 			const clearTimeoutGuard = attachTimeoutGuard(proc, timeoutMs, () => {
 				timedOut = true;
@@ -198,12 +205,13 @@ export class SandboxService {
 			const logs = stderrText.trim() || undefined;
 			const resultText = stdoutText.trim();
 
-			if (timedOut)
+			if (timedOut) {
 				return {
 					logs,
 					success: false,
 					error: `Sandbox timed out after ${timeoutMs}ms`,
 				};
+			}
 
 			try {
 				const parsed = JSON.parse(resultText) as SandboxResult;
@@ -235,19 +243,23 @@ export class SandboxService {
 	}
 
 	private consumeQueuedApiFunctions(apiFunctionsId?: string) {
-		if (!apiFunctionsId) return undefined;
+		if (!apiFunctionsId) {
+			return undefined;
+		}
 
 		const apiFunctions = this.queuedApiFunctions.get(apiFunctionsId);
 		this.queuedApiFunctions.delete(apiFunctionsId);
-		if (!apiFunctions)
+		if (!apiFunctions) {
 			throw new Error("Sandbox run API functions are unavailable");
+		}
 
 		return apiFunctions;
 	}
 
 	private setQueuedApiFunctions(apiFunctions?: Record<string, ApiFunction>) {
-		if (!apiFunctions || Object.keys(apiFunctions).length === 0)
+		if (!apiFunctions || Object.keys(apiFunctions).length === 0) {
 			return undefined;
+		}
 
 		const apiFunctionsId = generateId();
 		this.queuedApiFunctions.set(apiFunctionsId, apiFunctions);
