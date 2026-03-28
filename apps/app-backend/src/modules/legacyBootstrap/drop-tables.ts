@@ -22,8 +22,16 @@ const dropLegacyMetadataGroupToPersonTableSql = sql`
 DROP TABLE IF EXISTS "metadata_group_to_person" CASCADE;
 `;
 
+const dropLegacyMetadataToPersonTableSql = sql`
+DROP TABLE IF EXISTS "metadata_to_person" CASCADE;
+`;
+
 const dropLegacyMetadataGroupTableSql = sql`
 DROP TABLE IF EXISTS "metadata_group" CASCADE;
+`;
+
+const dropLegacyPersonTableSql = sql`
+DROP TABLE IF EXISTS "person" CASCADE;
 `;
 
 const dropLegacyMigrationsTable = async (database: DbClient) => {
@@ -44,10 +52,16 @@ const dropLegacyMetadataGroupTables = async (database: DbClient) => {
 	await database.execute(dropLegacyMetadataGroupTableSql);
 };
 
+const dropLegacyPersonTables = async (database: DbClient) => {
+	await database.execute(dropLegacyMetadataToPersonTableSql);
+	await database.execute(dropLegacyPersonTableSql);
+};
+
 export const dropLegacyTables = async (database: DbClient) => {
 	console.info("[legacy-bootstrap] dropping legacy tables");
 	await dropLegacyMigrationsTable(database);
 	await dropLegacyMetadataTable(database);
 	await dropLegacyMetadataGroupTables(database);
+	await dropLegacyPersonTables(database);
 	await dropLegacyUserTable(database);
 };
