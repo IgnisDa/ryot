@@ -88,7 +88,7 @@ function AuthForm(props: {
 	const [twoFactorMethod, setTwoFactorMethod] = useState<TwoFactorMethod>("totp");
 
 	const modeContent = content[mode];
-	const destination = getRedirectDestination(props.redirectTo, "/(app)");
+	const destination = getRedirectDestination(props.redirectTo, "/");
 	const oidcButtonLabel = props.config.oidcButtonLabel ?? "Sign in with OpenID Connect";
 
 	function resetTwoFactor() {
