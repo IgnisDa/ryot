@@ -54,7 +54,7 @@ export const createEventFixture = (
 ) =>
 	Effect.gen(function* () {
 		const countMatchingEvents = Effect.gen(function* () {
-			const events = yield* listEventsForEntity(client, input.entityId);
+			const events = yield* listEventsForEntity(client, input.entityId, 1, 100);
 			return events.filter(
 				(event) =>
 					event.eventSchemaSlug === input.eventSchemaSlug &&

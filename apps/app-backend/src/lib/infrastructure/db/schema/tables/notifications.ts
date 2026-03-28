@@ -8,6 +8,7 @@ import { user } from "./auth";
 export const notificationChannel = pgTable(
 	"notification_channel",
 	{
+		description: text().notNull(),
 		isDisabled: boolean().notNull().default(false),
 		channel: text("platform").notNull().$type<NotificationChannelKind>(),
 		createdAt: timestamp({ withTimezone: true }).defaultNow().notNull(),

@@ -147,17 +147,6 @@ export class IntegrationsService extends Context.Service<IntegrationsService>()(
 				return { id: created.id };
 			});
 
-			const get = (user: CurrentUserValue, integrationId: IntegrationId) =>
-				requireIntegration(user.id, integrationId);
-
-			const list = (
-				user: CurrentUserValue,
-				query: {
-					provider?: CreateIntegrationBody["provider"] | undefined;
-					isDisabled?: boolean | undefined;
-				},
-			) => runWithDb(repository.listForUser({ userId: user.id, ...query }));
-
 			const update = Effect.fn("IntegrationsService.update")(function* (
 				userId: UserId,
 				integrationId: IntegrationId,
@@ -236,17 +225,6 @@ export class IntegrationsService extends Context.Service<IntegrationsService>()(
 				yield* requireIntegration(user.id, integrationId);
 				yield* runWithDb(repository.deleteForUser({ userId: user.id, integrationId }));
 				return { id: integrationId };
-			});
-
-			const listRuns = Effect.fn("IntegrationsService.listRuns")(function* (
-				user: CurrentUserValue,
-				integrationId: IntegrationId,
-			) {
-				yield* requireIntegration(user.id, integrationId);
-				return yield* importsService.listRunsByIntegrationId({
-					integrationId,
-					userId: user.id,
-				});
 			});
 
 			const handleWebhook = Effect.fn("IntegrationsService.handleWebhook")(function* (input: {
@@ -349,22 +327,13 @@ export class IntegrationsService extends Context.Service<IntegrationsService>()(
 			const redactForClient = (integration: IntegrationRecord) =>
 				redactIntegrationForClient(providerCatalog.findOwned, integration);
 
-			const getForClient = (user: CurrentUserValue, integrationId: IntegrationId) =>
-				get(user, integrationId).pipe(Effect.map(redactForClient));
-
-			const listForClient = (...input: Parameters<typeof list>) =>
-				list(...input).pipe(Effect.map((integrations) => integrations.map(redactForClient)));
-
 			const updateForClient = (...input: Parameters<typeof update>) =>
 				update(...input).pipe(Effect.map(redactForClient));
 
 			return {
 				create,
 				update,
-				listRuns,
-				getForClient,
 				handleWebhook,
-				listForClient,
 				updateForClient,
 				disableIfEnabled,
 				prepareScheduledYankRuns,

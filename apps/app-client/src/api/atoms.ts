@@ -1,5 +1,7 @@
 import { makeContractClient } from "@ryot/contract/client";
 import { buildNavigationDocument } from "@ryot/ryotql-recipes/navigation";
+import { buildNotificationChannelsDocument } from "@ryot/ryotql-recipes/notification-channels";
+import { buildSavedViewRecordsDocument } from "@ryot/ryotql-recipes/saved-view-records";
 import { Effect, Schema } from "effect";
 import { FetchHttpClient } from "effect/unstable/http";
 import { Atom } from "effect/unstable/reactivity";
@@ -17,14 +19,16 @@ export const connectToServerAtom = publicApiRuntime.fn((serverUrl: string) =>
 
 export const createSavedViewAtom = appQueryClient.mutation("savedViews", "create");
 
-export const notificationChannelsAtom = appQueryClient.query("notifications", "listChannels", {});
+export const notificationChannelsAtom = appQueryClient.query("ryotql", "execute", {
+	payload: buildNotificationChannelsDocument({ limit: 100, page: 1 }),
+});
 
 export const navigationAtom = appQueryClient.query("ryotql", "execute", {
 	payload: buildNavigationDocument(),
 });
 
-export const savedViewsAtom = appQueryClient.query("savedViews", "list", {
-	query: { includeDisabled: true },
+export const savedViewsAtom = appQueryClient.query("ryotql", "execute", {
+	payload: buildSavedViewRecordsDocument({ includeDisabled: true, limit: 10, page: 1 }),
 });
 
 export const serverUrlAtom = Atom.kvs({

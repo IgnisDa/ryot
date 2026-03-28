@@ -49,14 +49,12 @@ export default defineOperation({
     successUrl: Schema.String,
     failureUrl: Schema.String,
     eventSchemaSlug: Schema.String,
-    entitySchemaSlug: Schema.String,
   }),
   run: (input, host, execution) => Effect.gen(function* () {
     yield* host.log([{ level: "info", message: "durable tracer started" }]);
     const preferences = yield* host.getUserPreferences();
     const rows = ryotqlRows(yield* host.executeRyotql(buildEntityReadDocument({
       entityIds: [input.entityId],
-      entitySchemaSlugs: [input.entitySchemaSlug],
     })), "entities").items;
     const claim = yield* host.claimPersistentValue(
       "durable-tracer-" + input.entityId,
@@ -199,7 +197,6 @@ describe("universal durable sandbox tracer", () => {
 					successUrl: `${http.url}/success`,
 					failureUrl: `${http.url}/failure`,
 					eventSchemaSlug: fixture.eventSchemaSlug,
-					entitySchemaSlug: fixture.entitySchemaSlug,
 				},
 			});
 			yield* pollUntil(

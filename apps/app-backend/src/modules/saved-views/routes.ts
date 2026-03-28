@@ -8,30 +8,11 @@ import { SavedViewsService } from "./service";
 
 export const SavedViewsRoutesLive = HttpApiBuilder.group(AppContract, "savedViews", (handlers) =>
 	handlers
-		.handle("list", ({ query }) =>
-			Effect.gen(function* () {
-				const user = yield* CurrentUser;
-				const service = yield* SavedViewsService;
-				return yield* service
-					.list(user, {
-						pluginSlug: query.pluginSlug,
-						includeDisabled: query.includeDisabled,
-					})
-					.pipe(dieOnDbError);
-			}),
-		)
 		.handle("create", ({ payload }) =>
 			Effect.gen(function* () {
 				const user = yield* CurrentUser;
 				const service = yield* SavedViewsService;
 				return yield* service.create(user, payload).pipe(dieOnDbError);
-			}),
-		)
-		.handle("get", ({ params }) =>
-			Effect.gen(function* () {
-				const user = yield* CurrentUser;
-				const service = yield* SavedViewsService;
-				return yield* service.get(user, params.viewSlug).pipe(dieOnDbError);
 			}),
 		)
 		.handle("update", ({ params, payload }) =>
