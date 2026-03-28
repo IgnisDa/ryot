@@ -6,12 +6,12 @@ export function createTrackerFixture(
 ): AppTracker {
 	return {
 		sortOrder: 1,
+		icon: "shapes",
 		name: "Tracker",
 		slug: "tracker",
-		enabled: true,
 		id: "tracker-id",
-		icon: "shapes",
 		isBuiltin: false,
+		isDisabled: false,
 		accentColor: "#5B7FFF",
 		...overrides,
 	};
