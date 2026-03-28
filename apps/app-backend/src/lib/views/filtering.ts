@@ -22,6 +22,12 @@ const filterExpressionIsNullSchema = z.object({
 	field: runtimeFieldPathSchema,
 });
 
+const filterExpressionIsNotNullSchema = z.object({
+	value: z.null().optional(),
+	op: z.literal("isNotNull"),
+	field: runtimeFieldPathSchema,
+});
+
 const filterExpressionInSchema = z.object({
 	op: z.literal("in"),
 	field: runtimeFieldPathSchema,
@@ -44,6 +50,7 @@ export const filterExpressionSchema = z.union([
 	filterExpressionInSchema,
 	filterExpressionIsNullSchema,
 	filterExpressionContainsSchema,
+	filterExpressionIsNotNullSchema,
 	filterExpressionComparisonSchema,
 ]);
 

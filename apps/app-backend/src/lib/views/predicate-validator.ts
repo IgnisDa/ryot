@@ -212,14 +212,15 @@ export const validateFilterExpressionAgainstSchemas = <
 
 	match(filter)
 		.with({ op: "isNull" }, () => undefined)
+		.with({ op: "isNotNull" }, () => undefined)
 		.with({ op: "in" }, (f) => validateInFilter(f, property))
 		.with({ op: "contains" }, (f) => validateContainsFilter(f, property))
 		.with(
 			{ op: "eq" },
-			{ op: "neq" },
 			{ op: "gt" },
-			{ op: "gte" },
+			{ op: "neq" },
 			{ op: "lt" },
+			{ op: "gte" },
 			{ op: "lte" },
 			(f) => validateComparableFilter(f, property),
 		)

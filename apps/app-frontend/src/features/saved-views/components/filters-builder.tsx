@@ -62,14 +62,24 @@ export const OPERATOR_OPTIONS = [
 	{ label: "Less or equal (lte)", value: "lte" },
 	{ label: "In list (in)", value: "in" },
 	{ label: "Is null (isNull)", value: "isNull" },
+	{ label: "Is not null (isNotNull)", value: "isNotNull" },
 	{ label: "Contains (contains)", value: "contains" },
 ];
 
-const COMPARISON_OPS = ["eq", "neq", "gt", "gte", "lt", "lte", "isNull"];
+const COMPARISON_OPS = [
+	"eq",
+	"neq",
+	"gt",
+	"gte",
+	"lt",
+	"lte",
+	"isNull",
+	"isNotNull",
+];
 const STRING_OPS = [...COMPARISON_OPS, "in", "contains"];
-const BOOLEAN_OPS = ["eq", "neq", "isNull"];
-const ARRAY_OPS = ["contains", "isNull"];
-const OBJECT_OPS = ["contains", "isNull"];
+const BOOLEAN_OPS = ["eq", "neq", "isNull", "isNotNull"];
+const ARRAY_OPS = ["contains", "isNull", "isNotNull"];
+const OBJECT_OPS = ["contains", "isNull", "isNotNull"];
 
 const OPERATOR_COMPAT: Record<Exclude<ResolvedPropertyType, null>, string[]> = {
 	array: ARRAY_OPS,
@@ -174,7 +184,8 @@ function FilterRowItem(props: FilterRowItemProps) {
 
 				<props.form.AppField name={`filters[${props.index}].op`}>
 					{(opStateField) =>
-						opStateField.state.value !== "isNull" ? (
+						opStateField.state.value !== "isNull" &&
+						opStateField.state.value !== "isNotNull" ? (
 							<props.form.AppField name={`filters[${props.index}].value`}>
 								{(valueField) => {
 									const op = opStateField.state.value;
