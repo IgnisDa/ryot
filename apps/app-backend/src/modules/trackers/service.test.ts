@@ -18,7 +18,7 @@ describe("resolveTrackerPatch", () => {
 		expect(patch.description).toBe("Default media tracker");
 	});
 
-	it("recomputes slug when name changes", () => {
+	it("keeps current slug even when name changes", () => {
 		const patch = resolveTrackerPatch({
 			current: {
 				icon: "coffee",
@@ -30,23 +30,8 @@ describe("resolveTrackerPatch", () => {
 			input: { name: "Whiskey Notes" },
 		});
 
-		expect(patch.slug).toBe("whiskey-notes");
+		expect(patch.slug).toBe("whiskey");
 		expect(patch.name).toBe("Whiskey Notes");
-	});
-
-	it("prefers explicit slug over derived slug", () => {
-		const patch = resolveTrackerPatch({
-			current: {
-				slug: "coffee",
-				name: "Coffee",
-				icon: "cup-soda",
-				description: null,
-				accentColor: "#D4A574",
-			},
-			input: { name: "Coffee Notes", slug: "Cups_And_Brews" },
-		});
-
-		expect(patch.slug).toBe("cups-and-brews");
 	});
 
 	it("keeps the current icon when icon is omitted", () => {
