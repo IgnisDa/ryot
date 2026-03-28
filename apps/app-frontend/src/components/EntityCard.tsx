@@ -78,13 +78,13 @@ export function EntityCard(props: EntityCardProps) {
 							<Badge
 								size="lg"
 								variant="filled"
+								ff="var(--mantine-headings-font-family)"
 								styles={{
 									root: {
 										color: "white",
 										border: "none",
 										fontWeight: 700,
 										backgroundColor: trackerColor.base,
-										fontFamily: '"Space Grotesk", sans-serif',
 										boxShadow: "0 2px 8px rgba(0, 0, 0, 0.3)",
 									},
 								}}
@@ -108,26 +108,24 @@ export function EntityCard(props: EntityCardProps) {
 			)}
 			<Box p="lg">
 				<Text
+					mb={6}
 					fw={600}
 					size="md"
-					mb={6}
-					style={{
-						color: textPrimary,
-						fontFamily: '"Space Grotesk", sans-serif',
-					}}
+					c={textPrimary}
+					ff="var(--mantine-headings-font-family)"
 				>
 					{props.name}
 				</Text>
 				<Badge
+					mb={8}
 					size="sm"
 					variant="light"
-					mb={8}
+					ff="var(--mantine-headings-font-family)"
 					styles={{
 						root: {
 							fontWeight: 600,
 							color: trackerColor.base,
 							backgroundColor: trackerColor.muted,
-							fontFamily: '"Space Grotesk", sans-serif',
 							border: `1px solid ${trackerColor.base}33`,
 						},
 					}}
