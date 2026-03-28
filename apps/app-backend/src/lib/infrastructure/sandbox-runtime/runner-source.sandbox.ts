@@ -497,78 +497,93 @@ const executeDefinition = async (
 };
 
 void (async () => {
-	const line = await readLine();
-	if (!line.trim()) {
-		return;
-	}
-
-	let phase = "input";
-	let payload: SandboxRunnerPayload | undefined;
-	let logCollector: SandboxLogCollector = {
-		logs: [],
-		console: {
-			log: () => {},
-			info: () => {},
-			warn: () => {},
-			debug: () => {},
-			error: () => {},
-		},
-	};
-	const startedAt = performanceNow();
-
-	try {
-		payload = jsonParse(line) as SandboxRunnerPayload;
-		if (!validateLimits(payload.limits)) {
-			throwPhase("input", "Sandbox runner limits are invalid");
-		}
-		logCollector = createLogCollector(payload.limits);
-		console.log = logCollector.console.log;
-		console.info = logCollector.console.info;
-		console.warn = logCollector.console.warn;
-		console.debug = logCollector.console.debug;
-		console.error = logCollector.console.error;
-		installFilesystem(payload);
-		disableCodeGeneration();
-
-		phase = "load";
-		const restoreWorkflowGlobals =
-			isRecord(payload.metadata) && payload.metadata.kind === "workflow"
-				? installWorkflowDeterminismGuard()
-				: undefined;
-		let value: unknown;
-		try {
-			const compiledModule = await importCompiledModule(payload);
-			value = await executeDefinition(compiledModule.default, payload, (nextPhase) => {
-				phase = nextPhase;
-			});
-		} finally {
-			restoreWorkflowGlobals?.();
+	for (;;) {
+		const line = await readLine();
+		if (!line.trim()) {
+			continue;
 		}
 
-		phase = "output";
-		let serialized: string | undefined;
+		let phase = "input";
+		let payload: SandboxRunnerPayload | undefined;
+		let logCollector: SandboxLogCollector = {
+			logs: [],
+			console: {
+				log: () => {},
+				info: () => {},
+				warn: () => {},
+				debug: () => {},
+				error: () => {},
+			},
+		};
+		const startedAt = performanceNow();
+		const previousConsole = {
+			log: console.log,
+			info: console.info,
+			warn: console.warn,
+			debug: console.debug,
+			error: console.error,
+		};
+
 		try {
-			serialized = jsonStringify(value ?? null);
+			payload = jsonParse(line) as SandboxRunnerPayload;
+			if (!validateLimits(payload.limits)) {
+				throwPhase("input", "Sandbox runner limits are invalid");
+			}
+			logCollector = createLogCollector(payload.limits);
+			console.log = logCollector.console.log;
+			console.info = logCollector.console.info;
+			console.warn = logCollector.console.warn;
+			console.debug = logCollector.console.debug;
+			console.error = logCollector.console.error;
+			installFilesystem(payload);
+			disableCodeGeneration();
+
+			phase = "load";
+			const restoreWorkflowGlobals =
+				isRecord(payload.metadata) && payload.metadata.kind === "workflow"
+					? installWorkflowDeterminismGuard()
+					: undefined;
+			let value: unknown;
+			try {
+				const compiledModule = await importCompiledModule(payload);
+				value = await executeDefinition(compiledModule.default, payload, (nextPhase) => {
+					phase = nextPhase;
+				});
+			} finally {
+				restoreWorkflowGlobals?.();
+			}
+
+			phase = "output";
+			let serialized: string | undefined;
+			try {
+				serialized = jsonStringify(value ?? null);
+			} catch (error) {
+				throwPhase("output", error);
+			}
+			const serializedValue =
+				typeof serialized === "string"
+					? serialized
+					: throwPhase("output", "Sandbox definition result is not JSON-serializable");
+			if (encodeText(serializedValue).byteLength > payload.limits.resultBytes) {
+				throwPhase(
+					"output",
+					"Sandbox definition result exceeds " + payload.limits.resultBytes + " UTF-8 bytes",
+				);
+			}
+			await writeSuccess(logCollector.logs, serializedValue, performanceNow() - startedAt);
 		} catch (error) {
-			throwPhase("output", error);
-		}
-		const serializedValue =
-			typeof serialized === "string"
-				? serialized
-				: throwPhase("output", "Sandbox definition result is not JSON-serializable");
-		if (encodeText(serializedValue).byteLength > payload.limits.resultBytes) {
-			throwPhase(
-				"output",
-				"Sandbox definition result exceeds " + payload.limits.resultBytes + " UTF-8 bytes",
+			const errorPhase = failurePhase(error, phase);
+			await writeFailure(
+				logCollector.logs,
+				executionError(error, errorPhase, payload),
+				performanceNow() - startedAt,
 			);
+		} finally {
+			console.log = previousConsole.log;
+			console.info = previousConsole.info;
+			console.warn = previousConsole.warn;
+			console.debug = previousConsole.debug;
+			console.error = previousConsole.error;
 		}
-		await writeSuccess(logCollector.logs, serializedValue, performanceNow() - startedAt);
-	} catch (error) {
-		const errorPhase = failurePhase(error, phase);
-		await writeFailure(
-			logCollector.logs,
-			executionError(error, errorPhase, payload),
-			performanceNow() - startedAt,
-		);
 	}
 })();
