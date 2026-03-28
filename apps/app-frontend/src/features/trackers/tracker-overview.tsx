@@ -185,7 +185,7 @@ export function TrackerOverview(props: TrackerOverviewProps) {
 												}}
 												lastEvent={
 													item.latestEvent
-														? `${item.latestEvent.eventSchemaName} ${getLastActivityLabel(item.latestEvent.occurredAt)}`
+														? `${item.latestEvent.eventSchemaName} ${getLastActivityLabel(item.latestEvent.createdAt)}`
 														: `Added ${getLastActivityLabel(item.entity.createdAt)}`
 												}
 											/>

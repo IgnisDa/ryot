@@ -69,7 +69,7 @@ function EventList(props: {
 									{event.eventSchemaName}
 								</Text>
 								<Text c="dimmed" size="xs">
-									{event.occurredAt.toLocaleString()}
+									{event.createdAt.toLocaleString()}
 								</Text>
 							</Group>
 							{properties.length > 0 && (
@@ -192,17 +192,6 @@ function LogEventForm(props: {
 													nextValues.properties,
 												);
 											}}
-										/>
-									)}
-								</eventForm.AppField>
-
-								<eventForm.AppField name="occurredAt">
-									{(field) => (
-										<field.TextField
-											required
-											label="Occurred at"
-											type="datetime-local"
-											disabled={props.isLoading}
 										/>
 									)}
 								</eventForm.AppField>

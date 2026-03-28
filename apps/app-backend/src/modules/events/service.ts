@@ -1,6 +1,5 @@
 import { type AppSchema, resolveRequiredString } from "@ryot/ts-utils";
 import { chunk } from "lodash";
-import { z } from "zod";
 import { resolveEntitySchemaReadAccess } from "~/lib/app/entity-schema-access";
 import { parseAppSchemaProperties } from "~/lib/app/schema-validation";
 import {
@@ -22,8 +21,6 @@ import type {
 } from "./schemas";
 
 export type EventPropertiesShape = Record<string, unknown>;
-
-export const occurredAtStringSchema = z.string().trim().pipe(z.iso.datetime());
 
 type EntityEventScope = {
 	entityId: string;
@@ -98,15 +95,6 @@ export const resolveEventEntityId = (entityId: string) =>
 export const resolveEventSchemaId = (eventSchemaId: string) =>
 	resolveRequiredString(eventSchemaId, "Event schema id");
 
-export const resolveOccurredAt = (occurredAt: unknown) => {
-	const parsedOccurredAt = occurredAtStringSchema.safeParse(occurredAt);
-	if (!parsedOccurredAt.success) {
-		throw new Error("Occurred at must be a valid datetime");
-	}
-
-	return new Date(parsedOccurredAt.data);
-};
-
 export const parseEventProperties = (input: {
 	properties: unknown;
 	propertiesSchema: AppSchema;
@@ -171,14 +159,13 @@ export const resolveEventCreateInput = (
 	},
 ) => {
 	const entityId = resolveEventEntityId(input.entityId);
-	const occurredAt = resolveOccurredAt(input.occurredAt);
 	const eventSchemaId = resolveEventSchemaId(input.eventSchemaId);
 	const parsedProperties = parseEventProperties({
 		properties: input.properties,
 		propertiesSchema: input.propertiesSchema,
 	});
 
-	return { entityId, occurredAt, properties: parsedProperties, eventSchemaId };
+	return { entityId, properties: parsedProperties, eventSchemaId };
 };
 
 const resolveEventCreateInputResult = (
@@ -259,7 +246,6 @@ export const createEvent = async (
 
 	const eventInput = resolveEventCreateInputResult({
 		entityId: input.body.entityId,
-		occurredAt: input.body.occurredAt,
 		properties: input.body.properties,
 		eventSchemaId: input.body.eventSchemaId,
 		propertiesSchema: foundScope.access.propertiesSchema,
@@ -271,7 +257,6 @@ export const createEvent = async (
 	const createdEvent = await deps.createEventForUser({
 		userId: input.userId,
 		entityId: eventInput.data.entityId,
-		occurredAt: eventInput.data.occurredAt,
 		properties: eventInput.data.properties,
 		eventSchemaId: eventInput.data.eventSchemaId,
 		eventSchemaName: foundScope.access.eventSchemaName,
