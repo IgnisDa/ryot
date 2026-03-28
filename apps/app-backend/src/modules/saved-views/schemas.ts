@@ -67,7 +67,6 @@ export const displayConfigurationSchema = z.object({
 	grid: gridConfigSchema,
 	list: listConfigSchema,
 	table: tableConfigSchema,
-	layout: z.enum(["grid", "list", "table"]),
 });
 
 export type DisplayConfiguration = z.infer<typeof displayConfigurationSchema>;
