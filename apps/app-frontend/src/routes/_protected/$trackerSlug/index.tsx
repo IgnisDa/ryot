@@ -44,7 +44,9 @@ export const Route = createFileRoute("/_protected/$trackerSlug/")({
 });
 
 function getErrorMessage(error: unknown) {
-	if (error instanceof Error && error.message) return error.message;
+	if (error instanceof Error && error.message) {
+		return error.message;
+	}
 
 	const parsed = error as {
 		message?: string;
@@ -167,7 +169,9 @@ function CustomTrackerSchemaSection(props: { tracker: AppTracker }) {
 	const openEventSchemaModal = useCallback(
 		(entitySchemaId?: string) => {
 			const nextEntitySchemaId = entitySchemaId ?? primaryEntitySchema?.id;
-			if (!nextEntitySchemaId) return;
+			if (!nextEntitySchemaId) {
+				return;
+			}
 			setOpenedModal({
 				type: "event-schema",
 				entitySchemaId: nextEntitySchemaId,
@@ -183,7 +187,9 @@ function CustomTrackerSchemaSection(props: { tracker: AppTracker }) {
 	const openEntityModal = useCallback(
 		(entitySchemaId?: string) => {
 			const nextEntitySchemaId = entitySchemaId ?? primaryEntitySchema?.id;
-			if (!nextEntitySchemaId) return;
+			if (!nextEntitySchemaId) {
+				return;
+			}
 			setOpenedModal({ type: "entity", entitySchemaId: nextEntitySchemaId });
 		},
 		[primaryEntitySchema?.id],
@@ -259,14 +265,15 @@ function CustomTrackerSchemaSection(props: { tracker: AppTracker }) {
 		[closeLogEventModal, eventMutations.create],
 	);
 
-	if (entitySchemasQuery.isLoading)
+	if (entitySchemasQuery.isLoading) {
 		return (
 			<Center py="xl">
 				<Loader size="sm" />
 			</Center>
 		);
+	}
 
-	if (entitySchemasQuery.isError)
+	if (entitySchemasQuery.isError) {
 		return (
 			<Paper p="lg" withBorder radius="md">
 				<Stack gap="sm">
@@ -285,6 +292,7 @@ function CustomTrackerSchemaSection(props: { tracker: AppTracker }) {
 				</Stack>
 			</Paper>
 		);
+	}
 
 	return (
 		<Stack gap="md">
@@ -372,14 +380,15 @@ function RouteComponent() {
 
 	const tracker = trackersQuery.trackerBySlug(trackerSlug);
 
-	if (trackersQuery.isLoading)
+	if (trackersQuery.isLoading) {
 		return (
 			<Center h="100vh">
 				<Loader size="lg" />
 			</Center>
 		);
+	}
 
-	if (trackersQuery.isError)
+	if (trackersQuery.isError) {
 		return (
 			<Container size="md" py={80}>
 				<Stack align="center" gap="lg">
@@ -393,8 +402,9 @@ function RouteComponent() {
 				</Stack>
 			</Container>
 		);
+	}
 
-	if (!tracker)
+	if (!tracker) {
 		return (
 			<Container size="md" py={80}>
 				<Stack align="center" gap="lg">
@@ -405,8 +415,9 @@ function RouteComponent() {
 				</Stack>
 			</Container>
 		);
+	}
 
-	if (tracker.isBuiltin)
+	if (tracker.isBuiltin) {
 		return (
 			<Container size="md" py={56}>
 				<Stack gap="xl">
@@ -416,6 +427,7 @@ function RouteComponent() {
 				</Stack>
 			</Container>
 		);
+	}
 
 	return (
 		<Container size="xl" py={56}>

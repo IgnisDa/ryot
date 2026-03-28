@@ -145,10 +145,11 @@ function RouteComponent() {
 		trackersQuery.isLoading ||
 		entityQuery.isLoading ||
 		(!!tracker && !tracker.isBuiltin && entitySchemasQuery.isLoading)
-	)
+	) {
 		return <LoadingState />;
+	}
 
-	if (trackersQuery.isError)
+	if (trackersQuery.isError) {
 		return (
 			<ErrorState
 				title="Failed to load tracker"
@@ -156,8 +157,9 @@ function RouteComponent() {
 				description="We could not load tracking trackers right now."
 			/>
 		);
+	}
 
-	if (entityQuery.isError)
+	if (entityQuery.isError) {
 		return (
 			<ErrorState
 				title="Failed to load entity"
@@ -165,16 +167,18 @@ function RouteComponent() {
 				description="We could not load this tracked entity right now."
 			/>
 		);
+	}
 
-	if (!tracker || tracker.isBuiltin)
+	if (!tracker || tracker.isBuiltin) {
 		return (
 			<ErrorState
 				title="Entity not found"
 				description={`The custom tracker "${trackerSlug}" is not available.`}
 			/>
 		);
+	}
 
-	if (entitySchemasQuery.isError)
+	if (entitySchemasQuery.isError) {
 		return (
 			<ErrorState
 				title="Failed to load schema"
@@ -182,14 +186,16 @@ function RouteComponent() {
 				description="We could not load the schema for this tracked entity."
 			/>
 		);
+	}
 
-	if (!entityQuery.entity || !entitySchema)
+	if (!entityQuery.entity || !entitySchema) {
 		return (
 			<ErrorState
 				title="Entity not found"
 				description="This entity does not exist in the selected custom tracker."
 			/>
 		);
+	}
 
 	const properties = getEntityDetailProperties(
 		entitySchema.propertiesSchema,

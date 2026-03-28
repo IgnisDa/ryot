@@ -50,7 +50,9 @@ const trackerSlugExistsResult = createValidationErrorResult(
 async function refreshUpdatedTracker(userId: string, trackerId: string) {
 	const trackers = await listTrackersByUser(userId);
 	const foundTracker = trackers.find((tracker) => tracker.id === trackerId);
-	if (!foundTracker) return { error: ERROR_TRACKER_NOT_FOUND };
+	if (!foundTracker) {
+		return { error: ERROR_TRACKER_NOT_FOUND };
+	}
 	return { data: foundTracker };
 }
 
@@ -138,8 +140,9 @@ export const trackersApi = new OpenAPIHono<{ Variables: AuthType }>()
 			() => resolveTrackerSlug({ name: body.name, slug: body.slug }),
 			"Tracker slug is required",
 		);
-		if ("status" in slugResult)
+		if ("status" in slugResult) {
 			return c.json(slugResult.body, slugResult.status);
+		}
 
 		const slug = slugResult.data;
 
@@ -147,11 +150,12 @@ export const trackersApi = new OpenAPIHono<{ Variables: AuthType }>()
 			slug,
 			userId: user.id,
 		});
-		if (existingTracker)
+		if (existingTracker) {
 			return c.json(
 				trackerSlugExistsResult.body,
 				trackerSlugExistsResult.status,
 			);
+		}
 
 		const createdTracker = await createTrackerForUser({
 			slug,
@@ -177,18 +181,20 @@ export const trackersApi = new OpenAPIHono<{ Variables: AuthType }>()
 			body.accentColor !== undefined;
 
 		if (!hasTrackerConfigUpdate) {
-			if (enabled === undefined)
+			if (enabled === undefined) {
 				return c.json(
 					createValidationErrorResult(ERROR_MISSING_FIELDS).body,
 					400,
 				);
+			}
 
 			const visibleTracker = await getVisibleTrackerById({
 				userId: user.id,
 				trackerId: params.trackerId,
 			});
-			if (!visibleTracker)
+			if (!visibleTracker) {
 				return c.json(trackerNotFoundResult.body, trackerNotFoundResult.status);
+			}
 
 			await setTrackerEnabledForUser({
 				enabled,
@@ -200,8 +206,9 @@ export const trackersApi = new OpenAPIHono<{ Variables: AuthType }>()
 				user.id,
 				params.trackerId,
 			);
-			if ("error" in refreshResult)
+			if ("error" in refreshResult) {
 				return c.json(trackerNotFoundResult.body, trackerNotFoundResult.status);
+			}
 
 			return c.json(successResponse(refreshResult.data), 200);
 		}
@@ -210,15 +217,17 @@ export const trackersApi = new OpenAPIHono<{ Variables: AuthType }>()
 			userId: user.id,
 			trackerId: params.trackerId,
 		});
-		if (!ownedTracker)
+		if (!ownedTracker) {
 			return c.json(trackerNotFoundResult.body, trackerNotFoundResult.status);
+		}
 
 		const patchResult = resolveValidationData(
 			() => resolveTrackerPatch({ current: ownedTracker, input: body }),
 			"Tracker slug is required",
 		);
-		if ("status" in patchResult)
+		if ("status" in patchResult) {
 			return c.json(patchResult.body, patchResult.status);
+		}
 
 		const patch = patchResult.data;
 
@@ -232,7 +241,9 @@ export const trackersApi = new OpenAPIHono<{ Variables: AuthType }>()
 			accentColor: patch.accentColor,
 		});
 
-		if (!hasEnabledUpdate) return c.json(successResponse(updatedTracker), 200);
+		if (!hasEnabledUpdate) {
+			return c.json(successResponse(updatedTracker), 200);
+		}
 
 		await setTrackerEnabledForUser({
 			enabled,
@@ -244,8 +255,9 @@ export const trackersApi = new OpenAPIHono<{ Variables: AuthType }>()
 			user.id,
 			params.trackerId,
 		);
-		if ("error" in refreshResult)
+		if ("error" in refreshResult) {
 			return c.json(trackerNotFoundResult.body, trackerNotFoundResult.status);
+		}
 
 		return c.json(successResponse(refreshResult.data), 200);
 	})
@@ -257,12 +269,13 @@ export const trackersApi = new OpenAPIHono<{ Variables: AuthType }>()
 			userId: user.id,
 			trackerIds: body.trackerIds,
 		});
-		if (visibleTrackerCount !== body.trackerIds.length)
+		if (visibleTrackerCount !== body.trackerIds.length) {
 			return c.json(
 				createValidationErrorResult("Tracker ids contain unknown trackers")
 					.body,
 				400,
 			);
+		}
 
 		const currentTrackerIds = await listUserTrackerIdsInOrder(user.id);
 		const nextTrackerIds = buildTrackerOrder({

@@ -33,8 +33,9 @@ const resolveContentType = (contentType: string) => {
 		"Upload content type",
 	).toLowerCase();
 
-	if (!(normalizedContentType in uploadContentTypeExtensions))
+	if (!(normalizedContentType in uploadContentTypeExtensions)) {
 		throw new Error("Upload content type must be a supported MIME type");
+	}
 
 	return normalizedContentType as UploadContentType;
 };
@@ -51,8 +52,9 @@ const resolveExtension = (contentType: UploadContentType) =>
 	uploadContentTypeExtensions[contentType][0];
 
 const signUploadUrl = async (input: SignUploadUrlInput) => {
-	if (!s3 || !s3BucketName)
+	if (!s3 || !s3BucketName) {
 		throw new Error("S3 uploads are not configured for app-backend");
+	}
 
 	return s3.file(input.key).presign({
 		method: "PUT",
@@ -62,8 +64,9 @@ const signUploadUrl = async (input: SignUploadUrlInput) => {
 };
 
 const signDownloadUrl = async (key: string) => {
-	if (!s3 || !s3BucketName)
+	if (!s3 || !s3BucketName) {
 		throw new Error("S3 uploads are not configured for app-backend");
+	}
 
 	return s3.file(key).presign({
 		expiresIn: uploadUrlExpirySeconds,
