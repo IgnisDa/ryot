@@ -59,7 +59,13 @@ describe("Saved views E2E", () => {
 		expect(Array.isArray(fetchedView.queryDefinition.entitySchemaSlugs)).toBe(
 			true,
 		);
-		expect(Array.isArray(fetchedView.queryDefinition.filters)).toBe(true);
+		expect(
+			(
+				fetchedView.queryDefinition as unknown as {
+					filter: unknown;
+				}
+			).filter,
+		).toBeNull();
 		expect(Number.isNaN(Date.parse(String(fetchedView.createdAt)))).toBe(false);
 		expect(Number.isNaN(Date.parse(String(fetchedView.updatedAt)))).toBe(false);
 
@@ -522,14 +528,18 @@ describe("Saved views E2E", () => {
 		expect(createResult.response.status).toBe(400);
 		expect(updateResult.response.status).toBe(400);
 		expect(createResult.error?.error?.message).toContain(
-			"Sort fields are required",
+			"Sort expressions must resolve to a sortable scalar value",
 		);
 		expect(updateResult.error?.error?.message).toContain(
-			"Sort fields are required",
+			"Sort expressions must resolve to a sortable scalar value",
 		);
-		expect(refreshedView.queryDefinition.sort.fields).toEqual([
-			entityField("book", "name"),
-		]);
+		expect(
+			(refreshedView.queryDefinition.sort as unknown as { expression: unknown })
+				.expression,
+		).toEqual({
+			type: "reference",
+			reference: { type: "entity-column", slug: "book", column: "name" },
+		});
 	});
 
 	it("rejects unqualified property references when creating or updating saved views", async () => {
@@ -540,37 +550,44 @@ describe("Saved views E2E", () => {
 
 		const createResult = await client.POST("/saved-views", {
 			headers: { Cookie: cookies },
-			body: buildSavedViewBody({
-				name: "Broken Qualification View",
+			body: {
+				...buildSavedViewBody({ name: "Broken Qualification View" }),
 				queryDefinition: {
 					eventJoins: [],
 					entitySchemaSlugs: ["book"],
-					sort: { fields: ["year"], direction: "asc" },
-					filters: [{ op: "eq", field: "status", value: "active" }],
+					sort: { direction: "asc", expression: "year" },
+					filter: {
+						left: "status",
+						operator: "eq",
+						type: "comparison",
+						right: { type: "literal", value: "active" },
+					},
 				},
-			}),
+			} as never,
 		});
 		const updateResult = await client.PUT("/saved-views/{viewId}", {
 			headers: { Cookie: cookies },
 			params: { path: { viewId: createdView.id } },
-			body: buildUpdatedSavedViewBody({
+			body: {
+				...buildUpdatedSavedViewBody(),
 				queryDefinition: {
 					eventJoins: [],
 					entitySchemaSlugs: ["book"],
-					sort: { fields: ["year"], direction: "asc" },
-					filters: [{ op: "eq", field: "status", value: "active" }],
+					sort: { direction: "asc", expression: "year" },
+					filter: {
+						left: "status",
+						operator: "eq",
+						type: "comparison",
+						right: { type: "literal", value: "active" },
+					},
 				},
-			}),
+			} as never,
 		});
 
 		expect(createResult.response.status).toBe(400);
 		expect(updateResult.response.status).toBe(400);
-		expect(createResult.error?.error?.message).toBe(
-			"Explicit field references are required",
-		);
-		expect(updateResult.error?.error?.message).toBe(
-			"Explicit field references are required",
-		);
+		expect(createResult.error?.error?.message).toContain("Invalid input");
+		expect(updateResult.error?.error?.message).toContain("Invalid input");
 	});
 
 	it("rejects a view referencing a property that does not exist in the schema", async () => {
