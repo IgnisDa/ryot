@@ -49,11 +49,13 @@ TypeScript backend (`apps/app-backend`) during startup.
 
 ## Local Testing
 
-1. Restore the prod dump into the local DB:
+1. Restore the prod dump into the local DB (running inside docker):
 
 ```bash
-export PGHOST=localhost PGDATABASE=postgres PGPASSWORD=postgres PGUSER=postgres && dropdb "$PGDATABASE" --force && createdb "$PGDATABASE" && pg_restore -d "$PGDATABASE" < /tmp/file.sql
+export PGHOST=localhost PGDATABASE=postgres PGPASSWORD=postgres PGUSER=postgres && dropdb "$PGDATABASE" --force && createdb "$PGDATABASE" && pg_restore -d "$PGDATABASE" < tmp/file.sql
 ```
+
+The directory is `./tmp` and not `/tmp`. use `ls` to check instead of the grep tool.
 
 2. Run the app backend:
 
