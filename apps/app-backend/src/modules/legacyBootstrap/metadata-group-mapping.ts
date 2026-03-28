@@ -126,41 +126,75 @@ export const buildMetadataGroupEntityMigrationSql = (
 	targets: ResolvedLotEntityMigrationTarget[],
 ) => `
 DO $$
-DECLARE rows_inserted int;
+DECLARE
+	batch_size constant int := 10000;
+	batch_rows_inserted int;
+	cursor_id text := '';
+	next_cursor_id text;
+	rows_inserted int := 0;
+	started_at timestamptz := clock_timestamp();
 BEGIN
-	WITH metadata_group_targets (lot, source, entity_schema_id, sandbox_script_id) AS (
-		VALUES ${buildLotEntityTargetValuesSql(targets)}
-	)
-	INSERT INTO entity (
-		"id",
-		"external_id",
-		"name",
-		"image",
-		"created_at",
-		"populated_at",
-		"user_id",
-		"properties",
-		"entity_schema_id",
-		"sandbox_script_id",
-		"updated_at"
-	)
-	SELECT
-		mg.id,
-		mg.identifier,
-		mg.title,
-		${buildPrimaryImageSql("mg")},
-		mg.last_updated_on,
-		NULL,
-		NULL,
-		'{}'::jsonb,
-		mgt.entity_schema_id,
-		mgt.sandbox_script_id,
-		mg.last_updated_on
-	FROM "metadata_group" mg
-	INNER JOIN metadata_group_targets mgt ON mgt.lot = mg.lot AND mgt.source = mg.source
-	ON CONFLICT ("id") DO NOTHING;
-	GET DIAGNOSTICS rows_inserted = ROW_COUNT;
-	RAISE NOTICE 'metadata_group -> entity: % row(s) migrated', rows_inserted;
+	RAISE NOTICE 'metadata_group -> entity: migration started (% seconds elapsed)', 0.0;
+
+	LOOP
+		WITH metadata_group_targets (lot, source, entity_schema_id, sandbox_script_id) AS (
+			VALUES ${buildLotEntityTargetValuesSql(targets)}
+		), batch AS (
+			SELECT mg.id::text AS id
+			FROM "metadata_group" mg
+			INNER JOIN metadata_group_targets mgt ON mgt.lot = mg.lot AND mgt.source = mg.source
+			WHERE mg.id::text > cursor_id
+			ORDER BY mg.id::text
+			LIMIT batch_size
+		)
+		SELECT MAX(batch.id) INTO next_cursor_id FROM batch;
+
+		EXIT WHEN next_cursor_id IS NULL;
+
+		WITH metadata_group_targets (lot, source, entity_schema_id, sandbox_script_id) AS (
+			VALUES ${buildLotEntityTargetValuesSql(targets)}
+		)
+		INSERT INTO entity (
+			"id",
+			"external_id",
+			"name",
+			"image",
+			"created_at",
+			"populated_at",
+			"user_id",
+			"properties",
+			"entity_schema_id",
+			"sandbox_script_id",
+			"updated_at"
+		)
+		SELECT
+			mg.id,
+			mg.identifier,
+			mg.title,
+			${buildPrimaryImageSql("mg")},
+			mg.last_updated_on,
+			NULL,
+			NULL,
+			'{}'::jsonb,
+			mgt.entity_schema_id,
+			mgt.sandbox_script_id,
+			mg.last_updated_on
+		FROM "metadata_group" mg
+		INNER JOIN metadata_group_targets mgt ON mgt.lot = mg.lot AND mgt.source = mg.source
+		WHERE mg.id::text > cursor_id AND mg.id::text <= next_cursor_id
+		ON CONFLICT ("id") DO NOTHING;
+		GET DIAGNOSTICS batch_rows_inserted = ROW_COUNT;
+
+		rows_inserted := rows_inserted + batch_rows_inserted;
+		cursor_id := next_cursor_id;
+		RAISE NOTICE 'metadata_group -> entity: % row(s) migrated so far (% seconds elapsed)',
+			rows_inserted,
+			round(extract(epoch from clock_timestamp() - started_at)::numeric, 1);
+	END LOOP;
+
+	RAISE NOTICE 'metadata_group -> entity: % row(s) migrated total (% seconds elapsed)',
+		rows_inserted,
+		round(extract(epoch from clock_timestamp() - started_at)::numeric, 1);
 END $$;
 `;
 
@@ -168,34 +202,69 @@ export const buildMetadataGroupRelationshipMigrationSql = (
 	targets: ResolvedRelationshipTarget[],
 ) => `
 DO $$
-DECLARE rows_inserted int;
+DECLARE
+	batch_size constant int := 10000;
+	batch_rows_inserted int;
+	cursor_id text := '';
+	next_cursor_id text;
+	rows_inserted int := 0;
+	started_at timestamptz := clock_timestamp();
 BEGIN
-	WITH lot_to_relationship_schema (lot, relationship_schema_id) AS (
-		VALUES ${buildRelationshipTargetValuesSql(targets)}
-	)
-	INSERT INTO relationship (
-		"id",
-		"source_entity_id",
-		"target_entity_id",
-		"relationship_schema_id",
-		"properties",
-		"user_id",
-		"created_at"
-	)
-	SELECT
-		gen_random_uuid()::text,
-		m2mg.metadata_group_id,
-		m2mg.metadata_id,
-		lrs.relationship_schema_id,
-		'{}'::jsonb,
-		NULL,
-		NOW()
-	FROM "metadata_to_metadata_group" m2mg
-	INNER JOIN "metadata_group" mg ON mg.id = m2mg.metadata_group_id
-	INNER JOIN lot_to_relationship_schema lrs ON lrs.lot = mg.lot
-	ON CONFLICT (source_entity_id, target_entity_id, relationship_schema_id) WHERE user_id IS NULL DO NOTHING;
-	GET DIAGNOSTICS rows_inserted = ROW_COUNT;
-	RAISE NOTICE 'metadata_group -> relationship: % row(s) migrated', rows_inserted;
+	RAISE NOTICE 'metadata_group -> relationship: migration started (% seconds elapsed)', 0.0;
+
+	LOOP
+		WITH lot_to_relationship_schema (lot, relationship_schema_id) AS (
+			VALUES ${buildRelationshipTargetValuesSql(targets)}
+		), batch AS (
+			SELECT DISTINCT m2mg.metadata_id::text AS id
+			FROM "metadata_to_metadata_group" m2mg
+			INNER JOIN "metadata_group" mg ON mg.id = m2mg.metadata_group_id
+			INNER JOIN lot_to_relationship_schema lrs ON lrs.lot = mg.lot
+			WHERE m2mg.metadata_id::text > cursor_id
+			ORDER BY m2mg.metadata_id::text
+			LIMIT batch_size
+		)
+		SELECT MAX(batch.id) INTO next_cursor_id FROM batch;
+
+		EXIT WHEN next_cursor_id IS NULL;
+
+		WITH lot_to_relationship_schema (lot, relationship_schema_id) AS (
+			VALUES ${buildRelationshipTargetValuesSql(targets)}
+		)
+		INSERT INTO relationship (
+			"id",
+			"source_entity_id",
+			"target_entity_id",
+			"relationship_schema_id",
+			"properties",
+			"user_id",
+			"created_at"
+		)
+		SELECT
+			gen_random_uuid()::text,
+			m2mg.metadata_group_id,
+			m2mg.metadata_id,
+			lrs.relationship_schema_id,
+			'{}'::jsonb,
+			NULL,
+			NOW()
+		FROM "metadata_to_metadata_group" m2mg
+		INNER JOIN "metadata_group" mg ON mg.id = m2mg.metadata_group_id
+		INNER JOIN lot_to_relationship_schema lrs ON lrs.lot = mg.lot
+		WHERE m2mg.metadata_id::text > cursor_id AND m2mg.metadata_id::text <= next_cursor_id
+		ON CONFLICT (source_entity_id, target_entity_id, relationship_schema_id) WHERE user_id IS NULL DO NOTHING;
+		GET DIAGNOSTICS batch_rows_inserted = ROW_COUNT;
+
+		rows_inserted := rows_inserted + batch_rows_inserted;
+		cursor_id := next_cursor_id;
+		RAISE NOTICE 'metadata_group -> relationship: % row(s) migrated so far (% seconds elapsed)',
+			rows_inserted,
+			round(extract(epoch from clock_timestamp() - started_at)::numeric, 1);
+	END LOOP;
+
+	RAISE NOTICE 'metadata_group -> relationship: % row(s) migrated total (% seconds elapsed)',
+		rows_inserted,
+		round(extract(epoch from clock_timestamp() - started_at)::numeric, 1);
 END $$;
 `;
 
