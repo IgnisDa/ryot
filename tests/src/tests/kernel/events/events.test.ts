@@ -142,20 +142,20 @@ describe("Events bulk POST", () => {
 
 			yield* waitForEventCount(apiClient, entityId, 2);
 
-			const allEvents = yield* listEventsForEntity(apiClient, entityId, 1, 100);
+			const allEvents = yield* listEventsForEntity(apiClient, entityId, undefined, 100);
 			expect(allEvents).toHaveLength(2);
 
-			const progressEvents = yield* listEventsForEntity(apiClient, entityId, 1, 100, {
+			const progressEvents = yield* listEventsForEntity(apiClient, entityId, undefined, 100, {
 				eventSchemaSlug: "progress",
 			});
 			expect(progressEvents.map((event) => event.eventSchemaSlug)).toEqual(["progress"]);
 
-			const completeEvents = yield* listEventsForEntity(apiClient, entityId, 1, 100, {
+			const completeEvents = yield* listEventsForEntity(apiClient, entityId, undefined, 100, {
 				eventSchemaSlug: "complete",
 			});
 			expect(completeEvents.map((event) => event.eventSchemaSlug)).toEqual(["complete"]);
 
-			const missingEvents = yield* listEventsForEntity(apiClient, entityId, 1, 100, {
+			const missingEvents = yield* listEventsForEntity(apiClient, entityId, undefined, 100, {
 				eventSchemaSlug: "nonexistent",
 			});
 			expect(missingEvents).toEqual([]);

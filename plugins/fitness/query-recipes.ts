@@ -106,14 +106,14 @@ const workoutInclude = (parent: Table, limit: number) => {
 
 export const buildExerciseListQueryDocument = (input: {
 	name?: string | undefined;
-	page?: number | undefined;
+	after?: string | undefined;
 	limit?: number | undefined;
 	entityId?: string | undefined;
 }) => {
 	const entity = table("entity", entityAlias);
 	return document({
 		exercises: rows(entity, {
-			page: input.page,
+			after: input.after,
 			limit: input.limit,
 			where: entityWhere(entity, "exercise", input),
 			orderBy: [ascending(column(entity, "name"))],
@@ -129,14 +129,14 @@ export const buildExerciseListQueryDocument = (input: {
 };
 
 export const buildWorkoutListQueryDocument = (input: {
-	page?: number | undefined;
+	after?: string | undefined;
 	limit?: number | undefined;
 	entityId?: string | undefined;
 }) => {
 	const entity = table("entity", entityAlias);
 	return document({
 		workouts: rows(entity, {
-			page: input.page,
+			after: input.after,
 			limit: input.limit,
 			fields: workoutFields(entity),
 			where: entityWhere(entity, "workout", input),
@@ -146,14 +146,14 @@ export const buildWorkoutListQueryDocument = (input: {
 };
 
 export const buildMeasurementListQueryDocument = (input: {
-	page?: number | undefined;
+	after?: string | undefined;
 	limit?: number | undefined;
 	entityId?: string | undefined;
 }) => {
 	const entity = table("entity", entityAlias);
 	return document({
 		measurements: rows(entity, {
-			page: input.page,
+			after: input.after,
 			limit: input.limit,
 			where: entityWhere(entity, "measurement", input),
 			orderBy: [ascending(column(entity, "name"))],
@@ -167,14 +167,14 @@ export const buildMeasurementListQueryDocument = (input: {
 };
 
 export const buildWorkoutTemplateListQueryDocument = (input: {
-	page?: number | undefined;
+	after?: string | undefined;
 	limit?: number | undefined;
 	entityId?: string | undefined;
 }) => {
 	const entity = table("entity", entityAlias);
 	return document({
 		workoutTemplates: rows(entity, {
-			page: input.page,
+			after: input.after,
 			limit: input.limit,
 			fields: workoutTemplateFields(entity),
 			where: entityWhere(entity, "workout-template", input),

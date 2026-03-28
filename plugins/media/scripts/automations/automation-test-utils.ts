@@ -156,12 +156,15 @@ const ryotqlField = (key: string, value: unknown) => {
 export const ryotqlRows = (
 	queryName: string,
 	records: readonly Record<string, unknown>[],
-	pageInfo: { readonly hasMore: boolean; readonly page: number } = { hasMore: false, page: 1 },
+	pageInfo: { readonly hasMore: boolean; readonly nextCursor: string | null } = {
+		hasMore: false,
+		nextCursor: null,
+	},
 ) => ({
 	data: {
 		[queryName]: {
 			type: "rows" as const,
-			pageInfo: { limit: 100, total: records.length, ...pageInfo },
+			pageInfo: { limit: 100, ...pageInfo },
 			items: records.map((record) => {
 				const values =
 					queryName === "events"

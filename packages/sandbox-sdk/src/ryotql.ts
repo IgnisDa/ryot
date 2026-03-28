@@ -54,10 +54,9 @@ export const ryotqlRowsResultSchema = <A, I>(item: Schema.Codec<A, I>) =>
 		items: Schema.Array(item),
 		type: Schema.Literal("rows"),
 		pageInfo: strictStruct({
-			page: Schema.Int,
 			limit: Schema.Int,
-			total: Schema.Int,
 			hasMore: Schema.Boolean,
+			nextCursor: Schema.NullOr(Schema.String),
 		}),
 	});
 

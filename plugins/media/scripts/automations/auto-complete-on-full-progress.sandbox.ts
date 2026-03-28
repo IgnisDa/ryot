@@ -151,27 +151,25 @@ const getProgressEventPage = (
 	host: AutomationHost,
 	entityId: string,
 	entitySchemaSlug: string,
-	page: number,
+	after: string | undefined,
 ) =>
 	host
 		.executeRyotql(
-			buildEventReadDocument({ page, entityId, entitySchemaSlug, eventSchemaSlug: "progress" }),
+			buildEventReadDocument({ after, entityId, entitySchemaSlug, eventSchemaSlug: "progress" }),
 		)
 		.pipe(Effect.map(decodeProgressEventsPage));
 
 const getProgressEvents = (host: AutomationHost, entityId: string, entitySchemaSlug: string) =>
 	Effect.gen(function* () {
 		const events = new Map<string, MediaProgressEvent>();
-		let page = 1;
-		let hasMore: boolean;
+		let after: string | undefined;
 		do {
-			const result = yield* getProgressEventPage(host, entityId, entitySchemaSlug, page);
+			const result = yield* getProgressEventPage(host, entityId, entitySchemaSlug, after);
 			for (const event of result.events) {
 				events.set(event.id, event);
 			}
-			hasMore = result.hasMore;
-			page += 1;
-		} while (hasMore);
+			after = result.nextCursor ?? undefined;
+		} while (after !== undefined);
 		return [...events.values()];
 	});
 

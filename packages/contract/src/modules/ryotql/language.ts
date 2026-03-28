@@ -316,8 +316,8 @@ export const Include: Schema.Codec<Include, unknown> = Schema.suspend(() =>
 ).annotate({ identifier: "RyotQLInclude" });
 
 export const Pagination = strictStruct({
-	page: Schema.Int.pipe(Schema.check(Schema.isGreaterThan(0))),
 	limit: Schema.Int.pipe(Schema.check(Schema.isGreaterThan(0))),
+	after: Schema.optional(Schema.NonEmptyString),
 }).annotate({ identifier: "RyotQLPagination" });
 export type Pagination = typeof Pagination.Type;
 
@@ -438,10 +438,9 @@ const RowValue: Schema.Codec<FieldValue | IncludeResult, unknown> = Schema.suspe
 ).annotate({ identifier: "RyotQLRowValue" });
 
 export const RowsPageInfo = strictStruct({
-	page: Schema.Int,
 	limit: Schema.Int,
-	total: Schema.Int,
 	hasMore: Schema.Boolean,
+	nextCursor: Schema.NullOr(Schema.String),
 }).annotate({ identifier: "RyotQLRowsPageInfo" });
 
 export const rowsResultSchema = <A, I>(item: Schema.Codec<A, I>) =>

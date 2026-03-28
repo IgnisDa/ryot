@@ -8,6 +8,7 @@ import {
 	JsonFieldValue,
 	NullFieldValue,
 	NumberFieldValue,
+	RowsPageInfo,
 	TextFieldValue,
 	rowsResultSchema,
 } from "@ryot/contract/modules/ryotql/language";
@@ -73,15 +74,8 @@ export const IntegrationSummary = strictStruct({
 });
 export type IntegrationSummary = typeof IntegrationSummary.Type;
 
-const IntegrationPageInfo = strictStruct({
-	page: Schema.Int,
-	limit: Schema.Int,
-	total: Schema.Int,
-	hasMore: Schema.Boolean,
-});
-
 export const IntegrationList = strictStruct({
-	pageInfo: IntegrationPageInfo,
+	pageInfo: RowsPageInfo,
 	items: Schema.Array(IntegrationSummary),
 });
 export type IntegrationList = typeof IntegrationList.Type;
@@ -143,7 +137,7 @@ const integrationFields = (integration: ReturnType<typeof table>) => [
 ];
 
 export const buildIntegrationsDocument = (input: {
-	readonly page: number;
+	readonly after?: string | undefined;
 	readonly limit: number;
 	readonly isDisabled?: boolean | undefined;
 	readonly provider?: IntegrationProvider | undefined;
@@ -160,7 +154,7 @@ export const buildIntegrationsDocument = (input: {
 
 	return document({
 		integrations: rows(integration, {
-			page: input.page,
+			after: input.after,
 			limit: input.limit,
 			fields: integrationFields(integration),
 			where: predicates.length > 0 ? and(...predicates) : undefined,

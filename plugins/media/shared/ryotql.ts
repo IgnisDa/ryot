@@ -68,13 +68,13 @@ export const decodeEntityReadResponse = (response: unknown): EntityRecord => {
 export const decodeProgressEventsPage = (response: unknown) => {
 	const result = decodeRyotqlQuery(response, "events", ryotqlRowsResultSchema(eventRowSchema));
 	return {
-		hasMore: result.pageInfo.hasMore,
 		events: result.items.map((row) => ({
 			id: row.id.value,
 			createdAt: row.createdAt.value,
 			occurredAt: row.occurredAt.value,
 			properties: row.properties.value,
 		})),
+		nextCursor: result.pageInfo.nextCursor,
 	};
 };
 

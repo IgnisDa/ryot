@@ -218,14 +218,14 @@ describe("Exercises E2E", () => {
 			yield* pollUntil(
 				"source workout set event",
 				Effect.gen(function* () {
-					const events = yield* listEventsForEntity(client, source.id, 1, 100);
+					const events = yield* listEventsForEntity(client, source.id, undefined, 100);
 					return events.length === 1 ? events : null;
 				}),
 			);
 
 			const result = yield* mergeUserState(client, { mergeFrom: source.id, mergeInto: target.id });
-			const sourceEvents = yield* listEventsForEntity(client, source.id, 1, 100);
-			const targetEvents = yield* listEventsForEntity(client, target.id, 1, 100);
+			const sourceEvents = yield* listEventsForEntity(client, source.id, undefined, 100);
+			const targetEvents = yield* listEventsForEntity(client, target.id, undefined, 100);
 
 			expect(result.movedEventsCount).toBe(1);
 			expect(sourceEvents).toHaveLength(0);

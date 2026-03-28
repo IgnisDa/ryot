@@ -106,9 +106,9 @@ describe("RyotQL relationship rows and includes", () => {
 				const joinedCourse = table("entity", "joinedCourse");
 				const membership = table("relationship", "membership");
 				const multipliedMembership = table("relationship", "multipliedMembership");
-				const multipliedPage = (page: number) =>
+				const multipliedPage = (after?: string) =>
 					rows(courseRoot, {
-						page,
+						after,
 						limit: 1,
 						orderBy: [ascending(column(courseRoot, "id"))],
 						fields: [
@@ -152,8 +152,7 @@ describe("RyotQL relationship rows and includes", () => {
 								),
 							],
 						}),
-						multipliedPageOne: multipliedPage(1),
-						multipliedPageTwo: multipliedPage(2),
+						multiplied: multipliedPage(),
 					}),
 				);
 
@@ -169,16 +168,20 @@ describe("RyotQL relationship rows and includes", () => {
 				const firstMembership = memberships.items[0];
 				assertPresent(firstMembership, "Expected first membership");
 				expect(requireField(firstMembership, "courseName").value).toBe("Relationship Course");
-				const multipliedPageOne = requireRows(
-					result.data["multipliedPageOne"],
-					"multipliedPageOne",
+				const multipliedPageOne = requireRows(result.data["multiplied"], "multiplied");
+				expect(multipliedPageOne.pageInfo.nextCursor).not.toBeNull();
+				const next = yield* executeRyotQL(
+					client,
+					document({
+						multiplied: multipliedPage(multipliedPageOne.pageInfo.nextCursor ?? undefined),
+					}),
 				);
-				const multipliedPageTwo = requireRows(
-					result.data["multipliedPageTwo"],
-					"multipliedPageTwo",
-				);
-				expect(multipliedPageOne.pageInfo.total).toBe(2);
-				expect(multipliedPageTwo.pageInfo.total).toBe(2);
+				const multipliedPageTwo = requireRows(next.data["multiplied"], "multiplied");
+				expect(multipliedPageTwo.pageInfo).toEqual({
+					limit: 1,
+					hasMore: false,
+					nextCursor: null,
+				});
 				const multipliedItems = [multipliedPageOne, multipliedPageTwo].flatMap(
 					(page) => page.items,
 				);

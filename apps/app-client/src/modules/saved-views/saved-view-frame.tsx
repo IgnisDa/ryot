@@ -8,6 +8,7 @@ import { getNavigationHref } from "@/modules/navigation/navigation-data";
 import { useWorkspaceDrawer } from "@/modules/navigation/workspace-drawer";
 import { WorkspaceScrollFrame } from "@/modules/navigation/workspace-scroll-frame";
 
+import { savedViewLoadedCount } from "./result-count";
 import { SavedViewFilterSheet } from "./saved-view-filter-sheet";
 
 const TOP_BAR_HEIGHT = 44;
@@ -16,7 +17,7 @@ const TOP_BAR_WEB_HIDDEN = Platform.OS === "web" ? "md:hidden" : null;
 export function SavedViewFrame(props: {
 	viewSlug: string;
 	children: ReactNode;
-	title?: { icon: string; name: string; loaded: number; total: number };
+	title?: { icon: string; name: string; loaded: number; hasMore: boolean };
 }) {
 	const router = useRouter();
 	const drawer = useWorkspaceDrawer();
@@ -64,7 +65,7 @@ export function SavedViewFrame(props: {
 									</Text>
 								</View>
 								<Text className="font-ui text-[11px] text-text-muted">
-									{props.title.loaded.toLocaleString()} of {props.title.total.toLocaleString()}
+									{savedViewLoadedCount(props.title.loaded, props.title.hasMore)}
 								</Text>
 							</View>
 						)}

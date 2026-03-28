@@ -62,9 +62,9 @@ it("deduplicates paged targets and orchestrates bounded provider refresh batches
 	];
 	const result = await completeReplay((request) => {
 		if (request.kind === "activity") {
-			return request.name === "targets-1"
-				? { hasMore: true, items: firstPage }
-				: { hasMore: false, items: secondPage };
+			return request.name === "targets-0"
+				? { items: firstPage, nextCursor: "targets-cursor" }
+				: { items: secondPage, nextCursor: null };
 		}
 		return [];
 	});
@@ -74,8 +74,8 @@ it("deduplicates paged targets and orchestrates bounded provider refresh batches
 		(request): request is ActivityRequest => request.kind === "activity",
 	);
 	expect(activities.map(({ args, name }) => ({ name, input: args.input }))).toEqual([
-		{ name: "targets-1", input: { page: 1, limit: 100 } },
-		{ name: "targets-2", input: { page: 2, limit: 100 } },
+		{ name: "targets-0", input: { limit: 100 } },
+		{ name: "targets-1", input: { after: "targets-cursor", limit: 100 } },
 	]);
 	const children = result.requests.filter(
 		(request): request is ChildRequest => request.kind === "child",

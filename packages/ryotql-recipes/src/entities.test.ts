@@ -9,7 +9,7 @@ const entityInterestResponse = {
 	data: {
 		entities: {
 			type: "rows",
-			pageInfo: { hasMore: false, limit: 1, page: 1, total: 1 },
+			pageInfo: { hasMore: false, limit: 1, nextCursor: null },
 			items: [
 				{
 					id: { kind: "text", value: "entity-1" },
@@ -50,7 +50,7 @@ describe("entity recipes", () => {
 			"entities"
 		];
 
-		expect(query.output.pagination).toEqual({ page: 1, limit: 2 });
+		expect(query.output.pagination).toEqual({ limit: 2 });
 		expect(
 			query.output.fields.map((selection) => {
 				if (!("key" in selection)) {

@@ -232,7 +232,7 @@ export const buildShowDetailQueryDocument = (input: {
 };
 
 export const buildInProgressShowsQueryDocument = (input: {
-	readonly page?: number | undefined;
+	readonly after?: string | undefined;
 	readonly limit?: number | undefined;
 	readonly entityId?: string | undefined;
 }) => {
@@ -243,7 +243,7 @@ export const buildInProgressShowsQueryDocument = (input: {
 	const episodeRelationship = table("relationship", "watchingEpisodeRelationship");
 	return document({
 		shows: rows(entity, {
-			page: input.page,
+			after: input.after,
 			limit: input.limit,
 			fields: entityIdentityFields(entity),
 			where: withEntityFilter(
@@ -291,7 +291,7 @@ export const buildInProgressShowsQueryDocument = (input: {
 };
 
 export const buildCompletedShowsQueryDocument = (input: {
-	readonly page?: number | undefined;
+	readonly after?: string | undefined;
 	readonly limit?: number | undefined;
 	readonly entityId?: string | undefined;
 }) => {
@@ -310,7 +310,7 @@ export const buildCompletedShowsQueryDocument = (input: {
 	});
 	return document({
 		shows: rows(entity, {
-			page: input.page,
+			after: input.after,
 			limit: input.limit,
 			fields: entityIdentityFields(entity),
 			where: withEntityFilter(
@@ -367,7 +367,7 @@ export const buildPodcastDetailQueryDocument = (input: {
 
 const buildPodcastProgressDocument = (input: {
 	readonly completed: boolean;
-	readonly page?: number | undefined;
+	readonly after?: string | undefined;
 	readonly limit?: number | undefined;
 	readonly entityId?: string | undefined;
 }) => {
@@ -379,7 +379,7 @@ const buildPodcastProgressDocument = (input: {
 	);
 	return document({
 		podcasts: rows(entity, {
-			page: input.page,
+			after: input.after,
 			limit: input.limit,
 			fields: entityIdentityFields(entity),
 			where: withEntityFilter(
@@ -443,13 +443,13 @@ const buildPodcastProgressDocument = (input: {
 };
 
 export const buildInProgressPodcastsQueryDocument = (input: {
-	readonly page?: number | undefined;
+	readonly after?: string | undefined;
 	readonly limit?: number | undefined;
 	readonly entityId?: string | undefined;
 }) => buildPodcastProgressDocument({ ...input, completed: false });
 
 export const buildCompletedPodcastsQueryDocument = (input: {
-	readonly page?: number | undefined;
+	readonly after?: string | undefined;
 	readonly limit?: number | undefined;
 	readonly entityId?: string | undefined;
 }) => buildPodcastProgressDocument({ ...input, completed: true });
@@ -554,7 +554,7 @@ export const buildCollectionMediaSuggestionsQueryDocument = (input: {
 export const buildTrendingMediaQueryDocument = (input: {
 	readonly fetchedAt: string;
 	readonly entitySchemaSlug: string;
-	readonly page?: number | undefined;
+	readonly after?: string | undefined;
 	readonly limit?: number | undefined;
 }) => {
 	const relationship = table("relationship", "relationship");
@@ -564,7 +564,7 @@ export const buildTrendingMediaQueryDocument = (input: {
 	const fetchedAt = castDate(jsonPath(column(relationship, "properties"), "fetchedAt"));
 	return document({
 		trending: rows(relationship, {
-			page: input.page,
+			after: input.after,
 			limit: input.limit,
 			orderBy: [ascending(rank), descending(column(target, "updatedAt"))],
 			fields: [...entityIdentityFields(target), field("rank", rank), field("fetchedAt", fetchedAt)],
@@ -583,7 +583,7 @@ export const buildTrendingMediaQueryDocument = (input: {
 };
 
 export const buildDefaultMediaSavedViewQueryDocument = (input: {
-	readonly page?: number | undefined;
+	readonly after?: string | undefined;
 	readonly limit?: number | undefined;
 	readonly schemas: readonly [string, ...string[]];
 	readonly orderBy?: readonly OrderBy[] | undefined;
@@ -594,7 +594,7 @@ export const buildDefaultMediaSavedViewQueryDocument = (input: {
 	const membership = table("relationship", "inLibrary");
 
 	return buildSavedViewDocument({
-		page: input.page,
+		after: input.after,
 		limit: input.limit,
 		orderBy: input.orderBy,
 		entitySchemaSlugs: input.schemas,

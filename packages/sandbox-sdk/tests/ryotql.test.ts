@@ -16,7 +16,7 @@ const rowsResponse = {
 	data: {
 		entities: {
 			type: "rows" as const,
-			pageInfo: { page: 1, limit: 20, total: 1, hasMore: false },
+			pageInfo: { limit: 20, hasMore: false, nextCursor: null },
 			items: [{ id: { kind: "text" as const, value: "entity-1" } }],
 		},
 	},
@@ -30,7 +30,7 @@ describe("RyotQL sandbox SDK", () => {
 		).toMatchObject({ queries: { entities: { from: entity } } });
 		expect(buildEntityReadDocument({ entityIds: ["entity-1"] })).toMatchObject({
 			queries: {
-				entities: { from: entity, output: { type: "rows", pagination: { page: 1, limit: 100 } } },
+				entities: { from: entity, output: { type: "rows", pagination: { limit: 100 } } },
 			},
 		});
 	});
@@ -41,6 +41,19 @@ describe("RyotQL sandbox SDK", () => {
 		]);
 		expect(() =>
 			ryotqlRows({ type: "rows", data: rowsResponse.data.entities }, "entities"),
+		).toThrow();
+		expect(() =>
+			ryotqlRows(
+				{
+					data: {
+						entities: {
+							...rowsResponse.data.entities,
+							pageInfo: { limit: 20, hasMore: false, nextCursor: null, total: 1 },
+						},
+					},
+				},
+				"entities",
+			),
 		).toThrow();
 		expect(() =>
 			ryotqlRows(
