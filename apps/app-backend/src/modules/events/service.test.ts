@@ -236,6 +236,28 @@ describe("createEvent", () => {
 			message: "Entity id is required",
 		});
 	});
+
+	it("creates a built-in backlog event when the schema matches", async () => {
+		const createdEvent = expectDataResult(
+			await createEvent(
+				{ userId: "user_1", body: createEventBody({ properties: {} }) },
+				createEventDeps({
+					getEventCreateScopeForUser: async (input) =>
+						createEventCreateScope({
+							isBuiltin: true,
+							propertiesSchema: {},
+							entityId: input.entityId,
+							eventSchemaSlug: "backlog",
+							eventSchemaName: "Backlog",
+							eventSchemaId: input.eventSchemaId,
+						}),
+				}),
+			),
+		);
+
+		expect(createdEvent.eventSchemaSlug).toBe("backlog");
+		expect(createdEvent.properties).toEqual({});
+	});
 });
 
 describe("createEvents", () => {

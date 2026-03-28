@@ -30,13 +30,35 @@ describe("resolveEventCreateAccess", () => {
 		).toEqual({ error: "event_schema_mismatch" });
 	});
 
+	it("allows built-in entity schemas when the event schema matches", () => {
+		expect(
+			resolveEventCreateAccess(
+				createEventCreateScope({
+					isBuiltin: true,
+					propertiesSchema: {},
+					eventSchemaSlug: "backlog",
+					eventSchemaName: "Backlog",
+				}),
+			),
+		).toEqual({
+			access: {
+				entityId: "entity_1",
+				propertiesSchema: {},
+				eventSchemaSlug: "backlog",
+				eventSchemaName: "Backlog",
+				entitySchemaId: "schema_1",
+				eventSchemaId: "event_schema_1",
+			},
+		});
+	});
+
 	it("returns the resolved scope when the event schema matches", () => {
 		const scope = createEventCreateScope({
 			entityId: "entity-1",
-			entitySchemaId: "schema-1",
-			eventSchemaId: "event-schema-1",
 			eventSchemaSlug: "log",
 			eventSchemaName: "Log",
+			entitySchemaId: "schema-1",
+			eventSchemaId: "event-schema-1",
 			eventSchemaEntitySchemaId: "schema-1",
 			propertiesSchema: { rating: { type: "number" as const } },
 		});
