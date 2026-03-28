@@ -4,8 +4,6 @@ import mediaPlugin from "@ryot/media-plugin";
 import { Effect } from "effect";
 import { assert, describe, expect, it } from "vitest";
 
-import { validateDisplayConfiguration } from "#modules/saved-views/display-configuration-validation";
-
 import { kernelDefinitionSource } from "./kernel-source";
 import {
 	buildDefinitionSnapshot,
@@ -97,31 +95,9 @@ describe("definition registry", () => {
 		expect(buildDefinitionSnapshot(definitionSourceFromSnapshot(snapshot))).toEqual(snapshot);
 	});
 
-	it("validates every kernel and plugin saved-view display configuration", () => {
+	it("validates every kernel and plugin saved view before snapshot admission", () => {
 		const source = pluginDefinitionSource();
-		const schemaBySlug = new Map(source.entitySchemas.map((schema) => [schema.slug, schema]));
-		expect(
-			source.savedViews.find(({ slug }) => slug === "collections")?.displayConfiguration.table
-				.columns,
-		).toHaveLength(1);
-		return Effect.runPromise(
-			Effect.forEach(
-				source.savedViews,
-				(view) =>
-					validateDisplayConfiguration({
-						displayConfig: view.displayConfiguration,
-						loadSchemas: (slugs) =>
-							Effect.sync(() =>
-								slugs.map((slug) => {
-									const schema = schemaBySlug.get(slug);
-									assert(schema, `Missing entity schema for ${slug}`);
-									return { slug, propertiesSchema: schema.propertiesSchema };
-								}),
-							),
-					}),
-				{ discard: true },
-			),
-		);
+		expect(() => buildDefinitionSnapshot(source)).not.toThrow();
 	});
 
 	it("fails fast on forbidden slugs and dangling references", () => {
@@ -145,6 +121,18 @@ describe("definition registry", () => {
 				savedViews: [{ ...savedView }, ...source.savedViews],
 			}),
 		).toThrow(/Duplicate saved view slug/);
+		expect(() =>
+			buildDefinitionSnapshot({
+				...source,
+				savedViews: [
+					{
+						...savedView,
+						displayConfiguration: { ...savedView.displayConfiguration, entityIdField: "missing" },
+					},
+					...source.savedViews.slice(1),
+				],
+			}),
+		).toThrow(/Invalid saved view collections.*missing/);
 		expect(() =>
 			buildDefinitionSnapshot({
 				...source,

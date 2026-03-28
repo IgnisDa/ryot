@@ -35,6 +35,7 @@ export type LiteralExpression = typeof LiteralExpression.Type;
 const JsonPathSegment = Schema.Union([Schema.String, Schema.Number]);
 const CastTarget = Schema.Literals(["boolean", "date", "json", "number", "text"]);
 const JsonPath = Schema.NonEmptyArray(JsonPathSegment);
+const TransformName = Schema.Literals(["kebabCase", "titleCase"]);
 
 export type CorrelatedQuerySet = {
 	readonly from: TableReference;
@@ -57,7 +58,12 @@ export type ExistsExpression = {
 
 export type ScalarExpression =
 	| ColumnExpression
+	| ExistsExpression
 	| LiteralExpression
+	| { readonly type: "floor"; readonly expr: ScalarExpression }
+	| { readonly type: "round"; readonly expr: ScalarExpression }
+	| { readonly type: "integer"; readonly expr: ScalarExpression }
+	| { readonly type: "isNotNull"; readonly expr: ScalarExpression }
 	| {
 			readonly type: "cast";
 			readonly expr: ScalarExpression;
@@ -72,7 +78,21 @@ export type ScalarExpression =
 			readonly type: "coalesce";
 			readonly values: readonly [ScalarExpression, ...ScalarExpression[]];
 	  }
-	| ExistsExpression
+	| {
+			readonly type: "concat";
+			readonly values: readonly [ScalarExpression, ...ScalarExpression[]];
+	  }
+	| {
+			readonly type: "conditional";
+			readonly condition: Predicate;
+			readonly whenTrue: ScalarExpression;
+			readonly whenFalse: ScalarExpression;
+	  }
+	| {
+			readonly type: "transform";
+			readonly expr: ScalarExpression;
+			readonly name: typeof TransformName.Type;
+	  }
 	| {
 			readonly type: "arithmetic";
 			readonly left: ScalarExpression;
@@ -124,15 +144,30 @@ export const ScalarExpression: Schema.Codec<ScalarExpression, unknown> = Schema.
 			values: Schema.NonEmptyArray(ScalarExpression),
 		}),
 		strictStruct({
+			type: Schema.Literal("concat"),
+			values: Schema.NonEmptyArray(ScalarExpression),
+		}),
+		strictStruct({
+			condition: Predicate,
+			whenTrue: ScalarExpression,
+			whenFalse: ScalarExpression,
+			type: Schema.Literal("conditional"),
+		}),
+		strictStruct({
 			target: CastTarget,
 			expr: ScalarExpression,
 			type: Schema.Literal("cast"),
 		}),
 		strictStruct({
-			path: JsonPath,
+			name: TransformName,
 			expr: ScalarExpression,
-			type: Schema.Literal("jsonPath"),
+			type: Schema.Literal("transform"),
 		}),
+		strictStruct({ expr: ScalarExpression, type: Schema.Literal("floor") }),
+		strictStruct({ expr: ScalarExpression, type: Schema.Literal("integer") }),
+		strictStruct({ expr: ScalarExpression, type: Schema.Literal("isNotNull") }),
+		strictStruct({ expr: ScalarExpression, type: Schema.Literal("round") }),
+		strictStruct({ path: JsonPath, expr: ScalarExpression, type: Schema.Literal("jsonPath") }),
 		strictStruct({
 			query: CorrelatedQuerySet,
 			aggregation: AggregationSpec,
@@ -216,8 +251,13 @@ export const Join = strictStruct({
 }).annotate({ identifier: "RyotQLJoin" });
 export type Join = typeof Join.Type;
 
+export const OutputFieldKey = Schema.NonEmptyString.annotate({
+	identifier: "RyotQLOutputFieldKey",
+});
+export type OutputFieldKey = typeof OutputFieldKey.Type;
+
 export const FieldSelection = strictStruct({
-	key: Schema.String,
+	key: OutputFieldKey,
 	expr: ScalarExpression,
 }).annotate({ identifier: "RyotQLFieldSelection" });
 export type FieldSelection = typeof FieldSelection.Type;
@@ -275,10 +315,11 @@ export const Include: Schema.Codec<Include, unknown> = Schema.suspend(() =>
 	}),
 ).annotate({ identifier: "RyotQLInclude" });
 
-const Pagination = strictStruct({
+export const Pagination = strictStruct({
 	page: Schema.Int.pipe(Schema.check(Schema.isGreaterThan(0))),
 	limit: Schema.Int.pipe(Schema.check(Schema.isGreaterThan(0))),
 }).annotate({ identifier: "RyotQLPagination" });
+export type Pagination = typeof Pagination.Type;
 
 export const RowsOutput = strictStruct({
 	pagination: Pagination,
