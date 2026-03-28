@@ -1,8 +1,10 @@
-import { useQueries } from "@tanstack/react-query";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useQueryClient } from "@tanstack/react-query";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { AppEntitySchema } from "#/features/entity-schemas/model";
 import { useApiClient } from "#/hooks/api";
+import type { ApiPostResponseData } from "#/lib/api/types";
 import { getErrorMessage } from "#/lib/errors";
+import { createEntityRuntimeRequest } from "./model";
 
 export type SearchResultItem = {
 	identifier: string;
@@ -23,14 +25,23 @@ type SearchState = {
 	error: string | null;
 	nextPage: number | null;
 	results: SearchResultItem[] | null;
-	request: { jobId: string; page: number } | null;
 };
+
+type SearchResultDetails = {
+	name: string;
+	externalId: string;
+	properties: {
+		[key: string]: unknown;
+		assets?: { remoteImages?: string[] };
+	};
+};
+
+type EnsuredEntity = ApiPostResponseData<"/entities">;
 
 type AddItemState = {
 	status: AddStatus;
 	error: string | null;
-	jobId: string | null;
-	detailsScriptId: string | null;
+	entity: EnsuredEntity | null;
 };
 
 type AddState = Record<string, AddItemState>;
@@ -38,7 +49,6 @@ type AddState = Record<string, AddItemState>;
 const initialSearchState: SearchState = {
 	page: 1,
 	error: null,
-	request: null,
 	results: null,
 	totalItems: 0,
 	nextPage: null,
@@ -46,191 +56,223 @@ const initialSearchState: SearchState = {
 
 const initialAddItemState = (): AddItemState => ({
 	error: null,
-	jobId: null,
+	entity: null,
 	status: "idle",
-	detailsScriptId: null,
 });
 
 const POLL_MS = 500;
+const SANDBOX_TIMEOUT_MS = 30000;
+const cancelledRequestMessage = "Request was cancelled";
 
-const sandboxRefetchInterval = (query: unknown) => {
-	const status = (query as { state: { data?: { data?: { status?: string } } } })
-		.state.data?.data?.status;
-	return status === "pending" ? POLL_MS : (false as const);
-};
+const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
-export function useEntitySearch(props: {
-	onEntityAdded: () => void;
-	entitySchema: AppEntitySchema;
-}) {
+export function isCancelledEntitySearchError(error: unknown) {
+	return getErrorMessage(error) === cancelledRequestMessage;
+}
+
+export function useEntitySearch(props: { entitySchema: AppEntitySchema }) {
 	const apiClient = useApiClient();
+	const queryClient = useQueryClient();
+
+	const inFlightEntityLoadsRef = useRef(
+		new Map<string, Promise<EnsuredEntity>>(),
+	);
+	const isMountedRef = useRef(true);
+	const sessionVersionRef = useRef(0);
 
 	const [query, setQuery] = useState("");
 	const [addState, setAddState] = useState<AddState>({});
 	const [searchState, setSearchState] = useState(initialSearchState);
 	const [selectedProviderIndex, setSelectedProviderIndex] = useState(0);
+	const [isSearching, setIsSearching] = useState(false);
 
 	const createEntity = apiClient.useMutation("post", "/entities");
 	const enqueueSearch = apiClient.useMutation("post", "/sandbox/enqueue");
 	const enqueueDetails = apiClient.useMutation("post", "/sandbox/enqueue");
-
-	const searchResultQuery = apiClient.useQuery(
-		"get",
-		"/sandbox/result/{jobId}",
-		{ params: { path: { jobId: searchState.request?.jobId ?? "" } } },
-		{
-			enabled: !!searchState.request?.jobId,
-			refetchInterval: sandboxRefetchInterval,
-		},
-	);
-
-	const isSearching = enqueueSearch.isPending || !!searchState.request;
+	const entityListQueryKey = apiClient.queryOptions(
+		"post",
+		"/view-runtime/execute",
+		{ body: createEntityRuntimeRequest(props.entitySchema.slug) },
+	).queryKey;
 
 	useEffect(() => {
-		const result = searchResultQuery.data?.data;
-		if (!searchState.request || !result || result.status === "pending") {
-			return;
-		}
-
-		if (result.status === "failed") {
-			setSearchState((prev) => ({
-				...prev,
-				request: null,
-				error: result.error ?? "Search script failed",
-			}));
-			return;
-		}
-
-		const value = result.value as {
-			items: SearchResultItem[];
-			details: { totalItems: number; nextPage: number | null };
+		return () => {
+			isMountedRef.current = false;
+			sessionVersionRef.current += 1;
 		};
-		setSearchState((prev) => ({
-			...prev,
-			request: null,
-			results: value.items ?? [],
-			page: prev.request?.page ?? prev.page,
-			nextPage: value.details?.nextPage ?? null,
-			totalItems: value.details?.totalItems ?? 0,
-		}));
-	}, [searchResultQuery.data?.data, searchState.request]);
+	}, []);
 
-	const addJobEntries = useMemo(
-		() =>
-			Object.entries(addState).filter(
-				([, item]) => item.jobId && item.detailsScriptId,
-			),
-		[addState],
+	const isActiveSession = useCallback((sessionVersion: number) => {
+		return isMountedRef.current && sessionVersion === sessionVersionRef.current;
+	}, []);
+
+	const assertActiveSession = useCallback(
+		(sessionVersion: number) => {
+			if (!isActiveSession(sessionVersion)) {
+				throw new Error(cancelledRequestMessage);
+			}
+		},
+		[isActiveSession],
 	);
 
-	const detailsQueries = useQueries({
-		queries: addJobEntries.map(([, item]) => ({
-			enabled: !!item.jobId,
-			refetchInterval: sandboxRefetchInterval,
-			...apiClient.queryOptions("get", "/sandbox/result/{jobId}", {
-				params: { path: { jobId: item.jobId ?? "" } },
-			}),
-		})),
-	});
+	const pollSandboxResult = useCallback(
+		async (jobId: string, sessionVersion: number) => {
+			const startedAt = Date.now();
 
-	useEffect(() => {
-		addJobEntries.forEach(([identifier, item], idx) => {
-			const result = detailsQueries[idx]?.data?.data;
-			if (
-				!result ||
-				!item.jobId ||
-				!item.detailsScriptId ||
-				result.status === "pending"
-			) {
-				return;
-			}
+			while (true) {
+				assertActiveSession(sessionVersion);
+				const result = await queryClient.fetchQuery({
+					...apiClient.queryOptions("get", "/sandbox/result/{jobId}", {
+						params: { path: { jobId } },
+					}),
+					staleTime: 0,
+				});
 
-			if (result.status === "failed") {
-				setAddState((prev) => ({
-					...prev,
-					[identifier]: {
-						...item,
-						jobId: null,
-						status: "error",
-						error: result.error ?? "Details script failed",
-					},
-				}));
-				return;
-			}
-
-			const schema = props.entitySchema;
-			const detailsValue = result.value as {
-				name: string;
-				externalId: string;
-				properties: {
-					[key: string]: unknown;
-					assets?: { remoteImages?: string[] };
-				};
-			};
-
-			const firstImage = detailsValue.properties?.assets?.remoteImages?.[0];
-			const image = firstImage
-				? { kind: "remote" as const, url: firstImage }
-				: null;
-
-			const properties: Record<string, unknown> = {};
-			for (const key of Object.keys(schema.propertiesSchema.fields)) {
-				if (detailsValue.properties[key] !== undefined) {
-					properties[key] = detailsValue.properties[key];
+				assertActiveSession(sessionVersion);
+				const data = result.data;
+				if (data?.status === "pending") {
+					if (Date.now() - startedAt >= SANDBOX_TIMEOUT_MS) {
+						throw new Error("Timed out waiting for sandbox result");
+					}
+					await sleep(POLL_MS);
+					continue;
 				}
+
+				return data;
+			}
+		},
+		[apiClient, assertActiveSession, queryClient],
+	);
+
+	const ensureItemEntity = useCallback(
+		async (item: SearchResultItem) => {
+			const existingEntity = addState[item.identifier]?.entity;
+			if (existingEntity) {
+				return existingEntity;
 			}
 
-			setAddState((prev) => ({
-				...prev,
-				[identifier]: { ...item, jobId: null, error: null },
-			}));
+			const inFlight = inFlightEntityLoadsRef.current.get(item.identifier);
+			if (inFlight) {
+				return inFlight;
+			}
 
-			createEntity.mutate(
-				{
-					body: {
-						image,
-						properties,
-						name: detailsValue.name,
-						entitySchemaId: schema.id,
-						externalId: detailsValue.externalId,
-						detailsSandboxScriptId: item.detailsScriptId,
-					},
-				},
-				{
-					onSuccess: () => {
-						setAddState((prev) => ({
-							...prev,
-							[identifier]: {
-								error: null,
-								jobId: null,
-								status: "done",
-								detailsScriptId: null,
-								...prev[identifier],
-							},
-						}));
-						props.onEntityAdded();
-					},
-					onError: (err) => {
-						setAddState((prev) => ({
-							...prev,
-							[identifier]: {
-								...initialAddItemState(),
-								...prev[identifier],
-								status: "error",
-								error: getErrorMessage(err),
-							},
-						}));
-					},
-				},
-			);
-		});
-	}, [
-		createEntity,
-		detailsQueries,
-		addJobEntries,
-		props.entitySchema,
-		props.onEntityAdded,
-	]);
+			const provider =
+				props.entitySchema.searchProviders[selectedProviderIndex];
+			if (!provider) {
+				throw new Error("Search provider is unavailable");
+			}
+			const sessionVersion = sessionVersionRef.current;
+
+			const entityPromise = (async () => {
+				if (isActiveSession(sessionVersion)) {
+					setAddState((prev) => ({
+						...prev,
+						[item.identifier]: {
+							...initialAddItemState(),
+							...prev[item.identifier],
+							status: "loading",
+							error: null,
+						},
+					}));
+				}
+
+				try {
+					assertActiveSession(sessionVersion);
+					const enqueueResult = await enqueueDetails.mutateAsync({
+						body: {
+							kind: "script",
+							scriptId: provider.detailsScriptId,
+							context: { identifier: item.identifier },
+						},
+					});
+					const jobId = enqueueResult.data?.jobId;
+					if (!jobId) {
+						throw new Error("Failed to enqueue details script");
+					}
+
+					const detailsResult = await pollSandboxResult(jobId, sessionVersion);
+					if (!detailsResult) {
+						throw new Error("Details script did not finish");
+					}
+					if (detailsResult.status === "failed") {
+						throw new Error(detailsResult.error ?? "Details script failed");
+					}
+
+					const detailsValue = detailsResult.value as SearchResultDetails;
+					const firstImage = detailsValue.properties?.assets?.remoteImages?.[0];
+					const image = firstImage
+						? { kind: "remote" as const, url: firstImage }
+						: null;
+
+					const properties: Record<string, unknown> = {};
+					for (const key of Object.keys(
+						props.entitySchema.propertiesSchema.fields,
+					)) {
+						if (detailsValue.properties[key] !== undefined) {
+							properties[key] = detailsValue.properties[key];
+						}
+					}
+
+					const createResult = await createEntity.mutateAsync({
+						body: {
+							image,
+							properties,
+							name: detailsValue.name,
+							externalId: detailsValue.externalId,
+							entitySchemaId: props.entitySchema.id,
+							detailsSandboxScriptId: provider.detailsScriptId,
+						},
+					});
+					const entity = createResult.data;
+					if (!entity) {
+						throw new Error("Failed to create entity");
+					}
+					assertActiveSession(sessionVersion);
+
+					setAddState((prev) => ({
+						...prev,
+						[item.identifier]: { entity, error: null, status: "done" },
+					}));
+					queryClient.invalidateQueries({ queryKey: entityListQueryKey });
+
+					return entity;
+				} catch (error) {
+					if (!isActiveSession(sessionVersion)) {
+						throw error;
+					}
+
+					const message = getErrorMessage(error);
+					setAddState((prev) => ({
+						...prev,
+						[item.identifier]: {
+							...initialAddItemState(),
+							...prev[item.identifier],
+							error: message,
+							status: "error",
+						},
+					}));
+					throw error;
+				} finally {
+					inFlightEntityLoadsRef.current.delete(item.identifier);
+				}
+			})();
+
+			inFlightEntityLoadsRef.current.set(item.identifier, entityPromise);
+			return entityPromise;
+		},
+		[
+			addState,
+			queryClient,
+			createEntity,
+			enqueueDetails,
+			isActiveSession,
+			pollSandboxResult,
+			props.entitySchema,
+			entityListQueryKey,
+			assertActiveSession,
+			selectedProviderIndex,
+		],
+	);
 
 	const runSearch = useCallback(
 		async (searchPage: number) => {
@@ -239,36 +281,65 @@ export function useEntitySearch(props: {
 			if (!provider || !query.trim()) {
 				return;
 			}
+			const sessionVersion = sessionVersionRef.current;
 
-			setSearchState((prev) => ({ ...prev, error: null, request: null }));
+			setIsSearching(true);
+			setSearchState((prev) => ({ ...prev, error: null }));
 
 			try {
-				const result = await enqueueSearch.mutateAsync({
+				assertActiveSession(sessionVersion);
+				const enqueueResult = await enqueueSearch.mutateAsync({
 					body: {
 						kind: "script",
 						scriptId: provider.searchScriptId,
 						context: { page: searchPage, query, pageSize: 10 },
 					},
 				});
-				const jobId = result.data?.jobId;
+				const jobId = enqueueResult.data?.jobId;
 				if (!jobId) {
 					throw new Error("Failed to enqueue search script");
 				}
-				setSearchState((prev) => ({
-					...prev,
-					request: { jobId, page: searchPage },
-				}));
-			} catch (err) {
-				setSearchState((prev) => ({
-					...prev,
-					request: null,
-					error: getErrorMessage(err),
-				}));
+
+				const result = await pollSandboxResult(jobId, sessionVersion);
+				if (!result) {
+					throw new Error("Search script did not finish");
+				}
+				if (result.status === "failed") {
+					throw new Error(result.error ?? "Search script failed");
+				}
+
+				const value = result.value as {
+					items: SearchResultItem[];
+					details: { totalItems: number; nextPage: number | null };
+				};
+
+				assertActiveSession(sessionVersion);
+				setSearchState({
+					error: null,
+					page: searchPage,
+					results: value.items ?? [],
+					nextPage: value.details?.nextPage ?? null,
+					totalItems: value.details?.totalItems ?? 0,
+				});
+			} catch (error) {
+				if (isActiveSession(sessionVersion)) {
+					setSearchState((prev) => ({
+						...prev,
+						error: getErrorMessage(error),
+					}));
+				}
+			} finally {
+				if (isActiveSession(sessionVersion)) {
+					setIsSearching(false);
+				}
 			}
 		},
 		[
 			query,
 			enqueueSearch,
+			isActiveSession,
+			pollSandboxResult,
+			assertActiveSession,
 			selectedProviderIndex,
 			props.entitySchema.searchProviders,
 		],
@@ -276,7 +347,12 @@ export function useEntitySearch(props: {
 
 	const search = useCallback(() => void runSearch(1), [runSearch]);
 
-	const clearSearch = useCallback(() => setSearchState(initialSearchState), []);
+	const clearSearch = useCallback(() => {
+		sessionVersionRef.current += 1;
+		setSearchState(initialSearchState);
+		setAddState({});
+		setIsSearching(false);
+	}, []);
 
 	const goToPage = useCallback(
 		(newPage: number) => void runSearch(newPage),
@@ -285,57 +361,9 @@ export function useEntitySearch(props: {
 
 	const addItem = useCallback(
 		async (item: SearchResultItem) => {
-			const provider =
-				props.entitySchema.searchProviders[selectedProviderIndex];
-			if (!provider) {
-				return;
-			}
-
-			setAddState((prev) => ({
-				...prev,
-				[item.identifier]: {
-					error: null,
-					jobId: null,
-					status: "loading",
-					detailsScriptId: provider.detailsScriptId,
-				},
-			}));
-
-			try {
-				const result = await enqueueDetails.mutateAsync({
-					body: {
-						kind: "script",
-						scriptId: provider.detailsScriptId,
-						context: { identifier: item.identifier },
-					},
-				});
-				const jobId = result.data?.jobId;
-				if (!jobId) {
-					throw new Error("Failed to enqueue details script");
-				}
-				setAddState((prev) => ({
-					...prev,
-					[item.identifier]: {
-						...initialAddItemState(),
-						...prev[item.identifier],
-						jobId,
-						error: null,
-						status: "loading",
-					},
-				}));
-			} catch (err) {
-				setAddState((prev) => ({
-					...prev,
-					[item.identifier]: {
-						...initialAddItemState(),
-						...prev[item.identifier],
-						status: "error",
-						error: getErrorMessage(err),
-					},
-				}));
-			}
+			await ensureItemEntity(item);
 		},
-		[enqueueDetails, props.entitySchema.searchProviders, selectedProviderIndex],
+		[ensureItemEntity],
 	);
 
 	const addError = useMemo(
@@ -369,6 +397,7 @@ export function useEntitySearch(props: {
 		addStatus,
 		isSearching,
 		clearSearch,
+		ensureItemEntity,
 		selectedProviderIndex,
 		page: searchState.page,
 		setSelectedProviderIndex,
