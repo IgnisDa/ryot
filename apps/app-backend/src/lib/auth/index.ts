@@ -2,7 +2,7 @@ import { apiKey } from "@better-auth/api-key";
 import { redisStorage } from "@better-auth/redis-storage";
 import { betterAuth } from "better-auth";
 import { drizzleAdapter } from "better-auth/adapters/drizzle";
-import { config } from "~/lib/config";
+import { config, IS_DEVELOPMENT } from "~/lib/config";
 import { db, schema } from "~/lib/db";
 import { redis } from "~/lib/redis";
 
@@ -31,7 +31,12 @@ export const auth = betterAuth({
 			fallbackToDatabase: true,
 			storage: "secondary-storage",
 			enableSessionForAPIKeys: true,
-			rateLimit: { maxRequests: 60, timeWindow: 60 * 1000 }, // 60 RPS
+			// All keys will have a rate limit of 60 RPS in production
+			rateLimit: {
+				maxRequests: 60,
+				timeWindow: 60 * 1000,
+				enabled: !IS_DEVELOPMENT,
+			},
 		}),
 	],
 });
