@@ -16,7 +16,7 @@ describe("parsePropertySchemaInput", () => {
 	it("rejects an empty properties map", () => {
 		expect(() =>
 			parsePropertySchemaInput(
-				{},
+				{ fields: {} },
 				{ propertiesLabel: "Entity schema properties" },
 			),
 		).toThrow("Entity schema properties must contain at least one property");
@@ -27,7 +27,7 @@ describe("parsePropertySchemaInput", () => {
 			parsePropertySchemaInput([], {
 				propertiesLabel: "Event schema properties",
 			}),
-		).toThrow("Invalid input: expected record, received array");
+		).toThrow("Invalid input: expected object, received array");
 	});
 
 	it("rejects string inputs", () => {
@@ -35,16 +35,18 @@ describe("parsePropertySchemaInput", () => {
 			parsePropertySchemaInput('{"rating":{"type":"number"}}', {
 				propertiesLabel: "Entity schema properties",
 			}),
-		).toThrow("Invalid input: expected record, received string");
+		).toThrow("Invalid input: expected object, received string");
 	});
 
 	it("rejects extra keys on primitive properties", () => {
 		expect(() =>
 			parsePropertySchemaInput(
 				{
-					rating: {
-						...createOptionalRatingPropertiesSchema().rating,
-						items: {},
+					fields: {
+						rating: {
+							...createOptionalRatingPropertiesSchema().fields.rating,
+							items: {},
+						},
 					},
 				},
 				{ propertiesLabel: "Entity schema properties" },
@@ -56,9 +58,11 @@ describe("parsePropertySchemaInput", () => {
 		expect(() =>
 			parsePropertySchemaInput(
 				{
-					rating: {
-						...createOptionalRatingPropertiesSchema().rating,
-						required: false,
+					fields: {
+						rating: {
+							...createOptionalRatingPropertiesSchema().fields.rating,
+							validation: { required: false },
+						},
 					},
 				},
 				{ propertiesLabel: "Entity schema properties" },
@@ -70,10 +74,8 @@ describe("parsePropertySchemaInput", () => {
 		expect(() =>
 			parsePropertySchemaInput(
 				{
-					tags: {
-						type: "array",
-						properties: {},
-						items: { type: "string" },
+					fields: {
+						tags: { type: "array", properties: {}, items: { type: "string" } },
 					},
 				},
 				{ propertiesLabel: "Entity schema properties" },
@@ -83,10 +85,12 @@ describe("parsePropertySchemaInput", () => {
 		expect(() =>
 			parsePropertySchemaInput(
 				{
-					metadata: {
-						items: {},
-						type: "object",
-						properties: { title: { type: "string" } },
+					fields: {
+						metadata: {
+							items: {},
+							type: "object",
+							properties: { title: { type: "string" } },
+						},
 					},
 				},
 				{ propertiesLabel: "Entity schema properties" },

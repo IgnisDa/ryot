@@ -9,12 +9,14 @@ import {
 } from "~/lib/zod/base";
 import { createLabeledPropertySchemas } from "../property-schemas/schemas";
 
-export const entitySchemaPropertiesObjectSchema = createLabeledPropertySchemas(
+const entitySchemaProperties = createLabeledPropertySchemas(
 	"Entity schema properties",
-).schema;
+);
+
+export const entitySchemaPropertiesObjectSchema = entitySchemaProperties.schema;
 
 export const entitySchemaPropertiesInputSchema =
-	entitySchemaPropertiesObjectSchema;
+	entitySchemaProperties.inputSchema;
 
 export const searchProviderSchema = z.object({
 	name: z.string(),

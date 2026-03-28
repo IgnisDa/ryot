@@ -41,7 +41,7 @@ export function resolvePropertyType(
 		return null;
 	}
 
-	const propDef = schema.propertiesSchema[property];
+	const propDef = schema.propertiesSchema.fields[property];
 	if (!propDef) {
 		return null;
 	}

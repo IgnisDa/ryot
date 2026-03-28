@@ -19,7 +19,10 @@ describe("GeneratedPropertyField", () => {
 			disabled: false,
 			propertyKey: "completed",
 			form: { AppField: (() => null) as never },
-			propertyDef: { type: "boolean", required: true },
+			propertyDef: {
+				type: "boolean",
+				validation: { required: true },
+			},
 		});
 
 		expect(isValidElement(element)).toBe(true);

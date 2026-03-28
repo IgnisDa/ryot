@@ -107,7 +107,12 @@ describe("parseEventProperties", () => {
 
 	it("rejects wrong property types", () => {
 		const propertiesSchema = {
-			rating: { type: "number" as const, required: true as const },
+			fields: {
+				rating: {
+					type: "number" as const,
+					validation: { required: true as const },
+				},
+			},
 		};
 
 		expect(() =>
@@ -122,7 +127,7 @@ describe("parseEventProperties", () => {
 		expect(() =>
 			parseEventProperties({
 				properties: "bad",
-				propertiesSchema: { rating: { type: "number" as const } },
+				propertiesSchema: { fields: { rating: { type: "number" as const } } },
 			}),
 		).toThrow("Event properties must be a JSON object");
 	});
@@ -131,7 +136,7 @@ describe("parseEventProperties", () => {
 		expect(() =>
 			parseEventProperties({
 				properties: [],
-				propertiesSchema: { rating: { type: "number" as const } },
+				propertiesSchema: { fields: { rating: { type: "number" as const } } },
 			}),
 		).toThrow("Event properties must be a JSON object, not an array");
 	});
@@ -139,8 +144,8 @@ describe("parseEventProperties", () => {
 	it("rejects properties not declared in the schema", () => {
 		expect(() =>
 			parseEventProperties({
-				propertiesSchema: {},
 				properties: { extra: true },
+				propertiesSchema: { fields: {} },
 			}),
 		).toThrow("Event properties validation failed");
 	});
@@ -151,11 +156,8 @@ describe("resolveEventCreateInput", () => {
 		const propertiesSchema = createNoteAndRatingPropertiesSchema();
 
 		const input = resolveEventCreateInput({
-			isBuiltin: false,
 			propertiesSchema,
 			entityId: "  entity_123  ",
-			entitySchemaSlug: "custom",
-			eventSchemaSlug: "finished",
 			eventSchemaId: "  event_schema_123  ",
 			properties: { note: "Nice", rating: 4 },
 			occurredAt: " 2026-03-08T10:15:00.000Z ",
@@ -167,12 +169,9 @@ describe("resolveEventCreateInput", () => {
 		expect(input.properties).toEqual({ note: "Nice", rating: 4 });
 	});
 
-	it("normalizes progress properties for progress events", () => {
+	it("applies schema transforms before returning properties", () => {
 		const input = resolveEventCreateInput({
-			isBuiltin: true,
 			entityId: "entity_123",
-			entitySchemaSlug: "book",
-			eventSchemaSlug: "progress",
 			eventSchemaId: "event_schema_123",
 			occurredAt: "2026-03-08T10:15:00.000Z",
 			properties: { progressPercent: 25.555 },
@@ -182,27 +181,28 @@ describe("resolveEventCreateInput", () => {
 		expect(input.properties).toEqual({ progressPercent: 25.56 });
 	});
 
-	it("keeps custom progress event properties untouched", () => {
+	it("keeps properties untouched when the schema has no transform", () => {
 		const input = resolveEventCreateInput({
-			isBuiltin: false,
 			entityId: "entity_123",
-			entitySchemaSlug: "custom",
-			eventSchemaSlug: "progress",
 			eventSchemaId: "event_schema_123",
 			properties: { progressPercent: 100 },
 			occurredAt: "2026-03-08T10:15:00.000Z",
-			propertiesSchema: createProgressPercentPropertiesSchema(),
+			propertiesSchema: {
+				fields: {
+					progressPercent: {
+						type: "number" as const,
+						validation: { required: true as const },
+					},
+				},
+			},
 		});
 
 		expect(input.properties).toEqual({ progressPercent: 100 });
 	});
 
-	it("validates built-in review ratings while keeping optional review text", () => {
+	it("validates schema ranges while keeping optional text", () => {
 		const input = resolveEventCreateInput({
-			isBuiltin: true,
 			entityId: "entity_123",
-			entitySchemaSlug: "book",
-			eventSchemaSlug: "review",
 			eventSchemaId: "event_schema_123",
 			occurredAt: "2026-03-08T10:15:00.000Z",
 			properties: { review: "Loved it", rating: 5 },
@@ -269,7 +269,12 @@ describe("createEvent", () => {
 						eventSchemaId: input.eventSchemaId,
 						eventSchemaEntitySchemaId: "schema_2",
 						propertiesSchema: {
-							rating: { type: "number" as const, required: true },
+							fields: {
+								rating: {
+									type: "number" as const,
+									validation: { required: true as const },
+								},
+							},
 						},
 					}),
 			}),
@@ -304,11 +309,11 @@ describe("createEvent", () => {
 					getEventCreateScopeForUser: async (input) =>
 						createEventCreateScope({
 							isBuiltin: true,
-							propertiesSchema: {},
 							entityId: input.entityId,
 							entitySchemaSlug: "book",
 							eventSchemaSlug: "backlog",
 							eventSchemaName: "Backlog",
+							propertiesSchema: { fields: {} },
 							eventSchemaId: input.eventSchemaId,
 						}),
 				}),
@@ -353,11 +358,11 @@ describe("createEvent", () => {
 					getEventCreateScopeForUser: async (input) =>
 						createEventCreateScope({
 							isBuiltin: true,
-							propertiesSchema: {},
 							entityId: input.entityId,
 							entitySchemaSlug: "book",
 							eventSchemaName: "Complete",
 							eventSchemaSlug: "complete",
+							propertiesSchema: { fields: {} },
 							eventSchemaId: input.eventSchemaId,
 						}),
 				}),
@@ -378,11 +383,11 @@ describe("createEvent", () => {
 				getEventCreateScopeForUser: async (input) =>
 					createEventCreateScope({
 						isBuiltin: true,
-						propertiesSchema: {},
 						entityId: input.entityId,
 						entitySchemaSlug: "book",
 						eventSchemaName: "Complete",
 						eventSchemaSlug: "complete",
+						propertiesSchema: { fields: {} },
 						eventSchemaId: input.eventSchemaId,
 					}),
 			}),
@@ -416,7 +421,7 @@ describe("createEvent", () => {
 
 		expect(result).toEqual({
 			error: "validation",
-			message: "Progress percent must be greater than 0 and less than 100",
+			message: expect.stringContaining("Event properties validation failed"),
 		});
 	});
 
@@ -459,11 +464,11 @@ describe("createEvent", () => {
 				getEventCreateScopeForUser: async (input) =>
 					createEventCreateScope({
 						isBuiltin: true,
-						propertiesSchema: {},
 						entityId: input.entityId,
 						entitySchemaSlug: "book",
 						eventSchemaName: "Complete",
 						eventSchemaSlug: "complete",
+						propertiesSchema: { fields: {} },
 						eventSchemaId: input.eventSchemaId,
 					}),
 			}),
@@ -522,7 +527,7 @@ describe("createEvent", () => {
 
 		expect(result).toEqual({
 			error: "validation",
-			message: "Rating must be an integer between 1 and 5",
+			message: expect.stringContaining("Event properties validation failed"),
 		});
 	});
 

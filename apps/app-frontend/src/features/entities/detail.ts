@@ -84,7 +84,7 @@ export function getEntityDetailProperties(
 	propertiesSchema: AppSchema,
 	properties: Record<string, unknown>,
 ): EntityDetailProperty[] {
-	return Object.entries(propertiesSchema)
+	return Object.entries(propertiesSchema.fields)
 		.map(([key, propertyDef]) => {
 			const rawValue = properties[key];
 			const value = formatEntityDetailPropertyValue(propertyDef, rawValue);

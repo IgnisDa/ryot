@@ -327,9 +327,11 @@ describe("buildEntitySchemaPropertiesSchema", () => {
 				input({ key: "isOwned", type: "boolean" }),
 			]),
 		).toEqual({
-			title: { type: "string" },
-			rating: { type: "number" },
-			isOwned: { type: "boolean" },
+			fields: {
+				title: { type: "string" },
+				rating: { type: "number" },
+				isOwned: { type: "boolean" },
+			},
 		});
 	});
 
@@ -338,7 +340,7 @@ describe("buildEntitySchemaPropertiesSchema", () => {
 			buildEntitySchemaPropertiesSchema([
 				input({ key: "pages", type: "integer" }),
 			]),
-		).toEqual({ pages: { type: "integer" } });
+		).toEqual({ fields: { pages: { type: "integer" } } });
 	});
 
 	it("maps date rows and includes required flag when present", () => {
@@ -348,8 +350,10 @@ describe("buildEntitySchemaPropertiesSchema", () => {
 				input({ key: "summary" }),
 			]),
 		).toEqual({
-			summary: { type: "string" },
-			releasedOn: { type: "date", required: true },
+			fields: {
+				summary: { type: "string" },
+				releasedOn: { type: "date", validation: { required: true } },
+			},
 		});
 	});
 });
@@ -382,8 +386,10 @@ describe("toCreateEntitySchemaPayload", () => {
 			accentColor: "#5B7FFF",
 			trackerId: "tracker-123",
 			propertiesSchema: {
-				releasedOn: { type: "date", required: true },
-				rating: { type: "number" },
+				fields: {
+					rating: { type: "number" },
+					releasedOn: { type: "date", validation: { required: true } },
+				},
 			},
 		});
 	});
@@ -405,7 +411,7 @@ describe("toCreateEntitySchemaPayload", () => {
 			icon: "book-open",
 			accentColor: "#5B7FFF",
 			trackerId: "tracker-123",
-			propertiesSchema: { title: { type: "string" } },
+			propertiesSchema: { fields: { title: { type: "string" } } },
 		});
 	});
 });

@@ -1,5 +1,13 @@
-import type { AppPropertyDefinition, AppSchema } from "@ryot/ts-utils";
-import { fromAppSchema, trimmedOrUndefined } from "@ryot/ts-utils";
+import type {
+	AppPropertyDefinition,
+	AppSchema,
+	AppSchemaRuleCondition,
+} from "@ryot/ts-utils";
+import {
+	fromAppSchemaObject,
+	isAppPropertyRequired,
+	trimmedOrUndefined,
+} from "@ryot/ts-utils";
 import { z } from "zod";
 import type { ApiPostRequestBody } from "#/lib/api/types";
 import type { AppEventSchema } from "../event-schemas/model";
@@ -106,10 +114,10 @@ export const buildEventPropertyDefaults = (propertiesSchema: AppSchema) => {
 export function getUnsupportedRequiredEventProperties(
 	propertiesSchema: AppSchema,
 ) {
-	return Object.entries(propertiesSchema)
+	return Object.entries(propertiesSchema.fields)
 		.filter(
 			([, propertyDef]) =>
-				propertyDef.required && !isPrimitiveProperty(propertyDef),
+				isAppPropertyRequired(propertyDef) && !isPrimitiveProperty(propertyDef),
 		)
 		.map(([key]) => key);
 }
@@ -120,7 +128,7 @@ export function reconcileEventProperties(
 ) {
 	const properties: Record<string, unknown> = {};
 
-	for (const [key, propertyDef] of Object.entries(propertiesSchema)) {
+	for (const [key, propertyDef] of Object.entries(propertiesSchema.fields)) {
 		if (!isPrimitiveProperty(propertyDef)) {
 			continue;
 		}
@@ -132,7 +140,7 @@ export function reconcileEventProperties(
 		}
 
 		const defaultValue = getDefaultValue(propertyDef);
-		if (propertyDef.required && defaultValue !== undefined) {
+		if (isAppPropertyRequired(propertyDef) && defaultValue !== undefined) {
 			properties[key] = defaultValue;
 		}
 	}
@@ -201,7 +209,7 @@ export const buildDefaultEventFormValues = (
 		eventSchemaId: selectedEventSchema?.id ?? "",
 		occurredAt: formatOccurredAtInputValue(now.toISOString()),
 		properties: buildEventPropertyDefaults(
-			selectedEventSchema?.propertiesSchema ?? {},
+			selectedEventSchema?.propertiesSchema ?? { fields: {} },
 		),
 	};
 };
@@ -218,7 +226,7 @@ export function syncCreateEventFormValues(
 	return {
 		eventSchemaId: selectedEventSchema?.id ?? "",
 		properties: reconcileEventProperties(
-			selectedEventSchema?.propertiesSchema ?? {},
+			selectedEventSchema?.propertiesSchema ?? { fields: {} },
 			values.properties,
 		),
 	};
@@ -246,7 +254,7 @@ export function getEventFormReconciliationState(
 
 	return {
 		eventSchemaId: selectedEventSchema?.id ?? "",
-		propertiesSchema: selectedEventSchema?.propertiesSchema ?? {},
+		propertiesSchema: selectedEventSchema?.propertiesSchema ?? { fields: {} },
 	};
 }
 
@@ -304,21 +312,49 @@ function isValidPropertyValue(
 }
 
 const buildEventPropertiesSchema = (propertiesSchema: AppSchema) => {
-	const propertySchemas: Record<string, z.ZodType> = {};
+	const fields: AppSchema["fields"] = {};
+	const supportedKeys = new Set<string>();
 
-	for (const [key, propertyDef] of Object.entries(propertiesSchema)) {
+	for (const [key, propertyDef] of Object.entries(propertiesSchema.fields)) {
 		if (!isPrimitiveProperty(propertyDef)) {
 			continue;
 		}
 
-		const zodSchema = fromAppSchema(propertyDef);
-		propertySchemas[key] = propertyDef.required
-			? zodSchema
-			: zodSchema.optional();
+		supportedKeys.add(key);
+		fields[key] = propertyDef;
 	}
 
-	return z.object(propertySchemas);
+	return fromAppSchemaObject(
+		{
+			fields,
+			rules: propertiesSchema.rules?.filter(
+				(rule) =>
+					isSupportedPrimitiveRuleCondition(rule.when, supportedKeys) &&
+					rule.path.length === 1 &&
+					supportedKeys.has(rule.path[0] ?? ""),
+			),
+		},
+		{ unknownKeys: "strip" },
+	);
 };
+
+function isSupportedPrimitiveRuleCondition(
+	condition: AppSchemaRuleCondition,
+	supportedKeys: Set<string>,
+): boolean {
+	switch (condition.operator) {
+		case "all":
+		case "any":
+			return condition.conditions.every((value) =>
+				isSupportedPrimitiveRuleCondition(value, supportedKeys),
+			);
+		default:
+			return (
+				condition.path.length === 1 &&
+				supportedKeys.has(condition.path[0] ?? "")
+			);
+	}
+}
 
 function findEventSchema(
 	eventSchemas: AppEventSchema[],

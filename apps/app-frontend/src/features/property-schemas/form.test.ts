@@ -91,8 +91,10 @@ describe("buildPropertiesSchema", () => {
 				input({ key: "notes" }),
 			]),
 		).toEqual({
-			occurredOn: { type: "date", required: true },
-			notes: { type: "string" },
+			fields: {
+				notes: { type: "string" },
+				occurredOn: { type: "date", validation: { required: true } },
+			},
 		});
 	});
 });

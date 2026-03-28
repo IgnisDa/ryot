@@ -25,8 +25,10 @@ describe("buildDefaultEventFormValues", () => {
 					slug: "reading",
 					entitySchemaId: "entity-schema-1",
 					propertiesSchema: {
-						notes: { type: "string" },
-						pages: { type: "integer", required: true },
+						fields: {
+							notes: { type: "string" },
+							pages: { type: "integer", validation: { required: true } },
+						},
 					},
 				}),
 				createEventSchemaFixture({
@@ -53,14 +55,22 @@ describe("buildDefaultEventFormValues", () => {
 					name: "Reading",
 					slug: "reading",
 					entitySchemaId: "entity-schema-1",
-					propertiesSchema: { pages: { type: "integer", required: true } },
+					propertiesSchema: {
+						fields: {
+							pages: { type: "integer", validation: { required: true } },
+						},
+					},
 				}),
 				createEventSchemaFixture({
 					id: "schema-2",
 					name: "Finished",
 					slug: "finished",
 					entitySchemaId: "entity-schema-1",
-					propertiesSchema: { completed: { type: "boolean", required: true } },
+					propertiesSchema: {
+						fields: {
+							completed: { type: "boolean", validation: { required: true } },
+						},
+					},
 				}),
 			],
 			now,
@@ -80,14 +90,22 @@ describe("buildDefaultEventFormValues", () => {
 					name: "Reading",
 					slug: "reading",
 					entitySchemaId: "entity-schema-1",
-					propertiesSchema: { pages: { type: "integer", required: true } },
+					propertiesSchema: {
+						fields: {
+							pages: { type: "integer", validation: { required: true } },
+						},
+					},
 				}),
 				createEventSchemaFixture({
 					id: "schema-2",
 					name: "Finished",
 					slug: "finished",
 					entitySchemaId: "entity-schema-1",
-					propertiesSchema: { completed: { type: "boolean", required: true } },
+					propertiesSchema: {
+						fields: {
+							completed: { type: "boolean", validation: { required: true } },
+						},
+					},
 				}),
 			],
 			now,
@@ -107,16 +125,23 @@ describe("buildDefaultEventFormValues", () => {
 					slug: "reading",
 					entitySchemaId: "entity-schema-1",
 					propertiesSchema: {
-						pages: { type: "integer", required: true },
-						tags: {
-							type: "array",
-							required: true,
-							items: { type: "string" },
-						},
-						metadata: {
-							type: "object",
-							required: true,
-							properties: { rating: { type: "number", required: true } },
+						fields: {
+							pages: { type: "integer", validation: { required: true } },
+							tags: {
+								type: "array",
+								items: { type: "string" },
+								validation: { required: true },
+							},
+							metadata: {
+								type: "object",
+								validation: { required: true },
+								properties: {
+									rating: {
+										type: "number",
+										validation: { required: true },
+									},
+								},
+							},
 						},
 					},
 				}),
@@ -145,8 +170,10 @@ describe("buildCreateEventFormSchema", () => {
 			createEventSchemaFixture({
 				id: "schema-1",
 				propertiesSchema: {
-					minutes: { type: "number" },
-					completed: { type: "boolean", required: true },
+					fields: {
+						minutes: { type: "number" },
+						completed: { type: "boolean", validation: { required: true } },
+					},
 				},
 			}),
 		]);
@@ -163,12 +190,20 @@ describe("buildCreateEventFormSchema", () => {
 		const schema = buildCreateEventFormSchema([
 			createEventSchemaFixture({
 				id: "schema-1",
-				propertiesSchema: { pages: { type: "integer", required: true } },
+				propertiesSchema: {
+					fields: {
+						pages: { type: "integer", validation: { required: true } },
+					},
+				},
 			}),
 			createEventSchemaFixture({
 				id: "schema-2",
 				name: "Finished",
-				propertiesSchema: { completed: { type: "boolean", required: true } },
+				propertiesSchema: {
+					fields: {
+						completed: { type: "boolean", validation: { required: true } },
+					},
+				},
 			}),
 		]);
 
@@ -191,16 +226,20 @@ describe("buildCreateEventFormSchema", () => {
 		const schema = buildCreateEventFormSchema([
 			createEventSchemaFixture({
 				propertiesSchema: {
-					pages: { type: "integer", required: true },
-					tags: {
-						type: "array",
-						required: true,
-						items: { type: "string" },
-					},
-					metadata: {
-						type: "object",
-						required: true,
-						properties: { rating: { type: "number", required: true } },
+					fields: {
+						pages: { type: "integer", validation: { required: true } },
+						tags: {
+							type: "array",
+							items: { type: "string" },
+							validation: { required: true },
+						},
+						metadata: {
+							type: "object",
+							validation: { required: true },
+							properties: {
+								rating: { type: "number", validation: { required: true } },
+							},
+						},
 					},
 				},
 			}),
@@ -230,13 +269,21 @@ describe("getUnsupportedRequiredEventProperties", () => {
 	it("returns only required unsupported property keys", () => {
 		expect(
 			getUnsupportedRequiredEventProperties({
-				pages: { type: "integer", required: true },
-				notes: { type: "array", items: { type: "string" } },
-				tags: { type: "array", required: true, items: { type: "string" } },
-				metadata: {
-					type: "object",
-					required: true,
-					properties: { rating: { type: "number", required: true } },
+				fields: {
+					pages: { type: "integer", validation: { required: true } },
+					notes: { type: "array", items: { type: "string" } },
+					tags: {
+						type: "array",
+						items: { type: "string" },
+						validation: { required: true },
+					},
+					metadata: {
+						type: "object",
+						validation: { required: true },
+						properties: {
+							rating: { type: "number", validation: { required: true } },
+						},
+					},
 				},
 			}),
 		).toEqual(["tags", "metadata"]);
@@ -313,12 +360,20 @@ describe("toCreateEventPayload", () => {
 			[
 				createEventSchemaFixture({
 					id: "schema-1",
-					propertiesSchema: { minutes: { type: "number", required: true } },
+					propertiesSchema: {
+						fields: {
+							minutes: { type: "number", validation: { required: true } },
+						},
+					},
 				}),
 				createEventSchemaFixture({
 					id: "schema-2",
 					name: "Finished",
-					propertiesSchema: { completed: { type: "boolean", required: true } },
+					propertiesSchema: {
+						fields: {
+							completed: { type: "boolean", validation: { required: true } },
+						},
+					},
 				}),
 			],
 		);
@@ -337,7 +392,11 @@ describe("toCreateEventPayload", () => {
 			[
 				createEventSchemaFixture({
 					id: "schema-1",
-					propertiesSchema: { minutes: { type: "number", required: true } },
+					propertiesSchema: {
+						fields: {
+							minutes: { type: "number", validation: { required: true } },
+						},
+					},
 				}),
 			],
 		);
@@ -381,9 +440,11 @@ describe("reconcileEventProperties", () => {
 		expect(
 			reconcileEventProperties(
 				{
-					notes: { type: "string" },
-					pages: { type: "integer", required: true },
-					completed: { type: "boolean", required: true },
+					fields: {
+						notes: { type: "string" },
+						pages: { type: "integer", validation: { required: true } },
+						completed: { type: "boolean", validation: { required: true } },
+					},
 				},
 				{
 					pages: 42,
@@ -403,11 +464,13 @@ describe("reconcileEventProperties", () => {
 		expect(
 			reconcileEventProperties(
 				{
-					pages: { type: "integer", required: true },
-					tags: {
-						type: "array",
-						required: true,
-						items: { type: "string" },
+					fields: {
+						pages: { type: "integer", validation: { required: true } },
+						tags: {
+							type: "array",
+							items: { type: "string" },
+							validation: { required: true },
+						},
 					},
 				},
 				{ pages: 12, tags: ["a"] },
@@ -423,14 +486,23 @@ describe("syncCreateEventFormValues", () => {
 				[
 					createEventSchemaFixture({
 						id: "schema-1",
-						propertiesSchema: { pages: { type: "integer", required: true } },
+						propertiesSchema: {
+							fields: {
+								pages: { type: "integer", validation: { required: true } },
+							},
+						},
 					}),
 					createEventSchemaFixture({
 						id: "schema-2",
 						name: "Finished",
 						propertiesSchema: {
-							notes: { type: "string" },
-							completed: { type: "boolean", required: true },
+							fields: {
+								notes: { type: "string" },
+								completed: {
+									type: "boolean",
+									validation: { required: true },
+								},
+							},
 						},
 					}),
 				],
@@ -452,13 +524,19 @@ describe("syncCreateEventFormValues", () => {
 				[
 					createEventSchemaFixture({
 						id: "schema-1",
-						propertiesSchema: { pages: { type: "integer", required: true } },
+						propertiesSchema: {
+							fields: {
+								pages: { type: "integer", validation: { required: true } },
+							},
+						},
 					}),
 					createEventSchemaFixture({
 						id: "schema-2",
 						name: "Finished",
 						propertiesSchema: {
-							completed: { type: "boolean", required: true },
+							fields: {
+								completed: { type: "boolean", validation: { required: true } },
+							},
 						},
 					}),
 				],
@@ -482,14 +560,20 @@ describe("buildEventSchemaSelectionPatch", () => {
 				[
 					createEventSchemaFixture({
 						id: "schema-1",
-						propertiesSchema: { pages: { type: "integer", required: true } },
+						propertiesSchema: {
+							fields: {
+								pages: { type: "integer", validation: { required: true } },
+							},
+						},
 					}),
 					createEventSchemaFixture({
 						id: "schema-2",
 						name: "Finished",
 						propertiesSchema: {
-							completed: { type: "boolean", required: true },
-							notes: { type: "string" },
+							fields: {
+								notes: { type: "string" },
+								completed: { type: "boolean", validation: { required: true } },
+							},
 						},
 					}),
 				],
@@ -514,13 +598,19 @@ describe("getEventFormReconciliationState", () => {
 				[
 					createEventSchemaFixture({
 						id: "schema-1",
-						propertiesSchema: { pages: { type: "integer", required: true } },
+						propertiesSchema: {
+							fields: {
+								pages: { type: "integer", validation: { required: true } },
+							},
+						},
 					}),
 					createEventSchemaFixture({
 						id: "schema-2",
 						name: "Finished",
 						propertiesSchema: {
-							completed: { type: "boolean", required: true },
+							fields: {
+								completed: { type: "boolean", validation: { required: true } },
+							},
 						},
 					}),
 				],
@@ -528,7 +618,11 @@ describe("getEventFormReconciliationState", () => {
 			),
 		).toEqual({
 			eventSchemaId: "schema-2",
-			propertiesSchema: { completed: { type: "boolean", required: true } },
+			propertiesSchema: {
+				fields: {
+					completed: { type: "boolean", validation: { required: true } },
+				},
+			},
 		});
 	});
 
@@ -538,14 +632,20 @@ describe("getEventFormReconciliationState", () => {
 				[
 					createEventSchemaFixture({
 						id: "schema-1",
-						propertiesSchema: { pages: { type: "integer", required: true } },
+						propertiesSchema: {
+							fields: {
+								pages: { type: "integer", validation: { required: true } },
+							},
+						},
 					}),
 				],
 				"missing-schema",
 			),
 		).toEqual({
 			eventSchemaId: "schema-1",
-			propertiesSchema: { pages: { type: "integer", required: true } },
+			propertiesSchema: {
+				fields: { pages: { type: "integer", validation: { required: true } } },
+			},
 		});
 	});
 });
