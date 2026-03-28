@@ -8,7 +8,6 @@ import {
 	getTrackerBySlugForUser,
 	listUserTrackerIdsInOrder,
 	persistTrackerOrderForUser,
-	setTrackerIsDisabledForUser,
 	updateTrackerForUser,
 } from "./repository";
 import type {
@@ -35,7 +34,6 @@ export type TrackerServiceDeps = {
 	getTrackerBySlugForUser: typeof getTrackerBySlugForUser;
 	listUserTrackerIdsInOrder: typeof listUserTrackerIdsInOrder;
 	persistTrackerOrderForUser: typeof persistTrackerOrderForUser;
-	setTrackerIsDisabledForUser: typeof setTrackerIsDisabledForUser;
 	countVisibleTrackersByIdsForUser: typeof countVisibleTrackersByIdsForUser;
 };
 
@@ -44,7 +42,6 @@ export type TrackerServiceResult<T> = ServiceResult<T, TrackerMutationError>;
 type TrackerValidationResult<T> = ServiceResult<T, "validation">;
 
 const trackerSlugExistsError = "Tracker slug already exists";
-const trackerMissingFieldsError = "At least one field must be provided";
 const trackerNotFoundError = "Tracker not found";
 const trackerIdsUnknownError = "Tracker ids contain unknown trackers";
 const trackerUniqueConstraint = "tracker_user_slug_unique";
@@ -56,7 +53,6 @@ const trackerServiceDeps: TrackerServiceDeps = {
 	getTrackerBySlugForUser,
 	listUserTrackerIdsInOrder,
 	persistTrackerOrderForUser,
-	setTrackerIsDisabledForUser,
 	updateTrackerForUser,
 };
 
@@ -213,37 +209,6 @@ export const updateTracker = async (
 		return trackerIdResult;
 	}
 
-	const isDisabled = input.body.isDisabled;
-	const hasIsDisabledUpdate = isDisabled !== undefined;
-	const hasTrackerConfigUpdate =
-		input.body.icon !== undefined ||
-		input.body.name !== undefined ||
-		input.body.description !== undefined ||
-		input.body.accentColor !== undefined;
-
-	if (!hasIsDisabledUpdate && !hasTrackerConfigUpdate) {
-		return createErrorResult({
-			error: "validation",
-			message: trackerMissingFieldsError,
-		});
-	}
-
-	if (!hasTrackerConfigUpdate) {
-		const updatedTracker = await deps.setTrackerIsDisabledForUser({
-			userId: input.userId,
-			trackerId: trackerIdResult.data,
-			isDisabled: isDisabled as boolean,
-		});
-		if (!updatedTracker) {
-			return createErrorResult({
-				error: "not_found",
-				message: trackerNotFoundError,
-			});
-		}
-
-		return createDataResult(updatedTracker);
-	}
-
 	const ownedTracker = await deps.getOwnedTrackerById({
 		userId: input.userId,
 		trackerId: trackerIdResult.data,
@@ -268,6 +233,7 @@ export const updateTracker = async (
 		name: patchResult.data.name,
 		slug: patchResult.data.slug,
 		icon: patchResult.data.icon,
+		isDisabled: input.body.isDisabled,
 		trackerId: trackerIdResult.data,
 		description: patchResult.data.description,
 		accentColor: patchResult.data.accentColor,
@@ -279,23 +245,7 @@ export const updateTracker = async (
 		});
 	}
 
-	if (!hasIsDisabledUpdate) {
-		return createDataResult(updatedTracker);
-	}
-
-	const disabledTracker = await deps.setTrackerIsDisabledForUser({
-		isDisabled,
-		userId: input.userId,
-		trackerId: trackerIdResult.data,
-	});
-	if (!disabledTracker) {
-		return createErrorResult({
-			error: "not_found",
-			message: trackerNotFoundError,
-		});
-	}
-
-	return createDataResult(disabledTracker);
+	return createDataResult(updatedTracker);
 };
 
 export const reorderTrackers = async (
