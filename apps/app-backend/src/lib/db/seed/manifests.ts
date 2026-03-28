@@ -14,6 +14,7 @@ import myanimelistMangaDetailsScriptCode from "~/lib/sandbox/scripts/myanimelist
 import myanimelistMangaSearchScriptCode from "~/lib/sandbox/scripts/myanimelist-manga-search-source.txt";
 import openLibraryBookDetailsScriptCode from "~/lib/sandbox/scripts/openlibrary-book-details-source.txt";
 import openLibraryBookSearchScriptCode from "~/lib/sandbox/scripts/openlibrary-book-search-source.txt";
+
 export const builtinSandboxScripts = () => [
 	{
 		name: "Hardcover Book Search",
