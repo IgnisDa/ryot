@@ -68,7 +68,7 @@ function createMutationHandler<T>(
 
 export function useTrackersQuery() {
 	const apiClient = useApiClient();
-	const query = apiClient.useQuery("get", "/trackers/list");
+	const query = apiClient.useQuery("get", "/trackers");
 
 	const rawTrackers = query.data?.data ?? [];
 	const trackers = sortTrackersByOrder(rawTrackers);
@@ -85,11 +85,11 @@ export function useTrackersQuery() {
 export function useTrackerMutations() {
 	const apiClient = useApiClient();
 	const queryClient = useQueryClient();
-	const listQueryKey = apiClient.queryOptions("get", "/trackers/list").queryKey;
+	const listQueryKey = apiClient.queryOptions("get", "/trackers").queryKey;
 
 	const create = apiClient.useMutation(
 		"post",
-		"/trackers/create",
+		"/trackers",
 		{
 			onSuccess: () => {
 				queryClient.invalidateQueries({ queryKey: listQueryKey });
