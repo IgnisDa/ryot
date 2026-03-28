@@ -2,6 +2,7 @@ import type {
 	AppPropertyDefinition,
 	AppPropertyPrimitiveType,
 } from "@ryot/ts-utils";
+import { match } from "ts-pattern";
 import type { PropertyType } from "./reference";
 
 export type ViewPropertyDisplayKind =
@@ -47,21 +48,15 @@ export const supportsContainsFilter = (propertyType: PropertyType) => {
 export const getPropertyDisplayKind = (
 	propertyType: PropertyType,
 ): ViewPropertyDisplayKind => {
-	switch (propertyType) {
-		case "date":
-		case "datetime":
-			return "date";
-		case "boolean":
-			return "boolean";
-		case "array":
-		case "object":
-			return "json";
-		case "integer":
-		case "number":
-			return "number";
-		default:
-			return "text";
-	}
+	return match(propertyType)
+		.with("date", () => "date" as const)
+		.with("datetime", () => "date" as const)
+		.with("boolean", () => "boolean" as const)
+		.with("array", () => "json" as const)
+		.with("object", () => "json" as const)
+		.with("integer", () => "number" as const)
+		.with("number", () => "number" as const)
+		.otherwise(() => "text" as const);
 };
 
 export const getCommonSortPropertyType = (propertyTypes: PropertyType[]) => {

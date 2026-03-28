@@ -3,12 +3,15 @@ import {
 	isAppPropertyRequired,
 } from "@ryot/ts-utils";
 import type { ComponentType, HTMLInputTypeAttribute, ReactNode } from "react";
+import { match } from "ts-pattern";
 
 type GeneratedPropertyFieldConfig =
 	| {
 			label: string;
 			kind: "checkbox";
 			required: boolean;
+			placeholder?: string;
+			inputType?: HTMLInputTypeAttribute;
 	  }
 	| {
 			label: string;
@@ -64,45 +67,50 @@ export function getGeneratedPropertyFieldConfig(
 	const label = propertyKey;
 	const required = isAppPropertyRequired(propertyDef);
 
-	switch (propertyDef.type) {
-		case "boolean":
-			return { kind: "checkbox", label, required };
-		case "date":
-			return { kind: "text", label, required, inputType: "date" };
-		case "datetime":
-			return {
-				label,
-				required,
-				kind: "text",
-				placeholder: "2026-03-27T14:30:00Z",
-			};
-		case "integer":
-		case "number":
-			return {
-				label,
-				required,
-				kind: "number",
-				placeholder: `Enter ${propertyKey}`,
-			};
-		case "string":
-			return {
-				label,
-				required,
-				kind: "text",
-				placeholder: `Enter ${propertyKey}`,
-			};
-		default:
+	return match(propertyDef.type)
+		.with("boolean", () => ({ kind: "checkbox" as const, label, required }))
+		.with("date", () => ({
+			label,
+			required,
+			kind: "text" as const,
+			inputType: "date" as const,
+		}))
+		.with("datetime", () => ({
+			label,
+			required,
+			kind: "text" as const,
+			placeholder: "2026-03-27T14:30:00Z",
+		}))
+		.with("integer", () => ({
+			label,
+			required,
+			kind: "number" as const,
+			placeholder: `Enter ${propertyKey}`,
+		}))
+		.with("number", () => ({
+			label,
+			required,
+			kind: "number" as const,
+			placeholder: `Enter ${propertyKey}`,
+		}))
+		.with("string", () => ({
+			label,
+			required,
+			kind: "text" as const,
+			placeholder: `Enter ${propertyKey}`,
+		}))
+		.otherwise(() => {
 			if (options.fallback === "text") {
 				return {
 					label,
 					required,
-					kind: "text",
+					kind: "text" as const,
 					placeholder: `Enter ${propertyKey}`,
 				};
 			}
 
 			return null;
-	}
+		});
 }
 
 export function GeneratedPropertyField(props: GeneratedPropertyFieldProps) {
@@ -119,37 +127,34 @@ export function GeneratedPropertyField(props: GeneratedPropertyFieldProps) {
 
 	return (
 		<props.form.AppField name={fieldName}>
-			{(field) => {
-				switch (config.kind) {
-					case "checkbox":
-						return (
-							<field.CheckboxField
-								label={config.label}
-								required={config.required}
-								disabled={props.disabled}
-							/>
-						);
-					case "number":
-						return (
-							<field.NumberField
-								label={config.label}
-								disabled={props.disabled}
-								required={config.required}
-								placeholder={config.placeholder}
-							/>
-						);
-					case "text":
-						return (
-							<field.TextField
-								label={config.label}
-								type={config.inputType}
-								disabled={props.disabled}
-								required={config.required}
-								placeholder={config.placeholder}
-							/>
-						);
-				}
-			}}
+			{(field) =>
+				match(config.kind)
+					.with("checkbox", () => (
+						<field.CheckboxField
+							label={config.label}
+							disabled={props.disabled}
+							required={config.required}
+						/>
+					))
+					.with("number", () => (
+						<field.NumberField
+							label={config.label}
+							disabled={props.disabled}
+							required={config.required}
+							placeholder={config.placeholder}
+						/>
+					))
+					.with("text", () => (
+						<field.TextField
+							label={config.label}
+							type={config.inputType}
+							disabled={props.disabled}
+							required={config.required}
+							placeholder={config.placeholder}
+						/>
+					))
+					.exhaustive()
+			}
 		</props.form.AppField>
 	);
 }
