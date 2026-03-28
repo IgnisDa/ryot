@@ -1,1 +1,1 @@
-export { migrateLegacyTables, renameLegacyTables } from "./legacy-tables";
+export { dropLegacyTables, migrateLegacyTables, renameLegacyTables } from "./legacy-tables";
