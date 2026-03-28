@@ -4,13 +4,17 @@ import {
 	createAuthenticatedClient,
 	createEntitySchema,
 	createTracker,
+	deleteGlobalEntityByProvenance,
 	enqueueEntityImport,
 	enqueueEntitySearch,
 	findBuiltinEntitySchema,
+	findBuiltinSchemaBySlug,
 	findBuiltinSchemaWithProviders,
 	findBuiltinTracker,
 	getEntitySchema,
 	getFirstProviderScriptId,
+	getGlobalEntityByProvenance,
+	getRelationshipBySchemaSlug,
 	listEntitySchemas,
 	pollEntityImportResult,
 	pollEntitySearchResult,
@@ -730,6 +734,21 @@ describe("GET /entity-schemas/import/{jobId}", () => {
 		const detailsScriptId = schema.providers.find((p) => p.name === "OpenLibrary")?.scriptId;
 		assertPresent(detailsScriptId, "OpenLibrary provider script not found");
 
+		const { schema: personSchema } = await findBuiltinSchemaBySlug(client, cookies, "person");
+		const personScriptId = personSchema.providers.find((p) => p.name === "OpenLibrary")?.scriptId;
+		assertPresent(personScriptId, "OpenLibrary person provider script not found");
+
+		await deleteGlobalEntityByProvenance({
+			externalId: "OL151749A",
+			entitySchemaId: personSchema.id,
+			sandboxScriptId: personScriptId,
+		});
+		await deleteGlobalEntityByProvenance({
+			externalId: "OL267933W",
+			entitySchemaId: schema.id,
+			sandboxScriptId: detailsScriptId,
+		});
+
 		const { jobId } = await enqueueEntityImport(client, cookies, {
 			externalId: "OL267933W",
 			scriptId: detailsScriptId,
@@ -741,12 +760,30 @@ describe("GET /entity-schemas/import/{jobId}", () => {
 		});
 
 		if (result.status !== "completed") {
-			return;
+			throw new Error(`Expected import job to complete, got '${result.status}'`);
 		}
 
 		const properties = result.data.properties as Record<string, unknown>;
 		expect(properties).not.toEqual({});
+		expect(properties.people).toBeUndefined();
 		expect(properties.populatedAt).toBeUndefined();
+
+		const relatedEntity = await getGlobalEntityByProvenance({
+			externalId: "OL151749A",
+			entitySchemaId: personSchema.id,
+			sandboxScriptId: personScriptId,
+		});
+		expect(relatedEntity.name).toBe("Margaret Mitchell");
+		expect(relatedEntity.populatedAt).toBeNull();
+
+		const relationship = await getRelationshipBySchemaSlug({
+			relationshipSchemaSlug: "person-to-book",
+			sourceEntityId: relatedEntity.id,
+			targetEntityId: result.data.id,
+		});
+		expect(relationship.sourceEntityId).toBe(relatedEntity.id);
+		expect(relationship.targetEntityId).toBe(result.data.id);
+		expect(relationship.properties).toMatchObject({ roles: ["Author"] });
 	}, 30_000);
 
 	it("sets populatedAt as a UTC ISO timestamp column on the imported entity", async () => {
@@ -766,13 +803,13 @@ describe("GET /entity-schemas/import/{jobId}", () => {
 		});
 
 		if (result.status !== "completed") {
-			return;
+			throw new Error(`Expected import job to complete, got '${result.status}'`);
 		}
 
-		const entity = result.data as { populatedAt?: string };
+		const populatedAt = result.data.populatedAt;
 
-		assertPresent(entity.populatedAt, "Expected populatedAt to be present on the imported entity");
-
-		expect(new Date(entity.populatedAt).toISOString()).toBe(entity.populatedAt);
+		assertPresent(populatedAt, "Expected populatedAt to be present on the imported entity");
+		expect(typeof populatedAt).toBe("string");
+		expect(new Date(populatedAt).toISOString()).toBe(populatedAt);
 	}, 30_000);
 });

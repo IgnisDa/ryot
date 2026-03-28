@@ -39,7 +39,29 @@ function collectPeople(contributions) {
     return [];
   }
 
-  const people = [];
+  const relatedEntityByKey = new Map();
+  const addRelatedEntity = (relatedEntity) => {
+    const key = `${relatedEntity.scriptSlug}:${relatedEntity.externalId}`;
+    const existing = relatedEntityByKey.get(key);
+    if (!existing) {
+      relatedEntityByKey.set(key, relatedEntity);
+      return;
+    }
+
+    const roles = new Set([
+      ...(Array.isArray(existing.relationshipProperties.roles)
+        ? existing.relationshipProperties.roles
+        : []),
+      ...(Array.isArray(relatedEntity.relationshipProperties.roles)
+        ? relatedEntity.relationshipProperties.roles
+        : []),
+    ]);
+    existing.relationshipProperties.roles = [...roles];
+    if (existing.name === "Loading..." && relatedEntity.name !== "Loading...") {
+      existing.name = relatedEntity.name;
+    }
+  };
+
   for (const contrib of contributions) {
     if (!contrib || typeof contrib !== "object") {
       continue;
@@ -60,25 +82,24 @@ function collectPeople(contributions) {
       typeof contrib.author === "object" &&
       typeof contrib.author.name === "string"
         ? contrib.author.name.trim()
-        : null;
-    if (!authorName) {
-      continue;
-    }
+        : "Loading...";
 
     const role =
       typeof contrib.contribution === "string" && contrib.contribution.trim()
         ? contrib.contribution.trim()
         : "Author";
 
-    people.push({
-      role,
+    addRelatedEntity({
       name: authorName,
       externalId: personIdentifier,
       scriptSlug: "person.hardcover",
+      relationshipProperties: {
+        roles: [role],
+      },
     });
   }
 
-  return people;
+  return [...relatedEntityByKey.values()];
 }
 
 function collectGenres(cachedTags) {
@@ -362,10 +383,37 @@ query GetHardcoverBookDetails($id: Int!) {
     ? `https://hardcover.app/books/${slug}`
     : `https://hardcover.app/books/${externalId}`;
 
-  const groups = [];
-  const publishers = [];
+  const relatedEntities = collectPeople(bookData.contributions);
+  const relatedEntityByKey = new Map(
+    relatedEntities.map((relatedEntity) => [
+      `${relatedEntity.scriptSlug}:${relatedEntity.externalId}`,
+      relatedEntity,
+    ]),
+  );
+  const addRelatedEntity = (relatedEntity) => {
+    const key = `${relatedEntity.scriptSlug}:${relatedEntity.externalId}`;
+    const existing = relatedEntityByKey.get(key);
+    if (!existing) {
+      relatedEntityByKey.set(key, relatedEntity);
+      relatedEntities.push(relatedEntity);
+      return;
+    }
+
+    const roles = new Set([
+      ...(Array.isArray(existing.relationshipProperties.roles)
+        ? existing.relationshipProperties.roles
+        : []),
+      ...(Array.isArray(relatedEntity.relationshipProperties.roles)
+        ? relatedEntity.relationshipProperties.roles
+        : []),
+    ]);
+    existing.relationshipProperties.roles = [...roles];
+    if (existing.name === "Loading..." && relatedEntity.name !== "Loading...") {
+      existing.name = relatedEntity.name;
+    }
+  };
+
   if (Array.isArray(bookData.book_series)) {
-    const seen = new Set();
     for (const series of bookData.book_series) {
       const bookSeries = series?.series;
       if (bookSeries && typeof bookSeries === "object") {
@@ -373,13 +421,15 @@ query GetHardcoverBookDetails($id: Int!) {
         const seriesName =
           typeof bookSeries.name === "string" && bookSeries.name.trim()
             ? bookSeries.name.trim()
-            : null;
-        if (seriesId && seriesName && !seen.has(`group:${seriesId}`)) {
-          seen.add(`group:${seriesId}`);
-          groups.push({
+            : "Loading...";
+        if (seriesId) {
+          addRelatedEntity({
             name: seriesName,
             externalId: seriesId,
             scriptSlug: "book-group.hardcover",
+            relationshipProperties: {
+              roles: ["Member"],
+            },
           });
         }
       }
@@ -388,22 +438,20 @@ query GetHardcoverBookDetails($id: Int!) {
         continue;
       }
       const pubId = pub.id != null ? String(pub.id) : null;
-      if (!pubId || seen.has(pubId)) {
+      if (!pubId) {
         continue;
       }
-      seen.add(pubId);
       const pubName =
         typeof pub.name === "string" && pub.name.trim()
           ? pub.name.trim()
-          : null;
-      if (!pubName) {
-        continue;
-      }
-      publishers.push({
+          : "Loading...";
+      addRelatedEntity({
         name: pubName,
-        role: "Publisher",
         externalId: pubId,
         scriptSlug: "company.hardcover",
+        relationshipProperties: {
+          roles: ["Publisher"],
+        },
       });
     }
   }
@@ -412,17 +460,15 @@ query GetHardcoverBookDetails($id: Int!) {
     name: title,
     properties: {
       pages,
-      groups,
       sourceUrl: sourceUrl,
       unlinkedCreators: [],
-      companies: publishers,
       publishDate: releaseDate,
       publishYear: releaseYear,
       genres: collectGenres(bookData.cached_tags),
-      people: collectPeople(bookData.contributions),
       images: collectImages(bookData.image, bookData.images).map((url) => ({ type: "remote", url })),
       description:
         typeof bookData.description === "string" ? bookData.description : null,
     },
+    relatedEntities,
   };
 });

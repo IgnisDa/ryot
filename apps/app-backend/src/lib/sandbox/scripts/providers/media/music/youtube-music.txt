@@ -139,19 +139,58 @@ driver("details", async function (context) {
     ? parseInt(String(trackItem.album.year), 10) || null
     : null;
 
-  const people = (trackItem.artists ?? [])
-    .filter((a) => a.name && a.channel_id)
-    .map((a) => ({
-      name: a.name,
-      role: "Artist",
-      externalId: a.channel_id,
-      scriptSlug: "person.youtube-music",
-    }));
+  const relatedEntityByKey = new Map();
+  const addRelatedEntity = (relatedEntity) => {
+    const key = `${relatedEntity.scriptSlug}:${relatedEntity.externalId}`;
+    const existing = relatedEntityByKey.get(key);
+    if (!existing) {
+      relatedEntityByKey.set(key, relatedEntity);
+      return;
+    }
 
-  const byVariousArtists = people.length === 0 ? null : people.length > 1;
+    const roles = new Set([
+      ...(Array.isArray(existing.relationshipProperties.roles)
+        ? existing.relationshipProperties.roles
+        : []),
+      ...(Array.isArray(relatedEntity.relationshipProperties.roles)
+        ? relatedEntity.relationshipProperties.roles
+        : []),
+    ]);
+    existing.relationshipProperties.roles = [...roles];
+    if (existing.name === "Loading..." && relatedEntity.name !== "Loading...") {
+      existing.name = relatedEntity.name;
+    }
+  };
+
+  for (const artist of trackItem.artists ?? []) {
+    const artistId =
+      typeof artist?.channel_id === "string" && artist.channel_id.trim()
+        ? artist.channel_id.trim()
+        : null;
+    if (!artistId) {
+      continue;
+    }
+
+    const artistName =
+      typeof artist?.name === "string" && artist.name.trim()
+        ? artist.name.trim()
+        : "Loading...";
+
+    addRelatedEntity({
+      name: artistName,
+      externalId: artistId,
+      scriptSlug: "person.youtube-music",
+      relationshipProperties: {
+        roles: ["Artist"],
+      },
+    });
+  }
+
+  const byVariousArtists =
+    relatedEntityByKey.size === 0 ? null : relatedEntityByKey.size > 1;
 
   const album = trackItem.album;
-  const groups =
+  const albumRelatedEntities =
     album && typeof album === "object" &&
     typeof album.id === "string" && album.id.trim() &&
     typeof album.name === "string" && album.name.trim()
@@ -160,15 +199,20 @@ driver("details", async function (context) {
           name: album.name.trim(),
           externalId: album.id.trim(),
           scriptSlug: "music-group.youtube-music",
+          relationshipProperties: {
+            roles: ["Member"],
+          },
         },
       ]
       : [];
 
+  for (const albumRelatedEntity of albumRelatedEntities) {
+    addRelatedEntity(albumRelatedEntity);
+  }
+
   return {
     name: title,
     properties: {
-      people,
-      groups,
       duration,
       genres: [],
       publishYear,
@@ -176,5 +220,6 @@ driver("details", async function (context) {
       sourceUrl: `https://music.youtube.com/watch?v=${externalId}`,
       images: getThumbnailUrls(trackItem.thumbnail).map((url) => ({ type: "remote", url })),
     },
+    relatedEntities: [...relatedEntityByKey.values()],
   };
 });
