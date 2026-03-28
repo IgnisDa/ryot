@@ -7,7 +7,9 @@ import {
 	createKodiIntegration,
 	deleteIntegration,
 	getIntegration,
+	listIntegrationImportRuns,
 	listIntegrations,
+	listManualImportRuns,
 	postIntegrationWebhookAndWait,
 	pollImportRunUntilTerminal,
 	updateUserPreferences,
@@ -294,7 +296,7 @@ describe("Webhook routes", () => {
 
 describe("Import run visibility", () => {
 	it.live(
-		"GET /imports/runs excludes integration runs; GET /imports/runs/:id and GET /integrations/:id/runs expose them",
+		"RyotQL manual runs exclude integration runs while detail and integration lists expose them",
 		() =>
 			Effect.gen(function* () {
 				const { client } = yield* createAuthenticatedClient();
@@ -306,15 +308,13 @@ describe("Import run visibility", () => {
 					kodiPayload,
 				);
 
-				const allRuns = yield* client.call((c) => c.imports.listRuns());
-				expect(allRuns.find((r) => r.id === runId)).toBeUndefined();
+				const allRuns = yield* listManualImportRuns(client, 1, 20);
+				expect(allRuns.items.find((r) => r.id === runId)).toBeUndefined();
 
 				expect(run.id).toBe(ImportRunId.make(runId));
 
-				const integrationRuns = yield* client.call((c) =>
-					c.integrations.getRuns({ params: { integrationId: IntegrationId.make(integrationId) } }),
-				);
-				expect(integrationRuns.find((r) => r.id === runId)).toBeDefined();
+				const integrationRuns = yield* listIntegrationImportRuns(client, integrationId, 1, 20);
+				expect(integrationRuns.items.find((r) => r.id === runId)).toBeDefined();
 			}),
 	);
 });

@@ -4,7 +4,6 @@ import { HttpApiEndpoint, HttpApiGroup, HttpApiSchema, OpenApi } from "effect/un
 import { AuthMiddleware } from "../../auth-middleware";
 import { BadRequest, NotFound } from "../../errors";
 import { ImportRunId, IntegrationId } from "../../schema/brands";
-import { ListedImportRun } from "../imports/schemas";
 import {
 	CreateIntegrationBody,
 	IntegrationWebhookPayload,
@@ -35,13 +34,6 @@ export const IntegrationsGroup = HttpApiGroup.make("integrations")
 			success: Schema.Struct({ id: Schema.String }),
 			error: [BadRequest.pipe(HttpApiSchema.status(400)), NotFound.pipe(HttpApiSchema.status(404))],
 		}).annotate(OpenApi.Description, "Delete an integration by ID."),
-	)
-	.add(
-		HttpApiEndpoint.get("getRuns", "/integrations/:integrationId/runs", {
-			params: { integrationId: IntegrationId },
-			success: Schema.Array(ListedImportRun),
-			error: [BadRequest.pipe(HttpApiSchema.status(400)), NotFound.pipe(HttpApiSchema.status(404))],
-		}).annotate(OpenApi.Description, "List import runs for an integration."),
 	)
 	.middleware(AuthMiddleware)
 	.add(

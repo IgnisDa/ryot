@@ -7,6 +7,7 @@ import {
 	executeRyotQL,
 	findBuiltinSchemaBySlug,
 	getImportRun,
+	listManualImportRuns,
 	pollImportRunUntilTerminal,
 	queryInLibraryRelationship,
 	requireRyotQLTextField,
@@ -16,7 +17,7 @@ import {
 	startOpenScaleImport,
 	uploadImportFile,
 } from "~/fixtures";
-import { assertTaggedError } from "~/support/assertions";
+import { assertTaggedError, requirePresent } from "~/support/assertions";
 import { describe, expect, it } from "~/support/effect-test";
 
 describe("OpenScale Import E2E", () => {
@@ -51,12 +52,13 @@ describe("OpenScale Import E2E", () => {
 		}),
 	);
 
-	it.live("returns the run via GET /imports/runs/:id", () =>
+	it.live("returns the run via RyotQL", () =>
 		Effect.gen(function* () {
 			const { client, cookies } = yield* createAuthenticatedClient();
 			const { runId } = yield* runOpenScaleImportFixture(client, cookies);
 
-			const run = yield* getImportRun(client, runId);
+			const detail = yield* getImportRun(client, runId, 1, 20);
+			const run = requirePresent(detail.run, "Expected completed import run");
 			expect(run.id).toBe(ImportRunId.make(runId));
 			expect(run.status).toBe("completed");
 		}),
@@ -67,27 +69,19 @@ describe("OpenScale Import E2E", () => {
 			const { client, cookies } = yield* createAuthenticatedClient();
 			yield* runOpenScaleImportFixture(client, cookies);
 
-			const data = yield* client.call((c) => c.imports.listRuns());
+			const data = yield* listManualImportRuns(client, 1, 20);
 
-			expect(data.length).toBeGreaterThan(0);
-			expect(data[0]?.source).toBe("open_scale");
+			expect(data.items.length).toBeGreaterThan(0);
+			expect(data.items[0]?.source).toBe("open_scale");
 		}),
 	);
 
-	it.live("returns 404 for unknown run id", () =>
+	it.live("returns no run for an unknown id", () =>
 		Effect.gen(function* () {
 			const { client } = yield* createAuthenticatedClient();
 
-			const error = yield* Effect.flip(
-				client.call((c) =>
-					c.imports.getRun({
-						params: { runId: ImportRunId.make("nonexistent-run-id") },
-						query: {},
-					}),
-				),
-			);
-
-			assertTaggedError(error, "NotFound");
+			const detail = yield* getImportRun(client, "nonexistent-run-id", 1, 20);
+			expect(detail.run).toBeNull();
 		}),
 	);
 
@@ -133,13 +127,7 @@ describe("OpenScale Import E2E", () => {
 				c.imports.deleteRun({ params: { runId: ImportRunId.make(runId) } }),
 			);
 
-			const error = yield* Effect.flip(
-				client.call((c) =>
-					c.imports.getRun({ params: { runId: ImportRunId.make(runId) }, query: {} }),
-				),
-			);
-
-			assertTaggedError(error, "NotFound");
+			expect((yield* getImportRun(client, runId, 1, 20)).run).toBeNull();
 		}),
 	);
 
@@ -162,12 +150,7 @@ describe("OpenScale Import E2E", () => {
 			expect(completedRun.importedItems).toBe(1);
 			expect(completedRun.failedItems).toBe(2);
 
-			const runData = yield* client.call((c) =>
-				c.imports.getRun({
-					query: { page: 1, limit: 20 },
-					params: { runId: ImportRunId.make(runId) },
-				}),
-			);
+			const runData = yield* getImportRun(client, runId, 1, 20);
 
 			expect(runData.failures.items.length).toBeGreaterThan(0);
 			expect(runData.failures.items).toMatchObject([
