@@ -276,9 +276,8 @@ export function SearchEntityModalContent(props: {
 			}
 
 			const state = getActionState(item.identifier);
-			let payload: ReturnType<typeof createLogEventPayload>;
 			try {
-				payload = createLogEventPayload({
+				createLogEventPayload({
 					entityId: "",
 					logDate: state.logDate,
 					startedOn: state.logStartedOn,
@@ -305,14 +304,14 @@ export function SearchEntityModalContent(props: {
 					state.logDate === "started"
 						? `${item.titleProperty.value} is in your library, but it could not be marked as started.`
 						: `${item.titleProperty.value} is in your library, but it could not be logged.`,
-				buildPayload: (entityId) => {
-					const event = payload[0];
-					if (!event) {
-						return [];
-					}
-
-					return [{ ...event, entityId }];
-				},
+				buildPayload: (entityId) =>
+					createLogEventPayload({
+						entityId,
+						logDate: state.logDate,
+						startedOn: state.logStartedOn,
+						completedOn: state.logCompletedOn,
+						eventSchemas: eventSchemasQuery.eventSchemas,
+					}),
 			});
 		},
 		[
