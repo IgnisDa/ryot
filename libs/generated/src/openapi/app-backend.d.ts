@@ -729,10 +729,10 @@ export interface paths {
                                 trackerId: string;
                                 isBuiltin: boolean;
                                 propertiesSchema: {
+                                    rules?: components["schemas"]["AppSchemaRule"][];
                                     fields: {
                                         [key: string]: components["schemas"]["AppPropertyDefinition"];
                                     };
-                                    rules?: components["schemas"]["AppSchemaRule"][];
                                 };
                                 searchProviders: {
                                     name: string;
@@ -811,10 +811,10 @@ export interface paths {
                         slug?: string;
                         trackerId: string;
                         propertiesSchema: {
+                            rules?: components["schemas"]["AppSchemaRule"][];
                             fields: {
                                 [key: string]: components["schemas"]["AppPropertyDefinition"];
                             };
-                            rules?: components["schemas"]["AppSchemaRule"][];
                         };
                         /** @description A Lucide icon name (e.g., 'book', 'dumbbell', 'gamepad-2'). See https://lucide.dev/icons/ */
                         icon: string;
@@ -837,10 +837,10 @@ export interface paths {
                                 trackerId: string;
                                 isBuiltin: boolean;
                                 propertiesSchema: {
+                                    rules?: components["schemas"]["AppSchemaRule"][];
                                     fields: {
                                         [key: string]: components["schemas"]["AppPropertyDefinition"];
                                     };
-                                    rules?: components["schemas"]["AppSchemaRule"][];
                                 };
                                 searchProviders: {
                                     name: string;
@@ -928,10 +928,10 @@ export interface paths {
                                 trackerId: string;
                                 isBuiltin: boolean;
                                 propertiesSchema: {
+                                    rules?: components["schemas"]["AppSchemaRule"][];
                                     fields: {
                                         [key: string]: components["schemas"]["AppPropertyDefinition"];
                                     };
-                                    rules?: components["schemas"]["AppSchemaRule"][];
                                 };
                                 searchProviders: {
                                     name: string;
@@ -1229,10 +1229,10 @@ export interface paths {
                                 slug: string;
                                 entitySchemaId: string;
                                 propertiesSchema: {
+                                    rules?: components["schemas"]["AppSchemaRule"][];
                                     fields: {
                                         [key: string]: components["schemas"]["AppPropertyDefinition"];
                                     };
-                                    rules?: components["schemas"]["AppSchemaRule"][];
                                 };
                             }[];
                         };
@@ -1289,10 +1289,10 @@ export interface paths {
                         slug?: string;
                         entitySchemaId: string;
                         propertiesSchema: {
+                            rules?: components["schemas"]["AppSchemaRule"][];
                             fields: {
                                 [key: string]: components["schemas"]["AppPropertyDefinition"];
                             };
-                            rules?: components["schemas"]["AppSchemaRule"][];
                         };
                     };
                 };
@@ -1311,10 +1311,10 @@ export interface paths {
                                 slug: string;
                                 entitySchemaId: string;
                                 propertiesSchema: {
+                                    rules?: components["schemas"]["AppSchemaRule"][];
                                     fields: {
                                         [key: string]: components["schemas"]["AppPropertyDefinition"];
                                     };
-                                    rules?: components["schemas"]["AppSchemaRule"][];
                                 };
                             };
                         };
@@ -2897,6 +2897,62 @@ export interface components {
             /** @enum {string} */
             code: "not_found";
         };
+        AppSchemaRule: {
+            path: components["schemas"]["AppSchemaRulePath"];
+            when: components["schemas"]["AppSchemaRuleCondition"];
+            /** @enum {string} */
+            kind: "validation";
+            message?: string;
+            validation: {
+                /** @enum {boolean} */
+                required: true;
+            };
+        };
+        AppSchemaRulePath: string[];
+        AppSchemaRuleCondition: components["schemas"]["AppSchemaEqRuleCondition"] | components["schemas"]["AppSchemaNeqRuleCondition"] | components["schemas"]["AppSchemaExistsRuleCondition"] | components["schemas"]["AppSchemaNotExistsRuleCondition"] | components["schemas"]["AppSchemaInRuleCondition"] | components["schemas"]["AppSchemaNotInRuleCondition"] | {
+            /** @enum {string} */
+            operator: "all";
+            conditions: components["schemas"]["AppSchemaRuleCondition"][];
+        } | {
+            /** @enum {string} */
+            operator: "any";
+            conditions: components["schemas"]["AppSchemaRuleCondition"][];
+        };
+        AppSchemaEqRuleCondition: {
+            path: components["schemas"]["AppSchemaRulePath"];
+            value: components["schemas"]["AppSchemaRuleValue"];
+            /** @enum {string} */
+            operator: "eq";
+        };
+        AppSchemaRuleValue: boolean | unknown | number | string;
+        AppSchemaNeqRuleCondition: {
+            path: components["schemas"]["AppSchemaRulePath"];
+            value: components["schemas"]["AppSchemaRuleValue"];
+            /** @enum {string} */
+            operator: "neq";
+        };
+        AppSchemaExistsRuleCondition: {
+            path: components["schemas"]["AppSchemaRulePath"];
+            /** @enum {string} */
+            operator: "exists";
+        };
+        AppSchemaNotExistsRuleCondition: {
+            path: components["schemas"]["AppSchemaRulePath"];
+            /** @enum {string} */
+            operator: "not_exists";
+        };
+        AppSchemaInRuleCondition: {
+            path: components["schemas"]["AppSchemaRulePath"];
+            value: components["schemas"]["AppSchemaRuleValue"][];
+            /** @enum {string} */
+            operator: "in";
+        };
+        AppSchemaNotInRuleCondition: {
+            path: components["schemas"]["AppSchemaRulePath"];
+            value: components["schemas"]["AppSchemaRuleValue"][];
+            /** @enum {string} */
+            operator: "not_in";
+        };
         AppPropertyDefinition: components["schemas"]["AppDateProperty"] | components["schemas"]["AppArrayProperty"] | components["schemas"]["AppObjectProperty"] | components["schemas"]["AppStringProperty"] | components["schemas"]["AppNumberProperty"] | components["schemas"]["AppIntegerProperty"] | components["schemas"]["AppBooleanProperty"];
         AppDateProperty: {
             /**
@@ -2993,62 +3049,6 @@ export interface components {
              */
             type: "boolean";
             validation?: components["schemas"]["AppRequiredPropertyValidation"];
-        };
-        AppSchemaRule: {
-            path: components["schemas"]["AppSchemaRulePath"];
-            when: components["schemas"]["AppSchemaRuleCondition"];
-            /** @enum {string} */
-            kind: "validation";
-            message?: string;
-            validation: {
-                /** @enum {boolean} */
-                required: true;
-            };
-        };
-        AppSchemaRulePath: string[];
-        AppSchemaRuleCondition: components["schemas"]["AppSchemaEqRuleCondition"] | components["schemas"]["AppSchemaNeqRuleCondition"] | components["schemas"]["AppSchemaExistsRuleCondition"] | components["schemas"]["AppSchemaNotExistsRuleCondition"] | components["schemas"]["AppSchemaInRuleCondition"] | components["schemas"]["AppSchemaNotInRuleCondition"] | {
-            /** @enum {string} */
-            operator: "all";
-            conditions: components["schemas"]["AppSchemaRuleCondition"][];
-        } | {
-            /** @enum {string} */
-            operator: "any";
-            conditions: components["schemas"]["AppSchemaRuleCondition"][];
-        };
-        AppSchemaEqRuleCondition: {
-            path: components["schemas"]["AppSchemaRulePath"];
-            value: components["schemas"]["AppSchemaRuleValue"];
-            /** @enum {string} */
-            operator: "eq";
-        };
-        AppSchemaRuleValue: boolean | unknown | number | string;
-        AppSchemaNeqRuleCondition: {
-            path: components["schemas"]["AppSchemaRulePath"];
-            value: components["schemas"]["AppSchemaRuleValue"];
-            /** @enum {string} */
-            operator: "neq";
-        };
-        AppSchemaExistsRuleCondition: {
-            path: components["schemas"]["AppSchemaRulePath"];
-            /** @enum {string} */
-            operator: "exists";
-        };
-        AppSchemaNotExistsRuleCondition: {
-            path: components["schemas"]["AppSchemaRulePath"];
-            /** @enum {string} */
-            operator: "not_exists";
-        };
-        AppSchemaInRuleCondition: {
-            path: components["schemas"]["AppSchemaRulePath"];
-            value: components["schemas"]["AppSchemaRuleValue"][];
-            /** @enum {string} */
-            operator: "in";
-        };
-        AppSchemaNotInRuleCondition: {
-            path: components["schemas"]["AppSchemaRulePath"];
-            value: components["schemas"]["AppSchemaRuleValue"][];
-            /** @enum {string} */
-            operator: "not_in";
         };
         InternalServerError: {
             message: string;
