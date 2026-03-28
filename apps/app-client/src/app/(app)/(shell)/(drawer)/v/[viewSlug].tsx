@@ -40,7 +40,15 @@ function SavedViewContent(props: { record: SavedViewRecord; serverUrl: string; u
 			</SavedViewFrame>
 		);
 	}
-	return <SavedViewReadyContent {...props} state={result.state} refresh={result.refresh} />;
+	return (
+		<SavedViewReadyContent
+			{...props}
+			state={result.state}
+			refresh={result.refresh}
+			loadMore={result.loadMore}
+			isLoadingMore={result.isLoadingMore}
+		/>
+	);
 }
 
 function SavedViewRecordLoader(props: { slug: string; serverUrl: string; userId: string }) {
