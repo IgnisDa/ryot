@@ -1261,15 +1261,8 @@ const LOG_DATE_OPTIONS = [
 	{ value: "started", label: "Just started" },
 ] as const;
 
-const RATE_DATE_OPTIONS = [
-	{ value: "now", label: "Just now" },
-	{ value: "unknown", label: "I don't remember" },
-	{ value: "custom", label: "Pick a date" },
-] as const;
-
 type PanelType = "log" | "backlog" | "collection" | "rate";
 type LogDateOption = "now" | "unknown" | "custom" | "started";
-type RateDateOption = "now" | "unknown" | "custom";
 
 interface ItemActionState {
 	openPanel: PanelType | null;
@@ -1281,8 +1274,6 @@ interface ItemActionState {
 	rateStars: number;
 	rateStarsHover: number;
 	rateReview: string;
-	rateDate: RateDateOption;
-	rateCustomDate: string;
 }
 
 const DEFAULT_ITEM_STATE: ItemActionState = {
@@ -1295,8 +1286,6 @@ const DEFAULT_ITEM_STATE: ItemActionState = {
 	rateStars: 0,
 	rateStarsHover: 0,
 	rateReview: "",
-	rateDate: "unknown",
-	rateCustomDate: "",
 };
 
 // --- Components ---
@@ -1989,8 +1978,6 @@ function AddMediaModal(props: { opened: boolean; onClose: () => void }) {
 			title,
 			stars: s.rateStars,
 			review: s.rateReview || null,
-			date: s.rateDate,
-			customDate: s.rateDate === "custom" ? s.rateCustomDate : undefined,
 			entitySchemaId: selectedSchema?.id,
 			provider: activeProvider?.name,
 			detailsScriptId: activeProvider?.detailsScriptId,
@@ -2614,50 +2601,7 @@ function AddMediaModal(props: { opened: boolean; onClose: () => void }) {
 																	})
 																}
 															/>
-															<Text fz="xs" fw={500} c={t.textMuted} mb={6}>
-																When?
-															</Text>
-															<Group gap={4} mb="sm" wrap="wrap">
-																{RATE_DATE_OPTIONS.map((opt) => (
-																	<Button
-																		key={opt.value}
-																		size="compact-xs"
-																		variant={
-																			istate.rateDate === opt.value
-																				? "filled"
-																				: "subtle"
-																		}
-																		style={
-																			istate.rateDate === opt.value
-																				? {
-																						backgroundColor: accentColor,
-																						color: "white",
-																					}
-																				: {}
-																		}
-																		onClick={() =>
-																			patchItem(item.identifier, {
-																				rateDate: opt.value,
-																			})
-																		}
-																	>
-																		{opt.label}
-																	</Button>
-																))}
-															</Group>
-															{istate.rateDate === "custom" && (
-																<TextInput
-																	type="date"
-																	size="xs"
-																	mb="sm"
-																	value={istate.rateCustomDate}
-																	onChange={(e) =>
-																		patchItem(item.identifier, {
-																			rateCustomDate: e.currentTarget.value,
-																		})
-																	}
-																/>
-															)}
+
 															<Group gap="xs">
 																<Button
 																	size="compact-xs"
