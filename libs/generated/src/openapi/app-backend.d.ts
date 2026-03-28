@@ -430,7 +430,7 @@ export interface paths {
             requestBody?: {
                 content: {
                     "application/json": {
-                        isDisabled?: boolean;
+                        isDisabled: boolean;
                         description?: string | unknown;
                         /** @description A Lucide icon name (e.g., 'book', 'dumbbell', 'gamepad-2'). See https://lucide.dev/icons/ */
                         icon?: string;
