@@ -1,5 +1,5 @@
 import { toAppSchemaProperties } from "@ryot/ts-utils";
-import { nullableIntSchema, nullableNumberSchema } from "../base";
+import { nullableIntSchema, nullableNumberSchema } from "../zod/base";
 import { animeMangaPropertiesSchema } from "./common";
 
 export const mangaPropertiesSchema = animeMangaPropertiesSchema.extend({
