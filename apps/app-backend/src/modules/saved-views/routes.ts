@@ -22,6 +22,7 @@ import {
 	deleteSavedViewParams,
 	listSavedViewsQuery,
 	listSavedViewsResponseSchema,
+	savedViewParams,
 } from "./schemas";
 import { resolveIsBuiltinProtected, resolveSavedViewName } from "./service";
 
@@ -63,6 +64,23 @@ const createSavedViewRoute = createAuthRoute(
 	}),
 );
 
+const getSavedViewByIdRoute = createAuthRoute(
+	createRoute({
+		method: "get",
+		path: "/{viewId}",
+		tags: ["saved-views"],
+		summary: "Get a saved view by ID",
+		request: { params: savedViewParams },
+		responses: {
+			404: notFoundResponse("Saved view not found"),
+			200: jsonResponse(
+				"Saved view was retrieved",
+				createSavedViewResponseSchema,
+			),
+		},
+	}),
+);
+
 const deleteSavedViewRoute = createAuthRoute(
 	createRoute({
 		method: "delete",
@@ -98,6 +116,23 @@ export const savedViewsApi = new OpenAPIHono<{ Variables: AuthType }>()
 		});
 
 		return c.json(successResponse(views), 200);
+	})
+	.openapi(getSavedViewByIdRoute, async (c) => {
+		const user = c.get("user");
+		const params = c.req.valid("param");
+
+		const view = await getSavedViewByIdForUser({
+			userId: user.id,
+			viewId: params.viewId,
+		});
+
+		if (!view)
+			return c.json(
+				savedViewNotFoundResult.body,
+				savedViewNotFoundResult.status,
+			);
+
+		return c.json(successResponse(view), 200);
 	})
 	.openapi(createSavedViewRoute, async (c) => {
 		const user = c.get("user");
