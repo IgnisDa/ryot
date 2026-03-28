@@ -1,5 +1,6 @@
 import { ViewRuntimeValidationError } from "./errors";
 import type { ViewComputedField, ViewExpression } from "./expression";
+import type { ViewPredicate } from "./filtering";
 
 export const buildComputedFieldMap = (
 	computedFields: ViewComputedField[] = [],
@@ -35,8 +36,69 @@ const collectExpressionDependencies = (
 		return dependencies;
 	}
 
+	if (expression.type === "arithmetic") {
+		collectExpressionDependencies(expression.left, dependencies);
+		collectExpressionDependencies(expression.right, dependencies);
+		return dependencies;
+	}
+
+	if (
+		expression.type === "round" ||
+		expression.type === "floor" ||
+		expression.type === "integer"
+	) {
+		collectExpressionDependencies(expression.expression, dependencies);
+		return dependencies;
+	}
+
+	if (expression.type === "conditional") {
+		collectPredicateDependencies(expression.condition, dependencies);
+		collectExpressionDependencies(expression.whenTrue, dependencies);
+		collectExpressionDependencies(expression.whenFalse, dependencies);
+		return dependencies;
+	}
+
 	for (const value of expression.values) {
 		collectExpressionDependencies(value, dependencies);
+	}
+
+	return dependencies;
+};
+
+const collectPredicateDependencies = (
+	predicate: ViewPredicate,
+	dependencies: string[],
+) => {
+	if (predicate.type === "and" || predicate.type === "or") {
+		for (const child of predicate.predicates) {
+			collectPredicateDependencies(child, dependencies);
+		}
+
+		return dependencies;
+	}
+
+	if (predicate.type === "not") {
+		collectPredicateDependencies(predicate.predicate, dependencies);
+		return dependencies;
+	}
+
+	if (predicate.type === "comparison") {
+		collectExpressionDependencies(predicate.left, dependencies);
+		collectExpressionDependencies(predicate.right, dependencies);
+		return dependencies;
+	}
+
+	if (predicate.type === "contains") {
+		collectExpressionDependencies(predicate.expression, dependencies);
+		collectExpressionDependencies(predicate.value, dependencies);
+		return dependencies;
+	}
+
+	collectExpressionDependencies(predicate.expression, dependencies);
+	if (predicate.type === "in") {
+		for (const value of predicate.values) {
+			collectExpressionDependencies(value, dependencies);
+		}
 	}
 
 	return dependencies;

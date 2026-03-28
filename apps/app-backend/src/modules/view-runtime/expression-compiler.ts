@@ -8,6 +8,8 @@ import type {
 	ViewExpression,
 } from "~/lib/views/expression";
 import {
+	assertConcatCompatibleExpression,
+	assertNumericExpression,
 	inferViewExpressionType,
 	normalizeExpressionPropertyType,
 	type ViewExpressionTypeInfo,
@@ -24,6 +26,7 @@ import {
 	type ViewRuntimeReferenceContext,
 	type ViewRuntimeSchemaLike,
 } from "~/lib/views/reference";
+import { buildPredicateClause } from "./predicate-clause-builder";
 import {
 	buildCastedValueExpression,
 	buildCoalescedExpression,
@@ -82,6 +85,10 @@ const buildLiteralExpression = (
 				return sql`${JSON.stringify(value)}::jsonb`;
 			}
 
+			if (typeof value === "string") {
+				return sql`cast(${value} as text)`;
+			}
+
 			return sql`${value}`;
 		});
 };
@@ -91,12 +98,39 @@ const castExpressionToType = (
 	targetType: PropertyType,
 ) => {
 	return match(targetType)
-		.with("integer", () => sql`(${expression})::integer`)
 		.with("number", () => sql`(${expression})::numeric`)
 		.with("boolean", () => sql`(${expression})::boolean`)
 		.with("date", () => sql`(${expression})::timestamp`)
 		.with("array", "object", () => sql`to_jsonb(${expression})`)
+		.with("integer", () => sql`trunc((${expression})::numeric)::integer`)
 		.otherwise(() => sql`(${expression})::text`);
+};
+
+const buildTextValueExpression = (expression: SqlExpression) => {
+	return sql`coalesce((${expression})::text, '')`;
+};
+
+const buildIntegerNormalizationExpression = (expression: SqlExpression) => {
+	return sql`trunc((${expression})::numeric)::integer`;
+};
+
+const buildJsonNullNormalizedExpression = (input: {
+	expression: SqlExpression;
+	targetType?: PropertyType;
+	typeInfo: ViewExpressionTypeInfo;
+}) => {
+	if (
+		input.targetType === "array" ||
+		input.targetType === "object" ||
+		(input.typeInfo.kind === "property" &&
+			["array", "object"].includes(
+				normalizeExpressionPropertyType(input.typeInfo.propertyType),
+			))
+	) {
+		return sql`nullif(${input.expression}, 'null'::jsonb)`;
+	}
+
+	return input.expression;
 };
 
 const buildEntityColumnExpression = <
@@ -104,16 +138,16 @@ const buildEntityColumnExpression = <
 	TJoin extends ViewRuntimeEventJoinLike,
 >(input: {
 	alias: string;
-	reference: Extract<RuntimeRef, { type: "entity-column" }>;
-	context: ViewRuntimeReferenceContext<TSchema, TJoin>;
 	targetType?: PropertyType;
+	context: ViewRuntimeReferenceContext<TSchema, TJoin>;
+	reference: Extract<RuntimeRef, { type: "entity-column" }>;
 }) => {
 	const expression = match(input.reference.column)
 		.with("id", () => sql`${sql.raw(input.alias)}.id`)
 		.with("name", () => sql`${sql.raw(input.alias)}.name`)
+		.with("image", () => sql`${sql.raw(input.alias)}.image`)
 		.with("createdAt", () => sql`${sql.raw(input.alias)}.created_at`)
 		.with("updatedAt", () => sql`${sql.raw(input.alias)}.updated_at`)
-		.with("image", () => sql`${sql.raw(input.alias)}.image`)
 		.otherwise(() => {
 			throw new ViewRuntimeValidationError(
 				`Unsupported entity column '@${input.reference.column}'`,
@@ -276,8 +310,87 @@ export const createScalarExpressionCompiler = <
 				targetType ??
 				(typeInfo.kind === "property" ? typeInfo.propertyType : undefined);
 			return buildCoalescedExpression(
-				expression.values.map((value) => compile(value, coalesceTargetType)),
+				expression.values.map((value) => {
+					const compiledValue = compile(value, coalesceTargetType);
+					return buildJsonNullNormalizedExpression({
+						expression: compiledValue,
+						targetType: coalesceTargetType,
+						typeInfo: getTypeInfo(value),
+					});
+				}),
 			);
+		}
+
+		if (expression.type === "arithmetic") {
+			const leftType = getTypeInfo(expression.left);
+			const rightType = getTypeInfo(expression.right);
+			assertNumericExpression(leftType, "Arithmetic");
+			assertNumericExpression(rightType, "Arithmetic");
+			const arithmeticTargetType =
+				targetType ??
+				(expression.operator === "divide" ||
+				(leftType.kind === "property" && leftType.propertyType === "number") ||
+				(rightType.kind === "property" && rightType.propertyType === "number")
+					? "number"
+					: "integer");
+			const left = compile(expression.left, arithmeticTargetType);
+			const right = compile(expression.right, arithmeticTargetType);
+
+			return match(expression.operator)
+				.with("add", () => sql`(${left}) + (${right})`)
+				.with("subtract", () => sql`(${left}) - (${right})`)
+				.with("multiply", () => sql`(${left}) * (${right})`)
+				.with("divide", () => sql`(${left}) / nullif((${right}), 0)`)
+				.exhaustive();
+		}
+
+		if (expression.type === "round") {
+			const expressionType = getTypeInfo(expression.expression);
+			assertNumericExpression(expressionType, "Numeric normalization");
+			const compiled = compile(expression.expression, "number");
+			return sql`round(${compiled})::integer`;
+		}
+
+		if (expression.type === "floor") {
+			const expressionType = getTypeInfo(expression.expression);
+			assertNumericExpression(expressionType, "Numeric normalization");
+			const compiled = compile(expression.expression, "number");
+			return sql`floor(${compiled})::integer`;
+		}
+
+		if (expression.type === "integer") {
+			const expressionType = getTypeInfo(expression.expression);
+			assertNumericExpression(expressionType, "Numeric normalization");
+			return buildIntegerNormalizationExpression(
+				compile(expression.expression, "number"),
+			);
+		}
+
+		if (expression.type === "concat") {
+			for (const value of expression.values) {
+				assertConcatCompatibleExpression(getTypeInfo(value));
+			}
+
+			return sql`concat(${sql.join(
+				expression.values.map((value) =>
+					buildTextValueExpression(compile(value)),
+				),
+				sql`, `,
+			)})`;
+		}
+
+		if (expression.type === "conditional") {
+			const typeInfo = getTypeInfo(expression);
+			const conditionalTargetType =
+				targetType ??
+				(typeInfo.kind === "property" ? typeInfo.propertyType : undefined);
+			const predicate = buildPredicateClause({
+				predicate: expression.condition,
+				compiler: { compile, getTypeInfo },
+			});
+			const whenTrue = compile(expression.whenTrue, conditionalTargetType);
+			const whenFalse = compile(expression.whenFalse, conditionalTargetType);
+			return sql`case when ${predicate} then ${whenTrue} else ${whenFalse} end`;
 		}
 
 		const reference = expression.reference;

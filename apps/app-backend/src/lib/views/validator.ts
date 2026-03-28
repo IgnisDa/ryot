@@ -139,6 +139,72 @@ export const validateExpressionAgainstSchemas = (
 		return;
 	}
 
+	if (expression.type === "arithmetic") {
+		validateExpressionAgainstSchemas(
+			expression.left,
+			context,
+			validBuiltins,
+			computedFieldMap,
+		);
+		validateExpressionAgainstSchemas(
+			expression.right,
+			context,
+			validBuiltins,
+			computedFieldMap,
+		);
+		inferViewExpressionType({
+			context,
+			expression,
+			computedFieldMap,
+		});
+		return;
+	}
+
+	if (
+		expression.type === "round" ||
+		expression.type === "floor" ||
+		expression.type === "integer"
+	) {
+		validateExpressionAgainstSchemas(
+			expression.expression,
+			context,
+			validBuiltins,
+			computedFieldMap,
+		);
+		inferViewExpressionType({
+			context,
+			expression,
+			computedFieldMap,
+		});
+		return;
+	}
+
+	if (expression.type === "conditional") {
+		validateViewPredicateAgainstSchemas({
+			context,
+			predicate: expression.condition,
+			computedFields: [...computedFieldMap.values()],
+		});
+		validateExpressionAgainstSchemas(
+			expression.whenTrue,
+			context,
+			validBuiltins,
+			computedFieldMap,
+		);
+		validateExpressionAgainstSchemas(
+			expression.whenFalse,
+			context,
+			validBuiltins,
+			computedFieldMap,
+		);
+		inferViewExpressionType({
+			context,
+			expression,
+			computedFieldMap,
+		});
+		return;
+	}
+
 	for (const value of expression.values) {
 		validateExpressionAgainstSchemas(
 			value,
@@ -147,6 +213,12 @@ export const validateExpressionAgainstSchemas = (
 			computedFieldMap,
 		);
 	}
+
+	inferViewExpressionType({
+		context,
+		expression,
+		computedFieldMap,
+	});
 };
 
 const validateComputedFields = (input: {
