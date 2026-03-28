@@ -62,37 +62,68 @@ export const buildAuthenticationSavedViewInputs = (input: {
 	}>;
 	savedViews: Array<{
 		name: string;
-		trackerSlug: string;
-		entitySchemaSlug: string;
+		icon?: string;
+		trackerSlug?: string;
+		accentColor?: string;
+		entitySchemaSlug?: string;
+		queryDefinition?: SavedViewQueryDefinition;
 	}>;
 }) => {
 	return input.savedViews.map((savedView) => {
-		const tracker = input.trackers.find(
-			(item) => item.slug === savedView.trackerSlug,
-		);
-		const entitySchema = input.entitySchemas.find(
-			(schema) => schema.slug === savedView.entitySchemaSlug,
-		);
+		const tracker = savedView.trackerSlug
+			? input.trackers.find((item) => item.slug === savedView.trackerSlug)
+			: undefined;
+		const entitySchema = savedView.entitySchemaSlug
+			? input.entitySchemas.find(
+					(schema) => schema.slug === savedView.entitySchemaSlug,
+				)
+			: undefined;
 
-		if (!tracker)
+		if (savedView.trackerSlug && !tracker)
 			throw new Error(
 				`Missing built-in tracker for saved view ${savedView.name}`,
 			);
 
-		if (!entitySchema)
+		if (savedView.entitySchemaSlug && !entitySchema)
 			throw new Error(
 				`Missing built-in entity schema for saved view ${savedView.name}`,
 			);
 
+		const icon = savedView.icon ?? entitySchema?.icon;
+		const accentColor = savedView.accentColor ?? entitySchema?.accentColor;
+		const trackerId = tracker?.id;
+
+		if (!icon) throw new Error(`Missing icon for saved view ${savedView.name}`);
+
+		if (!accentColor)
+			throw new Error(`Missing accent color for saved view ${savedView.name}`);
+
+		const queryDefinition = savedView.queryDefinition;
+
+		if (!queryDefinition && !entitySchema)
+			throw new Error(
+				`Missing query definition for saved view ${savedView.name}`,
+			);
+
+		let resolvedQueryDefinition: SavedViewQueryDefinition;
+
+		if (queryDefinition) resolvedQueryDefinition = queryDefinition;
+		else {
+			if (!entitySchema)
+				throw new Error(
+					`Missing query definition for saved view ${savedView.name}`,
+				);
+
+			resolvedQueryDefinition = { entitySchemaIds: [entitySchema.id] };
+		}
+
 		return {
+			icon,
+			trackerId,
+			accentColor,
 			isBuiltin: true,
-			trackerId: tracker.id,
 			name: savedView.name,
-			icon: entitySchema.icon,
-			accentColor: entitySchema.accentColor,
-			queryDefinition: {
-				entitySchemaIds: [entitySchema.id],
-			} satisfies SavedViewQueryDefinition,
+			queryDefinition: resolvedQueryDefinition,
 		};
 	});
 };
