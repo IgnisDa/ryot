@@ -46,7 +46,7 @@ describe("toSidebarData", () => {
 				queryDefinition: {
 					filters: [],
 					entitySchemaSlugs: ["schema-2"],
-					sort: { fields: ["@name"], direction: "asc" },
+					sort: { fields: ["entity.schema-2.@name"], direction: "asc" },
 				},
 			}),
 		];

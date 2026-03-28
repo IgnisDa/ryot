@@ -1,29 +1,61 @@
 import type { AppSavedView } from "#/features/saved-views/model";
 
+const entityField = (schemaSlug: string, field: string) => {
+	return `entity.${schemaSlug}.${field}`;
+};
+
 export const defaultSavedViewDisplayConfiguration: AppSavedView["displayConfiguration"] =
 	{
-		table: { columns: [{ label: "Name", property: ["@name"] }] },
+		table: {
+			columns: [
+				{ label: "Name", property: [entityField("schema-1", "@name")] },
+			],
+		},
 		grid: {
 			badgeProperty: null,
 			subtitleProperty: null,
-			titleProperty: ["@name"],
-			imageProperty: ["@image"],
+			titleProperty: [entityField("schema-1", "@name")],
+			imageProperty: [entityField("schema-1", "@image")],
 		},
 		list: {
 			badgeProperty: null,
 			subtitleProperty: null,
-			titleProperty: ["@name"],
-			imageProperty: ["@image"],
+			titleProperty: [entityField("schema-1", "@name")],
+			imageProperty: [entityField("schema-1", "@image")],
 		},
 	};
 
+type SavedViewFixtureOverrides = Omit<
+	Partial<AppSavedView>,
+	"queryDefinition"
+> & {
+	queryDefinition?: Partial<AppSavedView["queryDefinition"]>;
+};
+
 export function createSavedViewFixture(
-	overrides: Partial<AppSavedView> = {},
+	overrides: SavedViewFixtureOverrides = {},
 ): AppSavedView {
+	const { queryDefinition: _queryDefinitionOverride, ...viewOverrides } =
+		overrides;
+	const queryDefinition = {
+		eventJoins: overrides.queryDefinition?.eventJoins ?? [],
+		filters: overrides.queryDefinition?.filters ?? [],
+		entitySchemaSlugs: overrides.queryDefinition?.entitySchemaSlugs ?? [
+			"schema-1",
+		],
+		sort:
+			overrides.queryDefinition?.sort ??
+			({
+				fields: [entityField("schema-1", "@name")],
+				direction: "asc",
+			} as const),
+	} satisfies AppSavedView["queryDefinition"];
+
 	return {
 		id: "view-1",
 		sortOrder: 1,
 		isBuiltin: true,
+		queryDefinition,
 		icon: "book-open",
 		name: "All Views",
 		isDisabled: false,
@@ -32,11 +64,6 @@ export function createSavedViewFixture(
 		createdAt: "2026-03-20T10:00:00.000Z",
 		updatedAt: "2026-03-20T10:05:00.000Z",
 		displayConfiguration: defaultSavedViewDisplayConfiguration,
-		queryDefinition: {
-			filters: [],
-			entitySchemaSlugs: ["schema-1"],
-			sort: { fields: ["@name"], direction: "asc" },
-		},
-		...overrides,
+		...viewOverrides,
 	};
 }

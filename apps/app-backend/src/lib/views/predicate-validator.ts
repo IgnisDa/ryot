@@ -9,9 +9,14 @@ import { ViewRuntimeValidationError } from "./errors";
 import type { FilterExpression } from "./filtering";
 import { getComparablePropertyType, supportsContainsFilter } from "./policy";
 import {
+	getEntityColumnPropertyDefinition,
+	getEventJoinColumnPropertyDefinition,
+	getEventJoinForReference,
+	getEventJoinPropertyDefinition,
 	getSchemaForReference,
-	getTopLevelPropertyDefinition,
 	resolveRuntimeReference,
+	type ViewRuntimeEventJoinLike,
+	type ViewRuntimeReferenceContext,
 	type ViewRuntimeSchemaLike,
 } from "./reference";
 
@@ -23,21 +28,46 @@ const topLevelTimestampFilterValueSchema = z.union([
 
 const getPropertyDefinitionForFilter = <TSchema extends ViewRuntimeSchemaLike>(
 	filter: FilterExpression,
-	schemaMap: Map<string, TSchema>,
+	context: ViewRuntimeReferenceContext<TSchema, ViewRuntimeEventJoinLike>,
 ) => {
 	const reference = resolveRuntimeReference(filter.field);
-	if (reference.type === "top-level") {
-		const property = getTopLevelPropertyDefinition(reference.column);
+	if (reference.type === "entity-column") {
+		getSchemaForReference(context.schemaMap, reference);
+		const property = getEntityColumnPropertyDefinition(reference.column);
 		if (!property) {
 			throw new ViewRuntimeValidationError(
-				`Unsupported column '@${reference.column}'`,
+				`Unsupported entity column 'entity.${reference.slug}.@${reference.column}'`,
 			);
 		}
 
 		return property;
 	}
 
-	const schema = getSchemaForReference(schemaMap, reference);
+	if (reference.type === "event-join-column") {
+		getEventJoinForReference(context.eventJoinMap, reference);
+		const property = getEventJoinColumnPropertyDefinition(reference.column);
+		if (!property) {
+			throw new ViewRuntimeValidationError(
+				`Unsupported event join column 'event.${reference.joinKey}.@${reference.column}'`,
+			);
+		}
+
+		return property;
+	}
+
+	if (reference.type === "event-join-property") {
+		const join = getEventJoinForReference(context.eventJoinMap, reference);
+		const property = getEventJoinPropertyDefinition(join, reference.property);
+		if (!property) {
+			throw new ViewRuntimeValidationError(
+				`Property '${reference.property}' not found for event join '${join.key}'`,
+			);
+		}
+
+		return property;
+	}
+
+	const schema = getSchemaForReference(context.schemaMap, reference);
 	const property = schema.propertiesSchema.fields[reference.property];
 	if (!property) {
 		throw new ViewRuntimeValidationError(
@@ -83,7 +113,13 @@ const getValueSchema = (
 	filter: FilterExpression,
 	property: AppPropertyDefinition,
 ) => {
-	if (filter.field === "@createdAt" || filter.field === "@updatedAt") {
+	const reference = resolveRuntimeReference(filter.field);
+	if (
+		(reference.type === "entity-column" &&
+			(reference.column === "createdAt" || reference.column === "updatedAt")) ||
+		(reference.type === "event-join-column" &&
+			(reference.column === "createdAt" || reference.column === "updatedAt"))
+	) {
 		return topLevelTimestampFilterValueSchema;
 	}
 
@@ -170,9 +206,9 @@ export const validateFilterExpressionAgainstSchemas = <
 	TSchema extends ViewRuntimeSchemaLike,
 >(
 	filter: FilterExpression,
-	schemaMap: Map<string, TSchema>,
+	context: ViewRuntimeReferenceContext<TSchema, ViewRuntimeEventJoinLike>,
 ) => {
-	const property = getPropertyDefinitionForFilter(filter, schemaMap);
+	const property = getPropertyDefinitionForFilter(filter, context);
 
 	match(filter)
 		.with({ op: "isNull" }, () => undefined)
