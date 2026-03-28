@@ -233,6 +233,47 @@ it.effect("runs policies in position order and validates each replacement before
 	});
 });
 
+it.effect("skips policies that do not apply to the event origin", () => {
+	const test = run({
+		payload: payload([1]),
+		policies: [{ ...policy("integration-only", 10), metadata: { origins: ["integration"] } }],
+		process: () => ({ action: "allow" }),
+	});
+
+	return Effect.gen(function* () {
+		const result = yield* test.effect;
+		expect(result.count).toBe(1);
+		expect(test.created).toHaveLength(1);
+		expect(test.sandboxPayloads).toHaveLength(0);
+	});
+});
+
+it.effect("runs subject-batched policies once per subject in an event-create payload", () => {
+	const otherEntityId = EntityId.make("entity-2");
+	const batchedPayload = payload([1, 2, 3]);
+	const first = batchedPayload.payload[0];
+	const second = batchedPayload.payload[1];
+	const third = batchedPayload.payload[2];
+	assert(first);
+	assert(second);
+	assert(third);
+	const test = run({
+		payload: {
+			...batchedPayload,
+			payload: [first, second, { ...third, entityId: otherEntityId }],
+		},
+		policies: [{ ...policy("subject-batched", 10), metadata: { batchMode: "subject" } }],
+		process: () => ({ action: "allow" }),
+	});
+
+	return Effect.gen(function* () {
+		const result = yield* test.effect;
+		expect(result.count).toBe(3);
+		expect(test.created).toHaveLength(3);
+		expect(test.sandboxPayloads).toHaveLength(2);
+	});
+});
+
 it.effect("keeps earlier writes when a later policy replacement is invalid", () => {
 	const test = run({
 		payload: payload([1, 2]),
