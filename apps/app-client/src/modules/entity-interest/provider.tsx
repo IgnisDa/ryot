@@ -1,7 +1,7 @@
 import { makeContractClient } from "@ryot/contract/client";
 import type { EntityUpdatedFrame } from "@ryot/contract/modules/entity-interest/messages";
 import { Duration, Effect, Schedule, Stream } from "effect";
-import { FetchHttpClient } from "effect/unstable/http";
+import { FetchHttpClient, HttpClientResponse } from "effect/unstable/http";
 import {
 	createContext,
 	type ReactNode,
@@ -69,6 +69,7 @@ export function EntityInterestProvider(props: {
 					}),
 				),
 				Effect.provide(FetchHttpClient.layer),
+				Effect.flatMap(HttpClientResponse.filterStatusOk),
 			);
 			yield* response.stream.pipe(
 				Stream.decodeText,
@@ -87,6 +88,7 @@ export function EntityInterestProvider(props: {
 		}).pipe(
 			Effect.ensuring(Effect.sync(() => coordinator.setConnection(undefined))),
 			Effect.retry(retrySchedule),
+			Effect.repeat(Schedule.spaced("1 second")),
 			Effect.provide(expoFetchLayer),
 		);
 		void Effect.runPromise(connect, { signal: controller.signal }).catch(() => undefined);
@@ -112,6 +114,12 @@ export function useEntityInterest(
 		throw new Error("useEntityInterest must be used within EntityInterestProvider");
 	}
 
+	useEffect(
+		() => () => {
+			coordinator.removeInterest(owner);
+		},
+		[coordinator, owner],
+	);
 	useEffect(() => coordinator.setInterest(owner, entityIds), [coordinator, entityIds, owner]);
 	useEffect(() => {
 		const unsubscribe = coordinator.subscribe(handleUpdate);
