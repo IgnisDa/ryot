@@ -55,7 +55,7 @@ type FiltersBuilderFormLike = {
 
 export const OPERATOR_OPTIONS = [
 	{ label: "Equals (eq)", value: "eq" },
-	{ label: "Not equals (ne)", value: "ne" },
+	{ label: "Not equals (neq)", value: "neq" },
 	{ label: "Greater than (gt)", value: "gt" },
 	{ label: "Greater or equal (gte)", value: "gte" },
 	{ label: "Less than (lt)", value: "lt" },
@@ -65,10 +65,11 @@ export const OPERATOR_OPTIONS = [
 	{ label: "Contains (contains)", value: "contains" },
 ];
 
-const COMPARISON_OPS = ["eq", "ne", "gt", "gte", "lt", "lte", "isNull"];
-const STRING_OPS = ["eq", "ne", "in", "isNull", "contains"];
-const BOOLEAN_OPS = ["eq", "ne", "isNull"];
-const ARRAY_OPS = ["in", "isNull", "contains"];
+const COMPARISON_OPS = ["eq", "neq", "gt", "gte", "lt", "lte", "isNull"];
+const STRING_OPS = [...COMPARISON_OPS, "in", "contains"];
+const BOOLEAN_OPS = ["eq", "neq", "isNull"];
+const ARRAY_OPS = ["contains", "isNull"];
+const OBJECT_OPS = ["contains", "isNull"];
 
 const OPERATOR_COMPAT: Record<Exclude<ResolvedPropertyType, null>, string[]> = {
 	array: ARRAY_OPS,
@@ -77,9 +78,7 @@ const OPERATOR_COMPAT: Record<Exclude<ResolvedPropertyType, null>, string[]> = {
 	boolean: BOOLEAN_OPS,
 	number: COMPARISON_OPS,
 	integer: COMPARISON_OPS,
-	object: OPERATOR_OPTIONS.filter((o) => o.value !== "contains").map(
-		(o) => o.value,
-	),
+	object: OBJECT_OPS,
 };
 
 function getAllowedOps(type: ResolvedPropertyType): string[] {

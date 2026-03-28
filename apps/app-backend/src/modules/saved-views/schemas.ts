@@ -1,6 +1,7 @@
 import { zodBoolAsString } from "@ryot/ts-utils";
 import { z } from "zod";
 import { itemDataSchema, listDataSchema } from "~/lib/openapi";
+import { filterExpressionSchema } from "~/lib/views/filtering";
 import {
 	createIdParamsSchema,
 	createNonEmptyStringArraySchema,
@@ -10,8 +11,6 @@ import {
 	sortOrderSchema,
 	timestampFields,
 } from "~/lib/zod/base";
-
-const runtimeFieldPathSchema = nonEmptyTrimmedStringSchema;
 
 const sortFieldsSchema = createNonEmptyStringArraySchema(
 	"Sort fields are required",
@@ -30,39 +29,6 @@ const createEntityCardDisplayConfigSchema = () =>
 		badgeProperty: displayPropertyReferenceSchema,
 		subtitleProperty: displayPropertyReferenceSchema,
 	});
-
-const filterExpressionIsNullSchema = z.object({
-	value: z.null().optional(),
-	op: z.literal("isNull"),
-	field: runtimeFieldPathSchema,
-});
-
-const filterExpressionInSchema = z.object({
-	op: z.literal("in"),
-	field: runtimeFieldPathSchema,
-	value: z.array(z.unknown()),
-});
-
-const filterExpressionComparisonSchema = z.object({
-	value: z.unknown(),
-	field: runtimeFieldPathSchema,
-	op: z.enum(["eq", "ne", "gt", "gte", "lt", "lte"]),
-});
-
-const filterExpressionContainsSchema = z.object({
-	value: z.unknown(),
-	field: runtimeFieldPathSchema,
-	op: z.literal("contains"),
-});
-
-export const filterExpressionSchema = z.discriminatedUnion("op", [
-	filterExpressionInSchema,
-	filterExpressionIsNullSchema,
-	filterExpressionContainsSchema,
-	filterExpressionComparisonSchema,
-]);
-
-export type FilterExpression = z.infer<typeof filterExpressionSchema>;
 
 export const sortDefinitionSchema = z.object({
 	fields: sortFieldsSchema,
