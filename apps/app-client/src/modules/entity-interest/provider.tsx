@@ -1,7 +1,8 @@
 import { makeContractClient } from "@ryot/contract/client";
 import type { EntityUpdatedFrame } from "@ryot/contract/modules/entity-interest/messages";
-import { Duration, Effect, Schedule, Stream } from "effect";
+import { Cause, Duration, Effect, Schedule, Stream } from "effect";
 import { FetchHttpClient, HttpClientResponse } from "effect/unstable/http";
+import { randomUUID } from "expo-crypto";
 import {
 	createContext,
 	type ReactNode,
@@ -59,7 +60,7 @@ export function EntityInterestProvider(props: {
 	useEffect(() => {
 		const controller = new AbortController();
 		const connect = Effect.gen(function* () {
-			const streamId = crypto.randomUUID();
+			const streamId = randomUUID();
 			const parser = new InterestSseParser();
 			const response = yield* clientEffect(props.serverUrl).pipe(
 				Effect.flatMap((client) =>
@@ -87,6 +88,11 @@ export function EntityInterestProvider(props: {
 			);
 		}).pipe(
 			Effect.ensuring(Effect.sync(() => coordinator.setConnection(undefined))),
+			Effect.tapCause((cause) =>
+				Cause.hasInterruptsOnly(cause)
+					? Effect.void
+					: Effect.logWarning("entity interest stream failed", Cause.pretty(cause)),
+			),
 			Effect.retry(retrySchedule),
 			Effect.repeat(Schedule.spaced("1 second")),
 			Effect.provide(expoFetchLayer),
