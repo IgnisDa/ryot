@@ -223,6 +223,7 @@ export function SearchEntityModalContent(props: {
 		totalItems,
 		isSearching,
 		searchError,
+		clearSearch,
 		selectedProviderIndex,
 		setSelectedProviderIndex,
 	} = useEntitySearch({
@@ -240,11 +241,14 @@ export function SearchEntityModalContent(props: {
 				<SegmentedControl
 					fullWidth
 					value={String(selectedProviderIndex)}
-					onChange={(v) => setSelectedProviderIndex(Number(v))}
 					data={props.entitySchema.searchProviders.map((p, i) => ({
 						label: p.name,
 						value: String(i),
 					}))}
+					onChange={(v) => {
+						clearSearch();
+						setSelectedProviderIndex(Number(v));
+					}}
 				/>
 			)}
 
