@@ -37,6 +37,7 @@ import {
 	resolveEntitySchemaId,
 } from "./service";
 
+// TODO: delete this route eventually
 const listEntitiesRoute = createAuthRoute(
 	createRoute({
 		path: "/",
