@@ -467,7 +467,7 @@ export const runSandboxScriptWorkflowBody = Effect.fn("SandboxScriptWorkflow")(f
 			yield* Effect.forEach(
 				replay.logs,
 				(message) =>
-					Effect.logInfo(message).pipe(
+					Effect.logDebug(message).pipe(
 						Effect.annotateLogs({ replayStep: step, sandboxWorkflowExecutionId: executionId }),
 					),
 				{ discard: true },
