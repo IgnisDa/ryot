@@ -4,7 +4,7 @@
 
 **Type:** AFK
 
-**Status:** todo
+**Status:** done
 
 ## What to build
 
@@ -16,17 +16,17 @@ Related entity references must not include partial related entity properties. Ev
 
 ## Acceptance criteria
 
-- [ ] All details scripts that previously emitted `people` now emit those linked references through `relatedEntities`.
-- [ ] All details scripts that previously emitted `companies` now emit those linked references through `relatedEntities`.
-- [ ] All details scripts that previously emitted `groups` now emit those linked references through `relatedEntities`.
-- [ ] Primary entity `properties` no longer contains linked `people`, `companies`, or `groups` collections after script migration.
-- [ ] `unlinkedCreators` remains a normal primary entity property and is not moved into `relatedEntities`.
-- [ ] Person and company role values are represented inside `relationshipProperties`, not as related entity identity.
-- [ ] Existing character and order fields are represented inside `relationshipProperties` when available.
-- [ ] Group references use relationship properties compatible with the derived group-to-media relationship schema.
-- [ ] No related entity reference includes partial related entity properties.
-- [ ] Every related entity reference includes a non-empty name, using a placeholder only when necessary.
-- [ ] Scripts aggregate duplicate references where needed so overwrite-only backend writes do not lose intended roles or edge metadata.
+- [x] All details scripts that previously emitted `people` now emit those linked references through `relatedEntities`.
+- [x] All details scripts that previously emitted `companies` now emit those linked references through `relatedEntities`.
+- [x] All details scripts that previously emitted `groups` now emit those linked references through `relatedEntities`.
+- [x] Primary entity `properties` no longer contains linked `people`, `companies`, or `groups` collections after script migration.
+- [x] `unlinkedCreators` remains a normal primary entity property and is not moved into `relatedEntities`.
+- [x] Person and company role values are represented inside `relationshipProperties`, not as related entity identity.
+- [x] Existing character and order fields are represented inside `relationshipProperties` when available.
+- [x] Group references use relationship properties compatible with the derived group-to-media relationship schema.
+- [x] No related entity reference includes partial related entity properties.
+- [x] Every related entity reference includes a non-empty name, using a placeholder only when necessary.
+- [x] Scripts aggregate duplicate references where needed so overwrite-only backend writes do not lose intended roles or edge metadata.
 
 ## User stories addressed
 

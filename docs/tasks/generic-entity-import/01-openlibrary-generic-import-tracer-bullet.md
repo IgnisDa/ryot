@@ -4,7 +4,7 @@
 
 **Type:** AFK
 
-**Status:** todo
+**Status:** done
 
 ## What to build
 
@@ -18,15 +18,15 @@ Keep the current public endpoint and current queue/job naming for this slice. If
 
 ## Acceptance criteria
 
-- [ ] Importing an OpenLibrary book through the existing public import endpoint creates or updates the primary book entity and sets its populated timestamp.
-- [ ] The OpenLibrary details script emits related authors through `relatedEntities` and no longer emits linked authors through a `people` property.
-- [ ] Every related author reference emitted by OpenLibrary includes a non-empty `name`, `externalId`, `scriptSlug`, and `relationshipProperties` object.
-- [ ] Related author placeholder entity rows are created or reused by related script, related external id, and related entity schema.
-- [ ] Related author placeholder entity rows keep populated timestamp null.
-- [ ] Relationship rows are written from related author entity to imported book entity using the derived relationship schema.
-- [ ] Relationship properties contain the expected author role data and are validated against the relationship schema.
-- [ ] Existing OpenLibrary import E2E coverage still passes for enqueueing, polling, primary properties, and primary populated timestamp.
-- [ ] New E2E coverage verifies related author rows and relationship rows through observable API behavior or test database assertions.
+- [x] Importing an OpenLibrary book through the existing public import endpoint creates or updates the primary book entity and sets its populated timestamp.
+- [x] The OpenLibrary details script emits related authors through `relatedEntities` and no longer emits linked authors through a `people` property.
+- [x] Every related author reference emitted by OpenLibrary includes a non-empty `name`, `externalId`, `scriptSlug`, and `relationshipProperties` object.
+- [x] Related author placeholder entity rows are created or reused by related script, related external id, and related entity schema.
+- [x] Related author placeholder entity rows keep populated timestamp null.
+- [x] Relationship rows are written from related author entity to imported book entity using the derived relationship schema.
+- [x] Relationship properties contain the expected author role data and are validated against the relationship schema.
+- [x] Existing OpenLibrary import E2E coverage still passes for enqueueing, polling, primary properties, and primary populated timestamp.
+- [x] New E2E coverage verifies related author rows and relationship rows through observable API behavior or test database assertions.
 
 ## User stories addressed
 
