@@ -21,11 +21,12 @@ const listEventSchemasRoute = createAuthRoute(
 		method: "get",
 		tags: ["event-schemas"],
 		request: { query: listEventSchemasQuery },
-		summary: "List event schemas for an entity schema",
+		summary: "List visible event schemas for an entity schema",
 		responses: createStandardResponses({
 			successSchema: listEventSchemasResponseSchema,
 			notFoundDescription: "Entity schema does not exist for this user",
-			successDescription: "Event schemas for the requested entity schema",
+			successDescription:
+				"Event schemas visible for the requested entity schema, including seeded built-in media lifecycle schemas",
 		}),
 	}),
 );

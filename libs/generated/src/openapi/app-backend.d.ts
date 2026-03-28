@@ -1192,7 +1192,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** List event schemas for a custom entity schema */
+        /** List visible event schemas for an entity schema */
         get: {
             parameters: {
                 query: {
@@ -1204,7 +1204,7 @@ export interface paths {
             };
             requestBody?: never;
             responses: {
-                /** @description Event schemas for the requested entity schema */
+                /** @description Event schemas visible for the requested entity schema, including seeded built-in media lifecycle schemas */
                 200: {
                     headers: {
                         [name: string]: unknown;
@@ -1347,7 +1347,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** List events for a custom entity */
+        /** List events for an entity */
         get: {
             parameters: {
                 query: {
@@ -1359,7 +1359,7 @@ export interface paths {
             };
             requestBody?: never;
             responses: {
-                /** @description Events for the requested entity */
+                /** @description Events for the requested entity, including built-in media lifecycle actions */
                 200: {
                     headers: {
                         [name: string]: unknown;
@@ -1421,7 +1421,7 @@ export interface paths {
             };
         };
         put?: never;
-        /** Create an event for a custom entity */
+        /** Create events for an entity, including built-in media lifecycle actions */
         post: {
             parameters: {
                 query?: never;
@@ -1442,7 +1442,7 @@ export interface paths {
                 };
             };
             responses: {
-                /** @description Number of events created */
+                /** @description Number of events created for the requested entity, including built-in media lifecycle actions */
                 200: {
                     headers: {
                         [name: string]: unknown;
