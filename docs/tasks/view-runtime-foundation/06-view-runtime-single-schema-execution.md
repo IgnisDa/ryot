@@ -36,13 +36,13 @@ Request schema (see PRD section "View Runtime Module Changes > Request schema st
 - `entitySchemaSlugs: string[]`
 - `filters: FilterExpression[]` (empty array for this task)
 - `sort: { field: string[], direction: "asc" | "desc" }`
-- `page: { limit: number, offset: number }`
+- `pagination: { page: number, limit: number }`
 - `layout: "grid" | "list" | "table"`
 - `displayConfiguration: GridConfig | ListConfig | TableConfig`
 
 Response schema (see PRD section "View Runtime Module Changes > Response schema structure"):
 - `items: Array<{ id, name, image, entitySchemaId, entitySchemaSlug, createdAt, updatedAt, resolvedProperties }>`
-- `meta: { pagination: { total, limit, offset, hasNextPage, hasPreviousPage, totalPages, currentPage } }`
+- `meta: { pagination: { page, total, limit, hasNextPage, hasPreviousPage, totalPages } }`
 
 ### Query Builder
 
@@ -62,15 +62,16 @@ See PRD sections "Query Builder Architecture" and "Execution flow."
 ### Pagination
 
 Implement full pagination per PRD section "Pagination Behavior":
-- Offset clamping: `clampedOffset = min(offset, max(0, total - limit))`
-- Zero-result handling: `totalPages: 0`, `currentPage: 1`
-- Full metadata: total, limit, offset, hasNextPage, hasPreviousPage, totalPages, currentPage
+- Page-based contract: `pagination: { page, limit }`
+- Out-of-range handling: return empty items without clamping to the last page
+- Zero-result handling: `totalPages: 0`
+- Full metadata: page, total, limit, hasNextPage, hasPreviousPage, totalPages
 - Separate CTE for total count (not correlated subquery)
 
 Unit tests for pagination math:
-- Standard case (20 items, limit 5, offset 0 → page 1 of 4)
-- Offset clamping (request offset 100 with only 20 results → clamps to max valid offset)
-- Zero results (totalPages: 0, currentPage: 1, hasNextPage: false, hasPreviousPage: false)
+- Standard case (20 items, limit 5, page 1 → page 1 of 4)
+- Out-of-range page (request page 100 with only 4 total pages → preserves page and returns empty items)
+- Zero results (totalPages: 0, hasNextPage: false, hasPreviousPage: false)
 - Last page (hasNextPage: false, hasPreviousPage: true)
 
 ### Route Handler
@@ -102,9 +103,9 @@ Replace the placeholder in `apps/app-backend/src/modules/view-runtime/routes.ts`
 - [x] Query builder accepts single-schema request and generates parameterized SQL via Drizzle
 - [x] Pre-fetches entity schemas and validates access
 - [x] Sort works for top-level columns (`@name`, `@createdAt`, `@updatedAt`) and schema properties
-- [x] Pagination metadata is correct (total, limit, offset, hasNextPage, hasPreviousPage, totalPages, currentPage)
-- [x] Offset clamping works (out-of-range offsets are clamped)
-- [x] Zero-result queries return `totalPages: 0`, `currentPage: 1`
+- [x] Pagination metadata is correct (page, total, limit, hasNextPage, hasPreviousPage, totalPages)
+- [x] Out-of-range pages return empty items without clamping
+- [x] Zero-result queries return `totalPages: 0`
 - [x] Grid/list display properties resolved with semantic keys (imageProperty, titleProperty, etc.)
 - [x] Images returned as raw jsonb discriminated unions
 - [x] Returns 404 for non-existent schema slugs
@@ -123,7 +124,7 @@ Replace the placeholder in `apps/app-backend/src/modules/view-runtime/routes.ts`
 - User story 7 (paginated results)
 - User story 8 (backend resolves property values)
 - User story 19 (pagination metadata)
-- User story 20 (pagination offset clamping)
+- User story 20 (out-of-range pages return empty results)
 - User story 22 (image fields as raw discriminated unions)
 - User story 24 (grid/list semantic keys)
 - User story 25 (property type introspection)
