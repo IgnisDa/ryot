@@ -6,15 +6,15 @@ import { Pressable, ScrollView, Text, View } from "react-native";
 import { AppApi } from "@/api/app-api";
 import { useAuthClient } from "@/modules/auth/client";
 
-const trackersAtom = AppApi.query("trackers", "list", {
-	urlParams: { includeDisabled: false },
-});
 const notificationChannelsAtom = AppApi.query("notifications", "listChannels", {});
+const savedViewsAtom = AppApi.query("savedViews", "list", {
+	urlParams: { includeDisabled: true },
+});
 
 export default function AppHome() {
 	const client = useAuthClient();
 	const { data: session } = client.useSession();
-	const trackers = useAtomValue(trackersAtom);
+	const savedViews = useAtomValue(savedViewsAtom);
 	const notificationChannels = useAtomValue(notificationChannelsAtom);
 
 	async function handleSignOut() {
@@ -31,8 +31,8 @@ export default function AppHome() {
 				</Text>
 
 				<View className="gap-3 rounded-xl border border-border bg-surface p-5">
-					<Text className="font-ui-semibold text-base text-text">GET /api/trackers</Text>
-					{Result.builder(trackers)
+					<Text className="font-ui-semibold text-base text-text">GET /api/saved-views</Text>
+					{Result.builder(savedViews)
 						.onInitial(() => <Text className="font-ui text-text-muted">Loading...</Text>)
 						.onFailure((cause) => (
 							<Text selectable className="font-mono text-sm text-danger">
