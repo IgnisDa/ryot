@@ -84,6 +84,7 @@ All references must be explicit.
 
 ### Entity Built-Ins
 
+- `entity.book.@id`
 - `entity.book.@name`
 - `entity.book.@image`
 - `entity.book.@createdAt`
@@ -91,7 +92,7 @@ All references must be explicit.
 
 Notes:
 
-- `@name`, `@createdAt`, `@updatedAt` work in sort, filters, and fields.
+- `@id`, `@name`, `@createdAt`, `@updatedAt` work in sort, filters, and fields.
 - `@image` works in fields, not filters.
 
 ### Entity Properties

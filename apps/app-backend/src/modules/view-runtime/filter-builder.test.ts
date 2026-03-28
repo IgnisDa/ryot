@@ -149,6 +149,13 @@ describe("buildFilterWhereClause", () => {
 	});
 
 	it("uses entity columns directly for built-in filters", () => {
+		const idClause = serializeClause([
+			{
+				op: "eq",
+				value: "entity-123",
+				field: entityField("smartphones", "@id"),
+			},
+		]);
 		const nameClause = serializeClause([
 			{
 				op: "eq",
@@ -164,6 +171,7 @@ describe("buildFilterWhereClause", () => {
 			},
 		]);
 
+		expect(idClause.sql).toContain("entities.id");
 		expect(nameClause.sql).toContain("entities.name");
 		expect(createdAtClause.sql).toContain("entities.created_at");
 	});
@@ -239,6 +247,20 @@ describe("buildFilterWhereClause", () => {
 		expect(clause.sql).toContain("entities.name");
 		expect(clause.sql.toLowerCase()).toContain("ilike");
 		expect(clause.params).toContain("%Pro%");
+	});
+
+	it("builds contains as ilike for entity @id", () => {
+		const clause = serializeClause([
+			{
+				value: "123",
+				op: "contains",
+				field: entityField("smartphones", "@id"),
+			},
+		]);
+
+		expect(clause.params).toContain("%123%");
+		expect(clause.sql).toContain("entities.id");
+		expect(clause.sql.toLowerCase()).toContain("ilike");
 	});
 
 	it("escapes ilike metacharacters in the contains value", () => {
