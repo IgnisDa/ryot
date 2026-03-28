@@ -44,10 +44,12 @@ function withQueryDefaults<A, E>(query: Atom.Atom<AsyncResult.AsyncResult<A, E>>
 	);
 }
 
-const query = new Proxy(AppQueryApi.query, {
+const query: typeof AppQueryApi.query = new Proxy(AppQueryApi.query, {
 	apply(target, thisArg, argumentsList) {
 		return withQueryDefaults(Reflect.apply(target, thisArg, argumentsList));
 	},
 });
 
 export const appQueryClient = { mutation: AppApi.mutation, query };
+
+export const withAppQueryDefaults = withQueryDefaults;

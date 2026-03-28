@@ -118,7 +118,7 @@ describe("getNavigationItems", () => {
 
 describe("getCurrentWorkspace", () => {
 	it("prefers a valid route and falls back from an invalid persisted workspace", () => {
-		expect(getCurrentWorkspace(data.workspaces, "missing", "missing")?.slug).toBe("media");
+		expect(getCurrentWorkspace(data.workspaces, "missing", "missing").slug).toBe("media");
 	});
 });
 
