@@ -11,7 +11,7 @@ import type { JsonValue } from "@ryot/sandbox-sdk/wire";
 
 import {
 	decodeEntityReadResponse,
-	decodeProgressEvents,
+	decodeProgressEventsPage,
 	type MediaProgressEvent,
 } from "../../shared/ryotql";
 
@@ -149,12 +149,33 @@ const fetchEntity = (host: AutomationHost, entityId: string, entitySchemaSlug: s
 		)
 		.pipe(Effect.map(decodeEntityReadResponse));
 
-const getProgressEvents = (host: AutomationHost, entityId: string, entitySchemaSlug: string) =>
+const getProgressEventPage = (
+	host: AutomationHost,
+	entityId: string,
+	entitySchemaSlug: string,
+	page: number,
+) =>
 	host
 		.executeRyotql(
-			buildEventReadDocument({ entityId, entitySchemaSlug, eventSchemaSlug: "progress" }),
+			buildEventReadDocument({ page, entityId, entitySchemaSlug, eventSchemaSlug: "progress" }),
 		)
-		.pipe(Effect.map(decodeProgressEvents));
+		.pipe(Effect.map(decodeProgressEventsPage));
+
+const getProgressEvents = (host: AutomationHost, entityId: string, entitySchemaSlug: string) =>
+	Effect.gen(function* () {
+		const events = new Map<string, MediaProgressEvent>();
+		let page = 1;
+		let hasMore: boolean;
+		do {
+			const result = yield* getProgressEventPage(host, entityId, entitySchemaSlug, page);
+			for (const event of result.events) {
+				events.set(event.id, event);
+			}
+			hasMore = result.hasMore;
+			page += 1;
+		} while (hasMore);
+		return [...events.values()];
+	});
 
 const getInheritedCompletionProperties = (
 	automation: AutomationContext,
