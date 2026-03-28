@@ -56,7 +56,7 @@ export const listEventSchemasByEntitySchemaForUser = async (input: {
 		.from(eventSchema)
 		.where(
 			and(
-				eq(eventSchema.userId, input.userId),
+				or(isNull(eventSchema.userId), eq(eventSchema.userId, input.userId)),
 				eq(eventSchema.entitySchemaId, input.entitySchemaId),
 			),
 		)

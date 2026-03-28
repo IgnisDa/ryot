@@ -1,4 +1,5 @@
 import { generateId } from "better-auth";
+import { sql } from "drizzle-orm";
 import {
 	boolean,
 	index,
@@ -8,6 +9,7 @@ import {
 	text,
 	timestamp,
 	unique,
+	uniqueIndex,
 } from "drizzle-orm/pg-core";
 import { z } from "zod";
 import { user } from "./auth";
@@ -146,6 +148,7 @@ export const eventSchema = pgTable(
 		name: text().notNull(),
 		propertiesSchema: jsonb().notNull(),
 		createdAt: timestamp().defaultNow().notNull(),
+		isBuiltin: boolean().notNull().default(false),
 		userId: text().references(() => user.id, { onDelete: "cascade" }),
 		entitySchemaId: text()
 			.notNull()
@@ -166,6 +169,9 @@ export const eventSchema = pgTable(
 			table.entitySchemaId,
 			table.slug,
 		),
+		uniqueIndex("event_schema_builtin_entity_schema_slug_unique")
+			.on(table.entitySchemaId, table.slug)
+			.where(sql`${table.userId} is null`),
 	],
 );
 

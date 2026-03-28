@@ -1,5 +1,5 @@
 import { generateId } from "better-auth";
-import { and, eq, isNull } from "drizzle-orm";
+import { and, eq, isNull, notInArray, sql } from "drizzle-orm";
 import type { DbClient } from "~/lib/db";
 import {
 	entitySchema,
@@ -49,31 +49,54 @@ export const ensureBuiltinEntitySchemaEventSchemas = async (input: {
 		propertiesSchema: unknown;
 	}>;
 }) => {
-	const existingSchemas = await input.database
-		.select({ id: eventSchema.id, slug: eventSchema.slug })
-		.from(eventSchema)
-		.where(
-			and(
-				eq(eventSchema.entitySchemaId, input.entitySchemaId),
-				isNull(eventSchema.userId),
-			),
-		);
+	const expectedSlugs = input.eventSchemas.map((schema) => schema.slug);
 
-	const existingBySlug = new Map(
-		existingSchemas.map((schema) => [schema.slug, schema.id]),
-	);
+	if (expectedSlugs.length === 0) {
+		await input.database
+			.delete(eventSchema)
+			.where(
+				and(
+					eq(eventSchema.entitySchemaId, input.entitySchemaId),
+					isNull(eventSchema.userId),
+				),
+			);
+	} else {
+		await input.database
+			.delete(eventSchema)
+			.where(
+				and(
+					eq(eventSchema.entitySchemaId, input.entitySchemaId),
+					isNull(eventSchema.userId),
+					notInArray(eventSchema.slug, expectedSlugs),
+				),
+			);
+	}
 
 	for (const schema of input.eventSchemas) {
-		if (existingBySlug.has(schema.slug)) {
-			continue;
-		}
-
-		await input.database.insert(eventSchema).values({
-			slug: schema.slug,
-			name: schema.name,
-			entitySchemaId: input.entitySchemaId,
-			propertiesSchema: schema.propertiesSchema,
-		});
+		await input.database.execute(sql`
+			insert into "event_schema" (
+				"id",
+				"slug",
+				"name",
+				"entity_schema_id",
+				"properties_schema",
+				"is_builtin"
+			)
+			values (
+				${generateId()},
+				${schema.slug},
+				${schema.name},
+				${input.entitySchemaId},
+				${JSON.stringify(schema.propertiesSchema)}::jsonb,
+				true
+			)
+			on conflict ("entity_schema_id", "slug")
+			where "user_id" is null
+			do update set
+				"name" = excluded."name",
+				"is_builtin" = true,
+				"properties_schema" = excluded."properties_schema"
+		`);
 	}
 };
 
