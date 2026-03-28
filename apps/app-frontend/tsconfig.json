@@ -20,7 +20,8 @@
 		"lib": ["ES2022", "DOM", "DOM.Iterable"],
 		"paths": {
 			"#/*": ["./src/*"],
-			"@/*": ["./src/*"]
+			"@/*": ["./src/*"],
+			"@ryot/generated/*": ["../../libs/generated/src/*"]
 		}
 	}
 }
