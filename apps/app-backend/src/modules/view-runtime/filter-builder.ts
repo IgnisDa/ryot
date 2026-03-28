@@ -101,6 +101,7 @@ const buildEventJoinPropertyFilterExpression = <
 
 const buildEntityColumnFilterExpression = (alias: string, column: string) =>
 	match(column)
+		.with("id", () => sql`${sql.raw(alias)}.id`)
 		.with("name", () => sql`${sql.raw(alias)}.name`)
 		.with("createdAt", () => sql`${sql.raw(alias)}.created_at`)
 		.with("updatedAt", () => sql`${sql.raw(alias)}.updated_at`)

@@ -33,6 +33,7 @@ const wrapJsonbNull = (value: SqlExpression) =>
 
 const buildEntityColumnDisplayExpression = (alias: string, column: string) =>
 	match(column)
+		.with("id", () => sql`to_jsonb(${sql.raw(alias)}.id)`)
 		.with("name", () => sql`to_jsonb(${sql.raw(alias)}.name)`)
 		.with("createdAt", () => sql`to_jsonb(${sql.raw(alias)}.created_at)`)
 		.with("updatedAt", () => sql`to_jsonb(${sql.raw(alias)}.updated_at)`)
@@ -47,6 +48,7 @@ const getEntityColumnDisplayKind = (
 	column: string,
 ): ResolvedDisplayValue["kind"] =>
 	match(column)
+		.with("id", () => "text" as const)
 		.with("name", () => "text" as const)
 		.with("image", () => "image" as const)
 		.with("createdAt", "updatedAt", () => "date" as const)
