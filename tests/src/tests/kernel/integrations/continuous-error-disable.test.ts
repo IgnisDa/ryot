@@ -57,7 +57,10 @@ describe("integration auto-disable on continuous errors", () => {
 					"integration auto-disable",
 					Effect.gen(function* () {
 						const integration = yield* getIntegration(client, id);
-						return integration.isDisabled ? integration : null;
+						if (!integration || !integration.isDisabled) {
+							return null;
+						}
+						return integration;
 					}),
 				);
 				expect(disabled.isDisabled).toBe(true);

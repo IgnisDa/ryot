@@ -1,8 +1,14 @@
-import type { ContractPayload, ContractUrlParams } from "@ryot/contract/client";
+import type { ContractPayload } from "@ryot/contract/client";
 import { IntegrationId } from "@ryot/contract/schema/brands";
+import {
+	buildIntegrationDocument,
+	buildIntegrationsDocument,
+	decodeIntegrationResponse,
+	decodeIntegrationsResponse,
+} from "@ryot/ryotql-recipes/integrations";
 import { Effect } from "effect";
 
-import { requirePresent } from "~/support/assertions";
+import { requirePresent, resultToEffect } from "~/support/assertions";
 
 import type { Client } from "./auth";
 import { pollImportRunUntilTerminal } from "./imports";
@@ -35,16 +41,36 @@ export const createAudiobookshelfIntegration = (client: Client) =>
 				baseUrl: "https://abs.example.com",
 			},
 		});
-		return yield* getIntegration(client, id);
+		return requirePresent(yield* getIntegration(client, id), "Created integration not found");
 	});
 
 export const listIntegrations = (
 	client: Client,
-	query?: ContractUrlParams<"integrations", "list">,
-) => client.call((c) => c.integrations.list({ query: query ?? {} }));
+	options: Partial<Parameters<typeof buildIntegrationsDocument>[0]> = {},
+) =>
+	Effect.gen(function* () {
+		const response = yield* client.call((c) =>
+			c.ryotql.execute({
+				payload: buildIntegrationsDocument({
+					page: options.page ?? 1,
+					provider: options.provider,
+					limit: options.limit ?? 100,
+					isDisabled: options.isDisabled,
+				}),
+			}),
+		);
+		const decoded = yield* resultToEffect(decodeIntegrationsResponse(response));
+
+		return decoded.items;
+	});
 
 export const getIntegration = (client: Client, id: string) =>
-	client.call((c) => c.integrations.get({ params: { integrationId: IntegrationId.make(id) } }));
+	Effect.gen(function* () {
+		const response = yield* client.call((c) =>
+			c.ryotql.execute({ payload: buildIntegrationDocument({ id }) }),
+		);
+		return yield* resultToEffect(decodeIntegrationResponse(response));
+	});
 
 export const deleteIntegration = (client: Client, id: string) =>
 	client.call((c) => c.integrations.delete({ params: { integrationId: IntegrationId.make(id) } }));
