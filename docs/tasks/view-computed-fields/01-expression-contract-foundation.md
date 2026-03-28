@@ -4,7 +4,7 @@
 
 **Type:** AFK
 
-**Status:** todo
+**Status:** done
 
 ## What to build
 
@@ -18,11 +18,11 @@ Backward compatibility is not needed in this slice. Remove legacy request/displa
 
 ## Acceptance criteria
 
-- [ ] Saved-view and view-runtime request schemas accept the new expression AST for output fields and display configuration instead of legacy reference arrays
-- [ ] Structured references resolve entity fields and latest-event join fields through the shared validation path
-- [ ] Literal and coalesce expressions execute end-to-end for saved views and raw runtime requests
-- [ ] Saved-view persistence and bootstrap data use the new expression-based JSON shape
-- [ ] Legacy request/display parsing paths are removed rather than preserved behind compatibility shims
+- [x] Saved-view and view-runtime request schemas accept the new expression AST for output fields and display configuration instead of legacy reference arrays
+- [x] Structured references resolve entity fields and latest-event join fields through the shared validation path
+- [x] Literal and coalesce expressions execute end-to-end for saved views and raw runtime requests
+- [x] Saved-view persistence and bootstrap data use the new expression-based JSON shape
+- [x] Legacy request/display parsing paths are removed rather than preserved behind compatibility shims
 
 ## Blocked by
 

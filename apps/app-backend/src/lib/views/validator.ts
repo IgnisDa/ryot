@@ -1,6 +1,7 @@
 import type { DisplayConfiguration } from "~/modules/saved-views/schemas";
 import type { ViewRuntimeRequest } from "~/modules/view-runtime/schemas";
 import { ViewRuntimeValidationError } from "./errors";
+import type { RuntimeRef, ViewExpression } from "./expression";
 import { validateFilterExpressionAgainstSchemas } from "./predicate-validator";
 import {
 	displayBuiltins,
@@ -20,6 +21,62 @@ import {
 type ValidationSchemaRow = ViewRuntimeSchemaLike;
 type ValidationEventJoinRow = ViewRuntimeEventJoinLike;
 
+export const validateRuntimeReferenceAgainstSchemas = (
+	reference: RuntimeRef,
+	context: ViewRuntimeReferenceContext<
+		ValidationSchemaRow,
+		ValidationEventJoinRow
+	>,
+	validBuiltins: ReadonlySet<string>,
+): void => {
+	if (reference.type === "entity-column") {
+		getSchemaForReference(context.schemaMap, reference);
+		if (!validBuiltins.has(reference.column)) {
+			throw new ViewRuntimeValidationError(
+				`Unsupported entity column 'entity.${reference.slug}.@${reference.column}'`,
+			);
+		}
+		if (
+			!getEntityColumnPropertyDefinition(reference.column) &&
+			reference.column !== "image"
+		) {
+			throw new ViewRuntimeValidationError(
+				`Unsupported entity column 'entity.${reference.slug}.@${reference.column}'`,
+			);
+		}
+		return;
+	}
+
+	if (reference.type === "event-join-column") {
+		getEventJoinForReference(context.eventJoinMap, reference);
+		if (!getEventJoinColumnPropertyDefinition(reference.column)) {
+			throw new ViewRuntimeValidationError(
+				`Unsupported event join column 'event.${reference.joinKey}.@${reference.column}'`,
+			);
+		}
+		return;
+	}
+
+	if (reference.type === "event-join-property") {
+		const join = getEventJoinForReference(context.eventJoinMap, reference);
+		const propertyType = getEventJoinPropertyType(join, reference.property);
+		if (!propertyType) {
+			throw new ViewRuntimeValidationError(
+				`Property '${reference.property}' not found for event join '${join.key}'`,
+			);
+		}
+		return;
+	}
+
+	const schema = getSchemaForReference(context.schemaMap, reference);
+	const propertyType = getPropertyType(schema, reference.property);
+	if (!propertyType) {
+		throw new ViewRuntimeValidationError(
+			`Property '${reference.property}' not found in schema '${reference.slug}'`,
+		);
+	}
+};
+
 export const validateReferenceAgainstSchemas = (
 	reference: string,
 	context: ViewRuntimeReferenceContext<
@@ -28,53 +85,36 @@ export const validateReferenceAgainstSchemas = (
 	>,
 	validBuiltins: ReadonlySet<string>,
 ): void => {
-	const parsed = resolveRuntimeReference(reference);
+	validateRuntimeReferenceAgainstSchemas(
+		resolveRuntimeReference(reference),
+		context,
+		validBuiltins,
+	);
+};
 
-	if (parsed.type === "entity-column") {
-		getSchemaForReference(context.schemaMap, parsed);
-		if (!validBuiltins.has(parsed.column)) {
-			throw new ViewRuntimeValidationError(
-				`Unsupported entity column 'entity.${parsed.slug}.@${parsed.column}'`,
-			);
-		}
-		if (
-			!getEntityColumnPropertyDefinition(parsed.column) &&
-			parsed.column !== "image"
-		) {
-			throw new ViewRuntimeValidationError(
-				`Unsupported entity column 'entity.${parsed.slug}.@${parsed.column}'`,
-			);
-		}
+export const validateExpressionAgainstSchemas = (
+	expression: ViewExpression,
+	context: ViewRuntimeReferenceContext<
+		ValidationSchemaRow,
+		ValidationEventJoinRow
+	>,
+	validBuiltins: ReadonlySet<string>,
+): void => {
+	if (expression.type === "literal") {
 		return;
 	}
 
-	if (parsed.type === "event-join-column") {
-		getEventJoinForReference(context.eventJoinMap, parsed);
-		if (!getEventJoinColumnPropertyDefinition(parsed.column)) {
-			throw new ViewRuntimeValidationError(
-				`Unsupported event join column 'event.${parsed.joinKey}.@${parsed.column}'`,
-			);
-		}
-		return;
-	}
-
-	if (parsed.type === "event-join-property") {
-		const join = getEventJoinForReference(context.eventJoinMap, parsed);
-		const propertyType = getEventJoinPropertyType(join, parsed.property);
-		if (!propertyType) {
-			throw new ViewRuntimeValidationError(
-				`Property '${parsed.property}' not found for event join '${join.key}'`,
-			);
-		}
-		return;
-	}
-
-	const schema = getSchemaForReference(context.schemaMap, parsed);
-	const propertyType = getPropertyType(schema, parsed.property);
-	if (!propertyType) {
-		throw new ViewRuntimeValidationError(
-			`Property '${parsed.property}' not found in schema '${parsed.slug}'`,
+	if (expression.type === "reference") {
+		validateRuntimeReferenceAgainstSchemas(
+			expression.reference,
+			context,
+			validBuiltins,
 		);
+		return;
+	}
+
+	for (const value of expression.values) {
+		validateExpressionAgainstSchemas(value, context, validBuiltins);
 	}
 };
 
@@ -95,9 +135,11 @@ export const validateViewRuntimeReferences = (
 	}
 
 	for (const field of request.fields) {
-		for (const reference of field.references) {
-			validateReferenceAgainstSchemas(reference, context, displayBuiltins);
-		}
+		validateExpressionAgainstSchemas(
+			field.expression,
+			context,
+			displayBuiltins,
+		);
 	}
 };
 
@@ -118,14 +160,16 @@ export const validateSavedViewDisplayConfiguration = (
 		displayConfiguration.list.badgeProperty,
 		displayConfiguration.list.subtitleProperty,
 	]) {
-		for (const reference of refs ?? []) {
-			validateReferenceAgainstSchemas(reference, context, displayBuiltins);
+		if (refs) {
+			validateExpressionAgainstSchemas(refs, context, displayBuiltins);
 		}
 	}
 
 	for (const column of displayConfiguration.table.columns) {
-		for (const reference of column.property) {
-			validateReferenceAgainstSchemas(reference, context, displayBuiltins);
-		}
+		validateExpressionAgainstSchemas(
+			column.expression,
+			context,
+			displayBuiltins,
+		);
 	}
 };
