@@ -48,7 +48,7 @@ export function buildListDisplayConfiguration(
 
 export function buildTableDisplayConfiguration(
 	columns: TableRequest["displayConfiguration"]["columns"] = [
-		{ property: ["@name"] },
+		{ label: "Name", property: ["@name"] },
 	],
 ): TableRequest["displayConfiguration"] {
 	return { columns };
