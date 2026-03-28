@@ -36,6 +36,22 @@ describe("RyotQLDocument", () => {
 		expect(Schema.decodeUnknownSync(RyotQLDocument)(document)).toEqual(document);
 	});
 
+	it("decodes wildcard row selections", () => {
+		const wildcard = {
+			...document,
+			queries: {
+				collections: {
+					...document.queries.collections,
+					output: {
+						...document.queries.collections.output,
+						fields: [{ tableAlias: "collection", type: "wildcard" }],
+					},
+				},
+			},
+		} as const;
+		expect(Schema.decodeUnknownSync(RyotQLDocument)(wildcard)).toEqual(wildcard);
+	});
+
 	it("rejects unknown keys throughout the document", () => {
 		expect(() =>
 			Schema.decodeUnknownSync(RyotQLDocument)({
@@ -202,6 +218,7 @@ describe("RyotQLDocument", () => {
 			{ ...output, limit: 0 },
 			{ ...output, orderBy: [] },
 			{ ...output, unknown: true },
+			{ ...output, groupBy: [{ tableAlias: "lesson", type: "wildcard" }] },
 			{ ...output, measures: [{ key: "count", aggregation: { function: "count", expr } }] },
 		]) {
 			expect(() =>
