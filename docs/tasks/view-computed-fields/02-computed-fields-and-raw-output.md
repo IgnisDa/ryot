@@ -14,6 +14,8 @@ The end-to-end behavior: saved views and raw runtime requests can define `comput
 
 See the parent PRD sections "Solution" and "Implementation Decisions" for first-class computed fields, computed-field references, named raw runtime output fields, and null semantics.
 
+Backward compatibility is not needed in this slice. The new computed-field contract can replace the old output model directly.
+
 ## Acceptance criteria
 
 - [ ] Query definitions support named `computedFields` for saved views and raw runtime requests
