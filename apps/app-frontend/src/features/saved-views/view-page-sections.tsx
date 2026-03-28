@@ -13,8 +13,16 @@ import { Image as ImageIcon } from "lucide-react";
 import { DataTable, type DataTableColumn } from "mantine-datatable";
 import type { AppEntity } from "#/features/entities/model";
 import { useThemeTokens } from "#/hooks/theme";
-import type { ViewLayout, ViewRuntimeResponse } from "./view-page-utils";
-import { formatRuntimeValue, isRuntimeProperty } from "./view-page-utils";
+import type {
+	SavedView,
+	ViewLayout,
+	ViewRuntimeResponse,
+} from "./view-page-utils";
+import {
+	formatRuntimeValue,
+	getRuntimeField,
+	isRuntimeField,
+} from "./view-page-utils";
 
 function EntityThumbnail(props: {
 	label?: string;
@@ -75,6 +83,7 @@ export function SavedViewResults(props: {
 	layout: ViewLayout;
 	accentColor: string;
 	accentMuted: string;
+	displayConfiguration: SavedView["displayConfiguration"];
 	meta: ViewRuntimeResponse["meta"];
 	imageUrlById: Map<string, string | undefined>;
 }) {
@@ -83,10 +92,18 @@ export function SavedViewResults(props: {
 		return (
 			<SimpleGrid cols={{ base: 1, sm: 2, md: 3, lg: 4 }} spacing="md">
 				{props.items.map((item) => {
-					const title = item.resolvedProperties?.titleProperty;
-					const badge = item.resolvedProperties?.badgeProperty;
-					const image = item.resolvedProperties?.imageProperty;
-					const subtitle = item.resolvedProperties?.subtitleProperty;
+					const title = item.fields
+						? getRuntimeField(item, "title")
+						: undefined;
+					const badge = item.fields
+						? getRuntimeField(item, "badge")
+						: undefined;
+					const image = item.fields
+						? getRuntimeField(item, "image")
+						: undefined;
+					const subtitle = item.fields
+						? getRuntimeField(item, "subtitle")
+						: undefined;
 
 					return (
 						<Link
@@ -102,7 +119,7 @@ export function SavedViewResults(props: {
 									iconSize={48}
 									imageUrl={props.imageUrlById.get(item.id)}
 									label={
-										isRuntimeProperty(image) && image.kind !== "image"
+										isRuntimeField(image) && image.kind !== "image"
 											? formatRuntimeValue(image.value)
 											: undefined
 									}
@@ -115,11 +132,11 @@ export function SavedViewResults(props: {
 										c={textPrimary}
 										ff="var(--mantine-headings-font-family)"
 									>
-										{isRuntimeProperty(title)
+										{isRuntimeField(title)
 											? formatRuntimeValue(title.value)
 											: item.name}
 									</Text>
-									{isRuntimeProperty(subtitle) && subtitle.kind !== "null" ? (
+									{isRuntimeField(subtitle) && subtitle.kind !== "null" ? (
 										<Text size="sm" c={textSecondary} lineClamp={2}>
 											{formatRuntimeValue(subtitle.value)}
 										</Text>
@@ -132,7 +149,7 @@ export function SavedViewResults(props: {
 										>
 											{item.entitySchemaSlug ?? "Entity"}
 										</Badge>
-										{isRuntimeProperty(badge) && badge.kind !== "null" ? (
+										{isRuntimeField(badge) && badge.kind !== "null" ? (
 											<Badge variant="filled" bg={props.accentColor} c="white">
 												{formatRuntimeValue(badge.value)}
 											</Badge>
@@ -151,10 +168,18 @@ export function SavedViewResults(props: {
 		return (
 			<Stack gap="sm">
 				{props.items.map((item) => {
-					const title = item.resolvedProperties?.titleProperty;
-					const badge = item.resolvedProperties?.badgeProperty;
-					const image = item.resolvedProperties?.imageProperty;
-					const subtitle = item.resolvedProperties?.subtitleProperty;
+					const title = item.fields
+						? getRuntimeField(item, "title")
+						: undefined;
+					const badge = item.fields
+						? getRuntimeField(item, "badge")
+						: undefined;
+					const image = item.fields
+						? getRuntimeField(item, "image")
+						: undefined;
+					const subtitle = item.fields
+						? getRuntimeField(item, "subtitle")
+						: undefined;
 
 					return (
 						<Link
@@ -176,7 +201,7 @@ export function SavedViewResults(props: {
 											iconSize={20}
 											imageUrl={props.imageUrlById.get(item.id)}
 											label={
-												isRuntimeProperty(image) && image.kind !== "image"
+												isRuntimeField(image) && image.kind !== "image"
 													? formatRuntimeValue(image.value)
 													: undefined
 											}
@@ -188,12 +213,11 @@ export function SavedViewResults(props: {
 												c={textPrimary}
 												ff="var(--mantine-headings-font-family)"
 											>
-												{isRuntimeProperty(title)
+												{isRuntimeField(title)
 													? formatRuntimeValue(title.value)
 													: item.name}
 											</Text>
-											{isRuntimeProperty(subtitle) &&
-											subtitle.kind !== "null" ? (
+											{isRuntimeField(subtitle) && subtitle.kind !== "null" ? (
 												<Text size="sm" c={textSecondary}>
 													{formatRuntimeValue(subtitle.value)}
 												</Text>
@@ -203,7 +227,7 @@ export function SavedViewResults(props: {
 											</Text>
 										</Stack>
 									</Group>
-									{isRuntimeProperty(badge) && badge.kind !== "null" ? (
+									{isRuntimeField(badge) && badge.kind !== "null" ? (
 										<Badge
 											c="white"
 											size="lg"
@@ -222,11 +246,13 @@ export function SavedViewResults(props: {
 		);
 	}
 
-	const tableColumns = "table" in props.meta ? props.meta.table.columns : [];
+	const tableColumns = props.displayConfiguration.table.columns.map(
+		(column, index) => ({ key: `column_${index}`, label: column.label }),
+	);
 	const linkColumnKey = tableColumns.find((column) =>
 		props.items.some(
 			(item) =>
-				item.cells?.find((entry) => entry.key === column.key)?.kind === "text",
+				item.fields?.find((entry) => entry.key === column.key)?.kind === "text",
 		),
 	)?.key;
 
@@ -235,29 +261,29 @@ export function SavedViewResults(props: {
 			title: column.label,
 			accessor: column.key,
 			titleStyle: {
-				fontSize: "12px",
 				fontWeight: 600,
+				fontSize: "12px",
 				letterSpacing: "0.5px",
 				color: props.accentColor,
 				textTransform: "uppercase",
 				fontFamily: "var(--mantine-headings-font-family)",
 			},
 			render: (item) => {
-				const cell = item.cells?.find((entry) => entry.key === column.key);
+				const field = item.fields?.find((entry) => entry.key === column.key);
 
-				if (cell?.kind === "image") {
+				if (field?.kind === "image") {
 					return (
 						<EntityThumbnail
 							width={40}
 							height={54}
 							iconSize={16}
 							radius="var(--mantine-radius-xs)"
-							imageUrl={props.imageUrlById.get(`${item.id}:${cell.key}`)}
+							imageUrl={props.imageUrlById.get(`${item.id}:${field.key}`)}
 						/>
 					);
 				}
 
-				if (column.key === linkColumnKey && cell?.kind === "text") {
+				if (column.key === linkColumnKey && field?.kind === "text") {
 					return (
 						<Link
 							to="/entities/$entityId"
@@ -265,7 +291,7 @@ export function SavedViewResults(props: {
 							style={{ color: props.accentColor, textDecoration: "none" }}
 						>
 							<Text size="sm" fw={500} ff="var(--mantine-headings-font-family)">
-								{formatRuntimeValue(cell?.value)}
+								{formatRuntimeValue(field?.value)}
 							</Text>
 						</Link>
 					);
@@ -273,7 +299,7 @@ export function SavedViewResults(props: {
 
 				return (
 					<Text size="sm" c={textSecondary}>
-						{formatRuntimeValue(cell?.value)}
+						{formatRuntimeValue(field?.value)}
 					</Text>
 				);
 			},

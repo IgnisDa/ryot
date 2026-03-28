@@ -6,9 +6,33 @@ import { createTracker } from "./trackers";
 type ExecuteViewRuntimeBody = NonNullable<
 	paths["/view-runtime/execute"]["post"]["requestBody"]
 >["content"]["application/json"];
-type GridRequest = Extract<ExecuteViewRuntimeBody, { layout: "grid" }>;
-type ListRequest = Extract<ExecuteViewRuntimeBody, { layout: "list" }>;
-type TableRequest = Extract<ExecuteViewRuntimeBody, { layout: "table" }>;
+
+type RuntimeField = {
+	key: string;
+	references: string[];
+};
+
+type GridDisplayConfiguration = {
+	badgeProperty: string[] | null;
+	titleProperty: string[] | null;
+	imageProperty: string[] | null;
+	subtitleProperty: string[] | null;
+};
+
+type ListDisplayConfiguration = GridDisplayConfiguration;
+
+type TableDisplayConfiguration = {
+	columns: Array<{ label: string; property: string[] }>;
+};
+
+type RuntimeRequest = Omit<
+	ExecuteViewRuntimeBody,
+	"layout" | "displayConfiguration"
+> & {
+	fields: RuntimeField[];
+	entitySchemaSlugs: string[];
+	eventJoins: NonNullable<ExecuteViewRuntimeBody["eventJoins"]>;
+};
 
 function qualifyProperty(schemaSlug: string, property: string) {
 	if (
@@ -45,9 +69,9 @@ interface CreateRuntimeEventInput {
 }
 
 export function buildGridDisplayConfiguration(
-	overrides: Partial<GridRequest["displayConfiguration"]> = {},
+	overrides: Partial<GridDisplayConfiguration> = {},
 	schemaSlugs: string[] = [],
-): GridRequest["displayConfiguration"] {
+): GridDisplayConfiguration {
 	const schemaSlug = schemaSlugs[0];
 
 	return {
@@ -66,9 +90,9 @@ export function buildGridDisplayConfiguration(
 }
 
 export function buildListDisplayConfiguration(
-	overrides: Partial<ListRequest["displayConfiguration"]> = {},
+	overrides: Partial<ListDisplayConfiguration> = {},
 	schemaSlugs: string[] = [],
-): ListRequest["displayConfiguration"] {
+): ListDisplayConfiguration {
 	const schemaSlug = schemaSlugs[0];
 
 	return {
@@ -87,9 +111,9 @@ export function buildListDisplayConfiguration(
 }
 
 export function buildTableDisplayConfiguration(
-	columns?: TableRequest["displayConfiguration"]["columns"],
+	columns?: TableDisplayConfiguration["columns"],
 	schemaSlugs: string[] = [],
-): TableRequest["displayConfiguration"] {
+): TableDisplayConfiguration {
 	return {
 		columns:
 			columns ??
@@ -104,81 +128,138 @@ export function buildTableDisplayConfiguration(
 	};
 }
 
+const toRuntimeFields = (input: {
+	layout: "grid" | "list" | "table";
+	displayConfiguration:
+		| GridDisplayConfiguration
+		| ListDisplayConfiguration
+		| TableDisplayConfiguration;
+}): RuntimeField[] => {
+	if (input.layout === "table") {
+		return (
+			input.displayConfiguration as TableDisplayConfiguration
+		).columns.map((column, index) => ({
+			key: `column_${index}`,
+			references: column.property,
+		}));
+	}
+
+	const config = input.displayConfiguration as GridDisplayConfiguration;
+	return [
+		{ key: "image", references: config.imageProperty ?? [] },
+		{ key: "title", references: config.titleProperty ?? [] },
+		{ key: "subtitle", references: config.subtitleProperty ?? [] },
+		{ key: "badge", references: config.badgeProperty ?? [] },
+	];
+};
+
+export function buildRuntimeField(
+	key: string,
+	references: string[],
+): RuntimeField {
+	return { key, references };
+}
+
 export function buildGridRequest(
-	overrides: Partial<Omit<GridRequest, "layout">> &
-		Pick<GridRequest, "entitySchemaSlugs">,
-): GridRequest {
-	const schemaSlugs = overrides.entitySchemaSlugs;
+	overrides: Partial<Omit<RuntimeRequest, "fields">> & {
+		displayConfiguration?: GridDisplayConfiguration;
+		entitySchemaSlugs: string[];
+	},
+): RuntimeRequest {
+	const {
+		displayConfiguration: displayConfigurationOverride,
+		...requestOverrides
+	} = overrides;
+	const schemaSlugs = requestOverrides.entitySchemaSlugs;
+	const displayConfiguration =
+		displayConfigurationOverride ??
+		buildGridDisplayConfiguration({}, schemaSlugs);
 
 	return {
 		filters: [],
 		eventJoins: [],
-		layout: "grid",
 		pagination: { page: 1, limit: 10 },
-		displayConfiguration: buildGridDisplayConfiguration({}, schemaSlugs),
+		fields: toRuntimeFields({ layout: "grid", displayConfiguration }),
 		sort: {
 			direction: "asc",
 			fields: schemaSlugs.length
 				? qualifyBuiltinFields(schemaSlugs, "name")
 				: [],
 		},
-		...overrides,
+		...requestOverrides,
 	};
 }
 
 export function buildListRequest(
-	overrides: Partial<Omit<ListRequest, "layout">> &
-		Pick<ListRequest, "entitySchemaSlugs">,
-): ListRequest {
-	const schemaSlugs = overrides.entitySchemaSlugs;
+	overrides: Partial<Omit<RuntimeRequest, "fields">> & {
+		displayConfiguration?: ListDisplayConfiguration;
+		entitySchemaSlugs: string[];
+	},
+): RuntimeRequest {
+	const {
+		displayConfiguration: displayConfigurationOverride,
+		...requestOverrides
+	} = overrides;
+	const schemaSlugs = requestOverrides.entitySchemaSlugs;
+	const displayConfiguration =
+		displayConfigurationOverride ??
+		buildListDisplayConfiguration({}, schemaSlugs);
 
 	return {
 		filters: [],
-		layout: "list",
 		eventJoins: [],
 		pagination: { page: 1, limit: 10 },
-		displayConfiguration: buildListDisplayConfiguration({}, schemaSlugs),
+		fields: toRuntimeFields({ layout: "list", displayConfiguration }),
 		sort: {
 			direction: "asc",
 			fields: schemaSlugs.length
 				? qualifyBuiltinFields(schemaSlugs, "name")
 				: [],
 		},
-		...overrides,
+		...requestOverrides,
 	};
 }
 
 export function buildTableRequest(
-	overrides: Partial<Omit<TableRequest, "layout">> &
-		Pick<TableRequest, "entitySchemaSlugs">,
-): TableRequest {
+	overrides: Partial<Omit<RuntimeRequest, "fields">> & {
+		displayConfiguration?: TableDisplayConfiguration;
+		entitySchemaSlugs: string[];
+	},
+): RuntimeRequest {
+	const {
+		displayConfiguration: displayConfigurationOverride,
+		...requestOverrides
+	} = overrides;
+	const displayConfiguration =
+		displayConfigurationOverride ??
+		buildTableDisplayConfiguration(
+			undefined,
+			requestOverrides.entitySchemaSlugs,
+		);
+
 	return {
 		filters: [],
 		eventJoins: [],
-		layout: "table",
 		pagination: { page: 1, limit: 10 },
-		displayConfiguration: buildTableDisplayConfiguration(
-			undefined,
-			overrides.entitySchemaSlugs,
-		),
+		fields: toRuntimeFields({ layout: "table", displayConfiguration }),
 		sort: {
 			direction: "asc",
-			fields: overrides.entitySchemaSlugs.length
-				? qualifyBuiltinFields(overrides.entitySchemaSlugs, "name")
+			fields: requestOverrides.entitySchemaSlugs.length
+				? qualifyBuiltinFields(requestOverrides.entitySchemaSlugs, "name")
 				: [],
 		},
-		...overrides,
+		...requestOverrides,
 	};
 }
 
 export async function executeViewRuntime(
 	client: Client,
 	cookies: string,
-	body: ExecuteViewRuntimeBody,
+	body: RuntimeRequest,
 ) {
 	return client.POST("/view-runtime/execute", {
-		body,
 		headers: { Cookie: cookies },
+		body: body as unknown as ExecuteViewRuntimeBody,
 	});
 }
 
