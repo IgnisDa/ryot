@@ -38,6 +38,18 @@ describe("getGeneratedPropertyFieldConfig", () => {
 		});
 
 		expect(
+			getGeneratedPropertyFieldConfig("completedAt", {
+				type: "datetime",
+				validation: { required: true },
+			}),
+		).toEqual({
+			kind: "text",
+			required: true,
+			label: "completedAt",
+			placeholder: "2026-03-27T14:30:00Z",
+		});
+
+		expect(
 			getGeneratedPropertyFieldConfig("pages", {
 				type: "integer",
 				validation: { required: true },
