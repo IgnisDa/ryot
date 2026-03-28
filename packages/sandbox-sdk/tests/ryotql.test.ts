@@ -28,9 +28,7 @@ describe("RyotQL sandbox SDK", () => {
 		expect(
 			document({ entities: rows(entity, { fields: [field("id", column(entity, "id"))] }) }),
 		).toMatchObject({ queries: { entities: { from: entity } } });
-		expect(
-			buildEntityReadDocument({ entityIds: ["entity-1"], entitySchemaSlugs: ["movie"] }),
-		).toMatchObject({
+		expect(buildEntityReadDocument({ entityIds: ["entity-1"] })).toMatchObject({
 			queries: {
 				entities: { from: entity, output: { type: "rows", pagination: { page: 1, limit: 100 } } },
 			},
@@ -74,9 +72,7 @@ describe("RyotQL sandbox SDK", () => {
 			input: Schema.Struct({}),
 			run: (_input, host) =>
 				host
-					.executeRyotql(
-						buildEntityReadDocument({ entityIds: ["entity-1"], entitySchemaSlugs: ["movie"] }),
-					)
+					.executeRyotql(buildEntityReadDocument({ entityIds: ["entity-1"] }))
 					.pipe(Effect.map((response) => ryotqlRows(response, "entities").items.length)),
 		});
 		const host = defineSandboxTestHost(manifest, {

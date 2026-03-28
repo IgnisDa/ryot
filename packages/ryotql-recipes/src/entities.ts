@@ -8,18 +8,7 @@ import {
 } from "@ryot/contract/modules/ryotql/language";
 import { EntityId, EntitySchemaSlug, SandboxProviderId } from "@ryot/contract/schema/brands";
 import { strictStruct } from "@ryot/contract/schema/utils";
-import {
-	and,
-	ascending,
-	column,
-	document,
-	eq,
-	field,
-	inArray,
-	literal,
-	rows,
-	table,
-} from "@ryot/ryotql";
+import { ascending, column, document, field, inArray, literal, rows, table } from "@ryot/ryotql";
 import { DateTime, Option, Result, Schema } from "effect";
 
 const entityInterestResponse = strictStruct({
@@ -59,35 +48,6 @@ const normalizePopulatedAt = (value: typeof DateFieldValue.Type | typeof NullFie
 	return Option.isSome(parsed)
 		? Result.succeed(DateTime.formatIso(parsed.value))
 		: Result.fail(new Error("Expected RyotQL populatedAt to be a valid date"));
-};
-
-export const buildEntityDetailDocument = (input: {
-	readonly entityId: string;
-	readonly entitySchemaSlug: string;
-}) => {
-	const entity = table("entity", "entity");
-	return document({
-		entity: rows(entity, {
-			limit: 1,
-			orderBy: [ascending(column(entity, "id"))],
-			where: and(
-				eq(column(entity, "id"), literal(input.entityId)),
-				eq(column(entity, "entitySchemaSlug"), literal(input.entitySchemaSlug)),
-			),
-			fields: [
-				field("id", column(entity, "id")),
-				field("name", column(entity, "name")),
-				field("createdAt", column(entity, "createdAt")),
-				field("updatedAt", column(entity, "updatedAt")),
-				field("properties", column(entity, "properties")),
-				field("externalId", column(entity, "externalId")),
-				field("populatedAt", column(entity, "populatedAt")),
-				field("entitySchemaSlug", column(entity, "entitySchemaSlug")),
-				field("providerId", column(entity, "providerId")),
-				field("translationStatus", column(entity, "translationStatus")),
-			],
-		}),
-	});
 };
 
 export const buildEntityInterestDocument = (input: {
