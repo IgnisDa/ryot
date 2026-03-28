@@ -65,7 +65,6 @@ Suggested request shape:
 - `page: { limit: number, offset: number }` — pagination parameters
 - `fields: string[]` — schema-qualified property paths to return (e.g., `["smartphones.manufacturer", "tablets.maker"]`)
 - `displayConfiguration: object` — active layout configuration with property reference arrays for COALESCE resolution
-- `include: { schemaMeta?: boolean }` — optional metadata flags (event-related fields deferred to Phase 2)
 
 Each filter in the `filters` array has the shape:
 
@@ -82,13 +81,17 @@ The `sort.field` is an array of schema-qualified property paths:
 Suggested response shape:
 
 - `items: []`
-- `total: number`
-- `limit: number`
-- `offset: number`
-- `hasNextPage: boolean`
-- `hasPreviousPage: boolean`
-- `totalPages: number`
-- `currentPage: number`
+- `meta: { pagination: {} }` — pagination metadata
+
+Pagination metadata includes:
+
+- `total: number` — total number of entities matching the query
+- `limit: number` — page size
+- `offset: number` — current offset
+- `hasNextPage: boolean` — whether there are more pages
+- `hasPreviousPage: boolean` — whether there are previous pages
+- `totalPages: number` — total number of pages
+- `currentPage: number` — current page number (1-indexed)
 
 Each item should include at least:
 
@@ -97,17 +100,15 @@ Each item should include at least:
 - `image` — entity image URL (top-level column)
 - `entitySchemaId` — the UUID foreign key to the entity schema
 - `entitySchemaSlug` — the human-readable schema slug (e.g., "smartphones", "movies")
-- `propertyValues` — filtered to requested fields from the `fields` parameter
 - `resolvedProperties` — COALESCE-resolved values for each property reference in displayConfiguration (frontend uses these for rendering)
 - `createdAt` — entity creation timestamp
 - `updatedAt` — entity update timestamp
-- optional schema metadata when runtime spans multiple schemas (included when `include.schemaMeta: true`)
 
 **Note**: Event-related fields (lastEventDate, eventCount, averageRating) are intentionally excluded from Phase 1. These will be added in Phase 2 alongside event-based filtering capabilities.
 
 **Resolved properties structure:**
 
-The `resolvedProperties` object contains the resolved values for each displayConfiguration property reference, keyed by the property role:
+The `resolvedProperties` object contains the resolved values for each displayConfiguration property reference, keyed by the property role.
 
 ```json
 {
@@ -115,12 +116,6 @@ The `resolvedProperties` object contains the resolved values for each displayCon
   "name": "iPhone 15 Pro",
   "entitySchemaId": "c3f8a9b2-...",
   "entitySchemaSlug": "smartphones",
-  "propertyValues": {
-    "manufacturer": "Apple",
-    "year": 2023,
-    "price_usd": 999,
-    "product_image": "https://..."
-  },
   "resolvedProperties": {
     "imageProperty": "https://...",
     "titleProperty": "iPhone 15 Pro",
@@ -190,7 +185,7 @@ This syntax is used uniformly in:
 
 - `filters[].field` — filter by entity properties
 - `sort.field` — array of paths for COALESCE ordering
-- `fields[]` — which properties to return from propertyValues
+- `fields[]` — which properties to extract from the jsonb column for COALESCE resolution
 - `displayConfiguration.*Property` — arrays of paths for COALESCE rendering
 - `eventConditions[].field` (Phase 2) — filter by event properties
 - `relationships[].propertyFilters[].field` (Phase 2) — filter by relationship properties
@@ -307,11 +302,11 @@ Example: A "Smartphones" schema with properties `[manufacturer, year, os, screen
 - View 1 filtered to Samsung phones from recent years → display `manufacturer` and `year`
 - View 2 filtered to older Android phones → display `os` and `year` (manufacturer irrelevant)
 
-The saved view should store which properties matter for that view's purpose. The runtime request requires a `fields` parameter that specifies which property keys to return, avoiding waste when entities have large propertyValues objects.
+The saved view should store which properties matter for that view's purpose. The runtime request requires a `fields` parameter that specifies which properties need to be extracted from the jsonb `propertyValues` column for COALESCE resolution in `resolvedProperties`.
 
 The `fields` parameter sent to the runtime is derived from the active layout's displayConfiguration by extracting all schema-qualified property paths from the property reference arrays (excluding top-level column references like `@name`).
 
-This makes field selection explicit and forces callers to think about what data they actually need.
+This makes field selection explicit and ensures the backend only extracts the properties actually needed for display resolution.
 
 ## Saved View Data Model Changes
 
@@ -331,7 +326,7 @@ The saved view schema should include:
 - `queryDefinition: jsonb` — the data query (required)
 - `displayConfiguration: jsonb` — the presentation config (required)
 
-**Note on `trackerId`**: This field is purely for UI organization and determines which tracker's sidebar section should display the saved view. It is **not** the source of truth for query scope — the actual schemas/trackers being queried are stored within `queryDefinition.entitySchemaSlugs`.
+**Note on `trackerId`**: This field is purely for UI organization and determines which tracker's sidebar section should display the saved view. It is **not** the source of truth for query scope — the actual schemas/trackers being queried are stored within `queryDefinition.entitySchemaSlugs`. For cross-tracker views querying multiple schemas, `trackerId` may be null or point to the primary tracker for sidebar placement purposes. The frontend sidebar rendering logic may also examine `queryDefinition` directly to determine appropriate placement when `trackerId` is null.
 
 The `queryDefinition` column stores:
 
@@ -603,8 +598,8 @@ When the frontend loads View 1:
 
   The `fields` parameter is derived from the active layout config (see "Field Selection Design" section). The `displayConfiguration` is passed to the runtime for COALESCE resolution.
 
-4. `POST /view-runtime/execute` → returns entities with requested properties in `propertyValues`
-5. Frontend renders using `layout` and the resolved property values from the runtime response
+4. `POST /view-runtime/execute` → returns entities with `resolvedProperties`
+5. Frontend renders using `layout` and the `resolvedProperties` from the runtime response
 
 **Backend COALESCE resolution:**
 
@@ -636,9 +631,7 @@ When the user switches from grid to list view in the UI, the frontend simply cha
 
 ### Complete SQL Query Example
 
-Here is a complete SQL query demonstrating how the view-runtime translates a cross-schema request into PostgreSQL.
-
-**Note**: This shows the **compiled runtime payload** sent to `POST /view-runtime/execute`, not the saved view definition. The frontend extracts the active layout's configuration from the saved view and compiles it into this request format.
+Here is a complete SQL query demonstrating how the view-runtime translates a cross-schema request into PostgreSQL:
 
 **Runtime request:**
 
@@ -708,16 +701,6 @@ SELECT
   pe.created_at,
   pe.updated_at,
   jsonb_build_object(
-    'product_image', pe.property_values->'product_image',
-    'device_image', pe.property_values->'device_image',
-    'manufacturer', pe.property_values->'manufacturer',
-    'maker', pe.property_values->'maker',
-    'year', pe.property_values->'year',
-    'release_year', pe.property_values->'release_year',
-    'price_usd', pe.property_values->'price_usd',
-    'retail_price', pe.property_values->'retail_price'
-  ) as property_values,
-  jsonb_build_object(
     'imageProperty', COALESCE(pe.property_values->>'product_image', pe.property_values->>'device_image'),
     'titleProperty', pe.name,
     'subtitleProperty', COALESCE(pe.property_values->>'manufacturer', pe.property_values->>'maker', (pe.property_values->>'year')::text, (pe.property_values->>'release_year')::text),
@@ -733,23 +716,26 @@ FROM paginated_entities pe;
 2. **Top-level filters**: `AND e.name ILIKE '%Pro%'` applies to all entities regardless of schema
 3. **Schema-specific filters**: Grouped by schema slug with OR between schemas, AND within each schema group
 4. **COALESCE for sorting**: Handles different property names across schemas
-5. **Field selection**: `jsonb_build_object` extracts only requested fields from `property_values`
-6. **Resolved properties**: Backend performs COALESCE resolution for each display property reference
-7. **Pagination**: LIMIT/OFFSET with total count for pagination metadata
-8. **Response fields**: Returns both `entity_schema_id` (UUID FK) and `entity_schema_slug` (human-readable)
+5. **Resolved properties**: Backend performs COALESCE resolution for each display property reference using the `fields` parameter to know which properties to extract
+6. **Pagination**: LIMIT/OFFSET with total count for pagination metadata
+7. **Response fields**: Returns both `entity_schema_id` (UUID FK) and `entity_schema_slug` (human-readable)
 
-The response would include pagination metadata:
+The response would include pagination metadata grouped under `meta`:
 
 ```json
 {
   "items": [ /* entities with resolved_properties */ ],
-  "total": 47,
-  "limit": 20,
-  "offset": 0,
-  "hasNextPage": true,
-  "hasPreviousPage": false,
-  "totalPages": 3,
-  "currentPage": 1
+  "meta": {
+    "pagination": {
+      "total": 47,
+      "limit": 20,
+      "offset": 0,
+      "hasNextPage": true,
+      "hasPreviousPage": false,
+      "totalPages": 3,
+      "currentPage": 1
+    }
+  }
 }
 ```
 
@@ -829,18 +815,6 @@ These modules can stay focused on their current responsibilities:
 
 The runtime module should query against the underlying tables and repositories it needs without forcing CRUD endpoints to change shape.
 
-## Built-in Saved View Bootstrap Changes
-
-Built-in saved views are currently created with minimal definitions during authentication/bootstrap and during custom entity-schema creation.
-
-These areas will need updates:
-
-- `apps/app-backend/src/modules/authentication/bootstrap/manifests.ts`
-- `apps/app-backend/src/modules/authentication/service.ts`
-- `apps/app-backend/src/modules/entity-schemas/repository.ts`
-
-They should start producing the richer saved-view structure so built-in views and user-defined views follow the same contract.
-
 ## Backend Implementation Outline
 
 ### Phase 1: Fix Saved View Persistence Surface
@@ -851,7 +825,7 @@ They should start producing the richer saved-view structure so built-in views an
 - add `queryDefinition` jsonb column to store query semantics (entitySchemaSlugs, filters, sort)
 - add `displayConfiguration` jsonb column to store presentation config (layout, grid config, list config, table config)
 - make both columns required with validation
-- update bootstrap paths that create built-in views with all required fields
+- apply minimal bootstrap fixes to ensure typechecking passes (full bootstrap implementation deferred to Phase 2)
 
 ### Phase 2: Build Real Runtime Execution
 
@@ -862,8 +836,12 @@ They should start producing the richer saved-view structure so built-in views an
 - validate that all referenced schema slugs exist and user has access to them
 - implement filter execution using the schema-qualified property syntax (AND within each schema, OR across schema boundaries)
 - implement sort execution with COALESCE for cross-schema property paths
-- support pagination
-- return `items + total + page metadata` with `resolvedProperties` for frontend rendering
+- support pagination with `meta.pagination` response structure
+- return `items` with `resolvedProperties` for frontend rendering
+- update built-in saved view bootstrap to produce richer saved-view structure:
+  - `apps/app-backend/src/modules/authentication/bootstrap/manifests.ts`
+  - `apps/app-backend/src/modules/authentication/service.ts`
+  - `apps/app-backend/src/modules/entity-schemas/repository.ts`
 
 ### Phase 3: Move Frontend View Route To Runtime
 
@@ -1032,7 +1010,7 @@ Similarly, "Tom Hanks acted in Forrest Gump as Forrest" is a relationship: `Tom 
     {
       "id": "...",
       "name": "Forrest Gump",
-      "propertyValues": { /* entity properties */ },
+      "resolvedProperties": { /* resolved display properties */ },
       "relationships": [
         {
           "id": "rel-123",
