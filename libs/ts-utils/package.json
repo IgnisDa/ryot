@@ -20,6 +20,7 @@
 		"slugify": "1.6.8",
 		"tailwind-merge": "3.5.0",
 		"tiny-invariant": "1.3.3",
+		"ts-pattern": "5.9.0",
 		"zod": "4.3.6"
 	}
 }
