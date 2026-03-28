@@ -1,10 +1,12 @@
 import { AppContract } from "@ryot/contract/contract";
-import { Effect, Layer } from "effect";
+import { Effect, Layer, Schedule } from "effect";
 import { FetchHttpClient, HttpClient, HttpClientRequest } from "effect/unstable/http";
 import { AtomHttpApi } from "effect/unstable/reactivity";
 
 import { getAuthCookie } from "@/modules/auth/client";
 import { serverStorageLayer, serverUrlReader } from "@/modules/server/state";
+
+const retrySchedule = Schedule.exponential("1 second").pipe(Schedule.upTo({ times: 3 }));
 
 const httpClientLayer = Layer.effect(
 	HttpClient.HttpClient,
@@ -30,7 +32,11 @@ const httpClientLayer = Layer.effect(
 	}),
 ).pipe(Layer.provide(FetchHttpClient.layer), Layer.provide(serverStorageLayer));
 
-export const AppApi = AtomHttpApi.Service()("AppApi", {
-	api: AppContract,
-	httpClient: httpClientLayer,
+const appApiOptions = { api: AppContract, httpClient: httpClientLayer };
+
+export const AppApi = AtomHttpApi.Service()("AppApi", appApiOptions);
+
+export const AppQueryApi = AtomHttpApi.Service()("AppQueryApi", {
+	...appApiOptions,
+	transformResponse: Effect.retry(retrySchedule),
 });
