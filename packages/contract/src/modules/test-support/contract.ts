@@ -15,15 +15,17 @@ import {
 } from "../../schema/brands";
 import { ListedEntity } from "../entities/schemas";
 import { RelationshipScope } from "../relationships/schemas";
-import { EnqueueResponse, SandboxRunResult } from "../sandbox/schemas";
+import { SandboxRunResult } from "../sandbox/schemas";
 import {
 	TestSupportBuiltinEntitySchema,
 	TestSupportEntityTranslation,
 	TestSupportGlobalRelationship,
 	TestSupportSignal,
 	TestSupportEnqueueSandboxBody,
+	TestSupportEnqueueSandboxResponse,
 	TestSupportOperationalPressure,
 	TestSupportPluginCronResult,
+	TestSupportSandboxReplayProjectionBody,
 	TestSupportStartWorkflowLoadGateBody,
 	TestSupportStoredSandboxScript,
 	TestSupportSubscriptionRun,
@@ -85,7 +87,7 @@ export const TestSupportGroup = HttpApiGroup.make("testSupport")
 	.add(
 		HttpApiEndpoint.post("enqueueSandbox", "/test-support/sandbox/enqueue", {
 			payload: TestSupportEnqueueSandboxBody,
-			success: EnqueueResponse,
+			success: TestSupportEnqueueSandboxResponse,
 			error: [BadRequest.pipe(HttpApiSchema.status(400)), NotFound.pipe(HttpApiSchema.status(404))],
 		}).annotate(OpenApi.Description, "Enqueues an installed sandbox script for a user"),
 	)
@@ -96,6 +98,17 @@ export const TestSupportGroup = HttpApiGroup.make("testSupport")
 			success: SandboxRunResult,
 			error: [BadRequest.pipe(HttpApiSchema.status(400)), NotFound.pipe(HttpApiSchema.status(404))],
 		}).annotate(OpenApi.Description, "Returns an installed sandbox script execution result"),
+	)
+	.add(
+		HttpApiEndpoint.post(
+			"deleteSandboxReplayProjection",
+			"/test-support/sandbox/replay-projection/delete",
+			{
+				payload: TestSupportSandboxReplayProjectionBody,
+				success: Schema.Struct({ deleted: Schema.Boolean }),
+				error: [BadRequest.pipe(HttpApiSchema.status(400))],
+			},
+		).annotate(OpenApi.Description, "Deletes a sandbox workflow Redis replay projection"),
 	)
 	.add(
 		HttpApiEndpoint.post("startWorkflowLoadGate", "/test-support/operational-gate/workflow-load", {

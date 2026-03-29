@@ -33,30 +33,40 @@ export type TestSupportStoredSandboxScript = typeof TestSupportStoredSandboxScri
 export const TestSupportEnqueueSandboxBody = strictStruct({
 	...EnqueueSandboxBody.fields,
 	executingUserId: UserId,
+	durable: Schema.optional(Schema.Boolean),
 });
 
 export type TestSupportEnqueueSandboxBody = typeof TestSupportEnqueueSandboxBody.Type;
 
+export const TestSupportEnqueueSandboxResponse = Schema.Struct({
+	jobId: Schema.String,
+	executionId: Schema.String,
+});
+
+export const TestSupportSandboxReplayProjectionBody = Schema.Struct({
+	executionId: Schema.String,
+});
+
 export const TestSupportTriggerPluginCronBody = strictStruct({
-	cronSlug: Schema.String,
 	pluginSlug: PluginSlug,
+	cronSlug: Schema.String,
 });
 
 export type TestSupportTriggerPluginCronBody = typeof TestSupportTriggerPluginCronBody.Type;
 
 export const TestSupportPluginCronResult = Schema.Union([
 	Schema.Struct({
-		status: Schema.Literal("notFound"),
-		cronSlug: Schema.String,
 		pluginSlug: PluginSlug,
+		cronSlug: Schema.String,
+		status: Schema.Literal("notFound"),
 	}),
 	Schema.Struct({
-		lot: Schema.Literals(["script", "workflow"]),
 		result: Schema.Unknown,
-		status: Schema.Literal("executed"),
-		cronSlug: Schema.String,
 		pluginSlug: PluginSlug,
+		cronSlug: Schema.String,
 		executionId: Schema.String,
+		status: Schema.Literal("executed"),
+		lot: Schema.Literals(["script", "workflow"]),
 	}),
 ]);
 

@@ -54,7 +54,10 @@ export const enqueueSandboxScript = (executingUserId: string, body: EnqueueSandb
 				}),
 			adminHeaders,
 		);
-		return { jobId: requirePresent(result.jobId, "Failed to enqueue sandbox script") };
+		return {
+			executionId: result.executionId,
+			jobId: requirePresent(result.jobId, "Failed to enqueue sandbox script"),
+		};
 	});
 
 export const pollSandboxResult = (executingUserId: string, jobId: string) =>
@@ -71,6 +74,12 @@ export const pollSandboxResult = (executingUserId: string, jobId: string) =>
 			);
 			return result.status !== "pending" ? result : null;
 		}),
+	);
+
+export const deleteSandboxReplayProjection = (executionId: string) =>
+	getBackendClient().call(
+		(client) => client.testSupport.deleteSandboxReplayProjection({ payload: { executionId } }),
+		adminHeaders,
 	);
 
 function formatSandboxExecutionError(error: SandboxExecutionError) {

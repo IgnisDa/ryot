@@ -26,7 +26,7 @@ type SandboxDefinition<
 	readonly run: (
 		input: Input["Type"],
 		host: Record<string, unknown>,
-		execution: { metadata: unknown; sandboxScriptId: string },
+		execution: { metadata: unknown; startedAt: string; sandboxScriptId: string },
 	) => Effect.Effect<Output["Type"], unknown>;
 };
 
@@ -307,11 +307,13 @@ const transportHostCall =
 				headers: { "Content-Type": "application/json", Authorization: "Bearer " + payload.token },
 			},
 		);
-		const responseBody = await readBridgeResponse(response, payload.limits.bridgeResponseBytes);
+		const responseLimit =
+			fnName === "durableCalls"
+				? payload.limits.durableBridgeResponseBytes
+				: payload.limits.bridgeResponseBytes;
+		const responseBody = await readBridgeResponse(response, responseLimit);
 		if (responseBody.oversized) {
-			return hostFailure(
-				"Sandbox bridge response exceeds " + payload.limits.bridgeResponseBytes + " UTF-8 bytes",
-			);
+			return hostFailure("Sandbox bridge response exceeds " + responseLimit + " UTF-8 bytes");
 		}
 
 		let body: { error?: string; result?: unknown };
@@ -353,6 +355,238 @@ const createHost = (payload: SandboxRunnerPayload) => {
 		host[fnName] = createApiStub(fnName, payload, budget);
 	}
 	return host;
+};
+
+const durablePending = Symbol("sandbox-durable-call-pending");
+type DurableCall = {
+	started: boolean;
+	settled: boolean;
+	readonly request: Record<string, unknown>;
+};
+type DurableWorkflowReference = {
+	readonly workflowSlug: string;
+	readonly input: ServiceFreeSchema;
+	readonly output: ServiceFreeSchema;
+};
+
+const isDurableWorkflowReference = (value: unknown): value is DurableWorkflowReference =>
+	isRecord(value) &&
+	typeof value.workflowSlug === "string" &&
+	value.workflowSlug.length > 0 &&
+	Schema.isSchema(value.input) &&
+	Schema.isSchema(value.output);
+
+const jsonClone = (value: unknown, label: string) => {
+	let serialized: string | undefined;
+	try {
+		serialized = jsonStringify(value);
+	} catch {
+		throw new nativeError(label + " must be JSON-serializable");
+	}
+	if (typeof serialized !== "string") {
+		throw new nativeError(label + " must be JSON-serializable");
+	}
+	return jsonParse(serialized) as unknown;
+};
+
+const stableJson = (value: unknown): string => {
+	if (arrayIsArray(value)) {
+		return "[" + value.map(stableJson).join(",") + "]";
+	}
+	if (isRecord(value)) {
+		return (
+			"{" +
+			Object.keys(value)
+				.sort()
+				.map((key) => jsonStringify(key) + ":" + stableJson(value[key]))
+				.join(",") +
+			"}"
+		);
+	}
+	return nativeString(jsonStringify(value));
+};
+
+const durableResult = (
+	value: unknown,
+	output?: ServiceFreeSchema,
+): Effect.Effect<unknown, SandboxHostError | Error> => {
+	if (!isRecord(value)) {
+		return Effect.fail(new nativeError("Recorded sandbox durable result is invalid"));
+	}
+	if (value.state === "success" && "value" in value) {
+		return output
+			? Schema.decodeUnknownEffect(output)(value.value).pipe(
+					Effect.mapError(
+						(error) =>
+							new nativeError("Recorded workflow child output is invalid: " + nativeString(error)),
+					),
+				)
+			: Effect.succeed(value.value);
+	}
+	if (
+		value.state === "failure" &&
+		isRecord(value.error) &&
+		typeof value.error.message === "string"
+	) {
+		return Effect.fail(
+			value.error.data === undefined
+				? { message: value.error.message }
+				: { message: value.error.message, data: value.error.data },
+		);
+	}
+	return Effect.fail(new nativeError("Recorded sandbox durable result is invalid"));
+};
+
+const createDurableHost = async (definition: SandboxDefinition, payload: SandboxRunnerPayload) => {
+	const transportHost = createHost(payload);
+	const bootstrap = transportHost.durableCalls;
+	if (typeof bootstrap !== "function") {
+		throw new nativeError("Durable sandbox replay bootstrap is unavailable");
+	}
+	const journal = await Effect.runPromise((bootstrap as () => Effect.Effect<unknown, unknown>)());
+	if (!arrayIsArray(journal)) {
+		throw new nativeError("Durable sandbox replay journal is invalid");
+	}
+
+	const calls: DurableCall[] = [];
+	const requests: Array<Record<string, unknown>> = [];
+	const budget: HostBudget = { http: 0, total: 0 };
+	let pendingObserved = false;
+	const consumeBudget = (capability: string) => {
+		budget.total += 1;
+		if (capability === "httpCall") {
+			budget.http += 1;
+		}
+		return budget.total > payload.limits.hostCallCount
+			? payload.limits.hostCallLimitMessage
+			: budget.http > payload.limits.httpCallCount
+				? payload.limits.httpCallLimitMessage
+				: undefined;
+	};
+	const register = (
+		request: Record<string, unknown>,
+		index: number,
+		output?: ServiceFreeSchema,
+	) => {
+		if (pendingObserved) {
+			return Effect.fail(durablePending as unknown);
+		}
+		const call: DurableCall = { request, started: false, settled: false };
+		calls.push(call);
+		requests.push(request);
+		return Effect.suspend(() => {
+			call.started = true;
+			const entry = journal[index];
+			if (entry === undefined) {
+				pendingObserved = true;
+				call.settled = true;
+				return Effect.yieldNow.pipe(Effect.andThen(Effect.fail(durablePending as unknown)));
+			}
+			call.settled = true;
+			if (
+				!isRecord(entry) ||
+				!isRecord(entry.request) ||
+				stableJson(entry.request) !== stableJson(request)
+			) {
+				return Effect.fail(
+					new nativeError("Sandbox durable journal identity mismatch at index " + index),
+				);
+			}
+			return durableResult(entry.value, output);
+		});
+	};
+	const host: Record<string, unknown> = createDictionary(null);
+	const capabilities = arrayIsArray(definition.manifest.capabilities)
+		? definition.manifest.capabilities
+		: [];
+	for (let index = 0; index < capabilities.length; index += 1) {
+		const capability = capabilities[index];
+		if (typeof capability !== "string") {
+			continue;
+		}
+		if (capability === "artifact-read" || capability === "scratch") {
+			continue;
+		}
+		if (capability === "log" || capability === "span") {
+			const diagnostic = transportHost[capability];
+			if (typeof diagnostic === "function") {
+				host[capability] = diagnostic;
+			}
+			continue;
+		}
+		host[capability] = (...args: unknown[]) => {
+			const budgetError = consumeBudget(capability);
+			if (budgetError) {
+				return Effect.fail({ message: budgetError });
+			}
+			const index = requests.length;
+			return register(
+				{
+					index,
+					kind: "host",
+					name: capability,
+					args: { capability, args: jsonClone(args, capability + " arguments") },
+				},
+				index,
+			);
+		};
+	}
+	host.executeWorkflow = (name: unknown, reference: unknown, input: unknown) => {
+		if (typeof name !== "string" || name.length === 0 || !isDurableWorkflowReference(reference)) {
+			return Effect.fail({ message: "executeWorkflow requires a name and workflow reference" });
+		}
+		const decoded = Schema.decodeUnknownResult(reference.input)(input);
+		if (decoded._tag === "Failure") {
+			return Effect.fail({
+				message: "executeWorkflow input is invalid: " + nativeString(decoded.failure),
+			});
+		}
+		const budgetError = consumeBudget("executeWorkflow");
+		if (budgetError) {
+			return Effect.fail({ message: budgetError });
+		}
+		const index = requests.length;
+		return register(
+			{
+				name,
+				index,
+				kind: "workflow-child",
+				args: {
+					workflowSlug: reference.workflowSlug,
+					input: jsonClone(decoded.success, "executeWorkflow input"),
+				},
+			},
+			index,
+			reference.output,
+		);
+	};
+
+	return {
+		host,
+		requests,
+		journalLength: journal.length,
+		isPending: () => pendingObserved,
+		startedRequests: () => {
+			const started: Array<Record<string, unknown>> = [];
+			for (let index = 0; index < calls.length; index += 1) {
+				const call = calls[index];
+				if (!call?.started) {
+					break;
+				}
+				started.push(call.request);
+			}
+			return started;
+		},
+		detachedError: () => {
+			for (let index = 0; index < calls.length; index += 1) {
+				const call = calls[index];
+				if (call && (!call.started || !call.settled)) {
+					return "Sandbox body returned with detached or in-flight durable host work";
+				}
+			}
+			return undefined;
+		},
+	};
 };
 
 const serializeLogs = (logs: readonly string[]) => {
@@ -451,7 +685,6 @@ const executeDefinition = async (
 	if (!manifestsMatch(definition.manifest, payload.metadata)) {
 		return throwPhase("load", "Compiled sandbox manifest does not match persisted metadata");
 	}
-	const host = createHost(payload);
 	const run = definition.run;
 	const input = definition.input;
 	const output = definition.output;
@@ -465,9 +698,15 @@ const executeDefinition = async (
 	}
 
 	setPhase("execute");
+	const durable =
+		typeof payload.workflowExecutionId === "string" && definition.manifest.kind !== "workflow"
+			? await createDurableHost(definition, payload)
+			: undefined;
+	const host = durable?.host ?? createHost(payload);
 	let result: unknown;
 	try {
 		const execution = run(parsedInput, host, {
+			startedAt: payload.startedAt,
 			metadata: payload.metadata ?? {},
 			sandboxScriptId: payload.scriptId,
 		});
@@ -480,6 +719,49 @@ const executeDefinition = async (
 				onSuccess: (value) => ({ value, success: true as const }),
 			}),
 		);
+		if (durable) {
+			const detachedError = durable.detachedError();
+			if (detachedError) {
+				return {
+					state: "failed",
+					error: detachedError,
+					requests: durable.startedRequests(),
+					journalLength: durable.journalLength,
+				};
+			}
+			if (durable.isPending()) {
+				return {
+					state: "pending",
+					requests: durable.requests,
+					journalLength: durable.journalLength,
+				};
+			}
+			if (!outcome.success) {
+				return {
+					state: "failed",
+					requests: durable.requests,
+					journalLength: durable.journalLength,
+					error: nativeString(outcome.error),
+				};
+			}
+			setPhase("output");
+			try {
+				const decoded = await Schema.decodeUnknownPromise(output)(outcome.value);
+				return {
+					state: "completed",
+					requests: durable.requests,
+					journalLength: durable.journalLength,
+					output: jsonClone(decoded, "Definition output"),
+				};
+			} catch (error) {
+				return {
+					state: "failed",
+					requests: durable.requests,
+					journalLength: durable.journalLength,
+					error: "Definition output validation failed: " + nativeString(error),
+				};
+			}
+		}
 		if (!outcome.success) {
 			return throwPhase("execute", outcome.error);
 		}
@@ -540,7 +822,8 @@ void (async () => {
 
 			phase = "load";
 			const restoreWorkflowGlobals =
-				isRecord(payload.metadata) && payload.metadata.kind === "workflow"
+				typeof payload.workflowExecutionId === "string" ||
+				(isRecord(payload.metadata) && payload.metadata.kind === "workflow")
 					? installWorkflowDeterminismGuard()
 					: undefined;
 			let value: unknown;
