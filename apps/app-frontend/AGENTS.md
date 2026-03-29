@@ -14,6 +14,6 @@ Ryot is a self-hosted personal tracker for people who want to own and reflect on
 
 ### Type Safety
 
-- Derive API types from `src/lib/api/openapi.d.ts` via helpers in `src/lib/api/types.ts`. Do not duplicate wire shapes manually.
+- Derive API types from `@ryot/generated/openapi/app-backend` via helpers in `src/lib/api/types.ts`. Do not duplicate wire shapes manually.
 - Derive TypeScript types from zod schemas with `z.infer` instead of parallel interfaces.
 - Before adding a new type, check if `z.infer`, `ReturnType`, `Pick`, `Omit`, indexed access, or an OpenAPI-derived type covers it first.
