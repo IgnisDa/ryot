@@ -31,9 +31,13 @@ The core principle: **replace, don't layer.**
 - Tests assert on observable outcomes through the public interface, not internal state
 - Tests should survive internal refactors — they describe behavior, not implementation
 
-## Issue Template
+## RFC Document Template
 
-<issue-template>
+Use this template when creating the RFC markdown file in `docs/tasks/refactor-{name}/README.md`:
+
+<rfc-template>
+
+# Refactor: {Descriptive Title}
 
 ## Problem
 
@@ -75,4 +79,12 @@ Durable architectural guidance that is NOT coupled to current file paths:
 - What it should expose (the interface contract)
 - How callers should migrate to the new interface
 
-</issue-template>
+## Status
+
+- [ ] RFC accepted
+- [ ] Implementation started
+- [ ] Implementation complete
+- [ ] Old tests deleted
+- [ ] New boundary tests written
+
+</rfc-template>
