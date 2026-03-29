@@ -16,22 +16,6 @@ export function useSavedViewsQuery() {
 	};
 }
 
-export function useSavedViewQuery(props: { viewId: string }) {
-	const apiClient = useApiClient();
-	const allViewsQuery = apiClient.useQuery("get", "/saved-views");
-
-	const savedView = (allViewsQuery.data?.data ?? []).find(
-		(v) => v.id === props.viewId,
-	);
-
-	return {
-		savedView,
-		refetch: allViewsQuery.refetch,
-		isError: allViewsQuery.isError,
-		isLoading: allViewsQuery.isLoading,
-	};
-}
-
 export function useSavedViewMutations() {
 	const apiClient = useApiClient();
 	const queryClient = useQueryClient();
