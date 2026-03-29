@@ -17,19 +17,10 @@ import {
 	UnstyledButton,
 } from "@mantine/core";
 import { modals } from "@mantine/modals";
-import {
-	BookOpen,
-	ChevronRight,
-	Clock,
-	Gamepad2,
-	Headphones,
-	Monitor,
-	Play,
-	Plus,
-	Star,
-	Tv,
-} from "lucide-react";
+import { ChevronRight, Clock, Play, Plus, Star } from "lucide-react";
 import { useState } from "react";
+import { useResolvedImageUrls } from "#/features/entities/image";
+import { toAppEntityImage } from "#/features/entities/model";
 import {
 	SearchEntityModalContent,
 	SearchEntityModalTitle,
@@ -38,48 +29,39 @@ import { useEntitySchemasQuery } from "#/features/entity-schemas/hooks";
 import type { AppEntitySchema } from "#/features/entity-schemas/model";
 import { TrackerIcon } from "#/features/trackers/icons";
 import type { AppTracker } from "#/features/trackers/model";
+import { getLastActivityLabel } from "#/features/trackers/tracker-overview-data";
+import { useApiClient } from "#/hooks/api";
 import { useThemeTokens } from "#/hooks/theme";
+import type { ApiGetResponseData } from "#/lib/api/types";
 
 const GOLD = "#C9943A";
 const STONE = "#8C7560";
 
 const SECTION_ACCENTS = {
-	activity: "#6F8B75",
 	continue: GOLD,
 	library: STONE,
 	queue: "#8E6A4D",
 	review: "#D38D5A",
+	activity: "#6F8B75",
 };
 
-function withAlpha(hex: string, alpha: number) {
-	const raw = hex.replace("#", "");
-	const normalized =
-		raw.length === 3
-			? raw
-					.split("")
-					.map((char) => `${char}${char}`)
-					.join("")
-			: raw;
-	const r = Number.parseInt(normalized.slice(0, 2), 16);
-	const g = Number.parseInt(normalized.slice(2, 4), 16);
-	const b = Number.parseInt(normalized.slice(4, 6), 16);
-	return `rgba(${r}, ${g}, ${b}, ${alpha})`;
+function colorMix(color: string, alpha: number) {
+	return `color-mix(in srgb, ${color} ${alpha * 100}%, transparent)`;
 }
 
-function getQueueNote(item: BacklogItem, rank: number) {
+function getQueueNote(slug: string, backlogAt: Date, rank: number) {
 	if (rank === 0) {
 		return "Pick tonight";
 	}
-	if (item.addedDate.includes("d")) {
+	const daysSinceBacklog =
+		(Date.now() - backlogAt.getTime()) / (1000 * 60 * 60 * 24);
+	if (daysSinceBacklog < 7) {
 		return "Freshly queued";
 	}
-	if (["Podcast", "Music"].includes(item.type)) {
-		return "Low-friction pick";
-	}
-	if (["Show", "Anime"].includes(item.type)) {
+	if (slug === "anime") {
 		return "Easy to resume";
 	}
-	if (["Book", "Manga"].includes(item.type)) {
+	if (slug === "book" || slug === "manga") {
 		return "Settle in with this";
 	}
 	return "Waiting in the wings";
@@ -91,9 +73,9 @@ function getSectionBackground(props: {
 	surface: string;
 }) {
 	if (props.isDark) {
-		return `linear-gradient(180deg, ${withAlpha(props.accent, 0.18)} 0%, ${props.surface} 22%, ${props.surface} 100%)`;
+		return `linear-gradient(180deg, ${colorMix(props.accent, 0.18)} 0%, ${props.surface} 22%, ${props.surface} 100%)`;
 	}
-	return `linear-gradient(180deg, ${withAlpha(props.accent, 0.08)} 0%, ${withAlpha(props.accent, 0.03)} 18%, ${props.surface} 40%, ${props.surface} 100%)`;
+	return `linear-gradient(180deg, ${colorMix(props.accent, 0.08)} 0%, ${colorMix(props.accent, 0.03)} 18%, ${props.surface} 40%, ${props.surface} 100%)`;
 }
 
 type MediaType =
@@ -123,59 +105,19 @@ const TYPE_COLORS: Record<MediaType, string> = {
 	VisualNovel: "#F39C12",
 };
 
-const TYPE_ICONS: Record<MediaType, typeof BookOpen> = {
-	Book: BookOpen,
-	Show: Tv,
-	Movie: Monitor,
-	Anime: Tv,
-	Manga: BookOpen,
-	Music: Headphones,
-	Podcast: Headphones,
-	AudioBook: Headphones,
-	VideoGame: Gamepad2,
-	ComicBook: BookOpen,
-	VisualNovel: BookOpen,
-};
-
-interface InProgressItem {
-	id: string;
-	sub: string;
-	type: MediaType;
-	title: string;
-	coverUrl: string;
-	current: number;
-	total: number;
-	unit: string;
-	lastActivity: string;
-	actionLabel: string;
-}
-
-interface BacklogItem {
-	id: string;
-	sub: string;
-	type: MediaType;
-	title: string;
-	coverUrl: string;
-	addedDate: string;
-}
-
-interface UnratedItem {
-	id: string;
-	sub: string;
-	type: MediaType;
-	title: string;
-	coverUrl: string;
-	completedDate: string;
-}
+type MediaOverviewData = ApiGetResponseData<"/media/overview">;
+type OverviewUpNextItem = MediaOverviewData["upNext"]["items"][number];
+type OverviewContinueItem = MediaOverviewData["continue"]["items"][number];
+type OverviewRateTheseItem = MediaOverviewData["rateThese"]["items"][number];
 
 interface ActivityEvent {
 	id: string;
 	sub: string;
 	date: string;
 	time: string;
-	type: MediaType;
 	title: string;
 	action: string;
+	type: MediaType;
 	coverUrl: string;
 	rating: number | null;
 }
@@ -184,233 +126,6 @@ interface WeekDay {
 	day: string;
 	count: number;
 }
-
-const IN_PROGRESS: InProgressItem[] = [
-	{
-		id: "ip1",
-		type: "Book",
-		title: "The Wind Is Never Gone",
-		sub: "Sally Mandel",
-		current: 142,
-		total: 380,
-		unit: "pages",
-		lastActivity: "2h ago",
-		actionLabel: "Log Progress",
-		coverUrl: "https://covers.openlibrary.org/b/id/240726-L.jpg",
-	},
-	{
-		id: "ip2",
-		type: "Anime",
-		title: "Dungeon Meshi",
-		sub: "Studio Trigger",
-		current: 12,
-		total: 24,
-		unit: "episodes",
-		lastActivity: "Yesterday",
-		actionLabel: "Next Episode",
-		coverUrl: "https://cdn.myanimelist.net/images/anime/1628/140081.jpg",
-	},
-	{
-		id: "ip3",
-		type: "Show",
-		title: "Breaking Bad",
-		sub: "S3 E7 · Vince Gilligan",
-		current: 27,
-		total: 62,
-		unit: "episodes",
-		lastActivity: "Yesterday",
-		actionLabel: "Next Episode",
-		coverUrl: "https://image.tmdb.org/t/p/w500/ggFHVNu6YYI5L9pCfOacjizRGt.jpg",
-	},
-	{
-		id: "ip4",
-		type: "Anime",
-		title: "Solo Leveling",
-		sub: "A-1 Pictures",
-		current: 8,
-		total: 12,
-		unit: "episodes",
-		lastActivity: "3d ago",
-		actionLabel: "Next Episode",
-		coverUrl: "https://cdn.myanimelist.net/images/anime/1258/135739.jpg",
-	},
-	{
-		id: "ip5",
-		type: "Book",
-		title: "What to Do When I'm Gone",
-		sub: "Suzy Hopkins",
-		current: 34,
-		total: 192,
-		unit: "pages",
-		lastActivity: "3d ago",
-		actionLabel: "Log Progress",
-		coverUrl: "https://covers.openlibrary.org/b/id/10527831-L.jpg",
-	},
-	{
-		id: "ip6",
-		type: "Manga",
-		title: "Vagabond",
-		sub: "Takehiko Inoue",
-		current: 89,
-		total: 327,
-		unit: "chapters",
-		lastActivity: "4d ago",
-		actionLabel: "Log Progress",
-		coverUrl: "https://cdn.myanimelist.net/images/manga/3/116498.jpg",
-	},
-	{
-		id: "ip7",
-		type: "AudioBook",
-		title: "The Pragmatic Programmer",
-		sub: "David Thomas",
-		current: 4,
-		total: 10,
-		unit: "hours",
-		lastActivity: "5d ago",
-		actionLabel: "Resume",
-		coverUrl: "https://m.media-amazon.com/images/I/41BKx1AxQWL.jpg",
-	},
-	{
-		id: "ip8",
-		type: "Music",
-		title: "In Rainbows",
-		sub: "Radiohead",
-		current: 5,
-		total: 10,
-		unit: "tracks",
-		lastActivity: "5d ago",
-		actionLabel: "Listen",
-		coverUrl:
-			"https://upload.wikimedia.org/wikipedia/en/3/3e/In_Rainbows_Official_Cover.jpg",
-	},
-	{
-		id: "ip9",
-		type: "Podcast",
-		title: "Lex Fridman Podcast",
-		sub: "Lex Fridman",
-		current: 23,
-		total: 0,
-		unit: "episodes",
-		lastActivity: "1w ago",
-		actionLabel: "Next Episode",
-		coverUrl:
-			"https://images.unsplash.com/photo-1478737270239-2f02b77fc618?w=300&fit=crop",
-	},
-	{
-		id: "ip10",
-		type: "ComicBook",
-		title: "The Sandman",
-		sub: "Neil Gaiman",
-		current: 24,
-		total: 75,
-		unit: "issues",
-		lastActivity: "1w ago",
-		actionLabel: "Continue",
-		coverUrl:
-			"https://upload.wikimedia.org/wikipedia/en/f/f5/SandmanIssue1.jpg",
-	},
-	{
-		id: "ip11",
-		type: "VisualNovel",
-		title: "Clannad",
-		sub: "Key / Visual Arts",
-		current: 12,
-		total: 48,
-		unit: "hours",
-		lastActivity: "2w ago",
-		actionLabel: "Continue",
-		coverUrl: "https://cdn.myanimelist.net/images/anime/1811/97462.jpg",
-	},
-];
-
-const BACKLOG: BacklogItem[] = [
-	{
-		id: "bl1",
-		type: "Movie",
-		title: "The Brutalist",
-		sub: "Brady Corbet",
-		addedDate: "2d ago",
-		coverUrl: "https://image.tmdb.org/t/p/w500/1pdfLvkbY9ohJlCjQH2CZjjYVvJ.jpg",
-	},
-	{
-		id: "bl2",
-		type: "Book",
-		title: "Project Hail Mary",
-		sub: "Andy Weir",
-		addedDate: "4d ago",
-		coverUrl: "https://covers.openlibrary.org/b/id/10527831-L.jpg",
-	},
-	{
-		id: "bl3",
-		type: "VideoGame",
-		title: "Silksong",
-		sub: "Team Cherry",
-		addedDate: "1w ago",
-		coverUrl:
-			"https://images.igdb.com/igdb/image/upload/t_cover_big/co3p2d.jpg",
-	},
-	{
-		id: "bl4",
-		type: "Anime",
-		title: "Chainsaw Man S2",
-		sub: "MAPPA",
-		addedDate: "1w ago",
-		coverUrl: "https://cdn.myanimelist.net/images/anime/1015/138006.jpg",
-	},
-	{
-		id: "bl5",
-		type: "Show",
-		title: "The Bear S3",
-		sub: "FX",
-		addedDate: "2w ago",
-		coverUrl: "https://image.tmdb.org/t/p/w500/oNF5oacaZFXMjGC8fWOTvmDCxLr.jpg",
-	},
-	{
-		id: "bl6",
-		type: "Podcast",
-		title: "Huberman Lab",
-		sub: "Andrew Huberman",
-		addedDate: "2w ago",
-		coverUrl:
-			"https://images.unsplash.com/photo-1478737270239-2f02b77fc618?w=300&fit=crop",
-	},
-	{
-		id: "bl7",
-		type: "Manga",
-		title: "Dandadan",
-		sub: "Yukinobu Tatsu",
-		addedDate: "3w ago",
-		coverUrl: "https://cdn.myanimelist.net/images/manga/1/157897.jpg",
-	},
-];
-
-const UNRATED: UnratedItem[] = [
-	{
-		id: "ur1",
-		type: "Movie",
-		title: "Poor Things",
-		sub: "Yorgos Lanthimos",
-		completedDate: "3d ago",
-		coverUrl: "https://image.tmdb.org/t/p/w500/kCGlIMHnOm8JPXIwwzwrznhIiIT.jpg",
-	},
-	{
-		id: "ur2",
-		type: "AudioBook",
-		title: "Atomic Habits",
-		sub: "James Clear",
-		completedDate: "1w ago",
-		coverUrl: "https://m.media-amazon.com/images/I/513Y5o-DYtL.jpg",
-	},
-	{
-		id: "ur3",
-		type: "Music",
-		title: "Random Access Memories",
-		sub: "Daft Punk",
-		completedDate: "1w ago",
-		coverUrl:
-			"https://upload.wikimedia.org/wikipedia/en/a/a7/Random_Access_Memories.jpg",
-	},
-];
 
 const WEEK_ACTIVITY: WeekDay[] = [
 	{ day: "Mon", count: 2 },
@@ -425,116 +140,116 @@ const WEEK_ACTIVITY: WeekDay[] = [
 const RECENT_EVENTS: ActivityEvent[] = [
 	{
 		id: "e1",
+		type: "Book",
+		rating: null,
 		date: "Today",
 		time: "2h ago",
-		type: "Book",
-		title: "The Wind Is Never Gone",
 		sub: "pg 142 of 380",
 		action: "Logged progress",
+		title: "The Wind Is Never Gone",
 		coverUrl: "https://covers.openlibrary.org/b/id/240726-L.jpg",
-		rating: null,
 	},
 	{
 		id: "e2",
+		rating: null,
 		date: "Today",
-		time: "5h ago",
 		type: "Anime",
-		title: "Dungeon Meshi",
+		time: "5h ago",
 		sub: "Episode 12",
 		action: "Watched",
+		title: "Dungeon Meshi",
 		coverUrl: "https://cdn.myanimelist.net/images/anime/1628/140081.jpg",
-		rating: null,
 	},
 	{
 		id: "e3",
-		date: "Yesterday",
-		time: "Yesterday",
 		type: "Show",
-		title: "Breaking Bad",
 		sub: "S3 E7",
-		action: "Watched",
-		coverUrl: "https://image.tmdb.org/t/p/w500/ggFHVNu6YYI5L9pCfOacjizRGt.jpg",
 		rating: null,
+		date: "Yesterday",
+		action: "Watched",
+		time: "Yesterday",
+		title: "Breaking Bad",
+		coverUrl: "https://image.tmdb.org/t/p/w500/ggFHVNu6YYI5L9pCfOacjizRGt.jpg",
 	},
 	{
 		id: "e4",
+		rating: null,
+		type: "Movie",
 		date: "Yesterday",
 		time: "Yesterday",
-		type: "Movie",
+		action: "Completed",
 		title: "Poor Things",
 		sub: "Yorgos Lanthimos",
-		action: "Completed",
 		coverUrl: "https://image.tmdb.org/t/p/w500/kCGlIMHnOm8JPXIwwzwrznhIiIT.jpg",
-		rating: null,
 	},
 	{
 		id: "e5",
-		date: "3 days ago",
-		time: "3d ago",
+		rating: null,
 		type: "Anime",
-		title: "Solo Leveling",
+		time: "3d ago",
 		sub: "Episode 8",
 		action: "Watched",
+		date: "3 days ago",
+		title: "Solo Leveling",
 		coverUrl: "https://cdn.myanimelist.net/images/anime/1258/135739.jpg",
-		rating: null,
 	},
 	{
 		id: "e6",
-		date: "3 days ago",
-		time: "3d ago",
-		type: "Anime",
-		title: "Frieren: Beyond Journey's End",
-		sub: "28 of 28",
-		action: "Completed",
-		coverUrl: "https://cdn.myanimelist.net/images/anime/1015/138006.jpg",
 		rating: 5,
+		type: "Anime",
+		time: "3d ago",
+		sub: "28 of 28",
+		date: "3 days ago",
+		action: "Completed",
+		title: "Frieren: Beyond Journey's End",
+		coverUrl: "https://cdn.myanimelist.net/images/anime/1015/138006.jpg",
 	},
 	{
 		id: "e7",
-		date: "1 week ago",
+		rating: 5,
 		time: "1w ago",
 		type: "VideoGame",
+		date: "1 week ago",
 		title: "Elden Ring",
 		sub: "FromSoftware",
 		action: "Completed",
 		coverUrl:
 			"https://images.igdb.com/igdb/image/upload/t_cover_big/co4jni.jpg",
-		rating: 5,
 	},
 ];
 
 const LIBRARY_STATS = {
 	total: 29,
-	active: 11,
-	completed: 15,
 	onHold: 5,
 	dropped: 1,
+	active: 11,
+	completed: 15,
 	avgRating: 4.6,
-	thisWeekCompleted: 2,
 	thisWeekHours: 18,
+	thisWeekCompleted: 2,
 };
 
 const TYPE_COUNTS: { type: MediaType; count: number }[] = [
-	{ type: "Anime", count: 5 },
 	{ type: "Book", count: 4 },
-	{ type: "Movie", count: 3 },
 	{ type: "Show", count: 3 },
-	{ type: "VideoGame", count: 3 },
+	{ type: "Anime", count: 5 },
+	{ type: "Movie", count: 3 },
 	{ type: "Music", count: 3 },
 	{ type: "Manga", count: 2 },
-	{ type: "AudioBook", count: 2 },
 	{ type: "Podcast", count: 2 },
+	{ type: "VideoGame", count: 3 },
+	{ type: "AudioBook", count: 2 },
 	{ type: "ComicBook", count: 2 },
 	{ type: "VisualNovel", count: 2 },
 ];
 
 function SectionHeader(props: {
-	accentColor: string;
-	eyebrow?: string;
 	title: string;
-	right?: React.ReactNode;
-	textPrimary: string;
+	eyebrow?: string;
 	textMuted: string;
+	textPrimary: string;
+	accentColor: string;
+	right?: React.ReactNode;
 }) {
 	return (
 		<Group justify="space-between" align="flex-end" mb="md" gap="sm">
@@ -542,31 +257,28 @@ function SectionHeader(props: {
 				{props.eyebrow ? (
 					<Group gap={8}>
 						<Box
-							w={18}
 							h={2}
-							style={{
-								borderRadius: 999,
-								backgroundColor: props.accentColor,
-							}}
+							w={18}
+							style={{ borderRadius: 999, backgroundColor: props.accentColor }}
 						/>
 						<Text
 							fz={10}
 							fw={700}
-							c={props.accentColor}
-							ff="var(--mantine-headings-font-family)"
 							tt="uppercase"
+							c={props.accentColor}
 							style={{ letterSpacing: "1px" }}
+							ff="var(--mantine-headings-font-family)"
 						>
 							{props.eyebrow}
 						</Text>
 					</Group>
 				) : null}
 				<Text
-					ff="var(--mantine-headings-font-family)"
-					fw={700}
 					fz="xl"
-					c={props.textPrimary}
+					fw={700}
 					lh={1.1}
+					c={props.textPrimary}
+					ff="var(--mantine-headings-font-family)"
 				>
 					{props.title}
 				</Text>
@@ -577,38 +289,38 @@ function SectionHeader(props: {
 }
 
 function SectionFrame(props: {
-	accentColor: string;
-	children: React.ReactNode;
 	border: string;
 	isDark: boolean;
 	surface: string;
+	accentColor: string;
+	children: React.ReactNode;
 }) {
 	return (
 		<Paper
 			p="md"
 			radius="sm"
 			style={{
-				background: getSectionBackground({
-					accent: props.accentColor,
-					isDark: props.isDark,
-					surface: props.surface,
-				}),
-				border: `1px solid ${props.border}`,
-				boxShadow: props.isDark
-					? `0 12px 32px ${withAlpha("#000000", 0.22)}`
-					: `0 10px 30px ${withAlpha(props.accentColor, 0.08)}`,
 				overflow: "hidden",
 				position: "relative",
+				border: `1px solid ${props.border}`,
+				boxShadow: props.isDark
+					? `0 12px 32px ${colorMix("#000000", 0.22)}`
+					: `0 10px 30px ${colorMix(props.accentColor, 0.08)}`,
+				background: getSectionBackground({
+					isDark: props.isDark,
+					surface: props.surface,
+					accent: props.accentColor,
+				}),
 			}}
 		>
 			<Box
 				style={{
-					background: `linear-gradient(90deg, ${props.accentColor} 0%, ${withAlpha(props.accentColor, 0)} 100%)`,
-					height: 3,
-					left: 0,
 					top: 0,
-					position: "absolute",
+					left: 0,
+					height: 3,
 					width: "100%",
+					position: "absolute",
+					background: `linear-gradient(90deg, ${props.accentColor} 0%, ${colorMix(props.accentColor, 0)} 100%)`,
 				}}
 			/>
 			{props.children}
@@ -617,48 +329,47 @@ function SectionFrame(props: {
 }
 
 function Artwork(props: {
-	height: number;
-	note?: string;
-	radius?: number;
-	title: string;
-	type: MediaType;
 	url?: string;
+	note?: string;
+	icon: string;
+	color: string;
+	title: string;
+	height: number;
 	width?: number;
+	radius?: number;
 }) {
 	const [hasError, setHasError] = useState(!props.url);
-	const color = TYPE_COLORS[props.type];
-	const Icon = TYPE_ICONS[props.type];
 
 	return (
 		<Box
 			w={props.width}
 			h={props.height}
 			style={{
-				background: `linear-gradient(160deg, ${withAlpha(color, 0.2)} 0%, ${withAlpha(STONE, 0.08)} 100%)`,
-				borderRadius: props.radius ?? 8,
 				overflow: "hidden",
 				position: "relative",
+				borderRadius: props.radius ?? 8,
+				background: `linear-gradient(160deg, ${colorMix(props.color, 0.2)} 0%, ${colorMix(STONE, 0.08)} 100%)`,
 			}}
 		>
 			{props.url && !hasError ? (
 				<Box
-					component="img"
-					src={props.url}
-					alt={props.title}
 					w="100%"
 					h="100%"
-					onError={() => setHasError(true)}
+					src={props.url}
+					component="img"
+					alt={props.title}
 					style={{ objectFit: "cover" }}
+					onError={() => setHasError(true)}
 				/>
 			) : (
 				<Stack
+					p="sm"
 					gap={8}
+					h="100%"
 					align="center"
 					justify="center"
-					h="100%"
-					p="sm"
 					style={{
-						background: `linear-gradient(180deg, ${withAlpha(color, 0.28)} 0%, ${withAlpha(STONE, 0.08)} 100%)`,
+						background: `linear-gradient(180deg, ${colorMix(props.color, 0.28)} 0%, ${colorMix(STONE, 0.08)} 100%)`,
 					}}
 				>
 					<ThemeIcon
@@ -666,19 +377,19 @@ function Artwork(props: {
 						radius="xl"
 						variant="light"
 						style={{
-							backgroundColor: withAlpha(color, 0.16),
-							color,
+							color: props.color,
+							backgroundColor: colorMix(props.color, 0.16),
 						}}
 					>
-						<Icon size={16} />
+						<TrackerIcon icon={props.icon} size={16} color={props.color} />
 					</ThemeIcon>
 					<Text
 						fz={10}
 						fw={600}
-						c={withAlpha("#2D241D", 0.84)}
-						ff="var(--mantine-headings-font-family)"
 						ta="center"
 						lineClamp={3}
+						c={colorMix("#2D241D", 0.84)}
+						ff="var(--mantine-headings-font-family)"
 					>
 						{props.title}
 					</Text>
@@ -698,7 +409,7 @@ function Artwork(props: {
 					size="xs"
 					variant="filled"
 					style={{
-						backgroundColor: withAlpha("#201812", 0.72),
+						backgroundColor: colorMix("#201812", 0.72),
 						bottom: 8,
 						color: "white",
 						left: 8,
@@ -713,108 +424,105 @@ function Artwork(props: {
 }
 
 function ContinueCard(props: {
-	item: InProgressItem;
-	surface: string;
-	surfaceHover: string;
 	border: string;
-	textPrimary: string;
+	surface: string;
 	textMuted: string;
+	textPrimary: string;
+	surfaceHover: string;
+	item: OverviewContinueItem;
+	imageUrl: string | undefined;
+	schemaBySlug: Map<string, AppEntitySchema>;
 }) {
-	const color = TYPE_COLORS[props.item.type];
-	const pct =
-		props.item.total > 0
-			? Math.round((props.item.current / props.item.total) * 100)
-			: null;
-	const progressLabel =
-		props.item.total > 0
-			? `${props.item.current} / ${props.item.total} ${props.item.unit}`
-			: `${props.item.current} ${props.item.unit}`;
+	const schema = props.schemaBySlug.get(props.item.entitySchemaSlug);
+	const color = schema?.accentColor ?? STONE;
+	const icon = schema?.icon ?? "circle";
+	const pct = props.item.progress.progressPercent ?? null;
+	const progressLabel = props.item.labels.progress;
+	const lastActivity = getLastActivityLabel(new Date(props.item.progressAt));
 
 	return (
 		<Paper
 			radius="sm"
 			style={{
-				background: `linear-gradient(180deg, ${withAlpha(color, 0.08)} 0%, ${props.surface} 34%, ${props.surface} 100%)`,
-				border: `1px solid ${props.border}`,
-				boxShadow: `0 10px 24px ${withAlpha(color, 0.08)}`,
 				overflow: "hidden",
+				border: `1px solid ${props.border}`,
+				boxShadow: `0 10px 24px ${colorMix(color, 0.08)}`,
+				background: `linear-gradient(180deg, ${colorMix(color, 0.08)} 0%, ${props.surface} 34%, ${props.surface} 100%)`,
 			}}
 			styles={{
 				root: {
-					"&:hover": {
-						background: `linear-gradient(180deg, ${withAlpha(color, 0.1)} 0%, ${props.surfaceHover} 30%, ${props.surfaceHover} 100%)`,
-						transform: "translateY(-2px)",
-					},
 					transition: "all 0.18s ease",
+					"&:hover": {
+						transform: "translateY(-2px)",
+						background: `linear-gradient(180deg, ${colorMix(color, 0.1)} 0%, ${props.surfaceHover} 30%, ${props.surfaceHover} 100%)`,
+					},
 				},
 			}}
 		>
 			<Group gap={0} align="stretch" wrap="nowrap">
 				<Artwork
-					height={132}
-					note={pct !== null ? `${pct}% done` : props.item.unit}
-					radius={0}
-					title={props.item.title}
-					type={props.item.type}
-					url={props.item.coverUrl}
 					width={84}
+					radius={0}
+					height={132}
+					icon={icon}
+					color={color}
+					url={props.imageUrl}
+					title={props.item.title}
+					note={pct !== null ? `${pct}% done` : undefined}
 				/>
 				<Stack gap={8} p="sm" style={{ flex: 1, minWidth: 0 }}>
 					<Group gap={6} wrap="nowrap">
 						<Badge
 							size="xs"
 							variant="light"
-							style={{
-								backgroundColor: withAlpha(color, 0.12),
-								color,
-							}}
+							style={{ color, backgroundColor: colorMix(color, 0.12) }}
 						>
-							{props.item.type}
+							{schema?.name ?? props.item.entitySchemaSlug}
 						</Badge>
 						<Text
 							fz={10}
-							c={props.textMuted}
-							ff="var(--mantine-headings-font-family)"
 							tt="uppercase"
+							c={props.textMuted}
 							style={{ letterSpacing: "0.8px" }}
+							ff="var(--mantine-headings-font-family)"
 						>
 							Resume
 						</Text>
 						<Box style={{ flex: 1 }} />
 						<Text fz={10} c={props.textMuted}>
-							{props.item.lastActivity}
+							{lastActivity}
 						</Text>
 					</Group>
 
 					<Text
-						ff="var(--mantine-headings-font-family)"
-						fw={600}
 						fz="sm"
-						c={props.textPrimary}
-						lineClamp={1}
+						fw={600}
 						lh={1.3}
+						lineClamp={1}
+						c={props.textPrimary}
+						ff="var(--mantine-headings-font-family)"
 					>
 						{props.item.title}
 					</Text>
 					<Text fz="xs" c={props.textMuted} lineClamp={1}>
-						{props.item.sub}
+						{props.item.subtitle.label}
 					</Text>
 
 					<Box mt={2}>
 						<Group gap={6} mb={4}>
 							<Text
 								fz={10}
-								ff="var(--mantine-font-family-monospace)"
 								c={props.textMuted}
+								ff="var(--mantine-font-family-monospace)"
 							>
 								{progressLabel}
 							</Text>
 							{pct !== null ? (
 								<Text
 									fz={10}
-									ff="var(--mantine-font-family-monospace)"
 									fw={600}
 									c={color}
+									ff="var(--mantine-font-family-monospace)"
 								>
 									{pct}%
 								</Text>
@@ -822,8 +530,8 @@ function ContinueCard(props: {
 						</Group>
 						{pct !== null ? (
 							<Progress
-								value={pct}
 								size={5}
+								value={pct}
 								radius="xl"
 								color={color}
 								bg={props.border}
@@ -832,24 +540,18 @@ function ContinueCard(props: {
 					</Box>
 
 					<Button
-						size="compact-xs"
-						variant="light"
 						mt={4}
+						variant="light"
+						size="compact-xs"
 						leftSection={<Play size={10} />}
 						style={{
-							alignSelf: "flex-start",
-							backgroundColor: withAlpha(color, 0.12),
-							border: "none",
 							color,
+							border: "none",
+							alignSelf: "flex-start",
+							backgroundColor: colorMix(color, 0.12),
 						}}
-						onClick={() =>
-							console.log(
-								`[builtin-tracker] ${props.item.actionLabel}:`,
-								props.item.title,
-							)
-						}
 					>
-						{props.item.actionLabel}
+						{props.item.labels.cta}
 					</Button>
 				</Stack>
 			</Group>
@@ -858,61 +560,67 @@ function ContinueCard(props: {
 }
 
 function BacklogCard(props: {
-	item: BacklogItem;
-	surface: string;
-	surfaceHover: string;
-	border: string;
-	textPrimary: string;
-	textMuted: string;
 	rank: number;
+	border: string;
+	surface: string;
+	textMuted: string;
+	textPrimary: string;
+	surfaceHover: string;
+	item: OverviewUpNextItem;
+	imageUrl: string | undefined;
+	schemaBySlug: Map<string, AppEntitySchema>;
 }) {
-	const color = TYPE_COLORS[props.item.type];
-	const note = getQueueNote(props.item, props.rank);
+	const schema = props.schemaBySlug.get(props.item.entitySchemaSlug);
+	const color = schema?.accentColor ?? STONE;
+	const icon = schema?.icon ?? "circle";
+	const backlogAt = new Date(props.item.backlogAt);
+	const note = getQueueNote(props.item.entitySchemaSlug, backlogAt, props.rank);
 
 	return (
 		<UnstyledButton
-			onClick={() => console.log("[builtin-tracker] Start:", props.item.title)}
 			style={{ flexShrink: 0 }}
+			onClick={() => console.log("[builtin-tracker] Start:", props.item.title)}
 		>
 			<Paper
 				w={164}
 				radius="sm"
 				style={{
-					background: `linear-gradient(180deg, ${withAlpha(color, 0.08)} 0%, ${props.surface} 26%, ${props.surface} 100%)`,
-					border: `1px solid ${props.border}`,
-					boxShadow: `0 10px 26px ${withAlpha(color, 0.08)}`,
 					overflow: "hidden",
+					border: `1px solid ${props.border}`,
+					boxShadow: `0 10px 26px ${colorMix(color, 0.08)}`,
+					background: `linear-gradient(180deg, ${colorMix(color, 0.08)} 0%, ${props.surface} 26%, ${props.surface} 100%)`,
 				}}
 				styles={{
 					root: {
-						"&:hover": {
-							background: `linear-gradient(180deg, ${withAlpha(color, 0.1)} 0%, ${props.surfaceHover} 24%, ${props.surfaceHover} 100%)`,
-							transform: "translateY(-2px)",
-						},
 						transition: "all 0.18s ease",
+						"&:hover": {
+							transform: "translateY(-2px)",
+							background: `linear-gradient(180deg, ${colorMix(color, 0.1)} 0%, ${props.surfaceHover} 24%, ${props.surfaceHover} 100%)`,
+						},
 					},
 				}}
 			>
 				<Box p={8} pb={0} style={{ position: "relative" }}>
 					<Artwork
-						height={220}
 						note={note}
+						icon={icon}
+						color={color}
+						height={220}
+						url={props.imageUrl}
 						title={props.item.title}
-						type={props.item.type}
-						url={props.item.coverUrl}
 					/>
 					<Badge
 						size="xs"
 						variant="light"
 						style={{
-							backgroundColor: withAlpha(color, 0.12),
 							color,
+							top: 14,
 							left: 14,
 							position: "absolute",
-							top: 14,
+							backgroundColor: colorMix(color, 0.12),
 						}}
 					>
-						{props.item.type}
+						{schema?.name ?? props.item.entitySchemaSlug}
 					</Badge>
 				</Box>
 				<Stack gap={4} p="sm" pt="xs">
@@ -920,27 +628,27 @@ function BacklogCard(props: {
 						fz={10}
 						fw={700}
 						c={color}
-						ff="var(--mantine-headings-font-family)"
 						tt="uppercase"
 						style={{ letterSpacing: "0.9px" }}
+						ff="var(--mantine-headings-font-family)"
 					>
 						{note}
 					</Text>
 					<Text
-						ff="var(--mantine-headings-font-family)"
-						fw={600}
 						fz="sm"
-						c={props.textPrimary}
-						lineClamp={2}
+						fw={600}
 						lh={1.3}
+						lineClamp={2}
+						c={props.textPrimary}
+						ff="var(--mantine-headings-font-family)"
 					>
 						{props.item.title}
 					</Text>
 					<Text fz={10} c={props.textMuted} lineClamp={1}>
-						{props.item.sub}
+						{props.item.subtitle.label}
 					</Text>
 					<Text fz={10} c={props.textMuted}>
-						Added {props.item.addedDate}
+						Added {getLastActivityLabel(backlogAt)}
 					</Text>
 				</Stack>
 			</Paper>
@@ -949,80 +657,86 @@ function BacklogCard(props: {
 }
 
 function RateCard(props: {
-	item: UnratedItem;
-	surface: string;
-	surfaceHover: string;
 	border: string;
-	textPrimary: string;
+	surface: string;
 	textMuted: string;
+	textPrimary: string;
+	surfaceHover: string;
+	item: OverviewRateTheseItem;
+	imageUrl: string | undefined;
+	schemaBySlug: Map<string, AppEntitySchema>;
 }) {
 	const [hovered, setHovered] = useState(0);
 	const [selected, setSelected] = useState(0);
-	const color = TYPE_COLORS[props.item.type];
+	const schema = props.schemaBySlug.get(props.item.entitySchemaSlug);
+	const color = schema?.accentColor ?? STONE;
+	const icon = schema?.icon ?? "circle";
+	const completedDate = getLastActivityLabel(new Date(props.item.completedAt));
 
 	return (
 		<Paper
 			radius="sm"
 			style={{
-				background: `linear-gradient(180deg, ${withAlpha(GOLD, 0.09)} 0%, ${props.surface} 34%, ${props.surface} 100%)`,
-				border: `1px solid ${props.border}`,
-				boxShadow: `0 10px 26px ${withAlpha(GOLD, 0.08)}`,
 				overflow: "hidden",
+				border: `1px solid ${props.border}`,
+				boxShadow: `0 10px 26px ${colorMix(GOLD, 0.08)}`,
+				background: `linear-gradient(180deg, ${colorMix(GOLD, 0.09)} 0%, ${props.surface} 34%, ${props.surface} 100%)`,
 			}}
 			styles={{
 				root: {
-					"&:hover": {
-						background: `linear-gradient(180deg, ${withAlpha(GOLD, 0.11)} 0%, ${props.surfaceHover} 34%, ${props.surfaceHover} 100%)`,
-						transform: "translateY(-2px)",
-					},
 					transition: "all 0.18s ease",
+					"&:hover": {
+						transform: "translateY(-2px)",
+						background: `linear-gradient(180deg, ${colorMix(GOLD, 0.11)} 0%, ${props.surfaceHover} 34%, ${props.surfaceHover} 100%)`,
+					},
 				},
 			}}
 		>
 			<Box h={3} bg={GOLD} />
 			<Group gap="sm" wrap="nowrap" p="sm">
 				<Artwork
-					height={86}
-					radius={8}
-					title={props.item.title}
-					type={props.item.type}
-					url={props.item.coverUrl}
 					width={64}
+					radius={8}
+					height={86}
+					icon={icon}
+					color={color}
+					url={props.imageUrl}
+					title={props.item.title}
 				/>
 				<Stack gap={4} style={{ flex: 1, minWidth: 0 }}>
 					<Group gap={6}>
 						<Badge
 							size="xs"
 							variant="light"
-							style={{ backgroundColor: withAlpha(color, 0.12), color }}
+							style={{ backgroundColor: colorMix(color, 0.12), color }}
 						>
-							{props.item.type}
+							{schema?.name ?? props.item.entitySchemaSlug}
 						</Badge>
 						<Text fz={10} c={props.textMuted}>
-							{props.item.completedDate}
+							{completedDate}
 						</Text>
 					</Group>
 					<Text
-						ff="var(--mantine-headings-font-family)"
-						fw={600}
 						fz="sm"
-						c={props.textPrimary}
+						fw={600}
 						lineClamp={1}
+						c={props.textPrimary}
+						ff="var(--mantine-headings-font-family)"
 					>
 						{props.item.title}
 					</Text>
 					<Text fz="xs" c={props.textMuted}>
-						{props.item.sub}
+						{props.item.subtitle.label}
 					</Text>
 					<Group
-						gap={4}
 						mt={2}
 						px={6}
 						py={5}
+						gap={4}
 						style={{
-							alignSelf: "flex-start",
-							backgroundColor: withAlpha(GOLD, 0.08),
 							borderRadius: 999,
+							alignSelf: "flex-start",
+							backgroundColor: colorMix(GOLD, 0.08),
 						}}
 					>
 						{[1, 2, 3, 4, 5].map((star) => (
@@ -1030,8 +744,8 @@ function RateCard(props: {
 								<ActionIcon
 									size="sm"
 									variant="transparent"
-									onMouseEnter={() => setHovered(star)}
 									onMouseLeave={() => setHovered(0)}
+									onMouseEnter={() => setHovered(star)}
 									onClick={() => {
 										setSelected(star);
 										console.log(
@@ -1049,11 +763,11 @@ function RateCard(props: {
 						))}
 						{selected > 0 && (
 							<Text
+								ml={2}
 								fz={10}
 								fw={600}
 								c={GOLD}
 								ff="var(--mantine-font-family-monospace)"
-								ml={2}
 							>
 								{selected}/5
 							</Text>
@@ -1066,11 +780,11 @@ function RateCard(props: {
 }
 
 function WeekStrip(props: {
-	days: WeekDay[];
-	accentColor: string;
 	border: string;
-	textPrimary: string;
+	days: WeekDay[];
 	textMuted: string;
+	accentColor: string;
+	textPrimary: string;
 }) {
 	const maxCount = Math.max(...props.days.map((d) => d.count), 1);
 	const activeDays = props.days.filter((day) => day.count > 0).length;
@@ -1082,18 +796,18 @@ function WeekStrip(props: {
 					<Text
 						fz={10}
 						fw={700}
-						c={props.accentColor}
-						ff="var(--mantine-headings-font-family)"
 						tt="uppercase"
+						c={props.accentColor}
 						style={{ letterSpacing: "1px" }}
+						ff="var(--mantine-headings-font-family)"
 					>
 						Weekly rhythm
 					</Text>
 					<Text
-						ff="var(--mantine-headings-font-family)"
-						fw={600}
 						fz="sm"
+						fw={600}
 						c={props.textPrimary}
+						ff="var(--mantine-headings-font-family)"
 					>
 						You showed up {activeDays} of 7 days.
 					</Text>
@@ -1116,11 +830,11 @@ function WeekStrip(props: {
 									h={h}
 									style={{
 										borderRadius: 999,
+										transition: "height 0.2s ease",
 										backgroundColor:
 											day.count > 0 ? props.accentColor : `${props.border}`,
 										opacity:
 											day.count > 0 ? 0.4 + (day.count / maxCount) * 0.6 : 1,
-										transition: "height 0.2s ease",
 									}}
 								/>
 							</Tooltip>
@@ -1136,40 +850,41 @@ function WeekStrip(props: {
 }
 
 function EventRow(props: {
-	event: ActivityEvent;
-	isLast: boolean;
 	border: string;
-	textPrimary: string;
+	isLast: boolean;
 	textMuted: string;
+	textPrimary: string;
+	event: ActivityEvent;
 }) {
 	const color = TYPE_COLORS[props.event.type];
 	return (
 		<Group
+			py={10}
 			gap="sm"
 			wrap="nowrap"
 			align="flex-start"
-			py={10}
 			style={{
-				borderBottom: props.isLast ? "none" : `1px solid ${props.border}`,
-				borderLeft: `3px solid ${color}`,
 				paddingLeft: 12,
+				borderLeft: `3px solid ${color}`,
+				borderBottom: props.isLast ? "none" : `1px solid ${props.border}`,
 			}}
 		>
 			<Artwork
-				height={48}
 				radius={6}
-				title={props.event.title}
-				type={props.event.type}
-				url={props.event.coverUrl}
 				width={36}
+				height={48}
+				icon="circle"
+				color={color}
+				title={props.event.title}
+				url={props.event.coverUrl}
 			/>
 			<Stack gap={2} style={{ flex: 1, minWidth: 0 }}>
 				<Text
-					ff="var(--mantine-headings-font-family)"
-					fw={600}
 					fz="sm"
-					c={props.textPrimary}
+					fw={600}
 					lineClamp={1}
+					c={props.textPrimary}
+					ff="var(--mantine-headings-font-family)"
 				>
 					{props.event.title}
 				</Text>
@@ -1177,7 +892,7 @@ function EventRow(props: {
 					<Badge
 						size="xs"
 						variant="light"
-						style={{ backgroundColor: withAlpha(color, 0.12), color }}
+						style={{ backgroundColor: colorMix(color, 0.12), color }}
 					>
 						{props.event.type}
 					</Badge>
@@ -1206,20 +921,16 @@ function EventRow(props: {
 }
 
 function TypeBar(props: {
-	types: { type: MediaType; count: number }[];
 	total: number;
 	border: string;
 	textMuted: string;
+	types: { type: MediaType; count: number }[];
 }) {
 	return (
 		<Stack gap={6}>
 			<Box
 				h={8}
-				style={{
-					borderRadius: 4,
-					overflow: "hidden",
-					display: "flex",
-				}}
+				style={{ display: "flex", borderRadius: 4, overflow: "hidden" }}
 			>
 				{props.types.map((t) => {
 					const pct = (t.count / props.total) * 100;
@@ -1228,9 +939,9 @@ function TypeBar(props: {
 							<Box
 								h="100%"
 								style={{
+									minWidth: 3,
 									width: `${pct}%`,
 									backgroundColor: TYPE_COLORS[t.type],
-									minWidth: 3,
 								}}
 							/>
 						</Tooltip>
@@ -1243,10 +954,7 @@ function TypeBar(props: {
 						<Box
 							w={8}
 							h={8}
-							style={{
-								borderRadius: 2,
-								backgroundColor: TYPE_COLORS[t.type],
-							}}
+							style={{ borderRadius: 2, backgroundColor: TYPE_COLORS[t.type] }}
 						/>
 						<Text fz={10} c={props.textMuted}>
 							{t.type} ({t.count})
@@ -1265,12 +973,12 @@ function TypeBar(props: {
 
 function StatChip(props: {
 	label: string;
-	value: string | number;
 	color?: string;
-	surface: string;
 	border: string;
-	textPrimary: string;
+	surface: string;
 	textMuted: string;
+	value: string | number;
+	textPrimary: string;
 }) {
 	return (
 		<Paper
@@ -1278,28 +986,28 @@ function StatChip(props: {
 			py="sm"
 			radius="sm"
 			style={{
-				background: `linear-gradient(180deg, ${withAlpha(props.color ?? STONE, 0.08)} 0%, ${props.surface} 100%)`,
 				border: `1px solid ${props.border}`,
 				borderTop: `3px solid ${props.color ?? STONE}`,
+				background: `linear-gradient(180deg, ${colorMix(props.color ?? STONE, 0.08)} 0%, ${props.surface} 100%)`,
 			}}
 		>
 			<Text
 				fz={10}
-				c={props.textMuted}
 				fw={700}
-				ff="var(--mantine-headings-font-family)"
 				tt="uppercase"
+				c={props.textMuted}
 				style={{ letterSpacing: "0.9px" }}
+				ff="var(--mantine-headings-font-family)"
 			>
 				{props.label}
 			</Text>
 			<Text
-				ff="var(--mantine-font-family-monospace)"
-				fw={700}
-				fz="xl"
-				c={props.color ?? props.textPrimary}
-				lh={1.2}
 				mt={6}
+				fz="xl"
+				fw={700}
+				lh={1.2}
+				c={props.color ?? props.textPrimary}
+				ff="var(--mantine-font-family-monospace)"
 			>
 				{props.value}
 			</Text>
@@ -1318,7 +1026,25 @@ export function BuiltinMediaTrackerOverview(
 	props: BuiltinMediaTrackerOverviewProps,
 ) {
 	const t = useThemeTokens();
+	const apiClient = useApiClient();
 	const entitySchemasQuery = useEntitySchemasQuery(props.tracker.id, true);
+
+	const overviewQuery = apiClient.useQuery("get", "/media/overview");
+	const overviewData = overviewQuery.data?.data;
+	const continueItems = overviewData?.continue.items ?? [];
+	const upNextItems = overviewData?.upNext.items ?? [];
+	const rateTheseItems = overviewData?.rateThese.items ?? [];
+
+	const allImageEntries = [
+		...continueItems,
+		...upNextItems,
+		...rateTheseItems,
+	].map((item) => ({ id: item.id, image: toAppEntityImage(item.image) }));
+	const { imageUrlByEntityId } = useResolvedImageUrls(allImageEntries);
+
+	const schemaBySlug = new Map(
+		entitySchemasQuery.entitySchemas.map((s) => [s.slug, s]),
+	);
 
 	const searchableSchemas = entitySchemasQuery.entitySchemas.filter(
 		(s) => s.searchProviders.length > 0,
@@ -1402,7 +1128,7 @@ export function BuiltinMediaTrackerOverview(
 		});
 	};
 
-	if (entitySchemasQuery.isLoading) {
+	if (entitySchemasQuery.isLoading || overviewQuery.isLoading) {
 		return (
 			<Center h={400}>
 				<Loader />
@@ -1410,10 +1136,10 @@ export function BuiltinMediaTrackerOverview(
 		);
 	}
 
-	if (entitySchemasQuery.isError) {
+	if (entitySchemasQuery.isError || overviewQuery.isError) {
 		return (
 			<Paper p="lg" withBorder>
-				<Text c="red">Failed to load entity schemas</Text>
+				<Text c="red">Failed to load media overview</Text>
 			</Paper>
 		);
 	}
@@ -1451,28 +1177,28 @@ export function BuiltinMediaTrackerOverview(
 							variant="light"
 							style={{
 								color: SECTION_ACCENTS.continue,
-								backgroundColor: withAlpha(SECTION_ACCENTS.continue, 0.12),
+								backgroundColor: colorMix(SECTION_ACCENTS.continue, 0.12),
 							}}
 						>
-							{IN_PROGRESS.length} in progress
+							{continueItems.length} in progress
 						</Badge>
 						<Badge
 							variant="light"
 							style={{
 								color: SECTION_ACCENTS.queue,
-								backgroundColor: withAlpha(SECTION_ACCENTS.queue, 0.12),
+								backgroundColor: colorMix(SECTION_ACCENTS.queue, 0.12),
 							}}
 						>
-							{BACKLOG.length} queued next
+							{upNextItems.length} queued next
 						</Badge>
 						<Badge
 							variant="light"
 							style={{
 								color: SECTION_ACCENTS.review,
-								backgroundColor: withAlpha(SECTION_ACCENTS.review, 0.12),
+								backgroundColor: colorMix(SECTION_ACCENTS.review, 0.12),
 							}}
 						>
-							{UNRATED.length} still unrated
+							{rateTheseItems.length} still unrated
 						</Badge>
 					</Group>
 				</Stack>
@@ -1502,13 +1228,13 @@ export function BuiltinMediaTrackerOverview(
 						<Group gap={4}>
 							<Clock size={12} color={t.textMuted} />
 							<Text fz="xs" c={t.textMuted}>
-								{IN_PROGRESS.length} in progress
+								{continueItems.length} in progress
 							</Text>
 						</Group>
 					}
 				/>
 				<SimpleGrid cols={{ base: 1, sm: 2, lg: 3 }} spacing="sm">
-					{IN_PROGRESS.slice(0, 6).map((item) => (
+					{continueItems.slice(0, 6).map((item) => (
 						<ContinueCard
 							item={item}
 							key={item.id}
@@ -1517,10 +1243,12 @@ export function BuiltinMediaTrackerOverview(
 							textMuted={t.textMuted}
 							textPrimary={t.textPrimary}
 							surfaceHover={t.surfaceHover}
+							schemaBySlug={schemaBySlug}
+							imageUrl={imageUrlByEntityId.get(item.id)}
 						/>
 					))}
 				</SimpleGrid>
-				{IN_PROGRESS.length > 6 ? (
+				{continueItems.length > 6 ? (
 					<UnstyledButton
 						mt="sm"
 						onClick={() =>
@@ -1529,7 +1257,7 @@ export function BuiltinMediaTrackerOverview(
 					>
 						<Group gap={4}>
 							<Text fz="xs" fw={500} c={GOLD}>
-								View all {IN_PROGRESS.length} in progress
+								View all {continueItems.length} in progress
 							</Text>
 							<ChevronRight size={12} color={GOLD} />
 						</Group>
@@ -1551,13 +1279,13 @@ export function BuiltinMediaTrackerOverview(
 					accentColor={SECTION_ACCENTS.queue}
 					right={
 						<Text fz="xs" c={t.textMuted}>
-							{BACKLOG.length} queued
+							{upNextItems.length} queued
 						</Text>
 					}
 				/>
 				<ScrollArea scrollbarSize={4} type="hover">
 					<Group gap="sm" wrap="nowrap" pb={4}>
-						{BACKLOG.map((item, index) => (
+						{upNextItems.map((item, index) => (
 							<BacklogCard
 								item={item}
 								rank={index}
@@ -1567,13 +1295,15 @@ export function BuiltinMediaTrackerOverview(
 								textMuted={t.textMuted}
 								textPrimary={t.textPrimary}
 								surfaceHover={t.surfaceHover}
+								schemaBySlug={schemaBySlug}
+								imageUrl={imageUrlByEntityId.get(item.id)}
 							/>
 						))}
 					</Group>
 				</ScrollArea>
 			</SectionFrame>
 
-			{UNRATED.length > 0 && (
+			{rateTheseItems.length > 0 && (
 				<SectionFrame
 					border={t.border}
 					isDark={t.isDark}
@@ -1588,12 +1318,12 @@ export function BuiltinMediaTrackerOverview(
 						accentColor={SECTION_ACCENTS.review}
 						right={
 							<Text fz="xs" c={t.textMuted}>
-								{UNRATED.length} unrated
+								{rateTheseItems.length} unrated
 							</Text>
 						}
 					/>
 					<SimpleGrid cols={{ base: 1, sm: 2, lg: 3 }} spacing="sm">
-						{UNRATED.map((item) => (
+						{rateTheseItems.map((item) => (
 							<RateCard
 								item={item}
 								key={item.id}
@@ -1602,6 +1332,8 @@ export function BuiltinMediaTrackerOverview(
 								textMuted={t.textMuted}
 								textPrimary={t.textPrimary}
 								surfaceHover={t.surfaceHover}
+								schemaBySlug={schemaBySlug}
+								imageUrl={imageUrlByEntityId.get(item.id)}
 							/>
 						))}
 					</SimpleGrid>
@@ -1640,7 +1372,7 @@ export function BuiltinMediaTrackerOverview(
 					radius="sm"
 					style={{
 						border: `1px solid ${t.border}`,
-						background: `linear-gradient(180deg, ${withAlpha(SECTION_ACCENTS.activity, 0.08)} 0%, ${t.surface} 18%, ${t.surface} 100%)`,
+						background: `linear-gradient(180deg, ${colorMix(SECTION_ACCENTS.activity, 0.08)} 0%, ${t.surface} 18%, ${t.surface} 100%)`,
 					}}
 				>
 					<WeekStrip
@@ -1655,7 +1387,7 @@ export function BuiltinMediaTrackerOverview(
 							variant="light"
 							style={{
 								color: SECTION_ACCENTS.activity,
-								backgroundColor: withAlpha(SECTION_ACCENTS.activity, 0.12),
+								backgroundColor: colorMix(SECTION_ACCENTS.activity, 0.12),
 							}}
 						>
 							{weekTotalEvents} events this week
@@ -1763,7 +1495,7 @@ export function BuiltinMediaTrackerOverview(
 						radius="sm"
 						style={{
 							border: `1px solid ${t.border}`,
-							background: `linear-gradient(180deg, ${withAlpha(SECTION_ACCENTS.library, 0.06)} 0%, ${t.surface} 100%)`,
+							background: `linear-gradient(180deg, ${colorMix(SECTION_ACCENTS.library, 0.06)} 0%, ${t.surface} 100%)`,
 						}}
 					>
 						<Text

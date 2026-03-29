@@ -292,14 +292,14 @@ the foundation for a broader media overview service.
 
 ## Tasks
 
-**Overall Progress:** 1 of 3 tasks completed
+**Overall Progress:** 2 of 3 tasks completed
 
-**Current Task:** [Task 02](./02-frontend-overview-integration.md) (todo)
+**Current Task:** [Task 03](./03-overview-hardening-and-mixed-media-coverage.md) (todo)
 
 ### Task List
 
 | #   | Task                                                                                               | Type | Status | Blocked By |
 | --- | -------------------------------------------------------------------------------------------------- | ---- | ------ | ---------- |
 | 01  | [Media Overview Read Model And Sections](./01-media-overview-read-model-and-sections.md)           | AFK  | done   | None       |
-| 02  | [Frontend Overview Integration](./02-frontend-overview-integration.md)                             | AFK  | todo   | Task 01    |
+| 02  | [Frontend Overview Integration](./02-frontend-overview-integration.md)                             | AFK  | done   | Task 01    |
 | 03  | [Overview Hardening And Mixed-Media Coverage](./03-overview-hardening-and-mixed-media-coverage.md) | AFK  | todo   | Task 02    |
