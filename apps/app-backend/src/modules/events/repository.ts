@@ -133,7 +133,9 @@ export const createEventForUser = async (input: {
 		})
 		.returning(createdEventSelection);
 
-	if (!createdEvent) throw new Error("Could not persist event");
+	if (!createdEvent) {
+		throw new Error("Could not persist event");
+	}
 
 	return toListedEvent({
 		...createdEvent,

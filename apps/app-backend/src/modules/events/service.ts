@@ -53,8 +53,9 @@ export const resolveEventSchemaId = (eventSchemaId: string) =>
 
 export const resolveOccurredAt = (occurredAt: unknown) => {
 	const parsedOccurredAt = occurredAtStringSchema.safeParse(occurredAt);
-	if (!parsedOccurredAt.success)
+	if (!parsedOccurredAt.success) {
 		throw new Error("Occurred at must be a valid datetime");
+	}
 
 	return new Date(parsedOccurredAt.data);
 };
@@ -73,7 +74,9 @@ export const resolveEntityEventAccess = (
 	scope: EntityEventScope | undefined,
 ): EntityEventAccess => {
 	const entityAccess = resolveCustomEntitySchemaAccess(scope);
-	if (!("entitySchema" in entityAccess)) return { error: entityAccess.error };
+	if (!("entitySchema" in entityAccess)) {
+		return { error: entityAccess.error };
+	}
 
 	return { access: entityAccess.entitySchema };
 };
@@ -82,7 +85,9 @@ export const resolveEventCreateAccess = (
 	scope: EventCreateScope | undefined,
 ): EventCreateAccess => {
 	const entityAccess = resolveEntityEventAccess(scope);
-	if ("error" in entityAccess) return entityAccess;
+	if ("error" in entityAccess) {
+		return entityAccess;
+	}
 
 	const scopedEvent = scope;
 
@@ -91,11 +96,13 @@ export const resolveEventCreateAccess = (
 		!scopedEvent.eventSchemaName ||
 		!scopedEvent.eventSchemaSlug ||
 		!scopedEvent.propertiesSchema
-	)
+	) {
 		return { error: "event_schema_not_found" as const };
+	}
 
-	if (scopedEvent.eventSchemaEntitySchemaId !== scopedEvent.entitySchemaId)
+	if (scopedEvent.eventSchemaEntitySchemaId !== scopedEvent.entitySchemaId) {
 		return { error: "event_schema_mismatch" as const };
+	}
 
 	return {
 		access: {
