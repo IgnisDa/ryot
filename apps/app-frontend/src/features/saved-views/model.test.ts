@@ -26,9 +26,20 @@ describe("toAppSavedView", () => {
 			name: "My Custom View",
 			accentColor: "#2DD4BF",
 			queryDefinition: {
-				filters: [],
+				eventJoins: [],
+				computedFields: [],
 				entitySchemaSlugs: ["schema-1", "schema-2"],
-				sort: { fields: ["entity.schema-1.@name"], direction: "asc" },
+				sort: {
+					direction: "asc",
+					expression: {
+						type: "reference",
+						reference: {
+							column: "name",
+							slug: "schema-1",
+							type: "entity-column",
+						},
+					},
+				},
 			},
 		});
 
