@@ -40,14 +40,14 @@ export function SavedViewFrame(props: {
 				headerHeight={TOP_BAR_HEIGHT}
 				contentContainerClassName="overflow-hidden"
 				header={
-					<View className="h-11 flex-row items-center gap-2.5">
+					<View className="py-2 flex-row items-center gap-2.5">
 						<Pressable
 							onPress={goBack}
 							accessibilityRole="button"
 							accessibilityLabel="Go back"
-							className="h-8 w-8 items-center justify-center rounded-pill bg-surface-2"
+							className="items-center justify-center rounded-pill bg-surface-2 p-1"
 						>
-							<AppIcon className="text-text" name="chevron-left" size={17} />
+							<AppIcon className="text-text" name="chevron-left" size={30} />
 						</Pressable>
 						{props.title && (
 							<View className="min-w-0 flex-1">
@@ -72,17 +72,17 @@ export function SavedViewFrame(props: {
 						<Pressable
 							accessibilityRole="button"
 							accessibilityLabel="Search this view"
-							className="h-8 w-8 items-center justify-center rounded-pill bg-surface-2"
+							className="items-center justify-center rounded-pill bg-surface-2 p-1 ml-auto"
 						>
-							<AppIcon className="text-text-muted" name="search" size={16} />
+							<AppIcon className="text-text-muted" name="search" size={30} />
 						</Pressable>
 						<Pressable
 							accessibilityRole="button"
 							accessibilityLabel="View options"
 							onPress={() => setIsFilterOpen(true)}
-							className="h-8 w-8 items-center justify-center rounded-pill bg-surface-2"
+							className="items-center justify-center rounded-pill bg-surface-2 p-1"
 						>
-							<AppIcon className="text-text-muted" name="sliders-horizontal" size={16} />
+							<AppIcon className="text-text-muted" name="sliders-horizontal" size={30} />
 						</Pressable>
 					</View>
 				}
@@ -93,11 +93,11 @@ export function SavedViewFrame(props: {
 				accessibilityRole="button"
 				accessibilityLabel="Add to this view"
 				className={clsx(
-					"absolute bottom-8 right-4 z-20 h-14 w-14 items-center justify-center rounded-pill bg-accent shadow-card",
+					"absolute bottom-8 right-4 z-20 items-center justify-center rounded-pill bg-accent shadow-card",
 					TOP_BAR_WEB_HIDDEN,
 				)}
 			>
-				<AppIcon className="text-accent-ink" name="plus" size={24} />
+				<AppIcon className="text-accent-ink" name="plus" size={40} />
 			</Pressable>
 			{isFilterOpen && (
 				<View pointerEvents="box-none" className="absolute inset-0 z-50">
