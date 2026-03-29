@@ -758,45 +758,48 @@ async function seedWhiskeys(client: APIClient) {
 	const entityCount = randomInt(90, 110);
 	console.log(`\n  Creating ${entityCount} whiskey entities...`);
 
-	const entities: Awaited<ReturnType<typeof createEntity>>[] = [];
+	const entityPipelines: Promise<{ entity: SeedEntity; eventCount: number }>[] = [];
+	let completedCount = 0;
 	for (let i = 0; i < entityCount; i++) {
 		const whiskey = generateWhiskey();
-		// oxlint-disable-next-line no-await-in-loop
-		const entity = await createEntity(
-			client,
-			whiskey.name,
-			entitySchema.id,
-			whiskey.properties,
-			generateImageUrl(whiskey.name, 400, 600),
+		entityPipelines.push(
+			(async () => {
+				const entity = await createEntity(
+					client,
+					whiskey.name,
+					entitySchema.id,
+					whiskey.properties,
+					generateImageUrl(whiskey.name, 400, 600),
+				);
+				const eventCount = randomInt(3, 100);
+				const eventSchemas = [tastingSchema, purchaseSchema];
+				const events: EventPayload[] = [];
+
+				for (let i = 0; i < eventCount; i++) {
+					const schema = randomChoice(eventSchemas);
+					const properties =
+						schema.id === tastingSchema.id ? generateWhiskeyTasting() : generateWhiskeyPurchase();
+
+					events.push({
+						properties,
+						entityId: entity.id,
+						eventSchemaSlug: schema.id,
+					});
+				}
+
+				await createEvents(client, events);
+				completedCount++;
+				if (completedCount % 10 === 0) {
+					console.log(`    Progress: ${completedCount}/${entityCount} whiskey pipelines completed`);
+				}
+				return { entity, eventCount };
+			})(),
 		);
-		entities.push(entity);
-
-		if ((i + 1) % 10 === 0) {
-			console.log(`    Progress: ${i + 1}/${entityCount} entities created`);
-		}
 	}
+	const results = await Promise.all(entityPipelines);
+	const entities = results.map(({ entity }) => entity);
+	const totalEvents = results.reduce((total, { eventCount }) => total + eventCount, 0);
 	console.log(`  ✓ Created ${entityCount} whiskey entities`);
-
-	console.log("\n  Creating events for whiskeys...");
-	const whiskeyEvents: EventPayload[] = [];
-	for (const entity of entities) {
-		const eventCount = randomInt(3, 100);
-		const eventSchemas = [tastingSchema, purchaseSchema];
-
-		for (let i = 0; i < eventCount; i++) {
-			const schema = randomChoice(eventSchemas);
-			const properties =
-				schema.id === tastingSchema.id ? generateWhiskeyTasting() : generateWhiskeyPurchase();
-
-			whiskeyEvents.push({
-				properties,
-				entityId: entity.id,
-				eventSchemaSlug: schema.id,
-			});
-		}
-	}
-	await createEvents(client, whiskeyEvents);
-	const totalEvents = whiskeyEvents.length;
 	console.log(`  ✓ Created ${totalEvents} events for whiskeys`);
 
 	return { pluginScope, entities, entityCount, eventCount: totalEvents };
@@ -922,52 +925,55 @@ async function seedPlaces(client: APIClient) {
 	const entityCount = randomInt(90, 110);
 	console.log(`\n  Creating ${entityCount} place entities...`);
 
-	const entities: Awaited<ReturnType<typeof createEntity>>[] = [];
+	const entityPipelines: Promise<{ entity: SeedEntity; eventCount: number }>[] = [];
+	let completedCount = 0;
 	for (let i = 0; i < entityCount; i++) {
 		const place = generatePlace();
-		// oxlint-disable-next-line no-await-in-loop
-		const entity = await createEntity(
-			client,
-			place.name,
-			entitySchema.id,
-			place.properties,
-			generateImageUrl(place.name, 800, 600),
+		entityPipelines.push(
+			(async () => {
+				const entity = await createEntity(
+					client,
+					place.name,
+					entitySchema.id,
+					place.properties,
+					generateImageUrl(place.name, 800, 600),
+				);
+				const eventCount = randomInt(3, 100);
+				const eventSchemas = [visitSchema, ratingSchema, photoSchema];
+				const events: EventPayload[] = [];
+
+				for (let i = 0; i < eventCount; i++) {
+					const schema = randomChoice(eventSchemas);
+					let properties: Record<string, unknown>;
+
+					if (schema.id === visitSchema.id) {
+						properties = generatePlaceVisit();
+					} else if (schema.id === ratingSchema.id) {
+						properties = generatePlaceRating();
+					} else {
+						properties = generatePlacePhoto();
+					}
+
+					events.push({
+						properties,
+						entityId: entity.id,
+						eventSchemaSlug: schema.id,
+					});
+				}
+
+				await createEvents(client, events);
+				completedCount++;
+				if (completedCount % 10 === 0) {
+					console.log(`    Progress: ${completedCount}/${entityCount} place pipelines completed`);
+				}
+				return { entity, eventCount };
+			})(),
 		);
-		entities.push(entity);
-
-		if ((i + 1) % 10 === 0) {
-			console.log(`    Progress: ${i + 1}/${entityCount} entities created`);
-		}
 	}
+	const results = await Promise.all(entityPipelines);
+	const entities = results.map(({ entity }) => entity);
+	const totalEvents = results.reduce((total, { eventCount }) => total + eventCount, 0);
 	console.log(`  ✓ Created ${entityCount} place entities`);
-
-	console.log("\n  Creating events for places...");
-	const placeEvents: EventPayload[] = [];
-	for (const entity of entities) {
-		const eventCount = randomInt(3, 100);
-		const eventSchemas = [visitSchema, ratingSchema, photoSchema];
-
-		for (let i = 0; i < eventCount; i++) {
-			const schema = randomChoice(eventSchemas);
-			let properties: Record<string, unknown>;
-
-			if (schema.id === visitSchema.id) {
-				properties = generatePlaceVisit();
-			} else if (schema.id === ratingSchema.id) {
-				properties = generatePlaceRating();
-			} else {
-				properties = generatePlacePhoto();
-			}
-
-			placeEvents.push({
-				properties,
-				entityId: entity.id,
-				eventSchemaSlug: schema.id,
-			});
-		}
-	}
-	await createEvents(client, placeEvents);
-	const totalEvents = placeEvents.length;
 	console.log(`  ✓ Created ${totalEvents} events for places`);
 
 	return { pluginScope, entities, entityCount, eventCount: totalEvents };
@@ -1115,63 +1121,82 @@ async function seedMobilePhones(client: APIClient) {
 
 	console.log("\n  Creating smartphone entities...");
 	const smartphoneCount = randomInt(90, 110);
-	const entities: SeedEntity[] = [];
+	const entityPipelines: Promise<SeedEntity>[] = [];
+	let completedCount = 0;
 	for (let i = 0; i < smartphoneCount; i++) {
 		const phone = generateSmartphone();
-		// oxlint-disable-next-line no-await-in-loop
-		const entity = await createEntity(
-			client,
-			phone.name,
-			smartphoneSchema.id,
-			phone.properties,
-			generateImageUrl(phone.name, 400, 600),
+		entityPipelines.push(
+			(async () => {
+				const entity = await createEntity(
+					client,
+					phone.name,
+					smartphoneSchema.id,
+					phone.properties,
+					generateImageUrl(phone.name, 400, 600),
+				);
+				completedCount++;
+				if (completedCount % 10 === 0) {
+					console.log(`    Progress: ${completedCount}/${smartphoneCount} smartphones created`);
+				}
+				return entity;
+			})(),
 		);
-		entities.push(entity);
-
-		if ((i + 1) % 10 === 0) {
-			console.log(`    Progress: ${i + 1}/${smartphoneCount} smartphones created`);
-		}
 	}
+	const entities = await Promise.all(entityPipelines);
 	console.log(`  ✓ Created ${smartphoneCount} smartphones`);
 
 	console.log("\n  Creating feature phone entities...");
 	const featurePhoneCount = randomInt(90, 110);
+	const featurePhonePipelines: Promise<SeedEntity>[] = [];
+	completedCount = 0;
 	for (let i = 0; i < featurePhoneCount; i++) {
 		const phone = generateFeaturePhone();
-		// oxlint-disable-next-line no-await-in-loop
-		const entity = await createEntity(
-			client,
-			phone.name,
-			featurePhoneSchema.id,
-			phone.properties,
-			generateImageUrl(phone.name, 400, 600),
+		featurePhonePipelines.push(
+			(async () => {
+				const entity = await createEntity(
+					client,
+					phone.name,
+					featurePhoneSchema.id,
+					phone.properties,
+					generateImageUrl(phone.name, 400, 600),
+				);
+				completedCount++;
+				if (completedCount % 10 === 0) {
+					console.log(
+						`    Progress: ${completedCount}/${featurePhoneCount} feature phones created`,
+					);
+				}
+				return entity;
+			})(),
 		);
-		entities.push(entity);
-
-		if ((i + 1) % 10 === 0) {
-			console.log(`    Progress: ${i + 1}/${featurePhoneCount} feature phones created`);
-		}
 	}
+	entities.push(...(await Promise.all(featurePhonePipelines)));
 	console.log(`  ✓ Created ${featurePhoneCount} feature phones`);
 
 	console.log("\n  Creating tablet entities...");
 	const tabletCount = randomInt(90, 110);
+	const tabletPipelines: Promise<SeedEntity>[] = [];
+	completedCount = 0;
 	for (let i = 0; i < tabletCount; i++) {
 		const tablet = generateTablet();
-		// oxlint-disable-next-line no-await-in-loop
-		const entity = await createEntity(
-			client,
-			tablet.name,
-			tabletSchema.id,
-			tablet.properties,
-			generateImageUrl(tablet.name, 400, 600),
+		tabletPipelines.push(
+			(async () => {
+				const entity = await createEntity(
+					client,
+					tablet.name,
+					tabletSchema.id,
+					tablet.properties,
+					generateImageUrl(tablet.name, 400, 600),
+				);
+				completedCount++;
+				if (completedCount % 10 === 0) {
+					console.log(`    Progress: ${completedCount}/${tabletCount} tablets created`);
+				}
+				return entity;
+			})(),
 		);
-		entities.push(entity);
-
-		if ((i + 1) % 10 === 0) {
-			console.log(`    Progress: ${i + 1}/${tabletCount} tablets created`);
-		}
 	}
+	entities.push(...(await Promise.all(tabletPipelines)));
 	console.log(`  ✓ Created ${tabletCount} tablets`);
 
 	return {
