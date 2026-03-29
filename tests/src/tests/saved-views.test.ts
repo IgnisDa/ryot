@@ -1,75 +1,68 @@
 import { describe, expect, it } from "bun:test";
-import { getBackendClient, getBackendUrl } from "../setup";
+import type { paths } from "@ryot/generated/openapi/app-backend";
+import type createClient from "openapi-fetch";
+import {
+	basicQueryDefinition,
+	createAuthenticatedClient,
+	emptyDisplayConfiguration,
+} from "../helpers";
 
-const emptyDisplayConfiguration = {
-	table: { columns: [] },
-	layout: "grid" as const,
-	grid: {
-		imageProperty: null,
-		titleProperty: null,
-		badgeProperty: null,
-		subtitleProperty: null,
-	},
-	list: {
-		imageProperty: null,
-		titleProperty: null,
-		badgeProperty: null,
-		subtitleProperty: null,
-	},
-};
+type Client = ReturnType<typeof createClient<paths>>;
 
-const basicQueryDefinition = {
-	filters: [],
-	entitySchemaSlugs: ["book"],
-	sort: { direction: "asc" as const, field: ["name"] },
-};
+interface CreateSavedViewOptions {
+	icon?: string;
+	name?: string;
+	accentColor?: string;
+	queryDefinition?: any;
+	displayConfiguration?: any;
+}
 
-async function createTestUser() {
-	const baseUrl = getBackendUrl();
-	const timestamp = Date.now();
-	const email = `test-${timestamp}@example.com`;
-	const password = "password123";
+async function createSavedView(
+	client: Client,
+	cookies: string,
+	options: CreateSavedViewOptions = {},
+) {
+	const {
+		icon = "star",
+		name = "Test View",
+		accentColor = "#FF5733",
+		queryDefinition = basicQueryDefinition,
+		displayConfiguration = emptyDisplayConfiguration,
+	} = options;
 
-	const signUpResponse = await fetch(`${baseUrl}/authentication/email`, {
-		method: "POST",
-		headers: { "Content-Type": "application/json" },
-		body: JSON.stringify({ email, name: "Test User", password }),
+	const { data } = await client.POST("/saved-views", {
+		headers: { Cookie: cookies },
+		body: {
+			icon,
+			name,
+			accentColor,
+			queryDefinition,
+			displayConfiguration,
+		},
 	});
 
-	if (!signUpResponse.ok) {
-		const error = await signUpResponse.text();
-		throw new Error(`Sign up failed: ${error}`);
-	}
+	const viewId = data?.data?.id;
+	if (!viewId) throw new Error("Failed to create saved view");
 
-	const signInResponse = await fetch(`${baseUrl}/auth/sign-in/email`, {
-		method: "POST",
-		headers: { "Content-Type": "application/json" },
-		body: JSON.stringify({ email, password }),
+	return { viewId, data: data.data };
+}
+
+async function findBuiltinView(client: Client, cookies: string) {
+	const { data: listData } = await client.GET("/saved-views", {
+		headers: { Cookie: cookies },
 	});
 
-	if (!signInResponse.ok) {
-		const error = await signInResponse.text();
-		throw new Error(`Sign in failed: ${error}`);
-	}
+	const builtinView = listData?.data?.find((view) => view.isBuiltin);
+	if (!builtinView) throw new Error("Built-in view not found");
 
-	const cookies = signInResponse.headers.get("set-cookie");
-	if (!cookies) throw new Error("Failed to get auth cookies");
-
-	return { cookies };
+	return builtinView;
 }
 
 describe("GET /saved-views/{viewId}", () => {
 	it("returns 200 for existing built-in view", async () => {
-		const client = getBackendClient();
-		const { cookies } = await createTestUser();
+		const { client, cookies } = await createAuthenticatedClient();
 
-		const { data: listData } = await client.GET("/saved-views", {
-			headers: { Cookie: cookies },
-		});
-
-		const builtinView = listData?.data?.find((view) => view.isBuiltin);
-		expect(builtinView).toBeDefined();
-		if (!builtinView) throw new Error("Built-in view not found");
+		const builtinView = await findBuiltinView(client, cookies);
 
 		const { data, response } = await client.GET("/saved-views/{viewId}", {
 			params: { path: { viewId: builtinView.id } },
@@ -82,8 +75,7 @@ describe("GET /saved-views/{viewId}", () => {
 	});
 
 	it("returns 404 for non-existent view ID", async () => {
-		const client = getBackendClient();
-		const { cookies } = await createTestUser();
+		const { client, cookies } = await createAuthenticatedClient();
 
 		const nonExistentId = "00000000-0000-0000-0000-000000000000";
 		const { response, error } = await client.GET("/saved-views/{viewId}", {
@@ -97,39 +89,26 @@ describe("GET /saved-views/{viewId}", () => {
 	});
 
 	it("returns 200 for user-owned view", async () => {
-		const client = getBackendClient();
-		const { cookies } = await createTestUser();
+		const { client, cookies } = await createAuthenticatedClient();
 
-		const { data: createData } = await client.POST("/saved-views", {
-			headers: { Cookie: cookies },
-			body: {
-				icon: "star",
-				name: "My Custom View",
-				accentColor: "#FF5733",
-				queryDefinition: basicQueryDefinition,
-				displayConfiguration: emptyDisplayConfiguration,
-			},
+		const { viewId } = await createSavedView(client, cookies, {
+			name: "My Custom View",
 		});
 
-		const userViewId = createData?.data?.id;
-		expect(userViewId).toBeDefined();
-		if (!userViewId) throw new Error("Failed to create user view");
-
 		const { data, response } = await client.GET("/saved-views/{viewId}", {
-			params: { path: { viewId: userViewId } },
+			params: { path: { viewId } },
 			headers: { Cookie: cookies },
 		});
 
 		expect(response.status).toBe(200);
 		expect(data?.data).toBeDefined();
-		expect(data?.data?.id).toBe(userViewId);
+		expect(data?.data?.id).toBe(viewId);
 		expect(data?.data?.name).toBe("My Custom View");
 		expect(data?.data?.isBuiltin).toBe(false);
 	});
 
 	it("returns complete response structure with all required fields", async () => {
-		const client = getBackendClient();
-		const { cookies } = await createTestUser();
+		const { client, cookies } = await createAuthenticatedClient();
 
 		const { data: listData } = await client.GET("/saved-views", {
 			headers: { Cookie: cookies },
@@ -171,23 +150,11 @@ describe("GET /saved-views/{viewId}", () => {
 
 describe("PUT /saved-views/{viewId}", () => {
 	it("updates view successfully and returns 200", async () => {
-		const client = getBackendClient();
-		const { cookies } = await createTestUser();
+		const { client, cookies } = await createAuthenticatedClient();
 
-		const { data: createData } = await client.POST("/saved-views", {
-			headers: { Cookie: cookies },
-			body: {
-				icon: "star",
-				name: "Original Name",
-				accentColor: "#FF5733",
-				queryDefinition: basicQueryDefinition,
-				displayConfiguration: emptyDisplayConfiguration,
-			},
+		const { viewId } = await createSavedView(client, cookies, {
+			name: "Original Name",
 		});
-
-		const viewId = createData?.data?.id;
-		expect(viewId).toBeDefined();
-		if (!viewId) throw new Error("Failed to create view");
 
 		const { data, response } = await client.PUT("/saved-views/{viewId}", {
 			params: { path: { viewId } },
@@ -226,8 +193,7 @@ describe("PUT /saved-views/{viewId}", () => {
 	});
 
 	it("returns 404 for non-existent view", async () => {
-		const client = getBackendClient();
-		const { cookies } = await createTestUser();
+		const { client, cookies } = await createAuthenticatedClient();
 
 		const nonExistentId = "00000000-0000-0000-0000-000000000000";
 		const { response, error } = await client.PUT("/saved-views/{viewId}", {
@@ -248,25 +214,16 @@ describe("PUT /saved-views/{viewId}", () => {
 	});
 
 	it("preserves immutable fields (id, isBuiltin)", async () => {
-		const client = getBackendClient();
-		const { cookies } = await createTestUser();
+		const { client, cookies } = await createAuthenticatedClient();
 
-		const { data: createData } = await client.POST("/saved-views", {
-			headers: { Cookie: cookies },
-			body: {
-				icon: "star",
-				name: "Original Name",
-				accentColor: "#FF5733",
-				queryDefinition: basicQueryDefinition,
-				displayConfiguration: emptyDisplayConfiguration,
-			},
-		});
+		const { viewId: originalId, data: originalData } = await createSavedView(
+			client,
+			cookies,
+			{ name: "Original Name" },
+		);
 
-		const originalId = createData?.data?.id;
-		const originalIsBuiltin = createData?.data?.isBuiltin;
-		expect(originalId).toBeDefined();
+		const originalIsBuiltin = originalData?.isBuiltin;
 		expect(originalIsBuiltin).toBe(false);
-		if (!originalId) throw new Error("Failed to create view");
 
 		await client.PUT("/saved-views/{viewId}", {
 			params: { path: { viewId: originalId } },
@@ -290,27 +247,20 @@ describe("PUT /saved-views/{viewId}", () => {
 	});
 
 	it("updates updatedAt timestamp and preserves createdAt", async () => {
-		const client = getBackendClient();
-		const { cookies } = await createTestUser();
+		const { client, cookies } = await createAuthenticatedClient();
 
-		const { data: createData } = await client.POST("/saved-views", {
-			headers: { Cookie: cookies },
-			body: {
-				icon: "star",
+		const { viewId, data: createData } = await createSavedView(
+			client,
+			cookies,
+			{
 				name: "Original Name",
-				accentColor: "#FF5733",
-				queryDefinition: basicQueryDefinition,
-				displayConfiguration: emptyDisplayConfiguration,
 			},
-		});
+		);
 
-		const viewId = createData?.data?.id;
-		const originalCreatedAt = createData?.data?.createdAt;
-		const originalUpdatedAt = createData?.data?.updatedAt;
-		expect(viewId).toBeDefined();
+		const originalCreatedAt = createData?.createdAt;
+		const originalUpdatedAt = createData?.updatedAt;
 		expect(originalCreatedAt).toBeDefined();
 		expect(originalUpdatedAt).toBeDefined();
-		if (!viewId) throw new Error("Failed to create view");
 
 		await new Promise((resolve) => setTimeout(resolve, 100));
 
@@ -339,43 +289,33 @@ describe("PUT /saved-views/{viewId}", () => {
 	});
 
 	it("updates all mutable fields when fetched via GET", async () => {
-		const client = getBackendClient();
-		const { cookies } = await createTestUser();
+		const { client, cookies } = await createAuthenticatedClient();
 
-		const { data: createData } = await client.POST("/saved-views", {
-			headers: { Cookie: cookies },
-			body: {
-				icon: "star",
-				name: "Original Name",
-				accentColor: "#FF5733",
-				trackerId: undefined,
-				queryDefinition: {
-					sort: { direction: "asc", field: ["name"] },
-					entitySchemaSlugs: ["book"],
-					filters: [],
+		const { viewId } = await createSavedView(client, cookies, {
+			icon: "star",
+			name: "Original Name",
+			queryDefinition: {
+				sort: { direction: "asc", field: ["name"] },
+				entitySchemaSlugs: ["book"],
+				filters: [],
+			},
+			displayConfiguration: {
+				layout: "grid",
+				table: { columns: [] },
+				grid: {
+					imageProperty: ["@image"],
+					titleProperty: ["@name"],
+					badgeProperty: null,
+					subtitleProperty: null,
 				},
-				displayConfiguration: {
-					layout: "grid",
-					grid: {
-						imageProperty: ["@image"],
-						titleProperty: ["@name"],
-						badgeProperty: null,
-						subtitleProperty: null,
-					},
-					list: {
-						imageProperty: null,
-						titleProperty: null,
-						badgeProperty: null,
-						subtitleProperty: null,
-					},
-					table: { columns: [] },
+				list: {
+					imageProperty: null,
+					titleProperty: null,
+					badgeProperty: null,
+					subtitleProperty: null,
 				},
 			},
 		});
-
-		const viewId = createData?.data?.id;
-		expect(viewId).toBeDefined();
-		if (!viewId) throw new Error("Failed to create view");
 
 		await client.PUT("/saved-views/{viewId}", {
 			params: { path: { viewId } },
@@ -444,16 +384,9 @@ describe("PUT /saved-views/{viewId}", () => {
 	});
 
 	it("returns 400 when attempting to update a builtin view", async () => {
-		const client = getBackendClient();
-		const { cookies } = await createTestUser();
+		const { client, cookies } = await createAuthenticatedClient();
 
-		const { data: listData } = await client.GET("/saved-views", {
-			headers: { Cookie: cookies },
-		});
-
-		const builtinView = listData?.data?.find((view) => view.isBuiltin);
-		expect(builtinView).toBeDefined();
-		if (!builtinView) throw new Error("Built-in view not found");
+		const builtinView = await findBuiltinView(client, cookies);
 
 		const { response, error } = await client.PUT("/saved-views/{viewId}", {
 			params: { path: { viewId: builtinView.id } },
