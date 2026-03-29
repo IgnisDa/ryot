@@ -98,45 +98,46 @@ export const builtinSandboxScripts = () => [
 	},
 ];
 
-export const entitySchemaScriptLinks = () => [
-	{
-		schemaSlug: "book",
-		searchScriptSlug: "openlibrary.book.search",
-		detailsScriptSlug: "openlibrary.book.details",
-	},
-	{
-		schemaSlug: "book",
-		searchScriptSlug: "google-books.book.search",
-		detailsScriptSlug: "google-books.book.details",
-	},
-	{
-		schemaSlug: "book",
-		searchScriptSlug: "hardcover.book.search",
-		detailsScriptSlug: "hardcover.book.details",
-	},
-	{
-		schemaSlug: "anime",
-		searchScriptSlug: "anilist.anime.search",
-		detailsScriptSlug: "anilist.anime.details",
-	},
-	{
-		schemaSlug: "manga",
-		searchScriptSlug: "anilist.manga.search",
-		detailsScriptSlug: "anilist.manga.details",
-	},
-	{
-		schemaSlug: "anime",
-		searchScriptSlug: "myanimelist.anime.search",
-		detailsScriptSlug: "myanimelist.anime.details",
-	},
-	{
-		schemaSlug: "manga",
-		searchScriptSlug: "myanimelist.manga.search",
-		detailsScriptSlug: "myanimelist.manga.details",
-	},
-	{
-		schemaSlug: "manga",
-		searchScriptSlug: "manga-updates.manga.search",
-		detailsScriptSlug: "manga-updates.manga.details",
-	},
-];
+export const entitySchemaScriptLinks = () =>
+	[
+		{
+			schemaSlug: "book",
+			searchScriptSlug: "openlibrary.book.search",
+			detailsScriptSlug: "openlibrary.book.details",
+		},
+		{
+			schemaSlug: "book",
+			searchScriptSlug: "google-books.book.search",
+			detailsScriptSlug: "google-books.book.details",
+		},
+		{
+			schemaSlug: "book",
+			searchScriptSlug: "hardcover.book.search",
+			detailsScriptSlug: "hardcover.book.details",
+		},
+		{
+			schemaSlug: "anime",
+			searchScriptSlug: "anilist.anime.search",
+			detailsScriptSlug: "anilist.anime.details",
+		},
+		{
+			schemaSlug: "manga",
+			searchScriptSlug: "anilist.manga.search",
+			detailsScriptSlug: "anilist.manga.details",
+		},
+		{
+			schemaSlug: "anime",
+			searchScriptSlug: "myanimelist.anime.search",
+			detailsScriptSlug: "myanimelist.anime.details",
+		},
+		{
+			schemaSlug: "manga",
+			searchScriptSlug: "myanimelist.manga.search",
+			detailsScriptSlug: "myanimelist.manga.details",
+		},
+		{
+			schemaSlug: "manga",
+			searchScriptSlug: "manga-updates.manga.search",
+			detailsScriptSlug: "manga-updates.manga.details",
+		},
+	] as const;
