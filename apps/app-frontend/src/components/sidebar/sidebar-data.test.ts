@@ -4,6 +4,45 @@ import { createTrackerFixture } from "#/features/trackers/test-fixtures";
 import type { SidebarTracker } from "./Sidebar.types";
 import { toSidebarData } from "./sidebar-data";
 
+const displayConfiguration: AppSavedView["displayConfiguration"] = {
+	layout: "grid",
+	table: { columns: [{ property: ["@name"] }] },
+	grid: {
+		badgeProperty: null,
+		subtitleProperty: null,
+		titleProperty: ["@name"],
+		imageProperty: ["@image"],
+	},
+	list: {
+		badgeProperty: null,
+		subtitleProperty: null,
+		titleProperty: ["@name"],
+		imageProperty: ["@image"],
+	},
+};
+
+function createSavedViewFixture(
+	overrides: Partial<AppSavedView>,
+): AppSavedView {
+	return {
+		id: "view-1",
+		isBuiltin: true,
+		icon: "book-open",
+		displayConfiguration,
+		trackerId: "tracker-1",
+		accentColor: "#5B7FFF",
+		name: "Currently Reading",
+		createdAt: "2026-03-20T10:00:00.000Z",
+		updatedAt: "2026-03-20T10:05:00.000Z",
+		queryDefinition: {
+			filters: [],
+			entitySchemaSlugs: ["schema-1"],
+			sort: { field: ["@name"], direction: "asc" },
+		},
+		...overrides,
+	};
+}
+
 describe("toSidebarData", () => {
 	it("maps live trackers and saved views to sidebar data", () => {
 		const trackers = [
@@ -32,24 +71,20 @@ describe("toSidebarData", () => {
 			}),
 		];
 		const views: AppSavedView[] = [
-			{
-				id: "view-1",
-				isBuiltin: true,
-				icon: "book-open",
-				trackerId: "tracker-1",
-				accentColor: "#5B7FFF",
-				name: "Currently Reading",
-				queryDefinition: { entitySchemaIds: ["schema-1"] },
-			},
-			{
+			createSavedViewFixture({}),
+			createSavedViewFixture({
 				id: "view-2",
 				trackerId: null,
 				icon: "sparkles",
 				isBuiltin: false,
 				name: "Favorites",
 				accentColor: "#2DD4BF",
-				queryDefinition: { entitySchemaIds: ["schema-2"] },
-			},
+				queryDefinition: {
+					filters: [],
+					entitySchemaSlugs: ["schema-2"],
+					sort: { field: ["@name"], direction: "asc" },
+				},
+			}),
 		];
 
 		const result = toSidebarData({ trackers, views });

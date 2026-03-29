@@ -144,7 +144,7 @@ function CustomTrackerSchemaSection(props: { tracker: AppTracker }) {
 	const eventSchemaMutations = useEventSchemaMutations(
 		selectedEntitySchema?.id ?? "",
 	);
-	const entityMutations = useEntityMutations(selectedEntitySchema?.id ?? "");
+	const entityMutations = useEntityMutations(selectedEntitySchema?.slug ?? "");
 	const eventMutations = useEventMutations(selectedEntity?.id ?? "");
 	const selectedEventSchemasQuery = useEventSchemasQuery(
 		selectedEntity?.entitySchemaId ?? "",
