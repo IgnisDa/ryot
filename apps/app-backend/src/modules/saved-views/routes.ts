@@ -3,21 +3,14 @@ import type { AuthType } from "~/lib/auth";
 import {
 	createAuthRoute,
 	createNotFoundErrorResult,
-	createValidationErrorResult,
+	createServiceErrorResult,
+	createSuccessResult,
+	createValidationServiceErrorResult,
 	jsonResponse,
 	notFoundResponse,
 	payloadErrorResponse,
-	resolveValidationData,
-	successResponse,
 } from "~/lib/openapi";
-import {
-	cloneSavedViewByIdForUser,
-	createSavedViewForUser,
-	deleteSavedViewByIdForUser,
-	getSavedViewByIdForUser,
-	listSavedViewsForUser,
-	updateSavedViewByIdForUser,
-} from "./repository";
+import { getSavedViewByIdForUser, listSavedViewsForUser } from "./repository";
 import {
 	createSavedViewBody,
 	createSavedViewResponseSchema,
@@ -28,7 +21,12 @@ import {
 	updateSavedViewBody,
 	updateSavedViewResponseSchema,
 } from "./schemas";
-import { resolveIsBuiltinProtected, resolveSavedViewName } from "./service";
+import {
+	cloneSavedView,
+	createSavedView,
+	deleteSavedView,
+	updateSavedView,
+} from "./service";
 
 const listSavedViewsRoute = createAuthRoute(
 	createRoute({
@@ -141,8 +139,6 @@ const cloneSavedViewRoute = createAuthRoute(
 	}),
 );
 
-const builtinViewError = "Cannot modify built-in saved views";
-const builtinViewErrorResult = createValidationErrorResult(builtinViewError);
 const savedViewNotFoundResult = createNotFoundErrorResult(
 	"Saved view not found",
 );
@@ -157,7 +153,8 @@ export const savedViewsApi = new OpenAPIHono<{ Variables: AuthType }>()
 			trackerId: query.trackerId,
 		});
 
-		return c.json(successResponse(views), 200);
+		const response = createSuccessResult(views);
+		return c.json(response.body, response.status);
 	})
 	.openapi(getSavedViewByIdRoute, async (c) => {
 		const user = c.get("user");
@@ -175,150 +172,69 @@ export const savedViewsApi = new OpenAPIHono<{ Variables: AuthType }>()
 			);
 		}
 
-		return c.json(successResponse(view), 200);
+		const response = createSuccessResult(view);
+		return c.json(response.body, response.status);
 	})
 	.openapi(updateSavedViewRoute, async (c) => {
 		const user = c.get("user");
 		const body = c.req.valid("json");
 		const params = c.req.valid("param");
 
-		const existingView = await getSavedViewByIdForUser({
+		const result = await updateSavedView({
+			body,
 			userId: user.id,
 			viewId: params.viewId,
 		});
-
-		if (!existingView) {
-			return c.json(
-				savedViewNotFoundResult.body,
-				savedViewNotFoundResult.status,
-			);
+		if ("error" in result) {
+			const response = createServiceErrorResult(result);
+			return c.json(response.body, response.status);
 		}
 
-		const protection = resolveIsBuiltinProtected(existingView.isBuiltin);
-		if (protection.protected) {
-			return c.json(builtinViewErrorResult.body, builtinViewErrorResult.status);
-		}
-
-		const nameResult = resolveValidationData(
-			() => resolveSavedViewName(body.name),
-			"Saved view name is invalid",
-		);
-		if ("status" in nameResult) {
-			return c.json(nameResult.body, nameResult.status);
-		}
-
-		const updatedView = await updateSavedViewByIdForUser({
-			userId: user.id,
-			viewId: params.viewId,
-			data: { ...body, name: nameResult.data },
-		});
-
-		if (!updatedView) {
-			return c.json(
-				savedViewNotFoundResult.body,
-				savedViewNotFoundResult.status,
-			);
-		}
-
-		return c.json(successResponse(updatedView), 200);
+		const response = createSuccessResult(result.data);
+		return c.json(response.body, response.status);
 	})
 	.openapi(createSavedViewRoute, async (c) => {
 		const user = c.get("user");
 		const body = c.req.valid("json");
 
-		const nameResult = resolveValidationData(
-			() => resolveSavedViewName(body.name),
-			"Saved view name is invalid",
-		);
-		if ("status" in nameResult) {
-			return c.json(nameResult.body, nameResult.status);
+		const result = await createSavedView({ body, userId: user.id });
+		if ("error" in result) {
+			const response = createValidationServiceErrorResult(result);
+			return c.json(response.body, response.status);
 		}
 
-		const createdView = await createSavedViewForUser({
-			icon: body.icon,
-			userId: user.id,
-			isBuiltin: false,
-			name: nameResult.data,
-			trackerId: body.trackerId,
-			accentColor: body.accentColor,
-			queryDefinition: body.queryDefinition,
-			displayConfiguration: body.displayConfiguration,
-		});
-
-		return c.json(successResponse(createdView), 200);
+		const response = createSuccessResult(result.data);
+		return c.json(response.body, response.status);
 	})
 	.openapi(deleteSavedViewRoute, async (c) => {
 		const user = c.get("user");
 		const params = c.req.valid("param");
 
-		const existingView = await getSavedViewByIdForUser({
-			userId: user.id,
+		const result = await deleteSavedView({
 			viewId: params.viewId,
-		});
-
-		if (!existingView) {
-			return c.json(
-				savedViewNotFoundResult.body,
-				savedViewNotFoundResult.status,
-			);
-		}
-
-		const protection = resolveIsBuiltinProtected(existingView.isBuiltin);
-		if (protection.protected) {
-			return c.json(builtinViewErrorResult.body, builtinViewErrorResult.status);
-		}
-
-		const deletedView = await deleteSavedViewByIdForUser({
 			userId: user.id,
-			viewId: params.viewId,
 		});
-
-		if (!deletedView) {
-			return c.json(
-				savedViewNotFoundResult.body,
-				savedViewNotFoundResult.status,
-			);
+		if ("error" in result) {
+			const response = createServiceErrorResult(result);
+			return c.json(response.body, response.status);
 		}
 
-		return c.json(successResponse(deletedView), 200);
+		const response = createSuccessResult(result.data);
+		return c.json(response.body, response.status);
 	})
 	.openapi(cloneSavedViewRoute, async (c) => {
 		const user = c.get("user");
 		const params = c.req.valid("param");
 
-		const sourceView = await getSavedViewByIdForUser({
+		const result = await cloneSavedView({
 			userId: user.id,
 			viewId: params.viewId,
 		});
-
-		if (!sourceView) {
-			return c.json(
-				savedViewNotFoundResult.body,
-				savedViewNotFoundResult.status,
-			);
+		if ("error" in result) {
+			const response = createServiceErrorResult(result);
+			return c.json(response.body, response.status);
 		}
 
-		const clonedName = `${sourceView.name} (Copy)`;
-		const nameResult = resolveValidationData(
-			() => resolveSavedViewName(clonedName),
-			"Cloned view name is invalid",
-		);
-		if ("status" in nameResult) {
-			return c.json(nameResult.body, nameResult.status);
-		}
-
-		const clonedView = await cloneSavedViewByIdForUser({
-			userId: user.id,
-			viewId: params.viewId,
-			clonedName: nameResult.data,
-		});
-
-		if (!clonedView) {
-			return c.json(
-				savedViewNotFoundResult.body,
-				savedViewNotFoundResult.status,
-			);
-		}
-
-		return c.json(successResponse(clonedView), 200);
+		const response = createSuccessResult(result.data);
+		return c.json(response.body, response.status);
 	});
