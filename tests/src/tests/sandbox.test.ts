@@ -283,6 +283,7 @@ describe("search script contract", () => {
 
 		const { jobId } = await enqueueSandboxScript(client, cookies, {
 			kind: "script",
+			driverName: "search",
 			scriptId: searchScriptId,
 			context: { page: 1, pageSize: 5, query: "dune" },
 		});
