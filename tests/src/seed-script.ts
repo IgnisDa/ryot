@@ -1433,16 +1433,92 @@ async function seedMedia(client: APIClient, executingUserId: string) {
 	let totalEntities = 0;
 	let totalEvents = 0;
 	const allEntities: SeedEntity[] = [];
+	const processingPromises: Promise<void>[] = [];
 
-	type WorkItem = {
-		externalId: string;
-		providerId: SandboxProviderId;
-		schema: (typeof schemas)[number];
-		eventSchemas: MediaEventSchemas;
+	const completionVariants: Array<() => Record<string, unknown>> = [
+		() => ({ completionMode: "just_now" }),
+		() => ({ completionMode: "unknown" }),
+		() => ({
+			completionMode: "custom_timestamps",
+			completedOn: dayjs().subtract(randomInt(1, 365), "day").toISOString(),
+		}),
+		() => ({
+			completionMode: "custom_timestamps",
+			startedOn: dayjs().subtract(randomInt(400, 730), "day").toISOString(),
+			completedOn: dayjs().subtract(randomInt(1, 365), "day").toISOString(),
+		}),
+	];
+
+	const processMediaEntity = async (
+		externalId: string,
+		providerId: SandboxProviderId,
+		schema: (typeof schemas)[number],
+		eventSchemas: MediaEventSchemas,
+	) => {
+		const entity = await importMediaEntity(client, providerId, externalId, schema.id);
+		if (!entity) {
+			return;
+		}
+
+		const lifecycle = randomChoice(
+			eventSchemas.progress
+				? (["backlog", "progress", "complete", "review"] as const)
+				: (["backlog", "complete", "review"] as const),
+		);
+		let mediaEvents: EventPayload[];
+
+		if (lifecycle === "backlog") {
+			mediaEvents = [
+				{
+					properties: {},
+					entityId: entity.id,
+					eventSchemaSlug: eventSchemas.backlog.id,
+				},
+			];
+		} else if (lifecycle === "progress" && eventSchemas.progress) {
+			const slug = schema.slug as MediaEntitySchemaSlug;
+			const episodicFields = EPISODIC_MEDIA_SLUGS.has(slug)
+				? generateEpisodicProgressFields(slug)
+				: {};
+			mediaEvents = [
+				{
+					entityId: entity.id,
+					eventSchemaSlug: eventSchemas.progress.id,
+					properties: { progressPercent: randomInt(10, 85), ...episodicFields },
+				},
+			];
+		} else if (lifecycle === "complete") {
+			mediaEvents = [
+				{
+					entityId: entity.id,
+					eventSchemaSlug: eventSchemas.complete.id,
+					properties: randomChoice(completionVariants)(),
+				},
+			];
+		} else {
+			mediaEvents = [
+				{
+					entityId: entity.id,
+					eventSchemaSlug: eventSchemas.complete.id,
+					properties: randomChoice(completionVariants)(),
+				},
+				{
+					entityId: entity.id,
+					eventSchemaSlug: eventSchemas.review.id,
+					properties: {
+						rating: randomInt(1, 5),
+						...(faker.datatype.boolean() ? { review: faker.lorem.sentences(randomInt(1, 3)) } : {}),
+					},
+				},
+			];
+		}
+
+		await createEvents(client, mediaEvents);
+		allEntities.push(entity);
+		totalEntities++;
+		totalEvents += mediaEvents.length;
+		console.log(`    ${schema.name}: imported entity, created ${mediaEvents.length} events`);
 	};
-
-	// Phase 1: search all schemas (all providers) and collect work items
-	const workItems: WorkItem[] = [];
 	for (const schema of schemas) {
 		const slug = schema.slug as MediaEntitySchemaSlug;
 		console.log(`\n  Searching: ${schema.name} (${slug})...`);
@@ -1458,7 +1534,7 @@ async function seedMedia(client: APIClient, executingUserId: string) {
 		for (const provider of schema.providers) {
 			const searchScriptId = provider.searchScriptId;
 			console.log(`    Provider: ${provider.name}...`);
-			const identifiers: string[] = [];
+			const identifiers = new Set<string>();
 			for (const page of searchConfig.pages) {
 				try {
 					// oxlint-disable-next-line no-await-in-loop
@@ -1470,8 +1546,11 @@ async function seedMedia(client: APIClient, executingUserId: string) {
 						executingUserId,
 					);
 					for (const item of items) {
-						if (!identifiers.includes(item.externalId)) {
-							identifiers.push(item.externalId);
+						if (!identifiers.has(item.externalId)) {
+							identifiers.add(item.externalId);
+							processingPromises.push(
+								processMediaEntity(item.externalId, provider.providerId, schema, eventSchemas),
+							);
 						}
 					}
 					console.log(`      Search "${searchConfig.query}" page ${page}: ${items.length} results`);
@@ -1479,143 +1558,12 @@ async function seedMedia(client: APIClient, executingUserId: string) {
 					console.log(`      Search page ${page} failed:`, err);
 				}
 			}
-			console.log(`    Collected ${identifiers.length} unique identifiers from ${provider.name}`);
-
-			for (const externalId of identifiers) {
-				workItems.push({ externalId, providerId: provider.providerId, schema, eventSchemas });
-			}
+			console.log(`    Found ${identifiers.size} unique identifiers from ${provider.name}`);
 		}
 	}
 
-	// Phase 2: shuffle work items so entity types are interleaved
-	for (let i = workItems.length - 1; i > 0; i--) {
-		const j = Math.floor(Math.random() * (i + 1));
-		const temp = workItems[i];
-		workItems[i] = workItems[j] as WorkItem;
-		workItems[j] = temp as WorkItem;
-	}
-	console.log(`\n  Importing ${workItems.length} entities (shuffled across all types)...`);
-
-	// Phase 3: import in shuffled order, group results by schema id
-	const entitiesBySchemaId = new Map<string, SeedEntity[]>();
-	const eventSchemasBySchemaId = new Map<string, MediaEventSchemas>();
-
-	for (const [index, item] of workItems.entries()) {
-		// oxlint-disable-next-line no-await-in-loop
-		const entity = await importMediaEntity(
-			client,
-			item.providerId,
-			item.externalId,
-			item.schema.id,
-		);
-		if (entity) {
-			const list = entitiesBySchemaId.get(item.schema.id) ?? [];
-			list.push(entity);
-			entitiesBySchemaId.set(item.schema.id, list);
-			eventSchemasBySchemaId.set(item.schema.id, item.eventSchemas);
-			allEntities.push(entity);
-		}
-		if ((index + 1) % 20 === 0) {
-			console.log(`    Progress: ${index + 1}/${workItems.length} imported`);
-		}
-	}
+	await Promise.all(processingPromises);
 	console.log(`  Imported ${allEntities.length} entities total`);
-
-	// Phase 4: create lifecycle events per schema group
-	const completionVariants: Array<() => Record<string, unknown>> = [
-		() => ({ completionMode: "just_now" }),
-		() => ({ completionMode: "unknown" }),
-		() => ({
-			completionMode: "custom_timestamps",
-			completedOn: dayjs().subtract(randomInt(1, 365), "day").toISOString(),
-		}),
-		() => ({
-			completionMode: "custom_timestamps",
-			startedOn: dayjs().subtract(randomInt(400, 730), "day").toISOString(),
-			completedOn: dayjs().subtract(randomInt(1, 365), "day").toISOString(),
-		}),
-	];
-
-	for (const schema of schemas) {
-		const entities = entitiesBySchemaId.get(schema.id);
-		const eventSchemas = eventSchemasBySchemaId.get(schema.id);
-		if (!entities?.length || !eventSchemas) {
-			continue;
-		}
-
-		// ~28% backlog (up-next), ~20% in-progress (continue),
-		// ~24% completed unrated (rate-these), ~28% completed + reviewed
-		const entityCount = entities.length;
-		const backlogCount = Math.ceil(entityCount * 0.28);
-		const progressCount = eventSchemas.progress ? Math.ceil(entityCount * 0.2) : 0;
-		const completeNoReviewCount = Math.ceil(entityCount * 0.24);
-
-		const backlogEntities = entities.slice(0, backlogCount);
-		const progressEntities = entities.slice(backlogCount, backlogCount + progressCount);
-		const completeNoReviewEntities = entities.slice(
-			backlogCount + progressCount,
-			backlogCount + progressCount + completeNoReviewCount,
-		);
-		const completeWithReviewEntities = entities.slice(
-			backlogCount + progressCount + completeNoReviewCount,
-		);
-
-		const mediaEvents: EventPayload[] = [];
-
-		for (const entity of backlogEntities) {
-			mediaEvents.push({
-				properties: {},
-				entityId: entity.id,
-				eventSchemaSlug: eventSchemas.backlog.id,
-			});
-		}
-
-		for (const entity of progressEntities) {
-			if (!eventSchemas.progress) {
-				continue;
-			}
-			const slug = schema.slug as MediaEntitySchemaSlug;
-			const episodicFields = EPISODIC_MEDIA_SLUGS.has(slug)
-				? generateEpisodicProgressFields(slug)
-				: {};
-			mediaEvents.push({
-				entityId: entity.id,
-				eventSchemaSlug: eventSchemas.progress.id,
-				properties: { progressPercent: randomInt(10, 85), ...episodicFields },
-			});
-		}
-
-		for (const entity of completeNoReviewEntities) {
-			mediaEvents.push({
-				entityId: entity.id,
-				eventSchemaSlug: eventSchemas.complete.id,
-				properties: randomChoice(completionVariants)(),
-			});
-		}
-
-		for (const entity of completeWithReviewEntities) {
-			mediaEvents.push({
-				entityId: entity.id,
-				eventSchemaSlug: eventSchemas.complete.id,
-				properties: randomChoice(completionVariants)(),
-			});
-			mediaEvents.push({
-				entityId: entity.id,
-				eventSchemaSlug: eventSchemas.review.id,
-				properties: {
-					rating: randomInt(1, 5),
-					...(faker.datatype.boolean() ? { review: faker.lorem.sentences(randomInt(1, 3)) } : {}),
-				},
-			});
-		}
-
-		// oxlint-disable-next-line no-await-in-loop
-		await createEvents(client, mediaEvents);
-		console.log(`    ${schema.name}: ${entities.length} entities, ${mediaEvents.length} events`);
-
-		totalEntities += entities.length;
-		totalEvents += mediaEvents.length;
-	}
 
 	console.log(`\n  ✓ Media seeding complete: ${totalEntities} entities, ${totalEvents} events`);
 
