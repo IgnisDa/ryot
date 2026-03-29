@@ -88,7 +88,9 @@ const updateSavedViewRoute = createAuthRoute(
 		method: "put",
 		path: "/{viewId}",
 		tags: ["saved-views"],
-		summary: "Update a user-defined saved view by ID",
+		summary: "Update a saved view by ID",
+		description:
+			"For user-defined views, all fields are applied. For built-in views, only `isDisabled` is applied — all other fields in the request body are ignored.",
 		request: {
 			params: savedViewParams,
 			body: {
