@@ -1,4 +1,5 @@
-export const TEMPORARY_UPLOAD_MAX_FILE_BYTES = 50 * 1024 * 1024;
+export const UPLOAD_MAX_FILE_BYTES = 50 * 1024 * 1024;
+export const TEMPORARY_UPLOAD_MAX_FILE_BYTES = UPLOAD_MAX_FILE_BYTES;
 export const TEMPORARY_UPLOAD_MAX_REQUEST_BYTES = TEMPORARY_UPLOAD_MAX_FILE_BYTES + 256 * 1024;
 
 export const uploadContentTypes = [
@@ -6,9 +7,12 @@ export const uploadContentTypes = [
 	"text/xml",
 	"image/png",
 	"image/gif",
+	"video/mp4",
 	"image/avif",
 	"image/jpeg",
 	"image/webp",
+	"video/webm",
+	"video/quicktime",
 	"application/xml",
 	"application/zip",
 	"application/gzip",
@@ -23,8 +27,11 @@ export const uploadContentTypeExtensions: Record<UploadContentType, readonly str
 	"text/xml": ["xml"],
 	"image/gif": ["gif"],
 	"image/png": ["png"],
+	"video/mp4": ["mp4"],
+	"video/webm": ["webm"],
 	"image/avif": ["avif"],
 	"image/webp": ["webp"],
+	"video/quicktime": ["mov"],
 	"application/xml": ["xml"],
 	"application/zip": ["zip"],
 	"application/gzip": ["gz"],

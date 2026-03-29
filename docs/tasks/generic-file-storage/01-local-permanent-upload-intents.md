@@ -2,7 +2,7 @@
 
 **Parent Plan:** [Generic File Storage](./README.md)
 
-**Status:** todo
+**Status:** done
 
 ## What to build
 
@@ -21,17 +21,17 @@ do not add new compatibility aliases.
 
 ## Acceptance criteria
 
-- [ ] The authenticated create-intent contract accepts provider, kind, file name, and content type and supports the `local` plus `permanent` combination
-- [ ] Intent output contains an opaque identifier, PUT method, relative signed upload path, required headers, and a 15-minute expiration
-- [ ] Local permanent storage uses its dedicated configured root and a dedicated signing secret
-- [ ] The signed PUT route rejects expired, malformed, tampered, mismatched-method, and traversal attempts
-- [ ] Local writes enforce the shared 50 MiB maximum without unbounded buffering and do not expose interrupted staged data as completed objects
-- [ ] Authenticated completion verifies creator, object existence, size, and content type before returning `{ type: "local", key }`
-- [ ] Successful completion is idempotent and removes the permanent object from cleanup eligibility
-- [ ] Pending intent metadata is stored in Redis and indexed by expiration so abandoned local data can be deleted idempotently
-- [ ] Local keys are opaque, collision-resistant, namespace constrained, and never contain a client-controlled path
-- [ ] Service, route, signature, path-safety, size-limit, and idempotency behavior has focused automated coverage
-- [ ] End-to-end coverage creates an intent, uploads bytes to the relative target, completes it, and verifies the permanent local locator
+- [x] The authenticated create-intent contract accepts provider, kind, file name, and content type and supports the `local` plus `permanent` combination
+- [x] Intent output contains an opaque identifier, PUT method, relative signed upload path, required headers, and a 15-minute expiration
+- [x] Local permanent storage uses its dedicated configured root and a dedicated signing secret
+- [x] The signed PUT route rejects expired, malformed, tampered, mismatched-method, and traversal attempts
+- [x] Local writes enforce the shared 50 MiB maximum without unbounded buffering and do not expose interrupted staged data as completed objects
+- [x] Authenticated completion verifies creator, object existence, size, and content type before returning `{ type: "local", key }`
+- [x] Successful completion is idempotent and removes the permanent object from cleanup eligibility
+- [x] Pending intent metadata is stored in Redis and indexed by expiration so abandoned local data can be deleted idempotently
+- [x] Local keys are opaque, collision-resistant, namespace constrained, and never contain a client-controlled path
+- [x] Service, route, signature, path-safety, size-limit, and idempotency behavior has focused automated coverage
+- [x] End-to-end coverage creates an intent, uploads bytes to the relative target, completes it, and verifies the permanent local locator
 
 ## User stories addressed
 

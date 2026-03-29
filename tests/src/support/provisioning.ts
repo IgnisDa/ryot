@@ -102,7 +102,9 @@ export function buildBackendEnv(input: {
 		FILE_STORAGE_S3_SECRET_ACCESS_KEY: S3_SECRET_KEY,
 		RYOT_PLUGIN_FITNESS_EXERCISE_PRELOAD_LIMIT: "20",
 		RYOT_PLUGIN_E2E_SANDBOX_CONFIG_9D6F4B2A_FIXTURE_LIMIT: "17",
+		FILE_STORAGE_LOCAL_SIGNING_SECRET: "test-local-signing-secret",
 		RYOT_PLUGIN_E2E_SANDBOX_CONFIG_9D6F4B2A_FIXTURE_VALUE: "sandbox-plugin-config-value",
+		FILE_STORAGE_LOCAL_DIR: join(tmpdir(), `ryot-e2e-local-${safeLabel}-${input.port}`),
 		...input.extraEnv,
 	};
 }

@@ -101,6 +101,19 @@ export const validateSystemConfig = (config: AppConfigValue) =>
 			);
 		}
 
+		const localDirConfigured = isNonEmpty(config.fileStorage.localDir);
+		const localSecretConfigured = isNonEmptyRedacted(config.fileStorage.localSigningSecret);
+		if (localDirConfigured !== localSecretConfigured) {
+			return yield* Effect.fail(
+				configError(
+					"Partial local file storage configuration detected. Set both FILE_STORAGE_LOCAL_DIR and FILE_STORAGE_LOCAL_SIGNING_SECRET, or neither of them.",
+				),
+			);
+		}
+		if (localDirConfigured && !/^([A-Za-z]:[\\/]|\/)/.test(config.fileStorage.localDir.value)) {
+			return yield* Effect.fail(configError("FILE_STORAGE_LOCAL_DIR must be an absolute path."));
+		}
+
 		// The cluster SQL runner permanently reserves one workflow-pool connection,
 		// even when advisory shard locks are disabled.
 		const usableWorkflowConnections = config.database.workflowPoolMax - 1;
