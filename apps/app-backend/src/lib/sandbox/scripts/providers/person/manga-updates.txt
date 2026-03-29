@@ -1,0 +1,187 @@
+function parseJsonResponse(responseBody) {
+	try {
+		return JSON.parse(responseBody);
+	} catch {
+		throw new Error("MangaUpdates returned invalid JSON");
+	}
+}
+
+function getNullableString(value) {
+	return typeof value === "string" ? value.trim() || null : null;
+}
+
+function formatBirthday(birthday) {
+	if (!birthday || typeof birthday !== "object") {
+		return null;
+	}
+
+	const { year, month, day } = birthday;
+	if (
+		typeof year !== "number" || !Number.isFinite(year) ||
+		typeof month !== "number" || !Number.isFinite(month) ||
+		typeof day !== "number" || !Number.isFinite(day)
+	) {
+		return null;
+	}
+
+	const y = Math.trunc(year);
+	const m = Math.trunc(month);
+	const d = Math.trunc(day);
+
+	if (y <= 0 || m < 1 || m > 12 || d < 1 || d > 31) {
+		return null;
+	}
+
+	const dateStr = `${y}-${String(m).padStart(2, "0")}-${String(d).padStart(2, "0")}`;
+	return dateStr;
+}
+
+driver("search", async function (context) {
+	const { z } = await import("npm:zod");
+
+	const { query, page: currentPage, pageSize } = z
+		.object({
+			query: z.string().trim().min(1, "query is required"),
+			page: z.coerce.number().min(1).transform(Math.floor).catch(1),
+			pageSize: z.coerce.number().min(1).max(100).transform(Math.floor).catch(20),
+		})
+		.parse(context ?? {});
+
+	const response = await httpCall(
+		"POST",
+		"https://api.mangaupdates.com/v1/authors/search",
+		{
+			headers: { "Content-Type": "application/json" },
+			body: JSON.stringify({
+				search: query,
+				page: currentPage,
+				perpage: pageSize,
+			}),
+		},
+	);
+
+	if (!response?.success) {
+		throw new Error(response?.error ?? "MangaUpdates person search request failed");
+	}
+
+	const payload = parseJsonResponse(response.data.body);
+
+	const totalItems =
+		typeof payload?.total_hits === "number" && Number.isFinite(payload.total_hits)
+			? Math.max(0, Math.trunc(payload.total_hits))
+			: 0;
+
+	const results = Array.isArray(payload?.results) ? payload.results : [];
+
+	const items = results
+		.map((item) => {
+			if (!item || typeof item !== "object") {
+				return null;
+			}
+
+			const record =
+				item.record && typeof item.record === "object" ? item.record : null;
+			if (!record) {
+				const hitName =
+					typeof item.hit_name === "string" ? item.hit_name.trim() : "";
+				if (!hitName) {
+					return null;
+				}
+				return null;
+			}
+
+			const authorId =
+				typeof record.id === "number" && Number.isFinite(record.id)
+					? String(Math.trunc(record.id))
+					: null;
+			if (!authorId) {
+				return null;
+			}
+
+			const hitName = typeof item.hit_name === "string" ? item.hit_name.trim() : "";
+			const name = hitName || (typeof record.name === "string" ? record.name.trim() : "");
+			if (!name) {
+				return null;
+			}
+
+			return {
+				externalId: authorId,
+				titleProperty: { kind: "text", value: name },
+				imageProperty: { kind: "null", value: null },
+				calloutProperty: { kind: "null", value: null },
+				primarySubtitleProperty: { kind: "null", value: null },
+				secondarySubtitleProperty: { kind: "null", value: null },
+			};
+		})
+		.filter((item) => item !== null);
+
+	return {
+		items,
+		details: {
+			totalItems,
+			nextPage: currentPage * pageSize < totalItems ? currentPage + 1 : null,
+		},
+	};
+});
+
+driver("details", async function (context) {
+	const { z } = await import("npm:zod");
+
+	const { externalId } = z
+		.object({
+			externalId: z.string().trim().min(1, "externalId is required"),
+		})
+		.parse(context ?? {});
+
+	const response = await httpCall(
+		"GET",
+		`https://api.mangaupdates.com/v1/authors/${encodeURIComponent(externalId)}`,
+	);
+
+	if (!response?.success) {
+		throw new Error(response?.error ?? "MangaUpdates person details request failed");
+	}
+
+	const payload = parseJsonResponse(response.data.body);
+
+	if (!payload || typeof payload !== "object") {
+		throw new Error("MangaUpdates returned no person data");
+	}
+
+	const name = getNullableString(payload.name);
+	if (!name) {
+		throw new Error("MangaUpdates person data is missing name");
+	}
+
+	const gender = getNullableString(payload.gender);
+
+	const birthPlace = getNullableString(payload.birthplace);
+
+	const birthDate = formatBirthday(payload.birthday);
+
+	const image =
+		payload.image &&
+		typeof payload.image === "object" &&
+		typeof payload.image.url === "object" &&
+		typeof payload.image.url.original === "string" &&
+		payload.image.url.original.trim()
+			? payload.image.url.original.trim()
+			: null;
+
+	const images = image ? [{ type: "remote", url: image }] : [];
+
+	const sourceUrl = `https://www.mangaupdates.com/authors/${encodeURIComponent(externalId)}`;
+
+	return {
+		name,
+		properties: {
+			images,
+			gender,
+			sourceUrl,
+			birthDate,
+			birthPlace,
+			description: null,
+			alternateNames: [],
+		},
+	};
+});
