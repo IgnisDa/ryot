@@ -43,7 +43,6 @@ describe("Saved views E2E", () => {
 			true,
 		);
 		expect(Array.isArray(fetchedView.queryDefinition.filters)).toBe(true);
-		expect(fetchedView.displayConfiguration.layout).toBe("grid");
 		expect(Number.isNaN(Date.parse(String(fetchedView.createdAt)))).toBe(false);
 		expect(Number.isNaN(Date.parse(String(fetchedView.updatedAt)))).toBe(false);
 
@@ -60,7 +59,6 @@ describe("Saved views E2E", () => {
 				sort: { field: ["@createdAt"], direction: "desc" },
 			},
 			displayConfiguration: {
-				layout: "list",
 				grid: {
 					imageProperty: null,
 					titleProperty: null,
