@@ -4,7 +4,7 @@
 
 **Type:** AFK
 
-**Status:** todo
+**Status:** done
 
 ## What to build
 
@@ -18,11 +18,11 @@ Backward compatibility is not needed in this slice. Validation, docs, and tests 
 
 ## Acceptance criteria
 
-- [ ] Validation reports clear errors for invalid references, invalid operator/type combinations, unsupported non-display image usage, and computed-field cycles
-- [ ] Shared analysis and compilation modules are covered with isolated tests for dependency resolution, type inference, and expression compilation behavior
-- [ ] Saved-view API tests and raw runtime tests cover the final expression contract end-to-end
-- [ ] Runtime documentation is updated to describe the final expression and predicate language with concrete examples
-- [ ] The full automated test suite relevant to saved views, view runtime, and the minimal frontend contract passes
+- [x] Validation reports clear errors for invalid references, invalid operator/type combinations, unsupported non-display image usage, and computed-field cycles
+- [x] Shared analysis and compilation modules are covered with isolated tests for dependency resolution, type inference, and expression compilation behavior
+- [x] Saved-view API tests and raw runtime tests cover the final expression contract end-to-end
+- [x] Runtime documentation is updated to describe the final expression and predicate language with concrete examples
+- [x] The full automated test suite relevant to saved views, view runtime, and the minimal frontend contract passes
 
 ## Blocked by
 
