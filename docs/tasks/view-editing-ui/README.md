@@ -341,6 +341,30 @@ These can be added in future iterations once the core editing functionality is p
 - [ ] View page re-renders with updated config
 - [ ] Layout switcher works with new display configs
 
+### Automated Verification
+
+After completing each task, run these verification steps:
+
+1. **Run tests:**
+   ```bash
+   cd apps/app-frontend/src/features/saved-views
+   bun test
+   ```
+
+2. **Run typecheck:**
+   ```bash
+   cd apps/app-frontend
+   bun run typecheck
+   ```
+
+3. **Build frontend:**
+   ```bash
+   cd apps/app-frontend
+   bun run build
+   ```
+
+All steps must pass with no errors before marking a task as complete.
+
 ## Dependencies
 
 **Existing Code:**
