@@ -3,10 +3,9 @@ import type { AuthType } from "~/lib/auth";
 import {
 	createAuthRoute,
 	createServiceErrorResult,
+	createStandardResponses,
 	createSuccessResult,
-	jsonResponse,
-	notFoundResponse,
-	payloadErrorResponse,
+	jsonBody,
 } from "~/lib/openapi";
 import {
 	createEntitySchemaBody,
@@ -23,14 +22,11 @@ const listEntitySchemasRoute = createAuthRoute(
 		tags: ["entity-schemas"],
 		request: { query: listEntitySchemasQuery },
 		summary: "List entity schemas for a tracker",
-		responses: {
-			400: payloadErrorResponse(),
-			404: notFoundResponse("Tracker does not exist for this user"),
-			200: jsonResponse(
-				"Entity schemas for the requested tracker",
-				listEntitySchemasResponseSchema,
-			),
-		},
+		responses: createStandardResponses({
+			successSchema: listEntitySchemasResponseSchema,
+			notFoundDescription: "Tracker does not exist for this user",
+			successDescription: "Entity schemas for the requested tracker",
+		}),
 	}),
 );
 
@@ -40,19 +36,12 @@ const createEntitySchemaRoute = createAuthRoute(
 		method: "post",
 		tags: ["entity-schemas"],
 		summary: "Create an entity schema for a custom tracker",
-		request: {
-			body: {
-				content: { "application/json": { schema: createEntitySchemaBody } },
-			},
-		},
-		responses: {
-			400: payloadErrorResponse(),
-			404: notFoundResponse("Tracker does not exist for this user"),
-			200: jsonResponse(
-				"Entity schema was created",
-				createEntitySchemaResponseSchema,
-			),
-		},
+		request: { body: jsonBody(createEntitySchemaBody) },
+		responses: createStandardResponses({
+			successDescription: "Entity schema was created",
+			successSchema: createEntitySchemaResponseSchema,
+			notFoundDescription: "Tracker does not exist for this user",
+		}),
 	}),
 );
 
