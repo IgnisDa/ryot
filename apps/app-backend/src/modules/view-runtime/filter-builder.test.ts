@@ -22,7 +22,6 @@ const serializeClause = (
 		filters,
 		schemaMap,
 		alias: "entities",
-		defaultSchemaSlug: "smartphones",
 		entitySchemaSlugs: ["smartphones", "tablets"],
 	});
 
@@ -138,11 +137,9 @@ describe("buildFilterWhereClause", () => {
 		).toThrow("Property 'unknownField' not found in schema 'smartphones'");
 	});
 
-	it("rejects unqualified property filters in multi-schema requests", () => {
+	it("rejects unqualified property filters", () => {
 		expect(() =>
 			serializeClause([{ op: "eq", field: "manufacturer", value: "Apple" }]),
-		).toThrow(
-			"Schema-qualified filter fields are required for multi-schema requests",
-		);
+		).toThrow("Schema-qualified property references are required");
 	});
 });
