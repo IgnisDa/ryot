@@ -3,9 +3,10 @@ import { zodBoolAsString } from "@ryot/ts-utils";
 import { itemDataSchema, listDataSchema } from "~/lib/openapi";
 import {
 	computedFieldArraySchema,
+	nullableViewExpressionSchema,
 	viewExpressionSchema,
 } from "~/lib/views/expression";
-import { viewPredicateSchema } from "~/lib/views/filtering";
+import { nullableViewPredicateSchema } from "~/lib/views/filtering";
 import {
 	createIdParamsSchema,
 	createNonEmptyStringArraySchema,
@@ -25,7 +26,7 @@ const eventJoinKeySchema = nonEmptyTrimmedStringSchema.regex(
 	"Event join keys must start with a letter or underscore and contain only letters, numbers, and underscores",
 );
 
-const displayExpressionSchema = viewExpressionSchema.nullable();
+const displayExpressionSchema = nullableViewExpressionSchema;
 
 const createEntityCardDisplayConfigSchema = () =>
 	z.object({
@@ -93,7 +94,7 @@ export const savedViewQueryDefinitionSchema = z.object({
 	computedFields: computedFieldArraySchema,
 	eventJoins: eventJoinDefinitionArraySchema,
 	entitySchemaSlugs: entitySchemaSlugArraySchema,
-	filter: viewPredicateSchema.nullable().default(null),
+	filter: nullableViewPredicateSchema.default(null),
 });
 
 export type SavedViewQueryDefinition = z.infer<
