@@ -33,7 +33,7 @@ import { CreateEventSchemaModal } from "#/features/event-schemas/section";
 import type { CreateEventPayload } from "#/features/events/form";
 import { useEventMutations } from "#/features/events/hooks";
 import { LogEventModal } from "#/features/events/section";
-import { BuiltinMediaTrackerOverview } from "#/features/trackers/builtin-media-tracker-overview";
+import { BuiltinMediaTrackerOverview } from "#/features/trackers/builtin-media-overview";
 import { useTrackersQuery } from "#/features/trackers/hooks";
 import { TrackerIcon } from "#/features/trackers/icons";
 import type { AppTracker } from "#/features/trackers/model";
