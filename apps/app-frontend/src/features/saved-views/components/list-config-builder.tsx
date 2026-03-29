@@ -1,4 +1,5 @@
 import { Stack, Text } from "@mantine/core";
+import type { AppEntitySchema } from "#/features/entity-schemas/model";
 import { buildDefaultPropertyPathRow } from "../form-extended";
 import {
 	type DisplayConfigBuilderFormLike,
@@ -7,6 +8,7 @@ import {
 
 type ListConfigBuilderProps = {
 	isLoading: boolean;
+	schemas: AppEntitySchema[];
 	form: DisplayConfigBuilderFormLike;
 };
 
@@ -19,21 +21,14 @@ export function ListConfigBuilder(props: ListConfigBuilderProps) {
 				</Text>
 				<Text c="dimmed" size="xs">
 					Configure how entities display in list view. Property paths use
-					COALESCE resolution (first non-null value wins). Use{" "}
-					<Text span c="gray.7" ff="var(--font-family-monospace)">
-						@name
-					</Text>{" "}
-					for cross-schema properties or{" "}
-					<Text span c="gray.7" ff="var(--font-family-monospace)">
-						schema.property
-					</Text>{" "}
-					for schema-specific fields.
+					COALESCE resolution (first non-null value wins).
 				</Text>
 			</Stack>
 
 			<PropertyArrayEditor
 				form={props.form}
 				label="Image Property"
+				schemas={props.schemas}
 				isLoading={props.isLoading}
 				buildNewRow={buildDefaultPropertyPathRow}
 				name="displayConfiguration.list.imageProperty"
@@ -43,6 +38,7 @@ export function ListConfigBuilder(props: ListConfigBuilderProps) {
 			<PropertyArrayEditor
 				form={props.form}
 				label="Title Property"
+				schemas={props.schemas}
 				isLoading={props.isLoading}
 				buildNewRow={buildDefaultPropertyPathRow}
 				name="displayConfiguration.list.titleProperty"
@@ -51,6 +47,7 @@ export function ListConfigBuilder(props: ListConfigBuilderProps) {
 
 			<PropertyArrayEditor
 				form={props.form}
+				schemas={props.schemas}
 				label="Subtitle Property"
 				isLoading={props.isLoading}
 				buildNewRow={buildDefaultPropertyPathRow}
@@ -61,6 +58,7 @@ export function ListConfigBuilder(props: ListConfigBuilderProps) {
 			<PropertyArrayEditor
 				form={props.form}
 				label="Badge Property"
+				schemas={props.schemas}
 				isLoading={props.isLoading}
 				buildNewRow={buildDefaultPropertyPathRow}
 				name="displayConfiguration.list.badgeProperty"
