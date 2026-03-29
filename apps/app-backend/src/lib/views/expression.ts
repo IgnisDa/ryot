@@ -11,42 +11,44 @@ export type JsonValue =
 	| JsonValue[]
 	| { [key: string]: JsonValue };
 
-export const runtimeReferenceSchema = z.discriminatedUnion("type", [
-	z
-		.object({
-			slug: nonEmptyTrimmedStringSchema,
-			column: nonEmptyTrimmedStringSchema,
-			type: z.literal("entity-column"),
-		})
-		.strict(),
-	z
-		.object({
-			slug: nonEmptyTrimmedStringSchema,
-			property: nonEmptyTrimmedStringSchema,
-			type: z.literal("schema-property"),
-		})
-		.strict(),
-	z
-		.object({
-			column: nonEmptyTrimmedStringSchema,
-			joinKey: nonEmptyTrimmedStringSchema,
-			type: z.literal("event-join-column"),
-		})
-		.strict(),
-	z
-		.object({
-			joinKey: nonEmptyTrimmedStringSchema,
-			property: nonEmptyTrimmedStringSchema,
-			type: z.literal("event-join-property"),
-		})
-		.strict(),
-	z
-		.object({
-			key: nonEmptyTrimmedStringSchema,
-			type: z.literal("computed-field"),
-		})
-		.strict(),
-]);
+export const runtimeReferenceSchema = z
+	.discriminatedUnion("type", [
+		z
+			.object({
+				slug: nonEmptyTrimmedStringSchema,
+				column: nonEmptyTrimmedStringSchema,
+				type: z.literal("entity-column"),
+			})
+			.strict(),
+		z
+			.object({
+				slug: nonEmptyTrimmedStringSchema,
+				property: nonEmptyTrimmedStringSchema,
+				type: z.literal("schema-property"),
+			})
+			.strict(),
+		z
+			.object({
+				column: nonEmptyTrimmedStringSchema,
+				joinKey: nonEmptyTrimmedStringSchema,
+				type: z.literal("event-join-column"),
+			})
+			.strict(),
+		z
+			.object({
+				joinKey: nonEmptyTrimmedStringSchema,
+				property: nonEmptyTrimmedStringSchema,
+				type: z.literal("event-join-property"),
+			})
+			.strict(),
+		z
+			.object({
+				key: nonEmptyTrimmedStringSchema,
+				type: z.literal("computed-field"),
+			})
+			.strict(),
+	])
+	.openapi("ViewRuntimeReference");
 
 export type RuntimeRef = z.infer<typeof runtimeReferenceSchema>;
 
@@ -55,7 +57,8 @@ export const viewComputedFieldSchema = z
 		expression: z.lazy(() => viewExpressionSchema),
 		key: nonEmptyTrimmedStringSchema,
 	})
-	.strict();
+	.strict()
+	.openapi("ViewComputedField");
 
 export const computedFieldArraySchema = z
 	.array(viewComputedFieldSchema)
@@ -102,68 +105,70 @@ const jsonLiteralValueSchema = z
 	.nullable()
 	.refine(isJsonValue, "Literal values must be JSON-safe");
 
-export const viewExpressionSchema: z.ZodType<ViewExpression> = z.lazy(() => {
-	return z.discriminatedUnion("type", [
-		z
-			.object({
-				value: jsonLiteralValueSchema,
-				type: z.literal("literal"),
-			})
-			.strict(),
-		z
-			.object({
-				reference: runtimeReferenceSchema,
-				type: z.literal("reference"),
-			})
-			.strict(),
-		z
-			.object({
-				type: z.literal("coalesce"),
-				values: z.array(viewExpressionSchema).min(1),
-			})
-			.strict(),
-		z
-			.object({
-				left: viewExpressionSchema,
-				right: viewExpressionSchema,
-				type: z.literal("arithmetic"),
-				operator: z.enum(["add", "subtract", "multiply", "divide"]),
-			})
-			.strict(),
-		z
-			.object({
-				type: z.literal("round"),
-				expression: viewExpressionSchema,
-			})
-			.strict(),
-		z
-			.object({
-				type: z.literal("floor"),
-				expression: viewExpressionSchema,
-			})
-			.strict(),
-		z
-			.object({
-				expression: viewExpressionSchema,
-				type: z.literal("integer"),
-			})
-			.strict(),
-		z
-			.object({
-				type: z.literal("concat"),
-				values: z.array(viewExpressionSchema).min(1),
-			})
-			.strict(),
-		z
-			.object({
-				whenTrue: viewExpressionSchema,
-				whenFalse: viewExpressionSchema,
-				type: z.literal("conditional"),
-				condition: z.lazy(() => viewPredicateSchema),
-			})
-			.strict(),
-	]);
-});
+export const viewExpressionSchema: z.ZodType<ViewExpression> = z
+	.lazy(() => {
+		return z.discriminatedUnion("type", [
+			z
+				.object({
+					value: jsonLiteralValueSchema,
+					type: z.literal("literal"),
+				})
+				.strict(),
+			z
+				.object({
+					reference: runtimeReferenceSchema,
+					type: z.literal("reference"),
+				})
+				.strict(),
+			z
+				.object({
+					type: z.literal("coalesce"),
+					values: z.array(viewExpressionSchema).min(1),
+				})
+				.strict(),
+			z
+				.object({
+					left: viewExpressionSchema,
+					right: viewExpressionSchema,
+					type: z.literal("arithmetic"),
+					operator: z.enum(["add", "subtract", "multiply", "divide"]),
+				})
+				.strict(),
+			z
+				.object({
+					type: z.literal("round"),
+					expression: viewExpressionSchema,
+				})
+				.strict(),
+			z
+				.object({
+					type: z.literal("floor"),
+					expression: viewExpressionSchema,
+				})
+				.strict(),
+			z
+				.object({
+					expression: viewExpressionSchema,
+					type: z.literal("integer"),
+				})
+				.strict(),
+			z
+				.object({
+					type: z.literal("concat"),
+					values: z.array(viewExpressionSchema).min(1),
+				})
+				.strict(),
+			z
+				.object({
+					whenTrue: viewExpressionSchema,
+					whenFalse: viewExpressionSchema,
+					type: z.literal("conditional"),
+					condition: z.lazy(() => viewPredicateSchema),
+				})
+				.strict(),
+		]);
+	})
+	.openapi("ViewExpression");
 
 export type ViewExpression =
 	| { type: "literal"; value: unknown | null }
