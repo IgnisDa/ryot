@@ -33,9 +33,6 @@ const exercisePropertiesZodSchema = z
 		instructions: z
 			.array(z.string())
 			.describe("Step-by-step instructions for performing this exercise"),
-		source: z
-			.enum(["github", "custom"])
-			.describe("Origin of this exercise: github (built-in library) or custom (user-created)"),
 		force: z
 			.enum(["pull", "push", "static"])
 			.nullish()

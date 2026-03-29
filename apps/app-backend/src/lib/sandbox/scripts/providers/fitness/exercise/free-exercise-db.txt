@@ -185,7 +185,6 @@ function normalizeExercise(exercise) {
     force: force.value,
     level,
     images,
-    source: "github",
     muscles,
     mechanic: mechanic.value,
     equipment: equipment.value,
@@ -417,9 +416,5 @@ driver("details", async function(context) {
     throw new Error(`Exercise not found: ${externalId}`);
   }
 
-  return {
-    name: row.name,
-    properties: row.properties,
-    relatedEntities: [],
-  };
+  return { name: row.name, relatedEntities: [], properties: row.properties };
 });

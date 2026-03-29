@@ -91,11 +91,7 @@ describe("Exercises E2E", () => {
 			label: "Equipment",
 			options: expect.arrayContaining(["body_only", "ez_curl_bar"]),
 		});
-		expect(exerciseSchema?.propertiesSchema.fields.source).toMatchObject({
-			type: "enum",
-			label: "Source",
-			options: ["github", "custom"],
-		});
+		expect(exerciseSchema?.propertiesSchema.fields).not.toHaveProperty("source");
 	});
 
 	it("creates the built-in All Exercises saved view with exercise defaults", async () => {
