@@ -287,7 +287,7 @@ const getUpNextItems = async (
 	const request: ViewRuntimeRequest = {
 		...buildBaseRequest(),
 		filter,
-		sort: { direction: "asc", expression: backlogAtRef },
+		sort: { direction: "desc", expression: backlogAtRef },
 		pagination: { page: 1, limit: SECTION_LIMITS.upNext },
 	};
 
