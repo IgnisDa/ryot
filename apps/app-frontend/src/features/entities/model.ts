@@ -26,10 +26,14 @@ export type AppEntityImage =
 	| { kind: "s3"; key: string }
 	| { kind: "remote"; url: string };
 
-export type AppEntity = Omit<ApiEntity, "createdAt" | "updatedAt" | "image"> & {
+export type AppEntity = Omit<
+	ApiEntity,
+	"createdAt" | "updatedAt" | "image" | "detailsSandboxScriptId"
+> & {
 	createdAt: Date;
 	updatedAt: Date;
 	image: AppEntityImage;
+	sandboxScriptId: string | null;
 	fields?: ApiQueryEngineEntity["fields"];
 	entitySchemaSlug?: ApiQueryEngineEntity["entitySchemaSlug"];
 };
@@ -85,20 +89,30 @@ function isQueryEngineEntity(
 export function toAppEntity(entity: ApiEntityInput): AppEntity {
 	const properties = isQueryEngineEntity(entity) ? {} : entity.properties;
 	const externalId = isQueryEngineEntity(entity) ? null : entity.externalId;
-	const detailsSandboxScriptId = isQueryEngineEntity(entity)
+	const sandboxScriptId = isQueryEngineEntity(entity)
 		? null
 		: entity.detailsSandboxScriptId;
 	const fields = isQueryEngineEntity(entity) ? entity.fields : undefined;
+	const {
+		id,
+		name,
+		createdAt,
+		updatedAt,
+		entitySchemaId,
+		image: entityImage,
+	} = entity;
 
 	return {
-		...entity,
+		id,
+		name,
+		createdAt: new Date(createdAt),
+		updatedAt: new Date(updatedAt),
+		entitySchemaId,
 		fields,
 		properties,
 		externalId,
-		detailsSandboxScriptId,
-		image: toAppEntityImage(entity.image),
-		createdAt: new Date(entity.createdAt),
-		updatedAt: new Date(entity.updatedAt),
+		sandboxScriptId,
+		image: toAppEntityImage(entityImage),
 		entitySchemaSlug: isQueryEngineEntity(entity)
 			? entity.entitySchemaSlug
 			: undefined,
