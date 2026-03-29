@@ -4,7 +4,7 @@
 
 **Type:** AFK
 
-**Status:** todo
+**Status:** done
 
 ## What to build
 
@@ -38,14 +38,14 @@ Add to `tests/src/tests/`:
 
 ## Acceptance criteria
 
-- [ ] `GET /saved-views/{viewId}` route exists and is registered
-- [ ] Returns 200 with full saved view object for existing built-in views
-- [ ] Returns 200 with full saved view object for user-owned views
-- [ ] Returns 404 for non-existent view IDs
-- [ ] Response includes `queryDefinition` with `entitySchemaSlugs`, `filters`, `sort`
-- [ ] Response includes `displayConfiguration` with `layout`, `grid`, `list`, `table`
-- [ ] E2E tests pass for all cases (200 success, 404 not found)
-- [ ] `turbo check` passes
+- [x] `GET /saved-views/{viewId}` route exists and is registered
+- [x] Returns 200 with full saved view object for existing built-in views
+- [x] Returns 200 with full saved view object for user-owned views
+- [x] Returns 404 for non-existent view IDs
+- [x] Response includes `queryDefinition` with `entitySchemaSlugs`, `filters`, `sort`
+- [x] Response includes `displayConfiguration` with `layout`, `grid`, `list`, `table`
+- [x] E2E tests pass for all cases (200 success, 404 not found)
+- [x] `turbo check` passes
 
 ## Blocked by
 
