@@ -1,5 +1,5 @@
 import type { PluginBindings, PluginManifest } from "@ryot/plugin-kit/manifest";
-import { Effect } from "effect";
+import { Effect, Layer } from "effect";
 
 import {
 	buildDefinitionSnapshot,
@@ -39,19 +39,20 @@ const mergeManifestDefinitions = (
 	base: DefinitionSource,
 	manifests: ReadonlyArray<PluginManifest>,
 ): DefinitionSource => ({
-	trackers: [...base.trackers, ...manifests.flatMap(({ trackers }) => trackers)],
 	savedViews: [...base.savedViews, ...manifests.flatMap(({ savedViews }) => savedViews)],
 	entitySchemas: [
 		...base.entitySchemas,
-		...manifests.flatMap(({ entitySchemas }) => entitySchemas),
+		...manifests.flatMap(({ entitySchemas, metadata }) =>
+			entitySchemas.map((definition) => ({ ...definition, pluginSlug: metadata.slug })),
+		),
 	],
 	signalSchemas: [
 		...base.signalSchemas,
 		...manifests.flatMap(({ signalSchemas }) => signalSchemas),
 	],
 	relationshipSchemas: [
-		...base.relationshipSchemas,
 		...manifests.flatMap(({ relationshipSchemas }) => relationshipSchemas),
+		...base.relationshipSchemas,
 	],
 });
 
@@ -110,3 +111,7 @@ export class PluginLoader extends Effect.Service<PluginLoader>()("PluginLoader",
 		return makePluginLoader(yield* DefinitionRegistry);
 	}),
 }) {}
+
+export const PluginLoaderLive = PluginLoader.Default.pipe(
+	Layer.provideMerge(DefinitionRegistry.Default),
+);

@@ -35,7 +35,6 @@ import { SandboxRoutesLive } from "#modules/sandbox/routes";
 import { SavedViewsRoutesLive } from "#modules/saved-views/routes";
 import { SystemRoutesLive } from "#modules/system/routes";
 import { TestSupportRoutesLive } from "#modules/test-support/routes";
-import { TrackersRoutesLive } from "#modules/trackers/routes";
 import { UploadsRoutesLive } from "#modules/uploads/routes";
 import { UserPreferencesRoutesLive } from "#modules/user-preferences/routes";
 import { UserStateRoutesLive } from "#modules/user-state/routes";
@@ -86,7 +85,6 @@ const buildWebhookForwardRequest = (request: Request, url: URL) =>
 const ApiBaseLive = HttpApiBuilder.api(AppContract).pipe(
 	Layer.provide(Layer.mergeAll(SystemRoutesLive, AutomationsRoutesLive)),
 	Layer.provide(SandboxRoutesLive),
-	Layer.provide(TrackersRoutesLive),
 	Layer.provide(DefinitionsRoutesLive),
 	Layer.provide(RelationshipsRoutesLive),
 	Layer.provide(EntitiesRoutesLive),

@@ -31,7 +31,9 @@
         "@effect/workflow": "0.18.2",
         "@opentelemetry/api": "1.9.1",
         "@ryot/contract": "workspace:*",
+        "@ryot/plugin-fitness": "workspace:*",
         "@ryot/plugin-kit": "workspace:*",
+        "@ryot/plugin-media": "workspace:*",
         "@ryot/query-engine": "workspace:*",
         "@ryot/sandbox-compiler": "workspace:*",
         "@ryot/sandbox-sdk": "workspace:*",
@@ -438,6 +440,36 @@
       },
       "devDependencies": {
         "@types/lodash": "4.17.24",
+      },
+    },
+    "plugins/fitness": {
+      "name": "@ryot/plugin-fitness",
+      "dependencies": {
+        "@ryot/contract": "workspace:*",
+        "@ryot/plugin-kit": "workspace:*",
+        "@ryot/query-engine": "workspace:*",
+        "@ryot/sandbox-sdk": "workspace:*",
+        "@ryot/ts-utils": "workspace:*",
+        "effect": "3.21.4",
+      },
+      "devDependencies": {
+        "bun-types": "1.3.14",
+        "vitest": "4.1.9",
+      },
+    },
+    "plugins/media": {
+      "name": "@ryot/plugin-media",
+      "dependencies": {
+        "@ryot/contract": "workspace:*",
+        "@ryot/plugin-kit": "workspace:*",
+        "@ryot/query-engine": "workspace:*",
+        "@ryot/sandbox-sdk": "workspace:*",
+        "@ryot/ts-utils": "workspace:*",
+        "effect": "3.21.4",
+      },
+      "devDependencies": {
+        "bun-types": "1.3.14",
+        "vitest": "4.1.9",
       },
     },
     "tests": {
@@ -1658,7 +1690,11 @@
 
     "@ryot/graphql": ["@ryot/graphql@workspace:libs/graphql"],
 
+    "@ryot/plugin-fitness": ["@ryot/plugin-fitness@workspace:plugins/fitness"],
+
     "@ryot/plugin-kit": ["@ryot/plugin-kit@workspace:libs/plugin-kit"],
+
+    "@ryot/plugin-media": ["@ryot/plugin-media@workspace:plugins/media"],
 
     "@ryot/query-engine": ["@ryot/query-engine@workspace:libs/query-engine"],
 

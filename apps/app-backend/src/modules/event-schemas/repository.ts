@@ -26,7 +26,12 @@ export class EventSchemasRepository extends Effect.Service<EventSchemasRepositor
 				const definition = definitions.getEntitySchema(input.entitySchemaSlug);
 				return Effect.succeed(
 					definition
-						? { id: input.entitySchemaSlug, slug: definition.slug, userId: null, isBuiltin: true }
+						? {
+								userId: null,
+								slug: definition.slug,
+								id: input.entitySchemaSlug,
+								isBuiltin: definitions.isEntitySchemaBuiltin(input.entitySchemaSlug),
+							}
 						: null,
 				);
 			};
@@ -60,6 +65,7 @@ export class EventSchemasRepository extends Effect.Service<EventSchemasRepositor
 				const event = entity?.eventSchemas[input.eventSchemaSlug];
 				return Effect.succeed(event ? toListed(input.entitySchemaSlug, event) : null);
 			};
+
 			return {
 				getScopeForUser,
 				getBuiltinBySlug,

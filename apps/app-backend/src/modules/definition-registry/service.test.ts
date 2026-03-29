@@ -1,31 +1,59 @@
+import fitnessPlugin from "@ryot/plugin-fitness";
+import type { PluginManifest } from "@ryot/plugin-kit/manifest";
+import mediaPlugin from "@ryot/plugin-media";
 import { Effect } from "effect";
 import { assert, describe, expect, it } from "vitest";
 
+import { validateDisplayConfiguration } from "#modules/saved-views/display-configuration-validation";
+
+import { kernelDefinitionSource } from "./kernel-source";
 import {
 	buildDefinitionSnapshot,
-	builtinDefinitionSource,
 	definitionSourceFromSnapshot,
+	type DefinitionSource,
 	makeDefinitionRegistry,
 } from "./service";
 
+const pluginDefinitionSource = (): DefinitionSource => {
+	const kernel = kernelDefinitionSource();
+	const plugins: ReadonlyArray<PluginManifest> = [mediaPlugin, fitnessPlugin];
+	return {
+		savedViews: [...kernel.savedViews, ...plugins.flatMap(({ savedViews }) => savedViews)],
+		signalSchemas: [
+			...kernel.signalSchemas,
+			...plugins.flatMap(({ signalSchemas }) => signalSchemas),
+		],
+		relationshipSchemas: [
+			...kernel.relationshipSchemas,
+			...plugins.flatMap(({ relationshipSchemas }) => relationshipSchemas),
+		],
+		entitySchemas: [
+			...kernel.entitySchemas,
+			...plugins.flatMap(({ entitySchemas, metadata }) =>
+				entitySchemas.map((definition) => ({ ...definition, pluginSlug: metadata.slug })),
+			),
+		],
+	};
+};
+
 describe("definition registry", () => {
 	it("serves every builtin definition kind from an immutable snapshot", () => {
-		const registry = makeDefinitionRegistry();
+		const registry = makeDefinitionRegistry(pluginDefinitionSource());
 		const snapshot = registry.getSnapshot();
 
 		expect(registry.getEntitySchema("movie")?.eventSchemas["progress"]?.name).toBe("Progress");
 		expect(registry.getRelationshipSchema("in-library")?.name).toBe("In Library");
 		expect(registry.getSignalSchema("review.created")?.name).toBe("Review Created");
-		expect(registry.getTracker("media")?.entitySchemaSlugs).toContain("movie");
-		expect(registry.getSavedView("all-movies")?.trackerSlug).toBe("media");
+		expect(registry.getEntitySchema("movie")?.pluginSlug).toBe("media");
+		expect(registry.getSavedView("all-movies")?.pluginSlug).toBe("media");
 		expect(Object.isFrozen(snapshot)).toBe(true);
 		expect(Object.isFrozen(snapshot.entitySchemas["movie"]?.propertiesSchema)).toBe(true);
 	});
 
 	it("replaces the snapshot only after the next source passes validation", () => {
-		const registry = makeDefinitionRegistry();
+		const registry = makeDefinitionRegistry(pluginDefinitionSource());
 		const original = registry.getSnapshot();
-		const source = builtinDefinitionSource();
+		const source = pluginDefinitionSource();
 		const entitySchema = source.entitySchemas[0];
 		assert(entitySchema);
 
@@ -39,20 +67,46 @@ describe("definition registry", () => {
 	});
 
 	it("converts nested event records back into a complete source", () => {
-		const source = builtinDefinitionSource();
+		const source = pluginDefinitionSource();
 		const snapshot = buildDefinitionSnapshot(source);
 
 		expect(definitionSourceFromSnapshot(snapshot)).toEqual(source);
 	});
 
+	it("validates every kernel and plugin saved-view display configuration", () => {
+		const source = pluginDefinitionSource();
+		const schemaBySlug = new Map(source.entitySchemas.map((schema) => [schema.slug, schema]));
+		expect(
+			source.savedViews.find(({ slug }) => slug === "collections")?.displayConfiguration.table
+				.columns,
+		).toHaveLength(1);
+		return Effect.runPromise(
+			Effect.forEach(
+				source.savedViews,
+				(view) =>
+					validateDisplayConfiguration({
+						doc: view.queryDocument,
+						displayConfig: view.displayConfiguration,
+						loadSchemas: (slugs) =>
+							Effect.sync(() =>
+								slugs.map((slug) => {
+									const schema = schemaBySlug.get(slug);
+									assert(schema, `Missing entity schema for ${slug}`);
+									return { slug, propertiesSchema: schema.propertiesSchema };
+								}),
+							),
+					}),
+				{ discard: true },
+			),
+		);
+	});
+
 	it("fails fast on forbidden slugs and dangling references", () => {
-		const source = builtinDefinitionSource();
+		const source = pluginDefinitionSource();
 		const entitySchema = source.entitySchemas[0];
-		const tracker = source.trackers[0];
 		const savedView = source.savedViews[0];
 		const relationshipSchema = source.relationshipSchemas[0];
 		assert(entitySchema);
-		assert(tracker);
 		assert(savedView);
 		assert(relationshipSchema);
 
@@ -65,15 +119,9 @@ describe("definition registry", () => {
 		expect(() =>
 			buildDefinitionSnapshot({
 				...source,
-				trackers: [{ ...tracker, entitySchemaSlugs: ["missing"] }, ...source.trackers.slice(1)],
+				savedViews: [{ ...savedView }, ...source.savedViews],
 			}),
-		).toThrow(/Tracker .* references missing entity schema missing/);
-		expect(() =>
-			buildDefinitionSnapshot({
-				...source,
-				savedViews: [{ ...savedView, trackerSlug: "missing" }, ...source.savedViews.slice(1)],
-			}),
-		).toThrow(/Saved view .* references missing tracker missing/);
+		).toThrow(/Duplicate saved view slug/);
 		expect(() =>
 			buildDefinitionSnapshot({
 				...source,
@@ -86,7 +134,7 @@ describe("definition registry", () => {
 	});
 
 	it("delegates property validation to the property-schema runtime", () => {
-		const registry = makeDefinitionRegistry();
+		const registry = makeDefinitionRegistry(pluginDefinitionSource());
 
 		expect(Effect.runSyncExit(registry.validateEventProperties("movie", "progress", {}))._tag).toBe(
 			"Failure",

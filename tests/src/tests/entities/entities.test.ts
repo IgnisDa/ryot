@@ -6,7 +6,7 @@ import {
 	createEntity,
 	createEntitySchema,
 	createGlobalBookEntityFixture,
-	createTracker,
+	createPluginScope,
 	createTrackerWithSchema,
 	findBuiltinSchemaBySlug,
 	findBuiltinSchemaWithProviders,
@@ -20,11 +20,9 @@ import { describe, expect, it } from "~/support/effect-test";
 
 const createSchemaWithEnumFields = (client: Client) =>
 	Effect.gen(function* () {
-		const { trackerSlug } = yield* createTracker(client, {
-			name: "Enum Schema Tracker",
-		});
+		const pluginSlug = createPluginScope();
 		const { schemaId } = yield* createEntitySchema(client, {
-			trackerSlug,
+			pluginSlug,
 			name: "Enum Schema",
 			propertiesSchema: {
 				fields: {
@@ -227,11 +225,9 @@ describe("POST /entities — enum and enum-array property schema validation", ()
 	it.live("round-trips enum and enum-array fields in propertiesSchema", () =>
 		Effect.gen(function* () {
 			const { client } = yield* createAuthenticatedClient();
-			const { trackerSlug } = yield* createTracker(client, {
-				name: "Enum Round-trip Tracker",
-			});
+			const pluginSlug = createPluginScope();
 			const { schemaId } = yield* createEntitySchema(client, {
-				trackerSlug,
+				pluginSlug,
 				name: "Round-trip Schema",
 				propertiesSchema: {
 					fields: {
