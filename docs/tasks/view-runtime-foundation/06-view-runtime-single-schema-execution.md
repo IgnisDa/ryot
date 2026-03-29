@@ -4,7 +4,7 @@
 
 **Type:** AFK
 
-**Status:** todo
+**Status:** done
 
 ## What to build
 
@@ -96,23 +96,23 @@ Replace the placeholder in `apps/app-backend/src/modules/view-runtime/routes.ts`
 
 ## Acceptance criteria
 
-- [ ] Schema introspection service exists with `getPropertyType`, `buildSchemaMap`, `parseFieldPath`
-- [ ] Unit tests for schema introspection achieve 100% coverage
-- [ ] View runtime request/response Zod schemas are defined
-- [ ] Query builder accepts single-schema request and generates parameterized SQL via Drizzle
-- [ ] Pre-fetches entity schemas and validates access
-- [ ] Sort works for top-level columns (`@name`, `@createdAt`, `@updatedAt`) and schema properties
-- [ ] Pagination metadata is correct (total, limit, offset, hasNextPage, hasPreviousPage, totalPages, currentPage)
-- [ ] Offset clamping works (out-of-range offsets are clamped)
-- [ ] Zero-result queries return `totalPages: 0`, `currentPage: 1`
-- [ ] Grid/list display properties resolved with semantic keys (imageProperty, titleProperty, etc.)
-- [ ] Images returned as raw jsonb discriminated unions
-- [ ] Returns 404 for non-existent schema slugs
-- [ ] Returns 400 for missing/empty sort field
-- [ ] Runtime module does not load saved views by ID (execution-only)
-- [ ] Unit tests for pagination math pass
-- [ ] Integration tests pass
-- [ ] `turbo check` passes
+- [x] Schema introspection service exists with `getPropertyType`, `buildSchemaMap`, `parseFieldPath`
+- [x] Unit tests for schema introspection achieve 100% coverage
+- [x] View runtime request/response Zod schemas are defined
+- [x] Query builder accepts single-schema request and generates parameterized SQL via Drizzle
+- [x] Pre-fetches entity schemas and validates access
+- [x] Sort works for top-level columns (`@name`, `@createdAt`, `@updatedAt`) and schema properties
+- [x] Pagination metadata is correct (total, limit, offset, hasNextPage, hasPreviousPage, totalPages, currentPage)
+- [x] Offset clamping works (out-of-range offsets are clamped)
+- [x] Zero-result queries return `totalPages: 0`, `currentPage: 1`
+- [x] Grid/list display properties resolved with semantic keys (imageProperty, titleProperty, etc.)
+- [x] Images returned as raw jsonb discriminated unions
+- [x] Returns 404 for non-existent schema slugs
+- [x] Returns 400 for missing/empty sort field
+- [x] Runtime module does not load saved views by ID (execution-only)
+- [x] Unit tests for pagination math pass
+- [x] Integration tests pass
+- [x] Workspace `bun run typecheck` passes
 
 ## Blocked by
 
