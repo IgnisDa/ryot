@@ -2,9 +2,16 @@ import { useQueryClient } from "@tanstack/react-query";
 import { useApiClient } from "#/hooks/api";
 import type { AppSavedView } from "./model";
 
-export function useSavedViewsQuery() {
+interface SavedViewsQueryOptions {
+	includeDisabled?: boolean;
+}
+
+export function useSavedViewsQuery(options: SavedViewsQueryOptions = {}) {
 	const apiClient = useApiClient();
-	const query = apiClient.useQuery("get", "/saved-views");
+	const includeDisabled = options.includeDisabled ? "true" : undefined;
+	const query = apiClient.useQuery("get", "/saved-views", {
+		params: { query: { includeDisabled } },
+	});
 
 	const savedViews: AppSavedView[] = query.data?.data ?? [];
 

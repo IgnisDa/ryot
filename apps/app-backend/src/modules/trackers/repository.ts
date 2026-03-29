@@ -45,11 +45,20 @@ const toListedTracker = (row: TrackerRow): ListedTracker => ({
 	description: row.description ?? null,
 });
 
-export const listTrackersByUser = async (userId: string) => {
+export const listTrackersByUser = async (
+	userId: string,
+	includeDisabled = false,
+) => {
+	const whereClauses = [eq(tracker.userId, userId)];
+
+	if (!includeDisabled) {
+		whereClauses.push(eq(tracker.isDisabled, false));
+	}
+
 	const rows = await db
 		.select(trackerSelection)
 		.from(tracker)
-		.where(eq(tracker.userId, userId))
+		.where(and(...whereClauses))
 		.orderBy(
 			asc(tracker.isDisabled),
 			asc(tracker.sortOrder),

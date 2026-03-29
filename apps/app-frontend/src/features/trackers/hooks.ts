@@ -8,6 +8,10 @@ import {
 	sortTrackersByOrder,
 } from "./model";
 
+interface TrackersQueryOptions {
+	includeDisabled?: boolean;
+}
+
 function extractTrackerIsDisabledFromInput(
 	input: unknown,
 ): { trackerId: string; isDisabled: boolean } | undefined {
@@ -72,9 +76,12 @@ function createMutationHandler<T>(
 	};
 }
 
-export function useTrackersQuery() {
+export function useTrackersQuery(options: TrackersQueryOptions = {}) {
 	const apiClient = useApiClient();
-	const query = apiClient.useQuery("get", "/trackers");
+	const includeDisabled = options.includeDisabled ? "true" : undefined;
+	const query = apiClient.useQuery("get", "/trackers", {
+		params: { query: { includeDisabled } },
+	});
 
 	const rawTrackers = query.data?.data ?? [];
 	const trackers = sortTrackersByOrder(rawTrackers);
