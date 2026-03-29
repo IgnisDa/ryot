@@ -4,7 +4,7 @@
 
 **Type:** AFK
 
-**Status:** todo
+**Status:** completed
 
 ## What to build
 
@@ -31,13 +31,13 @@ in the parent RFC for the exact export list per module.
 
 ## Acceptance criteria
 
-- [ ] `modules/saved-views/index.ts` exists and re-exports all types, service functions, and factory constants currently imported cross-module from its sub-paths
-- [ ] `modules/entity-schemas/index.ts` exists and re-exports all types and service functions currently imported cross-module
-- [ ] `modules/query-engine/index.ts` exists and re-exports `QueryEngineRequest`, `QueryEngineResponseData`, and `query-builder` exports used by `lib/views/`
-- [ ] `modules/property-schemas/index.ts` exists and re-exports the schema objects used by `lib/views/definition.ts`
-- [ ] `modules/event-schemas/index.ts` exists and re-exports all types and service functions used by `lib/test-fixtures/`
-- [ ] No repository functions are re-exported from any of these barrels
-- [ ] `bun tsc --noEmit` passes with no new errors
+- [x] `modules/saved-views/index.ts` exists and re-exports all types, service functions, and factory constants currently imported cross-module from its sub-paths
+- [x] `modules/entity-schemas/index.ts` exists and re-exports all types and service functions currently imported cross-module
+- [x] `modules/query-engine/index.ts` exists and re-exports `QueryEngineRequest`, `QueryEngineResponseData`, and `query-builder` exports used by `lib/views/`
+- [x] `modules/property-schemas/index.ts` exists and re-exports the schema objects used by `lib/views/definition.ts`
+- [x] `modules/event-schemas/index.ts` exists and re-exports all types and service functions used by `lib/test-fixtures/`
+- [x] No repository functions are re-exported from any of these barrels
+- [x] `bun tsc --noEmit` passes with no new errors
 
 ## Blocked by
 
