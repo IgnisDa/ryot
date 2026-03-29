@@ -1,26 +1,35 @@
 import { resolveRequiredString } from "@ryot/ts-utils";
+import { buildReorderedIds } from "~/lib/reorder";
 import type { ServiceResult } from "~/lib/result";
 import {
+	countSavedViewsByIdsForUser,
 	createSavedViewForUser,
 	deleteSavedViewByIdForUser,
 	getSavedViewByIdForUser,
+	listUserSavedViewIdsInOrder,
+	persistSavedViewOrderForUser,
 	updateSavedViewByIdForUser,
 	updateSavedViewDisabledByIdForUser,
 } from "./repository";
 import type {
 	CreateSavedViewBody,
 	ListedSavedView,
+	ReorderSavedViewsBody,
 	UpdateSavedViewBody,
 } from "./schemas";
 
 const savedViewNotFoundError = "Saved view not found";
 const builtinSavedViewError = "Cannot modify built-in saved views";
+const savedViewIdsUnknownError = "Saved view ids contain unknown saved views";
 
 export type SavedViewServiceDeps = {
 	createSavedViewForUser: typeof createSavedViewForUser;
 	getSavedViewByIdForUser: typeof getSavedViewByIdForUser;
 	deleteSavedViewByIdForUser: typeof deleteSavedViewByIdForUser;
 	updateSavedViewByIdForUser: typeof updateSavedViewByIdForUser;
+	countSavedViewsByIdsForUser: typeof countSavedViewsByIdsForUser;
+	listUserSavedViewIdsInOrder: typeof listUserSavedViewIdsInOrder;
+	persistSavedViewOrderForUser: typeof persistSavedViewOrderForUser;
 	updateSavedViewDisabledByIdForUser: typeof updateSavedViewDisabledByIdForUser;
 };
 
@@ -33,8 +42,11 @@ type SavedViewValidationResult<T> = ServiceResult<T, "validation">;
 
 const savedViewServiceDeps: SavedViewServiceDeps = {
 	createSavedViewForUser,
+	countSavedViewsByIdsForUser,
 	deleteSavedViewByIdForUser,
 	getSavedViewByIdForUser,
+	listUserSavedViewIdsInOrder,
+	persistSavedViewOrderForUser,
 	updateSavedViewByIdForUser,
 	updateSavedViewDisabledByIdForUser,
 };
@@ -204,6 +216,7 @@ export const updateSavedView = async (
 		viewId: input.viewId,
 		userId: input.userId,
 		data: { ...input.body, name: nameResult.data },
+		currentTrackerId: existingViewResult.data.trackerId,
 	});
 
 	if (!updatedView) {
@@ -265,4 +278,36 @@ export const cloneSavedView = async (
 	});
 
 	return createDataResult(clonedView);
+};
+
+export const reorderSavedViews = async (
+	input: { body: ReorderSavedViewsBody; userId: string },
+	deps: SavedViewServiceDeps = savedViewServiceDeps,
+): Promise<SavedViewValidationResult<{ viewIds: string[] }>> => {
+	const savedViewCount = await deps.countSavedViewsByIdsForUser({
+		userId: input.userId,
+		viewIds: input.body.viewIds,
+		trackerId: input.body.trackerId,
+	});
+	if (savedViewCount !== input.body.viewIds.length) {
+		return createValidationResult(savedViewIdsUnknownError);
+	}
+
+	const currentViewIds = await deps.listUserSavedViewIdsInOrder({
+		userId: input.userId,
+		trackerId: input.body.trackerId,
+	});
+	const viewIds = await deps.persistSavedViewOrderForUser({
+		userId: input.userId,
+		trackerId: input.body.trackerId,
+		viewIds: buildReorderedIds({
+			currentIds: currentViewIds,
+			requestedIds: input.body.viewIds,
+		}),
+	});
+	if (!viewIds || viewIds.length !== currentViewIds.length) {
+		return createValidationResult(savedViewIdsUnknownError);
+	}
+
+	return createDataResult<{ viewIds: string[] }, "validation">({ viewIds });
 };

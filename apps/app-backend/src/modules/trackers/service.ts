@@ -1,5 +1,6 @@
 import { resolveRequiredSlug, resolveRequiredString } from "@ryot/ts-utils";
 import { isUniqueConstraintError } from "~/lib/app/postgres";
+import { buildReorderedIds } from "~/lib/reorder";
 import type { ServiceResult } from "~/lib/result";
 import {
 	countVisibleTrackersByIdsForUser,
@@ -113,15 +114,11 @@ export const resolveTrackerPatch = (input: {
 export const buildTrackerOrder = (input: {
 	currentTrackerIds: string[];
 	requestedTrackerIds: string[];
-}) => {
-	const requestedTrackerIds = [...new Set(input.requestedTrackerIds)];
-	const requestedTrackerSet = new Set(requestedTrackerIds);
-	const trailingTrackerIds = input.currentTrackerIds.filter(
-		(trackerId) => !requestedTrackerSet.has(trackerId),
-	);
-
-	return [...requestedTrackerIds, ...trailingTrackerIds];
-};
+}) =>
+	buildReorderedIds({
+		currentIds: input.currentTrackerIds,
+		requestedIds: input.requestedTrackerIds,
+	});
 
 const resolveTrackerSlugResult = (
 	input: Pick<CreateTrackerBody, "name" | "slug">,
