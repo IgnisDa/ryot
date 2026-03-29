@@ -8,20 +8,24 @@ import {
 	notFoundResponse,
 	validationErrorResponse,
 } from "~/lib/openapi";
-import { builtInMediaOverviewResponseSchema } from "./schemas";
-import { getBuiltInMediaOverview } from "./service";
+import {
+	builtInMediaOverviewContinueResponseSchema,
+	builtInMediaOverviewRateTheseResponseSchema,
+	builtInMediaOverviewUpNextResponseSchema,
+} from "./schemas";
+import { getContinueItems, getRateTheseItems, getUpNextItems } from "./service";
 
-const getMediaOverviewRoute = createAuthRoute(
+const getMediaOverviewUpNextRoute = createAuthRoute(
 	createRoute({
 		method: "get",
 		tags: ["media"],
-		path: "/overview",
-		summary: "Get the built-in media overview",
+		path: "/overview/up-next",
+		summary: "Get the up next section",
 		responses: {
 			...createStandardResponses({
 				includePayloadError: false,
-				successSchema: builtInMediaOverviewResponseSchema,
-				successDescription: "Built-in media overview sections",
+				successSchema: builtInMediaOverviewUpNextResponseSchema,
+				successDescription: "Up next section items",
 			}),
 			400: validationErrorResponse(
 				"Built-in media overview configuration is invalid",
@@ -33,12 +37,55 @@ const getMediaOverviewRoute = createAuthRoute(
 	}),
 );
 
-export const mediaApi = new OpenAPIHono<{ Variables: AuthType }>().openapi(
-	getMediaOverviewRoute,
-	async (c) => {
+const getMediaOverviewContinueRoute = createAuthRoute(
+	createRoute({
+		method: "get",
+		tags: ["media"],
+		path: "/overview/continue",
+		summary: "Get the continue section",
+		responses: {
+			...createStandardResponses({
+				includePayloadError: false,
+				successSchema: builtInMediaOverviewContinueResponseSchema,
+				successDescription: "Continue section items",
+			}),
+			400: validationErrorResponse(
+				"Built-in media overview configuration is invalid",
+			),
+			404: notFoundResponse(
+				"Built-in media overview configuration is missing required built-in schemas",
+			),
+		},
+	}),
+);
+
+const getMediaOverviewRateTheseRoute = createAuthRoute(
+	createRoute({
+		method: "get",
+		tags: ["media"],
+		path: "/overview/review",
+		summary: "Get the review (rate these) section",
+		responses: {
+			...createStandardResponses({
+				includePayloadError: false,
+				successSchema: builtInMediaOverviewRateTheseResponseSchema,
+				successDescription: "Review section items",
+			}),
+			400: validationErrorResponse(
+				"Built-in media overview configuration is invalid",
+			),
+			404: notFoundResponse(
+				"Built-in media overview configuration is missing required built-in schemas",
+			),
+		},
+	}),
+);
+
+export const mediaApi = new OpenAPIHono<{ Variables: AuthType }>()
+	.openapi(getMediaOverviewUpNextRoute, async (c) => {
 		const user = c.get("user");
 
-		const result = await getBuiltInMediaOverview({ userId: user.id });
+		const result = await getUpNextItems(user.id);
 		if ("error" in result) {
 			const response = createServiceErrorResult(result);
 			return c.json(response.body, response.status);
@@ -46,5 +93,28 @@ export const mediaApi = new OpenAPIHono<{ Variables: AuthType }>().openapi(
 
 		const response = createSuccessResult(result.data);
 		return c.json(response.body, response.status);
-	},
-);
+	})
+	.openapi(getMediaOverviewContinueRoute, async (c) => {
+		const user = c.get("user");
+
+		const result = await getContinueItems(user.id);
+		if ("error" in result) {
+			const response = createServiceErrorResult(result);
+			return c.json(response.body, response.status);
+		}
+
+		const response = createSuccessResult(result.data);
+		return c.json(response.body, response.status);
+	})
+	.openapi(getMediaOverviewRateTheseRoute, async (c) => {
+		const user = c.get("user");
+
+		const result = await getRateTheseItems(user.id);
+		if ("error" in result) {
+			const response = createServiceErrorResult(result);
+			return c.json(response.body, response.status);
+		}
+
+		const response = createSuccessResult(result.data);
+		return c.json(response.body, response.status);
+	});

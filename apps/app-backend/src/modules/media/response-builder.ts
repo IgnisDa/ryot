@@ -6,7 +6,12 @@ import {
 	compareRateTheseItems,
 	compareUpNextItems,
 } from "./classification";
-import type { BuiltInMediaOverviewResponse } from "./schemas";
+import type {
+	BuiltInMediaOverviewContinueResponse,
+	BuiltInMediaOverviewRateTheseResponse,
+	BuiltInMediaOverviewResponse,
+	BuiltInMediaOverviewUpNextResponse,
+} from "./schemas";
 
 export type BuiltInMediaOverviewSourceItem = {
 	id: string;
@@ -148,51 +153,69 @@ export const buildBuiltInMediaOverviewResponse = (input: {
 	continueItems: ContinueSourceItem[];
 	rateTheseItems: RateTheseSourceItem[];
 }): BuiltInMediaOverviewResponse => {
-	const continueItems = input.continueItems
-		.sort(compareContinueSourceItems)
-		.map((item) => {
-			const currentUnits = resolveCurrentUnits({
-				totalUnits: item.totalUnits,
-				progressPercent: item.progressPercent,
-			});
+	return {
+		upNext: buildUpNextSectionResponse(input.upNextItems),
+		continue: buildContinueSectionResponse(input.continueItems),
+		rateThese: buildRateTheseSectionResponse(input.rateTheseItems),
+	};
+};
 
-			return {
-				id: item.id,
-				title: item.title,
-				image: item.image,
-				entitySchemaSlug: item.entitySchemaSlug,
-				subtitle: buildSubtitle(item.publishYear),
-				progressAt: resolveContinueProgressAt(item),
-				progress: {
-					currentUnits,
-					totalUnits: item.totalUnits,
-					progressPercent: item.progressPercent,
-				},
-				labels: {
-					cta: resolveContinueCta(item.entitySchemaSlug),
-					progress: buildProgressLabel({
-						currentUnits,
-						totalUnits: item.totalUnits,
-						progressPercent: item.progressPercent,
-						entitySchemaSlug: item.entitySchemaSlug,
-					}),
-				},
-			};
+export const buildUpNextSectionResponse = (
+	items: UpNextSourceItem[],
+): BuiltInMediaOverviewUpNextResponse => {
+	const upNextItems = items.sort(compareUpNextSourceItems).map((item) => ({
+		id: item.id,
+		title: item.title,
+		image: item.image,
+		labels: { cta: "Start" as const },
+		backlogAt: resolveUpNextBacklogAt(item),
+		entitySchemaSlug: item.entitySchemaSlug,
+		subtitle: buildSubtitle(item.publishYear),
+	}));
+
+	return { items: upNextItems, count: upNextItems.length };
+};
+
+export const buildContinueSectionResponse = (
+	items: ContinueSourceItem[],
+): BuiltInMediaOverviewContinueResponse => {
+	const continueItems = items.sort(compareContinueSourceItems).map((item) => {
+		const currentUnits = resolveCurrentUnits({
+			totalUnits: item.totalUnits,
+			progressPercent: item.progressPercent,
 		});
 
-	const upNextItems = input.upNextItems
-		.sort(compareUpNextSourceItems)
-		.map((item) => ({
+		return {
 			id: item.id,
 			title: item.title,
 			image: item.image,
-			labels: { cta: "Start" as const },
-			backlogAt: resolveUpNextBacklogAt(item),
 			entitySchemaSlug: item.entitySchemaSlug,
 			subtitle: buildSubtitle(item.publishYear),
-		}));
+			progressAt: resolveContinueProgressAt(item),
+			progress: {
+				currentUnits,
+				totalUnits: item.totalUnits,
+				progressPercent: item.progressPercent,
+			},
+			labels: {
+				cta: resolveContinueCta(item.entitySchemaSlug),
+				progress: buildProgressLabel({
+					currentUnits,
+					totalUnits: item.totalUnits,
+					progressPercent: item.progressPercent,
+					entitySchemaSlug: item.entitySchemaSlug,
+				}),
+			},
+		};
+	});
 
-	const rateTheseItems = input.rateTheseItems
+	return { items: continueItems, count: continueItems.length };
+};
+
+export const buildRateTheseSectionResponse = (
+	items: RateTheseSourceItem[],
+): BuiltInMediaOverviewRateTheseResponse => {
+	const rateTheseItems = items
 		.sort(compareRateTheseSourceItems)
 		.map((item) => ({
 			id: item.id,
@@ -205,9 +228,5 @@ export const buildBuiltInMediaOverviewResponse = (input: {
 			completedAt: resolveRateTheseCompletedAt(item),
 		}));
 
-	return {
-		upNext: { items: upNextItems, count: upNextItems.length },
-		continue: { items: continueItems, count: continueItems.length },
-		rateThese: { items: rateTheseItems, count: rateTheseItems.length },
-	};
+	return { items: rateTheseItems, count: rateTheseItems.length };
 };

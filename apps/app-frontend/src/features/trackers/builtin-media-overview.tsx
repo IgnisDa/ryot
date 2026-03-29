@@ -111,10 +111,12 @@ const TYPE_COLORS: Record<MediaType, string> = {
 	VisualNovel: "#F39C12",
 };
 
-type MediaOverviewData = ApiGetResponseData<"/media/overview">;
-type OverviewUpNextItem = MediaOverviewData["upNext"]["items"][number];
-type OverviewContinueItem = MediaOverviewData["continue"]["items"][number];
-type OverviewRateTheseItem = MediaOverviewData["rateThese"]["items"][number];
+type OverviewUpNextItem =
+	ApiGetResponseData<"/media/overview/up-next">["items"][number];
+type OverviewContinueItem =
+	ApiGetResponseData<"/media/overview/continue">["items"][number];
+type OverviewRateTheseItem =
+	ApiGetResponseData<"/media/overview/review">["items"][number];
 
 interface ActivityEvent {
 	id: string;
@@ -1063,19 +1065,43 @@ export function BuiltinMediaTrackerOverview(
 	const [upNextRef] = useAutoAnimate<HTMLDivElement>();
 	const [continueRef] = useAutoAnimate<HTMLDivElement>();
 	const [rateTheseRef] = useAutoAnimate<HTMLDivElement>();
-	const overviewQuery = apiClient.useQuery("get", "/media/overview");
-	const invalidateOverview = useCallback(() => {
+
+	const upNextQuery = apiClient.useQuery("get", "/media/overview/up-next");
+	const continueQuery = apiClient.useQuery("get", "/media/overview/continue");
+	const rateTheseQuery = apiClient.useQuery("get", "/media/overview/review");
+
+	const invalidateUpNext = useCallback(() => {
 		void queryClient.invalidateQueries({
-			queryKey: apiClient.queryOptions("get", "/media/overview").queryKey,
+			queryKey: apiClient.queryOptions("get", "/media/overview/up-next")
+				.queryKey,
 		});
+	}, [apiClient, queryClient]);
+
+	const invalidateReviews = useCallback(() => {
+		void queryClient.invalidateQueries({
+			queryKey: apiClient.queryOptions("get", "/media/overview/review")
+				.queryKey,
+		});
+	}, [apiClient, queryClient]);
+
+	const invalidateContinue = useCallback(() => {
+		void queryClient.invalidateQueries({
+			queryKey: apiClient.queryOptions("get", "/media/overview/continue")
+				.queryKey,
+		});
+	}, [apiClient, queryClient]);
+
+	const invalidateOverview = useCallback(() => {
+		invalidateUpNext();
+		invalidateReviews();
+		invalidateContinue();
 	}, [apiClient, queryClient]);
 
 	const entitySchemasQuery = useEntitySchemasQuery(props.tracker.id, true);
 
-	const overviewData = overviewQuery.data?.data;
-	const upNextItems = overviewData?.upNext.items ?? [];
-	const continueItems = overviewData?.continue.items ?? [];
-	const rateTheseItems = overviewData?.rateThese.items ?? [];
+	const upNextItems = upNextQuery.data?.data.items ?? [];
+	const continueItems = continueQuery.data?.data.items ?? [];
+	const rateTheseItems = rateTheseQuery.data?.data.items ?? [];
 	const typePickerModalId = `builtin-media-type-picker-${props.tracker.id}`;
 
 	const allImageEntries = [
@@ -1181,7 +1207,12 @@ export function BuiltinMediaTrackerOverview(
 		});
 	};
 
-	if (entitySchemasQuery.isLoading || overviewQuery.isLoading) {
+	if (
+		entitySchemasQuery.isLoading ||
+		upNextQuery.isLoading ||
+		continueQuery.isLoading ||
+		rateTheseQuery.isLoading
+	) {
 		return (
 			<Center h={400}>
 				<Loader />
@@ -1189,7 +1220,12 @@ export function BuiltinMediaTrackerOverview(
 		);
 	}
 
-	if (entitySchemasQuery.isError || overviewQuery.isError) {
+	if (
+		entitySchemasQuery.isError ||
+		upNextQuery.isError ||
+		continueQuery.isError ||
+		rateTheseQuery.isError
+	) {
 		return (
 			<Paper p="lg" withBorder>
 				<Text c="red">Failed to load media overview</Text>
@@ -1392,7 +1428,7 @@ export function BuiltinMediaTrackerOverview(
 								textMuted={t.textMuted}
 								textPrimary={t.textPrimary}
 								schemaBySlug={schemaBySlug}
-								onRated={invalidateOverview}
+								onRated={invalidateReviews}
 								surfaceHover={t.surfaceHover}
 								imageUrl={imageUrlByEntityId.get(item.id)}
 							/>
