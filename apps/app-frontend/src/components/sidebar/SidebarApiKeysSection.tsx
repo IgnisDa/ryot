@@ -11,6 +11,7 @@ import {
 	Text,
 	TextInput,
 } from "@mantine/core";
+import { modals } from "@mantine/modals";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Check, Copy, KeyRound, Trash2 } from "lucide-react";
 import { useMemo, useState } from "react";
@@ -108,16 +109,17 @@ export function SidebarApiKeysSection(props: { opened: boolean }) {
 	};
 
 	const handleDeleteApiKey = (keyId: string, name: string) => {
-		if (typeof window !== "undefined") {
-			const confirmed = window.confirm(
-				`Remove ${name || "this API key"}? This cannot be undone.`,
-			);
-			if (!confirmed) {
-				return;
-			}
-		}
-
-		deleteApiKeyMutation.mutate(keyId);
+		modals.openConfirmModal({
+			title: "Remove API key",
+			confirmProps: { color: "red" },
+			labels: { confirm: "Remove", cancel: "Cancel" },
+			onConfirm: () => deleteApiKeyMutation.mutate(keyId),
+			children: (
+				<Text size="sm">
+					Remove {name || "this API key"}? This cannot be undone.
+				</Text>
+			),
+		});
 	};
 
 	return (
