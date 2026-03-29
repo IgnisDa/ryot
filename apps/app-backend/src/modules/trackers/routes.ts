@@ -41,7 +41,7 @@ const createTrackerRoute = createAuthRoute(
 		path: "/",
 		method: "post",
 		tags: ["trackers"],
-		summary: "Create an enabled custom tracker",
+		summary: "Create a custom tracker",
 		request: {
 			body: { content: { "application/json": { schema: createTrackerBody } } },
 		},
