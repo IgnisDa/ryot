@@ -1441,6 +1441,7 @@ export interface paths {
                                 /** Format: date-time */
                                 updatedAt: string;
                                 isBuiltin: boolean;
+                                isDisabled: boolean;
                                 /** @description A Lucide icon name (e.g., 'book', 'dumbbell', 'gamepad-2'). See https://lucide.dev/icons/ */
                                 icon: string;
                                 trackerId: string | null;
@@ -1595,6 +1596,7 @@ export interface paths {
                                 /** Format: date-time */
                                 updatedAt: string;
                                 isBuiltin: boolean;
+                                isDisabled: boolean;
                                 /** @description A Lucide icon name (e.g., 'book', 'dumbbell', 'gamepad-2'). See https://lucide.dev/icons/ */
                                 icon: string;
                                 trackerId: string | null;
@@ -1710,6 +1712,7 @@ export interface paths {
                                 /** Format: date-time */
                                 updatedAt: string;
                                 isBuiltin: boolean;
+                                isDisabled: boolean;
                                 /** @description A Lucide icon name (e.g., 'book', 'dumbbell', 'gamepad-2'). See https://lucide.dev/icons/ */
                                 icon: string;
                                 trackerId: string | null;
@@ -1798,6 +1801,7 @@ export interface paths {
             requestBody?: {
                 content: {
                     "application/json": {
+                        isDisabled: boolean;
                         /** @description A Lucide icon name (e.g., 'book', 'dumbbell', 'gamepad-2'). See https://lucide.dev/icons/ */
                         icon: string;
                         name: string;
@@ -1865,6 +1869,7 @@ export interface paths {
                                 /** Format: date-time */
                                 updatedAt: string;
                                 isBuiltin: boolean;
+                                isDisabled: boolean;
                                 /** @description A Lucide icon name (e.g., 'book', 'dumbbell', 'gamepad-2'). See https://lucide.dev/icons/ */
                                 icon: string;
                                 trackerId: string | null;
@@ -1979,6 +1984,7 @@ export interface paths {
                                 /** Format: date-time */
                                 updatedAt: string;
                                 isBuiltin: boolean;
+                                isDisabled: boolean;
                                 /** @description A Lucide icon name (e.g., 'book', 'dumbbell', 'gamepad-2'). See https://lucide.dev/icons/ */
                                 icon: string;
                                 trackerId: string | null;
@@ -2106,6 +2112,7 @@ export interface paths {
                                 /** Format: date-time */
                                 updatedAt: string;
                                 isBuiltin: boolean;
+                                isDisabled: boolean;
                                 /** @description A Lucide icon name (e.g., 'book', 'dumbbell', 'gamepad-2'). See https://lucide.dev/icons/ */
                                 icon: string;
                                 trackerId: string | null;
