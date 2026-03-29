@@ -16,6 +16,10 @@ function toPropertyRows(values: string[]) {
 	return values.map((value) => ({ ...buildDefaultPropertyPathRow(), value }));
 }
 
+function schemaField(schemaSlug: string, property: string) {
+	return `${schemaSlug}.${property}`;
+}
+
 function toTableColumn(label: string, property: string[]) {
 	return {
 		...buildDefaultTableColumnRow(),
@@ -60,8 +64,8 @@ describe("savedViewExtendedFormSchema", () => {
 				grid: {
 					badgeProperty: null,
 					subtitleProperty: null,
-					titleProperty: toPropertyRows(["name"]),
-					imageProperty: toPropertyRows(["image"]),
+					titleProperty: toPropertyRows([schemaField("smartphones", "name")]),
+					imageProperty: toPropertyRows([schemaField("smartphones", "image")]),
 				},
 				list: {
 					imageProperty: null,
@@ -90,8 +94,8 @@ describe("savedViewExtendedFormSchema", () => {
 				grid: {
 					badgeProperty: null,
 					subtitleProperty: null,
-					titleProperty: toPropertyRows(["name"]),
-					imageProperty: toPropertyRows(["image"]),
+					titleProperty: toPropertyRows([schemaField("smartphones", "name")]),
+					imageProperty: toPropertyRows([schemaField("smartphones", "image")]),
 				},
 				list: {
 					imageProperty: null,
@@ -184,10 +188,18 @@ describe("savedViewExtendedFormSchema", () => {
 					subtitleProperty: null,
 				},
 				grid: {
-					badgeProperty: toPropertyRows(["status"]),
-					subtitleProperty: toPropertyRows(["year"]),
-					imageProperty: toPropertyRows(["image", "photo"]),
-					titleProperty: toPropertyRows(["@name", "brand"]),
+					badgeProperty: toPropertyRows([schemaField("smartphones", "status")]),
+					subtitleProperty: toPropertyRows([
+						schemaField("smartphones", "year"),
+					]),
+					imageProperty: toPropertyRows([
+						schemaField("smartphones", "image"),
+						schemaField("smartphones", "photo"),
+					]),
+					titleProperty: toPropertyRows([
+						"@name",
+						schemaField("smartphones", "brand"),
+					]),
 				},
 			},
 		});
@@ -198,22 +210,26 @@ describe("savedViewExtendedFormSchema", () => {
 				result.data.displayConfiguration.grid.imageProperty?.map(
 					(row) => row.value,
 				),
-			).toEqual(["image", "photo"]);
+			).toEqual([
+				schemaField("smartphones", "image"),
+				schemaField("smartphones", "photo"),
+			]);
+
 			expect(
 				result.data.displayConfiguration.grid.titleProperty?.map(
 					(row) => row.value,
 				),
-			).toEqual(["@name", "brand"]);
+			).toEqual(["@name", schemaField("smartphones", "brand")]);
 			expect(
 				result.data.displayConfiguration.grid.subtitleProperty?.map(
 					(row) => row.value,
 				),
-			).toEqual(["year"]);
+			).toEqual([schemaField("smartphones", "year")]);
 			expect(
 				result.data.displayConfiguration.grid.badgeProperty?.map(
 					(row) => row.value,
 				),
-			).toEqual(["status"]);
+			).toEqual([schemaField("smartphones", "status")]);
 		}
 	});
 
@@ -226,9 +242,11 @@ describe("savedViewExtendedFormSchema", () => {
 				table: { columns: [] },
 				grid: {
 					badgeProperty: null,
-					imageProperty: toPropertyRows(["image"]),
+					imageProperty: toPropertyRows([schemaField("smartphones", "image")]),
 					titleProperty: toPropertyRows(["@name"]),
-					subtitleProperty: toPropertyRows(["year"]),
+					subtitleProperty: toPropertyRows([
+						schemaField("smartphones", "year"),
+					]),
 				},
 				list: {
 					imageProperty: null,
@@ -426,7 +444,14 @@ describe("savedViewExtendedFormSchema - filters", () => {
 
 	it("accepts filter with in operator", () => {
 		const result = savedViewExtendedFormSchema.safeParse({
-			filters: [{ id: "1", field: "brand", op: "in", value: "Apple,Samsung" }],
+			filters: [
+				{
+					id: "1",
+					field: schemaField("smartphones", "brand"),
+					op: "in",
+					value: "Apple,Samsung",
+				},
+			],
 			entitySchemaSlugs: ["smartphones"],
 			sort: { direction: "asc", fields: [{ id: "1", value: "@name" }] },
 			displayConfiguration: {
@@ -447,6 +472,31 @@ describe("savedViewExtendedFormSchema - filters", () => {
 		});
 
 		expect(result.success).toBe(true);
+	});
+
+	it("rejects unqualified property references", () => {
+		const result = savedViewExtendedFormSchema.safeParse({
+			filters: [{ id: "1", field: "brand", op: "eq", value: "Apple" }],
+			entitySchemaSlugs: ["smartphones"],
+			sort: { direction: "asc", fields: [{ id: "1", value: "year" }] },
+			displayConfiguration: {
+				table: { columns: [toTableColumn("Brand", ["brand"])] },
+				list: {
+					imageProperty: null,
+					titleProperty: null,
+					badgeProperty: null,
+					subtitleProperty: null,
+				},
+				grid: {
+					imageProperty: null,
+					titleProperty: toPropertyRows(["brand"]),
+					badgeProperty: null,
+					subtitleProperty: null,
+				},
+			},
+		});
+
+		expect(result.success).toBe(false);
 	});
 
 	it("accepts empty filters array", () => {
@@ -507,31 +557,43 @@ describe("buildSavedViewExtendedUpdatePayload", () => {
 
 		const formValues = {
 			entitySchemaSlugs: ["smartphones", "tablets"],
-			filters: [{ id: "1", field: "year", op: "gte" as const, value: 2020 }],
+			filters: [
+				{
+					id: "1",
+					field: schemaField("smartphones", "year"),
+					op: "gte" as const,
+					value: 2020,
+				},
+			],
 			sort: {
 				direction: "desc" as const,
 				fields: [
 					{ id: "1", value: "@name" },
-					{ id: "2", value: "year" },
+					{ id: "2", value: schemaField("smartphones", "year") },
 				],
 			},
 			displayConfiguration: {
 				grid: {
 					badgeProperty: null,
-					imageProperty: toPropertyRows(["image"]),
-					subtitleProperty: toPropertyRows(["year"]),
-					titleProperty: toPropertyRows(["brand", "model"]),
+					imageProperty: toPropertyRows([schemaField("smartphones", "image")]),
+					subtitleProperty: toPropertyRows([
+						schemaField("smartphones", "year"),
+					]),
+					titleProperty: toPropertyRows([
+						schemaField("smartphones", "brand"),
+						schemaField("smartphones", "model"),
+					]),
 				},
 				list: {
 					badgeProperty: null,
 					subtitleProperty: null,
-					imageProperty: toPropertyRows(["image"]),
-					titleProperty: toPropertyRows(["brand"]),
+					imageProperty: toPropertyRows([schemaField("smartphones", "image")]),
+					titleProperty: toPropertyRows([schemaField("smartphones", "brand")]),
 				},
 				table: {
 					columns: [
-						toTableColumn("Brand", ["brand"]),
-						toTableColumn("Year", ["year"]),
+						toTableColumn("Brand", [schemaField("smartphones", "brand")]),
+						toTableColumn("Year", [schemaField("smartphones", "year")]),
 					],
 				},
 			},
@@ -552,20 +614,25 @@ describe("buildSavedViewExtendedUpdatePayload", () => {
 			"tablets",
 		]);
 		expect(payload.queryDefinition.filters).toEqual([
-			{ field: "year", op: "gte", value: 2020 },
+			{ field: schemaField("smartphones", "year"), op: "gte", value: 2020 },
 		]);
-		expect(payload.queryDefinition.sort.fields).toEqual(["@name", "year"]);
+		expect(payload.queryDefinition.sort.fields).toEqual([
+			"@name",
+			schemaField("smartphones", "year"),
+		]);
 		expect(payload.queryDefinition.sort.direction).toBe("desc");
 
 		// Uses updated displayConfiguration from form
 		expect(payload.displayConfiguration.grid.titleProperty).toEqual([
-			"brand",
-			"model",
+			schemaField("smartphones", "brand"),
+			schemaField("smartphones", "model"),
 		]);
-		expect(payload.displayConfiguration.list.titleProperty).toEqual(["brand"]);
+		expect(payload.displayConfiguration.list.titleProperty).toEqual([
+			schemaField("smartphones", "brand"),
+		]);
 		expect(payload.displayConfiguration.table.columns).toEqual([
-			{ label: "Brand", property: ["brand"] },
-			{ label: "Year", property: ["year"] },
+			{ label: "Brand", property: [schemaField("smartphones", "brand")] },
+			{ label: "Year", property: [schemaField("smartphones", "year")] },
 		]);
 	});
 
@@ -604,7 +671,12 @@ describe("buildSavedViewExtendedUpdatePayload", () => {
 		const formValues = {
 			entitySchemaSlugs: ["smartphones"],
 			filters: [
-				{ id: "1", field: "description", op: "isNull" as const, value: "" },
+				{
+					id: "1",
+					field: schemaField("smartphones", "description"),
+					op: "isNull" as const,
+					value: "",
+				},
 			],
 			displayConfiguration:
 				buildSavedViewExtendedFormValues(view).displayConfiguration,
@@ -617,7 +689,11 @@ describe("buildSavedViewExtendedUpdatePayload", () => {
 		const payload = buildSavedViewExtendedUpdatePayload(view, formValues);
 
 		expect(payload.queryDefinition.filters).toEqual([
-			{ field: "description", op: "isNull", value: null },
+			{
+				field: schemaField("smartphones", "description"),
+				op: "isNull",
+				value: null,
+			},
 		]);
 	});
 
@@ -664,7 +740,7 @@ describe("buildSavedViewExtendedUpdatePayload", () => {
 			filters: [
 				{
 					id: "1",
-					field: "brand",
+					field: schemaField("smartphones", "brand"),
 					op: "in" as const,
 					value: "Apple,Samsung,Google",
 				},
@@ -674,7 +750,11 @@ describe("buildSavedViewExtendedUpdatePayload", () => {
 		const payload = buildSavedViewExtendedUpdatePayload(view, formValues);
 
 		expect(payload.queryDefinition.filters).toEqual([
-			{ field: "brand", op: "in", value: ["Apple", "Samsung", "Google"] },
+			{
+				field: schemaField("smartphones", "brand"),
+				op: "in",
+				value: ["Apple", "Samsung", "Google"],
+			},
 		]);
 	});
 
@@ -682,7 +762,14 @@ describe("buildSavedViewExtendedUpdatePayload", () => {
 		const view = createSavedViewFixture({ trackerId: null });
 		const formValues = {
 			entitySchemaSlugs: ["smartphones"],
-			filters: [{ id: "1", field: "year", op: "gte" as const, value: 2020 }],
+			filters: [
+				{
+					id: "1",
+					field: schemaField("smartphones", "year"),
+					op: "gte" as const,
+					value: 2020,
+				},
+			],
 			displayConfiguration:
 				buildSavedViewExtendedFormValues(view).displayConfiguration,
 			sort: {
@@ -693,7 +780,7 @@ describe("buildSavedViewExtendedUpdatePayload", () => {
 		const payload = buildSavedViewExtendedUpdatePayload(view, formValues);
 
 		expect(payload.queryDefinition.filters).toEqual([
-			{ field: "year", op: "gte", value: 2020 },
+			{ field: schemaField("smartphones", "year"), op: "gte", value: 2020 },
 		]);
 		expect(typeof payload.queryDefinition.filters[0]?.value).toBe("number");
 	});
@@ -702,7 +789,14 @@ describe("buildSavedViewExtendedUpdatePayload", () => {
 		const view = createSavedViewFixture({ trackerId: null });
 		const formValues = {
 			entitySchemaSlugs: ["smartphones"],
-			filters: [{ id: "1", field: "active", op: "eq" as const, value: true }],
+			filters: [
+				{
+					id: "1",
+					field: schemaField("smartphones", "active"),
+					op: "eq" as const,
+					value: true,
+				},
+			],
 			displayConfiguration:
 				buildSavedViewExtendedFormValues(view).displayConfiguration,
 			sort: {
@@ -713,7 +807,7 @@ describe("buildSavedViewExtendedUpdatePayload", () => {
 		const payload = buildSavedViewExtendedUpdatePayload(view, formValues);
 
 		expect(payload.queryDefinition.filters).toEqual([
-			{ field: "active", op: "eq", value: true },
+			{ field: schemaField("smartphones", "active"), op: "eq", value: true },
 		]);
 		expect(typeof payload.queryDefinition.filters[0]?.value).toBe("boolean");
 	});
@@ -731,7 +825,7 @@ describe("buildSavedViewExtendedUpdatePayload", () => {
 			filters: [
 				{
 					id: "1",
-					field: "brand",
+					field: schemaField("smartphones", "brand"),
 					op: "in" as const,
 					value: "Apple , Samsung , Google",
 				},
@@ -740,7 +834,11 @@ describe("buildSavedViewExtendedUpdatePayload", () => {
 		const payload = buildSavedViewExtendedUpdatePayload(view, formValues);
 
 		expect(payload.queryDefinition.filters).toEqual([
-			{ field: "brand", op: "in", value: ["Apple", "Samsung", "Google"] },
+			{
+				field: schemaField("smartphones", "brand"),
+				op: "in",
+				value: ["Apple", "Samsung", "Google"],
+			},
 		]);
 	});
 
@@ -751,7 +849,12 @@ describe("buildSavedViewExtendedUpdatePayload", () => {
 			displayConfiguration:
 				buildSavedViewExtendedFormValues(view).displayConfiguration,
 			filters: [
-				{ id: "1", field: "name", op: "isNull" as const, value: "ignored" },
+				{
+					id: "1",
+					field: schemaField("smartphones", "name"),
+					op: "isNull" as const,
+					value: "ignored",
+				},
 			],
 			sort: {
 				direction: "asc" as const,
@@ -761,7 +864,7 @@ describe("buildSavedViewExtendedUpdatePayload", () => {
 		const payload = buildSavedViewExtendedUpdatePayload(view, formValues);
 
 		expect(payload.queryDefinition.filters).toEqual([
-			{ field: "name", op: "isNull", value: null },
+			{ field: schemaField("smartphones", "name"), op: "isNull", value: null },
 		]);
 	});
 
