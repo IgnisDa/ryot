@@ -301,3 +301,114 @@ describe("POST /entity-schemas", () => {
 		expect(error?.error?.message).toBe("Entity schema slug already exists");
 	});
 });
+
+describe("GET /entity-schemas/:entitySchemaId", () => {
+	it("returns 200 and the entity schema for a valid owned schema", async () => {
+		const { client, cookies } = await createAuthenticatedClient();
+
+		const { trackerId } = await createTracker(client, cookies, {
+			name: "Test Tracker",
+		});
+
+		const { schemaId, data: createdData } = await createEntitySchema(
+			client,
+			cookies,
+			{ trackerId, name: "My Schema", slug: "my-schema" },
+		);
+
+		const { data, response } = await client.GET(
+			"/entity-schemas/{entitySchemaId}",
+			{
+				headers: { Cookie: cookies },
+				params: { path: { entitySchemaId: schemaId } },
+			},
+		);
+
+		expect(response.status).toBe(200);
+		expect(data?.data).toBeDefined();
+		expect(data?.data?.id).toBe(schemaId);
+		expect(data?.data?.name).toBe("My Schema");
+		expect(data?.data?.slug).toBe("my-schema");
+		expect(data?.data?.trackerId).toBe(trackerId);
+		expect(data?.data?.isBuiltin).toBe(false);
+		expect(data?.data?.icon).toBe(createdData.icon);
+		expect(data?.data?.accentColor).toBe(createdData.accentColor);
+		expect(data?.data?.propertiesSchema).toBeDefined();
+	});
+
+	it("returns 200 for a built-in entity schema accessible to the user", async () => {
+		const { client, cookies } = await createAuthenticatedClient();
+
+		const { data: listData } = await client.GET("/trackers", {
+			headers: { Cookie: cookies },
+		});
+		const builtinTracker = listData?.data?.find((t) => t.isBuiltin);
+		if (!builtinTracker) {
+			throw new Error("Built-in tracker not found");
+		}
+
+		const { data: schemasData } = await client.GET("/entity-schemas", {
+			headers: { Cookie: cookies },
+			params: { query: { trackerId: builtinTracker.id } },
+		});
+		const firstSchema = schemasData?.data?.[0];
+		if (!firstSchema) {
+			throw new Error("No built-in entity schema found");
+		}
+
+		const { data, response } = await client.GET(
+			"/entity-schemas/{entitySchemaId}",
+			{
+				headers: { Cookie: cookies },
+				params: { path: { entitySchemaId: firstSchema.id } },
+			},
+		);
+
+		expect(response.status).toBe(200);
+		expect(data?.data?.id).toBe(firstSchema.id);
+		expect(data?.data?.isBuiltin).toBe(true);
+	});
+
+	it("returns 404 for a non-existent entity schema", async () => {
+		const { client, cookies } = await createAuthenticatedClient();
+
+		const nonExistentId = "00000000-0000-0000-0000-000000000000";
+		const { response, error } = await client.GET(
+			"/entity-schemas/{entitySchemaId}",
+			{
+				headers: { Cookie: cookies },
+				params: { path: { entitySchemaId: nonExistentId } },
+			},
+		);
+
+		expect(response.status).toBe(404);
+		expect(error?.error?.message).toBe("Entity schema not found");
+	});
+
+	it("returns 404 when accessing another user's entity schema", async () => {
+		const { client: client1, cookies: cookies1 } =
+			await createAuthenticatedClient();
+		const { client: client2, cookies: cookies2 } =
+			await createAuthenticatedClient();
+
+		const { trackerId } = await createTracker(client1, cookies1, {
+			name: "User 1 Tracker",
+		});
+		const { schemaId } = await createEntitySchema(client1, cookies1, {
+			trackerId,
+			slug: "user1-schema",
+			name: "User 1 Schema",
+		});
+
+		const { response, error } = await client2.GET(
+			"/entity-schemas/{entitySchemaId}",
+			{
+				headers: { Cookie: cookies2 },
+				params: { path: { entitySchemaId: schemaId } },
+			},
+		);
+
+		expect(response.status).toBe(404);
+		expect(error?.error?.message).toBe("Entity schema not found");
+	});
+});
