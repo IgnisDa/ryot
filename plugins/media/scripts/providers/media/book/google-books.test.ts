@@ -9,15 +9,19 @@ import resolve, { manifest as resolveManifest } from "./google-books-resolve.san
 import search, { manifest as searchManifest } from "./google-books-search.sandbox";
 
 type GoogleBooksHost = SandboxHost<typeof manifest.capabilities>;
+
 const httpSuccess = (body: unknown) =>
 	Effect.succeed({ status: 200, headers: {}, body: JSON.stringify(body) });
+
 const makeHost = (httpCall: GoogleBooksHost["httpCall"]) =>
 	defineSandboxTestHost(manifest, {
 		httpCall,
 		getPluginConfig: (keys) =>
 			Effect.succeed(Object.fromEntries(keys.map((key) => [key, "google-key"]))),
 	});
+
 const execution = { metadata: {}, sandboxScriptId: "script_test" };
+
 describe("book.google-books sandbox script", () => {
 	it("declares one script per operation", () => {
 		expect([
