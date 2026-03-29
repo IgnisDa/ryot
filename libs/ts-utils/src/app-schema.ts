@@ -494,9 +494,13 @@ export const fromAppSchema = (property: AppPropertyDefinition): z.ZodType => {
 			const withTransform = withNumberTransform(schema, p.transform);
 			return isRequired ? withTransform : withTransform.nullish();
 		})
-		.with({ type: "array" }, (p) =>
-			applyArrayValidation(z.array(fromAppSchema(p.items)), p.validation),
-		)
+		.with({ type: "array" }, (p) => {
+			const schema = applyArrayValidation(
+				z.array(fromAppSchema(p.items)),
+				p.validation,
+			);
+			return isRequired ? schema : schema.nullish();
+		})
 		.with({ type: "object" }, (p) => {
 			const shape: Record<string, z.ZodType> = {};
 			for (const [key, value] of Object.entries(p.properties)) {

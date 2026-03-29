@@ -148,6 +148,16 @@ describe("fromAppSchema", () => {
 		expect(
 			fromAppSchema({ type: "datetime" }).safeParse(undefined).success,
 		).toBeTrue();
+		expect(
+			fromAppSchema({ type: "array", items: { type: "string" } }).safeParse(
+				null,
+			).success,
+		).toBeTrue();
+		expect(
+			fromAppSchema({ type: "array", items: { type: "string" } }).safeParse(
+				undefined,
+			).success,
+		).toBeTrue();
 	});
 
 	it("rejects null for required fields", () => {
@@ -172,6 +182,13 @@ describe("fromAppSchema", () => {
 		expect(
 			fromAppSchema({
 				type: "integer",
+				validation: { required: true },
+			}).safeParse(null).success,
+		).toBeFalse();
+		expect(
+			fromAppSchema({
+				type: "array",
+				items: { type: "string" },
 				validation: { required: true },
 			}).safeParse(null).success,
 		).toBeFalse();
