@@ -329,23 +329,23 @@ V1 stored a `providers_consumed_on: Vec<String>` field on the `seen` table, reco
 
 **`consumedOn: string` (optional)** is added as a property to the `progress`, `complete`, `dropped`, and `on_hold` event schemas. It is not present on `backlog` or `review`, which do not represent consumption acts. Each event carries its own single optional source string. The aggregate view across an entity's history is derivable via `SELECT DISTINCT consumed_on FROM event WHERE entity_id = ?` and does not need to be stored separately.
 
-When a subscription creates a new event from its source event — as auto-complete does when it creates a `complete` event from a 100% `progress` event — its automation rule declares which relevant properties to forward.
+When a subscription creates a new event from its source event — as auto-complete does when it creates a `complete` event from a 100% `progress` event — its manifest binding declares which relevant properties to forward.
 
-The auto-complete `automation_rule` row carries server-owned metadata:
+The auto-complete manifest binding carries server-owned metadata:
 
 ```ts
-autoCompleteRuleMetadataSchema = z.object({
+autoCompleteBindingMetadataSchema = z.object({
     inheritedProperties: z.array(z.string()).optional(),
 });
 ```
 
 The subscription execution workflow passes this value as `automation.ruleMetadata`. The auto-complete script copies the declared keys from the stored event snapshot into the completion event it creates.
 
-The built-in auto-complete rule carries `metadata: { inheritedProperties: ["consumedOn"] }`. Adding a new property to propagate in the future requires only updating that metadata record.
+The built-in auto-complete binding carries `metadata: { inheritedProperties: ["consumedOn"] }`. Adding a new property to propagate in the future requires only updating that binding.
 
 ### Summary
 
 - `consumedOn: string` (optional) is a property on `progress`, `complete`, `dropped`, and `on_hold` events.
 - Each event carries its own source; the aggregate is a query over event history.
-- `automation_rule.metadata.inheritedProperties` declares which source-event properties the subscription copies.
-- The automation script interprets server-owned rule metadata; propagation behavior remains data-driven.
+- Manifest binding `metadata.inheritedProperties` declares which source-event properties the subscription copies.
+- The automation script interprets server-owned binding metadata; propagation behavior remains data-driven.

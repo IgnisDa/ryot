@@ -149,7 +149,7 @@ export class PluginRuntimeResolver extends Effect.Service<PluginRuntimeResolver>
 								isNotNull(schema.sandboxScript.contentHash),
 							),
 						)
-						.orderBy(desc(schema.sandboxScript.createdAt))
+						.orderBy(desc(schema.sandboxScript.updatedAt))
 						.limit(1),
 				);
 				return row ? { ...row, id: SandboxScriptId.make(row.id) } : null;
