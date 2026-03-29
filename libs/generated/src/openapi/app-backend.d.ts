@@ -1709,20 +1709,20 @@ export interface paths {
                                         eventSchemaSlug: string;
                                     }[];
                                     entitySchemaSlugs: string[];
-                                    filter?: components["schemas"]["ViewPredicate"];
+                                    filter?: components["schemas"]["NullableViewPredicate"];
                                 };
                                 displayConfiguration: {
                                     grid: {
-                                        imageProperty: components["schemas"]["ViewExpression"];
-                                        titleProperty: components["schemas"]["ViewExpression"];
-                                        badgeProperty: components["schemas"]["ViewExpression"];
-                                        subtitleProperty: components["schemas"]["ViewExpression"];
+                                        imageProperty: components["schemas"]["NullableViewExpression"];
+                                        titleProperty: components["schemas"]["NullableViewExpression"];
+                                        badgeProperty: components["schemas"]["NullableViewExpression"];
+                                        subtitleProperty: components["schemas"]["NullableViewExpression"];
                                     };
                                     list: {
-                                        imageProperty: components["schemas"]["ViewExpression"];
-                                        titleProperty: components["schemas"]["ViewExpression"];
-                                        badgeProperty: components["schemas"]["ViewExpression"];
-                                        subtitleProperty: components["schemas"]["ViewExpression"];
+                                        imageProperty: components["schemas"]["NullableViewExpression"];
+                                        titleProperty: components["schemas"]["NullableViewExpression"];
+                                        badgeProperty: components["schemas"]["NullableViewExpression"];
+                                        subtitleProperty: components["schemas"]["NullableViewExpression"];
                                     };
                                     table: {
                                         columns: {
@@ -1790,20 +1790,20 @@ export interface paths {
                                 eventSchemaSlug: string;
                             }[];
                             entitySchemaSlugs: string[];
-                            filter?: components["schemas"]["ViewPredicate"];
+                            filter?: components["schemas"]["NullableViewPredicate"];
                         };
                         displayConfiguration: {
                             grid: {
-                                imageProperty: components["schemas"]["ViewExpression"];
-                                titleProperty: components["schemas"]["ViewExpression"];
-                                badgeProperty: components["schemas"]["ViewExpression"];
-                                subtitleProperty: components["schemas"]["ViewExpression"];
+                                imageProperty: components["schemas"]["NullableViewExpression"];
+                                titleProperty: components["schemas"]["NullableViewExpression"];
+                                badgeProperty: components["schemas"]["NullableViewExpression"];
+                                subtitleProperty: components["schemas"]["NullableViewExpression"];
                             };
                             list: {
-                                imageProperty: components["schemas"]["ViewExpression"];
-                                titleProperty: components["schemas"]["ViewExpression"];
-                                badgeProperty: components["schemas"]["ViewExpression"];
-                                subtitleProperty: components["schemas"]["ViewExpression"];
+                                imageProperty: components["schemas"]["NullableViewExpression"];
+                                titleProperty: components["schemas"]["NullableViewExpression"];
+                                badgeProperty: components["schemas"]["NullableViewExpression"];
+                                subtitleProperty: components["schemas"]["NullableViewExpression"];
                             };
                             table: {
                                 columns: {
@@ -1853,20 +1853,20 @@ export interface paths {
                                         eventSchemaSlug: string;
                                     }[];
                                     entitySchemaSlugs: string[];
-                                    filter?: components["schemas"]["ViewPredicate"];
+                                    filter?: components["schemas"]["NullableViewPredicate"];
                                 };
                                 displayConfiguration: {
                                     grid: {
-                                        imageProperty: components["schemas"]["ViewExpression"];
-                                        titleProperty: components["schemas"]["ViewExpression"];
-                                        badgeProperty: components["schemas"]["ViewExpression"];
-                                        subtitleProperty: components["schemas"]["ViewExpression"];
+                                        imageProperty: components["schemas"]["NullableViewExpression"];
+                                        titleProperty: components["schemas"]["NullableViewExpression"];
+                                        badgeProperty: components["schemas"]["NullableViewExpression"];
+                                        subtitleProperty: components["schemas"]["NullableViewExpression"];
                                     };
                                     list: {
-                                        imageProperty: components["schemas"]["ViewExpression"];
-                                        titleProperty: components["schemas"]["ViewExpression"];
-                                        badgeProperty: components["schemas"]["ViewExpression"];
-                                        subtitleProperty: components["schemas"]["ViewExpression"];
+                                        imageProperty: components["schemas"]["NullableViewExpression"];
+                                        titleProperty: components["schemas"]["NullableViewExpression"];
+                                        badgeProperty: components["schemas"]["NullableViewExpression"];
+                                        subtitleProperty: components["schemas"]["NullableViewExpression"];
                                     };
                                     table: {
                                         columns: {
@@ -1964,20 +1964,20 @@ export interface paths {
                                         eventSchemaSlug: string;
                                     }[];
                                     entitySchemaSlugs: string[];
-                                    filter?: components["schemas"]["ViewPredicate"];
+                                    filter?: components["schemas"]["NullableViewPredicate"];
                                 };
                                 displayConfiguration: {
                                     grid: {
-                                        imageProperty: components["schemas"]["ViewExpression"];
-                                        titleProperty: components["schemas"]["ViewExpression"];
-                                        badgeProperty: components["schemas"]["ViewExpression"];
-                                        subtitleProperty: components["schemas"]["ViewExpression"];
+                                        imageProperty: components["schemas"]["NullableViewExpression"];
+                                        titleProperty: components["schemas"]["NullableViewExpression"];
+                                        badgeProperty: components["schemas"]["NullableViewExpression"];
+                                        subtitleProperty: components["schemas"]["NullableViewExpression"];
                                     };
                                     list: {
-                                        imageProperty: components["schemas"]["ViewExpression"];
-                                        titleProperty: components["schemas"]["ViewExpression"];
-                                        badgeProperty: components["schemas"]["ViewExpression"];
-                                        subtitleProperty: components["schemas"]["ViewExpression"];
+                                        imageProperty: components["schemas"]["NullableViewExpression"];
+                                        titleProperty: components["schemas"]["NullableViewExpression"];
+                                        badgeProperty: components["schemas"]["NullableViewExpression"];
+                                        subtitleProperty: components["schemas"]["NullableViewExpression"];
                                     };
                                     table: {
                                         columns: {
@@ -2050,20 +2050,20 @@ export interface paths {
                                 eventSchemaSlug: string;
                             }[];
                             entitySchemaSlugs: string[];
-                            filter?: components["schemas"]["ViewPredicate"];
+                            filter?: components["schemas"]["NullableViewPredicate"];
                         };
                         displayConfiguration: {
                             grid: {
-                                imageProperty: components["schemas"]["ViewExpression"];
-                                titleProperty: components["schemas"]["ViewExpression"];
-                                badgeProperty: components["schemas"]["ViewExpression"];
-                                subtitleProperty: components["schemas"]["ViewExpression"];
+                                imageProperty: components["schemas"]["NullableViewExpression"];
+                                titleProperty: components["schemas"]["NullableViewExpression"];
+                                badgeProperty: components["schemas"]["NullableViewExpression"];
+                                subtitleProperty: components["schemas"]["NullableViewExpression"];
                             };
                             list: {
-                                imageProperty: components["schemas"]["ViewExpression"];
-                                titleProperty: components["schemas"]["ViewExpression"];
-                                badgeProperty: components["schemas"]["ViewExpression"];
-                                subtitleProperty: components["schemas"]["ViewExpression"];
+                                imageProperty: components["schemas"]["NullableViewExpression"];
+                                titleProperty: components["schemas"]["NullableViewExpression"];
+                                badgeProperty: components["schemas"]["NullableViewExpression"];
+                                subtitleProperty: components["schemas"]["NullableViewExpression"];
                             };
                             table: {
                                 columns: {
@@ -2113,20 +2113,20 @@ export interface paths {
                                         eventSchemaSlug: string;
                                     }[];
                                     entitySchemaSlugs: string[];
-                                    filter?: components["schemas"]["ViewPredicate"];
+                                    filter?: components["schemas"]["NullableViewPredicate"];
                                 };
                                 displayConfiguration: {
                                     grid: {
-                                        imageProperty: components["schemas"]["ViewExpression"];
-                                        titleProperty: components["schemas"]["ViewExpression"];
-                                        badgeProperty: components["schemas"]["ViewExpression"];
-                                        subtitleProperty: components["schemas"]["ViewExpression"];
+                                        imageProperty: components["schemas"]["NullableViewExpression"];
+                                        titleProperty: components["schemas"]["NullableViewExpression"];
+                                        badgeProperty: components["schemas"]["NullableViewExpression"];
+                                        subtitleProperty: components["schemas"]["NullableViewExpression"];
                                     };
                                     list: {
-                                        imageProperty: components["schemas"]["ViewExpression"];
-                                        titleProperty: components["schemas"]["ViewExpression"];
-                                        badgeProperty: components["schemas"]["ViewExpression"];
-                                        subtitleProperty: components["schemas"]["ViewExpression"];
+                                        imageProperty: components["schemas"]["NullableViewExpression"];
+                                        titleProperty: components["schemas"]["NullableViewExpression"];
+                                        badgeProperty: components["schemas"]["NullableViewExpression"];
+                                        subtitleProperty: components["schemas"]["NullableViewExpression"];
                                     };
                                     table: {
                                         columns: {
@@ -2223,20 +2223,20 @@ export interface paths {
                                         eventSchemaSlug: string;
                                     }[];
                                     entitySchemaSlugs: string[];
-                                    filter?: components["schemas"]["ViewPredicate"];
+                                    filter?: components["schemas"]["NullableViewPredicate"];
                                 };
                                 displayConfiguration: {
                                     grid: {
-                                        imageProperty: components["schemas"]["ViewExpression"];
-                                        titleProperty: components["schemas"]["ViewExpression"];
-                                        badgeProperty: components["schemas"]["ViewExpression"];
-                                        subtitleProperty: components["schemas"]["ViewExpression"];
+                                        imageProperty: components["schemas"]["NullableViewExpression"];
+                                        titleProperty: components["schemas"]["NullableViewExpression"];
+                                        badgeProperty: components["schemas"]["NullableViewExpression"];
+                                        subtitleProperty: components["schemas"]["NullableViewExpression"];
                                     };
                                     list: {
-                                        imageProperty: components["schemas"]["ViewExpression"];
-                                        titleProperty: components["schemas"]["ViewExpression"];
-                                        badgeProperty: components["schemas"]["ViewExpression"];
-                                        subtitleProperty: components["schemas"]["ViewExpression"];
+                                        imageProperty: components["schemas"]["NullableViewExpression"];
+                                        titleProperty: components["schemas"]["NullableViewExpression"];
+                                        badgeProperty: components["schemas"]["NullableViewExpression"];
+                                        subtitleProperty: components["schemas"]["NullableViewExpression"];
                                     };
                                     table: {
                                         columns: {
@@ -2346,20 +2346,20 @@ export interface paths {
                                         eventSchemaSlug: string;
                                     }[];
                                     entitySchemaSlugs: string[];
-                                    filter?: components["schemas"]["ViewPredicate"];
+                                    filter?: components["schemas"]["NullableViewPredicate"];
                                 };
                                 displayConfiguration: {
                                     grid: {
-                                        imageProperty: components["schemas"]["ViewExpression"];
-                                        titleProperty: components["schemas"]["ViewExpression"];
-                                        badgeProperty: components["schemas"]["ViewExpression"];
-                                        subtitleProperty: components["schemas"]["ViewExpression"];
+                                        imageProperty: components["schemas"]["NullableViewExpression"];
+                                        titleProperty: components["schemas"]["NullableViewExpression"];
+                                        badgeProperty: components["schemas"]["NullableViewExpression"];
+                                        subtitleProperty: components["schemas"]["NullableViewExpression"];
                                     };
                                     list: {
-                                        imageProperty: components["schemas"]["ViewExpression"];
-                                        titleProperty: components["schemas"]["ViewExpression"];
-                                        badgeProperty: components["schemas"]["ViewExpression"];
-                                        subtitleProperty: components["schemas"]["ViewExpression"];
+                                        imageProperty: components["schemas"]["NullableViewExpression"];
+                                        titleProperty: components["schemas"]["NullableViewExpression"];
+                                        badgeProperty: components["schemas"]["NullableViewExpression"];
+                                        subtitleProperty: components["schemas"]["NullableViewExpression"];
                                     };
                                     table: {
                                         columns: {
@@ -2522,7 +2522,7 @@ export interface paths {
                             kind: "latestEvent";
                             eventSchemaSlug: string;
                         }[];
-                        filter?: components["schemas"]["ViewPredicate"];
+                        filter?: components["schemas"]["NullableViewPredicate"];
                         entitySchemaSlugs: string[];
                         /** @default [] */
                         fields?: {
@@ -2920,6 +2920,8 @@ export interface components {
             expression: components["schemas"]["ViewExpression"];
             key: string;
         };
+        NullableViewPredicate: components["schemas"]["ViewPredicate"] | null;
+        NullableViewExpression: components["schemas"]["ViewExpression"] | null;
     };
     responses: never;
     parameters: never;
