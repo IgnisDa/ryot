@@ -1,3 +1,4 @@
+import { dayjs } from "@ryot/ts-utils/dayjs";
 import {
 	builtinMediaEntitySchemaSlugSet,
 	builtinMediaEntitySchemaSlugs,
@@ -229,29 +230,13 @@ const defaultDeps: MediaServiceDeps = {
 	},
 };
 
-const getStartOfDay = (date: Date) => {
-	const start = new Date(date);
-	start.setUTCHours(0, 0, 0, 0);
-	return start;
-};
-
-const getDateKey = (date: Date) => {
-	const year = date.getUTCFullYear();
-	const month = `${date.getUTCMonth() + 1}`.padStart(2, "0");
-	const day = `${date.getUTCDate()}`.padStart(2, "0");
-	return `${year}-${month}-${day}`;
-};
+const getDateKey = (date: Date) => dayjs.utc(date).format("YYYY-MM-DD");
 
 const getCurrentWeekRange = (now = new Date()) => {
-	const startAt = getStartOfDay(now);
-	const dayOfWeek = startAt.getUTCDay();
-	const daysFromMonday = dayOfWeek === 0 ? 6 : dayOfWeek - 1;
-	startAt.setUTCDate(startAt.getUTCDate() - daysFromMonday);
+	const startAt = dayjs.utc(now).startOf("isoWeek");
+	const endAt = startAt.add(7, "day");
 
-	const endAt = new Date(startAt);
-	endAt.setUTCDate(endAt.getUTCDate() + 7);
-
-	return { startAt, endAt };
+	return { startAt: startAt.toDate(), endAt: endAt.toDate() };
 };
 
 export const getContinueItems = async (
@@ -447,8 +432,7 @@ export const getWeekActivity = async (
 	}
 
 	const items = Array.from({ length: 7 }, (_, index) => {
-		const date = new Date(startAt);
-		date.setUTCDate(startAt.getUTCDate() + index);
+		const date = dayjs.utc(startAt).add(index, "day").toDate();
 		return { date, count: countByDayKey.get(getDateKey(date)) ?? 0 };
 	});
 

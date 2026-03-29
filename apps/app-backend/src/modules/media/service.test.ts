@@ -1,4 +1,5 @@
 import { describe, expect, it } from "bun:test";
+import { dayjs } from "@ryot/ts-utils/dayjs";
 import { expectDataResult } from "~/lib/test-helpers";
 import {
 	QueryEngineNotFoundError,
@@ -12,7 +13,7 @@ import {
 	getWeekActivity,
 } from "./service";
 
-const date = (value: string) => new Date(value);
+const date = (value: string) => dayjs.utc(value).toDate();
 
 describe("getContinueItems", () => {
 	it("returns continue items with progress", async () => {
@@ -585,20 +586,9 @@ describe("getRecentActivityItems", () => {
 
 describe("getWeekActivity", () => {
 	it("returns seven daily buckets for the current week", async () => {
-		const now = new Date();
-		const dayOfWeek = now.getDay();
-		const daysFromMonday = dayOfWeek === 0 ? 6 : dayOfWeek - 1;
-		const monday = new Date(now);
-		monday.setHours(0, 0, 0, 0);
-		monday.setDate(monday.getDate() - daysFromMonday);
-
-		const tuesday = new Date(monday);
-		tuesday.setDate(monday.getDate() + 1);
-		tuesday.setHours(12, 0, 0, 0);
-
-		const friday = new Date(monday);
-		friday.setDate(monday.getDate() + 4);
-		friday.setHours(18, 0, 0, 0);
+		const monday = dayjs.utc().startOf("isoWeek");
+		const tuesday = monday.add(1, "day").hour(12);
+		const friday = monday.add(4, "day").hour(18);
 
 		const result = expectDataResult(
 			await getWeekActivity("user_1", {
@@ -607,9 +597,9 @@ describe("getWeekActivity", () => {
 				},
 				listRecentActivityEventsForUser: async () => [],
 				listWeekActivityEventsForUser: async () => [
-					{ occurredAt: tuesday },
-					{ occurredAt: tuesday },
-					{ occurredAt: friday },
+					{ occurredAt: tuesday.toDate() },
+					{ occurredAt: tuesday.toDate() },
+					{ occurredAt: friday.toDate() },
 				],
 			}),
 		);
@@ -630,16 +620,8 @@ describe("getWeekActivity", () => {
 	});
 
 	it("labels week buckets in UTC", async () => {
-		const now = new Date();
-		const mondayUtc = new Date(now);
-		mondayUtc.setUTCHours(0, 0, 0, 0);
-		const daysFromMonday =
-			mondayUtc.getUTCDay() === 0 ? 6 : mondayUtc.getUTCDay() - 1;
-		mondayUtc.setUTCDate(mondayUtc.getUTCDate() - daysFromMonday);
-
-		const sundayUtc = new Date(mondayUtc);
-		sundayUtc.setUTCDate(mondayUtc.getUTCDate() + 6);
-		sundayUtc.setUTCHours(23, 59, 0, 0);
+		const mondayUtc = dayjs.utc().startOf("isoWeek");
+		const sundayUtc = mondayUtc.add(6, "day").hour(23).minute(59);
 
 		const result = expectDataResult(
 			await getWeekActivity("user_1", {
@@ -648,8 +630,8 @@ describe("getWeekActivity", () => {
 					throw new Error("Should not execute section query");
 				},
 				listWeekActivityEventsForUser: async () => [
-					{ occurredAt: mondayUtc },
-					{ occurredAt: sundayUtc },
+					{ occurredAt: mondayUtc.toDate() },
+					{ occurredAt: sundayUtc.toDate() },
 				],
 			}),
 		);
