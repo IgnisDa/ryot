@@ -4,7 +4,7 @@
 
 **Type:** AFK
 
-**Status:** todo
+**Status:** done
 
 ## What to build
 
@@ -29,29 +29,29 @@ the parent PRD for the full design.
 
 ## Acceptance criteria
 
-- [ ] Every provider directory under `scripts/media-providers/` contains a single `index.txt`
+- [x] Every provider directory under `scripts/media-providers/` contains a single `index.txt`
       that declares both a `search` and a `details` driver. The separate `search.txt` and
       `details.txt` files are deleted.
-- [ ] Shared helper functions within a provider (e.g. `parseJsonResponse`, `collectGenres`,
+- [x] Shared helper functions within a provider (e.g. `parseJsonResponse`, `collectGenres`,
       `toTitleCase`) appear exactly once in `index.txt`, above both driver declarations.
-- [ ] The `sandboxScripts` array in the seed manifest contains 8 entries (one per provider),
+- [x] The `sandboxScripts` array in the seed manifest contains 8 entries (one per provider),
       each with a slug that has no `.search` or `.details` suffix.
-- [ ] `entitySchemaScriptLinks` in the seed manifest contains 8 entries, each mapping a schema
+- [x] `entitySchemaScriptLinks` in the seed manifest contains 8 entries, each mapping a schema
       slug to a single script slug.
-- [ ] `linkScriptToEntitySchema` in seed helpers inserts a row into `entity_schema_script`
+- [x] `linkScriptToEntitySchema` in seed helpers inserts a row into `entity_schema_script`
       (not the old `entity_schema_sandbox_script`). `linkScriptPairToEntitySchema` is removed.
-- [ ] The entity-schemas repository builds `providers: Array<{ name, scriptId }>` from a join
+- [x] The entity-schemas repository builds `providers: Array<{ name, scriptId }>` from a join
       to `entitySchemaScript` + `sandboxScript`. The `searchProviders` field is gone.
-- [ ] `searchProviderSchema` in `modules/entity-schemas/schemas.ts` is replaced by
+- [x] `searchProviderSchema` in `modules/entity-schemas/schemas.ts` is replaced by
       `providerSchema` with fields `name` and `scriptId` only.
-- [ ] `listedEntitySchemaSchema` uses `providers` (not `searchProviders`) for the array field.
-- [ ] The OpenAPI spec is regenerated and the generated types in
+- [x] `listedEntitySchemaSchema` uses `providers` (not `searchProviders`) for the array field.
+- [x] The OpenAPI spec is regenerated and the generated types in
       `libs/generated/src/openapi/app-backend.d.ts` reflect `providers` with `scriptId`.
-- [ ] `bun run typecheck` and `bun test` pass in `apps/app-backend`.
+- [x] `bun run typecheck` and `bun test` pass in `apps/app-backend`.
 
 ## Blocked by
 
-- [Task 02](./02-db-schema-update.md)
+- [Task 02](./02-db-schema-update.md) ✓
 
 ## User stories addressed
 
