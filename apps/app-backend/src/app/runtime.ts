@@ -10,7 +10,7 @@ import { initializeQueues, shutdownQueues } from "~/lib/queue";
 import { initializeWorkers, shutdownWorkers } from "~/lib/queue/workers";
 import { initializeRedis, shutdownRedis } from "~/lib/redis";
 import { initializeSandboxService, shutdownSandboxService } from "~/lib/sandbox";
-import { dispatchExerciseSeedJob } from "~/modules/fitness";
+import { dispatchBuiltinEntityPreloadJobs } from "~/modules/entities/startup";
 import { initializeMetrics } from "~/modules/system";
 
 import { getServer } from "./server";
@@ -32,7 +32,7 @@ export const startServer = async () => {
 	await initializeQueues();
 	await initializeSandboxService();
 	initializeWorkers();
-	await dispatchExerciseSeedJob();
+	await dispatchBuiltinEntityPreloadJobs();
 
 	const app = getServer();
 	const server = serve({ port: config.port, fetch: app.fetch }, (c) => {
