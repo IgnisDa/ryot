@@ -17,6 +17,10 @@ import {
 	timestampFields,
 } from "~/lib/zod/base";
 
+const savedViewEntitySchemaSlugArraySchema = z.array(
+	nonEmptyTrimmedStringSchema,
+);
+
 const entitySchemaSlugArraySchema = createNonEmptyStringArraySchema(
 	"At least one entity schema slug is required",
 );
@@ -87,13 +91,22 @@ export const displayConfigurationSchema = z.object({
 
 export type DisplayConfiguration = z.infer<typeof displayConfigurationSchema>;
 
-export const savedViewQueryDefinitionSchema = z.object({
-	sort: sortDefinitionSchema,
-	computedFields: computedFieldArraySchema,
-	eventJoins: eventJoinDefinitionArraySchema,
-	entitySchemaSlugs: entitySchemaSlugArraySchema,
-	filter: nullableViewPredicateSchema.default(null),
-});
+const createSavedViewQueryDefinitionSchema = (
+	entitySchemaSlugs: typeof savedViewEntitySchemaSlugArraySchema,
+) =>
+	z.object({
+		entitySchemaSlugs,
+		sort: sortDefinitionSchema,
+		computedFields: computedFieldArraySchema,
+		eventJoins: eventJoinDefinitionArraySchema,
+		filter: nullableViewPredicateSchema.default(null),
+	});
+
+export const savedViewQueryDefinitionSchema =
+	createSavedViewQueryDefinitionSchema(entitySchemaSlugArraySchema);
+
+export const storedSavedViewQueryDefinitionSchema =
+	createSavedViewQueryDefinitionSchema(savedViewEntitySchemaSlugArraySchema);
 
 export type SavedViewQueryDefinition = z.infer<
 	typeof savedViewQueryDefinitionSchema

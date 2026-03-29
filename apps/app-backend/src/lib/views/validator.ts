@@ -1,9 +1,8 @@
 import type { DisplayConfiguration } from "~/modules/saved-views/schemas";
 import type { ViewRuntimeRequest } from "~/modules/view-runtime/schemas";
 import {
-	buildComputedFieldMap,
 	getComputedFieldOrThrow,
-	orderComputedFields,
+	prepareComputedFields,
 } from "./computed-fields";
 import { ViewRuntimeValidationError } from "./errors";
 import type {
@@ -213,8 +212,9 @@ const validateComputedFields = (input: {
 		ValidationEventJoinRow
 	>;
 }) => {
-	const computedFieldMap = buildComputedFieldMap(input.computedFields);
-	const orderedComputedFields = orderComputedFields(input.computedFields);
+	const { computedFieldMap, orderedComputedFields } = prepareComputedFields(
+		input.computedFields,
+	);
 
 	for (const computedField of orderedComputedFields) {
 		validateExpressionAgainstSchemas(

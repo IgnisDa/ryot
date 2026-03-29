@@ -13,37 +13,10 @@ import {
 	createRuntimeEvent,
 	createSingleSchemaRuntimeFixture,
 	createTracker,
+	entityField,
 	executeViewRuntime,
+	getRuntimeFieldOrThrow,
 } from "src/fixtures";
-
-const entityField = (schemaSlug: string, property: string) => {
-	if (
-		property === "id" ||
-		property === "name" ||
-		property === "image" ||
-		property === "createdAt" ||
-		property === "updatedAt"
-	) {
-		return `entity.${schemaSlug}.@${property}`;
-	}
-
-	return `entity.${schemaSlug}.${property}`;
-};
-
-type ViewRuntimeItem = NonNullable<
-	Awaited<ReturnType<typeof executeViewRuntime>>["data"]
->["data"]["items"][number];
-
-const getField = (item: ViewRuntimeItem | undefined, key: string) => {
-	expect(item).toBeDefined();
-	const field = item?.fields.find((entry) => entry.key === key);
-	expect(field).toBeDefined();
-	if (!field) {
-		throw new Error(`Expected runtime field '${key}'`);
-	}
-
-	return field;
-};
 
 async function createImageFallbackFixture() {
 	const { client, cookies } = await createAuthenticatedClient();
@@ -177,48 +150,64 @@ export function registerViewRuntimePresentationAndErrorTests() {
 
 		expect(gridResult.response.status).toBe(200);
 		expect(listResult.response.status).toBe(200);
-		expect(getField(gridResult.data?.data.items[0], "badge")).toEqual({
+		expect(
+			getRuntimeFieldOrThrow(gridResult.data?.data.items[0], "badge"),
+		).toEqual({
 			key: "badge",
 			kind: "text",
 			value: "phone",
 		});
-		expect(getField(gridResult.data?.data.items[0], "subtitle")).toEqual({
+		expect(
+			getRuntimeFieldOrThrow(gridResult.data?.data.items[0], "subtitle"),
+		).toEqual({
 			key: "subtitle",
 			kind: "number",
 			value: 2018,
 		});
-		expect(getField(gridResult.data?.data.items[0], "title")).toEqual({
+		expect(
+			getRuntimeFieldOrThrow(gridResult.data?.data.items[0], "title"),
+		).toEqual({
 			key: "title",
 			kind: "text",
 			value: "Alpha Phone",
 		});
-		expect(getField(gridResult.data?.data.items[0], "image")).toEqual({
+		expect(
+			getRuntimeFieldOrThrow(gridResult.data?.data.items[0], "image"),
+		).toEqual({
 			key: "image",
 			kind: "image",
 			value: { kind: "remote", url: "https://example.com/alpha-phone.png" },
 		});
-		expect(getField(listResult.data?.data.items[0], "badge")).toEqual({
+		expect(
+			getRuntimeFieldOrThrow(listResult.data?.data.items[0], "badge"),
+		).toEqual({
 			key: "badge",
 			kind: "text",
 			value: "phone",
 		});
-		expect(getField(listResult.data?.data.items[0], "subtitle")).toEqual({
+		expect(
+			getRuntimeFieldOrThrow(listResult.data?.data.items[0], "subtitle"),
+		).toEqual({
 			key: "subtitle",
 			kind: "number",
 			value: 2018,
 		});
-		expect(getField(listResult.data?.data.items[0], "title")).toEqual({
+		expect(
+			getRuntimeFieldOrThrow(listResult.data?.data.items[0], "title"),
+		).toEqual({
 			key: "title",
 			kind: "text",
 			value: "Alpha Phone",
 		});
-		expect(getField(listResult.data?.data.items[0], "image")).toEqual({
+		expect(
+			getRuntimeFieldOrThrow(listResult.data?.data.items[0], "image"),
+		).toEqual({
 			key: "image",
 			kind: "image",
 			value: { kind: "remote", url: "https://example.com/alpha-phone.png" },
 		});
 		expect(gridResult.data?.data.items[0]?.image).toEqual(
-			getField(gridResult.data?.data.items[0], "image").value,
+			getRuntimeFieldOrThrow(gridResult.data?.data.items[0], "image").value,
 		);
 	});
 
@@ -239,22 +228,22 @@ export function registerViewRuntimePresentationAndErrorTests() {
 		);
 
 		expect(response.status).toBe(200);
-		expect(getField(data?.data.items[0], "badge")).toEqual({
+		expect(getRuntimeFieldOrThrow(data?.data.items[0], "badge")).toEqual({
 			key: "badge",
 			kind: "null",
 			value: null,
 		});
-		expect(getField(data?.data.items[0], "subtitle")).toEqual({
+		expect(getRuntimeFieldOrThrow(data?.data.items[0], "subtitle")).toEqual({
 			key: "subtitle",
 			kind: "null",
 			value: null,
 		});
-		expect(getField(data?.data.items[0], "title")).toEqual({
+		expect(getRuntimeFieldOrThrow(data?.data.items[0], "title")).toEqual({
 			key: "title",
 			kind: "text",
 			value: "Alpha Phone",
 		});
-		expect(getField(data?.data.items[0], "image")).toEqual({
+		expect(getRuntimeFieldOrThrow(data?.data.items[0], "image")).toEqual({
 			key: "image",
 			kind: "image",
 			value: { kind: "remote", url: "https://example.com/alpha-phone.png" },
@@ -318,22 +307,22 @@ export function registerViewRuntimePresentationAndErrorTests() {
 		);
 
 		expect(response.status).toBe(200);
-		expect(getField(data?.data.items[0], "badge")).toEqual({
+		expect(getRuntimeFieldOrThrow(data?.data.items[0], "badge")).toEqual({
 			key: "badge",
 			kind: "number",
 			value: 2018,
 		});
-		expect(getField(data?.data.items[0], "subtitle")).toEqual({
+		expect(getRuntimeFieldOrThrow(data?.data.items[0], "subtitle")).toEqual({
 			key: "subtitle",
 			kind: "text",
 			value: "Acme",
 		});
-		expect(getField(data?.data.items[1], "badge")).toEqual({
+		expect(getRuntimeFieldOrThrow(data?.data.items[1], "badge")).toEqual({
 			key: "badge",
 			kind: "number",
 			value: 2019,
 		});
-		expect(getField(data?.data.items[1], "subtitle")).toEqual({
+		expect(getRuntimeFieldOrThrow(data?.data.items[1], "subtitle")).toEqual({
 			key: "subtitle",
 			kind: "text",
 			value: "Tabula",
@@ -497,7 +486,7 @@ export function registerViewRuntimePresentationAndErrorTests() {
 			"Omega Phone",
 		]);
 		for (const item of data?.data.items ?? []) {
-			expect(getField(item, "badge")).toEqual({
+			expect(getRuntimeFieldOrThrow(item, "badge")).toEqual({
 				key: "badge",
 				kind: "null",
 				value: null,
@@ -530,7 +519,7 @@ export function registerViewRuntimePresentationAndErrorTests() {
 			"Gamma Phone",
 		]);
 		for (const item of data?.data.items ?? []) {
-			expect(getField(item, "badge").kind).toBe("number");
+			expect(getRuntimeFieldOrThrow(item, "badge").kind).toBe("number");
 		}
 	});
 

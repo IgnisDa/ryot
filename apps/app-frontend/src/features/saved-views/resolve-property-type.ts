@@ -1,19 +1,21 @@
+import type { AppPropertyDefinition } from "@ryot/ts-utils";
 import type { AppEntitySchema } from "#/features/entity-schemas/model";
 
-export type ResolvedPropertyType =
-	| "array"
-	| "boolean"
-	| "date"
-	| "integer"
-	| "number"
-	| "object"
-	| "string"
-	| null;
+export type ResolvedPropertyType = Exclude<
+	AppPropertyDefinition["type"],
+	"datetime"
+> | null;
 
 const BUILTIN_TYPES: Record<string, ResolvedPropertyType> = {
 	"@name": "string",
 	"@createdAt": "date",
 	"@updatedAt": "date",
+};
+
+const normalizePropertyType = (
+	propertyType: AppPropertyDefinition["type"],
+): ResolvedPropertyType => {
+	return propertyType === "datetime" ? "date" : propertyType;
 };
 
 export function resolvePropertyType(
@@ -47,5 +49,5 @@ export function resolvePropertyType(
 		return null;
 	}
 
-	return propDef.type as ResolvedPropertyType;
+	return normalizePropertyType(propDef.type);
 }

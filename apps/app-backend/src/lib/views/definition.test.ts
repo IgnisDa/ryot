@@ -13,6 +13,7 @@ import {
 	nullExpression,
 	sortDefinition,
 } from "~/lib/test-fixtures";
+import { createDefaultDisplayConfiguration } from "~/modules/saved-views/constants";
 import { createViewDefinitionModule } from "./definition";
 import { ViewRuntimeNotFoundError } from "./errors";
 
@@ -22,25 +23,8 @@ const createRuntimeSchemaRow = (input: {
 	propertiesSchema: AppSchema;
 }) => input;
 
-const createSmartphoneDisplayConfiguration = () => ({
-	table: {
-		columns: [
-			{ label: "Name", expression: entityExpression("smartphones", "@name") },
-		],
-	},
-	grid: {
-		badgeProperty: null,
-		subtitleProperty: null,
-		titleProperty: entityExpression("smartphones", "@name"),
-		imageProperty: entityExpression("smartphones", "@image"),
-	},
-	list: {
-		badgeProperty: null,
-		subtitleProperty: null,
-		titleProperty: entityExpression("smartphones", "@name"),
-		imageProperty: entityExpression("smartphones", "@image"),
-	},
-});
+const createSmartphoneDisplayConfiguration = () =>
+	createDefaultDisplayConfiguration("smartphones");
 
 const createDeps = (overrides: Record<string, unknown> = {}) => {
 	const loadVisibleSchemas = mock(async () => [
@@ -69,14 +53,14 @@ const createDeps = (overrides: Record<string, unknown> = {}) => {
 		return { items: [], meta: { pagination } };
 	});
 
-	return {
+	const deps = {
 		loadVisibleSchemas,
 		executePreparedView,
 		loadVisibleEventJoins,
 		...overrides,
-	} as NonNullable<Parameters<typeof createViewDefinitionModule>[0]> & {
-		executePreparedView: typeof executePreparedView;
 	};
+
+	return deps;
 };
 
 describe("viewDefinitionModule", () => {

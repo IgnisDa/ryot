@@ -1,4 +1,5 @@
 import { match } from "ts-pattern";
+import { createEntityColumnExpression } from "#/features/entities/model";
 import type {
 	ApiGetResponseData,
 	ApiPostRequestBody,
@@ -14,6 +15,7 @@ export type ViewRuntimeResponse = ApiPostResponseData<"/view-runtime/execute">;
 type ViewExpression = NonNullable<
 	ViewRuntimeRequest["fields"]
 >[number]["expression"];
+type CardDisplayConfiguration = SavedView["displayConfiguration"]["grid"];
 
 export const GRID_LIMIT = 12;
 export const LIST_LIMIT = 15;
@@ -23,14 +25,6 @@ const nullExpression = {
 	value: null,
 	type: "literal",
 } satisfies ViewExpression;
-
-const entityColumnExpression = (
-	schemaSlug: string,
-	column: string,
-): ViewExpression => ({
-	type: "reference",
-	reference: { type: "entity-column", slug: schemaSlug, column },
-});
 
 const createRuntimeField = (key: string, expression: ViewExpression) => ({
 	key,
@@ -51,39 +45,44 @@ const buildCardFields = (input: {
 	];
 };
 
+const buildRuntimeRequestBase = (input: {
+	page: number;
+	limit: number;
+	view: SavedView;
+}) => ({
+	sort: input.view.queryDefinition.sort,
+	filter: input.view.queryDefinition.filter ?? null,
+	eventJoins: input.view.queryDefinition.eventJoins,
+	pagination: { page: input.page, limit: input.limit },
+	computedFields: input.view.queryDefinition.computedFields,
+	entitySchemaSlugs: input.view.queryDefinition.entitySchemaSlugs,
+});
+
+const buildCardRuntimeFields = (configuration: CardDisplayConfiguration) => {
+	return buildCardFields({
+		image: configuration.imageProperty,
+		title: configuration.titleProperty,
+		badge: configuration.badgeProperty,
+		subtitle: configuration.subtitleProperty,
+	});
+};
+
 export function createViewRuntimeRequest(input: {
 	page: number;
 	limit: number;
 	view: SavedView;
 	layout: ViewLayout;
 }): ViewRuntimeRequest {
-	const base = {
-		filter: input.view.queryDefinition.filter ?? null,
-		sort: input.view.queryDefinition.sort,
-		eventJoins: input.view.queryDefinition.eventJoins,
-		pagination: { page: input.page, limit: input.limit },
-		computedFields: input.view.queryDefinition.computedFields,
-		entitySchemaSlugs: input.view.queryDefinition.entitySchemaSlugs,
-	};
+	const base = buildRuntimeRequestBase(input);
 
 	return match(input.layout)
 		.with("grid", () => ({
 			...base,
-			fields: buildCardFields({
-				image: input.view.displayConfiguration.grid.imageProperty,
-				title: input.view.displayConfiguration.grid.titleProperty,
-				badge: input.view.displayConfiguration.grid.badgeProperty,
-				subtitle: input.view.displayConfiguration.grid.subtitleProperty,
-			}),
+			fields: buildCardRuntimeFields(input.view.displayConfiguration.grid),
 		}))
 		.with("list", () => ({
 			...base,
-			fields: buildCardFields({
-				image: input.view.displayConfiguration.list.imageProperty,
-				title: input.view.displayConfiguration.list.titleProperty,
-				badge: input.view.displayConfiguration.list.badgeProperty,
-				subtitle: input.view.displayConfiguration.list.subtitleProperty,
-			}),
+			fields: buildCardRuntimeFields(input.view.displayConfiguration.list),
 		}))
 		.with("table", () => ({
 			...base,
@@ -104,13 +103,13 @@ export function createDisabledViewRuntimeRequest(): ViewRuntimeRequest {
 		pagination: { page: 1, limit: GRID_LIMIT },
 		sort: {
 			direction: "asc",
-			expression: entityColumnExpression("book", "name"),
+			expression: createEntityColumnExpression("book", "name"),
 		},
 		fields: buildCardFields({
 			badge: null,
 			subtitle: null,
-			title: entityColumnExpression("book", "name"),
-			image: entityColumnExpression("book", "image"),
+			title: createEntityColumnExpression("book", "name"),
+			image: createEntityColumnExpression("book", "image"),
 		}),
 	};
 }
