@@ -4,8 +4,8 @@ import { useState } from "react";
 import { z } from "zod";
 import { getNameFromEmail } from "#/features/authentication/model";
 import { useApiClient } from "#/hooks/api";
-import { useAuthClient } from "#/hooks/auth";
 import { useAppForm } from "#/hooks/forms";
+import { authClient } from "#/lib/auth";
 
 const searchSchema = z.object({
 	redirect: z.string().optional(),
@@ -14,8 +14,8 @@ const searchSchema = z.object({
 export const Route = createFileRoute("/start")({
 	component: StartPage,
 	validateSearch: searchSchema,
-	beforeLoad: async ({ context, search }) => {
-		const session = await context.authClientInstance.getSession();
+	beforeLoad: async ({ search }) => {
+		const session = await authClient.getSession();
 		if (session.data) {
 			throw redirect({ to: search.redirect || "/" });
 		}
@@ -47,7 +47,6 @@ const schema = z.object({
 function StartPage() {
 	const search = Route.useSearch();
 	const apiClient = useApiClient();
-	const authClient = useAuthClient();
 	const navigate = Route.useNavigate();
 	const [mode, setMode] = useState<AuthMode>("login");
 	const [submitError, setSubmitError] = useState<string | null>(null);
@@ -80,7 +79,10 @@ function StartPage() {
 				return;
 			}
 
-			const response = await authClient.signIn.email({ email, password });
+			const response = await authClient.signIn.email({
+				email,
+				password,
+			});
 
 			if (response.error) {
 				setSubmitError(response.error.message || "An unknown error occurred");
