@@ -1,4 +1,5 @@
 import { describe, expect, it } from "bun:test";
+import { defaultDisplayConfiguration } from "~/modules/saved-views/constants";
 import {
 	buildAuthenticationSavedViewInputs,
 	buildAuthenticationTrackerEntitySchemaLinks,
@@ -79,6 +80,7 @@ describe("authentication bootstrap helpers", () => {
 						name: "All Books",
 						trackerSlug: "media",
 						entitySchemaSlug: "book",
+						displayConfiguration: defaultDisplayConfiguration,
 					},
 				],
 			}),
@@ -89,7 +91,12 @@ describe("authentication bootstrap helpers", () => {
 				name: "All Books",
 				trackerId: "tracker-1",
 				accentColor: "#5B7FFF",
-				queryDefinition: { entitySchemaIds: ["schema-1"] },
+				displayConfiguration: defaultDisplayConfiguration,
+				queryDefinition: {
+					filters: [],
+					entitySchemaSlugs: ["book"],
+					sort: { field: ["@name"], direction: "asc" },
+				},
 			},
 		]);
 	});
@@ -104,18 +111,28 @@ describe("authentication bootstrap helpers", () => {
 						icon: "folders",
 						name: "Collections",
 						accentColor: "#F59E0B",
-						queryDefinition: { entitySchemaIds: [] },
+						displayConfiguration: defaultDisplayConfiguration,
+						queryDefinition: {
+							filters: [],
+							entitySchemaSlugs: [],
+							sort: { field: ["@name"], direction: "asc" },
+						},
 					},
 				],
 			}),
 		).toEqual([
 			{
-				isBuiltin: true,
 				icon: "folders",
+				isBuiltin: true,
 				name: "Collections",
 				trackerId: undefined,
 				accentColor: "#F59E0B",
-				queryDefinition: { entitySchemaIds: [] },
+				displayConfiguration: defaultDisplayConfiguration,
+				queryDefinition: {
+					filters: [],
+					entitySchemaSlugs: [],
+					sort: { field: ["@name"], direction: "asc" },
+				},
 			},
 		]);
 	});
@@ -130,6 +147,7 @@ describe("authentication bootstrap helpers", () => {
 						name: "All Books",
 						trackerSlug: "media",
 						entitySchemaSlug: "book",
+						displayConfiguration: defaultDisplayConfiguration,
 					},
 				],
 			}),

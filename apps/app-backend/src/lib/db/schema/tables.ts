@@ -355,6 +355,7 @@ export const savedView = pgTable(
 		icon: text().notNull(),
 		accentColor: text().notNull(),
 		queryDefinition: jsonb().notNull(),
+		displayConfiguration: jsonb().notNull(),
 		createdAt: timestamp().defaultNow().notNull(),
 		isBuiltin: boolean().default(false).notNull(),
 		trackerId: text().references(() => tracker.id, { onDelete: "set null" }),
