@@ -2,10 +2,15 @@ import { describe, expect, it } from "bun:test";
 import type { AppSchema } from "@ryot/ts-utils";
 import { PgDialect } from "drizzle-orm/pg-core";
 import {
+	comparisonPredicate as comparison,
+	computedExpression,
 	createSmartphoneSchema,
 	createTabletSchema,
+	entityExpression,
+	eventExpression,
+	literalExpression,
 } from "~/lib/test-fixtures";
-import type { ViewComputedField, ViewExpression } from "~/lib/views/expression";
+import type { ViewComputedField } from "~/lib/views/expression";
 import type { ViewPredicate } from "~/lib/views/filtering";
 import { buildEventJoinMap, buildSchemaMap } from "~/lib/views/reference";
 import { buildFilterWhereClause } from "./filter-builder";
@@ -62,39 +67,6 @@ const reviewJoin = {
 	]),
 };
 const context = { schemaMap, eventJoinMap: buildEventJoinMap([reviewJoin]) };
-
-const entityExpression = (
-	schemaSlug: string,
-	field: string,
-): ViewExpression => ({
-	type: "reference",
-	reference: field.startsWith("@")
-		? { type: "entity-column", slug: schemaSlug, column: field.slice(1) }
-		: { type: "schema-property", slug: schemaSlug, property: field },
-});
-
-const eventExpression = (joinKey: string, field: string): ViewExpression => ({
-	type: "reference",
-	reference: field.startsWith("@")
-		? { type: "event-join-column", joinKey, column: field.slice(1) }
-		: { type: "event-join-property", joinKey, property: field },
-});
-
-const computedExpression = (key: string): ViewExpression => ({
-	type: "reference",
-	reference: { key, type: "computed-field" },
-});
-
-const literalExpression = (value: unknown): ViewExpression => ({
-	value,
-	type: "literal",
-});
-
-const comparison = (
-	left: ViewExpression,
-	operator: Extract<ViewPredicate, { type: "comparison" }>["operator"],
-	right: ViewExpression,
-): ViewPredicate => ({ type: "comparison", left, right, operator });
 
 const serializeClause = (
 	predicate: ViewPredicate,

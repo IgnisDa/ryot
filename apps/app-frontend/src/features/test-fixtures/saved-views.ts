@@ -69,27 +69,26 @@ const toExpression = (
 		: { type: "coalesce", values };
 };
 
+const nullExpression = literalExpression(null);
+const nameExpression = toExpression([entityField("schema-1", "@name")]);
+const imageExpression = toExpression([entityField("schema-1", "@image")]);
+
 export const defaultSavedViewDisplayConfiguration: AppSavedView["displayConfiguration"] =
 	{
 		table: {
-			columns: [
-				{
-					label: "Name",
-					expression: toExpression([entityField("schema-1", "@name")]),
-				},
-			],
+			columns: [{ label: "Name", expression: nameExpression }],
 		},
 		grid: {
-			badgeProperty: literalExpression(null),
-			subtitleProperty: literalExpression(null),
-			titleProperty: toExpression([entityField("schema-1", "@name")]),
-			imageProperty: toExpression([entityField("schema-1", "@image")]),
+			badgeProperty: nullExpression,
+			titleProperty: nameExpression,
+			imageProperty: imageExpression,
+			subtitleProperty: nullExpression,
 		},
 		list: {
-			badgeProperty: literalExpression(null),
-			subtitleProperty: literalExpression(null),
-			titleProperty: toExpression([entityField("schema-1", "@name")]),
-			imageProperty: toExpression([entityField("schema-1", "@image")]),
+			badgeProperty: nullExpression,
+			titleProperty: nameExpression,
+			imageProperty: imageExpression,
+			subtitleProperty: nullExpression,
 		},
 	};
 
@@ -103,21 +102,19 @@ type SavedViewFixtureOverrides = Omit<
 export function createSavedViewFixture(
 	overrides: SavedViewFixtureOverrides = {},
 ): AppSavedView {
-	const { queryDefinition: _queryDefinitionOverride, ...viewOverrides } =
+	const { queryDefinition: queryDefinitionOverride, ...viewOverrides } =
 		overrides;
 	const queryDefinition = {
-		eventJoins: overrides.queryDefinition?.eventJoins ?? [],
-		computedFields: overrides.queryDefinition?.computedFields ?? [],
-		entitySchemaSlugs: overrides.queryDefinition?.entitySchemaSlugs ?? [
+		filter: queryDefinitionOverride?.filter ?? null,
+		eventJoins: queryDefinitionOverride?.eventJoins ?? [],
+		computedFields: queryDefinitionOverride?.computedFields ?? [],
+		entitySchemaSlugs: queryDefinitionOverride?.entitySchemaSlugs ?? [
 			"schema-1",
 		],
-		sort: overrides.queryDefinition?.sort ?? {
-			expression: toExpression([entityField("schema-1", "@name")]),
+		sort: queryDefinitionOverride?.sort ?? {
 			direction: "asc",
+			expression: nameExpression,
 		},
-		...(overrides.queryDefinition?.filter
-			? { filter: overrides.queryDefinition.filter }
-			: {}),
 	} satisfies AppSavedView["queryDefinition"];
 
 	return {

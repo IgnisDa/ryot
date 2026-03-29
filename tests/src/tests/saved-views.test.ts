@@ -7,6 +7,7 @@ import {
 	createSavedView,
 	createTracker,
 	deleteSavedView,
+	entityField,
 	findBuiltinSavedView,
 	getSavedView,
 	listSavedViews,
@@ -16,20 +17,6 @@ import {
 
 const builtinViewError = "Cannot modify built-in saved views";
 const missingViewId = "00000000-0000-0000-0000-000000000000";
-
-const entityField = (schemaSlug: string, property: string) => {
-	if (
-		property === "name" ||
-		property === "image" ||
-		property === "createdAt" ||
-		property === "updatedAt" ||
-		property.startsWith("@")
-	) {
-		return `entity.${schemaSlug}.${property.startsWith("@") ? property : `@${property}`}`;
-	}
-
-	return `entity.${schemaSlug}.${property}`;
-};
 
 describe("Saved views E2E", () => {
 	it("lists built-in and user-created views together", async () => {
@@ -59,13 +46,7 @@ describe("Saved views E2E", () => {
 		expect(Array.isArray(fetchedView.queryDefinition.entitySchemaSlugs)).toBe(
 			true,
 		);
-		expect(
-			(
-				fetchedView.queryDefinition as unknown as {
-					filter: unknown;
-				}
-			).filter,
-		).toBeNull();
+		expect(fetchedView.queryDefinition.filter).toBeNull();
 		expect(Number.isNaN(Date.parse(String(fetchedView.createdAt)))).toBe(false);
 		expect(Number.isNaN(Date.parse(String(fetchedView.updatedAt)))).toBe(false);
 
@@ -533,10 +514,7 @@ describe("Saved views E2E", () => {
 		expect(updateResult.error?.error?.message).toContain(
 			"Sort expressions must resolve to a sortable scalar value",
 		);
-		expect(
-			(refreshedView.queryDefinition.sort as unknown as { expression: unknown })
-				.expression,
-		).toEqual({
+		expect(refreshedView.queryDefinition.sort.expression).toEqual({
 			type: "reference",
 			reference: { type: "entity-column", slug: "book", column: "name" },
 		});

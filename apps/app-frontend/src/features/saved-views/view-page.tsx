@@ -17,7 +17,11 @@ import { Copy, Info, LayoutGrid, List, Table2, Trash2 } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { EmptyState, ErrorState, LoadingState } from "#/components/PageStates";
 import { useResolvedImageUrls } from "#/features/entities/image";
-import { type AppEntityImage, toAppEntity } from "#/features/entities/model";
+import {
+	type AppEntityImage,
+	toAppEntity,
+	toAppEntityImage,
+} from "#/features/entities/model";
 import { TrackerIcon } from "#/features/trackers/icons";
 import { useApiClient } from "#/hooks/api";
 import { useThemeTokens } from "#/hooks/theme";
@@ -31,9 +35,12 @@ import {
 	getPageLimit,
 	getRuntimeField,
 	isRuntimeField,
-	toImageValue,
 	type ViewLayout,
 } from "./view-page-utils";
+
+const isViewLayout = (value: string): value is ViewLayout => {
+	return ["grid", "list", "table"].includes(value);
+};
 
 export function SavedViewPage(props: {
 	viewId: string;
@@ -85,7 +92,7 @@ export function SavedViewPage(props: {
 					if (field.kind === "image") {
 						entries.push({
 							id: `${item.id}:${field.key}`,
-							image: toImageValue(field.value),
+							image: toAppEntityImage(field.value),
 						});
 					}
 				}
@@ -96,7 +103,10 @@ export function SavedViewPage(props: {
 				? getRuntimeField(item, "image")
 				: undefined;
 			if (isRuntimeField(imageField) && imageField.kind === "image") {
-				entries.push({ id: item.id, image: toImageValue(imageField.value) });
+				entries.push({
+					id: item.id,
+					image: toAppEntityImage(imageField.value),
+				});
 			}
 		}
 		return entries;
@@ -230,7 +240,11 @@ export function SavedViewPage(props: {
 							) : null}
 							<SegmentedControl
 								value={layout}
-								onChange={(value) => setLayout(value as ViewLayout)}
+								onChange={(value) => {
+									if (isViewLayout(value)) {
+										setLayout(value);
+									}
+								}}
 								data={[
 									{ label: <LayoutGrid size={14} />, value: "grid" },
 									{ label: <List size={14} />, value: "list" },
