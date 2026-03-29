@@ -21,7 +21,9 @@ export const listedEventSchema = z.object({
 
 export const listEventsResponseSchema = listDataSchema(listedEventSchema);
 
-export const createEventResponseSchema = itemDataSchema(listedEventSchema);
+export const createEventBulkResponseSchema = itemDataSchema(
+	z.object({ count: z.number().int() }),
+);
 
 export const listEventsQuery = z.object({
 	entityId: nonEmptyTrimmedStringSchema,
@@ -34,5 +36,8 @@ export const createEventBody = z.object({
 	eventSchemaId: nonEmptyTrimmedStringSchema,
 });
 
-export type CreateEventBody = z.infer<typeof createEventBody>;
+export const createEventBulkBody = z.array(createEventBody);
+
 export type ListedEvent = z.infer<typeof listedEventSchema>;
+export type CreateEventBody = z.infer<typeof createEventBody>;
+export type CreateEventBulkBody = z.infer<typeof createEventBulkBody>;
