@@ -3,7 +3,7 @@ import { and, eq, isNull, notInArray, sql } from "drizzle-orm";
 import type { DbClient } from "~/lib/db";
 import {
 	entitySchema,
-	entitySchemaSandboxScript,
+	entitySchemaScript,
 	eventSchema,
 	sandboxScript,
 } from "~/lib/db/schema";
@@ -145,26 +145,18 @@ export const ensureBuiltinSandboxScript = async (input: {
 	return scriptId;
 };
 
-export const linkScriptPairToEntitySchema = async (input: {
+export const linkScriptToEntitySchema = async (input: {
 	database: DbClient;
 	entitySchemaId: string;
-	searchScriptId: string;
-	detailsScriptId: string;
+	sandboxScriptId: string;
 }) => {
 	const [existing] = await input.database
-		.select({ id: entitySchemaSandboxScript.id })
-		.from(entitySchemaSandboxScript)
+		.select({ id: entitySchemaScript.id })
+		.from(entitySchemaScript)
 		.where(
 			and(
-				eq(entitySchemaSandboxScript.entitySchemaId, input.entitySchemaId),
-				eq(
-					entitySchemaSandboxScript.searchSandboxScriptId,
-					input.searchScriptId,
-				),
-				eq(
-					entitySchemaSandboxScript.detailsSandboxScriptId,
-					input.detailsScriptId,
-				),
+				eq(entitySchemaScript.entitySchemaId, input.entitySchemaId),
+				eq(entitySchemaScript.sandboxScriptId, input.sandboxScriptId),
 			),
 		)
 		.limit(1);
@@ -173,9 +165,8 @@ export const linkScriptPairToEntitySchema = async (input: {
 		return;
 	}
 
-	await input.database.insert(entitySchemaSandboxScript).values({
+	await input.database.insert(entitySchemaScript).values({
 		entitySchemaId: input.entitySchemaId,
-		searchSandboxScriptId: input.searchScriptId,
-		detailsSandboxScriptId: input.detailsScriptId,
+		sandboxScriptId: input.sandboxScriptId,
 	});
 };

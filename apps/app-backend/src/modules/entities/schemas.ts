@@ -16,7 +16,7 @@ export const listedEntitySchema = z.object({
 	image: ImageSchema.nullable(),
 	externalId: z.string().nullable(),
 	properties: stringUnknownRecordSchema,
-	detailsSandboxScriptId: z.string().nullable(),
+	sandboxScriptId: z.string().nullable(),
 });
 
 const entityResponseSchema = itemDataSchema(listedEntitySchema);
@@ -33,7 +33,7 @@ export const createEntityBody = z.object({
 	properties: stringUnknownRecordSchema,
 	entitySchemaId: nonEmptyTrimmedStringSchema,
 	externalId: nonEmptyTrimmedStringSchema.optional(),
-	detailsSandboxScriptId: nonEmptyTrimmedStringSchema.optional(),
+	sandboxScriptId: nonEmptyTrimmedStringSchema.optional(),
 });
 
 export type CreateEntityBody = z.infer<typeof createEntityBody>;
