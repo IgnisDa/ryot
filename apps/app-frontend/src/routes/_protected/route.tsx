@@ -6,11 +6,12 @@ import { TrackerModal } from "#/features/trackers/components/tracker-modal";
 import TrackerSidebarProvider from "#/features/trackers/sidebar-context";
 import { useIsMobileScreen } from "#/hooks/screen";
 import { useColorScheme } from "#/hooks/theme";
+import { authClient } from "#/lib/auth";
 
 export const Route = createFileRoute("/_protected")({
 	component: RouteComponent,
-	beforeLoad: async ({ context, location }) => {
-		const session = await context.authClientInstance.getSession();
+	beforeLoad: async ({ location }) => {
+		const session = await authClient.getSession();
 		if (!session.data) {
 			throw redirect({
 				to: "/start",
