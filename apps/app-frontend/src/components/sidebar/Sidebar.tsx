@@ -18,7 +18,7 @@ import {
 	Text,
 	TextInput,
 } from "@mantine/core";
-import { useHover } from "@mantine/hooks";
+import { useHover, useLocalStorage } from "@mantine/hooks";
 import { Link } from "@tanstack/react-router";
 import {
 	ChevronDown,
@@ -44,6 +44,7 @@ import {
 import { useProtectedUser } from "#/hooks/protected-user";
 import { useIsMobileScreen } from "#/hooks/screen";
 import { useColorScheme } from "#/hooks/theme";
+import { STORAGE_KEYS } from "#/lib/storage-keys";
 import type {
 	SidebarProps,
 	SidebarTracker,
@@ -269,12 +270,12 @@ export function Sidebar(props: SidebarProps) {
 	const savedViewsQuery = useSavedViewsQuery();
 	const { hovered, ref } = useHover<HTMLDivElement>();
 	const [searchQuery, setSearchQuery] = useState("");
-	const [expandedTrackers, setExpandedTrackers] = useState<
+	const [expandedTrackers, setExpandedTrackers] = useLocalStorage<
 		Record<string, boolean>
-	>({});
+	>({ key: STORAGE_KEYS.sidebarExpandedTrackers, defaultValue: {} });
 	const sidebarData = toSidebarData({
-		views: savedViewsQuery.savedViews,
 		trackers: state.trackers,
+		views: savedViewsQuery.savedViews,
 		isCustomizeMode: state.isCustomizeMode,
 	});
 
