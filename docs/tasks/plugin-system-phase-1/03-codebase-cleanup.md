@@ -4,7 +4,7 @@
 
 **Type:** AFK
 
-**Status:** todo
+**Status:** done
 
 ## Required reading (do this first)
 
@@ -30,10 +30,10 @@ moved rather than been duplicated.
 
 ## Acceptance criteria
 
-- [ ] The task is executed using the `codebase-cleanup` skill
-- [ ] The cleanup pass covers all files touched by this plan and any directly affected modules
-- [ ] Any removals or simplifications are reflected in the changed code before the plan is
+- [x] The task is executed using the `codebase-cleanup` skill
+- [x] The cleanup pass covers all files touched by this plan and any directly affected modules
+- [x] Any removals or simplifications are reflected in the changed code before the plan is
       considered complete
-- [ ] The Phase 1 gate still passes after cleanup:
+- [x] The Phase 1 gate still passes after cleanup:
       `bun turbo --filter=@ryot/app-backend check`, backend unit tests, the e2e suite (minus
       deleted files), and the `app-client` check
