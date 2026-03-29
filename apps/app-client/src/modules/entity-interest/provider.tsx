@@ -1,5 +1,5 @@
 import type { EntityUpdatedFrame } from "@ryot/contract/modules/entity-interest/messages";
-import { Cause, Duration, Effect, Schedule, Stream } from "effect";
+import { Cause, Duration, Effect, ManagedRuntime, Schedule, Stream } from "effect";
 import { HttpClientResponse } from "effect/unstable/http";
 import { randomUUID } from "expo-crypto";
 import {
@@ -8,6 +8,7 @@ import {
 	useContext,
 	useEffect,
 	useEffectEvent,
+	useLayoutEffect,
 	useMemo,
 } from "react";
 
@@ -16,7 +17,15 @@ import { authenticatedExpoContractClient } from "@/api/transport";
 import { EntityInterestCoordinator } from "./coordinator";
 import { InterestSseParser } from "./sse";
 
-const InterestContext = createContext<EntityInterestCoordinator | undefined>(undefined);
+type CoordinatorEffect = Effect.Effect<void, never, EntityInterestCoordinator>;
+
+type InterestBridge = {
+	attach: (runtime: ManagedRuntime.ManagedRuntime<EntityInterestCoordinator, never>) => void;
+	detach: (runtime: ManagedRuntime.ManagedRuntime<EntityInterestCoordinator, never>) => void;
+	run: (effect: CoordinatorEffect) => void;
+};
+
+const InterestContext = createContext<InterestBridge | undefined>(undefined);
 
 const retrySchedule = Schedule.exponential("1 second").pipe(
 	Schedule.modifyDelay(({ duration }) =>
@@ -29,10 +38,27 @@ export function EntityInterestProvider(props: {
 	serverUrl: string;
 	children: ReactNode;
 }) {
-	const coordinator = useMemo(
-		() =>
-			new EntityInterestCoordinator(
-				(streamId, entityIds, signal) =>
+	const bridge = useMemo<InterestBridge>(() => {
+		let current: ManagedRuntime.ManagedRuntime<EntityInterestCoordinator, never> | undefined;
+		return {
+			attach: (runtime) => {
+				current = runtime;
+			},
+			detach: (runtime) => {
+				if (current === runtime) {
+					current = undefined;
+				}
+			},
+			run: (effect) => {
+				current?.runFork(effect);
+			},
+		};
+	}, []);
+
+	useLayoutEffect(() => {
+		const runtime = ManagedRuntime.make(
+			EntityInterestCoordinator.layer({
+				declareInterest: (streamId, entityIds) =>
 					authenticatedExpoContractClient(props.serverUrl).pipe(
 						Effect.flatMap((client) =>
 							client["entity-interest"].declareInterest({
@@ -40,26 +66,19 @@ export function EntityInterestProvider(props: {
 							}),
 						),
 						Effect.map((response) => response.terminal),
-						(effect) => Effect.runPromise(effect, { signal }),
 					),
-				undefined,
-				(error, attempt, retryDelayMs) => {
-					Effect.runFork(
-						Effect.logWarning("entity interest declaration failed; retrying", {
-							error,
-							attempt,
-							userId: props.userId,
-							retryDelayMs,
-						}),
-					);
-				},
-			),
-		[props.serverUrl, props.userId],
-	);
-
-	useEffect(() => {
-		const controller = new AbortController();
+				onDeclarationFailure: (error, attempt, retryDelayMs) =>
+					Effect.logWarning("entity interest declaration failed; retrying", {
+						error,
+						attempt,
+						userId: props.userId,
+						retryDelayMs,
+					}),
+			}),
+		);
+		bridge.attach(runtime);
 		const connect = Effect.gen(function* () {
+			const coordinator = yield* EntityInterestCoordinator;
 			const streamId = randomUUID();
 			const parser = new InterestSseParser();
 			yield* Effect.gen(function* () {
@@ -75,18 +94,18 @@ export function EntityInterestProvider(props: {
 				yield* response.stream.pipe(
 					Stream.decodeText,
 					Stream.runForEach((chunk) =>
-						Effect.sync(() => {
+						Effect.gen(function* () {
 							for (const event of parser.push(chunk)) {
 								if (event.type === "connected" && event.frame.streamId === streamId) {
-									coordinator.setConnection(streamId);
+									yield* coordinator.setConnection(streamId);
 								} else if (event.type === "entity:updated") {
-									coordinator.receive(event.frame);
+									yield* coordinator.receive(event.frame);
 								}
 							}
 						}),
 					),
 				);
-			}).pipe(Effect.ensuring(Effect.sync(() => coordinator.disconnect(streamId))));
+			}).pipe(Effect.ensuring(coordinator.disconnect(streamId)));
 		}).pipe(
 			Effect.tapCause((cause) =>
 				Cause.hasInterruptsOnly(cause)
@@ -96,13 +115,14 @@ export function EntityInterestProvider(props: {
 			Effect.retry(retrySchedule),
 			Effect.repeat(Schedule.spaced("1 second")),
 		);
-		void Effect.runPromise(connect, { signal: controller.signal }).catch(() => undefined);
+		runtime.runFork(connect);
 		return () => {
-			controller.abort();
+			bridge.detach(runtime);
+			void runtime.dispose();
 		};
-	}, [coordinator, props.serverUrl]);
+	}, [bridge, props.serverUrl, props.userId]);
 
-	return <InterestContext.Provider value={coordinator}>{props.children}</InterestContext.Provider>;
+	return <InterestContext.Provider value={bridge}>{props.children}</InterestContext.Provider>;
 }
 
 export function useEntityInterest(
@@ -110,21 +130,28 @@ export function useEntityInterest(
 	entityIds: readonly string[],
 	onUpdate: (frame: EntityUpdatedFrame) => void,
 ) {
-	const coordinator = useContext(InterestContext);
+	const bridge = useContext(InterestContext);
 	const handleUpdate = useEffectEvent((frame: EntityUpdatedFrame) => onUpdate(frame));
 
-	if (!coordinator) {
+	if (!bridge) {
 		throw new Error("useEntityInterest must be used within EntityInterestProvider");
 	}
 
 	useEffect(
 		() => () => {
-			coordinator.removeInterest(owner);
+			bridge.run(
+				Effect.flatMap(EntityInterestCoordinator, (coordinator) =>
+					coordinator.removeInterest(owner),
+				),
+			);
 		},
-		[coordinator, owner],
+		[bridge, owner],
 	);
-	useEffect(
-		() => coordinator.setInterest(owner, entityIds, handleUpdate),
-		[coordinator, entityIds, owner],
-	);
+	useEffect(() => {
+		bridge.run(
+			Effect.flatMap(EntityInterestCoordinator, (coordinator) =>
+				coordinator.setInterest(owner, entityIds, handleUpdate),
+			),
+		);
+	}, [bridge, entityIds, owner]);
 }

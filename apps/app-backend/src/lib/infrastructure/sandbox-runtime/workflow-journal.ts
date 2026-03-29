@@ -14,6 +14,41 @@ import { type BoundHostFunction, isJsonValue } from "#lib/infrastructure/sandbox
 
 const projectionTtlSeconds = 24 * 60 * 60;
 const highWaterField = "high-water";
+const projectWorkflowJournalScript = `
+local expectedHighWater = ARGV[1]
+local entryCount = tonumber(expectedHighWater)
+local projectedEntries = {}
+
+if entryCount > 0 then
+  local fields = {}
+  for index = 0, entryCount - 1 do
+    fields[index + 1] = tostring(index)
+  end
+  projectedEntries = redis.call('HMGET', KEYS[1], unpack(fields))
+end
+
+local projectionMatches = redis.call('HGET', KEYS[1], '${highWaterField}') == expectedHighWater
+if projectionMatches then
+  for index = 1, entryCount do
+    if projectedEntries[index] ~= ARGV[index + 2] then
+      projectionMatches = false
+      break
+    end
+  end
+end
+
+if projectionMatches then
+  return redis.call('EXPIRE', KEYS[1], ARGV[2])
+end
+
+local projection = {'${highWaterField}', expectedHighWater}
+for index = 1, entryCount do
+  projection[#projection + 1] = tostring(index - 1)
+  projection[#projection + 1] = ARGV[index + 2]
+end
+redis.call('HSET', KEYS[1], unpack(projection))
+return redis.call('EXPIRE', KEYS[1], ARGV[2])
+`;
 
 type WorkflowJournalBridgeRedis = {
 	readonly client: {
@@ -24,14 +59,12 @@ type WorkflowJournalBridgeRedis = {
 
 type WorkflowJournalProjectionRedis = {
 	readonly client: {
-		expire: (key: string, seconds: number) => Promise<unknown>;
-		hget: (key: string, field: string) => Promise<string | null>;
-		hmget: (key: string, ...fields: string[]) => Promise<Array<string | null>>;
-		pipeline: () => {
-			exec: () => Promise<unknown>;
-			hset: (key: string, field: string, value: string) => unknown;
-			expire: (key: string, seconds: number) => unknown;
-		};
+		eval: (
+			script: string,
+			numberOfKeys: number,
+			key: string,
+			...args: string[]
+		) => Promise<unknown>;
 	};
 };
 
@@ -50,30 +83,17 @@ export const projectWorkflowJournalWithRedis = (
 ) =>
 	Effect.gen(function* () {
 		const key = redisKeys.sandboxWorkflowJournal(executionId);
-		const rawHighWater = yield* Effect.tryPromise(() => redis.client.hget(key, highWaterField));
-		const highWater = rawHighWater === null ? 0 : Number(rawHighWater);
 		const encodedEntries = journal.map(({ request, value }) => encodeJson({ request, value }));
-		const fields = encodedEntries.map((_, index) => String(index));
-		const projectedEntries =
-			fields.length === 0 ? [] : yield* Effect.tryPromise(() => redis.client.hmget(key, ...fields));
-		const projectionMatches =
-			Number.isSafeInteger(highWater) &&
-			highWater === journal.length &&
-			projectedEntries.every((entry, index) => entry === encodedEntries[index]);
-		if (projectionMatches) {
-			yield* Effect.tryPromise(() => redis.client.expire(key, projectionTtlSeconds));
-			return;
-		}
-
-		const pipeline = redis.client.pipeline();
-		encodedEntries.forEach((entry, index) => {
-			if (projectedEntries[index] !== entry) {
-				pipeline.hset(key, String(index), entry);
-			}
-		});
-		pipeline.hset(key, highWaterField, String(journal.length));
-		pipeline.expire(key, projectionTtlSeconds);
-		yield* Effect.tryPromise(() => pipeline.exec());
+		yield* Effect.tryPromise(() =>
+			redis.client.eval(
+				projectWorkflowJournalScript,
+				1,
+				key,
+				String(journal.length),
+				String(projectionTtlSeconds),
+				...encodedEntries,
+			),
+		);
 	}).pipe(Effect.orDie);
 
 export const projectWorkflowJournal = (
