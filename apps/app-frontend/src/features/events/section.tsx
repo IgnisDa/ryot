@@ -11,10 +11,11 @@ import {
 	Text,
 	TextInput,
 } from "@mantine/core";
-import { useDisclosure } from "@mantine/hooks";
-import { useCallback, useMemo, useState } from "react";
+import { useMemo } from "react";
+import { SectionHeader } from "#/components/SectionHeader";
 import type { AppEntity } from "#/features/entities/model";
 import { GeneratedPropertyField } from "#/features/generated-property-fields";
+import { useModalForm } from "#/hooks/modal-form";
 import type { AppEventSchema } from "../event-schemas/model";
 import {
 	buildEventSchemaSelectionPatch,
@@ -26,23 +27,6 @@ import {
 import { useEventMutations, useEventsQuery } from "./hooks";
 import { getEventListViewState } from "./model";
 import { useCreateEventForm } from "./use-form";
-
-function getErrorMessage(error: unknown) {
-	if (error instanceof Error && error.message) {
-		return error.message;
-	}
-
-	const parsed = error as {
-		message?: string;
-		error?: { message?: string };
-	};
-
-	return (
-		parsed?.error?.message ??
-		parsed?.message ??
-		"Failed to log event. Please try again."
-	);
-}
 
 function formatEventPropertyValue(value: unknown) {
 	if (typeof value === "boolean") {
@@ -308,10 +292,6 @@ export function EntityEventsSection(props: {
 	eventSchemasLoading: boolean;
 	eventSchemas: AppEventSchema[];
 }) {
-	const [opened, { close, open }] = useDisclosure(false);
-	const [createErrorMessage, setCreateErrorMessage] = useState<string | null>(
-		null,
-	);
 	const eventsQuery = useEventsQuery(props.entity.id);
 	const eventMutations = useEventMutations(props.entity.id);
 	const viewState = getEventListViewState(eventsQuery.events);
@@ -342,50 +322,23 @@ export function EntityEventsSection(props: {
 		props.eventSchemasLoading,
 	]);
 
-	const openLogEventModal = useCallback(() => {
-		setCreateErrorMessage(null);
-		open();
-	}, [open]);
-
-	const closeLogEventModal = useCallback(() => {
-		setCreateErrorMessage(null);
-		close();
-	}, [close]);
-
-	const submitCreateEvent = useCallback(
-		async (payload: CreateEventPayload) => {
-			setCreateErrorMessage(null);
-
-			try {
-				await eventMutations.create.mutateAsync({ body: payload });
-				closeLogEventModal();
-			} catch (error) {
-				setCreateErrorMessage(getErrorMessage(error));
-			}
-		},
-		[closeLogEventModal, eventMutations.create],
+	const logEventModal = useModalForm((payload: CreateEventPayload) =>
+		eventMutations.create.mutateAsync({ body: payload }),
 	);
 
 	return (
 		<Stack gap="sm">
-			<Group justify="space-between" align="flex-start">
-				<Stack gap={2}>
-					<Text size="sm" fw={500} c="dimmed">
-						{props.title ?? "EVENTS"}
-					</Text>
-					<Text c="dimmed" size="sm">
-						{props.description ?? "Recent logged events for this entity."}
-					</Text>
-				</Stack>
-				<Button
-					size="xs"
-					variant="light"
-					disabled={!canLogEvent}
-					onClick={openLogEventModal}
-				>
-					{logEventButtonLabel}
-				</Button>
-			</Group>
+			<SectionHeader
+				title={props.title ?? "EVENTS"}
+				description={
+					props.description ?? "Recent logged events for this entity."
+				}
+				action={{
+					disabled: !canLogEvent,
+					label: logEventButtonLabel,
+					onClick: logEventModal.open,
+				}}
+			/>
 
 			{eventAvailabilityMessage && (
 				<Text c="dimmed" size="xs">
@@ -435,14 +388,14 @@ export function EntityEventsSection(props: {
 					<EventList events={viewState.events} eventLimit={props.eventLimit} />
 				))}
 
-			{opened && (
+			{logEventModal.opened && (
 				<LogEventModal
-					opened={opened}
 					entity={props.entity}
-					onSubmit={submitCreateEvent}
-					onClose={closeLogEventModal}
+					opened={logEventModal.opened}
+					onClose={logEventModal.close}
+					onSubmit={logEventModal.submit}
 					eventSchemas={props.eventSchemas}
-					errorMessage={createErrorMessage}
+					errorMessage={logEventModal.errorMessage}
 					isLoading={eventMutations.create.isPending}
 				/>
 			)}
