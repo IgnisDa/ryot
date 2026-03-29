@@ -14,7 +14,6 @@ const defaultQueryDefinition = {
 } satisfies CreateSavedViewBody["queryDefinition"];
 
 const defaultDisplayConfiguration = {
-	layout: "grid",
 	grid: {
 		badgeProperty: null,
 		subtitleProperty: null,
@@ -56,7 +55,6 @@ export function buildUpdatedSavedViewBody(
 			filters: [{ op: "gte", field: ["year"], value: 2020 }],
 		},
 		displayConfiguration: {
-			layout: "table",
 			table: { columns: [{ property: ["@name"] }, { property: ["year"] }] },
 			grid: {
 				imageProperty: null,
