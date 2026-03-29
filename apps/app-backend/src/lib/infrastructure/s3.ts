@@ -4,6 +4,25 @@ import { Context, Effect, Layer, Option, Redacted } from "effect";
 
 import { AppConfig } from "./config/service";
 
+const isMissingObjectError = (error: unknown) => {
+	if (typeof error !== "object" || error === null) {
+		return false;
+	}
+	const details = error as {
+		code?: string;
+		message?: string;
+		status?: number;
+		statusCode?: number;
+	};
+	return (
+		details.code === "NoSuchKey" ||
+		details.code === "NotFound" ||
+		details.status === 404 ||
+		details.statusCode === 404 ||
+		(typeof details.message === "string" && /\b(?:NoSuchKey|NotFound|404)\b/.test(details.message))
+	);
+};
+
 export class S3Service extends Context.Service<S3Service>()("S3Service", {
 	make: Effect.gen(function* () {
 		const config = yield* AppConfig;
@@ -76,7 +95,13 @@ export class S3Service extends Context.Service<S3Service>()("S3Service", {
 
 		const deleteObject = Effect.fn("S3Service.deleteObject")(function* (key: string) {
 			yield* requireConfigured;
-			yield* Effect.tryPromise(() => (client as S3Client).file(key).delete()).pipe(Effect.orDie);
+			yield* Effect.tryPromise(() => (client as S3Client).file(key).delete()).pipe(
+				Effect.catch((error) =>
+					isMissingObjectError(error)
+						? Effect.void
+						: Effect.fail(badRequest("S3 object deletion failed")),
+				),
+			);
 		});
 
 		return { deleteObject, isConfigured, presignDownload, presignUpload, statObject };

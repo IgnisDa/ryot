@@ -1,6 +1,8 @@
+import { UPLOAD_MAX_FILE_BYTES } from "@ryot/contract/modules/uploads/upload-policy";
 import { Effect } from "effect";
 
 import { createAuthenticatedClient } from "~/fixtures";
+import { assertTaggedError } from "~/support/assertions";
 import { getBackendUrl } from "~/support/backend";
 import { describe, expect, it } from "~/support/effect-test";
 
@@ -99,6 +101,65 @@ describe("POST /uploads/intents", () => {
 			}
 			expect(token.token).toMatch(/^[A-Za-z0-9_-]+$/);
 			expect(token.expiresAt).toMatch(/^\d{4}-\d{2}-\d{2}T/);
+		}),
+	);
+
+	it.live("creates, uploads directly to, and completes an S3 temporary intent", () =>
+		Effect.gen(function* () {
+			const { client } = yield* createAuthenticatedClient();
+			const intent = yield* client.call((c) =>
+				c.uploads.createIntent({
+					payload: {
+						provider: "s3",
+						kind: "temporary",
+						fileName: "report.csv",
+						contentType: "text/csv",
+					},
+				}),
+			);
+			expect(intent.uploadUrl).toMatch(/^https?:\/\//);
+			const uploadResponse = yield* Effect.promise(() =>
+				fetch(intent.uploadUrl, {
+					method: intent.method,
+					headers: intent.headers,
+					body: "temporary S3 data",
+				}),
+			);
+			expect([200, 204]).toContain(uploadResponse.status);
+			const token = yield* client.call((c) =>
+				c.uploads.completeIntent({ params: { intentId: intent.intentId } }),
+			);
+			if (!("token" in token)) {
+				throw new Error("Expected a temporary upload token");
+			}
+			expect(token.token).toMatch(/^[A-Za-z0-9_-]+$/);
+			expect(token.expiresAt).toMatch(/^\d{4}-\d{2}-\d{2}T/);
+		}),
+	);
+
+	it.live("rejects and cleans an oversized S3 temporary completion", () =>
+		Effect.gen(function* () {
+			const { client } = yield* createAuthenticatedClient();
+			const intent = yield* client.call((c) =>
+				c.uploads.createIntent({
+					payload: {
+						provider: "s3",
+						kind: "temporary",
+						contentType: "text/csv",
+						fileName: "oversized.csv",
+					},
+				}),
+			);
+			const body = new Uint8Array(UPLOAD_MAX_FILE_BYTES + 1);
+			body.fill(97);
+			const uploadResponse = yield* Effect.promise(() =>
+				fetch(intent.uploadUrl, { body, method: intent.method, headers: intent.headers }),
+			);
+			expect([200, 204]).toContain(uploadResponse.status);
+			const error = yield* Effect.flip(
+				client.call((c) => c.uploads.completeIntent({ params: { intentId: intent.intentId } })),
+			);
+			assertTaggedError(error, "BadRequest");
 		}),
 	);
 
