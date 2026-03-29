@@ -39,6 +39,7 @@ import {
 } from "./shared";
 import {
 	buildWorkoutMigrationSql,
+	buildWorkoutRepeatedFromRelationshipMigrationSql,
 	buildWorkoutSetEventMigrationSql,
 	buildWorkoutTemplateMigrationSql,
 	buildWorkoutToTemplateRelationshipMigrationSql,
@@ -304,6 +305,12 @@ export const migrateLegacyTables = async (database: DbClient) => {
 		throw new Error('Missing relationship schema id for slug "workout-to-workout-template"');
 	}
 
+	const workoutRepeatedFromRelationshipSchemaId =
+		relationshipSchemaIds.get("workout-repeated-from");
+	if (workoutRepeatedFromRelationshipSchemaId === undefined) {
+		throw new Error('Missing relationship schema id for slug "workout-repeated-from"');
+	}
+
 	const unsupportedMetadataSources = await getUnsupportedMetadataSources(database);
 	if (unsupportedMetadataSources.length > 0) {
 		throw new Error(
@@ -381,6 +388,9 @@ export const migrateLegacyTables = async (database: DbClient) => {
 		await client.query(buildWorkoutSetEventMigrationSql(workoutSetEventSchemaId));
 		await client.query(
 			buildWorkoutToTemplateRelationshipMigrationSql(workoutToWorkoutTemplateRelationshipSchemaId),
+		);
+		await client.query(
+			buildWorkoutRepeatedFromRelationshipMigrationSql(workoutRepeatedFromRelationshipSchemaId),
 		);
 		await client.query(`
 			DO $$
