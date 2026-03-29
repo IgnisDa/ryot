@@ -367,7 +367,7 @@ export function SidebarApiKeysSection(props: {
 								</Stack>
 							) : (
 								<Group justify="space-between" align="flex-start" wrap="nowrap">
-									<Box style={{ flex: 1, minWidth: 0 }}>
+									<Box miw={0} style={{ flex: 1 }}>
 										<Group gap="xs" wrap="wrap" mb="xs">
 											<Text fw={500} size="sm" truncate="end">
 												{keyName}
