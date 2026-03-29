@@ -542,6 +542,293 @@ describe("Saved views E2E", () => {
 		});
 	});
 
+	it("persists computed fields across saved view create and update flows", async () => {
+		const { client, cookies } = await createAuthenticatedClient();
+		const nextYearReference = {
+			type: "reference" as const,
+			reference: { type: "computed-field" as const, key: "nextYear" },
+		};
+		const labelReference = {
+			type: "reference" as const,
+			reference: { type: "computed-field" as const, key: "label" },
+		};
+		const yearBandReference = {
+			type: "reference" as const,
+			reference: { type: "computed-field" as const, key: "yearBand" },
+		};
+		const publishYearExpression = {
+			type: "reference" as const,
+			reference: {
+				slug: "book",
+				property: "publishYear",
+				type: "schema-property" as const,
+			},
+		};
+
+		const createdView = await createSavedView(client, cookies, {
+			name: "Computed Saved View",
+			queryDefinition: {
+				eventJoins: [],
+				entitySchemaSlugs: ["book"],
+				sort: { direction: "desc", expression: nextYearReference },
+				filter: {
+					operator: "gte",
+					type: "comparison",
+					left: nextYearReference,
+					right: { type: "literal", value: 2021 },
+				},
+				computedFields: [
+					{
+						key: "nextYear",
+						expression: {
+							operator: "add",
+							type: "arithmetic",
+							left: publishYearExpression,
+							right: { type: "literal", value: 1 },
+						},
+					},
+					{
+						key: "label",
+						expression: {
+							type: "concat",
+							values: [
+								{ type: "literal", value: "Book: " },
+								{
+									type: "reference",
+									reference: {
+										slug: "book",
+										column: "name",
+										type: "entity-column",
+									},
+								},
+							],
+						},
+					},
+				],
+			},
+			displayConfiguration: {
+				table: {
+					columns: [{ label: "Next Year", expression: nextYearReference }],
+				},
+				grid: {
+					badgeProperty: nextYearReference,
+					subtitleProperty: null,
+					titleProperty: labelReference,
+					imageProperty: [entityField("book", "image")],
+				},
+				list: {
+					badgeProperty: nextYearReference,
+					subtitleProperty: null,
+					titleProperty: labelReference,
+					imageProperty: [entityField("book", "image")],
+				},
+			},
+		});
+		const updatedView = await updateSavedView(client, cookies, createdView.id, {
+			name: "Computed Saved View Updated",
+			queryDefinition: {
+				eventJoins: [],
+				entitySchemaSlugs: ["book"],
+				sort: { direction: "desc", expression: nextYearReference },
+				filter: {
+					type: "comparison",
+					operator: "gte",
+					left: nextYearReference,
+					right: { type: "literal", value: 2021 },
+				},
+				computedFields: [
+					{
+						key: "nextYear",
+						expression: {
+							type: "arithmetic",
+							operator: "add",
+							left: publishYearExpression,
+							right: { type: "literal", value: 1 },
+						},
+					},
+					{
+						key: "label",
+						expression: {
+							type: "concat",
+							values: [
+								{ type: "literal", value: "Book: " },
+								{
+									type: "reference",
+									reference: {
+										slug: "book",
+										column: "name",
+										type: "entity-column",
+									},
+								},
+							],
+						},
+					},
+					{
+						key: "yearBand",
+						expression: {
+							type: "conditional",
+							whenTrue: { type: "literal", value: "modern" },
+							whenFalse: { type: "literal", value: "classic" },
+							condition: {
+								type: "comparison",
+								operator: "gte",
+								left: nextYearReference,
+								right: { type: "literal", value: 2021 },
+							},
+						},
+					},
+				],
+			},
+			displayConfiguration: {
+				table: {
+					columns: [{ label: "Band", expression: yearBandReference }],
+				},
+				grid: {
+					badgeProperty: yearBandReference,
+					subtitleProperty: nextYearReference,
+					titleProperty: labelReference,
+					imageProperty: [entityField("book", "image")],
+				},
+				list: {
+					badgeProperty: yearBandReference,
+					subtitleProperty: nextYearReference,
+					titleProperty: labelReference,
+					imageProperty: [entityField("book", "image")],
+				},
+			},
+		});
+		const fetchedUpdatedView = await getSavedView(
+			client,
+			cookies,
+			createdView.id,
+		);
+
+		expect(createdView.queryDefinition.computedFields).toHaveLength(2);
+		expect(updatedView.queryDefinition.computedFields).toHaveLength(3);
+		expect(fetchedUpdatedView.name).toBe("Computed Saved View Updated");
+		expect(fetchedUpdatedView.queryDefinition).toEqual(
+			updatedView.queryDefinition,
+		);
+		expect(fetchedUpdatedView.displayConfiguration).toEqual(
+			updatedView.displayConfiguration,
+		);
+	});
+
+	it("rejects computed field cycles when creating or updating saved views", async () => {
+		const { client, cookies } = await createAuthenticatedClient();
+		const createdView = await createSavedView(client, cookies, {
+			name: "Cycle Guard View",
+		});
+
+		const invalidQueryDefinition = {
+			filter: null,
+			eventJoins: [],
+			entitySchemaSlugs: ["book"],
+			sort: {
+				direction: "asc" as const,
+				expression: {
+					type: "reference" as const,
+					reference: {
+						slug: "book",
+						column: "name",
+						type: "entity-column" as const,
+					},
+				},
+			},
+			computedFields: [
+				{
+					key: "first",
+					expression: {
+						type: "reference" as const,
+						reference: { type: "computed-field" as const, key: "second" },
+					},
+				},
+				{
+					key: "second",
+					expression: {
+						type: "reference" as const,
+						reference: { type: "computed-field" as const, key: "first" },
+					},
+				},
+			],
+		};
+
+		const createResult = await client.POST("/saved-views", {
+			headers: { Cookie: cookies },
+			body: buildSavedViewBody({ queryDefinition: invalidQueryDefinition }),
+		});
+		const updateResult = await client.PUT("/saved-views/{viewId}", {
+			headers: { Cookie: cookies },
+			params: { path: { viewId: createdView.id } },
+			body: buildUpdatedSavedViewBody({
+				queryDefinition: invalidQueryDefinition,
+			}),
+		});
+
+		expect(createResult.response.status).toBe(400);
+		expect(updateResult.response.status).toBe(400);
+		expect(createResult.error?.error?.message).toBe(
+			"Computed field dependency cycle detected: first -> second -> first",
+		);
+		expect(updateResult.error?.error?.message).toBe(
+			"Computed field dependency cycle detected: first -> second -> first",
+		);
+	});
+
+	it("rejects non-display computed image usage when creating or updating saved views", async () => {
+		const { client, cookies } = await createAuthenticatedClient();
+		const createdView = await createSavedView(client, cookies, {
+			name: "Image Guard View",
+		});
+
+		const invalidQueryDefinition = {
+			filter: null,
+			eventJoins: [],
+			entitySchemaSlugs: ["book"],
+			sort: {
+				direction: "asc" as const,
+				expression: {
+					type: "reference" as const,
+					reference: { type: "computed-field" as const, key: "cover" },
+				},
+			},
+			computedFields: [
+				{
+					key: "cover",
+					expression: {
+						type: "reference" as const,
+						reference: {
+							slug: "book",
+							column: "image",
+							type: "entity-column" as const,
+						},
+					},
+				},
+			],
+		};
+
+		const createResult = await client.POST("/saved-views", {
+			headers: { Cookie: cookies },
+			body: buildSavedViewBody({ queryDefinition: invalidQueryDefinition }),
+		});
+		const updateResult = await client.PUT("/saved-views/{viewId}", {
+			headers: { Cookie: cookies },
+			params: { path: { viewId: createdView.id } },
+			body: buildUpdatedSavedViewBody({
+				queryDefinition: invalidQueryDefinition,
+			}),
+		});
+
+		expect(createResult.response.status).toBe(400);
+		expect(updateResult.response.status).toBe(400);
+		expect(createResult.error?.error?.message).toBe(
+			"Image expressions are display-only and cannot be used in sorting",
+		);
+		expect(updateResult.error?.error?.message).toBe(
+			"Image expressions are display-only and cannot be used in sorting",
+		);
+	});
+
 	it("rejects unqualified property references when creating or updating saved views", async () => {
 		const { client, cookies } = await createAuthenticatedClient();
 		const createdView = await createSavedView(client, cookies, {

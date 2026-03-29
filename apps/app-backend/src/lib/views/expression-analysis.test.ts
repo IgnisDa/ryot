@@ -3,7 +3,7 @@ import {
 	createSmartphoneSchema,
 	createTabletSchema,
 } from "~/lib/test-fixtures";
-import type { ViewExpression } from "./expression";
+import type { ViewComputedField, ViewExpression } from "./expression";
 import { inferViewExpressionType } from "./expression-analysis";
 import { buildEventJoinMap, buildSchemaMap } from "./reference";
 
@@ -123,5 +123,51 @@ describe("inferViewExpressionType", () => {
 				},
 			}),
 		).toThrow("Expression branches have incompatible types");
+	});
+
+	it("infers computed-field references and rejects missing computed fields", () => {
+		const computedFieldMap = new Map<string, ViewComputedField>([
+			[
+				"displayName",
+				{
+					key: "displayName",
+					expression: {
+						type: "concat",
+						values: [
+							entityExpression("smartphones", "manufacturer"),
+							literalExpression(" "),
+							entityExpression("smartphones", "releaseYear"),
+						],
+					},
+				},
+			],
+		]);
+
+		expect(
+			inferViewExpressionType({
+				context,
+				computedFieldMap,
+				expression: {
+					type: "reference",
+					reference: { type: "computed-field", key: "displayName" },
+				},
+			}),
+		).toEqual({
+			kind: "property",
+			propertyType: "string",
+			propertyDefinition: { type: "string" },
+		});
+
+		expect(() =>
+			inferViewExpressionType({
+				context,
+				expression: {
+					type: "reference",
+					reference: { type: "computed-field", key: "missingField" },
+				},
+			}),
+		).toThrow(
+			"Computed field 'missingField' is not part of this runtime request",
+		);
 	});
 });
