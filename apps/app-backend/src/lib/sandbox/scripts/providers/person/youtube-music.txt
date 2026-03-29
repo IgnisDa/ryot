@@ -122,7 +122,35 @@ driver("details", async function (context) {
 
   const description = artist.header?.description?.text ?? null;
 
+  const relatedEntities = (() => {
+    const albums = [];
+    const sections = artist?.sections;
+    if (!Array.isArray(sections)) return [];
+
+    for (const section of sections) {
+      for (const item of section?.contents ?? []) {
+        const id = typeof item?.id === "string" && item.id ? item.id : null;
+        const title =
+          typeof item?.title === "string" && item.title
+            ? item.title
+            : typeof item?.name === "string" && item.name
+              ? item.name
+              : null;
+        if (id && title) albums.push({ id, title });
+      }
+    }
+
+    return albums.map((album) => ({
+      name: album.title,
+      externalId: album.id,
+      reverseDirection: true,
+      scriptSlug: "music-group.youtube-music",
+      relationshipProperties: { roles: ["Artist"] },
+    }));
+  })();
+
   return {
+    relatedEntities,
     name: String(name),
     properties: {
       description,

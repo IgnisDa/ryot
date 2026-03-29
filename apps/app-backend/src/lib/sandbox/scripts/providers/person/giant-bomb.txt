@@ -92,6 +92,12 @@ function formatBirthDate(dateStr) {
 const BASE_URL = "https://www.giantbomb.com/api";
 const GUID_PATTERN = /^\d+-\d+$/;
 
+function extractGiantBombGuid(apiUrl) {
+	if (typeof apiUrl !== "string" || !apiUrl) return "";
+	const parts = apiUrl.split("/").filter((s) => s.length > 0);
+	return parts[parts.length - 1] ?? "";
+}
+
 driver("search", async function (context) {
 	const { z } = await import("npm:zod");
 
@@ -230,6 +236,7 @@ driver("details", async function (context) {
 		"hometown",
 		"image",
 		"site_detail_url",
+		"franchises",
 	].join(",");
 
 	const url = `${BASE_URL}/person/${encodeURIComponent(externalId)}/?api_key=${encodeURIComponent(apiKey)}&format=json&field_list=${fieldList}`;
@@ -286,8 +293,21 @@ driver("details", async function (context) {
 			? person.site_detail_url.trim()
 			: null;
 
+	const franchises = Array.isArray(person?.franchises) ? person.franchises : [];
+	const relatedEntities = franchises
+		.filter((f) => typeof f?.api_detail_url === "string" && f.api_detail_url)
+		.map((f) => ({
+			reverseDirection: true,
+			scriptSlug: "video-game-group.giant-bomb",
+			relationshipProperties: { roles: ["Person"] },
+			externalId: extractGiantBombGuid(f.api_detail_url),
+			name: typeof f?.name === "string" && f.name.trim() ? f.name.trim() : "",
+		}))
+		.filter((e) => e.externalId && e.name);
+
 	return {
 		name,
+		relatedEntities,
 		properties: {
 			images,
 			birthDate,

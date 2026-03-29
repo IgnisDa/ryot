@@ -222,8 +222,38 @@ driver("details", async function(context) {
 
   const sourceUrl = getNullableString(artist?.external_urls?.spotify);
 
+  const relatedEntities = await (async () => {
+    const limit = 50;
+    const allAlbums = [];
+    let offset = 0;
+
+    while (true) {
+      const data = await spotifyGet(
+        `/artists/${encodeURIComponent(externalId)}/albums`,
+        { include_groups: "album,single", limit: String(limit), offset: String(offset) },
+      );
+
+      const items = Array.isArray(data?.items) ? data.items : [];
+      if (items.length === 0) break;
+
+      allAlbums.push(...items);
+
+      if (allAlbums.length >= (typeof data?.total === "number" ? data.total : 0)) break;
+      offset += limit;
+    }
+
+    return allAlbums.map((album) => ({
+      reverseDirection: true,
+      externalId: getString(album?.id),
+      scriptSlug: "music-group.spotify",
+      relationshipProperties: { roles: ["Artist"] },
+      name: getString(album?.name) || getString(album?.id),
+    }));
+  })();
+
   return {
     name,
+    relatedEntities,
     properties: {
       sourceUrl,
       description,
