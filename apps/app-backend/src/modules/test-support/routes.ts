@@ -7,6 +7,12 @@ import { TestSupportService } from "./service";
 
 export const TestSupportRoutesLive = HttpApiBuilder.group(AppContract, "testSupport", (handlers) =>
 	handlers
+		.handle("installDefinitions", ({ payload }) =>
+			Effect.gen(function* () {
+				const svc = yield* TestSupportService;
+				yield* svc.installDefinitions(payload);
+			}),
+		)
 		.handle("getSandboxScript", ({ path }) =>
 			Effect.gen(function* () {
 				const svc = yield* TestSupportService;
@@ -45,7 +51,7 @@ export const TestSupportRoutesLive = HttpApiBuilder.group(AppContract, "testSupp
 				const svc = yield* TestSupportService;
 				return yield* svc.linkSandboxScriptToEntitySchema({
 					sandboxScriptId: path.scriptId,
-					entitySchemaId: path.entitySchemaId,
+					entitySchemaSlug: path.entitySchemaSlug,
 				});
 			}).pipe(dieOnDbError),
 		)
@@ -142,7 +148,7 @@ export const TestSupportRoutesLive = HttpApiBuilder.group(AppContract, "testSupp
 		.handle("trackerExists", ({ path }) =>
 			Effect.gen(function* () {
 				const svc = yield* TestSupportService;
-				return yield* svc.trackerExists(path.trackerId);
+				return yield* svc.trackerExists(path.trackerSlug);
 			}).pipe(dieOnDbError),
 		),
 );

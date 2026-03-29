@@ -1,17 +1,18 @@
-import { EntitySchemaId } from "@ryot/contract/schema/brands";
+import { EntitySchemaSlug, RelationshipSchemaSlug } from "@ryot/contract/schema/brands";
 import type { AppSchema } from "@ryot/contract/schema/property-schema";
+import { Effect } from "effect";
 
 import { requirePresent } from "~/support/assertions";
 
+import { adminHeaders } from "./admin";
 import type { Client } from "./auth";
-import type { ContractPayload } from "./contract-client";
+import { getBackendClient } from "./contract-client";
 
-type CreateRelationshipSchemaBody = ContractPayload<"relationshipSchemas", "create">;
-
-export interface CreateRelationshipSchemaOptions extends Omit<
-	CreateRelationshipSchemaBody,
-	"propertiesSchema"
-> {
+export interface CreateRelationshipSchemaOptions {
+	name: string;
+	slug: string;
+	sourceEntitySchemaSlug?: string | null;
+	targetEntitySchemaSlug?: string | null;
 	propertiesSchema?: AppSchema;
 }
 
@@ -23,36 +24,57 @@ export function requireRelationshipSchemaBySlug<T extends { slug: string }>(
 	return requirePresent(schema, `Relationship schema '${slug}' not found`);
 }
 
-export const createRelationshipSchema = (client: Client, body: CreateRelationshipSchemaOptions) =>
-	client.call((c) =>
-		c.relationshipSchemas.create({
-			payload: {
-				...body,
-				propertiesSchema: body.propertiesSchema ?? { fields: {} },
-			},
-		}),
-	);
+export const createRelationshipSchema = (_client: Client, body: CreateRelationshipSchemaOptions) =>
+	Effect.gen(function* () {
+		const schema = {
+			name: body.name,
+			slug: body.slug,
+			propertiesSchema: body.propertiesSchema ?? { fields: {} },
+			sourceEntitySchemaSlug: body.sourceEntitySchemaSlug ?? null,
+			targetEntitySchemaSlug: body.targetEntitySchemaSlug ?? null,
+		};
+		yield* getBackendClient().call(
+			(c) => c.testSupport.installDefinitions({ payload: { relationshipSchemas: [schema] } }),
+			adminHeaders,
+		);
+		return {
+			...schema,
+			id: RelationshipSchemaSlug.make(body.slug),
+			sourceEntitySchemaSlug:
+				body.sourceEntitySchemaSlug == null
+					? null
+					: EntitySchemaSlug.make(body.sourceEntitySchemaSlug),
+			targetEntitySchemaSlug:
+				body.targetEntitySchemaSlug == null
+					? null
+					: EntitySchemaSlug.make(body.targetEntitySchemaSlug),
+		};
+	});
 
 export const listRelationshipSchemas = (
 	client: Client,
 	options: {
 		slugs?: string[];
-		sourceEntitySchemaId?: string | null;
-		targetEntitySchemaId?: string | null;
+		sourceEntitySchemaSlug?: string | null;
+		targetEntitySchemaSlug?: string | null;
 	} = {},
 ) =>
-	client.call((c) =>
-		c.relationshipSchemas.list({
-			payload: {
-				slugs: options.slugs,
-				sourceEntitySchemaId:
-					options.sourceEntitySchemaId === undefined || options.sourceEntitySchemaId === null
-						? options.sourceEntitySchemaId
-						: EntitySchemaId.make(options.sourceEntitySchemaId),
-				targetEntitySchemaId:
-					options.targetEntitySchemaId === undefined || options.targetEntitySchemaId === null
-						? options.targetEntitySchemaId
-						: EntitySchemaId.make(options.targetEntitySchemaId),
-			},
-		}),
-	);
+	client
+		.call((c) => c.definitions.listRelationships({}))
+		.pipe(
+			Effect.map((schemas) =>
+				schemas
+					.filter((schema) => !options.slugs || options.slugs.includes(schema.slug))
+					.filter(
+						(schema) =>
+							options.sourceEntitySchemaSlug === undefined ||
+							schema.sourceEntitySchemaSlug === options.sourceEntitySchemaSlug,
+					)
+					.filter(
+						(schema) =>
+							options.targetEntitySchemaSlug === undefined ||
+							schema.targetEntitySchemaSlug === options.targetEntitySchemaSlug,
+					)
+					.map((schema) => ({ ...schema, id: schema.slug, isBuiltin: true })),
+			),
+		);

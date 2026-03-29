@@ -1,8 +1,8 @@
 import { quoteSqlString } from "./shared";
 
 export const buildUserToEntityInLibraryMigrationSql = (
-	inLibraryRelationshipSchemaId: string,
-	libraryEntitySchemaId: string,
+	inLibraryRelationshipSchemaSlug: string,
+	libraryEntitySchemaSlug: string,
 ) => `
 DO $$
 DECLARE
@@ -36,7 +36,7 @@ BEGIN
 			"user_id",
 			"source_entity_id",
 			"target_entity_id",
-			"relationship_schema_id",
+			"relationship_schema_slug",
 			"properties",
 			"created_at"
 		)
@@ -45,13 +45,13 @@ BEGIN
 			ute.user_id,
 			ute.entity_id,
 			lib.id,
-			${quoteSqlString(inLibraryRelationshipSchemaId)},
+			${quoteSqlString(inLibraryRelationshipSchemaSlug)},
 			'{}'::jsonb,
 			ute.created_on
 		FROM "user_to_entity" ute
 		INNER JOIN "entity" src ON src.id = ute.entity_id AND src.user_id IS NULL
 		INNER JOIN "entity" lib ON lib.user_id = ute.user_id
-			AND lib.entity_schema_id = ${quoteSqlString(libraryEntitySchemaId)}
+			AND lib.entity_schema_slug = ${quoteSqlString(libraryEntitySchemaSlug)}
 		WHERE ute.id::text > cursor_id
 		  AND ute.id::text <= next_cursor_id
 		ON CONFLICT DO NOTHING;

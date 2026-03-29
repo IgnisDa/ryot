@@ -3,7 +3,7 @@ import {
 	createEntitySchemaExpression,
 	type DisplayConfiguration,
 } from "@ryot/contract/display-configuration";
-import { TrackerId } from "@ryot/contract/schema/brands";
+import { TrackerSlug } from "@ryot/contract/schema/brands";
 import {
 	buildQueryEngineAggregateDocument,
 	buildQueryEngineEntityRowsDocument,
@@ -259,13 +259,13 @@ export const createSavedViewWithQueryDocument = (
 
 export const listSavedViews = (
 	client: Client,
-	options: { trackerId?: string; includeDisabled?: boolean } = {},
+	options: { trackerSlug?: string; includeDisabled?: boolean } = {},
 ) =>
 	client.call((c) =>
 		c.savedViews.list({
 			urlParams: {
 				includeDisabled: options.includeDisabled ?? false,
-				trackerId: options.trackerId ? TrackerId.make(options.trackerId) : undefined,
+				trackerSlug: options.trackerSlug ? TrackerSlug.make(options.trackerSlug) : undefined,
 			},
 		}),
 	);

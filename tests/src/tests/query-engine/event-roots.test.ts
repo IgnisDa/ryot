@@ -29,29 +29,29 @@ describe("Event roots and first expressions", () => {
 			const completeSchema = yield* createEventSchema(client, {
 				slug: completeSlug,
 				name: "Event Root Complete",
-				entitySchemaId: lessonSchemaId,
+				entitySchemaSlug: lessonSchemaId,
 				propertiesSchema: {
 					fields: { notes: { type: "string", label: "Notes", description: "Completion notes" } },
 				},
 			});
 			const firstLesson = yield* createQueryEngineEntity(client, {
-				entitySchemaId: lessonSchemaId,
+				entitySchemaSlug: lessonSchemaId,
 				name: "First Lesson With Events",
 			});
 			const latestLesson = yield* createQueryEngineEntity(client, {
-				entitySchemaId: lessonSchemaId,
+				entitySchemaSlug: lessonSchemaId,
 				name: "Latest Lesson With Events",
 			});
 
 			yield* createQueryEngineEvent(client, {
 				entityId: firstLesson.id,
-				eventSchemaId: completeSchema.id,
+				eventSchemaSlug: completeSchema.id,
 				occurredAt: "2026-01-01T00:00:00.000Z",
 				properties: { notes: "first completion" },
 			});
 			yield* createQueryEngineEvent(client, {
 				entityId: latestLesson.id,
-				eventSchemaId: completeSchema.id,
+				eventSchemaSlug: completeSchema.id,
 				occurredAt: "2026-02-01T00:00:00.000Z",
 				properties: { notes: "latest completion" },
 			});
@@ -105,22 +105,25 @@ describe("Event roots and first expressions", () => {
 			const completeSchema = yield* createEventSchema(client, {
 				slug: completeSlug,
 				name: "First Complete",
-				entitySchemaId: lessonSchemaId,
+				entitySchemaSlug: lessonSchemaId,
 			});
 			const lessonWithEvents = yield* createQueryEngineEntity(client, {
 				name: "Lesson A",
-				entitySchemaId: lessonSchemaId,
+				entitySchemaSlug: lessonSchemaId,
 			});
-			yield* createQueryEngineEntity(client, { name: "Lesson B", entitySchemaId: lessonSchemaId });
+			yield* createQueryEngineEntity(client, {
+				name: "Lesson B",
+				entitySchemaSlug: lessonSchemaId,
+			});
 
 			yield* createQueryEngineEvent(client, {
 				entityId: lessonWithEvents.id,
-				eventSchemaId: completeSchema.id,
+				eventSchemaSlug: completeSchema.id,
 				occurredAt: "2026-03-01T00:00:00.000Z",
 			});
 			yield* createQueryEngineEvent(client, {
 				entityId: lessonWithEvents.id,
-				eventSchemaId: completeSchema.id,
+				eventSchemaSlug: completeSchema.id,
 				occurredAt: "2026-04-01T00:00:00.000Z",
 			});
 
@@ -189,8 +192,8 @@ describe("Event roots and first expressions", () => {
 			const relationshipSchema = yield* createRelationshipSchema(client, {
 				name: "First Entity Course Module",
 				slug: relationshipSlug,
-				sourceEntitySchemaId: courseSchemaId,
-				targetEntitySchemaId: moduleSchemaId,
+				sourceEntitySchemaSlug: courseSchemaId,
+				targetEntitySchemaSlug: moduleSchemaId,
 				propertiesSchema: {
 					fields: {
 						position: { type: "integer", label: "Position", description: "Edge sort order" },
@@ -200,20 +203,20 @@ describe("Event roots and first expressions", () => {
 
 			const courseWithModules = yield* createQueryEngineEntity(client, {
 				name: "Course With Modules",
-				entitySchemaId: courseSchemaId,
+				entitySchemaSlug: courseSchemaId,
 			});
 			yield* createQueryEngineEntity(client, {
 				name: "Course Without Modules",
-				entitySchemaId: courseSchemaId,
+				entitySchemaSlug: courseSchemaId,
 			});
 			const moduleOne = yield* createQueryEngineEntity(client, {
 				name: "Module One",
-				entitySchemaId: moduleSchemaId,
+				entitySchemaSlug: moduleSchemaId,
 				properties: { moduleNumber: 1 },
 			});
 			const moduleTwo = yield* createQueryEngineEntity(client, {
 				name: "Module Two",
-				entitySchemaId: moduleSchemaId,
+				entitySchemaSlug: moduleSchemaId,
 				properties: { moduleNumber: 2 },
 			});
 
@@ -221,13 +224,13 @@ describe("Event roots and first expressions", () => {
 				sourceEntityId: courseWithModules.id,
 				properties: { position: 2 },
 				targetEntityId: moduleTwo.id,
-				relationshipSchemaId: relationshipSchema.id,
+				relationshipSchemaSlug: relationshipSchema.id,
 			});
 			yield* createRelationship(client, {
 				sourceEntityId: courseWithModules.id,
 				properties: { position: 1 },
 				targetEntityId: moduleOne.id,
-				relationshipSchemaId: relationshipSchema.id,
+				relationshipSchemaSlug: relationshipSchema.id,
 			});
 
 			const firstModuleNameExpr: Extract<
@@ -298,8 +301,8 @@ describe("Event roots and first expressions", () => {
 			const relationshipSchema = yield* createRelationshipSchema(client, {
 				name: "First Where Course Module",
 				slug: relationshipSlug,
-				sourceEntitySchemaId: courseSchemaId,
-				targetEntitySchemaId: moduleSchemaId,
+				sourceEntitySchemaSlug: courseSchemaId,
+				targetEntitySchemaSlug: moduleSchemaId,
 				propertiesSchema: {
 					fields: {
 						position: { type: "integer", label: "Position", description: "Edge sort order" },
@@ -309,24 +312,24 @@ describe("Event roots and first expressions", () => {
 
 			const startsAtOne = yield* createQueryEngineEntity(client, {
 				name: "Starts At One",
-				entitySchemaId: courseSchemaId,
+				entitySchemaSlug: courseSchemaId,
 			});
 			const startsAtFive = yield* createQueryEngineEntity(client, {
 				name: "Starts At Five",
-				entitySchemaId: courseSchemaId,
+				entitySchemaSlug: courseSchemaId,
 			});
 			yield* createQueryEngineEntity(client, {
 				name: "No Modules",
-				entitySchemaId: courseSchemaId,
+				entitySchemaSlug: courseSchemaId,
 			});
 			const moduleAtOne = yield* createQueryEngineEntity(client, {
 				name: "Module At One",
-				entitySchemaId: moduleSchemaId,
+				entitySchemaSlug: moduleSchemaId,
 				properties: { moduleNumber: 1 },
 			});
 			const moduleAtFive = yield* createQueryEngineEntity(client, {
 				name: "Module At Five",
-				entitySchemaId: moduleSchemaId,
+				entitySchemaSlug: moduleSchemaId,
 				properties: { moduleNumber: 5 },
 			});
 
@@ -334,13 +337,13 @@ describe("Event roots and first expressions", () => {
 				sourceEntityId: startsAtOne.id,
 				properties: { position: 1 },
 				targetEntityId: moduleAtOne.id,
-				relationshipSchemaId: relationshipSchema.id,
+				relationshipSchemaSlug: relationshipSchema.id,
 			});
 			yield* createRelationship(client, {
 				sourceEntityId: startsAtFive.id,
 				properties: { position: 5 },
 				targetEntityId: moduleAtFive.id,
-				relationshipSchemaId: relationshipSchema.id,
+				relationshipSchemaSlug: relationshipSchema.id,
 			});
 
 			const buildFirstPositionExpr = (

@@ -1,14 +1,15 @@
 import { expect, it } from "@effect/vitest";
 import type { CurrentUserValue } from "@ryot/contract/auth-middleware";
-import { BadRequest, Conflict, DbError, NotFound } from "@ryot/contract/errors";
+import { BadRequest, NotFound } from "@ryot/contract/errors";
 import type {
 	CreateSavedViewBody,
 	ListedSavedView,
 } from "@ryot/contract/modules/saved-views/schemas";
-import { SavedViewId, TrackerId, UserId } from "@ryot/contract/schema/brands";
+import { SavedViewId, UserId } from "@ryot/contract/schema/brands";
 import { Effect, Exit, Layer } from "effect";
 
 import { type MockOverrides, dbRunnerLayer, transactionLayer } from "#lib/test-utils/effect";
+import { DefinitionRegistry, makeDefinitionRegistry } from "#modules/definition-registry/service";
 import { EntitySchemasRepository } from "#modules/entity-schemas/repository";
 import { QueryEngineService } from "#modules/query-engine/service";
 
@@ -42,7 +43,7 @@ const baseListedSavedView: ListedSavedView = {
 	sortOrder: 0,
 	slug: "my-view",
 	name: "My View",
-	trackerId: null,
+	trackerSlug: null,
 	isBuiltin: false,
 	isDisabled: false,
 	accentColor: "#FF5733",
@@ -75,7 +76,11 @@ const baseListedSavedView: ListedSavedView = {
 const mockRepository = Layer.mock(SavedViewsRepository);
 
 const makeRepository = (overrides: MockOverrides<typeof mockRepository> = {}) =>
-	mockRepository({ _tag: "SavedViewsRepository", ...overrides });
+	mockRepository({
+		_tag: "SavedViewsRepository",
+		listBuiltinStates: () => Effect.succeed([]),
+		...overrides,
+	});
 
 const mockQueryEngine = Layer.mock(QueryEngineService);
 
@@ -97,16 +102,39 @@ const makeEntitySchemasRepository = (
 		...overrides,
 	});
 
+const makeDefinitionRegistryLayer = (...views: ReadonlyArray<ListedSavedView>) =>
+	Layer.succeed(DefinitionRegistry, {
+		_tag: "DefinitionRegistry",
+		...makeDefinitionRegistry({
+			trackers: [],
+			entitySchemas: [],
+			signalSchemas: [],
+			relationshipSchemas: [],
+			savedViews: views.map((view) => ({
+				icon: view.icon,
+				name: view.name,
+				slug: view.slug,
+				sortOrder: view.sortOrder,
+				accentColor: view.accentColor,
+				trackerSlug: view.trackerSlug,
+				queryDocument: view.queryDocument,
+				displayConfiguration: view.displayConfiguration,
+			})),
+		}),
+	});
+
 const makeServiceLayer = (
 	repository = makeRepository(),
 	queryEngine = makeQueryEngine(),
 	entitySchemasRepository = makeEntitySchemasRepository(),
+	definitionRegistry = makeDefinitionRegistryLayer(),
 ) =>
 	SavedViewsService.Default.pipe(
 		Layer.provide(
 			Layer.mergeAll(
 				dbRunnerLayer,
 				transactionLayer,
+				definitionRegistry,
 				entitySchemasRepository,
 				queryEngine,
 				repository,
@@ -176,10 +204,14 @@ it.effect("returns not found when getting a view the user does not own", () => {
 });
 
 it.effect("returns bad request when deleting a built-in view", () => {
+	const builtinView = { ...baseListedSavedView, slug: "builtin-view", isBuiltin: true };
 	const layer = makeServiceLayer(
 		makeRepository({
-			findBySlug: () => Effect.succeed({ ...baseListedSavedView, isBuiltin: true }),
+			findBySlug: () => Effect.succeed(null),
 		}),
+		makeQueryEngine(),
+		makeEntitySchemasRepository(),
+		makeDefinitionRegistryLayer(builtinView),
 	);
 
 	return Effect.gen(function* () {
@@ -193,12 +225,21 @@ it.effect("returns bad request when deleting a built-in view", () => {
 });
 
 it.effect("rejects built-in definition changes while still allowing disable toggles", () => {
+	const builtinView = {
+		...baseListedSavedView,
+		name: "Books",
+		slug: "books",
+		isBuiltin: true,
+	};
 	const layer = makeServiceLayer(
 		makeRepository({
-			findBySlug: () => Effect.succeed({ ...baseListedSavedView, name: "Books", isBuiltin: true }),
-			updateDisabledBySlug: (_userId, _slug, isDisabled) =>
-				Effect.succeed({ ...baseListedSavedView, isBuiltin: true, name: "Books", isDisabled }),
+			findBySlug: () => Effect.succeed(null),
+			upsertBuiltinState: (input) =>
+				Effect.succeed({ ...input, createdAt: new Date(), updatedAt: new Date() }),
 		}),
+		makeQueryEngine(),
+		makeEntitySchemasRepository(),
+		makeDefinitionRegistryLayer(builtinView),
 	);
 
 	return Effect.gen(function* () {
@@ -238,10 +279,13 @@ it.effect("allows built-in disable toggles with independently decoded nested lit
 	};
 	const layer = makeServiceLayer(
 		makeRepository({
-			findBySlug: () => Effect.succeed(currentView),
-			updateDisabledBySlug: (_userId, _slug, isDisabled) =>
-				Effect.succeed({ ...currentView, isDisabled }),
+			findBySlug: () => Effect.succeed(null),
+			upsertBuiltinState: (input) =>
+				Effect.succeed({ ...input, createdAt: new Date(), updatedAt: new Date() }),
 		}),
+		makeQueryEngine(),
+		makeEntitySchemasRepository(),
+		makeDefinitionRegistryLayer({ ...currentView, slug: "builtin-view" }),
 	);
 
 	return Effect.gen(function* () {
@@ -258,10 +302,19 @@ it.effect("allows built-in disable toggles with independently decoded nested lit
 });
 
 it.effect("rejects updating a built-in view name", () => {
+	const builtinView = {
+		...baseListedSavedView,
+		name: "Books",
+		slug: "books",
+		isBuiltin: true,
+	};
 	const layer = makeServiceLayer(
 		makeRepository({
-			findBySlug: () => Effect.succeed({ ...baseListedSavedView, name: "Books", isBuiltin: true }),
+			findBySlug: () => Effect.succeed(null),
 		}),
+		makeQueryEngine(),
+		makeEntitySchemasRepository(),
+		makeDefinitionRegistryLayer(builtinView),
 	);
 
 	return Effect.gen(function* () {
@@ -281,10 +334,14 @@ it.effect("rejects updating a built-in view name", () => {
 });
 
 it.effect("rejects updating a built-in view's queryDocument", () => {
+	const builtinView = { ...baseListedSavedView, slug: "builtin-view", isBuiltin: true };
 	const layer = makeServiceLayer(
 		makeRepository({
-			findBySlug: () => Effect.succeed({ ...baseListedSavedView, isBuiltin: true }),
+			findBySlug: () => Effect.succeed(null),
 		}),
+		makeQueryEngine(),
+		makeEntitySchemasRepository(),
+		makeDefinitionRegistryLayer(builtinView),
 	);
 
 	const changedDocument: CreateSavedViewBody["queryDocument"] = {
@@ -322,7 +379,7 @@ it.effect("clones a saved view with (Copy) suffix", () => {
 						? {
 								...baseListedSavedView,
 								name: "Reading",
-								trackerId: null,
+								trackerSlug: null,
 							}
 						: null,
 				);
@@ -334,7 +391,7 @@ it.effect("clones a saved view with (Copy) suffix", () => {
 						...baseListedSavedView,
 						name: input.name,
 						slug: input.slug,
-						trackerId: input.trackerId ?? null,
+						trackerSlug: input.trackerSlug ?? null,
 					};
 				}),
 		}),
@@ -352,7 +409,7 @@ it.effect("clones a saved view with (Copy) suffix", () => {
 
 		expect(clonedName).toBe("Reading (Copy)");
 		expect(view.name).toBe("Reading (Copy)");
-		expect(view.trackerId).toBeNull();
+		expect(view.trackerSlug).toBeNull();
 		expect(validated).toBe(true);
 	}).pipe(Effect.provide(layer));
 });
@@ -367,10 +424,9 @@ it.effect("reorders requested slugs and appends the remaining", () => {
 
 	const layer = makeServiceLayer(
 		makeRepository({
-			countBySlugs: () => Effect.succeed(2),
 			findBySlug: (_userId, slug) =>
 				Effect.succeed(currentViews.find((view) => view.slug === slug) ?? null),
-			listInOrder: () => Effect.succeed(currentViews),
+			listByUser: () => Effect.succeed(currentViews),
 			updateBySlug: (_userId, slug, data) =>
 				Effect.sync(() => {
 					updatedViews.push({ slug, sortOrder: data.sortOrder });
@@ -394,7 +450,11 @@ it.effect("reorders requested slugs and appends the remaining", () => {
 });
 
 it.effect("rejects reorder requests containing unknown slugs", () => {
-	const layer = makeServiceLayer(makeRepository({ countBySlugs: () => Effect.succeed(1) }));
+	const layer = makeServiceLayer(
+		makeRepository({
+			listByUser: () => Effect.succeed([{ ...baseListedSavedView, slug: "view-a" }]),
+		}),
+	);
 
 	return Effect.gen(function* () {
 		const service = yield* SavedViewsService;
@@ -544,95 +604,6 @@ it.effect(
 		}).pipe(Effect.provide(layer));
 	},
 );
-
-it.effect("creates a default saved view for an entity schema", () => {
-	let createdInput: { slug: string; name: string; isBuiltin: boolean } | undefined;
-	let validatedDocument: unknown;
-
-	const layer = makeServiceLayer(
-		makeRepository({
-			findBySlug: () => Effect.succeed(null),
-			create: (_userId, input) =>
-				Effect.sync(() => {
-					createdInput = input;
-					return { ...baseListedSavedView, slug: input.slug, name: input.name, isBuiltin: true };
-				}),
-		}),
-		makeQueryEngine({
-			validate: (_user, doc) =>
-				Effect.sync(() => {
-					validatedDocument = doc;
-				}).pipe(Effect.as(undefined)),
-		}),
-	);
-
-	return Effect.gen(function* () {
-		const service = yield* SavedViewsService;
-		const view = yield* service.createDefaultForSchema({
-			icon: "book",
-			userId: user.id,
-			accentColor: "#FF5733",
-			entitySchemaName: "Custom Schema",
-			entitySchemaSlug: "custom-schema",
-			trackerId: TrackerId.make("tracker-id"),
-		});
-
-		expect(view.isBuiltin).toBe(true);
-		expect(createdInput?.isBuiltin).toBe(true);
-		expect(createdInput?.slug).toBe("all-custom-schema");
-		expect(createdInput?.name).toBe("All Custom Schemas");
-		expect(validatedDocument).toMatchObject({ source: { schemas: ["custom-schema"] } });
-	}).pipe(Effect.provide(layer));
-});
-
-it.effect("rejects creating a default saved view when one already exists for the schema", () => {
-	const layer = makeServiceLayer(
-		makeRepository({ findBySlug: () => Effect.succeed(baseListedSavedView) }),
-	);
-
-	return Effect.gen(function* () {
-		const service = yield* SavedViewsService;
-		const exit = yield* Effect.exit(
-			service.createDefaultForSchema({
-				icon: "book",
-				userId: user.id,
-				accentColor: "#FF5733",
-				entitySchemaName: "Book",
-				entitySchemaSlug: "book",
-				trackerId: TrackerId.make("tracker-id"),
-			}),
-		);
-
-		expect(exit).toEqual(
-			Exit.fail(new Conflict({ message: "Entity schema default saved view already exists" })),
-		);
-	}).pipe(Effect.provide(layer));
-});
-
-it.effect("maps default saved view validation failures to database errors", () => {
-	const layer = makeServiceLayer(
-		makeRepository({ findBySlug: () => Effect.succeed(null) }),
-		makeQueryEngine({
-			validate: () => Effect.fail(new DbError({ message: "schema lookup failed" })),
-		}),
-	);
-
-	return Effect.gen(function* () {
-		const service = yield* SavedViewsService;
-		const exit = yield* Effect.exit(
-			service.createDefaultForSchema({
-				icon: "book",
-				userId: user.id,
-				accentColor: "#FF5733",
-				entitySchemaName: "Custom Schema",
-				entitySchemaSlug: "custom-schema",
-				trackerId: TrackerId.make("tracker-id"),
-			}),
-		);
-
-		expect(exit).toEqual(Exit.fail(new DbError({ message: "schema lookup failed" })));
-	}).pipe(Effect.provide(layer));
-});
 
 it.effect("updates a saved view's queryDocument", () => {
 	let updatedQueryDocument: unknown;

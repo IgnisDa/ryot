@@ -87,7 +87,10 @@ export class SignalSchemasService extends Effect.Service<SignalSchemasService>()
 
 				if (input.audiencePolicy.kind === "related_users") {
 					const relationshipSchema = yield* runWithDb(
-						relationshipSchemasRepository.findById(input.audiencePolicy.relationshipSchemaId, null),
+						relationshipSchemasRepository.findById(
+							input.audiencePolicy.relationshipSchemaSlug,
+							null,
+						),
 					);
 					if (!relationshipSchema?.isBuiltin) {
 						return yield* new SignalSchemaContractDrift({
@@ -256,7 +259,7 @@ export class SignalEmissionService extends Effect.Service<SignalEmissionService>
 							actorUserId,
 							subjectEntityId,
 							occurredAt: input.occurredAt,
-							signalSchemaId: signalSchema.id,
+							signalSchemaSlug: signalSchema.id,
 						});
 
 						if (!inserted) {
@@ -280,7 +283,7 @@ export class SignalEmissionService extends Effect.Service<SignalEmissionService>
 							}
 							const policy = signalSchema.audiencePolicy;
 							const relationshipSchema = yield* relationshipSchemasRepository.findById(
-								policy.relationshipSchemaId,
+								policy.relationshipSchemaSlug,
 								principalUserId,
 							);
 							if (
@@ -294,7 +297,7 @@ export class SignalEmissionService extends Effect.Service<SignalEmissionService>
 							recipientUserIds = yield* relationshipsRepository.listEnabledOwnersForSubject({
 								subjectEntityId,
 								subjectSide: policy.subjectSide,
-								relationshipSchemaId: policy.relationshipSchemaId,
+								relationshipSchemaSlug: policy.relationshipSchemaSlug,
 							});
 						}
 
@@ -309,8 +312,7 @@ export class SignalEmissionService extends Effect.Service<SignalEmissionService>
 					occurredAt: result.signal.occurredAt,
 					actorUserId: result.signal.actorUserId,
 					recipientUserIds: result.recipientUserIds,
-					signalSchemaSlug: result.signal.schemaSlug,
-					signalSchemaId: result.signal.signalSchemaId,
+					signalSchemaSlug: result.signal.signalSchemaSlug,
 				});
 				return result;
 			});

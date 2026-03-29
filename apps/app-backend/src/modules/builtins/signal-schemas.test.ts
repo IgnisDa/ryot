@@ -1,12 +1,13 @@
 import { assert, expect, it } from "@effect/vitest";
-import { RelationshipSchemaId } from "@ryot/contract/schema/brands";
+import { RelationshipSchemaSlug } from "@ryot/contract/schema/brands";
 import { Effect, Either } from "effect";
 
 import { parseAppSchemaProperties } from "#lib/property-schema/property-schema-runtime";
 
 import { builtinSignalSchemas } from "./signal-schemas";
 
-const mediaMonitoringRelationshipSchemaId = RelationshipSchemaId.make("media-monitoring-schema");
+const mediaMonitoringRelationshipSchemaSlug =
+	RelationshipSchemaSlug.make("media-monitoring-schema");
 
 const contracts = {
 	"workout.created": { workoutId: "workout-1", workoutName: "Morning Run" },
@@ -21,7 +22,7 @@ const contracts = {
 
 it.effect("defines strict active actor contracts for the first notification signals", () =>
 	Effect.gen(function* () {
-		const definitions = builtinSignalSchemas(mediaMonitoringRelationshipSchemaId);
+		const definitions = builtinSignalSchemas(mediaMonitoringRelationshipSchemaSlug);
 
 		expect(definitions.filter(({ slug }) => slug in contracts).map(({ slug }) => slug)).toEqual([
 			"review.created",
@@ -108,7 +109,7 @@ const mediaContracts = {
 
 it.effect("defines strict related-user contracts for media update signals", () =>
 	Effect.gen(function* () {
-		const definitions = builtinSignalSchemas(mediaMonitoringRelationshipSchemaId);
+		const definitions = builtinSignalSchemas(mediaMonitoringRelationshipSchemaSlug);
 
 		expect(
 			new Set(definitions.filter(({ slug }) => slug in mediaContracts).map(({ slug }) => slug)),
@@ -120,7 +121,7 @@ it.effect("defines strict related-user contracts for media update signals", () =
 			expect(definition.audiencePolicy).toEqual({
 				kind: "related_users",
 				subjectSide: "source",
-				relationshipSchemaId: mediaMonitoringRelationshipSchemaId,
+				relationshipSchemaSlug: mediaMonitoringRelationshipSchemaSlug,
 			});
 			const valid = yield* parseAppSchemaProperties({
 				properties,
@@ -143,7 +144,7 @@ it.effect("defines strict related-user contracts for media update signals", () =
 
 it.effect("validates both release-date variants and rejects incomplete variants", () =>
 	Effect.gen(function* () {
-		const definition = builtinSignalSchemas(mediaMonitoringRelationshipSchemaId).find(
+		const definition = builtinSignalSchemas(mediaMonitoringRelationshipSchemaSlug).find(
 			({ slug }) => slug === "media.release-date.changed",
 		);
 		assert(definition);

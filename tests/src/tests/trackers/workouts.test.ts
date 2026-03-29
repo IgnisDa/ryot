@@ -9,7 +9,7 @@ import {
 	createAuthenticatedClient,
 	createWorkoutEntityFixture,
 	executeQueryEngine,
-	findBuiltinRelationshipSchemaId,
+	findBuiltinRelationshipSchemaSlug,
 	findBuiltinSchemaBySlug,
 	findBuiltinTrackerBySlug,
 	findWorkoutSetEventSchema,
@@ -30,13 +30,13 @@ describe("Workouts E2E", () => {
 			const { client } = yield* createAuthenticatedClient();
 			const fitnessTracker = yield* findBuiltinTrackerBySlug(client, "fitness");
 			const schemas = yield* listEntitySchemas(client, {
-				trackerId: fitnessTracker.id,
+				trackerSlug: fitnessTracker.id,
 			});
 			const workoutSchema = schemas.find((schema) => schema.slug === "workout");
 
 			expect(workoutSchema).toBeDefined();
 			expect(workoutSchema?.name).toBe("Workout");
-			expect(workoutSchema?.trackerId).toBe(fitnessTracker.id);
+			expect(workoutSchema?.trackerSlug).toBe(fitnessTracker.id);
 			expect(workoutSchema?.isBuiltin).toBe(true);
 		}),
 	);
@@ -76,7 +76,7 @@ describe("Workouts E2E", () => {
 			const { client } = yield* createAuthenticatedClient();
 			const fitnessTracker = yield* findBuiltinTrackerBySlug(client, "fitness");
 			const views = yield* listSavedViews(client, {
-				trackerId: fitnessTracker.id,
+				trackerSlug: fitnessTracker.id,
 			});
 			const allWorkoutsView = views.find((view) => view.name === "All Workouts");
 
@@ -84,7 +84,7 @@ describe("Workouts E2E", () => {
 			expect(allWorkoutsView).toMatchObject({
 				isBuiltin: true,
 				name: "All Workouts",
-				trackerId: fitnessTracker.id,
+				trackerSlug: fitnessTracker.id,
 				queryDocument: { source: { schemas: ["workout"] } },
 				displayConfiguration: {
 					grid: {
@@ -138,7 +138,7 @@ describe("Workouts E2E", () => {
 						{
 							entityId: exerciseId,
 							sessionEntityId: workoutId,
-							eventSchemaId: workoutSetEventSchema.id,
+							eventSchemaSlug: workoutSetEventSchema.id,
 							properties: {
 								reps: 10,
 								weight: 60,
@@ -173,7 +173,7 @@ describe("Workouts E2E", () => {
 						{
 							entityId: exerciseId,
 							sessionEntityId: workoutOneId,
-							eventSchemaId: workoutSetEventSchema.id,
+							eventSchemaSlug: workoutSetEventSchema.id,
 							properties: {
 								reps: 10,
 								setOrder: 0,
@@ -184,7 +184,7 @@ describe("Workouts E2E", () => {
 						{
 							entityId: exerciseId,
 							sessionEntityId: workoutOneId,
-							eventSchemaId: workoutSetEventSchema.id,
+							eventSchemaSlug: workoutSetEventSchema.id,
 							properties: {
 								reps: 8,
 								setOrder: 1,
@@ -195,7 +195,7 @@ describe("Workouts E2E", () => {
 						{
 							entityId: exerciseId,
 							sessionEntityId: workoutTwoId,
-							eventSchemaId: workoutSetEventSchema.id,
+							eventSchemaSlug: workoutSetEventSchema.id,
 							properties: {
 								reps: 6,
 								setOrder: 0,
@@ -227,7 +227,7 @@ describe("Workouts E2E", () => {
 						{
 							entityId: exerciseId,
 							sessionEntityId: workoutOneId,
-							eventSchemaId: workoutSetEventSchema.id,
+							eventSchemaSlug: workoutSetEventSchema.id,
 							properties: {
 								reps: 10,
 								setOrder: 0,
@@ -238,7 +238,7 @@ describe("Workouts E2E", () => {
 						{
 							entityId: exerciseId,
 							sessionEntityId: workoutTwoId,
-							eventSchemaId: workoutSetEventSchema.id,
+							eventSchemaSlug: workoutSetEventSchema.id,
 							properties: {
 								reps: 8,
 								setOrder: 0,
@@ -264,13 +264,13 @@ describe("Workouts E2E", () => {
 			const { workoutId: originalWorkoutId } = yield* createWorkoutEntityFixture(client);
 			const { workoutId: copiedWorkoutId } = yield* createWorkoutEntityFixture(client);
 
-			const relationshipSchemaId = yield* findBuiltinRelationshipSchemaId(
+			const relationshipSchemaSlug = yield* findBuiltinRelationshipSchemaSlug(
 				client,
 				"workout-repeated-from",
 			);
 
 			const relationship = yield* insertRelationshipRow(client, {
-				relationshipSchemaId,
+				relationshipSchemaSlug,
 				sourceEntityId: copiedWorkoutId,
 				targetEntityId: originalWorkoutId,
 			});
@@ -278,7 +278,7 @@ describe("Workouts E2E", () => {
 			expect(relationship.wasInserted).toBe(true);
 			expect(relationship.sourceEntityId).toBe(copiedWorkoutId);
 			expect(relationship.targetEntityId).toBe(originalWorkoutId);
-			expect(relationship.relationshipSchemaId).toBe(relationshipSchemaId);
+			expect(relationship.relationshipSchemaSlug).toBe(relationshipSchemaSlug);
 		}),
 	);
 });

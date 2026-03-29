@@ -1,11 +1,12 @@
 import { expect, it } from "@effect/vitest";
 import type { CurrentUserValue } from "@ryot/contract/auth-middleware";
-import { BadRequest, Conflict, NotFound } from "@ryot/contract/errors";
-import { EntitySchemaId, TrackerId, UserId } from "@ryot/contract/schema/brands";
+import { NotFound } from "@ryot/contract/errors";
+import { UserId } from "@ryot/contract/schema/brands";
 import { Effect, Exit, Layer } from "effect";
 
 import type { MockOverrides } from "#lib/test-utils/effect";
-import { dbRunnerLayer, transactionLayer } from "#lib/test-utils/effect";
+import { dbRunnerLayer } from "#lib/test-utils/effect";
+import { DefinitionRegistry } from "#modules/definition-registry/service";
 
 import { TrackersRepository } from "./repository";
 import { TrackersService } from "./service";
@@ -17,244 +18,108 @@ const user = {
 	preferences: { isNsfw: false, language: null, disableIntegrations: false },
 } satisfies CurrentUserValue;
 
-const mockTrackersRepository = Layer.mock(TrackersRepository);
+const mockRepository = Layer.mock(TrackersRepository);
 
-const makeTrackersRepository = (overrides: MockOverrides<typeof mockTrackersRepository> = {}) =>
-	mockTrackersRepository({
-		...overrides,
-		_tag: "TrackersRepository",
-	});
+const makeRepository = (overrides: MockOverrides<typeof mockRepository> = {}) =>
+	mockRepository({ _tag: "TrackersRepository", ...overrides });
 
-const makeServiceLayer = (repository: ReturnType<typeof makeTrackersRepository>) =>
+const makeServiceLayer = (repository: ReturnType<typeof makeRepository>) =>
 	TrackersService.Default.pipe(
-		Layer.provide(Layer.mergeAll(dbRunnerLayer, transactionLayer, repository)),
+		Layer.provide(Layer.mergeAll(dbRunnerLayer, DefinitionRegistry.Default, repository)),
 	);
 
-it.effect("normalizes tracker slugs before creating custom trackers", () => {
-	let createdSlug = "";
-
-	const layer = makeServiceLayer(
-		makeTrackersRepository({
-			findBySlug: () => Effect.succeed(null),
-			create: (_userId, input) =>
-				Effect.sync(() => {
-					createdSlug = input.slug;
-					return {
-						config: {},
-						sortOrder: 0,
-						id: TrackerId.make("tracker-id"),
-						slug: input.slug,
-						name: input.name,
-						icon: input.icon,
-						isBuiltin: false,
-						isDisabled: false,
-						accentColor: input.accentColor,
-						description: input.description ?? null,
-					};
-				}),
-		}),
-	);
-
-	return Effect.gen(function* () {
-		const service = yield* TrackersService;
-		const tracker = yield* service.create(user, {
-			icon: "rocket",
-			accentColor: "#FF5733",
-			name: " My Cool Tracker ",
-		});
-
-		expect(createdSlug).toBe("my-cool-tracker");
-		expect(tracker.slug).toBe("my-cool-tracker");
-	}).pipe(Effect.provide(layer));
+const makeState = (
+	overrides: Partial<{
+		config: Record<string, unknown>;
+		trackerSlug: string;
+		sortOrder: number;
+		isDisabled: boolean;
+	}> = {},
+) => ({
+	id: "state-id",
+	userId: user.id,
+	config: {},
+	trackerSlug: "media",
+	sortOrder: 0,
+	isDisabled: false,
+	createdAt: new Date("2026-01-01T00:00:00Z"),
+	updatedAt: new Date("2026-01-01T00:00:00Z"),
+	...overrides,
 });
 
-it.effect("forwards built-in metadata through the canonical create method", () => {
-	let createdAsBuiltin = false;
-
+it.effect("lists definition-backed trackers with user state overlaid", () => {
 	const layer = makeServiceLayer(
-		makeTrackersRepository({
-			findBySlug: () => Effect.succeed(null),
-			create: (_userId, input) =>
-				Effect.sync(() => {
-					createdAsBuiltin = input.isBuiltin === true;
-					return {
-						config: {},
-						sortOrder: 0,
-						id: TrackerId.make("tracker-id"),
-						slug: input.slug,
-						name: input.name,
-						icon: input.icon,
-						isBuiltin: true,
-						isDisabled: false,
-						accentColor: input.accentColor,
-						description: input.description ?? null,
-					};
-				}),
+		makeRepository({
+			listStates: () =>
+				Effect.succeed([
+					makeState({ config: { layout: "compact" }, sortOrder: 5 }),
+					makeState({ trackerSlug: "fitness", isDisabled: true, sortOrder: 0 }),
+				]),
 		}),
 	);
 
 	return Effect.gen(function* () {
 		const service = yield* TrackersService;
-		const tracker = yield* service.create(user, {
-			icon: "film",
-			name: "Media",
+
+		const visible = yield* service.list(user, false);
+		const all = yield* service.list(user, true);
+
+		expect(visible.map(({ slug }) => slug)).toEqual(["media"]);
+		expect(visible[0]).toMatchObject({
+			config: { layout: "compact" },
 			slug: "media",
-			accentColor: "#5B7FFF",
-			description: "Built-in media tracker",
-			isBuiltin: true,
+			name: "Media",
+			sortOrder: 5,
+			isDisabled: false,
 		});
-
-		expect(createdAsBuiltin).toBe(true);
-		expect(tracker.isBuiltin).toBe(true);
+		expect(all.map(({ slug }) => slug)).toEqual(["fitness", "media"]);
 	}).pipe(Effect.provide(layer));
 });
 
-it.effect("reports a conflict when a concurrent create wins the unique insert", () => {
+it.effect("updates state while preserving omitted overlay values", () => {
+	let persisted:
+		| Parameters<NonNullable<MockOverrides<typeof mockRepository>["upsertState"]>>[0]
+		| undefined;
+	const current = makeState({ config: { unit: "minutes" }, sortOrder: 4 });
 	const layer = makeServiceLayer(
-		makeTrackersRepository({
-			findBySlug: () => Effect.succeed(null),
-			create: () => Effect.succeed(null),
-		}),
-	);
-
-	return Effect.gen(function* () {
-		const service = yield* TrackersService;
-		const exit = yield* Effect.exit(
-			service.create(user, {
-				icon: "film",
-				name: "Media",
-				slug: "media",
-				accentColor: "#5B7FFF",
-			}),
-		);
-
-		expect(exit).toEqual(Exit.fail(new Conflict({ message: "Tracker slug already exists" })));
-	}).pipe(Effect.provide(layer));
-});
-
-it.effect("delegates tracker-schema links through the repository", () => {
-	let linked: { trackerId: TrackerId; entitySchemaId: EntitySchemaId } | undefined;
-	const layer = makeServiceLayer(
-		makeTrackersRepository({
-			linkEntitySchema: (input) =>
+		makeRepository({
+			getState: () => Effect.succeed(current),
+			upsertState: (input) =>
 				Effect.sync(() => {
-					linked = input;
-					return input.trackerId;
+					persisted = input;
+					return makeState(input);
 				}),
 		}),
 	);
 
 	return Effect.gen(function* () {
 		const service = yield* TrackersService;
-		const trackerId = TrackerId.make("tracker-id");
-		const entitySchemaId = EntitySchemaId.make("schema-id");
+		const tracker = yield* service.updateState(user, "media", { isDisabled: true });
 
-		yield* service.linkEntitySchema({ trackerId, entitySchemaId });
-
-		expect(linked).toEqual({ trackerId, entitySchemaId });
+		expect(persisted).toEqual({
+			userId: user.id,
+			trackerSlug: "media",
+			config: { unit: "minutes" },
+			sortOrder: 4,
+			isDisabled: true,
+		});
+		expect(tracker).toMatchObject({
+			config: { unit: "minutes" },
+			slug: "media",
+			name: "Media",
+			sortOrder: 4,
+			isDisabled: true,
+		});
 	}).pipe(Effect.provide(layer));
 });
 
-it.effect("returns not found when updating a tracker the user does not own", () => {
-	const layer = makeServiceLayer(
-		makeTrackersRepository({ getOwnedById: () => Effect.succeed(null) }),
-	);
+it.effect("returns not found when updating an unknown tracker definition", () => {
+	const layer = makeServiceLayer(makeRepository());
 
 	return Effect.gen(function* () {
 		const service = yield* TrackersService;
-		const exit = yield* Effect.exit(
-			service.update(user, TrackerId.make("tracker-id"), { isDisabled: false }),
-		);
+		const exit = yield* Effect.exit(service.updateState(user, "unknown", { isDisabled: true }));
 
 		expect(exit).toEqual(Exit.fail(new NotFound({ message: "Tracker not found" })));
-	}).pipe(Effect.provide(layer));
-});
-
-it.effect("reorders requested trackers and appends the remaining ids", () => {
-	const persistedOrder: Array<{ trackerId: string; sortOrder: number | undefined }> = [];
-	const sortOrderById = new Map([
-		["tracker-a", 0],
-		["tracker-b", 1],
-		["tracker-c", 2],
-	]);
-
-	const layer = makeServiceLayer(
-		makeTrackersRepository({
-			countOwnedByIds: () => Effect.succeed(2),
-			listInOrder: () =>
-				Effect.succeed(
-					["tracker-a", "tracker-b", "tracker-c"].map((id) => ({
-						config: {},
-						icon: "rocket",
-						name: id,
-						slug: id,
-						description: null,
-						isBuiltin: false,
-						isDisabled: false,
-						accentColor: "#FF5733",
-						id: TrackerId.make(id),
-						sortOrder: sortOrderById.get(id) ?? 0,
-					})),
-				),
-			getOwnedById: (_userId, trackerId) =>
-				Effect.succeed({
-					id: trackerId,
-					slug: trackerId,
-					name: trackerId,
-					icon: "rocket",
-					description: null,
-					isBuiltin: false,
-					accentColor: "#FF5733",
-				}),
-			updateOwned: (input) =>
-				Effect.sync(() => {
-					persistedOrder.push({ trackerId: input.trackerId, sortOrder: input.sortOrder });
-					return {
-						config: {},
-						icon: input.icon,
-						name: input.name,
-						slug: input.slug,
-						isBuiltin: false,
-						isDisabled: input.isDisabled,
-						id: input.trackerId,
-						accentColor: input.accentColor,
-						description: input.description,
-						sortOrder: input.sortOrder ?? 0,
-					};
-				}),
-		}),
-	);
-
-	return Effect.gen(function* () {
-		const service = yield* TrackersService;
-		const reordered = yield* service.reorder(user, {
-			trackerIds: [TrackerId.make("tracker-c"), TrackerId.make("tracker-a")],
-		});
-
-		expect(reordered).toEqual({ trackerIds: ["tracker-c", "tracker-a", "tracker-b"] });
-		expect(persistedOrder).toEqual([
-			{ trackerId: "tracker-c", sortOrder: 0 },
-			{ trackerId: "tracker-a", sortOrder: 1 },
-			{ trackerId: "tracker-b", sortOrder: 2 },
-		]);
-	}).pipe(Effect.provide(layer));
-});
-
-it.effect("rejects reorder requests containing unknown tracker ids", () => {
-	const layer = makeServiceLayer(
-		makeTrackersRepository({ countOwnedByIds: () => Effect.succeed(1) }),
-	);
-
-	return Effect.gen(function* () {
-		const service = yield* TrackersService;
-		const exit = yield* Effect.exit(
-			service.reorder(user, {
-				trackerIds: [TrackerId.make("tracker-a"), TrackerId.make("tracker-b")],
-			}),
-		);
-
-		expect(exit).toEqual(
-			Exit.fail(new BadRequest({ message: "Tracker ids contain unknown trackers" })),
-		);
 	}).pipe(Effect.provide(layer));
 });

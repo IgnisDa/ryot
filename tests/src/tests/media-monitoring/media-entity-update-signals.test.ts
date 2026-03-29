@@ -6,7 +6,7 @@ import {
 	createNotificationChannel,
 	enableMediaMonitoring,
 	fakeProviderDetailsResult,
-	getBuiltinEntitySchemaId,
+	getBuiltinEntitySchemaSlug,
 	providerSandboxSource,
 	replaceSandboxScriptCompiledRepresentation,
 	seedBuiltinProviderScript,
@@ -53,7 +53,7 @@ describe("hierarchical media entity-update signals", () => {
 				});
 
 			const { client } = yield* createAuthenticatedClient();
-			const animeSchemaId = yield* getBuiltinEntitySchemaId("anime");
+			const animeSchemaId = yield* getBuiltinEntitySchemaSlug("anime");
 			const animeProvider = yield* seedBuiltinProviderScript({
 				client,
 				slug: animeSlug,
@@ -65,7 +65,7 @@ describe("hierarchical media entity-update signals", () => {
 					properties: {},
 					name: animeName,
 					externalId: animeExternalId,
-					entitySchemaId: animeSchemaId,
+					entitySchemaSlug: animeSchemaId,
 					sandboxScriptId: animeProvider.scriptId,
 				});
 
@@ -175,7 +175,7 @@ describe("hierarchical media entity-update signals", () => {
 					});
 
 				const { client } = yield* createAuthenticatedClient();
-				const showSchemaId = yield* getBuiltinEntitySchemaId("show");
+				const showSchemaId = yield* getBuiltinEntitySchemaSlug("show");
 				const showProvider = yield* seedBuiltinProviderScript({
 					client,
 					slug: showSlug,
@@ -195,7 +195,7 @@ describe("hierarchical media entity-update signals", () => {
 						name: showName,
 						properties: {},
 						externalId: showExternalId,
-						entitySchemaId: showSchemaId,
+						entitySchemaSlug: showSchemaId,
 						sandboxScriptId: showProvider.scriptId,
 					});
 

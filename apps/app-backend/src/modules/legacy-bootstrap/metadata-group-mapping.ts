@@ -170,7 +170,7 @@ BEGIN
 	RAISE NOTICE 'metadata_group -> entity: migration started (% seconds elapsed)', 0.0;
 
 	LOOP
-		WITH metadata_group_targets (lot, source, entity_schema_id, sandbox_script_id) AS (
+		WITH metadata_group_targets (lot, source, entity_schema_slug, sandbox_script_id) AS (
 			VALUES ${buildLotEntityTargetValuesSql(targets)}
 		), batch AS (
 			SELECT mg.id::text AS id
@@ -188,7 +188,7 @@ BEGIN
 
 		EXIT WHEN next_cursor_id IS NULL;
 
-		WITH metadata_group_targets (lot, source, entity_schema_id, sandbox_script_id) AS (
+		WITH metadata_group_targets (lot, source, entity_schema_slug, sandbox_script_id) AS (
 			VALUES ${buildLotEntityTargetValuesSql(targets)}
 		)
 		INSERT INTO entity (
@@ -199,7 +199,7 @@ BEGIN
 			"populated_at",
 			"user_id",
 			"properties",
-			"entity_schema_id",
+			"entity_schema_slug",
 			"sandbox_script_id",
 			"updated_at"
 		)
@@ -214,7 +214,7 @@ BEGIN
 				WHEN mgt.sandbox_script_id IS NULL THEN ${buildMetadataGroupPropertiesSql("mg")}
 				ELSE '{}'::jsonb
 			END,
-			mgt.entity_schema_id,
+			mgt.entity_schema_slug,
 			mgt.sandbox_script_id,
 			mg.last_updated_on
 		FROM "metadata_group" mg
@@ -257,7 +257,7 @@ BEGIN
 	RAISE NOTICE 'metadata_group -> relationship: migration started (% seconds elapsed)', 0.0;
 
 	IF EXISTS (
-		WITH lot_to_relationship_schema (lot, relationship_schema_id) AS (
+		WITH lot_to_relationship_schema (lot, relationship_schema_slug) AS (
 			VALUES ${buildRelationshipTargetValuesSql(targets)}
 		)
 		SELECT 1
@@ -273,14 +273,14 @@ BEGIN
 		RAISE EXCEPTION 'metadata_group -> relationship: found relationship between entities owned by different users';
 	END IF;
 
-	WITH lot_to_relationship_schema (lot, relationship_schema_id) AS (
+	WITH lot_to_relationship_schema (lot, relationship_schema_slug) AS (
 		VALUES ${buildRelationshipTargetValuesSql(targets)}
 	), legacy_relationships AS (
 		SELECT
 			m2mg.part,
 			m2mg.metadata_id,
 			m2mg.metadata_group_id,
-			lrs.relationship_schema_id,
+			lrs.relationship_schema_slug,
 			CASE
 				WHEN mg.created_by_user_id IS NULL THEN metadata.created_by_user_id
 				WHEN metadata.created_by_user_id IS NULL THEN mg.created_by_user_id
@@ -296,7 +296,7 @@ BEGIN
 		"id",
 		"source_entity_id",
 		"target_entity_id",
-		"relationship_schema_id",
+		"relationship_schema_slug",
 		"properties",
 		"user_id",
 		"created_at"
@@ -305,7 +305,7 @@ BEGIN
 		gen_random_uuid()::text,
 		legacy_relationships.metadata_group_id,
 		legacy_relationships.metadata_id,
-		legacy_relationships.relationship_schema_id,
+		legacy_relationships.relationship_schema_slug,
 		CASE
 			WHEN legacy_relationships.part IS NULL THEN '{}'::jsonb
 			WHEN legacy_relationships.part <= 0 THEN jsonb_build_object('order', 1)
@@ -317,7 +317,7 @@ BEGIN
 	INNER JOIN "entity" src ON src.id = legacy_relationships.metadata_group_id
 	INNER JOIN "entity" tgt ON tgt.id = legacy_relationships.metadata_id
 	WHERE legacy_relationships.user_id IS NOT NULL
-	ON CONFLICT ("user_id", "source_entity_id", "target_entity_id", "relationship_schema_id") DO NOTHING;
+	ON CONFLICT ("user_id", "source_entity_id", "target_entity_id", "relationship_schema_slug") DO NOTHING;
 	GET DIAGNOSTICS rows_inserted = ROW_COUNT;
 
 	RAISE NOTICE 'metadata_group -> relationship: % user-authored row(s) migrated (% seconds elapsed)',

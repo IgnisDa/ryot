@@ -1,4 +1,4 @@
-import { EntitySchemaId, SandboxScriptId, TrackerId } from "@ryot/contract/schema/brands";
+import { SandboxScriptId, TrackerSlug } from "@ryot/contract/schema/brands";
 import type { AppSchema } from "@ryot/contract/schema/property-schema";
 import { Effect } from "effect";
 
@@ -11,15 +11,16 @@ import { type ContractPayload, getBackendClient } from "./contract-client";
 import { type PollOptions, pollUntil } from "./polling";
 import { createTracker, listTrackers } from "./trackers";
 
-type EnqueueEntitySearchBody = ContractPayload<"entitySchemas", "search">;
+type EnqueueEntitySearchBody = Omit<ContractPayload<"sandbox", "enqueue">, "driverName">;
 
 type EnqueueEntityImportBody = ContractPayload<"entityImport", "import">;
+type EntitySchemaInputSlug = ContractPayload<"entities", "create">["entitySchemaSlug"];
 
 export interface CreateEntitySchemaOptions {
 	icon?: string;
 	name?: string;
 	slug?: string;
-	trackerId: string;
+	trackerSlug: string;
 	accentColor?: string;
 	propertiesSchema?: AppSchema;
 }
@@ -27,7 +28,7 @@ export interface CreateEntitySchemaOptions {
 export const createEntitySchema = (client: Client, options: CreateEntitySchemaOptions) =>
 	Effect.gen(function* () {
 		const {
-			trackerId,
+			trackerSlug,
 			icon = "book",
 			name = "Test Schema",
 			accentColor = "#00FF00",
@@ -36,44 +37,80 @@ export const createEntitySchema = (client: Client, options: CreateEntitySchemaOp
 				fields: { title: { label: "Title", description: "Title", type: "string" as const } },
 			},
 		} = options;
-
-		const schema = yield* client.call((c) =>
-			c.entitySchemas.create({
-				payload: {
-					icon,
-					name,
-					slug,
-					accentColor,
-					propertiesSchema,
-					trackerId: TrackerId.make(trackerId),
-				},
-			}),
+		const trackers = yield* client.call((c) => c.definitions.listTrackers({}));
+		const tracker = requirePresent(
+			trackers.find((candidate) => candidate.slug === trackerSlug),
+			`Tracker '${trackerSlug}' not found`,
 		);
-
+		const schema = {
+			icon,
+			name,
+			slug,
+			accentColor,
+			propertiesSchema,
+			eventSchemas: [],
+		};
+		yield* getBackendClient().call(
+			(c) =>
+				c.testSupport.installDefinitions({
+					payload: {
+						entitySchemas: [schema],
+						trackers: [
+							{
+								...tracker,
+								entitySchemaSlugs: [...new Set([...tracker.entitySchemaSlugs, slug])],
+							},
+						],
+					},
+				}),
+			adminHeaders,
+		);
+		const schemaSlug = slug as EntitySchemaInputSlug;
 		return {
-			data: schema,
-			slug: requirePresent(schema.slug, `Failed to create entity schema '${name}'`),
-			schemaId: requirePresent(schema.id, `Failed to create entity schema '${name}'`),
+			slug: schemaSlug,
+			schemaId: schemaSlug,
+			data: { ...schema, id: schemaSlug, trackerSlug: TrackerSlug.make(trackerSlug) },
 		};
 	});
 
 export const listEntitySchemas = (
 	client: Client,
-	options: { slugs?: string[]; trackerId?: string },
+	options: { slugs?: string[]; trackerSlug?: string },
 ) =>
-	client.call((c) =>
-		c.entitySchemas.list({
-			payload: {
-				slugs: options.slugs,
-				trackerId: options.trackerId ? TrackerId.make(options.trackerId) : undefined,
-			},
-		}),
-	);
+	Effect.gen(function* () {
+		const [schemas, trackers, scripts] = yield* Effect.all([
+			client.call((c) => c.definitions.listEntities({})),
+			client.call((c) => c.definitions.listTrackers({})),
+			getBackendClient().call(
+				(c) => c.testSupport.listSandboxScripts({ urlParams: {} }),
+				adminHeaders,
+			),
+		]);
+		const tracker = options.trackerSlug
+			? trackers.find((candidate) => candidate.slug === options.trackerSlug)
+			: undefined;
+		return schemas
+			.filter((schema) => !options.slugs || options.slugs.includes(schema.slug))
+			.filter((schema) => !options.trackerSlug || tracker?.entitySchemaSlugs.includes(schema.slug))
+			.map((schema) => ({
+				...schema,
+				id: schema.slug as EntitySchemaInputSlug,
+				providers: scripts
+					.filter((script) => script.metadata.kind === "provider")
+					.filter((script) => script.slug.startsWith(`${schema.slug}.`))
+					.map((script) => ({ name: script.name, scriptId: script.id })),
+				isBuiltin: true,
+				trackerSlug:
+					tracker?.slug ??
+					trackers.find((item) => item.entitySchemaSlugs.includes(schema.slug))?.slug,
+			}));
+	});
 
-export const getEntitySchema = (client: Client, entitySchemaId: string) =>
-	client.call((c) =>
-		c.entitySchemas.get({ path: { entitySchemaId: EntitySchemaId.make(entitySchemaId) } }),
-	);
+export const getEntitySchema = (client: Client, entitySchemaSlug: string) =>
+	Effect.gen(function* () {
+		const schemas = yield* listEntitySchemas(client, { slugs: [entitySchemaSlug] });
+		return requirePresent(schemas[0], `Entity schema '${entitySchemaSlug}' not found`);
+	});
 
 export const findBuiltinEntitySchema = (client: Client) =>
 	Effect.gen(function* () {
@@ -91,13 +128,13 @@ export const findBuiltinSchemaBySlug = (client: Client, slug: string) =>
 		const trackers = yield* listTrackers(client, {
 			includeDisabled: true,
 		});
-		const builtinTrackers = trackers.filter((tracker) => tracker.isBuiltin);
+		const builtinTrackers = trackers;
 		const schemasByTracker = yield* Effect.all(
 			builtinTrackers.map((builtinTracker) =>
 				Effect.gen(function* () {
 					const schemas = yield* listEntitySchemas(client, {
 						slugs: [slug],
-						trackerId: builtinTracker.id,
+						trackerSlug: builtinTracker.id,
 					});
 
 					return { builtinTracker, schema: schemas[0] };
@@ -114,7 +151,7 @@ export const findBuiltinSchemaBySlug = (client: Client, slug: string) =>
 		throw new Error(`Built-in entity schema '${slug}' not found`);
 	});
 
-export const getBuiltinEntitySchemaId = (slug: string) =>
+export const getBuiltinEntitySchemaSlug = (slug: string) =>
 	Effect.gen(function* () {
 		const result = yield* getBackendClient().call(
 			(c) => c.testSupport.getBuiltinEntitySchema({ path: { slug } }),
@@ -129,10 +166,10 @@ export const listBuiltinEntitySchemas = (client: Client) =>
 		const trackers = yield* listTrackers(client, {
 			includeDisabled: true,
 		});
-		const builtinTracker = trackers.find((tracker) => tracker.isBuiltin);
+		const builtinTracker = trackers[0];
 		assertPresent(builtinTracker, "Built-in tracker not found");
 		const schemas = yield* listEntitySchemas(client, {
-			trackerId: builtinTracker.id,
+			trackerSlug: builtinTracker.id,
 		});
 		return { schemas, builtinTracker };
 	});
@@ -142,7 +179,9 @@ export const findBuiltinSchemaWithProviders = (client: Client) =>
 
 export const enqueueEntitySearch = (client: Client, body: EnqueueEntitySearchBody) =>
 	Effect.gen(function* () {
-		const result = yield* client.call((c) => c.entitySchemas.search({ payload: body }));
+		const result = yield* client.call((c) =>
+			c.sandbox.enqueue({ payload: { ...body, driverName: "search" } }),
+		);
 
 		return {
 			jobId: requirePresent(result.jobId, "Failed to enqueue entity search"),
@@ -153,9 +192,7 @@ export const pollEntitySearchResult = (client: Client, jobId: string, options: P
 	pollUntil(
 		`entity search job '${jobId}'`,
 		Effect.gen(function* () {
-			const result = yield* client.call((c) =>
-				c.entitySchemas.getSearchResult({ path: { jobId } }),
-			);
+			const result = yield* client.call((c) => c.sandbox.getResult({ path: { jobId } }));
 			return result.status !== "pending" ? result : null;
 		}),
 		options,
@@ -189,10 +226,10 @@ export function getFirstProviderScriptId(schema: {
 
 export const createTrackerWithSchema = (
 	client: Client,
-	options: Partial<Omit<CreateEntitySchemaOptions, "trackerId">> = {},
+	options: Partial<Omit<CreateEntitySchemaOptions, "trackerSlug">> = {},
 ) =>
 	Effect.gen(function* () {
-		const { trackerId } = yield* createTracker(client);
-		const { slug, schemaId } = yield* createEntitySchema(client, { ...options, trackerId });
+		const { trackerSlug } = yield* createTracker(client);
+		const { slug, schemaId } = yield* createEntitySchema(client, { ...options, trackerSlug });
 		return { slug, schemaId };
 	});

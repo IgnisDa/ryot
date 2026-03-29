@@ -2,7 +2,7 @@ import { Activity, Workflow } from "@effect/workflow";
 import { SandboxRunError, dieOnDbError } from "@ryot/contract/errors";
 import { ListedEntity } from "@ryot/contract/modules/entities/schemas";
 import { encodeEntityUpdatedMessage } from "@ryot/contract/modules/entity-interest/messages";
-import type { EntityId, EntitySchemaId } from "@ryot/contract/schema/brands";
+import type { EntityId, EntitySchemaSlug } from "@ryot/contract/schema/brands";
 import type {
 	ProviderDetailsChildEntity,
 	ProviderDetailsRelatedEntityGroup,
@@ -48,7 +48,7 @@ const CHILD_ENTITY_SCHEMA_SLUGS: Readonly<Record<string, string>> = {
 const REDIS_RETRY_SCHEDULE = Schedule.spaced("30 seconds");
 
 type SynchronizeOptions = {
-	entitySchemaSlug?: string;
+	entitySchemaSlug: EntitySchemaSlug;
 	mode: "initial" | "refresh";
 	childEntitySchemaSlugs?: Readonly<Record<string, string>>;
 };
@@ -67,8 +67,7 @@ type ChildEntitySetScope = {
 	parentEntityId: EntityId;
 	parentExternalId: string;
 	parentProperties: unknown;
-	parentEntitySchemaId: EntitySchemaId;
-	parentEntitySchemaSlug?: string | undefined;
+	parentEntitySchemaSlug: EntitySchemaSlug;
 	scopeEntity: LifecyclePopulationContext["scopeEntity"];
 	childEntities: ReadonlyArray<ProviderDetailsChildEntity>;
 };
@@ -96,7 +95,7 @@ const checkExistingEntity = Effect.fn("checkExistingEntity")(function* (
 			repository.findGlobalEntityByExternalId({
 				externalId: payload.externalId,
 				sandboxScriptId: payload.scriptId,
-				entitySchemaId: payload.entitySchemaId,
+				entitySchemaSlug: payload.entitySchemaSlug,
 			}),
 		).pipe(dieOnDbError),
 	});
@@ -147,7 +146,7 @@ const upsertRootEntity = Effect.fn("upsertProviderRootEntity")(function* (
 					externalId: payload.externalId,
 					properties: details.properties,
 					sandboxScriptId: payload.scriptId,
-					entitySchemaId: payload.entitySchemaId,
+					entitySchemaSlug: payload.entitySchemaSlug,
 					updateExisting: options.mode !== "refresh",
 				});
 				return { result, committedAt: (yield* DateTime.nowAsDate).toISOString() };
@@ -176,7 +175,7 @@ const syncRelatedEntityGroupScope = Effect.fn("syncProviderRelatedEntityGroupSco
 				const outcomes = yield* syncRelatedEntityGroup({
 					group,
 					primaryEntityId: entity.id,
-					primaryEntitySchemaId: payload.entitySchemaId,
+					primaryEntitySchemaSlug: payload.entitySchemaSlug,
 				});
 				return { outcomes, committedAt: (yield* DateTime.nowAsDate).toISOString() };
 			}),
@@ -204,7 +203,6 @@ const writeChildEntitySetScope = Effect.fn("writeChildEntitySetScope")(function*
 				childEntities: scope.childEntities,
 				parentEntityId: scope.parentEntityId,
 				syncExisting: options.mode === "refresh",
-				parentEntitySchemaId: scope.parentEntitySchemaId,
 				parentEntitySchemaSlug: scope.parentEntitySchemaSlug,
 				childEntitySchemaSlugs: options.childEntitySchemaSlugs,
 			}),
@@ -236,7 +234,7 @@ const stampRootPopulatedAt = Effect.fn("stampProviderRootPopulatedAt")(function*
 					properties: details.properties,
 					externalId: payload.externalId,
 					sandboxScriptId: payload.scriptId,
-					entitySchemaId: payload.entitySchemaId,
+					entitySchemaSlug: payload.entitySchemaSlug,
 				});
 				return { result, committedAt: (yield* DateTime.nowAsDate).toISOString() };
 			}),
@@ -283,9 +281,8 @@ const toLifecycleRelationshipSnapshot = (snapshot: RelationshipMutationSnapshot)
 	id: snapshot.id,
 	source: snapshot.sourceEntity,
 	target: snapshot.targetEntity,
-	relationshipSchemaId: snapshot.relationshipSchemaId,
-	properties: asRecord(snapshot.properties) ?? {},
 	relationshipSchemaSlug: snapshot.relationshipSchemaSlug,
+	properties: asRecord(snapshot.properties) ?? {},
 });
 
 const deterministicId = (prefix: string, parts: ReadonlyArray<string>) =>
@@ -297,7 +294,7 @@ const relationshipSnapshot = (outcome: RelationshipMutationOutcome) =>
 const relationshipMutationIdentity = (outcome: RelationshipMutationOutcome) => {
 	const snapshot = relationshipSnapshot(outcome);
 	return stableStringify([
-		snapshot.relationshipSchemaId,
+		snapshot.relationshipSchemaSlug,
 		snapshot.sourceEntity.id,
 		snapshot.targetEntity.id,
 		outcome.operation,
@@ -359,7 +356,7 @@ const dispatchRelationshipSync = Effect.fn("dispatchProviderRelationshipSync")(f
 	}, relationshipMutationIdentity(firstOutcome));
 	const batchId = deterministicId("relationship_batch", [
 		input.executionId,
-		first.relationshipSchemaId,
+		first.relationshipSchemaSlug,
 		input.direction,
 		input.anchorEntityId,
 	]);
@@ -376,7 +373,7 @@ const dispatchRelationshipSync = Effect.fn("dispatchProviderRelationshipSync")(f
 		const snapshot = relationshipSnapshot(outcome);
 		const occurrenceId = deterministicId("relationship_occurrence", [
 			input.executionId,
-			snapshot.relationshipSchemaId,
+			snapshot.relationshipSchemaSlug,
 			input.direction,
 			snapshot.sourceEntity.id,
 			snapshot.targetEntity.id,
@@ -466,9 +463,8 @@ const writeChildEntityScopes = Effect.fn("writeChildEntityScopes")(function* (
 				parentEntityId: child.entity.id,
 				parentExternalId: childEntity.externalId,
 				parentProperties: child.entity.properties,
-				parentEntitySchemaId: child.entitySchemaId,
+				parentEntitySchemaSlug: child.entitySchemaSlug,
 				childEntities: childEntity.childEntities ?? [],
-				parentEntitySchemaSlug: childEntity.entitySchemaSlug,
 			});
 		}
 	}
@@ -492,7 +488,6 @@ const synchronizeEntityGraph = Effect.fn("synchronizeEntityGraph")(function* (
 	const scopeEntity = {
 		id: entity.id,
 		name: details.name,
-		entitySchemaId: entity.entitySchemaId,
 		entitySchemaSlug: rootSave.result.outcome.after.entitySchemaSlug,
 	};
 	yield* dispatchEntityMutation({
@@ -522,7 +517,6 @@ const synchronizeEntityGraph = Effect.fn("synchronizeEntityGraph")(function* (
 		parentProperties: entity.properties,
 		parentExternalId: payload.externalId,
 		childEntities: details.childEntities,
-		parentEntitySchemaId: payload.entitySchemaId,
 		parentEntitySchemaSlug: options.entitySchemaSlug,
 	});
 	const stamped = yield* stampRootPopulatedAt(payload, details);
@@ -538,14 +532,9 @@ const synchronizeEntityGraph = Effect.fn("synchronizeEntityGraph")(function* (
 	return stamped.result.entity;
 });
 
-// `Workflow.make` requires a struct payload, so the ensure/refresh discriminator
-// lives on `mode` with `entitySchemaSlug` optional at the schema level. Ensure callers
-// omit it; refresh requires it (the handler dies otherwise, see below) so stale children
-// are reconciled even when the provider returns none this run.
 export const ProviderEntityPopulationPayload = Schema.Struct({
 	...EntityImportPayload.fields,
 	mode: Schema.Literal("ensure", "refresh"),
-	entitySchemaSlug: Schema.optional(Schema.String),
 });
 
 export type ProviderEntityPopulationPayload = typeof ProviderEntityPopulationPayload.Type;
@@ -564,11 +553,14 @@ export const ProviderEntityPopulationWorkflow = Workflow.make({
 // by production modules.
 export const runProviderEntityPopulationWorkflow = Effect.fn("ProviderEntityPopulationWorkflow")(
 	function* (payload: ProviderEntityPopulationPayload, executionId: string) {
+		if (payload.mode === "refresh" && !payload.entitySchemaSlug) {
+			return yield* Effect.die("entitySchemaSlug is required for refresh");
+		}
 		yield* Effect.annotateCurrentSpan({
 			executionId,
 			scriptId: payload.scriptId,
 			externalId: payload.externalId,
-			entitySchemaId: payload.entitySchemaId,
+			entitySchemaSlug: payload.entitySchemaSlug,
 			...(payload.userId ? { userId: payload.userId } : {}),
 		});
 		const existing = yield* checkExistingEntity(payload);
@@ -580,17 +572,8 @@ export const runProviderEntityPopulationWorkflow = Effect.fn("ProviderEntityPopu
 			return yield* synchronizeEntityGraph(
 				payload,
 				executionId,
-				{ mode: "initial" },
+				{ mode: "initial", entitySchemaSlug: payload.entitySchemaSlug },
 				rootPreviouslyPopulated,
-			);
-		}
-
-		// Refresh reconciles stale children via `entitySchemaSlug`. Without it, a provider
-		// returning no children would silently retain removed ones, so a refresh missing the
-		// slug is a malformed payload rather than a recoverable failure.
-		if (!payload.entitySchemaSlug) {
-			return yield* Effect.die(
-				"ProviderEntityPopulationWorkflow: entitySchemaSlug is required for refresh",
 			);
 		}
 

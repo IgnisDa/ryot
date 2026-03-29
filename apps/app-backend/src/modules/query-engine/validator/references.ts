@@ -10,6 +10,7 @@ import type {
 import { Effect } from "effect";
 
 import type { CurrentDb } from "#lib/infrastructure/db/service";
+import type { DefinitionRegistry } from "#modules/definition-registry/service";
 
 import {
 	loadVisibleEntitySchemas,
@@ -20,7 +21,7 @@ import {
 import { validateQueryDocumentTypeCompatibility } from "./type-check";
 
 type EntityAliasSchemas = ReadonlyMap<string, readonly string[]>;
-type ValidationEffect = Effect.Effect<void, NotFound | DbError, CurrentDb>;
+type ValidationEffect = Effect.Effect<void, NotFound | DbError, CurrentDb | DefinitionRegistry>;
 
 const validateExpr = (userId: string, expr: Expr, aliases: EntityAliasSchemas): ValidationEffect =>
 	Effect.gen(function* () {
@@ -77,8 +78,8 @@ const validateSource = Effect.fn("validateSource")(function* (
 	aliases: EntityAliasSchemas,
 ) {
 	if (source.type === "events") {
-		const entitySchemaIds = aliases.get(source.entityRef) ?? [];
-		yield* loadVisibleEventSchemasForEntitySchemas(userId, entitySchemaIds, source.schemas);
+		const entitySchemaSlugs = aliases.get(source.entityRef) ?? [];
+		yield* loadVisibleEventSchemasForEntitySchemas(userId, entitySchemaSlugs, source.schemas);
 		if (source.where) {
 			yield* validateExpr(userId, source.where, aliases);
 		}
@@ -107,9 +108,9 @@ const validateRootEventSource = Effect.fn("validateRootEventSource")(function* (
 	source: RootEventSource,
 ) {
 	const entitySchemas = yield* loadVisibleEntitySchemas(userId, source.entity.schemas);
-	const entitySchemaIds = entitySchemas.map((schema) => schema.id);
-	yield* loadVisibleEventSchemasForEntitySchemas(userId, entitySchemaIds, source.schemas);
-	const aliases = new Map<string, readonly string[]>([[source.entity.alias, entitySchemaIds]]);
+	const entitySchemaSlugs = entitySchemas.map((schema) => schema.id);
+	yield* loadVisibleEventSchemasForEntitySchemas(userId, entitySchemaSlugs, source.schemas);
+	const aliases = new Map<string, readonly string[]>([[source.entity.alias, entitySchemaSlugs]]);
 	if (source.where) {
 		yield* validateExpr(userId, source.where, aliases);
 	}

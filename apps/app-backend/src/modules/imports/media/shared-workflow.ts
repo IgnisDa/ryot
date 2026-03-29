@@ -1,7 +1,7 @@
 import { Activity } from "@effect/workflow";
 import type { WorkflowEngine, WorkflowInstance } from "@effect/workflow/WorkflowEngine";
 import type { EntityId } from "@ryot/contract/schema/brands";
-import { EntitySchemaId, SandboxScriptId } from "@ryot/contract/schema/brands";
+import { EntitySchemaSlug, SandboxScriptId } from "@ryot/contract/schema/brands";
 import { Effect, Schema } from "effect";
 
 import type { ImportRunJobData } from "../jobs";
@@ -15,7 +15,7 @@ export const ResolutionCandidate = Schema.Struct({
 });
 
 export const PopulationScript = Schema.Struct({
-	entitySchemaId: EntitySchemaId,
+	entitySchemaSlug: EntitySchemaSlug,
 	sandboxScriptId: SandboxScriptId,
 });
 

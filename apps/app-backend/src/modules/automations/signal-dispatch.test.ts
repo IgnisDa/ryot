@@ -5,7 +5,7 @@ import {
 	AutomationRuleId,
 	SandboxScriptId,
 	SignalId,
-	SignalSchemaId,
+	SignalSchemaSlug,
 	UserId,
 } from "@ryot/contract/schema/brands";
 import { Effect, Either, Layer, Schema } from "effect";
@@ -20,7 +20,7 @@ import { SubscriptionExecutionWorkflow } from "./subscription-execution-workflow
 
 const userId = UserId.make("user-1");
 const otherUserId = UserId.make("user-2");
-const signalSchemaId = SignalSchemaId.make("signal-schema-1");
+const signalSchemaSlug = SignalSchemaSlug.make("signal-schema-1");
 const scriptId = SandboxScriptId.make("script-1");
 
 const rule = (id: string, owner: UserId | null): StoredAutomationRule => ({
@@ -36,11 +36,10 @@ const rule = (id: string, owner: UserId | null): StoredAutomationRule => ({
 	id: AutomationRuleId.make(id),
 	createdAt: "2026-07-20T10:00:00.000Z",
 	updatedAt: "2026-07-20T10:00:00.000Z",
-	target: { id: signalSchemaId, kind: "signal_schema" },
+	target: { id: signalSchemaSlug, kind: "signal_schema" },
 });
 
 const signal = {
-	signalSchemaId,
 	actorUserId: null,
 	origin: { kind: "api" },
 	id: SignalId.make("signal-1"),

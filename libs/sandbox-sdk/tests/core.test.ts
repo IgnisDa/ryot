@@ -132,7 +132,7 @@ describe("domain host contracts", () => {
 						populatedAt: null,
 						sandboxScriptId: null,
 						externalId: "tt1375666",
-						entitySchemaId: "movie",
+						entitySchemaSlug: "movie",
 						properties: { runtime: 148 },
 						createdAt: "2024-01-01T00:00:00.000Z",
 						updatedAt: "2024-01-01T00:00:00.000Z",

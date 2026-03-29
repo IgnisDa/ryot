@@ -5,8 +5,8 @@ import type { SandboxExecutionPayload } from "@ryot/contract/modules/sandbox/sch
 import {
 	AutomationRuleId,
 	EntityId,
-	EntitySchemaId,
-	EventSchemaId,
+	EntitySchemaSlug,
+	EventSchemaSlug,
 	UserId,
 	SandboxScriptId,
 } from "@ryot/contract/schema/brands";
@@ -16,6 +16,7 @@ import { assert } from "vitest";
 import { dbRunnerLayer, makeWorkflowEngine } from "#lib/test-utils/effect";
 import type { StoredAutomationRule } from "#modules/automations/repository";
 import { AutomationsService } from "#modules/automations/service";
+import { DefinitionRegistry, makeDefinitionRegistry } from "#modules/definition-registry/service";
 import { LifecycleDispatchNoop } from "#modules/entities/lifecycle-dispatch";
 import { EntitiesRepository } from "#modules/entities/repository";
 import { EventSchemasRepository } from "#modules/event-schemas/repository";
@@ -30,8 +31,42 @@ import { EventsRepository } from "./repository";
 const now = "2026-01-01T00:00:00.000Z";
 const userId = UserId.make("user-id");
 const entityId = EntityId.make("entity-1");
-const eventSchemaId = EventSchemaId.make("event-schema-1");
-const entitySchemaId = EntitySchemaId.make("entity-schema-1");
+const eventSchemaSlug = EventSchemaSlug.make("review");
+const entitySchemaSlug = EntitySchemaSlug.make("book");
+const registry = makeDefinitionRegistry({
+	trackers: [],
+	savedViews: [],
+	signalSchemas: [],
+	relationshipSchemas: [],
+	entitySchemas: [
+		{
+			icon: "book",
+			name: "Book",
+			slug: entitySchemaSlug,
+			accentColor: "#000000",
+			propertiesSchema: { fields: {} },
+			eventSchemas: [
+				{
+					name: "Review",
+					slug: eventSchemaSlug,
+					propertiesSchema: {
+						fields: {
+							rating: {
+								label: "Rating",
+								description: "Rating",
+								type: "number",
+								validation: { required: true },
+							},
+						},
+					},
+				},
+			],
+		},
+	],
+});
+const eventSchemasRepository = EventSchemasRepository.Default.pipe(
+	Layer.provide(Layer.succeed(DefinitionRegistry, { _tag: "DefinitionRegistry", ...registry })),
+);
 
 const policy = (id: string, position: number): StoredAutomationRule => ({
 	userId,
@@ -45,7 +80,7 @@ const policy = (id: string, position: number): StoredAutomationRule => ({
 	isBuiltin: false,
 	operation: "create",
 	id: AutomationRuleId.make(id),
-	target: { id: eventSchemaId, kind: "event_schema" },
+	target: { id: eventSchemaSlug, kind: "event_schema" },
 	sandboxScriptId: SandboxScriptId.make(`script-${id}`),
 });
 
@@ -56,7 +91,7 @@ const payload = (ratings: number[]): EventCreateWorkflowPayload => ({
 	executionId: "event-policy-execution",
 	payload: ratings.map((rating) => ({
 		entityId,
-		eventSchemaId,
+		eventSchemaSlug,
 		occurredAt: now,
 		properties: { rating },
 	})),
@@ -111,7 +146,6 @@ const run = (input: {
 					input.isEntityReadable?.(requestedId) === false
 						? null
 						: {
-								entitySchemaId,
 								isBuiltin: false,
 								entityUserId: userId,
 								entityId: requestedId,
@@ -121,26 +155,7 @@ const run = (input: {
 							},
 				),
 		}),
-		Layer.mock(EventSchemasRepository, {
-			_tag: "EventSchemasRepository",
-			getScopeForUser: () =>
-				Effect.succeed({
-					name: "Review",
-					slug: "review",
-					entitySchemaId,
-					id: eventSchemaId,
-					propertiesSchema: {
-						fields: {
-							rating: {
-								label: "Rating",
-								description: "Rating",
-								type: "number" as const,
-								validation: { required: true as const },
-							},
-						},
-					},
-				}),
-		}),
+		eventSchemasRepository,
 		Layer.mock(EventsRepository, {
 			_tag: "EventsRepository",
 			createEvent: (event) => {
@@ -152,7 +167,6 @@ const run = (input: {
 					updatedAt: now,
 					entityId: event.entityId,
 					properties: event.properties,
-					eventSchemaId: event.eventSchemaId,
 					eventSchemaName: event.eventSchemaName,
 					eventSchemaSlug: event.eventSchemaSlug,
 					sessionEntityId: event.sessionEntityId,

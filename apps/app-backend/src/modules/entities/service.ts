@@ -7,7 +7,7 @@ import {
 	type ListedEntity,
 } from "@ryot/contract/modules/entities/schemas";
 import type { RowItem } from "@ryot/contract/modules/query-engine/language";
-import { EntityId, EntitySchemaId, SandboxScriptId } from "@ryot/contract/schema/brands";
+import { EntityId, EntitySchemaSlug, SandboxScriptId } from "@ryot/contract/schema/brands";
 import type { UserId } from "@ryot/contract/schema/brands";
 import { buildEntityDetailQueryDocument } from "@ryot/query-engine/recipes/app";
 import { generateId } from "better-auth";
@@ -34,7 +34,7 @@ type CreateEntityInput = {
 	name: string;
 	properties: unknown;
 	origin?: AutomationOrigin;
-	entitySchemaId: EntitySchemaId;
+	entitySchemaSlug: EntitySchemaSlug;
 } & (
 	| {
 			scope: "global";
@@ -57,7 +57,7 @@ type UpdateEntityInput = {
 	entityId: EntityId;
 	properties: unknown;
 	populatedAt: Date | null;
-	entitySchemaId: EntitySchemaId;
+	entitySchemaSlug: EntitySchemaSlug;
 };
 
 type UpsertEntityInput = {
@@ -66,7 +66,7 @@ type UpsertEntityInput = {
 	properties: unknown;
 	updateExisting: boolean;
 	populatedAt: Date | null;
-	entitySchemaId: EntitySchemaId;
+	entitySchemaSlug: EntitySchemaSlug;
 	sandboxScriptId: SandboxScriptId;
 };
 
@@ -75,15 +75,11 @@ const entitySchemaNotFoundError = "Entity schema not found";
 const partialProvenanceError =
 	"externalId and sandboxScriptId must both be provided or both be omitted";
 
-const toMutationSnapshot = (
-	entity: ListedEntity,
-	entitySchemaSlug: string,
-): EntityMutationSnapshot => ({
+const toMutationSnapshot = (entity: ListedEntity): EntityMutationSnapshot => ({
 	id: entity.id,
-	entitySchemaSlug,
 	name: entity.name,
 	properties: entity.properties,
-	entitySchemaId: entity.entitySchemaId,
+	entitySchemaSlug: entity.entitySchemaSlug,
 });
 
 const toListedEntity = Effect.fn("toListedEntityFromQueryEngine")(function* (row: RowItem) {
@@ -98,7 +94,7 @@ const toListedEntity = Effect.fn("toListedEntityFromQueryEngine")(function* (row
 		properties: (yield* requireFieldValue(row, "properties")).value,
 		populatedAt: yield* getOptionalIsoStringField(row, "populatedAt"),
 		sandboxScriptId: sandboxScriptId ? SandboxScriptId.make(sandboxScriptId) : null,
-		entitySchemaId: EntitySchemaId.make(yield* requireStringField(row, "entitySchemaId")),
+		entitySchemaSlug: EntitySchemaSlug.make(yield* requireStringField(row, "entitySchemaSlug")),
 	};
 });
 
@@ -134,10 +130,10 @@ export class EntitiesService extends Effect.Service<EntitiesService>()("Entities
 				? runWithDb(
 						repository.getEntitySchemaScopeForUser({
 							userId: input.userId,
-							entitySchemaId: input.entitySchemaId,
+							entitySchemaSlug: input.entitySchemaSlug,
 						}),
 					)
-				: runWithDb(repository.findEntitySchemaById(input.entitySchemaId));
+				: runWithDb(repository.findEntitySchemaById(input.entitySchemaSlug));
 			if (!scope) {
 				return yield* notFound(entitySchemaNotFoundError);
 			}
@@ -151,7 +147,7 @@ export class EntitiesService extends Effect.Service<EntitiesService>()("Entities
 					repository.findEntityByExternalIdForUser({
 						userId: input.userId,
 						externalId: input.externalId,
-						entitySchemaId: input.entitySchemaId,
+						entitySchemaSlug: input.entitySchemaSlug,
 						sandboxScriptId: input.sandboxScriptId,
 					}),
 				);
@@ -179,8 +175,7 @@ export class EntitiesService extends Effect.Service<EntitiesService>()("Entities
 							properties,
 							id: saved.entity.id,
 							name: saved.entity.name,
-							entitySchemaSlug: scope.slug,
-							entitySchemaId: saved.entity.entitySchemaId,
+							entitySchemaSlug: saved.entity.entitySchemaSlug,
 						},
 					},
 				});
@@ -200,7 +195,7 @@ export class EntitiesService extends Effect.Service<EntitiesService>()("Entities
 		});
 
 		const update = Effect.fn("EntitiesService.update")(function* (input: UpdateEntityInput) {
-			const scope = yield* runWithDb(repository.findEntitySchemaById(input.entitySchemaId));
+			const scope = yield* runWithDb(repository.findEntitySchemaById(input.entitySchemaSlug));
 			if (!scope) {
 				return yield* notFound(entitySchemaNotFoundError);
 			}
@@ -218,7 +213,7 @@ export class EntitiesService extends Effect.Service<EntitiesService>()("Entities
 		});
 
 		const upsert = Effect.fn("EntitiesService.upsert")(function* (input: UpsertEntityInput) {
-			const scope = yield* runWithDb(repository.findEntitySchemaById(input.entitySchemaId));
+			const scope = yield* runWithDb(repository.findEntitySchemaById(input.entitySchemaSlug));
 			if (!scope) {
 				return yield* notFound(entitySchemaNotFoundError);
 			}
@@ -232,11 +227,11 @@ export class EntitiesService extends Effect.Service<EntitiesService>()("Entities
 					scope: "global",
 					externalId: input.externalId,
 					populatedAt: input.populatedAt,
-					entitySchemaId: input.entitySchemaId,
+					entitySchemaSlug: input.entitySchemaSlug,
 					sandboxScriptId: input.sandboxScriptId,
 				}),
 			);
-			const before = toMutationSnapshot(saved.entity, scope.slug);
+			const before = toMutationSnapshot(saved.entity);
 
 			if (saved.wasInserted) {
 				return {
@@ -260,7 +255,7 @@ export class EntitiesService extends Effect.Service<EntitiesService>()("Entities
 					populatedAt: input.populatedAt,
 				}),
 			);
-			const after = toMutationSnapshot(entity, scope.slug);
+			const after = toMutationSnapshot(entity);
 			const operation =
 				before.name === after.name && Bun.deepEquals(before.properties, after.properties)
 					? ("noop" as const)
