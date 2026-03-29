@@ -25,6 +25,7 @@ function createSavedViewFixture(
 ): AppSavedView {
 	return {
 		id: "view-1",
+		sortOrder: 1,
 		isBuiltin: true,
 		icon: "book-open",
 		isDisabled: false,
@@ -103,6 +104,7 @@ describe("toSidebarData", () => {
 						id: "view-1",
 						icon: "book-open",
 						isDisabled: false,
+						sortOrder: 1,
 						trackerId: "tracker-1",
 						accentColor: "#5B7FFF",
 						name: "Currently Reading",
@@ -139,6 +141,7 @@ describe("toSidebarData", () => {
 				id: "view-2",
 				trackerId: null,
 				icon: "sparkles",
+				sortOrder: 1,
 				isDisabled: false,
 				name: "Favorites",
 				accentColor: "#2DD4BF",
@@ -189,8 +192,16 @@ describe("toSidebarData", () => {
 			}),
 		];
 		const views = [
-			createSavedViewFixture({ id: "view-enabled", isDisabled: false }),
-			createSavedViewFixture({ id: "view-disabled", isDisabled: true }),
+			createSavedViewFixture({
+				sortOrder: 1,
+				isDisabled: false,
+				id: "view-enabled",
+			}),
+			createSavedViewFixture({
+				sortOrder: 2,
+				isDisabled: true,
+				id: "view-disabled",
+			}),
 		];
 
 		const result = toSidebarData({ trackers, views });
@@ -206,11 +217,13 @@ describe("toSidebarData", () => {
 		const trackers = [createTrackerFixture({ id: "tracker-1" })];
 		const views = [
 			createSavedViewFixture({
+				sortOrder: 1,
 				trackerId: null,
 				isDisabled: false,
 				id: "standalone-enabled",
 			}),
 			createSavedViewFixture({
+				sortOrder: 2,
 				trackerId: null,
 				isDisabled: true,
 				id: "standalone-disabled",
@@ -223,5 +236,31 @@ describe("toSidebarData", () => {
 			"standalone-enabled",
 			"standalone-disabled",
 		]);
+	});
+
+	it("sorts views within each scope by ascending sortOrder", () => {
+		const trackers = [createTrackerFixture({ id: "tracker-1" })];
+		const views = [
+			createSavedViewFixture({
+				id: "view-3",
+				sortOrder: 3,
+				trackerId: "tracker-1",
+			}),
+			createSavedViewFixture({
+				id: "view-1",
+				sortOrder: 1,
+				trackerId: "tracker-1",
+			}),
+			createSavedViewFixture({ id: "view-2", trackerId: null, sortOrder: 2 }),
+			createSavedViewFixture({ id: "view-4", trackerId: null, sortOrder: 1 }),
+		];
+
+		const result = toSidebarData({ trackers, views });
+
+		expect(result.trackers[0]?.views?.map((view) => view.id)).toEqual([
+			"view-1",
+			"view-3",
+		]);
+		expect(result.views.map((view) => view.id)).toEqual(["view-4", "view-2"]);
 	});
 });

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "bun:test";
-import type { AppSavedView } from "./model";
+import { type AppSavedView, sortSavedViewsByOrder } from "./model";
 
 const displayConfiguration: AppSavedView["displayConfiguration"] = {
 	table: { columns: [{ property: ["@name"] }] },
@@ -20,6 +20,7 @@ const displayConfiguration: AppSavedView["displayConfiguration"] = {
 function createSavedView(overrides: Partial<AppSavedView>): AppSavedView {
 	return {
 		id: "view-1",
+		sortOrder: 1,
 		isBuiltin: true,
 		icon: "book-open",
 		isDisabled: false,
@@ -73,6 +74,40 @@ describe("toAppSavedView", () => {
 		expect(result.queryDefinition.entitySchemaSlugs).toEqual([
 			"schema-1",
 			"schema-2",
+		]);
+	});
+});
+
+describe("sortSavedViewsByOrder", () => {
+	it("sorts saved views by ascending sortOrder", () => {
+		const views = [
+			createSavedView({ id: "view-1", name: "C", sortOrder: 3 }),
+			createSavedView({ id: "view-2", name: "A", sortOrder: 1 }),
+			createSavedView({ id: "view-3", name: "B", sortOrder: 2 }),
+		];
+
+		const sorted = sortSavedViewsByOrder(views);
+
+		expect(sorted.map((view) => view.id)).toEqual([
+			"view-2",
+			"view-3",
+			"view-1",
+		]);
+	});
+
+	it("breaks ties by name ascending", () => {
+		const views = [
+			createSavedView({ id: "view-1", name: "Zebra", sortOrder: 1 }),
+			createSavedView({ id: "view-2", name: "Apple", sortOrder: 1 }),
+			createSavedView({ id: "view-3", name: "Banana", sortOrder: 1 }),
+		];
+
+		const sorted = sortSavedViewsByOrder(views);
+
+		expect(sorted.map((view) => view.id)).toEqual([
+			"view-2",
+			"view-3",
+			"view-1",
 		]);
 	});
 });
