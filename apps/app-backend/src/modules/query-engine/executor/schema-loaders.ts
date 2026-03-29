@@ -31,17 +31,7 @@ export const loadVisibleEntitySchemas = Effect.fn("loadVisibleEntitySchemas")(fu
 	const schemas = yield* requireDefinitions(slugs, "Entity", definitions.getEntitySchema);
 	return schemas.flatMap(({ id, slug }) => {
 		const definition = definitions.getEntitySchema(slug);
-		return definition
-			? [
-					{
-						id,
-						slug,
-						name: definition.name,
-						// TODO(plugin-system): Remove with the query-engine compatibility response shape.
-						isBuiltin: definitions.isEntitySchemaBuiltin(slug),
-					},
-				]
-			: [];
+		return definition ? [{ id, slug, name: definition.name }] : [];
 	});
 });
 

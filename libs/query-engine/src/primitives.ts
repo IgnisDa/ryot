@@ -26,7 +26,7 @@ export const queryEnginePropertyRef = (
 	field: { type: "property" as const, schema, path },
 });
 
-export const queryEngineSchemaRef = (sourceAlias: string, name: "slug" | "name" | "isBuiltin") => ({
+export const queryEngineSchemaRef = (sourceAlias: string, name: "slug" | "name") => ({
 	type: "ref" as const,
 	sourceAlias,
 	field: { type: "schema" as const, name },
