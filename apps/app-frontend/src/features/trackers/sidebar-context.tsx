@@ -69,9 +69,9 @@ export function useTrackerSidebarActions() {
 }
 
 export default function TrackerSidebarProvider(props: { children: ReactNode }) {
-	const trackersQuery = useTrackersQuery({ includeDisabled: true });
 	const mutations = useTrackerMutations();
 	const [isCustomizeMode, setIsCustomizeMode] = useState(false);
+	const trackersQuery = useTrackersQuery({ includeDisabled: isCustomizeMode });
 	const [activeTrackerId, setActiveTrackerId] = useState<string | null>(null);
 	const [modalOpened, { close: closeDisclosure, open: openDisclosure }] =
 		useDisclosure(false);
