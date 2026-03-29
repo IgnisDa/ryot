@@ -99,11 +99,19 @@ const toDisplayJsonValue = (input: {
 		return input.expression;
 	}
 
-	return ["array", "object"].includes(
-		normalizeExpressionPropertyType(input.typeInfo.propertyType),
-	)
-		? normalizeJsonbNull(input.expression)
-		: sql`to_jsonb(${input.expression})`;
+	const propertyType = normalizeExpressionPropertyType(
+		input.typeInfo.propertyType,
+	);
+
+	if (["array", "object"].includes(propertyType)) {
+		return normalizeJsonbNull(input.expression);
+	}
+
+	if (propertyType === "date") {
+		return sql`to_jsonb(to_char(${input.expression} at time zone 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"'))`;
+	}
+
+	return sql`to_jsonb(${input.expression})`;
 };
 
 const createDisplayExpressionResolver = <
