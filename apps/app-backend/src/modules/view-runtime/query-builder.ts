@@ -63,6 +63,7 @@ const entitySchemaVisibleToUserClause = (userId: string) => {
 
 const buildFilteredEntitiesCte = (input: {
 	userId: string;
+	search?: string;
 	entitySchemaIds: string[];
 	filterWhereClause?: ReturnType<typeof sql>;
 }) => {
@@ -72,6 +73,9 @@ const buildFilteredEntitiesCte = (input: {
 	);
 	const filterClause = input.filterWhereClause
 		? sql` and ${input.filterWhereClause}`
+		: sql``;
+	const searchClause = input.search?.trim()
+		? sql` and ${entity.searchVector} @@ websearch_to_tsquery('english', ${input.search})`
 		: sql``;
 
 	return sql`
@@ -91,6 +95,7 @@ const buildFilteredEntitiesCte = (input: {
 			where ${entity.userId} = ${input.userId}
 				and ${entity.entitySchemaId} in (${entitySchemaIdList})
 				${filterClause}
+				${searchClause}
 		)
 	`;
 };
@@ -229,6 +234,7 @@ export const executeViewRuntimeQuery = async (
 	const filteredEntitiesCte = buildFilteredEntitiesCte({
 		userId,
 		filterWhereClause,
+		search: request.search,
 		entitySchemaIds: runtimeSchemas.map((schema) => schema.id),
 	});
 	const sortExpression = buildSortExpression({
