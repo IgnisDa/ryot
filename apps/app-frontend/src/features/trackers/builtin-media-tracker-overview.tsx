@@ -18,7 +18,7 @@ import {
 } from "@mantine/core";
 import { modals } from "@mantine/modals";
 import { useQueryClient } from "@tanstack/react-query";
-import { Bookmark, ChevronRight, Clock, Play, Star } from "lucide-react";
+import { Bookmark, Clock, Play, Star } from "lucide-react";
 import { useCallback, useState } from "react";
 import { useResolvedImageUrls } from "#/features/entities/image";
 import { toAppEntityImage } from "#/features/entities/model";
@@ -1278,21 +1278,6 @@ export function BuiltinMediaTrackerOverview(
 							/>
 						))}
 					</SimpleGrid>
-					{continueItems.length > 6 ? (
-						<UnstyledButton
-							mt="sm"
-							onClick={() =>
-								console.log("[builtin-tracker] View all in-progress")
-							}
-						>
-							<Group gap={4}>
-								<Text fz="xs" fw={500} c={GOLD}>
-									View all {continueItems.length} in progress
-								</Text>
-								<ChevronRight size={12} color={GOLD} />
-							</Group>
-						</UnstyledButton>
-					) : null}
 				</SectionFrame>
 			)}
 
@@ -1385,20 +1370,6 @@ export function BuiltinMediaTrackerOverview(
 					textMuted={t.textMuted}
 					textPrimary={t.textPrimary}
 					accentColor={SECTION_ACCENTS.activity}
-					right={
-						<UnstyledButton
-							onClick={() =>
-								console.log("[builtin-tracker] View full activity log")
-							}
-						>
-							<Group gap={4}>
-								<Text fz="xs" fw={500} c={GOLD}>
-									View all
-								</Text>
-								<ChevronRight size={12} color={GOLD} />
-							</Group>
-						</UnstyledButton>
-					}
 				/>
 				<Paper
 					p="md"
