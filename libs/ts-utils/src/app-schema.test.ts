@@ -113,7 +113,71 @@ describe("fromAppSchema", () => {
 		).toBeTrue();
 	});
 
-	it("validates nested object requiredness", () => {
+	it("allows null and undefined for non-required fields", () => {
+		expect(
+			fromAppSchema({ type: "string" }).safeParse(null).success,
+		).toBeTrue();
+		expect(
+			fromAppSchema({ type: "string" }).safeParse(undefined).success,
+		).toBeTrue();
+		expect(
+			fromAppSchema({ type: "boolean" }).safeParse(null).success,
+		).toBeTrue();
+		expect(
+			fromAppSchema({ type: "boolean" }).safeParse(undefined).success,
+		).toBeTrue();
+		expect(
+			fromAppSchema({ type: "number" }).safeParse(null).success,
+		).toBeTrue();
+		expect(
+			fromAppSchema({ type: "number" }).safeParse(undefined).success,
+		).toBeTrue();
+		expect(
+			fromAppSchema({ type: "integer" }).safeParse(null).success,
+		).toBeTrue();
+		expect(
+			fromAppSchema({ type: "integer" }).safeParse(undefined).success,
+		).toBeTrue();
+		expect(fromAppSchema({ type: "date" }).safeParse(null).success).toBeTrue();
+		expect(
+			fromAppSchema({ type: "date" }).safeParse(undefined).success,
+		).toBeTrue();
+		expect(
+			fromAppSchema({ type: "datetime" }).safeParse(null).success,
+		).toBeTrue();
+		expect(
+			fromAppSchema({ type: "datetime" }).safeParse(undefined).success,
+		).toBeTrue();
+	});
+
+	it("rejects null for required fields", () => {
+		expect(
+			fromAppSchema({
+				type: "string",
+				validation: { required: true },
+			}).safeParse(null).success,
+		).toBeFalse();
+		expect(
+			fromAppSchema({
+				type: "boolean",
+				validation: { required: true },
+			}).safeParse(null).success,
+		).toBeFalse();
+		expect(
+			fromAppSchema({
+				type: "number",
+				validation: { required: true },
+			}).safeParse(null).success,
+		).toBeFalse();
+		expect(
+			fromAppSchema({
+				type: "integer",
+				validation: { required: true },
+			}).safeParse(null).success,
+		).toBeFalse();
+	});
+
+	it("validates nested object required-ness", () => {
 		const schema = fromAppSchema({
 			type: "object",
 			properties: {
@@ -143,7 +207,7 @@ describe("fromAppSchema", () => {
 
 		expect(schema.safeParse("OK").success).toBeTrue();
 		expect(schema.safeParse("O").success).toBeFalse();
-		expect(schema.safeParse("TOOLONG").success).toBeFalse();
+		expect(schema.safeParse("TOO_LONG").success).toBeFalse();
 		expect(schema.safeParse("bad").success).toBeFalse();
 	});
 

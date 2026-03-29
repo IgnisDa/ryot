@@ -469,20 +469,30 @@ export const toAppSchemaProperties = (
 };
 
 export const fromAppSchema = (property: AppPropertyDefinition): z.ZodType => {
+	const isRequired = isAppPropertyRequired(property);
 	return match(property)
-		.with({ type: "string" }, (p) =>
-			applyStringValidation(z.string(), p.validation),
+		.with({ type: "string" }, (p) => {
+			const schema = applyStringValidation(z.string(), p.validation);
+			return isRequired ? schema : schema.nullish();
+		})
+		.with({ type: "date" }, () =>
+			isRequired ? z.iso.date() : z.iso.date().nullish(),
 		)
-		.with({ type: "date" }, () => z.iso.date())
-		.with({ type: "datetime" }, () => z.iso.datetime())
-		.with({ type: "boolean" }, () => z.boolean())
+		.with({ type: "datetime" }, () =>
+			isRequired ? z.iso.datetime() : z.iso.datetime().nullish(),
+		)
+		.with({ type: "boolean" }, () =>
+			isRequired ? z.boolean() : z.boolean().nullish(),
+		)
 		.with({ type: "number" }, (p) => {
 			const schema = applyNumberValidation(z.number(), p.validation);
-			return withNumberTransform(schema, p.transform);
+			const withTransform = withNumberTransform(schema, p.transform);
+			return isRequired ? withTransform : withTransform.nullish();
 		})
 		.with({ type: "integer" }, (p) => {
 			const schema = applyNumberValidation(z.number().int(), p.validation);
-			return withNumberTransform(schema, p.transform);
+			const withTransform = withNumberTransform(schema, p.transform);
+			return isRequired ? withTransform : withTransform.nullish();
 		})
 		.with({ type: "array" }, (p) =>
 			applyArrayValidation(z.array(fromAppSchema(p.items)), p.validation),
