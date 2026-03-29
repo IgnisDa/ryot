@@ -353,9 +353,9 @@ it.effect("claims and queues registry-declared named artifacts under stable keys
 					watchlistFilePath: "/tmp/watchlist.csv",
 				},
 				sourcePayload: {
-					historyFilePath: "/tmp/history.csv",
-					ratingsFilePath: "/tmp/ratings.csv",
-					watchlistFilePath: "/tmp/watchlist.csv",
+					historyFilePath: "historyFilePath",
+					ratingsFilePath: "ratingsFilePath",
+					watchlistFilePath: "watchlistFilePath",
 				},
 			},
 		});
