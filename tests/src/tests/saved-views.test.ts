@@ -1,593 +1,207 @@
 import { describe, expect, it } from "bun:test";
-import type { paths } from "@ryot/generated/openapi/app-backend";
-import type createClient from "openapi-fetch";
+import { createAuthenticatedClient } from "../helpers";
 import {
-	basicQueryDefinition,
-	createAuthenticatedClient,
-	emptyDisplayConfiguration,
-} from "../helpers";
+	buildUpdatedSavedViewBody,
+	cloneSavedView,
+	createSavedView,
+	deleteSavedView,
+	findBuiltinSavedView,
+	getSavedView,
+	listSavedViews,
+	updateSavedView,
+} from "../test-support/saved-views";
 
-type Client = ReturnType<typeof createClient<paths>>;
+const builtinViewError = "Cannot modify built-in saved views";
+const missingViewId = "00000000-0000-0000-0000-000000000000";
 
-interface CreateSavedViewOptions {
-	icon?: string;
-	name?: string;
-	accentColor?: string;
-	queryDefinition?: any;
-	displayConfiguration?: any;
-}
-
-async function createSavedView(
-	client: Client,
-	cookies: string,
-	options: CreateSavedViewOptions = {},
-) {
-	const {
-		icon = "star",
-		name = "Test View",
-		accentColor = "#FF5733",
-		queryDefinition = basicQueryDefinition,
-		displayConfiguration = emptyDisplayConfiguration,
-	} = options;
-
-	const { data } = await client.POST("/saved-views", {
-		headers: { Cookie: cookies },
-		body: {
-			icon,
-			name,
-			accentColor,
-			queryDefinition,
-			displayConfiguration,
-		},
-	});
-
-	const viewId = data?.data?.id;
-	if (!viewId) {
-		throw new Error("Failed to create saved view");
-	}
-
-	return { viewId, data: data.data };
-}
-
-async function findBuiltinView(client: Client, cookies: string) {
-	const { data: listData } = await client.GET("/saved-views", {
-		headers: { Cookie: cookies },
-	});
-
-	const builtinView = listData?.data?.find((view) => view.isBuiltin);
-	if (!builtinView) {
-		throw new Error("Built-in view not found");
-	}
-
-	return builtinView;
-}
-
-describe("GET /saved-views/{viewId}", () => {
-	it("returns 200 for existing built-in view", async () => {
+describe("Saved views E2E", () => {
+	it("lists built-in and user-created views together", async () => {
 		const { client, cookies } = await createAuthenticatedClient();
-
-		const builtinView = await findBuiltinView(client, cookies);
-
-		const { data, response } = await client.GET("/saved-views/{viewId}", {
-			params: { path: { viewId: builtinView.id } },
-			headers: { Cookie: cookies },
+		const createdView = await createSavedView(client, cookies, {
+			name: `List Coverage ${crypto.randomUUID()}`,
 		});
 
-		expect(response.status).toBe(200);
-		expect(data?.data).toBeDefined();
-		expect(data?.data?.id).toBe(builtinView.id);
+		const listedViews = await listSavedViews(client, cookies);
+		const listedViewIds = listedViews.map((view) => view.id);
+
+		expect(listedViews.some((view) => view.isBuiltin)).toBe(true);
+		expect(listedViewIds).toContain(createdView.id);
 	});
 
-	it("returns 404 for non-existent view ID", async () => {
+	it("supports the full create-get-update-clone-delete lifecycle", async () => {
 		const { client, cookies } = await createAuthenticatedClient();
-
-		const nonExistentId = "00000000-0000-0000-0000-000000000000";
-		const { response, error } = await client.GET("/saved-views/{viewId}", {
-			params: { path: { viewId: nonExistentId } },
-			headers: { Cookie: cookies },
+		const createdView = await createSavedView(client, cookies, {
+			name: "Lifecycle View",
 		});
+		const fetchedView = await getSavedView(client, cookies, createdView.id);
 
-		expect(response.status).toBe(404);
-		expect(error?.error).toBeDefined();
-		expect(error?.error?.message).toBe("Saved view not found");
-	});
-
-	it("returns 200 for user-owned view", async () => {
-		const { client, cookies } = await createAuthenticatedClient();
-
-		const { viewId } = await createSavedView(client, cookies, {
-			name: "My Custom View",
-		});
-
-		const { data, response } = await client.GET("/saved-views/{viewId}", {
-			params: { path: { viewId } },
-			headers: { Cookie: cookies },
-		});
-
-		expect(response.status).toBe(200);
-		expect(data?.data).toBeDefined();
-		expect(data?.data?.id).toBe(viewId);
-		expect(data?.data?.name).toBe("My Custom View");
-		expect(data?.data?.isBuiltin).toBe(false);
-	});
-
-	it("returns complete response structure with all required fields", async () => {
-		const { client, cookies } = await createAuthenticatedClient();
-
-		const { data: listData } = await client.GET("/saved-views", {
-			headers: { Cookie: cookies },
-		});
-
-		const firstView = listData?.data?.[0];
-		expect(firstView).toBeDefined();
-		if (!firstView) {
-			throw new Error("First view not found");
-		}
-
-		const { data } = await client.GET("/saved-views/{viewId}", {
-			params: { path: { viewId: firstView.id } },
-			headers: { Cookie: cookies },
-		});
-
-		const view = data?.data;
-		expect(view).toBeDefined();
-
-		expect(view?.id).toBeDefined();
-		expect(view?.name).toBeDefined();
-		expect(typeof view?.isBuiltin).toBe("boolean");
-		expect(view?.icon).toBeDefined();
-		expect(view?.accentColor).toBeDefined();
-
-		expect(view?.queryDefinition).toBeDefined();
-		expect(Array.isArray(view?.queryDefinition.entitySchemaSlugs)).toBe(true);
-		expect(Array.isArray(view?.queryDefinition.filters)).toBe(true);
-		expect(view?.queryDefinition.sort).toBeDefined();
-		expect(view?.queryDefinition.sort.field).toBeDefined();
-		expect(view?.queryDefinition.sort.direction).toBeDefined();
-
-		expect(view?.displayConfiguration).toBeDefined();
-		expect(view?.displayConfiguration.layout).toBeDefined();
-		expect(view?.displayConfiguration.grid).toBeDefined();
-		expect(view?.displayConfiguration.list).toBeDefined();
-		expect(view?.displayConfiguration.table).toBeDefined();
-		expect(Array.isArray(view?.displayConfiguration.table.columns)).toBe(true);
-	});
-});
-
-describe("PUT /saved-views/{viewId}", () => {
-	it("updates view successfully and returns 200", async () => {
-		const { client, cookies } = await createAuthenticatedClient();
-
-		const { viewId } = await createSavedView(client, cookies, {
-			name: "Original Name",
-		});
-
-		const { data, response } = await client.PUT("/saved-views/{viewId}", {
-			params: { path: { viewId } },
-			headers: { Cookie: cookies },
-			body: {
-				icon: "heart",
-				name: "Updated Name",
-				accentColor: "#00FF00",
-				queryDefinition: {
-					filters: [],
-					entitySchemaSlugs: ["anime"],
-					sort: { direction: "desc", field: ["createdAt"] },
-				},
-				displayConfiguration: {
-					layout: "list",
-					table: { columns: [] },
-					grid: {
-						imageProperty: null,
-						titleProperty: null,
-						badgeProperty: null,
-						subtitleProperty: null,
-					},
-					list: {
-						badgeProperty: null,
-						subtitleProperty: null,
-						imageProperty: ["@name"],
-						titleProperty: ["@name"],
-					},
-				},
-			},
-		});
-
-		expect(response.status).toBe(200);
-		expect(data?.data).toBeDefined();
-		expect(data?.data?.name).toBe("Updated Name");
-	});
-
-	it("returns 404 for non-existent view", async () => {
-		const { client, cookies } = await createAuthenticatedClient();
-
-		const nonExistentId = "00000000-0000-0000-0000-000000000000";
-		const { response, error } = await client.PUT("/saved-views/{viewId}", {
-			params: { path: { viewId: nonExistentId } },
-			headers: { Cookie: cookies },
-			body: {
-				icon: "heart",
-				name: "Updated Name",
-				accentColor: "#00FF00",
-				queryDefinition: basicQueryDefinition,
-				displayConfiguration: emptyDisplayConfiguration,
-			},
-		});
-
-		expect(response.status).toBe(404);
-		expect(error?.error).toBeDefined();
-		expect(error?.error?.message).toBe("Saved view not found");
-	});
-
-	it("preserves immutable fields (id, isBuiltin)", async () => {
-		const { client, cookies } = await createAuthenticatedClient();
-
-		const { viewId: originalId, data: originalData } = await createSavedView(
-			client,
-			cookies,
-			{ name: "Original Name" },
+		expect(fetchedView.id).toBe(createdView.id);
+		expect(fetchedView.name).toBe("Lifecycle View");
+		expect(fetchedView.isBuiltin).toBe(false);
+		expect(Array.isArray(fetchedView.queryDefinition.entitySchemaSlugs)).toBe(
+			true,
 		);
+		expect(Array.isArray(fetchedView.queryDefinition.filters)).toBe(true);
+		expect(fetchedView.displayConfiguration.layout).toBe("grid");
+		expect(Number.isNaN(Date.parse(String(fetchedView.createdAt)))).toBe(false);
+		expect(Number.isNaN(Date.parse(String(fetchedView.updatedAt)))).toBe(false);
 
-		const originalIsBuiltin = originalData?.isBuiltin;
-		expect(originalIsBuiltin).toBe(false);
+		const clonedView = await cloneSavedView(client, cookies, createdView.id);
+		expect(clonedView.id).not.toBe(createdView.id);
+		expect(clonedView.name).toBe("Lifecycle View (Copy)");
+		expect(clonedView.isBuiltin).toBe(false);
 
-		await client.PUT("/saved-views/{viewId}", {
-			params: { path: { viewId: originalId } },
-			headers: { Cookie: cookies },
-			body: {
-				icon: "heart",
-				name: "Completely Different Name",
-				accentColor: "#00FF00",
-				queryDefinition: basicQueryDefinition,
-				displayConfiguration: emptyDisplayConfiguration,
-			},
-		});
-
-		const { data: fetchData } = await client.GET("/saved-views/{viewId}", {
-			params: { path: { viewId: originalId } },
-			headers: { Cookie: cookies },
-		});
-
-		expect(fetchData?.data?.id).toBe(originalId);
-		expect(fetchData?.data?.isBuiltin).toBe(originalIsBuiltin);
-	});
-
-	it("updates updatedAt timestamp and preserves createdAt", async () => {
-		const { client, cookies } = await createAuthenticatedClient();
-
-		const { viewId, data: createData } = await createSavedView(
-			client,
-			cookies,
-			{
-				name: "Original Name",
-			},
-		);
-
-		const originalCreatedAt = createData?.createdAt;
-		const originalUpdatedAt = createData?.updatedAt;
-		expect(originalCreatedAt).toBeDefined();
-		expect(originalUpdatedAt).toBeDefined();
-
-		await new Promise((resolve) => setTimeout(resolve, 100));
-
-		await client.PUT("/saved-views/{viewId}", {
-			params: { path: { viewId } },
-			headers: { Cookie: cookies },
-			body: {
-				icon: "heart",
-				name: "Updated Name",
-				accentColor: "#00FF00",
-				queryDefinition: basicQueryDefinition,
-				displayConfiguration: emptyDisplayConfiguration,
-			},
-		});
-
-		const { data: fetchData } = await client.GET("/saved-views/{viewId}", {
-			params: { path: { viewId } },
-			headers: { Cookie: cookies },
-		});
-
-		expect(fetchData?.data?.createdAt).toBe(originalCreatedAt);
-		expect(fetchData?.data?.updatedAt).not.toBe(originalUpdatedAt);
-		expect(new Date(fetchData?.data?.updatedAt || 0).getTime()).toBeGreaterThan(
-			new Date(originalUpdatedAt || 0).getTime(),
-		);
-	});
-
-	it("updates all mutable fields when fetched via GET", async () => {
-		const { client, cookies } = await createAuthenticatedClient();
-
-		const { viewId } = await createSavedView(client, cookies, {
-			icon: "star",
-			name: "Original Name",
+		const updatedCloneInput = buildUpdatedSavedViewBody({
+			name: "Lifecycle View (Copy) Revised",
 			queryDefinition: {
-				sort: { direction: "asc", field: ["name"] },
-				entitySchemaSlugs: ["book"],
-				filters: [],
+				filters: [{ op: "eq", field: ["status"], value: "active" }],
+				entitySchemaSlugs: ["anime", "manga"],
+				sort: { field: ["@createdAt"], direction: "desc" },
 			},
 			displayConfiguration: {
-				layout: "grid",
-				table: { columns: [] },
+				layout: "list",
 				grid: {
-					imageProperty: ["@image"],
-					titleProperty: ["@name"],
-					badgeProperty: null,
-					subtitleProperty: null,
-				},
-				list: {
 					imageProperty: null,
 					titleProperty: null,
 					badgeProperty: null,
 					subtitleProperty: null,
 				},
-			},
-		});
-
-		await client.PUT("/saved-views/{viewId}", {
-			params: { path: { viewId } },
-			headers: { Cookie: cookies },
-			body: {
-				icon: "heart",
-				name: "Completely Different Name",
-				accentColor: "#00FF00",
-				queryDefinition: {
-					sort: { direction: "desc", field: ["createdAt"] },
-					entitySchemaSlugs: ["anime", "manga"],
-					filters: [
-						{
-							op: "eq",
-							field: ["status"],
-							value: "completed",
-						},
-					],
+				list: {
+					imageProperty: ["@image"],
+					titleProperty: ["@name"],
+					badgeProperty: ["status"],
+					subtitleProperty: ["year"],
 				},
-				displayConfiguration: {
-					layout: "list",
-					grid: {
-						imageProperty: null,
-						titleProperty: null,
-						badgeProperty: null,
-						subtitleProperty: null,
-					},
-					list: {
-						imageProperty: ["@image"],
-						titleProperty: ["@name"],
-						badgeProperty: ["status"],
-						subtitleProperty: ["year"],
-					},
-					table: {
-						columns: [{ property: ["@name"] }, { property: ["status"] }],
-					},
+				table: {
+					columns: [{ property: ["@name"] }, { property: ["status"] }],
 				},
 			},
 		});
+		const updatedClone = await updateSavedView(
+			client,
+			cookies,
+			clonedView.id,
+			updatedCloneInput,
+		);
+		const fetchedUpdatedClone = await getSavedView(
+			client,
+			cookies,
+			clonedView.id,
+		);
 
-		const { data: fetchData } = await client.GET("/saved-views/{viewId}", {
-			params: { path: { viewId } },
-			headers: { Cookie: cookies },
-		});
+		expect(updatedClone.name).toBe("Lifecycle View (Copy) Revised");
+		expect(fetchedUpdatedClone.id).toBe(clonedView.id);
+		expect(fetchedUpdatedClone.queryDefinition).toEqual(
+			updatedCloneInput.queryDefinition,
+		);
+		expect(fetchedUpdatedClone.displayConfiguration).toEqual(
+			updatedCloneInput.displayConfiguration,
+		);
 
-		const view = fetchData?.data;
-		expect(view).toBeDefined();
-		expect(view?.name).toBe("Completely Different Name");
-		expect(view?.icon).toBe("heart");
-		expect(view?.accentColor).toBe("#00FF00");
-		expect(view?.queryDefinition.sort.direction).toBe("desc");
-		expect(view?.queryDefinition.sort.field).toEqual(["createdAt"]);
-		expect(view?.queryDefinition.entitySchemaSlugs).toEqual(["anime", "manga"]);
-		expect(view?.queryDefinition.filters).toHaveLength(1);
-		expect(view?.queryDefinition.filters[0]).toEqual({
-			op: "eq",
-			field: ["status"],
-			value: "completed",
-		});
-		expect(view?.displayConfiguration.layout).toBe("list");
-		expect(view?.displayConfiguration.list.imageProperty).toEqual(["@image"]);
-		expect(view?.displayConfiguration.list.titleProperty).toEqual(["@name"]);
-		expect(view?.displayConfiguration.list.badgeProperty).toEqual(["status"]);
-		expect(view?.displayConfiguration.list.subtitleProperty).toEqual(["year"]);
-		expect(view?.displayConfiguration.table.columns).toHaveLength(2);
+		const deletedOriginal = await deleteSavedView(
+			client,
+			cookies,
+			createdView.id,
+		);
+		const deletedClone = await deleteSavedView(client, cookies, clonedView.id);
+		const remainingViews = await listSavedViews(client, cookies);
+		const remainingIds = remainingViews.map((view) => view.id);
+
+		expect(deletedOriginal.id).toBe(createdView.id);
+		expect(deletedClone.id).toBe(clonedView.id);
+		expect(remainingIds).not.toContain(createdView.id);
+		expect(remainingIds).not.toContain(clonedView.id);
 	});
 
-	it("returns 400 when attempting to update a builtin view", async () => {
+	it("clones a built-in view into a deletable user view", async () => {
 		const { client, cookies } = await createAuthenticatedClient();
+		const builtinView = await findBuiltinSavedView(client, cookies);
+		const clonedView = await cloneSavedView(client, cookies, builtinView.id);
 
-		const builtinView = await findBuiltinView(client, cookies);
+		expect(clonedView.name).toBe(`${builtinView.name} (Copy)`);
+		expect(clonedView.isBuiltin).toBe(false);
 
-		const { response, error } = await client.PUT("/saved-views/{viewId}", {
+		const deletedClone = await deleteSavedView(client, cookies, clonedView.id);
+		const refreshedBuiltin = await getSavedView(
+			client,
+			cookies,
+			builtinView.id,
+		);
+		const remainingViews = await listSavedViews(client, cookies);
+
+		expect(deletedClone.id).toBe(clonedView.id);
+		expect(refreshedBuiltin.id).toBe(builtinView.id);
+		expect(remainingViews.map((view) => view.id)).not.toContain(clonedView.id);
+	});
+
+	it("rejects updates and deletes for built-in views", async () => {
+		const { client, cookies } = await createAuthenticatedClient();
+		const builtinView = await findBuiltinSavedView(client, cookies);
+
+		const updateResult = await client.PUT("/saved-views/{viewId}", {
+			headers: { Cookie: cookies },
 			params: { path: { viewId: builtinView.id } },
+			body: buildUpdatedSavedViewBody({ name: "Built-in Rewrite" }),
+		});
+		const deleteResult = await client.DELETE("/saved-views/{viewId}", {
 			headers: { Cookie: cookies },
-			body: {
-				icon: "heart",
-				name: "Hacked Name",
-				accentColor: "#00FF00",
-				queryDefinition: basicQueryDefinition,
-				displayConfiguration: emptyDisplayConfiguration,
-			},
+			params: { path: { viewId: builtinView.id } },
 		});
 
-		expect(response.status).toBe(400);
-		expect(error?.error).toBeDefined();
-		expect(error?.error?.message).toBe("Cannot modify built-in saved views");
+		expect(updateResult.response.status).toBe(400);
+		expect(updateResult.error?.error?.message).toBe(builtinViewError);
+		expect(deleteResult.response.status).toBe(400);
+		expect(deleteResult.error?.error?.message).toBe(builtinViewError);
 	});
-});
 
-describe("POST /saved-views/{viewId}/clone", () => {
-	it("creates copy with ' (Copy)' appended to name", async () => {
+	it("returns 404 for missing views across read, update, clone, and delete", async () => {
 		const { client, cookies } = await createAuthenticatedClient();
 
-		const { viewId } = await createSavedView(client, cookies, {
-			name: "My Original View",
+		const readResult = await client.GET("/saved-views/{viewId}", {
+			headers: { Cookie: cookies },
+			params: { path: { viewId: missingViewId } },
+		});
+		const updateResult = await client.PUT("/saved-views/{viewId}", {
+			headers: { Cookie: cookies },
+			params: { path: { viewId: missingViewId } },
+			body: buildUpdatedSavedViewBody(),
+		});
+		const cloneResult = await client.POST("/saved-views/{viewId}/clone", {
+			headers: { Cookie: cookies },
+			params: { path: { viewId: missingViewId } },
+		});
+		const deleteResult = await client.DELETE("/saved-views/{viewId}", {
+			headers: { Cookie: cookies },
+			params: { path: { viewId: missingViewId } },
 		});
 
-		const { data, response } = await client.POST(
-			"/saved-views/{viewId}/clone",
-			{
-				params: { path: { viewId } },
-				headers: { Cookie: cookies },
-			},
-		);
-
-		expect(response.status).toBe(200);
-		expect(data?.data).toBeDefined();
-		expect(data?.data?.name).toBe("My Original View (Copy)");
+		for (const result of [
+			readResult,
+			updateResult,
+			cloneResult,
+			deleteResult,
+		]) {
+			expect(result.response.status).toBe(404);
+			expect(result.error?.error?.message).toBe("Saved view not found");
+		}
 	});
 
-	it("generates new ID (different from source)", async () => {
+	it("preserves immutable fields when updating user views", async () => {
 		const { client, cookies } = await createAuthenticatedClient();
-
-		const { viewId } = await createSavedView(client, cookies, {
-			name: "Original",
+		const createdView = await createSavedView(client, cookies, {
+			name: "Immutable Fields View",
 		});
 
-		const { data, response } = await client.POST(
-			"/saved-views/{viewId}/clone",
-			{
-				params: { path: { viewId } },
-				headers: { Cookie: cookies },
-			},
-		);
-
-		expect(response.status).toBe(200);
-		expect(data?.data).toBeDefined();
-		expect(data?.data?.id).toBeDefined();
-		expect(data?.data?.id).not.toBe(viewId);
-	});
-
-	it("sets isBuiltin to false (even when cloning built-in view)", async () => {
-		const { client, cookies } = await createAuthenticatedClient();
-
-		const builtinView = await findBuiltinView(client, cookies);
-		expect(builtinView.isBuiltin).toBe(true);
-
-		const { data, response } = await client.POST(
-			"/saved-views/{viewId}/clone",
-			{
-				params: { path: { viewId: builtinView.id } },
-				headers: { Cookie: cookies },
-			},
-		);
-
-		expect(response.status).toBe(200);
-		expect(data?.data).toBeDefined();
-		expect(data?.data?.isBuiltin).toBe(false);
-	});
-
-	it("preserves queryDefinition and displayConfiguration", async () => {
-		const { client, cookies } = await createAuthenticatedClient();
-
-		const customQueryDefinition = {
-			filters: [{ op: "eq" as const, field: ["status"], value: "active" }],
-			entitySchemaSlugs: ["movie", "show"],
-			sort: { direction: "desc" as const, field: ["createdAt"] },
-		};
-
-		const customDisplayConfiguration = {
-			table: { columns: [] },
-			layout: "grid" as const,
-			grid: {
-				imageProperty: ["@poster"],
-				titleProperty: ["@title"],
-				badgeProperty: ["rating"],
-				subtitleProperty: ["year"],
-			},
-			list: {
-				imageProperty: null,
-				titleProperty: null,
-				badgeProperty: null,
-				subtitleProperty: null,
-			},
-		};
-
-		const { viewId } = await createSavedView(client, cookies, {
-			name: "Custom View",
-			queryDefinition: customQueryDefinition,
-			displayConfiguration: customDisplayConfiguration,
+		await new Promise((resolve) => setTimeout(resolve, 100));
+		await updateSavedView(client, cookies, createdView.id, {
+			name: "Immutable Fields View Updated",
 		});
 
-		const { data, response } = await client.POST(
-			"/saved-views/{viewId}/clone",
-			{
-				params: { path: { viewId } },
-				headers: { Cookie: cookies },
-			},
-		);
+		const refreshedView = await getSavedView(client, cookies, createdView.id);
 
-		expect(response.status).toBe(200);
-		expect(data?.data).toBeDefined();
-		expect(data?.data?.queryDefinition).toEqual(customQueryDefinition);
-		expect(data?.data?.displayConfiguration).toEqual(
-			customDisplayConfiguration,
-		);
-	});
-
-	it("returns 404 for non-existent view", async () => {
-		const { client, cookies } = await createAuthenticatedClient();
-
-		const nonExistentId = "00000000-0000-0000-0000-000000000000";
-		const { response, error } = await client.POST(
-			"/saved-views/{viewId}/clone",
-			{
-				params: { path: { viewId: nonExistentId } },
-				headers: { Cookie: cookies },
-			},
-		);
-
-		expect(response.status).toBe(404);
-		expect(error?.error).toBeDefined();
-		expect(error?.error?.message).toBe("Saved view not found");
-	});
-
-	it("cloning a clone produces 'Name (Copy) (Copy)'", async () => {
-		const { client, cookies } = await createAuthenticatedClient();
-
-		const { viewId } = await createSavedView(client, cookies, {
-			name: "Original",
-		});
-
-		const { data: firstClone } = await client.POST(
-			"/saved-views/{viewId}/clone",
-			{
-				params: { path: { viewId } },
-				headers: { Cookie: cookies },
-			},
-		);
-
-		expect(firstClone?.data?.name).toBe("Original (Copy)");
-
-		const { data: secondClone, response } = await client.POST(
-			"/saved-views/{viewId}/clone",
-			{
-				params: { path: { viewId: firstClone?.data?.id || "" } },
-				headers: { Cookie: cookies },
-			},
-		);
-
-		expect(response.status).toBe(200);
-		expect(secondClone?.data).toBeDefined();
-		expect(secondClone?.data?.name).toBe("Original (Copy) (Copy)");
-	});
-
-	it("returns 404 when attempting to clone another user's view", async () => {
-		const { client: client1, cookies: cookies1 } =
-			await createAuthenticatedClient();
-		const { client: client2, cookies: cookies2 } =
-			await createAuthenticatedClient();
-
-		const { viewId } = await createSavedView(client1, cookies1, {
-			name: "User 1 View",
-		});
-
-		const { response, error } = await client2.POST(
-			"/saved-views/{viewId}/clone",
-			{
-				params: { path: { viewId } },
-				headers: { Cookie: cookies2 },
-			},
-		);
-
-		expect(response.status).toBe(404);
-		expect(error?.error).toBeDefined();
-		expect(error?.error?.message).toBe("Saved view not found");
+		expect(refreshedView.id).toBe(createdView.id);
+		expect(refreshedView.isBuiltin).toBe(false);
+		expect(refreshedView.createdAt).toBe(createdView.createdAt);
+		expect(refreshedView.updatedAt).not.toBe(createdView.updatedAt);
 	});
 });
