@@ -211,4 +211,94 @@ describe("loadOverviewItems", () => {
 			message: "Built-in media overview configuration is invalid",
 		});
 	});
+
+	describe("UTC date handling", () => {
+		it("preserves UTC timezone from view-runtime date fields", async () => {
+			const items = expectDataResult(
+				await loadOverviewItems(
+					{ userId: "user_1" },
+					{
+						executeOverviewPage: async () => ({
+							items: [
+								{
+									image: null,
+									id: "book-1",
+									name: "Test Book",
+									entitySchemaSlug: "book",
+									entitySchemaId: "schema_1",
+									updatedAt: date("2024-06-15T14:30:00.000Z"),
+									createdAt: date("2024-06-15T14:30:00.000Z"),
+									fields: [
+										{
+											key: "progressAt",
+											kind: "date" as const,
+											value: date("2024-06-15T14:30:00.000Z"),
+										},
+									],
+								},
+							],
+							meta: {
+								pagination: {
+									page: 1,
+									total: 1,
+									limit: 1,
+									totalPages: 1,
+									hasNextPage: false,
+									hasPreviousPage: false,
+								},
+							},
+						}),
+					},
+				),
+			);
+
+			const book = items.find((item) => item.id === "book-1");
+			expect(book).toBeDefined();
+			expect(book?.progressAt).toEqual(date("2024-06-15T14:30:00.000Z"));
+		});
+
+		it("handles ISO 8601 UTC string dates from view-runtime", async () => {
+			const items = expectDataResult(
+				await loadOverviewItems(
+					{ userId: "user_1" },
+					{
+						executeOverviewPage: async () => ({
+							items: [
+								{
+									image: null,
+									id: "anime-1",
+									name: "Test Anime",
+									entitySchemaSlug: "anime",
+									entitySchemaId: "schema_2",
+									updatedAt: date("2024-06-15T14:30:00.000Z"),
+									createdAt: date("2024-06-15T14:30:00.000Z"),
+									fields: [
+										{
+											key: "backlogAt",
+											kind: "date" as const,
+											value: "2024-06-15T14:30:00.000Z",
+										},
+									],
+								},
+							],
+							meta: {
+								pagination: {
+									page: 1,
+									total: 1,
+									limit: 1,
+									totalPages: 1,
+									hasNextPage: false,
+									hasPreviousPage: false,
+								},
+							},
+						}),
+					},
+				),
+			);
+
+			const anime = items.find((item) => item.id === "anime-1");
+			expect(anime).toBeDefined();
+			expect(anime?.backlogAt).toEqual(date("2024-06-15T14:30:00.000Z"));
+		});
+	});
 });
