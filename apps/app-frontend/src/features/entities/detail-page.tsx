@@ -1,5 +1,4 @@
 import {
-	Anchor,
 	Badge,
 	Box,
 	Button,
@@ -13,7 +12,6 @@ import {
 	Text,
 	Title,
 } from "@mantine/core";
-import { Link } from "@tanstack/react-router";
 import { Calendar, ExternalLink, Hash } from "lucide-react";
 import type { AppEntity } from "#/features/entities/model";
 import { useEventsQuery } from "#/features/events/hooks";
@@ -32,9 +30,7 @@ export function EntityDetailIdentityHeader(props: {
 	border: string;
 	entity: AppEntity;
 	schemaName: string;
-	trackerName: string;
-	trackerSlug: string;
-	trackerColor: { base: string; muted: string };
+	entitySchemaColor: { base: string; muted: string };
 }) {
 	const imageQuery = useResolvedEntityImageUrl(props.entity);
 	const hasImage = !!imageQuery.imageUrl;
@@ -45,49 +41,25 @@ export function EntityDetailIdentityHeader(props: {
 
 	return (
 		<Box mb="xl">
-			<Link to="/$trackerSlug" params={{ trackerSlug: props.trackerSlug }}>
-				<Anchor component="span" size="sm" c="accent.5" fw={500}>
-					{"<- Back to "}
-					{props.trackerName}
-				</Anchor>
-			</Link>
-
 			<Grid mt="lg">
 				<Grid.Col span={{ base: 12, md: 8 }}>
 					<Stack gap="md">
-						<Group gap="sm" wrap="wrap">
-							<Badge
-								size="md"
-								variant="light"
-								styles={{
-									root: {
-										fontWeight: 600,
-										color: props.trackerColor.base,
-										backgroundColor: props.trackerColor.muted,
-										borderColor: `${props.trackerColor.base}33`,
-										fontFamily: "var(--mantine-headings-font-family)",
-									},
-								}}
-							>
-								{props.trackerName}
-							</Badge>
-							<Badge
-								size="md"
-								variant="outline"
-								styles={{
-									root: {
-										fontWeight: 500,
-										fontFamily: "var(--mantine-headings-font-family)",
-									},
-								}}
-							>
-								{props.schemaName}
-							</Badge>
-						</Group>
+						<Badge
+							size="md"
+							variant="outline"
+							styles={{
+								root: {
+									fontWeight: 500,
+									fontFamily: "var(--mantine-headings-font-family)",
+								},
+							}}
+						>
+							{props.schemaName}
+						</Badge>
 
 						<Title
-							order={1}
 							fw={600}
+							order={1}
 							ff="var(--mantine-headings-font-family)"
 							style={{
 								lineHeight: 1.2,
@@ -149,8 +121,8 @@ export function EntityDetailIdentityHeader(props: {
 								display: "grid",
 								placeItems: "center",
 								aspectRatio: "3 / 4",
-								borderColor: props.trackerColor.base,
-								backgroundColor: props.trackerColor.muted,
+								borderColor: props.entitySchemaColor.base,
+								backgroundColor: props.entitySchemaColor.muted,
 							}}
 						>
 							{isLoadingImage ? (
@@ -239,7 +211,7 @@ export function EntityDetailEventTimeline(props: {
 	entity: AppEntity;
 	surfaceHover: string;
 	onLogEvent: () => void;
-	trackerColor: { base: string; muted: string };
+	entitySchemaColor: { base: string; muted: string };
 }) {
 	const eventsQuery = useEventsQuery(props.entity.id);
 	const events = eventsQuery.events;
@@ -326,7 +298,7 @@ export function EntityDetailEventTimeline(props: {
 								}}
 								style={{
 									transition: "background-color 0.15s ease",
-									borderLeft: `3px solid ${props.trackerColor.base}`,
+									borderLeft: `3px solid ${props.entitySchemaColor.base}`,
 									borderBottom:
 										idx < events.length - 1
 											? `1px solid ${props.border}`
