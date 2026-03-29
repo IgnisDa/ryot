@@ -1,5 +1,5 @@
 {
-	"id": "beb86f0c-6d47-457f-96f1-bcff83733e65",
+	"id": "bd70d259-512f-4898-a172-2cda4ec90adb",
 	"prevId": "00000000-0000-0000-0000-000000000000",
 	"version": "7",
 	"dialect": "postgresql",
@@ -2094,6 +2094,62 @@
 			"checkConstraints": {},
 			"isRLSEnabled": false
 		},
+		"public.plugin": {
+			"name": "plugin",
+			"schema": "",
+			"columns": {
+				"slug": {
+					"name": "slug",
+					"type": "text",
+					"primaryKey": true,
+					"notNull": true
+				},
+				"status": {
+					"name": "status",
+					"type": "text",
+					"primaryKey": false,
+					"notNull": true
+				},
+				"version": {
+					"name": "version",
+					"type": "text",
+					"primaryKey": false,
+					"notNull": true
+				},
+				"source_hash": {
+					"name": "source_hash",
+					"type": "text",
+					"primaryKey": false,
+					"notNull": true
+				},
+				"manifest": {
+					"name": "manifest",
+					"type": "jsonb",
+					"primaryKey": false,
+					"notNull": true
+				},
+				"ingested_at": {
+					"name": "ingested_at",
+					"type": "timestamp with time zone",
+					"primaryKey": false,
+					"notNull": true,
+					"default": "now()"
+				},
+				"compiled_hashes": {
+					"name": "compiled_hashes",
+					"type": "jsonb",
+					"primaryKey": false,
+					"notNull": true
+				}
+			},
+			"indexes": {},
+			"foreignKeys": {},
+			"compositePrimaryKeys": {},
+			"uniqueConstraints": {},
+			"policies": {},
+			"checkConstraints": {},
+			"isRLSEnabled": false
+		},
 		"public.relationship": {
 			"name": "relationship",
 			"schema": "",
@@ -2302,6 +2358,18 @@
 					"primaryKey": false,
 					"notNull": true
 				},
+				"plugin_slug": {
+					"name": "plugin_slug",
+					"type": "text",
+					"primaryKey": false,
+					"notNull": false
+				},
+				"content_hash": {
+					"name": "content_hash",
+					"type": "text",
+					"primaryKey": false,
+					"notNull": false
+				},
 				"is_builtin": {
 					"name": "is_builtin",
 					"type": "boolean",
@@ -2364,9 +2432,33 @@
 					"concurrently": false,
 					"method": "btree",
 					"with": {}
+				},
+				"sandbox_script_plugin_slug_idx": {
+					"name": "sandbox_script_plugin_slug_idx",
+					"columns": [
+						{
+							"expression": "plugin_slug",
+							"isExpression": false,
+							"asc": true,
+							"nulls": "last"
+						}
+					],
+					"isUnique": false,
+					"concurrently": false,
+					"method": "btree",
+					"with": {}
 				}
 			},
 			"foreignKeys": {
+				"sandbox_script_plugin_slug_plugin_slug_fk": {
+					"name": "sandbox_script_plugin_slug_plugin_slug_fk",
+					"tableFrom": "sandbox_script",
+					"tableTo": "plugin",
+					"columnsFrom": ["plugin_slug"],
+					"columnsTo": ["slug"],
+					"onDelete": "restrict",
+					"onUpdate": "no action"
+				},
 				"sandbox_script_user_id_user_id_fk": {
 					"name": "sandbox_script_user_id_user_id_fk",
 					"tableFrom": "sandbox_script",
@@ -2383,10 +2475,20 @@
 					"name": "sandbox_script_user_slug_unique",
 					"nullsNotDistinct": false,
 					"columns": ["user_id", "slug"]
+				},
+				"sandbox_script_plugin_slug_content_hash_unique": {
+					"name": "sandbox_script_plugin_slug_content_hash_unique",
+					"nullsNotDistinct": false,
+					"columns": ["plugin_slug", "slug", "content_hash"]
 				}
 			},
 			"policies": {},
-			"checkConstraints": {},
+			"checkConstraints": {
+				"sandbox_script_plugin_content_hash_check": {
+					"name": "sandbox_script_plugin_content_hash_check",
+					"value": "\"sandbox_script\".\"plugin_slug\" is null or \"sandbox_script\".\"content_hash\" is not null"
+				}
+			},
 			"isRLSEnabled": false
 		},
 		"public.saved_view": {
