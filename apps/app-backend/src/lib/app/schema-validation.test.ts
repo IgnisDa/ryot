@@ -189,6 +189,7 @@ describe("parseAppSchemaProperties", () => {
 				createdAt: { type: "date" as const },
 				isActive: { type: "boolean" as const },
 				updatedAt: { type: "datetime" as const },
+				tags: { type: "array" as const, items: { type: "string" as const } },
 			},
 		};
 
@@ -197,6 +198,7 @@ describe("parseAppSchemaProperties", () => {
 				kind: "Entity",
 				propertiesSchema: schema,
 				properties: {
+					tags: null,
 					title: null,
 					score: null,
 					count: null,
@@ -206,6 +208,7 @@ describe("parseAppSchemaProperties", () => {
 				},
 			}),
 		).toEqual({
+			tags: null,
 			title: null,
 			score: null,
 			count: null,
@@ -238,6 +241,11 @@ describe("parseAppSchemaProperties", () => {
 					type: "number" as const,
 					validation: { required: true as const },
 				},
+				tags: {
+					type: "array" as const,
+					items: { type: "string" as const },
+					validation: { required: true as const },
+				},
 			},
 		};
 
@@ -262,6 +270,14 @@ describe("parseAppSchemaProperties", () => {
 				kind: "Entity",
 				propertiesSchema: schema,
 				properties: { score: null },
+			}),
+		).toThrow("Entity properties validation failed");
+
+		expect(() =>
+			parseAppSchemaProperties({
+				kind: "Entity",
+				propertiesSchema: schema,
+				properties: { tags: null },
 			}),
 		).toThrow("Entity properties validation failed");
 	});
