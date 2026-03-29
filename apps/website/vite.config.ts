@@ -8,7 +8,8 @@ export default defineConfig({
 	server: { allowedHosts: true },
 	plugins: [
 		reactRouter(),
-		safeRoutes(),
+		// biome-ignore lint/suspicious/noExplicitAny: to satisfy the plugin's expected type
+		safeRoutes() as any,
 		tailwindcss(),
 		tsconfigPaths({ ignoreConfigErrors: true }),
 	],
