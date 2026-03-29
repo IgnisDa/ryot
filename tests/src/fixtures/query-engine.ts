@@ -10,22 +10,23 @@ import {
 	type ViewExpression,
 } from "./view-language";
 
-type ExecuteViewRuntimeBody = NonNullable<
-	paths["/view-runtime/execute"]["post"]["requestBody"]
+type ExecuteQueryEngineBody = NonNullable<
+	paths["/query-engine/execute"]["post"]["requestBody"]
 >["content"]["application/json"];
-type ExecuteViewRuntimeResponse =
-	paths["/view-runtime/execute"]["post"]["responses"][200]["content"]["application/json"];
+type ExecuteQueryEngineResponse =
+	paths["/query-engine/execute"]["post"]["responses"][200]["content"]["application/json"];
 type ComputedField = NonNullable<
-	ExecuteViewRuntimeBody["computedFields"]
+	ExecuteQueryEngineBody["computedFields"]
 >[number];
-type RuntimeResponseItem = ExecuteViewRuntimeResponse["data"]["items"][number];
+type QueryEngineResponseItem =
+	ExecuteQueryEngineResponse["data"]["items"][number];
 
 type RuntimeField = {
 	key: string;
 	expression: ViewExpression;
 };
 
-export type RuntimeRequest = Omit<ExecuteViewRuntimeBody, "fields"> & {
+export type QueryEngineRequest = Omit<ExecuteQueryEngineBody, "fields"> & {
 	fields: RuntimeField[];
 };
 
@@ -65,7 +66,7 @@ interface CreateEntityInput {
 	image?: { kind: "remote"; url: string } | null;
 }
 
-interface CreateRuntimeEventInput {
+interface CreateQueryEngineEventInput {
 	client: Client;
 	cookies: string;
 	entityId: string;
@@ -73,7 +74,7 @@ interface CreateRuntimeEventInput {
 	properties: Record<string, unknown>;
 }
 
-type RuntimeEntityFixture = {
+type QueryEngineEntityFixture = {
 	name: string;
 	entitySchemaId: string;
 	properties: Record<string, unknown>;
@@ -131,7 +132,7 @@ export function buildTableDisplayConfiguration(
 	};
 }
 
-function toRuntimeFields(input: RuntimeFieldsInput): RuntimeField[] {
+function toQueryEngineFields(input: RuntimeFieldsInput): RuntimeField[] {
 	if (input.layout === "table") {
 		return input.displayConfiguration.columns.map((column, index) => ({
 			key: `column_${index}`,
@@ -164,20 +165,20 @@ function toRuntimeFields(input: RuntimeFieldsInput): RuntimeField[] {
 
 const defaultSort = (
 	schemaSlugs: string[],
-): ExecuteViewRuntimeBody["sort"] => ({
+): ExecuteQueryEngineBody["sort"] => ({
 	direction: "asc",
 	expression: toRequiredExpression(
 		schemaSlugs.length ? qualifyBuiltinFields(schemaSlugs, "name") : [],
 	),
 });
 
-const buildRuntimeRequest = (
-	input: Partial<Omit<RuntimeRequest, "fields" | "sort">> & {
+const buildQueryEngineRequest = (
+	input: Partial<Omit<QueryEngineRequest, "fields" | "sort">> & {
 		fields: RuntimeField[];
 		entitySchemaSlugs: string[];
-		sort?: RuntimeRequest["sort"];
+		sort?: QueryEngineRequest["sort"];
 	},
-): RuntimeRequest => ({
+): QueryEngineRequest => ({
 	eventJoins: [],
 	computedFields: [],
 	pagination: { page: 1, limit: 10 },
@@ -185,7 +186,7 @@ const buildRuntimeRequest = (
 	...input,
 });
 
-export function buildRuntimeField(
+export function buildQueryEngineField(
 	key: string,
 	expression: ExpressionInput,
 ): RuntimeField {
@@ -206,11 +207,11 @@ export function buildComputedField(
 }
 
 export function buildGridRequest(
-	overrides: Partial<Omit<RuntimeRequest, "fields">> & {
+	overrides: Partial<Omit<QueryEngineRequest, "fields">> & {
 		displayConfiguration?: GridDisplayConfiguration;
 		entitySchemaSlugs: string[];
 	},
-): RuntimeRequest {
+): QueryEngineRequest {
 	const {
 		entitySchemaSlugs: schemaSlugs,
 		displayConfiguration: displayConfigurationOverride,
@@ -220,19 +221,19 @@ export function buildGridRequest(
 		displayConfigurationOverride ??
 		buildGridDisplayConfiguration({}, schemaSlugs);
 
-	return buildRuntimeRequest({
+	return buildQueryEngineRequest({
 		entitySchemaSlugs: schemaSlugs,
-		fields: toRuntimeFields({ layout: "grid", displayConfiguration }),
+		fields: toQueryEngineFields({ layout: "grid", displayConfiguration }),
 		...requestOverrides,
 	});
 }
 
 export function buildListRequest(
-	overrides: Partial<Omit<RuntimeRequest, "fields">> & {
+	overrides: Partial<Omit<QueryEngineRequest, "fields">> & {
 		entitySchemaSlugs: string[];
 		displayConfiguration?: ListDisplayConfiguration;
 	},
-): RuntimeRequest {
+): QueryEngineRequest {
 	const {
 		entitySchemaSlugs: schemaSlugs,
 		displayConfiguration: displayConfigurationOverride,
@@ -242,19 +243,19 @@ export function buildListRequest(
 		displayConfigurationOverride ??
 		buildListDisplayConfiguration({}, schemaSlugs);
 
-	return buildRuntimeRequest({
+	return buildQueryEngineRequest({
 		entitySchemaSlugs: schemaSlugs,
-		fields: toRuntimeFields({ layout: "list", displayConfiguration }),
+		fields: toQueryEngineFields({ layout: "list", displayConfiguration }),
 		...requestOverrides,
 	});
 }
 
 export function buildTableRequest(
-	overrides: Partial<Omit<RuntimeRequest, "fields">> & {
+	overrides: Partial<Omit<QueryEngineRequest, "fields">> & {
 		entitySchemaSlugs: string[];
 		displayConfiguration?: TableDisplayConfiguration;
 	},
-): RuntimeRequest {
+): QueryEngineRequest {
 	const {
 		entitySchemaSlugs: schemaSlugs,
 		displayConfiguration: displayConfigurationOverride,
@@ -264,37 +265,37 @@ export function buildTableRequest(
 		displayConfigurationOverride ??
 		buildTableDisplayConfiguration(undefined, schemaSlugs);
 
-	return buildRuntimeRequest({
+	return buildQueryEngineRequest({
 		entitySchemaSlugs: schemaSlugs,
-		fields: toRuntimeFields({ layout: "table", displayConfiguration }),
+		fields: toQueryEngineFields({ layout: "table", displayConfiguration }),
 		...requestOverrides,
 	});
 }
 
-export function getRuntimeFieldOrThrow(
-	item: RuntimeResponseItem | undefined,
+export function getQueryEngineFieldOrThrow(
+	item: QueryEngineResponseItem | undefined,
 	key: string,
 ) {
 	const field = item?.fields.find((entry) => entry.key === key);
 	if (!field) {
-		throw new Error(`Expected runtime field '${key}'`);
+		throw new Error(`Expected query engine field '${key}'`);
 	}
 
 	return field;
 }
 
-export async function executeViewRuntime(
+export async function executeQueryEngine(
 	client: Client,
 	cookies: string,
-	body: RuntimeRequest,
+	body: QueryEngineRequest,
 ) {
-	return client.POST("/view-runtime/execute", {
+	return client.POST("/query-engine/execute", {
 		body,
 		headers: { Cookie: cookies },
 	});
 }
 
-export async function createRuntimeEntity(input: CreateEntityInput) {
+export async function createQueryEngineEntity(input: CreateEntityInput) {
 	const { data, response } = await input.client.POST("/entities", {
 		headers: { Cookie: input.cookies },
 		body: {
@@ -318,7 +319,9 @@ export async function createRuntimeEntity(input: CreateEntityInput) {
 	return data.data.id;
 }
 
-export async function createRuntimeEvent(input: CreateRuntimeEventInput) {
+export async function createQueryEngineEvent(
+	input: CreateQueryEngineEventInput,
+) {
 	const { data, response } = await input.client.POST("/events", {
 		headers: { Cookie: input.cookies },
 		body: [
@@ -337,15 +340,15 @@ export async function createRuntimeEvent(input: CreateRuntimeEventInput) {
 	return data.data.count;
 }
 
-const createRuntimeEntities = async (input: {
+const createQueryEngineEntities = async (input: {
 	client: Client;
 	cookies: string;
-	entities: RuntimeEntityFixture[];
+	entities: QueryEngineEntityFixture[];
 }) => {
 	const entityIdsByName: Record<string, string> = {};
 
 	for (const entity of input.entities) {
-		entityIdsByName[entity.name] = await createRuntimeEntity({
+		entityIdsByName[entity.name] = await createQueryEngineEntity({
 			name: entity.name,
 			image: entity.image,
 			client: input.client,
@@ -358,7 +361,7 @@ const createRuntimeEntities = async (input: {
 	return entityIdsByName;
 };
 
-export async function createSingleSchemaRuntimeFixture() {
+export async function createSingleSchemaQueryEngineFixture() {
 	const { client, cookies } = await createAuthenticatedClient();
 	const { trackerId } = await createTracker(client, cookies, {
 		name: "Device Tracker",
@@ -375,7 +378,7 @@ export async function createSingleSchemaRuntimeFixture() {
 		},
 	});
 
-	const entities: RuntimeEntityFixture[] = [
+	const entities: QueryEngineEntityFixture[] = [
 		{
 			name: "Alpha Phone",
 			entitySchemaId: schema.schemaId,
@@ -402,7 +405,7 @@ export async function createSingleSchemaRuntimeFixture() {
 			properties: { manufacturer: "Ghost" },
 		},
 	];
-	const entityIdsByName = await createRuntimeEntities({
+	const entityIdsByName = await createQueryEngineEntities({
 		client,
 		cookies,
 		entities,
@@ -411,7 +414,7 @@ export async function createSingleSchemaRuntimeFixture() {
 	return { client, cookies, schema, entityIdsByName };
 }
 
-export async function createCrossSchemaRuntimeFixture() {
+export async function createCrossSchemaQueryEngineFixture() {
 	const { client, cookies } = await createAuthenticatedClient();
 	const { trackerId } = await createTracker(client, cookies, {
 		name: "Mixed Device Tracker",
@@ -443,7 +446,7 @@ export async function createCrossSchemaRuntimeFixture() {
 		},
 	});
 
-	const entities: RuntimeEntityFixture[] = [
+	const entities: QueryEngineEntityFixture[] = [
 		{
 			name: "Alpha Phone",
 			entitySchemaId: smartphoneSchema.schemaId,
@@ -480,7 +483,7 @@ export async function createCrossSchemaRuntimeFixture() {
 			},
 		},
 	];
-	const entityIdsByName = await createRuntimeEntities({
+	const entityIdsByName = await createQueryEngineEntities({
 		client,
 		cookies,
 		entities,

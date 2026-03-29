@@ -15,7 +15,7 @@ import {
 } from "~/lib/test-fixtures";
 import { createDefaultDisplayConfiguration } from "~/modules/saved-views/constants";
 import { createViewDefinitionModule } from "./definition";
-import { ViewRuntimeNotFoundError } from "./errors";
+import { QueryEngineNotFoundError } from "./errors";
 
 const createRuntimeSchemaRow = (input: {
 	id: string;
@@ -526,7 +526,7 @@ describe("viewDefinitionModule", () => {
 		const views = createViewDefinitionModule(
 			createDeps({
 				loadVisibleSchemas: mock(async () => {
-					throw new ViewRuntimeNotFoundError("Schema 'smartphones' not found");
+					throw new QueryEngineNotFoundError("Schema 'smartphones' not found");
 				}),
 			}),
 		);

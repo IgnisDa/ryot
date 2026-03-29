@@ -6,29 +6,29 @@ import { nullViewExpression } from "~/lib/views/expression";
 import {
 	buildEventJoinMap,
 	buildSchemaMap,
-	type ViewRuntimeEventJoinLike,
-	type ViewRuntimeEventSchemaLike,
-	type ViewRuntimeSchemaLike,
+	type QueryEngineEventJoinLike,
+	type QueryEngineEventSchemaLike,
+	type QueryEngineSchemaLike,
 } from "~/lib/views/reference";
 import { propertySchemaObjectSchema } from "~/modules/property-schemas/schemas";
+import {
+	executePreparedQuery,
+	type QueryEngineSchemaRow,
+} from "~/modules/query-engine/query-builder";
+import type {
+	QueryEngineField,
+	QueryEngineRequest,
+	QueryEngineResponse,
+} from "~/modules/query-engine/schemas";
 import type {
 	DisplayConfiguration,
 	EventJoinDefinition,
 	SavedViewQueryDefinition,
 } from "~/modules/saved-views/schemas";
+import { QueryEngineNotFoundError, QueryEngineValidationError } from "./errors";
 import {
-	executePreparedViewQuery,
-	type ViewRuntimeSchemaRow,
-} from "~/modules/view-runtime/query-builder";
-import type {
-	ViewRuntimeField,
-	ViewRuntimeRequest,
-	ViewRuntimeResponse,
-} from "~/modules/view-runtime/schemas";
-import { ViewRuntimeNotFoundError, ViewRuntimeValidationError } from "./errors";
-import {
+	validateQueryEngineReferences,
 	validateSavedViewDisplayConfiguration,
-	validateViewRuntimeReferences,
 } from "./validator";
 
 type ViewDefinition = {
@@ -37,14 +37,14 @@ type ViewDefinition = {
 };
 
 type ViewSource =
-	| { kind: "runtime"; request: ViewRuntimeRequest }
+	| { kind: "runtime"; request: QueryEngineRequest }
 	| { kind: "saved-view"; definition: ViewDefinition };
 
 type SavedViewLayout = keyof DisplayConfiguration;
 
 type RuntimeExecutionInput = {
 	layout?: SavedViewLayout;
-	pagination?: ViewRuntimeRequest["pagination"];
+	pagination?: QueryEngineRequest["pagination"];
 };
 
 type ViewDefinitionModuleDeps = {
@@ -53,9 +53,9 @@ type ViewDefinitionModuleDeps = {
 	loadVisibleEventJoins: typeof loadVisibleEventJoins;
 };
 
-type ViewRuntimeEventSchemaRow = ViewRuntimeEventSchemaLike;
+type QueryEngineEventSchemaRow = QueryEngineEventSchemaLike;
 
-type PreparedEventJoin = ViewRuntimeEventJoinLike<ViewRuntimeEventSchemaRow>;
+type PreparedEventJoin = QueryEngineEventJoinLike<QueryEngineEventSchemaRow>;
 
 const parseAppSchema = (value: unknown) => {
 	return propertySchemaObjectSchema.parse(value);
@@ -65,21 +65,21 @@ type PreparedViewState = {
 	userId: string;
 	source: ViewSource["kind"];
 	eventJoins: PreparedEventJoin[];
-	runtimeRequest?: ViewRuntimeRequest;
-	runtimeSchemas: ViewRuntimeSchemaRow[];
+	runtimeRequest?: QueryEngineRequest;
+	runtimeSchemas: QueryEngineSchemaRow[];
 	queryDefinition: SavedViewQueryDefinition;
 	displayConfiguration?: DisplayConfiguration;
-	schemaMap: Map<string, ViewRuntimeSchemaRow>;
+	schemaMap: Map<string, QueryEngineSchemaRow>;
 	eventJoinMap: Map<string, PreparedEventJoin>;
 };
 
 export type PreparedView = {
 	assertSavable(): void;
-	execute(input?: RuntimeExecutionInput): Promise<ViewRuntimeResponse>;
+	execute(input?: RuntimeExecutionInput): Promise<QueryEngineResponse>;
 	toRuntimeRequest(input: {
 		layout: SavedViewLayout;
-		pagination: ViewRuntimeRequest["pagination"];
-	}): ViewRuntimeRequest;
+		pagination: QueryEngineRequest["pagination"];
+	}): QueryEngineRequest;
 };
 
 export type ViewDefinitionModule = {
@@ -89,7 +89,7 @@ export type ViewDefinitionModule = {
 const loadVisibleSchemas = async (input: {
 	userId: string;
 	entitySchemaSlugs: string[];
-}): Promise<ViewRuntimeSchemaRow[]> => {
+}): Promise<QueryEngineSchemaRow[]> => {
 	const uniqueSlugs = [...new Set(input.entitySchemaSlugs)];
 	const rows = await db
 		.select({
@@ -109,7 +109,7 @@ const loadVisibleSchemas = async (input: {
 		...row,
 		propertiesSchema: parseAppSchema(row.propertiesSchema),
 	}));
-	const schemasBySlug = new Map<string, ViewRuntimeSchemaRow[]>();
+	const schemasBySlug = new Map<string, QueryEngineSchemaRow[]>();
 	for (const schema of schemas) {
 		const existing = schemasBySlug.get(schema.slug) ?? [];
 		existing.push(schema);
@@ -119,11 +119,11 @@ const loadVisibleSchemas = async (input: {
 	for (const slug of uniqueSlugs) {
 		const found = schemasBySlug.get(slug);
 		if (!found?.length) {
-			throw new ViewRuntimeNotFoundError(`Schema '${slug}' not found`);
+			throw new QueryEngineNotFoundError(`Schema '${slug}' not found`);
 		}
 
 		if (found.length > 1) {
-			throw new ViewRuntimeValidationError(
+			throw new QueryEngineValidationError(
 				`Schema '${slug}' resolves to multiple visible schemas`,
 			);
 		}
@@ -134,17 +134,17 @@ const loadVisibleSchemas = async (input: {
 
 const executePreparedView = async (input: {
 	userId: string;
-	request: ViewRuntimeRequest;
+	request: QueryEngineRequest;
 	eventJoins: PreparedEventJoin[];
-	runtimeSchemas: ViewRuntimeSchemaRow[];
-	schemaMap: Map<string, ViewRuntimeSchemaRow>;
+	runtimeSchemas: QueryEngineSchemaRow[];
+	schemaMap: Map<string, QueryEngineSchemaRow>;
 	eventJoinMap: Map<string, PreparedEventJoin>;
-}) => executePreparedViewQuery(input);
+}) => executePreparedQuery(input);
 
 const loadVisibleEventJoins = async (input: {
 	userId: string;
 	eventJoins: EventJoinDefinition[];
-	runtimeSchemas: ViewRuntimeSchemaRow[];
+	runtimeSchemas: QueryEngineSchemaRow[];
 }): Promise<PreparedEventJoin[]> => {
 	if (!input.eventJoins.length) {
 		return [];
@@ -180,12 +180,12 @@ const loadVisibleEventJoins = async (input: {
 	}));
 	const eventSchemasByEntitySchemaKey = new Map<
 		string,
-		ViewRuntimeEventSchemaRow
+		QueryEngineEventSchemaRow
 	>();
 	for (const schema of visibleEventSchemas) {
 		const key = `${schema.entitySchemaSlug}:${schema.slug}`;
 		if (eventSchemasByEntitySchemaKey.has(key)) {
-			throw new ViewRuntimeValidationError(
+			throw new QueryEngineValidationError(
 				`Event schema '${schema.slug}' resolves to multiple visible schemas for entity schema '${schema.entitySchemaSlug}'`,
 			);
 		}
@@ -198,7 +198,7 @@ const loadVisibleEventJoins = async (input: {
 			(schema) => schema.slug === join.eventSchemaSlug,
 		);
 		if (!eventSchemas.length) {
-			throw new ViewRuntimeValidationError(
+			throw new QueryEngineValidationError(
 				`Event schema '${join.eventSchemaSlug}' is not available for the requested entity schemas`,
 			);
 		}
@@ -225,7 +225,7 @@ const normalizeQueryDefinition = (
 const buildRuntimeFields = (input: {
 	layout: SavedViewLayout;
 	displayConfiguration: DisplayConfiguration;
-}): ViewRuntimeField[] => {
+}): QueryEngineField[] => {
 	const buildCardRuntimeFields = (
 		configuration: DisplayConfiguration["grid"],
 	) => {
@@ -262,10 +262,10 @@ const buildRuntimeFields = (input: {
 };
 
 const buildRuntimeRequest = (input: {
-	fields: ViewRuntimeField[];
+	fields: QueryEngineField[];
 	queryDefinition: SavedViewQueryDefinition;
-	pagination: ViewRuntimeRequest["pagination"];
-}): ViewRuntimeRequest => {
+	pagination: QueryEngineRequest["pagination"];
+}): QueryEngineRequest => {
 	return {
 		fields: input.fields,
 		pagination: input.pagination,
@@ -281,9 +281,9 @@ const validateSavedViewDefinition = (input: {
 	queryDefinition: SavedViewQueryDefinition;
 	displayConfiguration: DisplayConfiguration;
 	eventJoinMap: Map<string, PreparedEventJoin>;
-	schemaMap: Map<string, ViewRuntimeSchemaLike>;
+	schemaMap: Map<string, QueryEngineSchemaLike>;
 }) => {
-	validateViewRuntimeReferences(
+	validateQueryEngineReferences(
 		buildRuntimeRequest({
 			fields: [],
 			pagination: { page: 1, limit: 1 },
@@ -307,14 +307,14 @@ const createPreparedView = (
 ): PreparedView => ({
 	assertSavable() {
 		if (state.source !== "saved-view") {
-			throw new ViewRuntimeValidationError(
+			throw new QueryEngineValidationError(
 				"Only saved views can be asserted as savable",
 			);
 		}
 	},
 	toRuntimeRequest(input) {
 		if (!state.displayConfiguration) {
-			throw new ViewRuntimeValidationError(
+			throw new QueryEngineValidationError(
 				"Only saved views can be projected into runtime requests",
 			);
 		}
@@ -343,12 +343,12 @@ const createPreparedView = (
 				: undefined;
 
 		if (!request) {
-			throw new ViewRuntimeValidationError(
+			throw new QueryEngineValidationError(
 				"Layout and pagination are required to execute a saved view",
 			);
 		}
 
-		validateViewRuntimeReferences(request, {
+		validateQueryEngineReferences(request, {
 			schemaMap: state.schemaMap,
 			eventJoinMap: state.eventJoinMap,
 		});
@@ -400,7 +400,7 @@ export const createViewDefinitionModule = (
 		const eventJoinMap = buildEventJoinMap(eventJoins);
 
 		if (input.source.kind === "runtime") {
-			validateViewRuntimeReferences(input.source.request, {
+			validateQueryEngineReferences(input.source.request, {
 				schemaMap,
 				eventJoinMap,
 			});

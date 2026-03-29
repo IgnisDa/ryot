@@ -80,7 +80,7 @@ type SavedViewTableColumn = {
 };
 type SavedViewExpression = SavedViewQueryDefinition["sort"]["expression"];
 type SavedViewPredicate = NonNullable<SavedViewQueryDefinition["filter"]>;
-type SavedViewRuntimeRef = Extract<
+type SavedViewQueryEngineRef = Extract<
 	SavedViewExpression,
 	{ type: "reference" }
 >["reference"];
@@ -289,7 +289,7 @@ async function createSavedView(
 		value,
 	});
 
-	const parseReference = (reference: string): SavedViewRuntimeRef => {
+	const parseReference = (reference: string): SavedViewQueryEngineRef => {
 		const [namespace, segment, tail, ...rest] = reference.split(".");
 		if (namespace === "computed") {
 			if (!segment || tail || rest.length > 0) {
@@ -568,7 +568,7 @@ async function createSavedView(
 
 // ─── Expression builders ────────────────────────────────────────────────────
 
-function ref(reference: SavedViewRuntimeRef): SavedViewExpression {
+function ref(reference: SavedViewQueryEngineRef): SavedViewExpression {
 	return { type: "reference", reference };
 }
 
@@ -2187,7 +2187,7 @@ async function seedSavedViews(
 		},
 	];
 
-	// ── Demo views: exercises every view-runtime capability ─────────────────
+	// ── Demo views: exercises every query-engine capability ─────────────────
 	const demoViews: SavedViewSpec[] = [
 		// ── Event joins ────────────────────────────────────────────────────────
 		{
