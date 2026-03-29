@@ -16,8 +16,9 @@ Per `AGENTS.md`, launch an `explore` subagent first — `NotificationSubscriptio
 (`automations/notification-subscriptions-service.ts`), the `automations` contract group
 (`installRule`/`activateRule`/`deactivateRule`/`deleteRule`/`listRules`), `ensureDefaultRules`
 in `user-bootstrap/bootstrap.ts` and its callers in `auth/service.ts` and `god-mode/service.ts`,
-the `automation_rule` and `subscription_run` tables, and the Phase 1 `tracker_state` state-split
-pattern to mirror. Depends on task 03; task 04 recommended first (real-loader fixture in place).
+the `automation_rule` and `subscription_run` tables, and the per-user state-split pattern to
+mirror (`plugin_state`, task 03). Depends on task 03; task 04 recommended first (real-loader
+fixture in place).
 
 ## What to build
 
@@ -27,7 +28,7 @@ Move the last definition/state conflation off the database: per-user notificatio
 
 1. **New `notification_subscription_state` table** (`[RECOMMENDED]`)
    `(userId, signalSchemaSlug, scriptSlug, isActive, metadata?, timestamps)`, unique on
-   `(userId, signalSchemaSlug, scriptSlug)`, following the `tracker_state` pattern. Regenerate
+   `(userId, signalSchemaSlug, scriptSlug)`, following the `plugin_state` pattern. Regenerate
    the single drizzle migration rather than authoring ALTERs.
 2. **Re-point, surface preserved** (plumbing only): `NotificationSubscriptionsService`, the
    `automations` rule endpoints, `ensureDefaultRules`, and the `auth`/`god-mode` consumers now
@@ -47,7 +48,7 @@ restate or re-derive it.
 ## Acceptance criteria
 
 - [ ] `notification_subscription_state` exists (unique on `(userId, signalSchemaSlug,
-    scriptSlug)`) via a regenerated migration; `automation_rule` is deleted (done criterion 2,
+  scriptSlug)`) via a regenerated migration; `automation_rule` is deleted (done criterion 2,
       remaining half)
 - [ ] `NotificationSubscriptionsService`, the `automations` endpoints, `ensureDefaultRules`, and
       the `auth`/`god-mode` consumers read/write the new table with the user-facing rule surface
