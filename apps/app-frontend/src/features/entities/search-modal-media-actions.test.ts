@@ -30,7 +30,7 @@ describe("getMediaLifecycleUnavailableMessage", () => {
 		);
 
 		expect(getMediaLifecycleUnavailableMessage(schemas)).toBe(
-			"Lifecycle actions are unavailable because these schemas are missing: review.",
+			"Some actions are unavailable. Please check your event schemas configuration.",
 		);
 	});
 });
