@@ -142,7 +142,11 @@ export const updateSavedViewByIdForUser = async (input: {
 			displayConfiguration: input.data.displayConfiguration,
 		})
 		.where(
-			and(eq(savedView.userId, input.userId), eq(savedView.id, input.viewId)),
+			and(
+				eq(savedView.id, input.viewId),
+				eq(savedView.userId, input.userId),
+				eq(savedView.isBuiltin, false),
+			),
 		)
 		.returning(savedViewSelection);
 
@@ -160,7 +164,11 @@ export const deleteSavedViewByIdForUser = async (input: {
 	const [deletedView] = await db
 		.delete(savedView)
 		.where(
-			and(eq(savedView.userId, input.userId), eq(savedView.id, input.viewId)),
+			and(
+				eq(savedView.id, input.viewId),
+				eq(savedView.userId, input.userId),
+				eq(savedView.isBuiltin, false),
+			),
 		)
 		.returning(savedViewSelection);
 
@@ -169,42 +177,4 @@ export const deleteSavedViewByIdForUser = async (input: {
 	}
 
 	return toSavedView(deletedView);
-};
-
-export const cloneSavedViewByIdForUser = async (input: {
-	userId: string;
-	viewId: string;
-	clonedName: string;
-}) => {
-	const [sourceRow] = await db
-		.select(savedViewSelection)
-		.from(savedView)
-		.where(
-			and(eq(savedView.userId, input.userId), eq(savedView.id, input.viewId)),
-		)
-		.limit(1);
-
-	if (!sourceRow) {
-		return undefined;
-	}
-
-	const [clonedView] = await db
-		.insert(savedView)
-		.values({
-			isBuiltin: false,
-			icon: sourceRow.icon,
-			userId: input.userId,
-			name: input.clonedName,
-			trackerId: sourceRow.trackerId,
-			accentColor: sourceRow.accentColor,
-			queryDefinition: sourceRow.queryDefinition,
-			displayConfiguration: sourceRow.displayConfiguration,
-		})
-		.returning(savedViewSelection);
-
-	if (!clonedView) {
-		throw new Error("Could not persist cloned view");
-	}
-
-	return toSavedView(clonedView);
 };
