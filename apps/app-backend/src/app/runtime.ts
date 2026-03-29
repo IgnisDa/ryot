@@ -1,6 +1,6 @@
 import { serve } from "@hono/node-server";
 import { config } from "~/lib/config";
-import { migrateDB } from "~/lib/db";
+import { migrateDB } from "~/lib/db/migrate";
 import {
 	initializeQueues,
 	initializeWorkers,
