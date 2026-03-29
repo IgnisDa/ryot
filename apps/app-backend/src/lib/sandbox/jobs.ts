@@ -17,6 +17,7 @@ export const sandboxRunJobData = z.object({
 	scriptId: nonEmptyStringSchema.optional(),
 	context: stringUnknownRecordSchema.optional(),
 	apiFunctionDescriptors: z.array(apiFunctionDescriptorSchema).optional(),
+	driverName: nonEmptyStringSchema.optional(),
 });
 
 export const sandboxRunJobResult = z.object({

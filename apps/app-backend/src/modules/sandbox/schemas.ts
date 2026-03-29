@@ -10,12 +10,14 @@ const enqueueSandboxCodeBody = z.object({
 	kind: z.literal("code").optional(),
 	context: stringUnknownRecordSchema.optional(),
 	code: nonEmptyStringSchema.max(20_000),
+	driverName: nonEmptyStringSchema.optional(),
 });
 
 const enqueueSandboxScriptBody = z.object({
 	scriptId: nonEmptyStringSchema,
 	kind: z.literal("script"),
 	context: stringUnknownRecordSchema.optional(),
+	driverName: nonEmptyStringSchema.optional(),
 });
 
 export const enqueueSandboxBody = z.union([
