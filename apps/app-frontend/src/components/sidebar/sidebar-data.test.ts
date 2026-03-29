@@ -44,9 +44,20 @@ describe("toSidebarData", () => {
 				name: "Favorites",
 				accentColor: "#2DD4BF",
 				queryDefinition: {
-					filters: [],
+					eventJoins: [],
+					computedFields: [],
 					entitySchemaSlugs: ["schema-2"],
-					sort: { fields: ["entity.schema-2.@name"], direction: "asc" },
+					sort: {
+						direction: "asc",
+						expression: {
+							type: "reference",
+							reference: {
+								column: "name",
+								slug: "schema-2",
+								type: "entity-column",
+							},
+						},
+					},
 				},
 			}),
 		];
