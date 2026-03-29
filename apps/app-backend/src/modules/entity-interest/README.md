@@ -1,44 +1,56 @@
 # Entity Interest
 
-Entity interest lets clients request population or translation for entities they currently display and receive completion notices without coupling reads to background work.
+Entity interest lets authenticated clients declare the entities they display and receive population or translation completion notices without coupling reads to background work.
 
 ## Protocol
 
-- `GET /api/entity-interest/stream?streamId=<uuid>` opens an authenticated SSE stream. Client creates UUID, waits for `connected`, and reuses same ID in declarations.
-- `POST /api/entity-interest` accepts `{ streamId, entityIds }`. Each declaration replaces prior set and returns already-terminal entities as `{ terminal: { entityId, reason }[] }`.
-- SSE sends `entity:updated` frames with `{ entityId, reason }`, where reason is `populated` or `translated`, plus `: ping` comments every five seconds.
+- `GET /api/entity-interest/stream?streamId=<uuid>` opens an authenticated SSE stream. The client creates a UUID, waits for `connected`, and reuses that ID in declarations.
+- `POST /api/entity-interest` accepts `{ streamId, entityIds }`. Each declaration replaces the previous set and returns already-terminal entities as `{ terminal: { entityId, reason }[] }`.
+- SSE sends `entity:updated` frames with `{ entityId, reason }`, where `reason` is `populated` or `translated`, and sends `: ping` comments every five seconds.
 
-Clients must ignore SSE comment lines, buffer early completions, and deduplicate by entity ID. Terminal entities can appear in both POST response and SSE stream. Completion reasons are refetch signals: `translated` includes negative-cache outcomes where provider returned no translation.
+Unknown streams and wrong-owner streams both return `NotFound`. Clients wait for `connected`, ignore comments, and deduplicate by entity ID. A terminal entity can appear in both the POST response and SSE. Reasons are refetch signals; `translated` also covers a completed negative-cache translation result.
 
-## Reconciliation
+## Redis State And Lifetime
 
-Interest is registered before reconciliation so a workflow completing during query cannot publish into a gap. A newer declaration can replace interest while an older reconciliation is running, so terminal results are filtered against current set before return.
+Redis owns shared membership and delivery lookup. The keys are:
 
-Reconciliation reads visible entities through RyotQL in sequential chunks of 100. Declarations are truncated to 500 IDs, bounding request to five query transactions.
+- `ryot:entity:updated`: Pub/Sub channel for `{ entityId, reason }` messages.
+- `ryot:entity-interest:stream:<streamId>`: stream hash with `userId`, `preferredLanguage` (empty string for null), and `generation`.
+- `ryot:entity-interest:stream:<streamId>:entities`: membership hash with `pending` or `watching` per entity ID.
+- `ryot:entity-interest:entity:<entityId>:streams`: reverse sorted set of interested stream IDs, scored by expiry time in milliseconds.
+- `ryot:entity-interest:progress:<entityId>`: 30-second progression lease.
 
-Rows follow strict order:
+The stream and membership keys have a 15-minute TTL. Opening, replacing, and renewing refresh them; renewal runs every five minutes and refreshes reverse-index expiry scores. If renewal finds missing stream metadata, the SSE connection ends with `NotFound` so the client reconnects. Expired reverse members are removed during lookup. A declaration is truncated to the first 500 input IDs and then deduplicated; it is not rejected for exceeding the limit.
 
-1. Unpopulated entity with provider provenance requests ensure-mode population.
-2. Unpopulated user-authored entity is terminal because it cannot be populated.
-3. Populated entity with pending translation and required provenance requests translation.
-4. Remaining rows are terminal.
+## Replacement And Reconciliation
 
-Translation must never run before population. Doing so can write all-null overlay, which is interpreted as permanent negative cache.
+Interest is registered before reconciliation. The replacement script removes old memberships, preserves `watching` state for retained IDs, marks new IDs as `pending`, updates the preferred language, refreshes TTLs, and increments `generation`. It returns every currently pending ID.
 
-Reconciliation and enqueue failures are logged and treated as no terminal catch-up; declaration still succeeds. Pending state allows later declarations to retry.
+Reconciliation runs only for returned pending IDs, through visible RyotQL rows in sequential chunks of 100. After each chunk, `pending` rows become `watching` only if the generation is still current. A stale reconciliation cannot mark or return terminal updates, stops the remaining chunks immediately, and terminal results are also checked against current membership. At most five RyotQL query transactions are used for one 500-ID declaration. A pending enqueue or reconciliation failure leaves the ID pending for a later declaration.
 
-## Localization Status
+Rows progress in this order:
 
-Localized reads overlay translation name and properties onto canonical entity; translated values win while canonical-only properties remain. Sorting and filtering use overlaid name.
+1. An unpopulated entity with provider and external-ID provenance enqueues ensure-mode population.
+2. An unpopulated entity without that provenance is terminal with `populated`.
+3. A populated entity with pending translation enqueues a fill when the user has a non-null language and the required provenance.
+4. All other rows are terminal: `ready` is `translated`; other terminal statuses are `populated`.
 
-`translationStatus` is `none` for canonical-language readers and unpopulated entities, `pending` when non-canonical overlay row is absent, `none` for all-null negative-cache row, and `ready` otherwise. Canonical language is read from active provider script metadata per query rather than cached at startup.
+Translation never runs before population. An early translation can write an all-null overlay, which is the permanent negative-cache representation.
 
-## Streams And Ownership
+## Localization And Progression
 
-Stream ID belongs to user who opened it. Unknown streams and wrong-owner streams both return `NotFound` so endpoint does not reveal stream existence.
+Localized RyotQL reads overlay translation name and properties onto the canonical entity. Translated values win, canonical-only properties remain, and sorting and filtering use the overlaid name.
 
-Registry state is process-local. Declaration must reach process holding SSE connection; multi-instance deployment requires sticky routing or shared registry redesign.
+`translationStatus` is `none` for a null-language query, missing provider or canonical language, canonical-language readers, and unpopulated entities. It is `pending` when a non-canonical overlay is absent, `none` for an all-null negative-cache row, and `ready` otherwise. Canonical language comes from provider metadata in the query, not startup state.
 
-Registry uses one duplicated Redis subscriber connection per process because ioredis subscriber mode cannot issue ordinary commands. Malformed messages are dropped rather than terminating subscriber. Stream heartbeat is merged with push stream so disconnect tears down both.
+After a `populated` message, one process at a time holds the per-entity progression lease. It reads active stream metadata, removes null languages, deduplicates languages, resolves the current provider canonical language, and enqueues fills only for distinct non-canonical languages. A contended lease is tried again after 29 seconds. Progression dispatch is retried up to three times. A final failure marks the entity pending for each captured stream that is still interested, then logs the failure so a later declaration retries progression.
 
-Population and translation workflows publish only after durable state change. RyotQL supplies visibility, localization, and translation status; Redis carries completion messages but does not own message vocabulary.
+Population and translation enqueue calls use deterministic workflow IDs (`populate-<entityId>` and `translate-<entityId>-<language>`) with discard mode, so duplicate requests coalesce. Enqueue failures are logged and propagated; because reconciliation has not marked the ID as `watching`, a later declaration can retry. Population completion publication retries every 30 seconds. Publishers emit only after the durable state change.
+
+## Delivery, Reconnect, And Cleanup
+
+Each process keeps only a map of `streamId` to an SSE enqueue callback. It does not keep membership or ownership state locally. Every process has a duplicated Redis subscriber connection because an ioredis subscriber connection cannot issue ordinary commands. Each subscriber receives the shared channel message, reads interested stream IDs from Redis, and invokes the callback local to that process. This gives multi-instance delivery without process-affine routing.
+
+Pub/Sub is live, not durable: malformed messages are dropped, subscriber reconnects re-subscribe, and missed messages are not replayed. A client reconnect creates a new stream and redeclares its current union; registration and reconciliation catch up from durable entity state.
+
+On normal stream close, local callback state is removed first, then Redis removes reverse-index memberships and deletes stream metadata and membership keys. Close failures are logged after local cleanup. After a process crash, local callbacks disappear with the process; Redis TTLs and expiry scores remove the orphaned state, and later reverse-index lookups prune stale members. Heartbeats are merged with the SSE push stream so disconnect runs the same cleanup.
