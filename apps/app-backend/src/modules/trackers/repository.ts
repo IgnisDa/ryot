@@ -1,4 +1,4 @@
-import { and, asc, desc, eq, inArray, ne, sql } from "drizzle-orm";
+import { and, asc, eq, inArray, ne, sql } from "drizzle-orm";
 import { type DbClient, db } from "~/lib/db";
 import { tracker } from "~/lib/db/schema";
 import type { ListedTracker } from "./schemas";
@@ -13,9 +13,9 @@ const trackerSelection = {
 	name: tracker.name,
 	icon: tracker.icon,
 	config: tracker.config,
-	enabled: tracker.enabled,
 	isBuiltin: tracker.isBuiltin,
 	sortOrder: tracker.sortOrder,
+	isDisabled: tracker.isDisabled,
 	accentColor: tracker.accentColor,
 	description: tracker.description,
 };
@@ -50,7 +50,11 @@ export const listTrackersByUser = async (userId: string) => {
 		.select(trackerSelection)
 		.from(tracker)
 		.where(eq(tracker.userId, userId))
-		.orderBy(desc(tracker.enabled), asc(tracker.sortOrder), asc(tracker.name));
+		.orderBy(
+			asc(tracker.isDisabled),
+			asc(tracker.sortOrder),
+			asc(tracker.name),
+		);
 
 	return rows.map(toListedTracker);
 };
@@ -136,7 +140,6 @@ export const createTrackerForUser = async (input: {
 	const [createdTracker] = await db
 		.insert(tracker)
 		.values({
-			enabled: true,
 			isBuiltin: false,
 			slug: input.slug,
 			name: input.name,
@@ -176,7 +179,6 @@ export const createBuiltinTrackersForUser = async (input: {
 		.insert(tracker)
 		.values(
 			input.trackers.map((item, index) => ({
-				enabled: true,
 				isBuiltin: true,
 				slug: item.slug,
 				name: item.name,
@@ -192,14 +194,14 @@ export const createBuiltinTrackersForUser = async (input: {
 	return rows;
 };
 
-export const setTrackerEnabledForUser = async (input: {
+export const setTrackerIsDisabledForUser = async (input: {
 	userId: string;
 	trackerId: string;
-	enabled: boolean;
+	isDisabled: boolean;
 }) => {
 	const [updatedTracker] = await db
 		.update(tracker)
-		.set({ enabled: input.enabled })
+		.set({ isDisabled: input.isDisabled })
 		.where(
 			and(eq(tracker.id, input.trackerId), eq(tracker.userId, input.userId)),
 		)
