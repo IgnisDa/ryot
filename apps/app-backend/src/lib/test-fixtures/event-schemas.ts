@@ -2,9 +2,9 @@ import { withOverrides } from "~/lib/test-fixtures/fixture-helpers";
 import { createOptionalRatingPropertiesSchema } from "~/lib/test-fixtures/property-schemas";
 import type {
 	CreateEventSchemaBody,
+	EventSchemaServiceDeps,
 	ListedEventSchema,
-} from "~/modules/event-schemas/schemas";
-import type { EventSchemaServiceDeps } from "~/modules/event-schemas/service";
+} from "~/modules/event-schemas";
 
 const listedEventSchemaDefaults: ListedEventSchema = {
 	name: "Finished",
