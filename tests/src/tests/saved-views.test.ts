@@ -3,17 +3,24 @@ import {
 	buildSavedViewBody,
 	buildUpdatedSavedViewBody,
 	cloneSavedView,
+	computedFieldExpression,
 	createAuthenticatedClient,
 	createSavedView,
 	createTracker,
 	deleteSavedView,
+	entityColumnExpression,
 	entityField,
 	findBuiltinSavedView,
 	getSavedView,
 	listSavedViews,
 	reorderSavedViews,
+	schemaPropertyExpression,
 	updateSavedView,
 } from "../fixtures";
+
+type SavedViewBodyOverrides = NonNullable<
+	Parameters<typeof buildSavedViewBody>[0]
+>;
 
 const builtinViewError = "Cannot modify built-in saved views";
 const missingViewId = "00000000-0000-0000-0000-000000000000";
@@ -514,34 +521,20 @@ describe("Saved views E2E", () => {
 		expect(updateResult.error?.error?.message).toContain(
 			"Sort expressions must resolve to a sortable scalar value",
 		);
-		expect(refreshedView.queryDefinition.sort.expression).toEqual({
-			type: "reference",
-			reference: { type: "entity-column", slug: "book", column: "name" },
-		});
+		expect(refreshedView.queryDefinition.sort.expression).toEqual(
+			entityColumnExpression("book", "name"),
+		);
 	});
 
 	it("persists computed fields across saved view create and update flows", async () => {
 		const { client, cookies } = await createAuthenticatedClient();
-		const nextYearReference = {
-			type: "reference" as const,
-			reference: { type: "computed-field" as const, key: "nextYear" },
-		};
-		const labelReference = {
-			type: "reference" as const,
-			reference: { type: "computed-field" as const, key: "label" },
-		};
-		const yearBandReference = {
-			type: "reference" as const,
-			reference: { type: "computed-field" as const, key: "yearBand" },
-		};
-		const publishYearExpression = {
-			type: "reference" as const,
-			reference: {
-				slug: "book",
-				property: "publishYear",
-				type: "schema-property" as const,
-			},
-		};
+		const nextYearReference = computedFieldExpression("nextYear");
+		const labelReference = computedFieldExpression("label");
+		const yearBandReference = computedFieldExpression("yearBand");
+		const publishYearExpression = schemaPropertyExpression(
+			"book",
+			"publishYear",
+		);
 
 		const createdView = await createSavedView(client, cookies, {
 			name: "Computed Saved View",
@@ -571,14 +564,7 @@ describe("Saved views E2E", () => {
 							type: "concat",
 							values: [
 								{ type: "literal", value: "Book: " },
-								{
-									type: "reference",
-									reference: {
-										slug: "book",
-										column: "name",
-										type: "entity-column",
-									},
-								},
+								entityColumnExpression("book", "name"),
 							],
 						},
 					},
@@ -630,14 +616,7 @@ describe("Saved views E2E", () => {
 							type: "concat",
 							values: [
 								{ type: "literal", value: "Book: " },
-								{
-									type: "reference",
-									reference: {
-										slug: "book",
-										column: "name",
-										type: "entity-column",
-									},
-								},
+								entityColumnExpression("book", "name"),
 							],
 						},
 					},
@@ -703,33 +682,20 @@ describe("Saved views E2E", () => {
 			eventJoins: [],
 			entitySchemaSlugs: ["book"],
 			sort: {
-				direction: "asc" as const,
-				expression: {
-					type: "reference" as const,
-					reference: {
-						slug: "book",
-						column: "name",
-						type: "entity-column" as const,
-					},
-				},
+				direction: "asc",
+				expression: entityColumnExpression("book", "name"),
 			},
 			computedFields: [
 				{
 					key: "first",
-					expression: {
-						type: "reference" as const,
-						reference: { type: "computed-field" as const, key: "second" },
-					},
+					expression: computedFieldExpression("second"),
 				},
 				{
 					key: "second",
-					expression: {
-						type: "reference" as const,
-						reference: { type: "computed-field" as const, key: "first" },
-					},
+					expression: computedFieldExpression("first"),
 				},
 			],
-		};
+		} satisfies NonNullable<SavedViewBodyOverrides["queryDefinition"]>;
 
 		const createResult = await client.POST("/saved-views", {
 			headers: { Cookie: cookies },
@@ -764,26 +730,16 @@ describe("Saved views E2E", () => {
 			eventJoins: [],
 			entitySchemaSlugs: ["book"],
 			sort: {
-				direction: "asc" as const,
-				expression: {
-					type: "reference" as const,
-					reference: { type: "computed-field" as const, key: "cover" },
-				},
+				direction: "asc",
+				expression: computedFieldExpression("cover"),
 			},
 			computedFields: [
 				{
 					key: "cover",
-					expression: {
-						type: "reference" as const,
-						reference: {
-							slug: "book",
-							column: "image",
-							type: "entity-column" as const,
-						},
-					},
+					expression: entityColumnExpression("book", "image"),
 				},
 			],
-		};
+		} satisfies NonNullable<SavedViewBodyOverrides["queryDefinition"]>;
 
 		const createResult = await client.POST("/saved-views", {
 			headers: { Cookie: cookies },
@@ -863,10 +819,10 @@ describe("Saved views E2E", () => {
 			eventJoins: [],
 			entitySchemaSlugs: ["book"],
 			sort: {
-				direction: "asc" as const,
+				direction: "asc",
 				fields: [entityField("book", "nonexistent_property")],
 			},
-		};
+		} satisfies NonNullable<SavedViewBodyOverrides["queryDefinition"]>;
 
 		const createResult = await client.POST("/saved-views", {
 			headers: { Cookie: cookies },

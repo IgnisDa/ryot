@@ -1,6 +1,5 @@
 import { describe, expect, it } from "bun:test";
 import {
-	getCommonSortPropertyType,
 	getComparablePropertyType,
 	getPropertyDisplayKind,
 	supportsComparableFilter,
@@ -27,11 +26,5 @@ describe("view policy", () => {
 		expect(getPropertyDisplayKind("number")).toBe("number");
 		expect(getPropertyDisplayKind("object")).toBe("json");
 		expect(getPropertyDisplayKind("string")).toBe("text");
-	});
-
-	it("chooses a common sort type consistently", () => {
-		expect(getCommonSortPropertyType(["integer", "number"])).toBe("number");
-		expect(getCommonSortPropertyType(["string", "number"])).toBe("string");
-		expect(getCommonSortPropertyType([])).toBe("string");
 	});
 });

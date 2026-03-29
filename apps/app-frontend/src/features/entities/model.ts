@@ -9,11 +9,14 @@ type ApiEntity = ApiGetResponseData<"/entities/{entityId}">;
 type ApiViewRuntimeEntity =
 	ApiPostResponseData<"/view-runtime/execute">["items"][number];
 type ApiEntityInput = ApiEntity | ApiViewRuntimeEntity;
+type ViewExpression = NonNullable<
+	ViewRuntimeRequest["fields"]
+>[number]["expression"];
 
-const entityColumnExpression = (
+export const createEntityColumnExpression = (
 	schemaSlug: string,
 	column: string,
-): NonNullable<ViewRuntimeRequest["fields"]>[number]["expression"] => ({
+): ViewExpression => ({
 	type: "reference",
 	reference: { type: "entity-column", slug: schemaSlug, column },
 });
@@ -42,7 +45,7 @@ export function createEntityRuntimeRequest(
 		entitySchemaSlugs: [entitySchemaSlug],
 		sort: {
 			direction: "asc",
-			expression: entityColumnExpression(entitySchemaSlug, "name"),
+			expression: createEntityColumnExpression(entitySchemaSlug, "name"),
 		},
 	};
 }

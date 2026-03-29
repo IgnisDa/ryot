@@ -122,13 +122,13 @@ export const getComputedFieldDependencies = (expression: ViewExpression) => {
 	return collectExpressionDependencies(expression, []);
 };
 
-export const orderComputedFields = (
-	computedFields: ViewComputedField[] = [],
-): ViewComputedField[] => {
+const orderComputedFieldsFromMap = (
+	computedFields: ViewComputedField[],
+	computedFieldMap: Map<string, ViewComputedField>,
+) => {
 	const visiting: string[] = [];
 	const visited = new Set<string>();
 	const orderedFields: ViewComputedField[] = [];
-	const computedFieldMap = buildComputedFieldMap(computedFields);
 
 	const visit = (key: string) => {
 		if (visited.has(key)) {
@@ -161,4 +161,24 @@ export const orderComputedFields = (
 	}
 
 	return orderedFields;
+};
+
+export const prepareComputedFields = (
+	computedFields: ViewComputedField[] = [],
+) => {
+	const computedFieldMap = buildComputedFieldMap(computedFields);
+
+	return {
+		computedFieldMap,
+		orderedComputedFields: orderComputedFieldsFromMap(
+			computedFields,
+			computedFieldMap,
+		),
+	};
+};
+
+export const orderComputedFields = (
+	computedFields: ViewComputedField[] = [],
+): ViewComputedField[] => {
+	return prepareComputedFields(computedFields).orderedComputedFields;
 };
