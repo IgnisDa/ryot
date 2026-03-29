@@ -105,9 +105,9 @@ Keep files combined when that remains clear. Do not add barrels or speculative a
 
 ## Phase 2: Add Data And Preference Atoms
 
-- [ ] In `src/api/atoms.ts`, add a slug-keyed `savedViewRecordAtom` using `buildSavedViewRecordDocument({ slug })`.
-- [ ] Add a record-keyed result atom that executes `record.queryDocument` unchanged through `ryotql.execute`.
-- [ ] Add a slug-keyed persisted layout atom with this shape:
+- [x] In `src/api/atoms.ts`, add a slug-keyed `savedViewRecordAtom` using `buildSavedViewRecordDocument({ slug })`.
+- [x] Add a record-keyed result atom that executes `record.queryDocument` unchanged through `ryotql.execute`.
+- [x] Add a slug-keyed persisted layout atom with this shape:
 
 ```ts
 Atom.family((viewSlug: string) =>
@@ -120,8 +120,8 @@ Atom.family((viewSlug: string) =>
 );
 ```
 
-- [ ] Keep all app-owned atoms in `src/api/atoms.ts`.
-- [ ] Do not add a nested/dependent atom abstraction; pass the decoded record to the result atom family from the success child.
+- [x] Keep all app-owned atoms in `src/api/atoms.ts`.
+- [x] Do not add a nested/dependent atom abstraction; pass the decoded record to the result atom family from the success child.
 
 ## Phase 3: Build The Presentation Boundary
 
