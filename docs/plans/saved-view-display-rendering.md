@@ -175,17 +175,17 @@ Do not create a second copy of the saved-view contract.
 
 ## Phase 5: Integrate Route And States
 
-- [ ] Read and validate `viewSlug` from the route.
-- [ ] Load and decode the saved-view record with `decodeSavedViewRecordResponse`.
-- [ ] Render explicit record loading, failure, malformed-response, and missing-view states.
-- [ ] In the record-success child, execute the saved view and decode it through the presentation helper.
-- [ ] Render query loading, failure, malformed-response, empty, and populated states.
-- [ ] Keep stale successful content visible during SWR refresh when available.
-- [ ] Render the view icon, name, result count, and layout selector.
-- [ ] Use this non-interactive empty copy: `No items in {record.name}` and `This saved view has no results.`
-- [ ] Do not reproduce action buttons from representative empty designs.
-- [ ] Do not add a route-local back button; the existing shell owns navigation.
-- [ ] Render only the existing query's page. Do not modify its pagination, predicates, ordering, or projection.
+- [x] Read and validate `viewSlug` from the route.
+- [x] Load and decode the saved-view record with `decodeSavedViewRecordResponse`.
+- [x] Render explicit record loading, failure, malformed-response, and missing-view states.
+- [x] In the record-success child, execute the saved view and decode it through the presentation helper.
+- [x] Render query loading, failure, malformed-response, empty, and populated states.
+- [x] Keep stale successful content visible during SWR refresh when available.
+- [x] Render the view icon, name, result count, and layout selector.
+- [x] Use this non-interactive empty copy: `No items in {record.name}` and `This saved view has no results.`
+- [x] Do not reproduce action buttons from representative empty designs.
+- [x] Do not add a route-local back button; the existing shell owns navigation.
+- [x] Render only the existing query's page. Do not modify its pagination, predicates, ordering, or projection.
 
 ## Phase 6: Tests And Verification
 

@@ -2,7 +2,8 @@ import type { SavedViewScalarValue } from "./display-data";
 
 const formatJson = (value: unknown) => {
 	try {
-		return JSON.stringify(value) ?? "null";
+		const formatted: unknown = JSON.stringify(value);
+		return typeof formatted === "string" ? formatted : "null";
 	} catch {
 		return "null";
 	}
