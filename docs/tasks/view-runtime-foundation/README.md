@@ -706,16 +706,16 @@ After Phase 1 implementation is complete, the following work can begin:
 
 ## Tasks
 
-**Overall Progress:** 1 of 9 tasks completed
+**Overall Progress:** 2 of 9 tasks completed
 
-**Current Task:** [Task 02](./02-get-saved-view-by-id.md) (todo)
+**Current Task:** [Task 03](./03-put-saved-view.md) (todo)
 
 ### Task List
 
 | #   | Task                                                                                                         | Type | Status | Blocked By               |
 | --- | ------------------------------------------------------------------------------------------------------------ | ---- | ------ | ------------------------ |
 | 01  | [Saved Views Data Model & Bootstrap Update](./01-saved-views-data-model-bootstrap.md)                        | AFK  | done   | None                     |
-| 02  | [GET Saved View by ID](./02-get-saved-view-by-id.md)                                                         | AFK  | todo   | Task 01                  |
+| 02  | [GET Saved View by ID](./02-get-saved-view-by-id.md)                                                         | AFK  | done   | Task 01                  |
 | 03  | [PUT Saved View (Full Replacement)](./03-put-saved-view.md)                                                  | AFK  | todo   | Task 01                  |
 | 04  | [Clone Saved View](./04-clone-saved-view.md)                                                                 | AFK  | todo   | Task 01                  |
 | 05  | [Reserved Slug Validation](./05-reserved-slug-validation.md)                                                 | AFK  | todo   | Task 01                  |
