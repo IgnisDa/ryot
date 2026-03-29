@@ -52,8 +52,8 @@ export class SandboxService {
 				userId: options.userId,
 				context: options.context,
 				scriptId: options.scriptId,
-				apiFunctionDescriptors: options.apiFunctionDescriptors,
 				driverName: options.driverName,
+				apiFunctionDescriptors: options.apiFunctionDescriptors,
 			},
 			{ jobId },
 		);
@@ -157,9 +157,9 @@ export class SandboxService {
 				context,
 				executionId,
 				code: options.code,
+				driverName: options.driverName,
 				apiBase: `http://127.0.0.1:${bridgePort}`,
 				apiFunctions: Object.keys(apiFunctions),
-				driverName: options.driverName,
 			});
 
 			try {
