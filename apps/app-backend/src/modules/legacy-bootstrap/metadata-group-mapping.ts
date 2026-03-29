@@ -243,7 +243,11 @@ BEGIN
 			m2mg.metadata_group_id,
 			m2mg.metadata_id,
 			lrs.relationship_schema_id,
-			'{}'::jsonb,
+			CASE
+				WHEN m2mg.part IS NULL THEN '{}'::jsonb
+				WHEN m2mg.part <= 0 THEN jsonb_build_object('order', 1)
+				ELSE jsonb_build_object('order', m2mg.part)
+			END,
 			NULL,
 			NOW()
 		FROM "metadata_to_metadata_group" m2mg
