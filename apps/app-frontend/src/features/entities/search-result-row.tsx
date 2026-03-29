@@ -153,7 +153,7 @@ function SearchResultActions(props: {
 							: undefined
 				}
 			>
-				Log it
+				Log progress
 			</Button>
 			<Button
 				size="compact-xs"
@@ -173,7 +173,7 @@ function SearchResultActions(props: {
 						: undefined
 				}
 			>
-				Backlog
+				Watchlist
 			</Button>
 			<Button
 				disabled
@@ -382,7 +382,7 @@ export function SearchResultRow(props: {
 						onClick={props.onToggleActions}
 						variant={props.isExpanded ? "light" : "subtle"}
 					>
-						{props.isExpanded ? "Hide actions" : "More actions"}
+						{props.isExpanded ? "Hide options" : "More options"}
 					</Button>
 				</Group>
 			</Group>
@@ -420,7 +420,7 @@ export function SearchResultRow(props: {
 								style={{ letterSpacing: "0.9px" }}
 								ff="var(--mantine-headings-font-family)"
 							>
-								Add with context
+								Quick actions
 							</Text>
 							<Button
 								size="compact-xs"
@@ -445,7 +445,7 @@ export function SearchResultRow(props: {
 							<Group gap={6}>
 								<Loader size="xs" color={props.accentColor} />
 								<Text fz="xs" c={t.textMuted}>
-									Loading lifecycle actions...
+									Loading options...
 								</Text>
 							</Group>
 						) : null}
