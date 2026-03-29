@@ -134,24 +134,47 @@ describe("Saved views E2E", () => {
 		expect(remainingViews.map((view) => view.id)).not.toContain(clonedView.id);
 	});
 
-	it("rejects updates and deletes for built-in views", async () => {
+	it("rejects deletes for built-in views", async () => {
 		const { client, cookies } = await createAuthenticatedClient();
 		const builtinView = await findBuiltinSavedView(client, cookies);
 
-		const updateResult = await client.PUT("/saved-views/{viewId}", {
-			headers: { Cookie: cookies },
-			params: { path: { viewId: builtinView.id } },
-			body: buildUpdatedSavedViewBody({ name: "Built-in Rewrite" }),
-		});
 		const deleteResult = await client.DELETE("/saved-views/{viewId}", {
 			headers: { Cookie: cookies },
 			params: { path: { viewId: builtinView.id } },
 		});
 
-		expect(updateResult.response.status).toBe(400);
-		expect(updateResult.error?.error?.message).toBe(builtinViewError);
 		expect(deleteResult.response.status).toBe(400);
 		expect(deleteResult.error?.error?.message).toBe(builtinViewError);
+	});
+
+	it("allows toggling isDisabled on a built-in view without changing other fields", async () => {
+		const { client, cookies } = await createAuthenticatedClient();
+		const builtinView = await findBuiltinSavedView(client, cookies);
+
+		const disabledView = await updateSavedView(
+			client,
+			cookies,
+			builtinView.id,
+			{ isDisabled: true, name: "Attempted Rename" },
+		);
+		const fetchedDisabled = await getSavedView(client, cookies, builtinView.id);
+
+		expect(disabledView.isDisabled).toBe(true);
+		expect(disabledView.name).toBe(builtinView.name);
+		expect(fetchedDisabled.isDisabled).toBe(true);
+		expect(fetchedDisabled.name).toBe(builtinView.name);
+
+		await updateSavedView(client, cookies, builtinView.id, {
+			isDisabled: false,
+		});
+		const fetchedReEnabled = await getSavedView(
+			client,
+			cookies,
+			builtinView.id,
+		);
+
+		expect(fetchedReEnabled.isDisabled).toBe(false);
+		expect(fetchedReEnabled.name).toBe(builtinView.name);
 	});
 
 	it("returns 404 for missing views across read, update, clone, and delete", async () => {

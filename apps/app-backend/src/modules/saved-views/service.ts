@@ -5,6 +5,7 @@ import {
 	deleteSavedViewByIdForUser,
 	getSavedViewByIdForUser,
 	updateSavedViewByIdForUser,
+	updateSavedViewDisabledByIdForUser,
 } from "./repository";
 import type {
 	CreateSavedViewBody,
@@ -20,6 +21,7 @@ export type SavedViewServiceDeps = {
 	getSavedViewByIdForUser: typeof getSavedViewByIdForUser;
 	deleteSavedViewByIdForUser: typeof deleteSavedViewByIdForUser;
 	updateSavedViewByIdForUser: typeof updateSavedViewByIdForUser;
+	updateSavedViewDisabledByIdForUser: typeof updateSavedViewDisabledByIdForUser;
 };
 
 export type SavedViewServiceResult<T> = ServiceResult<
@@ -34,6 +36,7 @@ const savedViewServiceDeps: SavedViewServiceDeps = {
 	deleteSavedViewByIdForUser,
 	getSavedViewByIdForUser,
 	updateSavedViewByIdForUser,
+	updateSavedViewDisabledByIdForUser,
 };
 
 const createDataResult = <
@@ -76,7 +79,7 @@ const resolveSavedViewNameResult = (
 	}
 };
 
-const resolveMutableSavedView = async (
+const resolveExistingSavedView = async (
 	input: { userId: string; viewId: string },
 	deps: SavedViewServiceDeps,
 ): Promise<SavedViewServiceResult<ListedSavedView>> => {
@@ -92,14 +95,26 @@ const resolveMutableSavedView = async (
 		});
 	}
 
-	if (existingView.isBuiltin) {
+	return createDataResult(existingView);
+};
+
+const resolveMutableSavedView = async (
+	input: { userId: string; viewId: string },
+	deps: SavedViewServiceDeps,
+): Promise<SavedViewServiceResult<ListedSavedView>> => {
+	const existingViewResult = await resolveExistingSavedView(input, deps);
+	if ("error" in existingViewResult) {
+		return existingViewResult;
+	}
+
+	if (existingViewResult.data.isBuiltin) {
 		return createErrorResult({
 			error: "builtin",
 			message: builtinSavedViewError,
 		});
 	}
 
-	return createDataResult(existingView);
+	return existingViewResult;
 };
 
 const resolveMissingMutationResult = async (
@@ -152,12 +167,29 @@ export const updateSavedView = async (
 	input: { body: UpdateSavedViewBody; userId: string; viewId: string },
 	deps: SavedViewServiceDeps = savedViewServiceDeps,
 ): Promise<SavedViewServiceResult<ListedSavedView>> => {
-	const existingViewResult = await resolveMutableSavedView(
+	const existingViewResult = await resolveExistingSavedView(
 		{ viewId: input.viewId, userId: input.userId },
 		deps,
 	);
 	if ("error" in existingViewResult) {
 		return existingViewResult;
+	}
+
+	if (existingViewResult.data.isBuiltin) {
+		const updatedView = await deps.updateSavedViewDisabledByIdForUser({
+			userId: input.userId,
+			viewId: input.viewId,
+			isDisabled: input.body.isDisabled,
+		});
+
+		if (!updatedView) {
+			return createErrorResult({
+				error: "not_found",
+				message: savedViewNotFoundError,
+			});
+		}
+
+		return createDataResult(updatedView);
 	}
 
 	const nameResult = resolveSavedViewNameResult(
