@@ -238,7 +238,9 @@ describe("GET /media/overview", () => {
 
 			const progressAt = (continueItem as { progressAt?: string })?.progressAt;
 			expect(typeof progressAt).toBe("string");
-			expect(progressAt).toMatch(/Z$/);
+			expect(progressAt).toMatch(
+				/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/,
+			);
 		});
 
 		it("preserves UTC midnight without timezone conversion", async () => {
@@ -287,7 +289,9 @@ describe("GET /media/overview", () => {
 
 			const backlogAt = (upNextItem as { backlogAt?: string })?.backlogAt;
 			expect(typeof backlogAt).toBe("string");
-			expect(backlogAt).toMatch(/Z$/);
+			expect(backlogAt).toMatch(
+				/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/,
+			);
 		});
 	});
 });
