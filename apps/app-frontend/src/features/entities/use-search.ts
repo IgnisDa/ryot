@@ -141,21 +141,18 @@ export function useEntitySearch(props: { entitySchema: AppEntitySchema }) {
 	const getEnsuredEntityQueryOptions = useCallback(
 		(
 			item: SearchResultItem,
-			provider: AppEntitySchema["searchProviders"][number],
+			provider: AppEntitySchema["providers"][number],
 		) => ({
 			retry: false,
 			staleTime: Number.POSITIVE_INFINITY,
-			queryKey: [
-				...ensuredEntityQueryKey,
-				provider.detailsScriptId,
-				item.identifier,
-			],
+			queryKey: [...ensuredEntityQueryKey, provider.scriptId, item.identifier],
 			queryFn: async ({ signal }: { signal: AbortSignal }) => {
 				throwIfAborted(signal);
 				const enqueueResult = await enqueueDetails.mutateAsync({
 					body: {
 						kind: "script",
-						scriptId: provider.detailsScriptId,
+						scriptId: provider.scriptId,
+						driverName: "details",
 						context: { identifier: item.identifier },
 					},
 				});
@@ -197,7 +194,7 @@ export function useEntitySearch(props: { entitySchema: AppEntitySchema }) {
 						name: detailsValue.name,
 						externalId: detailsValue.externalId,
 						entitySchemaId: props.entitySchema.id,
-						detailsSandboxScriptId: provider.detailsScriptId,
+						sandboxScriptId: provider.scriptId,
 					},
 				});
 				throwIfAborted(signal);
@@ -222,8 +219,7 @@ export function useEntitySearch(props: { entitySchema: AppEntitySchema }) {
 
 	const ensureItemEntity = useCallback(
 		async (item: SearchResultItem) => {
-			const provider =
-				props.entitySchema.searchProviders[selectedProviderIndex];
+			const provider = props.entitySchema.providers[selectedProviderIndex];
 			if (!provider) {
 				throw new Error("Search provider is unavailable");
 			}
@@ -255,7 +251,7 @@ export function useEntitySearch(props: { entitySchema: AppEntitySchema }) {
 			}
 
 			const provider =
-				props.entitySchema.searchProviders[currentSearch.providerIndex];
+				props.entitySchema.providers[currentSearch.providerIndex];
 			if (!provider) {
 				throw new Error("Search provider is unavailable");
 			}
@@ -264,7 +260,8 @@ export function useEntitySearch(props: { entitySchema: AppEntitySchema }) {
 			const enqueueResult = await enqueueSearch.mutateAsync({
 				body: {
 					kind: "script",
-					scriptId: provider.searchScriptId,
+					scriptId: provider.scriptId,
+					driverName: "search",
 					context: {
 						pageSize: 10,
 						page: currentSearch.page,
@@ -335,7 +332,7 @@ export function useEntitySearch(props: { entitySchema: AppEntitySchema }) {
 
 	const currentResults = searchQuery.data?.items ?? [];
 	const currentResultProvider = submittedSearch
-		? props.entitySchema.searchProviders[submittedSearch.providerIndex]
+		? props.entitySchema.providers[submittedSearch.providerIndex]
 		: undefined;
 	const ensuredEntityQueries = useQueries({
 		queries:

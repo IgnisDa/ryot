@@ -228,9 +228,9 @@ and when dependencies return errors.
 
 ## Tasks
 
-**Overall Progress:** 4 of 5 tasks completed
+**Overall Progress:** 5 of 5 tasks completed
 
-**Current Task:** [Task 05](./05-frontend-updates.md) (todo)
+**Status:** All tasks complete ✓
 
 ### Task List
 
@@ -240,4 +240,4 @@ and when dependencies return errors.
 | 02 | [DB Schema Update](./02-db-schema-update.md) | AFK | done | None |
 | 03 | [Entity Schemas Providers and Seed](./03-entity-schemas-providers-and-seed.md) | AFK | done | Task 02 |
 | 04 | [Entities Field Rename](./04-entities-field-rename.md) | AFK | done | Task 02 |
-| 05 | [Frontend Updates](./05-frontend-updates.md) | AFK | todo | Tasks 03, 04 |
+| 05 | [Frontend Updates](./05-frontend-updates.md) | AFK | done | Tasks 03, 04 |
