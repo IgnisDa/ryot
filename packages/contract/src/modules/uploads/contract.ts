@@ -12,8 +12,8 @@ import {
 } from "./middleware";
 import {
 	CompleteUploadResponse,
-	PresignedDownloadResponse,
-	PresignedUploadResponse,
+	DownloadResolutionInput,
+	DownloadResolutionResponse,
 	UploadIntentInput,
 	UploadIntentResponse,
 } from "./schemas";
@@ -39,20 +39,11 @@ export const UploadsGroup = HttpApiGroup.make("uploads")
 		}).annotate(OpenApi.Description, "Completes an upload intent"),
 	)
 	.add(
-		HttpApiEndpoint.post("createPresigned", "/uploads/presigned", {
-			payload: Schema.Struct({ contentType: Schema.String }),
-			success: PresignedUploadResponse,
+		HttpApiEndpoint.post("resolveDownloads", "/uploads/downloads", {
+			payload: DownloadResolutionInput,
+			success: DownloadResolutionResponse,
 			error: [BadRequest.pipe(HttpApiSchema.status(400))],
-		}).annotate(OpenApi.Description, "Creates a presigned URL for uploading a file"),
-	)
-	.add(
-		HttpApiEndpoint.post("createPresignedDownload", "/uploads/presigned/download", {
-			payload: Schema.Struct({
-				keys: Schema.Array(Schema.String).pipe(Schema.check(Schema.isMinLength(1))),
-			}),
-			success: PresignedDownloadResponse,
-			error: [BadRequest.pipe(HttpApiSchema.status(400))],
-		}).annotate(OpenApi.Description, "Creates presigned download URLs for stored files"),
+		}).annotate(OpenApi.Description, "Resolves download URLs for stored files"),
 	)
 	.add(
 		HttpApiEndpoint.post("uploadTemporary", "/uploads/temporary", {
@@ -77,11 +68,35 @@ export const UploadsGroup = HttpApiGroup.make("uploads")
 	.middleware(AuthMiddleware);
 
 export const LocalUploadsGroup = HttpApiGroup.make("localUploads")
-	.annotate(OpenApi.Description, "Accepts bytes for signed local upload targets")
+	.annotate(OpenApi.Description, "Serves and accepts signed local file targets")
 	.add(
 		HttpApiEndpoint.put("put", "/uploads/local/:intentId", {
 			params: { intentId: Schema.String },
 			error: [BadRequest.pipe(HttpApiSchema.status(400))],
 			success: Schema.Void.pipe(HttpApiSchema.status(204)),
 		}).annotate(OpenApi.Description, "Uploads bytes to a signed local upload target"),
+	)
+	.add(
+		HttpApiEndpoint.get("download", "/uploads/local/download", {
+			success: HttpApiSchema.StreamUint8Array(),
+			error: [BadRequest.pipe(HttpApiSchema.status(400))],
+			query: {
+				key: Schema.String,
+				expires: Schema.String,
+				signature: Schema.String,
+				contentType: Schema.String,
+			},
+		}).annotate(OpenApi.Description, "Downloads a signed local file"),
+	)
+	.add(
+		HttpApiEndpoint.head("downloadHead", "/uploads/local/download", {
+			success: Schema.Void,
+			error: [BadRequest.pipe(HttpApiSchema.status(400))],
+			query: {
+				key: Schema.String,
+				expires: Schema.String,
+				signature: Schema.String,
+				contentType: Schema.String,
+			},
+		}).annotate(OpenApi.Description, "Reads metadata for a signed local file"),
 	);
