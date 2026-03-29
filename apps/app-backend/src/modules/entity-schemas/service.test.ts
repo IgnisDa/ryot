@@ -1,10 +1,10 @@
 import { describe, expect, it } from "bun:test";
+import { expectDataResult } from "~/lib/test-helpers";
 import { authenticationBuiltinEntitySchemas } from "../authentication/bootstrap/manifests";
 import type { CreateEntitySchemaBody, ListedEntitySchema } from "./schemas";
 import {
 	createEntitySchema,
 	type EntitySchemaServiceDeps,
-	type EntitySchemaServiceResult,
 	listEntitySchemas,
 	parseEntitySchemaPropertiesSchema,
 	resolveEntitySchemaAccentColor,
@@ -58,14 +58,6 @@ const createDeps = (
 	listEntitySchemasByTracker: async () => [createListedEntitySchema()],
 	...overrides,
 });
-
-const expectDataResult = <T>(result: EntitySchemaServiceResult<T>) => {
-	if ("error" in result) {
-		throw new Error(`Expected data result, got ${result.error}`);
-	}
-
-	return result.data;
-};
 
 describe("resolveEntitySchemaName", () => {
 	it("trims the provided name", () => {
