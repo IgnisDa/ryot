@@ -15,6 +15,11 @@ keep working, re-pointed at the registry.
 New kernel service (suggested location: `apps/app-backend/src/modules/definition-registry/`,
 generic end of the module gradient; **[IMPLEMENTER-DECIDES]** exact name/location).
 
+**[IMPLEMENTER-DECIDES — resolved]** The service is named `DefinitionRegistry` and lives at the
+suggested `apps/app-backend/src/modules/definition-registry/` location. Keeping the generic name and
+location makes its ownership clear and avoids coupling the Phase 2 loader to the temporary builtin
+source that feeds it during Phase 1.
+
 Registry content, all keyed by slug:
 
 - **Entity schema**: slug, name, icon, accentColor, `propertiesSchema: AppSchema`, and its
@@ -172,6 +177,6 @@ phase gate.
 4. Behavior spot-checks stay green in e2e: media lifecycle (progress → auto-complete),
    provider search/import, query-engine suite untouched and green, legacy-bootstrap suite
    green.
-5. No `isBuiltin` column remains on any *surviving* table except `sandbox_script` and
+5. No `isBuiltin` column remains on any _surviving_ table except `sandbox_script` and
    `automation_rule` (both die in Phase 2; `signal_schema`'s flag disappears with its table
    in this phase).
