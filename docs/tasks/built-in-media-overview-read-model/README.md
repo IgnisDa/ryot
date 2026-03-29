@@ -21,9 +21,9 @@ work can build on a stable contract.
 ## Solution
 
 Introduce a backend read model for built-in media overview sections that uses the existing
-view-runtime foundation internally but exposes a purpose-built response for the built-in media
-tracker overview. The initial scope covers only `Continue`, `Up Next`, and `Rate These` for the
-seeded built-in media schemas `book`, `anime`, and `manga`.
+view-runtime foundation internally but exposes a purpose-built response from the standalone media
+module. The initial scope covers only `Continue`, `Up Next`, and `Rate These` for the seeded
+built-in media schemas `book`, `anime`, and `manga`.
 
 The read model derives current-state membership from latest-event semantics over the canonical
 media lifecycle events:
@@ -134,8 +134,8 @@ totals still keep the item visible by returning `currentUnits: null` with a usab
 
 ### Backend contract shape
 
-- Expose a purpose-built overview response tailored to the built-in media tracker instead of asking
-  the frontend to interpret generic runtime fields.
+- Expose a purpose-built overview response from a standalone `/media/overview` endpoint instead of
+  asking the frontend to interpret generic runtime fields.
 - The top-level response should return the three sections separately, with each section carrying its
   own ordered items and item count.
 - Each item should contain both raw structured fields and UI-ready labels.
@@ -194,8 +194,8 @@ totals still keep the item visible by returning `currentUnits: null` with a usab
 
 ### Validation and access
 
-- The overview endpoint should only operate on the built-in media tracker and supported built-in
-  media schemas.
+- The overview endpoint should operate only on supported built-in media schemas and should live
+  under the standalone media module at `/media/overview` rather than a tracker-scoped route.
 - Unsupported schemas should be excluded by backend-owned configuration, not by frontend filtering.
 - Missing built-in event schemas or malformed seeded data should fail predictably rather than
   silently returning incorrect sections.
@@ -236,7 +236,7 @@ number of runtime queries or the exact helper decomposition used to produce the 
 
 #### Overview service/orchestrator
 
-- Test the full section assembly behavior for the built-in media tracker.
+- Test the full section assembly behavior for the standalone media overview endpoint.
 - Verify the service returns the three sections in one response.
 - Verify supported schema filtering is enforced.
 - Verify ordering matches the agreed timestamps for all three sections.
@@ -292,14 +292,14 @@ the foundation for a broader media overview service.
 
 ## Tasks
 
-**Overall Progress:** 0 of 3 tasks completed
+**Overall Progress:** 1 of 3 tasks completed
 
-**Current Task:** [Task 01](./01-media-overview-read-model-and-sections.md) (todo)
+**Current Task:** [Task 02](./02-frontend-overview-integration.md) (todo)
 
 ### Task List
 
 | #   | Task                                                                                               | Type | Status | Blocked By |
 | --- | -------------------------------------------------------------------------------------------------- | ---- | ------ | ---------- |
-| 01  | [Media Overview Read Model And Sections](./01-media-overview-read-model-and-sections.md)           | AFK  | todo   | None       |
+| 01  | [Media Overview Read Model And Sections](./01-media-overview-read-model-and-sections.md)           | AFK  | done   | None       |
 | 02  | [Frontend Overview Integration](./02-frontend-overview-integration.md)                             | AFK  | todo   | Task 01    |
 | 03  | [Overview Hardening And Mixed-Media Coverage](./03-overview-hardening-and-mixed-media-coverage.md) | AFK  | todo   | Task 02    |
