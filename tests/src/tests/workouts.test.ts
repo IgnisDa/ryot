@@ -10,17 +10,20 @@ import {
 	createAuthenticatedClient,
 	createWorkoutEntityFixture,
 	executeQueryEngine,
+	findBuiltinRelationshipSchemaId,
 	findBuiltinSchemaBySlug,
 	findBuiltinTrackerBySlug,
 	findWorkoutSetEventSchema,
 	getEntity,
 	getQueryEngineFieldOrThrow,
+	insertRelationshipRow,
 	listEntitySchemas,
 	listSavedViews,
 	waitForEventCount,
 	waitForSeededExerciseId,
 	waitForSessionEventCount,
 } from "../fixtures";
+import { getPgClient } from "../setup";
 
 describe("Workouts E2E", () => {
 	it("links the built-in workout schema to the fitness tracker", async () => {
@@ -269,5 +272,43 @@ describe("Workouts E2E", () => {
 		});
 
 		expect(result.response.status).toBe(400);
+	});
+
+	it("creates a workout-repeated-from relationship between two workouts", async () => {
+		const { client, cookies, userId } = await createAuthenticatedClient();
+		const { workoutId: originalWorkoutId } = await createWorkoutEntityFixture(client, cookies);
+		const { workoutId: copiedWorkoutId } = await createWorkoutEntityFixture(client, cookies);
+
+		const relationshipSchemaId = await findBuiltinRelationshipSchemaId("workout-repeated-from");
+
+		await insertRelationshipRow({
+			userId,
+			relationshipSchemaId,
+			sourceEntityId: copiedWorkoutId,
+			targetEntityId: originalWorkoutId,
+		});
+
+		const result = await getPgClient().query<{
+			source_entity_id: string;
+			target_entity_id: string;
+		}>(
+			`select r.source_entity_id, r.target_entity_id
+			 from relationship r
+			 inner join relationship_schema rs on rs.id = r.relationship_schema_id
+			 where rs.slug = 'workout-repeated-from'
+			   and r.user_id = $1
+			   and r.source_entity_id = $2
+			   and r.target_entity_id = $3`,
+			[userId, copiedWorkoutId, originalWorkoutId],
+		);
+
+		expect(result.rows).toHaveLength(1);
+		const row = result.rows[0];
+		expect(row).toBeDefined();
+		if (!row) {
+			return;
+		}
+		expect(row.source_entity_id).toBe(copiedWorkoutId);
+		expect(row.target_entity_id).toBe(originalWorkoutId);
 	});
 });
