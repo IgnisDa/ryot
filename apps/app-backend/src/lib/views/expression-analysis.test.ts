@@ -2,8 +2,10 @@ import { describe, expect, it } from "bun:test";
 import {
 	createSmartphoneSchema,
 	createTabletSchema,
+	entityExpression,
+	literalExpression,
 } from "~/lib/test-fixtures";
-import type { ViewComputedField, ViewExpression } from "./expression";
+import type { ViewComputedField } from "./expression";
 import { inferViewExpressionType } from "./expression-analysis";
 import { buildEventJoinMap, buildSchemaMap } from "./reference";
 
@@ -11,21 +13,6 @@ const context = {
 	schemaMap: buildSchemaMap([createSmartphoneSchema(), createTabletSchema()]),
 	eventJoinMap: buildEventJoinMap([]),
 };
-
-const entityExpression = (
-	schemaSlug: string,
-	field: string,
-): ViewExpression => ({
-	type: "reference",
-	reference: field.startsWith("@")
-		? { type: "entity-column", slug: schemaSlug, column: field.slice(1) }
-		: { type: "schema-property", slug: schemaSlug, property: field },
-});
-
-const literalExpression = (value: unknown): ViewExpression => ({
-	value,
-	type: "literal",
-});
 
 describe("inferViewExpressionType", () => {
 	it("infers arithmetic, concat, and numeric normalization result types", () => {

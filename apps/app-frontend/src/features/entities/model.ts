@@ -47,19 +47,27 @@ export function createEntityRuntimeRequest(
 	};
 }
 
-function toAppEntityImage(image: unknown): AppEntityImage {
+export function toAppEntityImage(image: unknown): AppEntityImage {
 	if (!image || typeof image !== "object") {
 		return null;
 	}
 
-	const parsed = image as { kind?: string; key?: string; url?: string };
-
-	if (parsed.kind === "remote" && parsed.url) {
-		return { kind: "remote", url: parsed.url };
+	if (
+		"kind" in image &&
+		image.kind === "remote" &&
+		"url" in image &&
+		typeof image.url === "string"
+	) {
+		return { kind: "remote", url: image.url };
 	}
 
-	if (parsed.kind === "s3" && parsed.key) {
-		return { kind: "s3", key: parsed.key };
+	if (
+		"kind" in image &&
+		image.kind === "s3" &&
+		"key" in image &&
+		typeof image.key === "string"
+	) {
+		return { kind: "s3", key: image.key };
 	}
 
 	return null;

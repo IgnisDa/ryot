@@ -1,20 +1,10 @@
 import { describe, expect, it } from "bun:test";
+import { computedExpression, literalExpression } from "~/lib/test-fixtures";
 import {
 	buildComputedFieldMap,
 	getComputedFieldDependencies,
 	orderComputedFields,
 } from "./computed-fields";
-import type { ViewExpression } from "./expression";
-
-const literalExpression = (value: unknown): ViewExpression => ({
-	type: "literal",
-	value,
-});
-
-const computedExpression = (key: string): ViewExpression => ({
-	type: "reference",
-	reference: { key, type: "computed-field" },
-});
 
 describe("computed fields", () => {
 	it("collects dependencies from expressions and predicate branches", () => {

@@ -37,15 +37,18 @@ const savedViewSelection = {
 	displayConfiguration: savedView.displayConfiguration,
 };
 
-const toSavedView = (row: SavedViewRow): ListedSavedView => ({
-	...row,
-	displayConfiguration: row.displayConfiguration as DisplayConfiguration,
-	queryDefinition: {
-		...(row.queryDefinition as SavedViewQueryDefinition),
-		eventJoins:
-			(row.queryDefinition as SavedViewQueryDefinition).eventJoins ?? [],
-	},
-});
+const toSavedView = (row: SavedViewRow): ListedSavedView => {
+	const queryDefinition = row.queryDefinition as SavedViewQueryDefinition;
+
+	return {
+		...row,
+		displayConfiguration: row.displayConfiguration as DisplayConfiguration,
+		queryDefinition: {
+			...queryDefinition,
+			eventJoins: queryDefinition.eventJoins ?? [],
+		},
+	};
+};
 
 const withSavedViewScope = (trackerId?: string) =>
 	trackerId ? eq(savedView.trackerId, trackerId) : isNull(savedView.trackerId);
