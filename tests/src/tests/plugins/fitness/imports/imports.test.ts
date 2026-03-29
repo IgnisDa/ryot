@@ -14,7 +14,7 @@ import {
 	runHevyImportFixture,
 	runOpenScaleImportFixture,
 	startOpenScaleImport,
-	uploadTemporaryFile,
+	uploadImportFile,
 } from "~/fixtures";
 import { assertTaggedError } from "~/support/assertions";
 import { describe, expect, it } from "~/support/effect-test";
@@ -115,7 +115,7 @@ describe("OpenScale Import E2E", () => {
 		Effect.gen(function* () {
 			const { client, cookies } = yield* createAuthenticatedClient();
 
-			const uploadToken = yield* uploadTemporaryFile(
+			const uploadToken = yield* uploadImportFile(
 				cookies,
 				'{"data": "not csv"}',
 				"export.json",
@@ -155,12 +155,7 @@ describe("OpenScale Import E2E", () => {
 
 			const badCsv = `dateTime,weight\n2026-01-01 08:00:00,75.0\n,invalid-no-date\n2026-01-03 08:00:00,not-a-number\n`;
 
-			const uploadToken = yield* uploadTemporaryFile(
-				cookies,
-				badCsv,
-				"openscale-bad.csv",
-				"text/csv",
-			);
+			const uploadToken = yield* uploadImportFile(cookies, badCsv, "openscale-bad.csv", "text/csv");
 
 			const runId = yield* startOpenScaleImport(client, uploadToken);
 			const completedRun = yield* pollImportRunUntilTerminal(client, runId);
