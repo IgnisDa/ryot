@@ -10,7 +10,7 @@
 
 Build the schema introspection service and replace the view-runtime placeholder with a working single-schema execution engine. This delivers the core runtime pipeline: accept a compiled request, resolve entity schemas, execute a parameterized query, and return paginated results with COALESCE-resolved display properties.
 
-The end-to-end behavior: a client sends `POST /view-runtime/execute` with a single entity schema slug, a sort definition, pagination parameters, and a grid/list display configuration. The runtime returns paginated entity results with `resolvedProperties` containing the resolved display values. Pagination metadata includes total count, page info, and navigation booleans.
+The end-to-end behavior: a client sends `POST /view-runtime/execute` with a single entity schema slug, a sort definition, pagination parameters, and a layout-specific display configuration. Grid/list responses return paginated entity results with self-describing `resolvedProperties` slots (`{ value, kind }`). Table responses return `meta.table.columns` plus ordered row `cells`. Pagination metadata includes total count, page info, and navigation booleans.
 
 ### Schema Introspection Service
 
@@ -41,8 +41,8 @@ Request schema (see PRD section "View Runtime Module Changes > Request schema st
 - `displayConfiguration: GridConfig | ListConfig | TableConfig`
 
 Response schema (see PRD section "View Runtime Module Changes > Response schema structure"):
-- `items: Array<{ id, name, image, entitySchemaId, entitySchemaSlug, createdAt, updatedAt, resolvedProperties }>`
-- `meta: { pagination: { page, total, limit, hasNextPage, hasPreviousPage, totalPages } }`
+- `items: Array<{ id, name, image, entitySchemaId, entitySchemaSlug, createdAt, updatedAt, resolvedProperties?, cells? }>`
+- `meta: { pagination: { page, total, limit, hasNextPage, hasPreviousPage, totalPages }, table?: { columns: Array<{ key, label }> } }`
 
 ### Query Builder
 
@@ -54,8 +54,9 @@ For this task, implement single-schema execution only:
 3. Sort by top-level column (`@name`, `@createdAt`, `@updatedAt`) or single schema property
 4. Use Drizzle `sql` template tag for parameterized queries
 5. Generate CTEs: `filtered_entities`, `entity_count`, `sorted_entities`, `paginated_entities`
-6. Resolve display configuration properties for grid/list layouts (semantic keys: imageProperty, titleProperty, subtitleProperty, badgeProperty)
-7. Execute query and return results with pagination metadata
+6. Resolve grid/list display configuration properties into semantic slots with `{ value, kind }` wrappers
+7. For table layout, return ordered `cells` and `meta.table.columns` using the saved-view column labels
+8. Execute query and return results with pagination metadata
 
 See PRD sections "Query Builder Architecture" and "Execution flow."
 
@@ -89,8 +90,9 @@ Replace the placeholder in `apps/app-backend/src/modules/view-runtime/routes.ts`
 - Pagination returns correct page with correct metadata
 - Sort by `@name` orders alphabetically
 - Sort by schema property orders correctly
-- Grid layout resolvedProperties contain semantic keys (imageProperty, titleProperty, etc.)
-- List layout resolvedProperties contain semantic keys
+- Grid layout resolvedProperties contain semantic keys with `{ value, kind }`
+- List layout resolvedProperties contain semantic keys with `{ value, kind }`
+- Table layout returns ordered `cells` and `meta.table.columns`
 - Image fields returned as raw discriminated unions (not resolved to URLs)
 - Non-existent schema slug returns 404
 - Empty sort field returns 400
