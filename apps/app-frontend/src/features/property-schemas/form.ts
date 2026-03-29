@@ -49,11 +49,15 @@ export function buildDefaultPropertySchemaRow(): PropertySchemaRow {
 }
 
 export function isPropertySchemaRowsValid(rows: PropertySchemaInput[]) {
-	if (rows.length === 0) return false;
+	if (rows.length === 0) {
+		return false;
+	}
 
 	const keys = rows.map((row) => row.key.trim());
 
-	if (keys.some((key) => key.length === 0)) return false;
+	if (keys.some((key) => key.length === 0)) {
+		return false;
+	}
 
 	return new Set(keys).size === keys.length;
 }
@@ -104,7 +108,9 @@ export const buildPropertiesSchema = (properties: PropertySchemaInput[]) => {
 		const key = property.key.trim();
 		const propertyDef: AppSchema[string] = { type: property.type };
 
-		if (property.required) propertyDef.required = true;
+		if (property.required) {
+			propertyDef.required = true;
+		}
 
 		propertiesMap[key] = propertyDef;
 	}

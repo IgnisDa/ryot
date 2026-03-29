@@ -37,7 +37,9 @@ export const commonErrors = {
 } as const;
 
 export const createErrorUnion = <T extends z.ZodTypeAny[]>(...errors: T) => {
-	if (errors.length === 1) return errors[0];
+	if (errors.length === 1) {
+		return errors[0];
+	}
 	return z.discriminatedUnion("code", errors as never);
 };
 
@@ -81,8 +83,9 @@ export const createCustomEntityAccessErrorResult = (input: {
 	message: string;
 	error: "builtin" | "not_found";
 }) => {
-	if (input.error === "not_found")
+	if (input.error === "not_found") {
 		return createNotFoundErrorResult(input.message);
+	}
 	return createValidationErrorResult(input.message);
 };
 
@@ -103,7 +106,9 @@ export const resolveValidationData = <T>(
 	fallback: string,
 ): { data: T } | ReturnType<typeof createValidationErrorResult> => {
 	const result = resolveValidationResult(callback, fallback);
-	if ("error" in result) return createValidationErrorResult(result.error);
+	if ("error" in result) {
+		return createValidationErrorResult(result.error);
+	}
 	return result;
 };
 

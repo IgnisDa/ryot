@@ -97,14 +97,16 @@ const resolveCreateAccessError = (
 		| "event_schema_not_found"
 		| "event_schema_mismatch",
 ) => {
-	if (error === "builtin" || error === "not_found")
+	if (error === "builtin" || error === "not_found") {
 		return resolveEntityAccessError(error);
+	}
 
-	if (error === "event_schema_not_found")
+	if (error === "event_schema_not_found") {
 		return {
 			status: 404 as const,
 			body: createNotFoundErrorResult(eventSchemaNotFoundError).body,
 		};
+	}
 
 	return {
 		status: 400 as const,
@@ -162,8 +164,9 @@ export const eventsApi = new OpenAPIHono<{ Variables: AuthType }>()
 				}),
 			"Event payload is invalid",
 		);
-		if ("status" in eventInput)
+		if ("status" in eventInput) {
 			return c.json(eventInput.body, eventInput.status);
+		}
 		const eventData = eventInput.data;
 
 		const createdEvent = await createEventForUser({

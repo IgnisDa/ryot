@@ -28,7 +28,9 @@ describe("buildEntitySchemaFormValues", () => {
 		const values = buildEntitySchemaFormValues();
 		const row = values.properties[0];
 
-		if (!row) throw new Error("Expected a default property row");
+		if (!row) {
+			throw new Error("Expected a default property row");
+		}
 
 		expect(values.name).toBe("");
 		expect(values.slug).toBe("");
@@ -46,7 +48,9 @@ describe("buildEntitySchemaFormValues", () => {
 	it("exports the default create values", () => {
 		const row = defaultCreateEntitySchemaFormValues.properties[0];
 
-		if (!row) throw new Error("Expected an exported default property row");
+		if (!row) {
+			throw new Error("Expected an exported default property row");
+		}
 
 		expect(defaultCreateEntitySchemaFormValues.name).toBe("");
 		expect(defaultCreateEntitySchemaFormValues.slug).toBe("");
@@ -67,7 +71,9 @@ describe("buildEntitySchemaFormValues", () => {
 		];
 		const inputRow = properties[0];
 
-		if (!inputRow) throw new Error("Expected an input property row");
+		if (!inputRow) {
+			throw new Error("Expected an input property row");
+		}
 
 		const values = buildEntitySchemaFormValues({
 			properties,
@@ -78,7 +84,9 @@ describe("buildEntitySchemaFormValues", () => {
 		});
 		const row = values.properties[0];
 
-		if (!row) throw new Error("Expected a mapped property row");
+		if (!row) {
+			throw new Error("Expected a mapped property row");
+		}
 
 		expect(values.name).toBe("Custom Schema");
 		expect(values.slug).toBe("custom-schema");
@@ -93,7 +101,9 @@ describe("buildEntitySchemaFormValues", () => {
 		const values = buildEntitySchemaFormValues({ properties: [] });
 		const row = values.properties[0];
 
-		if (!row) throw new Error("Expected a normalized property row");
+		if (!row) {
+			throw new Error("Expected a normalized property row");
+		}
 
 		expect(values.properties).toHaveLength(1);
 		expect(values.icon).toBe("");
@@ -183,7 +193,9 @@ describe("createEntitySchemaFormSchema", () => {
 
 		expect(result.success).toBeFalse();
 
-		if (result.success) return;
+		if (result.success) {
+			return;
+		}
 
 		expect(result.error.issues).toContainEqual({
 			code: "custom",
@@ -217,7 +229,9 @@ describe("createEntitySchemaFormSchema", () => {
 
 		expect(result.success).toBeFalse();
 
-		if (result.success) return;
+		if (result.success) {
+			return;
+		}
 
 		expect(result.error.issues).toContainEqual({
 			code: "custom",
@@ -241,7 +255,9 @@ describe("createEntitySchemaFormSchema", () => {
 
 		expect(result.success).toBeFalse();
 
-		if (result.success) return;
+		if (result.success) {
+			return;
+		}
 
 		expect(result.error.issues).toContainEqual({
 			code: "custom",
@@ -264,7 +280,9 @@ describe("createEntitySchemaFormSchema", () => {
 
 		expect(result.success).toBeFalse();
 
-		if (result.success) return;
+		if (result.success) {
+			return;
+		}
 
 		expect(result.error.issues).toContainEqual({
 			code: "custom",

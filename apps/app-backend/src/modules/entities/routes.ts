@@ -108,8 +108,9 @@ export const entitiesApi = new OpenAPIHono<{ Variables: AuthType }>()
 		}
 
 		const entity = await getEntityByIdForUser({ entityId, userId: user.id });
-		if (!entity)
+		if (!entity) {
 			return c.json(createNotFoundErrorResult(entityNotFoundError).body, 404);
+		}
 
 		return c.json(successResponse(entity), 200);
 	})
@@ -142,8 +143,9 @@ export const entitiesApi = new OpenAPIHono<{ Variables: AuthType }>()
 				}),
 			"Entity payload is invalid",
 		);
-		if ("status" in entityInput)
+		if ("status" in entityInput) {
 			return c.json(entityInput.body, entityInput.status);
+		}
 		const entityData = entityInput.data;
 
 		const createdEntity = await createEntityForUser({
