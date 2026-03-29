@@ -39,7 +39,7 @@ File: `tests/src/tests/view-runtime.test.ts`
 **Basic execution:**
 - Simple single-schema query returns entities with correct response shape
 - Response includes all required fields: id, name, image, entitySchemaId, entitySchemaSlug, createdAt, updatedAt, resolvedProperties
-- Pagination metadata is correct (total, limit, offset, hasNextPage, hasPreviousPage, totalPages, currentPage)
+- Pagination metadata is correct (page, total, limit, hasNextPage, hasPreviousPage, totalPages)
 
 **Filter tests:**
 - `eq` filter returns only matching entities
@@ -60,11 +60,11 @@ File: `tests/src/tests/view-runtime.test.ts`
 - NULLS LAST ordering
 
 **Pagination tests:**
-- First page (offset 0)
+- First page
 - Middle page
 - Last page (hasNextPage: false)
-- Offset beyond total results (clamped)
-- Zero results (totalPages: 0, currentPage: 1)
+- Out-of-range page returns empty items
+- Zero results (totalPages: 0)
 
 **Display configuration tests:**
 - Grid layout returns semantic keys (imageProperty, titleProperty, etc.)
@@ -92,7 +92,7 @@ Create test fixtures:
 - [x] `tests/src/tests/view-runtime.test.ts` exists with comprehensive runtime tests
 - [x] Filter tests cover all 8 operators (eq, ne, gt, gte, lt, lte, in, isNull)
 - [x] Sort tests cover ascending, descending, cross-schema COALESCE, NULLS LAST
-- [x] Pagination tests cover first page, middle page, last page, clamped offset, zero results
+- [x] Pagination tests cover first page, middle page, last page, out-of-range page, zero results
 - [x] Display configuration tests cover grid, list, table layouts
 - [x] Cross-schema tests cover filters, sort, and display COALESCE
 - [x] Error tests cover 404 and 400 cases
