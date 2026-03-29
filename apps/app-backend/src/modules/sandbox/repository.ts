@@ -155,6 +155,20 @@ export class SandboxRepository extends Effect.Service<SandboxRepository>()("Sand
 			};
 		});
 
+		const isPluginScript = Effect.fn("SandboxRepository.isPluginScript")(function* (
+			scriptId: SandboxScriptId,
+		) {
+			const db = yield* CurrentDb;
+			const [row] = yield* dbEffect(() =>
+				db
+					.select({ pluginSlug: schema.sandboxScript.pluginSlug })
+					.from(schema.sandboxScript)
+					.where(eq(schema.sandboxScript.id, scriptId))
+					.limit(1),
+			);
+			return row?.pluginSlug != null;
+		});
+
 		const getScriptById = Effect.fn("SandboxRepository.getScriptById")(function* (
 			scriptId: SandboxScriptId,
 		) {
@@ -249,6 +263,7 @@ export class SandboxRepository extends Effect.Service<SandboxRepository>()("Sand
 			getScriptById,
 			getScriptForUser,
 			findScriptBySlugForUser,
+			isPluginScript,
 		};
 	},
 }) {}

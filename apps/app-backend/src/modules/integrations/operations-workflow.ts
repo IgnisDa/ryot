@@ -6,7 +6,10 @@ import type { SandboxCompletedResult } from "@ryot/contract/modules/sandbox/sche
 import type { SandboxScriptId, UserId } from "@ryot/contract/schema/brands";
 import { Context, Effect, Layer } from "effect";
 
+import { DbRunner } from "#lib/infrastructure/db/service";
 import type { MediaImportAdapterResultSchema } from "#modules/imports/media/adapter-result";
+import { PluginRuntimeResolver } from "#modules/plugins/runtime-resolver";
+import { SandboxRepository } from "#modules/sandbox/repository";
 
 import type { IntegrationRecord } from "./repository";
 import { loadYankAdapterResult, runYoutubeMusicHistorySandbox } from "./worker";
@@ -36,6 +39,9 @@ export const IntegrationRunOperationsLive = Layer.effect(
 	IntegrationRunOperations,
 	Effect.gen(function* () {
 		const httpClient = yield* HttpClient.HttpClient;
+		const runWithDb = yield* DbRunner;
+		const repository = yield* SandboxRepository;
+		const pluginRuntime = yield* PluginRuntimeResolver;
 		const queueFactory = yield* PersistedQueue.PersistedQueueFactory;
 
 		return {
@@ -45,6 +51,9 @@ export const IntegrationRunOperationsLive = Layer.effect(
 				),
 			runSandboxHistory: (input) =>
 				runYoutubeMusicHistorySandbox(input).pipe(
+					Effect.provideService(DbRunner, runWithDb),
+					Effect.provideService(SandboxRepository, repository),
+					Effect.provideService(PluginRuntimeResolver, pluginRuntime),
 					Effect.provideService(PersistedQueue.PersistedQueueFactory, queueFactory),
 				),
 		} satisfies IntegrationRunOperationsValue;

@@ -4,9 +4,8 @@ import { Effect } from "effect";
 
 import { requirePresent } from "~/support/assertions";
 
-import { adminHeaders } from "./admin";
 import type { Client } from "./auth";
-import { getBackendClient } from "./contract-client";
+import { installTestDefinitions } from "./test-plugin";
 
 export interface CreateRelationshipSchemaOptions {
 	name: string;
@@ -33,10 +32,10 @@ export const createRelationshipSchema = (_client: Client, body: CreateRelationsh
 			sourceEntitySchemaSlug: body.sourceEntitySchemaSlug ?? null,
 			targetEntitySchemaSlug: body.targetEntitySchemaSlug ?? null,
 		};
-		yield* getBackendClient().call(
-			(c) => c.testSupport.installDefinitions({ payload: { relationshipSchemas: [schema] } }),
-			adminHeaders,
-		);
+		yield* installTestDefinitions({
+			relationshipSchemas: [schema],
+			pluginSlug: `e2e-relationship-${crypto.randomUUID()}`,
+		});
 		return {
 			...schema,
 			id: RelationshipSchemaSlug.make(body.slug),

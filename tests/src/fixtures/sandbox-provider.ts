@@ -1,6 +1,5 @@
 import { randomUUID } from "node:crypto";
 
-import { EntitySchemaSlug, SandboxScriptId } from "@ryot/contract/schema/brands";
 import type { ProviderInformation } from "@ryot/sandbox-sdk/core";
 import type {
 	ProviderDetailsResult,
@@ -9,18 +8,17 @@ import type {
 } from "@ryot/sandbox-sdk/provider";
 import { Effect } from "effect";
 
-import { adminHeaders } from "./admin";
 import type { Client } from "./auth";
-import { getBackendClient } from "./contract-client";
-import { createAndPromoteSandboxScript } from "./sandbox";
+import {
+	installTestPlugin,
+	reinstallTestPluginScript,
+	type InstalledTestPlugin,
+	uninstallTestPlugin,
+} from "./test-plugin";
 
-export type SeededProviderScript = {
-	slug: string;
-	scriptId: string;
-	entitySchemaScriptId: string | null;
-};
+export type InstalledProviderScript = InstalledTestPlugin;
 
-export const seedBuiltinProviderScript = (input: {
+export const installTestProvider = (input: {
 	slug?: string;
 	name?: string;
 	client: Client;
@@ -29,81 +27,43 @@ export const seedBuiltinProviderScript = (input: {
 	providerInformation?: ProviderInformation;
 }) =>
 	Effect.gen(function* () {
-		const backend = getBackendClient();
 		const slug = input.slug ?? `e2e-provider-${randomUUID()}`;
 		const name = input.name ?? "E2E Provider Script";
-		const script = yield* createAndPromoteSandboxScript(
-			input.client,
-			providerSandboxSource({
+		const providerInformation = input.providerInformation ?? { source: "e2e" };
+		const source = providerSandboxSource({
+			name,
+			slug,
+			providerInformation,
+			drivers: input.drivers,
+		});
+		return yield* installTestPlugin({
+			source,
+			linkToEntitySchemaSlug: input.linkToEntitySchemaSlug,
+			script: {
 				name,
 				slug,
-				drivers: input.drivers,
-				providerInformation: input.providerInformation ?? { source: "e2e" },
-			}),
-		);
-		const scriptId = script.id;
-
-		let entitySchemaScriptId: string | null = null;
-		if (input.linkToEntitySchemaSlug) {
-			const entitySchemaSlug = EntitySchemaSlug.make(input.linkToEntitySchemaSlug);
-			entitySchemaScriptId = yield* Effect.gen(function* () {
-				const link = yield* backend.call(
-					(c) =>
-						c.testSupport.linkSandboxScriptToEntitySchema({
-							path: {
-								scriptId: SandboxScriptId.make(scriptId),
-								entitySchemaSlug,
-							},
-						}),
-					adminHeaders,
-				);
-				const repeatedLink = yield* backend.call(
-					(c) =>
-						c.testSupport.linkSandboxScriptToEntitySchema({
-							path: { scriptId: SandboxScriptId.make(scriptId), entitySchemaSlug },
-						}),
-					adminHeaders,
-				);
-				if (repeatedLink.id !== link.id) {
-					throw new Error("Repeated sandbox script link returned a different row");
-				}
-				return link.id;
-			}).pipe(
-				Effect.onError(() =>
-					backend
-						.call(
-							(c) =>
-								c.testSupport.deleteSandboxScript({
-									path: { scriptId: SandboxScriptId.make(scriptId) },
-								}),
-							adminHeaders,
-						)
-						.pipe(
-							Effect.catchAll((cleanupError) =>
-								Effect.logError("[sandbox-provider] failed link cleanup", cleanupError),
-							),
-						),
-				),
-			);
-		}
-
-		return { slug, scriptId, entitySchemaScriptId };
+				kind: "provider",
+				capabilities: [],
+				providerInformation,
+				requiredAppConfigKeys: [],
+			},
+		});
 	});
 
-export const cleanupBuiltinProviderScript = (seeded: SeededProviderScript) =>
-	getBackendClient()
-		.call(
-			(c) =>
-				c.testSupport.deleteSandboxScript({
-					path: { scriptId: SandboxScriptId.make(seeded.scriptId) },
-				}),
-			adminHeaders,
-		)
-		.pipe(
-			Effect.catchAll((error) =>
-				Effect.logError("[sandbox-provider] cleanup failed (non-fatal)", error),
-			),
-		);
+export const uninstallTestProvider = (seeded: InstalledProviderScript) =>
+	uninstallTestPlugin(seeded);
+
+export const replaceSandboxScriptCompiledRepresentation = (
+	_client: Client,
+	targetScriptId: string,
+	source: string,
+) => {
+	const metadata = providerMetadataBySource.get(source);
+	if (!metadata) {
+		return Effect.dieMessage("Replacement provider source was not built by providerSandboxSource");
+	}
+	return reinstallTestPluginScript(targetScriptId, source, metadata).pipe(Effect.asVoid);
+};
 
 type FakeSearchItem = { title: string; externalId: string; subtitle?: number | null };
 
@@ -150,6 +110,18 @@ type FakeProviderDrivers = {
 	readonly translations?: Readonly<Record<string, ProviderTranslateResult>>;
 };
 
+const providerMetadataBySource = new Map<
+	string,
+	{
+		name: string;
+		slug: string;
+		kind: "provider";
+		capabilities: ReadonlyArray<string>;
+		providerInformation: ProviderInformation;
+		requiredAppConfigKeys: ReadonlyArray<string>;
+	}
+>();
+
 export function providerSandboxSource(input: {
 	readonly name: string;
 	readonly slug: string;
@@ -190,7 +162,7 @@ const translate = defineProviderDriver(manifest, "translate", async ({ language 
 		throw new Error("Fake provider requires at least one driver");
 	}
 
-	return `
+	const source = `
 import { defineManifest } from "@ryot/sandbox-sdk/core";
 import { ${providerImports.join(", ")} } from "@ryot/sandbox-sdk/provider";
 import * as z from "@ryot/sandbox-sdk/zod";
@@ -211,4 +183,13 @@ export default defineProvider({
   drivers: { ${driverEntries.join(", ")} },
 });
 `;
+	providerMetadataBySource.set(source, {
+		name: input.name,
+		slug: input.slug,
+		kind: "provider",
+		capabilities: [],
+		requiredAppConfigKeys: [],
+		providerInformation: input.providerInformation,
+	});
+	return source;
 }

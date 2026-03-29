@@ -24,9 +24,9 @@ open, and you record the choice you make in the plan file.
 
 ## Tasks
 
-**Overall Progress:** 3 of 7 tasks completed
+**Overall Progress:** 4 of 7 tasks completed
 
-**Current Task:** [Task 04](./04-admin-install-surface-and-fixture.md) (todo)
+**Current Task:** [Task 05](./05-notification-subscription-state.md) (todo)
 
 ### Task List
 
@@ -35,7 +35,7 @@ open, and you record the choice you make in the plan file.
 | 01  | [Manifest Contract and Compiler Extension](./01-manifest-contract-and-compiler.md)  | AFK  | done   |
 | 02  | [Ingestion Pipeline, Storage, and Loader](./02-ingestion-pipeline-and-loader.md)    | AFK  | done   |
 | 03  | [Plugin Packages and Boot Cutover](./03-plugin-packages-and-boot-cutover.md)        | AFK  | done   |
-| 04  | [Admin Install Surface and Test Fixture](./04-admin-install-surface-and-fixture.md) | AFK  | todo   |
+| 04  | [Admin Install Surface and Test Fixture](./04-admin-install-surface-and-fixture.md) | AFK  | done   |
 | 05  | [Notification Subscription State Table](./05-notification-subscription-state.md)    | AFK  | todo   |
 | 06  | [Remove the Per-User Sandbox-Script Feature](./06-remove-user-sandbox-scripts.md)   | AFK  | todo   |
 | 07  | [Codebase Cleanup](./07-codebase-cleanup.md)                                        | AFK  | todo   |
