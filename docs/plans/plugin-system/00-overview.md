@@ -203,7 +203,7 @@ looks stale.
   automation scripts as single-file `.sandbox.ts` modules, compiled at build time into
   `generated-sandbox/registry`.
 - Media lifecycle semantics (state derivation, auto-complete, integration progress policy)
-  are documented in `apps/app-backend/src/modules/builtins/CLAUDE.md` — these semantics are
+  are documented in `apps/app-backend/src/modules/builtins/AGENTS.md` — these semantics are
   **preserved behavior**, pinned by the e2e suite.
 
 ### Sandbox runtime (`apps/app-backend/src/lib/infrastructure/sandbox-runtime/`)
@@ -251,7 +251,7 @@ sequentially; Effect-native fixtures. Key coupling points: 15 files use schema-i
 slug-based. The hermetic provider fixture (`fixtures/sandbox-provider.ts`:
 `seedBuiltinProviderScript` compiles a fake provider through the API then god-modes it via
 `testSupport.promoteSandboxScript`) is an ad hoc plugin installer and is replaced by the real
-loader in Phase 2. Conventions live in `tests/CLAUDE.md`.
+loader in Phase 2. Conventions live in `tests/AGENTS.md`.
 
 ## Target architecture (end state)
 
@@ -295,10 +295,10 @@ unless generic (notification automation stays a sandbox script, kernel-owned).
    starting the next.
 5. **YAGNI.** No plugin-dependency resolution, no plugin marketplace/signing, no public
    install endpoint, no speculative manifest fields. All are explicit non-goals for this plan.
-6. **Existing module conventions hold** (`apps/app-backend/CLAUDE.md`): Effect service
+6. **Existing module conventions hold** (`apps/app-backend/AGENTS.md`): Effect service
    classes, thin routes, repository-owned writes, durable ownership rules, no transaction
    across sandbox execution, contract lives in `libs/contract`.
-7. **Documentation follows the code.** Each phase updates the affected `CLAUDE.md`/
+7. **Documentation follows the code.** Each phase updates the affected `AGENTS.md`/
    `AGENTS.md`/`README.md` files (single-owner rule: facts move, they don't duplicate).
 
 ## Sequencing rationale (why this order)
