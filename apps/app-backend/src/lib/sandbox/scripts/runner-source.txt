@@ -7,6 +7,10 @@ const apiBase = payload.apiBase;
 const context = payload.context ?? {};
 const executionId = payload.executionId;
 const apiFunctions = payload.apiFunctions ?? [];
+const driverName = payload.driverName;
+
+const driverRegistry = {};
+const driver = (name, fn) => { driverRegistry[name] = fn; };
 
 const stderrEncoder = new TextEncoder();
 
@@ -66,6 +70,7 @@ for (const fnName of apiFunctions) {
 try {
 	const stubNames = Object.keys(stubs);
 	const wrapperCode =
+		"const driver = arguments[2]; " +
 		"return (async function sandboxMain({ " +
 		stubNames.join(", ") +
 		" }, context) {\n" +
@@ -73,10 +78,20 @@ try {
 		"\n})";
 
 	const factory = new Function(wrapperCode);
-	const userFunction = factory();
+	const userFunction = factory(driver);
 	const value = await userFunction(stubs, context);
 
-	writeResult({ success: true, value: value ?? null });
+	if (driverName) {
+		const driverFn = driverRegistry[driverName];
+		if (!driverFn) {
+			writeResult({ success: false, error: `Driver "${driverName}" is not defined in this script` });
+			Deno.exit(0);
+		}
+		const driverResult = await driverFn(context);
+		writeResult({ success: true, value: driverResult ?? null });
+	} else {
+		writeResult({ success: true, value: value ?? null });
+	}
 } catch (error) {
 	writeResult({
 		success: false,
