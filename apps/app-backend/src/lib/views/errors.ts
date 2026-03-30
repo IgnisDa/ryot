@@ -1,3 +1,3 @@
-export class ViewRuntimeNotFoundError extends Error {}
+export class QueryEngineNotFoundError extends Error {}
 
-export class ViewRuntimeValidationError extends Error {}
+export class QueryEngineValidationError extends Error {}

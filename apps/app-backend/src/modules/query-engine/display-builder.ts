@@ -10,22 +10,22 @@ import {
 } from "~/lib/views/expression-analysis";
 import { getPropertyDisplayKind } from "~/lib/views/policy";
 import type {
-	ViewRuntimeEventJoinLike,
-	ViewRuntimeReferenceContext,
-	ViewRuntimeSchemaLike,
+	QueryEngineEventJoinLike,
+	QueryEngineReferenceContext,
+	QueryEngineSchemaLike,
 } from "~/lib/views/reference";
 import { createScalarExpressionCompiler } from "./expression-compiler";
-import type { ResolvedDisplayValue, ViewRuntimeField } from "./schemas";
+import type { QueryEngineField, ResolvedDisplayValue } from "./schemas";
 
 type SqlExpression = ReturnType<typeof sql>;
 
 type DisplayExpressionResolverInput<
-	TSchema extends ViewRuntimeSchemaLike,
-	TJoin extends ViewRuntimeEventJoinLike,
+	TSchema extends QueryEngineSchemaLike,
+	TJoin extends QueryEngineEventJoinLike,
 > = {
 	alias: string;
 	computedFields?: ViewComputedField[];
-	context: ViewRuntimeReferenceContext<TSchema, TJoin>;
+	context: QueryEngineReferenceContext<TSchema, TJoin>;
 };
 
 const buildResolvedDisplayValueObject = (input: {
@@ -115,8 +115,8 @@ const toDisplayJsonValue = (input: {
 };
 
 const createDisplayExpressionResolver = <
-	TSchema extends ViewRuntimeSchemaLike,
-	TJoin extends ViewRuntimeEventJoinLike,
+	TSchema extends QueryEngineSchemaLike,
+	TJoin extends QueryEngineEventJoinLike,
 >(
 	input: DisplayExpressionResolverInput<TSchema, TJoin>,
 ) => {
@@ -192,13 +192,13 @@ const createDisplayExpressionResolver = <
 };
 
 export const buildResolvedFieldsExpression = <
-	TSchema extends ViewRuntimeSchemaLike,
-	TJoin extends ViewRuntimeEventJoinLike,
+	TSchema extends QueryEngineSchemaLike,
+	TJoin extends QueryEngineEventJoinLike,
 >(input: {
 	alias: string;
-	fields: ViewRuntimeField[];
+	fields: QueryEngineField[];
 	computedFields?: ViewComputedField[];
-	context: ViewRuntimeReferenceContext<TSchema, TJoin>;
+	context: QueryEngineReferenceContext<TSchema, TJoin>;
 }) => {
 	const resolveExpression = createDisplayExpressionResolver({
 		alias: input.alias,

@@ -4,20 +4,20 @@ import {
 	normalizeExpressionPropertyType,
 } from "~/lib/views/expression-analysis";
 import type {
-	ViewRuntimeEventJoinLike,
-	ViewRuntimeReferenceContext,
-	ViewRuntimeSchemaLike,
+	QueryEngineEventJoinLike,
+	QueryEngineReferenceContext,
+	QueryEngineSchemaLike,
 } from "~/lib/views/reference";
 import { createScalarExpressionCompiler } from "./expression-compiler";
 
 export const buildSortExpression = <
-	TSchema extends ViewRuntimeSchemaLike,
-	TJoin extends ViewRuntimeEventJoinLike,
+	TSchema extends QueryEngineSchemaLike,
+	TJoin extends QueryEngineEventJoinLike,
 >(input: {
 	alias: string;
 	expression: ViewExpression;
 	computedFields?: ViewComputedField[];
-	context: ViewRuntimeReferenceContext<TSchema, TJoin>;
+	context: QueryEngineReferenceContext<TSchema, TJoin>;
 }) => {
 	const compiler = createScalarExpressionCompiler({
 		alias: input.alias,

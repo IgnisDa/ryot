@@ -5,13 +5,13 @@ import {
 import { type ServiceResult, serviceData, serviceError } from "~/lib/result";
 import { viewDefinitionModule } from "~/lib/views/definition";
 import {
-	ViewRuntimeNotFoundError,
-	ViewRuntimeValidationError,
+	QueryEngineNotFoundError,
+	QueryEngineValidationError,
 } from "~/lib/views/errors";
 import type {
-	ViewRuntimeRequest,
-	ViewRuntimeResponseData,
-} from "~/modules/view-runtime/schemas";
+	QueryEngineRequest,
+	QueryEngineResponseData,
+} from "~/modules/query-engine/schemas";
 import {
 	type BuiltInMediaOverviewSourceItem,
 	buildBuiltInMediaOverviewResponse,
@@ -70,7 +70,7 @@ const coalesceExpression = (
 ) => ({ values, type: "coalesce" as const });
 
 const getFieldValue = (
-	item: ViewRuntimeResponseData["items"][number],
+	item: QueryEngineResponseData["items"][number],
 	key: string,
 ) => item.fields.find((field) => field.key === key)?.value;
 
@@ -99,7 +99,7 @@ const toNullableDate = (value: unknown): Date | null => {
 };
 
 const toBuiltinMediaSourceItem = (
-	item: ViewRuntimeResponseData["items"][number],
+	item: QueryEngineResponseData["items"][number],
 ): BuiltInMediaOverviewSourceItem | null => {
 	if (!isBuiltInMediaEntitySchemaSlug(item.entitySchemaSlug)) {
 		return null;
@@ -131,7 +131,7 @@ function isBuiltInMediaEntitySchemaSlug(
 }
 
 const buildBaseRequest = (): Omit<
-	ViewRuntimeRequest,
+	QueryEngineRequest,
 	"filter" | "pagination" | "sort"
 > => {
 	const entityCreatedAt = coalesceExpression(
@@ -203,8 +203,8 @@ const buildBaseRequest = (): Omit<
 
 type ExecuteSectionQuery = (
 	userId: string,
-	request: ViewRuntimeRequest,
-) => Promise<ViewRuntimeResponseData>;
+	request: QueryEngineRequest,
+) => Promise<QueryEngineResponseData>;
 
 type MediaServiceDeps = {
 	executeSectionQuery: ExecuteSectionQuery;
@@ -252,7 +252,7 @@ const getContinueItems = async (
 		],
 	};
 
-	const request: ViewRuntimeRequest = {
+	const request: QueryEngineRequest = {
 		...buildBaseRequest(),
 		filter,
 		sort: { direction: "desc", expression: progressAtRef },
@@ -284,7 +284,7 @@ const getUpNextItems = async (
 		],
 	};
 
-	const request: ViewRuntimeRequest = {
+	const request: QueryEngineRequest = {
 		...buildBaseRequest(),
 		filter,
 		sort: { direction: "desc", expression: backlogAtRef },
@@ -333,7 +333,7 @@ const getRateTheseItems = async (
 		completeAtRef,
 	);
 
-	const request: ViewRuntimeRequest = {
+	const request: QueryEngineRequest = {
 		...buildBaseRequest(),
 		filter,
 		pagination: { page: 1, limit: SECTION_LIMITS.rateThese },
@@ -369,10 +369,10 @@ export const getBuiltInMediaOverview = async (
 			}),
 		);
 	} catch (error) {
-		if (error instanceof ViewRuntimeNotFoundError) {
+		if (error instanceof QueryEngineNotFoundError) {
 			return serviceError("not_found", mediaOverviewMisconfiguredError);
 		}
-		if (error instanceof ViewRuntimeValidationError) {
+		if (error instanceof QueryEngineValidationError) {
 			return serviceError("validation", mediaOverviewMisconfiguredError);
 		}
 

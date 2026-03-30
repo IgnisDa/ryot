@@ -1,16 +1,16 @@
-# View Runtime Guide
+# Query Engine Guide
 
-This document describes the request language for `'/view-runtime/execute'`.
+This document describes the request language for `'/query-engine/execute'`.
 
 For concrete executable examples, also see:
 
-- `tests/src/fixtures/view-runtime.ts`
-- `tests/src/test-support/view-runtime-suite.ts`
-- `tests/src/tests/view-runtime.test.ts`
+- `tests/src/fixtures/query-engine.ts`
+- `tests/src/test-support/query-engine-suite.ts`
+- `tests/src/tests/query-engine.test.ts`
 
 ## Mental Model
 
-`/view-runtime/execute` runs a query and resolves a set of requested output fields.
+`/query-engine/execute` runs a query and resolves a set of requested output fields.
 
 - You send query inputs plus ordered `fields`.
 - Query definitions can also declare reusable `computedFields`.
@@ -705,9 +705,9 @@ Use latest review rating when present, otherwise show publish year.
 - `latestEvent` joins are per entity, not global.
 - Sorting by an event field sorts by the latest joined event value.
 - If the join is missing for an entity, joined references resolve to `null`.
-- `isNull` is useful for “missing event” queries.
-- `isNotNull` is useful for “has event” queries (e.g. entities that have been reviewed).
-- Event built-ins such as `event.review.@createdAt` are often useful for “most recently reviewed” or “most recently purchased” views.
+- `isNull` is useful for "missing event" queries.
+- `isNotNull` is useful for "has event" queries (e.g. entities that have been reviewed).
+- Event built-ins such as `event.review.@createdAt` are often useful for "most recently reviewed" or "most recently purchased" views.
 
 ## Example Response With Event Fields
 

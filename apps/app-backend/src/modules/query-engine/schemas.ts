@@ -17,14 +17,14 @@ const paginationSchema = z.object({
 	limit: z.number().int().min(1),
 });
 
-export const viewRuntimeFieldSchema = z
+export const queryEngineFieldSchema = z
 	.object({
 		expression: viewExpressionSchema,
 		key: z.string().trim().min(1, "Field keys are required"),
 	})
 	.strict();
 
-export const executeViewRuntimeBody = z
+export const executeQueryEngineBody = z
 	.object({
 		sort: sortDefinitionSchema,
 		pagination: paginationSchema,
@@ -35,7 +35,7 @@ export const executeViewRuntimeBody = z
 			.array(z.string())
 			.min(1, "At least one entity schema slug is required"),
 		fields: z
-			.array(viewRuntimeFieldSchema)
+			.array(queryEngineFieldSchema)
 			.refine(
 				(fields) =>
 					new Set(fields.map((field) => field.key)).size === fields.length,
@@ -62,11 +62,11 @@ export const resolvedDisplayValueSchema = z
 	})
 	.strict();
 
-const resolvedRuntimeFieldSchema = resolvedDisplayValueSchema
+const resolvedQueryEngineFieldSchema = resolvedDisplayValueSchema
 	.extend({ key: z.string() })
 	.strict();
 
-const viewRuntimeBaseItemSchema = z
+const queryEngineBaseItemSchema = z
 	.object({
 		id: z.string(),
 		name: z.string(),
@@ -77,13 +77,13 @@ const viewRuntimeBaseItemSchema = z
 	})
 	.strict();
 
-const viewRuntimeItemSchema = viewRuntimeBaseItemSchema
+const queryEngineItemSchema = queryEngineBaseItemSchema
 	.extend({
-		fields: z.array(resolvedRuntimeFieldSchema),
+		fields: z.array(resolvedQueryEngineFieldSchema),
 	})
 	.strict();
 
-const viewRuntimePaginationSchema = z.object({
+const queryEnginePaginationSchema = z.object({
 	page: z.number().int(),
 	total: z.number().int(),
 	limit: z.number().int(),
@@ -92,27 +92,27 @@ const viewRuntimePaginationSchema = z.object({
 	hasPreviousPage: z.boolean(),
 });
 
-const executeViewRuntimeResponseDataSchema = z
+const executeQueryEngineResponseDataSchema = z
 	.object({
-		items: z.array(viewRuntimeItemSchema),
-		meta: z.object({ pagination: viewRuntimePaginationSchema }).strict(),
+		items: z.array(queryEngineItemSchema),
+		meta: z.object({ pagination: queryEnginePaginationSchema }).strict(),
 	})
 	.strict();
 
-export const executeViewRuntimeResponseSchema = dataSchema(
-	executeViewRuntimeResponseDataSchema,
+export const executeQueryEngineResponseSchema = dataSchema(
+	executeQueryEngineResponseDataSchema,
 );
 
-export type ViewRuntimeItem = z.infer<typeof viewRuntimeItemSchema>;
-export type ViewRuntimeField = z.infer<typeof viewRuntimeFieldSchema>;
-export type ViewRuntimeRequest = z.infer<typeof executeViewRuntimeBody>;
+export type QueryEngineItem = z.infer<typeof queryEngineItemSchema>;
+export type QueryEngineField = z.infer<typeof queryEngineFieldSchema>;
+export type QueryEngineRequest = z.infer<typeof executeQueryEngineBody>;
 export type ResolvedDisplayValue = z.infer<typeof resolvedDisplayValueSchema>;
-export type ViewRuntimeResponse = z.infer<
-	typeof executeViewRuntimeResponseSchema
+export type QueryEngineResponse = z.infer<
+	typeof executeQueryEngineResponseSchema
 >["data"];
-export type ViewRuntimeResponseData = z.infer<
-	typeof executeViewRuntimeResponseDataSchema
+export type QueryEngineResponseData = z.infer<
+	typeof executeQueryEngineResponseDataSchema
 >;
-export type ViewRuntimeResolvedField = z.infer<
-	typeof resolvedRuntimeFieldSchema
+export type QueryEngineResolvedField = z.infer<
+	typeof resolvedQueryEngineFieldSchema
 >;
