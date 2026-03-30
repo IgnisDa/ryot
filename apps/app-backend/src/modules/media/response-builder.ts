@@ -109,8 +109,8 @@ const resolveUnitLabel = (
 	entitySchemaSlug: BuiltInMediaOverviewSourceItem["entitySchemaSlug"],
 ) =>
 	match(entitySchemaSlug)
-		.with("anime", () => "episodes")
 		.with("book", () => "pages")
+		.with("anime", () => "episodes")
 		.with("manga", () => "chapters")
 		.exhaustive();
 
