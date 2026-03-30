@@ -91,7 +91,7 @@ export function toAppEntity(entity: ApiEntityInput): AppEntity {
 	const externalId = isQueryEngineEntity(entity) ? null : entity.externalId;
 	const sandboxScriptId = isQueryEngineEntity(entity)
 		? null
-		: entity.detailsSandboxScriptId;
+		: entity.sandboxScriptId;
 	const fields = isQueryEngineEntity(entity) ? entity.fields : undefined;
 	const {
 		id,
