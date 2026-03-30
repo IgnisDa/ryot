@@ -97,6 +97,7 @@ export const enqueueSandbox = async (
 	deps: SandboxServiceDeps = sandboxServiceDeps,
 ): Promise<SandboxServiceResult<SandboxEnqueueResult>> => {
 	let code = "";
+	let scriptId: string | undefined;
 	if (input.body.kind === "code") {
 		code = input.body.code;
 	} else if (input.body.kind === "script") {
@@ -108,10 +109,12 @@ export const enqueueSandbox = async (
 			return serviceError("not_found", sandboxScriptNotFoundError);
 		}
 		code = foundSandboxScript.code;
+		scriptId = input.body.scriptId;
 	}
 
 	const job = await deps.enqueueSandboxJob({
 		code,
+		scriptId,
 		userId: input.userId,
 		context: input.body.context,
 		driverName: input.body.driverName,

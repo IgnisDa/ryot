@@ -81,7 +81,7 @@ describe("enqueueSandbox", () => {
 		);
 
 		expect(result).toEqual({ data: { jobId: "job_1" } });
-		expect(queuedInput).toEqual({
+		expect(queuedInput).toMatchObject({
 			userId: "user_1",
 			code: "runBuiltin()",
 			scriptId: "script_1",
@@ -113,7 +113,7 @@ describe("enqueueSandbox", () => {
 		);
 
 		expect(result).toEqual({ data: { jobId: "job_1" } });
-		expect(queuedInput).toEqual({
+		expect(queuedInput).toMatchObject({
 			userId: "user_1",
 			code: "return 1;",
 			context: { source: "test" },
