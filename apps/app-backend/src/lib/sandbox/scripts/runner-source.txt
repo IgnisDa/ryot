@@ -70,7 +70,7 @@ for (const fnName of apiFunctions) {
 try {
 	const stubNames = Object.keys(stubs);
 	const wrapperCode =
-		"const driver = arguments[2]; " +
+		"const driver = arguments[0]; " +
 		"return (async function sandboxMain({ " +
 		stubNames.join(", ") +
 		" }, context) {\n" +
