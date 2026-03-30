@@ -31,8 +31,7 @@ const openApiTags = [
 	},
 	{
 		name: "media",
-		description:
-			"Built-in media overview and read-model endpoints for books, anime, and manga",
+		description: "Convenience endpoints for the built-in media tracker",
 	},
 	{
 		name: "trackers",
