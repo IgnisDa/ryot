@@ -101,5 +101,6 @@ describe("toAppEntity", () => {
 		});
 		expect(entity.createdAt.toISOString()).toBe("2026-03-08T10:15:00.000Z");
 		expect(entity.updatedAt.toISOString()).toBe("2026-03-08T10:20:00.000Z");
+		expect(entity.sandboxScriptId).toBeNull();
 	});
 });
