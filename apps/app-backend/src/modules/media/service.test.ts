@@ -298,7 +298,7 @@ describe("getBuiltInMediaOverview", () => {
 		expect(result.rateThese.items[0]?.id).toBe("manga-1");
 	});
 
-	it("uses different limits for each section", async () => {
+	it("uses a limit of 6 for each section", async () => {
 		const limits: number[] = [];
 
 		await getBuiltInMediaOverview(
@@ -323,8 +323,9 @@ describe("getBuiltInMediaOverview", () => {
 			},
 		);
 
-		expect(limits).toContain(6);
-		expect(limits).toContain(20);
-		expect(limits).toContain(12);
+		expect(limits).toHaveLength(3);
+		expect(limits[0]).toBe(6);
+		expect(limits[1]).toBe(6);
+		expect(limits[2]).toBe(6);
 	});
 });
