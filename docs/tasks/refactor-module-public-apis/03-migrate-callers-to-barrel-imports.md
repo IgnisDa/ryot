@@ -4,7 +4,7 @@
 
 **Type:** AFK
 
-**Status:** todo
+**Status:** completed
 
 ## What to build
 
@@ -36,11 +36,11 @@ After all imports are updated, verify the full test suite passes.
 
 ## Acceptance criteria
 
-- [ ] All files in the table above import from `~/modules/X` (module root) instead of `~/modules/X/subpath`
-- [ ] No new sub-path imports have been introduced
-- [ ] `bun tsc --noEmit` passes with no new errors
-- [ ] `bun test` passes (all existing tests still green)
-- [ ] `app/api.ts` is unchanged
+- [x] All files in the table above import from `~/modules/X` (module root) instead of `~/modules/X/subpath`
+- [x] No new sub-path imports have been introduced
+- [x] `bun tsc --noEmit` passes with no new errors
+- [x] `bun test` passes (all existing tests still green)
+- [x] `app/api.ts` is unchanged
 
 ## Blocked by
 

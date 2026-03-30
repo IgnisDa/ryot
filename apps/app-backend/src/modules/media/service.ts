@@ -11,7 +11,7 @@ import {
 import type {
 	QueryEngineRequest,
 	QueryEngineResponseData,
-} from "~/modules/query-engine/schemas";
+} from "~/modules/query-engine";
 import {
 	type BuiltInMediaOverviewSourceItem,
 	buildBuiltInMediaOverviewResponse,
