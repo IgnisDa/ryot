@@ -1,6 +1,6 @@
 import { type AppSchema, resolveRequiredString } from "@ryot/ts-utils";
 import { chunk } from "lodash";
-import { resolveEntitySchemaReadAccess } from "~/lib/app/entity-schema-access";
+import { checkReadAccess } from "~/lib/access";
 import { parseAppSchemaProperties } from "~/lib/app/schema-validation";
 import {
 	type ServiceResult,
@@ -21,38 +21,6 @@ import type {
 } from "./schemas";
 
 export type EventPropertiesShape = Record<string, unknown>;
-
-type EntityEventScope = {
-	entityId: string;
-	entitySchemaSlug: string;
-	isBuiltin: boolean;
-	entitySchemaId: string;
-};
-
-export type EventCreateScope = EntityEventScope & {
-	eventSchemaId: string | null;
-	eventSchemaName: string | null;
-	eventSchemaSlug: string | null;
-	propertiesSchema: AppSchema | null;
-	eventSchemaEntitySchemaId: string | null;
-};
-
-type EntityEventAccess = { error: "not_found" } | { access: EntityEventScope };
-
-type EventCreateAccess =
-	| { error: "not_found" | "event_schema_mismatch" | "event_schema_not_found" }
-	| {
-			access: {
-				entityId: string;
-				isBuiltin: boolean;
-				eventSchemaId: string;
-				entitySchemaId: string;
-				eventSchemaName: string;
-				eventSchemaSlug: string;
-				entitySchemaSlug: string;
-				propertiesSchema: AppSchema;
-			};
-	  };
 
 type EventMutationError = "not_found" | "validation";
 
@@ -105,54 +73,6 @@ export const parseEventProperties = (input: {
 		propertiesSchema: input.propertiesSchema,
 	}) as EventPropertiesShape;
 
-export const resolveEntityEventAccess = (
-	scope: EntityEventScope | undefined,
-): EntityEventAccess => {
-	const entityAccess = resolveEntitySchemaReadAccess(scope);
-	if (!("entitySchema" in entityAccess)) {
-		return { error: entityAccess.error };
-	}
-
-	return { access: entityAccess.entitySchema };
-};
-
-export const resolveEventCreateAccess = (
-	scope: EventCreateScope | undefined,
-): EventCreateAccess => {
-	const entityAccess = resolveEntityEventAccess(scope);
-	if ("error" in entityAccess) {
-		return entityAccess;
-	}
-
-	const scopedEvent = scope;
-
-	if (
-		!scopedEvent?.eventSchemaId ||
-		!scopedEvent.eventSchemaName ||
-		!scopedEvent.eventSchemaSlug ||
-		!scopedEvent.propertiesSchema
-	) {
-		return { error: "event_schema_not_found" as const };
-	}
-
-	if (scopedEvent.eventSchemaEntitySchemaId !== scopedEvent.entitySchemaId) {
-		return { error: "event_schema_mismatch" as const };
-	}
-
-	return {
-		access: {
-			entityId: scopedEvent.entityId,
-			isBuiltin: scopedEvent.isBuiltin,
-			eventSchemaId: scopedEvent.eventSchemaId,
-			entitySchemaId: scopedEvent.entitySchemaId,
-			eventSchemaName: scopedEvent.eventSchemaName,
-			eventSchemaSlug: scopedEvent.eventSchemaSlug,
-			entitySchemaSlug: scopedEvent.entitySchemaSlug,
-			propertiesSchema: scopedEvent.propertiesSchema,
-		},
-	};
-};
-
 export const resolveEventCreateInput = (
 	input: CreateEventBody & {
 		propertiesSchema: AppSchema;
@@ -178,18 +98,6 @@ const resolveEventCreateInputResult = (
 		"Event payload is invalid",
 	);
 
-const resolveCreateAccessMessage = (
-	error: "not_found" | "event_schema_not_found" | "event_schema_mismatch",
-): { error: EventMutationError; message: string } => {
-	if (error === "not_found") {
-		return serviceError("not_found", entityNotFoundError);
-	}
-	if (error === "event_schema_not_found") {
-		return serviceError("not_found", eventSchemaNotFoundError);
-	}
-	return serviceError("validation", eventSchemaMismatchError);
-};
-
 export const listEntityEvents = async (
 	input: { entityId: string; userId: string },
 	deps: EventServiceDeps = eventServiceDeps,
@@ -199,14 +107,15 @@ export const listEntityEvents = async (
 		return entityIdResult;
 	}
 
-	const foundEntity = resolveEntityEventAccess(
+	const entityResult = checkReadAccess(
 		await deps.getEntityScopeForUser({
 			userId: input.userId,
 			entityId: entityIdResult.data,
 		}),
+		{ not_found: entityNotFoundError },
 	);
-	if ("error" in foundEntity) {
-		return resolveCreateAccessMessage(foundEntity.error);
+	if ("error" in entityResult) {
+		return serviceError("not_found", entityResult.message);
 	}
 
 	const events = await deps.listEventsByEntityForUser({
@@ -233,22 +142,39 @@ export const createEvent = async (
 		return eventSchemaIdResult;
 	}
 
-	const foundScope = resolveEventCreateAccess(
-		await deps.getEventCreateScopeForUser({
-			userId: input.userId,
-			entityId: entityIdResult.data,
-			eventSchemaId: eventSchemaIdResult.data,
-		}),
-	);
-	if ("error" in foundScope) {
-		return resolveCreateAccessMessage(foundScope.error);
+	const eventScope = await deps.getEventCreateScopeForUser({
+		userId: input.userId,
+		entityId: entityIdResult.data,
+		eventSchemaId: eventSchemaIdResult.data,
+	});
+
+	// scope === undefined means the entity itself was not found (INNER JOIN anchor)
+	if (!eventScope) {
+		return serviceError("not_found", entityNotFoundError);
+	}
+
+	// eventSchemaId is null when the LEFT JOIN missed — event schema not found or not visible.
+	// When the join succeeds, the DB NOT NULL constraints on the event_schema table guarantee
+	// that name, slug, propertiesSchema, and eventSchemaEntitySchemaId are also non-null.
+	if (
+		!eventScope.eventSchemaId ||
+		!eventScope.eventSchemaName ||
+		!eventScope.eventSchemaSlug ||
+		!eventScope.propertiesSchema ||
+		!eventScope.eventSchemaEntitySchemaId
+	) {
+		return serviceError("not_found", eventSchemaNotFoundError);
+	}
+
+	if (eventScope.eventSchemaEntitySchemaId !== eventScope.entitySchemaId) {
+		return serviceError("validation", eventSchemaMismatchError);
 	}
 
 	const eventInput = resolveEventCreateInputResult({
 		entityId: input.body.entityId,
 		properties: input.body.properties,
 		eventSchemaId: input.body.eventSchemaId,
-		propertiesSchema: foundScope.access.propertiesSchema,
+		propertiesSchema: eventScope.propertiesSchema,
 	});
 	if ("error" in eventInput) {
 		return eventInput;
@@ -258,9 +184,9 @@ export const createEvent = async (
 		userId: input.userId,
 		entityId: eventInput.data.entityId,
 		properties: eventInput.data.properties,
+		eventSchemaName: eventScope.eventSchemaName,
+		eventSchemaSlug: eventScope.eventSchemaSlug,
 		eventSchemaId: eventInput.data.eventSchemaId,
-		eventSchemaName: foundScope.access.eventSchemaName,
-		eventSchemaSlug: foundScope.access.eventSchemaSlug,
 	});
 
 	return serviceData(createdEvent);
