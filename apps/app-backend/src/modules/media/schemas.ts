@@ -62,21 +62,53 @@ const createOverviewSectionSchema = <TItem extends z.ZodTypeAny>(item: TItem) =>
 		.object({ items: z.array(item), count: z.number().int().nonnegative() })
 		.strict();
 
+const builtInMediaOverviewUpNextSectionSchema = createOverviewSectionSchema(
+	builtInMediaOverviewUpNextItemSchema,
+);
+
+const builtInMediaOverviewContinueSectionSchema = createOverviewSectionSchema(
+	builtInMediaOverviewContinueItemSchema,
+);
+
+const builtInMediaOverviewRateTheseSectionSchema = createOverviewSectionSchema(
+	builtInMediaOverviewRateTheseItemSchema,
+);
+
 const builtInMediaOverviewDataSchema = z
 	.object({
-		upNext: createOverviewSectionSchema(builtInMediaOverviewUpNextItemSchema),
-		continue: createOverviewSectionSchema(
-			builtInMediaOverviewContinueItemSchema,
-		),
-		rateThese: createOverviewSectionSchema(
-			builtInMediaOverviewRateTheseItemSchema,
-		),
+		upNext: builtInMediaOverviewUpNextSectionSchema,
+		continue: builtInMediaOverviewContinueSectionSchema,
+		rateThese: builtInMediaOverviewRateTheseSectionSchema,
 	})
 	.strict();
+
+export const builtInMediaOverviewUpNextResponseSchema = itemDataSchema(
+	builtInMediaOverviewUpNextSectionSchema,
+);
+
+export const builtInMediaOverviewContinueResponseSchema = itemDataSchema(
+	builtInMediaOverviewContinueSectionSchema,
+);
+
+export const builtInMediaOverviewRateTheseResponseSchema = itemDataSchema(
+	builtInMediaOverviewRateTheseSectionSchema,
+);
 
 export const builtInMediaOverviewResponseSchema = itemDataSchema(
 	builtInMediaOverviewDataSchema,
 );
+
+export type BuiltInMediaOverviewUpNextResponse = z.infer<
+	typeof builtInMediaOverviewUpNextSectionSchema
+>;
+
+export type BuiltInMediaOverviewContinueResponse = z.infer<
+	typeof builtInMediaOverviewContinueSectionSchema
+>;
+
+export type BuiltInMediaOverviewRateTheseResponse = z.infer<
+	typeof builtInMediaOverviewRateTheseSectionSchema
+>;
 
 export type BuiltInMediaOverviewResponse = z.infer<
 	typeof builtInMediaOverviewDataSchema
