@@ -71,7 +71,7 @@ const openApiTags = [
 	},
 ];
 
-export const baseApp = new OpenAPIHono<{ Variables: MaybeAuthType }>()
+const baseApp = new OpenAPIHono<{ Variables: MaybeAuthType }>()
 	.onError((error, c) => {
 		if (error instanceof HTTPException) {
 			return c.json(
