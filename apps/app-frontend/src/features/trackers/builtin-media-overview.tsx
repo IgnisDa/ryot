@@ -20,6 +20,7 @@ import {
 import { useDebouncedCallback } from "@mantine/hooks";
 import { modals } from "@mantine/modals";
 import { notifications } from "@mantine/notifications";
+import { type Dayjs, dayjs } from "@ryot/ts-utils/dayjs";
 import { useQueryClient } from "@tanstack/react-query";
 import { Bookmark, Clock, Play, Star } from "lucide-react";
 import { useCallback, useState } from "react";
@@ -55,12 +56,11 @@ function colorMix(color: string, alpha: number) {
 	return `color-mix(in srgb, ${color} ${alpha * 100}%, transparent)`;
 }
 
-function getQueueNote(slug: string, backlogAt: Date, rank: number) {
+function getQueueNote(slug: string, backlogAt: Dayjs, rank: number) {
 	if (rank === 0) {
 		return "Pick tonight";
 	}
-	const daysSinceBacklog =
-		(Date.now() - backlogAt.getTime()) / (1000 * 60 * 60 * 24);
+	const daysSinceBacklog = dayjs().diff(backlogAt, "day", true);
 	if (daysSinceBacklog < 7) {
 		return "Freshly queued";
 	}
@@ -164,29 +164,16 @@ const TYPE_COUNTS: { type: MediaType; count: number }[] = [
 	{ type: "VisualNovel", count: 2 },
 ];
 
-function getActivityDateLabel(date: Date) {
-	const now = new Date();
-	const today = new Date(now);
-	today.setHours(0, 0, 0, 0);
-
-	const yesterday = new Date(today);
-	yesterday.setDate(today.getDate() - 1);
-
-	const target = new Date(date);
-	target.setHours(0, 0, 0, 0);
-
-	if (target.getTime() === today.getTime()) {
+function getActivityDateLabel(date: Dayjs) {
+	const now = dayjs();
+	if (date.isSame(now, "day")) {
 		return "Today";
 	}
-	if (target.getTime() === yesterday.getTime()) {
+	if (date.isSame(now.subtract(1, "day"), "day")) {
 		return "Yesterday";
 	}
 
-	return date.toLocaleDateString(undefined, {
-		month: "short",
-		day: "numeric",
-		year: date.getFullYear() === now.getFullYear() ? undefined : "numeric",
-	});
+	return date.format(date.year() === now.year() ? "MMM D" : "MMM D, YYYY");
 }
 
 function getActivityActionLabel(item: OverviewActivityItem) {
@@ -403,7 +390,9 @@ function ContinueCard(props: {
 	const color = schema?.accentColor ?? STONE;
 	const progressLabel = props.item.labels.progress;
 	const pct = props.item.progress.progressPercent ?? null;
-	const lastActivity = getLastActivityLabel(new Date(props.item.progressAt));
+	const lastActivity = getLastActivityLabel(
+		dayjs(props.item.progressAt).toDate(),
+	);
 
 	return (
 		<Paper
@@ -537,7 +526,7 @@ function BacklogCard(props: {
 	const schema = props.schemaBySlug.get(props.item.entitySchemaSlug);
 	const color = schema?.accentColor ?? STONE;
 	const icon = schema?.icon ?? "circle";
-	const backlogAt = new Date(props.item.backlogAt);
+	const backlogAt = dayjs(props.item.backlogAt);
 	const note = getQueueNote(props.item.entitySchemaSlug, backlogAt, props.rank);
 
 	return (
@@ -612,7 +601,7 @@ function BacklogCard(props: {
 						{props.item.subtitle.label}
 					</Text>
 					<Text fz={10} c={props.textMuted}>
-						Added {getLastActivityLabel(backlogAt)}
+						Added {getLastActivityLabel(backlogAt.toDate())}
 					</Text>
 				</Stack>
 			</Paper>
@@ -643,7 +632,9 @@ function RateCard(props: {
 	);
 	const color = schema?.accentColor ?? STONE;
 	const icon = schema?.icon ?? "circle";
-	const completedDate = getLastActivityLabel(new Date(props.item.completedAt));
+	const completedDate = getLastActivityLabel(
+		dayjs(props.item.completedAt).toDate(),
+	);
 
 	const saveRating = useDebouncedCallback(async (stars: number) => {
 		try {
@@ -1077,7 +1068,7 @@ export function BuiltinMediaTrackerOverview(
 		...rateTheseItems,
 		...activityItems.map((item) => ({
 			id: item.id,
-			image: toAppEntityImage(item.entity.image),
+			image: item.entity.image,
 		})),
 	].map((item) => ({ id: item.id, image: toAppEntityImage(item.image) }));
 	const imageUrls = useResolvedImageUrls(allImageEntries);
@@ -1212,11 +1203,11 @@ export function BuiltinMediaTrackerOverview(
 
 	const liveWeekActivity = buildWeekActivity(weekItems);
 	const liveActivityEvents = activityItems.map((item) => {
-		const occurredAt = new Date(item.occurredAt);
+		const occurredAt = dayjs(item.occurredAt);
 		return {
 			id: item.id,
 			date: getActivityDateLabel(occurredAt),
-			time: getLastActivityLabel(occurredAt),
+			time: getLastActivityLabel(occurredAt.toDate()),
 			title: item.entity.name,
 			action: getActivityActionLabel(item),
 			rating: item.rating,

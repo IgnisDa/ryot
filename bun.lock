@@ -323,6 +323,7 @@
         "@aws-sdk/client-s3": "3.1014.0",
         "@faker-js/faker": "10.3.0",
         "@ryot/generated": "workspace:*",
+        "@ryot/ts-utils": "workspace:*",
         "@testcontainers/postgresql": "11.13.0",
         "dotenv": "17.3.1",
         "get-port": "7.1.0",
