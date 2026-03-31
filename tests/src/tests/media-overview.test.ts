@@ -359,3 +359,167 @@ describe("GET /media/overview/review", () => {
 		expect(data?.data).toBeDefined();
 	});
 });
+
+describe("GET /media/overview/activity", () => {
+	it("returns recent media activity with entity metadata and ratings", async () => {
+		const { client, cookies } = await createAuthenticatedClient();
+		const builtinTracker = await findBuiltinTracker(client, cookies);
+		const schemas = await listEntitySchemas(client, cookies, {
+			trackerId: builtinTracker.id,
+		});
+		const animeSchema = schemas.find((item) => item.slug === "anime");
+		const mangaSchema = schemas.find((item) => item.slug === "manga");
+		if (!animeSchema || !mangaSchema) {
+			throw new Error("Missing built-in media schemas");
+		}
+		const animeProvider = animeSchema.providers[0];
+		const mangaProvider = mangaSchema.providers[0];
+		if (!animeProvider || !mangaProvider) {
+			throw new Error("Missing built-in providers");
+		}
+
+		const watchedAnime = await createEntity(client, cookies, {
+			name: "Recent Activity Anime",
+			entitySchemaId: animeSchema.id,
+			sandboxScriptId: animeProvider.scriptId,
+			properties: { publishYear: 2024, episodes: 24 },
+			externalId: `anime-activity-${crypto.randomUUID()}`,
+			image: { kind: "remote", url: "https://example.com/anime.png" },
+		});
+		const reviewedManga = await createEntity(client, cookies, {
+			image: null,
+			name: "Recent Activity Manga",
+			entitySchemaId: mangaSchema.id,
+			sandboxScriptId: mangaProvider.scriptId,
+			properties: { publishYear: 2023, chapters: 120 },
+			externalId: `manga-activity-${crypto.randomUUID()}`,
+		});
+
+		await createBuiltInMediaEvent({
+			client,
+			cookies,
+			entityId: watchedAnime.id,
+			eventSchemaSlug: "progress",
+			entitySchemaId: animeSchema.id,
+			properties: { progressPercent: 50 },
+		});
+		await createBuiltInMediaEvent({
+			client,
+			cookies,
+			eventSchemaSlug: "review",
+			entityId: reviewedManga.id,
+			entitySchemaId: mangaSchema.id,
+			properties: { rating: 4, review: "Strong finish" },
+		});
+
+		const { data, response } = await client.GET("/media/overview/activity", {
+			headers: { Cookie: cookies },
+		});
+
+		expect(response.status).toBe(200);
+		expect(data?.data).toBeDefined();
+		const reviewedItem = data?.data.items.find(
+			(item) =>
+				item.eventSchemaSlug === "review" &&
+				item.entity.name === "Recent Activity Manga",
+		);
+		expect(reviewedItem).toMatchObject({
+			rating: 4,
+			eventSchemaSlug: "review",
+			entity: {
+				image: null,
+				entitySchemaSlug: "manga",
+				name: "Recent Activity Manga",
+			},
+		});
+		expect(data?.data.items).toEqual(
+			expect.arrayContaining([
+				expect.objectContaining({
+					rating: null,
+					eventSchemaSlug: "progress",
+					entity: {
+						entitySchemaSlug: "anime",
+						name: "Recent Activity Anime",
+						image: {
+							kind: "remote",
+							url: "https://example.com/anime.png",
+						},
+					},
+				}),
+			]),
+		);
+		expect(typeof reviewedItem?.occurredAt).toBe("string");
+		expect(reviewedItem?.occurredAt).toMatch(
+			/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/,
+		);
+	});
+});
+
+describe("GET /media/overview/week", () => {
+	it("returns seven Monday through Sunday buckets with event counts", async () => {
+		const { client, cookies } = await createAuthenticatedClient();
+		const builtinTracker = await findBuiltinTracker(client, cookies);
+		const schemas = await listEntitySchemas(client, cookies, {
+			trackerId: builtinTracker.id,
+		});
+		const bookSchema = schemas.find((item) => item.slug === "book");
+		if (!bookSchema) {
+			throw new Error("Missing built-in book schema");
+		}
+		const bookProvider = bookSchema.providers[0];
+		if (!bookProvider) {
+			throw new Error("Missing built-in provider");
+		}
+
+		const weeklyBook = await createEntity(client, cookies, {
+			image: null,
+			name: "Weekly Activity Book",
+			entitySchemaId: bookSchema.id,
+			sandboxScriptId: bookProvider.scriptId,
+			properties: { publishYear: 2025, pages: 280 },
+			externalId: `book-week-${crypto.randomUUID()}`,
+		});
+
+		await createBuiltInMediaEvent({
+			client,
+			cookies,
+			properties: {},
+			entityId: weeklyBook.id,
+			eventSchemaSlug: "backlog",
+			entitySchemaId: bookSchema.id,
+		});
+		await createBuiltInMediaEvent({
+			client,
+			cookies,
+			entityId: weeklyBook.id,
+			eventSchemaSlug: "progress",
+			entitySchemaId: bookSchema.id,
+			properties: { progressPercent: 10 },
+		});
+		await createBuiltInMediaEvent({
+			client,
+			cookies,
+			entityId: weeklyBook.id,
+			eventSchemaSlug: "review",
+			entitySchemaId: bookSchema.id,
+			properties: { rating: 5, review: "Excellent" },
+		});
+
+		const { data, response } = await client.GET("/media/overview/week", {
+			headers: { Cookie: cookies },
+		});
+
+		expect(response.status).toBe(200);
+		expect(data?.data.count).toBe(7);
+		expect(data?.data.items.map((item) => item.dayLabel)).toEqual([
+			"Mon",
+			"Tue",
+			"Wed",
+			"Thu",
+			"Fri",
+			"Sat",
+			"Sun",
+		]);
+		expect(data?.data.items.reduce((sum, item) => sum + item.count, 0)).toBe(3);
+	});
+});
