@@ -7,6 +7,7 @@ import {
 } from "~/lib/views/errors";
 import {
 	getContinueItems,
+	getLibraryStats,
 	getRateTheseItems,
 	getRecentActivityItems,
 	getUpNextItems,
@@ -638,5 +639,248 @@ describe("getWeekActivity", () => {
 
 		expect(result.items[0]).toEqual({ count: 1, dayLabel: "Mon" });
 		expect(result.items[6]).toEqual({ count: 1, dayLabel: "Sun" });
+	});
+});
+
+const makeLibraryItem = (opts: {
+	id: string;
+	backlogAt?: Date;
+	progressAt?: Date;
+	completeAt?: Date;
+	reviewRating?: number;
+	entitySchemaSlug?: string;
+}) => {
+	const fields: {
+		key: string;
+		value: Date | number;
+		kind: "date" | "number";
+	}[] = [];
+	if (opts.backlogAt) {
+		fields.push({ key: "backlogAt", kind: "date", value: opts.backlogAt });
+	}
+	if (opts.progressAt) {
+		fields.push({ key: "progressAt", kind: "date", value: opts.progressAt });
+	}
+	if (opts.completeAt) {
+		fields.push({ key: "completeAt", kind: "date", value: opts.completeAt });
+	}
+	if (opts.reviewRating !== undefined) {
+		fields.push({
+			kind: "number",
+			key: "reviewRating",
+			value: opts.reviewRating,
+		});
+	}
+	return {
+		fields,
+		image: null,
+		id: opts.id,
+		name: `Entity ${opts.id}`,
+		entitySchemaId: "schema-1",
+		updatedAt: date("2024-01-01"),
+		createdAt: date("2024-01-01"),
+		entitySchemaSlug: opts.entitySchemaSlug ?? "book",
+	};
+};
+
+const libraryQueryResult = (items: ReturnType<typeof makeLibraryItem>[]) => ({
+	items,
+	meta: {
+		pagination: {
+			page: 1,
+			limit: 10000,
+			totalPages: 1,
+			hasNextPage: false,
+			total: items.length,
+			hasPreviousPage: false,
+		},
+	},
+});
+
+describe("getLibraryStats", () => {
+	it("counts total entities", async () => {
+		const result = expectDataResult(
+			await getLibraryStats("user_1", {
+				executeSectionQuery: async () =>
+					libraryQueryResult([
+						makeLibraryItem({ id: "e1" }),
+						makeLibraryItem({ id: "e2" }),
+						makeLibraryItem({ id: "e3" }),
+					]),
+			}),
+		);
+
+		expect(result.total).toBe(3);
+	});
+
+	it("counts inBacklog items — backlog only, no progress, no complete", async () => {
+		const result = expectDataResult(
+			await getLibraryStats("user_1", {
+				executeSectionQuery: async () =>
+					libraryQueryResult([
+						makeLibraryItem({ id: "e1", backlogAt: date("2024-01-01") }),
+						makeLibraryItem({ id: "e2" }),
+					]),
+			}),
+		);
+
+		expect(result.inBacklog).toBe(1);
+	});
+
+	it("does not count inBacklog when item is also completed (backlog → complete shortcut)", async () => {
+		const result = expectDataResult(
+			await getLibraryStats("user_1", {
+				executeSectionQuery: async () =>
+					libraryQueryResult([
+						makeLibraryItem({
+							id: "e1",
+							backlogAt: date("2024-01-01"),
+							completeAt: date("2024-01-10"),
+						}),
+					]),
+			}),
+		);
+
+		expect(result.inBacklog).toBe(0);
+		expect(result.completed).toBe(1);
+	});
+
+	it("counts inProgress items — progress with no complete", async () => {
+		const result = expectDataResult(
+			await getLibraryStats("user_1", {
+				executeSectionQuery: async () =>
+					libraryQueryResult([
+						makeLibraryItem({ id: "e1", progressAt: date("2024-01-05") }),
+					]),
+			}),
+		);
+
+		expect(result.inProgress).toBe(1);
+	});
+
+	it("counts inProgress when progress is more recent than complete", async () => {
+		const result = expectDataResult(
+			await getLibraryStats("user_1", {
+				executeSectionQuery: async () =>
+					libraryQueryResult([
+						makeLibraryItem({
+							id: "e1",
+							progressAt: date("2024-01-10"),
+							completeAt: date("2024-01-05"),
+						}),
+					]),
+			}),
+		);
+
+		expect(result.inProgress).toBe(1);
+		expect(result.completed).toBe(0);
+	});
+
+	it("counts completed items — complete with no progress", async () => {
+		const result = expectDataResult(
+			await getLibraryStats("user_1", {
+				executeSectionQuery: async () =>
+					libraryQueryResult([
+						makeLibraryItem({ id: "e1", completeAt: date("2024-01-10") }),
+					]),
+			}),
+		);
+
+		expect(result.completed).toBe(1);
+		expect(result.inProgress).toBe(0);
+	});
+
+	it("counts completed when complete is more recent than progress", async () => {
+		const result = expectDataResult(
+			await getLibraryStats("user_1", {
+				executeSectionQuery: async () =>
+					libraryQueryResult([
+						makeLibraryItem({
+							id: "e1",
+							progressAt: date("2024-01-05"),
+							completeAt: date("2024-01-10"),
+						}),
+					]),
+			}),
+		);
+
+		expect(result.completed).toBe(1);
+		expect(result.inProgress).toBe(0);
+	});
+
+	it("computes avgRating as the mean of all review ratings", async () => {
+		const result = expectDataResult(
+			await getLibraryStats("user_1", {
+				executeSectionQuery: async () =>
+					libraryQueryResult([
+						makeLibraryItem({ id: "e1", reviewRating: 4 }),
+						makeLibraryItem({ id: "e2", reviewRating: 2 }),
+					]),
+			}),
+		);
+
+		expect(result.avgRating).toBe(3);
+	});
+
+	it("returns null avgRating when no entities have reviews", async () => {
+		const result = expectDataResult(
+			await getLibraryStats("user_1", {
+				executeSectionQuery: async () =>
+					libraryQueryResult([makeLibraryItem({ id: "e1" })]),
+			}),
+		);
+
+		expect(result.avgRating).toBeNull();
+	});
+
+	it("breaks down counts by entity schema slug", async () => {
+		const result = expectDataResult(
+			await getLibraryStats("user_1", {
+				executeSectionQuery: async () =>
+					libraryQueryResult([
+						makeLibraryItem({ id: "e1", entitySchemaSlug: "book" }),
+						makeLibraryItem({ id: "e2", entitySchemaSlug: "book" }),
+						makeLibraryItem({ id: "e3", entitySchemaSlug: "anime" }),
+					]),
+			}),
+		);
+
+		expect(result.entityTypeCounts).toEqual({ book: 2, anime: 1 });
+	});
+
+	it("maps QueryEngineNotFoundError to not_found error", async () => {
+		const result = await getLibraryStats("user_1", {
+			executeSectionQuery: async () => {
+				throw new QueryEngineNotFoundError("Schema missing");
+			},
+		});
+
+		expect(result).toEqual({
+			error: "not_found",
+			message: "Built-in media overview configuration is invalid",
+		});
+	});
+
+	it("maps QueryEngineValidationError to validation error", async () => {
+		const result = await getLibraryStats("user_1", {
+			executeSectionQuery: async () => {
+				throw new QueryEngineValidationError("Invalid config");
+			},
+		});
+
+		expect(result).toEqual({
+			error: "validation",
+			message: "Built-in media overview configuration is invalid",
+		});
+	});
+
+	it("re-throws unexpected errors", async () => {
+		expect(
+			getLibraryStats("user_1", {
+				executeSectionQuery: async () => {
+					throw new Error("Unexpected error");
+				},
+			}),
+		).rejects.toThrow("Unexpected error");
 	});
 });
