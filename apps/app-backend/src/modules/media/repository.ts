@@ -1,3 +1,4 @@
+import { dayjs } from "@ryot/ts-utils/dayjs";
 import { and, desc, eq, gte, inArray, lt } from "drizzle-orm";
 import { db } from "~/lib/db";
 import { entity, entitySchema, event, eventSchema } from "~/lib/db/schema";
@@ -59,11 +60,11 @@ const toNullableRating = (properties: unknown) => {
 
 const toNullableDate = (value: unknown) => {
 	if (value instanceof Date) {
-		return Number.isNaN(value.getTime()) ? null : value;
+		return dayjs(value).isValid() ? value : null;
 	}
 	if (typeof value === "string") {
-		const parsed = new Date(value);
-		return Number.isNaN(parsed.getTime()) ? null : parsed;
+		const parsed = dayjs(value);
+		return parsed.isValid() ? parsed.toDate() : null;
 	}
 
 	return null;

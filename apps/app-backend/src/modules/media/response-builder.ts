@@ -260,7 +260,7 @@ export const buildRecentActivitySectionResponse = (
 	const activityItems = [...items]
 		.sort((left, right) => {
 			const occurredAtDiff =
-				right.occurredAt.getTime() - left.occurredAt.getTime();
+				dayjs(right.occurredAt).valueOf() - dayjs(left.occurredAt).valueOf();
 			if (occurredAtDiff !== 0) {
 				return occurredAtDiff;
 			}
@@ -282,7 +282,9 @@ export const buildWeekActivitySectionResponse = (input: {
 	items: WeekActivitySourceItem[];
 }): BuiltInMediaOverviewWeekActivityResponse => {
 	const weekItems = [...input.items]
-		.sort((left, right) => left.date.getTime() - right.date.getTime())
+		.sort(
+			(left, right) => dayjs(left.date).valueOf() - dayjs(right.date).valueOf(),
+		)
 		.map((item) => ({
 			count: item.count,
 			dayLabel: dayjs.utc(item.date).format("ddd"),

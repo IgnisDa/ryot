@@ -1,4 +1,5 @@
 import { describe, expect, it } from "bun:test";
+import { dayjs } from "@ryot/ts-utils/dayjs";
 import { calculatePagination, mapQueryRowToItem } from "./query-builder";
 
 describe("calculatePagination", () => {
@@ -68,8 +69,8 @@ describe("mapQueryRowToItem", () => {
 				id: "entity-1",
 				entity_schema_slug: "books",
 				entity_schema_id: "schema-1",
-				created_at: new Date("2024-01-01T00:00:00.000Z"),
-				updated_at: new Date("2024-01-02T00:00:00.000Z"),
+				created_at: dayjs("2024-01-01T00:00:00.000Z").toDate(),
+				updated_at: dayjs("2024-01-02T00:00:00.000Z").toDate(),
 				fields: [
 					{ key: "title", kind: "text", value: "" },
 					{ key: "image", kind: "null", value: null },
@@ -81,8 +82,8 @@ describe("mapQueryRowToItem", () => {
 			id: "entity-1",
 			entitySchemaSlug: "books",
 			entitySchemaId: "schema-1",
-			createdAt: new Date("2024-01-01T00:00:00.000Z"),
-			updatedAt: new Date("2024-01-02T00:00:00.000Z"),
+			createdAt: dayjs("2024-01-01T00:00:00.000Z").toDate(),
+			updatedAt: dayjs("2024-01-02T00:00:00.000Z").toDate(),
 			fields: [
 				{ key: "title", kind: "text", value: "" },
 				{ key: "image", kind: "null", value: null },
@@ -115,8 +116,8 @@ describe("mapQueryRowToItem", () => {
 				name: "Entity",
 				entity_schema_slug: "books",
 				entity_schema_id: "schema-1",
-				created_at: new Date("2024-01-01T00:00:00.000Z"),
-				updated_at: new Date("2024-01-02T00:00:00.000Z"),
+				created_at: dayjs("2024-01-01T00:00:00.000Z").toDate(),
+				updated_at: dayjs("2024-01-02T00:00:00.000Z").toDate(),
 				fields: [
 					{ key: "column_0", kind: "text", value: "Entity" },
 					{ key: "column_1", kind: "number", value: 2024 },
@@ -128,8 +129,8 @@ describe("mapQueryRowToItem", () => {
 			name: "Entity",
 			entitySchemaSlug: "books",
 			entitySchemaId: "schema-1",
-			createdAt: new Date("2024-01-01T00:00:00.000Z"),
-			updatedAt: new Date("2024-01-02T00:00:00.000Z"),
+			createdAt: dayjs("2024-01-01T00:00:00.000Z").toDate(),
+			updatedAt: dayjs("2024-01-02T00:00:00.000Z").toDate(),
 			fields: [
 				{ key: "column_0", kind: "text", value: "Entity" },
 				{ key: "column_1", kind: "number", value: 2024 },

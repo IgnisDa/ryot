@@ -1,4 +1,5 @@
 import { z } from "@hono/zod-openapi";
+import { dayjs } from "@ryot/ts-utils/dayjs";
 import { generateId } from "better-auth";
 import { sql } from "drizzle-orm";
 import {
@@ -75,7 +76,7 @@ export const tracker = pgTable(
 			.$defaultFn(() => /* @__PURE__ */ generateId()),
 		updatedAt: timestamp()
 			.defaultNow()
-			.$onUpdate(() => /* @__PURE__ */ new Date())
+			.$onUpdate(() => /* @__PURE__ */ dayjs().toDate())
 			.notNull(),
 	},
 	(table) => [
@@ -101,7 +102,7 @@ export const entitySchema = pgTable(
 			.$defaultFn(() => /* @__PURE__ */ generateId()),
 		updatedAt: timestamp()
 			.defaultNow()
-			.$onUpdate(() => /* @__PURE__ */ new Date())
+			.$onUpdate(() => /* @__PURE__ */ dayjs().toDate())
 			.notNull(),
 	},
 	(table) => [
@@ -126,7 +127,7 @@ export const trackerEntitySchema = pgTable(
 			.$defaultFn(() => /* @__PURE__ */ generateId()),
 		updatedAt: timestamp()
 			.defaultNow()
-			.$onUpdate(() => /* @__PURE__ */ new Date())
+			.$onUpdate(() => /* @__PURE__ */ dayjs().toDate())
 			.notNull(),
 	},
 	(table) => [
@@ -159,7 +160,7 @@ export const eventSchema = pgTable(
 			.$defaultFn(() => /* @__PURE__ */ generateId()),
 		updatedAt: timestamp()
 			.defaultNow()
-			.$onUpdate(() => /* @__PURE__ */ new Date())
+			.$onUpdate(() => /* @__PURE__ */ dayjs().toDate())
 			.notNull(),
 	},
 	(table) => [
@@ -190,7 +191,7 @@ export const sandboxScript = pgTable(
 			.$defaultFn(() => /* @__PURE__ */ generateId()),
 		updatedAt: timestamp()
 			.defaultNow()
-			.$onUpdate(() => /* @__PURE__ */ new Date())
+			.$onUpdate(() => /* @__PURE__ */ dayjs().toDate())
 			.notNull(),
 	},
 	(table) => [
@@ -215,7 +216,7 @@ export const entitySchemaScript = pgTable(
 		createdAt: timestamp().defaultNow().notNull(),
 		updatedAt: timestamp()
 			.defaultNow()
-			.$onUpdate(() => /* @__PURE__ */ new Date())
+			.$onUpdate(() => /* @__PURE__ */ dayjs().toDate())
 			.notNull(),
 	},
 	(table) => [
@@ -251,7 +252,7 @@ export const entity = pgTable(
 			.$defaultFn(() => /* @__PURE__ */ generateId()),
 		updatedAt: timestamp()
 			.defaultNow()
-			.$onUpdate(() => /* @__PURE__ */ new Date())
+			.$onUpdate(() => /* @__PURE__ */ dayjs().toDate())
 			.notNull(),
 	},
 	(table) => [
@@ -292,7 +293,7 @@ export const event = pgTable(
 			.references(() => entity.id, { onDelete: "cascade" }),
 		updatedAt: timestamp()
 			.defaultNow()
-			.$onUpdate(() => /* @__PURE__ */ new Date())
+			.$onUpdate(() => /* @__PURE__ */ dayjs().toDate())
 			.notNull(),
 	},
 	(table) => [
@@ -351,7 +352,7 @@ export const savedView = pgTable(
 			.references(() => user.id, { onDelete: "cascade" }),
 		updatedAt: timestamp()
 			.defaultNow()
-			.$onUpdate(() => /* @__PURE__ */ new Date())
+			.$onUpdate(() => /* @__PURE__ */ dayjs().toDate())
 			.notNull(),
 	},
 	(table) => [

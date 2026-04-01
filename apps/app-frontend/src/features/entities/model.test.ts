@@ -1,4 +1,5 @@
 import { describe, expect, it } from "bun:test";
+import { dayjs } from "@ryot/ts-utils/dayjs";
 import { createEntityFixture } from "#/features/test-fixtures";
 import { getEntityListViewState, sortEntities, toAppEntity } from "./model";
 
@@ -8,12 +9,12 @@ describe("sortEntities", () => {
 			createEntityFixture({
 				id: "2",
 				name: "Zebra",
-				createdAt: new Date("2024-01-01"),
+				createdAt: dayjs("2024-01-01").toDate(),
 			}),
 			createEntityFixture({
 				id: "1",
 				name: "Apple",
-				createdAt: new Date("2024-01-02"),
+				createdAt: dayjs("2024-01-02").toDate(),
 			}),
 		];
 
@@ -28,12 +29,12 @@ describe("sortEntities", () => {
 			createEntityFixture({
 				id: "2",
 				name: "Book",
-				createdAt: new Date("2024-01-02"),
+				createdAt: dayjs("2024-01-02").toDate(),
 			}),
 			createEntityFixture({
 				id: "1",
 				name: "Book",
-				createdAt: new Date("2024-01-01"),
+				createdAt: dayjs("2024-01-01").toDate(),
 			}),
 		];
 
@@ -58,12 +59,12 @@ describe("getEntityListViewState", () => {
 			createEntityFixture({
 				id: "2",
 				name: "Zebra",
-				createdAt: new Date("2024-01-01"),
+				createdAt: dayjs("2024-01-01").toDate(),
 			}),
 			createEntityFixture({
 				id: "1",
 				name: "Apple",
-				createdAt: new Date("2024-01-02"),
+				createdAt: dayjs("2024-01-02").toDate(),
 			}),
 		];
 
@@ -99,8 +100,12 @@ describe("toAppEntity", () => {
 			kind: "remote",
 			url: "https://example.com/apple.jpg",
 		});
-		expect(entity.createdAt.toISOString()).toBe("2026-03-08T10:15:00.000Z");
-		expect(entity.updatedAt.toISOString()).toBe("2026-03-08T10:20:00.000Z");
+		expect(dayjs(entity.createdAt).toISOString()).toBe(
+			"2026-03-08T10:15:00.000Z",
+		);
+		expect(dayjs(entity.updatedAt).toISOString()).toBe(
+			"2026-03-08T10:20:00.000Z",
+		);
 		expect(entity.sandboxScriptId).toBeNull();
 	});
 });
