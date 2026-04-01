@@ -85,6 +85,17 @@ const builtInMediaOverviewWeekActivityItemSchema = z
 	})
 	.strict();
 
+const builtInMediaOverviewLibraryItemSchema = z
+	.object({
+		avgRating: z.number().nullable(),
+		total: z.number().int().nonnegative(),
+		inBacklog: z.number().int().nonnegative(),
+		completed: z.number().int().nonnegative(),
+		inProgress: z.number().int().nonnegative(),
+		entityTypeCounts: z.record(z.string(), z.number().int().nonnegative()),
+	})
+	.strict();
+
 const createOverviewSectionSchema = <TItem extends z.ZodTypeAny>(item: TItem) =>
 	z
 		.object({ items: z.array(item), count: z.number().int().nonnegative() })
@@ -136,6 +147,10 @@ export const builtInMediaOverviewWeekActivityResponseSchema = itemDataSchema(
 	builtInMediaOverviewWeekActivitySectionSchema,
 );
 
+export const builtInMediaOverviewLibraryResponseSchema = itemDataSchema(
+	builtInMediaOverviewLibraryItemSchema,
+);
+
 export const builtInMediaOverviewResponseSchema = itemDataSchema(
 	builtInMediaOverviewDataSchema,
 );
@@ -158,6 +173,10 @@ export type BuiltInMediaOverviewRecentActivityResponse = z.infer<
 
 export type BuiltInMediaOverviewWeekActivityResponse = z.infer<
 	typeof builtInMediaOverviewWeekActivitySectionSchema
+>;
+
+export type BuiltInMediaOverviewLibraryResponse = z.infer<
+	typeof builtInMediaOverviewLibraryItemSchema
 >;
 
 export type BuiltInMediaOverviewResponse = z.infer<

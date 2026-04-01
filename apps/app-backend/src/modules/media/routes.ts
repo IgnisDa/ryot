@@ -10,6 +10,7 @@ import {
 } from "~/lib/openapi";
 import {
 	builtInMediaOverviewContinueResponseSchema,
+	builtInMediaOverviewLibraryResponseSchema,
 	builtInMediaOverviewRateTheseResponseSchema,
 	builtInMediaOverviewRecentActivityResponseSchema,
 	builtInMediaOverviewUpNextResponseSchema,
@@ -17,6 +18,7 @@ import {
 } from "./schemas";
 import {
 	getContinueItems,
+	getLibraryStats,
 	getRateTheseItems,
 	getRecentActivityItems,
 	getUpNextItems,
@@ -117,6 +119,20 @@ const getMediaOverviewWeekActivityRoute = createAuthRoute(
 	}),
 );
 
+const getMediaOverviewLibraryRoute = createAuthRoute(
+	createRoute({
+		method: "get",
+		tags: ["media"],
+		path: "/overview/library",
+		summary: "Get the library statistics overview",
+		responses: createStandardResponses({
+			includePayloadError: false,
+			successDescription: "Library statistics overview",
+			successSchema: builtInMediaOverviewLibraryResponseSchema,
+		}),
+	}),
+);
+
 export const mediaApi = new OpenAPIHono<{ Variables: AuthType }>()
 	.openapi(getMediaOverviewUpNextRoute, async (c) => {
 		const user = c.get("user");
@@ -165,6 +181,18 @@ export const mediaApi = new OpenAPIHono<{ Variables: AuthType }>()
 		const user = c.get("user");
 
 		const result = await getWeekActivity(user.id);
+		const response = createSuccessResult(result.data);
+		return c.json(response.body, response.status);
+	})
+	.openapi(getMediaOverviewLibraryRoute, async (c) => {
+		const user = c.get("user");
+
+		const result = await getLibraryStats(user.id);
+		if ("error" in result) {
+			const response = createServiceErrorResult(result);
+			return c.json(response.body, response.status);
+		}
+
 		const response = createSuccessResult(result.data);
 		return c.json(response.body, response.status);
 	});

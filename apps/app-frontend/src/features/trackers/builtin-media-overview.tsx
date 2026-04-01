@@ -84,33 +84,6 @@ function getSectionBackground(props: {
 	return `linear-gradient(180deg, ${colorMix(props.accent, 0.08)} 0%, ${colorMix(props.accent, 0.03)} 18%, ${props.surface} 40%, ${props.surface} 100%)`;
 }
 
-type MediaType =
-	| "Book"
-	| "Show"
-	| "Movie"
-	| "Anime"
-	| "Manga"
-	| "Music"
-	| "Podcast"
-	| "AudioBook"
-	| "VideoGame"
-	| "ComicBook"
-	| "VisualNovel";
-
-const TYPE_COLORS: Record<MediaType, string> = {
-	Book: "#8B5E3C",
-	Show: "#5B7FFF",
-	Movie: "#E05252",
-	Anime: "#FF6B6B",
-	Manga: "#C9943A",
-	Music: "#9B59B6",
-	Podcast: "#1ABC9C",
-	AudioBook: "#E67E22",
-	VideoGame: "#27AE60",
-	ComicBook: "#E74C3C",
-	VisualNovel: "#F39C12",
-};
-
 type OverviewUpNextItem =
 	ApiGetResponseData<"/media/overview/up-next">["items"][number];
 type OverviewContinueItem =
@@ -138,31 +111,6 @@ interface WeekDayView {
 	day: string;
 	count: number;
 }
-
-const LIBRARY_STATS = {
-	total: 29,
-	onHold: 5,
-	active: 11,
-	dropped: 1,
-	completed: 15,
-	avgRating: 4.6,
-	thisWeekHours: 18,
-	thisWeekCompleted: 2,
-};
-
-const TYPE_COUNTS: { type: MediaType; count: number }[] = [
-	{ type: "Book", count: 4 },
-	{ type: "Show", count: 3 },
-	{ type: "Anime", count: 5 },
-	{ type: "Movie", count: 3 },
-	{ type: "Music", count: 3 },
-	{ type: "Manga", count: 2 },
-	{ type: "Podcast", count: 2 },
-	{ type: "VideoGame", count: 3 },
-	{ type: "AudioBook", count: 2 },
-	{ type: "ComicBook", count: 2 },
-	{ type: "VisualNovel", count: 2 },
-];
 
 function getActivityDateLabel(date: Dayjs) {
 	const now = dayjs();
@@ -766,6 +714,7 @@ function WeekStrip(props: {
 	days: WeekDayView[];
 	accentColor: string;
 	textPrimary: string;
+	weekTotalEvents: number;
 }) {
 	const maxCount = Math.max(...props.days.map((d) => d.count), 1);
 	const activeDays = props.days.filter((day) => day.count > 0).length;
@@ -794,8 +743,7 @@ function WeekStrip(props: {
 					</Text>
 				</Stack>
 				<Text fz="xs" c={props.textMuted}>
-					{LIBRARY_STATS.thisWeekCompleted} completed &middot;{" "}
-					{LIBRARY_STATS.thisWeekHours}h tracked
+					{props.weekTotalEvents} events this week
 				</Text>
 			</Group>
 			<Group gap="xs" justify="space-between">
@@ -911,7 +859,7 @@ function TypeBar(props: {
 	total: number;
 	border: string;
 	textMuted: string;
-	types: { type: MediaType; count: number }[];
+	types: { slug: string; count: number; color: string }[];
 }) {
 	return (
 		<Stack gap={6}>
@@ -922,13 +870,13 @@ function TypeBar(props: {
 				{props.types.map((t) => {
 					const pct = (t.count / props.total) * 100;
 					return (
-						<Tooltip key={t.type} label={`${t.type}: ${t.count}`}>
+						<Tooltip key={t.slug} label={`${t.slug}: ${t.count}`}>
 							<Box
 								h="100%"
 								style={{
 									minWidth: 3,
 									width: `${pct}%`,
-									backgroundColor: TYPE_COLORS[t.type],
+									backgroundColor: t.color,
 								}}
 							/>
 						</Tooltip>
@@ -937,14 +885,14 @@ function TypeBar(props: {
 			</Box>
 			<Group gap="sm" wrap="wrap">
 				{props.types.slice(0, 6).map((t) => (
-					<Group key={t.type} gap={4}>
+					<Group key={t.slug} gap={4}>
 						<Box
 							w={8}
 							h={8}
-							style={{ borderRadius: 2, backgroundColor: TYPE_COLORS[t.type] }}
+							style={{ borderRadius: 2, backgroundColor: t.color }}
 						/>
-						<Text fz={10} c={props.textMuted}>
-							{t.type} ({t.count})
+						<Text fz={10} c={props.textMuted} tt="capitalize">
+							{t.slug} ({t.count})
 						</Text>
 					</Group>
 				))}
@@ -1022,6 +970,7 @@ export function BuiltinMediaTrackerOverview(
 
 	const weekQuery = apiClient.useQuery("get", "/media/overview/week");
 	const upNextQuery = apiClient.useQuery("get", "/media/overview/up-next");
+	const libraryQuery = apiClient.useQuery("get", "/media/overview/library");
 	const rateTheseQuery = apiClient.useQuery("get", "/media/overview/review");
 	const continueQuery = apiClient.useQuery("get", "/media/overview/continue");
 	const activityQuery = apiClient.useQuery("get", "/media/overview/activity");
@@ -1176,6 +1125,7 @@ export function BuiltinMediaTrackerOverview(
 		rateTheseQuery.isLoading ||
 		activityQuery.isLoading ||
 		weekQuery.isLoading ||
+		libraryQuery.isLoading ||
 		imageUrls.isLoading
 	) {
 		return (
@@ -1192,6 +1142,7 @@ export function BuiltinMediaTrackerOverview(
 		rateTheseQuery.isError ||
 		activityQuery.isError ||
 		weekQuery.isError ||
+		libraryQuery.isError ||
 		imageUrls.isError
 	) {
 		return (
@@ -1229,6 +1180,15 @@ export function BuiltinMediaTrackerOverview(
 		(total, day) => total + day.count,
 		0,
 	);
+
+	const libraryData = libraryQuery.data?.data;
+	const libraryTypeCounts = libraryData
+		? Object.entries(libraryData.entityTypeCounts).map(([slug, count]) => ({
+				slug,
+				count,
+				color: schemaBySlug.get(slug)?.accentColor ?? STONE,
+			}))
+		: [];
 
 	return (
 		<Stack gap="xl" ref={mainRef}>
@@ -1445,6 +1405,7 @@ export function BuiltinMediaTrackerOverview(
 						days={liveWeekActivity}
 						textMuted={t.textMuted}
 						textPrimary={t.textPrimary}
+						weekTotalEvents={weekTotalEvents}
 						accentColor={SECTION_ACCENTS.activity}
 					/>
 					<Group gap="xs" mt="md" mb="sm">
@@ -1505,7 +1466,7 @@ export function BuiltinMediaTrackerOverview(
 					accentColor={SECTION_ACCENTS.library}
 					right={
 						<Text fz="xs" c={t.textMuted}>
-							{LIBRARY_STATS.total} total entries
+							{libraryData?.total ?? 0} total entries
 						</Text>
 					}
 				/>
@@ -1516,17 +1477,17 @@ export function BuiltinMediaTrackerOverview(
 							border={t.border}
 							surface={t.surface}
 							textMuted={t.textMuted}
-							value={LIBRARY_STATS.total}
+							value={libraryData?.total ?? 0}
 							textPrimary={t.textPrimary}
 						/>
 						<StatChip
-							label="Active"
+							label="In Progress"
 							color="#5B7FFF"
 							border={t.border}
 							surface={t.surface}
 							textMuted={t.textMuted}
 							textPrimary={t.textPrimary}
-							value={LIBRARY_STATS.active}
+							value={libraryData?.inProgress ?? 0}
 						/>
 						<StatChip
 							color="#5B8A5F"
@@ -1535,7 +1496,7 @@ export function BuiltinMediaTrackerOverview(
 							surface={t.surface}
 							textMuted={t.textMuted}
 							textPrimary={t.textPrimary}
-							value={LIBRARY_STATS.completed}
+							value={libraryData?.completed ?? 0}
 						/>
 						<StatChip
 							color={GOLD}
@@ -1544,16 +1505,16 @@ export function BuiltinMediaTrackerOverview(
 							surface={t.surface}
 							textMuted={t.textMuted}
 							textPrimary={t.textPrimary}
-							value={LIBRARY_STATS.avgRating.toFixed(1)}
+							value={libraryData?.avgRating?.toFixed(1) ?? "-"}
 						/>
 						<StatChip
 							color="#E09840"
-							label="On Hold"
+							label="In Backlog"
 							border={t.border}
 							surface={t.surface}
 							textMuted={t.textMuted}
 							textPrimary={t.textPrimary}
-							value={LIBRARY_STATS.onHold}
+							value={libraryData?.inBacklog ?? 0}
 						/>
 					</SimpleGrid>
 					<Paper
@@ -1575,9 +1536,9 @@ export function BuiltinMediaTrackerOverview(
 						</Text>
 						<TypeBar
 							border={t.border}
-							types={TYPE_COUNTS}
 							textMuted={t.textMuted}
-							total={LIBRARY_STATS.total}
+							types={libraryTypeCounts}
+							total={libraryData?.total ?? 0}
 						/>
 					</Paper>
 				</Stack>
