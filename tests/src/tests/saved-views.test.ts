@@ -40,6 +40,43 @@ describe("Saved views E2E", () => {
 		expect(listedViewIds).toContain(createdView.id);
 	});
 
+	it("seeds the Collections built-in view against the collection schema", async () => {
+		const { client, cookies } = await createAuthenticatedClient();
+		const views = await listSavedViews(client, cookies);
+		const collectionsView = views.find((view) => view.name === "Collections");
+
+		expect(collectionsView).toBeDefined();
+		expect(collectionsView).toMatchObject({
+			icon: "folders",
+			isBuiltin: true,
+			name: "Collections",
+			accentColor: "#F59E0B",
+			queryDefinition: {
+				filter: null,
+				eventJoins: [],
+				entitySchemaSlugs: ["collection"],
+			},
+			displayConfiguration: {
+				table: {
+					columns: [
+						{
+							label: "Name",
+							expression: entityColumnExpression("collection", "name"),
+						},
+					],
+				},
+				grid: {
+					titleProperty: entityColumnExpression("collection", "name"),
+					imageProperty: entityColumnExpression("collection", "image"),
+				},
+				list: {
+					titleProperty: entityColumnExpression("collection", "name"),
+					imageProperty: entityColumnExpression("collection", "image"),
+				},
+			},
+		});
+	});
+
 	it("supports the full create-get-update-clone-delete lifecycle", async () => {
 		const { client, cookies } = await createAuthenticatedClient();
 		const createdView = await createSavedView(client, cookies, {
