@@ -6,6 +6,7 @@ import type {
 	AppSchemaFields,
 	AppSchemaRuleCondition,
 	AppSchemaRuleValue,
+	AppSchemaUnknownKeysPolicy,
 } from "@ryot/ts-utils";
 import {
 	appPropertyPrimitiveTypes,
@@ -52,6 +53,11 @@ const withValidationRange = <TSchema extends z.ZodTypeAny>(
 const requiredValidationSchema = z.strictObject({
 	required: z.literal(true).optional(),
 });
+
+const unknownKeysPolicySchema: z.ZodType<AppSchemaUnknownKeysPolicy> = z.enum([
+	"strip",
+	"strict",
+]);
 
 const hasValidNumericBounds = (value: {
 	maximum?: number;
@@ -219,6 +225,7 @@ const arrayPropertySchema = z
 const objectPropertySchema = z
 	.strictObject({
 		type: z.literal("object"),
+		unknownKeys: unknownKeysPolicySchema.optional(),
 		validation: requiredOnlyValidationSchema.optional(),
 		properties: z.record(
 			z.string(),
