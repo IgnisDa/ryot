@@ -3108,13 +3108,25 @@ export interface paths {
                     content: {
                         "application/json": {
                             data: {
-                                id: string;
-                                relType: string;
-                                createdAt: string;
-                                sourceEntityId: string;
-                                targetEntityId: string;
-                                properties: {
-                                    [key: string]: unknown;
+                                collection: {
+                                    id: string;
+                                    relType: string;
+                                    createdAt: string;
+                                    sourceEntityId: string;
+                                    targetEntityId: string;
+                                    properties: {
+                                        [key: string]: unknown;
+                                    };
+                                };
+                                memberOf: {
+                                    id: string;
+                                    relType: string;
+                                    createdAt: string;
+                                    sourceEntityId: string;
+                                    targetEntityId: string;
+                                    properties: {
+                                        [key: string]: unknown;
+                                    };
                                 };
                             };
                         };
@@ -3155,7 +3167,93 @@ export interface paths {
                 };
             };
         };
-        delete?: never;
+        /**
+         * Remove an entity from a collection
+         * @description Remove an entity from a collection by deleting the collection relationship between the collection entity and the target entity.
+         */
+        delete: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: {
+                content: {
+                    "application/json": {
+                        collectionId: string;
+                        entityId: string;
+                    };
+                };
+            };
+            responses: {
+                /** @description Entity was removed from collection */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            data: {
+                                collection: {
+                                    id: string;
+                                    relType: string;
+                                    createdAt: string;
+                                    sourceEntityId: string;
+                                    targetEntityId: string;
+                                    properties: {
+                                        [key: string]: unknown;
+                                    };
+                                };
+                                memberOf: {
+                                    id: string;
+                                    relType: string;
+                                    createdAt: string;
+                                    sourceEntityId: string;
+                                    targetEntityId: string;
+                                    properties: {
+                                        [key: string]: unknown;
+                                    };
+                                };
+                            };
+                        };
+                    };
+                };
+                /** @description Request payload validation failed */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: components["schemas"]["ValidationFailedError"];
+                        };
+                    };
+                };
+                /** @description Request is unauthenticated */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: components["schemas"]["UnauthenticatedError"];
+                        };
+                    };
+                };
+                /** @description Collection, entity, or membership not found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: components["schemas"]["NotFoundError"];
+                        };
+                    };
+                };
+            };
+        };
         options?: never;
         head?: never;
         patch?: never;
