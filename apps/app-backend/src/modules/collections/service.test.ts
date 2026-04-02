@@ -1031,6 +1031,30 @@ describe("createCollection", () => {
 			}
 		});
 
+		it("returns not_found error when entity schema is not visible to user", async () => {
+			const depsWithInvisibleEntitySchema = {
+				...mockAddToCollectionDeps,
+				getEntityById: async () => undefined,
+			};
+
+			const result = await addToCollection(
+				{
+					body: {
+						collectionId: "collection-1",
+						entityId: "entity-with-invisible-schema",
+					},
+					userId: "user-1",
+				},
+				depsWithInvisibleEntitySchema,
+			);
+
+			expect("error" in result).toBe(true);
+			if ("error" in result) {
+				expect(result.error).toBe("not_found");
+				expect(result.message).toBe("Entity not found");
+			}
+		});
+
 		it("returns not_found error when collection does not exist", async () => {
 			const depsWithMissingCollection = {
 				...mockAddToCollectionDeps,
@@ -1302,6 +1326,30 @@ describe("removeFromCollection", () => {
 				userId: "user-1",
 			},
 			depsWithMissingEntity,
+		);
+
+		expect("error" in result).toBe(true);
+		if ("error" in result) {
+			expect(result.error).toBe("not_found");
+			expect(result.message).toBe("Entity not found");
+		}
+	});
+
+	it("returns not_found error when entity schema is not visible to user", async () => {
+		const depsWithInvisibleEntitySchema = {
+			...mockRemoveFromCollectionDeps,
+			getEntityById: async () => undefined,
+		};
+
+		const result = await removeFromCollection(
+			{
+				body: {
+					collectionId: "collection-1",
+					entityId: "entity-with-invisible-schema",
+				},
+				userId: "user-1",
+			},
+			depsWithInvisibleEntitySchema,
 		);
 
 		expect("error" in result).toBe(true);
