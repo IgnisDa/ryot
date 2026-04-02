@@ -1,4 +1,5 @@
 export * from "./auth";
+export * from "./collections";
 export * from "./entities";
 export * from "./entity-schemas";
 export * from "./event-schemas";
