@@ -7,18 +7,34 @@ import {
 } from "~/lib/result";
 import { propertySchemaInputSchema } from "~/modules/property-schemas/schemas";
 import {
+	addEntityToCollection,
 	createCollectionForUser,
 	getBuiltinCollectionSchema,
+	getCollectionById,
+	getEntityById,
 } from "./repository";
-import type { CollectionResponse, CreateCollectionBody } from "./schemas";
+import type {
+	AddToCollectionBody,
+	AddToCollectionResponse,
+	CollectionResponse,
+	CreateCollectionBody,
+} from "./schemas";
 
 const collectionSchemaNotFoundError = "Collection entity schema not found";
 const invalidMembershipSchemaError =
 	"membershipPropertiesSchema must be a valid AppSchema";
+const collectionNotFoundError = "Collection not found";
+const entityNotFoundError = "Entity not found";
 
 export type CollectionServiceDeps = {
 	createCollectionForUser: typeof createCollectionForUser;
 	getBuiltinCollectionSchema: typeof getBuiltinCollectionSchema;
+};
+
+export type AddToCollectionServiceDeps = {
+	addEntityToCollection: typeof addEntityToCollection;
+	getCollectionById: typeof getCollectionById;
+	getEntityById: typeof getEntityById;
 };
 
 export type CollectionServiceResult<T> = ServiceResult<
@@ -85,4 +101,40 @@ export const createCollection = async (
 	});
 
 	return serviceData(createdCollection);
+};
+
+const addToCollectionServiceDeps: AddToCollectionServiceDeps = {
+	addEntityToCollection,
+	getCollectionById,
+	getEntityById,
+};
+
+export const addToCollection = async (
+	input: { body: AddToCollectionBody; userId: string },
+	deps: AddToCollectionServiceDeps = addToCollectionServiceDeps,
+): Promise<CollectionServiceResult<AddToCollectionResponse["data"]>> => {
+	// Verify the collection exists and belongs to the user
+	const collection = await deps.getCollectionById(
+		input.body.collectionId,
+		input.userId,
+	);
+	if (!collection) {
+		return serviceError("not_found", collectionNotFoundError);
+	}
+
+	// Verify the entity exists and belongs to the user
+	const entity = await deps.getEntityById(input.body.entityId, input.userId);
+	if (!entity) {
+		return serviceError("not_found", entityNotFoundError);
+	}
+
+	// Create the relationship
+	const membership = await deps.addEntityToCollection({
+		collectionId: input.body.collectionId,
+		entityId: input.body.entityId,
+		userId: input.userId,
+		properties: input.body.properties ?? {},
+	});
+
+	return serviceData(membership);
 };

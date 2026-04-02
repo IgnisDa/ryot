@@ -1,7 +1,7 @@
 import { and, eq } from "drizzle-orm";
 import { db } from "~/lib/db";
-import { entity, entitySchema } from "~/lib/db/schema";
-import type { CollectionResponse } from "./schemas";
+import { entity, entitySchema, relationship } from "~/lib/db/schema";
+import type { AddToCollectionResponse, CollectionResponse } from "./schemas";
 
 const collectionSelection = {
 	id: entity.id,
@@ -68,4 +68,93 @@ export const createCollectionForUser = async (input: {
 	}
 
 	return toCollectionResponse(createdEntity as CollectionRow);
+};
+
+const collectionMembershipSelection = {
+	id: relationship.id,
+	relType: relationship.relType,
+	createdAt: relationship.createdAt,
+	sourceEntityId: relationship.sourceEntityId,
+	targetEntityId: relationship.targetEntityId,
+	properties: relationship.properties,
+};
+
+type CollectionMembershipRow = Omit<
+	AddToCollectionResponse["data"],
+	"createdAt" | "properties"
+> & {
+	createdAt: Date;
+	properties: unknown;
+};
+
+const toAddToCollectionResponse = (
+	row: CollectionMembershipRow,
+): AddToCollectionResponse["data"] => ({
+	...row,
+	createdAt: row.createdAt.toISOString(),
+	properties: row.properties as Record<string, unknown>,
+});
+
+export const addEntityToCollection = async (input: {
+	collectionId: string;
+	entityId: string;
+	userId: string;
+	properties: Record<string, unknown>;
+}): Promise<AddToCollectionResponse["data"]> => {
+	const [createdRelationship] = await db
+		.insert(relationship)
+		.values({
+			relType: "collection",
+			sourceEntityId: input.collectionId,
+			targetEntityId: input.entityId,
+			userId: input.userId,
+			properties: input.properties,
+		})
+		.returning(collectionMembershipSelection);
+
+	if (!createdRelationship) {
+		throw new Error("Could not add entity to collection");
+	}
+
+	return toAddToCollectionResponse(
+		createdRelationship as CollectionMembershipRow,
+	);
+};
+
+export const getCollectionById = async (
+	collectionId: string,
+	userId: string,
+): Promise<CollectionResponse | undefined> => {
+	const [foundEntity] = await db
+		.select(collectionSelection)
+		.from(entity)
+		.innerJoin(entitySchema, eq(entity.entitySchemaId, entitySchema.id))
+		.where(
+			and(
+				eq(entity.id, collectionId),
+				eq(entity.userId, userId),
+				eq(entitySchema.slug, "collection"),
+				eq(entitySchema.isBuiltin, true),
+			),
+		)
+		.limit(1);
+
+	if (!foundEntity) {
+		return undefined;
+	}
+
+	return toCollectionResponse(foundEntity as CollectionRow);
+};
+
+export const getEntityById = async (
+	entityId: string,
+	userId: string,
+): Promise<{ id: string } | undefined> => {
+	const [foundEntity] = await db
+		.select({ id: entity.id })
+		.from(entity)
+		.where(and(eq(entity.id, entityId), eq(entity.userId, userId)))
+		.limit(1);
+
+	return foundEntity;
 };
