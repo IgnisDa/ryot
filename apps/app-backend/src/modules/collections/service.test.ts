@@ -487,6 +487,22 @@ describe("createCollection", () => {
 			getEntityById: async () => mockEntity,
 		};
 
+		it("returns validation error when trying to add collection to itself", async () => {
+			const result = await addToCollection(
+				{
+					body: { collectionId: "same-id", entityId: "same-id" },
+					userId: "user-1",
+				},
+				mockAddToCollectionDeps,
+			);
+
+			expect("error" in result).toBe(true);
+			if ("error" in result) {
+				expect(result.error).toBe("validation");
+				expect(result.message).toBe("Cannot add a collection to itself");
+			}
+		});
+
 		it("adds an entity to a collection and returns both relationships", async () => {
 			const result = await addToCollection(
 				{
