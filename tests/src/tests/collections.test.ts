@@ -124,4 +124,160 @@ describe("POST /collections", () => {
 		expect(response.status).toBe(400);
 		expect(error?.error?.message).toContain("Collection name");
 	});
+
+	describe("nested membershipPropertiesSchema validation", () => {
+		it("creates a collection with deeply nested object properties", async () => {
+			const { client, cookies } = await createAuthenticatedClient();
+
+			const membershipPropertiesSchema = {
+				fields: {
+					friendWhoRecommendedIt: { type: "string" as const },
+					recommendationDetails: {
+						type: "object" as const,
+						properties: {
+							where: { type: "string" as const },
+							when: { type: "date" as const },
+							rating: { type: "integer" as const },
+						},
+					},
+				},
+			};
+
+			const collection = await createCollection(client, cookies, {
+				name: "Nested Schema Collection",
+				description: "Testing nested properties",
+				membershipPropertiesSchema,
+			});
+
+			expect(collection.id).toBeDefined();
+			expect(collection.properties.membershipPropertiesSchema).toEqual(
+				membershipPropertiesSchema,
+			);
+		});
+
+		it("creates a collection with array item schemas", async () => {
+			const { client, cookies } = await createAuthenticatedClient();
+
+			const membershipPropertiesSchema = {
+				fields: {
+					tags: {
+						type: "array" as const,
+						items: { type: "string" as const },
+					},
+					recommendations: {
+						type: "array" as const,
+						items: {
+							type: "object" as const,
+							properties: {
+								friend: { type: "string" as const },
+								context: { type: "string" as const },
+							},
+						},
+					},
+				},
+			};
+
+			const collection = await createCollection(client, cookies, {
+				name: "Array Schema Collection",
+				description: "Testing array item schemas",
+				membershipPropertiesSchema,
+			});
+
+			expect(collection.id).toBeDefined();
+			expect(collection.properties.membershipPropertiesSchema).toEqual(
+				membershipPropertiesSchema,
+			);
+		});
+
+		it("rejects collection creation with invalid nested property type", async () => {
+			const { client, cookies } = await createAuthenticatedClient();
+
+			const { response, error } = await client.POST("/collections", {
+				headers: { Cookie: cookies },
+				body: {
+					name: "Invalid Nested Collection",
+					description: "Should fail",
+					membershipPropertiesSchema: {
+						fields: {
+							nested: {
+								type: "object" as const,
+								properties: {
+									invalidField: { type: "unknown_type" },
+								},
+							},
+						},
+					},
+				} as unknown as { name: string; description?: string },
+			});
+
+			expect(response.status).toBe(400);
+			expect(error?.error?.message).toContain("Invalid property definition");
+		});
+
+		it("rejects collection creation with invalid nested array item type", async () => {
+			const { client, cookies } = await createAuthenticatedClient();
+
+			const { response, error } = await client.POST("/collections", {
+				headers: { Cookie: cookies },
+				body: {
+					name: "Invalid Array Collection",
+					description: "Should fail",
+					membershipPropertiesSchema: {
+						fields: {
+							tags: {
+								type: "array" as const,
+								items: { type: "unknown_type" },
+							},
+						},
+					},
+				} as unknown as { name: string; description?: string },
+			});
+
+			expect(response.status).toBe(400);
+			expect(error?.error?.message).toContain("Invalid property definition");
+		});
+
+		it("creates a collection with multi-level nested schema", async () => {
+			const { client, cookies } = await createAuthenticatedClient();
+
+			const membershipPropertiesSchema = {
+				fields: {
+					metadata: {
+						type: "object" as const,
+						properties: {
+							source: {
+								type: "object" as const,
+								properties: {
+									name: { type: "string" as const },
+									url: { type: "string" as const },
+								},
+							},
+							tags: {
+								type: "array" as const,
+								items: {
+									type: "object" as const,
+									properties: {
+										label: { type: "string" as const },
+										color: { type: "string" as const },
+									},
+								},
+							},
+						},
+					},
+					priority: { type: "integer" as const },
+				},
+			};
+
+			const collection = await createCollection(client, cookies, {
+				name: "Complex Nested Collection",
+				description: "Testing multi-level nesting",
+				membershipPropertiesSchema,
+			});
+
+			expect(collection.id).toBeDefined();
+			expect(collection.properties.membershipPropertiesSchema).toEqual(
+				membershipPropertiesSchema,
+			);
+		});
+	});
 });
