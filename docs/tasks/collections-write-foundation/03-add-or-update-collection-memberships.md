@@ -4,7 +4,7 @@
 
 **Type:** AFK
 
-**Status:** todo
+**Status:** done
 
 ## What to build
 
@@ -21,19 +21,19 @@ model**, and **Membership write semantics**.
 
 ## Acceptance criteria
 
-- [ ] The backend exposes an authenticated add-to-collection write contract that identifies the
+- [x] The backend exposes an authenticated add-to-collection write contract that identifies the
       target collection by `collectionId`.
-- [ ] Adding an entity to a collection persists a `member_of` relationship from the member entity
+- [x] Adding an entity to a collection persists a `member_of` relationship from the member entity
       to the collection entity.
-- [ ] Membership payloads are validated against the target collection's stored
+- [x] Membership payloads are validated against the target collection's stored
       `membershipPropertiesSchema` before persistence.
-- [ ] Missing or invalid required membership fields are rejected with a stable validation error.
-- [ ] Re-adding the same entity to the same collection updates the existing membership instead of
+- [x] Missing or invalid required membership fields are rejected with a stable validation error.
+- [x] Re-adding the same entity to the same collection updates the existing membership instead of
       creating a duplicate relationship row.
-- [ ] Backend tests cover membership validation and upsert behavior.
-- [ ] `tests/src` includes end-to-end coverage for successful membership creation, validation
+- [x] Backend tests cover membership validation and upsert behavior.
+- [x] `tests/src` includes end-to-end coverage for successful membership creation, validation
       failure, and duplicate-write upsert behavior.
-- [ ] `bun run typecheck`, `bun test`, and `bun run lint` pass in `apps/app-backend`.
+- [x] `bun run typecheck`, `bun test`, and `bun run lint` pass in `apps/app-backend`.
 
 ## Blocked by
 
