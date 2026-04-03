@@ -1,22 +1,51 @@
 import { Button, Group, Modal, Stack, Text } from "@mantine/core";
+import type { AppSchema } from "@ryot/ts-utils";
 import { zodNonEmptyTrimmedString } from "@ryot/ts-utils";
 import { z } from "zod";
+import {
+	buildPropertiesSchema,
+	isPropertySchemaRowsValid,
+	type PropertySchemaRow,
+	propertySchemaTypes,
+} from "#/features/property-schemas/form";
+import { PropertySchemasBuilder } from "#/features/property-schemas/properties-builder";
 import { useAppForm } from "#/hooks/forms";
+
+const collectionPropertyRowSchema = z.object({
+	id: z.string(),
+	key: z.string(),
+	required: z.boolean(),
+	type: z.enum(propertySchemaTypes),
+	label: zodNonEmptyTrimmedString("Label is required"),
+});
 
 const createCollectionFormSchema = z.object({
 	name: zodNonEmptyTrimmedString,
+	properties: z
+		.array(collectionPropertyRowSchema)
+		.refine(
+			(rows) => rows.length === 0 || isPropertySchemaRowsValid(rows),
+			"Properties must have unique, non-empty keys",
+		),
 });
 
-type CreateCollectionFormValues = z.infer<typeof createCollectionFormSchema>;
+export type CreateCollectionFormPayload = {
+	name: string;
+	membershipPropertiesSchema?: AppSchema;
+};
 
 function useCreateCollectionForm(props: {
-	onSubmit: (name: string) => Promise<void>;
+	onSubmit: (payload: CreateCollectionFormPayload) => Promise<void>;
 }) {
 	return useAppForm({
 		validators: { onChange: createCollectionFormSchema as never },
-		defaultValues: { name: "" } satisfies CreateCollectionFormValues,
+		defaultValues: { name: "", properties: [] as PropertySchemaRow[] },
 		onSubmit: async ({ value }) => {
-			await props.onSubmit(value.name);
+			const membershipPropertiesSchema =
+				value.properties.length > 0
+					? buildPropertiesSchema(value.properties)
+					: undefined;
+			await props.onSubmit({ name: value.name, membershipPropertiesSchema });
 		},
 	});
 }
@@ -26,14 +55,14 @@ export function CreateCollectionModal(props: {
 	onClose: () => void;
 	isSubmitting: boolean;
 	errorMessage: string | null;
-	onSubmit: (name: string) => Promise<void>;
+	onSubmit: (payload: CreateCollectionFormPayload) => Promise<void>;
 }) {
 	const form = useCreateCollectionForm({ onSubmit: props.onSubmit });
 
 	return (
 		<Modal
 			centered
-			size="sm"
+			size="lg"
 			opened={props.opened}
 			title="New collection"
 			onClose={props.onClose}
@@ -58,11 +87,17 @@ export function CreateCollectionModal(props: {
 								<field.TextField
 									required
 									label="Name"
-									placeholder="My collection"
 									disabled={props.isSubmitting}
+									placeholder="My collection"
 								/>
 							)}
 						</form.AppField>
+						<PropertySchemasBuilder
+							form={form}
+							isLoading={props.isSubmitting}
+							placeholder="fieldName"
+							description="Define what information is required when adding an item to this collection. Leave empty for no required metadata."
+						/>
 						<Group justify="flex-end" gap="md">
 							<Button
 								type="button"
