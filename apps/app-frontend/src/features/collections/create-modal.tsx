@@ -1,31 +1,14 @@
 import { Button, Group, Modal, Stack, Text } from "@mantine/core";
-import type { AppSchema } from "@ryot/ts-utils";
-import { z } from "zod";
-import {
-	buildPropertiesSchema,
-	type PropertySchemaRow,
-	propertySchemaTypes,
-} from "#/features/property-schemas/form";
+import type { PropertySchemaRow } from "#/features/property-schemas/form";
 import { PropertySchemasBuilder } from "#/features/property-schemas/properties-builder";
 import { useAppForm } from "#/hooks/forms";
+import {
+	type CreateCollectionPayload,
+	createCollectionFormSchema,
+	toCreateCollectionPayload,
+} from "./form";
 
-const collectionPropertyRowSchema = z.object({
-	id: z.string(),
-	key: z.string(),
-	required: z.boolean(),
-	type: z.enum(propertySchemaTypes),
-	label: z.string().min(1, "Label is required"),
-});
-
-const createCollectionFormSchema = z.object({
-	properties: z.array(collectionPropertyRowSchema),
-	name: z.string().min(1, "Name is required"),
-});
-
-export type CreateCollectionFormPayload = {
-	name: string;
-	membershipPropertiesSchema?: AppSchema;
-};
+export type CreateCollectionFormPayload = CreateCollectionPayload;
 
 function useCreateCollectionForm(props: {
 	onSubmit: (payload: CreateCollectionFormPayload) => Promise<void>;
@@ -34,11 +17,7 @@ function useCreateCollectionForm(props: {
 		validators: { onChange: createCollectionFormSchema as never },
 		defaultValues: { name: "", properties: [] as PropertySchemaRow[] },
 		onSubmit: async ({ value }) => {
-			const membershipPropertiesSchema =
-				value.properties.length > 0
-					? buildPropertiesSchema(value.properties)
-					: undefined;
-			await props.onSubmit({ name: value.name, membershipPropertiesSchema });
+			await props.onSubmit(toCreateCollectionPayload(value));
 		},
 	});
 }
