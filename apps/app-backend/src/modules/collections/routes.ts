@@ -12,8 +12,14 @@ import {
 	addToCollectionResponseSchema,
 	createCollectionBody,
 	createCollectionResponseSchema,
+	removeFromCollectionBody,
+	removeFromCollectionResponseSchema,
 } from "./schemas";
-import { addToCollection, createCollection } from "./service";
+import {
+	addToCollection,
+	createCollection,
+	removeFromCollection,
+} from "./service";
 
 const createCollectionRoute = createAuthRoute(
 	createRoute({
@@ -48,6 +54,23 @@ const addToCollectionRoute = createAuthRoute(
 	}),
 );
 
+const removeFromCollectionRoute = createAuthRoute(
+	createRoute({
+		path: "/memberships",
+		method: "delete",
+		tags: ["collections"],
+		summary: "Remove an entity from a collection",
+		request: { body: jsonBody(removeFromCollectionBody) },
+		description:
+			"Remove an entity from a collection by deleting the collection relationship between the collection entity and the target entity.",
+		responses: createStandardResponses({
+			successDescription: "Entity was removed from collection",
+			successSchema: removeFromCollectionResponseSchema,
+			notFoundDescription: "Collection, entity, or membership not found",
+		}),
+	}),
+);
+
 export const collectionsApi = new OpenAPIHono<{
 	Variables: AuthType;
 }>()
@@ -69,6 +92,19 @@ export const collectionsApi = new OpenAPIHono<{
 		const body = c.req.valid("json");
 
 		const result = await addToCollection({ body, userId: user.id });
+		if ("error" in result) {
+			const response = createServiceErrorResult(result);
+			return c.json(response.body, response.status);
+		}
+
+		const response = createSuccessResult(result.data);
+		return c.json(response.body, response.status);
+	})
+	.openapi(removeFromCollectionRoute, async (c) => {
+		const user = c.get("user");
+		const body = c.req.valid("json");
+
+		const result = await removeFromCollection({ body, userId: user.id });
 		if ("error" in result) {
 			const response = createServiceErrorResult(result);
 			return c.json(response.body, response.status);
