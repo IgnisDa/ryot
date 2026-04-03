@@ -44,6 +44,12 @@ async function createAndSignIn(): Promise<{
 }
 
 type Client = ReturnType<typeof createClient<paths>>;
+type CreateCollectionBody = NonNullable<
+	paths["/collections"]["post"]["requestBody"]
+>["content"]["application/json"];
+type AddToCollectionBody = NonNullable<
+	paths["/collections/memberships"]["post"]["requestBody"]
+>["content"]["application/json"];
 type CreateSavedViewBody = NonNullable<
 	paths["/saved-views"]["post"]["requestBody"]
 >["content"]["application/json"];
@@ -252,6 +258,51 @@ async function createEntity(
 
 	return data.data;
 }
+
+async function createCollection(
+	apiClient: APIClient,
+	body: CreateCollectionBody,
+) {
+	console.log(`  Creating collection: ${body.name}...`);
+	apiClient.incrementRequestCount();
+	const client = apiClient.getClient();
+	const { data, error, response } = await client.POST("/collections", {
+		body,
+	});
+
+	if (!response.ok || !data?.data) {
+		const details = error ? ` ${JSON.stringify(error)}` : "";
+		throw new Error(
+			`Failed to create collection '${body.name}': ${response.status} ${response.statusText}${details}`,
+		);
+	}
+
+	console.log(`  ✓ Created collection: ${body.name} (${data.data.id})`);
+	return data.data;
+}
+
+async function addEntityToCollection(
+	apiClient: APIClient,
+	body: AddToCollectionBody,
+) {
+	apiClient.incrementRequestCount();
+	const client = apiClient.getClient();
+	const { data, error, response } = await client.POST(
+		"/collections/memberships",
+		{ body },
+	);
+
+	if (!response.ok || !data?.data) {
+		const details = error ? ` ${JSON.stringify(error)}` : "";
+		throw new Error(
+			`Failed to add entity '${body.entityId}' to collection '${body.collectionId}': ${response.status} ${response.statusText}${details}`,
+		);
+	}
+
+	return data.data;
+}
+
+type SeedEntity = Awaited<ReturnType<typeof createEntity>>;
 
 type EventPayload = NonNullable<
 	paths["/events"]["post"]["requestBody"]
@@ -1017,7 +1068,7 @@ async function seedWhiskeys(client: APIClient) {
 	const totalEvents = whiskeyEvents.length;
 	console.log(`  ✓ Created ${totalEvents} events for whiskeys`);
 
-	return { tracker, entityCount, eventCount: totalEvents };
+	return { tracker, entities, entityCount, eventCount: totalEvents };
 }
 
 async function seedPlaces(client: APIClient) {
@@ -1146,7 +1197,7 @@ async function seedPlaces(client: APIClient) {
 	const totalEvents = placeEvents.length;
 	console.log(`  ✓ Created ${totalEvents} events for places`);
 
-	return { tracker, entityCount, eventCount: totalEvents };
+	return { tracker, entities, entityCount, eventCount: totalEvents };
 }
 
 async function seedMobilePhones(client: APIClient) {
@@ -1220,15 +1271,17 @@ async function seedMobilePhones(client: APIClient) {
 
 	console.log("\n  Creating smartphone entities...");
 	const smartphoneCount = randomInt(90, 110);
+	const entities: SeedEntity[] = [];
 	for (let i = 0; i < smartphoneCount; i++) {
 		const phone = generateSmartphone();
-		await createEntity(
+		const entity = await createEntity(
 			client,
 			phone.name,
 			smartphoneSchema.id,
 			phone.properties,
 			generateImageUrl(phone.name, 400, 600),
 		);
+		entities.push(entity);
 
 		if ((i + 1) % 10 === 0) {
 			console.log(
@@ -1242,13 +1295,14 @@ async function seedMobilePhones(client: APIClient) {
 	const featurePhoneCount = randomInt(90, 110);
 	for (let i = 0; i < featurePhoneCount; i++) {
 		const phone = generateFeaturePhone();
-		await createEntity(
+		const entity = await createEntity(
 			client,
 			phone.name,
 			featurePhoneSchema.id,
 			phone.properties,
 			generateImageUrl(phone.name, 400, 600),
 		);
+		entities.push(entity);
 
 		if ((i + 1) % 10 === 0) {
 			console.log(
@@ -1262,13 +1316,14 @@ async function seedMobilePhones(client: APIClient) {
 	const tabletCount = randomInt(90, 110);
 	for (let i = 0; i < tabletCount; i++) {
 		const tablet = generateTablet();
-		await createEntity(
+		const entity = await createEntity(
 			client,
 			tablet.name,
 			tabletSchema.id,
 			tablet.properties,
 			generateImageUrl(tablet.name, 400, 600),
 		);
+		entities.push(entity);
 
 		if ((i + 1) % 10 === 0) {
 			console.log(`    Progress: ${i + 1}/${tabletCount} tablets created`);
@@ -1278,8 +1333,208 @@ async function seedMobilePhones(client: APIClient) {
 
 	return {
 		tracker,
+		entities,
 		entityCount: smartphoneCount + featurePhoneCount + tabletCount,
 		eventCount: 0,
+	};
+}
+
+async function seedCollections(
+	client: APIClient,
+	input: {
+		phones: SeedEntity[];
+		places: SeedEntity[];
+		whiskeys: SeedEntity[];
+	},
+) {
+	console.log("\n🗂️ Seeding Collections...");
+
+	const recommendedPours = await createCollection(client, {
+		name: "Recommended Pours",
+		description: "Whiskeys friends keep insisting deserve another pour",
+		membershipPropertiesSchema: {
+			fields: {
+				tags: { type: "array" as const, items: { type: "string" as const } },
+				notes: { type: "string" as const },
+				rating: { type: "integer" as const },
+				context: {
+					type: "object" as const,
+					unknownKeys: "passthrough" as const,
+					properties: {
+						mood: { type: "string" as const },
+						venue: { type: "string" as const },
+					},
+				},
+				recommendedBy: { type: "string" as const },
+			},
+		},
+	} as unknown as CreateCollectionBody);
+
+	const weekendEscapes = await createCollection(client, {
+		name: "Weekend Escapes",
+		description: "Places worth a short trip or a spontaneous Saturday",
+		membershipPropertiesSchema: {
+			fields: {
+				notes: { type: "string" as const },
+				priority: { type: "integer" as const },
+				idealSeason: { type: "string" as const },
+				visitWindow: { type: "string" as const },
+			},
+		},
+	});
+
+	const pocketFavorites = await createCollection(client, {
+		name: "Pocket Favorites",
+		description: "Phones and tablets that feel great to keep around",
+		membershipPropertiesSchema: {
+			fields: {
+				notes: { type: "string" as const },
+				status: { type: "string" as const },
+				carryScore: { type: "integer" as const },
+			},
+		},
+	});
+
+	const allStarPicks = await createCollection(client, {
+		name: "All-Star Picks",
+		description: "Cross-tracker highlights pulled together with ad-hoc notes",
+	});
+
+	const collectionGuide = await createCollection(client, {
+		name: "Collection Guide",
+		description:
+			"A collection of collections for browsing the seeded demo shelves",
+		membershipPropertiesSchema: {
+			fields: {
+				blurb: { type: "string" as const },
+				section: { type: "string" as const },
+				priority: { type: "integer" as const },
+			},
+		},
+	});
+
+	let membershipCount = 0;
+	let nestedCollectionMembershipCount = 0;
+
+	console.log("  Adding whiskey memberships...");
+	for (const whiskey of faker.helpers.arrayElements(input.whiskeys, 10)) {
+		await addEntityToCollection(client, {
+			entityId: whiskey.id,
+			collectionId: recommendedPours.id,
+			properties: {
+				tags: faker.helpers.arrayElements(
+					["peaty", "starter", "gift", "special-occasion", "dessert"],
+					randomInt(1, 3),
+				),
+				notes: faker.lorem.sentence(),
+				rating: randomInt(6, 10),
+				context: {
+					mood: randomChoice(["quiet-night", "celebration", "tasting-flight"]),
+					venue: faker.location.city(),
+					shelf: randomChoice(["top", "middle", "shared"]),
+				},
+				recommendedBy: faker.person.firstName(),
+			},
+		});
+		membershipCount++;
+	}
+
+	console.log("  Adding place memberships...");
+	for (const [index, place] of faker.helpers
+		.arrayElements(input.places, 10)
+		.entries()) {
+		await addEntityToCollection(client, {
+			entityId: place.id,
+			collectionId: weekendEscapes.id,
+			properties: {
+				notes: faker.lorem.sentence(),
+				priority: index + 1,
+				idealSeason: randomChoice(["spring", "summer", "autumn", "winter"]),
+				visitWindow: randomChoice(["morning", "afternoon", "evening"]),
+			},
+		});
+		membershipCount++;
+	}
+
+	console.log("  Adding phone memberships...");
+	for (const phone of faker.helpers.arrayElements(input.phones, 12)) {
+		await addEntityToCollection(client, {
+			entityId: phone.id,
+			collectionId: pocketFavorites.id,
+			properties: {
+				notes: faker.lorem.sentence(),
+				status: randomChoice(["daily", "display", "backup"]),
+				carryScore: randomInt(6, 10),
+			},
+		});
+		membershipCount++;
+	}
+
+	console.log("  Adding cross-tracker memberships...");
+	const showcaseMembers = [
+		...faker.helpers.arrayElements(input.whiskeys, 3),
+		...faker.helpers.arrayElements(input.places, 3),
+		...faker.helpers.arrayElements(input.phones, 3),
+	];
+	for (const [index, entity] of showcaseMembers.entries()) {
+		await addEntityToCollection(client, {
+			entityId: entity.id,
+			collectionId: allStarPicks.id,
+			properties: {
+				lane: randomChoice(["featured", "deep-cut", "starter-pack"]),
+				pickedAt: dayjs(faker.date.recent({ days: 90 })).format("YYYY-MM-DD"),
+				priority: index + 1,
+				featuredBecause: faker.lorem.sentence(),
+			},
+		});
+		membershipCount++;
+	}
+
+	console.log("  Nesting collections inside a guide collection...");
+	const nestedCollections = [
+		{
+			blurb: "A sampler of socially-endorsed pours",
+			entityId: recommendedPours.id,
+			section: "Whiskey Highlights",
+		},
+		{
+			blurb: "Short-trip ideas with clear visit priorities",
+			entityId: weekendEscapes.id,
+			section: "Place Shortlist",
+		},
+		{
+			blurb: "Portable devices worth revisiting",
+			entityId: pocketFavorites.id,
+			section: "Device Rotation",
+		},
+		{
+			blurb: "Cross-category picks with flexible metadata",
+			entityId: allStarPicks.id,
+			section: "Showcase Shelf",
+		},
+	];
+	for (const [index, nestedCollection] of nestedCollections.entries()) {
+		await addEntityToCollection(client, {
+			entityId: nestedCollection.entityId,
+			collectionId: collectionGuide.id,
+			properties: {
+				blurb: nestedCollection.blurb,
+				section: nestedCollection.section,
+				priority: index + 1,
+			},
+		});
+		membershipCount++;
+		nestedCollectionMembershipCount++;
+	}
+
+	console.log(
+		`  ✓ Created 5 collections and ${membershipCount} memberships (${nestedCollectionMembershipCount} nested collections)`,
+	);
+
+	return {
+		collectionCount: 5,
+		membershipCount,
+		nestedCollectionMembershipCount,
 	};
 }
 
@@ -2726,6 +2981,11 @@ async function main() {
 		placeStats.tracker.id,
 		phoneStats.tracker.id,
 	);
+	const collectionStats = await seedCollections(client, {
+		phones: phoneStats.entities,
+		places: placeStats.entities,
+		whiskeys: whiskeyStats.entities,
+	});
 
 	const duration = Math.floor(dayjs().diff(startTime, "second", true));
 	const minutes = Math.floor(duration / 60);
@@ -2740,6 +3000,10 @@ async function main() {
 		`  Entities: ${whiskeyStats.entityCount + placeStats.entityCount + phoneStats.entityCount}`,
 	);
 	console.log(`  Events: ${whiskeyStats.eventCount + placeStats.eventCount}`);
+	console.log(`  Collections: ${collectionStats.collectionCount}`);
+	console.log(
+		`  Collection Memberships: ${collectionStats.membershipCount} (${collectionStats.nestedCollectionMembershipCount} nested collections)`,
+	);
 	console.log(`  Saved Views: ${savedViewsCount}`);
 	console.log(`  API Requests: ${client.getRequestCount()}`);
 	console.log(`  Duration: ${minutes}m ${seconds}s`);
