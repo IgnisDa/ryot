@@ -15,7 +15,7 @@ import { createCollection } from "./service";
 
 const createCollectionRoute = createAuthRoute(
 	createRoute({
-		path: "/",
+		path: "",
 		method: "post",
 		tags: ["collections"],
 		summary: "Create a new collection",
