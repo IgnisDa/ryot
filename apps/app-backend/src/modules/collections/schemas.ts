@@ -14,16 +14,25 @@ export const addToCollectionBody = z.object({
 	properties: stringUnknownRecordSchema.optional(),
 });
 
+const membershipRelationshipSchema = z.object({
+	id: z.string(),
+	relType: z.string(),
+	createdAt: z.string(),
+	sourceEntityId: z.string(),
+	targetEntityId: z.string(),
+	properties: stringUnknownRecordSchema,
+});
+
+export const addToCollectionDataSchema = z.object({
+	collection: membershipRelationshipSchema,
+	memberOf: membershipRelationshipSchema,
+});
+
 export const addToCollectionResponseSchema = itemDataSchema(
-	z.object({
-		id: z.string(),
-		relType: z.string(),
-		createdAt: z.string(),
-		sourceEntityId: z.string(),
-		targetEntityId: z.string(),
-		properties: stringUnknownRecordSchema,
-	}),
+	addToCollectionDataSchema,
 );
+
+export type AddToCollectionData = z.infer<typeof addToCollectionDataSchema>;
 
 export type AddToCollectionBody = z.infer<typeof addToCollectionBody>;
 export type AddToCollectionResponse = z.infer<

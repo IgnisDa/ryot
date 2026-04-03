@@ -15,7 +15,7 @@ import {
 } from "./repository";
 import type {
 	AddToCollectionBody,
-	AddToCollectionResponse,
+	AddToCollectionData,
 	CollectionResponse,
 	CreateCollectionBody,
 } from "./schemas";
@@ -112,7 +112,7 @@ const addToCollectionServiceDeps: AddToCollectionServiceDeps = {
 export const addToCollection = async (
 	input: { body: AddToCollectionBody; userId: string },
 	deps: AddToCollectionServiceDeps = addToCollectionServiceDeps,
-): Promise<CollectionServiceResult<AddToCollectionResponse["data"]>> => {
+): Promise<CollectionServiceResult<AddToCollectionData>> => {
 	// Verify the collection exists and belongs to the user
 	const collection = await deps.getCollectionById(
 		input.body.collectionId,
@@ -128,13 +128,13 @@ export const addToCollection = async (
 		return serviceError("not_found", entityNotFoundError);
 	}
 
-	// Create the relationship
-	const membership = await deps.addEntityToCollection({
+	// Create the relationships (collection and member_of)
+	const relationships = await deps.addEntityToCollection({
 		collectionId: input.body.collectionId,
 		entityId: input.body.entityId,
 		userId: input.userId,
 		properties: input.body.properties ?? {},
 	});
 
-	return serviceData(membership);
+	return serviceData(relationships);
 };
