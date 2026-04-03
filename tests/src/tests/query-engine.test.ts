@@ -126,7 +126,10 @@ describe("Query engine E2E", () => {
 			slug: "review",
 			entitySchemaId: schema.schemaId,
 			propertiesSchema: {
-				fields: { label: { type: "string" }, rating: { type: "number" } },
+				fields: {
+					label: { type: "string", label: "Label" },
+					rating: { type: "number", label: "Rating" },
+				},
 			},
 		});
 
@@ -1106,7 +1109,13 @@ describe("Query engine E2E", () => {
 			trackerId,
 			name: "Movie",
 			propertiesSchema: {
-				fields: { tags: { type: "array", items: { type: "string" } } },
+				fields: {
+					tags: {
+						type: "array",
+						label: "Tags",
+						items: { type: "string", label: "Tag" },
+					},
+				},
 			},
 		});
 
@@ -1167,7 +1176,7 @@ describe("Query engine E2E", () => {
 		const schema = await createEntitySchema(client, cookies, {
 			trackerId,
 			name: "Product",
-			propertiesSchema: { fields: { sku: { type: "string" } } },
+			propertiesSchema: { fields: { sku: { type: "string", label: "SKU" } } },
 		});
 
 		await createQueryEngineEntity({
@@ -1247,7 +1256,13 @@ describe("Query engine E2E", () => {
 			trackerId,
 			name: "Tagged Item",
 			propertiesSchema: {
-				fields: { tags: { type: "array", items: { type: "string" } } },
+				fields: {
+					tags: {
+						type: "array",
+						label: "Tags",
+						items: { type: "string", label: "Tag" },
+					},
+				},
 			},
 		});
 

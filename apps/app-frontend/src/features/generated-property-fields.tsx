@@ -60,11 +60,11 @@ type GeneratedPropertyFieldProps = {
 };
 
 export function getGeneratedPropertyFieldConfig(
-	propertyKey: string,
+	_propertyKey: string,
 	propertyDef: AppPropertyDefinition,
 	options: GeneratedPropertyFieldOptions = {},
 ): GeneratedPropertyFieldConfig | null {
-	const label = propertyKey;
+	const label = propertyDef.label;
 	const required = isAppPropertyRequired(propertyDef);
 
 	return match(propertyDef.type)
@@ -85,19 +85,19 @@ export function getGeneratedPropertyFieldConfig(
 			label,
 			required,
 			kind: "number" as const,
-			placeholder: `Enter ${propertyKey}`,
+			placeholder: `Enter ${label}`,
 		}))
 		.with("number", () => ({
 			label,
 			required,
 			kind: "number" as const,
-			placeholder: `Enter ${propertyKey}`,
+			placeholder: `Enter ${label}`,
 		}))
 		.with("string", () => ({
 			label,
 			required,
 			kind: "text" as const,
-			placeholder: `Enter ${propertyKey}`,
+			placeholder: `Enter ${label}`,
 		}))
 		.otherwise(() => {
 			if (options.fallback === "text") {
@@ -105,7 +105,7 @@ export function getGeneratedPropertyFieldConfig(
 					label,
 					required,
 					kind: "text" as const,
-					placeholder: `Enter ${propertyKey}`,
+					placeholder: `Enter ${label}`,
 				};
 			}
 

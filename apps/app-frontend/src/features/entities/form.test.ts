@@ -9,8 +9,9 @@ describe("buildCreateEntityFormSchema", () => {
 	it("builds schema for simple string and number properties", () => {
 		const propertiesSchema = {
 			fields: {
-				pages: { type: "integer" as const },
+				pages: { label: "Pages", type: "integer" as const },
 				title: {
+					label: "Title",
 					type: "string" as const,
 					validation: { required: true as const },
 				},
@@ -31,6 +32,7 @@ describe("buildCreateEntityFormSchema", () => {
 		const propertiesSchema = {
 			fields: {
 				title: {
+					label: "Title",
 					type: "string" as const,
 					validation: { required: true as const },
 				},
@@ -51,6 +53,7 @@ describe("buildCreateEntityFormSchema", () => {
 		const propertiesSchema = {
 			fields: {
 				title: {
+					label: "Title",
 					type: "string" as const,
 					validation: { required: true as const },
 				},
@@ -67,8 +70,9 @@ describe("buildCreateEntityFormSchema", () => {
 	it("allows optional properties to be missing", () => {
 		const propertiesSchema = {
 			fields: {
-				subtitle: { type: "string" as const },
+				subtitle: { label: "Subtitle", type: "string" as const },
 				title: {
+					label: "Title",
 					type: "string" as const,
 					validation: { required: true as const },
 				},
@@ -89,10 +93,11 @@ describe("buildCreateEntityFormSchema", () => {
 		const propertiesSchema = {
 			fields: {
 				metadata: {
+					label: "Metadata",
 					type: "object" as const,
 					properties: {
-						year: { type: "integer" as const },
-						author: { type: "string" as const },
+						year: { label: "Year", type: "integer" as const },
+						author: { label: "Author", type: "string" as const },
 					},
 				},
 			},
@@ -111,7 +116,11 @@ describe("buildCreateEntityFormSchema", () => {
 	it("validates array properties", () => {
 		const propertiesSchema = {
 			fields: {
-				tags: { type: "array" as const, items: { type: "string" as const } },
+				tags: {
+					label: "Tags",
+					type: "array" as const,
+					items: { label: "Item", type: "string" as const },
+				},
 			},
 		};
 
@@ -128,8 +137,9 @@ describe("buildCreateEntityFormSchema", () => {
 	it("applies conditional required rules", () => {
 		const schema = buildCreateEntityFormSchema({
 			fields: {
-				progressPercent: { type: "number" as const },
+				progressPercent: { label: "Progress Percent", type: "number" as const },
 				status: {
+					label: "Status",
 					type: "string" as const,
 					validation: { required: true as const },
 				},
@@ -176,8 +186,9 @@ describe("buildDefaultEntityFormValues", () => {
 	it("creates default values with empty name and required properties", () => {
 		const propertiesSchema = {
 			fields: {
-				pages: { type: "integer" as const },
+				pages: { label: "Pages", type: "integer" as const },
 				title: {
+					label: "Title",
 					type: "string" as const,
 					validation: { required: true as const },
 				},
@@ -195,14 +206,17 @@ describe("buildDefaultEntityFormValues", () => {
 		const propertiesSchema = {
 			fields: {
 				title: {
+					label: "Title",
 					type: "string" as const,
 					validation: { required: true as const },
 				},
 				pages: {
+					label: "Pages",
 					type: "integer" as const,
 					validation: { required: true as const },
 				},
 				active: {
+					label: "Active",
 					type: "boolean" as const,
 					validation: { required: true as const },
 				},
@@ -222,11 +236,12 @@ describe("buildDefaultEntityFormValues", () => {
 		const propertiesSchema = {
 			fields: {
 				metadata: {
+					label: "Metadata",
 					type: "object" as const,
 					validation: { required: true as const },
 					properties: {
-						year: { type: "integer" as const },
-						author: { type: "string" as const },
+						year: { label: "Year", type: "integer" as const },
+						author: { label: "Author", type: "string" as const },
 					},
 				},
 			},

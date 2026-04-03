@@ -13,8 +13,14 @@ describe("POST /collections", () => {
 
 		const membershipPropertiesSchema = {
 			fields: {
-				friendWhoRecommendedIt: { type: "string" as const },
-				whereTheyRecommendedIt: { type: "string" as const },
+				friendWhoRecommendedIt: {
+					type: "string" as const,
+					label: "Friend Who Recommended It",
+				},
+				whereTheyRecommendedIt: {
+					type: "string" as const,
+					label: "Where They Recommended It",
+				},
 			},
 		};
 
@@ -132,13 +138,17 @@ describe("POST /collections", () => {
 
 			const membershipPropertiesSchema = {
 				fields: {
-					friendWhoRecommendedIt: { type: "string" as const },
+					friendWhoRecommendedIt: {
+						type: "string" as const,
+						label: "Friend Who Recommended It",
+					},
 					recommendationDetails: {
 						type: "object" as const,
+						label: "Recommendation Details",
 						properties: {
-							when: { type: "date" as const },
-							where: { type: "string" as const },
-							rating: { type: "integer" as const },
+							when: { type: "date" as const, label: "When" },
+							where: { type: "string" as const, label: "Where" },
+							rating: { type: "integer" as const, label: "Rating" },
 						},
 					},
 				},
@@ -163,15 +173,18 @@ describe("POST /collections", () => {
 				fields: {
 					tags: {
 						type: "array" as const,
-						items: { type: "string" as const },
+						label: "Tags",
+						items: { type: "string" as const, label: "Tag" },
 					},
 					recommendations: {
 						type: "array" as const,
+						label: "Recommendations",
 						items: {
 							type: "object" as const,
+							label: "Recommendation",
 							properties: {
-								friend: { type: "string" as const },
-								context: { type: "string" as const },
+								friend: { type: "string" as const, label: "Friend" },
+								context: { type: "string" as const, label: "Context" },
 							},
 						},
 					},
@@ -245,24 +258,28 @@ describe("POST /collections", () => {
 
 			const membershipPropertiesSchema = {
 				fields: {
-					priority: { type: "integer" as const },
+					priority: { type: "integer" as const, label: "Priority" },
 					metadata: {
+						label: "Metadata",
 						type: "object" as const,
 						properties: {
 							source: {
+								label: "Source",
 								type: "object" as const,
 								properties: {
-									url: { type: "string" as const },
-									name: { type: "string" as const },
+									url: { type: "string" as const, label: "URL" },
+									name: { type: "string" as const, label: "Name" },
 								},
 							},
 							tags: {
+								label: "Tags",
 								type: "array" as const,
 								items: {
 									type: "object" as const,
+									label: "Tag",
 									properties: {
-										label: { type: "string" as const },
-										color: { type: "string" as const },
+										label: { type: "string" as const, label: "Label" },
+										color: { type: "string" as const, label: "Color" },
 									},
 								},
 							},
@@ -358,7 +375,9 @@ describe("POST /collections", () => {
 				cookies,
 				{
 					trackerId: tracker.trackerId,
-					propertiesSchema: { fields: { title: { type: "string" as const } } },
+					propertiesSchema: {
+						fields: { title: { type: "string" as const, label: "Title" } },
+					},
 				},
 			);
 
@@ -392,8 +411,8 @@ describe("POST /collections", () => {
 				description: "Movies with recommendation info",
 				membershipPropertiesSchema: {
 					fields: {
-						rating: { type: "integer" },
-						recommendedBy: { type: "string" },
+						rating: { type: "integer", label: "Rating" },
+						recommendedBy: { type: "string", label: "Recommended By" },
 					},
 				},
 			});
@@ -408,7 +427,9 @@ describe("POST /collections", () => {
 				cookies,
 				{
 					trackerId: tracker.trackerId,
-					propertiesSchema: { fields: { title: { type: "string" as const } } },
+					propertiesSchema: {
+						fields: { title: { type: "string" as const, label: "Title" } },
+					},
 				},
 			);
 
@@ -443,8 +464,8 @@ describe("POST /collections", () => {
 				name: "Upsert Collection",
 				membershipPropertiesSchema: {
 					fields: {
-						rating: { type: "integer" },
-						recommendedBy: { type: "string" },
+						rating: { type: "integer", label: "Rating" },
+						recommendedBy: { type: "string", label: "Recommended By" },
 					},
 				},
 			});
@@ -458,7 +479,9 @@ describe("POST /collections", () => {
 				cookies,
 				{
 					trackerId: tracker.trackerId,
-					propertiesSchema: { fields: { title: { type: "string" as const } } },
+					propertiesSchema: {
+						fields: { title: { type: "string" as const, label: "Title" } },
+					},
 				},
 			);
 
@@ -514,7 +537,9 @@ describe("POST /collections", () => {
 				cookies,
 				{
 					trackerId: tracker.trackerId,
-					propertiesSchema: { fields: { title: { type: "string" as const } } },
+					propertiesSchema: {
+						fields: { title: { type: "string" as const, label: "Title" } },
+					},
 				},
 			);
 
@@ -589,7 +614,9 @@ describe("POST /collections", () => {
 				cookiesB,
 				{
 					trackerId: tracker.trackerId,
-					propertiesSchema: { fields: { title: { type: "string" as const } } },
+					propertiesSchema: {
+						fields: { title: { type: "string" as const, label: "Title" } },
+					},
 				},
 			);
 
@@ -646,7 +673,9 @@ describe("POST /collections", () => {
 			cookies,
 			{
 				trackerId: tracker.trackerId,
-				propertiesSchema: { fields: { title: { type: "string" as const } } },
+				propertiesSchema: {
+					fields: { title: { type: "string" as const, label: "Title" } },
+				},
 			},
 		);
 
@@ -707,7 +736,9 @@ describe("POST /collections", () => {
 			cookies,
 			{
 				trackerId: tracker.trackerId,
-				propertiesSchema: { fields: { title: { type: "string" as const } } },
+				propertiesSchema: {
+					fields: { title: { type: "string" as const, label: "Title" } },
+				},
 			},
 		);
 
@@ -744,7 +775,9 @@ describe("POST /collections", () => {
 			cookies,
 			{
 				trackerId: tracker.trackerId,
-				propertiesSchema: { fields: { title: { type: "string" as const } } },
+				propertiesSchema: {
+					fields: { title: { type: "string" as const, label: "Title" } },
+				},
 			},
 		);
 
@@ -794,7 +827,9 @@ describe("POST /collections", () => {
 			cookiesB,
 			{
 				trackerId: tracker.trackerId,
-				propertiesSchema: { fields: { title: { type: "string" as const } } },
+				propertiesSchema: {
+					fields: { title: { type: "string" as const, label: "Title" } },
+				},
 			},
 		);
 

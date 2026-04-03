@@ -6,13 +6,17 @@ const animeSchema = createEntitySchemaFixture({
 	slug: "anime",
 	propertiesSchema: {
 		fields: {
-			aired: { type: "date" },
-			year: { type: "integer" },
-			title: { type: "string" },
-			score: { type: "number" },
-			ongoing: { type: "boolean" },
-			meta: { type: "object", properties: {} },
-			genres: { type: "array", items: { type: "string" } },
+			aired: { label: "Aired", type: "date" },
+			year: { label: "Year", type: "integer" },
+			title: { label: "Title", type: "string" },
+			score: { label: "Score", type: "number" },
+			ongoing: { label: "Ongoing", type: "boolean" },
+			meta: { label: "Meta", type: "object", properties: {} },
+			genres: {
+				type: "array",
+				label: "Genres",
+				items: { label: "Item", type: "string" },
+			},
 		},
 	},
 });

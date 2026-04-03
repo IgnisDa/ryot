@@ -23,6 +23,7 @@ describe("buildDefaultEventSchemaPropertyRow", () => {
 
 		expect(row).toMatchObject({
 			key: "",
+			label: "",
 			type: "string",
 			required: false,
 		});
@@ -44,6 +45,7 @@ describe("buildEventSchemaFormValues", () => {
 		expect(values.properties).toHaveLength(1);
 		expect(row).toMatchObject({
 			key: "",
+			label: "",
 			type: "string",
 			required: false,
 		});
@@ -62,6 +64,7 @@ describe("buildEventSchemaFormValues", () => {
 		expect(defaultCreateEventSchemaFormValues.properties).toHaveLength(1);
 		expect(row).toMatchObject({
 			key: "",
+			label: "",
 			type: "string",
 			required: false,
 		});
@@ -298,9 +301,9 @@ describe("buildEventSchemaPropertiesSchema", () => {
 			]),
 		).toEqual({
 			fields: {
-				notes: { type: "string" },
-				rating: { type: "number" },
-				isFavorite: { type: "boolean" },
+				notes: { label: "Title", type: "string" },
+				rating: { label: "Title", type: "number" },
+				isFavorite: { label: "Title", type: "boolean" },
 			},
 		});
 	});
@@ -310,7 +313,7 @@ describe("buildEventSchemaPropertiesSchema", () => {
 			buildEventSchemaPropertiesSchema([
 				input({ key: "score", type: "integer" }),
 			]),
-		).toEqual({ fields: { score: { type: "integer" } } });
+		).toEqual({ fields: { score: { label: "Title", type: "integer" } } });
 	});
 
 	it("maps date rows and includes required flag when present", () => {
@@ -321,8 +324,12 @@ describe("buildEventSchemaPropertiesSchema", () => {
 			]),
 		).toEqual({
 			fields: {
-				notes: { type: "string" },
-				occurredOn: { type: "date", validation: { required: true } },
+				notes: { label: "Title", type: "string" },
+				occurredOn: {
+					type: "date",
+					label: "Title",
+					validation: { required: true },
+				},
 			},
 		});
 	});
@@ -342,7 +349,9 @@ describe("toCreateEventSchemaPayload", () => {
 		).toEqual({
 			name: "Tasting",
 			entitySchemaId: "entity-schema-123",
-			propertiesSchema: { fields: { rating: { type: "number" } } },
+			propertiesSchema: {
+				fields: { rating: { label: "Title", type: "number" } },
+			},
 		});
 	});
 
@@ -354,10 +363,10 @@ describe("toCreateEventSchemaPayload", () => {
 					name: "  Tasting  ",
 					properties: [
 						row({
-							id: "occurred-on",
-							key: " occurredOn ",
 							type: "date",
 							required: true,
+							id: "occurred-on",
+							key: " occurredOn ",
 						}),
 						row({ id: "rating", key: "rating", type: "number" }),
 					],
@@ -370,8 +379,12 @@ describe("toCreateEventSchemaPayload", () => {
 			entitySchemaId: "entity-schema-123",
 			propertiesSchema: {
 				fields: {
-					rating: { type: "number" },
-					occurredOn: { type: "date", validation: { required: true } },
+					rating: { label: "Title", type: "number" },
+					occurredOn: {
+						type: "date",
+						label: "Title",
+						validation: { required: true },
+					},
 				},
 			},
 		});

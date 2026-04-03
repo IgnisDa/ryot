@@ -371,9 +371,9 @@ export async function createSingleSchemaQueryEngineFixture() {
 		name: "Device",
 		propertiesSchema: {
 			fields: {
-				year: { type: "integer" },
-				category: { type: "string" },
-				manufacturer: { type: "string" },
+				year: { type: "integer", label: "Year" },
+				category: { type: "string", label: "Category" },
+				manufacturer: { type: "string", label: "Manufacturer" },
 			},
 		},
 	});
@@ -425,9 +425,9 @@ export async function createCrossSchemaQueryEngineFixture() {
 		slug: `smartphones-${crypto.randomUUID()}`,
 		propertiesSchema: {
 			fields: {
-				year: { type: "integer" },
-				category: { type: "string" },
-				manufacturer: { type: "string" },
+				year: { type: "integer", label: "Year" },
+				category: { type: "string", label: "Category" },
+				manufacturer: { type: "string", label: "Manufacturer" },
 			},
 		},
 	});
@@ -438,10 +438,10 @@ export async function createCrossSchemaQueryEngineFixture() {
 		slug: `tablets-${crypto.randomUUID()}`,
 		propertiesSchema: {
 			fields: {
-				maker: { type: "string" },
-				category: { type: "string" },
-				releaseYear: { type: "integer" },
-				releaseLabel: { type: "string" },
+				maker: { type: "string", label: "Maker" },
+				category: { type: "string", label: "Category" },
+				releaseYear: { type: "integer", label: "Release Year" },
+				releaseLabel: { type: "string", label: "Release Label" },
 			},
 		},
 	});
