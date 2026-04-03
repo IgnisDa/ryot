@@ -1,5 +1,9 @@
 import { describe, expect, it } from "bun:test";
-import { createCollection, resolveCollectionName } from "./service";
+import {
+	addToCollection,
+	createCollection,
+	resolveCollectionName,
+} from "./service";
 
 const mockCollectionSchemaId = "mock-schema-id";
 
@@ -437,6 +441,176 @@ describe("createCollection", () => {
 
 			expect("error" in result).toBe(true);
 			expect(wasCreateCalled).toBe(false);
+		});
+	});
+
+	describe("addToCollection", () => {
+		const mockCollection = {
+			id: "collection-1",
+			name: "My Collection",
+			image: null,
+			externalId: null,
+			createdAt: new Date(),
+			updatedAt: new Date(),
+			entitySchemaId: "schema-1",
+			properties: {},
+			sandboxScriptId: null,
+		};
+
+		const mockEntity = { id: "entity-1" };
+
+		const mockMembership = {
+			id: "membership-1",
+			relType: "collection",
+			createdAt: "2024-01-01T00:00:00Z",
+			sourceEntityId: "collection-1",
+			targetEntityId: "entity-1",
+			properties: {},
+		};
+
+		const mockAddToCollectionDeps = {
+			addEntityToCollection: async () => mockMembership,
+			getCollectionById: async () => mockCollection,
+			getEntityById: async () => mockEntity,
+		};
+
+		it("adds an entity to a collection", async () => {
+			const result = await addToCollection(
+				{
+					body: { collectionId: "collection-1", entityId: "entity-1" },
+					userId: "user-1",
+				},
+				mockAddToCollectionDeps,
+			);
+
+			expect("data" in result).toBe(true);
+			if ("data" in result) {
+				expect(result.data.id).toBe("membership-1");
+				expect(result.data.relType).toBe("collection");
+				expect(result.data.sourceEntityId).toBe("collection-1");
+				expect(result.data.targetEntityId).toBe("entity-1");
+			}
+		});
+
+		it("adds an entity with custom properties", async () => {
+			const membershipWithProps = {
+				...mockMembership,
+				properties: { priority: "high", notes: "Important item" },
+			};
+
+			const depsWithProps = {
+				...mockAddToCollectionDeps,
+				addEntityToCollection: async () => membershipWithProps,
+			};
+
+			const result = await addToCollection(
+				{
+					body: {
+						collectionId: "collection-1",
+						entityId: "entity-1",
+						properties: { priority: "high", notes: "Important item" },
+					},
+					userId: "user-1",
+				},
+				depsWithProps,
+			);
+
+			expect("data" in result).toBe(true);
+			if ("data" in result) {
+				expect(result.data.properties).toEqual({
+					priority: "high",
+					notes: "Important item",
+				});
+			}
+		});
+
+		it("returns not_found error when collection does not exist", async () => {
+			const depsWithMissingCollection = {
+				...mockAddToCollectionDeps,
+				getCollectionById: async () => undefined,
+			};
+
+			const result = await addToCollection(
+				{
+					body: { collectionId: "nonexistent", entityId: "entity-1" },
+					userId: "user-1",
+				},
+				depsWithMissingCollection,
+			);
+
+			expect("error" in result).toBe(true);
+			if ("error" in result) {
+				expect(result.error).toBe("not_found");
+				expect(result.message).toBe("Collection not found");
+			}
+		});
+
+		it("returns not_found error when entity does not exist", async () => {
+			const depsWithMissingEntity = {
+				...mockAddToCollectionDeps,
+				getEntityById: async () => undefined,
+			};
+
+			const result = await addToCollection(
+				{
+					body: { collectionId: "collection-1", entityId: "nonexistent" },
+					userId: "user-1",
+				},
+				depsWithMissingEntity,
+			);
+
+			expect("error" in result).toBe(true);
+			if ("error" in result) {
+				expect(result.error).toBe("not_found");
+				expect(result.message).toBe("Entity not found");
+			}
+		});
+
+		it("uses empty properties when not provided", async () => {
+			let receivedProperties: Record<string, unknown> | undefined;
+
+			const trackingDeps = {
+				...mockAddToCollectionDeps,
+				addEntityToCollection: async (input: {
+					collectionId: string;
+					entityId: string;
+					userId: string;
+					properties: Record<string, unknown>;
+				}) => {
+					receivedProperties = input.properties;
+					return mockMembership;
+				},
+			};
+
+			const result = await addToCollection(
+				{
+					body: { collectionId: "collection-1", entityId: "entity-1" },
+					userId: "user-1",
+				},
+				trackingDeps,
+			);
+
+			expect("data" in result).toBe(true);
+			expect(receivedProperties).toEqual({});
+		});
+
+		it("propagates repository errors", async () => {
+			const failingDeps = {
+				...mockAddToCollectionDeps,
+				addEntityToCollection: async () => {
+					throw new Error("Database connection lost");
+				},
+			};
+
+			expect(
+				addToCollection(
+					{
+						body: { collectionId: "collection-1", entityId: "entity-1" },
+						userId: "user-1",
+					},
+					failingDeps,
+				),
+			).rejects.toThrow("Database connection lost");
 		});
 	});
 });
