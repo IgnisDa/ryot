@@ -107,7 +107,8 @@ CREATE TABLE "relationship" (
 	"user_id" text,
 	"source_entity_id" text NOT NULL,
 	"target_entity_id" text NOT NULL,
-	"id" text PRIMARY KEY NOT NULL
+	"id" text PRIMARY KEY NOT NULL,
+	CONSTRAINT "relationship_user_source_target_rel_type_unique" UNIQUE("user_id","source_entity_id","target_entity_id","rel_type")
 );
 --> statement-breakpoint
 CREATE TABLE "sandbox_script" (
