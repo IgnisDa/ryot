@@ -380,6 +380,79 @@ describe("Events bulk POST", () => {
 		]);
 	});
 
+	it("persists timeSpent on a dropped event and returns it", async () => {
+		const { cookies, client: apiClient } = await createAuthenticatedClient();
+		const { entityId, droppedEventSchemaId } = await createBuiltinMediaLifecycleFixture(
+			apiClient,
+			cookies,
+		);
+
+		const createResult = await apiClient.POST("/events", {
+			headers: { Cookie: cookies },
+			body: [
+				{
+					entityId,
+					eventSchemaId: droppedEventSchemaId,
+					properties: { progressPercent: 40, timeSpent: 90 },
+				},
+			],
+		});
+
+		expect(createResult.response.status).toBe(200);
+		expect(createResult.data?.data.count).toBe(1);
+
+		const events = await waitForEventCount(apiClient, cookies, entityId, 1);
+		expect(events[0]?.eventSchemaSlug).toBe("dropped");
+		expect(events[0]?.properties).toMatchObject({ progressPercent: 40, timeSpent: 90 });
+	});
+
+	it("persists timeSpent on an on_hold event and returns it", async () => {
+		const { cookies, client: apiClient } = await createAuthenticatedClient();
+		const { entityId, onHoldEventSchemaId } = await createBuiltinMediaLifecycleFixture(
+			apiClient,
+			cookies,
+		);
+
+		const createResult = await apiClient.POST("/events", {
+			headers: { Cookie: cookies },
+			body: [
+				{
+					entityId,
+					eventSchemaId: onHoldEventSchemaId,
+					properties: { progressPercent: 60, timeSpent: 45 },
+				},
+			],
+		});
+
+		expect(createResult.response.status).toBe(200);
+		expect(createResult.data?.data.count).toBe(1);
+
+		const events = await waitForEventCount(apiClient, cookies, entityId, 1);
+		expect(events[0]?.eventSchemaSlug).toBe("on_hold");
+		expect(events[0]?.properties).toMatchObject({ progressPercent: 60, timeSpent: 45 });
+	});
+
+	it("rejects a dropped event with a negative timeSpent", async () => {
+		const { cookies, client: apiClient } = await createAuthenticatedClient();
+		const { entityId, droppedEventSchemaId } = await createBuiltinMediaLifecycleFixture(
+			apiClient,
+			cookies,
+		);
+
+		const createResult = await apiClient.POST("/events", {
+			headers: { Cookie: cookies },
+			body: [
+				{
+					entityId,
+					eventSchemaId: droppedEventSchemaId,
+					properties: { progressPercent: 50, timeSpent: -5 },
+				},
+			],
+		});
+
+		expect(createResult.response.status).toBe(400);
+	});
+
 	it("creates built-in dropped events with rounded progress values", async () => {
 		const { cookies, client: apiClient } = await createAuthenticatedClient();
 		const { entityId, droppedEventSchemaId } = await createBuiltinMediaLifecycleFixture(

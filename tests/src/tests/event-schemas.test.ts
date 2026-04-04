@@ -248,6 +248,12 @@ describe("GET /event-schemas", () => {
 						validation: { maximum: 100, required: true, exclusiveMinimum: 0 },
 						description: "Percentage of the media completed so far (0 to 100)",
 					},
+					timeSpent: {
+						type: "number",
+						label: "Time Spent",
+						validation: { minimum: 0 },
+						description: "Time spent consuming this media in minutes",
+					},
 				},
 			});
 			const onHoldSchema = eventSchemas.find((schema) => schema.slug === "on_hold");
@@ -261,6 +267,12 @@ describe("GET /event-schemas", () => {
 						transform: { round: { mode: "half_up", scale: 2 } },
 						validation: { maximum: 100, required: true, exclusiveMinimum: 0 },
 						description: "Percentage of the media completed so far (0 to 100)",
+					},
+					timeSpent: {
+						type: "number",
+						label: "Time Spent",
+						validation: { minimum: 0 },
+						description: "Time spent consuming this media in minutes",
 					},
 				},
 			});
