@@ -148,9 +148,36 @@ const metadataMigrationTargetValuesSql = sql.join(
 	sql`, `,
 );
 
+const buildLegacyImageArraySql = (tableAlias: string) => `(
+	COALESCE(
+		(
+			SELECT jsonb_agg(
+				jsonb_build_object('type', 'remote', 'url', remote_image)
+				ORDER BY ordinality
+			)
+			FROM jsonb_array_elements_text(COALESCE(${tableAlias}.assets -> 'remote_images', '[]'::jsonb))
+				WITH ORDINALITY AS remote(remote_image, ordinality)
+		),
+		'[]'::jsonb
+	)
+	||
+	COALESCE(
+		(
+			SELECT jsonb_agg(
+				jsonb_build_object('type', 's3', 'key', s3_image)
+				ORDER BY ordinality
+			)
+			FROM jsonb_array_elements_text(COALESCE(${tableAlias}.assets -> 's3_images', '[]'::jsonb))
+				WITH ORDINALITY AS s3(s3_image, ordinality)
+		),
+		'[]'::jsonb
+	)
+)`;
+
 const buildMetadataCommonPropertiesSql = () => `
 COALESCE(
 	jsonb_strip_nulls(jsonb_build_object(
+		'images', ${buildLegacyImageArraySql("metadata")},
 		'genres', COALESCE((
 			SELECT jsonb_agg(genre.name ORDER BY genre.name)
 			FROM metadata_to_genre metadata_genre
