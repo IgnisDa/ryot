@@ -1,24 +1,17 @@
 import { Card, Group, Stack, Text } from "@mantine/core";
 import { TrendingUp } from "lucide-react";
+import { useThemeTokens } from "#/hooks/theme";
 
 export interface StatsCardProps {
 	label: string;
 	color?: string;
 	change?: string;
-	isDark?: boolean;
 	value: string | number;
 }
 
 export function StatsCard(props: StatsCardProps) {
 	const color = props.color ?? "#5B7FFF";
-	const isDark = props.isDark ?? false;
-	const surface = isDark ? "var(--mantine-color-dark-8)" : "white";
-	const border = isDark
-		? "var(--mantine-color-dark-6)"
-		: "var(--mantine-color-stone-3)";
-	const textPrimary = isDark
-		? "var(--mantine-color-dark-0)"
-		: "var(--mantine-color-dark-9)";
+	const { isDark, surface, border, textPrimary } = useThemeTokens();
 
 	return (
 		<Card
