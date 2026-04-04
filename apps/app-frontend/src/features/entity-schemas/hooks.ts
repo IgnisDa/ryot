@@ -17,9 +17,9 @@ export function useEntitySchemaQuery(entitySchemaId: string, enabled = true) {
 export function useEntitySchemasQuery(trackerId: string, enabled = true) {
 	const apiClient = useApiClient();
 	const query = apiClient.useQuery(
-		"get",
-		"/entity-schemas",
-		{ params: { query: { trackerId } } },
+		"post",
+		"/entity-schemas/list",
+		{ body: { trackerId } },
 		{ enabled },
 	);
 
@@ -32,9 +32,9 @@ export function useEntitySchemasQuery(trackerId: string, enabled = true) {
 export function useEntitySchemasBySlugQuery(slugs: string[], enabled = true) {
 	const apiClient = useApiClient();
 	const query = apiClient.useQuery(
-		"get",
-		"/entity-schemas",
-		{ params: { query: { slugs } } },
+		"post",
+		"/entity-schemas/list",
+		{ body: { slugs } },
 		{ enabled: enabled && slugs.length > 0 },
 	);
 
@@ -47,8 +47,8 @@ export function useEntitySchemasBySlugQuery(slugs: string[], enabled = true) {
 export function useEntitySchemaMutations(trackerId: string) {
 	const apiClient = useApiClient();
 	const queryClient = useQueryClient();
-	const listQueryKey = apiClient.queryOptions("get", "/entity-schemas", {
-		params: { query: { trackerId } },
+	const listQueryKey = apiClient.queryOptions("post", "/entity-schemas/list", {
+		body: { trackerId },
 	}).queryKey;
 	const savedViewsQueryKey = apiClient.queryOptions(
 		"get",
