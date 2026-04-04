@@ -81,6 +81,7 @@ export const testPluginManifest = (input: {
 	configSchema?: PluginConfigSchema;
 	providers?: ReadonlyArray<TestPluginProvider>;
 	operations?: ReadonlyArray<TestPluginOperation>;
+	httpRateLimits?: PluginManifest["httpRateLimits"];
 	importSources?: ReadonlyArray<PluginImportSource>;
 	eventAutomations?: ReadonlyArray<PluginEventAutomation>;
 	integrationProviders?: PluginManifest["integrationProviders"];
@@ -114,6 +115,7 @@ export const testPluginManifest = (input: {
 	operations: input.operations ?? [],
 	importSources: input.importSources ?? [],
 	entitySchemas: input.entitySchemas ?? [],
+	httpRateLimits: input.httpRateLimits ?? [],
 	relationshipSchemas: input.relationshipSchemas ?? [],
 	integrationProviders: input.integrationProviders ?? [],
 	configSchema: input.configSchema ?? { fields: {}, unknownKeys: "strict" as const },
@@ -167,6 +169,7 @@ export const installTestPlugin = (input: {
 	providers?: Parameters<typeof testPluginManifest>[0]["providers"];
 	operations?: Parameters<typeof testPluginManifest>[0]["operations"];
 	entitySchemas?: Parameters<typeof testPluginManifest>[0]["entitySchemas"];
+	httpRateLimits?: Parameters<typeof testPluginManifest>[0]["httpRateLimits"];
 }) =>
 	Effect.gen(function* () {
 		const entry = `scripts/${input.script.kind}.sandbox.ts`;
@@ -176,6 +179,7 @@ export const installTestPlugin = (input: {
 			pluginSlug,
 			providers: input.providers ?? [],
 			configSchema: input.configSchema,
+			httpRateLimits: input.httpRateLimits,
 			scripts: [{ ...input.script, entry }],
 			...(input.boot ? { boot: input.boot } : {}),
 			...(input.crons ? { crons: input.crons } : {}),
@@ -219,6 +223,7 @@ export const installTestPluginBundle = (input: {
 	workflows?: Parameters<typeof testPluginManifest>[0]["workflows"];
 	importSources?: Parameters<typeof testPluginManifest>[0]["importSources"];
 	entitySchemas?: Parameters<typeof testPluginManifest>[0]["entitySchemas"];
+	httpRateLimits?: Parameters<typeof testPluginManifest>[0]["httpRateLimits"];
 	eventAutomations?: Parameters<typeof testPluginManifest>[0]["eventAutomations"];
 	relationshipSchemas?: Parameters<typeof testPluginManifest>[0]["relationshipSchemas"];
 	integrationProviders?: Parameters<typeof testPluginManifest>[0]["integrationProviders"];
@@ -236,6 +241,7 @@ export const installTestPluginBundle = (input: {
 			operations: input.operations ?? [],
 			importSources: input.importSources,
 			entitySchemas: input.entitySchemas,
+			httpRateLimits: input.httpRateLimits,
 			eventAutomations: input.eventAutomations,
 			relationshipSchemas: input.relationshipSchemas,
 			integrationProviders: input.integrationProviders,
