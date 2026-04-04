@@ -4,7 +4,7 @@
 
 **Type:** AFK
 
-**Status:** todo
+**Status:** done
 
 ## What to build
 
@@ -24,13 +24,13 @@ See the parent PRD section **Membership form behavior**.
       collection template.
 - [x] Generated membership inputs render the collection template's `label` values directly.
 - [x] Collections with no membership template produce a valid form state without extra fields.
-- [ ] Required primitive fields are validated before submit.
-- [ ] The helper shapes the membership properties payload expected by the later save-orchestration
+- [x] Required primitive fields are validated before submit.
+- [x] The helper shapes the membership properties payload expected by the later save-orchestration
       slice.
-- [ ] The slice supports the same flat primitive schema shapes currently created by the collection
+- [x] The slice supports the same flat primitive schema shapes currently created by the collection
       creation UI.
-- [ ] Pure tests cover default values, required-field validation, label usage, and payload shaping.
-- [ ] `bun run typecheck` and the relevant frontend test command pass in `apps/app-frontend`.
+- [x] Pure tests cover default values, required-field validation, label usage, and payload shaping.
+- [x] `bun run typecheck` and the relevant frontend test command pass in `apps/app-frontend`.
 
 ## Blocked by
 
