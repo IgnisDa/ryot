@@ -731,9 +731,9 @@ async function seedSavedViews(
 			"wine",
 			"#D97706",
 			{
-				filters: [{ op: "gte", field: ["age"], value: 18 }],
+				filters: [{ op: "gte", field: "age", value: 18 }],
 				entitySchemaSlugs: ["whiskey"],
-				sort: { field: ["age"], direction: "desc" },
+				sort: { fields: "age", direction: "desc" },
 			},
 			{
 				grid: {
@@ -768,9 +768,9 @@ async function seedSavedViews(
 			"wine",
 			"#B45309",
 			{
-				filters: [{ op: "eq", field: ["type"], value: "Scotch" }],
+				filters: [{ op: "eq", field: "type", value: "Scotch" }],
 				entitySchemaSlugs: ["whiskey"],
-				sort: { field: ["@name"], direction: "asc" },
+				sort: { fields: "@name", direction: "asc" },
 			},
 			{
 				grid: {
@@ -803,9 +803,9 @@ async function seedSavedViews(
 			"flame",
 			"#DC2626",
 			{
-				filters: [{ op: "gte", field: ["proof"], value: 100 }],
+				filters: [{ op: "gte", field: "proof", value: 100 }],
 				entitySchemaSlugs: ["whiskey"],
-				sort: { field: ["proof"], direction: "desc" },
+				sort: { fields: "proof", direction: "desc" },
 			},
 			{
 				grid: {
@@ -842,7 +842,7 @@ async function seedSavedViews(
 			{
 				filters: [],
 				entitySchemaSlugs: ["whiskey"],
-				sort: { field: ["@createdAt"], direction: "desc" },
+				sort: { fields: "@createdAt", direction: "desc" },
 			},
 			{
 				grid: {
@@ -876,9 +876,9 @@ async function seedSavedViews(
 			"wine",
 			"#DC2626",
 			{
-				filters: [{ op: "eq", field: ["type"], value: "Japanese" }],
+				filters: [{ op: "eq", field: "type", value: "Japanese" }],
 				entitySchemaSlugs: ["whiskey"],
-				sort: { field: ["age"], direction: "desc" },
+				sort: { fields: "age", direction: "desc" },
 			},
 			{
 				grid: {
@@ -913,9 +913,9 @@ async function seedSavedViews(
 			"utensils",
 			"#EF4444",
 			{
-				filters: [{ op: "in", field: ["type"], value: ["Restaurant", "Cafe"] }],
+				filters: [{ op: "in", field: "type", value: ["Restaurant", "Cafe"] }],
 				entitySchemaSlugs: ["place"],
-				sort: { field: ["@name"], direction: "asc" },
+				sort: { fields: "@name", direction: "asc" },
 			},
 			{
 				grid: {
@@ -952,12 +952,12 @@ async function seedSavedViews(
 				filters: [
 					{
 						op: "in",
-						field: ["type"],
+						field: "type",
 						value: ["Museum", "Gallery", "Theater"],
 					},
 				],
 				entitySchemaSlugs: ["place"],
-				sort: { field: ["city"], direction: "asc" },
+				sort: { fields: "city", direction: "asc" },
 			},
 			{
 				grid: {
@@ -992,9 +992,9 @@ async function seedSavedViews(
 			"tree",
 			"#10B981",
 			{
-				filters: [{ op: "eq", field: ["type"], value: "Park" }],
+				filters: [{ op: "eq", field: "type", value: "Park" }],
 				entitySchemaSlugs: ["place"],
-				sort: { field: ["@name"], direction: "asc" },
+				sort: { fields: "@name", direction: "asc" },
 			},
 			{
 				grid: {
@@ -1030,7 +1030,7 @@ async function seedSavedViews(
 			{
 				filters: [],
 				entitySchemaSlugs: ["place"],
-				sort: { field: ["@createdAt"], direction: "desc" },
+				sort: { fields: "@createdAt", direction: "desc" },
 			},
 			{
 				grid: {
@@ -1066,7 +1066,7 @@ async function seedSavedViews(
 			{
 				filters: [],
 				entitySchemaSlugs: ["place"],
-				sort: { field: ["country"], direction: "asc" },
+				sort: { fields: "country", direction: "asc" },
 			},
 			{
 				grid: {
@@ -1104,12 +1104,12 @@ async function seedSavedViews(
 				filters: [
 					{
 						op: "in",
-						field: ["type"],
+						field: "type",
 						value: ["Museum", "Gallery", "Theater"],
 					},
 				],
 				entitySchemaSlugs: ["place"],
-				sort: { field: ["city"], direction: "asc" },
+				sort: { fields: "city", direction: "asc" },
 			},
 			{
 				grid: {
@@ -1143,9 +1143,9 @@ async function seedSavedViews(
 			"tree",
 			"#10B981",
 			{
-				filters: [{ op: "eq", field: ["type"], value: "Park" }],
+				filters: [{ op: "eq", field: "type", value: "Park" }],
 				entitySchemaSlugs: ["place"],
-				sort: { field: ["@name"], direction: "asc" },
+				sort: { fields: "@name", direction: "asc" },
 			},
 			{
 				grid: {
@@ -1180,7 +1180,7 @@ async function seedSavedViews(
 			{
 				filters: [],
 				entitySchemaSlugs: ["place"],
-				sort: { field: ["@createdAt"], direction: "desc" },
+				sort: { fields: "@createdAt", direction: "desc" },
 			},
 			{
 				grid: {
@@ -1215,7 +1215,7 @@ async function seedSavedViews(
 			{
 				filters: [],
 				entitySchemaSlugs: ["place"],
-				sort: { field: ["country"], direction: "asc" },
+				sort: { fields: "country", direction: "asc" },
 			},
 			{
 				grid: {
@@ -1250,9 +1250,9 @@ async function seedSavedViews(
 			"smartphone",
 			"#6366F1",
 			{
-				filters: [{ op: "gte", field: ["year"], value: 2020 }],
+				filters: [{ op: "gte", field: "year", value: 2020 }],
 				entitySchemaSlugs: ["smartphone"],
-				sort: { field: ["year"], direction: "desc" },
+				sort: { fields: "year", direction: "desc" },
 			},
 			{
 				grid: {
@@ -1287,9 +1287,9 @@ async function seedSavedViews(
 			"hard-drive",
 			"#EC4899",
 			{
-				filters: [{ op: "gte", field: ["storage_gb"], value: 256 }],
+				filters: [{ op: "gte", field: "storage_gb", value: 256 }],
 				entitySchemaSlugs: ["smartphone", "tablet"],
-				sort: { field: ["storage_gb"], direction: "desc" },
+				sort: { fields: "storage_gb", direction: "desc" },
 			},
 			{
 				grid: {
@@ -1324,9 +1324,9 @@ async function seedSavedViews(
 			"apple",
 			"#6B7280",
 			{
-				filters: [{ op: "in", field: ["os"], value: ["iOS", "iPadOS"] }],
+				filters: [{ op: "in", field: "os", value: ["iOS", "iPadOS"] }],
 				entitySchemaSlugs: ["smartphone", "tablet"],
-				sort: { field: ["year"], direction: "desc" },
+				sort: { fields: "year", direction: "desc" },
 			},
 			{
 				grid: {
@@ -1360,9 +1360,9 @@ async function seedSavedViews(
 			"android",
 			"#22C55E",
 			{
-				filters: [{ op: "eq", field: ["os"], value: "Android" }],
+				filters: [{ op: "eq", field: "os", value: "Android" }],
 				entitySchemaSlugs: ["smartphone", "tablet"],
-				sort: { field: ["@name"], direction: "asc" },
+				sort: { fields: "@name", direction: "asc" },
 			},
 			{
 				grid: {
@@ -1396,9 +1396,9 @@ async function seedSavedViews(
 			"gem",
 			"#A855F7",
 			{
-				filters: [{ op: "gte", field: ["price_usd"], value: 999 }],
+				filters: [{ op: "gte", field: "price_usd", value: 999 }],
 				entitySchemaSlugs: ["smartphone"],
-				sort: { field: ["price_usd"], direction: "desc" },
+				sort: { fields: "price_usd", direction: "desc" },
 			},
 			{
 				grid: {
@@ -1434,9 +1434,9 @@ async function seedSavedViews(
 			"dollar-sign",
 			"#10B981",
 			{
-				filters: [{ op: "lte", field: ["price_usd"], value: 399 }],
+				filters: [{ op: "lte", field: "price_usd", value: 399 }],
 				entitySchemaSlugs: ["smartphone"],
-				sort: { field: ["price_usd"], direction: "asc" },
+				sort: { fields: "price_usd", direction: "asc" },
 			},
 			{
 				grid: {
@@ -1470,9 +1470,9 @@ async function seedSavedViews(
 			"signal",
 			"#F97316",
 			{
-				filters: [{ op: "eq", field: ["has_cellular"], value: true }],
+				filters: [{ op: "eq", field: "has_cellular", value: true }],
 				entitySchemaSlugs: ["tablet"],
-				sort: { field: ["screen_size"], direction: "desc" },
+				sort: { fields: "screen_size", direction: "desc" },
 			},
 			{
 				grid: {
@@ -1507,9 +1507,9 @@ async function seedSavedViews(
 			"camera",
 			"#84CC16",
 			{
-				filters: [{ op: "eq", field: ["has_camera"], value: true }],
+				filters: [{ op: "eq", field: "has_camera", value: true }],
 				entitySchemaSlugs: ["feature-phone"],
-				sort: { field: ["year"], direction: "desc" },
+				sort: { fields: "year", direction: "desc" },
 			},
 			{
 				grid: {
@@ -1546,7 +1546,7 @@ async function seedSavedViews(
 			{
 				filters: [],
 				entitySchemaSlugs: ["smartphone", "feature-phone", "tablet"],
-				sort: { field: ["@name"], direction: "asc" },
+				sort: { fields: "@name", direction: "asc" },
 			},
 			{
 				grid: {
@@ -1580,9 +1580,9 @@ async function seedSavedViews(
 			"hard-drive",
 			"#EC4899",
 			{
-				filters: [{ op: "gte", field: ["storage_gb"], value: 256 }],
+				filters: [{ op: "gte", field: "storage_gb", value: 256 }],
 				entitySchemaSlugs: ["smartphone", "tablet"],
-				sort: { field: ["storage_gb"], direction: "desc" },
+				sort: { fields: "storage_gb", direction: "desc" },
 			},
 			{
 				grid: {
@@ -1616,9 +1616,9 @@ async function seedSavedViews(
 			"apple",
 			"#6B7280",
 			{
-				filters: [{ op: "in", field: ["os"], value: ["iOS", "iPadOS"] }],
+				filters: [{ op: "in", field: "os", value: ["iOS", "iPadOS"] }],
 				entitySchemaSlugs: ["smartphone", "tablet"],
-				sort: { field: ["year"], direction: "desc" },
+				sort: { fields: "year", direction: "desc" },
 			},
 			{
 				grid: {
@@ -1651,9 +1651,9 @@ async function seedSavedViews(
 			"android",
 			"#22C55E",
 			{
-				filters: [{ op: "eq", field: ["os"], value: "Android" }],
+				filters: [{ op: "eq", field: "os", value: "Android" }],
 				entitySchemaSlugs: ["smartphone", "tablet"],
-				sort: { field: ["@name"], direction: "asc" },
+				sort: { fields: "@name", direction: "asc" },
 			},
 			{
 				grid: {
@@ -1686,9 +1686,9 @@ async function seedSavedViews(
 			"gem",
 			"#A855F7",
 			{
-				filters: [{ op: "gte", field: ["price_usd"], value: 999 }],
+				filters: [{ op: "gte", field: "price_usd", value: 999 }],
 				entitySchemaSlugs: ["smartphone"],
-				sort: { field: ["price_usd"], direction: "desc" },
+				sort: { fields: "price_usd", direction: "desc" },
 			},
 			{
 				grid: {
@@ -1723,9 +1723,9 @@ async function seedSavedViews(
 			"dollar-sign",
 			"#10B981",
 			{
-				filters: [{ op: "lte", field: ["price_usd"], value: 399 }],
+				filters: [{ op: "lte", field: "price_usd", value: 399 }],
 				entitySchemaSlugs: ["smartphone"],
-				sort: { field: ["price_usd"], direction: "asc" },
+				sort: { fields: "price_usd", direction: "asc" },
 			},
 			{
 				grid: {
@@ -1758,9 +1758,9 @@ async function seedSavedViews(
 			"signal",
 			"#F97316",
 			{
-				filters: [{ op: "eq", field: ["has_cellular"], value: true }],
+				filters: [{ op: "eq", field: "has_cellular", value: true }],
 				entitySchemaSlugs: ["tablet"],
-				sort: { field: ["screen_size"], direction: "desc" },
+				sort: { fields: "screen_size", direction: "desc" },
 			},
 			{
 				grid: {
@@ -1794,9 +1794,9 @@ async function seedSavedViews(
 			"camera",
 			"#84CC16",
 			{
-				filters: [{ op: "eq", field: ["has_camera"], value: true }],
+				filters: [{ op: "eq", field: "has_camera", value: true }],
 				entitySchemaSlugs: ["feature-phone"],
-				sort: { field: ["year"], direction: "desc" },
+				sort: { fields: "year", direction: "desc" },
 			},
 			{
 				grid: {
@@ -1832,7 +1832,7 @@ async function seedSavedViews(
 			{
 				filters: [],
 				entitySchemaSlugs: ["smartphone", "feature-phone", "tablet"],
-				sort: { field: ["@name"], direction: "asc" },
+				sort: { fields: "@name", direction: "asc" },
 			},
 			{
 				grid: {
@@ -1874,7 +1874,7 @@ async function seedSavedViews(
 					"feature-phone",
 					"tablet",
 				],
-				sort: { field: ["@createdAt"], direction: "desc" },
+				sort: { fields: "@createdAt", direction: "desc" },
 			},
 			{
 				grid: {
@@ -1914,7 +1914,7 @@ async function seedSavedViews(
 					"feature-phone",
 					"tablet",
 				],
-				sort: { field: ["@name"], direction: "asc" },
+				sort: { fields: "@name", direction: "asc" },
 			},
 			{
 				grid: {
