@@ -24,6 +24,7 @@ import type {
 } from "./search-modal-media-actions";
 import { getMediaDoneActionLabel } from "./search-modal-media-actions";
 import {
+	SearchResultCollectionPanel,
 	SearchResultLogPanel,
 	SearchResultReviewPanel,
 } from "./search-result-row-panels";
@@ -36,10 +37,12 @@ export type SearchResultRowActionState = {
 	rateStarsHover: number;
 	logCompletedOn: string;
 	actionError: string | null;
-	openPanel: "log" | "rate" | null;
+	openPanel: "log" | "rate" | "collection" | null;
 	logDate: MediaSearchLogDateOption;
 	doneActions: MediaSearchDoneAction[];
-	pendingAction: "add" | "backlog" | "log" | "rate" | null;
+	selectedCollectionId: string | null;
+	collectionProperties: Record<string, unknown>;
+	pendingAction: "add" | "backlog" | "log" | "rate" | "collection" | null;
 };
 
 export const defaultSearchResultRowActionState: SearchResultRowActionState = {
@@ -53,6 +56,8 @@ export const defaultSearchResultRowActionState: SearchResultRowActionState = {
 	actionError: null,
 	logCompletedOn: "",
 	pendingAction: null,
+	selectedCollectionId: null,
+	collectionProperties: {},
 };
 
 function withAlpha(hex: string, alpha: number) {
@@ -122,7 +127,8 @@ function SearchResultActions(props: {
 	onBacklog: () => void;
 	canUseLifecycleActions: boolean;
 	actionState: SearchResultRowActionState;
-	onTogglePanel: (panel: "log" | "rate") => void;
+	onTogglePanel: (panel: "log" | "rate" | "collection") => void;
+	canUseCollectionAction: boolean;
 }) {
 	return (
 		<Group gap={6} wrap="wrap">
@@ -176,10 +182,31 @@ function SearchResultActions(props: {
 				Watchlist
 			</Button>
 			<Button
-				disabled
-				variant="subtle"
 				size="compact-xs"
+				onClick={() => props.onTogglePanel("collection")}
+				loading={props.actionState.pendingAction === "collection"}
 				leftSection={<FolderPlus size={13} strokeWidth={1.5} />}
+				disabled={
+					!props.canUseCollectionAction ||
+					(props.isWorking && props.actionState.pendingAction !== "collection")
+				}
+				variant={
+					props.actionState.openPanel === "collection"
+						? "filled"
+						: props.actionState.doneActions.includes("collection")
+							? "light"
+							: "subtle"
+				}
+				style={
+					props.actionState.openPanel === "collection"
+						? { backgroundColor: props.accentColor, color: "white" }
+						: props.actionState.doneActions.includes("collection")
+							? {
+									backgroundColor: withAlpha(props.accentColor, 0.12),
+									color: props.accentColor,
+								}
+							: undefined
+				}
 			>
 				Collection
 			</Button>
@@ -232,8 +259,11 @@ export function SearchResultRow(props: {
 	primaryAction: "add" | "backlog";
 	lifecycleErrorMessage: string | null;
 	actionState: SearchResultRowActionState;
-	onTogglePanel: (panel: "log" | "rate") => void;
+	onTogglePanel: (panel: "log" | "rate" | "collection") => void;
 	addStatus: "idle" | "loading" | "done" | "error";
+	onSaveCollection: () => void;
+	canUseCollectionAction: boolean;
+	collections: Array<{ id: string; name: string }>;
 	onPatchActionState: (patch: Partial<SearchResultRowActionState>) => void;
 }) {
 	const t = useThemeTokens();
@@ -439,6 +469,7 @@ export function SearchResultRow(props: {
 							accentColor={props.accentColor}
 							onTogglePanel={props.onTogglePanel}
 							canUseLifecycleActions={canUseLifecycleActions}
+							canUseCollectionAction={props.canUseCollectionAction}
 						/>
 
 						{props.isLifecycleLoading ? (
@@ -474,6 +505,19 @@ export function SearchResultRow(props: {
 								actionState={props.actionState}
 								accentColor={props.accentColor}
 								onSaveReview={props.onSaveReview}
+								onPatchActionState={props.onPatchActionState}
+							/>
+						) : null}
+
+						{props.actionState.openPanel === "collection" &&
+						props.canUseCollectionAction ? (
+							<SearchResultCollectionPanel
+								border={t.border}
+								textMuted={t.textMuted}
+								actionState={props.actionState}
+								accentColor={props.accentColor}
+								collections={props.collections}
+								onSaveCollection={props.onSaveCollection}
 								onPatchActionState={props.onPatchActionState}
 							/>
 						) : null}
