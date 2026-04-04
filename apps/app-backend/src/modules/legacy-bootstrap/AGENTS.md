@@ -44,6 +44,12 @@ Everything else must throw. Do not add new `RETURN` statements inside DO blocks 
 - Group `properties` fields (`parts`, `description`, `source_url`): deferred to re-population from the source provider, matching the same decision made for `metadata`.
 - Metadata groups for lots without V2 group entity schemas (`anime`, `manga`, `show`, `podcast`, `visual_novel`): silently skipped, no V2 schema exists for them.
 
+## Ignored For Now (review)
+
+- `review.visibility`: V2 events have no visibility concept. The public/private distinction is dropped; all reviews are migrated without it.
+- `review.comments`: V2 has no comments concept on events. All review comment threads (including commenter identity, like counts, and timestamps) are dropped.
+- `review.rating > 100`: V1 had no upper bound on ratings; values above 100 are clamped to 100 on migration. No normalization is attempted.
+
 ## Ignored For Now
 
 - OAuth redirect URL (V1 used `{frontend_url}/api/auth`; V2 uses Better Auth's default `/api/auth/oauth2/callback/oidc`).
