@@ -145,9 +145,9 @@ describe("POST /collections", () => {
 			};
 
 			const collection = await createCollection(client, cookies, {
+				membershipPropertiesSchema,
 				name: "Nested Schema Collection",
 				description: "Testing nested properties",
-				membershipPropertiesSchema,
 			});
 
 			expect(collection.id).toBeDefined();
@@ -210,7 +210,9 @@ describe("POST /collections", () => {
 			});
 
 			expect(response.status).toBe(400);
-			expect(error?.error?.message).toContain("Invalid property definition");
+			expect(error?.error?.message).toContain(
+				"membershipPropertiesSchema must be a valid AppSchema",
+			);
 		});
 
 		it("rejects collection creation with invalid nested array item type", async () => {
@@ -233,7 +235,9 @@ describe("POST /collections", () => {
 			});
 
 			expect(response.status).toBe(400);
-			expect(error?.error?.message).toContain("Invalid property definition");
+			expect(error?.error?.message).toContain(
+				"membershipPropertiesSchema must be a valid AppSchema",
+			);
 		});
 
 		it("creates a collection with multi-level nested schema", async () => {
@@ -360,8 +364,8 @@ describe("POST /collections", () => {
 
 			// Create an entity
 			const entity = await createEntity(client, cookies, {
-				entitySchemaId,
 				image: null,
+				entitySchemaId,
 				name: "Test Entity",
 				properties: { title: "Test Title" },
 			});
@@ -419,16 +423,81 @@ describe("POST /collections", () => {
 			const { data, response } = await client.POST("/collections/memberships", {
 				headers: { Cookie: cookies },
 				body: {
-					collectionId: collection.id,
 					entityId: entity.id,
+					collectionId: collection.id,
 					properties: { rating: 5, recommendedBy: "John" },
 				},
 			});
 
 			expect(response.status).toBe(200);
 			expect(data?.data?.collection?.properties).toMatchObject({
-				recommendedBy: "John",
 				rating: 5,
+				recommendedBy: "John",
+			});
+		});
+
+		it("upserts an existing membership instead of creating duplicates", async () => {
+			const { client, cookies } = await createAuthenticatedClient();
+
+			const collection = await createCollection(client, cookies, {
+				name: "Upsert Collection",
+				membershipPropertiesSchema: {
+					fields: {
+						rating: { type: "integer" },
+						recommendedBy: { type: "string" },
+					},
+				},
+			});
+
+			const tracker = await createTracker(client, cookies, {
+				name: `Upsert Tracker ${crypto.randomUUID()}`,
+			});
+
+			const { schemaId: entitySchemaId } = await createEntitySchema(
+				client,
+				cookies,
+				{
+					trackerId: tracker.trackerId,
+					propertiesSchema: { fields: { title: { type: "string" as const } } },
+				},
+			);
+
+			const entity = await createEntity(client, cookies, {
+				image: null,
+				entitySchemaId,
+				name: "Upsert Entity",
+				properties: { title: "Upsert Entity" },
+			});
+
+			const first = await client.POST("/collections/memberships", {
+				headers: { Cookie: cookies },
+				body: {
+					entityId: entity.id,
+					collectionId: collection.id,
+					properties: { rating: 4, recommendedBy: "Alice" },
+				},
+			});
+
+			const second = await client.POST("/collections/memberships", {
+				headers: { Cookie: cookies },
+				body: {
+					entityId: entity.id,
+					collectionId: collection.id,
+					properties: { rating: 5, recommendedBy: "Bob" },
+				},
+			});
+
+			expect(first.response.status).toBe(200);
+			expect(second.response.status).toBe(200);
+			expect(second.data?.data?.collection?.id).toBe(
+				first.data?.data?.collection?.id,
+			);
+			expect(second.data?.data?.memberOf?.id).toBe(
+				first.data?.data?.memberOf?.id,
+			);
+			expect(second.data?.data?.collection?.properties).toMatchObject({
+				rating: 5,
+				recommendedBy: "Bob",
 			});
 		});
 
@@ -549,14 +618,15 @@ describe("POST /collections", () => {
 
 			const { response } = await client.POST("/collections/memberships", {
 				body: {
-					collectionId: "some-collection-id",
 					entityId: "some-entity-id",
+					collectionId: "some-collection-id",
 				},
 			});
 
 			expect(response.status).toBe(401);
 		});
 	});
+
 	it("removes an entity from a collection and deletes both relationships", async () => {
 		const { client, cookies } = await createAuthenticatedClient();
 

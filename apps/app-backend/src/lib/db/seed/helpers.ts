@@ -23,6 +23,17 @@ export const ensureBuiltinEntitySchema = async (input: {
 		.limit(1);
 
 	if (existing) {
+		await input.database
+			.update(entitySchema)
+			.set({
+				isBuiltin: true,
+				name: input.name,
+				icon: input.icon,
+				accentColor: input.accentColor,
+				propertiesSchema: input.propertiesSchema,
+			})
+			.where(eq(entitySchema.id, existing.id));
+
 		return existing.id;
 	}
 
