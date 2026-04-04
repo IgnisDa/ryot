@@ -36,6 +36,7 @@ export const trackerIconSelectData = trackerIconOptions.map((option) => ({
 interface TrackerIconProps {
 	icon: string;
 	size?: number;
+	color?: string;
 	strokeWidth?: number;
 }
 
@@ -55,6 +56,7 @@ export function TrackerIcon(props: TrackerIconProps) {
 	return (
 		<DynamicIcon
 			name={option.value}
+			color={props.color}
 			size={props.size ?? 16}
 			strokeWidth={props.strokeWidth ?? 1.8}
 		/>
