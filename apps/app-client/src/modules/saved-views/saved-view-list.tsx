@@ -43,8 +43,8 @@ function SavedViewListRow(props: {
 		setGradientStops(undefined);
 		if (url) {
 			void getColors(url, {
-				cache: true,
 				key: url,
+				cache: true,
 				fallback: SAVED_VIEW_COLOR_FALLBACK,
 			})
 				.then((colors) => {
@@ -68,7 +68,7 @@ function SavedViewListRow(props: {
 			<Pressable
 				accessibilityRole="link"
 				accessibilityLabel={`Open ${props.item.title}`}
-				className="relative min-h-28 flex-row items-center gap-3 overflow-hidden border-b border-border py-2 focus-visible:outline-2 focus-visible:outline-accent md:min-h-18 md:gap-3.5 md:px-1"
+				className="relative min-h-28 flex-row items-center gap-3 overflow-hidden border-b border-border py-2 focus-visible:outline-2 focus-visible:outline-accent md:min-h-18 md:gap-3.5 px-1"
 			>
 				{gradientStops && (
 					<Animated.View pointerEvents="none" entering={TINT_ENTERING} className="absolute inset-0">
