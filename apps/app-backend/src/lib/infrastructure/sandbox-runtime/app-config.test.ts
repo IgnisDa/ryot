@@ -6,11 +6,19 @@ import { makeAppConfigLayer } from "#lib/test-utils/effect";
 
 import { getSandboxAppConfigValue } from "./app-config";
 
-const run = (key: string, isBuiltin: boolean, layer = makeAppConfigLayer()) =>
+const run = (
+	key: string,
+	isBuiltin: boolean,
+	layer = makeAppConfigLayer(),
+	requiredAppConfigKeys: ReadonlyArray<string> = [],
+) =>
 	Effect.runSync(
 		Effect.gen(function* () {
 			const config = yield* AppConfig;
-			return yield* getSandboxAppConfigValue(config, key, isBuiltin);
+			return yield* getSandboxAppConfigValue(config, key, {
+				requiredAppConfigKeys,
+				scriptIsBuiltin: isBuiltin,
+			});
 		}).pipe(Effect.either, Effect.provide(layer)),
 	);
 
@@ -65,6 +73,11 @@ describe("getSandboxAppConfigValue", () => {
 		}
 	});
 
+	it("unwraps a declared sensitive key for an installed plugin script", () => {
+		const result = run("sandbox.jobIdSecret", false, makeAppConfigLayer(), ["sandbox.jobIdSecret"]);
+		expect(result).toMatchObject({ _tag: "Right", right: "test-secret" });
+	});
+
 	it("fails when an optional key is not configured (Option.none)", () => {
 		const result = run("server.corsOrigins", false);
 		expect(result._tag).toBe("Left");
@@ -90,5 +103,12 @@ describe("getSandboxAppConfigValue", () => {
 		if (result._tag === "Right") {
 			expect(result.right).toBe("Etc/GMT");
 		}
+	});
+
+	it("exposes the non-sensitive exercise preload limit to plugin scripts", () => {
+		const layer = makeAppConfigLayer({ builtinExercisePreloadLimit: 321 });
+		const pluginResult = run("builtinExercisePreloadLimit", false, layer);
+
+		expect(pluginResult).toMatchObject({ _tag: "Right", right: 321 });
 	});
 });

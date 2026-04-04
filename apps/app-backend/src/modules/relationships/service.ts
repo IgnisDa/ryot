@@ -1,9 +1,11 @@
 import { badRequest, notFound } from "@ryot/contract/errors";
+import type { EntityId, RelationshipSchemaSlug } from "@ryot/contract/schema/brands";
 import type { AppSchema } from "@ryot/contract/schema/property-schema";
 import { Effect } from "effect";
 
-import { DbRunner } from "#lib/infrastructure/db/service";
+import { DbRunner, TransactionRunner } from "#lib/infrastructure/db/service";
 import { parseAppSchemaProperties } from "#lib/property-schema/property-schema-runtime";
+import { DefinitionRegistry } from "#modules/definition-registry/service";
 
 import {
 	RelationshipsRepository,
@@ -20,6 +22,106 @@ type UpdateRelationshipInput = RelationshipIdentityInput & {
 	properties: unknown;
 	propertiesSchema: AppSchema;
 };
+
+export type ReconcileGlobalRelationshipGroup = {
+	relationshipSchemaSlug: RelationshipSchemaSlug;
+	selector:
+		| { type: "self" }
+		| { type: "anchored"; direction: "incoming" | "outgoing"; anchorEntityId: EntityId };
+	relationships: ReadonlyArray<{
+		properties: unknown;
+		sourceEntityId: EntityId;
+		targetEntityId: EntityId;
+	}>;
+};
+
+const relationshipKey = (input: { sourceEntityId: EntityId; targetEntityId: EntityId }) =>
+	`${input.sourceEntityId}\u0000${input.targetEntityId}`;
+
+export const reconcileGlobalRelationships = Effect.fn("RelationshipsService.reconcileGlobal")(
+	function* (groups: ReadonlyArray<ReconcileGlobalRelationshipGroup>) {
+		const runInTransaction = yield* TransactionRunner;
+		const definitions = yield* DefinitionRegistry;
+		const repository = yield* RelationshipsRepository;
+
+		return yield* Effect.forEach(groups, (group) =>
+			runInTransaction(
+				Effect.gen(function* () {
+					const propertiesSchema = definitions.getRelationshipSchema(
+						group.relationshipSchemaSlug,
+					)?.propertiesSchema;
+					if (!propertiesSchema) {
+						return yield* notFound("Relationship schema not found");
+					}
+
+					const selector = {
+						...group.selector,
+						relationshipSchemaSlug: group.relationshipSchemaSlug,
+					} as GlobalRelationshipListInput;
+					const existing = yield* repository.listGlobalRelationships(selector);
+					const seen = new Set<string>();
+					const relationships = yield* Effect.forEach(group.relationships, (relationship) =>
+						Effect.gen(function* () {
+							let matchesSelector = relationship.sourceEntityId === relationship.targetEntityId;
+							if (group.selector.type === "anchored") {
+								matchesSelector =
+									group.selector.direction === "outgoing"
+										? relationship.sourceEntityId === group.selector.anchorEntityId
+										: relationship.targetEntityId === group.selector.anchorEntityId;
+							}
+							if (!matchesSelector) {
+								return yield* badRequest("Relationship does not match its reconciliation selector");
+							}
+
+							const key = relationshipKey(relationship);
+							if (seen.has(key)) {
+								return yield* badRequest("Reconciliation group contains duplicate relationships");
+							}
+							seen.add(key);
+
+							const properties = yield* parseAppSchemaProperties({
+								propertiesSchema,
+								kind: "Relationship",
+								properties: relationship.properties,
+							}).pipe(Effect.mapError((error) => badRequest(error.message)));
+							return { ...relationship, properties };
+						}),
+					);
+
+					for (const relationship of relationships) {
+						const input = {
+							...relationship,
+							scope: "global" as const,
+							relationshipSchemaSlug: group.relationshipSchemaSlug,
+						};
+						const saved = yield* repository.createRelationship(input);
+						if (!saved.wasInserted) {
+							yield* repository.updateRelationship(input);
+						}
+					}
+
+					let deleted = 0;
+					for (const relationship of existing) {
+						if (seen.has(relationshipKey(relationship))) {
+							continue;
+						}
+						const removed = yield* repository.deleteRelationship({
+							scope: "global",
+							sourceEntityId: relationship.sourceEntityId,
+							targetEntityId: relationship.targetEntityId,
+							relationshipSchemaSlug: group.relationshipSchemaSlug,
+						});
+						if (removed) {
+							deleted += 1;
+						}
+					}
+
+					return { deleted, upserted: relationships.length };
+				}),
+			),
+		);
+	},
+);
 
 export class RelationshipsService extends Effect.Service<RelationshipsService>()(
 	"RelationshipsService",
@@ -80,7 +182,16 @@ export class RelationshipsService extends Effect.Service<RelationshipsService>()
 				return yield* runWithDb(repository.listGlobalRelationships(input));
 			});
 
-			return { create, update, listGlobal, delete: deleteRelationship };
+			return {
+				create,
+				update,
+				listGlobal,
+				delete: deleteRelationship,
+				reconcileGlobal: (groups: ReadonlyArray<ReconcileGlobalRelationshipGroup>) =>
+					reconcileGlobalRelationships(groups).pipe(
+						Effect.provideService(RelationshipsRepository, repository),
+					),
+			};
 		}),
 	},
 ) {}
