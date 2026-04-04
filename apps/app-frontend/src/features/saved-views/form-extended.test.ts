@@ -5,10 +5,24 @@ import {
 } from "#/features/test-fixtures";
 import {
 	buildDefaultFilterRow,
+	buildDefaultPropertyPathRow,
+	buildDefaultTableColumnRow,
 	buildSavedViewExtendedFormValues,
 	buildSavedViewExtendedUpdatePayload,
 	savedViewExtendedFormSchema,
 } from "./form-extended";
+
+function toPropertyRows(values: string[]) {
+	return values.map((value) => ({ ...buildDefaultPropertyPathRow(), value }));
+}
+
+function toTableColumn(label: string, property: string[]) {
+	return {
+		...buildDefaultTableColumnRow(),
+		label,
+		property: toPropertyRows(property),
+	};
+}
 
 describe("savedViewExtendedFormSchema", () => {
 	it("rejects empty entitySchemaSlugs array", () => {
@@ -16,8 +30,13 @@ describe("savedViewExtendedFormSchema", () => {
 			filters: [],
 			entitySchemaSlugs: [],
 			displayConfiguration: {
-				list: {},
-				table: {},
+				table: { columns: [] },
+				list: {
+					imageProperty: null,
+					titleProperty: null,
+					badgeProperty: null,
+					subtitleProperty: null,
+				},
 				grid: {
 					badgeProperty: null,
 					imageProperty: null,
@@ -37,12 +56,12 @@ describe("savedViewExtendedFormSchema", () => {
 			entitySchemaSlugs: ["smartphones", "tablets"],
 			sort: { fields: [{ id: "1", value: "@name" }], direction: "desc" },
 			displayConfiguration: {
-				table: {},
+				table: { columns: [] },
 				grid: {
 					badgeProperty: null,
 					subtitleProperty: null,
-					titleProperty: ["name"],
-					imageProperty: ["image"],
+					titleProperty: toPropertyRows(["name"]),
+					imageProperty: toPropertyRows(["image"]),
 				},
 				list: {
 					imageProperty: null,
@@ -61,14 +80,44 @@ describe("savedViewExtendedFormSchema", () => {
 		}
 	});
 
+	it("rejects table columns without a label", () => {
+		const result = savedViewExtendedFormSchema.safeParse({
+			filters: [],
+			entitySchemaSlugs: ["smartphones", "tablets"],
+			sort: { fields: [{ id: "1", value: "@name" }], direction: "desc" },
+			displayConfiguration: {
+				table: { columns: [toTableColumn("", ["@name"])] },
+				grid: {
+					badgeProperty: null,
+					subtitleProperty: null,
+					titleProperty: toPropertyRows(["name"]),
+					imageProperty: toPropertyRows(["image"]),
+				},
+				list: {
+					imageProperty: null,
+					titleProperty: null,
+					badgeProperty: null,
+					subtitleProperty: null,
+				},
+			},
+		});
+
+		expect(result.success).toBe(false);
+	});
+
 	it("rejects empty sort fields array", () => {
 		const result = savedViewExtendedFormSchema.safeParse({
 			filters: [],
 			entitySchemaSlugs: ["smartphones"],
 			sort: { direction: "asc", fields: [] },
 			displayConfiguration: {
-				list: {},
-				table: {},
+				table: { columns: [] },
+				list: {
+					imageProperty: null,
+					titleProperty: null,
+					badgeProperty: null,
+					subtitleProperty: null,
+				},
 				grid: {
 					imageProperty: null,
 					titleProperty: null,
@@ -86,8 +135,13 @@ describe("savedViewExtendedFormSchema", () => {
 			filters: [],
 			entitySchemaSlugs: ["smartphones", "tablets"],
 			displayConfiguration: {
-				list: {},
-				table: {},
+				table: { columns: [] },
+				list: {
+					imageProperty: null,
+					titleProperty: null,
+					badgeProperty: null,
+					subtitleProperty: null,
+				},
 				grid: {
 					imageProperty: null,
 					titleProperty: null,
@@ -122,33 +176,44 @@ describe("savedViewExtendedFormSchema", () => {
 			entitySchemaSlugs: ["smartphones"],
 			sort: { direction: "asc", fields: [{ id: "1", value: "@name" }] },
 			displayConfiguration: {
-				list: {},
-				table: {},
+				table: { columns: [] },
+				list: {
+					imageProperty: null,
+					titleProperty: null,
+					badgeProperty: null,
+					subtitleProperty: null,
+				},
 				grid: {
-					badgeProperty: ["status"],
-					subtitleProperty: ["year"],
-					imageProperty: ["image", "photo"],
-					titleProperty: ["@name", "brand"],
+					badgeProperty: toPropertyRows(["status"]),
+					subtitleProperty: toPropertyRows(["year"]),
+					imageProperty: toPropertyRows(["image", "photo"]),
+					titleProperty: toPropertyRows(["@name", "brand"]),
 				},
 			},
 		});
 
 		expect(result.success).toBe(true);
 		if (result.success) {
-			expect(result.data.displayConfiguration.grid.imageProperty).toEqual([
-				"image",
-				"photo",
-			]);
-			expect(result.data.displayConfiguration.grid.titleProperty).toEqual([
-				"@name",
-				"brand",
-			]);
-			expect(result.data.displayConfiguration.grid.subtitleProperty).toEqual([
-				"year",
-			]);
-			expect(result.data.displayConfiguration.grid.badgeProperty).toEqual([
-				"status",
-			]);
+			expect(
+				result.data.displayConfiguration.grid.imageProperty?.map(
+					(row) => row.value,
+				),
+			).toEqual(["image", "photo"]);
+			expect(
+				result.data.displayConfiguration.grid.titleProperty?.map(
+					(row) => row.value,
+				),
+			).toEqual(["@name", "brand"]);
+			expect(
+				result.data.displayConfiguration.grid.subtitleProperty?.map(
+					(row) => row.value,
+				),
+			).toEqual(["year"]);
+			expect(
+				result.data.displayConfiguration.grid.badgeProperty?.map(
+					(row) => row.value,
+				),
+			).toEqual(["status"]);
 		}
 	});
 
@@ -158,12 +223,12 @@ describe("savedViewExtendedFormSchema", () => {
 			entitySchemaSlugs: ["smartphones"],
 			sort: { direction: "asc", fields: [{ id: "1", value: "@name" }] },
 			displayConfiguration: {
-				table: {},
+				table: { columns: [] },
 				grid: {
 					badgeProperty: null,
-					imageProperty: ["image"],
-					titleProperty: ["@name"],
-					subtitleProperty: ["year"],
+					imageProperty: toPropertyRows(["image"]),
+					titleProperty: toPropertyRows(["@name"]),
+					subtitleProperty: toPropertyRows(["year"]),
 				},
 				list: {
 					imageProperty: null,
@@ -186,12 +251,12 @@ describe("savedViewExtendedFormSchema", () => {
 			entitySchemaSlugs: ["smartphones"],
 			sort: { direction: "asc", fields: [{ id: "1", value: "@name" }] },
 			displayConfiguration: {
-				table: {},
+				table: { columns: [] },
 				grid: {
 					imageProperty: null,
 					badgeProperty: null,
 					subtitleProperty: null,
-					titleProperty: ["@name"],
+					titleProperty: toPropertyRows(["@name"]),
 				},
 				list: {
 					imageProperty: null,
@@ -204,9 +269,11 @@ describe("savedViewExtendedFormSchema", () => {
 
 		expect(result.success).toBe(true);
 		if (result.success) {
-			expect(result.data.displayConfiguration.grid.titleProperty).toEqual([
-				"@name",
-			]);
+			expect(
+				result.data.displayConfiguration.grid.titleProperty?.map(
+					(row) => row.value,
+				),
+			).toEqual(["@name"]);
 			expect(result.data.displayConfiguration.grid.imageProperty).toBeNull();
 		}
 	});
@@ -241,9 +308,9 @@ describe("buildSavedViewExtendedFormValues", () => {
 	it("extracts queryDefinition and displayConfiguration from view", () => {
 		const view = createSavedViewFixture({
 			icon: "star",
+			isBuiltin: false,
 			name: "Test View",
 			trackerId: "tracker-1",
-			isBuiltin: false,
 			accentColor: "#2DD4BF",
 			queryDefinition: {
 				filters: [],
@@ -259,7 +326,17 @@ describe("buildSavedViewExtendedFormValues", () => {
 		expect(values.sort.fields.length).toBe(1);
 		expect(values.sort.fields[0]?.value).toBe("@name");
 		expect(values.sort.direction).toBe("asc");
-		expect(values.displayConfiguration).toEqual(view.displayConfiguration);
+		expect(
+			values.displayConfiguration.grid.titleProperty?.map((row) => row.value),
+		).toEqual(["@name"]);
+		expect(
+			values.displayConfiguration.list.imageProperty?.map((row) => row.value),
+		).toEqual(["@image"]);
+		expect(
+			values.displayConfiguration.table.columns[0]?.property.map(
+				(row) => row.value,
+			),
+		).toEqual(["@name"]);
 	});
 });
 
@@ -270,8 +347,13 @@ describe("savedViewExtendedFormSchema - filters", () => {
 			filters: [{ id: "1", field: "@name", op: "eq", value: "iPhone" }],
 			sort: { direction: "asc", fields: [{ id: "1", value: "@name" }] },
 			displayConfiguration: {
-				list: {},
-				table: {},
+				table: { columns: [] },
+				list: {
+					imageProperty: null,
+					titleProperty: null,
+					badgeProperty: null,
+					subtitleProperty: null,
+				},
 				grid: {
 					imageProperty: null,
 					titleProperty: null,
@@ -298,8 +380,13 @@ describe("savedViewExtendedFormSchema - filters", () => {
 			sort: { direction: "asc", fields: [{ id: "1", value: "@name" }] },
 			filters: [{ id: "1", field: "@name", op: "invalid", value: "test" }],
 			displayConfiguration: {
-				list: {},
-				table: {},
+				table: { columns: [] },
+				list: {
+					imageProperty: null,
+					titleProperty: null,
+					badgeProperty: null,
+					subtitleProperty: null,
+				},
 				grid: {
 					imageProperty: null,
 					titleProperty: null,
@@ -318,8 +405,13 @@ describe("savedViewExtendedFormSchema - filters", () => {
 			sort: { direction: "asc", fields: [{ id: "1", value: "@name" }] },
 			filters: [{ id: "1", field: "@description", op: "isNull", value: "" }],
 			displayConfiguration: {
-				list: {},
-				table: {},
+				table: { columns: [] },
+				list: {
+					imageProperty: null,
+					titleProperty: null,
+					badgeProperty: null,
+					subtitleProperty: null,
+				},
 				grid: {
 					imageProperty: null,
 					titleProperty: null,
@@ -338,8 +430,13 @@ describe("savedViewExtendedFormSchema - filters", () => {
 			entitySchemaSlugs: ["smartphones"],
 			sort: { direction: "asc", fields: [{ id: "1", value: "@name" }] },
 			displayConfiguration: {
-				list: {},
-				table: {},
+				table: { columns: [] },
+				list: {
+					imageProperty: null,
+					titleProperty: null,
+					badgeProperty: null,
+					subtitleProperty: null,
+				},
 				grid: {
 					imageProperty: null,
 					titleProperty: null,
@@ -358,8 +455,15 @@ describe("savedViewExtendedFormSchema - filters", () => {
 			entitySchemaSlugs: ["smartphones"],
 			sort: { direction: "asc", fields: [{ id: "1", value: "@name" }] },
 			displayConfiguration: {
-				list: {},
-				table: {},
+				list: {
+					imageProperty: null,
+					titleProperty: null,
+					badgeProperty: null,
+					subtitleProperty: null,
+				},
+				table: {
+					columns: [],
+				},
 				grid: {
 					imageProperty: null,
 					titleProperty: null,
@@ -390,9 +494,9 @@ describe("buildSavedViewExtendedUpdatePayload", () => {
 	it("combines view metadata with updated queryDefinition and displayConfiguration", () => {
 		const view = createSavedViewFixture({
 			icon: "star",
+			isBuiltin: false,
 			name: "Original View",
 			trackerId: "tracker-1",
-			isBuiltin: false,
 			accentColor: "#2DD4BF",
 			queryDefinition: {
 				filters: [],
@@ -414,20 +518,20 @@ describe("buildSavedViewExtendedUpdatePayload", () => {
 			displayConfiguration: {
 				grid: {
 					badgeProperty: null,
-					imageProperty: ["image"],
-					subtitleProperty: ["year"],
-					titleProperty: ["brand", "model"],
+					imageProperty: toPropertyRows(["image"]),
+					subtitleProperty: toPropertyRows(["year"]),
+					titleProperty: toPropertyRows(["brand", "model"]),
 				},
 				list: {
 					badgeProperty: null,
 					subtitleProperty: null,
-					imageProperty: ["image"],
-					titleProperty: ["brand"],
+					imageProperty: toPropertyRows(["image"]),
+					titleProperty: toPropertyRows(["brand"]),
 				},
 				table: {
 					columns: [
-						{ label: "Brand", property: ["brand"] },
-						{ label: "Year", property: ["year"] },
+						toTableColumn("Brand", ["brand"]),
+						toTableColumn("Year", ["year"]),
 					],
 				},
 			},
@@ -458,6 +562,7 @@ describe("buildSavedViewExtendedUpdatePayload", () => {
 			"brand",
 			"model",
 		]);
+		expect(payload.displayConfiguration.list.titleProperty).toEqual(["brand"]);
 		expect(payload.displayConfiguration.table.columns).toEqual([
 			{ label: "Brand", property: ["brand"] },
 			{ label: "Year", property: ["year"] },
@@ -501,7 +606,8 @@ describe("buildSavedViewExtendedUpdatePayload", () => {
 			filters: [
 				{ id: "1", field: "description", op: "isNull" as const, value: "" },
 			],
-			displayConfiguration: view.displayConfiguration,
+			displayConfiguration:
+				buildSavedViewExtendedFormValues(view).displayConfiguration,
 			sort: {
 				direction: "asc" as const,
 				fields: [{ id: "1", value: "@name" }],
@@ -549,6 +655,12 @@ describe("buildSavedViewExtendedUpdatePayload", () => {
 
 		const formValues = {
 			entitySchemaSlugs: ["smartphones"],
+			displayConfiguration:
+				buildSavedViewExtendedFormValues(view).displayConfiguration,
+			sort: {
+				direction: "asc" as const,
+				fields: [{ id: "1", value: "@name" }],
+			},
 			filters: [
 				{
 					id: "1",
@@ -557,11 +669,6 @@ describe("buildSavedViewExtendedUpdatePayload", () => {
 					value: "Apple,Samsung,Google",
 				},
 			],
-			displayConfiguration: view.displayConfiguration,
-			sort: {
-				direction: "asc" as const,
-				fields: [{ id: "1", value: "@name" }],
-			},
 		};
 
 		const payload = buildSavedViewExtendedUpdatePayload(view, formValues);
@@ -599,7 +706,8 @@ describe("buildSavedViewExtendedUpdatePayload", () => {
 		const formValues = {
 			filters: [],
 			entitySchemaSlugs: ["new-schema"],
-			displayConfiguration: view.displayConfiguration,
+			displayConfiguration:
+				buildSavedViewExtendedFormValues(view).displayConfiguration,
 			sort: {
 				direction: "asc" as const,
 				fields: [{ id: "1", value: "@name" }],
