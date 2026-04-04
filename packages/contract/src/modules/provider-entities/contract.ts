@@ -8,6 +8,8 @@ import {
 	ImportEntityRunResult,
 	SearchProviderEntitiesBody,
 	SearchProviderEntitiesResponse,
+	SearchProviderOptionsBody,
+	SearchProviderOptionsResponse,
 } from "./schemas";
 
 export const ProviderEntitiesGroup = HttpApiGroup.make("providerEntities")
@@ -18,6 +20,13 @@ export const ProviderEntitiesGroup = HttpApiGroup.make("providerEntities")
 			success: SearchProviderEntitiesResponse,
 			error: [BadRequest.pipe(HttpApiSchema.status(400)), NotFound.pipe(HttpApiSchema.status(404))],
 		}).annotate(OpenApi.Description, "Searches a configured entity provider."),
+	)
+	.add(
+		HttpApiEndpoint.post("searchOptions", "/provider-entities/search-options", {
+			payload: SearchProviderOptionsBody,
+			success: SearchProviderOptionsResponse,
+			error: [BadRequest.pipe(HttpApiSchema.status(400)), NotFound.pipe(HttpApiSchema.status(404))],
+		}).annotate(OpenApi.Description, "Resolves a configured provider's search options schema."),
 	)
 	.add(
 		HttpApiEndpoint.post("import", "/provider-entities/imports", {

@@ -69,24 +69,24 @@ const datetime = (overrides: Partial<AppDateTimeProperty> = {}): AppPropertyDefi
 });
 
 const enumProp = (
-	options: string[],
+	values: string[],
 	overrides: Partial<AppEnumProperty> = {},
 ): AppPropertyDefinition => ({
-	options,
 	label: "F",
 	type: "enum",
 	description: "F",
+	choices: { kind: "static", values: values.map((value) => ({ value })) },
 	...overrides,
 });
 
 const enumArrayProp = (
-	options: string[],
+	values: string[],
 	overrides: Partial<AppEnumArrayProperty> = {},
 ): AppPropertyDefinition => ({
-	options,
 	label: "F",
 	description: "F",
 	type: "enum-array",
+	choices: { kind: "static", values: values.map((value) => ({ value })) },
 	...overrides,
 });
 
@@ -357,26 +357,68 @@ describe("parseAppSchemaPropertiesSafe - datetime property", () => {
 });
 
 describe("parseAppSchemaPropertiesSafe - enum property", () => {
-	it("accepts a value that is in the options list", () => {
+	it("accepts a value that is in the choices list", () => {
 		const result = parse({ status: enumProp(["active", "inactive"]) }, { status: "active" });
 		expect(result).toMatchObject({ success: true, data: { status: "active" } });
 	});
 
-	it("rejects a value not in the options list", () => {
+	it("matches enum values independently from display labels", () => {
+		const result = parse(
+			{
+				status: enumProp(["internal"], {
+					choices: { kind: "static", values: [{ value: "internal", label: "Internal" }] },
+				}),
+			},
+			{ status: "internal" },
+		);
+
+		expect(result.success).toBe(true);
+	});
+
+	it("rejects a value not in the choices list", () => {
 		const result = parse({ status: enumProp(["active", "inactive"]) }, { status: "pending" });
 		expect(result.success).toBe(false);
+	});
+
+	it("rejects unresolved dynamic choices before parsing values", () => {
+		const result = parse(
+			{ status: enumProp(["active"], { choices: { kind: "dynamic", source: "statuses" } }) },
+			{ status: "active" },
+		);
+
+		expect(result.success).toBe(false);
+		if (!result.success) {
+			expect(result.issues[0]).toEqual({
+				path: ["status", "choices", "source"],
+				message: "Dynamic choices for 'status' must be materialized before property parsing",
+			});
+		}
 	});
 });
 
 describe("parseAppSchemaPropertiesSafe - enum-array property", () => {
-	it("accepts an array of valid option values", () => {
+	it("accepts an array of valid choice values", () => {
 		const result = parse({ tags: enumArrayProp(["a", "b", "c"]) }, { tags: ["a", "c"] });
 		expect(result).toMatchObject({ success: true, data: { tags: ["a", "c"] } });
 	});
 
-	it("rejects items not in the options list", () => {
+	it("rejects items not in the choices list", () => {
 		const result = parse({ tags: enumArrayProp(["a", "b"]) }, { tags: ["a", "z"] });
 		expect(result.success).toBe(false);
+	});
+
+	it("rejects unresolved dynamic choices before parsing items", () => {
+		const result = parse(
+			{ tags: enumArrayProp(["a"], { choices: { kind: "dynamic", source: "tags" } }) },
+			{ tags: ["a"] },
+		);
+
+		expect(result.success).toBe(false);
+		if (!result.success) {
+			expect(result.issues[0]?.message).toBe(
+				"Dynamic choices for 'tags' must be materialized before property parsing",
+			);
+		}
 	});
 
 	it("enforces minItems", () => {

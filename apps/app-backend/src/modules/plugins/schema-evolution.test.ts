@@ -26,13 +26,17 @@ it("accepts new schemas, optional properties, and widened enums", () => {
 		assert(entity);
 		const kind = entity.propertiesSchema.fields["kind"];
 		assert(kind?.type === "enum");
+		assert(kind.choices.kind === "static");
 		return {
 			...previous,
 			entitySchemas: [
 				entityWithFields(previous, {
 					...entity.propertiesSchema.fields,
-					kind: { ...kind, options: [...kind.options, "three"] },
 					optional: { type: "string", label: "Optional", description: "Optional value" },
+					kind: {
+						...kind,
+						choices: { kind: "static", values: [...kind.choices.values, { value: "three" }] },
+					},
 				}),
 			],
 			signalSchemas: [
@@ -41,14 +45,54 @@ it("accepts new schemas, optional properties, and widened enums", () => {
 					name: "Added",
 					slug: "fixture.added",
 					catalogState: "active",
-					notificationScriptSlug: "fixture.automation",
 					propertiesSchema: { fields: {} },
 					audiencePolicy: { kind: "actor" },
+					notificationScriptSlug: "fixture.automation",
 				},
 			],
 		};
 	});
 	expect(Exit.isSuccess(exit)).toBe(true);
+});
+
+it("rejects a changed dynamic choice source", () => {
+	const initial = fixtureManifest();
+	const initialEntity = initial.entitySchemas[0];
+	assert(initialEntity);
+	const initialKind = initialEntity.propertiesSchema.fields["kind"];
+	const previous: PluginManifest = {
+		...initial,
+		entitySchemas: [
+			entityWithFields(initial, {
+				...initialEntity.propertiesSchema.fields,
+				kind: { ...initialKind, choices: { kind: "dynamic", source: "statuses-v1" } },
+			}),
+		],
+	};
+	const nextEntity = previous.entitySchemas[0];
+	assert(nextEntity);
+	const nextKind = nextEntity.propertiesSchema.fields["kind"];
+	assert(nextKind?.type === "enum");
+	const next: PluginManifest = {
+		...previous,
+		entitySchemas: [
+			entityWithFields(previous, {
+				...nextEntity.propertiesSchema.fields,
+				kind: { ...nextKind, choices: { kind: "dynamic", source: "statuses-v2" } },
+			}),
+		],
+	};
+
+	const exit = Effect.runSyncExit(validateAdditiveSchemaEvolution(previous, next));
+	expect(Exit.isFailure(exit)).toBe(true);
+	if (Exit.isFailure(exit)) {
+		const error = Option.getOrThrow(Cause.findErrorOption(exit.cause));
+		assert(error instanceof SchemaEvolutionError);
+		expect(error.issues).toContainEqual({
+			code: "enum_narrowed",
+			path: "entity:fixture-entity.kind",
+		});
+	}
 });
 
 it.each([
@@ -109,12 +153,34 @@ it.each([
 			assert(entity);
 			const kind = entity.propertiesSchema.fields["kind"];
 			assert(kind?.type === "enum");
+			assert(kind.choices.kind === "static");
 			return {
 				...previous,
 				entitySchemas: [
 					entityWithFields(previous, {
 						...entity.propertiesSchema.fields,
-						kind: { ...kind, options: kind.options.slice(0, 1) },
+						kind: {
+							...kind,
+							choices: { kind: "static", values: kind.choices.values.slice(0, 1) },
+						},
+					}),
+				],
+			};
+		},
+	},
+	{
+		code: "enum_narrowed",
+		next: (previous: PluginManifest): PluginManifest => {
+			const entity = previous.entitySchemas[0];
+			assert(entity);
+			const kind = entity.propertiesSchema.fields["kind"];
+			assert(kind?.type === "enum");
+			return {
+				...previous,
+				entitySchemas: [
+					entityWithFields(previous, {
+						...entity.propertiesSchema.fields,
+						kind: { ...kind, choices: { kind: "dynamic", source: "other-source" } },
 					}),
 				],
 			};

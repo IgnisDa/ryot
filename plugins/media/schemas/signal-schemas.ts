@@ -116,8 +116,8 @@ export const mediaSignalSchemas = (mediaMonitoringRelationshipSchemaSlug: string
 						type: "enum",
 						label: "Content type",
 						validation: { required: true },
-						options: ["chapters", "episodes"],
 						description: "Type of counted content",
+						choices: { kind: "static", values: [{ value: "chapters" }, { value: "episodes" }] },
 					},
 				},
 			},
@@ -140,8 +140,11 @@ export const mediaSignalSchemas = (mediaMonitoringRelationshipSchemaSlug: string
 						type: "enum",
 						label: "Change kind",
 						validation: { required: true },
-						options: ["publish_year", "episode_date"],
 						description: "Kind of release date change",
+						choices: {
+							kind: "static",
+							values: [{ value: "publish_year" }, { value: "episode_date" }],
+						},
 					},
 					episodeNumber: {
 						type: "integer",

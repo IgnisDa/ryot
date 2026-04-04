@@ -1,4 +1,5 @@
 import type { JsonValue } from "@ryot/contract/modules/ryotql/language";
+import type { AppChoice } from "@ryot/contract/schema/property-schema";
 import { Schema, Effect, SchemaGetter, SchemaTransformation } from "@ryot/sandbox-sdk/effect";
 
 import type { SandboxManifest } from "./core";
@@ -93,6 +94,14 @@ export const providerSearchResultSchema = strictStruct({
 		strictStruct({ totalItems: Schema.Number, nextPage: Schema.NullOr(Schema.Number) }),
 	),
 });
+export const providerSearchOptionsInputSchema = strictStruct({});
+const providerSearchOptionsChoiceSchema = strictStruct({
+	value: trimmedNonEmptyString,
+	label: Schema.optional(trimmedNonEmptyString),
+}) satisfies Schema.Codec<AppChoice>;
+export const providerSearchOptionsResultSchema = strictStruct({
+	sources: Schema.Record(Schema.String, Schema.Array(providerSearchOptionsChoiceSchema)),
+});
 export const providerDetailsInputSchema = strictStruct({ externalId: trimmedNonEmptyString });
 export const providerDetailsRelatedEntitySchema = strictStruct({
 	name: Schema.String,
@@ -158,11 +167,21 @@ export const providerOperationContracts = {
 	details: { input: providerDetailsInputSchema, output: providerDetailsResultSchema },
 	resolve: { input: providerResolveInputSchema, output: providerResolveResultSchema },
 	translate: { input: providerTranslateInputSchema, output: providerTranslateResultSchema },
+	"search-options": {
+		input: providerSearchOptionsInputSchema,
+		output: providerSearchOptionsResultSchema,
+	},
 } as const;
 
 export type ProviderSearchItem = Schema.Schema.Type<typeof providerSearchItemSchema>;
 export type ProviderSearchInput = Schema.Schema.Type<typeof providerSearchInputSchema>;
 export type ProviderSearchResult = Schema.Schema.Type<typeof providerSearchResultSchema>;
+export type ProviderSearchOptionsInput = Schema.Schema.Type<
+	typeof providerSearchOptionsInputSchema
+>;
+export type ProviderSearchOptionsResult = Schema.Schema.Type<
+	typeof providerSearchOptionsResultSchema
+>;
 export type ProviderDetailsInput = Schema.Schema.Type<typeof providerDetailsInputSchema>;
 export type ProviderDetailsResult = Schema.Schema.Type<typeof providerDetailsResultSchema>;
 export type ProviderResolveInput = Schema.Schema.Type<typeof providerResolveInputSchema>;

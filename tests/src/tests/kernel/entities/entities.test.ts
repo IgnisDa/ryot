@@ -29,13 +29,19 @@ const createSchemaWithEnumFields = (client: Client) =>
 						label: "Status",
 						type: "enum" as const,
 						description: "Status",
-						options: ["draft", "published", "archived"],
+						choices: {
+							kind: "static",
+							values: [{ value: "draft" }, { value: "published" }, { value: "archived" }],
+						},
 					},
 					genres: {
 						label: "Genres",
 						description: "Genres",
 						type: "enum-array" as const,
-						options: ["fiction", "non-fiction", "mystery"],
+						choices: {
+							kind: "static",
+							values: [{ value: "fiction" }, { value: "non-fiction" }, { value: "mystery" }],
+						},
 					},
 				},
 			},
@@ -240,13 +246,13 @@ describe("POST /entities — enum and enum-array property schema validation", ()
 							label: "Status",
 							type: "enum" as const,
 							description: "Status",
-							options: ["draft", "published"],
+							choices: { kind: "static", values: [{ value: "draft" }, { value: "published" }] },
 						},
 						genres: {
 							label: "Genres",
 							description: "Genres",
 							type: "enum-array" as const,
-							options: ["fiction", "mystery"],
+							choices: { kind: "static", values: [{ value: "fiction" }, { value: "mystery" }] },
 						},
 					},
 				},
@@ -258,13 +264,13 @@ describe("POST /entities — enum and enum-array property schema validation", ()
 				type: "enum",
 				label: "Status",
 				description: "Status",
-				options: ["draft", "published"],
+				choices: { kind: "static", values: [{ value: "draft" }, { value: "published" }] },
 			});
 			expect(schema.propertiesSchema.fields.genres).toMatchObject({
 				label: "Genres",
 				type: "enum-array",
 				description: "Genres",
-				options: ["fiction", "mystery"],
+				choices: { kind: "static", values: [{ value: "fiction" }, { value: "mystery" }] },
 			});
 		}),
 	);
@@ -285,7 +291,7 @@ describe("POST /entities — enum and enum-array property schema validation", ()
 		}),
 	);
 
-	it.live("returns 400 when enum value is not in options", () =>
+	it.live("returns 400 when enum value is not in choices", () =>
 		Effect.gen(function* () {
 			const { client } = yield* createAuthenticatedClient();
 			const { schemaId } = yield* createSchemaWithEnumFields(client);
@@ -306,7 +312,7 @@ describe("POST /entities — enum and enum-array property schema validation", ()
 		}),
 	);
 
-	it.live("returns 400 when an enum-array item is not in options", () =>
+	it.live("returns 400 when an enum-array item is not in choices", () =>
 		Effect.gen(function* () {
 			const { client } = yield* createAuthenticatedClient();
 			const { schemaId } = yield* createSchemaWithEnumFields(client);

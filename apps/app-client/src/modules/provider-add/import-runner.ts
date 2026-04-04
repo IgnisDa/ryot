@@ -7,6 +7,7 @@ import {
 import { Effect, Result } from "effect";
 
 import { appClient, retryQueryResponse } from "@/api/client";
+import { getProviderEntityImportResult, startProviderEntityImport } from "@/api/provider-entities";
 import type { ApiScope } from "@/api/request-key";
 
 import { importProviderEntity } from "./import-controller";
@@ -48,16 +49,9 @@ export const runProviderEntityImport = (input: {
 }) =>
 	importProviderEntity({
 		onImported: input.onImported,
-		poll: (jobId) =>
-			appClient(input.scope).request.pipe(
-				Effect.flatMap((client) => client.providerEntities.getImportResult({ params: { jobId } })),
-				retryQueryResponse,
-			),
-		start: appClient(input.scope).request.pipe(
-			Effect.flatMap((client) =>
-				client.providerEntities.import({
-					payload: { providerId: input.providerId, externalId: input.externalId },
-				}),
-			),
-		),
+		poll: (jobId) => getProviderEntityImportResult(input.scope, jobId),
+		start: startProviderEntityImport(input.scope, {
+			providerId: input.providerId,
+			externalId: input.externalId,
+		}),
 	});
