@@ -9,24 +9,36 @@ const currentPage = Number.isFinite(Number(context?.page))
 	: 1;
 const query = typeof context?.query === "string" ? context.query.trim() : "";
 
-if (!query) throw new Error("query is required");
+if (!query) {
+	throw new Error("query is required");
+}
 
 const parsePublishYear = (value) => {
-	if (typeof value !== "string") return null;
+	if (typeof value !== "string") {
+		return null;
+	}
 	const trimmedValue = value.trim();
-	if (!/^\d{4}$/.test(trimmedValue)) return null;
+	if (!/^\d{4}$/.test(trimmedValue)) {
+		return null;
+	}
 
 	const year = Number(trimmedValue);
-	if (!Number.isFinite(year)) return null;
+	if (!Number.isFinite(year)) {
+		return null;
+	}
 
 	return year;
 };
 
 const pickImage = (record) => {
-	if (!record || typeof record !== "object") return null;
+	if (!record || typeof record !== "object") {
+		return null;
+	}
 
 	const candidate = record?.image?.url?.original;
-	if (typeof candidate !== "string") return null;
+	if (typeof candidate !== "string") {
+		return null;
+	}
 
 	const trimmedCandidate = candidate.trim();
 	return trimmedCandidate || null;
@@ -45,8 +57,9 @@ const response = await httpCall(
 	},
 );
 
-if (!response?.success)
+if (!response?.success) {
 	throw new Error(response?.error ?? "MangaUpdates search request failed");
+}
 
 let payload;
 try {
@@ -63,14 +76,19 @@ const totalItems =
 const results = Array.isArray(payload?.results) ? payload.results : [];
 const items = results
 	.map((item) => {
-		const record = item?.record && typeof item.record === "object" ? item.record : null;
-		if (!record) return null;
+		const record =
+			item?.record && typeof item.record === "object" ? item.record : null;
+		if (!record) {
+			return null;
+		}
 
 		const seriesId =
 			typeof record.series_id === "number" && Number.isFinite(record.series_id)
 				? Math.trunc(record.series_id)
 				: null;
-		if (seriesId === null || seriesId <= 0) return null;
+		if (seriesId === null || seriesId <= 0) {
+			return null;
+		}
 
 		const hitTitle = typeof item?.hit_title === "string" ? item.hit_title : "";
 		const title =
