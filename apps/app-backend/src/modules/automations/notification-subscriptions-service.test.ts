@@ -12,7 +12,6 @@ import { Effect, Exit, Layer, Schema } from "effect";
 import type { MockOverrides } from "#lib/test-utils/effect";
 import { dbRunnerLayer, transactionLayer } from "#lib/test-utils/effect";
 import { DefinitionRegistry, makeDefinitionRegistry } from "#modules/definition-registry/service";
-import { PluginRuntimeResolver } from "#modules/plugins/runtime-resolver";
 
 import { NotificationSubscriptionsService } from "./notification-subscriptions-service";
 import {
@@ -25,20 +24,6 @@ const userId = UserId.make("user-1");
 const ruleId = AutomationRuleId.make("rule-1");
 const scriptId = SandboxScriptId.make("script-1");
 const signalSchemaSlug = SignalSchemaSlug.make("review.created");
-const kernelScript = {
-	id: scriptId,
-	userId: null,
-	pluginSlug: null,
-	compiledFormat: 1,
-	contentHash: "hash-1",
-	source: "export {};",
-	compiledCode: "export {};",
-	createdAt: new Date(0),
-	updatedAt: new Date(0),
-	name: "Notification delivery",
-	slug: "automation.notification",
-	metadata: { kind: "automation" as const },
-};
 
 const signalSchema = {
 	slug: signalSchemaSlug,
@@ -60,19 +45,8 @@ const state = {
 } as const satisfies StoredNotificationSubscription;
 
 const mockRepository = Layer.mock(AutomationsRepository);
-const mockPluginRuntime = Layer.mock(PluginRuntimeResolver);
 const makeRepository = (overrides: MockOverrides<typeof mockRepository> = {}) =>
 	mockRepository({ _tag: "AutomationsRepository", ...overrides });
-const makePluginRuntime = (overrides: MockOverrides<typeof mockPluginRuntime> = {}) =>
-	mockPluginRuntime({
-		_tag: "PluginRuntimeResolver",
-		findActiveScript: () => Effect.succeed(null),
-		findKernelScript: (slug) => {
-			expect(slug).toBe(signalSchema.notificationScriptSlug);
-			return Effect.succeed(kernelScript);
-		},
-		...overrides,
-	});
 
 const makeDefinitions = (
 	catalogState: "active" | "hidden" = "active",
@@ -90,7 +64,6 @@ const makeDefinitions = (
 const makeLayer = (
 	repository: MockOverrides<typeof mockRepository> = {},
 	catalogState: "active" | "hidden" = "active",
-	pluginRuntime: MockOverrides<typeof mockPluginRuntime> = {},
 	includeDefinition = true,
 ) =>
 	NotificationSubscriptionsService.Default.pipe(
@@ -100,7 +73,6 @@ const makeLayer = (
 				transactionLayer,
 				makeDefinitions(catalogState, includeDefinition),
 				makeRepository(repository),
-				makePluginRuntime(pluginRuntime),
 			),
 		),
 	);
@@ -202,8 +174,17 @@ it.effect("does not reveal inaccessible notification state through mutations", (
 	}).pipe(Effect.provide(layer));
 });
 
-it.effect("omits state with a missing formatter and only permits explicit deletion", () => {
-	let deleted = false;
+it.effect("lists registered state without resolving formatter storage", () => {
+	const layer = makeLayer({ listNotificationSubscriptions: () => Effect.succeed([state]) });
+	return Effect.gen(function* () {
+		const service = yield* NotificationSubscriptionsService;
+		const rules = yield* service.listRules(userId);
+		expect(rules).toHaveLength(1);
+		expect(rules[0]?.id).toBe(ruleId);
+	}).pipe(Effect.provide(layer));
+});
+
+it.effect("omits state whose signal definition is no longer registered", () => {
 	let mutationAttempted = false;
 	const layer = makeLayer(
 		{
@@ -213,13 +194,9 @@ it.effect("omits state with a missing formatter and only permits explicit deleti
 				mutationAttempted = true;
 				return Effect.succeed(state);
 			},
-			deleteNotificationSubscription: () => {
-				deleted = true;
-				return Effect.succeed({ id: state.id });
-			},
 		},
 		"active",
-		{ findKernelScript: () => Effect.succeed(null) },
+		false,
 	);
 	return Effect.gen(function* () {
 		const service = yield* NotificationSubscriptionsService;
@@ -231,27 +208,6 @@ it.effect("omits state with a missing formatter and only permits explicit deleti
 			Exit.fail(new NotFound({ message: "Automation rule not found" })),
 		);
 		expect(mutationAttempted).toBe(false);
-		expect(yield* service.deleteRule({ userId, ruleId })).toEqual({ id: ruleId });
-		expect(deleted).toBe(true);
-	}).pipe(Effect.provide(layer));
-});
-
-it.effect("omits state whose signal definition is no longer registered", () => {
-	const layer = makeLayer(
-		{
-			listNotificationSubscriptions: () => Effect.succeed([state]),
-			findNotificationSubscription: () => Effect.succeed(state),
-		},
-		"active",
-		{},
-		false,
-	);
-	return Effect.gen(function* () {
-		const service = yield* NotificationSubscriptionsService;
-		expect(yield* service.listRules(userId)).toEqual([]);
-		expect(yield* Effect.exit(service.getRule({ userId, ruleId }))).toEqual(
-			Exit.fail(new NotFound({ message: "Automation rule not found" })),
-		);
 	}).pipe(Effect.provide(layer));
 });
 
