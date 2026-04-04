@@ -19,7 +19,7 @@ export function SavedViewTable(props: {
 				<View className="h-8.5 flex-row border-b border-border bg-surface-2">
 					{headers.map((cell, index) => (
 						<View
-							key={cell.label}
+							key={cell.key}
 							style={{ width: index === 0 ? FIRST_COLUMN_WIDTH : COLUMN_WIDTH }}
 							className="justify-center border-r border-border px-3 last:border-r-0"
 						>
@@ -33,7 +33,7 @@ export function SavedViewTable(props: {
 					<View key={item.id} className="h-14 flex-row border-b border-border md:h-12">
 						{item.table.cells.map((cell, index) => (
 							<View
-								key={`${item.id}:${cell.label}`}
+								key={`${item.id}:${cell.key}`}
 								style={{ width: index === 0 ? FIRST_COLUMN_WIDTH : COLUMN_WIDTH }}
 								className="flex-row items-center gap-2.5 border-r border-border px-3 last:border-r-0"
 							>

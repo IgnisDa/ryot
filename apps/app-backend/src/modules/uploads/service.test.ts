@@ -296,6 +296,57 @@ it.effect("resolves local and S3 download URLs with their locators", () =>
 	),
 );
 
+it.effect("omits failed download resolutions without suppressing successful assets", () =>
+	Effect.gen(function* () {
+		const service = yield* UploadsService;
+		const result = yield* service.resolveDownloads(user, [
+			{ type: "s3", key: "permanent/missing.png" },
+			{ type: "s3", key: "permanent/image.png" },
+		]);
+		expect(result).toEqual([
+			{
+				asset: { type: "s3", key: "permanent/image.png" },
+				downloadUrl: "https://example.com/permanent/image.png",
+			},
+		]);
+	}).pipe(
+		Effect.provide(
+			makeUploadsLayer({
+				s3Service: makeS3Layer({
+					presignDownload: (key) =>
+						key.includes("missing")
+							? Effect.fail(new BadRequest({ message: "S3 upload object is missing or invalid" }))
+							: Effect.succeed(`https://example.com/${key}`),
+				}),
+			}),
+		),
+	),
+);
+
+it.effect("returns an empty response when all download resolutions fail", () =>
+	Effect.gen(function* () {
+		const service = yield* UploadsService;
+		const result = yield* service.resolveDownloads(user, [
+			{ type: "s3", key: "permanent/missing.png" },
+			{ type: "local", key: "permanent/missing.png" },
+		]);
+		expect(result).toEqual([]);
+	}).pipe(
+		Effect.provide(
+			makeUploadsLayer({
+				localStorageService: makeLocalStorageLayer({
+					statObject: () =>
+						Effect.fail(new BadRequest({ message: "Local download object is missing or invalid" })),
+				}),
+				s3Service: makeS3Layer({
+					presignDownload: () =>
+						Effect.fail(new BadRequest({ message: "S3 upload object is missing or invalid" })),
+				}),
+			}),
+		),
+	),
+);
+
 it.effect("cleans up due local and S3 pending intents in a bounded batch", () => {
 	const stored = new Map([
 		[
