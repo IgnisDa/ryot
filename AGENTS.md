@@ -3,9 +3,9 @@
 ## Project Architecture & Tools
 
 - **Monorepo**: Uses `turbo`. All frontend commands must use `turbo`.
+- **GitHub**: Use `gh` CLI; raw API only when `gh` doesn't support it.
 - **Dependencies**: `cd <app> && bun add -E` (exact versions, no ranges).
 - **Bash paths**: Always quote with single quotes (e.g., `git add 'path/file.ts'`).
-- **GitHub**: Use `gh` CLI; raw API only when `gh` doesn't support it.
 
 ## Coding Standards
 
