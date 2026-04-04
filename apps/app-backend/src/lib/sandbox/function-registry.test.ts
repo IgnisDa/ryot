@@ -6,6 +6,7 @@ describe("hostFunctionRegistry", () => {
 	it("registers the expected host function keys", () => {
 		expect(Object.keys(hostFunctionRegistry).sort()).toEqual([
 			"getAppConfigValue",
+			"getEntitySchemas",
 			"getUserConfigValue",
 			"httpCall",
 		]);
