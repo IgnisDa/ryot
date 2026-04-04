@@ -1,5 +1,4 @@
-import { defineActivity } from "@ryot/sandbox-sdk/activity";
-import { defineManifest } from "@ryot/sandbox-sdk/driver";
+import { defineManifest, defineScript } from "@ryot/sandbox-sdk/driver";
 import { Effect } from "@ryot/sandbox-sdk/effect";
 import { strFromU8, unzipSync } from "@ryot/sandbox-sdk/fflate";
 import { readArtifact } from "@ryot/sandbox-sdk/filesystem";
@@ -17,11 +16,11 @@ import { manifest as movieManifest, search as movieSearch } from "../providers/m
 import { manifest as showManifest, search as showSearch } from "../providers/media/show/tmdb";
 
 export const manifest = defineManifest({
-	kind: "activity",
+	kind: "script",
+	slug: "import.netflix",
 	name: "Parse Netflix import",
-	slug: "activity.import.netflix",
-	requiredPluginConfigKeys: ["tmdbAccessToken"],
 	requiredSystemConfigKeys: [],
+	requiredPluginConfigKeys: ["tmdbAccessToken"],
 	capabilities: ["artifact-read", "httpCall", "getPluginConfig", "getUserPreferences"],
 });
 
@@ -34,7 +33,7 @@ const csvEntry = (archive: ReturnType<typeof unzipSync>, baseName: string) => {
 	return undefined;
 };
 
-export default defineActivity({
+export default defineScript({
 	manifest,
 	input: NetflixImportParserInput,
 	output: MediaImportAdapterBatch,
@@ -67,10 +66,10 @@ export default defineActivity({
 									Effect.map(({ items }) =>
 										items.map(
 											(item): MetadataLookupTitleMatchCandidate => ({
-												title: item.titleProperty.value,
-												externalId: item.externalId,
-												providerSlug: movieManifest.slug,
 												entitySchemaSlug: "movie",
+												externalId: item.externalId,
+												title: item.titleProperty.value,
+												providerSlug: movieManifest.slug,
 												publishYear:
 													item.primarySubtitleProperty?.kind === "number"
 														? item.primarySubtitleProperty.value
@@ -86,10 +85,10 @@ export default defineActivity({
 									Effect.map(({ items }) =>
 										items.map(
 											(item): MetadataLookupTitleMatchCandidate => ({
-												title: item.titleProperty.value,
-												externalId: item.externalId,
-												providerSlug: showManifest.slug,
 												entitySchemaSlug: "show",
+												externalId: item.externalId,
+												title: item.titleProperty.value,
+												providerSlug: showManifest.slug,
 												publishYear:
 													item.primarySubtitleProperty?.kind === "number"
 														? item.primarySubtitleProperty.value

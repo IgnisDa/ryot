@@ -1,5 +1,4 @@
-import { defineActivity } from "@ryot/sandbox-sdk/activity";
-import { defineManifest } from "@ryot/sandbox-sdk/driver";
+import { defineManifest, defineScript } from "@ryot/sandbox-sdk/driver";
 import { Effect } from "@ryot/sandbox-sdk/effect";
 
 import { adaptGoodreadsCsv } from "../../imports/goodreads";
@@ -8,14 +7,15 @@ import { MediaImportAdapterBatch, MediaImportParserInput } from "../../imports/s
 import { readImportArtifactText } from "./shared";
 
 export const manifest = defineManifest({
-	kind: "activity",
-	name: "Parse Goodreads import",
+	kind: "script",
+	slug: "import.goodreads",
 	requiredPluginConfigKeys: [],
 	requiredSystemConfigKeys: [],
-	slug: "activity.import.goodreads",
+	name: "Parse Goodreads import",
 	capabilities: ["artifact-read"],
 });
-export default defineActivity({
+
+export default defineScript({
 	manifest,
 	input: MediaImportParserInput,
 	output: MediaImportAdapterBatch,
