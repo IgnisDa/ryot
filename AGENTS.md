@@ -11,7 +11,6 @@
 - Add dependencies from the target app with `bun add`.
 - Quote shell paths with single quotes, for example `git add 'path/file.ts'`.
 - Check backend code with `bun turbo --filter=@ryot/app-backend check` and test it with `bun turbo --filter=@ryot/app-backend test`.
-- Use `@explore` agents only for bounded read-only exploration; they must not make decisions. Give them small tasks so as to not overwhelm their context window. Use multiple agents for larger explorations.
 
 ## Engineering
 
