@@ -588,11 +588,12 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** List entity schemas for a tracker */
+        /** List entity schemas for a tracker or matching slugs */
         get: {
             parameters: {
-                query: {
-                    trackerId: string;
+                query?: {
+                    trackerId?: string;
+                    slugs?: string[];
                 };
                 header?: never;
                 path?: never;
@@ -600,7 +601,7 @@ export interface paths {
             };
             requestBody?: never;
             responses: {
-                /** @description Entity schemas for the requested tracker */
+                /** @description Entity schemas for the requested filters */
                 200: {
                     headers: {
                         [name: string]: unknown;

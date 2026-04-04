@@ -3,6 +3,7 @@ import { itemDataSchema, listDataSchema } from "~/lib/openapi";
 import {
 	createIdParamsSchema,
 	createNameWithOptionalSlugSchema,
+	createUniqueNonEmptyTrimmedStringArraySchema,
 	iconAndAccentColorFields,
 	nonEmptyTrimmedStringSchema,
 } from "~/lib/zod/base";
@@ -36,7 +37,11 @@ export const createEntitySchemaResponseSchema = itemDataSchema(
 export const entitySchemaParams = createIdParamsSchema("entitySchemaId");
 
 export const listEntitySchemasQuery = z.object({
-	trackerId: nonEmptyTrimmedStringSchema,
+	trackerId: nonEmptyTrimmedStringSchema.optional(),
+	slugs: createUniqueNonEmptyTrimmedStringArraySchema({
+		minMessage: "At least one slug is required",
+		duplicateMessage: "Entity schema slugs must be unique",
+	}).optional(),
 });
 
 export const createEntitySchemaBody = createNameWithOptionalSlugSchema({
@@ -45,5 +50,5 @@ export const createEntitySchemaBody = createNameWithOptionalSlugSchema({
 	...iconAndAccentColorFields,
 });
 
-export type CreateEntitySchemaBody = z.infer<typeof createEntitySchemaBody>;
 export type ListedEntitySchema = z.infer<typeof listedEntitySchemaSchema>;
+export type CreateEntitySchemaBody = z.infer<typeof createEntitySchemaBody>;
