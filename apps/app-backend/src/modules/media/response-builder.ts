@@ -1,4 +1,4 @@
-import { dayjs } from "@ryot/ts-utils/dayjs";
+import { dayjs } from "@ryot/ts-utils";
 import { match } from "ts-pattern";
 import type { ImageSchemaType } from "~/lib/db/schema";
 import type {

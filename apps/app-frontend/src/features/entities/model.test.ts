@@ -1,6 +1,6 @@
 import { describe, expect, it } from "bun:test";
-import { dayjs } from "@ryot/ts-utils/dayjs";
-import { createEntityFixture } from "#/features/test-fixtures";
+import { dayjs } from "@ryot/ts-utils";
+import { createEntityFixture } from "~/features/test-fixtures";
 import { getEntityListViewState, sortEntities, toAppEntity } from "./model";
 
 describe("sortEntities", () => {

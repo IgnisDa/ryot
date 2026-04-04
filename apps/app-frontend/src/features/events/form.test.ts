@@ -1,5 +1,5 @@
 import { describe, expect, it } from "bun:test";
-import { createEventSchemaFixture } from "#/features/test-fixtures";
+import { createEventSchemaFixture } from "~/features/test-fixtures";
 import {
 	buildCreateEventFormSchema,
 	buildDefaultEventFormValues,

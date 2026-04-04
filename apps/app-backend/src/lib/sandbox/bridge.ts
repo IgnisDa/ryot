@@ -1,4 +1,4 @@
-import { dayjs } from "@ryot/ts-utils/dayjs";
+import { dayjs } from "@ryot/ts-utils";
 import { redis } from "~/lib/redis";
 import { requestBodyLimit } from "./constants";
 import { sendJson } from "./utils";

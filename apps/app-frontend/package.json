@@ -2,9 +2,6 @@
 	"private": true,
 	"type": "module",
 	"name": "@ryot/app-frontend",
-	"imports": {
-		"#/*": "./src/*"
-	},
 	"scripts": {
 		"test": "bun test",
 		"typecheck": "tsc",

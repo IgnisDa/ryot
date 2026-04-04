@@ -13,8 +13,8 @@ import {
 	Title,
 } from "@mantine/core";
 import { Calendar, ExternalLink, Hash } from "lucide-react";
-import type { AppEntity } from "#/features/entities/model";
-import { useEventsQuery } from "#/features/events/hooks";
+import type { AppEntity } from "~/features/entities/model";
+import { useEventsQuery } from "~/features/events/hooks";
 import type { EntityDetailProperty } from "./detail";
 import { useResolvedEntityImageUrl } from "./image";
 

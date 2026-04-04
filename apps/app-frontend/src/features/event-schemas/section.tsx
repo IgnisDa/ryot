@@ -9,9 +9,9 @@ import {
 	Stack,
 	Text,
 } from "@mantine/core";
-import { SectionHeader } from "#/components/SectionHeader";
-import type { AppEntitySchema } from "#/features/entity-schemas/model";
-import { useModalForm } from "#/hooks/modal-form";
+import { SectionHeader } from "~/components/SectionHeader";
+import type { AppEntitySchema } from "~/features/entity-schemas/model";
+import { useModalForm } from "~/hooks/modal-form";
 import type { CreateEventSchemaPayload } from "./form";
 import { useEventSchemaMutations, useEventSchemasQuery } from "./hooks";
 import { getEntityEventSchemaViewState } from "./model";

@@ -1,10 +1,10 @@
 import { match } from "ts-pattern";
-import { createEntityColumnExpression } from "#/features/entities/model";
+import { createEntityColumnExpression } from "~/features/entities/model";
 import type {
 	ApiGetResponseData,
 	ApiPostRequestBody,
 	ApiPostResponseData,
-} from "#/lib/api/types";
+} from "~/lib/api/types";
 
 export type RuntimeField = QueryEngineItem["fields"][number];
 export type ViewLayout = keyof SavedView["displayConfiguration"];

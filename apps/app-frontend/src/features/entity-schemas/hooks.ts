@@ -1,5 +1,5 @@
 import { useQueryClient } from "@tanstack/react-query";
-import { useApiClient } from "#/hooks/api";
+import { useApiClient } from "~/hooks/api";
 import { type AppEntitySchema, sortEntitySchemas } from "./model";
 
 export function useEntitySchemaQuery(entitySchemaId: string, enabled = true) {

@@ -1,7 +1,7 @@
 import { describe, expect, it } from "bun:test";
-import type { AppSavedView } from "#/features/saved-views/model";
-import { createSavedViewFixture } from "#/features/test-fixtures";
-import { createTrackerFixture } from "#/features/trackers/test-fixtures";
+import type { AppSavedView } from "~/features/saved-views/model";
+import { createSavedViewFixture } from "~/features/test-fixtures";
+import { createTrackerFixture } from "~/features/trackers/test-fixtures";
 import type { SidebarTracker } from "./Sidebar.types";
 import { toSidebarData } from "./sidebar-data";
 

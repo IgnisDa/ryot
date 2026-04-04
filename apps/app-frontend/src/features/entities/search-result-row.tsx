@@ -17,7 +17,7 @@ import {
 	Plus,
 	Star,
 } from "lucide-react";
-import { useThemeTokens } from "#/hooks/theme";
+import { useThemeTokens } from "~/hooks/theme";
 import type {
 	MediaSearchDoneAction,
 	MediaSearchLogDateOption,
