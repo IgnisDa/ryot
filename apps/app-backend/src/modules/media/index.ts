@@ -1,5 +1,6 @@
 export type {
 	BuiltInMediaOverviewContinueResponse,
+	BuiltInMediaOverviewLibraryResponse,
 	BuiltInMediaOverviewRateTheseResponse,
 	BuiltInMediaOverviewRecentActivityResponse,
 	BuiltInMediaOverviewUpNextResponse,
@@ -8,6 +9,7 @@ export type {
 
 export {
 	getContinueItems,
+	getLibraryStats,
 	getRateTheseItems,
 	getRecentActivityItems,
 	getUpNextItems,
