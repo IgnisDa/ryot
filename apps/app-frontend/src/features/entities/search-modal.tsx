@@ -444,14 +444,16 @@ export function SearchEntityModalContent(props: {
 					return;
 				}
 
-				const message = entityId
+				const isPartialFailure = entityId !== null;
+				const message = isPartialFailure
 					? `${item.titleProperty.value} is in your library, but could not be added to the collection: ${getErrorMessage(error)}`
 					: getErrorMessage(error);
-				if (entityId) {
+				if (isPartialFailure) {
 					markDone(item.identifier, ["track"]);
 				}
 				patchActionState(item.identifier, {
 					actionError: message,
+					collectionError: isPartialFailure ? getErrorMessage(error) : null,
 					openPanel: getActionState(item.identifier).openPanel,
 				});
 			} finally {
