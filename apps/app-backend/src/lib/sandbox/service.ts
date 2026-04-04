@@ -1,3 +1,4 @@
+import { dayjs } from "@ryot/ts-utils/dayjs";
 import { generateId } from "better-auth";
 import type { Job } from "bullmq";
 import { getQueues } from "../queue";
@@ -113,7 +114,9 @@ export class SandboxService {
 		await this.bridgeServer.addSession(executionId, {
 			token,
 			apiFunctions,
-			expiresAt: Date.now() + timeoutMs + 2000,
+			expiresAt: dayjs()
+				.add(timeoutMs + 2000, "millisecond")
+				.valueOf(),
 		});
 
 		try {

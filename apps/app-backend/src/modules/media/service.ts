@@ -94,11 +94,11 @@ const toNullableNumber = (value: unknown) => {
 
 const toNullableDate = (value: unknown): Date | null => {
 	if (value instanceof Date) {
-		return Number.isNaN(value.getTime()) ? null : value;
+		return dayjs(value).isValid() ? value : null;
 	}
 	if (typeof value === "string") {
-		const parsed = new Date(value);
-		return Number.isNaN(parsed.getTime()) ? null : parsed;
+		const parsed = dayjs(value);
+		return parsed.isValid() ? parsed.toDate() : null;
 	}
 
 	return null;
@@ -232,7 +232,7 @@ const defaultDeps: MediaServiceDeps = {
 
 const getDateKey = (date: Date) => dayjs.utc(date).format("YYYY-MM-DD");
 
-const getCurrentWeekRange = (now = new Date()) => {
+const getCurrentWeekRange = (now = dayjs().toDate()) => {
 	const startAt = dayjs.utc(now).startOf("isoWeek");
 	const endAt = startAt.add(7, "day");
 

@@ -1,5 +1,6 @@
 import { faker } from "@faker-js/faker";
 import type { components, paths } from "@ryot/generated/openapi/app-backend";
+import { dayjs } from "@ryot/ts-utils/dayjs";
 import createClient from "openapi-fetch";
 
 const API_BASE_URL = process.env.API_BASE_URL ?? "http://localhost:3000/api";
@@ -9,7 +10,7 @@ async function createAndSignIn(): Promise<{
 	email: string;
 	password: string;
 }> {
-	const email = `seed-${Date.now()}@example.com`;
+	const email = `seed-${dayjs().valueOf()}@example.com`;
 	const password = "password123";
 
 	const signUpResponse = await fetch(`${API_BASE_URL}/authentication/email`, {
@@ -890,7 +891,7 @@ function generatePlaceVisit(): Record<string, unknown> {
 	return {
 		companions: faker.person.fullName(),
 		notes: faker.lorem.sentences(1),
-		date: faker.date.past({ years: 2 }).toISOString().split("T")[0],
+		date: dayjs(faker.date.past({ years: 2 })).format("YYYY-MM-DD"),
 		duration_hours: faker.number.float({ min: 0.5, max: 8, fractionDigits: 1 }),
 	};
 }
@@ -2714,7 +2715,7 @@ async function main() {
 	console.log(`✓ Created and signed in as ${email}`);
 
 	const client = new APIClient(cookies);
-	const startTime = Date.now();
+	const startTime = dayjs();
 
 	const whiskeyStats = await seedWhiskeys(client);
 	const placeStats = await seedPlaces(client);
@@ -2726,7 +2727,7 @@ async function main() {
 		phoneStats.tracker.id,
 	);
 
-	const duration = Math.floor((Date.now() - startTime) / 1000);
+	const duration = Math.floor(dayjs().diff(startTime, "second", true));
 	const minutes = Math.floor(duration / 60);
 	const seconds = duration % 60;
 

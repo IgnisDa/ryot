@@ -1,3 +1,4 @@
+import { dayjs } from "@ryot/ts-utils/dayjs";
 import type { AuthenticatedUser } from "#/lib/auth";
 import type { SidebarAccount } from "./Sidebar.types";
 
@@ -33,14 +34,10 @@ export function formatSidebarAccountDate(value?: Date | string) {
 		return "--";
 	}
 
-	const parsed = value instanceof Date ? value : new Date(value);
-	if (Number.isNaN(parsed.getTime())) {
+	const parsed = dayjs(value);
+	if (!parsed.isValid()) {
 		return "--";
 	}
 
-	return new Intl.DateTimeFormat("en-US", {
-		month: "short",
-		day: "numeric",
-		year: "numeric",
-	}).format(parsed);
+	return parsed.format("MMM D, YYYY");
 }

@@ -1,11 +1,12 @@
 import { tmpdir } from "node:os";
+import { dayjs } from "@ryot/ts-utils/dayjs";
 import sandboxRunnerSource from "./scripts/runner-source.txt";
 
 export class RunnerFileManager {
 	private runnerPath: string | null = null;
 
 	async create() {
-		const fileName = `ryot-sandbox-runner-${Date.now()}-${process.pid}.mjs`;
+		const fileName = `ryot-sandbox-runner-${dayjs().valueOf()}-${process.pid}.mjs`;
 		this.runnerPath = `${tmpdir()}/${fileName}`;
 
 		try {

@@ -1,3 +1,5 @@
+import { dayjs } from "@ryot/ts-utils/dayjs";
+
 type NullableDate = Date | null;
 
 type LifecycleSnapshot = {
@@ -9,7 +11,8 @@ type LifecycleSnapshot = {
 	completedOn: NullableDate;
 };
 
-const toMilliseconds = (value: NullableDate) => value?.getTime() ?? null;
+const toMilliseconds = (value: NullableDate) =>
+	value ? dayjs(value).valueOf() : null;
 
 const compareNullableDatesDesc = (left: NullableDate, right: NullableDate) => {
 	const leftMilliseconds = toMilliseconds(left);

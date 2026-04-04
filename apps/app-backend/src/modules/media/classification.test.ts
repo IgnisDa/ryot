@@ -1,11 +1,12 @@
 import { describe, expect, it } from "bun:test";
+import { dayjs } from "@ryot/ts-utils/dayjs";
 import {
 	compareContinueItems,
 	compareRateTheseItems,
 	compareUpNextItems,
 } from "./classification";
 
-const date = (value: string) => new Date(value);
+const date = (value: string) => dayjs(value).toDate();
 
 describe("compareContinueItems", () => {
 	it("sorts by progressAt desc, then entityId asc", () => {

@@ -1,4 +1,5 @@
 import { describe, expect, it } from "bun:test";
+import { dayjs } from "@ryot/ts-utils/dayjs";
 import { executeQueryEngineBody } from "./schemas";
 
 describe("executeQueryEngineBody", () => {
@@ -19,7 +20,7 @@ describe("executeQueryEngineBody", () => {
 			fields: [
 				{
 					key: "bad",
-					expression: { type: "literal", value: new Date() },
+					expression: { type: "literal", value: dayjs().toDate() },
 				},
 			],
 		});
