@@ -438,10 +438,16 @@ export function SearchEntityModalContent(props: {
 					actionError: null,
 					openPanel: null,
 				});
+				const collectionName =
+					collectionState.type === "collections"
+						? (collectionState.collections.find(
+								(c) => c.id === state.selectedCollectionId,
+							)?.name ?? "collection")
+						: "collection";
 				notifications.show({
 					color: "green",
 					title: "Added to collection",
-					message: `${item.titleProperty.value} was added to the collection.`,
+					message: `${item.titleProperty.value} was added to ${collectionName}.`,
 				});
 			} catch (error) {
 				if (isCancelledEntitySearchError(error)) {
@@ -475,6 +481,7 @@ export function SearchEntityModalContent(props: {
 			getActionState,
 			ensureItemEntity,
 			patchActionState,
+			collectionState,
 		],
 	);
 
