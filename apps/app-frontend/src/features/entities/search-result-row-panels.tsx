@@ -206,8 +206,10 @@ export function SearchResultCollectionPanel(props: {
 	collectionsDestination: { type: "view"; viewId: string } | { type: "none" };
 	onSaveCollection: () => void;
 	onPatchActionState: (patch: Partial<SearchResultRowActionState>) => void;
+	isEnsuringEntity: boolean;
 }) {
 	const hasSelectedCollection = props.actionState.selectedCollectionId !== null;
+	const isDisabled = props.isEnsuringEntity;
 
 	if (props.collectionState.type === "loading") {
 		return (
@@ -272,7 +274,8 @@ export function SearchResultCollectionPanel(props: {
 			<Group gap="xs">
 				<Button
 					size="compact-xs"
-					disabled={!hasSelectedCollection}
+					disabled={!hasSelectedCollection || isDisabled}
+					loading={props.isEnsuringEntity}
 					style={{ backgroundColor: props.accentColor, color: "white" }}
 					onClick={props.onSaveCollection}
 				>
@@ -281,6 +284,7 @@ export function SearchResultCollectionPanel(props: {
 				<Button
 					size="compact-xs"
 					variant="subtle"
+					disabled={isDisabled}
 					onClick={() => props.onPatchActionState({ openPanel: null })}
 				>
 					Cancel
