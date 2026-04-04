@@ -1,10 +1,24 @@
-import { Box, Button, Group, Paper, Stack, Text } from "@mantine/core";
-import type { ReactNode } from "react";
+import {
+	Box,
+	Button,
+	Group,
+	NumberInput,
+	Paper,
+	Select,
+	Stack,
+	Text,
+} from "@mantine/core";
+import { DateInput } from "@mantine/dates";
+import { type ReactNode, useEffect, useRef } from "react";
+import type { AppEntitySchema } from "#/features/entity-schemas/model";
 import {
 	buildDefaultFilterRow,
 	type FilterRow,
 	type SavedViewExtendedFormValues,
 } from "../form-extended";
+import type { ResolvedPropertyType } from "../resolve-property-type";
+import { resolvePropertyType } from "../resolve-property-type";
+import { PropertyPathAutocomplete } from "./property-path-autocomplete";
 
 type FilterFieldMeta = {
 	isValid: boolean;
@@ -37,7 +51,7 @@ type FiltersBuilderFormLike = {
 	}) => ReactNode | Promise<ReactNode>;
 };
 
-const OPERATOR_OPTIONS = [
+export const OPERATOR_OPTIONS = [
 	{ label: "Equals (eq)", value: "eq" },
 	{ label: "Not equals (ne)", value: "ne" },
 	{ label: "Greater than (gt)", value: "gt" },
@@ -48,10 +62,218 @@ const OPERATOR_OPTIONS = [
 	{ label: "Is null (isNull)", value: "isNull" },
 ];
 
+const COMPARISON_OPS = ["eq", "ne", "gt", "gte", "lt", "lte", "isNull"];
+const STRING_OPS = ["eq", "ne", "in", "isNull"];
+const BOOLEAN_OPS = ["eq", "ne", "isNull"];
+const ARRAY_OPS = ["in", "isNull"];
+
+const OPERATOR_COMPAT: Record<Exclude<ResolvedPropertyType, null>, string[]> = {
+	array: ARRAY_OPS,
+	string: STRING_OPS,
+	date: COMPARISON_OPS,
+	boolean: BOOLEAN_OPS,
+	number: COMPARISON_OPS,
+	integer: COMPARISON_OPS,
+	object: OPERATOR_OPTIONS.map((o) => o.value),
+};
+
+function getAllowedOps(type: ResolvedPropertyType): string[] {
+	if (type === null) {
+		return OPERATOR_OPTIONS.map((o) => o.value);
+	}
+
+	return OPERATOR_COMPAT[type];
+}
+
+// biome-ignore lint/suspicious/noExplicitAny: TanStack Form setFieldValue accepts any value
+type SetFieldValue = (name: string, value: any) => void;
+
 type FiltersBuilderProps = {
 	isLoading: boolean;
+	schemas: AppEntitySchema[];
 	form: FiltersBuilderFormLike;
+	setFieldValue: SetFieldValue;
 };
+
+type FilterRowItemProps = {
+	index: number;
+	filter: FilterRow;
+	isLoading: boolean;
+	onRemove: () => void;
+	schemas: AppEntitySchema[];
+	form: FiltersBuilderFormLike;
+	setFieldValue: SetFieldValue;
+};
+
+function FilterRowItem(props: FilterRowItemProps) {
+	const resolvedType = resolvePropertyType(props.filter.field, props.schemas);
+	const allowedOps = getAllowedOps(resolvedType);
+	const filteredOperatorOptions = OPERATOR_OPTIONS.filter((o) =>
+		allowedOps.includes(o.value),
+	);
+
+	const prevFieldRef = useRef(props.filter.field);
+	useEffect(() => {
+		if (prevFieldRef.current === props.filter.field) {
+			return;
+		}
+		prevFieldRef.current = props.filter.field;
+
+		props.setFieldValue(`filters[${props.index}].value`, "");
+		if (!allowedOps.includes(props.filter.op)) {
+			props.setFieldValue(`filters[${props.index}].op`, "eq");
+		}
+	}, [
+		allowedOps,
+		props.index,
+		props.filter.op,
+		props.filter.field,
+		props.setFieldValue,
+	]);
+
+	return (
+		<Paper p="sm" withBorder radius="md">
+			<Stack gap="sm">
+				<Group gap="sm" align="flex-start">
+					<Box flex={1}>
+						<props.form.AppField name={`filters[${props.index}].field`}>
+							{(fieldField) => (
+								<PropertyPathAutocomplete
+									required
+									label="Field"
+									excludeImage
+									schemas={props.schemas}
+									disabled={props.isLoading}
+									value={fieldField.state.value}
+									onBlur={fieldField.handleBlur}
+									error={!fieldField.state.meta.isValid}
+									onChange={(value) => fieldField.handleChange(value)}
+								/>
+							)}
+						</props.form.AppField>
+					</Box>
+
+					<Box flex={1}>
+						<props.form.AppField name={`filters[${props.index}].op`}>
+							{(opField) => (
+								<opField.SelectField
+									required
+									searchable
+									label="Operator"
+									disabled={props.isLoading}
+									data={filteredOperatorOptions}
+								/>
+							)}
+						</props.form.AppField>
+					</Box>
+				</Group>
+
+				{props.filter.op !== "isNull" && (
+					<props.form.AppField name={`filters[${props.index}].value`}>
+						{(valueField) => {
+							if (resolvedType === "number" || resolvedType === "integer") {
+								return (
+									<NumberInput
+										required
+										label="Value"
+										disabled={props.isLoading}
+										onBlur={valueField.handleBlur}
+										error={!valueField.state.meta.isValid}
+										onChange={(val) =>
+											valueField.handleChange(
+												typeof val === "number" ? val : "",
+											)
+										}
+										value={
+											typeof valueField.state.value === "number"
+												? valueField.state.value
+												: ""
+										}
+									/>
+								);
+							}
+
+							if (resolvedType === "boolean") {
+								return (
+									<Select
+										required
+										label="Value"
+										disabled={props.isLoading}
+										error={!valueField.state.meta.isValid}
+										data={[
+											{ label: "True", value: "true" },
+											{ label: "False", value: "false" },
+										]}
+										value={
+											valueField.state.value === true
+												? "true"
+												: valueField.state.value === false
+													? "false"
+													: null
+										}
+										onChange={(val) => {
+											if (val === "true") {
+												valueField.handleChange(true);
+											} else if (val === "false") {
+												valueField.handleChange(false);
+											}
+										}}
+									/>
+								);
+							}
+
+							if (resolvedType === "date") {
+								const raw = valueField.state.value;
+								const dateStr = typeof raw === "string" ? raw : "";
+								return (
+									<DateInput
+										required
+										label="Value"
+										value={dateStr || null}
+										valueFormat="YYYY-MM-DD"
+										disabled={props.isLoading}
+										error={!valueField.state.meta.isValid}
+										onChange={(val) => valueField.handleChange(val ?? "")}
+									/>
+								);
+							}
+
+							return (
+								<valueField.TextField
+									label="Value"
+									disabled={props.isLoading}
+									required={props.filter.op !== "isNull"}
+									description={
+										props.filter.op === "in"
+											? "Comma-separated values (e.g., Apple, Samsung)"
+											: undefined
+									}
+									placeholder={
+										props.filter.op === "in"
+											? "value1, value2, value3"
+											: "Enter value"
+									}
+								/>
+							);
+						}}
+					</props.form.AppField>
+				)}
+
+				<Button
+					fullWidth
+					size="sm"
+					color="red"
+					type="button"
+					variant="subtle"
+					onClick={props.onRemove}
+					disabled={props.isLoading}
+				>
+					Remove filter
+				</Button>
+			</Stack>
+		</Paper>
+	);
+}
 
 export function FiltersBuilder(props: FiltersBuilderProps) {
 	return (
@@ -61,20 +283,7 @@ export function FiltersBuilder(props: FiltersBuilderProps) {
 					Filters
 				</Text>
 				<Text c="dimmed" size="xs">
-					Add filters to narrow down results. Use{" "}
-					<Text span c="gray.7" ff="var(--font-family-monospace)">
-						@name
-					</Text>{" "}
-					for built-in properties or{" "}
-					<Text span c="gray.7" ff="var(--font-family-monospace)">
-						schema.property
-					</Text>{" "}
-					for schema-specific fields.
-				</Text>
-				<Text c="dimmed" size="xs">
-					Operators: eq equals, ne not equals, gt/gte greater than, lt/lte less
-					than, in matches a comma-separated list, isNull checks for missing
-					values.
+					Add filters to narrow down results.
 				</Text>
 			</Stack>
 
@@ -92,72 +301,16 @@ export function FiltersBuilder(props: FiltersBuilderProps) {
 							)}
 
 							{filters.map((filter, index) => (
-								<Paper key={filter.id} p="sm" withBorder radius="md">
-									<Stack gap="sm">
-										<Group gap="sm" align="flex-start">
-											<Box flex={1}>
-												<props.form.AppField name={`filters[${index}].field`}>
-													{(fieldField) => (
-														<fieldField.TextField
-															required
-															label="Field"
-															disabled={props.isLoading}
-															placeholder="e.g., @name or brand"
-														/>
-													)}
-												</props.form.AppField>
-											</Box>
-
-											<Box flex={1}>
-												<props.form.AppField name={`filters[${index}].op`}>
-													{(opField) => (
-														<opField.SelectField
-															required
-															searchable
-															label="Operator"
-															disabled={props.isLoading}
-															data={OPERATOR_OPTIONS}
-														/>
-													)}
-												</props.form.AppField>
-											</Box>
-										</Group>
-
-										{filter.op !== "isNull" && (
-											<props.form.AppField name={`filters[${index}].value`}>
-												{(valueField) => (
-													<valueField.TextField
-														label="Value"
-														disabled={props.isLoading}
-														required={filter.op !== "isNull"}
-														description={
-															filter.op === "in"
-																? "Comma-separated values (e.g., Apple, Samsung)"
-																: undefined
-														}
-														placeholder={
-															filter.op === "in"
-																? "value1, value2, value3"
-																: "Enter value"
-														}
-													/>
-												)}
-											</props.form.AppField>
-										)}
-
-										<Button
-											fullWidth
-											size="sm"
-											color="red"
-											type="button"
-											variant="subtle"
-											disabled={props.isLoading}
-											onClick={() => arrayField.removeValue(index)}
-										>
-											Remove filter
-										</Button>
-									</Stack>
-								</Paper>
+								<FilterRowItem
+									index={index}
+									key={filter.id}
+									filter={filter}
+									form={props.form}
+									schemas={props.schemas}
+									isLoading={props.isLoading}
+									setFieldValue={props.setFieldValue}
+									onRemove={() => arrayField.removeValue(index)}
+								/>
 							))}
 
 							<Button
