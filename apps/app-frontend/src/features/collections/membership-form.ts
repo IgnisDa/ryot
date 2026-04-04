@@ -10,6 +10,7 @@ import {
 } from "@ryot/ts-utils";
 import { match } from "ts-pattern";
 import { z } from "zod";
+import type { AppEntity } from "~/features/entities/model";
 import type { AppCollection } from "./model";
 
 export type CollectionMembershipFormValues = {
@@ -76,6 +77,27 @@ export const buildDefaultMembershipFormValues = (
 		properties: schema ? buildMembershipPropertyDefaults(schema) : {},
 	};
 };
+
+/**
+ * Derives initial membership form values from an entity's properties.
+ * This helper maps compatible entity properties onto the collection template's
+ * membership fields, falling back to defaults for fields that don't have
+ * a matching entity property or have incompatible types.
+ */
+export function deriveInitialValuesFromEntity(
+	selectedCollection: AppCollection | undefined,
+	entity: AppEntity | undefined,
+): CollectionMembershipFormValues {
+	const schema = selectedCollection?.membershipPropertiesSchema;
+	const entityProperties = entity?.properties ?? {};
+
+	return {
+		collectionId: selectedCollection?.id ?? "",
+		properties: schema
+			? reconcileMembershipProperties(schema, entityProperties)
+			: {},
+	};
+}
 
 export function syncMembershipFormValues(
 	selectedCollection: AppCollection | undefined,
