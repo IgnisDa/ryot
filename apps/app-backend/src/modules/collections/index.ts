@@ -1,6 +1,6 @@
 export {
 	createCollectionForUser,
-	getBuiltinCollectionSchemaForUser,
+	getBuiltinCollectionSchema,
 } from "./repository";
 export { collectionsApi } from "./routes";
 export type { CollectionResponse, CreateCollectionBody } from "./schemas";
