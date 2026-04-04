@@ -21,9 +21,9 @@ See the parent PRD sections **Collection discovery** and **No-collections guidan
 
 ## Acceptance criteria
 
-- [ ] The frontend exposes a collection-discovery helper that reads collection entities through the
+- [x] The frontend exposes a collection-discovery helper that reads collection entities through the
       existing generic query path.
-- [ ] Collection discovery returns enough data for the later search-modal slices to render a
+- [x] Collection discovery returns enough data for the later search-modal slices to render a
       selector and access each collection's `membershipPropertiesSchema`.
 - [ ] The helper exposes loading and empty-state-friendly behavior without forcing the search row to
       know query details directly.
@@ -31,7 +31,7 @@ See the parent PRD sections **Collection discovery** and **No-collections guidan
       from saved-view data rather than hardcoding an opaque identifier.
 - [ ] The resolved Collections destination can be used by the future empty-state CTA in the search
       row.
-- [ ] Unit tests cover built-in Collections view resolution and any small pure mapping logic added
+- [x] Unit tests cover built-in Collections view resolution and any small pure mapping logic added
       for collection discovery.
 - [ ] `bun run typecheck` and the relevant frontend test command pass in `apps/app-frontend`.
 
