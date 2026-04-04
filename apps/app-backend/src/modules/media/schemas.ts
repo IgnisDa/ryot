@@ -92,7 +92,10 @@ const builtInMediaOverviewLibraryItemSchema = z
 		inBacklog: z.number().int().nonnegative(),
 		completed: z.number().int().nonnegative(),
 		inProgress: z.number().int().nonnegative(),
-		entityTypeCounts: z.record(z.string(), z.number().int().nonnegative()),
+		entityTypeCounts: z.record(
+			builtinMediaEntitySchemaSlugSchema,
+			z.number().int().nonnegative(),
+		),
 	})
 	.strict();
 

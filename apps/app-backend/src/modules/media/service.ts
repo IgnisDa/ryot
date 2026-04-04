@@ -440,7 +440,11 @@ export const getWeekActivity = async (
 };
 
 const isBacklogItem = (item: BuiltInMediaOverviewSourceItem): boolean => {
-	return item.backlogAt !== null && item.progressAt === null;
+	return (
+		item.backlogAt !== null &&
+		item.progressAt === null &&
+		item.completeAt === null
+	);
 };
 
 const isInProgressItem = (item: BuiltInMediaOverviewSourceItem): boolean => {
@@ -476,7 +480,7 @@ export const getLibraryStats = async (
 		pagination: { page: 1, limit: 10000 },
 		sort: {
 			direction: "desc",
-			expression: entityColumnExpression("book", "createdAt"),
+			expression: computedFieldExpression("entityCreatedAt"),
 		},
 	};
 
