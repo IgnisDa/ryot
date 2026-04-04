@@ -15,12 +15,92 @@ const entityImageSchema = z.union([
 	z.undefined(),
 ]);
 
+function isPrimitiveProperty(propertyDef: AppPropertyDefinition) {
+	return match(propertyDef.type)
+		.with(
+			"boolean",
+			"date",
+			"datetime",
+			"integer",
+			"number",
+			"string",
+			() => true,
+		)
+		.otherwise(() => false);
+}
+
+function getUnsupportedRequiredProperties(schema: AppSchema): string[] {
+	return Object.entries(schema.fields)
+		.filter(
+			([, propertyDef]) =>
+				isAppPropertyRequired(propertyDef) && !isPrimitiveProperty(propertyDef),
+		)
+		.map(([key]) => key);
+}
+
+function getUnsupportedRequiredPropertiesMessage(
+	propertyKeys: string[],
+): string {
+	return `This entity schema requires unsupported properties: ${propertyKeys.join(", ")}.`;
+}
+
+const buildEntityPropertiesSchema = (propertiesSchema: AppSchema) => {
+	const fields: AppSchema["fields"] = {};
+	const supportedKeys = new Set<string>();
+
+	for (const [key, propertyDef] of Object.entries(propertiesSchema.fields)) {
+		if (!isPrimitiveProperty(propertyDef)) {
+			continue;
+		}
+
+		supportedKeys.add(key);
+		fields[key] = propertyDef;
+	}
+
+	return fromAppSchemaObject(
+		{
+			fields,
+			rules: propertiesSchema.rules,
+		},
+		{ unknownKeys: "strip" },
+	);
+};
+
 export const buildCreateEntityFormSchema = (propertiesSchema: AppSchema) => {
-	return z.object({
-		name: zodRequiredName,
-		image: entityImageSchema,
-		properties: fromAppSchemaObject(propertiesSchema),
-	});
+	return z
+		.object({
+			name: zodRequiredName,
+			image: entityImageSchema,
+			properties: z.record(z.string(), z.unknown()),
+		})
+		.superRefine((value, ctx) => {
+			const unsupportedRequiredProperties =
+				getUnsupportedRequiredProperties(propertiesSchema);
+			if (unsupportedRequiredProperties.length > 0) {
+				ctx.addIssue({
+					code: "custom",
+					path: ["properties"],
+					message: getUnsupportedRequiredPropertiesMessage(
+						unsupportedRequiredProperties,
+					),
+				});
+			}
+
+			const result = buildEntityPropertiesSchema(propertiesSchema).safeParse(
+				value.properties,
+			);
+
+			if (result.success) {
+				return;
+			}
+
+			for (const issue of result.error.issues) {
+				ctx.addIssue({
+					...issue,
+					path: ["properties", ...issue.path],
+				});
+			}
+		});
 };
 
 export type CreateEntityFormValues = z.infer<
@@ -62,11 +142,16 @@ export type CreateEntityPayload = ApiPostRequestBody<"/entities">;
 export function toCreateEntityPayload(
 	input: CreateEntityFormValues,
 	entitySchemaId: string,
+	propertiesSchema: AppSchema,
 ): CreateEntityPayload {
+	const properties = buildEntityPropertiesSchema(propertiesSchema).parse(
+		input.properties,
+	);
+
 	return {
 		entitySchemaId,
 		image: input.image,
 		name: input.name.trim(),
-		properties: input.properties,
+		properties,
 	};
 }
