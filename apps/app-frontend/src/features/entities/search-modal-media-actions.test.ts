@@ -197,4 +197,8 @@ describe("getMediaDoneActionLabel", () => {
 			getMediaDoneActionLabel("rate", { logDate: "now", rateStars: 5 }),
 		).toBe("Rated 5/5");
 	});
+
+	it("labels collection action as 'In collection'", () => {
+		expect(getMediaDoneActionLabel("collection")).toBe("In collection");
+	});
 });
