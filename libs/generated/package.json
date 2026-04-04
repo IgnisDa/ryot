@@ -1,5 +1,10 @@
 {
 	"name": "@ryot/generated",
+	"exports": {
+		"./openapi/app-backend": {
+			"types": "./src/openapi/app-backend.d.ts"
+		}
+	},
 	"scripts": {
 		"typecheck": "tsc",
 		"backend-graphql": "graphql-codegen --config src/graphql/backend/codegen.ts",
