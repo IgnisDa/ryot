@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { apiFunctionDescriptorSchema } from "~/lib/sandbox/types";
 import {
 	nonEmptyStringSchema,
 	nullableStringSchema,
@@ -7,7 +8,6 @@ import {
 } from "~/lib/zod/base";
 
 export const sandboxRunJobName = "sandbox-run";
-export const sandboxRunJobWaitTimeoutMs = 30_000;
 
 export const sandboxRunJobData = z.object({
 	code: nonEmptyStringSchema,
@@ -15,7 +15,7 @@ export const sandboxRunJobData = z.object({
 	timeoutMs: positiveIntSchema.optional(),
 	maxHeapMB: positiveIntSchema.optional(),
 	context: stringUnknownRecordSchema.optional(),
-	apiFunctionsId: nonEmptyStringSchema.optional(),
+	apiFunctionDescriptors: z.array(apiFunctionDescriptorSchema).optional(),
 });
 
 export const sandboxRunJobResult = z.object({
