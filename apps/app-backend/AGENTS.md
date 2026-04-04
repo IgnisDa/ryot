@@ -39,7 +39,8 @@ The backend powers a self-hosted personal tracking product. Favor explicit valid
 ### Testing
 
 - For changes, run `bun run typecheck`, `bun test`, and `bun run lint` in `apps/app-backend`.
-- Add tests in `tests/src` as appropriate.
+- Write only pure functional tests that don't require external state or side effects.
+- Add end to end tests in `<root>/tests/src` as appropriate.
 - Prefer shared test fixtures in `src/lib/test-fixtures` for repeated test data and mock deps.
 - Keep test definitions and assertions inline; extract duplicated setup, not test intent.
 - Favor module-specific fixture files; only put truly cross-module primitives in shared helpers.
