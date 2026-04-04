@@ -7,6 +7,7 @@ import { AppIcon } from "@/modules/icons";
 import { getNavigationHref } from "@/modules/navigation/navigation-data";
 import { useWorkspaceDrawer } from "@/modules/navigation/workspace-drawer";
 import { WorkspaceScrollFrame } from "@/modules/navigation/workspace-scroll-frame";
+import { ProviderAddHost, useProviderAddFlow } from "@/modules/provider-add/add-flow-host";
 
 import { savedViewLoadedCount } from "./result-count";
 import { SavedViewFilterSheet } from "./saved-view-filter-sheet";
@@ -17,10 +18,12 @@ const TOP_BAR_WEB_HIDDEN = Platform.OS === "web" ? "md:hidden" : null;
 export function SavedViewFrame(props: {
 	viewSlug: string;
 	children: ReactNode;
+	onImported?: () => void;
 	title?: { icon: string; name: string; loaded: number; hasMore: boolean };
 }) {
 	const router = useRouter();
 	const drawer = useWorkspaceDrawer();
+	const providerAdd = useProviderAddFlow();
 	const [isFilterOpen, setIsFilterOpen] = useState(false);
 
 	function goBack() {
@@ -72,7 +75,7 @@ export function SavedViewFrame(props: {
 						<Pressable
 							accessibilityRole="button"
 							accessibilityLabel="Search this view"
-							className="items-center justify-center rounded-pill bg-surface-2 p-1 ml-aut"
+							className="items-center justify-center rounded-pill bg-surface-2 p-1 ml-auto"
 						>
 							<AppIcon className="text-text-muted" name="search" size={24} />
 						</Pressable>
@@ -89,21 +92,25 @@ export function SavedViewFrame(props: {
 			>
 				{props.children}
 			</WorkspaceScrollFrame>
-			<Pressable
-				accessibilityRole="button"
-				accessibilityLabel="Add to this view"
-				className={clsx(
-					"absolute bottom-12 right-8 z-20 items-center justify-center rounded-pill bg-accent shadow-card",
-					TOP_BAR_WEB_HIDDEN,
-				)}
-			>
-				<AppIcon className="text-accent-ink" name="plus" size={36} />
-			</Pressable>
+			{props.onImported && (
+				<Pressable
+					onPress={providerAdd.open}
+					accessibilityRole="button"
+					accessibilityLabel="Add to this view"
+					className={clsx(
+						"absolute bottom-12 right-8 z-20 items-center justify-center rounded-pill bg-accent shadow-card",
+						TOP_BAR_WEB_HIDDEN,
+					)}
+				>
+					<AppIcon className="text-accent-ink" name="plus" size={36} />
+				</Pressable>
+			)}
 			{isFilterOpen && (
 				<View pointerEvents="box-none" className="absolute inset-0 z-50">
 					<SavedViewFilterSheet viewSlug={props.viewSlug} onClose={() => setIsFilterOpen(false)} />
 				</View>
 			)}
+			{props.onImported && <ProviderAddHost onImported={props.onImported} />}
 		</View>
 	);
 }

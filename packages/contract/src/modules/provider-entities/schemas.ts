@@ -38,6 +38,7 @@ export const ImportEntityRunResult = Schema.Union([
 		}),
 	),
 ]);
+export type ImportEntityRunResult = typeof ImportEntityRunResult.Type;
 
 export const SearchProviderEntitiesBody = strictStruct({
 	providerId: SandboxProviderId,
