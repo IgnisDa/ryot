@@ -54,7 +54,7 @@ import youtubeMusicPersonScriptCode from "~/lib/sandbox/scripts/providers/person
 import titleCaseDelimiterHelperCode from "~/lib/sandbox/scripts/shared/title-case-delimiters.txt";
 import titleCaseHelperCode from "~/lib/sandbox/scripts/shared/title-case.txt";
 import autoCompleteOnFullProgressScriptCode from "~/lib/sandbox/scripts/triggers/auto-complete-on-full-progress.txt";
-import type { SandboxScriptMetadata } from "~/lib/sandbox/types";
+import type { EventSchemaTriggerMetadata, SandboxScriptMetadata } from "~/lib/sandbox/types";
 
 const BUILTIN_ALLOWED_HOST_FUNCTIONS: NonNullable<SandboxScriptMetadata["allowedHostFunctions"]> = [
 	"httpCall",
@@ -236,14 +236,21 @@ export const entitySchemaScriptLinks = () =>
 export const fitnessSchemaScriptLinks = () =>
 	[{ schemaSlug: "exercise", scriptSlug: "exercise.free-exercise-db" }] as const;
 
-export const builtinEventSchemaTriggerLinks = () =>
-	[
-		{
-			eventSchemaSlug: "progress",
-			triggerName: "Auto-Complete on Full Progress",
-			scriptSlug: "trigger.auto-complete-on-full-progress",
-		},
-	] as const;
+type BuiltinEventSchemaTriggerLink = {
+	scriptSlug: string;
+	triggerName: string;
+	eventSchemaSlug: string;
+	metadata: EventSchemaTriggerMetadata;
+};
+
+export const builtinEventSchemaTriggerLinks = (): BuiltinEventSchemaTriggerLink[] => [
+	{
+		eventSchemaSlug: "progress",
+		triggerName: "Auto-Complete on Full Progress",
+		metadata: { inheritedProperties: ["consumedOn"] },
+		scriptSlug: "trigger.auto-complete-on-full-progress",
+	},
+];
 
 export const personSchemaScriptLinks = () =>
 	[

@@ -14,7 +14,7 @@ import {
 	uniqueIndex,
 } from "drizzle-orm/pg-core";
 
-import type { SandboxScriptMetadata } from "~/lib/sandbox/types";
+import type { EventSchemaTriggerMetadata, SandboxScriptMetadata } from "~/lib/sandbox/types";
 import type { DisplayConfiguration, SavedViewQueryDefinition } from "~/modules/saved-views";
 
 import type { ImageSchemaType } from "../../zod";
@@ -356,6 +356,7 @@ export const eventSchemaTrigger = pgTable(
 		name: text().notNull(),
 		isActive: boolean().notNull().default(true),
 		isBuiltin: boolean().notNull().default(false),
+		metadata: jsonb().$type<EventSchemaTriggerMetadata>().notNull(),
 		createdAt: timestamp({ withTimezone: true }).defaultNow().notNull(),
 		userId: text().references(() => user.id, { onDelete: "cascade" }),
 		eventSchemaId: text()
