@@ -99,7 +99,9 @@ const inspectImports = (file: ts.SourceFile, allowRelativeImports: boolean) => {
 				ts.isImportDeclaration(statement) &&
 				(specifier === SANDBOX_SDK_ROOT_IMPORT ||
 					specifier === SANDBOX_SDK_AUTOMATION_IMPORT ||
-					specifier === SANDBOX_SDK_PROVIDER_IMPORT)
+					specifier === SANDBOX_SDK_PROVIDER_IMPORT ||
+					specifier === "@ryot/sandbox-sdk/driver" ||
+					specifier === "@ryot/sandbox-sdk/operation")
 			) {
 				const bindings = statement.importClause?.namedBindings;
 				if (bindings && ts.isNamedImports(bindings)) {

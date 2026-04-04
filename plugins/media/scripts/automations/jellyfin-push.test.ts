@@ -1,6 +1,7 @@
-import type { JsonValue, SandboxHost } from "@ryot/sandbox-sdk/core";
+import type { SandboxHost } from "@ryot/sandbox-sdk/core";
 import { Effect } from "@ryot/sandbox-sdk/effect";
 import { defineSandboxTestHost } from "@ryot/sandbox-sdk/testing";
+import type { JsonValue } from "@ryot/sandbox-sdk/wire";
 import { describe, expect, it, vi } from "vitest";
 
 import {
@@ -41,8 +42,8 @@ const schema = entitySchemaRecord({
 const createAutomation = (overrides: Parameters<typeof eventAutomationContext>[0] = {}) =>
 	eventAutomationContext({
 		eventSchemaSlug: "complete",
-		subject: { id: "movie-1", name: "The Matrix", entitySchemaSlug: "movie" },
 		properties: { completionMode: "just_now" },
+		subject: { id: "movie-1", name: "The Matrix", entitySchemaSlug: "movie" },
 		...overrides,
 	});
 
