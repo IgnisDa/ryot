@@ -1,5 +1,5 @@
 {
-	"id": "857a82e1-3566-4e89-81f6-12dde360ea98",
+	"id": "17b744e1-58da-4cf4-813b-0bdac87324e0",
 	"prevId": "00000000-0000-0000-0000-000000000000",
 	"version": "7",
 	"dialect": "postgresql",
@@ -654,12 +654,6 @@
 					"notNull": true,
 					"default": "now()"
 				},
-				"kind": {
-					"name": "kind",
-					"type": "text",
-					"primaryKey": false,
-					"notNull": true
-				},
 				"id": {
 					"name": "id",
 					"type": "text",
@@ -672,8 +666,14 @@
 					"primaryKey": false,
 					"notNull": true
 				},
-				"sandbox_script_id": {
-					"name": "sandbox_script_id",
+				"search_sandbox_script_id": {
+					"name": "search_sandbox_script_id",
+					"type": "text",
+					"primaryKey": false,
+					"notNull": true
+				},
+				"details_sandbox_script_id": {
+					"name": "details_sandbox_script_id",
 					"type": "text",
 					"primaryKey": false,
 					"notNull": true
@@ -687,17 +687,11 @@
 				}
 			},
 			"indexes": {
-				"entity_schema_sandbox_script_entity_schema_id_kind_idx": {
-					"name": "entity_schema_sandbox_script_entity_schema_id_kind_idx",
+				"entity_schema_sandbox_script_entity_schema_id_idx": {
+					"name": "entity_schema_sandbox_script_entity_schema_id_idx",
 					"columns": [
 						{
 							"expression": "entity_schema_id",
-							"isExpression": false,
-							"asc": true,
-							"nulls": "last"
-						},
-						{
-							"expression": "kind",
 							"isExpression": false,
 							"asc": true,
 							"nulls": "last"
@@ -708,17 +702,26 @@
 					"method": "btree",
 					"with": {}
 				},
-				"entity_schema_sandbox_script_script_id_kind_idx": {
-					"name": "entity_schema_sandbox_script_script_id_kind_idx",
+				"entity_schema_sandbox_script_search_script_id_idx": {
+					"name": "entity_schema_sandbox_script_search_script_id_idx",
 					"columns": [
 						{
-							"expression": "sandbox_script_id",
+							"expression": "search_sandbox_script_id",
 							"isExpression": false,
 							"asc": true,
 							"nulls": "last"
-						},
+						}
+					],
+					"isUnique": false,
+					"concurrently": false,
+					"method": "btree",
+					"with": {}
+				},
+				"entity_schema_sandbox_script_details_script_id_idx": {
+					"name": "entity_schema_sandbox_script_details_script_id_idx",
+					"columns": [
 						{
-							"expression": "kind",
+							"expression": "details_sandbox_script_id",
 							"isExpression": false,
 							"asc": true,
 							"nulls": "last"
@@ -740,11 +743,20 @@
 					"onDelete": "cascade",
 					"onUpdate": "no action"
 				},
-				"entity_schema_sandbox_script_sandbox_script_id_sandbox_script_id_fk": {
-					"name": "entity_schema_sandbox_script_sandbox_script_id_sandbox_script_id_fk",
+				"entity_schema_sandbox_script_search_sandbox_script_id_sandbox_script_id_fk": {
+					"name": "entity_schema_sandbox_script_search_sandbox_script_id_sandbox_script_id_fk",
 					"tableFrom": "entity_schema_sandbox_script",
 					"tableTo": "sandbox_script",
-					"columnsFrom": ["sandbox_script_id"],
+					"columnsFrom": ["search_sandbox_script_id"],
+					"columnsTo": ["id"],
+					"onDelete": "cascade",
+					"onUpdate": "no action"
+				},
+				"entity_schema_sandbox_script_details_sandbox_script_id_sandbox_script_id_fk": {
+					"name": "entity_schema_sandbox_script_details_sandbox_script_id_sandbox_script_id_fk",
+					"tableFrom": "entity_schema_sandbox_script",
+					"tableTo": "sandbox_script",
+					"columnsFrom": ["details_sandbox_script_id"],
 					"columnsTo": ["id"],
 					"onDelete": "cascade",
 					"onUpdate": "no action"
@@ -755,7 +767,11 @@
 				"entity_schema_sandbox_script_unique": {
 					"name": "entity_schema_sandbox_script_unique",
 					"nullsNotDistinct": false,
-					"columns": ["entity_schema_id", "kind", "sandbox_script_id"]
+					"columns": [
+						"entity_schema_id",
+						"search_sandbox_script_id",
+						"details_sandbox_script_id"
+					]
 				}
 			},
 			"policies": {},
