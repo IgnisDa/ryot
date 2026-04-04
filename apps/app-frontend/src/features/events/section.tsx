@@ -9,7 +9,6 @@ import {
 	Select,
 	Stack,
 	Text,
-	TextInput,
 } from "@mantine/core";
 import { useMemo } from "react";
 import { SectionHeader } from "#/components/SectionHeader";
@@ -199,29 +198,12 @@ function LogEventForm(props: {
 
 								<eventForm.AppField name="occurredAt">
 									{(field) => (
-										<div>
-											<Text component="label" size="sm" fw={500}>
-												Occurred at
-											</Text>
-											<TextInput
-												required
-												type="datetime-local"
-												value={field.state.value}
-												onBlur={field.handleBlur}
-												disabled={props.isLoading}
-												error={!field.state.meta.isValid}
-												onChange={(event) =>
-													field.handleChange(event.currentTarget.value)
-												}
-											/>
-											{!field.state.meta.isValid && (
-												<Text c="red" size="xs">
-													{field.state.meta.errors
-														.map((e) => e?.message)
-														.join(", ")}
-												</Text>
-											)}
-										</div>
+										<field.TextField
+											required
+											label="Occurred at"
+											type="datetime-local"
+											disabled={props.isLoading}
+										/>
 									)}
 								</eventForm.AppField>
 
