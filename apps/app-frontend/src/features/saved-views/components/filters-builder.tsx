@@ -60,12 +60,13 @@ export const OPERATOR_OPTIONS = [
 	{ label: "Less or equal (lte)", value: "lte" },
 	{ label: "In list (in)", value: "in" },
 	{ label: "Is null (isNull)", value: "isNull" },
+	{ label: "Contains (contains)", value: "contains" },
 ];
 
 const COMPARISON_OPS = ["eq", "ne", "gt", "gte", "lt", "lte", "isNull"];
-const STRING_OPS = ["eq", "ne", "in", "isNull"];
+const STRING_OPS = ["eq", "ne", "in", "isNull", "contains"];
 const BOOLEAN_OPS = ["eq", "ne", "isNull"];
-const ARRAY_OPS = ["in", "isNull"];
+const ARRAY_OPS = ["in", "isNull", "contains"];
 
 const OPERATOR_COMPAT: Record<Exclude<ResolvedPropertyType, null>, string[]> = {
 	array: ARRAY_OPS,
@@ -74,7 +75,9 @@ const OPERATOR_COMPAT: Record<Exclude<ResolvedPropertyType, null>, string[]> = {
 	boolean: BOOLEAN_OPS,
 	number: COMPARISON_OPS,
 	integer: COMPARISON_OPS,
-	object: OPERATOR_OPTIONS.map((o) => o.value),
+	object: OPERATOR_OPTIONS.filter((o) => o.value !== "contains").map(
+		(o) => o.value,
+	),
 };
 
 function getAllowedOps(type: ResolvedPropertyType): string[] {
@@ -246,12 +249,17 @@ function FilterRowItem(props: FilterRowItemProps) {
 									description={
 										props.filter.op === "in"
 											? "Comma-separated values (e.g., Apple, Samsung)"
-											: undefined
+											: props.filter.op === "contains" &&
+													resolvedType === "array"
+												? "Single value to find in the list"
+												: undefined
 									}
 									placeholder={
 										props.filter.op === "in"
 											? "value1, value2, value3"
-											: "Enter value"
+											: props.filter.op === "contains"
+												? "Enter text to search"
+												: "Enter value"
 									}
 								/>
 							);
