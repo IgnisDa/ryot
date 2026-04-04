@@ -34,6 +34,9 @@ describe("Saved views query documents E2E", () => {
 			const views = yield* listSavedViews(client, { pluginSlug: mediaPlugin.slug });
 			const allBooksView = views.find((view) => view.name === "All Books");
 
+			expect(allBooksView?.sandboxScripts).toEqual({
+				search: ["book.google-books.search", "book.hardcover.search", "book.openlibrary.search"],
+			});
 			expect(allBooksView?.layouts.grid.queryDocument).toMatchObject({
 				queries: {
 					savedView: {
@@ -77,6 +80,8 @@ describe("Saved views query documents E2E", () => {
 
 			expect(createdView.layouts).toEqual(rowsLayouts);
 			expect(fetchedView.layouts).toEqual(rowsLayouts);
+			expect(createdView.sandboxScripts).toEqual({});
+			expect(fetchedView.sandboxScripts).toEqual({});
 			expect(fetchedView.layouts.grid.entityIdField).toBe("entityId");
 			expect(fetchedView.layouts.grid.titleField).toBe("title");
 			expect(fetchedView.layouts.list.titleField).toBe("title");

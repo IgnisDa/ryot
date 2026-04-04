@@ -3,7 +3,11 @@ import { Result, Schema, SchemaGetter } from "effect";
 import { AppSchema } from "../../schema/property-schema";
 import { OutputFieldKey, RyotQLDocument } from "../ryotql/language";
 import { SANDBOX_HOST_CAPABILITIES } from "../sandbox/wire";
-import { SavedViewCardMapping, SavedViewTableMapping } from "../saved-views/schemas";
+import {
+	SavedViewCardMapping,
+	SavedViewSandboxScripts,
+	SavedViewTableMapping,
+} from "../saved-views/schemas";
 import { pluginConfigEnvironmentKey } from "./plugin-config";
 
 const strictStruct = <Fields extends Schema.Struct.Fields>(fields: Fields) =>
@@ -101,6 +105,7 @@ export const PluginSavedView = strictStruct({
 	slug: Schema.String,
 	sortOrder: Schema.Number,
 	pluginSlug: Schema.NullOr(Schema.String),
+	sandboxScripts: SavedViewSandboxScripts,
 	layouts: strictStruct({
 		grid: PluginSavedViewCardLayout,
 		list: PluginSavedViewCardLayout,
@@ -563,6 +568,25 @@ const hasValidPluginManifestReferences = (manifest: typeof PluginManifestFields.
 		return false;
 	}
 	const providerScripts = manifest.scripts.filter((script) => script.kind === "provider");
+	for (const savedView of manifest.savedViews) {
+		for (const [action, references] of Object.entries(savedView.sandboxScripts)) {
+			if (new Set(references).size !== references.length) {
+				return false;
+			}
+			for (const scriptSlug of references) {
+				const script = manifest.scripts.find(({ slug }) => slug === scriptSlug);
+				if (!script) {
+					return false;
+				}
+				if (
+					action === "search" &&
+					(script.kind !== "provider" || script.providerOperation !== "search")
+				) {
+					return false;
+				}
+			}
+		}
+	}
 
 	const operationAssignments = manifest.providers.flatMap((provider) =>
 		Object.entries(provider.operations).map(([operation, scriptSlug]) => ({

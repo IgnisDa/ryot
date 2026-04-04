@@ -1,8 +1,9 @@
 import { Schema } from "effect";
 
-import { PluginSlug, SavedViewId } from "../../schema/brands";
+import { EntitySchemaSlug, PluginSlug, SandboxProviderId, SavedViewId } from "../../schema/brands";
 import { strictStruct } from "../../schema/utils";
 import { OutputFieldKey, RyotQLDocument } from "../ryotql/language";
+import { jsonValueSchema } from "../sandbox/wire";
 
 export const SavedViewCardMapping = strictStruct({
 	titleField: OutputFieldKey,
@@ -39,6 +40,63 @@ export const SavedViewLayouts = strictStruct({
 });
 export type SavedViewLayouts = typeof SavedViewLayouts.Type;
 
+export const SavedViewSandboxScripts = Schema.Record(Schema.String, Schema.Array(Schema.String));
+export type SavedViewSandboxScripts = typeof SavedViewSandboxScripts.Type;
+
+export const SearchSavedViewEntitiesBody = strictStruct({
+	query: Schema.String,
+	page: Schema.Number.pipe(
+		Schema.check(Schema.isInt()),
+		Schema.check(Schema.isGreaterThanOrEqualTo(1)),
+	),
+	pageSize: Schema.Number.pipe(
+		Schema.check(Schema.isInt()),
+		Schema.check(Schema.isBetween({ minimum: 1, maximum: 100 })),
+	),
+});
+export type SearchSavedViewEntitiesBody = typeof SearchSavedViewEntitiesBody.Type;
+
+const SavedViewEntitySearchItem = strictStruct({
+	externalId: Schema.String,
+	imageProperty: Schema.optional(jsonValueSchema),
+	calloutProperty: Schema.optional(jsonValueSchema),
+	secondarySubtitleProperty: Schema.optional(jsonValueSchema),
+	titleProperty: strictStruct({ kind: Schema.Literal("text"), value: Schema.String }),
+	primarySubtitleProperty: Schema.optional(
+		Schema.Union([
+			strictStruct({ kind: Schema.Literal("null"), value: Schema.Null }),
+			strictStruct({ kind: Schema.Literal("number"), value: Schema.Number }),
+		]),
+	),
+});
+
+const SavedViewEntitySearchProviderFields = {
+	providerName: Schema.String,
+	providerId: SandboxProviderId,
+	entitySchemaSlug: EntitySchemaSlug,
+};
+
+const SavedViewEntitySearchProviderResult = Schema.Union([
+	strictStruct({
+		...SavedViewEntitySearchProviderFields,
+		status: Schema.Literal("success"),
+		items: Schema.Array(SavedViewEntitySearchItem),
+		details: Schema.optional(
+			strictStruct({ totalItems: Schema.Number, nextPage: Schema.NullOr(Schema.Number) }),
+		),
+	}),
+	strictStruct({
+		...SavedViewEntitySearchProviderFields,
+		status: Schema.Literal("failure"),
+		error: Schema.String,
+	}),
+]);
+
+export const SearchSavedViewEntitiesResponse = strictStruct({
+	providers: Schema.Array(SavedViewEntitySearchProviderResult),
+});
+export type SearchSavedViewEntitiesResponse = typeof SearchSavedViewEntitiesResponse.Type;
+
 export const ListedSavedView = Schema.Struct({
 	id: SavedViewId,
 	slug: Schema.String,
@@ -48,8 +106,9 @@ export const ListedSavedView = Schema.Struct({
 	createdAt: Schema.String,
 	updatedAt: Schema.String,
 	isBuiltin: Schema.Boolean,
-	isDisabled: Schema.Boolean,
 	layouts: SavedViewLayouts,
+	isDisabled: Schema.Boolean,
+	sandboxScripts: SavedViewSandboxScripts,
 	pluginSlug: Schema.NullOr(PluginSlug),
 });
 

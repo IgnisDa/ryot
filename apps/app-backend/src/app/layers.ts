@@ -97,6 +97,7 @@ import { SandboxRepository } from "#modules/sandbox/repository";
 import { SandboxWorkflowDefinitionsLive } from "#modules/sandbox/sandbox-workflow-live";
 import { SandboxExecutionService } from "#modules/sandbox/service";
 import { SandboxWorkflowReferenceRepository } from "#modules/sandbox/workflow-reference-repository";
+import { SavedViewEntitySearchService } from "#modules/saved-views/entity-search-service";
 import { SavedViewsRepository } from "#modules/saved-views/repository";
 import { SavedViewsService } from "#modules/saved-views/service";
 import { FrequentCronSchedulerLive } from "#modules/scheduler/frequent-cron";
@@ -313,6 +314,10 @@ const SandboxExecutionServiceLive = SandboxExecutionService.layer.pipe(
 	Layer.provide(SandboxPluginScriptResolverLive),
 );
 
+const SavedViewEntitySearchServiceLive = SavedViewEntitySearchService.layer.pipe(
+	Layer.provide([SandboxExecutionServiceLive, PluginRuntimeResolverLive]),
+);
+
 const PluginUserBootstrapDispatcherDependenciesLive = SandboxExecutionServiceLive.pipe(
 	Layer.provideMerge(PluginRuntimeResolverLive),
 );
@@ -384,9 +389,10 @@ const ServicesBaseLive = Layer.mergeAll(ContentServicesLive, PlatformServicesLiv
 	Layer.provideMerge(CollectionsServiceLive),
 );
 
-const ContentAndSandboxServicesLive = ServicesBaseLive.pipe(
-	Layer.provideMerge(SandboxServicesLive),
-);
+const ContentAndSandboxServicesLive = Layer.mergeAll(
+	ServicesBaseLive,
+	SavedViewEntitySearchServiceLive,
+).pipe(Layer.provideMerge(SandboxServicesLive));
 
 const OperationsServiceLive = OperationsService.layer.pipe(
 	Layer.provide([ContentAndSandboxServicesLive, IntegrationOperationScopeResolverLive]),
