@@ -20,7 +20,7 @@ import {
 	literalExpression,
 	schemaPropertyExpression,
 	toRequiredExpression,
-} from "src/fixtures";
+} from "~/fixtures";
 
 async function createImageFallbackFixture() {
 	const { client, cookies } = await createAuthenticatedClient();
