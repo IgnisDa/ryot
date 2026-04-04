@@ -38,19 +38,66 @@ export function buildDefaultFilterRow(): FilterRow {
 	return buildFilterRow("", "eq", "");
 }
 
-const propertyArraySchema = z.array(z.string());
+const propertyPathRowSchema = z.object({
+	id: z.string(),
+	value: z.string(),
+});
+
+export type PropertyPathRow = z.infer<typeof propertyPathRowSchema>;
+
+function buildPropertyPathRow(value: string, id?: string): PropertyPathRow {
+	return { value, id: id ?? crypto.randomUUID() };
+}
+
+export function buildDefaultPropertyPathRow(): PropertyPathRow {
+	return buildPropertyPathRow("");
+}
+
+const propertyPathRowsSchema = z.array(propertyPathRowSchema);
+
+const displayPropertySchema = propertyPathRowsSchema.nullable();
 
 const gridDisplayConfigSchema = z.object({
-	imageProperty: propertyArraySchema.nullable(),
-	titleProperty: propertyArraySchema.nullable(),
-	badgeProperty: propertyArraySchema.nullable(),
-	subtitleProperty: propertyArraySchema.nullable(),
+	imageProperty: displayPropertySchema,
+	titleProperty: displayPropertySchema,
+	badgeProperty: displayPropertySchema,
+	subtitleProperty: displayPropertySchema,
+});
+
+const listDisplayConfigSchema = z.object({
+	imageProperty: displayPropertySchema,
+	titleProperty: displayPropertySchema,
+	badgeProperty: displayPropertySchema,
+	subtitleProperty: displayPropertySchema,
+});
+
+const tableColumnSchema = z.object({
+	id: z.string(),
+	label: z.string().min(1, "Column label required"),
+	property: propertyPathRowsSchema.min(
+		1,
+		"At least one property path required",
+	),
+});
+
+export type TableColumnRow = z.infer<typeof tableColumnSchema>;
+
+export function buildDefaultTableColumnRow(): TableColumnRow {
+	return {
+		label: "",
+		id: crypto.randomUUID(),
+		property: [buildDefaultPropertyPathRow()],
+	};
+}
+
+const tableDisplayConfigSchema = z.object({
+	columns: z.array(tableColumnSchema),
 });
 
 const displayConfigurationSchema = z.object({
-	list: z.any(),
-	table: z.any(),
+	list: listDisplayConfigSchema,
 	grid: gridDisplayConfigSchema,
+	table: tableDisplayConfigSchema,
 });
 
 export const savedViewExtendedFormSchema = z.object({
@@ -67,11 +114,28 @@ export type SavedViewExtendedFormValues = z.infer<
 	typeof savedViewExtendedFormSchema
 >;
 
+function buildDisplayPropertyRows(value: string[] | null) {
+	if (value === null) {
+		return null;
+	}
+
+	return value.map((row) => buildPropertyPathRow(row));
+}
+
+function buildTableColumnRow(
+	column: AppSavedView["displayConfiguration"]["table"]["columns"][number],
+): TableColumnRow {
+	return {
+		label: column.label,
+		id: crypto.randomUUID(),
+		property: column.property.map((value) => buildPropertyPathRow(value)),
+	};
+}
+
 export function buildSavedViewExtendedFormValues(
 	view: AppSavedView,
 ): SavedViewExtendedFormValues {
 	return {
-		displayConfiguration: view.displayConfiguration,
 		entitySchemaSlugs: view.queryDefinition.entitySchemaSlugs,
 		filters: view.queryDefinition.filters.map((filter) =>
 			buildFilterRow(
@@ -85,6 +149,41 @@ export function buildSavedViewExtendedFormValues(
 			fields: view.queryDefinition.sort.fields.map((field) =>
 				buildSortFieldRow(field),
 			),
+		},
+		displayConfiguration: {
+			table: {
+				columns: view.displayConfiguration.table.columns.map((column) =>
+					buildTableColumnRow(column),
+				),
+			},
+			grid: {
+				badgeProperty: buildDisplayPropertyRows(
+					view.displayConfiguration.grid.badgeProperty,
+				),
+				imageProperty: buildDisplayPropertyRows(
+					view.displayConfiguration.grid.imageProperty,
+				),
+				titleProperty: buildDisplayPropertyRows(
+					view.displayConfiguration.grid.titleProperty,
+				),
+				subtitleProperty: buildDisplayPropertyRows(
+					view.displayConfiguration.grid.subtitleProperty,
+				),
+			},
+			list: {
+				badgeProperty: buildDisplayPropertyRows(
+					view.displayConfiguration.list.badgeProperty,
+				),
+				imageProperty: buildDisplayPropertyRows(
+					view.displayConfiguration.list.imageProperty,
+				),
+				titleProperty: buildDisplayPropertyRows(
+					view.displayConfiguration.list.titleProperty,
+				),
+				subtitleProperty: buildDisplayPropertyRows(
+					view.displayConfiguration.list.subtitleProperty,
+				),
+			},
 		},
 	};
 }
@@ -124,6 +223,14 @@ function buildApiFilter(filter: FilterRow): ApiFilterExpression {
 	return { field: filter.field, op: filter.op, value: parsedValue };
 }
 
+function buildApiDisplayProperty(value: PropertyPathRow[] | null) {
+	if (value === null) {
+		return null;
+	}
+
+	return value.map((row) => row.value);
+}
+
 export function buildSavedViewExtendedUpdatePayload(
 	view: AppSavedView,
 	values: SavedViewExtendedFormValues,
@@ -133,15 +240,50 @@ export function buildSavedViewExtendedUpdatePayload(
 		icon: view.icon,
 		isDisabled: view.isDisabled,
 		accentColor: view.accentColor,
-		displayConfiguration: values.displayConfiguration,
 		queryDefinition: {
-			filters: values.filters.map((filter) => buildApiFilter(filter)),
 			entitySchemaSlugs: values.entitySchemaSlugs,
+			filters: values.filters.map((filter) => buildApiFilter(filter)),
 			sort: {
 				direction: values.sort.direction,
 				fields: values.sort.fields.map((field) => field.value),
 			},
 		},
 		...(view.trackerId !== null ? { trackerId: view.trackerId } : {}),
+		displayConfiguration: {
+			grid: {
+				badgeProperty: buildApiDisplayProperty(
+					values.displayConfiguration.grid.badgeProperty,
+				),
+				imageProperty: buildApiDisplayProperty(
+					values.displayConfiguration.grid.imageProperty,
+				),
+				titleProperty: buildApiDisplayProperty(
+					values.displayConfiguration.grid.titleProperty,
+				),
+				subtitleProperty: buildApiDisplayProperty(
+					values.displayConfiguration.grid.subtitleProperty,
+				),
+			},
+			list: {
+				badgeProperty: buildApiDisplayProperty(
+					values.displayConfiguration.list.badgeProperty,
+				),
+				imageProperty: buildApiDisplayProperty(
+					values.displayConfiguration.list.imageProperty,
+				),
+				titleProperty: buildApiDisplayProperty(
+					values.displayConfiguration.list.titleProperty,
+				),
+				subtitleProperty: buildApiDisplayProperty(
+					values.displayConfiguration.list.subtitleProperty,
+				),
+			},
+			table: {
+				columns: values.displayConfiguration.table.columns.map((column) => ({
+					label: column.label,
+					property: column.property.map((row) => row.value),
+				})),
+			},
+		},
 	};
 }
