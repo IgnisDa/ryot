@@ -9,34 +9,17 @@ import {
 	Stack,
 	Text,
 } from "@mantine/core";
-import { useDisclosure } from "@mantine/hooks";
 import { Link } from "@tanstack/react-router";
-import { useCallback, useState } from "react";
+import { SectionHeader } from "#/components/SectionHeader";
 import type { AppEntitySchema } from "#/features/entity-schemas/model";
 import { useEventSchemasQuery } from "#/features/event-schemas/hooks";
 import { EntityEventsSection } from "#/features/events/section";
 import { GeneratedPropertyField } from "#/features/generated-property-fields";
+import { useModalForm } from "#/hooks/modal-form";
 import type { CreateEntityPayload } from "./form";
 import { useEntitiesQuery, useEntityMutations } from "./hooks";
 import { getEntityListViewState } from "./model";
 import { useCreateEntityForm } from "./use-form";
-
-function getErrorMessage(error: unknown) {
-	if (error instanceof Error && error.message) {
-		return error.message;
-	}
-
-	const parsed = error as {
-		message?: string;
-		error?: { message?: string };
-	};
-
-	return (
-		parsed?.error?.message ??
-		parsed?.message ??
-		"Failed to create entity. Please try again."
-	);
-}
 
 function EntityList(props: {
 	entities: ReturnType<typeof useEntitiesQuery>["entities"];
@@ -173,58 +156,28 @@ export function EntitiesSection(props: {
 	entitySchema: AppEntitySchema;
 	trackerSlug: string;
 }) {
-	const [opened, { close, open }] = useDisclosure(false);
-	const [createErrorMessage, setCreateErrorMessage] = useState<string | null>(
-		null,
-	);
 	const entitiesQuery = useEntitiesQuery(props.entitySchema.slug);
 	const eventSchemasQuery = useEventSchemasQuery(props.entitySchema.id);
 	const entityMutations = useEntityMutations(props.entitySchema.slug);
 	const viewState = getEntityListViewState(entitiesQuery.entities);
-
-	const openCreateModal = useCallback(() => {
-		setCreateErrorMessage(null);
-		open();
-	}, [open]);
-
-	const closeCreateModal = useCallback(() => {
-		setCreateErrorMessage(null);
-		close();
-	}, [close]);
-
-	const submitCreateEntity = useCallback(
-		async (payload: CreateEntityPayload) => {
-			setCreateErrorMessage(null);
-
-			try {
-				await entityMutations.create.mutateAsync({ body: payload });
-				closeCreateModal();
-			} catch (error) {
-				setCreateErrorMessage(getErrorMessage(error));
-			}
-		},
-		[closeCreateModal, entityMutations.create],
+	const createModal = useModalForm((payload: CreateEntityPayload) =>
+		entityMutations.create.mutateAsync({ body: payload }),
 	);
 
 	return (
 		<Stack gap="sm">
-			<Group justify="space-between" align="flex-end">
-				<Stack gap={2}>
-					<Text size="sm" fw={500} c="dimmed">
-						ENTITIES
-					</Text>
-					<Text c="dimmed" size="sm">
-						Tracked instances of this schema.
-					</Text>
-				</Stack>
-				<Button size="xs" variant="light" onClick={openCreateModal}>
-					Add {props.entitySchema.name.toLowerCase()}
-				</Button>
-			</Group>
+			<SectionHeader
+				title="ENTITIES"
+				description="Tracked instances of this schema."
+				action={{
+					onClick: createModal.open,
+					label: `Add ${props.entitySchema.name.toLowerCase()}`,
+				}}
+			/>
 
-			{createErrorMessage && !opened && (
+			{createModal.errorMessage && !createModal.opened && (
 				<Text c="red" size="sm">
-					{createErrorMessage}
+					{createModal.errorMessage}
 				</Text>
 			)}
 
@@ -276,13 +229,13 @@ export function EntitiesSection(props: {
 					/>
 				))}
 
-			{opened && (
+			{createModal.opened && (
 				<CreateEntityModal
-					opened={opened}
-					onClose={closeCreateModal}
-					onSubmit={submitCreateEntity}
+					opened={createModal.opened}
+					onClose={createModal.close}
+					onSubmit={createModal.submit}
 					entitySchema={props.entitySchema}
-					errorMessage={createErrorMessage}
+					errorMessage={createModal.errorMessage}
 					isLoading={entityMutations.create.isPending}
 				/>
 			)}
