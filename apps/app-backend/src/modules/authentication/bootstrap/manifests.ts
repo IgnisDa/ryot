@@ -2,10 +2,7 @@ import { animePropertiesJsonSchema } from "~/lib/media/anime";
 import { bookPropertiesJsonSchema } from "~/lib/media/book";
 import { builtinMediaEntitySchemaSlugs } from "~/lib/media/constants";
 import { mangaPropertiesJsonSchema } from "~/lib/media/manga";
-import {
-	createDefaultDisplayConfiguration,
-	createDefaultQueryDefinition,
-} from "~/modules/saved-views";
+import { createDefaultDisplayConfiguration } from "~/modules/saved-views";
 
 export const authenticationBuiltinTrackers = () => [
 	{
@@ -89,6 +86,15 @@ const mediaLifecycleEventSchemas = () => [
 
 export const authenticationBuiltinEntitySchemas = () => [
 	{
+		icon: "folders",
+		eventSchemas: [],
+		slug: "collection",
+		name: "Collection",
+		trackerSlug: "media",
+		accentColor: "#F59E0B",
+		propertiesSchema: { fields: {} },
+	},
+	{
 		slug: "book",
 		name: "Book",
 		icon: "book-open",
@@ -130,10 +136,8 @@ export const authenticationBuiltinSavedViews = () => [
 					: "All Manga",
 	})),
 	{
-		icon: "folders",
 		name: "Collections",
-		accentColor: "#F59E0B",
-		displayConfiguration: createDefaultDisplayConfiguration(),
-		queryDefinition: createDefaultQueryDefinition([]),
+		entitySchemaSlug: "collection",
+		displayConfiguration: createDefaultDisplayConfiguration("collection"),
 	},
 ];
