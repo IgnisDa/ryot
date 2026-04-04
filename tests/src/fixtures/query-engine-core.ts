@@ -1,3 +1,4 @@
+import type { ContractPayload, ContractSuccess } from "@ryot/contract/client";
 import {
 	buildQueryEngineEntityRowsDocument,
 	buildQueryEngineEventRowsDocument,
@@ -14,7 +15,7 @@ import { expect } from "vitest";
 import { requireObjectRecord, requireString } from "~/support/assertions";
 
 import type { Client } from "./auth";
-import { postBackendJson, type ContractPayload, type ContractSuccess } from "./contract-client";
+import { postBackendJson } from "./contract-client";
 
 export type QueryEngineRowValue = QueryEngineRowItem[string];
 export type QueryEnginePayload = ContractPayload<"queryEngine", "execute">;
