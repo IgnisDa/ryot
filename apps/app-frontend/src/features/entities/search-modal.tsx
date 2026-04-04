@@ -452,9 +452,7 @@ export function SearchEntityModalContent(props: {
 				}
 				patchActionState(item.identifier, {
 					actionError: message,
-					openPanel: entityId
-						? getActionState(item.identifier).openPanel
-						: null,
+					openPanel: getActionState(item.identifier).openPanel,
 				});
 			} finally {
 				patchActionState(item.identifier, { pendingAction: null });
