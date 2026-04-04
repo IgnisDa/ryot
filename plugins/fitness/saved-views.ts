@@ -64,6 +64,7 @@ export const fitnessSavedViews = () => {
 			slug: input.slug,
 			icon: schema.icon,
 			pluginSlug: "fitness",
+			entitySchemaSlug: input.entitySchemaSlug,
 			layouts: {
 				grid: {
 					...projections.grid.mappings,

@@ -1,4 +1,5 @@
 import type { PluginManifest } from "@ryot/contract/modules/plugins/manifest";
+import { EntitySchemaSlug } from "@ryot/contract/schema/brands";
 import fitnessPlugin from "@ryot/fitness-plugin";
 import mediaPlugin from "@ryot/media-plugin";
 import { Effect } from "effect";
@@ -136,6 +137,15 @@ describe("definition registry", () => {
 				],
 			}),
 		).toThrow(/Invalid saved view collections.*missing/);
+		expect(() =>
+			buildDefinitionSnapshot({
+				...source,
+				savedViews: [
+					{ ...savedView, entitySchemaSlug: EntitySchemaSlug.make("missing") },
+					...source.savedViews.slice(1),
+				],
+			}),
+		).toThrow(/Saved view .* references missing entity schema missing/);
 		expect(() =>
 			buildDefinitionSnapshot({
 				...source,

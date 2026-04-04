@@ -413,6 +413,7 @@ export class PluginRepository extends Context.Service<PluginRepository>()("Plugi
 					}
 				}
 			}
+			return yield* Effect.void;
 		});
 
 		const deactivate = Effect.fn("PluginRepository.deactivate")(function* (slug: string) {

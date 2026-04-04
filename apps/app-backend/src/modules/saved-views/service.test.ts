@@ -2,7 +2,7 @@ import { expect, it } from "@effect/vitest";
 import type { CurrentUserValue } from "@ryot/contract/auth-middleware";
 import { BadRequest } from "@ryot/contract/errors";
 import type { ListedSavedView, SavedViewLayouts } from "@ryot/contract/modules/saved-views/schemas";
-import { SavedViewId, UserId } from "@ryot/contract/schema/brands";
+import { EntitySchemaSlug, SavedViewId, UserId } from "@ryot/contract/schema/brands";
 import { ascending, column, document, field, rows, table } from "@ryot/ryotql";
 import { Effect, Layer } from "effect";
 
@@ -57,11 +57,12 @@ const baseView: ListedSavedView = {
 	pluginSlug: null,
 	isBuiltin: false,
 	isDisabled: false,
+	entitySchemaSlug: null,
 	createdAt: new Date().toISOString(),
 	updatedAt: new Date().toISOString(),
 	id: SavedViewId.make("sv-id"),
 };
-const createBody = { layouts, icon: "book", name: "My View" };
+const createBody = { layouts, icon: "book", name: "My View", entitySchemaSlug: null };
 const mockRepository = Layer.mock(SavedViewsRepository);
 const makeRepository = (overrides: MockOverrides<typeof mockRepository> = {}) =>
 	mockRepository({ ...overrides });
@@ -73,12 +74,13 @@ const makeDefinitionRegistryLayer = (...views: ReadonlyArray<ListedSavedView>) =
 			signalSchemas: [],
 			relationshipSchemas: [],
 			savedViews: views.map(
-				({ icon, layouts: viewLayouts, name, pluginSlug, slug, sortOrder }) => ({
+				({ icon, layouts: viewLayouts, name, pluginSlug, entitySchemaSlug, slug, sortOrder }) => ({
 					icon,
 					name,
 					slug,
 					sortOrder,
 					pluginSlug,
+					entitySchemaSlug,
 					layouts: viewLayouts,
 				}),
 			),
@@ -146,9 +148,49 @@ it.effect("rejects built-in layout changes but permits state updates", () => {
 				layouts: { ...layouts, grid: { ...layouts.grid, titleField: "id" } },
 			}),
 		);
+		const entitySchemaExit = yield* Effect.exit(
+			service.update(user, builtin.slug, {
+				...createBody,
+				isDisabled: false,
+				entitySchemaSlug: EntitySchemaSlug.make("book"),
+			}),
+		);
 
 		expect(updated.isDisabled).toBe(true);
 		assertExitFails(exit, new BadRequest({ message: "Cannot modify built-in saved views" }));
+		assertExitFails(
+			entitySchemaExit,
+			new BadRequest({ message: "Cannot modify built-in saved views" }),
+		);
+	}).pipe(Effect.provide(layer));
+});
+
+it.effect("rejects unknown entity schemas on create and update", () => {
+	const layer = makeServiceLayer(
+		makeRepository({
+			findBySlug: (_userId, slug) => Effect.succeed(slug === "my-view" ? baseView : null),
+		}),
+	);
+
+	return Effect.gen(function* () {
+		const service = yield* SavedViewsService;
+		const createExit = yield* Effect.exit(
+			service.create(user, {
+				...createBody,
+				slug: "new-view",
+				entitySchemaSlug: EntitySchemaSlug.make("missing"),
+			}),
+		);
+		const updateExit = yield* Effect.exit(
+			service.update(user, "my-view", {
+				...createBody,
+				isDisabled: false,
+				entitySchemaSlug: EntitySchemaSlug.make("missing"),
+			}),
+		);
+
+		assertExitFails(createExit, new BadRequest({ message: "Entity schema not found" }));
+		assertExitFails(updateExit, new BadRequest({ message: "Entity schema not found" }));
 	}).pipe(Effect.provide(layer));
 });
 
@@ -195,11 +237,17 @@ it.effect("updates and reorders while preserving each layout set", () => {
 
 it.effect("persists builtin layouts unchanged", () => {
 	let builtinLayouts: SavedViewLayouts | undefined;
+	let builtinEntitySchemaSlug: ListedSavedView["entitySchemaSlug"] = null;
 	const layer = makeServiceLayer(
 		makeRepository({
 			ensureBuiltinViews: (_userId, views) =>
 				Effect.sync(() => {
-					builtinLayouts = views[0]?.layouts;
+					const view = views[0];
+					if (!view) {
+						throw new Error("Expected a built-in saved view");
+					}
+					builtinLayouts = view.layouts;
+					builtinEntitySchemaSlug = view.entitySchemaSlug;
 				}),
 		}),
 		makeDefinitionRegistryLayer({ ...baseView, isBuiltin: true }),
@@ -209,5 +257,6 @@ it.effect("persists builtin layouts unchanged", () => {
 		const service = yield* SavedViewsService;
 		yield* service.ensureBuiltinViews(user.id);
 		expect(builtinLayouts).toEqual(layouts);
+		expect(builtinEntitySchemaSlug).toBeNull();
 	}).pipe(Effect.provide(layer));
 });

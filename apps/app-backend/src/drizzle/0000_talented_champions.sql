@@ -201,11 +201,11 @@ CREATE TABLE "sandbox_provider" (
 );
 --> statement-breakpoint
 CREATE TABLE "sandbox_provider_operation" (
-	"operation" text NOT NULL,
 	"options_schema" jsonb,
+	"operation" text NOT NULL,
 	"created_at" timestamp with time zone DEFAULT now() NOT NULL,
-	"provider_id" text NOT NULL,
 	"script_id" text NOT NULL,
+	"provider_id" text NOT NULL,
 	"id" text PRIMARY KEY NOT NULL,
 	"updated_at" timestamp with time zone DEFAULT now() NOT NULL,
 	CONSTRAINT "sandbox_provider_operation_provider_operation_unique" UNIQUE("provider_id","operation"),
@@ -240,6 +240,7 @@ CREATE TABLE "saved_view" (
 	"slug" text NOT NULL,
 	"name" text NOT NULL,
 	"icon" text NOT NULL,
+	"entity_schema_slug" text,
 	"sort_order" integer DEFAULT 0 NOT NULL,
 	"is_builtin" boolean DEFAULT false NOT NULL,
 	"layouts" jsonb NOT NULL,
@@ -360,8 +361,8 @@ ALTER TABLE "relationship" ADD CONSTRAINT "relationship_user_id_user_id_fk" FORE
 ALTER TABLE "relationship" ADD CONSTRAINT "relationship_source_entity_id_entity_id_fk" FOREIGN KEY ("source_entity_id") REFERENCES "public"."entity"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "relationship" ADD CONSTRAINT "relationship_target_entity_id_entity_id_fk" FOREIGN KEY ("target_entity_id") REFERENCES "public"."entity"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "sandbox_provider" ADD CONSTRAINT "sandbox_provider_plugin_slug_plugin_slug_fk" FOREIGN KEY ("plugin_slug") REFERENCES "public"."plugin"("slug") ON DELETE restrict ON UPDATE no action;--> statement-breakpoint
-ALTER TABLE "sandbox_provider_operation" ADD CONSTRAINT "sandbox_provider_operation_provider_id_sandbox_provider_id_fk" FOREIGN KEY ("provider_id") REFERENCES "public"."sandbox_provider"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "sandbox_provider_operation" ADD CONSTRAINT "sandbox_provider_operation_script_id_sandbox_script_id_fk" FOREIGN KEY ("script_id") REFERENCES "public"."sandbox_script"("id") ON DELETE restrict ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "sandbox_provider_operation" ADD CONSTRAINT "sandbox_provider_operation_provider_id_sandbox_provider_id_fk" FOREIGN KEY ("provider_id") REFERENCES "public"."sandbox_provider"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "sandbox_script" ADD CONSTRAINT "sandbox_script_plugin_slug_plugin_slug_fk" FOREIGN KEY ("plugin_slug") REFERENCES "public"."plugin"("slug") ON DELETE restrict ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "sandbox_script" ADD CONSTRAINT "sandbox_script_provider_id_sandbox_provider_id_fk" FOREIGN KEY ("provider_id") REFERENCES "public"."sandbox_provider"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "sandbox_workflow_reference" ADD CONSTRAINT "sandbox_workflow_reference_plugin_slug_plugin_slug_fk" FOREIGN KEY ("plugin_slug") REFERENCES "public"."plugin"("slug") ON DELETE restrict ON UPDATE no action;--> statement-breakpoint
