@@ -370,6 +370,7 @@ describe("inline error display for validation and write failures", () => {
 				pendingAction: null,
 				selectedCollectionId: null,
 				collectionProperties: {},
+				collectionError: null,
 			};
 
 			// When validation fails, actionError is set
@@ -425,6 +426,7 @@ describe("inline error display for validation and write failures", () => {
 				pendingAction: null,
 				selectedCollectionId: null,
 				collectionProperties: {},
+				collectionError: null,
 			};
 			const addStatus: string = "idle";
 			const addError = undefined;
@@ -451,6 +453,7 @@ describe("inline error display for validation and write failures", () => {
 				pendingAction: null,
 				selectedCollectionId: null,
 				collectionProperties: {},
+				collectionError: null,
 			};
 			const addStatus: string = "error";
 			const addError = "Entity creation failed";
@@ -476,6 +479,7 @@ describe("inline error display for validation and write failures", () => {
 				pendingAction: null,
 				selectedCollectionId: null,
 				collectionProperties: {},
+				collectionError: null,
 			};
 			const addStatus: string = "idle";
 			const addError = undefined;
