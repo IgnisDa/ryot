@@ -197,11 +197,6 @@ export function SearchEntityModalContent(props: {
 				patchActionState(item.identifier, {
 					actionError: message,
 				});
-				notifications.show({
-					color: entityId ? "yellow" : "red",
-					title: entityId ? "Partially saved" : "Could not add item",
-					message,
-				});
 			} finally {
 				patchActionState(item.identifier, { pendingAction: null });
 			}
@@ -265,11 +260,6 @@ export function SearchEntityModalContent(props: {
 					openPanel: entityId
 						? getActionState(input.identifier).openPanel
 						: null,
-				});
-				notifications.show({
-					color: entityId ? "yellow" : "red",
-					title: entityId ? "Partially saved" : "Action failed",
-					message,
 				});
 			} finally {
 				patchActionState(input.identifier, { pendingAction: null });
@@ -465,11 +455,6 @@ export function SearchEntityModalContent(props: {
 					openPanel: entityId
 						? getActionState(item.identifier).openPanel
 						: null,
-				});
-				notifications.show({
-					color: entityId ? "yellow" : "red",
-					title: entityId ? "Partially saved" : "Action failed",
-					message,
 				});
 			} finally {
 				patchActionState(item.identifier, { pendingAction: null });
