@@ -1,6 +1,9 @@
 import type { OrderBy } from "@ryot/contract/modules/ryotql/language";
 import { column, descending, castDate, jsonPath, table } from "@ryot/ryotql";
-import { buildSavedViewDocument, buildSavedViewProjection } from "@ryot/ryotql-recipes/saved-views";
+import {
+	buildSavedViewDocument,
+	buildSavedViewLayoutProjections,
+} from "@ryot/ryotql-recipes/saved-views";
 
 import { fitnessEntitySchemas } from "./schemas/entity-schemas";
 import { buildViewExpressions } from "./shared/view-helpers";
@@ -34,22 +37,39 @@ export const fitnessSavedViews = () => {
 		if (!schema) {
 			throw new Error(`Missing fitness entity schema: ${input.entitySchemaSlug}`);
 		}
-		const projection = buildSavedViewProjection({
-			entityId: column(entity, "id"),
-			...buildViewExpressions(input.entitySchemaSlug, schema.name),
+		const itemId = column(entity, "id");
+		const expressions = buildViewExpressions(input.entitySchemaSlug, schema.name);
+		const projections = buildSavedViewLayoutProjections({
+			table: { itemId, ...expressions.table },
+			grid: { itemId, card: expressions.grid },
+			list: { itemId, card: expressions.list },
 		});
+		const queryDocument = (fields: (typeof projections)[keyof typeof projections]["fields"]) =>
+			buildSavedViewDocument({
+				fields,
+				orderBy: input.orderBy,
+				entitySchemaSlugs: [input.entitySchemaSlug],
+			});
 		return {
 			sortOrder,
 			name: input.name,
 			slug: input.slug,
 			icon: schema.icon,
 			pluginSlug: "fitness",
-			displayConfiguration: projection.displayConfiguration,
-			queryDocument: buildSavedViewDocument({
-				fields: projection.fields,
-				orderBy: input.orderBy,
-				entitySchemaSlugs: [input.entitySchemaSlug],
-			}),
+			layouts: {
+				grid: {
+					...projections.grid.mappings,
+					queryDocument: queryDocument(projections.grid.fields),
+				},
+				list: {
+					...projections.list.mappings,
+					queryDocument: queryDocument(projections.list.fields),
+				},
+				table: {
+					...projections.table.mappings,
+					queryDocument: queryDocument(projections.table.fields),
+				},
+			},
 		};
 	});
 };

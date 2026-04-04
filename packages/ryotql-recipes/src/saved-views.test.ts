@@ -1,7 +1,7 @@
 import { column, field, literal, table } from "@ryot/ryotql";
 import { describe, expect, it } from "vitest";
 
-import { buildSavedViewDocument, buildSavedViewProjection } from "./saved-views";
+import { buildSavedViewDocument, buildSavedViewLayoutProjections } from "./saved-views";
 
 describe("saved-view recipes", () => {
 	it("uses a discriminator membership predicate for multiple entity schemas", () => {
@@ -22,9 +22,9 @@ describe("saved-view recipes", () => {
 	});
 
 	it("allocates stable keys across every saved-view layout", () => {
-		const projection = buildSavedViewProjection({
-			entityId: literal("id"),
+		const projections = buildSavedViewLayoutProjections({
 			table: {
+				itemId: literal("table id"),
 				image: literal("table image"),
 				columns: [
 					{ label: "Name", expression: literal("name") },
@@ -32,60 +32,80 @@ describe("saved-view recipes", () => {
 				],
 			},
 			grid: {
-				image: null,
-				callout: null,
-				secondaryMetadata: null,
-				overline: literal("Grid"),
-				title: literal("grid title"),
-				primaryMetadata: literal("Primary"),
+				itemId: literal("grid id"),
+				card: {
+					image: null,
+					callout: null,
+					secondaryMetadata: null,
+					overline: literal("Grid"),
+					title: literal("grid title"),
+					primaryMetadata: literal("Primary"),
+				},
 			},
 			list: {
-				overline: null,
-				primaryMetadata: null,
-				image: literal("image"),
-				callout: literal("Callout"),
-				title: literal("list title"),
-				secondaryMetadata: literal("Secondary"),
+				itemId: literal("list id"),
+				card: {
+					overline: null,
+					primaryMetadata: null,
+					image: literal("image"),
+					callout: literal("Callout"),
+					title: literal("list title"),
+					secondaryMetadata: literal("Secondary"),
+				},
 			},
 		});
 
-		expect(projection.fields.map(({ key }) => key)).toEqual([
-			"entityId",
-			"gridTitle",
-			"gridOverline",
-			"gridPrimaryMetadata",
-			"listTitle",
-			"listImage",
-			"listCallout",
-			"listSecondaryMetadata",
-			"tableImage",
-			"tableColumn0",
-			"tableColumn1",
+		expect(projections.grid.fields.map(({ key }) => key)).toEqual([
+			"itemId",
+			"title",
+			"overline",
+			"primaryMetadata",
 		]);
-		expect(projection.displayConfiguration).toEqual({
-			entityIdField: "entityId",
+		expect(projections.list.fields.map(({ key }) => key)).toEqual([
+			"itemId",
+			"title",
+			"image",
+			"callout",
+			"secondaryMetadata",
+		]);
+		expect(projections.table.fields.map(({ key }) => key)).toEqual([
+			"itemId",
+			"image",
+			"column0",
+			"column1",
+		]);
+		expect(projections).toMatchObject({
 			table: {
-				imageField: "tableImage",
-				columns: [
-					{ label: "Name", field: "tableColumn0" },
-					{ label: "Year", field: "tableColumn1" },
-				],
+				mappings: {
+					itemIdField: "itemId",
+					imageField: "image",
+					columns: [
+						{ label: "Name", field: "column0" },
+						{ label: "Year", field: "column1" },
+					],
+				},
 			},
 			grid: {
-				imageField: null,
-				calloutField: null,
-				titleField: "gridTitle",
-				secondaryMetadataField: null,
-				overlineField: "gridOverline",
-				primaryMetadataField: "gridPrimaryMetadata",
+				mappings: {
+					imageField: null,
+					calloutField: null,
+					titleField: "title",
+					itemIdField: "itemId",
+					overlineField: "overline",
+					secondaryMetadataField: null,
+					primaryMetadataField: "primaryMetadata",
+				},
 			},
 			list: {
-				overlineField: null,
-				imageField: "listImage",
-				titleField: "listTitle",
-				primaryMetadataField: null,
-				calloutField: "listCallout",
-				secondaryMetadataField: "listSecondaryMetadata",
+				mappings: {
+					imageField: "image",
+					titleField: "title",
+					overlineField: null,
+					itemIdField: "itemId",
+					calloutField: "callout",
+					primaryMetadataField: null,
+					secondaryMetadataField: "secondaryMetadata",
+				},
 			},
 		});
 	});

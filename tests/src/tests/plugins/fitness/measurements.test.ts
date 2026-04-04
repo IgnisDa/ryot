@@ -1,6 +1,4 @@
-import type { FieldSelection } from "@ryot/contract/modules/ryotql/language";
 import { buildMeasurementListQueryDocument } from "@ryot/fitness-plugin/query-recipes";
-import { column, field, jsonPath, literal, table } from "@ryot/ryotql";
 import { Effect } from "effect";
 
 import {
@@ -17,22 +15,6 @@ import {
 } from "~/fixtures";
 import { assertCondition, assertPresent } from "~/support/assertions";
 import { describe, expect, it } from "~/support/effect-test";
-
-const savedViewEntity = table("entity", "entity");
-const expectedSavedViewFields = [
-	field("entityId", column(savedViewEntity, "id")),
-	field("gridTitle", column(savedViewEntity, "name")),
-	field("gridOverline", literal("Measurement")),
-	field("gridPrimaryMetadata", jsonPath(column(savedViewEntity, "properties"), "recordedAt")),
-	field("gridSecondaryMetadata", jsonPath(column(savedViewEntity, "properties"), "comment")),
-	field("listTitle", column(savedViewEntity, "name")),
-	field("listOverline", literal("Measurement")),
-	field("listPrimaryMetadata", jsonPath(column(savedViewEntity, "properties"), "recordedAt")),
-	field("listSecondaryMetadata", jsonPath(column(savedViewEntity, "properties"), "comment")),
-	field("tableColumn0", column(savedViewEntity, "name")),
-	field("tableColumn1", jsonPath(column(savedViewEntity, "properties"), "comment")),
-	field("tableColumn2", jsonPath(column(savedViewEntity, "properties"), "recordedAt")),
-] satisfies readonly FieldSelection[];
 
 describe("Measurements E2E", () => {
 	it.live("links the built-in measurement schema to the fitness plugin", () =>
@@ -88,7 +70,7 @@ describe("Measurements E2E", () => {
 				});
 				const allMeasurementsView = views.find((view) => view.name === "All Measurements");
 				assertPresent(allMeasurementsView, "Expected the built-in All Measurements saved view");
-				const savedViewQuery = allMeasurementsView.queryDocument.queries.savedView;
+				const savedViewQuery = allMeasurementsView.layouts.grid.queryDocument.queries.savedView;
 				assertPresent(savedViewQuery, "Expected the All Measurements saved-view query");
 				assertCondition(
 					savedViewQuery.output.type === "rows",
@@ -99,48 +81,46 @@ describe("Measurements E2E", () => {
 					isBuiltin: true,
 					name: "All Measurements",
 					pluginSlug: fitnessPlugin.slug,
-					queryDocument: {
-						queries: {
-							savedView: {
-								output: {
-									orderBy: [{ direction: "desc", expr: { type: "cast", target: "date" } }],
-								},
-								where: {
-									right: { value: "measurement" },
-									left: { field: "entitySchemaSlug", tableAlias: "entity" },
-								},
-							},
-						},
-					},
-					displayConfiguration: {
-						entityIdField: "entityId",
+					layouts: {
 						grid: {
+							itemIdField: "itemId",
 							imageField: null,
 							calloutField: null,
-							titleField: "gridTitle",
-							overlineField: "gridOverline",
-							primaryMetadataField: "gridPrimaryMetadata",
-							secondaryMetadataField: "gridSecondaryMetadata",
+							titleField: "title",
+							overlineField: "overline",
+							primaryMetadataField: "primaryMetadata",
+							secondaryMetadataField: "secondaryMetadata",
 						},
 						list: {
+							itemIdField: "itemId",
 							imageField: null,
 							calloutField: null,
-							titleField: "listTitle",
-							overlineField: "listOverline",
-							primaryMetadataField: "listPrimaryMetadata",
-							secondaryMetadataField: "listSecondaryMetadata",
+							titleField: "title",
+							overlineField: "overline",
+							primaryMetadataField: "primaryMetadata",
+							secondaryMetadataField: "secondaryMetadata",
 						},
 						table: {
+							itemIdField: "itemId",
 							imageField: null,
 							columns: [
-								{ label: "Name", field: "tableColumn0" },
-								{ label: "Comment", field: "tableColumn1" },
-								{ label: "Recorded At", field: "tableColumn2" },
+								{ label: "Name", field: "column0" },
+								{ label: "Comment", field: "column1" },
+								{ label: "Recorded At", field: "column2" },
 							],
 						},
 					},
 				});
-				expect(savedViewQuery.output.fields).toEqual(expectedSavedViewFields);
+				expect(savedViewQuery).toMatchObject({
+					output: { orderBy: [{ direction: "desc", expr: { type: "cast", target: "date" } }] },
+					where: {
+						right: { value: "measurement" },
+						left: { field: "entitySchemaSlug", tableAlias: "entity" },
+					},
+				});
+				expect(
+					savedViewQuery.output.fields.map((selection) => "key" in selection && selection.key),
+				).toEqual(["itemId", "title", "overline", "primaryMetadata", "secondaryMetadata"]);
 			}),
 	);
 

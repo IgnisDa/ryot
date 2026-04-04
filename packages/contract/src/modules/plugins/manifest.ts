@@ -1,9 +1,9 @@
 import { Result, Schema, SchemaGetter } from "effect";
 
 import { AppSchema } from "../../schema/property-schema";
-import { RyotQLDocument } from "../ryotql/language";
+import { OutputFieldKey, RyotQLDocument } from "../ryotql/language";
 import { SANDBOX_HOST_CAPABILITIES } from "../sandbox/wire";
-import { SavedViewDisplayConfiguration } from "../saved-views/schemas";
+import { SavedViewCardMapping, SavedViewTableMapping } from "../saved-views/schemas";
 import { pluginConfigEnvironmentKey } from "./plugin-config";
 
 const strictStruct = <Fields extends Schema.Struct.Fields>(fields: Fields) =>
@@ -83,14 +83,29 @@ export const PluginSignalSchema = strictStruct({
 
 export type PluginSignalSchema = Schema.Schema.Type<typeof PluginSignalSchema>;
 
+const PluginSavedViewCardLayout = strictStruct({
+	...SavedViewCardMapping.fields,
+	itemIdField: OutputFieldKey,
+	queryDocument: PluginQueryDocument,
+});
+
+const PluginSavedViewTableLayout = strictStruct({
+	...SavedViewTableMapping.fields,
+	itemIdField: OutputFieldKey,
+	queryDocument: PluginQueryDocument,
+});
+
 export const PluginSavedView = strictStruct({
 	icon: Schema.String,
 	name: Schema.String,
 	slug: Schema.String,
 	sortOrder: Schema.Number,
-	queryDocument: PluginQueryDocument,
-	displayConfiguration: SavedViewDisplayConfiguration,
 	pluginSlug: Schema.NullOr(Schema.String),
+	layouts: strictStruct({
+		grid: PluginSavedViewCardLayout,
+		list: PluginSavedViewCardLayout,
+		table: PluginSavedViewTableLayout,
+	}),
 });
 
 export type PluginSavedView = Schema.Schema.Type<typeof PluginSavedView>;
