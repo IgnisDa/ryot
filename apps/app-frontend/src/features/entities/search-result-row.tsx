@@ -523,6 +523,9 @@ export function SearchResultRow(props: {
 								collectionsDestination={props.collectionsDestination}
 								onSaveCollection={props.onSaveCollection}
 								onPatchActionState={props.onPatchActionState}
+								isEnsuringEntity={
+									props.actionState.pendingAction === "collection"
+								}
 							/>
 						) : null}
 					</Stack>
