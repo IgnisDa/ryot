@@ -8,14 +8,26 @@ import { AsyncResult } from "effect/unstable/reactivity";
 import { useLocalSearchParams } from "expo-router";
 import { Text, View } from "react-native";
 
-import { savedViewLayoutAtom, savedViewRecordAtom, savedViewResultAtom } from "@/api/atoms";
+import {
+	managedAssetResolutionAtom,
+	savedViewLayoutAtom,
+	savedViewRecordAtom,
+	savedViewResultAtom,
+} from "@/api/atoms";
 import { AppIcon } from "@/modules/icons";
 import { NavigationStatus } from "@/modules/navigation/navigation-status";
-import { decodeSavedViewDisplayData } from "@/modules/saved-views/display-data";
+import {
+	collectManagedAssets,
+	decodeSavedViewDisplayData,
+	resolvedAssetUrls,
+	type SavedViewDisplayData,
+} from "@/modules/saved-views/display-data";
 import { SavedViewGrid } from "@/modules/saved-views/saved-view-grid";
 import { SavedViewLayoutSelector } from "@/modules/saved-views/saved-view-layout-selector";
 import { SavedViewList } from "@/modules/saved-views/saved-view-list";
 import { SavedViewTable } from "@/modules/saved-views/saved-view-table";
+import { useServerUrl } from "@/modules/server/state";
+import { CLOUD_URL } from "@/modules/server/url";
 
 function ErrorState(props: { detail: string; title: string }) {
 	return (
@@ -44,15 +56,88 @@ function EmptyState(props: { name: string }) {
 
 function SavedViewItems(props: {
 	layout: "grid" | "list" | "table";
+	managedUrls: ReadonlyMap<string, string>;
 	items: Parameters<typeof SavedViewGrid>[0]["items"];
 }) {
 	if (props.layout === "grid") {
-		return <SavedViewGrid items={props.items} />;
+		return <SavedViewGrid items={props.items} managedUrls={props.managedUrls} />;
 	}
 	if (props.layout === "list") {
-		return <SavedViewList items={props.items} />;
+		return <SavedViewList items={props.items} managedUrls={props.managedUrls} />;
 	}
-	return <SavedViewTable items={props.items} />;
+	return <SavedViewTable items={props.items} managedUrls={props.managedUrls} />;
+}
+
+function SavedViewResolvedContent(props: {
+	icon: string;
+	name: string;
+	viewSlug: string;
+	data: SavedViewDisplayData;
+	layout: "grid" | "list" | "table";
+}) {
+	const serverUrl = useServerUrl() ?? CLOUD_URL;
+	const assets = collectManagedAssets(props.data.items, props.layout);
+	if (assets.length === 0) {
+		return <SavedViewDisplay {...props} managedUrls={new Map()} />;
+	}
+	return (
+		<SavedViewManagedContent
+			{...props}
+			serverUrl={serverUrl}
+			serializedRequest={JSON.stringify({ assets, serverUrl })}
+		/>
+	);
+}
+
+function SavedViewManagedContent(
+	props: Parameters<typeof SavedViewResolvedContent>[0] & {
+		serverUrl: string;
+		serializedRequest: string;
+	},
+) {
+	const result = useAtomValue(managedAssetResolutionAtom(props.serializedRequest));
+	const response = AsyncResult.isSuccess(result) ? result.value : undefined;
+	return (
+		<SavedViewDisplay
+			{...props}
+			managedUrls={response ? resolvedAssetUrls(response, props.serverUrl) : new Map()}
+		/>
+	);
+}
+
+function SavedViewDisplay(
+	props: Parameters<typeof SavedViewResolvedContent>[0] & {
+		managedUrls: ReadonlyMap<string, string>;
+	},
+) {
+	const { items, pageInfo } = props.data;
+	return (
+		<View className="w-full gap-5">
+			<View className="gap-3 md:h-15 md:flex-row md:items-start md:justify-between md:gap-6">
+				<View className="min-w-0 gap-1">
+					<View className="flex-row items-center gap-2.5">
+						<AppIcon className="shrink-0 text-text-muted" name={props.icon} size={20} />
+						<Text
+							numberOfLines={1}
+							className="min-w-0 flex-1 font-ui-semibold text-xl text-text md:font-display md:text-3xl"
+						>
+							{props.name}
+						</Text>
+					</View>
+					<Text className="font-ui text-xs text-text-muted md:text-sm">
+						{pageInfo.total.toLocaleString()} {pageInfo.total === 1 ? "result" : "results"}
+					</Text>
+				</View>
+				<SavedViewLayoutSelector viewSlug={props.viewSlug} />
+			</View>
+
+			{items.length === 0 ? (
+				<EmptyState name={props.name} />
+			) : (
+				<SavedViewItems items={items} layout={props.layout} managedUrls={props.managedUrls} />
+			)}
+		</View>
+	);
 }
 
 function SavedViewContent(props: { record: SavedViewRecord }) {
@@ -79,33 +164,14 @@ function SavedViewContent(props: { record: SavedViewRecord }) {
 		);
 	}
 
-	const { items, pageInfo } = decoded.success;
 	return (
-		<View className="w-full gap-5">
-			<View className="gap-3 md:h-15 md:flex-row md:items-start md:justify-between md:gap-6">
-				<View className="min-w-0 gap-1">
-					<View className="flex-row items-center gap-2.5">
-						<AppIcon className="shrink-0 text-text-muted" name={props.record.icon} size={20} />
-						<Text
-							numberOfLines={1}
-							className="min-w-0 flex-1 font-ui-semibold text-xl text-text md:font-display md:text-3xl"
-						>
-							{props.record.name}
-						</Text>
-					</View>
-					<Text className="font-ui text-xs text-text-muted md:text-sm">
-						{pageInfo.total.toLocaleString()} {pageInfo.total === 1 ? "result" : "results"}
-					</Text>
-				</View>
-				<SavedViewLayoutSelector viewSlug={props.record.slug} />
-			</View>
-
-			{items.length === 0 ? (
-				<EmptyState name={props.record.name} />
-			) : (
-				<SavedViewItems items={items} layout={layout} />
-			)}
-		</View>
+		<SavedViewResolvedContent
+			layout={layout}
+			data={decoded.success}
+			icon={props.record.icon}
+			name={props.record.name}
+			viewSlug={props.record.slug}
+		/>
 	);
 }
 
