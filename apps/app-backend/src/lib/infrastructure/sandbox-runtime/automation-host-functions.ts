@@ -1,7 +1,6 @@
 import { EntityId, UserId } from "@ryot/contract/schema/brands";
 import type { AutomationSandboxHostImplementationMap } from "@ryot/sandbox-sdk/core";
-import { dayjs } from "@ryot/ts-utils/dayjs";
-import { Effect } from "effect";
+import { DateTime, Effect, Option } from "effect";
 
 import { NotificationsService } from "#modules/notifications/service";
 import { SignalEmissionService } from "#modules/signals/service";
@@ -27,8 +26,8 @@ export const makeAutomationSandboxApiFunctions = (): Effect.Effect<
 			emitSignal: (rawInput, request) =>
 				Effect.gen(function* () {
 					const input = yield* requireSubscriptionSandboxRunInput(rawInput, "emitSignal");
-					const occurredAt = dayjs(input.subscriptionRun.occurredAt);
-					if (!occurredAt.isValid()) {
+					const occurredAt = DateTime.make(input.subscriptionRun.occurredAt);
+					if (Option.isNone(occurredAt)) {
 						return yield* sandboxHostFailure("emitSignal received an invalid occurrence time");
 					}
 
@@ -37,10 +36,10 @@ export const makeAutomationSandboxApiFunctions = (): Effect.Effect<
 							.emit({
 								properties: request.properties,
 								schemaSlug: request.schemaSlug,
-								occurredAt: occurredAt.toDate(),
 								origin: input.subscriptionRun.origin,
 								discriminator: request.discriminator,
 								executionId: input.subscriptionRun.id,
+								occurredAt: DateTime.toDate(occurredAt.value),
 								principal: input.userId
 									? { kind: "user", userId: UserId.make(input.userId) }
 									: { kind: "system" },

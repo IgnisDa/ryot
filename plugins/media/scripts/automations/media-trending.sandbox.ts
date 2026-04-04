@@ -1,6 +1,5 @@
-import dayjs from "@ryot/sandbox-sdk/dayjs";
 import { defineDriver, defineManifest } from "@ryot/sandbox-sdk/driver";
-import { Effect, Schema } from "@ryot/sandbox-sdk/effect";
+import { DateTime, Effect, Schema } from "@ryot/sandbox-sdk/effect";
 import { defineProvider } from "@ryot/sandbox-sdk/provider";
 
 import {
@@ -91,7 +90,7 @@ export const cron = defineDriver(manifest, {
 				return { synced: false, itemCount: 0, providerCount };
 			}
 
-			const fetchedAt = dayjs().toISOString();
+			const fetchedAt = DateTime.formatIso(DateTime.unsafeNow());
 			const rankedItemsByEntityId = new Map<string, (typeof savedItems)[number]>();
 			for (const item of savedItems) {
 				if (!rankedItemsByEntityId.has(item.entityId)) {

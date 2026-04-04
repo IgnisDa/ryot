@@ -1,6 +1,5 @@
 import type { SandboxHost } from "@ryot/sandbox-sdk/core";
-import dayjs from "@ryot/sandbox-sdk/dayjs";
-import { Effect } from "@ryot/sandbox-sdk/effect";
+import { DateTime, Effect, Option } from "@ryot/sandbox-sdk/effect";
 
 import {
 	asRecord,
@@ -20,8 +19,11 @@ export const extractYear = (value: unknown) => {
 	if (!released) {
 		return null;
 	}
-	const parsed = dayjs(released);
-	return parsed.isValid() ? parsed.year() : null;
+	const parsed = DateTime.make(released);
+	if (Option.isNone(parsed)) {
+		return null;
+	}
+	return DateTime.toDateUtc(parsed.value).getFullYear();
 };
 
 export const extractDate = (value: unknown) => {
