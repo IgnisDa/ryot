@@ -202,6 +202,7 @@ export class SandboxCompiler extends Effect.Service<SandboxCompiler>()("SandboxC
 							manifest: manifest.data,
 							format: response.value.format,
 							javascript: response.value.javascript,
+							driverNames: response.value.driverNames,
 						} satisfies CompiledSandboxModule);
 					}),
 				),
