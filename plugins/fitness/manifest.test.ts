@@ -44,6 +44,7 @@ it("declares the complete fitness-owned source", () => {
 		{ entitySchemaSlug: "exercise", providerSlug: "exercise.free-exercise-db" },
 	]);
 	expect(fitnessPlugin.scripts).toHaveLength(9);
+	expect(fitnessPlugin.scripts.some(({ slug }) => slug.startsWith("activity."))).toBe(false);
 	expect(fitnessPlugin.workflows).toEqual([{ slug: "import", scriptSlug: "workflow.import" }]);
 	expect(fitnessPlugin.importSources).toEqual([
 		expect.objectContaining({ slug: "hevy", workflowSlug: "import" }),
@@ -52,16 +53,22 @@ it("declares the complete fitness-owned source", () => {
 	]);
 	expect(
 		fitnessPlugin.scripts
-			.filter(({ slug }) => slug.startsWith("activity.import."))
-			.map(({ capabilities, slug }) => ({ capabilities, slug })),
+			.filter(({ slug }) => slug.startsWith("import."))
+			.map(({ capabilities, kind, slug }) => ({ capabilities, kind, slug })),
 	).toEqual([
 		{
-			slug: "activity.import.hevy",
+			kind: "script",
+			slug: "import.hevy",
 			capabilities: ["artifact-read", "scratch", "getSystemConfig"],
 		},
-		{ slug: "activity.import.open-scale", capabilities: ["artifact-read", "scratch"] },
 		{
-			slug: "activity.import.strong-app",
+			kind: "script",
+			slug: "import.open-scale",
+			capabilities: ["artifact-read", "scratch"],
+		},
+		{
+			kind: "script",
+			slug: "import.strong-app",
 			capabilities: ["artifact-read", "scratch", "getSystemConfig"],
 		},
 	]);
