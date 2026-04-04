@@ -1,12 +1,12 @@
 import { describe, expect, it } from "bun:test";
+import {
+	createListedSavedView,
+	createReorderSavedViewsBody,
+	createSavedViewBody,
+	createSavedViewDeps,
+	createUpdateSavedViewBody,
+} from "~/lib/test-fixtures";
 import { expectDataResult } from "~/lib/test-helpers";
-import type {
-	CreateSavedViewBody,
-	ListedSavedView,
-	ReorderSavedViewsBody,
-	SavedViewQueryDefinition,
-	UpdateSavedViewBody,
-} from "./schemas";
 import {
 	buildBuiltinSavedViewName,
 	cloneSavedView,
@@ -14,105 +14,8 @@ import {
 	deleteSavedView,
 	reorderSavedViews,
 	resolveSavedViewName,
-	type SavedViewServiceDeps,
 	updateSavedView,
 } from "./service";
-
-const createQueryDefinition = (): SavedViewQueryDefinition => ({
-	filters: [],
-	entitySchemaSlugs: ["books"],
-	sort: { fields: ["@name"], direction: "asc" },
-});
-
-const createSavedViewBody = (): CreateSavedViewBody => ({
-	icon: "book",
-	name: "Reading",
-	trackerId: "tracker_1",
-	accentColor: "#123456",
-	queryDefinition: createQueryDefinition(),
-	displayConfiguration: {
-		table: { columns: [{ label: "Name", property: ["@name"] }] },
-		grid: {
-			badgeProperty: null,
-			subtitleProperty: null,
-			titleProperty: ["@name"],
-			imageProperty: ["@image"],
-		},
-		list: {
-			badgeProperty: null,
-			subtitleProperty: null,
-			titleProperty: ["@name"],
-			imageProperty: ["@image"],
-		},
-	},
-});
-
-const createUpdateSavedViewBody = (): UpdateSavedViewBody => ({
-	...createSavedViewBody(),
-	isDisabled: false,
-	name: "Updated Reading",
-});
-
-const createListedSavedView = (
-	overrides: Partial<ListedSavedView> = {},
-): ListedSavedView => ({
-	id: "view_1",
-	icon: "book",
-	sortOrder: 0,
-	name: "Reading",
-	isBuiltin: false,
-	isDisabled: false,
-	trackerId: "tracker_1",
-	accentColor: "#123456",
-	queryDefinition: createQueryDefinition(),
-	createdAt: new Date("2024-01-01T00:00:00.000Z"),
-	updatedAt: new Date("2024-01-01T00:00:00.000Z"),
-	displayConfiguration: createSavedViewBody().displayConfiguration,
-	...overrides,
-});
-
-const createDeps = (
-	overrides: Partial<SavedViewServiceDeps> = {},
-): SavedViewServiceDeps => ({
-	countSavedViewsByIdsForUser: async (input) => input.viewIds.length,
-	deleteSavedViewByIdForUser: async (input) =>
-		createListedSavedView({ id: input.viewId }),
-	getSavedViewByIdForUser: async (input) =>
-		createListedSavedView({ id: input.viewId }),
-	listUserSavedViewIdsInOrder: async () => ["view_1", "view_2", "view_3"],
-	persistSavedViewOrderForUser: async (input) => input.viewIds,
-	updateSavedViewDisabledByIdForUser: async (input) =>
-		createListedSavedView({ id: input.viewId, isDisabled: input.isDisabled }),
-	createSavedViewForUser: async (input) =>
-		createListedSavedView({
-			icon: input.icon,
-			name: input.name,
-			isBuiltin: input.isBuiltin,
-			accentColor: input.accentColor,
-			trackerId: input.trackerId ?? null,
-			queryDefinition: input.queryDefinition,
-			displayConfiguration: input.displayConfiguration,
-		}),
-	updateSavedViewByIdForUser: async (input) =>
-		createListedSavedView({
-			id: input.viewId,
-			icon: input.data.icon,
-			name: input.data.name,
-			accentColor: input.data.accentColor,
-			trackerId: input.data.trackerId ?? null,
-			queryDefinition: input.data.queryDefinition,
-			displayConfiguration: input.data.displayConfiguration,
-		}),
-	...overrides,
-});
-
-const createReorderSavedViewsBody = (
-	overrides: Partial<ReorderSavedViewsBody> = {},
-): ReorderSavedViewsBody => ({
-	trackerId: "tracker_1",
-	viewIds: ["view_2", "view_1"],
-	...overrides,
-});
 
 describe("resolveSavedViewName", () => {
 	it("trims the provided name", () => {
@@ -139,7 +42,7 @@ describe("buildBuiltinSavedViewName", () => {
 describe("createSavedView", () => {
 	it("normalizes the name before persisting", async () => {
 		let createdName: string | undefined;
-		const deps = createDeps({
+		const deps = createSavedViewDeps({
 			createSavedViewForUser: async (input) => {
 				createdName = input.name;
 				return createListedSavedView({ name: input.name });
@@ -162,7 +65,7 @@ describe("createSavedView", () => {
 
 	it("returns validation errors without persisting", async () => {
 		let wasCalled = false;
-		const deps = createDeps({
+		const deps = createSavedViewDeps({
 			createSavedViewForUser: async () => {
 				wasCalled = true;
 				return createListedSavedView();
@@ -188,7 +91,7 @@ describe("createSavedView", () => {
 describe("updateSavedView", () => {
 	it("passes the current scope when moving a mutable saved view", async () => {
 		let updatedCurrentTrackerId: string | null | undefined;
-		const deps = createDeps({
+		const deps = createSavedViewDeps({
 			getSavedViewByIdForUser: async () =>
 				createListedSavedView({ trackerId: "tracker_1" }),
 			updateSavedViewByIdForUser: async (input) => {
@@ -217,7 +120,7 @@ describe("updateSavedView", () => {
 	it("allows toggling isDisabled on a built-in view without calling full update", async () => {
 		let fullUpdateCalled = false;
 		let disableToggleCalled = false;
-		const deps = createDeps({
+		const deps = createSavedViewDeps({
 			getSavedViewByIdForUser: async () =>
 				createListedSavedView({ isBuiltin: true, isDisabled: false }),
 			updateSavedViewByIdForUser: async () => {
@@ -245,7 +148,7 @@ describe("updateSavedView", () => {
 	});
 
 	it("returns not_found when a built-in view row disappears during disable toggle", async () => {
-		const deps = createDeps({
+		const deps = createSavedViewDeps({
 			getSavedViewByIdForUser: async () =>
 				createListedSavedView({ isBuiltin: true }),
 			updateSavedViewDisabledByIdForUser: async () => undefined,
@@ -268,7 +171,7 @@ describe("updateSavedView", () => {
 
 	it("returns not found when the row disappears before update", async () => {
 		let disableToggleCalled = false;
-		const deps = createDeps({
+		const deps = createSavedViewDeps({
 			updateSavedViewByIdForUser: async () => undefined,
 			getSavedViewByIdForUser: async () => undefined,
 			updateSavedViewDisabledByIdForUser: async () => {
@@ -295,7 +198,7 @@ describe("updateSavedView", () => {
 
 	it("returns builtin when the view becomes protected before update", async () => {
 		let getCallCount = 0;
-		const deps = createDeps({
+		const deps = createSavedViewDeps({
 			getSavedViewByIdForUser: async () => {
 				getCallCount += 1;
 				return getCallCount === 1
@@ -323,7 +226,7 @@ describe("updateSavedView", () => {
 
 describe("deleteSavedView", () => {
 	it("returns not found when the saved view does not exist", async () => {
-		const deps = createDeps({
+		const deps = createSavedViewDeps({
 			getSavedViewByIdForUser: async () => undefined,
 		});
 
@@ -340,7 +243,7 @@ describe("deleteSavedView", () => {
 
 	it("returns builtin when the view becomes protected before delete", async () => {
 		let getCallCount = 0;
-		const deps = createDeps({
+		const deps = createSavedViewDeps({
 			deleteSavedViewByIdForUser: async () => undefined,
 			getSavedViewByIdForUser: async () => {
 				getCallCount += 1;
@@ -366,7 +269,7 @@ describe("cloneSavedView", () => {
 	it("creates a user-defined copy with a normalized name", async () => {
 		let createdTrackerId: string | undefined;
 		let createdName: string | undefined;
-		const deps = createDeps({
+		const deps = createSavedViewDeps({
 			createSavedViewForUser: async (input) => {
 				createdName = input.name;
 				createdTrackerId = input.trackerId;
@@ -390,7 +293,7 @@ describe("cloneSavedView", () => {
 	});
 
 	it("returns not found when cloning a missing view", async () => {
-		const deps = createDeps({
+		const deps = createSavedViewDeps({
 			getSavedViewByIdForUser: async () => undefined,
 		});
 
@@ -411,7 +314,7 @@ describe("reorderSavedViews", () => {
 		const reordered = expectDataResult(
 			await reorderSavedViews(
 				{ body: createReorderSavedViewsBody(), userId: "user_1" },
-				createDeps(),
+				createSavedViewDeps(),
 			),
 		);
 
@@ -429,7 +332,7 @@ describe("reorderSavedViews", () => {
 						viewIds: ["view_3", "view_1"],
 					}),
 				},
-				createDeps({
+				createSavedViewDeps({
 					countSavedViewsByIdsForUser: async (input) => {
 						receivedTrackerId = input.trackerId;
 						return input.viewIds.length;
@@ -445,7 +348,7 @@ describe("reorderSavedViews", () => {
 	it("returns validation for unknown saved view ids", async () => {
 		const result = await reorderSavedViews(
 			{ body: createReorderSavedViewsBody(), userId: "user_1" },
-			createDeps({ countSavedViewsByIdsForUser: async () => 1 }),
+			createSavedViewDeps({ countSavedViewsByIdsForUser: async () => 1 }),
 		);
 
 		expect(result).toEqual({
@@ -457,7 +360,9 @@ describe("reorderSavedViews", () => {
 	it("returns validation when persistence cannot update the full scoped order", async () => {
 		const result = await reorderSavedViews(
 			{ body: createReorderSavedViewsBody(), userId: "user_1" },
-			createDeps({ persistSavedViewOrderForUser: async () => undefined }),
+			createSavedViewDeps({
+				persistSavedViewOrderForUser: async () => undefined,
+			}),
 		);
 
 		expect(result).toEqual({
