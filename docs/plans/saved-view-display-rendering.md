@@ -69,9 +69,9 @@ Do not nest `WorkspaceScreenFrame`; parent layouts already provide it.
 
 ```text
 apps/app-client/src/
-  api/atoms.ts
   app/(app)/(shell)/(drawer)/v/[viewSlug].tsx
   modules/saved-views/
+    atoms.ts
     display-data.ts
     display-data.test.ts
     display-value.ts
@@ -106,9 +106,9 @@ Keep files combined when that remains clear. Do not add barrels or speculative a
 
 ## Phase 2: Add Data And Preference Atoms
 
-- [x] In `src/api/atoms.ts`, add a slug-keyed `savedViewRecordAtom` using `buildSavedViewRecordDocument({ slug })`.
+- [x] In the saved-view domain module, add a slug-keyed `savedViewRecordAtom` using `buildSavedViewRecordDocument({ slug })`.
 - [x] Add a record-keyed result atom that executes `record.queryDocument` unchanged through `ryotql.execute`.
-- [x] Add a slug-keyed persisted layout atom with this shape:
+- [x] In the saved-view domain module, add a slug-keyed persisted layout atom with this shape:
 
 ```ts
 Atom.family((viewSlug: string) =>
@@ -121,7 +121,7 @@ Atom.family((viewSlug: string) =>
 );
 ```
 
-- [x] Keep all app-owned atoms in `src/api/atoms.ts`.
+- [x] Keep saved-view atoms with the saved-view domain; keep shared API/query infrastructure under `src/api` and persisted layout state in the saved-view module.
 - [x] Do not add a nested/dependent atom abstraction; pass the decoded record to the result atom family from the success child.
 
 ## Phase 3: Build The Presentation Boundary
