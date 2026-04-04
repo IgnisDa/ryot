@@ -1,50 +1,70 @@
+import clsx from "clsx";
 import { ScrollView, Text, View } from "react-native";
 
 import type { SavedViewDisplayItem } from "./display-data";
 import { formatSavedViewValue } from "./display-value";
 import { SavedViewImageView } from "./saved-view-image";
 
-const FIRST_COLUMN_WIDTH = 240;
-const COLUMN_WIDTH = 160;
+const COLUMN_WIDTHS = [220, 70, 80, 90, 130];
+
+const columnWidth = (index: number) => COLUMN_WIDTHS[index - 1] ?? 160;
 
 export function SavedViewTable(props: {
 	items: readonly SavedViewDisplayItem[];
 	managedUrls: ReadonlyMap<string, string>;
 }) {
 	const headers = props.items[0]?.table.cells ?? [];
-	const tableWidth = Math.max(640, FIRST_COLUMN_WIDTH + (headers.length - 1) * COLUMN_WIDTH);
 	return (
-		<ScrollView horizontal showsHorizontalScrollIndicator contentContainerClassName="pb-2">
-			<View style={{ width: tableWidth }} className="border-t border-border">
-				<View className="h-8.5 flex-row border-b border-border bg-surface-2">
+		<ScrollView
+			horizontal
+			showsHorizontalScrollIndicator
+			contentContainerClassName="w-full min-w-[1000px] pb-2"
+		>
+			<View className="w-full min-w-250">
+				<View className="h-8.5 flex-row items-center gap-4 border-b border-border">
 					{headers.map((cell, index) => (
 						<View
 							key={cell.key}
-							style={{ width: index === 0 ? FIRST_COLUMN_WIDTH : COLUMN_WIDTH }}
-							className="justify-center border-r border-border px-3 last:border-r-0"
+							style={index === 0 ? undefined : { width: columnWidth(index) }}
+							className={index === 0 ? "min-w-0 flex-1" : "justify-center"}
 						>
-							<Text className="font-ui-semibold text-xs text-text-muted" numberOfLines={1}>
+							<Text
+								className={clsx(
+									"font-ui-semibold text-[11.5px] uppercase tracking-[0.6px] text-text-subtle",
+									index > 0 && "text-right",
+								)}
+								numberOfLines={1}
+							>
 								{cell.label}
 							</Text>
 						</View>
 					))}
 				</View>
 				{props.items.map((item) => (
-					<View key={item.id} className="h-14 flex-row border-b border-border md:h-12">
+					<View key={item.id} className="h-12 flex-row items-center gap-4 border-b border-border">
 						{item.table.cells.map((cell, index) => (
 							<View
 								key={`${item.id}:${cell.key}`}
-								style={{ width: index === 0 ? FIRST_COLUMN_WIDTH : COLUMN_WIDTH }}
-								className="flex-row items-center gap-2.5 border-r border-border px-3 last:border-r-0"
+								style={index === 0 ? undefined : { width: columnWidth(index) }}
+								className={
+									index === 0 ? "min-w-0 flex-1 flex-row items-center gap-2.5" : "justify-center"
+								}
 							>
 								{index === 0 && (
 									<SavedViewImageView
 										image={item.table.image}
 										managedUrls={props.managedUrls}
-										className="h-8 w-5.5 shrink-0 rounded-sm bg-surface-2 md:h-9 md:w-6.5"
+										className="h-9 w-6.5 shrink-0 rounded-[3px] bg-surface-2"
 									/>
 								)}
-								<Text className="min-w-0 flex-1 font-ui text-sm text-text" numberOfLines={1}>
+								<Text
+									numberOfLines={1}
+									className={
+										index === 0
+											? "min-w-0 flex-1 font-ui text-sm text-text"
+											: "font-ui text-right text-[13.5px] text-text-muted"
+									}
+								>
 									{formatSavedViewValue(cell.value)}
 								</Text>
 							</View>
