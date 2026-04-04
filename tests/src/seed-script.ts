@@ -34,17 +34,18 @@ type EntitySchemaSlug = ContractPayload<"entities", "create">["entitySchemaSlug"
 
 const FRONTEND_URL = process.env.FRONTEND_URL || "http://localhost:8000";
 const API_BASE_URL = process.env.API_BASE_URL ?? "http://localhost:8000/api";
+const ENABLE_2FA = process.argv.includes("--enable-2fa");
 const adminHeaders = adminAccessTokenHeaders(
 	process.env.SERVER_ADMIN_ACCESS_TOKEN ?? "super-secret-token-that-should-be-changed",
 );
 
 async function createAndSignIn(): Promise<{
 	email: string;
+	userId: string;
 	cookies: string;
 	password: string;
-	userId: string;
-	backupCodes: string[];
-	totpCodes: { past: string; future: string; current: string };
+	backupCodes?: string[];
+	totpCodes?: { past: string; future: string; current: string };
 }> {
 	const email = `seed-${dayjs().valueOf()}@example.com`;
 	const password = email;
@@ -52,8 +53,8 @@ async function createAndSignIn(): Promise<{
 
 	const { data: signUpData, error: signUpError } = await authClient.signUp.email({
 		email,
-		name: "Seed User",
 		password,
+		name: "Seed User",
 	});
 
 	if (signUpError) {
@@ -77,20 +78,29 @@ async function createAndSignIn(): Promise<{
 	}
 	const cookies = cookieHeaderFromSetCookies(setCookies);
 
-	const twoFactor = await enableTwoFactorForSession({
-		baseUrl: API_BASE_URL,
-		origin: FRONTEND_URL,
-		cookies,
-		password,
-	});
+	let finalCookies = cookies;
+	let backupCodes: string[] | undefined;
+	let totpCodes: { past: string; future: string; current: string } | undefined;
+
+	if (ENABLE_2FA) {
+		const twoFactor = await enableTwoFactorForSession({
+			cookies,
+			password,
+			origin: FRONTEND_URL,
+			baseUrl: API_BASE_URL,
+		});
+		finalCookies = twoFactor.cookies;
+		backupCodes = twoFactor.backupCodes;
+		totpCodes = twoFactor.totpCodes;
+	}
 
 	return {
-		cookies: twoFactor.cookies,
 		email,
 		password,
+		totpCodes,
+		backupCodes,
+		cookies: finalCookies,
 		userId: requirePresent(signUpData, "Sign up did not return a user").user.id,
-		backupCodes: twoFactor.backupCodes,
-		totpCodes: twoFactor.totpCodes,
 	};
 }
 
@@ -2835,11 +2845,13 @@ async function main() {
 
 	const { backupCodes, cookies, email, password, totpCodes, userId } = await createAndSignIn();
 	console.log(`✓ Created and signed in as ${email}`);
-	console.log(`✓ Enabled two-factor authentication`);
-	console.log(`  Past TOTP:    ${totpCodes.past}`);
-	console.log(`  Current TOTP: ${totpCodes.current}`);
-	console.log(`  Future TOTP:  ${totpCodes.future}`);
-	console.log(`  Backup codes: ${backupCodes.join(", ")}`);
+	if (ENABLE_2FA) {
+		console.log(`✓ Enabled two-factor authentication`);
+		console.log(`  Past TOTP:    ${totpCodes?.past}`);
+		console.log(`  Current TOTP: ${totpCodes?.current}`);
+		console.log(`  Future TOTP:  ${totpCodes?.future}`);
+		console.log(`  Backup codes: ${backupCodes?.join(", ")}`);
+	}
 
 	const client = new APIClient(cookies);
 	const startTime = dayjs();
