@@ -19,6 +19,7 @@ export function SavedViewList(props: {
 	items: readonly SavedViewCardItem[];
 	managedUrls: ReadonlyMap<string, string>;
 }) {
+	// TODO: the design tints each row with a gradient derived from the item cover art, which needs image color extraction.
 	return (
 		<View className="border-t border-border">
 			{props.items.map((item) => (
