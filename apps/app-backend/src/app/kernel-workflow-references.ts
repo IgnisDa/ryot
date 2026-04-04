@@ -13,13 +13,6 @@ import { Effect, Exit, Layer, Schema } from "effect";
 import { WorkflowEngine } from "effect/unstable/workflow/WorkflowEngine";
 
 import { DbRunner } from "#lib/infrastructure/db/service";
-import type { EntityImportError } from "#modules/entity-import/entity-import-workflow";
-import { EntityImportWorkflow } from "#modules/entity-import/entity-import-workflow";
-import {
-	ProviderEntityPopulationWorkflow,
-	type ProviderEntityPopulationPayload,
-} from "#modules/entity-import/provider-entity-population-workflow";
-import { EntityImportPayload } from "#modules/entity-import/schemas";
 import {
 	EventCreateWorkflow,
 	EventCreateWorkflowPayload,
@@ -31,6 +24,13 @@ import {
 import { ImportsRepository } from "#modules/imports/repository";
 import { IntegrationsRepository } from "#modules/integrations/repository";
 import { PluginRuntimeResolver } from "#modules/plugins/runtime-resolver";
+import type { EntityImportError } from "#modules/provider-entities/entity-import-workflow";
+import { EntityImportWorkflow } from "#modules/provider-entities/entity-import-workflow";
+import {
+	ProviderEntityPopulationWorkflow,
+	type ProviderEntityPopulationPayload,
+} from "#modules/provider-entities/provider-entity-population-workflow";
+import { EntityImportPayload } from "#modules/provider-entities/schemas";
 import {
 	KERNEL_EVENT_CREATE_WORKFLOW,
 	KERNEL_ENTITY_IMPORT_WORKFLOW,
