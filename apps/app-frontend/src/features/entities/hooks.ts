@@ -1,7 +1,13 @@
 import { useQueryClient } from "@tanstack/react-query";
 import { useApiClient } from "~/hooks/api";
 import type { ApiPostRequestBody } from "~/lib/api/types";
+import { getErrorMessage } from "~/lib/errors";
 import { createEntityRuntimeRequest, sortEntities, toAppEntity } from "./model";
+
+export type CreateWithCollectionResult = {
+	entity: { id: string; name: string };
+	collectionError?: string;
+};
 
 export function useEntitiesQuery(entitySchemaSlug: string, enabled = true) {
 	const apiClient = useApiClient();
@@ -61,21 +67,32 @@ export function useEntityMutations(entitySchemaSlug: string) {
 	const createWithCollection = async (
 		body: ApiPostRequestBody<"/entities">,
 		collectionId?: string,
-	) => {
+	): Promise<CreateWithCollectionResult> => {
 		const createResult = await create.mutateAsync({ body });
 		const entity = createResult.data;
 
-		if (entity && collectionId) {
-			await addToCollection.mutateAsync({
-				body: {
-					entityId: entity.id,
-					collectionId,
-					properties: {},
-				},
-			});
+		if (!entity) {
+			throw new Error("Failed to create entity");
 		}
 
-		return createResult;
+		if (collectionId) {
+			try {
+				await addToCollection.mutateAsync({
+					body: {
+						entityId: entity.id,
+						collectionId,
+						properties: {},
+					},
+				});
+			} catch (error) {
+				return {
+					entity,
+					collectionError: getErrorMessage(error),
+				};
+			}
+		}
+
+		return { entity };
 	};
 
 	return { create, addToCollection, createWithCollection };
