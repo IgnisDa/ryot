@@ -3,7 +3,7 @@ import { Command, FileSystem, HttpApp, HttpServer } from "@effect/platform";
 import { BunHttpServer } from "@effect/platform-bun";
 import type { PlatformError } from "@effect/platform/Error";
 import { badRequest, internalError, unknownToMessage } from "@ryot/contract/errors";
-import { Clock, Effect, Pool, Queue, Runtime, Schema, Stream } from "effect";
+import { Clock, Effect, Pool, Queue, Runtime, Schema, Stream, type Tracer } from "effect";
 
 import { sandboxDenoDirConfig } from "../config/definition";
 import { AppConfig } from "../config/service";
@@ -39,11 +39,13 @@ const oversizedBridgeRequest = Symbol("oversizedBridgeRequest");
 type ExecutionSession = {
 	readonly token: string;
 	readonly expiresAt: number;
+	readonly parentSpan: Tracer.AnySpan;
 	readonly apiFunctions: Record<string, BoundHostFunction>;
 };
 
 type ActiveExecutionSession = {
 	readonly budget: SandboxHostCallBudget;
+	readonly parentSpan: Tracer.AnySpan;
 	readonly apiFunctions: Record<string, BoundHostFunction>;
 };
 
@@ -106,6 +108,18 @@ export const sandboxBridgeResultResponse = (result: unknown) =>
 				: new Response(body, { status: 200, headers: { "Content-Type": "application/json" } }),
 		),
 		Effect.orElseSucceed(() => hostFailureResponse("Sandbox bridge response is not valid JSON")),
+	);
+
+export const runSandboxBridgeHostFunction = (
+	fn: BoundHostFunction,
+	args: ReadonlyArray<unknown>,
+	input: { executionId: string; fnName: string; parentSpan: Tracer.AnySpan },
+) =>
+	fn(args).pipe(
+		Effect.withSpan(`sandbox.host.${input.fnName}`, {
+			attributes: { executionId: input.executionId, functionName: input.fnName },
+		}),
+		Effect.withParentSpan(input.parentSpan),
 	);
 
 const killProcessHandle = (process: CommandExecutor.Process) =>
@@ -200,6 +214,7 @@ export class BridgeService extends Effect.Service<BridgeService>()("BridgeServic
 			yield* Effect.sync(() =>
 				activeSessions.set(executionId, {
 					budget: { http: 0, total: 0 },
+					parentSpan: session.parentSpan,
 					apiFunctions: session.apiFunctions,
 				}),
 			);
@@ -274,7 +289,11 @@ export class BridgeService extends Effect.Service<BridgeService>()("BridgeServic
 					Effect.map((body) => body.args),
 					Effect.mapError(() => badRequest("Invalid request body")),
 				);
-				return yield* fn(args).pipe(
+				return yield* runSandboxBridgeHostFunction(fn, args, {
+					fnName,
+					executionId,
+					parentSpan: activeSession.parentSpan,
+				}).pipe(
 					Effect.mapError((error) => internalError(unknownToMessage(error))),
 					Effect.flatMap(sandboxBridgeResultResponse),
 					Effect.catchAll((error) =>
