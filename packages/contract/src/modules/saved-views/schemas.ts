@@ -39,10 +39,7 @@ export const SavedViewLayouts = strictStruct({
 });
 export type SavedViewLayouts = typeof SavedViewLayouts.Type;
 
-export const SavedViewSandboxScripts = Schema.Record(Schema.String, Schema.Array(Schema.String));
-export type SavedViewSandboxScripts = typeof SavedViewSandboxScripts.Type;
-
-export const ListedSavedView = Schema.Struct({
+export const ListedSavedView = strictStruct({
 	id: SavedViewId,
 	slug: Schema.String,
 	name: Schema.String,
@@ -53,7 +50,6 @@ export const ListedSavedView = Schema.Struct({
 	isBuiltin: Schema.Boolean,
 	layouts: SavedViewLayouts,
 	isDisabled: Schema.Boolean,
-	sandboxScripts: SavedViewSandboxScripts,
 	pluginSlug: Schema.NullOr(PluginSlug),
 });
 

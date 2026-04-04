@@ -1,4 +1,4 @@
-import { EntitySchemaSlug, UserId } from "@ryot/contract/schema/brands";
+import { UserId } from "@ryot/contract/schema/brands";
 import { Effect } from "effect";
 
 import {
@@ -181,7 +181,7 @@ describe("Delete user automation data cleanup", () => {
 				const personProvider = yield* Effect.acquireRelease(
 					installTestProvider({
 						client: compilerClient,
-						linkToEntitySchemaSlug: personSchemaId,
+						rootEntitySchemaSlug: personSchemaId,
 						slug: `person.delete-user-e2e-${crypto.randomUUID()}`,
 						details: fakeProviderDetailsResult({ name: personName }),
 					}),
@@ -190,6 +190,7 @@ describe("Delete user automation data cleanup", () => {
 				const movieProvider = yield* Effect.acquireRelease(
 					installTestProvider({
 						client: compilerClient,
+						rootEntitySchemaSlug: movieSchemaId,
 						slug: `movie.delete-user-e2e-${crypto.randomUUID()}`,
 						details: fakeProviderDetailsResult({
 							name: movieName,
@@ -242,7 +243,6 @@ describe("Delete user automation data cleanup", () => {
 
 				const { jobId } = yield* enqueueProviderEntityImport(importer.client, {
 					externalId: movieExternalId,
-					entitySchemaSlug: EntitySchemaSlug.make(movieSchemaId),
 					providerId: movieProvider.providerId,
 				});
 				const imported = yield* pollProviderEntityImportResult(importer.client, jobId);

@@ -1,7 +1,4 @@
-import type {
-	SavedViewLayouts,
-	SavedViewSandboxScripts,
-} from "@ryot/contract/modules/saved-views/schemas";
+import type { SavedViewLayouts } from "@ryot/contract/modules/saved-views/schemas";
 import { generateId } from "better-auth";
 import {
 	boolean,
@@ -29,7 +26,6 @@ export const savedView = pgTable(
 		layouts: jsonb().$type<SavedViewLayouts>().notNull(),
 		isDisabled: boolean().notNull().default(false),
 		createdAt: timestamp({ withTimezone: true }).defaultNow().notNull(),
-		sandboxScripts: jsonb().$type<SavedViewSandboxScripts>().notNull().default({}),
 		id: text()
 			.primaryKey()
 			.$defaultFn(() => /* @__PURE__ */ generateId()),

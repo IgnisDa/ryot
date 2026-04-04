@@ -25,7 +25,6 @@ const plugin = (slug: string, httpRateLimits: Array<PluginHttpRateLimit>): Norma
 				eventAutomations: [],
 				entityAutomations: [],
 				signalAutomations: [],
-				schemaProviderLinks: [],
 				relationshipAutomations: [],
 			},
 		},

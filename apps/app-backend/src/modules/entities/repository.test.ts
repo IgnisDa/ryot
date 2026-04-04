@@ -90,6 +90,7 @@ it.effect("resolves provider identity and its active details executable", () => 
 					slug: "fixture-provider",
 					createdAt: new Date(0),
 					updatedAt: new Date(0),
+					rootEntitySchemaSlug: "person",
 					information: { source: "fixture" },
 				},
 			}),

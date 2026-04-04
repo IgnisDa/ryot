@@ -72,7 +72,6 @@ const definitionOwnerManifest = (): PluginManifest => {
 			eventAutomations: [],
 			entityAutomations: [],
 			signalAutomations: [],
-			schemaProviderLinks: [],
 			relationshipAutomations: [],
 		},
 	};
@@ -90,7 +89,6 @@ const dependentManifest = (entitySchemaSlug: string): PluginManifest => {
 			eventAutomations: [],
 			signalAutomations: [],
 			relationshipAutomations: [],
-			schemaProviderLinks: [],
 			entityAutomations: [
 				{
 					operation: "create",
@@ -118,7 +116,6 @@ const formatterOwnerManifest = (): PluginManifest => {
 			eventAutomations: [],
 			entityAutomations: [],
 			signalAutomations: [],
-			schemaProviderLinks: [],
 			relationshipAutomations: [],
 		},
 	};
@@ -150,7 +147,6 @@ const relationshipDependentManifest = (targetEntitySchemaSlug: string): PluginMa
 			eventAutomations: [],
 			entityAutomations: [],
 			signalAutomations: [],
-			schemaProviderLinks: [],
 			relationshipAutomations: [],
 		},
 	};
@@ -233,6 +229,7 @@ const makeLayer = (input?: {
 				if (input?.afterPersist) {
 					yield* input.afterPersist;
 				}
+				return yield* Effect.sync(() => undefined);
 			}),
 	});
 	const workflowReferenceLayer = Layer.mock(SandboxWorkflowReferenceRepository)({
@@ -317,6 +314,7 @@ it.effect("preserves provider search options metadata through ingestion", () => 
 					name: "Fixture Provider",
 					slug: "fixture.provider",
 					information: { source: "Fixture" },
+					rootEntitySchemaSlug: "fixture-entity",
 					operations: { search: "fixture.provider.search", details: "fixture.provider.details" },
 				},
 			],
