@@ -36,7 +36,7 @@ const entityProperty = (...path: [string | number, ...(string | number)[]]) =>
 
 const defaultProjections = buildSavedViewLayoutProjections({
 	grid: {
-		itemId: column(entity, "id"),
+		entityId: column(entity, "id"),
 		card: {
 			callout: null,
 			secondaryMetadata: null,
@@ -47,7 +47,7 @@ const defaultProjections = buildSavedViewLayoutProjections({
 		},
 	},
 	list: {
-		itemId: column(entity, "id"),
+		entityId: column(entity, "id"),
 		card: {
 			callout: null,
 			secondaryMetadata: null,
@@ -58,7 +58,7 @@ const defaultProjections = buildSavedViewLayoutProjections({
 		},
 	},
 	table: {
-		itemId: column(entity, "id"),
+		entityId: column(entity, "id"),
 		image: castJson(entityProperty("images", 0)),
 		columns: [
 			{ label: "Name", expression: column(entity, "name") },

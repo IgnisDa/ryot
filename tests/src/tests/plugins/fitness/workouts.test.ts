@@ -124,11 +124,11 @@ describe("Workouts E2E", () => {
 				name: "All Workouts",
 				pluginSlug: fitnessPlugin.slug,
 				layouts: {
-					grid: { itemIdField: "itemId", titleField: "title", imageField: null },
-					list: { itemIdField: "itemId", titleField: "title", imageField: null },
+					grid: { entityIdField: "entityId", titleField: "title", imageField: null },
+					list: { entityIdField: "entityId", titleField: "title", imageField: null },
 					table: {
-						itemIdField: "itemId",
 						imageField: null,
+						entityIdField: "entityId",
 						columns: [
 							{ label: "Name", field: "column0" },
 							{ label: "Started At", field: "column1" },
@@ -139,7 +139,7 @@ describe("Workouts E2E", () => {
 			});
 			expect(
 				savedViewQuery.output.fields.map((selection) => "key" in selection && selection.key),
-			).toEqual(["itemId", "title", "overline", "primaryMetadata", "secondaryMetadata"]);
+			).toEqual(["entityId", "title", "overline", "primaryMetadata", "secondaryMetadata"]);
 		}),
 	);
 

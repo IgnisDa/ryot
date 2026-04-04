@@ -120,7 +120,7 @@ describe("Exercises E2E", () => {
 			expect(
 				savedViewQuery.output.fields.map((selection) => "key" in selection && selection.key),
 			).toEqual([
-				"itemId",
+				"entityId",
 				"title",
 				"image",
 				"overline",
@@ -129,11 +129,11 @@ describe("Exercises E2E", () => {
 				"secondaryMetadata",
 			]);
 			expect(allExercisesView.layouts).toMatchObject({
-				grid: { itemIdField: "itemId", titleField: "title", imageField: "image" },
-				list: { itemIdField: "itemId", titleField: "title", imageField: "image" },
+				grid: { entityIdField: "entityId", titleField: "title", imageField: "image" },
+				list: { entityIdField: "entityId", titleField: "title", imageField: "image" },
 				table: {
 					imageField: "image",
-					itemIdField: "itemId",
+					entityIdField: "entityId",
 					columns: [
 						{ label: "Name", field: "column0" },
 						{ label: "Level", field: "column1" },

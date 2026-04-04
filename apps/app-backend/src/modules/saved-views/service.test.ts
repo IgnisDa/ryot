@@ -30,9 +30,9 @@ const queryDocument = document({
 const cardLayout = {
 	queryDocument,
 	imageField: null,
-	itemIdField: "id",
 	titleField: "name",
 	calloutField: null,
+	entityIdField: "id",
 	overlineField: null,
 	primaryMetadataField: null,
 	secondaryMetadataField: null,
@@ -43,7 +43,7 @@ const layouts = {
 	table: {
 		queryDocument,
 		imageField: null,
-		itemIdField: "id",
+		entityIdField: "id",
 		columns: [{ label: "Name", field: "name" }],
 	},
 } satisfies SavedViewLayouts;
