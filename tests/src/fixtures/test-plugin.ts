@@ -1,6 +1,7 @@
 import { randomUUID } from "node:crypto";
 
 import type { ProviderInformation } from "@ryot/contract/modules/sandbox/schemas";
+import type { SandboxScriptId } from "@ryot/contract/schema/brands";
 import type { AppSchema } from "@ryot/contract/schema/property-schema";
 import { Effect } from "effect";
 
@@ -8,12 +9,12 @@ import { adminHeaders } from "./admin";
 import { getBackendClient } from "./contract-client";
 
 export type InstalledTestPlugin = {
+	slug: string;
 	active: boolean;
+	pluginSlug: string;
+	scriptId: SandboxScriptId;
 	files: Record<string, string>;
 	manifest: ReturnType<typeof testPluginManifest>;
-	pluginSlug: string;
-	slug: string;
-	scriptId: string;
 };
 
 const installedByScriptId = new Map<string, InstalledTestPlugin>();
@@ -32,6 +33,7 @@ export type TestPluginScript =
 
 export const testPluginManifest = (input: {
 	pluginSlug: string;
+	linkToEntitySchemaSlug?: string;
 	scripts?: ReadonlyArray<TestPluginScript & { entry: string }>;
 	entitySchemas?: ReadonlyArray<{
 		icon: string;
@@ -48,21 +50,20 @@ export const testPluginManifest = (input: {
 		sourceEntitySchemaSlug: string | null;
 		targetEntitySchemaSlug: string | null;
 	}>;
-	linkToEntitySchemaSlug?: string;
 }) => ({
+	savedViews: [],
+	signalSchemas: [],
+	scripts: input.scripts ?? [],
+	entitySchemas: input.entitySchemas ?? [],
+	relationshipSchemas: input.relationshipSchemas ?? [],
 	metadata: {
-		icon: "flask-conical",
-		name: "E2E Test Plugin",
-		slug: input.pluginSlug,
 		version: "1.0.0",
+		icon: "flask-conical",
+		slug: input.pluginSlug,
 		accentColor: "#64748b",
+		name: "E2E Test Plugin",
 		description: "Generic plugin fixture for end-to-end tests",
 	},
-	scripts: input.scripts ?? [],
-	savedViews: [],
-	entitySchemas: input.entitySchemas ?? [],
-	signalSchemas: [],
-	relationshipSchemas: input.relationshipSchemas ?? [],
 	bindings: {
 		eventAutomations: [],
 		entityAutomations: [],

@@ -43,12 +43,10 @@ const makeSandboxRepository = (overrides: MockOverrides<typeof mockSandboxReposi
 
 const fakeScript = {
 	id: scriptId,
-	userId: user.id,
-	isBuiltin: false,
 	compiledFormat: 1,
-	source: "// script",
-	compiledCode: "// compiled script",
+	isBuiltin: true as const,
 	metadata: { capabilities: [] },
+	compiledCode: "// compiled script",
 };
 
 const fakeEntitySchemaScope = {
@@ -140,7 +138,7 @@ it.effect("returns NotFound when the sandbox script is not found", () =>
 	}).pipe(
 		Effect.provide(
 			makeServiceLayer(
-				makeSandboxRepository({ getScriptForUser: () => Effect.succeed(null) }),
+				makeSandboxRepository({ getScript: () => Effect.succeed(null) }),
 				makeEntitiesRepository(),
 			),
 		),
@@ -159,7 +157,7 @@ it.effect("returns NotFound when the entity schema is not found", () =>
 	}).pipe(
 		Effect.provide(
 			makeServiceLayer(
-				makeSandboxRepository({ getScriptForUser: () => Effect.succeed(fakeScript) }),
+				makeSandboxRepository({ getScript: () => Effect.succeed(fakeScript) }),
 				makeEntitiesRepository({ getEntitySchemaScopeForUser: () => Effect.succeed(null) }),
 			),
 		),
@@ -175,7 +173,7 @@ it.effect("returns a jobId string on a successful import dispatch", () =>
 	}).pipe(
 		Effect.provide(
 			makeServiceLayer(
-				makeSandboxRepository({ getScriptForUser: () => Effect.succeed(fakeScript) }),
+				makeSandboxRepository({ getScript: () => Effect.succeed(fakeScript) }),
 				makeEntitiesRepository({
 					getEntitySchemaScopeForUser: () => Effect.succeed(fakeEntitySchemaScope),
 				}),

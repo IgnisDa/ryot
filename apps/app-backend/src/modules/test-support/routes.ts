@@ -13,19 +13,22 @@ export const TestSupportRoutesLive = HttpApiBuilder.group(AppContract, "testSupp
 				return yield* svc.getSandboxScript(path.scriptId);
 			}).pipe(dieOnDbError),
 		)
-		.handle("listSandboxScripts", ({ urlParams }) =>
+		.handle("listSandboxScripts", () =>
 			Effect.gen(function* () {
 				const svc = yield* TestSupportService;
-				return yield* svc.listSandboxScripts(urlParams.userId ?? null);
+				return yield* svc.listSandboxScripts();
 			}).pipe(dieOnDbError),
 		)
-		.handle("patchSandboxScript", ({ path, payload }) =>
+		.handle("enqueueSandbox", ({ payload }) =>
 			Effect.gen(function* () {
 				const svc = yield* TestSupportService;
-				return yield* svc.patchSandboxScript({
-					...payload,
-					scriptId: path.scriptId,
-				});
+				return yield* svc.enqueueSandbox(payload);
+			}).pipe(dieOnDbError),
+		)
+		.handle("getSandboxResult", ({ path, urlParams }) =>
+			Effect.gen(function* () {
+				const svc = yield* TestSupportService;
+				return yield* svc.getSandboxResult(urlParams.executingUserId, path.jobId);
 			}).pipe(dieOnDbError),
 		)
 		.handle("createGlobalEntity", ({ payload }) =>

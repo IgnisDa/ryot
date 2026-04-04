@@ -11,7 +11,7 @@ import {
 	UserId,
 } from "../../schema/brands";
 import { SubscriptionRunStatus } from "../automations/schemas";
-import { SandboxScriptMetadata } from "../sandbox/schemas";
+import { EnqueueSandboxBody, SandboxScriptMetadata } from "../sandbox/schemas";
 
 export const TestSupportStoredSandboxScript = Schema.Struct({
 	id: SandboxScriptId,
@@ -24,6 +24,13 @@ export const TestSupportStoredSandboxScript = Schema.Struct({
 });
 
 export type TestSupportStoredSandboxScript = typeof TestSupportStoredSandboxScript.Type;
+
+export const TestSupportEnqueueSandboxBody = Schema.Struct({
+	...EnqueueSandboxBody.fields,
+	executingUserId: UserId,
+});
+
+export type TestSupportEnqueueSandboxBody = typeof TestSupportEnqueueSandboxBody.Type;
 
 export const TestSupportGlobalRelationship = Schema.Struct({
 	id: RelationshipId,

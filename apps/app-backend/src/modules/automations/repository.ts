@@ -272,24 +272,12 @@ export class AutomationsRepository extends Effect.Service<AutomationsRepository>
 				const db = yield* CurrentDb;
 				const [row] = yield* dbEffect(() =>
 					db
-						.select({
-							userId: schema.sandboxScript.userId,
-							updatedAt: schema.sandboxScript.updatedAt,
-							pluginSlug: schema.sandboxScript.pluginSlug,
-							contentHash: schema.sandboxScript.contentHash,
-						})
+						.select({ updatedAt: schema.sandboxScript.updatedAt })
 						.from(schema.sandboxScript)
 						.where(eq(schema.sandboxScript.id, scriptId))
 						.limit(1),
 				);
-				return row
-					? {
-							updatedAt: row.updatedAt.toISOString(),
-							userId: row.userId ? UserId.make(row.userId) : null,
-							isBuiltin:
-								row.pluginSlug !== null || (row.userId === null && row.contentHash !== null),
-						}
-					: null;
+				return row ? { updatedAt: row.updatedAt.toISOString() } : null;
 			});
 
 			const insertRun = Effect.fn("AutomationsRepository.insertRun")(function* (

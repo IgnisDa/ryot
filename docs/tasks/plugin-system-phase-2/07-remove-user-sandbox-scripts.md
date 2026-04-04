@@ -4,7 +4,7 @@
 
 **Type:** AFK
 
-**Status:** todo
+**Status:** done
 
 ## Before you start
 
@@ -46,19 +46,19 @@ Full spec: plan §8. Do not restate or re-derive it.
 
 ## Acceptance criteria
 
-- [ ] The `sandbox` contract group exposes no script authoring/CRUD/compile surface; any
+- [x] The `sandbox` contract group exposes no script authoring/CRUD/compile surface; any
       retained endpoints are justified and recorded in the plan (done criterion 6)
-- [ ] Every script row is owned by an installed plugin or kernel source zero (`pluginSlug` is
+- [x] Every script row is owned by an installed plugin or kernel source zero (`pluginSlug` is
       nullable only for immutable, content-addressed source-zero rows; no `userId` column or
       per-user slug uniqueness); migration regenerated (done criterion 6)
-- [ ] Execution machinery, compiler service, `entity.sandboxScriptId` provenance, and
+- [x] Execution machinery, compiler service, `entity.sandboxScriptId` provenance, and
       per-executing-user cache isolation are unchanged (Decision 19)
-- [ ] Sandbox execution/limits/fault e2e coverage runs against plugin-installed scripts;
+- [x] Sandbox execution/limits/fault e2e coverage runs against plugin-installed scripts;
       authoring-CRUD coverage is deleted; no fixture uses the script-creation API (done
       criterion 6)
-- [ ] `apps/app-backend/AGENTS.md` and sandbox-runtime README no longer describe
+- [x] `apps/app-backend/AGENTS.md` and sandbox-runtime README no longer describe
       user-authored scripts (cross-phase invariant 7)
-- [ ] Backend `check` + unit tests, e2e suite, and `app-client` check pass (cross-phase
+- [x] Backend `check` + unit tests, e2e suite, and `app-client` check pass (cross-phase
       invariant 1)
 
 ## User stories addressed
