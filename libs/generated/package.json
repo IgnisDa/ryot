@@ -3,7 +3,7 @@
 	"scripts": {
 		"typecheck": "tsc",
 		"backend-graphql": "graphql-codegen --config src/graphql/backend/codegen.ts",
-		"app-backend-openapi": "openapi-typescript http://localhost:3000/api/openapi.json -o ./src/openapi/app-backend.d.ts"
+		"app-backend-openapi": "bun --bun openapi-typescript http://localhost:3000/api/openapi.json -o ./src/openapi/app-backend.d.ts"
 	},
 	"devDependencies": {
 		"@graphql-codegen/cli": "6.1.1",
