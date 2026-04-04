@@ -1,21 +1,6 @@
 import { describe, expect, it } from "bun:test";
+import { createEntityFixture } from "#/features/test-fixtures";
 import { getEntityDetailProperties } from "./detail";
-import type { AppEntity } from "./model";
-
-function createEntityFixture(overrides: Partial<AppEntity> = {}): AppEntity {
-	return {
-		image: null,
-		id: "entity-1",
-		properties: {},
-		externalId: null,
-		name: "Morning Run",
-		entitySchemaId: "schema-1",
-		detailsSandboxScriptId: null,
-		createdAt: new Date("2026-03-08T08:00:00.000Z"),
-		updatedAt: new Date("2026-03-08T08:30:00.000Z"),
-		...overrides,
-	};
-}
 
 describe("getEntityDetailProperties", () => {
 	it("formats primitive schema properties in schema order", () => {

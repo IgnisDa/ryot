@@ -1,5 +1,9 @@
 import { describe, expect, it } from "bun:test";
 import {
+	createPropertySchemaInputFixture,
+	createPropertySchemaRowFixture,
+} from "#/features/test-fixtures";
+import {
 	buildDefaultPropertySchemaRow,
 	buildPropertiesSchema,
 	buildPropertySchemaFormValues,
@@ -7,6 +11,9 @@ import {
 	isPropertySchemaRowsValid,
 	resolveNextPropertySchemaSlug,
 } from "./form";
+
+const input = createPropertySchemaInputFixture;
+const row = createPropertySchemaRowFixture;
 
 describe("buildDefaultPropertySchemaRow", () => {
 	it("returns an empty optional string property row", () => {
@@ -45,8 +52,8 @@ describe("isPropertySchemaRowsValid", () => {
 		).toBeFalse();
 		expect(
 			isPropertySchemaRowsValid([
-				{ key: "rating", type: "number", required: false },
-				{ key: " rating ", type: "integer", required: true },
+				input({ key: "rating", type: "number" }),
+				input({ key: " rating ", type: "integer", required: true }),
 			]),
 		).toBeFalse();
 	});
@@ -54,8 +61,8 @@ describe("isPropertySchemaRowsValid", () => {
 	it("accepts unique non-empty trimmed keys", () => {
 		expect(
 			isPropertySchemaRowsValid([
-				{ key: " rating ", type: "number", required: false },
-				{ key: "occurredOn", type: "date", required: true },
+				input({ key: " rating ", type: "number" }),
+				input({ key: "occurredOn", type: "date", required: true }),
 			]),
 		).toBeTrue();
 	});
@@ -67,8 +74,8 @@ describe("createPropertySchemaFormSchema", () => {
 			name: "Tasting",
 			slug: "tasting",
 			properties: [
-				{ id: "rating", key: "rating", type: "number", required: false },
-				{ id: "score", key: " rating ", type: "integer", required: true },
+				row({ id: "rating", key: "rating", type: "number" }),
+				row({ id: "score", key: " rating ", type: "integer", required: true }),
 			],
 		});
 
@@ -80,8 +87,8 @@ describe("buildPropertiesSchema", () => {
 	it("trims keys and only includes required when true", () => {
 		expect(
 			buildPropertiesSchema([
-				{ key: " occurredOn ", type: "date", required: true },
-				{ key: "notes", type: "string", required: false },
+				input({ key: " occurredOn ", type: "date", required: true }),
+				input({ key: "notes" }),
 			]),
 		).toEqual({
 			occurredOn: { type: "date", required: true },

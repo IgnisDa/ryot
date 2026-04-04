@@ -1,4 +1,8 @@
 import { describe, expect, it } from "bun:test";
+import {
+	createPropertySchemaInputFixture,
+	createPropertySchemaRowFixture,
+} from "#/features/test-fixtures";
 import { resolveNextPropertySchemaSlug } from "../property-schemas/form";
 import {
 	buildDefaultEventSchemaPropertyRow,
@@ -9,6 +13,9 @@ import {
 	isEventSchemaPropertyRowsValid,
 	toCreateEventSchemaPayload,
 } from "./form";
+
+const input = createPropertySchemaInputFixture;
+const row = createPropertySchemaRowFixture;
 
 describe("buildDefaultEventSchemaPropertyRow", () => {
 	it("returns an empty optional string property row", () => {
@@ -63,7 +70,7 @@ describe("buildEventSchemaFormValues", () => {
 
 	it("maps existing values into form defaults", () => {
 		const properties = [
-			{ key: "rating", type: "number" as const, required: true as const },
+			input({ key: "rating", type: "number", required: true }),
 		];
 		const inputRow = properties[0];
 
@@ -153,8 +160,8 @@ describe("isEventSchemaPropertyRowsValid", () => {
 	it("returns false when trimmed keys are duplicated", () => {
 		expect(
 			isEventSchemaPropertyRowsValid([
-				{ key: "rating", type: "number", required: false },
-				{ key: " rating ", type: "integer", required: true },
+				input({ key: "rating", type: "number" }),
+				input({ key: " rating ", type: "integer", required: true }),
 			]),
 		).toBeFalse();
 	});
@@ -162,8 +169,8 @@ describe("isEventSchemaPropertyRowsValid", () => {
 	it("returns true for unique non-empty trimmed keys", () => {
 		expect(
 			isEventSchemaPropertyRowsValid([
-				{ key: " rating ", type: "number", required: false },
-				{ key: "occurredOn", type: "date", required: true },
+				input({ key: " rating ", type: "number" }),
+				input({ key: "occurredOn", type: "date", required: true }),
 			]),
 		).toBeTrue();
 	});
@@ -174,9 +181,7 @@ describe("createEventSchemaFormSchema", () => {
 		const result = createEventSchemaFormSchema.safeParse({
 			name: "  \n\t ",
 			slug: "  \n\t ",
-			properties: [
-				{ id: "rating", key: "rating", type: "number", required: false },
-			],
+			properties: [row({ id: "rating", key: "rating", type: "number" })],
 		});
 
 		expect(result.success).toBeFalse();
@@ -196,9 +201,7 @@ describe("createEventSchemaFormSchema", () => {
 		const result = createEventSchemaFormSchema.safeParse({
 			name: "Tasting",
 			slug: "  \n\t ",
-			properties: [
-				{ id: "rating", key: "rating", type: "number", required: false },
-			],
+			properties: [row({ id: "rating", key: "rating", type: "number" })],
 		});
 
 		expect(result.success).toBeTrue();
@@ -226,8 +229,8 @@ describe("createEventSchemaFormSchema", () => {
 
 	it("rejects duplicate trimmed property keys", () => {
 		const properties = [
-			{ id: "rating", key: "rating", type: "number", required: false },
-			{ id: "score", key: " rating ", type: "integer", required: true },
+			row({ id: "rating", key: "rating", type: "number" }),
+			row({ id: "score", key: " rating ", type: "integer", required: true }),
 		] as const;
 		const result = createEventSchemaFormSchema.safeParse({
 			properties,
@@ -250,7 +253,7 @@ describe("createEventSchemaFormSchema", () => {
 
 	it("rejects a whitespace-only property key after trimming", () => {
 		const properties = [
-			{ id: "rating", key: " \n\t ", type: "number", required: false },
+			row({ id: "rating", key: " \n\t ", type: "number" }),
 		] as const;
 		const result = createEventSchemaFormSchema.safeParse({
 			properties,
@@ -276,13 +279,8 @@ describe("createEventSchemaFormSchema", () => {
 			name: "Tasting",
 			slug: "tasting",
 			properties: [
-				{ id: "rating", key: "rating", type: "number", required: true },
-				{
-					type: "date",
-					required: false,
-					id: "occurred-on",
-					key: "occurredOn",
-				},
+				row({ id: "rating", key: "rating", type: "number", required: true }),
+				row({ id: "occurred-on", key: "occurredOn", type: "date" }),
 			],
 		});
 
@@ -294,9 +292,9 @@ describe("buildEventSchemaPropertiesSchema", () => {
 	it("maps scalar property types and trims keys", () => {
 		expect(
 			buildEventSchemaPropertiesSchema([
-				{ key: "notes", type: "string", required: false },
-				{ key: " rating ", type: "number", required: false },
-				{ key: "isFavorite", type: "boolean", required: false },
+				input({ key: "notes" }),
+				input({ key: " rating ", type: "number" }),
+				input({ key: "isFavorite", type: "boolean" }),
 			]),
 		).toEqual({
 			notes: { type: "string" },
@@ -308,7 +306,7 @@ describe("buildEventSchemaPropertiesSchema", () => {
 	it("maps integer type correctly", () => {
 		expect(
 			buildEventSchemaPropertiesSchema([
-				{ key: "score", type: "integer", required: false },
+				input({ key: "score", type: "integer" }),
 			]),
 		).toEqual({ score: { type: "integer" } });
 	});
@@ -316,8 +314,8 @@ describe("buildEventSchemaPropertiesSchema", () => {
 	it("maps date rows and includes required flag when present", () => {
 		expect(
 			buildEventSchemaPropertiesSchema([
-				{ key: "occurredOn", type: "date", required: true },
-				{ key: "notes", type: "string", required: false },
+				input({ key: "occurredOn", type: "date", required: true }),
+				input({ key: "notes" }),
 			]),
 		).toEqual({
 			notes: { type: "string" },
@@ -333,9 +331,7 @@ describe("toCreateEventSchemaPayload", () => {
 				{
 					name: "  Tasting  ",
 					slug: "  \n\t ",
-					properties: [
-						{ id: "rating", key: "rating", type: "number", required: false },
-					],
+					properties: [row({ id: "rating", key: "rating", type: "number" })],
 				},
 				"entity-schema-123",
 			),
@@ -353,18 +349,13 @@ describe("toCreateEventSchemaPayload", () => {
 					slug: " tasting ",
 					name: "  Tasting  ",
 					properties: [
-						{
-							type: "date",
-							required: true,
+						row({
 							id: "occurred-on",
 							key: " occurredOn ",
-						},
-						{
-							id: "rating",
-							key: "rating",
-							type: "number",
-							required: false,
-						},
+							type: "date",
+							required: true,
+						}),
+						row({ id: "rating", key: "rating", type: "number" }),
 					],
 				},
 				"entity-schema-123",

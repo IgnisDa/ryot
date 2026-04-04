@@ -3,20 +3,19 @@ import { applyTrackerIsDisabledPatch, applyTrackerReorderPatch } from "./cache";
 import { createTrackerFixture } from "./test-fixtures";
 
 const f = createTrackerFixture;
-const tracker = (
-	id: string,
-	name: string,
-	slug: string,
-	sortOrder = 1,
-	isDisabled = false,
-) => f({ id, name, slug, isDisabled, sortOrder });
 
 describe("applyTrackerIsDisabledPatch", () => {
 	it("updates target tracker isDisabled status only", () => {
 		const trackers = [
-			tracker("1", "Media", "media"),
-			tracker("2", "People", "people", 2, true),
-			tracker("3", "Music", "music", 3),
+			f({ id: "1", name: "Media", slug: "media" }),
+			f({
+				id: "2",
+				name: "People",
+				slug: "people",
+				sortOrder: 2,
+				isDisabled: true,
+			}),
+			f({ id: "3", name: "Music", slug: "music", sortOrder: 3 }),
 		];
 
 		const result = applyTrackerIsDisabledPatch(trackers, "2", false);
@@ -29,8 +28,14 @@ describe("applyTrackerIsDisabledPatch", () => {
 
 	it("maintains immutability of input array", () => {
 		const trackers = [
-			tracker("1", "Media", "media"),
-			tracker("2", "People", "people", 2, true),
+			f({ id: "1", name: "Media", slug: "media" }),
+			f({
+				id: "2",
+				name: "People",
+				slug: "people",
+				sortOrder: 2,
+				isDisabled: true,
+			}),
 		];
 
 		const originalIsDisabled = trackers[0]?.isDisabled;
@@ -42,7 +47,7 @@ describe("applyTrackerIsDisabledPatch", () => {
 	});
 
 	it("maintains immutability of tracker objects", () => {
-		const trackers = [tracker("1", "Media", "media")];
+		const trackers = [f({ id: "1", name: "Media", slug: "media" })];
 
 		const result = applyTrackerIsDisabledPatch(trackers, "1", true);
 
@@ -53,9 +58,9 @@ describe("applyTrackerIsDisabledPatch", () => {
 describe("applyTrackerReorderPatch", () => {
 	it("applies requested order to trackers", () => {
 		const trackers = [
-			tracker("1", "Media", "media"),
-			tracker("2", "People", "people", 2),
-			tracker("3", "Music", "music", 3),
+			f({ id: "1", name: "Media", slug: "media" }),
+			f({ id: "2", name: "People", slug: "people", sortOrder: 2 }),
+			f({ id: "3", name: "Music", slug: "music", sortOrder: 3 }),
 		];
 
 		const result = applyTrackerReorderPatch(trackers, ["3", "1", "2"]);
@@ -67,9 +72,9 @@ describe("applyTrackerReorderPatch", () => {
 
 	it("reassigns sortOrder starting at 1", () => {
 		const trackers = [
-			tracker("1", "Media", "media", 10),
-			tracker("2", "People", "people", 20),
-			tracker("3", "Music", "music", 30),
+			f({ id: "1", name: "Media", slug: "media", sortOrder: 10 }),
+			f({ id: "2", name: "People", slug: "people", sortOrder: 20 }),
+			f({ id: "3", name: "Music", slug: "music", sortOrder: 30 }),
 		];
 
 		const result = applyTrackerReorderPatch(trackers, ["2", "3", "1"]);
@@ -81,8 +86,8 @@ describe("applyTrackerReorderPatch", () => {
 
 	it("ignores unknown ids safely", () => {
 		const trackers = [
-			tracker("1", "Media", "media"),
-			tracker("2", "People", "people", 2),
+			f({ id: "1", name: "Media", slug: "media" }),
+			f({ id: "2", name: "People", slug: "people", sortOrder: 2 }),
 		];
 
 		const result = applyTrackerReorderPatch(trackers, ["1", "999", "2"]);
@@ -94,10 +99,10 @@ describe("applyTrackerReorderPatch", () => {
 
 	it("appends unspecified trackers in prior relative order", () => {
 		const trackers = [
-			tracker("1", "Media", "media"),
-			tracker("2", "People", "people", 2),
-			tracker("3", "Music", "music", 3),
-			tracker("4", "Books", "books", 4),
+			f({ id: "1", name: "Media", slug: "media" }),
+			f({ id: "2", name: "People", slug: "people", sortOrder: 2 }),
+			f({ id: "3", name: "Music", slug: "music", sortOrder: 3 }),
+			f({ id: "4", name: "Books", slug: "books", sortOrder: 4 }),
 		];
 
 		const result = applyTrackerReorderPatch(trackers, ["3", "1"]);
@@ -110,8 +115,8 @@ describe("applyTrackerReorderPatch", () => {
 
 	it("maintains immutability of input array", () => {
 		const trackers = [
-			tracker("1", "Media", "media"),
-			tracker("2", "People", "people", 2),
+			f({ id: "1", name: "Media", slug: "media" }),
+			f({ id: "2", name: "People", slug: "people", sortOrder: 2 }),
 		];
 
 		const result = applyTrackerReorderPatch(trackers, ["2", "1"]);
@@ -123,8 +128,8 @@ describe("applyTrackerReorderPatch", () => {
 
 	it("maintains immutability of tracker objects", () => {
 		const trackers = [
-			tracker("1", "Media", "media"),
-			tracker("2", "People", "people", 2),
+			f({ id: "1", name: "Media", slug: "media" }),
+			f({ id: "2", name: "People", slug: "people", sortOrder: 2 }),
 		];
 
 		const result = applyTrackerReorderPatch(trackers, ["2", "1"]);
