@@ -1,4 +1,5 @@
 import { Box, Button, Group, Paper, Stack, Text } from "@mantine/core";
+import type { AppEntitySchema } from "#/features/entity-schemas/model";
 import {
 	buildDefaultPropertyPathRow,
 	buildDefaultTableColumnRow,
@@ -20,6 +21,7 @@ type TableColumnsField = {
 
 type TableConfigBuilderProps = {
 	isLoading: boolean;
+	schemas: AppEntitySchema[];
 	form: DisplayConfigBuilderFormLike;
 };
 
@@ -85,6 +87,7 @@ export function TableConfigBuilder(props: TableConfigBuilderProps) {
 
 										<PropertyArrayEditor
 											form={props.form}
+											schemas={props.schemas}
 											label="Column Properties"
 											isLoading={props.isLoading}
 											buttonLabel="Add column property"
