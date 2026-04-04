@@ -1,31 +1,25 @@
 import type { SandboxHost } from "@ryot/sandbox-sdk/core";
+import { Effect } from "@ryot/sandbox-sdk/effect";
 import { defineSandboxTestHost, runSandboxTestDriver } from "@ryot/sandbox-sdk/testing";
 import { describe, expect, it } from "vitest";
 
 import { details, manifest, search, translate } from "./tvdb.sandbox";
 
 type TvdbHost = SandboxHost<typeof manifest.capabilities>;
-
 const httpSuccess = (body: unknown) =>
-	Promise.resolve({
-		success: true as const,
-		data: {
-			status: 200,
-			headers: {},
-			body: typeof body === "string" ? body : JSON.stringify(body),
-		},
+	Effect.succeed({
+		status: 200,
+		headers: {},
+		body: typeof body === "string" ? body : JSON.stringify(body),
 	});
-
 const makeHost = (httpCall: TvdbHost["httpCall"]) =>
 	defineSandboxTestHost(manifest, {
 		httpCall,
-		getCachedValue: () => Promise.resolve({ success: true as const, data: "Bearer test-token" }),
-		setCachedValue: () => Promise.resolve({ success: true as const, data: null }),
-		getAppConfigValue: () => Promise.resolve({ success: true as const, data: "test-api-key" }),
+		getCachedValue: () => Effect.succeed("Bearer test-token"),
+		setCachedValue: () => Effect.succeed(null),
+		getAppConfigValue: () => Effect.succeed("test-api-key"),
 	});
-
 const execution = { metadata: {}, sandboxScriptId: "script_test" };
-
 describe("movie.tvdb sandbox script", () => {
 	it("maps only official lists, merges duplicate person roles, and preserves group order", () => {
 		const host = makeHost((_method, url) =>
@@ -49,79 +43,83 @@ describe("movie.tvdb sandbox script", () => {
 						},
 					}),
 		);
-
-		return runSandboxTestDriver(details, { externalId: "1" }, host, execution).then((result) => {
-			expect(result.relatedEntityGroups).toEqual([
-				{
-					direction: "incoming",
-					synchronization: "additive",
-					relationshipSchemaSlug: "person-to-movie",
-					entities: [
+		return Effect.runPromise(
+			runSandboxTestDriver(details, { externalId: "1" }, host, execution).pipe(
+				Effect.map((result) => {
+					expect(result.relatedEntityGroups).toEqual([
 						{
-							name: "Actor A",
-							externalId: "1",
-							scriptSlug: "person.tvdb",
-							relationshipProperties: { roles: ["Actor", "Director"] },
-						},
-					],
-				},
-				{
-					direction: "incoming",
-					synchronization: "additive",
-					relationshipSchemaSlug: "company-to-movie",
-					entities: [
-						{
-							name: "Studio X",
-							externalId: "5",
-							scriptSlug: "company.tvdb",
-							relationshipProperties: { roles: ["Studio"] },
-						},
-					],
-				},
-				{
-					direction: "incoming",
-					synchronization: "additive",
-					relationshipSchemaSlug: "movie-group-to-movie",
-					entities: [
-						{
-							externalId: "10",
-							name: "Official List",
-							scriptSlug: "movie-group.tvdb",
-							relationshipProperties: { roles: ["Member"] },
+							direction: "incoming",
+							synchronization: "additive",
+							relationshipSchemaSlug: "person-to-movie",
+							entities: [
+								{
+									name: "Actor A",
+									externalId: "1",
+									scriptSlug: "person.tvdb",
+									relationshipProperties: { roles: ["Actor", "Director"] },
+								},
+							],
 						},
 						{
-							externalId: "20",
-							name: "String Id List",
-							scriptSlug: "movie-group.tvdb",
-							relationshipProperties: { roles: ["Member"] },
+							direction: "incoming",
+							synchronization: "additive",
+							relationshipSchemaSlug: "company-to-movie",
+							entities: [
+								{
+									name: "Studio X",
+									externalId: "5",
+									scriptSlug: "company.tvdb",
+									relationshipProperties: { roles: ["Studio"] },
+								},
+							],
 						},
-					],
-				},
-			]);
-			expect(result.properties).toMatchObject({
-				unlinkedCreators: [{ name: "Unlinked Person", role: "Writer" }],
-			});
-			return undefined;
-		});
+						{
+							direction: "incoming",
+							synchronization: "additive",
+							relationshipSchemaSlug: "movie-group-to-movie",
+							entities: [
+								{
+									externalId: "10",
+									name: "Official List",
+									scriptSlug: "movie-group.tvdb",
+									relationshipProperties: { roles: ["Member"] },
+								},
+								{
+									externalId: "20",
+									name: "String Id List",
+									scriptSlug: "movie-group.tvdb",
+									relationshipProperties: { roles: ["Member"] },
+								},
+							],
+						},
+					]);
+					expect(result.properties).toMatchObject({
+						unlinkedCreators: [{ name: "Unlinked Person", role: "Writer" }],
+					});
+					return undefined;
+				}),
+			),
+		);
 	});
-
 	it("applies translation name and description over the base movie fields", () => {
 		const host = makeHost((_method, url) =>
 			url.includes("/translations/")
 				? httpSuccess({ data: { name: "Translated Name", overview: "Translated overview" } })
 				: httpSuccess({ data: { name: "Base Name", overview: "Base overview", year: "2020" } }),
 		);
-
-		return runSandboxTestDriver(details, { externalId: "1" }, host, execution).then((result) => {
-			expect(result.name).toBe("Translated Name");
-			expect(result.properties).toMatchObject({
-				publishYear: 2020,
-				description: "Translated overview",
-			});
-			return undefined;
-		});
+		return Effect.runPromise(
+			runSandboxTestDriver(details, { externalId: "1" }, host, execution).pipe(
+				Effect.map((result) => {
+					expect(result.name).toBe("Translated Name");
+					expect(result.properties).toMatchObject({
+						publishYear: 2020,
+						description: "Translated overview",
+					});
+					return undefined;
+				}),
+			),
+		);
 	});
-
 	it("falls back to the movie title key and firstAired year, and omits runtime and sourceUrl", () => {
 		const host = makeHost((_method, url) =>
 			url.includes("/translations/")
@@ -130,19 +128,21 @@ describe("movie.tvdb sandbox script", () => {
 						data: { averageRuntime: 0, title: "Only Title Key", firstAired: "2019-05-01" },
 					}),
 		);
-
-		return runSandboxTestDriver(details, { externalId: "1" }, host, execution).then((result) => {
-			expect(result.name).toBe("Only Title Key");
-			expect(result.properties).toMatchObject({
-				runtime: null,
-				sourceUrl: null,
-				publishYear: 2019,
-				description: null,
-			});
-			return undefined;
-		});
+		return Effect.runPromise(
+			runSandboxTestDriver(details, { externalId: "1" }, host, execution).pipe(
+				Effect.map((result) => {
+					expect(result.name).toBe("Only Title Key");
+					expect(result.properties).toMatchObject({
+						runtime: null,
+						sourceUrl: null,
+						publishYear: 2019,
+						description: null,
+					});
+					return undefined;
+				}),
+			),
+		);
 	});
-
 	it("deduplicates images across image, image_url, and artworks", () => {
 		const host = makeHost((_method, url) =>
 			url.includes("/translations/")
@@ -156,19 +156,21 @@ describe("movie.tvdb sandbox script", () => {
 						},
 					}),
 		);
-
-		return runSandboxTestDriver(details, { externalId: "1" }, host, execution).then((result) => {
-			expect(result.properties).toMatchObject({
-				images: [
-					{ type: "remote", url: "http://a" },
-					{ type: "remote", url: "http://b" },
-					{ type: "remote", url: "http://c" },
-				],
-			});
-			return undefined;
-		});
+		return Effect.runPromise(
+			runSandboxTestDriver(details, { externalId: "1" }, host, execution).pipe(
+				Effect.map((result) => {
+					expect(result.properties).toMatchObject({
+						images: [
+							{ type: "remote", url: "http://a" },
+							{ type: "remote", url: "http://b" },
+							{ type: "remote", url: "http://c" },
+						],
+					});
+					return undefined;
+				}),
+			),
+		);
 	});
-
 	it("translate uses the localized artwork from the extended payload", () => {
 		const host = makeHost((_method, url) =>
 			url.includes("/translations/")
@@ -182,42 +184,46 @@ describe("movie.tvdb sandbox script", () => {
 						},
 					}),
 		);
-
-		return runSandboxTestDriver(
-			translate,
-			{ externalId: "1", language: "es", entitySchemaSlug: "movie" },
-			host,
-			execution,
-		).then((result) => {
-			expect(result).toEqual({
-				name: "Nombre",
-				properties: {
-					description: "Descripción",
-					images: [{ type: "remote", url: "http://poster-es" }],
-				},
-			});
-			return undefined;
-		});
+		return Effect.runPromise(
+			runSandboxTestDriver(
+				translate,
+				{ externalId: "1", language: "es", entitySchemaSlug: "movie" },
+				host,
+				execution,
+			).pipe(
+				Effect.map((result) => {
+					expect(result).toEqual({
+						name: "Nombre",
+						properties: {
+							description: "Descripción",
+							images: [{ type: "remote", url: "http://poster-es" }],
+						},
+					});
+					return undefined;
+				}),
+			),
+		);
 	});
-
 	it("translate still returns the translation when the details fetch fails", () => {
 		const host = makeHost((_method, url) =>
 			url.includes("/extended")
-				? Promise.resolve({ success: false as const, error: "boom", data: { status: 500 } })
+				? Effect.fail(new Error("boom"))
 				: httpSuccess({ data: { name: "Nombre", overview: "Descripción" } }),
 		);
-
-		return runSandboxTestDriver(
-			translate,
-			{ externalId: "1", language: "es", entitySchemaSlug: "movie" },
-			host,
-			execution,
-		).then((result) => {
-			expect(result).toEqual({ name: "Nombre", properties: { description: "Descripción" } });
-			return undefined;
-		});
+		return Effect.runPromise(
+			runSandboxTestDriver(
+				translate,
+				{ externalId: "1", language: "es", entitySchemaSlug: "movie" },
+				host,
+				execution,
+			).pipe(
+				Effect.map((result) => {
+					expect(result).toEqual({ name: "Nombre", properties: { description: "Descripción" } });
+					return undefined;
+				}),
+			),
+		);
 	});
-
 	it("search maps items from tvdb_id with totalItems fallback and links.next", () => {
 		const host = makeHost(() =>
 			httpSuccess({
@@ -225,27 +231,30 @@ describe("movie.tvdb sandbox script", () => {
 				links: { next: "http://next", total_items: null },
 			}),
 		);
-
-		return runSandboxTestDriver(
-			search,
-			{ query: "batman", page: 1, pageSize: 20 },
-			host,
-			execution,
-		).then((result) => {
-			expect(result).toEqual({
-				items: [
-					{
-						externalId: "movie-1",
-						titleProperty: { kind: "text", value: "Batman" },
-						calloutProperty: { kind: "null", value: null },
-						imageProperty: { kind: "null", value: null },
-						primarySubtitleProperty: { kind: "null", value: null },
-						secondarySubtitleProperty: { kind: "null", value: null },
-					},
-				],
-				details: { totalItems: 1, nextPage: 2 },
-			});
-			return undefined;
-		});
+		return Effect.runPromise(
+			runSandboxTestDriver(
+				search,
+				{ query: "batman", page: 1, pageSize: 20 },
+				host,
+				execution,
+			).pipe(
+				Effect.map((result) => {
+					expect(result).toEqual({
+						items: [
+							{
+								externalId: "movie-1",
+								titleProperty: { kind: "text", value: "Batman" },
+								calloutProperty: { kind: "null", value: null },
+								imageProperty: { kind: "null", value: null },
+								primarySubtitleProperty: { kind: "null", value: null },
+								secondarySubtitleProperty: { kind: "null", value: null },
+							},
+						],
+						details: { totalItems: 1, nextPage: 2 },
+					});
+					return undefined;
+				}),
+			),
+		);
 	});
 });

@@ -1,5 +1,6 @@
 import type { SandboxHost } from "@ryot/sandbox-sdk/core";
 import dayjs from "@ryot/sandbox-sdk/dayjs";
+import { Effect } from "@ryot/sandbox-sdk/effect";
 
 import {
 	asRecord,
@@ -36,18 +37,16 @@ export const vndbPost = (
 	path: string,
 	body: Readonly<UnknownRecord>,
 	failureMessage: string,
-): Promise<unknown> =>
+): Effect.Effect<unknown, unknown> =>
 	host
 		.httpCall("POST", `${BASE_URL}/${path}`, {
 			headers: { Accept: "application/json", "Content-Type": "application/json" },
 			body: JSON.stringify(body),
 		})
-		.then((response) => {
-			if (!response.success) {
-				throw new Error(response.error || failureMessage);
-			}
-			return parseJsonResponse(response.data.body, "VNDB");
-		});
+		.pipe(
+			Effect.mapError((error) => new Error(error.message || failureMessage)),
+			Effect.map((response) => parseJsonResponse(response.body, "VNDB")),
+		);
 
 export const readResults = (payload: unknown) => {
 	const results = asRecord(payload)?.["results"];

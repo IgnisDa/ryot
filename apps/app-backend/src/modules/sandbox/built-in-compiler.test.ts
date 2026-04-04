@@ -4,6 +4,7 @@ import { Effect } from "effect";
 
 const entry = `
 import { defineManifest } from "@ryot/sandbox-sdk/core";
+import { Effect } from "@ryot/sandbox-sdk/effect";
 import { defineProvider, defineProviderDriver } from "@ryot/sandbox-sdk/provider";
 import { value } from "./helper";
 
@@ -16,7 +17,9 @@ export const manifest = defineManifest({
   providerInformation: { source: "builtin" },
 });
 
-const resolve = defineProviderDriver(manifest, "resolve", async () => ({ externalId: value }));
+const resolve = defineProviderDriver(manifest, "resolve", () =>
+  Effect.succeed({ externalId: value }),
+);
 
 export default defineProvider({ manifest, drivers: { resolve } });
 `;

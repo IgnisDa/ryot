@@ -1,5 +1,6 @@
 import type { SandboxHost } from "@ryot/sandbox-sdk/core";
-import { defineSandboxTestHost, runSandboxTestDriver } from "@ryot/sandbox-sdk/testing";
+import { Effect } from "@ryot/sandbox-sdk/effect";
+import { defineSandboxTestHost } from "@ryot/sandbox-sdk/testing";
 import { describe, expect, it, vi } from "vitest";
 
 import {
@@ -84,29 +85,30 @@ describe("radarr-push sandbox script", () => {
 			integrations: [radarrIntegration],
 			httpCall: createHttpCall(calls),
 		});
-		return runSandboxTestDriver(
-			definition.drivers.automation,
-			createAutomation({ entitySchemaSlug: "movie", entityId: "movie-1" }),
-			host,
-			execution,
-		).then(() => {
-			expect(calls).toHaveLength(1);
-			expect(calls[0]?.method).toBe("POST");
-			expect(calls[0]?.url).toBe("http://radarr.local/api/v3/movie");
-			expect(calls[0]?.options["headers"]).toEqual({
-				"X-Api-Key": "radarr-key",
-				"Content-Type": "application/json",
-			});
-			expect(JSON.parse(String(calls[0]?.options["body"]))).toEqual({
-				tmdbId: 603,
-				tags: [3, 7],
-				monitored: true,
-				qualityProfileId: 4,
-				rootFolderPath: "/movies",
-				addOptions: { searchForMovie: true },
-			});
-			return undefined;
-		});
+		return Effect.runPromise(
+			definition.drivers.automation
+				.run(createAutomation({ entitySchemaSlug: "movie", entityId: "movie-1" }), host, execution)
+				.pipe(
+					Effect.map(() => {
+						expect(calls).toHaveLength(1);
+						expect(calls[0]?.method).toBe("POST");
+						expect(calls[0]?.url).toBe("http://radarr.local/api/v3/movie");
+						expect(calls[0]?.options["headers"]).toEqual({
+							"X-Api-Key": "radarr-key",
+							"Content-Type": "application/json",
+						});
+						expect(JSON.parse(String(calls[0]?.options["body"]))).toEqual({
+							tmdbId: 603,
+							tags: [3, 7],
+							monitored: true,
+							qualityProfileId: 4,
+							rootFolderPath: "/movies",
+							addOptions: { searchForMovie: true },
+						});
+						return undefined;
+					}),
+				),
+		);
 	});
 
 	it("no-ops for non-movies, non-TMDB entities, and unmatched collections", () => {
@@ -124,32 +126,36 @@ describe("radarr-push sandbox script", () => {
 				baseUrl: "http://radarr.local",
 			},
 		});
-		return Promise.all([
-			runSandboxTestDriver(
-				definition.drivers.automation,
-				createAutomation({ entitySchemaSlug: "show", entityId: "show-1" }),
-				createHost({ ...base, entity: movieEntity }),
-				execution,
-			),
-			runSandboxTestDriver(
-				definition.drivers.automation,
-				createAutomation({ entitySchemaSlug: "movie", entityId: "movie-1" }),
-				createHost({
-					...base,
-					entity: entityRecord({ ...movieEntity, sandboxScriptId: "script-movie-tvdb" }),
+		return Effect.runPromise(
+			Effect.all(
+				[
+					definition.drivers.automation.run(
+						createAutomation({ entitySchemaSlug: "show", entityId: "show-1" }),
+						createHost({ ...base, entity: movieEntity }),
+						execution,
+					),
+					definition.drivers.automation.run(
+						createAutomation({ entitySchemaSlug: "movie", entityId: "movie-1" }),
+						createHost({
+							...base,
+							entity: entityRecord({ ...movieEntity, sandboxScriptId: "script-movie-tvdb" }),
+						}),
+						execution,
+					),
+					definition.drivers.automation.run(
+						createAutomation({ entitySchemaSlug: "movie", entityId: "movie-1" }),
+						createHost({ entity: movieEntity, httpCall, integrations: [unmatched] }),
+						execution,
+					),
+				],
+				{ concurrency: "unbounded" },
+			).pipe(
+				Effect.map(() => {
+					expect(calls).toHaveLength(0);
+					return undefined;
 				}),
-				execution,
 			),
-			runSandboxTestDriver(
-				definition.drivers.automation,
-				createAutomation({ entitySchemaSlug: "movie", entityId: "movie-1" }),
-				createHost({ entity: movieEntity, httpCall, integrations: [unmatched] }),
-				execution,
-			),
-		]).then(() => {
-			expect(calls).toHaveLength(0);
-			return undefined;
-		});
+		);
 	});
 
 	it("honors the user's disabled-integration preference", () => {
@@ -160,15 +166,16 @@ describe("radarr-push sandbox script", () => {
 			integrations: [radarrIntegration],
 			httpCall: createHttpCall(calls),
 		});
-		return runSandboxTestDriver(
-			definition.drivers.automation,
-			createAutomation({ entitySchemaSlug: "movie", entityId: "movie-1" }),
-			host,
-			execution,
-		).then(() => {
-			expect(calls).toHaveLength(0);
-			return undefined;
-		});
+		return Effect.runPromise(
+			definition.drivers.automation
+				.run(createAutomation({ entitySchemaSlug: "movie", entityId: "movie-1" }), host, execution)
+				.pipe(
+					Effect.map(() => {
+						expect(calls).toHaveLength(0);
+						return undefined;
+					}),
+				),
+		);
 	});
 
 	it("treats an expected Radarr HTTP failure as non-fatal", () => {
@@ -178,16 +185,17 @@ describe("radarr-push sandbox script", () => {
 			integrations: [radarrIntegration],
 			httpCall: () => httpFailure("already exists", 409),
 		});
-		return runSandboxTestDriver(
-			definition.drivers.automation,
-			createAutomation({ entitySchemaSlug: "movie", entityId: "movie-1" }),
-			host,
-			execution,
-		).then((result) => {
-			expect(result).toBeNull();
-			expect(warning).toHaveBeenCalledWith("Radarr push failed: already exists");
-			warning.mockRestore();
-			return undefined;
-		});
+		return Effect.runPromise(
+			definition.drivers.automation
+				.run(createAutomation({ entitySchemaSlug: "movie", entityId: "movie-1" }), host, execution)
+				.pipe(
+					Effect.map((result) => {
+						expect(result).toBeNull();
+						expect(warning).toHaveBeenCalledWith("Radarr push failed: already exists");
+						warning.mockRestore();
+						return undefined;
+					}),
+				),
+		);
 	});
 });

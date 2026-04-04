@@ -90,7 +90,7 @@ afterAll(() => {
 
 const source = `
 import { defineDriver, defineManifest, defineScript } from "@ryot/sandbox-sdk/core";
-import * as z from "@ryot/sandbox-sdk/zod";
+import { Effect, Schema } from "@ryot/sandbox-sdk/effect";
 
 export const manifest = defineManifest({
   kind: "script",
@@ -101,21 +101,21 @@ export const manifest = defineManifest({
 });
 
 const main = defineDriver(manifest, {
-  input: z.object({ value: z.number() }),
-  output: z.number(),
-  run: async (input) => input.value,
+  input: Schema.Struct({ value: Schema.Number }),
+  output: Schema.Number,
+  run: (input) => Effect.succeed(input.value),
 });
 
 const invalidOutput = defineDriver(manifest, {
-  input: z.object({}),
-  output: z.number(),
-  run: async () => "wrong" as never,
+  input: Schema.Struct({}),
+  output: Schema.Number,
+  run: () => Effect.succeed("wrong" as never),
 });
 
 const codeGeneration = defineDriver(manifest, {
-  input: z.object({}),
-  output: z.null(),
-  run: async () => {
+  input: Schema.Struct({}),
+  output: Schema.Null,
+  run: () => Effect.sync(() => {
     const functionConstructor = (() => {}).constructor;
     const asyncFunctionConstructor = Object.getPrototypeOf(async function () {}).constructor;
     if (
@@ -129,70 +129,70 @@ const codeGeneration = defineDriver(manifest, {
       throw new Error("String code generation is available");
     }
     return null;
-  },
+  }),
 });
 
 const throwing = defineDriver(manifest, {
-  input: z.object({}),
-  output: z.null(),
-  run: async () => {
+  input: Schema.Struct({}),
+  output: Schema.Null,
+  run: () => Effect.sync(() => {
     throw new Error("mapped execution failure execution-1");
-  },
+  }),
 });
 
 const oversizedOutput = defineDriver(manifest, {
-  input: z.object({}),
-  output: z.string(),
-  run: async () => "x".repeat(${SANDBOX_LIMITS.execution.resultBytes + 1}),
+  input: Schema.Struct({}),
+  output: Schema.String,
+  run: () => Effect.succeed("x".repeat(${SANDBOX_LIMITS.execution.resultBytes + 1})),
 });
 
 const oversizedLogEntry = defineDriver(manifest, {
-  input: z.object({}),
-  output: z.null(),
-  run: async () => {
+  input: Schema.Struct({}),
+  output: Schema.Null,
+  run: () => Effect.sync(() => {
     console.log("🙂".repeat(${Math.floor(SANDBOX_LIMITS.logs.entryBytes / 4) + 1}));
     console.log("ignored");
     return null;
-  },
+  }),
 });
 
 const excessiveLogCount = defineDriver(manifest, {
-  input: z.object({}),
-  output: z.null(),
-  run: async () => {
+  input: Schema.Struct({}),
+  output: Schema.Null,
+  run: () => Effect.sync(() => {
     for (let index = 0; index < ${SANDBOX_LIMITS.logs.entryCount}; index += 1) {
       console.log(index);
     }
     return null;
-  },
+  }),
 });
 
 const excessiveLogBytes = defineDriver(manifest, {
-  input: z.object({}),
-  output: z.null(),
-  run: async () => {
+  input: Schema.Struct({}),
+  output: Schema.Null,
+  run: () => Effect.sync(() => {
     for (let index = 0; index < 40; index += 1) {
       console.log("x".repeat(${SANDBOX_LIMITS.logs.entryBytes}));
     }
     return null;
-  },
+  }),
 });
 
 const mutatedIntrinsics = defineDriver(manifest, {
-  input: z.object({}),
-  output: z.string(),
-  run: async () => {
+  input: Schema.Struct({}),
+  output: Schema.String,
+  run: () => Effect.sync(() => {
     Reflect.set(JSON, "stringify", () => '"bypassed"');
     Reflect.set(TextEncoder.prototype, "encode", () => new Uint8Array());
     console.log("x".repeat(${SANDBOX_LIMITS.logs.entryBytes + 1}));
     return "x".repeat(${SANDBOX_LIMITS.execution.resultBytes + 1});
-  },
+  }),
 });
 
 const unstableSerialization = defineDriver(manifest, {
-  input: z.object({}),
-  output: z.any(),
-  run: async () => {
+  input: Schema.Struct({}),
+  output: Schema.Unknown,
+  run: () => Effect.sync(() => {
     let calls = 0;
     return {
       toJSON: () => {
@@ -200,7 +200,7 @@ const unstableSerialization = defineDriver(manifest, {
         return calls === 1 ? "serialized-once" : "x".repeat(${SANDBOX_LIMITS.execution.resultBytes + 1});
       },
     };
-  },
+  }),
 });
 
 export default defineScript({
@@ -228,10 +228,9 @@ import {
   defineScript,
   httpCallResponseSchema,
   jsonValueSchema,
-  unwrapHostResult,
   userPreferencesSchema,
 } from "@ryot/sandbox-sdk/core";
-import * as z from "@ryot/sandbox-sdk/zod";
+import { Effect, Schema } from "@ryot/sandbox-sdk/effect";
 
 export const manifest = defineManifest({
   kind: "script",
@@ -249,34 +248,32 @@ export const manifest = defineManifest({
 });
 
 const main = defineDriver(manifest, {
-  input: z.object({ write: z.boolean() }),
-  output: z.object({
-    after: jsonValueSchema.nullable(),
-    before: jsonValueSchema.nullable(),
+  input: Schema.Struct({ write: Schema.Boolean }),
+  output: Schema.Struct({
+    after: Schema.NullOr(jsonValueSchema),
+    before: Schema.NullOr(jsonValueSchema),
     claim: cacheClaimSchema,
     config: jsonValueSchema,
     http: httpCallResponseSchema,
     preferences: userPreferencesSchema,
   }),
-  run: async (input, host, execution) => {
-    const before = unwrapHostResult(await host.getCachedValue("shared"));
+  run: (input, host, execution) => Effect.gen(function* () {
+    const before = yield* host.getCachedValue("shared");
     if (input.write) {
-      unwrapHostResult(await host.setCachedValue("shared", { value: 42 }, 60));
+      yield* host.setCachedValue("shared", { value: 42 }, 60);
     }
-    const after = unwrapHostResult(await host.getCachedValue("shared"));
-    const claim = unwrapHostResult(
-      await host.claimCachedValue("persistent", { owner: execution.sandboxScriptId }, 60),
+    const after = yield* host.getCachedValue("shared");
+    const claim = yield* host.claimCachedValue(
+      "persistent", { owner: execution.sandboxScriptId }, 60,
     );
-    const http = unwrapHostResult(
-      await host.httpCall("POST", "https://example.com/core", {
+    const http = yield* host.httpCall("POST", "https://example.com/core", {
         body: "payload",
         headers: { Accept: "application/json" },
-      }),
-    );
-    const config = unwrapHostResult(await host.getAppConfigValue("timezone"));
-    const preferences = unwrapHostResult(await host.getUserPreferences());
+      });
+    const config = yield* host.getAppConfigValue("timezone");
+    const preferences = yield* host.getUserPreferences();
     return { after, before, claim, config, http, preferences };
-  },
+  }),
 });
 
 export default defineScript({ manifest, drivers: { main } });
@@ -289,7 +286,7 @@ import {
   defineScript,
   jsonValueSchema,
 } from "@ryot/sandbox-sdk/core";
-import * as z from "@ryot/sandbox-sdk/zod";
+import { Effect, Schema } from "@ryot/sandbox-sdk/effect";
 
 export const manifest = defineManifest({
   kind: "script",
@@ -310,15 +307,15 @@ globalThis.encodeURIComponent = (value) =>
   value === "getCachedValue" ? "getAppConfigValue" : nativeEncodeComponent(value);
 
 const main = defineDriver(manifest, {
-  input: z.object({}),
-  output: z.object({ keys: z.array(z.string()), value: jsonValueSchema.nullable() }),
-  run: async (_input, host) => {
-    const result = await host.getCachedValue("redirect-check");
+  input: Schema.Struct({}),
+  output: Schema.Struct({ keys: Schema.Array(Schema.String), value: Schema.NullOr(jsonValueSchema) }),
+  run: (_input, host) => Effect.gen(function* () {
+    const value = yield* host.getCachedValue("redirect-check");
     return {
       keys: Object.keys(host).sort(),
-      value: result.success ? result.data : null,
+      value,
     };
-  },
+  }),
 });
 
 export default defineScript({ manifest, drivers: { main } });
@@ -326,7 +323,7 @@ export default defineScript({ manifest, drivers: { main } });
 
 const hostBudgetSource = `
 import { defineDriver, defineManifest, defineScript } from "@ryot/sandbox-sdk/core";
-import * as z from "@ryot/sandbox-sdk/zod";
+import { Effect, Schema } from "@ryot/sandbox-sdk/effect";
 
 export const manifest = defineManifest({
   kind: "script",
@@ -337,27 +334,27 @@ export const manifest = defineManifest({
 });
 
 const hostCalls = defineDriver(manifest, {
-  input: z.object({}),
-  output: z.unknown(),
-  run: async (_input, host) => {
+  input: Schema.Struct({}),
+  output: Schema.Unknown,
+  run: (_input, host) => Effect.gen(function* () {
     let result: unknown = null;
     for (let index = 0; index <= ${SANDBOX_LIMITS.hostCalls.total}; index += 1) {
-      result = await host.getCachedValue("budget");
+      result = yield* host.getCachedValue("budget");
     }
     return result;
-  },
+  }),
 });
 
 const httpCalls = defineDriver(manifest, {
-  input: z.object({}),
-  output: z.unknown(),
-  run: async (_input, host) => {
+  input: Schema.Struct({}),
+  output: Schema.Unknown,
+  run: (_input, host) => Effect.gen(function* () {
     let result: unknown = null;
     for (let index = 0; index <= ${SANDBOX_LIMITS.hostCalls.http}; index += 1) {
-      result = await host.httpCall("GET", "https://example.com/budget");
+      result = yield* host.httpCall("GET", "https://example.com/budget");
     }
     return result;
-  },
+  }),
 });
 
 export default defineScript({ manifest, drivers: { hostCalls, httpCalls } });
@@ -374,9 +371,8 @@ import {
   eventRecordSchema,
   eventSchemaRecordSchema,
   integrationRecordSchema,
-  unwrapHostResult,
 } from "@ryot/sandbox-sdk/core";
-import * as z from "@ryot/sandbox-sdk/zod";
+import { Effect, Schema } from "@ryot/sandbox-sdk/effect";
 
 export const manifest = defineManifest({
   kind: "script",
@@ -395,31 +391,29 @@ export const manifest = defineManifest({
 });
 
 const main = defineDriver(manifest, {
-  input: z.object({}),
-  output: z.object({
-    queryRows: z.number(),
-    missing: z.string(),
+  input: Schema.Struct({}),
+  output: Schema.Struct({
+    queryRows: Schema.Number,
+    missing: Schema.String,
     created: createEventsResultDataSchema,
     entity: entityRecordSchema,
     integration: integrationRecordSchema,
-    events: z.array(eventRecordSchema),
+    events: Schema.Array(eventRecordSchema),
     entitySchema: entitySchemaRecordSchema,
-    eventSchemas: z.array(eventSchemaRecordSchema),
+    eventSchemas: Schema.Array(eventSchemaRecordSchema),
   }),
-  run: async (_input, host) => {
-    const entity = unwrapHostResult(await host.getEntity("entity-1"));
-    const missingResult = await host.getEntity("missing");
-    const integration = unwrapHostResult(await host.getIntegration("integration-1"));
-    const events = unwrapHostResult(await host.listEvents({ entityId: "entity-1" }));
-    const entitySchema = unwrapHostResult(await host.getEntitySchema("movie"));
-    const eventSchemas = unwrapHostResult(await host.listEventSchemas("movie"));
-    const created = unwrapHostResult(
-      await host.createEvents([
+  run: (_input, host) => Effect.gen(function* () {
+    const entity = yield* host.getEntity("entity-1");
+    const missingResult = yield* Effect.either(host.getEntity("missing"));
+    const integration = yield* host.getIntegration("integration-1");
+    const events = yield* host.listEvents({ entityId: "entity-1" });
+    const entitySchema = yield* host.getEntitySchema("movie");
+    const eventSchemas = yield* host.listEventSchemas("movie");
+    const created = yield* host.createEvents([
         { entityId: "entity-1", eventSchemaSlug: "event-schema-1", properties: { watched: true } },
-      ]),
-    );
-    const query = unwrapHostResult(await host.executeQueryEngine({ source: { type: "entities" } }));
-    const rows = z.array(z.object({ id: z.string() })).parse(query);
+      ]);
+    const query = yield* host.executeQueryEngine({ source: { type: "entities" } });
+    const rows = yield* Schema.decodeUnknown(Schema.Array(Schema.Struct({ id: Schema.String })))(query);
     return {
       entity,
       created,
@@ -428,9 +422,9 @@ const main = defineDriver(manifest, {
       events: [...events],
       queryRows: rows.length,
       eventSchemas: [...eventSchemas],
-      missing: missingResult.success ? "unexpected" : missingResult.error,
+      missing: missingResult._tag === "Left" ? missingResult.left.message : "unexpected",
     };
-  },
+  }),
 });
 
 export default defineScript({ manifest, drivers: { main } });
@@ -439,7 +433,7 @@ export default defineScript({ manifest, drivers: { main } });
 const dependencySource = (name: string, sdkImport: string) => `
 import "${sdkImport}";
 import { defineDriver, defineManifest, defineScript } from "@ryot/sandbox-sdk/core";
-import * as z from "@ryot/sandbox-sdk/zod";
+import { Effect, Schema } from "@ryot/sandbox-sdk/effect";
 
 export const manifest = defineManifest({
   kind: "script",
@@ -450,9 +444,9 @@ export const manifest = defineManifest({
 });
 
 const main = defineDriver(manifest, {
-  input: z.object({}),
-  output: z.null(),
-  run: async () => null,
+  input: Schema.Struct({}),
+  output: Schema.Null,
+  run: () => Effect.succeed(null),
 });
 
 export default defineScript({ manifest, drivers: { main } });
@@ -460,7 +454,7 @@ export default defineScript({ manifest, drivers: { main } });
 
 const generatedNpmImportSource = `
 import { defineDriver, defineManifest, defineScript } from "@ryot/sandbox-sdk/core";
-import * as z from "@ryot/sandbox-sdk/zod";
+import { Effect, Schema } from "@ryot/sandbox-sdk/effect";
 
 export const manifest = defineManifest({
   kind: "script",
@@ -471,13 +465,13 @@ export const manifest = defineManifest({
 });
 
 const main = defineDriver(manifest, {
-  input: z.object({}),
-  output: z.null(),
-  run: async () => {
+  input: Schema.Struct({}),
+  output: Schema.Null,
+  run: () => Effect.promise(async () => {
     const load = Function('return im' + 'port("npm:zod")');
     await load();
     return null;
-  },
+  }),
 });
 
 export default defineScript({ manifest, drivers: { main } });
@@ -579,6 +573,7 @@ const startCoreHostBridge = (
 	options: {
 		readonly appConfigValue?: unknown;
 		readonly httpResponse?: (url: string) => unknown;
+		readonly getCachedValueResult?: unknown;
 	} = {},
 ) =>
 	Effect.gen(function* () {
@@ -609,7 +604,7 @@ const startCoreHostBridge = (
 
 						let result: unknown;
 						if (fnName === "getCachedValue") {
-							result = {
+							result = options.getCachedValueResult ?? {
 								data: runCache.has(key) ? runCache.get(key) : null,
 								success: true,
 							};
@@ -686,6 +681,42 @@ it("loads compiled ESM in Deno and validates driver input and output", () =>
 			expect(Reflect.get(invalidOutput, "error")).toMatchObject({
 				phase: "output",
 				message: expect.stringContaining("Driver output validation failed"),
+			});
+
+			const promiseManifest = {
+				kind: "script",
+				name: "Promise driver rejection",
+				slug: "promise-driver-rejection",
+				capabilities: [],
+				requiredAppConfigKeys: [],
+			} as const;
+			const promiseManifestSource = yield* Schema.encode(Schema.parseJson(Schema.Unknown))(
+				promiseManifest,
+			);
+			const promiseOutput = yield* runInDeno(
+				{
+					format: 1,
+					manifest: promiseManifest,
+					javascript: `import { Schema } from "@ryot/sandbox-sdk/effect";
+export default {
+  definitionType: "ryot:sandbox-script",
+  manifest: ${promiseManifestSource},
+  drivers: {
+    promiseOutput: {
+      input: Schema.Struct({}),
+      output: Schema.Boolean,
+      run: () => Promise.resolve(true),
+    },
+  },
+};`,
+				},
+				"promiseOutput",
+				{},
+			);
+			assert(promiseOutput !== null && typeof promiseOutput === "object");
+			expect(Reflect.get(promiseOutput, "error")).toEqual({
+				phase: "execute",
+				message: "Sandbox driver must return an Effect",
 			});
 
 			const codeGeneration = yield* runInDeno(compiled, "codeGeneration", {});
@@ -903,10 +934,7 @@ it("executes typed core host methods and filters the Deno host to declared capab
 					filtered,
 					"main",
 					{},
-					{
-						apiBase,
-						apiFunctions: ["getCachedValue", "setCachedValue", "getAppConfigValue"],
-					},
+					{ apiBase, apiFunctions: ["getCachedValue", "setCachedValue", "getAppConfigValue"] },
 				);
 				assert(filteredResult !== null && typeof filteredResult === "object");
 				expect(Reflect.get(filteredResult, "value")).toEqual({
@@ -915,6 +943,33 @@ it("executes typed core host methods and filters the Deno host to declared capab
 				});
 
 				expect(new Set(bridge.calls.map((call) => call.fnName))).toEqual(new Set(apiFunctions));
+			}).pipe(Effect.provide(SandboxCompiler.Default)),
+		),
+	));
+
+it("rejects malformed private host wire responses", () =>
+	Effect.runPromise(
+		Effect.scoped(
+			Effect.gen(function* () {
+				const bridge = yield* startCoreHostBridge({
+					getCachedValueResult: { success: true },
+				});
+				const compiler = yield* SandboxCompiler;
+				const compiled = yield* compiler.compile(filteredHostSource);
+				const result = yield* runInDeno(
+					compiled,
+					"main",
+					{},
+					{
+						apiBase: `http://127.0.0.1:${bridge.port}`,
+						apiFunctions: compiled.manifest.capabilities,
+					},
+				);
+				assert(result !== null && typeof result === "object");
+				expect(Reflect.get(result, "error")).toMatchObject({
+					phase: "execute",
+					message: expect.stringContaining("is missing"),
+				});
 			}).pipe(Effect.provide(SandboxCompiler.Default)),
 		),
 	));
@@ -2278,9 +2333,9 @@ it("counts failed host-call attempts against total and HTTP budgets", () =>
 
 				const hostResult = yield* runInDeno(compiled, "hostCalls", {}, options);
 				assert(hostResult !== null && typeof hostResult === "object");
-				expect(Reflect.get(hostResult, "value")).toEqual({
-					success: false,
-					error: `Sandbox execution exceeds ${SANDBOX_LIMITS.hostCalls.total} host calls`,
+				expect(Reflect.get(hostResult, "error")).toEqual({
+					phase: "execute",
+					message: `Sandbox execution exceeds ${SANDBOX_LIMITS.hostCalls.total} host calls`,
 				});
 				expect(bridge.calls.filter((call) => call.fnName === "getCachedValue")).toHaveLength(
 					SANDBOX_LIMITS.hostCalls.total,
@@ -2288,9 +2343,9 @@ it("counts failed host-call attempts against total and HTTP budgets", () =>
 
 				const httpResult = yield* runInDeno(compiled, "httpCalls", {}, options);
 				assert(httpResult !== null && typeof httpResult === "object");
-				expect(Reflect.get(httpResult, "value")).toEqual({
-					success: false,
-					error: `Sandbox execution exceeds ${SANDBOX_LIMITS.hostCalls.http} httpCall calls`,
+				expect(Reflect.get(httpResult, "error")).toEqual({
+					phase: "execute",
+					message: `Sandbox execution exceeds ${SANDBOX_LIMITS.hostCalls.http} httpCall calls`,
 				});
 				expect(bridge.calls.filter((call) => call.fnName === "httpCall")).toHaveLength(
 					SANDBOX_LIMITS.hostCalls.http,

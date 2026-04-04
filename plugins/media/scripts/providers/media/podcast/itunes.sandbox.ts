@@ -1,5 +1,6 @@
 import { defineManifest, type SandboxHost } from "@ryot/sandbox-sdk/core";
 import dayjs from "@ryot/sandbox-sdk/dayjs";
+import { Effect } from "@ryot/sandbox-sdk/effect";
 import { defineProvider, defineProviderDriver } from "@ryot/sandbox-sdk/provider";
 
 import { trimmedString } from "../../../script-helpers/records";
@@ -12,41 +13,31 @@ export const manifest = defineManifest({
 	requiredAppConfigKeys: [],
 	providerInformation: { source: "itunes", canonicalLanguage: "en" },
 });
-
 type ItunesHost = SandboxHost<typeof manifest.capabilities>;
-
 type UnknownRecord = Record<string, unknown>;
-
 const isRecord = (value: unknown): value is UnknownRecord =>
 	value !== null && typeof value === "object" && !Array.isArray(value);
-
 const asRecord = (value: unknown): UnknownRecord | null => (isRecord(value) ? value : null);
-
 const idString = (value: unknown) => {
 	if (typeof value === "number" && Number.isFinite(value)) {
 		return String(value);
 	}
 	return typeof value === "string" ? value.trim() : "";
 };
-
 const stringValue = (value: unknown) => {
 	const parsed = trimmedString(value);
 	return parsed.length > 0 ? parsed : null;
 };
-
 const truncInt = (value: unknown) =>
 	typeof value === "number" && Number.isFinite(value) ? Math.trunc(value) : null;
-
 const positiveInt = (value: unknown) => {
 	const parsed = truncInt(value);
 	return parsed !== null && parsed > 0 ? parsed : null;
 };
-
 const resultsArray = (payload: unknown) => {
 	const results = asRecord(payload)?.["results"];
 	return Array.isArray(results) ? results : [];
 };
-
 const ITUNES_LANGUAGE_MAP: Record<string, string> = {
 	en: "en_us",
 	es: "es_es",
@@ -60,12 +51,10 @@ const ITUNES_LANGUAGE_MAP: Record<string, string> = {
 	ru: "ru_ru",
 	nl: "nl_nl",
 };
-
 const bcp47ToItunes = (language: string) => {
 	const base = language.trim().toLowerCase().split("-")[0] ?? "";
 	return ITUNES_LANGUAGE_MAP[base] ?? base;
 };
-
 const getPublishYear = (value: unknown) => {
 	const parsed = stringValue(value);
 	if (!parsed) {
@@ -74,7 +63,6 @@ const getPublishYear = (value: unknown) => {
 	const parsedDate = dayjs(parsed);
 	return parsedDate.isValid() ? Number(parsedDate.toISOString().slice(0, 4)) : null;
 };
-
 const getIsoDate = (value: unknown) => {
 	const parsed = stringValue(value);
 	if (!parsed) {
@@ -83,7 +71,6 @@ const getIsoDate = (value: unknown) => {
 	const parsedDate = dayjs(parsed);
 	return parsedDate.isValid() ? parsedDate.toISOString().slice(0, 10) : null;
 };
-
 const collectImages = (item: UnknownRecord) => {
 	const images: string[] = [];
 	for (const key of ["artworkUrl600", "artworkUrl100", "artworkUrl60", "artworkUrl30"]) {
@@ -94,7 +81,6 @@ const collectImages = (item: UnknownRecord) => {
 	}
 	return images;
 };
-
 const collectGenres = (item: UnknownRecord) => {
 	const genres = Array.isArray(item["genres"]) ? item["genres"] : [];
 	const values = new Set<string>();
@@ -113,12 +99,10 @@ const collectGenres = (item: UnknownRecord) => {
 	}
 	return [...values];
 };
-
 const buildSourceUrl = (externalId: string, title: string) => {
 	const slug = encodeURIComponent(title.toLowerCase().replace(/\s+/g, "-"));
 	return `https://podcasts.apple.com/us/podcast/${slug}/id${externalId}`;
 };
-
 const parseJsonResponse = (responseBody: string): unknown => {
 	try {
 		return JSON.parse(responseBody);
@@ -126,7 +110,6 @@ const parseJsonResponse = (responseBody: string): unknown => {
 		throw new Error("iTunes returned invalid JSON");
 	}
 };
-
 const itunesGet = (
 	host: ItunesHost,
 	endpoint: "lookup" | "search",
@@ -134,19 +117,18 @@ const itunesGet = (
 	failureMessage: string,
 ) => {
 	const search = new URLSearchParams(params);
-	return host
-		.httpCall("GET", `https://itunes.apple.com/${endpoint}?${search.toString()}`)
-		.then((response) => {
-			if (!response.success) {
-				throw new Error(response.error || failureMessage);
-			}
-			return parseJsonResponse(response.data.body);
-		});
+	return host.httpCall("GET", `https://itunes.apple.com/${endpoint}?${search.toString()}`).pipe(
+		Effect.mapError((error) => new Error(error.message || failureMessage)),
+		Effect.flatMap((response) =>
+			Effect.try({
+				try: () => parseJsonResponse(response.body),
+				catch: (error) => (error instanceof Error ? error : new Error(String(error))),
+			}),
+		),
+	);
 };
-
 const lookup = (host: ItunesHost, params: Record<string, string>) =>
 	itunesGet(host, "lookup", params, "iTunes lookup request failed");
-
 const translationResult = (item: UnknownRecord | null, nameKey: string, missing: string) => {
 	if (!item) {
 		throw new Error(missing);
@@ -163,7 +145,6 @@ const translationResult = (item: UnknownRecord | null, nameKey: string, missing:
 		...(description ? { properties: { description } } : {}),
 	};
 };
-
 export const search = defineProviderDriver(manifest, "search", (input, host) => {
 	const resultLimit = Math.min(input.page * input.pageSize, 200);
 	return itunesGet(
@@ -177,49 +158,50 @@ export const search = defineProviderDriver(manifest, "search", (input, host) => 
 			limit: String(resultLimit),
 		},
 		"iTunes search request failed",
-	).then((payload) => {
-		const results = resultsArray(payload);
-		const totalItems = results.length;
-		const pagedResults = results.slice(
-			(input.page - 1) * input.pageSize,
-			input.page * input.pageSize,
-		);
-		const items = pagedResults.flatMap((raw) => {
-			const item = asRecord(raw);
-			const externalId = idString(item?.["collectionId"]);
-			const title = trimmedString(item?.["collectionName"]);
-			if (!item || !externalId || !title) {
-				return [];
-			}
-			const image = collectImages(item)[0] ?? null;
-			const publishYear = getPublishYear(item["releaseDate"]);
-			return [
-				{
-					externalId,
-					titleProperty: { kind: "text" as const, value: title },
-					calloutProperty: { kind: "null" as const, value: null },
-					secondarySubtitleProperty: { kind: "null" as const, value: null },
-					imageProperty:
-						image === null
-							? { kind: "null" as const, value: null }
-							: { kind: "image" as const, value: { type: "remote" as const, url: image } },
-					primarySubtitleProperty:
-						publishYear === null
-							? { kind: "null" as const, value: null }
-							: { kind: "number" as const, value: publishYear },
+	).pipe(
+		Effect.map((payload) => {
+			const results = resultsArray(payload);
+			const totalItems = results.length;
+			const pagedResults = results.slice(
+				(input.page - 1) * input.pageSize,
+				input.page * input.pageSize,
+			);
+			const items = pagedResults.flatMap((raw) => {
+				const item = asRecord(raw);
+				const externalId = idString(item?.["collectionId"]);
+				const title = trimmedString(item?.["collectionName"]);
+				if (!item || !externalId || !title) {
+					return [];
+				}
+				const image = collectImages(item)[0] ?? null;
+				const publishYear = getPublishYear(item["releaseDate"]);
+				return [
+					{
+						externalId,
+						titleProperty: { kind: "text" as const, value: title },
+						calloutProperty: { kind: "null" as const, value: null },
+						secondarySubtitleProperty: { kind: "null" as const, value: null },
+						imageProperty:
+							image === null
+								? { kind: "null" as const, value: null }
+								: { kind: "image" as const, value: { type: "remote" as const, url: image } },
+						primarySubtitleProperty:
+							publishYear === null
+								? { kind: "null" as const, value: null }
+								: { kind: "number" as const, value: publishYear },
+					},
+				];
+			});
+			return {
+				items,
+				details: {
+					totalItems,
+					nextPage: input.page * input.pageSize < totalItems ? input.page + 1 : null,
 				},
-			];
-		});
-		return {
-			items,
-			details: {
-				totalItems,
-				nextPage: input.page * input.pageSize < totalItems ? input.page + 1 : null,
-			},
-		};
-	});
+			};
+		}),
+	);
 });
-
 type MappedEpisode = {
 	id: string;
 	title: string;
@@ -229,7 +211,6 @@ type MappedEpisode = {
 	overview: string | null;
 	thumbnail: string | null;
 };
-
 export const details = defineProviderDriver(manifest, "details", (input, host) => {
 	const language = bcp47ToItunes(manifest.providerInformation.canonicalLanguage);
 	return lookup(host, {
@@ -237,101 +218,109 @@ export const details = defineProviderDriver(manifest, "details", (input, host) =
 		media: "podcast",
 		entity: "podcast",
 		lang: language,
-	}).then((detailsPayload) => {
-		const podcast = asRecord(resultsArray(detailsPayload)[0]);
-		if (!podcast) {
-			throw new Error("Podcast not found");
-		}
-		const title = trimmedString(podcast["collectionName"]);
-		if (!title) {
-			throw new Error("Podcast is missing title");
-		}
-		const totalEpisodes = positiveInt(podcast["trackCount"]);
-		const episodeLookup: Record<string, string> = {
-			id: input.externalId,
-			media: "podcast",
-			entity: "podcastEpisode",
-			lang: language,
-		};
-		if (totalEpisodes !== null) {
-			episodeLookup["limit"] = String(totalEpisodes);
-		}
-		return lookup(host, episodeLookup).then((episodesPayload) => {
-			const unlinkedCreators: Array<{ role: string; name: string }> = [];
-			const artistName = trimmedString(podcast["artistName"]);
-			if (artistName) {
-				unlinkedCreators.push({ role: "Artist", name: artistName });
-			}
-			const episodes = resultsArray(episodesPayload)
-				.flatMap((raw): MappedEpisode[] => {
-					const episode = asRecord(raw);
-					const id = idString(episode?.["trackId"]);
-					const episodeTitle = trimmedString(episode?.["trackName"]);
-					const publishDate = getIsoDate(episode?.["releaseDate"]);
-					if (!episode || !id || !episodeTitle || !publishDate) {
-						return [];
-					}
-					const runtimeMillis = episode["trackTimeMillis"];
-					return [
-						{
-							id,
-							publishDate,
-							number: 0,
-							title: episodeTitle,
-							overview: stringValue(episode["description"]),
-							thumbnail:
-								stringValue(episode["artworkUrl600"]) ??
-								stringValue(episode["artworkUrl100"]) ??
-								stringValue(episode["artworkUrl60"]) ??
-								stringValue(episode["artworkUrl30"]),
-							runtime:
-								typeof runtimeMillis === "number" && Number.isFinite(runtimeMillis)
-									? Math.trunc(runtimeMillis / 1000 / 60)
-									: null,
-						},
-					];
-				})
-				.sort((left, right) => {
-					const publishDateDiff = left.publishDate.localeCompare(right.publishDate);
-					return publishDateDiff !== 0 ? publishDateDiff : left.id.localeCompare(right.id);
-				})
-				.map((episode, index) => {
-					episode.number = index + 1;
-					return episode;
-				});
-
-			const childEntities = episodes.map((episode) => ({
-				entitySchemaSlug: "podcast-episode",
-				externalId: episode.id,
-				name: episode.title || `Episode ${episode.number}`,
-				properties: {
-					runtime: episode.runtime,
-					description: episode.overview,
-					episodeNumber: episode.number,
-					publishDate: episode.publishDate,
-					parentPodcastExternalId: input.externalId,
-					...(episode.thumbnail ? { images: [{ type: "remote", url: episode.thumbnail }] } : {}),
-				},
-			}));
-
-			return {
-				name: title,
-				childEntities,
-				properties: {
-					publishDate: getIsoDate(podcast["releaseDate"]),
-					publishYear: getPublishYear(podcast["releaseDate"]),
-					unlinkedCreators,
-					genres: collectGenres(podcast),
-					sourceUrl: buildSourceUrl(input.externalId, title),
-					totalEpisodes: totalEpisodes ?? episodes.length,
-					description: stringValue(podcast["description"]),
-					images: collectImages(podcast).map((url) => ({ type: "remote" as const, url })),
-				},
-			};
-		});
-	});
+	}).pipe(
+		Effect.flatMap((detailsPayload) =>
+			Effect.gen(function* () {
+				const podcast = asRecord(resultsArray(detailsPayload)[0]);
+				if (!podcast) {
+					return yield* Effect.fail(new Error("Podcast not found"));
+				}
+				const title = trimmedString(podcast["collectionName"]);
+				if (!title) {
+					return yield* Effect.fail(new Error("Podcast is missing title"));
+				}
+				const totalEpisodes = positiveInt(podcast["trackCount"]);
+				const episodeLookup: Record<string, string> = {
+					id: input.externalId,
+					media: "podcast",
+					entity: "podcastEpisode",
+					lang: language,
+				};
+				if (totalEpisodes !== null) {
+					episodeLookup["limit"] = String(totalEpisodes);
+				}
+				return yield* lookup(host, episodeLookup).pipe(
+					Effect.map((episodesPayload) => {
+						const unlinkedCreators: Array<{
+							role: string;
+							name: string;
+						}> = [];
+						const artistName = trimmedString(podcast["artistName"]);
+						if (artistName) {
+							unlinkedCreators.push({ role: "Artist", name: artistName });
+						}
+						const episodes = resultsArray(episodesPayload)
+							.flatMap((raw): MappedEpisode[] => {
+								const episode = asRecord(raw);
+								const id = idString(episode?.["trackId"]);
+								const episodeTitle = trimmedString(episode?.["trackName"]);
+								const publishDate = getIsoDate(episode?.["releaseDate"]);
+								if (!episode || !id || !episodeTitle || !publishDate) {
+									return [];
+								}
+								const runtimeMillis = episode["trackTimeMillis"];
+								return [
+									{
+										id,
+										publishDate,
+										number: 0,
+										title: episodeTitle,
+										overview: stringValue(episode["description"]),
+										thumbnail:
+											stringValue(episode["artworkUrl600"]) ??
+											stringValue(episode["artworkUrl100"]) ??
+											stringValue(episode["artworkUrl60"]) ??
+											stringValue(episode["artworkUrl30"]),
+										runtime:
+											typeof runtimeMillis === "number" && Number.isFinite(runtimeMillis)
+												? Math.trunc(runtimeMillis / 1000 / 60)
+												: null,
+									},
+								];
+							})
+							.sort((left, right) => {
+								const publishDateDiff = left.publishDate.localeCompare(right.publishDate);
+								return publishDateDiff !== 0 ? publishDateDiff : left.id.localeCompare(right.id);
+							})
+							.map((episode, index) => {
+								episode.number = index + 1;
+								return episode;
+							});
+						const childEntities = episodes.map((episode) => ({
+							entitySchemaSlug: "podcast-episode",
+							externalId: episode.id,
+							name: episode.title || `Episode ${episode.number}`,
+							properties: {
+								runtime: episode.runtime,
+								description: episode.overview,
+								episodeNumber: episode.number,
+								publishDate: episode.publishDate,
+								parentPodcastExternalId: input.externalId,
+								...(episode.thumbnail
+									? { images: [{ type: "remote", url: episode.thumbnail }] }
+									: {}),
+							},
+						}));
+						return {
+							name: title,
+							childEntities,
+							properties: {
+								publishDate: getIsoDate(podcast["releaseDate"]),
+								publishYear: getPublishYear(podcast["releaseDate"]),
+								unlinkedCreators,
+								genres: collectGenres(podcast),
+								sourceUrl: buildSourceUrl(input.externalId, title),
+								totalEpisodes: totalEpisodes ?? episodes.length,
+								description: stringValue(podcast["description"]),
+								images: collectImages(podcast).map((url) => ({ type: "remote" as const, url })),
+							},
+						};
+					}),
+				);
+			}),
+		),
+	);
 });
-
 const findPodcastEpisode = (payload: unknown, externalId: string) => {
 	for (const raw of resultsArray(payload)) {
 		const item = asRecord(raw);
@@ -341,7 +330,6 @@ const findPodcastEpisode = (payload: unknown, externalId: string) => {
 	}
 	return null;
 };
-
 export const translate = defineProviderDriver(manifest, "translate", (input, host) => {
 	const providerLanguage = bcp47ToItunes(input.language);
 	if (input.entitySchemaSlug === "podcast") {
@@ -350,11 +338,17 @@ export const translate = defineProviderDriver(manifest, "translate", (input, hos
 			media: "podcast",
 			entity: "podcast",
 			lang: providerLanguage,
-		}).then((payload) =>
-			translationResult(
-				asRecord(resultsArray(payload)[0]),
-				"collectionName",
-				"iTunes podcast not found",
+		}).pipe(
+			Effect.flatMap((payload) =>
+				Effect.try({
+					try: () =>
+						translationResult(
+							asRecord(resultsArray(payload)[0]),
+							"collectionName",
+							"iTunes podcast not found",
+						),
+					catch: (error) => (error instanceof Error ? error : new Error(String(error))),
+				}),
 			),
 		);
 	}
@@ -363,7 +357,9 @@ export const translate = defineProviderDriver(manifest, "translate", (input, hos
 			asRecord(input.properties)?.["parentPodcastExternalId"],
 		);
 		if (!parentPodcastExternalId) {
-			throw new Error("parentPodcastExternalId is required for iTunes episode translation");
+			return Effect.fail(
+				new Error("parentPodcastExternalId is required for iTunes episode translation"),
+			);
 		}
 		return lookup(host, {
 			limit: "200",
@@ -371,15 +367,22 @@ export const translate = defineProviderDriver(manifest, "translate", (input, hos
 			lang: providerLanguage,
 			entity: "podcastEpisode",
 			id: parentPodcastExternalId,
-		}).then((payload) =>
-			translationResult(
-				findPodcastEpisode(payload, input.externalId),
-				"trackName",
-				"iTunes podcast episode not found",
+		}).pipe(
+			Effect.flatMap((payload) =>
+				Effect.try({
+					try: () =>
+						translationResult(
+							findPodcastEpisode(payload, input.externalId),
+							"trackName",
+							"iTunes podcast episode not found",
+						),
+					catch: (error) => (error instanceof Error ? error : new Error(String(error))),
+				}),
 			),
 		);
 	}
-	throw new Error("podcast.itunes translate supports only podcast and podcast-episode");
+	return Effect.fail(
+		new Error("podcast.itunes translate supports only podcast and podcast-episode"),
+	);
 });
-
 export default defineProvider({ manifest, drivers: { search, details, translate } });

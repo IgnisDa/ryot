@@ -18,12 +18,8 @@ export {
 } from "./driver.js";
 
 export {
-	hostFailureSchema,
-	hostResultSchema,
 	jsonValueSchema,
 	sandboxHostErrorSchema,
-	type HostFailure,
-	type HostResult,
 	type JsonPrimitive,
 	type JsonValue,
 	type SandboxHostError,

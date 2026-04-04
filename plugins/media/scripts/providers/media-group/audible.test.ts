@@ -1,4 +1,5 @@
 import type { SandboxHost } from "@ryot/sandbox-sdk/core";
+import { Effect } from "@ryot/sandbox-sdk/effect";
 import { defineSandboxTestHost, runSandboxTestDriver } from "@ryot/sandbox-sdk/testing";
 import { describe, expect, it } from "vitest";
 
@@ -7,10 +8,7 @@ import { details, manifest, search } from "./audible.sandbox";
 type AudibleGroupHost = SandboxHost<typeof manifest.capabilities>;
 
 const httpSuccess = (body: unknown) =>
-	Promise.resolve({
-		success: true as const,
-		data: { status: 200, headers: {}, body: JSON.stringify(body) },
-	});
+	Effect.succeed({ status: 200, headers: {}, body: JSON.stringify(body) });
 
 const makeHost = (httpCall: AudibleGroupHost["httpCall"]) =>
 	defineSandboxTestHost(manifest, { httpCall });
@@ -32,38 +30,39 @@ describe("audiobook-group.audible sandbox script", () => {
 			}),
 		);
 
-		return runSandboxTestDriver(details, { externalId: "series-1" }, host, execution).then(
-			(result) => {
-				expect(result.name).toBe("The Series");
-				expect(result.relatedEntityGroups).toEqual([
-					{
-						direction: "outgoing",
-						synchronization: "authoritative",
-						relationshipSchemaSlug: "audiobook-group-to-audiobook",
-						entities: [
-							{
-								externalId: "book-a",
-								name: "Loading...",
-								scriptSlug: "audiobook.audible",
-								relationshipProperties: { order: 1 },
-							},
-							{
-								externalId: "book-b",
-								name: "Loading...",
-								scriptSlug: "audiobook.audible",
-								relationshipProperties: { order: 2 },
-							},
-						],
-					},
-				]);
-				expect(result.properties).toEqual({
-					parts: 2,
-					images: [],
-					description: null,
-					sourceUrl: "https://www.audible.com/series/series-1/The Series",
-				});
-				return undefined;
-			},
+		return Effect.runPromise(
+			runSandboxTestDriver(details, { externalId: "series-1" }, host, execution).pipe(
+				Effect.map((result) => {
+					expect(result.name).toBe("The Series");
+					expect(result.relatedEntityGroups).toEqual([
+						{
+							direction: "outgoing",
+							synchronization: "authoritative",
+							relationshipSchemaSlug: "audiobook-group-to-audiobook",
+							entities: [
+								{
+									externalId: "book-a",
+									name: "Loading...",
+									scriptSlug: "audiobook.audible",
+									relationshipProperties: { order: 1 },
+								},
+								{
+									externalId: "book-b",
+									name: "Loading...",
+									scriptSlug: "audiobook.audible",
+									relationshipProperties: { order: 2 },
+								},
+							],
+						},
+					]);
+					expect(result.properties).toEqual({
+						parts: 2,
+						images: [],
+						description: null,
+						sourceUrl: "https://www.audible.com/series/series-1/The Series",
+					});
+				}),
+			),
 		);
 	});
 
@@ -71,7 +70,9 @@ describe("audiobook-group.audible sandbox script", () => {
 		const host = makeHost(() => httpSuccess({}));
 
 		return expect(
-			runSandboxTestDriver(search, { query: "x", page: 1, pageSize: 20 }, host, execution),
+			Effect.runPromise(
+				runSandboxTestDriver(search, { query: "x", page: 1, pageSize: 20 }, host, execution),
+			),
 		).rejects.toThrow("Audible does not support audiobook group search");
 	});
 });

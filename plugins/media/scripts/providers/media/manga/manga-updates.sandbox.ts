@@ -1,6 +1,7 @@
 import { load } from "@ryot/sandbox-sdk/cheerio";
 import { defineManifest } from "@ryot/sandbox-sdk/core";
 import dayjs from "@ryot/sandbox-sdk/dayjs";
+import { Effect } from "@ryot/sandbox-sdk/effect";
 import { defineProvider, defineProviderDriver } from "@ryot/sandbox-sdk/provider";
 
 import {
@@ -43,52 +44,54 @@ export const search = defineProviderDriver(manifest, "search", (input, host) =>
 		"/series/search",
 		{ search: input.query, perpage: input.pageSize, page: input.page },
 		"search",
-	).then((payloadValue) => {
-		const payload = asRecord(payloadValue);
-		const totalItems = searchTotalItems(payload);
-		const results = payload?.["results"];
-		const items = (Array.isArray(results) ? results : []).flatMap((item) => {
-			const itemRecord = asRecord(item);
-			const record = asRecord(itemRecord?.["record"]);
-			if (!record) {
-				return [];
-			}
-			const idValue = numberValue(record["series_id"]);
-			const seriesId = idValue === null ? null : Math.trunc(idValue);
-			if (seriesId === null || seriesId <= 0) {
-				return [];
-			}
-			const title = stringValue(itemRecord?.["hit_title"]);
-			if (!title) {
-				return [];
-			}
-			const image = imageUrlValue(record["image"]);
-			const publishYear = parsePublishYear(record["year"]);
-			return [
-				{
-					externalId: String(seriesId),
-					titleProperty: { kind: "text" as const, value: title },
-					calloutProperty: { kind: "null" as const, value: null },
-					secondarySubtitleProperty: { kind: "null" as const, value: null },
-					primarySubtitleProperty:
-						publishYear === null
-							? { kind: "null" as const, value: null }
-							: { kind: "number" as const, value: publishYear },
-					imageProperty:
-						image === null
-							? { kind: "null" as const, value: null }
-							: { kind: "image" as const, value: { type: "remote" as const, url: image } },
+	).pipe(
+		Effect.map((payloadValue) => {
+			const payload = asRecord(payloadValue);
+			const totalItems = searchTotalItems(payload);
+			const results = payload?.["results"];
+			const items = (Array.isArray(results) ? results : []).flatMap((item) => {
+				const itemRecord = asRecord(item);
+				const record = asRecord(itemRecord?.["record"]);
+				if (!record) {
+					return [];
+				}
+				const idValue = numberValue(record["series_id"]);
+				const seriesId = idValue === null ? null : Math.trunc(idValue);
+				if (seriesId === null || seriesId <= 0) {
+					return [];
+				}
+				const title = stringValue(itemRecord?.["hit_title"]);
+				if (!title) {
+					return [];
+				}
+				const image = imageUrlValue(record["image"]);
+				const publishYear = parsePublishYear(record["year"]);
+				return [
+					{
+						externalId: String(seriesId),
+						titleProperty: { kind: "text" as const, value: title },
+						calloutProperty: { kind: "null" as const, value: null },
+						secondarySubtitleProperty: { kind: "null" as const, value: null },
+						primarySubtitleProperty:
+							publishYear === null
+								? { kind: "null" as const, value: null }
+								: { kind: "number" as const, value: publishYear },
+						imageProperty:
+							image === null
+								? { kind: "null" as const, value: null }
+								: { kind: "image" as const, value: { type: "remote" as const, url: image } },
+					},
+				];
+			});
+			return {
+				items,
+				details: {
+					totalItems,
+					nextPage: input.page * input.pageSize < totalItems ? input.page + 1 : null,
 				},
-			];
-		});
-		return {
-			items,
-			details: {
-				totalItems,
-				nextPage: input.page * input.pageSize < totalItems ? input.page + 1 : null,
-			},
-		};
-	}),
+			};
+		}),
+	),
 );
 
 const extractStatus = (input: unknown) => {
@@ -153,58 +156,66 @@ const collectSuggestions = (host: MangaUpdatesHost, payload: UnknownRecord | nul
 	for (const relatedSeries of recordsValue(payload?.["related_series"])) {
 		addCandidate(relatedSeries["related_series_id"]);
 	}
-	return Promise.all(
+	return Effect.all(
 		[...seriesIds].map((seriesId) =>
 			mangaUpdatesGetOptional(host, `/series/${encodeURIComponent(String(seriesId))}`),
 		),
-	).then((responses) =>
-		responses.flatMap((value) => {
-			const record = asRecord(value);
-			const idValue = numberValue(record?.["series_id"]);
-			const name = stringValue(record?.["title"]);
-			if (idValue === null || !name) {
-				return [];
-			}
-			return [{ name, externalId: String(Math.trunc(idValue)), scriptSlug: "manga.manga-updates" }];
-		}),
+	).pipe(
+		Effect.map((responses) =>
+			responses.flatMap((value) => {
+				const record = asRecord(value);
+				const idValue = numberValue(record?.["series_id"]);
+				const name = stringValue(record?.["title"]);
+				if (idValue === null || !name) {
+					return [];
+				}
+				return [
+					{ name, externalId: String(Math.trunc(idValue)), scriptSlug: "manga.manga-updates" },
+				];
+			}),
+		),
 	);
 };
 
 export const details = defineProviderDriver(manifest, "details", (input, host) =>
-	mangaUpdatesGet(host, `/series/${encodeURIComponent(input.externalId)}`, "details").then(
-		(payloadValue) => {
-			const payload = asRecord(payloadValue);
-			const title = typeof payload?.["title"] === "string" ? payload["title"] : "";
-			if (!title) {
-				throw new Error("MangaUpdates payload is missing title");
-			}
-			const { volumes, productionStatus } = extractStatus(payload?.["status"]);
-			const url = payload?.["url"];
-			const description = payload?.["description"];
-			return collectSuggestions(host, payload).then((suggestions) => ({
-				name: title,
-				relatedEntityGroups: [
-					{
-						entities: suggestions,
-						direction: "outgoing" as const,
-						synchronization: "authoritative" as const,
-						relationshipSchemaSlug: "media-suggestion",
-					},
-				],
-				properties: {
-					volumes,
-					productionStatus,
-					sourceUrl: typeof url === "string" ? url : null,
-					images: collectImages(payload?.["image"]),
-					publishYear: parsePublishYear(payload?.["year"]),
-					chapters: numberValue(payload?.["latest_chapter"]),
-					providerRating: numberValue(payload?.["bayesian_rating"]),
-					description: typeof description === "string" ? description : null,
-					genres: collectGenres(payload?.["genres"], payload?.["categories"]),
+	Effect.gen(function* () {
+		const payloadValue = yield* mangaUpdatesGet(
+			host,
+			`/series/${encodeURIComponent(input.externalId)}`,
+			"details",
+		);
+		const payload = asRecord(payloadValue);
+		const title = typeof payload?.["title"] === "string" ? payload["title"] : "";
+		if (!title) {
+			return yield* Effect.fail({ message: "MangaUpdates payload is missing title" });
+		}
+		const { volumes, productionStatus } = extractStatus(payload?.["status"]);
+		const url = payload?.["url"];
+		const description = payload?.["description"];
+		const suggestions = yield* collectSuggestions(host, payload);
+		return {
+			name: title,
+			relatedEntityGroups: [
+				{
+					entities: suggestions,
+					direction: "outgoing" as const,
+					synchronization: "authoritative" as const,
+					relationshipSchemaSlug: "media-suggestion",
 				},
-			}));
-		},
-	),
+			],
+			properties: {
+				volumes,
+				productionStatus,
+				sourceUrl: typeof url === "string" ? url : null,
+				images: collectImages(payload?.["image"]),
+				publishYear: parsePublishYear(payload?.["year"]),
+				chapters: numberValue(payload?.["latest_chapter"]),
+				providerRating: numberValue(payload?.["bayesian_rating"]),
+				description: typeof description === "string" ? description : null,
+				genres: collectGenres(payload?.["genres"], payload?.["categories"]),
+			},
+		};
+	}),
 );
 
 export default defineProvider({ manifest, drivers: { search, details } });

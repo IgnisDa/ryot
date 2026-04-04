@@ -1,4 +1,5 @@
 import type { SandboxHost } from "@ryot/sandbox-sdk/core";
+import { Effect } from "@ryot/sandbox-sdk/effect";
 import { defineSandboxTestHost, runSandboxTestDriver } from "@ryot/sandbox-sdk/testing";
 import { describe, expect, it } from "vitest";
 
@@ -7,15 +8,12 @@ import { details, manifest, translate } from "./tmdb.sandbox";
 type TmdbHost = SandboxHost<typeof manifest.capabilities>;
 
 const httpSuccess = (body: unknown) =>
-	Promise.resolve({
-		success: true as const,
-		data: { status: 200, headers: {}, body: JSON.stringify(body) },
-	});
+	Effect.succeed({ status: 200, headers: {}, body: JSON.stringify(body) });
 
 const makeHost = (httpCall: TmdbHost["httpCall"]) =>
 	defineSandboxTestHost(manifest, {
 		httpCall,
-		getAppConfigValue: () => Promise.resolve({ data: "token", success: true }),
+		getAppConfigValue: () => Effect.succeed("token"),
 	});
 
 const execution = { metadata: {}, sandboxScriptId: "script_test" };
@@ -37,34 +35,37 @@ describe("movie-group.tmdb sandbox script", () => {
 					}),
 		);
 
-		return runSandboxTestDriver(details, { externalId: "1" }, host, execution).then((result) => {
-			expect(result).toMatchObject({
-				name: "Example",
-				properties: { parts: 2, description: "Three films" },
-				relatedEntityGroups: [
-					{
-						direction: "outgoing",
-						synchronization: "authoritative",
-						relationshipSchemaSlug: "movie-group-to-movie",
-						entities: [
+		return Effect.runPromise(
+			runSandboxTestDriver(details, { externalId: "1" }, host, execution).pipe(
+				Effect.map((result) => {
+					expect(result).toMatchObject({
+						name: "Example",
+						properties: { parts: 2, description: "Three films" },
+						relatedEntityGroups: [
 							{
-								name: "First",
-								externalId: "2",
-								scriptSlug: "movie.tmdb",
-								relationshipProperties: { order: 1 },
-							},
-							{
-								name: "Second",
-								externalId: "3",
-								scriptSlug: "movie.tmdb",
-								relationshipProperties: { order: 2 },
+								direction: "outgoing",
+								synchronization: "authoritative",
+								relationshipSchemaSlug: "movie-group-to-movie",
+								entities: [
+									{
+										name: "First",
+										externalId: "2",
+										scriptSlug: "movie.tmdb",
+										relationshipProperties: { order: 1 },
+									},
+									{
+										name: "Second",
+										externalId: "3",
+										scriptSlug: "movie.tmdb",
+										relationshipProperties: { order: 2 },
+									},
+								],
 							},
 						],
-					},
-				],
-			});
-			return undefined;
-		});
+					});
+				}),
+			),
+		);
 	});
 
 	it("translates and normalizes collection names", () => {
@@ -82,20 +83,23 @@ describe("movie-group.tmdb sandbox script", () => {
 					}),
 		);
 
-		return runSandboxTestDriver(
-			translate,
-			{ externalId: "1", language: "fr-FR", entitySchemaSlug: "movie-group" },
-			host,
-			execution,
-		).then((result) => {
-			expect(result).toEqual({
-				name: "Exemple",
-				properties: {
-					description: "Description",
-					images: [{ type: "remote", url: "https://image.tmdb.org/t/p/original/poster.jpg" }],
-				},
-			});
-			return undefined;
-		});
+		return Effect.runPromise(
+			runSandboxTestDriver(
+				translate,
+				{ externalId: "1", language: "fr-FR", entitySchemaSlug: "movie-group" },
+				host,
+				execution,
+			).pipe(
+				Effect.map((result) => {
+					expect(result).toEqual({
+						name: "Exemple",
+						properties: {
+							description: "Description",
+							images: [{ type: "remote", url: "https://image.tmdb.org/t/p/original/poster.jpg" }],
+						},
+					});
+				}),
+			),
+		);
 	});
 });

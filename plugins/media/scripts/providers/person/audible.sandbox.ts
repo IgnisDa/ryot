@@ -1,4 +1,5 @@
 import { defineManifest } from "@ryot/sandbox-sdk/core";
+import { Effect } from "@ryot/sandbox-sdk/effect";
 import { defineProvider, defineProviderDriver } from "@ryot/sandbox-sdk/provider";
 
 import { asRecord, stringValue } from "../../script-helpers/records";
@@ -22,34 +23,36 @@ export const search = defineProviderDriver(manifest, "search", (input, host) => 
 		`${AUTHORS_URL}?${params.toString()}`,
 		"Audnex author search request failed",
 		"Audnex",
-	).then((payloadValue) => {
-		const allItems = Array.isArray(payloadValue) ? payloadValue : [];
-		const totalItems = allItems.length;
-		const startIndex = (input.page - 1) * input.pageSize;
-		const endIndex = Math.min(startIndex + input.pageSize, totalItems);
-		const items = allItems.slice(startIndex, endIndex).flatMap((author) => {
-			const record = asRecord(author);
-			const externalId = stringValue(record?.["asin"]);
-			const name = stringValue(record?.["name"]);
-			if (!externalId || !name) {
-				return [];
-			}
-			return [
-				{
-					externalId,
-					titleProperty: { kind: "text" as const, value: name },
-					calloutProperty: { kind: "null" as const, value: null },
-					imageProperty: { kind: "null" as const, value: null },
-					primarySubtitleProperty: { kind: "null" as const, value: null },
-					secondarySubtitleProperty: { kind: "null" as const, value: null },
-				},
-			];
-		});
-		return {
-			items,
-			details: { totalItems, nextPage: endIndex < totalItems ? input.page + 1 : null },
-		};
-	});
+	).pipe(
+		Effect.map((payloadValue) => {
+			const allItems = Array.isArray(payloadValue) ? payloadValue : [];
+			const totalItems = allItems.length;
+			const startIndex = (input.page - 1) * input.pageSize;
+			const endIndex = Math.min(startIndex + input.pageSize, totalItems);
+			const items = allItems.slice(startIndex, endIndex).flatMap((author) => {
+				const record = asRecord(author);
+				const externalId = stringValue(record?.["asin"]);
+				const name = stringValue(record?.["name"]);
+				if (!externalId || !name) {
+					return [];
+				}
+				return [
+					{
+						externalId,
+						titleProperty: { kind: "text" as const, value: name },
+						calloutProperty: { kind: "null" as const, value: null },
+						imageProperty: { kind: "null" as const, value: null },
+						primarySubtitleProperty: { kind: "null" as const, value: null },
+						secondarySubtitleProperty: { kind: "null" as const, value: null },
+					},
+				];
+			});
+			return {
+				items,
+				details: { totalItems, nextPage: endIndex < totalItems ? input.page + 1 : null },
+			};
+		}),
+	);
 });
 
 export const details = defineProviderDriver(manifest, "details", (input, host) => {
@@ -59,24 +62,27 @@ export const details = defineProviderDriver(manifest, "details", (input, host) =
 		`${AUTHORS_URL}/${input.externalId}?${params.toString()}`,
 		"Audnex author details request failed",
 		"Audnex",
-	).then((payloadValue) => {
-		const record = asRecord(payloadValue);
-		const name = stringValue(record?.["name"]);
-		if (!name) {
-			throw new Error("Audnex returned no author name");
-		}
-		const image = stringValue(record?.["image"]);
-		const description = typeof record?.["description"] === "string" ? record["description"] : null;
-		return {
-			name,
-			properties: {
-				description,
-				alternateNames: [],
-				sourceUrl: `https://www.audible.com/author/${input.externalId}`,
-				images: image ? [{ type: "remote" as const, url: image }] : [],
-			},
-		};
-	});
+	).pipe(
+		Effect.map((payloadValue) => {
+			const record = asRecord(payloadValue);
+			const name = stringValue(record?.["name"]);
+			if (!name) {
+				throw new Error("Audnex returned no author name");
+			}
+			const image = stringValue(record?.["image"]);
+			const description =
+				typeof record?.["description"] === "string" ? record["description"] : null;
+			return {
+				name,
+				properties: {
+					description,
+					alternateNames: [],
+					sourceUrl: `https://www.audible.com/author/${input.externalId}`,
+					images: image ? [{ type: "remote" as const, url: image }] : [],
+				},
+			};
+		}),
+	);
 });
 
 export default defineProvider({ manifest, drivers: { search, details } });

@@ -13,13 +13,16 @@ export const jsonValueSchema: Schema.Schema<JsonValue, JsonValue> = Schema.suspe
 	Schema.Union(
 		Schema.Null,
 		Schema.String,
+		Schema.Finite,
 		Schema.Boolean,
-		Schema.Number,
 		Schema.Array(jsonValueSchema),
 		Schema.Record({ key: Schema.String, value: jsonValueSchema }),
 	),
 );
-export const sandboxHostErrorSchema = strictStruct({ message: Schema.String });
+export const sandboxHostErrorSchema = strictStruct({
+	message: Schema.String,
+	data: Schema.optional(jsonValueSchema),
+});
 export type SandboxHostError = Schema.Schema.Type<typeof sandboxHostErrorSchema>;
 
 export const hostFailureSchema = strictStruct({

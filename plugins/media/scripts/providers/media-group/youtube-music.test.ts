@@ -1,3 +1,4 @@
+import { Effect } from "@ryot/sandbox-sdk/effect";
 import { describe, expect, it } from "vitest";
 
 import { buildAlbumDetails } from "./youtube-music.sandbox";
@@ -20,36 +21,39 @@ describe("music-group.youtube-music sandbox script", () => {
 			},
 		};
 
-		return buildAlbumDetails(client, "album-1").then((details) => {
-			expect(details.name).toBe("The Album");
-			expect(details.properties).toEqual({
-				parts: 3,
-				description: "Line one\nLine two",
-				sourceUrl: "https://music.youtube.com/playlist?list=PL123",
-				images: [{ type: "remote", url: "https://img/big.jpg" }],
-			});
-			expect(details.relatedEntityGroups).toEqual([
-				{
-					direction: "outgoing",
-					synchronization: "authoritative",
-					relationshipSchemaSlug: "music-group-to-music",
-					entities: [
+		return Effect.runPromise(
+			buildAlbumDetails(client, "album-1").pipe(
+				Effect.map((details) => {
+					expect(details.name).toBe("The Album");
+					expect(details.properties).toEqual({
+						parts: 3,
+						description: "Line one\nLine two",
+						sourceUrl: "https://music.youtube.com/playlist?list=PL123",
+						images: [{ type: "remote", url: "https://img/big.jpg" }],
+					});
+					expect(details.relatedEntityGroups).toEqual([
 						{
-							name: "First Track",
-							externalId: "t1",
-							scriptSlug: "music.youtube-music",
-							relationshipProperties: { order: 1 },
+							direction: "outgoing",
+							synchronization: "authoritative",
+							relationshipSchemaSlug: "music-group-to-music",
+							entities: [
+								{
+									name: "First Track",
+									externalId: "t1",
+									scriptSlug: "music.youtube-music",
+									relationshipProperties: { order: 1 },
+								},
+								{
+									name: "Loading...",
+									externalId: "t2",
+									scriptSlug: "music.youtube-music",
+									relationshipProperties: { order: 2 },
+								},
+							],
 						},
-						{
-							name: "Loading...",
-							externalId: "t2",
-							scriptSlug: "music.youtube-music",
-							relationshipProperties: { order: 2 },
-						},
-					],
-				},
-			]);
-			return undefined;
-		});
+					]);
+				}),
+			),
+		);
 	});
 });

@@ -1,4 +1,5 @@
 import { defineManifest } from "@ryot/sandbox-sdk/core";
+import { Effect } from "@ryot/sandbox-sdk/effect";
 import { defineProvider, defineProviderDriver } from "@ryot/sandbox-sdk/provider";
 
 import { cleanHtmlDescription } from "../../../script-helpers/clean-html-description";
@@ -47,10 +48,10 @@ const fetchSuggestions = (host: AudibleHost, externalId: string) => {
 		string,
 		{ name: string; externalId: string; scriptSlug: string }
 	>();
-	const fetchType = (index: number): Promise<void> => {
+	const fetchType = (index: number): Effect.Effect<void, unknown> => {
 		const similarityType = SIMILARITY_TYPES[index];
 		if (similarityType === undefined) {
-			return Promise.resolve();
+			return Effect.void;
 		}
 		const params = new URLSearchParams({
 			response_groups: "media",
@@ -61,25 +62,27 @@ const fetchSuggestions = (host: AudibleHost, externalId: string) => {
 			`${CATALOG_URL}/${externalId}/sims?${params.toString()}`,
 			`Audible ${similarityType} suggestions request failed`,
 			"Audible",
-		).then((payloadValue) => {
-			const products = asRecord(payloadValue)?.["similar_products"];
-			for (const product of Array.isArray(products) ? products : []) {
-				const record = asRecord(product);
-				const relatedExternalId = stringValue(record?.["asin"]);
-				const name = stringValue(record?.["title"]);
-				if (!relatedExternalId || !name) {
-					continue;
+		).pipe(
+			Effect.flatMap((payloadValue) => {
+				const products = asRecord(payloadValue)?.["similar_products"];
+				for (const product of Array.isArray(products) ? products : []) {
+					const record = asRecord(product);
+					const relatedExternalId = stringValue(record?.["asin"]);
+					const name = stringValue(record?.["title"]);
+					if (!relatedExternalId || !name) {
+						continue;
+					}
+					suggestionByKey.set(`audiobook.audible:${relatedExternalId}`, {
+						name,
+						externalId: relatedExternalId,
+						scriptSlug: "audiobook.audible",
+					});
 				}
-				suggestionByKey.set(`audiobook.audible:${relatedExternalId}`, {
-					name,
-					externalId: relatedExternalId,
-					scriptSlug: "audiobook.audible",
-				});
-			}
-			return fetchType(index + 1);
-		});
+				return fetchType(index + 1);
+			}),
+		);
 	};
-	return fetchType(0).then(() => [...suggestionByKey.values()]);
+	return fetchType(0).pipe(Effect.map(() => [...suggestionByKey.values()]));
 };
 
 export const search = defineProviderDriver(manifest, "search", (input, host) => {
@@ -95,43 +98,45 @@ export const search = defineProviderDriver(manifest, "search", (input, host) => 
 		`${CATALOG_URL}?${params.toString()}`,
 		"Audible search request failed",
 		"Audible",
-	).then((payloadValue) => {
-		const payload = asRecord(payloadValue);
-		const totalItems = numberValue(payload?.["total_results"]) ?? 0;
-		const products = payload?.["products"];
-		const items = (Array.isArray(products) ? products : []).flatMap((product) => {
-			const record = asRecord(product);
-			const externalId = trimmedString(record?.["asin"]);
-			const title = stringValue(record?.["title"]);
-			if (!record || !externalId || !title) {
-				return [];
-			}
-			const publishYear = parseReleaseYear(record["release_date"]);
-			const imageUrl = productImageUrl(record, ["500", "2400"]);
-			return [
-				{
-					externalId,
-					titleProperty: { kind: "text" as const, value: title },
-					calloutProperty: { kind: "null" as const, value: null },
-					secondarySubtitleProperty: { kind: "null" as const, value: null },
-					imageProperty: imageUrl
-						? { kind: "image" as const, value: { type: "remote" as const, url: imageUrl } }
-						: { kind: "null" as const, value: null },
-					primarySubtitleProperty:
-						publishYear === null
-							? { kind: "null" as const, value: null }
-							: { kind: "number" as const, value: publishYear },
+	).pipe(
+		Effect.map((payloadValue) => {
+			const payload = asRecord(payloadValue);
+			const totalItems = numberValue(payload?.["total_results"]) ?? 0;
+			const products = payload?.["products"];
+			const items = (Array.isArray(products) ? products : []).flatMap((product) => {
+				const record = asRecord(product);
+				const externalId = trimmedString(record?.["asin"]);
+				const title = stringValue(record?.["title"]);
+				if (!record || !externalId || !title) {
+					return [];
+				}
+				const publishYear = parseReleaseYear(record["release_date"]);
+				const imageUrl = productImageUrl(record, ["500", "2400"]);
+				return [
+					{
+						externalId,
+						titleProperty: { kind: "text" as const, value: title },
+						calloutProperty: { kind: "null" as const, value: null },
+						secondarySubtitleProperty: { kind: "null" as const, value: null },
+						imageProperty: imageUrl
+							? { kind: "image" as const, value: { type: "remote" as const, url: imageUrl } }
+							: { kind: "null" as const, value: null },
+						primarySubtitleProperty:
+							publishYear === null
+								? { kind: "null" as const, value: null }
+								: { kind: "number" as const, value: publishYear },
+					},
+				];
+			});
+			return {
+				items,
+				details: {
+					totalItems,
+					nextPage: input.page * input.pageSize < totalItems ? input.page + 1 : null,
 				},
-			];
-		});
-		return {
-			items,
-			details: {
-				totalItems,
-				nextPage: input.page * input.pageSize < totalItems ? input.page + 1 : null,
-			},
-		};
-	});
+			};
+		}),
+	);
 });
 
 const collectGenres = (categoryLadders: unknown) => {
@@ -196,22 +201,26 @@ export const details = defineProviderDriver(manifest, "details", (input, host) =
 		response_groups:
 			"contributors,category_ladders,media,product_attrs,product_extended_attrs,series,rating",
 	});
-	return Promise.all([
-		audibleFetchJson(
-			host,
-			`${CATALOG_URL}/${input.externalId}?${params.toString()}`,
-			"Audible details request failed",
-			"Audible",
-		),
-		fetchSuggestions(host, input.externalId),
-	]).then(([payloadValue, suggestions]) => {
+	return Effect.gen(function* () {
+		const [payloadValue, suggestions] = yield* Effect.all(
+			[
+				audibleFetchJson(
+					host,
+					`${CATALOG_URL}/${input.externalId}?${params.toString()}`,
+					"Audible details request failed",
+					"Audible",
+				),
+				fetchSuggestions(host, input.externalId),
+			],
+			{ concurrency: "unbounded" },
+		);
 		const product = asRecord(asRecord(payloadValue)?.["product"]);
 		if (!product) {
-			throw new Error("Audible returned no product data");
+			return yield* Effect.fail(new Error("Audible returned no product data"));
 		}
 		const title = stringValue(product["title"]);
 		if (!title) {
-			throw new Error("Audible product is missing title");
+			return yield* Effect.fail(new Error("Audible product is missing title"));
 		}
 
 		const imageUrl = productImageUrl(product, ["2400", "500"]);

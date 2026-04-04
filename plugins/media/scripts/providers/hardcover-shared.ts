@@ -1,4 +1,5 @@
 import type { JsonValue, SandboxHost } from "@ryot/sandbox-sdk/core";
+import { Effect } from "@ryot/sandbox-sdk/effect";
 
 import {
 	asRecord,
@@ -23,16 +24,16 @@ export const idValue = (value: unknown) => {
 };
 
 export const getHardcoverApiKey = (host: HardcoverHost) =>
-	host.getAppConfigValue("books.hardcoverApiKey").then((response) => {
-		if (!response.success) {
-			throw new Error(response.error || "Could not load Hardcover API key");
-		}
-		const apiKey = stringValue(response.data);
-		if (!apiKey) {
-			throw new Error("BOOKS_HARDCOVER_API_KEY is not configured");
-		}
-		return apiKey;
-	});
+	host.getAppConfigValue("books.hardcoverApiKey").pipe(
+		Effect.mapError((error) => new Error(error.message || "Could not load Hardcover API key")),
+		Effect.map((value) => {
+			const apiKey = stringValue(value);
+			if (!apiKey) {
+				throw new Error("BOOKS_HARDCOVER_API_KEY is not configured");
+			}
+			return apiKey;
+		}),
+	);
 
 export const hardcoverGql = (
 	host: HardcoverHost,
@@ -45,12 +46,10 @@ export const hardcoverGql = (
 			body: JSON.stringify(body),
 			headers: { Authorization: apiKey, "Content-Type": "application/json" },
 		})
-		.then((response) => {
-			if (!response.success) {
-				throw new Error(response.error || failureMessage);
-			}
-			return parseJsonResponse(response.data.body, "Hardcover");
-		});
+		.pipe(
+			Effect.mapError((error) => new Error(error.message || failureMessage)),
+			Effect.map((response) => parseJsonResponse(response.body, "Hardcover")),
+		);
 
 export const firstGraphqlErrorMessage = (payload: UnknownRecord | null) => {
 	const errors = payload?.["errors"];

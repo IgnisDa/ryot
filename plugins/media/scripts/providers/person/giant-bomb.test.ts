@@ -1,4 +1,5 @@
 import type { SandboxHost } from "@ryot/sandbox-sdk/core";
+import { Effect } from "@ryot/sandbox-sdk/effect";
 import { defineSandboxTestHost, runSandboxTestDriver } from "@ryot/sandbox-sdk/testing";
 import { describe, expect, it } from "vitest";
 
@@ -7,15 +8,12 @@ import { details, manifest, search } from "./giant-bomb.sandbox";
 type GiantBombHost = SandboxHost<typeof manifest.capabilities>;
 
 const httpSuccess = (body: unknown) =>
-	Promise.resolve({
-		success: true as const,
-		data: { status: 200, headers: {}, body: JSON.stringify(body) },
-	});
+	Effect.succeed({ status: 200, headers: {}, body: JSON.stringify(body) });
 
 const makeHost = (httpCall: GiantBombHost["httpCall"]) =>
 	defineSandboxTestHost(manifest, {
 		httpCall,
-		getAppConfigValue: () => Promise.resolve({ success: true as const, data: "api-key" }),
+		getAppConfigValue: () => Effect.succeed("api-key"),
 	});
 
 const execution = { metadata: {}, sandboxScriptId: "script_test" };
@@ -42,20 +40,23 @@ describe("person.giant-bomb sandbox script", () => {
 			{ query: "jane", page: 1, pageSize: 20 },
 			host,
 			execution,
-		).then((result) => {
-			expect(result.items).toEqual([
-				{
-					externalId: "4010-1",
-					calloutProperty: { kind: "null", value: null },
-					titleProperty: { kind: "text", value: "Jane Dev" },
-					primarySubtitleProperty: { kind: "number", value: 1980 },
-					secondarySubtitleProperty: { kind: "null", value: null },
-					imageProperty: { kind: "image", value: { type: "remote", url: "https://img/p.jpg" } },
-				},
-			]);
-			expect(result.details).toEqual({ totalItems: 1, nextPage: null });
-			return undefined;
-		});
+		).pipe(
+			Effect.map((result) => {
+				expect(result.items).toEqual([
+					{
+						externalId: "4010-1",
+						calloutProperty: { kind: "null", value: null },
+						titleProperty: { kind: "text", value: "Jane Dev" },
+						primarySubtitleProperty: { kind: "number", value: 1980 },
+						secondarySubtitleProperty: { kind: "null", value: null },
+						imageProperty: { kind: "image", value: { type: "remote", url: "https://img/p.jpg" } },
+					},
+				]);
+				expect(result.details).toEqual({ totalItems: 1, nextPage: null });
+				return undefined;
+			}),
+			Effect.runPromise,
+		);
 	});
 
 	it("maps games and franchises to outgoing authoritative relationships", () => {
@@ -79,8 +80,8 @@ describe("person.giant-bomb sandbox script", () => {
 			}),
 		);
 
-		return runSandboxTestDriver(details, { externalId: "4010-1" }, host, execution).then(
-			(result) => {
+		return runSandboxTestDriver(details, { externalId: "4010-1" }, host, execution).pipe(
+			Effect.map((result) => {
 				expect(result.name).toBe("Jane Dev");
 				expect(result.relatedEntityGroups).toEqual([
 					{
@@ -120,7 +121,8 @@ describe("person.giant-bomb sandbox script", () => {
 					images: [{ type: "remote", url: "https://img/p.jpg" }],
 				});
 				return undefined;
-			},
+			}),
+			Effect.runPromise,
 		);
 	});
 });
