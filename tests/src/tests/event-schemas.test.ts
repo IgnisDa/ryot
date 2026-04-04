@@ -23,6 +23,8 @@ describe("GET /event-schemas", () => {
 		expect(sortBy(eventSchemas.map((schema) => schema.slug))).toEqual([
 			"backlog",
 			"complete",
+			"dropped",
+			"on_hold",
 			"progress",
 			"review",
 		]);
@@ -235,6 +237,34 @@ describe("GET /event-schemas", () => {
 					},
 				},
 			});
+			const droppedSchema = eventSchemas.find((schema) => schema.slug === "dropped");
+			assertPresent(droppedSchema, `Missing built-in dropped schema for ${slug}`);
+			expect(droppedSchema.propertiesSchema).toBeDefined();
+			expect(droppedSchema.propertiesSchema as Record<string, unknown>).toMatchObject({
+				fields: {
+					progressPercent: {
+						type: "number",
+						label: "Progress Percent",
+						transform: { round: { mode: "half_up", scale: 2 } },
+						validation: { maximum: 100, required: true, exclusiveMinimum: 0 },
+						description: "Percentage of the media completed so far (0 to 100)",
+					},
+				},
+			});
+			const onHoldSchema = eventSchemas.find((schema) => schema.slug === "on_hold");
+			assertPresent(onHoldSchema, `Missing built-in on_hold schema for ${slug}`);
+			expect(onHoldSchema.propertiesSchema).toBeDefined();
+			expect(onHoldSchema.propertiesSchema as Record<string, unknown>).toMatchObject({
+				fields: {
+					progressPercent: {
+						type: "number",
+						label: "Progress Percent",
+						transform: { round: { mode: "half_up", scale: 2 } },
+						validation: { maximum: 100, required: true, exclusiveMinimum: 0 },
+						description: "Percentage of the media completed so far (0 to 100)",
+					},
+				},
+			});
 		}
 	});
 
@@ -368,6 +398,34 @@ describe("GET /event-schemas", () => {
 
 		expect(showProgressSchema).not.toEqual(movieProgressSchema);
 	});
+
+	it("exposes per-entity dropped and on_hold schema variants matching progress", async () => {
+		const { client, cookies } = await createAuthenticatedClient();
+		const { schemas } = await listBuiltinEntitySchemas(client, cookies);
+
+		const getSchemaBySlug = async (entitySlug: string, eventSlug: string) => {
+			const mediaSchema = schemas.find((schema) => schema.slug === entitySlug);
+			assertPresent(mediaSchema, `Missing built-in ${entitySlug} schema`);
+
+			const eventSchemas = await listEventSchemas(client, cookies, mediaSchema.id);
+			const schema = eventSchemas.find((s) => s.slug === eventSlug);
+			assertPresent(schema, `Missing built-in ${eventSlug} schema for ${entitySlug}`);
+
+			return schema.propertiesSchema as Record<string, unknown>;
+		};
+
+		for (const slug of ["show", "anime", "manga", "podcast", "movie", "book"]) {
+			// oxlint-disable-next-line no-await-in-loop
+			const progressSchema = await getSchemaBySlug(slug, "progress");
+			// oxlint-disable-next-line no-await-in-loop
+			const droppedSchema = await getSchemaBySlug(slug, "dropped");
+			// oxlint-disable-next-line no-await-in-loop
+			const onHoldSchema = await getSchemaBySlug(slug, "on_hold");
+
+			expect(droppedSchema).toEqual(progressSchema);
+			expect(onHoldSchema).toEqual(progressSchema);
+		}
+	});
 });
 
 describe("POST /event-schemas", () => {
@@ -389,9 +447,7 @@ describe("POST /event-schemas", () => {
 				name: "My Event",
 				slug: "my-event",
 				propertiesSchema: {
-					fields: {
-						note: { type: "string", label: "Note", description: "Note" },
-					},
+					fields: { note: { type: "string", label: "Note", description: "Note" } },
 				},
 			},
 		});
@@ -419,9 +475,7 @@ describe("POST /event-schemas", () => {
 			name: "First Event",
 			slug: "duplicate-event-slug",
 			propertiesSchema: {
-				fields: {
-					note: { type: "string", label: "Note", description: "Note" },
-				},
+				fields: { note: { type: "string", label: "Note", description: "Note" } },
 			},
 		});
 
@@ -432,9 +486,7 @@ describe("POST /event-schemas", () => {
 				name: "Second Event",
 				slug: "duplicate-event-slug",
 				propertiesSchema: {
-					fields: {
-						note: { type: "string", label: "Note", description: "Note" },
-					},
+					fields: { note: { type: "string", label: "Note", description: "Note" } },
 				},
 			},
 		});

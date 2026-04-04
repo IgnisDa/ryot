@@ -165,6 +165,8 @@ export async function createBuiltinMediaLifecycleFixture(
 	const progressEventSchema = requireEventSchemaBySlug(eventSchemas, "progress");
 	const completeEventSchema = requireEventSchemaBySlug(eventSchemas, "complete");
 	const reviewEventSchema = requireEventSchemaBySlug(eventSchemas, "review");
+	const droppedEventSchema = requireEventSchemaBySlug(eventSchemas, "dropped");
+	const onHoldEventSchema = requireEventSchemaBySlug(eventSchemas, "on_hold");
 
 	const entity = await seedMediaEntity({
 		image: null,
@@ -182,7 +184,9 @@ export async function createBuiltinMediaLifecycleFixture(
 	return {
 		entityId: entity.id,
 		reviewEventSchemaId: reviewEventSchema.id,
+		onHoldEventSchemaId: onHoldEventSchema.id,
 		backlogEventSchemaId: backlogEventSchema.id,
+		droppedEventSchemaId: droppedEventSchema.id,
 		completeEventSchemaId: completeEventSchema.id,
 		progressEventSchemaId: progressEventSchema.id,
 	};
