@@ -46,10 +46,10 @@ export PGHOST=localhost PGDATABASE=postgres PGPASSWORD=postgres PGUSER=postgres 
 
 Use `ls tmp/` to confirm file names. `tmp/file2.sql` is a larger dump useful for catching edge cases — test with both before finalizing changes.
 
-2. Run the app backend:
+2. Run the app backend in migrate-only mode:
 
 ```bash
-bun turbo --filter=@ryot/app-backend dev 2>&1 | tee /tmp/ryot-app-backend-dev.log
+cd apps/app-backend && bun run run-migration
 ```
 
 3. Inspect the logs and verify the migrated rows via MCP against the same local DB.
