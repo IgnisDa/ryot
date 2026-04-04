@@ -14,21 +14,10 @@ The declared union is capped at the shared 500-ID limit. Declarations are single
 
 `useEntityUpdates` uses a single-flight batcher with a 250 ms window and a maximum of 25 entities. It keeps the latest frame per entity, starts a full batch as soon as the limit is reached, and keeps later updates pending while one batch is in flight. A failed batch is reported once and is not retried by the batcher. Disposal aborts the active request and clears pending work.
 
-Consumers can block the batcher while their data is not safe to hydrate. Updates accumulate without starting timers or requests and flush when unblocked. The callback is a refetch hint, not authoritative entity data.
-
-## Consumer Hydration
-
-Each consumer chooses its own query and local state. A frame must not trigger broad query invalidation or a global entity cache update. Hydration should request the smallest useful projection for the affected IDs, then update the consumer-owned state. Structural changes that can alter membership, sorting, or pagination should use the consumer's normal structural refresh instead of assuming that a targeted patch is enough.
+Consumers can block the batcher while their data is not ready for update processing. Updates accumulate without starting timers or requests and flush when unblocked. The callback is an update signal, not authoritative entity data.
 
 ## Saved Views
 
 Saved views register the IDs in their loaded pages under an owner scoped by server, user, and view. They block interest updates during the initial or load-more query and during manual structural refreshes.
 
-When unblocked, a batch is filtered to loaded IDs and uses the saved view's query document with an ID predicate to hydrate those rows. The result patches the view's local normalized runtime. A structural refresh is scheduled when updates may affect membership or ordering, with the existing dirty-state timeout as a fallback. No global invalidation or shared entity cache is used.
-
-## Future Consumers
-
-- Detail: discovery registers the ID found by the detail query; hydration reruns the detail projection for that ID and updates the local screen state.
-- Recommendations: discovery registers IDs in the visible recommendation result; hydration reruns the recommendation projection for affected IDs, or the bounded result when ranking or filters may change.
-
-In both cases, discovery identifies interest and hydration is a consumer-owned query. The coordinator only joins, routes, and batches update signals.
+Each batched entity update triggers one structural refetch of the currently loaded page range. Updates that arrive while the refetch is in flight coalesce into one trailing structural refetch. A background refetch failure retains the displayed data and retries the background refetch after 30 seconds. No global invalidation or shared entity cache is used.

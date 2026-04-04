@@ -2,8 +2,7 @@ import type { RequestHeaders } from "@ryot/contract/client";
 import { Context, Effect, Layer } from "effect";
 import { FetchHttpClient, HttpClient, HttpClientRequest } from "effect/unstable/http";
 
-import { contractRequestOptions } from "@/api/request-options";
-import { normalizeServerOrigin } from "@/modules/server/url";
+import { normalizeServerOrigin, serverApiUrl } from "@/api/origin";
 
 type Fetch = typeof globalThis.fetch;
 
@@ -43,15 +42,15 @@ const makeRequestLayer = (options: {
 			const mappedClient = client.pipe(
 				HttpClient.mapRequestEffect((request) =>
 					Effect.sync(() => {
-						const requestOptions = contractRequestOptions({
-							serverUrl,
-							headers: options.headers,
-							authenticated: options.authenticated,
-							authCookie: options.authenticated ? environment.getAuthCookie(serverUrl) : undefined,
-						});
+						const authCookie = options.authenticated
+							? environment.getAuthCookie(serverUrl)
+							: undefined;
 						return request.pipe(
-							HttpClientRequest.prependUrl(requestOptions.baseUrl),
-							HttpClientRequest.setHeaders(requestOptions.headers),
+							HttpClientRequest.prependUrl(serverApiUrl(serverUrl)),
+							HttpClientRequest.setHeaders({
+								...options.headers,
+								...(authCookie ? { Cookie: authCookie } : {}),
+							}),
 						);
 					}),
 				),

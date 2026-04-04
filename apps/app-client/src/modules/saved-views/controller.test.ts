@@ -2,14 +2,15 @@ import { expect, it } from "@effect/vitest";
 import type { RyotQLDocument } from "@ryot/contract/modules/ryotql/language";
 import { Effect } from "effect";
 
-import { withSavedViewCursor } from "./atom-requests";
 import {
+	canRefreshSavedView,
 	createSavedViewControllerState,
 	fetchSavedViewPages,
 	savedViewControllerReducer,
 	savedViewControllerResult,
 	isSavedViewRequestActiveFor,
 	type SavedViewOperationToken,
+	withSavedViewCursor,
 } from "./controller";
 import type { SavedViewCardItem } from "./display-data";
 import type { SavedViewReadyState } from "./state";
@@ -95,7 +96,7 @@ it.effect("loads pages in order with fresh cursors and deduplicates materialized
 		state = savedViewControllerReducer(state, {
 			token: operation,
 			type: "request-started",
-			phase: "structural",
+			phase: "refresh",
 		});
 		state = savedViewControllerReducer(state, {
 			data,
@@ -169,14 +170,14 @@ it.effect("appends load-more and fully replaces an already loaded multi-page ran
 			},
 			execute: () => Effect.void,
 		});
-		const structural = token(state.identity, "grid", state.generation + 1);
+		const refresh = token(state.identity, "grid", state.generation + 1);
 		state = savedViewControllerReducer(state, {
-			token: structural,
+			token: refresh,
 			type: "request-started",
-			phase: "structural",
+			phase: "refresh",
 		});
 		state = savedViewControllerReducer(state, {
-			token: structural,
+			token: refresh,
 			type: "request-succeeded",
 			data: replacement,
 		});
@@ -261,7 +262,7 @@ it("starts a cached layout while the previous layout request becomes stale", () 
 	const gridRefresh = token(state.identity, "grid", state.generation + 1);
 	state = savedViewControllerReducer(state, {
 		token: gridRefresh,
-		phase: "structural",
+		phase: "refresh",
 		type: "request-started",
 	});
 
@@ -271,7 +272,7 @@ it("starts a cached layout while the previous layout request becomes stale", () 
 	const listRefresh = token(state.identity, "list", state.generation + 1);
 	state = savedViewControllerReducer(state, {
 		token: listRefresh,
-		phase: "structural",
+		phase: "refresh",
 		type: "request-started",
 	});
 	const beforeGridCompletion = state;
@@ -293,36 +294,72 @@ it("starts a cached layout while the previous layout request becomes stale", () 
 	});
 });
 
-it("hydrates only requested entities that remain loaded", () => {
+it("coalesces refresh requests while work is active and consumes one trailing refresh", () => {
 	let state = createSavedViewControllerState("scope:record", "grid");
-	const operation = token(state.identity);
+	const initial = token(state.identity);
 	state = savedViewControllerReducer(state, {
-		token: operation,
+		token: initial,
+		phase: "initial",
+		type: "request-started",
+	});
+	state = savedViewControllerReducer(state, { type: "refresh-requested" });
+	state = savedViewControllerReducer(state, { type: "refresh-requested" });
+	expect(canRefreshSavedView(state)).toBe(false);
+
+	state = savedViewControllerReducer(state, {
+		token: initial,
+		type: "request-succeeded",
+		data: {
+			itemsById: new Map([["entity-1", card("entity-1")]]),
+			pages: [page(["entity-1"], null)],
+		},
+	});
+	expect(canRefreshSavedView(state)).toBe(true);
+
+	const refresh = token(state.identity, "grid", state.generation + 1);
+	state = savedViewControllerReducer(state, {
+		token: refresh,
+		phase: "refresh",
+		type: "request-started",
+	});
+	expect(state.pendingRefresh).toBe(false);
+	expect(canRefreshSavedView(state)).toBe(false);
+});
+
+it("retains loaded data and requests a retry after a background refresh failure", () => {
+	let state = createSavedViewControllerState("scope:record", "grid");
+	const initial = token(state.identity);
+	state = savedViewControllerReducer(state, {
+		token: initial,
 		phase: "initial",
 		type: "request-started",
 	});
 	state = savedViewControllerReducer(state, {
-		token: operation,
+		token: initial,
 		type: "request-succeeded",
 		data: {
-			itemsById: new Map([["entity-1", card("entity-1", "Old")]]),
-			pages: [
-				{
-					entityIds: ["entity-1"],
-					queryDocument: baseQuery,
-					pageInfo: { limit: 2, hasMore: false, nextCursor: null },
-				},
-			],
+			itemsById: new Map([["entity-1", card("entity-1")]]),
+			pages: [page(["entity-1"], null)],
 		},
 	});
+	const refresh = token(state.identity, "grid", state.generation + 1);
 	state = savedViewControllerReducer(state, {
-		entityIds: ["entity-1"],
-		type: "hydration-succeeded",
-		token: { ...operation, generation: state.generation },
-		items: [card("entity-1", "Updated"), card("entity-2", "Unrelated")],
+		token: refresh,
+		phase: "refresh",
+		type: "request-started",
 	});
+	state = savedViewControllerReducer(state, {
+		token: refresh,
+		type: "request-failed",
+		failure: { status: "transport-error", cause: "offline" },
+	});
+
+	expect(state.retryRefresh).toBe(true);
 	expect(savedViewControllerResult(state)).toMatchObject({
+		status: "ready",
 		entityIds: ["entity-1"],
-		data: { items: [{ title: "Updated" }] },
 	});
+	state = savedViewControllerReducer(state, { type: "refresh-retry-elapsed" });
+	expect(state.retryRefresh).toBe(false);
+	expect(canRefreshSavedView(state)).toBe(true);
 });

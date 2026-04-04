@@ -58,6 +58,7 @@ function UserRow(props: GodModeScope & { user: GodModeUser; onUnauthorized: () =
 		userId: props.user.id,
 		serverUrl: props.serverUrl,
 		adminToken: props.adminToken,
+		sessionId: props.sessionId,
 	};
 	const resetPassword = useAtomSet(resetUserPasswordAtom(request), { mode: "promiseExit" });
 	const setUserDisabled = useAtomSet(setUserDisabledAtom(request), { mode: "promiseExit" });
@@ -255,6 +256,7 @@ export function GodModeUserList(
 					key={user.id}
 					serverUrl={props.serverUrl}
 					adminToken={props.adminToken}
+					sessionId={props.sessionId}
 					onUnauthorized={props.onUnauthorized}
 				/>
 			))}

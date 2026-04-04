@@ -6,7 +6,7 @@ import {
 	resolveApiUrl,
 	resolveServerUrl,
 	serverApiUrl,
-} from "./url";
+} from "./origin";
 
 describe("server URL helpers", () => {
 	it("normalizes the server origin and API base URL", () => {

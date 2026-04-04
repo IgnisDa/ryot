@@ -1,5 +1,5 @@
+import { normalizeServerOrigin } from "@/api/origin";
 import type { ApiScope } from "@/api/request-key";
-import { normalizeServerOrigin } from "@/modules/server/url";
 
 export type ProviderAddProviderStorageScope = ApiScope & { entitySchemaSlug: string };
 
