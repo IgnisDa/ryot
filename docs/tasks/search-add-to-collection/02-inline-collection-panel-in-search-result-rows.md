@@ -4,7 +4,7 @@
 
 **Type:** AFK
 
-**Status:** todo
+**Status:** done
 
 ## What to build
 
@@ -21,21 +21,21 @@ See the parent PRD sections **Entry point and interaction model**, **Collection 
 
 ## Acceptance criteria
 
-- [ ] The `Collection` quick action is enabled in the expanded search-result row.
-- [ ] Clicking the action opens and closes an inline panel in the same row rather than launching a
+- [x] The `Collection` quick action is enabled in the expanded search-result row.
+- [x] Clicking the action opens and closes an inline panel in the same row rather than launching a
       separate modal.
-- [ ] The panel consumes the shared collection-discovery helper and renders a loading state while
+- [x] The panel consumes the shared collection-discovery helper and renders a loading state while
       collections are being fetched.
-- [ ] If no collections exist, the panel renders a calm empty state instead of a broken form.
-- [ ] The empty state includes a CTA that uses the shared Collections-view resolver to guide the
+- [x] If no collections exist, the panel renders a calm empty state instead of a broken form.
+- [x] The empty state includes a CTA that uses the shared Collections-view resolver to guide the
       user to the built-in Collections view.
-- [ ] The row preserves the existing add-or-queue action hierarchy and does not promote Collection
+- [x] The row preserves the existing add-or-queue action hierarchy and does not promote Collection
       to the primary action.
-- [ ] The row does not imply authoritative existing membership state for the result beyond what the
+- [x] The row does not imply authoritative existing membership state for the result beyond what the
       current interaction knows.
-- [ ] Component-level tests cover panel toggling, loading rendering, and the no-collections empty
+- [x] Component-level tests cover panel toggling, loading rendering, and the no-collections empty
       state.
-- [ ] `bun run typecheck` and the relevant frontend test command pass in `apps/app-frontend`.
+- [x] `bun run typecheck` and the relevant frontend test command pass in `apps/app-frontend`.
 
 ## Blocked by
 

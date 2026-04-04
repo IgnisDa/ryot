@@ -559,7 +559,10 @@ export function SearchEntityModalContent(props: {
 											isLifecycleLoading={eventSchemasQuery.isLoading}
 											isExpanded={selectedResultId === item.identifier}
 											canUseCollectionAction={canUseCollectionAction}
-											collections={collections}
+											collectionState={collectionState}
+											collectionsDestination={
+												collectionsDestination.destination
+											}
 											primaryAction={
 												props.initialAction === "backlog" ? "backlog" : "add"
 											}
