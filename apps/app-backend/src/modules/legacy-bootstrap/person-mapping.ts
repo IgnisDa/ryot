@@ -201,9 +201,6 @@ BEGIN
 
 		rows_inserted := rows_inserted + batch_rows_inserted;
 		cursor_id := next_cursor_id;
-		RAISE NOTICE '${kindNotice} -> entity: % row(s) migrated so far (% seconds elapsed)',
-			rows_inserted,
-			round(extract(epoch from clock_timestamp() - started_at)::numeric, 1);
 	END LOOP;
 
 	RAISE NOTICE '${kindNotice} -> entity: % row(s) migrated total (% seconds elapsed)',
@@ -397,10 +394,6 @@ BEGIN
 		global_rows_inserted := global_rows_inserted + global_batch_rows_inserted;
 		user_rows_inserted := user_rows_inserted + user_batch_rows_inserted;
 		cursor_id := next_cursor_id;
-		RAISE NOTICE '${kindNotice} -> relationship: % global row(s), % user-scoped row(s) migrated so far (% seconds elapsed)',
-			global_rows_inserted,
-			user_rows_inserted,
-			round(extract(epoch from clock_timestamp() - started_at)::numeric, 1);
 	END LOOP;
 
 	RAISE NOTICE '${kindNotice} -> relationship: % global row(s), % user-scoped row(s) migrated total (% seconds elapsed)',
@@ -600,10 +593,6 @@ BEGIN
 		global_rows_inserted := global_rows_inserted + global_batch_rows_inserted;
 		user_rows_inserted := user_rows_inserted + user_batch_rows_inserted;
 		cursor_id := next_cursor_id;
-		RAISE NOTICE 'group_person -> relationship: % global row(s), % user-scoped row(s) migrated so far (% seconds elapsed)',
-			global_rows_inserted,
-			user_rows_inserted,
-			round(extract(epoch from clock_timestamp() - started_at)::numeric, 1);
 	END LOOP;
 
 	RAISE NOTICE 'group_person -> relationship: % global row(s), % user-scoped row(s) migrated total (% seconds elapsed)',

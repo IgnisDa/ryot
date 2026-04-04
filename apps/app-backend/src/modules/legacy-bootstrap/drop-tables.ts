@@ -17,6 +17,7 @@ BEGIN
 	DROP TABLE IF EXISTS "workout" CASCADE;
 	DROP TABLE IF EXISTS "workout_template" CASCADE;
 	DROP TABLE IF EXISTS "old_user" CASCADE;
+	DROP TABLE IF EXISTS "seen" CASCADE;
 	DROP TABLE IF EXISTS "collection" CASCADE;
 	DROP TABLE IF EXISTS "review" CASCADE;
 	RAISE NOTICE 'legacy tables dropped (% seconds elapsed)',
