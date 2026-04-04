@@ -29,8 +29,8 @@ export const startServer = async () => {
 	initializeMetrics();
 	await migrateDB();
 
-	if (process.env.MIGRATE_ONLY === "true") {
-		console.info("MIGRATE_ONLY=true, exiting after migrations");
+	if (process.env.RUN_LEGACY_BOOTSTRAP_ONLY === "true") {
+		console.info("RUN_LEGACY_BOOTSTRAP_ONLY=true, exiting after migrations");
 		process.exit(0);
 	}
 
