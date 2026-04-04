@@ -1,0 +1,83 @@
+import type { RequestHeaders } from "@ryot/contract/client";
+import { Context, Effect, Layer } from "effect";
+import { FetchHttpClient, HttpClient, HttpClientRequest } from "effect/unstable/http";
+
+import { contractRequestOptions } from "@/api/request-options";
+import { normalizeServerOrigin } from "@/modules/server/url";
+
+type Fetch = typeof globalThis.fetch;
+
+export class TransportEnvironment extends Context.Service<
+	TransportEnvironment,
+	{
+		readonly fetch: Fetch;
+		readonly expoFetch: Fetch;
+		readonly getAuthCookie: (serverUrl: string) => string | undefined;
+	}
+>()("@ryot/app-client/TransportEnvironment") {}
+
+const fetchHttpClientLayer = (useExpoFetch: boolean) =>
+	FetchHttpClient.layer.pipe(
+		Layer.provide(
+			Layer.effect(
+				FetchHttpClient.Fetch,
+				Effect.map(TransportEnvironment, (environment) =>
+					useExpoFetch ? environment.expoFetch : environment.fetch,
+				),
+			),
+		),
+	);
+
+const makeRequestLayer = (options: {
+	authenticated?: boolean;
+	headers?: RequestHeaders;
+	serverUrl: string;
+	useExpoFetch?: boolean;
+}) => {
+	const serverUrl = normalizeServerOrigin(options.serverUrl);
+	return Layer.effect(
+		HttpClient.HttpClient,
+		Effect.gen(function* () {
+			const environment = yield* TransportEnvironment;
+			const client = yield* HttpClient.HttpClient;
+			const mappedClient = client.pipe(
+				HttpClient.mapRequestEffect((request) =>
+					Effect.sync(() => {
+						const requestOptions = contractRequestOptions({
+							serverUrl,
+							headers: options.headers,
+							authenticated: options.authenticated,
+							authCookie: options.authenticated ? environment.getAuthCookie(serverUrl) : undefined,
+						});
+						return request.pipe(
+							HttpClientRequest.prependUrl(requestOptions.baseUrl),
+							HttpClientRequest.setHeaders(requestOptions.headers),
+						);
+					}),
+				),
+			);
+			return options.authenticated
+				? mappedClient.pipe(
+						HttpClient.transformResponse(
+							Effect.provideService(FetchHttpClient.RequestInit, { credentials: "include" }),
+						),
+					)
+				: mappedClient;
+		}),
+	).pipe(Layer.provide(fetchHttpClientLayer(options.useExpoFetch === true)));
+};
+
+export const publicRequestLayer = (serverUrl: string) => makeRequestLayer({ serverUrl });
+
+export const authenticatedRequestLayer = (serverUrl: string) =>
+	makeRequestLayer({ serverUrl, authenticated: true });
+
+export const adminTokenRequestLayer = (serverUrl: string, adminToken: string) =>
+	makeRequestLayer({
+		serverUrl,
+		authenticated: true,
+		headers: { "Admin-Access-Token": adminToken },
+	});
+
+export const authenticatedExpoRequestLayer = (serverUrl: string) =>
+	makeRequestLayer({ serverUrl, authenticated: true, useExpoFetch: true });

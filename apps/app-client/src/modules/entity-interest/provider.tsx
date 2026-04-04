@@ -12,6 +12,7 @@ import {
 	useMemo,
 } from "react";
 
+import { useApiScope } from "@/api/scope";
 import { authenticatedExpoContractClient } from "@/api/transport";
 
 import { EntityInterestCoordinator } from "./coordinator";
@@ -33,11 +34,8 @@ const retrySchedule = Schedule.exponential("1 second").pipe(
 	),
 );
 
-export function EntityInterestProvider(props: {
-	userId: string;
-	serverUrl: string;
-	children: ReactNode;
-}) {
+export function EntityInterestProvider(props: { children: ReactNode }) {
+	const scope = useApiScope();
 	const bridge = useMemo<InterestBridge>(() => {
 		let current: ManagedRuntime.ManagedRuntime<EntityInterestCoordinator, never> | undefined;
 		return {
@@ -59,7 +57,7 @@ export function EntityInterestProvider(props: {
 		const runtime = ManagedRuntime.make(
 			EntityInterestCoordinator.layer({
 				declareInterest: (streamId, entityIds) =>
-					authenticatedExpoContractClient(props.serverUrl).pipe(
+					authenticatedExpoContractClient(scope.serverUrl).pipe(
 						Effect.flatMap((client) =>
 							client["entity-interest"].declareInterest({
 								payload: { streamId, entityIds: [...entityIds] },
@@ -71,8 +69,8 @@ export function EntityInterestProvider(props: {
 					Effect.logWarning("entity interest declaration failed; retrying", {
 						error,
 						attempt,
-						userId: props.userId,
 						retryDelayMs,
+						userId: scope.userId,
 					}),
 			}),
 		);
@@ -82,7 +80,7 @@ export function EntityInterestProvider(props: {
 			const streamId = randomUUID();
 			const parser = new InterestSseParser();
 			yield* Effect.gen(function* () {
-				const response = yield* authenticatedExpoContractClient(props.serverUrl).pipe(
+				const response = yield* authenticatedExpoContractClient(scope.serverUrl).pipe(
 					Effect.flatMap((client) =>
 						client["entity-interest"].stream({
 							query: { streamId },
@@ -120,7 +118,7 @@ export function EntityInterestProvider(props: {
 			bridge.detach(runtime);
 			void runtime.dispose();
 		};
-	}, [bridge, props.serverUrl, props.userId]);
+	}, [bridge, scope.serverUrl, scope.userId]);
 
 	return <InterestContext.Provider value={bridge}>{props.children}</InterestContext.Provider>;
 }

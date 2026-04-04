@@ -1,9 +1,8 @@
+import type { ApiScope } from "@/api/request-key";
 import { normalizeServerOrigin } from "@/modules/server/url";
 
-export type SavedViewLayoutStorageScope = {
-	userId: string;
+export type SavedViewLayoutStorageScope = ApiScope & {
 	viewSlug: string;
-	serverUrl: string;
 };
 
 export const savedViewLayoutStorageKey = (scope: SavedViewLayoutStorageScope) =>

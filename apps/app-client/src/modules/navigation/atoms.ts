@@ -6,6 +6,7 @@ import { appQueryClient } from "@/api/query-client";
 import {
 	type ApiScope,
 	apiScopeKey,
+	canonicalApiScope,
 	keyedRequestFamily,
 	scopedReactivityKey,
 } from "@/api/request-key";
@@ -25,9 +26,10 @@ const workspaceAtom = Atom.family((scopeKey: string) =>
 export const scopedWorkspaceAtom = (scope: WorkspaceStorageScope) =>
 	workspaceAtom(workspaceStorageKey(scope));
 
-export const navigationAtom = keyedRequestFamily(apiScopeKey, (scope: ApiScope) =>
-	appQueryClient.query("ryotql", "execute", {
+export const navigationAtom = keyedRequestFamily(apiScopeKey, (scope: ApiScope) => {
+	const canonical = canonicalApiScope(scope);
+	return appQueryClient(canonical.serverUrl).query("ryotql", "execute", {
 		payload: buildNavigationDocument(),
-		reactivityKeys: scopedReactivityKey("navigation", scope),
-	}),
-);
+		reactivityKeys: scopedReactivityKey("navigation", canonical),
+	});
+});
