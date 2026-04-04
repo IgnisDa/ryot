@@ -36,7 +36,6 @@ describe("sandbox capability authorization", () => {
 					crons: [
 						{
 							scriptSlug,
-							lot: "script",
 							schedule: { cron: "0 0 * * *" },
 							slug: "system-denied-capability",
 							description: "Verifies system capability denial",

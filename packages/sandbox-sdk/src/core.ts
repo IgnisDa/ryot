@@ -639,7 +639,7 @@ export const SANDBOX_CAPABILITY_REQUIREMENTS = {
 	},
 	executeQueryEngine: {
 		bridge: true,
-		systemKinds: ["activity"] as const,
+		systemKinds: ["activity", "script"] as const,
 		authorities: ["user", "subscription", "system"],
 	},
 	emitSignal: {

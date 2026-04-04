@@ -1,7 +1,7 @@
 import { SandboxRunError, unknownToMessage } from "@ryot/contract/errors";
 import type { SandboxExecutionPayload } from "@ryot/contract/modules/sandbox/schemas";
 import { SandboxScriptId } from "@ryot/contract/schema/brands";
-import { jsonValueSchema } from "@ryot/sandbox-sdk/wire";
+import { jsonValueSchema, type JsonValue } from "@ryot/sandbox-sdk/wire";
 import {
 	type WorkflowDurableResult,
 	type WorkflowReplayEnvelope,
@@ -32,6 +32,7 @@ import { type DurableSchema, withoutWorkflowParent } from "#lib/infrastructure/w
 
 import { SandboxDurableHostDispatcher } from "./durable-host-dispatcher";
 import { processSandboxExecutionQueue, resolveSandboxExecutionPayload } from "./durable-queues";
+import { SandboxExecutionResult as SandboxExecutionResultSchema } from "./execution-result";
 import type { SandboxExecutionResult } from "./execution-result";
 import {
 	KernelWorkflowReferences,
@@ -79,6 +80,27 @@ export const SandboxScriptWorkflow = Workflow.make("SandboxScriptWorkflow", {
 });
 
 const sandboxFailure = (message: string) => new SandboxRunError({ message });
+
+const toSandboxExecutionResult = (
+	result: SandboxExecutionResult,
+	value: JsonValue,
+	error: SandboxExecutionResult["error"] = null,
+) => ({
+	value,
+	logs: result.logs,
+	status: "completed" as const,
+	...(result.timing ? { timing: result.timing } : {}),
+	error:
+		error === null
+			? null
+			: {
+					phase: error.phase,
+					message: error.message,
+					...(error.line === undefined ? {} : { line: error.line }),
+					...(error.stack === undefined ? {} : { stack: error.stack }),
+					...(error.column === undefined ? {} : { column: error.column }),
+				},
+});
 
 export const establishSandboxWorkflowPin = Effect.fn("establishSandboxWorkflowPin")(function* (
 	payload: SandboxScriptWorkflowPayloadValue,
@@ -220,9 +242,10 @@ export const validateWorkflowReplayEnvelope = (
 				);
 	}
 	if (envelope.requests.length !== journal.length) {
+		const failure = envelope.state === "failed" ? `: ${envelope.error}` : "";
 		return Effect.fail(
 			sandboxFailure(
-				`SandboxWorkflowNondeterminism: ${envelope.state} replay included an unrecorded durable call`,
+				`SandboxWorkflowNondeterminism: ${envelope.state} replay included an unrecorded durable call${failure}`,
 			),
 		);
 	}
@@ -517,15 +540,34 @@ export const runSandboxScriptWorkflowBody = Effect.fn("SandboxScriptWorkflow")(f
 				{ discard: true },
 			);
 			if (replay.error) {
+				if (payload.resultMode === "execution") {
+					return toSandboxExecutionResult(replay, null, replay.error);
+				}
 				return yield* sandboxFailure(
 					`Workflow replay ${step} failed: ${replay.error.phase}: ${replay.error.message}`,
 				);
 			}
 			const observed = yield* observeWorkflowReplay(replay.value, journal, pin.scriptId, step);
 			if (observed.state === "failed") {
+				if (payload.resultMode === "execution") {
+					return toSandboxExecutionResult(replay, null, {
+						phase: "execute",
+						message: observed.error,
+					});
+				}
 				return yield* sandboxFailure(`Workflow replay ${step} failed: ${observed.error}`);
 			}
 			if (observed.state === "completed") {
+				const observedOutput =
+					replay.harvest && isObjectRecord(observed.output)
+						? (() => {
+								const { chunkFiles: _chunkFiles, ...value } = observed.output;
+								return { ...value, chunkHandles: replay.harvest.chunkHandles };
+							})()
+						: observed.output;
+				if (payload.resultMode === "execution") {
+					return toSandboxExecutionResult(replay, observedOutput);
+				}
 				if (replay.harvest && isObjectRecord(observed.output)) {
 					const { chunkFiles: _chunkFiles, ...output } = observed.output;
 					return { ...output, chunkHandles: replay.harvest.chunkHandles };
@@ -616,4 +658,19 @@ export const runSandboxScriptWorkflow = Effect.fn("SandboxScriptWorkflow")(funct
 	executionId: string,
 ) {
 	return yield* runSandboxScriptWorkflowBody(payload, executionId, processPinnedSandbox);
+});
+
+export const executeSandboxScriptWorkflow = Effect.fn("executeSandboxScriptWorkflow")(function* (
+	payload: SandboxScriptWorkflowPayloadValue,
+) {
+	const engine = yield* WorkflowEngine;
+	const value = yield* engine.execute(SandboxScriptWorkflow, {
+		payload,
+		executionId: payload.executionId,
+	});
+	return yield* Schema.decodeUnknownEffect(SandboxExecutionResultSchema)(value).pipe(
+		Effect.mapError((error) =>
+			sandboxFailure(`Sandbox execution result is invalid: ${unknownToMessage(error)}`),
+		),
+	);
 });

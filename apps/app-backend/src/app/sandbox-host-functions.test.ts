@@ -257,7 +257,7 @@ const runExecuteQueryEngine = (input: SandboxRunInput, caller: typeof systemQuer
 					...makeDefinitionRegistry(),
 				}),
 				Layer.mock(PluginRuntimeResolver)({
-					resolveSystemQueryActivity: (scriptId) => {
+					resolveSystemQueryScript: (scriptId) => {
 						resolvedScriptIds.push(scriptId);
 						return Effect.succeed(caller);
 					},
@@ -278,7 +278,7 @@ const runExecuteQueryEngine = (input: SandboxRunInput, caller: typeof systemQuer
 };
 
 describe("executeQueryEngine", () => {
-	it.effect("derives system scope from the persisted activity script identity", () =>
+	it.effect("derives system scope from the persisted plugin script identity", () =>
 		Effect.gen(function* () {
 			const execution = yield* runExecuteQueryEngine(
 				{ ...runInput({ type: "system" }), metadata: { kind: "activity" } },
@@ -292,7 +292,7 @@ describe("executeQueryEngine", () => {
 		}),
 	);
 
-	it.effect("rejects system access when persisted identity is not a pinned plugin activity", () =>
+	it.effect("rejects system access when persisted identity is not a pinned plugin script", () =>
 		Effect.gen(function* () {
 			const execution = yield* runExecuteQueryEngine(
 				{ ...runInput({ type: "system" }), metadata: { kind: "activity" } },
@@ -301,7 +301,7 @@ describe("executeQueryEngine", () => {
 
 			expect(Result.getFailure(execution.result)).toEqual(
 				Option.some({
-					message: "executeQueryEngine system access requires a pinned plugin activity script",
+					message: "executeQueryEngine system access requires a pinned plugin script",
 				}),
 			);
 			expect(execution.systemCalls).toEqual([]);
@@ -326,7 +326,7 @@ describe("executeQueryEngine", () => {
 			}),
 	);
 
-	it("exposes system query execution only to workflow activities while preserving user access", () => {
+	it("exposes system query execution to direct scripts while preserving user access", () => {
 		const bound = { executeQueryEngine };
 		const systemScript = selectSandboxHostFunctions(bound, {
 			metadata: { kind: "script" },
@@ -344,7 +344,7 @@ describe("executeQueryEngine", () => {
 			authority: { type: "user", userId: UserId.make("user-1") },
 		});
 
-		expect(systemScript).toEqual({});
+		expect(systemScript).toEqual({ executeQueryEngine });
 		expect(systemActivity).toEqual({ executeQueryEngine });
 		expect(user).toEqual({ executeQueryEngine });
 	});

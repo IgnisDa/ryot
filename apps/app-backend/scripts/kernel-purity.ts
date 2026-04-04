@@ -114,7 +114,7 @@ export const deriveDomainVocabulary = (manifests: ReadonlyArray<PluginManifest>)
 		}
 		for (const cron of manifest.crons) {
 			add(terms, cron.slug);
-			add(terms, cron.lot === "script" ? cron.scriptSlug : cron.workflowSlug);
+			add(terms, cron.scriptSlug);
 		}
 		for (const boot of manifest.boot) {
 			add(terms, boot.slug, boot.scriptSlug);
