@@ -74,7 +74,10 @@ describe("Saved views E2E", () => {
 					subtitleProperty: ["year"],
 				},
 				table: {
-					columns: [{ property: ["@name"] }, { property: ["status"] }],
+					columns: [
+						{ label: "Name", property: ["@name"] },
+						{ label: "Status", property: ["status"] },
+					],
 				},
 			},
 		});

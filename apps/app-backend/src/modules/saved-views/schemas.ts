@@ -57,6 +57,7 @@ export const listConfigSchema = z.object({
 });
 
 export const tableColumnSchema = z.object({
+	label: nonEmptyTrimmedStringSchema,
 	property: z.array(z.string()),
 });
 
