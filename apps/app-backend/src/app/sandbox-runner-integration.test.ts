@@ -14,7 +14,13 @@ import {
 	SANDBOX_APPROVED_DEPENDENCIES,
 	type SandboxRuntimePaths,
 } from "#lib/infrastructure/sandbox-runtime/dependencies";
-import { SANDBOX_LIMITS, SANDBOX_RUNNER_LIMITS } from "#lib/infrastructure/sandbox-runtime/limits";
+import {
+	SANDBOX_LIMITS,
+	SANDBOX_RUNNER_LIMITS,
+	WORKFLOW_SANDBOX_LIMITS,
+	WORKFLOW_SANDBOX_RUNNER_LIMITS,
+} from "#lib/infrastructure/sandbox-runtime/limits";
+import type { SandboxRunnerLimits } from "#lib/infrastructure/sandbox-runtime/runner-utilities.sandbox";
 import { sandboxRunnerSource } from "#lib/infrastructure/sandbox-runtime/runner.generated";
 import { kernelScripts } from "#modules/definition-registry/kernel-source";
 import { bootPluginSources } from "#modules/plugins/boot-sources";
@@ -119,10 +125,13 @@ export const manifest = defineManifest({
 export default defineScript({
   manifest,
   output: Schema.Unknown,
-  input: Schema.Struct({ mode: Schema.Literals(["output", "logs"]) }),
+  input: Schema.Struct({
+    bytes: Schema.optional(Schema.Number),
+    mode: Schema.Literals(["output", "logs"]),
+  }),
   run: (input) => Effect.sync(() => {
     if (input.mode === "output") {
-      return "x".repeat(${SANDBOX_LIMITS.execution.resultBytes + 1});
+      return "x".repeat(input.bytes ?? ${SANDBOX_LIMITS.execution.resultBytes + 1});
     }
     for (let index = 0; index < ${SANDBOX_LIMITS.logs.entryCount}; index += 1) {
       console.log(index);
@@ -563,6 +572,7 @@ type RunnerOptions = {
 	readonly startedAt?: string;
 	readonly moduleUrl?: string;
 	readonly executionId?: string;
+	readonly limits?: SandboxRunnerLimits;
 	readonly workflowExecutionId?: string;
 	readonly apiFunctions?: readonly string[];
 	readonly filesystem?: {
@@ -600,12 +610,12 @@ const runInDenoRequest = ({ compiled, context, options = {} }: RunnerRequest) =>
 				apiBase,
 				token: "unused",
 				metadata: compiled.manifest,
-				limits: SANDBOX_RUNNER_LIMITS,
 				compiledFormat: compiled.format,
 				...(filesystem ? { filesystem } : {}),
 				scriptId: options.scriptId ?? "script-1",
 				apiFunctions: options.apiFunctions ?? [],
 				moduleUrl: options.moduleUrl ?? moduleUrl,
+				limits: options.limits ?? SANDBOX_RUNNER_LIMITS,
 				executionId: options.executionId ?? "execution-1",
 				startedAt: options.startedAt ?? "2026-08-06T00:00:00.000Z",
 				...(options.workflowExecutionId
@@ -948,6 +958,32 @@ it("enforces direct-definition output and log limits", () =>
 			assert(Array.isArray(logs));
 			expect(logs).toHaveLength(SANDBOX_LIMITS.logs.entryCount);
 			expect(logs.at(-1)).toBe("[sandbox logs truncated]");
+		}).pipe(Effect.provide(SandboxCompiler.layer)),
+	));
+
+it("enforces the independent workflow terminal-output boundary", () =>
+	Effect.runPromise(
+		Effect.gen(function* () {
+			const compiler = yield* SandboxCompiler;
+			const compiled = yield* compiler.compile(limitsSource);
+			const accepted = yield* runInDeno(
+				compiled,
+				{ mode: "output", bytes: WORKFLOW_SANDBOX_LIMITS.execution.resultBytes - 2 },
+				{ limits: WORKFLOW_SANDBOX_RUNNER_LIMITS },
+			);
+			assert(accepted !== null && typeof accepted === "object");
+			expect(Reflect.get(accepted, "success")).toBe(true);
+
+			const overflow = yield* runInDeno(
+				compiled,
+				{ mode: "output", bytes: WORKFLOW_SANDBOX_LIMITS.execution.resultBytes - 1 },
+				{ limits: WORKFLOW_SANDBOX_RUNNER_LIMITS },
+			);
+			assert(overflow !== null && typeof overflow === "object");
+			expect(Reflect.get(overflow, "error")).toEqual({
+				phase: "output",
+				message: `Sandbox definition result exceeds ${WORKFLOW_SANDBOX_LIMITS.execution.resultBytes} UTF-8 bytes`,
+			});
 		}).pipe(Effect.provide(SandboxCompiler.layer)),
 	));
 

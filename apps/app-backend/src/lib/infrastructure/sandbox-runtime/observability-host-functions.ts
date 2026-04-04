@@ -8,21 +8,55 @@ import { sandboxHostFailure } from "./shared";
 
 type ObservabilityKind = "log" | "span";
 type ObservabilityEntry = LogEntry | SpanEntry;
+const sensitiveAttributePattern =
+	/authorization|cookie|credential|password|secret|token|api[-_]?key/i;
+const redactedValue = "[REDACTED]";
+const sensitiveTextPattern =
+	/(authorization|cookie|credential|password|secret|token|api[-_]?key)(\s*[:=]\s*)(?:Bearer\s+[A-Za-z0-9._~+/=-]+|"[^"]*"|'[^']*'|[^\s,;]+)/gi;
+const bearerTextPattern = /\bBearer\s+[A-Za-z0-9._~+/=-]+/gi;
+
+const redactDiagnosticText = (value: string) =>
+	value
+		.replace(
+			sensitiveTextPattern,
+			(_match, key: string, separator: string) => `${key}${separator}${redactedValue}`,
+		)
+		.replace(bearerTextPattern, `Bearer ${redactedValue}`);
+
+const redactValue = (value: unknown, key?: string): unknown => {
+	if (key && sensitiveAttributePattern.test(key)) {
+		return redactedValue;
+	}
+	if (Array.isArray(value)) {
+		return value.map((entry) => redactValue(entry));
+	}
+	if (value !== null && typeof value === "object") {
+		return Object.fromEntries(
+			Object.entries(value).map(([entryKey, entry]) => [entryKey, redactValue(entry, entryKey)]),
+		);
+	}
+	return value;
+};
+
+const redactAttributes = (attributes: Readonly<Record<string, unknown>> | undefined) =>
+	Object.fromEntries(
+		Object.entries(attributes ?? {}).map(([key, value]) => [key, redactValue(value, key)]),
+	);
 
 const serializeObservabilityEntry = (entry: ObservabilityEntry) => {
 	if ("level" in entry) {
 		return stableStringify({
 			kind: "log",
 			level: entry.level,
-			message: entry.message,
-			...(entry.attributes ? { attributes: entry.attributes } : {}),
+			message: redactDiagnosticText(entry.message),
+			...(entry.attributes ? { attributes: redactAttributes(entry.attributes) } : {}),
 		});
 	}
 
 	return stableStringify({
 		kind: "span",
-		name: entry.name,
-		...(entry.attributes ? { attributes: entry.attributes } : {}),
+		name: redactDiagnosticText(entry.name),
+		...(entry.attributes ? { attributes: redactAttributes(entry.attributes) } : {}),
 	});
 };
 
@@ -61,17 +95,21 @@ export type SandboxObservabilityCollector = ReturnType<typeof makeSandboxObserva
 const correlationAttributes = (input: SandboxRunInput) => ({
 	scriptId: input.scriptId,
 	executionId: input.executionId,
+	...(input.workflowExecutionId ? { sandboxWorkflowExecutionId: input.workflowExecutionId } : {}),
 });
 
 const emitLog = (input: SandboxRunInput, entry: LogEntry) => {
+	const message = redactDiagnosticText(entry.message);
 	const effect = Match.value(entry.level).pipe(
-		Match.when("debug", () => Effect.logDebug(entry.message)),
-		Match.when("info", () => Effect.logInfo(entry.message)),
-		Match.when("error", () => Effect.logError(entry.message)),
-		Match.when("warning", () => Effect.logWarning(entry.message)),
+		Match.when("debug", () => Effect.logDebug(message)),
+		Match.when("info", () => Effect.logInfo(message)),
+		Match.when("error", () => Effect.logError(message)),
+		Match.when("warning", () => Effect.logWarning(message)),
 		Match.exhaustive,
 	);
-	return effect.pipe(Effect.annotateLogs({ ...entry.attributes, ...correlationAttributes(input) }));
+	return effect.pipe(
+		Effect.annotateLogs({ ...redactAttributes(entry.attributes), ...correlationAttributes(input) }),
+	);
 };
 
 export const makeObservabilitySandboxApiFunctions = (
@@ -95,9 +133,9 @@ export const makeObservabilitySandboxApiFunctions = (
 							entries,
 							(entry) =>
 								Effect.void.pipe(
-									Effect.withSpan(entry.name, {
+									Effect.withSpan(redactDiagnosticText(entry.name), {
 										attributes: {
-											...entry.attributes,
+											...redactAttributes(entry.attributes),
 											...correlationAttributes(input),
 										},
 									}),
@@ -112,4 +150,4 @@ export const makeObservabilitySandboxApiFunctions = (
 export const mergeSandboxExecutionLogs = (
 	consoleLogs: readonly string[],
 	collector: SandboxObservabilityCollector,
-) => [...consoleLogs, ...collector.logs];
+) => [...consoleLogs.map(redactDiagnosticText), ...collector.logs];
