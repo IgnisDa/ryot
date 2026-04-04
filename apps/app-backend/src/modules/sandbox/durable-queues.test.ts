@@ -29,15 +29,15 @@ it("journals plugin resolution without changing the durable queue identity", () 
 
 it.effect("executes the exact queued plugin row after the active plugin updates", () => {
 	const queuedScriptId = SandboxScriptId.make("queued-script-id");
-	let executedScriptId: string | undefined;
 	let executedCode: string | undefined;
+	let executedScriptId: string | undefined;
+	let executedScriptIsBuiltin: boolean | undefined;
 	const repository = Layer.mock(SandboxRepository)({
 		_tag: "SandboxRepository",
 		getScript: (scriptId) =>
 			Effect.succeed({
-				metadata: {},
 				id: scriptId,
-				isBuiltin: true,
+				metadata: {},
 				compiledFormat: 1,
 				compiledCode: "queued-version",
 			}),
@@ -48,6 +48,7 @@ it.effect("executes the exact queued plugin row after the active plugin updates"
 			Effect.sync(() => {
 				executedCode = input.compiledCode;
 				executedScriptId = input.scriptId;
+				executedScriptIsBuiltin = input.scriptIsBuiltin;
 				return {
 					logs: [],
 					error: null,
@@ -71,6 +72,7 @@ it.effect("executes the exact queued plugin row after the active plugin updates"
 
 		expect(executedCode).toBe("queued-version");
 		expect(executedScriptId).toBe(queuedScriptId);
+		expect(executedScriptIsBuiltin).toBe(true);
 		expect(result.value).toBe("queued-result");
 	}).pipe(Effect.provide(layer));
 });

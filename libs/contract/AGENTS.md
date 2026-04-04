@@ -14,4 +14,4 @@ If a type must be shared across the boundary, define it here and have backend co
 
 ## Keeping This In Sync
 
-Adding a new backend HTTP endpoint means editing this package's `contract.ts` and that module's files here — not just `apps/app-backend`. Every module folder under `src/modules/*` has a corresponding module in `apps/app-backend/src/modules/*` by name; the contract is a subset, so backend-only modules (e.g. `auth`, `builtins`, `scheduler`, `legacy-bootstrap`) have no contract counterpart.
+Adding a new backend HTTP endpoint means editing this package's `contract.ts` and that module's files here — not just `apps/app-backend`. Every module folder under `src/modules/*` has a corresponding module in `apps/app-backend/src/modules/*` by name; the contract is a subset, so backend-only modules (e.g. `auth`, `definition-registry`, `scheduler`, `legacy-bootstrap`) have no contract counterpart.

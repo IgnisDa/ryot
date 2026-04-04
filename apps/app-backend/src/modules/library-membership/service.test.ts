@@ -44,7 +44,6 @@ const makeSandboxRepository = (overrides: MockOverrides<typeof mockSandboxReposi
 const fakeScript = {
 	id: scriptId,
 	compiledFormat: 1,
-	isBuiltin: true as const,
 	metadata: { capabilities: [] },
 	compiledCode: "// compiled script",
 };
