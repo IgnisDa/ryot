@@ -46,17 +46,20 @@ const createLiteralTypeInfo = (
 	}
 
 	if (typeof value === "string") {
-		return createPropertyTypeInfo("string", { type: "string" });
+		return createPropertyTypeInfo("string", { label: "Value", type: "string" });
 	}
 
 	if (typeof value === "boolean") {
-		return createPropertyTypeInfo("boolean", { type: "boolean" });
+		return createPropertyTypeInfo("boolean", {
+			label: "Value",
+			type: "boolean",
+		});
 	}
 
 	if (typeof value === "number") {
 		return Number.isInteger(value)
-			? createPropertyTypeInfo("integer", { type: "integer" })
-			: createPropertyTypeInfo("number", { type: "number" });
+			? createPropertyTypeInfo("integer", { label: "Value", type: "integer" })
+			: createPropertyTypeInfo("number", { label: "Value", type: "number" });
 	}
 
 	if (Array.isArray(value)) {
@@ -235,8 +238,8 @@ export const inferViewExpressionType = <
 		return input.expression.operator === "divide" ||
 			leftType.propertyType === "number" ||
 			rightType.propertyType === "number"
-			? createPropertyTypeInfo("number", { type: "number" })
-			: createPropertyTypeInfo("integer", { type: "integer" });
+			? createPropertyTypeInfo("number", { label: "Value", type: "number" })
+			: createPropertyTypeInfo("integer", { label: "Value", type: "integer" });
 	}
 
 	if (
@@ -251,7 +254,10 @@ export const inferViewExpressionType = <
 			expression: input.expression.expression,
 		});
 		assertNumericExpression(expressionType, "Numeric normalization");
-		return createPropertyTypeInfo("integer", { type: "integer" });
+		return createPropertyTypeInfo("integer", {
+			label: "Value",
+			type: "integer",
+		});
 	}
 
 	if (input.expression.type === "concat") {
@@ -266,7 +272,7 @@ export const inferViewExpressionType = <
 			);
 		}
 
-		return createPropertyTypeInfo("string", { type: "string" });
+		return createPropertyTypeInfo("string", { label: "Value", type: "string" });
 	}
 
 	if (input.expression.type === "conditional") {

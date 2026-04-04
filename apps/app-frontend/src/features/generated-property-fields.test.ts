@@ -6,67 +6,73 @@ describe("getGeneratedPropertyFieldConfig", () => {
 		expect(
 			getGeneratedPropertyFieldConfig("notes", {
 				type: "string",
+				label: "Notes",
 				validation: { required: true },
 			}),
 		).toEqual({
 			kind: "text",
-			label: "notes",
+			label: "Notes",
 			required: true,
-			placeholder: "Enter notes",
+			placeholder: "Enter Notes",
 		});
 
 		expect(
 			getGeneratedPropertyFieldConfig("completed", {
 				type: "boolean",
+				label: "Completed",
 			}),
 		).toEqual({
 			required: false,
 			kind: "checkbox",
-			label: "completed",
+			label: "Completed",
 		});
 
 		expect(
 			getGeneratedPropertyFieldConfig("startedOn", {
 				type: "date",
+				label: "Started On",
 				validation: { required: true },
 			}),
 		).toEqual({
 			kind: "text",
 			required: true,
 			inputType: "date",
-			label: "startedOn",
+			label: "Started On",
 		});
 
 		expect(
 			getGeneratedPropertyFieldConfig("completedAt", {
 				type: "datetime",
+				label: "Completed At",
 				validation: { required: true },
 			}),
 		).toEqual({
 			kind: "text",
 			required: true,
-			label: "completedAt",
+			label: "Completed At",
 			placeholder: "2026-03-27T14:30:00Z",
 		});
 
 		expect(
 			getGeneratedPropertyFieldConfig("pages", {
+				label: "Pages",
 				type: "integer",
 				validation: { required: true },
 			}),
 		).toEqual({
 			kind: "number",
-			label: "pages",
+			label: "Pages",
 			required: true,
-			placeholder: "Enter pages",
+			placeholder: "Enter Pages",
 		});
 	});
 
 	it("returns null for unsupported property types", () => {
 		expect(
 			getGeneratedPropertyFieldConfig("tags", {
+				label: "Tags",
 				type: "array",
-				items: { type: "string" },
+				items: { label: "Item", type: "string" },
 			}),
 		).toBeNull();
 	});
@@ -76,10 +82,15 @@ describe("getGeneratedPropertyFieldConfig", () => {
 			getGeneratedPropertyFieldConfig(
 				"metadata",
 				{
+					label: "Metadata",
 					type: "object",
 					validation: { required: true },
 					properties: {
-						rating: { type: "number", validation: { required: true } },
+						rating: {
+							type: "number",
+							label: "Rating",
+							validation: { required: true },
+						},
 					},
 				},
 				{ fallback: "text" },
@@ -87,8 +98,8 @@ describe("getGeneratedPropertyFieldConfig", () => {
 		).toEqual({
 			kind: "text",
 			required: true,
-			label: "metadata",
-			placeholder: "Enter metadata",
+			label: "Metadata",
+			placeholder: "Enter Metadata",
 		});
 	});
 });

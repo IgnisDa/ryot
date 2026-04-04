@@ -21,6 +21,7 @@ describe("GeneratedPropertyField", () => {
 			form: { AppField: (() => null) as never },
 			propertyDef: {
 				type: "boolean",
+				label: "Completed",
 				validation: { required: true },
 			},
 		});

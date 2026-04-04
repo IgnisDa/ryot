@@ -53,11 +53,12 @@ describe("GET /entity-schemas", () => {
 			accentColor: "#F59E0B",
 			propertiesSchema: {
 				fields: {
-					description: { type: "string" },
+					description: { type: "string", label: "Description" },
 					membershipPropertiesSchema: {
 						type: "object",
 						properties: {},
 						unknownKeys: "passthrough",
+						label: "Membership Properties Schema",
 					},
 				},
 			},
@@ -317,7 +318,9 @@ describe("POST /entity-schemas", () => {
 				name: "Hacked Schema",
 				accentColor: "#FF0000",
 				trackerId: builtinTracker.id,
-				propertiesSchema: { fields: { field: { type: "string" } } },
+				propertiesSchema: {
+					fields: { field: { type: "string", label: "Field" } },
+				},
 			},
 		});
 
@@ -345,8 +348,8 @@ describe("POST /entity-schemas", () => {
 				accentColor: "#00FF00",
 				propertiesSchema: {
 					fields: {
-						year: { type: "number" },
-						title: { type: "string" },
+						year: { type: "number", label: "Year" },
+						title: { type: "string", label: "Title" },
 					},
 				},
 			},
@@ -372,7 +375,9 @@ describe("POST /entity-schemas", () => {
 				slug: "schema",
 				accentColor: "#FF0000",
 				trackerId: nonExistentId,
-				propertiesSchema: { fields: { field: { type: "string" } } },
+				propertiesSchema: {
+					fields: { field: { type: "string", label: "Field" } },
+				},
 			},
 		});
 
@@ -399,7 +404,9 @@ describe("POST /entity-schemas", () => {
 				slug: "hacked",
 				name: "Hacked Schema",
 				accentColor: "#FF0000",
-				propertiesSchema: { fields: { field: { type: "string" } } },
+				propertiesSchema: {
+					fields: { field: { type: "string", label: "Field" } },
+				},
 			},
 		});
 
@@ -429,7 +436,9 @@ describe("POST /entity-schemas", () => {
 				name: "Second Schema",
 				slug: "duplicate-slug",
 				accentColor: "#FF0000",
-				propertiesSchema: { fields: { field: { type: "string" } } },
+				propertiesSchema: {
+					fields: { field: { type: "string", label: "Field" } },
+				},
 			},
 		});
 
@@ -453,7 +462,9 @@ describe("POST /entity-schemas", () => {
 				name: "Collection",
 				slug: "collection",
 				accentColor: "#F59E0B",
-				propertiesSchema: { fields: { title: { type: "string" } } },
+				propertiesSchema: {
+					fields: { title: { type: "string", label: "Title" } },
+				},
 			},
 		});
 

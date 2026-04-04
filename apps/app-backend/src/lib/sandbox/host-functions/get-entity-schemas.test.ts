@@ -13,7 +13,9 @@ const listedEntitySchema: ListedEntitySchema = {
 	accentColor: "blue",
 	providers: [],
 	trackerId: "tracker_1",
-	propertiesSchema: { fields: { title: { type: "string" } } },
+	propertiesSchema: {
+		fields: { title: { label: "Title", type: "string" } },
+	},
 };
 
 describe("getEntitySchemas", () => {

@@ -4,17 +4,22 @@ const smartphoneSchemaDefaults = {
 	slug: "smartphones",
 	propertiesSchema: {
 		fields: {
-			announcedAt: { type: "date" as const },
-			nameplate: { type: "string" as const },
-			screenSize: { type: "number" as const },
-			isFoldable: { type: "boolean" as const },
-			releasedAt: { type: "datetime" as const },
-			releaseYear: { type: "integer" as const },
-			manufacturer: { type: "string" as const },
-			tags: { type: "array" as const, items: { type: "string" as const } },
+			nameplate: { label: "Nameplate", type: "string" as const },
+			screenSize: { label: "Screen Size", type: "number" as const },
+			announcedAt: { label: "Announced At", type: "date" as const },
+			isFoldable: { label: "Is Foldable", type: "boolean" as const },
+			releasedAt: { label: "Released At", type: "datetime" as const },
+			releaseYear: { label: "Release Year", type: "integer" as const },
+			manufacturer: { label: "Manufacturer", type: "string" as const },
+			tags: {
+				label: "Tags",
+				type: "array" as const,
+				items: { label: "Item", type: "string" as const },
+			},
 			metadata: {
+				label: "Metadata",
 				type: "object" as const,
-				properties: { source: { type: "string" as const } },
+				properties: { source: { label: "Source", type: "string" as const } },
 			},
 		},
 	},
@@ -24,8 +29,8 @@ const tabletSchemaDefaults = {
 	slug: "tablets",
 	propertiesSchema: {
 		fields: {
-			maker: { type: "string" as const },
-			releaseYear: { type: "integer" as const },
+			maker: { label: "Maker", type: "string" as const },
+			releaseYear: { label: "Release Year", type: "integer" as const },
 		},
 	},
 };
