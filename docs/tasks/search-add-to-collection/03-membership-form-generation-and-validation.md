@@ -20,9 +20,9 @@ See the parent PRD section **Membership form behavior**.
 
 ## Acceptance criteria
 
-- [ ] The frontend exposes a membership-form helper that can derive initial values from a selected
+- [x] The frontend exposes a membership-form helper that can derive initial values from a selected
       collection template.
-- [ ] Generated membership inputs render the collection template's `label` values directly.
+- [x] Generated membership inputs render the collection template's `label` values directly.
 - [ ] Collections with no membership template produce a valid form state without extra fields.
 - [ ] Required primitive fields are validated before submit.
 - [ ] The helper shapes the membership properties payload expected by the later save-orchestration
