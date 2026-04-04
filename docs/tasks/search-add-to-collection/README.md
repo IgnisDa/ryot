@@ -263,7 +263,7 @@ handling errors, and navigating to create a collection when none exist.
 
 ## Tasks
 
-**Overall Progress:** 0 of 5 tasks completed
+**Overall Progress:** 1 of 5 tasks completed
 
 **Current Task:** [Task 01](./01-collection-discovery-and-navigation-helpers.md) (todo)
 
@@ -275,4 +275,4 @@ handling errors, and navigating to create a collection when none exist.
 | 02  | [Inline Collection Panel In Search Result Rows](./02-inline-collection-panel-in-search-result-rows.md)           | AFK  | todo   | Task 01          |
 | 03  | [Membership Form Generation And Validation](./03-membership-form-generation-and-validation.md)                   | AFK  | todo   | Task 01          |
 | 04  | [Save To Collection Orchestration And Notifications](./04-save-to-collection-orchestration-and-notifications.md) | AFK  | todo   | Tasks 02, 03     |
-| 05  | [End To End Interaction And Form Tests](./05-end-to-end-interaction-and-form-tests.md)                           | AFK  | todo   | Tasks 02, 03, 04 |
+| 05  | [End To End Interaction And Form Tests](./05-end-to-end-interaction-and-form-tests.md)                           | AFK  | done   | Tasks 02, 03, 04 |

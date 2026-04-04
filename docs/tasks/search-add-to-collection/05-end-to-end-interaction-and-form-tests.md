@@ -4,7 +4,7 @@
 
 **Type:** AFK
 
-**Status:** todo
+**Status:** done
 
 ## What to build
 
@@ -22,12 +22,12 @@ See the parent PRD section **Testing Decisions**.
 
 - [x] Tests cover loading and empty states for the inline collection panel.
 - [x] Tests cover membership-form required-field validation and payload shaping.
-- [ ] Tests cover successful save-to-collection behavior.
-- [ ] Tests cover the partial-failure case where the entity exists in the library but the membership
+- [x] Tests cover successful save-to-collection behavior.
+- [x] Tests cover the partial-failure case where the entity exists in the library but the membership
       write fails.
-- [ ] Tests cover the no-collections CTA path to the Collections view.
-- [ ] Added tests assert user-observable behavior rather than internal implementation details.
-- [ ] `bun run typecheck` and the relevant frontend test command pass in `apps/app-frontend`.
+- [x] Tests cover the no-collections CTA path to the Collections view.
+- [x] Added tests assert user-observable behavior rather than internal implementation details.
+- [x] `bun run typecheck` and the relevant frontend test command pass in `apps/app-frontend`.
 
 ## Blocked by
 
