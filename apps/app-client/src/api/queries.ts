@@ -3,6 +3,8 @@ import type {
 	SearchProviderEntitiesBody,
 } from "@ryot/contract/modules/provider-entities/schemas";
 import type { RyotQLDocument } from "@ryot/contract/modules/ryotql/language";
+import type { EntityId } from "@ryot/contract/schema/brands";
+import { RelationshipSchemaSlug } from "@ryot/contract/schema/brands";
 import { Effect } from "effect";
 
 import { retryQueryResponse } from "@/api/app-api";
@@ -30,4 +32,21 @@ export const getProviderEntityImportResult = (serverUrl: string, jobId: string) 
 	authenticatedExpoContractClient(normalizeServerOrigin(serverUrl)).pipe(
 		Effect.flatMap((client) => client.providerEntities.getImportResult({ params: { jobId } })),
 		retryQueryResponse,
+	);
+
+export const createInLibraryRelationship = (
+	serverUrl: string,
+	input: { readonly sourceEntityId: EntityId; readonly targetEntityId: EntityId },
+) =>
+	authenticatedExpoContractClient(normalizeServerOrigin(serverUrl)).pipe(
+		Effect.flatMap((client) =>
+			client.relationships.create({
+				payload: {
+					properties: {},
+					sourceEntityId: input.sourceEntityId,
+					targetEntityId: input.targetEntityId,
+					relationshipSchemaSlug: RelationshipSchemaSlug.make("in-library"),
+				},
+			}),
+		),
 	);

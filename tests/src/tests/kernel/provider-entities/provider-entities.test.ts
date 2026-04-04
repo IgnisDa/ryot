@@ -1,4 +1,6 @@
-import { SandboxProviderId } from "@ryot/contract/schema/brands";
+import { EntityId, RelationshipSchemaSlug, SandboxProviderId } from "@ryot/contract/schema/brands";
+import { buildProviderEntityLinksDocument } from "@ryot/ryotql-recipes/provider-entity-links";
+import { buildUserLibraryDocument } from "@ryot/ryotql-recipes/user-library";
 import { Effect } from "effect";
 
 import {
@@ -9,10 +11,13 @@ import {
 	fakeProviderSearchResult,
 	findBuiltinSchemaBySlug,
 	getBackendClient,
+	executeRyotQL,
 	providerSandboxSource,
 	replaceSandboxScriptCompiledRepresentation,
 	pollProviderEntityImportResult,
 	queryInLibraryRelationship,
+	requireRows,
+	requireRyotQLTextField,
 	searchProviderEntities,
 	installTestProvider,
 } from "~/fixtures";
@@ -134,6 +139,57 @@ describe("POST /provider-entities/imports — provider entity import", () => {
 });
 
 describe("GET /provider-entities/imports/:jobId — provider entity import result", () => {
+	it.live("reports provider results only when the user has library membership", () =>
+		Effect.gen(function* () {
+			const { client } = yield* createAuthenticatedClient();
+			const { schema } = yield* findBuiltinSchemaBySlug(client, "audiobook");
+			const externalId = `e2e-library-link-${crypto.randomUUID()}`;
+
+			const { jobId } = yield* enqueueProviderEntityImport(client, {
+				externalId,
+				providerId: provider.providerId,
+			});
+			const result = yield* pollProviderEntityImportResult(client, jobId);
+			assertCompleted(result, "entity import");
+
+			const withoutMembership = yield* executeRyotQL(
+				client,
+				buildProviderEntityLinksDocument({
+					externalIds: [externalId],
+					entitySchemaSlug: schema.id,
+					providerId: provider.providerId,
+				}),
+			);
+			expect(requireRows(withoutMembership.data.links, "links").items).toHaveLength(0);
+
+			const libraryResponse = yield* executeRyotQL(client, buildUserLibraryDocument());
+			const libraryRow = requireRows(libraryResponse.data.library, "library").items[0];
+			assertPresent(libraryRow, "Missing user library");
+			const libraryEntityId = requireRyotQLTextField(libraryRow, "entityId");
+
+			yield* client.call((c) =>
+				c.relationships.create({
+					payload: {
+						properties: {},
+						sourceEntityId: result.data.id,
+						targetEntityId: EntityId.make(libraryEntityId),
+						relationshipSchemaSlug: RelationshipSchemaSlug.make("in-library"),
+					},
+				}),
+			);
+
+			const withMembership = yield* executeRyotQL(
+				client,
+				buildProviderEntityLinksDocument({
+					externalIds: [externalId],
+					entitySchemaSlug: schema.id,
+					providerId: provider.providerId,
+				}),
+			);
+			expect(requireRows(withMembership.data.links, "links").items).toHaveLength(1);
+		}),
+	);
+
 	it.live("populates an entity without adding it to the media library", () =>
 		Effect.gen(function* () {
 			const { client } = yield* createAuthenticatedClient();
