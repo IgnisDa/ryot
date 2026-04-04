@@ -33,6 +33,7 @@ import {
 	getUnsupportedPersonSources,
 	personEntityTargets,
 } from "./person-mapping";
+import { buildReviewMigrationSql } from "./review-mapping";
 import {
 	buildUniqueSlugMap,
 	shouldRunLegacyBootstrap,
@@ -45,7 +46,6 @@ import {
 	buildWorkoutTemplateMigrationSql,
 	buildWorkoutToTemplateRelationshipMigrationSql,
 } from "./workout-mapping";
-import { buildReviewMigrationSql } from "./review-mapping";
 
 const migrateUserTableSql = `
 DO $$
