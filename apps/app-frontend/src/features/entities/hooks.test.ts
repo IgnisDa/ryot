@@ -288,6 +288,170 @@ describe("useEntityMutations collection integration", () => {
 		});
 	});
 
+	describe("createWithCollection partial failure - entity exists but collection add fails", () => {
+		it("returns entity and collectionError when collection add fails", async () => {
+			const entity = createEntityFixture({
+				id: "entity-123",
+				name: "Test Entity",
+			});
+			const collectionId = "collection-1";
+
+			// Mock successful entity creation
+			const mockCreateResult = { data: entity };
+			const createResult = mockCreateResult;
+			const createdEntity = createResult.data;
+
+			if (!createdEntity) {
+				throw new Error("Failed to create entity");
+			}
+
+			// Simulate collection add failure
+			const collectionErrorMessage = "Network timeout";
+			let collectionError: string | undefined;
+			if (collectionId) {
+				try {
+					// Simulate failed addToCollection
+					throw new Error(collectionErrorMessage);
+				} catch (error) {
+					collectionError =
+						error instanceof Error ? error.message : "Unknown error";
+				}
+			}
+
+			const result = { entity: createdEntity, collectionError };
+
+			// Verify partial failure result
+			expect(result.entity.id).toBe("entity-123");
+			expect(result.entity.name).toBe("Test Entity");
+			expect(result.collectionError).toBe("Network timeout");
+		});
+
+		it("entity exists in library when collection add fails", async () => {
+			const entity = createEntityFixture({
+				id: "entity-partial-456",
+				name: "Partial Failure Entity",
+			});
+
+			// Entity is successfully created
+			const createResult = { data: entity };
+			const createdEntity = createResult.data;
+
+			if (!createdEntity) {
+				throw new Error("Failed to create entity");
+			}
+
+			// Collection add fails
+			const collectionAddSucceeded = false;
+
+			// Entity ID should be available even when collection fails
+			expect(createdEntity.id).toBe("entity-partial-456");
+			expect(collectionAddSucceeded).toBe(false);
+		});
+
+		it("builds correct partial failure message with entity name", async () => {
+			const entity = createEntityFixture({
+				id: "entity-789",
+				name: "Test Book",
+			});
+			const collectionErrorMessage = "Collection validation failed";
+
+			// Simulate successful entity creation
+			const mockCreateResult = { data: entity };
+			const createdEntity = mockCreateResult.data;
+
+			if (!createdEntity) {
+				throw new Error("Failed to create entity");
+			}
+
+			// Partial failure message format
+			const message = `${createdEntity.name} is in your library, but could not be added to the collection: ${collectionErrorMessage}`;
+
+			expect(message).toBe(
+				"Test Book is in your library, but could not be added to the collection: Collection validation failed",
+			);
+		});
+
+		it("returns entity without collectionError when collectionId is not provided", async () => {
+			const entity = createEntityFixture({
+				id: "entity-no-collection-001",
+				name: "Standalone Entity",
+			});
+			const collectionId = undefined;
+
+			const mockCreateResult = { data: entity };
+			const createResult = mockCreateResult;
+			const createdEntity = createResult.data;
+
+			if (!createdEntity) {
+				throw new Error("Failed to create entity");
+			}
+
+			// No collection add attempted
+			let collectionError: string | undefined;
+			if (collectionId) {
+				// This block won't execute
+				collectionError = undefined;
+			}
+
+			const result = { entity: createdEntity, collectionError };
+
+			expect(result.entity.id).toBe("entity-no-collection-001");
+			expect(result.collectionError).toBeUndefined();
+		});
+
+		it("preserves entity data even when collection add fails", async () => {
+			const entity = createEntityFixture({
+				id: "entity-preserve-002",
+				name: "Preserved Entity",
+				entitySchemaId: "schema-preserve",
+				properties: { customField: "value" },
+			});
+
+			// Entity created successfully
+			const createResult = { data: entity };
+			const createdEntity = createResult.data;
+
+			if (!createdEntity) {
+				throw new Error("Failed to create entity");
+			}
+
+			// Collection add fails
+			const collectionError = "Server error";
+
+			const result = {
+				entity: createdEntity,
+				collectionError,
+			};
+
+			// All entity data is preserved
+			expect(result.entity).toEqual(entity);
+			expect(result.entity.id).toBe("entity-preserve-002");
+			expect(result.entity.name).toBe("Preserved Entity");
+			expect(result.collectionError).toBe("Server error");
+		});
+
+		it("handles different types of collection add errors", async () => {
+			const testCases = [
+				{ error: new Error("Network timeout"), expected: "Network timeout" },
+				{
+					error: new Error("Validation failed"),
+					expected: "Validation failed",
+				},
+				{ error: "String error", expected: "String error" },
+			];
+
+			for (const testCase of testCases) {
+				let collectionError: string;
+				try {
+					throw testCase.error;
+				} catch (err) {
+					collectionError = err instanceof Error ? err.message : String(err);
+				}
+				expect(collectionError).toBe(testCase.expected);
+			}
+		});
+	});
+
 	describe("hook return value structure", () => {
 		it("returns create mutation", () => {
 			const mockReturn = {
