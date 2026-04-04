@@ -14,6 +14,7 @@ export type SidebarView = Pick<
 	| "name"
 	| "trackerId"
 	| "sortOrder"
+	| "isBuiltin"
 	| "isDisabled"
 	| "accentColor"
 >;
