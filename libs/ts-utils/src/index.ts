@@ -186,6 +186,7 @@ export {
 	type AppSchemaRuleCondition,
 	type AppSchemaRulePath,
 	type AppSchemaRuleValue,
+	type AppSchemaUnknownKeysPolicy,
 	type AppSchemaValidationRule,
 	type AppStringProperty,
 	type AppStringPropertyValidation,

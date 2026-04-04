@@ -97,4 +97,29 @@ describe("parsePropertySchemaInput", () => {
 			),
 		).toThrow('Unrecognized key: "items"');
 	});
+
+	it("accepts explicit unknown-key policy on object properties", () => {
+		expect(
+			parsePropertySchemaInput(
+				{
+					fields: {
+						metadata: {
+							type: "object",
+							unknownKeys: "strip",
+							properties: { title: { type: "string" } },
+						},
+					},
+				},
+				{ propertiesLabel: "Entity schema properties" },
+			),
+		).toEqual({
+			fields: {
+				metadata: {
+					type: "object",
+					unknownKeys: "strip",
+					properties: { title: { type: "string" } },
+				},
+			},
+		});
+	});
 });
