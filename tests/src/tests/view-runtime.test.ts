@@ -65,41 +65,61 @@ describe("View runtime E2E", () => {
 		const scenarios = [
 			{
 				expected: ["Alpha Phone", "Gamma Phone"],
-				filters: [{ op: "eq" as const, field: "category", value: "phone" }],
+				filters: [
+					{
+						op: "eq" as const,
+						field: `${schema.slug}.category`,
+						value: "phone",
+					},
+				],
 			},
 			{
 				expected: ["Beta Tablet", "Delta Watch"],
-				filters: [{ op: "ne" as const, field: "category", value: "phone" }],
+				filters: [
+					{
+						op: "ne" as const,
+						field: `${schema.slug}.category`,
+						value: "phone",
+					},
+				],
 			},
 			{
 				expected: ["Delta Watch", "Gamma Phone"],
-				filters: [{ op: "gt" as const, field: "year", value: 2019 }],
+				filters: [
+					{ op: "gt" as const, field: `${schema.slug}.year`, value: 2019 },
+				],
 			},
 			{
 				expected: ["Delta Watch", "Gamma Phone"],
-				filters: [{ op: "gte" as const, field: "year", value: 2020 }],
+				filters: [
+					{ op: "gte" as const, field: `${schema.slug}.year`, value: 2020 },
+				],
 			},
 			{
 				expected: ["Alpha Phone", "Beta Tablet"],
-				filters: [{ op: "lt" as const, field: "year", value: 2020 }],
+				filters: [
+					{ op: "lt" as const, field: `${schema.slug}.year`, value: 2020 },
+				],
 			},
 			{
 				expected: ["Alpha Phone", "Beta Tablet"],
-				filters: [{ op: "lte" as const, field: "year", value: 2019 }],
+				filters: [
+					{ op: "lte" as const, field: `${schema.slug}.year`, value: 2019 },
+				],
 			},
 			{
 				expected: ["Beta Tablet", "Delta Watch"],
 				filters: [
 					{
 						op: "in" as const,
-						field: "category",
+						field: `${schema.slug}.category`,
 						value: ["tablet", "wearable"],
 					},
 				],
 			},
 			{
 				expected: ["Omega Prototype"],
-				filters: [{ op: "isNull" as const, field: "category" }],
+				filters: [{ op: "isNull" as const, field: `${schema.slug}.category` }],
 			},
 		];
 
@@ -129,8 +149,8 @@ describe("View runtime E2E", () => {
 			buildGridRequest({
 				entitySchemaSlugs: [schema.slug],
 				filters: [
-					{ op: "gte", field: "year", value: 2020 },
-					{ op: "eq", field: "category", value: "phone" },
+					{ op: "gte", field: `${schema.slug}.year`, value: 2020 },
+					{ op: "eq", field: `${schema.slug}.category`, value: "phone" },
 				],
 			}),
 		);
@@ -216,7 +236,7 @@ describe("View runtime E2E", () => {
 			cookies,
 			buildGridRequest({
 				entitySchemaSlugs: [schema.slug],
-				sort: { fields: ["year"], direction: "asc" },
+				sort: { fields: [`${schema.slug}.year`], direction: "asc" },
 			}),
 		);
 
@@ -372,7 +392,9 @@ describe("View runtime E2E", () => {
 			cookies,
 			buildGridRequest({
 				entitySchemaSlugs: [schema.slug],
-				filters: [{ op: "eq", field: "category", value: "console" }],
+				filters: [
+					{ op: "eq", field: `${schema.slug}.category`, value: "console" },
+				],
 			}),
 		);
 
@@ -408,7 +430,9 @@ describe("View runtime E2E", () => {
 			buildGridRequest({
 				entitySchemaSlugs: [schema.slug],
 				pagination: { page: 2, limit: 5 },
-				filters: [{ op: "eq", field: "category", value: "phone" }],
+				filters: [
+					{ op: "eq", field: `${schema.slug}.category`, value: "phone" },
+				],
 			}),
 		);
 		const zeroResultsLaterPage = await executeViewRuntime(
@@ -417,7 +441,9 @@ describe("View runtime E2E", () => {
 			buildGridRequest({
 				entitySchemaSlugs: [schema.slug],
 				pagination: { page: 3, limit: 2 },
-				filters: [{ op: "eq", field: "category", value: "console" }],
+				filters: [
+					{ op: "eq", field: `${schema.slug}.category`, value: "console" },
+				],
 			}),
 		);
 
