@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { itemDataSchema, listDataSchema } from "~/lib/openapi";
 import {
+	createIdParamsSchema,
 	createNameWithOptionalSlugSchema,
 	iconAndAccentColorFields,
 	nonEmptyTrimmedStringSchema,
@@ -31,6 +32,8 @@ export const listEntitySchemasResponseSchema = listDataSchema(
 export const createEntitySchemaResponseSchema = itemDataSchema(
 	listedEntitySchemaSchema,
 );
+
+export const entitySchemaParams = createIdParamsSchema("entitySchemaId");
 
 export const listEntitySchemasQuery = z.object({
 	trackerId: nonEmptyTrimmedStringSchema,
