@@ -10,7 +10,7 @@ const strictStruct = <Fields extends Schema.Struct.Fields>(fields: Fields) =>
 	Schema.Struct(fields).annotate({ parseOptions: { onExcessProperty: "error" as const } });
 
 const nonEmptyString = Schema.String.pipe(Schema.check(Schema.isMinLength(1)));
-const appSchema = Schema.Unknown as Schema.Codec<AppSchema, unknown>;
+const appSchema = Schema.declare<AppSchema>((_value): _value is AppSchema => true);
 const positiveInteger = Schema.Number.pipe(
 	Schema.check(Schema.isInt()),
 	Schema.check(Schema.isGreaterThan(0)),
