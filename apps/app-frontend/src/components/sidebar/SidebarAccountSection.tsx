@@ -1,3 +1,4 @@
+import { SiGithub } from "@icons-pack/react-simple-icons";
 import {
 	Anchor,
 	Avatar,
@@ -16,7 +17,6 @@ import { useDisclosure, useHover } from "@mantine/hooks";
 import {
 	BookOpen,
 	ExternalLink,
-	Github,
 	Globe,
 	Info,
 	Key,
@@ -40,16 +40,16 @@ import {
 
 const ABOUT_LINKS = [
 	{
-		href: "https://discord.gg/D9XTg2a7R8",
-		icon: MessageCircle,
 		label: "Discord",
+		icon: MessageCircle,
 		description: "Join the community",
+		href: "https://discord.gg/D9XTg2a7R8",
 	},
 	{
-		icon: Github,
+		icon: SiGithub,
 		label: "GitHub",
-		href: "https://github.com/IgnisDa/ryot",
 		description: "View the source code",
+		href: "https://github.com/IgnisDa/ryot",
 	},
 	{
 		icon: Globe,
