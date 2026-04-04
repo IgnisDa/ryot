@@ -221,7 +221,7 @@ durable requests. Durable waits happen outside the sandbox process and bridge se
 | Compiler concurrency / time / process-tree memory     | 2 / 5 seconds / 256 MiB       |
 | Runner request                                        | 2 MiB                         |
 | Bridge request / response                             | 1 MiB / 10 MiB                |
-| Durable workflow journal                              | 100 MiB encoded              |
+| Durable workflow journal                              | 100 MiB encoded               |
 | Concurrent in-flight host calls per execution         | 4                             |
 | Deno stderr diagnostics                               | 20 lines / 64 KiB             |
 | HTTP request / streamed response body / call timeout  | 1 MiB / 10 MiB / 8 seconds    |
