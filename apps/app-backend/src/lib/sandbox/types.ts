@@ -23,6 +23,7 @@ export type ApiFunctionDescriptor = z.infer<typeof apiFunctionDescriptorSchema>;
 export interface SandboxEnqueueOptions {
 	code: string;
 	userId: string;
+	scriptId?: string;
 	context?: Record<string, unknown>;
 	apiFunctionDescriptors?: Array<ApiFunctionDescriptor>;
 }
