@@ -9,31 +9,14 @@ import {
 	Stack,
 	Text,
 } from "@mantine/core";
-import { useDisclosure } from "@mantine/hooks";
-import { useCallback, useState } from "react";
+import { SectionHeader } from "#/components/SectionHeader";
 import type { AppEntitySchema } from "#/features/entity-schemas/model";
+import { useModalForm } from "#/hooks/modal-form";
 import type { CreateEventSchemaPayload } from "./form";
 import { useEventSchemaMutations, useEventSchemasQuery } from "./hooks";
 import { getEntityEventSchemaViewState } from "./model";
 import { EventSchemaPropertiesBuilder } from "./properties-builder";
 import { useCreateEventSchemaForm } from "./use-form";
-
-function getErrorMessage(error: unknown) {
-	if (error instanceof Error && error.message) {
-		return error.message;
-	}
-
-	const parsed = error as {
-		message?: string;
-		error?: { message?: string };
-	};
-
-	return (
-		parsed?.error?.message ??
-		parsed?.message ??
-		"Failed to create event schema. Please try again."
-	);
-}
 
 function EventSchemaList(props: {
 	eventSchemas: ReturnType<typeof useEventSchemasQuery>["eventSchemas"];
@@ -151,59 +134,26 @@ export function CreateEventSchemaModal(props: {
 }
 
 export function EventSchemasSection(props: { entitySchema: AppEntitySchema }) {
-	const [opened, { close, open }] = useDisclosure(false);
-	const [createErrorMessage, setCreateErrorMessage] = useState<string | null>(
-		null,
-	);
 	const eventSchemasQuery = useEventSchemasQuery(props.entitySchema.id);
 	const eventSchemaMutations = useEventSchemaMutations(props.entitySchema.id);
 	const viewState = getEntityEventSchemaViewState(
 		eventSchemasQuery.eventSchemas,
 	);
-
-	const openCreateModal = useCallback(() => {
-		setCreateErrorMessage(null);
-		open();
-	}, [open]);
-
-	const closeCreateModal = useCallback(() => {
-		setCreateErrorMessage(null);
-		close();
-	}, [close]);
-
-	const submitCreateSchema = useCallback(
-		async (payload: CreateEventSchemaPayload) => {
-			setCreateErrorMessage(null);
-
-			try {
-				await eventSchemaMutations.create.mutateAsync({ body: payload });
-				closeCreateModal();
-			} catch (error) {
-				setCreateErrorMessage(getErrorMessage(error));
-			}
-		},
-		[closeCreateModal, eventSchemaMutations.create],
+	const createModal = useModalForm((payload: CreateEventSchemaPayload) =>
+		eventSchemaMutations.create.mutateAsync({ body: payload }),
 	);
 
 	return (
 		<Stack gap="sm">
-			<Group justify="space-between" align="flex-end">
-				<Stack gap={2}>
-					<Text size="sm" fw={500} c="dimmed">
-						EVENT SCHEMAS
-					</Text>
-					<Text c="dimmed" size="sm">
-						Define the events tracked for this schema.
-					</Text>
-				</Stack>
-				<Button size="xs" variant="light" onClick={openCreateModal}>
-					Add event schema
-				</Button>
-			</Group>
+			<SectionHeader
+				title="EVENT SCHEMAS"
+				description="Define the events tracked for this schema."
+				action={{ label: "Add event schema", onClick: createModal.open }}
+			/>
 
-			{createErrorMessage && !opened && (
+			{createModal.errorMessage && !createModal.opened && (
 				<Text c="red" size="sm">
-					{createErrorMessage}
+					{createModal.errorMessage}
 				</Text>
 			)}
 
@@ -249,13 +199,13 @@ export function EventSchemasSection(props: { entitySchema: AppEntitySchema }) {
 					<EventSchemaList eventSchemas={viewState.eventSchemas} />
 				))}
 
-			{opened && (
+			{createModal.opened && (
 				<CreateEventSchemaModal
-					opened={opened}
-					onClose={closeCreateModal}
-					onSubmit={submitCreateSchema}
-					errorMessage={createErrorMessage}
+					opened={createModal.opened}
+					onClose={createModal.close}
+					onSubmit={createModal.submit}
 					entitySchemaId={props.entitySchema.id}
+					errorMessage={createModal.errorMessage}
 					isLoading={eventSchemaMutations.create.isPending}
 				/>
 			)}
