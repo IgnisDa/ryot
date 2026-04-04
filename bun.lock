@@ -189,6 +189,8 @@
       "dependencies": {
         "@effect/platform": "0.96.2",
         "@ryot/contract": "workspace:*",
+        "@ryot/plugin-kit": "workspace:*",
+        "@ryot/plugin-media": "workspace:*",
         "@ryot/ts-utils": "workspace:*",
         "@tailwindcss/vite": "4.1.18",
         "effect": "3.21.4",
@@ -482,6 +484,7 @@
         "@faker-js/faker": "10.4.0",
         "@ryot/app-backend": "workspace:*",
         "@ryot/contract": "workspace:*",
+        "@ryot/plugin-kit": "workspace:*",
         "@ryot/query-engine": "workspace:*",
         "@ryot/sandbox-sdk": "workspace:*",
         "@ryot/ts-utils": "workspace:*",

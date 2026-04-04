@@ -17,6 +17,8 @@ export {
 	type GenericScriptDefinition,
 } from "./driver.js";
 
+export { defineOperation } from "./operation.js";
+
 export {
 	jsonValueSchema,
 	sandboxHostErrorSchema,
@@ -568,6 +570,7 @@ const sandboxManifestBaseFields = {
 };
 export const sandboxManifestSchema = Schema.Union(
 	strictStruct({ ...sandboxManifestBaseFields, kind: Schema.Literal("script") }),
+	strictStruct({ ...sandboxManifestBaseFields, kind: Schema.Literal("operation") }),
 	strictStruct({ ...sandboxManifestBaseFields, kind: Schema.Literal("automation") }),
 	strictStruct({
 		...sandboxManifestBaseFields,
@@ -577,6 +580,7 @@ export const sandboxManifestSchema = Schema.Union(
 );
 export type SandboxManifest = Schema.Schema.Type<typeof sandboxManifestSchema>;
 export type ScriptManifest = Extract<SandboxManifest, { readonly kind: "script" }>;
+export type OperationManifest = Extract<SandboxManifest, { readonly kind: "operation" }>;
 export type ProviderInformation = Schema.Schema.Type<typeof providerInformationSchema>;
 
 export const executionMetadataSchema = strictStruct({
