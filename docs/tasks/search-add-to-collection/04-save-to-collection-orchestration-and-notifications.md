@@ -32,10 +32,10 @@ and **Relationship to lifecycle actions**.
       failure message that clearly explains the item is in the library but not in the collection.
 - [x] Validation and write failures surface within the current row interaction without redirecting
       the user away.
-- [ ] The action remains single-target: one submit writes to one selected collection.
-- [ ] Component-level tests cover success, validation failure, write failure, and partial-failure
+- [x] The action remains single-target: one submit writes to one selected collection.
+- [x] Component-level tests cover success, validation failure, write failure, and partial-failure
       behavior.
-- [ ] `bun run typecheck` and the relevant frontend test command pass in `apps/app-frontend`.
+- [x] `bun run typecheck` and the relevant frontend test command pass in `apps/app-frontend`.
 
 ## Blocked by
 
