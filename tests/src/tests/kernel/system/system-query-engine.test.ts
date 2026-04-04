@@ -382,25 +382,24 @@ const documents: Record<CaseName, QueryEnginePayload> = {
 };
 
 const activitySource = (name: CaseName) => `
-import { defineActivity } from "@ryot/sandbox-sdk/activity";
-import { defineManifest } from "@ryot/sandbox-sdk/driver";
+import { defineManifest, defineScript } from "@ryot/sandbox-sdk/driver";
 import { Effect, Schema } from "@ryot/sandbox-sdk/effect";
 import { jsonValueSchema } from "@ryot/sandbox-sdk/wire";
 
 export const manifest = defineManifest({
-  kind: "activity",
-  name: ${JSON.stringify(`System query ${name}`)},
-  slug: ${JSON.stringify(activitySlug(name))},
-  capabilities: ["executeQueryEngine", "setCachedValue"],
+  kind: "script",
   requiredPluginConfigKeys: [],
   requiredSystemConfigKeys: [],
+  slug: ${JSON.stringify(activitySlug(name))},
+  name: ${JSON.stringify(`System query ${name}`)},
+  capabilities: ["executeQueryEngine", "setCachedValue"],
 });
 
 const query = Schema.decodeSync(jsonValueSchema)(JSON.parse(${JSON.stringify(
 	JSON.stringify(documents[name]),
 )}));
 
-export default defineActivity({
+export default defineScript({
   manifest,
   input: Schema.Unknown,
   output: Schema.Unknown,
@@ -424,11 +423,11 @@ import { defineManifest, defineWorkflow, Effect, Schema } from "@ryot/sandbox-sd
 
 export const manifest = defineManifest({
   kind: "workflow",
-  name: "System query workflow",
-  slug: ${JSON.stringify(workflowScriptSlug)},
   capabilities: [],
   requiredPluginConfigKeys: [],
   requiredSystemConfigKeys: [],
+  name: "System query workflow",
+  slug: ${JSON.stringify(workflowScriptSlug)},
 });
 
 const activity = (scriptSlug: string) => ({ input: Schema.Unknown, output: Schema.Unknown, scriptSlug });
@@ -454,11 +453,11 @@ import { Effect, Schema } from "@ryot/sandbox-sdk/effect";
 
 export const manifest = defineManifest({
   kind: "script",
+  requiredPluginConfigKeys: [],
+  requiredSystemConfigKeys: [],
   name: "System query result collector",
   slug: ${JSON.stringify(collectorSlug)},
   capabilities: ["executeQueryEngine", "getCachedValue", "upsertGlobalEntities"],
-  requiredPluginConfigKeys: [],
-  requiredSystemConfigKeys: [],
 });
 
 export default defineScript({
@@ -491,30 +490,29 @@ ${cases
 `;
 
 const foreignSource = `
-import { defineActivity } from "@ryot/sandbox-sdk/activity";
-import { defineManifest } from "@ryot/sandbox-sdk/driver";
+import { defineManifest, defineScript } from "@ryot/sandbox-sdk/driver";
 import { Effect, Schema } from "@ryot/sandbox-sdk/effect";
 
 export const manifest = defineManifest({
-  kind: "activity",
-  name: "Foreign inert activity",
-  slug: ${JSON.stringify(`foreign-inert-${suffix}`)},
+  kind: "script",
   capabilities: [],
   requiredPluginConfigKeys: [],
   requiredSystemConfigKeys: [],
+  name: "Foreign inert activity",
+  slug: ${JSON.stringify(`foreign-inert-${suffix}`)},
 });
 
-export default defineActivity({
+export default defineScript({
   manifest,
-  input: Schema.Unknown,
   output: Schema.Null,
+  input: Schema.Unknown,
   run: () => Effect.succeed(null),
 });
 `;
 
 const markerDocument = buildEntityRowsQueryDocument({
-	alias: "marker",
 	limit: 20,
+	alias: "marker",
 	schemas: [markerSlug],
 	fields: [
 		{ key: "name", expr: systemRef("marker", "name") },
@@ -576,10 +574,10 @@ describe("system-authority query engine", () => {
 				const activityEntries: Record<CaseName, string> = {
 					correlated: "scripts/correlated.sandbox.ts",
 					"event-root": "scripts/event-root.sandbox.ts",
-					"foreign-root": "scripts/foreign-root.sandbox.ts",
 					"system-rows": "scripts/system-rows.sandbox.ts",
-					"entity-aggregate": "scripts/entity-aggregate.sandbox.ts",
+					"foreign-root": "scripts/foreign-root.sandbox.ts",
 					"foreign-event": "scripts/foreign-event.sandbox.ts",
+					"entity-aggregate": "scripts/entity-aggregate.sandbox.ts",
 					"relationship-root": "scripts/relationship-root.sandbox.ts",
 					"event-time-series": "scripts/event-time-series.sandbox.ts",
 					"foreign-first-event": "scripts/foreign-first-event.sandbox.ts",
@@ -592,14 +590,14 @@ describe("system-authority query engine", () => {
 					configSchema: { fields: {}, unknownKeys: "strict" },
 					workflows: [{ slug: workflowSlug, scriptSlug: workflowScriptSlug }],
 					files: {
+						[workflowEntry]: workflowSource,
+						[collectorEntry]: collectorSource,
 						[detailsEntry]: providerSandboxSource({
-							operation: "details",
 							slug: detailsSlug,
+							operation: "details",
 							name: "System query provider details",
 							result: fakeProviderDetailsResult({ name: "System query provider" }),
 						}),
-						[workflowEntry]: workflowSource,
-						[collectorEntry]: collectorSource,
 						...Object.fromEntries(
 							cases.map((name) => [activityEntries[name], activitySource(name)]),
 						),
@@ -649,8 +647,8 @@ describe("system-authority query engine", () => {
 						},
 						...cases.map((name) => ({
 							providerSlug,
+							kind: "script" as const,
 							slug: activitySlug(name),
-							kind: "activity" as const,
 							requiredPluginConfigKeys: [],
 							requiredSystemConfigKeys: [],
 							name: `System query ${name}`,
@@ -727,7 +725,7 @@ describe("system-authority query engine", () => {
 					files: { "scripts/foreign.sandbox.ts": foreignSource },
 					scripts: [
 						{
-							kind: "activity",
+							kind: "script",
 							capabilities: [],
 							requiredPluginConfigKeys: [],
 							requiredSystemConfigKeys: [],
@@ -793,8 +791,8 @@ describe("system-authority query engine", () => {
 					entitySchemaSlug: makeEntitySchemaSlug(rootSlug),
 				});
 				const userBRoot = yield* createEntity(userB.client, {
-					properties: { score: 200 },
 					name: "User B Root",
+					properties: { score: 200 },
 					entitySchemaSlug: makeEntitySchemaSlug(rootSlug),
 				});
 				const relationships = yield* Effect.all([
@@ -1049,11 +1047,7 @@ describe("system-authority query engine", () => {
 	it.live("exposes executeQueryEngine to a direct system script", () =>
 		Effect.sync(() => {
 			const payload = requireObjectRecord(markerPayload("kind-gate"), "Expected kind gate payload");
-			expect(payload).toEqual({
-				ok: true,
-				queryEngineAvailable: true,
-				error: null,
-			});
+			expect(payload).toEqual({ ok: true, error: null, queryEngineAvailable: true });
 		}),
 	);
 

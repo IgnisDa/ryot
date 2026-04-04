@@ -13,12 +13,11 @@ export const installTestIntegrationProvider = (
 	const entry = `scripts/${scriptSlug}.sandbox.ts`;
 	const name = "E2E integration sink";
 	const source = `
-import { defineActivity } from "@ryot/sandbox-sdk/activity";
-import { defineManifest } from "@ryot/sandbox-sdk/driver";
+import { defineManifest, defineScript } from "@ryot/sandbox-sdk/driver";
 import { Effect, Schema } from "@ryot/sandbox-sdk/effect";
 
 export const manifest = defineManifest({
-  kind: "activity",
+  kind: "script",
   capabilities: [],
   requiredPluginConfigKeys: [],
   requiredSystemConfigKeys: [],
@@ -26,7 +25,7 @@ export const manifest = defineManifest({
   slug: ${JSON.stringify(scriptSlug)},
 });
 
-export default defineActivity({
+export default defineScript({
   manifest,
   input: Schema.Unknown,
   output: Schema.Unknown,
@@ -41,8 +40,8 @@ export default defineActivity({
 			{
 				name,
 				entry,
+				kind: "script",
 				slug: scriptSlug,
-				kind: "activity",
 				capabilities: [],
 				requiredPluginConfigKeys: [],
 				requiredSystemConfigKeys: [],

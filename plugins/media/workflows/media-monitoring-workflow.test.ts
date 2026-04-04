@@ -1,5 +1,5 @@
 import type { JsonValue } from "@ryot/sandbox-sdk/wire";
-import type { WorkflowReplayEnvelope, WorkflowSandboxHost } from "@ryot/sandbox-sdk/workflow";
+import type { WorkflowReplayEnvelope, WorkflowReplayHost } from "@ryot/sandbox-sdk/workflow";
 import { Effect, Schema } from "effect";
 import { assert, expect, it } from "vitest";
 
@@ -13,7 +13,7 @@ const completeReplay = async (
 		Effect.runPromise(
 			workflow.run(
 				{},
-				{ durableCalls: () => Effect.succeed(journal) } satisfies WorkflowSandboxHost,
+				{ replayJournal: () => Effect.succeed(journal) } satisfies WorkflowReplayHost,
 				{ metadata: {}, sandboxScriptId: "workflow-test" },
 			),
 		).then((envelope) => {

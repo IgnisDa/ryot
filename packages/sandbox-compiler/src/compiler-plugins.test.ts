@@ -44,29 +44,8 @@ it.effect(
 	10_000,
 );
 
-it.effect("compiles direct activity, operation, workflow, and automation declarations", () =>
+it.effect("compiles direct operation, workflow, and automation declarations", () =>
 	Effect.gen(function* () {
-		const activity = `
-import { defineActivity } from "@ryot/sandbox-sdk/activity";
-import { defineManifest } from "@ryot/sandbox-sdk/driver";
-import { Effect, Schema } from "@ryot/sandbox-sdk/effect";
-
-export const manifest = defineManifest({
-	name: "Activity",
-	slug: "activity",
-	kind: "activity",
-	capabilities: ["httpCall"],
-	requiredPluginConfigKeys: [],
-	requiredSystemConfigKeys: [],
-});
-
-export default defineActivity({
-	manifest,
-	input: Schema.Struct({}),
-	output: Schema.String,
-	run: () => Effect.die("unused"),
-});
-`;
 		const operation = `
 import { defineManifest } from "@ryot/sandbox-sdk/driver";
 import { Effect, Schema } from "@ryot/sandbox-sdk/effect";
@@ -128,13 +107,11 @@ export default defineWorkflow({
 `;
 		const compiled = yield* compilePluginSandboxSourceEntries(
 			{
-				"activity.sandbox.ts": activity,
 				"operation.sandbox.ts": operation,
 				"automation.sandbox.ts": automation,
 				"workflow.sandbox.ts": workflow,
 			},
 			[
-				{ kind: "activity", entry: "activity.sandbox.ts" },
 				{ kind: "operation", entry: "operation.sandbox.ts" },
 				{ kind: "automation", entry: "automation.sandbox.ts" },
 				{ kind: "workflow", entry: "workflow.sandbox.ts" },
@@ -142,7 +119,6 @@ export default defineWorkflow({
 		);
 
 		expect(compiled.map(({ compiled: { manifest } }) => manifest.kind)).toEqual([
-			"activity",
 			"automation",
 			"operation",
 			"workflow",

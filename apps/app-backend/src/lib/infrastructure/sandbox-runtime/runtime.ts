@@ -408,7 +408,7 @@ export class BridgeService extends Context.Service<BridgeService>()("BridgeServi
 					Effect.flatMap((result) =>
 						sandboxBridgeResultResponse(
 							result,
-							fnName === "durableCalls"
+							fnName === "replayJournal"
 								? SANDBOX_LIMITS.bridge.durableResponseBytes
 								: SANDBOX_LIMITS.bridge.responseBytes,
 						),
