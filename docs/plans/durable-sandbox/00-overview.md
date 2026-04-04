@@ -1,6 +1,6 @@
 # Durable Sandbox Execution - Overview
 
-Status: planned. Design decisions were confirmed with the project owner on 2026-08-05. Nothing is
+Status: in-progress. Design decisions were confirmed with the project owner on 2026-08-05. Nothing is
 deployed and the project has no real users, so this is a greenfield breaking rewrite: do not add
 compatibility paths for the current standard sandbox execution model.
 
