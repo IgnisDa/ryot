@@ -1,6 +1,7 @@
 import type { SandboxHost } from "@ryot/sandbox-sdk/core";
 import { Effect } from "@ryot/sandbox-sdk/effect";
 import { defineSandboxTestHost, runSandboxTestScript } from "@ryot/sandbox-sdk/testing";
+import type { JsonValue } from "@ryot/sandbox-sdk/wire";
 import { describe, expect, it } from "vitest";
 
 import { manifest } from "./igdb";
@@ -25,7 +26,9 @@ const makeHost = (overrides: Partial<IgdbVideoGameHost>): IgdbVideoGameHost =>
 		httpCall: () => Effect.fail(new Error("no route")),
 		...overrides,
 	});
+
 const execution = { metadata: {}, sandboxScriptId: "script_test" };
+
 describe("video-game.igdb sandbox script", () => {
 	it("declares one narrowly scoped script per operation", () => {
 		expect([
@@ -44,9 +47,10 @@ describe("video-game.igdb sandbox script", () => {
 			],
 		]);
 	});
+
 	it("maps search hits and paginates using the x-count header", () => {
 		const host = makeHost({
-			httpCall: (_method, url) => {
+			httpCall: (_method, url, options) => {
 				const requestUrl = new URL(url);
 				if (requestUrl.host === "id.twitch.tv") {
 					expect(requestUrl.pathname).toBe("/oauth2/token");
@@ -54,6 +58,7 @@ describe("video-game.igdb sandbox script", () => {
 				}
 				expect(requestUrl.host).toBe("api.igdb.com");
 				expect(requestUrl.pathname).toBe("/v4/games");
+				expect(options?.body).toContain("where version_parent = null;");
 				return httpSuccess(
 					[
 						{
@@ -93,6 +98,116 @@ describe("video-game.igdb sandbox script", () => {
 			),
 		);
 	});
+
+	it("adds all supported metadata filters", () => {
+		const host = makeHost({
+			httpCall: (_method, url, options) => {
+				if (url.startsWith("https://id.twitch.tv/oauth2/token")) {
+					return tokenResponse();
+				}
+				expect(options?.body).toContain(
+					"where version_parent = null & themes = (1,2) & genres = (3) & platforms = (4) & game_mode = (5) & game_type = (6) & release_dates.region = (7,8);",
+				);
+				return httpSuccess([], { "x-count": "0" });
+			},
+		});
+		return Effect.runPromise(
+			runSandboxTestScript(
+				search,
+				{
+					page: 1,
+					pageSize: 20,
+					query: "game",
+					options: {
+						filters: {
+							genreIds: ["3"],
+							platformIds: ["4"],
+							gameModeIds: ["5"],
+							gameTypeIds: ["6"],
+							themeIds: ["1", "2"],
+							releaseDateRegionIds: ["7", "8"],
+						},
+					},
+				},
+				host,
+				execution,
+			),
+		);
+	});
+
+	it("allows games with parents", () => {
+		const host = makeHost({
+			httpCall: (_method, url, options) => {
+				if (url.startsWith("https://id.twitch.tv/oauth2/token")) {
+					return tokenResponse();
+				}
+				expect(options?.body).not.toContain("where ");
+				return httpSuccess([], { "x-count": "0" });
+			},
+		});
+		return Effect.runPromise(
+			runSandboxTestScript(
+				search,
+				{
+					page: 1,
+					pageSize: 20,
+					query: "game",
+					options: { filters: { allowGamesWithParent: true } },
+				},
+				host,
+				execution,
+			),
+		);
+	});
+
+	it("ignores empty filter arrays", () => {
+		const host = makeHost({
+			httpCall: (_method, url, options) => {
+				if (url.startsWith("https://id.twitch.tv/oauth2/token")) {
+					return tokenResponse();
+				}
+				expect(options?.body).toContain("where version_parent = null;");
+				expect(options?.body).not.toContain("themes =");
+				return httpSuccess([], { "x-count": "0" });
+			},
+		});
+		return Effect.runPromise(
+			runSandboxTestScript(
+				search,
+				{
+					page: 1,
+					pageSize: 20,
+					query: "game",
+					options: { filters: { themeIds: [] } },
+				},
+				host,
+				execution,
+			),
+		);
+	});
+
+	it("rejects invalid search options", async () => {
+		const host = makeHost({ httpCall: () => Effect.fail(new Error("unexpected request")) });
+		const invalidOptions: ReadonlyArray<Readonly<Record<string, JsonValue>>> = [
+			{ filters: { genreIds: [1] } },
+			{ filters: { allowGamesWithParent: "yes" } },
+			{ filters: { unsupported: [] } },
+		];
+
+		for (const options of invalidOptions) {
+			expect(
+				Effect.runPromise(
+					runSandboxTestScript(
+						search,
+						{ page: 1, pageSize: 20, query: "game", options },
+						host,
+						execution,
+					),
+				),
+			).rejects.toBeDefined();
+		}
+	});
+
 	it("requests a fresh token on a cache miss and caches it with the computed ttl", () => {
 		const cacheWrites: Array<readonly [string, unknown, number]> = [];
 		let tokenPosts = 0;
@@ -122,6 +237,7 @@ describe("video-game.igdb sandbox script", () => {
 			),
 		);
 	});
+
 	it("keeps similar games as related entities", () => {
 		const host = makeHost({
 			httpCall: (_method, url, options) => {
@@ -156,9 +272,9 @@ describe("video-game.igdb sandbox script", () => {
 				Effect.map((result) => {
 					expect(result.relatedEntityGroups).toEqual([
 						{
+							entities: [],
 							direction: "incoming",
 							synchronization: "additive",
-							entities: [],
 							relationshipSchemaSlug: "company-to-video-game",
 						},
 						{

@@ -38,6 +38,7 @@ const integerWithFallback = (fallback: number, maximum?: number) =>
 
 export type ProviderManifest = Extract<SandboxManifest, { readonly kind: "provider" }>;
 export const providerSearchInputSchema = strictStruct({
+	options: Schema.optional(Schema.Record(Schema.String, jsonValueSchema)),
 	query: querySchema.pipe(
 		(schema) =>
 			Schema.optional(schema).pipe(

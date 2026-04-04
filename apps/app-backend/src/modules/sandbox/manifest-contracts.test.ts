@@ -28,6 +28,16 @@ const manifests = [
 		capabilities: ["httpCall", "getSystemConfig"],
 		requiredPluginConfigKeys: [],
 		requiredSystemConfigKeys: ["videoGames.testApiKey"],
+		searchOptionsSchema: {
+			unknownKeys: "strict",
+			fields: {
+				passRawQuery: {
+					type: "boolean",
+					label: "Pass raw query",
+					description: "Pass the query without modification",
+				},
+			},
+		},
 	},
 ] satisfies SandboxManifest[];
 

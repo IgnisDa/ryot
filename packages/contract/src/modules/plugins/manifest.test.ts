@@ -199,6 +199,16 @@ const manifest = definePlugin({
 			requiredSystemConfigKeys: [],
 			capabilities: [],
 			entry: "scripts/provider-search.sandbox.ts",
+			searchOptionsSchema: {
+				unknownKeys: "strict",
+				fields: {
+					passRawQuery: {
+						type: "boolean",
+						label: "Pass raw query",
+						description: "Pass the query without modification",
+					},
+				},
+			},
 		},
 		{
 			kind: "script",
@@ -262,6 +272,9 @@ describe("definePlugin", () => {
 
 	it("decodes the manifest with the canonical Effect schema", () => {
 		expect(Schema.decodeUnknownSync(PluginManifest)(manifest)).toEqual(manifest);
+		expect(Schema.decodeUnknownSync(PluginManifest)(manifest).scripts[3]).toMatchObject({
+			searchOptionsSchema: { unknownKeys: "strict" },
+		});
 	});
 
 	it("requires and decodes every saved-view layout", () => {

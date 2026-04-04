@@ -1,6 +1,7 @@
 import { Schema } from "effect";
 
 import { IntegrationId, SandboxScriptId, SubscriptionRunId, UserId } from "../../schema/brands";
+import { AppSchema } from "../../schema/property-schema";
 import { strictStruct } from "../../schema/utils";
 import { AutomationOrigin } from "../automations/schemas";
 import { SANDBOX_HOST_CAPABILITIES } from "./wire";
@@ -16,6 +17,7 @@ export const SandboxScriptMetadata = Schema.Struct({
 	name: Schema.optional(Schema.String),
 	slug: Schema.optional(Schema.String),
 	capabilities: Schema.optional(Schema.Array(Schema.String)),
+	searchOptionsSchema: Schema.optional(Schema.toType(AppSchema)),
 	requiredPluginConfigKeys: Schema.optional(Schema.Array(Schema.String)),
 	requiredSystemConfigKeys: Schema.optional(Schema.Array(Schema.String)),
 	kind: Schema.optional(
@@ -36,13 +38,17 @@ const SandboxScriptManifestFields = {
 export const SandboxScriptManifest = Schema.Union([
 	Schema.Struct({ ...SandboxScriptManifestFields, kind: Schema.Literal("script") }),
 	Schema.Struct({ ...SandboxScriptManifestFields, kind: Schema.Literal("operation") }),
+	Schema.Struct({ ...SandboxScriptManifestFields, kind: Schema.Literal("automation") }),
 	Schema.Struct({
 		...SandboxScriptManifestFields,
-		kind: Schema.Literal("workflow"),
 		capabilities: Schema.Tuple([]),
+		kind: Schema.Literal("workflow"),
 	}),
-	Schema.Struct({ ...SandboxScriptManifestFields, kind: Schema.Literal("automation") }),
-	Schema.Struct({ ...SandboxScriptManifestFields, kind: Schema.Literal("provider") }),
+	Schema.Struct({
+		...SandboxScriptManifestFields,
+		kind: Schema.Literal("provider"),
+		searchOptionsSchema: Schema.optional(Schema.toType(AppSchema)),
+	}),
 ]);
 
 export type SandboxScriptManifest = Schema.Schema.Type<typeof SandboxScriptManifest>;
