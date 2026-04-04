@@ -1,0 +1,91 @@
+import type { AppSchema } from "@ryot/ts-utils";
+import type { AppEntityImage } from "~/features/entities/model";
+import { toAppEntityImage } from "~/features/entities/model";
+import type { AppSavedView } from "~/features/saved-views/model";
+import type { ApiPostResponseData } from "~/lib/api/types";
+
+type ApiQueryEngineCollection =
+	ApiPostResponseData<"/query-engine/execute">["items"][number];
+
+export type CollectionMembershipPropertiesSchema = AppSchema;
+
+export type AppCollection = {
+	id: string;
+	name: string;
+	image: AppEntityImage;
+	createdAt: Date;
+	updatedAt: Date;
+	membershipPropertiesSchema: CollectionMembershipPropertiesSchema | null;
+	entitySchemaSlug: string;
+};
+
+export type CollectionDiscoveryState =
+	| { type: "loading" }
+	| { type: "empty" }
+	| { type: "collections"; collections: AppCollection[] };
+
+export function extractMembershipPropertiesSchema(
+	fields: ApiQueryEngineCollection["fields"],
+): CollectionMembershipPropertiesSchema | null {
+	const schemaField = fields.find(
+		(field) => field.key === "membershipPropertiesSchema",
+	);
+	if (!schemaField || schemaField.kind !== "json" || !schemaField.value) {
+		return null;
+	}
+	const schema = schemaField.value;
+	if (!schema || typeof schema !== "object" || !("fields" in schema)) {
+		return null;
+	}
+	return schema as CollectionMembershipPropertiesSchema;
+}
+
+export function toAppCollection(
+	entity: ApiQueryEngineCollection,
+): AppCollection {
+	return {
+		id: entity.id,
+		name: entity.name,
+		image: toAppEntityImage(entity.image),
+		createdAt: new Date(entity.createdAt),
+		updatedAt: new Date(entity.updatedAt),
+		membershipPropertiesSchema: extractMembershipPropertiesSchema(
+			entity.fields,
+		),
+		entitySchemaSlug: entity.entitySchemaSlug,
+	};
+}
+
+export function getCollectionDiscoveryState(
+	isLoading: boolean,
+	collections: AppCollection[],
+): CollectionDiscoveryState {
+	if (isLoading) {
+		return { type: "loading" };
+	}
+	if (collections.length === 0) {
+		return { type: "empty" };
+	}
+	return { type: "collections", collections };
+}
+
+export function findBuiltinCollectionsView(
+	savedViews: AppSavedView[],
+): AppSavedView | undefined {
+	return savedViews.find(
+		(view) =>
+			view.isBuiltin &&
+			view.trackerId === null &&
+			view.queryDefinition.entitySchemaSlugs.includes("collection"),
+	);
+}
+
+export function resolveCollectionsDestination(
+	savedViews: AppSavedView[],
+): { type: "view"; viewId: string } | { type: "none" } {
+	const view = findBuiltinCollectionsView(savedViews);
+	if (!view) {
+		return { type: "none" };
+	}
+	return { type: "view", viewId: view.id };
+}
