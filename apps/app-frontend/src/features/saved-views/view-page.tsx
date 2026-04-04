@@ -23,7 +23,7 @@ import { useApiClient } from "#/hooks/api";
 import { useThemeTokens } from "#/hooks/theme";
 import { STORAGE_KEYS } from "#/lib/storage-keys";
 import { getAccentMuted } from "#/lib/theme";
-import { SavedViewExtendedForm } from "./components/saved-view-extended-form";
+import { SavedViewDrawerContent } from "./components/saved-view-drawer-content";
 import { useSavedViewMutations } from "./hooks";
 import { SavedViewResults } from "./view-page-sections";
 import {
@@ -51,6 +51,7 @@ export function SavedViewPage(props: {
 		defaultValue: "grid",
 	});
 	const [page, setPage] = useState(1);
+	const [saveMessage, setSaveMessage] = useState<string | null>(null);
 	const savedViewMutations = useSavedViewMutations();
 
 	const savedViewQuery = apiClient.useQuery("get", "/saved-views/{viewId}", {
@@ -251,6 +252,11 @@ export function SavedViewPage(props: {
 							{props.actionError}
 						</Text>
 					) : null}
+					{saveMessage ? (
+						<Text size="sm" c="green">
+							{saveMessage}
+						</Text>
+					) : null}
 				</Paper>
 
 				{items.length === 0 ? (
@@ -301,16 +307,23 @@ export function SavedViewPage(props: {
 						content: { backgroundColor: surface },
 					}}
 				>
-					<SavedViewExtendedForm
+					<SavedViewDrawerContent
 						view={savedView}
-						onCancel={drawer.close}
+						onClone={props.onClone}
+						isCloning={props.isCloning ?? false}
 						isSubmitting={savedViewMutations.isPending}
+						onCancel={() => {
+							setSaveMessage(null);
+							drawer.close();
+						}}
 						onSubmit={async (values) => {
+							setSaveMessage(null);
 							await savedViewMutations.updateViewExtendedById(
 								savedView,
 								values,
 							);
 							await savedViewQuery.refetch();
+							setSaveMessage("View changes saved.");
 							drawer.close();
 						}}
 					/>
