@@ -1,7 +1,9 @@
 import { Effect } from "@ryot/sandbox-sdk/effect";
 import { describe, expect, it } from "vitest";
 
+import type { YoutubeMusicHost } from "../../youtube-music-shared";
 import { buildHistory, buildTrackDetails } from "./youtube-music";
+import { runHistory } from "./youtube-music.history.sandbox";
 
 describe("music.youtube-music sandbox script", () => {
 	it("keeps queue neighbors as related entities", () => {
@@ -88,7 +90,7 @@ describe("music.youtube-music sandbox script", () => {
 					Effect.succeed({
 						sections: [
 							{
-								header: { type: "ItemSectionHeader", title: { text: "Today" } },
+								header: { type: "ItemSectionHeader", title: { text: "August 5, 2026" } },
 								contents: [
 									{ type: "Video", video_id: "v1", title: { text: "First" } },
 									{ type: "Continuation" },
@@ -104,7 +106,7 @@ describe("music.youtube-music sandbox script", () => {
 				),
 		};
 		return Effect.runPromise(
-			buildHistory(client, "UTC").pipe(
+			buildHistory(client, "UTC", "2026-08-05T12:00:00.000Z").pipe(
 				Effect.map((result) => {
 					expect(result).toEqual({
 						songs: [
@@ -112,6 +114,38 @@ describe("music.youtube-music sandbox script", () => {
 							{ videoId: "v2", title: "Second" },
 						],
 					});
+					return undefined;
+				}),
+			),
+		);
+	});
+
+	it("passes workflow startedAt to the history entrypoint", () => {
+		const client = {
+			getHistory: () =>
+				Promise.resolve({
+					sections: [
+						{
+							header: { type: "ItemSectionHeader", title: { text: "August 5, 2026" } },
+							contents: [{ type: "Video", video_id: "v1", title: { text: "First" } }],
+						},
+					],
+				}),
+		};
+		const host = {} as YoutubeMusicHost;
+		return Effect.runPromise(
+			runHistory(
+				{ authCookie: "cookie", timezone: "UTC" },
+				host,
+				{
+					metadata: {},
+					sandboxScriptId: "script_test",
+					startedAt: "2026-08-05T12:00:00.000Z",
+				},
+				() => Effect.succeed(client),
+			).pipe(
+				Effect.map((result) => {
+					expect(result).toEqual({ songs: [{ videoId: "v1", title: "First" }] });
 					return undefined;
 				}),
 			),

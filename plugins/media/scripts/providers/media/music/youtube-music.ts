@@ -201,7 +201,7 @@ export const buildTrackTranslate = (client: TrackQueueClient, externalId: string
 		),
 	);
 
-export const buildHistory = (client: HistoryClient, timezone: string) =>
+export const buildHistory = (client: HistoryClient, timezone: string, startedAt: string) =>
 	Effect.tryPromise(() => client.getHistory()).pipe(
 		Effect.map((history) => {
 			const isTodayHeader = (title: string) => {
@@ -215,7 +215,7 @@ export const buildHistory = (client: HistoryClient, timezone: string) =>
 					year: "numeric",
 					timeZone: timezone,
 				})
-					.format(new Date())
+					.format(new Date(startedAt))
 					.toLowerCase();
 				return lower.includes(localDate);
 			};
