@@ -1,5 +1,5 @@
-import { dayjs } from "@ryot/ts-utils/dayjs";
-import type { AppEvent } from "#/features/events/model";
+import { dayjs } from "@ryot/ts-utils";
+import type { AppEvent } from "~/features/events/model";
 
 export function createEventFixture(
 	overrides: Partial<AppEvent> = {},

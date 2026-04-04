@@ -1,6 +1,6 @@
 import { describe, expect, it } from "bun:test";
-import { dayjs } from "@ryot/ts-utils/dayjs";
-import { createEventSchemaFixture } from "#/features/test-fixtures";
+import { dayjs } from "@ryot/ts-utils";
+import { createEventSchemaFixture } from "~/features/test-fixtures";
 import {
 	createBacklogEventPayload,
 	createLogEventPayload,

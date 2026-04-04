@@ -1,5 +1,5 @@
-import { createEntityColumnExpression } from "#/features/entities/model";
-import type { AppSavedView } from "#/features/saved-views/model";
+import { createEntityColumnExpression } from "~/features/entities/model";
+import type { AppSavedView } from "~/features/saved-views/model";
 
 type ViewExpression = AppSavedView["queryDefinition"]["sort"]["expression"];
 

@@ -1,12 +1,12 @@
 import { Box, Flex } from "@mantine/core";
 import { useDisclosure } from "@mantine/hooks";
 import { createFileRoute, Outlet, redirect } from "@tanstack/react-router";
-import { MobileSidebarBurger, Sidebar } from "#/components/sidebar/Sidebar";
-import { TrackerModal } from "#/features/trackers/components/tracker-modal";
-import TrackerSidebarProvider from "#/features/trackers/sidebar-context";
-import { useIsMobileScreen } from "#/hooks/screen";
-import { useThemeTokens } from "#/hooks/theme";
-import { authClient } from "#/lib/auth";
+import { MobileSidebarBurger, Sidebar } from "~/components/sidebar/Sidebar";
+import { TrackerModal } from "~/features/trackers/components/tracker-modal";
+import TrackerSidebarProvider from "~/features/trackers/sidebar-context";
+import { useIsMobileScreen } from "~/hooks/screen";
+import { useThemeTokens } from "~/hooks/theme";
+import { authClient } from "~/lib/auth";
 
 export const Route = createFileRoute("/_protected")({
 	component: RouteComponent,

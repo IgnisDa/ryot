@@ -20,8 +20,8 @@ import { createFormHook, createFormHookContexts } from "@tanstack/react-form";
 import { Link as LinkIcon, Upload } from "lucide-react";
 import type { ComponentProps, HTMLInputTypeAttribute, ReactNode } from "react";
 import { useState } from "react";
-import { useApiClient } from "#/hooks/api";
-import type { ApiPostRequestBody } from "#/lib/api/types";
+import { useApiClient } from "~/hooks/api";
+import type { ApiPostRequestBody } from "~/lib/api/types";
 
 type TextFieldProps = {
 	id?: string;

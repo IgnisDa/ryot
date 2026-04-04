@@ -9,7 +9,7 @@ import {
 	Title,
 } from "@mantine/core";
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { useTrackersQuery } from "#/features/trackers/hooks";
+import { useTrackersQuery } from "~/features/trackers/hooks";
 
 export const Route = createFileRoute("/_protected/")({
 	component: App,

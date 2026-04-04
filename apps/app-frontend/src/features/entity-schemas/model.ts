@@ -1,6 +1,6 @@
 import type { AppSchema } from "@ryot/ts-utils";
-import type { AppTracker } from "#/features/trackers/model";
-import type { ApiPostResponseData } from "#/lib/api/types";
+import type { AppTracker } from "~/features/trackers/model";
+import type { ApiPostResponseData } from "~/lib/api/types";
 
 type ApiEntitySchema = ApiPostResponseData<"/entity-schemas/list">[number];
 

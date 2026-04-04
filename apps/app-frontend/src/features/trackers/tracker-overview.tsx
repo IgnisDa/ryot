@@ -10,13 +10,13 @@ import {
 	Text,
 } from "@mantine/core";
 import { Link } from "@tanstack/react-router";
-import { EntityCard } from "#/components/EntityCard";
-import { StatsCard } from "#/components/StatsCard";
-import { useResolvedEntityImageUrls } from "#/features/entities/image";
-import type { AppEntity } from "#/features/entities/model";
-import type { AppEntitySchema } from "#/features/entity-schemas/model";
-import type { AppTracker } from "#/features/trackers/model";
-import { getAccentMuted } from "#/lib/theme";
+import { EntityCard } from "~/components/EntityCard";
+import { StatsCard } from "~/components/StatsCard";
+import { useResolvedEntityImageUrls } from "~/features/entities/image";
+import type { AppEntity } from "~/features/entities/model";
+import type { AppEntitySchema } from "~/features/entity-schemas/model";
+import type { AppTracker } from "~/features/trackers/model";
+import { getAccentMuted } from "~/lib/theme";
 import {
 	getActivityTimeLabel,
 	getLastActivityLabel,

@@ -1,5 +1,5 @@
-import { dayjs } from "@ryot/ts-utils/dayjs";
-import type { ApiPostRequestBody } from "#/lib/api/types";
+import { dayjs } from "@ryot/ts-utils";
+import type { ApiPostRequestBody } from "~/lib/api/types";
 import type { AppEventSchema } from "../event-schemas/model";
 
 const lifecycleEventSlugs = [

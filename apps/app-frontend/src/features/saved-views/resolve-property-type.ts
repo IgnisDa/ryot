@@ -1,5 +1,5 @@
 import type { AppPropertyDefinition } from "@ryot/ts-utils";
-import type { AppEntitySchema } from "#/features/entity-schemas/model";
+import type { AppEntitySchema } from "~/features/entity-schemas/model";
 
 export type ResolvedPropertyType = Exclude<
 	AppPropertyDefinition["type"],
