@@ -89,25 +89,6 @@ const mediaLifecycleEventSchemas = () => [
 
 export const authenticationBuiltinEntitySchemas = () => [
 	{
-		icon: "folders",
-		eventSchemas: [],
-		slug: "collection",
-		name: "Collection",
-		trackerSlug: "media",
-		accentColor: "#F59E0B",
-		propertiesSchema: {
-			fields: {
-				description: { label: "Description", type: "string" as const },
-				membershipPropertiesSchema: {
-					label: "Membership Properties Schema",
-					properties: {},
-					type: "object" as const,
-					unknownKeys: "passthrough" as const,
-				},
-			},
-		},
-	},
-	{
 		slug: "book",
 		name: "Book",
 		icon: "book-open",
@@ -133,6 +114,25 @@ export const authenticationBuiltinEntitySchemas = () => [
 		accentColor: "#A78BFA",
 		eventSchemas: mediaLifecycleEventSchemas(),
 		propertiesSchema: mangaPropertiesJsonSchema,
+	},
+	{
+		icon: "folders",
+		eventSchemas: [],
+		slug: "collection",
+		name: "Collection",
+		trackerSlug: "media",
+		accentColor: "#F59E0B",
+		propertiesSchema: {
+			fields: {
+				description: { label: "Description", type: "string" as const },
+				membershipPropertiesSchema: {
+					properties: {},
+					type: "object" as const,
+					unknownKeys: "passthrough" as const,
+					label: "Membership Properties Schema",
+				},
+			},
+		},
 	},
 ];
 
