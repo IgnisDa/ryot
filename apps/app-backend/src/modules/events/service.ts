@@ -1,5 +1,4 @@
-import { type AppSchema, resolveRequiredString } from "@ryot/ts-utils";
-import { chunk } from "lodash";
+import { type AppSchema, chunk, resolveRequiredString } from "@ryot/ts-utils";
 import { checkReadAccess } from "~/lib/access";
 import { parseAppSchemaProperties } from "~/lib/app/schema-validation";
 import {
