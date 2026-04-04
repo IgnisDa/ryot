@@ -55,38 +55,49 @@ export type AppObjectProperty = {
 export const toAppSchema = (schema: z.ZodType): AppPropertyDefinition => {
 	if (schema instanceof z.ZodNullable || schema instanceof z.ZodOptional) {
 		const innerType = schema._def.innerType;
-		if (!innerType || typeof innerType !== "object")
+		if (!innerType || typeof innerType !== "object") {
 			throw new Error(
 				"Invalid nullable/optional wrapper: innerType is missing or invalid",
 			);
+		}
 		const innerSchema = innerType as z.ZodType;
 		return toAppSchema(innerSchema);
 	}
 
 	if (schema instanceof z.ZodString) {
-		if (schema.format === "date") return { type: "date" };
+		if (schema.format === "date") {
+			return { type: "date" };
+		}
 		return { type: "string" };
 	}
 
 	if (schema instanceof z.ZodNumber) {
-		if (schema.format === "safeint") return { type: "integer" };
+		if (schema.format === "safeint") {
+			return { type: "integer" };
+		}
 		return { type: "number" };
 	}
 
-	if (schema instanceof z.ZodBoolean) return { type: "boolean" };
+	if (schema instanceof z.ZodBoolean) {
+		return { type: "boolean" };
+	}
 
-	if (schema.constructor.name === "ZodISODateTime") return { type: "date" };
+	if (schema.constructor.name === "ZodISODateTime") {
+		return { type: "date" };
+	}
 
-	if (schema instanceof z.ZodArray)
+	if (schema instanceof z.ZodArray) {
 		return {
 			type: "array",
 			items: toAppSchema(schema.element as z.ZodType),
 		};
+	}
 
 	if (schema instanceof z.ZodObject) {
 		const properties: Record<string, AppPropertyDefinition> = {};
-		for (const [key, value] of Object.entries(schema.shape))
+		for (const [key, value] of Object.entries(schema.shape)) {
 			properties[key] = toAppSchema(value as z.ZodType);
+		}
 		return { properties, type: "object" };
 	}
 
@@ -105,8 +116,9 @@ export const toAppSchemaProperties = (
 ): AppSchema => {
 	const properties: AppSchema = {};
 
-	for (const [key, value] of Object.entries(schema.shape))
+	for (const [key, value] of Object.entries(schema.shape)) {
 		properties[key] = toAppSchema(value as z.ZodType);
+	}
 
 	return properties;
 };
@@ -151,8 +163,9 @@ export const fromAppSchema = (property: AppPropertyDefinition): z.ZodType => {
 			const objectProp = property as AppObjectProperty;
 			const shape: Record<string, z.ZodType> = {};
 
-			for (const [key, value] of Object.entries(objectProp.properties))
+			for (const [key, value] of Object.entries(objectProp.properties)) {
 				shape[key] = fromAppSchema(value);
+			}
 
 			schema = z.object(shape);
 			break;
