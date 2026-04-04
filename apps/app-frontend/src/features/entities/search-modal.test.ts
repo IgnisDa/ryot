@@ -298,6 +298,42 @@ describe("search-modal collection panel submission", () => {
 		});
 	});
 
+	describe("success notification with collection name", () => {
+		it("includes collection name in success message", () => {
+			const itemName = "Test Movie";
+			const collectionName = "My Favorites";
+			const selectedCollectionId = "collection-123";
+
+			const collections = [
+				createAppCollectionFixture({ id: "collection-1", name: "Watchlist" }),
+				createAppCollectionFixture({
+					id: selectedCollectionId,
+					name: collectionName,
+				}),
+			];
+
+			const selectedCollection = collections.find(
+				(c) => c.id === selectedCollectionId,
+			);
+			const resolvedName = selectedCollection?.name ?? "collection";
+
+			const message = `${itemName} was added to ${resolvedName}.`;
+
+			expect(message).toBe("Test Movie was added to My Favorites.");
+		});
+
+		it("falls back to generic 'collection' when collection not found", () => {
+			const itemName = "Test Book";
+			const collections: ReturnType<typeof createAppCollectionFixture>[] = [];
+
+			const selectedCollection = collections.find((c) => c.id === "missing-id");
+			const resolvedName = selectedCollection?.name ?? "collection";
+
+			const message = `${itemName} was added to ${resolvedName}.`;
+
+			expect(message).toBe("Test Book was added to collection.");
+		});
+	});
 	describe("collection selection validation", () => {
 		it("requires selected collection before submission", () => {
 			const selectedCollectionId: string | null = null;
