@@ -20,15 +20,15 @@ describe("POST /collections", () => {
 
 		const collection = await createCollection(client, cookies, {
 			name: "Recommended to me",
-			description: "Movies and books recommended by friends",
 			membershipPropertiesSchema,
+			description: "Movies and books recommended by friends",
 		});
 
 		expect(collection.id).toBeDefined();
 		expect(collection.name).toBe("Recommended to me");
 		expect(collection.properties).toMatchObject({
-			description: "Movies and books recommended by friends",
 			membershipPropertiesSchema,
+			description: "Movies and books recommended by friends",
 		});
 	});
 
@@ -56,9 +56,7 @@ describe("POST /collections", () => {
 				name: "Invalid Collection",
 				description: "Should fail",
 				membershipPropertiesSchema: {
-					fields: {
-						invalidField: { type: "invalid_type" },
-					},
+					fields: { invalidField: { type: "invalid_type" } },
 				},
 			} as unknown as { name: string; description?: string },
 		});
@@ -119,10 +117,7 @@ describe("POST /collections", () => {
 
 		const { response, error } = await client.POST("/collections", {
 			headers: { Cookie: cookies },
-			body: {
-				name: "",
-				description: "Should fail",
-			},
+			body: { name: "", description: "Should fail" },
 		});
 
 		expect(response.status).toBe(400);
@@ -141,8 +136,8 @@ describe("POST /collections", () => {
 					recommendationDetails: {
 						type: "object" as const,
 						properties: {
-							where: { type: "string" as const },
 							when: { type: "date" as const },
+							where: { type: "string" as const },
 							rating: { type: "integer" as const },
 						},
 					},
@@ -184,9 +179,9 @@ describe("POST /collections", () => {
 			};
 
 			const collection = await createCollection(client, cookies, {
+				membershipPropertiesSchema,
 				name: "Array Schema Collection",
 				description: "Testing array item schemas",
-				membershipPropertiesSchema,
 			});
 
 			expect(collection.id).toBeDefined();
@@ -201,15 +196,13 @@ describe("POST /collections", () => {
 			const { response, error } = await client.POST("/collections", {
 				headers: { Cookie: cookies },
 				body: {
-					name: "Invalid Nested Collection",
 					description: "Should fail",
+					name: "Invalid Nested Collection",
 					membershipPropertiesSchema: {
 						fields: {
 							nested: {
 								type: "object" as const,
-								properties: {
-									invalidField: { type: "unknown_type" },
-								},
+								properties: { invalidField: { type: "unknown_type" } },
 							},
 						},
 					},
@@ -248,14 +241,15 @@ describe("POST /collections", () => {
 
 			const membershipPropertiesSchema = {
 				fields: {
+					priority: { type: "integer" as const },
 					metadata: {
 						type: "object" as const,
 						properties: {
 							source: {
 								type: "object" as const,
 								properties: {
-									name: { type: "string" as const },
 									url: { type: "string" as const },
+									name: { type: "string" as const },
 								},
 							},
 							tags: {
@@ -270,14 +264,13 @@ describe("POST /collections", () => {
 							},
 						},
 					},
-					priority: { type: "integer" as const },
 				},
 			};
 
 			const collection = await createCollection(client, cookies, {
+				membershipPropertiesSchema,
 				name: "Complex Nested Collection",
 				description: "Testing multi-level nesting",
-				membershipPropertiesSchema,
 			});
 
 			expect(collection.id).toBeDefined();
@@ -306,8 +299,8 @@ describe("POST /collections", () => {
 			const { data, response } = await client.POST("/collections/memberships", {
 				headers: { Cookie: cookies },
 				body: {
-					collectionId: parentCollection.id,
 					entityId: childCollection.id,
+					collectionId: parentCollection.id,
 				},
 			});
 
@@ -332,10 +325,7 @@ describe("POST /collections", () => {
 				"/collections/memberships",
 				{
 					headers: { Cookie: cookies },
-					body: {
-						collectionId: collection.id,
-						entityId: collection.id,
-					},
+					body: { entityId: collection.id, collectionId: collection.id },
 				},
 			);
 
@@ -371,18 +361,15 @@ describe("POST /collections", () => {
 			// Create an entity
 			const entity = await createEntity(client, cookies, {
 				entitySchemaId,
-				name: "Test Entity",
 				image: null,
+				name: "Test Entity",
 				properties: { title: "Test Title" },
 			});
 
 			// Add entity to collection
 			const { data, response } = await client.POST("/collections/memberships", {
 				headers: { Cookie: cookies },
-				body: {
-					collectionId: collection.id,
-					entityId: entity.id,
-				},
+				body: { entityId: entity.id, collectionId: collection.id },
 			});
 
 			expect(response.status).toBe(200);
@@ -401,8 +388,8 @@ describe("POST /collections", () => {
 				description: "Movies with recommendation info",
 				membershipPropertiesSchema: {
 					fields: {
-						recommendedBy: { type: "string" },
 						rating: { type: "integer" },
+						recommendedBy: { type: "string" },
 					},
 				},
 			});
@@ -422,9 +409,9 @@ describe("POST /collections", () => {
 			);
 
 			const entity = await createEntity(client, cookies, {
+				image: null,
 				entitySchemaId,
 				name: "Inception",
-				image: null,
 				properties: { title: "Inception" },
 			});
 
@@ -434,10 +421,7 @@ describe("POST /collections", () => {
 				body: {
 					collectionId: collection.id,
 					entityId: entity.id,
-					properties: {
-						recommendedBy: "John",
-						rating: 5,
-					},
+					properties: { rating: 5, recommendedBy: "John" },
 				},
 			});
 
@@ -466,9 +450,9 @@ describe("POST /collections", () => {
 			);
 
 			const entity = await createEntity(client, cookies, {
+				image: null,
 				entitySchemaId,
 				name: "Test Entity",
-				image: null,
 				properties: { title: "Test Title" },
 			});
 
@@ -478,8 +462,8 @@ describe("POST /collections", () => {
 				{
 					headers: { Cookie: cookies },
 					body: {
-						collectionId: "nonexistent-collection-id",
 						entityId: entity.id,
+						collectionId: "nonexistent-collection-id",
 					},
 				},
 			);
@@ -541,9 +525,9 @@ describe("POST /collections", () => {
 			);
 
 			const entity = await createEntity(clientB, cookiesB, {
+				image: null,
 				entitySchemaId,
 				name: "User B's Entity",
-				image: null,
 				properties: { title: "Test Title" },
 			});
 
@@ -552,10 +536,7 @@ describe("POST /collections", () => {
 				"/collections/memberships",
 				{
 					headers: { Cookie: cookiesB },
-					body: {
-						collectionId: collection.id,
-						entityId: entity.id,
-					},
+					body: { entityId: entity.id, collectionId: collection.id },
 				},
 			);
 
@@ -601,9 +582,9 @@ describe("POST /collections", () => {
 
 		// Create an entity
 		const entity = await createEntity(client, cookies, {
+			image: null,
 			entitySchemaId,
 			name: "Test Entity",
-			image: null,
 			properties: { title: "Test Title" },
 		});
 
@@ -612,10 +593,7 @@ describe("POST /collections", () => {
 			"/collections/memberships",
 			{
 				headers: { Cookie: cookies },
-				body: {
-					collectionId: collection.id,
-					entityId: entity.id,
-				},
+				body: { entityId: entity.id, collectionId: collection.id },
 			},
 		);
 
@@ -627,10 +605,7 @@ describe("POST /collections", () => {
 			"/collections/memberships",
 			{
 				headers: { Cookie: cookies },
-				body: {
-					collectionId: collection.id,
-					entityId: entity.id,
-				},
+				body: { entityId: entity.id, collectionId: collection.id },
 			},
 		);
 
@@ -667,9 +642,9 @@ describe("POST /collections", () => {
 		);
 
 		const entity = await createEntity(client, cookies, {
+			image: null,
 			entitySchemaId,
 			name: "Test Entity",
-			image: null,
 			properties: { title: "Test Title" },
 		});
 
@@ -678,10 +653,7 @@ describe("POST /collections", () => {
 			"/collections/memberships",
 			{
 				headers: { Cookie: cookies },
-				body: {
-					collectionId: collection.id,
-					entityId: entity.id,
-				},
+				body: { entityId: entity.id, collectionId: collection.id },
 			},
 		);
 
@@ -707,9 +679,9 @@ describe("POST /collections", () => {
 		);
 
 		const entity = await createEntity(client, cookies, {
+			image: null,
 			entitySchemaId,
 			name: "Test Entity",
-			image: null,
 			properties: { title: "Test Title" },
 		});
 
@@ -719,8 +691,8 @@ describe("POST /collections", () => {
 			{
 				headers: { Cookie: cookies },
 				body: {
-					collectionId: "nonexistent-collection-id",
 					entityId: entity.id,
+					collectionId: "nonexistent-collection-id",
 				},
 			},
 		);
@@ -757,9 +729,9 @@ describe("POST /collections", () => {
 		);
 
 		const entity = await createEntity(clientB, cookiesB, {
+			image: null,
 			entitySchemaId,
 			name: "User B's Entity",
-			image: null,
 			properties: { title: "Test Title" },
 		});
 
@@ -768,10 +740,7 @@ describe("POST /collections", () => {
 			"/collections/memberships",
 			{
 				headers: { Cookie: cookiesB },
-				body: {
-					collectionId: collection.id,
-					entityId: entity.id,
-				},
+				body: { entityId: entity.id, collectionId: collection.id },
 			},
 		);
 
@@ -784,8 +753,8 @@ describe("POST /collections", () => {
 
 		const { response } = await client.DELETE("/collections/memberships", {
 			body: {
-				collectionId: "some-collection-id",
 				entityId: "some-entity-id",
+				collectionId: "some-collection-id",
 			},
 		});
 
