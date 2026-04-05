@@ -15,6 +15,9 @@ import { useQueryClient } from "@tanstack/react-query";
 import { ChevronLeft, ChevronRight, Search } from "lucide-react";
 import { useCallback, useMemo, useState } from "react";
 import {
+	buildMembershipFormSchema,
+	getSelectedCollection,
+	toMembershipPayload,
 	useCollectionDiscovery,
 	useCollectionsDestination,
 } from "~/features/collections";
@@ -384,6 +387,28 @@ export function SearchEntityModalContent(props: {
 				return;
 			}
 
+			const selectedCollection =
+				collectionState.type === "collections"
+					? getSelectedCollection(
+							collectionState.collections,
+							state.selectedCollectionId,
+						)
+					: undefined;
+			const formValues = {
+				properties: state.collectionProperties,
+				collectionId: state.selectedCollectionId,
+			};
+			const validationResult =
+				buildMembershipFormSchema(selectedCollection).safeParse(formValues);
+			if (!validationResult.success) {
+				patchActionState(item.identifier, {
+					actionError:
+						validationResult.error.issues[0]?.message ??
+						"Collection details are invalid.",
+				});
+				return;
+			}
+
 			patchActionState(item.identifier, {
 				actionError: null,
 				pendingAction: "collection",
@@ -394,13 +419,13 @@ export function SearchEntityModalContent(props: {
 				const entity = await ensureItemEntity(item);
 				entityId = entity.id;
 				await addToCollection.mutateAsync({
-					body: {
-						collectionId: state.selectedCollectionId,
-						entityId: entity.id,
-						properties: state.collectionProperties,
-					},
+					body: toMembershipPayload(
+						validationResult.data,
+						entity.id,
+						selectedCollection,
+					),
 				});
-				markDone(item.identifier, ["track", "collection"]);
+				markDone(item.identifier, ["track"]);
 				props.onActionCompleted?.();
 				patchActionState(item.identifier, {
 					actionError: null,
@@ -440,27 +465,15 @@ export function SearchEntityModalContent(props: {
 		},
 		[
 			addToCollection,
+			collectionState,
 			markDone,
 			getActionState,
 			ensureItemEntity,
 			patchActionState,
-			collectionState,
 		],
 	);
 
-	const collections = useMemo(() => {
-		if (collectionState.type === "collections") {
-			return collectionState.collections.map((c) => ({
-				id: c.id,
-				name: c.name,
-			}));
-		}
-		return [];
-	}, [collectionState]);
-
-	const canUseCollectionAction =
-		collections.length > 0 &&
-		collectionsDestination.destination.type !== "none";
+	const canUseCollectionAction = true;
 
 	return (
 		<Stack gap="md">
