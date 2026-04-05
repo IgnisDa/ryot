@@ -1,4 +1,4 @@
-import { useAtomValue } from "@effect/atom-react";
+import { useAtomRefresh, useAtomValue } from "@effect/atom-react";
 import type { ManagedAssetLocator } from "@ryot/contract/modules/uploads/schemas";
 import {
 	decodeSavedViewRecordResponse,
@@ -8,9 +8,11 @@ import clsx from "clsx";
 import { Cause, Option, Result } from "effect";
 import { AsyncResult } from "effect/unstable/reactivity";
 import { useLocalSearchParams } from "expo-router";
+import { useMemo } from "react";
 import { Platform, Text, View } from "react-native";
 
 import { useAuthClient } from "@/modules/auth/client";
+import { useEntityInterest } from "@/modules/entity-interest/provider";
 import { AppIcon } from "@/modules/icons";
 import { NavigationStatus } from "@/modules/navigation/navigation-status";
 import {
@@ -83,10 +85,20 @@ type SavedViewPresentationProps = {
 	userId: string;
 	viewSlug: string;
 	serverUrl: string;
+	onEntityUpdated: () => void;
 } & ActiveDisplayData;
 
 function SavedViewResolvedContent(props: SavedViewPresentationProps) {
 	const assets = collectManagedAssets(props.data.items);
+	const entityIds = useMemo(
+		() => props.data.items.map((item) => item.entityId),
+		[props.data.items],
+	);
+	useEntityInterest(
+		`saved-view:${props.serverUrl}:${props.userId}:${props.viewSlug}`,
+		entityIds,
+		props.onEntityUpdated,
+	);
 	if (assets.length === 0) {
 		return <SavedViewDisplay {...props} managedUrls={new Map()} />;
 	}
@@ -159,13 +171,13 @@ function SavedViewDisplay(
 function SavedViewContent(props: { record: SavedViewRecord; serverUrl: string; userId: string }) {
 	const layout = useAtomValue(savedViewLayoutAtom(props.record.slug));
 	const queryDocument = props.record.layouts[layout].queryDocument;
-	const queryResult = useAtomValue(
-		savedViewResultAtom({
-			queryDocument,
-			userId: props.userId,
-			serverUrl: props.serverUrl,
-		}),
-	);
+	const resultAtom = savedViewResultAtom({
+		queryDocument,
+		userId: props.userId,
+		serverUrl: props.serverUrl,
+	});
+	const queryResult = useAtomValue(resultAtom);
+	const refreshResult = useAtomRefresh(resultAtom);
 	if (AsyncResult.isFailure(queryResult)) {
 		return (
 			<SavedViewFrame viewSlug={props.record.slug}>
@@ -200,6 +212,7 @@ function SavedViewContent(props: { record: SavedViewRecord; serverUrl: string; u
 				name={props.record.name}
 				serverUrl={props.serverUrl}
 				viewSlug={props.record.slug}
+				onEntityUpdated={refreshResult}
 			/>
 		);
 	}
@@ -222,6 +235,7 @@ function SavedViewContent(props: { record: SavedViewRecord; serverUrl: string; u
 			name={props.record.name}
 			serverUrl={props.serverUrl}
 			viewSlug={props.record.slug}
+			onEntityUpdated={refreshResult}
 		/>
 	);
 }
