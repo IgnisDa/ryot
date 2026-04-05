@@ -1,22 +1,22 @@
+import type { paths } from "@ryot/generated/openapi/app-backend";
 import type { Client } from "./auth";
+
+type CreateEventSchemaBody = NonNullable<
+	paths["/event-schemas"]["post"]["requestBody"]
+>["content"]["application/json"];
 
 export async function createEventSchema(
 	client: Client,
 	cookies: string,
-	body: {
-		name: string;
-		slug: string;
-		entitySchemaId: string;
-		propertiesSchema: { fields: Record<string, unknown>; rules?: unknown[] };
-	},
+	body: CreateEventSchemaBody,
 ) {
 	const { data, response } = await client.POST("/event-schemas", {
-		body: body as never,
+		body,
 		headers: { Cookie: cookies },
 	});
 
 	if (response.status !== 200 || !data?.data?.id) {
-		throw new Error(`Failed to create event schema '${body.slug}'`);
+		throw new Error(`Failed to create event schema '${body.name}'`);
 	}
 
 	return data.data;
