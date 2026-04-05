@@ -68,11 +68,10 @@ export const getPrices = memoize(() => {
 	const envPrices = paddlePricesEnvSchema.parse(JSON.parse(getServerVariables().PADDLE_PRICE_IDS));
 
 	return envPrices.map((product) => ({
-		...product,
-		prices: product.prices.map((price) => ({
-			...price,
-			...PRICING_METADATA[product.type][price.name],
-		})),
+		type: product.type,
+		prices: product.prices.map((price) =>
+			Object.assign({}, price, PRICING_METADATA[product.type][price.name]),
+		),
 	}));
 });
 
@@ -96,11 +95,10 @@ export const getPolarProducts = memoize(() => {
 	const envProducts = polarProductsEnvSchema.parse(JSON.parse(productIds));
 
 	return envProducts.map((product) => ({
-		...product,
-		prices: product.prices.map((price) => ({
-			...price,
-			...PRICING_METADATA[product.type][price.name],
-		})),
+		type: product.type,
+		prices: product.prices.map((price) =>
+			Object.assign({}, price, PRICING_METADATA[product.type][price.name]),
+		),
 	}));
 });
 
