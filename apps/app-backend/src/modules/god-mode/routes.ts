@@ -1,6 +1,7 @@
 import { randomUUID } from "node:crypto";
 
 import { createRoute, OpenAPIHono } from "@hono/zod-openapi";
+import { dayjs } from "@ryot/ts-utils/dayjs";
 
 import { auth, createAdminRoute } from "~/lib/auth";
 import { clearPendingReset, storePendingReset } from "~/lib/auth/password-reset";
@@ -11,6 +12,7 @@ import {
 	createInternalErrorResult,
 	createStandardResponses,
 	createSuccessResult,
+	createValidationErrorResult,
 } from "~/lib/openapi";
 import { ERROR_CODES, errorResponse } from "~/lib/openapi/errors";
 import { redis } from "~/lib/redis";
@@ -18,10 +20,12 @@ import { redis } from "~/lib/redis";
 import {
 	resetPasswordPathParamsSchema,
 	resetPasswordResponseSchema,
+	toggleUserBanPathParamsSchema,
+	toggleUserBanResponseSchema,
 	userListQuerySchema,
 	userListResponseSchema,
 } from "./schemas";
-import { checkResetEligibility, listUsers } from "./service";
+import { checkResetEligibility, listUsers, toggleUserBan } from "./service";
 
 const listUsersRoute = createAdminRoute(
 	createRoute({
@@ -63,6 +67,25 @@ const resetPasswordRoute = createAdminRoute(
 	}),
 );
 
+const toggleUserBanRoute = createAdminRoute(
+	createRoute({
+		method: "post",
+		tags: ["god-mode"],
+		path: "/users/{userId}/ban/toggle",
+		summary: "Toggle whether a user is disabled",
+		request: { params: toggleUserBanPathParamsSchema },
+		responses: {
+			400: createErrorResponse("Validation error", commonErrors.validationFailed),
+			500: createErrorResponse("Ban toggle failed", commonErrors.internalError),
+			...createStandardResponses({
+				includePayloadError: false,
+				successSchema: toggleUserBanResponseSchema,
+				successDescription: "User ban state toggled successfully",
+			}),
+		},
+	}),
+);
+
 const RESET_LINK_TIMEOUT_MS = 10_000;
 
 const godModeApi = new OpenAPIHono()
@@ -76,6 +99,31 @@ const godModeApi = new OpenAPIHono()
 
 		if ("error" in result) {
 			const response = createInternalErrorResult(result.message);
+			return c.json(response.body, response.status);
+		}
+
+		const response = createSuccessResult(result.data);
+		return c.json(response.body, response.status);
+	})
+	.openapi(toggleUserBanRoute, async (c) => {
+		const { userId } = c.req.valid("param");
+
+		const ctx = await auth.$context;
+		const deps = ctx.internalAdapter;
+
+		const result = await toggleUserBan(userId, {
+			now: () => dayjs().toDate(),
+			findUserById: (id) => deps.findUserById(id),
+			updateUser: (id, input) => deps.updateUser(id, input),
+			deleteSessions: (id) => deps.deleteSessions(id),
+		});
+
+		if ("error" in result) {
+			if (result.error === "internal") {
+				const response = createInternalErrorResult(result.message);
+				return c.json(response.body, response.status);
+			}
+			const response = createValidationErrorResult(result.message);
 			return c.json(response.body, response.status);
 		}
 

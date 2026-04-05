@@ -20,6 +20,7 @@ const authUserSelection = {
 	name: user.name,
 	email: user.email,
 	image: user.image,
+	bannedAt: user.bannedAt,
 	createdAt: user.createdAt,
 	updatedAt: user.updatedAt,
 	preferences: user.preferences,
@@ -69,13 +70,16 @@ export const resolveAuthenticatedUser = async (
 	}
 
 	const session = await deps.getSession({ headers: request.headers });
-	return session?.user ?? null;
+	return session ? await deps.getUserById(session.user.id) : null;
 };
 
 export const requireAuth = createMiddleware<{ Variables: MaybeAuthType }>(async (c, next) => {
 	try {
 		const authenticatedUser = await resolveAuthenticatedUser(c.req.raw);
 		if (!authenticatedUser) {
+			return c.json(errorResponse(ERROR_CODES.UNAUTHENTICATED, "Authentication required"), 401);
+		}
+		if (authenticatedUser.bannedAt) {
 			return c.json(errorResponse(ERROR_CODES.UNAUTHENTICATED, "Authentication required"), 401);
 		}
 		c.set("user", authenticatedUser);

@@ -1,0 +1,1 @@
+ALTER TABLE "user" ADD COLUMN "banned_at" timestamp with time zone;
