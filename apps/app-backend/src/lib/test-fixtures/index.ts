@@ -1,3 +1,4 @@
+export * from "~/lib/test-fixtures/collections";
 export * from "~/lib/test-fixtures/entities";
 export * from "~/lib/test-fixtures/entity-schemas";
 export * from "~/lib/test-fixtures/event-schemas";

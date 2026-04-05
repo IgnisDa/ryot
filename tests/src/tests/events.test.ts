@@ -5,6 +5,7 @@ import {
 	findBuiltinTracker,
 	listEntitySchemas,
 	listEventSchemas,
+	seedMediaEntity,
 	waitForEventCount,
 } from "../fixtures";
 
@@ -182,7 +183,7 @@ async function setupBuiltinMediaLifecycleFixture(
 		? T
 		: never,
 ) {
-	const { client: apiClient, cookies } = client;
+	const { client: apiClient, cookies, userId } = client;
 	const builtinTracker = await findBuiltinTracker(apiClient, cookies);
 	const schemas = await listEntitySchemas(apiClient, cookies, {
 		trackerId: builtinTracker.id,
@@ -248,7 +249,8 @@ async function setupBuiltinMediaLifecycleFixture(
 		throw new Error("Missing mismatched backlog event schema");
 	}
 
-	const entity = await createEntity(apiClient, cookies, {
+	const entity = await seedMediaEntity({
+		userId,
 		image: null,
 		properties: {},
 		entitySchemaId: bookSchema.id,

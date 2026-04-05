@@ -10,6 +10,11 @@ import {
 	serviceError,
 	wrapServiceValidator,
 } from "~/lib/result";
+import {
+	getUserLibraryEntityId,
+	upsertInLibraryIfGlobal,
+	upsertInLibraryRelationship,
+} from "~/modules/entities";
 import { parseLabeledPropertySchemaInput } from "~/modules/property-schemas/service";
 import {
 	addEntityToCollection,
@@ -54,14 +59,16 @@ export type CollectionServiceDeps = {
 };
 
 export type AddToCollectionServiceDeps = {
-	addEntityToCollection: typeof addEntityToCollection;
-	getCollectionById: typeof getCollectionById;
 	getEntityById: typeof getEntityById;
+	getCollectionById: typeof getCollectionById;
+	addEntityToCollection: typeof addEntityToCollection;
+	getUserLibraryEntityId: typeof getUserLibraryEntityId;
+	upsertInLibraryRelationship: typeof upsertInLibraryRelationship;
 };
 
 export type RemoveFromCollectionServiceDeps = {
-	getCollectionById: typeof getCollectionById;
 	getEntityById: typeof getEntityById;
+	getCollectionById: typeof getCollectionById;
 	removeEntityFromCollection: typeof removeEntityFromCollection;
 };
 
@@ -131,9 +138,11 @@ export const createCollection = async (
 };
 
 const addToCollectionServiceDeps: AddToCollectionServiceDeps = {
-	addEntityToCollection,
-	getCollectionById,
 	getEntityById,
+	getCollectionById,
+	addEntityToCollection,
+	getUserLibraryEntityId,
+	upsertInLibraryRelationship,
 };
 
 export const addToCollection = async (
@@ -181,20 +190,28 @@ export const addToCollection = async (
 		validatedProperties = input.body.properties ?? {};
 	}
 
+	const libraryError = await upsertInLibraryIfGlobal(
+		{ userId: input.userId, entityId: entity.id, entityUserId: entity.userId },
+		deps,
+	);
+	if (libraryError) {
+		return libraryError;
+	}
+
 	// Create the canonical member_of relationship
 	const relationships = await deps.addEntityToCollection({
-		collectionId: input.body.collectionId,
-		entityId: input.body.entityId,
 		userId: input.userId,
+		entityId: input.body.entityId,
 		properties: validatedProperties,
+		collectionId: input.body.collectionId,
 	});
 
 	return serviceData(relationships);
 };
 
 const removeFromCollectionServiceDeps: RemoveFromCollectionServiceDeps = {
-	getCollectionById,
 	getEntityById,
+	getCollectionById,
 	removeEntityFromCollection,
 };
 

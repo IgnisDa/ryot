@@ -13,9 +13,11 @@
 		"@ryot/generated": "workspace:*",
 		"@ryot/ts-utils": "workspace:*",
 		"@testcontainers/postgresql": "11.13.0",
+		"@types/pg": "8.20.0",
 		"dotenv": "17.4.0",
 		"get-port": "7.2.0",
 		"openapi-fetch": "0.17.0",
+		"pg": "8.20.0",
 		"testcontainers": "11.13.0"
 	}
 }

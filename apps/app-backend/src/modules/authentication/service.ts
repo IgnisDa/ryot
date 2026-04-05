@@ -5,6 +5,16 @@ import type {
 	SavedViewQueryDefinition,
 } from "../saved-views/schemas";
 
+export const buildLibraryEntityInput = (input: {
+	entitySchemas: Array<{ id: string; slug: string }>;
+}) => {
+	const librarySchema = input.entitySchemas.find((s) => s.slug === "library");
+	if (!librarySchema) {
+		throw new Error("Missing built-in library entity schema");
+	}
+	return { entitySchemaId: librarySchema.id };
+};
+
 export const resolveAuthenticationName = (name: string) =>
 	resolveRequiredString(name, "Signup name");
 
