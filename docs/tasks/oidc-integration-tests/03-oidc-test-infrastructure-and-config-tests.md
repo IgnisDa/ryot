@@ -19,7 +19,7 @@ Create `tests/src/tests/auth-oidc.test.ts` with its own independent container st
 | PostgreSQL | `postgres:18-alpine` | log message `database system is ready` |
 | Redis | `redis:alpine` | log message `Ready to accept connections` |
 | S3 | `rustfs/rustfs` | HTTP `/health` on port 9000 returns 200 |
-| Mock OIDC server | `ghcr.io/navikt/mock-oauth2-server:2.1.10` | `GET /default/.well-known/openid-configuration` returns 200 |
+| Mock OIDC server | `ghcr.io/navikt/mock-oauth2-server:4.0.0` | `GET /default/.well-known/openid-configuration` returns 200 |
 
 The S3 bucket must be created after the container starts (same pattern as the shared `setup.ts`).
 
