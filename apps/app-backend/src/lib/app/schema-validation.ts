@@ -1,6 +1,5 @@
 import type { AppSchema } from "@ryot/ts-utils";
-import { fromAppSchema } from "@ryot/ts-utils";
-import { z } from "zod";
+import { fromAppSchemaObject } from "@ryot/ts-utils";
 
 export const parseAppSchemaProperties = (input: {
 	kind: string;
@@ -17,14 +16,7 @@ export const parseAppSchemaProperties = (input: {
 		);
 	}
 
-	const schemaShape: Record<string, z.ZodType> = {};
-
-	for (const [key, propertyDef] of Object.entries(input.propertiesSchema)) {
-		const zodSchema = fromAppSchema(propertyDef);
-		schemaShape[key] = propertyDef.required ? zodSchema : zodSchema.optional();
-	}
-
-	const validationSchema = z.object(schemaShape).strict();
+	const validationSchema = fromAppSchemaObject(input.propertiesSchema);
 	const result = validationSchema.safeParse(input.properties);
 
 	if (!result.success) {

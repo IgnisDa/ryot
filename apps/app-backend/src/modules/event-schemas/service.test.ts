@@ -76,25 +76,27 @@ describe("parseEventSchemaPropertiesSchema", () => {
 
 	it("rejects non-object roots", () => {
 		expect(() => parseEventSchemaPropertiesSchema([])).toThrow(
-			"Invalid input: expected record, received array",
+			"Invalid input: expected object, received array",
 		);
 	});
 
 	it("rejects string inputs", () => {
 		expect(() =>
 			parseEventSchemaPropertiesSchema('{"progress":{"type":"integer"}}'),
-		).toThrow("Invalid input: expected record, received string");
+		).toThrow("Invalid input: expected object, received string");
 	});
 
 	it("rejects empty properties map", () => {
-		expect(() => parseEventSchemaPropertiesSchema({})).toThrow(
+		expect(() => parseEventSchemaPropertiesSchema({ fields: {} })).toThrow(
 			"Event schema properties must contain at least one property",
 		);
 	});
 
 	it("rejects array property without items", () => {
 		expect(() =>
-			parseEventSchemaPropertiesSchema({ checkpoints: { type: "array" } }),
+			parseEventSchemaPropertiesSchema({
+				fields: { checkpoints: { type: "array" } },
+			}),
 		).toThrow("Invalid input: expected object, received undefined");
 	});
 });
@@ -105,12 +107,12 @@ describe("resolveEventSchemaCreateInput", () => {
 			resolveEventSchemaCreateInput({
 				name: "  Reading Progress  ",
 				slug: "  Reading_Progress  ",
-				propertiesSchema: { progress: { type: "integer" } },
+				propertiesSchema: { fields: { progress: { type: "integer" } } },
 			}),
 		).toEqual({
 			name: "Reading Progress",
 			slug: "reading-progress",
-			propertiesSchema: { progress: { type: "integer" } },
+			propertiesSchema: { fields: { progress: { type: "integer" } } },
 		});
 	});
 });
