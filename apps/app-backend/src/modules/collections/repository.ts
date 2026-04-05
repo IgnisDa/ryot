@@ -82,21 +82,30 @@ const membershipSelection = {
 type MembershipRow = {
 	id: string;
 	relType: string;
-	sourceEntityId: string;
-	targetEntityId: string;
 	createdAt: Date;
 	properties: unknown;
+	sourceEntityId: string;
+	targetEntityId: string;
 };
 
 const toMembershipResponse = (
 	row: MembershipRow,
-): AddToCollectionData["collection"] => ({
+): AddToCollectionData["memberOf"] => ({
 	...row,
 	createdAt: row.createdAt.toISOString(),
 	properties: row.properties as Record<string, unknown>,
 });
 
-const toMembershipData = (
+const toLegacyMembershipResponse = (
+	row: MembershipRow,
+): AddToCollectionData["memberOf"] => ({
+	...toMembershipResponse(row),
+	relType: "member_of",
+	sourceEntityId: row.targetEntityId,
+	targetEntityId: row.sourceEntityId,
+});
+
+export const toMembershipData = (
 	relationships: MembershipRow[],
 ): AddToCollectionData | undefined => {
 	const collectionRel = relationships.find(
@@ -104,22 +113,23 @@ const toMembershipData = (
 	);
 	const memberOfRel = relationships.find((row) => row.relType === "member_of");
 
-	if (!collectionRel || !memberOfRel) {
+	if (!memberOfRel && !collectionRel) {
 		return undefined;
 	}
 
-	return {
-		memberOf: toMembershipResponse(memberOfRel),
-		collection: toMembershipResponse(collectionRel),
-	};
+	if (memberOfRel) {
+		return { memberOf: toMembershipResponse(memberOfRel) };
+	}
+
+	if (!collectionRel) {
+		return undefined;
+	}
+
+	return { memberOf: toLegacyMembershipResponse(collectionRel) };
 };
 
 export const getExistingMembership = async (
-	input: {
-		userId: string;
-		entityId: string;
-		collectionId: string;
-	},
+	input: { userId: string; entityId: string; collectionId: string },
 	database: DbClient = db,
 ): Promise<AddToCollectionData | undefined> => {
 	const relationships = (await database
@@ -128,24 +138,12 @@ export const getExistingMembership = async (
 		.where(
 			and(
 				eq(relationship.userId, input.userId),
-				or(
-					and(
-						eq(relationship.relType, "collection"),
-						eq(relationship.sourceEntityId, input.collectionId),
-						eq(relationship.targetEntityId, input.entityId),
-					),
-					and(
-						eq(relationship.relType, "member_of"),
-						eq(relationship.sourceEntityId, input.entityId),
-						eq(relationship.targetEntityId, input.collectionId),
-					),
-				),
+				eq(relationship.relType, "member_of"),
+				eq(relationship.sourceEntityId, input.entityId),
+				eq(relationship.targetEntityId, input.collectionId),
 			),
 		)
-		.orderBy(
-			relationship.relType,
-			desc(relationship.createdAt),
-		)) as MembershipRow[];
+		.orderBy(desc(relationship.createdAt))) as MembershipRow[];
 
 	return toMembershipData(relationships);
 };
@@ -158,23 +156,15 @@ export const addEntityToCollection = async (input: {
 }): Promise<AddToCollectionData> => {
 	return db.transaction(async (tx) => {
 		await tx
-			.insert(relationship)
-			.values({
-				userId: input.userId,
-				relType: "collection",
-				properties: input.properties,
-				targetEntityId: input.entityId,
-				sourceEntityId: input.collectionId,
-			})
-			.onConflictDoUpdate({
-				set: { properties: input.properties },
-				target: [
-					relationship.userId,
-					relationship.sourceEntityId,
-					relationship.targetEntityId,
-					relationship.relType,
-				],
-			});
+			.delete(relationship)
+			.where(
+				and(
+					eq(relationship.userId, input.userId),
+					eq(relationship.relType, "collection"),
+					eq(relationship.sourceEntityId, input.collectionId),
+					eq(relationship.targetEntityId, input.entityId),
+				),
+			);
 
 		await tx
 			.insert(relationship)
