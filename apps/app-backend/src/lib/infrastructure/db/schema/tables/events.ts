@@ -1,10 +1,10 @@
 import { generateId } from "better-auth";
-import { index, jsonb, pgTable, text, timestamp } from "drizzle-orm/pg-core";
+import { index, jsonb, snakeCase, text, timestamp } from "drizzle-orm/pg-core";
 
 import { user } from "./auth";
 import { entity } from "./entities";
 
-export const event = pgTable(
+export const event = snakeCase.table(
 	"event",
 	{
 		occurredAt: timestamp({ withTimezone: true }).notNull(),

@@ -1,3 +1,4 @@
+import { createLocalAccountIssuer, createOAuthAccountIssuer } from "@better-auth/core/db";
 import { badRequest } from "@ryot/contract/errors";
 import type {
 	TestSupportEnqueueSandboxBody,
@@ -140,7 +141,11 @@ export class TestSupportService extends Context.Service<TestSupportService>()(
 				providerId: string;
 			}) {
 				const id = generateId();
-				yield* auth.linkAuthAccount({ id, ...input });
+				const issuer =
+					input.providerId === "credential"
+						? createLocalAccountIssuer(input.providerId)
+						: createOAuthAccountIssuer(input.providerId);
+				yield* auth.linkAuthAccount({ id, issuer, ...input });
 				return { id };
 			});
 

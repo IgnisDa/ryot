@@ -1,11 +1,11 @@
 import { generateId } from "better-auth";
 import { isNull, sql } from "drizzle-orm";
-import { index, jsonb, pgTable, text, timestamp, unique, uniqueIndex } from "drizzle-orm/pg-core";
+import { index, jsonb, snakeCase, text, timestamp, unique, uniqueIndex } from "drizzle-orm/pg-core";
 
 import { user } from "./auth";
 import { sandboxProvider } from "./core";
 
-export const entity = pgTable(
+export const entity = snakeCase.table(
 	"entity",
 	{
 		externalId: text(),
@@ -54,7 +54,7 @@ export const entity = pgTable(
 	],
 );
 
-export const relationship = pgTable(
+export const relationship = snakeCase.table(
 	"relationship",
 	{
 		relationshipSchemaSlug: text().notNull(),

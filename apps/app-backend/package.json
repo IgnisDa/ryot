@@ -13,10 +13,10 @@
 		"build": "bun run sandbox:compile-runner && bun build src/main.ts --outdir dist --target bun --sourcemap && bun build scripts/prepare-sandbox-runtime.ts --outdir dist --target bun --sourcemap && bun build scripts/smoke-compiler-worker.ts --outdir dist --target bun --sourcemap"
 	},
 	"dependencies": {
-		"@better-auth/api-key": "1.6.15",
-		"@better-auth/core": "1.6.15",
-		"@better-auth/expo": "1.6.15",
-		"@better-auth/redis-storage": "1.6.15",
+		"@better-auth/api-key": "1.7.0-rc.6",
+		"@better-auth/core": "1.7.0-rc.6",
+		"@better-auth/expo": "1.7.0-rc.6",
+		"@better-auth/redis-storage": "1.7.0-rc.6",
 		"@dicebear/core": "10.6.0",
 		"@dicebear/styles": "10.5.0",
 		"@effect/opentelemetry": "4.0.0-beta.107",
@@ -33,8 +33,8 @@
 		"@ryot/sandbox-sdk": "workspace:*",
 		"@ryot/transactional": "workspace:*",
 		"@ryot/ts-utils": "workspace:*",
-		"better-auth": "1.6.15",
-		"drizzle-orm": "0.45.2",
+		"better-auth": "1.7.0-rc.6",
+		"drizzle-orm": "1.0.0-rc.4",
 		"effect": "4.0.0-beta.107",
 		"ioredis": "5.11.1",
 		"nodemailer": "8.0.10",
@@ -50,7 +50,7 @@
 		"@types/nodemailer": "8.0.0",
 		"@types/pg": "8.20.0",
 		"bun-types": "1.3.14",
-		"drizzle-kit": "0.31.10",
+		"drizzle-kit": "1.0.0-rc.4",
 		"vitest": "4.1.9"
 	}
 }

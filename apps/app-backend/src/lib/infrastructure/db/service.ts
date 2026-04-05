@@ -6,12 +6,7 @@ import { Pool } from "pg";
 
 import { AppConfig } from "#lib/infrastructure/config/service";
 
-import * as schemaAuth from "./schema/tables/auth";
-import * as schemaTables from "./schema/tables/combined";
-import * as schemaRelations from "./schema/tables/relations";
-
-const schema = { ...schemaAuth, ...schemaTables, ...schemaRelations };
-const makeDb = (pool: Pool) => drizzle(pool, { schema, casing: "snake_case" });
+const makeDb = (pool: Pool) => drizzle({ client: pool });
 
 export type DbRoot = ReturnType<typeof makeDb>;
 

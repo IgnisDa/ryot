@@ -12,7 +12,9 @@ import {
 
 const fetchMock = vi.fn();
 const expoFetchMock = vi.fn();
-const authCookieMock = vi.fn((serverUrl: string) => `session=${new URL(serverUrl).hostname}`);
+const authCookieMock = vi.fn((serverUrl: string) =>
+	Promise.resolve(`session=${new URL(serverUrl).hostname}`),
+);
 
 const response = () => Promise.resolve(new Response(null, { status: 204 }));
 
