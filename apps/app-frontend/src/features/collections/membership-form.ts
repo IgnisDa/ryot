@@ -241,10 +241,11 @@ export function getMembershipPropertyEntries(
 		if (!isPrimitiveProperty(definition)) {
 			continue;
 		}
+		const label = definition.label || getDefaultPropertyLabel(key);
 		entries.push({
 			key,
-			label: definition.label || getDefaultPropertyLabel(key),
-			definition,
+			label,
+			definition: { ...definition, label },
 		});
 	}
 

@@ -76,13 +76,19 @@ describe("collection discovery data flow", () => {
 
 	describe("getCollectionDiscoveryState with membershipPropertiesSchema", () => {
 		it("returns loading state preserving future schema access capability", () => {
-			const result = getCollectionDiscoveryState(true, []);
+			const result = getCollectionDiscoveryState(true, false, []);
 
 			expect(result.type).toBe("loading");
 		});
 
+		it("returns error state when collection discovery fails", () => {
+			const result = getCollectionDiscoveryState(false, true, []);
+
+			expect(result.type).toBe("error");
+		});
+
 		it("returns empty state when no collections available", () => {
-			const result = getCollectionDiscoveryState(false, []);
+			const result = getCollectionDiscoveryState(false, false, []);
 
 			expect(result.type).toBe("empty");
 		});
@@ -109,7 +115,7 @@ describe("collection discovery data flow", () => {
 				),
 			];
 
-			const result = getCollectionDiscoveryState(false, collections);
+			const result = getCollectionDiscoveryState(false, false, collections);
 
 			expect(result.type).toBe("collections");
 			if (result.type === "collections") {
@@ -178,7 +184,9 @@ describe("collection discovery data flow", () => {
 				membershipPropertiesSchema: null,
 			});
 
-			const result = getCollectionDiscoveryState(false, [simpleCollection]);
+			const result = getCollectionDiscoveryState(false, false, [
+				simpleCollection,
+			]);
 
 			expect(result.type).toBe("collections");
 			if (result.type === "collections") {
