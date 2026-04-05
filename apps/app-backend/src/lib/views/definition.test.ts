@@ -15,10 +15,6 @@ const createRuntimeSchemaRow = (input: {
 	propertiesSchema: AppSchema;
 }) => input;
 
-const entityField = (schemaSlug: string, field: string) => {
-	return `entity.${schemaSlug}.${field}`;
-};
-
 const entityExpression = (
 	schemaSlug: string,
 	field: string,
@@ -50,6 +46,18 @@ const literalExpression = (value: unknown): ViewExpression => ({
 const coalesceExpression = (...values: ViewExpression[]): ViewExpression => ({
 	values,
 	type: "coalesce",
+});
+
+const sortDefinition = (expression: ViewExpression) => ({
+	expression,
+	direction: "asc" as const,
+});
+
+const comparisonPredicate = (left: ViewExpression, right: ViewExpression) => ({
+	left,
+	right,
+	operator: "eq" as const,
+	type: "comparison" as const,
 });
 
 const createSmartphoneDisplayConfiguration = () => ({
@@ -114,13 +122,10 @@ describe("viewDefinitionModule", () => {
 		const views = createViewDefinitionModule(createDeps());
 		const body = createSavedViewBody({
 			queryDefinition: {
-				filters: [],
+				filter: null,
 				eventJoins: [],
 				entitySchemaSlugs: ["smartphones"],
-				sort: {
-					direction: "asc",
-					fields: [entityField("smartphones", "@name")],
-				},
+				sort: sortDefinition(entityExpression("smartphones", "@name")),
 			},
 			displayConfiguration: {
 				table: {
@@ -164,13 +169,10 @@ describe("viewDefinitionModule", () => {
 		const views = createViewDefinitionModule(createDeps());
 		const body = createSavedViewBody({
 			queryDefinition: {
+				filter: null,
 				eventJoins: [],
 				entitySchemaSlugs: ["smartphones"],
-				filters: [],
-				sort: {
-					direction: "asc",
-					fields: [entityField("smartphones", "@name")],
-				},
+				sort: sortDefinition(entityExpression("smartphones", "@name")),
 			},
 			displayConfiguration: {
 				...createSmartphoneDisplayConfiguration(),
@@ -202,22 +204,16 @@ describe("viewDefinitionModule", () => {
 	it("projects a saved view into a runtime request", async () => {
 		const views = createViewDefinitionModule(createDeps());
 		const body = createSavedViewBody({
+			displayConfiguration: createSmartphoneDisplayConfiguration(),
 			queryDefinition: {
 				eventJoins: [],
 				entitySchemaSlugs: ["smartphones"],
-				sort: {
-					direction: "asc",
-					fields: [entityField("smartphones", "@name")],
-				},
-				filters: [
-					{
-						op: "eq",
-						value: "Apple",
-						field: "entity.smartphones.manufacturer",
-					},
-				],
+				sort: sortDefinition(entityExpression("smartphones", "@name")),
+				filter: comparisonPredicate(
+					entityExpression("smartphones", "manufacturer"),
+					literalExpression("Apple"),
+				),
 			},
-			displayConfiguration: createSmartphoneDisplayConfiguration(),
 		});
 
 		const prepared = await views.prepare({
@@ -240,7 +236,7 @@ describe("viewDefinitionModule", () => {
 			computedFields: [],
 			sort: body.queryDefinition.sort,
 			pagination: { page: 2, limit: 10 },
-			filters: body.queryDefinition.filters,
+			filter: body.queryDefinition.filter,
 			eventJoins: body.queryDefinition.eventJoins,
 			entitySchemaSlugs: body.queryDefinition.entitySchemaSlugs,
 			fields: [
@@ -256,13 +252,10 @@ describe("viewDefinitionModule", () => {
 		const views = createViewDefinitionModule(createDeps());
 		const body = createSavedViewBody({
 			queryDefinition: {
-				filters: [],
+				filter: null,
 				eventJoins: [],
 				entitySchemaSlugs: ["smartphones"],
-				sort: {
-					direction: "asc",
-					fields: [entityField("smartphones", "@name")],
-				},
+				sort: sortDefinition(entityExpression("smartphones", "@name")),
 			},
 			displayConfiguration: {
 				table: {
@@ -328,19 +321,16 @@ describe("viewDefinitionModule", () => {
 		const views = createViewDefinitionModule(createDeps());
 		const body = createSavedViewBody({
 			queryDefinition: {
-				filters: [],
+				filter: null,
 				eventJoins: [],
 				entitySchemaSlugs: ["smartphones"],
+				sort: sortDefinition(entityExpression("smartphones", "@name")),
 				computedFields: [
 					{
 						key: "displayName",
 						expression: entityExpression("smartphones", "@name"),
 					},
 				],
-				sort: {
-					direction: "asc",
-					fields: [entityField("smartphones", "@name")],
-				},
 			},
 			displayConfiguration: {
 				...createSmartphoneDisplayConfiguration(),
@@ -389,17 +379,14 @@ describe("viewDefinitionModule", () => {
 		const views = createViewDefinitionModule(createDeps());
 		const body = createSavedViewBody({
 			queryDefinition: {
-				filters: [],
+				filter: null,
 				eventJoins: [],
 				entitySchemaSlugs: ["smartphones"],
 				computedFields: [
 					{ key: "first", expression: computedExpression("second") },
 					{ key: "second", expression: computedExpression("first") },
 				],
-				sort: {
-					direction: "asc",
-					fields: [entityField("smartphones", "@name")],
-				},
+				sort: sortDefinition(entityExpression("smartphones", "@name")),
 			},
 			displayConfiguration: {
 				...createSmartphoneDisplayConfiguration(),
@@ -428,6 +415,76 @@ describe("viewDefinitionModule", () => {
 		);
 	});
 
+	it("rejects computed sort expressions that mix image values into coalesce branches", async () => {
+		const views = createViewDefinitionModule(createDeps());
+
+		expect(
+			views.prepare({
+				userId: "user-1",
+				source: {
+					kind: "runtime",
+					request: {
+						filter: null,
+						eventJoins: [],
+						pagination: { page: 1, limit: 10 },
+						entitySchemaSlugs: ["smartphones"],
+						sort: {
+							direction: "asc",
+							expression: computedExpression("unsafeSort"),
+						},
+						fields: [
+							{
+								key: "title",
+								expression: entityExpression("smartphones", "@name"),
+							},
+						],
+						computedFields: [
+							{
+								key: "unsafeSort",
+								expression: coalesceExpression(
+									entityExpression("smartphones", "@image"),
+									entityExpression("smartphones", "@name"),
+								),
+							},
+						],
+					},
+				},
+			}),
+		).rejects.toThrow(
+			"Expression branches cannot mix display-only image values",
+		);
+	});
+
+	it("rejects contains filters with null literal values", async () => {
+		const views = createViewDefinitionModule(createDeps());
+
+		expect(
+			views.prepare({
+				userId: "user-1",
+				source: {
+					kind: "runtime",
+					request: {
+						eventJoins: [],
+						pagination: { page: 1, limit: 10 },
+						entitySchemaSlugs: ["smartphones"],
+						sort: sortDefinition(entityExpression("smartphones", "@name")),
+						filter: {
+							type: "contains",
+							value: literalExpression(null),
+							expression: entityExpression("smartphones", "tags"),
+						},
+						fields: [
+							{
+								key: "title",
+								expression: entityExpression("smartphones", "@name"),
+							},
+						],
+					},
+				},
+			}),
+		).rejects.toThrow("Filter operator 'contains' does not support null");
+	});
+
 	it("executes runtime requests through the prepared boundary", async () => {
 		const deps = createDeps();
 		const views = createViewDefinitionModule(deps);
@@ -435,17 +492,11 @@ describe("viewDefinitionModule", () => {
 			eventJoins: [],
 			pagination: { page: 1, limit: 25 },
 			entitySchemaSlugs: ["smartphones"],
-			sort: {
-				direction: "asc" as const,
-				fields: [entityField("smartphones", "@name")],
-			},
-			filters: [
-				{
-					value: "Apple",
-					op: "eq" as const,
-					field: "entity.smartphones.manufacturer",
-				},
-			],
+			sort: sortDefinition(entityExpression("smartphones", "@name")),
+			filter: comparisonPredicate(
+				entityExpression("smartphones", "manufacturer"),
+				literalExpression("Apple"),
+			),
 			fields: [
 				{ key: "image", expression: entityExpression("smartphones", "@image") },
 				{ key: "title", expression: entityExpression("smartphones", "@name") },
@@ -475,14 +526,11 @@ describe("viewDefinitionModule", () => {
 			source: {
 				kind: "runtime",
 				request: {
-					filters: [],
+					filter: null,
 					eventJoins: [],
 					pagination: { page: 1, limit: 10 },
 					entitySchemaSlugs: ["smartphones"],
-					sort: {
-						direction: "asc",
-						fields: [entityField("smartphones", "@name")],
-					},
+					sort: sortDefinition(entityExpression("smartphones", "@name")),
 					fields: [
 						{
 							key: "title",
@@ -508,14 +556,11 @@ describe("viewDefinitionModule", () => {
 			source: {
 				kind: "runtime",
 				request: {
-					filters: [],
+					filter: null,
 					eventJoins: [],
 					pagination: { page: 1, limit: 10 },
 					entitySchemaSlugs: ["smartphones"],
-					sort: {
-						direction: "asc",
-						fields: [entityField("smartphones", "@name")],
-					},
+					sort: sortDefinition(entityExpression("smartphones", "@name")),
 					fields: [
 						{
 							key: "title",
@@ -542,13 +587,10 @@ describe("viewDefinitionModule", () => {
 		const body = createSavedViewBody({
 			displayConfiguration: createSmartphoneDisplayConfiguration(),
 			queryDefinition: {
-				filters: [],
+				filter: null,
 				eventJoins: [],
 				entitySchemaSlugs: ["smartphones"],
-				sort: {
-					direction: "asc",
-					fields: [entityField("smartphones", "@name")],
-				},
+				sort: sortDefinition(entityExpression("smartphones", "@name")),
 			},
 		});
 
@@ -571,13 +613,10 @@ describe("viewDefinitionModule", () => {
 		const body = createSavedViewBody({
 			displayConfiguration: createSmartphoneDisplayConfiguration(),
 			queryDefinition: {
-				filters: [],
+				filter: null,
 				eventJoins: [],
 				entitySchemaSlugs: ["smartphones"],
-				sort: {
-					direction: "asc",
-					fields: [entityField("smartphones", "@name")],
-				},
+				sort: sortDefinition(entityExpression("smartphones", "@name")),
 			},
 		});
 

@@ -1,0 +1,342 @@
+import type { AppPropertyDefinition } from "@ryot/ts-utils";
+import { match } from "ts-pattern";
+import { ViewRuntimeValidationError } from "./errors";
+import type { ViewComputedField, ViewExpression } from "./expression";
+import { supportsComparableFilter, supportsContainsFilter } from "./policy";
+import {
+	getEntityColumnPropertyDefinition,
+	getEventJoinColumnPropertyDefinition,
+	getEventJoinForReference,
+	getEventJoinPropertyDefinition,
+	getSchemaForReference,
+	type PropertyType,
+	type ViewRuntimeEventJoinLike,
+	type ViewRuntimeReferenceContext,
+	type ViewRuntimeSchemaLike,
+} from "./reference";
+
+export type ViewExpressionTypeInfo =
+	| { kind: "null" }
+	| { kind: "image" }
+	| {
+			kind: "property";
+			propertyType: PropertyType;
+			propertyDefinition?: AppPropertyDefinition;
+	  };
+
+const serializePropertyDefinition = (value?: AppPropertyDefinition) => {
+	return value ? JSON.stringify(value) : null;
+};
+
+const createPropertyTypeInfo = (
+	propertyType: PropertyType,
+	propertyDefinition?: AppPropertyDefinition | null,
+): ViewExpressionTypeInfo => ({
+	propertyType,
+	kind: "property",
+	propertyDefinition: propertyDefinition ?? undefined,
+});
+
+const createLiteralTypeInfo = (
+	value: unknown | null,
+): ViewExpressionTypeInfo => {
+	if (value === null) {
+		return { kind: "null" };
+	}
+
+	if (typeof value === "string") {
+		return createPropertyTypeInfo("string", { type: "string" });
+	}
+
+	if (typeof value === "boolean") {
+		return createPropertyTypeInfo("boolean", { type: "boolean" });
+	}
+
+	if (typeof value === "number") {
+		return Number.isInteger(value)
+			? createPropertyTypeInfo("integer", { type: "integer" })
+			: createPropertyTypeInfo("number", { type: "number" });
+	}
+
+	if (Array.isArray(value)) {
+		return createPropertyTypeInfo("array");
+	}
+
+	return createPropertyTypeInfo("object");
+};
+
+export const normalizeExpressionPropertyType = (propertyType: PropertyType) => {
+	return match(propertyType)
+		.with("datetime", () => "date" as const)
+		.otherwise((value) => value);
+};
+
+const unifyPropertyDefinitions = (
+	definitions: (AppPropertyDefinition | undefined)[],
+) => {
+	const serialized = [...new Set(definitions.map(serializePropertyDefinition))];
+	if (serialized.length !== 1) {
+		return undefined;
+	}
+
+	return definitions[0];
+};
+
+const unifyTypeInfos = (typeInfos: ViewExpressionTypeInfo[]) => {
+	const invalidNonNullInfos = typeInfos.filter(
+		(info) => info.kind !== "null" && info.kind !== "property",
+	);
+	if (invalidNonNullInfos.length) {
+		throw new ViewRuntimeValidationError(
+			"Expression branches cannot mix display-only image values into non-display expressions",
+		);
+	}
+
+	const propertyInfos = typeInfos.filter((info) => info.kind === "property");
+	if (!propertyInfos.length) {
+		return { kind: "null" } satisfies ViewExpressionTypeInfo;
+	}
+
+	const normalizedTypes = [
+		...new Set(
+			propertyInfos.map((info) =>
+				normalizeExpressionPropertyType(info.propertyType),
+			),
+		),
+	];
+	if (normalizedTypes.length === 1) {
+		const propertyType = normalizedTypes[0];
+		if (!propertyType) {
+			return { kind: "null" } satisfies ViewExpressionTypeInfo;
+		}
+
+		return createPropertyTypeInfo(
+			propertyType,
+			unifyPropertyDefinitions(
+				propertyInfos.map((info) => info.propertyDefinition),
+			),
+		);
+	}
+
+	if (normalizedTypes.every((type) => ["integer", "number"].includes(type))) {
+		return createPropertyTypeInfo("number");
+	}
+
+	throw new ViewRuntimeValidationError(
+		`Expression branches have incompatible types: ${normalizedTypes.join(", ")}`,
+	);
+};
+
+export const inferViewExpressionType = <
+	TSchema extends ViewRuntimeSchemaLike,
+	TJoin extends ViewRuntimeEventJoinLike,
+>(input: {
+	expression: ViewExpression;
+	typeCache?: Map<string, ViewExpressionTypeInfo>;
+	computedFieldMap?: Map<string, ViewComputedField>;
+	context: ViewRuntimeReferenceContext<TSchema, TJoin>;
+}): ViewExpressionTypeInfo => {
+	const typeCache =
+		input.typeCache ?? new Map<string, ViewExpressionTypeInfo>();
+	const computedFieldMap =
+		input.computedFieldMap ?? new Map<string, ViewComputedField>();
+
+	if (input.expression.type === "literal") {
+		return createLiteralTypeInfo(input.expression.value);
+	}
+
+	if (input.expression.type === "coalesce") {
+		return unifyTypeInfos(
+			input.expression.values.map((expression) =>
+				inferViewExpressionType({
+					typeCache,
+					expression,
+					computedFieldMap,
+					context: input.context,
+				}),
+			),
+		);
+	}
+
+	const reference = input.expression.reference;
+	if (reference.type === "computed-field") {
+		const cached = typeCache.get(reference.key);
+		if (cached) {
+			return cached;
+		}
+
+		const computedField = computedFieldMap.get(reference.key);
+		if (!computedField) {
+			throw new ViewRuntimeValidationError(
+				`Computed field '${reference.key}' is not part of this runtime request`,
+			);
+		}
+
+		const inferred = inferViewExpressionType({
+			typeCache,
+			computedFieldMap,
+			context: input.context,
+			expression: computedField.expression,
+		});
+		typeCache.set(reference.key, inferred);
+		return inferred;
+	}
+
+	if (reference.type === "entity-column") {
+		getSchemaForReference(input.context.schemaMap, reference);
+		if (reference.column === "image") {
+			return { kind: "image" };
+		}
+
+		const propertyDefinition = getEntityColumnPropertyDefinition(
+			reference.column,
+		);
+		if (!propertyDefinition) {
+			throw new ViewRuntimeValidationError(
+				`Unsupported entity column 'entity.${reference.slug}.@${reference.column}'`,
+			);
+		}
+
+		return createPropertyTypeInfo(
+			normalizeExpressionPropertyType(propertyDefinition.type),
+			propertyDefinition,
+		);
+	}
+
+	if (reference.type === "event-join-column") {
+		getEventJoinForReference(input.context.eventJoinMap, reference);
+		const propertyDefinition = getEventJoinColumnPropertyDefinition(
+			reference.column,
+		);
+		if (!propertyDefinition) {
+			throw new ViewRuntimeValidationError(
+				`Unsupported event join column 'event.${reference.joinKey}.@${reference.column}'`,
+			);
+		}
+
+		return createPropertyTypeInfo(
+			normalizeExpressionPropertyType(propertyDefinition.type),
+			propertyDefinition,
+		);
+	}
+
+	if (reference.type === "event-join-property") {
+		const join = getEventJoinForReference(
+			input.context.eventJoinMap,
+			reference,
+		);
+		const propertyDefinition = getEventJoinPropertyDefinition(
+			join,
+			reference.property,
+		);
+		if (!propertyDefinition) {
+			throw new ViewRuntimeValidationError(
+				`Property '${reference.property}' not found for event join '${join.key}'`,
+			);
+		}
+
+		return createPropertyTypeInfo(
+			normalizeExpressionPropertyType(propertyDefinition.type),
+			propertyDefinition,
+		);
+	}
+
+	const schema = getSchemaForReference(input.context.schemaMap, reference);
+	const propertyDefinition = schema.propertiesSchema.fields[reference.property];
+	if (!propertyDefinition) {
+		throw new ViewRuntimeValidationError(
+			`Property '${reference.property}' not found in schema '${reference.slug}'`,
+		);
+	}
+
+	return createPropertyTypeInfo(
+		normalizeExpressionPropertyType(propertyDefinition.type),
+		propertyDefinition,
+	);
+};
+
+export const assertFilterCompatibleExpression = (
+	input: ViewExpressionTypeInfo,
+	context: string,
+) => {
+	if (input.kind === "image") {
+		throw new ViewRuntimeValidationError(
+			`Image expressions are display-only and cannot be used in ${context}`,
+		);
+	}
+};
+
+export const assertSortableExpression = (input: ViewExpressionTypeInfo) => {
+	assertFilterCompatibleExpression(input, "sorting");
+	if (
+		input.kind !== "property" ||
+		!supportsComparableFilter(input.propertyType)
+	) {
+		throw new ViewRuntimeValidationError(
+			`Sort expressions must resolve to a sortable scalar value, received '${input.kind === "property" ? input.propertyType : input.kind}'`,
+		);
+	}
+};
+
+export const assertContainsCompatibleExpression = (
+	input: ViewExpressionTypeInfo,
+) => {
+	assertFilterCompatibleExpression(input, "filtering");
+	if (
+		input.kind !== "property" ||
+		!supportsContainsFilter(input.propertyType)
+	) {
+		throw new ViewRuntimeValidationError(
+			`Filter operator 'contains' is not supported for expression type '${input.kind === "property" ? input.propertyType : input.kind}'`,
+		);
+	}
+};
+
+export const assertComparableExpression = (
+	input: ViewExpressionTypeInfo,
+	operator: string,
+) => {
+	assertFilterCompatibleExpression(input, "filtering");
+	if (
+		input.kind !== "property" ||
+		!supportsComparableFilter(input.propertyType)
+	) {
+		throw new ViewRuntimeValidationError(
+			`Filter operator '${operator}' is not supported for expression type '${input.kind === "property" ? input.propertyType : input.kind}'`,
+		);
+	}
+};
+
+export const assertCompatibleComparisonTypes = (input: {
+	left: ViewExpressionTypeInfo;
+	right: ViewExpressionTypeInfo;
+	operator: string;
+}) => {
+	assertComparableExpression(input.left, input.operator);
+	assertComparableExpression(input.right, input.operator);
+
+	const leftType =
+		input.left.kind === "property" ? input.left.propertyType : input.left.kind;
+	const rightType =
+		input.right.kind === "property"
+			? input.right.propertyType
+			: input.right.kind;
+
+	if (leftType === rightType) {
+		return;
+	}
+
+	if (
+		[leftType, rightType].every((type) => ["integer", "number"].includes(type))
+	) {
+		return;
+	}
+
+	if ([leftType, rightType].every((type) => type === "date")) {
+		return;
+	}
+
+	throw new ViewRuntimeValidationError(
+		`Filter operator '${input.operator}' requires compatible expression types, received '${leftType}' and '${rightType}'`,
+	);
+};
