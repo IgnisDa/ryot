@@ -14,6 +14,36 @@ import {
 	seedMediaEntity,
 } from "../fixtures";
 
+async function createSchemaWithEnumFields(
+	client: Awaited<ReturnType<typeof createAuthenticatedClient>>["client"],
+	cookies: string,
+) {
+	const { trackerId } = await createTracker(client, cookies, {
+		name: "Enum Schema Tracker",
+	});
+	const { schemaId } = await createEntitySchema(client, cookies, {
+		trackerId,
+		name: "Enum Schema",
+		propertiesSchema: {
+			fields: {
+				status: {
+					label: "Status",
+					type: "enum" as const,
+					description: "Status",
+					options: ["draft", "published", "archived"],
+				},
+				genres: {
+					label: "Genres",
+					description: "Genres",
+					type: "enum-array" as const,
+					options: ["fiction", "non-fiction", "mystery"],
+				},
+			},
+		},
+	});
+	return { schemaId };
+}
+
 describe("POST /entities", () => {
 	it("creates entity normally when no provenance fields are provided", async () => {
 		const { client, cookies } = await createAuthenticatedClient();
@@ -201,36 +231,6 @@ describe("GET /entities/:id — global entity read access", () => {
 });
 
 describe("POST /entities — enum and enum-array property schema validation", () => {
-	async function createSchemaWithEnumFields(
-		client: Awaited<ReturnType<typeof createAuthenticatedClient>>["client"],
-		cookies: string,
-	) {
-		const { trackerId } = await createTracker(client, cookies, {
-			name: "Enum Schema Tracker",
-		});
-		const { schemaId } = await createEntitySchema(client, cookies, {
-			trackerId,
-			name: "Enum Schema",
-			propertiesSchema: {
-				fields: {
-					status: {
-						label: "Status",
-						type: "enum" as const,
-						description: "Status",
-						options: ["draft", "published", "archived"],
-					},
-					genres: {
-						label: "Genres",
-						description: "Genres",
-						type: "enum-array" as const,
-						options: ["fiction", "non-fiction", "mystery"],
-					},
-				},
-			},
-		});
-		return { schemaId };
-	}
-
 	it("round-trips enum and enum-array fields in propertiesSchema", async () => {
 		const { client, cookies } = await createAuthenticatedClient();
 		const { trackerId } = await createTracker(client, cookies, {
