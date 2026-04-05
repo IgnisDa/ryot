@@ -72,6 +72,7 @@ export const getEventCreateScopeForUser = async (input: {
 			isBuiltin: entitySchema.isBuiltin,
 			eventSchemaName: eventSchema.name,
 			eventSchemaSlug: eventSchema.slug,
+			entitySchemaSlug: entitySchema.slug,
 			entitySchemaId: entity.entitySchemaId,
 			propertiesSchema: eventSchema.propertiesSchema,
 			eventSchemaEntitySchemaId: eventSchema.entitySchemaId,
