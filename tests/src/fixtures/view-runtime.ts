@@ -36,6 +36,7 @@ type RuntimeRequest = Omit<
 
 function qualifyProperty(schemaSlug: string, property: string) {
 	if (
+		property === "id" ||
 		property === "name" ||
 		property === "image" ||
 		property === "createdAt" ||
