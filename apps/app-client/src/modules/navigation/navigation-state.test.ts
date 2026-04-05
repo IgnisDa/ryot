@@ -7,7 +7,7 @@ import { mapNavigationState } from "./navigation-state";
 const rows = (items: readonly RowItem[]) => ({
 	items,
 	type: "rows" as const,
-	pageInfo: { page: 1, limit: 100, total: items.length, hasMore: false },
+	pageInfo: { limit: 100, hasMore: false, nextCursor: null },
 });
 const workspace = (slug: string, isDisabled = false) => ({
 	slug: { kind: "text" as const, value: slug },

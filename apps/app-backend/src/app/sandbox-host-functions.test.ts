@@ -215,7 +215,7 @@ const ryotqlDocument = {
 	queries: {
 		entities: {
 			from: { table: "entity", alias: "entity" },
-			output: { fields: [], orderBy: [], type: "rows", pagination: { page: 1, limit: 10 } },
+			output: { fields: [], orderBy: [], type: "rows", pagination: { limit: 10 } },
 		},
 	},
 } as const satisfies RyotQLDocument;
@@ -225,7 +225,7 @@ const ryotqlResponse = {
 		entities: {
 			items: [],
 			type: "rows" as const,
-			pageInfo: { page: 1, limit: 10, total: 0, hasMore: false },
+			pageInfo: { limit: 10, hasMore: false, nextCursor: null },
 		},
 	},
 };

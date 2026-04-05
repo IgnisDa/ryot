@@ -13,7 +13,7 @@ import {
 } from "@ryot/ryotql";
 
 export const buildEventHistoryDocument = (input: {
-	readonly page: number;
+	readonly after?: string | undefined;
 	readonly limit?: number | undefined;
 	readonly entityId?: string | undefined;
 	readonly sessionEntityId?: string | undefined;
@@ -26,7 +26,7 @@ export const buildEventHistoryDocument = (input: {
 	const entitySchema = column(entity, "entitySchemaSlug");
 	return document({
 		events: rows(event, {
-			page: input.page,
+			after: input.after,
 			limit: input.limit ?? 100,
 			joins: [join("inner", entity, eq(column(event, "entityId"), column(entity, "id")))],
 			where: and(

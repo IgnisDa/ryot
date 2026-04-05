@@ -37,7 +37,7 @@ describe("notification subscription catalog and rules", () => {
 		Effect.gen(function* () {
 			const { client } = yield* createAuthenticatedClient();
 			const catalog = yield* listAutomationCatalog(client);
-			const rules = yield* listNotificationSubscriptionStates(client, { limit: 100, page: 1 });
+			const rules = yield* listNotificationSubscriptionStates(client, { limit: 100 });
 
 			expect(catalog.map((schema) => schema.slug).sort()).toEqual([
 				"company.media-group.associated",
@@ -73,7 +73,6 @@ describe("notification subscription catalog and rules", () => {
 			const other = yield* createAuthenticatedClient();
 			const catalog = yield* listAutomationCatalog(owner.client);
 			const ownerRules = yield* listNotificationSubscriptionStates(owner.client, {
-				page: 1,
 				limit: 100,
 			});
 			const reviewSchema = requirePresent(

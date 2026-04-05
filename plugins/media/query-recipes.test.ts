@@ -39,8 +39,13 @@ describe("media query recipes", () => {
 
 	it("keeps trending timestamps as dates in fields and predicates", () => {
 		const document = buildTrendingMediaQueryDocument({
+			after: "trending-cursor",
 			entitySchemaSlug: "book",
 			fetchedAt: "2024-01-02T00:00:00.000Z",
+		});
+		expect(document.queries.trending.output.pagination).toEqual({
+			after: "trending-cursor",
+			limit: 20,
 		});
 		const fetchedAt = document.queries.trending.output.fields.find(
 			(field) => "key" in field && field.key === "fetchedAt",

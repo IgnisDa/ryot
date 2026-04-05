@@ -20,7 +20,6 @@ import { describe, expect, it } from "~/support/effect-test";
 const entity = table("entity", "entity");
 
 const alternateRowsDocument = buildSavedViewDocument({
-	page: 1,
 	limit: 2,
 	entitySchemaSlugs: ["book"],
 	where: eq(column(entity, "name"), literal("A Book")),
@@ -41,7 +40,7 @@ describe("Saved views query documents E2E", () => {
 						from: { alias: "entity", table: "entity" },
 						output: {
 							type: "rows",
-							pagination: { page: 1 },
+							pagination: { limit: 20 },
 							fields: expect.arrayContaining([
 								expect.objectContaining({ key: "entityId" }),
 								expect.objectContaining({ key: "title" }),

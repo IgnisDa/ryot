@@ -173,8 +173,8 @@ const getLayoutValidationError = (
 	if (query?.output.type !== "rows") {
 		return "query must have rows output";
 	}
-	if (query.output.pagination.page !== 1) {
-		return "query pagination page must be 1";
+	if ("after" in query.output.pagination) {
+		return "query pagination must not contain a cursor";
 	}
 	if (query.output.fields.some((selection) => !isFieldSelection(selection))) {
 		return "query must use explicit field selections";
