@@ -11,25 +11,42 @@ type ReorderSavedViewsBody = NonNullable<
 	paths["/saved-views/reorder"]["post"]["requestBody"]
 >["content"]["application/json"];
 
+const entityField = (schemaSlug: string, property: string) => {
+	if (
+		property === "name" ||
+		property === "image" ||
+		property === "createdAt" ||
+		property === "updatedAt" ||
+		property.startsWith("@")
+	) {
+		return `entity.${schemaSlug}.${property.startsWith("@") ? property : `@${property}`}`;
+	}
+
+	return `entity.${schemaSlug}.${property}`;
+};
+
 const defaultQueryDefinition = {
 	filters: [],
+	eventJoins: [],
 	entitySchemaSlugs: ["book"],
-	sort: { fields: ["@name"], direction: "asc" },
+	sort: { fields: [entityField("book", "name")], direction: "asc" },
 } satisfies CreateSavedViewBody["queryDefinition"];
 
 const defaultDisplayConfiguration = {
-	table: { columns: [{ label: "Name", property: ["@name"] }] },
+	table: {
+		columns: [{ label: "Name", property: [entityField("book", "name")] }],
+	},
 	grid: {
 		badgeProperty: null,
 		subtitleProperty: null,
-		titleProperty: ["@name"],
-		imageProperty: ["@image"],
+		titleProperty: [entityField("book", "name")],
+		imageProperty: [entityField("book", "image")],
 	},
 	list: {
 		badgeProperty: null,
 		subtitleProperty: null,
-		titleProperty: ["@name"],
-		imageProperty: ["@image"],
+		titleProperty: [entityField("book", "name")],
+		imageProperty: [entityField("book", "image")],
 	},
 } satisfies CreateSavedViewBody["displayConfiguration"];
 
@@ -55,15 +72,18 @@ export function buildUpdatedSavedViewBody(
 		accentColor: "#00AA88",
 		name: `Updated View ${crypto.randomUUID()}`,
 		queryDefinition: {
+			eventJoins: [],
 			entitySchemaSlugs: ["book", "anime"],
-			sort: { fields: ["@createdAt"], direction: "desc" },
-			filters: [{ op: "gte", field: "book.publishYear", value: 2020 }],
+			sort: { fields: [entityField("book", "createdAt")], direction: "desc" },
+			filters: [
+				{ op: "gte", field: entityField("book", "publishYear"), value: 2020 },
+			],
 		},
 		displayConfiguration: {
 			table: {
 				columns: [
-					{ label: "Name", property: ["@name"] },
-					{ label: "Year", property: ["book.publishYear"] },
+					{ label: "Name", property: [entityField("book", "name")] },
+					{ label: "Year", property: [entityField("book", "publishYear")] },
 				],
 			},
 			grid: {
@@ -73,10 +93,10 @@ export function buildUpdatedSavedViewBody(
 				subtitleProperty: null,
 			},
 			list: {
-				titleProperty: ["@name"],
-				imageProperty: ["@image"],
-				subtitleProperty: ["book.publishYear"],
-				badgeProperty: ["anime.productionStatus"],
+				titleProperty: [entityField("book", "name")],
+				imageProperty: [entityField("book", "image")],
+				subtitleProperty: [entityField("book", "publishYear")],
+				badgeProperty: [entityField("anime", "productionStatus")],
 			},
 		},
 		...overrides,

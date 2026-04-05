@@ -1,6 +1,6 @@
 import { describe, expect, it } from "bun:test";
 import { createQueryDefinition } from "~/lib/test-fixtures";
-import { defaultDisplayConfiguration } from "~/modules/saved-views/constants";
+import { createDefaultDisplayConfiguration } from "~/modules/saved-views/constants";
 import {
 	buildAuthenticationSavedViewInputs,
 	buildAuthenticationTrackerEntitySchemaLinks,
@@ -65,7 +65,11 @@ describe("authentication bootstrap helpers", () => {
 	});
 
 	it("builds built-in saved views from built-in manifests", () => {
-		const queryDefinition = createQueryDefinition();
+		const queryDefinition = createQueryDefinition({
+			entitySchemaSlugs: ["book"],
+			sort: { fields: ["entity.book.@name"], direction: "asc" },
+		});
+		const displayConfiguration = createDefaultDisplayConfiguration("book");
 
 		expect(
 			buildAuthenticationSavedViewInputs({
@@ -82,8 +86,8 @@ describe("authentication bootstrap helpers", () => {
 					{
 						name: "All Books",
 						trackerSlug: "media",
+						displayConfiguration,
 						entitySchemaSlug: "book",
-						displayConfiguration: defaultDisplayConfiguration,
 					},
 				],
 			}),
@@ -92,9 +96,9 @@ describe("authentication bootstrap helpers", () => {
 				isBuiltin: true,
 				icon: "book-open",
 				name: "All Books",
+				displayConfiguration,
 				trackerId: "tracker-1",
 				accentColor: "#5B7FFF",
-				displayConfiguration: defaultDisplayConfiguration,
 				queryDefinition: { ...queryDefinition, entitySchemaSlugs: ["book"] },
 			},
 		]);
@@ -102,6 +106,7 @@ describe("authentication bootstrap helpers", () => {
 
 	it("builds built-in saved views without trackers", () => {
 		const queryDefinition = createQueryDefinition({ entitySchemaSlugs: [] });
+		const displayConfiguration = createDefaultDisplayConfiguration();
 
 		expect(
 			buildAuthenticationSavedViewInputs({
@@ -113,7 +118,7 @@ describe("authentication bootstrap helpers", () => {
 						queryDefinition,
 						name: "Collections",
 						accentColor: "#F59E0B",
-						displayConfiguration: defaultDisplayConfiguration,
+						displayConfiguration,
 					},
 				],
 			}),
@@ -124,8 +129,8 @@ describe("authentication bootstrap helpers", () => {
 				isBuiltin: true,
 				name: "Collections",
 				trackerId: undefined,
+				displayConfiguration,
 				accentColor: "#F59E0B",
-				displayConfiguration: defaultDisplayConfiguration,
 			},
 		]);
 	});
@@ -140,7 +145,7 @@ describe("authentication bootstrap helpers", () => {
 						name: "All Books",
 						trackerSlug: "media",
 						entitySchemaSlug: "book",
-						displayConfiguration: defaultDisplayConfiguration,
+						displayConfiguration: createDefaultDisplayConfiguration("book"),
 					},
 				],
 			}),
