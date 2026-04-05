@@ -1,7 +1,7 @@
 import { z } from "@hono/zod-openapi";
 import { dayjs } from "@ryot/ts-utils";
 import { generateId } from "better-auth";
-import { sql } from "drizzle-orm";
+import { isNull, sql } from "drizzle-orm";
 import {
 	boolean,
 	index,
@@ -267,6 +267,9 @@ export const entity = pgTable(
 			table.entitySchemaId,
 			table.sandboxScriptId,
 		),
+		uniqueIndex("entity_global_external_id_unique")
+			.on(table.externalId, table.entitySchemaId, table.sandboxScriptId)
+			.where(isNull(table.userId)),
 	],
 );
 
