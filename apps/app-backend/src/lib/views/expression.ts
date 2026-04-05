@@ -1,5 +1,7 @@
 import { z } from "zod";
 import { nonEmptyTrimmedStringSchema } from "~/lib/zod/base";
+import type { ViewPredicate } from "./filtering";
+import { viewPredicateSchema } from "./filtering";
 
 export type JsonValue =
 	| null
@@ -120,13 +122,69 @@ export const viewExpressionSchema: z.ZodType<ViewExpression> = z.lazy(() => {
 				values: z.array(viewExpressionSchema).min(1),
 			})
 			.strict(),
+		z
+			.object({
+				left: viewExpressionSchema,
+				right: viewExpressionSchema,
+				type: z.literal("arithmetic"),
+				operator: z.enum(["add", "subtract", "multiply", "divide"]),
+			})
+			.strict(),
+		z
+			.object({
+				type: z.literal("round"),
+				expression: viewExpressionSchema,
+			})
+			.strict(),
+		z
+			.object({
+				type: z.literal("floor"),
+				expression: viewExpressionSchema,
+			})
+			.strict(),
+		z
+			.object({
+				expression: viewExpressionSchema,
+				type: z.literal("integer"),
+			})
+			.strict(),
+		z
+			.object({
+				type: z.literal("concat"),
+				values: z.array(viewExpressionSchema).min(1),
+			})
+			.strict(),
+		z
+			.object({
+				whenTrue: viewExpressionSchema,
+				whenFalse: viewExpressionSchema,
+				type: z.literal("conditional"),
+				condition: z.lazy(() => viewPredicateSchema),
+			})
+			.strict(),
 	]);
 });
 
 export type ViewExpression =
 	| { type: "literal"; value: unknown | null }
 	| { type: "reference"; reference: RuntimeRef }
-	| { type: "coalesce"; values: ViewExpression[] };
+	| { type: "coalesce"; values: ViewExpression[] }
+	| {
+			type: "arithmetic";
+			left: ViewExpression;
+			right: ViewExpression;
+			operator: "add" | "subtract" | "multiply" | "divide";
+	  }
+	| { type: "round"; expression: ViewExpression }
+	| { type: "floor"; expression: ViewExpression }
+	| { type: "integer"; expression: ViewExpression }
+	| { type: "concat"; values: ViewExpression[] }
+	| {
+			type: "conditional";
+			whenTrue: ViewExpression;
+			whenFalse: ViewExpression;
+			condition: ViewPredicate;
+	  };
 
 export const nullViewExpression = {
 	type: "literal",
