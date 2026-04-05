@@ -61,6 +61,7 @@ function SavedViewContent(props: { record: SavedViewRecord }) {
 			record={props.record}
 			refresh={result.refresh}
 			loadMore={result.loadMore}
+			queryDocument={result.queryDocument}
 			isLoadingMore={result.isLoadingMore}
 			search={{
 				query,
