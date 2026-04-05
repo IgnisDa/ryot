@@ -540,8 +540,8 @@ describe("Events bulk POST", () => {
 					entityId,
 					eventSchemaId: completeEventSchemaId,
 					properties: {
-						completedOn: "2026-03-27",
-						completionMode: "custom_dates",
+						completionMode: "custom_timestamps",
+						completedOn: "2026-03-27T18:30:00Z",
 					},
 				},
 			],
@@ -561,12 +561,15 @@ describe("Events bulk POST", () => {
 			["complete", "complete"],
 		);
 		expect(listResult.data?.data.map((event) => event.properties)).toEqual([
-			{ completedOn: "2026-03-27", completionMode: "custom_dates" },
+			{
+				completionMode: "custom_timestamps",
+				completedOn: "2026-03-27T18:30:00Z",
+			},
 			{ completionMode: "just_now" },
 		]);
 	});
 
-	it("rejects built-in complete events missing completedOn for custom_dates", async () => {
+	it("rejects built-in complete events missing completedOn for custom_timestamps", async () => {
 		const auth = await createAuthenticatedClient();
 		const { apiClient, cookies, entityId, completeEventSchemaId } =
 			await setupBuiltinMediaLifecycleFixture(auth);
@@ -577,7 +580,32 @@ describe("Events bulk POST", () => {
 				{
 					entityId,
 					eventSchemaId: completeEventSchemaId,
-					properties: { completionMode: "custom_dates" },
+					properties: { completionMode: "custom_timestamps" },
+				},
+			],
+		});
+
+		expect(result.response.status).toBe(400);
+		expect(result.error?.error?.message).toContain(
+			"Event properties validation failed",
+		);
+	});
+
+	it("rejects built-in complete events with date-only custom timestamps", async () => {
+		const auth = await createAuthenticatedClient();
+		const { apiClient, cookies, entityId, completeEventSchemaId } =
+			await setupBuiltinMediaLifecycleFixture(auth);
+
+		const result = await apiClient.POST("/events", {
+			headers: { Cookie: cookies },
+			body: [
+				{
+					entityId,
+					eventSchemaId: completeEventSchemaId,
+					properties: {
+						completedOn: "2026-03-27",
+						completionMode: "custom_timestamps",
+					},
 				},
 			],
 		});
