@@ -2,6 +2,7 @@ import { describe, expect, it } from "bun:test";
 import {
 	normalizeBuiltinMediaEventProperties,
 	normalizeProgressPercent,
+	normalizeRating,
 	roundHalfUpToTwoDecimals,
 } from "./media-lifecycle-validation";
 
@@ -38,6 +39,28 @@ describe("normalizeProgressPercent", () => {
 	});
 });
 
+describe("normalizeRating", () => {
+	it("accepts integer ratings within range", () => {
+		expect(normalizeRating(1)).toBe(1);
+		expect(normalizeRating(5)).toBe(5);
+	});
+
+	it("rejects ratings outside the accepted range", () => {
+		expect(() => normalizeRating(0)).toThrow(
+			"Rating must be an integer between 1 and 5",
+		);
+		expect(() => normalizeRating(6)).toThrow(
+			"Rating must be an integer between 1 and 5",
+		);
+	});
+
+	it("rejects non-integer ratings", () => {
+		expect(() => normalizeRating(4.5)).toThrow(
+			"Rating must be an integer between 1 and 5",
+		);
+	});
+});
+
 describe("normalizeBuiltinMediaEventProperties", () => {
 	it("returns untouched properties for non-progress events", () => {
 		expect(
@@ -61,6 +84,17 @@ describe("normalizeBuiltinMediaEventProperties", () => {
 		).toEqual({ progressPercent: 58.34 });
 	});
 
+	it("normalizes review event properties", () => {
+		expect(
+			normalizeBuiltinMediaEventProperties({
+				isBuiltin: true,
+				entitySchemaSlug: "book",
+				eventSchemaSlug: "review",
+				properties: { review: "Great", rating: 5 },
+			}),
+		).toEqual({ review: "Great", rating: 5 });
+	});
+
 	it("does not normalize custom progress events", () => {
 		expect(
 			normalizeBuiltinMediaEventProperties({
@@ -70,5 +104,16 @@ describe("normalizeBuiltinMediaEventProperties", () => {
 				properties: { progressPercent: 100 },
 			}),
 		).toEqual({ progressPercent: 100 });
+	});
+
+	it("does not normalize custom review events", () => {
+		expect(
+			normalizeBuiltinMediaEventProperties({
+				isBuiltin: false,
+				eventSchemaSlug: "review",
+				entitySchemaSlug: "custom",
+				properties: { review: "Flexible", rating: 4.5 },
+			}),
+		).toEqual({ review: "Flexible", rating: 4.5 });
 	});
 });
