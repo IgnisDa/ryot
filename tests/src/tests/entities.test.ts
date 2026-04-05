@@ -98,6 +98,31 @@ describe("POST /entities", () => {
 		expect(second.id).toBe(first.id);
 	});
 
+	it("creates entity for a built-in schema when provenance fields are provided", async () => {
+		const { client, cookies } = await createAuthenticatedClient();
+		const { schema } = await findBuiltinSchemaWithSearchProviders(
+			client,
+			cookies,
+		);
+		const provider = schema.searchProviders[0];
+		if (!provider) {
+			throw new Error("No search provider found");
+		}
+
+		const entity = await createEntity(client, cookies, {
+			image: null,
+			properties: {},
+			name: "Built-in Book",
+			entitySchemaId: schema.id,
+			externalId: "ext-builtin-test",
+			detailsSandboxScriptId: provider.detailsScriptId,
+		});
+
+		expect(entity.id).toBeDefined();
+		expect(entity.externalId).toBe("ext-builtin-test");
+		expect(entity.detailsSandboxScriptId).toBe(provider.detailsScriptId);
+	});
+
 	it("returns 400 when only externalId is provided without detailsSandboxScriptId", async () => {
 		const { client, cookies } = await createAuthenticatedClient();
 		const { schemaId } = await createCustomSchemaFixture(client, cookies);
