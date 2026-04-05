@@ -1,6 +1,7 @@
 import { HttpApiBuilder } from "@effect/platform";
 import { CurrentUser } from "@ryot/contract/auth-middleware";
 import { AppContract } from "@ryot/contract/contract";
+import { dieOnDbError } from "@ryot/contract/errors";
 import { Effect } from "effect";
 
 import { QueryEngineService } from "./service";
@@ -10,7 +11,7 @@ export const QueryEngineRoutesLive = HttpApiBuilder.group(AppContract, "queryEng
 		Effect.gen(function* () {
 			const user = yield* CurrentUser;
 			const service = yield* QueryEngineService;
-			return yield* service.execute(user, payload);
+			return yield* service.execute(user, payload).pipe(dieOnDbError);
 		}),
 	),
 );
