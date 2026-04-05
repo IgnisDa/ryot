@@ -5,6 +5,7 @@ import { Effect, Layer } from "effect";
 import * as schema from "#lib/infrastructure/db/schema/tables/combined";
 import { CurrentDb, dbEffect, TransactionRunner } from "#lib/infrastructure/db/service";
 import { AuthUserBootstrap } from "#modules/auth/service";
+import { generateUserAvatar } from "#modules/auth/user-avatar";
 import { NotificationSubscriptionsService } from "#modules/automations/notification-subscriptions-service";
 import { SavedViewsService } from "#modules/saved-views/service";
 
@@ -17,24 +18,30 @@ export const acquireBootstrapLock = Effect.fn(function* (userId: string) {
 	);
 });
 
-const readBootstrapMarker = Effect.fn(function* (userId: string) {
+const readBootstrapState = Effect.fn(function* (userId: string) {
 	const db = yield* CurrentDb;
 	const [row] = yield* dbEffect(() =>
 		db
-			.select({ bootstrapCompletedAt: schema.user.bootstrapCompletedAt })
+			.select({ image: schema.user.image, bootstrapCompletedAt: schema.user.bootstrapCompletedAt })
 			.from(schema.user)
 			.where(eq(schema.user.id, userId))
 			.for("update"),
 	);
-	return row?.bootstrapCompletedAt ?? null;
+	return row
+		? { bootstrapCompletedAt: row.bootstrapCompletedAt, image: row.image }
+		: { bootstrapCompletedAt: null, image: null };
 });
 
-const markBootstrapComplete = Effect.fn(function* (userId: string) {
+const markBootstrapComplete = Effect.fn(function* (userId: string, image: string | null) {
 	const db = yield* CurrentDb;
 	yield* dbEffect(() =>
 		db
 			.update(schema.user)
-			.set({ bootstrapCompletedAt: new Date() })
+			.set(
+				image === null
+					? { bootstrapCompletedAt: new Date() }
+					: { bootstrapCompletedAt: new Date(), image },
+			)
 			.where(eq(schema.user.id, userId)),
 	);
 });
@@ -45,7 +52,7 @@ export const performBootstrap = Effect.fn(function* (userId: string) {
 	const alreadyComplete = yield* runner(
 		Effect.gen(function* () {
 			yield* acquireBootstrapLock(userId);
-			return (yield* readBootstrapMarker(userId)) !== null;
+			return (yield* readBootstrapState(userId)).bootstrapCompletedAt !== null;
 		}),
 	);
 	if (alreadyComplete) {
@@ -57,13 +64,15 @@ export const performBootstrap = Effect.fn(function* (userId: string) {
 	yield* runner(
 		Effect.gen(function* () {
 			yield* acquireBootstrapLock(userId);
-			if ((yield* readBootstrapMarker(userId)) !== null) {
+			const state = yield* readBootstrapState(userId);
+			if (state.bootstrapCompletedAt !== null) {
 				return;
 			}
 			yield* savedViews.ensureBuiltinViews(user);
 			const notificationSubscriptions = yield* NotificationSubscriptionsService;
 			yield* notificationSubscriptions.ensureDefaultRules(user);
-			yield* markBootstrapComplete(userId);
+			const avatar = state.image === null || state.image === "" ? generateUserAvatar(userId) : null;
+			yield* markBootstrapComplete(userId, avatar);
 		}),
 	);
 });

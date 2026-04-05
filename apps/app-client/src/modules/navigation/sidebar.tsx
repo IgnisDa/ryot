@@ -1,6 +1,7 @@
 import { useAtomSet, useAtomValue } from "@effect/atom-react";
 import type { NavigationWorkspace } from "@ryot/ryotql-recipes/navigation";
 import clsx from "clsx";
+import { Image } from "expo-image";
 import { router } from "expo-router";
 import { Pressable, ScrollView, Text, TextInput, View } from "react-native";
 
@@ -87,6 +88,19 @@ function WorkspaceTrigger(props: {
 	);
 }
 
+function SignOutButton(props: { onPress: () => void }) {
+	return (
+		<Pressable
+			onPress={props.onPress}
+			accessibilityRole="button"
+			accessibilityLabel="Sign out"
+			className="h-7 w-7 items-center justify-center rounded-full bg-surface-2"
+		>
+			<NavigationIcon className="text-text-muted" name="logout" size={15} />
+		</Pressable>
+	);
+}
+
 export function Sidebar(props: {
 	className: string;
 	activeKey: string;
@@ -94,6 +108,7 @@ export function Sidebar(props: {
 	accountName: string;
 	accountEmail: string;
 	items: NavigationItems;
+	accountImage: string | null;
 	onWorkspaceOpen: () => void;
 	workspace: NavigationWorkspace;
 	onNavigate: (item: NavigationItem) => void;
@@ -212,24 +227,22 @@ export function Sidebar(props: {
 			</ScrollView>
 			<View className="border-t border-border px-3 py-3">
 				<View className="flex-row items-center gap-2 rounded-md px-2 py-1.5">
-					<Pressable
-						accessibilityRole="button"
-						accessibilityLabel="Sign out"
-						onPress={() => void handleSignOut()}
-						className="h-7 w-7 items-center justify-center rounded-full bg-surface-2"
-					>
-						<NavigationIcon className="text-text-muted" name="logout" size={15} />
-					</Pressable>
+					{props.accountImage !== null ? (
+						<Image source={{ uri: props.accountImage }} className="h-7 w-7 rounded-full" />
+					) : (
+						<SignOutButton onPress={() => void handleSignOut()} />
+					)}
 					<View className="flex-1">
 						<Text className="font-ui-medium text-xs text-text">{props.accountName}</Text>
 						<Text className="font-ui text-xs text-text-muted">{props.accountEmail}</Text>
 					</View>
 					<View className="flex-row gap-2">
+						{props.accountImage !== null && <SignOutButton onPress={() => void handleSignOut()} />}
 						<Pressable
-							accessibilityRole="button"
-							onPress={cycleTheme}
-							accessibilityLabel={`Switch to ${THEME_ORDER[(THEME_ORDER.indexOf(theme) + 1) % THEME_ORDER.length]} theme`}
 							className="p-1"
+							onPress={cycleTheme}
+							accessibilityRole="button"
+							accessibilityLabel={`Switch to ${THEME_ORDER[(THEME_ORDER.indexOf(theme) + 1) % THEME_ORDER.length]} theme`}
 						>
 							<NavigationIcon className="text-text-subtle" name={THEME_ICONS[theme]} size={15} />
 						</Pressable>
