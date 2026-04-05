@@ -4,7 +4,10 @@ import {
 	createAppCollectionFixture,
 	createEntityFixture,
 } from "~/features/test-fixtures";
-import type { SearchResultRowActionState } from "./search-result-row";
+import {
+	defaultSearchResultRowActionState,
+	type SearchResultRowActionState,
+} from "./search-result-row";
 import type { SearchResultItem } from "./use-search";
 
 describe("search-modal collection panel submission", () => {
@@ -551,18 +554,16 @@ describe("search-modal collection panel submission", () => {
 				);
 			});
 
-			it("stores collectionError separately during partial failure", () => {
+			it("stores the partial failure message on actionError", () => {
 				const collectionErrorMessage = "Collection validation failed";
 
-				// During partial failure, both actionError and collectionError are set
+				// During partial failure, actionError carries the retryable message.
 				const actionState: Partial<SearchResultRowActionState> = {
-					actionError: `Test Book is in your library, but could not be added to the collection: ${collectionErrorMessage}`,
-					collectionError: collectionErrorMessage,
 					openPanel: "collection", // Panel stays open for retry
+					actionError: `Test Book is in your library, but could not be added to the collection: ${collectionErrorMessage}`,
 				};
 
 				expect(actionState.actionError).toContain("is in your library");
-				expect(actionState.collectionError).toBe(collectionErrorMessage);
 				expect(actionState.openPanel).toBe("collection");
 			});
 
@@ -594,19 +595,10 @@ describe("search-modal collection panel submission", () => {
 		describe("actionError state management", () => {
 			it("sets actionError for display when validation fails", () => {
 				const actionState: SearchResultRowActionState = {
-					rateStars: 0,
-					logDate: "now",
-					rateReview: "",
+					...defaultSearchResultRowActionState,
 					openPanel: "log",
-					doneActions: [],
-					logStartedOn: "",
-					rateStarsHover: 0,
 					actionError: null,
-					logCompletedOn: "",
 					pendingAction: null,
-					selectedCollectionId: null,
-					collectionProperties: {},
-					collectionError: null,
 				};
 
 				// When validation fails, actionError is set
@@ -650,19 +642,10 @@ describe("search-modal collection panel submission", () => {
 		describe("displayError computation in SearchResultRow", () => {
 			it("shows actionError when present", () => {
 				const actionState: SearchResultRowActionState = {
-					rateStars: 0,
-					logDate: "now",
-					rateReview: "",
+					...defaultSearchResultRowActionState,
 					openPanel: null,
-					doneActions: [],
-					logStartedOn: "",
-					rateStarsHover: 0,
-					actionError: "Failed to save log",
-					logCompletedOn: "",
 					pendingAction: null,
-					selectedCollectionId: null,
-					collectionProperties: {},
-					collectionError: null,
+					actionError: "Failed to save log",
 				};
 				const addStatus: string = "idle";
 				const addError = undefined;
@@ -677,19 +660,10 @@ describe("search-modal collection panel submission", () => {
 
 			it("falls back to addError when actionError is null and addStatus is error", () => {
 				const actionState: SearchResultRowActionState = {
-					rateStars: 0,
-					logDate: "now",
-					rateReview: "",
+					...defaultSearchResultRowActionState,
 					openPanel: null,
-					doneActions: [],
-					logStartedOn: "",
-					rateStarsHover: 0,
 					actionError: null,
-					logCompletedOn: "",
 					pendingAction: null,
-					selectedCollectionId: null,
-					collectionProperties: {},
-					collectionError: null,
 				};
 				const addStatus: string = "error";
 				const addError = "Entity creation failed";
@@ -703,19 +677,10 @@ describe("search-modal collection panel submission", () => {
 
 			it("shows no error when both actionError and addStatus are clean", () => {
 				const actionState: SearchResultRowActionState = {
-					rateStars: 0,
-					logDate: "now",
-					rateReview: "",
+					...defaultSearchResultRowActionState,
 					openPanel: null,
-					doneActions: [],
-					logStartedOn: "",
-					rateStarsHover: 0,
 					actionError: null,
-					logCompletedOn: "",
 					pendingAction: null,
-					selectedCollectionId: null,
-					collectionProperties: {},
-					collectionError: null,
 				};
 				const addStatus: string = "idle";
 				const addError = undefined;

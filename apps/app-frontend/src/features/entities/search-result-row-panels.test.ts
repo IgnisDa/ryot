@@ -1,7 +1,10 @@
 import { describe, expect, it } from "bun:test";
 import type { CollectionDiscoveryState } from "~/features/collections";
 import type { CollectionsDestination } from "~/features/collections/model";
-import type { SearchResultRowActionState } from "./search-result-row";
+import {
+	defaultSearchResultRowActionState,
+	type SearchResultRowActionState,
+} from "./search-result-row";
 
 describe("SearchResultCollectionPanel props", () => {
 	describe("collection discovery state", () => {
@@ -60,19 +63,9 @@ describe("SearchResultCollectionPanel props", () => {
 	describe("panel state integration", () => {
 		it("can have collection panel open with loading state", () => {
 			const actionState: SearchResultRowActionState = {
-				rateStars: 0,
-				logDate: "now",
-				rateReview: "",
-				openPanel: "collection",
-				doneActions: [],
-				logStartedOn: "",
-				rateStarsHover: 0,
-				actionError: null,
-				logCompletedOn: "",
+				...defaultSearchResultRowActionState,
 				pendingAction: null,
-				selectedCollectionId: null,
-				collectionProperties: {},
-				collectionError: null,
+				openPanel: "collection",
 			};
 			const collectionState: CollectionDiscoveryState = { type: "loading" };
 
@@ -82,19 +75,9 @@ describe("SearchResultCollectionPanel props", () => {
 
 		it("can have collection panel open with empty state", () => {
 			const actionState: SearchResultRowActionState = {
-				rateStars: 0,
-				logDate: "now",
-				rateReview: "",
-				openPanel: "collection",
-				doneActions: [],
-				logStartedOn: "",
-				rateStarsHover: 0,
-				actionError: null,
-				logCompletedOn: "",
+				...defaultSearchResultRowActionState,
 				pendingAction: null,
-				selectedCollectionId: null,
-				collectionProperties: {},
-				collectionError: null,
+				openPanel: "collection",
 			};
 			const collectionState: CollectionDiscoveryState = { type: "empty" };
 			const destination: CollectionsDestination = {
@@ -109,38 +92,28 @@ describe("SearchResultCollectionPanel props", () => {
 
 		it("can have collection panel open with collections available", () => {
 			const actionState: SearchResultRowActionState = {
-				rateStars: 0,
-				logDate: "now",
-				rateReview: "",
-				openPanel: "collection",
-				doneActions: [],
-				logStartedOn: "",
-				rateStarsHover: 0,
-				actionError: null,
-				logCompletedOn: "",
+				...defaultSearchResultRowActionState,
 				pendingAction: null,
-				selectedCollectionId: "collection-1",
-				collectionProperties: {},
-				collectionError: null,
+				openPanel: "collection",
 			};
 			const collectionState: CollectionDiscoveryState = {
 				type: "collections",
 				collections: [
 					{
-						id: "collection-1",
-						name: "Favorites",
 						image: null,
+						name: "Favorites",
+						id: "collection-1",
 						createdAt: new Date(),
 						updatedAt: new Date(),
-						membershipPropertiesSchema: null,
 						entitySchemaSlug: "media",
+						membershipPropertiesSchema: null,
 					},
 				],
 			};
 
 			expect(actionState.openPanel).toBe("collection");
 			expect(collectionState.type).toBe("collections");
-			expect(actionState.selectedCollectionId).toBe("collection-1");
+			expect(collectionState.collections[0]?.id).toBe("collection-1");
 		});
 	});
 });
@@ -148,19 +121,9 @@ describe("SearchResultCollectionPanel props", () => {
 describe("SearchResultCollectionPanel entity ensuring", () => {
 	it("can be in entity ensuring state with pending collection action", () => {
 		const actionState: SearchResultRowActionState = {
-			rateStars: 0,
-			logDate: "now",
-			rateReview: "",
+			...defaultSearchResultRowActionState,
 			openPanel: "collection",
-			doneActions: [],
-			logStartedOn: "",
-			rateStarsHover: 0,
-			actionError: null,
-			logCompletedOn: "",
 			pendingAction: "collection",
-			selectedCollectionId: "collection-1",
-			collectionProperties: {},
-			collectionError: null,
 		};
 		const isEnsuringEntity = actionState.pendingAction === "collection";
 
@@ -171,19 +134,9 @@ describe("SearchResultCollectionPanel entity ensuring", () => {
 
 	it("is not in entity ensuring state when no pending action", () => {
 		const actionState: SearchResultRowActionState = {
-			rateStars: 0,
-			logDate: "now",
-			rateReview: "",
-			openPanel: "collection",
-			doneActions: [],
-			logStartedOn: "",
-			rateStarsHover: 0,
-			actionError: null,
-			logCompletedOn: "",
+			...defaultSearchResultRowActionState,
 			pendingAction: null,
-			selectedCollectionId: "collection-1",
-			collectionProperties: {},
-			collectionError: null,
+			openPanel: "collection",
 		};
 		const isEnsuringEntity = actionState.pendingAction === "collection";
 
@@ -194,36 +147,26 @@ describe("SearchResultCollectionPanel entity ensuring", () => {
 
 	it("allows selecting collection while not ensuring entity", () => {
 		const actionState: SearchResultRowActionState = {
-			rateStars: 0,
-			logDate: "now",
-			rateReview: "",
-			openPanel: "collection",
-			doneActions: [],
-			logStartedOn: "",
-			rateStarsHover: 0,
-			actionError: null,
-			logCompletedOn: "",
+			...defaultSearchResultRowActionState,
 			pendingAction: null,
-			selectedCollectionId: null,
-			collectionProperties: {},
-			collectionError: null,
+			openPanel: "collection",
 		};
 		const collectionState: CollectionDiscoveryState = {
 			type: "collections",
 			collections: [
 				{
-					id: "collection-1",
-					name: "Favorites",
 					image: null,
+					name: "Favorites",
+					id: "collection-1",
 					createdAt: new Date(),
 					updatedAt: new Date(),
-					membershipPropertiesSchema: null,
 					entitySchemaSlug: "media",
+					membershipPropertiesSchema: null,
 				},
 			],
 		};
 
-		expect(actionState.selectedCollectionId).toBeNull();
+		expect(actionState.openPanel).toBe("collection");
 		expect(collectionState.type).toBe("collections");
 		expect(actionState.pendingAction).toBeNull();
 	});
@@ -244,19 +187,9 @@ describe("SearchResultCollectionPanel loading state", () => {
 
 	it("renders loading state with collection panel open", () => {
 		const actionState: SearchResultRowActionState = {
-			rateStars: 0,
-			logDate: "now",
-			rateReview: "",
-			openPanel: "collection",
-			doneActions: [],
-			logStartedOn: "",
-			rateStarsHover: 0,
-			actionError: null,
-			logCompletedOn: "",
+			...defaultSearchResultRowActionState,
 			pendingAction: null,
-			selectedCollectionId: null,
-			collectionProperties: {},
-			collectionError: null,
+			openPanel: "collection",
 		};
 		const collectionState: CollectionDiscoveryState = { type: "loading" };
 
@@ -267,19 +200,9 @@ describe("SearchResultCollectionPanel loading state", () => {
 
 	it("renders loading state while entity is being ensured", () => {
 		const actionState: SearchResultRowActionState = {
-			rateStars: 0,
-			logDate: "now",
-			rateReview: "",
+			...defaultSearchResultRowActionState,
 			openPanel: "collection",
-			doneActions: [],
-			logStartedOn: "",
-			rateStarsHover: 0,
-			actionError: null,
-			logCompletedOn: "",
 			pendingAction: "collection",
-			selectedCollectionId: null,
-			collectionProperties: {},
-			collectionError: null,
 		};
 		const collectionState: CollectionDiscoveryState = { type: "loading" };
 		const isEnsuringEntity = actionState.pendingAction !== null;
@@ -407,19 +330,9 @@ describe("SearchResultCollectionPanel empty state CTA path", () => {
 
 	it("can close empty state panel by setting openPanel to null", () => {
 		const actionState: SearchResultRowActionState = {
-			rateStars: 0,
-			logDate: "now",
-			rateReview: "",
-			openPanel: "collection",
-			doneActions: [],
-			logStartedOn: "",
-			rateStarsHover: 0,
-			actionError: null,
-			logCompletedOn: "",
+			...defaultSearchResultRowActionState,
 			pendingAction: null,
-			selectedCollectionId: null,
-			collectionProperties: {},
-			collectionError: null,
+			openPanel: "collection",
 		};
 		const collectionState: CollectionDiscoveryState = { type: "empty" };
 
@@ -432,26 +345,15 @@ describe("SearchResultCollectionPanel empty state CTA path", () => {
 
 	it("renders empty state with collection panel open and no selected collection", () => {
 		const actionState: SearchResultRowActionState = {
-			rateStars: 0,
-			logDate: "now",
-			rateReview: "",
-			openPanel: "collection",
-			doneActions: [],
-			logStartedOn: "",
-			rateStarsHover: 0,
-			actionError: null,
-			logCompletedOn: "",
+			...defaultSearchResultRowActionState,
 			pendingAction: null,
-			selectedCollectionId: null,
-			collectionProperties: {},
-			collectionError: null,
+			openPanel: "collection",
 		};
 		const collectionState: CollectionDiscoveryState = { type: "empty" };
 		const destination: CollectionsDestination = { type: "none" };
 
 		expect(actionState.openPanel).toBe("collection");
 		expect(collectionState.type).toBe("empty");
-		expect(actionState.selectedCollectionId).toBeNull();
 		expect(destination.type).toBe("none");
 	});
 });
