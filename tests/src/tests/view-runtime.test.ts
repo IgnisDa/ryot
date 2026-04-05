@@ -70,9 +70,9 @@ describe("View runtime E2E", () => {
 				expected: ["Alpha Phone", "Gamma Phone"],
 				filters: [
 					{
+						value: "phone",
 						op: "eq" as const,
 						field: `${schema.slug}.category`,
-						value: "phone",
 					},
 				],
 			},
@@ -80,9 +80,9 @@ describe("View runtime E2E", () => {
 				expected: ["Beta Tablet", "Delta Watch"],
 				filters: [
 					{
+						value: "phone",
 						op: "ne" as const,
 						field: `${schema.slug}.category`,
-						value: "phone",
 					},
 				],
 			},
@@ -115,8 +115,8 @@ describe("View runtime E2E", () => {
 				filters: [
 					{
 						op: "in" as const,
-						field: `${schema.slug}.category`,
 						value: ["tablet", "wearable"],
+						field: `${schema.slug}.category`,
 					},
 				],
 			},
@@ -681,8 +681,8 @@ describe("View runtime E2E", () => {
 				filters: [
 					{
 						op: "contains",
-						field: `${schema.slug}.tags`,
 						value: ["sci-fi", "action"],
+						field: `${schema.slug}.tags`,
 					},
 				],
 			}),
