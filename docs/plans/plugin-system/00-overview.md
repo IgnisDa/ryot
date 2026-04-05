@@ -1,6 +1,8 @@
 # Plugin System Rewrite — Overview
 
-Status: in progress. Phases 1 and 2 and Phase 3 steps 0-2 are complete; resume at Phase 3 step 3.
+Status: in progress. Phases 1 and 2 and Phase 3 steps 0-2 are complete, and Phase 3 step 3's
+mandatory durable-workflow spike is done and signed off; resume by implementing Phase 3 step 3
+against the A-prime design recorded in `03-phase-3-capability-migrations.md` §3.
 Branch: `ultra-rewrite` (all work is local; there is no
 CI and `apps/app-backend` is not deployed anywhere, so there are no release, rollout, or
 data-migration constraints — dev databases are wipeable and the initial drizzle migration may
@@ -81,7 +83,10 @@ These were settled in design discussion with the project owner. All are **[DECID
    the kernel. Plugins express multi-step durable operations as workflow scripts that
    re-execute from the top on each resume; host functions `activity()`, `sleep()`, and
    `child()` return recorded results (Temporal-style). Each execution is pinned to the exact
-   compiled-module version it started with.
+   compiled-module version it started with. A host call cannot _suspend_ an execution — the
+   pending case ends the replay and the kernel shell performs the work — and the journal is
+   read through host calls rather than shipped in the script's context; the spike findings in
+   `03-phase-3-capability-migrations.md` §3 own that mechanism.
 8. **Syscall design rules.** (a) Batch-first: every host function and script entry point
    takes arrays; per-item designs are forbidden. (b) Query pushdown: filters, sorts, and
    aggregations plugins need are expressed as query-engine documents executed by the kernel,
