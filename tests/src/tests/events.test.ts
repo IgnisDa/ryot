@@ -119,6 +119,13 @@ async function setupBuiltinMediaLifecycleFixture(
 		throw new Error("Missing built-in progress event schema");
 	}
 
+	const completeEventSchema = eventSchemas.find(
+		(schema) => schema.slug === "complete",
+	);
+	if (!completeEventSchema) {
+		throw new Error("Missing built-in complete event schema");
+	}
+
 	const otherSchema = schemas.find((schema) => schema.slug === "anime");
 	if (!otherSchema) {
 		throw new Error("Missing built-in anime schema");
@@ -150,6 +157,7 @@ async function setupBuiltinMediaLifecycleFixture(
 		apiClient,
 		entityId: entity.id,
 		backlogEventSchemaId: backlogEventSchema.id,
+		completeEventSchemaId: completeEventSchema.id,
 		progressEventSchemaId: progressEventSchema.id,
 		mismatchedEventSchemaId: mismatchedBacklogEventSchema.id,
 	};
@@ -357,6 +365,71 @@ describe("Events bulk POST", () => {
 				.map((event) => event.properties.progressPercent as number)
 				.sort((a, b) => a - b),
 		).toEqual([25.56, 50.44]);
+	});
+
+	it("creates repeated built-in complete events without relying on progress", async () => {
+		const auth = await createAuthenticatedClient();
+		const { apiClient, cookies, entityId, completeEventSchemaId } =
+			await setupBuiltinMediaLifecycleFixture(auth);
+
+		const createResult = await apiClient.POST("/events", {
+			headers: { Cookie: cookies },
+			body: [
+				{
+					entityId,
+					properties: {},
+					eventSchemaId: completeEventSchemaId,
+					occurredAt: "2026-01-03T10:00:00.000Z",
+				},
+				{
+					entityId,
+					properties: {},
+					eventSchemaId: completeEventSchemaId,
+					occurredAt: "2026-01-04T10:00:00.000Z",
+				},
+			],
+		});
+
+		expect(createResult.response.status).toBe(200);
+		expect(createResult.data?.data.count).toBe(2);
+
+		const listResult = await apiClient.GET("/events", {
+			headers: { Cookie: cookies },
+			params: { query: { entityId } },
+		});
+
+		expect(listResult.response.status).toBe(200);
+		expect(listResult.data?.data).toHaveLength(2);
+		expect(listResult.data?.data.map((event) => event.eventSchemaSlug)).toEqual(
+			["complete", "complete"],
+		);
+		expect(listResult.data?.data.map((event) => event.properties)).toEqual([
+			{},
+			{},
+		]);
+	});
+
+	it("rejects built-in complete events with non-empty payloads", async () => {
+		const auth = await createAuthenticatedClient();
+		const { apiClient, cookies, entityId, completeEventSchemaId } =
+			await setupBuiltinMediaLifecycleFixture(auth);
+
+		const result = await apiClient.POST("/events", {
+			headers: { Cookie: cookies },
+			body: [
+				{
+					entityId,
+					properties: { note: "not allowed" },
+					eventSchemaId: completeEventSchemaId,
+					occurredAt: "2026-01-05T10:00:00.000Z",
+				},
+			],
+		});
+
+		expect(result.response.status).toBe(400);
+		expect(result.error?.error?.message).toContain(
+			"Event properties validation failed",
+		);
 	});
 
 	it("rejects built-in progress events outside the accepted range", async () => {
