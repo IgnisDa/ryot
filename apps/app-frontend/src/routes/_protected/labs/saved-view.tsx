@@ -1183,10 +1183,10 @@ function QueryBuilderDrawer(props: {
 						h={32}
 						style={{
 							display: "grid",
-							placeItems: "center",
-							borderRadius: "var(--mantine-radius-sm)",
-							backgroundColor: accentMuted,
 							color: accentColor,
+							placeItems: "center",
+							backgroundColor: accentMuted,
+							borderRadius: "var(--mantine-radius-sm)",
 						}}
 					>
 						<SlidersHorizontal size={18} />
@@ -1230,11 +1230,11 @@ function QueryBuilderDrawer(props: {
 
 				<Box>
 					<Text
+						mb="md"
 						fw={600}
 						size="xs"
-						mb="md"
-						tt="uppercase"
 						c={textMuted}
+						tt="uppercase"
 						style={{ letterSpacing: "0.8px" }}
 					>
 						1. Scope Selection
@@ -1245,8 +1245,8 @@ function QueryBuilderDrawer(props: {
 								View name
 							</Text>
 							<TextInput
-								defaultValue={props.scenario.name}
 								placeholder="Enter view name"
+								defaultValue={props.scenario.name}
 							/>
 						</Stack>
 					</Paper>
@@ -1270,9 +1270,9 @@ function QueryBuilderDrawer(props: {
 
 				<Box>
 					<Text
+						mb="md"
 						fw={600}
 						size="xs"
-						mb="md"
 						tt="uppercase"
 						c={textMuted}
 						style={{ letterSpacing: "0.8px" }}
@@ -1282,10 +1282,10 @@ function QueryBuilderDrawer(props: {
 					<Stack gap="sm">
 						{props.scenario.availableFilters.map((filter) => (
 							<Paper
-								key={filter.key}
 								p="md"
 								withBorder
 								radius="sm"
+								key={filter.key}
 								bg={surfaceElevated}
 							>
 								<Stack gap="xs">
@@ -1306,9 +1306,9 @@ function QueryBuilderDrawer(props: {
 							</Paper>
 						))}
 						<Button
-							leftSection={<Plus size={14} />}
-							variant="light"
 							size="sm"
+							variant="light"
+							leftSection={<Plus size={14} />}
 							style={{ backgroundColor: accentMuted, color: accentColor }}
 						>
 							Add filter
