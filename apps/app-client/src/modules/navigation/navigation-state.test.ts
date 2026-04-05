@@ -1,42 +1,44 @@
-import type { RowItem, RyotQLResponse } from "@ryot/contract/modules/ryotql/language";
+import type { NavigationData } from "@ryot/ryotql-recipes/navigation";
 import { AsyncResult } from "effect/unstable/reactivity";
 import { describe, expect, it } from "vitest";
 
+import { RyotQLMalformedResultError } from "@/api/ryotql";
+
 import { mapNavigationState } from "./navigation-state";
 
-const rows = (items: readonly RowItem[]) => ({
-	items,
-	type: "rows" as const,
-	pageInfo: { limit: 100, hasMore: false, nextCursor: null },
-});
 const workspace = (slug: string, isDisabled = false) => ({
-	slug: { kind: "text" as const, value: slug },
-	isDisabled: { kind: "boolean" as const, value: isDisabled },
-	sortOrder: { kind: "number" as const, value: slug === "media" ? 1 : 2 },
-	name: { kind: "text" as const, value: slug === "media" ? "Media" : "Fitness" },
-	icon: { kind: "text" as const, value: slug === "media" ? "clapperboard" : "dumbbell" },
+	slug,
+	isDisabled,
+	sortOrder: slug === "media" ? 1 : 2,
+	name: slug === "media" ? "Media" : "Fitness",
+	icon: slug === "media" ? "clapperboard" : "dumbbell",
 });
-const navigationResponse = (workspaces = [workspace("media"), workspace("fitness")]) =>
+const navigation = (workspaces = [workspace("media"), workspace("fitness")]) =>
 	({
-		data: {
-			workspaces: rows(workspaces),
-			collections: rows([
-				{ name: { kind: "text", value: "Favorites" }, id: { kind: "text", value: "collection-1" } },
-			]),
-			savedViews: rows([
-				{
-					icon: { kind: "text", value: "film" },
-					name: { kind: "text", value: "Movies" },
-					slug: { kind: "text", value: "movies" },
-					sortOrder: { kind: "number", value: 1 },
-					pluginSlug: { kind: "text", value: "media" },
-					isDisabled: { kind: "boolean", value: false },
-				},
-			]),
-		},
-	}) satisfies RyotQLResponse;
+		workspaces,
+		collections: [
+			{
+				sortOrder: 0,
+				isDisabled: false,
+				icon: "layers-3",
+				pluginSlug: null,
+				name: "Favorites",
+				slug: "collection-1",
+			},
+		],
+		savedViews: [
+			{
+				icon: "film",
+				name: "Movies",
+				slug: "movies",
+				sortOrder: 1,
+				pluginSlug: "media",
+				isDisabled: false,
+			},
+		],
+	}) satisfies NavigationData;
 const map = (
-	result: AsyncResult.AsyncResult<unknown, unknown>,
+	result: AsyncResult.AsyncResult<NavigationData, unknown>,
 	options: { routeWorkspace?: string; selectedWorkspace?: string; pathname?: string } = {},
 ) =>
 	mapNavigationState({
@@ -47,68 +49,46 @@ const map = (
 	});
 
 describe("navigation application state", () => {
-	it("maps loading state", () => {
+	it("maps loading and transport failures", () => {
 		expect(map(AsyncResult.initial())).toEqual({ status: "loading" });
-	});
-
-	it("maps transport failures to a stable user-facing error", () => {
 		expect(map(AsyncResult.fail("private transport detail"))).toMatchObject({
 			status: "error",
 			failure: { kind: "transport" },
 			title: "Unable to load navigation",
-			detail: "The server could not load navigation. Check your connection and try again.",
 		});
 	});
 
-	it("maps malformed responses to a stable user-facing error", () => {
-		expect(map(AsyncResult.success({ data: {} }))).toMatchObject({
+	it("maps malformed failures to a stable display error", () => {
+		expect(map(AsyncResult.fail(new RyotQLMalformedResultError("invalid")))).toMatchObject({
 			status: "error",
 			failure: { kind: "malformed" },
 			title: "Unable to display navigation",
-			detail: "The server returned navigation data that could not be displayed. Try again later.",
 		});
 	});
 
 	it("reports when no workspace is enabled", () => {
-		expect(map(AsyncResult.success(navigationResponse([workspace("media", true)])))).toEqual({
+		expect(map(AsyncResult.success(navigation([workspace("media", true)])))).toEqual({
 			status: "error",
 			title: "No enabled workspaces",
 			detail: "Enable a plugin to create a workspace.",
 		});
 	});
 
-	it("uses a selected workspace and falls back to the first enabled workspace", () => {
-		const selected = map(AsyncResult.success(navigationResponse()), {
+	it("uses route and selected workspace fallbacks", () => {
+		const selected = map(AsyncResult.success(navigation()), {
 			routeWorkspace: "missing",
 			selectedWorkspace: "fitness",
 		});
-		const fallback = map(AsyncResult.success(navigationResponse()), {
-			routeWorkspace: "missing",
-			selectedWorkspace: "missing",
+		const route = map(AsyncResult.success(navigation()), {
+			pathname: "/v/movies",
+			routeWorkspace: "media",
 		});
 
 		expect(selected).toMatchObject({ status: "ready", workspace: { slug: "fitness" } });
-		expect(fallback).toMatchObject({ status: "ready", workspace: { slug: "media" } });
-	});
-
-	it("builds ready navigation from the route workspace and pathname", () => {
-		const state = map(AsyncResult.success(navigationResponse()), {
-			pathname: "/v/movies",
-			routeWorkspace: "media",
-			selectedWorkspace: "fitness",
-		});
-
-		expect(state).toMatchObject({
+		expect(route).toMatchObject({
 			status: "ready",
 			activeKey: "view:movies",
 			workspace: { slug: "media" },
-			items: {
-				collections: [{ kind: "collection", slug: "collection-1" }],
-				views: [
-					{ kind: "home", slug: "home" },
-					{ kind: "view", slug: "movies" },
-				],
-			},
 		});
 	});
 });

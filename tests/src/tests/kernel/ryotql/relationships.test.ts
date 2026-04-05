@@ -1,4 +1,4 @@
-import type { FieldValue, IncludeResult, RowItem } from "@ryot/contract/modules/ryotql/language";
+import type { IncludeResult, RowItem } from "@ryot/contract/modules/ryotql/language";
 import {
 	and,
 	ascending,
@@ -34,9 +34,9 @@ import {
 import { assertPresent } from "~/support/assertions";
 import { describe, expect, it } from "~/support/effect-test";
 
-const requireField = (item: RowItem, key: string): FieldValue => {
+const requirePlainValue = (item: RowItem, key: string): unknown => {
 	const value = item[key];
-	if (!value || !("kind" in value)) {
+	if (!(key in item)) {
 		throw new Error(`Expected '${key}' field`);
 	}
 	return value;
@@ -44,10 +44,32 @@ const requireField = (item: RowItem, key: string): FieldValue => {
 
 const requireInclude = (item: RowItem, key: string): IncludeResult => {
 	const value = item[key];
-	if (!value || !("items" in value)) {
+	if (!isIncludeResult(value)) {
 		throw new Error(`Expected '${key}' include`);
 	}
 	return value;
+};
+
+const isIncludeResult = (value: unknown): value is IncludeResult => {
+	if (
+		typeof value !== "object" ||
+		value === null ||
+		!("items" in value) ||
+		!("pageInfo" in value) ||
+		!Array.isArray(value.items)
+	) {
+		return false;
+	}
+	const pageInfo = value.pageInfo;
+	return (
+		typeof pageInfo === "object" &&
+		pageInfo !== null &&
+		"limit" in pageInfo &&
+		"hasMore" in pageInfo &&
+		typeof pageInfo.limit === "number" &&
+		typeof pageInfo.hasMore === "boolean" &&
+		value.items.every((item) => typeof item === "object" && item !== null && !Array.isArray(item))
+	);
 };
 
 describe("RyotQL relationship rows and includes", () => {
@@ -157,17 +179,17 @@ describe("RyotQL relationship rows and includes", () => {
 				);
 
 				const memberships = requireRows(result.data["memberships"], "memberships");
-				expect(memberships.items.map((item) => requireField(item, "memberName").value)).toEqual([
+				expect(memberships.items.map((item) => requirePlainValue(item, "memberName"))).toEqual([
 					"Member A",
 					"Member B",
 				]);
-				expect(memberships.items.map((item) => requireField(item, "role").value)).toEqual([
+				expect(memberships.items.map((item) => requirePlainValue(item, "role"))).toEqual([
 					"owner",
 					"guest",
 				]);
 				const firstMembership = memberships.items[0];
 				assertPresent(firstMembership, "Expected first membership");
-				expect(requireField(firstMembership, "courseName").value).toBe("Relationship Course");
+				expect(requirePlainValue(firstMembership, "courseName")).toBe("Relationship Course");
 				const multipliedPageOne = requireRows(result.data["multiplied"], "multiplied");
 				expect(multipliedPageOne.pageInfo.nextCursor).not.toBeNull();
 				const next = yield* executeRyotQL(
@@ -185,12 +207,12 @@ describe("RyotQL relationship rows and includes", () => {
 				const multipliedItems = [multipliedPageOne, multipliedPageTwo].flatMap(
 					(page) => page.items,
 				);
-				expect(new Set(multipliedItems.map((item) => requireField(item, "role").value))).toEqual(
+				expect(new Set(multipliedItems.map((item) => requirePlainValue(item, "role")))).toEqual(
 					new Set(["guest", "owner"]),
 				);
 				const firstMultipliedItem = multipliedPageOne.items[0];
 				assertPresent(firstMultipliedItem, "Expected first multiplied page item");
-				expect(requireField(firstMultipliedItem, "courseId").value).toBe(course.id);
+				expect(requirePlainValue(firstMultipliedItem, "courseId")).toBe(course.id);
 				expect(members).toHaveLength(2);
 			}),
 	);
@@ -364,10 +386,10 @@ describe("RyotQL relationship rows and includes", () => {
 
 			const courses = requireRows(result.data["courses"], "courses");
 			const populatedCourse = courses.items.find(
-				(item) => requireField(item, "name").value === "Course With Modules",
+				(item) => requirePlainValue(item, "name") === "Course With Modules",
 			);
 			const emptyCourse = courses.items.find(
-				(item) => requireField(item, "name").value === "Empty Course",
+				(item) => requirePlainValue(item, "name") === "Empty Course",
 			);
 			assertPresent(populatedCourse, "Expected populated course");
 			assertPresent(emptyCourse, "Expected empty course");
@@ -376,18 +398,18 @@ describe("RyotQL relationship rows and includes", () => {
 			expect(includedModules.items).toHaveLength(1);
 			const firstModule = includedModules.items[0];
 			assertPresent(firstModule, "Expected first module");
-			expect(requireField(firstModule, "name").value).toBe("Module One");
-			expect(requireField(firstModule, "position").value).toBe(1);
+			expect(requirePlainValue(firstModule, "name")).toBe("Module One");
+			expect(requirePlainValue(firstModule, "position")).toBe(1);
 			const includedLessons = requireInclude(firstModule, "lessons");
 			expect(includedLessons.items).toHaveLength(1);
 			const secondLesson = includedLessons.items[0];
 			assertPresent(secondLesson, "Expected filtered lesson");
-			expect(requireField(secondLesson, "name").value).toBe("Lesson Two");
+			expect(requirePlainValue(secondLesson, "name")).toBe("Lesson Two");
 			const includedCompletions = requireInclude(secondLesson, "completions");
 			expect(includedCompletions.items).toHaveLength(1);
 			const firstCompletion = includedCompletions.items[0];
 			assertPresent(firstCompletion, "Expected completion");
-			expect(requireField(firstCompletion, "score").value).toBe(9);
+			expect(requirePlainValue(firstCompletion, "score")).toBe(9);
 			expect(requireInclude(emptyCourse, "modules")).toEqual({
 				items: [],
 				pageInfo: { limit: 1, hasMore: false },
@@ -534,29 +556,29 @@ describe("RyotQL relationship rows and includes", () => {
 			);
 
 			const visibleOnly = requireRows(result.data["visibleOnly"], "visibleOnly");
-			expect(visibleOnly.items.map((item) => requireField(item, "slug").value)).toEqual([
+			expect(visibleOnly.items.map((item) => requirePlainValue(item, "slug"))).toEqual([
 				ownRelationshipSlug,
 			]);
 			const partial = requireRows(result.data["partialEndpoints"], "partialEndpoints").items[0];
 			assertPresent(partial, "Expected visible relationship");
-			expect(requireField(partial, "sourceName").value).toBe("Visible Source");
-			expect(requireField(partial, "hiddenName")).toEqual({ kind: "null", value: null });
+			expect(requirePlainValue(partial, "sourceName")).toBe("Visible Source");
+			expect(requirePlainValue(partial, "hiddenName")).toBeNull();
 			const preserved = requireRows(
 				result.data["leftJoinHiddenRelationship"],
 				"leftJoinHiddenRelationship",
 			).items[0];
 			assertPresent(preserved, "Expected left root row");
-			expect(requireField(preserved, "name").value).toBe("Visible Source");
-			expect(requireField(preserved, "hiddenProperties")).toEqual({ kind: "null", value: null });
+			expect(requirePlainValue(preserved, "name")).toBe("Visible Source");
+			expect(requirePlainValue(preserved, "hiddenProperties")).toBeNull();
 			const secured = requireRows(result.data["securedIncludes"], "securedIncludes").items[0];
 			assertPresent(secured, "Expected secured include root");
 			const relationships = requireInclude(secured, "relationships");
 			expect(relationships.items).toHaveLength(1);
 			const included = relationships.items[0];
 			assertPresent(included, "Expected visible included relationship");
-			expect(requireField(included, "slug").value).toBe(ownRelationshipSlug);
-			expect(requireField(included, "scope").value).toBe("visible");
-			expect(requireField(included, "hiddenName")).toEqual({ kind: "null", value: null });
+			expect(requirePlainValue(included, "slug")).toBe(ownRelationshipSlug);
+			expect(requirePlainValue(included, "scope")).toBe("visible");
+			expect(requirePlainValue(included, "hiddenName")).toBeNull();
 		}),
 	);
 });

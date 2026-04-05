@@ -285,7 +285,7 @@ import {
   integrationRecordSchema,
 } from "@ryot/sandbox-sdk/core";
 import { Effect, Schema } from "@ryot/sandbox-sdk/effect";
-import { ryotqlRows } from "@ryot/sandbox-sdk/ryotql";
+import { entityReadRecipe, executeRyotqlRecipe } from "@ryot/sandbox-sdk/ryotql";
 
 export const manifest = defineManifest({
   kind: "script",
@@ -319,13 +319,15 @@ export default defineScript({
     const created = yield* host.createEvents([
         { entityId: "entity-1", eventSchemaSlug: "event-schema-1", properties: { watched: true } },
       ]);
-    const query = yield* host.executeRyotql({ queries: {} });
-    const rows = ryotqlRows(query, "entities").items;
+    const rows = yield* executeRyotqlRecipe(
+      host.executeRyotql,
+      entityReadRecipe({ entityIds: ["a", "b"] }),
+    );
     return {
       created,
       integration,
       entitySchemas,
-      queryRows: rows.length,
+      queryRows: rows.items.length,
       eventSchemas: [...eventSchemas],
     };
   }),
@@ -1769,8 +1771,28 @@ const startDomainHostBridge = () =>
 										entities: {
 											type: "rows",
 											items: [
-												{ id: { kind: "text", value: "a" } },
-												{ id: { kind: "text", value: "b" } },
+												{
+													id: "a",
+													name: "Entity A",
+													externalId: null,
+													providerId: null,
+													populatedAt: null,
+													properties: {},
+													entitySchemaSlug: "movie",
+													createdAt: "2024-01-01T00:00:00.000Z",
+													updatedAt: "2024-01-01T00:00:00.000Z",
+												},
+												{
+													id: "b",
+													name: "Entity B",
+													externalId: null,
+													providerId: null,
+													populatedAt: null,
+													properties: {},
+													entitySchemaSlug: "movie",
+													createdAt: "2024-01-01T00:00:00.000Z",
+													updatedAt: "2024-01-01T00:00:00.000Z",
+												},
 											],
 											pageInfo: { limit: 20, hasMore: false, nextCursor: null },
 										},

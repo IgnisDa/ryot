@@ -1,15 +1,12 @@
 import type { ContractPayload } from "@ryot/contract/client";
 import { NotificationChannelId } from "@ryot/contract/schema/brands";
-import {
-	buildNotificationChannelsDocument,
-	decodeNotificationChannelsResponse,
-} from "@ryot/ryotql-recipes/notification-channels";
+import { notificationChannelsRecipe } from "@ryot/ryotql-recipes/notification-channels";
 import { Effect } from "effect";
 
-import { resultToEffect } from "~/support/assertions";
 import { startFakeHttpServer } from "~/support/fake-http-server";
 
 import type { Client } from "./auth";
+import { executeRyotQLRecipe } from "./ryotql";
 
 type CreateNotificationChannelBody = ContractPayload<"notifications", "createChannel">;
 type UpdateNotificationChannelBody = ContractPayload<"notifications", "updateChannel">;
@@ -19,14 +16,8 @@ export const createNotificationChannel = (client: Client, payload: CreateNotific
 
 export const listNotificationChannels = (client: Client) =>
 	Effect.gen(function* () {
-		const response = yield* client.call((c) =>
-			c.ryotql.execute({
-				payload: buildNotificationChannelsDocument({ limit: 100 }),
-			}),
-		);
-		const decoded = yield* resultToEffect(decodeNotificationChannelsResponse(response));
-
-		return decoded.items;
+		const result = yield* executeRyotQLRecipe(client, notificationChannelsRecipe({ limit: 100 }));
+		return result.items;
 	});
 
 export const updateNotificationChannel = (

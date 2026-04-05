@@ -11,9 +11,9 @@ import { createPluginSchema } from "./entity-schemas";
 import {
 	executeRyotQL,
 	requireRows,
-	requireRyotQLDateField,
-	requireRyotQLFieldValue,
-	requireRyotQLTextField,
+	requireRyotQLDate,
+	requireRyotQLText,
+	requireRyotQLValue,
 } from "./ryotql";
 
 type CreateEntityInput = ContractPayload<"entities", "create">;
@@ -67,34 +67,28 @@ export const getEntity = (client: Client, entityId: string) =>
 			`Entity '${entityId}' not found`,
 		);
 		const optionalText = (key: string) => {
-			const value = requireRyotQLFieldValue(row, key);
-			if (value.kind === "null") {
+			const value = requireRyotQLValue(row, key);
+			if (value === null) {
 				return null;
 			}
-			if (value.kind !== "text") {
-				throw new Error(`Expected text or null field '${key}'`);
-			}
-			return requireString(value.value, `Expected '${key}' to contain text`);
+			return requireString(value, `Expected '${key}' to contain text`);
 		};
-		const properties = requireRyotQLFieldValue(row, "properties");
-		if (properties.kind !== "json") {
-			throw new Error("Expected entity properties to be JSON");
-		}
+		const properties = requireRyotQLValue(row, "properties");
 		const providerId = optionalText("providerId");
-		const value = requireRyotQLFieldValue(row, "populatedAt");
-		const populatedAt = value.kind === "null" ? null : requireRyotQLDateField(row, "populatedAt");
+		const value = requireRyotQLValue(row, "populatedAt");
+		const populatedAt = value === null ? null : requireRyotQLDate(row, "populatedAt");
 		return {
 			populatedAt,
 			externalId: optionalText("externalId"),
-			name: requireRyotQLTextField(row, "name"),
-			createdAt: requireRyotQLDateField(row, "createdAt"),
-			updatedAt: requireRyotQLDateField(row, "updatedAt"),
-			id: EntityId.make(requireRyotQLTextField(row, "id")),
+			name: requireRyotQLText(row, "name"),
+			createdAt: requireRyotQLDate(row, "createdAt"),
+			updatedAt: requireRyotQLDate(row, "updatedAt"),
+			id: EntityId.make(requireRyotQLText(row, "id")),
 			providerId: providerId === null ? null : SandboxProviderId.make(providerId),
-			properties: requireObjectRecord(properties.value, "Entity properties must be an object"),
-			entitySchemaSlug: EntitySchemaSlug.make(requireRyotQLTextField(row, "entitySchemaSlug")),
+			properties: requireObjectRecord(properties, "Entity properties must be an object"),
+			entitySchemaSlug: EntitySchemaSlug.make(requireRyotQLText(row, "entitySchemaSlug")),
 			translationStatus: yield* Schema.decodeUnknownEffect(TranslationStatus)(
-				requireRyotQLTextField(row, "translationStatus"),
+				requireRyotQLText(row, "translationStatus"),
 			),
 		};
 	});

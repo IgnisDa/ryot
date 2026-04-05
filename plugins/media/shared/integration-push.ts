@@ -5,9 +5,7 @@ import type {
 	SandboxHost,
 } from "@ryot/sandbox-sdk/core";
 import { Effect } from "@ryot/sandbox-sdk/effect";
-import { buildEntityReadDocument } from "@ryot/sandbox-sdk/ryotql";
-
-import { decodeEntityReadResponse } from "./ryotql";
+import { entityReadRecipe, executeRyotqlRecipe } from "@ryot/sandbox-sdk/ryotql";
 
 export type IntegrationPushHost = SandboxHost<
 	readonly [
@@ -51,9 +49,12 @@ export const listActiveIntegrations = (
 ) => host.listIntegrations({ provider, isDisabled: false });
 
 export const fetchEntity = (host: IntegrationPushHost, entityId: string) =>
-	host
-		.executeRyotql(buildEntityReadDocument({ entityIds: [entityId] }))
-		.pipe(Effect.map(decodeEntityReadResponse));
+	executeRyotqlRecipe(host.executeRyotql, entityReadRecipe({ entityIds: [entityId] })).pipe(
+		Effect.flatMap(({ items }) => {
+			const entity = items[0];
+			return entity ? Effect.succeed(entity) : Effect.fail(new Error("Entity not found"));
+		}),
+	);
 
 export const resolveEntityProviderName = (host: IntegrationPushHost, entity: EntityRecord) => {
 	if (!entity.providerId) {

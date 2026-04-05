@@ -1,31 +1,47 @@
-import { column, field, table } from "@ryot/ryotql";
-import { describe, expect, it } from "vitest";
+import { Result } from "effect";
+import { assert, describe, expect, it } from "vitest";
 
-import { buildAllCollectionsDocument } from "./collections";
+import { allCollectionsRecipe } from "./collections";
+
+const pageInfo = { hasMore: false, limit: 7, nextCursor: null };
 
 describe("collections recipe", () => {
-	it("selects collection ids and names with stable requested pagination", () => {
-		const collection = table("entity", "collection");
-		expect(
-			buildAllCollectionsDocument({
-				after: "cursor",
-				limit: 7,
-				fields: [field("id", column(collection, "id")), field("name", column(collection, "name"))],
-			}),
-		).toMatchObject({
-			queries: {
-				collections: {
-					from: { table: "entity", alias: "collection" },
-					output: {
-						pagination: { after: "cursor", limit: 7 },
-						fields: [{ key: "id" }, { key: "name" }],
-					},
-					where: {
-						right: { type: "literal", value: "collection" },
-						left: { field: "entitySchemaSlug", tableAlias: "collection" },
-					},
-				},
-			},
+	it("prepares and decodes the paginated collection list", () => {
+		const recipe = allCollectionsRecipe({ after: "cursor", limit: 7 });
+		const query = recipe.document.queries.collections;
+		assert(query);
+
+		expect(query.output).toMatchObject({
+			pagination: { after: "cursor", limit: 7 },
+			fields: [{ key: "id" }, { key: "name" }],
 		});
+		expect(query.where).toMatchObject({ right: { value: "collection" } });
+		expect(
+			Result.getOrThrow(
+				recipe.decode({
+					data: {
+						collections: {
+							pageInfo,
+							type: "rows",
+							items: [{ id: "collection-1", name: "Favorites" }],
+						},
+					},
+				}),
+			),
+		).toEqual({ items: [{ id: "collection-1", name: "Favorites" }], pageInfo });
+	});
+
+	it("rejects malformed fields and result cardinality", () => {
+		const recipe = allCollectionsRecipe();
+		expect(
+			Result.isFailure(
+				recipe.decode({
+					data: { collections: { pageInfo, type: "rows", items: [{ id: 1, name: "Bad" }] } },
+				}),
+			),
+		).toBe(true);
+		expect(
+			Result.isFailure(recipe.decode({ data: { collections: { items: [], type: "aggregate" } } })),
+		).toBe(true);
 	});
 });

@@ -1,11 +1,11 @@
 import {
-	buildCompletedPodcastsQueryDocument,
-	buildInProgressPodcastsQueryDocument,
-	buildPodcastDetailQueryDocument,
-	buildShowDetailQueryDocument,
-	buildCollectionMediaSuggestionsQueryDocument,
-	buildPersonalMediaSuggestionsQueryDocument,
-	buildTrendingMediaQueryDocument,
+	completedPodcastsRecipe,
+	collectionMediaSuggestionsRecipe,
+	inProgressPodcastsRecipe,
+	personalMediaSuggestionsRecipe,
+	podcastDetailRecipe,
+	showDetailRecipe,
+	trendingMediaRecipe,
 } from "@ryot/media-plugin/query-recipes";
 import { DateTime, Effect } from "effect";
 
@@ -15,7 +15,7 @@ import {
 	createEventFixture,
 	createGlobalBookEntityFixture,
 	createRelationship,
-	executeRyotQL,
+	executeRyotQLRecipe,
 	findBuiltinSchemaBySlug,
 	getBuiltinEntitySchemaSlug,
 	insertGlobalRelationship,
@@ -24,8 +24,6 @@ import {
 	listRelationshipSchemas,
 	requireEventSchemaBySlug,
 	requireRelationshipSchemaBySlug,
-	requireRyotQLFieldValue,
-	requireRows,
 	seedMediaEntity,
 	type Client,
 } from "~/fixtures";
@@ -245,61 +243,32 @@ describe("Media RyotQL query recipe results", () => {
 				properties: { completionMode: "unknown" },
 			});
 
-			const response = yield* executeRyotQL(
+			const showRow = yield* executeRyotQLRecipe(
 				client,
-				buildShowDetailQueryDocument({ seasonLimit: 2, episodeLimit: 1, entityId: show.id }),
+				showDetailRecipe({ seasonLimit: 2, episodeLimit: 1, entityId: show.id }),
 			);
-			const result = requireRows(response.data.show, "show");
-			const showRow = result.items[0];
 			assertPresent(showRow, "Expected show row");
 			const seasons = showRow.seasons;
-			if (!seasons || !("items" in seasons)) {
-				throw new Error("Expected seasons include");
-			}
 			expect(seasons.items).toHaveLength(2);
-			expect(
-				seasons.items.map((season) => requireRyotQLFieldValue(season, "seasonNumber").value),
-			).toEqual([1, 2]);
+			expect(seasons.items.map((season) => season.seasonNumber)).toEqual([1, 2]);
 			const firstSeasonResult = seasons.items[0];
 			const secondSeasonResult = seasons.items[1];
 			assertPresent(firstSeasonResult, "Expected first season");
 			assertPresent(secondSeasonResult, "Expected second season");
 			const firstEpisodes = firstSeasonResult.episodes;
 			const secondEpisodes = secondSeasonResult.episodes;
-			if (
-				!firstEpisodes ||
-				!("items" in firstEpisodes) ||
-				!secondEpisodes ||
-				!("items" in secondEpisodes)
-			) {
-				throw new Error("Expected nested episode includes");
-			}
 			expect(firstEpisodes.items).toHaveLength(1);
 			expect(secondEpisodes.items).toHaveLength(1);
 			const firstEpisodeResult = firstEpisodes.items[0];
 			const secondSeasonEpisodeResult = secondEpisodes.items[0];
 			assertPresent(firstEpisodeResult, "Expected first episode result");
 			assertPresent(secondSeasonEpisodeResult, "Expected second-season episode result");
-			expect(requireRyotQLFieldValue(firstEpisodeResult, "name").value).toBe("Season 1 Episode 1");
-			expect(requireRyotQLFieldValue(firstEpisodeResult, "hasProgress")).toEqual({
-				value: true,
-				kind: "boolean",
-			});
-			expect(requireRyotQLFieldValue(firstEpisodeResult, "isComplete")).toEqual({
-				value: true,
-				kind: "boolean",
-			});
-			expect(requireRyotQLFieldValue(secondSeasonEpisodeResult, "name").value).toBe(
-				"Season 2 Episode 1",
-			);
-			expect(requireRyotQLFieldValue(secondSeasonEpisodeResult, "hasProgress")).toEqual({
-				value: false,
-				kind: "boolean",
-			});
-			expect(requireRyotQLFieldValue(secondSeasonEpisodeResult, "isComplete")).toEqual({
-				value: false,
-				kind: "boolean",
-			});
+			expect(firstEpisodeResult.name).toBe("Season 1 Episode 1");
+			expect(firstEpisodeResult.hasProgress).toBe(true);
+			expect(firstEpisodeResult.isComplete).toBe(true);
+			expect(secondSeasonEpisodeResult.name).toBe("Season 2 Episode 1");
+			expect(secondSeasonEpisodeResult.hasProgress).toBe(false);
+			expect(secondSeasonEpisodeResult.isComplete).toBe(false);
 		}),
 	);
 
@@ -322,41 +291,22 @@ describe("Media RyotQL query recipe results", () => {
 				eventSchemaSlug: seeded.episodeCompleteEventSchemaSlug,
 			});
 
-			const response = yield* executeRyotQL(
+			const podcastRow = yield* executeRyotQLRecipe(
 				client,
-				buildPodcastDetailQueryDocument({ entityId: seeded.podcast.id, episodeLimit: 2 }),
+				podcastDetailRecipe({ entityId: seeded.podcast.id, episodeLimit: 2 }),
 			);
-			const result = requireRows(response.data.podcast, "podcast");
-			const podcastRow = result.items[0];
 			assertPresent(podcastRow, "Expected podcast row");
 			const episodes = podcastRow.episodes;
-			if (!episodes || !("items" in episodes)) {
-				throw new Error("Expected podcast episodes include");
-			}
 			expect(episodes.items).toHaveLength(2);
-			expect(
-				episodes.items.map((episode) => requireRyotQLFieldValue(episode, "episodeNumber").value),
-			).toEqual([1, 2]);
+			expect(episodes.items.map((episode) => episode.episodeNumber)).toEqual([1, 2]);
 			const firstEpisodeResult = episodes.items[0];
 			const secondEpisodeResult = episodes.items[1];
 			assertPresent(firstEpisodeResult, "Expected first podcast episode result");
 			assertPresent(secondEpisodeResult, "Expected second podcast episode result");
-			expect(requireRyotQLFieldValue(firstEpisodeResult, "hasProgress")).toEqual({
-				value: true,
-				kind: "boolean",
-			});
-			expect(requireRyotQLFieldValue(firstEpisodeResult, "isComplete")).toEqual({
-				value: false,
-				kind: "boolean",
-			});
-			expect(requireRyotQLFieldValue(secondEpisodeResult, "hasProgress")).toEqual({
-				value: false,
-				kind: "boolean",
-			});
-			expect(requireRyotQLFieldValue(secondEpisodeResult, "isComplete")).toEqual({
-				value: true,
-				kind: "boolean",
-			});
+			expect(firstEpisodeResult.hasProgress).toBe(true);
+			expect(firstEpisodeResult.isComplete).toBe(false);
+			expect(secondEpisodeResult.hasProgress).toBe(false);
+			expect(secondEpisodeResult.isComplete).toBe(true);
 		}),
 	);
 
@@ -368,11 +318,11 @@ describe("Media RyotQL query recipe results", () => {
 			const secondEpisode = seeded.episodes[1];
 			assertPresent(firstEpisode, "Expected first podcast episode");
 			assertPresent(secondEpisode, "Expected second podcast episode");
-			const inProgressDocument = buildInProgressPodcastsQueryDocument({
+			const inProgressRecipe = inProgressPodcastsRecipe({
 				limit: 10,
 				entityId: seeded.podcast.id,
 			});
-			const completedDocument = buildCompletedPodcastsQueryDocument({
+			const completedRecipe = completedPodcastsRecipe({
 				limit: 10,
 				entityId: seeded.podcast.id,
 			});
@@ -386,15 +336,9 @@ describe("Media RyotQL query recipe results", () => {
 				properties: { completionMode: "unknown" },
 				eventSchemaSlug: seeded.episodeCompleteEventSchemaSlug,
 			});
-			let response = requireRows(
-				(yield* executeRyotQL(client, inProgressDocument)).data.podcasts,
-				"podcasts",
-			);
+			let response = yield* executeRyotQLRecipe(client, inProgressRecipe);
 			expect(response.items).toHaveLength(1);
-			response = requireRows(
-				(yield* executeRyotQL(client, completedDocument)).data.podcasts,
-				"podcasts",
-			);
+			response = yield* executeRyotQLRecipe(client, completedRecipe);
 			expect(response.items).toHaveLength(0);
 
 			yield* createEventFixture(client, {
@@ -402,15 +346,9 @@ describe("Media RyotQL query recipe results", () => {
 				properties: { completionMode: "unknown" },
 				eventSchemaSlug: seeded.episodeCompleteEventSchemaSlug,
 			});
-			response = requireRows(
-				(yield* executeRyotQL(client, inProgressDocument)).data.podcasts,
-				"podcasts",
-			);
+			response = yield* executeRyotQLRecipe(client, inProgressRecipe);
 			expect(response.items).toHaveLength(1);
-			response = requireRows(
-				(yield* executeRyotQL(client, completedDocument)).data.podcasts,
-				"podcasts",
-			);
+			response = yield* executeRyotQLRecipe(client, completedRecipe);
 			expect(response.items).toHaveLength(1);
 
 			yield* createEventFixture(client, {
@@ -418,15 +356,9 @@ describe("Media RyotQL query recipe results", () => {
 				properties: { completionMode: "unknown" },
 				eventSchemaSlug: seeded.podcastCompleteEventSchemaSlug,
 			});
-			response = requireRows(
-				(yield* executeRyotQL(client, inProgressDocument)).data.podcasts,
-				"podcasts",
-			);
+			response = yield* executeRyotQLRecipe(client, inProgressRecipe);
 			expect(response.items).toHaveLength(0);
-			response = requireRows(
-				(yield* executeRyotQL(client, completedDocument)).data.podcasts,
-				"podcasts",
-			);
+			response = yield* executeRyotQLRecipe(client, completedRecipe);
 			expect(response.items).toHaveLength(1);
 		}),
 	);
@@ -485,26 +417,20 @@ describe("Media RyotQL query recipe results", () => {
 				}),
 			]);
 
-			const response = yield* executeRyotQL(
+			const result = yield* executeRyotQLRecipe(
 				client,
-				buildPersonalMediaSuggestionsQueryDocument({ limit: 10, entitySchemaSlug: schema.slug }),
+				personalMediaSuggestionsRecipe({ limit: 10, entitySchemaSlug: schema.slug }),
 			);
-			const result = response.data.recommendations;
-			if (result?.type !== "aggregate") {
-				throw new Error("Expected recommendation aggregate result");
-			}
 			expect(result.items).toHaveLength(2);
 			const first = result.items[0];
 			const second = result.items[1];
 			assertPresent(first, "Expected top suggestion");
 			assertPresent(second, "Expected second suggestion");
-			expect(requireRyotQLFieldValue(first, "id").value).toBe(candidateTop.entity.id);
-			expect(requireRyotQLFieldValue(first, "recommendingSourceCount").value).toBe(2);
-			expect(requireRyotQLFieldValue(second, "id").value).toBe(candidateOther.entity.id);
-			expect(requireRyotQLFieldValue(second, "recommendingSourceCount").value).toBe(1);
-			expect(result.items.map((item) => requireRyotQLFieldValue(item, "id").value)).not.toContain(
-				alreadyOwned.entity.id,
-			);
+			expect(first.id).toBe(candidateTop.entity.id);
+			expect(first.recommendingSourceCount).toBe(2);
+			expect(second.id).toBe(candidateOther.entity.id);
+			expect(second.recommendingSourceCount).toBe(1);
+			expect(result.items.map((item) => item.id)).not.toContain(alreadyOwned.entity.id);
 		}),
 	);
 
@@ -573,23 +499,16 @@ describe("Media RyotQL query recipe results", () => {
 				}),
 			]);
 
-			const response = yield* executeRyotQL(
+			const result = yield* executeRyotQLRecipe(
 				client,
-				buildCollectionMediaSuggestionsQueryDocument({
+				collectionMediaSuggestionsRecipe({
 					limit: 10,
 					collectionId: collection.id,
 					entitySchemaSlug: schema.slug,
 				}),
 			);
-			const result = response.data.recommendations;
-			if (result?.type !== "aggregate") {
-				throw new Error("Expected recommendation aggregate result");
-			}
 			const byId = new Map(
-				result.items.map((item) => [
-					String(requireRyotQLFieldValue(item, "id").value),
-					Number(requireRyotQLFieldValue(item, "recommendingSourceCount").value),
-				]),
+				result.items.map((item) => [String(item.id), item.recommendingSourceCount]),
 			);
 			expect(byId.get(candidateTop.entity.id)).toBe(2);
 			expect(byId.get(candidateMember.entity.id)).toBe(1);
@@ -653,27 +572,26 @@ describe("Media RyotQL query recipe results", () => {
 					}),
 				]);
 
-				const response = yield* executeRyotQL(
+				const result = yield* executeRyotQLRecipe(
 					client,
-					buildTrendingMediaQueryDocument({
+					trendingMediaRecipe({
 						limit: 10,
 						fetchedAt,
 						entitySchemaSlug: bookSchema.slug,
 					}),
 				);
-				const result = requireRows(response.data.trending, "trending");
 				expect(result.items).toHaveLength(2);
 				const first = result.items[0];
 				const secondResult = result.items[1];
 				assertPresent(first, "Expected first trending row");
 				assertPresent(secondResult, "Expected second trending row");
-				expect(requireRyotQLFieldValue(first, "id").value).toBe(top.entity.id);
-				expect(requireRyotQLFieldValue(first, "name").value).toBe(top.entity.name);
-				expect(requireRyotQLFieldValue(first, "schemaSlug").value).toBe(bookSchema.slug);
-				expect(requireRyotQLFieldValue(first, "rank").value).toBe(1);
-				expect(requireRyotQLFieldValue(first, "fetchedAt").value).toBe(fetchedAt);
-				expect(requireRyotQLFieldValue(secondResult, "id").value).toBe(secondBook.entity.id);
-				expect(requireRyotQLFieldValue(secondResult, "rank").value).toBe(2);
+				expect(first.id).toBe(top.entity.id);
+				expect(first.name).toBe(top.entity.name);
+				expect(first.schemaSlug).toBe(bookSchema.slug);
+				expect(first.rank).toBe(1);
+				expect(first.fetchedAt).toBe(fetchedAt);
+				expect(secondResult.id).toBe(secondBook.entity.id);
+				expect(secondResult.rank).toBe(2);
 			}),
 	);
 });

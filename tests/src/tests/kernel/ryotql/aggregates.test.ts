@@ -26,7 +26,7 @@ import {
 	createRelationship,
 	createRelationshipSchema,
 	executeRyotQL,
-	requireRyotQLFieldValue,
+	requireRyotQLValue,
 } from "~/fixtures";
 import { assertPresent } from "~/support/assertions";
 import { describe, expect, it } from "~/support/effect-test";
@@ -39,7 +39,7 @@ const requireAggregate = (result: RyotQLResult | undefined, key: string): Aggreg
 };
 
 describe("RyotQL aggregate outputs", () => {
-	it.live("returns grouped, ungrouped, empty, null, and runtime-kind aggregate values", () =>
+	it.live("returns grouped, ungrouped, empty, null, and typed aggregate values", () =>
 		Effect.gen(function* () {
 			const { client } = yield* createAuthenticatedClient();
 			const { schemaId, slug } = yield* createPluginEntitySchema(client, {
@@ -154,42 +154,39 @@ describe("RyotQL aggregate outputs", () => {
 			expect(allLessons.pageInfo).toBeUndefined();
 			const all = allLessons.items[0];
 			assertPresent(all, "Expected ungrouped aggregate item");
-			expect(requireRyotQLFieldValue(all, "count").value).toBe(4);
-			expect(requireRyotQLFieldValue(all, "difficultyCount").value).toBe(2);
-			expect(requireRyotQLFieldValue(all, "totalDuration").value).toBe(180);
-			expect(requireRyotQLFieldValue(all, "averageDuration").value).toBe(60);
-			expect(requireRyotQLFieldValue(all, "minimumDuration").value).toBe(30);
-			expect(requireRyotQLFieldValue(all, "maximumDuration").value).toBe(90);
+			expect(requireRyotQLValue(all, "count")).toBe(4);
+			expect(requireRyotQLValue(all, "difficultyCount")).toBe(2);
+			expect(requireRyotQLValue(all, "totalDuration")).toBe(180);
+			expect(requireRyotQLValue(all, "averageDuration")).toBe(60);
+			expect(requireRyotQLValue(all, "minimumDuration")).toBe(30);
+			expect(requireRyotQLValue(all, "maximumDuration")).toBe(90);
 
 			const empty = requireAggregate(result.data["emptyLessons"], "emptyLessons").items[0];
 			assertPresent(empty, "Expected empty aggregate item");
-			expect(requireRyotQLFieldValue(empty, "count")).toEqual({ kind: "number", value: 0 });
-			expect(requireRyotQLFieldValue(empty, "difficultyCount")).toEqual({
-				value: 0,
-				kind: "number",
-			});
+			expect(requireRyotQLValue(empty, "count")).toBe(0);
+			expect(requireRyotQLValue(empty, "difficultyCount")).toBe(0);
 			for (const key of [
 				"totalDuration",
 				"averageDuration",
 				"minimumDuration",
 				"maximumDuration",
 			]) {
-				expect(requireRyotQLFieldValue(empty, key)).toEqual({ kind: "null", value: null });
+				expect(requireRyotQLValue(empty, key)).toBeNull();
 			}
 
 			const grouped = requireAggregate(result.data["difficultyGroups"], "difficultyGroups");
 			expect(grouped.pageInfo).toEqual({ limit: 10, hasMore: false });
 			expect(grouped.items).toHaveLength(3);
 			const advanced = grouped.items.find(
-				(item) => requireRyotQLFieldValue(item, "difficulty").value === "advanced",
+				(item) => requireRyotQLValue(item, "difficulty") === "advanced",
 			);
 			const nullGroup = grouped.items.find(
-				(item) => requireRyotQLFieldValue(item, "difficulty").kind === "null",
+				(item) => requireRyotQLValue(item, "difficulty") === null,
 			);
 			assertPresent(advanced, "Expected advanced group");
 			assertPresent(nullGroup, "Expected null group");
-			expect(requireRyotQLFieldValue(advanced, "count").value).toBe(2);
-			expect(requireRyotQLFieldValue(nullGroup, "count").value).toBe(1);
+			expect(requireRyotQLValue(advanced, "count")).toBe(2);
+			expect(requireRyotQLValue(nullGroup, "count")).toBe(1);
 			const limited = requireAggregate(
 				result.data["limitedDifficultyGroups"],
 				"limitedDifficultyGroups",
@@ -198,43 +195,22 @@ describe("RyotQL aggregate outputs", () => {
 			expect(limited.items).toHaveLength(1);
 			const limitedItem = limited.items[0];
 			assertPresent(limitedItem, "Expected limited difficulty group");
-			expect(requireRyotQLFieldValue(limitedItem, "difficulty").value).toBe("advanced");
+			expect(requireRyotQLValue(limitedItem, "difficulty")).toBe("advanced");
 			for (const key of ["nullMeasureAscending", "nullMeasureDescending"]) {
 				const ordered = requireAggregate(result.data[key], key);
 				const last = ordered.items.at(-1);
 				assertPresent(last, `Expected '${key}' group`);
-				expect(requireRyotQLFieldValue(last, "totalDuration")).toEqual({
-					value: null,
-					kind: "null",
-				});
+				expect(requireRyotQLValue(last, "totalDuration")).toBeNull();
 			}
 
 			const kindItem = requireAggregate(result.data["kindGroup"], "kindGroup").items[0];
-			assertPresent(kindItem, "Expected runtime-kind group");
-			expect(requireRyotQLFieldValue(kindItem, "text")).toEqual({
-				kind: "text",
-				value: "Advanced One",
-			});
-			expect(requireRyotQLFieldValue(kindItem, "number")).toEqual({
-				value: 30,
-				kind: "number",
-			});
-			expect(requireRyotQLFieldValue(kindItem, "boolean")).toEqual({
-				value: true,
-				kind: "boolean",
-			});
-			expect(requireRyotQLFieldValue(kindItem, "date")).toEqual({
-				kind: "date",
-				value: lessons[0].createdAt,
-			});
-			expect(requireRyotQLFieldValue(kindItem, "json")).toEqual({
-				kind: "json",
-				value: { format: "video" },
-			});
-			expect(requireRyotQLFieldValue(kindItem, "missing")).toEqual({
-				value: null,
-				kind: "null",
-			});
+			assertPresent(kindItem, "Expected typed aggregate group");
+			expect(requireRyotQLValue(kindItem, "text")).toBe("Advanced One");
+			expect(requireRyotQLValue(kindItem, "number")).toBe(30);
+			expect(requireRyotQLValue(kindItem, "boolean")).toBe(true);
+			expect(requireRyotQLValue(kindItem, "date")).toBe(lessons[0].createdAt);
+			expect(requireRyotQLValue(kindItem, "json")).toEqual({ format: "video" });
+			expect(requireRyotQLValue(kindItem, "missing")).toBeNull();
 		}),
 	);
 
@@ -352,13 +328,13 @@ describe("RyotQL aggregate outputs", () => {
 
 			const item = requireAggregate(result.data["joined"], "joined").items[0];
 			assertPresent(item, "Expected joined aggregate item");
-			expect(requireRyotQLFieldValue(item, "count").value).toBe(2);
-			expect(requireRyotQLFieldValue(item, "distinctEntities").value).toBe(1);
+			expect(requireRyotQLValue(item, "count")).toBe(2);
+			expect(requireRyotQLValue(item, "distinctEntities")).toBe(1);
 			const hiddenLeftJoin = requireAggregate(result.data["hiddenLeftJoin"], "hiddenLeftJoin")
 				.items[0];
 			assertPresent(hiddenLeftJoin, "Expected secured left-join aggregate item");
-			expect(requireRyotQLFieldValue(hiddenLeftJoin, "rootCount").value).toBe(1);
-			expect(requireRyotQLFieldValue(hiddenLeftJoin, "hiddenRelationshipCount").value).toBe(0);
+			expect(requireRyotQLValue(hiddenLeftJoin, "rootCount")).toBe(1);
+			expect(requireRyotQLValue(hiddenLeftJoin, "hiddenRelationshipCount")).toBe(0);
 		}),
 	);
 });

@@ -1,6 +1,11 @@
 import type { FieldSelection, OrderBy } from "@ryot/contract/modules/ryotql/language";
+import type {
+	SavedViewCardMapping,
+	SavedViewTableMapping,
+} from "@ryot/contract/modules/saved-views/schemas";
+import { EntityId, EntitySchemaSlug } from "@ryot/contract/schema/brands";
+import type { Recipe } from "@ryot/ryotql";
 import {
-	aggregate,
 	and,
 	ascending,
 	castDate,
@@ -8,30 +13,33 @@ import {
 	column,
 	count,
 	descending,
-	document,
+	defineRecipe,
 	eq,
 	exists,
-	field,
 	gt,
-	include,
 	join,
 	jsonPath,
 	literal,
-	measure,
 	measureDescending,
 	not,
-	rows,
+	selectedAggregate,
+	selectedField,
+	selectedInclude,
+	selectedMeasure,
+	selectedOptionalRow,
+	selectedRows,
 	table,
 } from "@ryot/ryotql";
-import { buildSavedViewDocument } from "@ryot/ryotql-recipes/saved-views";
+import { savedViewRecipe } from "@ryot/ryotql-recipes/saved-views";
+import { Result, Schema } from "effect";
 
 type Table = ReturnType<typeof table>;
 
-const entityIdentityFields = (entity: Table) => [
-	field("id", column(entity, "id")),
-	field("name", column(entity, "name")),
-	field("schemaSlug", column(entity, "entitySchemaSlug")),
-];
+const entityIdentitySelection = (entity: Table) => ({
+	id: selectedField(column(entity, "id"), EntityId),
+	name: selectedField(column(entity, "name"), Schema.String),
+	schemaSlug: selectedField(column(entity, "entitySchemaSlug"), EntitySchemaSlug),
+});
 
 const entitySchema = (entity: Table, slug: string) =>
 	eq(column(entity, "entitySchemaSlug"), literal(slug));
@@ -69,11 +77,13 @@ const showSeasonInclude = (input: {
 	const seasonRelationship = table("relationship", "seasonRelationship");
 	const episodeRelationship = table("relationship", "episodeRelationship");
 
-	return include(season, {
-		key: "seasons",
+	return selectedInclude(season, {
 		limit: input.seasonLimit,
 		orderBy: [ascending(seasonNumber)],
-		fields: [...entityIdentityFields(season), field("seasonNumber", seasonNumber)],
+		selection: {
+			...entityIdentitySelection(season),
+			seasonNumber: selectedField(seasonNumber, Schema.Number),
+		},
 		where: and(
 			entitySchema(season, "show-season"),
 			relationshipTo(seasonRelationship, table("entity", "entity"), season, "show-to-show-season"),
@@ -85,9 +95,8 @@ const showSeasonInclude = (input: {
 				eq(column(seasonRelationship, "targetEntityId"), column(season, "id")),
 			),
 		],
-		include: [
-			include(episode, {
-				key: "episodes",
+		include: {
+			episodes: selectedInclude(episode, {
 				limit: input.episodeLimit,
 				orderBy: [ascending(episodeNumber)],
 				joins: [
@@ -101,14 +110,20 @@ const showSeasonInclude = (input: {
 					entitySchema(episode, "show-episode"),
 					relationshipTo(episodeRelationship, season, episode, "show-season-to-show-episode"),
 				),
-				fields: [
-					...entityIdentityFields(episode),
-					field("episodeNumber", episodeNumber),
-					field("hasProgress", eventExists(episode, "episodeProgress", "progress")),
-					field("isComplete", eventExists(episode, "episodeComplete", "complete")),
-				],
+				selection: {
+					...entityIdentitySelection(episode),
+					episodeNumber: selectedField(episodeNumber, Schema.Number),
+					hasProgress: selectedField(
+						eventExists(episode, "episodeProgress", "progress"),
+						Schema.Boolean,
+					),
+					isComplete: selectedField(
+						eventExists(episode, "episodeComplete", "complete"),
+						Schema.Boolean,
+					),
+				},
 			}),
-		],
+		},
 	});
 };
 
@@ -118,8 +133,7 @@ const podcastEpisodeInclude = (episodeLimit: number) => {
 	const episodeNumber = propertyNumber(episode, "episodeNumber");
 	const episodeRelationship = table("relationship", "episodeRelationship");
 
-	return include(episode, {
-		key: "episodes",
+	return selectedInclude(episode, {
 		limit: episodeLimit,
 		orderBy: [ascending(episodeNumber)],
 		where: and(
@@ -133,12 +147,18 @@ const podcastEpisodeInclude = (episodeLimit: number) => {
 				eq(column(episodeRelationship, "targetEntityId"), column(episode, "id")),
 			),
 		],
-		fields: [
-			...entityIdentityFields(episode),
-			field("episodeNumber", episodeNumber),
-			field("hasProgress", eventExists(episode, "episodeProgress", "progress")),
-			field("isComplete", eventExists(episode, "episodeComplete", "complete")),
-		],
+		selection: {
+			...entityIdentitySelection(episode),
+			episodeNumber: selectedField(episodeNumber, Schema.Number),
+			hasProgress: selectedField(
+				eventExists(episode, "episodeProgress", "progress"),
+				Schema.Boolean,
+			),
+			isComplete: selectedField(
+				eventExists(episode, "episodeComplete", "complete"),
+				Schema.Boolean,
+			),
+		},
 	});
 };
 
@@ -214,245 +234,278 @@ const withEntityFilter = (
 	predicate: ReturnType<typeof and>,
 ) => (entityIdInput === undefined ? predicate : and(entityId(entity, entityIdInput), predicate));
 
-export const buildShowDetailQueryDocument = (input: {
-	readonly entityId: string;
-	readonly seasonLimit: number;
-	readonly episodeLimit: number;
-}) => {
-	const entity = table("entity", "entity");
-	return document({
-		show: rows(entity, {
-			limit: 1,
-			include: [showSeasonInclude(input)],
-			fields: entityIdentityFields(entity),
-			orderBy: [ascending(column(entity, "id"))],
-			where: and(entitySchema(entity, "show"), entityId(entity, input.entityId)),
-		}),
-	});
-};
+export const showDetailRecipe = defineRecipe(
+	(input: {
+		readonly entityId: string;
+		readonly seasonLimit: number;
+		readonly episodeLimit: number;
+	}) => {
+		const entity = table("entity", "entity");
+		return {
+			queries: {
+				show: selectedOptionalRow(entity, {
+					include: { seasons: showSeasonInclude(input) },
+					selection: entityIdentitySelection(entity),
+					orderBy: [ascending(column(entity, "id"))],
+					where: and(entitySchema(entity, "show"), entityId(entity, input.entityId)),
+				}),
+			},
+			map: ({ show }) => Result.succeed(show ?? null),
+		};
+	},
+);
 
-export const buildInProgressShowsQueryDocument = (input: {
-	readonly after?: string | undefined;
-	readonly limit?: number | undefined;
-	readonly entityId?: string | undefined;
-}) => {
-	const entity = table("entity", "entity");
-	const season = table("entity", "watchingSeason");
-	const seasonRelationship = table("relationship", "watchingSeasonRelationship");
-	const episode = table("entity", "watchingEpisode");
-	const episodeRelationship = table("relationship", "watchingEpisodeRelationship");
-	return document({
-		shows: rows(entity, {
-			after: input.after,
-			limit: input.limit,
-			fields: entityIdentityFields(entity),
-			where: withEntityFilter(
-				entity,
-				input.entityId,
-				and(
-					entitySchema(entity, "show"),
-					not(eventExists(entity, "entityComplete", "complete")),
-					exists(season, {
-						joins: [
-							join(
-								"inner",
-								seasonRelationship,
-								eq(column(seasonRelationship, "targetEntityId"), column(season, "id")),
-							),
-						],
-						where: and(
-							entitySchema(season, "show-season"),
-							relationshipTo(seasonRelationship, entity, season, "show-to-show-season"),
-							exists(episode, {
+export const inProgressShowsRecipe = defineRecipe(
+	(input: {
+		readonly after?: string | undefined;
+		readonly limit?: number | undefined;
+		readonly entityId?: string | undefined;
+	}) => {
+		const entity = table("entity", "entity");
+		const season = table("entity", "watchingSeason");
+		const seasonRelationship = table("relationship", "watchingSeasonRelationship");
+		const episode = table("entity", "watchingEpisode");
+		const episodeRelationship = table("relationship", "watchingEpisodeRelationship");
+		return {
+			queries: {
+				shows: selectedRows(entity, {
+					after: input.after,
+					limit: input.limit,
+					selection: entityIdentitySelection(entity),
+					where: withEntityFilter(
+						entity,
+						input.entityId,
+						and(
+							entitySchema(entity, "show"),
+							not(eventExists(entity, "entityComplete", "complete")),
+							exists(season, {
 								joins: [
 									join(
 										"inner",
-										episodeRelationship,
-										eq(column(episodeRelationship, "targetEntityId"), column(episode, "id")),
+										seasonRelationship,
+										eq(column(seasonRelationship, "targetEntityId"), column(season, "id")),
 									),
 								],
 								where: and(
-									entitySchema(episode, "show-episode"),
-									relationshipTo(
-										episodeRelationship,
-										season,
-										episode,
-										"show-season-to-show-episode",
-									),
-									eventExists(episode, "watchingEpisodeProgress", "progress"),
+									entitySchema(season, "show-season"),
+									relationshipTo(seasonRelationship, entity, season, "show-to-show-season"),
+									exists(episode, {
+										joins: [
+											join(
+												"inner",
+												episodeRelationship,
+												eq(column(episodeRelationship, "targetEntityId"), column(episode, "id")),
+											),
+										],
+										where: and(
+											entitySchema(episode, "show-episode"),
+											relationshipTo(
+												episodeRelationship,
+												season,
+												episode,
+												"show-season-to-show-episode",
+											),
+											eventExists(episode, "watchingEpisodeProgress", "progress"),
+										),
+									}),
 								),
 							}),
 						),
-					}),
-				),
-			),
-		}),
-	});
-};
-
-export const buildCompletedShowsQueryDocument = (input: {
-	readonly after?: string | undefined;
-	readonly limit?: number | undefined;
-	readonly entityId?: string | undefined;
-}) => {
-	const entity = table("entity", "entity");
-	const completed = showRegularSeasonCount({
-		parent: entity,
-		completed: true,
-		alias: "completedSeason",
-		relationshipAlias: "completedSeasonRelationship",
-	});
-	const regular = showRegularSeasonCount({
-		parent: entity,
-		completed: false,
-		alias: "regularSeason",
-		relationshipAlias: "regularSeasonRelationship",
-	});
-	return document({
-		shows: rows(entity, {
-			after: input.after,
-			limit: input.limit,
-			fields: entityIdentityFields(entity),
-			where: withEntityFilter(
-				entity,
-				input.entityId,
-				and(
-					entitySchema(entity, "show"),
-					eq(
-						count(completed.season, {
-							where: and(...completed.where),
-							joins: [
-								join(
-									"inner",
-									completed.relationship,
-									eq(
-										column(completed.relationship, "targetEntityId"),
-										column(completed.season, "id"),
-									),
-								),
-							],
-						}),
-						count(regular.season, {
-							where: and(...regular.where),
-							joins: [
-								join(
-									"inner",
-									regular.relationship,
-									eq(column(regular.relationship, "targetEntityId"), column(regular.season, "id")),
-								),
-							],
-						}),
 					),
-				),
-			),
-		}),
-	});
-};
+				}),
+			},
+			map: ({ shows }) => Result.succeed(shows),
+		};
+	},
+);
 
-export const buildPodcastDetailQueryDocument = (input: {
-	readonly entityId: string;
-	readonly episodeLimit: number;
-}) => {
-	const entity = table("entity", "entity");
-	return document({
-		podcast: rows(entity, {
-			limit: 1,
-			fields: entityIdentityFields(entity),
-			include: [podcastEpisodeInclude(input.episodeLimit)],
-			orderBy: [ascending(column(entity, "id"))],
-			where: and(entitySchema(entity, "podcast"), entityId(entity, input.entityId)),
-		}),
-	});
-};
-
-const buildPodcastProgressDocument = (input: {
-	readonly completed: boolean;
-	readonly after?: string | undefined;
-	readonly limit?: number | undefined;
-	readonly entityId?: string | undefined;
-}) => {
-	const entity = table("entity", "entity");
-	const episode = table("entity", input.completed ? "completedEpisode" : "watchingEpisode");
-	const relationship = table(
-		"relationship",
-		input.completed ? "completedEpisodeRelationship" : "watchingEpisodeRelationship",
-	);
-	return document({
-		podcasts: rows(entity, {
-			after: input.after,
-			limit: input.limit,
-			fields: entityIdentityFields(entity),
-			where: withEntityFilter(
-				entity,
-				input.entityId,
-				and(
-					entitySchema(entity, "podcast"),
-					...(input.completed
-						? [
-								eq(
-									count(episode, {
-										joins: [
-											join(
-												"inner",
-												relationship,
-												eq(column(relationship, "targetEntityId"), column(episode, "id")),
-											),
-										],
-										where: and(
-											entitySchema(episode, "podcast-episode"),
-											relationshipTo(relationship, entity, episode, "podcast-to-podcast-episode"),
-											eventExists(episode, "completedEpisodeEvent", "complete"),
-										),
-									}),
-									count(episode, {
-										joins: [
-											join(
-												"inner",
-												relationship,
-												eq(column(relationship, "targetEntityId"), column(episode, "id")),
-											),
-										],
-										where: and(
-											entitySchema(episode, "podcast-episode"),
-											relationshipTo(relationship, entity, episode, "podcast-to-podcast-episode"),
-										),
-									}),
-								),
-							]
-						: [
-								not(eventExists(entity, "podcastComplete", "complete")),
-								exists(episode, {
+export const completedShowsRecipe = defineRecipe(
+	(input: {
+		readonly after?: string | undefined;
+		readonly limit?: number | undefined;
+		readonly entityId?: string | undefined;
+	}) => {
+		const entity = table("entity", "entity");
+		const completed = showRegularSeasonCount({
+			parent: entity,
+			completed: true,
+			alias: "completedSeason",
+			relationshipAlias: "completedSeasonRelationship",
+		});
+		const regular = showRegularSeasonCount({
+			parent: entity,
+			completed: false,
+			alias: "regularSeason",
+			relationshipAlias: "regularSeasonRelationship",
+		});
+		return {
+			queries: {
+				shows: selectedRows(entity, {
+					after: input.after,
+					limit: input.limit,
+					selection: entityIdentitySelection(entity),
+					where: withEntityFilter(
+						entity,
+						input.entityId,
+						and(
+							entitySchema(entity, "show"),
+							eq(
+								count(completed.season, {
+									where: and(...completed.where),
 									joins: [
 										join(
 											"inner",
-											relationship,
-											eq(column(relationship, "targetEntityId"), column(episode, "id")),
+											completed.relationship,
+											eq(
+												column(completed.relationship, "targetEntityId"),
+												column(completed.season, "id"),
+											),
 										),
 									],
-									where: and(
-										entitySchema(episode, "podcast-episode"),
-										relationshipTo(relationship, entity, episode, "podcast-to-podcast-episode"),
-										eventExists(episode, "watchingEpisodeProgress", "progress"),
-									),
 								}),
-							]),
-				),
-			),
-		}),
-	});
-};
+								count(regular.season, {
+									where: and(...regular.where),
+									joins: [
+										join(
+											"inner",
+											regular.relationship,
+											eq(
+												column(regular.relationship, "targetEntityId"),
+												column(regular.season, "id"),
+											),
+										),
+									],
+								}),
+							),
+						),
+					),
+				}),
+			},
+			map: ({ shows }) => Result.succeed(shows),
+		};
+	},
+);
 
-export const buildInProgressPodcastsQueryDocument = (input: {
+export const podcastDetailRecipe = defineRecipe(
+	(input: { readonly entityId: string; readonly episodeLimit: number }) => {
+		const entity = table("entity", "entity");
+		return {
+			queries: {
+				podcast: selectedOptionalRow(entity, {
+					selection: entityIdentitySelection(entity),
+					include: { episodes: podcastEpisodeInclude(input.episodeLimit) },
+					orderBy: [ascending(column(entity, "id"))],
+					where: and(entitySchema(entity, "podcast"), entityId(entity, input.entityId)),
+				}),
+			},
+			map: ({ podcast }) => Result.succeed(podcast ?? null),
+		};
+	},
+);
+
+const podcastProgressRecipe = defineRecipe(
+	(input: {
+		readonly completed: boolean;
+		readonly after?: string | undefined;
+		readonly limit?: number | undefined;
+		readonly entityId?: string | undefined;
+	}) => {
+		const entity = table("entity", "entity");
+		const episode = table("entity", input.completed ? "completedEpisode" : "watchingEpisode");
+		const relationship = table(
+			"relationship",
+			input.completed ? "completedEpisodeRelationship" : "watchingEpisodeRelationship",
+		);
+		return {
+			queries: {
+				podcasts: selectedRows(entity, {
+					after: input.after,
+					limit: input.limit,
+					selection: entityIdentitySelection(entity),
+					where: withEntityFilter(
+						entity,
+						input.entityId,
+						and(
+							entitySchema(entity, "podcast"),
+							...(input.completed
+								? [
+										eq(
+											count(episode, {
+												joins: [
+													join(
+														"inner",
+														relationship,
+														eq(column(relationship, "targetEntityId"), column(episode, "id")),
+													),
+												],
+												where: and(
+													entitySchema(episode, "podcast-episode"),
+													relationshipTo(
+														relationship,
+														entity,
+														episode,
+														"podcast-to-podcast-episode",
+													),
+													eventExists(episode, "completedEpisodeEvent", "complete"),
+												),
+											}),
+											count(episode, {
+												joins: [
+													join(
+														"inner",
+														relationship,
+														eq(column(relationship, "targetEntityId"), column(episode, "id")),
+													),
+												],
+												where: and(
+													entitySchema(episode, "podcast-episode"),
+													relationshipTo(
+														relationship,
+														entity,
+														episode,
+														"podcast-to-podcast-episode",
+													),
+												),
+											}),
+										),
+									]
+								: [
+										not(eventExists(entity, "podcastComplete", "complete")),
+										exists(episode, {
+											joins: [
+												join(
+													"inner",
+													relationship,
+													eq(column(relationship, "targetEntityId"), column(episode, "id")),
+												),
+											],
+											where: and(
+												entitySchema(episode, "podcast-episode"),
+												relationshipTo(relationship, entity, episode, "podcast-to-podcast-episode"),
+												eventExists(episode, "watchingEpisodeProgress", "progress"),
+											),
+										}),
+									]),
+						),
+					),
+				}),
+			},
+			map: ({ podcasts }) => Result.succeed(podcasts),
+		};
+	},
+);
+
+export const inProgressPodcastsRecipe = (input: {
 	readonly after?: string | undefined;
 	readonly limit?: number | undefined;
 	readonly entityId?: string | undefined;
-}) => buildPodcastProgressDocument({ ...input, completed: false });
+}) => podcastProgressRecipe({ ...input, completed: false });
 
-export const buildCompletedPodcastsQueryDocument = (input: {
+export const completedPodcastsRecipe = (input: {
 	readonly after?: string | undefined;
 	readonly limit?: number | undefined;
 	readonly entityId?: string | undefined;
-}) => buildPodcastProgressDocument({ ...input, completed: true });
+}) => podcastProgressRecipe({ ...input, completed: true });
 
 const libraryExists = (entity: Table, alias: string) => {
 	const library = table("entity", alias);
@@ -473,7 +526,7 @@ const libraryExists = (entity: Table, alias: string) => {
 	});
 };
 
-const recommendationOutput = (input: {
+const recommendationQuery = (input: {
 	readonly limit: number;
 	readonly entitySchemaSlug: string;
 	readonly where: (tables: {
@@ -484,116 +537,143 @@ const recommendationOutput = (input: {
 	const relationship = table("relationship", "relationship");
 	const source = table("entity", "sourceEntity");
 	const target = table("entity", "targetEntity");
-	return document({
-		recommendations: aggregate(relationship, {
-			limit: input.limit,
-			groupBy: entityIdentityFields(target),
-			orderBy: [measureDescending("recommendingSourceCount")],
-			joins: [
-				join("inner", source, eq(column(relationship, "sourceEntityId"), column(source, "id"))),
-				join("inner", target, eq(column(relationship, "targetEntityId"), column(target, "id"))),
-			],
-			where: and(
-				eq(column(relationship, "relationshipSchemaSlug"), literal("media-suggestion")),
-				entitySchema(source, input.entitySchemaSlug),
-				entitySchema(target, input.entitySchemaSlug),
-				input.where({ source, target }),
-			),
-			measures: [
-				measure("recommendingSourceCount", {
+	return selectedAggregate(relationship, {
+		limit: input.limit,
+		groupBy: entityIdentitySelection(target),
+		orderBy: [measureDescending("recommendingSourceCount")],
+		joins: [
+			join("inner", source, eq(column(relationship, "sourceEntityId"), column(source, "id"))),
+			join("inner", target, eq(column(relationship, "targetEntityId"), column(target, "id"))),
+		],
+		where: and(
+			eq(column(relationship, "relationshipSchemaSlug"), literal("media-suggestion")),
+			entitySchema(source, input.entitySchemaSlug),
+			entitySchema(target, input.entitySchemaSlug),
+			input.where({ source, target }),
+		),
+		measures: {
+			recommendingSourceCount: selectedMeasure(
+				{
 					function: "countDistinct",
 					expr: column(source, "id"),
-				}),
-			],
-		}),
+				},
+				Schema.Number,
+			),
+		},
 	});
 };
 
-export const buildPersonalMediaSuggestionsQueryDocument = (input: {
-	readonly entitySchemaSlug: string;
-	readonly limit?: number | undefined;
-}) =>
-	recommendationOutput({
-		limit: input.limit ?? 20,
-		entitySchemaSlug: input.entitySchemaSlug,
-		where: ({ source, target }) =>
-			and(libraryExists(source, "sourceLibrary"), not(libraryExists(target, "targetLibrary"))),
-	});
+export const personalMediaSuggestionsRecipe = defineRecipe(
+	(input: { readonly entitySchemaSlug: string; readonly limit?: number | undefined }) => ({
+		queries: {
+			recommendations: recommendationQuery({
+				limit: input.limit ?? 20,
+				entitySchemaSlug: input.entitySchemaSlug,
+				where: ({ source, target }) =>
+					and(libraryExists(source, "sourceLibrary"), not(libraryExists(target, "targetLibrary"))),
+			}),
+		},
+		map: ({ recommendations }) => Result.succeed(recommendations),
+	}),
+);
 
-export const buildCollectionMediaSuggestionsQueryDocument = (input: {
-	readonly collectionId: string;
-	readonly entitySchemaSlug: string;
-	readonly limit?: number | undefined;
-}) => {
-	const collection = table("entity", "collection");
-	const membership = table("relationship", "collectionMembership");
-	return recommendationOutput({
-		limit: input.limit ?? 20,
-		entitySchemaSlug: input.entitySchemaSlug,
-		where: ({ source }) =>
-			and(
-				exists(collection, {
-					joins: [
-						join(
-							"inner",
-							membership,
-							eq(column(membership, "targetEntityId"), column(collection, "id")),
+export const collectionMediaSuggestionsRecipe = defineRecipe(
+	(input: {
+		readonly collectionId: string;
+		readonly entitySchemaSlug: string;
+		readonly limit?: number | undefined;
+	}) => {
+		const collection = table("entity", "collection");
+		const membership = table("relationship", "collectionMembership");
+		return {
+			queries: {
+				recommendations: recommendationQuery({
+					limit: input.limit ?? 20,
+					entitySchemaSlug: input.entitySchemaSlug,
+					where: ({ source }) =>
+						and(
+							exists(collection, {
+								joins: [
+									join(
+										"inner",
+										membership,
+										eq(column(membership, "targetEntityId"), column(collection, "id")),
+									),
+								],
+								where: and(
+									entitySchema(collection, "collection"),
+									eq(column(collection, "id"), literal(input.collectionId)),
+									eq(column(membership, "sourceEntityId"), column(source, "id")),
+									eq(column(membership, "relationshipSchemaSlug"), literal("member-of")),
+								),
+							}),
 						),
+				}),
+			},
+			map: ({ recommendations }) => Result.succeed(recommendations),
+		};
+	},
+);
+
+export const trendingMediaRecipe = defineRecipe(
+	(input: {
+		readonly fetchedAt: string;
+		readonly entitySchemaSlug: string;
+		readonly after?: string | undefined;
+		readonly limit?: number | undefined;
+	}) => {
+		const relationship = table("relationship", "relationship");
+		const source = table("entity", "sourceEntity");
+		const target = table("entity", "targetEntity");
+		const rank = castNumber(jsonPath(column(relationship, "properties"), "rank"));
+		const fetchedAt = castDate(jsonPath(column(relationship, "properties"), "fetchedAt"));
+		return {
+			queries: {
+				trending: selectedRows(relationship, {
+					after: input.after,
+					limit: input.limit,
+					orderBy: [ascending(rank), descending(column(target, "updatedAt"))],
+					selection: {
+						...entityIdentitySelection(target),
+						rank: selectedField(rank, Schema.Number),
+						fetchedAt: selectedField(fetchedAt, Schema.String),
+					},
+					joins: [
+						join("inner", source, eq(column(relationship, "sourceEntityId"), column(source, "id"))),
+						join("inner", target, eq(column(relationship, "targetEntityId"), column(target, "id"))),
 					],
 					where: and(
-						entitySchema(collection, "collection"),
-						eq(column(collection, "id"), literal(input.collectionId)),
-						eq(column(membership, "sourceEntityId"), column(source, "id")),
-						eq(column(membership, "relationshipSchemaSlug"), literal("member-of")),
+						eq(column(relationship, "relationshipSchemaSlug"), literal("media-trending")),
+						entitySchema(source, input.entitySchemaSlug),
+						entitySchema(target, input.entitySchemaSlug),
+						eq(fetchedAt, castDate(literal(input.fetchedAt))),
 					),
 				}),
-			),
-	});
-};
+			},
+			map: ({ trending }) => Result.succeed(trending),
+		};
+	},
+);
 
-export const buildTrendingMediaQueryDocument = (input: {
-	readonly fetchedAt: string;
-	readonly entitySchemaSlug: string;
-	readonly after?: string | undefined;
-	readonly limit?: number | undefined;
-}) => {
-	const relationship = table("relationship", "relationship");
-	const source = table("entity", "sourceEntity");
-	const target = table("entity", "targetEntity");
-	const rank = castNumber(jsonPath(column(relationship, "properties"), "rank"));
-	const fetchedAt = castDate(jsonPath(column(relationship, "properties"), "fetchedAt"));
-	return document({
-		trending: rows(relationship, {
-			after: input.after,
-			limit: input.limit,
-			orderBy: [ascending(rank), descending(column(target, "updatedAt"))],
-			fields: [...entityIdentityFields(target), field("rank", rank), field("fetchedAt", fetchedAt)],
-			joins: [
-				join("inner", source, eq(column(relationship, "sourceEntityId"), column(source, "id"))),
-				join("inner", target, eq(column(relationship, "targetEntityId"), column(target, "id"))),
-			],
-			where: and(
-				eq(column(relationship, "relationshipSchemaSlug"), literal("media-trending")),
-				entitySchema(source, input.entitySchemaSlug),
-				entitySchema(target, input.entitySchemaSlug),
-				eq(fetchedAt, castDate(literal(input.fetchedAt))),
-			),
-		}),
-	});
-};
-
-export const buildDefaultMediaSavedViewQueryDocument = (input: {
+export const defaultMediaSavedViewRecipe = (input: {
 	readonly after?: string | undefined;
 	readonly limit?: number | undefined;
 	readonly schemas: readonly [string, ...string[]];
 	readonly orderBy?: readonly OrderBy[] | undefined;
 	readonly fields: readonly FieldSelection[];
+	readonly layout:
+		| { readonly type: "card"; readonly mapping: SavedViewCardMapping & { entityIdField: string } }
+		| {
+				readonly type: "table";
+				readonly mapping: SavedViewTableMapping & { entityIdField: string };
+		  };
 }) => {
 	const entity = table("entity", "entity");
 	const library = table("entity", "library");
 	const membership = table("relationship", "inLibrary");
 
-	return buildSavedViewDocument({
+	const source = {
+		type: "generated",
 		after: input.after,
 		limit: input.limit,
 		orderBy: input.orderBy,
@@ -610,5 +690,19 @@ export const buildDefaultMediaSavedViewQueryDocument = (input: {
 				join("inner", library, eq(column(membership, "targetEntityId"), column(library, "id"))),
 			],
 		}),
-	});
+	} as const;
+	return savedViewRecipe({ layout: input.layout, source });
 };
+
+export type ShowDetailResult = Recipe.Success<typeof showDetailRecipe>;
+export type InProgressShowsResult = Recipe.Success<typeof inProgressShowsRecipe>;
+export type CompletedShowsResult = Recipe.Success<typeof completedShowsRecipe>;
+export type PodcastDetailResult = Recipe.Success<typeof podcastDetailRecipe>;
+export type InProgressPodcastsResult = Recipe.Success<typeof inProgressPodcastsRecipe>;
+export type CompletedPodcastsResult = Recipe.Success<typeof completedPodcastsRecipe>;
+export type PersonalMediaSuggestionsResult = Recipe.Success<typeof personalMediaSuggestionsRecipe>;
+export type CollectionMediaSuggestionsResult = Recipe.Success<
+	typeof collectionMediaSuggestionsRecipe
+>;
+export type TrendingMediaResult = Recipe.Success<typeof trendingMediaRecipe>;
+export type DefaultMediaSavedViewResult = Recipe.Success<typeof defaultMediaSavedViewRecipe>;

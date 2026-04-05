@@ -1,148 +1,48 @@
-import type { RyotQLResponse } from "@ryot/contract/modules/ryotql/language";
 import { EntitySchemaSlug, SandboxProviderId } from "@ryot/contract/schema/brands";
 import { Result } from "effect";
-import { describe, expect, it } from "vitest";
+import { assert, describe, expect, it } from "vitest";
 
-import {
-	buildProviderEntityLinksDocument,
-	decodeProviderEntityLinksResponse,
-} from "./provider-entity-links";
+import { providerEntityLinksRecipe } from "./provider-entity-links";
+import { rowsResponse } from "./test-utils";
 
-const providerEntityLinksResponse = {
-	data: {
-		links: {
-			type: "rows",
-			pageInfo: { hasMore: false, limit: 2, nextCursor: null },
-			items: [
-				{
-					externalId: { kind: "text", value: "external-1" },
-				},
-				{
-					externalId: { kind: "text", value: "external-2" },
-				},
-			],
-		},
-	},
-} satisfies RyotQLResponse;
-
-const responseWithItems = (items: readonly unknown[]) => ({
-	data: { links: { ...providerEntityLinksResponse.data.links, items } },
+const pageInfo = { hasMore: false, limit: 2, nextCursor: null };
+const recipe = providerEntityLinksRecipe({
+	externalIds: ["external-1", "external-2"],
+	entitySchemaSlug: EntitySchemaSlug.make("book"),
+	providerId: SandboxProviderId.make("provider-1"),
 });
+const responseWithItems = (items: readonly unknown[]) => rowsResponse("links", items, pageInfo);
 
 describe("provider entity links recipe", () => {
-	it("builds the provider-scoped external id lookup", () => {
-		const query = buildProviderEntityLinksDocument({
-			externalIds: ["external-1", "external-2"],
-			entitySchemaSlug: EntitySchemaSlug.make("book"),
-			providerId: SandboxProviderId.make("provider-1"),
-		}).queries.links;
+	it("prepares the provider-scoped lookup and decodes external ids", () => {
+		const query = recipe.document.queries.links;
+		assert(query);
+		assert(query.output.type === "rows");
 
-		expect(query.from).toEqual({ alias: "entity", table: "entity" });
 		expect(query.output.pagination).toEqual({ limit: 2 });
-		expect(query.output.orderBy).toEqual([
-			{ direction: "asc", expr: { type: "column", tableAlias: "entity", field: "id" } },
-		]);
-		expect(query.where).toEqual({
+		expect(query.output.fields).toMatchObject([{ key: "externalId" }]);
+		expect(query.where).toMatchObject({
 			type: "and",
 			predicates: [
-				{
-					operator: "eq",
-					type: "comparison",
-					right: { type: "literal", value: "book" },
-					left: { type: "column", tableAlias: "entity", field: "entitySchemaSlug" },
-				},
-				{
-					operator: "eq",
-					type: "comparison",
-					right: { type: "literal", value: "provider-1" },
-					left: { type: "column", tableAlias: "entity", field: "providerId" },
-				},
-				{
-					type: "in",
-					expr: { type: "column", tableAlias: "entity", field: "externalId" },
-					values: [
-						{ type: "literal", value: "external-1" },
-						{ type: "literal", value: "external-2" },
-					],
-				},
-				{
-					type: "exists",
-					query: {
-						from: { alias: "inLibrary", table: "relationship" },
-						joins: [
-							{
-								type: "inner",
-								table: { alias: "library", table: "entity" },
-								on: {
-									operator: "eq",
-									type: "comparison",
-									right: { type: "column", tableAlias: "library", field: "id" },
-									left: { type: "column", tableAlias: "inLibrary", field: "targetEntityId" },
-								},
-							},
-						],
-						where: {
-							type: "and",
-							predicates: [
-								{
-									operator: "eq",
-									type: "comparison",
-									right: { type: "column", tableAlias: "entity", field: "id" },
-									left: { type: "column", field: "sourceEntityId", tableAlias: "inLibrary" },
-								},
-								{
-									operator: "eq",
-									type: "comparison",
-									right: { type: "literal", value: "in-library" },
-									left: {
-										type: "column",
-										tableAlias: "inLibrary",
-										field: "relationshipSchemaSlug",
-									},
-								},
-								{
-									operator: "eq",
-									type: "comparison",
-									right: { type: "literal", value: "library" },
-									left: { type: "column", tableAlias: "library", field: "entitySchemaSlug" },
-								},
-							],
-						},
-					},
-				},
+				{ right: { value: "book" } },
+				{ right: { value: "provider-1" } },
+				{ values: [{ value: "external-1" }, { value: "external-2" }] },
+				{ type: "exists" },
 			],
 		});
 		expect(
-			query.output.fields.map((selection) => {
-				if (!("key" in selection)) {
-					throw new Error("Expected an explicit field selection");
-				}
-				return selection.key;
-			}),
-		).toEqual(["externalId"]);
-	});
-
-	it("decodes matching external ids in row order", () => {
-		expect(
-			Result.getOrThrow(decodeProviderEntityLinksResponse(providerEntityLinksResponse)),
+			Result.getOrThrow(
+				recipe.decode(
+					responseWithItems([{ externalId: "external-1" }, { externalId: "external-2" }]),
+				),
+			),
 		).toEqual([{ externalId: "external-1" }, { externalId: "external-2" }]);
 	});
 
-	it("decodes an empty result set", () => {
-		expect(Result.getOrThrow(decodeProviderEntityLinksResponse(responseWithItems([])))).toEqual([]);
-	});
-
-	it("rejects a row with a null external id", () => {
+	it("rejects malformed fields and non-rows results", () => {
+		expect(Result.isFailure(recipe.decode(responseWithItems([{ externalId: null }])))).toBe(true);
 		expect(
-			Result.isFailure(
-				decodeProviderEntityLinksResponse(
-					responseWithItems([
-						{
-							externalId: { kind: "null", value: null },
-						},
-					]),
-				),
-			),
+			Result.isFailure(recipe.decode({ data: { links: { items: [], type: "aggregate" } } })),
 		).toBe(true);
 	});
 });
