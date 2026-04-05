@@ -24,7 +24,7 @@ export const viewRuntimeFieldSchema = z
 	})
 	.strict();
 
-const executeViewRuntimeBaseBody = z
+export const executeViewRuntimeBody = z
 	.object({
 		sort: sortDefinitionSchema,
 		pagination: paginationSchema,
@@ -98,8 +98,6 @@ const executeViewRuntimeResponseDataSchema = z
 		meta: z.object({ pagination: viewRuntimePaginationSchema }).strict(),
 	})
 	.strict();
-
-export const executeViewRuntimeBody = executeViewRuntimeBaseBody;
 
 export const executeViewRuntimeResponseSchema = dataSchema(
 	executeViewRuntimeResponseDataSchema,

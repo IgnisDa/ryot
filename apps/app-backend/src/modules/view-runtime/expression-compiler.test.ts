@@ -1,6 +1,10 @@
 import { describe, expect, it } from "bun:test";
 import { PgDialect } from "drizzle-orm/pg-core";
-import { createSmartphoneSchema } from "~/lib/test-fixtures";
+import {
+	computedExpression,
+	createSmartphoneSchema,
+	entityExpression,
+} from "~/lib/test-fixtures";
 import { buildEventJoinMap, buildSchemaMap } from "~/lib/views/reference";
 import { createScalarExpressionCompiler } from "./expression-compiler";
 
@@ -10,19 +14,7 @@ const context = {
 	schemaMap: buildSchemaMap([createSmartphoneSchema()]),
 };
 
-const computedExpression = (key: string) => ({
-	type: "reference" as const,
-	reference: { key, type: "computed-field" as const },
-});
-
-const yearExpression = {
-	type: "reference" as const,
-	reference: {
-		slug: "smartphones",
-		property: "releaseYear",
-		type: "schema-property" as const,
-	},
-};
+const yearExpression = entityExpression("smartphones", "releaseYear");
 
 describe("createScalarExpressionCompiler", () => {
 	it("compiles nested computed fields for scalar query stages", () => {
