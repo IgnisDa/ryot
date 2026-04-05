@@ -581,25 +581,31 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/entity-schemas": {
+    "/entity-schemas/list": {
         parameters: {
             query?: never;
             header?: never;
             path?: never;
             cookie?: never;
         };
+        get?: never;
+        put?: never;
         /** List entity schemas with optional tracker or slug filters */
-        get: {
+        post: {
             parameters: {
-                query?: {
-                    trackerId?: string;
-                    slugs?: string[];
-                };
+                query?: never;
                 header?: never;
                 path?: never;
                 cookie?: never;
             };
-            requestBody?: never;
+            requestBody?: {
+                content: {
+                    "application/json": {
+                        trackerId?: string;
+                        slugs?: string[];
+                    };
+                };
+            };
             responses: {
                 /** @description Entity schemas for the requested filters or user */
                 200: {
@@ -659,6 +665,20 @@ export interface paths {
                 };
             };
         };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/entity-schemas": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
         put?: never;
         /** Create an entity schema for a custom tracker */
         post: {

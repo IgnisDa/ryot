@@ -1,7 +1,8 @@
 import type { AppTracker } from "#/features/trackers/model";
-import type { ApiGetResponseData } from "#/lib/api/types";
+import type { ApiPostResponseData } from "#/lib/api/types";
 
-export type AppEntitySchema = ApiGetResponseData<"/entity-schemas">[number];
+export type AppEntitySchema =
+	ApiPostResponseData<"/entity-schemas/list">[number];
 
 export function sortEntitySchemas(
 	entitySchemas: AppEntitySchema[],
