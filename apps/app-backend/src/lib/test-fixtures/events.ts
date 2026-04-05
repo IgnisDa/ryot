@@ -1,6 +1,5 @@
 import {
 	createCreatedAt,
-	createOccurredAt,
 	createUpdatedAt,
 	withOverrides,
 } from "~/lib/test-fixtures/fixture-helpers";
@@ -16,14 +15,12 @@ const listedEventDefaults: ListedEvent = {
 	eventSchemaName: "Finished",
 	createdAt: createCreatedAt(),
 	updatedAt: createUpdatedAt(),
-	occurredAt: createOccurredAt(),
 	eventSchemaId: "event_schema_1",
 };
 
 const eventBodyDefaults: CreateEventBody = {
 	entityId: "entity_1",
 	eventSchemaId: "event_schema_1",
-	occurredAt: "2026-03-08T10:15:00.000Z",
 	properties: { rating: 4 },
 };
 
@@ -80,7 +77,6 @@ export const createEventDeps = (
 	createEventForUser: async (input) =>
 		createListedEvent({
 			entityId: input.entityId,
-			occurredAt: input.occurredAt,
 			properties: input.properties,
 			eventSchemaId: input.eventSchemaId,
 			eventSchemaName: input.eventSchemaName,

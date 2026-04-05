@@ -17,7 +17,6 @@ import {
 	resolveEventCreateInput,
 	resolveEventEntityId,
 	resolveEventSchemaId,
-	resolveOccurredAt,
 } from "./service";
 
 describe("resolveEventEntityId", () => {
@@ -41,33 +40,6 @@ describe("resolveEventSchemaId", () => {
 		expect(() => resolveEventSchemaId("   ")).toThrow(
 			"Event schema id is required",
 		);
-	});
-});
-
-describe("resolveOccurredAt", () => {
-	it("parses a valid occurred at timestamp", () => {
-		const occurredAt = resolveOccurredAt(" 2026-03-08T10:15:00.000Z ");
-
-		expect(occurredAt).toBeInstanceOf(Date);
-		expect(occurredAt.toISOString()).toBe("2026-03-08T10:15:00.000Z");
-	});
-
-	it("throws when occurred at is invalid", () => {
-		expect(() => resolveOccurredAt("not-a-date")).toThrow(
-			"Occurred at must be a valid datetime",
-		);
-	});
-
-	it("throws when occurred at is not an ISO datetime string", () => {
-		expect(() => resolveOccurredAt("2026-03-08")).toThrow(
-			"Occurred at must be a valid datetime",
-		);
-	});
-
-	it("throws when occurred at is a Date instance", () => {
-		expect(() =>
-			resolveOccurredAt(new Date("2026-03-08T10:15:00.000Z")),
-		).toThrow("Occurred at must be a valid datetime");
 	});
 });
 
@@ -160,12 +132,10 @@ describe("resolveEventCreateInput", () => {
 			entityId: "  entity_123  ",
 			eventSchemaId: "  event_schema_123  ",
 			properties: { note: "Nice", rating: 4 },
-			occurredAt: " 2026-03-08T10:15:00.000Z ",
 		});
 
 		expect(input.entityId).toBe("entity_123");
 		expect(input.eventSchemaId).toBe("event_schema_123");
-		expect(input.occurredAt.toISOString()).toBe("2026-03-08T10:15:00.000Z");
 		expect(input.properties).toEqual({ note: "Nice", rating: 4 });
 	});
 
@@ -173,7 +143,6 @@ describe("resolveEventCreateInput", () => {
 		const input = resolveEventCreateInput({
 			entityId: "entity_123",
 			eventSchemaId: "event_schema_123",
-			occurredAt: "2026-03-08T10:15:00.000Z",
 			properties: { progressPercent: 25.555 },
 			propertiesSchema: createProgressPercentPropertiesSchema(),
 		});
@@ -186,7 +155,6 @@ describe("resolveEventCreateInput", () => {
 			entityId: "entity_123",
 			eventSchemaId: "event_schema_123",
 			properties: { progressPercent: 100 },
-			occurredAt: "2026-03-08T10:15:00.000Z",
 			propertiesSchema: {
 				fields: {
 					progressPercent: {
@@ -204,7 +172,6 @@ describe("resolveEventCreateInput", () => {
 		const input = resolveEventCreateInput({
 			entityId: "entity_123",
 			eventSchemaId: "event_schema_123",
-			occurredAt: "2026-03-08T10:15:00.000Z",
 			properties: { review: "Loved it", rating: 5 },
 			propertiesSchema: createReviewPropertiesSchema(),
 		});
@@ -229,12 +196,11 @@ describe("listEntityEvents", () => {
 
 describe("createEvent", () => {
 	it("normalizes event payload before persisting", async () => {
-		let createdOccurredAt: Date | undefined;
+		let createdEventSchemaId: string | undefined;
 		const deps = createEventDeps({
 			createEventForUser: async (input) => {
-				createdOccurredAt = input.occurredAt;
+				createdEventSchemaId = input.eventSchemaId;
 				return createListedEvent({
-					occurredAt: input.occurredAt,
 					properties: input.properties,
 				});
 			},
@@ -245,18 +211,15 @@ describe("createEvent", () => {
 				{
 					userId: "user_1",
 					body: {
-						...createEventBody(),
-						occurredAt: " 2026-03-08T10:15:00.000Z ",
+						...createEventBody({ eventSchemaId: "  event_schema_123  " }),
 					},
 				},
 				deps,
 			),
 		);
 
-		expect(createdOccurredAt?.toISOString()).toBe("2026-03-08T10:15:00.000Z");
-		expect(createdEvent.occurredAt.toISOString()).toBe(
-			"2026-03-08T10:15:00.000Z",
-		);
+		expect(createdEventSchemaId).toBe("event_schema_123");
+		expect(createdEvent.properties).toEqual({ rating: 4 });
 	});
 
 	it("returns validation when the event schema belongs to another entity schema", async () => {
