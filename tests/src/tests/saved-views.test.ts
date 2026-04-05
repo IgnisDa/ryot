@@ -548,21 +548,6 @@ describe("Saved views E2E", () => {
 					sort: { fields: ["year"], direction: "asc" },
 					filters: [{ op: "eq", field: "status", value: "active" }],
 				},
-				displayConfiguration: {
-					table: { columns: [{ label: "Status", property: ["status"] }] },
-					grid: {
-						subtitleProperty: null,
-						titleProperty: ["@name"],
-						imageProperty: ["@image"],
-						badgeProperty: ["status"],
-					},
-					list: {
-						badgeProperty: null,
-						titleProperty: ["@name"],
-						imageProperty: ["@image"],
-						subtitleProperty: ["year"],
-					},
-				},
 			}),
 		});
 		const updateResult = await client.PUT("/saved-views/{viewId}", {
