@@ -449,7 +449,6 @@ export function SearchEntityModalContent(props: {
 				}
 				patchActionState(item.identifier, {
 					actionError: message,
-					collectionError: isPartialFailure ? getErrorMessage(error) : null,
 					openPanel: getActionState(item.identifier).openPanel,
 				});
 			} finally {
