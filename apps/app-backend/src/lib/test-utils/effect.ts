@@ -7,7 +7,7 @@ import {
 } from "effect/unstable/workflow/WorkflowEngine";
 
 import { AppConfig, type AppConfigValue } from "#lib/infrastructure/config/service";
-import { CurrentDb, DbRunner, TransactionRunner } from "#lib/infrastructure/db/service";
+import { Database } from "#lib/infrastructure/db/service";
 import type { RedisService } from "#lib/infrastructure/redis";
 import { detachDiscardedWorkflowChildren } from "#lib/infrastructure/workflow";
 
@@ -15,12 +15,19 @@ export type MockOverrides<T> = T extends (...args: infer TArgs) => unknown
 	? Omit<TArgs[0], "_tag">
 	: never;
 
-const provideEmptyDb = <A, E, R>(effect: Effect.Effect<A, E, R>) =>
-	Effect.provideService(effect, CurrentDb, Object.create(null));
+type TransactionDatabase = Parameters<Parameters<Database["Service"]["transaction"]>[0]>[0];
 
-export const dbRunnerLayer = Layer.succeed(DbRunner, provideEmptyDb);
+const transactionDatabase: TransactionDatabase = Object.create(null);
 
-export const transactionLayer = Layer.succeed(TransactionRunner, provideEmptyDb);
+export const databaseLayer = Layer.succeed(
+	Database,
+	Database.of(
+		Object.assign(Object.create(null), {
+			transaction: ((callback) =>
+				callback(transactionDatabase)) satisfies Database["Service"]["transaction"],
+		}),
+	),
+);
 
 export type WorkflowEngineOverrides = Omit<Partial<WorkflowEngine["Service"]>, "execute"> & {
 	execute?: (
@@ -99,7 +106,6 @@ export const makeAppConfigLayer = (
 		},
 		database: {
 			poolMax: 10,
-			workflowPoolMax: 10,
 			connectionTimeoutMs: 10_000,
 			url: Redacted.make("unused"),
 		},

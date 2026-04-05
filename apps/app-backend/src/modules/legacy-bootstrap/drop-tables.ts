@@ -1,6 +1,6 @@
 import { Effect } from "effect";
 
-import { legacyBootstrapGate, withRawPgClient } from "./shared";
+import { legacyBootstrapGate, withReservedConnection } from "./shared";
 
 const dropLegacyTablesSql = `
 DO $$
@@ -38,5 +38,5 @@ export const dropLegacyTables = Effect.gen(function* () {
 		return;
 	}
 
-	yield* withRawPgClient((client) => client.query(dropLegacyTablesSql));
+	yield* withReservedConnection((connection) => connection.executeRaw(dropLegacyTablesSql, []));
 });

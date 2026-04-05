@@ -5,7 +5,6 @@ import { EntityId, EntitySchemaSlug, EventSchemaSlug } from "@ryot/contract/sche
 import type { UserId } from "@ryot/contract/schema/brands";
 import { DateTime, Effect, Option } from "effect";
 
-import { DbRunner } from "#lib/infrastructure/db/service";
 import { requireText } from "#lib/shared/validation";
 import { EntitiesRepository } from "#modules/entities/repository";
 import { EventSchemasRepository } from "#modules/event-schemas/repository";
@@ -34,9 +33,8 @@ const requireReadableEntity = Effect.fn(function* (
 	entityId: EntityId,
 	notFoundMessage: string,
 ) {
-	const runWithDb = yield* DbRunner;
 	const entitiesRepository = yield* EntitiesRepository;
-	const scope = yield* runWithDb(entitiesRepository.getEntityScopeForUser({ userId, entityId }));
+	const scope = yield* entitiesRepository.getEntityScopeForUser({ userId, entityId });
 	if (!scope) {
 		return yield* notFound(notFoundMessage);
 	}
@@ -46,7 +44,6 @@ const requireReadableEntity = Effect.fn(function* (
 
 export const resolveEventCreateItemScopes = Effect.fn("resolveEventCreateItemScopes")(
 	function* (input: { readonly item: CreateEventItem; readonly userId: UserId }) {
-		const runWithDb = yield* DbRunner;
 		const eventSchemasRepository = yield* EventSchemasRepository;
 		const entityId = EntityId.make(
 			yield* requireText(input.item.entityId, "Entity id is required"),
@@ -56,13 +53,11 @@ export const resolveEventCreateItemScopes = Effect.fn("resolveEventCreateItemSco
 		);
 
 		const entityScope = yield* requireReadableEntity(input.userId, entityId, entityNotFoundError);
-		const eventSchemaScope = yield* runWithDb(
-			eventSchemasRepository.getScopeForUser({
-				userId: input.userId,
-				eventSchemaSlug,
-				entitySchemaSlug: EntitySchemaSlug.make(entityScope.entitySchemaSlug),
-			}),
-		);
+		const eventSchemaScope = yield* eventSchemasRepository.getScopeForUser({
+			userId: input.userId,
+			eventSchemaSlug,
+			entitySchemaSlug: EntitySchemaSlug.make(entityScope.entitySchemaSlug),
+		});
 		if (!eventSchemaScope) {
 			return yield* notFound(eventSchemaNotFoundError);
 		}

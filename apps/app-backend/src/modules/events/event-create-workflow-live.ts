@@ -11,7 +11,6 @@ import { AppSchema } from "@ryot/contract/schema/property-schema";
 import { Context, DateTime, Effect, Layer, Schema } from "effect";
 import { Activity } from "effect/unstable/workflow";
 
-import { DbRunner } from "#lib/infrastructure/db/service";
 import type { DurableSchema } from "#lib/infrastructure/workflow";
 import { parseAppSchemaProperties } from "#lib/property-schema/property-schema-runtime";
 import { AutomationsService } from "#modules/automations/service";
@@ -157,7 +156,6 @@ const writeEvent = Effect.fn("writeEventCreateItem")(function* (
 	prepared: PreparedItem,
 	draft: EventPolicyDraft,
 ) {
-	const runWithDb = yield* DbRunner;
 	const eventsRepository = yield* EventsRepository;
 
 	return yield* Activity.make({
@@ -165,18 +163,16 @@ const writeEvent = Effect.fn("writeEventCreateItem")(function* (
 		error: EventCreateWorkflowError satisfies DurableSchema,
 		name: `write-event-${itemIndex}`,
 		execute: Effect.gen(function* () {
-			const createdEvent = yield* runWithDb(
-				eventsRepository.createEvent({
-					userId: payload.userId,
-					entityId: prepared.entityId,
-					properties: draft.properties,
-					sessionEntityId: draft.sessionEntityId,
-					eventSchemaSlug: prepared.eventSchemaSlug,
-					eventSchemaName: prepared.eventSchemaName,
-					id: EventId.make(`${payload.executionId}-event-${itemIndex}`),
-					occurredAt: DateTime.toDate(DateTime.makeUnsafe(draft.occurredAt)),
-				}),
-			);
+			const createdEvent = yield* eventsRepository.createEvent({
+				userId: payload.userId,
+				entityId: prepared.entityId,
+				properties: draft.properties,
+				sessionEntityId: draft.sessionEntityId,
+				eventSchemaSlug: prepared.eventSchemaSlug,
+				eventSchemaName: prepared.eventSchemaName,
+				id: EventId.make(`${payload.executionId}-event-${itemIndex}`),
+				occurredAt: DateTime.toDate(DateTime.makeUnsafe(draft.occurredAt)),
+			});
 
 			return {
 				id: createdEvent.id,

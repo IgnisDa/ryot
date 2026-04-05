@@ -4,7 +4,7 @@ import { Effect, Layer } from "effect";
 import { expect as vitestExpect } from "vitest";
 
 import type { MockOverrides } from "#lib/test-utils/effect";
-import { dbRunnerLayer } from "#lib/test-utils/effect";
+import { databaseLayer } from "#lib/test-utils/effect";
 import { ImportsRepository } from "#modules/imports/repository";
 
 import { IntegrationsService } from "./service";
@@ -34,7 +34,7 @@ const makeWorkerLayer = (input: {
 	integrationsService?: Layer.Layer<IntegrationsService>;
 }) =>
 	Layer.mergeAll(
-		dbRunnerLayer,
+		databaseLayer,
 		input.importsRepository ?? makeImportsRepository(),
 		input.integrationsService ?? makeIntegrationsService(),
 	);

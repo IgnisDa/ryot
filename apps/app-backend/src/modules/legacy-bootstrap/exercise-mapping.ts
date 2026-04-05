@@ -1,7 +1,7 @@
 import { sql } from "drizzle-orm";
 import { Effect } from "effect";
 
-import { dbEffect, DbService } from "#lib/infrastructure/db/service";
+import { Database, mapDatabaseErrors } from "#lib/infrastructure/db/service";
 
 import { buildLegacyImagesSql, buildLegacyVideosSql } from "./asset-mapping";
 import {
@@ -41,9 +41,10 @@ const supportedExerciseLotValuesSql = sql.join(
 );
 
 export const getUnsupportedExerciseSources = Effect.gen(function* () {
-	const { db } = yield* DbService;
-	const result = yield* dbEffect(() =>
-		db.execute<{ source: string }>(sql`
+	const database = yield* Database;
+	const result = yield* mapDatabaseErrors(
+		database.execute<{ source: string }>(
+			sql`
 			WITH exercise_targets (source, entity_schema_slug, provider_slug) AS (
 				VALUES ${exerciseEntityTargetValuesSql}
 			)
@@ -53,16 +54,19 @@ export const getUnsupportedExerciseSources = Effect.gen(function* () {
 			LEFT JOIN exercise_targets ON exercise_targets.source = exercise.source
 			WHERE exercise_targets.source IS NULL
 			ORDER BY exercise.source
-		`),
+		`,
+			"objects",
+		),
 	);
 
-	return result.rows;
+	return result;
 });
 
 export const getUnsupportedExerciseLots = Effect.gen(function* () {
-	const { db } = yield* DbService;
-	const result = yield* dbEffect(() =>
-		db.execute<{ lot: string }>(sql`
+	const database = yield* Database;
+	const result = yield* mapDatabaseErrors(
+		database.execute<{ lot: string }>(
+			sql`
 			WITH supported_lots (lot) AS (
 				VALUES ${supportedExerciseLotValuesSql}
 			)
@@ -72,26 +76,31 @@ export const getUnsupportedExerciseLots = Effect.gen(function* () {
 			LEFT JOIN supported_lots ON supported_lots.lot = exercise.lot
 			WHERE supported_lots.lot IS NULL
 			ORDER BY exercise.lot
-		`),
+		`,
+			"objects",
+		),
 	);
 
-	return result.rows;
+	return result;
 });
 
 export const getInvalidExerciseGithubOwnership = Effect.gen(function* () {
-	const { db } = yield* DbService;
-	const result = yield* dbEffect(() =>
-		db.execute<{ id: string }>(sql`
+	const database = yield* Database;
+	const result = yield* mapDatabaseErrors(
+		database.execute<{ id: string }>(
+			sql`
 			SELECT DISTINCT
 				exercise.id AS id
 			FROM "exercise" exercise
 			WHERE exercise.source = 'github'
 				AND exercise.created_by_user_id IS NOT NULL
 			ORDER BY exercise.id
-		`),
+		`,
+			"objects",
+		),
 	);
 
-	return result.rows;
+	return result;
 });
 
 export const buildExerciseMigrationSql = (targets: ResolvedEntityMigrationTarget[]) => `

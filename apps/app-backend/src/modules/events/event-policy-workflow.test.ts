@@ -13,7 +13,7 @@ import { Workflow } from "effect/unstable/workflow";
 import { WorkflowEngine, WorkflowInstance } from "effect/unstable/workflow/WorkflowEngine";
 import { assert } from "vitest";
 
-import { dbRunnerLayer, makeWorkflowEngine } from "#lib/test-utils/effect";
+import { databaseLayer, makeWorkflowEngine } from "#lib/test-utils/effect";
 import { AutomationsService } from "#modules/automations/service";
 import { DefinitionRegistry, makeDefinitionRegistry } from "#modules/definition-registry/service";
 import { LifecycleDispatchNoop } from "#modules/entities/lifecycle-dispatch";
@@ -118,7 +118,7 @@ const run = (input: {
 	});
 
 	const layer = Layer.mergeAll(
-		dbRunnerLayer,
+		databaseLayer,
 		LifecycleDispatchNoop,
 		Layer.mock(AutomationsService, {
 			resolveActivePolicies: () => Effect.succeed(input.policies),

@@ -6,7 +6,7 @@ import { and, eq, or, sql } from "drizzle-orm";
 import { Context, Effect, Layer } from "effect";
 
 import * as schema from "#lib/infrastructure/db/schema/tables/combined";
-import { CurrentDb, dbEffect } from "#lib/infrastructure/db/service";
+import { Database, mapDatabaseErrors } from "#lib/infrastructure/db/service";
 
 type EventRow = Pick<
 	typeof schema.event.$inferSelect,
@@ -55,6 +55,7 @@ const toListedEvent = (row: EventRow): ListedEvent => ({
 	sessionEntityId: row.sessionEntityId ? EntityId.make(row.sessionEntityId) : undefined,
 });
 
+/** @effect-expect-leaking Database */
 export class EventsRepository extends Context.Service<EventsRepository>()("EventsRepository", {
 	make: Effect.sync(() => {
 		const createEvent = Effect.fn("EventsRepository.createEvent")(function* (input: {
@@ -67,8 +68,8 @@ export class EventsRepository extends Context.Service<EventsRepository>()("Event
 			eventSchemaSlug: EventSchemaSlug;
 			properties: Record<string, unknown>;
 		}) {
-			const db = yield* CurrentDb;
-			const [inserted] = yield* dbEffect(() =>
+			const db = yield* Database;
+			const [inserted] = yield* mapDatabaseErrors(
 				db
 					.insert(schema.event)
 					.values({
@@ -86,7 +87,7 @@ export class EventsRepository extends Context.Service<EventsRepository>()("Event
 			let row = inserted;
 			const eventId = input.id;
 			if (!row && eventId) {
-				const [existing] = yield* dbEffect(() =>
+				const [existing] = yield* mapDatabaseErrors(
 					db
 						.select(createdEventSelection)
 						.from(schema.event)
@@ -108,8 +109,8 @@ export class EventsRepository extends Context.Service<EventsRepository>()("Event
 
 		const listUserEventIdsForEntity = Effect.fn("EventsRepository.listUserEventIdsForEntity")(
 			function* (input: { userId: UserId; entityId: EntityId }) {
-				const db = yield* CurrentDb;
-				const rows = yield* dbEffect(() =>
+				const db = yield* Database;
+				const rows = yield* mapDatabaseErrors(
 					db
 						.select({ id: schema.event.id })
 						.from(schema.event)
@@ -132,8 +133,8 @@ export class EventsRepository extends Context.Service<EventsRepository>()("Event
 		const deleteEvent = Effect.fn("EventsRepository.deleteEvent")(function* (
 			input: EventIdentityInput,
 		) {
-			const db = yield* CurrentDb;
-			const [row] = yield* dbEffect(() =>
+			const db = yield* Database;
+			const [row] = yield* mapDatabaseErrors(
 				db
 					.delete(schema.event)
 					.where(and(eq(schema.event.id, input.eventId), eq(schema.event.userId, input.userId)))
@@ -145,9 +146,10 @@ export class EventsRepository extends Context.Service<EventsRepository>()("Event
 
 		const updateEventEntityReferences = Effect.fn("EventsRepository.updateEventEntityReferences")(
 			function* (input: UpdateEventEntityReferencesInput) {
-				const db = yield* CurrentDb;
-				const result = yield* dbEffect(() =>
-					db.execute<{ id: string }>(sql`
+				const db = yield* Database;
+				const [row] = yield* mapDatabaseErrors(
+					db.execute<{ id: string }>(
+						sql`
 					update "event"
 					set
 						"entity_id" = case
@@ -162,10 +164,11 @@ export class EventsRepository extends Context.Service<EventsRepository>()("Event
 						and "user_id" = ${input.userId}
 						and ("entity_id" = ${input.mergeFrom} or "session_entity_id" = ${input.mergeFrom})
 					returning "id"
-				`),
+				`,
+						"objects",
+					),
 				);
 
-				const [row] = result.rows;
 				return row ? EventId.make(row.id) : null;
 			},
 		);

@@ -74,16 +74,10 @@ const database = group(
 		}),
 		poolMax: integerField({
 			defaultValue: 10,
-			label: "Pool maximum",
+			label: "Shared pool maximum",
 			envKey: "DATABASE_POOL_MAX",
-			description: "Maximum number of PostgreSQL connections held in the pool",
-		}),
-		workflowPoolMax: integerField({
-			label: "Workflow pool maximum",
-			envKey: "DATABASE_WORKFLOW_POOL_MAX",
-			defaultValue: 10,
 			description:
-				"Maximum number of PostgreSQL connections held in the dedicated workflow engine pool",
+				"Maximum number of PostgreSQL connections shared by application and workflow operations",
 		}),
 		connectionTimeoutMs: integerField({
 			defaultValue: 10_000,

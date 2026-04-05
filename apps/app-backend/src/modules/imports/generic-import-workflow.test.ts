@@ -13,10 +13,10 @@ import { Effect, Layer, Schema, FileSystem } from "effect";
 import { WorkflowEngine, WorkflowInstance } from "effect/unstable/workflow/WorkflowEngine";
 import { assert } from "vitest";
 
-import { CurrentDb, TransactionRunner } from "#lib/infrastructure/db/service";
+import { Database } from "#lib/infrastructure/db/service";
 import { SandboxArtifactStore } from "#lib/infrastructure/sandbox-runtime/artifacts";
 import {
-	dbRunnerLayer,
+	databaseLayer,
 	makeAppConfigLayer,
 	makeWorkflowActivityEngine,
 } from "#lib/test-utils/effect";
@@ -43,10 +43,14 @@ const artifactStoreLayer = Layer.mock(SandboxArtifactStore)({
 	release: () => Effect.void,
 	resolveOutputs: (_ownerExecutionId, handles) => Effect.succeed([...handles]),
 });
-const transactionRunnerLayer = Layer.succeed(
-	TransactionRunner,
-	<A, E, R>(effect: Effect.Effect<A, E, R>) =>
-		Effect.provideService(effect, CurrentDb, Object.create(null)),
+const transactionDatabaseLayer = Layer.succeed(
+	Database,
+	Database.of(
+		Object.assign(Object.create(null), {
+			transaction: ((callback) =>
+				callback(Object.create(null))) satisfies Database["Service"]["transaction"],
+		}),
+	),
 );
 
 const makeRelationshipSchemaImportItem = (
@@ -323,8 +327,8 @@ it.effect(
 			Effect.provide(
 				Layer.mergeAll(
 					artifactStoreLayer,
-					dbRunnerLayer,
-					transactionRunnerLayer,
+					databaseLayer,
+					transactionDatabaseLayer,
 					BunServices.layer,
 					makeAppConfigLayer(),
 					DefinitionRegistry.layer,
@@ -556,8 +560,8 @@ it.effect("validates relationship endpoint schemas before generic import writes"
 		Effect.provide(
 			Layer.mergeAll(
 				artifactStoreLayer,
-				dbRunnerLayer,
-				transactionRunnerLayer,
+				databaseLayer,
+				transactionDatabaseLayer,
 				BunServices.layer,
 				makeAppConfigLayer(),
 				collectionsLayer,
@@ -642,8 +646,8 @@ it.effect("fails before reading chunks when the initial run update fails", () =>
 		Effect.provide(
 			Layer.mergeAll(
 				artifactStoreLayer,
-				dbRunnerLayer,
-				transactionRunnerLayer,
+				databaseLayer,
+				transactionDatabaseLayer,
 				BunServices.layer,
 				DefinitionRegistry.layer,
 				collectionsLayer,

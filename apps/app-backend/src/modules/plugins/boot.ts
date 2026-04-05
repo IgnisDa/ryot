@@ -3,7 +3,6 @@ import { sha256Hex } from "@ryot/ts-utils/crypto";
 import { stableStringify } from "@ryot/ts-utils/json";
 import { Context, Effect, FileSystem, Layer, Path } from "effect";
 
-import { DbRunner } from "#lib/infrastructure/db/service";
 import { kernelScripts } from "#modules/definition-registry/kernel-source";
 
 import { bootPluginSources } from "./boot-sources";
@@ -18,7 +17,6 @@ export class FirstPartyPluginBootstrap extends Context.Service<FirstPartyPluginB
 	"FirstPartyPluginBootstrap",
 	{
 		make: Effect.gen(function* () {
-			const runWithDb = yield* DbRunner;
 			const repository = yield* PluginRepository;
 			const ingestion = yield* PluginIngestionService;
 			const scriptGarbageCollector = yield* ScriptGarbageCollector;
@@ -69,7 +67,7 @@ export class FirstPartyPluginBootstrap extends Context.Service<FirstPartyPluginB
 					);
 					yield* Effect.forEach(
 						compiledScripts,
-						(script) => runWithDb(repository.persistKernelScript(script)),
+						(script) => repository.persistKernelScript(script),
 						{ discard: true },
 					);
 				},

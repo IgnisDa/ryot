@@ -3,7 +3,7 @@ import { ImportRunId } from "@ryot/contract/schema/brands";
 import { Effect, Layer } from "effect";
 
 import type { MockOverrides } from "#lib/test-utils/effect";
-import { dbRunnerLayer } from "#lib/test-utils/effect";
+import { databaseLayer } from "#lib/test-utils/effect";
 
 import { ImportRunFailuresService } from "./failure-service";
 import { ImportsRepository } from "./repository";
@@ -17,7 +17,9 @@ const makeImportsRepository = (overrides: MockOverrides<typeof mockImportsReposi
 	});
 
 const makeServiceLayer = (repository = makeImportsRepository()) =>
-	ImportRunFailuresService.layer.pipe(Layer.provide(Layer.mergeAll(dbRunnerLayer, repository)));
+	ImportRunFailuresService.layer.pipe(
+		Layer.provideMerge(Layer.mergeAll(databaseLayer, repository)),
+	);
 
 it.effect("routes failure creation through its owning service", () => {
 	let createdInput: unknown;

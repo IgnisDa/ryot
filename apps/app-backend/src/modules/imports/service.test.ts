@@ -10,7 +10,7 @@ import { assert } from "vitest";
 import { RedisService } from "#lib/infrastructure/redis";
 import type { MockOverrides } from "#lib/test-utils/effect";
 import {
-	dbRunnerLayer,
+	databaseLayer,
 	makeAppConfigLayer,
 	makeConfigProviderLayer,
 	makeRedisService,
@@ -116,10 +116,10 @@ const makeServiceLayer = (
 	pinning = importWorkflowPinningLayer,
 ) =>
 	ImportsService.layer.pipe(
-		Layer.provide(
+		Layer.provideMerge(
 			Layer.mergeAll(
 				BunFileSystem.layer,
-				dbRunnerLayer,
+				databaseLayer,
 				makeAppConfigLayer(),
 				pinning,
 				Layer.succeed(RedisService, makeRedisService()),

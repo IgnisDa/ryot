@@ -7,7 +7,7 @@ import type { AutomationRuleId, SignalSchemaSlug, UserId } from "@ryot/contract/
 import { SignalSchemaSlug as SignalSchemaSlugBrand } from "@ryot/contract/schema/brands";
 import { Context, Effect, Layer } from "effect";
 
-import { DbRunner, TransactionRunner } from "#lib/infrastructure/db/service";
+import { Database, mapDatabaseErrors } from "#lib/infrastructure/db/service";
 import {
 	DefinitionRegistry,
 	type SignalSchemaDefinition,
@@ -38,10 +38,8 @@ export class NotificationSubscriptionsService extends Context.Service<Notificati
 	"NotificationSubscriptionsService",
 	{
 		make: Effect.gen(function* () {
-			const runWithDb = yield* DbRunner;
 			const definitions = yield* DefinitionRegistry;
 			const repository = yield* AutomationsRepository;
-			const runInTransaction = yield* TransactionRunner;
 
 			const resolveStateSignalSchema = (state: StoredNotificationSubscription) =>
 				definitions.getSignalSchema(state.signalSchemaSlug);
@@ -81,64 +79,75 @@ export class NotificationSubscriptionsService extends Context.Service<Notificati
 
 			const installRule = Effect.fn("NotificationSubscriptionsService.installRule")(
 				function* (input: { userId: UserId; signalSchemaSlug: SignalSchemaSlug }) {
-					return yield* runInTransaction(
-						Effect.gen(function* () {
-							const signalSchema = definitions.getSignalSchema(input.signalSchemaSlug);
-							if (signalSchema?.catalogState !== "active") {
-								return yield* notFound("Signal schema not found");
-							}
-							const state = yield* repository.insertNotificationSubscription({
-								metadata: null,
-								isActive: true,
-								userId: input.userId,
-								signalSchemaSlug: input.signalSchemaSlug,
-							});
-							return state
-								? toInstalledNotificationRule(state, signalSchema)
-								: yield* conflict("Notification rule already installed");
-						}),
+					const database = yield* Database;
+					return yield* mapDatabaseErrors(
+						database.transaction((transaction) =>
+							Effect.gen(function* () {
+								const signalSchema = definitions.getSignalSchema(input.signalSchemaSlug);
+								if (signalSchema?.catalogState !== "active") {
+									return yield* notFound("Signal schema not found");
+								}
+								const state = yield* repository.insertNotificationSubscription({
+									metadata: null,
+									isActive: true,
+									userId: input.userId,
+									signalSchemaSlug: input.signalSchemaSlug,
+								});
+								return state
+									? toInstalledNotificationRule(state, signalSchema)
+									: yield* conflict("Notification rule already installed");
+							}).pipe(Effect.provideService(Database, transaction)),
+						),
 					);
 				},
 			);
 
 			const ensureDefaultRules = Effect.fn("NotificationSubscriptionsService.ensureDefaultRules")(
 				function* (userId: UserId) {
-					return yield* runWithDb(
-						Effect.gen(function* () {
-							const schemas = Object.values(definitions.getSnapshot().signalSchemas).filter(
-								({ catalogState }) => catalogState === "active",
-							);
-							for (const signalSchema of schemas) {
-								yield* repository.insertNotificationSubscription({
-									userId,
-									metadata: null,
-									isActive: true,
-									signalSchemaSlug: SignalSchemaSlugBrand.make(signalSchema.slug),
-								});
-							}
-						}),
-					);
+					return yield* Effect.gen(function* () {
+						const schemas = Object.values(definitions.getSnapshot().signalSchemas).filter(
+							({ catalogState }) => catalogState === "active",
+						);
+						for (const signalSchema of schemas) {
+							yield* repository.insertNotificationSubscription({
+								userId,
+								metadata: null,
+								isActive: true,
+								signalSchemaSlug: SignalSchemaSlugBrand.make(signalSchema.slug),
+							});
+						}
+					});
 				},
 			);
 
 			const setRuleActive = Effect.fn("NotificationSubscriptionsService.setRuleActive")(
 				function* (input: { userId: UserId; isActive: boolean; ruleId: AutomationRuleId }) {
-					return yield* runInTransaction(
-						Effect.gen(function* () {
-							const loaded = yield* loadRule(input);
-							const state = yield* repository.setNotificationSubscriptionActive(input);
-							if (!state) {
-								return yield* notFound("Automation rule not found");
-							}
-							return toInstalledNotificationRule(state, loaded.signalSchema);
-						}),
+					const database = yield* Database;
+					return yield* mapDatabaseErrors(
+						database.transaction((transaction) =>
+							Effect.gen(function* () {
+								const loaded = yield* loadRule(input);
+								const state = yield* repository.setNotificationSubscriptionActive(input);
+								if (!state) {
+									return yield* notFound("Automation rule not found");
+								}
+								return toInstalledNotificationRule(state, loaded.signalSchema);
+							}).pipe(Effect.provideService(Database, transaction)),
+						),
 					);
 				},
 			);
 
 			const deleteRule = Effect.fn("NotificationSubscriptionsService.deleteRule")(
 				function* (input: { userId: UserId; ruleId: AutomationRuleId }) {
-					const deleted = yield* runInTransaction(repository.deleteNotificationSubscription(input));
+					const database = yield* Database;
+					const deleted = yield* mapDatabaseErrors(
+						database.transaction((transaction) =>
+							repository
+								.deleteNotificationSubscription(input)
+								.pipe(Effect.provideService(Database, transaction)),
+						),
+					);
 					return deleted ?? (yield* notFound("Automation rule not found"));
 				},
 			);

@@ -10,7 +10,7 @@ import { Effect, Layer } from "effect";
 import { Workflow } from "effect/unstable/workflow";
 import { WorkflowEngine, WorkflowInstance } from "effect/unstable/workflow/WorkflowEngine";
 
-import { type MockOverrides, dbRunnerLayer, makeWorkflowEngine } from "#lib/test-utils/effect";
+import { databaseLayer, makeWorkflowEngine, type MockOverrides } from "#lib/test-utils/effect";
 import { AutomationsService } from "#modules/automations/service";
 import {
 	LifecycleDispatch,
@@ -114,7 +114,7 @@ it.effect("creates events inside workflow activities", () => {
 	const instance = WorkflowInstance.initial(EventCreateWorkflow, payload.executionId);
 	const engine = makeCapturingWorkflowEngine(instance, activityNames);
 	const layer = Layer.mergeAll(
-		dbRunnerLayer,
+		databaseLayer,
 		makeAutomationsService(),
 		LifecycleDispatchNoop,
 		Layer.mock(EventCreateWorkflowOperations, {
@@ -170,7 +170,7 @@ it.effect(
 		const instance = WorkflowInstance.initial(EventCreateWorkflow, payload.executionId);
 		const engine = makeCapturingWorkflowEngine(instance, activityNames);
 		const layer = Layer.mergeAll(
-			dbRunnerLayer,
+			databaseLayer,
 			makeAutomationsService(),
 			Layer.mock(LifecycleDispatch, {
 				dispatch: (input) => {
@@ -242,7 +242,7 @@ it.effect("does not dispatch a lifecycle occurrence when no lifecycle origin is 
 	const instance = WorkflowInstance.initial(EventCreateWorkflow, payload.executionId);
 	const engine = makeCapturingWorkflowEngine(instance, activityNames);
 	const layer = Layer.mergeAll(
-		dbRunnerLayer,
+		databaseLayer,
 		makeAutomationsService(),
 		Layer.mock(LifecycleDispatch, {
 			dispatch: () => {

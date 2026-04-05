@@ -8,7 +8,6 @@ import type {
 import { EntitySchemaSlug, PluginSlug } from "@ryot/contract/schema/brands";
 import { Context, Effect, Layer } from "effect";
 
-import { DbRunner } from "#lib/infrastructure/db/service";
 import { slugify } from "#lib/shared/slug";
 import { trimToNull } from "#lib/shared/validation";
 import { DefinitionRegistry } from "#modules/definition-registry/service";
@@ -19,9 +18,9 @@ import { SavedViewsRepository } from "./repository";
 const savedViewNotFound = "Saved view not found";
 const builtinViewMutationMessage = "Cannot modify built-in saved views";
 
+/** @effect-expect-leaking Database */
 export class SavedViewsService extends Context.Service<SavedViewsService>()("SavedViewsService", {
 	make: Effect.gen(function* () {
-		const runWithDb = yield* DbRunner;
 		const definitions = yield* DefinitionRegistry;
 		const repository = yield* SavedViewsRepository;
 
@@ -29,30 +28,28 @@ export class SavedViewsService extends Context.Service<SavedViewsService>()("Sav
 			user: CurrentUserValue,
 			input: { pluginSlug?: PluginSlug | undefined; includeDisabled: boolean },
 		) {
-			return yield* runWithDb(repository.listByUser(user.id, input));
+			return yield* repository.listByUser(user.id, input);
 		});
 
 		const ensureBuiltinViews = Effect.fn(function* (userId: CurrentUserValue["id"]) {
 			const views = Object.values(definitions.getSnapshot().savedViews);
-			yield* runWithDb(
-				repository.ensureBuiltinViews(
-					userId,
-					views.map(({ slug, name, icon, layouts, sortOrder, pluginSlug, entitySchemaSlug }) => ({
-						slug,
-						name,
-						icon,
-						layouts,
-						sortOrder,
-						pluginSlug: pluginSlug ? PluginSlug.make(pluginSlug) : null,
-						entitySchemaSlug:
-							entitySchemaSlug === null ? null : EntitySchemaSlug.make(entitySchemaSlug),
-					})),
-				),
+			yield* repository.ensureBuiltinViews(
+				userId,
+				views.map(({ slug, name, icon, layouts, sortOrder, pluginSlug, entitySchemaSlug }) => ({
+					slug,
+					name,
+					icon,
+					layouts,
+					sortOrder,
+					pluginSlug: pluginSlug ? PluginSlug.make(pluginSlug) : null,
+					entitySchemaSlug:
+						entitySchemaSlug === null ? null : EntitySchemaSlug.make(entitySchemaSlug),
+				})),
 			);
 		});
 
 		const requireSavedView = Effect.fn(function* (user: CurrentUserValue, viewSlug: string) {
-			const savedView = yield* runWithDb(repository.findBySlug(user.id, viewSlug));
+			const savedView = yield* repository.findBySlug(user.id, viewSlug);
 			if (savedView) {
 				return savedView;
 			}
@@ -71,10 +68,7 @@ export class SavedViewsService extends Context.Service<SavedViewsService>()("Sav
 			if (!slug) {
 				return yield* badRequest("Saved view slug is required");
 			}
-			if (
-				definitions.getSavedView(slug) ||
-				(yield* runWithDb(repository.findBySlug(user.id, slug)))
-			) {
+			if (definitions.getSavedView(slug) || (yield* repository.findBySlug(user.id, slug))) {
 				return yield* badRequest("A saved view with this name already exists");
 			}
 			yield* validateSavedViewDefinition(payload);
@@ -84,17 +78,15 @@ export class SavedViewsService extends Context.Service<SavedViewsService>()("Sav
 			) {
 				return yield* badRequest("Entity schema not found");
 			}
-			const created = yield* runWithDb(
-				repository.create(user.id, {
-					slug,
-					name,
-					userId: user.id,
-					icon: payload.icon,
-					layouts: payload.layouts,
-					pluginSlug: payload.pluginSlug,
-					entitySchemaSlug: payload.entitySchemaSlug,
-				}),
-			);
+			const created = yield* repository.create(user.id, {
+				slug,
+				name,
+				userId: user.id,
+				icon: payload.icon,
+				layouts: payload.layouts,
+				pluginSlug: payload.pluginSlug,
+				entitySchemaSlug: payload.entitySchemaSlug,
+			});
 			return created ?? (yield* badRequest("A saved view with this name already exists"));
 		});
 
@@ -115,13 +107,11 @@ export class SavedViewsService extends Context.Service<SavedViewsService>()("Sav
 					return yield* badRequest(builtinViewMutationMessage);
 				}
 				return (
-					(yield* runWithDb(
-						repository.updateBuiltinStateBySlug(
-							user.id,
-							viewSlug,
-							payload.isDisabled,
-							payload.sortOrder ?? current.sortOrder,
-						),
+					(yield* repository.updateBuiltinStateBySlug(
+						user.id,
+						viewSlug,
+						payload.isDisabled,
+						payload.sortOrder ?? current.sortOrder,
 					)) ?? (yield* notFound(savedViewNotFound))
 				);
 			}
@@ -136,13 +126,11 @@ export class SavedViewsService extends Context.Service<SavedViewsService>()("Sav
 			) {
 				return yield* badRequest("Entity schema not found");
 			}
-			const updated = yield* runWithDb(
-				repository.updateBySlug(
-					user.id,
-					viewSlug,
-					{ ...payload, name, sortOrder: payload.sortOrder },
-					current.pluginSlug,
-				),
+			const updated = yield* repository.updateBySlug(
+				user.id,
+				viewSlug,
+				{ ...payload, name, sortOrder: payload.sortOrder },
+				current.pluginSlug,
 			);
 			return updated ?? (yield* notFound(savedViewNotFound));
 		});
@@ -153,8 +141,7 @@ export class SavedViewsService extends Context.Service<SavedViewsService>()("Sav
 				return yield* badRequest(builtinViewMutationMessage);
 			}
 			return (
-				(yield* runWithDb(repository.deleteBySlug(user.id, viewSlug))) ??
-				(yield* notFound(savedViewNotFound))
+				(yield* repository.deleteBySlug(user.id, viewSlug)) ?? (yield* notFound(savedViewNotFound))
 			);
 		});
 

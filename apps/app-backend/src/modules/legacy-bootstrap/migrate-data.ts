@@ -2,7 +2,7 @@ import { builtinMediaEntitySchemaSlugs } from "@ryot/media-plugin/schemas/media-
 import { Effect } from "effect";
 
 import { sandboxProvider } from "#lib/infrastructure/db/schema/tables/combined";
-import { dbEffect, DbService } from "#lib/infrastructure/db/service";
+import { Database, mapDatabaseErrors } from "#lib/infrastructure/db/service";
 import { DefinitionRegistry } from "#modules/definition-registry/service";
 import { PluginLoader } from "#modules/plugins/loader";
 import { bootstrapNewUser } from "#modules/user-bootstrap/bootstrap";
@@ -61,7 +61,7 @@ import {
 	buildReferencedGlobalEntityIdsSql,
 	buildUniqueSlugMap,
 	legacyBootstrapGate,
-	withRawPgClient,
+	withReservedConnection,
 } from "./shared";
 import {
 	buildLegacyUserAuthMigrationSql,
@@ -83,7 +83,7 @@ export const migrateLegacyTables = Effect.gen(function* () {
 		return;
 	}
 
-	const { db } = yield* DbService;
+	const database = yield* Database;
 	const loader = yield* PluginLoader;
 	const definitions = yield* DefinitionRegistry;
 
@@ -95,8 +95,8 @@ export const migrateLegacyTables = Effect.gen(function* () {
 		? [{ id: "workout-set" }]
 		: [];
 
-	const persistedProviders = yield* dbEffect(() =>
-		db
+	const persistedProviders = yield* mapDatabaseErrors(
+		database
 			.select({
 				id: sandboxProvider.id,
 				slug: sandboxProvider.slug,
@@ -357,14 +357,17 @@ export const migrateLegacyTables = Effect.gen(function* () {
 	);
 
 	// Phase 1: Migrate legacy users and get migrated user IDs
-	const migratedUserRows = yield* withRawPgClient((client) =>
-		client
-			.query(buildLegacyUserAuthMigrationSql())
-			.then(() => client.query(buildLegacyUserLibraryMigrationSql(libraryEntitySchemaSlug)))
-			.then(() =>
-				client.query<{ id: string }>(`SELECT "id" FROM "old_user" ORDER BY "created_on", "id"`),
-			)
-			.then((result) => result.rows),
+	const migratedUserRows = yield* withReservedConnection((connection) =>
+		Effect.gen(function* () {
+			yield* connection.executeRaw(buildLegacyUserAuthMigrationSql(), []);
+			yield* connection.executeRaw(buildLegacyUserLibraryMigrationSql(libraryEntitySchemaSlug), []);
+			const rows: ReadonlyArray<{ id: string }> = yield* connection.execute(
+				`SELECT "id" FROM "old_user" ORDER BY "created_on", "id"`,
+				[],
+				undefined,
+			);
+			return rows;
+		}),
 	);
 
 	// Phase 2: Backfill bootstrap data for migrated users
@@ -398,57 +401,61 @@ export const migrateLegacyTables = Effect.gen(function* () {
 	// entity population workflow, so we materialize only the subset referenced by user data (plus
 	// all user-authored custom entities). The referenced-id set is collected up front and consumed
 	// by the metadata / person / company / metadata_group entity migrations.
-	yield* withRawPgClient((client) =>
-		client
-			.query(buildReferencedGlobalEntityIdsSql())
-			.then(() => client.query(buildMetadataMigrationSql(resolvedMetadataTargets)))
-			.then(() =>
-				client.query(
-					buildLegacyEpisodicSubEntityMigrationSql({
-						showSeasonEntitySchemaSlug,
-						showEpisodeEntitySchemaSlug,
-						podcastEpisodeEntitySchemaSlug,
-						showToSeasonRelationshipSchemaSlug,
-						seasonToEpisodeRelationshipSchemaSlug,
-						podcastToEpisodeRelationshipSchemaSlug,
-					}),
+	yield* withReservedConnection((connection) =>
+		Effect.gen(function* () {
+			yield* connection.executeRaw(buildReferencedGlobalEntityIdsSql(), []);
+			yield* connection.executeRaw(buildMetadataMigrationSql(resolvedMetadataTargets), []);
+			yield* connection.executeRaw(
+				buildLegacyEpisodicSubEntityMigrationSql({
+					showSeasonEntitySchemaSlug,
+					showEpisodeEntitySchemaSlug,
+					podcastEpisodeEntitySchemaSlug,
+					showToSeasonRelationshipSchemaSlug,
+					seasonToEpisodeRelationshipSchemaSlug,
+					podcastToEpisodeRelationshipSchemaSlug,
+				}),
+				[],
+			);
+			yield* connection.executeRaw(
+				buildMetadataGroupEntityMigrationSql(resolvedMetadataGroupEntityTargets),
+				[],
+			);
+			yield* connection.executeRaw(
+				buildMetadataGroupRelationshipMigrationSql(resolvedMetadataGroupRelationshipTargets),
+				[],
+			);
+			yield* connection.executeRaw(buildPersonEntityMigrationSql(resolvedPersonEntityTargets), []);
+			yield* connection.executeRaw(
+				buildCompanyEntityMigrationSql(resolvedCompanyEntityTargets),
+				[],
+			);
+			yield* connection.executeRaw(
+				buildCollectionEntityMigrationSql(collectionEntitySchemaSlug),
+				[],
+			);
+			yield* connection.executeRaw(buildExerciseMigrationSql(resolvedExerciseTargets), []);
+			yield* connection.executeRaw(buildMeasurementMigrationSql(measurementEntitySchemaSlug), []);
+			yield* connection.executeRaw(
+				buildWorkoutTemplateMigrationSql(workoutTemplateEntitySchemaSlug),
+				[],
+			);
+			yield* connection.executeRaw(buildWorkoutMigrationSql(workoutEntitySchemaSlug), []);
+			yield* connection.executeRaw(buildWorkoutSetEventMigrationSql(workoutSetEventSchemaSlug), []);
+			yield* connection.executeRaw(
+				buildWorkoutToTemplateRelationshipMigrationSql(
+					workoutToWorkoutTemplateRelationshipSchemaSlug,
 				),
-			)
-			.then(() =>
-				client.query(buildMetadataGroupEntityMigrationSql(resolvedMetadataGroupEntityTargets)),
-			)
-			.then(() =>
-				client.query(
-					buildMetadataGroupRelationshipMigrationSql(resolvedMetadataGroupRelationshipTargets),
-				),
-			)
-			.then(() => client.query(buildPersonEntityMigrationSql(resolvedPersonEntityTargets)))
-			.then(() => client.query(buildCompanyEntityMigrationSql(resolvedCompanyEntityTargets)))
-			.then(() => client.query(buildCollectionEntityMigrationSql(collectionEntitySchemaSlug)))
-			.then(() => client.query(buildExerciseMigrationSql(resolvedExerciseTargets)))
-			.then(() => client.query(buildMeasurementMigrationSql(measurementEntitySchemaSlug)))
-			.then(() => client.query(buildWorkoutTemplateMigrationSql(workoutTemplateEntitySchemaSlug)))
-			.then(() => client.query(buildWorkoutMigrationSql(workoutEntitySchemaSlug)))
-			.then(() => client.query(buildWorkoutSetEventMigrationSql(workoutSetEventSchemaSlug)))
-			.then(() =>
-				client.query(
-					buildWorkoutToTemplateRelationshipMigrationSql(
-						workoutToWorkoutTemplateRelationshipSchemaSlug,
-					),
-				),
-			)
-			.then(() =>
-				client.query(
-					buildWorkoutRepeatedFromRelationshipMigrationSql(
-						workoutRepeatedFromRelationshipSchemaSlug,
-					),
-				),
-			)
-			.then(() => client.query(buildReviewMigrationSql()))
-			.then(() => client.query(buildSeenMigrationSql()))
-			.then(() => client.query(buildSeenEpisodicCompletionMigrationSql()))
-			.then(() =>
-				client.query(`
+				[],
+			);
+			yield* connection.executeRaw(
+				buildWorkoutRepeatedFromRelationshipMigrationSql(workoutRepeatedFromRelationshipSchemaSlug),
+				[],
+			);
+			yield* connection.executeRaw(buildReviewMigrationSql(), []);
+			yield* connection.executeRaw(buildSeenMigrationSql(), []);
+			yield* connection.executeRaw(buildSeenEpisodicCompletionMigrationSql(), []);
+			yield* connection.executeRaw(
+				`
 					DO $$
 					DECLARE
 						rec RECORD;
@@ -462,46 +469,47 @@ export const migrateLegacyTables = Effect.gen(function* () {
 							EXECUTE format('ANALYZE %I.%I', rec.schemaname, rec.tablename);
 						END LOOP;
 					END $$;
-				`),
-			)
-			.then(() =>
-				client.query(buildPersonRelationshipMigrationSql(resolvedPersonRelationshipTargets)),
-			)
-			.then(() =>
-				client.query(buildCompanyRelationshipMigrationSql(resolvedCompanyRelationshipTargets)),
-			)
-			.then(() =>
-				client.query(
-					buildGroupPersonRelationshipMigrationSql(resolvedGroupPersonRelationshipTargets),
+				`,
+				[],
+			);
+			yield* connection.executeRaw(
+				buildPersonRelationshipMigrationSql(resolvedPersonRelationshipTargets),
+				[],
+			);
+			yield* connection.executeRaw(
+				buildCompanyRelationshipMigrationSql(resolvedCompanyRelationshipTargets),
+				[],
+			);
+			yield* connection.executeRaw(
+				buildGroupPersonRelationshipMigrationSql(resolvedGroupPersonRelationshipTargets),
+				[],
+			);
+			yield* connection.executeRaw(
+				buildCollectionToEntityRelationshipMigrationSql(memberOfRelationshipSchemaSlug),
+				[],
+			);
+			yield* connection.executeRaw(buildMetadataToMetadataRelationshipMigrationSql(), []);
+			yield* connection.executeRaw(
+				buildUserToEntityInLibraryMigrationSql(
+					inLibraryRelationshipSchemaSlug,
+					libraryEntitySchemaSlug,
 				),
-			)
-			.then(() =>
-				client.query(
-					buildCollectionToEntityRelationshipMigrationSql(memberOfRelationshipSchemaSlug),
-				),
-			)
-			.then(() => client.query(buildMetadataToMetadataRelationshipMigrationSql()))
-			.then(() =>
-				client.query(
-					buildUserToEntityInLibraryMigrationSql(
-						inLibraryRelationshipSchemaSlug,
-						libraryEntitySchemaSlug,
-					),
-				),
-			)
-			.then(() =>
-				client.query(buildOwnedCollectionOwnershipMigrationSql(inLibraryRelationshipSchemaSlug)),
-			)
-			.then(() =>
-				client.query(
-					buildMonitoringCollectionMigrationSql({
-						libraryEntitySchemaSlug,
-						monitorableEntitySchemaSlugs,
-						mediaMonitoringRelationshipSchemaSlug,
-					}),
-				),
-			)
-			.then(() => client.query(buildIntegrationMigrationSql()))
-			.then(() => client.query(buildNotificationPlatformMigrationSql())),
+				[],
+			);
+			yield* connection.executeRaw(
+				buildOwnedCollectionOwnershipMigrationSql(inLibraryRelationshipSchemaSlug),
+				[],
+			);
+			yield* connection.executeRaw(
+				buildMonitoringCollectionMigrationSql({
+					libraryEntitySchemaSlug,
+					monitorableEntitySchemaSlugs,
+					mediaMonitoringRelationshipSchemaSlug,
+				}),
+				[],
+			);
+			yield* connection.executeRaw(buildIntegrationMigrationSql(), []);
+			yield* connection.executeRaw(buildNotificationPlatformMigrationSql(), []);
+		}),
 	);
 });
