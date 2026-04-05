@@ -16,7 +16,6 @@ import { useCallback, useState } from "react";
 import type { CreateEntityPayload } from "#/features/entities/form";
 import { useEntityMutations } from "#/features/entities/hooks";
 import type { AppEntity } from "#/features/entities/model";
-import { SearchEntityModal } from "#/features/entities/search-modal";
 import { CreateEntityModal } from "#/features/entities/section";
 import { EntitySchemaCreateModal } from "#/features/entity-schemas/create-modal";
 import type { CreateEntitySchemaPayload } from "#/features/entity-schemas/form";
@@ -77,9 +76,6 @@ type TrackerModalState =
 
 function TrackerSchemaSection(props: { tracker: AppTracker }) {
 	const [openedModal, setOpenedModal] = useState<TrackerModalState>(null);
-	const [activeSearchSchemaId, setActiveSearchSchemaId] = useState<
-		string | null
-	>(null);
 	const [createErrorMessage, setCreateErrorMessage] = useState<string | null>(
 		null,
 	);
@@ -110,13 +106,6 @@ function TrackerSchemaSection(props: { tracker: AppTracker }) {
 		tracker: props.tracker,
 		entitySchemas: entitySchemasQuery.entitySchemas,
 	});
-
-	const searchableSchemas = entitySchemasQuery.entitySchemas.filter(
-		(s) => s.searchProviders.length > 0,
-	);
-	const activeSearchSchema = entitySchemasQuery.entitySchemas.find(
-		(s) => s.id === activeSearchSchemaId,
-	);
 
 	const openEntitySchemaModal = useCallback(() => {
 		setCreateErrorMessage(null);
@@ -267,19 +256,6 @@ function TrackerSchemaSection(props: { tracker: AppTracker }) {
 			{viewState.type === "empty" && (
 				<Stack gap="xl">
 					<TrackerHeader tracker={props.tracker} />
-					{searchableSchemas.length > 0 && (
-						<Group>
-							{searchableSchemas.map((schema) => (
-								<Button
-									key={schema.id}
-									variant="light"
-									onClick={() => setActiveSearchSchemaId(schema.id)}
-								>
-									Add {schema.name}
-								</Button>
-							))}
-						</Group>
-					)}
 					{!props.tracker.isBuiltin && (
 						<SetupGuidedFlow
 							tracker={props.tracker}
@@ -290,15 +266,6 @@ function TrackerSchemaSection(props: { tracker: AppTracker }) {
 						/>
 					)}
 				</Stack>
-			)}
-
-			{activeSearchSchema && (
-				<SearchEntityModal
-					onEntityAdded={() => {}}
-					entitySchema={activeSearchSchema}
-					opened={activeSearchSchemaId !== null}
-					onClose={() => setActiveSearchSchemaId(null)}
-				/>
 			)}
 
 			{viewState.type === "list" && (
