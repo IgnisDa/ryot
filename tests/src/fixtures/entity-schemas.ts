@@ -30,7 +30,14 @@ export async function createEntitySchema(
 
 	const { data, response } = await client.POST("/entity-schemas", {
 		headers: { Cookie: cookies },
-		body: { icon, name, slug, trackerId, accentColor, propertiesSchema },
+		body: {
+			icon,
+			name,
+			slug,
+			trackerId,
+			accentColor,
+			propertiesSchema: { fields: propertiesSchema },
+		},
 	});
 
 	if (response.status !== 200 || !data?.data?.id || !data.data.slug) {

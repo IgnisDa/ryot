@@ -1,8 +1,12 @@
+import type { AppSchema } from "@ryot/ts-utils";
 import type { AppTracker } from "#/features/trackers/model";
 import type { ApiPostResponseData } from "#/lib/api/types";
 
-export type AppEntitySchema =
-	ApiPostResponseData<"/entity-schemas/list">[number];
+type ApiEntitySchema = ApiPostResponseData<"/entity-schemas/list">[number];
+
+export type AppEntitySchema = Omit<ApiEntitySchema, "propertiesSchema"> & {
+	propertiesSchema: AppSchema;
+};
 
 export function sortEntitySchemas(
 	entitySchemas: AppEntitySchema[],

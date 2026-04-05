@@ -116,7 +116,7 @@ function LogEventForm(props: {
 				);
 				const unsupportedRequiredProperties =
 					getUnsupportedRequiredEventProperties(
-						selectedEventSchema?.propertiesSchema ?? {},
+						selectedEventSchema?.propertiesSchema ?? { fields: {} },
 					);
 				const hasUnsupportedRequiredProperties =
 					unsupportedRequiredProperties.length > 0;
@@ -132,7 +132,7 @@ function LogEventForm(props: {
 				}
 
 				const propertyFields = Object.entries(
-					selectedEventSchema.propertiesSchema,
+					selectedEventSchema.propertiesSchema.fields,
 				)
 					.map(([propertyKey, propertyDef]) => (
 						<GeneratedPropertyField

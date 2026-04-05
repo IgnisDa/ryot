@@ -5,13 +5,15 @@ import { resolvePropertyType } from "./resolve-property-type";
 const animeSchema = createEntitySchemaFixture({
 	slug: "anime",
 	propertiesSchema: {
-		aired: { type: "date" },
-		year: { type: "integer" },
-		title: { type: "string" },
-		score: { type: "number" },
-		ongoing: { type: "boolean" },
-		meta: { type: "object", properties: {} },
-		genres: { type: "array", items: { type: "string" } },
+		fields: {
+			aired: { type: "date" },
+			year: { type: "integer" },
+			title: { type: "string" },
+			score: { type: "number" },
+			ongoing: { type: "boolean" },
+			meta: { type: "object", properties: {} },
+			genres: { type: "array", items: { type: "string" } },
+		},
 	},
 });
 
