@@ -5,7 +5,6 @@ import { memoize } from "@ryot/ts-utils/lodash";
 import { zodBoolAsString } from "@ryot/ts-utils/zod";
 import { Unkey } from "@unkey/api";
 import { drizzle } from "drizzle-orm/postgres-js";
-import { GraphQLClient } from "graphql-request";
 import { createCookie } from "react-router";
 import { z } from "zod";
 
@@ -132,13 +131,6 @@ export const getDb = memoize(() =>
 		schema,
 		logger: IS_DEVELOPMENT_ENV,
 	}),
-);
-
-export const getServerGqlService = memoize(
-	() =>
-		new GraphQLClient(`${getServerVariables().RYOT_BASE_URL}/graphql`, {
-			headers: { Connection: "keep-alive" },
-		}),
 );
 
 export const getUnkeyClient = memoize(() => {

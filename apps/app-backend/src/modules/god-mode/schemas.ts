@@ -33,12 +33,6 @@ export const userListQuerySchema = z.object({
 
 export type UserListQuery = z.infer<typeof userListQuerySchema>;
 
-export const toggleUserBanResponseSchema = dataSchema(
-	z.object({ id: z.string(), bannedAt: z.string().nullable() }),
-);
-
-export type ToggleUserBanResponse = z.infer<typeof toggleUserBanResponseSchema>;
-
 export const resetPasswordResponseSchema = dataSchema(
 	z.object({ email: z.email(), resetUrl: z.string() }),
 );
@@ -49,4 +43,30 @@ export const resetPasswordPathParamsSchema = z.object({
 	userId: z.string(),
 });
 
-export const toggleUserBanPathParamsSchema = z.object({ userId: z.string() });
+export const setUserBanPathParamsSchema = z.object({ userId: z.string() });
+
+export const setUserBanBodySchema = z.object({ banned: z.boolean() });
+
+export type SetUserBanBody = z.infer<typeof setUserBanBodySchema>;
+
+export const setUserBanResponseSchema = dataSchema(
+	z.object({ id: z.string(), bannedAt: z.string().nullable() }),
+);
+
+export type SetUserBanResponse = z.infer<typeof setUserBanResponseSchema>;
+
+export const provisionUserBodySchema = z.discriminatedUnion("provider", [
+	z.object({ provider: z.literal("credential"), email: z.email(), name: z.string() }),
+	z.object({
+		email: z.email(),
+		name: z.string(),
+		oidcIssuerId: z.string(),
+		provider: z.literal("oidc"),
+	}),
+]);
+
+export type ProvisionUserBody = z.infer<typeof provisionUserBodySchema>;
+
+export const provisionUserResponseSchema = dataSchema(z.object({ userId: z.string() }));
+
+export type ProvisionUserResponse = z.infer<typeof provisionUserResponseSchema>;
