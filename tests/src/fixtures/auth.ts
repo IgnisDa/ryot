@@ -1,5 +1,4 @@
 import type { paths } from "@ryot/generated/openapi/app-backend";
-import { dayjs } from "@ryot/ts-utils/dayjs";
 import { createAuthClient } from "better-auth/client";
 import type createClient from "openapi-fetch";
 
@@ -24,7 +23,7 @@ async function getUserIdByEmail(email: string) {
 export async function createTestUser() {
 	const password = "password123";
 	const baseUrl = getBackendUrl();
-	const email = `test-${dayjs().valueOf()}@example.com`;
+	const email = `test-${crypto.randomUUID()}@example.com`;
 	const authClient = createTestAuthClient(baseUrl);
 
 	const { error: signUpError } = await authClient.signUp.email({

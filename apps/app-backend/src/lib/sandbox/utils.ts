@@ -2,13 +2,15 @@ import { forceKillDelayMs } from "./constants";
 
 type SandboxProcess = ReturnType<typeof Bun.spawn>;
 
+const NativeResponse = globalThis.Response;
+
 export type ProcessExit = {
 	code: number | null;
 	signal: string | null;
 };
 
 export const sendJson = (status: number, payload: Record<string, unknown>) => {
-	return Response.json(payload, { status });
+	return NativeResponse.json(payload, { status });
 };
 
 export const readStream = async (stream: ReadableStream | null) => {
@@ -16,7 +18,7 @@ export const readStream = async (stream: ReadableStream | null) => {
 		return "";
 	}
 
-	return new Response(stream).text();
+	return new NativeResponse(stream).text();
 };
 
 export const waitForExit = async (proc: SandboxProcess) => {
