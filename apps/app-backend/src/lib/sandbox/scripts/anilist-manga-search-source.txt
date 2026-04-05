@@ -118,11 +118,21 @@ const items = mediaItems
 				? item.title.userPreferred
 				: "";
 
+		const image = pickImage(item.coverImage, item.bannerImage);
+		const publishYear = parsePublishYear(item.startDate);
+
 		return {
-			title,
-			image: pickImage(item.coverImage, item.bannerImage),
 			identifier: String(mediaId),
-			publishYear: parsePublishYear(item.startDate),
+			badgeProperty: { kind: "null", value: null },
+			titleProperty: { kind: "text", value: title },
+			subtitleProperty:
+				publishYear === null
+					? { kind: "null", value: null }
+					: { kind: "number", value: publishYear },
+			imageProperty:
+				image === null
+					? { kind: "null", value: null }
+					: { kind: "image", value: { kind: "remote", url: image } },
 		};
 	})
 	.filter((item) => item !== null);

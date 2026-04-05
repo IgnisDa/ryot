@@ -50,23 +50,32 @@ const items = docs
 		const publishYear =
 			typeof doc?.first_publish_year === "number" &&
 			Number.isFinite(doc.first_publish_year)
-				? doc.first_publish_year
+				? Math.trunc(doc.first_publish_year)
 				: null;
 		const coverId =
 			typeof doc?.cover_i === "number" && Number.isFinite(doc.cover_i)
 				? doc.cover_i
 				: null;
 
+		const imageUrl =
+			coverId === null
+				? null
+				: "https://covers.openlibrary.org/b/id/" +
+					String(coverId) +
+					"-M.jpg?default=false";
+
 		return {
-			title,
 			identifier,
-			publishYear: publishYear,
-			image:
-				coverId === null
-					? null
-					: "https://covers.openlibrary.org/b/id/" +
-						String(coverId) +
-						"-M.jpg?default=false",
+			badgeProperty: { kind: "null", value: null },
+			titleProperty: { kind: "text", value: title },
+			subtitleProperty:
+				publishYear === null
+					? { kind: "null", value: null }
+					: { kind: "number", value: publishYear },
+			imageProperty:
+				imageUrl === null
+					? { kind: "null", value: null }
+					: { kind: "image", value: { kind: "remote", url: imageUrl } },
 		};
 	})
 	.filter((item) => item !== null);
