@@ -72,6 +72,22 @@ export function createBacklogEventPayload(input: {
 	];
 }
 
+export function createProgressEventPayload(input: {
+	entityId: string;
+	progressPercent: number;
+	eventSchemas: AppEventSchema[];
+}): CreateEventPayload {
+	const schemas = resolveLifecycleEventSchemas(input.eventSchemas);
+
+	return [
+		{
+			entityId: input.entityId,
+			eventSchemaId: schemas.progress.id,
+			properties: { progressPercent: input.progressPercent },
+		},
+	];
+}
+
 export function createReviewEventPayload(input: {
 	rating: number;
 	review?: string;
