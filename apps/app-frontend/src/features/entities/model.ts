@@ -22,6 +22,14 @@ export const createEntityColumnExpression = (
 	reference: { type: "entity-column", slug: schemaSlug, column },
 });
 
+export const createEntityPropertyExpression = (
+	schemaSlug: string,
+	property: string,
+): ViewExpression => ({
+	type: "reference",
+	reference: { type: "schema-property", slug: schemaSlug, property },
+});
+
 export type AppEntityImage =
 	| null
 	| { kind: "s3"; key: string }
