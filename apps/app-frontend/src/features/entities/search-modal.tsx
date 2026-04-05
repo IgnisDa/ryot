@@ -1,188 +1,36 @@
 import {
 	ActionIcon,
 	Badge,
-	Box,
 	Button,
 	Group,
 	Loader,
-	Modal,
-	Paper,
 	ScrollArea,
 	SegmentedControl,
 	Stack,
 	Text,
 	TextInput,
 } from "@mantine/core";
-import {
-	CheckCircle,
-	ChevronLeft,
-	ChevronRight,
-	Image as ImageIcon,
-	Plus,
-	Search,
-} from "lucide-react";
+import { notifications } from "@mantine/notifications";
+import { useQueryClient } from "@tanstack/react-query";
+import { ChevronLeft, ChevronRight, Search } from "lucide-react";
+import { useCallback, useMemo, useState } from "react";
 import type { AppEntitySchema } from "#/features/entity-schemas/model";
-import { useThemeTokens } from "#/hooks/theme";
+import { useEventSchemasQuery } from "#/features/event-schemas/hooks";
+import { useApiClient } from "#/hooks/api";
+import { getErrorMessage } from "#/lib/errors";
+import {
+	createBacklogEventPayload,
+	createLogEventPayload,
+	createReviewEventPayload,
+	getMediaLifecycleUnavailableMessage,
+} from "./search-modal-media-actions";
+import {
+	defaultSearchResultRowActionState,
+	SearchResultRow,
+	type SearchResultRowActionState,
+} from "./search-result-row";
 import type { SearchResultItem } from "./use-search";
-import { useEntitySearch } from "./use-search";
-
-function EntityThumbnail(props: {
-	height: number;
-	iconSize?: number;
-	imageUrl?: string;
-	width: number | string;
-}) {
-	const { surfaceHover, textMuted } = useThemeTokens();
-
-	if (props.imageUrl) {
-		return (
-			<Box
-				w={props.width}
-				h={props.height}
-				style={{
-					flexShrink: 0,
-					backgroundSize: "cover",
-					backgroundPosition: "center",
-					borderRadius: "var(--mantine-radius-sm)",
-					backgroundImage: `url(${props.imageUrl})`,
-				}}
-			/>
-		);
-	}
-
-	return (
-		<Box
-			w={props.width}
-			h={props.height}
-			bg={surfaceHover}
-			style={{
-				flexShrink: 0,
-				display: "grid",
-				overflow: "hidden",
-				placeItems: "center",
-				borderRadius: "var(--mantine-radius-sm)",
-			}}
-		>
-			<ImageIcon
-				color={textMuted}
-				strokeWidth={1.5}
-				size={props.iconSize ?? 24}
-			/>
-		</Box>
-	);
-}
-
-function SearchResultRow(props: {
-	onAdd: () => void;
-	entityName: string;
-	accentColor: string;
-	providerName: string;
-	item: SearchResultItem;
-	errorMessage: string | undefined;
-	status: "idle" | "loading" | "done" | "error";
-}) {
-	const { item, status } = props;
-	const imageUrl =
-		item.imageProperty?.kind === "image"
-			? (item.imageProperty.value?.url ?? undefined)
-			: undefined;
-
-	return (
-		<Paper p="sm" withBorder radius="sm">
-			<Group justify="space-between" align="center" wrap="nowrap">
-				<Group gap="md" wrap="nowrap" style={{ flex: 1, minWidth: 0 }}>
-					<EntityThumbnail
-						width={48}
-						height={68}
-						iconSize={16}
-						imageUrl={imageUrl}
-					/>
-					<Stack gap={2} style={{ flex: 1, minWidth: 0 }}>
-						<Group gap={6} wrap="wrap">
-							<Text fw={600} size="sm" lineClamp={1}>
-								{item.titleProperty.value}
-							</Text>
-							{status === "done" && (
-								<CheckCircle
-									size={16}
-									strokeWidth={1.5}
-									color="var(--mantine-color-green-6)"
-								/>
-							)}
-						</Group>
-						<Group gap={6} wrap="wrap">
-							<Badge
-								size="xs"
-								variant="light"
-								style={{
-									color: props.accentColor,
-									backgroundColor: `${props.accentColor}12`,
-								}}
-							>
-								{props.entityName}
-							</Badge>
-							{item.subtitleProperty?.kind === "number" && (
-								<Text size="xs" c="dimmed">
-									{item.subtitleProperty.value}
-								</Text>
-							)}
-							<Text size="xs" c="dimmed">
-								via {props.providerName}
-							</Text>
-						</Group>
-					</Stack>
-				</Group>
-				<Box w={32} style={{ flexShrink: 0 }}>
-					{status === "loading" && <Loader size="xs" />}
-					{status === "error" && (
-						<Text c="red" size="xs" title={props.errorMessage}>
-							!
-						</Text>
-					)}
-					{status === "idle" && (
-						<ActionIcon variant="subtle" onClick={props.onAdd} aria-label="Add">
-							<Plus size={16} strokeWidth={1.5} />
-						</ActionIcon>
-					)}
-				</Box>
-			</Group>
-			{status === "error" && props.errorMessage && (
-				<Text c="red" size="xs" mt={4}>
-					{props.errorMessage}
-				</Text>
-			)}
-		</Paper>
-	);
-}
-
-export function SearchEntityModal(props: {
-	opened: boolean;
-	onBack: () => void;
-	onClose: () => void;
-	onEntityAdded: () => void;
-	entitySchema: AppEntitySchema;
-}) {
-	return (
-		<Modal
-			centered
-			size="lg"
-			opened={props.opened}
-			onClose={props.onClose}
-			overlayProps={{ backgroundOpacity: 0.55, blur: 3 }}
-			title={
-				<SearchEntityModalTitle
-					onBack={props.onBack}
-					entitySchemaName={props.entitySchema.name}
-				/>
-			}
-		>
-			<SearchEntityModalContent
-				entitySchema={props.entitySchema}
-				onEntityAdded={props.onEntityAdded}
-			/>
-		</Modal>
-	);
-}
+import { isCancelledEntitySearchError, useEntitySearch } from "./use-search";
 
 export function SearchEntityModalTitle(props: {
 	onBack: () => void;
@@ -206,9 +54,12 @@ export function SearchEntityModalTitle(props: {
 }
 
 export function SearchEntityModalContent(props: {
-	onEntityAdded: () => void;
 	entitySchema: AppEntitySchema;
 }) {
+	const apiClient = useApiClient();
+	const queryClient = useQueryClient();
+	const createEvents = apiClient.useMutation("post", "/events");
+	const eventSchemasQuery = useEventSchemasQuery(props.entitySchema.id, true);
 	const {
 		page,
 		query,
@@ -224,44 +75,325 @@ export function SearchEntityModalContent(props: {
 		isSearching,
 		searchError,
 		clearSearch,
+		ensureItemEntity,
 		selectedProviderIndex,
 		setSelectedProviderIndex,
-	} = useEntitySearch({
-		entitySchema: props.entitySchema,
-		onEntityAdded: props.onEntityAdded,
-	});
+	} = useEntitySearch({ entitySchema: props.entitySchema });
+
+	const [selectedResultId, setSelectedResultId] = useState<string | null>(null);
+	const [actionStateById, setActionStateById] = useState<
+		Record<string, SearchResultRowActionState>
+	>({});
 
 	const accentColor = props.entitySchema.accentColor ?? "#8C7560";
 	const activeProvider =
 		props.entitySchema.searchProviders[selectedProviderIndex];
+	const lifecycleErrorMessage = useMemo(() => {
+		if (eventSchemasQuery.isError) {
+			return "Lifecycle actions failed to load.";
+		}
+
+		return getMediaLifecycleUnavailableMessage(eventSchemasQuery.eventSchemas);
+	}, [eventSchemasQuery.eventSchemas, eventSchemasQuery.isError]);
+
+	const getActionState = useCallback(
+		(identifier: string) =>
+			actionStateById[identifier] ?? defaultSearchResultRowActionState,
+		[actionStateById],
+	);
+
+	const patchActionState = useCallback(
+		(identifier: string, patch: Partial<SearchResultRowActionState>) => {
+			setActionStateById((prev) => ({
+				...prev,
+				[identifier]: {
+					...(prev[identifier] ?? defaultSearchResultRowActionState),
+					...patch,
+				},
+			}));
+		},
+		[],
+	);
+
+	const markDone = useCallback(
+		(
+			identifier: string,
+			actions: SearchResultRowActionState["doneActions"],
+		) => {
+			const current = getActionState(identifier);
+			patchActionState(identifier, {
+				doneActions: [...new Set([...current.doneActions, ...actions])],
+			});
+		},
+		[getActionState, patchActionState],
+	);
+
+	const handleProviderChange = useCallback(
+		(value: string) => {
+			clearSearch();
+			setSelectedResultId(null);
+			setActionStateById({});
+			setSelectedProviderIndex(Number(value));
+		},
+		[clearSearch, setSelectedProviderIndex],
+	);
+
+	const handleAdd = useCallback(
+		async (item: SearchResultItem) => {
+			patchActionState(item.identifier, {
+				actionError: null,
+				pendingAction: "add",
+			});
+
+			try {
+				await addItem(item);
+				markDone(item.identifier, ["track"]);
+				notifications.show({
+					color: "green",
+					title: "Added",
+					message: `${item.titleProperty.value} is in your library.`,
+				});
+			} catch (error) {
+				if (isCancelledEntitySearchError(error)) {
+					return;
+				}
+
+				notifications.show({
+					color: "red",
+					title: "Could not add item",
+					message: getErrorMessage(error),
+				});
+			} finally {
+				patchActionState(item.identifier, { pendingAction: null });
+			}
+		},
+		[addItem, markDone, patchActionState],
+	);
+
+	const runLifecycleAction = useCallback(
+		async (input: {
+			identifier: string;
+			item: SearchResultItem;
+			pendingAction: "backlog" | "log" | "rate";
+			buildPayload: (
+				entityId: string,
+			) => ReturnType<typeof createBacklogEventPayload>;
+			successMessage: string;
+			partialFailureMessage: string;
+			doneAction: "backlog" | "log" | "rate";
+		}) => {
+			patchActionState(input.identifier, {
+				actionError: null,
+				pendingAction: input.pendingAction,
+			});
+
+			let entityId: string | null = null;
+			try {
+				const entity = await ensureItemEntity(input.item);
+				entityId = entity.id;
+				await createEvents.mutateAsync({
+					body: input.buildPayload(entity.id),
+				});
+				queryClient.invalidateQueries({
+					queryKey: apiClient.queryOptions("get", "/events", {
+						params: { query: { entityId: entity.id } },
+					}).queryKey,
+				});
+				markDone(input.identifier, ["track", input.doneAction]);
+				patchActionState(input.identifier, {
+					actionError: null,
+					openPanel: null,
+				});
+				notifications.show({
+					color: "green",
+					title: "Saved",
+					message: input.successMessage,
+				});
+			} catch (error) {
+				if (isCancelledEntitySearchError(error)) {
+					return;
+				}
+
+				const message = entityId
+					? `${input.partialFailureMessage} ${getErrorMessage(error)}`
+					: getErrorMessage(error);
+				if (entityId) {
+					markDone(input.identifier, ["track"]);
+				}
+				patchActionState(input.identifier, {
+					actionError: message,
+					openPanel: entityId
+						? getActionState(input.identifier).openPanel
+						: null,
+				});
+				notifications.show({
+					color: entityId ? "yellow" : "red",
+					title: entityId ? "Partially saved" : "Action failed",
+					message,
+				});
+			} finally {
+				patchActionState(input.identifier, { pendingAction: null });
+			}
+		},
+		[
+			markDone,
+			apiClient,
+			queryClient,
+			createEvents,
+			getActionState,
+			ensureItemEntity,
+			patchActionState,
+		],
+	);
+
+	const handleBacklog = useCallback(
+		(item: SearchResultItem) => {
+			if (lifecycleErrorMessage) {
+				return;
+			}
+
+			return runLifecycleAction({
+				item,
+				doneAction: "backlog",
+				pendingAction: "backlog",
+				identifier: item.identifier,
+				successMessage: `${item.titleProperty.value} is now in your backlog.`,
+				partialFailureMessage: `${item.titleProperty.value} is in your library, but it could not be added to backlog.`,
+				buildPayload: (entityId) =>
+					createBacklogEventPayload({
+						entityId,
+						eventSchemas: eventSchemasQuery.eventSchemas,
+					}),
+			});
+		},
+		[eventSchemasQuery.eventSchemas, lifecycleErrorMessage, runLifecycleAction],
+	);
+
+	const handleSaveLog = useCallback(
+		(item: SearchResultItem) => {
+			if (lifecycleErrorMessage) {
+				return;
+			}
+
+			const state = getActionState(item.identifier);
+			let payload: ReturnType<typeof createLogEventPayload>;
+			try {
+				payload = createLogEventPayload({
+					entityId: "",
+					logDate: state.logDate,
+					startedOn: state.logStartedOn,
+					completedOn: state.logCompletedOn,
+					eventSchemas: eventSchemasQuery.eventSchemas,
+				});
+			} catch (error) {
+				patchActionState(item.identifier, {
+					actionError: getErrorMessage(error),
+				});
+				return;
+			}
+
+			void runLifecycleAction({
+				item,
+				doneAction: "log",
+				pendingAction: "log",
+				identifier: item.identifier,
+				successMessage:
+					state.logDate === "started"
+						? `Marked ${item.titleProperty.value} as started.`
+						: `Logged ${item.titleProperty.value}.`,
+				partialFailureMessage:
+					state.logDate === "started"
+						? `${item.titleProperty.value} is in your library, but it could not be marked as started.`
+						: `${item.titleProperty.value} is in your library, but it could not be logged.`,
+				buildPayload: (entityId) => {
+					const event = payload[0];
+					if (!event) {
+						return [];
+					}
+
+					return [{ ...event, entityId }];
+				},
+			});
+		},
+		[
+			getActionState,
+			patchActionState,
+			runLifecycleAction,
+			lifecycleErrorMessage,
+			eventSchemasQuery.eventSchemas,
+		],
+	);
+
+	const handleSaveReview = useCallback(
+		(item: SearchResultItem) => {
+			if (lifecycleErrorMessage) {
+				return;
+			}
+
+			const state = getActionState(item.identifier);
+			try {
+				createReviewEventPayload({
+					entityId: "",
+					rating: state.rateStars,
+					review: state.rateReview,
+					eventSchemas: eventSchemasQuery.eventSchemas,
+				});
+			} catch (error) {
+				patchActionState(item.identifier, {
+					actionError: getErrorMessage(error),
+				});
+				return;
+			}
+
+			void runLifecycleAction({
+				item,
+				doneAction: "rate",
+				pendingAction: "rate",
+				identifier: item.identifier,
+				successMessage: `Saved your review for ${item.titleProperty.value}.`,
+				partialFailureMessage: `${item.titleProperty.value} is in your library, but the review could not be saved.`,
+				buildPayload: (entityId) =>
+					createReviewEventPayload({
+						entityId,
+						rating: state.rateStars,
+						review: state.rateReview,
+						eventSchemas: eventSchemasQuery.eventSchemas,
+					}),
+			});
+		},
+		[
+			getActionState,
+			patchActionState,
+			runLifecycleAction,
+			lifecycleErrorMessage,
+			eventSchemasQuery.eventSchemas,
+		],
+	);
 
 	return (
 		<Stack gap="md">
-			{props.entitySchema.searchProviders.length > 1 && (
+			{props.entitySchema.searchProviders.length > 1 ? (
 				<SegmentedControl
 					fullWidth
+					onChange={handleProviderChange}
 					value={String(selectedProviderIndex)}
-					data={props.entitySchema.searchProviders.map((p, i) => ({
-						label: p.name,
-						value: String(i),
+					data={props.entitySchema.searchProviders.map((provider, index) => ({
+						label: provider.name,
+						value: String(index),
 					}))}
-					onChange={(v) => {
-						clearSearch();
-						setSelectedProviderIndex(Number(v));
-					}}
 				/>
-			)}
+			) : null}
 
 			<Group>
 				<TextInput
 					flex={1}
 					value={query}
 					disabled={isSearching}
-					placeholder={`Search for a ${props.entitySchema.name.toLowerCase()}...`}
-					onChange={(e) => setQuery(e.currentTarget.value)}
 					leftSection={<Search size={16} strokeWidth={1.5} />}
-					onKeyDown={(e) => {
-						if (e.key === "Enter") {
+					onChange={(event) => setQuery(event.currentTarget.value)}
+					placeholder={`Search for a ${props.entitySchema.name.toLowerCase()}...`}
+					onKeyDown={(event) => {
+						if (event.key === "Enter") {
 							search();
 						}
 					}}
@@ -276,22 +408,22 @@ export function SearchEntityModalContent(props: {
 				</Button>
 			</Group>
 
-			{searchError && (
+			{searchError ? (
 				<Text c="red" size="sm">
 					{searchError}
 				</Text>
-			)}
+			) : null}
 
-			{isSearching && (
+			{isSearching ? (
 				<Stack align="center" py="xl">
 					<Loader size="sm" color={accentColor} />
 					<Text size="sm" c="dimmed">
 						Searching...
 					</Text>
 				</Stack>
-			)}
+			) : null}
 
-			{results !== null && !isSearching && (
+			{results !== null && !isSearching ? (
 				<Stack gap="xs">
 					{results.length === 0 ? (
 						<Text c="dimmed" size="sm" ta="center" py="md">
@@ -317,17 +449,41 @@ export function SearchEntityModalContent(props: {
 											item={item}
 											key={item.identifier}
 											accentColor={accentColor}
-											onAdd={() => void addItem(item)}
+											onAdd={() => void handleAdd(item)}
+											addError={addError[item.identifier]}
 											entityName={props.entitySchema.name}
-											errorMessage={addError[item.identifier]}
+											onSaveLog={() => handleSaveLog(item)}
 											providerName={activeProvider?.name ?? ""}
-											status={addStatus[item.identifier] ?? "idle"}
+											onBacklog={() => void handleBacklog(item)}
+											onSaveReview={() => handleSaveReview(item)}
+											actionState={getActionState(item.identifier)}
+											lifecycleErrorMessage={lifecycleErrorMessage}
+											addStatus={addStatus[item.identifier] ?? "idle"}
+											isLifecycleLoading={eventSchemasQuery.isLoading}
+											isExpanded={selectedResultId === item.identifier}
+											onPatchActionState={(patch) =>
+												patchActionState(item.identifier, patch)
+											}
+											onToggleActions={() => {
+												setSelectedResultId((current) =>
+													current === item.identifier ? null : item.identifier,
+												);
+												patchActionState(item.identifier, { openPanel: null });
+											}}
+											onTogglePanel={(panel) => {
+												setSelectedResultId(item.identifier);
+												const state = getActionState(item.identifier);
+												patchActionState(item.identifier, {
+													actionError: null,
+													openPanel: state.openPanel === panel ? null : panel,
+												});
+											}}
 										/>
 									))}
 								</Stack>
 							</ScrollArea.Autosize>
 
-							{(page > 1 || nextPage !== null) && (
+							{page > 1 || nextPage !== null ? (
 								<Group justify="center" gap="xs">
 									<Button
 										size="xs"
@@ -351,11 +507,11 @@ export function SearchEntityModalContent(props: {
 										Next
 									</Button>
 								</Group>
-							)}
+							) : null}
 						</>
 					)}
 				</Stack>
-			)}
+			) : null}
 		</Stack>
 	);
 }

@@ -1333,19 +1333,11 @@ export function BuiltinMediaTrackerOverview(
 			centered: true,
 			modalId: searchModalId,
 			overlayProps: { backgroundOpacity: 0.55, blur: 3 },
+			children: <SearchEntityModalContent entitySchema={schema} />,
 			title: (
 				<SearchEntityModalTitle
 					entitySchemaName={schema.name}
 					onBack={() => modals.close(searchModalId)}
-				/>
-			),
-			children: (
-				<SearchEntityModalContent
-					entitySchema={schema}
-					onEntityAdded={() => {
-						modals.close(searchModalId);
-						modals.close(typePickerModalId);
-					}}
 				/>
 			),
 		});
