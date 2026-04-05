@@ -2,16 +2,18 @@ import type { components } from "@ryot/generated/openapi/app-backend";
 import type { Client } from "./auth";
 import { findBuiltinTracker } from "./trackers";
 
+type AppSchema = {
+	fields: Record<string, components["schemas"]["AppPropertyDefinition"]>;
+	rules?: components["schemas"]["AppSchemaRule"][];
+};
+
 export interface CreateEntitySchemaOptions {
 	icon?: string;
 	name?: string;
 	slug?: string;
 	trackerId: string;
 	accentColor?: string;
-	propertiesSchema?: Record<
-		string,
-		components["schemas"]["AppPropertyDefinition"]
-	>;
+	propertiesSchema?: AppSchema;
 }
 
 export async function createEntitySchema(
@@ -25,7 +27,7 @@ export async function createEntitySchema(
 		name = "Test Schema",
 		accentColor = "#00FF00",
 		slug = `schema-${crypto.randomUUID()}`,
-		propertiesSchema = { title: { type: "string" as const } },
+		propertiesSchema = { fields: { title: { type: "string" as const } } },
 	} = options;
 
 	const { data, response } = await client.POST("/entity-schemas", {
@@ -36,7 +38,7 @@ export async function createEntitySchema(
 			slug,
 			trackerId,
 			accentColor,
-			propertiesSchema: { fields: propertiesSchema },
+			propertiesSchema,
 		},
 	});
 
