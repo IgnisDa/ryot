@@ -338,7 +338,7 @@ describe("GET /media/overview/review", () => {
 			entitySchemaId: animeSchema.id,
 			properties: {
 				completionMode: "custom_timestamps",
-				completedOn: "2026-04-05T10:00:00.000Z",
+				completedOn: new Date(Date.now() + 60_000).toISOString(),
 			},
 		});
 
@@ -353,7 +353,7 @@ describe("GET /media/overview/review", () => {
 				rating: 2,
 				id: rateAnime.id,
 				reviewAt: expect.any(String),
-				completedAt: expect.stringContaining("2026-04-05"),
+				completedAt: expect.stringContaining(dayjs.utc().format("YYYY-MM-DD")),
 			}),
 		]);
 	});
