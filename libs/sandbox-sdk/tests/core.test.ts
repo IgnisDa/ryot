@@ -1,5 +1,3 @@
-import { describe, expect, test } from "bun:test";
-
 import {
 	claimCachedValueResultSchema,
 	httpCallResultSchema,
@@ -10,6 +8,7 @@ import {
 } from "@ryot/sandbox-sdk/core";
 import { Effect, Schema } from "@ryot/sandbox-sdk/effect";
 import { defineSandboxTestHost, runSandboxTestDriver } from "@ryot/sandbox-sdk/testing";
+import { describe, expect, test } from "vitest";
 
 import {
 	SANDBOX_SCRIPT_DEFINITION,
