@@ -14,6 +14,7 @@ type ReorderSavedViewsBody = NonNullable<
 type RuntimeRef =
 	| { type: "entity-column"; slug: string; column: string }
 	| { type: "schema-property"; slug: string; property: string }
+	| { type: "computed-field"; key: string }
 	| { type: "event-join-column"; joinKey: string; column: string }
 	| { type: "event-join-property"; joinKey: string; property: string };
 
@@ -79,6 +80,14 @@ const literalExpression = (value: unknown | null): ViewExpression => ({
 
 const parseReference = (reference: string): RuntimeRef => {
 	const [namespace, segment, tail, ...rest] = reference.split(".");
+	if (namespace === "computed") {
+		if (!segment || tail || rest.length > 0) {
+			throw new Error(`Invalid saved view reference '${reference}'`);
+		}
+
+		return { type: "computed-field", key: segment };
+	}
+
 	if (namespace === "event") {
 		if (!segment || !tail || rest.length > 0) {
 			throw new Error(`Invalid saved view reference '${reference}'`);
@@ -150,9 +159,10 @@ const normalizeDisplayConfiguration = (
 const defaultQueryDefinition = {
 	filters: [],
 	eventJoins: [],
+	computedFields: [],
 	entitySchemaSlugs: ["book"],
 	sort: { fields: [entityField("book", "name")], direction: "asc" },
-} satisfies CreateSavedViewBody["queryDefinition"];
+} as CreateSavedViewBody["queryDefinition"];
 
 const defaultDisplayConfiguration = {
 	table: {
@@ -221,13 +231,14 @@ export function buildUpdatedSavedViewBody(
 		accentColor: "#00AA88",
 		name: `Updated View ${crypto.randomUUID()}`,
 		queryDefinition: {
+			computedFields: [],
 			eventJoins: [],
 			entitySchemaSlugs: ["book", "anime"],
 			sort: { fields: [entityField("book", "createdAt")], direction: "desc" },
 			filters: [
 				{ op: "gte", field: entityField("book", "publishYear"), value: 2020 },
 			],
-		},
+		} as UpdateSavedViewBody["queryDefinition"],
 		...overrides,
 		displayConfiguration,
 	};
