@@ -59,7 +59,7 @@ describe("Saved views E2E", () => {
 			queryDefinition: {
 				entitySchemaSlugs: ["anime", "manga"],
 				sort: { fields: ["@createdAt"], direction: "desc" },
-				filters: [{ op: "eq", field: "status", value: "active" }],
+				filters: [{ op: "eq", field: "anime.status", value: "active" }],
 			},
 			displayConfiguration: {
 				grid: {
@@ -71,13 +71,13 @@ describe("Saved views E2E", () => {
 				list: {
 					imageProperty: ["@image"],
 					titleProperty: ["@name"],
-					badgeProperty: ["status"],
-					subtitleProperty: ["year"],
+					badgeProperty: ["anime.status"],
+					subtitleProperty: ["manga.year"],
 				},
 				table: {
 					columns: [
 						{ label: "Name", property: ["@name"] },
-						{ label: "Status", property: ["status"] },
+						{ label: "Status", property: ["anime.status"] },
 					],
 				},
 			},
@@ -486,5 +486,61 @@ describe("Saved views E2E", () => {
 			"Sort fields are required",
 		);
 		expect(refreshedView.queryDefinition.sort.fields).toEqual(["@name"]);
+	});
+
+	it("rejects unqualified property references when creating or updating saved views", async () => {
+		const { client, cookies } = await createAuthenticatedClient();
+		const createdView = await createSavedView(client, cookies, {
+			name: "Qualification Guard View",
+		});
+
+		const createResult = await client.POST("/saved-views", {
+			headers: { Cookie: cookies },
+			body: buildSavedViewBody({
+				name: "Broken Qualification View",
+				queryDefinition: {
+					filters: [{ op: "eq", field: "status", value: "active" }],
+					entitySchemaSlugs: ["book"],
+					sort: { fields: ["year"], direction: "asc" },
+				},
+				displayConfiguration: {
+					grid: {
+						imageProperty: ["@image"],
+						titleProperty: ["@name"],
+						badgeProperty: ["status"],
+						subtitleProperty: null,
+					},
+					list: {
+						imageProperty: ["@image"],
+						titleProperty: ["@name"],
+						badgeProperty: null,
+						subtitleProperty: ["year"],
+					},
+					table: {
+						columns: [{ label: "Status", property: ["status"] }],
+					},
+				},
+			}),
+		});
+		const updateResult = await client.PUT("/saved-views/{viewId}", {
+			headers: { Cookie: cookies },
+			params: { path: { viewId: createdView.id } },
+			body: buildUpdatedSavedViewBody({
+				queryDefinition: {
+					filters: [{ op: "eq", field: "status", value: "active" }],
+					entitySchemaSlugs: ["book"],
+					sort: { fields: ["year"], direction: "asc" },
+				},
+			}),
+		});
+
+		expect(createResult.response.status).toBe(400);
+		expect(updateResult.response.status).toBe(400);
+		expect(createResult.error?.error?.message).toBe(
+			"Schema-qualified property references are required",
+		);
+		expect(updateResult.error?.error?.message).toBe(
+			"Schema-qualified property references are required",
+		);
 	});
 });

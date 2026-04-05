@@ -136,8 +136,6 @@ const fetchRuntimeSchemas = async (input: {
 	return schemas;
 };
 
-const getDefaultSchemaSlug = (slugs: string[]) => slugs[0] ?? "";
-
 export const calculatePagination = (
 	input: PaginationInput,
 ): PaginationResult => {
@@ -215,12 +213,10 @@ export const executeViewRuntimeQuery = async (
 		userId,
 		entitySchemaSlugs: request.entitySchemaSlugs,
 	});
-	const defaultSchemaSlug = getDefaultSchemaSlug(request.entitySchemaSlugs);
 	const schemaMap = buildSchemaMap(runtimeSchemas);
 	const filterWhereClause = buildFilterWhereClause({
 		schemaMap,
 		alias: "entity",
-		defaultSchemaSlug,
 		filters: request.filters,
 		entitySchemaSlugs: request.entitySchemaSlugs,
 		schemaSlugExpression: sql`${entitySchema.slug}`,
@@ -232,7 +228,6 @@ export const executeViewRuntimeQuery = async (
 	});
 	const sortExpression = buildSortExpression({
 		schemaMap,
-		defaultSchemaSlug,
 		field: request.sort.fields,
 		alias: "filtered_entities",
 	});
@@ -243,7 +238,6 @@ export const executeViewRuntimeQuery = async (
 			: buildResolvedPropertiesExpression({
 					request,
 					schemaMap,
-					defaultSchemaSlug,
 					alias: "paginated_entities",
 				});
 	const cells =
@@ -251,7 +245,6 @@ export const executeViewRuntimeQuery = async (
 			? buildTableCellsExpression({
 					request,
 					schemaMap,
-					defaultSchemaSlug,
 					alias: "paginated_entities",
 				})
 			: sql`null::jsonb`;

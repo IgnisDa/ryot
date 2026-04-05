@@ -57,13 +57,13 @@ export function buildUpdatedSavedViewBody(
 		queryDefinition: {
 			entitySchemaSlugs: ["book", "anime"],
 			sort: { fields: ["@createdAt"], direction: "desc" },
-			filters: [{ op: "gte", field: "year", value: 2020 }],
+			filters: [{ op: "gte", field: "book.year", value: 2020 }],
 		},
 		displayConfiguration: {
 			table: {
 				columns: [
 					{ label: "Name", property: ["@name"] },
-					{ label: "Year", property: ["year"] },
+					{ label: "Year", property: ["book.year"] },
 				],
 			},
 			grid: {
@@ -75,8 +75,8 @@ export function buildUpdatedSavedViewBody(
 			list: {
 				titleProperty: ["@name"],
 				imageProperty: ["@image"],
-				badgeProperty: ["status"],
-				subtitleProperty: ["year"],
+				badgeProperty: ["anime.status"],
+				subtitleProperty: ["book.year"],
 			},
 		},
 		...overrides,
