@@ -10,42 +10,42 @@ import myanimelistMangaScriptCode from "~/lib/sandbox/scripts/media-providers/ma
 export const builtinSandboxScripts = () => [
 	{
 		name: "Hardcover",
-		slug: "hardcover.book",
+		slug: "book.hardcover",
 		code: hardcoverBookScriptCode,
 	},
 	{
 		name: "OpenLibrary",
-		slug: "openlibrary.book",
+		slug: "book.openlibrary",
 		code: openLibraryBookScriptCode,
 	},
 	{
 		name: "Google Books",
-		slug: "google-books.book",
+		slug: "book.google-book",
 		code: googleBooksBookScriptCode,
 	},
 	{
 		name: "Anilist",
-		slug: "anilist.anime",
+		slug: "anime.anilist",
 		code: anilistAnimeScriptCode,
 	},
 	{
 		name: "Anilist",
-		slug: "anilist.manga",
+		slug: "manga.anilist",
 		code: anilistMangaScriptCode,
 	},
 	{
 		name: "MyAnimeList",
-		slug: "myanimelist.anime",
+		slug: "anime.myanimelist",
 		code: myanimelistAnimeScriptCode,
 	},
 	{
 		name: "MyAnimeList",
-		slug: "myanimelist.manga",
+		slug: "manga.myanimelist",
 		code: myanimelistMangaScriptCode,
 	},
 	{
 		name: "MangaUpdates",
-		slug: "manga-updates.manga",
+		slug: "manga.manga-updates",
 		code: mangaUpdatesMangaScriptCode,
 	},
 ];
@@ -54,34 +54,34 @@ export const entitySchemaScriptLinks = () =>
 	[
 		{
 			schemaSlug: "book",
-			scriptSlug: "openlibrary.book",
+			scriptSlug: "book.openlibrary",
 		},
 		{
 			schemaSlug: "book",
-			scriptSlug: "google-books.book",
+			scriptSlug: "book.google-book",
 		},
 		{
 			schemaSlug: "book",
-			scriptSlug: "hardcover.book",
+			scriptSlug: "book.hardcover",
 		},
 		{
 			schemaSlug: "anime",
-			scriptSlug: "anilist.anime",
+			scriptSlug: "anime.anilist",
 		},
 		{
 			schemaSlug: "manga",
-			scriptSlug: "anilist.manga",
+			scriptSlug: "manga.anilist",
 		},
 		{
 			schemaSlug: "anime",
-			scriptSlug: "myanimelist.anime",
+			scriptSlug: "anime.myanimelist",
 		},
 		{
 			schemaSlug: "manga",
-			scriptSlug: "myanimelist.manga",
+			scriptSlug: "manga.myanimelist",
 		},
 		{
 			schemaSlug: "manga",
-			scriptSlug: "manga-updates.manga",
+			scriptSlug: "manga.manga-updates",
 		},
 	] as const;
