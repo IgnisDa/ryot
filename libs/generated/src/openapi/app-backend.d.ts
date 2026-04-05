@@ -205,7 +205,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/sandbox/run": {
+    "/sandbox/enqueue": {
         parameters: {
             query?: never;
             header?: never;
@@ -214,7 +214,7 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** Run a sandbox script */
+        /** Enqueue a sandbox script */
         post: {
             parameters: {
                 query?: never;
@@ -226,11 +226,14 @@ export interface paths {
                 content: {
                     "application/json": {
                         code: string;
+                        context?: {
+                            [key: string]: unknown;
+                        };
                     };
                 };
             };
             responses: {
-                /** @description Sandbox run completed */
+                /** @description Sandbox script enqueued */
                 200: {
                     headers: {
                         [name: string]: unknown;
@@ -238,10 +241,7 @@ export interface paths {
                     content: {
                         "application/json": {
                             data: {
-                                logs?: string | null;
-                                error?: string | null;
-                                value?: unknown;
-                                durationMs: number;
+                                jobId: string;
                             };
                         };
                     };
@@ -270,6 +270,94 @@ export interface paths {
                 };
             };
         };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/sandbox/result/{jobId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get a sandbox script result */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    jobId: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Sandbox script result */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            data: {
+                                /** @enum {string} */
+                                status: "pending";
+                            } | {
+                                error: string;
+                                /** @enum {string} */
+                                status: "failed";
+                            } | {
+                                logs: string | null;
+                                error: string | null;
+                                /** @enum {string} */
+                                status: "completed";
+                                value: string | number | boolean | unknown | unknown[] | {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+                /** @description Request payload validation failed */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: components["schemas"]["ValidationFailedError"];
+                        };
+                    };
+                };
+                /** @description Request is unauthenticated */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: components["schemas"]["UnauthenticatedError"];
+                        };
+                    };
+                };
+                /** @description Sandbox job not found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: components["schemas"]["NotFoundError"];
+                        };
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
