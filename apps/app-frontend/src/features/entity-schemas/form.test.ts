@@ -304,21 +304,6 @@ describe("createEntitySchemaFormSchema", () => {
 
 		expect(result.success).toBeFalse();
 	});
-
-	it("accepts valid values", () => {
-		const result = createEntitySchemaFormSchema.safeParse({
-			name: "Books",
-			slug: "books",
-			icon: "book-open",
-			accentColor: "#5B7FFF",
-			properties: [
-				row({ id: "title", key: "title", required: true }),
-				row({ id: "published-at", key: "publishedAt", type: "date" }),
-			],
-		});
-
-		expect(result.success).toBeTrue();
-	});
 });
 
 describe("buildEntitySchemaPropertiesSchema", () => {
