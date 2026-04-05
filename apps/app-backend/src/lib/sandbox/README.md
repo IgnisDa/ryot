@@ -29,12 +29,12 @@ The model is:
    - Redis stores `{ token, expiresAt }` under `sandbox:session:<executionId>` with TTL.
    - An in-memory map stores the bound host functions for that execution.
 6. A Deno subprocess is spawned with restricted permissions.
-7. The service sends one JSON payload over stdin (`code`, `context`, bridge URL, token, function names, execution id).
+7. The service sends one JSON payload over stdin (`code`, `context`, bridge URL, token, function names, execution id, script id).
 8. Inside Deno (`scripts/runner-source.txt`):
    - payload is parsed,
    - `console.*` is redirected to stderr,
    - host-function stubs are created so user code can call `await someHostFn(...)`,
-   - user code runs in an async wrapper,
+   - user code runs in an async wrapper with `context` and optional `meta` arguments,
    - final result is written as JSON to stdout.
 9. Bridge calls from stubs hit `POST /rpc/:executionId/:fnName`:
    - execution and expiry are checked,
@@ -83,9 +83,26 @@ The model is:
 
 For stateless functions use an empty context object. For stateful functions, bind per-request data into the descriptor context before enqueueing.
 
-User code can then call:
+## Driver functions
+
+Driver functions are the entry points in sandbox scripts. They receive two arguments:
+
+1. `context` — user-provided execution context containing input data (e.g., search query, page size)
+2. `meta` — system-provided metadata object containing `{ sandboxScriptId: string }` when running from a stored script, or `undefined` when running ad-hoc code
+
+User code can call:
 
 ```js
 const response = await myHostFn("a", "b");
 return response;
+```
+
+Or define a driver function:
+
+```js
+driver("mediaSearch", async function(context, meta) {
+  // meta.sandboxScriptId contains the script ID when available
+  const response = await httpCall("GET", "https://api.example.com/search");
+  return response;
+});
 ```
