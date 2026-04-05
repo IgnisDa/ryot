@@ -1,9 +1,5 @@
 import { withOverrides } from "~/lib/test-fixtures/fixture-helpers";
-import {
-	createFlatNoteProgressPropertySchema,
-	createOptionalRatingPropertiesSchema,
-	createOptionalTitlePropertiesSchema,
-} from "~/lib/test-fixtures/property-schemas";
+import { createOptionalRatingPropertiesSchema } from "~/lib/test-fixtures/property-schemas";
 import type {
 	CreateEventSchemaBody,
 	ListedEventSchema,
@@ -52,9 +48,4 @@ export const createEventSchemaDeps = (
 			propertiesSchema: input.propertiesSchema,
 		}),
 	...overrides,
-});
-
-export const createEventSchemaParseFixtures = () => ({
-	noteSchema: createFlatNoteProgressPropertySchema(),
-	titleSchema: createOptionalTitlePropertiesSchema(),
 });
