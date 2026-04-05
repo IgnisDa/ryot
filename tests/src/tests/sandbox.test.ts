@@ -5,6 +5,7 @@ import {
 	createEntitySchema,
 	createTracker,
 	enqueueSandboxScript,
+	findBuiltinSchemaWithSearchProviders,
 	pollSandboxResult,
 } from "../fixtures";
 import { getBackendClient } from "../setup";
@@ -201,5 +202,42 @@ describe("sandbox async flow", () => {
 
 		expect(response.status).toBe(401);
 		expect(error?.error).toBeDefined();
+	});
+});
+
+describe("sandbox enqueue by script ID", () => {
+	it("returns 404 when the scriptId does not exist", async () => {
+		const { client, cookies } = await createAuthenticatedClient();
+
+		const { response } = await client.POST("/sandbox/enqueue", {
+			headers: { Cookie: cookies },
+			body: { kind: "script", scriptId: crypto.randomUUID() },
+		});
+
+		expect(response.status).toBe(404);
+	});
+
+	it("enqueues a built-in script and reaches a terminal state", async () => {
+		const { client, cookies } = await createAuthenticatedClient();
+		const { schema } = await findBuiltinSchemaWithSearchProviders(
+			client,
+			cookies,
+		);
+		const searchScriptId = schema.searchProviders[0]?.searchScriptId;
+		if (!searchScriptId) {
+			throw new Error("No search provider found");
+		}
+
+		const { jobId } = await enqueueSandboxScript(client, cookies, {
+			kind: "script",
+			scriptId: searchScriptId,
+			context: { page: 1, pageSize: 5, query: "test" },
+		});
+
+		const result = await pollSandboxResult(client, cookies, jobId);
+
+		expect(result.status === "completed" || result.status === "failed").toBe(
+			true,
+		);
 	});
 });
