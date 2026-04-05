@@ -96,36 +96,16 @@ const toMembershipResponse = (
 	properties: row.properties as Record<string, unknown>,
 });
 
-const toLegacyMembershipResponse = (
-	row: MembershipRow,
-): AddToCollectionData["memberOf"] => ({
-	...toMembershipResponse(row),
-	relType: "member_of",
-	sourceEntityId: row.targetEntityId,
-	targetEntityId: row.sourceEntityId,
-});
-
-export const toMembershipData = (
+const toMembershipData = (
 	relationships: MembershipRow[],
 ): AddToCollectionData | undefined => {
-	const collectionRel = relationships.find(
-		(row) => row.relType === "collection",
-	);
 	const memberOfRel = relationships.find((row) => row.relType === "member_of");
 
-	if (!memberOfRel && !collectionRel) {
+	if (!memberOfRel) {
 		return undefined;
 	}
 
-	if (memberOfRel) {
-		return { memberOf: toMembershipResponse(memberOfRel) };
-	}
-
-	if (!collectionRel) {
-		return undefined;
-	}
-
-	return { memberOf: toLegacyMembershipResponse(collectionRel) };
+	return { memberOf: toMembershipResponse(memberOfRel) };
 };
 
 export const getExistingMembership = async (
@@ -155,17 +135,6 @@ export const addEntityToCollection = async (input: {
 	properties: Record<string, unknown>;
 }): Promise<AddToCollectionData> => {
 	return db.transaction(async (tx) => {
-		await tx
-			.delete(relationship)
-			.where(
-				and(
-					eq(relationship.userId, input.userId),
-					eq(relationship.relType, "collection"),
-					eq(relationship.sourceEntityId, input.collectionId),
-					eq(relationship.targetEntityId, input.entityId),
-				),
-			);
-
 		await tx
 			.insert(relationship)
 			.values({
@@ -249,18 +218,9 @@ export const removeEntityFromCollection = async (input: {
 		.where(
 			and(
 				eq(relationship.userId, input.userId),
-				or(
-					and(
-						eq(relationship.relType, "collection"),
-						eq(relationship.sourceEntityId, input.collectionId),
-						eq(relationship.targetEntityId, input.entityId),
-					),
-					and(
-						eq(relationship.relType, "member_of"),
-						eq(relationship.sourceEntityId, input.entityId),
-						eq(relationship.targetEntityId, input.collectionId),
-					),
-				),
+				eq(relationship.relType, "member_of"),
+				eq(relationship.sourceEntityId, input.entityId),
+				eq(relationship.targetEntityId, input.collectionId),
 			),
 		)
 		.returning(membershipSelection)) as MembershipRow[];
