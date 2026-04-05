@@ -163,7 +163,7 @@ export const findPolarProductId = (
 	}
 
 	const price = product.prices.find((p) => p.name === planType);
-	return price?.productId || null;
+	return price?.productId ?? null;
 };
 
 export const assignPaymentProvider = (email: string): schema.TPaymentProviders => {
