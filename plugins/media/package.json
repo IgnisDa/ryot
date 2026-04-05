@@ -37,6 +37,7 @@
 		"effect": "3.21.4"
 	},
 	"devDependencies": {
+		"@ryot/testing": "workspace:*",
 		"bun-types": "1.3.14",
 		"vitest": "4.1.9"
 	}
