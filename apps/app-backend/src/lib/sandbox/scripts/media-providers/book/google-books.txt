@@ -179,7 +179,7 @@ async function getGoogleBooksApiKey() {
   return apiKey;
 }
 
-driver("search", async function(context) {
+driver("mediaSearch", async function(context) {
   const pageSize =
     Number.isFinite(Number(context?.pageSize)) &&
     Number(context.pageSize) > 0 &&
@@ -268,7 +268,7 @@ driver("search", async function(context) {
   };
 });
 
-driver("details", async function(context) {
+driver("mediaDetails", async function(context) {
   const apiKey = await getGoogleBooksApiKey();
 
   const contextIdentifier =
