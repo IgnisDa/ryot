@@ -3,6 +3,7 @@
 - Read `README.md` before changing runner, shared harness, pool sizing, or opt-in gates.
 - Place generic platform suites under `src/tests/kernel/` and plugin behavior under its `src/tests/plugins/<plugin>/` tree. Split mixed ownership and use descriptive filenames.
 - Keep domain fixtures in `src/fixtures` and cross-cutting harness code in `src/support`; avoid generic catch-all helpers.
+- Derive HTTP payload, query, path, success, and nested plugin manifest types from `@ryot/contract/client`; compose deliberate fixture transformations with indexed access, `Pick`, `Omit`, `Partial`, or mapped types instead of writing structural mirrors.
 - Import test APIs only from `~/support/effect-test`. Test bodies use `Effect.gen` under `it.live`; `it.live` supplies per-test Scope without TestClock; never use `it.effect` because test clock deadlocks real-time waits. Keep Vitest hooks plain async with `Effect.runPromise`.
 - Keep provider tests hermetic except `providers-live-smoke.test.ts`.
 - Seed through typed `testSupport` operations and production service paths; do not mutate stored rows or add public script-execution fixtures.

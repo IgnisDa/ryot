@@ -1,7 +1,7 @@
 import { expect, it } from "@effect/vitest";
+import type { PluginManifest } from "@ryot/contract/modules/plugins/manifest";
 import type { SandboxExecutionPayload } from "@ryot/contract/modules/sandbox/schemas";
 import { SandboxScriptId, UserId } from "@ryot/contract/schema/brands";
-import type { PluginManifest } from "@ryot/plugin-kit/manifest";
 import { Effect, Layer } from "effect";
 import { assert } from "vitest";
 

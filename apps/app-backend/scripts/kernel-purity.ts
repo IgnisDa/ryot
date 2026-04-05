@@ -1,4 +1,4 @@
-import type { PluginManifest } from "@ryot/plugin-kit/manifest";
+import type { PluginManifest } from "@ryot/contract/modules/plugins/manifest";
 
 export const conceptualDomainTerms = [
 	"in-library",

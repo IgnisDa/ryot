@@ -1,5 +1,5 @@
 import { expect, it } from "@effect/vitest";
-import type { PluginHttpRateLimit } from "@ryot/plugin-kit/manifest";
+import type { PluginHttpRateLimit } from "@ryot/contract/modules/plugins/manifest";
 
 import { makeDefinitionRegistry } from "#modules/definition-registry/service";
 

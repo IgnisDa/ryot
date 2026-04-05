@@ -6,8 +6,8 @@ import {
 	Unauthorized,
 	unauthorized,
 } from "@ryot/contract/errors";
+import type { PluginManifest, PluginOperationAuth } from "@ryot/contract/modules/plugins/manifest";
 import { SandboxScriptId, UserId } from "@ryot/contract/schema/brands";
-import type { PluginManifest, PluginOperationAuth } from "@ryot/plugin-kit/manifest";
 import { Cause, Deferred, Effect, Exit, Fiber, Layer, Option } from "effect";
 import { Headers } from "effect/unstable/http";
 import { assert } from "vitest";

@@ -8,12 +8,6 @@ import { getEntity } from "./entities";
 import { seedMediaEntity } from "./media";
 import { pollUntil } from "./polling";
 
-type EntityTranslationRow = {
-	name: string | null;
-	populatedAt: string | null;
-	properties: Record<string, unknown> | null;
-};
-
 const markEntityPopulated = (entityId: string) =>
 	getBackendClient().call(
 		(c) =>
@@ -73,10 +67,7 @@ export const getEntityTranslationRow = (input: { entityId: string; language: str
 				}),
 			adminHeaders,
 		);
-		return (
-			(rows.find((row) => row.language === input.language) as EntityTranslationRow | undefined) ??
-			null
-		);
+		return rows.find((row) => row.language === input.language) ?? null;
 	});
 
 export const countEntityTranslations = (entityId: string) =>
