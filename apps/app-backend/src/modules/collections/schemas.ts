@@ -28,7 +28,6 @@ const membershipRelationshipSchema = z.object({
 });
 
 const membershipDataSchema = z.object({
-	collection: membershipRelationshipSchema,
 	memberOf: membershipRelationshipSchema,
 });
 
