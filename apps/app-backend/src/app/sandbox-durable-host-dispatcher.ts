@@ -110,6 +110,20 @@ const samePolicy = (left: MatchedHttpRateLimit, right: MatchedHttpRateLimit) =>
 
 const coordinationError = (stage: string) => () => new HttpAdmissionCoordinationError({ stage });
 
+const networkAttemptLogLevel = (result: WorkflowDurableResult) => {
+	if (result.state === "success") {
+		return "Debug" as const;
+	}
+	const status =
+		result.error.data && typeof result.error.data === "object"
+			? Reflect.get(result.error.data, "status")
+			: undefined;
+	if (typeof status === "number") {
+		return status >= 500 ? ("Warn" as const) : ("Debug" as const);
+	}
+	return "Error" as const;
+};
+
 const retryAfterTimestamp = (
 	result: WorkflowDurableResult,
 	responseTimeMs: number,
@@ -279,7 +293,7 @@ export const SandboxDurableHostDispatcherLive = Layer.effect(
 						),
 					).pipe(
 						Effect.tap((resolution) =>
-							Effect.logInfo("sandbox HTTP policy resolution completed").pipe(
+							Effect.logTrace("sandbox HTTP policy resolution completed").pipe(
 								Effect.annotateLogs({
 									stage: "resolve",
 									durationMs: resolution.durationMs,
@@ -343,7 +357,9 @@ export const SandboxDurableHostDispatcherLive = Layer.effect(
 							);
 							const responseTimeMs = yield* Clock.currentTimeMillis;
 							const durationMs = Math.max(0, responseTimeMs - startedAtMs);
-							yield* Effect.logInfo("sandbox HTTP network attempt completed").pipe(
+							yield* Effect.logWithLevel(networkAttemptLogLevel(result))(
+								"sandbox HTTP network attempt completed",
+							).pipe(
 								Effect.annotateLogs({
 									attempt,
 									durationMs,
@@ -389,7 +405,9 @@ export const SandboxDurableHostDispatcherLive = Layer.effect(
 						0,
 						reservation.token.eligibleAtMs - reservation.token.observedAtMs,
 					);
-					yield* Effect.logInfo("sandbox HTTP admission reserved").pipe(
+					yield* Effect.logWithLevel(reservationWaitMs === 0 ? "Trace" : "Debug")(
+						"sandbox HTTP admission reserved",
+					).pipe(
 						Effect.annotateLogs({
 							stage: "reserve",
 							waitMs: reservationWaitMs,
