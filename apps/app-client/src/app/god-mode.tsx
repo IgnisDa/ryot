@@ -107,7 +107,7 @@ function UserList(props: { token: string; serverUrl: string; onReset: () => void
 		queryFn: async () => {
 			const { data, error } = await apiClient.GET("/god-mode/users", {
 				params: { query: { limit: 100 } },
-				headers: { Authorization: `Bearer ${props.token}` },
+				headers: { "Admin-Access-Token": props.token },
 			});
 			if (error) {
 				throw new Error(
@@ -200,7 +200,7 @@ function UserRowWithReset(props: {
 				"/god-mode/users/{userId}/reset-password",
 				{
 					params: { path: { userId: user.id } },
-					headers: { Authorization: `Bearer ${token}` },
+					headers: { "Admin-Access-Token": token },
 				},
 			);
 			if (apiError) {

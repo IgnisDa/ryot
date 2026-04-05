@@ -1,3 +1,8 @@
 export type { AuthType, MaybeAuthType } from "./instance";
 export { auth, OIDC_PROVIDER_ID } from "./instance";
-export { createAuthRoute } from "./hono";
+export {
+	adminAccessTokenHeader,
+	adminAccessTokenSecurityScheme,
+	requireAdminAccessToken,
+} from "./middleware";
+export { createAdminRoute, createAuthRoute } from "./hono";

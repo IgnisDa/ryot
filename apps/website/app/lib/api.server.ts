@@ -8,6 +8,6 @@ export const getAppBackendApiClient = () => {
 
 	return createFetchClient<paths>({
 		baseUrl: `${serverVariables.RYOT_BASE_URL}/api`,
-		headers: { Authorization: `Bearer ${serverVariables.SERVER_ADMIN_ACCESS_TOKEN}` },
+		headers: { "Admin-Access-Token": serverVariables.SERVER_ADMIN_ACCESS_TOKEN },
 	});
 };
