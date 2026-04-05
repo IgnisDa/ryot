@@ -11,17 +11,7 @@ Break a PRD into independently-grabbable task markdown files using vertical slic
 
 ## Process
 
-### 1. Locate the PRD
-
-Ask the user for the plan name (e.g., "user-authentication").
-
-If the PRD is not already in your context window, read it from `docs/tasks/{plan-name}/README.md`.
-
-### 2. Explore the codebase (optional)
-
-If you have not already explored the codebase, do so to understand the current state of the code.
-
-### 3. Draft vertical slices
+### 1. Draft vertical slices
 
 Break the PRD into **tracer bullet** tasks. Each task is a thin vertical slice that cuts through ALL integration layers end-to-end, NOT a horizontal slice of one layer.
 
@@ -33,7 +23,7 @@ The **final task must always be a codebase cleanup task**. It must not be merged
 - Prefer many thin slices over few thick ones
 </vertical-slice-rules>
 
-### 4. Quiz the user
+### 2. Quiz the user
 
 Present the proposed breakdown as a numbered list. For each slice, show:
 
@@ -47,7 +37,7 @@ Ask the user:
 
 Iterate until the user approves the breakdown.
 
-### 5. Create the task files
+### 3. Create the task files
 
 For each approved slice, create a task markdown file in `docs/tasks/{plan-name}/` where `{plan-name}` is the plan directory name.
 
@@ -82,28 +72,11 @@ Reference by number from the parent PRD:
 - User story 3
 - User story 7
 
+## Implementor Notes
+
+Notes written by the implementor that contain technical details may be useful for future implementors. This section is optional.
+
 </task-template>
-
-The cleanup task file must use this template instead:
-
-<cleanup-task-template>
-# Codebase Cleanup
-
-**Parent Plan:** [{Plan Name}](./README.md)
-
-**Status:** todo
-
-## What to build
-
-Review every file touched during this plan and remove anything that is no longer needed or was introduced as scaffolding. Follow the `codebase-cleanup` skill, with special attention to duplicate code, duplicate or alias-only types, dead code, unnecessary exports, shallow wrappers, stale support artifacts, and speculative abstractions. The cleanup is scoped to touched files and directly affected modules, not unrelated opportunistic refactors.
-
-## Acceptance criteria
-
-- [ ] The task is executed using the `codebase-cleanup` skill
-- [ ] The cleanup pass covers all files touched by this plan and any directly affected modules
-- [ ] Any removals or simplifications are reflected in the changed code before the plan is considered complete
-
-</cleanup-task-template>
 
 After creating all task files, update the parent README.md file to replace the top-of-file Tasks section with the actual task tracking table:
 
@@ -128,19 +101,3 @@ Replace the Tasks section at the top of the file with:
 </tasks-section-template>
 
 Keep the Tasks section at the top of the README.md and do NOT modify other sections of the parent README.md.
-
-### 6. Updating task status
-
-When a task status changes (e.g., from `todo` to `in-progress` to `done`), update BOTH files:
-
-1. Update the task file's `**Status:**` field
-2. Update the README.md's task table row for that task
-3. Update the README.md's "Overall Progress" counter (count completed tasks)
-4. Update the README.md's "Current Task" to point to the first non-done task
-
-**Valid status values:**
-
-- `todo` - Not started
-- `in-progress` - Currently being worked on
-- `done` - Completed
-- `cancelled` - No longer needed
