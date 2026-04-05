@@ -99,8 +99,8 @@ const PluginScriptFields = {
 	slug: sandboxManifestSlug,
 	name: sandboxManifestString,
 	requiredAppConfigKeys: Schema.Array(sandboxManifestString),
-	capabilities: Schema.Array(Schema.Literal(...SANDBOX_HOST_CAPABILITIES)),
 };
+const PluginScriptCapabilities = Schema.Array(Schema.Literal(...SANDBOX_HOST_CAPABILITIES));
 
 export const PluginProviderOperation = Schema.Literal("details", "search", "resolve", "translate");
 
@@ -131,13 +131,34 @@ export const PluginScript = Schema.Union(
 	strictStruct({
 		...PluginScriptFields,
 		kind: Schema.Literal("script"),
+		capabilities: PluginScriptCapabilities,
 		providerSlug: Schema.optional(sandboxManifestSlug),
 	}),
-	strictStruct({ ...PluginScriptFields, kind: Schema.Literal("operation") }),
-	strictStruct({ ...PluginScriptFields, kind: Schema.Literal("automation") }),
+	strictStruct({
+		...PluginScriptFields,
+		kind: Schema.Literal("activity"),
+		capabilities: PluginScriptCapabilities,
+		providerSlug: Schema.optional(sandboxManifestSlug),
+	}),
+	strictStruct({
+		...PluginScriptFields,
+		kind: Schema.Literal("operation"),
+		capabilities: PluginScriptCapabilities,
+	}),
+	strictStruct({
+		...PluginScriptFields,
+		kind: Schema.Literal("workflow"),
+		capabilities: Schema.Tuple(),
+	}),
+	strictStruct({
+		...PluginScriptFields,
+		kind: Schema.Literal("automation"),
+		capabilities: PluginScriptCapabilities,
+	}),
 	strictStruct({
 		...PluginScriptFields,
 		kind: Schema.Literal("provider"),
+		capabilities: PluginScriptCapabilities,
 		providerSlug: sandboxManifestSlug,
 		providerOperation: PluginProviderOperation,
 	}),
@@ -174,6 +195,13 @@ export const PluginOperation = strictStruct({
 });
 
 export type PluginOperation = Schema.Schema.Type<typeof PluginOperation>;
+
+export const PluginWorkflow = strictStruct({
+	slug: sandboxManifestSlug,
+	scriptSlug: sandboxManifestSlug,
+});
+
+export type PluginWorkflow = Schema.Schema.Type<typeof PluginWorkflow>;
 
 export const PluginSchemaProviderLink = strictStruct({
 	providerSlug: sandboxManifestSlug,
@@ -237,6 +265,7 @@ const PluginManifestFields = strictStruct({
 	boot: Schema.Array(PluginBoot),
 	crons: Schema.Array(PluginCron),
 	scripts: Schema.Array(PluginScript),
+	workflows: Schema.Array(PluginWorkflow),
 	providers: Schema.Array(PluginProvider),
 	savedViews: Schema.Array(PluginSavedView),
 	operations: Schema.Array(PluginOperation),
@@ -249,11 +278,23 @@ export const PluginManifest = PluginManifestFields.pipe(
 	Schema.filter(
 		(manifest) => {
 			const scriptSlugs = new Set(manifest.scripts.map(({ slug }) => slug));
+			const workflowSlugs = new Set(manifest.workflows.map(({ slug }) => slug));
 			const providerSlugs = new Set(manifest.providers.map(({ slug }) => slug));
 			if (scriptSlugs.size !== manifest.scripts.length) {
 				return false;
 			}
 			if (providerSlugs.size !== manifest.providers.length) {
+				return false;
+			}
+			if (workflowSlugs.size !== manifest.workflows.length) {
+				return false;
+			}
+			if (
+				manifest.workflows.some(
+					(workflow) =>
+						manifest.scripts.find(({ slug }) => slug === workflow.scriptSlug)?.kind !== "workflow",
+				)
+			) {
 				return false;
 			}
 
@@ -314,6 +355,7 @@ export const PluginManifest = PluginManifestFields.pipe(
 				...manifest.boot.map(({ scriptSlug }) => scriptSlug),
 				...manifest.crons.map(({ scriptSlug }) => scriptSlug),
 				...manifest.operations.map(({ scriptSlug }) => scriptSlug),
+				...manifest.workflows.map(({ scriptSlug }) => scriptSlug),
 				...manifest.bindings.eventAutomations.map(({ scriptSlug }) => scriptSlug),
 				...manifest.bindings.entityAutomations.map(({ scriptSlug }) => scriptSlug),
 				...manifest.bindings.signalAutomations.map(({ scriptSlug }) => scriptSlug),

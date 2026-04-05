@@ -12,8 +12,10 @@ import {
 	type NormalizedMediaImportJobData,
 } from "./normalized-import-workflow";
 import { MediaImportWorkflowOperationsLive } from "./operations-workflow";
-import { populateMediaEntityGroups } from "./population-workflow";
-import { resolveMediaEntityGroups } from "./resolution-workflow";
+import {
+	populateMediaEntityGroupsWithPlugin,
+	resolveMediaEntityGroupsWithPlugin,
+} from "./plugin-workflows";
 import { createProgressReporter } from "./shared-workflow";
 import type { ImportMediaEntityGroup } from "./types";
 import { writeMediaEntityGroups } from "./writing-workflow";
@@ -158,19 +160,20 @@ export const processNormalizedMediaImport = Effect.fn("ProcessNormalizedMediaImp
 		yield* recordMediaAdapterFailures(jobData, failures);
 		yield* recordMediaTotalItems(jobData, groups + adapterFailureCount);
 
-		const resolveFailures = yield* resolveMediaEntityGroups({
+		const resolveFailures = yield* resolveMediaEntityGroupsWithPlugin({
 			executionId,
 			entityGroups,
 			payload: jobData,
 			reportProgress: progress.resolution,
 		});
 
-		const { failures: populateFailures, entityIdsByKey } = yield* populateMediaEntityGroups({
-			executionId,
-			entityGroups,
-			payload: jobData,
-			reportProgress: progress.population,
-		});
+		const { failures: populateFailures, entityIdsByKey } =
+			yield* populateMediaEntityGroupsWithPlugin({
+				executionId,
+				entityGroups,
+				payload: jobData,
+				reportProgress: progress.population,
+			});
 
 		const { failures: writeFailures, importedItems } = yield* writeMediaEntityGroups({
 			executionId,

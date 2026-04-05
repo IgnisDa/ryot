@@ -122,6 +122,18 @@ export class PluginRuntimeResolver extends Effect.Service<PluginRuntimeResolver>
 					pluginSlug: active.pluginSlug,
 				});
 			});
+			const findActiveWorkflowScript = Effect.fn("PluginRuntimeResolver.findActiveWorkflowScript")(
+				function* (input: { pluginSlug: string; workflowSlug: string }) {
+					const plugin = loader.getSnapshot().plugins[input.pluginSlug];
+					const scriptSlug = plugin?.manifest.workflows.find(
+						({ slug }) => slug === input.workflowSlug,
+					)?.scriptSlug;
+					if (!scriptSlug) {
+						return null;
+					}
+					return yield* findActiveScriptInPlugin({ pluginSlug: input.pluginSlug, scriptSlug });
+				},
+			);
 
 			const findActiveScriptById = Effect.fn("PluginRuntimeResolver.findActiveScriptById")(
 				function* (scriptId: SandboxScriptId) {
@@ -451,6 +463,7 @@ export class PluginRuntimeResolver extends Effect.Service<PluginRuntimeResolver>
 				resolveResolveScript,
 				resolveTranslateScript,
 				findSchemaProviderBySlug,
+				findActiveWorkflowScript,
 			};
 		}),
 	},

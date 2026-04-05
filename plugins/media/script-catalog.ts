@@ -1,4 +1,4 @@
-import type { SandboxManifest } from "@ryot/sandbox-sdk/core";
+import type { ActivityManifest, SandboxManifest } from "@ryot/sandbox-sdk/core";
 
 import { manifest as manifest0 } from "./scripts/automations/auto-complete-on-full-progress.sandbox";
 import { manifest as manifest1 } from "./scripts/automations/integration-progress-policy.sandbox";
@@ -136,6 +136,13 @@ import { manifest as manifest130 } from "./scripts/providers/person/tvdb.transla
 import { manifest as manifest131 } from "./scripts/providers/person/youtube-music.details.sandbox";
 import { manifest as manifest132 } from "./scripts/providers/person/youtube-music.search.sandbox";
 import { manifest as manifest133 } from "./scripts/providers/person/youtube-music.translate.sandbox";
+import { manifest as manifest136 } from "./scripts/workflows/media-import-population.sandbox";
+import { manifest as manifest137 } from "./scripts/workflows/media-import-resolution.sandbox";
+import { manifest as manifest138 } from "./scripts/workflows/resolve-book-google-books.sandbox";
+import { manifest as manifest139 } from "./scripts/workflows/resolve-book-hardcover.sandbox";
+import { manifest as manifest140 } from "./scripts/workflows/resolve-book-openlibrary.sandbox";
+import { manifest as manifest141 } from "./scripts/workflows/resolve-movie-tmdb.sandbox";
+import { manifest as manifest142 } from "./scripts/workflows/resolve-show-tmdb.sandbox";
 
 type ProviderOperation = "details" | "resolve" | "search" | "translate";
 
@@ -150,6 +157,12 @@ const providerScript = <const Manifest extends SandboxManifest>(
 	providerSlug: string,
 	providerOperation: ProviderOperation,
 ) => ({ ...directScript(manifest, entry), providerSlug, providerOperation });
+
+const providerActivity = <const Manifest extends ActivityManifest>(
+	manifest: Manifest,
+	entry: string,
+	providerSlug: string,
+) => ({ ...directScript(manifest, entry), providerSlug });
 
 export const mediaScripts = [
 	directScript(manifest0, "scripts/automations/auto-complete-on-full-progress.sandbox.ts"),
@@ -897,4 +910,23 @@ export const mediaScripts = [
 		"person.youtube-music",
 		"translate",
 	),
+	directScript(manifest136, "scripts/workflows/media-import-population.sandbox.ts"),
+	directScript(manifest137, "scripts/workflows/media-import-resolution.sandbox.ts"),
+	providerActivity(
+		manifest138,
+		"scripts/workflows/resolve-book-google-books.sandbox.ts",
+		"book.google-books",
+	),
+	providerActivity(
+		manifest139,
+		"scripts/workflows/resolve-book-hardcover.sandbox.ts",
+		"book.hardcover",
+	),
+	providerActivity(
+		manifest140,
+		"scripts/workflows/resolve-book-openlibrary.sandbox.ts",
+		"book.openlibrary",
+	),
+	providerActivity(manifest141, "scripts/workflows/resolve-movie-tmdb.sandbox.ts", "movie.tmdb"),
+	providerActivity(manifest142, "scripts/workflows/resolve-show-tmdb.sandbox.ts", "show.tmdb"),
 ] as const;

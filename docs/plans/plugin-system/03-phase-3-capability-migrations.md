@@ -1,8 +1,7 @@
 # Phase 3 — Capability migrations
 
-Status: in progress. Steps 0, 1, and 2 are complete, and Step 3's mandatory spike is done and
-signed off — resume by implementing Step 3 against the recorded A-prime design in §3. Do not
-recreate the removed multi-entrypoint driver model while implementing later steps.
+Status: in progress. Steps 0-3 are complete; resume with Step 4. Do not recreate the removed
+multi-entrypoint driver model while implementing later steps.
 
 Goal: move the remaining native domain code into the plugins, one capability at a time. Step 0's
 two prerequisites establish the authoring and observability foundations. Each capability step
@@ -247,6 +246,8 @@ unknown operation) + migrated suites green; extension works against invoke.
 
 ## Step 3 — Durable workflows: media import population/resolution **(spike first)**
 
+Status: complete.
+
 **Spike status: complete (2026-07-26), owner-approved.** The mandatory spike ran twice — first
 the journal-in-context design ("A"), then the owner-selected journal-via-host-calls design
 ("A-prime") — each as throwaway code exercised through suspend/resume, a SIGINT process
@@ -339,6 +340,19 @@ in-process, with per-call validation preserved server-side:
 `durableCalls(requests: ReadonlyArray<{ index, kind, name, args }>) => ReadonlyArray<{ status: "recorded", value } | { status: "pending" }>`.
 The bulk variant was recommended by the spike but **not measured** — task 06 owns validating it.
 
+**Implementation choice amendment (2026-07-26, owner-approved):** validating the proposed
+aligned request/response shape exposed a contradiction for value-dependent calls: a script cannot
+construct call `n + 1` until it receives call `n`'s recorded value, so submitting the growing
+request prefix necessarily makes multiple bridge calls per replay. Task 06 therefore uses one
+argument-free `durableCalls()` bootstrap call that bulk-reads the complete recorded projection and
+caches it in the workflow SDK. The SDK consumes recorded values locally and returns the complete
+encountered call trace in the sandbox result envelope when the replay completes or reaches the first
+missing entry. Before accepting completion or performing pending work, the trusted kernel validates
+every encountered `(index, kind, name, argsHash)` against the durable journal and requires exactly
+one additional request for the pending case. This preserves one journal-read bridge call per replay,
+kernel-side nondeterminism detection, journal-via-host-call transport, and Redis's projection-only
+role; it supersedes only the aligned `durableCalls(requests) => responses` wire shape above.
+
 **Replay ordering is validated kernel-side on `(index, kind, name, argsHash)`.** The kernel sees
 each call live and rejects divergence with a structured nondeterminism error before returning
 anything, e.g. `journal[0] recorded activity:alpha args#<hash> but the script requested
@@ -362,6 +376,13 @@ transparent here (`Schema.Unknown`); the losses are the JSON layer's.
 retried, the failure itself is memoized (so a 60 s busy loop costs one 6 s timeout, not one per
 replay), the journal is not corrupted, and the workflow makes progress afterwards. Task 06 owns
 the explicit retry policy decision.
+
+**Implementation choice (2026-07-26): no automatic application-level retries.** Activity
+timeouts, queue failures, child failures, and completed activity errors fail the workflow; the
+durable engine memoizes the failure rather than re-executing the side effect during replay. A
+workflow-script failure without a pending durable request also fails immediately. This preserves
+at-most-once activity execution under replay and leaves any future retry policy explicit at the
+workflow-authoring layer rather than hidden in the kernel shell.
 
 **Process restart mid-execution.** SIGINT during a durable sleep followed by a respawn against
 the same Postgres/Redis resumed and completed with **zero re-execution** of prior steps —
@@ -404,6 +425,15 @@ contract: force the empty IO capability set at ingestion, reject or shim the non
 globals (`Date.now`, `Math.random`) that would make a replay diverge invisibly, and carry the
 limit profile below. Follow the `kind: "operation"` precedent from step 2 rather than opening
 the generic `kind: "script"` catch-all.
+
+**Implementation choice (2026-07-26): workflow activities use a distinct `activity` script kind.**
+The shell resolves activity references only within the owning plugin and rejects generic,
+operation, provider, automation, and workflow scripts. Activities retain the standard execution
+profile and their declared capabilities; workflow scripts receive only the journal bootstrap
+host call. The workflow SDK exposes a deterministic Effect subset, compiler validation rejects
+unrestricted Effect imports and direct ambient time/random usage in reachable modules, and the
+runner keeps time/random guards active through Effect callbacks while preserving deterministic
+date parsing.
 
 **Per-script-kind limit profile (kernel-owned ceilings):**
 
