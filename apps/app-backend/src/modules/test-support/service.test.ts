@@ -14,6 +14,7 @@ import { TranslationsService } from "#modules/entity-translation/service";
 import { RelationshipSchemasRepository } from "#modules/relationship-schemas/repository";
 import { RelationshipsService } from "#modules/relationships/service";
 import { SandboxExecutionService } from "#modules/sandbox/service";
+import { PluginBootService } from "#modules/scheduler/plugin-boot";
 import { PluginCronService } from "#modules/scheduler/plugin-cron";
 import { SignalsService } from "#modules/signals/service";
 
@@ -26,6 +27,7 @@ const mockAuth = Layer.mock(AuthService);
 const mockSignals = Layer.mock(SignalsService);
 const mockEntities = Layer.mock(EntitiesService);
 const mockInterest = Layer.mock(InterestService);
+const mockPluginBoots = Layer.mock(PluginBootService);
 const mockPluginCrons = Layer.mock(PluginCronService);
 const mockAutomations = Layer.mock(AutomationsService);
 const mockSandbox = Layer.mock(SandboxExecutionService);
@@ -41,6 +43,7 @@ const makeServiceLayer = (
 	overrides: {
 		sandbox?: MockOverrides<typeof mockSandbox>;
 		entities?: MockOverrides<typeof mockEntities>;
+		pluginBoots?: MockOverrides<typeof mockPluginBoots>;
 		pluginCrons?: MockOverrides<typeof mockPluginCrons>;
 	} = {},
 	definitions = makeDefinitionRegistry(),
@@ -58,6 +61,11 @@ const makeServiceLayer = (
 					_tag: "PluginCronService",
 					triggerAll: () => Effect.void,
 					...overrides.pluginCrons,
+				}),
+				mockPluginBoots({
+					_tag: "PluginBootService",
+					triggerAll: () => Effect.void,
+					...overrides.pluginBoots,
 				}),
 				mockInterest({ _tag: "InterestService" }),
 				mockTranslations({ _tag: "TranslationsService" }),
@@ -150,5 +158,24 @@ it.effect("triggers plugin crons with the native infrequent execution id", () =>
 		const result = yield* service.triggerInfrequentCron();
 		expect(result.executionId).toMatch(/^infrequent-cron-manual-/);
 		expect(pluginCronExecutionId).toBe(result.executionId);
+	}).pipe(Effect.provide(layer));
+});
+
+it.effect("triggers plugin boots with the manual boot execution id", () => {
+	let pluginBootExecutionId: string | undefined;
+	const layer = makeServiceLayer({
+		pluginBoots: {
+			triggerAll: (executionId) =>
+				Effect.sync(() => {
+					pluginBootExecutionId = executionId;
+				}),
+		},
+	});
+
+	return Effect.gen(function* () {
+		const service = yield* TestSupportService;
+		const result = yield* service.triggerPluginBoot();
+		expect(result.executionId).toMatch(/^plugin-boot-manual-/);
+		expect(pluginBootExecutionId).toBe(result.executionId);
 	}).pipe(Effect.provide(layer));
 });
