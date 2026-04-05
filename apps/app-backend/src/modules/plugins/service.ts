@@ -17,6 +17,7 @@ import type { NormalizedPlugin, PluginSource } from "./types";
 import {
 	decodePluginManifest,
 	PluginValidationError,
+	validatePluginBootDrivers,
 	validatePluginCronDrivers,
 	validatePluginManifestReferences,
 	validatePluginOperationDrivers,
@@ -71,6 +72,9 @@ export class PluginIngestionService extends Effect.Service<PluginIngestionServic
 						validatePluginManifestReferences(plugin.manifest, snapshot.definitions).pipe(
 							Effect.andThen(
 								validateCompiledDrivers ? validatePluginCronDrivers(plugin) : Effect.void,
+							),
+							Effect.andThen(
+								validateCompiledDrivers ? validatePluginBootDrivers(plugin) : Effect.void,
 							),
 							Effect.andThen(
 								validateCompiledDrivers ? validatePluginOperationDrivers(plugin) : Effect.void,
