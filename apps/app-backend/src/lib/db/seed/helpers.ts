@@ -2,7 +2,6 @@ import { generateId } from "better-auth";
 import { and, eq, isNull } from "drizzle-orm";
 import type { DbClient } from "~/lib/db";
 import {
-	EntitySchemaSandboxScriptKind,
 	entitySchema,
 	entitySchemaSandboxScript,
 	eventSchema,
@@ -123,11 +122,11 @@ export const ensureBuiltinSandboxScript = async (input: {
 	return scriptId;
 };
 
-const ensureScriptLinkToEntitySchema = async (input: {
+export const linkScriptPairToEntitySchema = async (input: {
 	database: DbClient;
 	entitySchemaId: string;
-	sandboxScriptId: string;
-	kind: EntitySchemaSandboxScriptKind;
+	searchScriptId: string;
+	detailsScriptId: string;
 }) => {
 	const [existing] = await input.database
 		.select({ id: entitySchemaSandboxScript.id })
@@ -135,8 +134,14 @@ const ensureScriptLinkToEntitySchema = async (input: {
 		.where(
 			and(
 				eq(entitySchemaSandboxScript.entitySchemaId, input.entitySchemaId),
-				eq(entitySchemaSandboxScript.kind, input.kind),
-				eq(entitySchemaSandboxScript.sandboxScriptId, input.sandboxScriptId),
+				eq(
+					entitySchemaSandboxScript.searchSandboxScriptId,
+					input.searchScriptId,
+				),
+				eq(
+					entitySchemaSandboxScript.detailsSandboxScriptId,
+					input.detailsScriptId,
+				),
 			),
 		)
 		.limit(1);
@@ -146,28 +151,8 @@ const ensureScriptLinkToEntitySchema = async (input: {
 	}
 
 	await input.database.insert(entitySchemaSandboxScript).values({
-		kind: input.kind,
 		entitySchemaId: input.entitySchemaId,
-		sandboxScriptId: input.sandboxScriptId,
-	});
-};
-
-export const linkScriptPairToEntitySchema = async (input: {
-	database: DbClient;
-	entitySchemaId: string;
-	searchScriptId: string;
-	detailsScriptId: string;
-}) => {
-	await ensureScriptLinkToEntitySchema({
-		database: input.database,
-		entitySchemaId: input.entitySchemaId,
-		sandboxScriptId: input.searchScriptId,
-		kind: EntitySchemaSandboxScriptKind.search,
-	});
-	await ensureScriptLinkToEntitySchema({
-		database: input.database,
-		entitySchemaId: input.entitySchemaId,
-		sandboxScriptId: input.detailsScriptId,
-		kind: EntitySchemaSandboxScriptKind.details,
+		searchSandboxScriptId: input.searchScriptId,
+		detailsSandboxScriptId: input.detailsScriptId,
 	});
 };
