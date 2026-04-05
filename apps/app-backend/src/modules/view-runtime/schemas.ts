@@ -17,7 +17,6 @@ const paginationSchema = z.object({
 const executeViewRuntimeGridBody = z.object({
 	sort: sortDefinitionSchema,
 	pagination: paginationSchema,
-	search: z.string().optional(),
 	layout: z.literal("grid"),
 	displayConfiguration: gridConfigSchema,
 	filters: z.array(filterExpressionSchema),
@@ -29,7 +28,6 @@ const executeViewRuntimeGridBody = z.object({
 const executeViewRuntimeListBody = z.object({
 	sort: sortDefinitionSchema,
 	pagination: paginationSchema,
-	search: z.string().optional(),
 	layout: z.literal("list"),
 	displayConfiguration: listConfigSchema,
 	filters: z.array(filterExpressionSchema),
@@ -41,7 +39,6 @@ const executeViewRuntimeListBody = z.object({
 const executeViewRuntimeTableBody = z.object({
 	sort: sortDefinitionSchema,
 	pagination: paginationSchema,
-	search: z.string().optional(),
 	layout: z.literal("table"),
 	displayConfiguration: tableConfigSchema,
 	filters: z.array(filterExpressionSchema),

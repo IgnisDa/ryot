@@ -11,22 +11,9 @@ import {
 	SegmentedControl,
 	Stack,
 	Text,
-	TextInput,
 } from "@mantine/core";
-import {
-	useDebouncedValue,
-	useDisclosure,
-	useLocalStorage,
-} from "@mantine/hooks";
-import {
-	Copy,
-	Edit3,
-	LayoutGrid,
-	List,
-	Search,
-	Table2,
-	Trash2,
-} from "lucide-react";
+import { useDisclosure, useLocalStorage } from "@mantine/hooks";
+import { Copy, Edit3, LayoutGrid, List, Table2, Trash2 } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { EmptyState, ErrorState, LoadingState } from "#/components/PageStates";
 import { useResolvedImageUrls } from "#/features/entities/image";
@@ -57,17 +44,15 @@ export function SavedViewPage(props: {
 	onDelete: () => void | Promise<void>;
 }) {
 	const apiClient = useApiClient();
-	const [page, setPage] = useState(1);
-	const savedViewMutations = useSavedViewMutations();
-	const [search, setSearch] = useState("");
 	const { surface, textPrimary, textSecondary } = useThemeTokens();
 	const [drawerOpened, drawer] = useDisclosure(false);
-	const [debouncedSearch] = useDebouncedValue(search, 300);
-	const [saveMessage, setSaveMessage] = useState<string | null>(null);
 	const [layout, setLayout] = useLocalStorage<ViewLayout>({
 		key: `${STORAGE_KEYS.viewLayout}:${props.viewId}`,
 		defaultValue: "grid",
 	});
+	const [page, setPage] = useState(1);
+	const [saveMessage, setSaveMessage] = useState<string | null>(null);
+	const savedViewMutations = useSavedViewMutations();
 
 	const savedViewQuery = apiClient.useQuery("get", "/saved-views/{viewId}", {
 		params: { path: { viewId: props.viewId } },
@@ -81,10 +66,9 @@ export function SavedViewPage(props: {
 						layout,
 						page,
 						limit: getPageLimit(layout),
-						search: debouncedSearch || undefined,
 					})
 				: createDisabledViewRuntimeRequest(),
-		[savedView, layout, page, debouncedSearch],
+		[savedView, layout, page],
 	);
 	const runtimeQuery = apiClient.useQuery(
 		"post",
@@ -121,7 +105,7 @@ export function SavedViewPage(props: {
 
 	useEffect(() => {
 		setPage(1);
-	}, [layout, props.viewId, debouncedSearch, setPage]);
+	}, [layout, props.viewId, setPage]);
 
 	if (savedViewQuery.isLoading) {
 		return <LoadingState />;
@@ -143,14 +127,26 @@ export function SavedViewPage(props: {
 			/>
 		);
 	}
+	if (runtimeQuery.isLoading) {
+		return <LoadingState />;
+	}
+	if (runtimeQuery.isError || !meta) {
+		return (
+			<ErrorState
+				title="Failed to load results"
+				onRetry={() => runtimeQuery.refetch()}
+				description="We could not render this view right now."
+			/>
+		);
+	}
+
 	const accentColor = savedView.accentColor;
 	const accentMuted = getAccentMuted(accentColor);
 	const schemaSummary = savedView.queryDefinition.entitySchemaSlugs.join(", ");
-	const pageSummary = meta
-		? meta.pagination.totalPages > 0
+	const pageSummary =
+		meta.pagination.totalPages > 0
 			? `Page ${meta.pagination.page} of ${meta.pagination.totalPages}`
-			: "No pages"
-		: null;
+			: "No pages";
 
 	return (
 		<Container size="xl" py="xl">
@@ -201,16 +197,14 @@ export function SavedViewPage(props: {
 							<Text size="sm" c={textSecondary}>
 								Browsing {schemaSummary || "selected schemas"}
 							</Text>
-							{meta ? (
-								<Group gap="xs">
-									<Badge variant="filled" bg={accentColor} c="white">
-										{meta.pagination.total} results
-									</Badge>
-									<Text size="xs" c="dimmed">
-										{pageSummary}
-									</Text>
-								</Group>
-							) : null}
+							<Group gap="xs">
+								<Badge variant="filled" bg={accentColor} c="white">
+									{meta.pagination.total} results
+								</Badge>
+								<Text size="xs" c="dimmed">
+									{pageSummary}
+								</Text>
+							</Group>
 						</Stack>
 						<Group gap="xs">
 							<Button
@@ -265,22 +259,7 @@ export function SavedViewPage(props: {
 					) : null}
 				</Paper>
 
-				<TextInput
-					value={search}
-					placeholder="Search by name…"
-					leftSection={<Search size={14} />}
-					onChange={(e) => setSearch(e.currentTarget.value)}
-				/>
-
-				{runtimeQuery.isLoading ? (
-					<LoadingState />
-				) : runtimeQuery.isError || !meta ? (
-					<ErrorState
-						title="Failed to load results"
-						onRetry={() => runtimeQuery.refetch()}
-						description="We could not render this view right now."
-					/>
-				) : items.length === 0 ? (
+				{items.length === 0 ? (
 					<EmptyState
 						accentColor={accentColor}
 						accentMuted={accentMuted}
@@ -297,7 +276,7 @@ export function SavedViewPage(props: {
 					/>
 				)}
 
-				{meta && meta.pagination.totalPages > 1 ? (
+				{meta.pagination.totalPages > 1 ? (
 					<Paper p="md" withBorder radius="sm" bg={surface}>
 						<Group justify="space-between" align="center">
 							<Text size="sm" c="dimmed">
