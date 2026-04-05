@@ -118,7 +118,7 @@ export async function executeViewRuntime(
 	});
 }
 
-export async function createEntity(input: CreateEntityInput) {
+export async function createRuntimeEntity(input: CreateEntityInput) {
 	const { data, response } = await input.client.POST("/entities", {
 		headers: { Cookie: input.cookies },
 		body: {
@@ -181,7 +181,7 @@ export async function createSingleSchemaRuntimeFixture() {
 	];
 
 	for (const entity of entities) {
-		await createEntity({
+		await createRuntimeEntity({
 			client,
 			cookies,
 			name: entity.name,
@@ -260,7 +260,7 @@ export async function createCrossSchemaRuntimeFixture() {
 	];
 
 	for (const entity of entities) {
-		await createEntity({
+		await createRuntimeEntity({
 			client,
 			cookies,
 			name: entity.name,
