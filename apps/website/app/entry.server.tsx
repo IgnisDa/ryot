@@ -1,108 +1,47 @@
-import { PassThrough } from "node:stream";
-
-import { createReadableStreamFromReadable } from "@react-router/node";
 import { isbot } from "isbot";
-import { renderToPipeableStream } from "react-dom/server";
+import { renderToReadableStream } from "react-dom/server";
 import { type AppLoadContext, type EntryContext, ServerRouter } from "react-router";
 
 const ABORT_DELAY = 5_000;
 
-export default function handleRequest(
+export default async function handleRequest(
 	request: Request,
 	responseStatusCode: number,
 	responseHeaders: Headers,
 	reactRouterContext: EntryContext,
 	_loadContext: AppLoadContext,
 ) {
-	return isbot(request.headers.get("user-agent") ?? "")
-		? handleBotRequest(request, responseStatusCode, responseHeaders, reactRouterContext)
-		: handleBrowserRequest(request, responseStatusCode, responseHeaders, reactRouterContext);
-}
+	if (request.method.toUpperCase() === "HEAD") {
+		return new Response(null, { status: responseStatusCode, headers: responseHeaders });
+	}
 
-function handleBotRequest(
-	request: Request,
-	responseStatusCode: number,
-	responseHeaders: Headers,
-	reactRouterContext: EntryContext,
-) {
-	return new Promise((resolve, reject) => {
-		let shellRendered = false;
-		const { pipe, abort } = renderToPipeableStream(
-			<ServerRouter context={reactRouterContext} url={request.url} />,
-			{
-				onAllReady() {
-					shellRendered = true;
-					const body = new PassThrough();
-					const stream = createReadableStreamFromReadable(body);
+	const isBot = isbot(request.headers.get("user-agent") ?? "");
 
-					responseHeaders.set("Content-Type", "text/html");
+	const abortController = new AbortController();
+	const timeoutId = setTimeout(() => abortController.abort(), ABORT_DELAY);
 
-					resolve(
-						new Response(stream, {
-							headers: responseHeaders,
-							status: responseStatusCode,
-						}),
-					);
-
-					pipe(body);
-				},
-				onShellError(error: unknown) {
-					reject(error);
-				},
-				onError(error: unknown) {
-					// oxlint-disable-next-line no-param-reassign
-					responseStatusCode = 500;
-					if (shellRendered) {
-						console.error(error);
-					}
-				},
+	const stream = await renderToReadableStream(
+		<ServerRouter context={reactRouterContext} url={request.url} />,
+		{
+			signal: abortController.signal,
+			onError(error: unknown) {
+				// oxlint-disable-next-line no-param-reassign
+				responseStatusCode = 500;
+				console.error(error);
 			},
-		);
+		},
+	);
 
-		setTimeout(abort, ABORT_DELAY);
-	});
-}
+	clearTimeout(timeoutId);
 
-function handleBrowserRequest(
-	request: Request,
-	responseStatusCode: number,
-	responseHeaders: Headers,
-	reactRouterContext: EntryContext,
-) {
-	return new Promise((resolve, reject) => {
-		let shellRendered = false;
-		const { pipe, abort } = renderToPipeableStream(
-			<ServerRouter context={reactRouterContext} url={request.url} />,
-			{
-				onShellReady() {
-					shellRendered = true;
-					const body = new PassThrough();
-					const stream = createReadableStreamFromReadable(body);
+	if (isBot) {
+		await stream.allReady;
+	}
 
-					responseHeaders.set("Content-Type", "text/html");
+	responseHeaders.set("Content-Type", "text/html");
 
-					resolve(
-						new Response(stream, {
-							headers: responseHeaders,
-							status: responseStatusCode,
-						}),
-					);
-
-					pipe(body);
-				},
-				onShellError(error: unknown) {
-					reject(error);
-				},
-				onError(error: unknown) {
-					// oxlint-disable-next-line no-param-reassign
-					responseStatusCode = 500;
-					if (shellRendered) {
-						console.error(error);
-					}
-				},
-			},
-		);
-
-		setTimeout(abort, ABORT_DELAY);
+	return new Response(stream, {
+		headers: responseHeaders,
+		status: responseStatusCode,
 	});
 }
