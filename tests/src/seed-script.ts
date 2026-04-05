@@ -166,21 +166,23 @@ async function createEntity(
 	return data.data;
 }
 
-async function createEvent(
+type EventPayload = NonNullable<
+	paths["/events"]["post"]["requestBody"]
+>["content"]["application/json"][number];
+
+async function createEvents(
 	apiClient: APIClient,
-	entityId: string,
-	eventSchemaId: string,
-	properties: Record<string, unknown>,
-	occurredAt: string,
+	events: EventPayload[],
 ): Promise<void> {
+	if (events.length === 0) {
+		return;
+	}
 	apiClient.incrementRequestCount();
 	const client = apiClient.getClient();
-	const { response } = await client.POST("/events", {
-		body: { entityId, occurredAt, properties, eventSchemaId },
-	});
+	const { response } = await client.POST("/events", { body: events });
 
 	if (!response.ok) {
-		throw new Error(`Failed to create event: ${response.statusText}`);
+		throw new Error(`Failed to create events: ${response.statusText}`);
 	}
 }
 
@@ -494,7 +496,7 @@ async function seedWhiskeys(client: APIClient) {
 	console.log(`  ✓ Created ${entityCount} whiskey entities`);
 
 	console.log("\n  Creating events for whiskeys...");
-	let totalEvents = 0;
+	const whiskeyEvents: EventPayload[] = [];
 	for (const entity of entities) {
 		const eventCount = randomInt(3, 100);
 		const eventSchemas = [tastingSchema, purchaseSchema];
@@ -506,20 +508,16 @@ async function seedWhiskeys(client: APIClient) {
 					? generateWhiskeyTasting()
 					: generateWhiskeyPurchase();
 
-			await createEvent(
-				client,
-				entity.id,
-				schema.id,
+			whiskeyEvents.push({
 				properties,
-				faker.date.past({ years: 2 }).toISOString(),
-			);
-			totalEvents++;
-
-			if (totalEvents % 1000 === 0) {
-				console.log(`    Progress: ${totalEvents} events created`);
-			}
+				entityId: entity.id,
+				eventSchemaId: schema.id,
+				occurredAt: faker.date.past({ years: 2 }).toISOString(),
+			});
 		}
 	}
+	await createEvents(client, whiskeyEvents);
+	const totalEvents = whiskeyEvents.length;
 	console.log(`  ✓ Created ${totalEvents} events for whiskeys`);
 
 	return { tracker, entityCount, eventCount: totalEvents };
@@ -612,7 +610,7 @@ async function seedPlaces(client: APIClient) {
 	console.log(`  ✓ Created ${entityCount} place entities`);
 
 	console.log("\n  Creating events for places...");
-	let totalEvents = 0;
+	const placeEvents: EventPayload[] = [];
 	for (const entity of entities) {
 		const eventCount = randomInt(3, 100);
 		const eventSchemas = [visitSchema, ratingSchema, photoSchema];
@@ -629,20 +627,16 @@ async function seedPlaces(client: APIClient) {
 				properties = generatePlacePhoto();
 			}
 
-			await createEvent(
-				client,
-				entity.id,
-				schema.id,
+			placeEvents.push({
 				properties,
-				faker.date.past({ years: 2 }).toISOString(),
-			);
-			totalEvents++;
-
-			if (totalEvents % 1000 === 0) {
-				console.log(`    Progress: ${totalEvents} events created`);
-			}
+				entityId: entity.id,
+				eventSchemaId: schema.id,
+				occurredAt: faker.date.past({ years: 2 }).toISOString(),
+			});
 		}
 	}
+	await createEvents(client, placeEvents);
+	const totalEvents = placeEvents.length;
 	console.log(`  ✓ Created ${totalEvents} events for places`);
 
 	return { tracker, entityCount, eventCount: totalEvents };
