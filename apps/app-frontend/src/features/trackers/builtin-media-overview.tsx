@@ -355,16 +355,26 @@ function ContinueLoggingModalContent(props: {
 	const isValid =
 		typeof progressPercent === "number" &&
 		progressPercent > 0 &&
-		progressPercent < 100 &&
+		progressPercent <= 100 &&
 		progressPercent !== props.initialPercent;
+
+	const isComplete = progressPercent === 100;
 
 	const handleSave = async () => {
 		try {
-			const payload = createProgressEventPayload({
-				entityId: props.entityId,
-				progressPercent: progressPercent as number,
-				eventSchemas: eventSchemasQuery.eventSchemas,
-			});
+			const payload = isComplete
+				? createLogEventPayload({
+						startedOn: "",
+						logDate: "now",
+						completedOn: "",
+						entityId: props.entityId,
+						eventSchemas: eventSchemasQuery.eventSchemas,
+					})
+				: createProgressEventPayload({
+						entityId: props.entityId,
+						progressPercent: progressPercent as number,
+						eventSchemas: eventSchemasQuery.eventSchemas,
+					});
 			await createEvents.mutateAsync({ body: payload });
 			modals.close(props.modalId);
 			props.onSaved();
@@ -381,14 +391,14 @@ function ContinueLoggingModalContent(props: {
 		<Stack gap="sm">
 			<NumberInput
 				min={1}
-				max={99}
 				step={1}
+				max={100}
 				size="xs"
 				suffix="%"
 				label="Progress"
 				value={progressPercent}
 				onChange={setProgressPercent}
-				description="Enter your current progress (1–99%)"
+				description="Enter your current progress (1–100%)"
 				styles={{
 					input: { fontFamily: "var(--mantine-font-family-monospace)" },
 				}}
@@ -401,7 +411,7 @@ function ContinueLoggingModalContent(props: {
 					disabled={!isValid || createEvents.isPending}
 					style={{ backgroundColor: props.accentColor, color: "white" }}
 				>
-					Save
+					{isComplete ? "Mark Complete" : "Save"}
 				</Button>
 				<Button
 					variant="subtle"
@@ -1277,7 +1287,7 @@ export function BuiltinMediaTrackerOverview(
 					entityId={entityId}
 					modalId={continueModalId}
 					accentColor={accentColor}
-					onSaved={invalidateContinue}
+					onSaved={invalidateOverview}
 					entitySchemaId={entitySchemaId}
 					initialPercent={initialPercent}
 				/>
