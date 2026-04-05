@@ -4,18 +4,19 @@ import { itemDataSchema } from "~/lib/openapi";
 import {
 	createIdParamsSchema,
 	nonEmptyTrimmedStringSchema,
+	stringUnknownRecordSchema,
+	timestampFields,
 } from "~/lib/zod/base";
 
 export const listedEntitySchema = z.object({
 	id: z.string(),
 	name: z.string(),
-	createdAt: z.date(),
-	updatedAt: z.date(),
+	...timestampFields,
 	entitySchemaId: z.string(),
-	externalId: z.string().nullable(),
 	image: ImageSchema.nullable(),
+	externalId: z.string().nullable(),
 	detailsSandboxScriptId: z.string().nullable(),
-	properties: z.record(z.string(), z.unknown()),
+	properties: stringUnknownRecordSchema,
 });
 
 const entityResponseSchema = itemDataSchema(listedEntitySchema);
@@ -29,8 +30,8 @@ export const entityParams = createIdParamsSchema("entityId");
 export const createEntityBody = z.object({
 	image: ImageSchema.nullable(),
 	name: nonEmptyTrimmedStringSchema,
+	properties: stringUnknownRecordSchema,
 	entitySchemaId: nonEmptyTrimmedStringSchema,
-	properties: z.record(z.string(), z.unknown()),
 });
 
 export type CreateEntityBody = z.infer<typeof createEntityBody>;
