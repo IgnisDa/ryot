@@ -1,4 +1,4 @@
-import { EntitySchemaSlug, SandboxScriptId } from "@ryot/contract/schema/brands";
+import { EntitySchemaSlug, SandboxProviderId, SandboxScriptId } from "@ryot/contract/schema/brands";
 import { DateTime, Effect } from "effect";
 
 import {
@@ -16,7 +16,7 @@ import {
 	pollEntityImportResult,
 	pollEntitySearchResult,
 	installTestProvider,
-	type InstalledProviderScript,
+	type InstalledTestProvider,
 } from "~/fixtures";
 import {
 	assertCompleted,
@@ -32,11 +32,14 @@ const ANIME_IMPORT_NAME = "E2E Imported Anime";
 const RELATED_COMPANY_NAME = "E2E Studio";
 const RELATED_COMPANY_EXTERNAL_ID = "e2e-company-1";
 
-let bookProvider: InstalledProviderScript;
-let animeProvider: InstalledProviderScript;
-let companyProvider: InstalledProviderScript;
+let bookProvider: InstalledTestProvider;
+let animeProvider: InstalledTestProvider;
+let companyProvider: InstalledTestProvider;
 
-const bookScriptId = () => SandboxScriptId.make(bookProvider.scriptId);
+const bookSearchScriptId = () => {
+	assertPresent(bookProvider.searchScriptId, "Installed book provider search script not found");
+	return bookProvider.searchScriptId;
+};
 
 beforeAll(async () => {
 	await Effect.runPromise(
@@ -47,48 +50,42 @@ beforeAll(async () => {
 			companyProvider = yield* installTestProvider({
 				client,
 				linkToEntitySchemaSlug: companySchema.id,
-				drivers: {
-					details: fakeProviderDetailsResult({ name: RELATED_COMPANY_NAME, properties: {} }),
-				},
+				details: fakeProviderDetailsResult({ name: RELATED_COMPANY_NAME, properties: {} }),
 			});
 
 			animeProvider = yield* installTestProvider({
 				client,
-				drivers: {
-					details: fakeProviderDetailsResult({
-						name: ANIME_IMPORT_NAME,
-						properties: { description: "Imported anime from the e2e fake provider." },
-						relatedEntityGroups: [
-							{
-								direction: "incoming",
-								synchronization: "additive",
-								relationshipSchemaSlug: "company-to-anime",
-								entities: [
-									{
-										name: RELATED_COMPANY_NAME,
-										scriptSlug: companyProvider.slug,
-										externalId: RELATED_COMPANY_EXTERNAL_ID,
-										relationshipProperties: { roles: ["E2E Animation Studio"] },
-									},
-								],
-							},
-						],
-					}),
-				},
+				details: fakeProviderDetailsResult({
+					name: ANIME_IMPORT_NAME,
+					properties: { description: "Imported anime from the e2e fake provider." },
+					relatedEntityGroups: [
+						{
+							direction: "incoming",
+							synchronization: "additive",
+							relationshipSchemaSlug: "company-to-anime",
+							entities: [
+								{
+									name: RELATED_COMPANY_NAME,
+									providerSlug: companyProvider.providerSlug,
+									externalId: RELATED_COMPANY_EXTERNAL_ID,
+									relationshipProperties: { roles: ["E2E Animation Studio"] },
+								},
+							],
+						},
+					],
+				}),
 			});
 
 			bookProvider = yield* installTestProvider({
 				client,
-				drivers: {
-					search: fakeProviderSearchResult([
-						{ externalId: "e2e-book-1", title: "E2E Book One", subtitle: null },
-						{ externalId: "e2e-book-2", title: "E2E Book Two", subtitle: 2 },
-					]),
-					details: fakeProviderDetailsResult({
-						name: BOOK_IMPORT_NAME,
-						properties: { description: "Imported book from the e2e fake provider." },
-					}),
-				},
+				search: fakeProviderSearchResult([
+					{ externalId: "e2e-book-1", title: "E2E Book One", subtitle: null },
+					{ externalId: "e2e-book-2", title: "E2E Book Two", subtitle: 2 },
+				]),
+				details: fakeProviderDetailsResult({
+					name: BOOK_IMPORT_NAME,
+					properties: { description: "Imported book from the e2e fake provider." },
+				}),
 			});
 		}),
 	);
@@ -125,7 +122,7 @@ describe("provider entity search enqueue", () => {
 			const { userId } = yield* createAuthenticatedClient();
 
 			const { jobId } = yield* enqueueEntitySearch(userId, {
-				scriptId: bookScriptId(),
+				scriptId: bookSearchScriptId(),
 				context: { page: 1, pageSize: 5, query: "test" },
 			});
 
@@ -141,7 +138,7 @@ describe("provider entity search result", () => {
 			const { userId } = yield* createAuthenticatedClient();
 
 			const { jobId } = yield* enqueueEntitySearch(userId, {
-				scriptId: bookScriptId(),
+				scriptId: bookSearchScriptId(),
 				context: { page: 1, pageSize: 5, query: "test" },
 			});
 
@@ -163,7 +160,7 @@ describe("POST /library/import", () => {
 					c.entityImport.import({
 						payload: {
 							externalId: "test-id",
-							scriptId: SandboxScriptId.make(crypto.randomUUID()),
+							providerId: SandboxProviderId.make(crypto.randomUUID()),
 							entitySchemaSlug: EntitySchemaSlug.make(crypto.randomUUID()),
 						},
 					}),
@@ -180,7 +177,7 @@ describe("POST /library/import", () => {
 			const { schema } = yield* findBuiltinSchemaWithProviders(client);
 
 			const { jobId } = yield* enqueueEntityImport(client, {
-				scriptId: bookScriptId(),
+				providerId: bookProvider.providerId,
 				externalId: "e2e-book-1",
 				entitySchemaSlug: schema.id,
 			});
@@ -228,7 +225,7 @@ describe("GET /library/import/{jobId}", () => {
 			const { schema } = yield* findBuiltinSchemaWithProviders(clientA);
 
 			const { jobId } = yield* enqueueEntityImport(clientA, {
-				scriptId: bookScriptId(),
+				providerId: bookProvider.providerId,
 				externalId: "e2e-book-crossuser",
 				entitySchemaSlug: schema.id,
 			});
@@ -248,7 +245,7 @@ describe("GET /library/import/{jobId}", () => {
 			const { schema } = yield* findBuiltinSchemaWithProviders(client);
 
 			const { jobId } = yield* enqueueEntityImport(client, {
-				scriptId: bookScriptId(),
+				providerId: bookProvider.providerId,
 				externalId: "e2e-book-terminal",
 				entitySchemaSlug: schema.id,
 			});
@@ -270,7 +267,7 @@ describe("GET /library/import/{jobId}", () => {
 
 				const { jobId } = yield* enqueueEntityImport(client, {
 					externalId: "e2e-anime-1",
-					scriptId: SandboxScriptId.make(animeProvider.scriptId),
+					providerId: animeProvider.providerId,
 					entitySchemaSlug: schema.id,
 				});
 
@@ -288,7 +285,7 @@ describe("GET /library/import/{jobId}", () => {
 				const relatedEntity = yield* getGlobalEntityByProvenance(client, {
 					entitySchemaSlug: companySchema.slug,
 					externalId: RELATED_COMPANY_EXTERNAL_ID,
-					sandboxScriptId: companyProvider.scriptId,
+					providerId: companyProvider.providerId,
 				});
 				expect(relatedEntity.name).toBe(RELATED_COMPANY_NAME);
 				expect(relatedEntity.populatedAt).toBeNull();
@@ -310,7 +307,7 @@ describe("GET /library/import/{jobId}", () => {
 			const { schema } = yield* findBuiltinSchemaWithProviders(client);
 
 			const { jobId } = yield* enqueueEntityImport(client, {
-				scriptId: bookScriptId(),
+				providerId: bookProvider.providerId,
 				entitySchemaSlug: schema.id,
 				externalId: "e2e-book-populatedat",
 			});

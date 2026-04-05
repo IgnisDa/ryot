@@ -2,7 +2,7 @@ import {
 	EntityId,
 	EntitySchemaSlug,
 	RelationshipSchemaSlug,
-	SandboxScriptId,
+	SandboxProviderId,
 } from "@ryot/contract/schema/brands";
 import { queryEngineEntitySource } from "@ryot/query-engine/documents";
 import {
@@ -25,7 +25,6 @@ import {
 	findBuiltinSchemaBySlug,
 	findBuiltinSchemaWithProviders,
 	getBuiltinEntitySchemaSlug,
-	getFirstProviderScriptId,
 	makeEntitySchemaSlug,
 } from "./entity-schemas";
 import { pollUntil, type PollOptions } from "./polling";
@@ -106,7 +105,7 @@ export const waitForInLibraryRelationship = (
 
 export const getGlobalEntityByProvenance = (
 	client: Client,
-	input: { externalId: string; sandboxScriptId: string; entitySchemaSlug: string },
+	input: { externalId: string; providerId: string; entitySchemaSlug: string },
 ) =>
 	Effect.gen(function* () {
 		const result = yield* executeQueryEngine(
@@ -128,8 +127,8 @@ export const getGlobalEntityByProvenance = (
 					),
 					queryEngineComparison(
 						"eq",
-						queryEngineSystemRef("entity", "sandboxScriptId"),
-						queryEngineLiteral(input.sandboxScriptId),
+						queryEngineSystemRef("entity", "providerId"),
+						queryEngineLiteral(input.providerId),
 					),
 					queryEngineIsNull(queryEngineSystemRef("entity", "userId")),
 				),
@@ -148,7 +147,7 @@ export const getGlobalEntityByProvenance = (
 
 export const waitForEntityPopulated = (
 	client: Client,
-	input: { externalId: string; sandboxScriptId: string; entitySchemaSlug: string },
+	input: { externalId: string; providerId: string; entitySchemaSlug: string },
 	options: PollOptions = {},
 ) =>
 	pollUntil(
@@ -202,14 +201,12 @@ export const seedMediaEntity = (input: {
 	externalId: string;
 	userId?: string | null;
 	entitySchemaSlug: string;
-	sandboxScriptId: string | null;
+	providerId: string | null;
 	properties: Record<string, unknown>;
 }) =>
 	Effect.gen(function* () {
 		const entitySchemaSlug = makeEntitySchemaSlug(input.entitySchemaSlug);
-		const sandboxScriptId = input.sandboxScriptId
-			? SandboxScriptId.make(input.sandboxScriptId)
-			: undefined;
+		const providerId = input.providerId ? SandboxProviderId.make(input.providerId) : undefined;
 		const entity = input.userId
 			? yield* requirePresent(
 					input.client,
@@ -218,7 +215,7 @@ export const seedMediaEntity = (input: {
 					c.entities.create({
 						payload: {
 							entitySchemaSlug,
-							sandboxScriptId,
+							providerId,
 							name: input.name,
 							properties: input.properties,
 							externalId: input.externalId,
@@ -230,7 +227,7 @@ export const seedMediaEntity = (input: {
 						c.testSupport.createGlobalEntity({
 							payload: {
 								entitySchemaSlug,
-								sandboxScriptId,
+								providerId,
 								name: input.name,
 								properties: input.properties,
 								externalId: input.externalId,
@@ -246,7 +243,7 @@ export const seedMediaEntity = (input: {
 			properties: input.properties,
 			externalId: input.externalId,
 			entitySchemaSlug: entity.entitySchemaSlug,
-			sandboxScriptId: input.sandboxScriptId,
+			providerId: input.providerId,
 		};
 	});
 
@@ -260,7 +257,7 @@ export const createGlobalBookEntityFixture = (
 			userId: null,
 			properties: {},
 			entitySchemaSlug: schema.id,
-			sandboxScriptId: getFirstProviderScriptId(schema),
+			providerId: requirePresent(schema.providers[0]?.providerId, "Missing book provider"),
 			name: options.name ?? `Global Built-in Book ${crypto.randomUUID()}`,
 			externalId: options.externalId ?? `global-book-${crypto.randomUUID()}`,
 		});
@@ -305,7 +302,7 @@ export const seedGlobalShowEpisodeTree = (client: Client, options: { showName: s
 							...input,
 							populatedAt,
 							entitySchemaSlug: EntitySchemaSlug.make(input.entitySchemaSlug),
-							sandboxScriptId: SandboxScriptId.make(tmdbProvider.scriptId),
+							providerId: SandboxProviderId.make(tmdbProvider.providerId),
 						},
 					}),
 				adminHeaders,

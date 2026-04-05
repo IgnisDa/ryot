@@ -102,7 +102,7 @@ export const collectGenres = (genres: unknown) => {
 	return [...genreSet];
 };
 
-export const collectSuggestionItems = (entries: unknown, scriptSlug: string) => {
+export const collectSuggestionItems = (entries: unknown, providerSlug: string) => {
 	if (!Array.isArray(entries)) {
 		return [];
 	}
@@ -121,7 +121,7 @@ export const collectSuggestionItems = (entries: unknown, scriptSlug: string) => 
 			continue;
 		}
 		const externalId = String(Math.trunc(idValue));
-		suggestionByKey.set(`${scriptSlug}:${externalId}`, { name, externalId, scriptSlug });
+		suggestionByKey.set(`${providerSlug}:${externalId}`, { name, externalId, providerSlug });
 	}
 	return [...suggestionByKey.values()];
 };

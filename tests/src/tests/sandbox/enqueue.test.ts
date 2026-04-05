@@ -2,16 +2,27 @@ import { SandboxScriptId } from "@ryot/contract/schema/brands";
 import { Effect } from "effect";
 
 import {
+	adminHeaders,
 	createAuthenticatedClient,
 	enqueueSandboxScript,
 	findBuiltinSchemaWithProviders,
-	getFirstProviderScriptId,
+	getFirstProviderSearchScriptId,
 	installSandboxScriptScoped,
 	pollSandboxResult,
 	runtimeManifestMismatchSandboxSource,
 } from "~/fixtures";
 import { assertCompleted, assertTaggedError } from "~/support/assertions";
+import { getBackendUrl } from "~/support/backend";
 import { describe, expect, it } from "~/support/effect-test";
+
+const postEnqueue = (body: unknown) =>
+	Effect.promise(() =>
+		fetch(`${getBackendUrl()}/test-support/sandbox/enqueue`, {
+			method: "POST",
+			body: JSON.stringify(body),
+			headers: { ...adminHeaders, "Content-Type": "application/json" },
+		}),
+	);
 
 describe("sandbox enqueue by script ID", () => {
 	it.live("returns 404 when the scriptId does not exist", () =>
@@ -20,7 +31,6 @@ describe("sandbox enqueue by script ID", () => {
 
 			const error = yield* Effect.flip(
 				enqueueSandboxScript(userId, {
-					driverName: "main",
 					scriptId: SandboxScriptId.make(crypto.randomUUID()),
 				}),
 			);
@@ -33,16 +43,36 @@ describe("sandbox enqueue by script ID", () => {
 		Effect.gen(function* () {
 			const { client, userId } = yield* createAuthenticatedClient();
 			const { schema } = yield* findBuiltinSchemaWithProviders(client);
-			const searchScriptId = getFirstProviderScriptId(schema);
+			const searchScriptId = getFirstProviderSearchScriptId(schema);
 
 			const { jobId } = yield* enqueueSandboxScript(userId, {
-				driverName: "search",
 				scriptId: searchScriptId,
 				context: { page: 1, pageSize: 5, query: "test" },
 			});
 
 			const result = yield* pollSandboxResult(userId, jobId);
 			expect(result.status).not.toBe("pending");
+		}),
+	);
+
+	it.live("rejects legacy driver selection and caller-forged authority", () =>
+		Effect.gen(function* () {
+			const { userId } = yield* createAuthenticatedClient();
+			const scriptId = crypto.randomUUID();
+
+			const driverResponse = yield* postEnqueue({
+				scriptId,
+				driverName: "main",
+				executingUserId: userId,
+			});
+			const authorityResponse = yield* postEnqueue({
+				scriptId,
+				executingUserId: userId,
+				authority: { type: "system" },
+			});
+
+			expect(driverResponse.status).toBe(400);
+			expect(authorityResponse.status).toBe(400);
 		}),
 	);
 
@@ -55,7 +85,7 @@ describe("sandbox enqueue by script ID", () => {
 				name: "Runtime manifest mismatch",
 				source: runtimeManifestMismatchSandboxSource({ slug, name: "Runtime manifest mismatch" }),
 			});
-			const { jobId } = yield* enqueueSandboxScript(userId, { scriptId, driverName: "main" });
+			const { jobId } = yield* enqueueSandboxScript(userId, { scriptId });
 
 			const result = yield* pollSandboxResult(userId, jobId);
 			assertCompleted(result, "sandbox job");

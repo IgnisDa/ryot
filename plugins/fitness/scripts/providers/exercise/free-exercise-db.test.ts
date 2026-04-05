@@ -4,9 +4,10 @@ import { defineSandboxTestHost } from "@ryot/sandbox-sdk/testing";
 import type { JsonValue } from "@ryot/sandbox-sdk/wire";
 import { assert, describe, expect, it } from "vitest";
 
-import { details, manifest, search } from "./free-exercise-db.sandbox";
+import details, { manifest as detailsManifest } from "./free-exercise-db.details.sandbox";
+import search, { manifest as searchManifest } from "./free-exercise-db.search.sandbox";
 
-type ExerciseHost = SandboxHost<typeof manifest.capabilities>;
+type ExerciseHost = SandboxHost<typeof searchManifest.capabilities>;
 
 const CACHE_KEY = "free-exercise-db:normalized:v1";
 const IMAGES_PREFIX_URL =
@@ -52,9 +53,7 @@ const makeStatefulHost = (
 	const setCalls: SetCall[] = [];
 	let httpCallCount = 0;
 
-	const host: ExerciseHost = defineSandboxTestHost(manifest, {
-		getAppConfigValue: () => Effect.die("Unexpected app config access"),
-		upsertGlobalEntities: () => Effect.die("Unexpected global entity upsert"),
+	const host: ExerciseHost = defineSandboxTestHost(searchManifest, {
 		httpCall: () => {
 			httpCallCount += 1;
 			return httpSuccess(httpBody);
@@ -73,6 +72,13 @@ const makeStatefulHost = (
 const execution = { metadata: {}, sandboxScriptId: "script_test" };
 
 describe("exercise.free-exercise-db sandbox script", () => {
+	it("uses matching narrow capabilities for search and details", () => {
+		expect(searchManifest.capabilities).toEqual(["httpCall", "getCachedValue", "setCachedValue"]);
+		expect(detailsManifest.capabilities).toEqual(searchManifest.capabilities);
+		expect(searchManifest.requiredAppConfigKeys).toEqual([]);
+		expect(detailsManifest.requiredAppConfigKeys).toEqual([]);
+	});
+
 	it("fetches, normalizes and writes chunk + metadata cache entries on a cache miss", () => {
 		const { host, setCalls, httpCallCount } = makeStatefulHost();
 
@@ -110,25 +116,26 @@ describe("exercise.free-exercise-db sandbox script", () => {
 		});
 	});
 
-	it("maps normalized properties through the details driver on a cache miss", () => {
-		const { host } = makeStatefulHost();
+	it("shares the normalized cache between search and details entrypoints", async () => {
+		const { host, httpCallCount } = makeStatefulHost();
 
-		return Effect.runPromise(details.run({ externalId: "Bench Press" }, host, execution)).then(
-			(result) => {
-				expect(result.name).toBe("Bench Press");
-				expect(result.properties).toEqual({
-					force: "push",
-					level: "beginner",
-					mechanic: "compound",
-					equipment: "barbell",
-					kind: "reps_and_weight",
-					muscles: ["chest", "triceps"],
-					instructions: ["Lie down.", "Push the bar up."],
-					images: [{ type: "remote", url: `${IMAGES_PREFIX_URL}/Bench_Press/0.jpg` }],
-				});
-				return undefined;
-			},
+		await Effect.runPromise(search.run({ query: "bench", page: 1, pageSize: 20 }, host, execution));
+		const result = await Effect.runPromise(
+			details.run({ externalId: "Bench Press" }, host, execution),
 		);
+
+		expect(httpCallCount()).toBe(1);
+		expect(result.name).toBe("Bench Press");
+		expect(result.properties).toEqual({
+			force: "push",
+			level: "beginner",
+			mechanic: "compound",
+			equipment: "barbell",
+			kind: "reps_and_weight",
+			muscles: ["chest", "triceps"],
+			instructions: ["Lie down.", "Push the bar up."],
+			images: [{ type: "remote", url: `${IMAGES_PREFIX_URL}/Bench_Press/0.jpg` }],
+		});
 	});
 
 	it("reads chunks from a pre-seeded cache without making an http call", () => {

@@ -117,6 +117,57 @@ it("rejects script slug collisions across active plugins", () => {
 	expect(loader.getSnapshot()).toBe(original);
 });
 
+it("preserves provider membership for custom scripts in the loader snapshot", () => {
+	const loader = makePluginLoader(makeDefinitionRegistry(emptySource));
+	const plugin = normalizedPlugin("1");
+	const declared = plugin.manifest.scripts[0];
+	const normalized = plugin.scripts[0];
+	assert(declared);
+	assert(normalized);
+	const details = {
+		...declared,
+		kind: "provider" as const,
+		name: "Fixture details",
+		slug: "fixture.details",
+		providerSlug: "fixture-provider",
+		providerOperation: "details" as const,
+	};
+	const custom = {
+		...declared,
+		kind: "script" as const,
+		name: "Fixture preload",
+		slug: "fixture.preload",
+		providerSlug: "fixture-provider",
+	};
+	const { entry: _detailsEntry, ...detailsMetadata } = details;
+	const { entry: _customEntry, ...customMetadata } = custom;
+	loader.load({
+		...plugin,
+		manifest: {
+			...plugin.manifest,
+			scripts: [...plugin.manifest.scripts, details, custom],
+			providers: [
+				{
+					name: "Fixture provider",
+					slug: "fixture-provider",
+					information: { source: "fixture" },
+					operations: { details: details.slug },
+				},
+			],
+		},
+		scripts: [
+			...plugin.scripts,
+			{ ...normalized, slug: details.slug, name: details.name, metadata: detailsMetadata },
+			{ ...normalized, slug: custom.slug, name: custom.name, metadata: customMetadata },
+		],
+	});
+
+	expect(loader.getSnapshot().plugins["fixture"]?.scripts[2]).toMatchObject({
+		slug: "fixture.preload",
+		metadata: { kind: "script", providerSlug: "fixture-provider" },
+	});
+});
+
 it.effect("shares boot-loaded definitions with runtime repositories", () => {
 	const layer = RelationshipSchemasRepository.Default.pipe(
 		Layer.provideMerge(PluginRuntimeResolverLive),

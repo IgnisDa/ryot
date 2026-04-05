@@ -1,3 +1,4 @@
+import type { ProviderOperation } from "@ryot/sandbox-sdk/provider";
 import { Effect } from "effect";
 import { DiagnosticCategory } from "typescript/unstable/async";
 
@@ -29,6 +30,16 @@ export type CompiledBuiltInSandboxEntry = {
 	readonly compiled: CompiledSandboxModule;
 };
 
+export type SandboxEntryDeclaration =
+	| {
+			readonly kind: "automation" | "operation" | "script";
+			readonly providerOperation?: never;
+	  }
+	| {
+			readonly kind: "provider";
+			readonly providerOperation: ProviderOperation;
+	  };
+
 export const compileBuiltInSandboxEntry = (sources: BuiltInSandboxEntry) =>
 	sources.files[sources.entry] === undefined
 		? sandboxCompilationFailure([
@@ -56,6 +67,7 @@ export const compileBuiltInSandboxEntries = (entries: readonly BuiltInSandboxEnt
 export const compileSandboxPackageEntries = (
 	sources: SandboxTypeScriptSources,
 	entries: ReadonlyArray<string>,
+	declarations: ReadonlyMap<string, SandboxEntryDeclaration> = new Map(),
 ) =>
 	Effect.gen(function* () {
 		if (entries.length === 0) {
@@ -108,6 +120,20 @@ export const compileSandboxPackageEntries = (
 				sandboxCompilerDiagnostic("RYOT_SANDBOX_ENTRY", "Sandbox entries were not loaded"),
 			]);
 		}
+		const inspectedEntries = yield* Effect.forEach(entries, (entry) => {
+			const source = sources.files[entry];
+			const sourceFile = project.entrySourceFiles[entry];
+			if (!source || !sourceFile) {
+				return sandboxCompilationFailure([
+					sandboxCompilerDiagnostic("RYOT_SANDBOX_ENTRY", `Sandbox entry was not loaded: ${entry}`),
+				]);
+			}
+			const inspection = inspectSandboxSource(sourceFile, { allowRelativeImports: true });
+			if (inspection.diagnostics.length > 0) {
+				return sandboxCompilationFailure(inspection.diagnostics);
+			}
+			return Effect.succeed({ entry, source, sourceFile, inspection });
+		});
 		if (typeErrors.length > 0) {
 			return yield* sandboxCompilationFailure(
 				typeErrors
@@ -118,21 +144,12 @@ export const compileSandboxPackageEntries = (
 			);
 		}
 
-		return yield* Effect.forEach(entries, (entry) => {
-			const source = sources.files[entry];
-			const sourceFile = project.entrySourceFiles[entry];
-			if (!source || !sourceFile) {
-				return sandboxCompilationFailure([
-					sandboxCompilerDiagnostic("RYOT_SANDBOX_ENTRY", `Sandbox entry was not loaded: ${entry}`),
-				]);
-			}
-			const inspection = inspectSandboxSource(sourceFile, { allowRelativeImports: true });
+		return yield* Effect.forEach(inspectedEntries, ({ entry, source, sourceFile, inspection }) => {
 			const moduleDiagnostics = project.sourceFiles
 				.filter((file) => file !== sourceFile)
 				.flatMap(inspectSandboxModuleImports);
-			const inspectionDiagnostics = [...inspection.diagnostics, ...moduleDiagnostics];
-			if (inspectionDiagnostics.length > 0) {
-				return sandboxCompilationFailure(inspectionDiagnostics);
+			if (moduleDiagnostics.length > 0) {
+				return sandboxCompilationFailure(moduleDiagnostics);
 			}
 
 			const extracted = extractSandboxManifest(sourceFile, inspection.manifestHelpers);
@@ -143,6 +160,26 @@ export const compileSandboxPackageEntries = (
 			if (definitionMismatch) {
 				return sandboxCompilationFailure([
 					sandboxCompilerDiagnostic("RYOT_DEFINITION", definitionMismatch),
+				]);
+			}
+			const declaration = declarations.get(entry);
+			if (declaration && inspection.definitionKind !== declaration.kind) {
+				return sandboxCompilationFailure([
+					sandboxCompilerDiagnostic(
+						"RYOT_DEFINITION",
+						`Plugin declaration kind "${declaration.kind}" must use the matching definition helper`,
+					),
+				]);
+			}
+			if (
+				declaration?.kind === "provider" &&
+				inspection.providerOperation !== declaration.providerOperation
+			) {
+				return sandboxCompilationFailure([
+					sandboxCompilerDiagnostic(
+						"RYOT_DEFINITION",
+						`Provider definition operation "${inspection.providerOperation ?? "none"}" does not match plugin declaration "${declaration.providerOperation}"`,
+					),
 				]);
 			}
 			if (
@@ -177,7 +214,6 @@ export const compileSandboxPackageEntries = (
 							manifest: extracted.manifest,
 							javascript: bundled.javascript,
 							format: SANDBOX_COMPILED_FORMAT,
-							driverNames: inspection.driverNames,
 						},
 					} satisfies CompiledBuiltInSandboxEntry);
 				}),

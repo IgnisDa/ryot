@@ -1,7 +1,6 @@
 import { Effect, Schema } from "@ryot/sandbox-sdk/effect";
 import {
 	defineProvider,
-	defineProviderDriver,
 	providerDetailsResultSchema,
 	providerResolveResultSchema,
 	providerSearchResultSchema,
@@ -18,20 +17,24 @@ const manifest = defineManifest({
 	slug: "test.provider",
 	requiredAppConfigKeys: [],
 	capabilities: ["getCachedValue"],
-	providerInformation: { source: "test", canonicalLanguage: "en" },
 });
 
 describe("provider definitions", () => {
-	test("provides standard driver schemas and a provider definition", () => {
-		const resolve = defineProviderDriver(manifest, "resolve", (input) =>
-			Effect.succeed({ externalId: input.value === "known" ? "provider-1" : null }),
-		);
-		const definition = defineProvider({ manifest, drivers: { resolve } });
+	test("selects standard schemas for a provider operation", () => {
+		const definition = defineProvider({
+			manifest,
+			operation: "resolve",
+			run: (input) => Effect.succeed({ externalId: input.value === "known" ? "provider-1" : null }),
+		});
 
 		expect(definition.definitionType).toBe(SANDBOX_SCRIPT_DEFINITION);
-		expect(
-			decode(definition.drivers.resolve.input)({ identifierType: "isbn", value: "known" }),
-		).toEqual({ identifierType: "isbn", value: "known" });
+		expect(definition.operation).toBe("resolve");
+		expect(definition.output).toBe(providerResolveResultSchema);
+		expect(definition).not.toHaveProperty("drivers");
+		expect(decode(definition.input)({ identifierType: "isbn", value: "known" })).toEqual({
+			identifierType: "isbn",
+			value: "known",
+		});
 	});
 });
 
@@ -81,7 +84,7 @@ describe("provider result contracts", () => {
 						direction: "incoming",
 						synchronization: "additive",
 						relationshipSchemaSlug: "person-to-show",
-						entities: [{ name: "Creator", externalId: "person-1", scriptSlug: "person.test" }],
+						entities: [{ name: "Creator", externalId: "person-1", providerSlug: "person.test" }],
 					},
 				],
 			}),

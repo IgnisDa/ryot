@@ -10,6 +10,17 @@ export const fitnessPlugin = definePlugin({
 	crons: [],
 	operations: [],
 	scripts: fitnessScripts,
+	providers: [
+		{
+			name: "Free Exercise DB",
+			slug: "exercise.free-exercise-db",
+			information: { source: "free-exercise-db" },
+			operations: {
+				search: "exercise.free-exercise-db.search",
+				details: "exercise.free-exercise-db.details",
+			},
+		},
+	],
 	savedViews: fitnessSavedViews(),
 	entitySchemas: fitnessEntitySchemas(),
 	signalSchemas: fitnessSignalSchemas(),
@@ -17,7 +28,7 @@ export const fitnessPlugin = definePlugin({
 	boot: [
 		{
 			slug: "preload-exercises",
-			driverRef: "exercise.free-exercise-db",
+			scriptSlug: "exercise.free-exercise-db.preload",
 			description: "Preload the built-in exercise catalog",
 		},
 	],
@@ -33,7 +44,9 @@ export const fitnessPlugin = definePlugin({
 		eventAutomations: [],
 		signalAutomations: [],
 		relationshipAutomations: [],
-		schemaScriptLinks: [{ entitySchemaSlug: "exercise", scriptSlug: "exercise.free-exercise-db" }],
+		schemaProviderLinks: [
+			{ entitySchemaSlug: "exercise", providerSlug: "exercise.free-exercise-db" },
+		],
 		entityAutomations: [
 			{
 				operation: "create",

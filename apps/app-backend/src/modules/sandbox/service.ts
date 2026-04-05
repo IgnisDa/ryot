@@ -36,8 +36,7 @@ export class SandboxExecutionService extends Effect.Service<SandboxExecutionServ
 				payload: EnqueueSandboxBody,
 			) {
 				const scriptId = trimToNull(payload.scriptId);
-				const driverName = trimToNull(payload.driverName);
-				if (!scriptId || !driverName) {
+				if (!scriptId) {
 					return yield* notFound(sandboxScriptNotFoundError);
 				}
 				const context = payload.context ?? {};
@@ -53,10 +52,9 @@ export class SandboxExecutionService extends Effect.Service<SandboxExecutionServ
 				const executionId = generateId();
 				const resolvedPayload = yield* resolveSandboxExecutionPayload({
 					context,
-					driverName,
+					authority: { type: "user", userId: executingUserId },
 					executionId,
 					scriptId: script.id,
-					userId: executingUserId,
 				}).pipe(
 					Effect.provideService(DbRunner, runWithDb),
 					Effect.provideService(SandboxRepository, repository),

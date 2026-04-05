@@ -73,7 +73,7 @@ describe("adaptPlexData", () => {
 				entityRef: {
 					kind: "resolved",
 					externalId: "329865",
-					scriptSlug: "movie.tmdb",
+					providerSlug: "movie.tmdb",
 					entitySchemaSlug: "movie",
 				},
 			});
@@ -81,7 +81,7 @@ describe("adaptPlexData", () => {
 				entityRef: {
 					kind: "resolved",
 					externalId: "95396",
-					scriptSlug: "show.tmdb",
+					providerSlug: "show.tmdb",
 					entitySchemaSlug: "show",
 				},
 				events: [

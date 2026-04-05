@@ -2,7 +2,11 @@ import { describe, expect, it } from "vitest";
 
 import { buildQueryEngineEntityRowsDocument } from "./documents";
 import { queryEngineField, queryEngineSystemRef } from "./primitives";
-import { buildDefaultSavedViewQueryDocument } from "./recipes/app";
+import {
+	buildDefaultSavedViewQueryDocument,
+	buildEntityDetailQueryDocument,
+	buildEntityInterestQueryDocument,
+} from "./recipes/app";
 import { buildWorkoutTemplateDetailQueryDocument } from "./recipes/fitness";
 import {
 	buildCollectionMediaSuggestionsQueryDocument,
@@ -72,5 +76,29 @@ describe("query-engine builders", () => {
 			type: "exists",
 			source: { via: { schema: "in-library" } },
 		});
+	});
+
+	it("projects entity detail provenance from the provider", () => {
+		const document = buildEntityDetailQueryDocument({
+			entityId: "entity-id",
+			entitySchemaSlug: "book",
+		});
+
+		expect(document.output.fields).toContainEqual(
+			queryEngineField("providerId", queryEngineSystemRef("entity", "providerId")),
+		);
+		expect(document.output.fields.map((field) => field.key)).not.toContain("sandboxScriptId");
+	});
+
+	it("projects entity interest provenance from the provider", () => {
+		const document = buildEntityInterestQueryDocument({
+			entityIds: ["entity-id"],
+			entitySchemaSlugs: ["book"],
+		});
+
+		expect(document.output.fields).toContainEqual(
+			queryEngineField("providerId", queryEngineSystemRef("entity", "providerId")),
+		);
+		expect(document.output.fields.map((field) => field.key)).not.toContain("sandboxScriptId");
 	});
 });

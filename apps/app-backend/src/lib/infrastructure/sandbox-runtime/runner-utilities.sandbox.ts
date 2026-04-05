@@ -15,7 +15,6 @@ export interface SandboxRunnerPayload {
 	readonly apiBase: string;
 	readonly scriptId: string;
 	readonly context?: unknown;
-	readonly driverName: string;
 	readonly executionId: string;
 	readonly compiledCode: string;
 	readonly apiFunctions?: unknown;

@@ -3,7 +3,7 @@ import { Effect } from "effect";
 import { SandboxCompiler } from "./compiler";
 
 export const validSandboxSource = `
-import { defineDriver, defineManifest, defineScript } from "@ryot/sandbox-sdk/driver";
+import { defineManifest, defineScript } from "@ryot/sandbox-sdk/driver";
 import { Effect, Schema } from "@ryot/sandbox-sdk/effect";
 
 export const manifest = defineManifest({
@@ -14,13 +14,12 @@ export const manifest = defineManifest({
   requiredAppConfigKeys: [],
 });
 
-const main = defineDriver(manifest, {
+export default defineScript({
+	manifest,
   output: Schema.Number,
   run: (input) => Effect.succeed(input.value),
   input: Schema.Struct({ value: Schema.Number }),
 });
-
-export default defineScript({ manifest, drivers: { main } });
 `;
 
 export const compileSandboxSourceForTest = (source: string) =>

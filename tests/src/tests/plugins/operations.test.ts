@@ -20,7 +20,7 @@ const installEchoOperationPlugin = () => {
 				{
 					auth: "user",
 					slug: "echo",
-					driverRef: scriptSlug,
+					scriptSlug,
 					description: "Uppercases every requested title",
 				},
 			],
@@ -80,7 +80,7 @@ describe("plugin operations", () => {
 		}),
 	);
 
-	it.scopedLive("surfaces a payload that violates the driver input schema", () =>
+	it.scopedLive("surfaces a payload that violates the script input schema", () =>
 		Effect.gen(function* () {
 			const plugin = yield* installEchoOperationPlugin();
 			const { client } = yield* createAuthenticatedClient();

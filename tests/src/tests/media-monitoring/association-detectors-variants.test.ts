@@ -1,4 +1,4 @@
-import { EntitySchemaSlug, SandboxScriptId } from "@ryot/contract/schema/brands";
+import { EntitySchemaSlug, SandboxProviderId } from "@ryot/contract/schema/brands";
 import { Effect } from "effect";
 
 import {
@@ -56,31 +56,29 @@ describe("company and media-group association variants", () => {
 				client,
 				linkToEntitySchemaSlug: companySchemaId,
 				slug: `company.association-variant-e2e-${crypto.randomUUID()}`,
-				drivers: { details: fakeProviderDetailsResult({ name: companyName }) },
+				details: fakeProviderDetailsResult({ name: companyName }),
 			});
 			const movieProvider = yield* installTestProvider({
 				client,
 				slug: `movie.association-variant-e2e-${crypto.randomUUID()}`,
-				drivers: {
-					details: fakeProviderDetailsResult({
-						name: movieName,
-						relatedEntityGroups: [
-							{
-								direction: "incoming",
-								synchronization: "additive",
-								relationshipSchemaSlug: "company-to-movie",
-								entities: [
-									{
-										name: companyName,
-										externalId: companyExternalId,
-										scriptSlug: companyProvider.slug,
-										relationshipProperties: { roles: ["Production Company"] },
-									},
-								],
-							},
-						],
-					}),
-				},
+				details: fakeProviderDetailsResult({
+					name: movieName,
+					relatedEntityGroups: [
+						{
+							direction: "incoming",
+							synchronization: "additive",
+							relationshipSchemaSlug: "company-to-movie",
+							entities: [
+								{
+									name: companyName,
+									externalId: companyExternalId,
+									providerSlug: companyProvider.providerSlug,
+									relationshipProperties: { roles: ["Production Company"] },
+								},
+							],
+						},
+					],
+				}),
 			});
 
 			try {
@@ -89,7 +87,7 @@ describe("company and media-group association variants", () => {
 					name: companyName,
 					externalId: companyExternalId,
 					entitySchemaSlug: companySchemaId,
-					sandboxScriptId: companyProvider.scriptId,
+					providerId: companyProvider.providerId,
 				});
 
 				const companyMonitor = yield* createAuthenticatedClient();
@@ -103,7 +101,7 @@ describe("company and media-group association variants", () => {
 				const { jobId } = yield* enqueueEntityImport(importer.client, {
 					externalId: movieExternalId,
 					entitySchemaSlug: EntitySchemaSlug.make(movieSchemaId),
-					scriptId: SandboxScriptId.make(movieProvider.scriptId),
+					providerId: SandboxProviderId.make(movieProvider.providerId),
 				});
 				const result = yield* pollEntityImportResult(importer.client, jobId, { timeoutMs: 30_000 });
 				assertCompleted(result, "company association media import");
@@ -138,50 +136,48 @@ describe("company and media-group association variants", () => {
 				client,
 				linkToEntitySchemaSlug: personSchemaId,
 				slug: `person.media-group-e2e-${crypto.randomUUID()}`,
-				drivers: { details: fakeProviderDetailsResult({ name: personName }) },
+				details: fakeProviderDetailsResult({ name: personName }),
 			});
 			const companyProvider = yield* installTestProvider({
 				client,
 				linkToEntitySchemaSlug: companySchemaId,
 				slug: `company.media-group-e2e-${crypto.randomUUID()}`,
-				drivers: { details: fakeProviderDetailsResult({ name: companyName }) },
+				details: fakeProviderDetailsResult({ name: companyName }),
 			});
 			const musicGroupProvider = yield* installTestProvider({
 				client,
 				slug: `music-group.media-group-e2e-${crypto.randomUUID()}`,
-				drivers: {
-					details: fakeProviderDetailsResult({
-						name: musicGroupName,
-						relatedEntityGroups: [
-							{
-								direction: "incoming",
-								synchronization: "additive",
-								relationshipSchemaSlug: "person-to-music-group",
-								entities: [
-									{
-										name: personName,
-										scriptSlug: personProvider.slug,
-										externalId: personExternalId,
-										relationshipProperties: { roles: ["Artist"] },
-									},
-								],
-							},
-							{
-								direction: "incoming",
-								synchronization: "additive",
-								relationshipSchemaSlug: "company-to-music-group",
-								entities: [
-									{
-										name: companyName,
-										scriptSlug: companyProvider.slug,
-										externalId: companyExternalId,
-										relationshipProperties: { roles: ["Label"] },
-									},
-								],
-							},
-						],
-					}),
-				},
+				details: fakeProviderDetailsResult({
+					name: musicGroupName,
+					relatedEntityGroups: [
+						{
+							direction: "incoming",
+							synchronization: "additive",
+							relationshipSchemaSlug: "person-to-music-group",
+							entities: [
+								{
+									name: personName,
+									providerSlug: personProvider.providerSlug,
+									externalId: personExternalId,
+									relationshipProperties: { roles: ["Artist"] },
+								},
+							],
+						},
+						{
+							direction: "incoming",
+							synchronization: "additive",
+							relationshipSchemaSlug: "company-to-music-group",
+							entities: [
+								{
+									name: companyName,
+									providerSlug: companyProvider.providerSlug,
+									externalId: companyExternalId,
+									relationshipProperties: { roles: ["Label"] },
+								},
+							],
+						},
+					],
+				}),
 			});
 
 			try {
@@ -191,14 +187,14 @@ describe("company and media-group association variants", () => {
 						name: personName,
 						externalId: personExternalId,
 						entitySchemaSlug: personSchemaId,
-						sandboxScriptId: personProvider.scriptId,
+						providerId: personProvider.providerId,
 					}),
 					seedMediaEntity({
 						properties: {},
 						name: companyName,
 						externalId: companyExternalId,
 						entitySchemaSlug: companySchemaId,
-						sandboxScriptId: companyProvider.scriptId,
+						providerId: companyProvider.providerId,
 					}),
 				]);
 
@@ -231,7 +227,7 @@ describe("company and media-group association variants", () => {
 				const { jobId } = yield* enqueueEntityImport(importer.client, {
 					externalId: musicGroupExternalId,
 					entitySchemaSlug: EntitySchemaSlug.make(musicGroupSchemaId),
-					scriptId: SandboxScriptId.make(musicGroupProvider.scriptId),
+					providerId: SandboxProviderId.make(musicGroupProvider.providerId),
 				});
 				const result = yield* pollEntityImportResult(importer.client, jobId, { timeoutMs: 30_000 });
 				assertCompleted(result, "media-group association import");

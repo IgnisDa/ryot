@@ -3,7 +3,7 @@ import { HttpClient } from "@effect/platform";
 import type { WorkflowEngine, WorkflowInstance } from "@effect/workflow/WorkflowEngine";
 import type { SandboxRunError } from "@ryot/contract/errors";
 import type { SandboxCompletedResult } from "@ryot/contract/modules/sandbox/schemas";
-import type { SandboxScriptId, UserId } from "@ryot/contract/schema/brands";
+import type { UserId } from "@ryot/contract/schema/brands";
 import { Context, Effect, Layer } from "effect";
 
 import { DbRunner } from "#lib/infrastructure/db/service";
@@ -25,7 +25,6 @@ export type IntegrationRunOperationsValue = {
 	runSandboxHistory: (input: {
 		userId: UserId;
 		executionId: string;
-		scriptId: SandboxScriptId;
 		context: { authCookie: string; timezone: string };
 	}) => Effect.Effect<SandboxCompletedResult, SandboxRunError, WorkflowEngine | WorkflowInstance>;
 };

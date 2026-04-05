@@ -1,5 +1,5 @@
-import type { UserId } from "@ryot/contract/schema/brands";
-import { EntityId, EntitySchemaSlug, SandboxScriptId } from "@ryot/contract/schema/brands";
+import type { SandboxScriptId, UserId } from "@ryot/contract/schema/brands";
+import { EntityId, EntitySchemaSlug, SandboxProviderId } from "@ryot/contract/schema/brands";
 import type { AppSchema } from "@ryot/contract/schema/property-schema";
 import { eq, isNull, or } from "drizzle-orm";
 
@@ -14,8 +14,8 @@ type EntityRow = Pick<
 	| "properties"
 	| "externalId"
 	| "populatedAt"
+	| "providerId"
 	| "entitySchemaSlug"
-	| "sandboxScriptId"
 >;
 
 export type EntitySchemaScope = {
@@ -37,9 +37,10 @@ export type EntityMergeScope = EntityScope & {
 	readonly properties: Record<string, unknown>;
 };
 
-export type EntitySchemaSandboxScriptScope = {
+export type EntitySchemaProviderDetailsScope = {
+	readonly providerId: SandboxProviderId;
+	readonly detailsScriptId: SandboxScriptId;
 	readonly entitySchemaSlug: EntitySchemaSlug;
-	readonly sandboxScriptId: SandboxScriptId;
 };
 
 export const entitySelection = {
@@ -47,11 +48,11 @@ export const entitySelection = {
 	name: schema.entity.name,
 	createdAt: schema.entity.createdAt,
 	updatedAt: schema.entity.updatedAt,
+	providerId: schema.entity.providerId,
 	properties: schema.entity.properties,
 	externalId: schema.entity.externalId,
 	populatedAt: schema.entity.populatedAt,
 	entitySchemaSlug: schema.entity.entitySchemaSlug,
-	sandboxScriptId: schema.entity.sandboxScriptId,
 };
 
 export const entityVisibleToUserClause = (userId: UserId) =>
@@ -66,5 +67,5 @@ export const toListedEntity = (row: EntityRow) => ({
 	updatedAt: row.updatedAt.toISOString(),
 	populatedAt: row.populatedAt?.toISOString() ?? null,
 	entitySchemaSlug: EntitySchemaSlug.make(row.entitySchemaSlug),
-	sandboxScriptId: row.sandboxScriptId ? SandboxScriptId.make(row.sandboxScriptId) : null,
+	providerId: row.providerId ? SandboxProviderId.make(row.providerId) : null,
 });

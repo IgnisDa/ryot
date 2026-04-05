@@ -1,9 +1,12 @@
 import type { SandboxHost } from "@ryot/sandbox-sdk/core";
 import { Effect } from "@ryot/sandbox-sdk/effect";
-import { defineSandboxTestHost, runSandboxTestDriver } from "@ryot/sandbox-sdk/testing";
+import { defineSandboxTestHost, runSandboxTestScript } from "@ryot/sandbox-sdk/testing";
 import { describe, expect, it } from "vitest";
 
-import { details, manifest, resolve, search } from "./google-books.sandbox";
+import { manifest } from "./google-books";
+import details, { manifest as detailsManifest } from "./google-books-details.sandbox";
+import resolve, { manifest as resolveManifest } from "./google-books-resolve.sandbox";
+import search, { manifest as searchManifest } from "./google-books-search.sandbox";
 
 type GoogleBooksHost = SandboxHost<typeof manifest.capabilities>;
 const httpSuccess = (body: unknown) =>
@@ -15,6 +18,17 @@ const makeHost = (httpCall: GoogleBooksHost["httpCall"]) =>
 	});
 const execution = { metadata: {}, sandboxScriptId: "script_test" };
 describe("book.google-books sandbox script", () => {
+	it("declares one script per operation", () => {
+		expect([
+			[searchManifest.slug, search.operation],
+			[detailsManifest.slug, details.operation],
+			[resolveManifest.slug, resolve.operation],
+		]).toEqual([
+			["book.google-books.search", "search"],
+			["book.google-books.details", "details"],
+			["book.google-books.resolve", "resolve"],
+		]);
+	});
 	it("maps volumes and drops entries missing an id or title", () => {
 		const host = makeHost(() =>
 			httpSuccess({
@@ -33,7 +47,7 @@ describe("book.google-books sandbox script", () => {
 			}),
 		);
 		return Effect.runPromise(
-			runSandboxTestDriver(search, { query: "g", page: 1, pageSize: 20 }, host, execution).pipe(
+			runSandboxTestScript(search, { query: "g", page: 1, pageSize: 20 }, host, execution).pipe(
 				Effect.map((result) => {
 					expect(result.items).toEqual([
 						{
@@ -69,7 +83,7 @@ describe("book.google-books sandbox script", () => {
 			}),
 		);
 		return Effect.runPromise(
-			runSandboxTestDriver(details, { externalId: "g1" }, host, execution).pipe(
+			runSandboxTestScript(details, { externalId: "g1" }, host, execution).pipe(
 				Effect.map((result) => {
 					expect(result.name).toBe("G Book");
 					expect(result.properties).toEqual({
@@ -97,8 +111,8 @@ describe("book.google-books sandbox script", () => {
 		const missing = makeHost(() => httpSuccess({ items: [] }));
 		return Effect.runPromise(
 			Effect.all([
-				runSandboxTestDriver(resolve, { value: "123", identifierType: "isbn" }, found, execution),
-				runSandboxTestDriver(resolve, { value: "999", identifierType: "isbn" }, missing, execution),
+				runSandboxTestScript(resolve, { value: "123", identifierType: "isbn" }, found, execution),
+				runSandboxTestScript(resolve, { value: "999", identifierType: "isbn" }, missing, execution),
 			]).pipe(
 				Effect.map(([foundResult, missingResult]) => {
 					expect(foundResult).toEqual({ externalId: "g1" });

@@ -14,7 +14,7 @@ describe("extractMangaRef", () => {
 			externalId: "30002",
 			sourceLabel: "Berserk",
 			entitySchemaSlug: "manga",
-			scriptSlug: "manga.anilist",
+			providerSlug: "manga.anilist",
 		});
 	});
 
@@ -24,7 +24,7 @@ describe("extractMangaRef", () => {
 			"Berserk",
 		);
 
-		expect(ref).toMatchObject({ scriptSlug: "manga.myanimelist", externalId: "2" });
+		expect(ref).toMatchObject({ providerSlug: "manga.myanimelist", externalId: "2" });
 	});
 
 	it("maps a MangaUpdates link to manga.manga-updates", () => {
@@ -33,7 +33,7 @@ describe("extractMangaRef", () => {
 			"Berserk",
 		);
 
-		expect(ref).toMatchObject({ scriptSlug: "manga.manga-updates", externalId: "abc123" });
+		expect(ref).toMatchObject({ providerSlug: "manga.manga-updates", externalId: "abc123" });
 	});
 
 	it("returns null for links without a supported manga resolver", () => {

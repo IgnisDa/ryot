@@ -256,7 +256,7 @@ const adaptAudiobookshelfItem = Effect.fn(function* (input: {
 				kind: "resolved",
 				externalId: asin,
 				entitySchemaSlug: "audiobook",
-				scriptSlug: "audiobook.audible",
+				providerSlug: "audiobook.audible",
 			},
 			itemIndex,
 		);
@@ -373,7 +373,7 @@ const adaptAudiobookshelfItem = Effect.fn(function* (input: {
 			kind: "resolved",
 			externalId: itunesId,
 			entitySchemaSlug: "podcast",
-			scriptSlug: "podcast.itunes",
+			providerSlug: "podcast.itunes",
 		},
 		itemIndex,
 	);
@@ -445,7 +445,7 @@ export const syncAudiobookshelfOwnedItems = Effect.fn("audiobookshelfAdapter.syn
 							kind: "resolved",
 							externalId: asin,
 							entitySchemaSlug: "audiobook",
-							scriptSlug: "audiobook.audible",
+							providerSlug: "audiobook.audible",
 						},
 					});
 					continue;
@@ -460,7 +460,7 @@ export const syncAudiobookshelfOwnedItems = Effect.fn("audiobookshelfAdapter.syn
 							kind: "resolved",
 							externalId: itunesId,
 							entitySchemaSlug: "podcast",
-							scriptSlug: "podcast.itunes",
+							providerSlug: "podcast.itunes",
 						},
 					});
 				}

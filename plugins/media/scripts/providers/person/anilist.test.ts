@@ -1,9 +1,9 @@
 import type { SandboxHost } from "@ryot/sandbox-sdk/core";
 import { Effect } from "@ryot/sandbox-sdk/effect";
-import { defineSandboxTestHost, runSandboxTestDriver } from "@ryot/sandbox-sdk/testing";
+import { defineSandboxTestHost, runSandboxTestScript } from "@ryot/sandbox-sdk/testing";
 import { describe, expect, it } from "vitest";
 
-import { details, manifest } from "./anilist.sandbox";
+import { details, manifest } from "./anilist";
 
 type AnilistPersonHost = SandboxHost<typeof manifest.capabilities>;
 
@@ -52,7 +52,7 @@ describe("person.anilist sandbox script", () => {
 			}),
 		);
 
-		return runSandboxTestDriver(details, { externalId: "1" }, host, execution).pipe(
+		return runSandboxTestScript(details, { externalId: "1" }, host, execution).pipe(
 			Effect.map((result) => {
 				expect(result.relatedEntityGroups).toEqual([
 					{
@@ -63,7 +63,7 @@ describe("person.anilist sandbox script", () => {
 							{
 								externalId: "2",
 								name: "Anime Credit",
-								scriptSlug: "anime.anilist",
+								providerSlug: "anime.anilist",
 								relationshipProperties: { roles: ["Voicing (Hero)"] },
 							},
 						],
@@ -76,7 +76,7 @@ describe("person.anilist sandbox script", () => {
 							{
 								externalId: "3",
 								name: "Manga Credit",
-								scriptSlug: "manga.anilist",
+								providerSlug: "manga.anilist",
 								relationshipProperties: { roles: ["Writer"] },
 							},
 						],
@@ -135,7 +135,7 @@ describe("person.anilist sandbox script", () => {
 			});
 		});
 
-		return runSandboxTestDriver(details, { externalId: "1" }, host, execution).pipe(
+		return runSandboxTestScript(details, { externalId: "1" }, host, execution).pipe(
 			Effect.map((result) => {
 				expect(requestedPages).toEqual([1, 2]);
 				expect(result.relatedEntityGroups).toEqual([
@@ -172,7 +172,7 @@ describe("person.anilist sandbox script", () => {
 			}),
 		);
 
-		return runSandboxTestDriver(details, { externalId: "9" }, host, execution).pipe(
+		return runSandboxTestScript(details, { externalId: "9" }, host, execution).pipe(
 			Effect.map((result) => {
 				expect(result.name).toBe("Creator");
 				expect(result.properties).toEqual({

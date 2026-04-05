@@ -54,7 +54,7 @@ const input = (overrides: {
 
 const run = (value: AutomationInput) => {
 	const calls: Array<Record<string, JsonValue | undefined>> = [];
-	return definition.drivers.automation
+	return definition
 		.run(
 			value,
 			defineSandboxTestHost(manifest, {

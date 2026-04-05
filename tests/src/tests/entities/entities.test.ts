@@ -12,10 +12,9 @@ import {
 	findBuiltinSchemaWithProviders,
 	getEntity,
 	getEntitySchema,
-	getFirstProviderScriptId,
 	insertLibraryMembership,
 } from "~/fixtures";
-import { assertTaggedError } from "~/support/assertions";
+import { assertPresent, assertTaggedError } from "~/support/assertions";
 import { describe, expect, it } from "~/support/effect-test";
 
 const createSchemaWithEnumFields = (client: Client) =>
@@ -59,19 +58,20 @@ describe("POST /entities", () => {
 			expect(entity.id).toBeDefined();
 			expect(entity.name).toBe("Plain Entity");
 			expect(entity.externalId).toBeNull();
-			expect(entity.sandboxScriptId).toBeNull();
+			expect(entity.providerId).toBeNull();
 		}),
 	);
 
-	it.live("creates entity with externalId and sandboxScriptId", () =>
+	it.live("creates entity with externalId and providerId", () =>
 		Effect.gen(function* () {
 			const { client } = yield* createAuthenticatedClient();
 			const { schemaId } = yield* createPluginSchema(client);
 			const { schema } = yield* findBuiltinSchemaWithProviders(client);
-			const sandboxScriptId = getFirstProviderScriptId(schema);
+			const providerId = schema.providers[0]?.providerId;
+			assertPresent(providerId, "Expected a provider for the built-in schema");
 
 			const entity = yield* createEntity(client, {
-				sandboxScriptId,
+				providerId,
 				externalId: "ext-001",
 				name: "External Entity",
 				entitySchemaSlug: schemaId,
@@ -80,19 +80,20 @@ describe("POST /entities", () => {
 
 			expect(entity.id).toBeDefined();
 			expect(entity.externalId).toBe("ext-001");
-			expect(entity.sandboxScriptId).toBe(sandboxScriptId);
+			expect(entity.providerId).toBe(providerId);
 		}),
 	);
 
-	it.live("returns the existing entity on duplicate externalId + sandboxScriptId", () =>
+	it.live("returns the existing entity on duplicate externalId + providerId", () =>
 		Effect.gen(function* () {
 			const { client } = yield* createAuthenticatedClient();
 			const { schemaId } = yield* createPluginSchema(client);
 			const { schema } = yield* findBuiltinSchemaWithProviders(client);
-			const sandboxScriptId = getFirstProviderScriptId(schema);
+			const providerId = schema.providers[0]?.providerId;
+			assertPresent(providerId, "Expected a provider for the built-in schema");
 
 			const first = yield* createEntity(client, {
-				sandboxScriptId,
+				providerId,
 				entitySchemaSlug: schemaId,
 				name: "Idempotent Entity",
 				externalId: "ext-idem-001",
@@ -100,7 +101,7 @@ describe("POST /entities", () => {
 			});
 
 			const second = yield* createEntity(client, {
-				sandboxScriptId,
+				providerId,
 				entitySchemaSlug: schemaId,
 				name: "Idempotent Entity",
 				externalId: "ext-idem-001",
@@ -115,13 +116,14 @@ describe("POST /entities", () => {
 		Effect.gen(function* () {
 			const { client } = yield* createAuthenticatedClient();
 			const { schema } = yield* findBuiltinSchemaWithProviders(client);
-			const providerScriptId = getFirstProviderScriptId(schema);
+			const providerId = schema.providers[0]?.providerId;
+			assertPresent(providerId, "Expected a provider for the built-in schema");
 
 			const entity = yield* createEntity(client, {
 				properties: {},
 				name: "Built-in Book",
 				entitySchemaSlug: schema.id,
-				sandboxScriptId: providerScriptId,
+				providerId,
 				externalId: `ext-builtin-${crypto.randomUUID()}`,
 			});
 
@@ -151,7 +153,7 @@ describe("POST /entities", () => {
 		}),
 	);
 
-	it.live("returns 400 when only externalId is provided without sandboxScriptId", () =>
+	it.live("returns 400 when only externalId is provided without providerId", () =>
 		Effect.gen(function* () {
 			const { client } = yield* createAuthenticatedClient();
 			const { schemaId } = yield* createPluginSchema(client);
@@ -171,23 +173,24 @@ describe("POST /entities", () => {
 
 			assertTaggedError(error, "BadRequest");
 			expect(error.message).toBe(
-				"externalId and sandboxScriptId must both be provided or both be omitted",
+				"externalId and providerId must both be provided or both be omitted",
 			);
 		}),
 	);
 
-	it.live("returns 400 when only sandboxScriptId is provided without externalId", () =>
+	it.live("returns 400 when only providerId is provided without externalId", () =>
 		Effect.gen(function* () {
 			const { client } = yield* createAuthenticatedClient();
 			const { schemaId } = yield* createPluginSchema(client);
 			const { schema } = yield* findBuiltinSchemaWithProviders(client);
-			const sandboxScriptId = getFirstProviderScriptId(schema);
+			const providerId = schema.providers[0]?.providerId;
+			assertPresent(providerId, "Expected a provider for the built-in schema");
 
 			const error = yield* Effect.flip(
 				client.call((c) =>
 					c.entities.create({
 						payload: {
-							sandboxScriptId,
+							providerId,
 							entitySchemaSlug: schemaId,
 							properties: { title: "Partial" },
 							name: "Partial Provenance Entity",
@@ -198,7 +201,7 @@ describe("POST /entities", () => {
 
 			assertTaggedError(error, "BadRequest");
 			expect(error.message).toBe(
-				"externalId and sandboxScriptId must both be provided or both be omitted",
+				"externalId and providerId must both be provided or both be omitted",
 			);
 		}),
 	);

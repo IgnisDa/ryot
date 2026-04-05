@@ -1,4 +1,5 @@
 import { expect, it } from "@effect/vitest";
+import { UserId } from "@ryot/contract/schema/brands";
 import { Effect } from "effect";
 import { describe } from "vitest";
 
@@ -8,14 +9,15 @@ import type { SandboxHostImplementationMap, SandboxRunInput } from "./shared";
 const input: SandboxRunInput = {
 	context: {},
 	metadata: {},
-	userId: "user-1",
+	providerId: null,
 	compiledCode: "",
 	compiledFormat: 1,
-	driverName: "main",
 	scriptId: "script-1",
 	scriptIsBuiltin: false,
 	allowedHostFunctions: [],
 	executionId: "execution-1",
+	cacheNamespace: "script-1",
+	authority: { type: "user", userId: UserId.make("user-1") },
 };
 
 const makeImplementations = (
@@ -252,7 +254,7 @@ describe("bindSandboxHostFunctions", () => {
 				const implementations = makeImplementations({
 					getIntegration: (runInput) => {
 						calls += 1;
-						receivedUserId = runInput.userId;
+						receivedUserId = "userId" in runInput.authority ? runInput.authority.userId : null;
 						return Effect.fail({ message: "reached" });
 					},
 				});

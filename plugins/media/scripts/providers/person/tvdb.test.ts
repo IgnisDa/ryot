@@ -1,9 +1,9 @@
 import type { SandboxHost } from "@ryot/sandbox-sdk/core";
 import { Effect } from "@ryot/sandbox-sdk/effect";
-import { defineSandboxTestHost, runSandboxTestDriver } from "@ryot/sandbox-sdk/testing";
+import { defineSandboxTestHost, runSandboxTestScript } from "@ryot/sandbox-sdk/testing";
 import { describe, expect, it } from "vitest";
 
-import { details, manifest, search, translate } from "./tvdb.sandbox";
+import { details, manifest, search, translate } from "./tvdb";
 
 type TvdbHost = SandboxHost<typeof manifest.capabilities>;
 
@@ -40,7 +40,7 @@ describe("person.tvdb sandbox script", () => {
 			],
 		});
 
-		return runSandboxTestDriver(details, { externalId: "1" }, host, execution).pipe(
+		return runSandboxTestScript(details, { externalId: "1" }, host, execution).pipe(
 			Effect.map((result) => {
 				expect(result.relatedEntityGroups).toEqual([
 					{
@@ -51,7 +51,7 @@ describe("person.tvdb sandbox script", () => {
 							{
 								name: "Film A",
 								externalId: "10",
-								scriptSlug: "movie.tvdb",
+								providerSlug: "movie.tvdb",
 								relationshipProperties: { roles: ["Actor", "Director"] },
 							},
 						],
@@ -64,13 +64,13 @@ describe("person.tvdb sandbox script", () => {
 							{
 								name: "Show B",
 								externalId: "20",
-								scriptSlug: "show.tvdb",
+								providerSlug: "show.tvdb",
 								relationshipProperties: { roles: ["Writer"] },
 							},
 							{
 								name: "Loading...",
 								externalId: "30",
-								scriptSlug: "show.tvdb",
+								providerSlug: "show.tvdb",
 								relationshipProperties: { roles: ["Actor"] },
 							},
 						],
@@ -94,7 +94,7 @@ describe("person.tvdb sandbox script", () => {
 			biographies: [{ biography: "Bio text" }],
 		});
 
-		return runSandboxTestDriver(details, { externalId: "5" }, host, execution).pipe(
+		return runSandboxTestScript(details, { externalId: "5" }, host, execution).pipe(
 			Effect.map((result) => {
 				expect(result.name).toBe("P");
 				expect(result.properties).toEqual({
@@ -119,7 +119,7 @@ describe("person.tvdb sandbox script", () => {
 			{ data: { name: "Trans Name", overview: "Trans desc" } },
 		);
 
-		return runSandboxTestDriver(details, { externalId: "5" }, host, execution).pipe(
+		return runSandboxTestScript(details, { externalId: "5" }, host, execution).pipe(
 			Effect.map((result) => {
 				expect(result.name).toBe("Trans Name");
 				expect(result.properties).toMatchObject({
@@ -146,7 +146,7 @@ describe("person.tvdb sandbox script", () => {
 			}),
 		);
 
-		return runSandboxTestDriver(
+		return runSandboxTestScript(
 			translate,
 			{ externalId: "5", language: "es", entitySchemaSlug: "person" },
 			host,
@@ -164,7 +164,7 @@ describe("person.tvdb sandbox script", () => {
 		const host = makeHost(() => httpSuccess({ data: {} }));
 		return expect(
 			Effect.runPromise(
-				runSandboxTestDriver(
+				runSandboxTestScript(
 					translate,
 					{ externalId: "abc", language: "es", entitySchemaSlug: "person" },
 					host,
@@ -185,7 +185,7 @@ describe("person.tvdb sandbox script", () => {
 			}),
 		);
 
-		return runSandboxTestDriver(
+		return runSandboxTestScript(
 			search,
 			{ query: "John", page: 1, pageSize: 20 },
 			host,

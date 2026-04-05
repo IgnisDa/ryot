@@ -60,7 +60,7 @@ const createHost = (options: {
 };
 
 const run = (context: AutomationPolicyInput, host: ReturnType<typeof createHost>["host"]) =>
-	definition.drivers.automation.run(context, host, execution);
+	definition.run(context, host, execution);
 
 describe("integration-progress-policy sandbox script", () => {
 	it("allows non-integration events immediately without host calls", () => {

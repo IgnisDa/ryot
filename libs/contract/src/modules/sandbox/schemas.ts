@@ -1,25 +1,23 @@
 import {
-	type ProviderInformation as SdkProviderInformation,
 	SANDBOX_HOST_CAPABILITIES,
 	type SandboxManifest as SdkSandboxScriptManifest,
 } from "@ryot/sandbox-sdk/core";
 import { Schema } from "effect";
 
 import { SandboxScriptId, SubscriptionRunId, UserId } from "../../schema/brands";
+import { strictStruct } from "../../schema/utils";
 import { AutomationOrigin } from "../automations/schemas";
 
 export const ProviderInformation = Schema.Struct({
 	source: Schema.String,
 	canonicalLanguage: Schema.optional(Schema.String),
-}) satisfies Schema.Schema<SdkProviderInformation>;
+});
 
 export type ProviderInformation = Schema.Schema.Type<typeof ProviderInformation>;
 
 export const SandboxScriptMetadata = Schema.Struct({
 	name: Schema.optional(Schema.String),
 	slug: Schema.optional(Schema.String),
-	providerInformation: Schema.optional(ProviderInformation),
-	driverNames: Schema.optional(Schema.Array(Schema.String)),
 	capabilities: Schema.optional(Schema.Array(Schema.String)),
 	requiredAppConfigKeys: Schema.optional(Schema.Array(Schema.String)),
 	kind: Schema.optional(Schema.Literal("script", "operation", "provider", "automation")),
@@ -38,11 +36,7 @@ export const SandboxScriptManifest = Schema.Union(
 	Schema.Struct({ ...SandboxScriptManifestFields, kind: Schema.Literal("script") }),
 	Schema.Struct({ ...SandboxScriptManifestFields, kind: Schema.Literal("operation") }),
 	Schema.Struct({ ...SandboxScriptManifestFields, kind: Schema.Literal("automation") }),
-	Schema.Struct({
-		...SandboxScriptManifestFields,
-		kind: Schema.Literal("provider"),
-		providerInformation: ProviderInformation,
-	}),
+	Schema.Struct({ ...SandboxScriptManifestFields, kind: Schema.Literal("provider") }),
 ) satisfies Schema.Schema<SdkSandboxScriptManifest>;
 
 export type SandboxScriptManifest = Schema.Schema.Type<typeof SandboxScriptManifest>;
@@ -64,9 +58,8 @@ export class SandboxCompilationFailure extends Schema.TaggedError<SandboxCompila
 	{ message: Schema.String, diagnostics: Schema.Array(SandboxCompilationDiagnostic) },
 ) {}
 
-export const EnqueueSandboxBody = Schema.Struct({
+export const EnqueueSandboxBody = strictStruct({
 	scriptId: SandboxScriptId,
-	driverName: Schema.String,
 	context: Schema.optional(Schema.Unknown),
 });
 
@@ -74,19 +67,27 @@ export type EnqueueSandboxBody = Schema.Schema.Type<typeof EnqueueSandboxBody>;
 
 export const EnqueueResponse = Schema.Struct({ jobId: Schema.String });
 
-export const SandboxExecutionPayload = Schema.Struct({
-	context: Schema.Unknown,
-	scriptId: SandboxScriptId,
-	driverName: Schema.String,
-	executionId: Schema.String,
-	userId: Schema.NullOr(UserId),
-	subscriptionRun: Schema.optional(
-		Schema.Struct({
+export const ExecutionAuthority = Schema.Union(
+	strictStruct({ type: Schema.Literal("user"), userId: UserId }),
+	strictStruct({ type: Schema.Literal("system") }),
+	strictStruct({
+		type: Schema.Literal("subscription"),
+		userId: UserId,
+		subscriptionRun: strictStruct({
 			id: SubscriptionRunId,
 			origin: AutomationOrigin,
 			occurredAt: Schema.String,
 		}),
-	),
+	}),
+);
+
+export type ExecutionAuthority = Schema.Schema.Type<typeof ExecutionAuthority>;
+
+export const SandboxExecutionPayload = strictStruct({
+	context: Schema.Unknown,
+	scriptId: SandboxScriptId,
+	authority: ExecutionAuthority,
+	executionId: Schema.String,
 });
 
 export type SandboxExecutionPayload = Schema.Schema.Type<typeof SandboxExecutionPayload>;

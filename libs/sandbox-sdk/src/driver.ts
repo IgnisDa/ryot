@@ -8,7 +8,7 @@ import type {
 	ScriptManifest,
 } from "./core.js";
 
-export type GenericDriver<
+type ScriptExecution<
 	Input extends Schema.Schema.AnyNoContext,
 	Output extends Schema.Schema.AnyNoContext,
 	Capabilities extends readonly SandboxHostCapability[],
@@ -24,28 +24,23 @@ export type GenericDriver<
 
 export const defineManifest = <const Manifest extends SandboxManifest>(manifest: Manifest) =>
 	manifest;
-export const defineDriver = <
-	const Manifest extends SandboxManifest,
-	Input extends Schema.Schema.AnyNoContext,
-	Output extends Schema.Schema.AnyNoContext,
->(
-	_manifest: Manifest,
-	driver: GenericDriver<Input, Output, Manifest["capabilities"]>,
-) => driver;
 
 export const SANDBOX_SCRIPT_DEFINITION = "ryot:sandbox-script" as const;
 export type GenericScriptDefinition<
 	Manifest extends SandboxManifest,
-	Drivers extends Record<string, unknown>,
-> = {
+	Input extends Schema.Schema.AnyNoContext,
+	Output extends Schema.Schema.AnyNoContext,
+> = ScriptExecution<Input, Output, Manifest["capabilities"]> & {
 	readonly manifest: Manifest;
-	readonly drivers: Drivers;
 	readonly definitionType: typeof SANDBOX_SCRIPT_DEFINITION;
 };
 export const defineScript = <
 	const Manifest extends ScriptManifest,
-	const Drivers extends Record<string, unknown>,
->(definition: {
-	readonly manifest: Manifest;
-	readonly drivers: Drivers;
-}) => ({ ...definition, definitionType: SANDBOX_SCRIPT_DEFINITION });
+	Input extends Schema.Schema.AnyNoContext,
+	Output extends Schema.Schema.AnyNoContext,
+>(
+	definition: Omit<GenericScriptDefinition<Manifest, Input, Output>, "definitionType">,
+): GenericScriptDefinition<Manifest, Input, Output> => ({
+	...definition,
+	definitionType: SANDBOX_SCRIPT_DEFINITION,
+});
