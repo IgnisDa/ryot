@@ -1365,7 +1365,6 @@ function getDoneActionLabel(action: DoneAction, state: ItemActionState) {
 function SectionHeader(props: {
 	accentColor: string;
 	eyebrow?: string;
-	subtitle?: string;
 	title: string;
 	right?: React.ReactNode;
 	textPrimary: string;
@@ -1405,11 +1404,6 @@ function SectionHeader(props: {
 				>
 					{props.title}
 				</Text>
-				{props.subtitle ? (
-					<Text fz="sm" c={props.textMuted} maw={460}>
-						{props.subtitle}
-					</Text>
-				) : null}
 			</Stack>
 			{props.right ? <Box>{props.right}</Box> : null}
 		</Group>
@@ -1570,6 +1564,7 @@ function ContinueCard(props: {
 			? `${props.item.current} / ${props.item.total} ${props.item.unit}`
 			: `${props.item.current} ${props.item.unit}`;
 
+	// Progress and the CTA already communicate the return path.
 	return (
 		<Paper
 			radius="sm"
@@ -1639,9 +1634,6 @@ function ContinueCard(props: {
 					<Text fz="xs" c={props.textMuted} lineClamp={1}>
 						{props.item.sub}
 					</Text>
-					<Text fz={11} c={props.textMuted}>
-						Return to where you left off.
-					</Text>
 
 					<Box mt={2}>
 						<Group gap={6} mb={4}>
@@ -1708,6 +1700,7 @@ function BacklogCard(props: {
 }) {
 	const color = TYPE_COLORS[props.item.type];
 	const note = getQueueNote(props.item, props.rank);
+	// The queue card should read as a pick list, not explain itself in prose.
 	return (
 		<UnstyledButton
 			onClick={() => console.log("[v6] Start:", props.item.title)}
@@ -1781,9 +1774,6 @@ function BacklogCard(props: {
 					<Text fz={10} c={props.textMuted}>
 						Added {props.item.addedDate}
 					</Text>
-					<Text fz={11} c={props.textMuted}>
-						Ready when you want something easy to pick.
-					</Text>
 				</Stack>
 			</Paper>
 		</UnstyledButton>
@@ -1802,6 +1792,7 @@ function RateCard(props: {
 	const [selected, setSelected] = useState(0);
 	const color = TYPE_COLORS[props.item.type];
 
+	// The unfinished state is conveyed by the stars and pending rating action.
 	return (
 		<Paper
 			radius="sm"
@@ -1855,9 +1846,6 @@ function RateCard(props: {
 					</Text>
 					<Text fz="xs" c={props.textMuted}>
 						{props.item.sub}
-					</Text>
-					<Text fz={11} c={props.textMuted}>
-						Still needs your take.
 					</Text>
 					<Group
 						gap={4}
@@ -1919,6 +1907,7 @@ function WeekStrip(props: {
 }) {
 	const maxCount = Math.max(...props.days.map((d) => d.count), 1);
 	const activeDays = props.days.filter((day) => day.count > 0).length;
+	// The strip should read quickly from counts and bars without helper copy.
 	return (
 		<Stack gap="md">
 			<Group justify="space-between" align="flex-start" gap="sm">
@@ -1940,9 +1929,6 @@ function WeekStrip(props: {
 						c={props.textPrimary}
 					>
 						You showed up {activeDays} of 7 days.
-					</Text>
-					<Text fz="xs" c={props.textMuted}>
-						A quick pulse of how the week has been moving.
 					</Text>
 				</Stack>
 				<Text fz="xs" c={props.textMuted}>
@@ -2388,9 +2374,8 @@ function AddMediaModal(props: { opened: boolean; onClose: () => void }) {
 		>
 			{step === "type-picker" && (
 				<Stack gap="md">
-					<Text fz="sm" c={t.textMuted}>
-						What type of media are you adding?
-					</Text>
+					{/* The modal title plus the grid make the choice clear without helper
+					copy. */}
 					<SimpleGrid cols={{ base: 3, sm: 4 }} spacing="sm">
 						{MOCK_ENTITY_SCHEMAS.map((schema) => {
 							const Icon = ICON_MAP[schema.icon] ?? BookOpen;
@@ -2491,11 +2476,9 @@ function AddMediaModal(props: { opened: boolean; onClose: () => void }) {
 								</Text>
 							) : (
 								<>
-									<Group justify="space-between" align="center" px={2}>
-										<Text fz="xs" c={t.textMuted}>
-											Pick a result, then either add it directly or open more
-											actions.
-										</Text>
+									{/* The row actions should explain the quick-add flow on their
+									own. */}
+									<Group justify="flex-end" align="center" px={2}>
 										<Badge
 											variant="light"
 											style={{
@@ -2585,10 +2568,6 @@ function AddMediaModal(props: { opened: boolean; onClose: () => void }) {
 																			via {activeProvider?.name}
 																		</Text>
 																	</Group>
-																	<Text fz="xs" c={t.textMuted}>
-																		Add this directly, or open more actions if
-																		you want to log intent now.
-																	</Text>
 																</Stack>
 															</Group>
 															<Group gap="xs" style={{ flexShrink: 0 }}>
@@ -2677,11 +2656,6 @@ function AddMediaModal(props: { opened: boolean; onClose: () => void }) {
 																				style={{ letterSpacing: "0.9px" }}
 																			>
 																				Add with context
-																			</Text>
-																			<Text fz="xs" c={t.textMuted}>
-																				Use a richer action only if you already
-																				know what you want to do with this
-																				result.
 																			</Text>
 																		</Stack>
 																		<Button
@@ -3192,6 +3166,7 @@ function RouteComponent() {
 		<Box bg={bgPage} mih="100vh">
 			<Container size="lg" py="xl">
 				<Stack gap="xl">
+					{/* Keep the page header terse; the section layout does the orienting. */}
 					<Group justify="space-between" align="flex-end" gap="sm">
 						<Stack gap={6} maw={640}>
 							<Text
@@ -3202,10 +3177,6 @@ function RouteComponent() {
 								lh={1}
 							>
 								Media
-							</Text>
-							<Text fz="sm" c={t.textMuted}>
-								A quiet snapshot of what already has momentum, what deserves a
-								next spot in the queue, and what still needs your reaction.
 							</Text>
 							<Group gap="xs" wrap="wrap">
 								<Badge
@@ -3246,7 +3217,7 @@ function RouteComponent() {
 							Add media
 						</Button>
 					</Group>
-
+					{/* Lead with active items; no supporting subtitle needed. */}
 					<SectionFrame
 						accentColor={SECTION_ACCENTS.continue}
 						border={t.border}
@@ -3256,7 +3227,6 @@ function RouteComponent() {
 						<SectionHeader
 							accentColor={SECTION_ACCENTS.continue}
 							eyebrow="In motion"
-							subtitle="Lead with the things that already have your attention, and make returning to them feel obvious."
 							title="Continue"
 							textPrimary={t.textPrimary}
 							textMuted={t.textMuted}
@@ -3296,7 +3266,7 @@ function RouteComponent() {
 							</UnstyledButton>
 						) : null}
 					</SectionFrame>
-
+					{/* Keep the queue visible and scannable without editorial footer copy. */}
 					<SectionFrame
 						accentColor={SECTION_ACCENTS.queue}
 						border={t.border}
@@ -3306,7 +3276,6 @@ function RouteComponent() {
 						<SectionHeader
 							accentColor={SECTION_ACCENTS.queue}
 							eyebrow="Queued with intent"
-							subtitle="The backlog reads better when it feels curated instead of endless. Keep the next few picks visible and human."
 							title="Up Next"
 							textPrimary={t.textPrimary}
 							textMuted={t.textMuted}
@@ -3332,12 +3301,8 @@ function RouteComponent() {
 								))}
 							</Group>
 						</ScrollArea>
-						<Text fz={11} c={t.textMuted} mt="sm">
-							A smaller queue feels warmer and more deliberate than an infinite
-							wish list.
-						</Text>
 					</SectionFrame>
-
+					{/* Completed items should invite action directly through the rating control. */}
 					{UNRATED.length > 0 && (
 						<SectionFrame
 							accentColor={SECTION_ACCENTS.review}
@@ -3348,7 +3313,6 @@ function RouteComponent() {
 							<SectionHeader
 								accentColor={SECTION_ACCENTS.review}
 								eyebrow="Leave a trace"
-								subtitle="Finished things are only half-done until you leave a quick reaction behind."
 								title="Rate These"
 								textPrimary={t.textPrimary}
 								textMuted={t.textMuted}
@@ -3373,7 +3337,7 @@ function RouteComponent() {
 							</SimpleGrid>
 						</SectionFrame>
 					)}
-
+					{/* Activity should read as one dense but calm block. */}
 					<SectionFrame
 						accentColor={SECTION_ACCENTS.activity}
 						border={t.border}
@@ -3383,7 +3347,6 @@ function RouteComponent() {
 						<SectionHeader
 							accentColor={SECTION_ACCENTS.activity}
 							eyebrow="Recent rhythm"
-							subtitle="The weekly pulse and the event log should read like one page from the same journal."
 							title="Activity"
 							textPrimary={t.textPrimary}
 							textMuted={t.textMuted}
@@ -3425,9 +3388,6 @@ function RouteComponent() {
 								>
 									{weekTotalEvents} events this week
 								</Badge>
-								<Text fz={11} c={t.textMuted}>
-									A denser line, but still calm enough to scan quickly.
-								</Text>
 							</Group>
 							<Box pt="md" style={{ borderTop: `1px solid ${t.border}` }}>
 								{Object.entries(dateGroups).map(([date, events]) => (
@@ -3460,7 +3420,8 @@ function RouteComponent() {
 							</Box>
 						</Paper>
 					</SectionFrame>
-
+					{/* Stats stay compact and secondary to the action-oriented sections
+					above. */}
 					<SectionFrame
 						accentColor={SECTION_ACCENTS.library}
 						border={t.border}
@@ -3470,7 +3431,6 @@ function RouteComponent() {
 						<SectionHeader
 							accentColor={SECTION_ACCENTS.library}
 							eyebrow="At a glance"
-							subtitle="Keep the numbers grounded and compact so they support the page instead of taking it over."
 							title="Library"
 							textPrimary={t.textPrimary}
 							textMuted={t.textMuted}
