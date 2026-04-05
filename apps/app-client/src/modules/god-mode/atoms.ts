@@ -1,71 +1,61 @@
 import type { ContractSuccess } from "@ryot/contract/client";
-import { AppContract } from "@ryot/contract/contract";
 import { UserId } from "@ryot/contract/schema/brands";
-import { Effect, Layer } from "effect";
-import { FetchHttpClient, HttpClient, HttpClientRequest } from "effect/unstable/http";
-import { Atom, AtomHttpApi, Reactivity } from "effect/unstable/reactivity";
+import { Effect } from "effect";
+import { Reactivity } from "effect/unstable/reactivity";
 
-import { serverStorageLayer, serverUrlReader } from "@/modules/server/storage";
+import { makeAdminApi, makeAdminQueryApi } from "@/api/admin-api";
+import { withAppQueryDefaults } from "@/api/query-client";
+import { adminRequestKey, keyedRequestFamily } from "@/api/request-key";
 
 export type GodModeUser = ContractSuccess<"godMode", "listUsers">["users"][number];
 
-export const adminTokenAtom = Atom.make("");
+export type GodModeScope = { adminToken: string; serverUrl: string };
 
-const usersReactivityKey = ["god-mode-users"];
+const godModeScopeKey = (scope: GodModeScope) => adminRequestKey(scope.serverUrl, scope.adminToken);
 
-const httpClientLayer = (get: Atom.AtomContext) => {
-	const adminToken = get(adminTokenAtom);
-	return Layer.effect(
-		HttpClient.HttpClient,
-		Effect.gen(function* () {
-			const client = yield* HttpClient.HttpClient;
-			const readServerUrl = yield* serverUrlReader;
-			return client.pipe(
-				HttpClient.mapRequestEffect((request) =>
-					readServerUrl().pipe(
-						Effect.map((serverUrl) =>
-							request.pipe(
-								HttpClientRequest.prependUrl(`${serverUrl}/api`),
-								HttpClientRequest.setHeader("Admin-Access-Token", adminToken),
-							),
-						),
-					),
-				),
-				HttpClient.transformResponse(
-					Effect.provideService(FetchHttpClient.RequestInit, { credentials: "include" }),
-				),
-			);
+const usersReactivityKey = (scope: GodModeScope) => [`god-mode-users:${godModeScopeKey(scope)}`];
+
+export const godModeUsersAtom = keyedRequestFamily(godModeScopeKey, (scope: GodModeScope) => {
+	const api = makeAdminQueryApi(scope.adminToken);
+	return withAppQueryDefaults(
+		api.query("godMode", "listUsers", {
+			query: { limit: 100, offset: 0 },
+			reactivityKeys: usersReactivityKey(scope),
 		}),
-	).pipe(Layer.provide(FetchHttpClient.layer), Layer.provide(serverStorageLayer));
-};
+	);
+});
 
-const godModeApiOptions = { api: AppContract, httpClient: httpClientLayer };
+type GodModeUserRequest = GodModeScope & { userId: string };
 
-const GodModeApi = AtomHttpApi.Service()("GodModeApi", godModeApiOptions);
+const godModeUserRequestKey = (request: GodModeUserRequest) =>
+	JSON.stringify([godModeScopeKey(request), request.userId]);
 
-export const godModeUsersAtom = GodModeApi.query("godMode", "listUsers", {
-	query: { limit: 100, offset: 0 },
-	reactivityKeys: usersReactivityKey,
-}).pipe(Atom.swr({ staleTime: 0, revalidateOnMount: true }), Atom.setIdleTTL("5 minutes"));
-
-export const resetUserPasswordAtom = Atom.family((userId: string) =>
-	GodModeApi.runtime.fn(() =>
-		Effect.flatMap(GodModeApi, (client) =>
-			client.godMode.resetUserPassword({ params: { userId: UserId.make(userId) } }),
-		),
-	),
+export const resetUserPasswordAtom = keyedRequestFamily(
+	godModeUserRequestKey,
+	(request: GodModeUserRequest) => {
+		const api = makeAdminApi(request.adminToken);
+		return api.runtime.fn(() =>
+			Effect.flatMap(api, (client) =>
+				client.godMode.resetUserPassword({ params: { userId: UserId.make(request.userId) } }),
+			),
+		);
+	},
 );
 
-export const setUserDisabledAtom = Atom.family((userId: string) =>
-	GodModeApi.runtime.fn((disabled: boolean) =>
-		Effect.flatMap(GodModeApi, (client) =>
-			Reactivity.mutation(
-				client.godMode.setUserDisabled({
-					params: { userId: UserId.make(userId) },
-					payload: { disabled },
-				}),
-				usersReactivityKey,
+export const setUserDisabledAtom = keyedRequestFamily(
+	godModeUserRequestKey,
+	(request: GodModeUserRequest) => {
+		const api = makeAdminApi(request.adminToken);
+		return api.runtime.fn((disabled: boolean) =>
+			Effect.flatMap(api, (client) =>
+				Reactivity.mutation(
+					client.godMode.setUserDisabled({
+						payload: { disabled },
+						params: { userId: UserId.make(request.userId) },
+					}),
+					usersReactivityKey(request),
+				),
 			),
-		),
-	),
+		);
+	},
 );

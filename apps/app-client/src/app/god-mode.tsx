@@ -1,4 +1,4 @@
-import { useAtomRefresh, useAtomSet, useAtomValue } from "@effect/atom-react";
+import { useAtomRefresh, useAtomValue } from "@effect/atom-react";
 import { AsyncResult } from "effect/unstable/reactivity";
 import { Redirect } from "expo-router";
 import { useEffect, useState } from "react";
@@ -13,16 +13,21 @@ import {
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
-import { adminTokenAtom, godModeUsersAtom } from "@/modules/god-mode/atoms";
+import { godModeUsersAtom } from "@/modules/god-mode/atoms";
 import { isUnauthorizedCause } from "@/modules/god-mode/errors";
 import { TokenForm } from "@/modules/god-mode/token-form";
 import { GodModeUserList } from "@/modules/god-mode/user-list";
 import { useServerUrl } from "@/modules/server/state";
 
-function UserManagement(props: { onUnauthorized: () => void }) {
+function UserManagement(props: {
+	serverUrl: string;
+	adminToken: string;
+	onUnauthorized: () => void;
+}) {
 	const onUnauthorized = props.onUnauthorized;
-	const users = useAtomValue(godModeUsersAtom);
-	const refreshUsers = useAtomRefresh(godModeUsersAtom);
+	const usersAtom = godModeUsersAtom(props);
+	const users = useAtomValue(usersAtom);
+	const refreshUsers = useAtomRefresh(usersAtom);
 	const unauthorized = AsyncResult.isFailure(users) && isUnauthorizedCause(users.cause);
 
 	useEffect(() => {
@@ -65,34 +70,31 @@ function UserManagement(props: { onUnauthorized: () => void }) {
 		return null;
 	}
 
-	return <GodModeUserList users={users.value.users} onUnauthorized={onUnauthorized} />;
+	return (
+		<GodModeUserList
+			users={users.value.users}
+			serverUrl={props.serverUrl}
+			adminToken={props.adminToken}
+			onUnauthorized={onUnauthorized}
+		/>
+	);
 }
 
 export default function GodMode() {
 	const serverUrl = useServerUrl();
 	const insets = useSafeAreaInsets();
 	const [token, setToken] = useState("");
-	const setAdminToken = useAtomSet(adminTokenAtom);
 	const [tokenError, setTokenError] = useState<string | null>(null);
 	const [submittedToken, setSubmittedToken] = useState<string | null>(null);
-
-	useEffect(
-		() => () => {
-			setAdminToken("");
-		},
-		[setAdminToken],
-	);
 
 	function handleSubmit() {
 		const submitted = token.trim();
 		setTokenError(null);
-		setAdminToken(submitted);
 		setSubmittedToken(submitted);
 	}
 
 	function handleUnauthorized() {
 		setToken("");
-		setAdminToken("");
 		setSubmittedToken(null);
 		setTokenError("That admin access token is invalid.");
 	}
@@ -127,7 +129,11 @@ export default function GodMode() {
 						<Text className="font-display-semibold text-3xl text-text">God Mode</Text>
 						<Text className="font-ui text-sm text-text-muted">Server admin user management</Text>
 					</View>
-					<UserManagement onUnauthorized={handleUnauthorized} />
+					<UserManagement
+						serverUrl={serverUrl}
+						adminToken={submittedToken}
+						onUnauthorized={handleUnauthorized}
+					/>
 				</ScrollView>
 			)}
 		</KeyboardAvoidingView>

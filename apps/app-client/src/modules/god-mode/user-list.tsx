@@ -6,6 +6,7 @@ import { useEffect, useRef, useState } from "react";
 import { Platform, Pressable, Share, Text, TextInput, View } from "react-native";
 
 import {
+	type GodModeScope,
 	type GodModeUser,
 	resetUserPasswordAtom,
 	setUserDisabledAtom,
@@ -46,15 +47,20 @@ function AuthBadge(props: { state: GodModeUser["authState"] }) {
 	);
 }
 
-function UserRow(props: { user: GodModeUser; onUnauthorized: () => void }) {
+function UserRow(props: GodModeScope & { user: GodModeUser; onUnauthorized: () => void }) {
 	const mounted = useRef(true);
 	const [copied, setCopied] = useState(false);
 	const [error, setError] = useState<string | null>(null);
 	const copyTimer = useRef<ReturnType<typeof setTimeout>>(undefined);
 	const [pending, setPending] = useState<"reset" | "disabled" | null>(null);
 	const [result, setResult] = useState<{ email: string; resetUrl: string } | null>(null);
-	const resetPassword = useAtomSet(resetUserPasswordAtom(props.user.id), { mode: "promiseExit" });
-	const setUserDisabled = useAtomSet(setUserDisabledAtom(props.user.id), { mode: "promiseExit" });
+	const request = {
+		userId: props.user.id,
+		serverUrl: props.serverUrl,
+		adminToken: props.adminToken,
+	};
+	const resetPassword = useAtomSet(resetUserPasswordAtom(request), { mode: "promiseExit" });
+	const setUserDisabled = useAtomSet(setUserDisabledAtom(request), { mode: "promiseExit" });
 
 	useEffect(() => {
 		mounted.current = true;
@@ -227,10 +233,12 @@ function UserRow(props: { user: GodModeUser; onUnauthorized: () => void }) {
 	);
 }
 
-export function GodModeUserList(props: {
-	onUnauthorized: () => void;
-	users: readonly GodModeUser[];
-}) {
+export function GodModeUserList(
+	props: GodModeScope & {
+		onUnauthorized: () => void;
+		users: readonly GodModeUser[];
+	},
+) {
 	if (props.users.length === 0) {
 		return (
 			<View className="items-center rounded-xl border border-border bg-surface p-6">
@@ -242,7 +250,13 @@ export function GodModeUserList(props: {
 	return (
 		<View className="border-t border-border">
 			{props.users.map((user) => (
-				<UserRow user={user} key={user.id} onUnauthorized={props.onUnauthorized} />
+				<UserRow
+					user={user}
+					key={user.id}
+					serverUrl={props.serverUrl}
+					adminToken={props.adminToken}
+					onUnauthorized={props.onUnauthorized}
+				/>
 			))}
 		</View>
 	);

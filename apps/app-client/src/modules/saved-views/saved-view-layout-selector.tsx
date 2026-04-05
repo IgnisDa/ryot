@@ -14,8 +14,12 @@ const layouts = [
 
 export type SavedViewLayout = (typeof layouts)[number]["value"];
 
-export function SavedViewLayoutSelector(props: { viewSlug: string }) {
-	const layoutAtom = savedViewLayoutAtom(props.viewSlug);
+export function SavedViewLayoutSelector(props: {
+	userId: string;
+	viewSlug: string;
+	serverUrl: string;
+}) {
+	const layoutAtom = savedViewLayoutAtom(props);
 	const layout = useAtomValue(layoutAtom);
 	const setLayout = useAtomSet(layoutAtom);
 	return (
