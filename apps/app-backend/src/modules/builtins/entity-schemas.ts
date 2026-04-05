@@ -80,20 +80,6 @@ const progressPropertiesSchemaByEntity = (entitySchemaSlug: string | undefined):
 					description: "Episode number within the current season",
 				},
 			},
-			rules: [
-				{
-					path: ["showSeason"],
-					kind: "validation" as const,
-					validation: { required: true as const },
-					when: { operator: "exists" as const, path: ["showEpisode"] },
-				},
-				{
-					path: ["showEpisode"],
-					kind: "validation" as const,
-					validation: { required: true as const },
-					when: { operator: "exists" as const, path: ["showSeason"] },
-				},
-			],
 		}))
 		.with("anime", () => ({
 			fields: {
@@ -167,20 +153,6 @@ const reviewPropertiesSchemaByEntity = (entitySchemaSlug: string | undefined): A
 					description: "Episode number within the current season being reviewed",
 				},
 			},
-			rules: [
-				{
-					path: ["showSeason"],
-					kind: "validation" as const,
-					validation: { required: true as const },
-					when: { operator: "exists" as const, path: ["showEpisode"] },
-				},
-				{
-					path: ["showEpisode"],
-					kind: "validation" as const,
-					validation: { required: true as const },
-					when: { operator: "exists" as const, path: ["showSeason"] },
-				},
-			],
 		}))
 		.with("anime", () => ({
 			fields: {
