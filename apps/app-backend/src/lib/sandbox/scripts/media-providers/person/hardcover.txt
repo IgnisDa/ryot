@@ -1,0 +1,150 @@
+function parseJsonResponse(responseBody) {
+  try {
+    return JSON.parse(responseBody);
+  } catch {
+    throw new Error("Hardcover returned invalid JSON");
+  }
+}
+
+async function getHardcoverApiKey() {
+  const configValueResponse = await getAppConfigValue("BOOKS_HARDCOVER_API_KEY");
+  if (!configValueResponse?.success) {
+    throw new Error(
+      configValueResponse?.error ?? "Could not load Hardcover API key",
+    );
+  }
+
+  const apiKey =
+    typeof configValueResponse.data === "string"
+      ? configValueResponse.data.trim()
+      : "";
+  if (!apiKey) {
+    throw new Error("BOOKS_HARDCOVER_API_KEY is not configured");
+  }
+
+  return apiKey;
+}
+
+driver("personDetails", async function(context) {
+  const apiKey = await getHardcoverApiKey();
+
+  const contextIdentifier =
+    typeof context?.identifier === "string" ? context.identifier.trim() : "";
+  if (!contextIdentifier) {
+    throw new Error("identifier is required");
+  }
+
+  if (!/^\d+$/.test(contextIdentifier)) {
+    throw new Error("identifier must be a numeric Hardcover author id");
+  }
+
+  const authorId = Number(contextIdentifier);
+  if (!Number.isSafeInteger(authorId)) {
+    throw new Error("identifier must be a safe integer Hardcover author id");
+  }
+
+  const graphqlQuery = `
+query GetHardcoverAuthorDetails($id: Int!) {
+  authors_by_pk(id: $id) {
+    id
+    bio
+    name
+    slug
+    links
+    born_date
+    death_date
+    image { url }
+    alternate_names
+  }
+}
+`;
+
+  const response = await httpCall(
+    "POST",
+    "https://api.hardcover.app/v1/graphql",
+    {
+      body: JSON.stringify({ query: graphqlQuery, variables: { id: authorId } }),
+      headers: {
+        Authorization: apiKey,
+        "Content-Type": "application/json",
+      },
+    },
+  );
+
+  if (!response?.success) {
+    throw new Error(response?.error ?? "Hardcover author details request failed");
+  }
+
+  const payload = parseJsonResponse(response.data.body);
+
+  if (Array.isArray(payload?.errors) && payload.errors.length > 0) {
+    const firstError = payload.errors[0];
+    const errorMessage =
+      firstError && typeof firstError.message === "string"
+        ? firstError.message
+        : "unknown GraphQL error";
+    throw new Error(`Hardcover author details GraphQL error: ${errorMessage}`);
+  }
+
+  const authorData =
+    payload?.data?.authors_by_pk &&
+    typeof payload.data.authors_by_pk === "object"
+      ? payload.data.authors_by_pk
+      : null;
+
+  if (!authorData) {
+    throw new Error("Hardcover returned no author data");
+  }
+
+  const name = typeof authorData.name === "string" ? authorData.name.trim() : "";
+  if (!name) {
+    throw new Error("Hardcover author data is missing name");
+  }
+
+  const image =
+    authorData.image &&
+    typeof authorData.image === "object" &&
+    typeof authorData.image.url === "string" &&
+    authorData.image.url.trim()
+      ? authorData.image.url.trim()
+      : null;
+
+  const slug =
+    typeof authorData.slug === "string" ? authorData.slug.trim() : "";
+  const sourceUrl = slug
+    ? `https://hardcover.app/authors/${slug}`
+    : null;
+
+  const links = Array.isArray(authorData.links) ? authorData.links : [];
+  const website =
+    links
+      .map((link) =>
+        link && typeof link === "object" && typeof link.url === "string"
+          ? link.url.trim()
+          : null,
+      )
+      .find((url) => url) ?? null;
+
+  const alternateNames = Array.isArray(authorData.alternate_names)
+    ? authorData.alternate_names.filter((n) => typeof n === "string" && n.trim())
+    : [];
+
+  return {
+    name,
+    properties: {
+      website,
+      sourceUrl,
+      gender: null,
+      alternateNames,
+      birthPlace: null,
+      assets: { remoteImages: image ? [image] : [] },
+      description: typeof authorData.bio === "string" ? authorData.bio : null,
+      birthDate:
+        typeof authorData.born_date === "string" ? authorData.born_date : null,
+      deathDate:
+        typeof authorData.death_date === "string"
+          ? authorData.death_date
+          : null,
+    },
+  };
+});
