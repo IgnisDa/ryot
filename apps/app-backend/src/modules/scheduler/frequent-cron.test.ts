@@ -46,13 +46,13 @@ it.scoped("enqueues a frequent run immediately and on each interval", () =>
 	}),
 );
 
-it.scoped("does not enqueue when background jobs are disabled", () =>
+it.scoped("does not enqueue when dispatchers are disabled", () =>
 	Effect.gen(function* () {
 		const captured = yield* makeCapture();
 		const engine = makeCapturingEngine(captured);
 		const layer = FrequentCronSchedulerLive.pipe(
 			Layer.provide(Layer.succeed(WorkflowEngine, engine)),
-			Layer.provide(makeAppConfigLayer({ server: { disableBackgroundJobs: true } })),
+			Layer.provide(makeAppConfigLayer({ scheduler: { disableDispatchers: true } })),
 		);
 
 		yield* Layer.build(layer);

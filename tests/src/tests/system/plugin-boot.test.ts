@@ -40,10 +40,10 @@ beforeAll(async () => {
 		frontendUrl: backendOrigin,
 		dbUrl: infrastructure.dbUrl,
 		s3BucketName: S3_BUCKET_NAME,
-		label: "Plugin Boot Disabled Backend",
 		redisUrl: infrastructure.redisUrl,
+		label: "Plugin Boot Disabled Backend",
 		s3Endpoint: infrastructure.s3Endpoint,
-		extraEnv: { SERVER_DISABLE_BACKGROUND_JOBS: "true" },
+		extraEnv: { SCHEDULER_DISABLE_DISPATCHERS: "true" },
 	});
 	backendProcess = spawnBackendProcess(env);
 	await waitForHealthCheck(`${backendOrigin}/api/system/health`, "Plugin Boot Disabled Setup");
@@ -55,7 +55,7 @@ afterAll(async () => {
 });
 
 describe("Plugin boot dispatch", () => {
-	it.live("does not seed the exercise catalog when background jobs are disabled", () =>
+	it.live("does not seed the exercise catalog when dispatchers are disabled", () =>
 		Effect.gen(function* () {
 			const { client } = yield* createAuthenticatedClient(getBackendUrl());
 
