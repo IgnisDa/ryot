@@ -53,7 +53,11 @@ async function handleTransactionCompleted(
 		return { error: `No customer found for customer ID: ${paddleCustomerId}` };
 	}
 
-	const priceId = paddleData.details?.lineItems?.at(0)?.priceId;
+	if (!paddleData.details) {
+		return { error: "No transaction details found" };
+	}
+
+	const priceId = paddleData.details.lineItems.at(0)?.priceId;
 	if (!priceId) {
 		return { error: "Price ID not found" };
 	}
@@ -130,10 +134,6 @@ export const action = async ({ request }: Route.ActionArgs) => {
 		serverVariables.PADDLE_WEBHOOK_SECRET_KEY,
 		paddleSignature,
 	);
-	if (!eventData) {
-		return data({ error: "No event data found in request body" });
-	}
-
 	const { eventType, data: paddleData } = eventData;
 	console.log("Received event:", { eventType });
 

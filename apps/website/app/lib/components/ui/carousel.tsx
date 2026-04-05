@@ -10,6 +10,7 @@ import {
 	useCallback,
 	useContext,
 	useEffect,
+	useMemo,
 	useState,
 } from "react";
 
@@ -23,8 +24,8 @@ type CarouselPlugin = UseCarouselParameters[1];
 type CarouselProps = {
 	opts?: CarouselOptions;
 	plugins?: CarouselPlugin;
-	orientation?: "horizontal" | "vertical";
 	setApi?: (api: CarouselApi) => void;
+	orientation?: "horizontal" | "vertical";
 };
 
 type CarouselContextProps = {
@@ -69,13 +70,13 @@ const Carousel = forwardRef<HTMLDivElement, HTMLAttributes<HTMLDivElement> & Car
 		const [canScrollPrev, setCanScrollPrev] = useState(false);
 		const [canScrollNext, setCanScrollNext] = useState(false);
 
-		const onSelect = useCallback((api: CarouselApi) => {
-			if (!api) {
+		const onSelect = useCallback((carouselApi: CarouselApi) => {
+			if (!carouselApi) {
 				return;
 			}
 
-			setCanScrollPrev(api.canScrollPrev());
-			setCanScrollNext(api.canScrollNext());
+			setCanScrollPrev(carouselApi.canScrollPrev());
+			setCanScrollNext(carouselApi.canScrollNext());
 		}, []);
 
 		const scrollPrev = useCallback(() => {
@@ -108,32 +109,30 @@ const Carousel = forwardRef<HTMLDivElement, HTMLAttributes<HTMLDivElement> & Car
 		}, [api, setApi]);
 
 		useEffect(() => {
-			if (!api) {
-				return;
-			}
-
 			onSelect(api);
-			api.on("reInit", onSelect);
-			api.on("select", onSelect);
-
+			api?.on("reInit", onSelect);
+			api?.on("select", onSelect);
 			return () => {
 				api?.off("select", onSelect);
 			};
 		}, [api, onSelect]);
 
+		const contextValue = useMemo(
+			() => ({
+				opts,
+				api,
+				scrollPrev,
+				scrollNext,
+				carouselRef,
+				canScrollPrev,
+				canScrollNext,
+				orientation: opts?.axis === "y" ? "vertical" : orientation,
+			}),
+			[opts, api, scrollPrev, scrollNext, carouselRef, canScrollPrev, canScrollNext, orientation],
+		);
+
 		return (
-			<CarouselContext.Provider
-				value={{
-					carouselRef,
-					api: api,
-					opts,
-					orientation: orientation || (opts?.axis === "y" ? "vertical" : "horizontal"),
-					scrollPrev,
-					scrollNext,
-					canScrollPrev,
-					canScrollNext,
-				}}
-			>
+			<CarouselContext.Provider value={contextValue}>
 				<div
 					ref={ref}
 					onKeyDownCapture={handleKeyDown}

@@ -4,7 +4,7 @@ import { getActionIntent, processSubmission } from "@ryot/ts-utils/request";
 import { sql } from "drizzle-orm";
 import * as openidClient from "openid-client";
 import { useState } from "react";
-import { data, redirect, useSearchParams } from "react-router";
+import { redirect, useSearchParams } from "react-router";
 import { $path } from "safe-routes";
 import { match } from "ts-pattern";
 import { withFragment, withQuery } from "ufo";
@@ -52,7 +52,7 @@ export const action = async ({ request }: Route.ActionArgs) => {
 			const submission = processSubmission(formData, registerSchema);
 			const otpCode = getOtpCode(submission.email);
 			if (otpCode !== submission.otpCode) {
-				throw data({ message: "Invalid OTP code." }, { status: 400 });
+				throw new Error("Invalid OTP code.");
 			}
 
 			revokeOtpCode(submission.email);

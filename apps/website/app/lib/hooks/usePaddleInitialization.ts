@@ -7,7 +7,7 @@ export const usePaddleInitialization = (paddleCustomerId?: string) => {
 
 	useEffect(() => {
 		if (configData) {
-			initializePaddleForApplication(
+			void initializePaddleForApplication(
 				configData.clientToken,
 				configData.isSandbox,
 				paddleCustomerId,
