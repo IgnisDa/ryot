@@ -4,8 +4,8 @@
 	"name": "@ryot/tests",
 	"scripts": {
 		"typecheck": "tsc",
-		"test": "bun test",
-		"lint": "biome check ."
+		"lint": "biome check .",
+		"test": "bun test --only-failures"
 	},
 	"devDependencies": {
 		"@aws-sdk/client-s3": "3.1024.0",
