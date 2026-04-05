@@ -11,6 +11,7 @@ import { match } from "ts-pattern";
 import { withQuery } from "ufo";
 
 import { customers, type TPlanTypes, type TProductTypes } from "~/drizzle/schema.server";
+import { getAppBackendApiClient } from "~/lib/api.server";
 import {
 	getCancellation,
 	getPurchaseInProgress,
@@ -252,25 +253,20 @@ export const action = async ({ request }: Route.ActionArgs) => {
 			}
 
 			try {
-				// TODO: Use openapi-typescript client here
-				const response = await fetch(
-					`${serverVariables.RYOT_BASE_URL}/api/god-mode/users/${customer.ryotUserId}/reset-password`,
-					{
-						method: "POST",
-						headers: {
-							"Content-Type": "application/json",
-							Authorization: `Bearer ${serverVariables.SERVER_ADMIN_ACCESS_TOKEN}`,
-						},
-					},
+				const apiClient = getAppBackendApiClient();
+				const { data: resetPasswordResponse, error } = await apiClient.POST(
+					"/god-mode/users/{userId}/reset-password",
+					{ params: { path: { userId: customer.ryotUserId } } },
 				);
 
-				const body = await response.json();
-
-				if (!response.ok) {
-					return data({ error: body?.error?.message || `Server error (${response.status})` });
+				if (error) {
+					return data({ error: error.error.message });
 				}
 
-				return data({ resetUrl: body.data.resetUrl, email: body.data.email });
+				return data({
+					email: resetPasswordResponse.data.email,
+					resetUrl: resetPasswordResponse.data.resetUrl,
+				});
 			} catch {
 				return data({ error: "Failed to reach the backend server" });
 			}
