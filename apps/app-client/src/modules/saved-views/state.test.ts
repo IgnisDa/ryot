@@ -5,7 +5,12 @@ import { Cause } from "effect";
 import { AsyncResult } from "effect/unstable/reactivity";
 import { describe, expect, it } from "vitest";
 
-import { mapManagedAssetResolution, mapSavedViewRecord, mapSavedViewResult } from "./state";
+import {
+	combineSavedViewPages,
+	mapManagedAssetResolution,
+	mapSavedViewRecord,
+	mapSavedViewResult,
+} from "./state";
 
 const queryDocument = { queries: {} } as const;
 const layouts = {
@@ -167,5 +172,41 @@ describe("saved-view application state", () => {
 		expect(
 			mapManagedAssetResolution(AsyncResult.failure(Cause.fail("offline")), "https://server.test"),
 		).toMatchObject({ status: "unavailable", urls: new Map() });
+	});
+
+	it("combines loaded pages while using the latest page info", () => {
+		const first = mapSavedViewResult(
+			AsyncResult.success(
+				rows([
+					{
+						image: { kind: "null", value: null },
+						title: { kind: "text", value: "First" },
+						entityId: { kind: "text", value: "entity-1" },
+					},
+				]),
+			),
+			record,
+			"grid",
+		);
+		const second = mapSavedViewResult(
+			AsyncResult.success(
+				rows([
+					{
+						image: { kind: "null", value: null },
+						title: { kind: "text", value: "Second" },
+						entityId: { kind: "text", value: "entity-2" },
+					},
+				]),
+			),
+			record,
+			"grid",
+		);
+
+		if (first.status !== "ready" || second.status !== "ready") {
+			throw new Error("Expected saved-view pages to be ready");
+		}
+		const combined = combineSavedViewPages([first, second]);
+		expect(combined.data.items.map((item) => item.entityId)).toEqual(["entity-1", "entity-2"]);
+		expect(combined.data.pageInfo).toEqual(second.data.pageInfo);
 	});
 });
