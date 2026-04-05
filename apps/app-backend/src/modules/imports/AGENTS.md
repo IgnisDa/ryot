@@ -23,6 +23,14 @@ Media imports run in four phases, split across a parent workflow and one canonic
 3. `populating-entities`: populate or reuse global entities and ensure library membership by awaiting `LibraryEntityImportWorkflow` per item (it composes provider population then the durable membership queue). Its `LibraryEntityImportError` stage maps to the `provider_details` (population) and `database_commit` (membership) failure stages.
 4. `writing-events`: write collection memberships and events for resolved entity ids.
 
+Resolution and population inputs are packed into ordered workflow chunks before sandbox dispatch.
+Every chunk must fit both the 64 KiB workflow-context ceiling and the 1,000-call durable-step ceiling
+(resolution budgets the worst-case candidate count; population budgets one child per item). A phase
+resolves its workflow script once, then executes exact-script chunks with deterministic chunk ids and
+bounded concurrency. An item that cannot fit an empty chunk is recorded as an item-level failure;
+expected library-import child failures remain item-level results, while sandbox shell, engine, and
+other infrastructure failures remain fatal to the run.
+
 Phases 2–4 (plus recording adapter failures and finalizing the run) are single-owned by `ProcessNormalizedMediaImportWorkflow` (`media/normalized-import-workflow.ts` definition, `media/normalized-import-workflow-live.ts` body). Both parents — `runOneTimeMediaImportWorkflow` (one-time imports) and the integration workflow — persist the adapter result, then await the child with a deterministic `${parentExecutionId}-normalized` execution id so the pipeline activities journal under one workflow regardless of caller. The child rehydrates the adapter result from Redis as its first activity (typed `ImportRunError` if the artifact is missing or expired). Resolution and population call sandbox or entity-import work through durable workflow steps instead of a hidden pass-through processor.
 
 Parents own everything outside the shared pipeline: file/source loading and mark-started, the Redis artifact write, and — after the child returns or fails — cleanup (one-time: `cleanupMediaImportRun` / `failRunAndCleanup`, which also deletes the adapter artifact via the `ImportRunArtifacts` cleanup lifecycle) or finalization (integration: `finalizeIntegrationRun`).
