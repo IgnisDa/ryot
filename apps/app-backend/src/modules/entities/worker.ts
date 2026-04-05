@@ -1,11 +1,10 @@
-import { createHash } from "node:crypto";
-
 import { z } from "@hono/zod-openapi";
 import { dayjs } from "@ryot/ts-utils/dayjs";
 import { normalizeSlug } from "@ryot/ts-utils/slug";
 import { type Job, WaitingChildrenError, Worker } from "bullmq";
 
 import { parseAppSchemaProperties } from "~/lib/app/schema-validation";
+import { sha1Hex } from "~/lib/bun";
 import { relatedEntityReferenceSchema } from "~/lib/media/common";
 import { getQueues } from "~/lib/queue";
 import { getRedisConnection } from "~/lib/queue/connection";
@@ -374,7 +373,7 @@ export const processEntityImportJob = async (
 };
 
 const createEntityQueueJobId = (prefix: string, input: Record<string, unknown>) => {
-	const hash = createHash("sha1").update(JSON.stringify(input)).digest("hex");
+	const hash = sha1Hex(JSON.stringify(input));
 	return `${prefix}_${hash}`;
 };
 
