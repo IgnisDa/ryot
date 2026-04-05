@@ -153,6 +153,29 @@ export const jsonBody = <TSchema extends z.ZodType>(schema: TSchema) => ({
 	content: { "application/json": { schema } },
 });
 
+export const createNullableOpenApiRefSchema = <TSchema extends z.ZodTypeAny>(
+	schema: TSchema,
+	input: { ref: string; name: string },
+) =>
+	z
+		.any()
+		.transform((value, ctx) => {
+			const result = schema.safeParse(value);
+			if (result.success) {
+				return result.data;
+			}
+
+			for (const issue of result.error.issues) {
+				ctx.addIssue(issue as never);
+			}
+
+			return z.NEVER;
+		})
+		.openapi(input.name, {
+			nullable: true,
+			allOf: [{ $ref: `#/components/schemas/${input.ref}` }],
+		} as never) as unknown as z.ZodType<z.infer<TSchema>>;
+
 export const createStandardResponses = <TSchema extends z.ZodType>(input: {
 	successSchema: TSchema;
 	successDescription: string;
