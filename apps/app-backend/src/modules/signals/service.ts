@@ -36,7 +36,7 @@ export type EmitSignalInput = {
 	subjectEntityId?: EntityId | undefined;
 };
 
-export class SignalSchemaContractDrift extends Schema.TaggedErrorClass<SignalSchemaContractDrift>()(
+export class SignalSchemaContractDrift extends Schema.TaggedError<SignalSchemaContractDrift>()(
 	"SignalSchemaContractDrift",
 	{ message: Schema.String },
 ) {}
