@@ -5,6 +5,7 @@ import { hostFailure } from "@ryot/sandbox-sdk/wire";
 import {
 	Clock,
 	Context,
+	Data,
 	Deferred,
 	Effect,
 	Layer,
@@ -16,11 +17,11 @@ import {
 	FileSystem,
 	Semaphore,
 } from "effect";
-import type { PlatformError } from "effect/PlatformError";
 import { HttpEffect, HttpServer } from "effect/unstable/http";
 import { ChildProcess, ChildProcessSpawner } from "effect/unstable/process";
 
 import { sandboxDenoDirConfig } from "../config/definition";
+import { AppConfig } from "../config/service";
 import { ensureSandboxRuntimeDependencies } from "./dependencies";
 import type { SandboxProcessGrants } from "./filesystem-grants";
 import { consumeSandboxHostCall, SANDBOX_LIMITS, type SandboxHostCallBudget } from "./limits";
@@ -85,13 +86,38 @@ export type SandboxStderrTail = {
 	readonly snapshot: () => SandboxStderrSnapshot;
 };
 
-type PooledProcess = {
+type SandboxProcess = {
 	readonly stderrTail: SandboxStderrTail;
 	readonly responseQueue: Queue.Queue<string>;
 	readonly stdinQueue: Queue.Queue<Uint8Array>;
 	readonly stderrClosed: Deferred.Deferred<void>;
 	readonly process: ChildProcessSpawner.ChildProcessHandle;
 };
+
+export type SandboxProcessRuntimeMetrics = {
+	readonly totalSpawned: number;
+	readonly workerRssBytes: number;
+	readonly totalCompleted: number;
+	readonly backendRssBytes: number;
+	readonly activeProcessCount: number;
+	readonly workers: ReadonlyArray<{ readonly pid: number; readonly rssBytes: number }>;
+};
+
+class SandboxProcessMemoryReadError extends Data.TaggedError("SandboxProcessMemoryReadError")<{}> {}
+
+const emptySandboxProcessRuntimeMetrics = (): SandboxProcessRuntimeMetrics => ({
+	workers: [],
+	totalSpawned: 0,
+	totalCompleted: 0,
+	workerRssBytes: 0,
+	activeProcessCount: 0,
+	backendRssBytes: process.memoryUsage().rss,
+});
+
+let runtimeMetricsReader: () => Effect.Effect<SandboxProcessRuntimeMetrics> = () =>
+	Effect.succeed(emptySandboxProcessRuntimeMetrics());
+
+export const getSandboxRuntimeMetrics = Effect.suspend(() => runtimeMetricsReader());
 
 const truncateSandboxStderrLine = (line: string) => {
 	const limit = SANDBOX_LIMITS.diagnostics.stderrBytes;
@@ -114,9 +140,9 @@ const truncateSandboxStderrLine = (line: string) => {
 };
 
 export const makeSandboxStderrTail = (): SandboxStderrTail => {
-	const lines: string[] = [];
 	let bytes = 0;
 	let truncated = false;
+	const lines: string[] = [];
 
 	return {
 		append: (line) => {
@@ -203,11 +229,6 @@ export const withSandboxHostCallPermit = <A, E, R>(
 
 const killProcessHandle = (process: ChildProcessSpawner.ChildProcessHandle) =>
 	process.kill().pipe(Effect.ignore);
-
-export const invalidateProcess = (
-	pool: Pool.Pool<PooledProcess, PlatformError>,
-	worker: PooledProcess,
-) => Pool.invalidate(pool, worker).pipe(Effect.andThen(killProcessHandle(worker.process)));
 
 type SpawnDenoProcessOptions = {
 	readonly denoDir: string;
@@ -476,27 +497,126 @@ export class PackageCacheManager extends Context.Service<PackageCacheManager>()(
 	static readonly layer = Layer.effect(this, this.make);
 }
 
-export class ProcessPool extends Context.Service<ProcessPool>()("ProcessPool", {
-	make: Effect.gen(function* () {
-		const runner = yield* RunnerFile;
-		const bridge = yield* BridgeService;
-		const dependencies = yield* PackageCacheManager;
-		const spawner = yield* ChildProcessSpawner.ChildProcessSpawner;
-		// The executor is captured here so a dedicated spawn does not leak a context requirement into
-		// every caller of `SandboxService.run`.
-		const spawn = (grants?: SandboxProcessGrants) =>
-			makeSpawnDenoProcess({
-				bridgePort: bridge.port,
-				runnerPath: runner.path,
-				denoDir: dependencies.cacheDirectory,
-				runtimeDirectory: dependencies.directory,
-				importMapPath: dependencies.importMapPath,
-				...(grants ? { grants } : {}),
-			}).pipe(Effect.provideService(ChildProcessSpawner.ChildProcessSpawner, spawner));
-		const pool = yield* Pool.make({ acquire: spawn(), size: SANDBOX_LIMITS.workerConcurrency + 2 });
-		return { pool, runtimePaths: dependencies, spawnDedicated: spawn };
-	}),
-}) {
+export class SandboxProcessManager extends Context.Service<SandboxProcessManager>()(
+	"SandboxProcessManager",
+	{
+		make: Effect.gen(function* () {
+			const runner = yield* RunnerFile;
+			const bridge = yield* BridgeService;
+			const config = yield* AppConfig;
+			const dependencies = yield* PackageCacheManager;
+			const spawner = yield* ChildProcessSpawner.ChildProcessSpawner;
+			// Capture the executor so callers only need the process manager service.
+			const spawn = (grants?: SandboxProcessGrants) =>
+				makeSpawnDenoProcess({
+					bridgePort: bridge.port,
+					runnerPath: runner.path,
+					...(grants ? { grants } : {}),
+					denoDir: dependencies.cacheDirectory,
+					runtimeDirectory: dependencies.directory,
+					importMapPath: dependencies.importMapPath,
+				}).pipe(Effect.provideService(ChildProcessSpawner.ChildProcessSpawner, spawner));
+			const states = new Set<number>();
+			let totalSpawned = 0;
+			let totalCompleted = 0;
+			const track = (worker: SandboxProcess) => {
+				const pid = Number(worker.process.pid);
+				if (Number.isSafeInteger(pid) && pid > 0) {
+					states.add(pid);
+					totalSpawned += 1;
+				}
+			};
+			const finish = (worker: SandboxProcess) => {
+				const pid = Number(worker.process.pid);
+				if (states.delete(pid)) {
+					totalCompleted += 1;
+				}
+			};
+			const spawnTracked = (grants?: SandboxProcessGrants) =>
+				spawn(grants).pipe(Effect.tap((worker) => Effect.sync(() => track(worker))));
+			const pool =
+				config.sandbox.processMode === "warm"
+					? yield* Pool.make({
+							acquire: spawnTracked(),
+							size: SANDBOX_LIMITS.workerConcurrency + 2,
+						})
+					: undefined;
+			const acquire = pool === undefined ? spawnTracked() : Pool.get(pool);
+			const release = (worker: SandboxProcess) =>
+				Effect.sync(() => finish(worker)).pipe(
+					Effect.andThen(pool === undefined ? Effect.void : Pool.invalidate(pool, worker)),
+					Effect.andThen(killProcessHandle(worker.process)),
+				);
+			const spawnDedicated = (grants?: SandboxProcessGrants) =>
+				spawnTracked(grants).pipe(
+					Effect.tap((worker) => Effect.addFinalizer(() => Effect.sync(() => finish(worker)))),
+				);
+			const readWorkerMemory = (pids: ReadonlyArray<number>) => {
+				if (process.platform === "linux") {
+					return Effect.forEach(
+						pids,
+						(pid) =>
+							Effect.tryPromise({
+								try: () => Bun.file(`/proc/${pid}/status`).text(),
+								catch: () => new SandboxProcessMemoryReadError(),
+							}).pipe(
+								Effect.map((status) => {
+									const match = /^VmRSS:\s+(\d+)\s+kB$/m.exec(status);
+									return match?.[1] ? ([pid, Number(match[1]) * 1024] as const) : null;
+								}),
+								Effect.orElseSucceed(() => null),
+							),
+						{ concurrency: "unbounded" },
+					).pipe(
+						Effect.map(
+							(entries) => new Map(entries.flatMap((entry) => (entry === null ? [] : [entry]))),
+						),
+					);
+				}
+				return Effect.try({
+					try: () => {
+						if (pids.length === 0) {
+							return new Map<number, number>();
+						}
+						const result = Bun.spawnSync(["ps", "-o", "pid=,rss=", "-p", pids.join(",")]);
+						if (result.exitCode !== 0) {
+							return new Map<number, number>();
+						}
+						const memory = new Map<number, number>();
+						for (const line of new TextDecoder().decode(result.stdout).split("\n")) {
+							const match = /^\s*(\d+)\s+(\d+)\s*$/.exec(line);
+							if (match?.[1] && match[2]) {
+								memory.set(Number(match[1]), Number(match[2]) * 1024);
+							}
+						}
+						return memory;
+					},
+					catch: () => new SandboxProcessMemoryReadError(),
+				}).pipe(Effect.orElseSucceed(() => new Map<number, number>()));
+			};
+			const getRuntimeMetrics = Effect.fn("SandboxProcessManager.getRuntimeMetrics")(function* () {
+				const pids = Array.from(states);
+				const memory = yield* readWorkerMemory(pids);
+				const workers = pids.map((pid) => ({ pid, rssBytes: memory.get(pid) ?? 0 }));
+				return {
+					workers,
+					totalSpawned,
+					totalCompleted,
+					activeProcessCount: workers.length,
+					backendRssBytes: process.memoryUsage().rss,
+					workerRssBytes: workers.reduce((total, worker) => total + worker.rssBytes, 0),
+				};
+			});
+			runtimeMetricsReader = getRuntimeMetrics;
+			yield* Effect.addFinalizer(() =>
+				Effect.sync(() => {
+					runtimeMetricsReader = () => Effect.succeed(emptySandboxProcessRuntimeMetrics());
+				}),
+			);
+			return { acquire, release, runtimePaths: dependencies, spawnDedicated };
+		}),
+	},
+) {
 	static readonly layer = Layer.effect(this, this.make).pipe(
 		Layer.provide(Layer.mergeAll(BridgeService.layer, RunnerFile.layer, PackageCacheManager.layer)),
 	);

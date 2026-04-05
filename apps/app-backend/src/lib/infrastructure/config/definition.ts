@@ -1,4 +1,11 @@
-import { booleanField, defineConfig, group, integerField, stringField } from "@ryot/config";
+import {
+	booleanField,
+	defineConfig,
+	enumField,
+	group,
+	integerField,
+	stringField,
+} from "@ryot/config";
 import { Config } from "effect";
 
 const scheduler = group(
@@ -91,6 +98,16 @@ const database = group(
 const sandbox = group(
 	{ label: "Sandbox", description: "Sandbox execution settings" },
 	{
+		processMode: enumField({
+			choices: {
+				kind: "static",
+				values: [{ value: "on-demand" }, { value: "warm" }],
+			},
+			defaultValue: "on-demand",
+			label: "Process mode",
+			envKey: "SANDBOX_PROCESS_MODE",
+			description: "Spawn processes on demand or keep a warm pool ready for executions",
+		}),
 		denoDir: stringField({
 			label: "Deno directory",
 			envKey: "SANDBOX_DENO_DIR",
