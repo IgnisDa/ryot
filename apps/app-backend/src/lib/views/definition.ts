@@ -1,5 +1,6 @@
 import type { AppSchema } from "@ryot/ts-utils";
 import { and, eq, inArray, isNull, or } from "drizzle-orm";
+import { match } from "ts-pattern";
 import { db } from "~/lib/db";
 import { entitySchema, eventSchema } from "~/lib/db/schema";
 import {
@@ -19,11 +20,15 @@ import {
 	type ViewRuntimeSchemaRow,
 } from "~/modules/view-runtime/query-builder";
 import type {
+	ViewRuntimeField,
 	ViewRuntimeRequest,
 	ViewRuntimeResponse,
 } from "~/modules/view-runtime/schemas";
 import { ViewRuntimeNotFoundError, ViewRuntimeValidationError } from "./errors";
-import { validateViewRuntimeReferences } from "./validator";
+import {
+	validateSavedViewDisplayConfiguration,
+	validateViewRuntimeReferences,
+} from "./validator";
 
 type ViewDefinition = {
 	queryDefinition: SavedViewQueryDefinition;
@@ -34,8 +39,10 @@ type ViewSource =
 	| { kind: "runtime"; request: ViewRuntimeRequest }
 	| { kind: "saved-view"; definition: ViewDefinition };
 
+type SavedViewLayout = keyof DisplayConfiguration;
+
 type RuntimeExecutionInput = {
-	layout?: ViewRuntimeRequest["layout"];
+	layout?: SavedViewLayout;
 	pagination?: ViewRuntimeRequest["pagination"];
 };
 
@@ -56,7 +63,7 @@ type PreparedViewState = {
 	runtimeRequest?: ViewRuntimeRequest;
 	runtimeSchemas: ViewRuntimeSchemaRow[];
 	queryDefinition: SavedViewQueryDefinition;
-	displayConfiguration: DisplayConfiguration;
+	displayConfiguration?: DisplayConfiguration;
 	schemaMap: Map<string, ViewRuntimeSchemaRow>;
 	eventJoinMap: Map<string, PreparedEventJoin>;
 };
@@ -65,7 +72,7 @@ export type PreparedView = {
 	assertSavable(): void;
 	execute(input?: RuntimeExecutionInput): Promise<ViewRuntimeResponse>;
 	toRuntimeRequest(input: {
-		layout: ViewRuntimeRequest["layout"];
+		layout: SavedViewLayout;
 		pagination: ViewRuntimeRequest["pagination"];
 	}): ViewRuntimeRequest;
 };
@@ -201,19 +208,6 @@ const loadVisibleEventJoins = async (input: {
 	});
 };
 
-const emptyCardDisplayConfiguration: DisplayConfiguration["grid"] = {
-	imageProperty: null,
-	titleProperty: null,
-	badgeProperty: null,
-	subtitleProperty: null,
-};
-
-const emptyDisplayConfiguration: DisplayConfiguration = {
-	table: { columns: [] },
-	grid: emptyCardDisplayConfiguration,
-	list: emptyCardDisplayConfiguration,
-};
-
 const normalizeQueryDefinition = (
 	queryDefinition: SavedViewQueryDefinition,
 ): SavedViewQueryDefinition => ({
@@ -221,40 +215,68 @@ const normalizeQueryDefinition = (
 	eventJoins: queryDefinition.eventJoins ?? [],
 });
 
-const buildRuntimeRequest = (input: {
-	layout: ViewRuntimeRequest["layout"];
-	queryDefinition: SavedViewQueryDefinition;
+const buildRuntimeFields = (input: {
+	layout: SavedViewLayout;
 	displayConfiguration: DisplayConfiguration;
+}): ViewRuntimeField[] => {
+	return match(input.layout)
+		.with("grid", () => [
+			{
+				key: "image",
+				references: input.displayConfiguration.grid.imageProperty ?? [],
+			},
+			{
+				key: "title",
+				references: input.displayConfiguration.grid.titleProperty ?? [],
+			},
+			{
+				key: "subtitle",
+				references: input.displayConfiguration.grid.subtitleProperty ?? [],
+			},
+			{
+				key: "badge",
+				references: input.displayConfiguration.grid.badgeProperty ?? [],
+			},
+		])
+		.with("list", () => [
+			{
+				key: "image",
+				references: input.displayConfiguration.list.imageProperty ?? [],
+			},
+			{
+				key: "title",
+				references: input.displayConfiguration.list.titleProperty ?? [],
+			},
+			{
+				key: "subtitle",
+				references: input.displayConfiguration.list.subtitleProperty ?? [],
+			},
+			{
+				key: "badge",
+				references: input.displayConfiguration.list.badgeProperty ?? [],
+			},
+		])
+		.with("table", () => {
+			return input.displayConfiguration.table.columns.map((column, index) => ({
+				key: `column_${index}`,
+				references: column.property,
+			}));
+		})
+		.exhaustive();
+};
+
+const buildRuntimeRequest = (input: {
+	fields: ViewRuntimeField[];
+	queryDefinition: SavedViewQueryDefinition;
 	pagination: ViewRuntimeRequest["pagination"];
 }): ViewRuntimeRequest => {
-	const shared = {
+	return {
+		fields: input.fields,
 		pagination: input.pagination,
 		sort: input.queryDefinition.sort,
 		filters: input.queryDefinition.filters,
 		eventJoins: input.queryDefinition.eventJoins,
 		entitySchemaSlugs: input.queryDefinition.entitySchemaSlugs,
-	};
-
-	if (input.layout === "grid") {
-		return {
-			...shared,
-			layout: "grid",
-			displayConfiguration: input.displayConfiguration.grid,
-		};
-	}
-
-	if (input.layout === "list") {
-		return {
-			...shared,
-			layout: "list",
-			displayConfiguration: input.displayConfiguration.list,
-		};
-	}
-
-	return {
-		...shared,
-		layout: "table",
-		displayConfiguration: input.displayConfiguration.table,
 	};
 };
 
@@ -264,40 +286,17 @@ const validateSavedViewDefinition = (input: {
 	eventJoinMap: Map<string, PreparedEventJoin>;
 	schemaMap: Map<string, ViewRuntimeSchemaLike>;
 }) => {
-	for (const layout of ["grid", "list", "table"] as const) {
-		const request = buildRuntimeRequest({
-			layout,
+	validateViewRuntimeReferences(
+		buildRuntimeRequest({
+			fields: [],
 			pagination: { page: 1, limit: 1 },
 			queryDefinition: input.queryDefinition,
-			displayConfiguration: input.displayConfiguration,
-		});
-		validateViewRuntimeReferences(request, {
-			schemaMap: input.schemaMap,
-			eventJoinMap: input.eventJoinMap,
-		});
-	}
-};
-
-const buildPreparedRuntimeRequest = (input: {
-	runtimeRequest: ViewRuntimeRequest;
-	executionInput?: RuntimeExecutionInput;
-	state: Pick<PreparedViewState, "displayConfiguration" | "queryDefinition">;
-}) => {
-	if (
-		input.executionInput?.layout &&
-		input.executionInput.layout !== input.runtimeRequest.layout
-	) {
-		throw new ViewRuntimeValidationError(
-			"Cannot change layout for a prepared runtime view",
-		);
-	}
-
-	return buildRuntimeRequest({
-		layout: input.runtimeRequest.layout,
-		queryDefinition: input.state.queryDefinition,
-		displayConfiguration: input.state.displayConfiguration,
-		pagination:
-			input.executionInput?.pagination ?? input.runtimeRequest.pagination,
+		}),
+		{ schemaMap: input.schemaMap, eventJoinMap: input.eventJoinMap },
+	);
+	validateSavedViewDisplayConfiguration(input.displayConfiguration, {
+		schemaMap: input.schemaMap,
+		eventJoinMap: input.eventJoinMap,
 	});
 };
 
@@ -313,32 +312,32 @@ const createPreparedView = (
 		}
 	},
 	toRuntimeRequest(input) {
-		if (state.runtimeRequest && input.layout !== state.runtimeRequest.layout) {
+		if (!state.displayConfiguration) {
 			throw new ViewRuntimeValidationError(
-				"Cannot change layout for a prepared runtime view",
+				"Only saved views can be projected into runtime requests",
 			);
 		}
 
 		return buildRuntimeRequest({
-			layout: input.layout,
 			pagination: input.pagination,
 			queryDefinition: state.queryDefinition,
-			displayConfiguration: state.displayConfiguration,
+			fields: buildRuntimeFields({
+				layout: input.layout,
+				displayConfiguration: state.displayConfiguration,
+			}),
 		});
 	},
 	async execute(input) {
 		const request = state.runtimeRequest
-			? buildPreparedRuntimeRequest({
-					state,
-					runtimeRequest: state.runtimeRequest,
-					executionInput: input,
-				})
-			: input?.layout && input.pagination
+			? state.runtimeRequest
+			: input?.layout && input.pagination && state.displayConfiguration
 				? buildRuntimeRequest({
-						layout: input.layout,
 						pagination: input.pagination,
 						queryDefinition: state.queryDefinition,
-						displayConfiguration: state.displayConfiguration,
+						fields: buildRuntimeFields({
+							layout: input.layout,
+							displayConfiguration: state.displayConfiguration,
+						}),
 					})
 				: undefined;
 
@@ -384,22 +383,9 @@ export const createViewDefinitionModule = (
 					})
 				: normalizeQueryDefinition(input.source.definition.queryDefinition);
 		const displayConfiguration =
-			input.source.kind === "runtime"
-				? {
-						grid:
-							input.source.request.layout === "grid"
-								? input.source.request.displayConfiguration
-								: emptyDisplayConfiguration.grid,
-						list:
-							input.source.request.layout === "list"
-								? input.source.request.displayConfiguration
-								: emptyDisplayConfiguration.list,
-						table:
-							input.source.request.layout === "table"
-								? input.source.request.displayConfiguration
-								: emptyDisplayConfiguration.table,
-					}
-				: input.source.definition.displayConfiguration;
+			input.source.kind === "saved-view"
+				? input.source.definition.displayConfiguration
+				: undefined;
 		const runtimeSchemas = await deps.loadVisibleSchemas({
 			userId: input.userId,
 			entitySchemaSlugs: queryDefinition.entitySchemaSlugs,
@@ -422,7 +408,7 @@ export const createViewDefinitionModule = (
 				schemaMap,
 				eventJoinMap,
 				queryDefinition,
-				displayConfiguration,
+				displayConfiguration: input.source.definition.displayConfiguration,
 			});
 		}
 

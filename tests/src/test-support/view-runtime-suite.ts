@@ -32,35 +32,16 @@ const entityField = (schemaSlug: string, property: string) => {
 type ViewRuntimeItem = NonNullable<
 	Awaited<ReturnType<typeof executeViewRuntime>>["data"]
 >["data"]["items"][number];
-type ViewRuntimeResponseData = NonNullable<
-	Awaited<ReturnType<typeof executeViewRuntime>>["data"]
->["data"];
 
-const getSemanticItem = (item: ViewRuntimeItem | undefined) => {
-	expect(item && "resolvedProperties" in item).toBe(true);
-	if (!item || !("resolvedProperties" in item)) {
-		throw new Error("Expected grid/list runtime item");
+const getField = (item: ViewRuntimeItem | undefined, key: string) => {
+	expect(item).toBeDefined();
+	const field = item?.fields.find((entry) => entry.key === key);
+	expect(field).toBeDefined();
+	if (!field) {
+		throw new Error(`Expected runtime field '${key}'`);
 	}
 
-	return item;
-};
-
-const getTableItem = (item: ViewRuntimeItem | undefined) => {
-	expect(item && "cells" in item).toBe(true);
-	if (!item || !("cells" in item)) {
-		throw new Error("Expected table runtime item");
-	}
-
-	return item;
-};
-
-const getTableMeta = (data: ViewRuntimeResponseData) => {
-	expect("table" in data.meta).toBe(true);
-	if (!("table" in data.meta)) {
-		throw new Error("Expected table runtime metadata");
-	}
-
-	return data.meta.table;
+	return field;
 };
 
 async function createImageFallbackFixture() {
@@ -175,15 +156,6 @@ export function registerViewRuntimePresentationAndErrorTests() {
 	it("returns semantic keys for grid and list layouts with raw image unions", async () => {
 		const { client, cookies, schema } =
 			await createSingleSchemaRuntimeFixture();
-		const expectedProperties = {
-			badgeProperty: { kind: "text", value: "phone" },
-			subtitleProperty: { kind: "number", value: 2018 },
-			titleProperty: { kind: "text", value: "Alpha Phone" },
-			imageProperty: {
-				kind: "image",
-				value: { kind: "remote", url: "https://example.com/alpha-phone.png" },
-			},
-		} as const;
 
 		const gridResult = await executeViewRuntime(
 			client,
@@ -204,14 +176,48 @@ export function registerViewRuntimePresentationAndErrorTests() {
 
 		expect(gridResult.response.status).toBe(200);
 		expect(listResult.response.status).toBe(200);
-		expect(
-			getSemanticItem(gridResult.data?.data.items[0]).resolvedProperties,
-		).toEqual(expectedProperties);
-		expect(
-			getSemanticItem(listResult.data?.data.items[0]).resolvedProperties,
-		).toEqual(expectedProperties);
+		expect(getField(gridResult.data?.data.items[0], "badge")).toEqual({
+			key: "badge",
+			kind: "text",
+			value: "phone",
+		});
+		expect(getField(gridResult.data?.data.items[0], "subtitle")).toEqual({
+			key: "subtitle",
+			kind: "number",
+			value: 2018,
+		});
+		expect(getField(gridResult.data?.data.items[0], "title")).toEqual({
+			key: "title",
+			kind: "text",
+			value: "Alpha Phone",
+		});
+		expect(getField(gridResult.data?.data.items[0], "image")).toEqual({
+			key: "image",
+			kind: "image",
+			value: { kind: "remote", url: "https://example.com/alpha-phone.png" },
+		});
+		expect(getField(listResult.data?.data.items[0], "badge")).toEqual({
+			key: "badge",
+			kind: "text",
+			value: "phone",
+		});
+		expect(getField(listResult.data?.data.items[0], "subtitle")).toEqual({
+			key: "subtitle",
+			kind: "number",
+			value: 2018,
+		});
+		expect(getField(listResult.data?.data.items[0], "title")).toEqual({
+			key: "title",
+			kind: "text",
+			value: "Alpha Phone",
+		});
+		expect(getField(listResult.data?.data.items[0], "image")).toEqual({
+			key: "image",
+			kind: "image",
+			value: { kind: "remote", url: "https://example.com/alpha-phone.png" },
+		});
 		expect(gridResult.data?.data.items[0]?.image).toEqual(
-			expectedProperties.imageProperty.value,
+			getField(gridResult.data?.data.items[0], "image").value,
 		);
 	});
 
@@ -232,18 +238,29 @@ export function registerViewRuntimePresentationAndErrorTests() {
 		);
 
 		expect(response.status).toBe(200);
-		expect(getSemanticItem(data?.data.items[0]).resolvedProperties).toEqual({
-			badgeProperty: { kind: "null", value: null },
-			subtitleProperty: { kind: "null", value: null },
-			titleProperty: { kind: "text", value: "Alpha Phone" },
-			imageProperty: {
-				kind: "image",
-				value: { kind: "remote", url: "https://example.com/alpha-phone.png" },
-			},
+		expect(getField(data?.data.items[0], "badge")).toEqual({
+			key: "badge",
+			kind: "null",
+			value: null,
+		});
+		expect(getField(data?.data.items[0], "subtitle")).toEqual({
+			key: "subtitle",
+			kind: "null",
+			value: null,
+		});
+		expect(getField(data?.data.items[0], "title")).toEqual({
+			key: "title",
+			kind: "text",
+			value: "Alpha Phone",
+		});
+		expect(getField(data?.data.items[0], "image")).toEqual({
+			key: "image",
+			kind: "image",
+			value: { kind: "remote", url: "https://example.com/alpha-phone.png" },
 		});
 	});
 
-	it("returns table metadata, ordered cells, and null wrappers for empty property references", async () => {
+	it("returns ordered table fields and null wrappers for empty property references", async () => {
 		const { client, cookies, schema } =
 			await createSingleSchemaRuntimeFixture();
 		const { data, response } = await executeViewRuntime(
@@ -261,20 +278,11 @@ export function registerViewRuntimePresentationAndErrorTests() {
 		);
 
 		expect(response.status).toBe(200);
-		expect(data?.data && getTableMeta(data.data)).toEqual({
-			columns: [
-				{ key: "column_0", label: "Name" },
-				{ key: "column_1", label: "Year" },
-				{ key: "column_2", label: "Empty" },
-			],
-		});
-		expect(getTableItem(data?.data.items[0])).toMatchObject({
-			cells: [
-				{ key: "column_0", kind: "text", value: "Alpha Phone" },
-				{ key: "column_1", kind: "number", value: 2018 },
-				{ key: "column_2", kind: "null", value: null },
-			],
-		});
+		expect(data?.data.items[0]?.fields).toEqual([
+			{ key: "column_0", kind: "text", value: "Alpha Phone" },
+			{ key: "column_1", kind: "number", value: 2018 },
+			{ key: "column_2", kind: "null", value: null },
+		]);
 	});
 
 	it("coalesces cross-schema display configuration values", async () => {
@@ -309,23 +317,25 @@ export function registerViewRuntimePresentationAndErrorTests() {
 		);
 
 		expect(response.status).toBe(200);
-		expect(getSemanticItem(data?.data.items[0]).resolvedProperties).toEqual({
-			badgeProperty: { kind: "number", value: 2018 },
-			subtitleProperty: { kind: "text", value: "Acme" },
-			titleProperty: { kind: "text", value: "Alpha Phone" },
-			imageProperty: {
-				kind: "image",
-				value: { kind: "remote", url: "https://example.com/alpha-phone.png" },
-			},
+		expect(getField(data?.data.items[0], "badge")).toEqual({
+			key: "badge",
+			kind: "number",
+			value: 2018,
 		});
-		expect(getSemanticItem(data?.data.items[1]).resolvedProperties).toEqual({
-			badgeProperty: { kind: "number", value: 2019 },
-			subtitleProperty: { kind: "text", value: "Tabula" },
-			titleProperty: { kind: "text", value: "Beta Tablet" },
-			imageProperty: {
-				kind: "image",
-				value: { kind: "remote", url: "https://example.com/beta-tablet.png" },
-			},
+		expect(getField(data?.data.items[0], "subtitle")).toEqual({
+			key: "subtitle",
+			kind: "text",
+			value: "Acme",
+		});
+		expect(getField(data?.data.items[1], "badge")).toEqual({
+			key: "badge",
+			kind: "number",
+			value: 2019,
+		});
+		expect(getField(data?.data.items[1], "subtitle")).toEqual({
+			key: "subtitle",
+			kind: "text",
+			value: "Tabula",
 		});
 	});
 
@@ -358,11 +368,25 @@ export function registerViewRuntimePresentationAndErrorTests() {
 
 		expect(response.status).toBe(200);
 		expect(data?.data.items[0]?.image).toBeNull();
-		expect(getSemanticItem(data?.data.items[0]).resolvedProperties).toEqual({
-			badgeProperty: { kind: "null", value: null },
-			subtitleProperty: { kind: "null", value: null },
-			imageProperty: { kind: "text", value: "fallback-image" },
-			titleProperty: { kind: "text", value: "No Image Device" },
+		expect(getField(data?.data.items[0], "badge")).toEqual({
+			key: "badge",
+			kind: "null",
+			value: null,
+		});
+		expect(getField(data?.data.items[0], "subtitle")).toEqual({
+			key: "subtitle",
+			kind: "null",
+			value: null,
+		});
+		expect(getField(data?.data.items[0], "image")).toEqual({
+			key: "image",
+			kind: "text",
+			value: "fallback-image",
+		});
+		expect(getField(data?.data.items[0], "title")).toEqual({
+			key: "title",
+			kind: "text",
+			value: "No Image Device",
 		});
 	});
 
@@ -395,15 +419,29 @@ export function registerViewRuntimePresentationAndErrorTests() {
 
 		expect(response.status).toBe(200);
 		expect(data?.data.items[0]?.image).toBeNull();
-		expect(getSemanticItem(data?.data.items[0]).resolvedProperties).toEqual({
-			badgeProperty: { kind: "null", value: null },
-			subtitleProperty: { kind: "null", value: null },
-			imageProperty: { kind: "text", value: "fallback-image" },
-			titleProperty: { kind: "text", value: "No Image Device" },
+		expect(getField(data?.data.items[0], "badge")).toEqual({
+			key: "badge",
+			kind: "null",
+			value: null,
+		});
+		expect(getField(data?.data.items[0], "subtitle")).toEqual({
+			key: "subtitle",
+			kind: "null",
+			value: null,
+		});
+		expect(getField(data?.data.items[0], "image")).toEqual({
+			key: "image",
+			kind: "text",
+			value: "fallback-image",
+		});
+		expect(getField(data?.data.items[0], "title")).toEqual({
+			key: "title",
+			kind: "text",
+			value: "No Image Device",
 		});
 	});
 
-	it("falls through to later image references in table layout when @image is null", async () => {
+	it("falls through to later image references in table fields when @image is null", async () => {
 		const { client, cookies, schema } = await createImageFallbackFixture();
 
 		const { data, response } = await executeViewRuntime(
@@ -433,18 +471,10 @@ export function registerViewRuntimePresentationAndErrorTests() {
 
 		expect(response.status).toBe(200);
 		expect(data?.data.items[0]?.image).toBeNull();
-		expect(data?.data && getTableMeta(data.data)).toEqual({
-			columns: [
-				{ key: "column_0", label: "Image" },
-				{ key: "column_1", label: "Name" },
-			],
-		});
-		expect(getTableItem(data?.data.items[0])).toMatchObject({
-			cells: [
-				{ key: "column_0", kind: "text", value: "fallback-image" },
-				{ key: "column_1", kind: "text", value: "No Image Device" },
-			],
-		});
+		expect(data?.data.items[0]?.fields).toEqual([
+			{ key: "column_0", kind: "text", value: "fallback-image" },
+			{ key: "column_1", kind: "text", value: "No Image Device" },
+		]);
 	});
 
 	it("filters, sorts, and displays latest-event join data", async () => {
@@ -472,20 +502,16 @@ export function registerViewRuntimePresentationAndErrorTests() {
 			"Alpha Phone",
 			"Gamma Phone",
 		]);
-		expect(getTableItem(data?.data.items[0])).toMatchObject({
-			cells: [
-				{ key: "column_0", kind: "text", value: "Alpha Phone" },
-				{ key: "column_1", kind: "number", value: 5 },
-				{ key: "column_2", kind: "date" },
-			],
-		});
-		expect(getTableItem(data?.data.items[1])).toMatchObject({
-			cells: [
-				{ key: "column_0", kind: "text", value: "Gamma Phone" },
-				{ key: "column_1", kind: "number", value: 4 },
-				{ key: "column_2", kind: "date" },
-			],
-		});
+		expect(data?.data.items[0]?.fields).toMatchObject([
+			{ key: "column_0", kind: "text", value: "Alpha Phone" },
+			{ key: "column_1", kind: "number", value: 5 },
+			{ key: "column_2", kind: "date" },
+		]);
+		expect(data?.data.items[1]?.fields).toMatchObject([
+			{ key: "column_0", kind: "text", value: "Gamma Phone" },
+			{ key: "column_1", kind: "number", value: 4 },
+			{ key: "column_2", kind: "date" },
+		]);
 	});
 
 	it("treats missing event schemas and missing event rows as null join values", async () => {
@@ -514,7 +540,8 @@ export function registerViewRuntimePresentationAndErrorTests() {
 			"Omega Phone",
 		]);
 		for (const item of data?.data.items ?? []) {
-			expect(getSemanticItem(item).resolvedProperties.badgeProperty).toEqual({
+			expect(getField(item, "badge")).toEqual({
+				key: "badge",
 				kind: "null",
 				value: null,
 			});
