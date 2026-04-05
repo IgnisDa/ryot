@@ -17,8 +17,10 @@ directly affected modules, not unrelated opportunistic refactors.
 Pay particular attention to residue of the five deleted native domain modules (`media-trending`,
 `exercises`, `metadata-lookup`, `episode-resolver`, `media-monitoring`), the deleted native
 sink/yank + import-source adapters, the temporary step-2 `invokeOperation` scaffolding, and any
-Promise-based sandbox driver/host compatibility wrapper or alias left after the Effect-native
-cutover.
+Promise-based sandbox entrypoint/host compatibility wrapper or alias left after the Effect-native
+cutover. Also remove any runtime entrypoint selector, driver-map compatibility path,
+script-backed provider provenance, or script-scoped cache key retained for provider-associated
+scripts.
 
 ## Acceptance criteria
 
@@ -26,3 +28,5 @@ cutover.
 - [ ] The cleanup pass covers all files touched by this plan and any directly affected modules
 - [ ] Any removals or simplifications are reflected in the changed code before the plan is
       considered complete
+- [ ] Repository searches confirm future-facing code and documentation use direct scripts,
+      logical providers, trusted execution authority, and provider-scoped caches
