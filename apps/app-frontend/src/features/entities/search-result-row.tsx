@@ -17,7 +17,10 @@ import {
 	Plus,
 	Star,
 } from "lucide-react";
-import type { CollectionDiscoveryState } from "~/features/collections";
+import type {
+	CollectionDiscoveryState,
+	CollectionMembershipFormValues,
+} from "~/features/collections";
 import type { CollectionsDestination } from "~/features/collections/model";
 import { useThemeTokens } from "~/hooks/theme";
 import type {
@@ -252,14 +255,14 @@ export function SearchResultRow(props: {
 	onToggleActions: () => void;
 	addError: string | undefined;
 	primaryAction: "add" | "backlog";
+	canUseCollectionAction: boolean;
 	lifecycleErrorMessage: string | null;
 	actionState: SearchResultRowActionState;
-	onTogglePanel: (panel: "log" | "rate" | "collection") => void;
-	addStatus: "idle" | "loading" | "done" | "error" | "partial_error";
-	onSaveCollection: () => void;
-	canUseCollectionAction: boolean;
 	collectionState: CollectionDiscoveryState;
 	collectionsDestination: CollectionsDestination;
+	onTogglePanel: (panel: "log" | "rate" | "collection") => void;
+	addStatus: "idle" | "loading" | "done" | "error" | "partial_error";
+	onSaveCollection: (values: CollectionMembershipFormValues) => void;
 	onPatchActionState: (patch: Partial<SearchResultRowActionState>) => void;
 }) {
 	const t = useThemeTokens();
@@ -511,12 +514,11 @@ export function SearchResultRow(props: {
 							<SearchResultCollectionPanel
 								border={t.border}
 								textMuted={t.textMuted}
-								actionState={props.actionState}
 								accentColor={props.accentColor}
 								collectionState={props.collectionState}
-								collectionsDestination={props.collectionsDestination}
 								onSaveCollection={props.onSaveCollection}
 								onPatchActionState={props.onPatchActionState}
+								collectionsDestination={props.collectionsDestination}
 								isEnsuringEntity={
 									props.actionState.pendingAction === "collection"
 								}
