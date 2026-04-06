@@ -1,6 +1,6 @@
 import { describe, expect, it } from "bun:test";
 import {
-	createPresignedDownload,
+	createPresignedDownloads,
 	createPresignedUpload,
 	resolvePresignedUploadInput,
 } from "./service";
@@ -43,18 +43,22 @@ describe("createPresignedUpload", () => {
 	});
 });
 
-describe("createPresignedDownload", () => {
-	it("returns a presigned URL for an existing key", async () => {
+describe("createPresignedDownloads", () => {
+	it("returns presigned URLs for multiple keys", async () => {
 		expect(
-			createPresignedDownload(
-				{ key: "uploads/image_123.png" },
-				{
-					signDownloadUrl: async (key) => `https://example.com/${key}`,
-				},
+			createPresignedDownloads(
+				{ keys: ["uploads/image_123.png", "uploads/image_456.jpg"] },
+				{ signDownloadUrl: async (k: string) => `https://example.com/${k}` },
 			),
-		).resolves.toEqual({
-			key: "uploads/image_123.png",
-			uploadUrl: "https://example.com/uploads/image_123.png",
-		});
+		).resolves.toEqual([
+			{
+				key: "uploads/image_123.png",
+				downloadUrl: "https://example.com/uploads/image_123.png",
+			},
+			{
+				key: "uploads/image_456.jpg",
+				downloadUrl: "https://example.com/uploads/image_456.jpg",
+			},
+		]);
 	});
 });
