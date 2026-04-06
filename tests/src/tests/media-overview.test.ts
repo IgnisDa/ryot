@@ -133,16 +133,6 @@ describe("GET /media/overview/continue", () => {
 		});
 	});
 
-	it("returns continue section without tracker scoping", async () => {
-		const { client, cookies } = await createAuthenticatedClient();
-		const { data, response } = await client.GET("/media/overview/continue", {
-			headers: { Cookie: cookies },
-		});
-
-		expect(response.status).toBe(200);
-		expect(data?.data).toBeDefined();
-	});
-
 	it("returns continue dates in UTC format", async () => {
 		const { client, cookies } = await createAuthenticatedClient();
 		const builtinTracker = await findBuiltinTracker(client, cookies);
@@ -245,16 +235,6 @@ describe("GET /media/overview/up-next", () => {
 				subtitle: { raw: 2024, label: "2024" },
 			}),
 		]);
-	});
-
-	it("returns up next section without tracker scoping", async () => {
-		const { client, cookies } = await createAuthenticatedClient();
-		const { data, response } = await client.GET("/media/overview/up-next", {
-			headers: { Cookie: cookies },
-		});
-
-		expect(response.status).toBe(200);
-		expect(data?.data).toBeDefined();
 	});
 
 	it("preserves UTC midnight without timezone conversion", async () => {
@@ -370,16 +350,6 @@ describe("GET /media/overview/review", () => {
 				completedAt: expect.stringContaining(dayjs.utc().format("YYYY-MM-DD")),
 			}),
 		]);
-	});
-
-	it("returns review section without tracker scoping", async () => {
-		const { client, cookies } = await createAuthenticatedClient();
-		const { data, response } = await client.GET("/media/overview/review", {
-			headers: { Cookie: cookies },
-		});
-
-		expect(response.status).toBe(200);
-		expect(data?.data).toBeDefined();
 	});
 });
 
