@@ -16,7 +16,11 @@
 - **Comments**: Avoid unless strictly necessary. Prefer self-documenting code.
 - **File size**: Keep files below 500 lines. Split if exceeded.
 - **React props**: Use a single `props` parameter, not destructured arguments.
-- **Tests**: Prefer tests for app-owned behavior and branching. Avoid tests that only restate library behavior (for example, basic Zod parser semantics) unless the integration itself is the risk.
+- **Tests**: Prefer tests for app-owned behavior and branching. Avoid tests that only restate library behavior (for example, basic Zod parser semantics) unless the integration itself is the risk. Specific anti-patterns to avoid:
+  - **"accepts valid values" Zod tests**: calling `schema.safeParse(validInput)` and asserting `success === true` only proves Zod's parser works, not app logic. Delete these.
+  - **TypeScript-redundant tests**: creating a typed object and asserting `object.field === "the value you just assigned"` adds no value — TypeScript catches invalid assignments at compile time. A dead giveaway is an `X as string` or `X as unknown as Y` cast used to suppress a TypeScript error that would expose the comparison as always-true or always-false.
+  - **Smoke-only integration assertions**: `expect(response.status).toBe(200)` + `expect(data?.data).toBeDefined()` without verifying specific content. These only prove the endpoint doesn't crash, which is already covered by any substantive test in the same describe block.
+  - **Trivial library passthrough**: assertions like `typeof x === "function"` or `Array.isArray(x)` that verify the shape of a value without checking its behavior or content.
 
 ```typescript
 function MyComponent(props: MyComponentProps) {
