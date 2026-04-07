@@ -1,5 +1,5 @@
 {
-	"id": "2228550a-589a-4c97-826a-51743feed3d5",
+	"id": "88a71775-bd9f-4449-9e02-c2a1d0f22a3b",
 	"prevId": "00000000-0000-0000-0000-000000000000",
 	"version": "7",
 	"dialect": "postgresql",
@@ -459,6 +459,34 @@
 						}
 					],
 					"isUnique": false,
+					"concurrently": false,
+					"method": "btree",
+					"with": {}
+				},
+				"entity_global_external_id_unique": {
+					"name": "entity_global_external_id_unique",
+					"columns": [
+						{
+							"expression": "external_id",
+							"isExpression": false,
+							"asc": true,
+							"nulls": "last"
+						},
+						{
+							"expression": "entity_schema_id",
+							"isExpression": false,
+							"asc": true,
+							"nulls": "last"
+						},
+						{
+							"expression": "sandbox_script_id",
+							"isExpression": false,
+							"asc": true,
+							"nulls": "last"
+						}
+					],
+					"isUnique": true,
+					"where": "\"entity\".\"user_id\" is null",
 					"concurrently": false,
 					"method": "btree",
 					"with": {}
