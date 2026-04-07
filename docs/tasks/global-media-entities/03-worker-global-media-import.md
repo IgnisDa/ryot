@@ -4,7 +4,7 @@
 
 **Type:** AFK
 
-**Status:** todo
+**Status:** done
 
 ## Backwards compatibility
 
@@ -13,6 +13,7 @@ Backwards compatibility with existing user-scoped media entity rows is not requi
 ## What to build
 
 Change the media import job to create globally-shared entities instead of user-scoped copies, and close the HTTP back-door that previously allowed user-scoped creation of builtin-schema entities.
+Backwards compatibility with existing user-scoped media entity rows is not required.
 
 **Worker change (`media/worker.ts`)** — Replace the `createEntity({ userId, ... })` call in `processMediaImportJob` with the global path already used for persons:
 1. Call `createGlobalEntity` to upsert the media entity with `userId = null`.
@@ -30,13 +31,13 @@ After this change `processMediaImportJob` follows the same pattern as `processPe
 
 ## Acceptance criteria
 
-- [ ] Two users importing the same title (same `externalId` + `sandboxScriptId` + `entitySchemaId`) produce exactly one `entity` row with `userId = null`.
-- [ ] After import, a `relationship` row exists with `relType = 'in_library'`, `userId = importingUserId`, `sourceEntityId = globalEntityId`, `targetEntityId = userLibraryEntityId`.
-- [ ] Re-importing the same title by the same user does not create a second `in_library` row.
-- [ ] `POST /entities` with a builtin schema and valid provenance fields returns `400` with `"Built-in entity schemas do not support manual entity creation"`.
-- [ ] Person stubs created during media import (`processPersonStubs`) continue to work correctly — persons remain global, relationships remain global (`userId = null`).
-- [ ] The updated e2e test in `tests/src/tests/entities.test.ts` asserts the new `400` rejection behavior.
-- [ ] `bun run typecheck`, `bun run test`, and `bun run lint` pass in both `apps/app-backend` and `tests`.
+- [x] Two users importing the same title (same `externalId` + `sandboxScriptId` + `entitySchemaId`) produce exactly one `entity` row with `userId = null`.
+- [x] After import, a `relationship` row exists with `relType = 'in_library'`, `userId = importingUserId`, `sourceEntityId = globalEntityId`, `targetEntityId = userLibraryEntityId`.
+- [x] Re-importing the same title by the same user does not create a second `in_library` row.
+- [x] `POST /entities` with a builtin schema and valid provenance fields returns `400` with `"Built-in entity schemas do not support manual entity creation"`.
+- [x] Person stubs created during media import (`processPersonStubs`) continue to work correctly — persons remain global, relationships remain global (`userId = null`).
+- [x] The updated e2e test in `tests/src/tests/entities.test.ts` asserts the new `400` rejection behavior.
+- [x] `bun run typecheck`, `bun run test`, and `bun run lint` pass in both `apps/app-backend` and `tests`.
 
 ## Blocked by
 

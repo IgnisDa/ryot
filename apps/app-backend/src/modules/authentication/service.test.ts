@@ -5,6 +5,7 @@ import {
 	buildAuthenticationSavedViewInputs,
 	buildAuthenticationTrackerEntitySchemaLinks,
 	buildAuthenticationTrackerInputs,
+	buildLibraryEntityInput,
 	resolveAuthenticationName,
 } from "./service";
 
@@ -156,5 +157,26 @@ describe("authentication bootstrap helpers", () => {
 				],
 			}),
 		).toThrow("Missing built-in entity schema for saved view All Books");
+	});
+});
+
+describe("library entity bootstrap helper", () => {
+	it("builds library entity input from builtin entity schemas", () => {
+		expect(
+			buildLibraryEntityInput({
+				entitySchemas: [
+					{ id: "schema-lib", slug: "library" },
+					{ id: "schema-book", slug: "book" },
+				],
+			}),
+		).toEqual({ entitySchemaId: "schema-lib" });
+	});
+
+	it("throws when the library schema is missing from builtin entity schemas", () => {
+		expect(() =>
+			buildLibraryEntityInput({
+				entitySchemas: [{ id: "schema-book", slug: "book" }],
+			}),
+		).toThrow("Missing built-in library entity schema");
 	});
 });

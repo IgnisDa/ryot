@@ -229,6 +229,131 @@ describe("createEvent", () => {
 		expect(createdEvent.properties).toEqual({ rating: 4 });
 	});
 
+	it("upserts in_library before creating an event for a global entity", async () => {
+		const calls: Array<{
+			userId: string;
+			mediaEntityId: string;
+			libraryEntityId: string;
+		}> = [];
+
+		const result = await createEvent(
+			{ body: createEventBody(), userId: "user_1" },
+			createEventDeps({
+				getEventCreateScopeForUser: async (input) =>
+					createEventCreateScope({
+						entityUserId: null,
+						entityId: input.entityId,
+						eventSchemaId: input.eventSchemaId,
+					}),
+				getUserLibraryEntityId: async () => "library_123",
+				upsertInLibraryRelationship: async (input) => {
+					calls.push(input);
+				},
+			}),
+		);
+
+		expect(result).toEqual({ data: expect.anything() });
+		expect(calls).toEqual([
+			{
+				userId: "user_1",
+				mediaEntityId: "entity_1",
+				libraryEntityId: "library_123",
+			},
+		]);
+	});
+
+	it("still succeeds for a global entity when in_library already exists", async () => {
+		let upsertCalls = 0;
+
+		const result = await createEvent(
+			{ body: createEventBody(), userId: "user_1" },
+			createEventDeps({
+				getEventCreateScopeForUser: async (input) =>
+					createEventCreateScope({
+						entityUserId: null,
+						entityId: input.entityId,
+						eventSchemaId: input.eventSchemaId,
+					}),
+				upsertInLibraryRelationship: async () => {
+					upsertCalls++;
+				},
+			}),
+		);
+
+		expect(result).toEqual({ data: expect.anything() });
+		expect(upsertCalls).toBe(1);
+	});
+
+	it("does not upsert in_library for a user-owned entity", async () => {
+		let upsertCalls = 0;
+
+		const result = await createEvent(
+			{ body: createEventBody(), userId: "user_1" },
+			createEventDeps({
+				upsertInLibraryRelationship: async () => {
+					upsertCalls++;
+				},
+				getEventCreateScopeForUser: async (input) =>
+					createEventCreateScope({
+						entityUserId: "user_1",
+						entityId: input.entityId,
+						eventSchemaId: input.eventSchemaId,
+					}),
+			}),
+		);
+
+		expect(result).toEqual({ data: expect.anything() });
+		expect(upsertCalls).toBe(0);
+	});
+
+	it("fails clearly when a global entity event is created without a library entity", async () => {
+		const result = await createEvent(
+			{ body: createEventBody(), userId: "user_1" },
+			createEventDeps({
+				getEventCreateScopeForUser: async (input) =>
+					createEventCreateScope({
+						entityUserId: null,
+						entityId: input.entityId,
+						eventSchemaId: input.eventSchemaId,
+					}),
+				getUserLibraryEntityId: async () => undefined,
+			}),
+		);
+
+		expect(result).toEqual({
+			error: "validation",
+			message: "User library entity not found",
+		});
+	});
+
+	it("does not upsert in_library when payload validation fails for a global entity", async () => {
+		let upsertCalls = 0;
+
+		const result = await createEvent(
+			{
+				userId: "user_1",
+				body: createEventBody({ properties: { note: "Missing rating" } }),
+			},
+			createEventDeps({
+				upsertInLibraryRelationship: async () => {
+					upsertCalls++;
+				},
+				getEventCreateScopeForUser: async (input) =>
+					createEventCreateScope({
+						entityUserId: null,
+						entityId: input.entityId,
+						eventSchemaId: input.eventSchemaId,
+					}),
+			}),
+		);
+
+		expect(result).toEqual({
+			error: "validation",
+			message: expect.stringContaining("Event properties validation failed"),
+		});
+		expect(upsertCalls).toBe(0);
+	});
+
 	it("returns validation when the event schema belongs to another entity schema", async () => {
 		const result = await createEvent(
 			{ body: createEventBody(), userId: "user_1" },

@@ -5,12 +5,14 @@ import {
 	entitySchema,
 	event,
 	type ImageSchemaType,
+	relationship,
 } from "~/lib/db/schema";
 import type {
 	QueryEngineEventJoinLike,
 	QueryEngineReferenceContext,
 	QueryEngineSchemaLike,
 } from "~/lib/views/reference";
+import { getUserLibraryEntityId } from "~/modules/entities";
 import { buildResolvedFieldsExpression } from "./display-builder";
 import { buildFilterWhereClause } from "./filter-builder";
 import type {
@@ -55,12 +57,16 @@ const getEventJoinColumnName = (joinKey: string) => `event_join_${joinKey}`;
 
 const buildBaseEntitiesCte = (input: {
 	userId: string;
+	userLibraryEntityId: string | undefined;
 	entitySchemaIds: string[];
 }) => {
 	const entitySchemaIdList = sql.join(
 		input.entitySchemaIds.map((entitySchemaId) => sql`${entitySchemaId}`),
 		sql`, `,
 	);
+	const libraryMembershipClause = input.userLibraryEntityId
+		? sql`${relationship.targetEntityId} = ${input.userLibraryEntityId}`
+		: sql`false`;
 
 	return sql`
 		base_entities as (
@@ -78,6 +84,26 @@ const buildBaseEntitiesCte = (input: {
 				on ${entity.entitySchemaId} = ${entitySchema.id}
 			where ${entity.userId} = ${input.userId}
 				and ${entity.entitySchemaId} in (${entitySchemaIdList})
+			union
+			select
+				${entity.id} as id,
+				${entity.name} as name,
+				${entity.image} as image,
+				${entity.createdAt} as created_at,
+				${entity.updatedAt} as updated_at,
+				${entity.properties} as properties,
+				${entity.entitySchemaId} as entity_schema_id,
+				${entitySchema.slug} as entity_schema_slug
+			from ${entity}
+			inner join ${entitySchema}
+				on ${entity.entitySchemaId} = ${entitySchema.id}
+			inner join ${relationship}
+				on ${relationship.sourceEntityId} = ${entity.id}
+			where ${entity.userId} is null
+				and ${entity.entitySchemaId} in (${entitySchemaIdList})
+				and ${relationship.userId} = ${input.userId}
+				and ${relationship.relType} = 'in_library'
+				and ${libraryMembershipClause}
 		)
 	`;
 };
@@ -191,7 +217,11 @@ export const executePreparedQuery = async (input: {
 		predicate: input.request.filter,
 		computedFields: input.request.computedFields,
 	});
+	const userLibraryEntityId = await getUserLibraryEntityId({
+		userId: input.userId,
+	});
 	const baseEntitiesCte = buildBaseEntitiesCte({
+		userLibraryEntityId,
 		userId: input.userId,
 		entitySchemaIds: input.runtimeSchemas.map((schema) => schema.id),
 	});

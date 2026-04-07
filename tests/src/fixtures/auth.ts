@@ -1,9 +1,30 @@
 import type { paths } from "@ryot/generated/openapi/app-backend";
 import { dayjs } from "@ryot/ts-utils";
 import type createClient from "openapi-fetch";
-import { getBackendClient, getBackendUrl } from "../setup";
+import { Client as PgClient } from "pg";
+import { getBackendClient, getBackendUrl, getTestDatabaseUrl } from "../setup";
 
 export type Client = ReturnType<typeof createClient<paths>>;
+
+async function getUserIdByEmail(email: string) {
+	const pg = new PgClient({ connectionString: getTestDatabaseUrl() });
+	await pg.connect();
+
+	try {
+		const result = await pg.query<{ id: string }>(
+			`select id from "user" where email = $1 limit 1`,
+			[email],
+		);
+		const row = result.rows[0];
+		if (!row) {
+			throw new Error(`Failed to find user '${email}'`);
+		}
+
+		return row.id;
+	} finally {
+		await pg.end();
+	}
+}
 
 export async function createTestUser() {
 	const password = "password123";
@@ -23,8 +44,8 @@ export async function createTestUser() {
 
 	const signInResponse = await fetch(`${baseUrl}/auth/sign-in/email`, {
 		method: "POST",
-		headers: { "Content-Type": "application/json" },
 		body: JSON.stringify({ email, password }),
+		headers: { "Content-Type": "application/json" },
 	});
 
 	if (!signInResponse.ok) {
@@ -43,5 +64,6 @@ export async function createTestUser() {
 export async function createAuthenticatedClient() {
 	const client = getBackendClient();
 	const { cookies, email, password } = await createTestUser();
-	return { client, cookies, email, password };
+	const userId = await getUserIdByEmail(email);
+	return { client, cookies, email, password, userId };
 }

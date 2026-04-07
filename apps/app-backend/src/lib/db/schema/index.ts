@@ -6,6 +6,7 @@ export * from "./tables";
 
 export const entityAccessScopeWithSchemaJoinSelection = {
 	entityId: entity.id,
+	entityUserId: entity.userId,
 	isBuiltin: entitySchema.isBuiltin,
 	entitySchemaSlug: entitySchema.slug,
 	entitySchemaId: entity.entitySchemaId,

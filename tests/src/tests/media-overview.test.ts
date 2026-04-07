@@ -2,10 +2,10 @@ import { describe, expect, it } from "bun:test";
 import { dayjs } from "@ryot/ts-utils";
 import {
 	createAuthenticatedClient,
-	createEntity,
 	findBuiltinTracker,
 	listEntitySchemas,
 	listEventSchemas,
+	seedMediaEntity,
 	waitForEventCount,
 } from "../fixtures";
 
@@ -60,7 +60,7 @@ async function createBuiltInMediaEvent(input: {
 
 describe("GET /media/overview/continue", () => {
 	it("returns continue items with progress", async () => {
-		const { client, cookies } = await createAuthenticatedClient();
+		const { client, cookies, userId } = await createAuthenticatedClient();
 		const builtinTracker = await findBuiltinTracker(client, cookies);
 		const schemas = await listEntitySchemas(client, cookies, {
 			trackerId: builtinTracker.id,
@@ -76,21 +76,23 @@ describe("GET /media/overview/continue", () => {
 			throw new Error("Missing built-in providers");
 		}
 
-		const continueBook = await createEntity(client, cookies, {
+		const continueBook = await seedMediaEntity({
+			userId,
 			image: null,
 			name: "Continue Book",
 			entitySchemaId: bookSchema.id,
+			sandboxScriptId: bookProvider.scriptId,
 			externalId: `book-${crypto.randomUUID()}`,
 			properties: { publishYear: 2021, pages: 320 },
-			sandboxScriptId: bookProvider.scriptId,
 		});
-		const unknownTotalManga = await createEntity(client, cookies, {
+		const unknownTotalManga = await seedMediaEntity({
+			userId,
 			image: null,
 			properties: {},
 			name: "Unknown Total Manga",
 			entitySchemaId: mangaSchema.id,
-			externalId: `manga-${crypto.randomUUID()}`,
 			sandboxScriptId: mangaProvider.scriptId,
+			externalId: `manga-${crypto.randomUUID()}`,
 		});
 
 		await createBuiltInMediaEvent({
@@ -134,7 +136,7 @@ describe("GET /media/overview/continue", () => {
 	});
 
 	it("returns continue dates in UTC format", async () => {
-		const { client, cookies } = await createAuthenticatedClient();
+		const { client, cookies, userId } = await createAuthenticatedClient();
 		const builtinTracker = await findBuiltinTracker(client, cookies);
 		const schemas = await listEntitySchemas(client, cookies, {
 			trackerId: builtinTracker.id,
@@ -148,13 +150,14 @@ describe("GET /media/overview/continue", () => {
 			throw new Error("Missing provider");
 		}
 
-		const testBook = await createEntity(client, cookies, {
+		const testBook = await seedMediaEntity({
+			userId,
 			image: null,
 			name: "UTC Date Test Book",
 			entitySchemaId: bookSchema.id,
+			sandboxScriptId: bookProvider.scriptId,
 			externalId: `book-utc-${crypto.randomUUID()}`,
 			properties: { publishYear: 2024, pages: 300 },
-			sandboxScriptId: bookProvider.scriptId,
 		});
 
 		await createBuiltInMediaEvent({
@@ -190,7 +193,7 @@ describe("GET /media/overview/continue", () => {
 
 describe("GET /media/overview/up-next", () => {
 	it("returns up next items with backlog", async () => {
-		const { client, cookies } = await createAuthenticatedClient();
+		const { client, cookies, userId } = await createAuthenticatedClient();
 		const builtinTracker = await findBuiltinTracker(client, cookies);
 		const schemas = await listEntitySchemas(client, cookies, {
 			trackerId: builtinTracker.id,
@@ -204,13 +207,14 @@ describe("GET /media/overview/up-next", () => {
 			throw new Error("Missing provider");
 		}
 
-		const upNextAnime = await createEntity(client, cookies, {
+		const upNextAnime = await seedMediaEntity({
+			userId,
 			image: null,
 			name: "Up Next Anime",
 			entitySchemaId: animeSchema.id,
+			sandboxScriptId: animeProvider.scriptId,
 			externalId: `anime-${crypto.randomUUID()}`,
 			properties: { publishYear: 2024, episodes: 24 },
-			sandboxScriptId: animeProvider.scriptId,
 		});
 
 		await createBuiltInMediaEvent({
@@ -238,7 +242,7 @@ describe("GET /media/overview/up-next", () => {
 	});
 
 	it("preserves UTC midnight without timezone conversion", async () => {
-		const { client, cookies } = await createAuthenticatedClient();
+		const { client, cookies, userId } = await createAuthenticatedClient();
 		const builtinTracker = await findBuiltinTracker(client, cookies);
 		const schemas = await listEntitySchemas(client, cookies, {
 			trackerId: builtinTracker.id,
@@ -252,13 +256,14 @@ describe("GET /media/overview/up-next", () => {
 			throw new Error("Missing provider");
 		}
 
-		const testAnime = await createEntity(client, cookies, {
+		const testAnime = await seedMediaEntity({
+			userId,
 			image: null,
 			name: "Midnight UTC Anime",
 			entitySchemaId: animeSchema.id,
+			sandboxScriptId: animeProvider.scriptId,
 			properties: { publishYear: 2024, episodes: 12 },
 			externalId: `anime-midnight-${crypto.randomUUID()}`,
-			sandboxScriptId: animeProvider.scriptId,
 		});
 
 		await createBuiltInMediaEvent({
@@ -293,7 +298,7 @@ describe("GET /media/overview/up-next", () => {
 
 describe("GET /media/overview/review", () => {
 	it("returns review items with complete", async () => {
-		const { client, cookies } = await createAuthenticatedClient();
+		const { client, cookies, userId } = await createAuthenticatedClient();
 		const builtinTracker = await findBuiltinTracker(client, cookies);
 		const schemas = await listEntitySchemas(client, cookies, {
 			trackerId: builtinTracker.id,
@@ -307,13 +312,14 @@ describe("GET /media/overview/review", () => {
 			throw new Error("Missing provider");
 		}
 
-		const rateAnime = await createEntity(client, cookies, {
+		const rateAnime = await seedMediaEntity({
+			userId,
 			image: null,
 			name: "Rate These Anime",
 			entitySchemaId: animeSchema.id,
+			sandboxScriptId: animeProvider.scriptId,
 			externalId: `anime-${crypto.randomUUID()}`,
 			properties: { publishYear: 2020, episodes: 12 },
-			sandboxScriptId: animeProvider.scriptId,
 		});
 
 		await createBuiltInMediaEvent({
@@ -355,7 +361,7 @@ describe("GET /media/overview/review", () => {
 
 describe("GET /media/overview/activity", () => {
 	it("returns recent media activity with entity metadata and ratings", async () => {
-		const { client, cookies } = await createAuthenticatedClient();
+		const { client, cookies, userId } = await createAuthenticatedClient();
 		const builtinTracker = await findBuiltinTracker(client, cookies);
 		const schemas = await listEntitySchemas(client, cookies, {
 			trackerId: builtinTracker.id,
@@ -371,7 +377,8 @@ describe("GET /media/overview/activity", () => {
 			throw new Error("Missing built-in providers");
 		}
 
-		const watchedAnime = await createEntity(client, cookies, {
+		const watchedAnime = await seedMediaEntity({
+			userId,
 			name: "Recent Activity Anime",
 			entitySchemaId: animeSchema.id,
 			sandboxScriptId: animeProvider.scriptId,
@@ -379,7 +386,8 @@ describe("GET /media/overview/activity", () => {
 			externalId: `anime-activity-${crypto.randomUUID()}`,
 			image: { kind: "remote", url: "https://example.com/anime.png" },
 		});
-		const reviewedManga = await createEntity(client, cookies, {
+		const reviewedManga = await seedMediaEntity({
+			userId,
 			image: null,
 			name: "Recent Activity Manga",
 			entitySchemaId: mangaSchema.id,
@@ -453,7 +461,7 @@ describe("GET /media/overview/activity", () => {
 
 describe("GET /media/overview/week", () => {
 	it("returns seven Monday through Sunday buckets with event counts", async () => {
-		const { client, cookies } = await createAuthenticatedClient();
+		const { client, cookies, userId } = await createAuthenticatedClient();
 		const builtinTracker = await findBuiltinTracker(client, cookies);
 		const schemas = await listEntitySchemas(client, cookies, {
 			trackerId: builtinTracker.id,
@@ -467,7 +475,8 @@ describe("GET /media/overview/week", () => {
 			throw new Error("Missing built-in provider");
 		}
 
-		const weeklyBook = await createEntity(client, cookies, {
+		const weeklyBook = await seedMediaEntity({
+			userId,
 			image: null,
 			name: "Weekly Activity Book",
 			entitySchemaId: bookSchema.id,
@@ -522,7 +531,7 @@ describe("GET /media/overview/week", () => {
 
 describe("GET /media/overview/library", () => {
 	it("returns library statistics with counts by status", async () => {
-		const { client, cookies } = await createAuthenticatedClient();
+		const { client, cookies, userId } = await createAuthenticatedClient();
 		const builtinTracker = await findBuiltinTracker(client, cookies);
 		const schemas = await listEntitySchemas(client, cookies, {
 			trackerId: builtinTracker.id,
@@ -539,7 +548,8 @@ describe("GET /media/overview/library", () => {
 		}
 
 		// Create entities in different states
-		const backlogBook = await createEntity(client, cookies, {
+		const backlogBook = await seedMediaEntity({
+			userId,
 			image: null,
 			name: "Backlog Book",
 			entitySchemaId: bookSchema.id,
@@ -548,7 +558,8 @@ describe("GET /media/overview/library", () => {
 			externalId: `book-backlog-${crypto.randomUUID()}`,
 		});
 
-		const inProgressManga = await createEntity(client, cookies, {
+		const inProgressManga = await seedMediaEntity({
+			userId,
 			image: null,
 			name: "In Progress Manga",
 			entitySchemaId: mangaSchema.id,
@@ -557,7 +568,8 @@ describe("GET /media/overview/library", () => {
 			externalId: `manga-progress-${crypto.randomUUID()}`,
 		});
 
-		const completedBook = await createEntity(client, cookies, {
+		const completedBook = await seedMediaEntity({
+			userId,
 			image: null,
 			name: "Completed Book",
 			entitySchemaId: bookSchema.id,
@@ -619,7 +631,7 @@ describe("GET /media/overview/library", () => {
 	});
 
 	it("returns null avgRating when no reviews exist", async () => {
-		const { client, cookies } = await createAuthenticatedClient();
+		const { client, cookies, userId } = await createAuthenticatedClient();
 		const builtinTracker = await findBuiltinTracker(client, cookies);
 		const schemas = await listEntitySchemas(client, cookies, {
 			trackerId: builtinTracker.id,
@@ -633,7 +645,8 @@ describe("GET /media/overview/library", () => {
 			throw new Error("Missing provider");
 		}
 
-		const backlogBook = await createEntity(client, cookies, {
+		const backlogBook = await seedMediaEntity({
+			userId,
 			image: null,
 			name: "Backlog Only Book",
 			entitySchemaId: bookSchema.id,
