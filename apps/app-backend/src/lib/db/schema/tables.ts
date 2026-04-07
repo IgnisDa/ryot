@@ -337,6 +337,9 @@ export const relationship = pgTable(
 			table.targetEntityId,
 			table.relType,
 		),
+		uniqueIndex("relationship_global_source_target_rel_type_unique")
+			.on(table.sourceEntityId, table.targetEntityId, table.relType)
+			.where(isNull(table.userId)),
 	],
 );
 
