@@ -38,12 +38,6 @@ type SearchQueryResult = {
 	items: SearchResultItem[];
 };
 
-type SearchResultDetails = {
-	name: string;
-	externalId: string;
-	properties: { [key: string]: unknown; assets?: { remoteImages?: string[] } };
-};
-
 type EnsuredEntity = ApiPostResponseData<"/entities">;
 
 type AddItemState = {
@@ -88,9 +82,8 @@ export function useEntitySearch(props: { entitySchema: AppEntitySchema }) {
 	const [submittedSearch, setSubmittedSearch] =
 		useState<SubmittedSearch | null>(null);
 
-	const createEntity = apiClient.useMutation("post", "/entities");
 	const enqueueSearch = apiClient.useMutation("post", "/sandbox/enqueue");
-	const enqueueDetails = apiClient.useMutation("post", "/sandbox/enqueue");
+	const enqueueMediaImport = apiClient.useMutation("post", "/media/import");
 	const ensuredEntityQueryKey = useMemo(
 		() => ["entity-search-ensured-entity", props.entitySchema.id] as const,
 		[props.entitySchema.id],
@@ -151,72 +144,58 @@ export function useEntitySearch(props: { entitySchema: AppEntitySchema }) {
 			queryKey: [...ensuredEntityQueryKey, provider.scriptId, item.identifier],
 			queryFn: async ({ signal }: { signal: AbortSignal }) => {
 				throwIfAborted(signal);
-				const enqueueResult = await enqueueDetails.mutateAsync({
+				const enqueueResult = await enqueueMediaImport.mutateAsync({
 					body: {
-						kind: "script",
-						driverName: "mediaDetails",
 						scriptId: provider.scriptId,
-						context: { identifier: item.identifier },
+						identifier: item.identifier,
+						entitySchemaId: props.entitySchema.id,
 					},
 				});
 				throwIfAborted(signal);
 
 				const jobId = enqueueResult.data?.jobId;
 				if (!jobId) {
-					throw new Error("Failed to enqueue details script");
+					throw new Error("Failed to enqueue media import job");
 				}
 
-				const detailsResult = await pollSandboxResultQuery(jobId, signal);
-				if (!detailsResult) {
-					throw new Error("Details script did not finish");
-				}
-				if (detailsResult.status === "failed") {
-					throw new Error(detailsResult.error ?? "Details script failed");
-				}
+				const startedAt = dayjs();
+				while (true) {
+					throwIfAborted(signal);
+					const result = await queryClient.fetchQuery({
+						...apiClient.queryOptions("get", "/media/import/{jobId}", {
+							params: { path: { jobId } },
+						}),
+						staleTime: 0,
+					});
+					throwIfAborted(signal);
 
-				const detailsValue = detailsResult.value as SearchResultDetails;
-				const firstImage = detailsValue.properties?.assets?.remoteImages?.[0];
-				const image = firstImage
-					? { kind: "remote" as const, url: firstImage }
-					: null;
-
-				const properties: Record<string, unknown> = {};
-				for (const key of Object.keys(
-					props.entitySchema.propertiesSchema.fields,
-				)) {
-					if (detailsValue.properties[key] !== undefined) {
-						properties[key] = detailsValue.properties[key];
+					const data = result.data;
+					if (data?.status === "pending") {
+						if (dayjs().diff(startedAt) >= SANDBOX_TIMEOUT_MS) {
+							throw new Error("Timed out waiting for media import");
+						}
+						await sleep(POLL_MS, signal);
+						continue;
 					}
+
+					if (!data || data.status === "failed") {
+						throw new Error(
+							data?.status === "failed"
+								? data.error
+								: "Media import did not finish",
+						);
+					}
+
+					return data.data;
 				}
-
-				throwIfAborted(signal);
-				const createResult = await createEntity.mutateAsync({
-					body: {
-						image,
-						properties,
-						name: detailsValue.name,
-						externalId: detailsValue.externalId,
-						entitySchemaId: props.entitySchema.id,
-						sandboxScriptId: provider.scriptId,
-					},
-				});
-				throwIfAborted(signal);
-
-				const entity = createResult.data;
-				if (!entity) {
-					throw new Error("Failed to create entity");
-				}
-
-				return entity;
 			},
 		}),
 		[
-			createEntity,
-			enqueueDetails,
+			apiClient,
+			queryClient,
+			enqueueMediaImport,
 			ensuredEntityQueryKey,
 			props.entitySchema.id,
-			pollSandboxResultQuery,
-			props.entitySchema.propertiesSchema.fields,
 		],
 	);
 
