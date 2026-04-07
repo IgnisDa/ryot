@@ -6,6 +6,7 @@ import {
 	builtinMediaEntitySchemaSlugs,
 } from "~/lib/media/constants";
 import { mangaPropertiesJsonSchema } from "~/lib/media/manga";
+import { personPropertiesJsonSchema } from "~/lib/media/person";
 import { createDefaultDisplayConfiguration } from "~/modules/saved-views";
 
 export const authenticationBuiltinTrackers = () => [
@@ -92,6 +93,15 @@ const mediaLifecycleEventSchemas = () => [
 ];
 
 export const authenticationBuiltinEntitySchemas = () => [
+	{
+		icon: "user",
+		slug: "person",
+		name: "Person",
+		eventSchemas: [],
+		trackerSlug: "media",
+		accentColor: "#6B7280",
+		propertiesSchema: personPropertiesJsonSchema,
+	},
 	{
 		slug: "book",
 		name: "Book",

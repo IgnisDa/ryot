@@ -1,4 +1,4 @@
-import { and, asc, eq, isNull, or } from "drizzle-orm";
+import { and, asc, eq, isNull, or, sql } from "drizzle-orm";
 import { db } from "~/lib/db";
 import {
 	entity,
@@ -6,6 +6,7 @@ import {
 	entitySchema,
 	entitySchemaAccessScopeSelection,
 	type ImageSchemaType,
+	relationship,
 } from "~/lib/db/schema";
 import type { ListedEntity } from "./schemas";
 import type { EntityPropertiesShape } from "./service";
@@ -152,4 +153,107 @@ export const createEntityForUser = async (input: {
 	}
 
 	return toListedEntity(createdEntity);
+};
+
+export const findGlobalEntityByExternalId = async (input: {
+	externalId: string;
+	entitySchemaId: string;
+	sandboxScriptId: string;
+}) => {
+	const [foundEntity] = await db
+		.select(entitySelection)
+		.from(entity)
+		.where(
+			and(
+				isNull(entity.userId),
+				eq(entity.externalId, input.externalId),
+				eq(entity.entitySchemaId, input.entitySchemaId),
+				eq(entity.sandboxScriptId, input.sandboxScriptId),
+			),
+		)
+		.limit(1);
+
+	return foundEntity ? toListedEntity(foundEntity) : undefined;
+};
+
+export const createGlobalEntity = async (input: {
+	name: string;
+	externalId: string;
+	entitySchemaId: string;
+	sandboxScriptId: string;
+}) => {
+	const [createdEntity] = await db
+		.insert(entity)
+		.values({
+			image: null,
+			userId: null,
+			properties: {},
+			name: input.name,
+			externalId: input.externalId,
+			entitySchemaId: input.entitySchemaId,
+			sandboxScriptId: input.sandboxScriptId,
+		})
+		.onConflictDoNothing()
+		.returning(entitySelection);
+
+	if (createdEntity) {
+		return toListedEntity(createdEntity);
+	}
+
+	const existing = await findGlobalEntityByExternalId(input);
+	if (!existing) {
+		throw new Error("Could not persist or find global entity after conflict");
+	}
+
+	return existing;
+};
+
+export const updateGlobalEntityById = async (input: {
+	name: string;
+	entityId: string;
+	entitySchemaId: string;
+	image: ImageSchemaType | null;
+	properties: EntityPropertiesShape;
+}) => {
+	await db
+		.update(entity)
+		.set({
+			name: input.name,
+			image: input.image,
+			properties: sql`${entity.properties} || ${JSON.stringify(input.properties)}::jsonb`,
+		})
+		.where(
+			and(
+				eq(entity.id, input.entityId),
+				isNull(entity.userId),
+				eq(entity.entitySchemaId, input.entitySchemaId),
+			),
+		);
+};
+
+export const upsertPersonRelationship = async (input: {
+	userId: string;
+	relType: string;
+	sourceEntityId: string;
+	targetEntityId: string;
+	properties: Record<string, unknown>;
+}) => {
+	await db
+		.insert(relationship)
+		.values({
+			userId: input.userId,
+			relType: input.relType,
+			properties: input.properties,
+			sourceEntityId: input.sourceEntityId,
+			targetEntityId: input.targetEntityId,
+		})
+		.onConflictDoUpdate({
+			set: { properties: input.properties },
+			target: [
+				relationship.userId,
+				relationship.relType,
+				relationship.sourceEntityId,
+				relationship.targetEntityId,
+			],
+		});
 };

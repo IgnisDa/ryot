@@ -7,14 +7,27 @@ import {
 } from "../zod/base";
 import { mediaPropertiesSchema } from "./common";
 
-const schemaImportPerson = z
-	.object({ role: z.string(), source: z.string(), identifier: z.string() })
+const freeCreatorSchema = z
+	.object({ role: z.string(), name: z.string() })
 	.strict();
+
+export const personStubSchema = z
+	.object({
+		role: z.string(),
+		name: z.string(),
+		scriptSlug: z.string(),
+		identifier: z.string(),
+		character: z.string().optional(),
+		order: z.number().int().optional(),
+	})
+	.strict();
+
+export type PersonStub = z.infer<typeof personStubSchema>;
 
 export const bookPropertiesSchema = mediaPropertiesSchema.extend({
 	pages: nullableIntSchema,
 	isCompilation: nullableBooleanSchema,
-	people: z.array(schemaImportPerson),
+	freeCreators: z.array(freeCreatorSchema),
 });
 
 export const bookPropertiesJsonSchema =
