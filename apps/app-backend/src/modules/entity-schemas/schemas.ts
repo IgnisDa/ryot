@@ -1,12 +1,19 @@
 import { z } from "@hono/zod-openapi";
-import { itemDataSchema, listDataSchema } from "~/lib/openapi";
+import { dataSchema, itemDataSchema, listDataSchema } from "~/lib/openapi";
 import {
 	createIdParamsSchema,
 	createNameWithOptionalSlugSchema,
 	createUniqueNonEmptyTrimmedStringArraySchema,
 	iconAndAccentColorFields,
+	nonEmptyStringSchema,
 	nonEmptyTrimmedStringSchema,
+	stringUnknownRecordSchema,
 } from "~/lib/zod/base";
+import {
+	sandboxCompletedResultSchema,
+	sandboxFailedResultSchema,
+	sandboxPendingResultSchema,
+} from "~/modules/sandbox";
 import { createLabeledPropertySchemas } from "../property-schemas/schemas";
 
 const entitySchemaProperties = createLabeledPropertySchemas(
@@ -58,6 +65,24 @@ export const createEntitySchemaBody = createNameWithOptionalSlugSchema({
 	...iconAndAccentColorFields,
 });
 
+export const entitySearchBody = z.object({
+	scriptId: nonEmptyStringSchema,
+	context: stringUnknownRecordSchema.optional(),
+});
+
+export const entitySearchResponseSchema = dataSchema(
+	z.object({ jobId: nonEmptyStringSchema }),
+);
+
+export const entitySearchResultResponseSchema = dataSchema(
+	z.discriminatedUnion("status", [
+		sandboxPendingResultSchema,
+		sandboxFailedResultSchema,
+		sandboxCompletedResultSchema,
+	]),
+);
+
 export type Provider = z.infer<typeof providerSchema>;
+export type EntitySearchBody = z.infer<typeof entitySearchBody>;
 export type ListedEntitySchema = z.infer<typeof listedEntitySchemaSchema>;
 export type CreateEntitySchemaBody = z.infer<typeof createEntitySchemaBody>;

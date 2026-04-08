@@ -7,6 +7,14 @@ import {
 	serviceError,
 	wrapServiceValidator,
 } from "~/lib/result";
+import {
+	type EnqueueSandboxBody,
+	enqueueSandbox,
+	getSandboxResult,
+	type PollSandboxResult,
+	type SandboxEnqueueResult,
+	type SandboxServiceResult,
+} from "~/modules/sandbox";
 import { authenticationBuiltinEntitySchemas } from "../authentication/bootstrap/manifests";
 import { parseLabeledPropertySchemaInput } from "../property-schemas/service";
 import { getTrackerScopeForUser } from "../trackers/repository";
@@ -16,7 +24,11 @@ import {
 	getEntitySchemaBySlugForUser,
 	listEntitySchemasForUser,
 } from "./repository";
-import type { CreateEntitySchemaBody, ListedEntitySchema } from "./schemas";
+import type {
+	CreateEntitySchemaBody,
+	EntitySearchBody,
+	ListedEntitySchema,
+} from "./schemas";
 
 export type EntitySchemaPropertiesShape =
 	CreateEntitySchemaBody["propertiesSchema"];
@@ -240,4 +252,42 @@ export const getEntitySchemaById = async (
 	}
 
 	return serviceData(foundEntitySchema);
+};
+
+export type EntitySearchDeps = {
+	enqueueSandboxJob: (input: {
+		body: EnqueueSandboxBody;
+		userId: string;
+	}) => Promise<SandboxServiceResult<SandboxEnqueueResult>>;
+	getSandboxJobResult: (input: {
+		jobId: string;
+		userId: string;
+	}) => Promise<SandboxServiceResult<PollSandboxResult>>;
+};
+
+const defaultEntitySearchDeps: EntitySearchDeps = {
+	enqueueSandboxJob: enqueueSandbox,
+	getSandboxJobResult: getSandboxResult,
+};
+
+export const enqueueEntitySearch = async (
+	input: { body: EntitySearchBody; userId: string },
+	deps: EntitySearchDeps = defaultEntitySearchDeps,
+): Promise<SandboxServiceResult<SandboxEnqueueResult>> => {
+	return deps.enqueueSandboxJob({
+		userId: input.userId,
+		body: {
+			kind: "script",
+			driverName: "search",
+			context: input.body.context,
+			scriptId: input.body.scriptId,
+		},
+	});
+};
+
+export const getEntitySearchResult = async (
+	input: { jobId: string; userId: string },
+	deps: EntitySearchDeps = defaultEntitySearchDeps,
+): Promise<SandboxServiceResult<PollSandboxResult>> => {
+	return deps.getSandboxJobResult({ jobId: input.jobId, userId: input.userId });
 };
