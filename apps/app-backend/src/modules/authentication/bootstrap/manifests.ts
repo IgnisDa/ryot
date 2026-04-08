@@ -172,6 +172,12 @@ export const authenticationBuiltinSavedViews = () => [
 		entitySchemaSlug: "collection",
 		displayConfiguration: createDefaultDisplayConfiguration("collection"),
 	},
+	{
+		name: "All Persons",
+		trackerSlug: "media",
+		entitySchemaSlug: "person",
+		displayConfiguration: createDefaultDisplayConfiguration("person"),
+	},
 	...builtinMediaEntitySchemaSlugs.map((slug) => ({
 		trackerSlug: "media",
 		entitySchemaSlug: slug,
