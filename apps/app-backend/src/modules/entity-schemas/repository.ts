@@ -70,6 +70,7 @@ export const listEntitySchemasForUser = async (input: {
 		.select({
 			...listedEntitySchemaSelection,
 			scriptName: sandboxScript.name,
+			scriptMetadata: sandboxScript.metadata,
 			scriptId: entitySchemaScript.sandboxScriptId,
 		})
 		.from(trackerEntitySchema)
@@ -106,6 +107,7 @@ export const listEntitySchemasForUser = async (input: {
 				record.entry.providers.push({
 					name: row.scriptName,
 					scriptId: row.scriptId,
+					searchDriverName: row.scriptMetadata?.searchDriverName,
 				});
 			}
 		}
@@ -124,6 +126,7 @@ export const getEntitySchemaByIdForUser = async (input: {
 			...listedEntitySchemaSelection,
 			scriptName: sandboxScript.name,
 			scriptId: entitySchemaScript.sandboxScriptId,
+			scriptMetadata: sandboxScript.metadata,
 		})
 		.from(entitySchema)
 		.innerJoin(
@@ -161,6 +164,7 @@ export const getEntitySchemaByIdForUser = async (input: {
 				providers.push({
 					name: row.scriptName,
 					scriptId: row.scriptId,
+					searchDriverName: row.scriptMetadata?.searchDriverName,
 				});
 			}
 		}
