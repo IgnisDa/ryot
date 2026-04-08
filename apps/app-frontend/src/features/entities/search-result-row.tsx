@@ -14,7 +14,6 @@ import {
 	FolderPlus,
 	History,
 	Image as ImageIcon,
-	Plus,
 	Star,
 } from "lucide-react";
 import type {
@@ -126,62 +125,69 @@ function SearchResultActions(props: {
 	isWorking: boolean;
 	accentColor: string;
 	onBacklog: () => void;
+	isPersonSchema: boolean;
 	canUseLifecycleActions: boolean;
+	canUseCollectionAction: boolean;
 	actionState: SearchResultRowActionState;
 	onTogglePanel: (panel: "log" | "rate" | "collection") => void;
-	canUseCollectionAction: boolean;
 }) {
 	return (
 		<Group gap={6} wrap="wrap">
-			<Button
-				size="compact-xs"
-				onClick={() => props.onTogglePanel("log")}
-				loading={props.actionState.pendingAction === "log"}
-				leftSection={<History size={13} strokeWidth={1.5} />}
-				disabled={
-					!props.canUseLifecycleActions ||
-					(props.isWorking && props.actionState.pendingAction !== "log")
-				}
-				variant={
-					props.actionState.openPanel === "log"
-						? "filled"
-						: props.actionState.doneActions.includes("log")
+			{!props.isPersonSchema && (
+				<Button
+					size="compact-xs"
+					onClick={() => props.onTogglePanel("log")}
+					loading={props.actionState.pendingAction === "log"}
+					leftSection={<History size={13} strokeWidth={1.5} />}
+					disabled={
+						!props.canUseLifecycleActions ||
+						(props.isWorking && props.actionState.pendingAction !== "log")
+					}
+					variant={
+						props.actionState.openPanel === "log"
+							? "filled"
+							: props.actionState.doneActions.includes("log")
+								? "light"
+								: "subtle"
+					}
+					style={
+						props.actionState.openPanel === "log"
+							? { backgroundColor: props.accentColor, color: "white" }
+							: props.actionState.doneActions.includes("log")
+								? {
+										backgroundColor: withAlpha(props.accentColor, 0.12),
+										color: props.accentColor,
+									}
+								: undefined
+					}
+				>
+					Log progress
+				</Button>
+			)}
+			{!props.isPersonSchema && (
+				<Button
+					size="compact-xs"
+					onClick={props.onBacklog}
+					leftSection={<Bookmark size={13} strokeWidth={1.5} />}
+					loading={props.actionState.pendingAction === "backlog"}
+					disabled={!props.canUseLifecycleActions || props.isWorking}
+					variant={
+						props.actionState.doneActions.includes("backlog")
 							? "light"
 							: "subtle"
-				}
-				style={
-					props.actionState.openPanel === "log"
-						? { backgroundColor: props.accentColor, color: "white" }
-						: props.actionState.doneActions.includes("log")
+					}
+					style={
+						props.actionState.doneActions.includes("backlog")
 							? {
 									backgroundColor: withAlpha(props.accentColor, 0.12),
 									color: props.accentColor,
 								}
 							: undefined
-				}
-			>
-				Log progress
-			</Button>
-			<Button
-				size="compact-xs"
-				onClick={props.onBacklog}
-				leftSection={<Bookmark size={13} strokeWidth={1.5} />}
-				loading={props.actionState.pendingAction === "backlog"}
-				disabled={!props.canUseLifecycleActions || props.isWorking}
-				variant={
-					props.actionState.doneActions.includes("backlog") ? "light" : "subtle"
-				}
-				style={
-					props.actionState.doneActions.includes("backlog")
-						? {
-								backgroundColor: withAlpha(props.accentColor, 0.12),
-								color: props.accentColor,
-							}
-						: undefined
-				}
-			>
-				Watchlist
-			</Button>
+					}
+				>
+					Watchlist
+				</Button>
+			)}
 			<Button
 				size="compact-xs"
 				onClick={() => props.onTogglePanel("collection")}
@@ -244,11 +250,11 @@ export function SearchResultRow(props: {
 	onBacklog: () => void;
 	onSaveLog: () => void;
 	item: SearchResultItem;
+	isPersonSchema: boolean;
 	onSaveReview: () => void;
 	isLifecycleLoading: boolean;
 	onToggleActions: () => void;
 	addError: string | undefined;
-	primaryAction: "add" | "backlog";
 	canUseCollectionAction: boolean;
 	lifecycleErrorMessage: string | null;
 	onRetryCollectionDiscovery: () => void;
@@ -267,7 +273,6 @@ export function SearchResultRow(props: {
 			: undefined;
 	const isTracked = props.actionState.doneActions.includes("track");
 	const isBacklogged = props.actionState.doneActions.includes("backlog");
-	const isQueueMode = props.primaryAction === "backlog";
 	const canUseLifecycleActions =
 		!props.isLifecycleLoading && !props.lifecycleErrorMessage;
 
@@ -336,7 +341,7 @@ export function SearchResultRow(props: {
 					</Stack>
 				</Group>
 				<Group gap="xs" wrap="nowrap" style={{ flexShrink: 0 }}>
-					{isQueueMode ? (
+					{!props.isPersonSchema ? (
 						<Button
 							size="compact-sm"
 							onClick={props.onBacklog}
@@ -357,50 +362,15 @@ export function SearchResultRow(props: {
 							style={
 								isBacklogged
 									? {
-											backgroundColor: "var(--mantine-color-green-0)",
 											color: "var(--mantine-color-green-7)",
+											backgroundColor: "var(--mantine-color-green-0)",
 										}
-									: {
-											backgroundColor: props.accentColor,
-											color: "white",
-										}
+									: { color: "white", backgroundColor: props.accentColor }
 							}
 						>
 							{isBacklogged ? "Queued" : "Queue"}
 						</Button>
-					) : (
-						<Button
-							size="compact-sm"
-							onClick={props.onAdd}
-							variant={isTracked ? "light" : "filled"}
-							loading={props.actionState.pendingAction === "add"}
-							disabled={
-								isTracked ||
-								(isWorking && props.actionState.pendingAction !== "add")
-							}
-							leftSection={
-								props.actionState.pendingAction ===
-								"add" ? undefined : isTracked ? (
-									<CheckCircle size={14} />
-								) : (
-									<Plus size={14} />
-								)
-							}
-							style={
-								isTracked
-									? {
-											backgroundColor: "var(--mantine-color-green-0)",
-											color: "var(--mantine-color-green-7)",
-										}
-									: {
-											backgroundColor: props.accentColor,
-											color: "white",
-										}
-							}
-						>
-							{isTracked ? "Added" : "Add"}
-						</Button>
-					)}
+					) : null}
 					<Button
 						size="compact-sm"
 						disabled={isWorking}
@@ -463,6 +433,7 @@ export function SearchResultRow(props: {
 							actionState={props.actionState}
 							accentColor={props.accentColor}
 							onTogglePanel={props.onTogglePanel}
+							isPersonSchema={props.isPersonSchema}
 							canUseLifecycleActions={canUseLifecycleActions}
 							canUseCollectionAction={props.canUseCollectionAction}
 						/>
