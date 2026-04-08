@@ -7,7 +7,6 @@ import {
 	eventSchema,
 	sandboxScript,
 } from "~/lib/db/schema";
-import type { SandboxScriptMetadata } from "~/lib/db/schema/tables";
 
 export const ensureBuiltinEntitySchema = async (input: {
 	slug: string;
@@ -117,7 +116,6 @@ export const ensureBuiltinSandboxScript = async (input: {
 	name: string;
 	slug: string;
 	database: DbClient;
-	metadata: SandboxScriptMetadata;
 }) => {
 	const [existingScript] = await input.database
 		.select({
@@ -125,7 +123,6 @@ export const ensureBuiltinSandboxScript = async (input: {
 			code: sandboxScript.code,
 			name: sandboxScript.name,
 			isBuiltin: sandboxScript.isBuiltin,
-			metadata: sandboxScript.metadata,
 		})
 		.from(sandboxScript)
 		.where(
@@ -134,20 +131,13 @@ export const ensureBuiltinSandboxScript = async (input: {
 		.limit(1);
 
 	const scriptId = existingScript?.id ?? generateId();
-	const values = {
-		isBuiltin: true,
-		name: input.name,
-		code: input.code,
-		metadata: input.metadata,
-	};
+	const values = { isBuiltin: true, name: input.name, code: input.code };
 
 	if (existingScript) {
 		const shouldUpdateScript =
 			existingScript.code !== input.code ||
 			existingScript.name !== input.name ||
-			!existingScript.isBuiltin ||
-			JSON.stringify(existingScript.metadata) !==
-				JSON.stringify(input.metadata);
+			!existingScript.isBuiltin;
 
 		if (shouldUpdateScript) {
 			// Builtin sandbox scripts intentionally refresh on every startup so the

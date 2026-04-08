@@ -21,7 +21,6 @@ export const entitySchemaPropertiesInputSchema =
 export const providerSchema = z.object({
 	name: z.string(),
 	scriptId: z.string(),
-	searchDriverName: z.string().optional(),
 });
 
 export const listedEntitySchemaSchema = z.object({
@@ -30,8 +29,8 @@ export const listedEntitySchemaSchema = z.object({
 	slug: z.string(),
 	trackerId: z.string(),
 	isBuiltin: z.boolean(),
-	propertiesSchema: entitySchemaPropertiesObjectSchema,
 	providers: z.array(providerSchema),
+	propertiesSchema: entitySchemaPropertiesObjectSchema,
 	...iconAndAccentColorFields,
 });
 
