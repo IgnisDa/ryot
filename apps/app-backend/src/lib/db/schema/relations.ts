@@ -7,6 +7,7 @@ import {
 	event,
 	eventSchema,
 	relationship,
+	relationshipSchema,
 	sandboxScript,
 	savedView,
 	tracker,
@@ -40,8 +41,14 @@ export const entitySchemaRelations = relations(
 	({ one, many }) => ({
 		entities: many(entity),
 		eventSchemas: many(eventSchema),
-		trackerEntitySchemas: many(trackerEntitySchema),
 		entitySchemaScripts: many(entitySchemaScript),
+		trackerEntitySchemas: many(trackerEntitySchema),
+		sourceRelationshipSchemas: many(relationshipSchema, {
+			relationName: "sourceEntitySchema",
+		}),
+		targetRelationshipSchemas: many(relationshipSchema, {
+			relationName: "targetEntitySchema",
+		}),
 		user: one(user, {
 			references: [user.id],
 			fields: [entitySchema.userId],
@@ -128,10 +135,35 @@ export const eventRelations = relations(event, ({ one }) => ({
 	}),
 }));
 
+export const relationshipSchemaRelations = relations(
+	relationshipSchema,
+	({ one, many }) => ({
+		relationships: many(relationship),
+		user: one(user, {
+			references: [user.id],
+			fields: [relationshipSchema.userId],
+		}),
+		sourceEntitySchema: one(entitySchema, {
+			references: [entitySchema.id],
+			relationName: "sourceEntitySchema",
+			fields: [relationshipSchema.sourceEntitySchemaId],
+		}),
+		targetEntitySchema: one(entitySchema, {
+			references: [entitySchema.id],
+			relationName: "targetEntitySchema",
+			fields: [relationshipSchema.targetEntitySchemaId],
+		}),
+	}),
+);
+
 export const relationshipRelations = relations(relationship, ({ one }) => ({
 	user: one(user, {
 		references: [user.id],
 		fields: [relationship.userId],
+	}),
+	relationshipSchema: one(relationshipSchema, {
+		references: [relationshipSchema.id],
+		fields: [relationship.relationshipSchemaId],
 	}),
 	sourceEntity: one(entity, {
 		references: [entity.id],

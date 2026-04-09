@@ -6,6 +6,7 @@ import {
 	event,
 	type ImageSchemaType,
 	relationship,
+	relationshipSchema,
 } from "~/lib/db/schema";
 import type {
 	QueryEngineEventJoinLike,
@@ -102,7 +103,13 @@ const buildBaseEntitiesCte = (input: {
 			where ${entity.userId} is null
 				and ${entity.entitySchemaId} in (${entitySchemaIdList})
 				and ${relationship.userId} = ${input.userId}
-				and ${relationship.relType} = 'in_library'
+				and ${relationship.relationshipSchemaId} = (
+				select ${relationshipSchema.id}
+				from ${relationshipSchema}
+				where ${relationshipSchema.slug} = 'in_library'
+				and ${relationshipSchema.userId} is null
+				limit 1
+			)
 				and ${libraryMembershipClause}
 		)
 	`;

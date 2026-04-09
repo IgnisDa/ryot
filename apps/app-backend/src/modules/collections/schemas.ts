@@ -20,10 +20,10 @@ export const removeFromCollectionBody = z.object({
 
 const membershipRelationshipSchema = z.object({
 	id: z.string(),
-	relType: z.string(),
 	createdAt: z.string(),
 	sourceEntityId: z.string(),
 	targetEntityId: z.string(),
+	relationshipSchemaId: z.string(),
 	properties: stringUnknownRecordSchema,
 });
 
