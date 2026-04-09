@@ -16,17 +16,20 @@ const containsPropertyTypes = new Set<PropertyType>([
 	"array",
 	"object",
 	"string",
+	"enum-array",
 ]);
 
 const propertyDisplayKinds = {
 	date: "date",
-	datetime: "date",
-	boolean: "boolean",
+	enum: "text",
 	array: "json",
 	object: "json",
-	integer: "number",
-	number: "number",
 	string: "text",
+	datetime: "date",
+	number: "number",
+	integer: "number",
+	boolean: "boolean",
+	"enum-array": "json",
 } satisfies Record<PropertyType, ViewPropertyDisplayKind>;
 
 export const getComparablePropertyType = (
@@ -42,6 +45,7 @@ export const getComparablePropertyType = (
 			"string",
 			(type) => type,
 		)
+		.with("enum", () => "string" as const)
 		.otherwise(() => undefined);
 
 export const supportsComparableFilter = (propertyType: PropertyType) => {
