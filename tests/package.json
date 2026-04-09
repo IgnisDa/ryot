@@ -8,16 +8,16 @@
 		"test": "bun test --only-failures"
 	},
 	"devDependencies": {
-		"@aws-sdk/client-s3": "3.1024.0",
+		"@aws-sdk/client-s3": "3.1027.0",
 		"@faker-js/faker": "10.4.0",
 		"@ryot/generated": "workspace:*",
 		"@ryot/ts-utils": "workspace:*",
-		"@testcontainers/postgresql": "11.13.0",
+		"@testcontainers/postgresql": "11.14.0",
 		"@types/pg": "8.20.0",
-		"dotenv": "17.4.0",
+		"dotenv": "17.4.1",
 		"get-port": "7.2.0",
 		"openapi-fetch": "0.17.0",
 		"pg": "8.20.0",
-		"testcontainers": "11.13.0"
+		"testcontainers": "11.14.0"
 	}
 }
