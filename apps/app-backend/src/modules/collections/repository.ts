@@ -142,9 +142,9 @@ export const getExistingMembership = async (
 	input: { userId: string; entityId: string; collectionId: string },
 	database: DbClient = db,
 ): Promise<AddToCollectionData | undefined> => {
-	const found = await getBuiltinRelationshipSchemaBySlug("member_of");
+	const found = await getBuiltinRelationshipSchemaBySlug("member-of");
 	if (!found) {
-		throw new Error("member_of relationship schema not found");
+		throw new Error("member-of relationship schema not found");
 	}
 	const memberOfSchemaId = found.id;
 
@@ -175,9 +175,9 @@ export const addEntityToCollection = async (input: {
 	collectionId: string;
 	properties: Record<string, unknown>;
 }): Promise<AddToCollectionData> => {
-	const found = await getBuiltinRelationshipSchemaBySlug("member_of");
+	const found = await getBuiltinRelationshipSchemaBySlug("member-of");
 	if (!found) {
-		throw new Error("member_of relationship schema not found");
+		throw new Error("member-of relationship schema not found");
 	}
 	const memberOfSchemaId = found.id;
 
@@ -273,9 +273,9 @@ export const removeEntityFromCollection = async (input: {
 	entityId: string;
 	collectionId: string;
 }): Promise<AddToCollectionData | undefined> => {
-	const found = await getBuiltinRelationshipSchemaBySlug("member_of");
+	const found = await getBuiltinRelationshipSchemaBySlug("member-of");
 	if (!found) {
-		throw new Error("member_of relationship schema not found");
+		throw new Error("member-of relationship schema not found");
 	}
 	const memberOfSchemaId = found.id;
 

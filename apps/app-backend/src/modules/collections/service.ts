@@ -198,7 +198,7 @@ export const addToCollection = async (
 		return libraryError;
 	}
 
-	// Create the canonical member_of relationship
+	// Create the canonical member-of relationship
 	const relationships = await deps.addEntityToCollection({
 		userId: input.userId,
 		entityId: input.body.entityId,
@@ -234,7 +234,7 @@ export const removeFromCollection = async (
 		return serviceError("not_found", entityNotFoundError);
 	}
 
-	// Remove the canonical member_of relationship
+	// Remove the canonical member-of relationship
 	const relationships = await deps.removeEntityFromCollection({
 		userId: input.userId,
 		entityId: input.body.entityId,
