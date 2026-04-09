@@ -3,12 +3,14 @@ import {
 	createAuthenticatedClient,
 	createEntitySchema,
 	createTracker,
+	enqueueEntityImport,
 	enqueueEntitySearch,
 	findBuiltinEntitySchema,
 	findBuiltinSchemaWithProviders,
 	findBuiltinTracker,
 	getEntitySchema,
 	listEntitySchemas,
+	pollEntityImportResult,
 	pollEntitySearchResult,
 } from "../fixtures";
 import { getBackendClient } from "../setup";
@@ -657,6 +659,120 @@ describe("GET /entity-schemas/search/{jobId}", () => {
 		});
 
 		const result = await pollEntitySearchResult(client, cookies, jobId);
+
+		expect(result.status === "completed" || result.status === "failed").toBe(
+			true,
+		);
+	});
+});
+
+describe("POST /entity-schemas/import", () => {
+	it("returns 401 when unauthenticated", async () => {
+		const client = getBackendClient();
+		const { response, error } = await client.POST("/entity-schemas/import", {
+			body: {
+				identifier: "test-id",
+				scriptId: crypto.randomUUID(),
+				entitySchemaId: crypto.randomUUID(),
+			},
+		});
+
+		expect(response.status).toBe(401);
+		expect(error?.error).toBeDefined();
+	});
+
+	it("returns 200 with a jobId when given valid builtin script and schema", async () => {
+		const { client, cookies } = await createAuthenticatedClient();
+		const { schema } = await findBuiltinSchemaWithProviders(client, cookies);
+		const scriptId = schema.providers[0]?.scriptId;
+		if (!scriptId) {
+			throw new Error("No provider found");
+		}
+
+		const { jobId } = await enqueueEntityImport(client, cookies, {
+			scriptId,
+			identifier: "OL267933W",
+			entitySchemaId: schema.id,
+		});
+
+		expect(typeof jobId).toBe("string");
+		expect(jobId.length).toBeGreaterThan(0);
+	});
+});
+
+describe("GET /entity-schemas/import/{jobId}", () => {
+	it("returns 401 when unauthenticated", async () => {
+		const client = getBackendClient();
+		const { response, error } = await client.GET(
+			"/entity-schemas/import/{jobId}",
+			{ params: { path: { jobId: crypto.randomUUID() } } },
+		);
+
+		expect(response.status).toBe(401);
+		expect(error?.error).toBeDefined();
+	});
+
+	it("returns 404 for a non-existent job id", async () => {
+		const { client, cookies } = await createAuthenticatedClient();
+
+		const { response, error } = await client.GET(
+			"/entity-schemas/import/{jobId}",
+			{
+				headers: { Cookie: cookies },
+				params: { path: { jobId: crypto.randomUUID() } },
+			},
+		);
+
+		expect(response.status).toBe(404);
+		expect(error?.error?.message).toBe("Entity import job not found");
+	});
+
+	it("returns 404 when another user polls the import job", async () => {
+		const { client: clientA, cookies: cookiesA } =
+			await createAuthenticatedClient();
+		const { client: clientB, cookies: cookiesB } =
+			await createAuthenticatedClient();
+
+		const { schema } = await findBuiltinSchemaWithProviders(clientA, cookiesA);
+		const scriptId = schema.providers[0]?.scriptId;
+		if (!scriptId) {
+			throw new Error("No provider found");
+		}
+
+		const { jobId } = await enqueueEntityImport(clientA, cookiesA, {
+			scriptId,
+			identifier: "OL267933W",
+			entitySchemaId: schema.id,
+		});
+
+		const { response, error } = await clientB.GET(
+			"/entity-schemas/import/{jobId}",
+			{ params: { path: { jobId } }, headers: { Cookie: cookiesB } },
+		);
+
+		expect(response.status).toBe(404);
+		expect(error?.error?.message).toBe("Entity import job not found");
+	});
+
+	it("reaches a terminal state for a builtin details script", async () => {
+		const { client, cookies } = await createAuthenticatedClient();
+		const { schema } = await findBuiltinSchemaWithProviders(client, cookies);
+		const detailsScriptId = schema.providers.find(
+			(p) => p.name === "OpenLibrary",
+		)?.scriptId;
+		if (!detailsScriptId) {
+			throw new Error("OpenLibrary provider script not found");
+		}
+
+		const { jobId } = await enqueueEntityImport(client, cookies, {
+			identifier: "OL267933W",
+			scriptId: detailsScriptId,
+			entitySchemaId: schema.id,
+		});
+
+		const result = await pollEntityImportResult(client, cookies, jobId, {
+			timeoutMs: 30_000,
+		});
 
 		expect(result.status === "completed" || result.status === "failed").toBe(
 			true,
