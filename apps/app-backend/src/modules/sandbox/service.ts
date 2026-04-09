@@ -1,4 +1,5 @@
 import { resolveRequiredString } from "@ryot/ts-utils";
+import { resolveJobPollState } from "~/lib/queue/utils";
 import {
 	type ServiceResult,
 	serviceData,
@@ -141,16 +142,9 @@ export const getSandboxResult = async (
 		return serviceError("not_found", sandboxJobNotFoundError);
 	}
 
-	const state = await foundJob.job.getState();
-	if (state === "completed") {
-		return serviceData(createCompletedSandboxResult(foundJob.job));
-	}
-	if (state === "failed") {
-		return serviceData({
-			status: "failed",
-			error: foundJob.job.failedReason || sandboxJobFailedMessage,
-		});
-	}
-
-	return serviceData({ status: "pending" });
+	return serviceData(
+		await resolveJobPollState(foundJob.job, sandboxJobFailedMessage, () =>
+			createCompletedSandboxResult(foundJob.job),
+		),
+	);
 };
