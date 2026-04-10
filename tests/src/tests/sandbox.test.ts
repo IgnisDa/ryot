@@ -34,7 +34,8 @@ describe("sandbox async flow", () => {
 	it("completes a script that returns a plain value", async () => {
 		const { client, cookies } = await createAuthenticatedClient();
 		const { jobId } = await enqueueSandboxScript(client, cookies, {
-			code: "return 42;",
+			driverName: "main",
+			code: 'driver("main", async function() { return 42; });',
 		});
 
 		const result = await pollSandboxResult(client, cookies, jobId);
@@ -51,7 +52,8 @@ describe("sandbox async flow", () => {
 	it("completes a script that uses httpCall", async () => {
 		const { client, cookies } = await createAuthenticatedClient();
 		const { jobId } = await enqueueSandboxScript(client, cookies, {
-			code: `return await httpCall("GET", ${JSON.stringify(httpServerUrl)});`,
+			driverName: "main",
+			code: `driver("main", async function() { return await httpCall("GET", ${JSON.stringify(httpServerUrl)}); });`,
 		});
 
 		const result = await pollSandboxResult(client, cookies, jobId);
@@ -92,16 +94,19 @@ describe("sandbox async flow", () => {
 			entitySchemaId: schema.id,
 		});
 		const { jobId } = await enqueueSandboxScript(client, cookies, {
+			driverName: "main",
 			code: `
-const result = await executeQuery({
-  entitySchemaSlugs: [${JSON.stringify(slug)}],
-  pagination: { page: 1, limit: 10 },
-  sort: { direction: "asc", expression: { type: "reference", reference: { column: "name", type: "entity-column", slug: ${JSON.stringify(slug)} } } }
+driver("main", async function() {
+  const result = await executeQuery({
+    entitySchemaSlugs: [${JSON.stringify(slug)}],
+    pagination: { page: 1, limit: 10 },
+    sort: { direction: "asc", expression: { type: "reference", reference: { column: "name", type: "entity-column", slug: ${JSON.stringify(slug)} } } }
+  });
+  if (!result.success) {
+    throw new Error(result.error);
+  }
+  return result.data.items;
 });
-if (!result.success) {
-  throw new Error(result.error);
-}
-return result.data.items;
 `,
 		});
 
@@ -130,12 +135,15 @@ return result.data.items;
 	it("completes a script that uses getUserPreferences", async () => {
 		const { client, cookies } = await createAuthenticatedClient();
 		const { jobId } = await enqueueSandboxScript(client, cookies, {
+			driverName: "main",
 			code: `
-const result = await getUserPreferences();
-if (!result.success) {
-  throw new Error(result.error);
-}
-return result.data;
+driver("main", async function() {
+  const result = await getUserPreferences();
+  if (!result.success) {
+    throw new Error(result.error);
+  }
+  return result.data;
+});
 `,
 		});
 
@@ -161,7 +169,8 @@ return result.data;
 	it("returns a completed result when the script throws", async () => {
 		const { client, cookies } = await createAuthenticatedClient();
 		const { jobId } = await enqueueSandboxScript(client, cookies, {
-			code: 'throw new Error("intentional");',
+			driverName: "main",
+			code: 'driver("main", async function() { throw new Error("intentional"); });',
 		});
 
 		const result = await pollSandboxResult(client, cookies, jobId);
@@ -179,6 +188,7 @@ return result.data;
 		const { client, cookies } = await createAuthenticatedClient();
 		const { jobId } = await enqueueSandboxScript(client, cookies, {
 			code: "{{{",
+			driverName: "main",
 		});
 
 		const result = await pollSandboxResult(client, cookies, jobId);
@@ -208,7 +218,8 @@ return result.data;
 		const { client: clientB, cookies: cookiesB } =
 			await createAuthenticatedClient();
 		const { jobId } = await enqueueSandboxScript(clientA, cookiesA, {
-			code: "return 42;",
+			driverName: "main",
+			code: 'driver("main", async function() { return 42; });',
 		});
 
 		const { response, error } = await clientB.GET("/sandbox/result/{jobId}", {
@@ -233,7 +244,8 @@ return result.data;
 	it("returns 401 for unauthenticated poll", async () => {
 		const { client, cookies } = await createAuthenticatedClient();
 		const { jobId } = await enqueueSandboxScript(client, cookies, {
-			code: "return 42;",
+			driverName: "main",
+			code: 'driver("main", async function() { return 42; });',
 		});
 
 		const unauthenticatedClient = getBackendClient();
