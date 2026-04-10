@@ -14,3 +14,7 @@ a {
 	color: inherit;
 	text-decoration: none;
 }
+
+.title-link:hover {
+	text-decoration: underline;
+}
