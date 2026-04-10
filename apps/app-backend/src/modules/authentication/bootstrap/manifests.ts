@@ -9,6 +9,7 @@ import {
 } from "~/lib/media/constants";
 import { mangaPropertiesJsonSchema } from "~/lib/media/manga";
 import { personPropertiesJsonSchema } from "~/lib/media/person";
+import { videoGamePropertiesJsonSchema } from "~/lib/media/video-game";
 import { createDefaultDisplayConfiguration } from "~/modules/saved-views";
 
 export const authenticationBuiltinTrackers = () => [
@@ -151,6 +152,15 @@ export const authenticationBuiltinEntitySchemas = () => [
 		propertiesSchema: audiobookPropertiesJsonSchema,
 	},
 	{
+		icon: "gamepad-2",
+		slug: "video-game",
+		name: "Video Game",
+		trackerSlug: "media",
+		accentColor: "#22C55E",
+		eventSchemas: mediaLifecycleEventSchemas(),
+		propertiesSchema: videoGamePropertiesJsonSchema,
+	},
+	{
 		icon: "folders",
 		eventSchemas: [],
 		slug: "collection",
@@ -177,6 +187,7 @@ const getBuiltInSavedViewName = (slug: BuiltinMediaEntitySchemaSlug) => {
 		.with("anime", () => "All Anime")
 		.with("manga", () => "All Manga")
 		.with("audiobook", () => "All Audiobooks")
+		.with("video-game", () => "All Video Games")
 		.exhaustive();
 };
 
