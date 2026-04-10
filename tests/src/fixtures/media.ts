@@ -46,8 +46,8 @@ export async function pollMediaImportResult(
 
 	for (;;) {
 		const { data, response } = await client.GET("/media/import/{jobId}", {
-			headers: { Cookie: cookies },
 			params: { path: { jobId } },
+			headers: { Cookie: cookies },
 		});
 
 		if (response.status !== 200 || !data?.data) {
