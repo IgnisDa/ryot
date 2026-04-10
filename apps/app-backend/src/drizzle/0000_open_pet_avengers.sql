@@ -115,11 +115,11 @@ CREATE TABLE "relationship_schema" (
 	"slug" text NOT NULL,
 	"name" text NOT NULL,
 	"properties_schema" jsonb NOT NULL,
+	"created_at" timestamp DEFAULT now() NOT NULL,
 	"is_builtin" boolean DEFAULT false NOT NULL,
 	"user_id" text,
 	"source_entity_schema_id" text,
 	"target_entity_schema_id" text,
-	"created_at" timestamp DEFAULT now() NOT NULL,
 	"id" text PRIMARY KEY NOT NULL,
 	"updated_at" timestamp DEFAULT now() NOT NULL,
 	CONSTRAINT "relationship_schema_user_slug_unique" UNIQUE("user_id","slug")
@@ -195,6 +195,7 @@ CREATE TABLE "user" (
 	"image" text,
 	"name" text NOT NULL,
 	"id" text PRIMARY KEY NOT NULL,
+	"preferences" jsonb NOT NULL,
 	"email" text NOT NULL,
 	"created_at" timestamp DEFAULT now() NOT NULL,
 	"email_verified" boolean DEFAULT false NOT NULL,
@@ -229,8 +230,8 @@ ALTER TABLE "relationship" ADD CONSTRAINT "relationship_source_entity_id_entity_
 ALTER TABLE "relationship" ADD CONSTRAINT "relationship_target_entity_id_entity_id_fk" FOREIGN KEY ("target_entity_id") REFERENCES "public"."entity"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "relationship" ADD CONSTRAINT "relationship_relationship_schema_id_relationship_schema_id_fk" FOREIGN KEY ("relationship_schema_id") REFERENCES "public"."relationship_schema"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "relationship_schema" ADD CONSTRAINT "relationship_schema_user_id_user_id_fk" FOREIGN KEY ("user_id") REFERENCES "public"."user"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
-ALTER TABLE "relationship_schema" ADD CONSTRAINT "relationship_schema_source_entity_schema_id_entity_schema_id_fk" FOREIGN KEY ("source_entity_schema_id") REFERENCES "public"."entity_schema"("id") ON DELETE set null ON UPDATE no action;--> statement-breakpoint
-ALTER TABLE "relationship_schema" ADD CONSTRAINT "relationship_schema_target_entity_schema_id_entity_schema_id_fk" FOREIGN KEY ("target_entity_schema_id") REFERENCES "public"."entity_schema"("id") ON DELETE set null ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "relationship_schema" ADD CONSTRAINT "relationship_schema_source_entity_schema_id_entity_schema_id_fk" FOREIGN KEY ("source_entity_schema_id") REFERENCES "public"."entity_schema"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "relationship_schema" ADD CONSTRAINT "relationship_schema_target_entity_schema_id_entity_schema_id_fk" FOREIGN KEY ("target_entity_schema_id") REFERENCES "public"."entity_schema"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "sandbox_script" ADD CONSTRAINT "sandbox_script_user_id_user_id_fk" FOREIGN KEY ("user_id") REFERENCES "public"."user"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "saved_view" ADD CONSTRAINT "saved_view_tracker_id_tracker_id_fk" FOREIGN KEY ("tracker_id") REFERENCES "public"."tracker"("id") ON DELETE set null ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "saved_view" ADD CONSTRAINT "saved_view_user_id_user_id_fk" FOREIGN KEY ("user_id") REFERENCES "public"."user"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
