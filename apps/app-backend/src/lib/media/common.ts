@@ -22,3 +22,7 @@ export const mediaPropertiesSchema = z
 	.strict();
 
 export const animeMangaPropertiesSchema = mediaPropertiesSchema.extend({});
+
+export const freeCreatorSchema = z
+	.object({ role: z.string(), name: z.string() })
+	.strict();
