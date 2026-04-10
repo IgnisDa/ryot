@@ -65,6 +65,7 @@ const builtInMediaOverviewRateTheseItemSchema =
 const builtInMediaOverviewRecentActivityItemSchema = z
 	.object({
 		id: z.string(),
+		entityId: z.string(),
 		occurredAt: z.date(),
 		rating: z.number().int().nullable(),
 		eventSchemaSlug: builtinMediaEventSchemaSlugSchema,
