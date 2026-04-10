@@ -64,6 +64,7 @@ export const createApiFunctionDescriptors = (
 	{ context: {}, functionKey: "httpCall" },
 	{ context: {}, functionKey: "getAppConfigValue" },
 	{ context: { userId }, functionKey: "executeQuery" },
+	{ context: { userId }, functionKey: "getUserPreferences" },
 ];
 
 export const resolveSandboxJobId = (jobId: string) =>
