@@ -225,6 +225,57 @@ describe("fromAppSchema", () => {
 		expect(() => schema.parse(99.995)).toThrow();
 		expect(() => schema.parse(0.004)).toThrow();
 	});
+
+	it("accepts a valid enum value and rejects values outside the options", () => {
+		const schema = fromAppSchema({
+			type: "enum",
+			label: "Status",
+			options: ["draft", "published", "archived"],
+		});
+
+		expect(schema.safeParse("draft").success).toBeTrue();
+		expect(schema.safeParse("published").success).toBeTrue();
+		expect(schema.safeParse("unknown").success).toBeFalse();
+		expect(schema.safeParse(null).success).toBeTrue();
+	});
+
+	it("treats a required enum as non-nullable", () => {
+		const schema = fromAppSchema({
+			type: "enum",
+			label: "Status",
+			validation: { required: true },
+			options: ["active", "inactive"],
+		});
+
+		expect(schema.safeParse("active").success).toBeTrue();
+		expect(schema.safeParse(null).success).toBeFalse();
+		expect(schema.safeParse(undefined).success).toBeFalse();
+	});
+
+	it("accepts valid enum-array values and rejects items outside options", () => {
+		const schema = fromAppSchema({
+			label: "Genres",
+			type: "enum-array",
+			options: ["fiction", "non-fiction", "mystery"],
+		});
+
+		expect(schema.safeParse(["fiction", "mystery"]).success).toBeTrue();
+		expect(schema.safeParse([]).success).toBeTrue();
+		expect(schema.safeParse(["fiction", "invalid"]).success).toBeFalse();
+	});
+
+	it("applies minItems/maxItems validation to enum-array", () => {
+		const schema = fromAppSchema({
+			label: "Tags",
+			type: "enum-array",
+			options: ["a", "b", "c"],
+			validation: { minItems: 1, maxItems: 2 },
+		});
+
+		expect(schema.safeParse([]).success).toBeFalse();
+		expect(schema.safeParse(["a"]).success).toBeTrue();
+		expect(schema.safeParse(["a", "b", "c"]).success).toBeFalse();
+	});
 });
 
 describe("fromAppSchemaObject", () => {

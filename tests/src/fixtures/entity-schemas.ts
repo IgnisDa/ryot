@@ -17,20 +17,14 @@ type EnqueueEntityImportBody = NonNullable<
 type PollEntityImportResponse =
 	paths["/entity-schemas/import/{jobId}"]["get"]["responses"][200]["content"]["application/json"]["data"];
 
-export type AppPropertyDefinition = {
-	type: string;
-	label?: string;
-	unknownKeys?: string;
-	items?: AppPropertyDefinition;
-	transform?: Record<string, unknown>;
-	validation?: Record<string, unknown>;
-	properties?: Record<string, AppPropertyDefinition>;
-};
+export type AppPropertyDefinition =
+	components["schemas"]["AppPropertyDefinition"];
 
-export type AppSchema = {
-	fields: Record<string, AppPropertyDefinition>;
-	rules?: components["schemas"]["AppSchemaRule"][];
-};
+type PostEntitySchemaBody = NonNullable<
+	paths["/entity-schemas"]["post"]["requestBody"]
+>["content"]["application/json"];
+
+export type AppSchema = PostEntitySchemaBody["propertiesSchema"];
 
 export interface CreateEntitySchemaOptions {
 	icon?: string;
