@@ -187,244 +187,232 @@ export const validateRuntimeReferenceAgainstSchemas = (
 	context: QueryEngineReferenceContext<ValidationSchemaRow, ValidationEventJoinRow>,
 	validBuiltins: ReadonlySet<string>,
 ): void => {
-	if (reference.type === "computed-field") {
-		throw new QueryEngineValidationError(
-			"Computed field references are not allowed in this context",
-		);
-	}
-
 	const primaryEventMode = isPrimaryEventMode(context);
 
-	if (reference.type === "entity") {
-		const schema = getSchemaForReference(context.schemaMap, reference);
-
-		if (reference.path[0] === "properties") {
-			const propertyPath = reference.path.slice(1);
-			const propertyType = getPropertyType(schema, propertyPath);
-			if (!propertyType) {
-				throw new QueryEngineValidationError(
-					`Property '${propertyPath.join(".")}' not found in schema '${reference.slug}'`,
-				);
-			}
-			return;
-		}
-
-		const [column] = reference.path;
-		if (!column) {
-			throw new QueryEngineValidationError("Entity reference path must not be empty");
-		}
-		validateBuiltinPathHasSingleSegment({ path: reference.path, label: "Entity column" });
-		if (column === "image") {
-			return;
-		}
-		if (!validBuiltins.has(column)) {
+	match(reference)
+		.with({ type: "computed-field" }, () => {
 			throw new QueryEngineValidationError(
-				`Unsupported entity column 'entity.${reference.slug}.${column}'`,
+				"Computed field references are not allowed in this context",
 			);
-		}
-		if (!getEntityColumnPropertyDefinition(column)) {
-			throw new QueryEngineValidationError(
-				`Unsupported entity column 'entity.${reference.slug}.${column}'`,
-			);
-		}
-		return;
-	}
+		})
+		.with({ type: "entity" }, (ref) => {
+			const schema = getSchemaForReference(context.schemaMap, ref);
 
-	if (reference.type === "event-aggregate") {
-		if (primaryEventMode) {
-			throw new QueryEngineValidationError(
-				"event-aggregate references are not supported in this query mode",
-			);
-		}
-
-		if (context.eventSchemaSlugs && !context.eventSchemaSlugs.has(reference.eventSchemaSlug)) {
-			throw new QueryEngineValidationError(
-				`Event schema '${reference.eventSchemaSlug}' is not available for the requested entity schemas`,
-			);
-		}
-		if (reference.aggregation === "count") {
-			return;
-		}
-
-		if (reference.path?.[0] !== "properties") {
-			throw new QueryEngineValidationError(
-				`Event aggregate path must start with 'properties' (received '${reference.path?.[0]}')`,
-			);
-		}
-
-		const propertyPath = reference.path.slice(1);
-		const eventSchemas = context.eventSchemaMap?.get(reference.eventSchemaSlug);
-		if (!eventSchemas?.length) {
-			throw new QueryEngineValidationError(
-				`Event schema '${reference.eventSchemaSlug}' is not available for the requested entity schemas`,
-			);
-		}
-
-		const propertyDefinition = getEventPropertyDefinition(
-			eventSchemas,
-			reference.eventSchemaSlug,
-			propertyPath,
-		);
-		if (!["integer", "number"].includes(propertyDefinition.type)) {
-			throw new QueryEngineValidationError(
-				`${reference.aggregation} event aggregate requires a numeric property, received '${propertyDefinition.type}'`,
-			);
-		}
-		return;
-	}
-
-	if (reference.type === "entity-schema") {
-		const [column] = reference.path;
-		if (!column) {
-			throw new QueryEngineValidationError("Entity schema reference path must not be empty");
-		}
-		if (reference.path.length > 1) {
-			throw new QueryEngineValidationError(
-				`Entity schema column 'entity-schema.${reference.path.join(".")}' does not support nested paths`,
-			);
-		}
-		if (!getEntitySchemaColumnPropertyDefinition(column)) {
-			throw new QueryEngineValidationError(
-				`Unsupported entity schema column 'entity-schema.${column}'`,
-			);
-		}
-		if (!validBuiltins.has(column)) {
-			throw new QueryEngineValidationError(
-				`Entity schema column 'entity-schema.${column}' is not valid in this context`,
-			);
-		}
-		return;
-	}
-
-	if (reference.type === "event") {
-		if (!primaryEventMode || !context.eventSchemaMap) {
-			throw new QueryEngineValidationError(
-				"Primary event references are not supported in this query mode",
-			);
-		}
-
-		validateEventReference(
-			reference,
-			context.eventSchemaMap,
-			context.requirePrimaryEventSchemaSlug ?? false,
-			validBuiltins,
-		);
-		return;
-	}
-
-	if (reference.type === "event-schema") {
-		if (!primaryEventMode || !context.eventSchemaMap) {
-			throw new QueryEngineValidationError(
-				"Primary event schema references are not supported in this query mode",
-			);
-		}
-
-		validateEventSchemaReference(reference, validBuiltins);
-		return;
-	}
-
-	if (reference.type === "relationship-join") {
-		if (primaryEventMode) {
-			throw new QueryEngineValidationError(
-				"Relationship join references are not supported in this query mode",
-			);
-		}
-
-		const join = getRelationshipJoinForReference(
-			context.relationshipJoinMap ?? new Map(),
-			reference,
-		);
-
-		const [pathRoot] = reference.path;
-
-		if (pathRoot === "sourceEntity" || pathRoot === "targetEntity") {
-			const [, column, ...rest] = reference.path;
-			const sideName = pathRoot === "sourceEntity" ? "source" : "target";
-			if (!column) {
-				throw new QueryEngineValidationError(
-					`Related entity reference path must not be empty after '${pathRoot}'`,
-				);
-			}
-			if (column === "image") {
-				validateBuiltinPathHasSingleSegment({
-					label: "Related entity column",
-					path: reference.path.slice(1),
-				});
-				return;
-			}
-			if (column === "properties") {
-				const propertyPath = rest;
-				if (!propertyPath.length) {
-					throw new QueryEngineValidationError(
-						`Related entity 'properties' reference requires at least one property segment`,
-					);
-				}
-				const entitySchema = getRelationshipJoinEntitySchema(join, pathRoot);
-				if (!entitySchema) {
-					throw new QueryEngineValidationError(
-						`Related entity properties under '${pathRoot}.properties' require the ${sideName} entity schema to be defined on the relationship schema '${join.relationshipSchemaSlug}'`,
-					);
-				}
-				const propertyType = getPropertyType(entitySchema, propertyPath);
+			if (ref.path[0] === "properties") {
+				const propertyPath = ref.path.slice(1);
+				const propertyType = getPropertyType(schema, propertyPath);
 				if (!propertyType) {
 					throw new QueryEngineValidationError(
-						`Property '${propertyPath.join(".")}' not found in ${sideName} entity schema '${entitySchema.slug}'`,
+						`Property '${propertyPath.join(".")}' not found in schema '${ref.slug}'`,
 					);
 				}
 				return;
+			}
+
+			const [column] = ref.path;
+			if (!column) {
+				throw new QueryEngineValidationError("Entity reference path must not be empty");
+			}
+			validateBuiltinPathHasSingleSegment({ path: ref.path, label: "Entity column" });
+			if (column === "image") {
+				return;
+			}
+			if (!validBuiltins.has(column)) {
+				throw new QueryEngineValidationError(
+					`Unsupported entity column 'entity.${ref.slug}.${column}'`,
+				);
 			}
 			if (!getEntityColumnPropertyDefinition(column)) {
 				throw new QueryEngineValidationError(
-					`Unsupported related entity column '${pathRoot}.${column}'`,
+					`Unsupported entity column 'entity.${ref.slug}.${column}'`,
+				);
+			}
+		})
+		.with({ type: "event-aggregate" }, (ref) => {
+			if (primaryEventMode) {
+				throw new QueryEngineValidationError(
+					"event-aggregate references are not supported in this query mode",
+				);
+			}
+
+			if (context.eventSchemaSlugs && !context.eventSchemaSlugs.has(ref.eventSchemaSlug)) {
+				throw new QueryEngineValidationError(
+					`Event schema '${ref.eventSchemaSlug}' is not available for the requested entity schemas`,
+				);
+			}
+			if (ref.aggregation === "count") {
+				return;
+			}
+
+			if (ref.path?.[0] !== "properties") {
+				throw new QueryEngineValidationError(
+					`Event aggregate path must start with 'properties' (received '${ref.path?.[0]}')`,
+				);
+			}
+
+			const propertyPath = ref.path.slice(1);
+			const eventSchemas = context.eventSchemaMap?.get(ref.eventSchemaSlug);
+			if (!eventSchemas?.length) {
+				throw new QueryEngineValidationError(
+					`Event schema '${ref.eventSchemaSlug}' is not available for the requested entity schemas`,
+				);
+			}
+
+			const propertyDefinition = getEventPropertyDefinition(
+				eventSchemas,
+				ref.eventSchemaSlug,
+				propertyPath,
+			);
+			if (!["integer", "number"].includes(propertyDefinition.type)) {
+				throw new QueryEngineValidationError(
+					`${ref.aggregation} event aggregate requires a numeric property, received '${propertyDefinition.type}'`,
+				);
+			}
+		})
+		.with({ type: "entity-schema" }, (ref) => {
+			const [column] = ref.path;
+			if (!column) {
+				throw new QueryEngineValidationError("Entity schema reference path must not be empty");
+			}
+			if (ref.path.length > 1) {
+				throw new QueryEngineValidationError(
+					`Entity schema column 'entity-schema.${ref.path.join(".")}' does not support nested paths`,
+				);
+			}
+			if (!getEntitySchemaColumnPropertyDefinition(column)) {
+				throw new QueryEngineValidationError(
+					`Unsupported entity schema column 'entity-schema.${column}'`,
+				);
+			}
+			if (!validBuiltins.has(column)) {
+				throw new QueryEngineValidationError(
+					`Entity schema column 'entity-schema.${column}' is not valid in this context`,
+				);
+			}
+		})
+		.with({ type: "event" }, (ref) => {
+			if (!primaryEventMode || !context.eventSchemaMap) {
+				throw new QueryEngineValidationError(
+					"Primary event references are not supported in this query mode",
+				);
+			}
+
+			validateEventReference(
+				ref,
+				context.eventSchemaMap,
+				context.requirePrimaryEventSchemaSlug ?? false,
+				validBuiltins,
+			);
+		})
+		.with({ type: "event-schema" }, (ref) => {
+			if (!primaryEventMode || !context.eventSchemaMap) {
+				throw new QueryEngineValidationError(
+					"Primary event schema references are not supported in this query mode",
+				);
+			}
+
+			validateEventSchemaReference(ref, validBuiltins);
+		})
+		.with({ type: "relationship-join" }, (ref) => {
+			if (primaryEventMode) {
+				throw new QueryEngineValidationError(
+					"Relationship join references are not supported in this query mode",
+				);
+			}
+
+			const join = getRelationshipJoinForReference(context.relationshipJoinMap ?? new Map(), ref);
+
+			const [pathRoot] = ref.path;
+
+			if (pathRoot === "sourceEntity" || pathRoot === "targetEntity") {
+				const [, column, ...rest] = ref.path;
+				const sideName = pathRoot === "sourceEntity" ? "source" : "target";
+				if (!column) {
+					throw new QueryEngineValidationError(
+						`Related entity reference path must not be empty after '${pathRoot}'`,
+					);
+				}
+				if (column === "image") {
+					validateBuiltinPathHasSingleSegment({
+						label: "Related entity column",
+						path: ref.path.slice(1),
+					});
+					return;
+				}
+				if (column === "properties") {
+					const propertyPath = rest;
+					if (!propertyPath.length) {
+						throw new QueryEngineValidationError(
+							`Related entity 'properties' reference requires at least one property segment`,
+						);
+					}
+					const entitySchema = getRelationshipJoinEntitySchema(join, pathRoot);
+					if (!entitySchema) {
+						throw new QueryEngineValidationError(
+							`Related entity properties under '${pathRoot}.properties' require the ${sideName} entity schema to be defined on the relationship schema '${join.relationshipSchemaSlug}'`,
+						);
+					}
+					const propertyType = getPropertyType(entitySchema, propertyPath);
+					if (!propertyType) {
+						throw new QueryEngineValidationError(
+							`Property '${propertyPath.join(".")}' not found in ${sideName} entity schema '${entitySchema.slug}'`,
+						);
+					}
+					return;
+				}
+				if (!getEntityColumnPropertyDefinition(column)) {
+					throw new QueryEngineValidationError(
+						`Unsupported related entity column '${pathRoot}.${column}'`,
+					);
+				}
+				validateBuiltinPathHasSingleSegment({
+					label: "Related entity column",
+					path: ref.path.slice(1),
+				});
+				return;
+			}
+
+			if (pathRoot === "properties") {
+				const propertyPath = ref.path.slice(1);
+				getRelationshipJoinPropertyType(join, propertyPath);
+				return;
+			}
+
+			const [column] = ref.path;
+			if (!column) {
+				throw new QueryEngineValidationError("Relationship join reference path must not be empty");
+			}
+			if (!getRelationshipJoinColumnPropertyDefinition(column)) {
+				throw new QueryEngineValidationError(
+					`Unsupported relationship join column 'relationship.${ref.joinKey}.${column}'`,
 				);
 			}
 			validateBuiltinPathHasSingleSegment({
-				label: "Related entity column",
-				path: reference.path.slice(1),
+				path: ref.path,
+				label: "Relationship join column",
 			});
-			return;
-		}
+		})
+		.with({ type: "event-join" }, (ref) => {
+			const join = getEventJoinForReference(context.eventJoinMap, ref);
 
-		if (pathRoot === "properties") {
-			const propertyPath = reference.path.slice(1);
-			getRelationshipJoinPropertyType(join, propertyPath);
-			return;
-		}
+			if (ref.path[0] === "properties") {
+				const propertyPath = ref.path.slice(1);
+				getEventJoinPropertyType(join, propertyPath);
+				return;
+			}
 
-		const [column] = reference.path;
-		if (!column) {
-			throw new QueryEngineValidationError("Relationship join reference path must not be empty");
-		}
-		if (!getRelationshipJoinColumnPropertyDefinition(column)) {
-			throw new QueryEngineValidationError(
-				`Unsupported relationship join column 'relationship.${reference.joinKey}.${column}'`,
-			);
-		}
-		validateBuiltinPathHasSingleSegment({
-			path: reference.path,
-			label: "Relationship join column",
-		});
-		return;
-	}
-
-	const join = getEventJoinForReference(context.eventJoinMap, reference);
-
-	if (reference.path[0] === "properties") {
-		const propertyPath = reference.path.slice(1);
-		getEventJoinPropertyType(join, propertyPath);
-		return;
-	}
-
-	const [column] = reference.path;
-	if (!column) {
-		throw new QueryEngineValidationError("Event join reference path must not be empty");
-	}
-	if (!getEventJoinColumnPropertyDefinition(column)) {
-		throw new QueryEngineValidationError(
-			`Unsupported event join column 'event.${reference.joinKey}.${column}'`,
-		);
-	}
-	validateBuiltinPathHasSingleSegment({ path: reference.path, label: "Event join column" });
+			const [column] = ref.path;
+			if (!column) {
+				throw new QueryEngineValidationError("Event join reference path must not be empty");
+			}
+			if (!getEventJoinColumnPropertyDefinition(column)) {
+				throw new QueryEngineValidationError(
+					`Unsupported event join column 'event.${ref.joinKey}.${column}'`,
+				);
+			}
+			validateBuiltinPathHasSingleSegment({ path: ref.path, label: "Event join column" });
+		})
+		.exhaustive();
 };
 
 const collectComputedFieldChain = (
@@ -532,97 +520,64 @@ export const validateExpressionAgainstSchemas = (
 	validBuiltins: ReadonlySet<string>,
 	computedFieldMap: Map<string, ViewComputedField> = new Map(),
 ): void => {
-	if (expression.type === "literal") {
-		return;
-	}
+	match(expression)
+		.with({ type: "literal" }, () => undefined)
+		.with({ type: "reference" }, (expr) => {
+			if (expr.reference.type === "computed-field") {
+				getComputedFieldOrThrow(computedFieldMap, expr.reference.key);
+				return;
+			}
 
-	if (expression.type === "reference") {
-		if (expression.reference.type === "computed-field") {
-			getComputedFieldOrThrow(computedFieldMap, expression.reference.key);
+			validateRuntimeReferenceAgainstSchemas(expr.reference, context, validBuiltins);
+		})
+		.with({ type: "arithmetic" }, (expr) => {
+			validateExpressionAgainstSchemas(expr.left, context, validBuiltins, computedFieldMap);
+			validateExpressionAgainstSchemas(expr.right, context, validBuiltins, computedFieldMap);
+			inferViewExpressionType({ context, expression: expr, computedFieldMap });
+		})
+		.with(
+			{ type: "round" },
+			{ type: "floor" },
+			{ type: "integer" },
+			{ type: "transform" },
+			(expr) => {
+				validateExpressionAgainstSchemas(expr.expression, context, validBuiltins, computedFieldMap);
+				inferViewExpressionType({ context, expression: expr, computedFieldMap });
+			},
+		)
+		.with({ type: "conditional" }, (expr) => {
+			validateViewPredicateAgainstSchemas({
+				context,
+				predicate: expr.condition,
+				computedFields: [...computedFieldMap.values()],
+				validBuiltins,
+				validateExpression: (predicateExpression) =>
+					context.requirePrimaryEventSchemaSlug
+						? validateStrictPrimaryEventRefsInExpression(
+								predicateExpression,
+								context,
+								validBuiltins,
+								computedFieldMap,
+							)
+						: validateExpressionAgainstSchemas(
+								predicateExpression,
+								context,
+								validBuiltins,
+								computedFieldMap,
+							),
+			});
+			validateExpressionAgainstSchemas(expr.whenTrue, context, validBuiltins, computedFieldMap);
+			validateExpressionAgainstSchemas(expr.whenFalse, context, validBuiltins, computedFieldMap);
+			inferViewExpressionType({ context, expression: expr, computedFieldMap });
+		})
+		.with({ type: "coalesce" }, { type: "concat" }, (expr) => {
+			for (const value of expr.values) {
+				validateExpressionAgainstSchemas(value, context, validBuiltins, computedFieldMap);
+			}
 
-			return;
-		}
-
-		validateRuntimeReferenceAgainstSchemas(expression.reference, context, validBuiltins);
-		return;
-	}
-
-	if (expression.type === "arithmetic") {
-		validateExpressionAgainstSchemas(expression.left, context, validBuiltins, computedFieldMap);
-		validateExpressionAgainstSchemas(expression.right, context, validBuiltins, computedFieldMap);
-		inferViewExpressionType({
-			context,
-			expression,
-			computedFieldMap,
-		});
-		return;
-	}
-
-	if (
-		expression.type === "round" ||
-		expression.type === "floor" ||
-		expression.type === "integer" ||
-		expression.type === "transform"
-	) {
-		validateExpressionAgainstSchemas(
-			expression.expression,
-			context,
-			validBuiltins,
-			computedFieldMap,
-		);
-		inferViewExpressionType({
-			context,
-			expression,
-			computedFieldMap,
-		});
-		return;
-	}
-
-	if (expression.type === "conditional") {
-		validateViewPredicateAgainstSchemas({
-			context,
-			predicate: expression.condition,
-			computedFields: [...computedFieldMap.values()],
-			validBuiltins,
-			validateExpression: (predicateExpression) =>
-				context.requirePrimaryEventSchemaSlug
-					? validateStrictPrimaryEventRefsInExpression(
-							predicateExpression,
-							context,
-							validBuiltins,
-							computedFieldMap,
-						)
-					: validateExpressionAgainstSchemas(
-							predicateExpression,
-							context,
-							validBuiltins,
-							computedFieldMap,
-						),
-		});
-		validateExpressionAgainstSchemas(expression.whenTrue, context, validBuiltins, computedFieldMap);
-		validateExpressionAgainstSchemas(
-			expression.whenFalse,
-			context,
-			validBuiltins,
-			computedFieldMap,
-		);
-		inferViewExpressionType({
-			context,
-			expression,
-			computedFieldMap,
-		});
-		return;
-	}
-
-	for (const value of expression.values) {
-		validateExpressionAgainstSchemas(value, context, validBuiltins, computedFieldMap);
-	}
-
-	inferViewExpressionType({
-		context,
-		expression,
-		computedFieldMap,
-	});
+			inferViewExpressionType({ context, expression: expr, computedFieldMap });
+		})
+		.exhaustive();
 };
 
 const validateComputedFields = (input: {
@@ -985,22 +940,12 @@ export const validateQueryEngineReferences = (
 	request: QueryEngineRequest,
 	context: QueryEngineReferenceContext<ValidationSchemaRow, ValidationEventJoinRow>,
 ): void => {
-	if (request.mode === "entities") {
-		validateEntityQueryEngineReferences(request, context);
-		return;
-	}
-
-	if (request.mode === "events") {
-		validateEventsQueryEngineReferences(request, context);
-		return;
-	}
-
-	if (request.mode === "timeSeries") {
-		validateTimeSeriesQueryEngineReferences(request, context);
-		return;
-	}
-
-	validateAggregateQueryEngineReferences(request, context);
+	match(request)
+		.with({ mode: "entities" }, (req) => validateEntityQueryEngineReferences(req, context))
+		.with({ mode: "events" }, (req) => validateEventsQueryEngineReferences(req, context))
+		.with({ mode: "timeSeries" }, (req) => validateTimeSeriesQueryEngineReferences(req, context))
+		.with({ mode: "aggregate" }, (req) => validateAggregateQueryEngineReferences(req, context))
+		.exhaustive();
 };
 
 export const validateSavedViewDisplayConfiguration = (
