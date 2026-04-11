@@ -4,6 +4,7 @@ import {
 	gt,
 	gte,
 	inArray,
+	isNotNull,
 	isNull,
 	lt,
 	lte,
@@ -145,6 +146,7 @@ const buildFilterOperationClause = (
 ) =>
 	match(filter)
 		.with({ op: "isNull" }, () => isNull(expression))
+		.with({ op: "isNotNull" }, () => isNotNull(expression))
 		.with({ op: "eq" }, ({ value }) => eq(expression, value))
 		.with({ op: "neq" }, ({ value }) => ne(expression, value))
 		.with({ op: "gt" }, ({ value }) => gt(expression, value))
