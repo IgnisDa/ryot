@@ -1,10 +1,8 @@
 import { Button, Group, Modal, Stack, Text } from "@mantine/core";
 import type { AppSchema } from "@ryot/ts-utils";
-import { zodNonEmptyTrimmedString } from "@ryot/ts-utils";
 import { z } from "zod";
 import {
 	buildPropertiesSchema,
-	isPropertySchemaRowsValid,
 	type PropertySchemaRow,
 	propertySchemaTypes,
 } from "#/features/property-schemas/form";
@@ -16,17 +14,12 @@ const collectionPropertyRowSchema = z.object({
 	key: z.string(),
 	required: z.boolean(),
 	type: z.enum(propertySchemaTypes),
-	label: zodNonEmptyTrimmedString("Label is required"),
+	label: z.string().min(1, "Label is required"),
 });
 
 const createCollectionFormSchema = z.object({
-	name: zodNonEmptyTrimmedString,
-	properties: z
-		.array(collectionPropertyRowSchema)
-		.refine(
-			(rows) => rows.length === 0 || isPropertySchemaRowsValid(rows),
-			"Properties must have unique, non-empty keys",
-		),
+	properties: z.array(collectionPropertyRowSchema),
+	name: z.string().min(1, "Name is required"),
 });
 
 export type CreateCollectionFormPayload = {
