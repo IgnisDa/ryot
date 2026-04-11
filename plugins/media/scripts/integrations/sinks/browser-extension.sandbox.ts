@@ -1,14 +1,14 @@
 import { defineManifest, defineScript } from "@ryot/sandbox-sdk/driver";
 import { Effect } from "@ryot/sandbox-sdk/effect";
 
+import { MediaIntegrationAdapterResult } from "../../../imports/schemas";
+import { resolvedMediaRef } from "../../../imports/source-helpers";
 import {
-	AdapterResult,
 	emptyResult,
 	failureResult,
 	jsonRecord,
 	progressResult,
-	resolvedRef,
-	showLocator,
+	showEpisodeRef,
 	SinkInput,
 	specifics,
 } from "../shared";
@@ -46,7 +46,7 @@ const hostname = (url?: string) => {
 export default defineScript({
 	manifest,
 	input: SinkInput,
-	output: AdapterResult,
+	output: MediaIntegrationAdapterResult,
 	run: (input, host) =>
 		host.getIntegration().pipe(
 			Effect.flatMap((integration) =>
@@ -86,16 +86,19 @@ export default defineScript({
 					}
 					const locator =
 						lot === "show"
-							? showLocator(Number(data["show_season_number"]), Number(data["show_episode_number"]))
+							? showEpisodeRef(
+									Number(data["show_season_number"]),
+									Number(data["show_episode_number"]),
+								)
 							: undefined;
 					if (lot === "show" && !locator) {
 						return failureResult("Browser extension payload is missing show episode coordinates");
 					}
 					return progressResult({
-						entityRef: resolvedRef(lot, "tmdb", id, id),
+						entityRef: resolvedMediaRef(lot, "tmdb", id, id),
 						progressPercent: progress,
 						consumedOn: hostname(url),
-						...(locator ? { episodeLocator: locator } : {}),
+						...(locator ? { unresolvedEpisode: locator } : {}),
 					});
 				}).pipe(
 					Effect.orElseSucceed(() =>
