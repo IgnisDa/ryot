@@ -21,7 +21,7 @@ import {
 	buildInputSummary,
 	buildSourcePayload,
 	getImportSourceStartError,
-	getAllowedExtensionsForSource,
+	getImportSourceFileInputs,
 } from "./runtime/source-definitions";
 import type {
 	CreateImportRunBody,
@@ -37,6 +37,14 @@ export type ImportServiceResult<T> = ServiceResult<T, ImportServiceError>;
 export const isTerminalStatus = (status: ImportRunStatus): boolean =>
 	status === "completed" || status === "failed";
 
+const cleanupFilePaths = async (filePaths: string[]) => {
+	// oxlint-disable no-await-in-loop
+	for (const filePath of new Set(filePaths)) {
+		await cleanupImportFile(filePath);
+	}
+	// oxlint-enable no-await-in-loop
+};
+
 export const startImportRun = async (input: {
 	userId: string;
 	body: CreateImportRunBody;
@@ -47,30 +55,54 @@ export const startImportRun = async (input: {
 	}
 
 	const inputSummary = buildInputSummary(input.body);
-	const allowedExtensions = getAllowedExtensionsForSource(input.body.source);
+	const sourceFileInputs = getImportSourceFileInputs(input.body);
 
-	if (allowedExtensions) {
-		if (!("uploadToken" in input.body)) {
-			return serviceError("validation", "Import source requires an upload token");
-		}
-
+	if (sourceFileInputs.length > 0) {
+		const queuedFilePaths: string[] = [];
+		const claimedFilePaths: string[] = [];
 		const tempDir = getTemporaryDirectory();
+		const sourcePayload = buildSourcePayload(input.body) ?? {};
 
-		const claimResult = await claimUploadToken(input.body.uploadToken, input.userId);
-		if ("error" in claimResult) {
-			return serviceError("validation", claimResult.error);
+		// oxlint-disable no-await-in-loop
+		for (const sourceFileInput of sourceFileInputs) {
+			if (!sourceFileInput.uploadToken) {
+				if (sourceFileInput.required === false) {
+					continue;
+				}
+				await cleanupFilePaths(claimedFilePaths);
+				return serviceError("validation", "Import source requires an upload token");
+			}
+
+			const claimResult = await claimUploadToken(sourceFileInput.uploadToken, input.userId);
+			if ("error" in claimResult) {
+				await cleanupFilePaths(claimedFilePaths);
+				return serviceError("validation", claimResult.error);
+			}
+			claimedFilePaths.push(claimResult.resolvedPath);
+
+			const safePathResult = resolveSafeImportFilePath(claimResult.resolvedPath, tempDir);
+			if ("error" in safePathResult) {
+				await cleanupFilePaths(claimedFilePaths);
+				return serviceError("validation", safePathResult.error);
+			}
+			const safePath = safePathResult.path;
+			claimedFilePaths[claimedFilePaths.length - 1] = safePath;
+
+			const extResult = validateFileExtension(safePath, sourceFileInput.allowedExtensions);
+			if ("error" in extResult) {
+				await cleanupFilePaths(claimedFilePaths);
+				return serviceError("validation", extResult.error);
+			}
+
+			queuedFilePaths.push(safePath);
+			if (sourceFileInput.payloadKey) {
+				sourcePayload[sourceFileInput.payloadKey] = safePath;
+			}
 		}
+		// oxlint-enable no-await-in-loop
 
-		const safePathResult = resolveSafeImportFilePath(claimResult.resolvedPath, tempDir);
-		if ("error" in safePathResult) {
-			await cleanupImportFile(claimResult.resolvedPath);
-			return serviceError("validation", safePathResult.error);
-		}
-
-		const extResult = validateFileExtension(safePathResult.path, allowedExtensions);
-		if ("error" in extResult) {
-			await cleanupImportFile(safePathResult.path);
-			return serviceError("validation", extResult.error);
+		if (queuedFilePaths.length === 0) {
+			return serviceError("validation", "Import source requires at least one upload token");
 		}
 
 		const run = await createImportRun({
@@ -83,11 +115,12 @@ export const startImportRun = async (input: {
 			await getQueues().importQueue.add(importRunJobName, {
 				runId: run.id,
 				userId: input.userId,
-				filePath: safePathResult.path,
+				filePath: queuedFilePaths[0],
+				...(Object.keys(sourcePayload).length > 0 ? { sourcePayload } : {}),
 			});
 		} catch {
 			await failImportRun(run.id, "Failed to enqueue import job");
-			await cleanupImportFile(safePathResult.path);
+			await cleanupFilePaths(claimedFilePaths);
 			return serviceError("validation", "Could not queue the import job; please try again");
 		}
 

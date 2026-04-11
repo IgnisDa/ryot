@@ -460,9 +460,9 @@ sources before porting every adapter.
 
 ## Tasks
 
-**Overall Progress:** 8 of 12 tasks completed
+**Overall Progress:** 9 of 12 tasks completed
 
-**Current Task:** [Task 09](./09-file-based-media-source-adapters.md) (todo)
+**Current Task:** [Task 10](./10-api-media-source-adapters.md) (todo)
 
 ### Task List
 
@@ -476,7 +476,7 @@ sources before porting every adapter.
 | 06  | [Canonical Runtime Write Paths Cleanup](./06-canonical-runtime-write-paths-cleanup.md) | AFK  | done   |
 | 07  | [Workout Import Tracer Bullet](./07-workout-import-tracer-bullet.md)                   | AFK  | done   |
 | 08  | [Book CSV Source Adapters](./08-book-csv-source-adapters.md)                           | AFK  | done   |
-| 09  | [File-Based Media Source Adapters](./09-file-based-media-source-adapters.md)           | AFK  | todo   |
+| 09  | [File-Based Media Source Adapters](./09-file-based-media-source-adapters.md)           | AFK  | done   |
 | 10  | [API Media Source Adapters](./10-api-media-source-adapters.md)                         | AFK  | todo   |
 | 11  | [Netflix ZIP Import Adapter](./11-netflix-zip-import-adapter.md)                       | AFK  | todo   |
 | 12  | [Codebase Cleanup](./12-codebase-cleanup.md)                                           | AFK  | todo   |

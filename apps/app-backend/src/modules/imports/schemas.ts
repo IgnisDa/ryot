@@ -40,12 +40,18 @@ export const importRunFailureStage = z.enum([
 export type ImportRunFailureStage = z.infer<typeof importRunFailureStage>;
 
 export const fileImportRunSources = [
+	"anilist",
 	"hevy",
+	"igdb",
+	"imdb",
+	"grouvee",
 	"goodreads",
 	"hardcover",
+	"myanimelist",
 	"open_scale",
 	"strong_app",
 	"storygraph",
+	"watcharr",
 ] as const;
 
 const uploadTokenRunInput = <Source extends (typeof fileImportRunSources)[number]>(
@@ -70,6 +76,30 @@ export type HardcoverRunInput = z.infer<typeof hardcoverRunInput>;
 export const storygraphRunInput = uploadTokenRunInput("storygraph");
 export type StorygraphRunInput = z.infer<typeof storygraphRunInput>;
 
+export const imdbRunInput = uploadTokenRunInput("imdb");
+export type ImdbRunInput = z.infer<typeof imdbRunInput>;
+
+export const grouveeRunInput = uploadTokenRunInput("grouvee");
+export type GrouveeRunInput = z.infer<typeof grouveeRunInput>;
+
+export const anilistRunInput = uploadTokenRunInput("anilist");
+export type AnilistRunInput = z.infer<typeof anilistRunInput>;
+
+export const watcharrRunInput = uploadTokenRunInput("watcharr");
+export type WatcharrRunInput = z.infer<typeof watcharrRunInput>;
+
+export const igdbRunInput = uploadTokenRunInput("igdb").extend({
+	collection: nonEmptyStringSchema,
+});
+export type IgdbRunInput = z.infer<typeof igdbRunInput>;
+
+export const myanimelistRunInput = z.object({
+	source: z.literal("myanimelist"),
+	animeUploadToken: nonEmptyStringSchema.optional(),
+	mangaUploadToken: nonEmptyStringSchema.optional(),
+});
+export type MyanimelistRunInput = z.infer<typeof myanimelistRunInput>;
+
 export const traktRunInput = z.object({
 	username: nonEmptyStringSchema,
 	source: z.literal("trakt"),
@@ -78,12 +108,18 @@ export type TraktRunInput = z.infer<typeof traktRunInput>;
 
 export const createImportRunBody = z.discriminatedUnion("source", [
 	hevyRunInput,
+	igdbRunInput,
+	imdbRunInput,
 	traktRunInput,
+	anilistRunInput,
+	grouveeRunInput,
+	watcharrRunInput,
 	openScaleRunInput,
 	goodreadsRunInput,
 	hardcoverRunInput,
 	strongAppRunInput,
 	storygraphRunInput,
+	myanimelistRunInput,
 ]);
 export type CreateImportRunBody = z.infer<typeof createImportRunBody>;
 
