@@ -1,5 +1,5 @@
 import type { AppPropertyDefinition, AppSchema } from "@ryot/ts-utils";
-import { ViewRuntimeValidationError } from "./errors";
+import { QueryEngineValidationError } from "./errors";
 import type { RuntimeRef } from "./expression";
 
 export type PropertyType = AppPropertyDefinition["type"];
@@ -8,12 +8,12 @@ const eventReferencePrefix = "event";
 const entityReferencePrefix = "entity";
 const computedReferencePrefix = "computed";
 
-export type ViewRuntimeSchemaLike = {
+export type QueryEngineSchemaLike = {
 	slug: string;
 	propertiesSchema: AppSchema;
 };
 
-export type ViewRuntimeEventSchemaLike = {
+export type QueryEngineEventSchemaLike = {
 	id: string;
 	slug: string;
 	entitySchemaId: string;
@@ -21,8 +21,8 @@ export type ViewRuntimeEventSchemaLike = {
 	propertiesSchema: AppSchema;
 };
 
-export type ViewRuntimeEventJoinLike<
-	TEventSchema extends ViewRuntimeEventSchemaLike = ViewRuntimeEventSchemaLike,
+export type QueryEngineEventJoinLike<
+	TEventSchema extends QueryEngineEventSchemaLike = QueryEngineEventSchemaLike,
 > = {
 	key: string;
 	kind: "latestEvent";
@@ -31,9 +31,9 @@ export type ViewRuntimeEventJoinLike<
 	eventSchemaMap: Map<string, TEventSchema>;
 };
 
-export type ViewRuntimeReferenceContext<
-	TSchema extends ViewRuntimeSchemaLike = ViewRuntimeSchemaLike,
-	TJoin extends ViewRuntimeEventJoinLike = ViewRuntimeEventJoinLike,
+export type QueryEngineReferenceContext<
+	TSchema extends QueryEngineSchemaLike = QueryEngineSchemaLike,
+	TJoin extends QueryEngineEventJoinLike = QueryEngineEventJoinLike,
 > = {
 	schemaMap: Map<string, TSchema>;
 	eventJoinMap: Map<string, TJoin>;
@@ -202,23 +202,23 @@ export const resolveRuntimeReference = (reference: string): RuntimeRef => {
 			return parseFieldPath(reference);
 		}
 	} catch (error) {
-		throw new ViewRuntimeValidationError(
+		throw new QueryEngineValidationError(
 			error instanceof Error ? error.message : "Invalid field reference",
 		);
 	}
 
-	throw new ViewRuntimeValidationError(
+	throw new QueryEngineValidationError(
 		"Explicit field references are required",
 	);
 };
 
-export const getSchemaForReference = <TSchema extends ViewRuntimeSchemaLike>(
+export const getSchemaForReference = <TSchema extends QueryEngineSchemaLike>(
 	schemaMap: Map<string, TSchema>,
 	reference: Extract<RuntimeRef, { slug: string }>,
 ): TSchema => {
 	const foundSchema = schemaMap.get(reference.slug);
 	if (!foundSchema) {
-		throw new ViewRuntimeValidationError(
+		throw new QueryEngineValidationError(
 			`Schema '${reference.slug}' is not part of this runtime request`,
 		);
 	}
@@ -227,7 +227,7 @@ export const getSchemaForReference = <TSchema extends ViewRuntimeSchemaLike>(
 };
 
 export const getEventJoinForReference = <
-	TJoin extends ViewRuntimeEventJoinLike,
+	TJoin extends QueryEngineEventJoinLike,
 >(
 	eventJoinMap: Map<string, TJoin>,
 	reference:
@@ -236,7 +236,7 @@ export const getEventJoinForReference = <
 ): TJoin => {
 	const foundJoin = eventJoinMap.get(reference.joinKey);
 	if (!foundJoin) {
-		throw new ViewRuntimeValidationError(
+		throw new QueryEngineValidationError(
 			`Event join '${formatEventJoinReferencePrefix(reference.joinKey)}' is not part of this runtime request`,
 		);
 	}
@@ -245,7 +245,7 @@ export const getEventJoinForReference = <
 };
 
 export const getEventJoinPropertyDefinition = <
-	TJoin extends ViewRuntimeEventJoinLike,
+	TJoin extends QueryEngineEventJoinLike,
 >(
 	join: TJoin,
 	propertyName: string,
@@ -253,7 +253,7 @@ export const getEventJoinPropertyDefinition = <
 	const definitions = join.eventSchemas.map((schema) => {
 		const property = schema.propertiesSchema.fields[propertyName];
 		if (!property) {
-			throw new ViewRuntimeValidationError(
+			throw new QueryEngineValidationError(
 				`Property '${propertyName}' not found in event schema '${schema.slug}' for join '${join.key}'`,
 			);
 		}
@@ -269,7 +269,7 @@ export const getEventJoinPropertyDefinition = <
 	const firstSerialized = stringifyPropertyDefinition(firstDefinition);
 	for (const definition of rest) {
 		if (stringifyPropertyDefinition(definition) !== firstSerialized) {
-			throw new ViewRuntimeValidationError(
+			throw new QueryEngineValidationError(
 				`Property '${propertyName}' has incompatible definitions across event schemas for join '${join.key}'`,
 			);
 		}
@@ -279,7 +279,7 @@ export const getEventJoinPropertyDefinition = <
 };
 
 export const getEventJoinPropertyType = <
-	TJoin extends ViewRuntimeEventJoinLike,
+	TJoin extends QueryEngineEventJoinLike,
 >(
 	join: TJoin,
 	propertyName: string,
