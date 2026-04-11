@@ -1,0 +1,263 @@
+function parseJsonResponse(responseBody) {
+  try {
+    return JSON.parse(responseBody);
+  } catch {
+    throw new Error("MusicBrainz returned invalid JSON");
+  }
+}
+
+function getString(value) {
+  return typeof value === "string" ? value.trim() : "";
+}
+
+function getNullableString(value) {
+  const s = getString(value);
+  return s || null;
+}
+
+function getPublishYear(dateStr) {
+  const s = getNullableString(dateStr);
+  if (!s) {
+    return null;
+  }
+
+  const year = parseInt(s.slice(0, 4), 10);
+  return Number.isFinite(year) && year > 0 ? year : null;
+}
+
+const MB_BASE = "https://musicbrainz.org/ws/2";
+const MB_HEADERS = {
+  "User-Agent": "Ryot/1.0 ( https://github.com/ignisda/ryot )",
+  Accept: "application/json",
+};
+
+async function mbGet(path, params) {
+  const search = new URLSearchParams({ fmt: "json", ...params });
+  const url = `${MB_BASE}/${path}?${search.toString()}`;
+  const response = await httpCall("GET", url, { headers: MB_HEADERS });
+  if (!response?.success) {
+    if (response?.data?.status === 404) {
+      return null;
+    }
+    throw new Error(response?.error ?? `MusicBrainz request failed: ${path}`);
+  }
+
+  return parseJsonResponse(response.data.body);
+}
+
+async function fetchCoverArtJson(resourceType, resourceId) {
+  const url = `https://coverartarchive.org/${resourceType}/${resourceId}`;
+  const response = await httpCall("GET", url, {
+    headers: {
+      "User-Agent": "Ryot/1.0 ( https://github.com/ignisda/ryot )",
+      Accept: "application/json",
+    },
+  });
+
+  if (!response?.success) {
+    return null;
+  }
+
+  try {
+    const data = parseJsonResponse(response.data.body);
+    if (!data || !Array.isArray(data.images)) {
+      return null;
+    }
+
+    const frontImage =
+      data.images.find((img) => img.front === true) || data.images[0];
+    if (!frontImage) {
+      return null;
+    }
+
+    const t = frontImage.thumbnails || {};
+    return (
+      getNullableString(t["1200"]) ||
+      getNullableString(t["500"]) ||
+      getNullableString(t["250"]) ||
+      getNullableString(t.large) ||
+      getNullableString(t.small) ||
+      getNullableString(frontImage.image)
+    );
+  } catch {
+    return null;
+  }
+}
+
+async function findCoverArtFromReleases(releases) {
+  if (!Array.isArray(releases) || releases.length === 0) {
+    return null;
+  }
+
+  for (const release of releases.slice(0, 3)) {
+    const releaseId = getString(release?.id);
+    if (!releaseId) {
+      continue;
+    }
+
+    const url = await fetchCoverArtJson("release", releaseId);
+    if (url) {
+      return url;
+    }
+  }
+
+  const seenGroups = new Set();
+  for (const release of releases.slice(0, 3)) {
+    const rg = release?.["release-group"];
+    const rgId = getString(rg?.id);
+    if (!rgId || seenGroups.has(rgId)) {
+      continue;
+    }
+
+    seenGroups.add(rgId);
+    const url = await fetchCoverArtJson("release-group", rgId);
+    if (url) {
+      return url;
+    }
+  }
+
+  return null;
+}
+
+function buildLuceneQuery(query, fields) {
+  const escaped = query.replace(/([+\-!(){}[\]^"~*?:\\/])/g, "\\$1");
+  return fields.map((f) => `${f}:(${escaped})`).join(" OR ");
+}
+
+driver("search", async function (context) {
+  const pageSize =
+    Number.isFinite(Number(context?.pageSize)) &&
+    Number(context.pageSize) > 0 &&
+    Number(context.pageSize) <= 100
+      ? Math.floor(Number(context.pageSize))
+      : 20;
+  const currentPage = Number.isFinite(Number(context?.page))
+    ? Math.max(1, Math.floor(Number(context.page)))
+    : 1;
+  const query = typeof context?.query === "string" ? context.query.trim() : "";
+
+  if (!query) {
+    throw new Error("query is required");
+  }
+
+  const luceneQuery = buildLuceneQuery(query, ["recording", "artist"]);
+  const data = await mbGet("recording", {
+    query: luceneQuery,
+    limit: String(pageSize),
+    offset: String((currentPage - 1) * pageSize),
+  });
+
+  if (!data) {
+    throw new Error("MusicBrainz recording search returned no data");
+  }
+
+  const totalItems =
+    typeof data.count === "number" ? Math.max(0, data.count) : 0;
+  const recordings = Array.isArray(data.recordings) ? data.recordings : [];
+
+  const items = recordings
+    .map((recording) => {
+      const id = getString(recording?.id);
+      if (!id) {
+        return null;
+      }
+
+      const title = getString(recording?.title) || id;
+      const publishYear = getPublishYear(recording?.["first-release-date"]);
+
+      return {
+        identifier: id,
+        badgeProperty: { kind: "null", value: null },
+        titleProperty: { kind: "text", value: title },
+        subtitleProperty:
+          publishYear === null
+            ? { kind: "null", value: null }
+            : { kind: "number", value: publishYear },
+        imageProperty: { kind: "null", value: null },
+      };
+    })
+    .filter((item) => item !== null);
+
+  return {
+    items,
+    details: {
+      totalItems,
+      nextPage: currentPage * pageSize < totalItems ? currentPage + 1 : null,
+    },
+  };
+});
+
+driver("details", async function (context) {
+  const identifier =
+    typeof context?.identifier === "string" ? context.identifier.trim() : "";
+  if (!identifier) {
+    throw new Error("identifier is required");
+  }
+
+  const data = await mbGet(`recording/${identifier}`, {
+    inc: "artists+releases+release-groups",
+  });
+
+  if (!data) {
+    throw new Error(`MusicBrainz recording not found: ${identifier}`);
+  }
+
+  const title = getString(data?.title);
+  if (!title) {
+    throw new Error("MusicBrainz recording is missing title");
+  }
+
+  const publishYear = getPublishYear(data?.["first-release-date"]);
+
+  const artistCredit = Array.isArray(data?.["artist-credit"])
+    ? data["artist-credit"]
+    : [];
+
+  const byVariousArtists =
+    artistCredit.length === 0 ? null : artistCredit.length > 1;
+
+  const people = artistCredit
+    .map((credit) => {
+      const artistId = getString(credit?.artist?.id);
+      const artistName = getString(credit?.artist?.name);
+      if (!artistId || !artistName) {
+        return null;
+      }
+
+      return {
+        role: "Artist",
+        name: artistName,
+        identifier: artistId,
+        scriptSlug: "person.musicbrainz",
+      };
+    })
+    .filter((p) => p !== null);
+
+  const releases = Array.isArray(data?.releases) ? data.releases : [];
+  const coverUrl = await findCoverArtFromReleases(releases);
+
+  const durationMs =
+    typeof data?.length === "number" && Number.isFinite(data.length)
+      ? data.length
+      : null;
+  const duration =
+    durationMs !== null ? Math.trunc(durationMs / 1000) : null;
+
+  return {
+    name: title,
+    externalId: identifier,
+    properties: {
+      genres: [],
+      isNsfw: null,
+      publishYear,
+      duration,
+      byVariousArtists,
+      people,
+      sourceUrl: `https://musicbrainz.org/recording/${identifier}`,
+      assets: { remoteImages: coverUrl ? [coverUrl] : [] },
+      description: null,
+      providerRating: null,
+      productionStatus: null,
+    },
+  };
+});
