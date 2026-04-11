@@ -1,7 +1,7 @@
 import type { SandboxRunError } from "@ryot/contract/errors";
+import type { JsonValue } from "@ryot/contract/modules/ryotql/language";
 import type { ExecutionAuthority } from "@ryot/contract/modules/sandbox/schemas";
 import type { SandboxScriptId } from "@ryot/contract/schema/brands";
-import type { JsonValue } from "@ryot/sandbox-sdk/wire";
 import { Context, type Effect } from "effect";
 import type { WorkflowEngine } from "effect/unstable/workflow/WorkflowEngine";
 

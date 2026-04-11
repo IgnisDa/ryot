@@ -12,8 +12,8 @@ import {
 	seedMediaEntity,
 	seedPopulatedProviderEntity,
 	waitForEntityPopulated,
-	type InstalledTestProvider,
 } from "~/fixtures";
+import type { InstalledTestProvider } from "~/fixtures/sandbox-provider";
 import { assertPresent } from "~/support/assertions";
 import { afterAll, beforeAll, describe, expect, it } from "~/support/effect-test";
 

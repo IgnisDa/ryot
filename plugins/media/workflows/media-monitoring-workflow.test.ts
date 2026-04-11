@@ -1,4 +1,4 @@
-import type { JsonValue } from "@ryot/sandbox-sdk/wire";
+import type { JsonValue } from "@ryot/contract/modules/ryotql/language";
 import type { WorkflowReplayEnvelope, WorkflowReplayHost } from "@ryot/sandbox-sdk/workflow";
 import { Effect, Schema } from "effect";
 import { assert, expect, it } from "vitest";
