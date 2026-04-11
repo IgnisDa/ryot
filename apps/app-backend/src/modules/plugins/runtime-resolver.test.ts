@@ -264,6 +264,10 @@ const makeLayer = (
 it.effect("resolves active schema providers and their operation-specific scripts", () =>
 	Effect.gen(function* () {
 		const resolver = yield* PluginRuntimeResolver;
+		expect(yield* resolver.findActiveProviderById(providerId)).toMatchObject({
+			id: providerId,
+			slug: "fixture-provider",
+		});
 		const schemaProvider = yield* resolver.findSchemaProviderBySlug("fixture-provider");
 		expect(schemaProvider).toMatchObject({
 			entitySchemaSlug: "fixture-entity",

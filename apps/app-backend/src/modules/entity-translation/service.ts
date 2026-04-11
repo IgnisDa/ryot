@@ -50,9 +50,8 @@ export class TranslationsService extends Context.Service<TranslationsService>()(
 					})
 					.pipe(
 						Effect.asVoid,
-						Effect.catchCause((cause) =>
-							Effect.logWarning("translation fill enqueue failed", cause),
-						),
+						Effect.tapCause((cause) => Effect.logWarning("translation fill enqueue failed", cause)),
+						Effect.orDie,
 					);
 			};
 
