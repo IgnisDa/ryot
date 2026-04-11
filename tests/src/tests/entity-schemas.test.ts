@@ -291,7 +291,7 @@ describe("POST /entity-schemas", () => {
 				name: "Hacked Schema",
 				accentColor: "#FF0000",
 				trackerId: builtinTracker.id,
-				propertiesSchema: { field: { type: "string" } },
+				propertiesSchema: { fields: { field: { type: "string" } } },
 			},
 		});
 
@@ -318,8 +318,10 @@ describe("POST /entity-schemas", () => {
 				slug: "my-schema",
 				accentColor: "#00FF00",
 				propertiesSchema: {
-					year: { type: "number" },
-					title: { type: "string" },
+					fields: {
+						year: { type: "number" },
+						title: { type: "string" },
+					},
 				},
 			},
 		});
@@ -344,7 +346,7 @@ describe("POST /entity-schemas", () => {
 				slug: "schema",
 				accentColor: "#FF0000",
 				trackerId: nonExistentId,
-				propertiesSchema: { field: { type: "string" } },
+				propertiesSchema: { fields: { field: { type: "string" } } },
 			},
 		});
 
@@ -371,7 +373,7 @@ describe("POST /entity-schemas", () => {
 				slug: "hacked",
 				name: "Hacked Schema",
 				accentColor: "#FF0000",
-				propertiesSchema: { field: { type: "string" } },
+				propertiesSchema: { fields: { field: { type: "string" } } },
 			},
 		});
 
@@ -401,7 +403,7 @@ describe("POST /entity-schemas", () => {
 				name: "Second Schema",
 				slug: "duplicate-slug",
 				accentColor: "#FF0000",
-				propertiesSchema: { field: { type: "string" } },
+				propertiesSchema: { fields: { field: { type: "string" } } },
 			},
 		});
 

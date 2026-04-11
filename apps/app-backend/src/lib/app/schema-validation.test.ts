@@ -21,7 +21,9 @@ describe("parseAppSchemaProperties", () => {
 				kind: "Entity",
 				properties: { rating: "bad" },
 				propertiesSchema: {
-					rating: createNoteAndRatingPropertiesSchema().rating,
+					fields: {
+						rating: createNoteAndRatingPropertiesSchema().fields.rating,
+					},
 				},
 			}),
 		).toThrow("Entity properties validation failed");
@@ -31,9 +33,92 @@ describe("parseAppSchemaProperties", () => {
 		expect(() =>
 			parseAppSchemaProperties({
 				kind: "Event",
-				propertiesSchema: {},
 				properties: { extra: true },
+				propertiesSchema: { fields: {} },
 			}),
 		).toThrow("Event properties validation failed");
+	});
+
+	it("applies schema transforms before returning parsed data", () => {
+		expect(
+			parseAppSchemaProperties({
+				kind: "Event",
+				properties: { progressPercent: 25.555 },
+				propertiesSchema: {
+					fields: {
+						progressPercent: {
+							type: "number",
+							transform: { round: { mode: "half_up", scale: 2 } },
+							validation: {
+								required: true,
+								exclusiveMinimum: 0,
+								exclusiveMaximum: 100,
+							},
+						},
+					},
+				},
+			}),
+		).toEqual({ progressPercent: 25.56 });
+	});
+
+	it("rejects values that fail schema range validation", () => {
+		expect(() =>
+			parseAppSchemaProperties({
+				kind: "Event",
+				properties: { rating: 6 },
+				propertiesSchema: {
+					fields: {
+						rating: {
+							type: "integer",
+							validation: { required: true, maximum: 5, minimum: 1 },
+						},
+					},
+				},
+			}),
+		).toThrow("Event properties validation failed");
+	});
+
+	it("applies conditional required rules after field parsing", () => {
+		expect(
+			parseAppSchemaProperties({
+				kind: "Entity",
+				properties: { status: "draft" },
+				propertiesSchema: {
+					fields: {
+						progressPercent: { type: "number" },
+						status: { type: "string", validation: { required: true } },
+					},
+					rules: [
+						{
+							kind: "validation",
+							path: ["progressPercent"],
+							validation: { required: true },
+							when: { operator: "eq", path: ["status"], value: "completed" },
+						},
+					],
+				},
+			}),
+		).toEqual({ status: "draft" });
+
+		expect(() =>
+			parseAppSchemaProperties({
+				kind: "Entity",
+				properties: { status: "completed" },
+				propertiesSchema: {
+					fields: {
+						progressPercent: { type: "number" },
+						status: { type: "string", validation: { required: true } },
+					},
+					rules: [
+						{
+							kind: "validation",
+							path: ["progressPercent"],
+							validation: { required: true },
+							when: { operator: "eq", path: ["status"], value: "completed" },
+						},
+					],
+				},
+			}),
+		).toThrow("Entity properties validation failed");
 	});
 });

@@ -76,47 +76,57 @@ describe("parseEntitySchemaPropertiesSchema", () => {
 		for (const input of [[], "hello", null]) {
 			if (Array.isArray(input)) {
 				expect(() => parseEntitySchemaPropertiesSchema(input)).toThrow(
-					"Invalid input: expected record, received array",
+					"Invalid input: expected object, received array",
 				);
 			} else if (input === null) {
 				expect(() => parseEntitySchemaPropertiesSchema(input)).toThrow(
-					"Invalid input: expected record, received null",
+					"Invalid input: expected object, received null",
 				);
 			} else {
 				expect(() => parseEntitySchemaPropertiesSchema(input)).toThrow(
-					"Invalid input: expected record, received string",
+					"Invalid input: expected object, received string",
 				);
 			}
 		}
 	});
 
 	it("rejects empty properties map", () => {
-		expect(() => parseEntitySchemaPropertiesSchema({})).toThrow(
+		expect(() => parseEntitySchemaPropertiesSchema({ fields: {} })).toThrow(
 			"Entity schema properties must contain at least one property",
 		);
 	});
 
 	it("rejects property without type field", () => {
 		expect(() =>
-			parseEntitySchemaPropertiesSchema({ title: { required: true } }),
+			parseEntitySchemaPropertiesSchema({
+				fields: {
+					title: { validation: { required: true } },
+				},
+			}),
 		).toThrow("Invalid input");
 	});
 
 	it("rejects property with invalid type", () => {
 		expect(() =>
-			parseEntitySchemaPropertiesSchema({ title: { type: "invalid" } }),
+			parseEntitySchemaPropertiesSchema({
+				fields: { title: { type: "invalid" } },
+			}),
 		).toThrow("Invalid input");
 	});
 
 	it("rejects array property without items", () => {
 		expect(() =>
-			parseEntitySchemaPropertiesSchema({ tags: { type: "array" } }),
+			parseEntitySchemaPropertiesSchema({
+				fields: { tags: { type: "array" } },
+			}),
 		).toThrow("Invalid input: expected object, received undefined");
 	});
 
 	it("rejects object property without properties", () => {
 		expect(() =>
-			parseEntitySchemaPropertiesSchema({ metadata: { type: "object" } }),
+			parseEntitySchemaPropertiesSchema({
+				fields: { metadata: { type: "object" } },
+			}),
 		).toThrow("Invalid input: expected record, received undefined");
 	});
 

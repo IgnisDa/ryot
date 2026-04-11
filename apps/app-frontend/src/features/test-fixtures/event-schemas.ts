@@ -9,8 +9,10 @@ export function createEventSchemaFixture(
 		slug: "reading",
 		entitySchemaId: "entity-schema-1",
 		propertiesSchema: {
-			notes: { type: "string" },
-			pages: { type: "integer", required: true },
+			fields: {
+				notes: { type: "string" },
+				pages: { type: "integer", validation: { required: true } },
+			},
 		},
 		...overrides,
 	};
