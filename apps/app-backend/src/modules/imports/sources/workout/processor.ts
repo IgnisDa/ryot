@@ -5,8 +5,8 @@ import { getBuiltinEventSchemaBySlug } from "~/modules/event-schemas";
 import { createEventsWithTriggers, parseEventProperties } from "~/modules/events";
 import type { CreateEventBulkBody } from "~/modules/events";
 
-import { createImportRunFailure, updateImportRun } from "./repository";
-import type { ImportRunFailureStage } from "./schemas";
+import { createImportRunFailure, updateImportRun } from "../../repository";
+import type { ImportRunFailureStage } from "../../schemas";
 import {
 	buildWorkoutSetEventProperties,
 	normalizeExerciseIdentityName,
@@ -15,7 +15,7 @@ import {
 	type WorkoutExerciseKind,
 	type WorkoutImportExercise,
 	type WorkoutImportItem,
-} from "./sources/workout";
+} from "./domain";
 
 const PROGRESS_UPDATE_INTERVAL = 10;
 
