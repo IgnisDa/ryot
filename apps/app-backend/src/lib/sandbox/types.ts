@@ -1,5 +1,6 @@
 import { z } from "@hono/zod-openapi";
 
+import type { JsonValue } from "~/lib/json-value";
 import { nonEmptyStringSchema, stringUnknownRecordSchema } from "~/lib/zod";
 
 import type { sandboxRunJobData } from "./jobs";
@@ -101,6 +102,6 @@ export type AppApiCallResult =
 
 export type ConfigValueResult = ApiResult<unknown>;
 
-export type CachedValueResult = ApiResult<unknown>;
+export type CachedValueResult = ApiResult<JsonValue | null>;
 
 export type CachedValueContext = { scriptId: string };

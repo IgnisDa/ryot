@@ -10,6 +10,7 @@ import { eq } from "drizzle-orm";
 import { config, IS_DEVELOPMENT } from "~/lib/config";
 import { db, schema } from "~/lib/db";
 import { redis } from "~/lib/redis";
+import { redisKeys, redisValues } from "~/lib/redis-keys";
 import { bootstrapNewUser, defaultUserPreferences } from "~/modules/builtins";
 
 import { clearPendingReset, getPendingCorrelationId } from "./password-reset";
@@ -56,8 +57,8 @@ export const auth = betterAuth({
 				}
 				const resetUrl = `${config.frontendUrl}/reset-password?token=${token}`;
 				await redis.publish(
-					`god-mode:reset:${correlationId}`,
-					JSON.stringify({ resetUrl, email: user.email }),
+					redisKeys.godMode.resetChannel(correlationId),
+					redisValues.godMode.resetChannel.stringify({ resetUrl, email: user.email }),
 				);
 				await clearPendingReset(user.email, correlationId);
 			} catch (error) {

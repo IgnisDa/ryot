@@ -1,6 +1,7 @@
 import { describe, expect, it } from "bun:test";
 
 import { redis } from "~/lib/redis";
+import { redisKeys, redisValues } from "~/lib/redis-keys";
 import { apiFailure, apiSuccess } from "~/lib/sandbox/types";
 
 import { setCachedValue } from "./set-cached-value";
@@ -25,9 +26,9 @@ describe("setCachedValue", () => {
 		try {
 			const result = await setCachedValue(ctx, "my-key", { hello: "world" }, 60);
 			expect(result).toEqual(apiSuccess(null));
-			expect(capturedKey).toBe("sandbox:cache:test-script:my-key");
+			expect(capturedKey).toBe(redisKeys.sandbox.cache("test-script", "my-key"));
 			expect(capturedExpiry).toBe(60);
-			expect(JSON.parse(capturedValue ?? "null")).toEqual({ hello: "world" });
+			expect(redisValues.sandbox.cache.parse(capturedValue ?? "null")).toEqual({ hello: "world" });
 		} finally {
 			redis.setex = originalSetex;
 		}
@@ -45,7 +46,7 @@ describe("setCachedValue", () => {
 
 		try {
 			await setCachedValue(ctx, "  trimmed-key  ", "value", 30);
-			expect(capturedKey).toBe("sandbox:cache:test-script:trimmed-key");
+			expect(capturedKey).toBe(redisKeys.sandbox.cache("test-script", "trimmed-key"));
 		} finally {
 			redis.setex = originalSetex;
 		}

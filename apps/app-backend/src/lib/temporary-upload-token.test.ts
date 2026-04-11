@@ -1,5 +1,7 @@
 import { describe, expect, it } from "bun:test";
 
+import { redisKeys, redisValues } from "~/lib/redis-keys";
+
 import {
 	claimUploadToken,
 	storeUploadToken,
@@ -38,9 +40,9 @@ describe("storeUploadToken", () => {
 
 		expect(token).toBe("tok_123");
 		expect(fakeRedis.store.size).toBe(1);
-		const entry = fakeRedis.store.get("import:upload:token:tok_123");
+		const entry = fakeRedis.store.get(redisKeys.imports.uploadToken("tok_123"));
 		expect(entry?.ttl).toBe(UPLOAD_TOKEN_TTL_SECONDS);
-		expect(JSON.parse(entry?.value ?? "{}")).toEqual({
+		expect(redisValues.imports.uploadToken.parse(entry?.value ?? "{}")).toEqual({
 			userId: "user_1",
 			resolvedPath: "/tmp/ryot/abc.csv",
 		});
@@ -71,7 +73,7 @@ describe("claimUploadToken", () => {
 		const result = await claimUploadToken(token, "user_1", { redis: fakeRedis });
 
 		expect(result).toEqual({ resolvedPath: "/tmp/ryot/abc.csv" });
-		expect(fakeRedis.store.has("import:upload:token:tok_abc")).toBe(false);
+		expect(fakeRedis.store.has(redisKeys.imports.uploadToken("tok_abc"))).toBe(false);
 	});
 
 	it("is single-use: a second claim returns an error", async () => {
@@ -97,7 +99,7 @@ describe("claimUploadToken", () => {
 		const result = await claimUploadToken(token, "user_2", { redis: fakeRedis });
 
 		expect(result).toEqual({ error: "Upload token does not belong to this user" });
-		expect(fakeRedis.store.has("import:upload:token:tok_owned")).toBe(false);
+		expect(fakeRedis.store.has(redisKeys.imports.uploadToken("tok_owned"))).toBe(false);
 	});
 
 	it("returns an error for an unknown token", async () => {
@@ -109,11 +111,14 @@ describe("claimUploadToken", () => {
 
 	it("returns an error for a corrupted token value", async () => {
 		const fakeRedis = createFakeRedis();
-		fakeRedis.store.set("import:upload:token:tok_corrupt", { value: "not-json{{", ttl: 900 });
+		fakeRedis.store.set(redisKeys.imports.uploadToken("tok_corrupt"), {
+			ttl: 900,
+			value: "not-json{{",
+		});
 
 		const result = await claimUploadToken("tok_corrupt", "user_1", { redis: fakeRedis });
 
 		expect(result).toEqual({ error: "Upload token is invalid or has expired" });
-		expect(fakeRedis.store.has("import:upload:token:tok_corrupt")).toBe(false);
+		expect(fakeRedis.store.has(redisKeys.imports.uploadToken("tok_corrupt"))).toBe(false);
 	});
 });
