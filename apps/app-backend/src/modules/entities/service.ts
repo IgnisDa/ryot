@@ -21,8 +21,10 @@ import {
 	findEntityByExternalIdForUser,
 	getEntityByIdForUser,
 	getEntitySchemaScopeForUser,
+	getUserLibraryEntityId,
 	getEntityScopeForUser,
 	insertRelationship,
+	upsertInLibraryRelationship,
 	upsertEntityRelationship,
 } from "./repository";
 import type {
@@ -33,6 +35,7 @@ import type {
 } from "./schemas";
 
 type EntityMutationError = "not_found" | "validation";
+type EntityLibraryMembershipError = "validation";
 
 export type EntityServiceDeps = {
 	createEntityForUser: typeof createEntityForUser;
@@ -43,6 +46,11 @@ export type EntityServiceDeps = {
 };
 
 export type EntityServiceResult<T> = ServiceResult<T, EntityMutationError>;
+
+export type EnsureEntityInLibraryDeps = {
+	getUserLibraryEntityId: typeof getUserLibraryEntityId;
+	upsertInLibraryRelationship: typeof upsertInLibraryRelationship;
+};
 
 const entityProvenanceUniqueConstraint = "entity_user_schema_script_external_id_unique";
 const entityNotFoundError = "Entity not found";
@@ -57,6 +65,11 @@ const entityServiceDeps: EntityServiceDeps = {
 	getEntityScopeForUser,
 	getEntitySchemaScopeForUser,
 	findEntityByExternalIdForUser,
+};
+
+const ensureEntityInLibraryDeps: EnsureEntityInLibraryDeps = {
+	getUserLibraryEntityId,
+	upsertInLibraryRelationship,
 };
 
 const resolveEntityIdResult = (entityId: string) =>
@@ -127,20 +140,10 @@ const resolveEntityCreateInputResult = (
 	},
 ) => wrapServiceValidator(() => resolveEntityCreateInput(input), "Entity payload is invalid");
 
-export const upsertInLibraryIfGlobal = async (
-	input: { userId: string; entityId: string; entityUserId: string | null },
-	deps: {
-		getUserLibraryEntityId: (input: { userId: string }) => Promise<string | undefined>;
-		upsertInLibraryRelationship: (input: {
-			userId: string;
-			mediaEntityId: string;
-			libraryEntityId: string;
-		}) => Promise<void>;
-	},
-) => {
-	if (input.entityUserId !== null) {
-		return undefined;
-	}
+export const ensureEntityInLibrary = async (
+	input: { userId: string; entityId: string },
+	deps: EnsureEntityInLibraryDeps = ensureEntityInLibraryDeps,
+): Promise<ServiceResult<void, EntityLibraryMembershipError>> => {
 	const libraryEntityId = await deps.getUserLibraryEntityId({
 		userId: input.userId,
 	});
@@ -150,10 +153,10 @@ export const upsertInLibraryIfGlobal = async (
 	await deps.upsertInLibraryRelationship({
 		libraryEntityId,
 		userId: input.userId,
-		mediaEntityId: input.entityId,
+		entityId: input.entityId,
 	});
 
-	return undefined;
+	return serviceData(undefined);
 };
 
 export const getEntityDetail = async (

@@ -432,12 +432,8 @@ describe("createEvent", () => {
 		});
 	});
 
-	it("upserts in-library before creating an event for a global entity", async () => {
-		const calls: Array<{
-			userId: string;
-			mediaEntityId: string;
-			libraryEntityId: string;
-		}> = [];
+	it("ensures in-library before creating an event for a global entity", async () => {
+		const calls: Array<{ userId: string; entityId: string }> = [];
 
 		const result = await createEvent(
 			{ body: createEventBody(), userId: "user_1" },
@@ -450,26 +446,19 @@ describe("createEvent", () => {
 							eventSchemaId: input.eventSchemaId,
 						}),
 					),
-				getUserLibraryEntityId: () => Promise.resolve("library_123"),
-				upsertInLibraryRelationship: (input) => {
+				ensureEntityInLibrary: (input) => {
 					calls.push(input);
-					return Promise.resolve();
+					return Promise.resolve({ data: undefined });
 				},
 			}),
 		);
 
 		expect(result).toEqual({ data: expect.anything() });
-		expect(calls).toEqual([
-			{
-				userId: "user_1",
-				mediaEntityId: "entity_1",
-				libraryEntityId: "library_123",
-			},
-		]);
+		expect(calls).toEqual([{ userId: "user_1", entityId: "entity_1" }]);
 	});
 
 	it("still succeeds for a global entity when in-library already exists", async () => {
-		let upsertCalls = 0;
+		let ensureCalls = 0;
 
 		const result = await createEvent(
 			{ body: createEventBody(), userId: "user_1" },
@@ -482,26 +471,26 @@ describe("createEvent", () => {
 							eventSchemaId: input.eventSchemaId,
 						}),
 					),
-				upsertInLibraryRelationship: () => {
-					upsertCalls++;
-					return Promise.resolve();
+				ensureEntityInLibrary: () => {
+					ensureCalls++;
+					return Promise.resolve({ data: undefined });
 				},
 			}),
 		);
 
 		expect(result).toEqual({ data: expect.anything() });
-		expect(upsertCalls).toBe(1);
+		expect(ensureCalls).toBe(1);
 	});
 
-	it("does not upsert in-library for a user-owned entity", async () => {
-		let upsertCalls = 0;
+	it("does not ensure in-library for a user-owned entity", async () => {
+		let ensureCalls = 0;
 
 		const result = await createEvent(
 			{ body: createEventBody(), userId: "user_1" },
 			createEventDeps({
-				upsertInLibraryRelationship: () => {
-					upsertCalls++;
-					return Promise.resolve();
+				ensureEntityInLibrary: () => {
+					ensureCalls++;
+					return Promise.resolve({ data: undefined });
 				},
 				getEventCreateScopeForUser: (input) =>
 					Promise.resolve(
@@ -515,7 +504,7 @@ describe("createEvent", () => {
 		);
 
 		expect(result).toEqual({ data: expect.anything() });
-		expect(upsertCalls).toBe(0);
+		expect(ensureCalls).toBe(0);
 	});
 
 	it("fails clearly when a global entity event is created without a library entity", async () => {
@@ -530,7 +519,8 @@ describe("createEvent", () => {
 							eventSchemaId: input.eventSchemaId,
 						}),
 					),
-				getUserLibraryEntityId: () => Promise.resolve(undefined),
+				ensureEntityInLibrary: () =>
+					Promise.resolve({ error: "validation", message: "User library entity not found" }),
 			}),
 		);
 
@@ -540,18 +530,15 @@ describe("createEvent", () => {
 		});
 	});
 
-	it("does not upsert in-library when payload validation fails for a global entity", async () => {
-		let upsertCalls = 0;
+	it("does not ensure in-library when payload validation fails for a global entity", async () => {
+		let ensureCalls = 0;
 
 		const result = await createEvent(
-			{
-				userId: "user_1",
-				body: createEventBody({ properties: { note: "Missing rating" } }),
-			},
+			{ userId: "user_1", body: createEventBody({ properties: { note: "Missing rating" } }) },
 			createEventDeps({
-				upsertInLibraryRelationship: () => {
-					upsertCalls++;
-					return Promise.resolve();
+				ensureEntityInLibrary: () => {
+					ensureCalls++;
+					return Promise.resolve({ data: undefined });
 				},
 				getEventCreateScopeForUser: (input) =>
 					Promise.resolve(
@@ -568,7 +555,7 @@ describe("createEvent", () => {
 			error: "validation",
 			message: expect.stringContaining("Event payload is invalid"),
 		});
-		expect(upsertCalls).toBe(0);
+		expect(ensureCalls).toBe(0);
 	});
 
 	it("returns validation when the event schema belongs to another entity schema", async () => {

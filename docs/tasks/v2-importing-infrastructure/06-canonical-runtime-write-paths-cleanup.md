@@ -4,7 +4,7 @@
 
 **Type:** AFK
 
-**Status:** todo
+**Status:** done
 
 ## What to build
 
@@ -32,19 +32,19 @@ This task is not about import idempotency. Running imports multiple times may cr
 
 ## Acceptance criteria
 
-- [ ] `apps/app-backend/src/modules/media/worker.ts` and `apps/app-backend/src/modules/media/jobs.ts` are deleted if no runtime code uses them.
-- [ ] Test fixtures and unit tests that only supported the dead media worker are deleted or moved to the canonical entity/provider-population tests.
-- [ ] Runtime code outside an owning module cannot import repository write primitives for `entity`, `event`, or `relationship` creation through barrels.
-- [ ] Provider population no longer accepts or acts on a `linkToLibrary` flag.
-- [ ] Entity preload remains populate-only and does not create user-owned `in-library` relationships.
-- [ ] User-facing entity import and media/source import flows explicitly link entities to the user's library only through the canonical library-membership service API when product semantics require it.
-- [ ] Event creation exposed outside the events module goes through an API that creates events and enqueues event-schema triggers as one event-module-owned operation.
-- [ ] Import processors do not call low-level event trigger dispatch directly.
-- [ ] Collection membership creation remains owned by the collections service.
-- [ ] `legacy-bootstrap` remains wired and documented as a migration-only exception.
-- [ ] Old E2E tests under `tests/` that assert removed media module behavior or obsolete media import routes/jobs are removed or updated.
-- [ ] Backend checks and tests pass.
-- [ ] Relevant E2E checks pass or the task documents which legacy E2E coverage was intentionally removed.
+- [x] `apps/app-backend/src/modules/media/worker.ts` and `apps/app-backend/src/modules/media/jobs.ts` are deleted if no runtime code uses them.
+- [x] Test fixtures and unit tests that only supported the dead media worker are deleted or moved to the canonical entity/provider-population tests.
+- [x] Runtime code outside an owning module cannot import repository write primitives for `entity`, `event`, or `relationship` creation through barrels.
+- [x] Provider population no longer accepts or acts on a `linkToLibrary` flag.
+- [x] Entity preload remains populate-only and does not create user-owned `in-library` relationships.
+- [x] User-facing entity import and media/source import flows explicitly link entities to the user's library only through the canonical library-membership service API when product semantics require it.
+- [x] Event creation exposed outside the events module goes through an API that creates events and enqueues event-schema triggers as one event-module-owned operation.
+- [x] Import processors do not call low-level event trigger dispatch directly.
+- [x] Collection membership creation remains owned by the collections service.
+- [x] `legacy-bootstrap` remains wired and documented as a migration-only exception.
+- [x] Old E2E tests under `tests/` that assert removed media module behavior or obsolete media import routes/jobs are removed or updated.
+- [x] Backend checks and tests pass.
+- [x] Relevant E2E checks pass or the task documents which legacy E2E coverage was intentionally removed.
 
 ## Non-goals
 

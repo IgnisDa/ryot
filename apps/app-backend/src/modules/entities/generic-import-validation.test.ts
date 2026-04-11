@@ -37,7 +37,6 @@ const makePopulationInput = (
 	userId: "user_1",
 	externalId: "ext_1",
 	scriptId: "script_1",
-	linkToLibrary: false,
 	entitySchemaId: "schema_1",
 	sandboxAlreadyQueued: true,
 	sandboxChildJobId: "job_1_sandbox",

@@ -7,7 +7,7 @@ import {
 	createOptionalTitlePropertiesSchema,
 } from "~/lib/test-fixtures";
 
-import { entityImportJobName, entityPreloadJobName } from "./jobs";
+import { entityPreloadImportJobName, entityPreloadJobName } from "./jobs";
 import {
 	hasImportedEntityDetails,
 	populateGlobalEntity,
@@ -43,7 +43,6 @@ const makePopulationInput = (
 ): Parameters<typeof populateGlobalEntity>[2] => ({
 	userId: "user_1",
 	externalId: "ext_1",
-	linkToLibrary: true,
 	scriptId: "script_1",
 	entitySchemaId: "schema_1",
 	sandboxAlreadyQueued: false,
@@ -88,7 +87,6 @@ describe("hasImportedEntityDetails", () => {
 
 describe("populateGlobalEntity", () => {
 	it("reuses an already imported entity without fetching details again", async () => {
-		let linkedMediaEntityId: string | undefined;
 		const entity = createListedEntity({
 			id: "media_1",
 			externalId: "ext_1",
@@ -100,68 +98,44 @@ describe("populateGlobalEntity", () => {
 		const result = await populateGlobalEntity(
 			createJob({}),
 			undefined,
-			makePopulationInput({ linkToLibrary: true }),
+			makePopulationInput(),
 			createEntityImportWorkerDeps({
 				findGlobalEntityByExternalId: () => Promise.resolve(entity),
-				upsertInLibraryRelationship: (input) => {
-					linkedMediaEntityId = input.mediaEntityId;
-					return Promise.resolve();
-				},
 			}),
 		);
 
 		expect("entity" in result && result.entity).toEqual(entity);
-		expect(linkedMediaEntityId).toBe("media_1");
-	});
-
-	it("returns the populated entity without linking when linkToLibrary is false", async () => {
-		let linkedMediaEntityId: string | undefined;
-		const entity = createListedEntity({
-			id: "media_1",
-			externalId: "ext_1",
-			sandboxScriptId: "script_1",
-			properties: { sourceUrl: "https://example.com/media" },
-			populatedAt: new Date("2024-01-02T00:00:00.000Z"),
-		});
-
-		const result = await populateGlobalEntity(
-			createJob({}),
-			undefined,
-			makePopulationInput({ linkToLibrary: false }),
-			createEntityImportWorkerDeps({
-				findGlobalEntityByExternalId: () => Promise.resolve(entity),
-				upsertInLibraryRelationship: (input) => {
-					linkedMediaEntityId = input.mediaEntityId;
-					return Promise.resolve();
-				},
-			}),
-		);
-
-		expect("entity" in result && result.entity).toEqual(entity);
-		expect(linkedMediaEntityId).toBeUndefined();
 	});
 
 	it("does not link entity into the library before the entity update succeeds", () => {
-		let linkedMediaEntityId: string | undefined;
+		let libraryLinkCalls = 0;
 
 		expect(
-			populateGlobalEntity(
-				Object.assign(createJob({}), {
-					getChildrenValues: () =>
-						Promise.resolve({
-							child: {
-								logs: null,
-								error: null,
-								success: true,
-								value: {
-									name: "Imported title",
-									properties: { title: "Imported title", images: [] },
+			processEntityImportJob(
+				Object.assign(
+					createJob({
+						userId: "user_1",
+						externalId: "ext_1",
+						scriptId: "script_1",
+						entitySchemaId: "schema_1",
+						step: "waiting_for_sandbox",
+					}),
+					{
+						getChildrenValues: () =>
+							Promise.resolve({
+								child: {
+									logs: null,
+									error: null,
+									success: true,
+									value: {
+										name: "Imported title",
+										properties: { title: "Imported title", images: [] },
+									},
 								},
-							},
-						}),
-				}),
+							}),
+					},
+				),
 				"token_1",
-				makePopulationInput({ sandboxAlreadyQueued: true }),
 				createEntityImportWorkerDeps({
 					getEntitySchemaScopeForUser: () =>
 						// oxlint-disable-next-line no-unsafe-type-assertion
@@ -199,20 +173,18 @@ describe("populateGlobalEntity", () => {
 					updateGlobalEntityById: () => {
 						throw new Error("update failed");
 					},
-					upsertInLibraryRelationship: (input) => {
-						linkedMediaEntityId = input.mediaEntityId;
-						return Promise.resolve();
+					ensureEntityInLibrary: () => {
+						libraryLinkCalls++;
+						return Promise.resolve({ data: undefined });
 					},
 				}),
 			),
 		).rejects.toThrow("update failed");
 
-		expect(linkedMediaEntityId).toBeUndefined();
+		expect(libraryLinkCalls).toBe(0);
 	});
 
-	it("imports a global entity without linking it into a user library", async () => {
-		let linkedMediaEntityId: string | undefined;
-
+	it("populates a global entity without linking it into a user library", async () => {
 		const result = await populateGlobalEntity(
 			Object.assign(createJob({}), {
 				getChildrenValues: () =>
@@ -229,7 +201,7 @@ describe("populateGlobalEntity", () => {
 					}),
 			}),
 			"token_1",
-			makePopulationInput({ linkToLibrary: false, sandboxAlreadyQueued: true }),
+			makePopulationInput({ sandboxAlreadyQueued: true }),
 			createEntityImportWorkerDeps({
 				getEntitySchemaScopeForUser: () =>
 					// oxlint-disable-next-line no-unsafe-type-assertion
@@ -262,15 +234,10 @@ describe("populateGlobalEntity", () => {
 							populatedAt: input.populatedAt,
 						}),
 					),
-				upsertInLibraryRelationship: (input) => {
-					linkedMediaEntityId = input.mediaEntityId;
-					return Promise.resolve();
-				},
 			}),
 		);
 
 		expect("entity" in result && result.entity.id).toBe("media_1");
-		expect(linkedMediaEntityId).toBeUndefined();
 	});
 
 	it("succeeds on full job retry after a related write failure", async () => {
@@ -491,7 +458,8 @@ describe("processEntityImportJob", () => {
 		expect(sandboxScriptLookups).toBe(1);
 	});
 
-	it("re-raises populateGlobalEntity errors as thrown errors", async () => {
+	it("links the populated entity into the user's library", async () => {
+		let linkedEntityId: string | undefined;
 		const entity = createListedEntity({
 			id: "media_1",
 			externalId: "ext_1",
@@ -510,6 +478,10 @@ describe("processEntityImportJob", () => {
 			undefined,
 			createEntityImportWorkerDeps({
 				findGlobalEntityByExternalId: () => Promise.resolve(entity),
+				ensureEntityInLibrary: (input) => {
+					linkedEntityId = input.entityId;
+					return Promise.resolve({ data: undefined });
+				},
 				getSandboxScriptForUser: () =>
 					// oxlint-disable-next-line no-unsafe-type-assertion
 					Promise.resolve({ id: "script_1" } as never),
@@ -517,6 +489,7 @@ describe("processEntityImportJob", () => {
 		);
 
 		expect(result).toEqual(entity);
+		expect(linkedEntityId).toBe("media_1");
 	});
 });
 
@@ -561,22 +534,20 @@ describe("processEntityPreloadJob", () => {
 		expect(result).toEqual({ enqueuedImports: 2, nextPage: 2 });
 		expect(queuedJobs).toHaveLength(3);
 		expect(queuedJobs[0]).toMatchObject({
-			name: entityImportJobName,
+			name: entityPreloadImportJobName,
 			payload: {
 				userId: "system",
 				externalId: "ext_1",
 				scriptId: "script_1",
-				linkToLibrary: false,
 				entitySchemaId: "schema_1",
 			},
 		});
 		expect(queuedJobs[1]).toMatchObject({
-			name: entityImportJobName,
+			name: entityPreloadImportJobName,
 			payload: {
 				userId: "system",
 				externalId: "ext_2",
 				scriptId: "script_1",
-				linkToLibrary: false,
 				entitySchemaId: "schema_1",
 			},
 		});

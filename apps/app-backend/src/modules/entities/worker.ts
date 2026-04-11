@@ -16,6 +16,7 @@ import {
 	entityImportJobData,
 	entityImportJobName,
 	entityImportWaitingForSandboxStep,
+	entityPreloadImportJobName,
 	entityPreloadJobData,
 	entityPreloadJobName,
 	entityPreloadWaitingForSandboxStep,
@@ -34,11 +35,9 @@ import {
 	createGlobalEntity,
 	findGlobalEntityByExternalId,
 	getEntitySchemaScopeForUser,
-	getUserLibraryEntityId,
 	updateGlobalEntityById,
-	upsertInLibraryRelationship,
 } from "./repository";
-import { writeEntityRelationship } from "./service";
+import { ensureEntityInLibrary, writeEntityRelationship } from "./service";
 
 const entitySearchResultSchema = z.object({
 	items: z.array(z.object({ externalId: z.string().min(1) })),
@@ -50,6 +49,7 @@ const entitySearchResultSchema = z.object({
 export { hasImportedEntityDetails, processRelatedEntities };
 
 export type EntityImportWorkerDeps = EntityPopulationDeps & {
+	ensureEntityInLibrary: typeof ensureEntityInLibrary;
 	getSandboxScriptForUser: typeof getSandboxScriptForUser;
 	getBuiltinEntitySchemaBySlug: typeof getBuiltinEntitySchemaBySlug;
 	addEntityQueueJob: (input: {
@@ -70,22 +70,21 @@ const addEntityQueueJob: EntityImportWorkerDeps["addEntityQueueJob"] = async (in
 const entityImportWorkerDeps: EntityImportWorkerDeps = {
 	...entityPopulationDeps,
 	addEntityQueueJob,
+	ensureEntityInLibrary,
 	getSandboxScriptForUser,
 	getBuiltinEntitySchemaBySlug,
 	// re-declare the shared deps explicitly so the spread above is clearly typed
 	createGlobalEntity,
 	updateGlobalEntityById,
-	getUserLibraryEntityId,
 	writeEntityRelationship,
 	getEntitySchemaScopeForUser,
-	upsertInLibraryRelationship,
 	findGlobalEntityByExternalId,
 	getBuiltinSandboxScriptBySlug,
 	getBuiltinRelationshipSchemaBySlug,
 	getBuiltinEntitySchemaBySandboxScriptId,
 };
 
-export const processEntityImportJob = async (
+const processEntityPopulationJob = async (
 	job: Job,
 	token?: string,
 	deps: EntityImportWorkerDeps = entityImportWorkerDeps,
@@ -95,7 +94,7 @@ export const processEntityImportJob = async (
 		throw new Error("Entity import job payload is invalid");
 	}
 
-	const { userId, scriptId, externalId, entitySchemaId, linkToLibrary } = parsed.data;
+	const { userId, scriptId, externalId, entitySchemaId } = parsed.data;
 	const step = parsed.data.step;
 
 	if (!step) {
@@ -116,7 +115,6 @@ export const processEntityImportJob = async (
 			userId,
 			scriptId,
 			externalId,
-			linkToLibrary,
 			entitySchemaId,
 			updatedJobData,
 			sandboxChildJobId,
@@ -127,6 +125,24 @@ export const processEntityImportJob = async (
 
 	if ("error" in result) {
 		throw new Error(result.error.message);
+	}
+
+	return { userId, entity: result.entity };
+};
+
+export const processEntityImportJob = async (
+	job: Job,
+	token?: string,
+	deps: EntityImportWorkerDeps = entityImportWorkerDeps,
+) => {
+	const result = await processEntityPopulationJob(job, token, deps);
+
+	const libraryResult = await deps.ensureEntityInLibrary({
+		userId: result.userId,
+		entityId: result.entity.id,
+	});
+	if ("error" in libraryResult) {
+		throw new Error(libraryResult.message);
 	}
 
 	return result.entity;
@@ -200,16 +216,14 @@ export const processEntityPreloadJob = async (
 				scriptId,
 				externalId,
 				entitySchemaId,
-				linkToLibrary: false,
 			});
 			return deps.addEntityQueueJob({
 				payload,
-				name: entityImportJobName,
-				jobId: createEntityQueueJobId("entity_import", {
+				name: entityPreloadImportJobName,
+				jobId: createEntityQueueJobId("entity_preload_import", {
 					scriptId,
 					externalId,
 					entitySchemaId,
-					linkToLibrary: false,
 				}),
 			});
 		}),
@@ -242,6 +256,10 @@ export const processEntityPreloadJob = async (
 const processEntityQueueJob = async (job: Job, token?: string) => {
 	if (job.name === entityImportJobName) {
 		return processEntityImportJob(job, token);
+	}
+	if (job.name === entityPreloadImportJobName) {
+		const result = await processEntityPopulationJob(job, token);
+		return result.entity;
 	}
 	if (job.name === entityPreloadJobName) {
 		return processEntityPreloadJob(job, token);

@@ -549,83 +549,77 @@ describe("addToCollection", () => {
 		expect(data.memberOf.properties).toEqual({ priority: "high", notes: "Important item" });
 	});
 
-	it("upserts in-library when adding a global entity to a collection", async () => {
-		const calls: Array<{
-			userId: string;
-			mediaEntityId: string;
-			libraryEntityId: string;
-		}> = [];
+	it("ensures in-library when adding a global entity to a collection", async () => {
+		const calls: Array<{ userId: string; entityId: string }> = [];
 
 		expectDataResult(
 			await addToCollection(
 				{ userId: "user-1", body: { collectionId: "collection-1", entityId: "entity-1" } },
 				createAddToCollectionDeps({
-					getUserLibraryEntityId: () => Promise.resolve("library-123"),
 					getEntityById: () => Promise.resolve({ id: "entity-1", userId: null }),
-					upsertInLibraryRelationship: (input) => {
+					ensureEntityInLibrary: (input) => {
 						calls.push(input);
-						return Promise.resolve();
+						return Promise.resolve({ data: undefined });
 					},
 				}),
 			),
 		);
 
-		expect(calls).toEqual([
-			{ userId: "user-1", mediaEntityId: "entity-1", libraryEntityId: "library-123" },
-		]);
+		expect(calls).toEqual([{ userId: "user-1", entityId: "entity-1" }]);
 	});
 
 	it("still succeeds when a global entity is already in the library", async () => {
-		let upsertCalls = 0;
+		let ensureCalls = 0;
 
 		expectDataResult(
 			await addToCollection(
 				{ userId: "user-1", body: { collectionId: "collection-1", entityId: "entity-1" } },
 				createAddToCollectionDeps({
 					getEntityById: () => Promise.resolve({ id: "entity-1", userId: null }),
-					upsertInLibraryRelationship: () => {
-						upsertCalls++;
-						return Promise.resolve();
+					ensureEntityInLibrary: () => {
+						ensureCalls++;
+						return Promise.resolve({ data: undefined });
 					},
 				}),
 			),
 		);
 
-		expect(upsertCalls).toBe(1);
+		expect(ensureCalls).toBe(1);
 	});
 
-	it("does not upsert in-library for a user-owned entity", async () => {
-		let upsertCalls = 0;
+	it("does not ensure in-library for a user-owned entity", async () => {
+		let ensureCalls = 0;
 
 		expectDataResult(
 			await addToCollection(
 				{ userId: "user-1", body: { collectionId: "collection-1", entityId: "entity-1" } },
 				createAddToCollectionDeps({
-					upsertInLibraryRelationship: () => {
-						upsertCalls++;
-						return Promise.resolve();
+					ensureEntityInLibrary: () => {
+						ensureCalls++;
+						return Promise.resolve({ data: undefined });
 					},
 				}),
 			),
 		);
 
-		expect(upsertCalls).toBe(0);
+		expect(ensureCalls).toBe(0);
 	});
 
 	it("fails clearly when a global entity is added without a library entity", async () => {
 		const result = await addToCollection(
 			{ userId: "user-1", body: { collectionId: "collection-1", entityId: "entity-1" } },
 			createAddToCollectionDeps({
-				getUserLibraryEntityId: () => Promise.resolve(undefined),
 				getEntityById: () => Promise.resolve({ id: "entity-1", userId: null }),
+				ensureEntityInLibrary: () =>
+					Promise.resolve({ error: "validation", message: "User library entity not found" }),
 			}),
 		);
 
 		expect(result).toEqual({ error: "validation", message: "User library entity not found" });
 	});
 
-	it("does not upsert in-library when membership properties are invalid", async () => {
-		let upsertCalls = 0;
+	it("does not ensure in-library when membership properties are invalid", async () => {
+		let ensureCalls = 0;
 
 		const result = await addToCollection(
 			{
@@ -648,9 +642,9 @@ describe("addToCollection", () => {
 							},
 						}),
 					),
-				upsertInLibraryRelationship: () => {
-					upsertCalls++;
-					return Promise.resolve();
+				ensureEntityInLibrary: () => {
+					ensureCalls++;
+					return Promise.resolve({ data: undefined });
 				},
 			}),
 		);
@@ -659,7 +653,7 @@ describe("addToCollection", () => {
 			error: "validation",
 			message: expect.stringContaining("Membership properties validation failed"),
 		});
-		expect(upsertCalls).toBe(0);
+		expect(ensureCalls).toBe(0);
 	});
 
 	it("validates properties against collection membershipPropertiesSchema", async () => {
