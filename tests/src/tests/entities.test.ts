@@ -4,9 +4,9 @@ import {
 	createEntity,
 	createEntitySchema,
 	createTracker,
+	enqueueEntityImport,
 	findBuiltinSchemaWithProviders,
-	importMedia,
-	pollMediaImportResult,
+	pollEntityImportResult,
 } from "../fixtures";
 
 async function createCustomSchemaFixture(
@@ -180,13 +180,13 @@ describe("GET /entities/:id — global entity read access", () => {
 			throw new Error("OpenLibrary provider script not found");
 		}
 
-		const { jobId } = await importMedia(clientA, cookiesA, {
+		const { jobId } = await enqueueEntityImport(clientA, cookiesA, {
 			identifier: "OL267933W",
 			scriptId: detailsScriptId,
 			entitySchemaId: schema.id,
 		});
 
-		const result = await pollMediaImportResult(clientA, cookiesA, jobId, {
+		const result = await pollEntityImportResult(clientA, cookiesA, jobId, {
 			timeoutMs: 30_000,
 		});
 

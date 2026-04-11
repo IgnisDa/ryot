@@ -82,14 +82,17 @@ export function useEntitySearch(props: { entitySchema: AppEntitySchema }) {
 	const [submittedSearch, setSubmittedSearch] =
 		useState<SubmittedSearch | null>(null);
 
-	const enqueueMediaImport = apiClient.useMutation("post", "/media/import");
 	const enqueueSearch = apiClient.useMutation("post", "/entity-schemas/search");
 	const ensuredEntityQueryKey = useMemo(
-		() => ["entity-search-ensured-entity", props.entitySchema.id] as const,
+		() => ["entity-search-ensured-entity", props.entitySchema.id],
 		[props.entitySchema.id],
 	);
+	const enqueueEntityImport = apiClient.useMutation(
+		"post",
+		"/entity-schemas/import",
+	);
 	const entitySearchQueryKey = useMemo(
-		() => ["entity-search", props.entitySchema.id] as const,
+		() => ["entity-search", props.entitySchema.id],
 		[props.entitySchema.id],
 	);
 	const entityListQueryKey = apiClient.queryOptions(
@@ -144,7 +147,7 @@ export function useEntitySearch(props: { entitySchema: AppEntitySchema }) {
 			queryKey: [...ensuredEntityQueryKey, provider.scriptId, item.identifier],
 			queryFn: async ({ signal }: { signal: AbortSignal }) => {
 				throwIfAborted(signal);
-				const enqueueResult = await enqueueMediaImport.mutateAsync({
+				const enqueueResult = await enqueueEntityImport.mutateAsync({
 					body: {
 						scriptId: provider.scriptId,
 						identifier: item.identifier,
@@ -155,14 +158,14 @@ export function useEntitySearch(props: { entitySchema: AppEntitySchema }) {
 
 				const jobId = enqueueResult.data?.jobId;
 				if (!jobId) {
-					throw new Error("Failed to enqueue media import job");
+					throw new Error("Failed to enqueue entity import job");
 				}
 
 				const startedAt = dayjs();
 				while (true) {
 					throwIfAborted(signal);
 					const result = await queryClient.fetchQuery({
-						...apiClient.queryOptions("get", "/media/import/{jobId}", {
+						...apiClient.queryOptions("get", "/entity-schemas/import/{jobId}", {
 							params: { path: { jobId } },
 						}),
 						staleTime: 0,
@@ -172,7 +175,7 @@ export function useEntitySearch(props: { entitySchema: AppEntitySchema }) {
 					const data = result.data;
 					if (data?.status === "pending") {
 						if (dayjs().diff(startedAt) >= SANDBOX_TIMEOUT_MS) {
-							throw new Error("Timed out waiting for media import");
+							throw new Error("Timed out waiting for entity import");
 						}
 						await sleep(POLL_MS, signal);
 						continue;
@@ -182,7 +185,7 @@ export function useEntitySearch(props: { entitySchema: AppEntitySchema }) {
 						throw new Error(
 							data?.status === "failed"
 								? data.error
-								: "Media import did not finish",
+								: "Entity import did not finish",
 						);
 					}
 
@@ -193,7 +196,7 @@ export function useEntitySearch(props: { entitySchema: AppEntitySchema }) {
 		[
 			apiClient,
 			queryClient,
-			enqueueMediaImport,
+			enqueueEntityImport,
 			ensuredEntityQueryKey,
 			props.entitySchema.id,
 		],

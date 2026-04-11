@@ -10,7 +10,19 @@ type EnqueueEntitySearchBody = NonNullable<
 type PollEntitySearchResponse =
 	paths["/entity-schemas/search/{jobId}"]["get"]["responses"][200]["content"]["application/json"]["data"];
 
+type EnqueueEntityImportBody = NonNullable<
+	paths["/entity-schemas/import"]["post"]["requestBody"]
+>["content"]["application/json"];
+
+type PollEntityImportResponse =
+	paths["/entity-schemas/import/{jobId}"]["get"]["responses"][200]["content"]["application/json"]["data"];
+
 export interface PollEntitySearchOptions {
+	timeoutMs?: number;
+	intervalMs?: number;
+}
+
+export interface PollEntityImportOptions {
 	timeoutMs?: number;
 	intervalMs?: number;
 }
@@ -199,5 +211,59 @@ export async function pollEntitySearchResult(
 
 	throw new Error(
 		`Entity search job '${jobId}' did not reach a terminal state within ${timeoutMs}ms`,
+	);
+}
+
+export async function enqueueEntityImport(
+	client: Client,
+	cookies: string,
+	body: EnqueueEntityImportBody,
+) {
+	const { data, response } = await client.POST("/entity-schemas/import", {
+		body,
+		headers: { Cookie: cookies },
+	});
+
+	if (response.status !== 200 || !data?.data?.jobId) {
+		throw new Error("Failed to enqueue entity import");
+	}
+
+	return { jobId: data.data.jobId };
+}
+
+export async function pollEntityImportResult(
+	client: Client,
+	cookies: string,
+	jobId: string,
+	options: PollEntityImportOptions = {},
+) {
+	const { intervalMs = 500, timeoutMs = 30_000 } = options;
+	const deadline = dayjs().add(timeoutMs, "millisecond");
+
+	for (;;) {
+		const { data, response } = await client.GET(
+			"/entity-schemas/import/{jobId}",
+			{ params: { path: { jobId } }, headers: { Cookie: cookies } },
+		);
+
+		if (response.status !== 200 || !data?.data) {
+			throw new Error(`Failed to poll entity import result '${jobId}'`);
+		}
+
+		const result: PollEntityImportResponse = data.data;
+		if (result.status !== "pending") {
+			return result;
+		}
+
+		const remainingMs = deadline.diff(dayjs());
+		if (remainingMs <= 0) {
+			break;
+		}
+
+		await delay(Math.min(intervalMs, remainingMs));
+	}
+
+	throw new Error(
+		`Entity import job '${jobId}' did not reach a terminal state within ${timeoutMs}ms`,
 	);
 }
