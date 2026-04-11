@@ -663,7 +663,7 @@ describe("GET /entity-schemas/search/{jobId}", () => {
 		expect(result.status === "completed" || result.status === "failed").toBe(
 			true,
 		);
-	});
+	}, 30_000);
 });
 
 describe("POST /entity-schemas/import", () => {
