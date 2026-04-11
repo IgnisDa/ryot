@@ -8,7 +8,7 @@
 		}
 	},
 	"scripts": {
-		"test": "bun test --only-failures",
+		"test": "bun test",
 		"dev": "bun run --watch src/index.ts",
 		"db:generate": "bun --bun drizzle-kit generate",
 		"check": "tsc && oxfmt . --write && oxlint . --type-aware --fix",
