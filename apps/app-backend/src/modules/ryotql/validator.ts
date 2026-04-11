@@ -1,7 +1,10 @@
 import type {
+	AggregateOutput,
 	CorrelatedQuerySet,
+	FieldSelection,
 	Include,
 	NamedQuery,
+	OrderBy,
 	Predicate,
 	RyotQLDocument,
 	ScalarExpression,
@@ -16,6 +19,7 @@ export const MAX_INCLUDE_LIMIT = 100;
 export const MAX_ROOT_PAGE_SIZE = 100;
 export const MAX_CORRELATED_DEPTH = 3;
 export const MAX_DOCUMENT_QUERIES = 10;
+export const MAX_GROUPED_AGGREGATE_LIMIT = 1000;
 
 type AliasScope = ReadonlyMap<string, CatalogTable>;
 type ScalarKind = CatalogTable["fields"][string]["kind"] | "null";
@@ -257,8 +261,8 @@ const validateQuerySet = (query: QuerySet, ancestors: AliasScope, correlatedDept
 };
 
 const validateSelections = (
-	fields: NamedQuery["output"]["fields"],
-	orderBy: NamedQuery["output"]["orderBy"],
+	fields: readonly FieldSelection[],
+	orderBy: readonly OrderBy[],
 	include: readonly Include[],
 	scope: AliasScope,
 	depth: number,
@@ -320,20 +324,84 @@ const validateSelections = (
 	return null;
 };
 
+const validateAggregateOutput = (output: AggregateOutput, scope: AliasScope): string | null => {
+	const outputKeys = new Set<string>();
+	for (const group of output.groupBy ?? []) {
+		const keyError = requiredNameError(group.key, "Aggregate output key");
+		if (keyError) {
+			return keyError;
+		}
+		if (outputKeys.has(group.key)) {
+			return `Duplicate aggregate output key '${group.key}'`;
+		}
+		outputKeys.add(group.key);
+		const expressionError = validateExpression(group.expr, scope, 0);
+		if (expressionError) {
+			return expressionError;
+		}
+	}
+
+	const measureKeys = new Set<string>();
+	for (const measure of output.measures) {
+		const keyError = requiredNameError(measure.key, "Aggregate output key");
+		if (keyError) {
+			return keyError;
+		}
+		if (outputKeys.has(measure.key)) {
+			return `Duplicate aggregate output key '${measure.key}'`;
+		}
+		outputKeys.add(measure.key);
+		measureKeys.add(measure.key);
+		if (measure.aggregation.function !== "count") {
+			const expressionError = validateExpression(measure.aggregation.expr, scope, 0);
+			if (expressionError) {
+				return expressionError;
+			}
+		}
+	}
+
+	if ((output.groupBy?.length ?? 0) > 0) {
+		if (output.limit === undefined) {
+			return "Grouped aggregate outputs require a limit";
+		}
+		if (output.limit > MAX_GROUPED_AGGREGATE_LIMIT) {
+			return `Grouped aggregate limit must not exceed ${MAX_GROUPED_AGGREGATE_LIMIT}`;
+		}
+		if (output.orderBy === undefined) {
+			return "Grouped aggregate outputs require non-empty orderBy";
+		}
+	}
+
+	for (const order of output.orderBy ?? []) {
+		const keyError = requiredNameError(order.key, "Aggregate order key");
+		if (keyError) {
+			return keyError;
+		}
+		if (!measureKeys.has(order.key)) {
+			return `Unknown aggregate measure key '${order.key}'`;
+		}
+	}
+	return null;
+};
+
 const validateNamedQuery = (query: NamedQuery): string | null => {
+	const querySet = validateQuerySet(query, new Map(), 0);
+	if (querySet.error || !querySet.scope) {
+		return querySet.error;
+	}
+	if (query.output.type === "aggregate") {
+		return validateAggregateOutput(query.output, querySet.scope);
+	}
 	if (query.output.pagination.limit > MAX_ROOT_PAGE_SIZE) {
 		return `Rows limit must not exceed ${MAX_ROOT_PAGE_SIZE}`;
 	}
-	const querySet = validateQuerySet(query, new Map(), 0);
-	return querySet.error || !querySet.scope
-		? querySet.error
-		: validateSelections(
-				query.output.fields,
-				query.output.orderBy,
-				query.output.include ?? [],
-				querySet.scope,
-				0,
-			);
+	return validateSelections(
+		query.output.fields,
+		query.output.orderBy,
+		query.output.include ?? [],
+		querySet.scope,
+		0,
+	);
 };
 
 export const validateRyotQLDocument = (document: RyotQLDocument): string | null => {

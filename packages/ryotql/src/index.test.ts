@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import {
 	add,
+	aggregate,
 	and,
 	ascending,
 	average,
@@ -32,6 +33,8 @@ import {
 	lt,
 	lte,
 	maximum,
+	measure,
+	measureDescending,
 	minimum,
 	multiply,
 	neq,
@@ -239,5 +242,34 @@ describe("RyotQL builders", () => {
 				}),
 			]),
 		);
+	});
+
+	it("builds grouped and ungrouped aggregate outputs", () => {
+		const lesson = table("entity", "lesson");
+		const countIdentifier = measure("count", { function: "count" });
+		const difficulty = field("difficulty", jsonPath(column(lesson, "properties"), "difficulty"));
+
+		expect(aggregate(lesson, { measures: [countIdentifier] })).toEqual({
+			from: { table: "entity", alias: "lesson" },
+			output: { type: "aggregate", measures: [countIdentifier] },
+		});
+		expect(
+			aggregate(lesson, {
+				limit: 10,
+				groupBy: [difficulty],
+				measures: [countIdentifier],
+				orderBy: [measureDescending("count")],
+				where: eq(column(lesson, "entitySchemaSlug"), literal("lesson")),
+			}),
+		).toMatchObject({
+			where: { type: "comparison" },
+			output: {
+				limit: 10,
+				type: "aggregate",
+				groupBy: [difficulty],
+				measures: [countIdentifier],
+				orderBy: [{ key: "count", direction: "desc" }],
+			},
+		});
 	});
 });
