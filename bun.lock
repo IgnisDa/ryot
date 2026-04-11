@@ -417,10 +417,14 @@
       "dependencies": {
         "cheerio": "1.2.0",
         "effect": "3.21.4",
+        "fast-xml-parser": "5.8.0",
+        "fflate": "0.8.3",
+        "papaparse": "5.5.3",
         "youtubei.js": "17.2.0",
       },
       "devDependencies": {
         "@ryot/testing": "workspace:*",
+        "@types/papaparse": "5.5.2",
         "vitest": "4.1.9",
       },
     },

@@ -167,9 +167,10 @@ fi
 						logs: [],
 						error: null,
 						success: true,
-						value: yield* decodeEnvelope(output),
+						harvest: null,
 						executionId: input.executionId,
 						timing: { totalMs: 1, executionMs: 1 },
+						value: yield* decodeEnvelope(output),
 					};
 				}).pipe(Effect.orDie),
 		}),
@@ -181,8 +182,8 @@ fi
 		input: {},
 		executionId,
 		scriptId: historicalScriptId,
-		authority: { type: "system" as const },
 		resolutionMode: "active" as const,
+		authority: { type: "system" as const },
 	};
 
 	return Effect.gen(function* () {

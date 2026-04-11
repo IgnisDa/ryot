@@ -143,6 +143,7 @@ const makeLayer = (input: {
 								error: null,
 								value: "ok",
 								success: true,
+								harvest: null,
 								executionId: runInput.executionId,
 								timing: { totalMs: 1, executionMs: 1 },
 							};

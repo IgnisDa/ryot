@@ -84,18 +84,19 @@ export const executeSandboxExecution = Effect.fn("executeSandboxExecution")(func
 			: undefined;
 
 	const result = yield* sandbox.run({
-		scriptId: script.id,
 		scriptIsBuiltin,
+		scriptId: script.id,
 		context: payload.context,
 		metadata: script.metadata,
 		authority: payload.authority,
-		providerId: script.providerId ? SandboxProviderId.make(script.providerId) : null,
 		executionId: payload.executionId,
 		compiledCode: script.compiledCode,
-		cacheNamespace: script.providerId ?? script.id,
 		compiledFormat: script.compiledFormat,
-		allowedHostFunctions: script.metadata.capabilities ?? [],
+		cacheNamespace: script.providerId ?? script.id,
+		...(payload.grants ? { grants: payload.grants } : {}),
 		...(workflowExecutionId ? { workflowExecutionId } : {}),
+		allowedHostFunctions: script.metadata.capabilities ?? [],
+		providerId: script.providerId ? SandboxProviderId.make(script.providerId) : null,
 	});
 
 	return {

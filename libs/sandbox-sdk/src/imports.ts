@@ -8,6 +8,9 @@ export const SANDBOX_RUNTIME_SDK_IMPORTS = [
 	"@ryot/sandbox-sdk/effect",
 	"@ryot/sandbox-sdk/cheerio",
 	"@ryot/sandbox-sdk/youtubei",
+	"@ryot/sandbox-sdk/fflate",
+	"@ryot/sandbox-sdk/papaparse",
+	"@ryot/sandbox-sdk/fast-xml-parser",
 ] as const;
 
 export const SANDBOX_SDK_IMPORTS = [
