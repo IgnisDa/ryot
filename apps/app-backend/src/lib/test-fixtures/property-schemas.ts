@@ -30,6 +30,10 @@ export const createFlatNoteProgressPropertySchema = () => ({
 	progress: { type: "integer" as const },
 });
 
+export const createProgressPercentPropertiesSchema = () => ({
+	progressPercent: { type: "number" as const, required: true as const },
+});
+
 export const createNestedMetadataPropertiesSchema = () => ({
 	metadata: {
 		type: "object" as const,

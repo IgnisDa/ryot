@@ -3,6 +3,8 @@ import { chunk } from "lodash";
 import { z } from "zod";
 import { resolveEntitySchemaReadAccess } from "~/lib/app/entity-schema-access";
 import { parseAppSchemaProperties } from "~/lib/app/schema-validation";
+
+import { normalizeBuiltinMediaEventProperties } from "~/lib/media-lifecycle-validation";
 import {
 	type ServiceResult,
 	serviceData,
@@ -27,6 +29,7 @@ export const occurredAtStringSchema = z.string().trim().pipe(z.iso.datetime());
 
 type EntityEventScope = {
 	entityId: string;
+	entitySchemaSlug: string;
 	isBuiltin: boolean;
 	entitySchemaId: string;
 };
@@ -46,10 +49,12 @@ type EventCreateAccess =
 	| {
 			access: {
 				entityId: string;
+				isBuiltin: boolean;
 				eventSchemaId: string;
 				entitySchemaId: string;
 				eventSchemaName: string;
 				eventSchemaSlug: string;
+				entitySchemaSlug: string;
 				propertiesSchema: AppSchema;
 			};
 	  };
@@ -151,31 +156,49 @@ export const resolveEventCreateAccess = (
 	return {
 		access: {
 			entityId: scopedEvent.entityId,
+			isBuiltin: scopedEvent.isBuiltin,
 			eventSchemaId: scopedEvent.eventSchemaId,
 			entitySchemaId: scopedEvent.entitySchemaId,
 			eventSchemaName: scopedEvent.eventSchemaName,
 			eventSchemaSlug: scopedEvent.eventSchemaSlug,
+			entitySchemaSlug: scopedEvent.entitySchemaSlug,
 			propertiesSchema: scopedEvent.propertiesSchema,
 		},
 	};
 };
 
 export const resolveEventCreateInput = (
-	input: CreateEventBody & { propertiesSchema: AppSchema },
+	input: CreateEventBody & {
+		isBuiltin: boolean;
+		eventSchemaSlug: string;
+		entitySchemaSlug: string;
+		propertiesSchema: AppSchema;
+	},
 ) => {
 	const entityId = resolveEventEntityId(input.entityId);
 	const occurredAt = resolveOccurredAt(input.occurredAt);
 	const eventSchemaId = resolveEventSchemaId(input.eventSchemaId);
-	const properties = parseEventProperties({
+	const parsedProperties = parseEventProperties({
 		properties: input.properties,
 		propertiesSchema: input.propertiesSchema,
+	});
+	const properties = normalizeBuiltinMediaEventProperties({
+		isBuiltin: input.isBuiltin,
+		properties: parsedProperties,
+		eventSchemaSlug: input.eventSchemaSlug,
+		entitySchemaSlug: input.entitySchemaSlug,
 	});
 
 	return { entityId, occurredAt, properties, eventSchemaId };
 };
 
 const resolveEventCreateInputResult = (
-	input: CreateEventBody & { propertiesSchema: AppSchema },
+	input: CreateEventBody & {
+		isBuiltin: boolean;
+		eventSchemaSlug: string;
+		entitySchemaSlug: string;
+		propertiesSchema: AppSchema;
+	},
 ) =>
 	wrapServiceValidator(
 		() => resolveEventCreateInput(input),
@@ -252,7 +275,10 @@ export const createEvent = async (
 		entityId: input.body.entityId,
 		occurredAt: input.body.occurredAt,
 		properties: input.body.properties,
+		isBuiltin: foundScope.access.isBuiltin,
 		eventSchemaId: input.body.eventSchemaId,
+		eventSchemaSlug: foundScope.access.eventSchemaSlug,
+		entitySchemaSlug: foundScope.access.entitySchemaSlug,
 		propertiesSchema: foundScope.access.propertiesSchema,
 	});
 	if ("error" in eventInput) {
