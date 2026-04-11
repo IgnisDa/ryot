@@ -1,12 +1,6 @@
 import { dayjs } from "@ryot/ts-utils/dayjs";
 
-import { parseCsvText } from "../../csv";
-import { getOrCreateMediaEntityGroup } from "../../media/groups";
-import type {
-	MediaImportAdapterFailure,
-	MediaImportAdapterResult,
-} from "../../media/import-processor";
-import { resolveBookEntityRefByIsbn } from "../book/provider-lookup";
+import { resolveBookEntityRefByIsbn } from "../../media/book/provider-lookup";
 import {
 	addCollectionMembership,
 	assertRequiredHeaders,
@@ -26,7 +20,13 @@ import {
 	parseDateWithFormat,
 	splitCommaList,
 	type ResolveBookEntityRef,
-} from "../book/shared";
+} from "../../media/book/shared";
+import { getOrCreateMediaEntityGroup } from "../../media/groups";
+import type {
+	MediaImportAdapterFailure,
+	MediaImportAdapterResult,
+} from "../../media/import-processor";
+import { parseCsvText } from "../../runtime/csv";
 
 type StoryGraphAdapterDeps = {
 	resolveBookEntityRef: ResolveBookEntityRef;

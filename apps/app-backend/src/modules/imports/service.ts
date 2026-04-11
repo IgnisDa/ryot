@@ -3,8 +3,6 @@ import { getQueues } from "~/lib/queue";
 import { type ServiceResult, serviceData, serviceError } from "~/lib/result";
 import { claimUploadToken } from "~/lib/temporary-upload-token";
 
-import { cleanupImportFile, resolveSafeImportFilePath, validateFileExtension } from "./files";
-import { failImportRun } from "./helpers";
 import { importRunJobName } from "./jobs";
 import {
 	createImportRun,
@@ -13,18 +11,24 @@ import {
 	listImportRunFailuresByRunId,
 	listImportRunsByUser,
 } from "./repository";
+import { failImportRun } from "./runtime/failures";
+import {
+	cleanupImportFile,
+	resolveSafeImportFilePath,
+	validateFileExtension,
+} from "./runtime/files";
+import {
+	buildInputSummary,
+	buildSourcePayload,
+	getImportSourceStartError,
+	getAllowedExtensionsForSource,
+} from "./runtime/source-definitions";
 import type {
 	CreateImportRunBody,
 	ImportRunStatus,
 	ListedImportRun,
 	ListedImportRunFailure,
 } from "./schemas";
-import {
-	buildInputSummary,
-	buildSourcePayload,
-	getImportSourceStartError,
-	getAllowedExtensionsForSource,
-} from "./source-config";
 
 type ImportServiceError = "not_found" | "validation";
 

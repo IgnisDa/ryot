@@ -1,11 +1,11 @@
 import type { Job } from "bullmq";
 
-import { cleanupImportFile, readImportFile } from "../../files";
+import { cleanupImportFile, readImportFile } from "../../runtime/files";
 import {
 	processMediaImport,
 	type MediaImportAdapterResult,
 	type MediaImportJobInput,
-} from "../../media/import-processor";
+} from "../import-processor";
 
 export type BookImportProcessorDeps = {
 	readImportFile: typeof readImportFile;

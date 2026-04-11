@@ -1,6 +1,11 @@
 import { dayjs } from "@ryot/ts-utils/dayjs";
 
-import { parseCsvText, readCsvCell, readOptionalCsvNumber, readRequiredCsvCell } from "../../csv";
+import {
+	parseCsvText,
+	readCsvCell,
+	readOptionalCsvNumber,
+	readRequiredCsvCell,
+} from "../../runtime/csv";
 import {
 	determineWorkoutExerciseKind,
 	type WorkoutAdapterFailure,
