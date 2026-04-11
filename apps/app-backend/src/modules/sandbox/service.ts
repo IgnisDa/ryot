@@ -80,10 +80,13 @@ const resolveSandboxJobIdResult = (jobId: string) =>
 
 export const createApiFunctionDescriptors = (
 	userId: string,
+	scriptId: string,
 ): Array<ApiFunctionDescriptor> => [
 	{ context: {}, functionKey: "httpCall" },
 	{ context: {}, functionKey: "getAppConfigValue" },
 	{ context: { userId }, functionKey: "executeQuery" },
+	{ context: { scriptId }, functionKey: "getCachedValue" },
+	{ context: { scriptId }, functionKey: "setCachedValue" },
 	{ context: { userId }, functionKey: "getUserPreferences" },
 ];
 
@@ -173,7 +176,10 @@ export const enqueueSandbox = async (
 		code: foundSandboxScript.code,
 		scriptId: input.body.scriptId,
 		driverName: input.body.driverName,
-		apiFunctionDescriptors: createApiFunctionDescriptors(input.userId),
+		apiFunctionDescriptors: createApiFunctionDescriptors(
+			input.userId,
+			input.body.scriptId,
+		),
 	});
 
 	return serviceData(job);

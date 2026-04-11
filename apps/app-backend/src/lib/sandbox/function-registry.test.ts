@@ -3,11 +3,15 @@ import { hostFunctionRegistry } from "./function-registry";
 
 describe("hostFunctionRegistry", () => {
 	it("registers the expected host function keys", () => {
-		expect(Object.keys(hostFunctionRegistry).sort()).toEqual([
-			"executeQuery",
-			"getAppConfigValue",
-			"getUserPreferences",
-			"httpCall",
-		]);
+		expect(Object.keys(hostFunctionRegistry).sort()).toEqual(
+			[
+				"executeQuery",
+				"getAppConfigValue",
+				"getCachedValue",
+				"getUserPreferences",
+				"httpCall",
+				"setCachedValue",
+			].sort(),
+		);
 	});
 });

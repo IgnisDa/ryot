@@ -160,9 +160,9 @@ const processMediaImportJob = async (job: Job) => {
 		userId,
 		scriptId,
 		code: script.code,
-		context: { identifier },
 		driverName: "details",
-		apiFunctionDescriptors: createApiFunctionDescriptors(userId),
+		context: { identifier },
+		apiFunctionDescriptors: createApiFunctionDescriptors(userId, scriptId),
 	});
 
 	if (!sandboxResult.success) {
@@ -258,11 +258,14 @@ const processPersonPopulateJob = async (job: Job) => {
 
 	const sandboxResult = await getSandboxService().executeQueuedRun({
 		userId,
+		driverName: "details",
 		context: { identifier },
 		code: personScript.code,
 		scriptId: personScript.id,
-		driverName: "details",
-		apiFunctionDescriptors: createApiFunctionDescriptors(userId),
+		apiFunctionDescriptors: createApiFunctionDescriptors(
+			userId,
+			personScript.id,
+		),
 	});
 
 	if (!sandboxResult.success) {
