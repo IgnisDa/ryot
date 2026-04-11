@@ -29,6 +29,7 @@ import {
 	table,
 } from "@ryot/ryotql";
 import { buildAllCollectionsDocument } from "@ryot/ryotql-recipes/collections";
+import { buildNavigationDocument } from "@ryot/ryotql-recipes/navigation";
 import { PgDialect } from "drizzle-orm/pg-core";
 import { Effect, Layer } from "effect";
 
@@ -140,6 +141,22 @@ it.effect("collates text predicates and authorizes every joined table occurrence
 		expect(statement).toContain("LEFT JOIN (SELECT * FROM entity");
 		expect(statement).toContain('COLLATE "C" IN');
 		expect(statement?.match(/SELECT \* FROM entity WHERE/g)).toHaveLength(4);
+	}).pipe(Effect.provide(makeServiceLayer(statements)));
+});
+
+it.effect("applies public and user-only policies to navigation tables", () => {
+	const statements: string[] = [];
+	return Effect.gen(function* () {
+		const service = yield* RyotQLService;
+		yield* service.executeForUser("user-1", null, buildNavigationDocument());
+
+		const workspaces = statements[2];
+		const savedViews = statements[3];
+		expect(workspaces).toContain("FROM (SELECT * FROM plugin)");
+		expect(workspaces).toMatch(/LEFT JOIN \(SELECT \* FROM plugin_state WHERE user_id = \$\d+\)/);
+		expect(workspaces).not.toContain("plugin_state WHERE (user_id");
+		expect(savedViews).toMatch(/FROM \(SELECT \* FROM saved_view WHERE user_id = \$\d+\)/);
+		expect(savedViews).not.toContain("saved_view WHERE (user_id");
 	}).pipe(Effect.provide(makeServiceLayer(statements)));
 });
 
