@@ -31,6 +31,10 @@ describe("toAppSchema", () => {
 			type: "date",
 			validation: { required: true },
 		});
+		expect(toAppSchema(z.iso.datetime())).toEqual({
+			type: "datetime",
+			validation: { required: true },
+		});
 	});
 
 	it("drops required when wrappers make a field optional", () => {
@@ -102,6 +106,10 @@ describe("fromAppSchema", () => {
 		).toBeFalse();
 		expect(
 			fromAppSchema({ type: "date" }).safeParse("2026-03-08").success,
+		).toBeTrue();
+		expect(
+			fromAppSchema({ type: "datetime" }).safeParse("2026-03-08T10:15:30Z")
+				.success,
 		).toBeTrue();
 	});
 

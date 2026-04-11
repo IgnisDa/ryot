@@ -80,13 +80,13 @@ describe("GET /event-schemas", () => {
 			expect(completeSchema).toBeDefined();
 			expect(completeSchema?.propertiesSchema).toEqual({
 				fields: {
-					startedOn: { type: "date" },
-					completedOn: { type: "date" },
+					startedOn: { type: "datetime" },
+					completedOn: { type: "datetime" },
 					completionMode: {
 						type: "string",
 						validation: {
 							required: true,
-							pattern: "^(just_now|unknown|custom_dates)$",
+							pattern: "^(just_now|unknown|custom_timestamps)$",
 						},
 					},
 				},
@@ -97,7 +97,7 @@ describe("GET /event-schemas", () => {
 						validation: { required: true },
 						when: {
 							operator: "eq",
-							value: "custom_dates",
+							value: "custom_timestamps",
 							path: ["completionMode"],
 						},
 					},
