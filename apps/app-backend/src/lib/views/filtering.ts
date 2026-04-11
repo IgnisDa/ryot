@@ -14,62 +14,64 @@ const comparisonFilterOperatorSchema = z.enum(
 	canonicalComparisonFilterOperators,
 );
 
-export const viewPredicateSchema: z.ZodType<ViewPredicate> = z.lazy(() => {
-	return z.discriminatedUnion("type", [
-		z
-			.object({
-				type: z.literal("isNull"),
-				expression: viewExpressionSchema,
-			})
-			.strict(),
-		z
-			.object({
-				expression: viewExpressionSchema,
-				type: z.literal("isNotNull"),
-			})
-			.strict(),
-		z
-			.object({
-				type: z.literal("in"),
-				expression: viewExpressionSchema,
-				values: z.array(viewExpressionSchema).min(1),
-			})
-			.strict(),
-		z
-			.object({
-				value: viewExpressionSchema,
-				expression: viewExpressionSchema,
-				type: z.literal("contains"),
-			})
-			.strict(),
-		z
-			.object({
-				left: viewExpressionSchema,
-				right: viewExpressionSchema,
-				type: z.literal("comparison"),
-				operator: comparisonFilterOperatorSchema,
-			})
-			.strict(),
-		z
-			.object({
-				type: z.literal("and"),
-				predicates: z.array(viewPredicateSchema).min(1),
-			})
-			.strict(),
-		z
-			.object({
-				type: z.literal("or"),
-				predicates: z.array(viewPredicateSchema).min(1),
-			})
-			.strict(),
-		z
-			.object({
-				type: z.literal("not"),
-				predicate: viewPredicateSchema,
-			})
-			.strict(),
-	]);
-});
+export const viewPredicateSchema: z.ZodType<ViewPredicate> = z
+	.lazy(() => {
+		return z.discriminatedUnion("type", [
+			z
+				.object({
+					type: z.literal("isNull"),
+					expression: viewExpressionSchema,
+				})
+				.strict(),
+			z
+				.object({
+					expression: viewExpressionSchema,
+					type: z.literal("isNotNull"),
+				})
+				.strict(),
+			z
+				.object({
+					type: z.literal("in"),
+					expression: viewExpressionSchema,
+					values: z.array(viewExpressionSchema).min(1),
+				})
+				.strict(),
+			z
+				.object({
+					value: viewExpressionSchema,
+					expression: viewExpressionSchema,
+					type: z.literal("contains"),
+				})
+				.strict(),
+			z
+				.object({
+					left: viewExpressionSchema,
+					right: viewExpressionSchema,
+					type: z.literal("comparison"),
+					operator: comparisonFilterOperatorSchema,
+				})
+				.strict(),
+			z
+				.object({
+					type: z.literal("and"),
+					predicates: z.array(viewPredicateSchema).min(1),
+				})
+				.strict(),
+			z
+				.object({
+					type: z.literal("or"),
+					predicates: z.array(viewPredicateSchema).min(1),
+				})
+				.strict(),
+			z
+				.object({
+					type: z.literal("not"),
+					predicate: viewPredicateSchema,
+				})
+				.strict(),
+		]);
+	})
+	.openapi("ViewPredicate");
 
 export type ViewPredicate =
 	| { type: "isNull"; expression: z.infer<typeof viewExpressionSchema> }
