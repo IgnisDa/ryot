@@ -1,4 +1,3 @@
-import type { JsonValue } from "@ryot/contract/modules/ryotql/language";
 import {
 	defineAutomation,
 	type AutomationContext,
@@ -8,6 +7,7 @@ import type { EventSchemaRecord, SandboxHost } from "@ryot/sandbox-sdk/core";
 import { defineManifest } from "@ryot/sandbox-sdk/driver";
 import { DateTime, Effect, Option } from "@ryot/sandbox-sdk/effect";
 import { buildEntityReadDocument, buildEventReadDocument } from "@ryot/sandbox-sdk/ryotql";
+import type { JsonValue } from "@ryot/sandbox-sdk/wire";
 
 import {
 	decodeEntityReadResponse,
