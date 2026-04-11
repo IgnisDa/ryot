@@ -145,18 +145,21 @@ const buildBaseRequest = (): Omit<
 		entityColumnExpression("anime", "createdAt"),
 		entityColumnExpression("manga", "createdAt"),
 		entityColumnExpression("audiobook", "createdAt"),
+		entityColumnExpression("podcast", "createdAt"),
 	);
 	const publishYear = coalesceExpression(
 		entityPropertyExpression("book", "publishYear"),
 		entityPropertyExpression("anime", "publishYear"),
 		entityPropertyExpression("manga", "publishYear"),
 		entityPropertyExpression("audiobook", "publishYear"),
+		entityPropertyExpression("podcast", "publishYear"),
 	);
 	const totalUnits = coalesceExpression(
 		entityPropertyExpression("book", "pages"),
 		entityPropertyExpression("anime", "episodes"),
 		entityPropertyExpression("manga", "chapters"),
 		entityPropertyExpression("audiobook", "runtime"),
+		entityPropertyExpression("podcast", "totalEpisodes"),
 	);
 
 	return {

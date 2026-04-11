@@ -9,6 +9,7 @@ import {
 } from "~/lib/media/constants";
 import { mangaPropertiesJsonSchema } from "~/lib/media/manga";
 import { personPropertiesJsonSchema } from "~/lib/media/person";
+import { podcastPropertiesJsonSchema } from "~/lib/media/podcast";
 import { videoGamePropertiesJsonSchema } from "~/lib/media/video-game";
 import { createDefaultDisplayConfiguration } from "~/modules/saved-views";
 
@@ -18,7 +19,8 @@ export const authenticationBuiltinTrackers = () => [
 		slug: "media",
 		name: "Media",
 		accentColor: "#5B7FFF",
-		description: "Track media across books, anime, manga, and audiobooks.",
+		description:
+			"Track media across books, anime, manga, audiobooks, and podcasts.",
 	},
 	{
 		slug: "fitness",
@@ -152,6 +154,15 @@ export const authenticationBuiltinEntitySchemas = () => [
 		propertiesSchema: audiobookPropertiesJsonSchema,
 	},
 	{
+		slug: "podcast",
+		name: "Podcast",
+		icon: "podcast",
+		trackerSlug: "media",
+		accentColor: "#06B6D4",
+		eventSchemas: mediaLifecycleEventSchemas(),
+		propertiesSchema: podcastPropertiesJsonSchema,
+	},
+	{
 		icon: "gamepad-2",
 		slug: "video-game",
 		name: "Video Game",
@@ -186,6 +197,7 @@ const getBuiltInSavedViewName = (slug: BuiltinMediaEntitySchemaSlug) => {
 		.with("book", () => "All Books")
 		.with("anime", () => "All Anime")
 		.with("manga", () => "All Manga")
+		.with("podcast", () => "All Podcasts")
 		.with("audiobook", () => "All Audiobooks")
 		.with("video-game", () => "All Video Games")
 		.exhaustive();
