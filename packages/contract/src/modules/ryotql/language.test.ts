@@ -212,6 +212,64 @@ describe("RyotQLDocument", () => {
 		}
 	});
 
+	it("decodes time-series documents and responses", () => {
+		const timeSeries = {
+			queries: {
+				completions: {
+					from: { table: "event", alias: "completion" },
+					output: {
+						type: "timeSeries",
+						measure: { aggregation: { function: "count" } },
+						time: {
+							bucket: "day",
+							expr: { type: "column", tableAlias: "completion", field: "occurredAt" },
+							range: { endAt: "2026-01-03T00:00:00.000Z", startAt: "2026-01-01T00:00:00.000Z" },
+						},
+					},
+				},
+			},
+		} as const;
+		const response = {
+			data: {
+				completions: {
+					type: "timeSeries",
+					buckets: [
+						{ value: 1, endAt: "2026-01-02T00:00:00.000Z", startAt: "2026-01-01T00:00:00.000Z" },
+					],
+				},
+			},
+		} as const;
+
+		expect(Schema.decodeUnknownSync(RyotQLDocument)(timeSeries)).toEqual(timeSeries);
+		expect(Schema.decodeUnknownSync(RyotQLResponse)(response)).toEqual(response);
+	});
+
+	it("rejects invalid time-series output shapes", () => {
+		const event = { table: "event", alias: "event" } as const;
+		const time = {
+			bucket: "day",
+			expr: { type: "column", tableAlias: "event", field: "occurredAt" },
+			range: { endAt: "2026-01-02T00:00:00.000Z", startAt: "2026-01-01T00:00:00.000Z" },
+		} as const;
+		for (const output of [
+			{
+				time,
+				type: "timeSeries",
+				measure: { aggregation: { function: "countDistinct", expr: time.expr } },
+			},
+			{
+				type: "timeSeries",
+				time: { ...time, bucket: "year" },
+				measure: { aggregation: { function: "count" } },
+			},
+			{ time, type: "timeSeries", measure: { aggregation: { function: "count" } }, limit: 10 },
+		]) {
+			expect(() =>
+				Schema.decodeUnknownSync(RyotQLDocument)({ queries: { events: { from: event, output } } }),
+			).toThrow();
+		}
+	});
+
 	it("rejects malformed JSON paths, cast targets, and nested unknown keys", () => {
 		const expression = { type: "column", tableAlias: "entity", field: "properties" };
 

@@ -168,7 +168,7 @@ it.effect("preserves reserved result keys and non-text runtime kinds", () => {
 		const service = yield* RyotQLService;
 		const response = yield* service.executeForUser("user-1", null, document);
 		const result = response.data["__proto__"];
-		if (!result) {
+		if (result?.type !== "rows") {
 			throw new Error("Expected reserved query result");
 		}
 		const item = result.items[0];
@@ -330,7 +330,11 @@ it.effect("compiles and reconstructs nested correlated includes in one statement
 		expect(statements[2]?.match(/SELECT \* FROM event WHERE/g)).toHaveLength(1);
 		expect(statements[2]).toContain("ROW_NUMBER() OVER");
 		expect(statements[2]?.split('), "queryRows" AS (')[0]).not.toContain("jsonb_build_object");
-		expect(response.data["courses"]?.items).toEqual([
+		const courses = response.data["courses"];
+		if (courses?.type !== "rows") {
+			throw new Error("Expected courses rows result");
+		}
+		expect(courses.items).toEqual([
 			{
 				name: { kind: "text", value: "Course" },
 				modules: {
@@ -422,7 +426,11 @@ it.effect("compiles correlated scalar expressions with authorized query sets", (
 		expect(statement).toContain("SUM(");
 		expect(statement).toContain("NULLIF");
 		expect(statement?.match(/SELECT \* FROM event WHERE/g)?.length).toBeGreaterThan(0);
-		expect(response.data["entities"]?.items[0]).toEqual({
+		const entities = response.data["entities"];
+		if (entities?.type !== "rows") {
+			throw new Error("Expected entities rows result");
+		}
+		expect(entities.items[0]).toEqual({
 			sum: { kind: "null", value: null },
 			count: { kind: "number", value: 0 },
 			ratio: { kind: "null", value: null },
