@@ -2,7 +2,8 @@ import { ClusterWorkflowEngine, SingleRunner } from "@effect/cluster";
 import * as PersistedQueue from "@effect/experimental/PersistedQueue";
 import * as PersistedQueueRedis from "@effect/experimental/PersistedQueue/Redis";
 import { PgClient } from "@effect/sql-pg";
-import { Duration, Effect, Layer, Redacted } from "effect";
+import { WorkflowEngine, WorkflowInstance } from "@effect/workflow/WorkflowEngine";
+import { Context, Duration, Effect, Layer, Redacted } from "effect";
 
 import { AppConfig } from "./config/service";
 
@@ -37,7 +38,7 @@ const widenClusterMessageColumns = Effect.flatMap(
 // storage poll, not the in-process latch (@effect/cluster omits pollStorage in
 // sendResumeParent's reset path). Below the 10s default so chained triggers /
 // multi-item event creates don't stall ~10s per child; drop once the fix lands.
-export const WorkflowEngineLive = ClusterWorkflowEngine.layer.pipe(
+const ClusterWorkflowEngineLive = ClusterWorkflowEngine.layer.pipe(
 	Layer.provide(
 		SingleRunner.layer({
 			runnerStorage: "sql",
@@ -49,6 +50,28 @@ export const WorkflowEngineLive = ClusterWorkflowEngine.layer.pipe(
 	),
 	Layer.provide(WorkflowPgClientLive),
 );
+
+const omitWorkflowParent = <R>(context: Context.Context<R>) => {
+	const services = new Map(context.unsafeMap);
+	services.delete(WorkflowInstance.key);
+	return Context.unsafeMake<R>(services);
+};
+
+export const withoutWorkflowParent = <A, E, R>(effect: Effect.Effect<A, E, R>) =>
+	Effect.mapInputContext(effect, (context: Context.Context<R>) => omitWorkflowParent(context));
+
+export const detachDiscardedWorkflowChildren = (engine: WorkflowEngine["Type"]) => ({
+	...engine,
+	execute: ((workflow, options) => {
+		const execution = engine.execute(workflow, options);
+		return options.discard ? withoutWorkflowParent(execution) : execution;
+	}) as WorkflowEngine["Type"]["execute"],
+});
+
+export const WorkflowEngineLive = Layer.effect(
+	WorkflowEngine,
+	Effect.map(WorkflowEngine, detachDiscardedWorkflowChildren),
+).pipe(Layer.provide(ClusterWorkflowEngineLive));
 
 const RedisPersistedQueueStoreLive = Layer.scoped(
 	PersistedQueue.PersistedQueueStore,
