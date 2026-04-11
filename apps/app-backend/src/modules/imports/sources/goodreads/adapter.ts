@@ -1,6 +1,10 @@
 import { dayjs } from "@ryot/ts-utils/dayjs";
 
 import { parseCsvText } from "../../csv";
+import type {
+	MediaImportAdapterFailure,
+	MediaImportAdapterResult,
+} from "../../media/import-processor";
 import { resolveBookEntityRefByIsbn } from "../book/provider-lookup";
 import {
 	addCollectionMembership,
@@ -22,8 +26,6 @@ import {
 	parseDateWithFormat,
 	splitCommaList,
 	toTitleCaseWords,
-	type BookCsvAdapterFailure,
-	type BookCsvAdapterResult,
 	type ResolveBookEntityRef,
 } from "../book/shared";
 
@@ -35,7 +37,10 @@ const goodreadsAdapterDeps: GoodreadsAdapterDeps = {
 	resolveBookEntityRef: resolveBookEntityRefByIsbn,
 };
 
-const recordFailure = (failures: BookCsvAdapterFailure[], input: BookCsvAdapterFailure): void => {
+const recordFailure = (
+	failures: MediaImportAdapterFailure[],
+	input: MediaImportAdapterFailure,
+): void => {
 	failures.push(input);
 };
 
@@ -62,11 +67,11 @@ const selectLifecycleStatus = (shelves: string[]): ReturnType<typeof normalizeLi
 export const adaptGoodreadsCsv = async (
 	csvText: string,
 	deps: GoodreadsAdapterDeps = goodreadsAdapterDeps,
-): Promise<BookCsvAdapterResult> => {
+): Promise<MediaImportAdapterResult> => {
 	const { headers, rows } = parseCsvText(csvText);
 	assertRequiredHeaders(headers, ["Title", "ISBN13", "Bookshelves"], "Goodreads");
 
-	const failures: BookCsvAdapterFailure[] = [];
+	const failures: MediaImportAdapterFailure[] = [];
 	const groupMap = new Map<string, ReturnType<typeof getOrCreateGroup>>();
 
 	// oxlint-disable no-await-in-loop

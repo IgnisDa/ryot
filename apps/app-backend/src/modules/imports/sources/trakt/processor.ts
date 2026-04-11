@@ -3,63 +3,27 @@ import type { Job } from "bullmq";
 import { config } from "~/lib/config";
 
 import type { ImportEntityRef, ImportMediaEntityGroup, ImportRunJobData } from "../../jobs";
-import {
-	entityRefKey,
-	populateMediaEntityRefs,
-	writeMediaEntityGroups,
-} from "../../media/processor";
-import { createImportRunFailure, updateImportRun } from "../../repository";
-import type { ImportRunFailureStage } from "../../schemas";
+import { processMediaImport } from "../../media/import-processor";
+import { updateImportRun } from "../../repository";
 import { adaptTraktData } from "./adapter";
-
-const sanitizeErrorMessage = (error: unknown, fallback: string): string => {
-	if (!(error instanceof Error)) {
-		return fallback;
-	}
-	return error.message;
-};
-
-const recordItemFailure = async (
-	runId: string,
-	itemIndex: number,
-	stage: ImportRunFailureStage,
-	message: string,
-	opts?: {
-		sourceLabel?: string | null;
-		entitySchemaSlug?: string | null;
-		sourceIdentifier?: string | null;
-		context?: Record<string, unknown> | null;
-	},
-	createFailure: typeof createImportRunFailure = createImportRunFailure,
-): Promise<void> => {
-	await createFailure({
-		runId,
-		stage,
-		message,
-		itemIndex,
-		context: opts?.context ?? null,
-		sourceLabel: opts?.sourceLabel ?? null,
-		sourceIdentifier: opts?.sourceIdentifier ?? null,
-		entitySchemaSlug: opts?.entitySchemaSlug ?? null,
-	});
-};
 
 export type TraktImportProcessorDeps = {
 	adaptTraktData: typeof adaptTraktData;
 	updateImportRun: typeof updateImportRun;
+	processMediaImport: typeof processMediaImport;
 	getTraktClientId: () => string | undefined;
-	createImportRunFailure: typeof createImportRunFailure;
-	writeMediaEntityGroups: typeof writeMediaEntityGroups;
-	populateMediaEntityRefs: typeof populateMediaEntityRefs;
 };
 
 const traktImportProcessorDeps: TraktImportProcessorDeps = {
 	adaptTraktData,
 	updateImportRun,
-	createImportRunFailure,
-	writeMediaEntityGroups,
-	populateMediaEntityRefs,
+	processMediaImport,
 	getTraktClientId: () => config.importer.trakt.clientId,
+};
+
+const getTraktUsername = (sourcePayload: Record<string, unknown> | undefined): string => {
+	const username = sourcePayload?.username;
+	return typeof username === "string" ? username.trim() : "";
 };
 
 export const processTraktImport = async (
@@ -68,7 +32,7 @@ export const processTraktImport = async (
 	input: {
 		runId: string;
 		userId: string;
-		traktUsername: string;
+		sourcePayload: Record<string, unknown> | undefined;
 		providerEntityIndex: number | undefined;
 		adapterFailureCount: number | undefined;
 		providerSandboxJobId: string | undefined;
@@ -83,12 +47,21 @@ export const processTraktImport = async (
 	},
 	deps: TraktImportProcessorDeps = traktImportProcessorDeps,
 ): Promise<void> => {
-	const { runId, userId, traktUsername } = input;
+	const username = getTraktUsername(input.sourcePayload);
+	if (!username) {
+		await deps.updateImportRun({
+			runId: input.runId,
+			status: "failed",
+			finishedAt: new Date(),
+			errorSummary: "Import job is missing Trakt username",
+		});
+		return;
+	}
 
 	const clientId = deps.getTraktClientId();
 	if (!clientId) {
 		await deps.updateImportRun({
-			runId,
+			runId: input.runId,
 			status: "failed",
 			finishedAt: new Date(),
 			errorSummary: "Trakt importer is not configured. Set SERVER_IMPORTER_TRAKT_CLIENT_ID.",
@@ -96,187 +69,11 @@ export const processTraktImport = async (
 		return;
 	}
 
-	let importStep = input.importStep;
-	let mediaEntityGroups = input.mediaEntityGroups;
-	let providerEntityRefs = input.providerEntityRefs;
-	let adapterFailureCount = input.adapterFailureCount ?? 0;
-	let mediaWriteFailedItems = input.mediaWriteFailedItems ?? 0;
-	let mediaWriteGroupIndex = input.mediaWriteGroupIndex ?? 0;
-	let mediaWriteImportedItems = input.mediaWriteImportedItems ?? 0;
-	let providerEntityIds = input.providerEntityIds ?? [];
-	let providerFailedIndices = input.providerFailedIndices ?? [];
-
-	if (!importStep || importStep === "populating_entities") {
-		if (!providerEntityRefs || !mediaEntityGroups) {
-			let adapterResult: Awaited<ReturnType<typeof adaptTraktData>>;
-			try {
-				adapterResult = await deps.adaptTraktData(traktUsername, clientId);
-			} catch (error) {
-				await deps.updateImportRun({
-					runId,
-					status: "failed",
-					finishedAt: new Date(),
-					errorSummary: sanitizeErrorMessage(error, "Failed to fetch data from Trakt"),
-				});
-				return;
-			}
-
-			// oxlint-disable no-await-in-loop
-			for (const failure of adapterResult.failures) {
-				await recordItemFailure(
-					runId,
-					failure.itemIndex,
-					"input_transformation",
-					failure.message,
-					{
-						sourceLabel: failure.sourceLabel,
-						sourceIdentifier: failure.sourceIdentifier,
-					},
-					deps.createImportRunFailure,
-				);
-			}
-			// oxlint-enable no-await-in-loop
-
-			mediaEntityGroups = adapterResult.entityGroups;
-			adapterFailureCount = adapterResult.failures.length;
-			mediaWriteFailedItems = 0;
-			mediaWriteGroupIndex = 0;
-			mediaWriteImportedItems = 0;
-			providerEntityRefs = mediaEntityGroups.map((g) => g.entityRef);
-			const totalItems = providerEntityRefs.length + adapterFailureCount;
-			await deps.updateImportRun({ runId, totalItems });
-
-			await job.updateData({
-				runId,
-				userId,
-				traktUsername,
-				mediaEntityGroups,
-				providerEntityRefs,
-				adapterFailureCount,
-				mediaWriteGroupIndex,
-				providerEntityIds: [],
-				mediaWriteFailedItems,
-				providerEntityIndex: 0,
-				mediaWriteImportedItems,
-				providerFailedIndices: [],
-				importStep: "populating_entities" as const,
-			});
-		}
-
-		const totalItems = providerEntityRefs.length + adapterFailureCount;
-		const result = await deps.populateMediaEntityRefs(job, token, {
-			runId,
-			userId,
-			mediaEntityGroups,
-			adapterFailureCount,
-			jobData: { traktUsername },
-			entityIds: providerEntityIds,
-			entityRefs: providerEntityRefs,
-			failedIndices: providerFailedIndices,
-			startIndex: input.providerEntityIndex ?? 0,
-			currentSandboxJobId: input.providerSandboxJobId,
-			onEntityProcessed: async (processedCount) => {
-				const progress = totalItems > 0 ? Math.round((processedCount / totalItems) * 90) : 0;
-				await deps.updateImportRun({ runId, processedItems: processedCount, progress });
-			},
-		});
-		// WaitingChildrenError propagates naturally to pause the job
-
-		providerFailedIndices = result.failedIndices;
-		providerEntityIds = result.entityIds;
-		importStep = "writing_events";
-
-		await job.updateData({
-			runId,
-			userId,
-			traktUsername,
-			mediaEntityGroups,
-			providerEntityIds,
-			providerEntityRefs,
-			adapterFailureCount,
-			mediaWriteGroupIndex,
-			mediaWriteFailedItems,
-			providerFailedIndices,
-			mediaWriteImportedItems,
-			importStep: "writing_events" as const,
-		});
-	}
-
-	if (
-		!mediaEntityGroups ||
-		!providerEntityRefs ||
-		providerEntityIds.length < providerEntityRefs.length
-	) {
-		await deps.updateImportRun({
-			runId,
-			status: "failed",
-			finishedAt: new Date(),
-			errorSummary: "Import job is missing normalized or populated Trakt data",
-		});
-		return;
-	}
-
-	const entityIdsByKey = new Map<string, string>();
-	providerEntityRefs.forEach((ref, i) => {
-		const entityId = providerEntityIds[i];
-		if (!providerFailedIndices.includes(i) && entityId) {
-			entityIdsByKey.set(entityRefKey(ref), entityId);
-		}
-	});
-
-	const { failedItems, importedItems } = await deps.writeMediaEntityGroups({
-		runId,
-		userId,
-		entityIdsByKey,
-		entityGroups: mediaEntityGroups,
-		failedItems: mediaWriteFailedItems,
-		startGroupIndex: mediaWriteGroupIndex,
-		importedItems: mediaWriteImportedItems,
-		onGroupComplete: async (state) => {
-			mediaWriteFailedItems = state.failedItems;
-			mediaWriteGroupIndex = state.nextGroupIndex;
-			mediaWriteImportedItems = state.importedItems;
-			const processedSoFar = adapterFailureCount + providerEntityRefs.length;
-			const writtenSoFar = state.nextGroupIndex;
-			const writeProgress =
-				mediaEntityGroups.length > 0
-					? Math.round((writtenSoFar / mediaEntityGroups.length) * 10)
-					: 0;
-			const progress = Math.min(90 + writeProgress, 99);
-			await deps.updateImportRun({
-				runId,
-				progress,
-				processedItems: processedSoFar,
-				importedItems: state.importedItems,
-				failedItems: adapterFailureCount + providerFailedIndices.length + state.failedItems,
-			});
-			await job.updateData({
-				runId,
-				userId,
-				traktUsername,
-				mediaEntityGroups,
-				providerEntityIds,
-				providerEntityRefs,
-				adapterFailureCount,
-				mediaWriteGroupIndex,
-				providerFailedIndices,
-				mediaWriteFailedItems,
-				mediaWriteImportedItems,
-				importStep: "writing_events" as const,
-			});
-		},
-	});
-
-	const totalFailed = adapterFailureCount + providerFailedIndices.length + failedItems;
-	const totalProcessed = adapterFailureCount + providerEntityRefs.length;
-
-	await deps.updateImportRun({
-		runId,
-		importedItems,
-		progress: 100,
-		status: "completed",
-		finishedAt: new Date(),
-		failedItems: totalFailed,
-		processedItems: totalProcessed,
+	await deps.processMediaImport(job, token, {
+		...input,
+		sourceName: "Trakt",
+		jobData: { sourcePayload: { username } },
+		adapterErrorFallback: "Failed to fetch data from Trakt",
+		loadAdapterResult: () => deps.adaptTraktData(username, clientId),
 	});
 };
