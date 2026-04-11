@@ -12,11 +12,7 @@ type TestSandboxQueueAccessor = {
 
 const createJobData = (
 	overrides: Partial<SandboxRunJobData> = {},
-): SandboxRunJobData => ({
-	userId: "user_1",
-	code: "return 1;",
-	...overrides,
-});
+): SandboxRunJobData => ({ userId: "user_1", code: "return 1;", ...overrides });
 
 describe("SandboxService.executeQueuedRun", () => {
 	it("reconstructs bound host functions from descriptors", async () => {
@@ -266,9 +262,7 @@ describe("SandboxService driverName support", () => {
 
 		await service.executeQueuedRun(createJobData());
 
-		expect(capturedOptions).toMatchObject({
-			code: "return 1;",
-		});
+		expect(capturedOptions).toMatchObject({ code: "return 1;" });
 		expect(
 			(capturedOptions as { driverName?: string }).driverName,
 		).toBeUndefined();
