@@ -4,16 +4,18 @@ RyotQL is the focused read API at `POST /ryotql/execute`. It is independent from
 
 ## Current Capabilities
 
-- Authenticated user execution against the `entity` and `event` tables.
+- Authenticated user execution against the `entity`, `event`, and `relationship` tables.
 - Multiple independent named rows queries in one repeatable-read, read-only transaction.
-- Entity field selection, typed JSON expressions, predicates, inner and left joins, ordering, and pagination.
+- Field selection, typed JSON expressions, predicates, inner and left joins, ordering, pagination, and correlated row includes.
 - Localized entity names and properties with translation status as a normal catalog field.
-- User visibility for every entity and event table occurrence: a caller can read their own rows and global rows.
+- User visibility for every table occurrence: a caller can read their own rows and global rows.
 - Runtime field kinds: `text`, `date`, `number`, `boolean`, `json`, and `null`.
 
 The entity catalog currently exposes `id`, `name`, `userId`, `createdAt`, `updatedAt`, `properties`, `externalId`, `populatedAt`, `providerId`, `translationStatus`, and `entitySchemaSlug`. Other physical columns are not queryable.
 
 The event catalog exposes `id`, `userId`, `entityId`, `createdAt`, `updatedAt`, `properties`, `occurredAt`, `eventSchemaSlug`, and `sessionEntityId`.
+
+The relationship catalog exposes `id`, `userId`, `sourceEntityId`, `targetEntityId`, `createdAt`, `properties`, and `relationshipSchemaSlug`.
 
 ## Document Shape
 
@@ -66,7 +68,7 @@ The response is keyed by the same query name:
 }
 ```
 
-Rows default to page 1, limit 20, and root primary-key ascending order when built with the SDK. The compiler always appends the root primary key when needed, uses `NULLS LAST` in both directions, and reports the true total for pages beyond the final row.
+Rows default to page 1, limit 20, and root primary-key ascending order when built with the SDK. The compiler appends joined and root primary keys when needed to keep multiplied rows deterministic, uses `NULLS LAST` in both directions, and reports the true total for pages beyond the final row.
 
 ## Expressions And JSON
 
@@ -122,6 +124,60 @@ document({
 
 Event JSON properties use the same generic JSON paths and safe casts as entity properties. `sessionEntityId` is nullable and reconstructs with the `null` kind when absent; event timestamps reconstruct with the `date` kind.
 
+## Relationships And Joins
+
+Relationships are ordinary rows. Join `sourceEntityId` and `targetEntityId` to separate entity aliases when endpoint fields are needed. There are no endpoint declarations, directions, or automatic discriminator filters.
+
+Inner and left joins can connect any catalog tables. A join predicate can reference its new alias and aliases already in scope. Normal SQL multiplicity applies: several matching joined rows produce several root rows, and RyotQL does not deduplicate them.
+
+Authorization is applied inside every table occurrence before joins and caller predicates. A left join with no visible matching row therefore keeps the left row and returns null fields from the joined alias.
+
+```ts
+const member = table("entity", "member");
+const collection = table("entity", "collection");
+const membership = table("relationship", "membership");
+
+rows(membership, {
+	where: eq(column(membership, "relationshipSchemaSlug"), literal("membership")),
+	fields: [
+		field("memberName", column(member, "name")),
+		field("collectionName", column(collection, "name")),
+	],
+	joins: [
+		join("inner", member, eq(column(membership, "sourceEntityId"), column(member, "id"))),
+		join("inner", collection, eq(column(membership, "targetEntityId"), column(collection, "id"))),
+	],
+});
+```
+
+## Correlated Includes
+
+An include is a row query with its own `from`, optional joins and predicate, selected fields, non-empty ordering, and explicit limit. Its expressions can reference aliases from the parent scope. Sibling aliases are not shared. Any catalog table can be an include root or join.
+
+Includes return `{ items, pageInfo: { limit, hasMore } }` under their key. They run as correlated SQL inside the named query statement, fetch at most limit plus one rows to derive `hasMore`, and return an empty `items` list without removing the parent. Includes can be nested to depth three.
+
+```ts
+const course = table("entity", "course");
+const module = table("entity", "module");
+const courseModule = table("relationship", "courseModule");
+
+rows(course, {
+	fields: [field("name", column(course, "name"))],
+	include: [
+		include(courseModule, {
+			limit: 10,
+			key: "modules",
+			orderBy: [ascending(column(module, "name"))],
+			fields: [field("name", column(module, "name"))],
+			where: eq(column(courseModule, "sourceEntityId"), column(course, "id")),
+			joins: [
+				join("inner", module, eq(column(courseModule, "targetEntityId"), column(module, "id"))),
+			],
+		}),
+	],
+});
+```
+
 ## Localization And Derived Fields
 
 Catalog fields resolve through one backend-owned interface. Most fields map directly to physical columns. `name`, `properties`, and `translationStatus` are resolved fields whose SQL depends on the authenticated user's language. RyotQL documents use them as ordinary columns and cannot provide custom field resolvers.
@@ -135,6 +191,8 @@ For a user with a non-canonical language preference, `name` uses the translated 
 - 10 named queries per document.
 - 8 joins per named query.
 - 100 rows per page.
+- 100 rows per include.
+- 3 include levels.
 - 30-second transaction-local statement timeout.
 
-Correlated queries, includes, aggregates, time series, plugin execution, and application tables other than `entity` and `event` are not available yet.
+Correlated scalar expressions, aggregates, time series, plugin execution, and application tables other than `entity`, `event`, and `relationship` are not available yet.

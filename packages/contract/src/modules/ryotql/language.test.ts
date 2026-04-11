@@ -1,7 +1,7 @@
 import { Schema } from "effect";
 import { describe, expect, it } from "vitest";
 
-import { RyotQLDocument } from "./language";
+import { RyotQLDocument, RyotQLResponse } from "./language";
 
 const document = {
 	queries: {
@@ -125,5 +125,90 @@ describe("RyotQLDocument", () => {
 		expect(() =>
 			Schema.decodeUnknownSync(RyotQLDocument)(makeDocument({ type: "literal", value: 1n })),
 		).toThrow();
+	});
+
+	it("decodes nested correlated includes and their response values", () => {
+		const withInclude = {
+			queries: {
+				courses: {
+					...document.queries.collections,
+					output: {
+						...document.queries.collections.output,
+						include: [
+							{
+								limit: 10,
+								fields: [],
+								key: "modules",
+								from: { table: "relationship", alias: "courseModule" },
+								orderBy: [
+									{
+										direction: "asc",
+										expr: { type: "column", tableAlias: "courseModule", field: "id" },
+									},
+								],
+								where: {
+									type: "comparison",
+									operator: "eq",
+									left: { type: "column", tableAlias: "courseModule", field: "sourceEntityId" },
+									right: { type: "column", tableAlias: "collection", field: "id" },
+								},
+							},
+						],
+					},
+				},
+			},
+		} as const;
+		expect(Schema.decodeUnknownSync(RyotQLDocument)(withInclude)).toEqual(withInclude);
+
+		const response = {
+			data: {
+				courses: {
+					type: "rows",
+					pageInfo: { page: 1, limit: 20, total: 1, hasMore: false },
+					items: [
+						{
+							id: { kind: "text", value: "course-1" },
+							modules: { items: [], pageInfo: { limit: 10, hasMore: false } },
+						},
+					],
+				},
+			},
+		} as const;
+		expect(Schema.decodeUnknownSync(RyotQLResponse)(response)).toEqual(response);
+	});
+
+	it("rejects present empty join and include collections", () => {
+		for (const query of [
+			{ ...document.queries.collections, joins: [] },
+			{
+				...document.queries.collections,
+				output: { ...document.queries.collections.output, include: [] },
+			},
+		]) {
+			expect(() => Schema.decodeUnknownSync(RyotQLDocument)({ queries: { query } })).toThrow();
+		}
+
+		const nested = {
+			limit: 1,
+			fields: [],
+			key: "children",
+			from: { table: "entity", alias: "child" },
+			orderBy: [{ direction: "asc", expr: { type: "column", tableAlias: "child", field: "id" } }],
+		} as const;
+		for (const invalid of [
+			{ ...nested, joins: [] },
+			{ ...nested, include: [] },
+		]) {
+			expect(() =>
+				Schema.decodeUnknownSync(RyotQLDocument)({
+					queries: {
+						query: {
+							...document.queries.collections,
+							output: { ...document.queries.collections.output, include: [invalid] },
+						},
+					},
+				}),
+			).toThrow();
+		}
 	});
 });

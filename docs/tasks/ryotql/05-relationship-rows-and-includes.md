@@ -2,7 +2,7 @@
 
 **Parent Plan:** [RyotQL](./README.md)
 
-**Status:** todo
+**Status:** completed
 
 ## What to build
 
@@ -12,17 +12,17 @@ Includes are correlated rows queries with lexical access to valid ancestors, exp
 
 ## Acceptance criteria
 
-- [ ] The relationship catalog entry exposes the approved relationship fields and user visibility policy
-- [ ] Generic inner and left joins support any registered tables with validated lexical aliases and on predicates
-- [ ] Visibility filtering occurs before join evaluation, including left joins, without converting a left join into an inner join
-- [ ] Relationship roots can project relationship, source entity, and target entity fields through ordinary joins
-- [ ] Includes support correlated predicates, explicit limits, ordering, fields, empty child lists, limit-plus-one hasMore, and nesting to the retained depth
-- [ ] Any registered table can participate in an include without event- or relationship-specific restrictions
-- [ ] Root joins retain normal SQL multiplicity and aggregate semantics do not receive implicit deduplication
-- [ ] End-to-end course/module/lesson, relationship membership, filtered child, left join, and nested include scenarios pass
-- [ ] User isolation tests cover partial endpoint visibility, hidden relationship rows, relationship properties, and crafted join attempts
-- [ ] Existing RyotQL slices and the complete legacy query-engine suite remain green
-- [ ] The RyotQL guide documents joins, multiplicity, correlation, and includes
+- [x] The relationship catalog entry exposes the approved relationship fields and user visibility policy
+- [x] Generic inner and left joins support any registered tables with validated lexical aliases and on predicates
+- [x] Visibility filtering occurs before join evaluation, including left joins, without converting a left join into an inner join
+- [x] Relationship roots can project relationship, source entity, and target entity fields through ordinary joins
+- [x] Includes support correlated predicates, explicit limits, ordering, fields, empty child lists, limit-plus-one hasMore, and nesting to the retained depth
+- [x] Any registered table can participate in an include without event- or relationship-specific restrictions
+- [x] Root joins retain normal SQL multiplicity and aggregate semantics do not receive implicit deduplication
+- [x] End-to-end course/module/lesson, relationship membership, filtered child, left join, and nested include scenarios pass
+- [x] User isolation tests cover partial endpoint visibility, hidden relationship rows, relationship properties, and crafted join attempts
+- [x] Existing RyotQL slices and the complete legacy query-engine suite remain green
+- [x] The RyotQL guide documents joins, multiplicity, correlation, and includes
 
 ## User stories addressed
 

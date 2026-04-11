@@ -18,6 +18,8 @@ import {
 	gte,
 	isNotNull,
 	isNull,
+	include,
+	join,
 	jsonPath,
 	literal,
 	lt,
@@ -129,5 +131,42 @@ describe("RyotQL builders", () => {
 		expect(() => literal({ nested: [1, Number.NaN] })).toThrow(
 			"RyotQL literals require finite numbers",
 		);
+	});
+
+	it("builds joined correlated includes and omits absent options", () => {
+		const course = table("entity", "course");
+		const courseModule = table("relationship", "courseModule");
+		const module = table("entity", "module");
+		const modules = include(courseModule, {
+			limit: 2,
+			key: "modules",
+			orderBy: [ascending(column(module, "name"))],
+			fields: [field("name", column(module, "name"))],
+			where: eq(column(courseModule, "sourceEntityId"), column(course, "id")),
+			joins: [
+				join("inner", module, eq(column(courseModule, "targetEntityId"), column(module, "id"))),
+			],
+		});
+
+		expect(rows(course, { fields: [], include: [modules] })).toMatchObject({
+			output: {
+				include: [
+					{
+						limit: 2,
+						key: "modules",
+						from: { table: "relationship", alias: "courseModule" },
+						joins: [{ type: "inner", table: { table: "entity", alias: "module" } }],
+					},
+				],
+			},
+		});
+		expect(
+			include(module, {
+				limit: 1,
+				fields: [],
+				key: "empty",
+				orderBy: [ascending(column(module, "id"))],
+			}),
+		).not.toHaveProperty("joins");
 	});
 });
