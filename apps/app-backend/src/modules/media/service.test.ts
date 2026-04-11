@@ -67,6 +67,61 @@ describe("getContinueItems", () => {
 		});
 	});
 
+	it("returns audiobook continue item with runtime-based progress label and Log Progress cta", async () => {
+		const result = expectDataResult(
+			await getContinueItems("user_1", {
+				executeSectionQuery: async () => ({
+					items: [
+						{
+							image: null,
+							id: "audiobook-1",
+							name: "Test Audiobook",
+							entitySchemaSlug: "audiobook",
+							entitySchemaId: "schema-ab",
+							createdAt: date("2024-01-01"),
+							updatedAt: date("2024-01-01"),
+							fields: [
+								{
+									key: "progressAt",
+									kind: "date" as const,
+									value: date("2024-03-20"),
+								},
+								{
+									value: 50,
+									key: "progressPercent",
+									kind: "number" as const,
+								},
+								{
+									value: 180,
+									key: "totalUnits",
+									kind: "number" as const,
+								},
+							],
+						},
+					],
+					meta: {
+						pagination: {
+							page: 1,
+							limit: 6,
+							total: 1,
+							totalPages: 1,
+							hasNextPage: false,
+							hasPreviousPage: false,
+						},
+					},
+				}),
+			}),
+		);
+
+		expect(result.items).toHaveLength(1);
+		expect(result.items[0]).toMatchObject({
+			id: "audiobook-1",
+			entitySchemaSlug: "audiobook",
+			labels: { cta: "Log Progress" },
+		});
+		expect(result.items[0]?.labels.progress).toMatch(/minutes/);
+	});
+
 	it("filters items requiring progressAt", async () => {
 		const result = expectDataResult(
 			await getContinueItems("user_1", {
@@ -845,11 +900,16 @@ describe("getLibraryStats", () => {
 						makeLibraryItem({ id: "e1", entitySchemaSlug: "book" }),
 						makeLibraryItem({ id: "e2", entitySchemaSlug: "book" }),
 						makeLibraryItem({ id: "e3", entitySchemaSlug: "anime" }),
+						makeLibraryItem({ id: "e4", entitySchemaSlug: "audiobook" }),
 					]),
 			}),
 		);
 
-		expect(result.entityTypeCounts).toEqual({ book: 2, anime: 1 });
+		expect(result.entityTypeCounts).toEqual({
+			book: 2,
+			anime: 1,
+			audiobook: 1,
+		});
 	});
 
 	it("maps QueryEngineNotFoundError to not_found error", async () => {
