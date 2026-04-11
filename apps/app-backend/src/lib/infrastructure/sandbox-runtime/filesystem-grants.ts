@@ -4,10 +4,14 @@ import {
 	FILESYSTEM_GRANT_SANDBOX_CAPABILITIES,
 	type FilesystemGrantSandboxCapability,
 } from "@ryot/sandbox-sdk/core";
+import { sandboxScratchManifestSchema } from "@ryot/sandbox-sdk/filesystem";
 import { Effect, Schema } from "effect";
 
 const SANDBOX_SCRATCH_DIRECTORY_PREFIX = "ryot-sandbox-scratch-";
 export const SANDBOX_HARVEST_DIRECTORY_PREFIX = "ryot-sandbox-harvest-";
+
+export const sanitizeSandboxExecutionSegment = (executionId: string) =>
+	executionId.replace(/[^a-zA-Z0-9._-]/g, "-");
 
 const filesystemGrantCapabilities = new Set<string>(FILESYSTEM_GRANT_SANDBOX_CAPABILITIES);
 
@@ -93,9 +97,7 @@ export const measureSandboxScratchBytes = Effect.fn("sandbox.measureScratchBytes
 	return yield* walk(directory);
 });
 
-export const SandboxScratchManifest = Schema.Struct({
-	chunkFiles: Schema.Array(Schema.String),
-});
+export const SandboxScratchManifest = sandboxScratchManifestSchema;
 
 export type SandboxScratchManifest = Schema.Schema.Type<typeof SandboxScratchManifest>;
 

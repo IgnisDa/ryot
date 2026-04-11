@@ -7,8 +7,6 @@ import type { ImportRunJobData } from "./jobs";
 import { runOneTimeMediaImportWorkflow } from "./media-workflow";
 import { MediaImportWorkflowOperationsLive } from "./media/operations-workflow";
 import { isOneTimeMediaImportSource } from "./media/source-loaders";
-import { NonMediaImportWorkflowOperationsLive } from "./non-media-operation-registry-workflow";
-import { runOneTimeNonMediaImportWorkflow } from "./non-media-workflow";
 import { runPluginImportWorkflow } from "./plugin-import-workflow";
 import { ImportRunArtifacts } from "./runtime/workflow-helpers";
 
@@ -28,12 +26,9 @@ export const runProcessImportRunWorkflow = Effect.fn("ProcessImportRunWorkflow")
 		// TODO(plugin-system): Transitional: sources no plugin manifest declares still run the native media-versus-non-media
 		// orchestration. Tasks 09 and 10 move all nineteen sources onto the dispatch path above and
 		// delete this branch along with `isOneTimeMediaImportSource`.
-		if (!isOneTimeMediaImportSource(payload.source)) {
-			yield* runOneTimeNonMediaImportWorkflow(payload);
-			return;
+		if (isOneTimeMediaImportSource(payload.source)) {
+			yield* runOneTimeMediaImportWorkflow(payload, executionId);
 		}
-
-		yield* runOneTimeMediaImportWorkflow(payload, executionId);
 	},
 	(effect, _payload, executionId) =>
 		Effect.annotateLogs(effect, { executionId, workflow: "ProcessImportRunWorkflow" }),
@@ -42,11 +37,5 @@ export const runProcessImportRunWorkflow = Effect.fn("ProcessImportRunWorkflow")
 const ProcessImportRunWorkflowLive = ProcessImportRunWorkflow.toLayer(runProcessImportRunWorkflow);
 
 export const ImportWorkflowDefinitionsLive = ProcessImportRunWorkflowLive.pipe(
-	Layer.provide(
-		Layer.mergeAll(
-			ImportRunArtifacts.Default,
-			MediaImportWorkflowOperationsLive,
-			NonMediaImportWorkflowOperationsLive,
-		),
-	),
+	Layer.provide(Layer.mergeAll(ImportRunArtifacts.Default, MediaImportWorkflowOperationsLive)),
 );

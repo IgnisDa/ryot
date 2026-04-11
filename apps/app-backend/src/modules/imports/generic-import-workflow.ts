@@ -1,0 +1,382 @@
+import { FileSystem, Path } from "@effect/platform";
+import { Activity, Workflow } from "@effect/workflow";
+import { WorkflowEngine } from "@effect/workflow/WorkflowEngine";
+import { unknownToMessage } from "@ryot/contract/errors";
+import { CreateEventItem } from "@ryot/contract/modules/events/schemas";
+import type { EntityId } from "@ryot/contract/schema/brands";
+import {
+	EntitySchemaSlug,
+	EventSchemaSlug,
+	ImportRunId,
+	RelationshipSchemaSlug,
+	UserId,
+} from "@ryot/contract/schema/brands";
+import {
+	genericImportChunkSchema,
+	genericImportKernelInputSchema,
+	genericImportWorkflowResultSchema,
+	type GenericImportWriteItem,
+} from "@ryot/sandbox-sdk/imports";
+import { isObjectRecord } from "@ryot/ts-utils/predicates";
+import { DateTime, Effect, Schema } from "effect";
+
+import { DbRunner } from "#lib/infrastructure/db/service";
+import { slugify } from "#lib/shared/slug";
+import { DefinitionRegistry } from "#modules/definition-registry/service";
+import { EntitiesRepository } from "#modules/entities/repository";
+import { EntitiesService } from "#modules/entities/service";
+import { EventCreateWorkflow } from "#modules/events/event-create-workflow";
+import { RelationshipsService } from "#modules/relationships/service";
+
+import { PROGRESS_UPDATE_INTERVAL, recordImportRunFailure } from "./runtime/import-run-status";
+import { ImportRunError, toWorkflowError } from "./runtime/workflow-errors";
+import { ImportsService, type UpdateImportRunInput } from "./service";
+
+export const ProcessGenericImportChunksPayload = Schema.Struct({
+	...genericImportKernelInputSchema.fields,
+	userId: UserId,
+	executionId: Schema.String,
+	expectedHarvestDirectoryPrefix: Schema.String,
+});
+
+export const ProcessGenericImportChunksWorkflow = Workflow.make({
+	error: ImportRunError,
+	name: "ProcessGenericImportChunksWorkflow",
+	success: genericImportWorkflowResultSchema,
+	payload: ProcessGenericImportChunksPayload,
+	idempotencyKey: ({ executionId }) => executionId,
+});
+
+const ItemWriteOutcome = Schema.Union(
+	Schema.TaggedStruct("failed", { message: Schema.String }),
+	Schema.TaggedStruct("ready", { events: Schema.Array(CreateEventItem) }),
+);
+
+const requireHarvestedChunkPath = Effect.fn("imports.requireHarvestedChunkPath")(function* (
+	filePath: string,
+	expectedDirectoryPrefix: string,
+) {
+	const path = yield* Path.Path;
+	const resolvedFile = path.resolve(filePath);
+	const directory = path.dirname(resolvedFile);
+	const executionSegment = path.basename(directory);
+	const expectedRoot = path.dirname(expectedDirectoryPrefix);
+	const expectedExecutionPrefix = path.basename(expectedDirectoryPrefix);
+	const activityStep = executionSegment.slice(expectedExecutionPrefix.length);
+	if (
+		!path.isAbsolute(filePath) ||
+		resolvedFile !== filePath ||
+		path.dirname(directory) !== expectedRoot ||
+		!executionSegment.startsWith(expectedExecutionPrefix) ||
+		!/^(0|[1-9]\d*)$/.test(activityStep)
+	) {
+		return yield* new ImportRunError({
+			message: "Import chunk path is outside the trusted harvest",
+		});
+	}
+	return { directory, filePath };
+});
+
+const valuesMatch = (properties: Record<string, unknown>, expected: Record<string, unknown>) =>
+	Object.entries(expected).every(
+		([key, value]) => JSON.stringify(properties[key]) === JSON.stringify(value),
+	);
+
+const resolveEntityIntents = Effect.fn("imports.resolveGenericEntityIntents")(function* (
+	item: GenericImportWriteItem,
+	userId: UserId,
+) {
+	const runWithDb = yield* DbRunner;
+	const entities = yield* EntitiesService;
+	const repository = yield* EntitiesRepository;
+	const aliases = new Map<string, EntityId>();
+
+	for (const intent of item.entities) {
+		if (aliases.has(intent.alias)) {
+			return yield* new ImportRunError({
+				message: `Duplicate import entity alias '${intent.alias}'`,
+			});
+		}
+		let entityId: EntityId | undefined;
+		if (intent.match) {
+			const candidates = yield* runWithDb(
+				repository.listMatchCandidatesBySchema({
+					userId,
+					entitySchemaSlug: EntitySchemaSlug.make(intent.entitySchemaSlug),
+				}),
+			);
+			const expectedName =
+				intent.match.nameNormalization === "slug" ? slugify(intent.match.name) : intent.match.name;
+			const existing = candidates.find((candidate) => {
+				const candidateName =
+					intent.match?.nameNormalization === "slug" ? slugify(candidate.name) : candidate.name;
+				return (
+					candidateName === expectedName &&
+					isObjectRecord(candidate.properties) &&
+					valuesMatch(candidate.properties, intent.match?.properties ?? {})
+				);
+			});
+			entityId = existing?.id;
+		}
+		entityId ??= (yield* entities.create({
+			userId,
+			scope: "user",
+			name: intent.name,
+			properties: intent.properties,
+			entitySchemaSlug: EntitySchemaSlug.make(intent.entitySchemaSlug),
+		})).id;
+		aliases.set(intent.alias, entityId);
+	}
+	return aliases;
+});
+
+const writeGenericItem = (item: GenericImportWriteItem, userId: UserId, index: number) =>
+	Activity.make({
+		name: `write-generic-import-item-${index}`,
+		success: ItemWriteOutcome,
+		execute: Effect.gen(function* () {
+			const definitions = yield* DefinitionRegistry;
+			const relationships = yield* RelationshipsService;
+			const entitySchemasByAlias = new Map(
+				item.entities.map(({ alias, entitySchemaSlug }) => [alias, entitySchemaSlug]),
+			);
+			for (const event of item.events) {
+				const entitySchemaSlug = entitySchemasByAlias.get(event.entityAlias);
+				if (!entitySchemaSlug) {
+					return yield* new ImportRunError({
+						message: "Import event references an unknown entity alias",
+					});
+				}
+				yield* definitions.validateEventProperties(
+					entitySchemaSlug,
+					event.eventSchemaSlug,
+					event.properties,
+				);
+			}
+			for (const relationship of item.relationships) {
+				if (
+					!entitySchemasByAlias.has(relationship.sourceAlias) ||
+					!entitySchemasByAlias.has(relationship.targetAlias)
+				) {
+					return yield* new ImportRunError({
+						message: "Import relationship references an unknown entity alias",
+					});
+				}
+				yield* definitions.validateRelationshipProperties(
+					relationship.relationshipSchemaSlug,
+					relationship.properties,
+				);
+			}
+			const aliases = yield* resolveEntityIntents(item, userId);
+			for (const intent of item.relationships) {
+				const sourceEntityId = aliases.get(intent.sourceAlias);
+				const targetEntityId = aliases.get(intent.targetAlias);
+				if (!sourceEntityId || !targetEntityId) {
+					return yield* new ImportRunError({
+						message: "Import relationship references an unknown entity alias",
+					});
+				}
+				const relationshipSchema = definitions.getRelationshipSchema(intent.relationshipSchemaSlug);
+				if (!relationshipSchema) {
+					return yield* new ImportRunError({
+						message: `Relationship schema '${intent.relationshipSchemaSlug}' not found`,
+					});
+				}
+				yield* relationships.create({
+					userId,
+					scope: "user",
+					sourceEntityId,
+					targetEntityId,
+					properties: intent.properties,
+					propertiesSchema: relationshipSchema.propertiesSchema,
+					relationshipSchemaSlug: RelationshipSchemaSlug.make(intent.relationshipSchemaSlug),
+				});
+			}
+			const events: CreateEventItem[] = [];
+			for (const intent of item.events) {
+				const entityId = aliases.get(intent.entityAlias);
+				const sessionEntityId = intent.sessionEntityAlias
+					? aliases.get(intent.sessionEntityAlias)
+					: undefined;
+				if (!entityId || (intent.sessionEntityAlias && !sessionEntityId)) {
+					return yield* new ImportRunError({
+						message: "Import event references an unknown entity alias",
+					});
+				}
+				events.push({
+					entityId,
+					properties: intent.properties,
+					occurredAt: intent.occurredAt,
+					eventSchemaSlug: EventSchemaSlug.make(intent.eventSchemaSlug),
+					...(sessionEntityId ? { sessionEntityId } : {}),
+				});
+			}
+			return { _tag: "ready" as const, events };
+		}).pipe(
+			Effect.catchAll((error) =>
+				Effect.succeed({ _tag: "failed" as const, message: unknownToMessage(error) }),
+			),
+		),
+	});
+
+const readChunk = (path: string, expectedDirectoryPrefix: string, index: number) =>
+	Activity.make({
+		error: ImportRunError,
+		success: genericImportChunkSchema,
+		name: `read-generic-import-chunk-${index}`,
+		execute: Effect.gen(function* () {
+			const fs = yield* FileSystem.FileSystem;
+			const safePath = yield* requireHarvestedChunkPath(path, expectedDirectoryPrefix);
+			const text = yield* fs.readFileString(safePath.filePath);
+			return yield* Schema.decodeUnknown(Schema.parseJson(genericImportChunkSchema))(text);
+		}).pipe(Effect.mapError(toWorkflowError)),
+	});
+
+const removeChunks = (paths: ReadonlyArray<string>, expectedDirectoryPrefix: string) =>
+	Activity.make({
+		name: "remove-consumed-generic-import-chunks",
+		execute: Effect.gen(function* () {
+			const fs = yield* FileSystem.FileSystem;
+			const directories = yield* Effect.forEach(paths, (path) =>
+				requireHarvestedChunkPath(path, expectedDirectoryPrefix).pipe(
+					Effect.map((safePath) => safePath.directory),
+					Effect.option,
+				),
+			);
+			yield* Effect.forEach(
+				new Set(
+					directories.flatMap((directory) => (directory._tag === "Some" ? [directory.value] : [])),
+				),
+				(path) => fs.remove(path, { force: true, recursive: true }).pipe(Effect.ignore),
+				{ discard: true },
+			);
+		}),
+	});
+
+const updateRun = (name: string, input: UpdateImportRunInput) =>
+	Activity.make({
+		name,
+		error: ImportRunError,
+		execute: Effect.gen(function* () {
+			const imports = yield* ImportsService;
+			yield* imports.update(input);
+		}).pipe(Effect.mapError(toWorkflowError)),
+	});
+
+export const runProcessGenericImportChunksWorkflow = Effect.fn(
+	"ProcessGenericImportChunksWorkflow",
+)(function* (payload: typeof ProcessGenericImportChunksPayload.Type, executionId: string) {
+	let failedItems = 0;
+	let importedItems = 0;
+	let processedItems = 0;
+	let observedFailureCount = 0;
+	let observedWriteItemCount = 0;
+	const runId = ImportRunId.make(payload.runId);
+
+	const process = Effect.gen(function* () {
+		yield* updateRun("record-generic-import-total", { runId, totalItems: payload.totalItems });
+		for (let chunkIndex = 0; chunkIndex < payload.chunkFiles.length; chunkIndex += 1) {
+			const path = payload.chunkFiles[chunkIndex];
+			if (!path) {
+				continue;
+			}
+			const chunk = yield* readChunk(path, payload.expectedHarvestDirectoryPrefix, chunkIndex);
+			for (const failure of chunk.failures) {
+				observedFailureCount += 1;
+				yield* Activity.make({
+					error: ImportRunError,
+					name: `record-generic-import-failure-${processedItems}`,
+					execute: recordImportRunFailure({
+						...failure,
+						runId,
+						stage: "input_transformation",
+					}).pipe(Effect.mapError(toWorkflowError)),
+				});
+				failedItems += 1;
+				processedItems += 1;
+			}
+			for (const item of chunk.items) {
+				observedWriteItemCount += 1;
+				const outcome = yield* writeGenericItem(item, payload.userId, processedItems);
+				let message = outcome._tag === "failed" ? outcome.message : null;
+				if (outcome._tag === "ready" && outcome.events.length > 0) {
+					const engine = yield* WorkflowEngine;
+					const eventResult = yield* engine
+						.execute(EventCreateWorkflow, {
+							executionId: `${executionId}-item-${processedItems}-events`,
+							payload: {
+								origin: "import",
+								importRunId: runId,
+								userId: payload.userId,
+								payload: outcome.events,
+								lifecycleOrigin: { kind: "import", importRunId: runId },
+								executionId: `${executionId}-item-${processedItems}-events`,
+							},
+						})
+						.pipe(Effect.mapError(toWorkflowError));
+					message = eventResult.failure?.reason.message ?? null;
+				}
+				if (message) {
+					failedItems += 1;
+					yield* Activity.make({
+						name: `record-generic-write-failure-${processedItems}`,
+						error: ImportRunError,
+						execute: recordImportRunFailure({
+							runId,
+							message,
+							stage: "database_commit",
+							itemIndex: item.itemIndex,
+							sourceLabel: item.sourceLabel,
+							sourceIdentifier: item.sourceIdentifier,
+							entitySchemaSlug: item.entities.at(-1)?.entitySchemaSlug ?? null,
+						}).pipe(Effect.mapError(toWorkflowError)),
+					});
+				} else {
+					importedItems += 1;
+				}
+				processedItems += 1;
+				if (
+					processedItems % PROGRESS_UPDATE_INTERVAL === 0 ||
+					processedItems === payload.totalItems
+				) {
+					yield* updateRun(`report-generic-import-progress-${processedItems}`, {
+						runId,
+						failedItems,
+						importedItems,
+						processedItems,
+						progress:
+							payload.totalItems > 0
+								? Math.round((processedItems / payload.totalItems) * 100)
+								: 100,
+					});
+				}
+			}
+		}
+		if (
+			observedFailureCount !== payload.failureCount ||
+			observedWriteItemCount !== payload.writeItemCount ||
+			processedItems !== payload.totalItems
+		) {
+			return yield* new ImportRunError({ message: "Import chunk manifest counts do not match" });
+		}
+		return undefined;
+	});
+
+	yield* process.pipe(
+		Effect.ensuring(removeChunks(payload.chunkFiles, payload.expectedHarvestDirectoryPrefix)),
+	);
+	const finishedAt = yield* DateTime.nowAsDate;
+	yield* updateRun("finalize-generic-import", {
+		runId,
+		finishedAt,
+		failedItems,
+		importedItems,
+		progress: 100,
+		processedItems,
+		status: "completed",
+	});
+	return { failedItems, importedItems, processedItems };
+});
+
+export const ProcessGenericImportChunksWorkflowDefinitionsLive =
+	ProcessGenericImportChunksWorkflow.toLayer(runProcessGenericImportChunksWorkflow);
