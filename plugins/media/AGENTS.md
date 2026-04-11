@@ -13,20 +13,25 @@ message vocabulary must remain with the signal owner rather than the kernel.
 ## Operations
 
 Operation scripts live in `scripts/operations/` and are declared in the manifest's `operations`
-section; `@ryot/plugin-kit/README.md` owns the generic manifest, driver, and recipe mechanics. The
-media-specific rules are:
+section; `@ryot/plugin-kit/README.md` owns the generic manifest, script definition, and recipe
+mechanics. The media-specific rules are:
 
-- **Batch-first.** Every operation takes a list and returns `results` aligned index-for-index with
-  that list. No operation gets a single-item signature, and a per-item miss is a value in the
-  result (`status: "notFound"`, `entityId: null`) rather than a failure.
+- **Batch-first.** Every operation takes a list and returns a `results` list. No operation gets a
+  single-item signature, and a per-item miss is a value in the result (`status: "notFound"`,
+  `entityId: null`) rather than a failure. `resolve-episodes` goes further: each submitted ref
+  carries a caller-assigned `index` that its result echoes back, so correlation never depends on
+  positional alignment and a duplicate, missing, or unexpected index is a hard error at the caller.
+  The remaining operations still align their results index-for-index with the submitted list.
 - **Input/output schemas live outside the sandbox modules** in `operations/schemas.ts`, so a
   first-party client (the browser extension) can import the schemas and `operations/recipes.ts`
-  without pulling a sandbox script body — and its `dist` bundle — into its graph. Sandbox drivers
+  without pulling a sandbox script body — and its `dist` bundle — into its graph. Sandbox scripts
   import the same module, so the kernel's payload decoding and the client's typing cannot drift.
+  Because the media import workflow also reaches that module, it imports `Schema` from
+  `@ryot/sandbox-sdk/workflow` rather than `/effect` to satisfy workflow determinism.
 - **`metadata-lookup`** re-verifies that its integration is a `ryot_browser_extension` integration.
   The kernel's `integration` auth mode only proves the integration exists, is enabled, and whose it
   is; the provider assertion is the script's job. It composes the `movie.tmdb` and `show.tmdb`
-  `search` drivers in-process (movie first — result position feeds the match score) rather than
+  `search` provider scripts in-process (movie first — result position feeds the match score) rather than
   spawning nested sandbox executions.
 - **`resolve-episodes`** expresses the parent-chain filters as one query document per ref with full
   pushdown; it must never fetch episodes and filter in the script. Each document is rooted at the

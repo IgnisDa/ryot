@@ -526,7 +526,7 @@ Three genuinely different tiers exist, in increasing order of fidelity to produc
    `entityMessagePollInterval` for fast tests), and it's the most faithful in-process option
    available without a real Postgres — the right target if this codebase ever needs to test
    engine-level replay/suspend/resume behavior directly rather than mocking around it.
-3. **This codebase's own harness**, `apps/app-backend/src/lib/test-support/effect.ts`:
+3. **This codebase's own harness**, `apps/app-backend/src/lib/test-utils/effect.ts`:
    `makeWorkflowEngine(overrides)` stubs every `WorkflowEngine` method to `Effect.die("unused")`
    by default; `makeWorkflowActivityEngine(instance)` additionally runs a given activity's
    `execute` directly in-process. **`execute` (real child-workflow dispatch) is never overridden by
@@ -657,10 +657,16 @@ above:
 - **`DurableQueue.process(...)` called bare in workflow bodies** — this pattern recurs across
   modules (sandbox dispatch, library membership). It is **correct**, not a violation; see the
   [durable primitives table](#durable-primitives-beyond-activity) above.
-- **No bare finalizers**: grepped every workflow-adjacent file in the codebase for
-  `addFinalizer`/`Effect.ensuring`/`Effect.onExit`/`Effect.acquireRelease` — zero hits. The
-  [compensation-vs-finalizers](#compensation-vs-plain-finalizers) gotcha isn't currently live
-  anywhere here.
+- **Finalizers in workflow files**: the one workflow-body use is
+  `generic-import-workflow.ts`'s `Effect.ensuring(removeChunks(...))`, which scopes harvest-chunk
+  cleanup to the chunk-processing effect. It is scratch cleanup, not business compensation, so the
+  [compensation-vs-finalizers](#compensation-vs-plain-finalizers) gotcha does not apply to it — a
+  replay that re-enters the step re-reads chunk files it still owns. Every other
+  `addFinalizer`/`ensuring`/`onExit`/`acquireRelease` use in `apps/app-backend/src` is a resource
+  lifecycle outside a workflow body — connection pools, the compiler worker, interest-registry
+  teardown, and the sandbox runtime's process, grant, and bridge-session teardown — so re-grep rather
+  than treating any list here as a current inventory. Compensation for durable business effects still
+  belongs in an activity, never a finalizer.
 - **`workflow-boundaries.test.ts`** (`sandbox/workflow-boundaries.test.ts`) is a source-text
   conformance test that pins the single-owner invariants: which files may execute
   `RunSandboxWorkflow` (and how many times), that the collections service no longer references

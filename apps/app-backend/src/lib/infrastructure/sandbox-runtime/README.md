@@ -24,17 +24,17 @@ The sandbox runs untrusted script code in single-use Deno subprocesses, exposes 
 ## Execution Flow
 
 1. Plugin or kernel ingestion validates and compiles source, then persists source and immutable format-1 JavaScript separately.
-2. A trusted caller starts execution with a persisted `scriptId`, driver name, optional context, and explicit executing-user identity when user context is required. The workflow loads compiled code and capabilities from validated manifest metadata.
+2. A trusted caller starts execution with a persisted `scriptId`, optional context, and an `ExecutionAuthority`. Authority is schema-defined in `@ryot/contract/modules/sandbox/schemas` as a `system`, `user`, or `subscription` variant; only trusted kernel dispatch constructs it, so a script can never widen its own credential scope. The workflow loads compiled code and capabilities from validated manifest metadata.
 3. The service registers a bridge session keyed by `executionId`. Redis stores `{ token, expiresAt }` with a TTL, and memory stores the allowed host-function handlers and live execution parent span for that run.
 4. A pre-warmed Deno process is checked out, or a fresh one is spawned if the pool is empty. Each process handles exactly one execution.
-5. The service writes one JSON payload to stdin containing compiled code, compiled format, driver name, context, bridge URL, token, function names, execution id, script id, and execution metadata.
-6. The runner captures console calls into `logs`, imports the compiled in-memory ES module, validates the definition, driver, input, and output, and writes the final JSON result to stdout.
+5. The service writes one JSON payload to stdin containing compiled code, compiled format, context, bridge URL, token, function names, execution id, script id, limits, any filesystem grants, and execution metadata. The cache namespace stays host-side: it never enters the payload, and the cache host functions apply it when a script calls them.
+6. The runner captures console calls into `logs`, imports the compiled in-memory ES module, validates the definition, input, and output, and writes the final JSON result to stdout.
 7. Host-function stubs call `POST /rpc/:executionId/:fnName`; the bridge validates expiry, bearer token, request body, and function name before dispatching.
 8. The service adds server timing, removes the bridge session with an Effect finalizer, and returns the job result.
 
 Compilation is implemented by the `@ryot/sandbox-compiler` workspace. Compiler concurrency, time, process-tree memory, and source-size limits apply during ingestion.
 
-Scripts declare an exact manifest `capabilities` tuple. The SDK exposes only those methods on the driver's host parameter. Completed results include `timing` as `{ totalMs, executionMs }`.
+Scripts declare an exact manifest `capabilities` tuple. The SDK exposes only those methods on the definition's `host` parameter. Completed results include `timing` as `{ totalMs, executionMs }`.
 
 ## Security
 
@@ -82,15 +82,15 @@ Deno receives the import map and runs with `--cached-only`, `--no-npm`, `--no-re
 
 ## Host Functions
 
-Host functions are bridge handlers exposed only when listed in the compiled module's manifest `capabilities`. The backend intersects those declarations with its implementation registry, and the runner intersects the approved names with the compiled definition's manifest before constructing the driver host.
+Host functions are bridge handlers exposed only when listed in the compiled module's manifest `capabilities`. The backend intersects those declarations with its implementation registry, and the runner intersects the approved names with the compiled definition's manifest before constructing the script host.
 
-| Scope                   | Functions                                                                                                                                                          |
-| ----------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| Runtime                 | `httpCall`, `log`, `span`                                                                                                                                          |
-| Script                  | `getPluginConfigValue`, `getSystemConfigValue`, `getCachedValue`, `setCachedValue`, `claimCachedValue`                                                             |
-| User                    | `createEvents`, `executeQueryEngine`, `getEntity`, `getEntitySchema`, `getIntegration`, `getUserPreferences`, `listEventSchemas`, `listEvents`, `listIntegrations` |
-| Automation subscription | `emitSignal`, `sendNotification`                                                                                                                                   |
-| System cron / boot      | `upsertGlobalEntities`, `upsertGlobalRelationships`                                                                                                                |
+| Scope                   | Functions                                                                                                                                                                                     |
+| ----------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Runtime                 | `httpCall`, `log`, `span`                                                                                                                                                                     |
+| Script                  | `getPluginConfigValue`, `getSystemConfigValue`, `getCachedValue`, `setCachedValue`, `claimCachedValue`                                                                                        |
+| User                    | `changeUserRelationships`, `createEvents`, `executeQueryEngine`, `getEntity`, `getEntitySchema`, `getIntegration`, `getUserPreferences`, `listEventSchemas`, `listEvents`, `listIntegrations` |
+| Automation subscription | `emitSignal`, `sendNotification`                                                                                                                                                              |
+| System cron / boot      | `upsertGlobalEntities`, `upsertGlobalRelationships`                                                                                                                                           |
 
 Script-scoped functions use execution metadata such as `scriptId`. User-scoped functions require the executing user's `userId` and are unavailable for system executions. `claimCachedValue` atomically writes a cached value only when the key does not already exist.
 
@@ -101,7 +101,7 @@ name collisions when loading plugins. Explicitly exported kernel fields require 
 
 Automation functions require both a declared script capability and the server-only subscription-run marker. Other execution paths do not receive them even if stored metadata lists the capability. `sendNotification` additionally requires a user principal; system subscriptions cannot send notifications.
 
-Cache keys are isolated per `(executing user, scriptId)`. Executing the same plugin script for two users therefore produces disjoint entries even when both executions use the same script cache key; script ownership is not part of the cache key. `getCachedValue` and `setCachedValue` are refreshed after a backend restart, while `claimCachedValue` remains persistent across restarts.
+Cache keys are isolated per `(executing user, providerId)`. The dispatched `cacheNamespace` is the script's logical `providerId`, falling back to its `scriptId` only for a standalone script that belongs to no provider. Every script of one provider therefore shares that provider's cache, and executing the same script for two users produces disjoint entries even when both use the same script cache key; script ownership is not part of the cache key. `getCachedValue` and `setCachedValue` are refreshed after a backend restart, while `claimCachedValue` remains persistent across restarts.
 
 ### Adding A Host Function
 
@@ -111,24 +111,25 @@ Cache keys are isolated per `(executing user, scriptId)`. Executing the same plu
 4. Use `requireUserSandboxRunInput(input, fnName)` for user-scoped functions.
 5. Add the function name to this section.
 
-## Driver Functions
+## Script Definitions
 
-Format-1 scripts define drivers with SDK input and output schemas. The enqueue request chooses a driver by name; the runner validates input before invoking `run` and output before returning it.
+A format-1 script default-exports exactly one definition carrying its `manifest` plus SDK `input`, `output`, and `run`. There is no driver map and no driver name on the wire: enqueueing a `scriptId` selects the definition, and the runner validates `input` before invoking `run` and `output` before returning it.
 
 ```ts
-import { defineDriver, defineScript } from "@ryot/sandbox-sdk/driver";
+import { defineManifest, defineScript } from "@ryot/sandbox-sdk/driver";
 import { Effect, Schema } from "@ryot/sandbox-sdk/effect";
 
-const main = defineDriver(manifest, {
-	input: Schema.Struct({ value: Schema.Number }),
+export const manifest = defineManifest({ kind: "script" /* … */ });
+
+export default defineScript({
+	manifest,
 	output: Schema.Number,
+	input: Schema.Struct({ value: Schema.Number }),
 	run: (input) => Effect.succeed(input.value + 1),
 });
-
-export default defineScript({ manifest, drivers: { main } });
 ```
 
-The SDK run function receives `(input, host, execution)`. `execution` contains `{ metadata, sandboxScriptId }`.
+`defineActivity`, `defineAutomation`, `defineOperation`, `defineProvider`, and `defineWorkflow` are the kind-specific wrappers over the same shape. The SDK run function receives `(input, host, execution)`. `execution` contains `{ metadata, sandboxScriptId }` — the direct execution identity, which is distinct from the logical `providerId` used for provenance and cache isolation.
 
 ## Errors And Debugging
 
@@ -175,7 +176,7 @@ both limits and fan out those independent child executions under the global sand
 | ----------------------------------------------------- | ----------------------------- |
 | TypeScript source / static manifest / compiled module | 256 KiB / 16 KiB / 1 MiB      |
 | Compiler concurrency / time / process-tree memory     | 2 / 5 seconds / 256 MiB       |
-| Driver context / runner request / final result        | 256 KiB / 2 MiB / 1 MiB       |
+| Script context / runner request / final result        | 256 KiB / 2 MiB / 1 MiB       |
 | Workflow context / durable calls / final result       | 64 KiB / 1,000 / 4 MiB        |
 | Bridge request / response                             | 1 MiB / 10 MiB                |
 | Host calls / `httpCall` calls per execution           | 200 / 50                      |
