@@ -64,23 +64,23 @@ export const writeMediaEntityGroups = async (
 			continue;
 		}
 
-		const key = importEntityRefKey(group.entityRef);
+		const ref = group.entityRef;
+		if (ref.kind !== "resolved") {
+			await input.onGroupComplete({ failedItems, importedItems, nextGroupIndex: groupIndex + 1 });
+			continue;
+		}
+
+		const key = importEntityRefKey(ref);
 		const entityId = input.entityIdsByKey.get(key);
 		if (!entityId) {
-			await input.onGroupComplete({
-				failedItems,
-				importedItems,
-				nextGroupIndex: groupIndex + 1,
-			});
+			await input.onGroupComplete({ failedItems, importedItems, nextGroupIndex: groupIndex + 1 });
 			continue;
 		}
 		let groupFailed = false;
 
-		let entitySchemaId = schemaIdCache.get(group.entityRef.entitySchemaSlug);
+		let entitySchemaId = schemaIdCache.get(ref.entitySchemaSlug);
 		if (!entitySchemaId) {
-			const entitySchema = await deps.getBuiltinEntitySchemaBySlug(
-				group.entityRef.entitySchemaSlug,
-			);
+			const entitySchema = await deps.getBuiltinEntitySchemaBySlug(ref.entitySchemaSlug);
 			if (!entitySchema) {
 				failedItems++;
 				await deps.createImportRunFailure({
@@ -88,10 +88,10 @@ export const writeMediaEntityGroups = async (
 					runId: input.runId,
 					itemIndex: groupIndex,
 					stage: "database_commit",
-					sourceLabel: group.entityRef.sourceLabel,
-					sourceIdentifier: group.entityRef.externalId,
-					entitySchemaSlug: group.entityRef.entitySchemaSlug,
-					message: `Entity schema not found: ${group.entityRef.entitySchemaSlug}`,
+					sourceLabel: ref.sourceLabel,
+					sourceIdentifier: ref.externalId,
+					entitySchemaSlug: ref.entitySchemaSlug,
+					message: `Entity schema not found: ${ref.entitySchemaSlug}`,
 				});
 				await input.onGroupComplete({
 					failedItems,
@@ -101,7 +101,7 @@ export const writeMediaEntityGroups = async (
 				continue;
 			}
 			entitySchemaId = entitySchema.id;
-			schemaIdCache.set(group.entityRef.entitySchemaSlug, entitySchemaId);
+			schemaIdCache.set(ref.entitySchemaSlug, entitySchemaId);
 		}
 
 		for (const membership of group.collectionMemberships) {
@@ -119,10 +119,10 @@ export const writeMediaEntityGroups = async (
 							runId: input.runId,
 							itemIndex: groupIndex,
 							stage: "database_commit",
+							sourceLabel: ref.sourceLabel,
+							sourceIdentifier: ref.externalId,
 							message: collectionResult.message,
-							sourceLabel: group.entityRef.sourceLabel,
-							sourceIdentifier: group.entityRef.externalId,
-							entitySchemaSlug: group.entityRef.entitySchemaSlug,
+							entitySchemaSlug: ref.entitySchemaSlug,
 						});
 						continue;
 					}
@@ -142,9 +142,9 @@ export const writeMediaEntityGroups = async (
 						itemIndex: groupIndex,
 						stage: "database_commit",
 						message: addResult.message,
-						sourceLabel: group.entityRef.sourceLabel,
-						sourceIdentifier: group.entityRef.externalId,
-						entitySchemaSlug: group.entityRef.entitySchemaSlug,
+						sourceLabel: ref.sourceLabel,
+						sourceIdentifier: ref.externalId,
+						entitySchemaSlug: ref.entitySchemaSlug,
 					});
 				}
 			} catch (error) {
@@ -154,9 +154,9 @@ export const writeMediaEntityGroups = async (
 					runId: input.runId,
 					itemIndex: groupIndex,
 					stage: "database_commit",
-					sourceLabel: group.entityRef.sourceLabel,
-					sourceIdentifier: group.entityRef.externalId,
-					entitySchemaSlug: group.entityRef.entitySchemaSlug,
+					sourceLabel: ref.sourceLabel,
+					sourceIdentifier: ref.externalId,
+					entitySchemaSlug: ref.entitySchemaSlug,
 					message: error instanceof Error ? error.message : "Failed to write collection membership",
 				});
 			}
@@ -178,10 +178,10 @@ export const writeMediaEntityGroups = async (
 						runId: input.runId,
 						itemIndex: groupIndex,
 						stage: "database_commit",
+						sourceLabel: ref.sourceLabel,
+						sourceIdentifier: ref.externalId,
 						eventSchemaSlug: ev.eventSchemaSlug,
-						sourceLabel: group.entityRef.sourceLabel,
-						sourceIdentifier: group.entityRef.externalId,
-						entitySchemaSlug: group.entityRef.entitySchemaSlug,
+						entitySchemaSlug: ref.entitySchemaSlug,
 						message: `Event schema not found: ${ev.eventSchemaSlug}`,
 					});
 					continue;
@@ -215,10 +215,10 @@ export const writeMediaEntityGroups = async (
 					itemIndex: groupIndex,
 					stage: "database_commit",
 					message: failure.message,
-					sourceLabel: group.entityRef.sourceLabel,
+					sourceLabel: ref.sourceLabel,
+					sourceIdentifier: ref.externalId,
+					entitySchemaSlug: ref.entitySchemaSlug,
 					eventSchemaSlug: eventInput?.eventSchemaSlug,
-					sourceIdentifier: group.entityRef.externalId,
-					entitySchemaSlug: group.entityRef.entitySchemaSlug,
 				});
 			}
 		}
@@ -229,11 +229,7 @@ export const writeMediaEntityGroups = async (
 			importedItems++;
 		}
 
-		await input.onGroupComplete({
-			failedItems,
-			importedItems,
-			nextGroupIndex: groupIndex + 1,
-		});
+		await input.onGroupComplete({ failedItems, importedItems, nextGroupIndex: groupIndex + 1 });
 	}
 	// oxlint-enable no-await-in-loop
 

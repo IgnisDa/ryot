@@ -8,7 +8,13 @@ import { processMediaImport, type MediaImportProcessorDeps } from "./import-proc
 const createGroup = (externalId: string, sourceLabel: string): ImportMediaEntityGroup => ({
 	events: [],
 	collectionMemberships: [],
-	entityRef: { externalId, sourceLabel, scriptSlug: "movie.tmdb", entitySchemaSlug: "movie" },
+	entityRef: {
+		externalId,
+		sourceLabel,
+		kind: "resolved",
+		scriptSlug: "movie.tmdb",
+		entitySchemaSlug: "movie",
+	},
 });
 
 const createDeps = (
@@ -18,6 +24,8 @@ const createDeps = (
 	createImportRunFailure: () => Promise.resolve(),
 	writeMediaEntityGroups: () => Promise.resolve({ failedItems: 0, importedItems: 0 }),
 	populateMediaEntityRefs: () => Promise.resolve({ entityIds: [], failedIndices: [] }),
+	resolveMediaEntityRefs: (_job, _token, input) =>
+		Promise.resolve({ entityGroups: input.entityGroups, failedIndices: input.failedIndices }),
 	...overrides,
 });
 
@@ -108,17 +116,23 @@ describe("processMediaImport", () => {
 		expect(jobUpdates[0]).toMatchObject({
 			adapterFailureCount: 1,
 			mediaEntityGroups: groups,
-			importStep: "populating_entities",
+			importStep: "resolving_entities",
 			sourcePayload: { username: "alice" },
 		});
 		expect(jobUpdates[1]).toMatchObject({
+			adapterFailureCount: 1,
+			mediaEntityGroups: groups,
+			importStep: "populating_entities",
+			sourcePayload: { username: "alice" },
+		});
+		expect(jobUpdates[2]).toMatchObject({
 			adapterFailureCount: 1,
 			mediaEntityGroups: groups,
 			providerFailedIndices: [1],
 			importStep: "writing_events",
 			providerEntityIds: ["entity_1", null],
 		});
-		expect(jobUpdates[2]).toMatchObject({
+		expect(jobUpdates[3]).toMatchObject({
 			mediaWriteGroupIndex: 2,
 			mediaWriteFailedItems: 1,
 			mediaWriteImportedItems: 1,

@@ -1,6 +1,5 @@
 import { dayjs } from "@ryot/ts-utils/dayjs";
 
-import { resolveBookEntityRefByIsbn } from "../../media/book/provider-lookup";
 import {
 	addCollectionMembership,
 	assertRequiredHeaders,
@@ -19,7 +18,6 @@ import {
 	normalizeReadCount,
 	parseDateWithFormat,
 	splitCommaList,
-	type ResolveBookEntityRef,
 } from "../../media/book/shared";
 import { getOrCreateMediaEntityGroup } from "../../media/groups";
 import type {
@@ -28,25 +26,13 @@ import type {
 } from "../../media/import-processor";
 import { parseCsvText } from "../../runtime/csv";
 
-type StoryGraphAdapterDeps = {
-	resolveBookEntityRef: ResolveBookEntityRef;
-};
-
-const storyGraphAdapterDeps: StoryGraphAdapterDeps = {
-	resolveBookEntityRef: resolveBookEntityRefByIsbn,
-};
-
-export const adaptStorygraphCsv = async (
-	csvText: string,
-	deps: StoryGraphAdapterDeps = storyGraphAdapterDeps,
-): Promise<MediaImportAdapterResult> => {
+export const adaptStorygraphCsv = (csvText: string): MediaImportAdapterResult => {
 	const { headers, rows } = parseCsvText(csvText);
 	assertRequiredHeaders(headers, ["Title", "ISBN/UID", "Read Status"], "StoryGraph");
 
 	const failures: MediaImportAdapterFailure[] = [];
 	const groupMap = new Map<string, ReturnType<typeof getOrCreateMediaEntityGroup>>();
 
-	// oxlint-disable no-await-in-loop
 	for (let itemIndex = 0; itemIndex < rows.length; itemIndex++) {
 		const row = rows[itemIndex];
 		if (!row) {
@@ -74,32 +60,13 @@ export const adaptStorygraphCsv = async (
 			continue;
 		}
 
-		let entityRef;
-		try {
-			entityRef = await deps.resolveBookEntityRef({ isbn, sourceLabel });
-		} catch (error) {
-			failures.push({
-				itemIndex,
-				sourceLabel,
-				context: { isbn },
-				sourceIdentifier: isbn,
-				message: error instanceof Error ? error.message : "Book provider lookup failed",
-			});
-			continue;
-		}
-
-		if (!entityRef) {
-			failures.push({
-				itemIndex,
-				sourceLabel,
-				context: { isbn },
-				sourceIdentifier: isbn,
-				message: "Could not resolve ISBN to a supported book provider",
-			});
-			continue;
-		}
-
-		const group = getOrCreateMediaEntityGroup(groupMap, entityRef);
+		const group = getOrCreateMediaEntityGroup(groupMap, {
+			sourceLabel,
+			kind: "unresolved",
+			identifierValue: isbn,
+			identifierType: "isbn",
+			entitySchemaSlug: "book",
+		});
 		const lifecycleStatus = normalizeLifecycleStatus(row["Read Status"] ?? "");
 		const completedOn = parseDateWithFormat(row["Last Date Read"] ?? "", "YYYY/MM/DD");
 		const fallbackOccurredAt = completedOn ?? dayjs().toISOString();
@@ -141,7 +108,6 @@ export const adaptStorygraphCsv = async (
 			addCollectionMembership(group, tag);
 		}
 	}
-	// oxlint-enable no-await-in-loop
 
 	return { entityGroups: finalizeEntityGroups(groupMap), failures };
 };

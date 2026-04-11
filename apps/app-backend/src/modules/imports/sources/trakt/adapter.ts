@@ -135,6 +135,7 @@ const buildMovieRef = (movie: TraktItem): ImportEntityRef | undefined => {
 		return undefined;
 	}
 	return {
+		kind: "resolved",
 		externalId: tmdbId,
 		scriptSlug: "movie.tmdb",
 		entitySchemaSlug: "movie",
@@ -148,6 +149,7 @@ const buildShowRef = (show: TraktItem): ImportEntityRef | undefined => {
 		return undefined;
 	}
 	return {
+		kind: "resolved",
 		externalId: tmdbId,
 		scriptSlug: "show.tmdb",
 		entitySchemaSlug: "show",
@@ -166,7 +168,6 @@ export const adaptTraktData = async (
 	const groupMap = new Map<string, ImportMediaEntityGroup>();
 	let itemIndex = 0;
 
-	// History: movies become complete events, episodes become progress events
 	const history = await client.fetchAll<TraktHistoryItem>(`${userUrl}/history`);
 	history.sort((a, b) => dayjs(a.watched_at).valueOf() - dayjs(b.watched_at).valueOf());
 	for (const item of history) {
@@ -212,7 +213,6 @@ export const adaptTraktData = async (
 		}
 	}
 
-	// Ratings: movies and shows only (seasons/episodes have no entity in V2)
 	for (const type of ["movies", "shows"] as const) {
 		// oxlint-disable-next-line no-await-in-loop
 		const ratings = await client.fetchAll<TraktRatingItem>(`${userUrl}/ratings/${type}`);
@@ -233,7 +233,6 @@ export const adaptTraktData = async (
 				continue;
 			}
 			const group = getOrCreateMediaEntityGroup(groupMap, ref);
-			// Trakt rates 1-10; V2 uses 0-100
 			group.events.push({
 				occurredAt: item.rated_at,
 				eventSchemaSlug: "review",
@@ -242,7 +241,6 @@ export const adaptTraktData = async (
 		}
 	}
 
-	// Watchlist → backlog events
 	const watchlist = await client.fetchAll<TraktWatchlistItem>(`${userUrl}/watchlist`);
 	for (const item of watchlist) {
 		itemIndex++;
@@ -268,7 +266,6 @@ export const adaptTraktData = async (
 		});
 	}
 
-	// Custom lists → collection memberships
 	const lists = await client.fetchAll<TraktList>(`${userUrl}/lists`);
 	const lifecycleAliases = new Set(["watchlist", "favorites"]);
 	for (const list of lists) {
@@ -305,7 +302,6 @@ export const adaptTraktData = async (
 		}
 	}
 
-	// Collection (owned items) → "Owned" collection membership
 	for (const type of ["movies", "shows"] as const) {
 		// oxlint-disable-next-line no-await-in-loop
 		const items = await client.fetchAll<TraktCollectionItem>(`${userUrl}/collection/${type}`);
