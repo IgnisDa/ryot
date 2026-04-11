@@ -3,8 +3,13 @@ import { createOptionalTitlePropertiesSchema } from "~/lib/test-fixtures/propert
 import type {
 	CreateEntitySchemaBody,
 	EntitySchemaServiceDeps,
+	EntitySearchDeps,
 	ListedEntitySchema,
 } from "~/modules/entity-schemas";
+import type {
+	PollSandboxResult,
+	SandboxEnqueueResult,
+} from "~/modules/sandbox";
 
 const listedEntitySchemaDefaults: ListedEntitySchema = {
 	slug: "books",
@@ -54,5 +59,17 @@ export const createEntitySchemaDeps = (
 			accentColor: input.accentColor,
 			propertiesSchema: input.propertiesSchema,
 		}),
+	...overrides,
+});
+
+const entitySearchEnqueueResult: SandboxEnqueueResult = { jobId: "job_1" };
+
+const entitySearchPendingResult: PollSandboxResult = { status: "pending" };
+
+export const createEntitySearchDeps = (
+	overrides: Partial<EntitySearchDeps> = {},
+): EntitySearchDeps => ({
+	enqueueSandboxJob: async () => ({ data: entitySearchEnqueueResult }),
+	getSandboxJobResult: async () => ({ data: entitySearchPendingResult }),
 	...overrides,
 });

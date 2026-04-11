@@ -82,8 +82,8 @@ export function useEntitySearch(props: { entitySchema: AppEntitySchema }) {
 	const [submittedSearch, setSubmittedSearch] =
 		useState<SubmittedSearch | null>(null);
 
-	const enqueueSearch = apiClient.useMutation("post", "/sandbox/enqueue");
 	const enqueueMediaImport = apiClient.useMutation("post", "/media/import");
+	const enqueueSearch = apiClient.useMutation("post", "/entity-schemas/search");
 	const ensuredEntityQueryKey = useMemo(
 		() => ["entity-search-ensured-entity", props.entitySchema.id] as const,
 		[props.entitySchema.id],
@@ -105,14 +105,14 @@ export function useEntitySearch(props: { entitySchema: AppEntitySchema }) {
 		};
 	}, [ensuredEntityQueryKey, entitySearchQueryKey, queryClient]);
 
-	const pollSandboxResultQuery = useCallback(
+	const pollEntitySearchResultQuery = useCallback(
 		async (jobId: string, signal: AbortSignal) => {
 			const startedAt = dayjs();
 
 			while (true) {
 				throwIfAborted(signal);
 				const result = await queryClient.fetchQuery({
-					...apiClient.queryOptions("get", "/sandbox/result/{jobId}", {
+					...apiClient.queryOptions("get", "/entity-schemas/search/{jobId}", {
 						params: { path: { jobId } },
 					}),
 					staleTime: 0,
@@ -122,7 +122,7 @@ export function useEntitySearch(props: { entitySchema: AppEntitySchema }) {
 				const data = result.data;
 				if (data?.status === "pending") {
 					if (dayjs().diff(startedAt) >= SANDBOX_TIMEOUT_MS) {
-						throw new Error("Timed out waiting for sandbox result");
+						throw new Error("Timed out waiting for entity search result");
 					}
 					await sleep(POLL_MS, signal);
 					continue;
@@ -241,8 +241,6 @@ export function useEntitySearch(props: { entitySchema: AppEntitySchema }) {
 			throwIfAborted(signal);
 			const enqueueResult = await enqueueSearch.mutateAsync({
 				body: {
-					kind: "script",
-					driverName: "search",
 					scriptId: provider.scriptId,
 					context: {
 						pageSize: 10,
@@ -258,7 +256,7 @@ export function useEntitySearch(props: { entitySchema: AppEntitySchema }) {
 				throw new Error("Failed to enqueue search script");
 			}
 
-			const result = await pollSandboxResultQuery(jobId, signal);
+			const result = await pollEntitySearchResultQuery(jobId, signal);
 			if (!result) {
 				throw new Error("Search script did not finish");
 			}

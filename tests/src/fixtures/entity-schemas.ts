@@ -1,6 +1,21 @@
-import type { components } from "@ryot/generated/openapi/app-backend";
+import type { components, paths } from "@ryot/generated/openapi/app-backend";
+import { dayjs } from "@ryot/ts-utils";
 import type { Client } from "./auth";
 import { findBuiltinTracker } from "./trackers";
+
+type EnqueueEntitySearchBody = NonNullable<
+	paths["/entity-schemas/search"]["post"]["requestBody"]
+>["content"]["application/json"];
+
+type PollEntitySearchResponse =
+	paths["/entity-schemas/search/{jobId}"]["get"]["responses"][200]["content"]["application/json"]["data"];
+
+export interface PollEntitySearchOptions {
+	timeoutMs?: number;
+	intervalMs?: number;
+}
+
+const delay = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
 export type AppPropertyDefinition = {
 	type: string;
@@ -128,4 +143,61 @@ export async function findBuiltinSchemaWithProviders(
 	}
 
 	return { schema, builtinTracker };
+}
+
+export async function enqueueEntitySearch(
+	client: Client,
+	cookies: string,
+	body: EnqueueEntitySearchBody,
+) {
+	const { data, response } = await client.POST("/entity-schemas/search", {
+		body,
+		headers: { Cookie: cookies },
+	});
+
+	if (response.status !== 200 || !data?.data?.jobId) {
+		throw new Error("Failed to enqueue entity search");
+	}
+
+	return { jobId: data.data.jobId };
+}
+
+export async function pollEntitySearchResult(
+	client: Client,
+	cookies: string,
+	jobId: string,
+	options: PollEntitySearchOptions = {},
+) {
+	const { intervalMs = 500, timeoutMs = 30_000 } = options;
+	const deadline = dayjs().add(timeoutMs, "millisecond");
+
+	for (;;) {
+		const { data, response } = await client.GET(
+			"/entity-schemas/search/{jobId}",
+			{
+				params: { path: { jobId } },
+				headers: { Cookie: cookies },
+			},
+		);
+
+		if (response.status !== 200 || !data?.data) {
+			throw new Error(`Failed to poll entity search result '${jobId}'`);
+		}
+
+		const result: PollEntitySearchResponse = data.data;
+		if (result.status !== "pending") {
+			return result;
+		}
+
+		const remainingMs = deadline.diff(dayjs());
+		if (remainingMs <= 0) {
+			break;
+		}
+
+		await delay(Math.min(intervalMs, remainingMs));
+	}
+
+	throw new Error(
+		`Entity search job '${jobId}' did not reach a terminal state within ${timeoutMs}ms`,
+	);
 }
