@@ -581,3 +581,27 @@ driver("details", async function (context) {
 		relatedEntities,
 	};
 });
+
+driver("resolve", async function (context) {
+	if (!context || context.identifierType !== "imdb") {
+		throw new Error("TMDB show resolve supports only imdb identifiers");
+	}
+	const value = typeof context.value === "string" ? context.value.trim() : "";
+	if (!value) {
+		throw new Error("TMDB show resolve requires a non-empty imdb value");
+	}
+
+	const token = await getTmdbAccessToken();
+	const payload = await tmdbGet(
+		`/find/${encodeURIComponent(value)}`,
+		{ external_source: "imdb_id" },
+		token,
+	);
+
+	const showId = payload?.tv_results?.[0]?.id;
+	if (typeof showId === "number" && Number.isFinite(showId)) {
+		return { externalId: String(Math.trunc(showId)) };
+	}
+
+	return { externalId: null };
+});

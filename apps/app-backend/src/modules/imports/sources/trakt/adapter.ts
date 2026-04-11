@@ -129,15 +129,33 @@ const extractTmdbId = (item: TraktItem): string | undefined => {
 	return item.ids.tmdb !== undefined ? String(item.ids.tmdb) : undefined;
 };
 
+const extractImdbId = (item: TraktItem): string | undefined => {
+	const imdbId = item.ids.imdb?.trim();
+	return imdbId || undefined;
+};
+
+const missingProviderIdMessage = (entityType: "Movie" | "Show") =>
+	`${entityType} does not have a TMDB or IMDb id`;
+
 const buildMovieRef = (movie: TraktItem): ImportEntityRef | undefined => {
 	const tmdbId = extractTmdbId(movie);
-	if (!tmdbId) {
+	if (tmdbId) {
+		return {
+			kind: "resolved",
+			externalId: tmdbId,
+			scriptSlug: "movie.tmdb",
+			entitySchemaSlug: "movie",
+			sourceLabel: movie.title ?? `Movie ${movie.ids.trakt}`,
+		};
+	}
+	const imdbId = extractImdbId(movie);
+	if (!imdbId) {
 		return undefined;
 	}
 	return {
-		kind: "resolved",
-		externalId: tmdbId,
-		scriptSlug: "movie.tmdb",
+		kind: "unresolved",
+		identifierType: "imdb",
+		identifierValue: imdbId,
 		entitySchemaSlug: "movie",
 		sourceLabel: movie.title ?? `Movie ${movie.ids.trakt}`,
 	};
@@ -145,13 +163,23 @@ const buildMovieRef = (movie: TraktItem): ImportEntityRef | undefined => {
 
 const buildShowRef = (show: TraktItem): ImportEntityRef | undefined => {
 	const tmdbId = extractTmdbId(show);
-	if (!tmdbId) {
+	if (tmdbId) {
+		return {
+			kind: "resolved",
+			externalId: tmdbId,
+			scriptSlug: "show.tmdb",
+			entitySchemaSlug: "show",
+			sourceLabel: show.title ?? `Show ${show.ids.trakt}`,
+		};
+	}
+	const imdbId = extractImdbId(show);
+	if (!imdbId) {
 		return undefined;
 	}
 	return {
-		kind: "resolved",
-		externalId: tmdbId,
-		scriptSlug: "show.tmdb",
+		kind: "unresolved",
+		identifierType: "imdb",
+		identifierValue: imdbId,
 		entitySchemaSlug: "show",
 		sourceLabel: show.title ?? `Show ${show.ids.trakt}`,
 	};
@@ -178,7 +206,7 @@ export const adaptTraktData = async (
 				failures.push({
 					itemIndex,
 					sourceLabel: item.movie.title,
-					message: "Movie does not have a TMDB id",
+					message: missingProviderIdMessage("Movie"),
 					sourceIdentifier: String(item.movie.ids.trakt),
 				});
 				continue;
@@ -195,7 +223,7 @@ export const adaptTraktData = async (
 				failures.push({
 					itemIndex,
 					sourceLabel: item.show.title,
-					message: "Show does not have a TMDB id",
+					message: missingProviderIdMessage("Show"),
 					sourceIdentifier: String(item.show.ids.trakt),
 				});
 				continue;
@@ -228,7 +256,7 @@ export const adaptTraktData = async (
 					itemIndex,
 					sourceLabel: sourceItem.title,
 					sourceIdentifier: String(sourceItem.ids.trakt),
-					message: `${type === "movies" ? "Movie" : "Show"} does not have a TMDB id`,
+					message: missingProviderIdMessage(type === "movies" ? "Movie" : "Show"),
 				});
 				continue;
 			}
@@ -254,7 +282,7 @@ export const adaptTraktData = async (
 				itemIndex,
 				sourceLabel: sourceItem.title,
 				sourceIdentifier: String(sourceItem.ids.trakt),
-				message: `${item.type === "movie" ? "Movie" : "Show"} does not have a TMDB id`,
+				message: missingProviderIdMessage(item.type === "movie" ? "Movie" : "Show"),
 			});
 			continue;
 		}
@@ -288,7 +316,7 @@ export const adaptTraktData = async (
 					itemIndex,
 					sourceLabel: sourceItem.title,
 					sourceIdentifier: String(sourceItem.ids.trakt),
-					message: `${item.type === "movie" ? "Movie" : "Show"} does not have a TMDB id`,
+					message: missingProviderIdMessage(item.type === "movie" ? "Movie" : "Show"),
 				});
 				continue;
 			}
@@ -317,7 +345,7 @@ export const adaptTraktData = async (
 					itemIndex,
 					sourceLabel: sourceItem.title,
 					sourceIdentifier: String(sourceItem.ids.trakt),
-					message: `${type === "movies" ? "Movie" : "Show"} does not have a TMDB id`,
+					message: missingProviderIdMessage(type === "movies" ? "Movie" : "Show"),
 				});
 				continue;
 			}
