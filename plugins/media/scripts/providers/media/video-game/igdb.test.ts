@@ -194,18 +194,20 @@ describe("video-game.igdb sandbox script", () => {
 			{ filters: { unsupported: [] } },
 		];
 
-		for (const options of invalidOptions) {
-			expect(
-				Effect.runPromise(
-					runSandboxTestScript(
-						search,
-						{ page: 1, pageSize: 20, query: "game", options },
-						host,
-						execution,
+		await Promise.all(
+			invalidOptions.map((options) =>
+				expect(
+					Effect.runPromise(
+						runSandboxTestScript(
+							search,
+							{ page: 1, pageSize: 20, query: "game", options },
+							host,
+							execution,
+						),
 					),
-				),
-			).rejects.toBeDefined();
-		}
+				).rejects.toBeDefined(),
+			),
+		);
 	});
 
 	it("requests a fresh token on a cache miss and caches it with the computed ttl", () => {
