@@ -4,6 +4,7 @@ import {
 	isAppPropertyRequired,
 	zodRequiredName,
 } from "@ryot/ts-utils";
+import { match } from "ts-pattern";
 import { z } from "zod";
 import type { ApiPostRequestBody } from "#/lib/api/types";
 
@@ -41,28 +42,19 @@ export const buildDefaultEntityFormValues = (
 };
 
 const getDefaultValue = (propertyDef: AppPropertyDefinition): unknown => {
-	switch (propertyDef.type) {
-		case "string":
-		case "date":
-		case "datetime":
-			return "";
-		case "number":
-		case "integer":
-			return 0;
-		case "boolean":
-			return false;
-		case "array":
-			return [];
-		case "object": {
+	return match(propertyDef)
+		.with({ type: "string" }, { type: "date" }, { type: "datetime" }, () => "")
+		.with({ type: "number" }, { type: "integer" }, () => 0)
+		.with({ type: "boolean" }, () => false)
+		.with({ type: "array" }, () => [])
+		.with({ type: "object" }, (def) => {
 			const obj: Record<string, unknown> = {};
-			for (const [key, nestedDef] of Object.entries(propertyDef.properties)) {
+			for (const [key, nestedDef] of Object.entries(def.properties)) {
 				obj[key] = getDefaultValue(nestedDef);
 			}
 			return obj;
-		}
-		default:
-			return null;
-	}
+		})
+		.otherwise(() => null);
 };
 
 export type CreateEntityPayload = ApiPostRequestBody<"/entities">;
