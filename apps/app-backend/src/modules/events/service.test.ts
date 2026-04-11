@@ -1,5 +1,6 @@
 import { describe, expect, it } from "bun:test";
 import {
+	createCompletePropertiesSchema,
 	createEventBody,
 	createEventCreateScope,
 	createEventDeps,
@@ -313,10 +314,15 @@ describe("createEvent", () => {
 		expect(createdEvent.properties).toEqual({ progressPercent: 25.56 });
 	});
 
-	it("creates a built-in complete event with an empty payload", async () => {
+	it("creates a built-in complete event with a just_now payload", async () => {
 		const createdEvent = expectDataResult(
 			await createEvent(
-				{ userId: "user_1", body: createEventBody({ properties: {} }) },
+				{
+					userId: "user_1",
+					body: createEventBody({
+						properties: { completionMode: "just_now" },
+					}),
+				},
 				createEventDeps({
 					getEventCreateScopeForUser: async (input) =>
 						createEventCreateScope({
@@ -325,22 +331,60 @@ describe("createEvent", () => {
 							entitySchemaSlug: "book",
 							eventSchemaName: "Complete",
 							eventSchemaSlug: "complete",
-							propertiesSchema: { fields: {} },
 							eventSchemaId: input.eventSchemaId,
+							propertiesSchema: createCompletePropertiesSchema(),
 						}),
 				}),
 			),
 		);
 
 		expect(createdEvent.eventSchemaSlug).toBe("complete");
-		expect(createdEvent.properties).toEqual({});
+		expect(createdEvent.properties).toEqual({ completionMode: "just_now" });
 	});
 
-	it("rejects a built-in complete event with a non-empty payload", async () => {
+	it("creates a built-in complete event with custom dates", async () => {
+		const createdEvent = expectDataResult(
+			await createEvent(
+				{
+					userId: "user_1",
+					body: createEventBody({
+						properties: {
+							startedOn: "2026-03-20",
+							completedOn: "2026-03-27",
+							completionMode: "custom_dates",
+						},
+					}),
+				},
+				createEventDeps({
+					getEventCreateScopeForUser: async (input) =>
+						createEventCreateScope({
+							isBuiltin: true,
+							entityId: input.entityId,
+							entitySchemaSlug: "book",
+							eventSchemaName: "Complete",
+							eventSchemaSlug: "complete",
+							eventSchemaId: input.eventSchemaId,
+							propertiesSchema: createCompletePropertiesSchema(),
+						}),
+				}),
+			),
+		);
+
+		expect(createdEvent.eventSchemaSlug).toBe("complete");
+		expect(createdEvent.properties).toEqual({
+			startedOn: "2026-03-20",
+			completedOn: "2026-03-27",
+			completionMode: "custom_dates",
+		});
+	});
+
+	it("rejects built-in complete events missing completedOn for custom_dates", async () => {
 		const result = await createEvent(
 			{
 				userId: "user_1",
-				body: createEventBody({ properties: { note: "not allowed" } }),
+				body: createEventBody({
+					properties: { completionMode: "custom_dates" },
+				}),
 			},
 			createEventDeps({
 				getEventCreateScopeForUser: async (input) =>
@@ -350,8 +394,36 @@ describe("createEvent", () => {
 						entitySchemaSlug: "book",
 						eventSchemaName: "Complete",
 						eventSchemaSlug: "complete",
-						propertiesSchema: { fields: {} },
 						eventSchemaId: input.eventSchemaId,
+						propertiesSchema: createCompletePropertiesSchema(),
+					}),
+			}),
+		);
+
+		expect(result).toEqual({
+			error: "validation",
+			message: expect.stringContaining("Event properties validation failed"),
+		});
+	});
+
+	it("rejects built-in complete events with an invalid completion mode", async () => {
+		const result = await createEvent(
+			{
+				userId: "user_1",
+				body: createEventBody({
+					properties: { completionMode: "later" },
+				}),
+			},
+			createEventDeps({
+				getEventCreateScopeForUser: async (input) =>
+					createEventCreateScope({
+						isBuiltin: true,
+						entityId: input.entityId,
+						entitySchemaSlug: "book",
+						eventSchemaName: "Complete",
+						eventSchemaSlug: "complete",
+						eventSchemaId: input.eventSchemaId,
+						propertiesSchema: createCompletePropertiesSchema(),
 					}),
 			}),
 		);
@@ -419,8 +491,13 @@ describe("createEvent", () => {
 			{
 				userId: "user_1",
 				body: [
-					createEventBody({ properties: {} }),
-					createEventBody({ properties: {} }),
+					createEventBody({ properties: { completionMode: "just_now" } }),
+					createEventBody({
+						properties: {
+							completedOn: "2026-03-27",
+							completionMode: "custom_dates",
+						},
+					}),
 				],
 			},
 			createEventDeps({
@@ -431,8 +508,8 @@ describe("createEvent", () => {
 						entitySchemaSlug: "book",
 						eventSchemaName: "Complete",
 						eventSchemaSlug: "complete",
-						propertiesSchema: { fields: {} },
 						eventSchemaId: input.eventSchemaId,
+						propertiesSchema: createCompletePropertiesSchema(),
 					}),
 			}),
 		);
