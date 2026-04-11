@@ -1,16 +1,15 @@
 import { ImportRunId } from "@ryot/contract/schema/brands";
-import { queryEngineField, queryEngineSystemRef } from "@ryot/query-engine/primitives";
+import { buildMeasurementListQueryDocument } from "@ryot/fitness-plugin/query-recipes";
 import { Effect } from "effect";
 
 import {
-	buildEntityRowsQueryDocument,
 	createAuthenticatedClient,
-	executeQueryEngine,
+	executeRyotQL,
 	findBuiltinSchemaBySlug,
 	getImportRun,
 	pollImportRunUntilTerminal,
 	queryInLibraryRelationship,
-	requireQueryEngineTextField,
+	requireRyotQLTextField,
 	runHevyImportFixture,
 	runOpenScaleImportFixture,
 	startOpenScaleImport,
@@ -36,22 +35,14 @@ describe("OpenScale Import E2E", () => {
 			expect(completedRun.finishedAt).not.toBeNull();
 
 			const { schema } = yield* findBuiltinSchemaBySlug(client, "measurement");
-			const measurements = yield* executeQueryEngine(
-				client,
-				buildEntityRowsQueryDocument({
-					limit: 20,
-					alias: "measurement",
-					schemas: [schema.id],
-					fields: [queryEngineField("id", queryEngineSystemRef("measurement", "id"))],
-				}),
-			);
-			expect(measurements.data.items).toHaveLength(3);
-			const memberships = yield* Effect.forEach(measurements.data.items, (measurement) =>
-				queryInLibraryRelationship(
-					client,
-					requireQueryEngineTextField(measurement, "id"),
-					schema.slug,
-				),
+			const result = yield* executeRyotQL(client, buildMeasurementListQueryDocument({ limit: 20 }));
+			const measurements = result.data["measurements"];
+			if (measurements?.type !== "rows") {
+				throw new Error("Expected measurements rows result");
+			}
+			expect(measurements.items).toHaveLength(3);
+			const memberships = yield* Effect.forEach(measurements.items, (measurement) =>
+				queryInLibraryRelationship(client, requireRyotQLTextField(measurement, "id"), schema.slug),
 			);
 			expect(memberships.every((membership) => membership.data.items.length === 0)).toBe(true);
 		}),

@@ -12,16 +12,16 @@ import {
 	createEntity,
 	createAuthenticatedClient,
 	createWorkoutEntityFixture,
-	executeQueryEngine,
+	executeRyotQL,
 	findBuiltinPluginBySlug,
 	findBuiltinSchemaBySlug,
 	findWorkoutSetEventSchema,
-	getQueryEngineFieldOrThrow,
 	listEntitySchemas,
 	listEventsForEntity,
 	listSavedViews,
 	mergeUserState,
 	pollUntil,
+	requireRyotQLFieldValue,
 } from "~/fixtures";
 import { assertTaggedError } from "~/support/assertions";
 import { describe, expect, it } from "~/support/effect-test";
@@ -34,15 +34,16 @@ const waitForSeededExercise = (client: Client) =>
 	pollUntil(
 		`exercise '${seededExerciseName}' to be queryable`,
 		Effect.gen(function* () {
-			const { data } = yield* executeQueryEngine(
+			const result = yield* executeRyotQL(
 				client,
-				buildExerciseListQueryDocument({
-					limit: 1,
-					name: seededExerciseName,
-				}),
+				buildExerciseListQueryDocument({ limit: 1, name: seededExerciseName }),
 			);
 
-			return data.items[0] ?? null;
+			const exercises = result.data["exercises"];
+			if (exercises?.type !== "rows") {
+				throw new Error("Expected exercises rows result");
+			}
+			return exercises.items[0] ?? null;
 		}),
 	);
 
@@ -170,30 +171,25 @@ describe("Exercises E2E", () => {
 			const { client } = yield* createAuthenticatedClient();
 			const exercise = yield* waitForSeededExercise(client);
 
-			expect(getQueryEngineFieldOrThrow(exercise, "name")).toEqual({
-				key: "name",
+			expect(requireRyotQLFieldValue(exercise, "name")).toEqual({
 				kind: "text",
 				value: seededExerciseName,
 			});
-			expect(getQueryEngineFieldOrThrow(exercise, "image")).toEqual({
-				key: "image",
+			expect(requireRyotQLFieldValue(exercise, "image")).toEqual({
 				kind: "json",
 				value: { type: "remote", url: seededExerciseImageUrl },
 			});
-			expect(getQueryEngineFieldOrThrow(exercise, "level")).toEqual({
+			expect(requireRyotQLFieldValue(exercise, "level")).toEqual({
 				kind: "text",
-				key: "level",
 				value: "beginner",
 			});
-			expect(getQueryEngineFieldOrThrow(exercise, "kind")).toEqual({
+			expect(requireRyotQLFieldValue(exercise, "kind")).toEqual({
 				kind: "text",
-				key: "kind",
 				value: "reps_and_weight",
 			});
-			expect(getQueryEngineFieldOrThrow(exercise, "equipment")).toEqual({
+			expect(requireRyotQLFieldValue(exercise, "equipment")).toEqual({
 				kind: "text",
 				value: "body_only",
-				key: "equipment",
 			});
 		}),
 	);
