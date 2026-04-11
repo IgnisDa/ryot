@@ -13,8 +13,7 @@ import {
 	type ViewRuntimeReferenceContext,
 	type ViewRuntimeSchemaLike,
 } from "~/lib/views/reference";
-import type { GridConfig, ListConfig } from "../saved-views/schemas";
-import type { ResolvedDisplayValue, ViewRuntimeRequest } from "./schemas";
+import type { ResolvedDisplayValue, ViewRuntimeField } from "./schemas";
 
 type SqlExpression = ReturnType<typeof sql>;
 
@@ -220,73 +219,31 @@ const buildResolvedDisplayValueExpression = <
 	return sql`case ${sql.join(whenClauses, sql` `)} else ${buildResolvedDisplayValueObject({ kind: "null", value: sql`null` })} end`;
 };
 
-export const buildResolvedPropertiesExpression = <
+export const buildResolvedFieldsExpression = <
 	TSchema extends ViewRuntimeSchemaLike,
 	TJoin extends ViewRuntimeEventJoinLike,
 >(input: {
 	alias: string;
-	request: ViewRuntimeRequest;
+	fields: ViewRuntimeField[];
 	context: ViewRuntimeReferenceContext<TSchema, TJoin>;
 }) => {
-	if (input.request.layout === "table") {
-		return sql`'{}'::jsonb`;
-	}
-
-	const displayConfiguration: GridConfig | ListConfig =
-		input.request.displayConfiguration;
-
-	return sql`jsonb_build_object(
-		'imageProperty', ${buildResolvedDisplayValueExpression({
+	const fieldExpressions = input.fields.map((field) => {
+		const resolvedValue = buildResolvedDisplayValueExpression({
 			alias: input.alias,
 			context: input.context,
-			references: displayConfiguration.imageProperty,
-		})},
-		'titleProperty', ${buildResolvedDisplayValueExpression({
-			alias: input.alias,
-			context: input.context,
-			references: displayConfiguration.titleProperty,
-		})},
-		'subtitleProperty', ${buildResolvedDisplayValueExpression({
-			alias: input.alias,
-			context: input.context,
-			references: displayConfiguration.subtitleProperty,
-		})},
-		'badgeProperty', ${buildResolvedDisplayValueExpression({
-			alias: input.alias,
-			context: input.context,
-			references: displayConfiguration.badgeProperty,
-		})}
-	)`;
-};
+			references: field.references,
+		});
 
-export const buildTableCellsExpression = <
-	TSchema extends ViewRuntimeSchemaLike,
-	TJoin extends ViewRuntimeEventJoinLike,
->(input: {
-	alias: string;
-	context: ViewRuntimeReferenceContext<TSchema, TJoin>;
-	request: Extract<ViewRuntimeRequest, { layout: "table" }>;
-}) => {
-	const cellExpressions = input.request.displayConfiguration.columns.map(
-		(column, index) => {
-			const key = `column_${index}`;
-			const resolvedValue = buildResolvedDisplayValueExpression({
-				alias: input.alias,
-				context: input.context,
-				references: column.property,
-			});
+		return sql`jsonb_build_object(
+			'key', cast(${field.key} as text),
+			'kind', ${resolvedValue} ->> 'kind',
+			'value', ${resolvedValue} -> 'value'
+		)`;
+	});
 
-			return sql`jsonb_build_object(
-				'kind', ${resolvedValue} ->> 'kind',
-				'value', ${resolvedValue} -> 'value',
-				'key', ${sql.raw(`'${key}'::text`)}
-			)`;
-		},
-	);
-
-	if (!cellExpressions.length) {
+	if (!fieldExpressions.length) {
 		return sql`'[]'::jsonb`;
 	}
 
-	return sql`jsonb_build_array(${sql.join(cellExpressions, sql`, `)})`;
+	return sql`jsonb_build_array(${sql.join(fieldExpressions, sql`, `)})`;
 };
