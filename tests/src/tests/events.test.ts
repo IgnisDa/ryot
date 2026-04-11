@@ -187,9 +187,9 @@ async function setupBuiltinMediaLifecycleFixture(
 		throw new Error("Missing built-in book schema");
 	}
 
-	const provider = bookSchema.searchProviders[0];
+	const provider = bookSchema.providers[0];
 	if (!provider) {
-		throw new Error("Missing built-in book search provider");
+		throw new Error("Missing built-in book provider");
 	}
 
 	const eventSchemas = await listEventSchemas(
@@ -248,7 +248,7 @@ async function setupBuiltinMediaLifecycleFixture(
 		entitySchemaId: bookSchema.id,
 		externalId: `book-${crypto.randomUUID()}`,
 		name: `Built-in Book ${crypto.randomUUID()}`,
-		detailsSandboxScriptId: provider.detailsScriptId,
+		sandboxScriptId: provider.scriptId,
 	});
 
 	return {
