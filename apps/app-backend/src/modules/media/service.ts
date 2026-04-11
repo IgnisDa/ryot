@@ -52,7 +52,7 @@ const entityPropertyExpression = (slug: string, property: string) => ({
 	reference: { slug, path: ["properties", property], type: "entity" as const },
 });
 
-const eventJoinColumnExpression = (joinKey: string, column: "createdAt") => ({
+const eventJoinColumnExpression = (joinKey: string, column: "createdAt" | "occurredAt") => ({
 	type: "reference" as const,
 	reference: { joinKey, path: [column], type: "event-join" as const },
 });
@@ -71,7 +71,7 @@ const entitySchemaExpression = (column: string) => ({
 	reference: { type: "entity-schema" as const, path: [column] },
 });
 
-const eventColumnExpression = (column: "createdAt" | "id") => ({
+const eventColumnExpression = (column: "createdAt" | "id" | "occurredAt") => ({
 	type: "reference" as const,
 	reference: { type: "event" as const, path: [column] },
 });
@@ -151,7 +151,6 @@ const toBuiltinMediaSourceItem = (item: QueryEngineItem): BuiltInMediaOverviewSo
 		backlogAt: toNullableDate(getFieldValue(item, "backlogAt")),
 		progressAt: toNullableDate(getFieldValue(item, "progressAt")),
 		completeAt: toNullableDate(getFieldValue(item, "completeAt")),
-		completedOn: toNullableDate(getFieldValue(item, "completedOn")),
 		totalUnits: toNullableNumber(getFieldValue(item, "totalUnits")),
 		publishYear: toNullableNumber(getFieldValue(item, "publishYear")),
 		reviewRating: toNullableNumber(getFieldValue(item, "reviewRating")),
@@ -249,23 +248,19 @@ const buildBaseRequest = (): Omit<EntityQueryEngineRequest, "filter" | "paginati
 			{ key: "totalUnits", expression: computedFieldExpression("totalUnits") },
 			{
 				key: "backlogAt",
-				expression: eventJoinColumnExpression("backlog", "createdAt"),
+				expression: eventJoinColumnExpression("backlog", "occurredAt"),
 			},
 			{
 				key: "progressAt",
-				expression: eventJoinColumnExpression("progress", "createdAt"),
+				expression: eventJoinColumnExpression("progress", "occurredAt"),
 			},
 			{
 				key: "completeAt",
-				expression: eventJoinColumnExpression("complete", "createdAt"),
-			},
-			{
-				key: "completedOn",
-				expression: eventJoinPropertyExpression("complete", "completedOn"),
+				expression: eventJoinColumnExpression("complete", "occurredAt"),
 			},
 			{
 				key: "reviewAt",
-				expression: eventJoinColumnExpression("review", "createdAt"),
+				expression: eventJoinColumnExpression("review", "occurredAt"),
 			},
 			{
 				key: "reviewRating",
@@ -295,8 +290,8 @@ const requireEntitiesResult = (result: QueryEngineResponse) => {
 };
 
 export const getContinueItems = async (userId: string, deps: MediaServiceDeps = defaultDeps) => {
-	const progressAtRef = eventJoinColumnExpression("progress", "createdAt");
-	const completeAtRef = eventJoinColumnExpression("complete", "createdAt");
+	const progressAtRef = eventJoinColumnExpression("progress", "occurredAt");
+	const completeAtRef = eventJoinColumnExpression("complete", "occurredAt");
 
 	const filter = {
 		type: "and" as const,
@@ -347,9 +342,9 @@ export const getContinueItems = async (userId: string, deps: MediaServiceDeps = 
 };
 
 export const getUpNextItems = async (userId: string, deps: MediaServiceDeps = defaultDeps) => {
-	const backlogAtRef = eventJoinColumnExpression("backlog", "createdAt");
-	const completeAtRef = eventJoinColumnExpression("complete", "createdAt");
-	const progressAtRef = eventJoinColumnExpression("progress", "createdAt");
+	const backlogAtRef = eventJoinColumnExpression("backlog", "occurredAt");
+	const completeAtRef = eventJoinColumnExpression("complete", "occurredAt");
+	const progressAtRef = eventJoinColumnExpression("progress", "occurredAt");
 
 	const filter = {
 		type: "and" as const,
@@ -412,9 +407,8 @@ export const getUpNextItems = async (userId: string, deps: MediaServiceDeps = de
 };
 
 export const getRateTheseItems = async (userId: string, deps: MediaServiceDeps = defaultDeps) => {
-	const completeAtRef = eventJoinColumnExpression("complete", "createdAt");
-	const reviewAtRef = eventJoinColumnExpression("review", "createdAt");
-	const completedOnRef = eventJoinPropertyExpression("complete", "completedOn");
+	const completeAtRef = eventJoinColumnExpression("complete", "occurredAt");
+	const reviewAtRef = eventJoinColumnExpression("review", "occurredAt");
 
 	const filter = {
 		type: "and" as const,
@@ -426,7 +420,7 @@ export const getRateTheseItems = async (userId: string, deps: MediaServiceDeps =
 					{ type: "isNull" as const, expression: reviewAtRef },
 					{
 						right: reviewAtRef,
-						left: completedOnRef,
+						left: completeAtRef,
 						operator: "gt" as const,
 						type: "comparison" as const,
 					},
@@ -435,13 +429,11 @@ export const getRateTheseItems = async (userId: string, deps: MediaServiceDeps =
 		],
 	};
 
-	const completedOnOrCompleteAt = coalesceExpression(completedOnRef, completeAtRef);
-
 	const request: EntityQueryEngineRequest = {
 		...buildBaseRequest(),
 		filter,
 		pagination: { page: 1, limit: SECTION_LIMITS.rateThese },
-		sort: { direction: "desc", expression: completedOnOrCompleteAt },
+		sort: { direction: "desc", expression: completeAtRef },
 	};
 
 	try {
@@ -493,13 +485,10 @@ const toRecentActivitySourceItem = (item: QueryEngineItem): RecentActivitySource
 		return null;
 	}
 
-	const eventCreatedAt = toNullableDate(getFieldValue(item, "eventCreatedAt"));
-	if (!eventCreatedAt) {
+	const occurredAt = toNullableDate(getFieldValue(item, "eventOccurredAt"));
+	if (!occurredAt) {
 		return null;
 	}
-
-	const completedOn = toNullableDate(getFieldValue(item, "eventCompletedOn"));
-	const occurredAt = eventSchemaSlug === "complete" && completedOn ? completedOn : eventCreatedAt;
 
 	return {
 		entityId,
@@ -528,17 +517,13 @@ export const getRecentActivityItems = async (
 		scope: [...builtinMediaEntitySchemaSlugs],
 		eventSchemas: [...builtinMediaEventSchemaSlugs],
 		pagination: { page: 1, limit: SECTION_LIMITS.activity },
-		sort: { direction: "desc", expression: eventColumnExpression("createdAt") },
+		sort: { direction: "desc", expression: eventColumnExpression("occurredAt") },
 		fields: [
 			{ key: "eventId", expression: eventColumnExpression("id") },
-			{ key: "eventCreatedAt", expression: eventColumnExpression("createdAt") },
+			{ key: "eventOccurredAt", expression: eventColumnExpression("occurredAt") },
 			{
 				key: "eventSchemaSlug",
 				expression: eventSchemaColumnExpression("slug"),
-			},
-			{
-				key: "eventCompletedOn",
-				expression: eventPropertyExpression("complete", "completedOn"),
 			},
 			{
 				key: "eventRating",

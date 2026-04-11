@@ -31,10 +31,11 @@
 //
 // --- Timestamps ---
 //
-// Each progress event's `created_at` is set to the corresponding `updated_at[i]` entry.
-// The terminal event's `created_at` is set to `updated_at[N]` (the last entry).
-// `completedOn` on non-episodic `complete` events uses `finished_on` when set, otherwise
-// `updated_at[N]`. `startedOn` on `complete`/`dropped`/`on_hold` events uses `started_on` when set.
+// Each progress event's `created_at` and `occurred_at` use the corresponding `updated_at[i]`.
+// Terminal event `created_at` uses `updated_at[N]` (the last entry). Non-episodic `complete`
+// events use `finished_on` for `occurred_at`/`completedOn` when set, otherwise `updated_at[N]`.
+// `dropped` and `on_hold` terminal events use `updated_at[N]` for `occurred_at`.
+// `startedOn` on `complete`/`dropped`/`on_hold` events uses `started_on` when set.
 //
 // --- Units ---
 //
@@ -90,7 +91,8 @@ BEGIN
 			"entity_id",
 			"event_schema_id",
 			"properties",
-			"created_at"
+			"created_at",
+			"occurred_at"
 		)
 		WITH rows AS (
 			SELECT
@@ -168,6 +170,7 @@ BEGIN
 				'mangaChapter',  NULLIF(r.manga_extra_information ->> 'chapter', '')::float8,
 				'podcastEpisode',(r.podcast_extra_information ->> 'episode')::int
 			)),
+			r.event_ts,
 			r.event_ts
 		FROM classified r
 		INNER JOIN "entity" e  ON e.id = r.metadata_id
@@ -187,7 +190,8 @@ BEGIN
 			"entity_id",
 			"event_schema_id",
 			"properties",
-			"created_at"
+			"created_at",
+			"occurred_at"
 		)
 		WITH rows AS (
 			SELECT
@@ -280,7 +284,11 @@ BEGIN
 						'podcastEpisode',  (r.podcast_extra_information ->> 'episode')::int
 					))
 			END,
-			r.updated_at[r.n_ts]
+			r.updated_at[r.n_ts],
+			CASE
+				WHEN r.terminal_slug = 'complete' THEN COALESCE(r.finished_on, r.updated_at[r.n_ts])
+				ELSE r.updated_at[r.n_ts]
+			END
 		FROM rows r
 		INNER JOIN "event_schema" es
 			ON  es.entity_schema_id = r.entity_schema_id
