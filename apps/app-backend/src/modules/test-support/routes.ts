@@ -110,12 +110,6 @@ export const TestSupportRoutesLive = HttpApiBuilder.group(AppContract, "testSupp
 				return yield* svc.linkAuthAccount(payload);
 			}).pipe(dieOnDbError),
 		)
-		.handle("triggerInfrequentCron", () =>
-			Effect.gen(function* () {
-				const svc = yield* TestSupportService;
-				return yield* svc.triggerInfrequentCron();
-			}),
-		)
 		.handle("triggerPluginCron", ({ payload }) =>
 			Effect.gen(function* () {
 				const svc = yield* TestSupportService;

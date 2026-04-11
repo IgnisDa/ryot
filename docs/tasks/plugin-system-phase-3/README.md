@@ -363,7 +363,7 @@ them (and risk drift), this PRD points to the exact sections that own them:
   disabled), scheduler/dispatcher execution through the durable queue machinery, the
   `upsertGlobalEntities` / `upsertGlobalRelationships` host functions (shapes
   `[IMPLEMENTER-DECIDES]`, semantics fixed, gated to system `cron`/`boot` executions), the
-  trending-read-path note, and the migrate/delete/e2e lists (`triggerInfrequentCron` fixture
+  trending-read-path note, and the migrate/delete/e2e lists (`triggerPluginCron` fixture
   exists for trending; exercises rely on boot dispatch): plan §1 and its 2026-07-26 amendment.
 - **Step 2 — operations (invoke)** — the `operations` manifest section, the single generic
   `plugins.invoke` endpoint (validation, auth, dispatch, batch-first), the `[RECOMMENDED]`
@@ -423,7 +423,7 @@ a `[DECIDED]` item is wrong, **stop and surface it** rather than silently deviat
   library behavior, per `AGENTS.md`.
 - **Suites re-pointed per step (assertions preserved):** step 1 re-points
   `tests/src/tests/exercises/` (seeded through boot dispatch at backend startup, no manual
-  trigger) and the trending coverage (the `triggerInfrequentCron` fixture already exists); step
+  trigger) and the trending coverage (the `triggerPluginCron` fixture already exists); step
   2 re-points the metadata-lookup / browser-extension integration tests
   to `invoke`; step 3 re-points the `entity-import` / `imports` suites; step 4 re-points the
   `integrations/` suites in task 08, the OpenScale and Hevy coverage in task 09, and the Watcharr

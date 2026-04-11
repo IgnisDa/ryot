@@ -363,6 +363,13 @@ const integrationProviders = [
 
 export const mediaPlugin = definePlugin({
 	boot: [],
+	entitySchemas,
+	relationshipSchemas,
+	integrationProviders,
+	scripts: mediaScripts,
+	providers: mediaProviders,
+	savedViews: mediaSavedViews(),
+	signalSchemas: mediaSignalSchemas("media-monitoring"),
 	importSources: [
 		{
 			lot: "single",
@@ -550,8 +557,6 @@ export const mediaPlugin = definePlugin({
 				"Import media history, reviews, lifecycle states, and collections from MediaTracker",
 		},
 	],
-	integrationProviders,
-	providers: mediaProviders,
 	workflows: [
 		{ slug: "import", scriptSlug: "workflow.media-import" },
 		{ slug: "media-monitoring-sweep", scriptSlug: "workflow.media-monitoring-sweep" },
@@ -562,36 +567,36 @@ export const mediaPlugin = definePlugin({
 		{
 			lot: "workflow",
 			slug: "media-monitoring",
-			schedule: "0 0 * * *",
+			schedule: { tier: "infrequent" },
 			workflowSlug: "media-monitoring-sweep",
 			description: "Refresh monitored provider-backed media",
 		},
 		{
 			lot: "script",
 			slug: "media-trending",
-			schedule: "0 0 * * *",
 			scriptSlug: "media-trending",
-			description: "Refresh global media trending rankings daily",
+			schedule: { tier: "infrequent" },
+			description: "Refresh global media trending rankings",
 		},
 	],
 	operations: [
 		{
 			auth: "user",
 			slug: "media-monitoring-status",
-			scriptSlug: "operation.media-monitoring-status",
 			description: "Read media monitoring status",
+			scriptSlug: "operation.media-monitoring-status",
 		},
 		{
 			auth: "user",
 			slug: "media-monitoring-enable",
-			scriptSlug: "operation.media-monitoring-enable",
 			description: "Enable media monitoring",
+			scriptSlug: "operation.media-monitoring-enable",
 		},
 		{
 			auth: "user",
 			slug: "media-monitoring-disable",
-			scriptSlug: "operation.media-monitoring-disable",
 			description: "Disable media monitoring",
+			scriptSlug: "operation.media-monitoring-disable",
 		},
 		{
 			auth: "integration",
@@ -615,11 +620,6 @@ export const mediaPlugin = definePlugin({
 		description:
 			"Track media across movies, shows, books, comic books, anime, manga, audiobooks, podcasts, video games, and music.",
 	},
-	scripts: mediaScripts,
-	entitySchemas,
-	savedViews: mediaSavedViews(),
-	signalSchemas: mediaSignalSchemas("media-monitoring"),
-	relationshipSchemas,
 	bindings: {
 		schemaProviderLinks,
 		signalAutomations: [],
