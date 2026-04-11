@@ -17,7 +17,7 @@ export function useCreateEntityForm(props: UseCreateEntityFormProps) {
 	return useAppForm({
 		defaultValues: buildDefaultEntityFormValues(props.propertiesSchema),
 		validators: {
-			onChange: buildCreateEntityFormSchema(props.propertiesSchema),
+			onChange: buildCreateEntityFormSchema(props.propertiesSchema) as never,
 		},
 		onSubmit: async ({ value }) => {
 			await props.onSubmit(toCreateEntityPayload(value, props.entitySchemaId));

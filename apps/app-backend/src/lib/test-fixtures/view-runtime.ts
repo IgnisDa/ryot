@@ -3,16 +3,18 @@ import { withOverrides } from "~/lib/test-fixtures/fixture-helpers";
 const smartphoneSchemaDefaults = {
 	slug: "smartphones",
 	propertiesSchema: {
-		announcedAt: { type: "date" as const },
-		nameplate: { type: "string" as const },
-		screenSize: { type: "number" as const },
-		isFoldable: { type: "boolean" as const },
-		releaseYear: { type: "integer" as const },
-		manufacturer: { type: "string" as const },
-		tags: { type: "array" as const, items: { type: "string" as const } },
-		metadata: {
-			type: "object" as const,
-			properties: { source: { type: "string" as const } },
+		fields: {
+			announcedAt: { type: "date" as const },
+			nameplate: { type: "string" as const },
+			screenSize: { type: "number" as const },
+			isFoldable: { type: "boolean" as const },
+			releaseYear: { type: "integer" as const },
+			manufacturer: { type: "string" as const },
+			tags: { type: "array" as const, items: { type: "string" as const } },
+			metadata: {
+				type: "object" as const,
+				properties: { source: { type: "string" as const } },
+			},
 		},
 	},
 };
@@ -20,8 +22,10 @@ const smartphoneSchemaDefaults = {
 const tabletSchemaDefaults = {
 	slug: "tablets",
 	propertiesSchema: {
-		maker: { type: "string" as const },
-		releaseYear: { type: "integer" as const },
+		fields: {
+			maker: { type: "string" as const },
+			releaseYear: { type: "integer" as const },
+		},
 	},
 };
 

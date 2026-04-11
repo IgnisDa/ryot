@@ -62,15 +62,30 @@ describe("GET /event-schemas", () => {
 			);
 			expect(progressSchema).toBeDefined();
 			expect(progressSchema?.propertiesSchema).toEqual({
-				progressPercent: { type: "number", required: true },
+				fields: {
+					progressPercent: {
+						type: "number",
+						transform: { round: { mode: "half_up", scale: 2 } },
+						validation: {
+							required: true,
+							exclusiveMinimum: 0,
+							exclusiveMaximum: 100,
+						},
+					},
+				},
 			});
 			const reviewSchema = eventSchemas.find(
 				(schema) => schema.slug === "review",
 			);
 			expect(reviewSchema).toBeDefined();
 			expect(reviewSchema?.propertiesSchema).toEqual({
-				review: { type: "string" },
-				rating: { type: "integer", required: true },
+				fields: {
+					review: { type: "string" },
+					rating: {
+						type: "integer",
+						validation: { required: true, maximum: 5, minimum: 1 },
+					},
+				},
 			});
 		}
 	});

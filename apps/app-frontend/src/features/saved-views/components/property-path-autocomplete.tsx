@@ -31,7 +31,7 @@ export function PropertyPathAutocomplete(props: PropertyPathAutocompleteProps) {
 
 	const schemaGroups = props.schemas
 		.map((schema) => {
-			const items = Object.keys(schema.propertiesSchema).map(
+			const items = Object.keys(schema.propertiesSchema.fields).map(
 				(key) => `${schema.slug}.${key}`,
 			);
 			return { group: schema.slug, items };

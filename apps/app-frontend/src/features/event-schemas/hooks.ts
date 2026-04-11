@@ -1,6 +1,6 @@
 import { useQueryClient } from "@tanstack/react-query";
 import { useApiClient } from "#/hooks/api";
-import { sortEventSchemas } from "./model";
+import { type AppEventSchema, sortEventSchemas } from "./model";
 
 export function useEventSchemasQuery(entitySchemaId: string, enabled = true) {
 	const apiClient = useApiClient();
@@ -13,7 +13,9 @@ export function useEventSchemasQuery(entitySchemaId: string, enabled = true) {
 
 	return {
 		...query,
-		eventSchemas: sortEventSchemas(query.data?.data ?? []),
+		eventSchemas: sortEventSchemas(
+			(query.data?.data as AppEventSchema[] | undefined) ?? [],
+		),
 	};
 }
 

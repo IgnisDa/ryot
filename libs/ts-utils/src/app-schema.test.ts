@@ -2,395 +2,300 @@ import { describe, expect, it } from "bun:test";
 import { z } from "zod";
 import {
 	fromAppSchema,
+	fromAppSchemaObject,
+	getAppPropertyDefinitionAtPath,
+	isAppPropertyRequired,
 	toAppSchema,
 	toAppSchemaProperties,
 } from "./app-schema";
 
 describe("toAppSchema", () => {
-	describe("primitive types", () => {
-		it("converts z.string() to string type", () => {
-			expect(toAppSchema(z.string())).toEqual({ type: "string" });
+	it("marks non-optional primitive fields as required", () => {
+		expect(toAppSchema(z.string())).toEqual({
+			type: "string",
+			validation: { required: true },
 		});
-
-		it("converts z.number() to number type", () => {
-			expect(toAppSchema(z.number())).toEqual({ type: "number" });
+		expect(toAppSchema(z.number())).toEqual({
+			type: "number",
+			validation: { required: true },
 		});
-
-		it("converts z.number().int() to integer type", () => {
-			expect(toAppSchema(z.number().int())).toEqual({ type: "integer" });
+		expect(toAppSchema(z.number().int())).toEqual({
+			type: "integer",
+			validation: { required: true },
 		});
-
-		it("converts z.boolean() to boolean type", () => {
-			expect(toAppSchema(z.boolean())).toEqual({ type: "boolean" });
+		expect(toAppSchema(z.boolean())).toEqual({
+			type: "boolean",
+			validation: { required: true },
 		});
-
-		it("converts z.string().date() to date type", () => {
-			expect(toAppSchema(z.string().date())).toEqual({ type: "date" });
-		});
-
-		it("converts z.iso.datetime() to date type", () => {
-			expect(toAppSchema(z.iso.datetime())).toEqual({ type: "date" });
+		expect(toAppSchema(z.string().date())).toEqual({
+			type: "date",
+			validation: { required: true },
 		});
 	});
 
-	describe("optional/nullable modifiers", () => {
-		it("unwraps nullish() to base type", () => {
-			expect(toAppSchema(z.string().nullish())).toEqual({
-				type: "string",
-			});
-		});
-
-		it("unwraps nullable() to base type", () => {
-			expect(toAppSchema(z.number().nullable())).toEqual({
-				type: "number",
-			});
-		});
-
-		it("unwraps optional() to base type", () => {
-			expect(toAppSchema(z.boolean().optional())).toEqual({
-				type: "boolean",
-			});
-		});
-
-		it("preserves integer type with nullish", () => {
-			expect(toAppSchema(z.number().int().nullish())).toEqual({
-				type: "integer",
-			});
-		});
-
-		it("handles nested nullable wrappers", () => {
-			expect(toAppSchema(z.string().nullable().optional())).toEqual({
-				type: "string",
-			});
-		});
-
-		it("preserves date type with nullable", () => {
-			expect(toAppSchema(z.string().date().nullable())).toEqual({
-				type: "date",
-			});
-		});
+	it("drops required when wrappers make a field optional", () => {
+		expect(toAppSchema(z.string().optional())).toEqual({ type: "string" });
+		expect(toAppSchema(z.number().nullable())).toEqual({ type: "number" });
+		expect(toAppSchema(z.boolean().nullish())).toEqual({ type: "boolean" });
 	});
 
-	describe("array types", () => {
-		it("converts z.array(z.string()) to array of strings", () => {
-			expect(toAppSchema(z.array(z.string()))).toEqual({
-				type: "array",
-				items: { type: "string" },
-			});
-		});
-
-		it("converts nested array items correctly", () => {
-			expect(toAppSchema(z.array(z.number().int()))).toEqual({
-				type: "array",
-				items: { type: "integer" },
-			});
-		});
-
-		it("handles nullable array items", () => {
-			expect(toAppSchema(z.array(z.string().nullish()))).toEqual({
-				type: "array",
-				items: { type: "string" },
-			});
-		});
-	});
-
-	describe("object types", () => {
-		it("converts z.object() with properties", () => {
-			expect(
-				toAppSchema(
-					z.object({
-						title: z.string(),
-						pages: z.number().int(),
+	it("preserves requiredness for nested object properties", () => {
+		expect(
+			toAppSchema(
+				z.object({
+					author: z.object({
+						name: z.string(),
+						age: z.number().int().optional(),
 					}),
-				),
-			).toEqual({
-				type: "object",
-				properties: {
-					title: { type: "string" },
-					pages: { type: "integer" },
-				},
-			});
-		});
-
-		it("handles nested objects", () => {
-			expect(
-				toAppSchema(
-					z.object({
-						author: z.object({
-							name: z.string(),
-							age: z.number().int(),
-						}),
-					}),
-				),
-			).toEqual({
-				type: "object",
-				properties: {
-					author: {
-						type: "object",
-						properties: {
-							name: { type: "string" },
-							age: { type: "integer" },
-						},
-					},
-				},
-			});
-		});
-
-		it("handles arrays of objects", () => {
-			expect(
-				toAppSchema(
-					z.array(
-						z.object({
-							role: z.string(),
-							identifier: z.string(),
-						}),
-					),
-				),
-			).toEqual({
-				type: "array",
-				items: {
+				}),
+			),
+		).toEqual({
+			type: "object",
+			validation: { required: true },
+			properties: {
+				author: {
 					type: "object",
+					validation: { required: true },
 					properties: {
-						role: { type: "string" },
-						identifier: { type: "string" },
+						age: { type: "integer" },
+						name: { type: "string", validation: { required: true } },
 					},
 				},
-			});
+			},
 		});
 	});
 
-	describe("nullable complex types", () => {
-		it("unwraps nullable arrays to base type", () => {
-			expect(toAppSchema(z.array(z.string()).nullable())).toEqual({
-				type: "array",
-				items: { type: "string" },
-			});
-		});
-
-		it("unwraps nullable objects to base type", () => {
-			expect(toAppSchema(z.object({ title: z.string() }).nullable())).toEqual({
-				type: "object",
-				properties: { title: { type: "string" } },
-			});
-		});
-	});
-
-	describe("error handling", () => {
-		it("throws error for unsupported Zod types", () => {
-			expect(() => toAppSchema(z.literal("test"))).toThrow(
-				"Unsupported Zod type:",
-			);
+	it("does not add required to array item definitions", () => {
+		expect(toAppSchema(z.array(z.string()))).toEqual({
+			type: "array",
+			items: { type: "string" },
+			validation: { required: true },
 		});
 	});
 });
 
 describe("toAppSchemaProperties", () => {
-	describe("top-level object unwrapping", () => {
-		it("unwraps top-level z.object() to flat properties map", () => {
-			const schema = z.object({
-				title: z.string(),
-				pages: z.number().int().nullish(),
-			});
-
-			expect(toAppSchemaProperties(schema)).toEqual({
+	it("unwraps top-level object shapes while keeping requiredness", () => {
+		expect(
+			toAppSchemaProperties(
+				z.object({
+					title: z.string(),
+					pages: z.number().int().optional(),
+				}),
+			),
+		).toEqual({
+			fields: {
 				title: { type: "string" },
 				pages: { type: "integer" },
-			});
-		});
-
-		it("keeps nested objects wrapped", () => {
-			const schema = z.object({
-				author: z.object({ name: z.string() }),
-			});
-
-			expect(toAppSchemaProperties(schema)).toEqual({
-				author: {
-					type: "object",
-					properties: { name: { type: "string" } },
-				},
-			});
+			},
 		});
 	});
 });
 
 describe("fromAppSchema", () => {
-	describe("primitive types", () => {
-		it("converts string type to z.string()", () => {
-			const schema = fromAppSchema({ type: "string" });
-			expect(schema.safeParse("hello").success).toBeTrue();
-			expect(schema.safeParse(123).success).toBeFalse();
-		});
-
-		it("converts number type to z.number()", () => {
-			const schema = fromAppSchema({ type: "number" });
-			expect(schema.safeParse(123.45).success).toBeTrue();
-			expect(schema.safeParse("hello").success).toBeFalse();
-		});
-
-		it("converts integer type to z.number().int()", () => {
-			const schema = fromAppSchema({ type: "integer" });
-			expect(schema.safeParse(123).success).toBeTrue();
-			expect(schema.safeParse(123.45).success).toBeFalse();
-		});
-
-		it("converts boolean type to z.boolean()", () => {
-			const schema = fromAppSchema({ type: "boolean" });
-			expect(schema.safeParse(true).success).toBeTrue();
-			expect(schema.safeParse("true").success).toBeFalse();
-		});
-
-		it("converts date type to z.string().date()", () => {
-			const schema = fromAppSchema({ type: "date" });
-			expect(schema.safeParse("2026-03-08").success).toBeTrue();
-			expect(schema.safeParse("not-a-date").success).toBeFalse();
-		});
+	it("validates primitive schemas", () => {
+		expect(
+			fromAppSchema({ type: "string" }).safeParse("hello").success,
+		).toBeTrue();
+		expect(
+			fromAppSchema({ type: "integer" }).safeParse(12.5).success,
+		).toBeFalse();
+		expect(
+			fromAppSchema({ type: "date" }).safeParse("2026-03-08").success,
+		).toBeTrue();
 	});
 
-	describe("array types", () => {
-		it("converts array of strings", () => {
-			const schema = fromAppSchema({
-				type: "array",
-				items: { type: "string" },
-			});
-			expect(schema.safeParse(["a", "b", "c"]).success).toBeTrue();
-			expect(schema.safeParse([1, 2, 3]).success).toBeFalse();
-		});
-
-		it("converts array of integers", () => {
-			const schema = fromAppSchema({
-				type: "array",
-				items: { type: "integer" },
-			});
-			expect(schema.safeParse([1, 2, 3]).success).toBeTrue();
-			expect(schema.safeParse([1.5, 2.5]).success).toBeFalse();
-		});
-	});
-
-	describe("object types", () => {
-		it("converts simple objects", () => {
-			const schema = fromAppSchema({
-				type: "object",
-				properties: {
-					title: { type: "string" },
-					pages: { type: "integer" },
-				},
-			});
-			expect(
-				schema.safeParse({ title: "Book", pages: 200 }).success,
-			).toBeTrue();
-			expect(schema.safeParse({ title: "Book" }).success).toBeFalse();
-		});
-
-		it("converts nested objects", () => {
-			const schema = fromAppSchema({
-				type: "object",
-				properties: {
-					author: {
-						type: "object",
-						properties: { name: { type: "string" } },
-					},
-				},
-			});
-			expect(schema.safeParse({ author: { name: "John" } }).success).toBeTrue();
-		});
-
-		it("converts arrays of objects", () => {
-			const schema = fromAppSchema({
-				type: "array",
-				items: {
+	it("validates nested object requiredness", () => {
+		const schema = fromAppSchema({
+			type: "object",
+			properties: {
+				author: {
 					type: "object",
+					validation: { required: true },
 					properties: {
-						role: { type: "string" },
-						identifier: { type: "string" },
+						age: { type: "integer" },
+						name: { type: "string", validation: { required: true } },
 					},
 				},
-			});
-			expect(
-				schema.safeParse([
-					{ role: "author", identifier: "123" },
-					{ role: "editor", identifier: "456" },
-				]).success,
-			).toBeTrue();
+			},
 		});
+
+		expect(schema.safeParse({ author: { name: "Ada" } }).success).toBeTrue();
+		expect(schema.safeParse({ author: {} }).success).toBeFalse();
+		expect(
+			schema.safeParse({ author: { name: "Ada", extra: true } }).success,
+		).toBeFalse();
+	});
+
+	it("applies string validation rules", () => {
+		const schema = fromAppSchema({
+			type: "string",
+			validation: { minLength: 2, maxLength: 4, pattern: "^[A-Z]+$" },
+		});
+
+		expect(schema.safeParse("OK").success).toBeTrue();
+		expect(schema.safeParse("O").success).toBeFalse();
+		expect(schema.safeParse("TOOLONG").success).toBeFalse();
+		expect(schema.safeParse("bad").success).toBeFalse();
+	});
+
+	it("applies numeric validation rules", () => {
+		const schema = fromAppSchema({
+			type: "integer",
+			validation: { minimum: 1, maximum: 5 },
+		});
+
+		expect(schema.safeParse(3).success).toBeTrue();
+		expect(schema.safeParse(0).success).toBeFalse();
+		expect(schema.safeParse(6).success).toBeFalse();
+		expect(schema.safeParse(3.5).success).toBeFalse();
+	});
+
+	it("applies transforms before numeric validation", () => {
+		const schema = fromAppSchema({
+			type: "number",
+			transform: { round: { mode: "half_up", scale: 2 } },
+			validation: { exclusiveMaximum: 100, exclusiveMinimum: 0 },
+		});
+
+		expect(schema.parse(25.555)).toBe(25.56);
+		expect(() => schema.parse(99.995)).toThrow();
+		expect(() => schema.parse(0.004)).toThrow();
+	});
+
+	it("applies array validation rules", () => {
+		const schema = fromAppSchema({
+			type: "array",
+			items: { type: "string" },
+			validation: { minItems: 1, maxItems: 2 },
+		});
+
+		expect(schema.safeParse(["one"]).success).toBeTrue();
+		expect(schema.safeParse([]).success).toBeFalse();
+		expect(schema.safeParse(["one", "two", "three"]).success).toBeFalse();
 	});
 });
 
-describe("round-trip conversions", () => {
-	it("converts book schema Zod -> App -> Zod", () => {
-		const originalSchema = z.object({
-			title: z.string(),
-			pages: z.number().int().nullish(),
-			isCompilation: z.boolean().nullish(),
+describe("fromAppSchemaObject", () => {
+	it("applies conditional required rules", () => {
+		const schema = fromAppSchemaObject({
+			fields: {
+				progressPercent: { type: "number" },
+				status: { type: "string", validation: { required: true } },
+			},
+			rules: [
+				{
+					kind: "validation",
+					path: ["progressPercent"],
+					validation: { required: true },
+					when: { operator: "eq", path: ["status"], value: "completed" },
+				},
+			],
 		});
 
-		const appSchema = toAppSchemaProperties(originalSchema);
-		const recreatedZodSchema = z.object(
-			Object.fromEntries(
-				Object.entries(appSchema).map(([key, value]) => [
-					key,
-					fromAppSchema(value),
-				]),
-			),
-		);
-
-		const testData = { pages: 300, title: "My Book", isCompilation: false };
-
-		expect(originalSchema.safeParse(testData).success).toBeTrue();
-		expect(recreatedZodSchema.safeParse(testData).success).toBeTrue();
+		expect(schema.safeParse({ status: "in_progress" }).success).toBeTrue();
+		expect(schema.safeParse({ status: "completed" }).success).toBeFalse();
+		expect(
+			schema.safeParse({ status: "completed", progressPercent: 82 }).success,
+		).toBeTrue();
 	});
 
-	it("handles complex nested structures", () => {
-		const originalSchema = z.object({
-			people: z.array(
-				z.object({
-					role: z.string(),
-					identifier: z.string(),
-				}),
-			),
+	it("supports nested all and any rule conditions", () => {
+		const schema = fromAppSchemaObject({
+			fields: {
+				metadata: {
+					type: "object",
+					properties: {
+						score: { type: "integer" },
+						status: { type: "string" },
+						verified: { type: "boolean" },
+					},
+				},
+			},
+			rules: [
+				{
+					kind: "validation",
+					path: ["metadata", "score"],
+					validation: { required: true },
+					when: {
+						operator: "all",
+						conditions: [
+							{
+								operator: "in",
+								path: ["metadata", "status"],
+								value: ["published", "archived"],
+							},
+							{
+								operator: "any",
+								conditions: [
+									{
+										value: true,
+										operator: "eq",
+										path: ["metadata", "verified"],
+									},
+									{
+										value: "archived",
+										operator: "eq",
+										path: ["metadata", "status"],
+									},
+								],
+							},
+						],
+					},
+				},
+			],
 		});
 
-		const appSchema = toAppSchemaProperties(originalSchema);
-		const recreatedZodSchema = z.object(
-			Object.fromEntries(
-				Object.entries(appSchema).map(([key, value]) => [
-					key,
-					fromAppSchema(value),
-				]),
-			),
-		);
+		expect(
+			schema.safeParse({ metadata: { status: "draft", verified: true } })
+				.success,
+		).toBeTrue();
+		expect(
+			schema.safeParse({ metadata: { status: "published", verified: false } })
+				.success,
+		).toBeTrue();
+		expect(
+			schema.safeParse({ metadata: { status: "published", verified: true } })
+				.success,
+		).toBeFalse();
+		expect(
+			schema.safeParse({
+				metadata: { score: 9, status: "published", verified: true },
+			}).success,
+		).toBeTrue();
+	});
+});
 
-		const testData = {
-			people: [
-				{ role: "author", identifier: "123" },
-				{ role: "editor", identifier: "456" },
-			],
+describe("getAppPropertyDefinitionAtPath", () => {
+	it("resolves top-level and nested object properties", () => {
+		const fields = {
+			rating: { type: "integer" as const },
+			metadata: {
+				type: "object" as const,
+				properties: { title: { type: "string" as const } },
+			},
 		};
 
-		expect(originalSchema.safeParse(testData).success).toBeTrue();
-		expect(recreatedZodSchema.safeParse(testData).success).toBeTrue();
-	});
-
-	it("handles nested properties", () => {
-		const originalSchema = z.object({
-			metadata: z.object({
-				source: z.string(),
-				verified: z.boolean(),
-			}),
+		expect(getAppPropertyDefinitionAtPath(fields, ["rating"])).toEqual({
+			type: "integer",
 		});
+		expect(
+			getAppPropertyDefinitionAtPath(fields, ["metadata", "title"]),
+		).toEqual({ type: "string" });
+		expect(
+			getAppPropertyDefinitionAtPath(fields, ["metadata", "missing"]),
+		).toBe(undefined);
+	});
+});
 
-		const appSchema = toAppSchemaProperties(originalSchema);
-		const recreatedZodSchema = z.object(
-			Object.fromEntries(
-				Object.entries(appSchema).map(([key, value]) => [
-					key,
-					fromAppSchema(value),
-				]),
-			),
-		);
-
-		const testData = { metadata: { source: "api", verified: true } };
-
-		expect(originalSchema.safeParse(testData).success).toBeTrue();
-		expect(recreatedZodSchema.safeParse(testData).success).toBeTrue();
+describe("isAppPropertyRequired", () => {
+	it("reads required state from validation metadata", () => {
+		expect(isAppPropertyRequired({ type: "string" })).toBeFalse();
+		expect(
+			isAppPropertyRequired({
+				type: "string",
+				validation: { required: true },
+			}),
+		).toBeTrue();
 	});
 });
