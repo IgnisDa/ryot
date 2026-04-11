@@ -33,16 +33,10 @@ function getImageUrl(path) {
   return `${TMDB_IMAGE_BASE}${path.trim()}`;
 }
 
-function parsePublishYear(dateStr) {
-  if (typeof dateStr !== "string" || !dateStr.trim()) {
-    return null;
-  }
-  const yearToken = dateStr.trim().slice(0, 4);
-  if (!/^\d{4}$/.test(yearToken)) {
-    return null;
-  }
-  const year = Number(yearToken);
-  return Number.isFinite(year) && year > 0 ? year : null;
+function parsePublishYear(dateStr, dayjs) {
+  if (typeof dateStr !== "string" || !dateStr.trim()) return null;
+  const d = dayjs(dateStr.trim());
+  return d.isValid() && d.year() > 0 ? d.year() : null;
 }
 
 async function tmdbGet(path, params, token) {
@@ -166,21 +160,14 @@ function collectFreeCreators(cast, crew) {
 }
 
 driver("search", async function (context) {
-  const pageSize =
-    Number.isFinite(Number(context?.pageSize)) &&
-    Number(context.pageSize) > 0 &&
-    Number(context.pageSize) <= 100
-      ? Math.floor(Number(context.pageSize))
-      : 20;
-  const query =
-    typeof context?.query === "string" ? context.query.trim() : "";
-  if (!query) {
-    throw new Error("query is required");
-  }
+  const { z } = await import("npm:zod");
+  const dayjs = (await import("npm:dayjs")).default;
 
-  const currentPage = Number.isFinite(Number(context?.page))
-    ? Math.max(1, Math.floor(Number(context.page)))
-    : 1;
+  const { query, page: currentPage, pageSize } = z.object({
+    query: z.string().trim().min(1, "query is required"),
+    page: z.coerce.number().min(1).transform(Math.floor).catch(1),
+    pageSize: z.coerce.number().min(1).max(100).transform(Math.floor).catch(20),
+  }).parse(context ?? {});
 
   const token = await getTmdbAccessToken();
   const data = await tmdbGet(
@@ -222,7 +209,7 @@ driver("search", async function (context) {
         return null;
       }
 
-      const publishYear = parsePublishYear(movie?.release_date);
+      const publishYear = parsePublishYear(movie?.release_date, dayjs);
       const image = getImageUrl(movie?.poster_path);
 
       return {
@@ -252,11 +239,12 @@ driver("search", async function (context) {
 });
 
 driver("details", async function (context) {
-  const identifier =
-    typeof context?.identifier === "string" ? context.identifier.trim() : "";
-  if (!identifier) {
-    throw new Error("identifier is required");
-  }
+  const { z } = await import("npm:zod");
+  const dayjs = (await import("npm:dayjs")).default;
+
+  const { identifier } = z.object({
+    identifier: z.string().trim().min(1, "identifier is required"),
+  }).parse(context ?? {});
 
   if (!/^\d+$/.test(identifier)) {
     throw new Error("identifier must be a numeric TMDB movie ID");
@@ -307,7 +295,7 @@ driver("details", async function (context) {
       genres: collectGenres(movieData?.genres),
       isNsfw: movieData?.adult === true ? true : null,
       providerRating,
-      publishYear: parsePublishYear(movieData?.release_date),
+      publishYear: parsePublishYear(movieData?.release_date, dayjs),
       freeCreators: collectFreeCreators(creditsData?.cast, creditsData?.crew),
       description:
         typeof movieData?.overview === "string" && movieData.overview.trim()

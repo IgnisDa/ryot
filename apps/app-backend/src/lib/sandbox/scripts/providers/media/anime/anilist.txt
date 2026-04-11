@@ -153,20 +153,15 @@ function collectGenres(genres, tags) {
   return [...genreSet];
 }
 
-function toIsoDateTime(unixSeconds) {
+function toIsoDateTime(unixSeconds, dayjs) {
   if (typeof unixSeconds !== "number" || !Number.isFinite(unixSeconds)) {
     return null;
   }
-
-  const candidate = new Date(Math.trunc(unixSeconds) * 1000);
-  if (Number.isNaN(candidate.valueOf())) {
-    return null;
-  }
-
-  return candidate.toISOString();
+  const d = dayjs.unix(Math.trunc(unixSeconds));
+  return d.isValid() ? d.toISOString() : null;
 }
 
-function parseAiringSchedule(airingSchedule, nextAiringEpisode) {
+function parseAiringSchedule(airingSchedule, nextAiringEpisode, dayjs) {
   const scheduleByEpisode = new Map();
 
   const nodes = Array.isArray(airingSchedule?.nodes)
@@ -185,7 +180,7 @@ function parseAiringSchedule(airingSchedule, nextAiringEpisode) {
       continue;
     }
 
-    const airingAt = toIsoDateTime(node.airingAt);
+    const airingAt = toIsoDateTime(node.airingAt, dayjs);
     if (!airingAt) {
       continue;
     }
@@ -199,7 +194,7 @@ function parseAiringSchedule(airingSchedule, nextAiringEpisode) {
       Number.isFinite(nextAiringEpisode.episode)
         ? Math.trunc(nextAiringEpisode.episode)
         : null;
-    const airingAt = toIsoDateTime(nextAiringEpisode.airingAt);
+    const airingAt = toIsoDateTime(nextAiringEpisode.airingAt, dayjs);
 
     if (episode !== null && airingAt) {
       scheduleByEpisode.set(episode, airingAt);
@@ -213,21 +208,21 @@ function parseAiringSchedule(airingSchedule, nextAiringEpisode) {
   return schedule.length > 0 ? schedule : null;
 }
 
-driver("search", async function(context) {
-  const pageSize =
-    Number.isFinite(Number(context?.pageSize)) &&
-    Number(context.pageSize) > 0 &&
-    Number(context.pageSize) <= 100
-      ? Math.floor(Number(context.pageSize))
-      : 20;
-  const currentPage = Number.isFinite(Number(context?.page))
-    ? Math.max(1, Math.floor(Number(context.page)))
-    : 1;
-  const query = typeof context?.query === "string" ? context.query.trim() : "";
+async function cleanHtmlDescription(html) {
+  if (typeof html !== "string" || !html.trim()) return null;
+  const { load } = await import("npm:cheerio");
+  const $ = load(html);
+  $("br").replaceWith("\n");
+  return $.root().text().trim() || null;
+}
 
-  if (!query) {
-    throw new Error("query is required");
-  }
+driver("search", async function(context) {
+  const { z } = await import("npm:zod");
+  const { query, page: currentPage, pageSize } = z.object({
+    query: z.string().trim().min(1, "query is required"),
+    page: z.coerce.number().min(1).transform(Math.floor).catch(1),
+    pageSize: z.coerce.number().min(1).max(100).transform(Math.floor).catch(20),
+  }).parse(context ?? {});
 
   const titleLang = await getAnilistTitleLanguage();
 
@@ -334,11 +329,12 @@ query MediaSearchQuery($page: Int!, $perPage: Int!, $search: String!, $type: Med
 });
 
 driver("details", async function(context) {
-  const contextIdentifier =
-    typeof context?.identifier === "string" ? context.identifier.trim() : "";
-  if (!contextIdentifier) {
-    throw new Error("identifier is required");
-  }
+  const { z } = await import("npm:zod");
+  const dayjs = (await import("npm:dayjs")).default;
+
+  const { identifier: contextIdentifier } = z.object({
+    identifier: z.string().trim().min(1, "identifier is required"),
+  }).parse(context ?? {});
 
   if (!/^\d+$/.test(contextIdentifier)) {
     throw new Error("identifier must be a numeric Anilist media id");
@@ -429,6 +425,10 @@ query MediaDetailsQuery($id: Int!) {
       ? toTitleCase(media.status)
       : null;
 
+  const rawDescription =
+    typeof media?.description === "string" ? media.description : null;
+  const description = await cleanHtmlDescription(rawDescription);
+
   return {
     name: title,
     externalId: payloadIdentifier,
@@ -439,14 +439,14 @@ query MediaDetailsQuery($id: Int!) {
       genres: collectGenres(media.genres, media.tags),
       isNsfw: typeof media?.isAdult === "boolean" ? media.isAdult : null,
       sourceUrl: `https://anilist.co/anime/${payloadIdentifier}/${encodeURIComponent(title)}`,
-      description:
-        typeof media?.description === "string" ? media.description : null,
+      description,
       assets: {
         remoteImages: collectImages(media.coverImage, media.bannerImage),
       },
       airingSchedule: parseAiringSchedule(
         media.airingSchedule,
         media.nextAiringEpisode,
+        dayjs,
       ),
       providerRating:
         typeof media?.averageScore === "number" &&

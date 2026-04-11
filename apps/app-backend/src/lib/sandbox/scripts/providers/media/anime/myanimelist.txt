@@ -18,27 +18,10 @@ function toTitleCase(value) {
     .join(" ");
 }
 
-function parsePublishYear(startDate) {
-  if (typeof startDate !== "string") {
-    return null;
-  }
-
-  const trimmedDate = startDate.trim();
-  if (!trimmedDate) {
-    return null;
-  }
-
-  const yearToken = trimmedDate.split("-")[0];
-  if (!/^\d{4}$/.test(yearToken)) {
-    return null;
-  }
-
-  const year = Number(yearToken);
-  if (!Number.isFinite(year)) {
-    return null;
-  }
-
-  return year;
+function parsePublishYear(startDate, dayjs) {
+  if (typeof startDate !== "string" || !startDate.trim()) return null;
+  const d = dayjs(startDate.trim());
+  return d.isValid() ? d.year() : null;
 }
 
 function parseIsNsfw(nsfw) {
@@ -85,7 +68,7 @@ function collectGenres(genres) {
   return [...genreSet];
 }
 
-function parseAiringSchedule(startDate) {
+function parseAiringSchedule(startDate, dayjs) {
   if (typeof startDate !== "string") {
     return null;
   }
@@ -95,12 +78,12 @@ function parseAiringSchedule(startDate) {
     return null;
   }
 
-  const scheduleDate = new Date(`${trimmedDate}T00:00:00Z`);
-  if (Number.isNaN(scheduleDate.valueOf())) {
+  const d = dayjs(`${trimmedDate}T00:00:00Z`);
+  if (!d.isValid()) {
     return null;
   }
 
-  return [{ episode: 1, airingAt: scheduleDate.toISOString() }];
+  return [{ episode: 1, airingAt: d.toISOString() }];
 }
 
 function pickImage(mainPicture) {
@@ -144,20 +127,14 @@ async function getMalClientId() {
 }
 
 driver("search", async function(context) {
-  const pageSize =
-    Number.isFinite(Number(context?.pageSize)) &&
-    Number(context.pageSize) > 0 &&
-    Number(context.pageSize) <= 100
-      ? Math.floor(Number(context.pageSize))
-      : 20;
-  const currentPage = Number.isFinite(Number(context?.page))
-    ? Math.max(1, Math.floor(Number(context.page)))
-    : 1;
-  const query = typeof context?.query === "string" ? context.query.trim() : "";
+  const { z } = await import("npm:zod");
+  const dayjs = (await import("npm:dayjs")).default;
 
-  if (!query) {
-    throw new Error("query is required");
-  }
+  const { query, page: currentPage, pageSize } = z.object({
+    query: z.string().trim().min(1, "query is required"),
+    page: z.coerce.number().min(1).transform(Math.floor).catch(1),
+    pageSize: z.coerce.number().min(1).max(100).transform(Math.floor).catch(20),
+  }).parse(context ?? {});
 
   const clientId = await getMalClientId();
 
@@ -208,7 +185,7 @@ driver("search", async function(context) {
       const title = typeof node.title === "string" ? node.title : "";
 
       const image = pickImage(node.main_picture);
-      const publishYear = parsePublishYear(node.start_date);
+      const publishYear = parsePublishYear(node.start_date, dayjs);
 
       return {
         identifier: String(nodeId),
@@ -238,13 +215,14 @@ driver("search", async function(context) {
 });
 
 driver("details", async function(context) {
-  const clientId = await getMalClientId();
+  const { z } = await import("npm:zod");
+  const dayjs = (await import("npm:dayjs")).default;
 
-  const contextIdentifier =
-    typeof context?.identifier === "string" ? context.identifier.trim() : "";
-  if (!contextIdentifier) {
-    throw new Error("identifier is required");
-  }
+  const { identifier: contextIdentifier } = z.object({
+    identifier: z.string().trim().min(1, "identifier is required"),
+  }).parse(context ?? {});
+
+  const clientId = await getMalClientId();
 
   const params = new URLSearchParams({
     fields:
@@ -297,8 +275,8 @@ driver("details", async function(context) {
       isNsfw: parseIsNsfw(payload?.nsfw),
       productionStatus: productionStatus,
       genres: collectGenres(payload?.genres),
-      publishYear: parsePublishYear(payload?.start_date),
-      airingSchedule: parseAiringSchedule(payload?.start_date),
+      publishYear: parsePublishYear(payload?.start_date, dayjs),
+      airingSchedule: parseAiringSchedule(payload?.start_date, dayjs),
       assets: { remoteImages: collectImages(payload?.main_picture) },
       description: typeof payload?.synopsis === "string" ? payload.synopsis : null,
       providerRating:

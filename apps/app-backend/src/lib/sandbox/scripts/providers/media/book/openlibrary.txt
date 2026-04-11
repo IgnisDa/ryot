@@ -24,64 +24,6 @@ function parseDescription(value) {
   return null;
 }
 
-function parseFlexibleDate(value) {
-  if (typeof value !== "string") {
-    return null;
-  }
-
-  const trimmed = value.trim();
-  if (!trimmed) {
-    return null;
-  }
-
-  if (/^\d{4}$/.test(trimmed)) {
-    const year = Number(trimmed);
-    if (Number.isFinite(year)) {
-      return new Date(Date.UTC(year, 0, 1));
-    }
-    return null;
-  }
-
-  const match = trimmed.match(/^([A-Za-z]{3})\s+(\d{1,2}),\s*(\d{4})$/);
-  if (!match) {
-    return null;
-  }
-
-  const monthMap = {
-    jan: 0,
-    feb: 1,
-    mar: 2,
-    apr: 3,
-    may: 4,
-    jun: 5,
-    jul: 6,
-    aug: 7,
-    sep: 8,
-    oct: 9,
-    nov: 10,
-    dec: 11,
-  };
-
-  const month = monthMap[match[1].toLowerCase()];
-  const day = Number(match[2]);
-  const year = Number(match[3]);
-
-  if (month === undefined || !Number.isFinite(day) || !Number.isFinite(year)) {
-    return null;
-  }
-
-  const parsed = new Date(Date.UTC(year, month, day));
-  if (
-    parsed.getUTCFullYear() !== year ||
-    parsed.getUTCMonth() !== month ||
-    parsed.getUTCDate() !== day
-  ) {
-    return null;
-  }
-
-  return parsed;
-}
-
 function toTitleCase(value) {
   const words = value
     .toLowerCase()
@@ -91,6 +33,17 @@ function toTitleCase(value) {
   return words
     .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
     .join(" ");
+}
+
+function parseFlexibleDate(value, dayjs) {
+  if (typeof value !== "string") return null;
+  const trimmed = value.trim();
+  if (!trimmed) return null;
+  for (const fmt of ["MMM D, YYYY", "YYYY"]) {
+    const d = dayjs(trimmed, fmt, true);
+    if (d.isValid()) return new Date(Date.UTC(d.year(), d.month(), d.date()));
+  }
+  return null;
 }
 
 async function loadOpenLibraryJson(url, errorPrefix) {
@@ -103,20 +56,12 @@ async function loadOpenLibraryJson(url, errorPrefix) {
 }
 
 driver("search", async function(context) {
-  const pageSize =
-    Number.isFinite(Number(context?.pageSize)) &&
-    Number(context.pageSize) > 0 &&
-    Number(context.pageSize) <= 100
-      ? Math.floor(Number(context.pageSize))
-      : 20;
-  const currentPage = Number.isFinite(Number(context?.page))
-    ? Math.max(1, Math.floor(Number(context.page)))
-    : 1;
-  const query = typeof context?.query === "string" ? context.query.trim() : "";
-
-  if (!query) {
-    throw new Error("query is required");
-  }
+  const { z } = await import("npm:zod");
+  const { query, page: currentPage, pageSize } = z.object({
+    query: z.string().trim().min(1, "query is required"),
+    page: z.coerce.number().min(1).transform(Math.floor).catch(1),
+    pageSize: z.coerce.number().min(1).max(100).transform(Math.floor).catch(20),
+  }).parse(context ?? {});
 
   const params = new URLSearchParams({
     q: query,
@@ -200,10 +145,16 @@ driver("search", async function(context) {
 });
 
 driver("details", async function(context) {
-  const contextIdentifier =
-    typeof context?.identifier === "string" ? context.identifier.trim() : "";
-  const requestedIdentifier = getKeySegment(contextIdentifier);
+  const { z } = await import("npm:zod");
+  const dayjs = (await import("npm:dayjs")).default;
+  const customParseFormat = (await import("npm:dayjs/plugin/customParseFormat")).default;
+  dayjs.extend(customParseFormat);
 
+  const { identifier: contextIdentifier } = z.object({
+    identifier: z.string().trim().min(1, "identifier is required"),
+  }).parse(context ?? {});
+
+  const requestedIdentifier = getKeySegment(contextIdentifier);
   if (!requestedIdentifier) {
     throw new Error("identifier is required");
   }
@@ -263,7 +214,7 @@ driver("details", async function(context) {
       }
     }
 
-    const parsedDate = parseFlexibleDate(entry?.publish_date);
+    const parsedDate = parseFlexibleDate(entry?.publish_date, dayjs);
     if (parsedDate && (earliestDate === null || parsedDate < earliestDate)) {
       earliestDate = parsedDate;
     }
