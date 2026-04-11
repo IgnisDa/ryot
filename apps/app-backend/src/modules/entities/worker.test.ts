@@ -10,11 +10,12 @@ import {
 import { entityImportJobName, entityPreloadJobName } from "./jobs";
 import {
 	hasImportedEntityDetails,
-	processEntityImportJob,
-	processEntityPreloadJob,
+	populateGlobalEntity,
 	processRelatedEntities,
-} from "./worker";
+} from "./population";
+import { processEntityImportJob, processEntityPreloadJob } from "./worker";
 
+type EntityPopulationDeps = NonNullable<Parameters<typeof populateGlobalEntity>[3]>;
 type EntityImportWorkerDeps = NonNullable<Parameters<typeof processEntityImportJob>[2]>;
 
 const createImageTitlePropertiesSchema = () => ({
@@ -35,6 +36,20 @@ const createImageTitlePropertiesSchema = () => ({
 			},
 		},
 	},
+});
+
+const makePopulationInput = (
+	overrides: Partial<Parameters<typeof populateGlobalEntity>[2]> = {},
+): Parameters<typeof populateGlobalEntity>[2] => ({
+	userId: "user_1",
+	externalId: "ext_1",
+	linkToLibrary: true,
+	scriptId: "script_1",
+	entitySchemaId: "schema_1",
+	sandboxAlreadyQueued: false,
+	sandboxChildJobId: "job_1_sandbox",
+	updatedJobData: { step: "waiting_for_sandbox" },
+	...overrides,
 });
 
 describe("hasImportedEntityDetails", () => {
@@ -71,9 +86,8 @@ describe("hasImportedEntityDetails", () => {
 	});
 });
 
-describe("processEntityImportJob", () => {
+describe("populateGlobalEntity", () => {
 	it("reuses an already imported entity without fetching details again", async () => {
-		let sandboxScriptLookups = 0;
 		let linkedMediaEntityId: string | undefined;
 		const entity = createListedEntity({
 			id: "media_1",
@@ -83,21 +97,12 @@ describe("processEntityImportJob", () => {
 			populatedAt: new Date("2024-01-02T00:00:00.000Z"),
 		});
 
-		const result = await processEntityImportJob(
-			createJob({
-				userId: "user_1",
-				externalId: "ext_1",
-				scriptId: "script_1",
-				entitySchemaId: "schema_1",
-			}),
+		const result = await populateGlobalEntity(
+			createJob({}),
 			undefined,
+			makePopulationInput({ linkToLibrary: true }),
 			createEntityImportWorkerDeps({
 				findGlobalEntityByExternalId: () => Promise.resolve(entity),
-				getSandboxScriptForUser: () => {
-					sandboxScriptLookups += 1;
-					// oxlint-disable-next-line no-unsafe-type-assertion
-					return Promise.resolve({ id: "script_1" } as never);
-				},
 				upsertInLibraryRelationship: (input) => {
 					linkedMediaEntityId = input.mediaEntityId;
 					return Promise.resolve();
@@ -105,65 +110,58 @@ describe("processEntityImportJob", () => {
 			}),
 		);
 
-		expect(result).toEqual(entity);
+		expect("entity" in result && result.entity).toEqual(entity);
 		expect(linkedMediaEntityId).toBe("media_1");
-		expect(sandboxScriptLookups).toBe(1);
 	});
 
-	it("still validates the script when the entity is not yet imported", () => {
-		let sandboxScriptLookups = 0;
+	it("returns the populated entity without linking when linkToLibrary is false", async () => {
+		let linkedMediaEntityId: string | undefined;
+		const entity = createListedEntity({
+			id: "media_1",
+			externalId: "ext_1",
+			sandboxScriptId: "script_1",
+			properties: { sourceUrl: "https://example.com/media" },
+			populatedAt: new Date("2024-01-02T00:00:00.000Z"),
+		});
 
-		expect(
-			processEntityImportJob(
-				createJob({
-					userId: "user_1",
-					scriptId: "script_1",
-					externalId: "ext_1",
-					entitySchemaId: "schema_1",
-				}),
-				undefined,
-				createEntityImportWorkerDeps({
-					getSandboxScriptForUser: () => {
-						sandboxScriptLookups += 1;
-						// oxlint-disable-next-line no-unsafe-type-assertion
-						return Promise.resolve({ id: "script_1" } as never);
-					},
-				}),
-			),
-		).rejects.toThrow();
+		const result = await populateGlobalEntity(
+			createJob({}),
+			undefined,
+			makePopulationInput({ linkToLibrary: false }),
+			createEntityImportWorkerDeps({
+				findGlobalEntityByExternalId: () => Promise.resolve(entity),
+				upsertInLibraryRelationship: (input) => {
+					linkedMediaEntityId = input.mediaEntityId;
+					return Promise.resolve();
+				},
+			}),
+		);
 
-		expect(sandboxScriptLookups).toBe(1);
+		expect("entity" in result && result.entity).toEqual(entity);
+		expect(linkedMediaEntityId).toBeUndefined();
 	});
 
 	it("does not link entity into the library before the entity update succeeds", () => {
 		let linkedMediaEntityId: string | undefined;
 
 		expect(
-			processEntityImportJob(
-				Object.assign(
-					createJob({
-						userId: "user_1",
-						externalId: "ext_1",
-						scriptId: "script_1",
-						entitySchemaId: "schema_1",
-						step: "waiting_for_sandbox",
-					}),
-					{
-						getChildrenValues: () =>
-							Promise.resolve({
-								child: {
-									logs: null,
-									error: null,
-									success: true,
-									value: {
-										name: "Imported title",
-										properties: { title: "Imported title", images: [] },
-									},
+			populateGlobalEntity(
+				Object.assign(createJob({}), {
+					getChildrenValues: () =>
+						Promise.resolve({
+							child: {
+								logs: null,
+								error: null,
+								success: true,
+								value: {
+									name: "Imported title",
+									properties: { title: "Imported title", images: [] },
 								},
-							}),
-					},
-				),
+							},
+						}),
+				}),
 				"token_1",
+				makePopulationInput({ sandboxAlreadyQueued: true }),
 				createEntityImportWorkerDeps({
 					getEntitySchemaScopeForUser: () =>
 						// oxlint-disable-next-line no-unsafe-type-assertion
@@ -215,32 +213,23 @@ describe("processEntityImportJob", () => {
 	it("imports a global entity without linking it into a user library", async () => {
 		let linkedMediaEntityId: string | undefined;
 
-		const result = await processEntityImportJob(
-			Object.assign(
-				createJob({
-					userId: "user_1",
-					externalId: "ext_1",
-					scriptId: "script_1",
-					linkToLibrary: false,
-					entitySchemaId: "schema_1",
-					step: "waiting_for_sandbox",
-				}),
-				{
-					getChildrenValues: () =>
-						Promise.resolve({
-							child: {
-								logs: null,
-								error: null,
-								success: true,
-								value: {
-									name: "Imported title",
-									properties: { title: "Imported title", images: [] },
-								},
+		const result = await populateGlobalEntity(
+			Object.assign(createJob({}), {
+				getChildrenValues: () =>
+					Promise.resolve({
+						child: {
+							logs: null,
+							error: null,
+							success: true,
+							value: {
+								name: "Imported title",
+								properties: { title: "Imported title", images: [] },
 							},
-						}),
-				},
-			),
+						},
+					}),
+			}),
 			"token_1",
+			makePopulationInput({ linkToLibrary: false, sandboxAlreadyQueued: true }),
 			createEntityImportWorkerDeps({
 				getEntitySchemaScopeForUser: () =>
 					// oxlint-disable-next-line no-unsafe-type-assertion
@@ -280,7 +269,7 @@ describe("processEntityImportJob", () => {
 			}),
 		);
 
-		expect(result.id).toBe("media_1");
+		expect("entity" in result && result.entity.id).toBe("media_1");
 		expect(linkedMediaEntityId).toBeUndefined();
 	});
 
@@ -324,24 +313,24 @@ describe("processEntityImportJob", () => {
 					},
 				},
 			},
-		} as NonNullable<Awaited<ReturnType<EntityImportWorkerDeps["getEntitySchemaScopeForUser"]>>>;
+		} as NonNullable<Awaited<ReturnType<EntityPopulationDeps["getEntitySchemaScopeForUser"]>>>;
 		const personSchema = {
 			slug: "person",
 			id: "person_schema_1",
 			propertiesSchema: { fields: {} },
 		} satisfies NonNullable<
-			Awaited<ReturnType<EntityImportWorkerDeps["getBuiltinEntitySchemaBySandboxScriptId"]>>
+			Awaited<ReturnType<EntityPopulationDeps["getBuiltinEntitySchemaBySandboxScriptId"]>>
 		>;
 		const relationshipSchema = {
 			id: "rel_schema_1",
 			propertiesSchema: { fields: {} },
 		} satisfies NonNullable<
-			Awaited<ReturnType<EntityImportWorkerDeps["getBuiltinRelationshipSchemaBySlug"]>>
+			Awaited<ReturnType<EntityPopulationDeps["getBuiltinRelationshipSchemaBySlug"]>>
 		>;
 		const relatedScript = {
 			id: "person_script_1",
 		} satisfies NonNullable<
-			Awaited<ReturnType<EntityImportWorkerDeps["getBuiltinSandboxScriptBySlug"]>>
+			Awaited<ReturnType<EntityPopulationDeps["getBuiltinSandboxScriptBySlug"]>>
 		>;
 		let updateCalls = 0;
 		let relatedWrites = 0;
@@ -386,14 +375,7 @@ describe("processEntityImportJob", () => {
 			},
 		});
 
-		const job = createJob({
-			userId: "user_1",
-			externalId: "ext_1",
-			scriptId: "script_1",
-			entitySchemaId: "schema_1",
-			step: "waiting_for_sandbox",
-		});
-		Object.assign(job, {
+		const job = Object.assign(createJob({}), {
 			moveToWaitingChildren: () => Promise.resolve(false),
 			getChildrenValues: () =>
 				Promise.resolve({
@@ -417,24 +399,124 @@ describe("processEntityImportJob", () => {
 				}),
 		});
 
-		let firstError: unknown;
-		try {
-			await processEntityImportJob(job, "token_1", deps);
-		} catch (error) {
-			firstError = error;
-		}
+		const firstResult = await populateGlobalEntity(
+			job,
+			"token_1",
+			makePopulationInput({ sandboxAlreadyQueued: true }),
+			deps,
+		);
+		expect("error" in firstResult && firstResult.error.kind).toBe("related_entity_error");
+		expect("error" in firstResult && firstResult.error.message).toBe(
+			"Failed to write person-to-book relationship: boom",
+		);
 
-		expect(firstError).toBeInstanceOf(Error);
-		if (!(firstError instanceof Error)) {
-			throw new Error("Expected first retry attempt to fail");
-		}
-		expect(firstError.message).toBe("Failed to write person-to-book relationship: boom");
-		const result = await processEntityImportJob(job, "token_1", deps);
+		const secondResult = await populateGlobalEntity(
+			job,
+			"token_1",
+			makePopulationInput({ sandboxAlreadyQueued: true }),
+			deps,
+		);
 
+		expect("entity" in secondResult).toBe(true);
 		expect(relatedScriptLookups).toBe(2);
 		expect(relatedWrites).toBe(2);
 		expect(updateCalls).toBe(1);
-		expect(result.populatedAt instanceof Date).toBe(true);
+		expect("entity" in secondResult && secondResult.entity.populatedAt instanceof Date).toBe(true);
+	});
+
+	it("returns script_failed error when sandbox script reports failure", async () => {
+		const result = await populateGlobalEntity(
+			Object.assign(createJob({}), {
+				getChildrenValues: () =>
+					Promise.resolve({
+						child: { logs: null, error: "Script exploded", success: false, value: null },
+					}),
+			}),
+			"token_1",
+			makePopulationInput({ sandboxAlreadyQueued: true }),
+			createEntityImportWorkerDeps(),
+		);
+
+		expect("error" in result && result.error.kind).toBe("script_failed");
+		expect("error" in result && result.error.message).toBe("Script exploded");
+	});
+
+	it("returns schema_not_found error when entity schema is missing", async () => {
+		const result = await populateGlobalEntity(
+			Object.assign(createJob({}), {
+				getChildrenValues: () =>
+					Promise.resolve({
+						child: {
+							logs: null,
+							error: null,
+							success: true,
+							value: { name: "T", properties: {}, relatedEntities: [] },
+						},
+					}),
+			}),
+			"token_1",
+			makePopulationInput({ sandboxAlreadyQueued: true }),
+			createEntityImportWorkerDeps({
+				getEntitySchemaScopeForUser: () => Promise.resolve(undefined),
+			}),
+		);
+
+		expect("error" in result && result.error.kind).toBe("schema_not_found");
+	});
+});
+
+describe("processEntityImportJob", () => {
+	it("still validates the script when the entity is not yet imported", () => {
+		let sandboxScriptLookups = 0;
+
+		expect(
+			processEntityImportJob(
+				createJob({
+					userId: "user_1",
+					scriptId: "script_1",
+					externalId: "ext_1",
+					entitySchemaId: "schema_1",
+				}),
+				undefined,
+				createEntityImportWorkerDeps({
+					getSandboxScriptForUser: () => {
+						sandboxScriptLookups += 1;
+						// oxlint-disable-next-line no-unsafe-type-assertion
+						return Promise.resolve({ id: "script_1" } as never);
+					},
+				}),
+			),
+		).rejects.toThrow();
+
+		expect(sandboxScriptLookups).toBe(1);
+	});
+
+	it("re-raises populateGlobalEntity errors as thrown errors", async () => {
+		const entity = createListedEntity({
+			id: "media_1",
+			externalId: "ext_1",
+			sandboxScriptId: "script_1",
+			properties: { sourceUrl: "https://example.com/media" },
+			populatedAt: new Date("2024-01-02T00:00:00.000Z"),
+		});
+
+		const result = await processEntityImportJob(
+			createJob({
+				userId: "user_1",
+				externalId: "ext_1",
+				scriptId: "script_1",
+				entitySchemaId: "schema_1",
+			}),
+			undefined,
+			createEntityImportWorkerDeps({
+				findGlobalEntityByExternalId: () => Promise.resolve(entity),
+				getSandboxScriptForUser: () =>
+					// oxlint-disable-next-line no-unsafe-type-assertion
+					Promise.resolve({ id: "script_1" } as never),
+			}),
+		);
+
+		expect(result).toEqual(entity);
 	});
 });
 
@@ -517,18 +599,18 @@ describe("processRelatedEntities", () => {
 		id: "person_schema_1",
 		propertiesSchema: { fields: {} },
 	} satisfies NonNullable<
-		Awaited<ReturnType<EntityImportWorkerDeps["getBuiltinEntitySchemaBySandboxScriptId"]>>
+		Awaited<ReturnType<EntityPopulationDeps["getBuiltinEntitySchemaBySandboxScriptId"]>>
 	>;
 	const relatedRelationshipSchema = {
 		id: "rel_schema_1",
 		propertiesSchema: { fields: {} },
 	} satisfies NonNullable<
-		Awaited<ReturnType<EntityImportWorkerDeps["getBuiltinRelationshipSchemaBySlug"]>>
+		Awaited<ReturnType<EntityPopulationDeps["getBuiltinRelationshipSchemaBySlug"]>>
 	>;
 	const relatedSandboxScript = {
 		id: "person_script_1",
 	} satisfies NonNullable<
-		Awaited<ReturnType<EntityImportWorkerDeps["getBuiltinSandboxScriptBySlug"]>>
+		Awaited<ReturnType<EntityPopulationDeps["getBuiltinSandboxScriptBySlug"]>>
 	>;
 
 	it("creates placeholder related entities and writes relationships", async () => {

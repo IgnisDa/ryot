@@ -154,7 +154,7 @@ export const processOpenScaleImport = async (input: {
 				continue;
 			}
 
-			const itemIndex = adapterFailures.length + i;
+			const itemIndex = item.itemIndex;
 
 			try {
 				await commitMeasurementEntity(
