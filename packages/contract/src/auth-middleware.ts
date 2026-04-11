@@ -57,14 +57,6 @@ export class AuthMiddleware extends HttpApiMiddleware.Service<
 		Unauthorized.pipe(HttpApiSchema.status(401)),
 		RateLimited.pipe(HttpApiSchema.status(429)),
 	],
-	security: {
-		apiKey: HttpApiSecurity.apiKey({ in: "header", key: "x-api-key" }),
-		cookie: HttpApiSecurity.apiKey({ in: "cookie", key: "better-auth.session_token" }),
-		secureCookie: HttpApiSecurity.apiKey({
-			in: "cookie",
-			key: "__Secure-better-auth.session_token",
-		}),
-	},
 }) {}
 
 export class AdminMiddleware extends HttpApiMiddleware.Service<
