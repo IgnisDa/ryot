@@ -29,9 +29,9 @@ export function WorkspaceDetailFrame(props: { children: ReactNode; title: string
 						onPress={goBack}
 						accessibilityRole="button"
 						accessibilityLabel="Go back"
-						className="h-8 w-8 items-center justify-center rounded-pill bg-surface-2"
+						className="items-center justify-center rounded-pill bg-surface-2 p-1"
 					>
-						<AppIcon className="text-text" name="chevron-left" size={17} />
+						<AppIcon className="text-text-muted" name="chevron-left" size={30} />
 					</Pressable>
 					<Text numberOfLines={1} className="min-w-0 flex-1 font-ui-semibold text-[19px] text-text">
 						{props.title}
