@@ -12,8 +12,9 @@ export const manifest = defineManifest({
 	kind: "activity",
 	name: "Resolve imported Google Books book",
 	slug: "activity.media-import-resolve.book.google-books",
-	capabilities: ["httpCall", "getAppConfigValue"],
-	requiredAppConfigKeys: ["books.googleBooksApiKey"],
+	capabilities: ["httpCall", "getPluginConfigValue"],
+	requiredPluginConfigKeys: ["googleBooksApiKey"],
+	requiredSystemConfigKeys: [],
 });
 
 export default defineActivity({

@@ -75,8 +75,8 @@ describe("exercise.free-exercise-db sandbox script", () => {
 	it("uses matching narrow capabilities for search and details", () => {
 		expect(searchManifest.capabilities).toEqual(["httpCall", "getCachedValue", "setCachedValue"]);
 		expect(detailsManifest.capabilities).toEqual(searchManifest.capabilities);
-		expect(searchManifest.requiredAppConfigKeys).toEqual([]);
-		expect(detailsManifest.requiredAppConfigKeys).toEqual([]);
+		expect(searchManifest.requiredPluginConfigKeys).toEqual([]);
+		expect(detailsManifest.requiredPluginConfigKeys).toEqual([]);
 	});
 
 	it("fetches, normalizes and writes chunk + metadata cache entries on a cache miss", () => {

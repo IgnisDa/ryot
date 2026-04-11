@@ -11,7 +11,8 @@ export const manifest = defineManifest({
 	capabilities: [],
 	name: "Media import population",
 	slug: "workflow.media-import-population",
-	requiredAppConfigKeys: [],
+	requiredPluginConfigKeys: [],
+	requiredSystemConfigKeys: [],
 });
 
 const libraryEntityImport = {

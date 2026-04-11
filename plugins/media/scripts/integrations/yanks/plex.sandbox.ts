@@ -15,7 +15,8 @@ export const manifest = defineManifest({
 	kind: "script",
 	name: "Plex yank",
 	slug: "integration.plex-yank",
-	requiredAppConfigKeys: [],
+	requiredPluginConfigKeys: [],
+	requiredSystemConfigKeys: [],
 	capabilities: ["httpCall", "getIntegration"],
 });
 const Input = Schema.Struct({});

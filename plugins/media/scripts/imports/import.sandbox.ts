@@ -25,7 +25,8 @@ export const manifest = defineManifest({
 	capabilities: [],
 	name: "Media import",
 	slug: "workflow.media-import",
-	requiredAppConfigKeys: [],
+	requiredPluginConfigKeys: [],
+	requiredSystemConfigKeys: [],
 });
 
 const BATCH_SIZE = 25;

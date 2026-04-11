@@ -19,6 +19,26 @@ it("declares the complete media-owned source", () => {
 	expect(() => Schema.decodeUnknownSync(PluginManifest)(mediaPlugin)).not.toThrow();
 	expect(mediaPlugin.entitySchemas.map(({ slug }) => slug)).toContain("library");
 	expect(mediaPlugin.relationshipSchemas.map(({ slug }) => slug)).toContain("in-library");
+	expect(mediaPlugin.configSchema.unknownKeys).toBe("strict");
+	expect(Object.keys(mediaPlugin.configSchema.fields)).toEqual([
+		"tvdbApiKey",
+		"tmdbAccessToken",
+		"malClientId",
+		"metronUsername",
+		"metronPassword",
+		"hardcoverApiKey",
+		"googleBooksApiKey",
+		"spotifyClientId",
+		"spotifyClientSecret",
+		"listennotesApiKey",
+		"twitchClientId",
+		"twitchClientSecret",
+		"giantBombApiKey",
+		"traktClientId",
+		"progressUpdateThresholdHours",
+	]);
+	expect(mediaPlugin.configSchema.fields.tmdbAccessToken?.secret).toBe(true);
+	expect(mediaPlugin.configSchema.fields.progressUpdateThresholdHours?.defaultValue).toBe(2);
 	expect(mediaPlugin.providers).toHaveLength(51);
 	expect(mediaPlugin.scripts).toHaveLength(177);
 	expect(mediaPlugin.integrationProviders).toHaveLength(13);

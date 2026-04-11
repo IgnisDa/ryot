@@ -3,7 +3,6 @@ import { assert, describe, expect, it } from "vitest";
 
 import type { AppConfigValue } from "#lib/infrastructure/config/service";
 import { AppConfig, validateSystemConfig } from "#lib/infrastructure/config/service";
-import { SystemConfigSource } from "#lib/infrastructure/config/system";
 import { makeAppConfigLayer } from "#lib/test-utils/effect";
 
 type Overrides = Parameters<typeof makeAppConfigLayer>[0];
@@ -18,7 +17,8 @@ const validate = (overrides?: Overrides) =>
 
 const loadSystemConfig = (logLevel?: string) =>
 	Effect.runSyncExit(
-		SystemConfigSource.pipe(
+		AppConfig.pipe(
+			Effect.provide(AppConfig.Default),
 			Effect.withConfigProvider(
 				ConfigProvider.fromMap(
 					new Map([
@@ -37,6 +37,12 @@ describe("system log level config", () => {
 		const result = loadSystemConfig();
 		assert(Exit.isSuccess(result));
 		expect(result.value.server.logLevel).toBe(LogLevel.Info);
+	});
+
+	it("retains the infrequent scheduler phrase default", () => {
+		const result = loadSystemConfig();
+		assert(Exit.isSuccess(result));
+		expect(result.value.scheduler.infrequentCronJobsSchedule).toBe("0 0 * * *");
 	});
 
 	it("parses values case-insensitively", () => {

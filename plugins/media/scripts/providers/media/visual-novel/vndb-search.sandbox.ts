@@ -7,7 +7,8 @@ export const manifest = defineManifest({
 	kind: "provider",
 	name: "VNDB Visual Novel Search",
 	slug: "visual-novel.vndb.search",
-	requiredAppConfigKeys: [],
+	requiredPluginConfigKeys: [],
+	requiredSystemConfigKeys: [],
 	capabilities: ["httpCall"],
 });
 

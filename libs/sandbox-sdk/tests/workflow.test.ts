@@ -16,7 +16,8 @@ describe("workflow definitions", () => {
 			capabilities: [],
 			name: "Replay",
 			slug: "replay",
-			requiredAppConfigKeys: [],
+			requiredPluginConfigKeys: [],
+			requiredSystemConfigKeys: [],
 		});
 		const workflow = defineWorkflow({
 			manifest,
@@ -90,7 +91,8 @@ describe("workflow definitions", () => {
 			capabilities: [],
 			name: "Complete",
 			slug: "complete",
-			requiredAppConfigKeys: [],
+			requiredPluginConfigKeys: [],
+			requiredSystemConfigKeys: [],
 		});
 		const workflow = defineWorkflow({
 			manifest,
@@ -142,7 +144,8 @@ describe("workflow definitions", () => {
 				capabilities: [],
 				name: "Workflow",
 				slug: "workflow",
-				requiredAppConfigKeys: [],
+				requiredPluginConfigKeys: [],
+				requiredSystemConfigKeys: [],
 			}),
 		).toMatchObject({ kind: "workflow", capabilities: [] });
 		expect(() =>
@@ -151,7 +154,8 @@ describe("workflow definitions", () => {
 				name: "Workflow",
 				slug: "workflow",
 				capabilities: ["httpCall"],
-				requiredAppConfigKeys: [],
+				requiredPluginConfigKeys: [],
+				requiredSystemConfigKeys: [],
 			}),
 		).toThrow();
 	});

@@ -7,7 +7,8 @@ export const manifest = defineManifest({
 	kind: "provider",
 	name: "Audible Person Search",
 	slug: "person.audible.search",
-	requiredAppConfigKeys: [],
+	requiredPluginConfigKeys: [],
+	requiredSystemConfigKeys: [],
 	capabilities: ["httpCall"],
 });
 

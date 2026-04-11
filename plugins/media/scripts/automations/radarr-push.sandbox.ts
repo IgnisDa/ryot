@@ -18,7 +18,8 @@ export const manifest = defineManifest({
 	kind: "automation",
 	name: "Radarr Push",
 	slug: "trigger.radarr-push",
-	requiredAppConfigKeys: [],
+	requiredPluginConfigKeys: [],
+	requiredSystemConfigKeys: [],
 	capabilities: [
 		"httpCall",
 		"getEntity",

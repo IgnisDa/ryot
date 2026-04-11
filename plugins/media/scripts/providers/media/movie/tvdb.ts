@@ -22,8 +22,9 @@ export const manifest = defineManifest({
 	name: "TVDB",
 	kind: "provider",
 	slug: "movie.tvdb",
-	requiredAppConfigKeys: ["moviesAndShows.tvdbApiKey"],
-	capabilities: ["httpCall", "getCachedValue", "setCachedValue", "getAppConfigValue"],
+	requiredPluginConfigKeys: ["tvdbApiKey"],
+	requiredSystemConfigKeys: [],
+	capabilities: ["httpCall", "getCachedValue", "setCachedValue", "getPluginConfigValue"],
 });
 
 export const search = defineProvider({

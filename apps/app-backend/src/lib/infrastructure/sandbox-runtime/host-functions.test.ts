@@ -9,7 +9,7 @@ import {
 } from "@ryot/contract/schema/brands";
 import type { ChangeUserRelationshipBatch } from "@ryot/sandbox-sdk/core";
 import type { JsonValue } from "@ryot/sandbox-sdk/wire";
-import { Effect, Either, Layer, Option, Redacted } from "effect";
+import { Effect, Either, Layer, Option } from "effect";
 import { describe } from "vitest";
 
 import { RedisService } from "#lib/infrastructure/redis";
@@ -28,7 +28,6 @@ import { PluginRuntimeResolver } from "#modules/plugins/runtime-resolver";
 import { QueryEngineService } from "#modules/query-engine/service";
 import { RelationshipsRepository } from "#modules/relationships/repository";
 
-import { getSandboxAppConfigValue } from "./app-config";
 import {
 	makeAdditionalSandboxApiFunctions,
 	normalizePreferences,
@@ -36,65 +35,6 @@ import {
 } from "./host-functions";
 import { selectSandboxHostFunctions } from "./service";
 import type { SandboxRunInput } from "./shared";
-
-const config = {
-	port: 8000,
-	nodeEnv: "test",
-	books: { googleBooksApiKey: Option.none() },
-	animeAndManga: { malClientId: Option.some("mal-client") },
-	videoGames: { giantBombApiKey: Option.some(Redacted.make("giant-secret")) },
-};
-
-const runEither = (key: string, scriptIsBuiltin: boolean) =>
-	Effect.either(
-		getSandboxAppConfigValue(config, key, { scriptIsBuiltin, requiredAppConfigKeys: [] }),
-	);
-
-describe("getSandboxAppConfigValue", () => {
-	it.effect("reads non-sensitive app config values", () =>
-		Effect.gen(function* () {
-			const result = yield* runEither("animeAndManga.malClientId", false);
-
-			expect(Either.getOrThrow(result)).toBe("mal-client");
-		}),
-	);
-
-	it.effect("rejects host environment keys", () =>
-		Effect.gen(function* () {
-			const result = yield* runEither("PATH", false);
-
-			expect(Either.getLeft(result)).toEqual(Option.some('Config key "PATH" does not exist'));
-		}),
-	);
-
-	it.effect("rejects sensitive config values for user scripts", () =>
-		Effect.gen(function* () {
-			const result = yield* runEither("videoGames.giantBombApiKey", false);
-
-			expect(Either.getLeft(result)).toEqual(
-				Option.some('Config key "videoGames.giantBombApiKey" is sensitive'),
-			);
-		}),
-	);
-
-	it.effect("allows sensitive config values for builtin scripts", () =>
-		Effect.gen(function* () {
-			const result = yield* runEither("videoGames.giantBombApiKey", true);
-
-			expect(Either.getOrThrow(result)).toBe("giant-secret");
-		}),
-	);
-
-	it.effect("rejects unconfigured optional values", () =>
-		Effect.gen(function* () {
-			const result = yield* runEither("books.googleBooksApiKey", true);
-
-			expect(Either.getLeft(result)).toEqual(
-				Option.some('Config key "books.googleBooksApiKey" is not configured'),
-			);
-		}),
-	);
-});
 
 describe("normalizePreferences", () => {
 	it("normalizes missing and non-boolean preference values", () => {

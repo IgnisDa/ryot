@@ -38,7 +38,8 @@ const makeImplementations = (
 	listIntegrations: () => Effect.fail({ message: "unused" }),
 	sendNotification: () => Effect.fail({ message: "unused" }),
 	claimCachedValue: () => Effect.fail({ message: "unused" }),
-	getAppConfigValue: () => Effect.fail({ message: "unused" }),
+	getPluginConfigValue: () => Effect.fail({ message: "unused" }),
+	getSystemConfigValue: () => Effect.fail({ message: "unused" }),
 	executeQueryEngine: () => Effect.fail({ message: "unused" }),
 	getUserPreferences: () => Effect.fail({ message: "unused" }),
 	changeUserRelationships: () => Effect.fail({ message: "unused" }),
@@ -379,9 +380,13 @@ describe("bindSandboxHostFunctions", () => {
 				success: false,
 				error: "reached",
 			});
-			expect(yield* bound.getAppConfigValue([null])).toEqual({
+			expect(yield* bound.getPluginConfigValue([null])).toEqual({
 				success: false,
-				error: "getAppConfigValue expects a non-empty key string",
+				error: "getPluginConfigValue expects a non-empty key string",
+			});
+			expect(yield* bound.getSystemConfigValue([null])).toEqual({
+				success: false,
+				error: "getSystemConfigValue expects a non-empty key string",
 			});
 			expect(calls).toEqual([
 				{ fnName: "httpCall", value: undefined },
@@ -409,7 +414,7 @@ describe("bindSandboxHostFunctions", () => {
 		}),
 	);
 
-	it.effect("validates complete claim and app config tuples", () =>
+	it.effect("validates complete claim and config tuples", () =>
 		Effect.gen(function* () {
 			const calls: Array<{ fnName: string; value: unknown }> = [];
 			const implementations = makeImplementations({
@@ -417,8 +422,12 @@ describe("bindSandboxHostFunctions", () => {
 					calls.push({ fnName: "claimCachedValue", value: { key, ttlSeconds, value } });
 					return Effect.succeed({ claimed: true as const });
 				},
-				getAppConfigValue: (_runInput, key) => {
-					calls.push({ fnName: "getAppConfigValue", value: key });
+				getPluginConfigValue: (_runInput, key) => {
+					calls.push({ fnName: "getPluginConfigValue", value: key });
+					return Effect.succeed("token");
+				},
+				getSystemConfigValue: (_runInput, key) => {
+					calls.push({ fnName: "getSystemConfigValue", value: key });
 					return Effect.succeed("UTC");
 				},
 			});
@@ -428,7 +437,11 @@ describe("bindSandboxHostFunctions", () => {
 				data: { claimed: true },
 				success: true,
 			});
-			expect(yield* bound.getAppConfigValue(["timezone"])).toEqual({
+			expect(yield* bound.getPluginConfigValue(["apiToken"])).toEqual({
+				data: "token",
+				success: true,
+			});
+			expect(yield* bound.getSystemConfigValue(["timezone"])).toEqual({
 				data: "UTC",
 				success: true,
 			});
@@ -436,16 +449,21 @@ describe("bindSandboxHostFunctions", () => {
 				success: false,
 				error: "claimCachedValue expects a positive integer ttlSeconds",
 			});
-			expect(yield* bound.getAppConfigValue(["timezone", "surplus"])).toEqual({
+			expect(yield* bound.getPluginConfigValue(["apiToken", "surplus"])).toEqual({
 				success: false,
-				error: "getAppConfigValue received an invalid number of arguments",
+				error: "getPluginConfigValue received an invalid number of arguments",
+			});
+			expect(yield* bound.getSystemConfigValue(["timezone", "surplus"])).toEqual({
+				success: false,
+				error: "getSystemConfigValue received an invalid number of arguments",
 			});
 			expect(calls).toEqual([
 				{
 					fnName: "claimCachedValue",
 					value: { key: "lock", ttlSeconds: 60, value: { owner: "user-1" } },
 				},
-				{ fnName: "getAppConfigValue", value: "timezone" },
+				{ fnName: "getPluginConfigValue", value: "apiToken" },
+				{ fnName: "getSystemConfigValue", value: "timezone" },
 			]);
 		}),
 	);

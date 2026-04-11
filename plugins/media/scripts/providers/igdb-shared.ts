@@ -4,7 +4,7 @@ import { Effect } from "@ryot/sandbox-sdk/effect";
 import { asRecord, numberValue, parseJsonResponse, stringValue } from "../script-helpers/records";
 
 export type IgdbHost = SandboxHost<
-	readonly ["httpCall", "getAppConfigValue", "getCachedValue", "setCachedValue"]
+	readonly ["httpCall", "getPluginConfigValue", "getCachedValue", "setCachedValue"]
 >;
 
 const BASE_URL = "https://api.igdb.com/v4";
@@ -27,14 +27,14 @@ export const getCredentials = (host: IgdbHost) =>
 	Effect.all(
 		[
 			host
-				.getAppConfigValue("videoGames.twitchClientId")
+				.getPluginConfigValue("twitchClientId")
 				.pipe(
 					Effect.mapError(
 						(error) => new Error(error.message || "Failed to retrieve Twitch Client ID"),
 					),
 				),
 			host
-				.getAppConfigValue("videoGames.twitchClientSecret")
+				.getPluginConfigValue("twitchClientSecret")
 				.pipe(
 					Effect.mapError(
 						(error) => new Error(error.message || "Failed to retrieve Twitch Client Secret"),
@@ -48,12 +48,12 @@ export const getCredentials = (host: IgdbHost) =>
 			const clientSecret = stringValue(clientSecretValue);
 			if (!clientId) {
 				throw new Error(
-					"Twitch Client ID is not configured. Set VIDEO_GAMES_TWITCH_CLIENT_ID in your environment.",
+					"Twitch Client ID is not configured. Set RYOT_PLUGIN_MEDIA_TWITCH_CLIENT_ID in your environment.",
 				);
 			}
 			if (!clientSecret) {
 				throw new Error(
-					"Twitch Client Secret is not configured. Set VIDEO_GAMES_TWITCH_CLIENT_SECRET in your environment.",
+					"Twitch Client Secret is not configured. Set RYOT_PLUGIN_MEDIA_TWITCH_CLIENT_SECRET in your environment.",
 				);
 			}
 			return { clientId, clientSecret };

@@ -8,7 +8,8 @@ import { ResolveEpisodesInput, ResolveEpisodesOutput } from "../../operations/sc
 export const manifest = defineManifest({
 	kind: "operation",
 	name: "Resolve Episodes",
-	requiredAppConfigKeys: [],
+	requiredPluginConfigKeys: [],
+	requiredSystemConfigKeys: [],
 	slug: "operation.resolve-episodes",
 	capabilities: ["executeQueryEngine"],
 });

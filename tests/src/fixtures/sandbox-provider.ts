@@ -71,7 +71,8 @@ export const installTestProvider = (input: {
 				providerSlug,
 				capabilities: [],
 				providerOperation: operation,
-				requiredAppConfigKeys: [],
+				requiredPluginConfigKeys: [],
+				requiredSystemConfigKeys: [],
 			};
 		});
 		const files = Object.fromEntries(
@@ -201,7 +202,8 @@ const providerMetadataBySource = new Map<
 		providerSlug: string;
 		providerOperation: "details" | "search" | "resolve" | "translate";
 		capabilities: ReadonlyArray<string>;
-		requiredAppConfigKeys: ReadonlyArray<string>;
+		requiredPluginConfigKeys: ReadonlyArray<string>;
+		requiredSystemConfigKeys: ReadonlyArray<string>;
 	}
 >();
 
@@ -240,7 +242,8 @@ export const manifest = defineManifest({
   name: ${JSON.stringify(input.name)},
   slug: ${JSON.stringify(input.slug)},
   capabilities: [],
-  requiredAppConfigKeys: [],
+  requiredPluginConfigKeys: [],
+  requiredSystemConfigKeys: [],
 });
 
 ${declarations}
@@ -258,7 +261,8 @@ export default defineProvider({
 		providerSlug: input.slug.slice(0, -(input.operation.length + 1)),
 		providerOperation: input.operation,
 		capabilities: [],
-		requiredAppConfigKeys: [],
+		requiredPluginConfigKeys: [],
+		requiredSystemConfigKeys: [],
 	});
 	return source;
 }
