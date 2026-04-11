@@ -14,6 +14,11 @@ export const addToCollectionBody = z.object({
 	properties: stringUnknownRecordSchema.optional(),
 });
 
+export const removeFromCollectionBody = z.object({
+	collectionId: z.string(),
+	entityId: z.string(),
+});
+
 const membershipRelationshipSchema = z.object({
 	id: z.string(),
 	relType: z.string(),
@@ -32,11 +37,28 @@ export const addToCollectionResponseSchema = itemDataSchema(
 	addToCollectionDataSchema,
 );
 
+export const removeFromCollectionDataSchema = z.object({
+	collection: membershipRelationshipSchema,
+	memberOf: membershipRelationshipSchema,
+});
+
+export const removeFromCollectionResponseSchema = itemDataSchema(
+	removeFromCollectionDataSchema,
+);
+
 export type AddToCollectionData = z.infer<typeof addToCollectionDataSchema>;
 
 export type AddToCollectionBody = z.infer<typeof addToCollectionBody>;
 export type AddToCollectionResponse = z.infer<
 	typeof addToCollectionResponseSchema
+>;
+
+export type RemoveFromCollectionBody = z.infer<typeof removeFromCollectionBody>;
+export type RemoveFromCollectionData = z.infer<
+	typeof removeFromCollectionDataSchema
+>;
+export type RemoveFromCollectionResponse = z.infer<
+	typeof removeFromCollectionResponseSchema
 >;
 
 export const collectionResponseSchema = z.object({
