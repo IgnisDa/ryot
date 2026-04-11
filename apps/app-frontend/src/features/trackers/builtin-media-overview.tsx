@@ -1,3 +1,4 @@
+import { useAutoAnimate } from "@formkit/auto-animate/react";
 import {
 	ActionIcon,
 	Badge,
@@ -1058,17 +1059,28 @@ export function BuiltinMediaTrackerOverview(
 	const t = useThemeTokens();
 	const apiClient = useApiClient();
 	const queryClient = useQueryClient();
+	const [mainRef] = useAutoAnimate<HTMLDivElement>();
+	const [upNextRef] = useAutoAnimate<HTMLDivElement>();
+	const [continueRef] = useAutoAnimate<HTMLDivElement>();
+	const [rateTheseRef] = useAutoAnimate<HTMLDivElement>();
+	const overviewQuery = apiClient.useQuery("get", "/media/overview");
+	const invalidateOverview = useCallback(() => {
+		void queryClient.invalidateQueries({
+			queryKey: apiClient.queryOptions("get", "/media/overview").queryKey,
+		});
+	}, [apiClient, queryClient]);
+
 	const entitySchemasQuery = useEntitySchemasQuery(props.tracker.id, true);
 
-	const overviewQuery = apiClient.useQuery("get", "/media/overview");
 	const overviewData = overviewQuery.data?.data;
-	const continueItems = overviewData?.continue.items ?? [];
 	const upNextItems = overviewData?.upNext.items ?? [];
+	const continueItems = overviewData?.continue.items ?? [];
 	const rateTheseItems = overviewData?.rateThese.items ?? [];
+	const typePickerModalId = `builtin-media-type-picker-${props.tracker.id}`;
 
 	const allImageEntries = [
-		...continueItems,
 		...upNextItems,
+		...continueItems,
 		...rateTheseItems,
 	].map((item) => ({ id: item.id, image: toAppEntityImage(item.image) }));
 	const { imageUrlByEntityId } = useResolvedImageUrls(allImageEntries);
@@ -1080,13 +1092,6 @@ export function BuiltinMediaTrackerOverview(
 	const searchableSchemas = entitySchemasQuery.entitySchemas.filter(
 		(s) => s.providers.length > 0,
 	);
-	const typePickerModalId = `builtin-media-type-picker-${props.tracker.id}`;
-
-	const invalidateOverview = useCallback(() => {
-		void queryClient.invalidateQueries({
-			queryKey: apiClient.queryOptions("get", "/media/overview").queryKey,
-		});
-	}, [apiClient, queryClient]);
 
 	const openSearchModal = (
 		schema: AppEntitySchema,
@@ -1208,7 +1213,7 @@ export function BuiltinMediaTrackerOverview(
 	);
 
 	return (
-		<Stack gap="xl">
+		<Stack gap="xl" ref={mainRef}>
 			<Group justify="space-between" align="flex-end" gap="sm">
 				<Stack gap={6} maw={640}>
 					<Text
@@ -1292,7 +1297,11 @@ export function BuiltinMediaTrackerOverview(
 							</Group>
 						}
 					/>
-					<SimpleGrid cols={{ base: 1, sm: 2, lg: 3 }} spacing="sm">
+					<SimpleGrid
+						spacing="sm"
+						ref={continueRef}
+						cols={{ base: 1, sm: 2, lg: 3 }}
+					>
 						{continueItems.slice(0, 6).map((item) => (
 							<ContinueCard
 								item={item}
@@ -1330,7 +1339,7 @@ export function BuiltinMediaTrackerOverview(
 						}
 					/>
 					<ScrollArea scrollbarSize={4} type="hover">
-						<Group gap="sm" wrap="nowrap" pb={4}>
+						<Group gap="sm" wrap="nowrap" pb={4} ref={upNextRef}>
 							{upNextItems.map((item, index) => (
 								<BacklogCard
 									item={item}
@@ -1369,7 +1378,11 @@ export function BuiltinMediaTrackerOverview(
 							</Text>
 						}
 					/>
-					<SimpleGrid cols={{ base: 1, sm: 2, lg: 3 }} spacing="sm">
+					<SimpleGrid
+						spacing="sm"
+						ref={rateTheseRef}
+						cols={{ base: 1, sm: 2, lg: 3 }}
+					>
 						{rateTheseItems.map((item) => (
 							<RateCard
 								item={item}
