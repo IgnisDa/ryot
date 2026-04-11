@@ -61,13 +61,13 @@ export const createDefaultDisplayConfiguration = (
 export const createDefaultQueryDefinition = (
 	entitySchemaSlugs: string[],
 ): SavedViewQueryDefinition => ({
-	filters: [],
+	filter: null,
 	eventJoins: [],
 	entitySchemaSlugs,
 	sort: {
 		direction: "asc",
-		fields: entitySchemaSlugs[0]
-			? [buildEntityFieldReference(entitySchemaSlugs[0], "@name")]
-			: [],
+		expression: entitySchemaSlugs[0]
+			? buildEntityReferenceExpression(entitySchemaSlugs[0], "@name")
+			: { type: "literal", value: "" },
 	},
 });
