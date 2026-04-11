@@ -188,9 +188,8 @@ export const executePreparedViewQuery = async (input: {
 	const filterWhereClause = buildFilterWhereClause({
 		context,
 		alias: "joined_entities",
-		filters: input.request.filters,
-		entitySchemaSlugs: input.request.entitySchemaSlugs,
-		schemaSlugExpression: sql`${sql.raw("joined_entities")}.entity_schema_slug`,
+		predicate: input.request.filter,
+		computedFields: input.request.computedFields,
 	});
 	const baseEntitiesCte = buildBaseEntitiesCte({
 		userId: input.userId,
@@ -203,7 +202,8 @@ export const executePreparedViewQuery = async (input: {
 	const sortExpression = buildSortExpression({
 		context,
 		alias: "filtered_entities",
-		field: input.request.sort.fields,
+		expression: input.request.sort.expression,
+		computedFields: input.request.computedFields,
 	});
 	const offset =
 		(input.request.pagination.page - 1) * input.request.pagination.limit;
