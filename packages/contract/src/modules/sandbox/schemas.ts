@@ -1,12 +1,9 @@
-import {
-	SANDBOX_HOST_CAPABILITIES,
-	type SandboxManifest as SdkSandboxScriptManifest,
-} from "@ryot/sandbox-sdk/core";
 import { Schema } from "effect";
 
 import { IntegrationId, SandboxScriptId, SubscriptionRunId, UserId } from "../../schema/brands";
 import { strictStruct } from "../../schema/utils";
 import { AutomationOrigin } from "../automations/schemas";
+import { SANDBOX_HOST_CAPABILITIES } from "./wire";
 
 export const ProviderInformation = Schema.Struct({
 	source: Schema.String,
@@ -46,7 +43,7 @@ export const SandboxScriptManifest = Schema.Union([
 	}),
 	Schema.Struct({ ...SandboxScriptManifestFields, kind: Schema.Literal("automation") }),
 	Schema.Struct({ ...SandboxScriptManifestFields, kind: Schema.Literal("provider") }),
-]) satisfies Schema.Schema<SdkSandboxScriptManifest>;
+]);
 
 export type SandboxScriptManifest = Schema.Schema.Type<typeof SandboxScriptManifest>;
 

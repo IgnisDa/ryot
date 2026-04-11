@@ -11,6 +11,7 @@ import {
 	setLocalStatementTimeout,
 } from "#lib/infrastructure/db/service";
 
+import type { RyotQLExecutionScope } from "./catalog";
 import { executeNamedQuery } from "./executor";
 import { validateRyotQLDocument } from "./validator";
 
@@ -25,12 +26,11 @@ export class RyotQLService extends Context.Service<RyotQLService>()("RyotQLServi
 	make: Effect.gen(function* () {
 		const runInTx = yield* TransactionRunner;
 
-		const executeForUser = Effect.fn("RyotQLService.executeForUser")(function* (
-			userId: string,
-			language: string | null,
+		const executeWithScope = Effect.fn("RyotQLService.executeWithScope")(function* (
+			scope: RyotQLExecutionScope,
 			document: RyotQLDocument,
 		) {
-			const validationError = validateRyotQLDocument(document);
+			const validationError = validateRyotQLDocument(document, scope);
 			if (validationError) {
 				return yield* new BadRequest({ message: validationError });
 			}
@@ -41,7 +41,7 @@ export class RyotQLService extends Context.Service<RyotQLService>()("RyotQLServi
 					yield* setLocalStatementTimeout(RYOTQL_STATEMENT_TIMEOUT_MS);
 					const results: Array<readonly [string, RyotQLResult]> = [];
 					for (const [name, query] of Object.entries(document.queries)) {
-						results.push([name, yield* executeNamedQuery(userId, language, query)]);
+						results.push([name, yield* executeNamedQuery(scope, query)]);
 					}
 					return { data: Object.fromEntries(results) };
 				}),
@@ -60,10 +60,18 @@ export class RyotQLService extends Context.Service<RyotQLService>()("RyotQLServi
 			);
 		}, dieOnDbError);
 
+		const executeForUser = (userId: string, language: string | null, document: RyotQLDocument) =>
+			executeWithScope({ type: "user", userId, language }, document);
+
+		const executeForPlugin = (
+			scope: Omit<Extract<RyotQLExecutionScope, { type: "plugin" }>, "type">,
+			document: RyotQLDocument,
+		) => executeWithScope({ ...scope, type: "plugin" }, document);
+
 		const execute = (user: CurrentUserValue, document: RyotQLDocument) =>
 			executeForUser(user.id, user.preferences.language, document);
 
-		return { execute, executeForUser };
+		return { execute, executeForUser, executeForPlugin };
 	}),
 }) {
 	static readonly layer = Layer.effect(this, this.make);

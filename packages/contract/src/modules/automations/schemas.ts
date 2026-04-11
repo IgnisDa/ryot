@@ -1,4 +1,3 @@
-import { jsonValueSchema } from "@ryot/sandbox-sdk/wire";
 import { Schema } from "effect";
 
 import {
@@ -10,6 +9,7 @@ import {
 } from "../../schema/brands";
 import { AppSchema } from "../../schema/property-schema";
 import { strictStruct } from "../../schema/utils";
+import { jsonValueSchema } from "../sandbox/wire";
 
 export const AutomationRuleKind = Schema.Literals(["policy", "subscription"]);
 

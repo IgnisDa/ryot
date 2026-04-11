@@ -160,6 +160,97 @@ it.effect("applies public and user-only policies to navigation tables", () => {
 	}).pipe(Effect.provide(makeServiceLayer(statements)));
 });
 
+it.effect("applies plugin ownership to every allowed table occurrence", () => {
+	const statements: string[] = [];
+	const entity = table("entity", "entity");
+	const event = table("event", "event");
+	const correlatedEvent = table("event", "correlatedEvent");
+	const relationship = table("relationship", "relationship");
+	const includedRelationship = table("relationship", "includedRelationship");
+	const document = {
+		queries: {
+			entities: rows(entity, {
+				joins: [join("left", event, eq(column(event, "entityId"), column(entity, "id")))],
+				fields: [
+					field("eventId", column(event, "id")),
+					field(
+						"isMonitored",
+						exists(relationship, {
+							where: eq(column(relationship, "sourceEntityId"), column(entity, "id")),
+						}),
+					),
+					field(
+						"hasEvent",
+						exists(correlatedEvent, {
+							where: eq(column(correlatedEvent, "entityId"), column(entity, "id")),
+						}),
+					),
+				],
+				include: [
+					include(includedRelationship, {
+						limit: 1,
+						key: "relationships",
+						orderBy: [ascending(column(includedRelationship, "id"))],
+						fields: [field("id", column(includedRelationship, "id"))],
+						where: eq(column(includedRelationship, "sourceEntityId"), column(entity, "id")),
+					}),
+				],
+			}),
+		},
+	};
+
+	return Effect.gen(function* () {
+		const service = yield* RyotQLService;
+		yield* service.executeForPlugin(
+			{
+				pluginSlug: "media",
+				entitySchemaSlugs: ["movie"],
+				relationshipSchemaSlugs: ["media-monitoring"],
+				eventSchemas: [{ eventSchemaSlug: "review", entitySchemaSlug: "movie" }],
+			},
+			document,
+		);
+
+		const statement = statements[2];
+		expect(statement).toContain(
+			"FROM (SELECT * FROM entity WHERE user_id IS NULL AND entity_schema_slug IN",
+		);
+		expect(statement).toContain(
+			"FROM (SELECT * FROM relationship WHERE relationship_schema_slug IN",
+		);
+		expect(statement).toContain("LEFT JOIN (\n\t\t\tSELECT * FROM event");
+		expect(statement).toContain("event.event_schema_slug =");
+		expect(statement).toContain("event_scope_entity.entity_schema_slug =");
+		expect(statement).toContain("FROM (SELECT * FROM relationship WHERE");
+		expect(statement).not.toContain("relationship WHERE (user_id");
+		expect(statement).not.toContain("event WHERE (user_id");
+	}).pipe(Effect.provide(makeServiceLayer(statements)));
+});
+
+it.effect("denies application tables to plugin execution before opening a transaction", () => {
+	const statements: string[] = [];
+	const plugin = table("plugin", "plugin");
+	return Effect.gen(function* () {
+		const service = yield* RyotQLService;
+		const error = yield* Effect.flip(
+			service.executeForPlugin(
+				{
+					eventSchemas: [],
+					pluginSlug: "media",
+					entitySchemaSlugs: [],
+					relationshipSchemaSlugs: [],
+				},
+				{ queries: { plugins: rows(plugin, { fields: [] }) } },
+			),
+		);
+
+		expect(error.message).toBe(
+			"Query 'plugins': Table 'plugin' is not available to plugin execution",
+		);
+		expect(statements).toEqual([]);
+	}).pipe(Effect.provide(makeServiceLayer(statements)));
+});
+
 it.effect("preserves reserved result keys and non-text runtime kinds", () => {
 	const statements: string[] = [];
 	const entity = table("entity", "entity");

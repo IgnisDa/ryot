@@ -6,7 +6,7 @@
 
 ## What to build
 
-Prove that every production consumer has migrated, then remove the complete legacy query-engine system in one atomic task. Delete its contract group, authenticated endpoint, backend service, language, validators, schema loaders, compilers, executors, localization helpers, response helpers, application SDK package or exports, recipes, sandbox capability and helpers, tests, fixtures that exist only for the old language, and authoritative guide. RyotQL keeps its existing name and public surfaces.
+Prove that every production consumer has migrated, then remove the complete legacy query-engine system in one atomic task. Delete its contract group, authenticated endpoint, backend service, language, validators, schema loaders, compilers, executors, localization helpers, response helpers, application SDK package or exports, recipes, sandbox capability and helpers, tests, fixtures that exist only for the old language, and authoritative guide. RyotQL keeps its existing name and public surfaces. This also includes the docs that describe the legacy query engine, its language, and its SDK. The RyotQL guide is the only authoritative query-language guide after deletion.
 
 Do not begin deletion until repository-wide searches confirm that no production import, contract call, sandbox host call, saved-view document, recipe, application consumer, plugin consumer, or test outside the legacy suite still depends on query-engine. Remove obsolete dependency edges and update remaining generic documentation, package metadata, monorepo configuration, and test fixtures to refer only to RyotQL.
 

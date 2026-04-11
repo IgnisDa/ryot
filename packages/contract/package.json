@@ -12,7 +12,6 @@
 	},
 	"dependencies": {
 		"@ryot/query-engine": "workspace:*",
-		"@ryot/sandbox-sdk": "workspace:*",
 		"@ryot/ts-utils": "workspace:*",
 		"effect": "4.0.0-beta.105"
 	},
