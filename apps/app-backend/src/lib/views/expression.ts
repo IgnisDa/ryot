@@ -1,4 +1,5 @@
 import { z } from "@hono/zod-openapi";
+import { createNullableOpenApiRefSchema } from "~/lib/openapi";
 import { nonEmptyTrimmedStringSchema } from "~/lib/zod/base";
 import type { ViewPredicate } from "./filtering";
 import { viewPredicateSchema } from "./filtering";
@@ -169,6 +170,11 @@ export const viewExpressionSchema: z.ZodType<ViewExpression> = z
 		]);
 	})
 	.openapi("ViewExpression");
+
+export const nullableViewExpressionSchema = createNullableOpenApiRefSchema(
+	viewExpressionSchema.nullable(),
+	{ ref: "ViewExpression", name: "NullableViewExpression" },
+);
 
 export type ViewExpression =
 	| { type: "literal"; value: unknown | null }

@@ -5,7 +5,7 @@ import {
 	computedFieldArraySchema,
 	viewExpressionSchema,
 } from "~/lib/views/expression";
-import { viewPredicateSchema } from "~/lib/views/filtering";
+import { nullableViewPredicateSchema } from "~/lib/views/filtering";
 import { timestampFields } from "~/lib/zod/base";
 import {
 	eventJoinDefinitionArraySchema,
@@ -30,7 +30,7 @@ const executeViewRuntimeBaseBody = z
 		pagination: paginationSchema,
 		computedFields: computedFieldArraySchema,
 		eventJoins: eventJoinDefinitionArraySchema,
-		filter: viewPredicateSchema.nullable().default(null),
+		filter: nullableViewPredicateSchema.default(null),
 		entitySchemaSlugs: z
 			.array(z.string())
 			.min(1, "At least one entity schema slug is required"),
