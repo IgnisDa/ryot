@@ -39,6 +39,12 @@ describe("buildSchemaMap", () => {
 
 describe("parseFieldPath", () => {
 	it("parses entity-qualified built-in references", () => {
+		expect(parseFieldPath(entityField("smartphones", "@id"))).toEqual({
+			column: "id",
+			slug: "smartphones",
+			type: "entity-column",
+		});
+
 		expect(parseFieldPath(entityField("smartphones", "@name"))).toEqual({
 			column: "name",
 			slug: "smartphones",
