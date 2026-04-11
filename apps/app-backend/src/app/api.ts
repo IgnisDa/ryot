@@ -15,6 +15,7 @@ import { entitySchemasApi } from "~/modules/entity-schemas/routes";
 import { eventSchemasApi } from "~/modules/event-schemas/routes";
 import { eventsApi } from "~/modules/events/routes";
 import { godModeApi } from "~/modules/god-mode/routes";
+import { importsApi } from "~/modules/imports";
 import { mediaApi } from "~/modules/media/routes";
 import { queryEngineApi } from "~/modules/query-engine/routes";
 import { sandboxApi } from "~/modules/sandbox/routes";
@@ -81,6 +82,10 @@ const openApiTags = [
 		description: "Server admin operations including user listing and password recovery",
 	},
 	{
+		name: "imports",
+		description: "Import data from external sources",
+	},
+	{
 		name: "query-engine",
 		description: "Execute dynamic queries",
 	},
@@ -124,6 +129,7 @@ const baseApp = new OpenAPIHono<{ Variables: MaybeAuthType }>()
 	.route("/saved-views", savedViewsApi)
 	.route("/collections", collectionsApi)
 	.route("/god-mode", godModeApi)
+	.route("/imports", importsApi)
 	.route("/query-engine", queryEngineApi);
 
 registerInternalAppRequestHandler((request) => baseApp.fetch(request));
