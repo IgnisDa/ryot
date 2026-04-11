@@ -1,6 +1,6 @@
 import { describe, expect, it } from "bun:test";
 
-import { resolveSafeImportFilePath, validateFileExtension } from "./file-helpers";
+import { resolveSafeImportFilePath, validateFileExtension } from "./files";
 import { importRunFailureStage, importRunSource, importRunStatus } from "./schemas";
 import { isTerminalStatus } from "./service";
 

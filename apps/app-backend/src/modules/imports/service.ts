@@ -4,11 +4,7 @@ import { getQueues } from "~/lib/queue";
 import { type ServiceResult, serviceData, serviceError } from "~/lib/result";
 import { claimUploadToken } from "~/lib/temporary-upload-token";
 
-import {
-	cleanupImportFile,
-	resolveSafeImportFilePath,
-	validateFileExtension,
-} from "./file-helpers";
+import { cleanupImportFile, resolveSafeImportFilePath, validateFileExtension } from "./files";
 import { importRunJobName } from "./jobs";
 import {
 	createImportRun,
@@ -24,27 +20,15 @@ import type {
 	ListedImportRun,
 	ListedImportRunFailure,
 } from "./schemas";
+import {
+	allowedExtensionsBySource,
+	buildFileInputSummary,
+	buildTraktInputSummary,
+} from "./source-config";
 
 type ImportServiceError = "not_found" | "validation";
 
 export type ImportServiceResult<T> = ServiceResult<T, ImportServiceError>;
-
-const allowedExtensionsBySource: Record<string, string[]> = {
-	hevy: ["csv"],
-	open_scale: ["csv"],
-	strong_app: ["csv"],
-};
-
-const buildFileInputSummary = (
-	source: "hevy" | "open_scale" | "strong_app",
-): Record<string, unknown> => ({
-	source,
-});
-
-const buildTraktInputSummary = (username: string): Record<string, unknown> => ({
-	username,
-	source: "trakt",
-});
 
 export const isTerminalStatus = (status: ImportRunStatus): boolean =>
 	status === "completed" || status === "failed";
@@ -60,9 +44,6 @@ export const startImportRun = async (input: {
 	) {
 		const tempDir = getTemporaryDirectory();
 		const allowedExtensions = allowedExtensionsBySource[input.body.source];
-		if (!allowedExtensions) {
-			return serviceError("validation", `Unsupported import source: ${input.body.source}`);
-		}
 
 		const claimResult = await claimUploadToken(input.body.uploadToken, input.userId);
 		if ("error" in claimResult) {
