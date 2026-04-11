@@ -30,7 +30,9 @@ async function createImageFallbackFixture() {
 	const schema = await createEntitySchema(client, cookies, {
 		trackerId,
 		name: "Fallback Image Device",
-		propertiesSchema: { fields: { category: { type: "string" } } },
+		propertiesSchema: {
+			fields: { category: { label: "Category", type: "string" } },
+		},
 	});
 
 	await createQueryEngineEntity({
@@ -60,7 +62,10 @@ async function createLatestEventJoinFixture() {
 		slug: "review",
 		entitySchemaId: schema.schemaId,
 		propertiesSchema: {
-			fields: { note: { type: "string" }, rating: { type: "number" } },
+			fields: {
+				note: { label: "Note", type: "string" },
+				rating: { label: "Rating", type: "number" },
+			},
 		},
 	});
 
@@ -109,7 +114,9 @@ async function createMixedLatestEventJoinFixture() {
 		name: "Review",
 		slug: "review",
 		entitySchemaId: smartphoneSchema.schemaId,
-		propertiesSchema: { fields: { rating: { type: "number" } } },
+		propertiesSchema: {
+			fields: { rating: { label: "Rating", type: "number" } },
+		},
 	});
 
 	await createQueryEngineEvent({

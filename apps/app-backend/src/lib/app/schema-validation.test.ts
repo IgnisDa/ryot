@@ -51,6 +51,7 @@ describe("parseAppSchemaProperties", () => {
 					fields: {
 						progressPercent: {
 							type: "number",
+							label: "Progress Percent",
 							transform: { round: { mode: "half_up", scale: 2 } },
 							validation: {
 								required: true,
@@ -73,6 +74,7 @@ describe("parseAppSchemaProperties", () => {
 					fields: {
 						rating: {
 							type: "integer",
+							label: "Rating",
 							validation: { required: true, maximum: 5, minimum: 1 },
 						},
 					},
@@ -88,8 +90,12 @@ describe("parseAppSchemaProperties", () => {
 				properties: { status: "draft" },
 				propertiesSchema: {
 					fields: {
-						progressPercent: { type: "number" },
-						status: { type: "string", validation: { required: true } },
+						progressPercent: { type: "number", label: "Progress Percent" },
+						status: {
+							type: "string",
+							label: "Status",
+							validation: { required: true },
+						},
 					},
 					rules: [
 						{
@@ -109,8 +115,12 @@ describe("parseAppSchemaProperties", () => {
 				properties: { status: "completed" },
 				propertiesSchema: {
 					fields: {
-						progressPercent: { type: "number" },
-						status: { type: "string", validation: { required: true } },
+						progressPercent: { type: "number", label: "Progress Percent" },
+						status: {
+							type: "string",
+							label: "Status",
+							validation: { required: true },
+						},
 					},
 					rules: [
 						{
@@ -183,13 +193,17 @@ describe("parseAppSchemaProperties", () => {
 	it("accepts null and undefined for non-required fields", () => {
 		const schema = {
 			fields: {
-				title: { type: "string" as const },
-				score: { type: "number" as const },
-				count: { type: "integer" as const },
-				createdAt: { type: "date" as const },
-				isActive: { type: "boolean" as const },
-				updatedAt: { type: "datetime" as const },
-				tags: { type: "array" as const, items: { type: "string" as const } },
+				title: { label: "Title", type: "string" as const },
+				score: { label: "Score", type: "number" as const },
+				count: { label: "Count", type: "integer" as const },
+				createdAt: { label: "Created At", type: "date" as const },
+				isActive: { label: "Is Active", type: "boolean" as const },
+				updatedAt: { label: "Updated At", type: "datetime" as const },
+				tags: {
+					label: "Tags",
+					type: "array" as const,
+					items: { label: "Item", type: "string" as const },
+				},
 			},
 		};
 
@@ -230,20 +244,24 @@ describe("parseAppSchemaProperties", () => {
 		const schema = {
 			fields: {
 				title: {
+					label: "Title",
 					type: "string" as const,
 					validation: { required: true as const },
 				},
 				isActive: {
+					label: "Is Active",
 					type: "boolean" as const,
 					validation: { required: true as const },
 				},
 				score: {
+					label: "Score",
 					type: "number" as const,
 					validation: { required: true as const },
 				},
 				tags: {
+					label: "Tags",
 					type: "array" as const,
-					items: { type: "string" as const },
+					items: { label: "Item", type: "string" as const },
 					validation: { required: true as const },
 				},
 			},
