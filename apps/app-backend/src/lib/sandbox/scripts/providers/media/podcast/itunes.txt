@@ -1,0 +1,284 @@
+function parseJsonResponse(responseBody) {
+  try {
+    return JSON.parse(responseBody);
+  } catch {
+    throw new Error("iTunes returned invalid JSON");
+  }
+}
+
+function getString(value) {
+  return typeof value === "string" ? value.trim() : "";
+}
+
+function getNullableString(value) {
+  const parsed = getString(value);
+  return parsed ? parsed : null;
+}
+
+function getNullableInt(value) {
+  if (typeof value !== "number" || !Number.isFinite(value)) {
+    return null;
+  }
+
+  return Math.trunc(value);
+}
+
+function getPositiveInt(value) {
+  const parsed = getNullableInt(value);
+  return parsed !== null && parsed > 0 ? parsed : null;
+}
+
+function getNullableDate(value) {
+  const parsed = getNullableString(value);
+  if (!parsed) {
+    return null;
+  }
+
+  const date = new Date(parsed);
+  return Number.isNaN(date.getTime()) ? null : date;
+}
+
+function getPublishYear(value) {
+  const date = getNullableDate(value);
+  return date ? date.getUTCFullYear() : null;
+}
+
+function getIsoDate(value) {
+  const date = getNullableDate(value);
+  return date ? date.toISOString().slice(0, 10) : null;
+}
+
+function collectImages(item) {
+  const images = [];
+  for (const key of ["artworkUrl600", "artworkUrl100", "artworkUrl60", "artworkUrl30"]) {
+    const image = getNullableString(item?.[key]);
+    if (image && !images.includes(image)) {
+      images.push(image);
+    }
+  }
+  return images;
+}
+
+function collectGenres(item) {
+  const genres = Array.isArray(item?.genres) ? item.genres : [];
+  const values = new Set();
+
+  for (const genre of genres) {
+    if (typeof genre === "string") {
+      const value = genre.trim();
+      if (value) {
+        values.add(value);
+      }
+      continue;
+    }
+
+    const value = getString(genre?.name);
+    if (value) {
+      values.add(value);
+    }
+  }
+
+  return [...values];
+}
+
+function buildSourceUrl(identifier, title) {
+  const slug = encodeURIComponent(title.toLowerCase().replace(/\s+/g, "-"));
+  return `https://podcasts.apple.com/us/podcast/${slug}/id${identifier}`;
+}
+
+async function lookup(params) {
+  const search = new URLSearchParams(params);
+  const response = await httpCall(
+    "GET",
+    `https://itunes.apple.com/lookup?${search.toString()}`,
+  );
+  if (!response?.success) {
+    throw new Error(response?.error ?? "iTunes lookup request failed");
+  }
+
+  return parseJsonResponse(response.data.body);
+}
+
+async function searchItunes(params) {
+  const search = new URLSearchParams(params);
+  const response = await httpCall(
+    "GET",
+    `https://itunes.apple.com/search?${search.toString()}`,
+  );
+  if (!response?.success) {
+    throw new Error(response?.error ?? "iTunes search request failed");
+  }
+
+  return parseJsonResponse(response.data.body);
+}
+
+driver("search", async function(context) {
+  const query = typeof context?.query === "string" ? context.query.trim() : "";
+  if (!query) {
+    throw new Error("query is required");
+  }
+
+  const pageSize =
+    Number.isFinite(Number(context?.pageSize)) &&
+    Number(context.pageSize) > 0 &&
+    Number(context.pageSize) <= 100
+      ? Math.floor(Number(context.pageSize))
+      : 20;
+  const currentPage = Number.isFinite(Number(context?.page))
+    ? Math.max(1, Math.floor(Number(context.page)))
+    : 1;
+  const resultLimit = Math.min(currentPage * pageSize, 200);
+
+  const payload = await searchItunes({
+    term: query,
+    media: "podcast",
+    entity: "podcast",
+    lang: "en_us",
+    limit: String(resultLimit),
+  });
+
+  const results = Array.isArray(payload?.results) ? payload.results : [];
+  const totalItems = results.length;
+  const pagedResults = results.slice(
+    (currentPage - 1) * pageSize,
+    currentPage * pageSize,
+  );
+
+  const items = pagedResults
+    .map((item) => {
+      const identifier = String(item?.collectionId ?? "").trim();
+      const title = getString(item?.collectionName);
+      if (!identifier || !title) {
+        return null;
+      }
+
+      const image = collectImages(item)[0] ?? null;
+      const publishYear = getPublishYear(item?.releaseDate);
+
+      return {
+        identifier,
+        badgeProperty: { kind: "null", value: null },
+        titleProperty: { kind: "text", value: title },
+        subtitleProperty:
+          publishYear === null
+            ? { kind: "null", value: null }
+            : { kind: "number", value: publishYear },
+        imageProperty:
+          image === null
+            ? { kind: "null", value: null }
+            : { kind: "image", value: { kind: "remote", url: image } },
+      };
+    })
+    .filter((item) => item !== null);
+
+  return {
+    items,
+    details: {
+      totalItems,
+      nextPage: currentPage * pageSize < totalItems ? currentPage + 1 : null,
+    },
+  };
+});
+
+driver("details", async function(context) {
+  const identifier =
+    typeof context?.identifier === "string" ? context.identifier.trim() : "";
+  if (!identifier) {
+    throw new Error("identifier is required");
+  }
+
+  const detailsPayload = await lookup({
+    id: identifier,
+    media: "podcast",
+    entity: "podcast",
+    lang: "en_us",
+  });
+  const podcast = Array.isArray(detailsPayload?.results)
+    ? detailsPayload.results[0]
+    : null;
+  if (!podcast || typeof podcast !== "object") {
+    throw new Error("Podcast not found");
+  }
+
+  const title = getString(podcast?.collectionName);
+  if (!title) {
+    throw new Error("Podcast is missing title");
+  }
+
+  const totalEpisodes = getPositiveInt(podcast?.trackCount);
+  const episodeLookup = {
+    id: identifier,
+    media: "podcast",
+    entity: "podcastEpisode",
+    lang: "en_us",
+  };
+  if (totalEpisodes !== null) {
+    episodeLookup.limit = String(totalEpisodes);
+  }
+
+  const episodesPayload = await lookup(episodeLookup);
+
+  const creators = [];
+  const artistName = getString(podcast?.artistName);
+  if (artistName) {
+    creators.push({ role: "Artist", name: artistName });
+  }
+
+  const episodes = (Array.isArray(episodesPayload?.results)
+    ? episodesPayload.results
+    : []
+  )
+    .map((episode) => {
+      const id = String(episode?.trackId ?? "").trim();
+      const episodeTitle = getString(episode?.trackName);
+      const publishDate = getIsoDate(episode?.releaseDate);
+      if (!id || !episodeTitle || !publishDate) {
+        return null;
+      }
+
+      return {
+        id,
+        title: episodeTitle,
+        publishDate,
+        number: 0,
+        overview: getNullableString(episode?.description),
+        thumbnail:
+          getNullableString(episode?.artworkUrl600) ??
+          getNullableString(episode?.artworkUrl100) ??
+          getNullableString(episode?.artworkUrl60) ??
+          getNullableString(episode?.artworkUrl30),
+        runtime:
+          typeof episode?.trackTimeMillis === "number" &&
+          Number.isFinite(episode.trackTimeMillis)
+            ? Math.trunc(episode.trackTimeMillis / 1000 / 60)
+            : null,
+      };
+    })
+    .filter((episode) => episode !== null)
+    .sort((left, right) => {
+      const publishDateDiff = left.publishDate.localeCompare(right.publishDate);
+      if (publishDateDiff !== 0) {
+        return publishDateDiff;
+      }
+      return left.id.localeCompare(right.id);
+    })
+    .map((episode, index) => ({ ...episode, number: index + 1 }));
+
+  const image = collectImages(podcast);
+  const publishYear = getPublishYear(podcast?.releaseDate);
+
+  return {
+    name: title,
+    externalId: identifier,
+    properties: {
+      genres: collectGenres(podcast),
+      publishYear,
+      description: getNullableString(podcast?.description),
+      sourceUrl: buildSourceUrl(identifier, title),
+      assets: { remoteImages: image },
+      freeCreators: creators,
+      totalEpisodes: totalEpisodes ?? episodes.length,
+      episodes,
+    },
+  };
+});
