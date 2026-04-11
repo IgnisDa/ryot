@@ -8,6 +8,14 @@ import {
 	type MetadataLookupResult,
 } from "../../operations/schemas";
 import {
+	chooseBestMetadataLookupTitleMatch,
+	type MetadataLookupTitleMatchCandidate,
+} from "../../shared/title-matching";
+import {
+	extractMetadataLookupBaseTitle,
+	extractMetadataLookupSeasonEpisode,
+} from "../../shared/title-parsing";
+import {
 	manifest as movieTmdbManifest,
 	search as movieTmdbSearch,
 } from "../providers/media/movie/tmdb";
@@ -15,14 +23,6 @@ import {
 	manifest as showTmdbManifest,
 	search as showTmdbSearch,
 } from "../providers/media/show/tmdb";
-import {
-	chooseBestMetadataLookupTitleMatch,
-	type MetadataLookupTitleMatchCandidate,
-} from "../script-helpers/title-matching";
-import {
-	extractMetadataLookupBaseTitle,
-	extractMetadataLookupSeasonEpisode,
-} from "../script-helpers/title-parsing";
 
 export const manifest = defineManifest({
 	kind: "operation",

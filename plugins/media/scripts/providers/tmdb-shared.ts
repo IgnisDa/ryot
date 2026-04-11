@@ -14,10 +14,6 @@ import type { RoleRelatedEntity } from "../script-helpers/role-accumulator";
 
 export type TmdbHost = SandboxHost<readonly ["httpCall", "getPluginConfigValue"]>;
 
-export type TmdbUserHost = SandboxHost<
-	readonly ["httpCall", "getPluginConfigValue", "getUserPreferences"]
->;
-
 const TMDB_BASE_URL = "https://api.themoviedb.org/3";
 const TMDB_IMAGE_BASE = "https://image.tmdb.org/t/p/original";
 
