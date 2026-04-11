@@ -338,7 +338,7 @@ export const uninstallTestPluginStrict = (installed: InstalledTestPlugin) =>
 export const uninstallTestPlugin = (installed: InstalledTestPlugin) =>
 	uninstallTestPluginStrict(installed).pipe(
 		Effect.catchAll((error) =>
-			Effect.logError(
+			Effect.logWarning(
 				`[test-plugin] cleanup failed for '${installed.pluginSlug}' (non-fatal)`,
 				error,
 			),
