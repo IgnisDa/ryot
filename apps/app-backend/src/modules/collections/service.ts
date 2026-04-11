@@ -10,7 +10,7 @@ import {
 	serviceError,
 	wrapServiceValidator,
 } from "~/lib/result";
-import { propertySchemaInputSchema } from "~/modules/property-schemas/schemas";
+import { parseLabeledPropertySchemaInput } from "~/modules/property-schemas/service";
 import {
 	addEntityToCollection,
 	createCollectionForUser,
@@ -39,6 +39,14 @@ const circularReferenceError = "Cannot add a collection to itself";
 
 const formatValidationIssues = (issues: ValidationIssue[]) =>
 	issues.map((i) => `${i.path}: ${i.message}`).join("; ");
+
+const formatSchemaValidationError = (error: unknown) => {
+	if (error instanceof Error) {
+		return `${invalidMembershipSchemaError}: ${error.message}`;
+	}
+
+	return invalidMembershipSchemaError;
+};
 
 export type CollectionServiceDeps = {
 	createCollectionForUser: typeof createCollectionForUser;
@@ -92,14 +100,13 @@ export const createCollection = async (
 
 	// Validate membershipPropertiesSchema as a valid AppSchema if provided
 	if (input.body.membershipPropertiesSchema !== undefined) {
-		const parseResult = propertySchemaInputSchema.safeParse(
-			input.body.membershipPropertiesSchema,
-		);
-		if (!parseResult.success) {
-			return serviceError(
-				"validation",
-				`${invalidMembershipSchemaError}: ${parseResult.error.message}`,
+		try {
+			parseLabeledPropertySchemaInput(
+				input.body.membershipPropertiesSchema,
+				"membershipPropertiesSchema",
 			);
+		} catch (error) {
+			return serviceError("validation", formatSchemaValidationError(error));
 		}
 	}
 

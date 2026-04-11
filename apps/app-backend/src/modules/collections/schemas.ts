@@ -6,7 +6,6 @@ import {
 	stringUnknownRecordSchema,
 	timestampFields,
 } from "~/lib/zod/base";
-import { propertySchemaInputSchema } from "../property-schemas/schemas";
 
 export const addToCollectionBody = z.object({
 	collectionId: z.string(),
@@ -74,7 +73,7 @@ export const collectionResponseSchema = z.object({
 export const createCollectionBody = z.object({
 	name: nonEmptyTrimmedStringSchema,
 	description: z.string().optional(),
-	membershipPropertiesSchema: propertySchemaInputSchema.optional(),
+	membershipPropertiesSchema: z.unknown().optional(),
 });
 
 export const createCollectionResponseSchema = itemDataSchema(

@@ -94,10 +94,11 @@ export const authenticationBuiltinEntitySchemas = () => [
 		accentColor: "#F59E0B",
 		propertiesSchema: {
 			fields: {
+				description: { type: "string" as const },
 				membershipPropertiesSchema: {
 					properties: {},
 					type: "object" as const,
-					unknownKeys: "strip" as const,
+					unknownKeys: "passthrough" as const,
 				},
 			},
 		},
