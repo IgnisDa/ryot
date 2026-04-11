@@ -5,6 +5,7 @@ import {
 	fromAppSchema,
 } from "@ryot/ts-utils";
 import { match } from "ts-pattern";
+import { buildComputedFieldMap } from "./computed-fields";
 import { ViewRuntimeValidationError } from "./errors";
 import type { ViewComputedField } from "./expression";
 import {
@@ -29,9 +30,7 @@ export const validateViewPredicateAgainstSchemas = <
 	computedFields?: ViewComputedField[];
 	context: ViewRuntimeReferenceContext<TSchema, TJoin>;
 }) => {
-	const computedFieldMap = new Map(
-		(input.computedFields ?? []).map((field) => [field.key, field]),
-	);
+	const computedFieldMap = buildComputedFieldMap(input.computedFields);
 	const typeCache = new Map();
 
 	const createObjectContainsSchema = (

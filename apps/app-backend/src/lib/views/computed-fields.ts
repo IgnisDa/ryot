@@ -20,6 +20,20 @@ export const buildComputedFieldMap = (
 	return computedFieldMap;
 };
 
+export const getComputedFieldOrThrow = (
+	computedFieldMap: Map<string, ViewComputedField>,
+	key: string,
+) => {
+	const computedField = computedFieldMap.get(key);
+	if (!computedField) {
+		throw new ViewRuntimeValidationError(
+			`Computed field '${key}' is not part of this runtime request`,
+		);
+	}
+
+	return computedField;
+};
+
 const collectExpressionDependencies = (
 	expression: ViewExpression,
 	dependencies: string[],
@@ -129,12 +143,7 @@ export const orderComputedFields = (
 			);
 		}
 
-		const computedField = computedFieldMap.get(key);
-		if (!computedField) {
-			throw new ViewRuntimeValidationError(
-				`Computed field '${key}' is not part of this runtime request`,
-			);
-		}
+		const computedField = getComputedFieldOrThrow(computedFieldMap, key);
 
 		visiting.push(key);
 		for (const dependencyKey of getComputedFieldDependencies(
