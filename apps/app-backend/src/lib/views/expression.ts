@@ -1,6 +1,6 @@
 import { z } from "@hono/zod-openapi";
 import { createNullableOpenApiRefSchema } from "~/lib/openapi";
-import { nonEmptyTrimmedStringSchema } from "~/lib/zod/base";
+import { nonEmptyTrimmedStringSchema } from "~/lib/zod";
 import type { ViewPredicate } from "./filtering";
 import { viewPredicateSchema } from "./filtering";
 

@@ -10,7 +10,7 @@ import {
 	nullableStringSchema,
 	optionalIconAndAccentColorFields,
 	sortOrderSchema,
-} from "~/lib/zod/base";
+} from "~/lib/zod";
 
 export const listedTrackerSchema = z.object({
 	id: z.string(),

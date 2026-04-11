@@ -5,7 +5,7 @@ import {
 	nullableStringSchema,
 	positiveIntSchema,
 	stringUnknownRecordSchema,
-} from "~/lib/zod/base";
+} from "~/lib/zod";
 
 export const sandboxRunJobName = "execute";
 

@@ -1,8 +1,5 @@
 import { z } from "@hono/zod-openapi";
-import {
-	nonEmptyStringSchema,
-	stringUnknownRecordSchema,
-} from "~/lib/zod/base";
+import { nonEmptyStringSchema, stringUnknownRecordSchema } from "~/lib/zod";
 import type { sandboxRunJobData, sandboxRunJobResult } from "./jobs";
 
 export type HostFunction<TContext extends Record<string, unknown>> = (
