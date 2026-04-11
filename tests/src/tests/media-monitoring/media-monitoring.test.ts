@@ -2,7 +2,6 @@ import { EntityId } from "@ryot/contract/schema/brands";
 import { Effect } from "effect";
 
 import {
-	uninstallTestProvider,
 	adminHeaders,
 	countMediaMonitoringRelationships,
 	createAuthenticatedClient,
@@ -82,12 +81,15 @@ beforeAll(async () => {
 				name: providerName,
 				slug: `movie.media-monitoring-e2e-${crypto.randomUUID()}`,
 				details: providerDetails("Continuing"),
+				linkToEntitySchemaSlug: movieSchemaId,
 			});
+			const showSchemaId = yield* getBuiltinEntitySchemaSlug("show");
 			discoveryProvider = yield* installTestProvider({
 				client,
 				name: `${providerName} Discovery`,
 				details: discoveryProviderDetails(0),
 				slug: `show.media-monitoring-discovery-e2e-${crypto.randomUUID()}`,
+				linkToEntitySchemaSlug: showSchemaId,
 			});
 			const apiEntity = yield* seedMediaEntity({
 				properties: {},
@@ -103,7 +105,6 @@ beforeAll(async () => {
 				providerId: provider.providerId,
 				name: "Media Monitoring Cron Target",
 			});
-			const showSchemaId = yield* getBuiltinEntitySchemaSlug("show");
 			const discoveryEntity = yield* seedMediaEntity({
 				properties: {},
 				entitySchemaSlug: showSchemaId,
@@ -147,8 +148,6 @@ afterAll(async () => {
 					adminHeaders,
 				);
 			}
-			yield* uninstallTestProvider(discoveryProvider);
-			yield* uninstallTestProvider(provider);
 		}),
 	);
 });
@@ -156,11 +155,7 @@ afterAll(async () => {
 describe("media monitoring endpoints", () => {
 	it.live("requires authentication", () =>
 		Effect.gen(function* () {
-			const error = yield* Effect.flip(
-				getBackendClient().call((contract) =>
-					contract.mediaMonitoring.status({ path: { entityId: EntityId.make(apiEntityId) } }),
-				),
-			);
+			const error = yield* Effect.flip(getMediaMonitoringStatus(getBackendClient(), apiEntityId));
 			assertTaggedError(error, "Unauthorized");
 		}),
 	);
@@ -171,8 +166,9 @@ describe("media monitoring endpoints", () => {
 			const other = yield* createAuthenticatedClient();
 
 			expect(yield* getMediaMonitoringStatus(owner.client, apiEntityId)).toEqual({
+				status: "found",
 				isMediaMonitored: false,
-				entityId: EntityId.make(apiEntityId),
+				entityId: apiEntityId,
 			});
 			yield* enableMediaMonitoring(owner.client, apiEntityId);
 			yield* enableMediaMonitoring(owner.client, apiEntityId);
@@ -184,12 +180,14 @@ describe("media monitoring endpoints", () => {
 				}),
 			).toBe(1);
 			expect(yield* getMediaMonitoringStatus(owner.client, apiEntityId)).toEqual({
+				status: "found",
 				isMediaMonitored: true,
-				entityId: EntityId.make(apiEntityId),
+				entityId: apiEntityId,
 			});
 			expect(yield* getMediaMonitoringStatus(other.client, apiEntityId)).toEqual({
+				status: "found",
 				isMediaMonitored: false,
-				entityId: EntityId.make(apiEntityId),
+				entityId: apiEntityId,
 			});
 
 			yield* disableMediaMonitoring(owner.client, apiEntityId);
@@ -269,24 +267,19 @@ describe("media monitoring endpoints", () => {
 			]);
 			extraEntityIds.push(...unsupported.map((entity) => entity.id));
 
-			const errors = yield* Effect.all(
-				unsupported.map((entity) =>
-					Effect.flip(
-						owner.client.call((contract) =>
-							contract.mediaMonitoring.enable({ path: { entityId: entity.id } }),
-						),
-					),
-				),
+			const unsupportedResults = yield* Effect.all(
+				unsupported.map((entity) => enableMediaMonitoring(owner.client, entity.id)),
 			);
-			for (const error of errors) {
-				assertTaggedError(error, "NotFound");
+			for (const [index, result] of unsupportedResults.entries()) {
+				expect(result).toEqual({
+					status: "notFound",
+					entityId: unsupported[index]?.id,
+				});
 			}
-			const invisible = yield* Effect.flip(
-				owner.client.call((contract) =>
-					contract.mediaMonitoring.status({ path: { entityId: unsupported[4].id } }),
-				),
-			);
-			assertTaggedError(invisible, "NotFound");
+			expect(yield* getMediaMonitoringStatus(owner.client, unsupported[4].id)).toEqual({
+				status: "notFound",
+				entityId: unsupported[4].id,
+			});
 		}),
 	);
 });

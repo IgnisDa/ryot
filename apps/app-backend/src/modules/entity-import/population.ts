@@ -54,39 +54,58 @@ export const writeChildEntitySet = Effect.fn("writeChildEntitySet")(function* (i
 	providerId: SandboxProviderId;
 	parentEntitySchemaSlug: EntitySchemaSlug;
 	childEntities: ReadonlyArray<ProviderDetailsChildEntity>;
-	childEntitySchemaSlugs?: Readonly<Record<string, string>> | undefined;
+	expectedChildEntitySchemaSlug?: string | undefined;
 }) {
 	const runWithDb = yield* DbRunner;
 	const entities = yield* EntitiesService;
 	const entitySchemasRepository = yield* EntitySchemasRepository;
 	const relationshipSchemasRepository = yield* RelationshipSchemasRepository;
 
+	const childSchemaSlugs = new Set(
+		input.childEntities.map(({ entitySchemaSlug }) => entitySchemaSlug),
+	);
+	if (childSchemaSlugs.size > 1) {
+		return yield* new SandboxRunError({
+			message: "Child entities must use one entity schema",
+		});
+	}
+	const rowChildEntitySchemaSlug = input.childEntities[0]?.entitySchemaSlug;
+	if (
+		input.expectedChildEntitySchemaSlug &&
+		rowChildEntitySchemaSlug &&
+		input.expectedChildEntitySchemaSlug !== rowChildEntitySchemaSlug
+	) {
+		return yield* new SandboxRunError({
+			message: `Child entity schema does not match declared schema: ${rowChildEntitySchemaSlug} !== ${input.expectedChildEntitySchemaSlug}`,
+		});
+	}
+	const childEntitySchemaSlug = input.expectedChildEntitySchemaSlug ?? rowChildEntitySchemaSlug;
+	const childEntitySchema = childEntitySchemaSlug
+		? yield* runWithDb(entitySchemasRepository.getBuiltinBySlug(childEntitySchemaSlug)).pipe(
+				mapDbErrorToSandbox,
+			)
+		: null;
+	if (childEntitySchemaSlug && !childEntitySchema) {
+		return yield* new SandboxRunError({
+			message: `Child entity schema not found: ${childEntitySchemaSlug}`,
+		});
+	}
+
 	const findChildRelationshipSchema = Effect.fn("findChildRelationshipSchema")(function* (
-		sourceEntitySchemaSlug: EntitySchemaSlug,
 		targetEntitySchemaSlug: EntitySchemaSlug | undefined,
 	) {
-		let targetSchemaId = targetEntitySchemaSlug;
-		if (!targetSchemaId) {
-			const targetSchemaSlug = input.childEntitySchemaSlugs?.[sourceEntitySchemaSlug];
-			if (targetSchemaSlug) {
-				const targetSchema = yield* runWithDb(
-					entitySchemasRepository.getBuiltinBySlug(targetSchemaSlug),
-				).pipe(mapDbErrorToSandbox);
-				targetSchemaId = targetSchema?.id;
-			}
-		}
-		if (!targetSchemaId) {
+		if (!targetEntitySchemaSlug) {
 			return null;
 		}
 		const relationshipSchema = yield* runWithDb(
 			relationshipSchemasRepository.findGlobalBySchemaIds({
-				sourceEntitySchemaSlug,
-				targetEntitySchemaSlug: targetSchemaId,
+				sourceEntitySchemaSlug: input.parentEntitySchemaSlug,
+				targetEntitySchemaSlug,
 			}),
 		).pipe(mapDbErrorToSandbox);
-		if (!relationshipSchema && targetEntitySchemaSlug) {
+		if (!relationshipSchema) {
 			return yield* new SandboxRunError({
-				message: `Child relationship schema not found: ${sourceEntitySchemaSlug} -> ${targetEntitySchemaSlug}`,
+				message: `Child relationship schema not found: ${input.parentEntitySchemaSlug} -> ${targetEntitySchemaSlug}`,
 			});
 		}
 		return relationshipSchema;
@@ -94,13 +113,8 @@ export const writeChildEntitySet = Effect.fn("writeChildEntitySet")(function* (i
 
 	const processedChildren: ProcessedChildEntity[] = [];
 	for (const childEntity of input.childEntities) {
-		const entitySchema = yield* runWithDb(
-			entitySchemasRepository.getBuiltinBySlug(childEntity.entitySchemaSlug),
-		).pipe(mapDbErrorToSandbox);
-		if (!entitySchema) {
-			return yield* new SandboxRunError({
-				message: `Child entity schema not found: ${childEntity.entitySchemaSlug}`,
-			});
+		if (!childEntitySchema) {
+			return yield* Effect.die("Validated child schema is missing");
 		}
 
 		const populatedAt = yield* DateTime.nowAsDate;
@@ -109,7 +123,7 @@ export const writeChildEntitySet = Effect.fn("writeChildEntitySet")(function* (i
 				populatedAt,
 				name: childEntity.name,
 				providerId: input.providerId,
-				entitySchemaSlug: entitySchema.id,
+				entitySchemaSlug: childEntitySchema.id,
 				externalId: childEntity.externalId,
 				properties: childEntity.properties,
 				updateExisting: input.syncExisting ?? false,
@@ -118,16 +132,12 @@ export const writeChildEntitySet = Effect.fn("writeChildEntitySet")(function* (i
 		processedChildren.push({
 			entity: saved.entity,
 			entityOutcome: saved.outcome,
-			entitySchemaSlug: entitySchema.id,
+			entitySchemaSlug: childEntitySchema.id,
 		});
 	}
 
 	let relationshipOutcomes: RelationshipMutationOutcome[] = [];
-	const childEntitySchemaSlug = processedChildren[0]?.entitySchemaSlug;
-	const relationshipSchema = yield* findChildRelationshipSchema(
-		input.parentEntitySchemaSlug,
-		childEntitySchemaSlug,
-	);
+	const relationshipSchema = yield* findChildRelationshipSchema(childEntitySchema?.id);
 	if (relationshipSchema) {
 		relationshipOutcomes = yield* synchronizeGlobalRelationships({
 			direction: "outgoing",

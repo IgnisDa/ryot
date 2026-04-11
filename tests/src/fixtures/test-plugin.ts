@@ -40,6 +40,8 @@ type TestPluginScriptBase = {
 export type TestPluginScript =
 	| (TestPluginScriptBase & { kind: "operation" })
 	| (TestPluginScriptBase & { kind: "automation" })
+	| (TestPluginScriptBase & { kind: "activity"; providerSlug?: string })
+	| (TestPluginScriptBase & { kind: "workflow" })
 	| (TestPluginScriptBase & { kind: "script"; providerSlug?: string })
 	| (TestPluginScriptBase & {
 			kind: "provider";
@@ -74,12 +76,23 @@ export const testPluginManifest = (input: {
 	operations?: ReadonlyArray<TestPluginOperation>;
 	scripts?: ReadonlyArray<TestPluginScript & { entry: string }>;
 	boot?: ReadonlyArray<{ slug: string; scriptSlug: string; description: string }>;
-	crons?: ReadonlyArray<{
-		slug: string;
-		schedule: string;
-		scriptSlug: string;
-		description: string;
-	}>;
+	workflows?: ReadonlyArray<{ slug: string; scriptSlug: string }>;
+	crons?: ReadonlyArray<
+		| {
+				slug: string;
+				lot: "script";
+				schedule: string;
+				scriptSlug: string;
+				description: string;
+		  }
+		| {
+				slug: string;
+				lot: "workflow";
+				schedule: string;
+				workflowSlug: string;
+				description: string;
+		  }
+	>;
 	entitySchemas?: ReadonlyArray<{
 		icon: string;
 		name: string;
@@ -96,7 +109,7 @@ export const testPluginManifest = (input: {
 		targetEntitySchemaSlug: string | null;
 	}>;
 }) => ({
-	workflows: [],
+	workflows: input.workflows ?? [],
 	savedViews: [],
 	importSources: [],
 	signalSchemas: [],
@@ -199,7 +212,11 @@ export const installTestPluginBundle = (input: {
 	files: Record<string, string>;
 	pluginSlug?: string;
 	scripts: ReadonlyArray<TestPluginScript & { entry: string }>;
-	providers: ReadonlyArray<TestPluginProvider>;
+	providers?: ReadonlyArray<TestPluginProvider>;
+	crons?: Parameters<typeof testPluginManifest>[0]["crons"];
+	workflows?: Parameters<typeof testPluginManifest>[0]["workflows"];
+	entitySchemas?: Parameters<typeof testPluginManifest>[0]["entitySchemas"];
+	relationshipSchemas?: Parameters<typeof testPluginManifest>[0]["relationshipSchemas"];
 	linkToEntitySchemaSlug?: string;
 }) =>
 	Effect.gen(function* () {
@@ -207,11 +224,15 @@ export const installTestPluginBundle = (input: {
 		const manifest = testPluginManifest({
 			pluginSlug,
 			scripts: input.scripts,
-			providers: input.providers,
+			crons: input.crons,
+			workflows: input.workflows,
+			providers: input.providers ?? [],
+			entitySchemas: input.entitySchemas,
+			relationshipSchemas: input.relationshipSchemas,
 			...(input.linkToEntitySchemaSlug
 				? {
 						linkToEntitySchemaSlug: input.linkToEntitySchemaSlug,
-						linkToProviderSlug: input.providers[0]?.slug,
+						linkToProviderSlug: input.providers?.[0]?.slug,
 					}
 				: {}),
 		});
@@ -228,9 +249,11 @@ export const installTestPluginBundle = (input: {
 				),
 			),
 		);
-		const scriptId = scriptIds[input.providers[0]?.operations.details ?? ""];
+		const scriptId =
+			scriptIds[input.providers?.[0]?.operations.details ?? ""] ??
+			scriptIds[input.scripts[0]?.slug ?? ""];
 		if (!scriptId) {
-			return yield* Effect.dieMessage("Test plugin bundle requires a provider details script");
+			return yield* Effect.dieMessage("Test plugin bundle requires at least one script");
 		}
 		const installed: InstalledTestPlugin = {
 			files: input.files,
@@ -239,7 +262,7 @@ export const installTestPluginBundle = (input: {
 			scriptIds,
 			pluginSlug,
 			active: true,
-			slug: input.providers[0]?.slug ?? input.scripts[0]?.slug ?? pluginSlug,
+			slug: input.providers?.[0]?.slug ?? input.scripts[0]?.slug ?? pluginSlug,
 		};
 		for (const [targetSlug, id] of Object.entries(scriptIds)) {
 			installedByScriptId.set(id, { installed, targetSlug });

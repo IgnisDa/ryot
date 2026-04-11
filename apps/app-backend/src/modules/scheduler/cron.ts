@@ -1,19 +1,4 @@
-import { Cron, Duration } from "effect";
-
-export const DEFAULT_INFREQUENT_CRON = "0 0 * * *"; // midnight daily
-
-const PHRASE_TO_CRON: Record<string, string> = {
-	daily: DEFAULT_INFREQUENT_CRON,
-	"every day": DEFAULT_INFREQUENT_CRON,
-	"every night": DEFAULT_INFREQUENT_CRON,
-	"every midnight": DEFAULT_INFREQUENT_CRON,
-};
-
-export const phraseToCronExpression = (value: string): string =>
-	PHRASE_TO_CRON[value.trim().toLowerCase()] ?? value.trim();
-
-export const parseInfrequentCron = (value: string, timezone: string) =>
-	Cron.parse(phraseToCronExpression(value), timezone);
+import { Duration } from "effect";
 
 export const DEFAULT_FREQUENT_INTERVAL = Duration.minutes(5);
 

@@ -12,6 +12,7 @@ import type {
 	RelationshipSchemaSlug,
 	UserId,
 } from "@ryot/contract/schema/brands";
+import type { JsonValue } from "@ryot/sandbox-sdk/wire";
 import { Context, Effect, Layer } from "effect";
 
 export type LifecycleEntityReference = {
@@ -63,7 +64,11 @@ export type LifecyclePopulationContext = {
 		deletedCount: number;
 		updatedCount: number;
 	};
-	owningSeason?: { number: number | null; name: string | null };
+	parentEntity?: {
+		name: string;
+		entitySchemaSlug: EntitySchemaSlug;
+		properties: Record<string, JsonValue>;
+	};
 	scopeEntity: {
 		id: EntityId;
 		name: string;

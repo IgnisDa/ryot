@@ -10,6 +10,7 @@ const manifest = definePlugin({
 	boot: [{ slug: "boot.test", scriptSlug: "automation.test", description: "Boot test data" }],
 	crons: [
 		{
+			lot: "script",
 			slug: "refresh.test",
 			schedule: "0 * * * *",
 			scriptSlug: "automation.test",
@@ -166,7 +167,8 @@ describe("definePlugin", () => {
 	it("preserves manifest literals", () => {
 		const slug: "test" = manifest.metadata.slug;
 		const scriptKind: "automation" = manifest.scripts[0].kind;
-		const scriptSlug: "automation.test" = manifest.crons[0].scriptSlug;
+		const cron = manifest.crons[0];
+		const scriptSlug: "automation.test" = cron.scriptSlug;
 
 		expect(slug).toBe("test");
 		expect(scriptSlug).toBe("automation.test");
@@ -199,6 +201,27 @@ describe("definePlugin", () => {
 
 	it("decodes the manifest with the canonical Effect schema", () => {
 		expect(Schema.decodeUnknownSync(PluginManifest)(manifest)).toEqual(manifest);
+	});
+
+	it("decodes optional entity merge identity properties", () => {
+		const decoded = Schema.decodeUnknownSync(PluginManifest)({
+			...manifest,
+			entitySchemas: [
+				{
+					icon: "box",
+					name: "Entity",
+					slug: "entity",
+					eventSchemas: [],
+					accentColor: "blue",
+					mergeIdentityProperties: ["kind"],
+					propertiesSchema: {
+						fields: { kind: { type: "string", label: "Kind", description: "Entity kind" } },
+					},
+				},
+			],
+		});
+
+		expect(decoded.entitySchemas[0]?.mergeIdentityProperties).toEqual(["kind"]);
 	});
 
 	it("requires signal notification formatter references", () => {
@@ -507,6 +530,26 @@ describe("definePlugin", () => {
 			Schema.decodeUnknownSync(PluginManifest)({
 				...manifest,
 				crons: [{ ...cron, slug: "Invalid/Slug" }],
+			}),
+		).toThrow();
+		expect(() =>
+			Schema.decodeUnknownSync(PluginManifest)({
+				...manifest,
+				crons: [{ ...cron, lot: "workflow", workflowSlug: "refresh.workflow" }],
+			}),
+		).toThrow();
+		expect(() =>
+			Schema.decodeUnknownSync(PluginManifest)({
+				...manifest,
+				crons: [
+					{
+						lot: "workflow",
+						slug: cron.slug,
+						schedule: cron.schedule,
+						workflowSlug: "missing.workflow",
+						description: cron.description,
+					},
+				],
 			}),
 		).toThrow();
 		expect(() =>

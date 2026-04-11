@@ -3,6 +3,7 @@ import { Schema } from "effect";
 import {
 	EntityId,
 	EntitySchemaSlug,
+	ImportRunId,
 	RelationshipId,
 	RelationshipSchemaSlug,
 	SandboxProviderId,
@@ -34,6 +35,85 @@ export const TestSupportEnqueueSandboxBody = strictStruct({
 });
 
 export type TestSupportEnqueueSandboxBody = typeof TestSupportEnqueueSandboxBody.Type;
+
+export const TestSupportTriggerPluginCronBody = strictStruct({
+	cronSlug: Schema.String,
+	pluginSlug: Schema.String,
+});
+
+export type TestSupportTriggerPluginCronBody = typeof TestSupportTriggerPluginCronBody.Type;
+
+export const TestSupportPluginCronResult = Schema.Union(
+	Schema.Struct({
+		status: Schema.Literal("notFound"),
+		cronSlug: Schema.String,
+		pluginSlug: Schema.String,
+	}),
+	Schema.Struct({
+		lot: Schema.Literal("script", "workflow"),
+		result: Schema.Unknown,
+		status: Schema.Literal("executed"),
+		cronSlug: Schema.String,
+		pluginSlug: Schema.String,
+		executionId: Schema.String,
+	}),
+);
+
+export type TestSupportPluginCronResult = typeof TestSupportPluginCronResult.Type;
+
+export const TestSupportStartMediaPopulationGateBody = strictStruct({
+	itemCount: Schema.Int.pipe(Schema.positive(), Schema.lessThanOrEqualTo(1_001)),
+	executingUserId: UserId,
+	identifierPrefix: Schema.String,
+	providerId: SandboxProviderId,
+	entitySchemaSlug: EntitySchemaSlug,
+});
+
+export type TestSupportStartMediaPopulationGateBody =
+	typeof TestSupportStartMediaPopulationGateBody.Type;
+
+export const TestSupportMediaPopulationGateExecution = Schema.Struct({
+	status: Schema.Literal("pending", "completed", "failed"),
+	output: Schema.optional(Schema.Unknown),
+	error: Schema.optional(Schema.String),
+	executionId: Schema.String,
+});
+
+export const TestSupportMediaPopulationGateRun = Schema.Struct({
+	runId: ImportRunId,
+	executionIds: Schema.Array(Schema.String),
+});
+
+export const TestSupportMediaPopulationGateResult = Schema.Struct({
+	runId: ImportRunId,
+	executions: Schema.Array(TestSupportMediaPopulationGateExecution),
+});
+
+export const TestSupportOperationalPressure = Schema.Struct({
+	database: Schema.Struct({
+		deadlocks: Schema.Number,
+		activeConnections: Schema.Number,
+		totalConnections: Schema.Number,
+		lockWaitingConnections: Schema.Number,
+		appPoolIdleConnections: Schema.Number,
+		appPoolTotalConnections: Schema.Number,
+		appPoolWaitingRequests: Schema.Number,
+	}),
+	locks: Schema.Struct({
+		advisoryLocks: Schema.Number,
+		waitingAdvisoryLocks: Schema.Number,
+	}),
+	redis: Schema.Struct({
+		projectionCount: Schema.Number,
+		projectionErrors: Schema.Number,
+		maxHighWater: Schema.Number,
+	}),
+	sandbox: Schema.Struct({
+		activeExecutions: Schema.Number,
+		maxActiveExecutions: Schema.Number,
+		totalExecutions: Schema.Number,
+	}),
+});
 
 export const TestSupportGlobalRelationship = Schema.Struct({
 	id: RelationshipId,

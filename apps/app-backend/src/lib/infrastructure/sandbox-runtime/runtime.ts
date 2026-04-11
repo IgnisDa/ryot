@@ -36,6 +36,25 @@ const encodeSandboxRpcResponse = Schema.encode(Schema.parseJson(Schema.Unknown))
 
 const decoder = new TextDecoder();
 const oversizedBridgeRequest = Symbol("oversizedBridgeRequest");
+let totalSandboxExecutions = 0;
+let activeSandboxExecutions = 0;
+let maxActiveSandboxExecutions = 0;
+
+export const recordSandboxExecutionStarted = () => {
+	activeSandboxExecutions += 1;
+	totalSandboxExecutions += 1;
+	maxActiveSandboxExecutions = Math.max(maxActiveSandboxExecutions, activeSandboxExecutions);
+};
+
+export const recordSandboxExecutionFinished = () => {
+	activeSandboxExecutions -= 1;
+};
+
+export const getSandboxProcessMetrics = () => ({
+	totalExecutions: totalSandboxExecutions,
+	activeExecutions: activeSandboxExecutions,
+	maxActiveExecutions: maxActiveSandboxExecutions,
+});
 
 type ExecutionSession = {
 	readonly token: string;

@@ -18,20 +18,22 @@ const providerId = SandboxProviderId.make("provider-id");
 const normalizedPlugin = (): NormalizedPlugin => {
 	const manifest = fixtureManifest();
 	const automation = manifest.scripts[0];
+	const fixtureEntitySchema = manifest.entitySchemas[0];
 	assert(automation);
+	assert(fixtureEntitySchema);
 	const details = {
 		...automation,
-		kind: "provider" as const,
 		name: "Fixture details",
 		slug: "fixture.details",
+		kind: "provider" as const,
 		providerSlug: "fixture-provider",
 		providerOperation: "details" as const,
 	};
 	const search = {
 		...automation,
-		kind: "provider" as const,
 		name: "Fixture search",
 		slug: "fixture.search",
+		kind: "provider" as const,
 		providerSlug: "fixture-provider",
 		providerOperation: "search" as const,
 	};
@@ -49,10 +51,17 @@ const normalizedPlugin = (): NormalizedPlugin => {
 		kind: "workflow" as const,
 		capabilities: [] as const,
 	};
+	const activity = {
+		...automation,
+		name: "Fixture activity",
+		slug: "fixture.activity",
+		kind: "activity" as const,
+	};
 	const normalizedManifest: PluginManifest = {
 		...manifest,
+		entitySchemas: [...manifest.entitySchemas, { ...fixtureEntitySchema, slug: "unbound-entity" }],
 		workflows: [{ slug: "fixture-run", scriptSlug: workflow.slug }],
-		scripts: [...manifest.scripts, details, search, preload, workflow],
+		scripts: [...manifest.scripts, activity, details, search, preload, workflow],
 		providers: [
 			{
 				name: "Fixture provider",
@@ -69,21 +78,55 @@ const normalizedPlugin = (): NormalizedPlugin => {
 		},
 	};
 	return {
-		manifest: normalizedManifest,
 		sourceHash: "source-hash",
+		manifest: normalizedManifest,
 		scripts: normalizedManifest.scripts.map((script) => {
 			const { entry, ...metadata } = script;
 			return {
 				entry,
 				metadata,
-				slug: script.slug,
-				name: script.name,
 				source: "source",
 				compiledFormat: 1,
+				slug: script.slug,
+				name: script.name,
 				compiledCode: "compiled",
 				contentHash: `${script.slug}-hash`,
 			};
 		}),
+	};
+};
+
+const providerOwnerPlugin = (): NormalizedPlugin => {
+	const plugin = normalizedPlugin();
+	const entitySchema = plugin.manifest.entitySchemas[0];
+	assert(entitySchema);
+	return {
+		scripts: [],
+		sourceHash: "provider-owner-source-hash",
+		manifest: {
+			...plugin.manifest,
+			boot: [],
+			crons: [],
+			scripts: [],
+			workflows: [],
+			operations: [],
+			savedViews: [],
+			signalSchemas: [],
+			importSources: [],
+			relationshipSchemas: [],
+			integrationProviders: [],
+			entitySchemas: [{ ...entitySchema, slug: "foreign-entity" }],
+			metadata: { ...plugin.manifest.metadata, name: "Provider owner", slug: "provider-owner" },
+			bindings: {
+				eventAutomations: [],
+				entityAutomations: [],
+				signalAutomations: [],
+				relationshipAutomations: [],
+				schemaProviderLinks: [
+					{ providerSlug: "fixture-provider", entitySchemaSlug: "foreign-entity" },
+				],
+			},
+		},
 	};
 };
 
@@ -149,9 +192,36 @@ const workflowScriptRow = {
 	},
 };
 
-const makeLayer = () => {
+const activityScriptRow = {
+	...scriptRow,
+	providerId: null,
+	name: "Fixture activity",
+	slug: "fixture.activity",
+	contentHash: "fixture.activity-hash",
+	id: SandboxScriptId.make("activity-script-id"),
+	metadata: {
+		capabilities: [],
+		name: "Fixture activity",
+		slug: "fixture.activity",
+		requiredAppConfigKeys: [],
+		kind: "activity" as const,
+	},
+};
+
+const makeLayer = (
+	storedProvider: typeof providerRow | null = providerRow,
+	crossPlugin = false,
+) => {
 	const loader = makePluginLoader(makeDefinitionRegistry());
-	loader.load(normalizedPlugin());
+	const callerPlugin = normalizedPlugin();
+	loader.load(
+		crossPlugin
+			? { ...callerPlugin, manifest: { ...callerPlugin.manifest, providers: [] } }
+			: callerPlugin,
+	);
+	if (crossPlugin) {
+		loader.load(providerOwnerPlugin());
+	}
 	let scriptSelectCount = 0;
 	const db = {
 		select: () => ({
@@ -159,7 +229,7 @@ const makeLayer = () => {
 				where: () => ({
 					limit: () => {
 						if (table === schema.sandboxProvider) {
-							return Promise.resolve([providerRow]);
+							return Promise.resolve(storedProvider ? [storedProvider] : []);
 						}
 						scriptSelectCount += 1;
 						if (scriptSelectCount === 3) {
@@ -167,6 +237,9 @@ const makeLayer = () => {
 						}
 						if (scriptSelectCount === 4) {
 							return Promise.resolve([workflowScriptRow]);
+						}
+						if (scriptSelectCount === 5) {
+							return Promise.resolve([activityScriptRow]);
 						}
 						return Promise.resolve([scriptRow]);
 					},
@@ -192,6 +265,30 @@ it.effect("resolves active schema providers and their operation-specific scripts
 			entitySchemaSlug: "fixture-entity",
 			provider: { id: providerId, slug: "fixture-provider" },
 		});
+		expect(
+			yield* resolver.findAuthorizedSchemaProviderById({
+				providerId,
+				pluginSlug: "fixture",
+				entitySchemaSlug: "fixture-entity",
+			}),
+		).toMatchObject({
+			entitySchemaSlug: "fixture-entity",
+			provider: { id: providerId, pluginSlug: "fixture" },
+		});
+		expect(
+			yield* resolver.findAuthorizedSchemaProviderById({
+				providerId,
+				pluginSlug: "foreign",
+				entitySchemaSlug: "fixture-entity",
+			}),
+		).toBeNull();
+		expect(
+			yield* resolver.findAuthorizedSchemaProviderById({
+				providerId,
+				pluginSlug: "fixture",
+				entitySchemaSlug: "unbound-entity",
+			}),
+		).toBeNull();
 		expect(yield* resolver.findDetailsScript(providerId)).toMatchObject({
 			id: "details-script-id",
 			slug: "fixture.details",
@@ -211,7 +308,65 @@ it.effect("resolves active schema providers and their operation-specific scripts
 				workflowSlug: "fixture-run",
 			}),
 		).toMatchObject({ id: "workflow-script-id", slug: "fixture.workflow" });
+		expect(
+			yield* resolver.resolveSystemQueryActivity(SandboxScriptId.make("activity-script-id")),
+		).toMatchObject({
+			pluginSlug: "fixture",
+			entitySchemaSlugs: ["fixture-entity", "unbound-entity"],
+		});
+		expect(
+			yield* resolver.resolveSystemQueryActivity(SandboxScriptId.make("details-script-id")),
+		).toBeNull();
 	}).pipe(Effect.provide(makeLayer())),
+);
+
+it.effect("rejects an inactive provider owned by the caller plugin", () =>
+	Effect.gen(function* () {
+		const resolver = yield* PluginRuntimeResolver;
+		expect(
+			yield* resolver.findAuthorizedSchemaProviderById({
+				providerId,
+				pluginSlug: "fixture",
+				entitySchemaSlug: "fixture-entity",
+			}),
+		).toBeNull();
+	}).pipe(Effect.provide(makeLayer({ ...providerRow, slug: "inactive-provider" }))),
+);
+
+it.effect("authorizes an active cross-plugin provider with an exact registry binding", () =>
+	Effect.gen(function* () {
+		const resolver = yield* PluginRuntimeResolver;
+		expect(
+			yield* resolver.findAuthorizedSchemaProviderById({
+				providerId,
+				pluginSlug: "fixture",
+				entitySchemaSlug: "fixture-entity",
+			}),
+		).toMatchObject({
+			entitySchemaSlug: "fixture-entity",
+			provider: { id: providerId, pluginSlug: "provider-owner" },
+		});
+		expect(
+			yield* resolver.findAuthorizedSchemaProviderById({
+				providerId,
+				pluginSlug: "fixture",
+				entitySchemaSlug: "foreign-entity",
+			}),
+		).toBeNull();
+	}).pipe(Effect.provide(makeLayer({ ...providerRow, pluginSlug: "provider-owner" }, true))),
+);
+
+it.effect("rejects an unknown provider", () =>
+	Effect.gen(function* () {
+		const resolver = yield* PluginRuntimeResolver;
+		expect(
+			yield* resolver.findAuthorizedSchemaProviderById({
+				providerId,
+				pluginSlug: "fixture",
+				entitySchemaSlug: "fixture-entity",
+			}),
+		).toBeNull();
+	}).pipe(Effect.provide(makeLayer(null))),
 );
 
 it.effect("returns a contextual typed failure for an unsupported operation", () =>

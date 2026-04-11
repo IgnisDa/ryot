@@ -1,5 +1,6 @@
 import { sql } from "drizzle-orm";
 
+import type { EntityTraversalVisibility, QueryExecutionScope } from "../../execution-scope";
 import type { TimeSeriesBucket } from "../../time-series-buckets";
 import { SYSTEM_DATE_FIELDS_BY_KIND, type RootAliasKind } from "../types";
 
@@ -113,8 +114,19 @@ export const jsonbTypeofKindSql = (value: SqlFragment): SqlFragment =>
 	sql`CASE jsonb_typeof(${value}) WHEN 'string' THEN 'text' WHEN 'number' THEN 'number' WHEN 'boolean' THEN 'boolean' WHEN 'object' THEN 'json' WHEN 'array' THEN 'json' ELSE 'null' END`;
 
 // Visibility predicate: the row is the user's own or a global (null-owner) row.
-export const userVisibleSql = (sqlAlias: string, userId: string): SqlFragment =>
-	sql`(${sql.raw(sqlAlias)}.user_id = ${userId} OR ${sql.raw(sqlAlias)}.user_id IS NULL)`;
+export const rowVisibleSql = (
+	kind: "entity" | "event" | "relationship",
+	sqlAlias: string,
+	scope: QueryExecutionScope,
+	visibility: EntityTraversalVisibility = { type: "root" },
+): SqlFragment => {
+	if (scope.type === "system") {
+		return kind === "entity" && visibility.type === "root"
+			? sql`${sql.raw(sqlAlias)}.user_id IS NULL`
+			: sql`true`;
+	}
+	return sql`(${sql.raw(sqlAlias)}.user_id = ${scope.userId} OR ${sql.raw(sqlAlias)}.user_id IS NULL)`;
+};
 
 const BUCKET_STEP: Record<TimeSeriesBucket, string> = {
 	hour: "1 hour",

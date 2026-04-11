@@ -201,6 +201,11 @@ it.effect("forwards update snapshots and trusted population context", () => {
 			},
 			population: {
 				rootPreviouslyPopulated: true,
+				parentEntity: {
+					name: "Container",
+					properties: { ordinal: 1 },
+					entitySchemaSlug: EntitySchemaSlug.make("container"),
+				},
 				scopeEntity: {
 					name: "Severance",
 					entitySchemaSlug: "show",
@@ -217,6 +222,11 @@ it.effect("forwards update snapshots and trusted population context", () => {
 				source: { kind: "entity", after: { name: "Dune" }, before: { name: "Old Dune" } },
 				population: {
 					rootPreviouslyPopulated: true,
+					parentEntity: {
+						name: "Container",
+						properties: { ordinal: 1 },
+						entitySchemaSlug: "container",
+					},
 					scopeEntity: { id: "show-1", name: "Severance" },
 				},
 			},

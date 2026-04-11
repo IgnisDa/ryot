@@ -2,7 +2,7 @@ import type { IncludeEntry } from "@ryot/contract/modules/query-engine/language"
 import { sql } from "drizzle-orm";
 
 import { compileBool, compileOrderBySql } from "./expr";
-import { entitySourceSql, userVisibleSql, type SqlFragment } from "./fragments";
+import { entitySourceSql, rowVisibleSql, type SqlFragment } from "./fragments";
 import type { CompileScope, SqlRef } from "./scope";
 import { jsonbFieldEntriesSql } from "./select-list";
 
@@ -38,7 +38,7 @@ const compileInclude = (
 	const suffix = scope.freshSuffix();
 	const inc = `inc${suffix}`;
 	const rows = `s${suffix}`;
-	const userId = scope.userId;
+	const executionScope = scope.executionScope;
 
 	if (source.type === "events") {
 		const ev = `iev${suffix}`;
@@ -57,7 +57,7 @@ const compileInclude = (
 					SELECT ${childObject} AS child, row_number() OVER (ORDER BY ${order}) AS "__rn"
 					FROM event ${sql.raw(ev)}
 					WHERE ${sql.raw(ev)}.entity_id = ${sql.raw(parentAlias)}.id
-						AND ${sql.raw(ev)}.user_id = ${userId}
+						AND ${rowVisibleSql("event", ev, executionScope)}
 						AND ${sql.raw(ev)}.event_schema_slug IN (${slugListSql(source.schemas)})
 						${whereTail(where)}
 					ORDER BY ${order}
@@ -86,6 +86,7 @@ const compileInclude = (
 	const fieldEntries = jsonbFieldEntriesSql(include.fields, childScope);
 	const objectEntries = nested.count > 0 ? sql`${fieldEntries}, ${nested.entries}` : fieldEntries;
 	const where = source.where ? compileBool(source.where, childScope) : null;
+	const endpoint = via.direction === "outgoing" ? "target" : "source";
 	const lateral = sql`
 		LEFT JOIN LATERAL (
 			SELECT COALESCE(jsonb_agg(${sql.raw(rows)}.child ORDER BY ${sql.raw(rows)}."__rn"), '[]'::jsonb) AS items
@@ -97,8 +98,12 @@ const compileInclude = (
 				WHERE ${sql.raw(`${r}.${anchorColumn}`)} = ${sql.raw(parentAlias)}.id
 					AND ${sql.raw(r)}.relationship_schema_slug = ${via.schema}
 					AND ${sql.raw(e)}.entity_schema_slug IN (${slugListSql(source.schemas)})
-					AND ${userVisibleSql(r, userId)}
-					AND ${userVisibleSql(e, userId)}
+					AND ${rowVisibleSql("relationship", r, executionScope)}
+					AND ${rowVisibleSql("entity", e, executionScope, {
+						type: "relationshipEndpoint",
+						endpoint,
+						relationshipSchemaSlugs: [via.schema],
+					})}
 					${whereTail(where)}
 				ORDER BY ${order}
 				LIMIT ${include.limit + 1}
