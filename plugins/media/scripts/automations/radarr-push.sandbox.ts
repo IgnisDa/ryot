@@ -22,10 +22,10 @@ export const manifest = defineManifest({
 	requiredSystemConfigKeys: [],
 	capabilities: [
 		"httpCall",
+		"executeRyotql",
 		"getEntitySchemas",
 		"listIntegrations",
 		"getUserPreferences",
-		"executeQueryEngine",
 	],
 });
 

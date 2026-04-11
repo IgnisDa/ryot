@@ -9,11 +9,11 @@ import {
 	createCollection,
 	createGlobalBookEntityFixture,
 	createRelationship,
-	executeAggregateQueryEngine,
+	executeRyotQL,
 	insertGlobalRelationship,
 	insertLibraryMembership,
 	listRelationshipSchemas,
-	requireQueryEngineFieldValue,
+	requireRyotQLFieldValue,
 	requireRelationshipSchemaBySlug,
 } from "~/fixtures";
 import { assertPresent } from "~/support/assertions";
@@ -85,16 +85,20 @@ describe("Query engine media suggestions", () => {
 				limit: 10,
 			});
 
-			const result = yield* executeAggregateQueryEngine(client, doc);
+			const response = yield* executeRyotQL(client, doc);
+			const result = response.data.recommendations;
+			if (result?.type !== "aggregate") {
+				throw new Error("Expected recommendation aggregate result");
+			}
 
-			expect(result.data.items).toHaveLength(2);
-			const [first, second] = result.data.items;
+			expect(result.items).toHaveLength(2);
+			const [first, second] = result.items;
 			assertPresent(first, "Expected top candidate row");
 			assertPresent(second, "Expected other candidate row");
-			expect(requireQueryEngineFieldValue(first, "name").value).toBe(candidateTop.entity.name);
-			expect(requireQueryEngineFieldValue(first, "recommendingSourceCount").value).toBe(2);
-			expect(requireQueryEngineFieldValue(second, "name").value).toBe(candidateOther.entity.name);
-			expect(requireQueryEngineFieldValue(second, "recommendingSourceCount").value).toBe(1);
+			expect(requireRyotQLFieldValue(first, "name").value).toBe(candidateTop.entity.name);
+			expect(requireRyotQLFieldValue(first, "recommendingSourceCount").value).toBe(2);
+			expect(requireRyotQLFieldValue(second, "name").value).toBe(candidateOther.entity.name);
+			expect(requireRyotQLFieldValue(second, "recommendingSourceCount").value).toBe(1);
 		}),
 	);
 
@@ -121,8 +125,8 @@ describe("Query engine media suggestions", () => {
 						externalId: `collection-rec-candidate-top-${crypto.randomUUID()}`,
 					}),
 					createGlobalBookEntityFixture(client, {
-						name: `Collection Rec Existing Member ${crypto.randomUUID()}`,
 						externalId: `collection-rec-existing-${crypto.randomUUID()}`,
+						name: `Collection Rec Existing Member ${crypto.randomUUID()}`,
 					}),
 				]);
 				const relationshipSchemas = yield* listRelationshipSchemas(client, {
@@ -171,18 +175,22 @@ describe("Query engine media suggestions", () => {
 				]);
 
 				const doc = buildCollectionMediaSuggestionsQueryDocument({
+					limit: 10,
 					collectionId: collection.id,
 					entitySchemaSlug: schema.slug,
-					limit: 10,
 				});
 
-				const result = yield* executeAggregateQueryEngine(client, doc);
+				const response = yield* executeRyotQL(client, doc);
+				const result = response.data.recommendations;
+				if (result?.type !== "aggregate") {
+					throw new Error("Expected recommendation aggregate result");
+				}
 
-				expect(result.data.items).toHaveLength(2);
+				expect(result.items).toHaveLength(2);
 				const byName = new Map(
-					result.data.items.map((item) => [
-						String(requireQueryEngineFieldValue(item, "name").value),
-						Number(requireQueryEngineFieldValue(item, "recommendingSourceCount").value),
+					result.items.map((item) => [
+						String(requireRyotQLFieldValue(item, "name").value),
+						Number(requireRyotQLFieldValue(item, "recommendingSourceCount").value),
 					]),
 				);
 				expect(byName.get(candidateTop.entity.name)).toBe(2);

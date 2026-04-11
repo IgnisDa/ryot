@@ -1,44 +1,601 @@
-import {
-	buildQueryEngineAggregateDocument,
-	buildQueryEngineEntityRowsDocument,
-	buildQueryEngineRowsDocument,
-	queryEngineEntitySource,
-	queryEngineInclude,
-	queryEngineNestedEventSource,
-	queryEngineRelationshipSource,
-} from "@ryot/query-engine/documents";
-import {
-	queryEngineAggregate,
-	queryEngineAnd,
-	queryEngineComparison,
-	queryEngineExists,
-	queryEngineField,
-	queryEngineIdentityFields,
-	queryEngineLiteral,
-	queryEngineMeasureRef,
-	queryEngineNot,
-	queryEngineOrder,
-	queryEnginePropertyRef,
-	queryEngineSystemRef,
-	type QueryEngineNonEmptyArray,
-} from "@ryot/query-engine/primitives";
+import { queryEngineEntitySource } from "@ryot/query-engine/documents";
+import { queryEngineExists, type QueryEngineNonEmptyArray } from "@ryot/query-engine/primitives";
 import { buildDefaultSavedViewQueryDocument } from "@ryot/query-engine/recipes/app";
+import {
+	aggregate,
+	and,
+	ascending,
+	castDate,
+	castNumber,
+	column,
+	count,
+	descending,
+	document,
+	eq,
+	exists,
+	field,
+	gt,
+	include,
+	join,
+	jsonPath,
+	literal,
+	measure,
+	measureDescending,
+	not,
+	rows,
+	table,
+} from "@ryot/ryotql";
 
-const entityAlias = "entity";
+type Table = ReturnType<typeof table>;
+
+const entityIdentityFields = (entity: Table) => [
+	field("id", column(entity, "id")),
+	field("name", column(entity, "name")),
+	field("schemaSlug", column(entity, "entitySchemaSlug")),
+];
+
+const entitySchema = (entity: Table, slug: string) =>
+	eq(column(entity, "entitySchemaSlug"), literal(slug));
+
+const entityId = (entity: Table, id: string) => eq(column(entity, "id"), literal(id));
+
+const propertyNumber = (entity: Table, property: string) =>
+	castNumber(jsonPath(column(entity, "properties"), property));
+
+const eventExists = (entity: Table, alias: string, schema: string) => {
+	const event = table("event", alias);
+	return exists(event, {
+		where: and(
+			eq(column(event, "entityId"), column(entity, "id")),
+			eq(column(event, "eventSchemaSlug"), literal(schema)),
+		),
+	});
+};
+
+const relationshipTo = (relationship: Table, parent: Table, child: Table, schema: string) =>
+	and(
+		eq(column(relationship, "sourceEntityId"), column(parent, "id")),
+		eq(column(relationship, "targetEntityId"), column(child, "id")),
+		eq(column(relationship, "relationshipSchemaSlug"), literal(schema)),
+	);
+
+const showSeasonInclude = (input: {
+	readonly seasonLimit: number;
+	readonly episodeLimit: number;
+}) => {
+	const season = table("entity", "season");
+	const episode = table("entity", "episode");
+	const seasonNumber = propertyNumber(season, "seasonNumber");
+	const episodeNumber = propertyNumber(episode, "episodeNumber");
+	const seasonRelationship = table("relationship", "seasonRelationship");
+	const episodeRelationship = table("relationship", "episodeRelationship");
+
+	return include(season, {
+		key: "seasons",
+		limit: input.seasonLimit,
+		orderBy: [ascending(seasonNumber)],
+		fields: [...entityIdentityFields(season), field("seasonNumber", seasonNumber)],
+		where: and(
+			entitySchema(season, "show-season"),
+			relationshipTo(seasonRelationship, table("entity", "entity"), season, "show-to-show-season"),
+		),
+		joins: [
+			join(
+				"inner",
+				seasonRelationship,
+				eq(column(seasonRelationship, "targetEntityId"), column(season, "id")),
+			),
+		],
+		include: [
+			include(episode, {
+				key: "episodes",
+				limit: input.episodeLimit,
+				orderBy: [ascending(episodeNumber)],
+				joins: [
+					join(
+						"inner",
+						episodeRelationship,
+						eq(column(episodeRelationship, "targetEntityId"), column(episode, "id")),
+					),
+				],
+				where: and(
+					entitySchema(episode, "show-episode"),
+					relationshipTo(episodeRelationship, season, episode, "show-season-to-show-episode"),
+				),
+				fields: [
+					...entityIdentityFields(episode),
+					field("episodeNumber", episodeNumber),
+					field("hasProgress", eventExists(episode, "episodeProgress", "progress")),
+					field("isComplete", eventExists(episode, "episodeComplete", "complete")),
+				],
+			}),
+		],
+	});
+};
+
+const podcastEpisodeInclude = (episodeLimit: number) => {
+	const entity = table("entity", "entity");
+	const episode = table("entity", "episode");
+	const episodeNumber = propertyNumber(episode, "episodeNumber");
+	const episodeRelationship = table("relationship", "episodeRelationship");
+
+	return include(episode, {
+		key: "episodes",
+		limit: episodeLimit,
+		orderBy: [ascending(episodeNumber)],
+		where: and(
+			entitySchema(episode, "podcast-episode"),
+			relationshipTo(episodeRelationship, entity, episode, "podcast-to-podcast-episode"),
+		),
+		joins: [
+			join(
+				"inner",
+				episodeRelationship,
+				eq(column(episodeRelationship, "targetEntityId"), column(episode, "id")),
+			),
+		],
+		fields: [
+			...entityIdentityFields(episode),
+			field("episodeNumber", episodeNumber),
+			field("hasProgress", eventExists(episode, "episodeProgress", "progress")),
+			field("isComplete", eventExists(episode, "episodeComplete", "complete")),
+		],
+	});
+};
+
+const episodeCount = (input: {
+	readonly parent: Table;
+	readonly episodeAlias: string;
+	readonly eventSchemaSlug?: string;
+	readonly episodeSchemaSlug: string;
+	readonly relationshipAlias: string;
+	readonly relationshipSchemaSlug: string;
+}) => {
+	const episode = table("entity", input.episodeAlias);
+	const relationship = table("relationship", input.relationshipAlias);
+	return count(episode, {
+		joins: [
+			join(
+				"inner",
+				relationship,
+				eq(column(relationship, "targetEntityId"), column(episode, "id")),
+			),
+		],
+		where: and(
+			entitySchema(episode, input.episodeSchemaSlug),
+			relationshipTo(relationship, input.parent, episode, input.relationshipSchemaSlug),
+			...(input.eventSchemaSlug
+				? [eventExists(episode, `${input.episodeAlias}Event`, input.eventSchemaSlug)]
+				: []),
+		),
+	});
+};
+
+const showRegularSeasonCount = (input: {
+	readonly alias: string;
+	readonly parent: Table;
+	readonly completed: boolean;
+	readonly relationshipAlias: string;
+}) => {
+	const season = table("entity", input.alias);
+	const relationship = table("relationship", input.relationshipAlias);
+	const regularSeason = gt(propertyNumber(season, "seasonNumber"), literal(0));
+	const where = [
+		entitySchema(season, "show-season"),
+		relationshipTo(relationship, input.parent, season, "show-to-show-season"),
+		regularSeason,
+	];
+	if (input.completed) {
+		where.push(
+			eq(
+				episodeCount({
+					parent: season,
+					eventSchemaSlug: "complete",
+					episodeSchemaSlug: "show-episode",
+					episodeAlias: `${input.alias}CompletedEpisode`,
+					relationshipSchemaSlug: "show-season-to-show-episode",
+					relationshipAlias: `${input.alias}CompletedEpisodeRelationship`,
+				}),
+				episodeCount({
+					parent: season,
+					episodeSchemaSlug: "show-episode",
+					episodeAlias: `${input.alias}AllEpisode`,
+					relationshipSchemaSlug: "show-season-to-show-episode",
+					relationshipAlias: `${input.alias}AllEpisodeRelationship`,
+				}),
+			),
+		);
+	}
+	return { season, relationship, where };
+};
+
+const withEntityFilter = (
+	entity: Table,
+	entityIdInput: string | undefined,
+	predicate: ReturnType<typeof and>,
+) => (entityIdInput === undefined ? predicate : and(entityId(entity, entityIdInput), predicate));
+
+export const buildShowDetailQueryDocument = (input: {
+	readonly entityId: string;
+	readonly seasonLimit: number;
+	readonly episodeLimit: number;
+}) => {
+	const entity = table("entity", "entity");
+	return document({
+		show: rows(entity, {
+			limit: 1,
+			include: [showSeasonInclude(input)],
+			fields: entityIdentityFields(entity),
+			orderBy: [ascending(column(entity, "id"))],
+			where: and(entitySchema(entity, "show"), entityId(entity, input.entityId)),
+		}),
+	});
+};
+
+export const buildInProgressShowsQueryDocument = (input: {
+	readonly page?: number | undefined;
+	readonly limit?: number | undefined;
+	readonly entityId?: string | undefined;
+}) => {
+	const entity = table("entity", "entity");
+	const season = table("entity", "watchingSeason");
+	const seasonRelationship = table("relationship", "watchingSeasonRelationship");
+	const episode = table("entity", "watchingEpisode");
+	const episodeRelationship = table("relationship", "watchingEpisodeRelationship");
+	return document({
+		shows: rows(entity, {
+			page: input.page,
+			limit: input.limit,
+			fields: entityIdentityFields(entity),
+			where: withEntityFilter(
+				entity,
+				input.entityId,
+				and(
+					entitySchema(entity, "show"),
+					not(eventExists(entity, "entityComplete", "complete")),
+					exists(season, {
+						joins: [
+							join(
+								"inner",
+								seasonRelationship,
+								eq(column(seasonRelationship, "targetEntityId"), column(season, "id")),
+							),
+						],
+						where: and(
+							entitySchema(season, "show-season"),
+							relationshipTo(seasonRelationship, entity, season, "show-to-show-season"),
+							exists(episode, {
+								joins: [
+									join(
+										"inner",
+										episodeRelationship,
+										eq(column(episodeRelationship, "targetEntityId"), column(episode, "id")),
+									),
+								],
+								where: and(
+									entitySchema(episode, "show-episode"),
+									relationshipTo(
+										episodeRelationship,
+										season,
+										episode,
+										"show-season-to-show-episode",
+									),
+									eventExists(episode, "watchingEpisodeProgress", "progress"),
+								),
+							}),
+						),
+					}),
+				),
+			),
+		}),
+	});
+};
+
+export const buildCompletedShowsQueryDocument = (input: {
+	readonly page?: number | undefined;
+	readonly limit?: number | undefined;
+	readonly entityId?: string | undefined;
+}) => {
+	const entity = table("entity", "entity");
+	const completed = showRegularSeasonCount({
+		parent: entity,
+		completed: true,
+		alias: "completedSeason",
+		relationshipAlias: "completedSeasonRelationship",
+	});
+	const regular = showRegularSeasonCount({
+		parent: entity,
+		completed: false,
+		alias: "regularSeason",
+		relationshipAlias: "regularSeasonRelationship",
+	});
+	return document({
+		shows: rows(entity, {
+			page: input.page,
+			limit: input.limit,
+			fields: entityIdentityFields(entity),
+			where: withEntityFilter(
+				entity,
+				input.entityId,
+				and(
+					entitySchema(entity, "show"),
+					eq(
+						count(completed.season, {
+							where: and(...completed.where),
+							joins: [
+								join(
+									"inner",
+									completed.relationship,
+									eq(
+										column(completed.relationship, "targetEntityId"),
+										column(completed.season, "id"),
+									),
+								),
+							],
+						}),
+						count(regular.season, {
+							where: and(...regular.where),
+							joins: [
+								join(
+									"inner",
+									regular.relationship,
+									eq(column(regular.relationship, "targetEntityId"), column(regular.season, "id")),
+								),
+							],
+						}),
+					),
+				),
+			),
+		}),
+	});
+};
+
+export const buildPodcastDetailQueryDocument = (input: {
+	readonly entityId: string;
+	readonly episodeLimit: number;
+}) => {
+	const entity = table("entity", "entity");
+	return document({
+		podcast: rows(entity, {
+			limit: 1,
+			fields: entityIdentityFields(entity),
+			include: [podcastEpisodeInclude(input.episodeLimit)],
+			orderBy: [ascending(column(entity, "id"))],
+			where: and(entitySchema(entity, "podcast"), entityId(entity, input.entityId)),
+		}),
+	});
+};
+
+const buildPodcastProgressDocument = (input: {
+	readonly completed: boolean;
+	readonly page?: number | undefined;
+	readonly limit?: number | undefined;
+	readonly entityId?: string | undefined;
+}) => {
+	const entity = table("entity", "entity");
+	const episode = table("entity", input.completed ? "completedEpisode" : "watchingEpisode");
+	const relationship = table(
+		"relationship",
+		input.completed ? "completedEpisodeRelationship" : "watchingEpisodeRelationship",
+	);
+	return document({
+		podcasts: rows(entity, {
+			page: input.page,
+			limit: input.limit,
+			fields: entityIdentityFields(entity),
+			where: withEntityFilter(
+				entity,
+				input.entityId,
+				and(
+					entitySchema(entity, "podcast"),
+					...(input.completed
+						? [
+								eq(
+									count(episode, {
+										joins: [
+											join(
+												"inner",
+												relationship,
+												eq(column(relationship, "targetEntityId"), column(episode, "id")),
+											),
+										],
+										where: and(
+											entitySchema(episode, "podcast-episode"),
+											relationshipTo(relationship, entity, episode, "podcast-to-podcast-episode"),
+											eventExists(episode, "completedEpisodeEvent", "complete"),
+										),
+									}),
+									count(episode, {
+										joins: [
+											join(
+												"inner",
+												relationship,
+												eq(column(relationship, "targetEntityId"), column(episode, "id")),
+											),
+										],
+										where: and(
+											entitySchema(episode, "podcast-episode"),
+											relationshipTo(relationship, entity, episode, "podcast-to-podcast-episode"),
+										),
+									}),
+								),
+							]
+						: [
+								not(eventExists(entity, "podcastComplete", "complete")),
+								exists(episode, {
+									joins: [
+										join(
+											"inner",
+											relationship,
+											eq(column(relationship, "targetEntityId"), column(episode, "id")),
+										),
+									],
+									where: and(
+										entitySchema(episode, "podcast-episode"),
+										relationshipTo(relationship, entity, episode, "podcast-to-podcast-episode"),
+										eventExists(episode, "watchingEpisodeProgress", "progress"),
+									),
+								}),
+							]),
+				),
+			),
+		}),
+	});
+};
+
+export const buildInProgressPodcastsQueryDocument = (input: {
+	readonly page?: number | undefined;
+	readonly limit?: number | undefined;
+	readonly entityId?: string | undefined;
+}) => buildPodcastProgressDocument({ ...input, completed: false });
+
+export const buildCompletedPodcastsQueryDocument = (input: {
+	readonly page?: number | undefined;
+	readonly limit?: number | undefined;
+	readonly entityId?: string | undefined;
+}) => buildPodcastProgressDocument({ ...input, completed: true });
+
+const libraryExists = (entity: Table, alias: string) => {
+	const library = table("entity", alias);
+	const relationship = table("relationship", `${alias}Relationship`);
+	return exists(library, {
+		joins: [
+			join(
+				"inner",
+				relationship,
+				eq(column(relationship, "targetEntityId"), column(library, "id")),
+			),
+		],
+		where: and(
+			entitySchema(library, "library"),
+			eq(column(relationship, "sourceEntityId"), column(entity, "id")),
+			eq(column(relationship, "relationshipSchemaSlug"), literal("in-library")),
+		),
+	});
+};
+
+const recommendationOutput = (input: {
+	readonly limit: number;
+	readonly entitySchemaSlug: string;
+	readonly where: (tables: {
+		readonly source: Table;
+		readonly target: Table;
+	}) => ReturnType<typeof and>;
+}) => {
+	const relationship = table("relationship", "relationship");
+	const source = table("entity", "sourceEntity");
+	const target = table("entity", "targetEntity");
+	return document({
+		recommendations: aggregate(relationship, {
+			limit: input.limit,
+			groupBy: entityIdentityFields(target),
+			orderBy: [measureDescending("recommendingSourceCount")],
+			joins: [
+				join("inner", source, eq(column(relationship, "sourceEntityId"), column(source, "id"))),
+				join("inner", target, eq(column(relationship, "targetEntityId"), column(target, "id"))),
+			],
+			where: and(
+				eq(column(relationship, "relationshipSchemaSlug"), literal("media-suggestion")),
+				entitySchema(source, input.entitySchemaSlug),
+				entitySchema(target, input.entitySchemaSlug),
+				input.where({ source, target }),
+			),
+			measures: [
+				measure("recommendingSourceCount", {
+					function: "countDistinct",
+					expr: column(source, "id"),
+				}),
+			],
+		}),
+	});
+};
+
+export const buildPersonalMediaSuggestionsQueryDocument = (input: {
+	readonly entitySchemaSlug: string;
+	readonly limit?: number | undefined;
+}) =>
+	recommendationOutput({
+		limit: input.limit ?? 20,
+		entitySchemaSlug: input.entitySchemaSlug,
+		where: ({ source, target }) =>
+			and(libraryExists(source, "sourceLibrary"), not(libraryExists(target, "targetLibrary"))),
+	});
+
+export const buildCollectionMediaSuggestionsQueryDocument = (input: {
+	readonly collectionId: string;
+	readonly entitySchemaSlug: string;
+	readonly limit?: number | undefined;
+}) => {
+	const collection = table("entity", "collection");
+	const membership = table("relationship", "collectionMembership");
+	return recommendationOutput({
+		limit: input.limit ?? 20,
+		entitySchemaSlug: input.entitySchemaSlug,
+		where: ({ source }) =>
+			and(
+				exists(collection, {
+					joins: [
+						join(
+							"inner",
+							membership,
+							eq(column(membership, "targetEntityId"), column(collection, "id")),
+						),
+					],
+					where: and(
+						entitySchema(collection, "collection"),
+						eq(column(collection, "id"), literal(input.collectionId)),
+						eq(column(membership, "sourceEntityId"), column(source, "id")),
+						eq(column(membership, "relationshipSchemaSlug"), literal("member-of")),
+					),
+				}),
+			),
+	});
+};
+
+export const buildTrendingMediaQueryDocument = (input: {
+	readonly fetchedAt: string;
+	readonly entitySchemaSlug: string;
+	readonly page?: number | undefined;
+	readonly limit?: number | undefined;
+}) => {
+	const relationship = table("relationship", "relationship");
+	const source = table("entity", "sourceEntity");
+	const target = table("entity", "targetEntity");
+	const rank = castNumber(jsonPath(column(relationship, "properties"), "rank"));
+	const fetchedAt = castDate(jsonPath(column(relationship, "properties"), "fetchedAt"));
+	return document({
+		trending: rows(relationship, {
+			page: input.page,
+			limit: input.limit,
+			orderBy: [ascending(rank), descending(column(target, "updatedAt"))],
+			fields: [...entityIdentityFields(target), field("rank", rank), field("fetchedAt", fetchedAt)],
+			joins: [
+				join("inner", source, eq(column(relationship, "sourceEntityId"), column(source, "id"))),
+				join("inner", target, eq(column(relationship, "targetEntityId"), column(target, "id"))),
+			],
+			where: and(
+				eq(column(relationship, "relationshipSchemaSlug"), literal("media-trending")),
+				entitySchema(source, input.entitySchemaSlug),
+				entitySchema(target, input.entitySchemaSlug),
+				eq(fetchedAt, castDate(literal(input.fetchedAt))),
+			),
+		}),
+	});
+};
 
 export const buildDefaultMediaSavedViewQueryDocument = <
 	TOrderBy extends QueryEngineNonEmptyArray<unknown> | undefined,
 >(input: {
-	orderBy?: TOrderBy;
-	page?: number | undefined;
-	limit?: number | undefined;
-	schemas: QueryEngineNonEmptyArray<string>;
+	readonly orderBy?: TOrderBy;
+	readonly page?: number | undefined;
+	readonly limit?: number | undefined;
+	readonly schemas: QueryEngineNonEmptyArray<string>;
 }) => {
-	const document = buildDefaultSavedViewQueryDocument(input);
+	const legacyDocument = buildDefaultSavedViewQueryDocument(input);
 	return {
-		...document,
+		...legacyDocument,
 		source: {
-			...document.source,
+			...legacyDocument.source,
 			where: queryEngineExists(
 				queryEngineEntitySource({
 					where: null,
@@ -46,8 +603,8 @@ export const buildDefaultMediaSavedViewQueryDocument = <
 					schemas: ["library"],
 					via: {
 						alias: "inLibrary",
+						entityRef: "entity",
 						schema: "in-library",
-						entityRef: entityAlias,
 						direction: "outgoing" as const,
 					},
 				}),
@@ -55,428 +612,3 @@ export const buildDefaultMediaSavedViewQueryDocument = <
 		},
 	};
 };
-
-const entityIdEquals = (entityId: string) =>
-	queryEngineComparison(
-		"eq",
-		queryEngineSystemRef(entityAlias, "id"),
-		queryEngineLiteral(entityId),
-	);
-
-const withEntityFilter = <TExpr>(entityId: string | undefined, expr: TExpr) =>
-	entityId === undefined ? expr : queryEngineAnd(entityIdEquals(entityId), expr);
-
-const eventExistsSource = (entityRef: string, eventSchemaSlug: string) =>
-	queryEngineNestedEventSource({
-		entityRef,
-		where: null,
-		schemas: [eventSchemaSlug],
-		alias: `${entityRef}${eventSchemaSlug}`,
-	});
-
-const showSeasonSource = <TWhere>(alias: string, where: TWhere) =>
-	queryEngineEntitySource({
-		alias,
-		where,
-		schemas: ["show-season"],
-		via: {
-			entityRef: entityAlias,
-			alias: `${alias}Relationship`,
-			schema: "show-to-show-season",
-			direction: "outgoing" as const,
-		},
-	});
-
-const seasonEpisodeSource = <TWhere>(seasonAlias: string, episodeAlias: string, where: TWhere) =>
-	queryEngineEntitySource({
-		where,
-		alias: episodeAlias,
-		schemas: ["show-episode"],
-		via: {
-			entityRef: seasonAlias,
-			direction: "outgoing" as const,
-			alias: `${episodeAlias}Relationship`,
-			schema: "show-season-to-show-episode",
-		},
-	});
-
-const podcastEpisodeSource = <TWhere>(episodeAlias: string, where: TWhere) =>
-	queryEngineEntitySource({
-		where,
-		alias: episodeAlias,
-		schemas: ["podcast-episode"],
-		via: {
-			entityRef: entityAlias,
-			direction: "outgoing" as const,
-			alias: `${episodeAlias}Relationship`,
-			schema: "podcast-to-podcast-episode",
-		},
-	});
-
-const completeEpisodeCount = <TSource>(source: TSource) =>
-	queryEngineAggregate(source, { function: "count" as const });
-
-const completedRegularSeasonSource = (suffix: string) => {
-	const seasonAlias = `completedSeason${suffix}`;
-	return showSeasonSource(
-		seasonAlias,
-		queryEngineAnd(
-			queryEngineComparison(
-				"gt",
-				queryEnginePropertyRef(seasonAlias, "show-season", "seasonNumber"),
-				queryEngineLiteral(0),
-			),
-			queryEngineComparison(
-				"eq",
-				completeEpisodeCount(
-					seasonEpisodeSource(
-						seasonAlias,
-						`completedEpisode${suffix}`,
-						queryEngineExists(eventExistsSource(`completedEpisode${suffix}`, "complete")),
-					),
-				),
-				completeEpisodeCount(seasonEpisodeSource(seasonAlias, `allEpisode${suffix}`, null)),
-			),
-		),
-	);
-};
-
-const regularSeasonSource = (alias: string) =>
-	showSeasonSource(
-		alias,
-		queryEngineComparison(
-			"gt",
-			queryEnginePropertyRef(alias, "show-season", "seasonNumber"),
-			queryEngineLiteral(0),
-		),
-	);
-
-export const buildShowDetailQueryDocument = (input: {
-	entityId: string;
-	seasonLimit: number;
-	episodeLimit: number;
-}) => {
-	const seasonAlias = "season";
-	const episodeAlias = "episode";
-	return buildQueryEngineEntityRowsDocument({
-		limit: 1,
-		schemas: ["show"],
-		alias: entityAlias,
-		where: entityIdEquals(input.entityId),
-		fields: queryEngineIdentityFields(entityAlias),
-		orderBy: [queryEngineOrder("asc", queryEngineSystemRef(entityAlias, "id"))],
-		include: [
-			queryEngineInclude({
-				key: "seasons",
-				limit: input.seasonLimit,
-				source: showSeasonSource(seasonAlias, null),
-				fields: [
-					...queryEngineIdentityFields(seasonAlias),
-					queryEngineField(
-						"seasonNumber",
-						queryEnginePropertyRef(seasonAlias, "show-season", "seasonNumber"),
-					),
-				],
-				orderBy: [
-					queryEngineOrder(
-						"asc",
-						queryEnginePropertyRef(seasonAlias, "show-season", "seasonNumber"),
-					),
-				],
-				include: [
-					queryEngineInclude({
-						key: "episodes",
-						limit: input.episodeLimit,
-						source: seasonEpisodeSource(seasonAlias, episodeAlias, null),
-						fields: [
-							...queryEngineIdentityFields(episodeAlias),
-							queryEngineField(
-								"episodeNumber",
-								queryEnginePropertyRef(episodeAlias, "show-episode", "episodeNumber"),
-							),
-							queryEngineField(
-								"hasProgress",
-								queryEngineExists(eventExistsSource(episodeAlias, "progress")),
-							),
-							queryEngineField(
-								"isComplete",
-								queryEngineExists(eventExistsSource(episodeAlias, "complete")),
-							),
-						],
-						orderBy: [
-							queryEngineOrder(
-								"asc",
-								queryEnginePropertyRef(episodeAlias, "show-episode", "episodeNumber"),
-							),
-						],
-					}),
-				],
-			}),
-		],
-	});
-};
-
-export const buildInProgressShowsQueryDocument = (input: {
-	page?: number | undefined;
-	limit?: number | undefined;
-	entityId?: string | undefined;
-}) =>
-	buildQueryEngineEntityRowsDocument({
-		page: input.page,
-		schemas: ["show"],
-		alias: entityAlias,
-		limit: input.limit,
-		fields: queryEngineIdentityFields(entityAlias),
-		where: withEntityFilter(
-			input.entityId,
-			queryEngineAnd(
-				queryEngineNot(queryEngineExists(eventExistsSource(entityAlias, "complete"))),
-				queryEngineExists(
-					showSeasonSource(
-						"watchingSeason",
-						queryEngineExists(
-							seasonEpisodeSource(
-								"watchingSeason",
-								"watchingEpisode",
-								queryEngineExists(eventExistsSource("watchingEpisode", "progress")),
-							),
-						),
-					),
-				),
-			),
-		),
-	});
-
-export const buildCompletedShowsQueryDocument = (input: {
-	page?: number | undefined;
-	limit?: number | undefined;
-	entityId?: string | undefined;
-}) =>
-	buildQueryEngineEntityRowsDocument({
-		page: input.page,
-		schemas: ["show"],
-		alias: entityAlias,
-		limit: input.limit,
-		fields: queryEngineIdentityFields(entityAlias),
-		where: withEntityFilter(
-			input.entityId,
-			queryEngineComparison(
-				"eq",
-				completeEpisodeCount(completedRegularSeasonSource("")),
-				completeEpisodeCount(regularSeasonSource("regularSeason")),
-			),
-		),
-	});
-
-export const buildPodcastDetailQueryDocument = (input: {
-	entityId: string;
-	episodeLimit: number;
-}) => {
-	const episodeAlias = "episode";
-	return buildQueryEngineEntityRowsDocument({
-		limit: 1,
-		alias: entityAlias,
-		schemas: ["podcast"],
-		where: entityIdEquals(input.entityId),
-		fields: queryEngineIdentityFields(entityAlias),
-		orderBy: [queryEngineOrder("asc", queryEngineSystemRef(entityAlias, "id"))],
-		include: [
-			queryEngineInclude({
-				key: "episodes",
-				limit: input.episodeLimit,
-				source: podcastEpisodeSource(episodeAlias, null),
-				fields: [
-					...queryEngineIdentityFields(episodeAlias),
-					queryEngineField(
-						"episodeNumber",
-						queryEnginePropertyRef(episodeAlias, "podcast-episode", "episodeNumber"),
-					),
-					queryEngineField(
-						"hasProgress",
-						queryEngineExists(eventExistsSource(episodeAlias, "progress")),
-					),
-					queryEngineField(
-						"isComplete",
-						queryEngineExists(eventExistsSource(episodeAlias, "complete")),
-					),
-				],
-				orderBy: [
-					queryEngineOrder(
-						"asc",
-						queryEnginePropertyRef(episodeAlias, "podcast-episode", "episodeNumber"),
-					),
-				],
-			}),
-		],
-	});
-};
-
-export const buildInProgressPodcastsQueryDocument = (input: {
-	page?: number | undefined;
-	limit?: number | undefined;
-	entityId?: string | undefined;
-}) =>
-	buildQueryEngineEntityRowsDocument({
-		page: input.page,
-		alias: entityAlias,
-		limit: input.limit,
-		schemas: ["podcast"],
-		fields: queryEngineIdentityFields(entityAlias),
-		where: withEntityFilter(
-			input.entityId,
-			queryEngineAnd(
-				queryEngineNot(queryEngineExists(eventExistsSource(entityAlias, "complete"))),
-				queryEngineExists(
-					podcastEpisodeSource(
-						"watchingEpisode",
-						queryEngineExists(eventExistsSource("watchingEpisode", "progress")),
-					),
-				),
-			),
-		),
-	});
-
-export const buildCompletedPodcastsQueryDocument = (input: {
-	page?: number | undefined;
-	limit?: number | undefined;
-	entityId?: string | undefined;
-}) =>
-	buildQueryEngineEntityRowsDocument({
-		page: input.page,
-		alias: entityAlias,
-		limit: input.limit,
-		schemas: ["podcast"],
-		fields: queryEngineIdentityFields(entityAlias),
-		where: withEntityFilter(
-			input.entityId,
-			queryEngineComparison(
-				"eq",
-				completeEpisodeCount(
-					podcastEpisodeSource(
-						"completedEpisode",
-						queryEngineExists(eventExistsSource("completedEpisode", "complete")),
-					),
-				),
-				completeEpisodeCount(podcastEpisodeSource("allEpisode", null)),
-			),
-		),
-	});
-
-const mediaSuggestionSource = <TWhere>(schemaSlug: string, where: TWhere) =>
-	queryEngineRelationshipSource({
-		where,
-		alias: "relationship",
-		schemas: ["media-suggestion"],
-		sourceEntity: { alias: "sourceEntity", schemas: [schemaSlug] },
-		targetEntity: { alias: "targetEntity", schemas: [schemaSlug] },
-	});
-
-const recommendationOutput = <TSource>(source: TSource, limit: number) =>
-	buildQueryEngineAggregateDocument({
-		limit,
-		source,
-		groupBy: queryEngineIdentityFields("targetEntity"),
-		orderBy: [queryEngineOrder("desc", queryEngineMeasureRef("recommendingSourceCount"))],
-		measures: [
-			{
-				key: "recommendingSourceCount",
-				aggregation: {
-					function: "count" as const,
-					distinctBy: queryEngineSystemRef("sourceEntity", "id"),
-				},
-			},
-		],
-	});
-
-const libraryExists = (entityRef: string, alias: string) =>
-	queryEngineExists(
-		queryEngineEntitySource({
-			alias,
-			where: null,
-			schemas: ["library"],
-			via: {
-				entityRef,
-				schema: "in-library",
-				alias: `${alias}Relationship`,
-				direction: "outgoing" as const,
-			},
-		}),
-	);
-
-export const buildPersonalMediaSuggestionsQueryDocument = (input: {
-	entitySchemaSlug: string;
-	limit?: number | undefined;
-}) =>
-	recommendationOutput(
-		mediaSuggestionSource(
-			input.entitySchemaSlug,
-			queryEngineAnd(
-				libraryExists("sourceEntity", "sourceLibrary"),
-				queryEngineNot(libraryExists("targetEntity", "targetLibrary")),
-			),
-		),
-		input.limit ?? 20,
-	);
-
-export const buildCollectionMediaSuggestionsQueryDocument = (input: {
-	collectionId: string;
-	entitySchemaSlug: string;
-	limit?: number | undefined;
-}) =>
-	recommendationOutput(
-		mediaSuggestionSource(
-			input.entitySchemaSlug,
-			queryEngineExists(
-				queryEngineEntitySource({
-					alias: "collection",
-					schemas: ["collection"],
-					where: queryEngineComparison(
-						"eq",
-						queryEngineSystemRef("collection", "id"),
-						queryEngineLiteral(input.collectionId),
-					),
-					via: {
-						schema: "member-of",
-						entityRef: "sourceEntity",
-						alias: "collectionMembership",
-						direction: "outgoing" as const,
-					},
-				}),
-			),
-		),
-		input.limit ?? 20,
-	);
-
-export const buildTrendingMediaQueryDocument = (input: {
-	fetchedAt: string;
-	entitySchemaSlug: string;
-	page?: number | undefined;
-	limit?: number | undefined;
-}) =>
-	buildQueryEngineRowsDocument({
-		page: input.page,
-		limit: input.limit,
-		source: queryEngineRelationshipSource({
-			alias: "relationship",
-			schemas: ["media-trending"],
-			where: queryEngineComparison(
-				"eq",
-				queryEnginePropertyRef("relationship", "media-trending", "fetchedAt"),
-				queryEngineLiteral(input.fetchedAt),
-			),
-			sourceEntity: { alias: "sourceEntity", schemas: [input.entitySchemaSlug] },
-			targetEntity: { alias: "targetEntity", schemas: [input.entitySchemaSlug] },
-		}),
-		fields: [
-			...queryEngineIdentityFields("targetEntity"),
-			queryEngineField("rank", queryEnginePropertyRef("relationship", "media-trending", "rank")),
-			queryEngineField(
-				"fetchedAt",
-				queryEnginePropertyRef("relationship", "media-trending", "fetchedAt"),
-			),
-		],
-		orderBy: [
-			queryEngineOrder("asc", queryEnginePropertyRef("relationship", "media-trending", "rank")),
-			queryEngineOrder("desc", queryEngineSystemRef("targetEntity", "updatedAt")),
-		],
-	});

@@ -16,7 +16,7 @@ Every media operation accepts a list and returns `results`. Per-item misses are 
 
 `resolve-episodes` builds one query document per reference. Query is rooted at episode entity and uses correlated parent traversals so filtering stays in PostgreSQL and each candidate appears once regardless of relationship count.
 
-Exactly one candidate resolves; zero or ambiguous candidates return `null`. Query engine applies executing-user visibility. Script must not fetch candidate episodes and filter them in memory.
+Exactly one candidate resolves; zero or ambiguous candidates return `null`. RyotQL applies executing-user visibility. Script must not fetch candidate episodes and filter them in memory.
 
 ### Media Monitoring
 
