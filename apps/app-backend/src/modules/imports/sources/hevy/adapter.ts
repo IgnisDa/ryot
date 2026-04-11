@@ -1,6 +1,6 @@
 import { dayjs } from "@ryot/ts-utils/dayjs";
 
-import { parseCsvText } from "../../csv";
+import { parseCsvText, readCsvCell, readOptionalCsvNumber, readRequiredCsvCell } from "../../csv";
 import {
 	determineWorkoutExerciseKind,
 	type WorkoutAdapterFailure,
@@ -25,66 +25,32 @@ type HevyRow = {
 	durationSeconds?: number;
 };
 
-const normalizeHeader = (value: string): string => value.toLowerCase().replace(/[^a-z0-9]/g, "");
-
-const readCell = (row: Record<string, string>, aliases: string[]): string | undefined => {
-	const wanted = new Set(aliases.map(normalizeHeader));
-	for (const [key, value] of Object.entries(row)) {
-		if (wanted.has(normalizeHeader(key))) {
-			const trimmed = value.trim();
-			return trimmed.length > 0 ? trimmed : undefined;
-		}
-	}
-	return undefined;
-};
-
-const readRequiredCell = (
-	row: Record<string, string>,
-	aliases: string[],
-	label: string,
-): string => {
-	const value = readCell(row, aliases);
-	if (!value) {
-		throw new Error(`Row is missing ${label}`);
-	}
-	return value;
-};
-
-const readOptionalNumber = (row: Record<string, string>, aliases: string[]): number | undefined => {
-	const value = readCell(row, aliases);
-	if (!value) {
-		return undefined;
-	}
-	const normalized = value.includes(".") ? value : value.replace(",", ".");
-	const parsed = Number(normalized);
-	if (Number.isNaN(parsed)) {
-		throw new Error(`Could not parse numeric value "${value}"`);
-	}
-	return parsed;
-};
-
 const parseHevyRow = (row: Record<string, string>, rowIdx: number): HevyRow => {
-	const distanceM = readOptionalNumber(row, ["distance_m", "Distance (m)"]);
-	const distanceKm = readOptionalNumber(row, ["distance_km"]);
+	const distanceM = readOptionalCsvNumber(row, ["distance_m", "Distance (m)"]);
+	const distanceKm = readOptionalCsvNumber(row, ["distance_km"]);
 	const distanceMeters = distanceM ?? (distanceKm !== undefined ? distanceKm * 1000 : undefined);
 	return {
-		itemIndex: rowIdx,
 		distanceMeters,
-		reps: readOptionalNumber(row, ["reps", "Reps"]),
-		description: readCell(row, ["description", "Description"]),
-		title: readRequiredCell(row, ["title", "Title"], "Title"),
-		exerciseNotes: readCell(row, ["exercise_notes", "Exercise Notes", "ExerciseNotes"]),
-		endTime: readRequiredCell(row, ["end_time", "End Time", "EndTime"], "End Time"),
-		setType: readRequiredCell(row, ["set_type", "Set Type", "SetType"], "Set Type"),
-		weight: readOptionalNumber(row, ["weight_kg", "weight_lbs", "Weight (kg)", "Weight (lbs)"]),
-		durationSeconds: readOptionalNumber(row, ["duration_seconds", "Duration (seconds)", "Seconds"]),
-		startTime: readRequiredCell(row, ["start_time", "Start Time", "StartTime"], "Start Time"),
-		setOrder: readRequiredCell(
+		itemIndex: rowIdx,
+		reps: readOptionalCsvNumber(row, ["reps", "Reps"]),
+		description: readCsvCell(row, ["description", "Description"]),
+		title: readRequiredCsvCell(row, ["title", "Title"], "Title"),
+		exerciseNotes: readCsvCell(row, ["exercise_notes", "Exercise Notes", "ExerciseNotes"]),
+		endTime: readRequiredCsvCell(row, ["end_time", "End Time", "EndTime"], "End Time"),
+		setType: readRequiredCsvCell(row, ["set_type", "Set Type", "SetType"], "Set Type"),
+		weight: readOptionalCsvNumber(row, ["weight_kg", "weight_lbs", "Weight (kg)", "Weight (lbs)"]),
+		durationSeconds: readOptionalCsvNumber(row, [
+			"duration_seconds",
+			"Duration (seconds)",
+			"Seconds",
+		]),
+		startTime: readRequiredCsvCell(row, ["start_time", "Start Time", "StartTime"], "Start Time"),
+		setOrder: readRequiredCsvCell(
 			row,
 			["set_order", "set_index", "Set Order", "SetOrder"],
 			"Set Order",
 		),
-		exerciseTitle: readRequiredCell(
+		exerciseTitle: readRequiredCsvCell(
 			row,
 			["exercise_title", "Exercise Title", "ExerciseTitle"],
 			"Exercise Title",
@@ -140,23 +106,6 @@ const sourceLabelForWorkout = (row: HevyRow): string => `${row.title} (${row.sta
 const sourceIdentifierForWorkout = (row: Pick<HevyRow, "startTime" | "title">): string =>
 	`${row.startTime}:${row.title}`;
 
-const pushFailure = (
-	failures: WorkoutAdapterFailure[],
-	input: {
-		message: string;
-		itemIndex: number;
-		sourceLabel: string;
-		sourceIdentifier: string;
-	},
-) => {
-	failures.push({
-		message: input.message,
-		itemIndex: input.itemIndex,
-		sourceLabel: input.sourceLabel,
-		sourceIdentifier: input.sourceIdentifier,
-	});
-};
-
 export const adaptHevyCsv = (csvText: string): WorkoutAdapterResult => {
 	const { headers, rows } = parseCsvText(csvText);
 	if (headers.length === 0) {
@@ -173,7 +122,7 @@ export const adaptHevyCsv = (csvText: string): WorkoutAdapterResult => {
 		try {
 			parsedRows.push(parseHevyRow(row, rowIdx));
 		} catch (error) {
-			pushFailure(failures, {
+			failures.push({
 				itemIndex: rowIdx,
 				sourceLabel: `Row ${rowIdx + 1}`,
 				sourceIdentifier: String(rowIdx + 1),
@@ -200,7 +149,7 @@ export const adaptHevyCsv = (csvText: string): WorkoutAdapterResult => {
 		const sourceLabel = sourceLabelForWorkout(firstRow);
 		const startedAt = parseHevyDate(firstRow.startTime);
 		if (!startedAt.isValid()) {
-			pushFailure(failures, {
+			failures.push({
 				sourceLabel,
 				sourceIdentifier,
 				itemIndex: firstRow.itemIndex,
@@ -224,7 +173,7 @@ export const adaptHevyCsv = (csvText: string): WorkoutAdapterResult => {
 			const sets = exerciseRows.map(toWorkoutSet);
 			const kind = determineWorkoutExerciseKind(sets);
 			if (!kind) {
-				pushFailure(failures, {
+				failures.push({
 					sourceLabel: `Exercise: ${exerciseName}`,
 					sourceIdentifier: `${sourceIdentifier}:${exerciseName}`,
 					itemIndex: exerciseRows[0]?.itemIndex ?? firstRow.itemIndex,
@@ -236,7 +185,7 @@ export const adaptHevyCsv = (csvText: string): WorkoutAdapterResult => {
 		}
 
 		if (exercises.length === 0) {
-			pushFailure(failures, {
+			failures.push({
 				sourceLabel,
 				sourceIdentifier,
 				itemIndex: firstRow.itemIndex,

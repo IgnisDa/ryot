@@ -3,48 +3,34 @@ import { type Job, WaitingChildrenError } from "bullmq";
 import { getTemporaryDirectory } from "~/lib/bun";
 
 import { cleanupImportFile, resolveSafeImportFilePath, validateFileExtension } from "./files";
-import type { ImportEntityRef, ImportMediaEntityGroup, ImportRunJobData } from "./jobs";
+import { failImportRun, sanitizeErrorMessage } from "./helpers";
+import type { ImportRunJobData } from "./jobs";
+import type { MediaImportAdapterResult, MediaImportJobInput } from "./media/import-processor";
 import { getImportRunById, updateImportRun } from "./repository";
 import type { ImportRunSource } from "./schemas";
 import { getKnownImportExtensions } from "./source-config";
-import { processGoodreadsImport } from "./sources/goodreads/processor";
-import { processHardcoverImport } from "./sources/hardcover/processor";
-import { processHevyImport } from "./sources/hevy/processor";
+import { processBookCsvImport } from "./sources/book/processor";
+import { adaptGoodreadsCsv } from "./sources/goodreads/adapter";
+import { adaptHardcoverCsv } from "./sources/hardcover/adapter";
+import { adaptHevyCsv } from "./sources/hevy/adapter";
 import { processOpenScaleImport } from "./sources/open-scale/processor";
-import { processStorygraphImport } from "./sources/storygraph/processor";
-import { processStrongAppImport } from "./sources/strong-app/processor";
+import { adaptStorygraphCsv } from "./sources/storygraph/adapter";
+import { adaptStrongAppCsv } from "./sources/strong-app/adapter";
 import { processTraktImport } from "./sources/trakt/processor";
+import type { WorkoutAdapterResult } from "./workout/domain";
+import { processWorkoutCsvImport } from "./workout/import-processor";
 
-const sanitizeErrorMessage = (error: unknown, fallback: string): string => {
-	if (!(error instanceof Error)) {
-		return fallback;
-	}
-	return error.message;
-};
-
-type ProcessImportJobInput = {
+type ProcessImportJobInput = ImportRunJobData & {
 	job: Job;
-	runId: string;
 	token?: string;
-	userId: string;
-	filePath?: string;
-	traktUsername?: string;
-	sourcePayload?: Record<string, unknown>;
-	providerEntityIndex?: number;
-	adapterFailureCount?: number;
-	mediaWriteGroupIndex?: number;
-	providerSandboxJobId?: string;
-	mediaWriteFailedItems?: number;
-	mediaWriteImportedItems?: number;
-	providerFailedIndices?: number[];
-	providerEntityRefs?: ImportEntityRef[];
-	providerEntityIds?: Array<string | null>;
-	importStep?: ImportRunJobData["importStep"];
-	mediaEntityGroups?: ImportMediaEntityGroup[];
 };
 
-type SourceProcessorInput = Omit<ProcessImportJobInput, "filePath"> & { filePath?: string };
+type SourceProcessorInput = ProcessImportJobInput;
 type FileSourceProcessorInput = SourceProcessorInput & { filePath: string };
+type BookCsvAdapter = (
+	csvText: string,
+) => Promise<MediaImportAdapterResult> | MediaImportAdapterResult;
+type WorkoutCsvAdapter = (csvText: string) => Promise<WorkoutAdapterResult> | WorkoutAdapterResult;
 
 type ImportSourceProcessorConfig =
 	| {
@@ -56,7 +42,7 @@ type ImportSourceProcessorConfig =
 			process: (input: SourceProcessorInput) => Promise<void>;
 	  };
 
-const mediaProcessorInput = (input: SourceProcessorInput) => ({
+const mediaProcessorInput = (input: SourceProcessorInput): MediaImportJobInput => ({
 	runId: input.runId,
 	userId: input.userId,
 	importStep: input.importStep,
@@ -80,49 +66,45 @@ const sourcePayloadInput = (input: SourceProcessorInput) => {
 	return username ? { username } : undefined;
 };
 
+const bookCsvProcessor = (
+	sourceName: string,
+	adapt: BookCsvAdapter,
+): ImportSourceProcessorConfig => ({
+	inputKind: "file",
+	process: (input) =>
+		processBookCsvImport(input.job, input.token, {
+			...mediaProcessorInput(input),
+			adapt,
+			sourceName,
+			filePath: input.filePath,
+		}),
+});
+
+const workoutCsvProcessor = (
+	sourceName: string,
+	adapt: WorkoutCsvAdapter,
+): ImportSourceProcessorConfig => ({
+	inputKind: "file",
+	process: (input) =>
+		processWorkoutCsvImport({
+			adapt,
+			sourceName,
+			runId: input.runId,
+			userId: input.userId,
+			filePath: input.filePath,
+		}),
+});
+
 const importSourceProcessors: Partial<Record<ImportRunSource, ImportSourceProcessorConfig>> = {
-	goodreads: {
-		inputKind: "file",
-		process: (input) =>
-			processGoodreadsImport(input.job, input.token, {
-				...mediaProcessorInput(input),
-				filePath: input.filePath,
-			}),
-	},
-	hardcover: {
-		inputKind: "file",
-		process: (input) =>
-			processHardcoverImport(input.job, input.token, {
-				...mediaProcessorInput(input),
-				filePath: input.filePath,
-			}),
-	},
-	hevy: {
-		inputKind: "file",
-		process: (input) =>
-			processHevyImport({ runId: input.runId, userId: input.userId, filePath: input.filePath }),
-	},
+	hevy: workoutCsvProcessor("Hevy", adaptHevyCsv),
+	goodreads: bookCsvProcessor("Goodreads", adaptGoodreadsCsv),
+	hardcover: bookCsvProcessor("Hardcover", adaptHardcoverCsv),
+	storygraph: bookCsvProcessor("StoryGraph", adaptStorygraphCsv),
+	strong_app: workoutCsvProcessor("StrongApp", adaptStrongAppCsv),
 	open_scale: {
 		inputKind: "file",
 		process: (input) =>
 			processOpenScaleImport({
-				runId: input.runId,
-				userId: input.userId,
-				filePath: input.filePath,
-			}),
-	},
-	storygraph: {
-		inputKind: "file",
-		process: (input) =>
-			processStorygraphImport(input.job, input.token, {
-				...mediaProcessorInput(input),
-				filePath: input.filePath,
-			}),
-	},
-	strong_app: {
-		inputKind: "file",
-		process: (input) =>
-			processStrongAppImport({
 				runId: input.runId,
 				userId: input.userId,
 				filePath: input.filePath,
@@ -136,15 +118,6 @@ const importSourceProcessors: Partial<Record<ImportRunSource, ImportSourceProces
 				sourcePayload: sourcePayloadInput(input),
 			}),
 	},
-};
-
-const failImportRun = async (runId: string, errorSummary: string): Promise<void> => {
-	await updateImportRun({
-		runId,
-		status: "failed",
-		finishedAt: new Date(),
-		errorSummary,
-	});
 };
 
 const resolveImportJobFilePath = async (input: {

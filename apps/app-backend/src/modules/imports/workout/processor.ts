@@ -5,14 +5,13 @@ import { getBuiltinEventSchemaBySlug } from "~/modules/event-schemas";
 import { createEventsWithTriggers, parseEventProperties } from "~/modules/events";
 import type { CreateEventBulkBody } from "~/modules/events";
 
+import { failImportRun, recordImportRunFailure, sanitizeErrorMessage } from "../helpers";
 import { createImportRunFailure, updateImportRun } from "../repository";
-import type { ImportRunFailureStage } from "../schemas";
 import {
 	buildWorkoutSetEventProperties,
 	normalizeExerciseIdentityName,
 	type WorkoutAdapterFailure,
 	type WorkoutAdapterResult,
-	type WorkoutExerciseKind,
 	type WorkoutImportExercise,
 	type WorkoutImportItem,
 } from "./domain";
@@ -54,38 +53,6 @@ const workoutImportProcessorDeps: WorkoutImportProcessorDeps = {
 	getBuiltinEntitySchemaBySlug,
 };
 
-const sanitizeErrorMessage = (error: unknown, fallback: string): string => {
-	if (!(error instanceof Error)) {
-		return fallback;
-	}
-	return error.message;
-};
-
-const recordWorkoutFailure = async (
-	deps: WorkoutImportProcessorDeps,
-	input: {
-		runId: string;
-		message: string;
-		itemIndex: number;
-		sourceLabel?: string | null;
-		stage: ImportRunFailureStage;
-		eventSchemaSlug?: string | null;
-		sourceIdentifier?: string | null;
-		entitySchemaSlug?: string | null;
-	},
-) => {
-	await deps.createImportRunFailure({
-		runId: input.runId,
-		stage: input.stage,
-		message: input.message,
-		itemIndex: input.itemIndex,
-		sourceLabel: input.sourceLabel ?? null,
-		eventSchemaSlug: input.eventSchemaSlug ?? null,
-		sourceIdentifier: input.sourceIdentifier ?? null,
-		entitySchemaSlug: input.entitySchemaSlug ?? null,
-	});
-};
-
 const loadWorkoutImportSchemas = async (deps: WorkoutImportProcessorDeps) => {
 	const exerciseSchema = await deps.getBuiltinEntitySchemaBySlug("exercise");
 	if (!exerciseSchema) {
@@ -108,10 +75,7 @@ const loadWorkoutImportSchemas = async (deps: WorkoutImportProcessorDeps) => {
 	return { exerciseSchema, workoutSchema, workoutSetEventSchema } satisfies WorkoutImportSchemas;
 };
 
-const exerciseIdentityKey = (input: { name: string; kind: WorkoutExerciseKind }): string =>
-	`${normalizeExerciseIdentityName(input.name)}|${input.kind}`;
-
-const exerciseIdentityKeyForValues = (input: { name: string; kind: string }): string =>
+const exerciseIdentityKey = (input: { name: string; kind: string }): string =>
 	`${normalizeExerciseIdentityName(input.name)}|${input.kind}`;
 
 const matchExerciseCandidate = (
@@ -121,10 +85,7 @@ const matchExerciseCandidate = (
 	const key = exerciseIdentityKey(exercise);
 	return candidates.find((candidate) => {
 		const kind = candidate.properties.kind;
-		return (
-			typeof kind === "string" &&
-			exerciseIdentityKeyForValues({ kind, name: candidate.name }) === key
-		);
+		return typeof kind === "string" && exerciseIdentityKey({ kind, name: candidate.name }) === key;
 	});
 };
 
@@ -335,14 +296,17 @@ const recordAdapterFailures = async (input: {
 }) => {
 	// oxlint-disable no-await-in-loop
 	for (const failure of input.failures) {
-		await recordWorkoutFailure(input.deps, {
-			runId: input.runId,
-			message: failure.message,
-			itemIndex: failure.itemIndex,
-			stage: "input_transformation",
-			sourceLabel: failure.sourceLabel,
-			sourceIdentifier: failure.sourceIdentifier,
-		});
+		await recordImportRunFailure(
+			{
+				runId: input.runId,
+				message: failure.message,
+				itemIndex: failure.itemIndex,
+				stage: "input_transformation",
+				sourceLabel: failure.sourceLabel,
+				sourceIdentifier: failure.sourceIdentifier,
+			},
+			input.deps.createImportRunFailure,
+		);
 	}
 	// oxlint-enable no-await-in-loop
 };
@@ -369,12 +333,11 @@ export const processWorkoutImportResultWithDeps = async (
 	try {
 		schemas = await loadWorkoutImportSchemas(deps);
 	} catch (error) {
-		await deps.updateImportRun({
-			runId: input.runId,
-			status: "failed",
-			finishedAt: new Date(),
-			errorSummary: sanitizeErrorMessage(error, "Workout import schemas are missing"),
-		});
+		await failImportRun(
+			input.runId,
+			sanitizeErrorMessage(error, "Workout import schemas are missing"),
+			deps.updateImportRun,
+		);
 		return;
 	}
 
@@ -383,12 +346,7 @@ export const processWorkoutImportResultWithDeps = async (
 		entitySchemaId: schemas.exerciseSchema.id,
 	});
 	if ("error" in candidatesResult) {
-		await deps.updateImportRun({
-			runId: input.runId,
-			status: "failed",
-			finishedAt: new Date(),
-			errorSummary: candidatesResult.message,
-		});
+		await failImportRun(input.runId, candidatesResult.message, deps.updateImportRun);
 		return;
 	}
 
@@ -414,15 +372,18 @@ export const processWorkoutImportResultWithDeps = async (
 			});
 			importedItems++;
 		} catch (error) {
-			await recordWorkoutFailure(deps, {
-				runId: input.runId,
-				stage: "database_commit",
-				entitySchemaSlug: "workout",
-				itemIndex: workout.itemIndex,
-				sourceLabel: workout.sourceLabel,
-				sourceIdentifier: workout.sourceIdentifier,
-				message: sanitizeErrorMessage(error, "Failed to import workout"),
-			});
+			await recordImportRunFailure(
+				{
+					runId: input.runId,
+					stage: "database_commit",
+					entitySchemaSlug: "workout",
+					itemIndex: workout.itemIndex,
+					sourceLabel: workout.sourceLabel,
+					sourceIdentifier: workout.sourceIdentifier,
+					message: sanitizeErrorMessage(error, "Failed to import workout"),
+				},
+				deps.createImportRunFailure,
+			);
 			failedItems++;
 		}
 

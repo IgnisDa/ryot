@@ -7,9 +7,6 @@ export type ResolveBookEntityRef = (input: {
 	sourceLabel: string;
 }) => Promise<ImportEntityRef | null>;
 
-const entityGroupKey = (ref: ImportEntityRef) =>
-	`${ref.entitySchemaSlug}|${ref.scriptSlug}|${ref.externalId}`;
-
 const getOccurredAtValue = (value: string): number => {
 	const occurredAt = dayjs(value).valueOf();
 	return Number.isFinite(occurredAt) ? occurredAt : 0;
@@ -28,19 +25,6 @@ export const assertRequiredHeaders = (
 	if (missing.length > 0) {
 		throw new Error(`${sourceName} CSV is missing required columns: ${missing.join(", ")}`);
 	}
-};
-
-export const getOrCreateGroup = (
-	groupMap: Map<string, ImportMediaEntityGroup>,
-	entityRef: ImportEntityRef,
-): ImportMediaEntityGroup => {
-	const key = entityGroupKey(entityRef);
-	let group = groupMap.get(key);
-	if (!group) {
-		group = { entityRef, events: [], collectionMemberships: [] };
-		groupMap.set(key, group);
-	}
-	return group;
 };
 
 export const finalizeEntityGroups = (
