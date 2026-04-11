@@ -45,7 +45,7 @@ const addToCollectionRoute = createAuthRoute(
 		summary: "Add an entity to a collection",
 		request: { body: jsonBody(addToCollectionBody) },
 		description:
-			"Add an entity to a collection by creating a member_of relationship from the entity to the collection.",
+			"Add an entity to a collection by creating a member-of relationship from the entity to the collection.",
 		responses: createStandardResponses({
 			successDescription: "Entity was added to collection",
 			successSchema: addToCollectionResponseSchema,
@@ -62,7 +62,7 @@ const removeFromCollectionRoute = createAuthRoute(
 		summary: "Remove an entity from a collection",
 		request: { body: jsonBody(removeFromCollectionBody) },
 		description:
-			"Remove an entity from a collection by deleting the member_of relationship from the entity to the collection.",
+			"Remove an entity from a collection by deleting the member-of relationship from the entity to the collection.",
 		responses: createStandardResponses({
 			successDescription: "Entity was removed from collection",
 			successSchema: removeFromCollectionResponseSchema,
