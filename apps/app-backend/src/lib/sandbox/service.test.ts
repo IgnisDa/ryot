@@ -15,6 +15,7 @@ const createJobData = (
 ): SandboxRunJobData => ({
 	userId: "user_1",
 	driverName: "main",
+	scriptId: "script_1",
 	code: 'driver("main", async function() { return 1; });',
 	...overrides,
 });
@@ -219,6 +220,7 @@ describe("SandboxService driverName support", () => {
 
 		await service.enqueue({
 			userId: "user_1",
+			scriptId: "script_1",
 			driverName: "search",
 			code: 'driver("search", async function() { return 1; });',
 		});
@@ -245,8 +247,6 @@ describe("SandboxService driverName support", () => {
 
 		await service.executeQueuedRun(createJobData({ driverName: "details" }));
 
-		expect(capturedOptions).toMatchObject({
-			driverName: "details",
-		});
+		expect(capturedOptions).toMatchObject({ driverName: "details" });
 	});
 });

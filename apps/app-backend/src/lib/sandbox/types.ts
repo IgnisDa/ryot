@@ -73,3 +73,7 @@ export type HttpCallResult =
 	| (ApiFailure & { data?: HttpCallErrorData });
 
 export type ConfigValueResult = ApiResult<unknown>;
+
+export type CachedValueResult = ApiResult<unknown>;
+
+export type CachedValueContext = { scriptId: string };

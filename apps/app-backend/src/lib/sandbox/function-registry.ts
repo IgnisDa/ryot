@@ -1,7 +1,9 @@
 import { executeQuery } from "./host-functions/execute-query";
 import { getAppConfigValue } from "./host-functions/get-app-config-value";
+import { getCachedValue } from "./host-functions/get-cached-value";
 import { getUserPreferences } from "./host-functions/get-user-preferences";
 import { httpCall } from "./host-functions/http-call";
+import { setCachedValue } from "./host-functions/set-cached-value";
 import type { HostFunction, HostFunctionFactory } from "./types";
 
 const createHostFunctionFactory = <TContext extends Record<string, unknown>>(
@@ -15,6 +17,8 @@ const createHostFunctionFactory = <TContext extends Record<string, unknown>>(
 export const hostFunctionRegistry = {
 	httpCall: createHostFunctionFactory(httpCall),
 	executeQuery: createHostFunctionFactory(executeQuery),
+	getCachedValue: createHostFunctionFactory(getCachedValue),
+	setCachedValue: createHostFunctionFactory(setCachedValue),
 	getAppConfigValue: createHostFunctionFactory(getAppConfigValue),
 	getUserPreferences: createHostFunctionFactory(getUserPreferences),
 } satisfies Record<string, HostFunctionFactory>;
