@@ -75,9 +75,13 @@ export function getCurrentWorkspace(
 	);
 }
 
+export function getWorkspaceHref(workspace: string) {
+	return `/${encodeURIComponent(workspace)}` as const;
+}
+
 export function getNavigationHref(workspace: string, item: Pick<NavigationItem, "kind" | "slug">) {
 	if (item.kind === "home") {
-		return { pathname: "/[workspace]" as const, params: { workspace } };
+		return getWorkspaceHref(workspace);
 	}
 	if (item.kind === "collection") {
 		return { params: { entityId: item.slug }, pathname: "/e/[entityId]" as const };
