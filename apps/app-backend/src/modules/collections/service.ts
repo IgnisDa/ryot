@@ -1,6 +1,9 @@
 import type { AppSchema } from "@ryot/ts-utils";
 import { resolveRequiredString } from "@ryot/ts-utils";
-import { parseAppSchemaProperties } from "~/lib/app/schema-validation";
+import {
+	parseAppSchemaPropertiesSafe,
+	type ValidationIssue,
+} from "~/lib/app/schema-validation";
 import {
 	type ServiceResult,
 	serviceData,
@@ -29,6 +32,9 @@ const collectionNotFoundError = "Collection not found";
 const entityNotFoundError = "Entity not found";
 const invalidMembershipPropertiesError =
 	"Membership properties validation failed";
+
+const formatValidationIssues = (issues: ValidationIssue[]) =>
+	issues.map((i) => `${i.path}: ${i.message}`).join("; ");
 
 export type CollectionServiceDeps = {
 	createCollectionForUser: typeof createCollectionForUser;
@@ -138,19 +144,17 @@ export const addToCollection = async (
 		| undefined;
 	let validatedProperties: Record<string, unknown>;
 	if (membershipSchema) {
-		try {
-			validatedProperties = parseAppSchemaProperties({
-				kind: "Membership",
-				properties: input.body.properties,
-				propertiesSchema: membershipSchema,
-			});
-		} catch (error) {
-			const message =
-				error instanceof Error
-					? error.message
-					: invalidMembershipPropertiesError;
-			return serviceError("validation", message);
+		const parseResult = parseAppSchemaPropertiesSafe({
+			properties: input.body.properties,
+			propertiesSchema: membershipSchema,
+		});
+		if (!parseResult.success) {
+			return serviceError(
+				"validation",
+				`${invalidMembershipPropertiesError}: ${formatValidationIssues(parseResult.issues)}`,
+			);
 		}
+		validatedProperties = parseResult.data;
 	} else {
 		validatedProperties = input.body.properties ?? {};
 	}
