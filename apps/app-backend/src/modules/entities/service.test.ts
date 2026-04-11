@@ -266,7 +266,7 @@ describe("createEntity", () => {
 				userId: null,
 				id: "schema_1",
 				isBuiltin: true,
-				propertiesSchema: {},
+				propertiesSchema: { title: { type: "string" as const } },
 			}),
 			findEntityByExternalIdForUser: async () => undefined,
 			createEntityForUser: async () => createdEntity,
