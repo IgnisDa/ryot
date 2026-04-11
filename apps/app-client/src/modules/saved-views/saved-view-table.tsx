@@ -9,7 +9,8 @@ import { formatSavedViewValue } from "./display-value";
 import { SavedViewImageView } from "./saved-view-image";
 import { SavedViewTintOverlay, useSavedViewTint } from "./saved-view-tint-view";
 
-const columnClassName = (index: number) => (index === 0 ? "min-w-0 flex-[2]" : "min-w-0 flex-1");
+const columnClassName = (index: number) =>
+	index === 0 ? "min-w-0 flex-1" : "w-16 shrink-0 md:w-28";
 
 function SavedViewTableRow(props: {
 	item: SavedViewTableItem;
@@ -24,7 +25,7 @@ function SavedViewTableRow(props: {
 		<Link asChild href={getEntityHref(props.item.entityId)}>
 			<Pressable
 				accessibilityRole="link"
-				className="relative h-12 flex-row items-center gap-4 overflow-hidden border-b border-border focus-visible:outline-2 focus-visible:outline-accent"
+				className="relative h-15 flex-row items-center gap-3 overflow-hidden border-b border-border focus-visible:outline-2 focus-visible:outline-accent md:gap-4"
 			>
 				<SavedViewTintOverlay gradientStops={gradientStops} />
 				{props.item.cells.map((cell, index) => (
@@ -33,7 +34,7 @@ function SavedViewTableRow(props: {
 						className={clsx(
 							columnClassName(index),
 							"justify-center",
-							index === 0 && "flex-row items-center gap-2.5",
+							index === 0 && "flex-row items-center gap-3",
 						)}
 					>
 						{index === 0 && (
@@ -41,15 +42,15 @@ function SavedViewTableRow(props: {
 								onError={onImageError}
 								image={props.item.image}
 								managedUrls={props.managedUrls}
-								className="h-9 w-6.5 shrink-0 rounded-[3px] bg-surface-2"
+								className="h-13 w-9 shrink-0 rounded-sm bg-surface-2"
 							/>
 						)}
 						<Text
 							numberOfLines={1}
 							className={
 								index === 0
-									? "min-w-0 flex-1 font-ui text-sm text-text"
-									: "min-w-0 font-ui text-right text-[13.5px] text-text-muted"
+									? "min-w-0 flex-1 font-ui text-[15px] text-text"
+									: "min-w-0 font-ui text-right text-sm text-text-muted"
 							}
 						>
 							{formatSavedViewValue(cell.value)}
@@ -67,8 +68,8 @@ export function SavedViewTable(props: {
 }) {
 	const headers = props.items[0]?.cells ?? [];
 	return (
-		<View className="w-full">
-			<View className="h-8.5 flex-row items-center gap-4 border-b border-border">
+		<View className="w-full max-w-6xl">
+			<View className="h-8.5 flex-row items-center gap-3 border-b border-border md:gap-4">
 				{headers.map((cell, index) => (
 					<View key={cell.key} className={clsx(columnClassName(index), "justify-center")}>
 						<Text
