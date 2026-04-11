@@ -2,13 +2,11 @@ import type { SavedViewRecord } from "@ryot/ryotql-recipes/saved-view-records";
 import { useLocalSearchParams } from "expo-router";
 import { Pressable, Text, View } from "react-native";
 
-import { useAuthClient } from "@/modules/auth/client";
 import { NavigationStatus } from "@/modules/navigation/navigation-status";
 import { SavedViewReadyContent } from "@/modules/saved-views/saved-view-content";
 import { SavedViewFrame } from "@/modules/saved-views/saved-view-frame";
 import { savedViewError, type SavedViewError } from "@/modules/saved-views/state";
 import { useSavedViewRecord, useSavedViewResult } from "@/modules/saved-views/use-saved-view";
-import { useServerUrl } from "@/modules/server/state";
 
 function ErrorState(props: SavedViewError & { onRetry?: () => void }) {
 	return (
@@ -24,8 +22,8 @@ function ErrorState(props: SavedViewError & { onRetry?: () => void }) {
 	);
 }
 
-function SavedViewContent(props: { record: SavedViewRecord; serverUrl: string; userId: string }) {
-	const result = useSavedViewResult(props);
+function SavedViewContent(props: { record: SavedViewRecord }) {
+	const result = useSavedViewResult(props.record);
 	if (result.state.status === "loading") {
 		return (
 			<SavedViewFrame viewSlug={props.record.slug}>
@@ -42,7 +40,7 @@ function SavedViewContent(props: { record: SavedViewRecord; serverUrl: string; u
 	}
 	return (
 		<SavedViewReadyContent
-			{...props}
+			record={props.record}
 			state={result.state}
 			refresh={result.refresh}
 			loadMore={result.loadMore}
@@ -51,8 +49,8 @@ function SavedViewContent(props: { record: SavedViewRecord; serverUrl: string; u
 	);
 }
 
-function SavedViewRecordLoader(props: { slug: string; serverUrl: string; userId: string }) {
-	const result = useSavedViewRecord(props);
+function SavedViewRecordLoader(props: { slug: string }) {
+	const result = useSavedViewRecord(props.slug);
 	if (result.state.status === "loading") {
 		return (
 			<SavedViewFrame viewSlug={props.slug}>
@@ -74,38 +72,15 @@ function SavedViewRecordLoader(props: { slug: string; serverUrl: string; userId:
 			</SavedViewFrame>
 		);
 	}
-	return (
-		<SavedViewContent
-			userId={props.userId}
-			serverUrl={props.serverUrl}
-			record={result.state.record}
-		/>
-	);
+	return <SavedViewContent record={result.state.record} />;
 }
 
 export default function SavedViewScreen() {
-	const client = useAuthClient();
-	const serverUrl = useServerUrl();
-	const { data: session, isPending } = client.useSession();
 	const { viewSlug } = useLocalSearchParams<{ viewSlug?: string | string[] }>();
 	const slug = (Array.isArray(viewSlug) ? viewSlug[0] : viewSlug)?.trim();
 
 	if (!slug) {
 		return <NavigationStatus title="Saved view not found" detail="The view URL is invalid." />;
 	}
-	if (isPending || !serverUrl) {
-		return (
-			<SavedViewFrame viewSlug={slug}>
-				<NavigationStatus title="Loading saved view..." />
-			</SavedViewFrame>
-		);
-	}
-	if (!session) {
-		return (
-			<SavedViewFrame viewSlug={slug}>
-				<NavigationStatus title="Unable to load saved view" />
-			</SavedViewFrame>
-		);
-	}
-	return <SavedViewRecordLoader slug={slug} serverUrl={serverUrl} userId={session.user.id} />;
+	return <SavedViewRecordLoader slug={slug} />;
 }

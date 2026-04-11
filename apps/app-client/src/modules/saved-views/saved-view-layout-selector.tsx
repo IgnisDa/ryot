@@ -2,6 +2,7 @@ import { useAtomSet, useAtomValue } from "@effect/atom-react";
 import clsx from "clsx";
 import { Pressable, View } from "react-native";
 
+import { useApiScope } from "@/api/scope";
 import { AppIcon } from "@/modules/icons";
 
 import { savedViewLayoutAtom } from "./atoms";
@@ -14,26 +15,30 @@ const layouts = [
 
 export type SavedViewLayout = (typeof layouts)[number]["value"];
 
-export function SavedViewLayoutSelector(props: {
-	userId: string;
-	viewSlug: string;
-	serverUrl: string;
-}) {
-	const layoutAtom = savedViewLayoutAtom(props);
+export const useSavedViewLayout = (viewSlug: string) => {
+	const scope = useApiScope();
+	const layoutAtom = savedViewLayoutAtom({ ...scope, viewSlug });
 	const layout = useAtomValue(layoutAtom);
 	const setLayout = useAtomSet(layoutAtom);
+	return [layout, setLayout] as const;
+};
+
+export function SavedViewLayoutSelector(props: {
+	value: SavedViewLayout;
+	onChange: (layout: SavedViewLayout) => void;
+}) {
 	return (
 		<View
 			accessibilityRole="radiogroup"
 			className="h-9 flex-row items-center self-start rounded-pill bg-surface-2 p-0.75 md:h-8.5 md:items-stretch md:rounded-md md:border md:border-border-strong"
 		>
 			{layouts.map((option) => {
-				const selected = layout === option.value;
+				const selected = props.value === option.value;
 				return (
 					<Pressable
 						key={option.value}
 						accessibilityRole="radio"
-						onPress={() => setLayout(option.value)}
+						onPress={() => props.onChange(option.value)}
 						accessibilityState={{ checked: selected }}
 						accessibilityLabel={`${option.label} view`}
 						className={clsx(
