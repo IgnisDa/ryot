@@ -384,6 +384,166 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/media/overview": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get the built-in media overview */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Built-in media overview sections */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            data: {
+                                upNext: {
+                                    items: {
+                                        id: string;
+                                        title: string;
+                                        image: {
+                                            key: string;
+                                            /** @enum {string} */
+                                            kind: "s3";
+                                        } | {
+                                            url: string;
+                                            /** @enum {string} */
+                                            kind: "remote";
+                                        } | unknown;
+                                        subtitle: {
+                                            raw?: number | null;
+                                            label?: string | null;
+                                        };
+                                        /** @enum {string} */
+                                        entitySchemaSlug: "book" | "anime" | "manga";
+                                        /** Format: date-time */
+                                        backlogAt: string;
+                                        labels: {
+                                            /** @enum {string} */
+                                            cta: "Start";
+                                        };
+                                    }[];
+                                    count: number;
+                                };
+                                continue: {
+                                    items: {
+                                        id: string;
+                                        title: string;
+                                        image: {
+                                            key: string;
+                                            /** @enum {string} */
+                                            kind: "s3";
+                                        } | {
+                                            url: string;
+                                            /** @enum {string} */
+                                            kind: "remote";
+                                        } | unknown;
+                                        subtitle: {
+                                            raw?: number | null;
+                                            label?: string | null;
+                                        };
+                                        /** @enum {string} */
+                                        entitySchemaSlug: "book" | "anime" | "manga";
+                                        /** Format: date-time */
+                                        progressAt: string;
+                                        labels: {
+                                            cta: string;
+                                            progress: string;
+                                        };
+                                        progress: {
+                                            totalUnits?: number | null;
+                                            currentUnits?: number | null;
+                                            progressPercent?: number | null;
+                                        };
+                                    }[];
+                                    count: number;
+                                };
+                                rateThese: {
+                                    items: {
+                                        id: string;
+                                        title: string;
+                                        image: {
+                                            key: string;
+                                            /** @enum {string} */
+                                            kind: "s3";
+                                        } | {
+                                            url: string;
+                                            /** @enum {string} */
+                                            kind: "remote";
+                                        } | unknown;
+                                        subtitle: {
+                                            raw?: number | null;
+                                            label?: string | null;
+                                        };
+                                        /** @enum {string} */
+                                        entitySchemaSlug: "book" | "anime" | "manga";
+                                        /** Format: date-time */
+                                        completedAt: string;
+                                        /** Format: date-time */
+                                        reviewAt: string | null;
+                                        rating: number | null;
+                                    }[];
+                                    count: number;
+                                };
+                            };
+                        };
+                    };
+                };
+                /** @description Built-in media overview configuration is invalid */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: components["schemas"]["ValidationFailedError"];
+                        };
+                    };
+                };
+                /** @description Request is unauthenticated */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: components["schemas"]["UnauthenticatedError"];
+                        };
+                    };
+                };
+                /** @description Built-in media overview configuration is missing required built-in schemas */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: components["schemas"]["NotFoundError"];
+                        };
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/trackers": {
         parameters: {
             query?: never;
