@@ -11,6 +11,16 @@ import { manifest as manifest7 } from "./scripts/automations/notification.sandbo
 import { manifest as manifest8 } from "./scripts/automations/radarr-push.sandbox";
 import { manifest as manifest9 } from "./scripts/automations/review-created.sandbox";
 import { manifest as manifest10 } from "./scripts/automations/sonarr-push.sandbox";
+import { manifest as manifest143 } from "./scripts/integrations/sinks/browser-extension.sandbox";
+import { manifest as manifest144 } from "./scripts/integrations/sinks/emby.sandbox";
+import { manifest as manifest145 } from "./scripts/integrations/sinks/generic-json.sandbox";
+import { manifest as manifest146 } from "./scripts/integrations/sinks/jellyfin.sandbox";
+import { manifest as manifest147 } from "./scripts/integrations/sinks/kodi.sandbox";
+import { manifest as manifest148 } from "./scripts/integrations/sinks/plex.sandbox";
+import { manifest as manifest149 } from "./scripts/integrations/yanks/audiobookshelf.sandbox";
+import { manifest as manifest150 } from "./scripts/integrations/yanks/komga.sandbox";
+import { manifest as manifest151 } from "./scripts/integrations/yanks/plex.sandbox";
+import { manifest as manifest152 } from "./scripts/integrations/yanks/youtube-music.sandbox";
 import { manifest as manifest11 } from "./scripts/operations/metadata-lookup.sandbox";
 import { manifest as manifest12 } from "./scripts/operations/resolve-episodes.sandbox";
 import { manifest as manifest13 } from "./scripts/providers/company/anilist-details.sandbox";
@@ -178,6 +188,16 @@ export const mediaScripts = [
 	directScript(manifest10, "scripts/automations/sonarr-push.sandbox.ts"),
 	directScript(manifest11, "scripts/operations/metadata-lookup.sandbox.ts"),
 	directScript(manifest12, "scripts/operations/resolve-episodes.sandbox.ts"),
+	directScript(manifest143, "scripts/integrations/sinks/browser-extension.sandbox.ts"),
+	directScript(manifest144, "scripts/integrations/sinks/emby.sandbox.ts"),
+	directScript(manifest145, "scripts/integrations/sinks/generic-json.sandbox.ts"),
+	directScript(manifest146, "scripts/integrations/sinks/jellyfin.sandbox.ts"),
+	directScript(manifest147, "scripts/integrations/sinks/kodi.sandbox.ts"),
+	directScript(manifest148, "scripts/integrations/sinks/plex.sandbox.ts"),
+	directScript(manifest149, "scripts/integrations/yanks/audiobookshelf.sandbox.ts"),
+	directScript(manifest150, "scripts/integrations/yanks/komga.sandbox.ts"),
+	directScript(manifest151, "scripts/integrations/yanks/plex.sandbox.ts"),
+	directScript(manifest152, "scripts/integrations/yanks/youtube-music.sandbox.ts"),
 	providerScript(
 		manifest13,
 		"scripts/providers/company/anilist-details.sandbox.ts",

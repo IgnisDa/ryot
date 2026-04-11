@@ -1,7 +1,6 @@
 import { defaultUserPreferences } from "@ryot/contract/auth-middleware";
 import { unknownToMessage } from "@ryot/contract/errors";
 import { CreateEventItem, type CreateEventsResponse } from "@ryot/contract/modules/events/schemas";
-import { isIntegrationProvider } from "@ryot/contract/modules/integrations/types";
 import { QueryDocument } from "@ryot/contract/modules/query-engine/language";
 import {
 	EntityId,
@@ -79,6 +78,11 @@ const decodeQueryDocument = Schema.decodeUnknown(QueryDocument);
 
 const hashPayload = (payload: unknown) =>
 	new Bun.CryptoHasher("sha256").update(stableStringify(payload)).digest("base64url");
+
+const toSandboxIntegrationSettings = (settings: Readonly<Record<string, unknown>>) =>
+	Object.fromEntries(
+		Object.entries(settings).map(([key, value]) => [key, toSandboxJsonValue(value)]),
+	);
 
 const requireNonEmptyString = (value: unknown, message: string): Effect.Effect<string, string> => {
 	if (typeof value !== "string" || value.trim().length === 0) {
@@ -454,7 +458,9 @@ export const makeAdditionalSandboxApiFunctions = (): Effect.Effect<
 										integration
 											? Effect.succeed({
 													...integration,
-													providerSpecifics: toSandboxJsonValue(integration.providerSpecifics),
+													providerSpecifics: toSandboxIntegrationSettings(
+														integration.providerSpecifics,
+													),
 												})
 											: Effect.fail("Integration not found"),
 									),
@@ -537,11 +543,6 @@ export const makeAdditionalSandboxApiFunctions = (): Effect.Effect<
 					if (provider !== undefined && typeof provider !== "string") {
 						return yield* sandboxHostFailure("listIntegrations provider must be a string");
 					}
-					if (typeof provider === "string" && !isIntegrationProvider(provider)) {
-						return yield* sandboxHostFailure(
-							"listIntegrations provider must be a supported provider",
-						);
-					}
 					if (isDisabled !== undefined && typeof isDisabled !== "boolean") {
 						return yield* sandboxHostFailure("listIntegrations isDisabled must be a boolean");
 					}
@@ -557,7 +558,7 @@ export const makeAdditionalSandboxApiFunctions = (): Effect.Effect<
 							Effect.map((rows) =>
 								rows.map((integration) => ({
 									...integration,
-									providerSpecifics: toSandboxJsonValue(integration.providerSpecifics),
+									providerSpecifics: toSandboxIntegrationSettings(integration.providerSpecifics),
 								})),
 							),
 						),
