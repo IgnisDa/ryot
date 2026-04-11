@@ -497,6 +497,7 @@ describe("getRecentActivityItems", () => {
 					{
 						rating: null,
 						id: "event-1",
+						entityId: "entity-1",
 						eventSchemaSlug: "progress",
 						occurredAt: date("2024-03-20T12:00:00Z"),
 						entity: {
@@ -508,6 +509,7 @@ describe("getRecentActivityItems", () => {
 					{
 						rating: 5,
 						id: "event-2",
+						entityId: "entity-2",
 						eventSchemaSlug: "review",
 						occurredAt: date("2024-03-21T12:00:00Z"),
 						entity: {
@@ -558,6 +560,7 @@ describe("getRecentActivityItems", () => {
 					{
 						rating: null,
 						id: "event-1",
+						entityId: "entity-1",
 						occurredAt: timestamp,
 						eventSchemaSlug: "review",
 						entity: {
@@ -569,6 +572,7 @@ describe("getRecentActivityItems", () => {
 					{
 						rating: null,
 						id: "event-2",
+						entityId: "entity-2",
 						occurredAt: timestamp,
 						eventSchemaSlug: "review",
 						entity: {

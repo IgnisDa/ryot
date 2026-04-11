@@ -62,6 +62,7 @@ export interface ActivityEventView {
 	time: string;
 	title: string;
 	action: string;
+	entityId: string;
 	imageUrl?: string;
 	rating: number | null;
 	entitySchemaSlug: string;

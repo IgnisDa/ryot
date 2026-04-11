@@ -47,6 +47,7 @@ export type RateTheseSourceItem = BuiltInMediaOverviewSourceItem & {
 
 export type RecentActivitySourceItem = {
 	id: string;
+	entityId: string;
 	occurredAt: Date;
 	rating: number | null;
 	eventSchemaSlug: BuiltinMediaEventSchemaSlug;
@@ -271,6 +272,7 @@ export const buildRecentActivitySectionResponse = (
 			id: item.id,
 			entity: item.entity,
 			rating: item.rating,
+			entityId: item.entityId,
 			occurredAt: item.occurredAt,
 			eventSchemaSlug: item.eventSchemaSlug,
 		}));
