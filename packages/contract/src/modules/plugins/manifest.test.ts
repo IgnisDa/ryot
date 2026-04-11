@@ -159,6 +159,7 @@ const manifest = definePlugin({
 		entityAutomations: [],
 		signalAutomations: [],
 		relationshipAutomations: [],
+		providerEntityImportAutomations: [],
 	},
 	scripts: [
 		{
@@ -950,6 +951,28 @@ describe("definePlugin", () => {
 							scriptSlug: "missing.script",
 							entitySchemaSlug: "entity.test",
 						},
+					],
+				},
+			}),
+		).toThrow();
+		expect(() =>
+			Schema.decodeUnknownSync(PluginManifest)({
+				...manifest,
+				bindings: {
+					...manifest.bindings,
+					providerEntityImportAutomations: [
+						{ entitySchemaSlug: "entity.test", scriptSlug: "missing.script" },
+					],
+				},
+			}),
+		).toThrow();
+		expect(() =>
+			Schema.decodeUnknownSync(PluginManifest)({
+				...manifest,
+				bindings: {
+					...manifest.bindings,
+					providerEntityImportAutomations: [
+						{ entitySchemaSlug: "entity.test", scriptSlug: "provider.test.details" },
 					],
 				},
 			}),

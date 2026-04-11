@@ -180,6 +180,19 @@ export const validatePluginManifestReferences = (
 				new Set(Object.keys(snapshot.entitySchemas)),
 			);
 		}
+		for (const binding of manifest.bindings.providerEntityImportAutomations) {
+			yield* assertReference("Provider entity import automation", binding.scriptSlug, scriptSlugs);
+			yield* assertReference(
+				"Provider entity import automation",
+				binding.entitySchemaSlug,
+				new Set(Object.keys(snapshot.entitySchemas)),
+			);
+			if (manifest.scripts.find(({ slug }) => slug === binding.scriptSlug)?.kind !== "automation") {
+				return yield* fail(
+					`Provider entity import automation script ${binding.scriptSlug} must be an automation script`,
+				);
+			}
+		}
 		for (const binding of manifest.bindings.relationshipAutomations) {
 			yield* assertReference("Relationship automation", binding.scriptSlug, scriptSlugs);
 			yield* assertReference(
