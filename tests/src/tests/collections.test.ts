@@ -3,10 +3,9 @@ import { Client as PgClient } from "pg";
 import {
 	createAuthenticatedClient,
 	createCollection,
-	createEntity,
-	createEntitySchema,
-	createTracker,
+	createTrackerWithSchemaAndEntity,
 	findBuiltinSchemaWithProviders,
+	getFirstProviderScriptId,
 	seedMediaEntity,
 } from "../fixtures";
 import { getTestDatabaseUrl } from "../setup";
@@ -321,57 +320,36 @@ describe("POST /collections", () => {
 				description: "For testing add to collection",
 			});
 
-			// Create a tracker and entity schema
-			const tracker = await createTracker(client, cookies, {
-				name: `Test Tracker ${crypto.randomUUID()}`,
-			});
-
-			const { schemaId: entitySchemaId } = await createEntitySchema(
+			// Create a tracker, schema, and entity
+			const { entityId } = await createTrackerWithSchemaAndEntity(
 				client,
 				cookies,
-				{
-					trackerId: tracker.trackerId,
-					propertiesSchema: {
-						fields: { title: { type: "string" as const, label: "Title" } },
-					},
-				},
 			);
-
-			// Create an entity
-			const entity = await createEntity(client, cookies, {
-				image: null,
-				entitySchemaId,
-				name: "Test Entity",
-				properties: { title: "Test Title" },
-			});
 
 			// Add entity to collection
 			const { data, response } = await client.POST("/collections/memberships", {
 				headers: { Cookie: cookies },
-				body: { entityId: entity.id, collectionId: collection.id },
+				body: { entityId, collectionId: collection.id },
 			});
 
 			expect(response.status).toBe(200);
 			expect(data?.data?.memberOf?.id).toBeDefined();
 			expect(data?.data?.memberOf?.relationshipSchemaId).toBeDefined();
-			expect(data?.data?.memberOf?.sourceEntityId).toBe(entity.id);
+			expect(data?.data?.memberOf?.sourceEntityId).toBe(entityId);
 			expect(data?.data?.memberOf?.targetEntityId).toBe(collection.id);
 		});
 
 		it("adds a global entity to a collection and upserts in_library", async () => {
 			const { client, cookies, email } = await createAuthenticatedClient();
 			const { schema } = await findBuiltinSchemaWithProviders(client, cookies);
-			const provider = schema.providers[0];
-			if (!provider) {
-				throw new Error("No provider found");
-			}
+			const providerScriptId = getFirstProviderScriptId(schema);
 
 			const entity = await seedMediaEntity({
 				image: null,
 				userId: null,
 				properties: {},
 				entitySchemaId: schema.id,
-				sandboxScriptId: provider.scriptId,
+				sandboxScriptId: providerScriptId,
 				externalId: `global-entity-${crypto.randomUUID()}`,
 				name: `Global Built-in Entity ${crypto.randomUUID()}`,
 			});
@@ -431,34 +409,17 @@ describe("POST /collections", () => {
 				},
 			});
 
-			// Create an entity
-			const tracker = await createTracker(client, cookies, {
-				name: `Test Tracker ${crypto.randomUUID()}`,
-			});
-
-			const { schemaId: entitySchemaId } = await createEntitySchema(
+			// Create a tracker, schema, and entity
+			const { entityId } = await createTrackerWithSchemaAndEntity(
 				client,
 				cookies,
-				{
-					trackerId: tracker.trackerId,
-					propertiesSchema: {
-						fields: { title: { type: "string" as const, label: "Title" } },
-					},
-				},
 			);
-
-			const entity = await createEntity(client, cookies, {
-				image: null,
-				entitySchemaId,
-				name: "Inception",
-				properties: { title: "Inception" },
-			});
 
 			// Add entity to collection with custom properties
 			const { data, response } = await client.POST("/collections/memberships", {
 				headers: { Cookie: cookies },
 				body: {
-					entityId: entity.id,
+					entityId,
 					collectionId: collection.id,
 					properties: { rating: 5, recommendedBy: "John" },
 				},
@@ -484,32 +445,15 @@ describe("POST /collections", () => {
 				},
 			});
 
-			const tracker = await createTracker(client, cookies, {
-				name: `Upsert Tracker ${crypto.randomUUID()}`,
-			});
-
-			const { schemaId: entitySchemaId } = await createEntitySchema(
+			const { entityId } = await createTrackerWithSchemaAndEntity(
 				client,
 				cookies,
-				{
-					trackerId: tracker.trackerId,
-					propertiesSchema: {
-						fields: { title: { type: "string" as const, label: "Title" } },
-					},
-				},
 			);
-
-			const entity = await createEntity(client, cookies, {
-				image: null,
-				entitySchemaId,
-				name: "Upsert Entity",
-				properties: { title: "Upsert Entity" },
-			});
 
 			const first = await client.POST("/collections/memberships", {
 				headers: { Cookie: cookies },
 				body: {
-					entityId: entity.id,
+					entityId,
 					collectionId: collection.id,
 					properties: { rating: 4, recommendedBy: "Alice" },
 				},
@@ -518,7 +462,7 @@ describe("POST /collections", () => {
 			const second = await client.POST("/collections/memberships", {
 				headers: { Cookie: cookies },
 				body: {
-					entityId: entity.id,
+					entityId,
 					collectionId: collection.id,
 					properties: { rating: 5, recommendedBy: "Bob" },
 				},
@@ -539,27 +483,10 @@ describe("POST /collections", () => {
 			const { client, cookies } = await createAuthenticatedClient();
 
 			// Create a tracker and entity
-			const tracker = await createTracker(client, cookies, {
-				name: `Test Tracker ${crypto.randomUUID()}`,
-			});
-
-			const { schemaId: entitySchemaId } = await createEntitySchema(
+			const { entityId } = await createTrackerWithSchemaAndEntity(
 				client,
 				cookies,
-				{
-					trackerId: tracker.trackerId,
-					propertiesSchema: {
-						fields: { title: { type: "string" as const, label: "Title" } },
-					},
-				},
 			);
-
-			const entity = await createEntity(client, cookies, {
-				image: null,
-				entitySchemaId,
-				name: "Test Entity",
-				properties: { title: "Test Title" },
-			});
 
 			// Try to add to non-existent collection
 			const { response, error } = await client.POST(
@@ -567,7 +494,7 @@ describe("POST /collections", () => {
 				{
 					headers: { Cookie: cookies },
 					body: {
-						entityId: entity.id,
+						entityId,
 						collectionId: "nonexistent-collection-id",
 					},
 				},
@@ -615,35 +542,18 @@ describe("POST /collections", () => {
 				description: "Should not be accessible by User B",
 			});
 
-			// User B creates an entity
-			const tracker = await createTracker(clientB, cookiesB, {
-				name: `Test Tracker ${crypto.randomUUID()}`,
-			});
-
-			const { schemaId: entitySchemaId } = await createEntitySchema(
+			// User B creates a tracker, schema, and entity
+			const { entityId } = await createTrackerWithSchemaAndEntity(
 				clientB,
 				cookiesB,
-				{
-					trackerId: tracker.trackerId,
-					propertiesSchema: {
-						fields: { title: { type: "string" as const, label: "Title" } },
-					},
-				},
 			);
-
-			const entity = await createEntity(clientB, cookiesB, {
-				image: null,
-				entitySchemaId,
-				name: "User B's Entity",
-				properties: { title: "Test Title" },
-			});
 
 			// User B tries to add their entity to User A's collection
 			const { response, error } = await clientB.POST(
 				"/collections/memberships",
 				{
 					headers: { Cookie: cookiesB },
-					body: { entityId: entity.id, collectionId: collection.id },
+					body: { entityId, collectionId: collection.id },
 				},
 			);
 
@@ -674,36 +584,18 @@ describe("POST /collections", () => {
 			description: "For testing remove from collection",
 		});
 
-		// Create a tracker and entity schema
-		const tracker = await createTracker(client, cookies, {
-			name: `Test Tracker ${crypto.randomUUID()}`,
-		});
-
-		const { schemaId: entitySchemaId } = await createEntitySchema(
+		// Create a tracker, schema, and entity
+		const { entityId } = await createTrackerWithSchemaAndEntity(
 			client,
 			cookies,
-			{
-				trackerId: tracker.trackerId,
-				propertiesSchema: {
-					fields: { title: { type: "string" as const, label: "Title" } },
-				},
-			},
 		);
-
-		// Create an entity
-		const entity = await createEntity(client, cookies, {
-			image: null,
-			entitySchemaId,
-			name: "Test Entity",
-			properties: { title: "Test Title" },
-		});
 
 		// Add entity to collection first
 		const { data: addData, response: addResponse } = await client.POST(
 			"/collections/memberships",
 			{
 				headers: { Cookie: cookies },
-				body: { entityId: entity.id, collectionId: collection.id },
+				body: { entityId, collectionId: collection.id },
 			},
 		);
 
@@ -715,13 +607,13 @@ describe("POST /collections", () => {
 			"/collections/memberships",
 			{
 				headers: { Cookie: cookies },
-				body: { entityId: entity.id, collectionId: collection.id },
+				body: { entityId, collectionId: collection.id },
 			},
 		);
 
 		expect(removeResponse.status).toBe(200);
 		expect(removeData?.data?.memberOf?.relationshipSchemaId).toBeDefined();
-		expect(removeData?.data?.memberOf?.sourceEntityId).toBe(entity.id);
+		expect(removeData?.data?.memberOf?.sourceEntityId).toBe(entityId);
 		expect(removeData?.data?.memberOf?.targetEntityId).toBe(collection.id);
 	});
 
@@ -735,34 +627,17 @@ describe("POST /collections", () => {
 		});
 
 		// Create a tracker and entity
-		const tracker = await createTracker(client, cookies, {
-			name: `Test Tracker ${crypto.randomUUID()}`,
-		});
-
-		const { schemaId: entitySchemaId } = await createEntitySchema(
+		const { entityId } = await createTrackerWithSchemaAndEntity(
 			client,
 			cookies,
-			{
-				trackerId: tracker.trackerId,
-				propertiesSchema: {
-					fields: { title: { type: "string" as const, label: "Title" } },
-				},
-			},
 		);
-
-		const entity = await createEntity(client, cookies, {
-			image: null,
-			entitySchemaId,
-			name: "Test Entity",
-			properties: { title: "Test Title" },
-		});
 
 		// Try to remove entity that was never added to collection
 		const { response, error } = await client.DELETE(
 			"/collections/memberships",
 			{
 				headers: { Cookie: cookies },
-				body: { entityId: entity.id, collectionId: collection.id },
+				body: { entityId, collectionId: collection.id },
 			},
 		);
 
@@ -774,27 +649,10 @@ describe("POST /collections", () => {
 		const { client, cookies } = await createAuthenticatedClient();
 
 		// Create an entity
-		const tracker = await createTracker(client, cookies, {
-			name: `Test Tracker ${crypto.randomUUID()}`,
-		});
-
-		const { schemaId: entitySchemaId } = await createEntitySchema(
+		const { entityId } = await createTrackerWithSchemaAndEntity(
 			client,
 			cookies,
-			{
-				trackerId: tracker.trackerId,
-				propertiesSchema: {
-					fields: { title: { type: "string" as const, label: "Title" } },
-				},
-			},
 		);
-
-		const entity = await createEntity(client, cookies, {
-			image: null,
-			entitySchemaId,
-			name: "Test Entity",
-			properties: { title: "Test Title" },
-		});
 
 		// Try to remove from non-existent collection
 		const { response, error } = await client.DELETE(
@@ -802,7 +660,7 @@ describe("POST /collections", () => {
 			{
 				headers: { Cookie: cookies },
 				body: {
-					entityId: entity.id,
+					entityId,
 					collectionId: "nonexistent-collection-id",
 				},
 			},
@@ -825,35 +683,18 @@ describe("POST /collections", () => {
 			description: "Should not be accessible by User B",
 		});
 
-		// User B creates an entity
-		const tracker = await createTracker(clientB, cookiesB, {
-			name: `Test Tracker ${crypto.randomUUID()}`,
-		});
-
-		const { schemaId: entitySchemaId } = await createEntitySchema(
+		// User B creates a tracker, schema, and entity
+		const { entityId } = await createTrackerWithSchemaAndEntity(
 			clientB,
 			cookiesB,
-			{
-				trackerId: tracker.trackerId,
-				propertiesSchema: {
-					fields: { title: { type: "string" as const, label: "Title" } },
-				},
-			},
 		);
-
-		const entity = await createEntity(clientB, cookiesB, {
-			image: null,
-			entitySchemaId,
-			name: "User B's Entity",
-			properties: { title: "Test Title" },
-		});
 
 		// User B tries to remove their entity from User A's collection
 		const { response, error } = await clientB.DELETE(
 			"/collections/memberships",
 			{
 				headers: { Cookie: cookiesB },
-				body: { entityId: entity.id, collectionId: collection.id },
+				body: { entityId, collectionId: collection.id },
 			},
 		);
 
