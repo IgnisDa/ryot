@@ -1,8 +1,8 @@
 import { Effect as RuntimeEffect, Schema } from "@ryot/sandbox-sdk/effect";
 
-import type { ExecutionMetadata, WorkflowManifest } from "./core.js";
-import { SANDBOX_SCRIPT_DEFINITION } from "./driver.js";
-import { type JsonValue, jsonValueSchema, type SandboxHostError } from "./wire.js";
+import type { ExecutionMetadata, WorkflowManifest } from "./core";
+import { SANDBOX_SCRIPT_DEFINITION } from "./driver";
+import { type JsonValue, jsonValueSchema, type SandboxHostError } from "./wire";
 
 const strictStruct = <Fields extends Record<string, Schema.Struct.Field>>(fields: Fields) =>
 	Schema.Struct(fields).annotations({ parseOptions: { onExcessProperty: "error" as const } });
@@ -211,4 +211,4 @@ export const Effect = {
 	succeed: RuntimeEffect.succeed,
 };
 export { Schema };
-export { defineManifest } from "./driver.js";
+export { defineManifest } from "./driver";

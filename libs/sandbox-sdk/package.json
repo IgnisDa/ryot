@@ -69,7 +69,6 @@
 		}
 	},
 	"scripts": {
-		"build": "tsc",
 		"test": "bun --bun run vitest run",
 		"check": "tsc && tsc --project tests/tsconfig.json && oxfmt . --write && oxlint . --type-aware --fix"
 	},

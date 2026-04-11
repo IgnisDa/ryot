@@ -4,8 +4,8 @@ import type {
 	SandboxHost,
 	SandboxHostMethodMap,
 	SandboxManifest,
-} from "./core.js";
-import { Effect, Schema } from "./effect.js";
+} from "./core";
+import { Effect, Schema } from "./effect";
 
 type SandboxTestHost<Manifest extends SandboxManifest> = Omit<
 	SandboxHost<Manifest["capabilities"]>,

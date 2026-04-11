@@ -1,7 +1,6 @@
 {
 	"name": "@ryot/graphql",
 	"scripts": {
-		"build": "tsc",
 		"check": "tsc"
 	},
 	"dependencies": {
