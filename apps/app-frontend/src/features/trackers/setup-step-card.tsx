@@ -1,5 +1,6 @@
 import { Badge, Box, Button, Group, Paper, Stack, Text } from "@mantine/core";
 import { Check } from "lucide-react";
+import { match } from "ts-pattern";
 
 type SetupStepStatus = "pending" | "active" | "completed";
 
@@ -15,25 +16,21 @@ interface SetupStepCardProps {
 	onSecondaryAction?: () => void;
 }
 
-const getStatusStyles = (status: SetupStepStatus) => {
-	switch (status) {
-		case "completed":
-			return {
-				opacity: 0.7,
-				borderColor: "var(--mantine-color-green-6)",
-			};
-		case "active":
-			return {
-				opacity: 1,
-				borderColor: "var(--mantine-color-accent-6)",
-			};
-		case "pending":
-			return {
-				opacity: 0.5,
-				borderColor: "var(--mantine-color-default-border)",
-			};
-	}
-};
+const getStatusStyles = (status: SetupStepStatus) =>
+	match(status)
+		.with("completed", () => ({
+			opacity: 0.7,
+			borderColor: "var(--mantine-color-green-6)",
+		}))
+		.with("active", () => ({
+			opacity: 1,
+			borderColor: "var(--mantine-color-accent-6)",
+		}))
+		.with("pending", () => ({
+			opacity: 0.5,
+			borderColor: "var(--mantine-color-default-border)",
+		}))
+		.exhaustive();
 
 export function SetupStepCard(props: SetupStepCardProps) {
 	const styles = getStatusStyles(props.status);
