@@ -4,7 +4,7 @@
 
 **Type:** AFK
 
-**Status:** todo
+**Status:** done
 
 ## What to build
 
@@ -24,16 +24,16 @@ feature should not depend on the generic entity creation contract. See the paren
       built-in `collection` schema model.
 - [x] Creating a collection persists a user-owned collection entity with
       `properties.membershipPropertiesSchema` stored as provided.
-- [ ] `membershipPropertiesSchema` is validated as a real `AppSchema` before the collection is
+- [x] `membershipPropertiesSchema` is validated as a real `AppSchema` before the collection is
       persisted.
-- [ ] Invalid nested collection templates fail with a stable validation error and do not create an
+- [x] Invalid nested collection templates fail with a stable validation error and do not create an
       entity.
-- [ ] The create-collection contract does not require callers to use the generic entity creation
+- [x] The create-collection contract does not require callers to use the generic entity creation
       route.
-- [ ] Backend tests cover template parsing and create-collection validation behavior.
-- [ ] `tests/src` includes end-to-end coverage for successful collection creation and invalid
+- [x] Backend tests cover template parsing and create-collection validation behavior.
+- [x] `tests/src` includes end-to-end coverage for successful collection creation and invalid
       template rejection.
-- [ ] `bun run typecheck`, `bun test`, and `bun run lint` pass in `apps/app-backend`.
+- [x] `bun run typecheck`, `bun test`, and `bun run lint` pass in `apps/app-backend`.
 
 ## Blocked by
 
