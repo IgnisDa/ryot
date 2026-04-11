@@ -6,6 +6,7 @@ describe("hostFunctionRegistry", () => {
 		expect(Object.keys(hostFunctionRegistry).sort()).toEqual([
 			"executeQuery",
 			"getAppConfigValue",
+			"getUserPreferences",
 			"httpCall",
 		]);
 	});

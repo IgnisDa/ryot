@@ -4,6 +4,10 @@ export {
 	authenticationBuiltinTrackers,
 } from "./bootstrap/manifests";
 export {
+	defaultUserPreferences,
+	userPreferencesSchema,
+} from "./schemas";
+export {
 	buildAuthenticationSavedViewInputs,
 	buildAuthenticationTrackerEntitySchemaLinks,
 	buildAuthenticationTrackerInputs,

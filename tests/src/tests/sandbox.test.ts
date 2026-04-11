@@ -127,6 +127,37 @@ return result.data.items;
 		expect(value[0]?.id).toBeDefined();
 	});
 
+	it("completes a script that uses getUserPreferences", async () => {
+		const { client, cookies } = await createAuthenticatedClient();
+		const { jobId } = await enqueueSandboxScript(client, cookies, {
+			code: `
+const result = await getUserPreferences();
+if (!result.success) {
+  throw new Error(result.error);
+}
+return result.data;
+`,
+		});
+
+		const result = await pollSandboxResult(client, cookies, jobId);
+
+		expect(result.status).toBe("completed");
+		if (result.status !== "completed") {
+			throw new Error("Expected sandbox job to complete");
+		}
+
+		expect(result.error).toBeNull();
+
+		const prefs = result.value as {
+			languages: {
+				providers: Array<{ source: string; preferredLanguage: string }>;
+			};
+		};
+		expect(prefs.languages.providers).toHaveLength(1);
+		expect(prefs.languages.providers[0]?.source).toBe("audible");
+		expect(prefs.languages.providers[0]?.preferredLanguage).toBe("US");
+	});
+
 	it("returns a completed result when the script throws", async () => {
 		const { client, cookies } = await createAuthenticatedClient();
 		const { jobId } = await enqueueSandboxScript(client, cookies, {
