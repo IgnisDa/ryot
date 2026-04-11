@@ -20,17 +20,17 @@ it. See the parent PRD sections **Built-in collection schema** and **Validation 
 
 ## Acceptance criteria
 
-- [ ] Built-in bootstrap seeds a real `collection` entity schema as part of the default platform
+- [x] Built-in bootstrap seeds a real `collection` entity schema as part of the default platform
       model.
-- [ ] The built-in `Collections` saved view targets the built-in `collection` entity schema
+- [x] The built-in `Collections` saved view targets the built-in `collection` entity schema
       directly.
-- [ ] Object properties support an explicit unknown-key policy with strict behavior as the default.
-- [ ] The collection schema foundation can preserve a nested `membershipPropertiesSchema` object
+- [x] Object properties support an explicit unknown-key policy with strict behavior as the default.
+- [x] The collection schema foundation can preserve a nested `membershipPropertiesSchema` object
       without weakening strict validation for unrelated schemas.
-- [ ] Backend tests cover the new object-property unknown-key behavior.
-- [ ] `tests/src` includes an API-level assertion that a fresh authenticated user can observe the
+- [x] Backend tests cover the new object-property unknown-key behavior.
+- [x] `tests/src` includes an API-level assertion that a fresh authenticated user can observe the
       built-in collection schema foundation through existing bootstrap-visible surfaces.
-- [ ] `bun run typecheck`, `bun test`, and `bun run lint` pass in `apps/app-backend`.
+- [x] `bun run typecheck`, `bun test`, and `bun run lint` pass in `apps/app-backend`.
 
 ## Blocked by
 
