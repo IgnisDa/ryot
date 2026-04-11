@@ -1,6 +1,7 @@
 import { describe, expect, it } from "bun:test";
 import type { SandboxEnqueueOptions } from "~/lib/sandbox/types";
 import {
+	createSandboxScript,
 	enqueueSandbox,
 	getSandboxResult,
 	resolveSandboxJobId,
@@ -23,7 +24,7 @@ describe("enqueueSandbox", () => {
 		const result = await enqueueSandbox(
 			{
 				userId: "user_1",
-				body: { kind: "script", driverName: "search", scriptId: "script_1" },
+				body: { driverName: "search", scriptId: "script_1" },
 			},
 			{
 				getSandboxJobByIdForUser: async () => null,
@@ -42,7 +43,7 @@ describe("enqueueSandbox", () => {
 		const result = await enqueueSandbox(
 			{
 				userId: "user_1",
-				body: { kind: "script", driverName: "search", scriptId: "script_1" },
+				body: { driverName: "search", scriptId: "script_1" },
 			},
 			{
 				getSandboxJobByIdForUser: async () => null,
@@ -64,7 +65,6 @@ describe("enqueueSandbox", () => {
 			{
 				userId: "user_1",
 				body: {
-					kind: "script",
 					scriptId: "script_1",
 					driverName: "search",
 					context: { source: "test" },
@@ -90,44 +90,6 @@ describe("enqueueSandbox", () => {
 			code: "runBuiltin()",
 			scriptId: "script_1",
 			context: { source: "test" },
-			apiFunctionDescriptors: [
-				{ context: {}, functionKey: "httpCall" },
-				{ context: {}, functionKey: "getAppConfigValue" },
-				{ context: { userId: "user_1" }, functionKey: "executeQuery" },
-				{ context: { userId: "user_1" }, functionKey: "getUserPreferences" },
-			],
-		});
-	});
-
-	it("enqueues inline code with API function descriptors", async () => {
-		let queuedInput: SandboxEnqueueOptions | undefined;
-
-		const result = await enqueueSandbox(
-			{
-				userId: "user_1",
-				body: {
-					kind: "code",
-					driverName: "main",
-					context: { source: "test" },
-					code: 'driver("main", async function() { return 1; });',
-				},
-			},
-			{
-				enqueueSandboxJob: async (input) => {
-					queuedInput = input;
-					return { jobId: "job_1" };
-				},
-				getSandboxJobByIdForUser: async () => null,
-				getSandboxScriptForUser: async () => undefined,
-			},
-		);
-
-		expect(result).toEqual({ data: { jobId: "job_1" } });
-		expect(queuedInput).toMatchObject({
-			userId: "user_1",
-			driverName: "main",
-			context: { source: "test" },
-			code: 'driver("main", async function() { return 1; });',
 			apiFunctionDescriptors: [
 				{ context: {}, functionKey: "httpCall" },
 				{ context: {}, functionKey: "getAppConfigValue" },
@@ -218,5 +180,64 @@ describe("getSandboxResult", () => {
 		expect(result).toEqual({
 			data: { status: "failed", error: "Sandbox job result unavailable" },
 		});
+	});
+});
+
+describe("createSandboxScript", () => {
+	const mockCreated = {
+		id: "script_1",
+		name: "My Script",
+		slug: "my-script",
+		code: 'driver("main", async function() { return 1; });',
+	};
+
+	it("returns validation when the name is blank", async () => {
+		const result = await createSandboxScript(
+			{
+				userId: "user_1",
+				body: { name: "   ", code: mockCreated.code },
+			},
+			{
+				createSandboxScriptForUser: async () => mockCreated,
+				getSandboxScriptBySlugForUser: async () => undefined,
+			},
+		);
+
+		expect(result).toMatchObject({ error: "validation" });
+	});
+
+	it("returns validation when a script with the same slug already exists", async () => {
+		const result = await createSandboxScript(
+			{
+				userId: "user_1",
+				body: { name: "My Script", code: mockCreated.code },
+			},
+			{
+				getSandboxScriptBySlugForUser: async () => ({ id: "existing_script" }),
+				createSandboxScriptForUser: async () => {
+					throw new Error("should not be called");
+				},
+			},
+		);
+
+		expect(result).toEqual({
+			error: "validation",
+			message: "A sandbox script with this slug already exists",
+		});
+	});
+
+	it("returns the created script on success", async () => {
+		const result = await createSandboxScript(
+			{
+				userId: "user_1",
+				body: { name: "My Script", code: mockCreated.code },
+			},
+			{
+				createSandboxScriptForUser: async () => mockCreated,
+				getSandboxScriptBySlugForUser: async () => undefined,
+			},
+		);
+
+		expect(result).toEqual({ data: mockCreated });
 	});
 });

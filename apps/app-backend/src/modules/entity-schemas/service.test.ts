@@ -412,7 +412,7 @@ describe("getEntitySchemaById", () => {
 });
 
 describe("enqueueEntitySearch", () => {
-	it("forwards kind, driverName, scriptId, and context to the sandbox", async () => {
+	it("forwards driverName, scriptId, and context to the sandbox", async () => {
 		let capturedBody: Record<string, unknown> | undefined;
 		let capturedUserId: string | undefined;
 		const deps = createEntitySearchDeps({
@@ -433,7 +433,6 @@ describe("enqueueEntitySearch", () => {
 
 		expect(capturedUserId).toBe("user_1");
 		expect(capturedBody).toMatchObject({
-			kind: "script",
 			driverName: "search",
 			scriptId: "script_1",
 			context: { page: 1, query: "test" },
