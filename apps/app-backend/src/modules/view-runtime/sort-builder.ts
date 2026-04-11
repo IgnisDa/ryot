@@ -213,6 +213,12 @@ const getSortExpressionType = <
 		return { parsedReference, propertyType };
 	}
 
+	if (parsedReference.type === "computed-field") {
+		throw new ViewRuntimeValidationError(
+			"Computed field references are not supported in sort fields",
+		);
+	}
+
 	const foundSchema = getSchemaForReference(
 		input.context.schemaMap,
 		parsedReference,
@@ -229,7 +235,11 @@ const getSortExpressionType = <
 
 const requireEntityQualifiedSortFields = (field: string[]) => {
 	for (const reference of field) {
-		if (reference.startsWith("event.") || reference.startsWith("entity.")) {
+		if (
+			reference.startsWith("event.") ||
+			reference.startsWith("entity.") ||
+			reference.startsWith("computed.")
+		) {
 			continue;
 		}
 
