@@ -12,6 +12,48 @@ export type ViewRuntimeSchemaLike = {
 	propertiesSchema: AppSchema;
 };
 
+const topLevelRuntimeColumns = {
+	image: { display: true, filter: false },
+	name: { display: true, filter: true, property: { type: "string" as const } },
+	createdAt: {
+		filter: true,
+		display: true,
+		property: { type: "datetime" as const },
+	},
+	updatedAt: {
+		filter: true,
+		display: true,
+		property: { type: "datetime" as const },
+	},
+};
+
+type TopLevelRuntimeColumn = keyof typeof topLevelRuntimeColumns;
+
+export const sortFilterBuiltins: ReadonlySet<string> = new Set(
+	Object.entries(topLevelRuntimeColumns)
+		.filter(([, value]) => value.filter)
+		.map(([key]) => key),
+);
+
+export const displayBuiltins: ReadonlySet<string> = new Set(
+	Object.entries(topLevelRuntimeColumns)
+		.filter(([, value]) => value.display)
+		.map(([key]) => key),
+);
+
+export const getTopLevelPropertyDefinition = (
+	column: string,
+): AppPropertyDefinition | null => {
+	const config = topLevelRuntimeColumns[column as TopLevelRuntimeColumn];
+	return config && "property" in config ? config.property : null;
+};
+
+export const getTopLevelPropertyType = (
+	column: string,
+): PropertyType | null => {
+	return getTopLevelPropertyDefinition(column)?.type ?? null;
+};
+
 export const parseFieldPath = (field: string): RuntimeRef => {
 	if (field.startsWith("@")) {
 		return { type: "top-level", column: field.slice(1) };
