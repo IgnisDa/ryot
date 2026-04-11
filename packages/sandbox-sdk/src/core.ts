@@ -1,5 +1,6 @@
 import type { RyotQLDocument } from "@ryot/contract/modules/ryotql/language";
 import type { SandboxHostCapability } from "@ryot/contract/modules/sandbox/wire";
+import type { AppSchema } from "@ryot/contract/schema/property-schema";
 import type { Effect } from "@ryot/sandbox-sdk/effect";
 import { Schema } from "@ryot/sandbox-sdk/effect";
 
@@ -9,6 +10,7 @@ const strictStruct = <Fields extends Schema.Struct.Fields>(fields: Fields) =>
 	Schema.Struct(fields).annotate({ parseOptions: { onExcessProperty: "error" as const } });
 
 const nonEmptyString = Schema.String.pipe(Schema.check(Schema.isMinLength(1)));
+const appSchema = Schema.Unknown as Schema.Codec<AppSchema, unknown>;
 const positiveInteger = Schema.Number.pipe(
 	Schema.check(Schema.isInt()),
 	Schema.check(Schema.isGreaterThan(0)),
@@ -689,7 +691,11 @@ const sandboxManifestBaseFields = {
 
 export const sandboxManifestSchema = Schema.Union([
 	strictStruct({ ...sandboxManifestBaseFields, kind: Schema.Literal("script") }),
-	strictStruct({ ...sandboxManifestBaseFields, kind: Schema.Literal("provider") }),
+	strictStruct({
+		...sandboxManifestBaseFields,
+		kind: Schema.Literal("provider"),
+		searchOptionsSchema: Schema.optional(appSchema),
+	}),
 	strictStruct({ ...sandboxManifestBaseFields, kind: Schema.Literal("operation") }),
 	strictStruct({ ...sandboxManifestBaseFields, kind: Schema.Literal("automation") }),
 	strictStruct({

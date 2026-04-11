@@ -404,16 +404,69 @@ export default defineProvider({
 	}),
 );
 
+it.effect("preserves provider search options metadata", () =>
+	Effect.gen(function* () {
+		const source = `
+import { defineManifest } from "@ryot/sandbox-sdk/driver";
+import { Effect } from "@ryot/sandbox-sdk/effect";
+import { defineProvider } from "@ryot/sandbox-sdk/provider";
+
+export const manifest = defineManifest({
+	kind: "provider",
+	capabilities: [],
+	name: "Provider Search",
+	slug: "provider.search",
+	requiredPluginConfigKeys: [],
+	requiredSystemConfigKeys: [],
+	searchOptionsSchema: {
+		unknownKeys: "strict",
+		fields: {
+			passRawQuery: {
+				type: "boolean",
+				label: "Pass raw query",
+				description: "Pass the query without modification",
+			},
+		},
+	},
+});
+
+export default defineProvider({
+	manifest,
+	operation: "search",
+	run: () => Effect.die("unused"),
+});
+`;
+		const compiled = yield* compilePluginSandboxSourceEntries({ "provider.sandbox.ts": source }, [
+			{ kind: "provider", providerOperation: "search", entry: "provider.sandbox.ts" },
+		]);
+
+		const compiledManifest = compiled[0]?.compiled.manifest;
+		if (compiledManifest?.kind !== "provider") {
+			throw new Error("Expected a compiled provider manifest");
+		}
+		expect(compiledManifest.searchOptionsSchema).toEqual({
+			unknownKeys: "strict",
+			fields: {
+				passRawQuery: {
+					type: "boolean",
+					label: "Pass raw query",
+					description: "Pass the query without modification",
+				},
+			},
+		});
+	}),
+);
+
 it.effect("rejects obsolete multi-driver definitions with a clear diagnostic", () =>
 	Effect.gen(function* () {
 		const source = `
 import { defineDriver, defineManifest, defineOperation } from "@ryot/sandbox-sdk/driver";
 
 export const manifest = defineManifest({
+	capabilities: [],
+	kind: "operation",
 	name: "Old operation",
 	slug: "old-operation",
-	kind: "operation",
-	capabilities: [],
 	requiredPluginConfigKeys: [],
 	requiredSystemConfigKeys: [],
 });
