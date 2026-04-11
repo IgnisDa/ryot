@@ -142,6 +142,28 @@ describe("buildFilterWhereClause", () => {
 		expect(clause.params).toContain(2023);
 	});
 
+	it("truncates integer normalization instead of rounding", () => {
+		const clause = serializeClause(
+			comparison(
+				{
+					type: "integer",
+					expression: {
+						type: "arithmetic",
+						operator: "divide",
+						right: literalExpression(2),
+						left: literalExpression(13.75),
+					},
+				},
+				"eq",
+				literalExpression(6),
+			),
+		);
+
+		expect(clause.sql.toLowerCase()).toContain("trunc(");
+		expect(clause.params).toContain(13.75);
+		expect(clause.params).toContain(6);
+	});
+
 	it("supports computed-field references inside predicates", () => {
 		const clause = serializeClause(
 			comparison(
@@ -240,6 +262,16 @@ describe("buildFilterWhereClause", () => {
 
 		expect(clause.sql).toContain("@>");
 		expect(clause.sql).toContain("jsonb_build_array");
+	});
+
+	it("treats jsonb null object expressions as null for null checks", () => {
+		const clause = serializeClause({
+			type: "isNull",
+			expression: entityExpression("smartphones", "metadata"),
+		});
+
+		expect(clause.sql.toLowerCase()).toContain("nullif");
+		expect(clause.sql).toContain("'null'::jsonb");
 	});
 
 	it("builds joined latest-event predicates", () => {
