@@ -35,6 +35,58 @@ function pickImage(coverImage, bannerImage) {
   return null;
 }
 
+async function getAnilistTitleLanguage() {
+  const prefsResult = await getUserPreferences();
+  if (!prefsResult?.success) {
+    return "user_preferred";
+  }
+
+  const providers = prefsResult?.data?.languages?.providers;
+  if (!Array.isArray(providers)) {
+    return "user_preferred";
+  }
+
+  const anilistPref = providers.find(
+    (p) => p && typeof p === "object" && p.source === "anilist",
+  );
+  const lang =
+    anilistPref &&
+    typeof anilistPref.preferredLanguage === "string" &&
+    anilistPref.preferredLanguage.trim()
+      ? anilistPref.preferredLanguage.trim().toLowerCase()
+      : "user_preferred";
+
+  const valid = ["english", "romaji", "native", "user_preferred"];
+  return valid.includes(lang) ? lang : "user_preferred";
+}
+
+function pickAnilistTitle(title, lang) {
+  const byLang = {
+    english: title?.english,
+    romaji: title?.romaji,
+    native: title?.native,
+    user_preferred: title?.userPreferred,
+  };
+  return (
+    (lang && typeof byLang[lang] === "string" && byLang[lang].trim()
+      ? byLang[lang].trim()
+      : null) ??
+    (typeof title?.english === "string" && title.english.trim()
+      ? title.english.trim()
+      : null) ??
+    (typeof title?.userPreferred === "string" && title.userPreferred.trim()
+      ? title.userPreferred.trim()
+      : null) ??
+    (typeof title?.romaji === "string" && title.romaji.trim()
+      ? title.romaji.trim()
+      : null) ??
+    (typeof title?.native === "string" && title.native.trim()
+      ? title.native.trim()
+      : null) ??
+    ""
+  );
+}
+
 function parsePublishYear(startDate) {
   const year = startDate?.year;
   if (typeof year !== "number" || !Number.isFinite(year)) {
@@ -177,6 +229,8 @@ driver("search", async function(context) {
     throw new Error("query is required");
   }
 
+  const titleLang = await getAnilistTitleLanguage();
+
   const graphqlQuery = `
 query MediaSearchQuery($page: Int!, $perPage: Int!, $search: String!, $type: MediaType!) {
   Page(page: $page, perPage: $perPage) {
@@ -185,7 +239,7 @@ query MediaSearchQuery($page: Int!, $perPage: Int!, $search: String!, $type: Med
       id
       bannerImage
       startDate { year }
-      title { userPreferred }
+      title { english romaji native userPreferred }
       coverImage { extraLarge }
     }
   }
@@ -249,10 +303,7 @@ query MediaSearchQuery($page: Int!, $perPage: Int!, $search: String!, $type: Med
         return null;
       }
 
-      const title =
-        typeof item?.title?.userPreferred === "string"
-          ? item.title.userPreferred
-          : "";
+      const title = pickAnilistTitle(item.title, titleLang);
 
       const image = pickImage(item.coverImage, item.bannerImage);
       const publishYear = parsePublishYear(item.startDate);
@@ -300,6 +351,8 @@ driver("details", async function(context) {
     );
   }
 
+  const titleLang = await getAnilistTitleLanguage();
+
   const graphqlQuery = `
 query MediaDetailsQuery($id: Int!) {
   Media(id: $id) {
@@ -314,7 +367,7 @@ query MediaDetailsQuery($id: Int!) {
     averageScore
     tags { name }
     startDate { year }
-    title { userPreferred }
+    title { english romaji native userPreferred }
     coverImage { extraLarge }
     nextAiringEpisode { episode airingAt }
     airingSchedule { nodes { episode airingAt } }
@@ -361,10 +414,7 @@ query MediaDetailsQuery($id: Int!) {
       ? String(Math.trunc(media.id))
       : contextIdentifier;
 
-  const title =
-    typeof media?.title?.userPreferred === "string"
-      ? media.title.userPreferred
-      : "";
+  const title = pickAnilistTitle(media.title, titleLang);
   if (!title) {
     throw new Error("Anilist anime payload is missing title");
   }
