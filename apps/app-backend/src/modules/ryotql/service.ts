@@ -68,10 +68,17 @@ export class RyotQLService extends Context.Service<RyotQLService>()("RyotQLServi
 			document: RyotQLDocument,
 		) => executeWithScope({ ...scope, type: "plugin" }, document);
 
+		const validate = Effect.fn("RyotQLService.validate")(function* (document: RyotQLDocument) {
+			const validationError = validateRyotQLDocument(document, { type: "user" });
+			if (validationError) {
+				return yield* new BadRequest({ message: validationError });
+			}
+		});
+
 		const execute = (user: CurrentUserValue, document: RyotQLDocument) =>
 			executeForUser(user.id, user.preferences.language, document);
 
-		return { execute, executeForUser, executeForPlugin };
+		return { execute, executeForUser, executeForPlugin, validate };
 	}),
 }) {
 	static readonly layer = Layer.effect(this, this.make);
