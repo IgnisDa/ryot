@@ -1,0 +1,80 @@
+import { generateId } from "better-auth";
+
+import { redis } from "~/lib/redis";
+
+export const UPLOAD_TOKEN_TTL_SECONDS = 15 * 60;
+
+const UPLOAD_TOKEN_KEY_PREFIX = "import:upload:token:";
+
+const uploadTokenKey = (token: string): string => `${UPLOAD_TOKEN_KEY_PREFIX}${token}`;
+
+type UploadTokenValue = { userId: string; resolvedPath: string };
+
+export type UploadTokenRedis = {
+	set(key: string, value: string, exMode: "EX", ttlSeconds: number): Promise<"OK">;
+	get(key: string): Promise<string | null>;
+	del(key: string): Promise<number>;
+};
+
+export type UploadTokenDeps = {
+	redis?: UploadTokenRedis;
+	generateToken?: () => string;
+};
+
+const defaultDeps: Required<UploadTokenDeps> = {
+	// oxlint-disable-next-line no-unsafe-type-assertion
+	generateToken: generateId,
+	redis: redis as UploadTokenRedis,
+};
+
+/**
+ * Records a temporary upload file as belonging to a user. Returns an opaque
+ * token the client can pass to the import endpoint. The token expires after
+ * UPLOAD_TOKEN_TTL_SECONDS and is single-use: claimUploadToken deletes it.
+ */
+export const storeUploadToken = async (
+	input: { userId: string; resolvedPath: string },
+	deps: UploadTokenDeps = {},
+): Promise<string> => {
+	const r = deps.redis ?? defaultDeps.redis;
+	const generateToken = deps.generateToken ?? defaultDeps.generateToken;
+	const token = generateToken();
+	const value: UploadTokenValue = { userId: input.userId, resolvedPath: input.resolvedPath };
+	await r.set(uploadTokenKey(token), JSON.stringify(value), "EX", UPLOAD_TOKEN_TTL_SECONDS);
+	return token;
+};
+
+/**
+ * Validates ownership of an upload token and returns the stored path.
+ * Deletes the token from Redis (single-use). Returns an error string if
+ * the token is missing, expired, or belongs to a different user.
+ */
+export const claimUploadToken = async (
+	token: string,
+	userId: string,
+	deps: UploadTokenDeps = {},
+): Promise<{ resolvedPath: string } | { error: string }> => {
+	const r = deps.redis ?? defaultDeps.redis;
+	const key = uploadTokenKey(token);
+	const raw = await r.get(key);
+
+	if (!raw) {
+		return { error: "Upload token is invalid or has expired" };
+	}
+
+	let value: UploadTokenValue;
+	try {
+		// oxlint-disable-next-line no-unsafe-type-assertion
+		value = JSON.parse(raw) as UploadTokenValue;
+	} catch {
+		await r.del(key);
+		return { error: "Upload token is invalid or has expired" };
+	}
+
+	if (value.userId !== userId) {
+		return { error: "Upload token does not belong to this user" };
+	}
+
+	await r.del(key);
+	return { resolvedPath: value.resolvedPath };
+};

@@ -4,6 +4,7 @@ import { generateId } from "better-auth";
 import { getTemporaryDirectory, joinTemporaryDirectoryPath } from "~/lib/bun";
 import { type ServiceResult, serviceData, serviceError, wrapServiceValidator } from "~/lib/result";
 import { s3, s3BucketName } from "~/lib/s3";
+import { storeUploadToken } from "~/lib/temporary-upload-token";
 
 import type { GetPresignedDownloadUrlBody, GetPresignedUploadUrlBody } from "./schemas";
 import { type UploadContentType, uploadContentTypeExtensions } from "./shared";
@@ -42,6 +43,7 @@ type CreateTemporaryUploadDeps = {
 	temporaryDirectory?: string;
 	generateObjectId?: () => string;
 	writeFile?: (path: string, file: File) => Promise<unknown>;
+	storeToken?: (userId: string, resolvedPath: string) => Promise<string>;
 };
 
 const resolveContentType = (contentType: string) => {
@@ -144,7 +146,7 @@ export const createPresignedUpload = async (
 };
 
 export const createTemporaryUploads = async (
-	input: { files: readonly (File | string)[] },
+	input: { userId: string; files: readonly (File | string)[] },
 	deps: CreateTemporaryUploadDeps = {},
 ): Promise<UploadServiceResult<string[]>> => {
 	const resolvedFilesResult = wrapServiceValidator(() => {
@@ -169,6 +171,9 @@ export const createTemporaryUploads = async (
 	const generateObjectId = deps.generateObjectId ?? generateId;
 	const temporaryDirectory = deps.temporaryDirectory ?? temporaryUploadDirectory;
 	const writeFile = deps.writeFile ?? ((path: string, file: File) => Bun.write(path, file));
+	const storeTokenFn =
+		deps.storeToken ??
+		((userId: string, resolvedPath: string) => storeUploadToken({ userId, resolvedPath }));
 
 	const writeResults = await Promise.allSettled(
 		resolvedFiles.map(async ({ file, fileName }) => {
@@ -178,10 +183,10 @@ export const createTemporaryUploads = async (
 		}),
 	);
 
-	const failedResult = writeResults.find(
+	const failedWriteResult = writeResults.find(
 		(result): result is PromiseRejectedResult => result.status === "rejected",
 	);
-	if (failedResult) {
+	if (failedWriteResult) {
 		const successfulPaths: string[] = [];
 		for (const result of writeResults) {
 			if (result.status === "fulfilled") {
@@ -192,8 +197,8 @@ export const createTemporaryUploads = async (
 
 		return serviceError(
 			"internal",
-			failedResult.reason instanceof Error
-				? failedResult.reason.message
+			failedWriteResult.reason instanceof Error
+				? failedWriteResult.reason.message
 				: "Could not create temporary uploads",
 		);
 	}
@@ -202,11 +207,29 @@ export const createTemporaryUploads = async (
 		if (result.status !== "fulfilled") {
 			throw new Error("Unexpected rejected temporary upload write result");
 		}
-
 		return result.value;
 	});
 
-	return serviceData(paths);
+	const tokenResults = await Promise.allSettled(
+		paths.map((path) => storeTokenFn(input.userId, path)),
+	);
+
+	const failedTokenResult = tokenResults.find(
+		(result): result is PromiseRejectedResult => result.status === "rejected",
+	);
+	if (failedTokenResult) {
+		await removeTemporaryUploads(paths);
+		return serviceError("internal", "Could not register temporary upload tokens");
+	}
+
+	const tokens = tokenResults.map((result) => {
+		if (result.status !== "fulfilled") {
+			throw new Error("Unexpected rejected token store result");
+		}
+		return result.value;
+	});
+
+	return serviceData(tokens);
 };
 
 export const createPresignedDownloads = async (

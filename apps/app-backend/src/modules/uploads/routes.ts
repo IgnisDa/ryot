@@ -123,7 +123,11 @@ export const uploadsApi = new OpenAPIHono<{ Variables: AuthType }>()
 			const response = createValidationErrorResult("Could not parse temporary upload form data");
 			return c.json(response.body, response.status);
 		}
-		const result = await createTemporaryUploads({ files: formData.getAll("files[]") });
+		const user = c.get("user");
+		const result = await createTemporaryUploads({
+			userId: user.id,
+			files: formData.getAll("files[]"),
+		});
 		if ("error" in result) {
 			if (result.error === "validation") {
 				const response = createValidationErrorResult(result.message);

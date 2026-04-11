@@ -25,18 +25,18 @@ export async function uploadTemporaryFile(
 	});
 
 	const json: { data?: string[] } = await response.json();
-	const paths = requireResponseData(response, json, "Failed to upload temporary file");
-	return requirePresent(paths[0], "Uploaded file path is missing");
+	const tokens = requireResponseData(response, json, "Failed to upload temporary file");
+	return requirePresent(tokens[0], "Upload token is missing");
 }
 
 export async function startOpenScaleImport(
 	client: Client,
 	cookies: string,
-	filePath: string,
+	uploadToken: string,
 ): Promise<string> {
 	const { data, response } = await client.POST("/imports/runs", {
 		headers: { Cookie: cookies },
-		body: { source: "open_scale", filePath },
+		body: { source: "open_scale", uploadToken },
 	});
 
 	const result = requireResponseData(response, data, "Failed to start import run");
@@ -67,14 +67,14 @@ export async function pollImportRunUntilTerminal(client: Client, cookies: string
 }
 
 export async function runOpenScaleImportFixture(client: Client, cookies: string) {
-	const filePath = await uploadTemporaryFile(
+	const uploadToken = await uploadTemporaryFile(
 		cookies,
 		OPENSCALE_SAMPLE_CSV,
 		"openscale-export.csv",
 		"text/csv",
 	);
 
-	const runId = await startOpenScaleImport(client, cookies, filePath);
+	const runId = await startOpenScaleImport(client, cookies, uploadToken);
 	const completedRun = await pollImportRunUntilTerminal(client, cookies, runId);
 	return { runId, completedRun };
 }
