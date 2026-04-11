@@ -94,14 +94,19 @@ export function createReviewEventPayload(input: {
 	entityId: string;
 	eventSchemas: AppEventSchema[];
 }): CreateEventPayload {
-	const schemas = resolveLifecycleEventSchemas(input.eventSchemas);
+	const reviewSchema = input.eventSchemas.find((s) => s.slug === "review");
+	if (!reviewSchema) {
+		throw new Error(
+			"Review event schema is unavailable. Please check your event schemas configuration.",
+		);
+	}
 	const rating = resolveRating(input.rating);
 	const review = input.review?.trim();
 
 	return [
 		{
 			entityId: input.entityId,
-			eventSchemaId: schemas.review.id,
+			eventSchemaId: reviewSchema.id,
 			properties: review ? { rating, review } : { rating },
 		},
 	];
