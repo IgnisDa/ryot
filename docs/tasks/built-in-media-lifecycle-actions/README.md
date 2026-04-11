@@ -109,6 +109,7 @@ and the backend support needed for it.
 - Seed and enable only the currently supported built-in media schemas in the first increment.
 - Additional built-in media schemas should adopt the same semantic slugs later without changing
   the action model.
+- The phase 1 built-in media schemas in scope are `book`, `anime`, and `manga`.
 
 ### Canonical built-in media actions
 
@@ -128,6 +129,14 @@ These are semantic slugs shared across built-in media schemas.
   public event-writing surface used elsewhere.
 - The current code that blocks built-in entity schemas from event creation may be rewritten as
   needed to support this model.
+- Event schema listing should return both built-in and user-owned event schemas visible to the
+  current user.
+- Event schema creation remains a custom-schema feature; this PRD does not introduce API support
+  for user-authored built-in event schemas.
+- Built-in media entities may only create events using seeded built-in event schemas that belong to
+  their entity schema.
+- Lifecycle events should continue to work through the existing bulk `POST /events` contract as
+  well as the single-event shape accepted by that endpoint.
 
 ### Built-in event schema registration
 
@@ -136,6 +145,10 @@ These are semantic slugs shared across built-in media schemas.
 - Bootstrap becomes the source of truth for seeded built-in media lifecycle semantics.
 - The implementation may reshape the current bootstrap code if needed, but the outcome should stay
   declarative and centrally defined.
+- The seeded built-in lifecycle event schema display names should be `Backlog`, `Progress`,
+  `Complete`, and `Review`.
+- The old book-specific `read` built-in event schema should be removed or replaced during the
+  cleanup slice rather than carried forward as an alias.
 
 ### Action semantics
 
@@ -154,7 +167,8 @@ These are semantic slugs shared across built-in media schemas.
 - Uses percentage only rather than domain units.
 - The frontend may convert domain units into percentage before submission.
 - Stores `progressPercent` as a number, not an integer, so fractional progress is preserved.
-- The backend should normalize `progressPercent` to 2 decimal places on write.
+- The backend should normalize `progressPercent` to 2 decimal places on write using a stable
+  half-up rounding rule.
 - `progressPercent` must be greater than `0` and less than `100`.
 - Progress must remain distinct from completion; it should not auto-create a completion event.
 
@@ -220,6 +234,13 @@ The implementation should prefer a few deep modules over many shallow tracker-sp
 - Idempotency and source attribution matter, but they are deferred to later integration work.
 - The core lifecycle contract in this PRD should not be shaped around a particular integration.
 
+### Additional implementation defaults
+
+- Validation and not-found responses should continue to use the backend's existing shared response
+  patterns rather than introducing tracker-specific error envelopes.
+- The implementation should preserve the shared event-writing path instead of adding a parallel
+  media-only persistence mechanism.
+
 ## Testing Decisions
 
 A good test verifies externally observable behavior through stable public interfaces. Tests should
@@ -262,6 +283,19 @@ by services and routes.
 - Use route or end-to-end tests only where module-level tests cannot adequately verify the public
   contract.
 
+### Integration tests in `tests/src`
+
+- Add thin end-to-end coverage in `tests/src/tests` for the seeded built-in media lifecycle
+  contract.
+- These tests should verify public API behavior after bootstrap rather than internal helper logic.
+- Prior art includes the existing `events` and `entity-schemas` integration suites.
+- Focus the integration layer on a small number of representative scenarios:
+  - built-in event schema visibility for supported built-in media schemas
+  - successful built-in `backlog` event creation
+  - successful built-in `progress` event creation including rounding and range rejection
+  - successful built-in `complete` event creation without implicit completion via progress
+  - successful built-in `review` creation before completion and rejection of invalid ratings
+
 ### Modules that can wait for later read-side testing
 
 - Media overview derivation logic is deferred, so no tests for `Up Next`, `Continue`, `Rate
@@ -292,10 +326,17 @@ integer `rating` plus optional `review` text for `review`.
 
 ## Tasks
 
-**Overall Progress:** 0 of 0 tasks completed
+**Overall Progress:** 0 of 6 tasks completed
 
-**Current Task:** None
+**Current Task:** [Task 01](./01-clean-up-built-in-event-schema-foundation.md) (todo)
 
 ### Task List
 
-Tasks will be added here when you run the prd-to-issues skill.
+| # | Task | Type | Status | Blocked By |
+|---|------|------|--------|------------|
+| 01 | [Clean Up Built-in Event Schema Foundation](./01-clean-up-built-in-event-schema-foundation.md) | AFK | todo | None |
+| 02 | [Backlog Events for Built-in Media](./02-backlog-events-for-built-in-media.md) | AFK | todo | Task 01 |
+| 03 | [Progress Events for Built-in Media](./03-progress-events-for-built-in-media.md) | AFK | todo | Task 01 |
+| 04 | [Complete Events for Built-in Media](./04-complete-events-for-built-in-media.md) | AFK | todo | Task 01 |
+| 05 | [Review Events for Built-in Media](./05-review-events-for-built-in-media.md) | AFK | todo | Task 01 |
+| 06 | [Refresh Generated Media Lifecycle Contract](./06-refresh-generated-media-lifecycle-contract.md) | AFK | todo | Tasks 02-05 |
