@@ -7,8 +7,8 @@ describe("entity recipes", () => {
 		const query = buildEntityDetailDocument({ entityId: "entity-1", entitySchemaSlug: "book" })
 			.queries["entity"];
 
-		expect(query?.output.pagination).toEqual({ page: 1, limit: 1 });
-		expect(query?.output.fields.map((selection) => selection.key)).toEqual([
+		expect(query.output.pagination).toEqual({ page: 1, limit: 1 });
+		expect(query.output.fields.map((selection) => selection.key)).toEqual([
 			"id",
 			"name",
 			"createdAt",
@@ -20,14 +20,14 @@ describe("entity recipes", () => {
 			"providerId",
 			"translationStatus",
 		]);
-		expect(query?.where).toMatchObject({
+		expect(query.where).toMatchObject({
 			type: "and",
 			predicates: [
 				{ left: { field: "id" }, right: { value: "entity-1" } },
 				{ left: { field: "entitySchemaSlug" }, right: { value: "book" } },
 			],
 		});
-		expect(query?.output.orderBy).toEqual([
+		expect(query.output.orderBy).toEqual([
 			{ direction: "asc", expr: { type: "column", tableAlias: "entity", field: "id" } },
 		]);
 	});
@@ -37,8 +37,8 @@ describe("entity recipes", () => {
 			"entities"
 		];
 
-		expect(query?.output.pagination).toEqual({ page: 1, limit: 2 });
-		expect(query?.output.fields.map((selection) => selection.key)).toEqual([
+		expect(query.output.pagination).toEqual({ page: 1, limit: 2 });
+		expect(query.output.fields.map((selection) => selection.key)).toEqual([
 			"id",
 			"properties",
 			"externalId",
@@ -47,12 +47,12 @@ describe("entity recipes", () => {
 			"providerId",
 			"translationStatus",
 		]);
-		expect(query?.where).toMatchObject({
+		expect(query.where).toMatchObject({
 			type: "in",
 			expr: { field: "id" },
 			values: [{ value: "entity-1" }, { value: "entity-2" }],
 		});
-		expect(query?.output.orderBy).toEqual([
+		expect(query.output.orderBy).toEqual([
 			{ direction: "asc", expr: { type: "column", tableAlias: "entity", field: "id" } },
 		]);
 	});
