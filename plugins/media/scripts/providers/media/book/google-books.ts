@@ -160,9 +160,9 @@ export const manifest = defineManifest({
 	kind: "provider",
 	name: "Google Books",
 	slug: "book.google-books",
+	requiredSystemConfigKeys: [],
 	capabilities: ["httpCall", "getPluginConfig"],
 	requiredPluginConfigKeys: ["googleBooksApiKey"],
-	requiredSystemConfigKeys: [],
 });
 
 export const search = defineProvider({
