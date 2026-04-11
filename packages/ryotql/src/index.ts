@@ -2,6 +2,7 @@ import type {
 	ColumnExpression,
 	FieldSelection,
 	Join,
+	JsonValue,
 	LiteralExpression,
 	NamedQuery,
 	OrderBy,
@@ -10,6 +11,9 @@ import type {
 	ScalarExpression,
 	TableReference,
 } from "@ryot/contract/modules/ryotql/language";
+
+type CastExpression = Extract<ScalarExpression, { type: "cast" }>;
+type ComparisonPredicate = Extract<Predicate, { type: "comparison" }>;
 
 export const table = (tableName: string, alias: string): TableReference => ({
 	alias,
@@ -22,19 +26,93 @@ export const column = (tableName: TableReference, field: string): ColumnExpressi
 	tableAlias: tableName.alias,
 });
 
-export const literal = (value: unknown): LiteralExpression => ({ type: "literal", value });
+const assertFiniteNumbers = (value: JsonValue) => {
+	if (typeof value === "number" && !Number.isFinite(value)) {
+		throw new TypeError("RyotQL literals require finite numbers");
+	}
+	if (Array.isArray(value)) {
+		value.forEach(assertFiniteNumbers);
+	} else if (value !== null && typeof value === "object") {
+		Object.values(value).forEach(assertFiniteNumbers);
+	}
+};
 
-export const eq = (left: ScalarExpression, right: ScalarExpression): Predicate => ({
+export const literal = (value: JsonValue): LiteralExpression => {
+	assertFiniteNumbers(value);
+	return { type: "literal", value };
+};
+
+export const jsonPath = (
+	expr: ScalarExpression,
+	...path: [string | number, ...(string | number)[]]
+): Extract<ScalarExpression, { type: "jsonPath" }> => ({ expr, path, type: "jsonPath" });
+
+const cast = (target: CastExpression["target"], expr: ScalarExpression): CastExpression => ({
+	expr,
+	target,
+	type: "cast",
+});
+
+export const castText = (expr: ScalarExpression) => cast("text", expr);
+export const castDate = (expr: ScalarExpression) => cast("date", expr);
+export const castJson = (expr: ScalarExpression) => cast("json", expr);
+export const castNumber = (expr: ScalarExpression) => cast("number", expr);
+export const castBoolean = (expr: ScalarExpression) => cast("boolean", expr);
+
+export const coalesce = (
+	first: ScalarExpression,
+	...rest: readonly ScalarExpression[]
+): Extract<ScalarExpression, { type: "coalesce" }> => ({
+	type: "coalesce",
+	values: [first, ...rest],
+});
+
+const comparison = (
+	operator: ComparisonPredicate["operator"],
+	left: ScalarExpression,
+	right: ScalarExpression,
+): ComparisonPredicate => ({
 	left,
 	right,
-	operator: "eq",
+	operator,
 	type: "comparison",
 });
+
+export const eq = (left: ScalarExpression, right: ScalarExpression) =>
+	comparison("eq", left, right);
+export const gt = (left: ScalarExpression, right: ScalarExpression) =>
+	comparison("gt", left, right);
+export const gte = (left: ScalarExpression, right: ScalarExpression) =>
+	comparison("gte", left, right);
+export const lt = (left: ScalarExpression, right: ScalarExpression) =>
+	comparison("lt", left, right);
+export const lte = (left: ScalarExpression, right: ScalarExpression) =>
+	comparison("lte", left, right);
+export const neq = (left: ScalarExpression, right: ScalarExpression) =>
+	comparison("neq", left, right);
 
 export const inArray = (
 	expr: ScalarExpression,
 	values: readonly ScalarExpression[],
 ): Predicate => ({ expr, type: "in", values: [...values] });
+
+export const contains = (left: ScalarExpression, right: ScalarExpression): Predicate => ({
+	left,
+	right,
+	type: "contains",
+});
+
+export const isNull = (expr: ScalarExpression): Predicate => ({ expr, type: "isNull" });
+export const isNotNull = (expr: ScalarExpression): Predicate => ({ expr, type: "isNotNull" });
+export const not = (predicate: Predicate): Predicate => ({ predicate, type: "not" });
+export const and = (...predicates: readonly Predicate[]): Predicate => ({
+	type: "and",
+	predicates: [...predicates],
+});
+export const or = (...predicates: readonly Predicate[]): Predicate => ({
+	type: "or",
+	predicates: [...predicates],
+});
 
 export const field = (key: string, expr: ScalarExpression): FieldSelection => ({ expr, key });
 

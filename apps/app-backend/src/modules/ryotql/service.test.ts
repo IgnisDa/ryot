@@ -1,7 +1,25 @@
 import { expect, it } from "@effect/vitest";
 import { DbError } from "@ryot/contract/errors";
 import type { RyotQLDocument } from "@ryot/contract/modules/ryotql/language";
-import { column, eq, field, inArray, join, literal, rows, table } from "@ryot/ryotql";
+import {
+	and,
+	castDate,
+	castNumber,
+	castText,
+	coalesce,
+	column,
+	contains,
+	eq,
+	field,
+	gte,
+	inArray,
+	join,
+	jsonPath,
+	literal,
+	not,
+	rows,
+	table,
+} from "@ryot/ryotql";
 import { buildAllCollectionsDocument } from "@ryot/ryotql-recipes/collections";
 import { PgDialect } from "drizzle-orm/pg-core";
 import { Effect, Layer } from "effect";
@@ -160,6 +178,46 @@ it.effect("preserves reserved result keys and non-text runtime kinds", () => {
 		expect(item["__proto__"]).toEqual({ kind: "date", value: createdAt.toISOString() });
 		expect(item["properties"]).toEqual({ kind: "json", value: { rating: 5 } });
 	}).pipe(Effect.provide(makeServiceLayer(statements, resultRows)));
+});
+
+it.effect("pushes typed JSON expressions into one rows statement", () => {
+	const statements: string[] = [];
+	const entity = table("entity", "entity");
+	const scorePath = jsonPath(column(entity, "properties"), "details", "score");
+	const tagsPath = jsonPath(column(entity, "properties"), "tags");
+	const publishedPath = jsonPath(column(entity, "properties"), "publishedAt");
+	const document = {
+		queries: {
+			entities: rows(entity, {
+				fields: [
+					field("score", castNumber(scorePath)),
+					field("publishedAt", castDate(publishedPath)),
+					field(
+						"fallback",
+						coalesce(jsonPath(column(entity, "properties"), "author"), literal("Unknown")),
+					),
+				],
+				where: and(
+					gte(castNumber(scorePath), literal(4)),
+					contains(castText(jsonPath(column(entity, "properties"), "label")), literal("%_")),
+					contains(tagsPath, literal(["featured"])),
+					not(eq(castNumber(scorePath), literal(null))),
+				),
+			}),
+		},
+	};
+
+	return Effect.gen(function* () {
+		const service = yield* RyotQLService;
+		yield* service.executeForUser("user-1", document);
+
+		const statement = statements[2];
+		expect(statement).toContain("jsonb_extract_path");
+		expect(statement).toContain("pg_input_is_valid");
+		expect(statement).toContain(" ILIKE ");
+		expect(statement).toContain(" @> ");
+		expect(statements.filter((value) => value.includes('WITH "queryRows"'))).toHaveLength(1);
+	}).pipe(Effect.provide(makeServiceLayer(statements)));
 });
 
 it.effect("maps statement timeouts to a bad request", () => {
