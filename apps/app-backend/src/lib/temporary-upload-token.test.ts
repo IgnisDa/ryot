@@ -7,10 +7,9 @@ import {
 } from "./temporary-upload-token";
 
 type FakeRedis = {
+	getdel(key: string): Promise<string | null>;
 	store: Map<string, { value: string; ttl: number }>;
 	set(key: string, value: string, exFlag: "EX", ttl: number): Promise<"OK">;
-	get(key: string): Promise<string | null>;
-	del(key: string): Promise<number>;
 };
 
 const createFakeRedis = (): FakeRedis => {
@@ -21,14 +20,10 @@ const createFakeRedis = (): FakeRedis => {
 			store.set(key, { value, ttl });
 			return Promise.resolve("OK" as const);
 		},
-		get: (key) => {
+		getdel: (key) => {
 			const entry = store.get(key);
-			return Promise.resolve(entry?.value ?? null);
-		},
-		del: (key) => {
-			const existed = store.has(key);
 			store.delete(key);
-			return Promise.resolve(existed ? 1 : 0);
+			return Promise.resolve(entry?.value ?? null);
 		},
 	};
 };
@@ -92,7 +87,7 @@ describe("claimUploadToken", () => {
 		expect(second).toEqual({ error: "Upload token is invalid or has expired" });
 	});
 
-	it("rejects a claim from a different user without deleting the key", async () => {
+	it("rejects a claim from a different user, consuming the token atomically", async () => {
 		const fakeRedis = createFakeRedis();
 		const token = await storeUploadToken(
 			{ userId: "user_1", resolvedPath: "/tmp/ryot/abc.csv" },
@@ -102,8 +97,7 @@ describe("claimUploadToken", () => {
 		const result = await claimUploadToken(token, "user_2", { redis: fakeRedis });
 
 		expect(result).toEqual({ error: "Upload token does not belong to this user" });
-		// Key must still exist so the rightful owner can still claim it
-		expect(fakeRedis.store.has("import:upload:token:tok_owned")).toBe(true);
+		expect(fakeRedis.store.has("import:upload:token:tok_owned")).toBe(false);
 	});
 
 	it("returns an error for an unknown token", async () => {
