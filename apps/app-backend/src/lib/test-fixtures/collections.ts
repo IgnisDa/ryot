@@ -27,10 +27,10 @@ const addToCollectionDataDefaults: AddToCollectionData = {
 	memberOf: {
 		id: "rel_1",
 		properties: {},
-		relType: "member_of",
 		sourceEntityId: "entity_1",
 		targetEntityId: "collection_1",
 		createdAt: "2024-01-01T00:00:00.000Z",
+		relationshipSchemaId: "rel_schema_member_of",
 	},
 };
 
@@ -70,10 +70,10 @@ export const createAddToCollectionDeps = (
 			memberOf: {
 				id: "rel_1",
 				properties: {},
-				relType: "member_of",
 				sourceEntityId: input.entityId,
 				targetEntityId: input.collectionId,
 				createdAt: "2024-01-01T00:00:00.000Z",
+				relationshipSchemaId: "rel_schema_member_of",
 			},
 		}),
 	...overrides,

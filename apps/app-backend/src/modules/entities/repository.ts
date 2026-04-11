@@ -8,6 +8,7 @@ import {
 	type ImageSchemaType,
 	relationship,
 } from "~/lib/db/schema";
+import { getBuiltinRelationshipSchemaBySlug } from "~/modules/relationship-schemas";
 import type { ListedEntity } from "./schemas";
 import type { EntityPropertiesShape } from "./service";
 
@@ -242,7 +243,7 @@ export const updateGlobalEntityById = async (input: {
 };
 
 export const upsertPersonRelationship = async (input: {
-	relType: string;
+	relationshipSchemaId: string;
 	sourceEntityId: string;
 	targetEntityId: string;
 	properties: Record<string, unknown>;
@@ -250,10 +251,10 @@ export const upsertPersonRelationship = async (input: {
 	await db
 		.insert(relationship)
 		.values({
-			relType: input.relType,
 			properties: input.properties,
 			sourceEntityId: input.sourceEntityId,
 			targetEntityId: input.targetEntityId,
+			relationshipSchemaId: input.relationshipSchemaId,
 		})
 		.onConflictDoUpdate({
 			set: { properties: input.properties },
@@ -261,7 +262,7 @@ export const upsertPersonRelationship = async (input: {
 			target: [
 				relationship.sourceEntityId,
 				relationship.targetEntityId,
-				relationship.relType,
+				relationship.relationshipSchemaId,
 			],
 		});
 };
@@ -288,9 +289,9 @@ export const getUserLibraryEntityId = async (
 
 type InLibraryRelationshipValues = {
 	userId: string;
-	relType: "in_library";
 	sourceEntityId: string;
 	targetEntityId: string;
+	relationshipSchemaId: string;
 	properties: Record<string, unknown>;
 };
 
@@ -305,7 +306,7 @@ const insertInLibraryRelationship = async (
 				relationship.userId,
 				relationship.sourceEntityId,
 				relationship.targetEntityId,
-				relationship.relType,
+				relationship.relationshipSchemaId,
 			],
 		});
 };
@@ -316,10 +317,14 @@ export const upsertInLibraryRelationship = async (
 		values: InLibraryRelationshipValues,
 	) => Promise<void> = insertInLibraryRelationship,
 ) => {
+	const found = await getBuiltinRelationshipSchemaBySlug("in_library");
+	if (!found) {
+		throw new Error("in_library relationship schema not found");
+	}
 	await insert({
 		properties: {},
 		userId: input.userId,
-		relType: "in_library",
+		relationshipSchemaId: found.id,
 		sourceEntityId: input.mediaEntityId,
 		targetEntityId: input.libraryEntityId,
 	});

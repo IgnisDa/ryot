@@ -3460,7 +3460,7 @@ export interface paths {
                             data: {
                                 memberOf: {
                                     id: string;
-                                    relType: string;
+                                    relationshipSchemaId: string;
                                     createdAt: string;
                                     sourceEntityId: string;
                                     targetEntityId: string;
@@ -3537,7 +3537,7 @@ export interface paths {
                             data: {
                                 memberOf: {
                                     id: string;
-                                    relType: string;
+                                    relationshipSchemaId: string;
                                     createdAt: string;
                                     sourceEntityId: string;
                                     targetEntityId: string;
