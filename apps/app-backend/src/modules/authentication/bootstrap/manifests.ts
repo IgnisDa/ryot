@@ -3,8 +3,8 @@ import { bookPropertiesJsonSchema } from "~/lib/media/book";
 import { builtinMediaEntitySchemaSlugs } from "~/lib/media/constants";
 import { mangaPropertiesJsonSchema } from "~/lib/media/manga";
 import {
+	createDefaultDisplayConfiguration,
 	createDefaultQueryDefinition,
-	defaultDisplayConfiguration,
 } from "~/modules/saved-views/constants";
 
 export const authenticationBuiltinTrackers = () => [
@@ -120,7 +120,7 @@ export const authenticationBuiltinEntitySchemas = () => [
 export const authenticationBuiltinSavedViews = () => [
 	...builtinMediaEntitySchemaSlugs.map((slug) => ({
 		trackerSlug: "media",
-		displayConfiguration: defaultDisplayConfiguration,
+		displayConfiguration: createDefaultDisplayConfiguration(slug),
 		entitySchemaSlug: slug,
 		name:
 			slug === "book"
@@ -133,7 +133,7 @@ export const authenticationBuiltinSavedViews = () => [
 		icon: "folders",
 		name: "Collections",
 		accentColor: "#F59E0B",
-		displayConfiguration: defaultDisplayConfiguration,
+		displayConfiguration: createDefaultDisplayConfiguration(),
 		queryDefinition: createDefaultQueryDefinition([]),
 	},
 ];
