@@ -2,6 +2,8 @@ import { describe, expect, it } from "bun:test";
 import {
 	buildGridDisplayConfiguration,
 	buildGridRequest,
+	buildTableDisplayConfiguration,
+	buildTableRequest,
 	createAuthenticatedClient,
 	createCrossSchemaRuntimeFixture,
 	createEntitySchema,
@@ -14,6 +16,7 @@ import { registerViewRuntimePresentationAndErrorTests } from "../test-support/vi
 
 const entityField = (schemaSlug: string, property: string) => {
 	if (
+		property === "id" ||
 		property === "name" ||
 		property === "image" ||
 		property === "createdAt" ||
@@ -339,6 +342,83 @@ describe("View runtime E2E", () => {
 			"Delta Watch",
 			"Omega Prototype",
 		]);
+	});
+
+	it("filters, sorts, and displays entity @id", async () => {
+		const { client, cookies, entityIdsByName, schema } =
+			await createSingleSchemaRuntimeFixture();
+		const targetId = entityIdsByName["Gamma Phone"];
+		if (!targetId) {
+			throw new Error("Missing runtime entity fixture id for @id test");
+		}
+
+		const { data, response } = await executeViewRuntime(
+			client,
+			cookies,
+			buildTableRequest({
+				entitySchemaSlugs: [schema.slug],
+				sort: { fields: [entityField(schema.slug, "id")], direction: "asc" },
+				displayConfiguration: buildTableDisplayConfiguration([
+					{ label: "Id", property: [entityField(schema.slug, "id")] },
+					{ label: "Name", property: [entityField(schema.slug, "name")] },
+				]),
+				filters: [
+					{
+						op: "eq",
+						value: targetId,
+						field: entityField(schema.slug, "id"),
+					},
+				],
+			}),
+		);
+
+		expect(response.status).toBe(200);
+		expect(data?.data.items).toHaveLength(1);
+		expect(data?.data.items[0]?.id).toBe(targetId);
+		expect(data?.data.items[0]?.name).toBe("Gamma Phone");
+		expect(data?.data.items[0]?.fields).toEqual([
+			{ key: "column_0", kind: "text", value: targetId },
+			{ key: "column_1", kind: "text", value: "Gamma Phone" },
+		]);
+	});
+
+	it("filters entity @id with contains", async () => {
+		const { client, cookies, entityIdsByName, schema } =
+			await createSingleSchemaRuntimeFixture();
+		const targetId = entityIdsByName["Beta Tablet"];
+		if (!targetId) {
+			throw new Error(
+				"Missing runtime entity fixture id for @id contains test",
+			);
+		}
+		const suffix = targetId.slice(-8);
+
+		const { data, response } = await executeViewRuntime(
+			client,
+			cookies,
+			buildGridRequest({
+				entitySchemaSlugs: [schema.slug],
+				displayConfiguration: buildGridDisplayConfiguration({
+					badgeProperty: [entityField(schema.slug, "id")],
+					subtitleProperty: null,
+				}),
+				filters: [
+					{
+						value: suffix,
+						op: "contains",
+						field: entityField(schema.slug, "id"),
+					},
+				],
+			}),
+		);
+
+		expect(response.status).toBe(200);
+		expect(data?.data.items.map((item) => item.name)).toEqual(["Beta Tablet"]);
+		expect(getField(data?.data.items[0], "badge")).toEqual({
+			key: "badge",
+			kind: "text",
+			value: targetId,
+		});
 	});
 
 	it("sorts across schemas with COALESCE and keeps null values last", async () => {
