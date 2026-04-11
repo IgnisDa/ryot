@@ -100,7 +100,7 @@ return response;
 Or define a driver function:
 
 ```js
-driver("mediaSearch", async function(context, meta) {
+driver("search", async function(context, meta) {
   // meta.sandboxScriptId contains the script ID when available
   const response = await httpCall("GET", "https://api.example.com/search");
   return response;
