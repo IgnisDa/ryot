@@ -1,0 +1,300 @@
+function parseJsonResponse(responseBody) {
+  try {
+    return JSON.parse(responseBody);
+  } catch {
+    throw new Error("Spotify returned invalid JSON");
+  }
+}
+
+function getString(value) {
+  return typeof value === "string" ? value.trim() : "";
+}
+
+function getNullableString(value) {
+  const s = getString(value);
+  return s || null;
+}
+
+function getPublishYear(releaseDateStr) {
+  if (typeof releaseDateStr !== "string" || !releaseDateStr.trim()) {
+    return null;
+  }
+
+  const year = parseInt(releaseDateStr.slice(0, 4), 10);
+  return Number.isFinite(year) && year > 0 ? year : null;
+}
+
+function getImagesSortedBySize(images) {
+  if (!Array.isArray(images) || images.length === 0) {
+    return [];
+  }
+
+  const sorted = [...images].sort((a, b) => {
+    const sizeA = (a.width || 0) * (a.height || 0);
+    const sizeB = (b.width || 0) * (b.height || 0);
+    return sizeB - sizeA;
+  });
+
+  return sorted
+    .map((img) => img.url)
+    .filter((url) => typeof url === "string" && url);
+}
+
+function getFirstImage(images) {
+  return getImagesSortedBySize(images)[0] || null;
+}
+
+const SPOTIFY_TOKEN_URL = "https://accounts.spotify.com/api/token";
+const SPOTIFY_API_URL = "https://api.spotify.com/v1";
+const TOKEN_CACHE_KEY = "spotify_access_token";
+const PAGE_SIZE = 20;
+
+async function getCredentials() {
+  const [clientIdResp, clientSecretResp] = await Promise.all([
+    getAppConfigValue("MUSIC_SPOTIFY_CLIENT_ID"),
+    getAppConfigValue("MUSIC_SPOTIFY_CLIENT_SECRET"),
+  ]);
+
+  if (!clientIdResp?.success) {
+    throw new Error(
+      clientIdResp?.error ?? "Failed to retrieve Spotify client ID",
+    );
+  }
+  if (!clientSecretResp?.success) {
+    throw new Error(
+      clientSecretResp?.error ?? "Failed to retrieve Spotify client secret",
+    );
+  }
+
+  const clientId =
+    typeof clientIdResp.data === "string" ? clientIdResp.data.trim() : null;
+  const clientSecret =
+    typeof clientSecretResp.data === "string"
+      ? clientSecretResp.data.trim()
+      : null;
+
+  if (!clientId) {
+    throw new Error(
+      "Spotify client ID is not configured. Set MUSIC_SPOTIFY_CLIENT_ID in your environment.",
+    );
+  }
+  if (!clientSecret) {
+    throw new Error(
+      "Spotify client secret is not configured. Set MUSIC_SPOTIFY_CLIENT_SECRET in your environment.",
+    );
+  }
+
+  return { clientId, clientSecret };
+}
+
+async function getAccessToken() {
+  const cached = await getCachedValue(TOKEN_CACHE_KEY);
+  if (cached?.success && typeof cached.data === "string" && cached.data) {
+    return cached.data;
+  }
+
+  const { clientId, clientSecret } = await getCredentials();
+  const credentials = btoa(`${clientId}:${clientSecret}`);
+
+  const response = await httpCall("POST", SPOTIFY_TOKEN_URL, {
+    body: "grant_type=client_credentials",
+    headers: {
+      Authorization: `Basic ${credentials}`,
+      "Content-Type": "application/x-www-form-urlencoded",
+    },
+  });
+
+  if (!response?.success) {
+    throw new Error(response?.error ?? "Spotify token request failed");
+  }
+
+  const payload = parseJsonResponse(response.data.body);
+  if (!payload?.access_token) {
+    throw new Error(
+      "Spotify token response did not include an access token",
+    );
+  }
+
+  const expiresIn =
+    typeof payload.expires_in === "number" && payload.expires_in > 0
+      ? payload.expires_in
+      : 3600;
+  const expiryWithBuffer = Math.max(60, expiresIn - 300);
+
+  const cacheResult = await setCachedValue(
+    TOKEN_CACHE_KEY,
+    payload.access_token,
+    expiryWithBuffer,
+  );
+  if (!cacheResult?.success) {
+    console.warn(`Spotify token cache write failed: ${cacheResult?.error}`);
+  }
+
+  return payload.access_token;
+}
+
+async function spotifyGet(path, params) {
+  const accessToken = await getAccessToken();
+  const search = params
+    ? `?${new URLSearchParams(params).toString()}`
+    : "";
+
+  const response = await httpCall(
+    "GET",
+    `${SPOTIFY_API_URL}${path}${search}`,
+    { headers: { Authorization: `Bearer ${accessToken}` } },
+  );
+
+  if (!response?.success) {
+    throw new Error(
+      response?.error ?? `Spotify request failed: ${path}`,
+    );
+  }
+
+  return parseJsonResponse(response.data.body);
+}
+
+driver("search", async function(context) {
+  const currentPage = Number.isFinite(Number(context?.page))
+    ? Math.max(1, Math.floor(Number(context.page)))
+    : 1;
+  const query =
+    typeof context?.query === "string" ? context.query.trim() : "";
+
+  if (!query) {
+    throw new Error("query is required");
+  }
+
+  const offset = (currentPage - 1) * PAGE_SIZE;
+
+  const data = await spotifyGet("/search", {
+    q: query,
+    type: "track",
+    limit: String(PAGE_SIZE),
+    offset: String(offset),
+  });
+
+  const tracks = data?.tracks;
+  const totalItems =
+    typeof tracks?.total === "number" ? tracks.total : 0;
+  const trackItems = Array.isArray(tracks?.items) ? tracks.items : [];
+
+  const items = trackItems
+    .map((track) => {
+      const identifier = getString(track?.id);
+      if (!identifier) {
+        return null;
+      }
+
+      const title = getString(track?.name) || identifier;
+      const album = track?.album;
+      const publishYear = album ? getPublishYear(album.release_date) : null;
+      const imageUrl = album?.images ? getFirstImage(album.images) : null;
+
+      return {
+        identifier,
+        badgeProperty: { kind: "null", value: null },
+        titleProperty: { kind: "text", value: title },
+        subtitleProperty:
+          publishYear === null
+            ? { kind: "null", value: null }
+            : { kind: "number", value: publishYear },
+        imageProperty:
+          imageUrl === null
+            ? { kind: "null", value: null }
+            : { kind: "image", value: { kind: "remote", url: imageUrl } },
+      };
+    })
+    .filter((item) => item !== null);
+
+  return {
+    items,
+    details: {
+      totalItems,
+      nextPage:
+        offset + trackItems.length < totalItems ? currentPage + 1 : null,
+    },
+  };
+});
+
+driver("details", async function(context) {
+  const identifier =
+    typeof context?.identifier === "string"
+      ? context.identifier.trim()
+      : "";
+
+  if (!identifier) {
+    throw new Error("identifier is required");
+  }
+
+  const track = await spotifyGet(
+    `/tracks/${encodeURIComponent(identifier)}`,
+  );
+
+  const title = getString(track?.name);
+  if (!title) {
+    throw new Error("Spotify track is missing name");
+  }
+
+  const artists = Array.isArray(track?.artists) ? track.artists : [];
+  const byVariousArtists =
+    artists.length === 0 ? null : artists.length > 1;
+
+  const people = artists
+    .map((artist) => {
+      const artistId = getString(artist?.id);
+      const artistName = getString(artist?.name);
+      if (!artistId || !artistName) {
+        return null;
+      }
+
+      return {
+        role: "Artist",
+        name: artistName,
+        identifier: artistId,
+        scriptSlug: "person.spotify",
+      };
+    })
+    .filter((p) => p !== null);
+
+  const album = track?.album;
+  const albumImages = Array.isArray(album?.images) ? album.images : [];
+  const publishYear = getPublishYear(album?.release_date);
+
+  const durationMs =
+    typeof track?.duration_ms === "number" &&
+    Number.isFinite(track.duration_ms)
+      ? track.duration_ms
+      : null;
+  const duration =
+    durationMs !== null ? Math.trunc(durationMs / 1000) : null;
+
+  const popularity =
+    typeof track?.popularity === "number" &&
+    Number.isFinite(track.popularity)
+      ? track.popularity
+      : null;
+
+  const isNsfw =
+    typeof track?.explicit === "boolean" ? track.explicit : null;
+
+  const sourceUrl = getNullableString(track?.external_urls?.spotify);
+
+  return {
+    name: title,
+    externalId: identifier,
+    properties: {
+      people,
+      isNsfw,
+      duration,
+      publishYear,
+      sourceUrl,
+      byVariousArtists,
+      genres: [],
+      description: null,
+      providerRating: popularity,
+      productionStatus: null,
+      assets: { remoteImages: getImagesSortedBySize(albumImages) },
+    },
+  };
+});
