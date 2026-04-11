@@ -23,7 +23,8 @@ const listEventsRoute = createAuthRoute(
 		request: { query: listEventsQuery },
 		summary: "List events for an entity",
 		responses: createStandardResponses({
-			successDescription: "Events for the requested entity",
+			successDescription:
+				"Events for the requested entity, including built-in media lifecycle actions",
 			successSchema: listEventsResponseSchema,
 			notFoundDescription: "Entity does not exist for this user",
 		}),
@@ -35,11 +36,13 @@ const createEventRoute = createAuthRoute(
 		path: "/",
 		method: "post",
 		tags: ["events"],
-		summary: "Create events for an entity",
+		summary:
+			"Create events for an entity, including built-in media lifecycle actions",
 		request: { body: jsonBody(createEventBulkBody) },
 		responses: createStandardResponses({
 			successSchema: createEventBulkResponseSchema,
-			successDescription: "Number of events created",
+			successDescription:
+				"Number of events created for the requested entity, including built-in media lifecycle actions",
 			notFoundDescription:
 				"Entity or event schema does not exist for this user",
 		}),
