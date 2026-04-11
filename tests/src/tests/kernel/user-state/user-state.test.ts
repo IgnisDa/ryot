@@ -1,10 +1,9 @@
 import { EntityId } from "@ryot/contract/schema/brands";
-import { queryEngineField, queryEngineSystemRef } from "@ryot/query-engine/primitives";
+import { column, document, eq, field, literal, rows, table } from "@ryot/ryotql";
 import { Effect } from "effect";
 
 import {
 	type Client,
-	buildEntityRowsQueryDocument,
 	clearEntityUserState,
 	createAuthenticatedClient,
 	createEntity,
@@ -13,14 +12,14 @@ import {
 	createRelationship,
 	createPluginSchema,
 	createPluginSchemaAndEntity,
-	executeQueryEngine,
+	executeRyotQL,
 	getBackendClient,
 	listEventSchemas,
 	listRelationshipSchemas,
 	mergeUserState,
 	queryInLibraryRelationship,
 	queryUserEntityStateCounts,
-	requireQueryEngineTextField,
+	requireRyotQLTextField,
 	requireEventSchemaBySlug,
 	requireRelationshipSchemaBySlug,
 	pollUntil,
@@ -54,18 +53,25 @@ const insertUserRelationship = (input: {
 
 const getLibraryEntityId = (client: Client) =>
 	Effect.gen(function* () {
-		const result = yield* executeQueryEngine(
+		const library = table("entity", "library");
+		const result = yield* executeRyotQL(
 			client,
-			buildEntityRowsQueryDocument({
-				limit: 1,
-				alias: "library",
-				schemas: ["library"],
-				fields: [queryEngineField("id", queryEngineSystemRef("library", "id"))],
+			document({
+				libraries: rows(library, {
+					limit: 1,
+					fields: [field("id", column(library, "id"))],
+					where: eq(column(library, "entitySchemaSlug"), literal("library")),
+				}),
 			}),
 		);
-		const library = result.data.items[0];
-		assertPresent(library, "Missing library entity");
-		return EntityId.make(requireQueryEngineTextField(library, "id"));
+		const libraries = result.data.libraries;
+		assertPresent(libraries, "Missing library result");
+		if (libraries.type !== "rows") {
+			throw new Error("Expected library rows");
+		}
+		const libraryRow = libraries.items[0];
+		assertPresent(libraryRow, "Missing library entity");
+		return EntityId.make(requireRyotQLTextField(libraryRow, "id"));
 	});
 
 describe("DELETE /user-state/clear/:id", () => {
@@ -175,8 +181,12 @@ describe("DELETE /user-state/clear/:id", () => {
 				entity.id,
 				schema.slug,
 			);
-			expect(userAMembership.data.items).toHaveLength(0);
-			expect(userBMembership.data.items).toHaveLength(1);
+			expect(
+				userAMembership.data.entity?.type === "rows" ? userAMembership.data.entity.items : [],
+			).toHaveLength(0);
+			expect(
+				userBMembership.data.entity?.type === "rows" ? userBMembership.data.entity.items : [],
+			).toHaveLength(1);
 		}),
 	);
 

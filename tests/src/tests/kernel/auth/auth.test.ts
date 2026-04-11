@@ -1,15 +1,14 @@
-import { queryEngineField, queryEngineSystemRef } from "@ryot/query-engine/primitives";
+import { column, document, eq, field, literal, rows, table } from "@ryot/ryotql";
 import { Effect } from "effect";
 
 import {
-	buildEntityRowsQueryDocument,
 	createTestAuthClient,
 	createTestUser,
-	executeQueryEngine,
+	executeRyotQL,
 	getBackendClient,
 	makeSession,
-	requireQueryEngineObjectField,
-	requireQueryEngineTextField,
+	requireRyotQLFieldValue,
+	requireRyotQLTextField,
 	signInWithPassword,
 } from "~/fixtures";
 import { assert, describe, expect, it } from "~/support/effect-test";
@@ -53,23 +52,30 @@ describe("Email sign-up", () => {
 				const retrySignIn = yield* signInWithPassword(email, password);
 				const retryCookies = retrySignIn.cookies;
 				expect(retryCookies).toBeDefined();
-				const libraryRows = yield* executeQueryEngine(
+				const library = table("entity", "library");
+				const libraryResponse = yield* executeRyotQL(
 					makeSession(undefined, { Cookie: retryCookies ?? cookies }),
-					buildEntityRowsQueryDocument({
-						alias: "library",
-						schemas: ["library"],
-						fields: [
-							queryEngineField("id", queryEngineSystemRef("library", "id")),
-							queryEngineField("name", queryEngineSystemRef("library", "name")),
-							queryEngineField("properties", queryEngineSystemRef("library", "properties")),
-						],
+					document({
+						libraries: rows(library, {
+							fields: [
+								field("id", column(library, "id")),
+								field("name", column(library, "name")),
+								field("properties", column(library, "properties")),
+							],
+							where: eq(column(library, "entitySchemaSlug"), literal("library")),
+						}),
 					}),
 				);
-				expect(libraryRows.data.items).toHaveLength(1);
-				const library = libraryRows.data.items[0];
-				assert(library);
-				expect(requireQueryEngineTextField(library, "name")).toBe("Library");
-				expect(requireQueryEngineObjectField(library, "properties")).toEqual({});
+				const libraries = libraryResponse.data.libraries;
+				assert(libraries?.type === "rows");
+				expect(libraries.items).toHaveLength(1);
+				const libraryRow = libraries.items[0];
+				assert(libraryRow);
+				expect(requireRyotQLTextField(libraryRow, "name")).toBe("Library");
+				expect(requireRyotQLFieldValue(libraryRow, "properties")).toEqual({
+					kind: "json",
+					value: {},
+				});
 			}),
 	);
 

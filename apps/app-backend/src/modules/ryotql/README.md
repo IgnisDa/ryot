@@ -1,6 +1,6 @@
 # RyotQL Guide
 
-RyotQL is the focused read API at `POST /ryotql/execute`. It is independent from the legacy query engine.
+RyotQL is the focused read API at `POST /ryotql/execute`.
 
 ## Current Capabilities
 
@@ -104,7 +104,7 @@ Sandbox scripts declare the separate `executeRyotql` capability. User and subscr
 
 Plugin execution can read only global entities whose `entitySchemaSlug` is owned by the plugin. It can read event and relationship rows across users only when their discriminator definition is owned by the plugin. The `plugin`, `pluginState`, and `savedView` tables are denied. These policies apply independently to every root, join, include, and correlated query before document predicates.
 
-Sandbox code imports builders, generic entity and event read recipes, field-value schemas, and strict named-response helpers from `@ryot/sandbox-sdk/ryotql`. The helpers accept only the RyotQL `{ data: { [queryName]: result } }` envelope; they do not accept legacy query-engine arrays or result envelopes. The legacy `executeQueryEngine` capability remains available to scripts that have not migrated.
+Sandbox code imports builders, generic entity and event read recipes, field-value schemas, and strict named-response helpers from `@ryot/sandbox-sdk/ryotql`. The helpers accept only the RyotQL `{ data: { [queryName]: result } }` envelope.
 
 ## Expressions And JSON
 

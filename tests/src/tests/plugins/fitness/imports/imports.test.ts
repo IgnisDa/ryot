@@ -44,7 +44,12 @@ describe("OpenScale Import E2E", () => {
 			const memberships = yield* Effect.forEach(measurements.items, (measurement) =>
 				queryInLibraryRelationship(client, requireRyotQLTextField(measurement, "id"), schema.slug),
 			);
-			expect(memberships.every((membership) => membership.data.items.length === 0)).toBe(true);
+			expect(
+				memberships.every(
+					(membership) =>
+						membership.data.entity?.type === "rows" && membership.data.entity.items.length === 0,
+				),
+			).toBe(true);
 		}),
 	);
 

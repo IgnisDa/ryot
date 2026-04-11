@@ -90,7 +90,7 @@ Phases 0–3 are **done**. Current structure uses `src/modules/*`, `src/api/app-
 `src/app/*` (expo-router).
 
 - **Phase 0 — Deps & config** ✅ effect, @effect/platform, @effect-atom/atom-react,
-  @ryot/contract, @ryot/ts-utils, @ryot/query-engine, better-auth, @better-auth/expo,
+  @ryot/contract, @ryot/ts-utils, @ryot/ryotql, better-auth, @better-auth/expo,
   expo-secure-store, react-native-mmkv, expo-image, lucide-react-native, Lora/Outfit fonts.
   tsconfig paths + babel, theme tokens into `global.css`.
 - **Phase 1 — Instance-URL store** ✅ cloud vs self-hosted, trailing-slash strip, backed by
@@ -112,8 +112,8 @@ Phases 0–3 are **done**. Current structure uses `src/modules/*`, `src/api/app-
   stars), bottom tab navigator (Home/Search/Library/You) replacing the old rail/sheet.
 - **Phase 5 — Tracer bullet: film, end to end.** Library home (`Continue` + `Your library`)
   → entity detail (hero, Mark watched, Overview/Cast/Related tabs, In collections, metadata)
-  → the `Mark watched` mutation. Exercises the whole stack once: `@ryot/query-engine` recipe
-  → `QueryEngineGroup` (`/query-engine`) → atom → render, plus `EventsGroup` for the write.
+  → the `Mark watched` mutation. Exercises the whole stack once: `@ryot/ryotql` recipe
+  → `RyotQLGroup` (`/ryotql`) → atom → render, plus `EventsGroup` for the write.
   Reads `activeTrackerAtom` = media. Reuse ported entity-detail/media logic; only view +
   atom wiring is new. **This also triggers the Phase-3 auth-component refactor.**
 - **Phase 6 — Breadth.** Search (`EntitiesGroup`/`EntityImportGroup`),
