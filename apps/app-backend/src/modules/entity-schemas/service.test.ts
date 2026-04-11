@@ -2,11 +2,11 @@ import { describe, expect, it } from "bun:test";
 import {
 	createEntitySchemaBody,
 	createEntitySchemaDeps,
-	createFlatTitlePagesPropertySchema,
 	createListedEntitySchema,
 	createNestedMatrixPropertySchema,
 	createNestedPeoplePropertySchema,
 	createOptionalTitlePropertiesSchema,
+	createTitlePagesPropertiesSchema,
 } from "~/lib/test-fixtures";
 import { expectDataResult } from "~/lib/test-helpers";
 import { authenticationBuiltinEntitySchemas } from "../authentication/bootstrap/manifests";
@@ -60,14 +60,8 @@ describe("resolveEntitySchemaAccentColor", () => {
 });
 
 describe("parseEntitySchemaPropertiesSchema", () => {
-	it("accepts flat properties map", () => {
-		const schema = createFlatTitlePagesPropertySchema();
-
-		expect(parseEntitySchemaPropertiesSchema(schema)).toEqual(schema);
-	});
-
-	it("accepts already-parsed properties map", () => {
-		const schema = createFlatTitlePagesPropertySchema();
+	it("accepts a valid properties schema object", () => {
+		const schema = createTitlePagesPropertiesSchema();
 
 		expect(parseEntitySchemaPropertiesSchema(schema)).toEqual(schema);
 	});
