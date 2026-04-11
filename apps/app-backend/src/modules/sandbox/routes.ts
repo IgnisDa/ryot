@@ -8,12 +8,32 @@ import {
 	jsonBody,
 } from "~/lib/openapi";
 import {
+	createSandboxScriptBody,
+	createSandboxScriptResponseSchema,
 	enqueueSandboxBody,
 	enqueueSandboxResponseSchema,
 	pollSandboxResultResponseSchema,
 	sandboxJobParams,
 } from "./schemas";
-import { enqueueSandbox, getSandboxResult } from "./service";
+import {
+	createSandboxScript,
+	enqueueSandbox,
+	getSandboxResult,
+} from "./service";
+
+const createSandboxScriptRoute = createAuthRoute(
+	createRoute({
+		method: "post",
+		path: "/scripts",
+		tags: ["sandbox"],
+		summary: "Create a sandbox script",
+		request: { body: jsonBody(createSandboxScriptBody) },
+		responses: createStandardResponses({
+			successDescription: "Sandbox script created",
+			successSchema: createSandboxScriptResponseSchema,
+		}),
+	}),
+);
 
 const enqueueSandboxRoute = createAuthRoute(
 	createRoute({
@@ -46,6 +66,19 @@ const getSandboxResultRoute = createAuthRoute(
 );
 
 export const sandboxApi = new OpenAPIHono<{ Variables: AuthType }>()
+	.openapi(createSandboxScriptRoute, async (c) => {
+		const user = c.get("user");
+		const body = c.req.valid("json");
+
+		const result = await createSandboxScript({ body, userId: user.id });
+		if ("error" in result) {
+			const response = createServiceErrorResult(result);
+			return c.json(response.body, response.status);
+		}
+
+		const response = createSuccessResult(result.data);
+		return c.json(response.body, response.status);
+	})
 	.openapi(enqueueSandboxRoute, async (c) => {
 		const user = c.get("user");
 		const body = c.req.valid("json");
