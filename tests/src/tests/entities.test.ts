@@ -172,4 +172,31 @@ describe("POST /entities", () => {
 			"externalId and detailsSandboxScriptId must both be provided or both be omitted",
 		);
 	});
+
+	it("accepts null values for non-required boolean fields", async () => {
+		const { client, cookies } = await createAuthenticatedClient();
+		const { schema } = await findBuiltinSchemaWithSearchProviders(
+			client,
+			cookies,
+		);
+		const provider = schema.searchProviders[0];
+		if (!provider) {
+			throw new Error("No search provider found");
+		}
+
+		const entity = await createEntity(client, cookies, {
+			image: null,
+			entitySchemaId: schema.id,
+			externalId: "null-isNsfw-test",
+			name: "Entity with Null isNsfw",
+			detailsSandboxScriptId: provider.detailsScriptId,
+			properties: {
+				isNsfw: null,
+				genres: ["Test"],
+				assets: { remoteImages: [] },
+			},
+		});
+
+		expect(entity.id).toBeDefined();
+	});
 });
