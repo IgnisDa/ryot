@@ -28,6 +28,7 @@ Do not add functionality, abstractions, or generalization the user has not expli
 
 - Test app-owned behavior and branching, not library behavior.
 - Keep assertions inline; extract duplicated setup, not test intent.
+- Always run tests from the individual app directory (e.g., `cd apps/app-backend && bun run test`).
 - Avoid tests that only prove libraries or TypeScript work: Zod smoke parses, assigning then asserting the same value, status/data smoke checks, and `typeof`/`Array.isArray` passthroughs.
 
 ## Git Workflow
