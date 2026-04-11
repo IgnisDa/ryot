@@ -57,6 +57,13 @@ const omitWorkflowParent = <R>(context: Context.Context<R>) => {
 	return Context.unsafeMake<R>(services);
 };
 
+// TODO: https://github.com/Effect-TS/effect/issues/6294
+// Production workaround, not the default composition model. Detaching removes
+// structured parent ownership, so use it only with a deterministic execution
+// id and an idempotent child. The caller must either
+// await the detached execution or observe its durable terminal state and
+// propagate failure; cancellation and timeout behavior must remain explicit.
+// Prefer structured children again once the upstream resume defect is fixed.
 export const withoutWorkflowParent = <A, E, R>(effect: Effect.Effect<A, E, R>) =>
 	Effect.mapInputContext(effect, (context: Context.Context<R>) => omitWorkflowParent(context));
 

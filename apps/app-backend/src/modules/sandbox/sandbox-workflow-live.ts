@@ -50,6 +50,7 @@ const runSandboxWorkflow = Effect.fn("RunSandboxWorkflow")(
 			scriptId: payload.scriptId,
 			authority: payload.authority,
 			executionId: payload.executionId,
+			...(payload.grants ? { grants: payload.grants } : {}),
 		};
 		return yield* DurableQueue.process(SandboxExecutionQueue, executionPayload).pipe(
 			Effect.mapError(toSandboxRunError),

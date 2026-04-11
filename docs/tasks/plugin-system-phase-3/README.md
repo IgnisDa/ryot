@@ -71,13 +71,11 @@ are plugin-owned; and no media- or fitness-specific module remains outside the d
 `legacy-bootstrap` V1-adoption quarantine. Task 12's cleanup pass is complete (11 of 12), executed
 under an explicit owner waiver of its Task 11 prerequisite.
 
-Task 11 remains in progress and the full Phase 3 gate is **not** closed: the opt-in operational gate
-timed out at its two-concurrent-1,001-item workload, the Task 10 imports e2e case still times out
-waiting for its import run, and three `integrations.test.ts` webhook/progress-normalization cases
-still report a `failed` import run. Each was reproduced at `763720970` with Task 12's changes
-stashed, so they are Task 11's to close rather than cleanup regressions — see
-[Task 12](./12-codebase-cleanup.md) for the reproduction record. The branch and full e2e suite are
-not recorded as green.
+Task 11 remains in progress and the full Phase 3 gate is **not** closed. The Task 10 imports and
+integration failures are repaired, and the standard full e2e suite passes all 79 files and 501 tests.
+The opt-in operational gate still times out at its two-concurrent-1,001-item workload: 2 of 8
+workflows completed and 6 remained pending after 900 seconds. That load failure is Task 11's only
+remaining gate blocker; see [Task 12](./12-codebase-cleanup.md) for the earlier reproduction record.
 
 The full rationale, and why this phase comes third, is in
 `docs/plans/plugin-system/00-overview.md` (see "Sequencing rationale": Phase 3 "orders
