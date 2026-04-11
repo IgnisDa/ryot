@@ -7,8 +7,13 @@ import { resolveMediaEntityRefs } from "./resolve";
 
 type ResolveDeps = NonNullable<Parameters<typeof resolveMediaEntityRefs>[3]>;
 
-const unresolvedGroup = (sourceLabel: string, identifierValue: string): ImportMediaEntityGroup => ({
+const unresolvedGroup = (
+	sourceLabel: string,
+	identifierValue: string,
+	itemIndex?: number,
+): ImportMediaEntityGroup => ({
 	events: [],
+	...(itemIndex !== undefined ? { itemIndex } : {}),
 	collectionMemberships: [],
 	entityRef: {
 		sourceLabel,
@@ -147,6 +152,22 @@ describe("resolveMediaEntityRefs", () => {
 			stage: "provider_resolution",
 			message: "No providers configured to resolve isbn",
 		});
+	});
+
+	it("records source item index for grouped provider failures", async () => {
+		const failures: Array<Record<string, unknown>> = [];
+		await runResolve(
+			[unresolvedGroup("Book One", "9780140328721", 7)],
+			createResolveDeps({
+				getResolutionCandidates: () => [],
+				createImportRunFailure: (input) => {
+					failures.push(input);
+					return Promise.resolve();
+				},
+			}),
+		);
+
+		expect(failures[0]).toMatchObject({ itemIndex: 7, stage: "provider_resolution" });
 	});
 
 	it("leaves already-resolved refs untouched", async () => {

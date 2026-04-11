@@ -60,13 +60,17 @@ export const adaptStorygraphCsv = (csvText: string): MediaImportAdapterResult =>
 			continue;
 		}
 
-		const group = getOrCreateMediaEntityGroup(groupMap, {
-			sourceLabel,
-			kind: "unresolved",
-			identifierValue: isbn,
-			identifierType: "isbn",
-			entitySchemaSlug: "book",
-		});
+		const group = getOrCreateMediaEntityGroup(
+			groupMap,
+			{
+				sourceLabel,
+				kind: "unresolved",
+				identifierValue: isbn,
+				identifierType: "isbn",
+				entitySchemaSlug: "book",
+			},
+			itemIndex,
+		);
 		const lifecycleStatus = normalizeLifecycleStatus(row["Read Status"] ?? "");
 		const completedOn = parseDateWithFormat(row["Last Date Read"] ?? "", "YYYY/MM/DD");
 		const fallbackOccurredAt = completedOn ?? dayjs().toISOString();

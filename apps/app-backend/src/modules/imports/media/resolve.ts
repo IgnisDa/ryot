@@ -5,6 +5,7 @@ import { getBuiltinSandboxScriptBySlug } from "~/modules/sandbox";
 
 import type { ImportMediaEntityGroup, ImportRunJobData } from "../jobs";
 import { createImportRunFailure } from "../repository";
+import { mediaEntityGroupItemIndex } from "./groups";
 import { getResolutionCandidates } from "./resolution-candidates";
 
 type MediaEntityResolutionDeps = {
@@ -68,13 +69,13 @@ export const resolveMediaEntityRefs = async (
 		if (candidates.length === 0) {
 			failedIndices.push(i);
 			await deps.createImportRunFailure({
-				itemIndex: i,
 				runId: input.runId,
 				stage: "provider_resolution",
 				sourceLabel: ref.sourceLabel,
 				sourceIdentifier: ref.identifierValue,
 				entitySchemaSlug: ref.entitySchemaSlug,
 				context: { identifierType: ref.identifierType },
+				itemIndex: mediaEntityGroupItemIndex(group, i),
 				message: `No providers configured to resolve ${ref.identifierType}`,
 			});
 			await job.updateData({
@@ -151,12 +152,12 @@ export const resolveMediaEntityRefs = async (
 		if (!resolved) {
 			failedIndices.push(i);
 			await deps.createImportRunFailure({
-				itemIndex: i,
 				runId: input.runId,
 				stage: "provider_resolution",
 				sourceLabel: ref.sourceLabel,
 				sourceIdentifier: ref.identifierValue,
 				entitySchemaSlug: ref.entitySchemaSlug,
+				itemIndex: mediaEntityGroupItemIndex(group, i),
 				context: lookupErrors.length > 0 ? { errors: lookupErrors } : null,
 				message:
 					lookupErrors.length > 0
