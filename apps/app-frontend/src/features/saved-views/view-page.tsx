@@ -13,7 +13,7 @@ import {
 	Text,
 } from "@mantine/core";
 import { useDisclosure, useLocalStorage } from "@mantine/hooks";
-import { Copy, Edit3, LayoutGrid, List, Table2, Trash2 } from "lucide-react";
+import { Copy, Info, LayoutGrid, List, Table2, Trash2 } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { EmptyState, ErrorState, LoadingState } from "#/components/PageStates";
 import { useResolvedImageUrls } from "#/features/entities/image";
@@ -24,7 +24,6 @@ import { useThemeTokens } from "#/hooks/theme";
 import { STORAGE_KEYS } from "#/lib/storage-keys";
 import { getAccentMuted } from "#/lib/theme";
 import { SavedViewDrawerContent } from "./components/saved-view-drawer-content";
-import { useSavedViewMutations } from "./hooks";
 import { SavedViewResults } from "./view-page-sections";
 import {
 	createDisabledViewRuntimeRequest,
@@ -52,8 +51,6 @@ export function SavedViewPage(props: {
 		defaultValue: "grid",
 	});
 	const [page, setPage] = useState(1);
-	const [saveMessage, setSaveMessage] = useState<string | null>(null);
-	const savedViewMutations = useSavedViewMutations();
 
 	const savedViewQuery = apiClient.useQuery("get", "/saved-views/{viewId}", {
 		params: { path: { viewId: props.viewId } },
@@ -246,18 +243,13 @@ export function SavedViewPage(props: {
 								onClick={drawer.open}
 								style={{ backgroundColor: accentMuted, color: accentColor }}
 							>
-								<Edit3 size={18} />
+								<Info size={18} />
 							</ActionIcon>
 						</Group>
 					</Group>
 					{props.actionError ? (
 						<Text size="sm" c="red">
 							{props.actionError}
-						</Text>
-					) : null}
-					{saveMessage ? (
-						<Text size="sm" c="green">
-							{saveMessage}
 						</Text>
 					) : null}
 				</Paper>
@@ -302,7 +294,7 @@ export function SavedViewPage(props: {
 				<Drawer
 					size="md"
 					position="right"
-					title="Edit View"
+					title="View details"
 					opened={drawerOpened}
 					onClose={drawer.close}
 					styles={{
@@ -315,21 +307,6 @@ export function SavedViewPage(props: {
 						view={savedView}
 						onClone={props.onClone}
 						isCloning={props.isCloning ?? false}
-						isSubmitting={savedViewMutations.isPending}
-						onCancel={() => {
-							setSaveMessage(null);
-							drawer.close();
-						}}
-						onSubmit={async (values) => {
-							setSaveMessage(null);
-							await savedViewMutations.updateViewExtendedById(
-								savedView,
-								values,
-							);
-							await savedViewQuery.refetch();
-							setSaveMessage("View changes saved.");
-							drawer.close();
-						}}
 					/>
 				</Drawer>
 			</Stack>

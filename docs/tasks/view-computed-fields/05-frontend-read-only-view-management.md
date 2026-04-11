@@ -4,7 +4,7 @@
 
 **Type:** AFK
 
-**Status:** todo
+**Status:** done
 
 ## What to build
 
@@ -18,11 +18,11 @@ Backward compatibility is not needed in this slice. Remove the old editing exper
 
 ## Acceptance criteria
 
-- [ ] Saved-view execution in the frontend uses the new expression-based backend contract without relying on legacy reference arrays
-- [ ] The saved-view editing UI is removed from the frontend completely
-- [ ] Dead code tied only to the removed editing UI is deleted
-- [ ] The saved-view drawer shows a simple read-only message explaining that advanced editing currently requires direct payloads/config
-- [ ] Clone, delete, disable/enable, reorder, and view rendering continue to work after the UI removal
+- [x] Saved-view execution in the frontend uses the new expression-based backend contract without relying on legacy reference arrays
+- [x] The saved-view editing UI is removed from the frontend completely
+- [x] Dead code tied only to the removed editing UI is deleted
+- [x] The saved-view drawer shows a simple read-only message explaining that advanced editing currently requires direct payloads/config
+- [x] Clone, delete, disable/enable, reorder, and view rendering continue to work after the UI removal
 
 ## Blocked by
 
