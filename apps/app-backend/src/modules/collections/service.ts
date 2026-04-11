@@ -1,4 +1,6 @@
+import type { AppSchema } from "@ryot/ts-utils";
 import { resolveRequiredString } from "@ryot/ts-utils";
+import { parseAppSchemaProperties } from "~/lib/app/schema-validation";
 import {
 	type ServiceResult,
 	serviceData,
@@ -25,6 +27,8 @@ const invalidMembershipSchemaError =
 	"membershipPropertiesSchema must be a valid AppSchema";
 const collectionNotFoundError = "Collection not found";
 const entityNotFoundError = "Entity not found";
+const invalidMembershipPropertiesError =
+	"Membership properties validation failed";
 
 export type CollectionServiceDeps = {
 	createCollectionForUser: typeof createCollectionForUser;
@@ -128,12 +132,35 @@ export const addToCollection = async (
 		return serviceError("not_found", entityNotFoundError);
 	}
 
+	// Validate properties against collection's membershipPropertiesSchema if defined
+	const membershipSchema = collection.properties.membershipPropertiesSchema as
+		| AppSchema
+		| undefined;
+	let validatedProperties: Record<string, unknown>;
+	if (membershipSchema) {
+		try {
+			validatedProperties = parseAppSchemaProperties({
+				kind: "Membership",
+				properties: input.body.properties,
+				propertiesSchema: membershipSchema,
+			});
+		} catch (error) {
+			const message =
+				error instanceof Error
+					? error.message
+					: invalidMembershipPropertiesError;
+			return serviceError("validation", message);
+		}
+	} else {
+		validatedProperties = input.body.properties ?? {};
+	}
+
 	// Create the relationships (collection and member_of)
 	const relationships = await deps.addEntityToCollection({
 		collectionId: input.body.collectionId,
 		entityId: input.body.entityId,
 		userId: input.userId,
-		properties: input.body.properties ?? {},
+		properties: validatedProperties,
 	});
 
 	return serviceData(relationships);
