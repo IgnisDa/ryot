@@ -15,9 +15,26 @@ function isQueryDataWithSavedViews(
 function extractSavedViewReorderInput(
 	input: unknown,
 ): { viewIds: string[]; trackerId?: string } | undefined {
-	return (input as { body?: { viewIds?: string[]; trackerId?: string } }).body
-		?.viewIds
-		? (input as { body: { viewIds: string[]; trackerId?: string } }).body
+	if (!input || typeof input !== "object" || !("body" in input)) {
+		return undefined;
+	}
+
+	const body = input.body;
+	if (!body || typeof body !== "object" || !("viewIds" in body)) {
+		return undefined;
+	}
+	const trackerId =
+		"trackerId" in body && typeof body.trackerId === "string"
+			? body.trackerId
+			: undefined;
+
+	return Array.isArray(body.viewIds)
+		? {
+				viewIds: body.viewIds.filter(
+					(id): id is string => typeof id === "string",
+				),
+				...(trackerId ? { trackerId } : {}),
+			}
 		: undefined;
 }
 
@@ -85,11 +102,8 @@ export function useSavedViewMutations() {
 		"/saved-views/reorder",
 		{
 			onMutate: async (input: unknown) => {
-				const mutableListQueryKey = listQueryKey as unknown as unknown[];
-				await queryClient.cancelQueries({
-					queryKey: mutableListQueryKey,
-				});
-				const previousData = queryClient.getQueryData(mutableListQueryKey);
+				await queryClient.cancelQueries({ queryKey: listQueryKey });
+				const previousData = queryClient.getQueryData(listQueryKey);
 
 				if (isQueryDataWithSavedViews(previousData)) {
 					const reorderInput = extractSavedViewReorderInput(input);
