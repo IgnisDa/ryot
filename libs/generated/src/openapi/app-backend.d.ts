@@ -1720,6 +1720,11 @@ export interface paths {
                                         field: string;
                                     } | {
                                         value?: unknown;
+                                        /** @enum {string} */
+                                        op: "isNotNull";
+                                        field: string;
+                                    } | {
+                                        value?: unknown;
                                         field: string;
                                         /** @enum {string} */
                                         op: "contains";
@@ -1820,6 +1825,11 @@ export interface paths {
                                 field: string;
                             } | {
                                 value?: unknown;
+                                /** @enum {string} */
+                                op: "isNotNull";
+                                field: string;
+                            } | {
+                                value?: unknown;
                                 field: string;
                                 /** @enum {string} */
                                 op: "contains";
@@ -1899,6 +1909,11 @@ export interface paths {
                                         value?: unknown;
                                         /** @enum {string} */
                                         op: "isNull";
+                                        field: string;
+                                    } | {
+                                        value?: unknown;
+                                        /** @enum {string} */
+                                        op: "isNotNull";
                                         field: string;
                                     } | {
                                         value?: unknown;
@@ -2032,6 +2047,11 @@ export interface paths {
                                         field: string;
                                     } | {
                                         value?: unknown;
+                                        /** @enum {string} */
+                                        op: "isNotNull";
+                                        field: string;
+                                    } | {
+                                        value?: unknown;
                                         field: string;
                                         /** @enum {string} */
                                         op: "contains";
@@ -2137,6 +2157,11 @@ export interface paths {
                                 field: string;
                             } | {
                                 value?: unknown;
+                                /** @enum {string} */
+                                op: "isNotNull";
+                                field: string;
+                            } | {
+                                value?: unknown;
                                 field: string;
                                 /** @enum {string} */
                                 op: "contains";
@@ -2216,6 +2241,11 @@ export interface paths {
                                         value?: unknown;
                                         /** @enum {string} */
                                         op: "isNull";
+                                        field: string;
+                                    } | {
+                                        value?: unknown;
+                                        /** @enum {string} */
+                                        op: "isNotNull";
                                         field: string;
                                     } | {
                                         value?: unknown;
@@ -2345,6 +2375,11 @@ export interface paths {
                                         value?: unknown;
                                         /** @enum {string} */
                                         op: "isNull";
+                                        field: string;
+                                    } | {
+                                        value?: unknown;
+                                        /** @enum {string} */
+                                        op: "isNotNull";
                                         field: string;
                                     } | {
                                         value?: unknown;
@@ -2487,6 +2522,11 @@ export interface paths {
                                         value?: unknown;
                                         /** @enum {string} */
                                         op: "isNull";
+                                        field: string;
+                                    } | {
+                                        value?: unknown;
+                                        /** @enum {string} */
+                                        op: "isNotNull";
                                         field: string;
                                     } | {
                                         value?: unknown;
@@ -2667,11 +2707,6 @@ export interface paths {
                             limit: number;
                         };
                         /** @default [] */
-                        fields?: {
-                            key: string;
-                            references: string[];
-                        }[];
-                        /** @default [] */
                         eventJoins?: {
                             key: string;
                             /** @enum {string} */
@@ -2690,6 +2725,11 @@ export interface paths {
                             field: string;
                         } | {
                             value?: unknown;
+                            /** @enum {string} */
+                            op: "isNotNull";
+                            field: string;
+                        } | {
+                            value?: unknown;
                             field: string;
                             /** @enum {string} */
                             op: "contains";
@@ -2700,6 +2740,11 @@ export interface paths {
                             op: "eq" | "neq" | "gt" | "gte" | "lt" | "lte";
                         })[];
                         entitySchemaSlugs: string[];
+                        /** @default [] */
+                        fields?: {
+                            references: string[];
+                            key: string;
+                        }[];
                     };
                 };
             };
@@ -2743,8 +2788,8 @@ export interface paths {
                                         total: number;
                                         limit: number;
                                         hasNextPage: boolean;
-                                        hasPreviousPage: boolean;
                                         totalPages: number;
+                                        hasPreviousPage: boolean;
                                     };
                                 };
                             };

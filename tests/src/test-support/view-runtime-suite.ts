@@ -549,6 +549,35 @@ export function registerViewRuntimePresentationAndErrorTests() {
 		}
 	});
 
+	it("returns only entities with a non-null event join value for isNotNull", async () => {
+		const { client, cookies, smartphoneSlug, tabletSlug } =
+			await createMixedLatestEventJoinFixture();
+		const { data, response } = await executeViewRuntime(
+			client,
+			cookies,
+			buildGridRequest({
+				entitySchemaSlugs: [smartphoneSlug, tabletSlug],
+				filters: [{ op: "isNotNull", field: "event.review.rating" }],
+				eventJoins: [
+					{ key: "review", kind: "latestEvent", eventSchemaSlug: "review" },
+				],
+				displayConfiguration: buildGridDisplayConfiguration({
+					subtitleProperty: null,
+					badgeProperty: ["event.review.rating"],
+				}),
+			}),
+		);
+
+		expect(response.status).toBe(200);
+		expect(data?.data.items.map((item) => item.name)).toEqual([
+			"Alpha Phone",
+			"Gamma Phone",
+		]);
+		for (const item of data?.data.items ?? []) {
+			expect(getField(item, "badge").kind).toBe("number");
+		}
+	});
+
 	it("returns 404 and 400 errors for invalid runtime requests", async () => {
 		const { client, cookies, schema } =
 			await createSingleSchemaRuntimeFixture();
