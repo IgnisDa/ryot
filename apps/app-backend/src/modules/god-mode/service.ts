@@ -103,8 +103,8 @@ export class GodModeService extends Context.Service<GodModeService>()("GodModeSe
 				id: u.id,
 				name: u.name,
 				email: u.email,
-				disabledAt: u.disabledAt,
 				createdAt: u.createdAt,
+				disabledAt: u.disabledAt,
 				twoFactorEnabled: u.twoFactorEnabled,
 				authState: classifyAuthState(accountsByUser.get(u.id) ?? []),
 			}));
