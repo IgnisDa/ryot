@@ -1,10 +1,10 @@
+import { z } from "@hono/zod-openapi";
 import {
 	type AppObjectProperty,
 	type AppPropertyDefinition,
 	fromAppSchema,
 } from "@ryot/ts-utils";
 import { match } from "ts-pattern";
-import { z } from "zod";
 import { ViewRuntimeValidationError } from "./errors";
 import type { ViewComputedField } from "./expression";
 import {
