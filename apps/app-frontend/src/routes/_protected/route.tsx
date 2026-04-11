@@ -51,7 +51,7 @@ function RouteComponent() {
 						drawerOpened={drawerOpened}
 					/>
 
-					<Box flex={1} p={16} style={{ overflowY: "auto" }}>
+					<Box flex={1} py={16} px={{ md: 16 }} style={{ overflowY: "auto" }}>
 						<Outlet />
 					</Box>
 				</Flex>
