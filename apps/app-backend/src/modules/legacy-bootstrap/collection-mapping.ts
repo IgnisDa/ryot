@@ -68,7 +68,7 @@ BEGIN
 		INNER JOIN "entity" src_entity ON src_entity.id = cte.entity_id
 		WHERE src_entity.user_id IS NULL
 			AND src_entity.external_id IS NOT NULL
-			AND src_entity.sandbox_script_id IS NOT NULL
+			AND src_entity.provider_id IS NOT NULL
 			AND src_entity.entity_schema_slug IN (${input.monitorableEntitySchemaSlugs.map(quoteSqlString).join(", ")})
 			AND NOT EXISTS (
 				SELECT 1
@@ -76,7 +76,7 @@ BEGIN
 				WHERE library_entity.user_id = coll.user_id
 					AND library_entity.entity_schema_slug = ${quoteSqlString(input.libraryEntitySchemaSlug)}
 					AND library_entity.external_id IS NULL
-					AND library_entity.sandbox_script_id IS NULL
+					AND library_entity.provider_id IS NULL
 			)
 	) THEN
 		RAISE EXCEPTION 'Expected each legacy Monitoring collection owner to have a V2 library entity';
@@ -108,10 +108,10 @@ BEGIN
 		ON library_entity.user_id = coll.user_id
 		AND library_entity.entity_schema_slug = ${quoteSqlString(input.libraryEntitySchemaSlug)}
 		AND library_entity.external_id IS NULL
-		AND library_entity.sandbox_script_id IS NULL
+		AND library_entity.provider_id IS NULL
 	WHERE src_entity.user_id IS NULL
 		AND src_entity.external_id IS NOT NULL
-		AND src_entity.sandbox_script_id IS NOT NULL
+		AND src_entity.provider_id IS NOT NULL
 		AND src_entity.entity_schema_slug IN (${input.monitorableEntitySchemaSlugs.map(quoteSqlString).join(", ")})
 	ON CONFLICT DO NOTHING;
 
@@ -182,7 +182,7 @@ BEGIN
 		"user_id",
 		"properties",
 		"entity_schema_slug",
-		"sandbox_script_id",
+		"provider_id",
 		"updated_at"
 	)
 	SELECT

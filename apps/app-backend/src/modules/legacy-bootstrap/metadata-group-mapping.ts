@@ -21,84 +21,84 @@ export const metadataGroupEntityTargets = [
 		lot: "audio_book",
 		source: "audible",
 		entitySchemaSlug: "audiobook-group",
-		sandboxScriptSlug: "audiobook-group.audible",
+		providerSlug: "audiobook-group.audible",
 	},
 	{
 		lot: "audio_book",
 		source: "custom",
 		entitySchemaSlug: "audiobook-group",
-		sandboxScriptSlug: null,
+		providerSlug: null,
 	},
-	{ lot: "book", source: "custom", entitySchemaSlug: "book-group", sandboxScriptSlug: null },
-	{ lot: "book", source: "google_books", entitySchemaSlug: "book-group", sandboxScriptSlug: null },
+	{ lot: "book", source: "custom", entitySchemaSlug: "book-group", providerSlug: null },
+	{ lot: "book", source: "google_books", entitySchemaSlug: "book-group", providerSlug: null },
 	{
 		lot: "book",
 		source: "hardcover",
 		entitySchemaSlug: "book-group",
-		sandboxScriptSlug: "book-group.hardcover",
+		providerSlug: "book-group.hardcover",
 	},
-	{ lot: "book", source: "openlibrary", entitySchemaSlug: "book-group", sandboxScriptSlug: null },
+	{ lot: "book", source: "openlibrary", entitySchemaSlug: "book-group", providerSlug: null },
 	{
 		lot: "comic_book",
 		source: "custom",
 		entitySchemaSlug: "comic-book-group",
-		sandboxScriptSlug: null,
+		providerSlug: null,
 	},
 	{
 		lot: "comic_book",
 		source: "metron",
 		entitySchemaSlug: "comic-book-group",
-		sandboxScriptSlug: "comic-book-group.metron",
+		providerSlug: "comic-book-group.metron",
 	},
-	{ lot: "movie", source: "custom", entitySchemaSlug: "movie-group", sandboxScriptSlug: null },
+	{ lot: "movie", source: "custom", entitySchemaSlug: "movie-group", providerSlug: null },
 	{
 		lot: "movie",
 		source: "tmdb",
 		entitySchemaSlug: "movie-group",
-		sandboxScriptSlug: "movie-group.tmdb",
+		providerSlug: "movie-group.tmdb",
 	},
 	{
 		lot: "movie",
 		source: "tvdb",
 		entitySchemaSlug: "movie-group",
-		sandboxScriptSlug: "movie-group.tvdb",
+		providerSlug: "movie-group.tvdb",
 	},
-	{ lot: "music", source: "custom", entitySchemaSlug: "music-group", sandboxScriptSlug: null },
+	{ lot: "music", source: "custom", entitySchemaSlug: "music-group", providerSlug: null },
 	{
 		lot: "music",
 		source: "music_brainz",
 		entitySchemaSlug: "music-group",
-		sandboxScriptSlug: "music-group.music-brainz",
+		providerSlug: "music-group.music-brainz",
 	},
 	{
 		lot: "music",
 		source: "spotify",
 		entitySchemaSlug: "music-group",
-		sandboxScriptSlug: "music-group.spotify",
+		providerSlug: "music-group.spotify",
 	},
 	{
 		lot: "music",
 		source: "youtube_music",
 		entitySchemaSlug: "music-group",
-		sandboxScriptSlug: "music-group.youtube-music",
+		providerSlug: "music-group.youtube-music",
 	},
 	{
 		lot: "video_game",
 		source: "custom",
 		entitySchemaSlug: "video-game-group",
-		sandboxScriptSlug: null,
+		providerSlug: null,
 	},
 	{
 		lot: "video_game",
 		source: "giant_bomb",
 		entitySchemaSlug: "video-game-group",
-		sandboxScriptSlug: "video-game-group.giant-bomb",
+		providerSlug: "video-game-group.giant-bomb",
 	},
 	{
 		lot: "video_game",
 		source: "igdb",
 		entitySchemaSlug: "video-game-group",
-		sandboxScriptSlug: "video-game-group.igdb",
+		providerSlug: "video-game-group.igdb",
 	},
 ] as const satisfies readonly LotEntityMigrationTarget[];
 
@@ -115,7 +115,7 @@ const supportedGroupLots = [...new Set(metadataGroupEntityTargets.map((t) => t.l
 
 const metadataGroupEntityTargetValuesSql = sql.join(
 	metadataGroupEntityTargets.map(
-		(t) => sql`(${t.lot}, ${t.source}, ${t.entitySchemaSlug}, ${t.sandboxScriptSlug})`,
+		(t) => sql`(${t.lot}, ${t.source}, ${t.entitySchemaSlug}, ${t.providerSlug})`,
 	),
 	sql`, `,
 );
@@ -170,7 +170,7 @@ BEGIN
 	RAISE NOTICE 'metadata_group -> entity: migration started (% seconds elapsed)', 0.0;
 
 	LOOP
-		WITH metadata_group_targets (lot, source, entity_schema_slug, sandbox_script_id) AS (
+		WITH metadata_group_targets (lot, source, entity_schema_slug, provider_id) AS (
 			VALUES ${buildLotEntityTargetValuesSql(targets)}
 		), batch AS (
 			SELECT mg.id::text AS id
@@ -178,7 +178,7 @@ BEGIN
 			INNER JOIN metadata_group_targets mgt ON mgt.lot = mg.lot AND mgt.source = mg.source
 			WHERE mg.id::text > cursor_id
 				AND (
-					mgt.sandbox_script_id IS NULL
+					mgt.provider_id IS NULL
 					OR EXISTS (SELECT 1 FROM _referenced_global_entity_ids r WHERE r.id = mg.id::text)
 				)
 			ORDER BY mg.id::text
@@ -188,7 +188,7 @@ BEGIN
 
 		EXIT WHEN next_cursor_id IS NULL;
 
-		WITH metadata_group_targets (lot, source, entity_schema_slug, sandbox_script_id) AS (
+		WITH metadata_group_targets (lot, source, entity_schema_slug, provider_id) AS (
 			VALUES ${buildLotEntityTargetValuesSql(targets)}
 		)
 		INSERT INTO entity (
@@ -200,7 +200,7 @@ BEGIN
 			"user_id",
 			"properties",
 			"entity_schema_slug",
-			"sandbox_script_id",
+			"provider_id",
 			"updated_at"
 		)
 		SELECT
@@ -211,17 +211,17 @@ BEGIN
 			NULL,
 			mg.created_by_user_id,
 			CASE
-				WHEN mgt.sandbox_script_id IS NULL THEN ${buildMetadataGroupPropertiesSql("mg")}
+				WHEN mgt.provider_id IS NULL THEN ${buildMetadataGroupPropertiesSql("mg")}
 				ELSE '{}'::jsonb
 			END,
 			mgt.entity_schema_slug,
-			mgt.sandbox_script_id,
+			mgt.provider_id,
 			mg.last_updated_on
 		FROM "metadata_group" mg
 		INNER JOIN metadata_group_targets mgt ON mgt.lot = mg.lot AND mgt.source = mg.source
 		WHERE mg.id::text > cursor_id AND mg.id::text <= next_cursor_id
 			AND (
-				mgt.sandbox_script_id IS NULL
+				mgt.provider_id IS NULL
 				OR EXISTS (SELECT 1 FROM _referenced_global_entity_ids r WHERE r.id = mg.id::text)
 			)
 		ON CONFLICT ("id") DO UPDATE
@@ -330,7 +330,7 @@ export const getUnsupportedMetadataGroupSources = Effect.gen(function* () {
 	const { db } = yield* DbService;
 	const result = yield* dbEffect(() =>
 		db.execute<{ lot: string; source: string }>(sql`
-			WITH metadata_group_targets (lot, source, entity_schema_slug, sandbox_script_slug) AS (
+			WITH metadata_group_targets (lot, source, entity_schema_slug, provider_slug) AS (
 				VALUES ${metadataGroupEntityTargetValuesSql}
 			),
 			supported_lots (lot) AS (
