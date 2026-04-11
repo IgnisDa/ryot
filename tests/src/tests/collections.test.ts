@@ -329,10 +329,10 @@ describe("POST /collections", () => {
 			});
 
 			expect(response.status).toBe(200);
-			expect(data?.data?.id).toBeDefined();
-			expect(data?.data?.relType).toBe("collection");
-			expect(data?.data?.sourceEntityId).toBe(collection.id);
-			expect(data?.data?.targetEntityId).toBe(entity.id);
+			expect(data?.data?.collection?.id).toBeDefined();
+			expect(data?.data?.collection?.relType).toBe("collection");
+			expect(data?.data?.collection?.sourceEntityId).toBe(collection.id);
+			expect(data?.data?.collection?.targetEntityId).toBe(entity.id);
 		});
 
 		it("adds an entity with custom properties", async () => {
@@ -385,7 +385,7 @@ describe("POST /collections", () => {
 			});
 
 			expect(response.status).toBe(200);
-			expect(data?.data?.properties).toMatchObject({
+			expect(data?.data?.collection?.properties).toMatchObject({
 				recommendedBy: "John",
 				rating: 5,
 			});
@@ -461,6 +461,174 @@ describe("POST /collections", () => {
 		const { client } = await createAuthenticatedClient();
 
 		const { response } = await client.POST("/collections/memberships", {
+			body: {
+				collectionId: "some-collection-id",
+				entityId: "some-entity-id",
+			},
+		});
+
+		expect(response.status).toBe(401);
+	});
+});
+
+describe("DELETE /collections/memberships", () => {
+	it("removes an entity from a collection and deletes both relationships", async () => {
+		const { client, cookies } = await createAuthenticatedClient();
+
+		// Create a collection
+		const collection = await createCollection(client, cookies, {
+			name: "Test Collection for Removal",
+			description: "For testing remove from collection",
+		});
+
+		// Create a tracker and entity schema
+		const tracker = await createTracker(client, cookies, {
+			name: `Test Tracker ${crypto.randomUUID()}`,
+		});
+
+		const { schemaId: entitySchemaId } = await createEntitySchema(
+			client,
+			cookies,
+			{
+				trackerId: tracker.trackerId,
+				propertiesSchema: { fields: { title: { type: "string" as const } } },
+			},
+		);
+
+		// Create an entity
+		const entity = await createEntity(client, cookies, {
+			entitySchemaId,
+			name: "Test Entity",
+			image: null,
+			properties: { title: "Test Title" },
+		});
+
+		// Add entity to collection first
+		const { data: addData, response: addResponse } = await client.POST(
+			"/collections/memberships",
+			{
+				headers: { Cookie: cookies },
+				body: {
+					collectionId: collection.id,
+					entityId: entity.id,
+				},
+			},
+		);
+
+		expect(addResponse.status).toBe(200);
+		expect(addData?.data?.collection?.relType).toBe("collection");
+
+		// Now remove the entity from the collection
+		const { data: removeData, response: removeResponse } = await client.DELETE(
+			"/collections/memberships",
+			{
+				headers: { Cookie: cookies },
+				body: {
+					collectionId: collection.id,
+					entityId: entity.id,
+				},
+			},
+		);
+
+		expect(removeResponse.status).toBe(200);
+		expect(removeData?.data?.collection?.relType).toBe("collection");
+		expect(removeData?.data?.memberOf?.relType).toBe("member_of");
+		expect(removeData?.data?.collection?.sourceEntityId).toBe(collection.id);
+		expect(removeData?.data?.collection?.targetEntityId).toBe(entity.id);
+		expect(removeData?.data?.memberOf?.sourceEntityId).toBe(entity.id);
+		expect(removeData?.data?.memberOf?.targetEntityId).toBe(collection.id);
+	});
+
+	it("returns 404 when removing entity not in collection", async () => {
+		const { client, cookies } = await createAuthenticatedClient();
+
+		// Create a collection
+		const collection = await createCollection(client, cookies, {
+			name: "Test Collection",
+			description: "For testing remove from collection",
+		});
+
+		// Create a tracker and entity
+		const tracker = await createTracker(client, cookies, {
+			name: `Test Tracker ${crypto.randomUUID()}`,
+		});
+
+		const { schemaId: entitySchemaId } = await createEntitySchema(
+			client,
+			cookies,
+			{
+				trackerId: tracker.trackerId,
+				propertiesSchema: { fields: { title: { type: "string" as const } } },
+			},
+		);
+
+		const entity = await createEntity(client, cookies, {
+			entitySchemaId,
+			name: "Test Entity",
+			image: null,
+			properties: { title: "Test Title" },
+		});
+
+		// Try to remove entity that was never added to collection
+		const { response, error } = await client.DELETE(
+			"/collections/memberships",
+			{
+				headers: { Cookie: cookies },
+				body: {
+					collectionId: collection.id,
+					entityId: entity.id,
+				},
+			},
+		);
+
+		expect(response.status).toBe(404);
+		expect(error?.error?.message).toContain("Entity is not in collection");
+	});
+
+	it("returns 404 when collection does not exist", async () => {
+		const { client, cookies } = await createAuthenticatedClient();
+
+		// Create an entity
+		const tracker = await createTracker(client, cookies, {
+			name: `Test Tracker ${crypto.randomUUID()}`,
+		});
+
+		const { schemaId: entitySchemaId } = await createEntitySchema(
+			client,
+			cookies,
+			{
+				trackerId: tracker.trackerId,
+				propertiesSchema: { fields: { title: { type: "string" as const } } },
+			},
+		);
+
+		const entity = await createEntity(client, cookies, {
+			entitySchemaId,
+			name: "Test Entity",
+			image: null,
+			properties: { title: "Test Title" },
+		});
+
+		// Try to remove from non-existent collection
+		const { response, error } = await client.DELETE(
+			"/collections/memberships",
+			{
+				headers: { Cookie: cookies },
+				body: {
+					collectionId: "nonexistent-collection-id",
+					entityId: entity.id,
+				},
+			},
+		);
+
+		expect(response.status).toBe(404);
+		expect(error?.error?.message).toContain("Collection not found");
+	});
+
+	it("rejects unauthenticated requests", async () => {
+		const { client } = await createAuthenticatedClient();
+
+		const { response } = await client.DELETE("/collections/memberships", {
 			body: {
 				collectionId: "some-collection-id",
 				entityId: "some-entity-id",
