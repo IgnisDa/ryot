@@ -6,7 +6,7 @@ import {
 } from "@ryot/ts-utils";
 import { match } from "ts-pattern";
 import { buildComputedFieldMap } from "./computed-fields";
-import { ViewRuntimeValidationError } from "./errors";
+import { QueryEngineValidationError } from "./errors";
 import type { ViewComputedField } from "./expression";
 import {
 	assertComparableExpression,
@@ -17,18 +17,18 @@ import {
 } from "./expression-analysis";
 import type { ViewPredicate } from "./filtering";
 import type {
-	ViewRuntimeEventJoinLike,
-	ViewRuntimeReferenceContext,
-	ViewRuntimeSchemaLike,
+	QueryEngineEventJoinLike,
+	QueryEngineReferenceContext,
+	QueryEngineSchemaLike,
 } from "./reference";
 
 export const validateViewPredicateAgainstSchemas = <
-	TSchema extends ViewRuntimeSchemaLike,
-	TJoin extends ViewRuntimeEventJoinLike,
+	TSchema extends QueryEngineSchemaLike,
+	TJoin extends QueryEngineEventJoinLike,
 >(input: {
 	predicate: ViewPredicate;
 	computedFields?: ViewComputedField[];
-	context: ViewRuntimeReferenceContext<TSchema, TJoin>;
+	context: QueryEngineReferenceContext<TSchema, TJoin>;
 }) => {
 	const computedFieldMap = buildComputedFieldMap(input.computedFields);
 	const typeCache = new Map();
@@ -60,7 +60,7 @@ export const validateViewPredicateAgainstSchemas = <
 	) => {
 		const result = schema.safeParse(value);
 		if (!result.success) {
-			throw new ViewRuntimeValidationError(message);
+			throw new QueryEngineValidationError(message);
 		}
 	};
 
@@ -111,14 +111,14 @@ export const validateViewPredicateAgainstSchemas = <
 					valueType.kind !== "property" ||
 					valueType.propertyType !== "string"
 				) {
-					throw new ViewRuntimeValidationError(
+					throw new QueryEngineValidationError(
 						"Filter operator 'contains' requires a string expression value for string expressions",
 					);
 				}
 			}
 
 			if (valueType.kind === "null") {
-				throw new ViewRuntimeValidationError(
+				throw new QueryEngineValidationError(
 					"Filter operator 'contains' does not support null expression values",
 				);
 			}
@@ -131,7 +131,7 @@ export const validateViewPredicateAgainstSchemas = <
 					valueType.kind !== "property" ||
 					["array", "object"].includes(valueType.propertyType)
 				) {
-					throw new ViewRuntimeValidationError(
+					throw new QueryEngineValidationError(
 						"Filter operator 'contains' for array expressions requires a scalar or object item expression",
 					);
 				}
@@ -142,7 +142,7 @@ export const validateViewPredicateAgainstSchemas = <
 				expressionType.propertyType === "object" &&
 				(valueType.kind !== "property" || valueType.propertyType !== "object")
 			) {
-				throw new ViewRuntimeValidationError(
+				throw new QueryEngineValidationError(
 					"Filter operator 'contains' for object expressions requires an object expression value",
 				);
 			}
