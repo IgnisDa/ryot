@@ -111,10 +111,9 @@ export default defineAutomationPolicy({
 		if (parsedProgressPercent === null) {
 			return Effect.succeed({ action: "skip", reason: "invalid_progress" } as const);
 		}
-		const integrationId = automation.origin.integrationId;
 		let progressPercent: number = parsedProgressPercent;
 		return Effect.gen(function* () {
-			const integration = yield* host.getIntegration(integrationId);
+			const integration = yield* host.getIntegration();
 			const minimumProgress = toFiniteNumber(integration.minimumProgress) ?? 0;
 			const maximumProgress = toFiniteNumber(integration.maximumProgress) ?? 100;
 			if (progressPercent < minimumProgress) {

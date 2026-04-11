@@ -58,7 +58,7 @@ export default defineOperation({
 				return yield* Effect.fail(new Error("title is required"));
 			}
 
-			const integration = yield* host.getIntegration(input.integrationId);
+			const integration = yield* host.getIntegration();
 			if (integration.provider !== "ryot_browser_extension") {
 				return yield* Effect.fail(new Error("Integration is not a browser extension integration"));
 			}

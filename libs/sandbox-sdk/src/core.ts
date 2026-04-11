@@ -375,9 +375,9 @@ export const queryDocumentSchema = jsonValueSchema;
 export type QueryDocument = Schema.Schema.Type<typeof queryDocumentSchema>;
 export type ListIntegrationsOptions = Schema.Schema.Type<typeof listIntegrationsOptionsSchema>;
 
+export const getIntegrationArgsSchema = Schema.Tuple();
 export const executeQueryEngineDataSchema = Schema.Unknown;
 export const getEntityArgsSchema = Schema.Tuple(sandboxIdSchema);
-export const getIntegrationArgsSchema = Schema.Tuple(sandboxIdSchema);
 export const getEntitySchemaArgsSchema = Schema.Tuple(sandboxIdSchema);
 export const listEventSchemasArgsSchema = Schema.Tuple(sandboxIdSchema);
 export const listEventsDataSchema = Schema.Array(eventRecordSchema);

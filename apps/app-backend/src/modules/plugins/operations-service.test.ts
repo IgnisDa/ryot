@@ -249,7 +249,9 @@ it.effect("dispatches integration operations as the owning user", () => {
 		});
 		expect(result).toBe("ok");
 		expect(captured).toEqual([
-			expect.objectContaining({ authority: { type: "user", userId: "user-1" } }),
+			expect.objectContaining({
+				authority: { type: "user", userId: "user-1", integrationId: "int-1" },
+			}),
 		]);
 	}).pipe(
 		Effect.provide(
