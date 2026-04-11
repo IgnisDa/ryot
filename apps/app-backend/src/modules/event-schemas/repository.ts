@@ -50,10 +50,33 @@ export const listEventSchemasByEntitySchemaForUser = async (input: {
 	return rows;
 };
 
-export const getEventSchemaBySlugForUser = async (input: {
-	userId: string;
+export const getBuiltinEventSchemaBySlug = async (input: {
 	entitySchemaId: string;
 	slug: string;
+}) => {
+	const [found] = await db
+		.select({
+			id: eventSchema.id,
+			name: eventSchema.name,
+			propertiesSchema: eventSchema.propertiesSchema,
+		})
+		.from(eventSchema)
+		.where(
+			and(
+				isNull(eventSchema.userId),
+				eq(eventSchema.entitySchemaId, input.entitySchemaId),
+				eq(eventSchema.slug, input.slug),
+			),
+		)
+		.limit(1);
+
+	return found;
+};
+
+export const getEventSchemaBySlugForUser = async (input: {
+	slug: string;
+	userId: string;
+	entitySchemaId: string;
 }) => {
 	const [foundEventSchema] = await db
 		.select({ id: eventSchema.id })

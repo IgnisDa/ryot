@@ -13,6 +13,7 @@ import { parseLabeledPropertySchemaInput } from "~/modules/property-schemas";
 import {
 	addEntityToCollection,
 	createCollectionForUser,
+	findCollectionByNameForUser,
 	getBuiltinCollectionSchema,
 	getCollectionById,
 	getEntityById,
@@ -48,6 +49,10 @@ export type CollectionServiceDeps = {
 	getBuiltinCollectionSchema: typeof getBuiltinCollectionSchema;
 };
 
+export type GetOrCreateCollectionServiceDeps = CollectionServiceDeps & {
+	findCollectionByNameForUser: typeof findCollectionByNameForUser;
+};
+
 export type AddToCollectionServiceDeps = {
 	getEntityById: typeof getEntityById;
 	getCollectionById: typeof getCollectionById;
@@ -67,6 +72,11 @@ export type CollectionServiceResult<T> = ServiceResult<T, "not_found" | "validat
 const collectionServiceDeps: CollectionServiceDeps = {
 	createCollectionForUser,
 	getBuiltinCollectionSchema,
+};
+
+const getOrCreateCollectionServiceDeps: GetOrCreateCollectionServiceDeps = {
+	...collectionServiceDeps,
+	findCollectionByNameForUser,
 };
 
 export const resolveCollectionName = (name: string) =>
@@ -127,6 +137,32 @@ export const createCollection = async (
 	});
 
 	return serviceData(createdCollection);
+};
+
+export const getOrCreateCollection = async (
+	input: { body: CreateCollectionBody; userId: string },
+	deps: GetOrCreateCollectionServiceDeps = getOrCreateCollectionServiceDeps,
+): Promise<CollectionServiceResult<CollectionResponse>> => {
+	const nameResult = resolveCollectionNameResult(input.body.name);
+	if ("error" in nameResult) {
+		return nameResult;
+	}
+
+	const collectionSchema = await deps.getBuiltinCollectionSchema();
+	if (!collectionSchema) {
+		return serviceError("not_found", collectionSchemaNotFoundError);
+	}
+
+	const existing = await deps.findCollectionByNameForUser({
+		userId: input.userId,
+		name: nameResult.data,
+		entitySchemaId: collectionSchema.id,
+	});
+	if (existing) {
+		return serviceData(existing);
+	}
+
+	return createCollection(input, deps);
 };
 
 const addToCollectionServiceDeps: AddToCollectionServiceDeps = {

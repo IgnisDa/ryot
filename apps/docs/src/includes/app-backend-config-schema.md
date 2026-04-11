@@ -50,6 +50,14 @@
 |---|---|---|---|---|
 | `FRONTEND_OIDC_BUTTON_LABEL` | Label shown on the OIDC sign-in button in the client | No | `—` | No |
 
+### Import source credentials
+
+#### Trakt
+
+| Variable | Description | Required | Default | Sensitive |
+|---|---|---|---|---|
+| `SERVER_IMPORTER_TRAKT_CLIENT_ID` | Trakt API client ID required to enable the Trakt importer | No | `—` | Yes |
+
 ## Provider integration configuration
 
 ### Book providers

@@ -4600,6 +4600,10 @@ export interface paths {
                         filePath: string;
                         /** @enum {string} */
                         source: "open_scale";
+                    } | {
+                        /** @enum {string} */
+                        source: "trakt";
+                        username: string;
                     };
                 };
             };
