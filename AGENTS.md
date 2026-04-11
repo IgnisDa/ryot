@@ -7,6 +7,7 @@
 - **Documentation lookup**: For questions or changes involving a specific library, framework, SDK, CLI tool, or cloud service, use the `find-docs` skill and verify against current documentation before answering or coding.
 - **Dependencies**: `cd <app> && bun add -E` (exact versions, no ranges).
 - **Bash paths**: Always quote with single quotes (e.g., `git add 'path/file.ts'`).
+- **Linting**: Linting uses `biome`. Prefer using `--write` to auto-fix issues. For example: `bun turbo --filter=@ryot/app-backend lint -- --write`.
 
 ## Coding Standards
 
