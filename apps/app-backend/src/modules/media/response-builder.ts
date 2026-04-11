@@ -89,6 +89,7 @@ const resolveUnitLabel = (
 ) =>
 	match(entitySchemaSlug)
 		.with("book", () => "pages")
+		.with("comic-book", () => "pages")
 		.with("anime", () => "episodes")
 		.with("manga", () => "chapters")
 		.with("podcast", () => "episodes")
@@ -103,6 +104,7 @@ const resolveContinueCta = (
 		.with("anime", () => "Next Episode")
 		.with(
 			"book",
+			"comic-book",
 			"manga",
 			"audiobook",
 			"podcast",

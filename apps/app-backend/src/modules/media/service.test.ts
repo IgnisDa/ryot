@@ -177,6 +177,61 @@ describe("getContinueItems", () => {
 		expect(result.items[0]?.labels.progress).toBe("10 / 40 episodes");
 	});
 
+	it("returns comic-book continue item with page-based progress label and Log Progress cta", async () => {
+		const result = expectDataResult(
+			await getContinueItems("user_1", {
+				executeSectionQuery: async () => ({
+					items: [
+						{
+							image: null,
+							id: "comic-1",
+							name: "Test Comic",
+							entitySchemaId: "schema-cb",
+							entitySchemaSlug: "comic-book",
+							createdAt: date("2024-01-01"),
+							updatedAt: date("2024-01-01"),
+							fields: [
+								{
+									key: "progressAt",
+									kind: "date" as const,
+									value: date("2024-03-20"),
+								},
+								{
+									value: 25,
+									key: "progressPercent",
+									kind: "number" as const,
+								},
+								{
+									value: 32,
+									key: "totalUnits",
+									kind: "number" as const,
+								},
+							],
+						},
+					],
+					meta: {
+						pagination: {
+							page: 1,
+							limit: 6,
+							total: 1,
+							totalPages: 1,
+							hasNextPage: false,
+							hasPreviousPage: false,
+						},
+					},
+				}),
+			}),
+		);
+
+		expect(result.items).toHaveLength(1);
+		expect(result.items[0]).toMatchObject({
+			id: "comic-1",
+			entitySchemaSlug: "comic-book",
+			labels: { cta: "Log Progress" },
+		});
+		expect(result.items[0]?.labels.progress).toBe("8 / 32 pages");
+	});
+
 	it("filters items requiring progressAt", async () => {
 		const result = expectDataResult(
 			await getContinueItems("user_1", {
