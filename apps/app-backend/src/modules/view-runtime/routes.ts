@@ -9,11 +9,11 @@ import {
 	payloadErrorResponse,
 	successResponse,
 } from "~/lib/openapi";
+import { viewDefinitionModule } from "~/lib/views/definition";
 import {
 	ViewRuntimeNotFoundError,
 	ViewRuntimeValidationError,
 } from "~/lib/views/errors";
-import { executeViewRuntimeQuery } from "./query-builder";
 import {
 	executeViewRuntimeBody,
 	executeViewRuntimeResponseSchema,
@@ -48,7 +48,12 @@ export const viewRuntimeApi = new OpenAPIHono<{
 	const body = c.req.valid("json");
 
 	try {
-		const result = await executeViewRuntimeQuery(body, user.id);
+		const result = await (
+			await viewDefinitionModule.prepare({
+				userId: user.id,
+				source: { kind: "runtime", request: body },
+			})
+		).execute();
 		return c.json(successResponse(result), 200);
 	} catch (error) {
 		if (error instanceof ViewRuntimeNotFoundError) {
