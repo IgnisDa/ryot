@@ -1,26 +1,77 @@
 import { Activity } from "@effect/workflow";
 import { ListedIntegration } from "@ryot/contract/modules/integrations/schemas";
 import { UserId } from "@ryot/contract/schema/brands";
-import { Cause, DateTime, Effect, Layer, Schema } from "effect";
+import type { JsonValue } from "@ryot/sandbox-sdk/wire";
+import { Cause, DateTime, Effect, Schema } from "effect";
 
 import { DbRunner } from "#lib/infrastructure/db/service";
 import {
 	markImportRunStarted,
 	sanitizeErrorMessage,
 } from "#modules/imports/runtime/import-run-status";
+import { IntegrationProviderCatalog } from "#modules/plugins/integration-provider-catalog";
+import { SandboxExecutionService } from "#modules/sandbox/service";
 import { SignalEmissionService } from "#modules/signals/service";
 
 import { failRun, toIntegrationWorkflowError } from "./failure-workflow";
 import { ProcessIntegrationRunWorkflow } from "./integration-workflow";
 import { IntegrationRunError, type IntegrationRunJobData } from "./jobs";
-import { processIntegrationMedia } from "./media-workflow";
-import { IntegrationRunOperationsLive } from "./operations-workflow";
 import { IntegrationsRepository, type IntegrationRecord } from "./repository";
 import { finalizeIntegrationRun } from "./worker";
 
 const IntegrationRecordSchema = Schema.Struct({
 	...ListedIntegration.fields,
 	userId: UserId,
+});
+
+const runIntegrationImport = Effect.fn("runIntegrationImport")(function* (
+	integration: IntegrationRecord,
+	payload: IntegrationRunJobData,
+	executionId: string,
+) {
+	const catalog = yield* IntegrationProviderCatalog;
+	const sandbox = yield* SandboxExecutionService;
+	const provider = catalog.find(integration.provider);
+	if (!provider?.scriptSlug) {
+		return yield* new IntegrationRunError({
+			message: `Integration provider '${integration.provider}' is unavailable`,
+		});
+	}
+	const scriptId = yield* sandbox
+		.resolveWorkflowScript({
+			executionId,
+			workflowSlug: "import",
+			pluginSlug: provider.pluginSlug,
+		})
+		.pipe(Effect.mapError(toIntegrationWorkflowError));
+	const integrationContext: JsonValue =
+		integration.lot === "sink"
+			? {
+					rawBody: payload.rawBody ?? "",
+					contentType: payload.contentType ?? "application/json",
+				}
+			: {};
+	const input: JsonValue = {
+		runId: payload.runId,
+		source: integration.provider,
+		sourcePayload: {
+			integrationContext,
+			integrationId: integration.id,
+			integrationScriptSlug: provider.scriptSlug,
+		},
+	};
+	return yield* sandbox
+		.executeWorkflow({
+			input,
+			scriptId,
+			executionId: `${executionId}-import`,
+			authority: {
+				type: "user",
+				userId: integration.userId,
+				integrationId: integration.id,
+			},
+		})
+		.pipe(Effect.mapError(toIntegrationWorkflowError));
 });
 
 const runIntegrationRun = Effect.fn("runIntegrationRun")(function* (
@@ -33,11 +84,11 @@ const runIntegrationRun = Effect.fn("runIntegrationRun")(function* (
 	);
 	yield* Activity.make({
 		error: IntegrationRunError,
-		name: "mark-integration-run-started",
 		execute: markStartedEffect,
+		name: "mark-integration-run-started",
 	});
 
-	yield* processIntegrationMedia(integration, payload, executionId).pipe(
+	yield* runIntegrationImport(integration, payload, executionId).pipe(
 		Effect.catchAllCause((cause) =>
 			failRun(
 				"fail-integration-run-unexpected",
@@ -53,8 +104,8 @@ const runIntegrationRun = Effect.fn("runIntegrationRun")(function* (
 	const wasDisabled = yield* Activity.make({
 		success: Schema.Boolean,
 		error: IntegrationRunError,
-		name: "finalize-integration-run",
 		execute: finalizationEffect,
+		name: "finalize-integration-run",
 	});
 
 	if (wasDisabled) {
@@ -91,8 +142,8 @@ export const runIntegrationRunWorkflow = Effect.fn("ProcessIntegrationRunWorkflo
 		const integration = yield* Activity.make({
 			name: "load-integration",
 			error: IntegrationRunError,
-			success: Schema.NullOr(IntegrationRecordSchema),
 			execute: loadIntegrationEffect,
+			success: Schema.NullOr(IntegrationRecordSchema),
 		});
 
 		if (!integration) {
@@ -109,6 +160,4 @@ export const runIntegrationRunWorkflow = Effect.fn("ProcessIntegrationRunWorkflo
 const ProcessIntegrationRunWorkflowLive =
 	ProcessIntegrationRunWorkflow.toLayer(runIntegrationRunWorkflow);
 
-export const IntegrationWorkflowDefinitionsLive = ProcessIntegrationRunWorkflowLive.pipe(
-	Layer.provide(IntegrationRunOperationsLive),
-);
+export const IntegrationWorkflowDefinitionsLive = ProcessIntegrationRunWorkflowLive;

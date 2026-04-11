@@ -160,7 +160,7 @@ const filesystemSource = `
 import { defineActivity } from "@ryot/sandbox-sdk/activity";
 import { defineManifest } from "@ryot/sandbox-sdk/driver";
 import { Effect, Schema } from "@ryot/sandbox-sdk/effect";
-import { readArtifact, sandboxScratchManifestSchema, writeScratchChunks } from "@ryot/sandbox-sdk/filesystem";
+import { readArtifact, readNamedArtifact, sandboxScratchManifestSchema, writeScratchChunks } from "@ryot/sandbox-sdk/filesystem";
 
 export const manifest = defineManifest({
   kind: "activity",
@@ -172,10 +172,10 @@ export const manifest = defineManifest({
 
 export default defineActivity({
   manifest,
-  input: Schema.Struct({ chunkName: Schema.String }),
+  input: Schema.Struct({ chunkName: Schema.String, artifactKey: Schema.optional(Schema.String) }),
   output: sandboxScratchManifestSchema,
   run: (input) => Effect.gen(function* () {
-    const artifact = yield* readArtifact();
+    const artifact = yield* input.artifactKey ? readNamedArtifact(input.artifactKey) : readArtifact();
     return yield* writeScratchChunks([{ name: input.chunkName, contents: artifact }]);
   }),
 });
@@ -536,7 +536,11 @@ type RunnerOptions = {
 	readonly scriptId?: string;
 	readonly executionId?: string;
 	readonly apiFunctions?: readonly string[];
-	readonly filesystem?: { readonly artifactPath?: string; readonly scratchDirectory?: string };
+	readonly filesystem?: {
+		readonly artifactPath?: string;
+		readonly scratchDirectory?: string;
+		readonly namedArtifactPaths?: Readonly<Record<string, string>>;
+	};
 };
 
 type RunnerRequest = {
@@ -597,6 +601,7 @@ const runInDenoRequests = (requests: readonly RunnerRequest[]) =>
 					runnerPath,
 					dependencyRuntime.directory,
 					...(filesystem?.artifactPath ? [filesystem.artifactPath] : []),
+					...Object.values(filesystem?.namedArtifactPaths ?? {}),
 					...(filesystem?.scratchDirectory ? [filesystem.scratchDirectory] : []),
 				].join(",")}`,
 				runnerPath,
@@ -860,9 +865,11 @@ it("exposes only granted artifact reads and named scratch chunk writes", () =>
 				const compiler = yield* SandboxCompiler;
 				const root = yield* fs.makeTempDirectoryScoped({ prefix: "ryot-runner-filesystem-" });
 				const artifactPath = `${root}/artifact.json`;
+				const namedArtifactPath = `${root}/history.json`;
 				const scratchDirectory = `${root}/scratch`;
 				yield* fs.makeDirectory(scratchDirectory);
 				yield* fs.writeFileString(artifactPath, "[1,2]");
+				yield* fs.writeFileString(namedArtifactPath, "[3,4]");
 				const compiled = yield* compiler.compile(filesystemSource);
 
 				const unavailable = yield* runInDeno(compiled, { chunkName: "chunk.json" });
@@ -879,6 +886,33 @@ it("exposes only granted artifact reads and named scratch chunk writes", () =>
 					value: { chunkFiles: ["chunk.json"] },
 				});
 				expect(yield* fs.readFileString(`${scratchDirectory}/chunk.json`)).toBe("[1,2]");
+
+				const namedOptions = {
+					filesystem: {
+						scratchDirectory,
+						namedArtifactPaths: { historyFilePath: namedArtifactPath },
+					},
+				};
+				const named = yield* runInDeno(
+					compiled,
+					{ chunkName: "named.json", artifactKey: "historyFilePath" },
+					namedOptions,
+				);
+				expect(named).toMatchObject({
+					success: true,
+					value: { chunkFiles: ["named.json"] },
+				});
+				expect(yield* fs.readFileString(`${scratchDirectory}/named.json`)).toBe("[3,4]");
+				const missingNamed = yield* runInDeno(
+					compiled,
+					{ chunkName: "missing.json", artifactKey: "ratingsFilePath" },
+					namedOptions,
+				);
+				assert(missingNamed !== null && typeof missingNamed === "object");
+				expect(Reflect.get(missingNamed, "error")).toMatchObject({
+					phase: "execute",
+					message: 'Sandbox named artifact grant "ratingsFilePath" is unavailable',
+				});
 
 				const traversal = yield* runInDeno(compiled, { chunkName: "../outside.json" }, options);
 				assert(traversal !== null && typeof traversal === "object");

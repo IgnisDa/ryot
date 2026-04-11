@@ -26,6 +26,7 @@ import {
 import { ImportsRepository } from "#modules/imports/repository";
 import { IntegrationsRepository } from "#modules/integrations/repository";
 import { LibraryEntityImportWorkflow } from "#modules/library-membership/library-entity-import-workflow";
+import { PluginRuntimeResolver } from "#modules/plugins/runtime-resolver";
 import {
 	KERNEL_EVENT_CREATE_WORKFLOW,
 	KERNEL_LIBRARY_ENTITY_IMPORT_WORKFLOW,
@@ -58,6 +59,7 @@ export const KernelWorkflowReferencesLive = Layer.effect(
 		const serverRun = yield* ServerRun;
 		const imports = yield* ImportsRepository;
 		const integrations = yield* IntegrationsRepository;
+		const pluginRuntime = yield* PluginRuntimeResolver;
 
 		const validateAttribution = (input: {
 			userId: UserId;
@@ -102,6 +104,9 @@ export const KernelWorkflowReferencesLive = Layer.effect(
 							...(isObjectRecord(input) ? input : {}),
 							executionId,
 							userId: authority.userId,
+							...("integrationId" in authority && authority.integrationId
+								? { integrationId: authority.integrationId }
+								: {}),
 							expectedHarvestDirectoryPrefix: path.join(
 								config.tmpDir,
 								`${SANDBOX_HARVEST_DIRECTORY_PREFIX}${serverRun.id}`,
@@ -116,9 +121,9 @@ export const KernelWorkflowReferencesLive = Layer.effect(
 							),
 						);
 						yield* validateAttribution({
-							integrationIds: [],
 							userId: authority.userId,
 							importRunIds: [ImportRunId.make(payload.runId)],
+							integrationIds: payload.integrationId ? [payload.integrationId] : [],
 						});
 						const result = yield* engine
 							.execute(ProcessGenericImportChunksWorkflow, { executionId, payload })
@@ -132,10 +137,31 @@ export const KernelWorkflowReferencesLive = Layer.effect(
 						);
 					}
 					if (workflowSlug === KERNEL_LIBRARY_ENTITY_IMPORT_WORKFLOW) {
+						const rawInput = isObjectRecord(input) ? input : {};
+						const providerSlug = Reflect.get(rawInput, "providerSlug");
+						const resolvedProvider =
+							typeof providerSlug === "string"
+								? yield* runWithDb(pluginRuntime.findSchemaProviderBySlug(providerSlug)).pipe(
+										Effect.mapError(
+											(error) => new SandboxRunError({ message: unknownToMessage(error) }),
+										),
+									)
+								: null;
+						if (typeof providerSlug === "string" && !resolvedProvider) {
+							return yield* new SandboxRunError({
+								message: `Plugin provider not found: ${providerSlug}`,
+							});
+						}
 						const payload = yield* Schema.decodeUnknown(EntityImportPayload)({
-							...(isObjectRecord(input) ? input : {}),
+							...rawInput,
 							executionId,
 							userId: authority.userId,
+							...(resolvedProvider
+								? {
+										providerId: resolvedProvider.provider.id,
+										entitySchemaSlug: resolvedProvider.entitySchemaSlug,
+									}
+								: {}),
 						}).pipe(
 							Effect.mapError(
 								(error) =>
