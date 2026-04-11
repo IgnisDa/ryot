@@ -1,10 +1,11 @@
 import { describe, expect, it } from "bun:test";
+import type { AppSchema } from "@ryot/ts-utils";
 import { PgDialect } from "drizzle-orm/pg-core";
 import {
 	createSmartphoneSchema,
 	createTabletSchema,
 } from "~/lib/test-fixtures";
-import { buildSchemaMap } from "~/lib/views/reference";
+import { buildEventJoinMap, buildSchemaMap } from "~/lib/views/reference";
 import { buildFilterWhereClause } from "./filter-builder";
 
 const dialect = new PgDialect();
@@ -14,13 +15,64 @@ const smartphoneSchema = createSmartphoneSchema();
 const tabletSchema = createTabletSchema();
 
 const schemaMap = buildSchemaMap([smartphoneSchema, tabletSchema]);
+const reviewEventPropertiesSchema: AppSchema = {
+	fields: { rating: { type: "number" } },
+};
+const reviewJoin = {
+	key: "review",
+	eventSchemaSlug: "review",
+	kind: "latestEvent" as const,
+	eventSchemas: [
+		{
+			slug: "review",
+			id: "event-schema-1",
+			entitySchemaId: "schema-1",
+			entitySchemaSlug: "smartphones",
+			propertiesSchema: reviewEventPropertiesSchema,
+		},
+		{
+			slug: "review",
+			id: "event-schema-2",
+			entitySchemaId: "schema-2",
+			entitySchemaSlug: "tablets",
+			propertiesSchema: reviewEventPropertiesSchema,
+		},
+	],
+	eventSchemaMap: new Map([
+		[
+			"smartphones",
+			{
+				slug: "review",
+				id: "event-schema-1",
+				entitySchemaId: "schema-1",
+				entitySchemaSlug: "smartphones",
+				propertiesSchema: reviewEventPropertiesSchema,
+			},
+		],
+		[
+			"tablets",
+			{
+				slug: "review",
+				id: "event-schema-2",
+				entitySchemaId: "schema-2",
+				entitySchemaSlug: "tablets",
+				propertiesSchema: reviewEventPropertiesSchema,
+			},
+		],
+	]),
+};
+const context = { schemaMap, eventJoinMap: buildEventJoinMap([reviewJoin]) };
+
+const entityField = (schemaSlug: string, field: string) => {
+	return `entity.${schemaSlug}.${field}`;
+};
 
 const serializeClause = (
 	filters: Parameters<typeof buildFilterWhereClause>[0]["filters"],
 ) => {
 	const clause = buildFilterWhereClause({
 		filters,
-		schemaMap,
+		context,
 		alias: "entities",
 		entitySchemaSlugs: ["smartphones", "tablets"],
 	});
@@ -35,7 +87,7 @@ const serializeClause = (
 describe("buildFilterWhereClause", () => {
 	it("builds an eq clause for string properties", () => {
 		const clause = serializeClause([
-			{ op: "eq", field: "smartphones.manufacturer", value: "Apple" },
+			{ op: "eq", field: "entity.smartphones.manufacturer", value: "Apple" },
 		]);
 
 		expect(clause.sql).toContain("entities.properties ->>");
@@ -45,7 +97,7 @@ describe("buildFilterWhereClause", () => {
 
 	it("casts integer filters before comparison", () => {
 		const clause = serializeClause([
-			{ op: "eq", field: "smartphones.releaseYear", value: 2023 },
+			{ op: "eq", field: "entity.smartphones.releaseYear", value: 2023 },
 		]);
 
 		expect(clause.sql).toContain("::integer");
@@ -66,7 +118,7 @@ describe("buildFilterWhereClause", () => {
 				{
 					op: expectation.op,
 					value: expectation.value,
-					field: "smartphones.releaseYear",
+					field: "entity.smartphones.releaseYear",
 				},
 			]);
 
@@ -79,7 +131,7 @@ describe("buildFilterWhereClause", () => {
 			{
 				op: "in",
 				value: ["Apple", "Samsung"],
-				field: "smartphones.manufacturer",
+				field: "entity.smartphones.manufacturer",
 			},
 		]);
 
@@ -90,18 +142,26 @@ describe("buildFilterWhereClause", () => {
 
 	it("builds isNull clauses without a value", () => {
 		const clause = serializeClause([
-			{ op: "isNull", field: "smartphones.manufacturer" },
+			{ op: "isNull", field: "entity.smartphones.manufacturer" },
 		]);
 
 		expect(clause.sql.toLowerCase()).toContain(" is null");
 	});
 
-	it("uses top-level columns directly for shared filters", () => {
+	it("uses entity columns directly for built-in filters", () => {
 		const nameClause = serializeClause([
-			{ op: "eq", field: "@name", value: "Alpha Phone" },
+			{
+				op: "eq",
+				value: "Alpha Phone",
+				field: entityField("smartphones", "@name"),
+			},
 		]);
 		const createdAtClause = serializeClause([
-			{ op: "gte", field: "@createdAt", value: new Date("2024-01-01") },
+			{
+				op: "gte",
+				value: new Date("2024-01-01"),
+				field: entityField("smartphones", "@createdAt"),
+			},
 		]);
 
 		expect(nameClause.sql).toContain("entities.name");
@@ -110,9 +170,13 @@ describe("buildFilterWhereClause", () => {
 
 	it("groups filters with and within schema and or across schemas", () => {
 		const clause = serializeClause([
-			{ op: "neq", field: "@name", value: "Legacy" },
-			{ op: "gte", field: "smartphones.releaseYear", value: 2020 },
-			{ op: "eq", field: "tablets.maker", value: "Apple" },
+			{
+				op: "neq",
+				value: "Legacy",
+				field: entityField("smartphones", "@name"),
+			},
+			{ op: "gte", field: "entity.smartphones.releaseYear", value: 2020 },
+			{ op: "eq", field: "entity.tablets.maker", value: "Apple" },
 		]);
 
 		expect(clause.sql.toLowerCase()).toContain(" or ");
@@ -123,7 +187,6 @@ describe("buildFilterWhereClause", () => {
 			"releaseYear",
 			2020,
 			"tablets",
-			"Legacy",
 			"maker",
 			"Apple",
 		]);
@@ -131,7 +194,11 @@ describe("buildFilterWhereClause", () => {
 
 	it("builds contains as ilike for string properties", () => {
 		const clause = serializeClause([
-			{ op: "contains", field: "smartphones.manufacturer", value: "Apple" },
+			{
+				op: "contains",
+				value: "Apple",
+				field: "entity.smartphones.manufacturer",
+			},
 		]);
 
 		expect(clause.sql.toLowerCase()).toContain("ilike");
@@ -140,7 +207,7 @@ describe("buildFilterWhereClause", () => {
 
 	it("builds contains as jsonb array containment for array properties", () => {
 		const clause = serializeClause([
-			{ op: "contains", field: "smartphones.tags", value: "sci-fi" },
+			{ op: "contains", field: "entity.smartphones.tags", value: "sci-fi" },
 		]);
 
 		expect(clause.sql).toContain("@>");
@@ -152,7 +219,7 @@ describe("buildFilterWhereClause", () => {
 			{
 				op: "contains",
 				value: { source: "import" },
-				field: "smartphones.metadata",
+				field: "entity.smartphones.metadata",
 			},
 		]);
 
@@ -160,9 +227,13 @@ describe("buildFilterWhereClause", () => {
 		expect(clause.params).toContain('{"source":"import"}');
 	});
 
-	it("builds contains as ilike for top-level @name", () => {
+	it("builds contains as ilike for entity @name", () => {
 		const clause = serializeClause([
-			{ op: "contains", field: "@name", value: "Pro" },
+			{
+				value: "Pro",
+				op: "contains",
+				field: entityField("smartphones", "@name"),
+			},
 		]);
 
 		expect(clause.sql).toContain("entities.name");
@@ -175,11 +246,36 @@ describe("buildFilterWhereClause", () => {
 			{
 				op: "contains",
 				value: "50% off_sale",
-				field: "smartphones.manufacturer",
+				field: "entity.smartphones.manufacturer",
 			},
 		]);
 
 		expect(clause.sql.toLowerCase()).toContain("ilike");
 		expect(clause.params).toContain("%50\\% off\\_sale%");
+	});
+
+	it("builds joined latest-event property filters against the prepared join column", () => {
+		const clause = serializeClause([
+			{ op: "gte", field: "event.review.rating", value: 4 },
+		]);
+
+		expect(clause.sql).toContain("event_join_review");
+		expect(clause.sql).toContain("-> 'properties'");
+		expect(clause.params).toContain("rating");
+		expect(clause.params).toContain(4);
+	});
+
+	it("builds joined latest-event timestamp filters against event columns", () => {
+		const clause = serializeClause([
+			{
+				op: "gte",
+				field: "event.review.@createdAt",
+				value: new Date("2024-01-01T00:00:00.000Z"),
+			},
+		]);
+
+		expect(clause.sql).toContain("event_join_review");
+		expect(clause.sql).toContain("->>");
+		expect(clause.sql).toContain("::timestamp");
 	});
 });

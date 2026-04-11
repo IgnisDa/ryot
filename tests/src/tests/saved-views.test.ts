@@ -17,6 +17,20 @@ import {
 const builtinViewError = "Cannot modify built-in saved views";
 const missingViewId = "00000000-0000-0000-0000-000000000000";
 
+const entityField = (schemaSlug: string, property: string) => {
+	if (
+		property === "name" ||
+		property === "image" ||
+		property === "createdAt" ||
+		property === "updatedAt" ||
+		property.startsWith("@")
+	) {
+		return `entity.${schemaSlug}.${property.startsWith("@") ? property : `@${property}`}`;
+	}
+
+	return `entity.${schemaSlug}.${property}`;
+};
+
 describe("Saved views E2E", () => {
 	it("lists built-in and user-created views together", async () => {
 		const { client, cookies } = await createAuthenticatedClient();
@@ -57,10 +71,18 @@ describe("Saved views E2E", () => {
 		const updatedCloneInput = buildUpdatedSavedViewBody({
 			name: "Lifecycle View (Copy) Revised",
 			queryDefinition: {
+				eventJoins: [],
 				entitySchemaSlugs: ["anime", "manga"],
-				sort: { fields: ["@createdAt"], direction: "desc" },
+				sort: {
+					direction: "desc",
+					fields: [entityField("anime", "createdAt")],
+				},
 				filters: [
-					{ op: "eq", field: "anime.productionStatus", value: "active" },
+					{
+						op: "eq",
+						value: "active",
+						field: entityField("anime", "productionStatus"),
+					},
 				],
 			},
 			displayConfiguration: {
@@ -71,15 +93,30 @@ describe("Saved views E2E", () => {
 					subtitleProperty: null,
 				},
 				list: {
-					imageProperty: ["@image"],
-					titleProperty: ["@name"],
-					subtitleProperty: ["manga.publishYear"],
-					badgeProperty: ["anime.productionStatus"],
+					subtitleProperty: [entityField("manga", "publishYear")],
+					badgeProperty: [entityField("anime", "productionStatus")],
+					imageProperty: [
+						entityField("anime", "image"),
+						entityField("manga", "image"),
+					],
+					titleProperty: [
+						entityField("anime", "name"),
+						entityField("manga", "name"),
+					],
 				},
 				table: {
 					columns: [
-						{ label: "Name", property: ["@name"] },
-						{ label: "Status", property: ["anime.productionStatus"] },
+						{
+							label: "Name",
+							property: [
+								entityField("anime", "name"),
+								entityField("manga", "name"),
+							],
+						},
+						{
+							label: "Status",
+							property: [entityField("anime", "productionStatus")],
+						},
 					],
 				},
 			},
@@ -98,9 +135,10 @@ describe("Saved views E2E", () => {
 
 		expect(updatedClone.name).toBe("Lifecycle View (Copy) Revised");
 		expect(fetchedUpdatedClone.id).toBe(clonedView.id);
-		expect(fetchedUpdatedClone.queryDefinition).toEqual(
-			updatedCloneInput.queryDefinition,
-		);
+		expect(fetchedUpdatedClone.queryDefinition).toEqual({
+			...updatedCloneInput.queryDefinition,
+			eventJoins: updatedCloneInput.queryDefinition.eventJoins ?? [],
+		});
 		expect(fetchedUpdatedClone.displayConfiguration).toEqual(
 			updatedCloneInput.displayConfiguration,
 		);
@@ -461,6 +499,7 @@ describe("Saved views E2E", () => {
 				name: "Broken Sort View",
 				queryDefinition: {
 					filters: [],
+					eventJoins: [],
 					entitySchemaSlugs: ["book"],
 					sort: { fields: [], direction: "asc" },
 				},
@@ -472,6 +511,7 @@ describe("Saved views E2E", () => {
 			body: buildUpdatedSavedViewBody({
 				queryDefinition: {
 					filters: [],
+					eventJoins: [],
 					entitySchemaSlugs: ["book"],
 					sort: { fields: [], direction: "asc" },
 				},
@@ -487,7 +527,9 @@ describe("Saved views E2E", () => {
 		expect(updateResult.error?.error?.message).toContain(
 			"Sort fields are required",
 		);
-		expect(refreshedView.queryDefinition.sort.fields).toEqual(["@name"]);
+		expect(refreshedView.queryDefinition.sort.fields).toEqual([
+			entityField("book", "name"),
+		]);
 	});
 
 	it("rejects unqualified property references when creating or updating saved views", async () => {
@@ -501,25 +543,24 @@ describe("Saved views E2E", () => {
 			body: buildSavedViewBody({
 				name: "Broken Qualification View",
 				queryDefinition: {
-					filters: [{ op: "eq", field: "status", value: "active" }],
+					eventJoins: [],
 					entitySchemaSlugs: ["book"],
 					sort: { fields: ["year"], direction: "asc" },
+					filters: [{ op: "eq", field: "status", value: "active" }],
 				},
 				displayConfiguration: {
+					table: { columns: [{ label: "Status", property: ["status"] }] },
 					grid: {
-						imageProperty: ["@image"],
-						titleProperty: ["@name"],
-						badgeProperty: ["status"],
 						subtitleProperty: null,
+						titleProperty: ["@name"],
+						imageProperty: ["@image"],
+						badgeProperty: ["status"],
 					},
 					list: {
-						imageProperty: ["@image"],
-						titleProperty: ["@name"],
 						badgeProperty: null,
+						titleProperty: ["@name"],
+						imageProperty: ["@image"],
 						subtitleProperty: ["year"],
-					},
-					table: {
-						columns: [{ label: "Status", property: ["status"] }],
 					},
 				},
 			}),
@@ -529,9 +570,10 @@ describe("Saved views E2E", () => {
 			params: { path: { viewId: createdView.id } },
 			body: buildUpdatedSavedViewBody({
 				queryDefinition: {
-					filters: [{ op: "eq", field: "status", value: "active" }],
+					eventJoins: [],
 					entitySchemaSlugs: ["book"],
 					sort: { fields: ["year"], direction: "asc" },
+					filters: [{ op: "eq", field: "status", value: "active" }],
 				},
 			}),
 		});
@@ -539,10 +581,10 @@ describe("Saved views E2E", () => {
 		expect(createResult.response.status).toBe(400);
 		expect(updateResult.response.status).toBe(400);
 		expect(createResult.error?.error?.message).toBe(
-			"Schema-qualified property references are required",
+			"Explicit field references are required",
 		);
 		expect(updateResult.error?.error?.message).toBe(
-			"Schema-qualified property references are required",
+			"Explicit field references are required",
 		);
 	});
 
@@ -551,10 +593,11 @@ describe("Saved views E2E", () => {
 
 		const invalidQueryDefinition = {
 			filters: [],
+			eventJoins: [],
 			entitySchemaSlugs: ["book"],
 			sort: {
 				direction: "asc" as const,
-				fields: ["book.nonexistent_property"],
+				fields: [entityField("book", "nonexistent_property")],
 			},
 		};
 
@@ -590,20 +633,22 @@ describe("Saved views E2E", () => {
 						imageProperty: null,
 						badgeProperty: null,
 						subtitleProperty: null,
-						titleProperty: ["@nam"],
+						titleProperty: [entityField("book", "@nam")],
 					},
 					list: {
 						imageProperty: null,
 						badgeProperty: null,
 						subtitleProperty: null,
-						titleProperty: ["@name"],
+						titleProperty: [entityField("book", "name")],
 					},
 				},
 			}),
 		});
 
 		expect(result.response.status).toBe(400);
-		expect(result.error?.error?.message).toContain("Unsupported column '@nam'");
+		expect(result.error?.error?.message).toContain(
+			"Unsupported entity column 'entity.book.@nam'",
+		);
 	});
 
 	it("rejects a view referencing a schema slug that does not exist", async () => {
@@ -614,8 +659,12 @@ describe("Saved views E2E", () => {
 			body: buildSavedViewBody({
 				queryDefinition: {
 					filters: [],
+					eventJoins: [],
 					entitySchemaSlugs: ["does-not-exist"],
-					sort: { fields: ["@name"], direction: "asc" },
+					sort: {
+						direction: "asc",
+						fields: [entityField("does-not-exist", "name")],
+					},
 				},
 			}),
 		});
