@@ -462,6 +462,7 @@ describe.skipIf(!RUN_SANDBOX_BENCHMARKS)("current sandbox runtime benchmark", ()
 							{
 								name: "Benchmark provider",
 								slug: "benchmark-provider",
+								rootEntitySchemaSlug: "book",
 								information: { source: "benchmark" },
 								operations: { search: PROVIDER_SEARCH_SLUG, details: PROVIDER_DETAILS_SLUG },
 							},
@@ -474,7 +475,7 @@ describe.skipIf(!RUN_SANDBOX_BENCHMARKS)("current sandbox runtime benchmark", ()
 				const importProvider = yield* Effect.acquireRelease(
 					installTestProvider({
 						client,
-						linkToEntitySchemaSlug: schema.id,
+						rootEntitySchemaSlug: schema.id,
 						details: fakeProviderDetailsResult({
 							properties: {},
 							name: "Benchmark population item",

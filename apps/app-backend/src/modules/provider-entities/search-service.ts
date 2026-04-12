@@ -1,22 +1,23 @@
 import type { CurrentUserValue } from "@ryot/contract/auth-middleware";
-import { badRequest, notFound, unknownToMessage } from "@ryot/contract/errors";
+import { badRequest, notFound } from "@ryot/contract/errors";
 import type {
 	SearchProviderEntitiesBody,
 	SearchProviderEntitiesResponse,
 } from "@ryot/contract/modules/provider-entities/schemas";
+import { EntitySchemaSlug } from "@ryot/contract/schema/brands";
 import { generateId } from "better-auth";
 import { Context, Effect, Layer } from "effect";
 
 import { DbRunner } from "#lib/infrastructure/db/service";
-import { PluginRuntimeResolver } from "#modules/plugins/runtime-resolver";
+import { parseAppSchemaProperties } from "#lib/property-schema/property-schema-runtime";
+import {
+	PluginRuntimeResolver,
+	UnsupportedProviderOperationError,
+} from "#modules/plugins/runtime-resolver";
 import { decodeProviderSearchResult } from "#modules/sandbox/provider-contracts";
 import { SandboxExecutionService } from "#modules/sandbox/service";
-import { SavedViewsRepository } from "#modules/saved-views/repository";
 
-const unavailableScript = (scriptSlug: string) =>
-	badRequest(`Saved view search script '${scriptSlug}' is missing, inactive, or invalid`);
-
-type ProviderResult = SearchProviderEntitiesResponse["providers"][number];
+const providerNotFound = () => notFound("Provider not found");
 
 export class ProviderEntitySearchService extends Context.Service<ProviderEntitySearchService>()(
 	"ProviderEntitySearchService",
@@ -24,69 +25,66 @@ export class ProviderEntitySearchService extends Context.Service<ProviderEntityS
 		make: Effect.gen(function* () {
 			const runWithDb = yield* DbRunner;
 			const sandbox = yield* SandboxExecutionService;
-			const repository = yield* SavedViewsRepository;
 			const pluginRuntime = yield* PluginRuntimeResolver;
 
 			const search = Effect.fn("ProviderEntitySearchService.search")(function* (
 				user: CurrentUserValue,
 				input: SearchProviderEntitiesBody,
 			) {
-				const savedView = yield* runWithDb(repository.findBySlug(user.id, input.savedViewSlug));
-				if (!savedView) {
-					return yield* notFound("Saved view not found");
+				const provider = yield* runWithDb(pluginRuntime.findActiveProviderById(input.providerId));
+				if (!provider) {
+					return yield* providerNotFound();
 				}
-				const resolved = yield* Effect.forEach(
-					savedView.sandboxScripts["search"] ?? [],
-					(scriptSlug) =>
-						runWithDb(pluginRuntime.resolveSavedViewSearchScript(scriptSlug)).pipe(
-							Effect.flatMap((value) =>
-								value ? Effect.succeed(value) : unavailableScript(scriptSlug),
-							),
-						),
+
+				const resolved = yield* runWithDb(pluginRuntime.resolveSearchScript(input.providerId)).pipe(
+					Effect.mapError((error) => {
+						if (!(error instanceof UnsupportedProviderOperationError)) {
+							return error;
+						}
+						if (error.reason === "inactive_provider") {
+							return providerNotFound();
+						}
+						return badRequest(`Provider '${provider.name}' does not support search`);
+					}),
 				);
-				const providers = yield* Effect.forEach(
-					resolved,
-					({ entitySchemaSlug, provider, script }) => {
-						const provenance = {
-							entitySchemaSlug,
-							providerId: provider.id,
-							providerName: provider.name,
-						};
-						const failed = (error: unknown): ProviderResult => ({
-							...provenance,
-							status: "failure",
-							error: unknownToMessage(error),
-						});
-						return sandbox
-							.executeScript({
-								input: {
-									query: input.query,
-									page: input.page,
-									pageSize: input.pageSize,
-								},
-								scriptId: script.id,
-								authority: { type: "user", userId: user.id },
-								executionId: `saved-view-search-${generateId()}`,
-							})
-							.pipe(
-								Effect.flatMap((execution) => {
-									if (execution.error) {
-										return Effect.succeed(
-											failed(`${execution.error.phase}: ${execution.error.message}`),
-										);
-									}
-									return decodeProviderSearchResult(execution.value).pipe(
-										Effect.map(
-											(result): ProviderResult => ({ ...result, ...provenance, status: "success" }),
-										),
-									);
-								}),
-								Effect.catch((error) => Effect.succeed(failed(error))),
-							);
+				let options: Record<string, unknown> | undefined;
+				if (resolved.optionsSchema === null) {
+					if (input.options !== undefined) {
+						return yield* badRequest("Provider search options are not supported");
+					}
+				} else {
+					options = yield* parseAppSchemaProperties({
+						kind: "Provider search options",
+						properties: input.options ?? {},
+						propertiesSchema: resolved.optionsSchema,
+					}).pipe(Effect.mapError((error) => badRequest(error.message)));
+				}
+				const execution = yield* sandbox.executeScript({
+					scriptId: resolved.id,
+					authority: { type: "user", userId: user.id },
+					executionId: `provider-search-${generateId()}`,
+					input: {
+						page: input.page,
+						query: input.query,
+						pageSize: input.pageSize,
+						...(options === undefined ? {} : { options }),
 					},
-					{ concurrency: "unbounded" },
+				});
+				if (execution.error) {
+					return yield* badRequest(`${execution.error.phase}: ${execution.error.message}`);
+				}
+				const result = yield* decodeProviderSearchResult(execution.value).pipe(
+					Effect.mapError((error) =>
+						badRequest(`Invalid provider search result: ${error.message}`),
+					),
 				);
-				return { providers } satisfies SearchProviderEntitiesResponse;
+				return {
+					items: result.items,
+					providerId: provider.id,
+					providerName: provider.name,
+					...(result.details ? { details: result.details } : {}),
+					rootEntitySchemaSlug: EntitySchemaSlug.make(provider.rootEntitySchemaSlug),
+				} satisfies SearchProviderEntitiesResponse;
 			});
 
 			return { search };

@@ -54,9 +54,9 @@ const makeScriptCleanupLayer = (input: {
 			return {
 				where: (condition: SQLWrapper) => {
 					input.statements.push(dialect.sqlToQuery(condition.getSQL()));
-					return {
+					return Object.assign(Promise.resolve(), {
 						returning: () => Promise.resolve(input.removed.shift() ?? []),
-					};
+					});
 				},
 			};
 		},
@@ -134,19 +134,41 @@ it.effect(
 	() => {
 		const scriptRows: Array<unknown> = [];
 		const db = {
+			delete: () => ({ where: () => Promise.resolve() }),
+			select: () => ({ from: () => ({ where: () => Promise.resolve([]) }) }),
 			insert: (table: unknown) => ({
 				values: (values: unknown) => {
-					if (table === schema.sandboxScript && !Array.isArray(values)) {
+					if (table === schema.sandboxScript && typeof values === "object" && values !== null) {
 						scriptRows.push(values);
 					}
 					return {
-						onConflictDoUpdate: () =>
-							table === schema.sandboxProvider
-								? {
-										returning: () =>
-											Promise.resolve([{ id: "stable-provider-id", slug: "fixture-provider" }]),
-									}
-								: Promise.resolve(),
+						onConflictDoUpdate: () => {
+							if (table === schema.sandboxProvider) {
+								return {
+									returning: () =>
+										Promise.resolve([{ id: "stable-provider-id", slug: "fixture-provider" }]),
+								};
+							}
+							if (table === schema.sandboxScript) {
+								const slug =
+									typeof values === "object" && values !== null
+										? Reflect.get(values, "slug")
+										: undefined;
+								const contentHash =
+									typeof values === "object" && values !== null
+										? Reflect.get(values, "contentHash")
+										: undefined;
+								return {
+									returning: () =>
+										Promise.resolve(
+											typeof slug === "string" && typeof contentHash === "string"
+												? [{ id: `${slug}-id`, slug, contentHash }]
+												: [],
+										),
+								};
+							}
+							return Promise.resolve();
+						},
 					};
 				},
 			}),
@@ -179,6 +201,7 @@ it.effect(
 						name: "Fixture provider",
 						slug: "fixture-provider",
 						information: { source: "fixture" },
+						rootEntitySchemaSlug: "fixture-entity",
 						operations: { details: providerScript.slug },
 					},
 				],
@@ -216,6 +239,137 @@ it.effect(
 	},
 );
 
+it.effect("persists provider operation bindings and search options separately", () => {
+	const operationValues: Array<unknown> = [];
+	const db = {
+		select: () => ({ from: () => ({ where: () => Promise.resolve([]) }) }),
+		delete: () => ({ where: () => Promise.resolve() }),
+		insert: (table: unknown) => ({
+			values: (values: unknown) => {
+				if (
+					table === schema.sandboxProviderOperation &&
+					typeof values === "object" &&
+					values !== null
+				) {
+					operationValues.push(values);
+				}
+				return {
+					onConflictDoUpdate: () => {
+						if (table === schema.sandboxProvider) {
+							return {
+								returning: () => Promise.resolve([{ id: "provider-id", slug: "fixture-provider" }]),
+							};
+						}
+						if (table === schema.sandboxScript) {
+							return {
+								returning: () =>
+									Promise.resolve([
+										{
+											id: `${String(
+												Reflect.get(
+													typeof values === "object" && values !== null ? values : {},
+													"slug",
+												),
+											)}-id`,
+											slug: Reflect.get(
+												typeof values === "object" && values !== null ? values : {},
+												"slug",
+											),
+											contentHash: Reflect.get(
+												typeof values === "object" && values !== null ? values : {},
+												"contentHash",
+											),
+										},
+									]),
+							};
+						}
+						return Promise.resolve();
+					},
+				};
+			},
+		}),
+	};
+	const manifest = fixtureManifest();
+	const automation = manifest.scripts[0];
+	assert(automation);
+	const details = {
+		...automation,
+		name: "Fixture details",
+		slug: "fixture.details",
+		kind: "provider" as const,
+		providerSlug: "fixture-provider",
+		providerOperation: "details" as const,
+	};
+	const searchOptionsSchema = {
+		unknownKeys: "strict" as const,
+		fields: {
+			includeArchived: {
+				type: "boolean" as const,
+				label: "Include archived",
+				description: "Include archived records",
+			},
+		},
+	};
+	const search = {
+		...automation,
+		name: "Fixture search",
+		slug: "fixture.search",
+		kind: "provider" as const,
+		providerSlug: "fixture-provider",
+		providerOperation: "search" as const,
+		searchOptionsSchema,
+	};
+	const normalized: NormalizedPlugin = {
+		sourceHash: "source-hash",
+		manifest: {
+			...manifest,
+			providers: [
+				{
+					name: "Fixture provider",
+					slug: "fixture-provider",
+					information: { source: "fixture" },
+					rootEntitySchemaSlug: "fixture-entity",
+					operations: { details: details.slug, search: search.slug },
+				},
+			],
+			scripts: [...manifest.scripts, details, search],
+		},
+		scripts: [automation, details, search].map((script) => {
+			const { entry, ...metadata } = script;
+			return {
+				entry,
+				metadata,
+				source: "source",
+				compiledFormat: 1,
+				slug: script.slug,
+				name: script.name,
+				compiledCode: "compiled",
+				contentHash: `${script.slug}-hash`,
+			};
+		}),
+	};
+	const layer = PluginRepository.layer.pipe(
+		Layer.provideMerge(Layer.succeed(CurrentDb, Object.assign(Object.create(null), db))),
+	);
+
+	return Effect.gen(function* () {
+		const repository = yield* PluginRepository;
+		yield* repository.persist(normalized);
+		expect(operationValues).toEqual([
+			expect.objectContaining({
+				operation: "details",
+				optionsSchema: null,
+				scriptId: "fixture.details-id",
+			}),
+			expect.objectContaining({
+				operation: "search",
+				scriptId: "fixture.search-id",
+				optionsSchema: searchOptionsSchema,
+			}),
+		]);
+	}).pipe(Effect.provide(layer));
+});
+
 it.effect("deactivates a plugin without deleting its script rows", () => {
 	const statuses: Array<string> = [];
 	return Effect.gen(function* () {
@@ -234,11 +388,11 @@ it.effect("deletes only non-live scripts while guarding exact workflow reference
 		expect(
 			yield* repository.deleteUnreferencedScripts(new Set(["active-hash", "kernel-hash"])),
 		).toEqual([{ id: "obsolete-script", contentHash: "obsolete-hash" }]);
-		expect(tables).toEqual([schema.sandboxScript]);
-		expect(statements[0]?.sql).toContain("not in");
-		expect(statements[0]?.sql).toContain("not exists");
-		expect(statements[0]?.sql).toContain('from "sandbox_workflow_reference"');
-		expect(statements[0]?.params).toEqual(["active-hash", "kernel-hash"]);
+		expect(tables).toEqual([schema.sandboxProviderOperation, schema.sandboxScript]);
+		expect(statements[1]?.sql).toContain("not in");
+		expect(statements[1]?.sql).toContain("not exists");
+		expect(statements[1]?.sql).toContain('from "sandbox_workflow_reference"');
+		expect(statements[1]?.params).toEqual(["active-hash", "kernel-hash"]);
 	}).pipe(Effect.provide(makeScriptCleanupLayer({ removed, statements, tables })));
 });
 
@@ -251,9 +405,9 @@ it.effect("safely deletes unreferenced scripts when the live hash set is empty",
 		expect(yield* repository.deleteUnreferencedScripts(new Set())).toEqual([
 			{ id: "obsolete-script", contentHash: "obsolete-hash" },
 		]);
-		expect(statements[0]?.sql).not.toContain("not in");
-		expect(statements[0]?.sql).toContain("not exists");
-		expect(statements[0]?.params).toEqual([]);
+		expect(statements[1]?.sql).not.toContain("not in");
+		expect(statements[1]?.sql).toContain("not exists");
+		expect(statements[1]?.params).toEqual([]);
 	}).pipe(Effect.provide(makeScriptCleanupLayer({ removed, statements, tables })));
 });
 

@@ -1,4 +1,4 @@
-import { EntitySchemaSlug, SandboxProviderId } from "@ryot/contract/schema/brands";
+import { SandboxProviderId } from "@ryot/contract/schema/brands";
 import { Effect } from "effect";
 
 import {
@@ -53,14 +53,14 @@ describe("company and media-group association variants", () => {
 			]);
 			const companyProvider = yield* installTestProvider({
 				client,
-				linkToEntitySchemaSlug: companySchemaId,
+				rootEntitySchemaSlug: companySchemaId,
 				slug: `company.association-variant-e2e-${crypto.randomUUID()}`,
 				details: fakeProviderDetailsResult({ name: companyName }),
 			});
 			const movieProvider = yield* installTestProvider({
 				client,
 				slug: `movie.association-variant-e2e-${crypto.randomUUID()}`,
-				linkToEntitySchemaSlug: movieSchemaId,
+				rootEntitySchemaSlug: movieSchemaId,
 				details: fakeProviderDetailsResult({
 					name: movieName,
 					relatedEntityGroups: [
@@ -99,7 +99,6 @@ describe("company and media-group association variants", () => {
 
 			const { jobId } = yield* enqueueProviderEntityImport(importer.client, {
 				externalId: movieExternalId,
-				entitySchemaSlug: EntitySchemaSlug.make(movieSchemaId),
 				providerId: SandboxProviderId.make(movieProvider.providerId),
 			});
 			const result = yield* pollProviderEntityImportResult(importer.client, jobId);
@@ -129,19 +128,19 @@ describe("company and media-group association variants", () => {
 			]);
 			const personProvider = yield* installTestProvider({
 				client,
-				linkToEntitySchemaSlug: personSchemaId,
+				rootEntitySchemaSlug: personSchemaId,
 				slug: `person.media-group-e2e-${crypto.randomUUID()}`,
 				details: fakeProviderDetailsResult({ name: personName }),
 			});
 			const companyProvider = yield* installTestProvider({
 				client,
-				linkToEntitySchemaSlug: companySchemaId,
+				rootEntitySchemaSlug: companySchemaId,
 				slug: `company.media-group-e2e-${crypto.randomUUID()}`,
 				details: fakeProviderDetailsResult({ name: companyName }),
 			});
 			const musicGroupProvider = yield* installTestProvider({
 				client,
-				linkToEntitySchemaSlug: musicGroupSchemaId,
+				rootEntitySchemaSlug: musicGroupSchemaId,
 				slug: `music-group.media-group-e2e-${crypto.randomUUID()}`,
 				details: fakeProviderDetailsResult({
 					name: musicGroupName,
@@ -221,7 +220,6 @@ describe("company and media-group association variants", () => {
 
 			const { jobId } = yield* enqueueProviderEntityImport(importer.client, {
 				externalId: musicGroupExternalId,
-				entitySchemaSlug: EntitySchemaSlug.make(musicGroupSchemaId),
 				providerId: SandboxProviderId.make(musicGroupProvider.providerId),
 			});
 			const result = yield* pollProviderEntityImportResult(importer.client, jobId);

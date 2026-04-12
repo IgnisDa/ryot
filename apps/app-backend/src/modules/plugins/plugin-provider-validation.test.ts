@@ -19,6 +19,7 @@ const providerManifest = () => {
 	};
 	return {
 		...manifest,
+		bindings: { ...manifest.bindings },
 		scripts: [...manifest.scripts, details],
 		providers: [
 			{
@@ -26,27 +27,19 @@ const providerManifest = () => {
 				slug: "fixture-provider",
 				information: { source: "fixture" },
 				operations: { details: details.slug },
+				rootEntitySchemaSlug: "fixture-entity",
 			},
 		],
-		bindings: {
-			...manifest.bindings,
-			schemaProviderLinks: [
-				{ providerSlug: "fixture-provider", entitySchemaSlug: "fixture-entity" },
-			],
-		},
 	};
 };
 
-it.effect("accepts explicit providers, operation mappings, and schema membership", () =>
+it.effect("accepts explicit providers and operation mappings", () =>
 	Effect.gen(function* () {
 		const decoded = yield* decodePluginManifest(providerManifest());
 		expect(decoded.providers[0]).toMatchObject({
 			slug: "fixture-provider",
 			operations: { details: "fixture.details" },
 		});
-		expect(decoded.bindings.schemaProviderLinks).toEqual([
-			{ providerSlug: "fixture-provider", entitySchemaSlug: "fixture-entity" },
-		]);
 	}),
 );
 
@@ -60,12 +53,7 @@ it.effect(
 			{ ...manifest, providers: [] },
 			{
 				...manifest,
-				providers: [
-					{
-						...provider,
-						operations: { details: "fixture.automation" },
-					},
-				],
+				providers: [{ ...provider, operations: { details: "fixture.automation" } }],
 			},
 		];
 		return Effect.forEach(cases, (candidate) =>

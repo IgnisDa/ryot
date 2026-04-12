@@ -2,7 +2,13 @@ import { relations } from "drizzle-orm";
 
 import { user } from "./auth";
 import { notificationSubscriptionState, signal, signalRecipient } from "./automations";
-import { plugin, pluginState, sandboxProvider, sandboxScript } from "./core";
+import {
+	plugin,
+	pluginState,
+	sandboxProvider,
+	sandboxProviderOperation,
+	sandboxScript,
+} from "./core";
 import { entity, relationship } from "./entities";
 import { event } from "./events";
 import { importRun, importRunFailure, integration } from "./imports";
@@ -21,11 +27,24 @@ export const pluginRelations = relations(plugin, ({ many }) => ({
 export const sandboxProviderRelations = relations(sandboxProvider, ({ one, many }) => ({
 	entities: many(entity),
 	scripts: many(sandboxScript),
+	operations: many(sandboxProviderOperation),
 	plugin: one(plugin, { references: [plugin.slug], fields: [sandboxProvider.pluginSlug] }),
 }));
 
-export const sandboxScriptRelations = relations(sandboxScript, ({ one }) => ({
+export const sandboxProviderOperationRelations = relations(sandboxProviderOperation, ({ one }) => ({
+	provider: one(sandboxProvider, {
+		references: [sandboxProvider.id],
+		fields: [sandboxProviderOperation.providerId],
+	}),
+	script: one(sandboxScript, {
+		references: [sandboxScript.id],
+		fields: [sandboxProviderOperation.scriptId],
+	}),
+}));
+
+export const sandboxScriptRelations = relations(sandboxScript, ({ one, many }) => ({
 	plugin: one(plugin, { references: [plugin.slug], fields: [sandboxScript.pluginSlug] }),
+	providerOperations: many(sandboxProviderOperation),
 	provider: one(sandboxProvider, {
 		references: [sandboxProvider.id],
 		fields: [sandboxScript.providerId],

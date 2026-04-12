@@ -12,9 +12,11 @@ export const ProviderEntityReference = strictStruct({
 });
 export type ProviderEntityReference = typeof ProviderEntityReference.Type;
 
-export const ImportEntityBody = Schema.Struct({
-	...ProviderEntityReference.fields,
+export const ImportEntityBody = strictStruct({
+	providerId: SandboxProviderId,
+	externalId: Schema.String,
 });
+export type ImportEntityBody = typeof ImportEntityBody.Type;
 
 export const ImportEntityRunResult = Schema.Union([
 	Schema.Struct({ status: Schema.Literal("pending") }).pipe(
@@ -38,7 +40,7 @@ export const ImportEntityRunResult = Schema.Union([
 ]);
 
 export const SearchProviderEntitiesBody = strictStruct({
-	savedViewSlug: Schema.String,
+	providerId: SandboxProviderId,
 	query: Schema.String,
 	page: Schema.Number.pipe(
 		Schema.check(Schema.isInt()),
@@ -48,6 +50,7 @@ export const SearchProviderEntitiesBody = strictStruct({
 		Schema.check(Schema.isInt()),
 		Schema.check(Schema.isBetween({ minimum: 1, maximum: 100 })),
 	),
+	options: Schema.optional(Schema.Record(Schema.String, jsonValueSchema)),
 });
 export type SearchProviderEntitiesBody = typeof SearchProviderEntitiesBody.Type;
 
@@ -65,29 +68,13 @@ const ProviderEntitySearchItem = strictStruct({
 	),
 });
 
-const ProviderEntitySearchProviderFields = {
-	providerName: Schema.String,
-	providerId: ProviderEntityReference.fields.providerId,
-	entitySchemaSlug: ProviderEntityReference.fields.entitySchemaSlug,
-};
-
-const ProviderEntitySearchProviderResult = Schema.Union([
-	strictStruct({
-		...ProviderEntitySearchProviderFields,
-		status: Schema.Literal("success"),
-		items: Schema.Array(ProviderEntitySearchItem),
-		details: Schema.optional(
-			strictStruct({ totalItems: Schema.Number, nextPage: Schema.NullOr(Schema.Number) }),
-		),
-	}),
-	strictStruct({
-		...ProviderEntitySearchProviderFields,
-		status: Schema.Literal("failure"),
-		error: Schema.String,
-	}),
-]);
-
 export const SearchProviderEntitiesResponse = strictStruct({
-	providers: Schema.Array(ProviderEntitySearchProviderResult),
+	providerName: Schema.String,
+	items: Schema.Array(ProviderEntitySearchItem),
+	providerId: ProviderEntityReference.fields.providerId,
+	rootEntitySchemaSlug: ProviderEntityReference.fields.entitySchemaSlug,
+	details: Schema.optional(
+		strictStruct({ totalItems: Schema.Number, nextPage: Schema.NullOr(Schema.Number) }),
+	),
 });
 export type SearchProviderEntitiesResponse = typeof SearchProviderEntitiesResponse.Type;

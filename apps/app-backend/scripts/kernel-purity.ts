@@ -103,9 +103,6 @@ export const deriveDomainVocabulary = (manifests: ReadonlyArray<PluginManifest>)
 		for (const binding of manifest.bindings.relationshipAutomations) {
 			add(terms, binding.relationshipSchemaSlug, binding.scriptSlug);
 		}
-		for (const binding of manifest.bindings.schemaProviderLinks) {
-			add(terms, binding.entitySchemaSlug, binding.providerSlug);
-		}
 		for (const operation of manifest.operations) {
 			add(terms, operation.slug, operation.scriptSlug);
 		}

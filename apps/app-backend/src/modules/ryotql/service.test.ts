@@ -261,6 +261,66 @@ it.effect("applies public and user-only policies to navigation tables", () => {
 	}).pipe(Effect.provide(makeServiceLayer(statements)));
 });
 
+it.effect(
+	"allows authenticated reads of sandbox provider metadata and reconstructs JSON null",
+	() => {
+		const statements: string[] = [];
+		const provider = table("sandboxProvider", "provider");
+		const operation = table("sandboxProviderOperation", "operation");
+		const plugin = table("plugin", "plugin");
+		const document = {
+			queries: {
+				providers: rows(provider, {
+					fields: [
+						field("id", column(provider, "id")),
+						field("information", column(provider, "information")),
+						field("optionsSchema", column(operation, "optionsSchema")),
+					],
+					joins: [
+						join("inner", operation, eq(column(provider, "id"), column(operation, "providerId"))),
+						join("inner", plugin, eq(column(provider, "pluginSlug"), column(plugin, "slug"))),
+					],
+					where: and(
+						eq(column(provider, "rootEntitySchemaSlug"), literal("movie")),
+						eq(column(operation, "operation"), literal("search")),
+						eq(column(plugin, "status"), literal("active")),
+					),
+				}),
+			},
+		};
+		const resultRows = [
+			{
+				f2v: null,
+				f2k: "null",
+				f1k: "json",
+				f0k: "text",
+				f0v: "provider-1",
+				f1v: { source: "tmdb" },
+			},
+		];
+
+		return Effect.gen(function* () {
+			const service = yield* RyotQLService;
+			const response = yield* service.executeForUser("user-1", null, document);
+
+			expect(statements[2]).toContain("FROM (SELECT * FROM sandbox_provider)");
+			expect(statements[2]).toContain("INNER JOIN (SELECT * FROM sandbox_provider_operation)");
+			expect(statements[2]).toContain("INNER JOIN (SELECT * FROM plugin)");
+			expect(response.data["providers"]).toEqual({
+				type: "rows",
+				pageInfo: { limit: 20, hasMore: false, nextCursor: null },
+				items: [
+					{
+						id: { kind: "text", value: "provider-1" },
+						optionsSchema: { kind: "null", value: null },
+						information: { kind: "json", value: { source: "tmdb" } },
+					},
+				],
+			});
+		}).pipe(Effect.provide(makeServiceLayer(statements, resultRows)));
+	},
+);
+
 it.effect("selects notification channel descriptions with text output", () => {
 	const statements: string[] = [];
 	const channel = table("notificationChannel", "channel");
