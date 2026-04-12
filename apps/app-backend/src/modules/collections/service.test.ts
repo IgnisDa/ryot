@@ -2,6 +2,7 @@ import { describe, expect, it } from "bun:test";
 import {
 	addToCollection,
 	createCollection,
+	removeFromCollection,
 	resolveCollectionName,
 } from "./service";
 
@@ -1205,5 +1206,148 @@ describe("createCollection", () => {
 				),
 			).rejects.toThrow("Database connection lost");
 		});
+	});
+});
+
+describe("removeFromCollection", () => {
+	const mockCollection = {
+		id: "collection-1",
+		name: "My Collection",
+		image: null,
+		externalId: null,
+		createdAt: new Date(),
+		updatedAt: new Date(),
+		entitySchemaId: "schema-1",
+		properties: {},
+		sandboxScriptId: null,
+	};
+
+	const mockEntity = { id: "entity-1" };
+
+	const mockRelationship = {
+		id: "rel-1",
+		relType: "collection",
+		createdAt: "2024-01-01T00:00:00Z",
+		sourceEntityId: "collection-1",
+		targetEntityId: "entity-1",
+		properties: {},
+	};
+
+	const mockMemberOfRelationship = {
+		id: "rel-2",
+		relType: "member_of",
+		createdAt: "2024-01-01T00:00:00Z",
+		sourceEntityId: "entity-1",
+		targetEntityId: "collection-1",
+		properties: {},
+	};
+
+	const mockRemoveFromCollectionDeps = {
+		getCollectionById: async () => mockCollection,
+		getEntityById: async () => mockEntity,
+		removeEntityFromCollection: async () => ({
+			collection: mockRelationship,
+			memberOf: mockMemberOfRelationship,
+		}),
+	};
+
+	it("removes an entity from a collection and returns the deleted relationships", async () => {
+		const result = await removeFromCollection(
+			{
+				body: { collectionId: "collection-1", entityId: "entity-1" },
+				userId: "user-1",
+			},
+			mockRemoveFromCollectionDeps,
+		);
+
+		expect("data" in result).toBe(true);
+		if ("data" in result) {
+			expect(result.data.collection.id).toBe("rel-1");
+			expect(result.data.collection.relType).toBe("collection");
+			expect(result.data.memberOf.id).toBe("rel-2");
+			expect(result.data.memberOf.relType).toBe("member_of");
+		}
+	});
+
+	it("returns not_found error when collection does not exist", async () => {
+		const depsWithMissingCollection = {
+			...mockRemoveFromCollectionDeps,
+			getCollectionById: async () => undefined,
+		};
+
+		const result = await removeFromCollection(
+			{
+				body: { collectionId: "nonexistent", entityId: "entity-1" },
+				userId: "user-1",
+			},
+			depsWithMissingCollection,
+		);
+
+		expect("error" in result).toBe(true);
+		if ("error" in result) {
+			expect(result.error).toBe("not_found");
+			expect(result.message).toBe("Collection not found");
+		}
+	});
+
+	it("returns not_found error when entity does not exist", async () => {
+		const depsWithMissingEntity = {
+			...mockRemoveFromCollectionDeps,
+			getEntityById: async () => undefined,
+		};
+
+		const result = await removeFromCollection(
+			{
+				body: { collectionId: "collection-1", entityId: "nonexistent" },
+				userId: "user-1",
+			},
+			depsWithMissingEntity,
+		);
+
+		expect("error" in result).toBe(true);
+		if ("error" in result) {
+			expect(result.error).toBe("not_found");
+			expect(result.message).toBe("Entity not found");
+		}
+	});
+
+	it("returns not_found error when entity is not in collection", async () => {
+		const depsWithNoMembership = {
+			...mockRemoveFromCollectionDeps,
+			removeEntityFromCollection: async () => undefined,
+		};
+
+		const result = await removeFromCollection(
+			{
+				body: { collectionId: "collection-1", entityId: "entity-1" },
+				userId: "user-1",
+			},
+			depsWithNoMembership,
+		);
+
+		expect("error" in result).toBe(true);
+		if ("error" in result) {
+			expect(result.error).toBe("not_found");
+			expect(result.message).toBe("Entity is not in collection");
+		}
+	});
+
+	it("propagates repository errors", async () => {
+		const failingDeps = {
+			...mockRemoveFromCollectionDeps,
+			removeEntityFromCollection: async () => {
+				throw new Error("Database connection lost");
+			},
+		};
+
+		expect(
+			removeFromCollection(
+				{
+					body: { collectionId: "collection-1", entityId: "entity-1" },
+					userId: "user-1",
+				},
+				failingDeps,
+			),
+		).rejects.toThrow("Database connection lost");
 	});
 });
