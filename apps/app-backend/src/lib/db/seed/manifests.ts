@@ -9,11 +9,13 @@ import anilistMangaScriptCode from "~/lib/sandbox/scripts/providers/media/manga/
 import mangaUpdatesMangaScriptCode from "~/lib/sandbox/scripts/providers/media/manga/manga-updates.txt";
 import myanimelistMangaScriptCode from "~/lib/sandbox/scripts/providers/media/manga/myanimelist.txt";
 import tmdbMovieScriptCode from "~/lib/sandbox/scripts/providers/media/movie/tmdb.txt";
+import tvdbMovieScriptCode from "~/lib/sandbox/scripts/providers/media/movie/tvdb.txt";
 import musicbrainzMusicScriptCode from "~/lib/sandbox/scripts/providers/media/music/musicbrainz.txt";
 import spotifyMusicScriptCode from "~/lib/sandbox/scripts/providers/media/music/spotify.txt";
 import itunesPodcastScriptCode from "~/lib/sandbox/scripts/providers/media/podcast/itunes.txt";
 import listennotesPodcastScriptCode from "~/lib/sandbox/scripts/providers/media/podcast/listennotes.txt";
 import tmdbShowScriptCode from "~/lib/sandbox/scripts/providers/media/show/tmdb.txt";
+import tvdbShowScriptCode from "~/lib/sandbox/scripts/providers/media/show/tvdb.txt";
 import giantBombVideoGameScriptCode from "~/lib/sandbox/scripts/providers/media/video-game/giant-bomb.txt";
 import igdbVideoGameScriptCode from "~/lib/sandbox/scripts/providers/media/video-game/igdb.txt";
 import anilistPersonScriptCode from "~/lib/sandbox/scripts/providers/person/anilist.txt";
@@ -90,9 +92,19 @@ export const builtinSandboxScripts = () => [
 		code: tmdbMovieScriptCode,
 	},
 	{
+		name: "TVDB",
+		slug: "movie.tvdb",
+		code: tvdbMovieScriptCode,
+	},
+	{
 		name: "TMDB",
 		slug: "show.tmdb",
 		code: tmdbShowScriptCode,
+	},
+	{
+		name: "TVDB",
+		slug: "show.tvdb",
+		code: tvdbShowScriptCode,
 	},
 	{
 		name: "GiantBomb",
@@ -201,8 +213,16 @@ export const entitySchemaScriptLinks = () =>
 			scriptSlug: "movie.tmdb",
 		},
 		{
+			schemaSlug: "movie",
+			scriptSlug: "movie.tvdb",
+		},
+		{
 			schemaSlug: "show",
 			scriptSlug: "show.tmdb",
+		},
+		{
+			schemaSlug: "show",
+			scriptSlug: "show.tvdb",
 		},
 		{
 			schemaSlug: "video-game",
