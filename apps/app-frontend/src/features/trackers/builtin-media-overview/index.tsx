@@ -11,31 +11,20 @@ import {
 	SimpleGrid,
 	Stack,
 	Text,
-	UnstyledButton,
 } from "@mantine/core";
-import { modals } from "@mantine/modals";
 import { dayjs } from "@ryot/ts-utils";
 import { useQueryClient } from "@tanstack/react-query";
 import { Bookmark, Clock, Play } from "lucide-react";
 import { useCallback } from "react";
 import { useResolvedImageUrls } from "~/features/entities/image";
 import { toAppEntityImage } from "~/features/entities/model";
-import {
-	SearchEntityModalContent,
-	SearchEntityModalTitle,
-} from "~/features/entities/search-modal";
 import { useEntitySchemasQuery } from "~/features/entity-schemas/hooks";
-import type { AppEntitySchema } from "~/features/entity-schemas/model";
-import { TrackerIcon } from "~/features/trackers/icons";
 import type { AppTracker } from "~/features/trackers/model";
 import { useApiClient } from "~/hooks/api";
 import { useThemeTokens } from "~/hooks/theme";
 import { EventRow, StatChip, TypeBar, WeekStrip } from "./components/activity";
 import { BacklogCard, ContinueCard, RateCard } from "./components/cards";
-import {
-	ContinueLoggingModalContent,
-	StartLoggingModalContent,
-} from "./components/modals";
+import { useMediaOverviewModalHandlers } from "./components/modal-handlers";
 import { SectionFrame, SectionHeader } from "./components/section";
 import {
 	type ActivityEventView,
@@ -104,7 +93,17 @@ export function BuiltinMediaTrackerOverview(
 	const continueItems = continueQuery.data?.data.items ?? [];
 	const activityItems = activityQuery.data?.data.items ?? [];
 	const rateTheseItems = rateTheseQuery.data?.data.items ?? [];
-	const typePickerModalId = `builtin-media-type-picker-${props.tracker.id}`;
+
+	const searchableSchemas = entitySchemasQuery.entitySchemas.filter(
+		(s) => s.providers.length > 0,
+	);
+
+	const { handleStartItem, handleContinueItem, openTypePickerModal } =
+		useMediaOverviewModalHandlers({
+			searchableSchemas,
+			invalidateOverview,
+			trackerId: props.tracker.id,
+		});
 
 	const allImageEntries = [
 		...upNextItems,
@@ -120,156 +119,6 @@ export function BuiltinMediaTrackerOverview(
 	const schemaBySlug = new Map(
 		entitySchemasQuery.entitySchemas.map((s) => [s.slug, s]),
 	);
-
-	const searchableSchemas = entitySchemasQuery.entitySchemas.filter(
-		(s) => s.providers.length > 0,
-	);
-
-	const openSearchModal = (
-		schema: AppEntitySchema,
-		intent: "log" | "backlog",
-	) => {
-		const searchModalId = `builtin-media-search-${props.tracker.id}-${schema.id}`;
-		const actionVerb = intent === "log" ? "Start" : "Queue";
-
-		modals.open({
-			size: "lg",
-			centered: true,
-			modalId: searchModalId,
-			overlayProps: { backgroundOpacity: 0.55, blur: 3 },
-			children: (
-				<SearchEntityModalContent
-					entitySchema={schema}
-					initialAction={intent}
-					onActionCompleted={invalidateOverview}
-				/>
-			),
-			title: (
-				<SearchEntityModalTitle
-					actionVerb={actionVerb}
-					entitySchemaName={schema.name}
-					onBack={() => modals.close(searchModalId)}
-				/>
-			),
-		});
-	};
-
-	const handleStartItem = (
-		entityId: string,
-		entitySchemaId: string,
-		accentColor: string,
-	) => {
-		const startModalId = `builtin-media-start-${entityId}`;
-		modals.open({
-			size: "md",
-			centered: true,
-			modalId: startModalId,
-			overlayProps: { backgroundOpacity: 0.55, blur: 3 },
-			title: (
-				<Text ff="var(--mantine-headings-font-family)" fw={600} fz="md">
-					Log progress
-				</Text>
-			),
-			children: (
-				<StartLoggingModalContent
-					entityId={entityId}
-					modalId={startModalId}
-					accentColor={accentColor}
-					onSaved={invalidateOverview}
-					entitySchemaId={entitySchemaId}
-				/>
-			),
-		});
-	};
-
-	const handleContinueItem = (
-		entityId: string,
-		accentColor: string,
-		entitySchemaId: string,
-		initialPercent: number | null,
-	) => {
-		const continueModalId = `builtin-media-continue-${entityId}`;
-		modals.open({
-			size: "sm",
-			centered: true,
-			modalId: continueModalId,
-			overlayProps: { backgroundOpacity: 0.55, blur: 3 },
-			title: (
-				<Text ff="var(--mantine-headings-font-family)" fw={600} fz="md">
-					Log progress
-				</Text>
-			),
-			children: (
-				<ContinueLoggingModalContent
-					entityId={entityId}
-					modalId={continueModalId}
-					accentColor={accentColor}
-					onSaved={invalidateOverview}
-					entitySchemaId={entitySchemaId}
-					initialPercent={initialPercent}
-				/>
-			),
-		});
-	};
-
-	const openTypePickerModal = (intent: "log" | "backlog") => {
-		const title = intent === "log" ? "Start something" : "Queue something";
-
-		modals.open({
-			size: "lg",
-			centered: true,
-			modalId: typePickerModalId,
-			overlayProps: { backgroundOpacity: 0.55, blur: 3 },
-			title: (
-				<Text ff="var(--mantine-headings-font-family)" fw={600} fz="md">
-					{title}
-				</Text>
-			),
-			children: (
-				<SimpleGrid cols={{ base: 3, sm: 4 }} spacing="sm">
-					{searchableSchemas.map((schema) => {
-						return (
-							<UnstyledButton
-								key={schema.id}
-								onClick={() => openSearchModal(schema, intent)}
-							>
-								<Paper
-									p="md"
-									ta="center"
-									radius="sm"
-									style={{
-										cursor: "pointer",
-										background: t.surface,
-										border: `1px solid ${t.border}`,
-										transition: "border-color 0.15s ease",
-									}}
-								>
-									<Stack gap={6} align="center">
-										<TrackerIcon
-											size={24}
-											icon={schema.icon}
-											color={schema.accentColor}
-										/>
-										<Text
-											fz="xs"
-											fw={600}
-											c={t.textPrimary}
-											ff="var(--mantine-headings-font-family)"
-										>
-											{schema.name}
-										</Text>
-										<Text fz={10} c={t.textMuted}>
-											Find and track {schema.name.toLowerCase()}
-										</Text>
-									</Stack>
-								</Paper>
-							</UnstyledButton>
-						);
-					})}
-				</SimpleGrid>
-			),
-		});
-	};
 
 	if (
 		entitySchemasQuery.isLoading ||
@@ -679,8 +528,8 @@ export function BuiltinMediaTrackerOverview(
 						/>
 						<StatChip
 							color="#E09840"
-							label="In Backlog"
 							border={t.border}
+							label="In Backlog"
 							surface={t.surface}
 							textMuted={t.textMuted}
 							textPrimary={t.textPrimary}
