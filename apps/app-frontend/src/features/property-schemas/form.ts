@@ -2,6 +2,7 @@ import type { AppSchema } from "@ryot/ts-utils";
 import {
 	appPropertyPrimitiveTypes,
 	trimmedOrUndefined,
+	zodNonEmptyTrimmedString,
 	zodRequiredName,
 } from "@ryot/ts-utils";
 import { z } from "zod";
@@ -13,6 +14,7 @@ const propertySchemaTypeSchema = z.enum(propertySchemaTypes);
 
 const propertySchemaBaseSchema = z.object({
 	key: z.string(),
+	label: zodNonEmptyTrimmedString("Label is required"),
 	required: z.boolean(),
 	type: propertySchemaTypeSchema,
 });
@@ -35,6 +37,7 @@ function buildPropertySchemaRow(row: PropertySchemaInput): PropertySchemaRow {
 	return {
 		key: row.key,
 		type: row.type,
+		label: row.label,
 		required: row.required,
 		id: row.id ?? crypto.randomUUID(),
 	};
@@ -43,6 +46,7 @@ function buildPropertySchemaRow(row: PropertySchemaInput): PropertySchemaRow {
 export function buildDefaultPropertySchemaRow(): PropertySchemaRow {
 	return buildPropertySchemaRow({
 		key: "",
+		label: "",
 		type: "string",
 		required: false,
 	});
@@ -106,7 +110,10 @@ export const buildPropertiesSchema = (properties: PropertySchemaInput[]) => {
 
 	for (const property of properties) {
 		const key = property.key.trim();
-		const propertyDef: AppSchema["fields"][string] = { type: property.type };
+		const propertyDef: AppSchema["fields"][string] = {
+			type: property.type,
+			label: property.label.trim(),
+		};
 
 		if (property.required) {
 			propertyDef.validation = { required: true };

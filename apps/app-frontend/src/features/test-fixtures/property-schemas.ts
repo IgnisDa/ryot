@@ -9,6 +9,7 @@ export function createPropertySchemaInputFixture(
 	return {
 		key: "title",
 		type: "string",
+		label: "Title",
 		required: false,
 		...overrides,
 	};
