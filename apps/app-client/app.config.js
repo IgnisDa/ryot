@@ -20,8 +20,8 @@ const config = {
 		[
 			"expo-splash-screen",
 			{
-				backgroundColor: MAIN_COLOR,
 				resizeMode: "contain",
+				backgroundColor: MAIN_COLOR,
 				image: "./assets/images/splash-icon.png",
 			},
 		],
@@ -31,8 +31,8 @@ const config = {
 		bundleIdentifier: isDebug ? "io.ryot.app.dev" : "io.ryot.app",
 	},
 	web: {
-		bundler: "metro",
 		output: "single",
+		bundler: "metro",
 		favicon: "./assets/images/favicon.png",
 	},
 	android: {
