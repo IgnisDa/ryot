@@ -4,7 +4,13 @@ import {
 	QueryEngineNotFoundError,
 	QueryEngineValidationError,
 } from "~/lib/views/errors";
-import { getContinueItems, getRateTheseItems, getUpNextItems } from "./service";
+import {
+	getContinueItems,
+	getRateTheseItems,
+	getRecentActivityItems,
+	getUpNextItems,
+	getWeekActivity,
+} from "./service";
 
 const date = (value: string) => new Date(value);
 
@@ -474,5 +480,181 @@ describe("getRateTheseItems", () => {
 		});
 
 		expect(capturedLimit).toBe(6);
+	});
+});
+
+describe("getRecentActivityItems", () => {
+	it("returns recent activity items in reverse chronological order", async () => {
+		const result = expectDataResult(
+			await getRecentActivityItems("user_1", {
+				listWeekActivityEventsForUser: async () => [],
+				executeSectionQuery: async () => {
+					throw new Error("Should not execute section query");
+				},
+				listRecentActivityEventsForUser: async () => [
+					{
+						rating: null,
+						id: "event-1",
+						eventSchemaSlug: "progress",
+						occurredAt: date("2024-03-20T12:00:00Z"),
+						entity: {
+							image: null,
+							name: "Test Book",
+							entitySchemaSlug: "book",
+						},
+					},
+					{
+						rating: 5,
+						id: "event-2",
+						eventSchemaSlug: "review",
+						occurredAt: date("2024-03-21T12:00:00Z"),
+						entity: {
+							image: null,
+							name: "Test Manga",
+							entitySchemaSlug: "manga",
+						},
+					},
+				],
+			}),
+		);
+
+		expect(result.items.map((item) => item.id)).toEqual(["event-2", "event-1"]);
+		expect(result.items[0]).toMatchObject({
+			rating: 5,
+			id: "event-2",
+			eventSchemaSlug: "review",
+			entity: { name: "Test Manga", entitySchemaSlug: "manga" },
+		});
+	});
+
+	it("uses an activity limit of 12", async () => {
+		let capturedLimit: number | undefined;
+
+		await getRecentActivityItems("user_1", {
+			executeSectionQuery: async () => {
+				throw new Error("Should not execute section query");
+			},
+			listRecentActivityEventsForUser: async (input) => {
+				capturedLimit = input.limit;
+				return [];
+			},
+			listWeekActivityEventsForUser: async () => [],
+		});
+
+		expect(capturedLimit).toBe(12);
+	});
+
+	it("orders same-timestamp activity by id descending", async () => {
+		const timestamp = date("2024-03-21T12:00:00Z");
+		const result = expectDataResult(
+			await getRecentActivityItems("user_1", {
+				listWeekActivityEventsForUser: async () => [],
+				executeSectionQuery: async () => {
+					throw new Error("Should not execute section query");
+				},
+				listRecentActivityEventsForUser: async () => [
+					{
+						rating: null,
+						id: "event-1",
+						occurredAt: timestamp,
+						eventSchemaSlug: "review",
+						entity: {
+							image: null,
+							name: "Older Id",
+							entitySchemaSlug: "book",
+						},
+					},
+					{
+						rating: null,
+						id: "event-2",
+						occurredAt: timestamp,
+						eventSchemaSlug: "review",
+						entity: {
+							image: null,
+							name: "Newer Id",
+							entitySchemaSlug: "manga",
+						},
+					},
+				],
+			}),
+		);
+
+		expect(result.items.map((item) => item.id)).toEqual(["event-2", "event-1"]);
+	});
+});
+
+describe("getWeekActivity", () => {
+	it("returns seven daily buckets for the current week", async () => {
+		const now = new Date();
+		const dayOfWeek = now.getDay();
+		const daysFromMonday = dayOfWeek === 0 ? 6 : dayOfWeek - 1;
+		const monday = new Date(now);
+		monday.setHours(0, 0, 0, 0);
+		monday.setDate(monday.getDate() - daysFromMonday);
+
+		const tuesday = new Date(monday);
+		tuesday.setDate(monday.getDate() + 1);
+		tuesday.setHours(12, 0, 0, 0);
+
+		const friday = new Date(monday);
+		friday.setDate(monday.getDate() + 4);
+		friday.setHours(18, 0, 0, 0);
+
+		const result = expectDataResult(
+			await getWeekActivity("user_1", {
+				executeSectionQuery: async () => {
+					throw new Error("Should not execute section query");
+				},
+				listRecentActivityEventsForUser: async () => [],
+				listWeekActivityEventsForUser: async () => [
+					{ occurredAt: tuesday },
+					{ occurredAt: tuesday },
+					{ occurredAt: friday },
+				],
+			}),
+		);
+
+		expect(result.items).toHaveLength(7);
+		expect(result.items.map((item) => item.dayLabel)).toEqual([
+			"Mon",
+			"Tue",
+			"Wed",
+			"Thu",
+			"Fri",
+			"Sat",
+			"Sun",
+		]);
+		expect(result.items.map((item) => item.count)).toEqual([
+			0, 2, 0, 0, 1, 0, 0,
+		]);
+	});
+
+	it("labels week buckets in UTC", async () => {
+		const now = new Date();
+		const mondayUtc = new Date(now);
+		mondayUtc.setUTCHours(0, 0, 0, 0);
+		const daysFromMonday =
+			mondayUtc.getUTCDay() === 0 ? 6 : mondayUtc.getUTCDay() - 1;
+		mondayUtc.setUTCDate(mondayUtc.getUTCDate() - daysFromMonday);
+
+		const sundayUtc = new Date(mondayUtc);
+		sundayUtc.setUTCDate(mondayUtc.getUTCDate() + 6);
+		sundayUtc.setUTCHours(23, 59, 0, 0);
+
+		const result = expectDataResult(
+			await getWeekActivity("user_1", {
+				listRecentActivityEventsForUser: async () => [],
+				executeSectionQuery: async () => {
+					throw new Error("Should not execute section query");
+				},
+				listWeekActivityEventsForUser: async () => [
+					{ occurredAt: mondayUtc },
+					{ occurredAt: sundayUtc },
+				],
+			}),
+		);
+
+		expect(result.items[0]).toEqual({ count: 1, dayLabel: "Mon" });
+		expect(result.items[6]).toEqual({ count: 1, dayLabel: "Sun" });
 	});
 });

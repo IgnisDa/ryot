@@ -117,114 +117,27 @@ type OverviewContinueItem =
 	ApiGetResponseData<"/media/overview/continue">["items"][number];
 type OverviewRateTheseItem =
 	ApiGetResponseData<"/media/overview/review">["items"][number];
+type OverviewActivityItem =
+	ApiGetResponseData<"/media/overview/activity">["items"][number];
+type OverviewWeekItem =
+	ApiGetResponseData<"/media/overview/week">["items"][number];
 
-interface ActivityEvent {
+interface ActivityEventView {
 	id: string;
-	sub: string;
+	imageUrl?: string;
+	sub?: string;
 	date: string;
 	time: string;
 	title: string;
 	action: string;
-	type: MediaType;
-	coverUrl: string;
 	rating: number | null;
+	entitySchemaSlug: string;
 }
 
-interface WeekDay {
+interface WeekDayView {
 	day: string;
 	count: number;
 }
-
-const WEEK_ACTIVITY: WeekDay[] = [
-	{ day: "Mon", count: 2 },
-	{ day: "Tue", count: 0 },
-	{ day: "Wed", count: 1 },
-	{ day: "Thu", count: 3 },
-	{ day: "Fri", count: 0 },
-	{ day: "Sat", count: 4 },
-	{ day: "Sun", count: 1 },
-];
-
-const RECENT_EVENTS: ActivityEvent[] = [
-	{
-		id: "e1",
-		type: "Book",
-		rating: null,
-		date: "Today",
-		time: "2h ago",
-		sub: "pg 142 of 380",
-		action: "Logged progress",
-		title: "The Wind Is Never Gone",
-		coverUrl: "https://covers.openlibrary.org/b/id/240726-L.jpg",
-	},
-	{
-		id: "e2",
-		rating: null,
-		date: "Today",
-		type: "Anime",
-		time: "5h ago",
-		sub: "Episode 12",
-		action: "Watched",
-		title: "Dungeon Meshi",
-		coverUrl: "https://cdn.myanimelist.net/images/anime/1628/140081.jpg",
-	},
-	{
-		id: "e3",
-		type: "Show",
-		sub: "S3 E7",
-		rating: null,
-		date: "Yesterday",
-		action: "Watched",
-		time: "Yesterday",
-		title: "Breaking Bad",
-		coverUrl: "https://image.tmdb.org/t/p/w500/ggFHVNu6YYI5L9pCfOacjizRGt.jpg",
-	},
-	{
-		id: "e4",
-		rating: null,
-		type: "Movie",
-		date: "Yesterday",
-		time: "Yesterday",
-		action: "Completed",
-		title: "Poor Things",
-		sub: "Yorgos Lanthimos",
-		coverUrl: "https://image.tmdb.org/t/p/w500/kCGlIMHnOm8JPXIwwzwrznhIiIT.jpg",
-	},
-	{
-		id: "e5",
-		rating: null,
-		type: "Anime",
-		time: "3d ago",
-		sub: "Episode 8",
-		action: "Watched",
-		date: "3 days ago",
-		title: "Solo Leveling",
-		coverUrl: "https://cdn.myanimelist.net/images/anime/1258/135739.jpg",
-	},
-	{
-		id: "e6",
-		rating: 5,
-		type: "Anime",
-		time: "3d ago",
-		sub: "28 of 28",
-		date: "3 days ago",
-		action: "Completed",
-		title: "Frieren: Beyond Journey's End",
-		coverUrl: "https://cdn.myanimelist.net/images/anime/1015/138006.jpg",
-	},
-	{
-		id: "e7",
-		rating: 5,
-		time: "1w ago",
-		type: "VideoGame",
-		date: "1 week ago",
-		title: "Elden Ring",
-		sub: "FromSoftware",
-		action: "Completed",
-		coverUrl:
-			"https://images.igdb.com/igdb/image/upload/t_cover_big/co4jni.jpg",
-	},
-];
 
 const LIBRARY_STATS = {
 	total: 29,
@@ -250,6 +163,50 @@ const TYPE_COUNTS: { type: MediaType; count: number }[] = [
 	{ type: "ComicBook", count: 2 },
 	{ type: "VisualNovel", count: 2 },
 ];
+
+function getActivityDateLabel(date: Date) {
+	const now = new Date();
+	const today = new Date(now);
+	today.setHours(0, 0, 0, 0);
+
+	const yesterday = new Date(today);
+	yesterday.setDate(today.getDate() - 1);
+
+	const target = new Date(date);
+	target.setHours(0, 0, 0, 0);
+
+	if (target.getTime() === today.getTime()) {
+		return "Today";
+	}
+	if (target.getTime() === yesterday.getTime()) {
+		return "Yesterday";
+	}
+
+	return date.toLocaleDateString(undefined, {
+		month: "short",
+		day: "numeric",
+		year: date.getFullYear() === now.getFullYear() ? undefined : "numeric",
+	});
+}
+
+function getActivityActionLabel(item: OverviewActivityItem) {
+	if (item.eventSchemaSlug === "progress") {
+		return item.entity.entitySchemaSlug === "anime"
+			? "Watched"
+			: "Logged progress";
+	}
+	if (item.eventSchemaSlug === "backlog") {
+		return "Queued";
+	}
+	if (item.eventSchemaSlug === "review") {
+		return "Rated";
+	}
+	return "Completed";
+}
+
+function buildWeekActivity(days: OverviewWeekItem[]): WeekDayView[] {
+	return days.map((day) => ({ day: day.dayLabel, count: day.count }));
+}
 
 function SectionHeader(props: {
 	title: string;
@@ -814,8 +771,8 @@ function RateCard(props: {
 
 function WeekStrip(props: {
 	border: string;
-	days: WeekDay[];
 	textMuted: string;
+	days: WeekDayView[];
 	accentColor: string;
 	textPrimary: string;
 }) {
@@ -887,9 +844,13 @@ function EventRow(props: {
 	isLast: boolean;
 	textMuted: string;
 	textPrimary: string;
-	event: ActivityEvent;
+	event: ActivityEventView;
+	schemaBySlug: Map<string, AppEntitySchema>;
 }) {
-	const color = TYPE_COLORS[props.event.type];
+	const schema = props.schemaBySlug.get(props.event.entitySchemaSlug);
+	const color = schema?.accentColor ?? STONE;
+	const icon = schema?.icon ?? "circle";
+
 	return (
 		<Group
 			py={10}
@@ -906,10 +867,10 @@ function EventRow(props: {
 				radius={6}
 				width={36}
 				height={48}
-				icon="circle"
+				icon={icon}
 				color={color}
 				title={props.event.title}
-				url={props.event.coverUrl}
+				url={props.event.imageUrl}
 			/>
 			<Stack gap={2} style={{ flex: 1, minWidth: 0 }}>
 				<Text
@@ -927,14 +888,16 @@ function EventRow(props: {
 						variant="light"
 						style={{ backgroundColor: colorMix(color, 0.12), color }}
 					>
-						{props.event.type}
+						{schema?.name ?? "Item"}
 					</Badge>
 					<Text fz={10} fw={600} c={color}>
 						{props.event.action}
 					</Text>
-					<Text fz={10} c={props.textMuted}>
-						&middot; {props.event.sub}
-					</Text>
+					{props.event.sub ? (
+						<Text fz={10} c={props.textMuted}>
+							&middot; {props.event.sub}
+						</Text>
+					) : null}
 					{props.event.rating !== null && (
 						<Text fz={10} ff="var(--mantine-font-family-monospace)" c={GOLD}>
 							{"★".repeat(props.event.rating)}
@@ -1066,9 +1029,11 @@ export function BuiltinMediaTrackerOverview(
 	const [continueRef] = useAutoAnimate<HTMLDivElement>();
 	const [rateTheseRef] = useAutoAnimate<HTMLDivElement>();
 
+	const weekQuery = apiClient.useQuery("get", "/media/overview/week");
 	const upNextQuery = apiClient.useQuery("get", "/media/overview/up-next");
-	const continueQuery = apiClient.useQuery("get", "/media/overview/continue");
 	const rateTheseQuery = apiClient.useQuery("get", "/media/overview/review");
+	const continueQuery = apiClient.useQuery("get", "/media/overview/continue");
+	const activityQuery = apiClient.useQuery("get", "/media/overview/activity");
 
 	const invalidateUpNext = useCallback(() => {
 		void queryClient.invalidateQueries({
@@ -1095,12 +1060,14 @@ export function BuiltinMediaTrackerOverview(
 		invalidateUpNext();
 		invalidateReviews();
 		invalidateContinue();
-	}, [apiClient, queryClient]);
+	}, [invalidateContinue, invalidateReviews, invalidateUpNext]);
 
 	const entitySchemasQuery = useEntitySchemasQuery(props.tracker.id, true);
 
+	const weekItems = weekQuery.data?.data.items ?? [];
 	const upNextItems = upNextQuery.data?.data.items ?? [];
 	const continueItems = continueQuery.data?.data.items ?? [];
+	const activityItems = activityQuery.data?.data.items ?? [];
 	const rateTheseItems = rateTheseQuery.data?.data.items ?? [];
 	const typePickerModalId = `builtin-media-type-picker-${props.tracker.id}`;
 
@@ -1108,8 +1075,12 @@ export function BuiltinMediaTrackerOverview(
 		...upNextItems,
 		...continueItems,
 		...rateTheseItems,
+		...activityItems.map((item) => ({
+			id: item.id,
+			image: toAppEntityImage(item.entity.image),
+		})),
 	].map((item) => ({ id: item.id, image: toAppEntityImage(item.image) }));
-	const { imageUrlByEntityId } = useResolvedImageUrls(allImageEntries);
+	const imageUrls = useResolvedImageUrls(allImageEntries);
 
 	const schemaBySlug = new Map(
 		entitySchemasQuery.entitySchemas.map((s) => [s.slug, s]),
@@ -1211,7 +1182,10 @@ export function BuiltinMediaTrackerOverview(
 		entitySchemasQuery.isLoading ||
 		upNextQuery.isLoading ||
 		continueQuery.isLoading ||
-		rateTheseQuery.isLoading
+		rateTheseQuery.isLoading ||
+		activityQuery.isLoading ||
+		weekQuery.isLoading ||
+		imageUrls.isLoading
 	) {
 		return (
 			<Center h={400}>
@@ -1224,7 +1198,10 @@ export function BuiltinMediaTrackerOverview(
 		entitySchemasQuery.isError ||
 		upNextQuery.isError ||
 		continueQuery.isError ||
-		rateTheseQuery.isError
+		rateTheseQuery.isError ||
+		activityQuery.isError ||
+		weekQuery.isError ||
+		imageUrls.isError
 	) {
 		return (
 			<Paper p="lg" withBorder>
@@ -1233,17 +1210,31 @@ export function BuiltinMediaTrackerOverview(
 		);
 	}
 
-	const dateGroups = RECENT_EVENTS.reduce<Record<string, ActivityEvent[]>>(
-		(acc, event) => {
-			if (!acc[event.date]) {
-				acc[event.date] = [];
-			}
-			acc[event.date]?.push(event);
-			return acc;
-		},
-		{},
-	);
-	const weekTotalEvents = WEEK_ACTIVITY.reduce(
+	const liveWeekActivity = buildWeekActivity(weekItems);
+	const liveActivityEvents = activityItems.map((item) => {
+		const occurredAt = new Date(item.occurredAt);
+		return {
+			id: item.id,
+			date: getActivityDateLabel(occurredAt),
+			time: getLastActivityLabel(occurredAt),
+			title: item.entity.name,
+			action: getActivityActionLabel(item),
+			rating: item.rating,
+			sub: undefined,
+			entitySchemaSlug: item.entity.entitySchemaSlug,
+			imageUrl: imageUrls.imageUrlByEntityId.get(item.id),
+		};
+	});
+	const dateGroups = liveActivityEvents.reduce<
+		Record<string, ActivityEventView[]>
+	>((acc, event) => {
+		if (!acc[event.date]) {
+			acc[event.date] = [];
+		}
+		acc[event.date]?.push(event);
+		return acc;
+	}, {});
+	const weekTotalEvents = liveWeekActivity.reduce(
 		(total, day) => total + day.count,
 		0,
 	);
@@ -1348,7 +1339,7 @@ export function BuiltinMediaTrackerOverview(
 								textPrimary={t.textPrimary}
 								schemaBySlug={schemaBySlug}
 								surfaceHover={t.surfaceHover}
-								imageUrl={imageUrlByEntityId.get(item.id)}
+								imageUrl={imageUrls.imageUrlByEntityId.get(item.id)}
 							/>
 						))}
 					</SimpleGrid>
@@ -1387,7 +1378,7 @@ export function BuiltinMediaTrackerOverview(
 									textPrimary={t.textPrimary}
 									schemaBySlug={schemaBySlug}
 									surfaceHover={t.surfaceHover}
-									imageUrl={imageUrlByEntityId.get(item.id)}
+									imageUrl={imageUrls.imageUrlByEntityId.get(item.id)}
 								/>
 							))}
 						</Group>
@@ -1430,7 +1421,7 @@ export function BuiltinMediaTrackerOverview(
 								schemaBySlug={schemaBySlug}
 								onRated={invalidateReviews}
 								surfaceHover={t.surfaceHover}
-								imageUrl={imageUrlByEntityId.get(item.id)}
+								imageUrl={imageUrls.imageUrlByEntityId.get(item.id)}
 							/>
 						))}
 					</SimpleGrid>
@@ -1460,7 +1451,7 @@ export function BuiltinMediaTrackerOverview(
 				>
 					<WeekStrip
 						border={t.border}
-						days={WEEK_ACTIVITY}
+						days={liveWeekActivity}
 						textMuted={t.textMuted}
 						textPrimary={t.textPrimary}
 						accentColor={SECTION_ACCENTS.activity}
@@ -1496,6 +1487,7 @@ export function BuiltinMediaTrackerOverview(
 											event={event}
 											key={event.id}
 											border={t.border}
+											schemaBySlug={schemaBySlug}
 											textMuted={t.textMuted}
 											textPrimary={t.textPrimary}
 											isLast={i === events.length - 1}
