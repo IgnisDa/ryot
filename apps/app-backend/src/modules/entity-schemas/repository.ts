@@ -13,7 +13,7 @@ import {
 	createDefaultQueryDefinition,
 } from "../saved-views/constants";
 import { buildBuiltinSavedViewName } from "../saved-views/service";
-import type { ListedEntitySchema, SearchProvider } from "./schemas";
+import type { ListedEntitySchema, Provider } from "./schemas";
 import type { EntitySchemaPropertiesShape } from "./service";
 
 type EntitySchemaRow = Omit<ListedEntitySchema, "propertiesSchema"> & {
@@ -97,13 +97,13 @@ export const listEntitySchemasForUser = async (input: {
 		const schemaKey = `${row.id}::${row.trackerId}`;
 		let record = schemaMap.get(schemaKey);
 		if (!record) {
-			record = { entry: { ...row, searchProviders: [] }, seen: new Set() };
+			record = { entry: { ...row, providers: [] }, seen: new Set() };
 			schemaMap.set(schemaKey, record);
 		}
 		if (row.scriptId && row.scriptName) {
 			if (!record.seen.has(row.scriptId)) {
 				record.seen.add(row.scriptId);
-				record.entry.searchProviders.push({
+				record.entry.providers.push({
 					name: row.scriptName,
 					scriptId: row.scriptId,
 				});
@@ -153,19 +153,19 @@ export const getEntitySchemaByIdForUser = async (input: {
 	}
 
 	const seenProviders = new Set<string>();
-	const searchProviders: SearchProvider[] = [];
+	const providers: Provider[] = [];
 	for (const row of rows) {
 		if (row.scriptId && row.scriptName) {
 			if (!seenProviders.has(row.scriptId)) {
 				seenProviders.add(row.scriptId);
-				searchProviders.push({
+				providers.push({
 					name: row.scriptName,
 					scriptId: row.scriptId,
 				});
 			}
 		}
 	}
-	return toListedEntitySchema({ ...baseRow, searchProviders });
+	return toListedEntitySchema({ ...baseRow, providers });
 };
 
 export const getEntitySchemaBySlugForUser = async (input: {
@@ -285,7 +285,7 @@ export const createEntitySchemaForUser = async (input: {
 
 		return toListedEntitySchema({
 			...createdEntitySchema,
-			searchProviders: [],
+			providers: [],
 			trackerId: createdTrackerEntitySchema.trackerId,
 		});
 	});
