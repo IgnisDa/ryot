@@ -837,13 +837,15 @@ export interface paths {
                     content: {
                         "application/json": {
                             data: {
+                                avgRating: number | null;
                                 total: number;
                                 inBacklog: number;
-                                inProgress: number;
                                 completed: number;
-                                avgRating: number | null;
+                                inProgress: number;
                                 entityTypeCounts: {
-                                    [key: string]: number;
+                                    book?: number;
+                                    anime?: number;
+                                    manga?: number;
                                 };
                             };
                         };
@@ -2968,6 +2970,104 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/collections": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Create a new collection
+         * @description Create a user-owned collection entity under the built-in collection schema. The membershipPropertiesSchema is validated as a real AppSchema before persistence.
+         */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: {
+                content: {
+                    "application/json": {
+                        name: string;
+                        description?: string;
+                        membershipPropertiesSchema?: {
+                            rules?: components["schemas"]["AppSchemaRule"][];
+                            fields: {
+                                [key: string]: components["schemas"]["AppPropertyDefinition"];
+                            };
+                        };
+                    };
+                };
+            };
+            responses: {
+                /** @description Collection was created */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            data: {
+                                id: string;
+                                name: string;
+                                /** Format: date-time */
+                                createdAt: string;
+                                /** Format: date-time */
+                                updatedAt: string;
+                                entitySchemaId: string;
+                                image: {
+                                    key: string;
+                                    /** @enum {string} */
+                                    kind: "s3";
+                                } | {
+                                    url: string;
+                                    /** @enum {string} */
+                                    kind: "remote";
+                                } | unknown;
+                                externalId: string | null;
+                                properties: {
+                                    [key: string]: unknown;
+                                };
+                                sandboxScriptId: string | null;
+                            };
+                        };
+                    };
+                };
+                /** @description Request payload validation failed */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: components["schemas"]["ValidationFailedError"];
+                        };
+                    };
+                };
+                /** @description Request is unauthenticated */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: components["schemas"]["UnauthenticatedError"];
+                        };
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/query-engine/execute": {
         parameters: {
             query?: never;
@@ -3226,6 +3326,8 @@ export interface components {
              * @enum {string}
              */
             type: "object";
+            /** @enum {string} */
+            unknownKeys?: "strip" | "strict";
             validation?: components["schemas"]["AppRequiredPropertyValidation"];
             properties: {
                 [key: string]: components["schemas"]["AppPropertyDefinition"];
