@@ -32,10 +32,12 @@ export type LifecycleEntitySnapshot = {
 
 export type LifecycleEventSnapshot = {
 	id: EventId;
+	createdAt: string;
 	occurredAt: string;
 	eventSchemaSlug: EventSchemaSlug;
 	subject: LifecycleEntityReference;
 	properties: Record<string, unknown>;
+	sessionEntityId?: EntityId | undefined;
 };
 
 export type LifecycleRelationshipSnapshot = {
