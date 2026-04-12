@@ -431,12 +431,12 @@ const BaseEntityDisplayItemComponent = forwardRef<
 	return (
 		<Card
 			p={0}
-			h={240}
 			w="100%"
 			pos="relative"
 			style={cardStyle}
 			ref={viewportRef}
 			className={props.imageClassName}
+			h={{ base: 240, "2xl": 360 }}
 			withBorder={!shouldHighlightImage && !props.isCalendarEventWatched}
 		>
 			{props.centerElement ? (

@@ -30,9 +30,6 @@
 
 .responsiveContainer {
   max-width: var(--container-size-md);
-  @media (min-width: $mantine-breakpoint-xl) {
-    max-width: var(--container-size-xl);
-  }
   @media (min-width: $mantine-breakpoint-2xl) {
     max-width: 1600px;
   }
