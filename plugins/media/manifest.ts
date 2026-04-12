@@ -640,6 +640,14 @@ export const mediaPlugin = definePlugin({
 			}),
 		),
 		eventAutomations: [
+			...entitySchemas.flatMap((schema) =>
+				schema.eventSchemas.map(({ slug }) => ({
+					position: 1000,
+					kind: "policy" as const,
+					eventSchemaSlug: `${schema.slug}:${slug}`,
+					scriptSlug: "policy.media-library-membership",
+				})),
+			),
 			...[...eventSlugs("review"), "collection:review"].map((eventSchemaSlug) => ({
 				eventSchemaSlug,
 				kind: "subscription" as const,

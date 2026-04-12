@@ -75,16 +75,19 @@ it("keeps ten concurrent in-process population replays isolated", async () => {
 		Array.from({ length: 10 }, (_unused, workflowIndex) => {
 			const items = Array.from({ length: 10 }, (_ignored, index) => ({
 				index,
-				userId: `user-${workflowIndex}`,
-				externalId: `external-${workflowIndex}-${index}`,
-				providerId: "provider-openlibrary",
-				origin: { kind: "import" as const, importRunId: `run-${workflowIndex}` },
 				entitySchemaSlug: "book",
+				userId: `user-${workflowIndex}`,
+				providerId: "provider-openlibrary",
+				externalId: `external-${workflowIndex}-${index}`,
+				origin: { kind: "import" as const, importRunId: `run-${workflowIndex}` },
 			}));
-			return completeReplay(populationWorkflow.run, { items }, (request) => ({
-				status: "completed",
-				entity: { id: `entity-${workflowIndex}-${request.index}` },
-			}));
+			return completeReplay(populationWorkflow.run, { items }, (request) => {
+				expect(request).toMatchObject({
+					kind: "child",
+					args: { workflowSlug: "kernel:entity-import" },
+				});
+				return { status: "completed", entity: { id: `entity-${workflowIndex}-${request.index}` } };
+			});
 		}),
 	);
 
