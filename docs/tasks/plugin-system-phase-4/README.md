@@ -2,9 +2,9 @@
 
 ## Tasks
 
-**Overall Progress:** 4 of 18 tasks completed
+**Overall Progress:** 5 of 18 tasks completed
 
-**Current Task:** [Task 05](./05-open-plugin-import-envelope.md) (todo)
+**Current Task:** [Task 06](./06-plugin-owned-query-recipes.md) (todo)
 
 ### Task List
 
@@ -14,7 +14,7 @@
 | 02  | [Trusted Plugin User Bootstrap](./02-trusted-plugin-user-bootstrap.md)                        | done   |
 | 03  | [Media Membership for Imports and Events](./03-media-membership-imports-events.md)            | done   |
 | 04  | [Media Membership for Collections and User State](./04-media-membership-collections-state.md) | done   |
-| 05  | [Open Plugin Import Envelope](./05-open-plugin-import-envelope.md)                            | todo   |
+| 05  | [Open Plugin Import Envelope](./05-open-plugin-import-envelope.md)                            | done   |
 | 06  | [Plugin-Owned Query Recipes](./06-plugin-owned-query-recipes.md)                              | todo   |
 | 07  | [Domain-Neutral Operational Gate](./07-domain-neutral-operational-gate.md)                    | todo   |
 | 08  | [Registry Trust and Provenance Simplification](./08-registry-trust-provenance.md)             | todo   |

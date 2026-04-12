@@ -6,10 +6,14 @@ import {
 	createAuthenticatedClient,
 	buildEntityRowsQueryDocument,
 	executeQueryEngine,
+	FIXTURE_CONFIG_IMPORT_SOURCE,
+	FIXTURE_IMPORT_SOURCE,
 	findBuiltinSchemaBySlug,
 	getImportRun,
+	installTestImportPlugin,
 	listEventSlugs,
 	pollImportRunUntilTerminal,
+	postBackendJson,
 	runHevyImportFixture,
 	runOpenScaleImportFixture,
 	queryInLibraryRelationship,
@@ -17,10 +21,224 @@ import {
 	seedGlobalShowEpisodeTree,
 	startOpenScaleImport,
 	uploadTemporaryFile,
+	type InstalledTestPlugin,
+	uninstallTestPlugin,
+	uninstallTestPluginStrict,
 	waitForEventSlugs,
 } from "~/fixtures";
-import { assertTaggedError } from "~/support/assertions";
-import { describe, expect, it } from "~/support/effect-test";
+import { assertPresent, assertTaggedError } from "~/support/assertions";
+import { afterAll, beforeAll, describe, expect, it } from "~/support/effect-test";
+
+let fixtureImportPlugin: InstalledTestPlugin | undefined;
+
+describe("Plugin Import Public Boundary", () => {
+	beforeAll(async () => {
+		fixtureImportPlugin = await Effect.runPromise(installTestImportPlugin());
+	});
+
+	afterAll(async () => {
+		if (fixtureImportPlugin) {
+			await Effect.runPromise(uninstallTestPlugin(fixtureImportPlugin));
+		}
+	});
+
+	it.live("runs an installed source absent from the central contract to terminal success", () =>
+		Effect.gen(function* () {
+			const { client, cookies } = yield* createAuthenticatedClient();
+			const archiveUploadToken = yield* uploadTemporaryFile(
+				cookies,
+				"name,value\nfixture,1\n",
+				"fixture-archive.csv",
+				"text/csv",
+			);
+			const created = yield* client.call((c) =>
+				c.imports.createRun({ payload: { source: FIXTURE_IMPORT_SOURCE, archiveUploadToken } }),
+			);
+
+			const completed = yield* pollImportRunUntilTerminal(client, created.id);
+			expect(completed).toMatchObject({
+				progress: 100,
+				failedItems: 0,
+				importedItems: 0,
+				processedItems: 0,
+				status: "completed",
+				source: FIXTURE_IMPORT_SOURCE,
+			});
+			expect(completed.finishedAt).not.toBeNull();
+		}),
+	);
+
+	it.live("rejects malformed import payloads", () =>
+		Effect.gen(function* () {
+			const { cookies } = yield* createAuthenticatedClient();
+			const response = yield* Effect.promise(() => postBackendJson("/imports/runs", [], cookies));
+
+			expect(response.status).toBe(400);
+		}),
+	);
+
+	it.live("rejects upload-token fields not declared by the selected source", () =>
+		Effect.gen(function* () {
+			const { client, cookies } = yield* createAuthenticatedClient();
+			const [archiveUploadToken, undeclaredUploadToken] = yield* Effect.all([
+				uploadTemporaryFile(cookies, "fixture", "fixture.csv", "text/csv"),
+				uploadTemporaryFile(cookies, "other", "other.csv", "text/csv"),
+			]);
+			const error = yield* Effect.flip(
+				client.call((c) =>
+					c.imports.createRun({
+						payload: { archiveUploadToken, undeclaredUploadToken, source: FIXTURE_IMPORT_SOURCE },
+					}),
+				),
+			);
+
+			assertTaggedError(error, "BadRequest");
+		}),
+	);
+
+	it.live("rejects internal dispatch and artifact path fields before claiming uploads", () =>
+		Effect.gen(function* () {
+			const { client, cookies } = yield* createAuthenticatedClient();
+			const archiveUploadToken = yield* uploadTemporaryFile(
+				cookies,
+				"fixture",
+				"fixture.csv",
+				"text/csv",
+			);
+			const integrationError = yield* Effect.flip(
+				client.call((c) =>
+					c.imports.createRun({
+						payload: {
+							source: FIXTURE_IMPORT_SOURCE,
+							archiveUploadToken,
+							integrationScriptSlug: "integration.spoofed",
+						},
+					}),
+				),
+			);
+			assertTaggedError(integrationError, "BadRequest");
+
+			const artifactPathError = yield* Effect.flip(
+				client.call((c) =>
+					c.imports.createRun({
+						payload: {
+							source: FIXTURE_IMPORT_SOURCE,
+							archiveUploadToken,
+							archiveFilePath: "/tmp/unclaimed.csv",
+						},
+					}),
+				),
+			);
+			assertTaggedError(artifactPathError, "BadRequest");
+
+			const created = yield* client.call((c) =>
+				c.imports.createRun({
+					payload: { source: FIXTURE_IMPORT_SOURCE, archiveUploadToken },
+				}),
+			);
+			expect((yield* pollImportRunUntilTerminal(client, created.id)).status).toBe("completed");
+		}),
+	);
+
+	it.live("rejects a missing required named artifact", () =>
+		Effect.gen(function* () {
+			const { client } = yield* createAuthenticatedClient();
+			const error = yield* Effect.flip(
+				client.call((c) => c.imports.createRun({ payload: { source: FIXTURE_IMPORT_SOURCE } })),
+			);
+
+			assertTaggedError(error, "BadRequest");
+		}),
+	);
+
+	it.live("rejects an invalid named artifact extension", () =>
+		Effect.gen(function* () {
+			const { client, cookies } = yield* createAuthenticatedClient();
+			const archiveUploadToken = yield* uploadTemporaryFile(
+				cookies,
+				"fixture",
+				"fixture.json",
+				"application/json",
+			);
+			const error = yield* Effect.flip(
+				client.call((c) =>
+					c.imports.createRun({
+						payload: { source: FIXTURE_IMPORT_SOURCE, archiveUploadToken },
+					}),
+				),
+			);
+
+			assertTaggedError(error, "BadRequest");
+		}),
+	);
+
+	it.live("rejects an unknown source before claiming uploads or starting a workflow", () =>
+		Effect.gen(function* () {
+			const { client, cookies } = yield* createAuthenticatedClient();
+			const archiveUploadToken = yield* uploadTemporaryFile(
+				cookies,
+				"fixture",
+				"fixture.csv",
+				"text/csv",
+			);
+			const error = yield* Effect.flip(
+				client.call((c) =>
+					c.imports.createRun({
+						payload: { source: "e2e_missing_import_source", archiveUploadToken },
+					}),
+				),
+			);
+			assertTaggedError(error, "BadRequest");
+			expect(yield* client.call((c) => c.imports.listRuns())).toEqual([]);
+
+			const created = yield* client.call((c) =>
+				c.imports.createRun({ payload: { source: FIXTURE_IMPORT_SOURCE, archiveUploadToken } }),
+			);
+			expect((yield* pollImportRunUntilTerminal(client, created.id)).status).toBe("completed");
+		}),
+	);
+
+	it.live("rejects a source whose required plugin config is absent", () =>
+		Effect.gen(function* () {
+			const { client } = yield* createAuthenticatedClient();
+			const error = yield* Effect.flip(
+				client.call((c) =>
+					c.imports.createRun({ payload: { source: FIXTURE_CONFIG_IMPORT_SOURCE } }),
+				),
+			);
+
+			assertTaggedError(error, "BadRequest");
+		}),
+	);
+
+	it.live("rejects an inactive source before claiming uploads or starting a workflow", () =>
+		Effect.gen(function* () {
+			assertPresent(fixtureImportPlugin, "Fixture import plugin is missing");
+			yield* uninstallTestPluginStrict(fixtureImportPlugin);
+
+			const { client, cookies } = yield* createAuthenticatedClient();
+			const archiveUploadToken = yield* uploadTemporaryFile(
+				cookies,
+				"fixture",
+				"fixture.csv",
+				"text/csv",
+			);
+			const error = yield* Effect.flip(
+				client.call((c) =>
+					c.imports.createRun({ payload: { source: FIXTURE_IMPORT_SOURCE, archiveUploadToken } }),
+				),
+			);
+			assertTaggedError(error, "BadRequest");
+			expect(yield* client.call((c) => c.imports.listRuns())).toEqual([]);
+
+			fixtureImportPlugin = yield* installTestImportPlugin();
+			const created = yield* client.call((c) =>
+				c.imports.createRun({ payload: { source: FIXTURE_IMPORT_SOURCE, archiveUploadToken } }),
+			);
+			expect((yield* pollImportRunUntilTerminal(client, created.id)).status).toBe("completed");
+		}),
+	);
+});
 
 describe("OpenScale Import E2E", () => {
 	it.live("completes an OpenScale import and creates measurement entities", () =>

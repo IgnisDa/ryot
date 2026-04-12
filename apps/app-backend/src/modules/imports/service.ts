@@ -10,7 +10,10 @@ import { DateTime, Effect, Either } from "effect";
 import { AppConfig } from "#lib/infrastructure/config/service";
 import { DbRunner } from "#lib/infrastructure/db/service";
 import { RedisService } from "#lib/infrastructure/redis";
-import { ImportSourceCatalog } from "#modules/plugins/import-source-catalog";
+import {
+	ImportSourceCatalog,
+	type RegisteredImportSource,
+} from "#modules/plugins/import-source-catalog";
 import { UploadsService } from "#modules/uploads/service";
 
 import { ImportRunFailuresService, type ImportRunFailureDetails } from "./failure-service";
@@ -25,6 +28,7 @@ import {
 	buildImportInputSummary,
 	buildImportSourcePayload,
 	registryImportSourceFileInputs,
+	registryImportSourceInputError,
 	registryImportSourceStartError,
 	type ImportSourceFileInput,
 } from "./runtime/source-metadata";
@@ -103,13 +107,14 @@ export class ImportsService extends Effect.Service<ImportsService>()("ImportsSer
 			body: CreateImportRunBody,
 			inputSummary: Record<string, unknown>,
 			sourceFileInputs: ReadonlyArray<ImportSourceFileInput>,
+			registered: RegisteredImportSource,
 		) {
 			const tempDir = config.tmpDir;
 			const queuedFilePaths: string[] = [];
 			const claimedFilePaths: string[] = [];
 			const namedArtifactPaths: Record<string, string> = {};
 
-			const sourcePayload = buildImportSourcePayload(body) ?? {};
+			const sourcePayload = buildImportSourcePayload(body, registered) ?? {};
 
 			for (const sourceFileInput of sourceFileInputs) {
 				if (!sourceFileInput.uploadToken) {
@@ -186,8 +191,9 @@ export class ImportsService extends Effect.Service<ImportsService>()("ImportsSer
 				user: CurrentUserValue,
 				body: CreateImportRunBody,
 				inputSummary: Record<string, unknown>,
+				registered: RegisteredImportSource,
 			) {
-				const sourcePayload = buildImportSourcePayload(body);
+				const sourcePayload = buildImportSourcePayload(body, registered);
 				const run = yield* create({ userId: user.id, source: body.source, inputSummary });
 
 				if (sourcePayload) {
@@ -239,13 +245,17 @@ export class ImportsService extends Effect.Service<ImportsService>()("ImportsSer
 			if (startError) {
 				return yield* badRequest(startError);
 			}
+			const inputError = registryImportSourceInputError(registered, body);
+			if (inputError) {
+				return yield* badRequest(inputError);
+			}
 
 			const inputSummary = buildImportInputSummary(body, registered);
 			const sourceFileInputs = registryImportSourceFileInputs(registered, body);
 
 			return sourceFileInputs.length > 0
-				? yield* startFileImportRun(user, body, inputSummary, sourceFileInputs)
-				: yield* startSourcePayloadImportRun(user, body, inputSummary);
+				? yield* startFileImportRun(user, body, inputSummary, sourceFileInputs, registered)
+				: yield* startSourcePayloadImportRun(user, body, inputSummary, registered);
 		});
 
 		const listImportRuns = (user: CurrentUserValue) =>
