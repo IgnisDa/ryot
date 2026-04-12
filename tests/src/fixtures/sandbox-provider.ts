@@ -2,10 +2,12 @@ import { randomUUID } from "node:crypto";
 
 import type { ContractPayload } from "@ryot/contract/client";
 import type { SandboxProviderId, SandboxScriptId } from "@ryot/contract/schema/brands";
+import type { AppSchema } from "@ryot/contract/schema/property-schema";
 import type {
 	ProviderDetailsResult,
 	ProviderResolveResult,
 	ProviderSearchResult,
+	ProviderSearchOptionsResult,
 	ProviderTranslateResult,
 } from "@ryot/sandbox-sdk/provider";
 import { Effect } from "effect";
@@ -23,14 +25,25 @@ import {
 
 type PluginManifest = ContractPayload<"plugins", "install">["manifest"];
 type PluginProviderInformation = PluginManifest["providers"][number]["information"];
+type ProviderOperation = Extract<
+	PluginManifest["scripts"][number],
+	{ kind: "provider" }
+>["providerOperation"];
+type ProviderOperationResult =
+	| ProviderDetailsResult
+	| ProviderSearchOptionsResult
+	| ProviderSearchResult
+	| ProviderResolveResult
+	| Readonly<Record<string, ProviderTranslateResult>>;
 
 export type InstalledTestProvider = Omit<InstalledTestPlugin, "scriptId" | "slug"> & {
-	providerId: SandboxProviderId;
 	providerSlug: string;
+	providerId: SandboxProviderId;
 	detailsScriptId: SandboxScriptId;
 	searchScriptId?: SandboxScriptId;
 	resolveScriptId?: SandboxScriptId;
 	translateScriptId?: SandboxScriptId;
+	searchOptionsScriptId?: SandboxScriptId;
 };
 
 export const installTestProvider = (input: {
@@ -40,10 +53,13 @@ export const installTestProvider = (input: {
 	pluginSlug?: string;
 	rootEntitySchemaSlug: string;
 	search?: ProviderSearchResult;
+	searchOptionsFailure?: string;
 	details: ProviderDetailsResult;
 	resolve?: ProviderResolveResult;
+	searchOptionsSchema?: AppSchema;
 	information?: PluginProviderInformation;
 	savedViews?: PluginManifest["savedViews"];
+	searchOptions?: ProviderSearchOptionsResult;
 	translations?: Readonly<Record<string, ProviderTranslateResult>>;
 }) =>
 	Effect.gen(function* () {
@@ -51,15 +67,19 @@ export const installTestProvider = (input: {
 		const name = input.name ?? "E2E Provider Script";
 		const information = input.information ?? { source: "e2e" };
 		const operations: Array<{
-			operation: "details" | "search" | "resolve" | "translate";
-			result:
-				| ProviderDetailsResult
-				| ProviderSearchResult
-				| ProviderResolveResult
-				| Readonly<Record<string, ProviderTranslateResult>>;
+			executionFailure?: string;
+			operation: ProviderOperation;
+			result: ProviderOperationResult;
 		}> = [{ operation: "details", result: input.details }];
 		if (input.search) {
 			operations.push({ operation: "search", result: input.search });
+		}
+		if (input.searchOptions !== undefined || input.searchOptionsFailure !== undefined) {
+			operations.push({
+				operation: "search-options",
+				executionFailure: input.searchOptionsFailure,
+				result: input.searchOptions ?? { sources: {} },
+			});
 		}
 		if (input.resolve) {
 			operations.push({ operation: "resolve", result: input.resolve });
@@ -71,32 +91,47 @@ export const installTestProvider = (input: {
 			const slug = `${providerSlug}.${operation}`;
 			return {
 				slug,
-				entry: `scripts/${slug}.sandbox.ts`,
-				kind: "provider" as const,
-				name: `${name} ${operation}`,
 				providerSlug,
 				capabilities: [],
+				kind: "provider" as const,
 				providerOperation: operation,
 				requiredPluginConfigKeys: [],
 				requiredSystemConfigKeys: [],
+				name: `${name} ${operation}`,
+				entry: `scripts/${slug}.sandbox.ts`,
+				...(operation === "search" && input.searchOptionsSchema !== undefined
+					? { searchOptionsSchema: input.searchOptionsSchema }
+					: {}),
 			};
 		});
 		const files = Object.fromEntries(
-			scripts.map((script) => [
-				script.entry,
-				providerSandboxSource({
-					name: script.name,
-					slug: script.slug,
-					operation: script.providerOperation,
-					result:
-						operations.find(({ operation }) => operation === script.providerOperation)?.result ??
-						input.details,
-				}),
-			]),
+			scripts.map((script) => {
+				const operationDefinition = operations.find(
+					({ operation }) => operation === script.providerOperation,
+				);
+				return [
+					script.entry,
+					providerSandboxSource({
+						name: script.name,
+						slug: script.slug,
+						operation: script.providerOperation,
+						result: operationDefinition?.result ?? input.details,
+						...(operationDefinition?.executionFailure !== undefined
+							? { executionFailure: operationDefinition.executionFailure }
+							: {}),
+						...(script.providerOperation === "search" && input.searchOptionsSchema !== undefined
+							? { searchOptionsSchema: input.searchOptionsSchema }
+							: {}),
+					}),
+				];
+			}),
 		);
 		const providerOperations = {
 			details: `${providerSlug}.details`,
 			...(input.search ? { search: `${providerSlug}.search` } : {}),
+			...(input.searchOptions !== undefined || input.searchOptionsFailure !== undefined
+				? { searchOptions: `${providerSlug}.search-options` }
+				: {}),
 			...(input.resolve ? { resolve: `${providerSlug}.resolve` } : {}),
 			...(input.translations ? { translate: `${providerSlug}.translate` } : {}),
 		};
@@ -144,6 +179,7 @@ export const installTestProvider = (input: {
 			searchScriptId: installed.scriptIds[`${providerSlug}.search`],
 			resolveScriptId: installed.scriptIds[`${providerSlug}.resolve`],
 			translateScriptId: installed.scriptIds[`${providerSlug}.translate`],
+			searchOptionsScriptId: installed.scriptIds[`${providerSlug}.search-options`],
 		};
 	});
 
@@ -208,14 +244,19 @@ const providerMetadataBySource = new Map<string, Extract<TestPluginScript, { kin
 export function providerSandboxSource(input: {
 	readonly name: string;
 	readonly slug: string;
-	readonly operation: "details" | "search" | "resolve" | "translate";
-	readonly result:
-		| ProviderDetailsResult
-		| ProviderSearchResult
-		| ProviderResolveResult
-		| Readonly<Record<string, ProviderTranslateResult>>;
+	readonly operation: ProviderOperation;
+	readonly result: ProviderOperationResult;
+	readonly searchOptionsSchema?: AppSchema;
+	readonly executionFailure?: string;
 }) {
-	const resultSchema = `provider${input.operation[0]?.toUpperCase()}${input.operation.slice(1)}ResultSchema`;
+	const resultSchemaByOperation = {
+		search: "providerSearchResultSchema",
+		details: "providerDetailsResultSchema",
+		resolve: "providerResolveResultSchema",
+		translate: "providerTranslateResultSchema",
+		"search-options": "providerSearchOptionsResultSchema",
+	} as const satisfies Record<ProviderOperation, string>;
+	const resultSchema = resultSchemaByOperation[input.operation];
 	const isTranslate = input.operation === "translate";
 	const declarations = isTranslate
 		? `const translations = Schema.decodeSync(
@@ -226,9 +267,18 @@ export function providerSandboxSource(input: {
 		: `const result = Schema.decodeSync(${resultSchema})(
   JSON.parse(${JSON.stringify(JSON.stringify(input.result))}),
 );`;
-	const run = isTranslate
-		? "({ language }) => Effect.succeed(translations[language] ?? {})"
-		: "() => Effect.succeed(result)";
+	let run: string;
+	if (input.executionFailure !== undefined) {
+		run = `() => Effect.die(${JSON.stringify(input.executionFailure)})`;
+	} else if (isTranslate) {
+		run = "({ language }) => Effect.succeed(translations[language] ?? {})";
+	} else {
+		run = "() => Effect.succeed(result)";
+	}
+	const searchOptionsSchema =
+		input.searchOptionsSchema === undefined
+			? ""
+			: `\n  searchOptionsSchema: ${JSON.stringify(input.searchOptionsSchema)},`;
 
 	const source = `
 import { defineManifest } from "@ryot/sandbox-sdk/driver";
@@ -237,30 +287,31 @@ import { defineProvider, ${isTranslate ? "providerTranslateResultSchema" : resul
 
 export const manifest = defineManifest({
   kind: "provider",
-  name: ${JSON.stringify(input.name)},
-  slug: ${JSON.stringify(input.slug)},
   capabilities: [],
   requiredPluginConfigKeys: [],
   requiredSystemConfigKeys: [],
+  name: ${JSON.stringify(input.name)},
+  slug: ${JSON.stringify(input.slug)},
+${searchOptionsSchema}
 });
 
 ${declarations}
 
 export default defineProvider({
   manifest,
-  operation: ${JSON.stringify(input.operation)},
   run: ${run},
+  operation: ${JSON.stringify(input.operation)},
 });
 `;
 	providerMetadataBySource.set(source, {
 		name: input.name,
 		slug: input.slug,
 		kind: "provider",
-		providerSlug: input.slug.slice(0, -(input.operation.length + 1)),
-		providerOperation: input.operation,
 		capabilities: [],
 		requiredPluginConfigKeys: [],
 		requiredSystemConfigKeys: [],
+		providerOperation: input.operation,
+		providerSlug: input.slug.slice(0, -(input.operation.length + 1)),
 	});
 	return source;
 }

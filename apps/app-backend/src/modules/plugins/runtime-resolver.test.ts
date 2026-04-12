@@ -47,6 +47,14 @@ const normalizedPlugin = (): NormalizedPlugin => {
 		providerSlug: "fixture-provider",
 		providerOperation: "search" as const,
 	};
+	const searchOptions = {
+		...automation,
+		kind: "provider" as const,
+		name: "Fixture search options",
+		slug: "fixture.search-options",
+		providerSlug: "fixture-provider",
+		providerOperation: "search-options" as const,
+	};
 	const preload = {
 		...automation,
 		kind: "script" as const,
@@ -71,7 +79,7 @@ const normalizedPlugin = (): NormalizedPlugin => {
 		...manifest,
 		bindings: manifest.bindings,
 		workflows: [{ slug: "fixture-run", scriptSlug: workflow.slug }],
-		scripts: [...manifest.scripts, queryScript, details, search, preload, workflow],
+		scripts: [...manifest.scripts, queryScript, details, search, searchOptions, preload, workflow],
 		entitySchemas: [...manifest.entitySchemas, { ...fixtureEntitySchema, slug: "unbound-entity" }],
 		providers: [
 			{
@@ -79,7 +87,11 @@ const normalizedPlugin = (): NormalizedPlugin => {
 				slug: "fixture-provider",
 				information: { source: "fixture" },
 				rootEntitySchemaSlug: "fixture-entity",
-				operations: { details: details.slug, search: search.slug },
+				operations: {
+					search: search.slug,
+					details: details.slug,
+					searchOptions: searchOptions.slug,
+				},
 			},
 		],
 	};
@@ -183,6 +195,20 @@ const searchScriptRow = {
 	},
 };
 
+const searchOptionsScriptRow = {
+	...searchScriptRow,
+	name: "Fixture search options",
+	slug: "fixture.search-options",
+	contentHash: "fixture.search-options-hash",
+	id: SandboxScriptId.make("search-options-script-id"),
+	metadata: {
+		...searchScriptRow.metadata,
+		name: "Fixture search options",
+		slug: "fixture.search-options",
+		providerOperation: "search-options" as const,
+	},
+};
+
 const customScriptRow = {
 	...scriptRow,
 	name: "Fixture preload",
@@ -251,6 +277,7 @@ const makeLayer = (
 	const dialect = new PgDialect();
 	const operationScripts = new Map([
 		[firstScript.slug.endsWith(".search") ? "search" : "details", firstScript],
+		["search-options", searchOptionsScriptRow],
 	]);
 	const sqlParams = (condition: unknown) => {
 		const getSQL =
@@ -287,7 +314,9 @@ const makeLayer = (
 						if (table === schema.sandboxProviderOperation) {
 							const params = sqlParams(condition);
 							const operation = params.find((value) =>
-								["details", "search", "resolve", "translate"].includes(String(value)),
+								["details", "search", "search-options", "resolve", "translate"].includes(
+									String(value),
+								),
 							);
 							const script = operationScripts.get(String(operation));
 							return limitable(script ? [{ script }] : []);
@@ -389,6 +418,10 @@ it.effect("resolves provider operations from persisted operation rows", () =>
 			optionsSchema: null,
 			id: "search-script-id",
 			slug: "fixture.search",
+		});
+		expect(yield* resolver.resolveSearchOptionsScript(providerId)).toMatchObject({
+			id: "search-options-script-id",
+			slug: "fixture.search-options",
 		});
 	}).pipe(Effect.provide(makeLayer(providerRow, false, searchScriptRow))),
 );

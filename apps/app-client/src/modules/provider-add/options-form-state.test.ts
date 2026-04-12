@@ -26,9 +26,24 @@ const schema = {
 		payload: { ...described("Payload"), type: "object", properties: {} },
 		adult: { ...described("Adult"), type: "boolean", defaultValue: false },
 		title: { ...described("Title"), type: "string", validation: { required: true } },
-		genres: { ...described("Genres"), type: "enum-array", options: ["epic", "scifi"] },
-		region: { ...described("Region"), type: "enum", defaultValue: "us", options: ["us", "uk"] },
 		tags: { ...described("Tags"), type: "array", items: { ...described("Tag"), type: "string" } },
+		region: {
+			...described("Region"),
+			type: "enum",
+			defaultValue: "us",
+			choices: { kind: "static", values: [{ value: "us" }, { value: "uk" }] },
+		},
+		genres: {
+			...described("Genres"),
+			type: "enum-array",
+			choices: {
+				kind: "static",
+				values: [
+					{ value: "epic", label: "Epic" },
+					{ value: "scifi", label: "Science fiction" },
+				],
+			},
+		},
 	},
 } satisfies AppSchema;
 
@@ -46,8 +61,25 @@ describe("provider-add options form state", () => {
 		]);
 		expect([...unsupported].sort()).toEqual(["payload", "tags"]);
 		expect(fields.find((field) => field.key === "title")?.required).toBe(true);
-		expect(fields.find((field) => field.key === "genres")?.options).toEqual(["epic", "scifi"]);
-		expect(fields.find((field) => field.key === "note")?.options).toBeUndefined();
+		expect(fields.find((field) => field.key === "genres")?.choices).toEqual([
+			{ value: "epic", label: "Epic" },
+			{ value: "scifi", label: "Science fiction" },
+		]);
+		expect(fields.find((field) => field.key === "note")?.choices).toBeUndefined();
+	});
+
+	it("reports unresolved dynamic choices as unsupported", () => {
+		const describedSchema = {
+			fields: {
+				region: {
+					...described("Region"),
+					type: "enum",
+					choices: { kind: "dynamic", source: "regions" },
+				},
+			},
+		} satisfies AppSchema;
+
+		expect(describeOptionFields(describedSchema)).toEqual({ fields: [], unsupported: ["region"] });
 	});
 
 	it("seeds values from declared defaults and leaves the rest undefined", () => {
@@ -161,6 +193,6 @@ describe("provider-add options form state", () => {
 				region: undefined,
 			}),
 		).toEqual({ year: 2026, adult: false, title: "Dune", genres: ["epic"] });
-		expect(toOptionsPayload(schema, { genres: [] })).toEqual({ genres: [] });
+		expect(toOptionsPayload(schema, { genres: [] })).toEqual({});
 	});
 });

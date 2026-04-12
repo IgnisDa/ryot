@@ -1,5 +1,6 @@
 import type { JsonValue } from "@ryot/contract/modules/sandbox/wire";
 import type {
+	AppChoice,
 	AppPropertyDefinition,
 	AppSchema,
 	AppSchemaRule,
@@ -30,7 +31,7 @@ export type OptionField = {
 	readonly required: boolean;
 	readonly description: string;
 	readonly type: OptionFieldType;
-	readonly options: readonly string[] | undefined;
+	readonly choices: readonly AppChoice[] | undefined;
 };
 
 type OptionFieldsDescription = {
@@ -41,12 +42,22 @@ type OptionFieldsDescription = {
 const optionFieldType = (property: AppPropertyDefinition): OptionFieldType | undefined =>
 	property.type === "array" || property.type === "object" ? undefined : property.type;
 
+const optionFieldChoices = (property: AppPropertyDefinition) => {
+	if (property.type !== "enum" && property.type !== "enum-array") {
+		return undefined;
+	}
+	return property.choices.kind === "static" ? property.choices.values : undefined;
+};
+
 export const describeOptionFields = (schema: AppSchema): OptionFieldsDescription => {
 	const fields: OptionField[] = [];
 	const unsupported: string[] = [];
 	for (const [key, property] of Object.entries(schema.fields)) {
 		const type = optionFieldType(property);
-		if (type === undefined) {
+		const hasDynamicChoices =
+			(property.type === "enum" || property.type === "enum-array") &&
+			property.choices.kind === "dynamic";
+		if (type === undefined || hasDynamicChoices) {
 			unsupported.push(key);
 			continue;
 		}
@@ -55,9 +66,8 @@ export const describeOptionFields = (schema: AppSchema): OptionFieldsDescription
 			type,
 			label: property.label,
 			description: property.description,
+			choices: optionFieldChoices(property),
 			required: isAppPropertyRequired(property),
-			options:
-				property.type === "enum" || property.type === "enum-array" ? property.options : undefined,
 		});
 	}
 	return { fields, unsupported };
@@ -74,10 +84,10 @@ export const initialOptionValues = (schema: AppSchema): OptionValues =>
 		]),
 	);
 
-const isBlankOptionValue = (value: OptionValue) => value === undefined || value === "";
+const isBlankOptionValue = (value: OptionValue) =>
+	value === undefined || value === "" || (Array.isArray(value) && value.length === 0);
 
-const isMissingOptionValue = (value: OptionValue) =>
-	isBlankOptionValue(value) || (Array.isArray(value) && value.length === 0);
+const isMissingOptionValue = (value: OptionValue) => isBlankOptionValue(value);
 
 const resolveOptionValue = (values: OptionValues, path: AppSchemaRulePath): OptionValue =>
 	path.length === 1 ? values[path[0]] : undefined;
@@ -156,13 +166,14 @@ export const validateOptionValues = (
 export const toOptionsPayload = (
 	schema: AppSchema,
 	values: OptionValues,
-): Record<string, JsonValue> =>
-	Object.fromEntries(
-		describeOptionFields(schema).fields.flatMap((field) => {
-			const value = values[field.key];
-			if (isBlankOptionValue(value)) {
-				return [];
-			}
-			return [[field.key, Array.isArray(value) ? [...value] : (value as JsonValue)] as const];
-		}),
-	);
+): Record<string, JsonValue> => {
+	const payload: Record<string, JsonValue> = {};
+	for (const field of describeOptionFields(schema).fields) {
+		const value = values[field.key];
+		if (value === undefined || value === "" || (Array.isArray(value) && value.length === 0)) {
+			continue;
+		}
+		payload[field.key] = Array.isArray(value) ? [...value] : value;
+	}
+	return payload;
+};

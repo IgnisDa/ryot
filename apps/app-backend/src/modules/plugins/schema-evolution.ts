@@ -27,7 +27,7 @@ type PropertySchemaDefinition = {
 
 const comparableProperty = (property: AppPropertyDefinition) => {
 	if (property.type === "enum" || property.type === "enum-array") {
-		const { options: _options, ...rest } = property;
+		const { choices: _choices, ...rest } = property;
 		return rest;
 	}
 	if (property.type === "object") {
@@ -53,10 +53,22 @@ const compareProperty = (
 	}
 	if (
 		(previous.type === "enum" || previous.type === "enum-array") &&
-		(next.type === "enum" || next.type === "enum-array") &&
-		previous.options.some((option) => !next.options.includes(option))
+		(next.type === "enum" || next.type === "enum-array")
 	) {
-		issues.push({ code: "enum_narrowed", path });
+		const previousChoices = previous.choices;
+		const nextChoices = next.choices;
+		if (
+			(previousChoices.kind === "dynamic" &&
+				(nextChoices.kind !== "dynamic" || previousChoices.source !== nextChoices.source)) ||
+			(previousChoices.kind === "static" && nextChoices.kind === "dynamic") ||
+			(previousChoices.kind === "static" &&
+				nextChoices.kind === "static" &&
+				previousChoices.values.some(
+					(choice) => !nextChoices.values.some((nextChoice) => nextChoice.value === choice.value),
+				))
+		) {
+			issues.push({ code: "enum_narrowed", path });
+		}
 	}
 	if (previous.type === "object" && next.type === "object") {
 		compareFields(path, previous.properties, next.properties, issues);
