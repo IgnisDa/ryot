@@ -1,5 +1,5 @@
 {
-	"id": "d71b0405-593a-4cc4-865f-f3287168a1ee",
+	"id": "2228550a-589a-4c97-826a-51743feed3d5",
 	"prevId": "00000000-0000-0000-0000-000000000000",
 	"version": "7",
 	"dialect": "postgresql",
@@ -1170,7 +1170,18 @@
 				}
 			},
 			"compositePrimaryKeys": {},
-			"uniqueConstraints": {},
+			"uniqueConstraints": {
+				"relationship_user_source_target_rel_type_unique": {
+					"name": "relationship_user_source_target_rel_type_unique",
+					"nullsNotDistinct": false,
+					"columns": [
+						"user_id",
+						"source_entity_id",
+						"target_entity_id",
+						"rel_type"
+					]
+				}
+			},
 			"policies": {},
 			"checkConstraints": {},
 			"isRLSEnabled": false
