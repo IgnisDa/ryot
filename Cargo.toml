@@ -85,7 +85,7 @@ regex = "=1.12.3"
 reqwest = { version = "=0.12.25", features = [
     "json",
     "stream",
-    "rustls-tls",
+    "rustls-tls-native-roots",
 ], default-features = false }
 rstest = "=0.26.1"
 rust_decimal = { version = "=1.40.0", features = ["macros"] }
