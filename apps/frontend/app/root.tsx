@@ -16,7 +16,6 @@ import {
 	Loader,
 	MantineProvider,
 } from "@mantine/core";
-import classes from "~/styles/common.module.css";
 import { ModalsProvider } from "@mantine/modals";
 import { QueryClientProvider } from "@tanstack/react-query";
 import { ReactQueryDevtools } from "@tanstack/react-query-devtools";
@@ -42,6 +41,7 @@ import {
 	extendResponseHeaders,
 	getToast,
 } from "~/lib/utilities.server";
+import classes from "~/styles/common.module.css";
 
 const theme = createTheme({
 	fontFamily: "Poppins",
