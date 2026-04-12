@@ -9,9 +9,6 @@
 		"preserveConstEnums": true,
 		"verbatimModuleSyntax": false,
 		"moduleResolution": "nodenext",
-		"allowSyntheticDefaultImports": true,
-		"paths": {
-			"@ryot/generated/*": ["../generated/src/*"]
-		}
+		"allowSyntheticDefaultImports": true
 	}
 }
