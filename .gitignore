@@ -69,3 +69,6 @@ apps/app-client*/ios
 apps/app-client*/android
 .env*.local
 *.tsbuildinfo
+!ci/helm/**/templates
+!ci/helm/**/templates/**
+.claude/settings.local.json

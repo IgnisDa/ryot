@@ -1,0 +1,64 @@
+suite: runtime test pods
+release:
+  name: ryot
+  namespace: default
+tests:
+  - it: defines the http connection test as a helm test hook
+    templates:
+      - templates/tests/test-http-connection.yaml
+    set:
+      secret.adminAccessToken.value: tok
+      postgres.auth.password: pw
+    asserts:
+      - isKind:
+          of: Pod
+      - equal:
+          path: metadata.annotations["helm.sh/hook"]
+          value: test
+      - equal:
+          path: metadata.name
+          value: ryot-test-http
+      - equal:
+          path: spec.containers[0].image
+          value: ghcr.io/ignisda/ryot:v10
+      - equal:
+          path: spec.restartPolicy
+          value: Never
+
+  - it: defines the database-url test as a helm test hook and injects the same DB env
+    templates:
+      - templates/tests/test-database-url.yaml
+    set:
+      secret.adminAccessToken.value: tok
+      postgres.auth.password: pw
+    asserts:
+      - isKind:
+          of: Pod
+      - equal:
+          path: metadata.annotations["helm.sh/hook"]
+          value: test
+      - equal:
+          path: spec.containers[0].image
+          value: postgres:18-alpine
+      - contains:
+          path: spec.containers[0].env
+          content:
+            name: DATABASE_URL
+            value: "postgres://$(POSTGRES_USER):$(POSTGRES_PASSWORD)@ryot-postgres:5432/$(POSTGRES_DB)"
+
+  - it: database-url test pod resolves an external url from the chart secret
+    templates:
+      - templates/tests/test-database-url.yaml
+    set:
+      secret.adminAccessToken.value: tok
+      postgres.enabled: false
+      externalDatabase.url: postgres://u:p@h:5432/d
+    asserts:
+      - contains:
+          path: spec.containers[0].env
+          content:
+            name: DATABASE_URL
+            valueFrom:
+              secretKeyRef:
+                name: ryot
+                key: database-url
