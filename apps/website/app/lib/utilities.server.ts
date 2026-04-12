@@ -14,12 +14,16 @@ import * as schema from "~/drizzle/schema.server";
 
 import {
 	getDb,
-	getPrices,
 	getServerVariables,
 	getUnkeyClient,
 	IS_DEVELOPMENT_ENV,
 	websiteAuthCookie,
 } from "./config.server";
+import {
+	getActivePaymentCatalog,
+	getLegacyPaymentCatalog,
+	getPaymentEnvironment,
+} from "./payment-catalog";
 
 export const getClientIp = (request: Request): string | undefined => {
 	const cfConnectingIp = request.headers.get("cf-connecting-ip");
@@ -37,14 +41,45 @@ export const getClientIp = (request: Request): string | undefined => {
 };
 
 export const getProductAndPlanTypeByPriceId = (priceId: string) => {
-	for (const product of getPrices()) {
-		for (const price of product.prices) {
-			if (price.priceId === priceId) {
-				return { productType: product.type, planType: price.name };
+	const { PADDLE_SANDBOX } = getServerVariables();
+	const environment = getPaymentEnvironment(PADDLE_SANDBOX);
+	const catalogs = [
+		getActivePaymentCatalog("paddle", environment),
+		getLegacyPaymentCatalog("paddle", environment),
+	];
+
+	for (const catalog of catalogs) {
+		for (const product of catalog) {
+			for (const price of product.prices) {
+				if (price.priceId === priceId) {
+					return { productType: product.type, planType: price.name };
+				}
 			}
 		}
 	}
+
 	throw new Error("Price ID not found");
+};
+
+export const getProductAndPlanTypeByPolarIds = (productId: string, priceId?: string | null) => {
+	const { POLAR_SANDBOX } = getServerVariables();
+	const environment = getPaymentEnvironment(POLAR_SANDBOX);
+	const catalogs = [
+		getActivePaymentCatalog("polar", environment),
+		getLegacyPaymentCatalog("polar", environment),
+	];
+
+	for (const catalog of catalogs) {
+		for (const product of catalog) {
+			for (const price of product.prices) {
+				if (price.productId === productId && (priceId == null || price.priceId === priceId)) {
+					return { productType: product.type, planType: price.name };
+				}
+			}
+		}
+	}
+
+	return null;
 };
 
 export const oauthConfig = async () => {
