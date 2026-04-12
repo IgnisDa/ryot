@@ -5,7 +5,10 @@ import type { DbClient } from "~/lib/db";
 import { entitySchema, eventSchema, relationshipSchema, sandboxScript } from "~/lib/db/schema";
 import { bootstrapNewUser } from "~/modules/builtins";
 
-import { buildCollectionEntityMigrationSql } from "./collection-mapping";
+import {
+	buildCollectionEntityMigrationSql,
+	buildCollectionToEntityRelationshipMigrationSql,
+} from "./collection-mapping";
 import {
 	buildExerciseMigrationSql,
 	exerciseEntityTargets,
@@ -255,6 +258,11 @@ export const migrateLegacyTables = async (database: DbClient) => {
 		throw new Error('Missing entity schema id for collection slug "collection"');
 	}
 
+	const memberOfRelationshipSchemaId = relationshipSchemaIds.get("member-of");
+	if (memberOfRelationshipSchemaId === undefined) {
+		throw new Error('Missing relationship schema id for slug "member-of"');
+	}
+
 	const measurementEntitySchemaId = entitySchemaIds.get("measurement");
 	if (measurementEntitySchemaId === undefined) {
 		throw new Error('Missing entity schema id for slug "measurement"');
@@ -394,6 +402,9 @@ export const migrateLegacyTables = async (database: DbClient) => {
 		await client.query(buildCompanyRelationshipMigrationSql(resolvedCompanyRelationshipTargets));
 		await client.query(
 			buildGroupPersonRelationshipMigrationSql(resolvedGroupPersonRelationshipTargets),
+		);
+		await client.query(
+			buildCollectionToEntityRelationshipMigrationSql(memberOfRelationshipSchemaId),
 		);
 	});
 };
