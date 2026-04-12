@@ -1,0 +1,317 @@
+function parseJsonResponse(responseBody) {
+  try {
+    return JSON.parse(responseBody);
+  } catch {
+    throw new Error("TMDB returned invalid JSON");
+  }
+}
+
+const TMDB_BASE_URL = "https://api.themoviedb.org/3";
+const TMDB_IMAGE_BASE = "https://image.tmdb.org/t/p/original";
+
+async function getTmdbAccessToken() {
+  const resp = await getAppConfigValue("MOVIES_AND_SHOWS_TMDB_ACCESS_TOKEN");
+  if (!resp?.success) {
+    throw new Error(resp?.error ?? "Failed to retrieve TMDB access token");
+  }
+
+  const token =
+    typeof resp.data === "string" ? resp.data.trim() : null;
+  if (!token) {
+    throw new Error(
+      "TMDB access token is not configured. Set MOVIES_AND_SHOWS_TMDB_ACCESS_TOKEN in your environment.",
+    );
+  }
+
+  return token;
+}
+
+function getImageUrl(path) {
+  if (typeof path !== "string" || !path.trim()) {
+    return null;
+  }
+  return `${TMDB_IMAGE_BASE}${path.trim()}`;
+}
+
+function parsePublishYear(dateStr) {
+  if (typeof dateStr !== "string" || !dateStr.trim()) {
+    return null;
+  }
+  const yearToken = dateStr.trim().slice(0, 4);
+  if (!/^\d{4}$/.test(yearToken)) {
+    return null;
+  }
+  const year = Number(yearToken);
+  return Number.isFinite(year) && year > 0 ? year : null;
+}
+
+async function tmdbGet(path, params, token) {
+  const query = new URLSearchParams(params);
+  const url = `${TMDB_BASE_URL}${path}?${query.toString()}`;
+  const response = await httpCall("GET", url, {
+    headers: { Authorization: `Bearer ${token}` },
+  });
+
+  if (!response?.success) {
+    throw new Error(response?.error ?? `TMDB request failed: ${path}`);
+  }
+
+  const payload = parseJsonResponse(response.data.body);
+
+  if (
+    typeof payload?.status_code === "number" &&
+    payload.status_code !== 1
+  ) {
+    throw new Error(
+      payload.status_message ?? `TMDB API error (status ${payload.status_code})`,
+    );
+  }
+
+  return payload;
+}
+
+function collectImages(posterPath, backdropPath, postersArray, backdropsArray) {
+  const seen = new Set();
+  const images = [];
+
+  const addImage = (path) => {
+    const url = getImageUrl(path);
+    if (url && !seen.has(url)) {
+      seen.add(url);
+      images.push(url);
+    }
+  };
+
+  addImage(posterPath);
+  addImage(backdropPath);
+
+  if (Array.isArray(postersArray)) {
+    for (const item of postersArray) {
+      addImage(item?.file_path);
+    }
+  }
+
+  if (Array.isArray(backdropsArray)) {
+    for (const item of backdropsArray) {
+      addImage(item?.file_path);
+    }
+  }
+
+  return images;
+}
+
+function collectGenres(genresArray) {
+  if (!Array.isArray(genresArray)) {
+    return [];
+  }
+
+  const genres = [];
+  for (const g of genresArray) {
+    const name = typeof g?.name === "string" ? g.name.trim() : "";
+    if (name) {
+      genres.push(name);
+    }
+  }
+
+  return genres;
+}
+
+function collectFreeCreators(cast, crew) {
+  const freeCreators = [];
+  const seen = new Set();
+
+  const castList = Array.isArray(cast) ? cast : [];
+  for (const member of castList.slice(0, 15)) {
+    const name = typeof member?.name === "string" ? member.name.trim() : "";
+    if (!name) {
+      continue;
+    }
+    const character =
+      typeof member?.character === "string" && member.character.trim()
+        ? member.character.trim()
+        : null;
+    const role = character ? character : "Cast";
+    const key = `${name}:${role}`;
+    if (seen.has(key)) {
+      continue;
+    }
+    seen.add(key);
+    freeCreators.push({ name, role });
+  }
+
+  const NOTABLE_JOBS = new Set([
+    "Director",
+    "Producer",
+    "Screenplay",
+    "Writer",
+    "Story",
+  ]);
+
+  const crewList = Array.isArray(crew) ? crew : [];
+  for (const member of crewList) {
+    const name = typeof member?.name === "string" ? member.name.trim() : "";
+    const job = typeof member?.job === "string" ? member.job.trim() : "";
+    if (!name || !job || !NOTABLE_JOBS.has(job)) {
+      continue;
+    }
+    const key = `${name}:${job}`;
+    if (seen.has(key)) {
+      continue;
+    }
+    seen.add(key);
+    freeCreators.push({ name, role: job });
+  }
+
+  return freeCreators;
+}
+
+driver("search", async function (context) {
+  const query =
+    typeof context?.query === "string" ? context.query.trim() : "";
+  if (!query) {
+    throw new Error("query is required");
+  }
+
+  const currentPage = Number.isFinite(Number(context?.page))
+    ? Math.max(1, Math.floor(Number(context.page)))
+    : 1;
+
+  const token = await getTmdbAccessToken();
+  const data = await tmdbGet(
+    "/search/movie",
+    {
+      query,
+      page: String(currentPage),
+      language: "en-US",
+      include_adult: "true",
+    },
+    token,
+  );
+
+  const results = Array.isArray(data?.results) ? data.results : [];
+  const totalItems =
+    typeof data?.total_results === "number" && Number.isFinite(data.total_results)
+      ? data.total_results
+      : results.length;
+  const totalPages =
+    typeof data?.total_pages === "number" && Number.isFinite(data.total_pages)
+      ? data.total_pages
+      : 1;
+
+  const items = results
+    .map((movie) => {
+      const id =
+        typeof movie?.id === "number" && Number.isFinite(movie.id)
+          ? String(Math.trunc(movie.id))
+          : null;
+      if (!id) {
+        return null;
+      }
+
+      const title =
+        typeof movie?.title === "string" && movie.title.trim()
+          ? movie.title.trim()
+          : null;
+      if (!title) {
+        return null;
+      }
+
+      const publishYear = parsePublishYear(movie?.release_date);
+      const image = getImageUrl(movie?.poster_path);
+
+      return {
+        identifier: id,
+        badgeProperty: { kind: "null", value: null },
+        titleProperty: { kind: "text", value: title },
+        subtitleProperty:
+          publishYear === null
+            ? { kind: "null", value: null }
+            : { kind: "number", value: publishYear },
+        imageProperty:
+          image === null
+            ? { kind: "null", value: null }
+            : { kind: "image", value: { kind: "remote", url: image } },
+      };
+    })
+    .filter((item) => item !== null);
+
+  return {
+    items,
+    details: {
+      totalItems,
+      nextPage: currentPage < totalPages ? currentPage + 1 : null,
+    },
+  };
+});
+
+driver("details", async function (context) {
+  const identifier =
+    typeof context?.identifier === "string" ? context.identifier.trim() : "";
+  if (!identifier) {
+    throw new Error("identifier is required");
+  }
+
+  if (!/^\d+$/.test(identifier)) {
+    throw new Error("identifier must be a numeric TMDB movie ID");
+  }
+
+  const token = await getTmdbAccessToken();
+
+  const [movieData, creditsData, imagesData] = await Promise.all([
+    tmdbGet(`/movie/${identifier}`, { language: "en-US" }, token),
+    tmdbGet(`/movie/${identifier}/credits`, { language: "en-US" }, token),
+    tmdbGet(`/movie/${identifier}/images`, {}, token),
+  ]);
+
+  const title =
+    typeof movieData?.title === "string" && movieData.title.trim()
+      ? movieData.title.trim()
+      : null;
+  if (!title) {
+    throw new Error("TMDB returned no title for this movie");
+  }
+
+  const remoteImages = collectImages(
+    movieData?.poster_path,
+    movieData?.backdrop_path,
+    imagesData?.posters,
+    imagesData?.backdrops,
+  );
+
+  const runtime =
+    typeof movieData?.runtime === "number" &&
+    Number.isFinite(movieData.runtime) &&
+    movieData.runtime > 0
+      ? Math.trunc(movieData.runtime)
+      : null;
+
+  const providerRating =
+    typeof movieData?.vote_average === "number" &&
+    Number.isFinite(movieData.vote_average) &&
+    movieData.vote_average > 0
+      ? movieData.vote_average * 10
+      : null;
+
+  return {
+    name: title,
+    externalId: identifier,
+    properties: {
+      runtime,
+      genres: collectGenres(movieData?.genres),
+      isNsfw: movieData?.adult === true ? true : null,
+      providerRating,
+      publishYear: parsePublishYear(movieData?.release_date),
+      freeCreators: collectFreeCreators(creditsData?.cast, creditsData?.crew),
+      description:
+        typeof movieData?.overview === "string" && movieData.overview.trim()
+          ? movieData.overview.trim()
+          : null,
+      productionStatus:
+        typeof movieData?.status === "string" && movieData.status.trim()
+          ? movieData.status.trim()
+          : null,
+      assets: { remoteImages },
+      sourceUrl: `https://www.themoviedb.org/movie/${identifier}`,
+    },
+  };
+});
