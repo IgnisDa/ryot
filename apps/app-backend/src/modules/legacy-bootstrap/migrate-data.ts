@@ -48,6 +48,7 @@ import {
 } from "./shared";
 import { buildLegacyUserAuthMigrationSql } from "./user-auth-mapping";
 import { buildMeasurementMigrationSql } from "./user-measurement-mapping";
+import { buildUserToEntityInLibraryMigrationSql } from "./user-to-entity-mapping";
 import {
 	buildWorkoutMigrationSql,
 	buildWorkoutRepeatedFromRelationshipMigrationSql,
@@ -297,6 +298,16 @@ export const migrateLegacyTables = async (database: DbClient) => {
 		throw new Error('Missing relationship schema id for slug "workout-repeated-from"');
 	}
 
+	const libraryEntitySchemaId = entitySchemaIds.get("library");
+	if (libraryEntitySchemaId === undefined) {
+		throw new Error('Missing entity schema id for slug "library"');
+	}
+
+	const inLibraryRelationshipSchemaId = relationshipSchemaIds.get("in-library");
+	if (inLibraryRelationshipSchemaId === undefined) {
+		throw new Error('Missing relationship schema id for slug "in-library"');
+	}
+
 	const unsupportedMetadataSources = await getUnsupportedMetadataSources(database);
 	if (unsupportedMetadataSources.length > 0) {
 		throw new Error(
@@ -405,6 +416,9 @@ export const migrateLegacyTables = async (database: DbClient) => {
 		);
 		await client.query(
 			buildCollectionToEntityRelationshipMigrationSql(memberOfRelationshipSchemaId),
+		);
+		await client.query(
+			buildUserToEntityInLibraryMigrationSql(inLibraryRelationshipSchemaId, libraryEntitySchemaId),
 		);
 	});
 };
