@@ -7,13 +7,15 @@ import {
 	createSuccessResult,
 	jsonBody,
 } from "~/lib/openapi";
+import { getQueues } from "~/lib/queue";
+import { createEventsJobName } from "./jobs";
 import {
 	createEventBulkBody,
 	createEventBulkResponseSchema,
 	listEventsQuery,
 	listEventsResponseSchema,
 } from "./schemas";
-import { createEvents, listEntityEvents } from "./service";
+import { listEntityEvents } from "./service";
 
 const listEventsRoute = createAuthRoute(
 	createRoute({
@@ -36,15 +38,13 @@ const createEventRoute = createAuthRoute(
 		path: "/",
 		method: "post",
 		tags: ["events"],
-		summary:
-			"Create events for an entity, including built-in media lifecycle actions",
 		request: { body: jsonBody(createEventBulkBody) },
+		summary:
+			"Enqueue events for an entity for async processing, including built-in media lifecycle actions",
 		responses: createStandardResponses({
 			successSchema: createEventBulkResponseSchema,
 			successDescription:
-				"Number of events created for the requested entity, including built-in media lifecycle actions",
-			notFoundDescription:
-				"Entity or event schema does not exist for this user",
+				"Number of events submitted to the processing queue (not yet created)",
 		}),
 	}),
 );
@@ -70,12 +70,11 @@ export const eventsApi = new OpenAPIHono<{ Variables: AuthType }>()
 		const user = c.get("user");
 		const body = c.req.valid("json");
 
-		const result = await createEvents({ body, userId: user.id });
-		if ("error" in result) {
-			const response = createServiceErrorResult(result);
-			return c.json(response.body, response.status);
-		}
+		await getQueues().eventsQueue.add(createEventsJobName, {
+			body,
+			userId: user.id,
+		});
 
-		const response = createSuccessResult(result.data);
+		const response = createSuccessResult({ count: body.length });
 		return c.json(response.body, response.status);
 	});
