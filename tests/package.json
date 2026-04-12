@@ -10,6 +10,7 @@
 		"@aws-sdk/client-s3": "3.1032.0",
 		"@better-auth/api-key": "1.6.15",
 		"@effect/platform": "0.96.2",
+		"@effect/platform-bun": "0.90.0",
 		"@effect/vitest": "0.29.0",
 		"@faker-js/faker": "10.4.0",
 		"@ryot/app-backend": "workspace:*",

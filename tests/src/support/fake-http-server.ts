@@ -1,5 +1,6 @@
-import { Effect } from "effect";
-import getPort from "get-port";
+import { HttpApp, HttpServer } from "@effect/platform";
+import { BunHttpServer } from "@effect/platform-bun";
+import { Effect, Exit, Scope } from "effect";
 
 export type FakeHttpServer = {
 	url: string;
@@ -11,21 +12,33 @@ export async function startFakeHttpServer(
 	respond: (url: URL, request: Request) => Response | Promise<Response> = () =>
 		Response.json({ ok: true }),
 ): Promise<FakeHttpServer> {
-	const port = await getPort();
-	const requests: FakeHttpServer["requests"] = [];
-	const server = Bun.serve({
-		port,
-		hostname: "127.0.0.1",
-		fetch: async (request) => {
-			const url = new URL(request.url);
-			requests.push({ path: url.pathname, body: await request.json().catch(() => null) });
-			return respond(url, request);
-		},
-	});
+	const scope = await Effect.runPromise(Scope.make());
+	const { requests, url } = await Effect.runPromise(
+		Scope.extend(
+			Effect.gen(function* () {
+				const recorded: FakeHttpServer["requests"] = [];
+				const server = yield* BunHttpServer.make({ port: 0, hostname: "127.0.0.1" });
+				yield* HttpServer.serveEffect(
+					HttpApp.fromWebHandler(async (request) => {
+						const reqUrl = new URL(request.url);
+						recorded.push({ path: reqUrl.pathname, body: await request.json().catch(() => null) });
+						return respond(reqUrl, request);
+					}),
+				).pipe(Effect.provideService(HttpServer.HttpServer, server));
+
+				const address = server.address;
+				if (address._tag === "UnixAddress") {
+					return yield* Effect.die("Fake HTTP server unexpectedly bound to a Unix socket");
+				}
+				return { requests: recorded, url: `http://127.0.0.1:${address.port}` };
+			}),
+			scope,
+		),
+	);
 	return {
 		requests,
-		url: `http://127.0.0.1:${port}`,
-		stop: () => void server.stop(true),
+		url,
+		stop: () => void Effect.runPromise(Scope.close(scope, Exit.void)),
 	};
 }
 
