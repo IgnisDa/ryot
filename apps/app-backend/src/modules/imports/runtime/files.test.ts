@@ -1,6 +1,4 @@
 import { afterEach, beforeEach, describe, expect, it } from "bun:test";
-import { mkdir } from "node:fs/promises";
-import node_path from "node:path";
 
 import yazl from "yazl";
 
@@ -40,16 +38,12 @@ const writeZipFile = async (
 	await Bun.write(filePath, zipBuffer);
 };
 
-beforeEach(async () => {
-	await mkdir(TEST_TEMP_DIR, { recursive: true });
-});
-
 describe("resolveSafeImportFilePath", () => {
 	it("accepts a file inside the temp dir", () => {
 		const result = resolveSafeImportFilePath(`${TEST_TEMP_DIR}/export.csv`, TEST_TEMP_DIR);
 		expect("path" in result).toBe(true);
 		if ("path" in result) {
-			expect(result.path).toBe(node_path.resolve(`${TEST_TEMP_DIR}/export.csv`));
+			expect(result.path).toBe(`${TEST_TEMP_DIR}/export.csv`);
 		}
 	});
 
@@ -269,7 +263,6 @@ describe("cleanupImportFile", () => {
 
 	it("deletes directories recursively without throwing", async () => {
 		const directoryPath = `${TEST_TEMP_DIR}/cleanup-dir`;
-		await mkdir(`${directoryPath}/nested`, { recursive: true });
 		await Bun.write(`${directoryPath}/nested/file.csv`, "cleanup me");
 		await cleanupImportFile(directoryPath);
 		expect(await Bun.file(`${directoryPath}/nested/file.csv`).exists()).toBe(false);
