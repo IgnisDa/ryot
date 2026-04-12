@@ -60,14 +60,40 @@ The model is:
 
 - **Process isolation:** user code runs in a separate Deno process per execution.
 - **Deno restrictions:**
-  - denied: `--deny-run`, `--deny-env`, `--deny-ffi`, `--deny-write`, `--no-remote`, `--no-npm`
+  - denied: `--deny-run`, `--deny-env`, `--deny-ffi`, `--deny-write`, `--no-remote`
   - allowed: `--allow-read=<runner-file>`, `--allow-net=127.0.0.1:<bridge-port>`
-- **Network boundary:** sandbox can only talk to the local bridge; external network access must go through explicit host functions.
+  - import enforcement: `--cached-only` (only pre-approved packages loadable; see below)
+- **Network boundary:** sandbox can only talk to the local bridge; external network access must go through explicit host functions. `--allow-net` is bridge-only, so even code inside imported packages cannot reach external hosts.
 - **Auth boundary:** each execution has a random bearer token checked by bridge routes.
 - **Timeout enforcement:** timeout guard sends `SIGTERM`, then `SIGKILL` after a short delay.
 - **Memory limit:** Deno runs with `--v8-flags=--max-heap-size=<maxHeapMB>`.
 - **Input limit:** bridge request body is capped (`requestBodyLimit`, currently 128 KB).
-- **Environment leakage:** sandbox process only receives a minimal env (`PATH`).
+- **Environment leakage:** sandbox process only receives a minimal env (`PATH`, `DENO_DIR`). `DENO_DIR` is read by the Deno runtime itself before the `--deny-env` sandbox applies, so user code cannot access it.
+
+## Vendored packages
+
+User scripts can import a curated set of pre-cached npm packages via dynamic `import()`:
+
+```js
+driver("parse", async function(context) {
+  const { load } = await import("npm:cheerio");
+  const dayjs = (await import("npm:dayjs")).default;
+  const { z } = await import("npm:zod");
+  // ...
+});
+```
+
+The allowlist lives in `constants.ts` (`vendoredPackages`). At service startup, `PackageCacheManager.populate()` runs `deno cache --no-config` for each package into a persistent local directory (default: `~/.ryot/sandbox-deno-cache`, overridable via `RYOT_SANDBOX_DENO_DIR`). The `--cached-only` Deno flag then enforces that only cached packages can be imported — attempting to import anything not in the allowlist fails with a clear error surfaced in the sandbox result.
+
+### Adding a new vendored package
+
+1. Append the specifier (e.g. `"npm:cheerio"`) to `vendoredPackages` in `constants.ts`.
+2. Restart the service. `PackageCacheManager.populate()` downloads the new package on startup.
+3. If the cache already exists and the network is unavailable at startup, the service logs a warning and continues with the existing cache.
+
+### Cache directory
+
+The cache persists across restarts. In Docker deployments, mount the cache directory as a volume so packages do not need to be re-downloaded on every container start.
 
 ## Runtime behavior notes
 
