@@ -2,7 +2,7 @@ import { AppContract } from "@ryot/contract/contract";
 import { Layer } from "effect";
 import { AtomHttpApi } from "effect/unstable/reactivity";
 
-import { retryQueryResponse } from "@/api/app-api";
+import { retryQueryResponse } from "@/api/client";
 import { adminTokenRequestLayer, transportEnvironmentLive } from "@/api/transport";
 
 export const makeAdminApi = (serverUrl: string, adminToken: string) =>

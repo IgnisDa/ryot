@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import {
+	adminRequestKey,
 	apiScopeKey,
 	scopedReactivityKey,
 	scopedRequestKey,
@@ -35,6 +36,15 @@ describe("API request keys", () => {
 		expect(scopedReactivityKey("saved-views", scope)).toHaveLength(1);
 		expect(scopedReactivityKey("saved-views", { ...scope, userId: "user-2" })).not.toEqual(
 			scopedReactivityKey("saved-views", scope),
+		);
+	});
+
+	it("partitions admin sessions without using credentials", () => {
+		expect(adminRequestKey("https://one.test/", "session-1")).toBe(
+			adminRequestKey("https://one.test", "session-1"),
+		);
+		expect(adminRequestKey("https://one.test", "session-2")).not.toBe(
+			adminRequestKey("https://one.test", "session-1"),
 		);
 	});
 });

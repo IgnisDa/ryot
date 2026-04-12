@@ -1,6 +1,6 @@
+import { CLOUD_URL } from "@/api/origin";
 import { clearAuthStorage, getAuthClient } from "@/modules/auth/storage";
 import { useServerUrl } from "@/modules/server/state";
-import { CLOUD_URL } from "@/modules/server/url";
 import { clearAppPersistence } from "@/persistence/storage";
 
 export { clearAuthStorage };

@@ -6,8 +6,9 @@ import { Cause, Effect, Match } from "effect";
 import { useEffect, useEffectEvent, useReducer, useRef, useState } from "react";
 import { ActivityIndicator, Pressable, ScrollView, Text, TextInput, View } from "react-native";
 
-import { searchProviderEntities } from "@/api/queries";
+import { appClient, retryQueryResponse } from "@/api/client";
 import { useApiScope } from "@/api/scope";
+import { useInternalRequestFailureLogging } from "@/api/use-internal-request-failure-logging";
 import { AppIcon } from "@/modules/icons";
 
 import { providerEntityLinksAtom, providerSearchAtom, rememberedProviderAtom } from "./atoms";
@@ -53,21 +54,6 @@ const createOptionsState = (provider: ProviderSearchSummary | undefined): Option
 		values: schema === null ? {} : initialOptionValues(schema),
 	};
 };
-
-function useProviderAddFailureLogging(
-	label: string,
-	state: { readonly status?: string; readonly cause?: unknown },
-) {
-	const status = state.status;
-	const cause = "cause" in state ? state.cause : undefined;
-	useEffect(() => {
-		if (cause === undefined) {
-			return;
-		}
-		const detail = Cause.isCause(cause) ? Cause.pretty(cause) : cause;
-		Effect.runSync(Effect.logWarning(`${label} ${status}`, detail));
-	}, [cause, label, status]);
-}
 
 function StatusLine(props: { readonly text: string }) {
 	return <Text className="font-ui text-sm text-text-muted">{props.text}</Text>;
@@ -142,7 +128,10 @@ function ProviderSearchResultList(props: {
 			}),
 		),
 	);
-	useProviderAddFailureLogging("provider entity links", links);
+	useInternalRequestFailureLogging(
+		`provider entity links ${links.status}`,
+		"cause" in links ? links.cause : undefined,
+	);
 	const linked = links.status === "ready" ? links.externalIds : undefined;
 
 	return (
@@ -207,7 +196,10 @@ export function ProviderSearchPanel(props: {
 	const providers = mapProviderSummaries(
 		useAtomValue(providerSearchAtom({ ...scope, rootEntitySchemaSlug: props.entitySchemaSlug })),
 	);
-	useProviderAddFailureLogging("provider summaries", providers);
+	useInternalRequestFailureLogging(
+		`provider summaries ${providers.status}`,
+		"cause" in providers ? providers.cause : undefined,
+	);
 
 	const remembered = useAtomValue(rememberedProviderAtom(providerScope));
 	const setRemembered = useAtomSet(rememberedProviderAtom(providerScope));
@@ -256,21 +248,27 @@ export function ProviderSearchPanel(props: {
 		}
 		const schema = selected.searchOptionsSchema;
 		const result = await Effect.runPromise(
-			searchProviderEntities(
-				scope.serverUrl,
-				buildSearchPayload({
-					query: state.query,
-					page: operation.page,
-					providerId: selected.providerId,
-					hasOptionsSchema: schema !== null,
-					options: schema === null ? {} : toOptionsPayload(schema, options.values),
-				}),
-			).pipe(
-				Effect.match({
-					onFailure: (cause) => ({ cause }) as const,
-					onSuccess: (response) => ({ response }) as const,
-				}),
-			),
+			appClient(scope)
+				.request.pipe(
+					Effect.flatMap((client) =>
+						client.providerEntities.search({
+							payload: buildSearchPayload({
+								query: state.query,
+								page: operation.page,
+								providerId: selected.providerId,
+								hasOptionsSchema: schema !== null,
+								options: schema === null ? {} : toOptionsPayload(schema, options.values),
+							}),
+						}),
+					),
+					retryQueryResponse,
+				)
+				.pipe(
+					Effect.match({
+						onFailure: (cause) => ({ cause }) as const,
+						onSuccess: (response) => ({ response }) as const,
+					}),
+				),
 		);
 		if ("cause" in result) {
 			const detail = Cause.isCause(result.cause) ? Cause.pretty(result.cause) : result.cause;
@@ -306,10 +304,10 @@ export function ProviderSearchPanel(props: {
 		void Effect.runPromise(
 			runProviderEntityImport({
 				externalId,
-				serverUrl: scope.serverUrl,
+				scope,
 				providerId: selected.providerId,
 				onImported: (entityId) =>
-					addProviderEntityToLibrary({ entityId, serverUrl: scope.serverUrl }).pipe(
+					addProviderEntityToLibrary({ entityId, scope }).pipe(
 						Effect.andThen(Effect.sync(() => props.onImported())),
 					),
 			}),
