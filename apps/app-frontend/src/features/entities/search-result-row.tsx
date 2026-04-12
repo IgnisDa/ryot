@@ -297,89 +297,87 @@ export function SearchResultRow(props: {
 					: t.border,
 			}}
 		>
-			<Group justify="space-between" align="center" wrap="nowrap">
-				<Group gap="md" wrap="nowrap" style={{ flex: 1, minWidth: 0 }}>
-					<EntityThumbnail
-						width={48}
-						height={68}
-						iconSize={16}
-						imageUrl={imageUrl}
-					/>
-					<Stack gap={3} style={{ flex: 1, minWidth: 0 }}>
-						<Group gap={6} wrap="wrap">
-							<Text fw={600} fz="sm" lineClamp={1} c={t.textPrimary}>
-								{props.item.titleProperty.value}
-							</Text>
-							{isTracked ? (
-								<CheckCircle
-									size={16}
-									strokeWidth={1.5}
-									color="var(--mantine-color-green-6)"
-								/>
-							) : null}
-						</Group>
-						<Group gap={6} wrap="wrap">
-							<Badge
-								size="xs"
-								variant="light"
-								style={{
-									color: props.accentColor,
-									backgroundColor: withAlpha(props.accentColor, 0.12),
-								}}
-							>
-								{props.entityName}
-							</Badge>
-							{props.item.subtitleProperty.kind === "number" ? (
-								<Text fz="xs" c={t.textMuted}>
-									{props.item.subtitleProperty.value}
-								</Text>
-							) : null}
+			<Group gap="md" align="flex-start" wrap="nowrap">
+				<EntityThumbnail
+					width={48}
+					height={68}
+					iconSize={16}
+					imageUrl={imageUrl}
+				/>
+				<Stack gap={4} style={{ flex: 1, minWidth: 0 }}>
+					<Group gap={6} wrap="wrap">
+						<Text fw={600} fz="sm" lineClamp={1} c={t.textPrimary}>
+							{props.item.titleProperty.value}
+						</Text>
+						{isTracked ? (
+							<CheckCircle
+								size={16}
+								strokeWidth={1.5}
+								color="var(--mantine-color-green-6)"
+							/>
+						) : null}
+					</Group>
+					<Group gap={6} wrap="wrap">
+						<Badge
+							size="xs"
+							variant="light"
+							style={{
+								color: props.accentColor,
+								backgroundColor: withAlpha(props.accentColor, 0.12),
+							}}
+						>
+							{props.entityName}
+						</Badge>
+						{props.item.subtitleProperty.kind === "number" ? (
 							<Text fz="xs" c={t.textMuted}>
-								via {props.providerName}
+								{props.item.subtitleProperty.value}
 							</Text>
-						</Group>
-					</Stack>
-				</Group>
-				<Group gap="xs" wrap="nowrap" style={{ flexShrink: 0 }}>
-					{!props.isPersonSchema ? (
+						) : null}
+						<Text fz="xs" c={t.textMuted}>
+							via {props.providerName}
+						</Text>
+					</Group>
+					<Group gap="xs" wrap="nowrap" justify="flex-end">
+						{!props.isPersonSchema ? (
+							<Button
+								size="compact-sm"
+								onClick={props.onBacklog}
+								variant={isBacklogged ? "light" : "filled"}
+								loading={props.actionState.pendingAction === "backlog"}
+								disabled={
+									isBacklogged ||
+									(isWorking && props.actionState.pendingAction !== "backlog")
+								}
+								leftSection={
+									props.actionState.pendingAction ===
+									"backlog" ? undefined : isBacklogged ? (
+										<CheckCircle size={14} />
+									) : (
+										<Bookmark size={14} />
+									)
+								}
+								style={
+									isBacklogged
+										? {
+												color: "var(--mantine-color-green-7)",
+												backgroundColor: "var(--mantine-color-green-0)",
+											}
+										: { color: "white", backgroundColor: props.accentColor }
+								}
+							>
+								{isBacklogged ? "Queued" : "Queue"}
+							</Button>
+						) : null}
 						<Button
 							size="compact-sm"
-							onClick={props.onBacklog}
-							variant={isBacklogged ? "light" : "filled"}
-							loading={props.actionState.pendingAction === "backlog"}
-							disabled={
-								isBacklogged ||
-								(isWorking && props.actionState.pendingAction !== "backlog")
-							}
-							leftSection={
-								props.actionState.pendingAction ===
-								"backlog" ? undefined : isBacklogged ? (
-									<CheckCircle size={14} />
-								) : (
-									<Bookmark size={14} />
-								)
-							}
-							style={
-								isBacklogged
-									? {
-											color: "var(--mantine-color-green-7)",
-											backgroundColor: "var(--mantine-color-green-0)",
-										}
-									: { color: "white", backgroundColor: props.accentColor }
-							}
+							disabled={isWorking}
+							onClick={props.onToggleActions}
+							variant={props.isExpanded ? "light" : "subtle"}
 						>
-							{isBacklogged ? "Queued" : "Queue"}
+							{props.isExpanded ? "Hide options" : "More options"}
 						</Button>
-					) : null}
-					<Button
-						size="compact-sm"
-						disabled={isWorking}
-						onClick={props.onToggleActions}
-						variant={props.isExpanded ? "light" : "subtle"}
-					>
-						{props.isExpanded ? "Hide options" : "More options"}
-					</Button>
-				</Group>
+					</Group>
+				</Stack>
 			</Group>
 
 			{props.actionState.doneActions.length > 0 ? (
