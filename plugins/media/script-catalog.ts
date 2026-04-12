@@ -11,6 +11,7 @@ import { manifest as manifest7 } from "./scripts/automations/notification.sandbo
 import { manifest as manifest8 } from "./scripts/automations/radarr-push.sandbox";
 import { manifest as manifest9 } from "./scripts/automations/review-created.sandbox";
 import { manifest as manifest10 } from "./scripts/automations/sonarr-push.sandbox";
+import { manifest as manifest177 } from "./scripts/bootstrap/user-bootstrap.sandbox";
 import { manifest as manifest157 } from "./scripts/imports/anilist.sandbox";
 import { manifest as manifest167 } from "./scripts/imports/audiobookshelf.sandbox";
 import { manifest as manifest158 } from "./scripts/imports/goodreads.sandbox";
@@ -210,6 +211,7 @@ export const mediaScripts = [
 	directScript(manifest8, "scripts/automations/radarr-push.sandbox.ts"),
 	directScript(manifest9, "scripts/automations/review-created.sandbox.ts"),
 	directScript(manifest10, "scripts/automations/sonarr-push.sandbox.ts"),
+	directScript(manifest177, "scripts/bootstrap/user-bootstrap.sandbox.ts"),
 	directScript(manifest153, "scripts/imports/watcharr.sandbox.ts"),
 	directScript(manifest154, "scripts/imports/resolve-episodes.sandbox.ts"),
 	directScript(manifest155, "scripts/imports/write-chunks.sandbox.ts"),

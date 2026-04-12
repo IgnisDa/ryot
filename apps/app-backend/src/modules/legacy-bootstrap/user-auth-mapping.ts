@@ -3,6 +3,33 @@ import { quoteSqlString } from "./shared";
 const legacyEmailRegex = quoteSqlString("^[a-z0-9._%+-]+@[a-z0-9.-]+\\.[a-z]{2,}$");
 const legacyOidcAccountIdPrefix = quoteSqlString("legacy-oidc-account:");
 
+export const buildLegacyUserLibraryMigrationSql = (libraryEntitySchemaSlug: string) => `
+INSERT INTO "entity" (
+	"id",
+	"name",
+	"user_id",
+	"properties",
+	"entity_schema_slug"
+)
+SELECT
+	md5('legacy-library:' || migrated_user.id),
+	'Library',
+	migrated_user.id,
+	'{}'::jsonb,
+	${quoteSqlString(libraryEntitySchemaSlug)}
+FROM "user" migrated_user
+INNER JOIN "old_user" legacy_user ON legacy_user.id = migrated_user.id
+WHERE NOT EXISTS (
+	SELECT 1
+	FROM "entity" existing
+	WHERE existing.user_id = migrated_user.id
+		AND existing.entity_schema_slug = ${quoteSqlString(libraryEntitySchemaSlug)}
+		AND existing.external_id IS NULL
+		AND existing.provider_id IS NULL
+)
+ON CONFLICT ("id") DO NOTHING;
+`;
+
 export const buildLegacyUserAuthMigrationSql = () => `
 DO $$
 DECLARE

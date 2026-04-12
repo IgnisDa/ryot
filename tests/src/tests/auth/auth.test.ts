@@ -1,7 +1,18 @@
+import { queryEngineField, queryEngineSystemRef } from "@ryot/query-engine/primitives";
 import { Effect } from "effect";
 
-import { createTestAuthClient, createTestUser, getBackendClient } from "~/fixtures";
-import { describe, expect, it } from "~/support/effect-test";
+import {
+	buildEntityRowsQueryDocument,
+	createTestAuthClient,
+	createTestUser,
+	executeQueryEngine,
+	getBackendClient,
+	makeSession,
+	requireQueryEngineObjectField,
+	requireQueryEngineTextField,
+	signInWithPassword,
+} from "~/fixtures";
+import { assert, describe, expect, it } from "~/support/effect-test";
 
 describe("GET /system/config auth block defaults", () => {
 	it.live("returns correct auth defaults", () =>
@@ -21,7 +32,7 @@ describe("Email sign-up", () => {
 		"bootstraps a new user with plugin workspace state and default notification rules after sign-up",
 		() =>
 			Effect.gen(function* () {
-				const { cookies } = yield* createTestUser();
+				const { cookies, email, password } = yield* createTestUser();
 				const headers = { Cookie: cookies };
 				const workspaces = yield* getBackendClient().call(
 					(c) => c.definitions.listWorkspaces({ urlParams: { includeDisabled: true } }),
@@ -38,6 +49,27 @@ describe("Email sign-up", () => {
 					catalog.map((schema) => schema.id).sort(),
 				);
 				expect(rules.every((rule) => rule.isActive)).toBe(true);
+
+				const retrySignIn = yield* signInWithPassword(email, password);
+				const retryCookies = retrySignIn.cookies;
+				expect(retryCookies).toBeDefined();
+				const libraryRows = yield* executeQueryEngine(
+					makeSession(undefined, { Cookie: retryCookies ?? cookies }),
+					buildEntityRowsQueryDocument({
+						alias: "library",
+						schemas: ["library"],
+						fields: [
+							queryEngineField("id", queryEngineSystemRef("library", "id")),
+							queryEngineField("name", queryEngineSystemRef("library", "name")),
+							queryEngineField("properties", queryEngineSystemRef("library", "properties")),
+						],
+					}),
+				);
+				expect(libraryRows.data.items).toHaveLength(1);
+				const library = libraryRows.data.items[0];
+				assert(library);
+				expect(requireQueryEngineTextField(library, "name")).toBe("Library");
+				expect(requireQueryEngineObjectField(library, "properties")).toEqual({});
 			}),
 	);
 

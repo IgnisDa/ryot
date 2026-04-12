@@ -36,18 +36,18 @@ export type PurityFinding = {
 };
 
 type TemporaryAllowlistEntry = {
-	kind: "temporary";
 	path: string;
 	term: string;
 	reason: string;
+	kind: "temporary";
 	removalTask: 2 | 3 | 4 | 5 | 6 | 7 | 8;
 };
 
 type PermanentAllowlistEntry = {
-	kind: "permanent";
 	path: string;
 	term: string;
 	reason: string;
+	kind: "permanent";
 	category: "backup-contract" | "boot-wiring" | "legacy-bootstrap";
 };
 
@@ -118,6 +118,9 @@ export const deriveDomainVocabulary = (manifests: ReadonlyArray<PluginManifest>)
 		}
 		for (const boot of manifest.boot) {
 			add(terms, boot.slug, boot.scriptSlug);
+		}
+		for (const bootstrap of manifest.userBootstrap) {
+			add(terms, bootstrap.slug, bootstrap.scriptSlug);
 		}
 		for (const source of manifest.importSources) {
 			add(terms, source.slug, source.name, source.workflowSlug);
