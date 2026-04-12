@@ -64,7 +64,6 @@ export type DeleteImportRunInput = {
 const isTerminalStatus = (status: ImportRunStatus): boolean =>
 	status === "completed" || status === "failed";
 
-/** @effect-expect-leaking Database */
 export class ImportsService extends Context.Service<ImportsService>()("ImportsService", {
 	make: Effect.gen(function* () {
 		const redis = yield* RedisService;

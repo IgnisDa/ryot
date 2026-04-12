@@ -65,7 +65,6 @@ const toStoredPlugin = Effect.fn(function* (row: PluginRow, scripts: ReadonlyArr
 	} satisfies StoredPlugin;
 });
 
-/** @effect-expect-leaking Database */
 export class PluginRepository extends Context.Service<PluginRepository>()("PluginRepository", {
 	make: Effect.sync(() => {
 		const lockIngestion = Effect.fn("PluginRepository.lockIngestion")(function* () {

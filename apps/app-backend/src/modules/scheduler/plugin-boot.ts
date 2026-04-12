@@ -23,7 +23,6 @@ export const pluginBootExecutionId = (
 	bootMs: number | string,
 ) => `plugin-boot-${pluginSlug.length}-${pluginSlug}-${bootSlug.length}-${bootSlug}-${bootMs}`;
 
-/** @effect-expect-leaking Database */
 export class PluginBootService extends Context.Service<PluginBootService>()("PluginBootService", {
 	make: Effect.gen(function* () {
 		const loader = yield* PluginLoader;

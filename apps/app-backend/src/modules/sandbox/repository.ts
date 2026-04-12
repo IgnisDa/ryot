@@ -34,7 +34,6 @@ export const isWorkflowCallTargetKind = (
 	((request.kind === "child" || request.kind === "workflow-child") && kind === "workflow") ||
 	(request.kind === "activity" && kind === "script");
 
-/** @effect-expect-leaking Database */
 export class SandboxRepository extends Context.Service<SandboxRepository>()("SandboxRepository", {
 	make: Effect.sync(() => {
 		const getScript = Effect.fn("SandboxRepository.getScript")(function* (
