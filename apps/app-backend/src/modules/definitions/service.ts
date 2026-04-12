@@ -1,6 +1,7 @@
 import type { CurrentUserValue } from "@ryot/contract/auth-middleware";
 import { notFound } from "@ryot/contract/errors";
 import type { UpdateWorkspaceStateBody } from "@ryot/contract/modules/definitions/schemas";
+import { PluginSlug } from "@ryot/contract/schema/brands";
 import { Effect } from "effect";
 
 import { DbRunner } from "#lib/infrastructure/db/service";
@@ -14,6 +15,7 @@ const merge = (
 	defaultSortOrder = 0,
 ) => ({
 	...metadata,
+	slug: PluginSlug.make(metadata.slug),
 	config: state?.config ?? {},
 	isDisabled: state?.isDisabled ?? false,
 	sortOrder: state?.sortOrder ?? defaultSortOrder,
