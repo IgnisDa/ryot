@@ -101,7 +101,7 @@ describe("Measurements E2E", () => {
 		expect(entity.id).toBe(measurementId);
 		expect(entity.name).toBe("Measurement - 2026-04-27 08:00");
 		expect(entity.properties).toMatchObject({
-			statistics: [{ key: "weight", label: "Weight", value: 75.5 }],
+			statistics: [{ key: "weight", label: "Weight", value: 75.5, unit: "kg" }],
 			recordedAt: expect.stringMatching(/^2026-04-27T08:00:00(\.\d+)?Z$/),
 		});
 		expect(entity.properties).not.toHaveProperty("weight");
