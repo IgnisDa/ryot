@@ -7,6 +7,7 @@ import { TestClock } from "effect/testing";
 import {
 	importProviderEntity,
 	PROVIDER_IMPORT_FAILED_MESSAGE,
+	PROVIDER_LIBRARY_ADD_FAILED_MESSAGE,
 	PROVIDER_IMPORT_TIMEOUT_MESSAGE,
 	PROVIDER_IMPORT_UNAVAILABLE_MESSAGE,
 } from "./import-controller";
@@ -58,6 +59,18 @@ it.effect("surfaces a failed run result without waiting further", () =>
 		});
 
 		expect(entry).toEqual({ status: "failed", message: PROVIDER_IMPORT_FAILED_MESSAGE });
+	}),
+);
+
+it.effect("reports a stable failure when adding an imported entity to the library fails", () =>
+	Effect.gen(function* () {
+		const entry = yield* importProviderEntity({
+			poll: scripted([completed]),
+			start: Effect.succeed({ jobId: "job-1" }),
+			onImported: () => Effect.fail("library unavailable"),
+		});
+
+		expect(entry).toEqual({ status: "failed", message: PROVIDER_LIBRARY_ADD_FAILED_MESSAGE });
 	}),
 );
 
