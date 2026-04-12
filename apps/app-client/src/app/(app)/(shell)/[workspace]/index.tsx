@@ -93,9 +93,24 @@ export default function AppHome() {
 							</Text>
 						))
 						.onSuccess((response) => (
-							<Text selectable className="font-mono text-sm text-text">
-								{JSON.stringify(response, null, 2)}
-							</Text>
+							<View className="gap-2">
+								<Text className="font-ui text-sm text-text-muted">
+									Showing {Math.min(response.length, 5)} of {response.length} saved views
+								</Text>
+								<Text selectable className="font-mono text-sm text-text">
+									{JSON.stringify(
+										response.slice(0, 5).map((savedView) => ({
+											id: savedView.id,
+											icon: savedView.icon,
+											name: savedView.name,
+											slug: savedView.slug,
+											isDisabled: savedView.isDisabled,
+										})),
+										null,
+										2,
+									)}
+								</Text>
+							</View>
 						))
 						.render()}
 				</View>
