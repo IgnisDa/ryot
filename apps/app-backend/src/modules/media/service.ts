@@ -26,7 +26,7 @@ type MediaOverviewError = "not_found" | "validation";
 const mediaOverviewMisconfiguredError =
 	"Built-in media overview configuration is invalid";
 
-const SECTION_LIMITS = { upNext: 20, continue: 6, rateThese: 12 };
+const SECTION_LIMITS = { upNext: 6, continue: 6, rateThese: 6 };
 
 const literalExpression = (value: unknown) => ({
 	value,
