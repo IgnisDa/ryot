@@ -98,6 +98,7 @@ const resolveUnitLabel = (
 		.with("comic-book", () => "pages")
 		.with("audiobook", () => "minutes")
 		.with("video-game", () => "percent")
+		.with("visual-novel", () => "percent")
 		.exhaustive();
 
 const resolveContinueCta = (
@@ -114,6 +115,7 @@ const resolveContinueCta = (
 			"audiobook",
 			"podcast",
 			"video-game",
+			"visual-novel",
 			"music",
 			() => "Log Progress",
 		)

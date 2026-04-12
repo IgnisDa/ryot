@@ -15,6 +15,7 @@ import { personPropertiesJsonSchema } from "~/lib/media/person";
 import { podcastPropertiesJsonSchema } from "~/lib/media/podcast";
 import { showPropertiesJsonSchema } from "~/lib/media/show";
 import { videoGamePropertiesJsonSchema } from "~/lib/media/video-game";
+import { visualNovelPropertiesJsonSchema } from "~/lib/media/visual-novel";
 import { createDefaultDisplayConfiguration } from "~/modules/saved-views";
 
 export const authenticationBuiltinTrackers = () => [
@@ -212,6 +213,15 @@ export const authenticationBuiltinEntitySchemas = () => [
 		propertiesSchema: musicPropertiesJsonSchema,
 	},
 	{
+		icon: "book-heart",
+		slug: "visual-novel",
+		name: "Visual Novel",
+		trackerSlug: "media",
+		accentColor: "#F472B6",
+		eventSchemas: mediaLifecycleEventSchemas(),
+		propertiesSchema: visualNovelPropertiesJsonSchema,
+	},
+	{
 		icon: "folders",
 		eventSchemas: [],
 		slug: "collection",
@@ -238,12 +248,13 @@ const getBuiltInSavedViewName = (slug: BuiltinMediaEntitySchemaSlug) => {
 		.with("show", () => "All Shows")
 		.with("anime", () => "All Anime")
 		.with("manga", () => "All Manga")
-		.with("movie", () => "All Movies")
 		.with("music", () => "All Music")
+		.with("movie", () => "All Movies")
 		.with("podcast", () => "All Podcasts")
-		.with("comic-book", () => "All Comic Books")
 		.with("audiobook", () => "All Audiobooks")
+		.with("comic-book", () => "All Comic Books")
 		.with("video-game", () => "All Video Games")
+		.with("visual-novel", () => "All Visual Novels")
 		.exhaustive();
 };
 
