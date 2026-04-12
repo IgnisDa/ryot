@@ -10,7 +10,6 @@ import {
 	getNavigationItems,
 	getNavigationMode,
 	getSettingsHref,
-	getWorkspaceHref,
 	getWorkspacePickerSummary,
 	getWorkspaceSummary,
 } from "./navigation-data";
@@ -120,8 +119,8 @@ describe("getNavigationItems", () => {
 });
 
 describe("getCurrentWorkspace", () => {
-	it("prefers a valid route and falls back from an invalid persisted workspace", () => {
-		expect(getCurrentWorkspace(data.workspaces, "missing", "missing").slug).toBe("media");
+	it("falls back to the first workspace for an unknown persisted slug", () => {
+		expect(getCurrentWorkspace(data.workspaces, "missing").slug).toBe("media");
 	});
 });
 
@@ -129,19 +128,15 @@ describe("getNavigationHref", () => {
 	it("creates workspace home and global view and entity routes", () => {
 		const items = getNavigationItems({ data, workspaceSlug: "media" });
 
-		expect(getNavigationHref("media", items.views[0])).toBe("/media");
-		expect(getNavigationHref("media", items.views[1])).toEqual({
+		expect(getNavigationHref(items.views[0])).toBe("/");
+		expect(getNavigationHref(items.views[1])).toEqual({
 			pathname: "/v/[viewSlug]",
 			params: { viewSlug: "movies" },
 		});
-		expect(getNavigationHref("media", items.collections[0])).toEqual({
+		expect(getNavigationHref(items.collections[0])).toEqual({
 			pathname: "/e/[entityId]",
 			params: { entityId: "collection-1" },
 		});
-	});
-
-	it("encodes workspace slugs in resolved paths", () => {
-		expect(getWorkspaceHref("my workspace")).toBe("/my%20workspace");
 	});
 });
 
@@ -153,10 +148,7 @@ it("creates an entity route", () => {
 });
 
 it("creates a settings route", () => {
-	expect(getSettingsHref("media")).toEqual({
-		params: { workspace: "media" },
-		pathname: "/[workspace]/settings",
-	});
+	expect(getSettingsHref()).toBe("/settings");
 });
 
 describe("getNavigationMode", () => {
