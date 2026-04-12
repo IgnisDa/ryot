@@ -1,3 +1,4 @@
+import { dayjs } from "@ryot/ts-utils/dayjs";
 import { match } from "ts-pattern";
 import type { ImageSchemaType } from "~/lib/db/schema";
 import type {
@@ -280,15 +281,11 @@ export const buildRecentActivitySectionResponse = (
 export const buildWeekActivitySectionResponse = (input: {
 	items: WeekActivitySourceItem[];
 }): BuiltInMediaOverviewWeekActivityResponse => {
-	const formatter = new Intl.DateTimeFormat("en-US", {
-		timeZone: "UTC",
-		weekday: "short",
-	});
 	const weekItems = [...input.items]
 		.sort((left, right) => left.date.getTime() - right.date.getTime())
 		.map((item) => ({
 			count: item.count,
-			dayLabel: formatter.format(item.date),
+			dayLabel: dayjs.utc(item.date).format("ddd"),
 		}));
 
 	return { items: weekItems, count: weekItems.length };
