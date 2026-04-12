@@ -1600,9 +1600,21 @@ async function seedMedia(client: APIClient) {
 	let totalEvents = 0;
 	const allEntities: SeedEntity[] = [];
 
+	type MediaEventSchemas = Awaited<
+		ReturnType<typeof getMediaLifecycleEventSchemas>
+	>;
+	type WorkItem = {
+		identifier: string;
+		scriptId: string;
+		schema: (typeof schemas)[number];
+		eventSchemas: MediaEventSchemas;
+	};
+
+	// Phase 1: search all schemas and collect work items
+	const workItems: WorkItem[] = [];
 	for (const schema of schemas) {
 		const slug = schema.slug as MediaEntitySchemaSlug;
-		console.log(`\n  Processing: ${schema.name} (${slug})...`);
+		console.log(`\n  Searching: ${schema.name} (${slug})...`);
 		const eventSchemas = await getMediaLifecycleEventSchemas(client, schema.id);
 
 		const scriptId = schema.providers[0]?.scriptId;
@@ -1635,19 +1647,67 @@ async function seedMedia(client: APIClient) {
 		}
 		console.log(`    Collected ${identifiers.length} unique identifiers`);
 
-		const entities: SeedEntity[] = [];
 		for (const identifier of identifiers) {
-			const entity = await importMediaEntity(
-				client,
-				scriptId,
-				identifier,
-				schema.id,
-			);
-			if (entity) {
-				entities.push(entity);
-			}
+			workItems.push({ identifier, scriptId, schema, eventSchemas });
 		}
-		console.log(`    Imported ${entities.length} entities`);
+	}
+
+	// Phase 2: shuffle work items so entity types are interleaved
+	for (let i = workItems.length - 1; i > 0; i--) {
+		const j = Math.floor(Math.random() * (i + 1));
+		const temp = workItems[i];
+		workItems[i] = workItems[j] as WorkItem;
+		workItems[j] = temp as WorkItem;
+	}
+	console.log(
+		`\n  Importing ${workItems.length} entities (shuffled across all types)...`,
+	);
+
+	// Phase 3: import in shuffled order, group results by schema id
+	const entitiesBySchemaId = new Map<string, SeedEntity[]>();
+	const eventSchemasBySchemaId = new Map<string, MediaEventSchemas>();
+
+	for (const [index, item] of workItems.entries()) {
+		const entity = await importMediaEntity(
+			client,
+			item.scriptId,
+			item.identifier,
+			item.schema.id,
+		);
+		if (entity) {
+			const list = entitiesBySchemaId.get(item.schema.id) ?? [];
+			list.push(entity);
+			entitiesBySchemaId.set(item.schema.id, list);
+			eventSchemasBySchemaId.set(item.schema.id, item.eventSchemas);
+			allEntities.push(entity);
+		}
+		if ((index + 1) % 20 === 0) {
+			console.log(`    Progress: ${index + 1}/${workItems.length} imported`);
+		}
+	}
+	console.log(`  Imported ${allEntities.length} entities total`);
+
+	// Phase 4: create lifecycle events per schema group
+	const completionVariants: Array<() => Record<string, unknown>> = [
+		() => ({ completionMode: "just_now" }),
+		() => ({ completionMode: "unknown" }),
+		() => ({
+			completionMode: "custom_timestamps",
+			completedOn: dayjs().subtract(randomInt(1, 365), "day").toISOString(),
+		}),
+		() => ({
+			completionMode: "custom_timestamps",
+			startedOn: dayjs().subtract(randomInt(400, 730), "day").toISOString(),
+			completedOn: dayjs().subtract(randomInt(1, 365), "day").toISOString(),
+		}),
+	];
+
+	for (const schema of schemas) {
+		const entities = entitiesBySchemaId.get(schema.id);
+		const eventSchemas = eventSchemasBySchemaId.get(schema.id);
+		if (!entities?.length || !eventSchemas) {
+			continue;
+		}
 
 		// ~28% backlog (up-next), ~20% in-progress (continue),
 		// ~24% completed unrated (rate-these), ~28% completed + reviewed
@@ -1687,20 +1747,6 @@ async function seedMedia(client: APIClient) {
 			});
 		}
 
-		const completionVariants: Array<() => Record<string, unknown>> = [
-			() => ({ completionMode: "just_now" }),
-			() => ({ completionMode: "unknown" }),
-			() => ({
-				completionMode: "custom_timestamps",
-				completedOn: dayjs().subtract(randomInt(1, 365), "day").toISOString(),
-			}),
-			() => ({
-				completionMode: "custom_timestamps",
-				startedOn: dayjs().subtract(randomInt(400, 730), "day").toISOString(),
-				completedOn: dayjs().subtract(randomInt(1, 365), "day").toISOString(),
-			}),
-		];
-
 		for (const entity of completeNoReviewEntities) {
 			mediaEvents.push({
 				entityId: entity.id,
@@ -1728,11 +1774,12 @@ async function seedMedia(client: APIClient) {
 		}
 
 		await createEvents(client, mediaEvents);
-		console.log(`    Created ${mediaEvents.length} events`);
+		console.log(
+			`    ${schema.name}: ${entities.length} entities, ${mediaEvents.length} events`,
+		);
 
 		totalEntities += entities.length;
 		totalEvents += mediaEvents.length;
-		allEntities.push(...entities);
 	}
 
 	console.log(
