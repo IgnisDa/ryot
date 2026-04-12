@@ -229,6 +229,12 @@ it("declares the complete media-owned source", () => {
 		}),
 	);
 	expect(mediaPlugin.savedViews.every(({ pluginSlug }) => pluginSlug === "media")).toBe(true);
+	expect(mediaPlugin.savedViews.find(({ slug }) => slug === "all-anime")?.sandboxScripts).toEqual({
+		search: ["anime.anilist.search", "anime.myanimelist.search"],
+	});
+	expect(mediaPlugin.savedViews.find(({ slug }) => slug === "all-movies")?.sandboxScripts).toEqual({
+		search: ["movie.tmdb.search", "movie.tvdb.search"],
+	});
 	expect(mediaPlugin.entitySchemas.map(({ slug }) => slug).sort()).toEqual(
 		[...mediaLibraryEligibleEntitySchemaSlugs].sort(),
 	);
