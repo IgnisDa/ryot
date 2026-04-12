@@ -1,10 +1,10 @@
+import type { QueryEngineRequest } from "~/modules/query-engine/schemas";
 import type { DisplayConfiguration } from "~/modules/saved-views/schemas";
-import type { ViewRuntimeRequest } from "~/modules/view-runtime/schemas";
 import {
 	getComputedFieldOrThrow,
 	prepareComputedFields,
 } from "./computed-fields";
-import { ViewRuntimeValidationError } from "./errors";
+import { QueryEngineValidationError } from "./errors";
 import type {
 	RuntimeRef,
 	ViewComputedField,
@@ -23,25 +23,25 @@ import {
 	getEventJoinPropertyType,
 	getPropertyType,
 	getSchemaForReference,
+	type QueryEngineEventJoinLike,
+	type QueryEngineReferenceContext,
+	type QueryEngineSchemaLike,
 	sortFilterBuiltins,
-	type ViewRuntimeEventJoinLike,
-	type ViewRuntimeReferenceContext,
-	type ViewRuntimeSchemaLike,
 } from "./reference";
 
-type ValidationSchemaRow = ViewRuntimeSchemaLike;
-type ValidationEventJoinRow = ViewRuntimeEventJoinLike;
+type ValidationSchemaRow = QueryEngineSchemaLike;
+type ValidationEventJoinRow = QueryEngineEventJoinLike;
 
 export const validateRuntimeReferenceAgainstSchemas = (
 	reference: RuntimeRef,
-	context: ViewRuntimeReferenceContext<
+	context: QueryEngineReferenceContext<
 		ValidationSchemaRow,
 		ValidationEventJoinRow
 	>,
 	validBuiltins: ReadonlySet<string>,
 ): void => {
 	if (reference.type === "computed-field") {
-		throw new ViewRuntimeValidationError(
+		throw new QueryEngineValidationError(
 			"Computed field references are not allowed in this context",
 		);
 	}
@@ -49,7 +49,7 @@ export const validateRuntimeReferenceAgainstSchemas = (
 	if (reference.type === "entity-column") {
 		getSchemaForReference(context.schemaMap, reference);
 		if (!validBuiltins.has(reference.column)) {
-			throw new ViewRuntimeValidationError(
+			throw new QueryEngineValidationError(
 				`Unsupported entity column 'entity.${reference.slug}.@${reference.column}'`,
 			);
 		}
@@ -57,7 +57,7 @@ export const validateRuntimeReferenceAgainstSchemas = (
 			!getEntityColumnPropertyDefinition(reference.column) &&
 			reference.column !== "image"
 		) {
-			throw new ViewRuntimeValidationError(
+			throw new QueryEngineValidationError(
 				`Unsupported entity column 'entity.${reference.slug}.@${reference.column}'`,
 			);
 		}
@@ -67,7 +67,7 @@ export const validateRuntimeReferenceAgainstSchemas = (
 	if (reference.type === "event-join-column") {
 		getEventJoinForReference(context.eventJoinMap, reference);
 		if (!getEventJoinColumnPropertyDefinition(reference.column)) {
-			throw new ViewRuntimeValidationError(
+			throw new QueryEngineValidationError(
 				`Unsupported event join column 'event.${reference.joinKey}.@${reference.column}'`,
 			);
 		}
@@ -78,7 +78,7 @@ export const validateRuntimeReferenceAgainstSchemas = (
 		const join = getEventJoinForReference(context.eventJoinMap, reference);
 		const propertyType = getEventJoinPropertyType(join, reference.property);
 		if (!propertyType) {
-			throw new ViewRuntimeValidationError(
+			throw new QueryEngineValidationError(
 				`Property '${reference.property}' not found for event join '${join.key}'`,
 			);
 		}
@@ -88,7 +88,7 @@ export const validateRuntimeReferenceAgainstSchemas = (
 	const schema = getSchemaForReference(context.schemaMap, reference);
 	const propertyType = getPropertyType(schema, reference.property);
 	if (!propertyType) {
-		throw new ViewRuntimeValidationError(
+		throw new QueryEngineValidationError(
 			`Property '${reference.property}' not found in schema '${reference.slug}'`,
 		);
 	}
@@ -96,7 +96,7 @@ export const validateRuntimeReferenceAgainstSchemas = (
 
 export const validateExpressionAgainstSchemas = (
 	expression: ViewExpression,
-	context: ViewRuntimeReferenceContext<
+	context: QueryEngineReferenceContext<
 		ValidationSchemaRow,
 		ValidationEventJoinRow
 	>,
@@ -207,7 +207,7 @@ export const validateExpressionAgainstSchemas = (
 const validateComputedFields = (input: {
 	validBuiltins: ReadonlySet<string>;
 	computedFields?: ViewComputedField[];
-	context: ViewRuntimeReferenceContext<
+	context: QueryEngineReferenceContext<
 		ValidationSchemaRow,
 		ValidationEventJoinRow
 	>;
@@ -228,9 +228,9 @@ const validateComputedFields = (input: {
 	return computedFieldMap;
 };
 
-export const validateViewRuntimeReferences = (
-	request: ViewRuntimeRequest,
-	context: ViewRuntimeReferenceContext<
+export const validateQueryEngineReferences = (
+	request: QueryEngineRequest,
+	context: QueryEngineReferenceContext<
 		ValidationSchemaRow,
 		ValidationEventJoinRow
 	>,
@@ -275,7 +275,7 @@ export const validateViewRuntimeReferences = (
 
 export const validateSavedViewDisplayConfiguration = (
 	displayConfiguration: DisplayConfiguration,
-	context: ViewRuntimeReferenceContext<
+	context: QueryEngineReferenceContext<
 		ValidationSchemaRow,
 		ValidationEventJoinRow
 	>,

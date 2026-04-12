@@ -1,9 +1,9 @@
 import { describe, expect, it } from "bun:test";
-import { executeViewRuntimeBody } from "./schemas";
+import { executeQueryEngineBody } from "./schemas";
 
-describe("executeViewRuntimeBody", () => {
+describe("executeQueryEngineBody", () => {
 	it("rejects non-JSON literal expression values", () => {
-		const result = executeViewRuntimeBody.safeParse({
+		const result = executeQueryEngineBody.safeParse({
 			filter: null,
 			eventJoins: [],
 			computedFields: [],
@@ -31,7 +31,7 @@ describe("executeViewRuntimeBody", () => {
 	});
 
 	it("rejects duplicate computed field keys", () => {
-		const result = executeViewRuntimeBody.safeParse({
+		const result = executeQueryEngineBody.safeParse({
 			filter: null,
 			eventJoins: [],
 			entitySchemaSlugs: ["book"],

@@ -49,7 +49,7 @@ export const runtimeReferenceSchema = z
 			})
 			.strict(),
 	])
-	.openapi("ViewRuntimeReference");
+	.openapi("QueryEngineReference");
 
 export type RuntimeRef = z.infer<typeof runtimeReferenceSchema>;
 
