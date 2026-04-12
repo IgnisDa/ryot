@@ -89,7 +89,7 @@ describe("enqueueSandbox", () => {
 			apiFunctionDescriptors: [
 				{ context: {}, functionKey: "httpCall" },
 				{ context: {}, functionKey: "getAppConfigValue" },
-				{ context: { userId: "user_1" }, functionKey: "getEntitySchemas" },
+				{ context: { userId: "user_1" }, functionKey: "executeQuery" },
 			],
 		});
 	});
@@ -120,7 +120,7 @@ describe("enqueueSandbox", () => {
 			apiFunctionDescriptors: [
 				{ context: {}, functionKey: "httpCall" },
 				{ context: {}, functionKey: "getAppConfigValue" },
-				{ context: { userId: "user_1" }, functionKey: "getEntitySchemas" },
+				{ context: { userId: "user_1" }, functionKey: "executeQuery" },
 			],
 		});
 	});
