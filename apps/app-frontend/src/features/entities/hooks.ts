@@ -1,5 +1,6 @@
 import { useQueryClient } from "@tanstack/react-query";
 import { useApiClient } from "~/hooks/api";
+import type { ApiPostRequestBody } from "~/lib/api/types";
 import { createEntityRuntimeRequest, sortEntities, toAppEntity } from "./model";
 
 export function useEntitiesQuery(entitySchemaSlug: string, enabled = true) {
@@ -44,11 +45,38 @@ export function useEntityMutations(entitySchemaSlug: string) {
 		"/entities",
 		{
 			onSuccess: () => {
-				queryClient.invalidateQueries({ queryKey: listQueryKey });
+				void queryClient.invalidateQueries({ queryKey: listQueryKey });
 			},
 		},
 		queryClient,
 	);
 
-	return { create };
+	const addToCollection = apiClient.useMutation(
+		"post",
+		"/collections/memberships",
+		{},
+		queryClient,
+	);
+
+	const createWithCollection = async (
+		body: ApiPostRequestBody<"/entities">,
+		collectionId?: string,
+	) => {
+		const createResult = await create.mutateAsync({ body });
+		const entity = createResult.data;
+
+		if (entity && collectionId) {
+			await addToCollection.mutateAsync({
+				body: {
+					entityId: entity.id,
+					collectionId,
+					properties: {},
+				},
+			});
+		}
+
+		return createResult;
+	};
+
+	return { create, addToCollection, createWithCollection };
 }
