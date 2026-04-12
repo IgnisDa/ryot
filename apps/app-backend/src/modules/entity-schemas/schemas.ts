@@ -20,8 +20,7 @@ export const entitySchemaPropertiesInputSchema =
 
 export const searchProviderSchema = z.object({
 	name: z.string(),
-	searchScriptId: z.string(),
-	detailsScriptId: z.string(),
+	scriptId: z.string(),
 });
 
 export const listedEntitySchemaSchema = z.object({
