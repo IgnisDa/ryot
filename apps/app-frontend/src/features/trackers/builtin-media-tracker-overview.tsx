@@ -478,7 +478,7 @@ function ContinueCard(props: {
 							variant="light"
 							style={{ color, backgroundColor: colorMix(color, 0.12) }}
 						>
-							{schema?.name ?? props.item.entitySchemaSlug}
+							{schema?.name ?? "Item"}
 						</Badge>
 						<Text
 							fz={10}
@@ -621,7 +621,7 @@ function BacklogCard(props: {
 							backgroundColor: colorMix(color, 0.12),
 						}}
 					>
-						{schema?.name ?? props.item.entitySchemaSlug}
+						{schema?.name ?? "Item"}
 					</Badge>
 				</Box>
 				<Stack gap={4} p="sm" pt="xs">
@@ -711,7 +711,7 @@ function RateCard(props: {
 							variant="light"
 							style={{ backgroundColor: colorMix(color, 0.12), color }}
 						>
-							{schema?.name ?? props.item.entitySchemaSlug}
+							{schema?.name ?? "Item"}
 						</Badge>
 						<Text fz={10} c={props.textMuted}>
 							{completedDate}
@@ -1135,9 +1135,7 @@ export function BuiltinMediaTrackerOverview(
 											{schema.name}
 										</Text>
 										<Text fz={10} c={t.textMuted}>
-											{schema.searchProviders.length === 1
-												? schema.searchProviders[0]?.name
-												: `${schema.searchProviders.length} sources`}
+											Find and track {schema.name.toLowerCase()}
 										</Text>
 									</Stack>
 								</Paper>
@@ -1230,7 +1228,7 @@ export function BuiltinMediaTrackerOverview(
 						leftSection={<Bookmark size={14} />}
 						onClick={() => openTypePickerModal("backlog")}
 					>
-						Queue something
+						Add to watchlist
 					</Button>
 					<Button
 						size="sm"
@@ -1238,7 +1236,7 @@ export function BuiltinMediaTrackerOverview(
 						style={{ backgroundColor: GOLD, color: "white" }}
 						onClick={() => openTypePickerModal("log")}
 					>
-						Start something
+						Start tracking
 					</Button>
 				</Group>
 			</Group>
@@ -1252,9 +1250,9 @@ export function BuiltinMediaTrackerOverview(
 				>
 					<SectionHeader
 						title="Continue"
-						eyebrow="In motion"
 						textMuted={t.textMuted}
 						textPrimary={t.textPrimary}
+						eyebrow="Continue where you left off"
 						accentColor={SECTION_ACCENTS.continue}
 						right={
 							<Group gap={4}>
@@ -1308,8 +1306,8 @@ export function BuiltinMediaTrackerOverview(
 					<SectionHeader
 						title="Up Next"
 						textMuted={t.textMuted}
+						eyebrow="Your watchlist"
 						textPrimary={t.textPrimary}
-						eyebrow="Queued with intent"
 						accentColor={SECTION_ACCENTS.queue}
 						right={
 							<Text fz="xs" c={t.textMuted}>
@@ -1346,10 +1344,10 @@ export function BuiltinMediaTrackerOverview(
 					accentColor={SECTION_ACCENTS.review}
 				>
 					<SectionHeader
-						title="Rate These"
-						eyebrow="Leave a trace"
+						title="Rate and Review"
 						textMuted={t.textMuted}
 						textPrimary={t.textPrimary}
+						eyebrow="Share your thoughts"
 						accentColor={SECTION_ACCENTS.review}
 						right={
 							<Text fz="xs" c={t.textMuted}>
@@ -1382,8 +1380,8 @@ export function BuiltinMediaTrackerOverview(
 				accentColor={SECTION_ACCENTS.activity}
 			>
 				<SectionHeader
-					title="Activity"
-					eyebrow="Recent rhythm"
+					eyebrow="This week"
+					title="Recent Activity"
 					textMuted={t.textMuted}
 					textPrimary={t.textPrimary}
 					accentColor={SECTION_ACCENTS.activity}
@@ -1467,10 +1465,10 @@ export function BuiltinMediaTrackerOverview(
 				accentColor={SECTION_ACCENTS.library}
 			>
 				<SectionHeader
-					title="Library"
-					eyebrow="At a glance"
+					title="Your Library"
 					textMuted={t.textMuted}
 					textPrimary={t.textPrimary}
+					eyebrow="Collection overview"
 					accentColor={SECTION_ACCENTS.library}
 					right={
 						<Text fz="xs" c={t.textMuted}>
@@ -1540,7 +1538,7 @@ export function BuiltinMediaTrackerOverview(
 							c={t.textMuted}
 							ff="var(--mantine-headings-font-family)"
 						>
-							By Type
+							Your collection
 						</Text>
 						<TypeBar
 							border={t.border}
