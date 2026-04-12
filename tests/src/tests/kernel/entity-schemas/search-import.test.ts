@@ -16,8 +16,8 @@ import {
 	pollEntityImportResult,
 	pollSandboxResult,
 	installTestProvider,
-	type InstalledTestProvider,
 } from "~/fixtures";
+import type { InstalledTestProvider } from "~/fixtures/sandbox-provider";
 import {
 	assertCompleted,
 	assertPresent,
