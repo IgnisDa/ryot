@@ -7,13 +7,17 @@ import { processMediaTextFileImport } from "../media/file-processor";
 import type { MediaImportAdapterResult, MediaImportJobInput } from "../media/import-processor";
 import type { ImportRunSource } from "../schemas";
 import { adaptAnilistExport } from "../sources/anilist/adapter";
+import { processAudiobookshelfImport } from "../sources/audiobookshelf/processor";
 import { adaptGoodreadsCsv } from "../sources/goodreads/adapter";
 import { adaptGrouveeCsv } from "../sources/grouvee/adapter";
 import { adaptHardcoverCsv } from "../sources/hardcover/adapter";
 import { adaptHevyCsv } from "../sources/hevy/adapter";
 import { adaptIgdbCsv } from "../sources/igdb/adapter";
 import { adaptImdbCsv } from "../sources/imdb/adapter";
+import { processJellyfinImport } from "../sources/jellyfin/processor";
+import { processMediatrackerImport } from "../sources/mediatracker/processor";
 import { processMyanimelistImport } from "../sources/myanimelist/processor";
+import { processPlexImport } from "../sources/plex/processor";
 import { adaptStorygraphCsv } from "../sources/storygraph/adapter";
 import { adaptStrongAppCsv } from "../sources/strong-app/adapter";
 import { processTraktImport } from "../sources/trakt/processor";
@@ -26,7 +30,7 @@ export type SourceProcessorInput = ImportRunJobData & {
 	token?: string;
 };
 
-type FileSourceProcessorInput = SourceProcessorInput & { filePath: string };
+type FileSourceProcessorInput = SourceProcessorInput & { filePath?: string };
 type BookCsvAdapter = (
 	csvText: string,
 ) => Promise<MediaImportAdapterResult> | MediaImportAdapterResult;
@@ -70,6 +74,13 @@ const sourcePayloadInput = (input: SourceProcessorInput) => {
 	return username ? { username } : undefined;
 };
 
+const requireFilePath = (input: FileSourceProcessorInput): string => {
+	if (!input.filePath) {
+		throw new Error("Import job is missing file path");
+	}
+	return input.filePath;
+};
+
 const mediaTextFileProcessor = (
 	sourceName: string,
 	adapt: (fileText: string) => Promise<MediaImportAdapterResult> | MediaImportAdapterResult,
@@ -80,7 +91,6 @@ const mediaTextFileProcessor = (
 			...mediaProcessorInput(input),
 			sourceName,
 			filePath: input.filePath,
-			jobData: { filePath: input.filePath },
 			loadAdapterResult: (fileText) => adapt(fileText),
 		}),
 });
@@ -110,7 +120,7 @@ const workoutCsvProcessor = (
 			sourceName,
 			runId: input.runId,
 			userId: input.userId,
-			filePath: input.filePath,
+			filePath: requireFilePath(input),
 		}),
 });
 
@@ -141,13 +151,45 @@ const importSourceProcessors: Partial<Record<ImportRunSource, ImportSourceProces
 				sourcePayload: sourcePayloadInput(input),
 			}),
 	},
+	plex: {
+		inputKind: "source_payload",
+		process: (input) =>
+			processPlexImport(input.job, input.token, {
+				...mediaProcessorInput(input),
+				sourcePayload: sourcePayloadInput(input),
+			}),
+	},
+	jellyfin: {
+		inputKind: "source_payload",
+		process: (input) =>
+			processJellyfinImport(input.job, input.token, {
+				...mediaProcessorInput(input),
+				sourcePayload: sourcePayloadInput(input),
+			}),
+	},
+	mediatracker: {
+		inputKind: "source_payload",
+		process: (input) =>
+			processMediatrackerImport(input.job, input.token, {
+				...mediaProcessorInput(input),
+				sourcePayload: sourcePayloadInput(input),
+			}),
+	},
+	audiobookshelf: {
+		inputKind: "source_payload",
+		process: (input) =>
+			processAudiobookshelfImport(input.job, input.token, {
+				...mediaProcessorInput(input),
+				sourcePayload: sourcePayloadInput(input),
+			}),
+	},
 	open_scale: {
 		inputKind: "file",
 		process: (input) =>
 			processOpenScaleImport({
 				runId: input.runId,
 				userId: input.userId,
-				filePath: input.filePath,
+				filePath: requireFilePath(input),
 			}),
 	},
 	igdb: {
@@ -157,7 +199,6 @@ const importSourceProcessors: Partial<Record<ImportRunSource, ImportSourceProces
 				...mediaProcessorInput(input),
 				sourceName: "IGDB",
 				filePath: input.filePath,
-				jobData: { filePath: input.filePath, sourcePayload: input.sourcePayload },
 				loadAdapterResult: (fileText) => {
 					const collection = input.sourcePayload?.collection;
 					if (typeof collection !== "string" || collection.trim().length === 0) {

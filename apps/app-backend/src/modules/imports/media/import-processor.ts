@@ -3,6 +3,7 @@ import type { Job } from "bullmq";
 import { importEntityRefKey, type ImportMediaEntityGroup, type ImportRunJobData } from "../jobs";
 import { createImportRunFailure, updateImportRun } from "../repository";
 import { failImportRun, recordImportRunFailure, sanitizeErrorMessage } from "../runtime/failures";
+import type { ImportRunFailureStage } from "../schemas";
 import { populateMediaEntityRefs } from "./populate";
 import { resolveMediaEntityRefs } from "./resolve";
 import { writeMediaEntityGroups } from "./write";
@@ -12,6 +13,7 @@ export type MediaImportAdapterFailure = {
 	itemIndex: number;
 	sourceLabel?: string;
 	sourceIdentifier?: string;
+	stage?: ImportRunFailureStage;
 	context?: Record<string, unknown>;
 };
 
@@ -103,10 +105,10 @@ export const processMediaImport = async (
 						runId,
 						message: failure.message,
 						itemIndex: failure.itemIndex,
-						stage: "input_transformation",
 						context: failure.context ?? null,
 						sourceLabel: failure.sourceLabel,
 						sourceIdentifier: failure.sourceIdentifier,
+						stage: failure.stage ?? "input_transformation",
 					},
 					deps.createImportRunFailure,
 				);
@@ -125,7 +127,6 @@ export const processMediaImport = async (
 
 			importStep = "resolving_entities";
 			await job.updateData({
-				...input.jobData,
 				runId,
 				userId,
 				mediaEntityGroups,
@@ -159,7 +160,6 @@ export const processMediaImport = async (
 				runId,
 				userId,
 				adapterFailureCount,
-				jobData: input.jobData,
 				entityGroups: mediaEntityGroups,
 				failedIndices: resolveFailedIndices,
 				currentSandboxJobId: input.resolveSandboxJobId,
@@ -178,7 +178,6 @@ export const processMediaImport = async (
 			providerEntityRefs = mediaEntityGroups.map((group) => group.entityRef);
 
 			await job.updateData({
-				...input.jobData,
 				runId,
 				userId,
 				importStep,
@@ -202,7 +201,6 @@ export const processMediaImport = async (
 				userId,
 				mediaEntityGroups,
 				adapterFailureCount,
-				jobData: input.jobData,
 				entityIds: providerEntityIds,
 				entityRefs: providerEntityRefs,
 				failedIndices: providerFailedIndices,
@@ -220,7 +218,6 @@ export const processMediaImport = async (
 			providerFailedIndices = result.failedIndices;
 
 			await job.updateData({
-				...input.jobData,
 				runId,
 				userId,
 				importStep,
@@ -280,7 +277,6 @@ export const processMediaImport = async (
 					failedItems: adapterFailureCount + providerFailedIndices.length + state.failedItems,
 				});
 				await job.updateData({
-					...input.jobData,
 					runId,
 					userId,
 					mediaEntityGroups,

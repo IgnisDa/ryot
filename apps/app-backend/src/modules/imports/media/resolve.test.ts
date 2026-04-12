@@ -39,7 +39,7 @@ const resolvedGroup = (externalId: string): ImportMediaEntityGroup => ({
 const createResolveDeps = (overrides: Partial<ResolveDeps> = {}): ResolveDeps => ({
 	createImportRunFailure: () => Promise.resolve(),
 	resolveGlobalEntityExternalId: () => Promise.resolve({ externalId: null }),
-	getResolutionCandidates: () => ["book.openlibrary", "book.hardcover", "book.google-book"],
+	getResolutionCandidates: () => ["book.openlibrary", "book.google-book", "book.hardcover"],
 	getBuiltinSandboxScriptBySlug: (slug: string) => Promise.resolve({ id: slug }),
 	...overrides,
 });
@@ -69,21 +69,21 @@ describe("resolveMediaEntityRefs", () => {
 			createResolveDeps({
 				resolveGlobalEntityExternalId: (_job, _token, input) => {
 					attempted.push(input.scriptId);
-					return input.scriptId === "book.hardcover"
+					return input.scriptId === "book.google-book"
 						? Promise.resolve({ externalId: "hc1" })
 						: Promise.resolve({ externalId: null });
 				},
 			}),
 		);
 
-		expect(attempted).toEqual(["book.openlibrary", "book.hardcover"]);
+		expect(attempted).toEqual(["book.openlibrary", "book.google-book"]);
 		expect(result.failedIndices).toEqual([]);
 		expect(result.entityGroups[0]?.entityRef).toEqual({
 			kind: "resolved",
 			externalId: "hc1",
 			sourceLabel: "Book One",
 			entitySchemaSlug: "book",
-			scriptSlug: "book.hardcover",
+			scriptSlug: "book.google-book",
 		});
 	});
 
@@ -102,8 +102,23 @@ describe("resolveMediaEntityRefs", () => {
 		expect(result.entityGroups[0]?.entityRef).toMatchObject({
 			kind: "resolved",
 			externalId: "hc2",
-			scriptSlug: "book.hardcover",
+			scriptSlug: "book.google-book",
 		});
+	});
+
+	it("tries ISBN providers in configured fallback order", async () => {
+		const attempted: string[] = [];
+		await runResolve(
+			[unresolvedGroup("Book One", "9780140328721")],
+			createResolveDeps({
+				resolveGlobalEntityExternalId: (_job, _token, input) => {
+					attempted.push(input.scriptId);
+					return Promise.resolve({ externalId: null });
+				},
+			}),
+		);
+
+		expect(attempted).toEqual(["book.openlibrary", "book.google-book", "book.hardcover"]);
 	});
 
 	it("records a provider_resolution failure when nothing resolves", async () => {

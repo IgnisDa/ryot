@@ -4,7 +4,7 @@
 
 **Type:** AFK
 
-**Status:** todo
+**Status:** done
 
 ## What to build
 
@@ -14,17 +14,17 @@ Use existing HTTP/client safety patterns where available. User-provided URLs are
 
 ## Acceptance criteria
 
-- [ ] Source input schemas are added for `plex`, `jellyfin`, `trakt`, `mediatracker`, and `audiobookshelf`.
-- [ ] Input summaries persist safe host/source metadata only and never store API keys, passwords, raw URLs with secret paths, or temp paths.
-- [ ] Authentication or source fetch failures that prevent continuing fail the whole run with `errorSummary`.
-- [ ] Per-item API/lookup failures become item-level failures when the source can continue.
-- [ ] Source adapters may use modest bounded internal concurrency for external API calls.
-- [ ] API adapters emit normalized media entity groups and failures without DB writes.
-- [ ] Plex/Jellyfin/Mediatracker watched episodes map to episodic `progress(100)` coverage where season/episode data exists.
-- [ ] Trakt history/list/watchlist/rating data maps to V2 lifecycle events, review events, and collections according to parent PRD semantics.
-- [ ] Audiobookshelf audiobook/podcast imports preserve provider-backed media, podcast episode coverage where available, reviews, and collections.
-- [ ] Tests use mocked/fake source responses and do not require real external services.
-- [ ] Tests verify secret redaction from summaries and failure context.
+- [x] Source input schemas are added for `plex`, `jellyfin`, `trakt`, `mediatracker`, and `audiobookshelf`.
+- [x] Input summaries persist safe host/source metadata only and never store API keys, passwords, raw URLs with secret paths, or temp paths.
+- [x] Authentication or source fetch failures that prevent continuing fail the whole run with `errorSummary`.
+- [x] Per-item API/lookup failures become item-level failures when the source can continue.
+- [x] Source adapters may use modest bounded internal concurrency for external API calls.
+- [x] API adapters emit normalized media entity groups and failures without DB writes.
+- [x] Plex/Jellyfin/Mediatracker watched episodes map to episodic `progress(100)` coverage where season/episode data exists.
+- [x] Trakt history/list/watchlist/rating data maps to V2 lifecycle events, review events, and collections according to parent PRD semantics.
+- [x] Audiobookshelf audiobook/podcast imports preserve provider-backed media, podcast episode coverage where available, reviews, and collections.
+- [x] Tests use mocked/fake source responses and do not require real external services.
+- [x] Tests verify secret redaction from summaries and failure context.
 
 ## User stories addressed
 

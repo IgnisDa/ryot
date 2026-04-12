@@ -17,6 +17,7 @@ const sandboxSessionKeyPrefix = "sandbox:session:";
 const godModeResetChannelPrefix = "god-mode:reset:";
 const godModePendingResetKeyPrefix = "god-mode:pending:";
 const importUploadTokenKeyPrefix = "import:upload:token:";
+const importSourcePayloadKeyPrefix = "import:source-payload:";
 
 const safeDecode = <T>(decode: () => T): RedisDecodeResult<T> => {
 	try {
@@ -76,13 +77,19 @@ const importUploadTokenRedisValueSchema = z
 	.object({ userId: nonEmptyStringSchema, resolvedPath: nonEmptyStringSchema })
 	.strict();
 
+const importSourcePayloadRedisValueSchema = z.record(z.string(), z.unknown());
+
 export type SandboxCacheRedisValue = JsonValue;
 export type GodModeResetChannelValue = z.infer<typeof godModeResetChannelValueSchema>;
 export type SandboxSessionRedisValue = z.infer<typeof sandboxSessionRedisValueSchema>;
 export type ImportUploadTokenRedisValue = z.infer<typeof importUploadTokenRedisValueSchema>;
+export type ImportSourcePayloadRedisValue = z.infer<typeof importSourcePayloadRedisValueSchema>;
 
 export const redisKeys = {
-	imports: { uploadToken: (token: string) => `${importUploadTokenKeyPrefix}${token}` },
+	imports: {
+		uploadToken: (token: string) => `${importUploadTokenKeyPrefix}${token}`,
+		sourcePayload: (runId: string) => `${importSourcePayloadKeyPrefix}${runId}`,
+	},
 	godMode: {
 		pendingReset: (email: string) => `${godModePendingResetKeyPrefix}${email}`,
 		resetChannel: (correlationId: string) => `${godModeResetChannelPrefix}${correlationId}`,
@@ -95,13 +102,16 @@ export const redisKeys = {
 } as const;
 
 export const redisValues = {
-	imports: { uploadToken: createJsonCodec(importUploadTokenRedisValueSchema) },
+	sandbox: {
+		cache: createRoundTripJsonCodec(jsonValueSchema),
+		session: createJsonCodec(sandboxSessionRedisValueSchema),
+	},
 	godMode: {
 		pendingReset: createStringCodec(nonEmptyStringSchema),
 		resetChannel: createJsonCodec(godModeResetChannelValueSchema),
 	},
-	sandbox: {
-		cache: createRoundTripJsonCodec(jsonValueSchema),
-		session: createJsonCodec(sandboxSessionRedisValueSchema),
+	imports: {
+		uploadToken: createJsonCodec(importUploadTokenRedisValueSchema),
+		sourcePayload: createJsonCodec(importSourcePayloadRedisValueSchema),
 	},
 } as const;
