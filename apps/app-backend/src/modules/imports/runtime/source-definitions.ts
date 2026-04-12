@@ -3,7 +3,7 @@ import { appConfig, config } from "~/lib/config";
 import { fileImportRunSources, type CreateImportRunBody } from "../schemas";
 import { getSourceApiHost, normalizeSourceApiUrl } from "./source-api";
 
-export type ImportSourceFileDefinition = {
+type ImportSourceFileDefinition = {
 	bodyField: string;
 	required?: boolean;
 	payloadKey?: string;

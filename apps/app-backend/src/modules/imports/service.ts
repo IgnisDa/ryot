@@ -36,7 +36,7 @@ import type {
 
 type ImportServiceError = "not_found" | "validation";
 
-export type ImportServiceResult<T> = ServiceResult<T, ImportServiceError>;
+type ImportServiceResult<T> = ServiceResult<T, ImportServiceError>;
 
 export const isTerminalStatus = (status: ImportRunStatus): boolean =>
 	status === "completed" || status === "failed";

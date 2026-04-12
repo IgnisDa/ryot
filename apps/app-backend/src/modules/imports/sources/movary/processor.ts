@@ -1,18 +1,11 @@
 import type { Job } from "bullmq";
 
-import { getTemporaryDirectory } from "~/lib/bun";
-
 import {
 	processMediaImport,
 	type MediaImportAdapterResult,
 	type MediaImportJobInput,
 } from "../../media/import-processor";
-import {
-	cleanupImportFile,
-	readImportFile,
-	resolveSafeImportFilePath,
-	validateFileExtension,
-} from "../../runtime/files";
+import { cleanupImportFile, getValidatedOptionalPath, readImportFile } from "../../runtime/files";
 import { adaptMovaryExports } from "./adapter";
 
 const MOVARY_EXTENSIONS = ["csv"];
@@ -31,25 +24,6 @@ const movaryImportProcessorDeps: MovaryImportProcessorDeps = {
 	adaptMovaryExports,
 };
 
-const getValidatedOptionalPath = (value: unknown): string | undefined => {
-	if (typeof value !== "string" || value.trim().length === 0) {
-		return undefined;
-	}
-
-	const tempDir = getTemporaryDirectory();
-	const safePathResult = resolveSafeImportFilePath(value, tempDir);
-	if ("error" in safePathResult) {
-		throw new Error(safePathResult.error);
-	}
-
-	const extResult = validateFileExtension(safePathResult.path, MOVARY_EXTENSIONS);
-	if ("error" in extResult) {
-		throw new Error(extResult.error);
-	}
-
-	return safePathResult.path;
-};
-
 export const processMovaryImport = async (
 	job: Job,
 	token: string | undefined,
@@ -57,9 +31,16 @@ export const processMovaryImport = async (
 	deps: MovaryImportProcessorDeps = movaryImportProcessorDeps,
 ): Promise<void> => {
 	const historyFilePath =
-		getValidatedOptionalPath(input.sourcePayload?.historyFilePath) ?? input.filePath;
-	const ratingsFilePath = getValidatedOptionalPath(input.sourcePayload?.ratingsFilePath);
-	const watchlistFilePath = getValidatedOptionalPath(input.sourcePayload?.watchlistFilePath);
+		getValidatedOptionalPath(input.sourcePayload?.historyFilePath, MOVARY_EXTENSIONS) ??
+		input.filePath;
+	const ratingsFilePath = getValidatedOptionalPath(
+		input.sourcePayload?.ratingsFilePath,
+		MOVARY_EXTENSIONS,
+	);
+	const watchlistFilePath = getValidatedOptionalPath(
+		input.sourcePayload?.watchlistFilePath,
+		MOVARY_EXTENSIONS,
+	);
 	const cleanupPaths = [historyFilePath, ratingsFilePath, watchlistFilePath].filter(
 		(filePath): filePath is string => Boolean(filePath),
 	);

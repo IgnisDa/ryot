@@ -1,4 +1,3 @@
-import { dayjs } from "@ryot/ts-utils/dayjs";
 import { z } from "zod";
 
 import { createCompleteEvent, finalizeEntityGroups } from "../../media/book/shared";
@@ -8,11 +7,15 @@ import type {
 	MediaImportAdapterFailure,
 } from "../../media/import-processor";
 import {
-	createImportSourceFailure,
 	mapWithConcurrency,
 	requestSourceJson,
 	type SourceJsonRequestInput,
 } from "../../runtime/source-api";
+import {
+	createSourceFetchFailure,
+	isNotNullAdapterFailure,
+	parseDateInput,
+} from "../shared/adapter-utils";
 import { buildMovieOrShowImportRef } from "../shared/provider-refs";
 
 const PLEX_CONCURRENCY = 5;
@@ -60,18 +63,6 @@ const plexImportAdapterDeps: PlexImportAdapterDeps = {
 	requestJson: requestSourceJson,
 };
 
-const normalizeOccurredAt = (value: number | string | undefined): string | null => {
-	if (typeof value === "number") {
-		const parsed = dayjs.unix(value);
-		return parsed.isValid() ? parsed.toISOString() : null;
-	}
-	if (typeof value === "string") {
-		const parsed = dayjs(value);
-		return parsed.isValid() ? parsed.toISOString() : null;
-	}
-	return null;
-};
-
 const getGuidProviderIds = (guids: Array<{ id: string }> | undefined) => {
 	const getProviderId = (prefix: string) => {
 		const match = guids?.find((guid) => guid.id.startsWith(`${prefix}://`));
@@ -89,28 +80,6 @@ const createPlexHeaders = (apiKey: string): Record<string, string> => ({
 	"X-Plex-Token": apiKey,
 	Accept: "application/json",
 });
-
-const createPlexItemFailure = (input: {
-	host: string;
-	error: unknown;
-	message: string;
-	itemIndex: number;
-	sourceLabel?: string;
-	sourceIdentifier?: string;
-}): MediaImportAdapterFailure =>
-	createImportSourceFailure({
-		host: input.host,
-		error: input.error,
-		stage: "source_fetch",
-		message: input.message,
-		itemIndex: input.itemIndex,
-		sourceLabel: input.sourceLabel,
-		sourceIdentifier: input.sourceIdentifier,
-	});
-
-const isAdapterFailure = (
-	value: MediaImportAdapterFailure | null,
-): value is MediaImportAdapterFailure => value !== null;
 
 export const adaptPlexData = async (
 	input: PlexAdapterInput,
@@ -155,7 +124,7 @@ export const adaptPlexData = async (
 			PLEX_CONCURRENCY,
 			async (rawItem, offset) => {
 				const itemIndex = nextItemIndex + offset;
-				const occurredAt = normalizeOccurredAt(rawItem.lastViewedAt);
+				const occurredAt = parseDateInput(rawItem.lastViewedAt, { unixSeconds: true });
 				if (!occurredAt) {
 					return null;
 				}
@@ -204,7 +173,7 @@ export const adaptPlexData = async (
 						}),
 					);
 				} catch (error) {
-					return createPlexItemFailure({
+					return createSourceFetchFailure({
 						host,
 						error,
 						itemIndex,
@@ -217,7 +186,7 @@ export const adaptPlexData = async (
 				const group = getOrCreateMediaEntityGroup(groupMap, ref, itemIndex);
 				let importedEpisodeCount = 0;
 				for (const leaf of leavesResponse.MediaContainer.Metadata ?? []) {
-					const leafOccurredAt = normalizeOccurredAt(leaf.lastViewedAt);
+					const leafOccurredAt = parseDateInput(leaf.lastViewedAt, { unixSeconds: true });
 					if (!leafOccurredAt || leaf.parentIndex == null || leaf.index == null) {
 						continue;
 					}
@@ -241,7 +210,7 @@ export const adaptPlexData = async (
 			},
 		);
 
-		failures.push(...sectionFailures.filter(isAdapterFailure));
+		failures.push(...sectionFailures.filter(isNotNullAdapterFailure));
 		nextItemIndex += sectionItems.length;
 	}
 	// oxlint-enable no-await-in-loop

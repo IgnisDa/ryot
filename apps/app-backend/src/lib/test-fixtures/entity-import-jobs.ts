@@ -1,7 +1,8 @@
 import type { Job } from "bullmq";
 
 import { createListedEntity } from "~/lib/test-fixtures/entities";
-import type { processEntityImportJob, processRelatedEntities } from "~/modules/entities/worker";
+import type { processRelatedEntities } from "~/modules/entities/population";
+import type { processEntityImportJob } from "~/modules/entities/worker";
 
 export const createJob = (data: unknown): Job =>
 	// oxlint-disable-next-line no-unsafe-type-assertion
