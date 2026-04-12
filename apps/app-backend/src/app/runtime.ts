@@ -39,7 +39,11 @@ export const startServer = async () => {
 	await initializeQueues();
 	await initializeSandboxService();
 	initializeWorkers();
-	await dispatchBuiltinEntityPreloadJobs();
+	if (process.env.NODE_ENV === "test") {
+		console.info("Skipping builtin entity preload jobs in test mode");
+	} else {
+		await dispatchBuiltinEntityPreloadJobs();
+	}
 
 	const app = getServer();
 	const server = serve({ port: config.port, fetch: app.fetch }, (c) => {
