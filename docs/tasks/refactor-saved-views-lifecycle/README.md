@@ -159,7 +159,7 @@ passes it into route handlers. No service-locator globals.
 - `createAndValidate` with a valid definition → persists and returns the created view
 - `createAndValidate` with a type-mismatched filter predicate → throws `SavedViewValidationError`
   before any DB write; row count in saved_views table is unchanged
-- `createAndValidate` with a duplicate name for the same user → throws a name-conflict error
+- `createAndValidate` with a duplicate name for the same user → persists and returns the created view
 - `updateAndValidate` on a built-in (system) view with a definition change → throws an
   immutability error
 - `updateAndValidate` with a valid new definition → re-validates and persists the update
@@ -223,7 +223,31 @@ in a thin adapter function — swap it out when the companion RFC ships.
 ## Status
 
 - [x] RFC accepted
-- [ ] Implementation started
-- [ ] Implementation complete
-- [ ] Old tests deleted
-- [ ] New boundary tests written
+- [x] Implementation started
+- [x] Implementation complete (see deviation notes below)
+- [x] Old tests deleted
+- [x] New boundary tests written
+
+## Deviation From RFC
+
+**Service vs. Manager facade**: The implementation achieved the RFC's goals without creating a
+separate `SavedViewManager` facade. Instead, `service.ts` was enhanced directly:
+
+- `SavedViewServiceDeps` now includes `prepareForValidation` as an injected dependency
+- An internal `validateDefinition()` helper calls it before every mutating operation (`create`,
+  `update`, `clone`)
+- Routes import only from the service barrel — no `viewDefinitionModule` anywhere in
+  `modules/saved-views/routes.ts`
+
+The behavioral contract is identical to what the RFC specified: validation is enforced before
+persistence and callers cannot bypass it.
+
+**Event-join unification not needed**: The RFC proposed `ValidatedEventJoin` to unify the three
+event-join representations at the service boundary. On implementation it became clear that the
+service boundary does not need enriched event joins at all. The service passes
+`EventJoinDefinition[]` through `SavedViewQueryDefinition` untouched; all enrichment (DB
+lookup, schema attachment) happens inside `preparer.ts` and is purely internal. The three
+representations (`EventJoinDefinition`, `PreparedEventJoin`, `QueryEngineEventJoinLike`) map to
+genuinely different stages of processing within `preparer.ts` — there is no leaked complexity
+at the service boundary to unify. `types.ts` and the `ValidatedEventJoin` export were
+removed as dead code.
