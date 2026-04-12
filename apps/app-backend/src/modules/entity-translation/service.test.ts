@@ -2,8 +2,9 @@ import { expect, it } from "@effect/vitest";
 import { WorkflowEngine } from "@effect/workflow/WorkflowEngine";
 import { NotFound } from "@ryot/contract/errors";
 import { EntityId, SandboxProviderId } from "@ryot/contract/schema/brands";
-import { Effect, Exit, Layer } from "effect";
+import { Effect, Layer } from "effect";
 
+import { assertExitFails } from "#lib/test-utils/assertions";
 import type { MockOverrides } from "#lib/test-utils/effect";
 import { dbRunnerLayer, makeWorkflowEngine } from "#lib/test-utils/effect";
 
@@ -124,7 +125,7 @@ it.effect("fails when update finds no existing overlay", () => {
 	return Effect.gen(function* () {
 		const service = yield* TranslationsService;
 		const exit = yield* Effect.exit(service.update(input));
-		expect(exit).toEqual(Exit.fail(new NotFound({ message: "Translation overlay not found" })));
+		assertExitFails(exit, new NotFound({ message: "Translation overlay not found" }));
 	}).pipe(Effect.provide(layer));
 });
 

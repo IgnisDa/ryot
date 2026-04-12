@@ -8,8 +8,9 @@ import {
 	SandboxProviderId,
 	UserId,
 } from "@ryot/contract/schema/brands";
-import { Effect, Exit, Layer } from "effect";
+import { Effect, Layer } from "effect";
 
+import { assertExitFails } from "#lib/test-utils/assertions";
 import { type MockOverrides, dbRunnerLayer, transactionLayer } from "#lib/test-utils/effect";
 import { QueryEngineService } from "#modules/query-engine/service";
 
@@ -180,7 +181,7 @@ it.effect("returns not found when entity schema is not visible", () => {
 			}),
 		);
 
-		expect(exit).toEqual(Exit.fail(new NotFound({ message: "Entity schema not found" })));
+		assertExitFails(exit, new NotFound({ message: "Entity schema not found" }));
 	}).pipe(Effect.provide(layer));
 });
 

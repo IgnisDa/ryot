@@ -4,12 +4,13 @@ import { BadRequest, DbError } from "@ryot/contract/errors";
 import { UserId } from "@ryot/contract/schema/brands";
 import type { ilike } from "drizzle-orm";
 import { PgDialect } from "drizzle-orm/pg-core";
-import { Effect, Exit, Layer } from "effect";
+import { Effect, Layer } from "effect";
 import { assert, describe, it as vitestIt } from "vitest";
 
 import * as schema from "#lib/infrastructure/db/schema/tables/auth";
 import { CurrentDb, DbRunner, DbService, TransactionRunner } from "#lib/infrastructure/db/service";
 import { RedisService } from "#lib/infrastructure/redis";
+import { assertExitFails } from "#lib/test-utils/assertions";
 import { makeAppConfigLayer, makeRedisService } from "#lib/test-utils/effect";
 import { AuthService } from "#modules/auth/service";
 import { NotificationSubscriptionsService } from "#modules/automations/notification-subscriptions-service";
@@ -424,8 +425,9 @@ it.effect("blocks password reset when local auth is disabled", () => {
 	return Effect.gen(function* () {
 		const service = yield* GodModeService;
 		const exit = yield* Effect.exit(service.resetUserPassword(UserId.make("user_1")));
-		expect(exit).toEqual(
-			Exit.fail(new BadRequest({ message: "Local authentication is disabled on this instance" })),
+		assertExitFails(
+			exit,
+			new BadRequest({ message: "Local authentication is disabled on this instance" }),
 		);
 	}).pipe(Effect.provide(makeServiceLayer(db, true)));
 });
@@ -510,7 +512,7 @@ it.effect("returns a db error when listing users fails", () => {
 	return Effect.gen(function* () {
 		const service = yield* GodModeService;
 		const exit = yield* Effect.exit(service.listUsers({ limit: 50, offset: 0 }));
-		expect(exit).toEqual(Exit.fail(new DbError({ message: "db down" })));
+		assertExitFails(exit, new DbError({ message: "db down" }));
 	}).pipe(Effect.provide(makeServiceLayer(db)));
 });
 
@@ -637,9 +639,7 @@ it.effect("returns a bad request when the user is not found while setting disabl
 	return Effect.gen(function* () {
 		const service = yield* GodModeService;
 		const exit = yield* Effect.exit(service.setUserDisabled(UserId.make("missing"), true));
-		expect(exit).toEqual(
-			Exit.fail(new BadRequest({ message: "User with id 'missing' not found" })),
-		);
+		assertExitFails(exit, new BadRequest({ message: "User with id 'missing' not found" }));
 	}).pipe(Effect.provide(makeServiceLayer(db)));
 });
 
@@ -653,7 +653,7 @@ it.effect("returns a db error when persisting disabled state fails", () => {
 	return Effect.gen(function* () {
 		const service = yield* GodModeService;
 		const exit = yield* Effect.exit(service.setUserDisabled(UserId.make("user_1"), true));
-		expect(exit).toEqual(Exit.fail(new DbError({ message: "db down" })));
+		assertExitFails(exit, new DbError({ message: "db down" }));
 	}).pipe(Effect.provide(makeServiceLayer(db, false, authState)));
 });
 
@@ -789,10 +789,9 @@ vitestIt("returns a bad request when provisioning a user that already exists", (
 				}),
 			);
 
-			expect(exit).toEqual(
-				Exit.fail(
-					new BadRequest({ message: "User with email 'exists@example.com' already exists" }),
-				),
+			assertExitFails(
+				exit,
+				new BadRequest({ message: "User with email 'exists@example.com' already exists" }),
 			);
 		}).pipe(Effect.provide(makeProvisionLayer(db, auth))),
 	);
@@ -812,7 +811,7 @@ vitestIt("returns a db error when user creation fails during provisioning", () =
 				}),
 			);
 
-			expect(exit).toEqual(Exit.fail(new DbError({ message: "db down" })));
+			assertExitFails(exit, new DbError({ message: "db down" }));
 		}).pipe(Effect.provide(makeProvisionLayer(db, auth))),
 	);
 });
@@ -832,7 +831,7 @@ vitestIt("returns a db error when oidc account creation fails during provisionin
 				}),
 			);
 
-			expect(exit).toEqual(Exit.fail(new DbError({ message: "db down" })));
+			assertExitFails(exit, new DbError({ message: "db down" }));
 		}).pipe(Effect.provide(makeProvisionLayer(db, auth))),
 	);
 });
