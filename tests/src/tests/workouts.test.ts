@@ -9,6 +9,7 @@ import {
 	buildGridRequest,
 	createAuthenticatedClient,
 	createWorkoutEntityFixture,
+	entityField,
 	executeQueryEngine,
 	findBuiltinRelationshipSchemaId,
 	findBuiltinSchemaBySlug,
@@ -124,10 +125,10 @@ describe("Workouts E2E", () => {
 				pagination: { page: 1, limit: 10 },
 				displayConfiguration: {
 					calloutProperty: null,
-					titleProperty: ["entity.workout.name"],
-					imageProperty: ["entity.workout.image"],
-					primarySubtitleProperty: ["entity.workout.properties.startedAt"],
-					secondarySubtitleProperty: ["entity.workout.properties.endedAt"],
+					titleProperty: [entityField("workout", "name")],
+					imageProperty: [entityField("workout", "image")],
+					primarySubtitleProperty: [entityField("workout", "startedAt")],
+					secondarySubtitleProperty: [entityField("workout", "endedAt")],
 				},
 			}),
 		);

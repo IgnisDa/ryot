@@ -3,11 +3,9 @@ import { describe, expect, it } from "bun:test";
 import {
 	createAuthenticatedClient,
 	createCollection,
+	createGlobalBookEntityFixture,
 	createTrackerWithSchemaAndEntity,
-	findBuiltinSchemaWithProviders,
-	getFirstProviderScriptId,
 	queryInLibraryRelationship,
-	seedMediaEntity,
 } from "../fixtures";
 
 describe("POST /collections", () => {
@@ -369,18 +367,7 @@ describe("POST /collections", () => {
 
 		it("adds a global entity to a collection and upserts in_library", async () => {
 			const { client, cookies, email } = await createAuthenticatedClient();
-			const { schema } = await findBuiltinSchemaWithProviders(client, cookies);
-			const providerScriptId = getFirstProviderScriptId(schema);
-
-			const entity = await seedMediaEntity({
-				image: null,
-				userId: null,
-				properties: {},
-				entitySchemaId: schema.id,
-				sandboxScriptId: providerScriptId,
-				externalId: `global-entity-${crypto.randomUUID()}`,
-				name: `Global Built-in Entity ${crypto.randomUUID()}`,
-			});
+			const { entity } = await createGlobalBookEntityFixture(client, cookies);
 
 			const collection = await createCollection(client, cookies, {
 				name: "Global Entity Collection",

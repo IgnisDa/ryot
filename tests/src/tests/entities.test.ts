@@ -4,6 +4,7 @@ import {
 	createAuthenticatedClient,
 	createEntity,
 	createEntitySchema,
+	createGlobalBookEntityFixture,
 	createTracker,
 	createTrackerWithSchema,
 	findBuiltinSchemaBySlug,
@@ -11,7 +12,6 @@ import {
 	getEntitySchema,
 	getFirstProviderScriptId,
 	insertLibraryMembership,
-	seedMediaEntity,
 } from "../fixtures";
 
 async function createSchemaWithEnumFields(
@@ -198,18 +198,7 @@ describe("POST /entities", () => {
 describe("GET /entities/:id — global entity read access", () => {
 	it("returns 200 for the importing user and for a second user who never imported", async () => {
 		const { userId, client: clientA, cookies: cookiesA } = await createAuthenticatedClient();
-		const { schema } = await findBuiltinSchemaWithProviders(clientA, cookiesA);
-		const providerScriptId = getFirstProviderScriptId(schema);
-
-		const entity = await seedMediaEntity({
-			image: null,
-			userId: null,
-			properties: {},
-			entitySchemaId: schema.id,
-			sandboxScriptId: providerScriptId,
-			externalId: `global-book-${crypto.randomUUID()}`,
-			name: `Global Built-in Book ${crypto.randomUUID()}`,
-		});
+		const { entity } = await createGlobalBookEntityFixture(clientA, cookiesA);
 
 		await insertLibraryMembership({ userId, mediaEntityId: entity.id });
 

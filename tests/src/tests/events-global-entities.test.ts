@@ -2,30 +2,17 @@ import { describe, expect, it } from "bun:test";
 
 import {
 	createAuthenticatedClient,
-	findBuiltinSchemaWithProviders,
-	getFirstProviderScriptId,
+	createGlobalBookEntityFixture,
 	listEventSchemas,
 	queryInLibraryRelationship,
 	requireEventSchemaBySlug,
-	seedMediaEntity,
 	waitForEventCount,
 } from "../fixtures";
 
 describe("POST /events with global entities", () => {
 	it("creates the event and upserts in_library for the user", async () => {
 		const { client, cookies, email } = await createAuthenticatedClient();
-		const { schema } = await findBuiltinSchemaWithProviders(client, cookies);
-		const providerScriptId = getFirstProviderScriptId(schema);
-
-		const entity = await seedMediaEntity({
-			image: null,
-			userId: null,
-			properties: {},
-			entitySchemaId: schema.id,
-			sandboxScriptId: providerScriptId,
-			externalId: `global-book-${crypto.randomUUID()}`,
-			name: `Global Built-in Book ${crypto.randomUUID()}`,
-		});
+		const { entity, schema } = await createGlobalBookEntityFixture(client, cookies);
 
 		const eventSchemas = await listEventSchemas(client, cookies, schema.id);
 		const backlogEventSchema = requireEventSchemaBySlug(eventSchemas, "backlog");
