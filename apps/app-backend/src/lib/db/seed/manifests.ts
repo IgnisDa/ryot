@@ -18,12 +18,14 @@ import tmdbShowScriptCode from "~/lib/sandbox/scripts/providers/media/show/tmdb.
 import tvdbShowScriptCode from "~/lib/sandbox/scripts/providers/media/show/tvdb.txt";
 import giantBombVideoGameScriptCode from "~/lib/sandbox/scripts/providers/media/video-game/giant-bomb.txt";
 import igdbVideoGameScriptCode from "~/lib/sandbox/scripts/providers/media/video-game/igdb.txt";
+import vndbVisualNovelScriptCode from "~/lib/sandbox/scripts/providers/media/visual-novel/vndb.txt";
 import anilistPersonScriptCode from "~/lib/sandbox/scripts/providers/person/anilist.txt";
 import audiblePersonScriptCode from "~/lib/sandbox/scripts/providers/person/audible.txt";
 import hardcoverPersonScriptCode from "~/lib/sandbox/scripts/providers/person/hardcover.txt";
 import metronPersonScriptCode from "~/lib/sandbox/scripts/providers/person/metron.txt";
 import musicbrainzPersonScriptCode from "~/lib/sandbox/scripts/providers/person/musicbrainz.txt";
 import spotifyPersonScriptCode from "~/lib/sandbox/scripts/providers/person/spotify.txt";
+import vndbPersonScriptCode from "~/lib/sandbox/scripts/providers/person/vndb.txt";
 
 export const builtinSandboxScripts = () => [
 	{
@@ -117,6 +119,11 @@ export const builtinSandboxScripts = () => [
 		code: igdbVideoGameScriptCode,
 	},
 	{
+		name: "VNDB",
+		slug: "visual-novel.vndb",
+		code: vndbVisualNovelScriptCode,
+	},
+	{
 		name: "MusicBrainz",
 		slug: "music.musicbrainz",
 		code: musicbrainzMusicScriptCode,
@@ -155,6 +162,11 @@ export const builtinSandboxScripts = () => [
 		name: "Spotify",
 		slug: "person.spotify",
 		code: spotifyPersonScriptCode,
+	},
+	{
+		name: "VNDB",
+		slug: "person.vndb",
+		code: vndbPersonScriptCode,
 	},
 ];
 
@@ -233,6 +245,10 @@ export const entitySchemaScriptLinks = () =>
 			scriptSlug: "video-game.igdb",
 		},
 		{
+			schemaSlug: "visual-novel",
+			scriptSlug: "visual-novel.vndb",
+		},
+		{
 			schemaSlug: "music",
 			scriptSlug: "music.musicbrainz",
 		},
@@ -250,4 +266,5 @@ export const personSchemaScriptLinks = () =>
 		{ schemaSlug: "person", scriptSlug: "person.metron" },
 		{ schemaSlug: "person", scriptSlug: "person.musicbrainz" },
 		{ schemaSlug: "person", scriptSlug: "person.spotify" },
+		{ schemaSlug: "person", scriptSlug: "person.vndb" },
 	] as const;
