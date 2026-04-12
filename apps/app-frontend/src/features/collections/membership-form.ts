@@ -132,16 +132,27 @@ export function getMembershipFormReconciliationState(
 }
 
 export const buildMembershipFormSchema = (
-	selectedCollection?: AppCollection,
+	collections: AppCollection[] = [],
 ) => {
-	const schema = selectedCollection?.membershipPropertiesSchema;
-
 	return z
 		.object({
 			collectionId: z.string().trim().min(1, "Collection is required"),
 			properties: z.record(z.string(), z.unknown()),
 		})
 		.superRefine((value, ctx) => {
+			const collection = collections.find(
+				(item) => item.id === value.collectionId.trim(),
+			);
+			if (!collection) {
+				ctx.addIssue({
+					code: "custom",
+					path: ["collectionId"],
+					message: "Collection is invalid",
+				});
+				return;
+			}
+
+			const schema = collection?.membershipPropertiesSchema;
 			if (!schema) {
 				return;
 			}
@@ -158,7 +169,6 @@ export const buildMembershipFormSchema = (
 				});
 			}
 
-			// Validate required string fields are not empty
 			for (const [key, propertyDef] of Object.entries(schema.fields)) {
 				if (
 					isPrimitiveProperty(propertyDef) &&
