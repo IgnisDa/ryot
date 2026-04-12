@@ -18,7 +18,7 @@ export const entitySchemaPropertiesObjectSchema = entitySchemaProperties.schema;
 export const entitySchemaPropertiesInputSchema =
 	entitySchemaProperties.inputSchema;
 
-export const searchProviderSchema = z.object({
+export const providerSchema = z.object({
 	name: z.string(),
 	scriptId: z.string(),
 });
@@ -30,7 +30,7 @@ export const listedEntitySchemaSchema = z.object({
 	trackerId: z.string(),
 	isBuiltin: z.boolean(),
 	propertiesSchema: entitySchemaPropertiesObjectSchema,
-	searchProviders: z.array(searchProviderSchema),
+	providers: z.array(providerSchema),
 	...iconAndAccentColorFields,
 });
 
@@ -58,6 +58,6 @@ export const createEntitySchemaBody = createNameWithOptionalSlugSchema({
 	...iconAndAccentColorFields,
 });
 
-export type SearchProvider = z.infer<typeof searchProviderSchema>;
+export type Provider = z.infer<typeof providerSchema>;
 export type ListedEntitySchema = z.infer<typeof listedEntitySchemaSchema>;
 export type CreateEntitySchemaBody = z.infer<typeof createEntitySchemaBody>;
