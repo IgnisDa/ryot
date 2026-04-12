@@ -43,6 +43,7 @@ export const fileImportRunSources = [
 	"hevy",
 	"igdb",
 	"imdb",
+	"netflix",
 	"movary",
 	"anilist",
 	"grouvee",
@@ -109,6 +110,11 @@ export type StorygraphRunInput = z.infer<typeof storygraphRunInput>;
 export const imdbRunInput = uploadTokenRunInput("imdb");
 export type ImdbRunInput = z.infer<typeof imdbRunInput>;
 
+export const netflixRunInput = uploadTokenRunInput("netflix").extend({
+	profileName: z.string().trim().optional(),
+});
+export type NetflixRunInput = z.infer<typeof netflixRunInput>;
+
 export const grouveeRunInput = uploadTokenRunInput("grouvee");
 export type GrouveeRunInput = z.infer<typeof grouveeRunInput>;
 
@@ -171,6 +177,7 @@ export const createImportRunBody = z.discriminatedUnion("source", [
 	movaryRunInput,
 	anilistRunInput,
 	grouveeRunInput,
+	netflixRunInput,
 	jellyfinRunInput,
 	watcharrRunInput,
 	openScaleRunInput,
