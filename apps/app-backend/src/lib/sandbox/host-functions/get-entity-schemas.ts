@@ -1,5 +1,5 @@
 import { apiFailure, apiSuccess, type HostFunction } from "~/lib/sandbox/types";
-import { listEntitySchemas } from "~/modules/entity-schemas/service";
+import { listEntitySchemas } from "~/modules/entity-schemas";
 
 type GetEntitySchemasContext = {
 	userId: string;
