@@ -6,34 +6,12 @@ import { createTracker } from "./trackers";
 type ExecuteViewRuntimeBody = NonNullable<
 	paths["/view-runtime/execute"]["post"]["requestBody"]
 >["content"]["application/json"];
-
-type RuntimeRef =
-	| { type: "entity-column"; slug: string; column: string }
-	| { type: "schema-property"; slug: string; property: string }
-	| { type: "computed-field"; key: string }
-	| { type: "event-join-column"; joinKey: string; column: string }
-	| { type: "event-join-property"; joinKey: string; property: string };
-
-type ViewExpression =
-	| { type: "literal"; value: unknown | null }
-	| { type: "reference"; reference: RuntimeRef }
-	| { type: "coalesce"; values: ViewExpression[] }
-	| {
-			type: "arithmetic";
-			left: ViewExpression;
-			right: ViewExpression;
-			operator: "add" | "subtract" | "multiply" | "divide";
-	  }
-	| { type: "round"; expression: ViewExpression }
-	| { type: "floor"; expression: ViewExpression }
-	| { type: "integer"; expression: ViewExpression }
-	| { type: "concat"; values: ViewExpression[] }
-	| {
-			type: "conditional";
-			condition: unknown;
-			whenTrue: ViewExpression;
-			whenFalse: ViewExpression;
-	  };
+type ViewExpression = ExecuteViewRuntimeBody["sort"]["expression"];
+type ViewPredicate = NonNullable<ExecuteViewRuntimeBody["filter"]>;
+type RuntimeRef = Extract<ViewExpression, { type: "reference" }>["reference"];
+type ComputedField = NonNullable<
+	ExecuteViewRuntimeBody["computedFields"]
+>[number];
 
 type ExpressionInput = ViewExpression | string[];
 
@@ -41,21 +19,6 @@ type RuntimeField = {
 	key: string;
 	expression: ViewExpression;
 };
-
-type ViewPredicate =
-	| {
-			type: "comparison";
-			left: ViewExpression;
-			right: ViewExpression;
-			operator: "eq" | "neq" | "gt" | "gte" | "lt" | "lte";
-	  }
-	| { type: "in"; expression: ViewExpression; values: ViewExpression[] }
-	| { type: "contains"; expression: ViewExpression; value: ViewExpression }
-	| { type: "isNull"; expression: ViewExpression }
-	| { type: "isNotNull"; expression: ViewExpression }
-	| { type: "and"; predicates: ViewPredicate[] }
-	| { type: "or"; predicates: ViewPredicate[] }
-	| { type: "not"; predicate: ViewPredicate };
 
 type LegacyFilter = {
 	op:
@@ -76,11 +39,6 @@ type LegacyFilter = {
 type LegacySort = {
 	direction: "asc" | "desc";
 	fields: string[];
-};
-
-type ComputedField = {
-	key: string;
-	expression: ViewExpression;
 };
 
 type GridDisplayConfiguration = {

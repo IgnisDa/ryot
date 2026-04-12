@@ -13,13 +13,62 @@ type CreateSavedViewBody = NonNullable<
 	paths["/saved-views"]["post"]["requestBody"]
 >["content"]["application/json"];
 type SavedViewQueryDefinition = CreateSavedViewBody["queryDefinition"];
-type SavedViewQueryInput = Omit<SavedViewQueryDefinition, "eventJoins"> & {
+type SavedViewQueryInput = {
+	entitySchemaSlugs: string[];
 	eventJoins?: SavedViewQueryDefinition["eventJoins"];
+	computedFields?: SavedViewQueryDefinition["computedFields"];
+	filter?: SavedViewQueryDefinition["filter"];
+	filters?: Array<{
+		op:
+			| "eq"
+			| "neq"
+			| "gt"
+			| "gte"
+			| "lt"
+			| "lte"
+			| "in"
+			| "contains"
+			| "isNull"
+			| "isNotNull";
+		field: string;
+		value?: unknown;
+	}>;
+	sort:
+		| SavedViewQueryDefinition["sort"]
+		| { direction: "asc" | "desc"; fields: string[] };
 };
 type SavedViewDisplayConfiguration =
 	CreateSavedViewBody["displayConfiguration"];
-type SavedViewTableColumn =
-	SavedViewDisplayConfiguration["table"]["columns"][number];
+type SavedViewTableColumn = {
+	label: string;
+	expression?: SavedViewDisplayConfiguration["table"]["columns"][number]["expression"];
+	property?: string[];
+};
+type SavedViewExpression = SavedViewQueryDefinition["sort"]["expression"];
+type SavedViewPredicate = NonNullable<SavedViewQueryDefinition["filter"]>;
+type SavedViewRuntimeRef = Extract<
+	SavedViewExpression,
+	{ type: "reference" }
+>["reference"];
+type SavedViewSortInput = Extract<
+	SavedViewQueryInput["sort"],
+	{ fields: string[] }
+>;
+type SavedViewDisplayConfigInput = {
+	grid: {
+		imageProperty: string[] | null;
+		titleProperty: string[] | null;
+		badgeProperty: string[] | null;
+		subtitleProperty: string[] | null;
+	};
+	list: {
+		imageProperty: string[] | null;
+		titleProperty: string[] | null;
+		badgeProperty: string[] | null;
+		subtitleProperty: string[] | null;
+	};
+	table: { columns: SavedViewTableColumn[] };
+};
 
 type SavedViewSpec = {
 	name: string;
@@ -27,7 +76,7 @@ type SavedViewSpec = {
 	trackerId?: string;
 	accentColor: string;
 	queryDefinition: SavedViewQueryInput;
-	displayConfiguration: SavedViewDisplayConfiguration;
+	displayConfiguration: SavedViewDisplayConfigInput;
 };
 
 type PropertiesSchema = {
@@ -194,9 +243,68 @@ async function createSavedView(
 	icon: string,
 	accentColor: string,
 	queryDefinition: SavedViewQueryInput,
-	displayConfiguration: SavedViewDisplayConfiguration,
+	displayConfiguration: SavedViewDisplayConfigInput,
 	trackerId?: string,
 ) {
+	const literalExpression = (value: unknown | null): SavedViewExpression => ({
+		type: "literal",
+		value,
+	});
+
+	const parseReference = (reference: string): SavedViewRuntimeRef => {
+		const [namespace, segment, tail, ...rest] = reference.split(".");
+		if (namespace === "computed") {
+			if (!segment || tail || rest.length > 0) {
+				throw new Error(`Invalid saved view reference '${reference}'`);
+			}
+
+			return { type: "computed-field", key: segment };
+		}
+
+		if (namespace === "event") {
+			if (!segment || !tail || rest.length > 0) {
+				throw new Error(`Invalid saved view reference '${reference}'`);
+			}
+
+			return tail.startsWith("@")
+				? { type: "event-join-column", joinKey: segment, column: tail.slice(1) }
+				: { type: "event-join-property", joinKey: segment, property: tail };
+		}
+
+		if (namespace !== "entity" || !segment || !tail || rest.length > 0) {
+			throw new Error(`Invalid saved view reference '${reference}'`);
+		}
+
+		return tail.startsWith("@")
+			? { type: "entity-column", slug: segment, column: tail.slice(1) }
+			: { type: "schema-property", slug: segment, property: tail };
+	};
+
+	const toExpression = (
+		input: string[] | SavedViewExpression | null,
+	): SavedViewExpression | null => {
+		if (input === null) {
+			return null;
+		}
+
+		if (!Array.isArray(input)) {
+			return input;
+		}
+
+		if (!input.length) {
+			return literalExpression(null);
+		}
+
+		const values = input.map((reference) => ({
+			type: "reference" as const,
+			reference: parseReference(reference),
+		}));
+
+		return values.length === 1
+			? (values[0] ?? literalExpression(null))
+			: { type: "coalesce", values };
+	};
+
 	const expandEntityBuiltinReference = (value: string) => {
 		if (!value.startsWith("@")) {
 			return [value];
@@ -225,24 +333,6 @@ async function createSavedView(
 		return value.split(".").length === 2 ? `entity.${value}` : value;
 	};
 
-	const normalizeDisplayReferences = (values: string[] | null) => {
-		if (!values) {
-			return null;
-		}
-
-		return values.flatMap((value) => {
-			if (value.startsWith("event.") || value.startsWith("entity.")) {
-				return [value];
-			}
-
-			if (value.startsWith("@")) {
-				return expandEntityBuiltinReference(value);
-			}
-
-			return value.split(".").length === 2 ? [`entity.${value}`] : [value];
-		});
-	};
-
 	const normalizeSortFields = (values: string[]) => {
 		return values.flatMap((value) => {
 			if (value.startsWith("event.") || value.startsWith("entity.")) {
@@ -257,53 +347,143 @@ async function createSavedView(
 		});
 	};
 
-	const normalizedQueryDefinition = {
-		...queryDefinition,
-		eventJoins: queryDefinition.eventJoins ?? [],
-		filters: queryDefinition.filters.map((filter) => ({
-			...filter,
-			field: normalizeFilterReference(filter.field),
-		})),
-		sort: {
-			...queryDefinition.sort,
-			fields: normalizeSortFields(queryDefinition.sort.fields),
-		},
+	const toPredicate = (
+		filter: NonNullable<SavedViewQueryInput["filters"]>[number],
+	) => {
+		const expression =
+			toExpression([normalizeFilterReference(filter.field)]) ??
+			literalExpression(null);
+		if (filter.op === "isNull") {
+			return { type: "isNull", expression } satisfies SavedViewPredicate;
+		}
+
+		if (filter.op === "isNotNull") {
+			return { type: "isNotNull", expression } satisfies SavedViewPredicate;
+		}
+
+		if (filter.op === "contains") {
+			return {
+				type: "contains",
+				expression,
+				value: literalExpression(filter.value ?? null),
+			} satisfies SavedViewPredicate;
+		}
+
+		if (filter.op === "in") {
+			return {
+				type: "in",
+				expression,
+				values: Array.isArray(filter.value)
+					? filter.value.map((value) => literalExpression(value))
+					: [literalExpression(filter.value ?? null)],
+			} satisfies SavedViewPredicate;
+		}
+
+		return {
+			type: "comparison",
+			left: expression,
+			right: literalExpression(filter.value ?? null),
+			operator: filter.op,
+		} satisfies SavedViewPredicate;
 	};
-	const normalizedDisplayConfiguration = {
+
+	const getFilterGroupKey = (
+		filter: NonNullable<SavedViewQueryInput["filters"]>[number],
+	) => {
+		const reference = parseReference(normalizeFilterReference(filter.field));
+		return reference.type === "entity-column" ||
+			reference.type === "schema-property"
+			? reference.slug
+			: `${reference.type}:${JSON.stringify(reference)}`;
+	};
+
+	const combinePredicates = (
+		predicates: SavedViewPredicate[],
+		type: "and" | "or",
+	) => {
+		if (!predicates.length) {
+			return null;
+		}
+
+		if (predicates.length === 1) {
+			return predicates[0] ?? null;
+		}
+
+		return { type, predicates } satisfies SavedViewPredicate;
+	};
+
+	const toFilterPredicate = (): SavedViewQueryDefinition["filter"] => {
+		if (queryDefinition.filter !== undefined) {
+			return queryDefinition.filter;
+		}
+
+		if (!queryDefinition.filters?.length) {
+			return null;
+		}
+
+		const grouped = new Map<string, SavedViewPredicate[]>();
+		for (const filter of queryDefinition.filters) {
+			const key = getFilterGroupKey(filter);
+			const existing = grouped.get(key) ?? [];
+			existing.push(toPredicate(filter));
+			grouped.set(key, existing);
+		}
+
+		const groupedPredicates = Array.from(grouped.values())
+			.map((predicates) => combinePredicates(predicates, "and"))
+			.filter(
+				(predicate): predicate is SavedViewPredicate => predicate !== null,
+			);
+
+		return combinePredicates(groupedPredicates, "or");
+	};
+
+	const normalizedQueryDefinition = {
+		computedFields: queryDefinition.computedFields ?? [],
+		eventJoins: queryDefinition.eventJoins ?? [],
+		entitySchemaSlugs: queryDefinition.entitySchemaSlugs,
+		filter: toFilterPredicate(),
+		sort: {
+			direction: queryDefinition.sort.direction,
+			expression:
+				"expression" in queryDefinition.sort
+					? queryDefinition.sort.expression
+					: (toExpression(
+							normalizeSortFields(
+								(queryDefinition.sort as SavedViewSortInput).fields,
+							),
+						) ?? literalExpression(null)),
+		},
+	} satisfies SavedViewQueryDefinition;
+	const normalizedDisplayConfiguration: SavedViewDisplayConfiguration = {
 		grid: {
 			...displayConfiguration.grid,
-			imageProperty: normalizeDisplayReferences(
-				displayConfiguration.grid.imageProperty,
-			),
-			titleProperty: normalizeDisplayReferences(
-				displayConfiguration.grid.titleProperty,
-			),
-			badgeProperty: normalizeDisplayReferences(
-				displayConfiguration.grid.badgeProperty,
-			),
-			subtitleProperty: normalizeDisplayReferences(
-				displayConfiguration.grid.subtitleProperty,
-			),
+			imageProperty:
+				toExpression(displayConfiguration.grid.imageProperty) ?? null,
+			titleProperty:
+				toExpression(displayConfiguration.grid.titleProperty) ?? null,
+			badgeProperty:
+				toExpression(displayConfiguration.grid.badgeProperty) ?? null,
+			subtitleProperty:
+				toExpression(displayConfiguration.grid.subtitleProperty) ?? null,
 		},
 		list: {
 			...displayConfiguration.list,
-			imageProperty: normalizeDisplayReferences(
-				displayConfiguration.list.imageProperty,
-			),
-			titleProperty: normalizeDisplayReferences(
-				displayConfiguration.list.titleProperty,
-			),
-			badgeProperty: normalizeDisplayReferences(
-				displayConfiguration.list.badgeProperty,
-			),
-			subtitleProperty: normalizeDisplayReferences(
-				displayConfiguration.list.subtitleProperty,
-			),
+			imageProperty:
+				toExpression(displayConfiguration.list.imageProperty) ?? null,
+			titleProperty:
+				toExpression(displayConfiguration.list.titleProperty) ?? null,
+			badgeProperty:
+				toExpression(displayConfiguration.list.badgeProperty) ?? null,
+			subtitleProperty:
+				toExpression(displayConfiguration.list.subtitleProperty) ?? null,
 		},
 		table: {
 			columns: displayConfiguration.table.columns.map((column) => ({
-				...column,
-				property: normalizeDisplayReferences(column.property) ?? [],
+				label: column.label,
+				expression:
+					toExpression(column.property ?? column.expression ?? null) ??
+					literalExpression(null),
 			})),
 		},
 	};
@@ -354,7 +534,12 @@ function cardConfig(
 	titleProperty: string[] | null,
 	badgeProperty: string[] | null,
 	subtitleProperty: string[] | null,
-): SavedViewDisplayConfiguration["grid"] {
+): {
+	imageProperty: string[] | null;
+	titleProperty: string[] | null;
+	badgeProperty: string[] | null;
+	subtitleProperty: string[] | null;
+} {
 	return {
 		imageProperty,
 		titleProperty,
@@ -373,15 +558,20 @@ function tableColumn(
 function sortDefinition(
 	direction: "asc" | "desc",
 	...fields: string[]
-): SavedViewQueryDefinition["sort"] {
+): SavedViewSortInput {
 	return { fields, direction };
 }
 
 function displayConfiguration(
-	grid: SavedViewDisplayConfiguration["grid"],
+	grid: {
+		imageProperty: string[] | null;
+		titleProperty: string[] | null;
+		badgeProperty: string[] | null;
+		subtitleProperty: string[] | null;
+	},
 	columns: SavedViewTableColumn[],
 	list = grid,
-): SavedViewDisplayConfiguration {
+): SavedViewDisplayConfigInput {
 	return {
 		grid,
 		list,
