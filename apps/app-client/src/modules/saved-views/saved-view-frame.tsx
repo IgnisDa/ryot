@@ -1,3 +1,4 @@
+import type { EntitySchemaSlug } from "@ryot/contract/schema/brands";
 import clsx from "clsx";
 import { useRouter } from "expo-router";
 import { useState, type ReactNode } from "react";
@@ -19,6 +20,7 @@ export function SavedViewFrame(props: {
 	viewSlug: string;
 	children: ReactNode;
 	onImported?: () => void;
+	entitySchemaSlug: EntitySchemaSlug | null;
 	title?: { icon: string; name: string; loaded: number; hasMore: boolean };
 }) {
 	const router = useRouter();
@@ -92,7 +94,7 @@ export function SavedViewFrame(props: {
 			>
 				{props.children}
 			</WorkspaceScrollFrame>
-			{props.onImported && (
+			{props.onImported !== undefined && props.entitySchemaSlug !== null && (
 				<Pressable
 					onPress={providerAdd.open}
 					accessibilityRole="button"
@@ -110,7 +112,9 @@ export function SavedViewFrame(props: {
 					<SavedViewFilterSheet viewSlug={props.viewSlug} onClose={() => setIsFilterOpen(false)} />
 				</View>
 			)}
-			{props.onImported && <ProviderAddHost onImported={props.onImported} />}
+			{props.onImported !== undefined && props.entitySchemaSlug !== null && (
+				<ProviderAddHost onImported={props.onImported} entitySchemaSlug={props.entitySchemaSlug} />
+			)}
 		</View>
 	);
 }
