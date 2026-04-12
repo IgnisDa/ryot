@@ -11,7 +11,6 @@ import {
 	createReviewEvent,
 	finalizeEntityGroups,
 	normalizeRating,
-	parseDateTime,
 } from "../../media/book/shared";
 import { getOrCreateMediaEntityGroup } from "../../media/groups";
 import type {
@@ -96,12 +95,19 @@ const getFavoriteTarget = (favoriteType: number) => {
 	return undefined;
 };
 
-const parseAnilistDate = (value: string | null | undefined): string | null => {
+const parseAnilistDate = (value: string | null | undefined, timezone: string): string | null => {
 	const raw = value?.trim();
 	if (!raw) {
 		return null;
 	}
-	return parseDateTime(raw, ["YYYY-MM-DD HH:mm:ss"]);
+	for (const format of ["YYYY-MM-DD HH:mm:ss"]) {
+		const parsed = dayjs.tz(raw, format, timezone);
+		if (parsed.isValid()) {
+			return parsed.toISOString();
+		}
+	}
+	const parsed = dayjs.tz(raw, timezone);
+	return parsed.isValid() ? parsed.toISOString() : null;
 };
 
 const getAnilistLifecycle = (status: string | undefined) => {
@@ -141,7 +147,10 @@ const parseCustomListIds = (value: string | null | undefined): number[] => {
 	}
 };
 
-export const adaptAnilistExport = (jsonText: string): MediaImportAdapterResult => {
+export const adaptAnilistExport = (
+	jsonText: string,
+	timezone: string,
+): MediaImportAdapterResult => {
 	const importedAt = dayjs().toISOString();
 	const failures: MediaImportAdapterFailure[] = [];
 	const parsedJson: unknown = JSON.parse(jsonText);
@@ -175,7 +184,7 @@ export const adaptAnilistExport = (jsonText: string): MediaImportAdapterResult =
 			itemIndex++;
 			continue;
 		}
-		const occurredAt = parseAnilistDate(item.updated_at) ?? importedAt;
+		const occurredAt = parseAnilistDate(item.updated_at, timezone) ?? importedAt;
 		const sourceLabel = `${target.sourceLabelPrefix} ${item.series_id}`;
 		const group = getOrCreateMediaEntityGroup(
 			groupMap,
@@ -273,7 +282,7 @@ export const adaptAnilistExport = (jsonText: string): MediaImportAdapterResult =
 		const reviewEvent = createReviewEvent({
 			text: `${review.summary}\n\n${review.text}`,
 			rating: normalizeRating(String(review.score)),
-			occurredAt: parseAnilistDate(review.updated_at) ?? importedAt,
+			occurredAt: parseAnilistDate(review.updated_at, timezone) ?? importedAt,
 		});
 		if (reviewEvent) {
 			group.events.push(reviewEvent);
