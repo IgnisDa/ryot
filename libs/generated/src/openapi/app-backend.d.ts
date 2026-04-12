@@ -2981,7 +2981,7 @@ export interface paths {
         put?: never;
         /**
          * Create a new collection
-         * @description Create a user-owned collection entity under the built-in collection schema. The membershipPropertiesSchema is validated as a real AppSchema before persistence.
+         * @description Create a user-owned collection entity under the built-in collection schema. The membershipPropertiesSchema is validated against the AppSchema format before persistence.
          */
         post: {
             parameters: {
@@ -3057,6 +3057,99 @@ export interface paths {
                     content: {
                         "application/json": {
                             error: components["schemas"]["UnauthenticatedError"];
+                        };
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/collections/memberships": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Add an entity to a collection
+         * @description Add an entity to a collection by creating a collection relationship between the collection entity and the target entity.
+         */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: {
+                content: {
+                    "application/json": {
+                        collectionId: string;
+                        entityId: string;
+                        properties?: {
+                            [key: string]: unknown;
+                        };
+                    };
+                };
+            };
+            responses: {
+                /** @description Entity was added to collection */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            data: {
+                                id: string;
+                                relType: string;
+                                createdAt: string;
+                                sourceEntityId: string;
+                                targetEntityId: string;
+                                properties: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+                /** @description Request payload validation failed */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: components["schemas"]["ValidationFailedError"];
+                        };
+                    };
+                };
+                /** @description Request is unauthenticated */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: components["schemas"]["UnauthenticatedError"];
+                        };
+                    };
+                };
+                /** @description Collection or entity not found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: components["schemas"]["NotFoundError"];
                         };
                     };
                 };
