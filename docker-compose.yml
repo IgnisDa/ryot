@@ -1,4 +1,4 @@
-# delete this file eventually
+# TODO: delete this file eventually
 
 services:
   ryot-redis:
