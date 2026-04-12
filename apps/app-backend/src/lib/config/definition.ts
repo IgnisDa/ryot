@@ -13,6 +13,10 @@ export const systemConfigDef = group("Core system configuration", {
 	frontendUrl: field("FRONTEND_URL", {
 		description: "Public base URL of the frontend application",
 	}),
+	timezone: field("TZ", {
+		default: "Etc/GMT",
+		description: "IANA timezone used for interpreting timezone-less datetimes during imports",
+	}),
 	port: field("PORT", {
 		default: "8000",
 		description: "HTTP port the backend server listens on",
