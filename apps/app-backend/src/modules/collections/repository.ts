@@ -66,48 +66,6 @@ export class CollectionsRepository extends Effect.Service<CollectionsRepository>
 				);
 			});
 
-			const findLibraryEntityForUser = Effect.fn("CollectionsRepository.findLibraryEntityForUser")(
-				function* (input: { userId: UserId; entitySchemaSlug: EntitySchemaSlug }) {
-					const db = yield* CurrentDb;
-					const [row] = yield* dbEffect(() =>
-						db
-							.select({ id: schema.entity.id })
-							.from(schema.entity)
-							.where(
-								and(
-									eq(schema.entity.userId, input.userId),
-									eq(schema.entity.entitySchemaSlug, input.entitySchemaSlug),
-									isNull(schema.entity.externalId),
-									isNull(schema.entity.providerId),
-								),
-							)
-							.limit(1),
-					);
-
-					return row ? { id: EntityId.make(row.id) } : null;
-				},
-			);
-
-			const getUserLibraryEntityId = Effect.fn("CollectionsRepository.getUserLibraryEntityId")(
-				function* (input: { userId: UserId }) {
-					const db = yield* CurrentDb;
-					const [row] = yield* dbEffect(() =>
-						db
-							.select({ id: schema.entity.id })
-							.from(schema.entity)
-							.where(
-								and(
-									eq(schema.entity.userId, input.userId),
-									eq(schema.entity.entitySchemaSlug, "library"),
-								),
-							)
-							.limit(1),
-					);
-
-					return row ? EntityId.make(row.id) : null;
-				},
-			);
-
 			const findCollectionByNameForUser = Effect.fn(
 				"CollectionsRepository.findCollectionByNameForUser",
 			)(function* (input: { name: string; userId: UserId; entitySchemaSlug: EntitySchemaSlug }) {
@@ -186,8 +144,6 @@ export class CollectionsRepository extends Effect.Service<CollectionsRepository>
 
 			return {
 				getBuiltinCollectionSchema,
-				findLibraryEntityForUser,
-				getUserLibraryEntityId,
 				findCollectionByNameForUser,
 				getCollectionById,
 				getEntityForMembership,

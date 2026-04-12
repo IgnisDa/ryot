@@ -20,12 +20,12 @@ import { AutomationsRoutesLive } from "#modules/automations/routes";
 import { CollectionsRoutesLive } from "#modules/collections/routes";
 import { DefinitionsRoutesLive } from "#modules/definitions/routes";
 import { EntitiesRoutesLive } from "#modules/entities/routes";
+import { EntityImportRoutesLive } from "#modules/entity-import/routes";
 import { InterestRoutesLive } from "#modules/entity-interest/routes";
 import { EventsRoutesLive } from "#modules/events/routes";
 import { GodModeRoutesLive } from "#modules/god-mode/routes";
 import { ImportsRoutesLive } from "#modules/imports/routes";
 import { IntegrationsRoutesLive } from "#modules/integrations/routes";
-import { LibraryRoutesLive } from "#modules/library-membership/routes";
 import { NotificationsRoutesLive } from "#modules/notifications/routes";
 import { PluginsRoutesLive } from "#modules/plugins/routes";
 import { QueryEngineRoutesLive } from "#modules/query-engine/routes";
@@ -85,7 +85,7 @@ const ApiBaseLive = HttpApiBuilder.api(AppContract).pipe(
 	Layer.provide(DefinitionsRoutesLive),
 	Layer.provide(RelationshipsRoutesLive),
 	Layer.provide(EntitiesRoutesLive),
-	Layer.provide(LibraryRoutesLive),
+	Layer.provide(EntityImportRoutesLive),
 	Layer.provide(Layer.mergeAll(UserStateRoutesLive, UserPreferencesRoutesLive)),
 	Layer.provide(EventsRoutesLive),
 	Layer.provide(UploadsRoutesLive),

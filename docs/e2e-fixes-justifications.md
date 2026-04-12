@@ -70,15 +70,16 @@ showed `EventCreateWorkflow` reach terminal success while `ProcessGenericImportC
 remained suspended indefinitely. The same missed resume made the sandbox workflow shell rebuild
 only a prefix of its journal, producing a false nondeterminism failure.
 
-Six feature-to-feature composition boundaries now omit `WorkflowInstance` while awaiting their
-deterministically keyed child:
+At the time of this fix, six feature-to-feature composition boundaries omitted `WorkflowInstance`
+while awaiting their deterministically keyed child. This list is historical; the native library
+workflow in the final entry was later removed:
 
 - The generic import writer awaiting `EventCreateWorkflow`.
 - `performSandboxWorkflowChild` awaiting plugin or kernel workflow references.
 - `SubscriptionExecutionWorkflow` awaiting its `RunSandboxWorkflow` automation script.
 - `ProcessImportRunWorkflow` awaiting its sandbox import workflow.
 - `ProcessIntegrationRunWorkflow` awaiting its sandbox import workflow.
-- `LibraryEntityImportWorkflow` awaiting provider population.
+- Superseded `LibraryEntityImportWorkflow` awaiting provider population.
 
 Without a parent instance, the engine uses its top-level terminal-result polling path rather than
 the unreliable parent-resume RPC. Durable ownership and idempotency remain unchanged. A process
@@ -86,11 +87,11 @@ restart replays the parent, derives the same child execution id, and reads the p
 instead of re-running its side effects. Activities, durable queues, script pinning, and journal
 validation are unchanged.
 
-Three supporting durable boundaries described below apply the same workaround around sandbox replay
-and active-script queue ownership, and around the library-membership queue shell. These nine boundary
-classes are the reproduced SQL-backed `ClusterWorkflowEngine` failures; remove them only after an
-upstream upgrade proves nested completion through that production path. In-memory workflow tests
-cannot establish that behavior.
+Three supporting durable boundaries described below applied the same workaround around sandbox
+replay, active-script queue ownership, and the now-removed native library-membership queue shell.
+These historical boundary classes reproduced SQL-backed `ClusterWorkflowEngine` failures. Retained
+active workarounds should be removed only after an upstream upgrade proves nested completion through
+that production path; in-memory workflow tests cannot establish that behavior.
 
 The automation boundary was exposed later by the fail-fast sweep: both manga progress events were
 written successfully, but their subscription workflow never resumed to create the completion event
