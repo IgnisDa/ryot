@@ -77,7 +77,7 @@ const waitForSandboxChildRun = async (job: Job, token: string | undefined) => {
 };
 
 const getSandboxChildRunResult = async (job: Job) => {
-	const childrenValues = await job.getChildrenValues();
+	const childrenValues = (await job.getChildrenValues()) ?? {};
 	const [childValue] = Object.values(childrenValues);
 	if (Object.keys(childrenValues).length !== 1) {
 		throw new Error("Sandbox child job did not complete successfully");
@@ -208,7 +208,7 @@ const processMediaImportJob = async (job: Job, token?: string) => {
 		schemaFieldKeys = Object.keys((scope.propertiesSchema as AppSchema).fields);
 		await queueSandboxChildRun({
 			job,
-			childJobId: `${job.id}:sandbox`,
+			childJobId: `${job.id}_sandbox`,
 			jobData: {
 				...parsed.data,
 				schemaFieldKeys,
@@ -326,7 +326,7 @@ const processPersonPopulateJob = async (job: Job, token?: string) => {
 
 		await queueSandboxChildRun({
 			job,
-			childJobId: `${job.id}:sandbox`,
+			childJobId: `${job.id}_sandbox`,
 			jobData: {
 				...parsed.data,
 				step: mediaJobWaitingForSandboxStep,
