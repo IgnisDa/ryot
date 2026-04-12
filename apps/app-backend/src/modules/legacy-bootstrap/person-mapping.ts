@@ -34,6 +34,7 @@ export const personEntityTargets = [
 	{ source: "spotify", entitySchemaSlug: "person", providerSlug: "person.spotify" },
 	{ source: "tmdb", entitySchemaSlug: "person", providerSlug: "person.tmdb" },
 	{ source: "tvdb", entitySchemaSlug: "person", providerSlug: "person.tvdb" },
+	{ source: "vndb", entitySchemaSlug: "person", providerSlug: "person.vndb" },
 	{
 		source: "youtube_music",
 		entitySchemaSlug: "person",

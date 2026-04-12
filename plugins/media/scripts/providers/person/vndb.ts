@@ -6,12 +6,12 @@ import { asRecord, stringValue } from "../../script-helpers/records";
 import { readNextPage, readResults, readTotalItems, vndbPost } from "../vndb-shared";
 
 export const manifest = defineManifest({
-	kind: "provider",
 	name: "VNDB",
-	slug: "company.vndb",
+	kind: "provider",
+	slug: "person.vndb",
+	capabilities: ["httpCall"],
 	requiredPluginConfigKeys: [],
 	requiredSystemConfigKeys: [],
-	capabilities: ["httpCall"],
 });
 
 const PAGE_SIZE = 20;
@@ -26,8 +26,8 @@ export const search = defineProvider({
 			{
 				count: true,
 				page: input.page,
-				results: PAGE_SIZE,
 				fields: "id,name",
+				results: PAGE_SIZE,
 				filters: ["search", "=", input.query],
 			},
 			"VNDB producer search request failed",
@@ -43,9 +43,9 @@ export const search = defineProvider({
 					return [
 						{
 							externalId,
-							calloutProperty: { kind: "null" as const, value: null },
 							titleProperty: { kind: "text" as const, value: name },
 							imageProperty: { kind: "null" as const, value: null },
+							calloutProperty: { kind: "null" as const, value: null },
 							primarySubtitleProperty: { kind: "null" as const, value: null },
 							secondarySubtitleProperty: { kind: "null" as const, value: null },
 						},
@@ -98,8 +98,8 @@ export const details = defineProvider({
 					properties: {
 						images: [],
 						alternateNames,
-						description: stringValue(producer["description"]),
 						sourceUrl: `https://vndb.org/${input.externalId}`,
+						description: stringValue(producer["description"]),
 					},
 				};
 			}),
