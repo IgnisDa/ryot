@@ -1696,10 +1696,11 @@ export interface paths {
                                 trackerId: string | null;
                                 queryDefinition: {
                                     sort: {
-                                        fields: string[];
+                                        expression: components["schemas"]["ViewExpression"];
                                         /** @enum {string} */
                                         direction: "asc" | "desc";
                                     };
+                                    computedFields?: components["schemas"]["ViewComputedField"][];
                                     /** @default [] */
                                     eventJoins: {
                                         key: string;
@@ -1708,50 +1709,25 @@ export interface paths {
                                         eventSchemaSlug: string;
                                     }[];
                                     entitySchemaSlugs: string[];
-                                    filters: ({
-                                        /** @enum {string} */
-                                        op: "in";
-                                        field: string;
-                                        value: unknown[];
-                                    } | {
-                                        value?: unknown;
-                                        /** @enum {string} */
-                                        op: "isNull";
-                                        field: string;
-                                    } | {
-                                        value?: unknown;
-                                        /** @enum {string} */
-                                        op: "isNotNull";
-                                        field: string;
-                                    } | {
-                                        value?: unknown;
-                                        field: string;
-                                        /** @enum {string} */
-                                        op: "contains";
-                                    } | {
-                                        value?: unknown;
-                                        field: string;
-                                        /** @enum {string} */
-                                        op: "eq" | "neq" | "gt" | "gte" | "lt" | "lte";
-                                    })[];
+                                    filter?: components["schemas"]["ViewPredicate"];
                                 };
                                 displayConfiguration: {
                                     grid: {
-                                        imageProperty: string[] | null;
-                                        titleProperty: string[] | null;
-                                        badgeProperty: string[] | null;
-                                        subtitleProperty: string[] | null;
+                                        imageProperty: components["schemas"]["ViewExpression"];
+                                        titleProperty: components["schemas"]["ViewExpression"];
+                                        badgeProperty: components["schemas"]["ViewExpression"];
+                                        subtitleProperty: components["schemas"]["ViewExpression"];
                                     };
                                     list: {
-                                        imageProperty: string[] | null;
-                                        titleProperty: string[] | null;
-                                        badgeProperty: string[] | null;
-                                        subtitleProperty: string[] | null;
+                                        imageProperty: components["schemas"]["ViewExpression"];
+                                        titleProperty: components["schemas"]["ViewExpression"];
+                                        badgeProperty: components["schemas"]["ViewExpression"];
+                                        subtitleProperty: components["schemas"]["ViewExpression"];
                                     };
                                     table: {
                                         columns: {
                                             label: string;
-                                            property: string[];
+                                            expression: components["schemas"]["ViewExpression"];
                                         }[];
                                     };
                                 };
@@ -1801,10 +1777,11 @@ export interface paths {
                         name: string;
                         queryDefinition: {
                             sort: {
-                                fields: string[];
+                                expression: components["schemas"]["ViewExpression"];
                                 /** @enum {string} */
                                 direction: "asc" | "desc";
                             };
+                            computedFields?: components["schemas"]["ViewComputedField"][];
                             /** @default [] */
                             eventJoins?: {
                                 key: string;
@@ -1813,50 +1790,25 @@ export interface paths {
                                 eventSchemaSlug: string;
                             }[];
                             entitySchemaSlugs: string[];
-                            filters: ({
-                                /** @enum {string} */
-                                op: "in";
-                                field: string;
-                                value: unknown[];
-                            } | {
-                                value?: unknown;
-                                /** @enum {string} */
-                                op: "isNull";
-                                field: string;
-                            } | {
-                                value?: unknown;
-                                /** @enum {string} */
-                                op: "isNotNull";
-                                field: string;
-                            } | {
-                                value?: unknown;
-                                field: string;
-                                /** @enum {string} */
-                                op: "contains";
-                            } | {
-                                value?: unknown;
-                                field: string;
-                                /** @enum {string} */
-                                op: "eq" | "neq" | "gt" | "gte" | "lt" | "lte";
-                            })[];
+                            filter?: components["schemas"]["ViewPredicate"];
                         };
                         displayConfiguration: {
                             grid: {
-                                imageProperty: string[] | null;
-                                titleProperty: string[] | null;
-                                badgeProperty: string[] | null;
-                                subtitleProperty: string[] | null;
+                                imageProperty: components["schemas"]["ViewExpression"];
+                                titleProperty: components["schemas"]["ViewExpression"];
+                                badgeProperty: components["schemas"]["ViewExpression"];
+                                subtitleProperty: components["schemas"]["ViewExpression"];
                             };
                             list: {
-                                imageProperty: string[] | null;
-                                titleProperty: string[] | null;
-                                badgeProperty: string[] | null;
-                                subtitleProperty: string[] | null;
+                                imageProperty: components["schemas"]["ViewExpression"];
+                                titleProperty: components["schemas"]["ViewExpression"];
+                                badgeProperty: components["schemas"]["ViewExpression"];
+                                subtitleProperty: components["schemas"]["ViewExpression"];
                             };
                             table: {
                                 columns: {
                                     label: string;
-                                    property: string[];
+                                    expression: components["schemas"]["ViewExpression"];
                                 }[];
                             };
                         };
@@ -1888,10 +1840,11 @@ export interface paths {
                                 trackerId: string | null;
                                 queryDefinition: {
                                     sort: {
-                                        fields: string[];
+                                        expression: components["schemas"]["ViewExpression"];
                                         /** @enum {string} */
                                         direction: "asc" | "desc";
                                     };
+                                    computedFields?: components["schemas"]["ViewComputedField"][];
                                     /** @default [] */
                                     eventJoins: {
                                         key: string;
@@ -1900,50 +1853,25 @@ export interface paths {
                                         eventSchemaSlug: string;
                                     }[];
                                     entitySchemaSlugs: string[];
-                                    filters: ({
-                                        /** @enum {string} */
-                                        op: "in";
-                                        field: string;
-                                        value: unknown[];
-                                    } | {
-                                        value?: unknown;
-                                        /** @enum {string} */
-                                        op: "isNull";
-                                        field: string;
-                                    } | {
-                                        value?: unknown;
-                                        /** @enum {string} */
-                                        op: "isNotNull";
-                                        field: string;
-                                    } | {
-                                        value?: unknown;
-                                        field: string;
-                                        /** @enum {string} */
-                                        op: "contains";
-                                    } | {
-                                        value?: unknown;
-                                        field: string;
-                                        /** @enum {string} */
-                                        op: "eq" | "neq" | "gt" | "gte" | "lt" | "lte";
-                                    })[];
+                                    filter?: components["schemas"]["ViewPredicate"];
                                 };
                                 displayConfiguration: {
                                     grid: {
-                                        imageProperty: string[] | null;
-                                        titleProperty: string[] | null;
-                                        badgeProperty: string[] | null;
-                                        subtitleProperty: string[] | null;
+                                        imageProperty: components["schemas"]["ViewExpression"];
+                                        titleProperty: components["schemas"]["ViewExpression"];
+                                        badgeProperty: components["schemas"]["ViewExpression"];
+                                        subtitleProperty: components["schemas"]["ViewExpression"];
                                     };
                                     list: {
-                                        imageProperty: string[] | null;
-                                        titleProperty: string[] | null;
-                                        badgeProperty: string[] | null;
-                                        subtitleProperty: string[] | null;
+                                        imageProperty: components["schemas"]["ViewExpression"];
+                                        titleProperty: components["schemas"]["ViewExpression"];
+                                        badgeProperty: components["schemas"]["ViewExpression"];
+                                        subtitleProperty: components["schemas"]["ViewExpression"];
                                     };
                                     table: {
                                         columns: {
                                             label: string;
-                                            property: string[];
+                                            expression: components["schemas"]["ViewExpression"];
                                         }[];
                                     };
                                 };
@@ -2023,10 +1951,11 @@ export interface paths {
                                 trackerId: string | null;
                                 queryDefinition: {
                                     sort: {
-                                        fields: string[];
+                                        expression: components["schemas"]["ViewExpression"];
                                         /** @enum {string} */
                                         direction: "asc" | "desc";
                                     };
+                                    computedFields?: components["schemas"]["ViewComputedField"][];
                                     /** @default [] */
                                     eventJoins: {
                                         key: string;
@@ -2035,50 +1964,25 @@ export interface paths {
                                         eventSchemaSlug: string;
                                     }[];
                                     entitySchemaSlugs: string[];
-                                    filters: ({
-                                        /** @enum {string} */
-                                        op: "in";
-                                        field: string;
-                                        value: unknown[];
-                                    } | {
-                                        value?: unknown;
-                                        /** @enum {string} */
-                                        op: "isNull";
-                                        field: string;
-                                    } | {
-                                        value?: unknown;
-                                        /** @enum {string} */
-                                        op: "isNotNull";
-                                        field: string;
-                                    } | {
-                                        value?: unknown;
-                                        field: string;
-                                        /** @enum {string} */
-                                        op: "contains";
-                                    } | {
-                                        value?: unknown;
-                                        field: string;
-                                        /** @enum {string} */
-                                        op: "eq" | "neq" | "gt" | "gte" | "lt" | "lte";
-                                    })[];
+                                    filter?: components["schemas"]["ViewPredicate"];
                                 };
                                 displayConfiguration: {
                                     grid: {
-                                        imageProperty: string[] | null;
-                                        titleProperty: string[] | null;
-                                        badgeProperty: string[] | null;
-                                        subtitleProperty: string[] | null;
+                                        imageProperty: components["schemas"]["ViewExpression"];
+                                        titleProperty: components["schemas"]["ViewExpression"];
+                                        badgeProperty: components["schemas"]["ViewExpression"];
+                                        subtitleProperty: components["schemas"]["ViewExpression"];
                                     };
                                     list: {
-                                        imageProperty: string[] | null;
-                                        titleProperty: string[] | null;
-                                        badgeProperty: string[] | null;
-                                        subtitleProperty: string[] | null;
+                                        imageProperty: components["schemas"]["ViewExpression"];
+                                        titleProperty: components["schemas"]["ViewExpression"];
+                                        badgeProperty: components["schemas"]["ViewExpression"];
+                                        subtitleProperty: components["schemas"]["ViewExpression"];
                                     };
                                     table: {
                                         columns: {
                                             label: string;
-                                            property: string[];
+                                            expression: components["schemas"]["ViewExpression"];
                                         }[];
                                     };
                                 };
@@ -2133,10 +2037,11 @@ export interface paths {
                         name: string;
                         queryDefinition: {
                             sort: {
-                                fields: string[];
+                                expression: components["schemas"]["ViewExpression"];
                                 /** @enum {string} */
                                 direction: "asc" | "desc";
                             };
+                            computedFields?: components["schemas"]["ViewComputedField"][];
                             /** @default [] */
                             eventJoins?: {
                                 key: string;
@@ -2145,50 +2050,25 @@ export interface paths {
                                 eventSchemaSlug: string;
                             }[];
                             entitySchemaSlugs: string[];
-                            filters: ({
-                                /** @enum {string} */
-                                op: "in";
-                                field: string;
-                                value: unknown[];
-                            } | {
-                                value?: unknown;
-                                /** @enum {string} */
-                                op: "isNull";
-                                field: string;
-                            } | {
-                                value?: unknown;
-                                /** @enum {string} */
-                                op: "isNotNull";
-                                field: string;
-                            } | {
-                                value?: unknown;
-                                field: string;
-                                /** @enum {string} */
-                                op: "contains";
-                            } | {
-                                value?: unknown;
-                                field: string;
-                                /** @enum {string} */
-                                op: "eq" | "neq" | "gt" | "gte" | "lt" | "lte";
-                            })[];
+                            filter?: components["schemas"]["ViewPredicate"];
                         };
                         displayConfiguration: {
                             grid: {
-                                imageProperty: string[] | null;
-                                titleProperty: string[] | null;
-                                badgeProperty: string[] | null;
-                                subtitleProperty: string[] | null;
+                                imageProperty: components["schemas"]["ViewExpression"];
+                                titleProperty: components["schemas"]["ViewExpression"];
+                                badgeProperty: components["schemas"]["ViewExpression"];
+                                subtitleProperty: components["schemas"]["ViewExpression"];
                             };
                             list: {
-                                imageProperty: string[] | null;
-                                titleProperty: string[] | null;
-                                badgeProperty: string[] | null;
-                                subtitleProperty: string[] | null;
+                                imageProperty: components["schemas"]["ViewExpression"];
+                                titleProperty: components["schemas"]["ViewExpression"];
+                                badgeProperty: components["schemas"]["ViewExpression"];
+                                subtitleProperty: components["schemas"]["ViewExpression"];
                             };
                             table: {
                                 columns: {
                                     label: string;
-                                    property: string[];
+                                    expression: components["schemas"]["ViewExpression"];
                                 }[];
                             };
                         };
@@ -2220,10 +2100,11 @@ export interface paths {
                                 trackerId: string | null;
                                 queryDefinition: {
                                     sort: {
-                                        fields: string[];
+                                        expression: components["schemas"]["ViewExpression"];
                                         /** @enum {string} */
                                         direction: "asc" | "desc";
                                     };
+                                    computedFields?: components["schemas"]["ViewComputedField"][];
                                     /** @default [] */
                                     eventJoins: {
                                         key: string;
@@ -2232,50 +2113,25 @@ export interface paths {
                                         eventSchemaSlug: string;
                                     }[];
                                     entitySchemaSlugs: string[];
-                                    filters: ({
-                                        /** @enum {string} */
-                                        op: "in";
-                                        field: string;
-                                        value: unknown[];
-                                    } | {
-                                        value?: unknown;
-                                        /** @enum {string} */
-                                        op: "isNull";
-                                        field: string;
-                                    } | {
-                                        value?: unknown;
-                                        /** @enum {string} */
-                                        op: "isNotNull";
-                                        field: string;
-                                    } | {
-                                        value?: unknown;
-                                        field: string;
-                                        /** @enum {string} */
-                                        op: "contains";
-                                    } | {
-                                        value?: unknown;
-                                        field: string;
-                                        /** @enum {string} */
-                                        op: "eq" | "neq" | "gt" | "gte" | "lt" | "lte";
-                                    })[];
+                                    filter?: components["schemas"]["ViewPredicate"];
                                 };
                                 displayConfiguration: {
                                     grid: {
-                                        imageProperty: string[] | null;
-                                        titleProperty: string[] | null;
-                                        badgeProperty: string[] | null;
-                                        subtitleProperty: string[] | null;
+                                        imageProperty: components["schemas"]["ViewExpression"];
+                                        titleProperty: components["schemas"]["ViewExpression"];
+                                        badgeProperty: components["schemas"]["ViewExpression"];
+                                        subtitleProperty: components["schemas"]["ViewExpression"];
                                     };
                                     list: {
-                                        imageProperty: string[] | null;
-                                        titleProperty: string[] | null;
-                                        badgeProperty: string[] | null;
-                                        subtitleProperty: string[] | null;
+                                        imageProperty: components["schemas"]["ViewExpression"];
+                                        titleProperty: components["schemas"]["ViewExpression"];
+                                        badgeProperty: components["schemas"]["ViewExpression"];
+                                        subtitleProperty: components["schemas"]["ViewExpression"];
                                     };
                                     table: {
                                         columns: {
                                             label: string;
-                                            property: string[];
+                                            expression: components["schemas"]["ViewExpression"];
                                         }[];
                                     };
                                 };
@@ -2354,10 +2210,11 @@ export interface paths {
                                 trackerId: string | null;
                                 queryDefinition: {
                                     sort: {
-                                        fields: string[];
+                                        expression: components["schemas"]["ViewExpression"];
                                         /** @enum {string} */
                                         direction: "asc" | "desc";
                                     };
+                                    computedFields?: components["schemas"]["ViewComputedField"][];
                                     /** @default [] */
                                     eventJoins: {
                                         key: string;
@@ -2366,50 +2223,25 @@ export interface paths {
                                         eventSchemaSlug: string;
                                     }[];
                                     entitySchemaSlugs: string[];
-                                    filters: ({
-                                        /** @enum {string} */
-                                        op: "in";
-                                        field: string;
-                                        value: unknown[];
-                                    } | {
-                                        value?: unknown;
-                                        /** @enum {string} */
-                                        op: "isNull";
-                                        field: string;
-                                    } | {
-                                        value?: unknown;
-                                        /** @enum {string} */
-                                        op: "isNotNull";
-                                        field: string;
-                                    } | {
-                                        value?: unknown;
-                                        field: string;
-                                        /** @enum {string} */
-                                        op: "contains";
-                                    } | {
-                                        value?: unknown;
-                                        field: string;
-                                        /** @enum {string} */
-                                        op: "eq" | "neq" | "gt" | "gte" | "lt" | "lte";
-                                    })[];
+                                    filter?: components["schemas"]["ViewPredicate"];
                                 };
                                 displayConfiguration: {
                                     grid: {
-                                        imageProperty: string[] | null;
-                                        titleProperty: string[] | null;
-                                        badgeProperty: string[] | null;
-                                        subtitleProperty: string[] | null;
+                                        imageProperty: components["schemas"]["ViewExpression"];
+                                        titleProperty: components["schemas"]["ViewExpression"];
+                                        badgeProperty: components["schemas"]["ViewExpression"];
+                                        subtitleProperty: components["schemas"]["ViewExpression"];
                                     };
                                     list: {
-                                        imageProperty: string[] | null;
-                                        titleProperty: string[] | null;
-                                        badgeProperty: string[] | null;
-                                        subtitleProperty: string[] | null;
+                                        imageProperty: components["schemas"]["ViewExpression"];
+                                        titleProperty: components["schemas"]["ViewExpression"];
+                                        badgeProperty: components["schemas"]["ViewExpression"];
+                                        subtitleProperty: components["schemas"]["ViewExpression"];
                                     };
                                     table: {
                                         columns: {
                                             label: string;
-                                            property: string[];
+                                            expression: components["schemas"]["ViewExpression"];
                                         }[];
                                     };
                                 };
@@ -2501,10 +2333,11 @@ export interface paths {
                                 trackerId: string | null;
                                 queryDefinition: {
                                     sort: {
-                                        fields: string[];
+                                        expression: components["schemas"]["ViewExpression"];
                                         /** @enum {string} */
                                         direction: "asc" | "desc";
                                     };
+                                    computedFields?: components["schemas"]["ViewComputedField"][];
                                     /** @default [] */
                                     eventJoins: {
                                         key: string;
@@ -2513,50 +2346,25 @@ export interface paths {
                                         eventSchemaSlug: string;
                                     }[];
                                     entitySchemaSlugs: string[];
-                                    filters: ({
-                                        /** @enum {string} */
-                                        op: "in";
-                                        field: string;
-                                        value: unknown[];
-                                    } | {
-                                        value?: unknown;
-                                        /** @enum {string} */
-                                        op: "isNull";
-                                        field: string;
-                                    } | {
-                                        value?: unknown;
-                                        /** @enum {string} */
-                                        op: "isNotNull";
-                                        field: string;
-                                    } | {
-                                        value?: unknown;
-                                        field: string;
-                                        /** @enum {string} */
-                                        op: "contains";
-                                    } | {
-                                        value?: unknown;
-                                        field: string;
-                                        /** @enum {string} */
-                                        op: "eq" | "neq" | "gt" | "gte" | "lt" | "lte";
-                                    })[];
+                                    filter?: components["schemas"]["ViewPredicate"];
                                 };
                                 displayConfiguration: {
                                     grid: {
-                                        imageProperty: string[] | null;
-                                        titleProperty: string[] | null;
-                                        badgeProperty: string[] | null;
-                                        subtitleProperty: string[] | null;
+                                        imageProperty: components["schemas"]["ViewExpression"];
+                                        titleProperty: components["schemas"]["ViewExpression"];
+                                        badgeProperty: components["schemas"]["ViewExpression"];
+                                        subtitleProperty: components["schemas"]["ViewExpression"];
                                     };
                                     list: {
-                                        imageProperty: string[] | null;
-                                        titleProperty: string[] | null;
-                                        badgeProperty: string[] | null;
-                                        subtitleProperty: string[] | null;
+                                        imageProperty: components["schemas"]["ViewExpression"];
+                                        titleProperty: components["schemas"]["ViewExpression"];
+                                        badgeProperty: components["schemas"]["ViewExpression"];
+                                        subtitleProperty: components["schemas"]["ViewExpression"];
                                     };
                                     table: {
                                         columns: {
                                             label: string;
-                                            property: string[];
+                                            expression: components["schemas"]["ViewExpression"];
                                         }[];
                                     };
                                 };
@@ -2698,7 +2506,7 @@ export interface paths {
                 content: {
                     "application/json": {
                         sort: {
-                            fields: string[];
+                            expression: components["schemas"]["ViewExpression"];
                             /** @enum {string} */
                             direction: "asc" | "desc";
                         };
@@ -2706,6 +2514,7 @@ export interface paths {
                             page: number;
                             limit: number;
                         };
+                        computedFields?: components["schemas"]["ViewComputedField"][];
                         /** @default [] */
                         eventJoins?: {
                             key: string;
@@ -2713,36 +2522,11 @@ export interface paths {
                             kind: "latestEvent";
                             eventSchemaSlug: string;
                         }[];
-                        filters: ({
-                            /** @enum {string} */
-                            op: "in";
-                            field: string;
-                            value: unknown[];
-                        } | {
-                            value?: unknown;
-                            /** @enum {string} */
-                            op: "isNull";
-                            field: string;
-                        } | {
-                            value?: unknown;
-                            /** @enum {string} */
-                            op: "isNotNull";
-                            field: string;
-                        } | {
-                            value?: unknown;
-                            field: string;
-                            /** @enum {string} */
-                            op: "contains";
-                        } | {
-                            value?: unknown;
-                            field: string;
-                            /** @enum {string} */
-                            op: "eq" | "neq" | "gt" | "gte" | "lt" | "lte";
-                        })[];
+                        filter?: components["schemas"]["ViewPredicate"];
                         entitySchemaSlugs: string[];
                         /** @default [] */
                         fields?: {
-                            references: string[];
+                            expression: components["schemas"]["ViewExpression"];
                             key: string;
                         }[];
                     };
@@ -3026,6 +2810,115 @@ export interface components {
             message: string;
             /** @enum {string} */
             code: "internal_error";
+        };
+        ViewExpression: {
+            value: unknown;
+            /** @enum {string} */
+            type: "literal";
+        } | {
+            reference: components["schemas"]["ViewRuntimeReference"];
+            /** @enum {string} */
+            type: "reference";
+        } | {
+            /** @enum {string} */
+            type: "coalesce";
+            values: components["schemas"]["ViewExpression"][];
+        } | {
+            left: components["schemas"]["ViewExpression"];
+            right: components["schemas"]["ViewExpression"];
+            /** @enum {string} */
+            type: "arithmetic";
+            /** @enum {string} */
+            operator: "add" | "subtract" | "multiply" | "divide";
+        } | {
+            /** @enum {string} */
+            type: "round";
+            expression: components["schemas"]["ViewExpression"];
+        } | {
+            /** @enum {string} */
+            type: "floor";
+            expression: components["schemas"]["ViewExpression"];
+        } | {
+            expression: components["schemas"]["ViewExpression"];
+            /** @enum {string} */
+            type: "integer";
+        } | {
+            /** @enum {string} */
+            type: "concat";
+            values: components["schemas"]["ViewExpression"][];
+        } | {
+            whenTrue: components["schemas"]["ViewExpression"];
+            whenFalse: components["schemas"]["ViewExpression"];
+            /** @enum {string} */
+            type: "conditional";
+            condition: components["schemas"]["ViewPredicate"];
+        };
+        ViewRuntimeReference: {
+            slug: string;
+            column: string;
+            /** @enum {string} */
+            type: "entity-column";
+        } | {
+            slug: string;
+            property: string;
+            /** @enum {string} */
+            type: "schema-property";
+        } | {
+            column: string;
+            joinKey: string;
+            /** @enum {string} */
+            type: "event-join-column";
+        } | {
+            joinKey: string;
+            property: string;
+            /** @enum {string} */
+            type: "event-join-property";
+        } | {
+            key: string;
+            /** @enum {string} */
+            type: "computed-field";
+        };
+        ViewPredicate: {
+            /** @enum {string} */
+            type: "isNull";
+            expression: components["schemas"]["ViewExpression"];
+        } | {
+            expression: components["schemas"]["ViewExpression"];
+            /** @enum {string} */
+            type: "isNotNull";
+        } | {
+            /** @enum {string} */
+            type: "in";
+            expression: components["schemas"]["ViewExpression"];
+            values: components["schemas"]["ViewExpression"][];
+        } | {
+            value: components["schemas"]["ViewExpression"];
+            expression: components["schemas"]["ViewExpression"];
+            /** @enum {string} */
+            type: "contains";
+        } | {
+            left: components["schemas"]["ViewExpression"];
+            right: components["schemas"]["ViewExpression"];
+            /** @enum {string} */
+            type: "comparison";
+            /** @enum {string} */
+            operator: "eq" | "gt" | "lt" | "neq" | "gte" | "lte";
+        } | {
+            /** @enum {string} */
+            type: "and";
+            predicates: components["schemas"]["ViewPredicate"][];
+        } | {
+            /** @enum {string} */
+            type: "or";
+            predicates: components["schemas"]["ViewPredicate"][];
+        } | {
+            /** @enum {string} */
+            type: "not";
+            predicate: components["schemas"]["ViewPredicate"];
+        };
+        ViewComputedField: {
+            expression: components["schemas"]["ViewExpression"];
+            key: string;
         };
     };
     responses: never;
