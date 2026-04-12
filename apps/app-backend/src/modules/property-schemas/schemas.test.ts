@@ -162,6 +162,20 @@ describe("propertySchemaObjectSchema", () => {
 		expect(result.success).toBeTrue();
 	});
 
+	it("accepts object properties with unknownKeys passthrough policy", () => {
+		const result = propertySchemaObjectSchema.safeParse({
+			fields: {
+				membershipPropertiesSchema: {
+					type: "object",
+					properties: {},
+					unknownKeys: "passthrough",
+				},
+			},
+		});
+
+		expect(result.success).toBeTrue();
+	});
+
 	it("accepts object properties without unknownKeys (defaults to strict)", () => {
 		const result = propertySchemaObjectSchema.safeParse({
 			fields: {

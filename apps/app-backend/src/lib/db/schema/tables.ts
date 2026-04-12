@@ -328,6 +328,12 @@ export const relationship = pgTable(
 		index("relationship_source_entity_id_idx").on(table.sourceEntityId),
 		index("relationship_target_entity_id_idx").on(table.targetEntityId),
 		index("relationship_properties_idx").using("gin", table.properties),
+		unique("relationship_user_source_target_rel_type_unique").on(
+			table.userId,
+			table.sourceEntityId,
+			table.targetEntityId,
+			table.relType,
+		),
 	],
 );
 
