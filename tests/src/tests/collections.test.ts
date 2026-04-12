@@ -288,6 +288,63 @@ describe("POST /collections", () => {
 	});
 
 	describe("POST /collections/memberships", () => {
+		it("adds a collection entity to another collection", async () => {
+			const { client, cookies } = await createAuthenticatedClient();
+
+			// Create two collections
+			const parentCollection = await createCollection(client, cookies, {
+				name: "Parent Collection",
+				description: "The parent collection",
+			});
+
+			const childCollection = await createCollection(client, cookies, {
+				name: "Child Collection",
+				description: "The child collection to be added",
+			});
+
+			// Add child collection to parent collection
+			const { data, response } = await client.POST("/collections/memberships", {
+				headers: { Cookie: cookies },
+				body: {
+					collectionId: parentCollection.id,
+					entityId: childCollection.id,
+				},
+			});
+
+			expect(response.status).toBe(200);
+			expect(data?.data?.collection?.id).toBeDefined();
+			expect(data?.data?.collection?.relType).toBe("collection");
+			expect(data?.data?.collection?.sourceEntityId).toBe(parentCollection.id);
+			expect(data?.data?.collection?.targetEntityId).toBe(childCollection.id);
+		});
+
+		it("returns validation error when trying to add a collection to itself", async () => {
+			const { client, cookies } = await createAuthenticatedClient();
+
+			// Create a collection
+			const collection = await createCollection(client, cookies, {
+				name: "Self-Referencing Collection",
+				description: "Should not be able to add to itself",
+			});
+
+			// Try to add the collection to itself
+			const { response, error } = await client.POST(
+				"/collections/memberships",
+				{
+					headers: { Cookie: cookies },
+					body: {
+						collectionId: collection.id,
+						entityId: collection.id,
+					},
+				},
+			);
+
+			expect(response.status).toBe(400);
+			expect(error?.error?.message).toContain(
+				"Cannot add a collection to itself",
+			);
+		});
+
 		it("adds an entity to a collection", async () => {
 			const { client, cookies } = await createAuthenticatedClient();
 
