@@ -3074,7 +3074,7 @@ export interface paths {
         put?: never;
         /**
          * Add an entity to a collection
-         * @description Add an entity to a collection by creating a collection relationship between the collection entity and the target entity.
+         * @description Add an entity to a collection by creating a member_of relationship from the entity to the collection.
          */
         post: {
             parameters: {
@@ -3103,16 +3103,6 @@ export interface paths {
                     content: {
                         "application/json": {
                             data: {
-                                collection: {
-                                    id: string;
-                                    relType: string;
-                                    createdAt: string;
-                                    sourceEntityId: string;
-                                    targetEntityId: string;
-                                    properties: {
-                                        [key: string]: unknown;
-                                    };
-                                };
                                 memberOf: {
                                     id: string;
                                     relType: string;
@@ -3164,7 +3154,7 @@ export interface paths {
         };
         /**
          * Remove an entity from a collection
-         * @description Remove an entity from a collection by deleting the collection relationship between the collection entity and the target entity.
+         * @description Remove an entity from a collection by deleting the member_of relationship from the entity to the collection.
          */
         delete: {
             parameters: {
@@ -3190,16 +3180,6 @@ export interface paths {
                     content: {
                         "application/json": {
                             data: {
-                                collection: {
-                                    id: string;
-                                    relType: string;
-                                    createdAt: string;
-                                    sourceEntityId: string;
-                                    targetEntityId: string;
-                                    properties: {
-                                        [key: string]: unknown;
-                                    };
-                                };
                                 memberOf: {
                                     id: string;
                                     relType: string;
