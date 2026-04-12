@@ -25,6 +25,8 @@ export const EntityDefinition = Schema.Struct({
 	providers: Schema.Array(Schema.Struct({ name: Schema.String, providerId: SandboxProviderId })),
 });
 
+export type EntityDefinition = typeof EntityDefinition.Type;
+
 export const RelationshipDefinition = Schema.Struct({
 	name: Schema.String,
 	slug: RelationshipSchemaSlug,
