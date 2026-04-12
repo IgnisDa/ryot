@@ -435,8 +435,8 @@ const BaseEntityDisplayItemComponent = forwardRef<
 			pos="relative"
 			style={cardStyle}
 			ref={viewportRef}
-			className={props.imageClassName}
 			h={{ base: 240, "2xl": 360 }}
+			className={props.imageClassName}
 			withBorder={!shouldHighlightImage && !props.isCalendarEventWatched}
 		>
 			{props.centerElement ? (
