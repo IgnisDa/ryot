@@ -1,5 +1,5 @@
 import { describe, expect, it } from "bun:test";
-import { createEntitySchemaFixture } from "#/features/test-fixtures";
+import { createEntitySchemaFixture } from "~/features/test-fixtures";
 import { resolvePropertyType } from "./resolve-property-type";
 
 const animeSchema = createEntitySchemaFixture({

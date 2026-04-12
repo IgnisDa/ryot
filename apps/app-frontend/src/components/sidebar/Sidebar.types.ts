@@ -1,6 +1,6 @@
-import type { AppSavedView } from "#/features/saved-views/model";
-import type { AppTracker } from "#/features/trackers/model";
-import type { AuthenticatedUser } from "#/lib/auth";
+import type { AppSavedView } from "~/features/saved-views/model";
+import type { AppTracker } from "~/features/trackers/model";
+import type { AuthenticatedUser } from "~/lib/auth";
 
 export type SidebarAccount = Pick<
 	AuthenticatedUser["user"],
