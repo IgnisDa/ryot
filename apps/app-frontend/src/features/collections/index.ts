@@ -13,6 +13,7 @@ export {
 	buildDefaultMembershipFormValues,
 	buildMembershipFormSchema,
 	buildMembershipPropertyDefaults,
+	deriveInitialValuesFromEntity,
 	getMembershipFormReconciliationState,
 	getMembershipPropertyEntries,
 	getSelectedCollection,
