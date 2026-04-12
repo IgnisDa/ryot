@@ -228,9 +228,9 @@ and when dependencies return errors.
 
 ## Tasks
 
-**Overall Progress:** 3 of 5 tasks completed
+**Overall Progress:** 4 of 5 tasks completed
 
-**Current Task:** [Task 04](./04-entities-field-rename.md) (todo)
+**Current Task:** [Task 05](./05-frontend-updates.md) (todo)
 
 ### Task List
 
@@ -239,5 +239,5 @@ and when dependencies return errors.
 | 01 | [Runner Driver Registration](./01-runner-driver-registration.md) | AFK | done | None |
 | 02 | [DB Schema Update](./02-db-schema-update.md) | AFK | done | None |
 | 03 | [Entity Schemas Providers and Seed](./03-entity-schemas-providers-and-seed.md) | AFK | done | Task 02 |
-| 04 | [Entities Field Rename](./04-entities-field-rename.md) | AFK | todo | Task 02 |
+| 04 | [Entities Field Rename](./04-entities-field-rename.md) | AFK | done | Task 02 |
 | 05 | [Frontend Updates](./05-frontend-updates.md) | AFK | todo | Tasks 03, 04 |
