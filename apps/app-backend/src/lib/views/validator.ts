@@ -1,5 +1,5 @@
-import type { QueryEngineRequest } from "~/modules/query-engine/schemas";
-import type { DisplayConfiguration } from "~/modules/saved-views/schemas";
+import type { QueryEngineRequest } from "~/modules/query-engine";
+import type { DisplayConfiguration } from "~/modules/saved-views";
 import {
 	getComputedFieldOrThrow,
 	prepareComputedFields,
