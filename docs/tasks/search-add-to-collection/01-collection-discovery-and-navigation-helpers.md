@@ -4,7 +4,7 @@
 
 **Type:** AFK
 
-**Status:** todo
+**Status:** done
 
 ## What to build
 
@@ -25,15 +25,15 @@ See the parent PRD sections **Collection discovery** and **No-collections guidan
       existing generic query path.
 - [x] Collection discovery returns enough data for the later search-modal slices to render a
       selector and access each collection's `membershipPropertiesSchema`.
-- [ ] The helper exposes loading and empty-state-friendly behavior without forcing the search row to
+- [x] The helper exposes loading and empty-state-friendly behavior without forcing the search row to
       know query details directly.
-- [ ] The frontend exposes a helper that resolves the built-in Collections saved view dynamically
+- [x] The frontend exposes a helper that resolves the built-in Collections saved view dynamically
       from saved-view data rather than hardcoding an opaque identifier.
-- [ ] The resolved Collections destination can be used by the future empty-state CTA in the search
+- [x] The resolved Collections destination can be used by the future empty-state CTA in the search
       row.
 - [x] Unit tests cover built-in Collections view resolution and any small pure mapping logic added
       for collection discovery.
-- [ ] `bun run typecheck` and the relevant frontend test command pass in `apps/app-frontend`.
+- [x] `bun run typecheck` and the relevant frontend test command pass in `apps/app-frontend`.
 
 ## Blocked by
 
