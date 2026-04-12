@@ -1,5 +1,5 @@
 {
-	"id": "3de58f74-c851-41f2-9fb2-9f9705254dac",
+	"id": "73810ca6-3434-4252-834c-e865739c06aa",
 	"prevId": "00000000-0000-0000-0000-000000000000",
 	"version": "7",
 	"dialect": "postgresql",
@@ -1427,6 +1427,12 @@
 			"name": "sandbox_script",
 			"schema": "",
 			"columns": {
+				"metadata": {
+					"name": "metadata",
+					"type": "jsonb",
+					"primaryKey": false,
+					"notNull": false
+				},
 				"slug": {
 					"name": "slug",
 					"type": "text",
