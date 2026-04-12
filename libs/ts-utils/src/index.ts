@@ -195,6 +195,7 @@ export {
 	fromAppSchema,
 	fromAppSchemaObject,
 	getAppPropertyDefinitionAtPath,
+	getDefaultPropertyLabel,
 	isAppPropertyRequired,
 	toAppSchema,
 	toAppSchemaProperties,
