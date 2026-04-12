@@ -3,7 +3,6 @@ import { toAppSchemaProperties } from "@ryot/ts-utils/app-schema";
 
 const measurementStatisticSchema = z.object({
 	value: z.number().describe("Numeric value of this statistic"),
-	unit: z.string().nullish().describe("Optional freeform unit string"),
 	label: z.string().describe("Human-readable label as it appears in the source"),
 	key: z.string().describe("Normalized snake_case identifier for this statistic"),
 });
