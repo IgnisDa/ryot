@@ -93,6 +93,8 @@ describe("createTemporaryUploads", () => {
 				files: [
 					new File(["csv data"], "report.csv", { type: "text/csv" }),
 					new File(["zip data"], "archive.zip", { type: "application/zip" }),
+					new File(["xml data"], "anime.xml", { type: "application/xml" }),
+					new File(["gz data"], "anime.xml.gz", { type: "application/gzip" }),
 					new File(["json data"], "payload.json", { type: "application/json" }),
 				],
 			},
@@ -107,12 +109,20 @@ describe("createTemporaryUploads", () => {
 		);
 
 		expect(result).toEqual({
-			data: ["token-temp_1-report.csv", "token-temp_2-archive.zip", "token-temp_3-payload.json"],
+			data: [
+				"token-temp_1-report.csv",
+				"token-temp_2-archive.zip",
+				"token-temp_3-anime.xml",
+				"token-temp_4-anime.xml.gz",
+				"token-temp_5-payload.json",
+			],
 		});
 		expect(writes).toEqual([
 			{ content: "csv data", path: "/tmp/ryot-uploads/temp_1-report.csv" },
 			{ content: "zip data", path: "/tmp/ryot-uploads/temp_2-archive.zip" },
-			{ content: "json data", path: "/tmp/ryot-uploads/temp_3-payload.json" },
+			{ content: "xml data", path: "/tmp/ryot-uploads/temp_3-anime.xml" },
+			{ content: "gz data", path: "/tmp/ryot-uploads/temp_4-anime.xml.gz" },
+			{ content: "json data", path: "/tmp/ryot-uploads/temp_5-payload.json" },
 		]);
 	});
 
@@ -207,6 +217,31 @@ describe("createTemporaryUploads", () => {
 		expect(result).toEqual({
 			error: "validation",
 			message: "Upload content type must be a supported MIME type",
+		});
+		expect(wrote).toBe(false);
+	});
+
+	it("rejects temporary upload files that exceed the size limit", async () => {
+		let wrote = false;
+		const result = await createTemporaryUploads(
+			{
+				userId: "user_1",
+				files: [new File(["123456"], "report.csv", { type: "text/csv" })],
+			},
+			{
+				maxFileBytes: 5,
+				temporaryDirectory: "/tmp/ryot-uploads",
+				storeToken: fakeStoreToken,
+				writeFile: () => {
+					wrote = true;
+					return Promise.resolve();
+				},
+			},
+		);
+
+		expect(result).toEqual({
+			error: "validation",
+			message: "Upload file exceeds maximum allowed size of 5 bytes (file is 6 bytes)",
 		});
 		expect(wrote).toBe(false);
 	});

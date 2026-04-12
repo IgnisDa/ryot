@@ -1,4 +1,5 @@
 import { createRoute, OpenAPIHono } from "@hono/zod-openapi";
+import { bodyLimit } from "hono/body-limit";
 
 import { createAuthRoute, type AuthType } from "~/lib/auth";
 import {
@@ -10,6 +11,7 @@ import {
 	createStandardResponses,
 	jsonBody,
 } from "~/lib/openapi";
+import { temporaryUploadMaxRequestBytes } from "~/lib/upload";
 
 import {
 	getPresignedDownloadUrlBody,
@@ -20,6 +22,16 @@ import {
 	temporaryUploadResponseSchema,
 } from "./schemas";
 import { createPresignedDownloads, createPresignedUpload, createTemporaryUploads } from "./service";
+
+const temporaryUploadBodyLimit = bodyLimit({
+	maxSize: temporaryUploadMaxRequestBytes,
+	onError: (c) => {
+		const response = createValidationErrorResult(
+			"Temporary upload request exceeds the maximum allowed size",
+		);
+		return c.json(response.body, 413);
+	},
+});
 
 const getPresignedUploadUrlRoute = createAuthRoute(
 	createRoute({
@@ -62,6 +74,9 @@ const temporaryUploadRoute = createAuthRoute(
 	createRoute({
 		method: "post",
 		tags: ["uploads"],
+		// c.req.formData() buffers multipart bodies, so larger multi-file imports should upload
+		// each file separately instead of sending one oversized request here.
+		middleware: [temporaryUploadBodyLimit],
 		path: "/temporary",
 		summary: "Upload temporary files to disk",
 		request: {
@@ -72,6 +87,10 @@ const temporaryUploadRoute = createAuthRoute(
 				successSchema: temporaryUploadResponseSchema,
 				successDescription: "Temporary file paths written to disk",
 			}),
+			413: createErrorResponse(
+				"Temporary upload exceeds the maximum allowed size",
+				commonErrors.validationFailed,
+			),
 			500: createErrorResponse("Temporary upload failed", commonErrors.internalError),
 		},
 	}),
