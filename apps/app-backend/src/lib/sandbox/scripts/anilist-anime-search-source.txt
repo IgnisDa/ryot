@@ -75,19 +75,19 @@ query MediaSearchQuery($page: Int!, $perPage: Int!, $search: String!, $type: Med
 `;
 
 const response = await httpCall("POST", "https://graphql.anilist.co", {
-  body: JSON.stringify({
-    query: graphqlQuery,
-    variables: {
-      search: query,
-      type: "ANIME",
-      page: currentPage,
-      perPage: pageSize,
-    },
-  }),
   headers: {
     Accept: "application/json",
     "Content-Type": "application/json",
   },
+  body: JSON.stringify({
+    query: graphqlQuery,
+    variables: {
+      type: "ANIME",
+      search: query,
+      page: currentPage,
+      perPage: pageSize,
+    },
+  }),
 });
 
 if (!response?.success) {
