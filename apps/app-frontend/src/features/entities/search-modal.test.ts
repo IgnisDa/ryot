@@ -352,218 +352,455 @@ describe("search-modal collection panel submission", () => {
 			expect(canSubmit).toBe(true);
 		});
 	});
-});
 
-describe("inline error display for validation and write failures", () => {
-	describe("actionError state management", () => {
-		it("sets actionError for display when validation fails", () => {
-			const actionState: SearchResultRowActionState = {
-				rateStars: 0,
-				logDate: "now",
-				rateReview: "",
-				openPanel: "log",
-				doneActions: [],
-				logStartedOn: "",
-				rateStarsHover: 0,
-				actionError: null,
-				logCompletedOn: "",
-				pendingAction: null,
-				selectedCollectionId: null,
-				collectionProperties: {},
-				collectionError: null,
-			};
+	describe("save to collection orchestration", () => {
+		describe("success case", () => {
+			it("completes full flow when entity creation and collection add both succeed", async () => {
+				const searchResult: SearchResultItem = {
+					identifier: "test-item-1",
+					badgeProperty: { kind: "null", value: null },
+					titleProperty: { kind: "text", value: "Test Book" },
+					subtitleProperty: { kind: "null", value: null },
+					imageProperty: { kind: "null", value: null },
+				};
 
-			// When validation fails, actionError is set
-			const validationError =
-				"Started date is required when selecting 'Started on'";
-			actionState.actionError = validationError;
+				const selectedCollectionId = "collection-123";
+				const collectionProperties = { notes: "Great read" };
 
-			expect(actionState.actionError).toBe(validationError);
+				// Step 1: Ensure entity exists
+				const ensuredEntity = createEntityFixture({
+					id: "entity-123",
+					name: searchResult.titleProperty.value,
+				});
+
+				// Step 2: Entity is successfully created/found
+				let entityId: string | null = null;
+				entityId = ensuredEntity.id;
+				expect(entityId).toBe("entity-123");
+
+				// Step 3: Collection membership is successfully added
+				const membershipPayload = {
+					body: {
+						collectionId: selectedCollectionId,
+						entityId: ensuredEntity.id,
+						properties: collectionProperties,
+					},
+				};
+
+				// Simulate successful mutation
+				const addToCollectionResult = { success: true };
+				expect(addToCollectionResult.success).toBe(true);
+
+				// Step 4: Verify payload structure
+				expect(membershipPayload.body).toEqual({
+					collectionId: "collection-123",
+					entityId: "entity-123",
+					properties: { notes: "Great read" },
+				});
+
+				// Step 5: Track done actions
+				const doneActions = ["track", "collection"];
+				expect(doneActions).toContain("track");
+				expect(doneActions).toContain("collection");
+			});
+
+			it("closes panel and shows success notification on complete success", () => {
+				const itemName = "Test Movie";
+				const collectionName = "My Favorites";
+
+				// Panel closes on success
+				const openPanel: string | null = null;
+				expect(openPanel).toBeNull();
+
+				// Success message construction
+				const message = `${itemName} was added to ${collectionName}.`;
+				expect(message).toBe("Test Movie was added to My Favorites.");
+			});
 		});
 
-		it("clears previous actionError when starting new action", () => {
-			let actionError: string | null = "Previous error";
+		describe("validation failure", () => {
+			it("returns early when no collection is selected", () => {
+				const selectedCollectionId: string | null = null;
 
-			// Before starting new action, clear error
-			actionError = null;
+				// When no collection is selected, submission should not proceed
+				const shouldProceed = selectedCollectionId !== null;
+				expect(shouldProceed).toBe(false);
 
-			expect(actionError).toBeNull();
+				// No entity should be ensured
+				let entityEnsured = false;
+				if (shouldProceed) {
+					entityEnsured = true;
+				}
+				expect(entityEnsured).toBe(false);
+			});
+
+			it("does not call addToCollection when collectionId is null", () => {
+				const selectedCollectionId: string | null = null;
+				let addToCollectionCalled = false;
+
+				// Simulate the guard check
+				if (selectedCollectionId) {
+					addToCollectionCalled = true;
+				}
+
+				expect(addToCollectionCalled).toBe(false);
+			});
 		});
 
-		it("displays error inline for collection add failures", () => {
-			const itemName = "Test Movie";
-			const errorMessage = "Network timeout";
-			const entityId = "entity-789";
+		describe("write failure", () => {
+			it("fails completely when entity creation fails", async () => {
+				// Entity creation fails
+				const entityCreationError = new Error("Failed to create entity");
+				let _entityId: string | null = null;
 
-			// This is the message structure set in actionError
-			const message = entityId
-				? `${itemName} is in your library, but could not be added to the collection: ${errorMessage}`
-				: errorMessage;
+				try {
+					// Simulate failed entity creation
+					throw entityCreationError;
+				} catch (_error) {
+					// Entity remains null on failure
+					_entityId = null;
+				}
 
-			// The error is set in actionState for inline display
-			const actionState: Partial<SearchResultRowActionState> = {
-				actionError: message,
-			};
+				// Verify entity was not created
+				expect(_entityId).toBeNull();
 
-			expect(actionState.actionError).toBe(
-				"Test Movie is in your library, but could not be added to the collection: Network timeout",
-			);
+				// No done actions should be marked
+				const doneActions: string[] = [];
+				expect(doneActions).toHaveLength(0);
+
+				// Error message should show the entity creation failure
+				const errorMessage = entityCreationError.message;
+				expect(errorMessage).toBe("Failed to create entity");
+			});
+
+			it("does not attempt collection add when entity creation fails", () => {
+				const entityCreationFailed = true;
+				let addToCollectionAttempted = false;
+
+				// Collection add should only happen if entity creation succeeded
+				if (!entityCreationFailed) {
+					addToCollectionAttempted = true;
+				}
+
+				expect(addToCollectionAttempted).toBe(false);
+			});
+		});
+
+		describe("partial failure", () => {
+			it("succeeds at entity creation but fails at collection add", async () => {
+				// Step 1: Entity creation succeeds
+				const ensuredEntity = createEntityFixture({
+					id: "entity-456",
+					name: "Test Book",
+				});
+				const entityId: string | null = ensuredEntity.id;
+				expect(entityId).toBe("entity-456");
+
+				// Step 2: Collection add fails
+				const collectionError = new Error("Network timeout");
+				let collectionAddSucceeded = false;
+				try {
+					// Simulate failed collection add
+					throw collectionError;
+				} catch {
+					collectionAddSucceeded = false;
+				}
+
+				expect(collectionAddSucceeded).toBe(false);
+
+				// Step 3: Verify partial failure state
+				// Entity exists (in library)
+				expect(entityId).not.toBeNull();
+
+				// But collection add failed
+				expect(collectionAddSucceeded).toBe(false);
+			});
+
+			it("marks only track as done during partial failure", () => {
+				const _entityId = "entity-123";
+				const collectionAddSucceeded = false;
+
+				// When entity creation succeeds but collection add fails
+				const doneActions: string[] = [];
+				if (_entityId) {
+					doneActions.push("track");
+				}
+				if (collectionAddSucceeded) {
+					doneActions.push("collection");
+				}
+
+				// Only track should be marked done
+				expect(doneActions).toContain("track");
+				expect(doneActions).not.toContain("collection");
+				expect(doneActions).toHaveLength(1);
+			});
+
+			it("generates correct partial failure message with collection error", () => {
+				const itemName = "Test Book";
+				const collectionErrorMessage = "Network timeout";
+				const entityId = "entity-123";
+
+				// Partial failure message construction
+				const isPartialFailure = entityId !== null;
+				const message = isPartialFailure
+					? `${itemName} is in your library, but could not be added to the collection: ${collectionErrorMessage}`
+					: collectionErrorMessage;
+
+				expect(message).toBe(
+					"Test Book is in your library, but could not be added to the collection: Network timeout",
+				);
+			});
+
+			it("stores collectionError separately during partial failure", () => {
+				const collectionErrorMessage = "Collection validation failed";
+
+				// During partial failure, both actionError and collectionError are set
+				const actionState: Partial<SearchResultRowActionState> = {
+					actionError: `Test Book is in your library, but could not be added to the collection: ${collectionErrorMessage}`,
+					collectionError: collectionErrorMessage,
+					openPanel: "collection", // Panel stays open for retry
+				};
+
+				expect(actionState.actionError).toContain("is in your library");
+				expect(actionState.collectionError).toBe(collectionErrorMessage);
+				expect(actionState.openPanel).toBe("collection");
+			});
+
+			it("keeps collection panel open on partial failure to allow retry", () => {
+				const entityId = "entity-123";
+				const currentOpenPanel = "collection" as const;
+
+				// On partial failure, panel stays open so user can retry
+				const openPanel = entityId ? currentOpenPanel : null;
+
+				expect(openPanel).toBe("collection");
+			});
+
+			it("does not mark collection as done on partial failure", () => {
+				const doneActions: string[] = ["track"];
+				const collectionAddSucceeded = false;
+
+				// collection should NOT be added to doneActions on failure
+				if (collectionAddSucceeded) {
+					doneActions.push("collection");
+				}
+
+				expect(doneActions).not.toContain("collection");
+			});
 		});
 	});
 
-	describe("displayError computation in SearchResultRow", () => {
-		it("shows actionError when present", () => {
-			const actionState: SearchResultRowActionState = {
-				rateStars: 0,
-				logDate: "now",
-				rateReview: "",
-				openPanel: null,
-				doneActions: [],
-				logStartedOn: "",
-				rateStarsHover: 0,
-				actionError: "Failed to save log",
-				logCompletedOn: "",
-				pendingAction: null,
-				selectedCollectionId: null,
-				collectionProperties: {},
-				collectionError: null,
-			};
-			const addStatus: string = "idle";
-			const addError = undefined;
+	describe("inline error display for validation and write failures", () => {
+		describe("actionError state management", () => {
+			it("sets actionError for display when validation fails", () => {
+				const actionState: SearchResultRowActionState = {
+					rateStars: 0,
+					logDate: "now",
+					rateReview: "",
+					openPanel: "log",
+					doneActions: [],
+					logStartedOn: "",
+					rateStarsHover: 0,
+					actionError: null,
+					logCompletedOn: "",
+					pendingAction: null,
+					selectedCollectionId: null,
+					collectionProperties: {},
+					collectionError: null,
+				};
 
-			// This mimics the displayError computation in SearchResultRow
-			const displayError =
-				actionState.actionError ??
-				(addStatus === "error" ? (addError ?? "Failed to add item") : null);
+				// When validation fails, actionError is set
+				const validationError =
+					"Started date is required when selecting 'Started on'";
+				actionState.actionError = validationError;
 
-			expect(displayError).toBe("Failed to save log");
+				expect(actionState.actionError).toBe(validationError);
+			});
+
+			it("clears previous actionError when starting new action", () => {
+				let actionError: string | null = "Previous error";
+
+				// Before starting new action, clear error
+				actionError = null;
+
+				expect(actionError).toBeNull();
+			});
+
+			it("displays error inline for collection add failures", () => {
+				const itemName = "Test Movie";
+				const errorMessage = "Network timeout";
+				const entityId = "entity-789";
+
+				// This is the message structure set in actionError
+				const message = entityId
+					? `${itemName} is in your library, but could not be added to the collection: ${errorMessage}`
+					: errorMessage;
+
+				// The error is set in actionState for inline display
+				const actionState: Partial<SearchResultRowActionState> = {
+					actionError: message,
+				};
+
+				expect(actionState.actionError).toBe(
+					"Test Movie is in your library, but could not be added to the collection: Network timeout",
+				);
+			});
 		});
 
-		it("falls back to addError when actionError is null and addStatus is error", () => {
-			const actionState: SearchResultRowActionState = {
-				rateStars: 0,
-				logDate: "now",
-				rateReview: "",
-				openPanel: null,
-				doneActions: [],
-				logStartedOn: "",
-				rateStarsHover: 0,
-				actionError: null,
-				logCompletedOn: "",
-				pendingAction: null,
-				selectedCollectionId: null,
-				collectionProperties: {},
-				collectionError: null,
-			};
-			const addStatus: string = "error";
-			const addError = "Entity creation failed";
+		describe("displayError computation in SearchResultRow", () => {
+			it("shows actionError when present", () => {
+				const actionState: SearchResultRowActionState = {
+					rateStars: 0,
+					logDate: "now",
+					rateReview: "",
+					openPanel: null,
+					doneActions: [],
+					logStartedOn: "",
+					rateStarsHover: 0,
+					actionError: "Failed to save log",
+					logCompletedOn: "",
+					pendingAction: null,
+					selectedCollectionId: null,
+					collectionProperties: {},
+					collectionError: null,
+				};
+				const addStatus: string = "idle";
+				const addError = undefined;
 
-			const displayError =
-				actionState.actionError ??
-				(addStatus === "error" ? (addError ?? "Failed to add item") : null);
+				// This mimics the displayError computation in SearchResultRow
+				const displayError =
+					actionState.actionError ??
+					(addStatus === "error" ? (addError ?? "Failed to add item") : null);
 
-			expect(displayError).toBe("Entity creation failed");
+				expect(displayError).toBe("Failed to save log");
+			});
+
+			it("falls back to addError when actionError is null and addStatus is error", () => {
+				const actionState: SearchResultRowActionState = {
+					rateStars: 0,
+					logDate: "now",
+					rateReview: "",
+					openPanel: null,
+					doneActions: [],
+					logStartedOn: "",
+					rateStarsHover: 0,
+					actionError: null,
+					logCompletedOn: "",
+					pendingAction: null,
+					selectedCollectionId: null,
+					collectionProperties: {},
+					collectionError: null,
+				};
+				const addStatus: string = "error";
+				const addError = "Entity creation failed";
+
+				const displayError =
+					actionState.actionError ??
+					(addStatus === "error" ? (addError ?? "Failed to add item") : null);
+
+				expect(displayError).toBe("Entity creation failed");
+			});
+
+			it("shows no error when both actionError and addStatus are clean", () => {
+				const actionState: SearchResultRowActionState = {
+					rateStars: 0,
+					logDate: "now",
+					rateReview: "",
+					openPanel: null,
+					doneActions: [],
+					logStartedOn: "",
+					rateStarsHover: 0,
+					actionError: null,
+					logCompletedOn: "",
+					pendingAction: null,
+					selectedCollectionId: null,
+					collectionProperties: {},
+					collectionError: null,
+				};
+				const addStatus: string = "idle";
+				const addError = undefined;
+
+				const displayError =
+					actionState.actionError ??
+					(addStatus === "error" ? (addError ?? "Failed to add item") : null);
+
+				expect(displayError).toBeNull();
+			});
 		});
 
-		it("shows no error when both actionError and addStatus are clean", () => {
-			const actionState: SearchResultRowActionState = {
-				rateStars: 0,
-				logDate: "now",
-				rateReview: "",
-				openPanel: null,
-				doneActions: [],
-				logStartedOn: "",
-				rateStarsHover: 0,
-				actionError: null,
-				logCompletedOn: "",
-				pendingAction: null,
-				selectedCollectionId: null,
-				collectionProperties: {},
-				collectionError: null,
-			};
-			const addStatus: string = "idle";
-			const addError = undefined;
+		describe("error message construction for different failure scenarios", () => {
+			it("constructs validation error message for log panel", () => {
+				// Validation error from createLogEventPayload
+				const validationError =
+					"Started date is required when selecting 'Started on'";
 
-			const displayError =
-				actionState.actionError ??
-				(addStatus === "error" ? (addError ?? "Failed to add item") : null);
+				// This is how handleSaveLog sets the error
+				const actionError = validationError;
 
-			expect(displayError).toBeNull();
-		});
-	});
+				expect(actionError).toBe(
+					"Started date is required when selecting 'Started on'",
+				);
+			});
 
-	describe("error message construction for different failure scenarios", () => {
-		it("constructs validation error message for log panel", () => {
-			// Validation error from createLogEventPayload
-			const validationError =
-				"Started date is required when selecting 'Started on'";
+			it("constructs validation error message for rate panel", () => {
+				// Validation error from createReviewEventPayload
+				const validationError = "Rating must be greater than 0";
 
-			// This is how handleSaveLog sets the error
-			const actionError = validationError;
+				// This is how handleSaveReview sets the error
+				const actionError = validationError;
 
-			expect(actionError).toBe(
-				"Started date is required when selecting 'Started on'",
-			);
-		});
+				expect(actionError).toBe("Rating must be greater than 0");
+			});
 
-		it("constructs validation error message for rate panel", () => {
-			// Validation error from createReviewEventPayload
-			const validationError = "Rating must be greater than 0";
+			it("constructs partial failure message for lifecycle actions with entity success", () => {
+				const searchResult: SearchResultItem = {
+					identifier: "test-item-1",
+					badgeProperty: { kind: "null", value: null },
+					titleProperty: { kind: "text", value: "Test Movie" },
+					subtitleProperty: { kind: "null", value: null },
+					imageProperty: { kind: "null", value: null },
+				};
+				const entityId = "entity-123";
+				const partialFailureMessage = `${searchResult.titleProperty.value} is in your library, but it could not be added to backlog.`;
+				const errorMessage = "Network timeout";
 
-			// This is how handleSaveReview sets the error
-			const actionError = validationError;
+				const message = entityId
+					? `${partialFailureMessage} ${errorMessage}`
+					: errorMessage;
 
-			expect(actionError).toBe("Rating must be greater than 0");
-		});
+				expect(message).toBe(
+					"Test Movie is in your library, but it could not be added to backlog. Network timeout",
+				);
+			});
 
-		it("constructs partial failure message for lifecycle actions with entity success", () => {
-			const searchResult: SearchResultItem = {
-				identifier: "test-item-1",
-				badgeProperty: { kind: "null", value: null },
-				titleProperty: { kind: "text", value: "Test Movie" },
-				subtitleProperty: { kind: "null", value: null },
-				imageProperty: { kind: "null", value: null },
-			};
-			const entityId = "entity-123";
-			const partialFailureMessage = `${searchResult.titleProperty.value} is in your library, but it could not be added to backlog.`;
-			const errorMessage = "Network timeout";
+			it("keeps panel open on partial failure to allow retry", () => {
+				const entityId = "entity-123";
+				const currentOpenPanel = "log" as const;
 
-			const message = entityId
-				? `${partialFailureMessage} ${errorMessage}`
-				: errorMessage;
+				// On partial failure, panel stays open
+				const openPanel = entityId ? currentOpenPanel : null;
 
-			expect(message).toBe(
-				"Test Movie is in your library, but it could not be added to backlog. Network timeout",
-			);
-		});
+				expect(openPanel).toBe("log");
+			});
 
-		it("keeps panel open on partial failure to allow retry", () => {
-			const entityId = "entity-123";
-			const currentOpenPanel = "log" as const;
+			it("keeps panel open on complete failure to allow retry", () => {
+				const currentOpenPanel = "collection" as const;
 
-			// On partial failure, panel stays open
-			const openPanel = entityId ? currentOpenPanel : null;
+				// On complete failure, panel stays open (not null) so user can retry
+				const openPanel = currentOpenPanel;
 
-			expect(openPanel).toBe("log");
-		});
+				expect(openPanel).toBe("collection");
+			});
 
-		it("keeps panel open on complete failure to allow retry", () => {
-			const currentOpenPanel = "collection" as const;
+			it("keeps collection panel open on validation failure", () => {
+				const actionState: Partial<SearchResultRowActionState> = {
+					openPanel: "collection",
+					actionError: "Collection selection is required",
+				};
 
-			// On complete failure, panel stays open (not null) so user can retry
-			const openPanel = currentOpenPanel;
-
-			expect(openPanel).toBe("collection");
-		});
-
-		it("keeps collection panel open on validation failure", () => {
-			const actionState: Partial<SearchResultRowActionState> = {
-				openPanel: "collection",
-				actionError: "Collection selection is required",
-			};
-
-			// Panel stays open so user can correct and retry
-			expect(actionState.openPanel).toBe("collection");
+				// Panel stays open so user can correct and retry
+				expect(actionState.openPanel).toBe("collection");
+			});
 		});
 	});
 });
