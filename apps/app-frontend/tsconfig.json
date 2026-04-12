@@ -18,10 +18,8 @@
 		"types": ["vite/client", "bun-types"],
 		"lib": ["ES2022", "DOM", "DOM.Iterable"],
 		"paths": {
-			"#/*": ["./src/*"],
-			"@/*": ["./src/*"],
-			"@ryot/generated/*": ["../../libs/generated/src/*"],
-			"@ryot/ts-utils/dayjs": ["../../libs/ts-utils/src/dayjs.ts"]
+			"~/*": ["./src/*"],
+			"@ryot/generated/*": ["../../libs/generated/src/*"]
 		}
 	}
 }

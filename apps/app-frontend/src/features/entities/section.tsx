@@ -1,6 +1,6 @@
 import { Button, Group, Modal, Stack, Text } from "@mantine/core";
-import type { AppEntitySchema } from "#/features/entity-schemas/model";
-import { GeneratedPropertyField } from "#/features/generated-property-fields";
+import type { AppEntitySchema } from "~/features/entity-schemas/model";
+import { GeneratedPropertyField } from "~/features/generated-property-fields";
 import type { CreateEntityPayload } from "./form";
 import { useCreateEntityForm } from "./use-form";
 

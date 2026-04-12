@@ -1,4 +1,4 @@
-import { dayjs } from "@ryot/ts-utils/dayjs";
+import { dayjs } from "@ryot/ts-utils";
 import { relations } from "drizzle-orm";
 import {
 	boolean,

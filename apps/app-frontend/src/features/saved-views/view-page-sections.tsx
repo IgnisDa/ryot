@@ -11,8 +11,8 @@ import {
 import { Link } from "@tanstack/react-router";
 import { Image as ImageIcon } from "lucide-react";
 import { DataTable, type DataTableColumn } from "mantine-datatable";
-import type { AppEntity } from "#/features/entities/model";
-import { useThemeTokens } from "#/hooks/theme";
+import type { AppEntity } from "~/features/entities/model";
+import { useThemeTokens } from "~/hooks/theme";
 import type {
 	QueryEngineResponse,
 	SavedView,

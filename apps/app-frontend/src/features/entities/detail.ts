@@ -1,5 +1,5 @@
 import type { AppPropertyDefinition, AppSchema } from "@ryot/ts-utils";
-import { dayjs } from "@ryot/ts-utils/dayjs";
+import { dayjs } from "@ryot/ts-utils";
 import { match } from "ts-pattern";
 
 export interface EntityDetailProperty {
