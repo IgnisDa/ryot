@@ -235,6 +235,7 @@ export interface paths {
                         scriptId: string;
                         /** @enum {string} */
                         kind: "script";
+                        driverName?: string;
                         context?: {
                             [key: string]: unknown;
                         };
@@ -894,10 +895,9 @@ export interface paths {
                                         [key: string]: components["schemas"]["AppPropertyDefinition"];
                                     };
                                 };
-                                searchProviders: {
+                                providers: {
                                     name: string;
-                                    searchScriptId: string;
-                                    detailsScriptId: string;
+                                    scriptId: string;
                                 }[];
                                 /** @description A Lucide icon name (e.g., 'book', 'dumbbell', 'gamepad-2'). See https://lucide.dev/icons/ */
                                 icon: string;
@@ -1002,10 +1002,9 @@ export interface paths {
                                         [key: string]: components["schemas"]["AppPropertyDefinition"];
                                     };
                                 };
-                                searchProviders: {
+                                providers: {
                                     name: string;
-                                    searchScriptId: string;
-                                    detailsScriptId: string;
+                                    scriptId: string;
                                 }[];
                                 /** @description A Lucide icon name (e.g., 'book', 'dumbbell', 'gamepad-2'). See https://lucide.dev/icons/ */
                                 icon: string;
@@ -1093,10 +1092,9 @@ export interface paths {
                                         [key: string]: components["schemas"]["AppPropertyDefinition"];
                                     };
                                 };
-                                searchProviders: {
+                                providers: {
                                     name: string;
-                                    searchScriptId: string;
-                                    detailsScriptId: string;
+                                    scriptId: string;
                                 }[];
                                 /** @description A Lucide icon name (e.g., 'book', 'dumbbell', 'gamepad-2'). See https://lucide.dev/icons/ */
                                 icon: string;
@@ -1195,7 +1193,7 @@ export interface paths {
                                 properties: {
                                     [key: string]: unknown;
                                 };
-                                detailsSandboxScriptId: string | null;
+                                sandboxScriptId: string | null;
                             };
                         };
                     };
@@ -1278,7 +1276,7 @@ export interface paths {
                         };
                         entitySchemaId: string;
                         externalId?: string;
-                        detailsSandboxScriptId?: string;
+                        sandboxScriptId?: string;
                     };
                 };
             };
@@ -1311,7 +1309,7 @@ export interface paths {
                                 properties: {
                                     [key: string]: unknown;
                                 };
-                                detailsSandboxScriptId: string | null;
+                                sandboxScriptId: string | null;
                             };
                         };
                     };
