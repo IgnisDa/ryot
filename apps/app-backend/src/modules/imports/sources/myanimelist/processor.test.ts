@@ -40,22 +40,29 @@ const createDeps = (
 
 describe("processMyanimelistImport", () => {
 	it("rejects gzip uploads that inflate past the configured size limit", async () => {
+		let capturedMaxFileBytes: number | undefined;
+		const compressedPayload = Bun.gzipSync(new TextEncoder().encode("a".repeat(1024)));
+
 		try {
 			await processMyanimelistImport(
 				createJob({}),
 				undefined,
 				createInput(),
 				createDeps({
-					maxFileBytes: 10,
-					readImportFileBytes: () => Promise.resolve(Bun.gzipSync(new Uint8Array(11))),
+					maxFileBytes: 512,
+					readImportFileBytes: (_filePath, maxFileBytes) => {
+						capturedMaxFileBytes = maxFileBytes;
+						return Promise.resolve(compressedPayload);
+					},
 				}),
 			);
 			expect.unreachable();
 		} catch (error) {
+			expect(capturedMaxFileBytes).toBe(512);
 			expect(error).toBeInstanceOf(Error);
 			if (error instanceof Error) {
 				expect(error.message).toBe(
-					"Import file exceeds maximum allowed size of 10 bytes (file is 11 bytes)",
+					"Import file exceeds maximum allowed size of 512 bytes after decompression",
 				);
 			}
 		}
