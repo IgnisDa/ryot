@@ -36,5 +36,36 @@ export const createEntityBody = z.object({
 	sandboxScriptId: nonEmptyTrimmedStringSchema.optional(),
 });
 
+export const createEntityWithCollectionBody = createEntityBody.extend({
+	collectionId: z.string(),
+	membershipProperties: stringUnknownRecordSchema.optional(),
+});
+
+const membershipRelationshipSchema = z.object({
+	id: z.string(),
+	relType: z.string(),
+	createdAt: z.string(),
+	sourceEntityId: z.string(),
+	targetEntityId: z.string(),
+	properties: stringUnknownRecordSchema,
+});
+
+const membershipDataSchema = z.object({
+	collection: membershipRelationshipSchema,
+	memberOf: membershipRelationshipSchema,
+});
+
+export const createEntityWithCollectionDataSchema = z.object({
+	entity: listedEntitySchema,
+	membership: membershipDataSchema,
+});
+
+export const createEntityWithCollectionResponseSchema = itemDataSchema(
+	createEntityWithCollectionDataSchema,
+);
+
 export type CreateEntityBody = z.infer<typeof createEntityBody>;
 export type ListedEntity = z.infer<typeof listedEntitySchema>;
+export type CreateEntityWithCollectionBody = z.infer<
+	typeof createEntityWithCollectionBody
+>;
