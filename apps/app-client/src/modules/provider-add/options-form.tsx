@@ -80,17 +80,23 @@ function OptionSwitch(props: {
 function OptionControl(props: {
 	readonly field: OptionField;
 	readonly value: OptionValue;
+	readonly description: string;
 	readonly onChange: (value: OptionValue) => void;
 }) {
 	const selected = optionStringArray(props.value);
 	const choices = props.field.options ?? [];
 	return Match.value(props.field.type).pipe(
 		Match.when("boolean", () => (
-			<OptionSwitch
-				label={props.field.label}
-				checked={props.value === true}
-				onChange={(next) => props.onChange(next)}
-			/>
+			<View className="flex-row items-center gap-2">
+				<OptionSwitch
+					label={props.field.label}
+					checked={props.value === true}
+					onChange={(next) => props.onChange(next)}
+				/>
+				{props.description === "" ? null : (
+					<Text className="font-ui text-xs text-text-subtle">{props.description}</Text>
+				)}
+			</View>
 		)),
 		Match.when("enum", () => (
 			<View className="flex-row flex-wrap gap-1.5">
@@ -151,8 +157,13 @@ function OptionFieldRow(props: {
 				{props.field.label}
 				{props.field.required ? <Text className="text-danger"> *</Text> : null}
 			</Text>
-			<OptionControl field={props.field} value={props.value} onChange={props.onChange} />
-			{props.field.description === "" ? null : (
+			<OptionControl
+				description={props.field.description}
+				field={props.field}
+				value={props.value}
+				onChange={props.onChange}
+			/>
+			{props.field.type === "boolean" || props.field.description === "" ? null : (
 				<Text className="font-ui text-xs text-text-subtle">{props.field.description}</Text>
 			)}
 			{props.error === undefined ? null : (
