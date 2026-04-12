@@ -189,7 +189,7 @@ const toProviderSaveResult = (entity: ProviderEntity) => {
 		id: entity.id,
 		name: entity.name,
 		properties: entity.properties,
-		entitySchemaSlug: "test-entity",
+		entitySchemaSlug: EntitySchemaSlug.make("test-entity"),
 	};
 	return { entity, outcome: { before: snapshot, after: snapshot, operation: "noop" as const } };
 };
@@ -1412,7 +1412,7 @@ it.effect("keeps the refresh baseline when related relationship properties are i
 		Effect.gen(function* () {
 			const exit = yield* Effect.exit(
 				runProviderEntityPopulationWorkflow(
-					{ ...payload, mode: "refresh", entitySchemaSlug: "book" },
+					{ ...payload, mode: "refresh", entitySchemaSlug: EntitySchemaSlug.make("book") },
 					payload.executionId,
 				),
 			);
@@ -1884,7 +1884,7 @@ it.effect("refresh synchronization replaces provider-owned primary and child val
 		payload.executionId,
 		Effect.gen(function* () {
 			yield* runProviderEntityPopulationWorkflow(
-				{ ...payload, mode: "refresh", entitySchemaSlug: "show" },
+				{ ...payload, mode: "refresh", entitySchemaSlug: EntitySchemaSlug.make("show") },
 				payload.executionId,
 			);
 
@@ -2503,7 +2503,7 @@ it.effect("dispatches only material nested entity updates with the root populati
 		...importPayload,
 		externalId: "show-1",
 		mode: "refresh" as const,
-		entitySchemaSlug: "show",
+		entitySchemaSlug: EntitySchemaSlug.make("show"),
 		origin: { kind: "provider_refresh" as const },
 	};
 
