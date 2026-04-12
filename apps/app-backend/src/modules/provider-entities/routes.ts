@@ -4,13 +4,21 @@ import { dieOnDbError } from "@ryot/contract/errors";
 import { Effect } from "effect";
 import { HttpApiBuilder } from "effect/unstable/httpapi";
 
+import { ProviderEntitySearchService } from "./search-service";
 import { EntityImportService } from "./service";
 
-export const EntityImportRoutesLive = HttpApiBuilder.group(
+export const ProviderEntitiesRoutesLive = HttpApiBuilder.group(
 	AppContract,
-	"entityImport",
+	"providerEntities",
 	(handlers) =>
 		handlers
+			.handle("search", ({ payload }) =>
+				Effect.gen(function* () {
+					const user = yield* CurrentUser;
+					const service = yield* ProviderEntitySearchService;
+					return yield* service.search(user, payload).pipe(dieOnDbError);
+				}),
+			)
 			.handle("import", ({ payload }) =>
 				Effect.gen(function* () {
 					const user = yield* CurrentUser;

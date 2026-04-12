@@ -3,19 +3,31 @@ import { HttpApiEndpoint, HttpApiGroup, HttpApiSchema, OpenApi } from "effect/un
 
 import { AuthMiddleware } from "../../auth-middleware";
 import { BadRequest, NotFound } from "../../errors";
-import { ImportEntityBody, ImportEntityRunResult } from "./schemas";
+import {
+	ImportEntityBody,
+	ImportEntityRunResult,
+	SearchProviderEntitiesBody,
+	SearchProviderEntitiesResponse,
+} from "./schemas";
 
-export const EntityImportGroup = HttpApiGroup.make("entityImport")
-	.annotate(OpenApi.Description, "Import entities.")
+export const ProviderEntitiesGroup = HttpApiGroup.make("providerEntities")
+	.annotate(OpenApi.Description, "Searches and imports provider entities.")
 	.add(
-		HttpApiEndpoint.post("import", "/entity-import", {
+		HttpApiEndpoint.post("search", "/provider-entities/search", {
+			payload: SearchProviderEntitiesBody,
+			success: SearchProviderEntitiesResponse,
+			error: [BadRequest.pipe(HttpApiSchema.status(400)), NotFound.pipe(HttpApiSchema.status(404))],
+		}).annotate(OpenApi.Description, "Searches configured entity providers for a saved view."),
+	)
+	.add(
+		HttpApiEndpoint.post("import", "/provider-entities/imports", {
 			payload: ImportEntityBody,
 			success: Schema.Struct({ jobId: Schema.String }),
 			error: [BadRequest.pipe(HttpApiSchema.status(400)), NotFound.pipe(HttpApiSchema.status(404))],
 		}).annotate(OpenApi.Description, "Start an entity import job."),
 	)
 	.add(
-		HttpApiEndpoint.get("getImportResult", "/entity-import/:jobId", {
+		HttpApiEndpoint.get("getImportResult", "/provider-entities/imports/:jobId", {
 			params: { jobId: Schema.String },
 			success: ImportEntityRunResult,
 			error: [BadRequest.pipe(HttpApiSchema.status(400)), NotFound.pipe(HttpApiSchema.status(404))],

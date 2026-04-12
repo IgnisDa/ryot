@@ -586,9 +586,10 @@ above:
   `SandboxScriptWorkflow`, a `write-event` activity persists the row, the
   committed lifecycle occurrence dispatches matching `SubscriptionExecutionWorkflow` children,
   and media membership for referenced global entities is handled by an awaited media event policy.
-- **`EntityImportWorkflow`** (`entity-import/entity-import-workflow.ts`) — owns provider population
-  for direct generic `/entity-import` requests. It deliberately does not add `in-library`; manifest
-  import-source workflows may separately emit generic user-relationship mutations.
+- **`EntityImportWorkflow`** (`provider-entities/entity-import-workflow.ts`) — owns provider
+  population for direct `/provider-entities/imports` requests. It deliberately does not add
+  `in-library`; manifest import-source workflows may separately emit generic user-relationship
+  mutations.
 - **`AddEntityToCollectionWorkflow`** (`collections/add-entity-to-collection-workflow-live.ts`) —
   owns add-to-collection: one `write-collection-membership` activity does the transactional write,
   then the body dispatches the collection-added `EventCreateWorkflow` child with the deterministic
@@ -650,11 +651,11 @@ above:
 
 #### Entity import and media membership
 
-Direct `/entity-import` dispatches `EntityImportWorkflow` as a top-level population-only job and may
-use a generated execution id because no parent workflow replays that dispatch. Media membership is
-not part of this generic workflow: manifest import-source workflows may emit generic relationship
-mutations, while collection-triggered membership is awaited through `EventCreateWorkflow` media
-policy.
+Direct `/provider-entities/imports` dispatches `EntityImportWorkflow` as a top-level
+population-only job and may use a generated execution id because no parent workflow replays that
+dispatch. Media membership is not part of this generic workflow: manifest import-source workflows
+may emit generic relationship mutations, while collection-triggered membership is awaited through
+`EventCreateWorkflow` media policy.
 
 ---
 
