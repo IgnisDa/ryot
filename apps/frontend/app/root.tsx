@@ -10,11 +10,13 @@ import {
 	ActionIcon,
 	Alert,
 	ColorSchemeScript,
+	Container,
 	createTheme,
 	Flex,
 	Loader,
 	MantineProvider,
 } from "@mantine/core";
+import classes from "~/styles/common.module.css";
 import { ModalsProvider } from "@mantine/modals";
 import { QueryClientProvider } from "@tanstack/react-query";
 import { ReactQueryDevtools } from "@tanstack/react-query-devtools";
@@ -47,6 +49,12 @@ const theme = createTheme({
 		Alert: Alert.extend({ defaultProps: { p: "xs" } }),
 		ActionIcon: ActionIcon.extend({
 			defaultProps: { variant: "subtle", color: "gray" },
+		}),
+		Container: Container.extend({
+			defaultProps: { size: "responsive" },
+			classNames: (_, { size }) => ({
+				root: size === "responsive" ? classes.responsiveContainer : "",
+			}),
 		}),
 	},
 	breakpoints: {
