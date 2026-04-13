@@ -52,7 +52,9 @@ static BASE_DIR: &str = env!("CARGO_MANIFEST_DIR");
 #[global_allocator]
 static GLOBAL: Jemalloc = Jemalloc;
 
-fn make_job_storage<T: Send + 'static>() -> (Arc<Mutex<Option<MemoryStorage<T>>>>, JobStorage<T>) {
+type JobStoragePair<T> = (Arc<Mutex<Option<MemoryStorage<T>>>>, JobStorage<T>);
+
+fn make_job_storage<T: Send + 'static>() -> JobStoragePair<T> {
     let (sender, receiver) = unbounded();
     let sender = Box::new(sender);
     let sender = MemorySink::new(Arc::new(FuturesMutex::new(sender)));
