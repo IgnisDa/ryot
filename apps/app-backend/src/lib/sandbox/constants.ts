@@ -1,9 +1,10 @@
-export const defaultMaxHeapMB = 64;
+export const defaultMaxHeapMB = 128;
 export const forceKillDelayMs = 500;
 export const defaultTimeoutMs = 10_000;
 export const requestBodyLimit = 128_000;
 export const vendoredPackages = [
-	"npm:cheerio",
-	"npm:dayjs",
 	"npm:zod",
+	"npm:dayjs",
+	"npm:cheerio",
+	"npm:youtubei.js",
 ] as const;
