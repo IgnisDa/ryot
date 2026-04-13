@@ -64,6 +64,7 @@ const theme = createTheme({
 		lg: "74em",
 		xl: "90em",
 		"2xl": "120em",
+		"3xl": "160em",
 	},
 });
 
