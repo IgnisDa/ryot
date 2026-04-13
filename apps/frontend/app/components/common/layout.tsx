@@ -41,7 +41,7 @@ export const ApplicationGrid = (props: {
 			ref={parent}
 			spacing="sm"
 			className={props.className}
-			cols={{ base: 2, sm: 3, md: 5 }}
+			cols={{ base: 2, sm: 3, md: 5, "2xl": 7 }}
 		>
 			{props.children}
 		</SimpleGrid>
