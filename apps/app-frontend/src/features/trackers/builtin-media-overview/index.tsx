@@ -430,8 +430,8 @@ export function BuiltinMediaTrackerOverview(
 						</Badge>
 					</Group>
 					<Box pt="md" style={{ borderTop: `1px solid ${t.border}` }}>
-						{Object.entries(dateGroups).map(([date, events]) => (
-							<Box key={date}>
+						{Object.entries(dateGroups).map(([date, events], index) => (
+							<Box key={date} pt={index !== 0 ? "sm" : undefined}>
 								<Text
 									mb={6}
 									fz={10}
