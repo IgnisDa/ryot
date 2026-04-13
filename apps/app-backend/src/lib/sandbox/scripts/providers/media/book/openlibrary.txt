@@ -318,8 +318,8 @@ driver("details", async function(context) {
 
     people.push({
       role,
-      source: "openlibrary",
       identifier: personIdentifier,
+      scriptSlug: "person.openlibrary",
     });
   }
 
