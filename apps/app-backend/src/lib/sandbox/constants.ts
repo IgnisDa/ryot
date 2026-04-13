@@ -1,4 +1,4 @@
-export const defaultMaxHeapMB = 128;
+export const defaultMaxHeapMB = 256;
 export const forceKillDelayMs = 500;
 export const defaultTimeoutMs = 10_000;
 export const requestBodyLimit = 128_000;
