@@ -4,7 +4,7 @@ import { type Job, Worker } from "bullmq";
 import { and, eq, isNull } from "drizzle-orm";
 import { db } from "~/lib/db";
 import { entity, entitySchema } from "~/lib/db/schema";
-import { personStubSchema } from "~/lib/media/book";
+import { personStubSchema } from "~/lib/media/common";
 import { personPropertiesSchema } from "~/lib/media/person";
 import { getQueues } from "~/lib/queue";
 import { getRedisConnection } from "~/lib/queue/connection";
