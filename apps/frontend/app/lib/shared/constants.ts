@@ -11,6 +11,7 @@ export const MEDIA_DETAILS_HEIGHT = {
 	base: "45vh",
 	"2xl": "55vh",
 	"3xl": "65vh",
+	"4xl": "75vh",
 };
 
 export const applicationBaseUrl =

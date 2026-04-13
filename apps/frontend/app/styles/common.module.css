@@ -38,4 +38,8 @@
   @media (min-width: $mantine-breakpoint-3xl) {
     max-width: 2200px;
   }
+
+  @media (min-width: $mantine-breakpoint-4xl) {
+    max-width: 3000px;
+  }
 }

@@ -65,6 +65,7 @@ const theme = createTheme({
 		xl: "90em",
 		"2xl": "120em",
 		"3xl": "160em",
+		"4xl": "240em",
 	},
 });
 
