@@ -1,6 +1,6 @@
 import { z } from "@hono/zod-openapi";
 import { toAppSchemaProperties } from "@ryot/ts-utils";
-import { nullableIntSchema } from "../zod/base";
+import { nullableIntSchema } from "../zod";
 import { animeMangaPropertiesSchema } from "./common";
 
 const animeAiringScheduleSpecificsSchema = z

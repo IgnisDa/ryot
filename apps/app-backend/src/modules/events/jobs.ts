@@ -1,5 +1,5 @@
 import { z } from "@hono/zod-openapi";
-import { nonEmptyStringSchema } from "~/lib/zod/base";
+import { nonEmptyStringSchema } from "~/lib/zod";
 import { createEventBulkBody } from "./schemas";
 
 export const createEventsJobName = "create-events";

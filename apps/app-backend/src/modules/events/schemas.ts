@@ -4,7 +4,7 @@ import {
 	listDataSchema,
 	unknownObjectSchema,
 } from "~/lib/openapi";
-import { nonEmptyTrimmedStringSchema, timestampFields } from "~/lib/zod/base";
+import { nonEmptyTrimmedStringSchema, timestampFields } from "~/lib/zod";
 
 export const listedEventSchema = z.object({
 	id: z.string(),
