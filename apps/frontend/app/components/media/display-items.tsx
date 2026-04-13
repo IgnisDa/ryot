@@ -3,9 +3,9 @@ import {
 	EntityLot,
 	EntityTranslationVariant,
 	MediaLot,
-	SeenState,
-	type SeenShowExtraInformationPartFragment,
 	type SeenPodcastExtraInformationPartFragment,
+	type SeenShowExtraInformationPartFragment,
+	SeenState,
 	UserToMediaReason,
 } from "@ryot/generated/graphql/backend/graphql";
 import { changeCase, snakeCase } from "@ryot/ts-utils";
