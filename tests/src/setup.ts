@@ -143,7 +143,6 @@ afterAll(async () => {
 		console.log("[E2E Teardown] Backend process stopped");
 	}
 
-	
 	await Promise.all([
 		pgClient?.end(),
 		pgContainer?.stop(),
