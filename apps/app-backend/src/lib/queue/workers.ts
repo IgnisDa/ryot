@@ -1,11 +1,11 @@
 import { createEventsWorker } from "~/modules/events";
 import { createMediaWorker } from "~/modules/media";
-import { createSandboxWorker } from "../sandbox/worker";
+import { getSandboxService } from "../sandbox";
 
 export const createWorkers = () => ({
 	mediaWorker: createMediaWorker(),
 	eventsWorker: createEventsWorker(),
-	sandboxWorker: createSandboxWorker(),
+	sandboxWorker: getSandboxService().createWorker(),
 });
 
 export type Workers = ReturnType<typeof createWorkers>;
