@@ -1,5 +1,5 @@
 import { and, asc, eq, isNull, or, sql } from "drizzle-orm";
-import { type DbClient, db } from "~/lib/db";
+import { assertPersisted, type DbClient, db } from "~/lib/db";
 import {
 	entity,
 	entityAccessScopeWithSchemaJoinSelection,
@@ -159,11 +159,7 @@ export const createEntityForUser = async (input: {
 		})
 		.returning(entitySelection);
 
-	if (!createdEntity) {
-		throw new Error("Could not persist entity");
-	}
-
-	return toListedEntity(createdEntity);
+	return toListedEntity(assertPersisted(createdEntity, "entity"));
 };
 
 export const findGlobalEntityByExternalId = async (input: {

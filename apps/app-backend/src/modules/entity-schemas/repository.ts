@@ -1,5 +1,5 @@
 import { and, asc, eq, inArray, isNull } from "drizzle-orm";
-import { type DbClient, db } from "~/lib/db";
+import { assertPersisted, type DbClient, db } from "~/lib/db";
 import {
 	entitySchema,
 	entitySchemaScript,
@@ -273,7 +273,7 @@ export const createEntitySchemaForUser = async (input: {
 	propertiesSchema: EntitySchemaPropertiesShape;
 }) => {
 	return db.transaction(async (tx) => {
-		const [createdEntitySchema] = await tx
+		const [maybeEntitySchema] = await tx
 			.insert(entitySchema)
 			.values({
 				icon: input.icon,
@@ -286,11 +286,12 @@ export const createEntitySchemaForUser = async (input: {
 			})
 			.returning(createdEntitySchemaSelection);
 
-		if (!createdEntitySchema) {
-			throw new Error("Could not persist entity schema");
-		}
+		const createdEntitySchema = assertPersisted(
+			maybeEntitySchema,
+			"entity schema",
+		);
 
-		const [createdTrackerEntitySchema] = await tx
+		const [maybeTrackerEntitySchema] = await tx
 			.insert(trackerEntitySchema)
 			.values({
 				trackerId: input.trackerId,
@@ -298,11 +299,12 @@ export const createEntitySchemaForUser = async (input: {
 			})
 			.returning({ trackerId: trackerEntitySchema.trackerId });
 
-		if (!createdTrackerEntitySchema) {
-			throw new Error("Could not persist tracker entity schema link");
-		}
+		const createdTrackerEntitySchema = assertPersisted(
+			maybeTrackerEntitySchema,
+			"tracker entity schema link",
+		);
 
-		const [createdSavedView] = await tx
+		const [maybeSavedView] = await tx
 			.insert(savedView)
 			.values({
 				isBuiltin: true,
@@ -320,9 +322,7 @@ export const createEntitySchemaForUser = async (input: {
 			})
 			.returning({ id: savedView.id });
 
-		if (!createdSavedView) {
-			throw new Error("Could not persist built-in saved view");
-		}
+		void assertPersisted(maybeSavedView, "built-in saved view");
 
 		return toListedEntitySchema({
 			...createdEntitySchema,
