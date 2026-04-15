@@ -1458,5 +1458,223 @@ describe("Query engine E2E", () => {
 		);
 	});
 
+	it("displays and filters by @externalId and @sandboxScriptId on global entities", async () => {
+		const { client, cookies, userId } = await createAuthenticatedClient();
+		const { schema } = await findBuiltinSchemaWithProviders(client, cookies);
+		const provider = schema.providers[0];
+		if (!provider) {
+			throw new Error("No provider found");
+		}
+
+		const externalId = `ext-id-test-${crypto.randomUUID()}`;
+		const entity = await seedMediaEntity({
+			externalId,
+			image: null,
+			userId: null,
+			properties: {},
+			entitySchemaId: schema.id,
+			sandboxScriptId: provider.scriptId,
+			name: `External ID Entity ${crypto.randomUUID()}`,
+		});
+		await insertLibraryMembership({ mediaEntityId: entity.id, userId });
+
+		const { data, response } = await executeQueryEngine(
+			client,
+			cookies,
+			buildTableRequest({
+				entitySchemaSlugs: [schema.slug],
+				displayConfiguration: buildTableDisplayConfiguration([
+					{
+						label: "ExternalId",
+						property: [entityField(schema.slug, "externalId")],
+					},
+					{
+						label: "SandboxScriptId",
+						property: [entityField(schema.slug, "sandboxScriptId")],
+					},
+				]),
+				filter: {
+					operator: "eq",
+					type: "comparison",
+					right: literalExpression(externalId),
+					left: entityColumnExpression(schema.slug, "externalId"),
+				},
+			}),
+		);
+
+		expect(response.status).toBe(200);
+		expect(data?.data.items).toHaveLength(1);
+		expect(data?.data.items[0]?.externalId).toBe(externalId);
+		expect(data?.data.items[0]?.sandboxScriptId).toBe(provider.scriptId);
+		expect(data?.data.items[0]?.fields).toEqual([
+			{ key: "column_0", kind: "text", value: externalId },
+			{ key: "column_1", kind: "text", value: provider.scriptId },
+		]);
+	});
+
+	it("resolves @externalId and @sandboxScriptId as null for regular user entities", async () => {
+		const { client, cookies, schema } =
+			await createSingleSchemaQueryEngineFixture();
+
+		const { data, response } = await executeQueryEngine(
+			client,
+			cookies,
+			buildTableRequest({
+				entitySchemaSlugs: [schema.slug],
+				pagination: { page: 1, limit: 1 },
+				displayConfiguration: buildTableDisplayConfiguration([
+					{
+						label: "ExternalId",
+						property: [entityField(schema.slug, "externalId")],
+					},
+					{
+						label: "SandboxScriptId",
+						property: [entityField(schema.slug, "sandboxScriptId")],
+					},
+				]),
+				filter: {
+					operator: "eq",
+					type: "comparison",
+					right: literalExpression("Alpha Phone"),
+					left: entityColumnExpression(schema.slug, "name"),
+				},
+			}),
+		);
+
+		expect(response.status).toBe(200);
+		expect(data?.data.items).toHaveLength(1);
+		expect(data?.data.items[0]?.externalId).toBeNull();
+		expect(data?.data.items[0]?.sandboxScriptId).toBeNull();
+		expect(data?.data.items[0]?.fields).toEqual([
+			{ key: "column_0", kind: "null", value: null },
+			{ key: "column_1", kind: "null", value: null },
+		]);
+	});
+
+	it("filters with isNull on @externalId to find entities without an external id", async () => {
+		const { client, cookies, schema } =
+			await createSingleSchemaQueryEngineFixture();
+
+		const { data, response } = await executeQueryEngine(
+			client,
+			cookies,
+			buildGridRequest({
+				entitySchemaSlugs: [schema.slug],
+				displayConfiguration: buildGridDisplayConfiguration({
+					badgeProperty: null,
+					subtitleProperty: null,
+				}),
+				filter: {
+					type: "isNull",
+					expression: entityColumnExpression(schema.slug, "externalId"),
+				},
+			}),
+		);
+
+		expect(response.status).toBe(200);
+		expect(data?.data.items.length).toBeGreaterThan(0);
+		for (const item of data?.data.items ?? []) {
+			expect(item.externalId).toBeNull();
+		}
+	});
+
+	it("resolves @externalId correctly in a cross-schema query with both global and user entities", async () => {
+		const { client, cookies, userId } = await createAuthenticatedClient();
+		const { schema: mediaSchema } = await findBuiltinSchemaWithProviders(
+			client,
+			cookies,
+		);
+		const provider = mediaSchema.providers[0];
+		if (!provider) {
+			throw new Error("No provider found");
+		}
+
+		const externalId = `cross-schema-ext-${crypto.randomUUID()}`;
+		const globalEntity = await seedMediaEntity({
+			externalId,
+			image: null,
+			userId: null,
+			properties: {},
+			entitySchemaId: mediaSchema.id,
+			sandboxScriptId: provider.scriptId,
+			name: `Cross Schema Global ${crypto.randomUUID()}`,
+		});
+		await insertLibraryMembership({ userId, mediaEntityId: globalEntity.id });
+
+		const { trackerId } = await createTracker(client, cookies, {
+			name: "Cross Schema Tracker",
+		});
+		const userSchema = await createEntitySchema(client, cookies, {
+			trackerId,
+			name: "UserItem",
+			propertiesSchema: { fields: {} },
+		});
+		const userEntityName = `Cross Schema User ${crypto.randomUUID()}`;
+		await createQueryEngineEntity({
+			client,
+			cookies,
+			image: null,
+			properties: {},
+			name: userEntityName,
+			entitySchemaId: userSchema.schemaId,
+		});
+
+		const { data, response } = await executeQueryEngine(
+			client,
+			cookies,
+			buildTableRequest({
+				entitySchemaSlugs: [mediaSchema.slug, userSchema.slug],
+				displayConfiguration: buildTableDisplayConfiguration([
+					{
+						label: "Name",
+						property: [
+							entityField(mediaSchema.slug, "name"),
+							entityField(userSchema.slug, "name"),
+						],
+					},
+					{
+						label: "ExternalId",
+						property: [
+							entityField(mediaSchema.slug, "externalId"),
+							entityField(userSchema.slug, "externalId"),
+						],
+					},
+				]),
+				filter: {
+					type: "or",
+					predicates: [
+						{
+							operator: "eq",
+							type: "comparison",
+							right: literalExpression(externalId),
+							left: entityColumnExpression(mediaSchema.slug, "externalId"),
+						},
+						{
+							operator: "eq",
+							type: "comparison",
+							right: literalExpression(userEntityName),
+							left: entityColumnExpression(userSchema.slug, "name"),
+						},
+					],
+				},
+			}),
+		);
+
+		expect(response.status).toBe(200);
+		expect(data?.data.items).toHaveLength(2);
+
+		const globalItem = data?.data.items.find(
+			(item) => item.entitySchemaSlug === mediaSchema.slug,
+		);
+		const userItem = data?.data.items.find(
+			(item) => item.entitySchemaSlug === userSchema.slug,
+		);
+
+		expect(globalItem?.externalId).toBe(externalId);
+		expect(globalItem?.sandboxScriptId).toBe(provider.scriptId);
+		expect(userItem?.externalId).toBeNull();
+		expect(userItem?.sandboxScriptId).toBeNull();
+	});
+
 	registerQueryEnginePresentationAndErrorTests();
 });

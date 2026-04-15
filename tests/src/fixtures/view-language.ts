@@ -21,6 +21,8 @@ const entityBuiltinFields = new Set([
 	"image",
 	"createdAt",
 	"updatedAt",
+	"externalId",
+	"sandboxScriptId",
 ]);
 
 export const literalExpression = (value: unknown | null): ViewExpression => ({

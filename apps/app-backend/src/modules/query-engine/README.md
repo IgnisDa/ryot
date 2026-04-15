@@ -329,11 +329,14 @@ All references must be explicit.
 - `entity.book.@image`
 - `entity.book.@createdAt`
 - `entity.book.@updatedAt`
+- `entity.book.@externalId`
+- `entity.book.@sandboxScriptId`
 
 Notes:
 
-- `@id`, `@name`, `@createdAt`, `@updatedAt` work in sort, filters, and fields.
+- `@id`, `@name`, `@createdAt`, `@updatedAt`, `@externalId`, `@sandboxScriptId` work in sort, filters, and fields.
 - `@image` works in fields, not filters.
+- `@externalId` and `@sandboxScriptId` resolve to `null` when not set on the entity.
 
 ### Entity Properties
 
@@ -447,8 +450,10 @@ Examples:
         "name": "Dune",
         "createdAt": "2026-03-28T10:00:00.000Z",
         "updatedAt": "2026-03-28T10:00:00.000Z",
+        "externalId": null,
         "entitySchemaId": "schema_book",
         "entitySchemaSlug": "book",
+        "sandboxScriptId": null,
         "image": {
           "kind": "remote",
           "url": "https://example.com/dune.jpg"
@@ -730,8 +735,10 @@ Use latest review rating when present, otherwise show publish year.
         "name": "Dune",
         "createdAt": "2026-03-28T10:00:00.000Z",
         "updatedAt": "2026-03-28T10:00:00.000Z",
+        "externalId": null,
         "entitySchemaId": "schema_book",
         "entitySchemaSlug": "book",
+        "sandboxScriptId": null,
         "image": null,
         "fields": [
           { "key": "title", "kind": "text", "value": "Dune" },
@@ -745,8 +752,10 @@ Use latest review rating when present, otherwise show publish year.
         "name": "Foundation",
         "createdAt": "2026-03-28T10:00:00.000Z",
         "updatedAt": "2026-03-28T10:00:00.000Z",
+        "externalId": null,
         "entitySchemaId": "schema_book",
         "entitySchemaSlug": "book",
+        "sandboxScriptId": null,
         "image": null,
         "fields": [
           { "key": "title", "kind": "text", "value": "Foundation" },

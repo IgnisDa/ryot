@@ -147,6 +147,11 @@ const buildEntityColumnExpression = <
 		.with("image", () => sql`${sql.raw(input.alias)}.image`)
 		.with("createdAt", () => sql`${sql.raw(input.alias)}.created_at`)
 		.with("updatedAt", () => sql`${sql.raw(input.alias)}.updated_at`)
+		.with("externalId", () => sql`${sql.raw(input.alias)}.external_id`)
+		.with(
+			"sandboxScriptId",
+			() => sql`${sql.raw(input.alias)}.sandbox_script_id`,
+		)
 		.otherwise(() => {
 			throw new QueryEngineValidationError(
 				`Unsupported entity column '@${input.reference.column}'`,

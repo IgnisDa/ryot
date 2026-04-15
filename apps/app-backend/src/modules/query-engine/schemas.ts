@@ -74,6 +74,8 @@ const queryEngineBaseItemSchema = z
 		entitySchemaId: z.string(),
 		entitySchemaSlug: z.string(),
 		image: ImageSchema.nullable(),
+		externalId: z.string().nullable(),
+		sandboxScriptId: z.string().nullable(),
 	})
 	.strict();
 
