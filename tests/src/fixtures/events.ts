@@ -1,10 +1,17 @@
 import type { Client } from "./auth";
 import { createEntity } from "./entities";
-import { createTrackerWithSchema, listEntitySchemas } from "./entity-schemas";
-import { createEventSchema, listEventSchemas } from "./event-schemas";
+import {
+	createTrackerWithSchema,
+	findBuiltinSchemaBySlug,
+	listBuiltinEntitySchemas,
+} from "./entity-schemas";
+import {
+	createEventSchema,
+	listEventSchemas,
+	requireEventSchemaBySlug,
+} from "./event-schemas";
 import { seedMediaEntity } from "./media";
 import { type PollOptions, pollUntil } from "./polling";
-import { findBuiltinTracker } from "./trackers";
 
 export async function waitForEventCount(
 	client: Client,
@@ -106,15 +113,11 @@ export async function createBuiltinMediaLifecycleFixture(
 	cookies: string,
 	userId: string,
 ) {
-	const builtinTracker = await findBuiltinTracker(client, cookies);
-	const schemas = await listEntitySchemas(client, cookies, {
-		trackerId: builtinTracker.id,
-	});
-
-	const bookSchema = schemas.find((schema) => schema.slug === "book");
-	if (!bookSchema) {
-		throw new Error("Missing built-in book schema");
-	}
+	const { schema: bookSchema } = await findBuiltinSchemaBySlug(
+		client,
+		cookies,
+		"book",
+	);
 
 	const providerScriptId = bookSchema.providers[0]?.scriptId;
 	if (!providerScriptId) {
@@ -122,27 +125,18 @@ export async function createBuiltinMediaLifecycleFixture(
 	}
 
 	const eventSchemas = await listEventSchemas(client, cookies, bookSchema.id);
+	const backlogEventSchema = requireEventSchemaBySlug(eventSchemas, "backlog");
+	const progressEventSchema = requireEventSchemaBySlug(
+		eventSchemas,
+		"progress",
+	);
+	const completeEventSchema = requireEventSchemaBySlug(
+		eventSchemas,
+		"complete",
+	);
+	const reviewEventSchema = requireEventSchemaBySlug(eventSchemas, "review");
 
-	const backlogEventSchema = eventSchemas.find((s) => s.slug === "backlog");
-	if (!backlogEventSchema) {
-		throw new Error("Missing built-in backlog event schema");
-	}
-
-	const progressEventSchema = eventSchemas.find((s) => s.slug === "progress");
-	if (!progressEventSchema) {
-		throw new Error("Missing built-in progress event schema");
-	}
-
-	const completeEventSchema = eventSchemas.find((s) => s.slug === "complete");
-	if (!completeEventSchema) {
-		throw new Error("Missing built-in complete event schema");
-	}
-
-	const reviewEventSchema = eventSchemas.find((s) => s.slug === "review");
-	if (!reviewEventSchema) {
-		throw new Error("Missing built-in review event schema");
-	}
-
+	const { schemas } = await listBuiltinEntitySchemas(client, cookies);
 	const otherSchema = schemas.find((schema) => schema.slug === "anime");
 	if (!otherSchema) {
 		throw new Error("Missing built-in anime schema");
@@ -153,12 +147,10 @@ export async function createBuiltinMediaLifecycleFixture(
 		cookies,
 		otherSchema.id,
 	);
-	const mismatchedBacklogEventSchema = otherEventSchemas.find(
-		(s) => s.slug === "backlog",
+	const mismatchedBacklogEventSchema = requireEventSchemaBySlug(
+		otherEventSchemas,
+		"backlog",
 	);
-	if (!mismatchedBacklogEventSchema) {
-		throw new Error("Missing mismatched backlog event schema");
-	}
 
 	const entity = await seedMediaEntity({
 		userId,
