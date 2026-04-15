@@ -36,7 +36,6 @@ import {
 
 const mediaDetailsResultSchema = z.object({
 	name: z.string(),
-	externalId: z.string(),
 	properties: z.record(z.string(), z.unknown()),
 });
 
@@ -271,7 +270,7 @@ const processMediaImportJob = async (job: Job, token?: string) => {
 		entitySchemaId,
 		name: details.name,
 		sandboxScriptId: scriptId,
-		externalId: details.externalId,
+		externalId: identifier,
 	});
 
 	const isNew =

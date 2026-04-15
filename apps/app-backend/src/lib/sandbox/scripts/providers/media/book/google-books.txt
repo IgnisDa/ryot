@@ -290,7 +290,6 @@ driver("details", async function(context) {
 
   return {
     name: title,
-    externalId: identifier,
     properties: {
       pages,
       publishYear: parsePublishYear(volumeInfo?.publishedDate, dayjs),

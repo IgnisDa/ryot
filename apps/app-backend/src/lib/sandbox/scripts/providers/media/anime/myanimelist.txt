@@ -268,7 +268,6 @@ driver("details", async function(context) {
 
   return {
     name: title,
-    externalId: payloadIdentifier,
     properties: {
       episodes,
       sourceUrl,

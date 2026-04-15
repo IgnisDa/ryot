@@ -151,7 +151,6 @@ driver("details", async function (context) {
 
   return {
     name: title,
-    externalId: identifier,
     properties: {
       people,
       isNsfw: null,
