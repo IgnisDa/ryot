@@ -240,9 +240,7 @@ query GetHardcoverAuthorDetails($id: Int!) {
     properties: {
       website,
       sourceUrl,
-      gender: null,
       alternateNames,
-      birthPlace: null,
       assets: { remoteImages: image ? [image] : [] },
       description: typeof authorData.bio === "string" ? authorData.bio : null,
       birthDate:

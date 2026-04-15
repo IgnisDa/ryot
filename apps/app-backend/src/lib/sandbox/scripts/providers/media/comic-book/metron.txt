@@ -214,16 +214,13 @@ driver("details", async function(context) {
   return {
     name: title,
     properties: {
+      genres: [],
       pages: pageCount,
       people: buildPeople(payload?.credits),
-      genres: [],
-      isNsfw: null,
       description: getString(payload?.desc),
+      assets: { remoteImages: image ? [image] : [] },
       sourceUrl: `https://metron.cloud/issue/${externalId}`,
       publishYear: parsePublishYear(payload?.cover_date, dayjs),
-      providerRating: null,
-      productionStatus: null,
-      assets: { remoteImages: image ? [image] : [] },
     },
   };
 });

@@ -266,15 +266,14 @@ driver("details", async function (context) {
     name,
     properties: {
       genres,
+      people,
       description,
-      isNsfw: null,
+      lengthMinutes,
       providerRating,
       productionStatus,
-      lengthMinutes,
       assets: { remoteImages },
-      publishYear: extractYear(vn.released, dayjs),
       sourceUrl: `https://vndb.org/${externalId}`,
-      people,
+      publishYear: extractYear(vn.released, dayjs),
     },
   };
 });

@@ -316,10 +316,7 @@ driver("details", async function (context) {
 			runtime,
 			sourceUrl,
 			publishYear,
-			isNsfw: null,
 			freeCreators,
-			providerRating: null,
-			productionStatus: null,
 			assets: { remoteImages },
 			description:
 				typeof movie?.overview === "string" && movie.overview.trim()
