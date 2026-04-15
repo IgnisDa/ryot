@@ -1,407 +1,445 @@
 function parseJsonResponse(responseBody) {
-  try {
-    return JSON.parse(responseBody);
-  } catch {
-    throw new Error("TVDB returned invalid JSON");
-  }
+	try {
+		return JSON.parse(responseBody);
+	} catch {
+		throw new Error("TVDB returned invalid JSON");
+	}
 }
 
 const TVDB_BASE_URL = "https://api4.thetvdb.com/v4";
 const TOKEN_CACHE_KEY = "tvdb_access_token";
 
 async function getTvdbApiKey() {
-  const resp = await getAppConfigValue("MOVIES_AND_SHOWS_TVDB_API_KEY");
-  if (!resp?.success) {
-    throw new Error(resp?.error ?? "Failed to retrieve TVDB API key");
-  }
-  const key = typeof resp.data === "string" ? resp.data.trim() : null;
-  if (!key) {
-    throw new Error(
-      "TVDB API key is not configured. Set MOVIES_AND_SHOWS_TVDB_API_KEY in your environment.",
-    );
-  }
-  return key;
+	const resp = await getAppConfigValue("MOVIES_AND_SHOWS_TVDB_API_KEY");
+	if (!resp?.success) {
+		throw new Error(resp?.error ?? "Failed to retrieve TVDB API key");
+	}
+	const key = typeof resp.data === "string" ? resp.data.trim() : null;
+	if (!key) {
+		throw new Error(
+			"TVDB API key is not configured. Set MOVIES_AND_SHOWS_TVDB_API_KEY in your environment.",
+		);
+	}
+	return key;
 }
 
 async function getTvdbAccessToken() {
-  const cached = await getCachedValue(TOKEN_CACHE_KEY);
-  if (cached?.success && typeof cached.data === "string" && cached.data) {
-    return cached.data;
-  }
+	const cached = await getCachedValue(TOKEN_CACHE_KEY);
+	if (cached?.success && typeof cached.data === "string" && cached.data) {
+		return cached.data;
+	}
 
-  const apiKey = await getTvdbApiKey();
-  const response = await httpCall("POST", `${TVDB_BASE_URL}/login`, {
-    body: JSON.stringify({ apikey: apiKey }),
-    headers: { "Content-Type": "application/json" },
-  });
+	const apiKey = await getTvdbApiKey();
+	const response = await httpCall("POST", `${TVDB_BASE_URL}/login`, {
+		body: JSON.stringify({ apikey: apiKey }),
+		headers: { "Content-Type": "application/json" },
+	});
 
-  if (!response?.success) {
-    throw new Error(response?.error ?? "TVDB login request failed");
-  }
+	if (!response?.success) {
+		throw new Error(response?.error ?? "TVDB login request failed");
+	}
 
-  const payload = parseJsonResponse(response.data.body);
-  if (payload?.status !== "success" || !payload?.data?.token) {
-    throw new Error("TVDB login returned no token");
-  }
+	const payload = parseJsonResponse(response.data.body);
+	if (payload?.status !== "success" || !payload?.data?.token) {
+		throw new Error("TVDB login returned no token");
+	}
 
-  const accessToken = `Bearer ${payload.data.token}`;
-  // TVDB tokens are valid for 30 days; cache for 23 hours as a safety buffer.
-  const cacheResult = await setCachedValue(TOKEN_CACHE_KEY, accessToken, 23 * 60 * 60);
-  if (!cacheResult?.success) {
-    console.warn(`TVDB token cache write failed: ${cacheResult?.error}`);
-  }
+	const accessToken = `Bearer ${payload.data.token}`;
+	// TVDB tokens are valid for 30 days; cache for 23 hours as a safety buffer.
+	const cacheResult = await setCachedValue(
+		TOKEN_CACHE_KEY,
+		accessToken,
+		23 * 60 * 60,
+	);
+	if (!cacheResult?.success) {
+		console.warn(`TVDB token cache write failed: ${cacheResult?.error}`);
+	}
 
-  return accessToken;
+	return accessToken;
 }
 
 async function tvdbGet(path, params) {
-  const token = await getTvdbAccessToken();
-  const query =
-    params && Object.keys(params).length > 0
-      ? `?${new URLSearchParams(params).toString()}`
-      : "";
-  const url = `${TVDB_BASE_URL}${path}${query}`;
-  const response = await httpCall("GET", url, {
-    headers: { Authorization: token },
-  });
+	const token = await getTvdbAccessToken();
+	const query =
+		params && Object.keys(params).length > 0
+			? `?${new URLSearchParams(params).toString()}`
+			: "";
+	const url = `${TVDB_BASE_URL}${path}${query}`;
+	const response = await httpCall("GET", url, {
+		headers: { Authorization: token },
+	});
 
-  if (!response?.success) {
-    throw new Error(response?.error ?? `TVDB request failed: ${path}`);
-  }
+	if (!response?.success) {
+		throw new Error(response?.error ?? `TVDB request failed: ${path}`);
+	}
 
-  const payload = parseJsonResponse(response.data.body);
-  if (payload?.status && payload.status !== "success") {
-    throw new Error(`TVDB API error: ${payload.message ?? payload.status}`);
-  }
+	const payload = parseJsonResponse(response.data.body);
+	if (payload?.status && payload.status !== "success") {
+		throw new Error(`TVDB API error: ${payload.message ?? payload.status}`);
+	}
 
-  return payload;
+	return payload;
 }
 
 function parsePublishYear(str, dayjs) {
-  if (typeof str !== "string" || !str.trim()) return null;
-  const d = dayjs(str.trim());
-  return d.isValid() && d.year() > 0 ? d.year() : null;
+	if (typeof str !== "string" || !str.trim()) return null;
+	const d = dayjs(str.trim());
+	return d.isValid() && d.year() > 0 ? d.year() : null;
 }
 
 function collectImages(mainImage, artworks) {
-  const seen = new Set();
-  const images = [];
+	const seen = new Set();
+	const images = [];
 
-  const addImage = (url) => {
-    if (typeof url === "string" && url.trim() && !seen.has(url)) {
-      seen.add(url);
-      images.push(url);
-    }
-  };
+	const addImage = (url) => {
+		if (typeof url === "string" && url.trim() && !seen.has(url)) {
+			seen.add(url);
+			images.push(url);
+		}
+	};
 
-  addImage(mainImage);
+	addImage(mainImage);
 
-  if (Array.isArray(artworks)) {
-    for (const art of artworks) {
-      addImage(art?.image);
-    }
-  }
+	if (Array.isArray(artworks)) {
+		for (const art of artworks) {
+			addImage(art?.image);
+		}
+	}
 
-  return images;
+	return images;
 }
 
 function collectGenres(genresArray) {
-  if (!Array.isArray(genresArray)) {
-    return [];
-  }
-  return genresArray
-    .map((g) => (typeof g?.name === "string" ? g.name.trim() : ""))
-    .filter((name) => name.length > 0);
+	if (!Array.isArray(genresArray)) {
+		return [];
+	}
+	return genresArray
+		.map((g) => (typeof g?.name === "string" ? g.name.trim() : ""))
+		.filter((name) => name.length > 0);
 }
 
-function collectFreeCreators(characters) {
-  if (!Array.isArray(characters)) {
-    return [];
-  }
+function collectPeople(characters) {
+	if (!Array.isArray(characters)) {
+		return { people: [], freeCreators: [] };
+	}
 
-  const seen = new Set();
-  const creators = [];
+	const people = [];
+	const freeCreators = [];
+	const seen = new Set();
 
-  for (const chr of characters.slice(0, 20)) {
-    const name =
-      typeof chr?.personName === "string" ? chr.personName.trim() : "";
-    if (!name) {
-      continue;
-    }
-    const role =
-      typeof chr?.peopleType === "string" && chr.peopleType.trim()
-        ? chr.peopleType.trim()
-        : "Cast";
-    const key = `${name}:${role}`;
-    if (seen.has(key)) {
-      continue;
-    }
-    seen.add(key);
-    creators.push({ name, role });
-  }
+	for (const chr of characters.slice(0, 20)) {
+		const name =
+			typeof chr?.personName === "string" ? chr.personName.trim() : "";
+		if (!name) {
+			continue;
+		}
+		const role =
+			typeof chr?.peopleType === "string" && chr.peopleType.trim()
+				? chr.peopleType.trim()
+				: "Cast";
+		const peopleId =
+			typeof chr?.peopleId === "number" && Number.isFinite(chr.peopleId)
+				? Math.trunc(chr.peopleId)
+				: null;
+		const key = `${peopleId ?? name}:${role}`;
+		if (seen.has(key)) {
+			continue;
+		}
+		seen.add(key);
+		if (peopleId !== null) {
+			people.push({
+				name,
+				role,
+				externalId: String(peopleId),
+				scriptSlug: "person.tvdb",
+			});
+		} else {
+			freeCreators.push({ name, role });
+		}
+	}
 
-  return creators;
+	return { people, freeCreators };
 }
 
 function buildSeason(seasonData) {
-  const id =
-    typeof seasonData?.id === "number" &&
-    Number.isFinite(seasonData.id) &&
-    seasonData.id > 0
-      ? Math.trunc(seasonData.id)
-      : -1;
+	const id =
+		typeof seasonData?.id === "number" &&
+		Number.isFinite(seasonData.id) &&
+		seasonData.id > 0
+			? Math.trunc(seasonData.id)
+			: -1;
 
-  const seasonNumber =
-    typeof seasonData?.number === "number" &&
-    Number.isFinite(seasonData.number)
-      ? Math.trunc(seasonData.number)
-      : 0;
+	const seasonNumber =
+		typeof seasonData?.number === "number" && Number.isFinite(seasonData.number)
+			? Math.trunc(seasonData.number)
+			: 0;
 
-  const yearStr =
-    typeof seasonData?.year === "string" && /^\d{4}$/.test(seasonData.year.trim())
-      ? seasonData.year.trim()
-      : null;
-  const publishDate = yearStr ? `${yearStr}-01-01` : null;
+	const yearStr =
+		typeof seasonData?.year === "string" &&
+		/^\d{4}$/.test(seasonData.year.trim())
+			? seasonData.year.trim()
+			: null;
+	const publishDate = yearStr ? `${yearStr}-01-01` : null;
 
-  const posterImages = [];
-  if (typeof seasonData?.image === "string" && seasonData.image.trim()) {
-    posterImages.push(seasonData.image.trim());
-  }
-  if (Array.isArray(seasonData?.artwork)) {
-    for (const art of seasonData.artwork) {
-      if (typeof art?.image === "string" && art.image.trim()) {
-        posterImages.push(art.image.trim());
-      }
-    }
-  }
+	const posterImages = [];
+	if (typeof seasonData?.image === "string" && seasonData.image.trim()) {
+		posterImages.push(seasonData.image.trim());
+	}
+	if (Array.isArray(seasonData?.artwork)) {
+		for (const art of seasonData.artwork) {
+			if (typeof art?.image === "string" && art.image.trim()) {
+				posterImages.push(art.image.trim());
+			}
+		}
+	}
 
-  const episodeList = Array.isArray(seasonData?.episodes) ? seasonData.episodes : [];
-  const episodes = episodeList.map((ep) => {
-    const epId =
-      typeof ep?.id === "number" && Number.isFinite(ep.id) && ep.id > 0
-        ? Math.trunc(ep.id)
-        : -1;
-    const epName =
-      typeof ep?.name === "string" && ep.name.trim() ? ep.name.trim() : "";
-    const epRuntime =
-      typeof ep?.runtime === "number" &&
-      Number.isFinite(ep.runtime) &&
-      ep.runtime > 0
-        ? Math.trunc(ep.runtime)
-        : null;
-    const epOverview =
-      typeof ep?.overview === "string" && ep.overview.trim()
-        ? ep.overview.trim()
-        : null;
-    const epNumber =
-      typeof ep?.number === "number" && Number.isFinite(ep.number)
-        ? Math.trunc(ep.number)
-        : 0;
-    const epPublishDate =
-      typeof ep?.aired === "string" && ep.aired.trim() ? ep.aired.trim() : null;
-    const epPosterImages =
-      typeof ep?.image === "string" && ep.image.trim() ? [ep.image.trim()] : [];
+	const episodeList = Array.isArray(seasonData?.episodes)
+		? seasonData.episodes
+		: [];
+	const episodes = episodeList.map((ep) => {
+		const epId =
+			typeof ep?.id === "number" && Number.isFinite(ep.id) && ep.id > 0
+				? Math.trunc(ep.id)
+				: -1;
+		const epName =
+			typeof ep?.name === "string" && ep.name.trim() ? ep.name.trim() : "";
+		const epRuntime =
+			typeof ep?.runtime === "number" &&
+			Number.isFinite(ep.runtime) &&
+			ep.runtime > 0
+				? Math.trunc(ep.runtime)
+				: null;
+		const epOverview =
+			typeof ep?.overview === "string" && ep.overview.trim()
+				? ep.overview.trim()
+				: null;
+		const epNumber =
+			typeof ep?.number === "number" && Number.isFinite(ep.number)
+				? Math.trunc(ep.number)
+				: 0;
+		const epPublishDate =
+			typeof ep?.aired === "string" && ep.aired.trim() ? ep.aired.trim() : null;
+		const epPosterImages =
+			typeof ep?.image === "string" && ep.image.trim() ? [ep.image.trim()] : [];
 
-    return {
-      id: epId,
-      name: epName,
-      runtime: epRuntime,
-      overview: epOverview,
-      episodeNumber: epNumber,
-      publishDate: epPublishDate,
-      posterImages: epPosterImages,
-    };
-  });
+		return {
+			id: epId,
+			name: epName,
+			runtime: epRuntime,
+			overview: epOverview,
+			episodeNumber: epNumber,
+			publishDate: epPublishDate,
+			posterImages: epPosterImages,
+		};
+	});
 
-  return {
-    id,
-    name: `Season ${seasonNumber}`,
-    overview: null,
-    seasonNumber,
-    posterImages,
-    publishDate,
-    backdropImages: [],
-    episodes,
-  };
+	return {
+		id,
+		name: `Season ${seasonNumber}`,
+		overview: null,
+		seasonNumber,
+		posterImages,
+		publishDate,
+		backdropImages: [],
+		episodes,
+	};
 }
 
 driver("search", async function (context) {
-  const { z } = await import("npm:zod");
-  const { query, page: currentPage, pageSize } = z.object({
-    query: z.string().trim().min(1, "query is required"),
-    page: z.coerce.number().min(1).transform(Math.floor).catch(1),
-    pageSize: z.coerce.number().min(1).max(100).transform(Math.floor).catch(20),
-  }).parse(context ?? {});
+	const { z } = await import("npm:zod");
+	const {
+		query,
+		page: currentPage,
+		pageSize,
+	} = z
+		.object({
+			query: z.string().trim().min(1, "query is required"),
+			page: z.coerce.number().min(1).transform(Math.floor).catch(1),
+			pageSize: z.coerce
+				.number()
+				.min(1)
+				.max(100)
+				.transform(Math.floor)
+				.catch(20),
+		})
+		.parse(context ?? {});
 
-  const offset = (currentPage - 1) * pageSize;
+	const offset = (currentPage - 1) * pageSize;
 
-  const data = await tvdbGet("/search", {
-    query,
-    type: "series",
-    offset: String(offset),
-    limit: String(pageSize),
-  });
+	const data = await tvdbGet("/search", {
+		query,
+		type: "series",
+		offset: String(offset),
+		limit: String(pageSize),
+	});
 
-  const results = Array.isArray(data?.data) ? data.data : [];
-  const totalItems =
-    typeof data?.links?.total_items === "number" &&
-    Number.isFinite(data.links.total_items)
-      ? data.links.total_items
-      : results.length + offset;
-  const hasNext = data?.links?.next != null;
+	const results = Array.isArray(data?.data) ? data.data : [];
+	const totalItems =
+		typeof data?.links?.total_items === "number" &&
+		Number.isFinite(data.links.total_items)
+			? data.links.total_items
+			: results.length + offset;
+	const hasNext = data?.links?.next != null;
 
-  const items = results
-    .map((item) => {
-      const id =
-        typeof item?.tvdb_id === "string" && item.tvdb_id.trim()
-          ? item.tvdb_id.trim()
-          : null;
-      if (!id) {
-        return null;
-      }
+	const items = results
+		.map((item) => {
+			const id =
+				typeof item?.tvdb_id === "string" && item.tvdb_id.trim()
+					? item.tvdb_id.trim()
+					: null;
+			if (!id) {
+				return null;
+			}
 
-      const title =
-        typeof item?.name === "string" && item.name.trim()
-          ? item.name.trim()
-          : typeof item?.title === "string" && item.title.trim()
-          ? item.title.trim()
-          : null;
-      if (!title) {
-        return null;
-      }
+			const title =
+				typeof item?.name === "string" && item.name.trim()
+					? item.name.trim()
+					: typeof item?.title === "string" && item.title.trim()
+						? item.title.trim()
+						: null;
+			if (!title) {
+				return null;
+			}
 
-      const imageUrl = item?.poster ?? item?.image_url ?? null;
-      const image =
-        typeof imageUrl === "string" && imageUrl.trim() ? imageUrl.trim() : null;
+			const imageUrl = item?.poster ?? item?.image_url ?? null;
+			const image =
+				typeof imageUrl === "string" && imageUrl.trim()
+					? imageUrl.trim()
+					: null;
 
-      return {
-        externalId: id,
-        badgeProperty: { kind: "null", value: null },
-        titleProperty: { kind: "text", value: title },
-        subtitleProperty: { kind: "null", value: null },
-        imageProperty:
-          image === null
-            ? { kind: "null", value: null }
-            : { kind: "image", value: { kind: "remote", url: image } },
-      };
-    })
-    .filter((item) => item !== null);
+			return {
+				externalId: id,
+				badgeProperty: { kind: "null", value: null },
+				titleProperty: { kind: "text", value: title },
+				subtitleProperty: { kind: "null", value: null },
+				imageProperty:
+					image === null
+						? { kind: "null", value: null }
+						: { kind: "image", value: { kind: "remote", url: image } },
+			};
+		})
+		.filter((item) => item !== null);
 
-  return {
-    items,
-    details: {
-      totalItems,
-      nextPage: hasNext ? currentPage + 1 : null,
-    },
-  };
+	return {
+		items,
+		details: {
+			totalItems,
+			nextPage: hasNext ? currentPage + 1 : null,
+		},
+	};
 });
 
 driver("details", async function (context) {
-  const { z } = await import("npm:zod");
-  const dayjs = (await import("npm:dayjs")).default;
+	const { z } = await import("npm:zod");
+	const dayjs = (await import("npm:dayjs")).default;
 
-  const { externalId } = z.object({
-    externalId: z.string().trim().min(1, "externalId is required"),
-  }).parse(context ?? {});
+	const { externalId } = z
+		.object({
+			externalId: z.string().trim().min(1, "externalId is required"),
+		})
+		.parse(context ?? {});
 
-  if (!/^\d+$/.test(externalId)) {
-    throw new Error("externalId must be a numeric TVDB series ID");
-  }
+	if (!/^\d+$/.test(externalId)) {
+		throw new Error("externalId must be a numeric TVDB series ID");
+	}
 
-  const data = await tvdbGet(`/series/${externalId}/extended`);
-  const show = data?.data;
-  if (!show) {
-    throw new Error("TVDB returned no data for this series");
-  }
+	const data = await tvdbGet(`/series/${externalId}/extended`);
+	const show = data?.data;
+	if (!show) {
+		throw new Error("TVDB returned no data for this series");
+	}
 
-  const title =
-    typeof show?.name === "string" && show.name.trim()
-      ? show.name.trim()
-      : null;
-  if (!title) {
-    throw new Error("TVDB returned no name for this series");
-  }
+	const title =
+		typeof show?.name === "string" && show.name.trim()
+			? show.name.trim()
+			: null;
+	if (!title) {
+		throw new Error("TVDB returned no name for this series");
+	}
 
-  const remoteImages = collectImages(show?.image, show?.artworks);
-  const genres = collectGenres(show?.genres);
-  const freeCreators = collectFreeCreators(show?.characters);
+	const remoteImages = collectImages(show?.image, show?.artworks);
+	const genres = collectGenres(show?.genres);
+	const { people, freeCreators } = collectPeople(show?.characters);
 
-  const firstAired =
-    typeof show?.firstAired === "string" && show.firstAired.trim()
-      ? show.firstAired.trim()
-      : null;
+	const firstAired =
+		typeof show?.firstAired === "string" && show.firstAired.trim()
+			? show.firstAired.trim()
+			: null;
 
-  const publishYear =
-    parsePublishYear(typeof show?.year === "string" ? show.year : null, dayjs) ??
-    parsePublishYear(firstAired, dayjs);
+	const publishYear =
+		parsePublishYear(
+			typeof show?.year === "string" ? show.year : null,
+			dayjs,
+		) ?? parsePublishYear(firstAired, dayjs);
 
-  // Deduplicate seasons by number, keeping the first ID encountered per number.
-  const seasonsRaw = Array.isArray(show?.seasons) ? show.seasons : [];
-  const seasonIdByNumber = new Map();
-  for (const s of seasonsRaw) {
-    const num =
-      typeof s?.number === "number" && Number.isFinite(s.number)
-        ? Math.trunc(s.number)
-        : null;
-    const id =
-      typeof s?.id === "number" && Number.isFinite(s.id) ? Math.trunc(s.id) : null;
-    if (num !== null && id !== null && !seasonIdByNumber.has(num)) {
-      seasonIdByNumber.set(num, id);
-    }
-  }
+	// Deduplicate seasons by number, keeping the first ID encountered per number.
+	const seasonsRaw = Array.isArray(show?.seasons) ? show.seasons : [];
+	const seasonIdByNumber = new Map();
+	for (const s of seasonsRaw) {
+		const num =
+			typeof s?.number === "number" && Number.isFinite(s.number)
+				? Math.trunc(s.number)
+				: null;
+		const id =
+			typeof s?.id === "number" && Number.isFinite(s.id)
+				? Math.trunc(s.id)
+				: null;
+		if (num !== null && id !== null && !seasonIdByNumber.has(num)) {
+			seasonIdByNumber.set(num, id);
+		}
+	}
 
-  const seasonIds = Array.from(seasonIdByNumber.values());
+	const seasonIds = Array.from(seasonIdByNumber.values());
 
-  const BATCH_SIZE = 5;
-  const allSeasonResponses = [];
-  for (let i = 0; i < seasonIds.length; i += BATCH_SIZE) {
-    const batch = seasonIds.slice(i, i + BATCH_SIZE);
-    const batchResults = await Promise.all(
-      batch.map((sid) => tvdbGet(`/seasons/${sid}/extended`)),
-    );
-    allSeasonResponses.push(...batchResults);
-  }
+	const BATCH_SIZE = 5;
+	const allSeasonResponses = [];
+	for (let i = 0; i < seasonIds.length; i += BATCH_SIZE) {
+		const batch = seasonIds.slice(i, i + BATCH_SIZE);
+		const batchResults = await Promise.all(
+			batch.map((sid) => tvdbGet(`/seasons/${sid}/extended`)),
+		);
+		allSeasonResponses.push(...batchResults);
+	}
 
-  const officialSeasons = allSeasonResponses
-    .map((r) => r?.data)
-    .filter(
-      (s) =>
-        s != null &&
-        typeof s?.type === "object" &&
-        s.type?.type === "official",
-    )
-    .sort(
-      (a, b) =>
-        (typeof a?.number === "number" ? a.number : 0) -
-        (typeof b?.number === "number" ? b.number : 0),
-    );
+	const officialSeasons = allSeasonResponses
+		.map((r) => r?.data)
+		.filter(
+			(s) =>
+				s != null && typeof s?.type === "object" && s.type?.type === "official",
+		)
+		.sort(
+			(a, b) =>
+				(typeof a?.number === "number" ? a.number : 0) -
+				(typeof b?.number === "number" ? b.number : 0),
+		);
 
-  const showSeasons = officialSeasons.map(buildSeason);
+	const showSeasons = officialSeasons.map(buildSeason);
 
-  const slug =
-    typeof show?.slug === "string" && show.slug.trim()
-      ? show.slug.trim()
-      : null;
-  const sourceUrl = slug
-    ? `https://thetvdb.com/series/${slug}`
-    : `https://thetvdb.com/series/${externalId}`;
+	const slug =
+		typeof show?.slug === "string" && show.slug.trim()
+			? show.slug.trim()
+			: null;
+	const sourceUrl = slug
+		? `https://thetvdb.com/series/${slug}`
+		: `https://thetvdb.com/series/${externalId}`;
 
-  return {
-    name: title,
-    properties: {
-      showSeasons,
-      genres,
-      isNsfw: null,
-      providerRating: null,
-      publishYear,
-      freeCreators,
-      description:
-        typeof show?.overview === "string" && show.overview.trim()
-          ? show.overview.trim()
-          : null,
-      productionStatus: null,
-      assets: { remoteImages },
-      sourceUrl,
-    },
-  };
+	return {
+		name: title,
+		properties: {
+			people,
+			genres,
+			sourceUrl,
+			publishYear,
+			showSeasons,
+			isNsfw: null,
+			freeCreators,
+			providerRating: null,
+			productionStatus: null,
+			assets: { remoteImages },
+			description:
+				typeof show?.overview === "string" && show.overview.trim()
+					? show.overview.trim()
+					: null,
+		},
+	};
 });
