@@ -415,9 +415,11 @@ driver("details", async function (context) {
     name: title,
     properties: {
       showSeasons,
+      providerRating,
+      assets: { remoteImages },
       genres: collectGenres(showData?.genres),
       isNsfw: showData?.adult === true ? true : null,
-      providerRating,
+      sourceUrl: `https://www.themoviedb.org/tv/${externalId}`,
       publishYear: parsePublishYear(showData?.first_air_date, dayjs),
       freeCreators: collectFreeCreators(
         creditsData?.cast,
@@ -432,8 +434,6 @@ driver("details", async function (context) {
         typeof showData?.status === "string" && showData.status.trim()
           ? showData.status.trim()
           : null,
-      assets: { remoteImages },
-      sourceUrl: `https://www.themoviedb.org/tv/${externalId}`,
     },
   };
 });
