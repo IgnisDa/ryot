@@ -93,9 +93,9 @@ function buildPeople(credits) {
       continue;
     }
 
-    const identifier = getIdentifier(credit.id);
+    const externalId = getIdentifier(credit.id);
     const name = getString(credit.creator);
-    if (!identifier || !name) {
+    if (!externalId || !name) {
       continue;
     }
 
@@ -109,7 +109,7 @@ function buildPeople(credits) {
     const roles = roleNames.length > 0 ? roleNames : ["Contributor"];
 
     for (const role of roles) {
-      const key = `${identifier}:${role}`;
+      const key = `${externalId}:${role}`;
       if (seen.has(key)) {
         continue;
       }
@@ -118,7 +118,7 @@ function buildPeople(credits) {
       people.push({
         role,
         name,
-        identifier,
+        externalId,
         scriptSlug: "person.metron",
       });
     }
@@ -156,8 +156,8 @@ driver("search", async function(context) {
   const issues = Array.isArray(payload?.results) ? payload.results : [];
   const items = issues
     .map((issue) => {
-      const identifier = getIdentifier(issue?.id);
-      if (!identifier) {
+      const externalId = getIdentifier(issue?.id);
+      if (!externalId) {
         return null;
       }
 
@@ -166,7 +166,7 @@ driver("search", async function(context) {
       const publishYear = parsePublishYear(issue?.cover_date, dayjs);
 
       return {
-        identifier,
+        externalId,
         badgeProperty: { kind: "null", value: null },
         titleProperty: { kind: "text", value: title },
         subtitleProperty:
@@ -195,12 +195,12 @@ driver("details", async function(context) {
   const { z } = await import("npm:zod");
   const dayjs = (await import("npm:dayjs")).default;
 
-  const { identifier } = z.object({
-    identifier: z.string().trim().min(1, "identifier is required"),
+  const { externalId } = z.object({
+    externalId: z.string().trim().min(1, "externalId is required"),
   }).parse(context ?? {});
 
   const payload = await loadMetronJson(
-    `https://metron.cloud/api/issue/${encodeURIComponent(identifier)}/`,
+    `https://metron.cloud/api/issue/${encodeURIComponent(externalId)}/`,
     "Metron issue details",
   );
 
@@ -219,7 +219,7 @@ driver("details", async function(context) {
       genres: [],
       isNsfw: null,
       description: getString(payload?.desc),
-      sourceUrl: `https://metron.cloud/issue/${identifier}`,
+      sourceUrl: `https://metron.cloud/issue/${externalId}`,
       publishYear: parsePublishYear(payload?.cover_date, dayjs),
       providerRating: null,
       productionStatus: null,

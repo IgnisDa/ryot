@@ -144,7 +144,7 @@ const processPersonStubs = async (input: {
 
 		const existingOrCreated = await createGlobalEntity({
 			name: stub.name,
-			externalId: stub.identifier,
+			externalId: stub.externalId,
 			entitySchemaId: personSchema.id,
 			sandboxScriptId: personScript.id,
 		});
@@ -176,7 +176,7 @@ const processPersonStubs = async (input: {
 			await getQueues().mediaQueue.add(personPopulateJobName, {
 				userId: input.userId,
 				scriptSlug: stub.scriptSlug,
-				identifier: stub.identifier,
+				externalId: stub.externalId,
 				personEntityId: existingOrCreated.id,
 			});
 		}
@@ -189,7 +189,7 @@ const processMediaImportJob = async (job: Job, token?: string) => {
 		throw new Error("Media import job payload is invalid");
 	}
 
-	const { userId, scriptId, identifier, entitySchemaId } = parsed.data;
+	const { userId, scriptId, externalId, entitySchemaId } = parsed.data;
 
 	let step = parsed.data.step;
 	let schemaFieldKeys = parsed.data.schemaFieldKeys;
@@ -217,7 +217,7 @@ const processMediaImportJob = async (job: Job, token?: string) => {
 				userId,
 				scriptId,
 				driverName: "details",
-				context: { identifier },
+				context: { externalId },
 			},
 		});
 		step = mediaJobWaitingForSandboxStep;
@@ -270,7 +270,7 @@ const processMediaImportJob = async (job: Job, token?: string) => {
 		entitySchemaId,
 		name: details.name,
 		sandboxScriptId: scriptId,
-		externalId: identifier,
+		externalId,
 	});
 
 	const isNew =
@@ -314,7 +314,7 @@ const processPersonPopulateJob = async (job: Job, token?: string) => {
 		throw new Error("Person populate job payload is invalid");
 	}
 
-	const { userId, scriptSlug, identifier, personEntityId } = parsed.data;
+	const { userId, scriptSlug, externalId, personEntityId } = parsed.data;
 
 	let step = parsed.data.step;
 	if (!step) {
@@ -333,7 +333,7 @@ const processPersonPopulateJob = async (job: Job, token?: string) => {
 			sandboxJobData: {
 				userId,
 				driverName: "details",
-				context: { identifier },
+				context: { externalId },
 				scriptId: personScript.id,
 			},
 		});
