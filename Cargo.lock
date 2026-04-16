@@ -4764,6 +4764,7 @@ dependencies = [
  "futures",
  "itertools 0.14.0",
  "media-models",
+ "nanoid",
  "rust_decimal",
  "sea-orm",
  "serde",
