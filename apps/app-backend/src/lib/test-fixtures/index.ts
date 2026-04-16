@@ -6,6 +6,7 @@ export * from "~/lib/test-fixtures/events";
 export * from "~/lib/test-fixtures/fixture-helpers";
 export * from "~/lib/test-fixtures/property-schemas";
 export * from "~/lib/test-fixtures/query-engine";
+export * from "~/lib/test-fixtures/sandbox";
 export * from "~/lib/test-fixtures/saved-views";
 export * from "~/lib/test-fixtures/trackers";
 export * from "~/lib/test-fixtures/view-language";
