@@ -442,7 +442,9 @@ export function registerQueryEnginePresentationAndErrorTests() {
 
 	it("filters, sorts, and displays latest-event join data", async () => {
 		const { client, cookies, schema } = await createLatestEventJoinFixture();
-		const reviewRatingRef = toRequiredExpression(["event.review.rating"]);
+		const reviewRatingRef = toRequiredExpression([
+			"event.review.properties.rating",
+		]);
 		const { data, response } = await executeQueryEngine(
 			client,
 			cookies,
@@ -460,8 +462,8 @@ export function registerQueryEnginePresentationAndErrorTests() {
 				],
 				displayConfiguration: buildTableDisplayConfiguration([
 					{ label: "Name", property: [entityField(schema.slug, "name")] },
-					{ label: "Rating", property: ["event.review.rating"] },
-					{ label: "Reviewed", property: ["event.review.@createdAt"] },
+					{ label: "Rating", property: ["event.review.properties.rating"] },
+					{ label: "Reviewed", property: ["event.review.createdAt"] },
 				]),
 			}),
 		);
@@ -486,7 +488,9 @@ export function registerQueryEnginePresentationAndErrorTests() {
 	it("treats missing event schemas and missing event rows as null join values", async () => {
 		const { client, cookies, smartphoneSlug, tabletSlug } =
 			await createMixedLatestEventJoinFixture();
-		const reviewRatingRef = toRequiredExpression(["event.review.rating"]);
+		const reviewRatingRef = toRequiredExpression([
+			"event.review.properties.rating",
+		]);
 		const { data, response } = await executeQueryEngine(
 			client,
 			cookies,
@@ -498,7 +502,7 @@ export function registerQueryEnginePresentationAndErrorTests() {
 				],
 				displayConfiguration: buildGridDisplayConfiguration({
 					subtitleProperty: null,
-					badgeProperty: ["event.review.rating"],
+					badgeProperty: ["event.review.properties.rating"],
 				}),
 			}),
 		);
@@ -521,7 +525,9 @@ export function registerQueryEnginePresentationAndErrorTests() {
 	it("returns only entities with a non-null event join value for isNotNull", async () => {
 		const { client, cookies, smartphoneSlug, tabletSlug } =
 			await createMixedLatestEventJoinFixture();
-		const reviewRatingRef = toRequiredExpression(["event.review.rating"]);
+		const reviewRatingRef = toRequiredExpression([
+			"event.review.properties.rating",
+		]);
 		const { data, response } = await executeQueryEngine(
 			client,
 			cookies,
@@ -533,7 +539,7 @@ export function registerQueryEnginePresentationAndErrorTests() {
 				],
 				displayConfiguration: buildGridDisplayConfiguration({
 					subtitleProperty: null,
-					badgeProperty: ["event.review.rating"],
+					badgeProperty: ["event.review.properties.rating"],
 				}),
 			}),
 		);
