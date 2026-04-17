@@ -6,7 +6,7 @@ import {
 	computedExpression,
 	createSmartphoneSchema,
 	createTabletSchema,
-	entityExpression,
+	schemaPropertyExpression,
 	eventExpression,
 	literalExpression,
 } from "~/lib/test-fixtures";
@@ -90,7 +90,7 @@ describe("buildFilterWhereClause", () => {
 	it("builds comparison predicates for schema properties", () => {
 		const clause = serializeClause(
 			comparison(
-				entityExpression("smartphones", "manufacturer"),
+				schemaPropertyExpression("smartphones", "manufacturer"),
 				"eq",
 				literalExpression("Apple"),
 			),
@@ -104,7 +104,7 @@ describe("buildFilterWhereClause", () => {
 	it("casts integer comparisons before evaluation", () => {
 		const clause = serializeClause(
 			comparison(
-				entityExpression("smartphones", "releaseYear"),
+				schemaPropertyExpression("smartphones", "releaseYear"),
 				"eq",
 				literalExpression(2023),
 			),
@@ -146,7 +146,7 @@ describe("buildFilterWhereClause", () => {
 			[
 				{
 					key: "makerLabel",
-					expression: entityExpression("smartphones", "manufacturer"),
+					expression: schemaPropertyExpression("smartphones", "manufacturer"),
 				},
 			],
 		);
@@ -161,7 +161,7 @@ describe("buildFilterWhereClause", () => {
 			type: "and",
 			predicates: [
 				comparison(
-					entityExpression("smartphones", "releaseYear"),
+					schemaPropertyExpression("smartphones", "releaseYear"),
 					"gte",
 					literalExpression(2020),
 				),
@@ -169,12 +169,12 @@ describe("buildFilterWhereClause", () => {
 					type: "or",
 					predicates: [
 						comparison(
-							entityExpression("smartphones", "manufacturer"),
+							schemaPropertyExpression("smartphones", "manufacturer"),
 							"eq",
 							literalExpression("Apple"),
 						),
 						comparison(
-							entityExpression("tablets", "maker"),
+							schemaPropertyExpression("tablets", "maker"),
 							"eq",
 							literalExpression("Apple"),
 						),
@@ -191,11 +191,11 @@ describe("buildFilterWhereClause", () => {
 	it("builds null-check predicates", () => {
 		const nullClause = serializeClause({
 			type: "isNull",
-			expression: entityExpression("smartphones", "manufacturer"),
+			expression: schemaPropertyExpression("smartphones", "manufacturer"),
 		});
 		const notNullClause = serializeClause({
 			type: "isNotNull",
-			expression: entityExpression("smartphones", "manufacturer"),
+			expression: schemaPropertyExpression("smartphones", "manufacturer"),
 		});
 
 		expect(nullClause.sql.toLowerCase()).toContain(" is null");
@@ -205,7 +205,7 @@ describe("buildFilterWhereClause", () => {
 	it("builds in predicates with expression values", () => {
 		const clause = serializeClause({
 			type: "in",
-			expression: entityExpression("smartphones", "manufacturer"),
+			expression: schemaPropertyExpression("smartphones", "manufacturer"),
 			values: [literalExpression("Apple"), literalExpression("Samsung")],
 		});
 
@@ -217,7 +217,7 @@ describe("buildFilterWhereClause", () => {
 	it("builds contains predicates for string expressions", () => {
 		const clause = serializeClause({
 			type: "contains",
-			expression: entityExpression("smartphones", "manufacturer"),
+			expression: schemaPropertyExpression("smartphones", "manufacturer"),
 			value: literalExpression("Apple"),
 		});
 
@@ -228,7 +228,7 @@ describe("buildFilterWhereClause", () => {
 	it("builds contains predicates for array expressions", () => {
 		const clause = serializeClause({
 			type: "contains",
-			expression: entityExpression("smartphones", "tags"),
+			expression: schemaPropertyExpression("smartphones", "tags"),
 			value: literalExpression("sci-fi"),
 		});
 
@@ -239,7 +239,7 @@ describe("buildFilterWhereClause", () => {
 	it("treats jsonb null object expressions as null for null checks", () => {
 		const clause = serializeClause({
 			type: "isNull",
-			expression: entityExpression("smartphones", "metadata"),
+			expression: schemaPropertyExpression("smartphones", "metadata"),
 		});
 
 		expect(clause.sql.toLowerCase()).toContain("nullif");

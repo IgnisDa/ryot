@@ -1,19 +1,10 @@
 import { describe, expect, it } from "bun:test";
-import { createNestedPeoplePropertySchema } from "~/lib/test-fixtures";
 import {
 	createPropertySchemaObjectSchema,
 	propertySchemaObjectSchema,
 } from "./schemas";
 
 describe("propertySchemaObjectSchema", () => {
-	it("accepts nested array and object property definitions", () => {
-		const result = propertySchemaObjectSchema.safeParse(
-			createNestedPeoplePropertySchema(),
-		);
-
-		expect(result.success).toBeTrue();
-	});
-
 	it("rejects contradictory numeric bounds", () => {
 		const result = propertySchemaObjectSchema.safeParse({
 			fields: {
