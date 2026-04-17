@@ -4,7 +4,7 @@
 
 **Type:** AFK
 
-**Status:** todo
+**Status:** done
 
 ## What to build
 
@@ -29,20 +29,20 @@ After this slice `bun run test` and `bun run lint` pass inside `apps/app-fronten
 
 ## Acceptance criteria
 
-- [ ] `resolvePropertyType("entity.anime.name", emptySchemas)` returns `"string"`.
-- [ ] `resolvePropertyType("entity.anime.createdAt", emptySchemas)` returns `"date"`.
-- [ ] `resolvePropertyType("entity.anime.updatedAt", emptySchemas)` returns `"date"`.
-- [ ] `resolvePropertyType("entity.anime.image", emptySchemas)` returns `null`
+- [x] `resolvePropertyType("entity.anime.name", emptySchemas)` returns `"string"`.
+- [x] `resolvePropertyType("entity.anime.createdAt", emptySchemas)` returns `"date"`.
+- [x] `resolvePropertyType("entity.anime.updatedAt", emptySchemas)` returns `"date"`.
+- [x] `resolvePropertyType("entity.anime.image", emptySchemas)` returns `null`
   (image is display-only, not in `BUILTIN_TYPES`).
-- [ ] `resolvePropertyType("entity.anime.properties.year", [animeSchema])` returns
+- [x] `resolvePropertyType("entity.anime.properties.year", [animeSchema])` returns
   `"integer"`.
-- [ ] `resolvePropertyType("entity.anime.properties.title", [animeSchema])` returns
+- [x] `resolvePropertyType("entity.anime.properties.title", [animeSchema])` returns
   `"string"`.
-- [ ] Old paths such as `"entity.anime.@name"` and `"entity.anime.year"` return
+- [x] Old paths such as `"entity.anime.@name"` and `"entity.anime.year"` return
   `null` (they are no longer valid).
-- [ ] `resolvePropertyType("event.review.rating", schemas)` continues to return
+- [x] `resolvePropertyType("event.review.rating", schemas)` continues to return
   `null`.
-- [ ] `bun run test` and `bun run lint` pass in `apps/app-frontend`.
+- [x] `bun run test` and `bun run lint` pass in `apps/app-frontend`.
 
 ## Blocked by
 

@@ -41,7 +41,7 @@ Saved views persist the same query AST and then point display slots directly at 
           "operator": "add",
           "left": {
             "type": "reference",
-            "reference": { "type": "schema-property", "slug": "book", "property": "publishYear" }
+            "reference": { "type": "schema-property", "slug": "book", "property": ["publishYear"] }
           },
           "right": { "type": "literal", "value": 1 }
         }
@@ -181,7 +181,7 @@ Saved views persist the same query AST and then point display slots directly at 
 - `entitySchemaSlugs`: one or more schema slugs included in the query
 - `filter`: a predicate AST or `null`
 - `eventJoins`: zero or more event join definitions
-- `computedFields`: zero or more named reusable expressions
+- `computedFields`: zero or more named reusable expressions (may be omitted)
 - `fields`: ordered list of output fields
 
 ## Field Selection
@@ -196,11 +196,11 @@ Each field looks like this:
     "values": [
       {
         "type": "reference",
-        "reference": { "type": "schema-property", "slug": "smartphone", "property": "manufacturer" }
+        "reference": { "type": "schema-property", "slug": "smartphone", "property": ["manufacturer"] }
       },
       {
         "type": "reference",
-        "reference": { "type": "schema-property", "slug": "tablet", "property": "manufacturer" }
+        "reference": { "type": "schema-property", "slug": "tablet", "property": ["manufacturer"] }
       }
     ]
   }
@@ -226,7 +226,7 @@ Computed fields are named expressions declared once and reused anywhere expressi
     "values": [
       {
         "type": "reference",
-        "reference": { "type": "event-join-property", "joinKey": "review", "property": "rating" }
+        "reference": { "type": "event-join-property", "joinKey": "review", "property": ["rating"] }
       },
       {
         "type": "reference",
@@ -268,7 +268,7 @@ Conditional expressions use `whenTrue` and `whenFalse`:
     "operator": "gte",
     "left": {
       "type": "reference",
-      "reference": { "type": "schema-property", "slug": "book", "property": "rating" }
+      "reference": { "type": "schema-property", "slug": "book", "property": ["rating"] }
     },
     "right": { "type": "literal", "value": 4 }
   },
@@ -289,7 +289,7 @@ Arithmetic and normalization example:
       "operator": "divide",
       "left": {
         "type": "reference",
-        "reference": { "type": "schema-property", "slug": "book", "property": "pages" }
+        "reference": { "type": "schema-property", "slug": "book", "property": ["pages"] }
       },
       "right": { "type": "literal", "value": 100 }
     }
@@ -320,41 +320,60 @@ Image rules:
 
 ## Reference Syntax
 
+> **Note:** The path strings below (e.g. `entity.book.properties.author`) are
+> human-readable shorthand used in documentation and test helpers only. The actual
+> API request body always uses structured `RuntimeRef` JSON objects. Each example
+> below shows both forms.
+
 All references must be explicit.
 
 ### Entity Built-Ins
 
-- `entity.book.@id`
-- `entity.book.@name`
-- `entity.book.@image`
-- `entity.book.@createdAt`
-- `entity.book.@updatedAt`
-- `entity.book.@externalId`
-- `entity.book.@sandboxScriptId`
+String shorthand → `RuntimeRef` JSON:
+
+- `entity.book.id` → `{ "type": "entity-column", "slug": "book", "column": "id" }`
+- `entity.book.name` → `{ "type": "entity-column", "slug": "book", "column": "name" }`
+- `entity.book.image` → `{ "type": "entity-column", "slug": "book", "column": "image" }`
+- `entity.book.createdAt` → `{ "type": "entity-column", "slug": "book", "column": "createdAt" }`
+- `entity.book.updatedAt` → `{ "type": "entity-column", "slug": "book", "column": "updatedAt" }`
+- `entity.book.externalId` → `{ "type": "entity-column", "slug": "book", "column": "externalId" }`
+- `entity.book.sandboxScriptId` → `{ "type": "entity-column", "slug": "book", "column": "sandboxScriptId" }`
 
 Notes:
 
-- `@id`, `@name`, `@createdAt`, `@updatedAt`, `@externalId`, `@sandboxScriptId` work in sort, filters, and fields.
-- `@image` works in fields, not filters.
-- `@externalId` and `@sandboxScriptId` resolve to `null` when not set on the entity.
+- `id`, `name`, `createdAt`, `updatedAt`, `externalId`, `sandboxScriptId` work in sort, filters, and fields.
+- `image` works in fields, not filters.
+- `externalId` and `sandboxScriptId` resolve to `null` when not set on the entity.
 
 ### Entity Properties
 
-- `entity.book.author`
-- `entity.book.publishYear`
-- `entity.place.country`
+Schema properties always use the `properties` keyword at segment 3.
+
+String shorthand → `RuntimeRef` JSON:
+
+- `entity.book.properties.author` → `{ "type": "schema-property", "slug": "book", "property": ["author"] }`
+- `entity.book.properties.publishYear` → `{ "type": "schema-property", "slug": "book", "property": ["publishYear"] }`
+- `entity.place.properties.country` → `{ "type": "schema-property", "slug": "place", "property": ["country"] }`
+
+Deep nested paths extend the array:
+
+- `entity.book.properties.metadata.source` → `{ "type": "schema-property", "slug": "book", "property": ["metadata", "source"] }`
 
 ### Event Join Built-Ins
 
-- `event.review.@id`
-- `event.review.@createdAt`
-- `event.review.@updatedAt`
+String shorthand → `RuntimeRef` JSON:
+
+- `event.review.id` → `{ "type": "event-join-column", "joinKey": "review", "column": "id" }`
+- `event.review.createdAt` → `{ "type": "event-join-column", "joinKey": "review", "column": "createdAt" }`
+- `event.review.updatedAt` → `{ "type": "event-join-column", "joinKey": "review", "column": "updatedAt" }`
 
 ### Event Join Properties
 
-- `event.review.rating`
-- `event.review.note`
-- `event.purchase.price`
+String shorthand → `RuntimeRef` JSON:
+
+- `event.review.properties.rating` → `{ "type": "event-join-property", "joinKey": "review", "property": ["rating"] }`
+- `event.review.properties.note` → `{ "type": "event-join-property", "joinKey": "review", "property": ["note"] }`
+- `event.purchase.properties.price` → `{ "type": "event-join-property", "joinKey": "purchase", "property": ["price"] }`
 
 ## Event Joins
 
@@ -370,7 +389,7 @@ Currently supported join kind:
 ]
 ```
 
-Use the `key` in references like `event.review.rating`.
+Use the `key` in references (string shorthand) like `event.review.properties.rating` — in a real request use `{ "type": "event-join-property", "joinKey": "review", "property": ["rating"] }`.
 
 Important:
 
@@ -402,7 +421,7 @@ Examples:
   "operator": "gte",
   "left": {
     "type": "reference",
-    "reference": { "type": "schema-property", "slug": "book", "property": "rating" }
+    "reference": { "type": "schema-property", "slug": "book", "property": ["rating"] }
   },
   "right": { "type": "literal", "value": 4 }
 }
@@ -414,7 +433,7 @@ Examples:
       "type": "contains",
       "expression": {
         "type": "reference",
-        "reference": { "type": "schema-property", "slug": "book", "property": "tags" }
+        "reference": { "type": "schema-property", "slug": "book", "property": ["tags"] }
       },
       "value": { "type": "literal", "value": "classic" }
     },
@@ -422,7 +441,7 @@ Examples:
       "type": "isNotNull",
       "expression": {
         "type": "reference",
-        "reference": { "type": "event-join-property", "joinKey": "review", "property": "rating" }
+        "reference": { "type": "event-join-property", "joinKey": "review", "property": ["rating"] }
       }
     }
   ]
@@ -519,7 +538,7 @@ Typical field keys still look like UI slots such as `image`, `title`, `subtitle`
     "operator": "eq",
     "left": {
       "type": "reference",
-      "reference": { "type": "schema-property", "slug": "book", "property": "status" }
+      "reference": { "type": "schema-property", "slug": "book", "property": ["status"] }
     },
     "right": { "type": "literal", "value": "owned" }
   },
@@ -543,7 +562,7 @@ Typical field keys still look like UI slots such as `image`, `title`, `subtitle`
       "key": "subtitle",
       "expression": {
         "type": "reference",
-        "reference": { "type": "schema-property", "slug": "book", "property": "author" }
+        "reference": { "type": "schema-property", "slug": "book", "property": ["author"] }
       }
     }
   ]
@@ -561,11 +580,11 @@ Typical field keys still look like UI slots such as `image`, `title`, `subtitle`
       "values": [
         {
           "type": "reference",
-          "reference": { "type": "schema-property", "slug": "smartphone", "property": "year" }
+          "reference": { "type": "schema-property", "slug": "smartphone", "property": ["year"] }
         },
         {
           "type": "reference",
-          "reference": { "type": "schema-property", "slug": "tablet", "property": "releaseYear" }
+          "reference": { "type": "schema-property", "slug": "tablet", "property": ["releaseYear"] }
         }
       ]
     }
@@ -608,7 +627,7 @@ Show entities with their latest review rating and note.
     "direction": "desc",
     "expression": {
       "type": "reference",
-      "reference": { "type": "event-join-property", "joinKey": "review", "property": "rating" }
+      "reference": { "type": "event-join-property", "joinKey": "review", "property": ["rating"] }
     }
   },
   "pagination": {
@@ -627,7 +646,7 @@ Show entities with their latest review rating and note.
     "operator": "gte",
     "left": {
       "type": "reference",
-      "reference": { "type": "event-join-property", "joinKey": "review", "property": "rating" }
+      "reference": { "type": "event-join-property", "joinKey": "review", "property": ["rating"] }
     },
     "right": { "type": "literal", "value": 4 }
   },
@@ -644,7 +663,7 @@ Show entities with their latest review rating and note.
       "key": "rating",
       "expression": {
         "type": "reference",
-        "reference": { "type": "event-join-property", "joinKey": "review", "property": "rating" }
+        "reference": { "type": "event-join-property", "joinKey": "review", "property": ["rating"] }
       }
     }
   ]
@@ -692,11 +711,11 @@ Use latest review rating when present, otherwise show publish year.
         "values": [
           {
             "type": "reference",
-            "reference": { "type": "event-join-property", "joinKey": "review", "property": "rating" }
+            "reference": { "type": "event-join-property", "joinKey": "review", "property": ["rating"] }
           },
           {
             "type": "reference",
-            "reference": { "type": "schema-property", "slug": "book", "property": "publishYear" }
+            "reference": { "type": "schema-property", "slug": "book", "property": ["publishYear"] }
           }
         ]
       }
@@ -712,7 +731,7 @@ Use latest review rating when present, otherwise show publish year.
 - If the join is missing for an entity, joined references resolve to `null`.
 - `isNull` is useful for "missing event" queries.
 - `isNotNull` is useful for "has event" queries (e.g. entities that have been reviewed).
-- Event built-ins such as `event.review.@createdAt` are often useful for "most recently reviewed" or "most recently purchased" views.
+- Event built-ins such as `event.review.createdAt` (shorthand for `{ "type": "event-join-column", "joinKey": "review", "column": "createdAt" }`) are often useful for "most recently reviewed" or "most recently purchased" views.
 
 ## Example Response With Event Fields
 
@@ -775,8 +794,10 @@ Use latest review rating when present, otherwise show publish year.
 - `fields` may be empty, but then `items[].fields` will also be empty.
 - `event.*` references require the join to be declared in `eventJoins`.
 - Sort/filter references must point to schemas included in `entitySchemaSlugs`.
-- `@image` is display-only, not filterable.
+- `image` is display-only, not filterable.
 - Duplicate field keys are rejected.
+- `properties` is a reserved keyword in segment position 3 of entity and event paths (e.g. `entity.book.properties.*`). A built-in column named `properties` must never be added.
+- String path notation (e.g. `entity.book.properties.author`) is documentation shorthand only. Sending a raw string path in a request body is invalid; the API requires structured `RuntimeRef` JSON objects.
 
 ## Validation Errors
 
@@ -789,4 +810,4 @@ Common validation failures are reported with direct payload-oriented messages:
 
 ## Copy-Paste Starters
 
-Use the request examples in this guide as starters. Every payload should use `sort.expression`, optional top-level `filter`, and per-field `expression` nodes.
+See the four complete examples under [Query Examples](#query-examples). Every payload should use `sort.expression`, optional top-level `filter`, and per-field `expression` nodes. All `RuntimeRef` objects in those examples are ready to use as-is in a real request body.

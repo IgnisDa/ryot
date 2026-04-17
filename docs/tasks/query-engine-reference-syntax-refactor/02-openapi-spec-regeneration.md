@@ -4,7 +4,7 @@
 
 **Type:** AFK
 
-**Status:** todo
+**Status:** done
 
 ## What to build
 
@@ -26,11 +26,11 @@ Commit the updated generated files.
 
 ## Acceptance criteria
 
-- [ ] Dev server is running before the regeneration command is invoked.
-- [ ] The regeneration command completes without error.
-- [ ] The generated `@ryot/generated` package reflects `property: string[]` for
+- [x] Dev server is running before the regeneration command is invoked.
+- [x] The regeneration command completes without error.
+- [x] The generated `@ryot/generated` package reflects `property: string[]` for
   `schema-property` and `event-join-property` `RuntimeRef` variants.
-- [ ] No other unrelated spec drift is included in the commit.
+- [x] No other unrelated spec drift is included in the commit.
 
 ## Blocked by
 
