@@ -16,7 +16,5 @@ export const eventJoinBuiltinColumns: ReadonlySet<string> = new Set([
 
 export type RuntimeRef =
 	| { key: string; type: "computed-field" }
-	| { slug: string; column: string; type: "entity-column" }
-	| { slug: string; property: string[]; type: "schema-property" }
-	| { column: string; joinKey: string; type: "event-join-column" }
-	| { joinKey: string; property: string[]; type: "event-join-property" };
+	| { slug: string; path: string[]; type: "entity" }
+	| { joinKey: string; path: string[]; type: "event" };

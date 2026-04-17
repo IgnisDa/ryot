@@ -19,7 +19,7 @@ export const createEntityColumnExpression = (
 	column: string,
 ): ViewExpression => ({
 	type: "reference",
-	reference: { type: "entity-column", slug: schemaSlug, column },
+	reference: { type: "entity", slug: schemaSlug, path: [column] },
 });
 
 export const createEntityPropertyExpression = (
@@ -27,7 +27,11 @@ export const createEntityPropertyExpression = (
 	property: string,
 ): ViewExpression => ({
 	type: "reference",
-	reference: { type: "schema-property", slug: schemaSlug, property },
+	reference: {
+		type: "entity",
+		slug: schemaSlug,
+		path: ["properties", property],
+	},
 });
 
 export type AppEntityImage =

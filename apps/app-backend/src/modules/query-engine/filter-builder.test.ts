@@ -6,9 +6,9 @@ import {
 	computedExpression,
 	createSmartphoneSchema,
 	createTabletSchema,
-	schemaPropertyExpression,
 	eventExpression,
 	literalExpression,
+	schemaPropertyExpression,
 } from "~/lib/test-fixtures";
 import type { ViewComputedField } from "~/lib/views/expression";
 import type { ViewPredicate } from "~/lib/views/filtering";

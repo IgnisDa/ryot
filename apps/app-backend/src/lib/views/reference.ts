@@ -212,7 +212,7 @@ export const buildEventJoinMap = <TJoin extends { key: string }>(
 
 export const getSchemaForReference = <TSchema extends QueryEngineSchemaLike>(
 	schemaMap: Map<string, TSchema>,
-	reference: Extract<RuntimeRef, { slug: string }>,
+	reference: Extract<RuntimeRef, { type: "entity" }>,
 ): TSchema => {
 	const foundSchema = schemaMap.get(reference.slug);
 	if (!foundSchema) {
@@ -228,9 +228,7 @@ export const getEventJoinForReference = <
 	TJoin extends QueryEngineEventJoinLike,
 >(
 	eventJoinMap: Map<string, TJoin>,
-	reference:
-		| Extract<RuntimeRef, { type: "event-join-column" }>
-		| Extract<RuntimeRef, { type: "event-join-property" }>,
+	reference: Extract<RuntimeRef, { type: "event" }>,
 ): TJoin => {
 	const foundJoin = eventJoinMap.get(reference.joinKey);
 	if (!foundJoin) {
