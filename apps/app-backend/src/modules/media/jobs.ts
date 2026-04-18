@@ -8,7 +8,7 @@ export const mediaJobWaitingForSandboxStep = "waiting_for_sandbox";
 export const mediaImportJobData = z.object({
 	userId: nonEmptyStringSchema,
 	scriptId: nonEmptyStringSchema,
-	identifier: nonEmptyStringSchema,
+	externalId: nonEmptyStringSchema,
 	entitySchemaId: nonEmptyStringSchema,
 	schemaFieldKeys: z.array(nonEmptyStringSchema).optional(),
 	step: z.literal(mediaJobWaitingForSandboxStep).optional(),
@@ -21,7 +21,7 @@ export const personPopulateJobName = "person-populate";
 export const personPopulateJobData = z.object({
 	userId: nonEmptyStringSchema,
 	scriptSlug: nonEmptyStringSchema,
-	identifier: nonEmptyStringSchema,
+	externalId: nonEmptyStringSchema,
 	personEntityId: nonEmptyStringSchema,
 	step: z.literal(mediaJobWaitingForSandboxStep).optional(),
 });

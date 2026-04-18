@@ -75,9 +75,9 @@ function collectGenres(item) {
   return [...values];
 }
 
-function buildSourceUrl(identifier, title) {
+function buildSourceUrl(externalId, title) {
   const slug = encodeURIComponent(title.toLowerCase().replace(/\s+/g, "-"));
-  return `https://podcasts.apple.com/us/podcast/${slug}/id${identifier}`;
+  return `https://podcasts.apple.com/us/podcast/${slug}/id${externalId}`;
 }
 
 async function lookup(params) {
@@ -135,9 +135,9 @@ driver("search", async function(context) {
 
   const items = pagedResults
     .map((item) => {
-      const identifier = String(item?.collectionId ?? "").trim();
+      const externalId = String(item?.collectionId ?? "").trim();
       const title = getString(item?.collectionName);
-      if (!identifier || !title) {
+      if (!externalId || !title) {
         return null;
       }
 
@@ -145,7 +145,7 @@ driver("search", async function(context) {
       const publishYear = getPublishYear(item?.releaseDate, dayjs);
 
       return {
-        identifier,
+        externalId,
         badgeProperty: { kind: "null", value: null },
         titleProperty: { kind: "text", value: title },
         subtitleProperty:
@@ -173,12 +173,12 @@ driver("details", async function(context) {
   const { z } = await import("npm:zod");
   const dayjs = (await import("npm:dayjs")).default;
 
-  const { identifier } = z.object({
-    identifier: z.string().trim().min(1, "identifier is required"),
+  const { externalId } = z.object({
+    externalId: z.string().trim().min(1, "externalId is required"),
   }).parse(context ?? {});
 
   const detailsPayload = await lookup({
-    id: identifier,
+    id: externalId,
     media: "podcast",
     entity: "podcast",
     lang: "en_us",
@@ -197,7 +197,7 @@ driver("details", async function(context) {
 
   const totalEpisodes = getPositiveInt(podcast?.trackCount);
   const episodeLookup = {
-    id: identifier,
+    id: externalId,
     media: "podcast",
     entity: "podcastEpisode",
     lang: "en_us",
@@ -263,7 +263,7 @@ driver("details", async function(context) {
       genres: collectGenres(podcast),
       publishYear,
       description: getNullableString(podcast?.description),
-      sourceUrl: buildSourceUrl(identifier, title),
+      sourceUrl: buildSourceUrl(externalId, title),
       assets: { remoteImages: image },
       freeCreators: creators,
       totalEpisodes: totalEpisodes ?? episodes.length,

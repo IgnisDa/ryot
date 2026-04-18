@@ -83,7 +83,7 @@ const entityImportPendingJob = {
 	data: {
 		userId: "user_1",
 		scriptId: "script_1",
-		identifier: "id_1",
+		externalId: "id_1",
 		entitySchemaId: "schema_1",
 	},
 };

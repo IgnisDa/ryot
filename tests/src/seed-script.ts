@@ -1492,7 +1492,7 @@ function sleep(ms: number): Promise<void> {
 async function pollSearchJob(
 	apiClient: APIClient,
 	jobId: string,
-): Promise<Array<{ identifier: string }>> {
+): Promise<Array<{ externalId: string }>> {
 	const client = apiClient.getClient();
 	const startedAt = Date.now();
 	while (true) {
@@ -1515,7 +1515,7 @@ async function pollSearchJob(
 			throw new Error(`Search job failed: ${data.data.error}`);
 		}
 		const value = (data.data as { status: "completed"; value: unknown })
-			.value as { items?: Array<{ identifier: string }> };
+			.value as { items?: Array<{ externalId: string }> };
 		return value?.items ?? [];
 	}
 }
@@ -1525,7 +1525,7 @@ async function searchMediaPage(
 	scriptId: string,
 	query: string,
 	page: number,
-): Promise<Array<{ identifier: string }>> {
+): Promise<Array<{ externalId: string }>> {
 	const client = apiClient.getClient();
 	apiClient.incrementRequestCount();
 	const { data, response } = await client.POST("/entity-schemas/search", {
@@ -1540,14 +1540,14 @@ async function searchMediaPage(
 async function importMediaEntity(
 	apiClient: APIClient,
 	scriptId: string,
-	identifier: string,
+	externalId: string,
 	entitySchemaId: string,
 ): Promise<SeedEntity | null> {
 	const client = apiClient.getClient();
 	apiClient.incrementRequestCount();
 	const { data: importData, response: importResp } = await client.POST(
 		"/entity-schemas/import",
-		{ body: { scriptId, identifier, entitySchemaId } },
+		{ body: { scriptId, externalId, entitySchemaId } },
 	);
 	if (!importResp.ok || !importData?.data) {
 		return null;
@@ -1604,7 +1604,7 @@ async function seedMedia(client: APIClient) {
 		ReturnType<typeof getMediaLifecycleEventSchemas>
 	>;
 	type WorkItem = {
-		identifier: string;
+		externalId: string;
 		scriptId: string;
 		schema: (typeof schemas)[number];
 		eventSchemas: MediaEventSchemas;
@@ -1634,8 +1634,8 @@ async function seedMedia(client: APIClient) {
 					page,
 				);
 				for (const item of items) {
-					if (!identifiers.includes(item.identifier)) {
-						identifiers.push(item.identifier);
+					if (!identifiers.includes(item.externalId)) {
+						identifiers.push(item.externalId);
 					}
 				}
 				console.log(
@@ -1647,8 +1647,8 @@ async function seedMedia(client: APIClient) {
 		}
 		console.log(`    Collected ${identifiers.length} unique identifiers`);
 
-		for (const identifier of identifiers) {
-			workItems.push({ identifier, scriptId, schema, eventSchemas });
+		for (const externalId of identifiers) {
+			workItems.push({ externalId, scriptId, schema, eventSchemas });
 		}
 	}
 
@@ -1671,7 +1671,7 @@ async function seedMedia(client: APIClient) {
 		const entity = await importMediaEntity(
 			client,
 			item.scriptId,
-			item.identifier,
+			item.externalId,
 			item.schema.id,
 		);
 		if (entity) {

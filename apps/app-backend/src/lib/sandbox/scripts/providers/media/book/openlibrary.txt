@@ -96,8 +96,8 @@ driver("search", async function(context) {
   const items = docs
     .map((doc) => {
       const key = typeof doc?.key === "string" ? doc.key : "";
-      const identifier = key.split("/").filter(Boolean).pop();
-      if (!identifier) {
+      const externalId = key.split("/").filter(Boolean).pop();
+      if (!externalId) {
         return null;
       }
 
@@ -120,7 +120,7 @@ driver("search", async function(context) {
             "-M.jpg?default=false";
 
       return {
-        identifier,
+        externalId,
         badgeProperty: { kind: "null", value: null },
         titleProperty: { kind: "text", value: title },
         subtitleProperty:
@@ -151,13 +151,13 @@ driver("details", async function(context) {
   const customParseFormat = (await import("npm:dayjs/plugin/customParseFormat.js")).default;
   dayjs.extend(customParseFormat);
 
-  const { identifier: contextIdentifier } = z.object({
-    identifier: z.string().trim().min(1, "identifier is required"),
+  const { externalId: contextIdentifier } = z.object({
+    externalId: z.string().trim().min(1, "externalId is required"),
   }).parse(context ?? {});
 
   const requestedIdentifier = getKeySegment(contextIdentifier);
   if (!requestedIdentifier) {
-    throw new Error("identifier is required");
+    throw new Error("externalId is required");
   }
 
   const workPayload = await loadOpenLibraryJson(
@@ -175,7 +175,7 @@ driver("details", async function(context) {
     throw new Error("OpenLibrary work payload is missing title");
   }
 
-  const identifier =
+  const externalId =
     getKeySegment(typeof workPayload?.key === "string" ? workPayload.key : "") ||
     requestedIdentifier;
 
@@ -270,7 +270,7 @@ driver("details", async function(context) {
 
     people.push({
       role,
-      identifier: personIdentifier,
+      externalId: personIdentifier,
       scriptSlug: "person.openlibrary",
     });
   }
@@ -301,7 +301,7 @@ driver("details", async function(context) {
       genres: [...genreSet],
       publishYear: publishYear,
       description: parseDescription(workPayload?.description),
-      sourceUrl: `https://openlibrary.org/works/${identifier}/${title}`,
+      sourceUrl: `https://openlibrary.org/works/${externalId}/${title}`,
       assets: {
         remoteImages: [...coverIdSet].map(
           (coverId) =>
