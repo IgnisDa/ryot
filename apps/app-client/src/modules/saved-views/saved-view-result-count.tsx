@@ -1,33 +1,17 @@
+import type { RyotQLDocument } from "@ryot/contract/modules/ryotql/language";
 import clsx from "clsx";
-import { useEffect, useRef, useState } from "react";
 import { Pressable, Text, View } from "react-native";
 
-import {
-	savedViewResultCount,
-	savedViewTotalCount,
-	type SavedViewCountState,
-} from "./result-count";
-
-const DUMMY_TOTAL = 1284;
-const DUMMY_LATENCY_MS = 700;
+import { savedViewResultCount, savedViewTotalCount } from "./result-count";
+import { useSavedViewCount } from "./use-saved-view-count";
 
 export function SavedViewResultCount(props: {
 	readonly loaded: number;
 	readonly hasMore: boolean;
 	readonly textClassName: string;
+	readonly queryDocument: RyotQLDocument;
 }) {
-	const timer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
-	const [state, setState] = useState<SavedViewCountState>({ status: "idle" });
-
-	useEffect(() => () => clearTimeout(timer.current), []);
-
-	function countAll() {
-		setState({ status: "counting" });
-		timer.current = setTimeout(
-			() => setState({ status: "resolved", total: DUMMY_TOTAL }),
-			DUMMY_LATENCY_MS,
-		);
-	}
+	const { countAll, state } = useSavedViewCount(props.queryDocument);
 
 	if (!props.hasMore) {
 		return (
@@ -53,8 +37,8 @@ export function SavedViewResultCount(props: {
 			) : (
 				<Pressable
 					hitSlop={12}
-					onPress={countAll}
 					accessibilityRole="button"
+					onPress={() => void countAll()}
 					accessibilityLabel="Count all results in this view"
 				>
 					<Text className={clsx(props.textClassName, "text-accent-text")}>

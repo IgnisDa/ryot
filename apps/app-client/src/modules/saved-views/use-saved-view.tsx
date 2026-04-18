@@ -271,6 +271,7 @@ export const useSavedViewResult = (record: SavedViewRecord, searchQuery = "") =>
 		refresh,
 		loadMore,
 		isLoadingMore,
+		queryDocument,
 		state: visibleState,
 		isSearching: state.status === "loading" && retainedState !== undefined,
 	};
