@@ -20,9 +20,9 @@ feature should not depend on the generic entity creation contract. See the paren
 
 ## Acceptance criteria
 
-- [ ] The backend exposes a dedicated authenticated collection-creation contract keyed to the
+- [x] The backend exposes a dedicated authenticated collection-creation contract keyed to the
       built-in `collection` schema model.
-- [ ] Creating a collection persists a user-owned collection entity with
+- [x] Creating a collection persists a user-owned collection entity with
       `properties.membershipPropertiesSchema` stored as provided.
 - [ ] `membershipPropertiesSchema` is validated as a real `AppSchema` before the collection is
       persisted.
