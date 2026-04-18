@@ -16,6 +16,7 @@ import { SandboxExecutionService } from "#modules/sandbox/service";
 import { ProviderEntitySearchService } from "./search-service";
 
 const user = {
+	image: null,
 	name: "Test User",
 	email: "user@example.com",
 	id: UserId.make("user-1"),

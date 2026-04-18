@@ -279,6 +279,10 @@ export class AuthService extends Context.Service<AuthService>()("AuthService", {
 				withInternalAdapter(({ internalAdapter }) =>
 					internalAdapter.updateUser(userId, { preferences }),
 				).pipe(Effect.asVoid),
+			updateUserImage: (userId: UserId, image: string) =>
+				withInternalAdapter(({ internalAdapter }) =>
+					internalAdapter.updateUser(userId, { image }),
+				).pipe(Effect.asVoid),
 			createAuthUser: (user: AuthUserInput) =>
 				withInternalAdapter(({ internalAdapter }) =>
 					internalAdapter.createUser(
@@ -325,6 +329,7 @@ export class AuthService extends Context.Service<AuthService>()("AuthService", {
 						return Effect.succeed({
 							name: session.user.name,
 							email: session.user.email,
+							image: session.user.image,
 							id: UserId.make(session.user.id),
 							preferences: normalizeUserPreferences(session.user.preferences),
 						});

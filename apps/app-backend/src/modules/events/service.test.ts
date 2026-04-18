@@ -16,6 +16,7 @@ import { EventsRepository } from "./repository";
 import { EventsService } from "./service";
 
 const user = {
+	image: null,
 	name: "Test User",
 	email: "user@example.com",
 	id: UserId.make("user-id"),
