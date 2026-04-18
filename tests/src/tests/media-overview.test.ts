@@ -1,4 +1,5 @@
 import { describe, expect, it } from "bun:test";
+import { dayjs } from "@ryot/ts-utils/dayjs";
 import {
 	createAuthenticatedClient,
 	createEntity,
@@ -174,8 +175,12 @@ describe("GET /media/overview/continue", () => {
 		expect(continueItem).toBeDefined();
 
 		const progressAt = (continueItem as { progressAt?: string })?.progressAt;
+		if (!progressAt) {
+			throw new Error("Expected progressAt");
+		}
 		expect(typeof progressAt).toBe("string");
-		expect(progressAt).toMatch(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/);
+		expect(dayjs.utc(progressAt).isValid()).toBe(true);
+		expect(dayjs.utc(progressAt).toISOString()).toBe(progressAt);
 	});
 });
 
@@ -283,8 +288,12 @@ describe("GET /media/overview/up-next", () => {
 		expect(upNextItem).toBeDefined();
 
 		const backlogAt = upNextItem?.backlogAt;
+		if (!backlogAt) {
+			throw new Error("Expected backlogAt");
+		}
 		expect(typeof backlogAt).toBe("string");
-		expect(backlogAt).toMatch(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/);
+		expect(dayjs.utc(backlogAt).isValid()).toBe(true);
+		expect(dayjs.utc(backlogAt).toISOString()).toBe(backlogAt);
 	});
 });
 
@@ -448,10 +457,13 @@ describe("GET /media/overview/activity", () => {
 				}),
 			]),
 		);
-		expect(typeof reviewedItem?.occurredAt).toBe("string");
-		expect(reviewedItem?.occurredAt).toMatch(
-			/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/,
-		);
+		const occurredAt = reviewedItem?.occurredAt;
+		if (!occurredAt) {
+			throw new Error("Expected occurredAt");
+		}
+		expect(typeof occurredAt).toBe("string");
+		expect(dayjs.utc(occurredAt).isValid()).toBe(true);
+		expect(dayjs.utc(occurredAt).toISOString()).toBe(occurredAt);
 	});
 });
 
