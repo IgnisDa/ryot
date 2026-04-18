@@ -28,6 +28,3 @@ export const preferencePayload = (
 			: { disableIntegrations: draft.disableIntegrations }),
 	};
 };
-
-export const hasPreferenceChanges = (initial: UserPreferences, draft: PreferenceDraft) =>
-	Object.keys(preferencePayload(initial, draft)).length > 0;
