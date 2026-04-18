@@ -8,10 +8,12 @@ import {
 	jsonBody,
 } from "~/lib/openapi";
 import {
+	addToCollectionBody,
+	addToCollectionResponseSchema,
 	createCollectionBody,
 	createCollectionResponseSchema,
 } from "./schemas";
-import { createCollection } from "./service";
+import { addToCollection, createCollection } from "./service";
 
 const createCollectionRoute = createAuthRoute(
 	createRoute({
@@ -29,18 +31,49 @@ const createCollectionRoute = createAuthRoute(
 	}),
 );
 
+const addToCollectionRoute = createAuthRoute(
+	createRoute({
+		path: "/memberships",
+		method: "post",
+		tags: ["collections"],
+		summary: "Add an entity to a collection",
+		request: { body: jsonBody(addToCollectionBody) },
+		description:
+			"Add an entity to a collection by creating a collection relationship between the collection entity and the target entity.",
+		responses: createStandardResponses({
+			successDescription: "Entity was added to collection",
+			successSchema: addToCollectionResponseSchema,
+			notFoundDescription: "Collection or entity not found",
+		}),
+	}),
+);
+
 export const collectionsApi = new OpenAPIHono<{
 	Variables: AuthType;
-}>().openapi(createCollectionRoute, async (c) => {
-	const user = c.get("user");
-	const body = c.req.valid("json");
+}>()
+	.openapi(createCollectionRoute, async (c) => {
+		const user = c.get("user");
+		const body = c.req.valid("json");
 
-	const result = await createCollection({ body, userId: user.id });
-	if ("error" in result) {
-		const response = createServiceErrorResult(result);
+		const result = await createCollection({ body, userId: user.id });
+		if ("error" in result) {
+			const response = createServiceErrorResult(result);
+			return c.json(response.body, response.status);
+		}
+
+		const response = createSuccessResult(result.data);
 		return c.json(response.body, response.status);
-	}
+	})
+	.openapi(addToCollectionRoute, async (c) => {
+		const user = c.get("user");
+		const body = c.req.valid("json");
 
-	const response = createSuccessResult(result.data);
-	return c.json(response.body, response.status);
-});
+		const result = await addToCollection({ body, userId: user.id });
+		if ("error" in result) {
+			const response = createServiceErrorResult(result);
+			return c.json(response.body, response.status);
+		}
+
+		const response = createSuccessResult(result.data);
+		return c.json(response.body, response.status);
+	});

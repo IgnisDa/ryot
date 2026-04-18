@@ -1,5 +1,11 @@
 import { describe, expect, it } from "bun:test";
-import { createAuthenticatedClient, createCollection } from "../fixtures";
+import {
+	createAuthenticatedClient,
+	createCollection,
+	createEntity,
+	createEntitySchema,
+	createTracker,
+} from "../fixtures";
 
 describe("POST /collections", () => {
 	it("creates a collection with valid membershipPropertiesSchema", async () => {
@@ -279,5 +285,188 @@ describe("POST /collections", () => {
 				membershipPropertiesSchema,
 			);
 		});
+	});
+
+	describe("POST /collections/memberships", () => {
+		it("adds an entity to a collection", async () => {
+			const { client, cookies } = await createAuthenticatedClient();
+
+			// Create a collection
+			const collection = await createCollection(client, cookies, {
+				name: "Test Collection",
+				description: "For testing add to collection",
+			});
+
+			// Create a tracker and entity schema
+			const tracker = await createTracker(client, cookies, {
+				name: `Test Tracker ${crypto.randomUUID()}`,
+			});
+
+			const { schemaId: entitySchemaId } = await createEntitySchema(
+				client,
+				cookies,
+				{
+					trackerId: tracker.trackerId,
+					propertiesSchema: { fields: { title: { type: "string" as const } } },
+				},
+			);
+
+			// Create an entity
+			const entity = await createEntity(client, cookies, {
+				entitySchemaId,
+				name: "Test Entity",
+				image: null,
+				properties: { title: "Test Title" },
+			});
+
+			// Add entity to collection
+			const { data, response } = await client.POST("/collections/memberships", {
+				headers: { Cookie: cookies },
+				body: {
+					collectionId: collection.id,
+					entityId: entity.id,
+				},
+			});
+
+			expect(response.status).toBe(200);
+			expect(data?.data?.id).toBeDefined();
+			expect(data?.data?.relType).toBe("collection");
+			expect(data?.data?.sourceEntityId).toBe(collection.id);
+			expect(data?.data?.targetEntityId).toBe(entity.id);
+		});
+
+		it("adds an entity with custom properties", async () => {
+			const { client, cookies } = await createAuthenticatedClient();
+
+			// Create a collection with membershipPropertiesSchema
+			const collection = await createCollection(client, cookies, {
+				name: "Movies with metadata",
+				description: "Movies with recommendation info",
+				membershipPropertiesSchema: {
+					fields: {
+						recommendedBy: { type: "string" },
+						rating: { type: "integer" },
+					},
+				},
+			});
+
+			// Create an entity
+			const tracker = await createTracker(client, cookies, {
+				name: `Test Tracker ${crypto.randomUUID()}`,
+			});
+
+			const { schemaId: entitySchemaId } = await createEntitySchema(
+				client,
+				cookies,
+				{
+					trackerId: tracker.trackerId,
+					propertiesSchema: { fields: { title: { type: "string" as const } } },
+				},
+			);
+
+			const entity = await createEntity(client, cookies, {
+				entitySchemaId,
+				name: "Inception",
+				image: null,
+				properties: { title: "Inception" },
+			});
+
+			// Add entity to collection with custom properties
+			const { data, response } = await client.POST("/collections/memberships", {
+				headers: { Cookie: cookies },
+				body: {
+					collectionId: collection.id,
+					entityId: entity.id,
+					properties: {
+						recommendedBy: "John",
+						rating: 5,
+					},
+				},
+			});
+
+			expect(response.status).toBe(200);
+			expect(data?.data?.properties).toMatchObject({
+				recommendedBy: "John",
+				rating: 5,
+			});
+		});
+
+		it("returns 404 when collection does not exist", async () => {
+			const { client, cookies } = await createAuthenticatedClient();
+
+			// Create a tracker and entity
+			const tracker = await createTracker(client, cookies, {
+				name: `Test Tracker ${crypto.randomUUID()}`,
+			});
+
+			const { schemaId: entitySchemaId } = await createEntitySchema(
+				client,
+				cookies,
+				{
+					trackerId: tracker.trackerId,
+					propertiesSchema: { fields: { title: { type: "string" as const } } },
+				},
+			);
+
+			const entity = await createEntity(client, cookies, {
+				entitySchemaId,
+				name: "Test Entity",
+				image: null,
+				properties: { title: "Test Title" },
+			});
+
+			// Try to add to non-existent collection
+			const { response, error } = await client.POST(
+				"/collections/memberships",
+				{
+					headers: { Cookie: cookies },
+					body: {
+						collectionId: "nonexistent-collection-id",
+						entityId: entity.id,
+					},
+				},
+			);
+
+			expect(response.status).toBe(404);
+			expect(error?.error?.message).toContain("Collection not found");
+		});
+
+		it("returns 404 when entity does not exist", async () => {
+			const { client, cookies } = await createAuthenticatedClient();
+
+			// Create a collection
+			const collection = await createCollection(client, cookies, {
+				name: "Test Collection",
+				description: "For testing add to collection",
+			});
+
+			// Try to add non-existent entity
+			const { response, error } = await client.POST(
+				"/collections/memberships",
+				{
+					headers: { Cookie: cookies },
+					body: {
+						collectionId: collection.id,
+						entityId: "nonexistent-entity-id",
+					},
+				},
+			);
+
+			expect(response.status).toBe(404);
+			expect(error?.error?.message).toContain("Entity not found");
+		});
+	});
+
+	it("rejects unauthenticated requests", async () => {
+		const { client } = await createAuthenticatedClient();
+
+		const { response } = await client.POST("/collections/memberships", {
+			body: {
+				collectionId: "some-collection-id",
+				entityId: "some-entity-id",
+			},
+		});
+
+		expect(response.status).toBe(401);
 	});
 });
