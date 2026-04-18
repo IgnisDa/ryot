@@ -6,6 +6,7 @@ import {
 	createTracker,
 	enqueueEntityImport,
 	findBuiltinSchemaWithProviders,
+	getEntitySchema,
 	pollEntityImportResult,
 } from "../fixtures";
 
@@ -210,5 +211,124 @@ describe("GET /entities/:id — global entity read access", () => {
 			params: { path: { entityId } },
 		});
 		expect(responseB.status).toBe(200);
+	});
+});
+
+describe("POST /entities — enum and enum-array property schema validation", () => {
+	async function createSchemaWithEnumFields(
+		client: Awaited<ReturnType<typeof createAuthenticatedClient>>["client"],
+		cookies: string,
+	) {
+		const { trackerId } = await createTracker(client, cookies, {
+			name: "Enum Schema Tracker",
+		});
+		const { schemaId } = await createEntitySchema(client, cookies, {
+			trackerId,
+			name: "Enum Schema",
+			propertiesSchema: {
+				fields: {
+					status: {
+						label: "Status",
+						type: "enum" as const,
+						options: ["draft", "published", "archived"],
+					},
+					genres: {
+						label: "Genres",
+						type: "enum-array" as const,
+						options: ["fiction", "non-fiction", "mystery"],
+					},
+				},
+			},
+		});
+		return { schemaId };
+	}
+
+	it("round-trips enum and enum-array fields in propertiesSchema", async () => {
+		const { client, cookies } = await createAuthenticatedClient();
+		const { trackerId } = await createTracker(client, cookies, {
+			name: "Enum Round-trip Tracker",
+		});
+		const { schemaId } = await createEntitySchema(client, cookies, {
+			trackerId,
+			name: "Round-trip Schema",
+			propertiesSchema: {
+				fields: {
+					status: {
+						label: "Status",
+						type: "enum" as const,
+						options: ["draft", "published"],
+					},
+					genres: {
+						label: "Genres",
+						type: "enum-array" as const,
+						options: ["fiction", "mystery"],
+					},
+				},
+			},
+		});
+
+		const schema = await getEntitySchema(client, cookies, schemaId);
+
+		expect(schema.propertiesSchema.fields.status).toMatchObject({
+			type: "enum",
+			label: "Status",
+			options: ["draft", "published"],
+		});
+		expect(schema.propertiesSchema.fields.genres).toMatchObject({
+			type: "enum-array",
+			label: "Genres",
+			options: ["fiction", "mystery"],
+		});
+	});
+
+	it("creates entity with valid enum and enum-array values", async () => {
+		const { client, cookies } = await createAuthenticatedClient();
+		const { schemaId } = await createSchemaWithEnumFields(client, cookies);
+
+		const entity = await createEntity(client, cookies, {
+			image: null,
+			name: "Fiction Book",
+			entitySchemaId: schemaId,
+			properties: { status: "published", genres: ["fiction", "mystery"] },
+		});
+
+		expect(entity.id).toBeDefined();
+		expect(entity.name).toBe("Fiction Book");
+	});
+
+	it("returns 400 when enum value is not in options", async () => {
+		const { client, cookies } = await createAuthenticatedClient();
+		const { schemaId } = await createSchemaWithEnumFields(client, cookies);
+
+		const { response, error } = await client.POST("/entities", {
+			headers: { Cookie: cookies },
+			body: {
+				image: null,
+				name: "Invalid Status",
+				entitySchemaId: schemaId,
+				properties: { status: "deleted" },
+			},
+		});
+
+		expect(response.status).toBe(400);
+		expect(error?.error).toBeDefined();
+	});
+
+	it("returns 400 when an enum-array item is not in options", async () => {
+		const { client, cookies } = await createAuthenticatedClient();
+		const { schemaId } = await createSchemaWithEnumFields(client, cookies);
+
+		const { response, error } = await client.POST("/entities", {
+			headers: { Cookie: cookies },
+			body: {
+				image: null,
+				name: "Invalid Genre",
+				entitySchemaId: schemaId,
+				properties: { genres: ["fiction", "horror"] },
+			},
+		});
+
+		expect(response.status).toBe(400);
+		expect(error?.error).toBeDefined();
 	});
 });
