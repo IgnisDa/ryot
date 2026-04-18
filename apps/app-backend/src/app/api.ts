@@ -20,7 +20,8 @@ import { uploadsApi } from "~/modules/uploads/routes";
 const openApiTags = [
 	{
 		name: "system",
-		description: "Health checks and system monitoring endpoints",
+		description:
+			"Health checks, system monitoring, and application configuration",
 	},
 	{
 		name: "authentication",

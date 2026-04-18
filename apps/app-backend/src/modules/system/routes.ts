@@ -1,5 +1,10 @@
 import { createRoute, OpenAPIHono, z } from "@hono/zod-openapi";
 import { sql } from "drizzle-orm";
+import {
+	appConfigEnvIndex,
+	getMaskedConfig,
+	systemConfigEnvIndex,
+} from "~/lib/config";
 import { db } from "~/lib/db";
 import {
 	commonErrors,
@@ -46,6 +51,23 @@ const metricsRoute = createRoute({
 	},
 });
 
+const configResponseSchema = dataSchema(
+	z.object({
+		system: z.record(z.string(), z.unknown()),
+		providers: z.record(z.string(), z.unknown()),
+	}),
+);
+
+const configRoute = createRoute({
+	method: "get",
+	path: "/config",
+	tags: ["system"],
+	summary: "Get application configuration with sensitive values masked",
+	responses: {
+		200: jsonResponse("Masked application configuration", configResponseSchema),
+	},
+});
+
 export const systemApi = new OpenAPIHono()
 	.openapi(healthRoute, async (c) => {
 		try {
@@ -79,4 +101,17 @@ export const systemApi = new OpenAPIHono()
 		return c.text(metricsText, 200, {
 			"Content-Type": "text/plain; charset=utf-8",
 		});
+	})
+	.openapi(configRoute, (c) => {
+		const masked = getMaskedConfig({
+			system: systemConfigEnvIndex,
+			providers: appConfigEnvIndex,
+		});
+		return c.json(
+			successResponse({
+				system: masked.system as Record<string, unknown>,
+				providers: masked.providers as Record<string, unknown>,
+			}),
+			200,
+		);
 	});
