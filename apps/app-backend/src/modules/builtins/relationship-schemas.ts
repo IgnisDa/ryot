@@ -82,8 +82,31 @@ export const builtinRelationshipSchemas = (): BuiltinRelationshipSchema[] => [
 		slug: "in-library",
 		name: "In Library",
 		sourceEntitySchemaSlug: null,
-		propertiesSchema: { fields: {} },
 		targetEntitySchemaSlug: "library",
+		propertiesSchema: {
+			fields: {
+				owned: {
+					label: "Owned",
+					type: "boolean" as const,
+					description: "Whether the user owns this item",
+				},
+				ownershipSources: {
+					type: "array" as const,
+					label: "Ownership Sources",
+					description: "Integrations or sources that reported ownership",
+					items: {
+						type: "string" as const,
+						label: "Source",
+						description: "An integration or source that reported ownership",
+					},
+				},
+				ownershipSyncedAt: {
+					type: "datetime" as const,
+					label: "Ownership Synced At",
+					description: "When ownership was last synced from an external source",
+				},
+			},
+		},
 	},
 	{
 		slug: "media-suggestion",

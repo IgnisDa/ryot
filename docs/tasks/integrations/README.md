@@ -747,15 +747,15 @@ Test `writeOwnershipToLibrary`: merges sources correctly, does not duplicate pro
 
 ## Tasks
 
-**Overall Progress:** 0 of 9 tasks completed
+**Overall Progress:** 1 of 9 tasks completed
 
-**Current Task:** [Task 01 — Foundation: Schema, Config, and Builtins](./01-foundation-schema-config-builtins.md) (todo)
+**Current Task:** [Task 02 — Before-Trigger Event System](./02-before-trigger-event-system.md) (todo)
 
 ### Task List
 
 | #   | Task                                                                                                       | Type | Status |
 | --- | ---------------------------------------------------------------------------------------------------------- | ---- | ------ |
-| 01  | [Foundation: Schema, Config, and Builtins](./01-foundation-schema-config-builtins.md)                      | AFK  | todo   |
+| 01  | [Foundation: Schema, Config, and Builtins](./01-foundation-schema-config-builtins.md)                      | AFK  | done   |
 | 02  | [Before-Trigger Event System](./02-before-trigger-event-system.md)                                         | AFK  | todo   |
 | 03  | [Collection Events and Ownership Infrastructure](./03-collection-events-and-ownership.md)                  | AFK  | todo   |
 | 04  | [Integrations CRUD, Scheduling, and Webhook Infrastructure](./04-integrations-crud-scheduling-webhooks.md) | AFK  | todo   |
