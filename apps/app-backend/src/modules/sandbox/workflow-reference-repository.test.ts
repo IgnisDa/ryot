@@ -4,7 +4,7 @@ import { PgDialect } from "drizzle-orm/pg-core";
 import { Effect, Layer } from "effect";
 
 import * as schema from "#lib/infrastructure/db/schema/tables/combined";
-import { CurrentDb, TransactionRunner } from "#lib/infrastructure/db/service";
+import { CurrentDb } from "#lib/infrastructure/db/service";
 import { assertExitFails } from "#lib/test-utils/assertions";
 
 import {
@@ -58,11 +58,6 @@ const makeRegisterLayer = (options: {
 	};
 	const executor = Object.assign(Object.create(null), db);
 	return SandboxWorkflowReferenceRepository.Default.pipe(
-		Layer.provideMerge(
-			Layer.succeed(TransactionRunner, (effect) =>
-				Effect.provideService(effect, CurrentDb, executor),
-			),
-		),
 		Layer.provideMerge(Layer.succeed(CurrentDb, executor)),
 	);
 };
@@ -71,7 +66,8 @@ it.effect("registers under the plugin ingestion lock after confirming the plugin
 	const events: string[] = [];
 	return Effect.gen(function* () {
 		const repository = yield* SandboxWorkflowReferenceRepository;
-		expect(yield* repository.register(input)).toEqual({ status: "registered" });
+		yield* repository.lockIngestionShared();
+		expect(yield* repository.registerInTransaction(input)).toEqual({ status: "registered" });
 		expect(events).toHaveLength(3);
 		expect(events[0]).toContain("pg_advisory_xact_lock_shared");
 		expect(events[0]).toContain("ryot-plugin-ingestion");
@@ -83,7 +79,8 @@ it.effect("refuses registration when uninstall has deactivated the plugin", () =
 	const events: string[] = [];
 	return Effect.gen(function* () {
 		const repository = yield* SandboxWorkflowReferenceRepository;
-		const exit = yield* Effect.exit(repository.register(input));
+		yield* repository.lockIngestionShared();
+		const exit = yield* Effect.exit(repository.registerInTransaction(input));
 		assertExitFails(
 			exit,
 			new SandboxWorkflowReferenceRegistrationError({
@@ -99,7 +96,10 @@ it.effect("treats registration replay for the same pin as idempotent", () => {
 	const events: string[] = [];
 	return Effect.gen(function* () {
 		const repository = yield* SandboxWorkflowReferenceRepository;
-		expect(yield* repository.register(input)).toEqual({ status: "already-registered" });
+		yield* repository.lockIngestionShared();
+		expect(yield* repository.registerInTransaction(input)).toEqual({
+			status: "already-registered",
+		});
 		expect(events.slice(1)).toEqual(["plugin", "insert", "existing"]);
 	}).pipe(
 		Effect.provide(makeRegisterLayer({ events, active: true, inserted: false, existing: input })),
