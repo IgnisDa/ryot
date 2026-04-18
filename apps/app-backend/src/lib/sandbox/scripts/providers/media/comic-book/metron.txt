@@ -213,7 +213,6 @@ driver("details", async function(context) {
 
   return {
     name: title,
-    externalId: getIdentifier(payload?.id) ?? identifier,
     properties: {
       pages: pageCount,
       people: buildPeople(payload?.credits),
