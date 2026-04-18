@@ -35,29 +35,33 @@ function pickImage(coverImage, bannerImage) {
   return null;
 }
 
-async function getAnilistTitleLanguage() {
+async function getAnilistPreferences() {
   const prefsResult = await getUserPreferences();
-  if (!prefsResult?.success) {
-    return "user_preferred";
+
+  let titleLang = "user_preferred";
+  let showNsfw = false;
+
+  if (prefsResult?.success) {
+    showNsfw = prefsResult.data?.isNsfw === true;
+
+    const providers = prefsResult.data?.languages?.providers;
+    if (Array.isArray(providers)) {
+      const anilistPref = providers.find(
+        (p) => p && typeof p === "object" && p.source === "anilist",
+      );
+      const lang =
+        anilistPref &&
+        typeof anilistPref.preferredLanguage === "string" &&
+        anilistPref.preferredLanguage.trim()
+          ? anilistPref.preferredLanguage.trim().toLowerCase()
+          : "user_preferred";
+
+      const valid = ["english", "romaji", "native", "user_preferred"];
+      titleLang = valid.includes(lang) ? lang : "user_preferred";
+    }
   }
 
-  const providers = prefsResult?.data?.languages?.providers;
-  if (!Array.isArray(providers)) {
-    return "user_preferred";
-  }
-
-  const anilistPref = providers.find(
-    (p) => p && typeof p === "object" && p.source === "anilist",
-  );
-  const lang =
-    anilistPref &&
-    typeof anilistPref.preferredLanguage === "string" &&
-    anilistPref.preferredLanguage.trim()
-      ? anilistPref.preferredLanguage.trim().toLowerCase()
-      : "user_preferred";
-
-  const valid = ["english", "romaji", "native", "user_preferred"];
-  return valid.includes(lang) ? lang : "user_preferred";
+  return { titleLang, showNsfw };
 }
 
 function pickAnilistTitle(title, lang) {
@@ -169,24 +173,28 @@ driver("search", async function(context) {
     pageSize: z.coerce.number().min(1).max(100).transform(Math.floor).catch(20),
   }).parse(context ?? {});
 
-  const titleLang = await getAnilistTitleLanguage();
+  const { titleLang, showNsfw } = await getAnilistPreferences();
 
   const graphqlQuery = `
-query MediaSearchQuery($page: Int!, $perPage: Int!, $search: String!, $type: MediaType!) {
+query MediaSearchQuery($page: Int!, $perPage: Int!, $search: String!, $type: MediaType!, $isAdult: Boolean) {
   Page(page: $page, perPage: $perPage) {
     pageInfo { total }
-    media(search: $search, type: $type) {
+    media(search: $search, type: $type, isAdult: $isAdult) {
       id
       bannerImage
       startDate { year }
-      title { english romaji native userPreferred }
       coverImage { extraLarge }
+      title { english romaji native userPreferred }
     }
   }
 }
 `;
 
   const response = await httpCall("POST", "https://graphql.anilist.co", {
+    headers: {
+      Accept: "application/json",
+      "Content-Type": "application/json",
+    },
     body: JSON.stringify({
       query: graphqlQuery,
       variables: {
@@ -194,12 +202,10 @@ query MediaSearchQuery($page: Int!, $perPage: Int!, $search: String!, $type: Med
         search: query,
         page: currentPage,
         perPage: pageSize,
+        // null = no isAdult filter (all content); false = non-adult only
+        isAdult: showNsfw ? null : false,
       },
     }),
-    headers: {
-      Accept: "application/json",
-      "Content-Type": "application/json",
-    },
   });
 
   if (!response?.success) {
@@ -291,7 +297,7 @@ driver("details", async function(context) {
     );
   }
 
-  const titleLang = await getAnilistTitleLanguage();
+  const { titleLang } = await getAnilistPreferences();
 
   const graphqlQuery = `
 query MediaDetailsQuery($id: Int!) {
