@@ -3,6 +3,7 @@ import { serve } from "@hono/node-server";
 import { config, IS_DEVELOPMENT } from "~/lib/config";
 import { generateConfigDocs } from "~/lib/config/docs";
 import { migrateDB } from "~/lib/db/migrate";
+import { generateOpenApiTypes } from "~/lib/openapi-docs";
 import {
 	initializeQueues,
 	initializeWorkers,
@@ -24,6 +25,13 @@ export const startServer = async () => {
 				import.meta.dir,
 				"../../../../apps/docs/src/includes/app-backend-config-schema.md",
 			),
+		);
+		await generateOpenApiTypes(
+			join(
+				import.meta.dir,
+				"../../../../libs/generated/src/openapi/app-backend.d.ts",
+			),
+			`http://localhost:${config.port}`,
 		);
 	}
 
