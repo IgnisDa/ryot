@@ -60,6 +60,8 @@ const unknownKeysPolicySchema: z.ZodType<AppSchemaUnknownKeysPolicy> = z.enum([
 	"passthrough",
 ]);
 
+const propertyLabelSchema = z.string().trim().min(1);
+
 const hasValidNumericBounds = (value: {
 	maximum?: number;
 	minimum?: number;
@@ -173,6 +175,7 @@ export let appSchemaRuleConditionSchema: z.ZodType<AppSchemaRuleCondition>;
 
 const stringPropertySchema = z
 	.strictObject({
+		label: propertyLabelSchema,
 		type: z.literal("string"),
 		validation: stringValidationSchema.optional(),
 	})
@@ -180,6 +183,7 @@ const stringPropertySchema = z
 
 const numberPropertySchema = z
 	.strictObject({
+		label: propertyLabelSchema,
 		type: z.literal("number"),
 		transform: numberTransformSchema.optional(),
 		validation: numberValidationSchema.optional(),
@@ -188,6 +192,7 @@ const numberPropertySchema = z
 
 const integerPropertySchema = z
 	.strictObject({
+		label: propertyLabelSchema,
 		type: z.literal("integer"),
 		transform: numberTransformSchema.optional(),
 		validation: numberValidationSchema.optional(),
@@ -196,6 +201,7 @@ const integerPropertySchema = z
 
 const booleanPropertySchema = z
 	.strictObject({
+		label: propertyLabelSchema,
 		type: z.literal("boolean"),
 		validation: requiredOnlyValidationSchema.optional(),
 	})
@@ -203,6 +209,7 @@ const booleanPropertySchema = z
 
 const datePropertySchema = z
 	.strictObject({
+		label: propertyLabelSchema,
 		type: z.literal("date"),
 		validation: requiredOnlyValidationSchema.optional(),
 	})
@@ -210,6 +217,7 @@ const datePropertySchema = z
 
 const datetimePropertySchema = z
 	.strictObject({
+		label: propertyLabelSchema,
 		type: z.literal("datetime"),
 		validation: requiredOnlyValidationSchema.optional(),
 	})
@@ -217,6 +225,7 @@ const datetimePropertySchema = z
 
 const arrayPropertySchema = z
 	.strictObject({
+		label: propertyLabelSchema,
 		type: z.literal("array"),
 		validation: arrayValidationSchema.optional(),
 		items: z.lazy(() => propertyDefinitionSchema),
@@ -225,6 +234,7 @@ const arrayPropertySchema = z
 
 const objectPropertySchema = z
 	.strictObject({
+		label: propertyLabelSchema,
 		type: z.literal("object"),
 		unknownKeys: unknownKeysPolicySchema.optional(),
 		validation: requiredOnlyValidationSchema.optional(),
@@ -239,13 +249,13 @@ propertyDefinitionSchema = z
 	.lazy(() =>
 		z.discriminatedUnion("type", [
 			datePropertySchema,
-			datetimePropertySchema,
 			arrayPropertySchema,
 			objectPropertySchema,
 			stringPropertySchema,
 			numberPropertySchema,
 			integerPropertySchema,
 			booleanPropertySchema,
+			datetimePropertySchema,
 		]),
 	)
 	.openapi(

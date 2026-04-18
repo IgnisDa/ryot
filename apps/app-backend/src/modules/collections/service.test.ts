@@ -78,7 +78,10 @@ describe("createCollection", () => {
 	it("creates a collection with membershipPropertiesSchema", async () => {
 		const membershipSchema = {
 			fields: {
-				friendWhoRecommendedIt: { type: "string" as const },
+				friendWhoRecommendedIt: {
+					type: "string" as const,
+					label: "Friend Who Recommended It",
+				},
 			},
 		};
 
@@ -243,13 +246,17 @@ describe("createCollection", () => {
 		it("accepts valid nested object properties", async () => {
 			const nestedSchema = {
 				fields: {
-					friendWhoRecommendedIt: { type: "string" as const },
+					friendWhoRecommendedIt: {
+						type: "string" as const,
+						label: "Friend Who Recommended It",
+					},
 					recommendationDetails: {
 						type: "object" as const,
+						label: "Recommendation Details",
 						properties: {
-							where: { type: "string" as const },
-							when: { type: "date" as const },
-							rating: { type: "integer" as const },
+							when: { label: "When", type: "date" as const },
+							where: { label: "Where", type: "string" as const },
+							rating: { label: "Rating", type: "integer" as const },
 						},
 					},
 				},
@@ -278,8 +285,9 @@ describe("createCollection", () => {
 			const arraySchema = {
 				fields: {
 					tags: {
+						label: "Tags",
 						type: "array" as const,
-						items: { type: "string" as const },
+						items: { label: "Item", type: "string" as const },
 					},
 				},
 			};
@@ -307,9 +315,7 @@ describe("createCollection", () => {
 							fields: {
 								nested: {
 									type: "object" as const,
-									properties: {
-										invalidField: { type: "unknown_type" },
-									},
+									properties: { invalidField: { type: "unknown_type" } },
 								},
 							},
 						},
@@ -359,29 +365,33 @@ describe("createCollection", () => {
 		it("accepts complex deeply nested schema with multiple levels", async () => {
 			const complexSchema = {
 				fields: {
+					priority: { label: "Priority", type: "integer" as const },
 					metadata: {
+						label: "Metadata",
 						type: "object" as const,
 						properties: {
 							source: {
+								label: "Source",
 								type: "object" as const,
 								properties: {
-									name: { type: "string" as const },
-									url: { type: "string" as const },
+									url: { label: "URL", type: "string" as const },
+									name: { label: "Name", type: "string" as const },
 								},
 							},
 							tags: {
+								label: "Tags",
 								type: "array" as const,
 								items: {
+									label: "Item",
 									type: "object" as const,
 									properties: {
-										label: { type: "string" as const },
-										color: { type: "string" as const },
+										label: { label: "Label", type: "string" as const },
+										color: { label: "Color", type: "string" as const },
 									},
 								},
 							},
 						},
 					},
-					priority: { type: "integer" as const },
 				},
 			};
 
