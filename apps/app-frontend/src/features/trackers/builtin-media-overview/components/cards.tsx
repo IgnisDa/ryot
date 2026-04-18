@@ -4,7 +4,6 @@ import {
 	Box,
 	Button,
 	Group,
-	Paper,
 	Progress,
 	Stack,
 	Text,
@@ -31,6 +30,7 @@ import {
 	STONE,
 } from "../shared";
 import { Artwork } from "./artwork";
+import { CardSubtitle, CardTitle, GradientPaper } from "./gradient-paper";
 
 interface ContinueCardProps {
 	border: string;
@@ -55,23 +55,11 @@ export function ContinueCard(props: ContinueCardProps) {
 	);
 
 	return (
-		<Paper
-			radius="sm"
-			style={{
-				overflow: "hidden",
-				border: `1px solid ${props.border}`,
-				boxShadow: `0 10px 24px ${colorMix(color, 0.08)}`,
-				background: `linear-gradient(180deg, ${colorMix(color, 0.08)} 0%, ${props.surface} 34%, ${props.surface} 100%)`,
-			}}
-			styles={{
-				root: {
-					transition: "all 0.18s ease",
-					"&:hover": {
-						transform: "translateY(-2px)",
-						background: `linear-gradient(180deg, ${colorMix(color, 0.1)} 0%, ${props.surfaceHover} 30%, ${props.surfaceHover} 100%)`,
-					},
-				},
-			}}
+		<GradientPaper
+			color={color}
+			border={props.border}
+			surface={props.surface}
+			surfaceHover={props.surfaceHover}
 		>
 			<Group gap={0} align="stretch" wrap="nowrap">
 				<Artwork
@@ -107,19 +95,12 @@ export function ContinueCard(props: ContinueCardProps) {
 						</Text>
 					</Group>
 
-					<Text
-						fz="sm"
-						fw={600}
-						lh={1.3}
-						lineClamp={1}
-						c={props.textPrimary}
-						ff="var(--mantine-headings-font-family)"
-					>
+					<CardTitle textPrimary={props.textPrimary}>
 						{props.item.title}
-					</Text>
-					<Text fz="xs" c={props.textMuted} lineClamp={1}>
+					</CardTitle>
+					<CardSubtitle textMuted={props.textMuted}>
 						{props.item.subtitle.label}
-					</Text>
+					</CardSubtitle>
 
 					<Box mt={2}>
 						<Group gap={6} mb={4}>
@@ -169,7 +150,7 @@ export function ContinueCard(props: ContinueCardProps) {
 					</Button>
 				</Stack>
 			</Group>
-		</Paper>
+		</GradientPaper>
 	);
 }
 
@@ -195,24 +176,11 @@ export function BacklogCard(props: BacklogCardProps) {
 
 	return (
 		<UnstyledButton style={{ flexShrink: 0 }} onClick={props.onStart}>
-			<Paper
-				w={164}
-				radius="sm"
-				style={{
-					overflow: "hidden",
-					border: `1px solid ${props.border}`,
-					boxShadow: `0 10px 26px ${colorMix(color, 0.08)}`,
-					background: `linear-gradient(180deg, ${colorMix(color, 0.08)} 0%, ${props.surface} 26%, ${props.surface} 100%)`,
-				}}
-				styles={{
-					root: {
-						transition: "all 0.18s ease",
-						"&:hover": {
-							transform: "translateY(-2px)",
-							background: `linear-gradient(180deg, ${colorMix(color, 0.1)} 0%, ${props.surfaceHover} 24%, ${props.surfaceHover} 100%)`,
-						},
-					},
-				}}
+			<GradientPaper
+				color={color}
+				border={props.border}
+				surface={props.surface}
+				surfaceHover={props.surfaceHover}
 			>
 				<Box p={8} pb={0} style={{ position: "relative" }}>
 					<Artwork
@@ -248,24 +216,17 @@ export function BacklogCard(props: BacklogCardProps) {
 					>
 						{note}
 					</Text>
-					<Text
-						fz="sm"
-						fw={600}
-						lh={1.3}
-						lineClamp={2}
-						c={props.textPrimary}
-						ff="var(--mantine-headings-font-family)"
-					>
+					<CardTitle textPrimary={props.textPrimary} lineClamp={2}>
 						{props.item.title}
-					</Text>
-					<Text fz={10} c={props.textMuted} lineClamp={1}>
+					</CardTitle>
+					<CardSubtitle textMuted={props.textMuted}>
 						{props.item.subtitle.label}
-					</Text>
+					</CardSubtitle>
 					<Text fz={10} c={props.textMuted}>
 						Added {getLastActivityLabel(backlogAt.toDate())}
 					</Text>
 				</Stack>
-			</Paper>
+			</GradientPaper>
 		</UnstyledButton>
 	);
 }
@@ -319,23 +280,11 @@ export function RateCard(props: RateCardProps) {
 	}, 1000);
 
 	return (
-		<Paper
-			radius="sm"
-			style={{
-				overflow: "hidden",
-				border: `1px solid ${props.border}`,
-				boxShadow: `0 10px 26px ${colorMix(GOLD, 0.08)}`,
-				background: `linear-gradient(180deg, ${colorMix(GOLD, 0.09)} 0%, ${props.surface} 34%, ${props.surface} 100%)`,
-			}}
-			styles={{
-				root: {
-					transition: "all 0.18s ease",
-					"&:hover": {
-						transform: "translateY(-2px)",
-						background: `linear-gradient(180deg, ${colorMix(GOLD, 0.11)} 0%, ${props.surfaceHover} 34%, ${props.surfaceHover} 100%)`,
-					},
-				},
-			}}
+		<GradientPaper
+			color={GOLD}
+			border={props.border}
+			surface={props.surface}
+			surfaceHover={props.surfaceHover}
 		>
 			<Box h={3} bg={GOLD} />
 			<Group gap="sm" wrap="nowrap" p="sm">
@@ -370,9 +319,9 @@ export function RateCard(props: RateCardProps) {
 					>
 						{props.item.title}
 					</Text>
-					<Text fz="xs" c={props.textMuted}>
+					<CardSubtitle textMuted={props.textMuted}>
 						{props.item.subtitle.label}
-					</Text>
+					</CardSubtitle>
 					<Group
 						mt={2}
 						px={6}
@@ -419,6 +368,6 @@ export function RateCard(props: RateCardProps) {
 					</Group>
 				</Stack>
 			</Group>
-		</Paper>
+		</GradientPaper>
 	);
 }
