@@ -10,7 +10,7 @@ const TVDB_BASE_URL = "https://api4.thetvdb.com/v4";
 const TOKEN_CACHE_KEY = "tvdb_access_token";
 
 async function getTvdbApiKey() {
-	const resp = await getAppConfigValue("MOVIES_AND_SHOWS_TVDB_API_KEY");
+	const resp = await getAppConfigValue("moviesAndShows.tvdb.apiKey");
 	if (!resp?.success) {
 		throw new Error(resp?.error ?? "Failed to retrieve TVDB API key");
 	}

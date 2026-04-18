@@ -34,14 +34,14 @@ function parseYear(value, dayjs) {
 }
 
 async function getMetronCredentials() {
-  const usernameResponse = await getAppConfigValue("COMIC_BOOK_METRON_USERNAME");
+  const usernameResponse = await getAppConfigValue("comicBooks.metron.username");
   if (!usernameResponse?.success) {
     throw new Error(
       usernameResponse?.error ?? "Could not load Metron username",
     );
   }
 
-  const passwordResponse = await getAppConfigValue("COMIC_BOOK_METRON_PASSWORD");
+  const passwordResponse = await getAppConfigValue("comicBooks.metron.password");
   if (!passwordResponse?.success) {
     throw new Error(
       passwordResponse?.error ?? "Could not load Metron password",
