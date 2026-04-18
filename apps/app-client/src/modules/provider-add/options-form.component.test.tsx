@@ -1,4 +1,4 @@
-import { describe, expect, it, jest } from "@jest/globals";
+import { describe, expect, it } from "@jest/globals";
 import type { AppSchema } from "@ryot/contract/schema/property-schema";
 import { render, screen, userEvent } from "@testing-library/react-native";
 import { useEffect } from "react";
@@ -47,23 +47,25 @@ function OptionsHarness(props: { onSubmit: (values: OptionValues) => void }) {
 describe("provider search options form", () => {
 	it("routes schema validation errors to dynamic fields", async () => {
 		const user = userEvent.setup();
-		const submit = jest.fn<(values: OptionValues) => void>();
+		const submitted: OptionValues[] = [];
+		const submit = (values: OptionValues) => submitted.push(values);
 		await render(<OptionsHarness onSubmit={submit} />);
 
 		await user.press(screen.getByRole("button", { name: "Search" }));
 
 		expect(await screen.findByRole("alert")).toHaveTextContent("Title is required");
-		expect(submit).not.toHaveBeenCalled();
+		expect(submitted).toEqual([]);
 	});
 
 	it("submits typed values after validation succeeds", async () => {
 		const user = userEvent.setup();
-		const submit = jest.fn<(values: OptionValues) => void>();
+		const submitted: OptionValues[] = [];
+		const submit = (values: OptionValues) => submitted.push(values);
 		await render(<OptionsHarness onSubmit={submit} />);
 
 		await user.type(screen.getByLabelText("Title"), "Dune");
 		await user.press(screen.getByRole("button", { name: "Search" }));
 
-		expect(submit).toHaveBeenCalledWith({ adult: false, region: "us", title: "Dune" });
+		expect(submitted).toEqual([{ adult: false, region: "us", title: "Dune" }]);
 	});
 });

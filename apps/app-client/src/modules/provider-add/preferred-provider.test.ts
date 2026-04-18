@@ -1,19 +1,8 @@
 import { EntitySchemaSlug, SandboxProviderId } from "@ryot/contract/schema/brands";
-import { describe, expect, it, vi } from "vitest";
+import { describe, expect, it } from "vitest";
 
+import { selectPreferredProvider } from "./preferred-provider";
 import type { ProviderSearchSummary } from "./state";
-import { selectPreferredProvider } from "./use-preferred-provider";
-
-vi.mock("@effect/atom-react", () => ({ useAtomValue: () => undefined }));
-vi.mock("@/api/scope", () => ({ useApiScope: () => undefined }));
-vi.mock("@/api/use-internal-request-failure-logging", () => ({
-	useInternalRequestFailureLogging: () => undefined,
-}));
-vi.mock("./atoms", () => ({
-	providerSearchAtom: () => undefined,
-	rememberedProviderAtom: () => undefined,
-}));
-vi.mock("./state", () => ({ mapProviderSummaries: () => undefined }));
 
 const provider = (id: string): ProviderSearchSummary => ({
 	providerSlug: id,

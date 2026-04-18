@@ -1,4 +1,4 @@
-import { describe, expect, it, jest } from "@jest/globals";
+import { describe, expect, it } from "@jest/globals";
 import { fireEvent, render, screen, userEvent } from "@testing-library/react-native";
 import { useState } from "react";
 
@@ -11,7 +11,8 @@ function TokenFormWithServerError(props: { onSubmit: (token: string) => void }) 
 
 describe("admin token form", () => {
 	it("requires a token before submission", async () => {
-		const onSubmit = jest.fn<(token: string) => void>();
+		const submitted: string[] = [];
+		const onSubmit = (token: string) => submitted.push(token);
 		await render(<TokenForm onSubmit={onSubmit} onEdit={() => undefined} />);
 
 		expect(screen.getByRole("button", { name: "Continue" })).toBeDisabled();
@@ -20,30 +21,32 @@ describe("admin token form", () => {
 		expect(await screen.findByRole("alert")).toHaveTextContent(
 			"Enter your server admin access token.",
 		);
-		expect(onSubmit).not.toHaveBeenCalled();
+		expect(submitted).toEqual([]);
 	});
 
 	it("submits a trimmed token from the primary action", async () => {
 		const user = userEvent.setup();
-		const onSubmit = jest.fn<(token: string) => void>();
+		const submitted: string[] = [];
+		const onSubmit = (token: string) => submitted.push(token);
 		await render(<TokenForm onSubmit={onSubmit} onEdit={() => undefined} />);
 
 		await user.type(screen.getByLabelText("Admin access token"), "  secret  ");
 		await user.press(screen.getByRole("button", { name: "Continue" }));
 
-		expect(onSubmit).toHaveBeenCalledWith("secret");
+		expect(submitted).toEqual(["secret"]);
 	});
 
 	it("submits from the keyboard", async () => {
 		const user = userEvent.setup();
-		const onSubmit = jest.fn<(token: string) => void>();
+		const submitted: string[] = [];
+		const onSubmit = (token: string) => submitted.push(token);
 		await render(<TokenForm onSubmit={onSubmit} onEdit={() => undefined} />);
 		const input = screen.getByLabelText("Admin access token");
 
 		await user.type(input, "secret");
 		await fireEvent(input, "submitEditing");
 
-		expect(onSubmit).toHaveBeenCalledWith("secret");
+		expect(submitted).toEqual(["secret"]);
 	});
 
 	it("clears a server rejection when the user edits the token", async () => {
