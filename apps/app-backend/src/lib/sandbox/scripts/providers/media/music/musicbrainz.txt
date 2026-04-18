@@ -24,7 +24,6 @@ function getPublishYear(dateStr, dayjs) {
 
 const MB_BASE = "https://musicbrainz.org/ws/2";
 const MB_HEADERS = {
-  "User-Agent": "Ryot/1.0 ( https://github.com/ignisda/ryot )",
   Accept: "application/json",
 };
 
@@ -45,10 +44,7 @@ async function mbGet(path, params) {
 async function fetchCoverArtJson(resourceType, resourceId) {
   const url = `https://coverartarchive.org/${resourceType}/${resourceId}`;
   const response = await httpCall("GET", url, {
-    headers: {
-      "User-Agent": "Ryot/1.0 ( https://github.com/ignisda/ryot )",
-      Accept: "application/json",
-    },
+    headers: { Accept: "application/json" },
   });
 
   if (!response?.success) {
