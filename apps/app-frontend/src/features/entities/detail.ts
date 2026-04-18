@@ -1,4 +1,5 @@
 import type { AppPropertyDefinition, AppSchema } from "@ryot/ts-utils";
+import { dayjs } from "@ryot/ts-utils/dayjs";
 import { match } from "ts-pattern";
 
 export interface EntityDetailProperty {
@@ -32,37 +33,21 @@ function formatEntityDetailPropertyValue(
 		)
 		.with("date", () => {
 			if (typeof value === "string" && value.trim() !== "") {
-				try {
-					const date = new Date(value);
-					if (!Number.isNaN(date.getTime())) {
-						return date.toLocaleDateString(undefined, {
-							year: "numeric",
-							month: "long",
-							day: "numeric",
-						});
-					}
-				} catch {
-					return value;
+				const parsed = dayjs(value);
+				if (parsed.isValid()) {
+					return parsed.format("MMMM D, YYYY");
 				}
+				return value;
 			}
 			return null;
 		})
 		.with("datetime", () => {
 			if (typeof value === "string" && value.trim() !== "") {
-				try {
-					const date = new Date(value);
-					if (!Number.isNaN(date.getTime())) {
-						return date.toLocaleString(undefined, {
-							month: "long",
-							day: "numeric",
-							hour: "numeric",
-							year: "numeric",
-							minute: "2-digit",
-						});
-					}
-				} catch {
-					return value;
+				const parsed = dayjs(value);
+				if (parsed.isValid()) {
+					return parsed.format("MMMM D, YYYY h:mm A");
 				}
+				return value;
 			}
 			return null;
 		})

@@ -1,3 +1,4 @@
+import { dayjs } from "@ryot/ts-utils/dayjs";
 import { useQueries } from "@tanstack/react-query";
 import type { AppEntity } from "#/features/entities/model";
 import {
@@ -53,16 +54,17 @@ export interface TrackerOverviewData {
 
 function sortEntitiesByRecent(entities: AppEntity[]) {
 	return [...entities].sort((a, b) => {
-		const updatedAtDiff = b.updatedAt.getTime() - a.updatedAt.getTime();
+		const updatedAtDiff =
+			dayjs(b.updatedAt).valueOf() - dayjs(a.updatedAt).valueOf();
 		if (updatedAtDiff !== 0) {
 			return updatedAtDiff;
 		}
-		return b.createdAt.getTime() - a.createdAt.getTime();
+		return dayjs(b.createdAt).valueOf() - dayjs(a.createdAt).valueOf();
 	});
 }
 
 function getRelativeTimeLabel(date: Date) {
-	const diffMs = date.getTime() - Date.now();
+	const diffMs = dayjs(date).diff(dayjs());
 	const diffMinutes = Math.round(diffMs / 60000);
 	const formatter = new Intl.RelativeTimeFormat(undefined, { numeric: "auto" });
 
@@ -186,7 +188,7 @@ export function useTrackerOverviewData(input: {
 			label: `Added ${entity.name}`,
 		})),
 	]
-		.sort((a, b) => b.date.getTime() - a.date.getTime())
+		.sort((a, b) => dayjs(b.date).valueOf() - dayjs(a.date).valueOf())
 		.slice(0, 5);
 
 	const recentEntityCards = recentEntities
