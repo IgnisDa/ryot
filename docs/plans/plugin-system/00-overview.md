@@ -1,11 +1,12 @@
 # Plugin System Rewrite — Overview
 
-Status: in progress. Phases 1 and 2 and all 12 Phase 3 tasks are complete. The Task 10 imports and
-integration failures were reproduced and repaired, the standard e2e suite passes all 79 files and
-501 tests, and the opt-in operational gate passes at its unchanged two-concurrent-1,001-item workload
-and 15-minute budget. Task 12 was completed under an explicit owner waiver of its then-open Task 11
-prerequisite; Task 11 subsequently closed the full Phase 3 gate. Phase 4 is next. Phase 5 is a
-separate planned milestone for user-level plugin installation and must not expand Phase 4.
+Status: in progress. Phases 1 and 2 and all 12 Phase 3 tasks are complete. Phase 4 Tasks 01-13 are
+complete; Task 14 is next. The Task 10 imports and integration failures were reproduced and repaired,
+the standard e2e suite passes all 79 files and 501 tests, and the opt-in operational gate passes at
+its unchanged two-concurrent-1,001-item workload and 15-minute budget. Task 12 was completed under an
+explicit owner waiver of its then-open Task 11 prerequisite; Task 11 subsequently closed the full
+Phase 3 gate. Phase 5 is a separate planned milestone for user-level plugin installation and must not
+expand Phase 4.
 Branch: `ultra-rewrite` (all work is local; there is no
 CI and `apps/app-backend` is not deployed anywhere, so there are no release, rollout, or
 data-migration constraints — dev databases are wipeable and the initial drizzle migration may

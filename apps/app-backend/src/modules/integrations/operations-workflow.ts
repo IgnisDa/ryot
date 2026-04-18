@@ -35,9 +35,8 @@ const runIntegrationAdapter = (input: RunAdapterInput) =>
 	Effect.gen(function* () {
 		const runWithDb = yield* DbRunner;
 		const catalog = yield* IntegrationProviderCatalog;
-		const pluginRuntime = yield* PluginRuntimeResolver;
-		const provider = catalog.find(input.integration.provider);
-		if (!provider?.scriptSlug) {
+		const resolution = catalog.resolve(input.integration.provider);
+		if (!resolution?.provider.scriptSlug) {
 			return yield* new SandboxRunError({
 				message: `Integration provider '${input.integration.provider}' is unavailable`,
 			});
@@ -46,7 +45,7 @@ const runIntegrationAdapter = (input: RunAdapterInput) =>
 			error: SandboxRunError,
 			success: SandboxScriptId,
 			name: `resolve-integration-adapter-${input.executionId}`,
-			execute: runWithDb(pluginRuntime.findActiveScript(provider.scriptSlug)).pipe(
+			execute: runWithDb(resolution.script).pipe(
 				Effect.mapError(toSandboxRunError),
 				Effect.flatMap((script) =>
 					script

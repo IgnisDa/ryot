@@ -1,7 +1,10 @@
 import { expect, it } from "@effect/vitest";
+import { SandboxScriptId } from "@ryot/contract/schema/brands";
 import type { PluginManifest } from "@ryot/plugin-kit/manifest";
-import { Effect, Layer } from "effect";
+import { Deferred, Effect, Fiber, Layer } from "effect";
+import { assert } from "vitest";
 
+import { CurrentDb } from "#lib/infrastructure/db/service";
 import { makeDefinitionRegistry } from "#modules/definition-registry/service";
 
 import { IntegrationProviderCatalog } from "./integration-provider-catalog";
@@ -12,12 +15,14 @@ import type { NormalizedPlugin } from "./types";
 const settingsSchema = {
 	fields: { token: { type: "string", label: "Token", description: "API token", secret: true } },
 } satisfies PluginManifest["integrationProviders"][number]["settingsSchema"];
+const epoch = new Date(0);
+const fixtureScript = fixtureManifest().scripts[0];
+assert(fixtureScript);
 
 const pluginWithProviders = (
 	slug: string,
 	integrationProviders: PluginManifest["integrationProviders"],
 ): NormalizedPlugin => ({
-	scripts: [],
 	sourceHash: `source-${slug}`,
 	manifest: {
 		...fixtureManifest(),
@@ -28,6 +33,18 @@ const pluginWithProviders = (
 		metadata: { ...fixtureManifest().metadata, slug },
 		bindings: { ...fixtureManifest().bindings, entityAutomations: [] },
 	},
+	scripts: [
+		{
+			source: "source",
+			compiledFormat: 1,
+			compiledCode: "compiled",
+			name: "Fixture Automation",
+			slug: `${slug}.automation`,
+			contentHash: `script-${slug}`,
+			entry: "scripts/fixture.sandbox.ts",
+			metadata: { ...fixtureScript, slug: `${slug}.automation` },
+		},
+	],
 });
 
 const catalogLayer = () => {
@@ -84,4 +101,67 @@ it.effect("resolves a provider lot and script binding by slug", () =>
 		expect(catalog.find("radarr")).toMatchObject({ lot: "push", scriptSlug: null });
 		expect(catalog.find("audiobookshelf")).toBeNull();
 	}).pipe(Effect.provide(catalogLayer())),
+);
+
+it.effect("keeps provider and active script resolution on one snapshot during replacement", () =>
+	Effect.gen(function* () {
+		const selected = yield* Deferred.make<void>();
+		const release = yield* Deferred.make<void>();
+		const loader = makePluginLoader(makeDefinitionRegistry());
+		loader.load(
+			pluginWithProviders("apple", [
+				{
+					lot: "yank",
+					slug: "komga",
+					name: "Komga",
+					settingsSchema,
+					description: "Old provider",
+					scriptSlug: "apple.automation",
+				},
+			]),
+		);
+		const row = {
+			source: "source",
+			createdAt: epoch,
+			updatedAt: epoch,
+			providerId: null,
+			compiledFormat: 1,
+			pluginSlug: "apple",
+			slug: "apple.automation",
+			compiledCode: "compiled",
+			name: "Fixture Automation",
+			contentHash: "script-apple",
+			id: SandboxScriptId.make("old-script"),
+			metadata: { ...fixtureScript, slug: "apple.automation" },
+		};
+		const db = {
+			select: () => ({
+				from: () => ({ where: () => ({ limit: () => Promise.resolve([row]) }) }),
+			}),
+		};
+		const layer = Layer.merge(
+			IntegrationProviderCatalog.Default.pipe(
+				Layer.provide(Layer.succeed(PluginLoader, { _tag: "PluginLoader", ...loader })),
+			),
+			Layer.succeed(CurrentDb, Object.assign(Object.create(null), db)),
+		);
+		const fiber = yield* Effect.fork(
+			Effect.gen(function* () {
+				const resolution = (yield* IntegrationProviderCatalog).resolve("komga");
+				yield* Deferred.succeed(selected, undefined);
+				yield* Deferred.await(release);
+				return resolution
+					? { provider: resolution.provider, script: yield* resolution.script }
+					: null;
+			}).pipe(Effect.provide(layer)),
+		);
+		yield* Deferred.await(selected);
+		loader.load(pluginWithProviders("apple", []));
+		yield* Deferred.succeed(release, undefined);
+
+		expect(yield* Fiber.join(fiber)).toMatchObject({
+			provider: { description: "Old provider", slug: "komga" },
+			script: { id: "old-script", contentHash: "script-apple" },
+		});
+	}),
 );

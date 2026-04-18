@@ -8,6 +8,7 @@ import { Cause, Effect, Schema } from "effect";
 import { AppConfig } from "#lib/infrastructure/config/service";
 import { withoutWorkflowParent } from "#lib/infrastructure/workflow";
 import type { RegisteredImportSource } from "#modules/plugins/import-source-catalog";
+import type { findActiveWorkflowScriptInSnapshot } from "#modules/plugins/runtime-resolver";
 import { SandboxExecutionService } from "#modules/sandbox/service";
 
 import type { ImportRunJobData } from "./jobs";
@@ -21,6 +22,7 @@ export const runPluginImportWorkflow = Effect.fn("runPluginImportWorkflow")(func
 	payload: ImportRunJobData,
 	executionId: string,
 	source: RegisteredImportSource,
+	workflowScript: ReturnType<typeof findActiveWorkflowScriptInSnapshot>,
 ) {
 	const config = yield* AppConfig;
 	const sandbox = yield* SandboxExecutionService;
@@ -60,11 +62,10 @@ export const runPluginImportWorkflow = Effect.fn("runPluginImportWorkflow")(func
 		});
 
 		const scriptId = yield* sandbox
-			.resolveWorkflowScript({
-				executionId,
-				pluginSlug: source.pluginSlug,
-				workflowSlug: source.workflowSlug,
-			})
+			.resolveWorkflowScript(
+				{ executionId, pluginSlug: source.pluginSlug, workflowSlug: source.workflowSlug },
+				workflowScript,
+			)
 			.pipe(Effect.mapError(toWorkflowError));
 		const storedSourcePayload = payload.sourcePayloadKey
 			? yield* Activity.make({
