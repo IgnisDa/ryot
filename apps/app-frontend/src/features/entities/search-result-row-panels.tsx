@@ -3,6 +3,7 @@ import {
 	Box,
 	Button,
 	Group,
+	Select,
 	Stack,
 	Text,
 	Textarea,
@@ -179,6 +180,54 @@ export function SearchResultReviewPanel(props: {
 					disabled={!props.actionState.rateStars}
 					style={{ backgroundColor: props.accentColor, color: "white" }}
 					onClick={props.onSaveReview}
+				>
+					Save
+				</Button>
+				<Button
+					size="compact-xs"
+					variant="subtle"
+					onClick={() => props.onPatchActionState({ openPanel: null })}
+				>
+					Cancel
+				</Button>
+			</Group>
+		</Box>
+	);
+}
+
+export function SearchResultCollectionPanel(props: {
+	border: string;
+	textMuted: string;
+	actionState: SearchResultRowActionState;
+	accentColor: string;
+	collections: Array<{ id: string; name: string }>;
+	onSaveCollection: () => void;
+	onPatchActionState: (patch: Partial<SearchResultRowActionState>) => void;
+}) {
+	const hasSelectedCollection = props.actionState.selectedCollectionId !== null;
+
+	return (
+		<Box mt="xs" pt="sm" style={{ borderTop: `1px solid ${props.border}` }}>
+			<Text fz="xs" fw={500} c={props.textMuted} mb={6}>
+				Select a collection
+			</Text>
+			<Select
+				size="xs"
+				mb="sm"
+				data={props.collections.map((c) => ({ value: c.id, label: c.name }))}
+				value={props.actionState.selectedCollectionId ?? null}
+				onChange={(value) =>
+					props.onPatchActionState({ selectedCollectionId: value })
+				}
+				placeholder="Choose a collection..."
+			/>
+
+			<Group gap="xs">
+				<Button
+					size="compact-xs"
+					disabled={!hasSelectedCollection}
+					style={{ backgroundColor: props.accentColor, color: "white" }}
+					onClick={props.onSaveCollection}
 				>
 					Save
 				</Button>
