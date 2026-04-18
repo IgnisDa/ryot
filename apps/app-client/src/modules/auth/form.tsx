@@ -164,7 +164,7 @@ export function AuthForm(props: {
 		setError(null);
 		setPending(true);
 		try {
-			const result = await client.signIn.oauth2({ providerId: "oidc", callbackURL: destination });
+			const result = await client.signIn.social({ provider: "oidc", callbackURL: destination });
 			if (result.error) {
 				setError(reportAuthFailure("oidc", result.error));
 				return;

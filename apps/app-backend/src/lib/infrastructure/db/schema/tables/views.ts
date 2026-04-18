@@ -5,7 +5,7 @@ import {
 	index,
 	integer,
 	jsonb,
-	pgTable,
+	snakeCase,
 	text,
 	timestamp,
 	unique,
@@ -14,7 +14,7 @@ import {
 import { user } from "./auth";
 
 // TODO: Expose as an RSS feed
-export const savedView = pgTable(
+export const savedView = snakeCase.table(
 	"saved_view",
 	{
 		pluginSlug: text(),
