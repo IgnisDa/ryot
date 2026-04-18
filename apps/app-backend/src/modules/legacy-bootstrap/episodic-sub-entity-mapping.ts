@@ -1,4 +1,4 @@
-import { quoteSqlString } from "./shared";
+import { buildReportSql, quoteSqlString } from "./shared";
 
 type LegacyEpisodicSubEntityMigrationInput = {
 	showSeasonEntitySchemaSlug: string;
@@ -22,8 +22,6 @@ DECLARE
 	podcast_episode_relationships_inserted int;
 	started_at timestamptz := clock_timestamp();
 BEGIN
-	RAISE NOTICE 'legacy episodic sub-entities: migration started (% seconds elapsed)', 0.0;
-
 	CREATE TEMP TABLE _legacy_show_seasons ON COMMIT DROP AS
 	SELECT
 		m.id AS parent_entity_id,
@@ -408,13 +406,19 @@ BEGIN
 	ON CONFLICT ("source_entity_id", "target_entity_id", "relationship_schema_slug") WHERE user_id IS NULL DO NOTHING;
 	GET DIAGNOSTICS podcast_episode_relationships_inserted = ROW_COUNT;
 
-	RAISE NOTICE 'legacy episodic sub-entities: % show seasons, % show episodes, % podcast episodes, % show-season relationships, % show-episode relationships, % podcast-episode relationships migrated (% seconds elapsed)',
-		show_seasons_inserted,
-		show_episodes_inserted,
-		podcast_episodes_inserted,
-		show_season_relationships_inserted,
-		show_episode_relationships_inserted,
-		podcast_episode_relationships_inserted,
-		round(extract(epoch from clock_timestamp() - started_at)::numeric, 1);
+	${buildReportSql("legacy episodic sub-entities", [
+		{ message: "show seasons migrated", count: "show_seasons_inserted" },
+		{ message: "show episodes migrated", count: "show_episodes_inserted" },
+		{ message: "podcast episodes migrated", count: "podcast_episodes_inserted" },
+		{ message: "show-season relationships migrated", count: "show_season_relationships_inserted" },
+		{
+			message: "show-episode relationships migrated",
+			count: "show_episode_relationships_inserted",
+		},
+		{
+			message: "podcast-episode relationships migrated",
+			count: "podcast_episode_relationships_inserted",
+		},
+	])}
 END $$;
 `;

@@ -1,6 +1,8 @@
 // Backfills whole-entity `complete` events for episodic media: walks the 100%-progress events per
 // user/parent entity chronologically and emits a `complete` event each time every required coverage
 // key (episode/chapter) has been seen, then resets coverage for the next watch-through.
+import { buildReportSql } from "./shared";
+
 export const buildSeenEpisodicCompletionMigrationSql = () => `
 DO $$
 DECLARE
@@ -11,8 +13,6 @@ DECLARE
 	complete_inserted int := 0;
 	started_at        timestamptz := clock_timestamp();
 BEGIN
-	RAISE NOTICE 'seen -> event: episodic completion backfill started (% seconds elapsed)', 0.0;
-
 	CREATE TEMP TABLE _seen_required_coverage ON COMMIT DROP AS
 	WITH show_keys AS (
 		SELECT DISTINCT
@@ -264,8 +264,6 @@ BEGIN
 		END LOOP;
 	END LOOP;
 
-	RAISE NOTICE 'seen -> event: % episodic complete events backfilled (% seconds elapsed)',
-		complete_inserted,
-		round(extract(epoch from clock_timestamp() - started_at)::numeric, 1);
+	${buildReportSql("seen -> event", [{ message: "episodic complete events backfilled", count: "complete_inserted" }])}
 END $$;
 `;
