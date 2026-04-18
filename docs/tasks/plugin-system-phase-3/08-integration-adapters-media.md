@@ -37,8 +37,10 @@ switch dispatch in `sinks/sink-adapters.ts` and `worker.ts` and the hardcoded
 enable/disable, auto-disable, webhook endpoint, run bookkeeping.
 
 Adapter unit tests move into `plugins/media` alongside their adapters with assertions preserved.
-Re-point the `tests/src/tests/integrations/` e2e suites (2 files, 16 tests) with assertions preserved; add new
-coverage where the migration exposes a gap.
+Re-point integration e2e coverage with assertions preserved: CRUD, generic webhook, and run visibility in
+`tests/src/tests/kernel/integrations/integrations.test.ts`; continuous failure handling in
+`tests/src/tests/kernel/integrations/continuous-error-disable.test.ts`; and episode/progress behavior in
+`tests/src/tests/plugins/media/integrations/integrations.test.ts`. Add new coverage where the migration exposes a gap.
 
 ## Acceptance criteria
 
