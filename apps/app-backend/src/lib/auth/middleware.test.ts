@@ -49,6 +49,20 @@ describe("resolveAuthenticatedUser", () => {
 		expect(result).toBeNull();
 	});
 
+	it("returns null when the internal auth userId is not found in the database", async () => {
+		const request = new Request("http://ryot.internal/a");
+
+		const result = await resolveAuthenticatedUser(request, {
+			getUserById: async () => null,
+			getInternalRequestAuth: () => ({ userId: "deleted-user" }),
+			getSession: async (_input) => {
+				throw new Error("should not be called");
+			},
+		});
+
+		expect(result).toBeNull();
+	});
+
 	it("falls back to session auth when request is not internal", async () => {
 		const request = new Request("http://ryot.internal/a", {
 			headers: { cookie: "session=1" },

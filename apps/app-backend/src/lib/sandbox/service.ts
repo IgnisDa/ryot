@@ -132,7 +132,10 @@ export class SandboxService {
 			const errors = metadata.error.issues
 				.map((issue) => issue.message)
 				.join("; ");
-			throw new Error(`Sandbox script metadata is invalid: ${errors}`);
+			return {
+				success: false,
+				error: `Sandbox script metadata is invalid: ${errors}`,
+			};
 		}
 
 		const allowedKeys = metadata.data.allowedHostFunctions ?? [];
@@ -143,14 +146,27 @@ export class SandboxService {
 			jobData.scriptId,
 		);
 
+		let apiFunctions: ReturnType<typeof this.resolveApiFunctions>;
+		try {
+			apiFunctions = this.resolveApiFunctions(descriptors);
+		} catch (error) {
+			return {
+				success: false,
+				error:
+					error instanceof Error
+						? error.message
+						: "Failed to resolve host functions",
+			};
+		}
+
 		return this.execute({
+			apiFunctions,
 			code: script.code,
 			context: jobData.context,
 			scriptId: jobData.scriptId,
 			timeoutMs: jobData.timeoutMs,
 			maxHeapMB: jobData.maxHeapMB,
 			driverName: jobData.driverName,
-			apiFunctions: this.resolveApiFunctions(descriptors),
 		});
 	}
 
