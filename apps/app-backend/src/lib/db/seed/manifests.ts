@@ -27,6 +27,8 @@ import hardcoverPersonScriptCode from "~/lib/sandbox/scripts/providers/person/ha
 import metronPersonScriptCode from "~/lib/sandbox/scripts/providers/person/metron.txt";
 import musicbrainzPersonScriptCode from "~/lib/sandbox/scripts/providers/person/musicbrainz.txt";
 import spotifyPersonScriptCode from "~/lib/sandbox/scripts/providers/person/spotify.txt";
+import tmdbPersonScriptCode from "~/lib/sandbox/scripts/providers/person/tmdb.txt";
+import tvdbPersonScriptCode from "~/lib/sandbox/scripts/providers/person/tvdb.txt";
 import vndbPersonScriptCode from "~/lib/sandbox/scripts/providers/person/vndb.txt";
 import youtubeMusicPersonScriptCode from "~/lib/sandbox/scripts/providers/person/youtube-music.txt";
 import type { SandboxScriptMetadata } from "~/lib/sandbox/types";
@@ -102,10 +104,16 @@ export const builtinSandboxScripts = (): BuiltinScriptEntry[] => [
 	script("TMDB", "show.tmdb", tmdbShowScriptCode, [
 		"MOVIES_AND_SHOWS_TMDB_ACCESS_TOKEN",
 	]),
+	script("TMDB", "person.tmdb", tmdbPersonScriptCode, [
+		"MOVIES_AND_SHOWS_TMDB_ACCESS_TOKEN",
+	]),
 	script("TVDB", "movie.tvdb", tvdbMovieScriptCode, [
 		"MOVIES_AND_SHOWS_TVDB_API_KEY",
 	]),
 	script("TVDB", "show.tvdb", tvdbShowScriptCode, [
+		"MOVIES_AND_SHOWS_TVDB_API_KEY",
+	]),
+	script("TVDB", "person.tvdb", tvdbPersonScriptCode, [
 		"MOVIES_AND_SHOWS_TVDB_API_KEY",
 	]),
 	script("MyAnimeList", "anime.myanimelist", myanimelistAnimeScriptCode, [
@@ -236,6 +244,8 @@ export const personSchemaScriptLinks = () =>
 		{ schemaSlug: "person", scriptSlug: "person.metron" },
 		{ schemaSlug: "person", scriptSlug: "person.musicbrainz" },
 		{ schemaSlug: "person", scriptSlug: "person.spotify" },
+		{ schemaSlug: "person", scriptSlug: "person.tmdb" },
+		{ schemaSlug: "person", scriptSlug: "person.tvdb" },
 		{ schemaSlug: "person", scriptSlug: "person.youtube-music" },
 		{ schemaSlug: "person", scriptSlug: "person.vndb" },
 	] as const;
