@@ -347,7 +347,7 @@ export function useEntitySearch(props: { entitySchema: AppEntitySchema }) {
 
 	const addItem = useCallback(
 		async (item: SearchResultItem) => {
-			await ensureItemEntity(item);
+			return await ensureItemEntity(item);
 		},
 		[ensureItemEntity],
 	);
