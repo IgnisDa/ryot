@@ -1,6 +1,6 @@
 import { z } from "@hono/zod-openapi";
 import { toAppSchemaProperties } from "@ryot/ts-utils";
-import { nullableIntSchema } from "../zod";
+import { nullableIntSchema, remoteImagesAssetsSchema } from "../zod";
 import { mediaPropertiesSchema } from "./common";
 
 const animeAiringScheduleSpecificsSchema = z
@@ -11,6 +11,7 @@ const animeAiringScheduleSpecificsSchema = z
 	.strict();
 
 export const animePropertiesSchema = mediaPropertiesSchema.extend({
+	assets: remoteImagesAssetsSchema,
 	episodes: nullableIntSchema,
 	airingSchedule: z.array(animeAiringScheduleSpecificsSchema).nullish(),
 });

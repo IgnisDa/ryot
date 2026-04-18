@@ -308,10 +308,11 @@ driver("details", async function(context) {
       description: parseDescription(workPayload?.description),
       sourceUrl: `https://openlibrary.org/works/${externalId}/${title}`,
       assets: {
-        remoteImages: [...coverIdSet].map(
-          (coverId) =>
-            `https://covers.openlibrary.org/b/id/${coverId}-M.jpg?default=false`,
-        ),
+        images: [...coverIdSet].map((coverId) => ({
+          kind: "remote",
+          url: `https://covers.openlibrary.org/b/id/${coverId}-M.jpg?default=false`,
+        })),
+        videos: [],
       },
     },
   };

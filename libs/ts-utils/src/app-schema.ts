@@ -415,6 +415,92 @@ const applyArrayValidation = (
 	return value;
 };
 
+const createEnumProperty = (input: {
+	isRequired: boolean;
+	label: string;
+	options: string[];
+}) => {
+	if (input.options.length === 0) {
+		throw new Error("Enum property must contain at least one option");
+	}
+
+	return withRequiredValidation(
+		{
+			label: input.label,
+			type: "enum",
+			options: input.options as [string, ...string[]],
+		},
+		input.isRequired,
+	);
+};
+
+const toAppSchemaDiscriminatedUnion = (input: {
+	label: string;
+	isRequired: boolean;
+	value: { options: readonly unknown[] };
+}) => {
+	const options = input.value.options.filter(
+		(option): option is z.ZodObject<z.ZodRawShape> =>
+			option instanceof z.ZodObject,
+	);
+	const properties: Record<string, AppPropertyDefinition> = {};
+	const keys = new Set<string>();
+	const unknownKeys = options[0] ? getUnknownKeysPolicy(options[0]) : undefined;
+
+	for (const option of options) {
+		for (const key of Object.keys(option.shape)) {
+			keys.add(key);
+		}
+	}
+
+	for (const key of keys) {
+		const childSchemas = options
+			.map((option) => option.shape[key] as z.ZodType | undefined)
+			.filter((value): value is z.ZodType => value !== undefined);
+		if (childSchemas.length === 0) {
+			continue;
+		}
+
+		const label = getDefaultPropertyLabel(key);
+		const isRequiredInAllOptions = options.every(
+			(option) => key in option.shape,
+		);
+		const property = childSchemas.every(
+			(child) => child instanceof z.ZodLiteral,
+		)
+			? createEnumProperty({
+					label,
+					isRequired: isRequiredInAllOptions,
+					options: [
+						...new Set(
+							childSchemas.flatMap((child) => Array.from(child.values)),
+						),
+					].filter((value): value is string => typeof value === "string"),
+				})
+			: toAppSchemaInternal(
+					childSchemas[0] as z.ZodType,
+					isRequiredInAllOptions,
+					label,
+				);
+
+		properties[key] = isRequiredInAllOptions
+			? property
+			: withoutRequiredValidation(property);
+	}
+
+	return withRequiredValidation(
+		{
+			label: input.label,
+			type: "object",
+			properties,
+			...(unknownKeys === "strip" || unknownKeys === "passthrough"
+				? { unknownKeys }
+				: {}),
+		},
+		input.isRequired,
+	);
+};
+
 const withNumberTransform = (
 	schema: z.ZodNumber,
 	transform: AppPropertyTransform | undefined,
@@ -491,6 +577,26 @@ const toAppSchemaInternal = (
 		return applyRequiredValidation({ label, type: "boolean" });
 	}
 
+	if (value instanceof z.ZodEnum) {
+		return createEnumProperty({
+			label,
+			isRequired,
+			options: value.options.filter(
+				(option): option is string => typeof option === "string",
+			),
+		});
+	}
+
+	if (value instanceof z.ZodLiteral) {
+		return createEnumProperty({
+			label,
+			isRequired,
+			options: Array.from(value.values).filter(
+				(option): option is string => typeof option === "string",
+			),
+		});
+	}
+
 	if (value.constructor.name === "ZodISODateTime") {
 		return applyRequiredValidation({ label, type: "datetime" });
 	}
@@ -524,6 +630,10 @@ const toAppSchemaInternal = (
 				? { unknownKeys }
 				: {}),
 		});
+	}
+
+	if (value instanceof z.ZodDiscriminatedUnion) {
+		return toAppSchemaDiscriminatedUnion({ label, isRequired, value });
 	}
 
 	throw new Error(`Unsupported Zod type: ${value.constructor.name}`);
