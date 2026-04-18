@@ -90,6 +90,16 @@ export const createEventDeps = (overrides: Partial<EventServiceDeps> = {}): Even
 			entitySchemaId: "schema_1",
 			entitySchemaSlug: "custom",
 		}),
+	getEventSchemaForEntityBySlug: (_input) =>
+		Promise.resolve({
+			entityUserId: "user_1",
+			eventSchemaName: "Event",
+			entitySchemaId: "schema_1",
+			entitySchemaSlug: "custom",
+			eventSchemaId: "event_schema_1",
+			propertiesSchema: { fields: {} },
+			eventSchemaEntitySchemaId: "schema_1",
+		}),
 	getEventCreateScopeForUser: (input) =>
 		Promise.resolve(
 			createEventCreateScope({

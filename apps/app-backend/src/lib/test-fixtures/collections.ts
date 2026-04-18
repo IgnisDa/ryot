@@ -43,6 +43,13 @@ export const createAddToCollectionData = (
 	overrides: Partial<AddToCollectionData> = {},
 ): AddToCollectionData => withOverrides(addToCollectionDataDefaults, overrides);
 
+export const createWriteCollectionMembershipResult = (
+	overrides: Partial<AddToCollectionData> = {},
+	wasInserted = true,
+): { data: { wasInserted: boolean; memberOf: AddToCollectionData["memberOf"] } } => ({
+	data: { wasInserted, memberOf: createAddToCollectionData(overrides).memberOf },
+});
+
 const collectionEntityPropertiesSchema = {
 	fields: {
 		description: {
@@ -91,12 +98,16 @@ export const createGetOrCreateCollectionDeps = (
 export const createAddToCollectionDeps = (
 	overrides: Partial<AddToCollectionServiceDeps> = {},
 ): AddToCollectionServiceDeps => ({
+	// oxlint-disable-next-line no-unsafe-type-assertion
+	executeTransaction: (fn) => fn(null as never),
 	ensureEntityInLibrary: () => Promise.resolve({ data: undefined }),
 	getCollectionById: () => Promise.resolve(createCollectionResponse()),
-	getEntityById: (entityId) => Promise.resolve({ id: entityId, userId: "user_1" }),
+	getEntityById: (entityId) =>
+		Promise.resolve({ id: entityId, userId: "user_1", entitySchemaSlug: "movie" }),
 	writeCollectionMembership: (input) =>
 		Promise.resolve({
-			data: createAddToCollectionData({
+			data: {
+				wasInserted: true,
 				memberOf: {
 					id: "rel_1",
 					properties: {},
@@ -105,7 +116,24 @@ export const createAddToCollectionDeps = (
 					createdAt: "2024-01-01T00:00:00.000Z",
 					relationshipSchemaId: "rel_schema_member_of",
 				},
-			}),
+			},
+		}),
+	createEventBySchemaSlugWithTriggers: () =>
+		Promise.resolve({
+			data: {
+				id: "event_1",
+				properties: {},
+				sessionEntityId: null,
+				entityId: "collection_1",
+				entitySchemaSlug: "collection",
+				eventSchemaId: "schema_add_event",
+				entitySchemaId: "schema_collection",
+				createdAt: new Date("2024-01-01"),
+				updatedAt: new Date("2024-01-01"),
+				occurredAt: new Date("2024-01-01"),
+				eventSchemaName: "Add Entity to Collection",
+				eventSchemaSlug: "add-entity-to-collection",
+			},
 		}),
 	...overrides,
 });
@@ -114,7 +142,38 @@ export const createRemoveFromCollectionDeps = (
 	overrides: Partial<RemoveFromCollectionServiceDeps> = {},
 ): RemoveFromCollectionServiceDeps => ({
 	getCollectionById: () => Promise.resolve(createCollectionResponse()),
-	getEntityById: (entityId) => Promise.resolve({ id: entityId, userId: "user_1" }),
-	deleteCollectionMembership: () => Promise.resolve({ data: createAddToCollectionData() }),
+	getEntityById: (entityId) =>
+		Promise.resolve({ id: entityId, userId: "user_1", entitySchemaSlug: "movie" }),
+	deleteCollectionMembership: () =>
+		Promise.resolve({
+			data: {
+				wasInserted: false,
+				memberOf: {
+					id: "rel_1",
+					properties: {},
+					sourceEntityId: "entity_1",
+					targetEntityId: "collection_1",
+					createdAt: "2024-01-01T00:00:00.000Z",
+					relationshipSchemaId: "rel_schema_member_of",
+				},
+			},
+		}),
+	createEventBySchemaSlugWithTriggers: () =>
+		Promise.resolve({
+			data: {
+				id: "event_1",
+				properties: {},
+				sessionEntityId: null,
+				entityId: "collection_1",
+				entitySchemaSlug: "collection",
+				entitySchemaId: "schema_collection",
+				eventSchemaId: "schema_remove_event",
+				createdAt: new Date("2024-01-01"),
+				updatedAt: new Date("2024-01-01"),
+				occurredAt: new Date("2024-01-01"),
+				eventSchemaName: "Remove Entity from Collection",
+				eventSchemaSlug: "remove-entity-from-collection",
+			},
+		}),
 	...overrides,
 });
