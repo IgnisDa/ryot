@@ -19,7 +19,7 @@ export class PackageCacheManager {
 			return;
 		}
 
-		if (await this.isCachePopulated()) {
+		if (await this.isCachePopulated(packages)) {
 			return;
 		}
 
@@ -35,18 +35,30 @@ export class PackageCacheManager {
 			readStream(proc.stdout),
 		]);
 
-		if (exit.code !== 0) {
-			const hasExistingCache = await this.isCachePopulated();
-			if (!hasExistingCache) {
-				throw new Error(
-					`Sandbox package cache population failed (exit ${exit.code}): ${stderr.trim()}`,
-				);
-			}
-			console.warn("Sandbox package cache refresh failed; using existing cache.", stderr.trim());
+		if (exit.code === 0) {
+			await Bun.write(this.markerPath, packages.join("\n"));
+			return;
 		}
+
+		if (await Bun.file(this.markerPath).exists()) {
+			console.warn("Sandbox package cache refresh failed; using existing cache.", stderr.trim());
+			return;
+		}
+
+		throw new Error(
+			`Sandbox package cache population failed (exit ${exit.code}): ${stderr.trim()}`,
+		);
 	}
 
-	private async isCachePopulated() {
-		return Bun.file(`${this.cacheDir}/npm`).exists();
+	private get markerPath() {
+		return `${this.cacheDir}/.ryot-sandbox-cache-complete`;
+	}
+
+	private async isCachePopulated(packages: readonly string[]) {
+		const marker = Bun.file(this.markerPath);
+		if (!(await marker.exists())) {
+			return false;
+		}
+		return (await marker.text()) === packages.join("\n");
 	}
 }
