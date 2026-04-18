@@ -5,7 +5,7 @@ describe("hostFunctionRegistry", () => {
 	it("registers the expected host function keys", () => {
 		expect(Object.keys(hostFunctionRegistry).sort()).toEqual(
 			[
-				"executeQuery",
+				"appApiCall",
 				"getAppConfigValue",
 				"getCachedValue",
 				"getUserPreferences",
