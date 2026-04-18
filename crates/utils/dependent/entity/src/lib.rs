@@ -91,8 +91,7 @@ pub async fn commit_metadata(
         .filter(metadata::Column::Lot.eq(data.lot))
         .filter(metadata::Column::Source.eq(data.source))
         .one(&ss.db)
-        .await
-        .unwrap()
+        .await?
     {
         Some(c) => c,
         None => {
@@ -116,7 +115,10 @@ pub async fn commit_metadata(
     let was_updated_successfully = ensure_metadata_updated(&mode.id, ss, ensure_updated).await?;
 
     let final_metadata = match (was_updated_successfully, ensure_updated) {
-        (true, Some(true)) => Metadata::find_by_id(&mode.id).one(&ss.db).await?.unwrap(),
+        (true, Some(true)) => Metadata::find_by_id(&mode.id)
+            .one(&ss.db)
+            .await?
+            .ok_or_else(|| anyhow!("Metadata {} not found after ensure_updated", mode.id))?,
         _ => mode,
     };
 
@@ -416,9 +418,8 @@ pub async fn update_metadata(
 ) -> Result<UpdateMediaEntityResult> {
     let meta = Metadata::find_by_id(metadata_id)
         .one(&ss.db)
-        .await
-        .unwrap()
-        .unwrap();
+        .await?
+        .ok_or_else(|| anyhow!("Metadata {} not found", metadata_id))?;
     if !meta.is_partial.unwrap_or_default() {
         return Ok(UpdateMediaEntityResult::default());
     }
@@ -463,7 +464,7 @@ pub async fn update_metadata(
             meta.video_game_specifics = ActiveValue::Set(details.video_game_specifics);
             meta.external_identifiers = ActiveValue::Set(details.external_identifiers);
             meta.visual_novel_specifics = ActiveValue::Set(details.visual_novel_specifics);
-            let metadata = meta.update(&ss.db).await.unwrap();
+            let metadata = meta.update(&ss.db).await?;
 
             change_metadata_associations(
                 &metadata.id,
@@ -521,14 +522,13 @@ pub async fn update_metadata_group(
             .filter(metadata_to_metadata_group::Column::MetadataGroupId.eq(&eg.id))
             .filter(metadata_to_metadata_group::Column::MetadataId.eq(&db_partial_metadata.id))
             .exec(&ss.db)
-            .await
-            .ok();
+            .await?;
         let intermediate = metadata_to_metadata_group::ActiveModel {
             metadata_group_id: ActiveValue::Set(eg.id.clone()),
             metadata_id: ActiveValue::Set(db_partial_metadata.id),
             part: ActiveValue::Set(Some((idx + 1).try_into().unwrap())),
         };
-        intermediate.insert(&ss.db).await.ok();
+        intermediate.insert(&ss.db).await?;
     }
     expire_metadata_group_details_cache(metadata_group_id, ss).await?;
     Ok(UpdateMediaEntityResult::default())
@@ -541,7 +541,7 @@ pub async fn update_person(
     let person = Person::find_by_id(person_id.clone())
         .one(&ss.db)
         .await?
-        .unwrap();
+        .ok_or_else(|| anyhow!("Person {} not found", person_id))?;
     if !person.is_partial.unwrap_or_default() {
         return Ok(UpdateMediaEntityResult::default());
     }
@@ -588,7 +588,7 @@ pub async fn update_person(
                 character: ActiveValue::Set(data.character.clone()),
                 ..Default::default()
             };
-            intermediate.insert(&ss.db).await.unwrap();
+            intermediate.insert(&ss.db).await?;
         }
         let search_for = MediaAssociatedPersonStateChanges {
             role: data.role.clone(),
@@ -670,7 +670,7 @@ pub async fn update_person(
         }
     }
     to_update_person.state_changes = ActiveValue::Set(Some(current_state_changes));
-    to_update_person.update(&ss.db).await.unwrap();
+    to_update_person.update(&ss.db).await?;
     expire_person_details_cache(&person_id, ss).await?;
     Ok(UpdateMediaEntityResult { notifications })
 }
