@@ -281,7 +281,7 @@ describe("GET /entity-schemas", () => {
 
 		expect(schema.providers.length).toBeGreaterThan(0);
 		for (const provider of schema.providers) {
-			expect(provider.searchDriverName).toBe("mediaSearch");
+			expect(provider.searchDriverName).toBe("search");
 		}
 	});
 
@@ -297,7 +297,7 @@ describe("GET /entity-schemas", () => {
 		expect(personSchema).toBeDefined();
 		expect(personSchema?.providers.length).toBeGreaterThan(0);
 		for (const provider of personSchema?.providers ?? []) {
-			expect(provider.searchDriverName).toBe("personSearch");
+			expect(provider.searchDriverName).toBe("search");
 		}
 	});
 

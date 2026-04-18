@@ -25,7 +25,7 @@ async function getHardcoverApiKey() {
   return apiKey;
 }
 
-driver("personSearch", async function(context) {
+driver("search", async function(context) {
   const pageSize =
     Number.isFinite(Number(context?.pageSize)) &&
     Number(context.pageSize) > 0 &&
@@ -140,7 +140,7 @@ query {
   };
 });
 
-driver("personDetails", async function(context) {
+driver("details", async function(context) {
   const apiKey = await getHardcoverApiKey();
 
   const contextIdentifier =
