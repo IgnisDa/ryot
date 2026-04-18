@@ -104,4 +104,8 @@ export type ConfigValueResult = ApiResult<unknown>;
 
 export type CachedValueResult = ApiResult<JsonValue | null>;
 
+export type ClaimCachedValueResult = ApiResult<
+	{ claimed: true } | { claimed: false; value: JsonValue | null }
+>;
+
 export type CachedValueContext = { scriptId: string };
