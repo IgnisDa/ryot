@@ -17,7 +17,7 @@ import {
 } from "@ryot/sandbox-sdk/workflow";
 import { Cause, Duration, Effect, Schema } from "effect";
 
-import { DbRunner } from "#lib/infrastructure/db/service";
+import { DbRunner, TransactionRunner } from "#lib/infrastructure/db/service";
 import {
 	hashWorkflowCallArgs,
 	projectWorkflowJournal,
@@ -326,31 +326,37 @@ export const runSandboxScriptWorkflowBody = Effect.fn("SandboxScriptWorkflow")(f
 		name: "pin-sandbox-workflow-script",
 		execute: Effect.gen(function* () {
 			const runWithDb = yield* DbRunner;
-			const resolved = yield* resolveSandboxExecutionPayload(
-				{
-					context: payload.input,
-					scriptId: payload.scriptId,
-					authority: payload.authority,
-					executionId: payload.executionId,
-					...(payload.grants ? { grants: payload.grants } : {}),
-				},
-				payload.resolutionMode,
-			);
 			const repository = yield* SandboxRepository;
-			const pinned = yield* runWithDb(repository.getScriptPin(resolved.scriptId));
-			if (!pinned) {
-				return yield* sandboxFailure("Sandbox workflow script not found");
-			}
-			if (pinned.pluginSlug) {
-				const references = yield* SandboxWorkflowReferenceRepository;
-				yield* references.register({
-					executionId,
-					scriptId: pinned.scriptId,
-					pluginSlug: pinned.pluginSlug,
-					contentHash: pinned.contentHash,
-				});
-			}
-			return pinned;
+			const runInTransaction = yield* TransactionRunner;
+			const references = yield* SandboxWorkflowReferenceRepository;
+			return yield* runInTransaction(
+				Effect.gen(function* () {
+					yield* references.lockIngestionShared();
+					const resolved = yield* resolveSandboxExecutionPayload(
+						{
+							context: payload.input,
+							scriptId: payload.scriptId,
+							authority: payload.authority,
+							executionId: payload.executionId,
+							...(payload.grants ? { grants: payload.grants } : {}),
+						},
+						payload.resolutionMode,
+					);
+					const pinned = yield* runWithDb(repository.getScriptPin(resolved.scriptId));
+					if (!pinned) {
+						return yield* sandboxFailure("Sandbox workflow script not found");
+					}
+					if (pinned.pluginSlug) {
+						yield* references.registerInTransaction({
+							executionId,
+							scriptId: pinned.scriptId,
+							pluginSlug: pinned.pluginSlug,
+							contentHash: pinned.contentHash,
+						});
+					}
+					return pinned;
+				}),
+			);
 		}).pipe(Effect.mapError((error) => sandboxFailure(unknownToMessage(error)))),
 	});
 

@@ -1,4 +1,6 @@
 import { expect, it } from "@effect/vitest";
+import { sql, type SQLWrapper } from "drizzle-orm";
+import { PgDialect } from "drizzle-orm/pg-core";
 import { Effect, Layer } from "effect";
 import { assert } from "vitest";
 
@@ -27,6 +29,35 @@ const makeLayer = (input: {
 					input.statuses?.push(status);
 					return Promise.resolve();
 				},
+			}),
+		}),
+	};
+	return PluginRepository.Default.pipe(
+		Layer.provideMerge(Layer.succeed(CurrentDb, Object.assign(Object.create(null), db))),
+	);
+};
+
+const makeScriptCleanupLayer = (input: {
+	tables: Array<unknown>;
+	statements: Array<{ sql: string; params: unknown[] }>;
+	removed: Array<ReadonlyArray<{ id: string; contentHash: string }>>;
+}) => {
+	const dialect = new PgDialect();
+	const db = {
+		delete: (table: unknown) => {
+			input.tables.push(table);
+			return {
+				where: (condition: SQLWrapper) => {
+					input.statements.push(dialect.sqlToQuery(condition.getSQL()));
+					return {
+						returning: () => Promise.resolve(input.removed.shift() ?? []),
+					};
+				},
+			};
+		},
+		select: () => ({
+			from: (table: SQLWrapper) => ({
+				where: (condition: SQLWrapper) => sql`select 1 from ${table} where ${condition}`,
 			}),
 		}),
 	};
@@ -153,4 +184,36 @@ it.effect("deactivates a plugin without deleting its script rows", () => {
 		yield* repository.deactivate("fixture");
 		expect(statuses).toEqual(["inactive"]);
 	}).pipe(Effect.provide(makeLayer({ statuses })));
+});
+
+it.effect("deletes only non-live scripts while guarding exact workflow references", () => {
+	const tables: Array<unknown> = [];
+	const statements: Array<{ sql: string; params: unknown[] }> = [];
+	const removed = [[{ id: "obsolete-script", contentHash: "obsolete-hash" }]];
+	return Effect.gen(function* () {
+		const repository = yield* PluginRepository;
+		expect(
+			yield* repository.deleteUnreferencedScripts(new Set(["active-hash", "kernel-hash"])),
+		).toEqual([{ id: "obsolete-script", contentHash: "obsolete-hash" }]);
+		expect(tables).toEqual([schema.sandboxScript]);
+		expect(statements[0]?.sql).toContain("not in");
+		expect(statements[0]?.sql).toContain("not exists");
+		expect(statements[0]?.sql).toContain('from "sandbox_workflow_reference"');
+		expect(statements[0]?.params).toEqual(["active-hash", "kernel-hash"]);
+	}).pipe(Effect.provide(makeScriptCleanupLayer({ removed, statements, tables })));
+});
+
+it.effect("safely deletes unreferenced scripts when the live hash set is empty", () => {
+	const tables: Array<unknown> = [];
+	const statements: Array<{ sql: string; params: unknown[] }> = [];
+	const removed = [[{ id: "obsolete-script", contentHash: "obsolete-hash" }]];
+	return Effect.gen(function* () {
+		const repository = yield* PluginRepository;
+		expect(yield* repository.deleteUnreferencedScripts(new Set())).toEqual([
+			{ id: "obsolete-script", contentHash: "obsolete-hash" },
+		]);
+		expect(statements[0]?.sql).not.toContain("not in");
+		expect(statements[0]?.sql).toContain("not exists");
+		expect(statements[0]?.params).toEqual([]);
+	}).pipe(Effect.provide(makeScriptCleanupLayer({ removed, statements, tables })));
 });

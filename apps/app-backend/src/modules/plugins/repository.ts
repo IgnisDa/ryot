@@ -1,5 +1,5 @@
 import { DbError } from "@ryot/contract/errors";
-import { and, eq, inArray, isNull, or, sql } from "drizzle-orm";
+import { and, eq, inArray, isNull, notExists, notInArray, or, sql } from "drizzle-orm";
 import { Effect } from "effect";
 
 import { PLUGIN_INGESTION_ADVISORY_LOCK_KEY } from "#lib/infrastructure/db/advisory-locks";
@@ -288,6 +288,33 @@ export class PluginRepository extends Effect.Service<PluginRepository>()("Plugin
 			);
 		});
 
+		const deleteUnreferencedScripts = Effect.fn("PluginRepository.deleteUnreferencedScripts")(
+			function* (liveContentHashes: ReadonlySet<string>) {
+				const db = yield* CurrentDb;
+				return yield* dbEffect(() =>
+					db
+						.delete(schema.sandboxScript)
+						.where(
+							and(
+								liveContentHashes.size > 0
+									? notInArray(schema.sandboxScript.contentHash, [...liveContentHashes])
+									: undefined,
+								notExists(
+									db
+										.select({ scriptId: schema.sandboxWorkflowReference.scriptId })
+										.from(schema.sandboxWorkflowReference)
+										.where(eq(schema.sandboxWorkflowReference.scriptId, schema.sandboxScript.id)),
+								),
+							),
+						)
+						.returning({
+							id: schema.sandboxScript.id,
+							contentHash: schema.sandboxScript.contentHash,
+						}),
+				);
+			},
+		);
+
 		return {
 			list,
 			persist,
@@ -296,6 +323,7 @@ export class PluginRepository extends Effect.Service<PluginRepository>()("Plugin
 			findBySourceHash,
 			hasEntityReferences,
 			persistKernelScript,
+			deleteUnreferencedScripts,
 		};
 	},
 }) {}

@@ -2,9 +2,9 @@
 
 ## Tasks
 
-**Overall Progress:** 13 of 18 tasks completed
+**Overall Progress:** 14 of 18 tasks completed
 
-**Current Task:** [Task 14](./14-superseded-script-module-gc.md) (todo)
+**Current Task:** [Task 15](./15-third-party-plugin-lifecycle-e2e.md) (todo)
 
 ### Task List
 
@@ -23,7 +23,7 @@
 | 11  | [Per-Execution Host-Call Concurrency](./11-per-execution-host-call-concurrency.md)            | done   |
 | 12  | [Sandbox and Database Limit Retuning](./12-sandbox-database-limit-retuning.md)                | done   |
 | 13  | [Race-Safe Resolution and Uninstall Fencing](./13-race-safe-resolution-uninstall.md)          | done   |
-| 14  | [Superseded Script and Module GC](./14-superseded-script-module-gc.md)                        | todo   |
+| 14  | [Superseded Script and Module GC](./14-superseded-script-module-gc.md)                        | done   |
 | 15  | [Complete Third-Party Plugin Lifecycle E2E](./15-third-party-plugin-lifecycle-e2e.md)         | todo   |
 | 16  | [Ownership-Based E2E Test Tree](./16-ownership-based-e2e-test-tree.md)                        | todo   |
 | 17  | [Final Architecture Documentation and Phase Gate](./17-final-docs-phase-gate.md)              | todo   |
