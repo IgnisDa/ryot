@@ -1,4 +1,8 @@
-export { getEntitySchemaScopeForUser } from "./repository";
+export {
+	getEntitySchemaScopeForUser,
+	getUserLibraryEntityId,
+	upsertInLibraryRelationship,
+} from "./repository";
 export type {
 	CreateEntityBody,
 	ListedEntity,
@@ -18,4 +22,5 @@ export {
 	resolveEntityId,
 	resolveEntityName,
 	resolveEntitySchemaId,
+	upsertInLibraryIfGlobal,
 } from "./service";
