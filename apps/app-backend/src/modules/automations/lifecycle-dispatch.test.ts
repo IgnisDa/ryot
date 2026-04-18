@@ -12,7 +12,7 @@ import {
 import { Effect, Result, Layer, Schema } from "effect";
 import { WorkflowEngine, WorkflowInstance } from "effect/unstable/workflow/WorkflowEngine";
 
-import { makeWorkflowActivityEngine } from "#lib/test-utils/effect";
+import { databaseLayer, makeWorkflowActivityEngine } from "#lib/test-utils/effect";
 import {
 	LifecycleDispatch,
 	LifecycleDispatchNoop,
@@ -105,9 +105,9 @@ it.effect("resolves create rules for the source target and enqueues one executio
 			return Effect.succeed([globalRule, userRule]);
 		},
 	});
-	const layer = Layer.provide(
+	const layer = Layer.provideMerge(
 		LifecycleDispatchLive,
-		Layer.mergeAll(automations, Layer.succeed(WorkflowEngine, engine)),
+		Layer.mergeAll(databaseLayer, automations, Layer.succeed(WorkflowEngine, engine)),
 	);
 
 	return Effect.gen(function* () {
@@ -145,9 +145,9 @@ it.effect("derives the rule target from each lifecycle source kind", () => {
 			return Effect.succeed([]);
 		},
 	});
-	const layer = Layer.provide(
+	const layer = Layer.provideMerge(
 		LifecycleDispatchLive,
-		Layer.mergeAll(automations, Layer.succeed(WorkflowEngine, engine)),
+		Layer.mergeAll(databaseLayer, automations, Layer.succeed(WorkflowEngine, engine)),
 	);
 
 	return Effect.gen(function* () {
@@ -192,9 +192,9 @@ it.effect("forwards update snapshots and trusted population context", () => {
 			return Effect.succeed([updateRule]);
 		},
 	});
-	const layer = Layer.provide(
+	const layer = Layer.provideMerge(
 		LifecycleDispatchLive,
-		Layer.mergeAll(automations, Layer.succeed(WorkflowEngine, engine)),
+		Layer.mergeAll(databaseLayer, automations, Layer.succeed(WorkflowEngine, engine)),
 	);
 
 	return Effect.gen(function* () {
@@ -257,9 +257,9 @@ it.effect("attempts every sibling workflow and fails when one enqueue fails", ()
 	const automations = Layer.mock(AutomationsService, {
 		resolveActive: () => Effect.succeed([firstRule, secondRule]),
 	});
-	const layer = Layer.provide(
+	const layer = Layer.provideMerge(
 		LifecycleDispatchLive,
-		Layer.mergeAll(automations, Layer.succeed(WorkflowEngine, engine)),
+		Layer.mergeAll(databaseLayer, automations, Layer.succeed(WorkflowEngine, engine)),
 	);
 
 	return Effect.gen(function* () {
@@ -281,7 +281,7 @@ it.effect("keeps a bootstrap-only no-op out of the post-boot dispatcher", () => 
 	const runtime = Layer.succeed(LifecycleDispatch, {
 		dispatch: () => Effect.sync(() => (dispatched = true)),
 	});
-	const layer = bootstrap.pipe(Layer.flatMap(() => runtime));
+	const layer = Layer.provideMerge(bootstrap.pipe(Layer.flatMap(() => runtime)), databaseLayer);
 
 	return Effect.gen(function* () {
 		const dispatch = yield* LifecycleDispatch;

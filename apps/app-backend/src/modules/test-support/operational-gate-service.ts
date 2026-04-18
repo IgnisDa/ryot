@@ -1,9 +1,10 @@
 import { badRequest } from "@ryot/contract/errors";
 import type { TestSupportStartWorkflowLoadGateBody } from "@ryot/contract/modules/test-support/schemas";
 import type { ImportRunId } from "@ryot/contract/schema/brands";
+import { sql } from "drizzle-orm";
 import { Context, DateTime, Effect, Layer } from "effect";
 
-import { DbService, dbEffect } from "#lib/infrastructure/db/service";
+import { Database, mapDatabaseErrors } from "#lib/infrastructure/db/service";
 import { RedisService, redisKeys } from "#lib/infrastructure/redis";
 import { sandboxContextError } from "#lib/infrastructure/sandbox-runtime/limits";
 import {
@@ -28,7 +29,7 @@ export class OperationalGateService extends Context.Service<OperationalGateServi
 	"OperationalGateService",
 	{
 		make: Effect.gen(function* () {
-			const db = yield* DbService;
+			const database = yield* Database;
 			const redis = yield* RedisService;
 			const imports = yield* ImportsService;
 			const sandbox = yield* SandboxExecutionService;
@@ -125,8 +126,9 @@ export class OperationalGateService extends Context.Service<OperationalGateServi
 			const samplePressure = Effect.fn("OperationalGateService.samplePressure")(function* (
 				executionIds: ReadonlyArray<string>,
 			) {
-				const pressure = yield* dbEffect(() =>
-					db.pool.query<PressureRow>(`
+				const [pressure] = yield* mapDatabaseErrors(
+					database.execute<PressureRow>(
+						sql`
 						SELECT
 							(SELECT deadlocks::int FROM pg_stat_database WHERE datname = current_database()) AS deadlocks,
 							(SELECT count(*)::int FROM pg_locks WHERE locktype = 'advisory') AS advisory_locks,
@@ -134,8 +136,10 @@ export class OperationalGateService extends Context.Service<OperationalGateServi
 							(SELECT count(*)::int FROM pg_stat_activity WHERE datname = current_database() AND state = 'active') AS active_connections,
 							(SELECT count(*)::int FROM pg_locks WHERE locktype = 'advisory' AND NOT granted) AS waiting_advisory_locks,
 							(SELECT count(*)::int FROM pg_stat_activity WHERE datname = current_database() AND wait_event_type = 'Lock') AS lock_waiting_connections
-					`),
-				).pipe(Effect.map((result) => result.rows[0]));
+					`,
+						"objects",
+					),
+				);
 				if (!pressure) {
 					return yield* Effect.die(new Error("Operational pressure query returned no row"));
 				}
@@ -186,9 +190,6 @@ export class OperationalGateService extends Context.Service<OperationalGateServi
 					},
 					database: {
 						deadlocks: pressure.deadlocks,
-						appPoolIdleConnections: db.pool.idleCount,
-						appPoolTotalConnections: db.pool.totalCount,
-						appPoolWaitingRequests: db.pool.waitingCount,
 						totalConnections: pressure.total_connections,
 						activeConnections: pressure.active_connections,
 						lockWaitingConnections: pressure.lock_waiting_connections,

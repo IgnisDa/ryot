@@ -6,7 +6,6 @@ import type {
 } from "@ryot/sandbox-sdk/provider";
 import { Effect } from "effect";
 
-import { DbRunner } from "#lib/infrastructure/db/service";
 import { parseAppSchemaProperties } from "#lib/property-schema/property-schema-runtime";
 import { EntitiesRepository } from "#modules/entities/repository";
 import { EntitiesService } from "#modules/entities/service";
@@ -19,14 +18,13 @@ export const syncRelatedEntityGroup = Effect.fn("syncRelatedEntityGroup")(functi
 	primaryEntitySchemaSlug: EntitySchemaSlug;
 	group: ProviderDetailsRelatedEntityGroup;
 }) {
-	const runWithDb = yield* DbRunner;
 	const entities = yield* EntitiesService;
 	const repository = yield* EntitiesRepository;
 	const relationshipSchemasRepository = yield* RelationshipSchemasRepository;
 
-	const relationshipSchema = yield* runWithDb(
-		relationshipSchemasRepository.findBuiltinBySlug(input.group.relationshipSchemaSlug),
-	).pipe(mapDbErrorToSandbox);
+	const relationshipSchema = yield* relationshipSchemasRepository
+		.findBuiltinBySlug(input.group.relationshipSchemaSlug)
+		.pipe(mapDbErrorToSandbox);
 	if (!relationshipSchema) {
 		return yield* new SandboxRunError({
 			message: `Relationship schema not found: ${input.group.relationshipSchemaSlug}`,
@@ -43,9 +41,9 @@ export const syncRelatedEntityGroup = Effect.fn("syncRelatedEntityGroup")(functi
 	}
 
 	for (const relatedEntity of uniqueRelatedEntities.values()) {
-		const schemaProvider = yield* runWithDb(
-			repository.findEntitySchemaProviderBySlug(relatedEntity.providerSlug),
-		).pipe(mapDbErrorToSandbox);
+		const schemaProvider = yield* repository
+			.findEntitySchemaProviderBySlug(relatedEntity.providerSlug)
+			.pipe(mapDbErrorToSandbox);
 		if (!schemaProvider) {
 			continue;
 		}

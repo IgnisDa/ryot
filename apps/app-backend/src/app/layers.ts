@@ -4,7 +4,7 @@ import { FetchHttpClient } from "effect/unstable/http";
 
 import { AppConfig } from "#lib/infrastructure/config/service";
 import { LegacyBootstrapMigrateDrop, MigrationsComplete } from "#lib/infrastructure/db/migrate";
-import { DbService, DbRunnerLive, TransactionRunnerLive } from "#lib/infrastructure/db/service";
+import { DatabaseLive } from "#lib/infrastructure/db/service";
 import { LocalStorageService } from "#lib/infrastructure/local-storage";
 import { ObservabilityLive } from "#lib/infrastructure/observability";
 import { ProviderHttpAdmissionService } from "#lib/infrastructure/provider-http-admission";
@@ -133,7 +133,7 @@ const ConfigLive = Layer.mergeAll(AppConfig.layer, BunServices.layer);
 const BaseInfrastructureServicesLive = Layer.provideMerge(
 	SandboxArtifactStore.layer,
 	Layer.mergeAll(
-		DbService.layer,
+		DatabaseLive,
 		RedisService.layer,
 		LocalStorageService.layer,
 		ServerRun.layer,
@@ -214,9 +214,7 @@ const CoreInfrastructureDependenciesLive = BaseInfrastructureServicesLive.pipe(
 const CoreInfrastructureServicesLive = Layer.mergeAll(
 	PersistedQueueLive,
 	WorkflowEngineLive,
-	DbRunnerLive,
 	RepositoriesLive,
-	TransactionRunnerLive,
 );
 
 const ApplicationInfrastructureLive = CoreInfrastructureServicesLive.pipe(
@@ -458,12 +456,8 @@ const MigrationSequenceLive = MigrationsComplete.layer.pipe(
 	Layer.flatMap(() => LegacyBootstrapMigrateDrop.layer),
 );
 
-const MigrationDatabaseServicesLive = Layer.mergeAll(DbRunnerLive, TransactionRunnerLive).pipe(
-	Layer.provideMerge(DbService.layer),
-);
-
 const MigrationInfrastructureLive = MigrationBootstrapServicesLive.pipe(
-	Layer.provideMerge(MigrationDatabaseServicesLive),
+	Layer.provideMerge(DatabaseLive),
 	Layer.provideMerge(RedisService.layer),
 	Layer.provideMerge(ConfigLive),
 );

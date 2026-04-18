@@ -10,7 +10,7 @@ import {
 import { Effect, Layer } from "effect";
 import { WorkflowEngine } from "effect/unstable/workflow/WorkflowEngine";
 
-import { type MockOverrides, dbRunnerLayer, makeWorkflowEngine } from "#lib/test-utils/effect";
+import { databaseLayer, makeWorkflowEngine, type MockOverrides } from "#lib/test-utils/effect";
 
 import { EventsRepository } from "./repository";
 import { EventsService } from "./service";
@@ -34,13 +34,13 @@ const makeServiceLayer = (input: {
 	eventsRepository?: ReturnType<typeof makeEventsRepository>;
 }) =>
 	Layer.mergeAll(
-		dbRunnerLayer,
+		databaseLayer,
 		Layer.succeed(WorkflowEngine, input.workflowEngine ?? makeWorkflowEngine()),
 		input.eventsRepository ?? makeEventsRepository(),
 	);
 
 const makeEventsServiceLayer = (input: Parameters<typeof makeServiceLayer>[0]) =>
-	EventsService.layer.pipe(Layer.provide(makeServiceLayer(input)));
+	EventsService.layer.pipe(Layer.provideMerge(makeServiceLayer(input)));
 
 it.effect("routes per-event deletes and reference moves through the repository", () => {
 	const calls: string[] = [];

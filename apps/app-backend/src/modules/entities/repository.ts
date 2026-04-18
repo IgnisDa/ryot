@@ -5,7 +5,7 @@ import { and, asc, count, eq, inArray, isNull, sql } from "drizzle-orm";
 import { Context, Effect, Layer } from "effect";
 
 import * as schema from "#lib/infrastructure/db/schema/tables/combined";
-import { CurrentDb, dbEffect } from "#lib/infrastructure/db/service";
+import { Database, mapDatabaseErrors } from "#lib/infrastructure/db/service";
 import { DefinitionRegistry } from "#modules/definition-registry/service";
 import { PluginRuntimeResolver } from "#modules/plugins/runtime-resolver";
 
@@ -58,8 +58,8 @@ export class EntitiesRepository extends Context.Service<EntitiesRepository>()(
 			const listMatchCandidatesBySchema = Effect.fn(
 				"EntitiesRepository.listMatchCandidatesBySchema",
 			)(function* (input: { userId: UserId; entitySchemaSlug: EntitySchemaSlug }) {
-				const db = yield* CurrentDb;
-				const rows = yield* dbEffect(() =>
+				const db = yield* Database;
+				const rows = yield* mapDatabaseErrors(
 					db
 						.select(entitySelection)
 						.from(schema.entity)
@@ -84,8 +84,8 @@ export class EntitiesRepository extends Context.Service<EntitiesRepository>()(
 						return [];
 					}
 
-					const db = yield* CurrentDb;
-					const rows = yield* dbEffect(() =>
+					const db = yield* Database;
+					const rows = yield* mapDatabaseErrors(
 						db
 							.select({
 								id: schema.entity.id,
@@ -124,8 +124,8 @@ export class EntitiesRepository extends Context.Service<EntitiesRepository>()(
 			const findUserEntityWithoutProvenance = Effect.fn(
 				"EntitiesRepository.findUserEntityWithoutProvenance",
 			)(function* (input: { userId: UserId; entitySchemaSlug: EntitySchemaSlug }) {
-				const db = yield* CurrentDb;
-				const [row] = yield* dbEffect(() =>
+				const db = yield* Database;
+				const [row] = yield* mapDatabaseErrors(
 					db
 						.select(entitySelection)
 						.from(schema.entity)
@@ -145,10 +145,10 @@ export class EntitiesRepository extends Context.Service<EntitiesRepository>()(
 
 			const lockUserEntityEnsureScopes = Effect.fn("EntitiesRepository.lockUserEntityEnsureScopes")(
 				function* (input: { userId: UserId; entitySchemaSlugs: ReadonlyArray<EntitySchemaSlug> }) {
-					const db = yield* CurrentDb;
+					const db = yield* Database;
 					const scopes = [...new Set(input.entitySchemaSlugs)].sort();
 					for (const entitySchemaSlug of scopes) {
-						yield* dbEffect(() =>
+						yield* mapDatabaseErrors(
 							db.execute(
 								sql`select pg_advisory_xact_lock(hashtext(${`user-entity:ensure:${input.userId}:${entitySchemaSlug}`}))`,
 							),
@@ -159,8 +159,8 @@ export class EntitiesRepository extends Context.Service<EntitiesRepository>()(
 
 			const getEntityScopeForUser = Effect.fn("EntitiesRepository.getEntityScopeForUser")(
 				function* (input: { userId: UserId; entityId: EntityId }) {
-					const db = yield* CurrentDb;
-					const [row] = yield* dbEffect(() =>
+					const db = yield* Database;
+					const [row] = yield* mapDatabaseErrors(
 						db
 							.select({
 								entityId: schema.entity.id,
@@ -191,8 +191,8 @@ export class EntitiesRepository extends Context.Service<EntitiesRepository>()(
 
 			const getEntityMergeScopeForUser = Effect.fn("EntitiesRepository.getEntityMergeScopeForUser")(
 				function* (input: { userId: UserId; entityId: EntityId }) {
-					const db = yield* CurrentDb;
-					const [row] = yield* dbEffect(() =>
+					const db = yield* Database;
+					const [row] = yield* mapDatabaseErrors(
 						db
 							.select({
 								entityId: schema.entity.id,
@@ -223,8 +223,8 @@ export class EntitiesRepository extends Context.Service<EntitiesRepository>()(
 				userId: UserId;
 				entityId: EntityId;
 			}) {
-				const db = yield* CurrentDb;
-				const [row] = yield* dbEffect(() =>
+				const db = yield* Database;
+				const [row] = yield* mapDatabaseErrors(
 					db
 						.select(entitySelection)
 						.from(schema.entity)
@@ -245,8 +245,8 @@ export class EntitiesRepository extends Context.Service<EntitiesRepository>()(
 					return [];
 				}
 
-				const db = yield* CurrentDb;
-				const rows = yield* dbEffect(() =>
+				const db = yield* Database;
+				const rows = yield* mapDatabaseErrors(
 					db
 						.select(entitySelection)
 						.from(schema.entity)
@@ -262,8 +262,8 @@ export class EntitiesRepository extends Context.Service<EntitiesRepository>()(
 			});
 
 			const getById = Effect.fn("EntitiesRepository.getById")(function* (entityId: EntityId) {
-				const db = yield* CurrentDb;
-				const [row] = yield* dbEffect(() =>
+				const db = yield* Database;
+				const [row] = yield* mapDatabaseErrors(
 					db
 						.select(entitySelection)
 						.from(schema.entity)
@@ -276,8 +276,8 @@ export class EntitiesRepository extends Context.Service<EntitiesRepository>()(
 			const findGlobalEntityById = Effect.fn("EntitiesRepository.findGlobalEntityById")(function* (
 				entityId: EntityId,
 			) {
-				const db = yield* CurrentDb;
-				const [row] = yield* dbEffect(() =>
+				const db = yield* Database;
+				const [row] = yield* mapDatabaseErrors(
 					db
 						.select({ id: schema.entity.id })
 						.from(schema.entity)
@@ -295,8 +295,8 @@ export class EntitiesRepository extends Context.Service<EntitiesRepository>()(
 				entitySchemaSlug: EntitySchemaSlug;
 				providerId: SandboxProviderId;
 			}) {
-				const db = yield* CurrentDb;
-				const [row] = yield* dbEffect(() =>
+				const db = yield* Database;
+				const [row] = yield* mapDatabaseErrors(
 					db
 						.select(entitySelection)
 						.from(schema.entity)
@@ -321,8 +321,8 @@ export class EntitiesRepository extends Context.Service<EntitiesRepository>()(
 				entitySchemaSlug: EntitySchemaSlug;
 				providerId: SandboxProviderId;
 			}) {
-				const db = yield* CurrentDb;
-				const [row] = yield* dbEffect(() =>
+				const db = yield* Database;
+				const [row] = yield* mapDatabaseErrors(
 					db
 						.select(entitySelection)
 						.from(schema.entity)
@@ -343,16 +343,18 @@ export class EntitiesRepository extends Context.Service<EntitiesRepository>()(
 			const lockGlobalEntityProvenanceScope = Effect.fn(
 				"EntitiesRepository.lockGlobalEntityProvenanceScope",
 			)(function* (input: GlobalEntityProvenanceScopeInput) {
-				const db = yield* CurrentDb;
+				const db = yield* Database;
 				const lockKey = `global-entities:${input.entitySchemaSlug}:${input.providerId}`;
-				yield* dbEffect(() => db.execute(sql`select pg_advisory_xact_lock(hashtext(${lockKey}))`));
+				yield* mapDatabaseErrors(
+					db.execute(sql`select pg_advisory_xact_lock(hashtext(${lockKey}))`),
+				);
 			});
 
 			const countGlobalEntitiesByProvenanceScope = Effect.fn(
 				"EntitiesRepository.countGlobalEntitiesByProvenanceScope",
 			)(function* (input: GlobalEntityProvenanceScopeInput) {
-				const db = yield* CurrentDb;
-				const [row] = yield* dbEffect(() =>
+				const db = yield* Database;
+				const [row] = yield* mapDatabaseErrors(
 					db
 						.select({ count: count() })
 						.from(schema.entity)
@@ -399,7 +401,7 @@ export class EntitiesRepository extends Context.Service<EntitiesRepository>()(
 			const insertEntity = Effect.fn("EntitiesRepository.insertEntity")(function* (
 				input: InsertEntityInput,
 			) {
-				const db = yield* CurrentDb;
+				const db = yield* Database;
 
 				if (input.scope === "global") {
 					const externalId = input.externalId;
@@ -415,7 +417,7 @@ export class EntitiesRepository extends Context.Service<EntitiesRepository>()(
 					};
 
 					if (!externalId || !providerId) {
-						const [row] = yield* dbEffect(() =>
+						const [row] = yield* mapDatabaseErrors(
 							db.insert(schema.entity).values(values).returning(entitySelection),
 						);
 						if (!row) {
@@ -424,7 +426,7 @@ export class EntitiesRepository extends Context.Service<EntitiesRepository>()(
 						return { entity: toListedEntity(row), wasInserted: true };
 					}
 
-					const inserted = yield* dbEffect(() =>
+					const inserted = yield* mapDatabaseErrors(
 						db
 							.insert(schema.entity)
 							.values(values)
@@ -436,7 +438,7 @@ export class EntitiesRepository extends Context.Service<EntitiesRepository>()(
 						return { entity: toListedEntity(inserted[0]), wasInserted: true };
 					}
 
-					const [existing] = yield* dbEffect(() =>
+					const [existing] = yield* mapDatabaseErrors(
 						db
 							.select(entitySelection)
 							.from(schema.entity)
@@ -471,7 +473,7 @@ export class EntitiesRepository extends Context.Service<EntitiesRepository>()(
 				};
 
 				if (externalId && providerId) {
-					const rows = yield* dbEffect(() =>
+					const rows = yield* mapDatabaseErrors(
 						db
 							.insert(schema.entity)
 							.values(values)
@@ -491,7 +493,7 @@ export class EntitiesRepository extends Context.Service<EntitiesRepository>()(
 						return { entity: toListedEntity(created), wasInserted: true };
 					}
 
-					const [row] = yield* dbEffect(() =>
+					const [row] = yield* mapDatabaseErrors(
 						db
 							.select(entitySelection)
 							.from(schema.entity)
@@ -516,7 +518,7 @@ export class EntitiesRepository extends Context.Service<EntitiesRepository>()(
 					return yield* new DbError({ message: "Entity insert returned no row" });
 				}
 
-				const [row] = yield* dbEffect(() =>
+				const [row] = yield* mapDatabaseErrors(
 					db.insert(schema.entity).values(values).returning(entitySelection),
 				);
 
@@ -530,8 +532,8 @@ export class EntitiesRepository extends Context.Service<EntitiesRepository>()(
 			const updateEntity = Effect.fn("EntitiesRepository.updateEntity")(function* (
 				input: UpdateEntityInput,
 			) {
-				const db = yield* CurrentDb;
-				const [updated] = yield* dbEffect(() =>
+				const db = yield* Database;
+				const [updated] = yield* mapDatabaseErrors(
 					db
 						.update(schema.entity)
 						.set({
@@ -553,8 +555,8 @@ export class EntitiesRepository extends Context.Service<EntitiesRepository>()(
 			const deleteByIds = Effect.fn("EntitiesRepository.deleteByIds")(function* (
 				ids: readonly [EntityId, ...EntityId[]],
 			) {
-				const db = yield* CurrentDb;
-				const rows = yield* dbEffect(() =>
+				const db = yield* Database;
+				const rows = yield* mapDatabaseErrors(
 					db
 						.delete(schema.entity)
 						.where(inArray(schema.entity.id, [...ids]))

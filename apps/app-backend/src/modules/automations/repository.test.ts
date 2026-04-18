@@ -3,7 +3,7 @@ import { AutomationRuleId, SignalSchemaSlug, UserId } from "@ryot/contract/schem
 import { PgDialect } from "drizzle-orm/pg-core";
 import { Effect, Layer } from "effect";
 
-import { CurrentDb } from "#lib/infrastructure/db/service";
+import { Database } from "#lib/infrastructure/db/service";
 
 import { AutomationsRepository } from "./repository";
 
@@ -28,8 +28,8 @@ const makeDb = () => {
 			where: (condition: Parameters<typeof dialect.sqlToQuery>[0]) => {
 				state.queryParams = dialect.sqlToQuery(condition).params;
 				return {
-					limit: () => Promise.resolve([row]),
-					orderBy: () => Promise.resolve([row]),
+					limit: () => Effect.succeed([row]),
+					orderBy: () => Effect.succeed([row]),
 				};
 			},
 		}),
@@ -40,7 +40,7 @@ const makeDb = () => {
 const makeLayer = (db: ReturnType<typeof makeDb>) =>
 	Layer.mergeAll(
 		AutomationsRepository.layer,
-		Layer.succeed(CurrentDb, Object.assign(Object.create(null), db)),
+		Layer.succeed(Database, Object.assign(Object.create(null), db)),
 	);
 
 it.effect("preserves falsy JSON metadata loaded from notification state", () => {

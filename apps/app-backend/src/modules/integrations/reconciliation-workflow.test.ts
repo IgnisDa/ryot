@@ -3,7 +3,7 @@ import { ImportRunId, IntegrationId, UserId } from "@ryot/contract/schema/brands
 import { Effect, Layer } from "effect";
 import { WorkflowEngine, WorkflowInstance } from "effect/unstable/workflow/WorkflowEngine";
 
-import { makeWorkflowActivityEngine } from "#lib/test-utils/effect";
+import { databaseLayer, makeWorkflowActivityEngine } from "#lib/test-utils/effect";
 
 import type { IntegrationReconciliationRun } from "./jobs";
 import {
@@ -49,7 +49,7 @@ const withEngine = <A, E, R>(
 	return effect.pipe(
 		Effect.provideService(WorkflowInstance, instance),
 		Effect.provideService(WorkflowEngine, engine),
-		Effect.provide(makeIntegrationsService(options.runs)),
+		Effect.provide(Layer.mergeAll(databaseLayer, makeIntegrationsService(options.runs))),
 	);
 };
 

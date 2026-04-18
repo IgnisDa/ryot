@@ -2,7 +2,7 @@ import { assert, expect, it } from "@effect/vitest";
 import { EntityId, RelationshipId, RelationshipSchemaSlug } from "@ryot/contract/schema/brands";
 import { Effect, Layer } from "effect";
 
-import { dbRunnerLayer } from "#lib/test-utils/effect";
+import { databaseLayer } from "#lib/test-utils/effect";
 import { EntitiesRepository } from "#modules/entities/repository";
 import { RelationshipsRepository } from "#modules/relationships/repository";
 import { RelationshipsService } from "#modules/relationships/service";
@@ -113,7 +113,7 @@ it.effect(
 			delete: () => Effect.succeed(stale),
 		});
 		const layer = Layer.mergeAll(
-			dbRunnerLayer,
+			databaseLayer,
 			entitiesRepository,
 			relationshipsRepository,
 			relationshipsService,
@@ -176,7 +176,7 @@ it.effect("preserves different existing properties as a noop", () => {
 		createdAt: "2026-01-01T00:00:00.000Z",
 	});
 	const layer = Layer.mergeAll(
-		dbRunnerLayer,
+		databaseLayer,
 		Layer.mock(EntitiesRepository)({
 			listEntityReferencesByIds: (ids) =>
 				Effect.succeed(ids.map((id) => ({ id, name: `Entity ${id}`, entitySchemaSlug: "person" }))),
@@ -228,7 +228,7 @@ it.effect(
 				id: RelationshipId.make("person-movie"),
 			});
 			const layer = Layer.mergeAll(
-				dbRunnerLayer,
+				databaseLayer,
 				Layer.mock(EntitiesRepository)({
 					listEntityReferencesByIds: (ids) =>
 						Effect.succeed(

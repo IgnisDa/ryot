@@ -11,7 +11,6 @@ import type {
 import { Context, DateTime, Effect, Result, Layer } from "effect";
 import { WorkflowEngine } from "effect/unstable/workflow/WorkflowEngine";
 
-import { DbRunner } from "#lib/infrastructure/db/service";
 import { RedisService } from "#lib/infrastructure/redis";
 import {
 	ImportSourceCatalog,
@@ -65,10 +64,10 @@ export type DeleteImportRunInput = {
 const isTerminalStatus = (status: ImportRunStatus): boolean =>
 	status === "completed" || status === "failed";
 
+/** @effect-expect-leaking Database */
 export class ImportsService extends Context.Service<ImportsService>()("ImportsService", {
 	make: Effect.gen(function* () {
 		const redis = yield* RedisService;
-		const runWithDb = yield* DbRunner;
 		const engine = yield* WorkflowEngine;
 		const uploads = yield* UploadsService;
 		const repository = yield* ImportsRepository;
@@ -77,15 +76,15 @@ export class ImportsService extends Context.Service<ImportsService>()("ImportsSe
 		const failureService = yield* ImportRunFailuresService;
 
 		const create = Effect.fn("ImportsService.create")(function* (input: CreateImportRunInput) {
-			return yield* runWithDb(repository.createRun(input));
+			return yield* repository.createRun(input);
 		});
 
 		const update = Effect.fn("ImportsService.update")(function* (input: UpdateImportRunInput) {
-			yield* runWithDb(repository.updateRun(input));
+			yield* repository.updateRun(input);
 		});
 
 		const deleteRun = Effect.fn("ImportsService.delete")(function* (input: DeleteImportRunInput) {
-			yield* runWithDb(repository.deleteRunById(input));
+			yield* repository.deleteRunById(input);
 		});
 
 		const failRun = (runId: ImportRunId, errorSummary: string) =>
@@ -293,7 +292,7 @@ export class ImportsService extends Context.Service<ImportsService>()("ImportsSe
 				return yield* badRequest("Import source is not available");
 			}
 			const registered = resolution.source;
-			const workflowScript = yield* runWithDb(resolution.script);
+			const workflowScript = yield* resolution.script;
 			if (!workflowScript) {
 				return yield* badRequest("Import source workflow is not available");
 			}
@@ -331,7 +330,7 @@ export class ImportsService extends Context.Service<ImportsService>()("ImportsSe
 			user: CurrentUserValue,
 			runId: ImportRunId,
 		) {
-			const run = yield* runWithDb(repository.getRunById({ runId, userId: user.id }));
+			const run = yield* repository.getRunById({ runId, userId: user.id });
 			if (!run) {
 				return yield* notFound("Import run not found");
 			}
@@ -352,7 +351,7 @@ export class ImportsService extends Context.Service<ImportsService>()("ImportsSe
 		});
 
 		const hasActiveRunForIntegration = (input: { integrationId: IntegrationId }) =>
-			runWithDb(repository.hasActiveRunForIntegration(input));
+			repository.hasActiveRunForIntegration(input);
 
 		const createRunForIntegration = (input: {
 			userId: UserId;

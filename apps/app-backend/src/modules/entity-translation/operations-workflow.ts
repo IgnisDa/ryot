@@ -3,7 +3,7 @@ import { toSandboxRunError } from "@ryot/contract/errors";
 import { Context, Effect, Layer } from "effect";
 import type { WorkflowEngine, WorkflowInstance } from "effect/unstable/workflow/WorkflowEngine";
 
-import { DbRunner } from "#lib/infrastructure/db/service";
+import { Database } from "#lib/infrastructure/db/service";
 import {
 	PluginRuntimeResolver,
 	type UnsupportedProviderOperationError,
@@ -17,12 +17,11 @@ const processSandboxTranslation = Effect.fn("processSandboxTranslation")(functio
 	payload: TranslateEntityWorkflowPayload,
 	executionId: string,
 ) {
-	const runWithDb = yield* DbRunner;
 	const sandbox = yield* SandboxExecutionService;
 	const pluginRuntime = yield* PluginRuntimeResolver;
-	const script = yield* runWithDb(pluginRuntime.resolveTranslateScript(payload.providerId)).pipe(
-		Effect.catchTag("DbError", (error) => Effect.fail(toSandboxRunError(error))),
-	);
+	const script = yield* pluginRuntime
+		.resolveTranslateScript(payload.providerId)
+		.pipe(Effect.catchTag("DbError", (error) => Effect.fail(toSandboxRunError(error))));
 	return yield* sandbox
 		.executeScript({
 			scriptId: script.id,
@@ -57,13 +56,13 @@ export class TranslateEntityWorkflowOperations extends Context.Service<
 export const TranslateEntityWorkflowOperationsLive = Layer.effect(
 	TranslateEntityWorkflowOperations,
 	Effect.gen(function* () {
-		const runWithDb = yield* DbRunner;
+		const database = yield* Database;
 		const sandbox = yield* SandboxExecutionService;
 		const pluginRuntime = yield* PluginRuntimeResolver;
 		return {
 			processSandbox: (payload, executionId) =>
 				processSandboxTranslation(payload, executionId).pipe(
-					Effect.provideService(DbRunner, runWithDb),
+					Effect.provideService(Database, database),
 					Effect.provideService(PluginRuntimeResolver, pluginRuntime),
 					Effect.provideService(SandboxExecutionService, sandbox),
 				),

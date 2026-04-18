@@ -8,7 +8,7 @@ import {
 import { PgDialect } from "drizzle-orm/pg-core";
 import { Effect, Layer } from "effect";
 
-import { CurrentDb } from "#lib/infrastructure/db/service";
+import { Database } from "#lib/infrastructure/db/service";
 
 import { RelationshipsRepository } from "./repository";
 
@@ -85,16 +85,16 @@ const makeDb = (initialRows: ReadonlyArray<StoredRelationship> = []) => {
 		from: () => ({
 			where: (condition: RenderableSql) => {
 				const rows = () => state.rows.filter((row) => matches(condition, row));
-				const limited = Object.assign(Promise.resolve(rows().slice(0, 1)), {
+				const limited = Object.assign(Effect.succeed(rows().slice(0, 1)), {
 					for: () => {
 						state.forUpdateCalls += 1;
-						return Promise.resolve(rows().slice(0, 1));
+						return Effect.succeed(rows().slice(0, 1));
 					},
 				});
 				return {
 					for: () => {
 						state.forUpdateCalls += 1;
-						return Promise.resolve(rows());
+						return Effect.succeed(rows());
 					},
 					limit: () => limited,
 				};
@@ -129,7 +129,7 @@ const makeDb = (initialRows: ReadonlyArray<StoredRelationship> = []) => {
 				}
 				return {
 					returning: () =>
-						Promise.resolve(inserted.map((row) => Object.assign({}, row, { wasInserted: true }))),
+						Effect.succeed(inserted.map((row) => Object.assign({}, row, { wasInserted: true }))),
 				};
 			};
 
@@ -145,7 +145,7 @@ const makeDb = (initialRows: ReadonlyArray<StoredRelationship> = []) => {
 					for (const row of updated) {
 						Object.assign(row, values);
 					}
-					return Promise.resolve(updated);
+					return Effect.succeed(updated);
 				},
 			}),
 		}),
@@ -156,7 +156,7 @@ const makeDb = (initialRows: ReadonlyArray<StoredRelationship> = []) => {
 			returning: () => {
 				const deleted = state.rows.filter((row) => matches(condition, row));
 				state.rows = state.rows.filter((row) => !matches(condition, row));
-				return Promise.resolve(deleted);
+				return Effect.succeed(deleted);
 			},
 		}),
 	});
@@ -165,7 +165,7 @@ const makeDb = (initialRows: ReadonlyArray<StoredRelationship> = []) => {
 		delete: remove,
 		execute: () => {
 			state.executeCalls += 1;
-			return Promise.resolve(undefined);
+			return Effect.void;
 		},
 		insert,
 		select,
@@ -177,7 +177,7 @@ const makeDb = (initialRows: ReadonlyArray<StoredRelationship> = []) => {
 const makeLayer = (db: object) =>
 	Layer.mergeAll(
 		RelationshipsRepository.layer,
-		Layer.succeed(CurrentDb, Object.assign(Object.create(null), db)),
+		Layer.succeed(Database, Object.assign(Object.create(null), db)),
 	);
 
 const globalInput = {

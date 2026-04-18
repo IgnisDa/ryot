@@ -9,7 +9,7 @@ import type { AppSchema } from "@ryot/contract/schema/property-schema";
 import { isObjectRecord } from "@ryot/ts-utils/predicates";
 import { Context, Effect, Layer } from "effect";
 
-import { DbRunner, TransactionRunner } from "#lib/infrastructure/db/service";
+import { Database, mapDatabaseErrors } from "#lib/infrastructure/db/service";
 import { parseAppSchemaProperties } from "#lib/property-schema/property-schema-runtime";
 import { DefinitionRegistry } from "#modules/definition-registry/service";
 import { EntitiesRepository } from "#modules/entities/repository";
@@ -61,9 +61,9 @@ export const changeUserRelationships = Effect.fn("RelationshipsService.changeUse
 	batches: ReadonlyArray<ChangeUserRelationshipBatch>,
 ) {
 	const entities = yield* EntitiesRepository;
+	const database = yield* Database;
 	const definitions = yield* DefinitionRegistry;
 	const repository = yield* RelationshipsRepository;
-	const runInTransaction = yield* TransactionRunner;
 
 	const validate = Effect.fn("RelationshipsService.validateUserChange")(function* (
 		change: UserRelationshipIdentity,
@@ -95,134 +95,140 @@ export const changeUserRelationships = Effect.fn("RelationshipsService.changeUse
 	});
 
 	return yield* Effect.forEach(batches, (batch) =>
-		runInTransaction(
-			Effect.gen(function* () {
-				let created = 0;
-				let deleted = 0;
-				for (const create of batch.creates) {
-					const definition = yield* validate(create);
-					const properties = yield* parseAppSchemaProperties({
-						kind: "Relationship",
-						properties: create.properties,
-						propertiesSchema: definition.propertiesSchema,
-					}).pipe(Effect.mapError((error) => badRequest(error.message)));
-					const saved = yield* repository.createRelationship({
-						...create,
-						properties,
-						userId,
-						scope: "user",
-					});
-					if (saved.wasInserted) {
-						created += 1;
+		mapDatabaseErrors(
+			database.transaction((transaction) =>
+				Effect.gen(function* () {
+					let created = 0;
+					let deleted = 0;
+					for (const create of batch.creates) {
+						const definition = yield* validate(create);
+						const properties = yield* parseAppSchemaProperties({
+							kind: "Relationship",
+							properties: create.properties,
+							propertiesSchema: definition.propertiesSchema,
+						}).pipe(Effect.mapError((error) => badRequest(error.message)));
+						const saved = yield* repository.createRelationship({
+							...create,
+							properties,
+							userId,
+							scope: "user",
+						});
+						if (saved.wasInserted) {
+							created += 1;
+						}
 					}
-				}
-				for (const remove of batch.deletes) {
-					yield* validate(remove);
-					const removed = yield* repository.deleteRelationship({
-						...remove,
-						userId,
-						scope: "user",
-					});
-					if (removed) {
-						deleted += 1;
+					for (const remove of batch.deletes) {
+						yield* validate(remove);
+						const removed = yield* repository.deleteRelationship({
+							...remove,
+							userId,
+							scope: "user",
+						});
+						if (removed) {
+							deleted += 1;
+						}
 					}
-				}
-				return { created, deleted };
-			}),
+					return { created, deleted };
+				}).pipe(Effect.provideService(Database, transaction)),
+			),
 		),
 	);
 });
 
 export const reconcileGlobalRelationships = Effect.fn("RelationshipsService.reconcileGlobal")(
 	function* (groups: ReadonlyArray<ReconcileGlobalRelationshipGroup>) {
-		const runInTransaction = yield* TransactionRunner;
+		const database = yield* Database;
 		const definitions = yield* DefinitionRegistry;
 		const repository = yield* RelationshipsRepository;
 
 		return yield* Effect.forEach(groups, (group) =>
-			runInTransaction(
-				Effect.gen(function* () {
-					const propertiesSchema = definitions.getRelationshipSchema(
-						group.relationshipSchemaSlug,
-					)?.propertiesSchema;
-					if (!propertiesSchema) {
-						return yield* notFound("Relationship schema not found");
-					}
+			mapDatabaseErrors(
+				database.transaction((transaction) =>
+					Effect.gen(function* () {
+						const propertiesSchema = definitions.getRelationshipSchema(
+							group.relationshipSchemaSlug,
+						)?.propertiesSchema;
+						if (!propertiesSchema) {
+							return yield* notFound("Relationship schema not found");
+						}
 
-					const selector = {
-						...group.selector,
-						relationshipSchemaSlug: group.relationshipSchemaSlug,
-					} as GlobalRelationshipListInput;
-					const existing = yield* repository.listGlobalRelationships(selector);
-					const seen = new Set<string>();
-					const relationships = yield* Effect.forEach(group.relationships, (relationship) =>
-						Effect.gen(function* () {
-							let matchesSelector = relationship.sourceEntityId === relationship.targetEntityId;
-							if (group.selector.type === "anchored") {
-								matchesSelector =
-									group.selector.direction === "outgoing"
-										? relationship.sourceEntityId === group.selector.anchorEntityId
-										: relationship.targetEntityId === group.selector.anchorEntityId;
-							}
-							if (!matchesSelector) {
-								return yield* badRequest("Relationship does not match its reconciliation selector");
-							}
-
-							const key = relationshipKey(relationship);
-							if (seen.has(key)) {
-								return yield* badRequest("Reconciliation group contains duplicate relationships");
-							}
-							seen.add(key);
-
-							const properties = yield* parseAppSchemaProperties({
-								propertiesSchema,
-								kind: "Relationship",
-								properties: relationship.properties,
-							}).pipe(Effect.mapError((error) => badRequest(error.message)));
-							return { ...relationship, properties };
-						}),
-					);
-
-					for (const relationship of relationships) {
-						const input = {
-							...relationship,
-							scope: "global" as const,
+						const selector = {
+							...group.selector,
 							relationshipSchemaSlug: group.relationshipSchemaSlug,
-						};
-						const saved = yield* repository.createRelationship(input);
-						if (!saved.wasInserted) {
-							yield* repository.updateRelationship(input);
-						}
-					}
+						} as GlobalRelationshipListInput;
+						const existing = yield* repository.listGlobalRelationships(selector);
+						const seen = new Set<string>();
+						const relationships = yield* Effect.forEach(group.relationships, (relationship) =>
+							Effect.gen(function* () {
+								let matchesSelector = relationship.sourceEntityId === relationship.targetEntityId;
+								if (group.selector.type === "anchored") {
+									matchesSelector =
+										group.selector.direction === "outgoing"
+											? relationship.sourceEntityId === group.selector.anchorEntityId
+											: relationship.targetEntityId === group.selector.anchorEntityId;
+								}
+								if (!matchesSelector) {
+									return yield* badRequest(
+										"Relationship does not match its reconciliation selector",
+									);
+								}
 
-					let deleted = 0;
-					for (const relationship of existing) {
-						if (seen.has(relationshipKey(relationship))) {
-							continue;
-						}
-						const removed = yield* repository.deleteRelationship({
-							scope: "global",
-							sourceEntityId: relationship.sourceEntityId,
-							targetEntityId: relationship.targetEntityId,
-							relationshipSchemaSlug: group.relationshipSchemaSlug,
-						});
-						if (removed) {
-							deleted += 1;
-						}
-					}
+								const key = relationshipKey(relationship);
+								if (seen.has(key)) {
+									return yield* badRequest("Reconciliation group contains duplicate relationships");
+								}
+								seen.add(key);
 
-					return { deleted, upserted: relationships.length };
-				}),
+								const properties = yield* parseAppSchemaProperties({
+									propertiesSchema,
+									kind: "Relationship",
+									properties: relationship.properties,
+								}).pipe(Effect.mapError((error) => badRequest(error.message)));
+								return { ...relationship, properties };
+							}),
+						);
+
+						for (const relationship of relationships) {
+							const input = {
+								...relationship,
+								scope: "global" as const,
+								relationshipSchemaSlug: group.relationshipSchemaSlug,
+							};
+							const saved = yield* repository.createRelationship(input);
+							if (!saved.wasInserted) {
+								yield* repository.updateRelationship(input);
+							}
+						}
+
+						let deleted = 0;
+						for (const relationship of existing) {
+							if (seen.has(relationshipKey(relationship))) {
+								continue;
+							}
+							const removed = yield* repository.deleteRelationship({
+								scope: "global",
+								sourceEntityId: relationship.sourceEntityId,
+								targetEntityId: relationship.targetEntityId,
+								relationshipSchemaSlug: group.relationshipSchemaSlug,
+							});
+							if (removed) {
+								deleted += 1;
+							}
+						}
+
+						return { deleted, upserted: relationships.length };
+					}).pipe(Effect.provideService(Database, transaction)),
+				),
 			),
 		);
 	},
 );
 
+/** @effect-expect-leaking Database */
 export class RelationshipsService extends Context.Service<RelationshipsService>()(
 	"RelationshipsService",
 	{
 		make: Effect.gen(function* () {
-			const runWithDb = yield* DbRunner;
 			const repository = yield* RelationshipsRepository;
 
 			const parseProperties = Effect.fn("RelationshipsService.parseProperties")(function* (input: {
@@ -245,7 +251,7 @@ export class RelationshipsService extends Context.Service<RelationshipsService>(
 					properties: input.properties,
 				});
 
-				return yield* runWithDb(repository.createRelationship({ ...saveInput, properties }));
+				return yield* repository.createRelationship({ ...saveInput, properties });
 			});
 
 			const update = Effect.fn("RelationshipsService.update")(function* (
@@ -256,9 +262,7 @@ export class RelationshipsService extends Context.Service<RelationshipsService>(
 					propertiesSchema,
 					properties: input.properties,
 				});
-				const updated = yield* runWithDb(
-					repository.updateRelationship({ ...updateInput, properties }),
-				);
+				const updated = yield* repository.updateRelationship({ ...updateInput, properties });
 				if (!updated) {
 					return yield* notFound("Relationship not found");
 				}
@@ -268,70 +272,72 @@ export class RelationshipsService extends Context.Service<RelationshipsService>(
 			const mergeUserProperties = Effect.fn("RelationshipsService.mergeUserProperties")(function* (
 				input: CreateRelationshipInput & { userId: UserId },
 			) {
-				const runInTransaction = yield* TransactionRunner;
-				return yield* runInTransaction(
-					Effect.gen(function* () {
-						const merge = (existing: unknown) => {
-							const current = isObjectRecord(existing) ? existing : {};
-							const incoming = isObjectRecord(input.properties) ? input.properties : {};
-							const merged = { ...current, ...incoming };
-							for (const [key, value] of Object.entries(incoming)) {
-								if (Array.isArray(value) && Array.isArray(current[key])) {
-									const seen = new Set<string>();
-									merged[key] = [...current[key], ...value].filter((item) => {
-										const encoded = JSON.stringify(item);
-										if (seen.has(encoded)) {
-											return false;
-										}
-										seen.add(encoded);
-										return true;
-									});
+				const database = yield* Database;
+				return yield* mapDatabaseErrors(
+					database.transaction((transaction) =>
+						Effect.gen(function* () {
+							const merge = (existing: unknown) => {
+								const current = isObjectRecord(existing) ? existing : {};
+								const incoming = isObjectRecord(input.properties) ? input.properties : {};
+								const merged = { ...current, ...incoming };
+								for (const [key, value] of Object.entries(incoming)) {
+									if (Array.isArray(value) && Array.isArray(current[key])) {
+										const seen = new Set<string>();
+										merged[key] = [...current[key], ...value].filter((item) => {
+											const encoded = JSON.stringify(item);
+											if (seen.has(encoded)) {
+												return false;
+											}
+											seen.add(encoded);
+											return true;
+										});
+									}
 								}
+								return parseProperties({
+									properties: merged,
+									propertiesSchema: input.propertiesSchema,
+								});
+							};
+							const { propertiesSchema: _propertiesSchema, ...saveInput } = input;
+							const existing = yield* repository.findRelationshipProperties(input);
+							const properties = yield* merge(existing);
+							if (existing) {
+								return yield* repository.updateRelationship({ ...saveInput, properties });
 							}
-							return parseProperties({
-								properties: merged,
-								propertiesSchema: input.propertiesSchema,
+							const created = yield* repository.createRelationship({ ...saveInput, properties });
+							if (created.wasInserted) {
+								return created;
+							}
+							const conflicted = yield* repository.findRelationshipProperties(input);
+							const updated = yield* repository.updateRelationship({
+								...saveInput,
+								properties: yield* merge(conflicted),
 							});
-						};
-						const { propertiesSchema: _propertiesSchema, ...saveInput } = input;
-						const existing = yield* repository.findRelationshipProperties(input);
-						const properties = yield* merge(existing);
-						if (existing) {
-							return yield* repository.updateRelationship({ ...saveInput, properties });
-						}
-						const created = yield* repository.createRelationship({ ...saveInput, properties });
-						if (created.wasInserted) {
-							return created;
-						}
-						const conflicted = yield* repository.findRelationshipProperties(input);
-						const updated = yield* repository.updateRelationship({
-							...saveInput,
-							properties: yield* merge(conflicted),
-						});
-						if (!updated) {
-							return yield* notFound("Relationship not found after create conflict");
-						}
-						return updated;
-					}),
+							if (!updated) {
+								return yield* notFound("Relationship not found after create conflict");
+							}
+							return updated;
+						}).pipe(Effect.provideService(Database, transaction)),
+					),
 				);
 			});
 
 			const deleteRelationship = Effect.fn("RelationshipsService.delete")(function* (
 				input: RelationshipIdentityInput,
 			) {
-				return yield* runWithDb(repository.deleteRelationship(input));
+				return yield* repository.deleteRelationship(input);
 			});
 
 			const deleteUserRelationshipById = Effect.fn(
 				"RelationshipsService.deleteUserRelationshipById",
 			)(function* (userId: UserId, relationshipId: RelationshipId) {
-				return yield* runWithDb(repository.deleteUserRelationshipById(userId, relationshipId));
+				return yield* repository.deleteUserRelationshipById(userId, relationshipId);
 			});
 
 			const listGlobal = Effect.fn("RelationshipsService.listGlobal")(function* (
 				input: GlobalRelationshipListInput,
 			) {
-				return yield* runWithDb(repository.listGlobalRelationships(input));
+				return yield* repository.listGlobalRelationships(input);
 			});
 
 			return {

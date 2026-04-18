@@ -13,7 +13,8 @@ import { Effect, Exit, Layer } from "effect";
 import { PersistedQueue } from "effect/unstable/persistence";
 import { WorkflowEngine, WorkflowInstance } from "effect/unstable/workflow/WorkflowEngine";
 
-import { makeWorkflowActivityEngine } from "#lib/test-utils/effect";
+import type { Database } from "#lib/infrastructure/db/service";
+import { databaseLayer, makeWorkflowActivityEngine } from "#lib/test-utils/effect";
 import type { ResolvedAutomationRule } from "#modules/plugins/runtime-resolver";
 
 import type { StoredSubscriptionRun } from "./repository";
@@ -101,6 +102,7 @@ const withWorkflowLayer = <A, E>(
 		| WorkflowEngine
 		| WorkflowInstance
 		| AutomationsService
+		| Database
 		| PersistedQueue.PersistedQueueFactory
 		| SubscriptionExecutionWorkflowOperations
 	>,
@@ -109,6 +111,7 @@ const withWorkflowLayer = <A, E>(
 	return effect.pipe(
 		Effect.provide(
 			Layer.mergeAll(
+				databaseLayer,
 				service,
 				operations,
 				Layer.provide(PersistedQueue.layer, PersistedQueue.layerStoreMemory),

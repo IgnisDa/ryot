@@ -9,7 +9,7 @@ import {
 } from "@ryot/contract/schema/brands";
 import { Effect, Layer } from "effect";
 
-import { DbService } from "#lib/infrastructure/db/service";
+import { Database } from "#lib/infrastructure/db/service";
 import { RedisService } from "#lib/infrastructure/redis";
 import { assertExitFails } from "#lib/test-utils/assertions";
 import { makeRedisService, type MockOverrides } from "#lib/test-utils/effect";
@@ -18,7 +18,6 @@ import { SandboxExecutionService } from "#modules/sandbox/service";
 
 import { OperationalGateService } from "./operational-gate-service";
 
-const mockDb = Layer.mock(DbService);
 const runId = ImportRunId.make("run-id");
 const executingUserId = UserId.make("user-id");
 const mockImports = Layer.mock(ImportsService);
@@ -57,12 +56,12 @@ const makeServiceLayer = (
 	sandbox: MockOverrides<typeof mockSandbox>,
 ) =>
 	OperationalGateService.layer.pipe(
-		Layer.provide(
+		Layer.provideMerge(
 			Layer.mergeAll(
 				mockImports({ ...imports }),
 				mockSandbox({ ...sandbox }),
 				Layer.succeed(RedisService, makeRedisService()),
-				mockDb({ db: Object.create(null), pool: Object.create(null) }),
+				Layer.succeed(Database, Object.create(null)),
 			),
 		),
 	);

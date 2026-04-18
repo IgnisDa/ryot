@@ -5,7 +5,6 @@ import { Cause, Clock, Context, Cron, Duration, Effect, Result, Layer } from "ef
 import { WorkflowEngine } from "effect/unstable/workflow/WorkflowEngine";
 
 import { AppConfig } from "#lib/infrastructure/config/service";
-import { DbRunner } from "#lib/infrastructure/db/service";
 import { PluginLoader } from "#modules/plugins/loader";
 import { PluginRuntimeResolver } from "#modules/plugins/runtime-resolver";
 import { SandboxScriptWorkflow } from "#modules/sandbox/sandbox-script-workflow";
@@ -28,10 +27,10 @@ export const pluginCronExecutionId = (
 	scheduledAt: number | string,
 ) => `plugin-cron-${pluginSlug.length}-${pluginSlug}-${cronSlug.length}-${cronSlug}-${scheduledAt}`;
 
+/** @effect-expect-leaking Database */
 export class PluginCronService extends Context.Service<PluginCronService>()("PluginCronService", {
 	make: Effect.gen(function* () {
 		const config = yield* AppConfig;
-		const runWithDb = yield* DbRunner;
 		const loader = yield* PluginLoader;
 		const engine = yield* WorkflowEngine;
 		const runtime = yield* PluginRuntimeResolver;
@@ -51,7 +50,7 @@ export class PluginCronService extends Context.Service<PluginCronService>()("Plu
 			entry: PluginCronIdentity,
 			executionId: string,
 		) {
-			const resolved = yield* runWithDb(runtime.resolveActivePluginCron(entry));
+			const resolved = yield* runtime.resolveActivePluginCron(entry);
 			if (!resolved) {
 				yield* Effect.logError("plugin cron target unavailable").pipe(
 					Effect.annotateLogs({

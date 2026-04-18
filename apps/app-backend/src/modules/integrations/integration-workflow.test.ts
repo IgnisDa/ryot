@@ -15,7 +15,7 @@ import { WorkflowEngine, WorkflowInstance } from "effect/unstable/workflow/Workf
 import { RedisService } from "#lib/infrastructure/redis";
 import type { MockOverrides, WorkflowEngineOverrides } from "#lib/test-utils/effect";
 import {
-	dbRunnerLayer,
+	databaseLayer,
 	makeAppConfigLayer,
 	makeRedisService,
 	makeWorkflowActivityEngine,
@@ -125,7 +125,7 @@ type TestLayerOptions = {
 
 const makeTestLayer = (options: TestLayerOptions) =>
 	Layer.mergeAll(
-		dbRunnerLayer,
+		databaseLayer,
 		makeAppConfigLayer(),
 		BunFileSystem.layer,
 		makeRedisLayer(),
