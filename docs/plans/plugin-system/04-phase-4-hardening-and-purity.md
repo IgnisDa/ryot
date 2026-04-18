@@ -134,6 +134,14 @@ correction changes no schema or behavior and is the only domain move included in
 - Effect-only means the public authoring boundary: sandbox definitions, SDK methods, backend host
   contracts, and typed bridge dispatch expose Effect. Private adapters may bridge Promise-returning
   Deno, filesystem, fetch, or third-party APIs behind that boundary.
+
+  Task 09 implementation record (2026-07-31): the boundary audit found the rewrite already enforces
+  Effect-only sandbox definitions, SDK host methods, backend host implementations, and typed bridge
+  dispatch. Existing type checks reject Promise-returning scripts, providers, and test hosts, while a
+  focused backend test rejects Promise host implementations and verifies bound bridge calls remain
+  Effects at runtime. Remaining Promise interop is private to compiler, runner, filesystem, Redis, and
+  test execution adapters and is wrapped at the Effect boundary. No compatibility API or authoring
+  path was removed because none remained.
 - Resolve migration residue in directly affected modules while preserving useful negative tests and
   private helpers. Do not turn Phase 4 into unrelated stylistic refactoring.
 
