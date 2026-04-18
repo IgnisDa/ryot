@@ -1,10 +1,6 @@
 import type { Job } from "bullmq";
-import { eq } from "drizzle-orm";
 import { match } from "ts-pattern";
 
-import { db } from "~/lib/db";
-import { user } from "~/lib/db/schema/auth";
-import { userPreferencesSchema } from "~/modules/builtins";
 import { importRunJobData } from "~/modules/imports/jobs";
 import {
 	processMediaImport,
@@ -12,7 +8,7 @@ import {
 } from "~/modules/imports/media/import-processor";
 import { createImportRun, getImportRunById, updateImportRun } from "~/modules/imports/repository";
 import { failImportRun } from "~/modules/imports/runtime/failures";
-import type { ImportRunSource, ListedImportRun } from "~/modules/imports/schemas";
+import type { ListedImportRun } from "~/modules/imports/schemas";
 
 import type { IntegrationRunJobData } from "./jobs";
 import { integrationRunJobData } from "./jobs";
@@ -31,19 +27,13 @@ import { fetchKomgaProgress, syncKomgaOwnedItems } from "./providers/yank/komga"
 import { fetchPlexYankProgress, syncPlexYankOwnedItems } from "./providers/yank/plex-yank";
 import { fetchYoutubeMusicProgress } from "./providers/yank/youtube-music";
 import { getIntegrationByIdAnyUser, updateIntegrationRow } from "./repository";
-import { checkAndAutoDisable } from "./service";
+import {
+	buildIntegrationInputSummary,
+	checkAndAutoDisable,
+	getUserDisableIntegrations,
+} from "./service";
 
 export { integrationRunJobName } from "./jobs";
-
-const getUserDisableIntegrations = async (userId: string): Promise<boolean> => {
-	const [row] = await db
-		.select({ preferences: user.preferences })
-		.from(user)
-		.where(eq(user.id, userId))
-		.limit(1);
-	const parsed = userPreferencesSchema.safeParse(row?.preferences);
-	return parsed.success ? parsed.data.disableIntegrations : false;
-};
 
 const toIntegrationJobData = (input: {
 	runId?: string;
@@ -126,14 +116,7 @@ const processYankIntegration = async (
 		return;
 	}
 
-	// oxlint-disable-next-line no-unsafe-type-assertion
-	const source = integration.provider as ImportRunSource;
-	const inputSummary = {
-		lot: integration.lot,
-		integrationId: integration.id,
-		provider: integration.provider,
-		...(integration.name ? { name: integration.name } : {}),
-	};
+	const inputSummary = buildIntegrationInputSummary(integration);
 
 	const pipelineState = importRunJobData.safeParse(job.data);
 
@@ -142,7 +125,7 @@ const processYankIntegration = async (
 		runId = existingRunId;
 	} else {
 		const run = await createImportRun({
-			source,
+			source: integration.provider,
 			userId,
 			inputSummary,
 			integrationId: integration.id,
