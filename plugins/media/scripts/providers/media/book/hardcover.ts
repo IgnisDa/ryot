@@ -303,6 +303,7 @@ query GetHardcoverBookDetails($id: Int!) {
 					images: collectImages(bookData["image"], bookData["images"]).map((url) => ({
 						url,
 						type: "remote" as const,
+						purpose: "cover" as const,
 					})),
 				},
 			};

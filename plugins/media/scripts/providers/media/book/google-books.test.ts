@@ -140,8 +140,8 @@ describe("book.google-books sandbox script", () => {
 							{ role: "Publisher", name: "Pub" },
 						],
 						images: [
-							{ type: "remote", url: "https://img/t.jpg" },
-							{ type: "remote", url: "https://img/s.jpg" },
+							{ type: "remote", url: "https://img/t.jpg", purpose: "cover" },
+							{ type: "remote", url: "https://img/s.jpg", purpose: "cover" },
 						],
 					});
 					return undefined;

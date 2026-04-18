@@ -113,6 +113,7 @@ export const buildArtistDetails = (client: ArtistClient, externalId: string) =>
 					images: getThumbnailUrls(header?.["thumbnail"]).map((url) => ({
 						url,
 						type: "remote" as const,
+						purpose: "profile" as const,
 					})),
 				},
 				relatedEntityGroups: [

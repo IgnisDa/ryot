@@ -155,8 +155,8 @@ describe("book.hardcover sandbox script", () => {
 						genres: ["Science Fiction", "Adventure"],
 						sourceUrl: "https://hardcover.app/books/the-book",
 						images: [
-							{ type: "remote", url: "https://img/cover.jpg" },
-							{ type: "remote", url: "https://img/alt.jpg" },
+							{ type: "remote", url: "https://img/cover.jpg", purpose: "cover" },
+							{ type: "remote", url: "https://img/alt.jpg", purpose: "cover" },
 						],
 					});
 					return undefined;

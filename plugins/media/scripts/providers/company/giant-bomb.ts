@@ -171,8 +171,10 @@ export const details = defineProvider({
 						foundedYear: extractYear(company["date_founded"]),
 						website: stringValue(company["website"]),
 						sourceUrl: stringValue(company["site_detail_url"]),
-						images: primaryImage ? [{ type: "remote" as const, url: primaryImage }] : [],
 						description: combineDescription(company["deck"], company["description"]),
+						images: primaryImage
+							? [{ type: "remote" as const, url: primaryImage, purpose: "logo" as const }]
+							: [],
 					},
 				};
 			}),

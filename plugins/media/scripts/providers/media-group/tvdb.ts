@@ -47,7 +47,9 @@ export const details = defineProvider({
 			const title = translation.name ?? stringValue(list["name"]) ?? "Unnamed List";
 			const description = translation.description ?? stringValue(list["overview"]);
 			const image = stringValue(list["image"]);
-			const images = image ? [{ type: "remote" as const, url: image }] : [];
+			const images = image
+				? [{ type: "remote" as const, url: image, purpose: "cover" as const }]
+				: [];
 			const movieEntities = recordsValue(list["entities"]).filter(
 				(entity) => entity["movieId"] != null,
 			);

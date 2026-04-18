@@ -16,7 +16,8 @@ export type TvdbHost = SandboxHost<
 	readonly ["httpCall", "getCachedValue", "setCachedValue", "getPluginConfig"]
 >;
 
-export type RemoteImage = { type: "remote"; url: string };
+export type TvdbImagePurpose = "cover" | "backdrop" | "profile" | "logo" | "still" | "artwork";
+export type RemoteImage = { type: "remote"; url: string; purpose: TvdbImagePurpose };
 
 const TVDB_BASE_URL = "https://api4.thetvdb.com/v4";
 const TOKEN_CACHE_KEY = "tvdb_access_token";
@@ -177,12 +178,16 @@ export const getTranslationFields = (payload: UnknownRecord | null) => {
 	};
 };
 
-export const getLocalizedArtwork = (artworks: unknown, language: string) => {
+export const getLocalizedArtwork = (
+	artworks: unknown,
+	language: string,
+	purpose: TvdbImagePurpose,
+) => {
 	const artwork = recordsValue(artworks).find(
 		(art) => stringValue(art["language"]) === language && stringValue(art["image"]),
 	);
 	const image = artwork ? stringValue(artwork["image"]) : null;
-	return image ? { type: "remote" as const, url: image } : null;
+	return image ? { type: "remote" as const, url: image, purpose } : null;
 };
 
 export const buildTranslationResult = (
@@ -203,22 +208,42 @@ export const buildTranslationResult = (
 	};
 };
 
-export const collectImages = (mainImages: readonly unknown[], artworks: unknown) => {
+const getArtworkPurpose = (artwork: UnknownRecord) => {
+	const artworkType = firstStringValue(artwork, ["type", "artworkType", "artwork_type", "kind"]);
+	const normalizedType = artworkType?.toLowerCase();
+	if (normalizedType?.includes("poster") || normalizedType?.includes("cover")) {
+		return "cover" as const;
+	}
+	if (
+		normalizedType?.includes("backdrop") ||
+		normalizedType?.includes("background") ||
+		normalizedType?.includes("banner")
+	) {
+		return "backdrop" as const;
+	}
+	return "artwork" as const;
+};
+
+export const collectImages = (
+	mainImages: readonly unknown[],
+	artworks: unknown,
+	mainPurpose: TvdbImagePurpose,
+) => {
 	const seen = new Set<string>();
 	const images: RemoteImage[] = [];
-	const addImage = (value: unknown) => {
+	const addImage = (value: unknown, purpose: TvdbImagePurpose) => {
 		const url = stringValue(value);
 		if (url && !seen.has(url)) {
 			seen.add(url);
-			images.push({ type: "remote", url });
+			images.push({ type: "remote", url, purpose });
 		}
 	};
 
 	for (const image of mainImages) {
-		addImage(image);
+		addImage(image, mainPurpose);
 	}
 	for (const art of recordsValue(artworks)) {
-		addImage(art["image"]);
+		addImage(art["image"], getArtworkPurpose(art));
 	}
 	return images;
 };

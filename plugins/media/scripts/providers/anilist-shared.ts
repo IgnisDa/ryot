@@ -25,6 +25,12 @@ export type AnilistMediaType = "ANIME" | "MANGA";
 
 export type AnilistTitleLanguage = "english" | "native" | "romaji";
 
+type AnilistRemoteImage = {
+	type: "remote";
+	url: string;
+	purpose: "cover" | "backdrop";
+};
+
 const ANILIST_GRAPHQL_URL = "https://graphql.anilist.co";
 
 const extractGraphQlErrorMessage = (payload: UnknownRecord | null) => {
@@ -169,13 +175,18 @@ export const pickImage = (coverImage: unknown, bannerImage: unknown) =>
 
 export const collectImages = (coverImage: unknown, bannerImage: unknown) => {
 	const urls = new Set<string>();
-	for (const candidate of [asRecord(coverImage)?.["extraLarge"], bannerImage]) {
+	const images: AnilistRemoteImage[] = [];
+	for (const [candidate, purpose] of [
+		[asRecord(coverImage)?.["extraLarge"], "cover"],
+		[bannerImage, "backdrop"],
+	] as const) {
 		const url = stringValue(candidate);
-		if (url) {
+		if (url && !urls.has(url)) {
 			urls.add(url);
+			images.push({ type: "remote", url, purpose });
 		}
 	}
-	return [...urls].map((url) => ({ type: "remote" as const, url }));
+	return images;
 };
 
 export const collectGenres = (genres: unknown, tags: unknown) => {

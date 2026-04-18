@@ -334,15 +334,24 @@ export const details = defineProvider({
 					const images: Array<{
 						type: "remote";
 						url: string;
+						purpose: string;
 					}> = [];
 					const coverImageId = stringValue(asRecord(game?.["cover"])?.["image_id"]);
 					if (coverImageId) {
-						images.push({ type: "remote", url: getImageUrl(coverImageId) });
+						images.push({
+							type: "remote",
+							url: getImageUrl(coverImageId),
+							purpose: "cover" as const,
+						});
 					}
 					for (const artwork of Array.isArray(game?.["artworks"]) ? game["artworks"] : []) {
 						const artworkImageId = stringValue(asRecord(artwork)?.["image_id"]);
 						if (artworkImageId) {
-							images.push({ type: "remote", url: getImageUrl(artworkImageId) });
+							images.push({
+								type: "remote",
+								url: getImageUrl(artworkImageId),
+								purpose: "artwork" as const,
+							});
 						}
 					}
 					const genres = (Array.isArray(game?.["genres"]) ? game["genres"] : []).flatMap((g) => {

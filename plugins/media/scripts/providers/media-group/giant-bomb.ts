@@ -121,7 +121,9 @@ export const details = defineProvider({
 				properties: {
 					parts: franchiseGames.length,
 					sourceUrl: stringValue(franchise["site_detail_url"]),
-					images: primaryImage ? [{ type: "remote" as const, url: primaryImage }] : [],
+					images: primaryImage
+						? [{ type: "remote" as const, url: primaryImage, purpose: "cover" as const }]
+						: [],
 					description: combineDescription(franchise["deck"], franchise["description"]),
 				},
 			};
