@@ -27,6 +27,7 @@ export const integration = pgTable(
 	"integration",
 	{
 		name: text(),
+		pluginSlug: text().notNull(),
 		lot: text().notNull().$type<IntegrationLot>(),
 		isDisabled: boolean().notNull().default(false),
 		provider: text().$type<IntegrationProvider>().notNull(),
@@ -52,6 +53,7 @@ export const integration = pgTable(
 	(table) => [
 		index("integration_user_id_created_at_idx").on(table.userId, table.createdAt.desc()),
 		index("integration_user_id_provider_idx").on(table.userId, table.provider),
+		index("integration_plugin_slug_idx").on(table.pluginSlug),
 		index("integration_lot_is_disabled_idx").on(table.lot, table.isDisabled),
 		index("integration_provider_is_disabled_idx").on(table.provider, table.isDisabled),
 	],

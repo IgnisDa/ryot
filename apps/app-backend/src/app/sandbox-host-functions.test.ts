@@ -14,6 +14,8 @@ import { Effect, Either, Layer, Option } from "effect";
 import { describe } from "vitest";
 
 import { RedisService } from "#lib/infrastructure/redis";
+import { selectSandboxHostFunctions } from "#lib/infrastructure/sandbox-runtime/service";
+import type { SandboxRunInput } from "#lib/infrastructure/sandbox-runtime/shared";
 import {
 	dbRunnerLayer,
 	makeAppConfigLayer,
@@ -33,9 +35,7 @@ import {
 	makeAdditionalSandboxApiFunctions,
 	normalizePreferences,
 	toSandboxCreateEventsResult,
-} from "./host-functions";
-import { selectSandboxHostFunctions } from "./service";
-import type { SandboxRunInput } from "./shared";
+} from "./sandbox-host-functions";
 
 describe("normalizePreferences", () => {
 	it("normalizes missing and non-boolean preference values", () => {
@@ -62,6 +62,7 @@ const ownedIntegration = (input: GetForUserInput): IntegrationRecord => ({
 	userId: input.userId,
 	syncOwnership: false,
 	provider: "plex_yank",
+	pluginSlug: "fixture",
 	id: input.integrationId,
 	createdAt: "2026-01-01T00:00:00.000Z",
 	updatedAt: "2026-01-01T00:00:00.000Z",
@@ -226,8 +227,8 @@ const executeQueryEngine = () => Effect.void;
 
 const systemQueryCaller = {
 	eventSchemas: [],
-	entitySchemaSlugs: ["media"],
 	pluginSlug: "media",
+	entitySchemaSlugs: ["media"],
 	relationshipSchemaSlugs: ["media-monitoring"],
 };
 

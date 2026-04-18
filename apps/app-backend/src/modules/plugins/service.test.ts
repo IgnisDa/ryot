@@ -1,7 +1,7 @@
 import { expect, it } from "@effect/vitest";
 import { Conflict } from "@ryot/contract/errors";
 import type { PluginManifest } from "@ryot/plugin-kit/manifest";
-import { Cause, Deferred, Effect, Exit, Fiber, Layer, Option, Ref } from "effect";
+import { Cause, Context, Deferred, Effect, Exit, Fiber, Layer, Option, Queue, Ref } from "effect";
 import { assert } from "vitest";
 
 import { CurrentDb, TransactionRunner } from "#lib/infrastructure/db/service";
@@ -22,7 +22,11 @@ import {
 import { PluginLoader } from "./loader";
 import { PluginRepository } from "./repository";
 import { ScriptGarbageCollector } from "./script-garbage-collector";
-import { handlePluginRegistryInvalidation, PluginIngestionService } from "./service";
+import {
+	handlePluginRegistryInvalidation,
+	PluginIngestionService,
+	runPluginRegistryReconciliation,
+} from "./service";
 import { loadPluginSource } from "./source";
 import { fixtureManifest, fixturePackageRoot } from "./test-support";
 import type { NormalizedPlugin, StoredPlugin } from "./types";
@@ -131,17 +135,17 @@ const relationshipDependentManifest = (targetEntitySchemaSlug: string): PluginMa
 	return {
 		...fixture,
 		signalSchemas: [],
-		metadata: { ...fixture.metadata, name: "Dependent", slug: "dependent" },
+		scripts: [{ ...script, slug: "dependent.automation" }],
 		entitySchemas: [{ ...entitySchema, slug: "dependent-entity" }],
+		metadata: { ...fixture.metadata, name: "Dependent", slug: "dependent" },
 		relationshipSchemas: [
 			{
 				...relationshipSchema,
 				slug: "dependent-link",
-				sourceEntitySchemaSlug: "dependent-entity",
 				targetEntitySchemaSlug,
+				sourceEntitySchemaSlug: "dependent-entity",
 			},
 		],
-		scripts: [{ ...script, slug: "dependent.automation" }],
 		bindings: {
 			eventAutomations: [],
 			entityAutomations: [],
@@ -157,6 +161,9 @@ const makeLayer = (input?: {
 	readonly events?: Array<string>;
 	readonly deactivated?: Array<string>;
 	readonly hasEntityReferences?: boolean;
+	readonly installed?: Array<StoredPlugin>;
+	readonly publish?: RedisService["publish"];
+	readonly hasIntegrationReferences?: boolean;
 	readonly afterPersist?: Effect.Effect<void>;
 	readonly persisted?: Array<NormalizedPlugin>;
 	readonly hasWorkflowReferences?: () => boolean;
@@ -168,7 +175,7 @@ const makeLayer = (input?: {
 	readonly published?: Array<{ channel: string; message: string }>;
 	readonly transactionRunnerLayer?: Layer.Layer<TransactionRunner>;
 }) => {
-	const installed: Array<StoredPlugin> = [...(input?.initialInstalled ?? [])];
+	const installed = input?.installed ?? [...(input?.initialInstalled ?? [])];
 	const registry = makeDefinitionRegistry();
 	const registryLayer = Layer.succeed(
 		DefinitionRegistry,
@@ -195,6 +202,7 @@ const makeLayer = (input?: {
 					input?.events?.push("lock");
 				})),
 		hasEntityReferences: () => Effect.succeed(input?.hasEntityReferences ?? false),
+		hasIntegrationReferences: () => Effect.succeed(input?.hasIntegrationReferences ?? false),
 		findBySourceHash: ({ sourceHash }) =>
 			Effect.succeed(input?.cached ? makeStoredPlugin(fixtureManifest(), sourceHash) : null),
 		persist: (plugin) =>
@@ -232,12 +240,14 @@ const makeLayer = (input?: {
 	const redisLayer = Layer.succeed(
 		RedisService,
 		makeRedisService({
-			publish: (channel, message) =>
-				Effect.sync(() => {
-					input?.events?.push("publish");
-					input?.published?.push({ channel, message });
-					return 1;
-				}),
+			publish:
+				input?.publish ??
+				((channel, message) =>
+					Effect.sync(() => {
+						input?.events?.push("publish");
+						input?.published?.push({ channel, message });
+						return 1;
+					})),
 		}),
 	);
 	const ingestionLayer = PluginIngestionService.Default.pipe(
@@ -273,6 +283,21 @@ it.effect("validates, compiles, content-addresses, persists, loads, and publishe
 		expect(published).toHaveLength(1);
 		expect(published[0]?.channel).toBe(redisKeys.pluginRegistryChannel);
 	}).pipe(Effect.provide(makeLayer({ persisted, published })));
+});
+
+it.effect("returns a committed install when Redis publication fails", () => {
+	const persisted: Array<NormalizedPlugin> = [];
+	return Effect.gen(function* () {
+		const loader = yield* PluginLoader;
+		const ingestion = yield* PluginIngestionService;
+		const source = yield* loadPluginSource(fixturePackageRoot(), fixtureManifest());
+		const plugin = yield* ingestion.ingestPlugin(source);
+
+		expect(persisted).toEqual([plugin]);
+		expect(loader.getSnapshot().plugins["fixture"]?.sourceHash).toBe(plugin.sourceHash);
+	}).pipe(
+		Effect.provide(makeLayer({ persisted, publish: () => Effect.die("lost install publication") })),
+	);
 });
 
 const userBootstrapManifest = () => {
@@ -367,11 +392,7 @@ it.effect("validates automation bindings against definitions from installed plug
 			bindings: {
 				...fixtureManifest().bindings,
 				entityAutomations: [
-					{
-						operation: "create",
-						entitySchemaSlug: "movie",
-						scriptSlug: "fixture.automation",
-					},
+					{ operation: "create", entitySchemaSlug: "movie", scriptSlug: "fixture.automation" },
 				],
 			},
 		});
@@ -435,14 +456,7 @@ it.effect("rejects missing and non-automation notification formatters", () =>
 				...manifest,
 				signalSchemas: [{ ...signalSchema, notificationScriptSlug }],
 				scripts:
-					kind === "wrong-kind"
-						? [
-								{
-									...script,
-									kind: "operation" as const,
-								},
-							]
-						: manifest.scripts,
+					kind === "wrong-kind" ? [{ ...script, kind: "operation" as const }] : manifest.scripts,
 			});
 
 			const exit = yield* Effect.exit(ingestion.ingestPlugin(source));
@@ -598,7 +612,69 @@ it.effect("lists active plugins and uninstalls without deleting historical scrip
 	}).pipe(Effect.provide(makeLayer({ deactivated, published, initialInstalled: [stored] })));
 });
 
-it.effect("fences uninstall while workflows reference the plugin and permits retry", () => {
+it.effect("returns a committed uninstall when Redis publication fails", () => {
+	const stored = makeStoredPlugin(fixtureManifest(), "stored-source-hash");
+	const deactivated: Array<string> = [];
+	return Effect.gen(function* () {
+		const loader = yield* PluginLoader;
+		const ingestion = yield* PluginIngestionService;
+		yield* ingestion.rebuild();
+
+		const removed = yield* ingestion.uninstallPlugin("fixture");
+		expect(removed.slug).toBe("fixture");
+		expect(deactivated).toEqual(["fixture"]);
+		expect(loader.getSnapshot().plugins["fixture"]).toBeUndefined();
+	}).pipe(
+		Effect.provide(
+			makeLayer({
+				deactivated,
+				initialInstalled: [stored],
+				publish: () => Effect.die("lost uninstall publication"),
+			}),
+		),
+	);
+});
+
+it.scoped("periodically rebuilds a peer after lost install and uninstall publications", () =>
+	Effect.gen(function* () {
+		const installed: Array<StoredPlugin> = [];
+		const rebuilds = yield* Queue.unbounded<void>();
+		const ticks = yield* Queue.unbounded<void>();
+		const writerContext = yield* Layer.build(
+			makeLayer({
+				installed,
+				publish: () => Effect.die("lost publication"),
+			}),
+		);
+		const peerContext = yield* Layer.build(
+			makeLayer({
+				installed,
+				collectGarbage: () => Queue.offer(rebuilds, undefined).pipe(Effect.as(undefined)),
+			}),
+		);
+		const writer = Context.get(writerContext, PluginIngestionService);
+		const peer = Context.get(peerContext, PluginIngestionService);
+		const peerLoader = Context.get(peerContext, PluginLoader);
+		yield* runPluginRegistryReconciliation(Queue.take(ticks), peer).pipe(Effect.forkScoped);
+
+		const source = yield* loadPluginSource(fixturePackageRoot(), fixtureManifest());
+		yield* writer.ingestPlugin(source);
+		expect(peerLoader.getSnapshot().plugins["fixture"]).toBeUndefined();
+
+		yield* Queue.offer(ticks, undefined);
+		yield* Queue.take(rebuilds);
+		expect(peerLoader.getSnapshot().plugins["fixture"]).toBeDefined();
+
+		yield* writer.uninstallPlugin("fixture");
+		expect(peerLoader.getSnapshot().plugins["fixture"]).toBeDefined();
+
+		yield* Queue.offer(ticks, undefined);
+		yield* Queue.take(rebuilds);
+		expect(peerLoader.getSnapshot().plugins["fixture"]).toBeUndefined();
+	}),
+);
+
+it.effect("fences uninstall while a queued import workflow references the plugin", () => {
 	const stored = makeStoredPlugin(fixtureManifest(), "stored-source-hash");
 	const deactivated: Array<string> = [];
 	const published: Array<{ channel: string; message: string }> = [];
@@ -799,6 +875,27 @@ it.effect("refuses uninstall while entities reference a declared schema", () => 
 	);
 });
 
+it.effect("refuses uninstall while integrations are owned by the plugin", () => {
+	const stored = makeStoredPlugin(fixtureManifest(), "stored-source-hash");
+	const deactivated: Array<string> = [];
+	return Effect.gen(function* () {
+		const ingestion = yield* PluginIngestionService;
+		const exit = yield* Effect.exit(ingestion.uninstallPlugin("fixture"));
+
+		assertExitFails(
+			exit,
+			new Conflict({
+				message: "Plugin 'fixture' cannot be uninstalled while integrations reference it",
+			}),
+		);
+		expect(deactivated).toEqual([]);
+	}).pipe(
+		Effect.provide(
+			makeLayer({ deactivated, hasIntegrationReferences: true, initialInstalled: [stored] }),
+		),
+	);
+});
+
 it.effect("refuses uninstall while another active plugin binds to its definitions", () => {
 	const owner = makeStoredPlugin(fixtureManifest(), "owner-source-hash");
 	const dependent = makeStoredPlugin(dependentManifest("fixture-entity"), "dependent-source-hash");
@@ -882,6 +979,7 @@ it.effect("refuses uninstall for a boot-configured plugin", () => {
 
 it.effect("short-circuits compilation and persistence for a matching source hash", () => {
 	const persisted: Array<NormalizedPlugin> = [];
+	const published: Array<{ channel: string; message: string }> = [];
 	return Effect.gen(function* () {
 		const ingestion = yield* PluginIngestionService;
 		const loader = yield* PluginLoader;
@@ -891,14 +989,14 @@ it.effect("short-circuits compilation and persistence for a matching source hash
 		expect(plugin.scripts[0]?.compiledCode).toBe("cached compiled");
 		expect(persisted).toHaveLength(0);
 		expect(loader.getSnapshot().plugins["fixture"]).toBeDefined();
-	}).pipe(Effect.provide(makeLayer({ cached: true, persisted })));
+		expect(published).toEqual([
+			expect.objectContaining({ channel: redisKeys.pluginRegistryChannel }),
+		]);
+	}).pipe(Effect.provide(makeLayer({ cached: true, persisted, published })));
 });
 
 it.effect("rejects manifest, slash, collision, dangling binding, and compiler failures", () => {
-	const cases: ReadonlyArray<{
-		manifest: unknown;
-		packageRoot: string;
-	}> = [
+	const cases: ReadonlyArray<{ manifest: unknown; packageRoot: string }> = [
 		{ manifest: {}, packageRoot: fixturePackageRoot() },
 		{
 			packageRoot: fixturePackageRoot(),

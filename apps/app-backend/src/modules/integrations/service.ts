@@ -20,8 +20,9 @@ import {
 } from "#lib/property-schema/property-schema-runtime";
 import { ImportsService } from "#modules/imports/service";
 import { IntegrationProviderCatalog } from "#modules/plugins/integration-provider-catalog";
+import type { RegisteredIntegrationProvider } from "#modules/plugins/integration-provider-catalog";
 
-import { redactIntegrationForClient, type RegisteredProviderLookup } from "./client-redaction";
+import { redactIntegrationForClient } from "./client-redaction";
 import { ProcessIntegrationRunWorkflow } from "./integration-workflow";
 import type { IntegrationReconciliationRun } from "./jobs";
 import { IntegrationsRepository, type IntegrationRecord } from "./repository";
@@ -33,6 +34,24 @@ const defaultExtraSettings = {
 const encodeIntegrationWebhookPayload = Schema.encode(
 	Schema.parseJson(IntegrationWebhookPayloadSchema),
 );
+
+const validateRegisteredSettings = (
+	provider: IntegrationProvider,
+	registered: RegisteredIntegrationProvider | null,
+	settings: unknown,
+) =>
+	registered
+		? parseAppSchemaProperties({
+				properties: settings,
+				kind: `${provider} integration`,
+				propertiesSchema: registered.settingsSchema,
+			}).pipe(
+				Effect.mapError((error) =>
+					badRequest(`Invalid providerSpecifics: ${formatPropertyIssues(error.issues)}`),
+				),
+				Effect.asVoid,
+			)
+		: badRequest(`Integration provider '${provider}' is not registered`);
 
 type UpdateIntegrationInput = UpdateIntegrationBody & {
 	readonly lastFinishedAt?: Date | null | undefined;
@@ -46,11 +65,6 @@ const buildIntegrationInputSummary = (
 	provider: integration.provider,
 	...(integration.name ? { name: integration.name } : {}),
 });
-
-export const resolveIntegrationLot = (
-	findProvider: RegisteredProviderLookup,
-	provider: IntegrationProvider,
-) => findProvider(provider)?.lot ?? null;
 
 export const validateProgressThresholds = (
 	minimumProgress: number,
@@ -82,22 +96,6 @@ export class IntegrationsService extends Effect.Service<IntegrationsService>()(
 			const failCreatedRun = (runId: ImportRunId, message: string) =>
 				importsService.failRunForIntegration(runId, message);
 
-			const validateRegisteredSettings = (provider: IntegrationProvider, settings: unknown) => {
-				const registered = providerCatalog.find(provider);
-				return registered
-					? parseAppSchemaProperties({
-							properties: settings,
-							kind: `${provider} integration`,
-							propertiesSchema: registered.settingsSchema,
-						}).pipe(
-							Effect.mapError((error) =>
-								badRequest(`Invalid providerSpecifics: ${formatPropertyIssues(error.issues)}`),
-							),
-							Effect.asVoid,
-						)
-					: badRequest(`Integration provider '${provider}' is not registered`);
-			};
-
 			const requireIntegration = Effect.fn("IntegrationsService.requireIntegration")(function* (
 				userId: UserId,
 				integrationId: IntegrationId,
@@ -113,9 +111,13 @@ export class IntegrationsService extends Effect.Service<IntegrationsService>()(
 				user: CurrentUserValue,
 				body: CreateIntegrationBody,
 			) {
-				yield* validateRegisteredSettings(body.provider, body.providerSpecifics);
-				const lot = resolveIntegrationLot(providerCatalog.find, body.provider);
-				if (!lot || lot === "push") {
+				const registered = providerCatalog.find(body.provider);
+				if (!registered) {
+					return yield* badRequest(`Integration provider '${body.provider}' is not registered`);
+				}
+				yield* validateRegisteredSettings(body.provider, registered, body.providerSpecifics);
+				const lot = registered.lot;
+				if (lot === "push") {
 					return yield* badRequest(`Integration provider '${body.provider}' cannot be created`);
 				}
 
@@ -131,6 +133,7 @@ export class IntegrationsService extends Effect.Service<IntegrationsService>()(
 						userId: user.id,
 						name: body.name ?? null,
 						provider: body.provider,
+						pluginSlug: registered.pluginSlug,
 						isDisabled: body.isDisabled ?? false,
 						providerSpecifics: body.providerSpecifics,
 						syncOwnership: body.syncOwnership ?? false,
@@ -164,11 +167,12 @@ export class IntegrationsService extends Effect.Service<IntegrationsService>()(
 
 				let providerSpecifics: IntegrationProviderSettings | undefined;
 				if (body.providerSpecifics !== undefined) {
-					const merged = {
-						...existing.providerSpecifics,
-						...body.providerSpecifics,
-					};
-					yield* validateRegisteredSettings(existing.provider, merged);
+					const merged = { ...existing.providerSpecifics, ...body.providerSpecifics };
+					yield* validateRegisteredSettings(
+						existing.provider,
+						providerCatalog.findOwned(existing.provider, existing.pluginSlug),
+						merged,
+					);
 					providerSpecifics = merged;
 				}
 
@@ -254,7 +258,9 @@ export class IntegrationsService extends Effect.Service<IntegrationsService>()(
 				if (!integration) {
 					return yield* notFound("Integration not found");
 				}
-				if (providerCatalog.find(integration.provider)?.lot !== "sink") {
+				if (
+					providerCatalog.findOwned(integration.provider, integration.pluginSlug)?.lot !== "sink"
+				) {
 					return yield* badRequest("Integration is not a sink integration");
 				}
 
@@ -341,7 +347,7 @@ export class IntegrationsService extends Effect.Service<IntegrationsService>()(
 			);
 
 			const redactForClient = (integration: IntegrationRecord) =>
-				redactIntegrationForClient(providerCatalog.find, integration);
+				redactIntegrationForClient(providerCatalog.findOwned, integration);
 
 			const getForClient = (user: CurrentUserValue, integrationId: IntegrationId) =>
 				get(user, integrationId).pipe(Effect.map(redactForClient));

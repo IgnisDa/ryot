@@ -73,6 +73,50 @@ export const SandboxScriptWorkflow = Workflow.make({
 
 const sandboxFailure = (message: string) => new SandboxRunError({ message });
 
+export const establishSandboxWorkflowPin = Effect.fn("establishSandboxWorkflowPin")(function* (
+	payload: SandboxScriptWorkflowPayload,
+	executionId: string,
+	expectedPluginSlug?: string,
+) {
+	const runWithDb = yield* DbRunner;
+	const repository = yield* SandboxRepository;
+	const runInTransaction = yield* TransactionRunner;
+	const references = yield* SandboxWorkflowReferenceRepository;
+	return yield* runInTransaction(
+		Effect.gen(function* () {
+			yield* references.lockIngestionShared();
+			const resolved = yield* resolveSandboxExecutionPayload(
+				{
+					context: payload.input,
+					scriptId: payload.scriptId,
+					authority: payload.authority,
+					executionId: payload.executionId,
+					...(payload.grants ? { grants: payload.grants } : {}),
+				},
+				payload.resolutionMode,
+			);
+			const pinned = yield* runWithDb(repository.getScriptPin(resolved.scriptId));
+			if (!pinned) {
+				return yield* sandboxFailure("Sandbox workflow script not found");
+			}
+			if (expectedPluginSlug && pinned.pluginSlug !== expectedPluginSlug) {
+				return yield* sandboxFailure(
+					`Sandbox workflow script is not owned by plugin '${expectedPluginSlug}'`,
+				);
+			}
+			const registrationStatus = pinned.pluginSlug
+				? (yield* references.registerInTransaction({
+						executionId,
+						scriptId: pinned.scriptId,
+						pluginSlug: pinned.pluginSlug,
+						contentHash: pinned.contentHash,
+					})).status
+				: ("not-required" as const);
+			return { ...pinned, registrationStatus };
+		}),
+	).pipe(Effect.mapError((error) => sandboxFailure(unknownToMessage(error))));
+});
+
 const processPinnedSandbox = (payload: SandboxExecutionPayload) =>
 	Effect.gen(function* () {
 		const engine = yield* WorkflowEngine;
@@ -324,40 +368,13 @@ export const runSandboxScriptWorkflowBody = Effect.fn("SandboxScriptWorkflow")(f
 		error: SandboxRunError,
 		success: SandboxWorkflowPin,
 		name: "pin-sandbox-workflow-script",
-		execute: Effect.gen(function* () {
-			const runWithDb = yield* DbRunner;
-			const repository = yield* SandboxRepository;
-			const runInTransaction = yield* TransactionRunner;
-			const references = yield* SandboxWorkflowReferenceRepository;
-			return yield* runInTransaction(
-				Effect.gen(function* () {
-					yield* references.lockIngestionShared();
-					const resolved = yield* resolveSandboxExecutionPayload(
-						{
-							context: payload.input,
-							scriptId: payload.scriptId,
-							authority: payload.authority,
-							executionId: payload.executionId,
-							...(payload.grants ? { grants: payload.grants } : {}),
-						},
-						payload.resolutionMode,
-					);
-					const pinned = yield* runWithDb(repository.getScriptPin(resolved.scriptId));
-					if (!pinned) {
-						return yield* sandboxFailure("Sandbox workflow script not found");
-					}
-					if (pinned.pluginSlug) {
-						yield* references.registerInTransaction({
-							executionId,
-							scriptId: pinned.scriptId,
-							pluginSlug: pinned.pluginSlug,
-							contentHash: pinned.contentHash,
-						});
-					}
-					return pinned;
-				}),
-			);
-		}).pipe(Effect.mapError((error) => sandboxFailure(unknownToMessage(error)))),
+		execute: establishSandboxWorkflowPin(payload, executionId).pipe(
+			Effect.map(({ scriptId, contentHash, pluginSlug }) => ({
+				scriptId,
+				pluginSlug,
+				contentHash,
+			})),
+		),
 	});
 
 	const releaseReference = pin.pluginSlug

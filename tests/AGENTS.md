@@ -65,10 +65,10 @@ Coverage is intentionally minimal (a drift signal, not exhaustive): OpenLibrary 
 
 Standard e2e is every discovered file except the two opt-in media gates. For final acceptance, run each
 standard file in its own vitest invocation rather than treating one all-files process as evidence; use
-`bun turbo --filter=@ryot/tests test -- <file>` from repository root. Individual invocations preserve
-the owner-requested isolation while still using each file's normal shared-backend harness internally.
+`bun turbo --filter=@ryot/tests test --only -- <file>` from repository root. Individual invocations preserve the owner-requested
+isolation while still using each file's normal shared-backend harness internally.
 
-`tests/src/tests/plugins/media/imports/media-population-operational-gate.test.ts` preserves the full-size Phase 3 load measurement against the real workflow pool, Redis projection, sandbox processes, and database. It is discoverable but skipped by default because the successful measurement can consume up to its full 15-minute budget. Run it alone from repository root with `RUN_OPERATIONAL_GATES=1 bun turbo --filter=@ryot/tests test -- src/tests/plugins/media/imports/media-population-operational-gate.test.ts`; `true` is also accepted. Do not combine it with standard files or reduce its workload, timeout, assertions, or infrastructure path.
+`tests/src/tests/plugins/media/imports/media-population-operational-gate.test.ts` preserves the full-size Phase 3 load measurement against the real workflow pool, Redis projection, sandbox processes, and database. It is discoverable but skipped by default because the successful measurement can consume up to its full 15-minute budget. Run it alone from repository root with `RUN_OPERATIONAL_GATES=1 bun turbo --filter=@ryot/tests test --only -- src/tests/plugins/media/imports/media-population-operational-gate.test.ts`; `true` is also accepted. Do not combine it with standard files or reduce its workload, timeout, assertions, or infrastructure path.
 
 The live provider smoke file is also standalone, but it is not the operational gate: run only
 `src/tests/plugins/media/smoke/providers-live-smoke.test.ts` with `RUN_LIVE_PROVIDER_TESTS=1` when

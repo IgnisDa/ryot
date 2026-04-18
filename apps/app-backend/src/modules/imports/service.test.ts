@@ -3,7 +3,7 @@ import { it, expect } from "@effect/vitest";
 import { WorkflowEngine } from "@effect/workflow/WorkflowEngine";
 import type { CurrentUserValue } from "@ryot/contract/auth-middleware";
 import type { ListedImportRun } from "@ryot/contract/modules/imports/schemas";
-import { ImportRunId, UserId } from "@ryot/contract/schema/brands";
+import { ImportRunId, SandboxScriptId, UserId } from "@ryot/contract/schema/brands";
 import { ConfigProvider, Effect, Layer } from "effect";
 import { assert } from "vitest";
 
@@ -24,6 +24,7 @@ import { UploadsService } from "#modules/uploads/service";
 import { ImportRunFailuresService } from "./failure-service";
 import { ImportsRepository } from "./repository";
 import { ImportsService, type CreateImportRunInput } from "./service";
+import { ImportWorkflowPinning } from "./workflow-pinning";
 
 const now = "2026-07-16T00:00:00.000Z";
 const configSchema = {
@@ -81,11 +82,21 @@ const makeUploadsService = (resolvedPath?: string) =>
 
 const makeImportSourceCatalog = (registered: RegisteredImportSource | null = null) =>
 	Layer.mock(ImportSourceCatalog)({
-		resolve: () => null,
-		find: () => registered,
 		_tag: "ImportSourceCatalog",
 		list: () => (registered ? [registered] : []),
+		resolve: () =>
+			registered
+				? {
+						source: registered,
+						script: Effect.succeed({ id: SandboxScriptId.make("accepted-import-script") }),
+					}
+				: null,
 	});
+
+const importWorkflowPinningLayer = Layer.succeed(ImportWorkflowPinning, {
+	preRegister: () => Effect.succeed({ registrationStatus: "registered" as const }),
+	release: () => Effect.void,
+});
 
 const makeServiceLayer = (
 	repository = makeImportsRepository(),
@@ -94,6 +105,7 @@ const makeServiceLayer = (
 		makeUploadsService(),
 		Layer.succeed(WorkflowEngine, makeWorkflowEngine()),
 	),
+	pinning = importWorkflowPinningLayer,
 ) =>
 	ImportsService.Default.pipe(
 		Layer.provide(
@@ -101,6 +113,7 @@ const makeServiceLayer = (
 				BunFileSystem.layer,
 				dbRunnerLayer,
 				makeAppConfigLayer(),
+				pinning,
 				Layer.setConfigProvider(ConfigProvider.fromMap(new Map())),
 				Layer.succeed(RedisService, makeRedisService()),
 				makeImportRunFailuresService(),
@@ -373,6 +386,8 @@ it.effect("rejects an undeclared source before validating its configuration", ()
 });
 
 it.effect("queues a payload run when the registry declares the source as payload input", () => {
+	const pins: unknown[] = [];
+	const events: string[] = [];
 	const executed: unknown[] = [];
 	const layer = makeServiceLayer(
 		makeImportsRepository(),
@@ -393,11 +408,21 @@ it.effect("queues a payload run when the registry declares the source as payload
 				makeWorkflowEngine({
 					execute: (_workflow, options) =>
 						Effect.sync(() => {
+							events.push("queued");
 							executed.push(options);
 						}),
 				}),
 			),
 		),
+		Layer.succeed(ImportWorkflowPinning, {
+			preRegister: (input) =>
+				Effect.sync(() => {
+					events.push("pinned");
+					pins.push(input);
+					return { registrationStatus: "registered" as const };
+				}),
+			release: () => Effect.void,
+		}),
 	);
 
 	return Effect.gen(function* () {
@@ -409,7 +434,22 @@ it.effect("queues a payload run when the registry declares the source as payload
 		assert(options !== undefined);
 		expect(options).toMatchObject({
 			executionId: "run-1",
-			payload: { runId: "run-1", userId: "user-1", source: "goodreads" },
+			payload: {
+				runId: "run-1",
+				userId: "user-1",
+				source: "goodreads",
+				pluginSlug: "media",
+				workflowScriptId: "accepted-import-script",
+			},
 		});
+		expect(pins).toEqual([
+			{
+				pluginSlug: "media",
+				executingUserId: "user-1",
+				executionId: "run-1-import",
+				scriptId: "accepted-import-script",
+			},
+		]);
+		expect(events).toEqual(["pinned", "queued"]);
 	}).pipe(Effect.provide(layer));
 });

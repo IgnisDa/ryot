@@ -31,8 +31,6 @@ export class ImportSourceCatalog extends Effect.Service<ImportSourceCatalog>()(
 
 			const list = () => fromSnapshot(loader.getSnapshot());
 
-			const find = (sourceSlug: string) => list().find(({ slug }) => slug === sourceSlug) ?? null;
-
 			const resolve = (sourceSlug: string) => {
 				const snapshot = loader.getSnapshot();
 				const source = fromSnapshot(snapshot).find(({ slug }) => slug === sourceSlug);
@@ -42,12 +40,12 @@ export class ImportSourceCatalog extends Effect.Service<ImportSourceCatalog>()(
 							script: findActiveWorkflowScriptInSnapshot(snapshot, {
 								pluginSlug: source.pluginSlug,
 								workflowSlug: source.workflowSlug,
-							}),
+							}).pipe(Effect.map((script) => (script ? { id: script.id } : null))),
 						}
 					: null;
 			};
 
-			return { find, list, resolve };
+			return { list, resolve };
 		}),
 	},
 ) {}

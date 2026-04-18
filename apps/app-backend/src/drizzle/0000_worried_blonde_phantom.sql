@@ -115,6 +115,7 @@ CREATE TABLE "integration" (
 	"lot" text NOT NULL,
 	"is_disabled" boolean DEFAULT false NOT NULL,
 	"provider" text NOT NULL,
+	"plugin_slug" text NOT NULL,
 	"sync_ownership" boolean DEFAULT false NOT NULL,
 	"minimum_progress" numeric DEFAULT '2' NOT NULL,
 	"maximum_progress" numeric DEFAULT '95' NOT NULL,
@@ -393,6 +394,7 @@ CREATE INDEX "import_run_integration_id_created_at_idx" ON "import_run" USING bt
 CREATE INDEX "import_run_failure_run_id_created_at_idx" ON "import_run_failure" USING btree ("run_id","created_at");--> statement-breakpoint
 CREATE INDEX "integration_user_id_created_at_idx" ON "integration" USING btree ("user_id","created_at" DESC NULLS LAST);--> statement-breakpoint
 CREATE INDEX "integration_user_id_provider_idx" ON "integration" USING btree ("user_id","provider");--> statement-breakpoint
+CREATE INDEX "integration_plugin_slug_idx" ON "integration" USING btree ("plugin_slug");--> statement-breakpoint
 CREATE INDEX "integration_lot_is_disabled_idx" ON "integration" USING btree ("lot","is_disabled");--> statement-breakpoint
 CREATE INDEX "integration_provider_is_disabled_idx" ON "integration" USING btree ("provider","is_disabled");--> statement-breakpoint
 CREATE INDEX "integration_auto_disable_claim_integration_id_idx" ON "integration_auto_disable_claim" USING btree ("integration_id");--> statement-breakpoint

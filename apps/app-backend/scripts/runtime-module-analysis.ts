@@ -20,7 +20,7 @@ export type ModuleSource = FileEntry & {
 };
 
 const importPattern =
-	/(?:import|export)\s+(?:type\s+)?(?:[^"']*?\s+from\s+)?["']([^"']+)["']|import\(\s*["']([^"']+)["']\s*\)/g;
+	/(?:import|export)\s+(type\s+)?(?:[^"']*?\s+from\s+)?["']([^"']+)["']|import\(\s*["']([^"']+)["']\s*\)/g;
 
 export const extractImportPaths = (content: string) => {
 	const paths: string[] = [];
@@ -28,8 +28,8 @@ export const extractImportPaths = (content: string) => {
 
 	importPattern.lastIndex = 0;
 	while ((match = importPattern.exec(content)) !== null) {
-		const path = match[1] ?? match[2];
-		if (path) {
+		const path = match[2] ?? match[3];
+		if (!match[1] && path) {
 			paths.push(path);
 		}
 	}
@@ -38,6 +38,17 @@ export const extractImportPaths = (content: string) => {
 };
 
 const moduleEdgeKey = (from: string, to: string) => `${from}|${to}`;
+
+const isRuntimeFile = (file: string) =>
+	file.endsWith(".ts") &&
+	!file.endsWith(".d.ts") &&
+	!file.endsWith(".test.ts") &&
+	!file.endsWith(".spec.ts") &&
+	!file.endsWith(".test-support.ts") &&
+	!file.endsWith(".test-fixture.ts") &&
+	!file.endsWith(".typecheck.ts") &&
+	!file.endsWith("runner.generated.ts") &&
+	!file.replaceAll("\\", "/").includes("/test-fixtures/");
 
 const walkTsFiles = (
 	dir: string,
@@ -61,7 +72,7 @@ const walkTsFiles = (
 				continue;
 			}
 
-			files.push({ path: fullPath, kind: entry.endsWith(".test.ts") ? "test" : "runtime" });
+			files.push({ path: fullPath, kind: isRuntimeFile(fullPath) ? "runtime" : "test" });
 		}
 
 		return files;
@@ -131,39 +142,95 @@ export const extractImportEdges = (
 			.map((to) => ({ to, from: source.moduleName, kind: source.kind }) satisfies ModuleEdge);
 	});
 
-const buildEdges = (modulesDir: string, moduleNames: string[]) =>
+const resolveFileImport = (
+	sourceFile: string,
+	importPath: string,
+	srcDir: string,
+	files: ReadonlySet<string>,
+	path: Path.Path,
+) => {
+	let target: string | null = null;
+	if (importPath.startsWith("#")) {
+		target = path.resolve(srcDir, importPath.slice(1));
+	} else if (importPath.startsWith(".")) {
+		target = path.resolve(path.dirname(sourceFile), importPath);
+	}
+	if (!target) {
+		return null;
+	}
+
+	for (const candidate of [target, `${target}.ts`, path.join(target, "index.ts")]) {
+		if (files.has(candidate)) {
+			return candidate;
+		}
+	}
+	return null;
+};
+
+const resolveFileModule = (
+	file: string,
+	modulesDir: string,
+	moduleNames: ReadonlySet<string>,
+	path: Path.Path,
+) => {
+	const relativePath = path.relative(modulesDir, file);
+	if (!relativePath || relativePath.startsWith("..") || path.isAbsolute(relativePath)) {
+		return null;
+	}
+	const [moduleName] = relativePath.split(path.sep);
+	return moduleName && moduleNames.has(moduleName) ? moduleName : null;
+};
+
+const buildEdges = (srcDir: string, modulesDir: string, moduleNames: string[]) =>
 	Effect.gen(function* () {
 		const path = yield* Path.Path;
 		const fs = yield* FileSystem.FileSystem;
 		const knownModules = new Set(moduleNames);
-		const edgeSources = new Map<string, Set<FileKind>>();
+		const files = (yield* walkTsFiles(srcDir)).filter((file) => file.kind === "runtime");
+		const contents = new Map(
+			yield* Effect.forEach(files, (file) =>
+				fs.readFileString(file.path).pipe(Effect.map((content) => [file.path, content] as const)),
+			),
+		);
+		const filePaths = new Set(contents.keys());
+		const edges = new Set<string>();
 
 		for (const moduleName of moduleNames) {
-			const files = yield* walkTsFiles(path.join(modulesDir, moduleName));
+			const visited = new Set<string>();
+			const visit = (file: string): Effect.Effect<void> =>
+				Effect.gen(function* () {
+					if (visited.has(file)) {
+						return;
+					}
+					visited.add(file);
+					for (const importPath of extractImportPaths(contents.get(file) ?? "")) {
+						const target = resolveFileImport(file, importPath, srcDir, filePaths, path);
+						if (!target) {
+							continue;
+						}
+						const targetModule = resolveFileModule(target, modulesDir, knownModules, path);
+						if (targetModule && targetModule !== moduleName) {
+							edges.add(moduleEdgeKey(moduleName, targetModule));
+							continue;
+						}
+						yield* visit(target);
+					}
+				});
 
-			for (const file of files) {
-				const source = {
-					moduleName,
-					path: file.path,
-					kind: file.kind,
-					content: yield* fs.readFileString(file.path),
-				};
-				for (const edge of yield* extractImportEdges(source, modulesDir, knownModules)) {
-					const key = moduleEdgeKey(edge.from, edge.to);
-					const kinds = edgeSources.get(key) ?? new Set<FileKind>();
-					kinds.add(edge.kind);
-					edgeSources.set(key, kinds);
+			for (const file of filePaths) {
+				if (resolveFileModule(file, modulesDir, knownModules, path) === moduleName) {
+					yield* visit(file);
 				}
 			}
 		}
 
-		return [...edgeSources.entries()]
-			.map(([key, kinds]) => {
+		return [...edges]
+			.map((key) => {
 				const divider = key.indexOf("|");
 				return {
-					from: key.slice(0, divider),
-					kind: kinds.has("runtime") ? "runtime" : "test",
+					kind: "runtime",
 					to: key.slice(divider + 1),
+					from: key.slice(0, divider),
 				} satisfies ModuleEdge;
 			})
 			.sort(
@@ -240,7 +307,9 @@ export const formatRuntimeCycleDiagnostics = (cycles: ReadonlyArray<ReadonlyArra
 
 export const analyzeRuntimeModules = (modulesDir: string) =>
 	Effect.gen(function* () {
+		const path = yield* Path.Path;
+		const srcDir = path.dirname(modulesDir);
 		const moduleNames = yield* getModuleNames(modulesDir);
-		const edges = yield* buildEdges(modulesDir, moduleNames);
+		const edges = yield* buildEdges(srcDir, modulesDir, moduleNames);
 		return detectRuntimeCycles(moduleNames, edges);
 	});

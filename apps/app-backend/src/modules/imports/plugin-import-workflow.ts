@@ -7,8 +7,6 @@ import { Cause, Effect, Schema } from "effect";
 
 import { AppConfig } from "#lib/infrastructure/config/service";
 import { withoutWorkflowParent } from "#lib/infrastructure/workflow";
-import type { RegisteredImportSource } from "#modules/plugins/import-source-catalog";
-import type { findActiveWorkflowScriptInSnapshot } from "#modules/plugins/runtime-resolver";
 import { SandboxExecutionService } from "#modules/sandbox/service";
 
 import type { ImportRunJobData } from "./jobs";
@@ -21,30 +19,23 @@ import { createImportRunLifecycle } from "./runtime/workflow-helpers";
 export const runPluginImportWorkflow = Effect.fn("runPluginImportWorkflow")(function* (
 	payload: ImportRunJobData,
 	executionId: string,
-	source: RegisteredImportSource,
-	workflowScript: ReturnType<typeof findActiveWorkflowScriptInSnapshot>,
 ) {
 	const config = yield* AppConfig;
 	const sandbox = yield* SandboxExecutionService;
 	const namedArtifactPaths: Record<string, string> = {};
 	const cleanupPaths: string[] = [];
-	if (source.input === "file" && source.lot === "named") {
-		for (const artifact of source.artifacts) {
-			const suppliedPath = payload.namedArtifactPaths?.[artifact.key];
-			if (!suppliedPath) {
-				continue;
-			}
+	if (payload.namedArtifactPaths) {
+		for (const [key, suppliedPath] of Object.entries(payload.namedArtifactPaths)) {
 			const [resolvedPath] = yield* resolveImportPath(suppliedPath, config.tmpDir);
 			if (resolvedPath) {
-				namedArtifactPaths[artifact.key] = resolvedPath;
+				namedArtifactPaths[key] = resolvedPath;
 				cleanupPaths.push(resolvedPath);
 			}
 		}
-	} else if (source.input === "file" && payload.filePath) {
+	} else if (payload.filePath) {
 		cleanupPaths.push(...(yield* resolveImportPath(payload.filePath, config.tmpDir)));
 	}
-	const artifactPath =
-		source.input === "file" && source.lot === "single" ? cleanupPaths[0] : undefined;
+	const artifactPath = payload.namedArtifactPaths ? undefined : cleanupPaths[0];
 	let grants: SandboxExecutionGrants | undefined;
 	if (artifactPath) {
 		grants = { artifactPath };
@@ -53,6 +44,10 @@ export const runPluginImportWorkflow = Effect.fn("runPluginImportWorkflow")(func
 	}
 	const { failRunAndCleanup, cleanupArtifactsBestEffort, cleanupHarvestedDirectoriesBestEffort } =
 		createImportRunLifecycle(payload);
+	const releaseImportWorkflowPin = Activity.make({
+		name: "release-import-workflow-pin",
+		execute: sandbox.releaseWorkflowRegistration(`${executionId}-import`).pipe(Effect.ignore),
+	});
 
 	const processWorkflow = Effect.gen(function* () {
 		yield* Activity.make({
@@ -61,12 +56,6 @@ export const runPluginImportWorkflow = Effect.fn("runPluginImportWorkflow")(func
 			execute: markImportRunStarted(payload.runId).pipe(Effect.mapError(toWorkflowError)),
 		});
 
-		const scriptId = yield* sandbox
-			.resolveWorkflowScript(
-				{ executionId, pluginSlug: source.pluginSlug, workflowSlug: source.workflowSlug },
-				workflowScript,
-			)
-			.pipe(Effect.mapError(toWorkflowError));
 		const storedSourcePayload = payload.sourcePayloadKey
 			? yield* Activity.make({
 					error: ImportRunError,
@@ -89,7 +78,7 @@ export const runPluginImportWorkflow = Effect.fn("runPluginImportWorkflow")(func
 
 		yield* sandbox
 			.executeWorkflow({
-				scriptId,
+				scriptId: payload.workflowScriptId,
 				input: workflowInput,
 				...(grants ? { grants } : {}),
 				executionId: `${executionId}-import`,
@@ -104,10 +93,13 @@ export const runPluginImportWorkflow = Effect.fn("runPluginImportWorkflow")(func
 		Effect.catchAllCause((cause) =>
 			Cause.isInterruptedOnly(cause)
 				? Effect.failCause(cause)
-				: cleanupHarvestedDirectoriesBestEffort(
-						"cleanup-import-harvest-on-failure",
-						`${executionId}-import-activity-`,
-					).pipe(
+				: releaseImportWorkflowPin.pipe(
+						Effect.zipRight(
+							cleanupHarvestedDirectoriesBestEffort(
+								"cleanup-import-harvest-on-failure",
+								`${executionId}-import-activity-`,
+							),
+						),
 						Effect.zipRight(
 							failRunAndCleanup({
 								cleanupPaths,
