@@ -1,10 +1,9 @@
-import { and, desc, eq, isNull, or } from "drizzle-orm";
+import { and, eq, isNull, or } from "drizzle-orm";
 
 import { assertPersisted, type DbClient, db } from "~/lib/db";
-import { entity, entitySchema, relationship } from "~/lib/db/schema";
-import { getBuiltinRelationshipSchemaBySlug } from "~/modules/relationship-schemas";
+import { entity, entitySchema } from "~/lib/db/schema";
 
-import type { AddToCollectionData, CollectionResponse } from "./schemas";
+import type { CollectionResponse } from "./schemas";
 
 const collectionSelection = {
 	id: entity.id,
@@ -125,115 +124,6 @@ export const createCollectionForUser = async (input: {
 	return toCollectionResponse(assertPersisted(createdEntity, "collection"));
 };
 
-const membershipSelection = {
-	id: relationship.id,
-	createdAt: relationship.createdAt,
-	properties: relationship.properties,
-	sourceEntityId: relationship.sourceEntityId,
-	targetEntityId: relationship.targetEntityId,
-	relationshipSchemaId: relationship.relationshipSchemaId,
-};
-
-type MembershipRow = {
-	id: string;
-	createdAt: Date;
-	sourceEntityId: string;
-	targetEntityId: string;
-	relationshipSchemaId: string;
-	properties: Record<string, unknown>;
-};
-
-const toMembershipResponse = (row: MembershipRow): AddToCollectionData["memberOf"] => ({
-	...row,
-	properties: row.properties,
-	createdAt: row.createdAt.toISOString(),
-});
-
-export const getExistingMembership = async (
-	input: { userId: string; entityId: string; collectionId: string },
-	database: DbClient = db,
-): Promise<AddToCollectionData | undefined> => {
-	const found = await getBuiltinRelationshipSchemaBySlug("member-of");
-	if (!found) {
-		throw new Error("member-of relationship schema not found");
-	}
-	const memberOfSchemaId = found.id;
-
-	const [memberOfRel] = (await database
-		.select(membershipSelection)
-		.from(relationship)
-		.where(
-			and(
-				eq(relationship.userId, input.userId),
-				eq(relationship.relationshipSchemaId, memberOfSchemaId),
-				eq(relationship.sourceEntityId, input.entityId),
-				eq(relationship.targetEntityId, input.collectionId),
-			),
-		)
-		.orderBy(desc(relationship.createdAt))
-		.limit(1)) as MembershipRow[];
-
-	if (!memberOfRel) {
-		return undefined;
-	}
-
-	return { memberOf: toMembershipResponse(memberOfRel) };
-};
-
-export const addEntityToCollection = async (input: {
-	userId: string;
-	entityId: string;
-	collectionId: string;
-	properties: Record<string, unknown>;
-}): Promise<AddToCollectionData> => {
-	const found = await getBuiltinRelationshipSchemaBySlug("member-of");
-	if (!found) {
-		throw new Error("member-of relationship schema not found");
-	}
-	const memberOfSchemaId = found.id;
-
-	return db.transaction(async (tx) => {
-		await tx
-			.insert(relationship)
-			.values({
-				userId: input.userId,
-				properties: input.properties,
-				sourceEntityId: input.entityId,
-				targetEntityId: input.collectionId,
-				relationshipSchemaId: memberOfSchemaId,
-			})
-			.onConflictDoUpdate({
-				set: { properties: input.properties },
-				target: [
-					relationship.userId,
-					relationship.sourceEntityId,
-					relationship.targetEntityId,
-					relationship.relationshipSchemaId,
-				],
-			});
-
-		const [memberOfRel] = (await tx
-			.select(membershipSelection)
-			.from(relationship)
-			.where(
-				and(
-					eq(relationship.userId, input.userId),
-					eq(relationship.relationshipSchemaId, memberOfSchemaId),
-					eq(relationship.sourceEntityId, input.entityId),
-					eq(relationship.targetEntityId, input.collectionId),
-				),
-			)
-			.orderBy(desc(relationship.createdAt))
-			.limit(1)) as MembershipRow[];
-
-		if (!memberOfRel) {
-			throw new Error("Could not add entity to collection");
-		}
-
-		return { memberOf: toMembershipResponse(memberOfRel) };
-	});
-};
-
 export const getCollectionById = async (
 	collectionId: string,
 	userId: string,
@@ -277,34 +167,4 @@ export const getEntityById = async (
 		.limit(1);
 
 	return foundEntity;
-};
-
-export const removeEntityFromCollection = async (input: {
-	userId: string;
-	entityId: string;
-	collectionId: string;
-}): Promise<AddToCollectionData | undefined> => {
-	const found = await getBuiltinRelationshipSchemaBySlug("member-of");
-	if (!found) {
-		throw new Error("member-of relationship schema not found");
-	}
-	const memberOfSchemaId = found.id;
-
-	const [deletedRel] = await db
-		.delete(relationship)
-		.where(
-			and(
-				eq(relationship.userId, input.userId),
-				eq(relationship.relationshipSchemaId, memberOfSchemaId),
-				eq(relationship.sourceEntityId, input.entityId),
-				eq(relationship.targetEntityId, input.collectionId),
-			),
-		)
-		.returning(membershipSelection);
-
-	if (!deletedRel) {
-		return undefined;
-	}
-
-	return { memberOf: toMembershipResponse(deletedRel) };
 };
