@@ -24,11 +24,9 @@ import {
 	getEntitySchemaScopeForUser,
 	getEntityScopeForUser,
 	getRelationshipForUser,
-	getUserLibraryEntityId,
 	insertRelationship,
 	listEntityMatchCandidatesBySchemaForUser,
 	upsertEntityRelationship,
-	upsertInLibraryRelationship,
 	upsertRelationship,
 } from "./repository";
 import type {
@@ -39,7 +37,6 @@ import type {
 } from "./schemas";
 
 type EntityMutationError = "not_found" | "validation";
-type EntityLibraryMembershipError = "validation";
 
 export type EntityServiceDeps = {
 	createEntityForUser: typeof createEntityForUser;
@@ -55,17 +52,11 @@ export type EntityMatchCandidate = Awaited<
 	ReturnType<typeof listEntityMatchCandidatesBySchemaForUser>
 >[number];
 
-export type EnsureEntityInLibraryDeps = {
-	getUserLibraryEntityId: typeof getUserLibraryEntityId;
-	upsertInLibraryRelationship: typeof upsertInLibraryRelationship;
-};
-
 const entityProvenanceUniqueConstraint = "entity_user_schema_script_external_id_unique";
 const entityNotFoundError = "Entity not found";
 const partialProvenanceError =
 	"externalId and sandboxScriptId must both be provided or both be omitted";
 const entitySchemaNotFoundError = "Entity schema not found";
-const libraryEntityNotFoundError = "User library entity not found";
 
 const entityServiceDeps: EntityServiceDeps = {
 	createEntityForUser,
@@ -73,11 +64,6 @@ const entityServiceDeps: EntityServiceDeps = {
 	getEntityScopeForUser,
 	getEntitySchemaScopeForUser,
 	findEntityByExternalIdForUser,
-};
-
-const ensureEntityInLibraryDeps: EnsureEntityInLibraryDeps = {
-	getUserLibraryEntityId,
-	upsertInLibraryRelationship,
 };
 
 const resolveEntityIdResult = (entityId: string) =>
@@ -147,25 +133,6 @@ const resolveEntityCreateInputResult = (
 		propertiesSchema: AppSchema;
 	},
 ) => wrapServiceValidator(() => resolveEntityCreateInput(input), "Entity payload is invalid");
-
-export const ensureEntityInLibrary = async (
-	input: { userId: string; entityId: string },
-	deps: EnsureEntityInLibraryDeps = ensureEntityInLibraryDeps,
-): Promise<ServiceResult<void, EntityLibraryMembershipError>> => {
-	const libraryEntityId = await deps.getUserLibraryEntityId({
-		userId: input.userId,
-	});
-	if (!libraryEntityId) {
-		return serviceError("validation", libraryEntityNotFoundError);
-	}
-	await deps.upsertInLibraryRelationship({
-		libraryEntityId,
-		userId: input.userId,
-		entityId: input.entityId,
-	});
-
-	return serviceData(undefined);
-};
 
 export const getEntityDetail = async (
 	input: { entityId: string; userId: string },

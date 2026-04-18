@@ -5,6 +5,7 @@ import { sha1Hex } from "~/lib/bun";
 import { getQueues } from "~/lib/queue";
 import { getRedisConnection } from "~/lib/queue/connection";
 import { onWorkerError } from "~/lib/queue/utils";
+import type { ServiceResult } from "~/lib/result";
 import {
 	getSandboxChildRunResult,
 	queueSandboxChildRun,
@@ -37,17 +38,20 @@ import {
 	getEntitySchemaScopeForUser,
 	updateGlobalEntityById,
 } from "./repository";
-import { ensureEntityInLibrary, writeEntityRelationship } from "./service";
+import { writeEntityRelationship } from "./service";
 
 const entitySearchResultSchema = z.object({
 	items: z.array(z.object({ externalId: z.string().min(1) })),
-	details: z.object({
-		nextPage: z.number().int().positive().nullable().optional(),
-	}),
+	details: z.object({ nextPage: z.number().int().positive().nullable().optional() }),
 });
 
+export type EntityImportedHook = (input: {
+	userId: string;
+	entityId: string;
+}) => Promise<ServiceResult<void, "validation">>;
+
 export type EntityImportWorkerDeps = EntityPopulationDeps & {
-	ensureEntityInLibrary: typeof ensureEntityInLibrary;
+	onEntityImported?: EntityImportedHook;
 	getSandboxScriptForUser: typeof getSandboxScriptForUser;
 	getBuiltinEntitySchemaBySlug: typeof getBuiltinEntitySchemaBySlug;
 	addEntityQueueJob: (input: {
@@ -68,7 +72,6 @@ const addEntityQueueJob: EntityImportWorkerDeps["addEntityQueueJob"] = async (in
 const entityImportWorkerDeps: EntityImportWorkerDeps = {
 	...entityPopulationDeps,
 	addEntityQueueJob,
-	ensureEntityInLibrary,
 	getSandboxScriptForUser,
 	getBuiltinEntitySchemaBySlug,
 	// re-declare the shared deps explicitly so the spread above is clearly typed
@@ -135,12 +138,14 @@ export const processEntityImportJob = async (
 ) => {
 	const result = await processEntityPopulationJob(job, token, deps);
 
-	const libraryResult = await deps.ensureEntityInLibrary({
-		userId: result.userId,
-		entityId: result.entity.id,
-	});
-	if ("error" in libraryResult) {
-		throw new Error(libraryResult.message);
+	if (deps.onEntityImported) {
+		const hookResult = await deps.onEntityImported({
+			userId: result.userId,
+			entityId: result.entity.id,
+		});
+		if ("error" in hookResult) {
+			throw new Error(hookResult.message);
+		}
 	}
 
 	return result.entity;
@@ -251,23 +256,33 @@ export const processEntityPreloadJob = async (
 	return { nextPage, enqueuedImports: uniqueExternalIds.length };
 };
 
-const processEntityQueueJob = async (job: Job, token?: string) => {
+const processEntityQueueJob = async (
+	job: Job,
+	token: string | undefined,
+	deps: EntityImportWorkerDeps = entityImportWorkerDeps,
+) => {
 	if (job.name === entityImportJobName) {
-		return processEntityImportJob(job, token);
+		return processEntityImportJob(job, token, deps);
 	}
 	if (job.name === entityPreloadImportJobName) {
-		const result = await processEntityPopulationJob(job, token);
+		const result = await processEntityPopulationJob(job, token, deps);
 		return result.entity;
 	}
 	if (job.name === entityPreloadJobName) {
-		return processEntityPreloadJob(job, token);
+		return processEntityPreloadJob(job, token, deps);
 	}
 
 	throw new Error(`Unsupported entity import queue job: ${job.name}`);
 };
 
-export const createEntityImportWorker = () => {
-	const worker = new Worker("entity", processEntityQueueJob, {
+export const createEntityImportWorker = (
+	options: { onEntityImported?: EntityImportedHook } = {},
+) => {
+	const deps: EntityImportWorkerDeps = {
+		...entityImportWorkerDeps,
+		onEntityImported: options.onEntityImported,
+	};
+	const worker = new Worker("entity", (job, token) => processEntityQueueJob(job, token, deps), {
 		connection: getRedisConnection(),
 	});
 	worker.on("error", onWorkerError("entity"));

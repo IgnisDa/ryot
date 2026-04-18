@@ -14,7 +14,6 @@ import { expectDataResult } from "~/lib/test-helpers";
 
 import {
 	createEntity,
-	ensureEntityInLibrary,
 	getEntityDetail,
 	getEntityImportResult,
 	importEntity,
@@ -24,8 +23,6 @@ import {
 	resolveEntityName,
 	resolveEntitySchemaId,
 } from "./service";
-
-type EnsureEntityInLibraryTestDeps = NonNullable<Parameters<typeof ensureEntityInLibrary>[1]>;
 
 describe("resolveEntityName", () => {
 	it("trims the provided name", () => {
@@ -54,50 +51,6 @@ describe("resolveEntityId", () => {
 
 	it("throws when the entity id is blank", () => {
 		expect(() => resolveEntityId("   ")).toThrow("Entity id is required");
-	});
-});
-
-describe("ensureEntityInLibrary", () => {
-	it("writes the in-library relationship for the user's library entity", async () => {
-		let relationshipInput:
-			| Parameters<EnsureEntityInLibraryTestDeps["upsertInLibraryRelationship"]>[0]
-			| undefined;
-
-		const result = await ensureEntityInLibrary(
-			{ userId: "user_1", entityId: "entity_1" },
-			{
-				getUserLibraryEntityId: () => Promise.resolve("library_1"),
-				upsertInLibraryRelationship: (input) => {
-					relationshipInput = input;
-					return Promise.resolve();
-				},
-			},
-		);
-
-		expectDataResult(result);
-		expect(relationshipInput).toEqual({
-			userId: "user_1",
-			entityId: "entity_1",
-			libraryEntityId: "library_1",
-		});
-	});
-
-	it("returns validation when the user library entity is missing", async () => {
-		let relationshipWrites = 0;
-
-		const result = await ensureEntityInLibrary(
-			{ userId: "user_1", entityId: "entity_1" },
-			{
-				getUserLibraryEntityId: () => Promise.resolve(undefined),
-				upsertInLibraryRelationship: () => {
-					relationshipWrites++;
-					return Promise.resolve();
-				},
-			},
-		);
-
-		expect(result).toEqual({ error: "validation", message: "User library entity not found" });
-		expect(relationshipWrites).toBe(0);
 	});
 });
 

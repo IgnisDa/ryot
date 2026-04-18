@@ -14,7 +14,6 @@ import { type ServiceResult, serviceData, serviceError, wrapServiceValidator } f
 import { defaultTimeoutMs } from "~/lib/sandbox/constants";
 import type { QueuedRunResult } from "~/lib/sandbox/jobs";
 import { sandboxRunJobName } from "~/lib/sandbox/jobs";
-import { ensureEntityInLibrary } from "~/modules/entities";
 
 import {
 	createEventForUser,
@@ -110,10 +109,15 @@ type RunBeforeCreateTriggerOutput =
 	| { outcome: "error"; error: string }
 	| { outcome: "result"; result: BeforeTriggerResult };
 
+export type GlobalEntityEventHook = (input: {
+	userId: string;
+	entityId: string;
+}) => Promise<ServiceResult<void, "not_found" | "validation">>;
+
 export type EventServiceDeps = {
+	onGlobalEntityScope?: GlobalEntityEventHook;
 	createEventForUser: typeof createEventForUser;
 	getEntityScopeForUser: typeof getEntityScopeForUser;
-	ensureEntityInLibrary: typeof ensureEntityInLibrary;
 	getSessionEntityScopeForUser: typeof getEntityScopeForUser;
 	listEventsByEntityForUser: typeof listEventsByEntityForUser;
 	getEventCreateScopeForUser: typeof getEventCreateScopeForUser;
@@ -258,7 +262,6 @@ const runBeforeCreateTrigger = async (
 
 export const eventServiceDeps: EventServiceDeps = {
 	createEventForUser,
-	ensureEntityInLibrary,
 	getEntityScopeForUser,
 	runBeforeCreateTrigger,
 	listEventsByEntityForUser,
@@ -272,7 +275,7 @@ export const eventServiceDeps: EventServiceDeps = {
 
 export const resolveCreateEventScope = async (
 	input: { body: CreateEventBody; userId: string },
-	options: { ensureLibraryMembership?: boolean } = {},
+	options: { runGlobalEntityHook?: boolean } = {},
 	deps: EventServiceDeps = eventServiceDeps,
 ): Promise<EventServiceResult<ResolvedCreateEventScope>> => {
 	const entityIdResult = resolveEventEntityIdResult(input.body.entityId);
@@ -322,24 +325,28 @@ export const resolveCreateEventScope = async (
 		return serviceError("validation", eventSchemaMismatchError);
 	}
 
-	if (options.ensureLibraryMembership !== false && eventScope.entityUserId === null) {
-		const libraryResult = await deps.ensureEntityInLibrary({
+	if (
+		options.runGlobalEntityHook !== false &&
+		eventScope.entityUserId === null &&
+		deps.onGlobalEntityScope
+	) {
+		const hookResult = await deps.onGlobalEntityScope({
 			userId: input.userId,
 			entityId: eventScope.entityId,
 		});
-		if ("error" in libraryResult) {
-			return libraryResult;
+		if ("error" in hookResult) {
+			return hookResult;
 		}
 	}
 	const resolvedEventScope: ResolvedCreateEventScope["eventScope"] = {
 		entityId: eventScope.entityId,
+		isBuiltin: eventScope.isBuiltin,
 		entityUserId: eventScope.entityUserId,
 		eventSchemaId: eventScope.eventSchemaId,
-		isBuiltin: eventScope.isBuiltin,
+		entitySchemaId: eventScope.entitySchemaId,
 		eventSchemaName: eventScope.eventSchemaName,
 		eventSchemaSlug: eventScope.eventSchemaSlug,
 		entitySchemaSlug: eventScope.entitySchemaSlug,
-		entitySchemaId: eventScope.entitySchemaId,
 		propertiesSchema: eventScope.propertiesSchema,
 		eventSchemaEntitySchemaId: eventScope.eventSchemaEntitySchemaId,
 	};
@@ -431,11 +438,7 @@ export const validateEventCreateInputForUser = async (
 	input: { body: CreateEventBody; userId: string },
 	deps: EventServiceDeps = eventServiceDeps,
 ): Promise<EventServiceResult<void>> => {
-	const resolvedScope = await resolveCreateEventScope(
-		input,
-		{ ensureLibraryMembership: false },
-		deps,
-	);
+	const resolvedScope = await resolveCreateEventScope(input, { runGlobalEntityHook: false }, deps);
 	if ("error" in resolvedScope) {
 		return resolvedScope;
 	}
