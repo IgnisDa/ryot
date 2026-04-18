@@ -430,6 +430,6 @@ export class ProcessPool extends Effect.Service<ProcessPool>()("ProcessPool", {
 			acquire: spawn(),
 			size: config.sandbox.workerConcurrency + 2,
 		});
-		return { pool, spawnDedicated: spawn };
+		return { pool, runtimePaths: dependencies, spawnDedicated: spawn };
 	}),
 }) {}
