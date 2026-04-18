@@ -79,7 +79,6 @@ CREATE TABLE "entity_schema_script" (
 CREATE TABLE "event" (
 	"created_at" timestamp DEFAULT now() NOT NULL,
 	"properties" jsonb DEFAULT '{}'::jsonb NOT NULL,
-	"session_entity_id" text,
 	"user_id" text NOT NULL,
 	"id" text PRIMARY KEY NOT NULL,
 	"event_schema_id" text NOT NULL,
@@ -126,10 +125,10 @@ CREATE TABLE "relationship_schema" (
 );
 --> statement-breakpoint
 CREATE TABLE "sandbox_script" (
-	"metadata" jsonb,
 	"slug" text NOT NULL,
 	"name" text NOT NULL,
 	"code" text NOT NULL,
+	"metadata" jsonb NOT NULL,
 	"created_at" timestamp DEFAULT now() NOT NULL,
 	"is_builtin" boolean DEFAULT false NOT NULL,
 	"user_id" text,
@@ -220,7 +219,6 @@ ALTER TABLE "entity" ADD CONSTRAINT "entity_sandbox_script_id_sandbox_script_id_
 ALTER TABLE "entity_schema" ADD CONSTRAINT "entity_schema_user_id_user_id_fk" FOREIGN KEY ("user_id") REFERENCES "public"."user"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "entity_schema_script" ADD CONSTRAINT "entity_schema_script_entity_schema_id_entity_schema_id_fk" FOREIGN KEY ("entity_schema_id") REFERENCES "public"."entity_schema"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "entity_schema_script" ADD CONSTRAINT "entity_schema_script_sandbox_script_id_sandbox_script_id_fk" FOREIGN KEY ("sandbox_script_id") REFERENCES "public"."sandbox_script"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
-ALTER TABLE "event" ADD CONSTRAINT "event_session_entity_id_entity_id_fk" FOREIGN KEY ("session_entity_id") REFERENCES "public"."entity"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "event" ADD CONSTRAINT "event_user_id_user_id_fk" FOREIGN KEY ("user_id") REFERENCES "public"."user"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "event" ADD CONSTRAINT "event_event_schema_id_event_schema_id_fk" FOREIGN KEY ("event_schema_id") REFERENCES "public"."event_schema"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "event" ADD CONSTRAINT "event_entity_id_entity_id_fk" FOREIGN KEY ("entity_id") REFERENCES "public"."entity"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
@@ -256,7 +254,6 @@ CREATE INDEX "entity_schema_script_sandbox_script_id_idx" ON "entity_schema_scri
 CREATE INDEX "event_user_id_idx" ON "event" USING btree ("user_id");--> statement-breakpoint
 CREATE INDEX "event_entity_id_idx" ON "event" USING btree ("entity_id");--> statement-breakpoint
 CREATE INDEX "event_event_schema_id_idx" ON "event" USING btree ("event_schema_id");--> statement-breakpoint
-CREATE INDEX "event_session_entity_id_idx" ON "event" USING btree ("session_entity_id");--> statement-breakpoint
 CREATE INDEX "event_properties_idx" ON "event" USING gin ("properties");--> statement-breakpoint
 CREATE INDEX "event_schema_entity_schema_id_idx" ON "event_schema" USING btree ("entity_schema_id");--> statement-breakpoint
 CREATE UNIQUE INDEX "event_schema_builtin_entity_schema_slug_unique" ON "event_schema" USING btree ("entity_schema_id","slug") WHERE "event_schema"."user_id" is null;--> statement-breakpoint

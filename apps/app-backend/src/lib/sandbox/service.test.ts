@@ -8,7 +8,7 @@ type TestSandboxExecutor = {
 		jobData: SandboxRunJobData,
 		scriptFetcher?: (
 			scriptId: string,
-		) => Promise<{ code: string; metadata: object | null } | null>,
+		) => Promise<{ code: string; metadata: object } | null>,
 	) => Promise<unknown>;
 };
 
@@ -32,7 +32,7 @@ const createJobData = (
 
 const createScriptFetcher =
 	(metadata?: object) => async (_scriptId: string) => ({
-		metadata: metadata ?? null,
+		metadata: metadata ?? {},
 		code: 'driver("main", async function() { return 1; });',
 	});
 
@@ -84,7 +84,7 @@ describe("SandboxService.executeQueuedRun", () => {
 		expect(Object.keys(apiFunctions).sort()).toEqual(["getAppConfigValue"]);
 	});
 
-	it("uses all registry functions when metadata has no allowedHostFunctions", async () => {
+	it("uses no registry functions when metadata has no allowedHostFunctions", async () => {
 		const service = new SandboxService();
 		const testService = service as unknown as TestSandboxExecutor;
 		let capturedOptions: unknown;
@@ -104,14 +104,26 @@ describe("SandboxService.executeQueuedRun", () => {
 				>;
 			}
 		).apiFunctions;
-		expect(Object.keys(apiFunctions).sort()).toEqual([
-			"executeQuery",
-			"getAppConfigValue",
-			"getCachedValue",
-			"getUserPreferences",
-			"httpCall",
-			"setCachedValue",
-		]);
+		expect(Object.keys(apiFunctions).sort()).toEqual([]);
+	});
+
+	it("throws before execute when metadata is invalid", async () => {
+		const service = new SandboxService();
+		const testService = service as unknown as TestSandboxExecutor;
+		let executeCalled = false;
+
+		testService.execute = async () => {
+			executeCalled = true;
+			return { success: true };
+		};
+
+		expect(
+			testService.executeQueuedRun(
+				createJobData(),
+				createScriptFetcher({ allowedHostFunctions: "not-an-array" }),
+			),
+		).rejects.toThrow("Sandbox script metadata is invalid");
+		expect(executeCalled).toBe(false);
 	});
 
 	it("throws before execute when metadata has an unknown function key", async () => {

@@ -1,12 +1,14 @@
 import { and, eq, isNull, or } from "drizzle-orm";
 import { assertPersisted, db } from "~/lib/db";
 import { sandboxScript } from "~/lib/db/schema/tables";
+import type { SandboxScriptMetadata } from "~/lib/sandbox/types";
 
 const sandboxScriptCreationSelection = {
 	id: sandboxScript.id,
 	name: sandboxScript.name,
 	slug: sandboxScript.slug,
 	code: sandboxScript.code,
+	metadata: sandboxScript.metadata,
 };
 
 export type SandboxScriptAccessRow = {
@@ -45,6 +47,7 @@ export const createSandboxScriptForUser = async (input: {
 	slug: string;
 	code: string;
 	userId: string;
+	metadata: SandboxScriptMetadata;
 }) => {
 	const [createdScript] = await db
 		.insert(sandboxScript)
@@ -54,10 +57,13 @@ export const createSandboxScriptForUser = async (input: {
 			code: input.code,
 			isBuiltin: false,
 			userId: input.userId,
+			metadata: input.metadata,
 		})
 		.returning(sandboxScriptCreationSelection);
 
-	return assertPersisted(createdScript, "sandbox script");
+	const persistedScript = assertPersisted(createdScript, "sandbox script");
+
+	return { ...persistedScript, metadata: input.metadata };
 };
 
 export const getSandboxScriptBySlugForUser = async (input: {
