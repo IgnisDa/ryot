@@ -359,12 +359,12 @@ export const writeMediaEntityGroups = async (
 					itemIndex,
 					context: null,
 					runId: input.runId,
-					stage: "database_commit",
 					message: failure.message,
 					sourceLabel: ref.sourceLabel,
 					sourceIdentifier: ref.externalId,
 					entitySchemaSlug: ref.entitySchemaSlug,
 					eventSchemaSlug: eventInput?.eventSchemaSlug,
+					stage: failure.error === "before_trigger" ? "event_before_trigger" : "database_commit",
 				});
 			}
 		}

@@ -40,7 +40,7 @@ export type CreatedEventData = ListedEvent & {
 	entitySchemaSlug: string;
 };
 
-type EventMutationError = "not_found" | "validation";
+type EventMutationError = "not_found" | "validation" | "before_trigger";
 
 export type CreateEventsBestEffortFailure = {
 	message: string;
@@ -555,7 +555,7 @@ export const createEvent = async (
 		const triggerOutput = await deps.runBeforeCreateTrigger(triggerContext);
 
 		if (triggerOutput.outcome === "error") {
-			return serviceError("validation", `Before trigger failed: ${triggerOutput.error}`);
+			return serviceError("before_trigger", `Before trigger failed: ${triggerOutput.error}`);
 		}
 
 		const { result } = triggerOutput;
@@ -802,7 +802,7 @@ export const createEventBySchemaSlugWithTriggers = async (
 		properties: Record<string, unknown>;
 	},
 	deps: EventServiceDeps = eventServiceDeps,
-): Promise<EventServiceResult<CreatedEventData> | EventCreateSkipResult> => {
+): Promise<ServiceResult<CreatedEventData, "not_found" | "validation"> | EventCreateSkipResult> => {
 	const scope = await deps.getEventSchemaForEntityBySlug({
 		userId: input.userId,
 		entityId: input.entityId,
@@ -833,7 +833,12 @@ export const createEventBySchemaSlugWithTriggers = async (
 		depsWithDb,
 	);
 
-	if ("error" in result || "skipped" in result) {
+	if ("error" in result) {
+		const error = result.error === "before_trigger" ? "validation" : result.error;
+		return serviceError(error, result.message);
+	}
+
+	if ("skipped" in result) {
 		return result;
 	}
 
