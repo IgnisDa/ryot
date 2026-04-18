@@ -30,7 +30,7 @@ function pickImage(record) {
 
 async function extractStatus(input) {
   if (typeof input !== "string") {
-    return { volumes: null, productionStatus: null };
+    return {};
   }
 
   const { load } = await import("npm:cheerio");
@@ -40,7 +40,7 @@ async function extractStatus(input) {
 
   const firstLine = fullText.split("\n")[0].trim();
   if (!firstLine) {
-    return { volumes: null, productionStatus: null };
+    return {};
   }
 
   const parts = firstLine.split(/\s+/).filter(Boolean);
@@ -231,7 +231,6 @@ driver("details", async function(context) {
     properties: {
       volumes,
       chapters,
-      isNsfw: null,
       productionStatus: productionStatus,
       publishYear: parsePublishYear(payload?.year, dayjs),
       assets: { remoteImages: collectImages(payload?.image) },

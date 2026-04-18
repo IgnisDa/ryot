@@ -157,15 +157,12 @@ driver("details", async function(context) {
   return {
     name,
     properties: {
-      gender: null,
-      website: null,
-      birthPlace: null,
       alternateNames: [],
-      description: getString(payload?.desc),
       birthDate: getString(payload?.birth),
       deathDate: getString(payload?.death),
-      sourceUrl: `https://metron.cloud/creator/${externalId}`,
+      description: getString(payload?.desc),
       assets: { remoteImages: image ? [image] : [] },
+      sourceUrl: `https://metron.cloud/creator/${externalId}`,
     },
   };
 });

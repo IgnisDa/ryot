@@ -417,13 +417,11 @@ driver("details", async function(context) {
       genres,
       timeToBeat,
       description,
-      isNsfw: null,
       providerRating,
       platformReleases,
-      productionStatus: null,
       assets: { remoteImages },
-      publishYear: extractYear(game.first_release_date, dayjs),
       sourceUrl: `https://www.igdb.com/games/${gameSlug}`,
+      publishYear: extractYear(game.first_release_date, dayjs),
     },
   };
 });
