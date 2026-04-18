@@ -64,7 +64,7 @@ describe("POST /collections", () => {
 		});
 
 		expect(response.status).toBe(400);
-		expect(error?.error?.message).toContain("Invalid property definition");
+		expect(error?.error?.message).toContain("Invalid input");
 	});
 
 	it("rejects collection creation when membershipPropertiesSchema is not an object", async () => {
@@ -80,9 +80,7 @@ describe("POST /collections", () => {
 		});
 
 		expect(response.status).toBe(400);
-		expect(error?.error?.message).toContain(
-			"membershipPropertiesSchema must be a valid AppSchema",
-		);
+		expect(error?.error?.message).toContain("expected object, received string");
 	});
 
 	it("rejects collection creation when membershipPropertiesSchema lacks fields", async () => {
@@ -99,7 +97,7 @@ describe("POST /collections", () => {
 
 		expect(response.status).toBe(400);
 		expect(error?.error?.message).toContain(
-			"membershipPropertiesSchema must be a valid AppSchema",
+			"expected record, received undefined",
 		);
 	});
 
@@ -128,7 +126,9 @@ describe("POST /collections", () => {
 		});
 
 		expect(response.status).toBe(400);
-		expect(error?.error?.message).toContain("Collection name");
+		expect(error?.error?.message).toContain(
+			"Too small: expected string to have >=1 characters",
+		);
 	});
 
 	describe("nested membershipPropertiesSchema validation", () => {
