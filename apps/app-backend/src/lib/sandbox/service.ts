@@ -249,7 +249,7 @@ export class SandboxService {
 	}
 
 	private getQueue() {
-		return getQueues().sandboxScriptQueue;
+		return getQueues().sandboxQueue;
 	}
 }
 
