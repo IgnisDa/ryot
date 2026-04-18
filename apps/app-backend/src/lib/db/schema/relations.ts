@@ -128,11 +128,6 @@ export const eventRelations = relations(event, ({ one }) => ({
 		references: [entity.id],
 		fields: [event.entityId],
 	}),
-	sessionEntity: one(entity, {
-		references: [entity.id],
-		relationName: "sessionEntity",
-		fields: [event.sessionEntityId],
-	}),
 }));
 
 export const relationshipSchemaRelations = relations(
