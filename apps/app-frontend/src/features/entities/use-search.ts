@@ -115,10 +115,10 @@ export function useEntitySearch(props: { entitySchema: AppEntitySchema }) {
 			while (true) {
 				throwIfAborted(signal);
 				const result = await queryClient.fetchQuery({
+					staleTime: 0,
 					...apiClient.queryOptions("get", "/entity-schemas/search/{jobId}", {
 						params: { path: { jobId } },
 					}),
-					staleTime: 0,
 				});
 
 				throwIfAborted(signal);
