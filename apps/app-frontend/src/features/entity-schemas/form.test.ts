@@ -23,6 +23,7 @@ describe("buildDefaultEntitySchemaPropertyRow", () => {
 
 		expect(row).toMatchObject({
 			key: "",
+			label: "",
 			type: "string",
 			required: false,
 		});
@@ -46,6 +47,7 @@ describe("buildEntitySchemaFormValues", () => {
 		expect(values.properties).toHaveLength(1);
 		expect(row).toMatchObject({
 			key: "",
+			label: "",
 			type: "string",
 			required: false,
 		});
@@ -66,6 +68,7 @@ describe("buildEntitySchemaFormValues", () => {
 		expect(defaultCreateEntitySchemaFormValues.properties).toHaveLength(1);
 		expect(row).toMatchObject({
 			key: "",
+			label: "",
 			type: "string",
 			required: false,
 		});
@@ -328,9 +331,9 @@ describe("buildEntitySchemaPropertiesSchema", () => {
 			]),
 		).toEqual({
 			fields: {
-				title: { type: "string" },
-				rating: { type: "number" },
-				isOwned: { type: "boolean" },
+				title: { label: "Title", type: "string" },
+				rating: { label: "Title", type: "number" },
+				isOwned: { label: "Title", type: "boolean" },
 			},
 		});
 	});
@@ -340,7 +343,7 @@ describe("buildEntitySchemaPropertiesSchema", () => {
 			buildEntitySchemaPropertiesSchema([
 				input({ key: "pages", type: "integer" }),
 			]),
-		).toEqual({ fields: { pages: { type: "integer" } } });
+		).toEqual({ fields: { pages: { label: "Title", type: "integer" } } });
 	});
 
 	it("maps date rows and includes required flag when present", () => {
@@ -351,8 +354,12 @@ describe("buildEntitySchemaPropertiesSchema", () => {
 			]),
 		).toEqual({
 			fields: {
-				summary: { type: "string" },
-				releasedOn: { type: "date", validation: { required: true } },
+				summary: { label: "Title", type: "string" },
+				releasedOn: {
+					type: "date",
+					label: "Title",
+					validation: { required: true },
+				},
 			},
 		});
 	});
@@ -387,8 +394,12 @@ describe("toCreateEntitySchemaPayload", () => {
 			trackerId: "tracker-123",
 			propertiesSchema: {
 				fields: {
-					rating: { type: "number" },
-					releasedOn: { type: "date", validation: { required: true } },
+					rating: { label: "Title", type: "number" },
+					releasedOn: {
+						type: "date",
+						label: "Title",
+						validation: { required: true },
+					},
 				},
 			},
 		});
@@ -411,7 +422,9 @@ describe("toCreateEntitySchemaPayload", () => {
 			icon: "book-open",
 			accentColor: "#5B7FFF",
 			trackerId: "tracker-123",
-			propertiesSchema: { fields: { title: { type: "string" } } },
+			propertiesSchema: {
+				fields: { title: { label: "Title", type: "string" } },
+			},
 		});
 	});
 });
