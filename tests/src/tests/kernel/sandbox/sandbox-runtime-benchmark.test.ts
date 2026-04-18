@@ -1,6 +1,6 @@
 import os from "node:os";
 
-import type { ContractPayload } from "@ryot/contract/client";
+import type { ContractPayload, ContractSuccess } from "@ryot/contract/client";
 import { UserId } from "@ryot/contract/schema/brands";
 import { Clock, Effect } from "effect";
 
@@ -8,16 +8,10 @@ import {
 	adminHeaders,
 	createAuthenticatedClient,
 	enqueueSandboxScript,
-	fakeProviderDetailsResult,
-	findBuiltinSchemaBySlug,
 	getBackendClient,
-	getMediaPopulationGateResult,
 	installTestPluginBundle,
-	installTestProvider,
-	sampleOperationalPressure,
-	startMediaPopulationGate,
+	sampleSandboxRuntime,
 	uninstallTestPlugin,
-	uninstallTestProvider,
 } from "~/fixtures";
 import { assertCompleted, assertPresent } from "~/support/assertions";
 import { describe, expect, it } from "~/support/effect-test";
@@ -28,32 +22,31 @@ const positiveIntegerEnv = (name: string, fallback: number, allowZero = false) =
 	return Number.isSafeInteger(value) && value >= (allowZero ? 0 : 1) ? value : fallback;
 };
 
-const SAMPLE_COUNT = positiveIntegerEnv("SANDBOX_BENCHMARK_SAMPLES", 15);
-const WARM_UP_COUNT = positiveIntegerEnv("SANDBOX_BENCHMARK_WARMUPS", 3, true);
-const IMPORT_ITEM_COUNT = positiveIntegerEnv("SANDBOX_BENCHMARK_IMPORT_ITEMS", 10);
-const IMPORT_SAMPLE_COUNT = positiveIntegerEnv("SANDBOX_BENCHMARK_IMPORT_SAMPLES", 5);
-const IMPORT_WARM_UP_COUNT = positiveIntegerEnv("SANDBOX_BENCHMARK_IMPORT_WARMUPS", 1, true);
 const UPSTREAM_DELAY_MS = 25;
 const POLL_INTERVAL = "10 millis";
+const SAMPLE_COUNT = positiveIntegerEnv("SANDBOX_BENCHMARK_SAMPLES", 15);
+const PROCESS_MODE = process.env.SANDBOX_PROCESS_MODE === "warm" ? "warm" : "on-demand";
+const IDLE_SAMPLE_COUNT = positiveIntegerEnv("SANDBOX_BENCHMARK_IDLE_SAMPLES", 5);
+const WARM_UP_COUNT = positiveIntegerEnv("SANDBOX_BENCHMARK_WARMUPS", 3, true);
+const IDLE_SAMPLE_INTERVAL_MS = positiveIntegerEnv("SANDBOX_BENCHMARK_IDLE_INTERVAL_MS", 250);
 const RUN_SANDBOX_BENCHMARKS =
 	process.env.RUN_SANDBOX_BENCHMARKS === "1" || process.env.RUN_SANDBOX_BENCHMARKS === "true";
 
-const AUTOMATION_NO_HOST_SLUG = "benchmark.automation-no-host";
 const AUTOMATION_FULL_SLUG = "benchmark.automation-full";
-const PROVIDER_DETAILS_SLUG = "benchmark-provider.details";
 const PROVIDER_SEARCH_SLUG = "benchmark-provider.search";
+const PROVIDER_DETAILS_SLUG = "benchmark-provider.details";
+const AUTOMATION_NO_HOST_SLUG = "benchmark.automation-no-host";
 
 type BenchmarkSample = {
 	latencyMs: number;
-	moduleLoads: number;
-	bodyReplays: number;
-	orchestrationMs: number;
-	itemsPerSecond?: number;
+	totalSpawned: number;
+	workerRssBytes: number;
 	sandboxExecutions: number;
+	activeProcessCount: number;
 	sandboxExecutionMs?: number;
-	redisProjectionKeys: number;
-	maxWorkflowActivityChildRoundTrips: number;
 };
+
+type RuntimeSample = ContractSuccess<"testSupport", "sampleSandboxRuntime">;
 
 const percentile = (values: ReadonlyArray<number>, ratio: number) => {
 	const sorted = [...values].sort((left, right) => left - right);
@@ -75,16 +68,6 @@ const summarize = (samples: ReadonlyArray<BenchmarkSample>) => ({
 			0.95,
 		),
 	},
-	orchestrationMs: {
-		p50: percentile(
-			samples.map(({ orchestrationMs }) => orchestrationMs),
-			0.5,
-		),
-		p95: percentile(
-			samples.map(({ orchestrationMs }) => orchestrationMs),
-			0.95,
-		),
-	},
 	...(samples[0]?.sandboxExecutionMs === undefined
 		? {}
 		: {
@@ -99,27 +82,45 @@ const summarize = (samples: ReadonlyArray<BenchmarkSample>) => ({
 					),
 				},
 			}),
-	...(samples[0]?.itemsPerSecond === undefined
-		? {}
-		: {
-				itemsPerSecond: {
-					p50: percentile(
-						samples.flatMap(({ itemsPerSecond }) => itemsPerSecond ?? []),
-						0.5,
-					),
-					p95: percentile(
-						samples.flatMap(({ itemsPerSecond }) => itemsPerSecond ?? []),
-						0.95,
-					),
-				},
-			}),
 	perSampleCounters: {
-		moduleLoads: average(samples.map(({ moduleLoads }) => moduleLoads)),
-		bodyReplays: average(samples.map(({ bodyReplays }) => bodyReplays)),
+		totalSpawned: average(samples.map(({ totalSpawned }) => totalSpawned)),
+		workerRssBytes: average(samples.map(({ workerRssBytes }) => workerRssBytes)),
 		sandboxExecutions: average(samples.map(({ sandboxExecutions }) => sandboxExecutions)),
-		redisProjectionKeys: average(samples.map(({ redisProjectionKeys }) => redisProjectionKeys)),
-		maxWorkflowActivityChildRoundTrips: average(
-			samples.map(({ maxWorkflowActivityChildRoundTrips }) => maxWorkflowActivityChildRoundTrips),
+		activeProcessCount: average(samples.map(({ activeProcessCount }) => activeProcessCount)),
+	},
+});
+
+const summarizeRuntimeSamples = (samples: ReadonlyArray<RuntimeSample>) => ({
+	sampleCount: samples.length,
+	totalSpawned: samples.at(-1)?.totalSpawned ?? 0,
+	processCount: {
+		p50: percentile(
+			samples.map(({ workers }) => workers.length),
+			0.5,
+		),
+		p95: percentile(
+			samples.map(({ workers }) => workers.length),
+			0.95,
+		),
+	},
+	workerRssBytes: {
+		p50: percentile(
+			samples.map(({ workerRssBytes }) => workerRssBytes),
+			0.5,
+		),
+		p95: percentile(
+			samples.map(({ workerRssBytes }) => workerRssBytes),
+			0.95,
+		),
+	},
+	backendRssBytes: {
+		p50: percentile(
+			samples.map(({ backendRssBytes }) => backendRssBytes),
+			0.5,
+		),
+		p95: percentile(
+			samples.map(({ backendRssBytes }) => backendRssBytes),
+			0.95,
 		),
 	},
 });
@@ -177,7 +178,7 @@ export default defineAutomation({
 });
 `;
 
-const providerSearchSource = (matchedServerUrl: string, unmatchedServerUrl: string) => `
+const providerSearchSource = (serverUrl: string) => `
 import { defineManifest } from "@ryot/sandbox-sdk/driver";
 import { Effect } from "@ryot/sandbox-sdk/effect";
 import { defineProvider } from "@ryot/sandbox-sdk/provider";
@@ -194,10 +195,8 @@ export const manifest = defineManifest({
 export default defineProvider({
   manifest,
   operation: "search",
-  run: (input, host) => Effect.gen(function* () {
-    const serverUrl = input.query === "matched-immediate"
-      ? ${JSON.stringify(matchedServerUrl)}
-      : ${JSON.stringify(unmatchedServerUrl)};
+  run: (_input, host) => Effect.gen(function* () {
+    const serverUrl = ${JSON.stringify(serverUrl)};
     yield* host.httpCall("GET", serverUrl + "/provider-first");
     yield* host.httpCall("GET", serverUrl + "/provider-second");
     return { items: [{ externalId: "benchmark", titleProperty: { kind: "text", value: "Benchmark" } }] };
@@ -295,74 +294,56 @@ const pollSandboxResult = (executingUserId: string, jobId: string) =>
 		}
 	});
 
+const collectIdleRuntimeSamples = () =>
+	Effect.gen(function* () {
+		const samples: RuntimeSample[] = [];
+		let settled = false;
+		for (let attempt = 0; attempt < 200 && !settled; attempt += 1) {
+			const metrics = yield* sampleSandboxRuntime;
+			settled =
+				PROCESS_MODE === "warm"
+					? metrics.activeProcessCount > 0
+					: metrics.activeProcessCount === 0 && metrics.workers.length === 0;
+			if (!settled) {
+				yield* Effect.sleep("100 millis");
+			}
+		}
+		for (let index = 0; index < IDLE_SAMPLE_COUNT; index += 1) {
+			samples.push(yield* sampleSandboxRuntime);
+			if (index + 1 < IDLE_SAMPLE_COUNT) {
+				yield* Effect.sleep(`${IDLE_SAMPLE_INTERVAL_MS} millis`);
+			}
+		}
+		return samples;
+	});
+
 const runDirectSample = (input: {
 	userId: string;
 	context: unknown;
-	upstreamDelayMs: number;
 	scriptId: Parameters<typeof enqueueSandboxScript>[1]["scriptId"];
 }) =>
 	Effect.gen(function* () {
-		const before = yield* sampleOperationalPressure([`benchmark-direct-${crypto.randomUUID()}`]);
+		const before = yield* sampleSandboxRuntime;
 		const startedAt = yield* Clock.currentTimeMillis;
-		const { executionId, jobId } = yield* enqueueSandboxScript(input.userId, {
+		const { jobId } = yield* enqueueSandboxScript(input.userId, {
 			context: input.context,
 			scriptId: input.scriptId,
 		});
 		const result = yield* pollSandboxResult(input.userId, jobId);
 		const latencyMs = (yield* Clock.currentTimeMillis) - startedAt;
-		const after = yield* sampleOperationalPressure([executionId]);
+		const after = yield* sampleSandboxRuntime;
 		assertCompleted(result, "sandbox benchmark sample");
 		expect(result.error).toBeNull();
 		const timing = result.timing;
 		assertPresent(timing, "Sandbox benchmark result did not include timing");
-		const sandboxExecutions = after.sandbox.totalExecutions - before.sandbox.totalExecutions;
+		const sandboxExecutions = after.totalSpawned - before.totalSpawned;
 		return {
 			latencyMs,
 			sandboxExecutions,
-			bodyReplays: sandboxExecutions,
-			moduleLoads: sandboxExecutions,
 			sandboxExecutionMs: timing.totalMs,
-			orchestrationMs: Math.max(0, latencyMs - input.upstreamDelayMs),
-			maxWorkflowActivityChildRoundTrips: after.redis.maxHighWater,
-			redisProjectionKeys: Math.max(0, after.redis.projectionCount - before.redis.projectionCount),
-		} satisfies BenchmarkSample;
-	});
-
-const runPopulationSample = (input: {
-	userId: string;
-	providerId: Parameters<typeof startMediaPopulationGate>[0]["providerId"];
-	entitySchemaSlug: Parameters<typeof startMediaPopulationGate>[0]["entitySchemaSlug"];
-}) =>
-	Effect.gen(function* () {
-		const before = yield* sampleOperationalPressure([
-			`benchmark-population-${crypto.randomUUID()}`,
-		]);
-		const startedAt = yield* Clock.currentTimeMillis;
-		const run = yield* startMediaPopulationGate({
-			itemCount: IMPORT_ITEM_COUNT,
-			providerId: input.providerId,
-			executingUserId: input.userId,
-			entitySchemaSlug: input.entitySchemaSlug,
-			identifierPrefix: `benchmark-${crypto.randomUUID()}`,
-		});
-		let result = yield* getMediaPopulationGateResult(run);
-		while (result.executions.some(({ status }) => status === "pending")) {
-			yield* Effect.sleep(POLL_INTERVAL);
-			result = yield* getMediaPopulationGateResult(run);
-		}
-		const latencyMs = (yield* Clock.currentTimeMillis) - startedAt;
-		const after = yield* sampleOperationalPressure(run.executionIds);
-		expect(result.executions.every(({ status }) => status === "completed")).toBe(true);
-		const sandboxExecutions = after.sandbox.totalExecutions - before.sandbox.totalExecutions;
-		return {
-			latencyMs,
-			sandboxExecutions,
-			orchestrationMs: latencyMs,
-			bodyReplays: sandboxExecutions,
-			moduleLoads: sandboxExecutions,
-			redisProjectionKeys: after.redis.projectionCount,
-			itemsPerSecond: IMPORT_ITEM_COUNT / (latencyMs / 1_000),
-			maxWorkflowActivityChildRoundTrips: after.redis.maxHighWater,
+			workerRssBytes: after.workerRssBytes,
+			activeProcessCount: after.activeProcessCount,
+			totalSpawned: after.totalSpawned - before.totalSpawned,
 		} satisfies BenchmarkSample;
 	});
 
@@ -381,20 +362,15 @@ const collectSamples = <A, E, R>(
 		);
 	});
 
-describe.skipIf(!RUN_SANDBOX_BENCHMARKS)("current sandbox runtime benchmark", () => {
+describe.skipIf(!RUN_SANDBOX_BENCHMARKS)("sandbox runtime benchmark", () => {
 	it.live(
-		"records warm hermetic representative workloads",
+		"records representative workloads",
 		() =>
 			Effect.gen(function* () {
 				const unmatchedHttpServer = yield* startFakeHttpServerScoped(async () => {
 					await Bun.sleep(UPSTREAM_DELAY_MS);
 					return Response.json({ ok: true });
 				});
-				const matchedHttpServer = yield* startFakeHttpServerScoped(async () => {
-					await Bun.sleep(UPSTREAM_DELAY_MS);
-					return Response.json({ ok: true });
-				});
-				const policyKey = `sandbox-benchmark-${crypto.randomUUID()}`;
 				const scripts = [
 					{
 						capabilities: [],
@@ -444,20 +420,9 @@ describe.skipIf(!RUN_SANDBOX_BENCHMARKS)("current sandbox runtime benchmark", ()
 						files: {
 							"scripts/automation-full.sandbox.ts": fullAutomationSource,
 							"scripts/automation-no-host.sandbox.ts": noHostAutomationSource,
+							"scripts/provider-search.sandbox.ts": providerSearchSource(unmatchedHttpServer.url),
 							"scripts/provider-details.sandbox.ts": youtubeiDetailsSource(unmatchedHttpServer.url),
-							"scripts/provider-search.sandbox.ts": providerSearchSource(
-								matchedHttpServer.url,
-								unmatchedHttpServer.url,
-							),
 						},
-						httpRateLimits: [
-							{
-								key: policyKey,
-								requests: 1_000,
-								intervalMs: 1_000,
-								origins: [matchedHttpServer.url],
-							},
-						],
 						providers: [
 							{
 								name: "Benchmark provider",
@@ -470,30 +435,24 @@ describe.skipIf(!RUN_SANDBOX_BENCHMARKS)("current sandbox runtime benchmark", ()
 					}),
 					uninstallTestPlugin,
 				);
-				const { client, userId } = yield* createAuthenticatedClient();
-				const { schema } = yield* findBuiltinSchemaBySlug(client, "book");
-				const importProvider = yield* Effect.acquireRelease(
-					installTestProvider({
-						client,
-						rootEntitySchemaSlug: schema.id,
-						details: fakeProviderDetailsResult({
-							properties: {},
-							name: "Benchmark population item",
-						}),
-					}),
-					uninstallTestProvider,
-				);
+				const { userId } = yield* createAuthenticatedClient();
 				const scriptId = (slug: string) => {
 					const id = benchmarkPlugin.scriptIds[slug];
 					assertPresent(id, `Benchmark script '${slug}' was not installed`);
 					return id;
 				};
+				const idleRuntime = yield* collectIdleRuntimeSamples();
+				if (PROCESS_MODE === "warm") {
+					expect(idleRuntime[0]?.activeProcessCount).toBeGreaterThan(0);
+				} else {
+					expect(idleRuntime[0]?.activeProcessCount).toBe(0);
+					expect(idleRuntime[0]?.workers).toHaveLength(0);
+				}
 				const noHost = yield* collectSamples(
 					WARM_UP_COUNT,
 					SAMPLE_COUNT,
 					runDirectSample({
 						userId,
-						upstreamDelayMs: 0,
 						context: automationContext(50),
 						scriptId: scriptId(AUTOMATION_NO_HOST_SLUG),
 					}),
@@ -503,29 +462,17 @@ describe.skipIf(!RUN_SANDBOX_BENCHMARKS)("current sandbox runtime benchmark", ()
 					SAMPLE_COUNT,
 					runDirectSample({
 						userId,
-						upstreamDelayMs: 0,
 						scriptId: scriptId(AUTOMATION_FULL_SLUG),
 						context: automationContext(100),
 					}),
 				);
-				const unmatchedProvider = yield* collectSamples(
+				const controlledHttpProvider = yield* collectSamples(
 					WARM_UP_COUNT,
 					SAMPLE_COUNT,
 					runDirectSample({
 						userId,
-						upstreamDelayMs: UPSTREAM_DELAY_MS * 2,
 						scriptId: scriptId(PROVIDER_SEARCH_SLUG),
-						context: { page: 1, pageSize: 1, query: "unmatched" },
-					}),
-				);
-				const matchedImmediateProvider = yield* collectSamples(
-					WARM_UP_COUNT,
-					SAMPLE_COUNT,
-					runDirectSample({
-						userId,
-						upstreamDelayMs: UPSTREAM_DELAY_MS * 2,
-						scriptId: scriptId(PROVIDER_SEARCH_SLUG),
-						context: { page: 1, pageSize: 1, query: "matched-immediate" },
+						context: { page: 1, pageSize: 1, query: "benchmark" },
 					}),
 				);
 				const youtubei = yield* collectSamples(
@@ -534,22 +481,11 @@ describe.skipIf(!RUN_SANDBOX_BENCHMARKS)("current sandbox runtime benchmark", ()
 					runDirectSample({
 						userId,
 						context: { externalId: "benchmark" },
-						upstreamDelayMs: UPSTREAM_DELAY_MS * 2,
 						scriptId: scriptId(PROVIDER_DETAILS_SLUG),
-					}),
-				);
-				const population = yield* collectSamples(
-					IMPORT_WARM_UP_COUNT,
-					IMPORT_SAMPLE_COUNT,
-					runPopulationSample({
-						userId,
-						entitySchemaSlug: schema.id,
-						providerId: importProvider.providerId,
 					}),
 				);
 
 				expect(unmatchedHttpServer.requests.length).toBe((WARM_UP_COUNT + SAMPLE_COUNT) * 4);
-				expect(matchedHttpServer.requests.length).toBe((WARM_UP_COUNT + SAMPLE_COUNT) * 2);
 				yield* Effect.log(
 					"SANDBOX_RUNTIME_BASELINE",
 					JSON.stringify(
@@ -563,27 +499,19 @@ describe.skipIf(!RUN_SANDBOX_BENCHMARKS)("current sandbox runtime benchmark", ()
 								cpuModel: os.cpus()[0]?.model ?? "unknown",
 							},
 							configuration: {
-								warmBackend: true,
-								warmSandboxPool: true,
+								processMode: PROCESS_MODE,
 								sampleCount: SAMPLE_COUNT,
 								warmUpCount: WARM_UP_COUNT,
-								importItemCount: IMPORT_ITEM_COUNT,
-								importSampleCount: IMPORT_SAMPLE_COUNT,
-								importWarmUpCount: IMPORT_WARM_UP_COUNT,
+								idleSampleCount: IDLE_SAMPLE_COUNT,
 								fixedUpstreamDelayMs: UPSTREAM_DELAY_MS,
-								matchedImmediatePolicy: { spacingMs: 1, requests: 1_000, intervalMs: 1_000 },
-								durableHttpTimingSource:
-									"Correlate backend logs by sandboxWorkflowExecutionId: policy resolution, Redis reservation, and network activity report their own durationMs; this harness intentionally adds no log transport or timing storage API.",
-								workflowRedisCounterCaveat:
-									"The current runtime exposes journal projection keys and maximum high-water only; exact workflow-engine and Redis transport round trips are not instrumented without changing production runtime code.",
+								idleSampleIntervalMs: IDLE_SAMPLE_INTERVAL_MS,
 							},
 							workloads: {
 								noHostAutomation: summarize(noHost),
 								youtubeiProvider: summarize(youtubei),
-								boundedPopulation: summarize(population),
 								fullAutomation: summarize(fullAutomation),
-								controlledHttpProvider: summarize(unmatchedProvider),
-								matchedImmediateControlledHttpProvider: summarize(matchedImmediateProvider),
+								idleRuntime: summarizeRuntimeSamples(idleRuntime),
+								controlledHttpProvider: summarize(controlledHttpProvider),
 							},
 						},
 						null,

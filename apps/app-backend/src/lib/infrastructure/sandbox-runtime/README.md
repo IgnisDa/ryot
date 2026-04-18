@@ -119,15 +119,21 @@ Scripts declare an exact manifest `capabilities` tuple. The SDK exposes only tho
 - Sandbox script network access must go through explicit host functions such as `httpCall`.
 - App-side source connectors are outside the sandbox runtime and use app runtime HTTP helpers.
 - Bridge calls require the per-execution bearer token and are rejected after the in-memory expiry timestamp.
-- Timeouts invalidate the pooled process and kill it.
+- Timeouts kill the process for the current execution.
 - Each Deno process starts with a 256 MiB V8 old-space limit.
 - Sandbox processes receive only `PATH` and `DENO_DIR`; script code cannot read env values because `--deny-env` is enabled.
 
-## Process Pool
+## Process Lifecycle
 
-`ProcessPool` keeps `SANDBOX_LIMITS.workerConcurrency + 2` idle Deno subprocesses ready. A pooled process has loaded Deno and is blocked on stdin waiting for its payload. On checkout, the pool immediately starts a replacement in the background.
+`SANDBOX_PROCESS_MODE` defaults to `on-demand`. In this mode, each execution spawns one Deno process
+after its filesystem grants are known. The process is single-use and killed by the execution scope
+finalizer, whether the run succeeds, fails, times out, or is cancelled. No idle Deno processes are
+retained between executions.
 
-The pool preserves process isolation because every subprocess is still single-use. Reusing a process across executions would allow global state pollution and weaken per-process memory limits.
+Set `SANDBOX_PROCESS_MODE=warm` to keep `SANDBOX_LIMITS.workerConcurrency + 2` single-use Deno
+processes ready. A warm process is checked out for one execution and invalidated afterward so the pool
+replaces it instead of reusing it across executions. This preserves process isolation while reducing
+startup latency at the cost of retaining worker memory.
 
 ## Filesystem Grants
 
@@ -138,7 +144,8 @@ Filesystem access is deny-by-default and granted per execution. A script request
 
 Both capabilities are permission grants, never bridge-callable host functions: `selectSandboxHostFunctions` skips them and they are excluded from the `SandboxHost` type a script sees. Grant paths must be absolute, normalized, and inside `config.tmpDir` before they can reach a Deno flag.
 
-Because `ProcessPool` pre-warms processes before an execution's grants are known, a grant-carrying execution runs on a dedicated non-pooled process spawned for it alone and killed by the same scope finalizer.
+Grant-carrying executions always use a dedicated process because their Deno permissions are known only
+after the execution is prepared. The dedicated process is killed by the same scope finalizer.
 
 The scratch quota is 5 MiB (`SANDBOX_LIMITS.scratch.totalBytes`), enforced after the run because Deno offers no preventive filesystem quota; exceeding it fails the execution before anything is harvested.
 

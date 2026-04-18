@@ -59,6 +59,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends ca-certificates
     rm -rf /var/lib/apt/lists/*
 ENV SANDBOX_DENO_DIR=/home/ryot/tmp
 WORKDIR /home/ryot
+RUN mkdir -p /home/ryot/storage /home/ryot/work && chown -R ryot:ryot /home/ryot/storage /home/ryot/work
 COPY --chown=ryot:ryot apps/app-backend/src/drizzle ./src/drizzle
 COPY --chown=ryot:ryot apps/app-backend/src/modules/definition-registry/kernel-scripts /src/modules/definition-registry/kernel-scripts
 COPY --chown=ryot:ryot plugins /plugins

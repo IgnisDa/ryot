@@ -6,7 +6,10 @@ import { Context, DateTime, Effect, Layer } from "effect";
 import { DbService, dbEffect } from "#lib/infrastructure/db/service";
 import { RedisService, redisKeys } from "#lib/infrastructure/redis";
 import { sandboxContextError } from "#lib/infrastructure/sandbox-runtime/limits";
-import { getSandboxProcessMetrics } from "#lib/infrastructure/sandbox-runtime/runtime";
+import {
+	getSandboxProcessMetrics,
+	getSandboxRuntimeMetrics,
+} from "#lib/infrastructure/sandbox-runtime/runtime";
 import { ImportsService } from "#modules/imports/service";
 import { SandboxExecutionService } from "#modules/sandbox/service";
 
@@ -192,8 +195,11 @@ export class OperationalGateService extends Context.Service<OperationalGateServi
 					},
 				};
 			});
+			const sampleSandboxRuntime = Effect.fn("OperationalGateService.sampleSandboxRuntime")(
+				() => getSandboxRuntimeMetrics,
+			);
 
-			return { samplePressure, startWorkflowLoad, getWorkflowLoadResult };
+			return { samplePressure, sampleSandboxRuntime, startWorkflowLoad, getWorkflowLoadResult };
 		}),
 	},
 ) {
