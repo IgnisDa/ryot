@@ -1,4 +1,4 @@
-import type { Job } from "bullmq";
+import { WaitingChildrenError, type Job } from "bullmq";
 
 import type { EventWriteContext } from "~/modules/events";
 
@@ -31,6 +31,9 @@ export type MediaImportJobInput = Pick<
 	| "importStep"
 	| "providerEntityIds"
 	| "mediaEntityGroups"
+	| "netflixSearchJobs"
+	| "netflixMyListPath"
+	| "netflixRatingsPath"
 	| "providerEntityRefs"
 	| "resolveEntityIndex"
 	| "adapterFailureCount"
@@ -43,6 +46,8 @@ export type MediaImportJobInput = Pick<
 	| "resolveCandidateIndex"
 	| "mediaWriteFailedItems"
 	| "mediaWriteImportedItems"
+	| "netflixViewingActivityPath"
+	| "netflixExtractedDirectoryPath"
 >;
 
 export type MediaImportProcessorDeps = {
@@ -75,6 +80,7 @@ export const processMediaImport = async (
 	deps: MediaImportProcessorDeps = mediaImportProcessorDeps,
 ): Promise<void> => {
 	const { runId, userId } = input;
+	const cleanupState = { shouldCleanup: true };
 
 	try {
 		let importStep = input.importStep;
@@ -93,6 +99,11 @@ export const processMediaImport = async (
 			try {
 				adapterResult = await input.loadAdapterResult();
 			} catch (error) {
+				if (error instanceof WaitingChildrenError) {
+					cleanupState.shouldCleanup = false;
+					throw error;
+				}
+
 				await failImportRun(
 					runId,
 					sanitizeErrorMessage(error, input.adapterErrorFallback),
@@ -310,6 +321,8 @@ export const processMediaImport = async (
 			processedItems: totalProcessed,
 		});
 	} finally {
-		await input.cleanup?.();
+		if (cleanupState.shouldCleanup) {
+			await input.cleanup?.();
+		}
 	}
 };

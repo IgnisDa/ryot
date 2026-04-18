@@ -1,5 +1,7 @@
 import { describe, expect, it } from "bun:test";
 
+import { WaitingChildrenError } from "bullmq";
+
 import { createJob } from "~/lib/test-fixtures";
 
 import { processNetflixImport, type NetflixImportProcessorDeps } from "./processor";
@@ -10,13 +12,11 @@ const createDeps = (
 	now: () => "2026-02-10T00:00:00.000Z",
 	readImportFile: () => Promise.resolve("csv"),
 	cleanupImportFile: () => Promise.resolve(),
-	enqueueSandbox: () => Promise.resolve({ data: { jobId: "sandbox_1" } }),
 	processMediaImport: () => Promise.resolve(),
-	waitForSandboxResult: () => Promise.resolve({ items: [] }),
 	adaptNetflixExports: () => Promise.resolve({ entityGroups: [], failures: [] }),
-	createQueueEvents: () => {
-		throw new Error("queue events should not load during this test");
-	},
+	queueSandboxChildJobsBatch: () => Promise.resolve(),
+	getSandboxChildRunResults: () => Promise.resolve({}),
+	waitForSandboxChildRun: () => Promise.resolve(),
 	getBuiltinSandboxScriptBySlug: (slug) => Promise.resolve({ id: `${slug}_script` }),
 	extractImportZipArchive: () =>
 		Promise.resolve({
@@ -53,6 +53,11 @@ const createInput = () => ({
 	providerFailedIndices: undefined,
 	mediaWriteFailedItems: undefined,
 	mediaWriteImportedItems: undefined,
+	netflixSearchJobs: undefined,
+	netflixMyListPath: undefined,
+	netflixRatingsPath: undefined,
+	netflixViewingActivityPath: undefined,
+	netflixExtractedDirectoryPath: undefined,
 });
 
 describe("processNetflixImport", () => {
@@ -69,8 +74,8 @@ describe("processNetflixImport", () => {
 				importStep: "populating_entities",
 			},
 			createDeps({
-				createQueueEvents: () => {
-					throw new Error("queue events should not load during resume");
+				queueSandboxChildJobsBatch: () => {
+					throw new Error("sandbox search jobs should not queue during resume");
 				},
 				getBuiltinSandboxScriptBySlug: () => {
 					throw new Error("sandbox scripts should not load during resume");
@@ -84,5 +89,56 @@ describe("processNetflixImport", () => {
 		);
 
 		expect(calls).toEqual(["Netflix"]);
+	});
+
+	it("queues sandbox child searches during adapter loading and parks the import job", async () => {
+		let queuedChildren:
+			| Array<{ childJobId: string; sandboxJobData: Record<string, unknown> }>
+			| undefined;
+		let queuedJobData: Record<string, unknown> | undefined;
+
+		try {
+			await processNetflixImport(
+				createJob({}),
+				"token_1",
+				createInput(),
+				createDeps({
+					adaptNetflixExports: async (_input, deps) => {
+						if (!deps) {
+							throw new Error("Netflix adapter deps are missing");
+						}
+
+						await deps.lookupTitle({ title: "The Matrix" });
+						return { entityGroups: [], failures: [] };
+					},
+					queueSandboxChildJobsBatch: (input) => {
+						queuedChildren = input.children;
+						queuedJobData = input.jobData;
+						return Promise.resolve();
+					},
+					waitForSandboxChildRun: () => Promise.reject(new WaitingChildrenError()),
+					processMediaImport: async (job, token, input) => {
+						await input.loadAdapterResult();
+						await Promise.resolve([job, token]);
+					},
+				}),
+			);
+			throw new Error("Expected WaitingChildrenError");
+		} catch (error) {
+			expect(error).toBeInstanceOf(WaitingChildrenError);
+		}
+
+		expect(queuedChildren).toHaveLength(2);
+		expect(queuedChildren?.map((child) => child.sandboxJobData.driverName)).toEqual([
+			"search",
+			"search",
+		]);
+		expect(queuedJobData).toMatchObject({ importStep: "loading_adapter" });
+		const netflixSearchJobs = queuedJobData?.netflixSearchJobs;
+		expect(netflixSearchJobs && typeof netflixSearchJobs === "object").toBe(true);
+		if (!netflixSearchJobs || typeof netflixSearchJobs !== "object") {
+			throw new Error("Expected queued netflix search jobs");
+		}
+		expect(Object.keys(netflixSearchJobs)).toHaveLength(2);
 	});
 });

@@ -56,8 +56,12 @@ export const importRunJobData = z.object({
 	filePath: z.string().optional(),
 	traktUsername: z.string().optional(),
 	sourcePayloadKey: z.string().optional(),
+	netflixMyListPath: z.string().optional(),
+	netflixRatingsPath: z.string().optional(),
 	resolveSandboxJobId: z.string().optional(),
 	providerSandboxJobId: z.string().optional(),
+	netflixViewingActivityPath: z.string().optional(),
+	netflixExtractedDirectoryPath: z.string().optional(),
 	resolveEntityIndex: z.number().int().nonnegative().optional(),
 	providerEntityIndex: z.number().int().nonnegative().optional(),
 	adapterFailureCount: z.number().int().nonnegative().optional(),
@@ -70,8 +74,11 @@ export const importRunJobData = z.object({
 	mediaEntityGroups: z.array(importMediaEntityGroupSchema).optional(),
 	sourcePayload: z.record(z.string(), z.unknown()).optional(),
 	resolveFailedIndices: z.array(z.number().int().nonnegative()).optional(),
+	netflixSearchJobs: z.record(z.string(), z.string()).optional(),
 	providerFailedIndices: z.array(z.number().int().nonnegative()).optional(),
-	importStep: z.enum(["resolving_entities", "populating_entities", "writing_events"]).optional(),
+	importStep: z
+		.enum(["loading_adapter", "resolving_entities", "populating_entities", "writing_events"])
+		.optional(),
 });
 
 export type ImportRunJobData = z.infer<typeof importRunJobData>;
