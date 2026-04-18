@@ -3,7 +3,6 @@ import {
 	createPropertySchemaInputFixture,
 	createPropertySchemaRowFixture,
 } from "~/features/test-fixtures";
-import { resolveNextPropertySchemaSlug } from "../property-schemas/form";
 import {
 	buildDefaultEventSchemaPropertyRow,
 	buildEventSchemaFormValues,
@@ -114,38 +113,6 @@ describe("buildEventSchemaFormValues", () => {
 			required: false,
 		});
 		expect(row.id).toEqual(expect.any(String));
-	});
-});
-
-describe("resolveNextPropertySchemaSlug", () => {
-	it("preserves a customized slug", () => {
-		expect(
-			resolveNextPropertySchemaSlug({
-				name: "Tasting Mood",
-				slug: "house-special",
-				previousDerivedSlug: "tasting-mood",
-			}),
-		).toBe("house-special");
-	});
-
-	it("clears the slug when the name is cleared and it was still auto-derived", () => {
-		expect(
-			resolveNextPropertySchemaSlug({
-				name: "   ",
-				slug: "tasting-mood",
-				previousDerivedSlug: "tasting-mood",
-			}),
-		).toBe("");
-	});
-
-	it("keeps auto-updating when the previous derived slug only differs by whitespace", () => {
-		expect(
-			resolveNextPropertySchemaSlug({
-				name: "Tasting Mood",
-				slug: "tasting-mood ",
-				previousDerivedSlug: "tasting-mood",
-			}),
-		).toBe("tasting-mood");
 	});
 });
 
