@@ -1607,7 +1607,9 @@ describe("Query engine E2E", () => {
 		const userSchema = await createEntitySchema(client, cookies, {
 			trackerId,
 			name: "UserItem",
-			propertiesSchema: { fields: {} },
+			propertiesSchema: {
+				fields: { title: { type: "string" as const, label: "Title" } },
+			},
 		});
 		const userEntityName = `Cross Schema User ${crypto.randomUUID()}`;
 		await createQueryEngineEntity({
