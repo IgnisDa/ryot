@@ -7,7 +7,9 @@
 		"ios": "expo run:ios",
 		"android": "expo run:android",
 		"dev": "expo start --port 3005",
-		"test": "bun --bun run vitest run",
+		"test:component": "jest --runInBand",
+		"test:unit": "bun --bun run vitest run",
+		"test": "bun run test:unit && bun run test:component",
 		"build": "expo export --platform web --output-dir dist",
 		"check": "tsc && oxfmt . --write && oxlint . --type-aware --fix"
 	},
@@ -22,6 +24,7 @@
 		"@ryot/ryotql-recipes": "workspace:*",
 		"@ryot/ts-utils": "workspace:*",
 		"@tailwindcss/postcss": "^4.1.13",
+		"@tanstack/react-form": "2.0.0-alpha.1",
 		"@tanstack/react-hotkeys": "^0.10.0",
 		"better-auth": "1.7.0-rc.6",
 		"clsx": "^2.1.1",
@@ -60,12 +63,19 @@
 		"vaul": "^1.1.2"
 	},
 	"devDependencies": {
+		"@babel/runtime": "7.28.4",
 		"@effect/vitest": "4.0.0-beta.107",
+		"@jest/globals": "29.7.0",
 		"@ryot/testing": "workspace:*",
+		"@testing-library/react-native": "14.0.1",
+		"@types/jest": "29.5.14",
 		"@types/react": "~19.2.2",
 		"babel-plugin-module-resolver": "5.0.3",
 		"babel-preset-expo": "~57.0.0",
+		"jest": "29.7.0",
+		"jest-expo": "57.0.4",
 		"tailwindcss": "^4.1.13",
+		"test-renderer": "1.2.0",
 		"vitest": "4.1.9"
 	},
 	"overrides": {
