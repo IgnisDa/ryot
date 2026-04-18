@@ -1,7 +1,7 @@
 import { appConfigDef, systemConfigDef } from "./definition";
 import { getMaskedConfig } from "./masker";
-import { parseGroupDef } from "./parser";
-import type { ExtractEnvKeys } from "./types";
+import { buildPathIndex, parseGroupDef } from "./parser";
+import type { ExtractEnvKeys, ExtractPaths } from "./types";
 
 const { config: rawSystem, envIndex: systemConfigEnvIndex } = parseGroupDef(
 	systemConfigDef,
@@ -54,6 +54,13 @@ export type AppConfigEnvKey = ExtractEnvKeys<typeof appConfigDef.children>;
 export const appConfigEnvIndex = rawAppEnvIndex as Record<
 	AppConfigEnvKey,
 	string | undefined
+>;
+
+export type AppConfigPath = ExtractPaths<typeof appConfigDef.children>;
+
+export const appConfigPathIndex = buildPathIndex(appConfigDef) as Record<
+	AppConfigPath,
+	AppConfigEnvKey
 >;
 
 export { appConfigDef, systemConfigDef } from "./definition";

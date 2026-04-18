@@ -42,8 +42,8 @@ const PAGE_SIZE = 20;
 
 async function getCredentials() {
   const [clientIdResp, clientSecretResp] = await Promise.all([
-    getAppConfigValue("MUSIC_SPOTIFY_CLIENT_ID"),
-    getAppConfigValue("MUSIC_SPOTIFY_CLIENT_SECRET"),
+    getAppConfigValue("music.spotify.clientId"),
+    getAppConfigValue("music.spotify.clientSecret"),
   ]);
 
   if (!clientIdResp?.success) {

@@ -1,4 +1,5 @@
-import { appConfigEnvIndex } from "~/lib/config";
+import type { AppConfigPath } from "~/lib/config";
+import { appConfigEnvIndex, appConfigPathIndex } from "~/lib/config";
 import {
 	apiFailure,
 	apiSuccess,
@@ -16,11 +17,12 @@ export const getAppConfigValue: HostFunction<Record<string, never>> = async (
 
 	const trimmedKey = key.trim();
 
-	if (!(trimmedKey in appConfigEnvIndex)) {
+	if (!(trimmedKey in appConfigPathIndex)) {
 		return apiFailure(`Config key "${trimmedKey}" does not exist`);
 	}
 
-	const value = appConfigEnvIndex[trimmedKey as keyof typeof appConfigEnvIndex];
+	const envKey = appConfigPathIndex[trimmedKey as AppConfigPath];
+	const value = appConfigEnvIndex[envKey];
 
 	return apiSuccess(value ?? null);
 };

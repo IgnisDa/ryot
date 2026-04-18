@@ -18,6 +18,28 @@ export interface GroupDef<
 
 export type ConfigNode = FieldDef | GroupDef;
 
+type ExtractPathsFromNode<
+	T extends ConfigNode,
+	Path extends string,
+> = T extends { _kind: "field" }
+	? Path
+	: T extends {
+				_kind: "group";
+				children: infer C extends Record<string, ConfigNode>;
+			}
+		? ExtractPaths<C, Path>
+		: never;
+
+export type ExtractPaths<
+	T extends Record<string, ConfigNode>,
+	Prefix extends string = "",
+> = {
+	[K in keyof T & string]: ExtractPathsFromNode<
+		T[K],
+		Prefix extends "" ? K : `${Prefix}.${K}`
+	>;
+}[keyof T & string];
+
 type ParsedNode<T extends ConfigNode> = T extends { _kind: "field" }
 	? string | undefined
 	: T extends {
