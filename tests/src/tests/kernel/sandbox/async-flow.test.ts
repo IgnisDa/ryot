@@ -321,7 +321,7 @@ describe("sandbox async flow", () => {
 				requireCompletedSandboxValue(yield* pollSandboxResult(userId, jobId)),
 				"Expected user preferences sandbox result to be an object",
 			);
-			expect(prefs.isNsfw).toBe(false);
+			expect(prefs.allowNsfw).toBe(false);
 			expect(prefs.disableIntegrations).toBe(false);
 		}),
 	);

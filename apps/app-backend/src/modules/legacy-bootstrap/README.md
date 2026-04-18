@@ -53,7 +53,7 @@ Provider targets resolve against active plugin-loader declarations. Persisted pr
 
 - Rename V1 `integration` before Drizzle creates V2 table. Convert provider settings using active manifest schema and fail on unknown providers or missing required fields. Omit trigger history.
 - Rename `notification_platform` and convert supported specifics into V2 channels. Drop credential-bearing descriptions and event filters; bootstrap installs default subscriptions.
-- Migrate `disableIntegrations` and `isNsfw` preferences.
+- Migrate V1 `general.display_nsfw` to `allowNsfw`, preserving V1's `true` default, and migrate `disableIntegrations`.
 - Migrate legacy feature preferences into built-in saved-view disabled state. Media parent and child flags control media-lot, people/company, and group views; fitness parent and child flags control fitness views; the collections flag controls the kernel collections view.
 - Do not migrate per-provider languages; V2 starts with global language `null` for canonical content.
 - Audible marketplace is fixed provider identity, not translation preference, and is not migrated.

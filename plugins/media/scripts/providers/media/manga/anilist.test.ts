@@ -14,7 +14,7 @@ const httpSuccess = (body: unknown) =>
 const makeHost = (httpCall: AnilistMangaHost["httpCall"]) =>
 	defineSandboxTestHost(manifest, {
 		httpCall,
-		getUserPreferences: () => Effect.succeed({ isNsfw: false, disableIntegrations: false }),
+		getUserPreferences: () => Effect.succeed({ allowNsfw: false, disableIntegrations: false }),
 	});
 const execution = { metadata: {}, sandboxScriptId: "script_test" };
 describe("manga.anilist sandbox script", () => {

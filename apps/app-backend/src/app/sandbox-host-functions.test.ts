@@ -35,11 +35,11 @@ import {
 describe("normalizePreferences", () => {
 	it("normalizes missing and non-boolean preference values", () => {
 		expect(normalizePreferences(null)).toEqual({
-			isNsfw: false,
+			allowNsfw: false,
 			disableIntegrations: false,
 		});
-		expect(normalizePreferences({ isNsfw: 1, disableIntegrations: true })).toEqual({
-			isNsfw: false,
+		expect(normalizePreferences({ allowNsfw: 1, disableIntegrations: true })).toEqual({
+			allowNsfw: false,
 			disableIntegrations: true,
 		});
 	});

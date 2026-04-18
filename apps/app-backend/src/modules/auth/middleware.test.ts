@@ -15,7 +15,7 @@ it.effect("passes complete request headers to the auth service", () => {
 				name: "User",
 				email: "user@example.com",
 				id: UserId.make("user-1"),
-				preferences: { isNsfw: false, language: null, disableIntegrations: false },
+				preferences: { allowNsfw: false, language: null, disableIntegrations: false },
 			});
 		},
 	});
