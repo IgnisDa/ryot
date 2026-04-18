@@ -282,11 +282,6 @@ export function SearchResultRow(props: {
 	const canUseLifecycleActions =
 		!props.isLifecycleLoading && !props.lifecycleErrorMessage;
 
-	const effectiveAddStatus: typeof props.addStatus =
-		props.addStatus === "done" && props.actionState.collectionError
-			? "partial_error"
-			: props.addStatus;
-
 	const displayError =
 		props.actionState.actionError ??
 		(props.addStatus === "error"
@@ -388,16 +383,10 @@ export function SearchResultRow(props: {
 						<Button
 							size="compact-sm"
 							onClick={props.onAdd}
-							variant={
-								effectiveAddStatus === "partial_error"
-									? "light"
-									: isTracked
-										? "light"
-										: "filled"
-							}
+							variant={isTracked ? "light" : "filled"}
 							loading={props.actionState.pendingAction === "add"}
 							disabled={
-								(isTracked && effectiveAddStatus !== "partial_error") ||
+								isTracked ||
 								(isWorking && props.actionState.pendingAction !== "add")
 							}
 							leftSection={
@@ -409,7 +398,7 @@ export function SearchResultRow(props: {
 								)
 							}
 							style={
-								isTracked && effectiveAddStatus !== "partial_error"
+								isTracked
 									? {
 											backgroundColor: "var(--mantine-color-green-0)",
 											color: "var(--mantine-color-green-7)",
@@ -452,19 +441,6 @@ export function SearchResultRow(props: {
 							})}
 						</Badge>
 					))}
-					{effectiveAddStatus === "partial_error" ? (
-						<Badge
-							size="xs"
-							variant="light"
-							color="orange"
-							style={{
-								backgroundColor: "var(--mantine-color-orange-0)",
-								color: "var(--mantine-color-orange-7)",
-							}}
-						>
-							Collection failed
-						</Badge>
-					) : null}
 				</Group>
 			) : null}
 
