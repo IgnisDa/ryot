@@ -3,7 +3,6 @@
 	"compilerOptions": {
 		"noEmit": true,
 		"strict": true,
-		"baseUrl": ".",
 		"target": "ES2022",
 		"jsx": "react-jsx",
 		"module": "ESNext",
