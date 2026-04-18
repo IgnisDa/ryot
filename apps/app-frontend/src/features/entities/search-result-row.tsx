@@ -45,6 +45,7 @@ export type SearchResultRowActionState = {
 	selectedCollectionId: string | null;
 	collectionProperties: Record<string, unknown>;
 	pendingAction: "add" | "backlog" | "log" | "rate" | "collection" | null;
+	collectionError: string | null;
 };
 
 export const defaultSearchResultRowActionState: SearchResultRowActionState = {
@@ -60,6 +61,7 @@ export const defaultSearchResultRowActionState: SearchResultRowActionState = {
 	pendingAction: null,
 	selectedCollectionId: null,
 	collectionProperties: {},
+	collectionError: null,
 };
 
 function withAlpha(hex: string, alpha: number) {
@@ -279,6 +281,12 @@ export function SearchResultRow(props: {
 	const isQueueMode = props.primaryAction === "backlog";
 	const canUseLifecycleActions =
 		!props.isLifecycleLoading && !props.lifecycleErrorMessage;
+
+	const effectiveAddStatus: typeof props.addStatus =
+		props.addStatus === "done" && props.actionState.collectionError
+			? "partial_error"
+			: props.addStatus;
+
 	const displayError =
 		props.actionState.actionError ??
 		(props.addStatus === "error"
@@ -380,10 +388,16 @@ export function SearchResultRow(props: {
 						<Button
 							size="compact-sm"
 							onClick={props.onAdd}
-							variant={isTracked ? "light" : "filled"}
+							variant={
+								effectiveAddStatus === "partial_error"
+									? "light"
+									: isTracked
+										? "light"
+										: "filled"
+							}
 							loading={props.actionState.pendingAction === "add"}
 							disabled={
-								isTracked ||
+								(isTracked && effectiveAddStatus !== "partial_error") ||
 								(isWorking && props.actionState.pendingAction !== "add")
 							}
 							leftSection={
@@ -395,7 +409,7 @@ export function SearchResultRow(props: {
 								)
 							}
 							style={
-								isTracked
+								isTracked && effectiveAddStatus !== "partial_error"
 									? {
 											backgroundColor: "var(--mantine-color-green-0)",
 											color: "var(--mantine-color-green-7)",
@@ -438,6 +452,19 @@ export function SearchResultRow(props: {
 							})}
 						</Badge>
 					))}
+					{effectiveAddStatus === "partial_error" ? (
+						<Badge
+							size="xs"
+							variant="light"
+							color="orange"
+							style={{
+								backgroundColor: "var(--mantine-color-orange-0)",
+								color: "var(--mantine-color-orange-7)",
+							}}
+						>
+							Collection failed
+						</Badge>
+					) : null}
 				</Group>
 			) : null}
 
