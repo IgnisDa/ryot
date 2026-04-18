@@ -38,6 +38,24 @@ const searched = (query: string) =>
 	);
 
 describe("provider search controller", () => {
+	it("initializes with an optional query and preserves normal query replacement", () => {
+		expect(createProviderSearchState().query).toBe("");
+
+		const initial = createProviderSearchState("dune");
+		expect(initial.query).toBe("dune");
+
+		const cleared = providerSearchReducer(initial, { type: "query-changed", query: "" });
+		expect(cleared.query).toBe("");
+		expect(cleared.items).toEqual([]);
+
+		const replaced = providerSearchReducer(cleared, {
+			query: "foundation",
+			type: "query-changed",
+		});
+		expect(replaced.query).toBe("foundation");
+		expect(replaced.items).toEqual([]);
+	});
+
 	it("replaces items on a fresh search and appends on the next page", () => {
 		const first = searched("dune");
 		expect(first.status).toBe("loading");

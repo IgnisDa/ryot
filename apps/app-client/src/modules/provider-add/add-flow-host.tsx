@@ -21,6 +21,7 @@ export function useProviderAddFlow() {
 }
 
 export function ProviderAddHost(props: {
+	readonly initialQuery?: string;
 	readonly onImported: () => void;
 	readonly entitySchemaSlug: EntitySchemaSlug;
 }) {
@@ -59,6 +60,7 @@ export function ProviderAddHost(props: {
 					<View className="gap-3 p-4">
 						<ProviderSearchPanel
 							onImported={props.onImported}
+							initialQuery={props.initialQuery}
 							entitySchemaSlug={props.entitySchemaSlug}
 							onClose={() => setAddParam(undefined)}
 						/>
