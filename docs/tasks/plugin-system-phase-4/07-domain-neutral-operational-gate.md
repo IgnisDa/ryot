@@ -2,7 +2,7 @@
 
 **Parent Plan:** [Plugin System - Phase 4](./README.md)
 
-**Status:** todo
+**Status:** done
 
 ## What to build
 
@@ -19,15 +19,15 @@ standalone opt-in command unchanged from the user's perspective.
 
 ## Acceptance criteria
 
-- [ ] Test-support contract and backend service contain no media source, package, workflow, or gate names
-- [ ] Trusted test inputs identify the target package/workflow without creating a public execution API
-- [ ] Run bookkeeping, packed workflow dispatch, pressure sampling, polling, and teardown remain available
-- [ ] The operational e2e fixture owns all media-specific setup and expected behavior
-- [ ] The unchanged operational test completes both 1,001-item imports and all packed workflows
-- [ ] Database, workflow, sandbox, Redis, lock, and deadlock measurements remain recorded
-- [ ] The test remains standalone and opt-in rather than joining the permanent standard suite command
-- [ ] Contract/backend unit tests cover invalid targets and result polling
-- [ ] The operational-test-support purity exception is removed
+- [x] Test-support contract and backend service contain no media source, package, workflow, or gate names
+- [x] Trusted test inputs identify the target package/workflow without creating a public execution API
+- [x] Run bookkeeping, packed workflow dispatch, pressure sampling, polling, and teardown remain available
+- [x] The operational e2e fixture owns all media-specific setup and expected behavior
+- [x] The unchanged operational test completes both 1,001-item imports and all packed workflows
+- [x] Database, workflow, sandbox, Redis, lock, and deadlock measurements remain recorded
+- [x] The test remains standalone and opt-in rather than joining the permanent standard suite command
+- [x] Contract/backend unit tests cover invalid targets and result polling
+- [x] The operational-test-support purity exception is removed
 
 ## User stories addressed
 
