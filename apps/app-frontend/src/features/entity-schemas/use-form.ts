@@ -1,6 +1,6 @@
 import { useRef } from "react";
-import { useAppForm } from "#/hooks/forms";
-import { createNameFieldListeners } from "#/lib/slug-sync";
+import { useAppForm } from "~/hooks/forms";
+import { createNameFieldListeners } from "~/lib/slug-sync";
 import {
 	buildEntitySchemaFormValues,
 	type CreateEntitySchemaPayload,

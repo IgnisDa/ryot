@@ -28,9 +28,9 @@ import {
 	Settings,
 	Sun,
 } from "lucide-react";
-import { useIsMobileScreen } from "#/hooks/screen";
-import { useThemeTokens } from "#/hooks/theme";
-import { authClient } from "#/lib/auth";
+import { useIsMobileScreen } from "~/hooks/screen";
+import { useThemeTokens } from "~/hooks/theme";
+import { authClient } from "~/lib/auth";
 import type { SidebarAccount } from "./Sidebar.types";
 import { SidebarApiKeysSection } from "./SidebarApiKeysSection";
 import {

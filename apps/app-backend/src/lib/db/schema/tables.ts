@@ -1,5 +1,5 @@
 import { z } from "@hono/zod-openapi";
-import { dayjs } from "@ryot/ts-utils/dayjs";
+import { dayjs } from "@ryot/ts-utils";
 import { generateId } from "better-auth";
 import { sql } from "drizzle-orm";
 import {
