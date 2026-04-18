@@ -748,9 +748,9 @@ Test `writeOwnershipToLibrary`: merges sources correctly, does not duplicate pro
 
 ## Tasks
 
-**Overall Progress:** 7 of 10 tasks completed
+**Overall Progress:** 8 of 10 tasks completed
 
-**Current Task:** [Task 07 — Push and Progress-Policy Sandbox Scripts](./07-push-and-progress-policy-scripts.md) (todo)
+**Current Task:** [Task 08 — Legacy Bootstrap Migration](./08-legacy-bootstrap-migration.md) (todo)
 
 ### Task List
 
@@ -762,7 +762,7 @@ Test `writeOwnershipToLibrary`: merges sources correctly, does not duplicate pro
 | 04  | [Integrations CRUD, Scheduling, and Webhook Infrastructure](./04-integrations-crud-scheduling-webhooks.md) | AFK  | done   |
 | 05  | [Yank Integration Execution and Adapters](./05-yank-integration-adapters.md)                               | AFK  | done   |
 | 06  | [Sink Integration Execution and Adapters](./06-sink-integration-adapters.md)                               | AFK  | done   |
-| 07  | [Push and Progress-Policy Sandbox Scripts](./07-push-and-progress-policy-scripts.md)                       | AFK  | todo   |
+| 07  | [Push and Progress-Policy Sandbox Scripts](./07-push-and-progress-policy-scripts.md)                       | AFK  | done   |
 | 08  | [Legacy Bootstrap Migration](./08-legacy-bootstrap-migration.md)                                           | AFK  | todo   |
 | 09  | [E2E Tests](./09-e2e-tests.md)                                                                             | AFK  | todo   |
 | 10  | [Codebase Cleanup](./10-codebase-cleanup.md)                                                               | AFK  | todo   |
