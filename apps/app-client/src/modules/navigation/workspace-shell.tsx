@@ -36,6 +36,7 @@ function WorkspaceShellContent() {
 					workspace={navigation.workspace}
 					accountName={navigation.accountName}
 					accountEmail={navigation.accountEmail}
+					accountImage={navigation.accountImage}
 					onWorkspaceOpen={() => setIsWorkspaceOpen(true)}
 					className="hidden w-66 flex-col border-r border-border bg-surface md:flex"
 				/>
