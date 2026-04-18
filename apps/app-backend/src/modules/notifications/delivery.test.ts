@@ -1,10 +1,10 @@
 import { expect, it } from "@effect/vitest";
-import { Effect, Layer } from "effect";
+import { Effect, Layer, Option, Redacted } from "effect";
 import { FetchHttpClient } from "effect/unstable/http";
 
 import { makeAppConfigLayer } from "#lib/test-utils/effect";
 
-import { NotificationDeliveryService } from "./delivery";
+import { NotificationDeliveryService, NotificationMailer } from "./delivery";
 
 type CapturedRequest = {
 	url: string;
@@ -54,7 +54,7 @@ it.effect("builds the v1 request shape for every HTTP notification provider", ()
 		Effect.provide(
 			Layer.provide(
 				NotificationDeliveryService.layer,
-				Layer.mergeAll(FetchHttpClient.layer, makeAppConfigLayer()),
+				Layer.mergeAll(FetchHttpClient.layer, makeAppConfigLayer(), NotificationMailer.layer),
 			),
 		),
 		Effect.ensuring(
@@ -77,6 +77,55 @@ it.effect("builds the v1 request shape for every HTTP notification provider", ()
 				expect(captured[6]?.url).toContain("k=key");
 				expect(captured[7]?.url).toContain("/botbot/sendMessage");
 			}),
+		),
+	);
+});
+
+it.effect("renders the generic transactional email", () => {
+	type CapturedMail = Parameters<NotificationMailer["Service"]["send"]>[0]["mail"];
+	const sentMessages: CapturedMail[] = [];
+	const mailerLayer = Layer.succeed(NotificationMailer, {
+		send: (input: Parameters<NotificationMailer["Service"]["send"]>[0]) =>
+			Effect.sync(() => {
+				sentMessages.push(input.mail);
+			}),
+	});
+
+	return Effect.gen(function* () {
+		const service = yield* NotificationDeliveryService;
+		yield* service.send({
+			message: "hello <world> & friends",
+			channelSpecifics: { kind: "email", recipient: "recipient@example.com" },
+		});
+
+		expect(sentMessages).toHaveLength(1);
+		expect(sentMessages[0]).toMatchObject({
+			to: "recipient@example.com",
+			subject: "Ryot notification",
+			from: "Ryot <no-reply@ryot.io>",
+		});
+		const sent = sentMessages[0];
+		expect(sent?.html).toContain("You have a message");
+		expect(sent?.html).toContain("hello &lt;world&gt; &amp; friends");
+		expect(sent?.text).toContain("hello <world> & friends");
+	}).pipe(
+		Effect.provide(
+			Layer.provide(
+				NotificationDeliveryService.layer,
+				Layer.mergeAll(
+					FetchHttpClient.layer,
+					makeAppConfigLayer({
+						server: {
+							smtp: {
+								server: Option.some("smtp.example.com"),
+								user: Option.some(Redacted.make("user")),
+								password: Option.some(Redacted.make("password")),
+							},
+						},
+					}),
+					mailerLayer,
+				),
+			),
 		),
 	);
 });
