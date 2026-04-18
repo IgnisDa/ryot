@@ -108,7 +108,10 @@ driver("details", async function(context) {
       sourceUrl,
       description,
       alternateNames: [],
-      assets: { remoteImages: image ? [image] : [] },
+      assets: {
+        images: image ? [{ kind: "remote", url: image }] : [],
+        videos: [],
+      },
     },
   };
 });

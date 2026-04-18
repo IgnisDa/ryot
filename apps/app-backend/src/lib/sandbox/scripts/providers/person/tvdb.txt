@@ -225,7 +225,10 @@ driver("details", async function (context) {
 			gender,
 			description,
 			alternateNames: [],
-			assets: { remoteImages: image ? [image] : [] },
+			assets: {
+				images: image ? [{ kind: "remote", url: image }] : [],
+				videos: [],
+			},
 			sourceUrl: slug
 				? `https://www.thetvdb.com/people/${slug}`
 				: `https://www.thetvdb.com/people/${externalId}`,

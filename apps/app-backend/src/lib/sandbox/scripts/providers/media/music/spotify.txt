@@ -284,7 +284,10 @@ driver("details", async function(context) {
       publishYear,
       byVariousArtists,
       providerRating: popularity,
-      assets: { remoteImages: getImagesSortedBySize(albumImages) },
+      assets: {
+        images: getImagesSortedBySize(albumImages).map((url) => ({ kind: "remote", url })),
+        videos: [],
+      },
     },
   };
 });
