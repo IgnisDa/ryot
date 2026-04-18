@@ -16,15 +16,15 @@ export type MaybeAuthType = {
 };
 
 export const auth = betterAuth({
-	baseURL: config.FRONTEND_URL,
+	baseURL: config.frontendUrl,
 	disabledPaths: ["/sign-up/email"],
-	secret: config.SERVER_ADMIN_ACCESS_TOKEN,
+	secret: config.server.adminAccessToken,
 	secondaryStorage: redisStorage({ client: redis }),
 	database: drizzleAdapter(db, { provider: "pg", schema }),
 	emailAndPassword: {
 		enabled: true,
 		autoSignIn: false,
-		disableSignUp: !config.USERS_ALLOW_REGISTRATION,
+		disableSignUp: !config.users.allowRegistration,
 	},
 	user: {
 		additionalFields: {
