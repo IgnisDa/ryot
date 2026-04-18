@@ -136,10 +136,6 @@ export const getEntityColumnPropertyDefinition = (
 export const getEntityColumnPropertyType = (
 	column: string,
 ): PropertyType | null => {
-	if (column === "createdAt" || column === "updatedAt") {
-		return "date";
-	}
-
 	return getEntityColumnPropertyDefinition(column)?.type ?? null;
 };
 
@@ -152,10 +148,6 @@ export const getEventJoinColumnPropertyDefinition = (
 export const getEventJoinColumnPropertyType = (
 	column: string,
 ): PropertyType | null => {
-	if (column === "createdAt" || column === "updatedAt") {
-		return "date";
-	}
-
 	return getEventJoinColumnPropertyDefinition(column)?.type ?? null;
 };
 
