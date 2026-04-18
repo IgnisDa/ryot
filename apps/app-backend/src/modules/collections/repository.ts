@@ -1,4 +1,4 @@
-import { and, eq, or } from "drizzle-orm";
+import { and, eq, isNull, or } from "drizzle-orm";
 import { db } from "~/lib/db";
 import { entity, entitySchema, relationship } from "~/lib/db/schema";
 import type { AddToCollectionData, CollectionResponse } from "./schemas";
@@ -242,7 +242,14 @@ export const getEntityById = async (
 	const [foundEntity] = await db
 		.select({ id: entity.id })
 		.from(entity)
-		.where(and(eq(entity.id, entityId), eq(entity.userId, userId)))
+		.innerJoin(entitySchema, eq(entity.entitySchemaId, entitySchema.id))
+		.where(
+			and(
+				eq(entity.id, entityId),
+				eq(entity.userId, userId),
+				or(isNull(entitySchema.userId), eq(entitySchema.userId, userId)),
+			),
+		)
 		.limit(1);
 
 	return foundEntity;
