@@ -3,11 +3,8 @@ import {
 	prepareComputedFields,
 } from "./computed-fields";
 import { QueryEngineValidationError } from "./errors";
-import type {
-	RuntimeRef,
-	ViewComputedField,
-	ViewExpression,
-} from "./expression";
+import type { RuntimeRef } from "@ryot/ts-utils";
+import type { ViewComputedField, ViewExpression } from "./expression";
 import {
 	assertSortableExpression,
 	inferViewExpressionType,
@@ -75,7 +72,7 @@ export const validateRuntimeReferenceAgainstSchemas = (
 		getSchemaForReference(context.schemaMap, reference);
 		if (!validBuiltins.has(reference.column)) {
 			throw new QueryEngineValidationError(
-				`Unsupported entity column 'entity.${reference.slug}.@${reference.column}'`,
+				`Unsupported entity column 'entity.${reference.slug}.${reference.column}'`,
 			);
 		}
 		if (
@@ -83,7 +80,7 @@ export const validateRuntimeReferenceAgainstSchemas = (
 			reference.column !== "image"
 		) {
 			throw new QueryEngineValidationError(
-				`Unsupported entity column 'entity.${reference.slug}.@${reference.column}'`,
+				`Unsupported entity column 'entity.${reference.slug}.${reference.column}'`,
 			);
 		}
 		return;
@@ -93,7 +90,7 @@ export const validateRuntimeReferenceAgainstSchemas = (
 		getEventJoinForReference(context.eventJoinMap, reference);
 		if (!getEventJoinColumnPropertyDefinition(reference.column)) {
 			throw new QueryEngineValidationError(
-				`Unsupported event join column 'event.${reference.joinKey}.@${reference.column}'`,
+				`Unsupported event join column 'event.${reference.joinKey}.${reference.column}'`,
 			);
 		}
 		return;
@@ -101,12 +98,7 @@ export const validateRuntimeReferenceAgainstSchemas = (
 
 	if (reference.type === "event-join-property") {
 		const join = getEventJoinForReference(context.eventJoinMap, reference);
-		const propertyType = getEventJoinPropertyType(join, reference.property);
-		if (!propertyType) {
-			throw new QueryEngineValidationError(
-				`Property '${reference.property}' not found for event join '${join.key}'`,
-			);
-		}
+		getEventJoinPropertyType(join, reference.property);
 		return;
 	}
 
@@ -114,7 +106,7 @@ export const validateRuntimeReferenceAgainstSchemas = (
 	const propertyType = getPropertyType(schema, reference.property);
 	if (!propertyType) {
 		throw new QueryEngineValidationError(
-			`Property '${reference.property}' not found in schema '${reference.slug}'`,
+			`Property '${reference.property.join(".")}' not found in schema '${reference.slug}'`,
 		);
 	}
 };
