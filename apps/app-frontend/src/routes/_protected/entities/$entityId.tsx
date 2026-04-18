@@ -1,4 +1,4 @@
-import { Box, Grid, Stack } from "@mantine/core";
+import { Box, Code, Grid, Stack } from "@mantine/core";
 import { createFileRoute } from "@tanstack/react-router";
 import { ErrorState, LoadingState } from "~/components/PageStates";
 import { getEntityDetailProperties } from "~/features/entities/detail";
@@ -76,6 +76,25 @@ function RouteComponent() {
 				title="Entity not found"
 				description="This entity does not exist in the selected custom tracker."
 			/>
+		);
+	}
+
+	if (entitySchema.entitySchema.isBuiltin) {
+		return (
+			<Box py={{ base: "lg", md: "xl" }} px={{ base: "md", md: "xl" }}>
+				<Box maw={1200} mx="auto">
+					<Code block>
+						{JSON.stringify(
+							{
+								entity: entityQuery.entity,
+								entitySchema: entitySchema.entitySchema,
+							},
+							null,
+							2,
+						)}
+					</Code>
+				</Box>
+			</Box>
 		);
 	}
 
