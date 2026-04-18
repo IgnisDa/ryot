@@ -6,6 +6,7 @@ import {
 	Loader,
 	ScrollArea,
 	SegmentedControl,
+	Select,
 	Stack,
 	Text,
 	TextInput,
@@ -471,31 +472,54 @@ export function SearchEntityModalContent(props: {
 			}
 		},
 		[
+			markDone,
+			getActionState,
 			addToCollection,
 			collectionState,
-			markDone,
 			ensureItemEntity,
 			patchActionState,
-			getActionState,
 		],
 	);
 
 	const canUseCollectionAction = true;
 
-	return (
-		<Stack gap="md">
-			{props.entitySchema.providers.length > 1 ? (
+	const providerCount = props.entitySchema.providers.length;
+	const providerData = props.entitySchema.providers.map((provider, index) => ({
+		label: provider.name,
+		value: String(index),
+	}));
+
+	function renderProviderPicker() {
+		if (providerCount <= 1) {
+			return null;
+		}
+		if (providerCount <= 3) {
+			return (
 				<SegmentedControl
 					fullWidth
+					data={providerData}
 					onChange={handleProviderChange}
 					value={String(selectedProviderIndex)}
-					data={props.entitySchema.providers.map((provider, index) => ({
-						label: provider.name,
-						value: String(index),
-					}))}
 				/>
-			) : null}
+			);
+		}
+		return (
+			<Select
+				data={providerData}
+				allowDeselect={false}
+				value={String(selectedProviderIndex)}
+				onChange={(value) => {
+					if (value !== null) {
+						handleProviderChange(value);
+					}
+				}}
+			/>
+		);
+	}
 
+	return (
+		<Stack gap="md">
+			{renderProviderPicker()}
 			<Group>
 				<TextInput
 					flex={1}
