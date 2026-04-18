@@ -16,47 +16,69 @@ import {
 
 const date = (value: string) => dayjs.utc(value).toDate();
 
+type SectionField = {
+	key: string;
+	value: Date | number;
+	kind: "date" | "number";
+};
+
+const makeSectionItem = (opts: {
+	id: string;
+	name: string;
+	entitySchemaId: string;
+	fields?: SectionField[];
+	entitySchemaSlug: string;
+}) => ({
+	id: opts.id,
+	image: null,
+	name: opts.name,
+	externalId: null,
+	sandboxScriptId: null,
+	fields: opts.fields ?? [],
+	createdAt: date("2024-01-01"),
+	updatedAt: date("2024-01-01"),
+	entitySchemaId: opts.entitySchemaId,
+	entitySchemaSlug: opts.entitySchemaSlug,
+});
+
+const makeSectionResult = <T>(items: T[], opts: { limit?: number } = {}) => ({
+	items,
+	meta: {
+		pagination: {
+			page: 1,
+			hasNextPage: false,
+			total: items.length,
+			hasPreviousPage: false,
+			limit: opts.limit ?? items.length,
+			totalPages: items.length > 0 ? 1 : 0,
+		},
+	},
+});
+
 describe("getContinueItems", () => {
 	it("returns continue items with progress", async () => {
 		const result = expectDataResult(
 			await getContinueItems("user_1", {
-				executeSectionQuery: async () => ({
-					items: [
-						{
-							image: null,
-							id: "book-1",
-							externalId: null,
-							name: "Test Book",
-							sandboxScriptId: null,
-							entitySchemaSlug: "book",
-							entitySchemaId: "schema-1",
-							createdAt: date("2024-01-01"),
-							updatedAt: date("2024-01-01"),
-							fields: [
-								{
-									key: "progressAt",
-									kind: "date" as const,
-									value: date("2024-03-20"),
-								},
-								{
-									value: 50,
-									key: "progressPercent",
-									kind: "number" as const,
-								},
-							],
-						},
-					],
-					meta: {
-						pagination: {
-							page: 1,
-							limit: 6,
-							total: 1,
-							totalPages: 1,
-							hasNextPage: false,
-							hasPreviousPage: false,
-						},
-					},
-				}),
+				executeSectionQuery: async () =>
+					makeSectionResult(
+						[
+							makeSectionItem({
+								id: "book-1",
+								name: "Test Book",
+								entitySchemaSlug: "book",
+								entitySchemaId: "schema-1",
+								fields: [
+									{
+										kind: "date",
+										key: "progressAt",
+										value: date("2024-03-20"),
+									},
+									{ key: "progressPercent", kind: "number", value: 50 },
+								],
+							}),
+						],
+						{ limit: 6 },
+					),
 			}),
 		);
 
@@ -72,48 +94,27 @@ describe("getContinueItems", () => {
 	it("returns audiobook continue item with runtime-based progress label and Log Progress cta", async () => {
 		const result = expectDataResult(
 			await getContinueItems("user_1", {
-				executeSectionQuery: async () => ({
-					items: [
-						{
-							image: null,
-							externalId: null,
-							id: "audiobook-1",
-							sandboxScriptId: null,
-							name: "Test Audiobook",
-							entitySchemaId: "schema-ab",
-							entitySchemaSlug: "audiobook",
-							createdAt: date("2024-01-01"),
-							updatedAt: date("2024-01-01"),
-							fields: [
-								{
-									key: "progressAt",
-									kind: "date" as const,
-									value: date("2024-03-20"),
-								},
-								{
-									value: 50,
-									key: "progressPercent",
-									kind: "number" as const,
-								},
-								{
-									value: 180,
-									key: "totalUnits",
-									kind: "number" as const,
-								},
-							],
-						},
-					],
-					meta: {
-						pagination: {
-							page: 1,
-							limit: 6,
-							total: 1,
-							totalPages: 1,
-							hasNextPage: false,
-							hasPreviousPage: false,
-						},
-					},
-				}),
+				executeSectionQuery: async () =>
+					makeSectionResult(
+						[
+							makeSectionItem({
+								id: "audiobook-1",
+								name: "Test Audiobook",
+								entitySchemaId: "schema-ab",
+								entitySchemaSlug: "audiobook",
+								fields: [
+									{
+										kind: "date",
+										key: "progressAt",
+										value: date("2024-03-20"),
+									},
+									{ key: "progressPercent", kind: "number", value: 50 },
+									{ key: "totalUnits", kind: "number", value: 180 },
+								],
+							}),
+						],
+						{ limit: 6 },
+					),
 			}),
 		);
 
@@ -129,48 +130,27 @@ describe("getContinueItems", () => {
 	it("returns podcast continue item with episode-based progress label and Log Progress cta", async () => {
 		const result = expectDataResult(
 			await getContinueItems("user_1", {
-				executeSectionQuery: async () => ({
-					items: [
-						{
-							image: null,
-							id: "podcast-1",
-							externalId: null,
-							name: "Test Podcast",
-							sandboxScriptId: null,
-							entitySchemaId: "schema-pc",
-							entitySchemaSlug: "podcast",
-							createdAt: date("2024-01-01"),
-							updatedAt: date("2024-01-01"),
-							fields: [
-								{
-									key: "progressAt",
-									kind: "date" as const,
-									value: date("2024-03-20"),
-								},
-								{
-									value: 25,
-									key: "progressPercent",
-									kind: "number" as const,
-								},
-								{
-									value: 40,
-									key: "totalUnits",
-									kind: "number" as const,
-								},
-							],
-						},
-					],
-					meta: {
-						pagination: {
-							page: 1,
-							limit: 6,
-							total: 1,
-							totalPages: 1,
-							hasNextPage: false,
-							hasPreviousPage: false,
-						},
-					},
-				}),
+				executeSectionQuery: async () =>
+					makeSectionResult(
+						[
+							makeSectionItem({
+								id: "podcast-1",
+								name: "Test Podcast",
+								entitySchemaId: "schema-pc",
+								entitySchemaSlug: "podcast",
+								fields: [
+									{
+										kind: "date",
+										key: "progressAt",
+										value: date("2024-03-20"),
+									},
+									{ key: "progressPercent", kind: "number", value: 25 },
+									{ key: "totalUnits", kind: "number", value: 40 },
+								],
+							}),
+						],
+						{ limit: 6 },
+					),
 			}),
 		);
 
@@ -186,48 +166,27 @@ describe("getContinueItems", () => {
 	it("returns comic-book continue item with page-based progress label and Log Progress cta", async () => {
 		const result = expectDataResult(
 			await getContinueItems("user_1", {
-				executeSectionQuery: async () => ({
-					items: [
-						{
-							image: null,
-							id: "comic-1",
-							externalId: null,
-							name: "Test Comic",
-							sandboxScriptId: null,
-							entitySchemaId: "schema-cb",
-							entitySchemaSlug: "comic-book",
-							createdAt: date("2024-01-01"),
-							updatedAt: date("2024-01-01"),
-							fields: [
-								{
-									key: "progressAt",
-									kind: "date" as const,
-									value: date("2024-03-20"),
-								},
-								{
-									value: 25,
-									key: "progressPercent",
-									kind: "number" as const,
-								},
-								{
-									value: 32,
-									key: "totalUnits",
-									kind: "number" as const,
-								},
-							],
-						},
-					],
-					meta: {
-						pagination: {
-							page: 1,
-							limit: 6,
-							total: 1,
-							totalPages: 1,
-							hasNextPage: false,
-							hasPreviousPage: false,
-						},
-					},
-				}),
+				executeSectionQuery: async () =>
+					makeSectionResult(
+						[
+							makeSectionItem({
+								id: "comic-1",
+								name: "Test Comic",
+								entitySchemaId: "schema-cb",
+								entitySchemaSlug: "comic-book",
+								fields: [
+									{
+										kind: "date",
+										key: "progressAt",
+										value: date("2024-03-20"),
+									},
+									{ key: "progressPercent", kind: "number", value: 25 },
+									{ key: "totalUnits", kind: "number", value: 32 },
+								],
+							}),
+						],
+						{ limit: 6 },
+					),
 			}),
 		);
 
@@ -243,50 +202,31 @@ describe("getContinueItems", () => {
 	it("filters items requiring progressAt", async () => {
 		const result = expectDataResult(
 			await getContinueItems("user_1", {
-				executeSectionQuery: async () => ({
-					items: [
-						{
-							id: "book-1",
-							image: null,
-							externalId: null,
-							name: "With Progress",
-							sandboxScriptId: null,
-							entitySchemaSlug: "book",
-							entitySchemaId: "schema-1",
-							createdAt: date("2024-01-01"),
-							updatedAt: date("2024-01-01"),
-							fields: [
-								{
-									key: "progressAt",
-									kind: "date" as const,
-									value: date("2024-03-20"),
-								},
-							],
-						},
-						{
-							fields: [],
-							image: null,
-							id: "book-2",
-							externalId: null,
-							sandboxScriptId: null,
-							name: "Without Progress",
-							entitySchemaSlug: "book",
-							entitySchemaId: "schema-1",
-							createdAt: date("2024-01-01"),
-							updatedAt: date("2024-01-01"),
-						},
-					],
-					meta: {
-						pagination: {
-							page: 1,
-							limit: 6,
-							total: 2,
-							totalPages: 1,
-							hasNextPage: false,
-							hasPreviousPage: false,
-						},
-					},
-				}),
+				executeSectionQuery: async () =>
+					makeSectionResult(
+						[
+							makeSectionItem({
+								id: "book-1",
+								name: "With Progress",
+								entitySchemaSlug: "book",
+								entitySchemaId: "schema-1",
+								fields: [
+									{
+										kind: "date",
+										key: "progressAt",
+										value: date("2024-03-20"),
+									},
+								],
+							}),
+							makeSectionItem({
+								id: "book-2",
+								name: "Without Progress",
+								entitySchemaSlug: "book",
+								entitySchemaId: "schema-1",
+							}),
+						],
+						{ limit: 6 },
+					),
 			}),
 		);
 
@@ -336,19 +276,7 @@ describe("getContinueItems", () => {
 		await getContinueItems("user_1", {
 			executeSectionQuery: async (_userId, request) => {
 				capturedLimit = request.pagination.limit;
-				return {
-					items: [],
-					meta: {
-						pagination: {
-							page: 1,
-							total: 0,
-							limit: 10,
-							totalPages: 0,
-							hasNextPage: false,
-							hasPreviousPage: false,
-						},
-					},
-				};
+				return makeSectionResult([], { limit: 10 });
 			},
 		});
 
@@ -360,38 +288,21 @@ describe("getUpNextItems", () => {
 	it("returns up next items with backlog", async () => {
 		const result = expectDataResult(
 			await getUpNextItems("user_1", {
-				executeSectionQuery: async () => ({
-					items: [
-						{
-							image: null,
-							id: "anime-1",
-							externalId: null,
-							name: "Test Anime",
-							sandboxScriptId: null,
-							entitySchemaSlug: "anime",
-							entitySchemaId: "schema-2",
-							createdAt: date("2024-01-01"),
-							updatedAt: date("2024-01-01"),
-							fields: [
-								{
-									key: "backlogAt",
-									kind: "date" as const,
-									value: date("2024-03-20"),
-								},
-							],
-						},
-					],
-					meta: {
-						pagination: {
-							page: 1,
-							limit: 6,
-							total: 1,
-							totalPages: 1,
-							hasNextPage: false,
-							hasPreviousPage: false,
-						},
-					},
-				}),
+				executeSectionQuery: async () =>
+					makeSectionResult(
+						[
+							makeSectionItem({
+								id: "anime-1",
+								name: "Test Anime",
+								entitySchemaSlug: "anime",
+								entitySchemaId: "schema-2",
+								fields: [
+									{ key: "backlogAt", kind: "date", value: date("2024-03-20") },
+								],
+							}),
+						],
+						{ limit: 6 },
+					),
 			}),
 		);
 
@@ -407,50 +318,27 @@ describe("getUpNextItems", () => {
 	it("filters items requiring backlogAt", async () => {
 		const result = expectDataResult(
 			await getUpNextItems("user_1", {
-				executeSectionQuery: async () => ({
-					items: [
-						{
-							image: null,
-							id: "anime-1",
-							externalId: null,
-							name: "With Backlog",
-							sandboxScriptId: null,
-							entitySchemaSlug: "anime",
-							entitySchemaId: "schema-2",
-							createdAt: date("2024-01-01"),
-							updatedAt: date("2024-01-01"),
-							fields: [
-								{
-									key: "backlogAt",
-									kind: "date" as const,
-									value: date("2024-03-20"),
-								},
-							],
-						},
-						{
-							fields: [],
-							image: null,
-							id: "anime-2",
-							externalId: null,
-							sandboxScriptId: null,
-							name: "Without Backlog",
-							entitySchemaSlug: "anime",
-							entitySchemaId: "schema-2",
-							createdAt: date("2024-01-01"),
-							updatedAt: date("2024-01-01"),
-						},
-					],
-					meta: {
-						pagination: {
-							page: 1,
-							total: 2,
-							limit: 20,
-							totalPages: 1,
-							hasNextPage: false,
-							hasPreviousPage: false,
-						},
-					},
-				}),
+				executeSectionQuery: async () =>
+					makeSectionResult(
+						[
+							makeSectionItem({
+								id: "anime-1",
+								name: "With Backlog",
+								entitySchemaSlug: "anime",
+								entitySchemaId: "schema-2",
+								fields: [
+									{ key: "backlogAt", kind: "date", value: date("2024-03-20") },
+								],
+							}),
+							makeSectionItem({
+								id: "anime-2",
+								name: "Without Backlog",
+								entitySchemaSlug: "anime",
+								entitySchemaId: "schema-2",
+							}),
+						],
+						{ limit: 20 },
+					),
 			}),
 		);
 
@@ -490,19 +378,7 @@ describe("getUpNextItems", () => {
 		await getUpNextItems("user_1", {
 			executeSectionQuery: async (_userId, request) => {
 				capturedLimit = request.pagination.limit;
-				return {
-					items: [],
-					meta: {
-						pagination: {
-							page: 1,
-							total: 0,
-							limit: 10,
-							totalPages: 0,
-							hasNextPage: false,
-							hasPreviousPage: false,
-						},
-					},
-				};
+				return makeSectionResult([], { limit: 10 });
 			},
 		});
 
@@ -514,38 +390,25 @@ describe("getRateTheseItems", () => {
 	it("returns rate these items with complete", async () => {
 		const result = expectDataResult(
 			await getRateTheseItems("user_1", {
-				executeSectionQuery: async () => ({
-					items: [
-						{
-							image: null,
-							id: "manga-1",
-							externalId: null,
-							name: "Test Manga",
-							sandboxScriptId: null,
-							entitySchemaSlug: "manga",
-							entitySchemaId: "schema-3",
-							createdAt: date("2024-01-01"),
-							updatedAt: date("2024-01-01"),
-							fields: [
-								{
-									key: "completeAt",
-									kind: "date" as const,
-									value: date("2024-03-20"),
-								},
-							],
-						},
-					],
-					meta: {
-						pagination: {
-							page: 1,
-							limit: 6,
-							total: 1,
-							totalPages: 1,
-							hasNextPage: false,
-							hasPreviousPage: false,
-						},
-					},
-				}),
+				executeSectionQuery: async () =>
+					makeSectionResult(
+						[
+							makeSectionItem({
+								id: "manga-1",
+								name: "Test Manga",
+								entitySchemaSlug: "manga",
+								entitySchemaId: "schema-3",
+								fields: [
+									{
+										kind: "date",
+										key: "completeAt",
+										value: date("2024-03-20"),
+									},
+								],
+							}),
+						],
+						{ limit: 6 },
+					),
 			}),
 		);
 
@@ -561,50 +424,31 @@ describe("getRateTheseItems", () => {
 	it("filters items requiring completeAt", async () => {
 		const result = expectDataResult(
 			await getRateTheseItems("user_1", {
-				executeSectionQuery: async () => ({
-					items: [
-						{
-							image: null,
-							id: "manga-1",
-							externalId: null,
-							name: "With Complete",
-							sandboxScriptId: null,
-							entitySchemaSlug: "manga",
-							entitySchemaId: "schema-3",
-							createdAt: date("2024-01-01"),
-							updatedAt: date("2024-01-01"),
-							fields: [
-								{
-									key: "completeAt",
-									kind: "date" as const,
-									value: date("2024-03-20"),
-								},
-							],
-						},
-						{
-							fields: [],
-							image: null,
-							id: "manga-2",
-							externalId: null,
-							sandboxScriptId: null,
-							name: "Without Complete",
-							entitySchemaSlug: "manga",
-							entitySchemaId: "schema-3",
-							createdAt: date("2024-01-01"),
-							updatedAt: date("2024-01-01"),
-						},
-					],
-					meta: {
-						pagination: {
-							page: 1,
-							total: 2,
-							limit: 12,
-							totalPages: 1,
-							hasNextPage: false,
-							hasPreviousPage: false,
-						},
-					},
-				}),
+				executeSectionQuery: async () =>
+					makeSectionResult(
+						[
+							makeSectionItem({
+								id: "manga-1",
+								name: "With Complete",
+								entitySchemaSlug: "manga",
+								entitySchemaId: "schema-3",
+								fields: [
+									{
+										key: "completeAt",
+										kind: "date",
+										value: date("2024-03-20"),
+									},
+								],
+							}),
+							makeSectionItem({
+								id: "manga-2",
+								name: "Without Complete",
+								entitySchemaSlug: "manga",
+								entitySchemaId: "schema-3",
+							}),
+						],
+						{ limit: 12 },
+					),
 			}),
 		);
 
@@ -654,19 +498,7 @@ describe("getRateTheseItems", () => {
 		await getRateTheseItems("user_1", {
 			executeSectionQuery: async (_userId, request) => {
 				capturedLimit = request.pagination.limit;
-				return {
-					items: [],
-					meta: {
-						pagination: {
-							page: 1,
-							total: 0,
-							limit: 10,
-							totalPages: 0,
-							hasNextPage: false,
-							hasPreviousPage: false,
-						},
-					},
-				};
+				return makeSectionResult([], { limit: 10 });
 			},
 		});
 
@@ -843,11 +675,7 @@ const makeLibraryItem = (opts: {
 	reviewRating?: number;
 	entitySchemaSlug?: string;
 }) => {
-	const fields: {
-		key: string;
-		value: Date | number;
-		kind: "date" | "number";
-	}[] = [];
+	const fields: SectionField[] = [];
 	if (opts.backlogAt) {
 		fields.push({ key: "backlogAt", kind: "date", value: opts.backlogAt });
 	}
@@ -864,33 +692,17 @@ const makeLibraryItem = (opts: {
 			value: opts.reviewRating,
 		});
 	}
-	return {
+	return makeSectionItem({
 		fields,
-		image: null,
 		id: opts.id,
-		externalId: null,
-		sandboxScriptId: null,
 		name: `Entity ${opts.id}`,
 		entitySchemaId: "schema-1",
-		updatedAt: date("2024-01-01"),
-		createdAt: date("2024-01-01"),
 		entitySchemaSlug: opts.entitySchemaSlug ?? "book",
-	};
+	});
 };
 
-const libraryQueryResult = (items: ReturnType<typeof makeLibraryItem>[]) => ({
-	items,
-	meta: {
-		pagination: {
-			page: 1,
-			limit: 10000,
-			totalPages: 1,
-			hasNextPage: false,
-			total: items.length,
-			hasPreviousPage: false,
-		},
-	},
-});
+const libraryQueryResult = (items: ReturnType<typeof makeLibraryItem>[]) =>
+	makeSectionResult(items, { limit: 10000 });
 
 describe("getLibraryStats", () => {
 	it("counts total entities", async () => {
