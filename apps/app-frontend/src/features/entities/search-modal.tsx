@@ -74,7 +74,8 @@ export function SearchEntityModalContent(props: {
 		"/collections/memberships",
 	);
 	const eventSchemasQuery = useEventSchemasQuery(props.entitySchema.id, true);
-	const { state: collectionState } = useCollectionDiscovery();
+	const { state: collectionState, refetch: refetchCollections } =
+		useCollectionDiscovery();
 	const collectionsDestination = useCollectionsDestination();
 	const {
 		page,
@@ -418,7 +419,7 @@ export function SearchEntityModalContent(props: {
 						selectedCollection,
 					),
 				});
-				markDone(item.identifier, ["track"]);
+				markDone(item.identifier, ["track", "collection"]);
 				props.onActionCompleted?.();
 				patchActionState(item.identifier, {
 					actionError: null,
@@ -546,6 +547,7 @@ export function SearchEntityModalContent(props: {
 											item={item}
 											key={item.identifier}
 											accentColor={accentColor}
+											collectionState={collectionState}
 											onAdd={() => void handleAdd(item)}
 											addError={addError[item.identifier]}
 											entityName={props.entitySchema.name}
@@ -559,9 +561,11 @@ export function SearchEntityModalContent(props: {
 											isLifecycleLoading={eventSchemasQuery.isLoading}
 											isExpanded={selectedResultId === item.identifier}
 											canUseCollectionAction={canUseCollectionAction}
-											collectionState={collectionState}
 											collectionsDestination={
 												collectionsDestination.destination
+											}
+											onRetryCollectionDiscovery={() =>
+												void refetchCollections()
 											}
 											primaryAction={
 												props.initialAction === "backlog" ? "backlog" : "add"
