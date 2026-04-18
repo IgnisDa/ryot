@@ -14,7 +14,6 @@ export const requireAuth = createMiddleware<{ Variables: MaybeAuthType }>(
 				);
 			}
 			c.set("user", session.user);
-			c.set("session", session.session);
 			return next();
 		} catch (error) {
 			if (isAPIError(error)) {
