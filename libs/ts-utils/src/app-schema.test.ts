@@ -124,68 +124,32 @@ describe("toAppSchemaProperties", () => {
 		expect(
 			toAppSchemaProperties(
 				z.object({
-					assets: z.object({
-						images: z.array(
-							z.discriminatedUnion("kind", [
-								z.object({ kind: z.literal("remote"), url: z.string() }),
-								z.object({ kind: z.literal("s3"), key: z.string() }),
-							]),
-						),
-						videos: z.array(
-							z.discriminatedUnion("kind", [
-								z.object({ kind: z.literal("remote"), url: z.string() }),
-								z.object({ kind: z.literal("s3"), key: z.string() }),
-							]),
-						),
-					}),
+					images: z.array(
+						z.discriminatedUnion("kind", [
+							z.object({ kind: z.literal("remote"), url: z.string() }),
+							z.object({ kind: z.literal("s3"), key: z.string() }),
+						]),
+					),
 				}),
 			),
 		).toEqual({
 			fields: {
-				assets: {
-					label: "Assets",
-					type: "object",
-					unknownKeys: "strip",
-					properties: {
-						images: {
-							label: "Images",
-							type: "array",
-							validation: { required: true },
-							items: {
-								label: "Item",
-								type: "object",
-								unknownKeys: "strip",
-								properties: {
-									key: { label: "Key", type: "string" },
-									kind: {
-										label: "Kind",
-										type: "enum",
-										options: ["remote", "s3"],
-										validation: { required: true },
-									},
-									url: { label: "Url", type: "string" },
-								},
+				images: {
+					label: "Images",
+					type: "array",
+					items: {
+						label: "Item",
+						type: "object",
+						unknownKeys: "strip",
+						properties: {
+							key: { label: "Key", type: "string" },
+							kind: {
+								label: "Kind",
+								type: "enum",
+								options: ["remote", "s3"],
+								validation: { required: true },
 							},
-						},
-						videos: {
-							label: "Videos",
-							type: "array",
-							validation: { required: true },
-							items: {
-								label: "Item",
-								type: "object",
-								unknownKeys: "strip",
-								properties: {
-									key: { label: "Key", type: "string" },
-									kind: {
-										label: "Kind",
-										type: "enum",
-										options: ["remote", "s3"],
-										validation: { required: true },
-									},
-									url: { label: "Url", type: "string" },
-								},
-							},
+							url: { label: "Url", type: "string" },
 						},
 					},
 				},

@@ -307,13 +307,10 @@ driver("details", async function(context) {
       publishYear: publishYear,
       description: parseDescription(workPayload?.description),
       sourceUrl: `https://openlibrary.org/works/${externalId}/${title}`,
-      assets: {
-        images: [...coverIdSet].map((coverId) => ({
-          kind: "remote",
-          url: `https://covers.openlibrary.org/b/id/${coverId}-M.jpg?default=false`,
-        })),
-        videos: [],
-      },
+      images: [...coverIdSet].map((coverId) => ({
+        kind: "remote",
+        url: `https://covers.openlibrary.org/b/id/${coverId}-M.jpg?default=false`,
+      })),
     },
   };
 });

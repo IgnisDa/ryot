@@ -263,10 +263,7 @@ query StaffQuery($id: Int!) {
 			birthPlace,
 			description,
 			alternateNames: [],
-			assets: {
-				images: image ? [{ kind: "remote", url: image }] : [],
-				videos: [],
-			},
+			images: image ? [{ kind: "remote", url: image }] : [],
 			sourceUrl: `https://anilist.co/staff/${staffId}`,
 			birthDate: formatDate(staffData.dateOfBirth, dayjs),
 			deathDate: formatDate(staffData.dateOfDeath, dayjs),

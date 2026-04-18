@@ -1,10 +1,6 @@
 import { z } from "@hono/zod-openapi";
 import { toAppSchemaProperties } from "@ryot/ts-utils";
-import {
-	nullableIntSchema,
-	nullableStringSchema,
-	remoteImagesAssetsSchema,
-} from "../zod";
+import { imagesSchema, nullableIntSchema, nullableStringSchema } from "../zod";
 import { mediaWithFreeCreatorsPropertiesSchema } from "./common";
 
 const podcastEpisodeSchema = z
@@ -21,7 +17,7 @@ const podcastEpisodeSchema = z
 
 export const podcastPropertiesSchema =
 	mediaWithFreeCreatorsPropertiesSchema.extend({
-		assets: remoteImagesAssetsSchema,
+		images: imagesSchema,
 		totalEpisodes: nullableIntSchema,
 		episodes: z.array(podcastEpisodeSchema),
 	});

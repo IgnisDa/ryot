@@ -227,10 +227,7 @@ driver("details", async function(context) {
       sourceUrl,
       description,
       alternateNames: [],
-      assets: {
-        images: getImagesSortedBySize(images).map((url) => ({ kind: "remote", url })),
-        videos: [],
-      },
+      images: getImagesSortedBySize(images).map((url) => ({ kind: "remote", url })),
     },
   };
 });
