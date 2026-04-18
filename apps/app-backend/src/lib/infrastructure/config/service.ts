@@ -104,16 +104,8 @@ export const validateSystemConfig = (config: AppConfigValue) =>
 			);
 		}
 
-		const localDirConfigured = isNonEmpty(config.fileStorage.localDir);
 		const localSecretConfigured = isNonEmptyRedacted(config.fileStorage.localSigningSecret);
-		if (localDirConfigured && !localSecretConfigured) {
-			return yield* Effect.fail(
-				configError(
-					"Partial local file storage configuration detected. Set the local directory settings and FILE_STORAGE_LOCAL_SIGNING_SECRET together, or configure none of them.",
-				),
-			);
-		}
-		if (localDirConfigured && !/^([A-Za-z]:[\\/]|\/)/.test(config.fileStorage.localDir.value)) {
+		if (localSecretConfigured && !/^([A-Za-z]:[\\/]|\/)/.test(config.fileStorage.localDir)) {
 			return yield* Effect.fail(configError("FILE_STORAGE_LOCAL_DIR must be an absolute path."));
 		}
 		if (!/^([A-Za-z]:[\\/]|\/)/.test(config.fileStorage.localTempDir)) {
@@ -121,8 +113,8 @@ export const validateSystemConfig = (config: AppConfigValue) =>
 				configError("FILE_STORAGE_LOCAL_TEMP_DIR must be an absolute path."),
 			);
 		}
-		if (localDirConfigured) {
-			const permanentPath = normalizePath(config.fileStorage.localDir.value);
+		if (localSecretConfigured) {
+			const permanentPath = normalizePath(config.fileStorage.localDir);
 			const temporaryPath = normalizePath(config.fileStorage.localTempDir);
 			if (
 				pathsOverlap(permanentPath, temporaryPath) ||

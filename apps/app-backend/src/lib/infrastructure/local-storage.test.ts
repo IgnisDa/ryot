@@ -21,8 +21,8 @@ const makeLayer = () => {
 			Layer.mergeAll(
 				makeAppConfigLayer({
 					fileStorage: {
+						localDir: ROOT,
 						localTempDir: TEMP_ROOT,
-						localDir: Option.some(ROOT),
 						localSigningSecret: Option.some(Redacted.make("local-test-secret")),
 					},
 				}),
