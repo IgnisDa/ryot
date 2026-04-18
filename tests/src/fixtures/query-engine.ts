@@ -1,6 +1,7 @@
 import type { paths } from "@ryot/generated/openapi/app-backend";
 import { type Client, createAuthenticatedClient } from "./auth";
 import { createEntitySchema } from "./entity-schemas";
+import { waitForEventCount } from "./events";
 import { createTracker } from "./trackers";
 import {
 	type ExpressionInput,
@@ -322,6 +323,12 @@ export async function createQueryEngineEntity(input: CreateEntityInput) {
 export async function createQueryEngineEvent(
 	input: CreateQueryEngineEventInput,
 ) {
+	const before = await input.client.GET("/events", {
+		headers: { Cookie: input.cookies },
+		params: { query: { entityId: input.entityId } },
+	});
+	const beforeCount = before.data?.data.length ?? 0;
+
 	const { data, response } = await input.client.POST("/events", {
 		headers: { Cookie: input.cookies },
 		body: [
@@ -337,6 +344,12 @@ export async function createQueryEngineEvent(
 		throw new Error(`Failed to create event for '${input.entityId}'`);
 	}
 
+	await waitForEventCount(
+		input.client,
+		input.cookies,
+		input.entityId,
+		beforeCount + 1,
+	);
 	return data.data.count;
 }
 
