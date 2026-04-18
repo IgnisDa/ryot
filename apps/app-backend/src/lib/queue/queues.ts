@@ -15,6 +15,8 @@ export const createQueues = () => {
 		connection,
 		defaultJobOptions: {
 			...defaultJobOptions,
+			attempts: 3,
+			backoff: { type: "exponential", delay: 5000 },
 			removeOnComplete: { age: 86400, count: 1000 },
 		},
 	});
