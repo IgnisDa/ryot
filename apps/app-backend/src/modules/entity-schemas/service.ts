@@ -3,6 +3,7 @@ import { generateId } from "better-auth";
 import { checkCustomAccess, checkReadAccess } from "~/lib/access";
 import { isUniqueConstraintError } from "~/lib/app/postgres";
 import { getQueues } from "~/lib/queue";
+import { resolveJobPollState } from "~/lib/queue/utils";
 import {
 	type ServiceResult,
 	serviceData,
@@ -382,16 +383,10 @@ export const getEntityImportResult = async (
 		return serviceError("not_found", entityImportJobNotFoundError);
 	}
 
-	const state = await job.getState();
-	if (state === "completed") {
-		return serviceData({ status: "completed", data: job.returnvalue });
-	}
-	if (state === "failed") {
-		return serviceData({
-			status: "failed",
-			error: job.failedReason ?? entityImportJobFailedMessage,
-		});
-	}
-
-	return serviceData({ status: "pending" });
+	return serviceData(
+		await resolveJobPollState(job, entityImportJobFailedMessage, () => ({
+			data: job.returnvalue,
+			status: "completed" as const,
+		})),
+	);
 };
