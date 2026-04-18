@@ -3,6 +3,7 @@ import {
 	Box,
 	Button,
 	Group,
+	Loader,
 	Select,
 	Stack,
 	Text,
@@ -10,6 +11,7 @@ import {
 	TextInput,
 } from "@mantine/core";
 import { Star } from "lucide-react";
+import type { CollectionDiscoveryState } from "~/features/collections";
 import type { MediaSearchLogDateOption } from "./search-modal-media-actions";
 import type { SearchResultRowActionState } from "./search-result-row";
 
@@ -200,11 +202,56 @@ export function SearchResultCollectionPanel(props: {
 	textMuted: string;
 	actionState: SearchResultRowActionState;
 	accentColor: string;
-	collections: Array<{ id: string; name: string }>;
+	collectionState: CollectionDiscoveryState;
+	collectionsDestination: { type: "view"; viewId: string } | { type: "none" };
 	onSaveCollection: () => void;
 	onPatchActionState: (patch: Partial<SearchResultRowActionState>) => void;
 }) {
 	const hasSelectedCollection = props.actionState.selectedCollectionId !== null;
+
+	if (props.collectionState.type === "loading") {
+		return (
+			<Box mt="xs" pt="sm" style={{ borderTop: `1px solid ${props.border}` }}>
+				<Group gap="xs">
+					<Loader size="xs" color={props.accentColor} />
+					<Text fz="xs" c={props.textMuted}>
+						Loading collections...
+					</Text>
+				</Group>
+			</Box>
+		);
+	}
+
+	if (props.collectionState.type === "empty") {
+		return (
+			<Box mt="xs" pt="sm" style={{ borderTop: `1px solid ${props.border}` }}>
+				<Stack gap="xs">
+					<Text fz="xs" c={props.textMuted}>
+						No collections available. Create a collection to add this item.
+					</Text>
+					{props.collectionsDestination.type === "view" ? (
+						<Button
+							href={`/views/${props.collectionsDestination.viewId}`}
+							size="compact-xs"
+							variant="subtle"
+							component="a"
+						>
+							Go to Collections
+						</Button>
+					) : null}
+					<Button
+						size="compact-xs"
+						variant="subtle"
+						onClick={() => props.onPatchActionState({ openPanel: null })}
+					>
+						Close
+					</Button>
+				</Stack>
+			</Box>
+		);
+	}
+
+	const collections = props.collectionState.collections;
 
 	return (
 		<Box mt="xs" pt="sm" style={{ borderTop: `1px solid ${props.border}` }}>
@@ -214,7 +261,7 @@ export function SearchResultCollectionPanel(props: {
 			<Select
 				size="xs"
 				mb="sm"
-				data={props.collections.map((c) => ({ value: c.id, label: c.name }))}
+				data={collections.map((c) => ({ value: c.id, label: c.name }))}
 				value={props.actionState.selectedCollectionId ?? null}
 				onChange={(value) =>
 					props.onPatchActionState({ selectedCollectionId: value })
