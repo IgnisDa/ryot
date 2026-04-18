@@ -11,7 +11,7 @@ import { getQueues } from "~/lib/queue";
 import { getRedisConnection } from "~/lib/queue/connection";
 import { onWorkerError } from "~/lib/queue/utils";
 import { sandboxRunJobName, sandboxRunJobResult } from "~/lib/sandbox/jobs";
-import { remoteImagesAssetsSchema } from "~/lib/zod";
+import { imagesSchema } from "~/lib/zod";
 import {
 	getEntitySchemaScopeForUser,
 	getUserLibraryEntityId,
@@ -46,9 +46,29 @@ const personDetailsResultSchema = z.object({
 	properties: z.record(z.string(), z.unknown()),
 });
 
-const extractPrimaryAssetImage = (assets: unknown) => {
-	const parsedAssets = remoteImagesAssetsSchema.safeParse(assets);
-	return parsedAssets.success ? (parsedAssets.data.images[0] ?? null) : null;
+const extractPrimaryImage = (images: unknown) => {
+	const parsedImages = imagesSchema.safeParse(images);
+	return parsedImages.success ? (parsedImages.data[0] ?? null) : null;
+};
+
+const normalizeLegacyImages = (properties: Record<string, unknown>) => {
+	if (properties.images !== undefined) {
+		return properties;
+	}
+
+	const assets = properties.assets;
+	if (!assets || typeof assets !== "object" || Array.isArray(assets)) {
+		return properties;
+	}
+
+	const parsedImages = imagesSchema.safeParse(
+		(assets as Record<string, unknown>).images,
+	);
+	if (!parsedImages.success) {
+		return properties;
+	}
+
+	return { ...properties, images: parsedImages.data };
 };
 
 const queueSandboxChildRun = async (input: {
@@ -203,25 +223,16 @@ const processMediaImportJob = async (job: Job, token?: string) => {
 	const { userId, scriptId, externalId, entitySchemaId } = parsed.data;
 
 	let step = parsed.data.step;
-	let schemaFieldKeys = parsed.data.schemaFieldKeys;
 	if (!step) {
 		const script = await getSandboxScriptForUser({ userId, scriptId });
 		if (!script) {
 			throw new Error("Sandbox script not found");
 		}
-
-		const scope = await getEntitySchemaScopeForUser({ userId, entitySchemaId });
-		if (!scope) {
-			throw new Error("Entity schema not found");
-		}
-
-		schemaFieldKeys = Object.keys((scope.propertiesSchema as AppSchema).fields);
 		await queueSandboxChildRun({
 			job,
 			childJobId: `${job.id}_sandbox`,
 			jobData: {
 				...parsed.data,
-				schemaFieldKeys,
 				step: mediaJobWaitingForSandboxStep,
 			},
 			sandboxJobData: {
@@ -236,13 +247,6 @@ const processMediaImportJob = async (job: Job, token?: string) => {
 
 	if (step !== mediaJobWaitingForSandboxStep) {
 		throw new Error(`Unsupported media import job step: ${step}`);
-	}
-	if (!schemaFieldKeys) {
-		const scope = await getEntitySchemaScopeForUser({ userId, entitySchemaId });
-		if (!scope) {
-			throw new Error("Entity schema not found");
-		}
-		schemaFieldKeys = Object.keys((scope.propertiesSchema as AppSchema).fields);
 	}
 
 	await waitForSandboxChildRun(job, token);
@@ -262,30 +266,32 @@ const processMediaImportJob = async (job: Job, token?: string) => {
 	}
 
 	const details = detailsParsed.data;
-	const properties: Record<string, unknown> = {};
-	for (const key of schemaFieldKeys) {
-		if (details.properties[key] !== undefined) {
-			properties[key] = details.properties[key];
-		}
-	}
 	const scope = await getEntitySchemaScopeForUser({ userId, entitySchemaId });
 	if (!scope) {
 		throw new Error("Entity schema not found");
+	}
+	const normalizedProperties = normalizeLegacyImages(details.properties);
+	const schemaFieldKeys = Object.keys(
+		(scope.propertiesSchema as AppSchema).fields,
+	);
+	const properties: Record<string, unknown> = {};
+	for (const key of schemaFieldKeys) {
+		if (normalizedProperties[key] !== undefined) {
+			properties[key] = normalizedProperties[key];
+		}
 	}
 	const validatedProperties = parseAppSchemaProperties({
 		properties,
 		kind: "Media",
 		propertiesSchema: scope.propertiesSchema as AppSchema,
 	});
-	const parsedAssets = remoteImagesAssetsSchema.safeParse(
-		validatedProperties.assets,
-	);
-	if (!parsedAssets.success) {
-		throw new Error("Media details assets are invalid");
+	const parsedImages = imagesSchema.safeParse(validatedProperties.images);
+	if (!parsedImages.success) {
+		throw new Error("Media details images are invalid");
 	}
-	validatedProperties.assets = parsedAssets.data;
+	validatedProperties.images = parsedImages.data;
 
-	const image = extractPrimaryAssetImage(validatedProperties.assets);
+	const image = extractPrimaryImage(validatedProperties.images);
 
 	const mediaEntity = await createGlobalEntity({
 		entitySchemaId,
@@ -305,6 +311,7 @@ const processMediaImportJob = async (job: Job, token?: string) => {
 			entitySchemaId,
 			name: details.name,
 			entityId: mediaEntity.id,
+			removePropertyKeys: ["assets"],
 			properties: {
 				...validatedProperties,
 				populatedAt: new Date().toISOString(),
@@ -395,10 +402,11 @@ const processPersonPopulateJob = async (job: Job, token?: string) => {
 	const schemaFieldKeys = Object.keys(
 		(personSchema.propertiesSchema as AppSchema).fields,
 	);
+	const normalizedProperties = normalizeLegacyImages(details.properties);
 	const filteredProperties: Record<string, unknown> = {};
 	for (const key of schemaFieldKeys) {
-		if (details.properties[key] !== undefined) {
-			filteredProperties[key] = details.properties[key];
+		if (normalizedProperties[key] !== undefined) {
+			filteredProperties[key] = normalizedProperties[key];
 		}
 	}
 
@@ -409,12 +417,13 @@ const processPersonPopulateJob = async (job: Job, token?: string) => {
 		throw new Error("Person details properties are invalid");
 	}
 
-	const image = extractPrimaryAssetImage(details.properties.assets);
+	const image = extractPrimaryImage(validatedProperties.data.images);
 
 	await updateGlobalEntityById({
 		image,
 		name: details.name,
 		entityId: personEntityId,
+		removePropertyKeys: ["assets"],
 		entitySchemaId: personSchema.id,
 		properties: {
 			...validatedProperties.data,

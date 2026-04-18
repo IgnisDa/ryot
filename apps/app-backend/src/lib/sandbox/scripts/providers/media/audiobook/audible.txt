@@ -287,16 +287,16 @@ driver("details", async function(context) {
   return {
     name: title,
     properties: {
+      images,
       people,
-      freeCreators,
+      isNsfw,
       runtime,
+      sourceUrl,
       publishYear,
       description,
-      isNsfw,
+      freeCreators,
       providerRating,
       genres: [...genreSet],
-      sourceUrl,
-      assets: { images, videos: [] },
     },
   };
 });

@@ -414,12 +414,12 @@ driver("details", async function(context) {
   return {
     name,
     properties: {
+      images,
       genres,
       timeToBeat,
       description,
       providerRating,
       platformReleases,
-      assets: { images, videos: [] },
       sourceUrl: `https://www.igdb.com/games/${gameSlug}`,
       publishYear: extractYear(game.first_release_date, dayjs),
     },

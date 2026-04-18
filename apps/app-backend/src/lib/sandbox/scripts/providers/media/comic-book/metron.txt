@@ -218,10 +218,7 @@ driver("details", async function(context) {
 		pages: pageCount,
 		people: buildPeople(payload?.credits),
 		description: getString(payload?.desc),
-		assets: {
-			images: image ? [{ kind: "remote", url: image }] : [],
-			videos: [],
-		},
+		images: image ? [{ kind: "remote", url: image }] : [],
 		sourceUrl: `https://metron.cloud/issue/${externalId}`,
 		publishYear: parsePublishYear(payload?.cover_date, dayjs),
     },
