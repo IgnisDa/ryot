@@ -80,9 +80,13 @@ export function findBuiltinCollectionsView(
 	);
 }
 
+export type CollectionsDestination =
+	| { type: "view"; viewId: string }
+	| { type: "none" };
+
 export function resolveCollectionsDestination(
 	savedViews: AppSavedView[],
-): { type: "view"; viewId: string } | { type: "none" } {
+): CollectionsDestination {
 	const view = findBuiltinCollectionsView(savedViews);
 	if (!view) {
 		return { type: "none" };
