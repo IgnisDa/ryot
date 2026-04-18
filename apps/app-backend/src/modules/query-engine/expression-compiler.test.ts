@@ -78,7 +78,7 @@ describe("createScalarExpressionCompiler", () => {
 		expect(first).not.toBe(third);
 	});
 
-	it("compiles a nested schema-property path using chained JSON traversal operators", () => {
+	it("compiles a nested entity property path using chained JSON traversal operators", () => {
 		const compiler = createScalarExpressionCompiler({
 			alias: "entities",
 			context,
@@ -87,9 +87,9 @@ describe("createScalarExpressionCompiler", () => {
 		const nestedRef: ViewExpression = {
 			type: "reference",
 			reference: {
+				type: "entity",
 				slug: "smartphones",
-				type: "schema-property",
-				property: ["metadata", "source"],
+				path: ["properties", "metadata", "source"],
 			},
 		};
 
@@ -112,9 +112,9 @@ describe("createScalarExpressionCompiler", () => {
 					expression: {
 						type: "reference",
 						reference: {
-							column: "image",
+							type: "entity",
+							path: ["image"],
 							slug: "smartphones",
-							type: "entity-column",
 						},
 					},
 				},

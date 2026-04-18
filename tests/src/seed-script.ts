@@ -383,14 +383,14 @@ async function createSavedView(
 					throw new Error(`Invalid saved view reference '${reference}'`);
 				}
 
-				return { type: "schema-property", slug: segment, property: rest };
+				return { type: "entity", slug: segment, path: [third, ...rest] };
 			}
 
 			if (rest.length > 0) {
 				throw new Error(`Invalid saved view reference '${reference}'`);
 			}
 
-			return { type: "entity-column", slug: segment, column: third };
+			return { type: "entity", slug: segment, path: [third] };
 		}
 
 		if (namespace === "event") {
@@ -403,18 +403,14 @@ async function createSavedView(
 					throw new Error(`Invalid saved view reference '${reference}'`);
 				}
 
-				return {
-					type: "event-join-property",
-					joinKey: segment,
-					property: rest,
-				};
+				return { type: "event", joinKey: segment, path: [third, ...rest] };
 			}
 
 			if (rest.length > 0) {
 				throw new Error(`Invalid saved view reference '${reference}'`);
 			}
 
-			return { type: "event-join-column", joinKey: segment, column: third };
+			return { type: "event", joinKey: segment, path: [third] };
 		}
 
 		throw new Error(`Invalid saved view reference '${reference}'`);
@@ -561,8 +557,7 @@ async function createSavedView(
 		filter: NonNullable<SavedViewQueryInput["filters"]>[number],
 	) => {
 		const reference = parseReference(normalizeFilterReference(filter.field));
-		return reference.type === "entity-column" ||
-			reference.type === "schema-property"
+		return reference.type === "entity"
 			? reference.slug
 			: `${reference.type}:${JSON.stringify(reference)}`;
 	};
@@ -692,19 +687,19 @@ function literal(value: unknown): SavedViewExpression {
 }
 
 function schemaProp(slug: string, property: string): SavedViewExpression {
-	return ref({ type: "schema-property", slug, property: [property] });
+	return ref({ type: "entity", slug, path: ["properties", property] });
 }
 
-function computedRef(key: string): SavedViewExpression {
+export function computedRef(key: string): SavedViewExpression {
 	return ref({ type: "computed-field", key });
 }
 
 function eventProp(joinKey: string, property: string): SavedViewExpression {
-	return ref({ type: "event-join-property", joinKey, property: [property] });
+	return ref({ type: "event", joinKey, path: ["properties", property] });
 }
 
 function eventCol(joinKey: string, column: string): SavedViewExpression {
-	return ref({ type: "event-join-column", joinKey, column });
+	return ref({ type: "event", joinKey, path: [column] });
 }
 
 function arithmetic(

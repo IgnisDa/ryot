@@ -41,7 +41,7 @@ Saved views persist the same query AST and then point display slots directly at 
           "operator": "add",
           "left": {
             "type": "reference",
-            "reference": { "type": "schema-property", "slug": "book", "property": ["publishYear"] }
+            "reference": { "type": "entity", "slug": "book", "path": ["properties", "publishYear"] }
           },
           "right": { "type": "literal", "value": 1 }
         }
@@ -54,7 +54,7 @@ Saved views persist the same query AST and then point display slots directly at 
             { "type": "literal", "value": "Book: " },
             {
               "type": "reference",
-              "reference": { "type": "entity-column", "slug": "book", "column": "name" }
+              "reference": { "type": "entity", "slug": "book", "path": ["name"] }
             }
           ]
         }
@@ -76,7 +76,7 @@ Saved views persist the same query AST and then point display slots directly at 
     "grid": {
       "imageProperty": {
         "type": "reference",
-        "reference": { "type": "entity-column", "slug": "book", "column": "image" }
+        "reference": { "type": "entity", "slug": "book", "path": ["image"] }
       },
       "titleProperty": {
         "type": "reference",
@@ -91,7 +91,7 @@ Saved views persist the same query AST and then point display slots directly at 
     "list": {
       "imageProperty": {
         "type": "reference",
-        "reference": { "type": "entity-column", "slug": "book", "column": "image" }
+        "reference": { "type": "entity", "slug": "book", "path": ["image"] }
       },
       "titleProperty": {
         "type": "reference",
@@ -126,7 +126,7 @@ Saved views persist the same query AST and then point display slots directly at 
     "direction": "asc",
     "expression": {
       "type": "reference",
-      "reference": { "type": "computed-field", "key": "displayName" }
+      "reference": { "type": "entity", "slug": "book", "path": ["name"] }
     }
   },
   "pagination": {
@@ -139,7 +139,7 @@ Saved views persist the same query AST and then point display slots directly at 
       "key": "displayName",
       "expression": {
         "type": "reference",
-        "reference": { "type": "entity-column", "slug": "book", "column": "name" }
+        "reference": { "type": "entity", "slug": "book", "path": ["name"] }
       }
     }
   ],
@@ -165,7 +165,7 @@ Saved views persist the same query AST and then point display slots directly at 
       "key": "image",
       "expression": {
         "type": "reference",
-        "reference": { "type": "entity-column", "slug": "book", "column": "image" }
+        "reference": { "type": "entity", "slug": "book", "path": ["image"] }
       }
     }
   ]
@@ -196,11 +196,11 @@ Each field looks like this:
     "values": [
       {
         "type": "reference",
-        "reference": { "type": "schema-property", "slug": "smartphone", "property": ["manufacturer"] }
+        "reference": { "type": "entity", "slug": "smartphone", "path": ["properties", "manufacturer"] }
       },
       {
         "type": "reference",
-        "reference": { "type": "schema-property", "slug": "tablet", "property": ["manufacturer"] }
+        "reference": { "type": "entity", "slug": "tablet", "path": ["properties", "manufacturer"] }
       }
     ]
   }
@@ -226,7 +226,7 @@ Computed fields are named expressions declared once and reused anywhere expressi
     "values": [
       {
         "type": "reference",
-        "reference": { "type": "event-join-property", "joinKey": "review", "property": ["rating"] }
+        "reference": { "type": "event", "joinKey": "review", "path": ["properties", "rating"] }
       },
       {
         "type": "reference",
@@ -268,7 +268,7 @@ Conditional expressions use `whenTrue` and `whenFalse`:
     "operator": "gte",
     "left": {
       "type": "reference",
-      "reference": { "type": "schema-property", "slug": "book", "property": ["rating"] }
+      "reference": { "type": "entity", "slug": "book", "path": ["properties", "rating"] }
     },
     "right": { "type": "literal", "value": 4 }
   },
@@ -289,7 +289,7 @@ Arithmetic and normalization example:
       "operator": "divide",
       "left": {
         "type": "reference",
-        "reference": { "type": "schema-property", "slug": "book", "property": ["pages"] }
+        "reference": { "type": "entity", "slug": "book", "path": ["properties", "pages"] }
       },
       "right": { "type": "literal", "value": 100 }
     }
@@ -306,7 +306,7 @@ String composition example:
     { "type": "literal", "value": "Book: " },
     {
       "type": "reference",
-      "reference": { "type": "entity-column", "slug": "book", "column": "name" }
+      "reference": { "type": "entity", "slug": "book", "path": ["name"] }
     }
   ]
 }
@@ -325,19 +325,28 @@ Image rules:
 > API request body always uses structured `RuntimeRef` JSON objects. Each example
 > below shows both forms.
 
-All references must be explicit.
+All references must be explicit. There are two reference types plus computed fields:
+
+- `{ "type": "entity", "slug": "...", "path": [...] }` — references an entity field
+- `{ "type": "event", "joinKey": "...", "path": [...] }` — references an event join field
+- `{ "type": "computed-field", "key": "..." }` — references a declared computed field
+
+The `path` array encodes which DB location to access:
+
+- A path starting with `"properties"` navigates into the entity's or event's JSONB `properties` column. The remaining segments are the nested field path.
+- Any other first segment is a built-in system column accessed directly (e.g. `"name"`, `"createdAt"`).
 
 ### Entity Built-Ins
 
 String shorthand → `RuntimeRef` JSON:
 
-- `entity.book.id` → `{ "type": "entity-column", "slug": "book", "column": "id" }`
-- `entity.book.name` → `{ "type": "entity-column", "slug": "book", "column": "name" }`
-- `entity.book.image` → `{ "type": "entity-column", "slug": "book", "column": "image" }`
-- `entity.book.createdAt` → `{ "type": "entity-column", "slug": "book", "column": "createdAt" }`
-- `entity.book.updatedAt` → `{ "type": "entity-column", "slug": "book", "column": "updatedAt" }`
-- `entity.book.externalId` → `{ "type": "entity-column", "slug": "book", "column": "externalId" }`
-- `entity.book.sandboxScriptId` → `{ "type": "entity-column", "slug": "book", "column": "sandboxScriptId" }`
+- `entity.book.id` → `{ "type": "entity", "slug": "book", "path": ["id"] }`
+- `entity.book.name` → `{ "type": "entity", "slug": "book", "path": ["name"] }`
+- `entity.book.image` → `{ "type": "entity", "slug": "book", "path": ["image"] }`
+- `entity.book.createdAt` → `{ "type": "entity", "slug": "book", "path": ["createdAt"] }`
+- `entity.book.updatedAt` → `{ "type": "entity", "slug": "book", "path": ["updatedAt"] }`
+- `entity.book.externalId` → `{ "type": "entity", "slug": "book", "path": ["externalId"] }`
+- `entity.book.sandboxScriptId` → `{ "type": "entity", "slug": "book", "path": ["sandboxScriptId"] }`
 
 Notes:
 
@@ -347,33 +356,33 @@ Notes:
 
 ### Entity Properties
 
-Schema properties always use the `properties` keyword at segment 3.
+Schema properties use `"properties"` as the first path segment.
 
 String shorthand → `RuntimeRef` JSON:
 
-- `entity.book.properties.author` → `{ "type": "schema-property", "slug": "book", "property": ["author"] }`
-- `entity.book.properties.publishYear` → `{ "type": "schema-property", "slug": "book", "property": ["publishYear"] }`
-- `entity.place.properties.country` → `{ "type": "schema-property", "slug": "place", "property": ["country"] }`
+- `entity.book.properties.author` → `{ "type": "entity", "slug": "book", "path": ["properties", "author"] }`
+- `entity.book.properties.publishYear` → `{ "type": "entity", "slug": "book", "path": ["properties", "publishYear"] }`
+- `entity.place.properties.country` → `{ "type": "entity", "slug": "place", "path": ["properties", "country"] }`
 
 Deep nested paths extend the array:
 
-- `entity.book.properties.metadata.source` → `{ "type": "schema-property", "slug": "book", "property": ["metadata", "source"] }`
+- `entity.book.properties.metadata.source` → `{ "type": "entity", "slug": "book", "path": ["properties", "metadata", "source"] }`
 
 ### Event Join Built-Ins
 
 String shorthand → `RuntimeRef` JSON:
 
-- `event.review.id` → `{ "type": "event-join-column", "joinKey": "review", "column": "id" }`
-- `event.review.createdAt` → `{ "type": "event-join-column", "joinKey": "review", "column": "createdAt" }`
-- `event.review.updatedAt` → `{ "type": "event-join-column", "joinKey": "review", "column": "updatedAt" }`
+- `event.review.id` → `{ "type": "event", "joinKey": "review", "path": ["id"] }`
+- `event.review.createdAt` → `{ "type": "event", "joinKey": "review", "path": ["createdAt"] }`
+- `event.review.updatedAt` → `{ "type": "event", "joinKey": "review", "path": ["updatedAt"] }`
 
 ### Event Join Properties
 
 String shorthand → `RuntimeRef` JSON:
 
-- `event.review.properties.rating` → `{ "type": "event-join-property", "joinKey": "review", "property": ["rating"] }`
-- `event.review.properties.note` → `{ "type": "event-join-property", "joinKey": "review", "property": ["note"] }`
-- `event.purchase.properties.price` → `{ "type": "event-join-property", "joinKey": "purchase", "property": ["price"] }`
+- `event.review.properties.rating` → `{ "type": "event", "joinKey": "review", "path": ["properties", "rating"] }`
+- `event.review.properties.note` → `{ "type": "event", "joinKey": "review", "path": ["properties", "note"] }`
+- `event.purchase.properties.price` → `{ "type": "event", "joinKey": "purchase", "path": ["properties", "price"] }`
 
 ## Event Joins
 
@@ -389,7 +398,7 @@ Currently supported join kind:
 ]
 ```
 
-Use the `key` in references (string shorthand) like `event.review.properties.rating` — in a real request use `{ "type": "event-join-property", "joinKey": "review", "property": ["rating"] }`.
+Use the `key` in references (string shorthand) like `event.review.properties.rating` — in a real request use `{ "type": "event", "joinKey": "review", "path": ["properties", "rating"] }`.
 
 Important:
 
@@ -421,7 +430,7 @@ Examples:
   "operator": "gte",
   "left": {
     "type": "reference",
-    "reference": { "type": "schema-property", "slug": "book", "property": ["rating"] }
+    "reference": { "type": "entity", "slug": "book", "path": ["properties", "rating"] }
   },
   "right": { "type": "literal", "value": 4 }
 }
@@ -433,7 +442,7 @@ Examples:
       "type": "contains",
       "expression": {
         "type": "reference",
-        "reference": { "type": "schema-property", "slug": "book", "property": ["tags"] }
+        "reference": { "type": "entity", "slug": "book", "path": ["properties", "tags"] }
       },
       "value": { "type": "literal", "value": "classic" }
     },
@@ -441,7 +450,7 @@ Examples:
       "type": "isNotNull",
       "expression": {
         "type": "reference",
-        "reference": { "type": "event-join-property", "joinKey": "review", "property": ["rating"] }
+        "reference": { "type": "event", "joinKey": "review", "path": ["properties", "rating"] }
       }
     }
   ]
@@ -525,7 +534,7 @@ Typical field keys still look like UI slots such as `image`, `title`, `subtitle`
     "direction": "asc",
     "expression": {
       "type": "reference",
-      "reference": { "type": "entity-column", "slug": "book", "column": "name" }
+      "reference": { "type": "entity", "slug": "book", "path": ["name"] }
     }
   },
   "pagination": {
@@ -538,7 +547,7 @@ Typical field keys still look like UI slots such as `image`, `title`, `subtitle`
     "operator": "eq",
     "left": {
       "type": "reference",
-      "reference": { "type": "schema-property", "slug": "book", "property": ["status"] }
+      "reference": { "type": "entity", "slug": "book", "path": ["properties", "status"] }
     },
     "right": { "type": "literal", "value": "owned" }
   },
@@ -548,21 +557,21 @@ Typical field keys still look like UI slots such as `image`, `title`, `subtitle`
       "key": "image",
       "expression": {
         "type": "reference",
-        "reference": { "type": "entity-column", "slug": "book", "column": "image" }
+        "reference": { "type": "entity", "slug": "book", "path": ["image"] }
       }
     },
     {
       "key": "title",
       "expression": {
         "type": "reference",
-        "reference": { "type": "entity-column", "slug": "book", "column": "name" }
+        "reference": { "type": "entity", "slug": "book", "path": ["name"] }
       }
     },
     {
       "key": "subtitle",
       "expression": {
         "type": "reference",
-        "reference": { "type": "schema-property", "slug": "book", "property": ["author"] }
+        "reference": { "type": "entity", "slug": "book", "path": ["properties", "author"] }
       }
     }
   ]
@@ -580,11 +589,11 @@ Typical field keys still look like UI slots such as `image`, `title`, `subtitle`
       "values": [
         {
           "type": "reference",
-          "reference": { "type": "schema-property", "slug": "smartphone", "property": ["year"] }
+          "reference": { "type": "entity", "slug": "smartphone", "path": ["properties", "year"] }
         },
         {
           "type": "reference",
-          "reference": { "type": "schema-property", "slug": "tablet", "property": ["releaseYear"] }
+          "reference": { "type": "entity", "slug": "tablet", "path": ["properties", "releaseYear"] }
         }
       ]
     }
@@ -604,11 +613,11 @@ Typical field keys still look like UI slots such as `image`, `title`, `subtitle`
         "values": [
           {
             "type": "reference",
-            "reference": { "type": "entity-column", "slug": "smartphone", "column": "name" }
+            "reference": { "type": "entity", "slug": "smartphone", "path": ["name"] }
           },
           {
             "type": "reference",
-            "reference": { "type": "entity-column", "slug": "tablet", "column": "name" }
+            "reference": { "type": "entity", "slug": "tablet", "path": ["name"] }
           }
         ]
       }
@@ -627,7 +636,7 @@ Show entities with their latest review rating and note.
     "direction": "desc",
     "expression": {
       "type": "reference",
-      "reference": { "type": "event-join-property", "joinKey": "review", "property": ["rating"] }
+      "reference": { "type": "event", "joinKey": "review", "path": ["properties", "rating"] }
     }
   },
   "pagination": {
@@ -646,7 +655,7 @@ Show entities with their latest review rating and note.
     "operator": "gte",
     "left": {
       "type": "reference",
-      "reference": { "type": "event-join-property", "joinKey": "review", "property": ["rating"] }
+      "reference": { "type": "event", "joinKey": "review", "path": ["properties", "rating"] }
     },
     "right": { "type": "literal", "value": 4 }
   },
@@ -656,14 +665,14 @@ Show entities with their latest review rating and note.
       "key": "title",
       "expression": {
         "type": "reference",
-        "reference": { "type": "entity-column", "slug": "book", "column": "name" }
+        "reference": { "type": "entity", "slug": "book", "path": ["name"] }
       }
     },
     {
       "key": "rating",
       "expression": {
         "type": "reference",
-        "reference": { "type": "event-join-property", "joinKey": "review", "property": ["rating"] }
+        "reference": { "type": "event", "joinKey": "review", "path": ["properties", "rating"] }
       }
     }
   ]
@@ -680,7 +689,7 @@ Use latest review rating when present, otherwise show publish year.
     "direction": "asc",
     "expression": {
       "type": "reference",
-      "reference": { "type": "entity-column", "slug": "book", "column": "name" }
+      "reference": { "type": "entity", "slug": "book", "path": ["name"] }
     }
   },
   "pagination": {
@@ -701,7 +710,7 @@ Use latest review rating when present, otherwise show publish year.
       "key": "title",
       "expression": {
         "type": "reference",
-        "reference": { "type": "entity-column", "slug": "book", "column": "name" }
+        "reference": { "type": "entity", "slug": "book", "path": ["name"] }
       }
     },
     {
@@ -711,11 +720,11 @@ Use latest review rating when present, otherwise show publish year.
         "values": [
           {
             "type": "reference",
-            "reference": { "type": "event-join-property", "joinKey": "review", "property": ["rating"] }
+            "reference": { "type": "event", "joinKey": "review", "path": ["properties", "rating"] }
           },
           {
             "type": "reference",
-            "reference": { "type": "schema-property", "slug": "book", "property": ["publishYear"] }
+            "reference": { "type": "entity", "slug": "book", "path": ["properties", "publishYear"] }
           }
         ]
       }
@@ -731,7 +740,7 @@ Use latest review rating when present, otherwise show publish year.
 - If the join is missing for an entity, joined references resolve to `null`.
 - `isNull` is useful for "missing event" queries.
 - `isNotNull` is useful for "has event" queries (e.g. entities that have been reviewed).
-- Event built-ins such as `event.review.createdAt` (shorthand for `{ "type": "event-join-column", "joinKey": "review", "column": "createdAt" }`) are often useful for "most recently reviewed" or "most recently purchased" views.
+- Event built-ins such as `event.review.createdAt` (shorthand for `{ "type": "event", "joinKey": "review", "path": ["createdAt"] }`) are often useful for "most recently reviewed" or "most recently purchased" views.
 
 ## Example Response With Event Fields
 
@@ -796,7 +805,7 @@ Use latest review rating when present, otherwise show publish year.
 - Sort/filter references must point to schemas included in `entitySchemaSlugs`.
 - `image` is display-only, not filterable.
 - Duplicate field keys are rejected.
-- `properties` is a reserved keyword in segment position 3 of entity and event paths (e.g. `entity.book.properties.*`). A built-in column named `properties` must never be added.
+- `"properties"` is a reserved first path segment meaning "navigate into the JSONB properties column". The system column set must never include a column named `properties`.
 - String path notation (e.g. `entity.book.properties.author`) is documentation shorthand only. Sending a raw string path in a request body is invalid; the API requires structured `RuntimeRef` JSON objects.
 
 ## Validation Errors

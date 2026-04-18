@@ -17,30 +17,16 @@ export const runtimeReferenceSchema = z
 	.discriminatedUnion("type", [
 		z
 			.object({
+				type: z.literal("entity"),
 				slug: nonEmptyTrimmedStringSchema,
-				column: nonEmptyTrimmedStringSchema,
-				type: z.literal("entity-column"),
+				path: z.array(nonEmptyTrimmedStringSchema).min(1),
 			})
 			.strict(),
 		z
 			.object({
-				slug: nonEmptyTrimmedStringSchema,
-				type: z.literal("schema-property"),
-				property: z.array(nonEmptyTrimmedStringSchema).min(1),
-			})
-			.strict(),
-		z
-			.object({
-				column: nonEmptyTrimmedStringSchema,
+				type: z.literal("event"),
 				joinKey: nonEmptyTrimmedStringSchema,
-				type: z.literal("event-join-column"),
-			})
-			.strict(),
-		z
-			.object({
-				joinKey: nonEmptyTrimmedStringSchema,
-				type: z.literal("event-join-property"),
-				property: z.array(nonEmptyTrimmedStringSchema).min(1),
+				path: z.array(nonEmptyTrimmedStringSchema).min(1),
 			})
 			.strict(),
 		z
