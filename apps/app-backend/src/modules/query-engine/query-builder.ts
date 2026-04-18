@@ -35,8 +35,10 @@ type QueryRow = {
 	name: string | null;
 	created_at: Date | null;
 	updated_at: Date | null;
+	external_id: string | null;
 	image: ImageSchemaType | null;
 	entity_schema_id: string | null;
+	sandbox_script_id: string | null;
 	entity_schema_slug: string | null;
 	fields: QueryEngineItem["fields"] | null;
 };
@@ -78,8 +80,10 @@ const buildBaseEntitiesCte = (input: {
 				${entity.createdAt} as created_at,
 				${entity.updatedAt} as updated_at,
 				${entity.properties} as properties,
+				${entity.externalId} as external_id,
+				${entitySchema.slug} as entity_schema_slug,
 				${entity.entitySchemaId} as entity_schema_id,
-				${entitySchema.slug} as entity_schema_slug
+				${entity.sandboxScriptId} as sandbox_script_id
 			from ${entity}
 			inner join ${entitySchema}
 				on ${entity.entitySchemaId} = ${entitySchema.id}
@@ -93,8 +97,10 @@ const buildBaseEntitiesCte = (input: {
 				${entity.createdAt} as created_at,
 				${entity.updatedAt} as updated_at,
 				${entity.properties} as properties,
+				${entity.externalId} as external_id,
+				${entitySchema.slug} as entity_schema_slug,
 				${entity.entitySchemaId} as entity_schema_id,
-				${entitySchema.slug} as entity_schema_slug
+				${entity.sandboxScriptId} as sandbox_script_id
 			from ${entity}
 			inner join ${entitySchema}
 				on ${entity.entitySchemaId} = ${entitySchema.id}
@@ -193,11 +199,13 @@ export const mapQueryRowToItem = (row: QueryRow): QueryEngineItem | null => {
 		id: row.id,
 		name: row.name,
 		image: row.image,
+		fields: row.fields ?? [],
 		createdAt: row.created_at,
 		updatedAt: row.updated_at,
+		externalId: row.external_id,
 		entitySchemaId: row.entity_schema_id,
+		sandboxScriptId: row.sandbox_script_id,
 		entitySchemaSlug: row.entity_schema_slug,
-		fields: row.fields ?? [],
 	};
 
 	return baseItem satisfies QueryEngineItem;
@@ -214,10 +222,7 @@ export const executePreparedQuery = async (input: {
 	const context: QueryEngineReferenceContext<
 		QueryEngineSchemaRow,
 		QueryEnginePreparedEventJoin
-	> = {
-		schemaMap: input.schemaMap,
-		eventJoinMap: input.eventJoinMap,
-	};
+	> = { schemaMap: input.schemaMap, eventJoinMap: input.eventJoinMap };
 	const filterWhereClause = buildFilterWhereClause({
 		context,
 		alias: "joined_entities",
@@ -288,7 +293,9 @@ export const executePreparedQuery = async (input: {
 			image,
 			created_at,
 			updated_at,
+			external_id,
 			entity_schema_id,
+			sandbox_script_id,
 			entity_schema_slug,
 			entity_count.total,
 			${resolvedFields} as fields
