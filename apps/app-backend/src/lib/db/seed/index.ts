@@ -1,8 +1,12 @@
 import type { DbClient } from "~/lib/db";
-import { authenticationBuiltinEntitySchemas } from "~/modules/authentication/bootstrap/manifests";
+import {
+	authenticationBuiltinEntitySchemas,
+	authenticationBuiltinRelationshipSchemas,
+} from "~/modules/authentication/bootstrap/manifests";
 import {
 	ensureBuiltinEntitySchema,
 	ensureBuiltinEntitySchemaEventSchemas,
+	ensureBuiltinRelationshipSchema,
 	ensureBuiltinSandboxScript,
 	linkScriptToEntitySchema,
 } from "./helpers";
@@ -64,6 +68,36 @@ export const seedInitialDatabase = async (database: DbClient) => {
 				database: tx,
 				entitySchemaId,
 				sandboxScriptId: scriptId,
+			});
+		}
+
+		console.info("Seeding relationship schemas...");
+
+		for (const schema of authenticationBuiltinRelationshipSchemas()) {
+			const sourceEntitySchemaId = schema.sourceEntitySchemaSlug
+				? (schemaIds.get(schema.sourceEntitySchemaSlug) ??
+					(() => {
+						throw new Error(
+							`Missing entity schema id for slug "${schema.sourceEntitySchemaSlug}" (relationship schema: "${schema.slug}")`,
+						);
+					})())
+				: undefined;
+			const targetEntitySchemaId = schema.targetEntitySchemaSlug
+				? (schemaIds.get(schema.targetEntitySchemaSlug) ??
+					(() => {
+						throw new Error(
+							`Missing entity schema id for slug "${schema.targetEntitySchemaSlug}" (relationship schema: "${schema.slug}")`,
+						);
+					})())
+				: undefined;
+
+			await ensureBuiltinRelationshipSchema({
+				database: tx,
+				slug: schema.slug,
+				name: schema.name,
+				sourceEntitySchemaId,
+				targetEntitySchemaId,
+				propertiesSchema: schema.propertiesSchema,
 			});
 		}
 	});
