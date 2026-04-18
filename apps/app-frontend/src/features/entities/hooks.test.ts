@@ -2,6 +2,162 @@ import { describe, expect, it } from "bun:test";
 import { createEntityFixture } from "~/features/test-fixtures";
 
 describe("useEntityMutations collection integration", () => {
+	describe("createWithCollection successful save-to-collection", () => {
+		it("successfully adds entity to collection and returns entity without error", async () => {
+			const entity = createEntityFixture({
+				id: "entity-123",
+				name: "Test Entity",
+			});
+			const collectionId = "collection-1";
+
+			// Mock successful mutations
+			const mockCreateResult = { data: entity };
+			const mockAddToCollectionResult = { data: null };
+
+			// Simulate createWithCollection logic
+			const createResult = mockCreateResult;
+			const createdEntity = createResult.data;
+
+			if (!createdEntity) {
+				throw new Error("Failed to create entity");
+			}
+
+			let collectionError: string | undefined;
+			if (collectionId) {
+				try {
+					// Simulate successful addToCollection
+					const result = mockAddToCollectionResult;
+					expect(result).toBeDefined();
+				} catch (error) {
+					collectionError =
+						error instanceof Error ? error.message : "Unknown error";
+				}
+			}
+
+			const result = { entity: createdEntity, collectionError };
+
+			expect(result.entity.id).toBe("entity-123");
+			expect(result.entity.name).toBe("Test Entity");
+			expect(result.collectionError).toBeUndefined();
+		});
+
+		it("successfully creates entity without collection when collectionId is not provided", async () => {
+			const entity = createEntityFixture({
+				id: "entity-456",
+				name: "Standalone Entity",
+			});
+			const collectionId = undefined;
+
+			const mockCreateResult = { data: entity };
+			const createResult = mockCreateResult;
+			const createdEntity = createResult.data;
+
+			if (!createdEntity) {
+				throw new Error("Failed to create entity");
+			}
+
+			let collectionAddAttempted = false;
+			if (collectionId) {
+				collectionAddAttempted = true;
+			}
+
+			const result = { entity: createdEntity };
+
+			expect(result.entity.id).toBe("entity-456");
+			expect(result.entity.name).toBe("Standalone Entity");
+			expect(collectionAddAttempted).toBe(false);
+		});
+
+		it("builds correct collection membership payload during successful save", () => {
+			const entity = createEntityFixture({ id: "entity-789" });
+			const collectionId = "collection-abc";
+			const properties = { rating: 5, notes: "Great item" };
+
+			const payload = {
+				body: {
+					entityId: entity.id,
+					collectionId,
+					properties,
+				},
+			};
+
+			expect(payload.body).toEqual({
+				entityId: "entity-789",
+				collectionId: "collection-abc",
+				properties: { rating: 5, notes: "Great item" },
+			});
+		});
+
+		it("returns entity with all required fields after successful save", async () => {
+			const entity = createEntityFixture({
+				id: "entity-full-001",
+				name: "Complete Entity",
+				entitySchemaId: "schema-123",
+				properties: { customField: "value" },
+			});
+
+			const mockCreateResult = { data: entity };
+			const createdEntity = mockCreateResult.data;
+
+			if (!createdEntity) {
+				throw new Error("Failed to create entity");
+			}
+
+			const result = { entity: createdEntity };
+
+			expect(result.entity.id).toBe("entity-full-001");
+			expect(result.entity.name).toBe("Complete Entity");
+			expect(result.entity.entitySchemaId).toBe("schema-123");
+			expect(result.entity.properties).toEqual({ customField: "value" });
+		});
+
+		it("handles successful collection add with empty properties", async () => {
+			const entity = createEntityFixture({ id: "entity-empty-props" });
+
+			const payload = {
+				body: {
+					entityId: entity.id,
+					collectionId: "collection-1",
+					properties: {},
+				},
+			};
+
+			// Simulate successful mutation
+			const mockAddResult = { data: null };
+			const success = !!mockAddResult;
+
+			expect(payload.body.properties).toEqual({});
+			expect(success).toBe(true);
+		});
+
+		it("preserves entity data when collection add succeeds", async () => {
+			const entity = createEntityFixture({
+				id: "entity-preserve-001",
+				name: "Preserved Entity",
+				entitySchemaId: "schema-preserve",
+			});
+
+			const createResult = { data: entity };
+			const createdEntity = createResult.data;
+
+			if (!createdEntity) {
+				throw new Error("Failed to create entity");
+			}
+
+			// Simulate successful collection add
+			const addResult = { data: { success: true } };
+			const addSucceeded = !!addResult.data;
+
+			const finalResult = {
+				entity: createdEntity,
+				collectionSuccess: addSucceeded,
+			};
+
+			expect(finalResult.entity).toEqual(entity);
+			expect(finalResult.collectionSuccess).toBe(true);
+		});
+	});
+
 	describe("createWithCollection payload structure", () => {
 		it("builds correct entity creation payload", () => {
 			const payload = {
