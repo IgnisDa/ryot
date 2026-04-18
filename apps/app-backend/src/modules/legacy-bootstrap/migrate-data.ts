@@ -8,6 +8,7 @@ import { bootstrapNewUser } from "~/modules/builtins";
 import {
 	buildCollectionEntityMigrationSql,
 	buildCollectionToEntityRelationshipMigrationSql,
+	buildOwnedCollectionOwnershipMigrationSql,
 } from "./collection-mapping";
 import {
 	buildExerciseMigrationSql,
@@ -16,6 +17,7 @@ import {
 	getUnsupportedExerciseLots,
 	getUnsupportedExerciseSources,
 } from "./exercise-mapping";
+import { buildIntegrationMigrationSql } from "./integration-mapping";
 import {
 	buildMetadataGroupEntityMigrationSql,
 	buildMetadataGroupRelationshipMigrationSql,
@@ -416,5 +418,7 @@ export const migrateLegacyTables = async (database: DbClient) => {
 		await client.query(
 			buildUserToEntityInLibraryMigrationSql(inLibraryRelationshipSchemaId, libraryEntitySchemaId),
 		);
+		await client.query(buildOwnedCollectionOwnershipMigrationSql(inLibraryRelationshipSchemaId));
+		await client.query(buildIntegrationMigrationSql());
 	});
 };
