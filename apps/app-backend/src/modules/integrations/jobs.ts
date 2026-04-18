@@ -5,7 +5,7 @@ import { nonEmptyStringSchema } from "~/lib/zod";
 export const integrationRunJobName = "integration-run";
 
 export const integrationRunJobData = z.object({
-	runId: nonEmptyStringSchema,
+	runId: z.string().optional(),
 	userId: nonEmptyStringSchema,
 	rawBody: z.string().optional(),
 	contentType: z.string().optional(),

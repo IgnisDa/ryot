@@ -18,15 +18,18 @@ import { getRelationshipSchemaById } from "~/modules/relationship-schemas";
 import { entityImportJobData, entityImportJobName } from "./jobs";
 import {
 	createEntityForUser,
+	findEntityIdForUserBySchemaId,
 	findEntityByExternalIdForUser,
 	getEntityByIdForUser,
 	getEntitySchemaScopeForUser,
 	getEntityScopeForUser,
+	getRelationshipForUser,
 	getUserLibraryEntityId,
 	insertRelationship,
 	listEntityMatchCandidatesBySchemaForUser,
 	upsertEntityRelationship,
 	upsertInLibraryRelationship,
+	upsertRelationship,
 } from "./repository";
 import type {
 	CreateEntityBody,
@@ -293,7 +296,99 @@ export const listEntityMatchCandidates = async (input: {
 	);
 };
 
+export type GetEntityIdForUserBySchemaIdDeps = {
+	findEntityIdForUserBySchemaId: typeof findEntityIdForUserBySchemaId;
+};
+
+const getEntityIdForUserBySchemaIdDeps: GetEntityIdForUserBySchemaIdDeps = {
+	findEntityIdForUserBySchemaId,
+};
+
+export const getEntityIdForUserBySchemaId = async (
+	input: { userId: string; entitySchemaId: string },
+	deps: GetEntityIdForUserBySchemaIdDeps = getEntityIdForUserBySchemaIdDeps,
+): Promise<ServiceResult<string | undefined, "validation">> => {
+	const entitySchemaIdResult = resolveEntitySchemaIdResult(input.entitySchemaId);
+	if ("error" in entitySchemaIdResult) {
+		return entitySchemaIdResult;
+	}
+
+	return serviceData(
+		await deps.findEntityIdForUserBySchemaId({
+			userId: input.userId,
+			entitySchemaId: entitySchemaIdResult.data,
+		}),
+	);
+};
+
 const relationshipSchemaNotFoundError = "Relationship schema not found";
+
+export type GetUserRelationshipPropertiesDeps = {
+	getRelationshipForUser: typeof getRelationshipForUser;
+};
+
+const getUserRelationshipPropertiesDeps: GetUserRelationshipPropertiesDeps = {
+	getRelationshipForUser,
+};
+
+export const getUserRelationshipProperties = async (
+	input: {
+		userId: string;
+		sourceEntityId: string;
+		targetEntityId: string;
+		relationshipSchemaId: string;
+	},
+	deps: GetUserRelationshipPropertiesDeps = getUserRelationshipPropertiesDeps,
+): Promise<Record<string, unknown> | undefined> => {
+	return deps.getRelationshipForUser(input);
+};
+
+export type UpsertUserRelationshipDeps = {
+	upsertRelationship: typeof upsertRelationship;
+	getRelationshipSchemaById: typeof getRelationshipSchemaById;
+};
+
+const upsertUserRelationshipDeps: UpsertUserRelationshipDeps = {
+	upsertRelationship,
+	getRelationshipSchemaById,
+};
+
+export const upsertUserRelationship = async (
+	input: {
+		userId: string;
+		sourceEntityId: string;
+		targetEntityId: string;
+		relationshipSchemaId: string;
+		properties: Record<string, unknown>;
+	},
+	deps: UpsertUserRelationshipDeps = upsertUserRelationshipDeps,
+): Promise<ServiceResult<void, "not_found" | "validation">> => {
+	const relSchema = await deps.getRelationshipSchemaById(input.relationshipSchemaId, input.userId);
+	if (!relSchema) {
+		return serviceError("not_found", relationshipSchemaNotFoundError);
+	}
+
+	const result = parseAppSchemaPropertiesSafe({
+		properties: input.properties,
+		propertiesSchema: relSchema.propertiesSchema,
+	});
+	if (!result.success) {
+		return serviceError(
+			"validation",
+			`Relationship properties validation failed: ${formatValidationIssues(result.issues)}`,
+		);
+	}
+
+	await deps.upsertRelationship({
+		userId: input.userId,
+		properties: result.data,
+		sourceEntityId: input.sourceEntityId,
+		targetEntityId: input.targetEntityId,
+		relationshipSchemaId: input.relationshipSchemaId,
+	});
+
+	return serviceData(undefined);
+};
 
 export type WriteRelationshipDeps = {
 	insertRelationship: typeof insertRelationship;

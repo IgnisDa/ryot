@@ -43,6 +43,7 @@ const importCollectionMembershipSchema = z.object({ collectionName: nonEmptyStri
 
 const importMediaEntityGroupSchema = z.object({
 	entityRef: importEntityRefSchema,
+	ownershipProvider: z.string().optional(),
 	events: z.array(importMediaEventSchema),
 	itemIndex: z.number().int().nonnegative().optional(),
 	collectionMemberships: z.array(importCollectionMembershipSchema),
@@ -57,11 +58,11 @@ export const importRunJobData = z.object({
 	sourcePayloadKey: z.string().optional(),
 	resolveSandboxJobId: z.string().optional(),
 	providerSandboxJobId: z.string().optional(),
-	providerEntityIndex: z.number().int().nonnegative().optional(),
 	resolveEntityIndex: z.number().int().nonnegative().optional(),
-	resolveCandidateIndex: z.number().int().nonnegative().optional(),
+	providerEntityIndex: z.number().int().nonnegative().optional(),
 	adapterFailureCount: z.number().int().nonnegative().optional(),
 	mediaWriteGroupIndex: z.number().int().nonnegative().optional(),
+	resolveCandidateIndex: z.number().int().nonnegative().optional(),
 	mediaWriteFailedItems: z.number().int().nonnegative().optional(),
 	mediaWriteImportedItems: z.number().int().nonnegative().optional(),
 	providerEntityIds: z.array(z.string().nullable()).optional(),
