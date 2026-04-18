@@ -27,8 +27,11 @@ describe("podcast.itunes sandbox script", () => {
 		]);
 	});
 	it("maps search hits, drops entries missing id or title and paginates", () => {
-		const host = makeHost(() =>
-			httpSuccess({
+		const host = makeHost((_method, url) => {
+			const requestUrl = new URL(url);
+			expect(requestUrl.host).toBe("itunes.apple.com");
+			expect(requestUrl.pathname).toBe("/search");
+			return httpSuccess({
 				results: [
 					{
 						collectionId: 111,
@@ -38,8 +41,8 @@ describe("podcast.itunes sandbox script", () => {
 					},
 					{ collectionId: 222, collectionName: "" },
 				],
-			}),
-		);
+			});
+		});
 		return Effect.runPromise(
 			runSandboxTestScript(search, { query: "tech", page: 1, pageSize: 1 }, host, execution).pipe(
 				Effect.map((result) => {
