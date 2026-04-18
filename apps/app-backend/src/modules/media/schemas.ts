@@ -1,6 +1,9 @@
 import { z } from "@hono/zod-openapi";
 import { ImageSchema } from "~/lib/db/schema";
-import { builtinMediaEntitySchemaSlugs } from "~/lib/media/constants";
+import {
+	builtinMediaEntitySchemaSlugs,
+	builtinMediaEventSchemaSlugs,
+} from "~/lib/media/constants";
 import { itemDataSchema } from "~/lib/openapi";
 import {
 	nullableIntSchema,
@@ -11,6 +14,8 @@ import {
 const builtinMediaEntitySchemaSlugSchema = z.enum(
 	builtinMediaEntitySchemaSlugs,
 );
+
+const builtinMediaEventSchemaSlugSchema = z.enum(builtinMediaEventSchemaSlugs);
 
 const builtInMediaOverviewSubtitleSchema = z
 	.object({ raw: nullableIntSchema, label: nullableStringSchema })
@@ -57,6 +62,29 @@ const builtInMediaOverviewRateTheseItemSchema =
 		})
 		.strict();
 
+const builtInMediaOverviewRecentActivityItemSchema = z
+	.object({
+		id: z.string(),
+		occurredAt: z.date(),
+		rating: z.number().int().nullable(),
+		eventSchemaSlug: builtinMediaEventSchemaSlugSchema,
+		entity: z
+			.object({
+				name: z.string(),
+				image: ImageSchema.nullable(),
+				entitySchemaSlug: builtinMediaEntitySchemaSlugSchema,
+			})
+			.strict(),
+	})
+	.strict();
+
+const builtInMediaOverviewWeekActivityItemSchema = z
+	.object({
+		dayLabel: z.string(),
+		count: z.number().int().nonnegative(),
+	})
+	.strict();
+
 const createOverviewSectionSchema = <TItem extends z.ZodTypeAny>(item: TItem) =>
 	z
 		.object({ items: z.array(item), count: z.number().int().nonnegative() })
@@ -73,6 +101,12 @@ const builtInMediaOverviewContinueSectionSchema = createOverviewSectionSchema(
 const builtInMediaOverviewRateTheseSectionSchema = createOverviewSectionSchema(
 	builtInMediaOverviewRateTheseItemSchema,
 );
+
+const builtInMediaOverviewRecentActivitySectionSchema =
+	createOverviewSectionSchema(builtInMediaOverviewRecentActivityItemSchema);
+
+const builtInMediaOverviewWeekActivitySectionSchema =
+	createOverviewSectionSchema(builtInMediaOverviewWeekActivityItemSchema);
 
 const builtInMediaOverviewDataSchema = z
 	.object({
@@ -94,6 +128,14 @@ export const builtInMediaOverviewRateTheseResponseSchema = itemDataSchema(
 	builtInMediaOverviewRateTheseSectionSchema,
 );
 
+export const builtInMediaOverviewRecentActivityResponseSchema = itemDataSchema(
+	builtInMediaOverviewRecentActivitySectionSchema,
+);
+
+export const builtInMediaOverviewWeekActivityResponseSchema = itemDataSchema(
+	builtInMediaOverviewWeekActivitySectionSchema,
+);
+
 export const builtInMediaOverviewResponseSchema = itemDataSchema(
 	builtInMediaOverviewDataSchema,
 );
@@ -108,6 +150,14 @@ export type BuiltInMediaOverviewContinueResponse = z.infer<
 
 export type BuiltInMediaOverviewRateTheseResponse = z.infer<
 	typeof builtInMediaOverviewRateTheseSectionSchema
+>;
+
+export type BuiltInMediaOverviewRecentActivityResponse = z.infer<
+	typeof builtInMediaOverviewRecentActivitySectionSchema
+>;
+
+export type BuiltInMediaOverviewWeekActivityResponse = z.infer<
+	typeof builtInMediaOverviewWeekActivitySectionSchema
 >;
 
 export type BuiltInMediaOverviewResponse = z.infer<
