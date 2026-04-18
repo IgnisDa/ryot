@@ -9,14 +9,13 @@ import disableDefinition, { manifest as disableManifest } from "./media-monitori
 import enableDefinition, { manifest as enableManifest } from "./media-monitoring-enable.sandbox";
 import statusDefinition, { manifest as statusManifest } from "./media-monitoring-status.sandbox";
 
-const field = (value: string) => ({ kind: "text", value });
 const target = (entityId: string, monitoringLibraryId: string | null = null) => ({
-	entityId: field(entityId),
-	externalId: field(`external-${entityId}`),
-	providerId: field(`provider-${entityId}`),
-	entitySchemaSlug: field("movie"),
+	entityId,
+	externalId: `external-${entityId}`,
+	providerId: `provider-${entityId}`,
+	entitySchemaSlug: "movie",
 	monitoringLibraries: {
-		items: monitoringLibraryId ? [{ libraryEntityId: field(monitoringLibraryId) }] : [],
+		items: monitoringLibraryId ? [{ libraryEntityId: monitoringLibraryId }] : [],
 		pageInfo: { limit: 1, hasMore: false },
 	},
 });
@@ -107,7 +106,7 @@ describe("media monitoring operations", () => {
 					documents.push(document);
 					const query = Schema.decodeUnknownSync(RyotQLDocument)(document);
 					return "library" in query.queries
-						? libraryRows([{ entityId: field("library-1") }])
+						? libraryRows([{ entityId: "library-1" }])
 						: rows([target("entity-a")]);
 				}),
 			changeUserRelationships: (batches) =>

@@ -131,10 +131,10 @@ const cardFields = (card: SavedViewLayouts["grid"]) =>
 	[
 		card.titleField,
 		card.imageField,
-		card.overlineField,
-		card.calloutField,
-		card.primaryMetadataField,
-		card.secondaryMetadataField,
+		card.overline?.field ?? null,
+		card.callout?.field ?? null,
+		card.primaryMetadata?.field ?? null,
+		card.secondaryMetadata?.field ?? null,
 	].filter((field): field is string => field !== null);
 
 const rootScope = (document: RyotQLDocument) => {

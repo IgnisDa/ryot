@@ -1,9 +1,9 @@
 import type { SearchProviderOptionsResponse } from "@ryot/contract/modules/provider-entities/schemas";
 import type { SandboxProviderId } from "@ryot/contract/schema/brands";
 import type { AppSchema } from "@ryot/contract/schema/property-schema";
-import type { ProviderSearchSummary } from "@ryot/ryotql-recipes/provider-search";
 
 import { initialOptionValues, type OptionValues } from "./options-form-state";
+import type { ProviderSearchSummary } from "./state";
 
 export type ProviderOptionsState =
 	| { readonly status: "loading"; readonly providerId: SandboxProviderId }

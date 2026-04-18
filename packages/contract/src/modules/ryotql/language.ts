@@ -380,42 +380,6 @@ export const RyotQLDocument = strictStruct({
 }).annotate({ identifier: "RyotQLDocument" });
 export type RyotQLDocument = typeof RyotQLDocument.Type;
 
-export const BooleanFieldValue = strictStruct({
-	value: Schema.Boolean,
-	kind: Schema.Literal("boolean"),
-}).annotate({ identifier: "RyotQLBooleanFieldValue" });
-
-export const DateFieldValue = strictStruct({
-	value: Schema.String,
-	kind: Schema.Literal("date"),
-}).annotate({ identifier: "RyotQLDateFieldValue" });
-
-export const JsonFieldValue = strictStruct({
-	value: Schema.Unknown,
-	kind: Schema.Literal("json"),
-}).annotate({ identifier: "RyotQLJsonFieldValue" });
-
-export const NullFieldValue = strictStruct({
-	value: Schema.Null,
-	kind: Schema.Literal("null"),
-}).annotate({ identifier: "RyotQLNullFieldValue" });
-
-export const NumberFieldValue = strictStruct({
-	value: Schema.Number,
-	kind: Schema.Literal("number"),
-}).annotate({ identifier: "RyotQLNumberFieldValue" });
-
-export const TextFieldValue = strictStruct({
-	value: Schema.String,
-	kind: Schema.Literal("text"),
-}).annotate({ identifier: "RyotQLTextFieldValue" });
-
-export const FieldValue = strictStruct({
-	value: Schema.Unknown,
-	kind: Schema.Literals(["boolean", "date", "json", "null", "number", "text"]),
-}).annotate({ identifier: "RyotQLFieldValue" });
-export type FieldValue = typeof FieldValue.Type;
-
 const IncludePageInfo = strictStruct({
 	limit: Schema.Int,
 	hasMore: Schema.Boolean,
@@ -425,17 +389,17 @@ export type IncludeResult = {
 	readonly items: readonly RowItem[];
 	readonly pageInfo: typeof IncludePageInfo.Type;
 };
-export type RowItem = Readonly<Record<string, FieldValue | IncludeResult>>;
+export type RowItem = Readonly<Record<string, unknown>>;
 
-const RowValue: Schema.Codec<FieldValue | IncludeResult, unknown> = Schema.suspend(() =>
+const ResultValue: Schema.Codec<unknown, unknown> = Schema.suspend(() =>
 	Schema.Union([
-		FieldValue,
 		strictStruct({
 			pageInfo: IncludePageInfo,
-			items: Schema.Array(Schema.Record(Schema.String, RowValue)),
+			items: Schema.Array(Schema.Record(Schema.String, ResultValue)),
 		}),
+		JsonValue,
 	]),
-).annotate({ identifier: "RyotQLRowValue" });
+);
 
 export const RowsPageInfo = strictStruct({
 	limit: Schema.Int,
@@ -450,7 +414,7 @@ export const rowsResultSchema = <A, I>(item: Schema.Codec<A, I>) =>
 		type: Schema.Literal("rows"),
 	});
 
-export const RowsResult = rowsResultSchema(Schema.Record(Schema.String, RowValue)).annotate({
+export const RowsResult = rowsResultSchema(Schema.Record(Schema.String, ResultValue)).annotate({
 	identifier: "RyotQLRowsResult",
 });
 export type RowsResult = typeof RowsResult.Type;
@@ -458,7 +422,7 @@ export type RowsResult = typeof RowsResult.Type;
 export const AggregateResult = strictStruct({
 	type: Schema.Literal("aggregate"),
 	pageInfo: Schema.optional(IncludePageInfo),
-	items: Schema.Array(Schema.Record(Schema.String, FieldValue)),
+	items: Schema.Array(Schema.Record(Schema.String, Schema.Unknown)),
 }).annotate({ identifier: "RyotQLAggregateResult" });
 export type AggregateResult = typeof AggregateResult.Type;
 

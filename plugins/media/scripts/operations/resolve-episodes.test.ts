@@ -9,9 +9,7 @@ import definition, { manifest } from "./resolve-episodes.sandbox";
 const rowsResponse = (entityIds: string[]) => ({
 	data: {
 		episodes: {
-			items: entityIds.map((entityId) => ({
-				entityId: { kind: "text" as const, value: entityId },
-			})),
+			items: entityIds.map((entityId) => ({ entityId })),
 			pageInfo: { hasMore: false, limit: 2, nextCursor: null },
 			type: "rows" as const,
 		},

@@ -1,5 +1,5 @@
 import { column, eq, literal, table } from "@ryot/ryotql";
-import { buildSavedViewDocument } from "@ryot/ryotql-recipes/saved-views";
+import { savedViewRecipe } from "@ryot/ryotql-recipes/saved-views";
 import { Effect } from "effect";
 
 import {
@@ -19,12 +19,16 @@ import { describe, expect, it } from "~/support/effect-test";
 
 const entity = table("entity", "entity");
 
-const alternateRowsDocument = buildSavedViewDocument({
-	limit: 2,
-	entitySchemaSlugs: ["book"],
-	where: eq(column(entity, "name"), literal("A Book")),
-	fields: rowsFields,
-});
+const alternateRowsDocument = savedViewRecipe({
+	layout: { type: "card", mapping: rowsLayouts.grid },
+	source: {
+		type: "generated",
+		limit: 2,
+		entitySchemaSlugs: ["book"],
+		where: eq(column(entity, "name"), literal("A Book")),
+		fields: rowsFields,
+	},
+}).document;
 
 describe("Saved views query documents E2E", () => {
 	it.live("stores media built-in saved views with canonical in-library filters", () =>

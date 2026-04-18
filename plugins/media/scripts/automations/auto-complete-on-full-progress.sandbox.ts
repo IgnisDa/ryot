@@ -6,14 +6,10 @@ import {
 import type { EventSchemaRecord, SandboxHost } from "@ryot/sandbox-sdk/core";
 import { defineManifest } from "@ryot/sandbox-sdk/driver";
 import { DateTime, Effect, Option } from "@ryot/sandbox-sdk/effect";
-import { buildEntityReadDocument, buildEventReadDocument } from "@ryot/sandbox-sdk/ryotql";
+import { entityReadRecipe, eventReadRecipe, executeRyotqlRecipe } from "@ryot/sandbox-sdk/ryotql";
 import type { JsonValue } from "@ryot/sandbox-sdk/wire";
 
-import {
-	decodeEntityReadResponse,
-	decodeProgressEventsPage,
-	type MediaProgressEvent,
-} from "../../shared/ryotql";
+import type { MediaProgressEvent } from "../../shared/ryotql";
 
 export const manifest = defineManifest({
 	kind: "automation",
@@ -143,9 +139,12 @@ const getCompleteSchema = (host: AutomationHost, entitySchemaSlug: string) =>
 		);
 
 const fetchEntity = (host: AutomationHost, entityId: string) =>
-	host
-		.executeRyotql(buildEntityReadDocument({ entityIds: [entityId] }))
-		.pipe(Effect.map(decodeEntityReadResponse));
+	executeRyotqlRecipe(host.executeRyotql, entityReadRecipe({ entityIds: [entityId] })).pipe(
+		Effect.flatMap(({ items }) => {
+			const entity = items[0];
+			return entity ? Effect.succeed(entity) : Effect.fail(new Error("Entity not found"));
+		}),
+	);
 
 const getProgressEventPage = (
 	host: AutomationHost,
@@ -153,11 +152,10 @@ const getProgressEventPage = (
 	entitySchemaSlug: string,
 	after: string | undefined,
 ) =>
-	host
-		.executeRyotql(
-			buildEventReadDocument({ after, entityId, entitySchemaSlug, eventSchemaSlug: "progress" }),
-		)
-		.pipe(Effect.map(decodeProgressEventsPage));
+	executeRyotqlRecipe(
+		host.executeRyotql,
+		eventReadRecipe({ after, entityId, entitySchemaSlug, eventSchemaSlug: "progress" }),
+	);
 
 const getProgressEvents = (host: AutomationHost, entityId: string, entitySchemaSlug: string) =>
 	Effect.gen(function* () {
@@ -165,10 +163,10 @@ const getProgressEvents = (host: AutomationHost, entityId: string, entitySchemaS
 		let after: string | undefined;
 		do {
 			const result = yield* getProgressEventPage(host, entityId, entitySchemaSlug, after);
-			for (const event of result.events) {
+			for (const event of result.items) {
 				events.set(event.id, event);
 			}
-			after = result.nextCursor ?? undefined;
+			after = result.pageInfo.nextCursor ?? undefined;
 		} while (after !== undefined);
 		return [...events.values()];
 	});

@@ -48,10 +48,10 @@ describe("Saved views lifecycle E2E", () => {
 			});
 			expect(collectionsView?.layouts.grid.queryDocument).toMatchObject({
 				queries: {
-					collections: {
+					savedView: {
 						where: {
 							right: { type: "literal", value: "collection" },
-							left: { field: "entitySchemaSlug", tableAlias: "collection" },
+							left: { field: "entitySchemaSlug", tableAlias: "entity" },
 						},
 					},
 				},

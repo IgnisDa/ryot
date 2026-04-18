@@ -19,10 +19,7 @@ import {
 import { imagesField } from "@ryot/contract/schema/core";
 import type { AppSchema } from "@ryot/contract/schema/property-schema";
 import { castJson, column, coalesce, jsonPath, literal, table } from "@ryot/ryotql";
-import {
-	buildSavedViewDocument,
-	buildSavedViewLayoutProjections,
-} from "@ryot/ryotql-recipes/saved-views";
+import { buildSavedViewLayoutProjections, savedViewRecipe } from "@ryot/ryotql-recipes/saved-views";
 import { dayjs } from "@ryot/ts-utils/dayjs";
 import { createAuthClient } from "better-auth/client";
 
@@ -417,15 +414,49 @@ function buildSeedLayouts(
 		},
 	});
 	const documentFor = (fields: readonly FieldSelection[]) =>
-		buildSavedViewDocument({
-			fields,
-			limit: 20,
-			entitySchemaSlugs: scope as [string, ...string[]],
-		});
+		savedViewRecipe({
+			layout: {
+				type: "card",
+				mapping: projections.grid.mappings,
+			},
+			source: {
+				type: "generated",
+				fields,
+				limit: 20,
+				entitySchemaSlugs: scope as [string, ...string[]],
+			},
+		}).document;
+	const tableDocumentFor = (fields: readonly FieldSelection[]) =>
+		savedViewRecipe({
+			layout: { type: "table", mapping: projections.table.mappings },
+			source: {
+				type: "generated",
+				fields,
+				limit: 20,
+				entitySchemaSlugs: scope as [string, ...string[]],
+			},
+		}).document;
 	return {
-		grid: { ...projections.grid.mappings, queryDocument: documentFor(projections.grid.fields) },
-		list: { ...projections.list.mappings, queryDocument: documentFor(projections.list.fields) },
-		table: { ...projections.table.mappings, queryDocument: documentFor(projections.table.fields) },
+		grid: {
+			...projections.grid.mappings,
+			queryDocument: documentFor(projections.grid.fields),
+		},
+		list: {
+			...projections.list.mappings,
+			queryDocument: savedViewRecipe({
+				layout: { type: "card", mapping: projections.list.mappings },
+				source: {
+					type: "generated",
+					fields: projections.list.fields,
+					limit: 20,
+					entitySchemaSlugs: scope as [string, ...string[]],
+				},
+			}).document,
+		},
+		table: {
+			...projections.table.mappings,
+			queryDocument: tableDocumentFor(projections.table.fields),
+		},
 	};
 }
 
@@ -480,7 +511,16 @@ function cardConfig(
 	secondaryMetadata: ScalarExpression | null = null,
 	overline: ScalarExpression | null = null,
 ) {
-	return { overline, image, title, callout, primaryMetadata, secondaryMetadata };
+	const display = (expression: ScalarExpression | null) =>
+		expression === null ? null : { displayKind: "text" as const, expression };
+	return {
+		overline: display(overline),
+		image,
+		title,
+		callout: display(callout),
+		primaryMetadata: display(primaryMetadata),
+		secondaryMetadata: display(secondaryMetadata),
+	};
 }
 
 function tableColumn(
@@ -488,7 +528,7 @@ function tableColumn(
 	...expressions: ReadonlyArray<ScalarExpression | string>
 ): SeedTableColumn {
 	const expression = expressions.map(displayExpression).find((value) => value !== null);
-	return { label, expression: expression ?? literal(null) };
+	return { label, displayKind: "text", expression: expression ?? literal(null) };
 }
 
 function generateWhiskey(): {

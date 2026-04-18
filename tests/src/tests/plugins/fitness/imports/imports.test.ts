@@ -1,17 +1,15 @@
 import { ImportRunId } from "@ryot/contract/schema/brands";
-import { buildMeasurementListQueryDocument } from "@ryot/fitness-plugin/query-recipes";
+import { measurementListRecipe } from "@ryot/fitness-plugin/query-recipes";
 import { Effect } from "effect";
 
 import {
 	createAuthenticatedClient,
-	executeRyotQL,
+	executeRyotQLRecipe,
 	findBuiltinSchemaBySlug,
 	getImportRun,
 	listManualImportRuns,
 	pollImportRunUntilTerminal,
 	queryInLibraryRelationship,
-	requireRyotQLTextField,
-	requireRows,
 	runHevyImportFixture,
 	runOpenScaleImportFixture,
 	startOpenScaleImport,
@@ -37,11 +35,10 @@ describe("OpenScale Import E2E", () => {
 			expect(completedRun.finishedAt).not.toBeNull();
 
 			const { schema } = yield* findBuiltinSchemaBySlug(client, "measurement");
-			const result = yield* executeRyotQL(client, buildMeasurementListQueryDocument({ limit: 20 }));
-			const measurements = requireRows(result.data["measurements"], "measurements");
-			expect(measurements.items).toHaveLength(3);
-			const memberships = yield* Effect.forEach(measurements.items, (measurement) =>
-				queryInLibraryRelationship(client, requireRyotQLTextField(measurement, "id"), schema.slug),
+			const result = yield* executeRyotQLRecipe(client, measurementListRecipe({ limit: 20 }));
+			expect(result.items).toHaveLength(3);
+			const memberships = yield* Effect.forEach(result.items, (measurement) =>
+				queryInLibraryRelationship(client, measurement.id, schema.slug),
 			);
 			expect(
 				memberships.every(
@@ -81,7 +78,7 @@ describe("OpenScale Import E2E", () => {
 			const { client } = yield* createAuthenticatedClient();
 
 			const detail = yield* getImportRun(client, "nonexistent-run-id", undefined, 20);
-			expect(detail.run).toBeNull();
+			expect(detail.run).toBeUndefined();
 		}),
 	);
 
@@ -127,7 +124,7 @@ describe("OpenScale Import E2E", () => {
 				c.imports.deleteRun({ params: { runId: ImportRunId.make(runId) } }),
 			);
 
-			expect((yield* getImportRun(client, runId, undefined, 20)).run).toBeNull();
+			expect((yield* getImportRun(client, runId, undefined, 20)).run).toBeUndefined();
 		}),
 	);
 

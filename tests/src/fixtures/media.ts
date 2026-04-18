@@ -36,12 +36,7 @@ import {
 import { pollUntil } from "./polling";
 import { listRelationshipSchemas, requireRelationshipSchemaBySlug } from "./relationship-schemas";
 import { createRelationship } from "./relationships";
-import {
-	executeRyotQL,
-	requireRows,
-	requireRyotQLFieldValue,
-	requireRyotQLTextField,
-} from "./ryotql";
+import { executeRyotQL, requireRows, requireRyotQLText, requireRyotQLValue } from "./ryotql";
 
 export const insertRelationshipRow = (
 	client: Client,
@@ -156,14 +151,14 @@ export const getGlobalEntityByProvenance = (
 			entities.items[0],
 			`Missing global entity for external id '${input.externalId}'`,
 		);
-		const populatedAt = requireRyotQLFieldValue(entityRow, "populatedAt");
+		const populatedAt = requireRyotQLValue(entityRow, "populatedAt");
 		return {
-			id: requireRyotQLTextField(entityRow, "id"),
-			name: requireRyotQLTextField(entityRow, "name"),
+			id: requireRyotQLText(entityRow, "id"),
+			name: requireRyotQLText(entityRow, "name"),
 			populatedAt:
-				populatedAt.kind === "null"
+				populatedAt === null
 					? null
-					: requireString(populatedAt.value, "Expected 'populatedAt' to contain text"),
+					: requireString(populatedAt, "Expected 'populatedAt' to contain text"),
 		};
 	});
 
@@ -417,8 +412,5 @@ const getLibraryEntityId = (client: Client) =>
 			}),
 		);
 		const libraries = requireRows(result.data.libraries, "libraries");
-		return requireRyotQLTextField(
-			requirePresent(libraries.items[0], "Missing library entity"),
-			"id",
-		);
+		return requireRyotQLText(requirePresent(libraries.items[0], "Missing library entity"), "id");
 	});

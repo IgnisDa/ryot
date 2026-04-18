@@ -1,3 +1,6 @@
+import { JsonValue } from "@ryot/contract/modules/ryotql/language";
+import { EntityId, EntitySchemaSlug } from "@ryot/contract/schema/brands";
+import type { Recipe } from "@ryot/ryotql";
 import {
 	and,
 	ascending,
@@ -5,41 +8,38 @@ import {
 	castNumber,
 	castText,
 	column,
-	document,
+	defineRecipe,
 	descending,
 	eq,
-	field,
-	include,
 	join,
 	jsonPath,
 	literal,
-	rows,
+	selectedField,
+	selectedInclude,
+	selectedOptionalRow,
+	selectedRows,
 	table,
 } from "@ryot/ryotql";
-
-const entityAlias = "entity";
+import { Result, Schema } from "effect";
 
 type Table = ReturnType<typeof table>;
 
-const entityIdentityFields = (entity: Table) =>
-	[
-		field("id", column(entity, "id")),
-		field("name", column(entity, "name")),
-		field("schemaSlug", column(entity, "entitySchemaSlug")),
-	] as const;
+const entityIdentitySelection = (entity: Table) => ({
+	id: selectedField(column(entity, "id"), EntityId),
+	name: selectedField(column(entity, "name"), Schema.String),
+	schemaSlug: selectedField(column(entity, "entitySchemaSlug"), EntitySchemaSlug),
+});
 
 const entityWhere = (
 	entity: Table,
 	schemaSlug: string,
 	input: { entityId?: string | undefined; name?: string | undefined },
-) => {
-	const filters = [
+) =>
+	and(
 		eq(column(entity, "entitySchemaSlug"), literal(schemaSlug)),
 		...(input.entityId ? [eq(column(entity, "id"), literal(input.entityId))] : []),
 		...(input.name ? [eq(column(entity, "name"), literal(input.name))] : []),
-	];
-	return and(...filters);
-};
+	);
 
 const property = (entity: Table, path: string) =>
 	castText(jsonPath(column(entity, "properties"), path));
@@ -50,29 +50,29 @@ const propertyDate = (entity: Table, path: string) =>
 const propertyNumber = (entity: Table, path: string) =>
 	castNumber(jsonPath(column(entity, "properties"), path));
 
-const workoutFields = (entity: Table) =>
-	[
-		...entityIdentityFields(entity),
-		field("startedAt", propertyDate(entity, "startedAt")),
-		field("endedAt", propertyDate(entity, "endedAt")),
-		field("comment", property(entity, "comment")),
-		field("caloriesBurnt", propertyNumber(entity, "caloriesBurnt")),
-	] as const;
+const workoutSelection = (entity: Table) => ({
+	...entityIdentitySelection(entity),
+	startedAt: selectedField(propertyDate(entity, "startedAt"), Schema.NullOr(Schema.String)),
+	endedAt: selectedField(propertyDate(entity, "endedAt"), Schema.NullOr(Schema.String)),
+	comment: selectedField(property(entity, "comment"), Schema.NullOr(Schema.String)),
+	caloriesBurnt: selectedField(
+		propertyNumber(entity, "caloriesBurnt"),
+		Schema.NullOr(Schema.Number),
+	),
+});
 
-const workoutTemplateFields = (entity: Table) =>
-	[
-		...entityIdentityFields(entity),
-		field("createdAt", column(entity, "createdAt")),
-		field("comment", property(entity, "comment")),
-	] as const;
+const workoutTemplateSelection = (entity: Table) => ({
+	...entityIdentitySelection(entity),
+	createdAt: selectedField(column(entity, "createdAt"), Schema.String),
+	comment: selectedField(property(entity, "comment"), Schema.NullOr(Schema.String)),
+});
 
 const workoutTemplateInclude = (parent: Table, limit: number) => {
 	const template = table("entity", "template");
 	const relationship = table("relationship", "templateRelationship");
-	return include(relationship, {
+	return selectedInclude(relationship, {
 		limit,
-		key: "template",
-		fields: workoutTemplateFields(template),
+		selection: workoutTemplateSelection(template),
 		orderBy: [ascending(column(template, "name"))],
 		joins: [
 			join("inner", template, eq(column(relationship, "targetEntityId"), column(template, "id"))),
@@ -88,10 +88,9 @@ const workoutTemplateInclude = (parent: Table, limit: number) => {
 const workoutInclude = (parent: Table, limit: number) => {
 	const workout = table("entity", "workout");
 	const relationship = table("relationship", "workoutRelationship");
-	return include(relationship, {
+	return selectedInclude(relationship, {
 		limit,
-		key: "workouts",
-		fields: workoutFields(workout),
+		selection: workoutSelection(workout),
 		orderBy: [ascending(column(workout, "name"))],
 		joins: [
 			join("inner", workout, eq(column(relationship, "sourceEntityId"), column(workout, "id"))),
@@ -104,113 +103,148 @@ const workoutInclude = (parent: Table, limit: number) => {
 	});
 };
 
-export const buildExerciseListQueryDocument = (input: {
-	name?: string | undefined;
-	after?: string | undefined;
-	limit?: number | undefined;
-	entityId?: string | undefined;
-}) => {
-	const entity = table("entity", entityAlias);
-	return document({
-		exercises: rows(entity, {
-			after: input.after,
-			limit: input.limit,
-			where: entityWhere(entity, "exercise", input),
-			orderBy: [ascending(column(entity, "name"))],
-			fields: [
-				...entityIdentityFields(entity),
-				field("image", jsonPath(column(entity, "properties"), "images", 0)),
-				field("level", property(entity, "level")),
-				field("kind", property(entity, "kind")),
-				field("equipment", property(entity, "equipment")),
-			],
-		}),
-	});
-};
+export const exerciseListRecipe = defineRecipe(
+	(input: {
+		name?: string | undefined;
+		after?: string | undefined;
+		limit?: number | undefined;
+		entityId?: string | undefined;
+	}) => {
+		const entity = table("entity", "entity");
+		return {
+			queries: {
+				exercises: selectedRows(entity, {
+					after: input.after,
+					limit: input.limit,
+					where: entityWhere(entity, "exercise", input),
+					orderBy: [ascending(column(entity, "name"))],
+					selection: {
+						...entityIdentitySelection(entity),
+						image: selectedField(
+							jsonPath(column(entity, "properties"), "images", 0),
+							Schema.NullOr(JsonValue),
+						),
+						level: selectedField(property(entity, "level"), Schema.NullOr(Schema.String)),
+						kind: selectedField(property(entity, "kind"), Schema.NullOr(Schema.String)),
+						equipment: selectedField(property(entity, "equipment"), Schema.NullOr(Schema.String)),
+					},
+				}),
+			},
+			map: ({ exercises }) => Result.succeed(exercises),
+		};
+	},
+);
 
-export const buildWorkoutListQueryDocument = (input: {
-	after?: string | undefined;
-	limit?: number | undefined;
-	entityId?: string | undefined;
-}) => {
-	const entity = table("entity", entityAlias);
-	return document({
-		workouts: rows(entity, {
-			after: input.after,
-			limit: input.limit,
-			fields: workoutFields(entity),
-			where: entityWhere(entity, "workout", input),
-			orderBy: [ascending(column(entity, "name"))],
-		}),
-	});
-};
+export const workoutListRecipe = defineRecipe(
+	(input: {
+		after?: string | undefined;
+		limit?: number | undefined;
+		entityId?: string | undefined;
+	}) => {
+		const entity = table("entity", "entity");
+		return {
+			queries: {
+				workouts: selectedRows(entity, {
+					after: input.after,
+					limit: input.limit,
+					selection: workoutSelection(entity),
+					where: entityWhere(entity, "workout", input),
+					orderBy: [ascending(column(entity, "name"))],
+				}),
+			},
+			map: ({ workouts }) => Result.succeed(workouts),
+		};
+	},
+);
 
-export const buildMeasurementListQueryDocument = (input: {
-	after?: string | undefined;
-	limit?: number | undefined;
-	entityId?: string | undefined;
-}) => {
-	const entity = table("entity", entityAlias);
-	return document({
-		measurements: rows(entity, {
-			after: input.after,
-			limit: input.limit,
-			where: entityWhere(entity, "measurement", input),
-			orderBy: [ascending(column(entity, "name"))],
-			fields: [
-				...entityIdentityFields(entity),
-				field("recordedAt", propertyDate(entity, "recordedAt")),
-				field("comment", property(entity, "comment")),
-			],
-		}),
-	});
-};
+export const measurementListRecipe = defineRecipe(
+	(input: {
+		after?: string | undefined;
+		limit?: number | undefined;
+		entityId?: string | undefined;
+	}) => {
+		const entity = table("entity", "entity");
+		return {
+			queries: {
+				measurements: selectedRows(entity, {
+					after: input.after,
+					limit: input.limit,
+					where: entityWhere(entity, "measurement", input),
+					orderBy: [ascending(column(entity, "name"))],
+					selection: {
+						...entityIdentitySelection(entity),
+						recordedAt: selectedField(
+							propertyDate(entity, "recordedAt"),
+							Schema.NullOr(Schema.String),
+						),
+						comment: selectedField(property(entity, "comment"), Schema.NullOr(Schema.String)),
+					},
+				}),
+			},
+			map: ({ measurements }) => Result.succeed(measurements),
+		};
+	},
+);
 
-export const buildWorkoutTemplateListQueryDocument = (input: {
-	after?: string | undefined;
-	limit?: number | undefined;
-	entityId?: string | undefined;
-}) => {
-	const entity = table("entity", entityAlias);
-	return document({
-		workoutTemplates: rows(entity, {
-			after: input.after,
-			limit: input.limit,
-			fields: workoutTemplateFields(entity),
-			where: entityWhere(entity, "workout-template", input),
-			orderBy: [descending(column(entity, "createdAt"))],
-		}),
-	});
-};
+export const workoutTemplateListRecipe = defineRecipe(
+	(input: {
+		after?: string | undefined;
+		limit?: number | undefined;
+		entityId?: string | undefined;
+	}) => {
+		const entity = table("entity", "entity");
+		return {
+			queries: {
+				workoutTemplates: selectedRows(entity, {
+					after: input.after,
+					limit: input.limit,
+					selection: workoutTemplateSelection(entity),
+					where: entityWhere(entity, "workout-template", input),
+					orderBy: [descending(column(entity, "createdAt"))],
+				}),
+			},
+			map: ({ workoutTemplates }) => Result.succeed(workoutTemplates),
+		};
+	},
+);
 
-export const buildWorkoutDetailQueryDocument = (input: {
-	entityId: string;
-	templateLimit: number;
-}) => {
-	const entity = table("entity", entityAlias);
-	return document({
-		workout: rows(entity, {
-			limit: 1,
-			fields: workoutFields(entity),
-			where: entityWhere(entity, "workout", input),
-			orderBy: [ascending(column(entity, "id"))],
-			include: [workoutTemplateInclude(entity, input.templateLimit)],
-		}),
-	});
-};
+export const workoutDetailRecipe = defineRecipe(
+	(input: { entityId: string; templateLimit: number }) => {
+		const entity = table("entity", "entity");
+		return {
+			queries: {
+				workout: selectedOptionalRow(entity, {
+					selection: workoutSelection(entity),
+					where: entityWhere(entity, "workout", input),
+					orderBy: [ascending(column(entity, "id"))],
+					include: { template: workoutTemplateInclude(entity, input.templateLimit) },
+				}),
+			},
+			map: ({ workout }) => Result.succeed(workout ?? null),
+		};
+	},
+);
 
-export const buildWorkoutTemplateDetailQueryDocument = (input: {
-	entityId: string;
-	workoutLimit: number;
-}) => {
-	const entity = table("entity", entityAlias);
-	return document({
-		workoutTemplate: rows(entity, {
-			limit: 1,
-			fields: workoutTemplateFields(entity),
-			where: entityWhere(entity, "workout-template", input),
-			orderBy: [ascending(column(entity, "id"))],
-			include: [workoutInclude(entity, input.workoutLimit)],
-		}),
-	});
-};
+export const workoutTemplateDetailRecipe = defineRecipe(
+	(input: { entityId: string; workoutLimit: number }) => {
+		const entity = table("entity", "entity");
+		return {
+			queries: {
+				workoutTemplate: selectedOptionalRow(entity, {
+					selection: workoutTemplateSelection(entity),
+					where: entityWhere(entity, "workout-template", input),
+					orderBy: [ascending(column(entity, "id"))],
+					include: { workouts: workoutInclude(entity, input.workoutLimit) },
+				}),
+			},
+			map: ({ workoutTemplate }) => Result.succeed(workoutTemplate ?? null),
+		};
+	},
+);
+
+export type ExerciseListResult = Recipe.Success<typeof exerciseListRecipe>;
+export type WorkoutListResult = Recipe.Success<typeof workoutListRecipe>;
+export type MeasurementListResult = Recipe.Success<typeof measurementListRecipe>;
+export type WorkoutTemplateListResult = Recipe.Success<typeof workoutTemplateListRecipe>;
+export type WorkoutDetailResult = Recipe.Success<typeof workoutDetailRecipe>;
+export type WorkoutTemplateDetailResult = Recipe.Success<typeof workoutTemplateDetailRecipe>;

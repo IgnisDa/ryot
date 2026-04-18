@@ -2,10 +2,10 @@ import { defineAutomationPolicy, type AutomationPolicyInput } from "@ryot/sandbo
 import type { SandboxHost } from "@ryot/sandbox-sdk/core";
 import { defineManifest } from "@ryot/sandbox-sdk/driver";
 import { Effect } from "@ryot/sandbox-sdk/effect";
-import { buildEventReadDocument } from "@ryot/sandbox-sdk/ryotql";
+import { eventReadRecipe, executeRyotqlRecipe } from "@ryot/sandbox-sdk/ryotql";
 import type { JsonValue } from "@ryot/sandbox-sdk/wire";
 
-import { decodeProgressEvents, type MediaProgressEvent } from "../../shared/ryotql";
+import type { MediaProgressEvent } from "../../shared/ryotql";
 
 const SUBITEM_KEYS = ["animeEpisode", "mangaVolume", "mangaChapter"] as const;
 const DEFAULT_THRESHOLD_SECONDS = 7200;
@@ -97,25 +97,23 @@ const getThresholdSeconds = (host: AutomationHost) =>
 	);
 
 const getMatchingEvents = (host: AutomationHost, draft: Draft, properties: Properties) =>
-	host
-		.executeRyotql(
-			buildEventReadDocument({
-				entityId: draft.entityId,
-				eventSchemaSlug: "progress",
-				entitySchemaSlug: draft.entitySchemaSlug,
-			}),
-		)
-		.pipe(
-			Effect.map(decodeProgressEvents),
-			Effect.map((events) =>
-				[...events]
-					.filter((event) => {
-						const eventProperties = jsonObject(event.properties);
-						return eventProperties !== null && hasSameIdentity(eventProperties, properties);
-					})
-					.sort(sortLatestFirst),
-			),
-		);
+	executeRyotqlRecipe(
+		host.executeRyotql,
+		eventReadRecipe({
+			entityId: draft.entityId,
+			eventSchemaSlug: "progress",
+			entitySchemaSlug: draft.entitySchemaSlug,
+		}),
+	).pipe(
+		Effect.map(({ items }) =>
+			[...items]
+				.filter((event) => {
+					const eventProperties = jsonObject(event.properties);
+					return eventProperties !== null && hasSameIdentity(eventProperties, properties);
+				})
+				.sort(sortLatestFirst),
+		),
+	);
 
 export default defineAutomationPolicy({
 	manifest,
