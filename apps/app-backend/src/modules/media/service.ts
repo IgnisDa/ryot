@@ -1,16 +1,9 @@
-import { dayjs, resolveRequiredString } from "@ryot/ts-utils";
-import { generateId } from "better-auth";
+import { dayjs } from "@ryot/ts-utils";
 import {
 	builtinMediaEntitySchemaSlugSet,
 	builtinMediaEntitySchemaSlugs,
 } from "~/lib/media/constants";
-import { getQueues } from "~/lib/queue";
-import {
-	type ServiceResult,
-	serviceData,
-	serviceError,
-	wrapServiceValidator,
-} from "~/lib/result";
+import { serviceData, serviceError } from "~/lib/result";
 import { viewDefinitionModule } from "~/lib/views/definition";
 import {
 	QueryEngineNotFoundError,
@@ -20,7 +13,6 @@ import type {
 	QueryEngineRequest,
 	QueryEngineResponseData,
 } from "~/modules/query-engine";
-import { mediaImportJobData, mediaImportJobName } from "./jobs";
 import {
 	listRecentActivityEventsForUser,
 	listWeekActivityEventsForUser,
@@ -36,7 +28,6 @@ import {
 	type RateTheseSourceItem,
 	type UpNextSourceItem,
 } from "./response-builder";
-import type { ImportMediaBody, MediaImportResult } from "./schemas";
 
 const mediaOverviewMisconfiguredError =
 	"Built-in media overview configuration is invalid";
@@ -551,65 +542,4 @@ export const getLibraryStats = async (
 		}
 		throw error;
 	}
-};
-
-type MediaMutationError = "not_found" | "validation";
-
-const mediaImportJobFailedMessage = "Media import job failed";
-const mediaImportJobNotFoundError = "Media import job not found";
-
-const resolveMediaImportJobIdResult = (jobId: string) =>
-	wrapServiceValidator(
-		() => resolveRequiredString(jobId, "Media import job id"),
-		"Media import job id is required",
-	);
-
-export const importMedia = async (input: {
-	userId: string;
-	body: ImportMediaBody;
-}): Promise<ServiceResult<{ jobId: string }, MediaMutationError>> => {
-	const jobId = generateId();
-	const payload = mediaImportJobData.parse({
-		userId: input.userId,
-		scriptId: input.body.scriptId,
-		identifier: input.body.identifier,
-		entitySchemaId: input.body.entitySchemaId,
-	});
-
-	await getQueues().mediaQueue.add(mediaImportJobName, payload, { jobId });
-
-	return serviceData({ jobId });
-};
-
-export const getMediaImportResult = async (input: {
-	jobId: string;
-	userId: string;
-}): Promise<ServiceResult<MediaImportResult, MediaMutationError>> => {
-	const jobIdResult = resolveMediaImportJobIdResult(input.jobId);
-	if ("error" in jobIdResult) {
-		return jobIdResult;
-	}
-
-	const job = await getQueues().mediaQueue.getJob(jobIdResult.data);
-	if (!job) {
-		return serviceError("not_found", mediaImportJobNotFoundError);
-	}
-
-	const parsed = mediaImportJobData.safeParse(job.data);
-	if (!parsed.success || parsed.data.userId !== input.userId) {
-		return serviceError("not_found", mediaImportJobNotFoundError);
-	}
-
-	const state = await job.getState();
-	if (state === "completed") {
-		return serviceData({ status: "completed", data: job.returnvalue });
-	}
-	if (state === "failed") {
-		return serviceData({
-			status: "failed",
-			error: job.failedReason || mediaImportJobFailedMessage,
-		});
-	}
-
-	return serviceData({ status: "pending" });
 };

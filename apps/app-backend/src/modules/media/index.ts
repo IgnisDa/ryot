@@ -1,3 +1,5 @@
+export type { MediaImportJobData } from "./jobs";
+export { mediaImportJobData, mediaImportJobName } from "./jobs";
 export type {
 	BuiltInMediaOverviewContinueResponse,
 	BuiltInMediaOverviewLibraryResponse,
@@ -5,17 +7,13 @@ export type {
 	BuiltInMediaOverviewRecentActivityResponse,
 	BuiltInMediaOverviewUpNextResponse,
 	BuiltInMediaOverviewWeekActivityResponse,
-	MediaImportResult,
 } from "./schemas";
-
 export {
 	getContinueItems,
 	getLibraryStats,
-	getMediaImportResult,
 	getRateTheseItems,
 	getRecentActivityItems,
 	getUpNextItems,
 	getWeekActivity,
-	importMedia,
 } from "./service";
 export { createMediaWorker } from "./worker";
