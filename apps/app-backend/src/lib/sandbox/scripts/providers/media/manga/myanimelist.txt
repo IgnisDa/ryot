@@ -87,6 +87,14 @@ function pickImage(mainPicture) {
   return null;
 }
 
+async function getUserIsNsfw() {
+  const prefsResult = await getUserPreferences();
+  if (!prefsResult?.success) {
+    return false;
+  }
+  return prefsResult?.data?.isNsfw === true;
+}
+
 async function getMalClientId() {
   const configValueResponse = await getAppConfigValue(
     "animeAndManga.mal.clientId",
@@ -118,7 +126,10 @@ driver("search", async function(context) {
     pageSize: z.coerce.number().min(1).max(100).transform(Math.floor).catch(20),
   }).parse(context ?? {});
 
-  const clientId = await getMalClientId();
+  const [clientId, showNsfw] = await Promise.all([
+    getMalClientId(),
+    getUserIsNsfw(),
+  ]);
 
   const params = new URLSearchParams({
     q: query,
@@ -126,6 +137,9 @@ driver("search", async function(context) {
     offset: String((currentPage - 1) * pageSize),
     limit: String(pageSize),
   });
+  if (showNsfw) {
+    params.set("nsfw", "true");
+  }
 
   const response = await httpCall(
     "GET",
