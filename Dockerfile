@@ -22,12 +22,18 @@ FROM builder-base AS backend-builder
 RUN bun turbo --filter=@ryot/app-backend build
 
 FROM builder-base AS client-builder
+# The Expo CLI requires Node: `bun run` only hands a `#!/usr/bin/env node` bin to Node
+# when the binary exists, and under Bun the config loader hits an unimplemented
+# `module._compile` path.
+# TODO: remove this Node copy once both Bun fixes ship in a release:
+# TODO: https://github.com/oven-sh/bun/pull/38090
+# TODO: https://github.com/oven-sh/bun/pull/38166
+COPY --from=node:24-bookworm-slim /usr/local/bin/node /usr/local/bin/node
 RUN bun turbo --filter=@ryot/app-client build
 
 FROM base AS sandbox-compiler-runtime
 COPY --from=prepare /app/out/json/ .
-COPY --from=prepare /app/out/full/packages/sandbox-compiler ./packages/sandbox-compiler
-COPY --from=prepare /app/out/full/packages/sandbox-sdk ./packages/sandbox-sdk
+COPY --from=prepare /app/out/full/packages ./packages
 RUN --mount=type=cache,target=/root/.bun/install/cache \
     bun install --filter @ryot/sandbox-compiler --production --frozen-lockfile \
     --backend=copyfile --linker=hoisted --ignore-scripts
@@ -39,9 +45,9 @@ ARG DENO_VERSION=2.8.1
 RUN apt-get update && apt-get install -y --no-install-recommends ca-certificates curl unzip && \
     DENO_ARCH="${TARGETARCH:-$(dpkg --print-architecture)}" && \
     case "$DENO_ARCH" in \
-      amd64) DENO_TARGET=x86_64-unknown-linux-gnu; DENO_SHA256=2d7bb6195226ac832e0bf7109a115f0af65ee69ac797a4bbde5b27a06cc242d9 ;; \
-      arm64) DENO_TARGET=aarch64-unknown-linux-gnu; DENO_SHA256=67e9df91870fd0af700df924173e3009ea7ff6956e2c3c3bb86065d6070d0fd6 ;; \
-      *) echo "Unsupported architecture: $DENO_ARCH" >&2; exit 1 ;; \
+    amd64) DENO_TARGET=x86_64-unknown-linux-gnu; DENO_SHA256=2d7bb6195226ac832e0bf7109a115f0af65ee69ac797a4bbde5b27a06cc242d9 ;; \
+    arm64) DENO_TARGET=aarch64-unknown-linux-gnu; DENO_SHA256=67e9df91870fd0af700df924173e3009ea7ff6956e2c3c3bb86065d6070d0fd6 ;; \
+    *) echo "Unsupported architecture: $DENO_ARCH" >&2; exit 1 ;; \
     esac && \
     curl -fsSL "https://github.com/denoland/deno/releases/download/v${DENO_VERSION}/deno-${DENO_TARGET}.zip" -o /tmp/deno.zip && \
     echo "${DENO_SHA256}  /tmp/deno.zip" | sha256sum -c - && \
