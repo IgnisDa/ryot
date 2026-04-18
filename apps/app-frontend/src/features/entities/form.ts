@@ -6,7 +6,7 @@ import {
 } from "@ryot/ts-utils";
 import { match } from "ts-pattern";
 import { z } from "zod";
-import type { ApiPostRequestBody } from "#/lib/api/types";
+import type { ApiPostRequestBody } from "~/lib/api/types";
 
 const entityImageSchema = z.union([
 	z.object({ kind: z.literal("s3"), key: z.string() }),

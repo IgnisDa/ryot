@@ -6,7 +6,7 @@ import {
 	zodRequiredSlug,
 } from "@ryot/ts-utils";
 import { z } from "zod";
-import type { ApiPatchRequestBody, ApiPostRequestBody } from "#/lib/api/types";
+import type { ApiPatchRequestBody, ApiPostRequestBody } from "~/lib/api/types";
 import { resolveNextSlug } from "../../lib/slug-sync";
 
 export const createTrackerFormSchema = z.object({

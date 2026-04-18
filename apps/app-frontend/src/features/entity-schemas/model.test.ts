@@ -1,6 +1,6 @@
 import { describe, expect, it } from "bun:test";
-import { createEntitySchemaFixture } from "#/features/test-fixtures";
-import { createTrackerFixture } from "#/features/trackers/test-fixtures";
+import { createEntitySchemaFixture } from "~/features/test-fixtures";
+import { createTrackerFixture } from "~/features/trackers/test-fixtures";
 import { getTrackerEntitySchemaViewState } from "./model";
 
 describe("getTrackerEntitySchemaViewState", () => {

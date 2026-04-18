@@ -15,10 +15,10 @@ import { modals } from "@mantine/modals";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Check, Copy, KeyRound, Trash2 } from "lucide-react";
 import { useMemo, useState } from "react";
-import { useIsMobileScreen } from "#/hooks/screen";
-import { useThemeTokens } from "#/hooks/theme";
-import { authClient } from "#/lib/auth";
-import { getErrorMessage } from "#/lib/errors";
+import { useIsMobileScreen } from "~/hooks/screen";
+import { useThemeTokens } from "~/hooks/theme";
+import { authClient } from "~/lib/auth";
+import { getErrorMessage } from "~/lib/errors";
 import {
 	getSidebarApiKeyDetails,
 	getSidebarApiKeyDisplayName,
