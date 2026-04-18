@@ -23,8 +23,8 @@ import {
 	LifecycleDispatch,
 	type LifecycleDispatchValue,
 } from "#modules/entities/lifecycle-dispatch";
-import { PluginRuntimeResolver } from "#modules/plugins/runtime-resolver";
 import { processSandboxExecution } from "#modules/sandbox/durable-queues";
+import { SandboxPluginScriptResolver } from "#modules/sandbox/plugin-script-resolver";
 import { SandboxRepository } from "#modules/sandbox/repository";
 
 import {
@@ -92,7 +92,7 @@ export const EventCreateWorkflowOperationsLive = Layer.effect(
 		const runWithDb = yield* DbRunner;
 		const repository = yield* SandboxRepository;
 		const lifecycleDispatch = yield* LifecycleDispatch;
-		const pluginRuntime = yield* PluginRuntimeResolver;
+		const pluginScriptResolver = yield* SandboxPluginScriptResolver;
 		const queueFactory = yield* PersistedQueue.PersistedQueueFactory;
 		return {
 			dispatchLifecycleOccurrence: lifecycleDispatch.dispatch,
@@ -100,7 +100,7 @@ export const EventCreateWorkflowOperationsLive = Layer.effect(
 				processSandboxExecution(payload).pipe(
 					Effect.provideService(DbRunner, runWithDb),
 					Effect.provideService(SandboxRepository, repository),
-					Effect.provideService(PluginRuntimeResolver, pluginRuntime),
+					Effect.provideService(SandboxPluginScriptResolver, pluginScriptResolver),
 					Effect.provideService(PersistedQueue.PersistedQueueFactory, queueFactory),
 				),
 		} satisfies EventCreateWorkflowOperationsValue;

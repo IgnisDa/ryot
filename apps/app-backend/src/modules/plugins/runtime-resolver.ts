@@ -19,12 +19,17 @@ import { Data, Effect, Layer } from "effect";
 
 import * as schema from "#lib/infrastructure/db/schema/tables/combined";
 import { CurrentDb, dbEffect } from "#lib/infrastructure/db/service";
-import type { AutomationRuleTarget } from "#modules/automations/repository";
 
 import { bootConfiguredPluginSlugs } from "./boot-sources";
 import { PluginLoader, PluginLoaderLive } from "./loader";
 
 export type PluginSnapshot = ReturnType<PluginLoader["getSnapshot"]>;
+
+export type AutomationRuleTarget =
+	| { kind: "event_schema"; id: EventSchemaSlug }
+	| { kind: "entity_schema"; id: EntitySchemaSlug }
+	| { kind: "signal_schema"; id: SignalSchemaSlug }
+	| { kind: "relationship_schema"; id: RelationshipSchemaSlug };
 
 type BindingAutomation = {
 	name: string;

@@ -1,9 +1,9 @@
 # Plugin System Rewrite — Overview
 
-Status: in progress. Phases 1 and 2 and all 12 Phase 3 tasks are complete. Phase 4 Tasks 01-16 are
-complete; Task 17 is next. The Task 10 imports and integration failures were reproduced and repaired,
-the standard e2e suite passes all 81 files and 511 tests through individual file runs, and the opt-in
-operational gate passes at its unchanged two-concurrent-1,001-item workload and 15-minute budget.
+Status: in progress. Phases 1 and 2 and all 12 Phase 3 tasks are complete. Phase 4 Tasks 01-17 are
+complete; Task 18 is next. Task 17 closed the documentation and phase gate with zero runtime cycles,
+and the standard e2e suite passed all 81 files and 511 tests through individual file runs. The owner
+explicitly waived a fresh Task 17 operational-gate run; the live-network gate remains excluded.
 Task 12 was completed under an
 explicit owner waiver of its then-open Task 11 prerequisite; Task 11 subsequently closed the full
 Phase 3 gate. Phase 5 is a separate planned milestone for user-level plugin installation and must not
@@ -299,9 +299,10 @@ surfaces.
 The suite uses one shared backend per run and Effect-native fixtures. Hermetic provider coverage
 installs real test plugins with stable logical providers and separate operation scripts. The Step 5
 media-monitoring suites pass unchanged (4 files, 13 tests), and the system-query suite passes 9 tests
-covering 11 cases; combined, they pass 5 files and 22 tests. The standard e2e suite passes all 79
-files and 501 tests, and the opt-in operational test passes at its unchanged full-size workload.
-Conventions live in `tests/AGENTS.md`.
+covering 11 cases; combined, they pass 5 files and 22 tests. Task 17's standard e2e gate passed all 81
+files and 511 tests through individual file invocations with zero failures in 1,888.26 seconds. The
+owner explicitly waived the standalone operational gate for Task 17, so no fresh operational pass is
+claimed; the live-network gate remains excluded. Conventions live in `tests/AGENTS.md`.
 
 ## Target architecture (end state)
 

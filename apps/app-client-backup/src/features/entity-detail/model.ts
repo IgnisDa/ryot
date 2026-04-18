@@ -1,3 +1,10 @@
+// TODO: Delete this file when the retained app-client-backup is removed.
+import { Schema } from "effect";
+import { match } from "ts-pattern";
+
+import { toEntityImage } from "@/lib/entity-image";
+
+import { MEDIA_SCOPE_SLUGS } from "../media/constants";
 import {
 	AnimePropertiesSchema,
 	AudiobookPropertiesSchema,
@@ -10,13 +17,7 @@ import {
 	ShowPropertiesSchema,
 	VideoGamePropertiesSchema,
 	VisualNovelPropertiesSchema,
-} from "@ryot/contract/schema/media-types";
-import { Schema } from "effect";
-import { match } from "ts-pattern";
-
-import { toEntityImage } from "@/lib/entity-image";
-
-import { MEDIA_SCOPE_SLUGS } from "../media/constants";
+} from "./media-types";
 import type { EntityDetail, EntityResponse, SupportedEntitySchemaSlug } from "./types";
 
 const SUPPORTED_ENTITY_SCHEMA_SLUGS = MEDIA_SCOPE_SLUGS.filter(

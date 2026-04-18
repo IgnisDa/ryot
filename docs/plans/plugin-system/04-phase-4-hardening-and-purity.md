@@ -66,15 +66,18 @@ permanently allowlist, the following production-domain ownership leaks:
   source.
 
 `legacy-bootstrap` remains the documented V1-adoption quarantine. Generated sandbox output is not
-authored kernel source. Boot-source package wiring and the retained backup client may receive narrow,
-line- or file-specific allowlist entries with reasons; do not grant broad directory exemptions.
+authored kernel source. Boot-source package wiring may receive narrow, line- or file-specific
+allowlist entries with reasons; do not grant broad directory exemptions. The retained backup client
+owns its required media types locally and needs no contract exception.
 
-Module dependency purity **[DECIDED]**: Task 17 promotes the runtime-cycle analysis currently embedded
-in `apps/app-backend/scripts/module-dag.ts` into the ordinary `purity:check` gate. Refactor the analysis
-so the check can fail with the exact cycle paths without generating HTML; retain HTML generation as an
-optional diagnostic view over the same analysis. The Task 01 baseline has 13 runtime cycles across 32
-modules. They may remain while Tasks 2-16 change module ownership, but Task 17 must resolve all of them
-and enable the gate with no cycle allowlist or grandfathered baseline.
+Module dependency purity **[DECIDED]**: Task 17 promotes runtime-cycle analysis into the ordinary
+`purity:check` gate. The check fails with exact cycle paths and has no cycle allowlist or grandfathered
+baseline. The Task 01 baseline has 13 runtime cycles across 32 modules. They may remain while Tasks 2-16
+change module ownership, but Task 17 must resolve all of them and enable the gate.
+
+**Owner decision (2026-07-31):** the former HTML module-DAG renderer is removed rather than retained as
+an optional diagnostic. The non-rendering analyzer and exact purity diagnostics provide the required
+regression evidence without maintaining a separate visualization surface.
 
 Registry-provided definitions remain trusted and immutable in Phase 4, whether they come from source
 zero or a trusted plugin. `pluginSlug` owns source attribution. Remove the never-populated non-builtin
@@ -262,8 +265,8 @@ correction changes no schema or behavior and is the only domain move included in
   update `sandbox-runtime/README.md` (new host functions, grants, workflow primitives);
   module `AGENTS.md` files for deleted/added modules.
 - Retain `apps/app-client-backup`. The owner explicitly deferred deletion. Add a deletion TODO in
-  every affected backup or dependent file during the documentation/cleanup pass. Its required
-  contract media types receive a narrow, documented purity exception until the backup is removed.
+  every affected backup or dependent file during the documentation/cleanup pass. Task 17 removed the
+  contract purity exception by moving the required media types into the retained backup client.
 
 Task 16 implementation record (2026-07-31): e2e suites now live under `kernel`, `plugins/media`,
 and `plugins/fitness`. Mixed import and integration files were split by `describe` ownership with
@@ -274,6 +277,28 @@ lint globs continue to cover the reorganized tree. Operational and live gates re
 their new media paths. Backend check and all 139 backend test files passed. All 81 standard e2e files
 and 511 tests passed through individual file runs; the opt-in operational and live files remained
 separate and skipped for the standard gate.
+
+Task 17 acceptance direction (2026-07-31): the owner waived another standalone operational-gate run.
+Task 17 retains the unchanged workload, assertions, opt-in command, and prior Task 12 evidence, but
+does not claim a fresh operational measurement. Standard e2e files remain required and run through
+individual file invocations; the live-network smoke file remains outside that standard gate.
+
+Task 17 implementation record (2026-07-31): one shared non-rendering runtime analyzer now feeds the
+purity gate and focused tests. It emits exact deterministic cycle diagnostics. Auth/user-bootstrap
+hook separation, integration operation-scope hook separation, and sandbox plugin-script resolver
+hook/layer wiring removed all 13 baseline runtime cycles while preserving behavior. Per owner
+direction, the HTML module-DAG surface was deleted because no rendering consumer remains and the
+analyzer's sole consumer is cycle enforcement. The purity gate passed over 316 production files and
+869 terms with zero runtime cycles. Its 1,403 justified allowlisted occurrences comprise 1,397 in the
+`legacy-bootstrap` quarantine, three fitness boot-wiring occurrences, and three media boot-wiring
+occurrences. The backup contract exception was removed by moving media types into retained
+`app-client-backup`; future-deletion TODOs are present in its four affected local files.
+
+Focused runtime-analysis tests passed 2 tests. The backend check passed; backend tests passed 140
+files and 978 tests, media tests passed 95 files and 379 tests, and fitness tests passed 13 files and
+43 tests. The standard e2e gate passed 81 files and 511 tests through individual file invocations,
+with zero failures in 1,888.26 seconds. The standalone operational gate was explicitly waived for
+Task 17 and was not run; no pass is claimed. The live-network gate remained excluded.
 
 ## 5. Deliberately deferred (record here, do not build)
 
@@ -312,4 +337,27 @@ separate and skipped for the standard gate.
 9. Uninstall refuses while plugin workflows are nonterminal; after references clear, uninstall and
    script/module GC complete without breaking pinned replay or source-zero scripts.
 10. The app-backend runtime module graph is acyclic, and `purity:check` mechanically rejects any new
-    runtime cycle while the optional HTML DAG remains available for diagnosis.
+    runtime cycle with its exact path.
+
+### Task 17 final acceptance evidence
+
+1. Met: Task 01 established manifest-derived purity enforcement; Task 17 passed it across 316
+   production files and 869 terms with only the 1,403 justified occurrences recorded above.
+2. Met: Tasks 02-07 and 15 preserve and exercise bootstrap, media ownership, open imports,
+   integrations, monitoring, exercises, and full plugin lifecycle behavior; Task 16 preserved the
+   assertions during ownership moves, and Task 17's 81-file/511-test standard gate passed.
+3. Met: Tasks 02-08 relocated domain ownership and removed kernel bypasses; Task 17's purity result
+   mechanically verifies the remaining narrow quarantine and boot-wiring exceptions.
+4. Met: Task 15 records hot install, search, import, event, automation, cleanup, and uninstall without
+   restart.
+5. Met: Task 17 updated plugin authoring, sandbox runtime, test conventions, module ownership, and
+   plan records while retaining all Phase 5 deferrals.
+6. Met: Task 09 records the Effect-only public authoring and host boundary and private Promise
+   adapters.
+7. Met: Task 05 records generic import-envelope dispatch and active-catalog validation for a source
+   absent from the central contract.
+8. Met: Tasks 02-04 record idempotent media user bootstrap and media-only automatic membership.
+9. Met: Tasks 13-14 record uninstall fencing, nonterminal workflow pins, and script/module GC liveness
+   for plugin and source-zero scripts.
+10. Met: Task 17 removed all 13 baseline cycles; `purity:check` and its two focused tests enforce exact
+    deterministic zero-cycle diagnostics. The owner removed the unused HTML renderer.
