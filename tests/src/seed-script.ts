@@ -1610,45 +1610,50 @@ async function seedMedia(client: APIClient) {
 		eventSchemas: MediaEventSchemas;
 	};
 
-	// Phase 1: search all schemas and collect work items
+	// Phase 1: search all schemas (all providers) and collect work items
 	const workItems: WorkItem[] = [];
 	for (const schema of schemas) {
 		const slug = schema.slug as MediaEntitySchemaSlug;
 		console.log(`\n  Searching: ${schema.name} (${slug})...`);
 		const eventSchemas = await getMediaLifecycleEventSchemas(client, schema.id);
 
-		const scriptId = schema.providers[0]?.scriptId;
-		if (!scriptId) {
+		if (!schema.providers.length) {
 			console.log("    No provider available, skipping");
 			continue;
 		}
 
 		const searchConfig = MEDIA_SEARCH_QUERIES[slug];
-		const identifiers: string[] = [];
-		for (const page of searchConfig.pages) {
-			try {
-				const items = await searchMediaPage(
-					client,
-					scriptId,
-					searchConfig.query,
-					page,
-				);
-				for (const item of items) {
-					if (!identifiers.includes(item.externalId)) {
-						identifiers.push(item.externalId);
+		for (const provider of schema.providers) {
+			const scriptId = provider.scriptId;
+			console.log(`    Provider: ${provider.name}...`);
+			const identifiers: string[] = [];
+			for (const page of searchConfig.pages) {
+				try {
+					const items = await searchMediaPage(
+						client,
+						scriptId,
+						searchConfig.query,
+						page,
+					);
+					for (const item of items) {
+						if (!identifiers.includes(item.externalId)) {
+							identifiers.push(item.externalId);
+						}
 					}
+					console.log(
+						`      Search "${searchConfig.query}" page ${page}: ${items.length} results`,
+					);
+				} catch (err) {
+					console.log(`      Search page ${page} failed: ${err}`);
 				}
-				console.log(
-					`    Search "${searchConfig.query}" page ${page}: ${items.length} results`,
-				);
-			} catch (err) {
-				console.log(`    Search page ${page} failed: ${err}`);
 			}
-		}
-		console.log(`    Collected ${identifiers.length} unique identifiers`);
+			console.log(
+				`    Collected ${identifiers.length} unique identifiers from ${provider.name}`,
+			);
 
-		for (const externalId of identifiers) {
-			workItems.push({ externalId, scriptId, schema, eventSchemas });
+			for (const externalId of identifiers) {
+				workItems.push({ externalId, scriptId, schema, eventSchemas });
+			}
 		}
 	}
 
