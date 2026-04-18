@@ -1925,7 +1925,7 @@ export interface paths {
             };
         };
         put?: never;
-        /** Create events for an entity, including built-in media lifecycle actions */
+        /** Enqueue events for an entity for async processing, including built-in media lifecycle actions */
         post: {
             parameters: {
                 query?: never;
@@ -1945,7 +1945,7 @@ export interface paths {
                 };
             };
             responses: {
-                /** @description Number of events created for the requested entity, including built-in media lifecycle actions */
+                /** @description Number of events submitted to the processing queue (not yet created) */
                 200: {
                     headers: {
                         [name: string]: unknown;
@@ -1977,17 +1977,6 @@ export interface paths {
                     content: {
                         "application/json": {
                             error: components["schemas"]["UnauthenticatedError"];
-                        };
-                    };
-                };
-                /** @description Entity or event schema does not exist for this user */
-                404: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": {
-                            error: components["schemas"]["NotFoundError"];
                         };
                     };
                 };
