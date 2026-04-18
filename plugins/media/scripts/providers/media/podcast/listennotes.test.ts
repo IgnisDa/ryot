@@ -86,12 +86,10 @@ describe("podcast.listennotes sandbox script", () => {
 				Effect.map((result) => {
 					expect(result.items).toEqual([
 						{
+							metadata: [2020],
 							externalId: "abc",
-							calloutProperty: { kind: "null", value: null },
-							titleProperty: { kind: "text", value: "A Podcast" },
-							primarySubtitleProperty: { kind: "number", value: 2020 },
-							secondarySubtitleProperty: { kind: "null", value: null },
-							imageProperty: { kind: "image", value: { type: "remote", url: "https://img/a.jpg" } },
+							title: "A Podcast",
+							imageUrl: "https://img/a.jpg",
 						},
 					]);
 					expect(result.details).toEqual({ totalItems: 42, nextPage: 2 });

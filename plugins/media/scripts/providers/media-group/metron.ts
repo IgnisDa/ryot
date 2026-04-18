@@ -56,15 +56,9 @@ export const search = defineProvider({
 					const parts = typeof issueCount === "number" ? issueCount : null;
 					return [
 						{
+							title: name,
 							externalId: id,
-							calloutProperty: { kind: "null" as const, value: null },
-							titleProperty: { kind: "text" as const, value: name },
-							secondarySubtitleProperty: { kind: "null" as const, value: null },
-							imageProperty: { kind: "null" as const, value: null },
-							primarySubtitleProperty:
-								parts === null
-									? { kind: "null" as const, value: null }
-									: { kind: "number" as const, value: parts },
+							...(parts === null ? {} : { metadata: [parts] as const }),
 						},
 					];
 				});

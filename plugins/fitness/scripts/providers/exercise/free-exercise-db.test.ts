@@ -93,15 +93,9 @@ describe("exercise.free-exercise-db sandbox script", () => {
 			expect(httpCallCount()).toBe(1);
 			expect(result.items).toEqual([
 				{
+					title: "Bench Press",
 					externalId: "Bench Press",
-					calloutProperty: { kind: "null", value: null },
-					titleProperty: { kind: "text", value: "Bench Press" },
-					primarySubtitleProperty: { kind: "null", value: null },
-					secondarySubtitleProperty: { kind: "null", value: null },
-					imageProperty: {
-						kind: "image",
-						value: { type: "remote", url: `${IMAGES_PREFIX_URL}/Bench_Press/0.jpg` },
-					},
+					imageUrl: `${IMAGES_PREFIX_URL}/Bench_Press/0.jpg`,
 				},
 			]);
 			expect(result.details).toEqual({ totalItems: 1, nextPage: null });
@@ -118,6 +112,17 @@ describe("exercise.free-exercise-db sandbox script", () => {
 
 			const chunkKeys = setCalls.map((call) => call.key).filter((key) => key !== CACHE_KEY);
 			expect(chunkKeys).toEqual([`${CACHE_KEY}:${version}:chunk:0`]);
+			return undefined;
+		});
+	});
+
+	it("omits absent image and metadata fields", () => {
+		const { host } = makeStatefulHost();
+
+		return Effect.runPromise(
+			search.run({ query: "crunch", page: 1, pageSize: 20 }, host, execution),
+		).then((result) => {
+			expect(result.items).toEqual([{ externalId: "Ab Crunch", title: "Ab Crunch" }]);
 			return undefined;
 		});
 	});
@@ -173,14 +178,8 @@ describe("exercise.free-exercise-db sandbox script", () => {
 			expect(result.items).toEqual([
 				{
 					externalId: "Bench Press",
-					calloutProperty: { kind: "null", value: null },
-					titleProperty: { kind: "text", value: "Bench Press" },
-					primarySubtitleProperty: { kind: "null", value: null },
-					secondarySubtitleProperty: { kind: "null", value: null },
-					imageProperty: {
-						kind: "image",
-						value: { type: "remote", url: `${IMAGES_PREFIX_URL}/Bench_Press/0.jpg` },
-					},
+					title: "Bench Press",
+					imageUrl: `${IMAGES_PREFIX_URL}/Bench_Press/0.jpg`,
 				},
 			]);
 			expect(result.details).toEqual({ totalItems: 1, nextPage: null });

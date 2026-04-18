@@ -21,10 +21,7 @@ const response = (
 	providerName: "Provider",
 	rootEntitySchemaSlug: EntitySchemaSlug.make("book"),
 	details: nextPage === undefined ? undefined : { totalItems: 42, nextPage },
-	items: externalIds.map((externalId) => ({
-		externalId,
-		titleProperty: { kind: "text", value: externalId },
-	})),
+	items: externalIds.map((externalId) => ({ externalId, title: externalId })),
 });
 
 const reduce = (state: ProviderSearchState, ...events: readonly ProviderSearchEvent[]) =>

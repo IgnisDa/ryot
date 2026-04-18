@@ -290,10 +290,7 @@ export default defineAutomation({
 			expect(search.items).toHaveLength(1);
 			const searchItem = search.items[0];
 			assertPresent(searchItem, "Missing provider search item");
-			expect(searchItem.titleProperty).toEqual({
-				kind: "text",
-				value: "Reingested Lifecycle Entity",
-			});
+			expect(searchItem.title).toBe("Reingested Lifecycle Entity");
 
 			const imported = yield* enqueueProviderEntityImport(client, {
 				externalId: searchItem.externalId,

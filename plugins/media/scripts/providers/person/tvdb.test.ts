@@ -193,16 +193,7 @@ describe("person.tvdb sandbox script", () => {
 			execution,
 		).pipe(
 			Effect.map((result) => {
-				expect(result.items).toEqual([
-					{
-						externalId: "12345",
-						titleProperty: { kind: "text", value: "John Doe" },
-						calloutProperty: { kind: "null", value: null },
-						primarySubtitleProperty: { kind: "null", value: null },
-						secondarySubtitleProperty: { kind: "null", value: null },
-						imageProperty: { kind: "null", value: null },
-					},
-				]);
+				expect(result.items).toEqual([{ title: "John Doe", externalId: "12345" }]);
 				expect(result.details).toEqual({ totalItems: 1, nextPage: null });
 				return undefined;
 			}),

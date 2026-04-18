@@ -51,18 +51,9 @@ describe("company.igdb sandbox script", () => {
 				expect(tokenPosts).toBe(0);
 				expect(result.items).toEqual([
 					{
+						title: "Studio",
 						externalId: "7",
-						calloutProperty: { kind: "null", value: null },
-						titleProperty: { kind: "text", value: "Studio" },
-						primarySubtitleProperty: { kind: "null", value: null },
-						secondarySubtitleProperty: { kind: "null", value: null },
-						imageProperty: {
-							kind: "image",
-							value: {
-								type: "remote",
-								url: "https://images.igdb.com/igdb/image/upload/t_logo_med/logo1.jpg",
-							},
-						},
+						imageUrl: "https://images.igdb.com/igdb/image/upload/t_logo_med/logo1.jpg",
 					},
 				]);
 				expect(result.details).toEqual({ totalItems: 1, nextPage: null });

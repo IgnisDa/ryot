@@ -45,14 +45,7 @@ describe("person.hardcover sandbox script", () => {
 		).pipe(
 			Effect.map((result) => {
 				expect(result.items).toEqual([
-					{
-						externalId: "7",
-						calloutProperty: { kind: "null", value: null },
-						titleProperty: { kind: "text", value: "Jane Doe" },
-						primarySubtitleProperty: { kind: "null", value: null },
-						secondarySubtitleProperty: { kind: "null", value: null },
-						imageProperty: { kind: "image", value: { type: "remote", url: "https://img/j.jpg" } },
-					},
+					{ externalId: "7", title: "Jane Doe", imageUrl: "https://img/j.jpg" },
 				]);
 				return undefined;
 			}),

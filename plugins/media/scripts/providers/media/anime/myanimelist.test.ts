@@ -190,14 +190,7 @@ describe("anime.myanimelist sandbox script", () => {
 			runSandboxTestScript(search, { query: "found", page: 1, pageSize: 20 }, host, execution).pipe(
 				Effect.map((result) => {
 					expect(result.items).toEqual([
-						{
-							externalId: "5",
-							calloutProperty: { kind: "null", value: null },
-							titleProperty: { kind: "text", value: "Found" },
-							secondarySubtitleProperty: { kind: "null", value: null },
-							primarySubtitleProperty: { kind: "number", value: 2021 },
-							imageProperty: { kind: "image", value: { type: "remote", url: "https://img/5.jpg" } },
-						},
+						{ title: "Found", externalId: "5", metadata: [2021], imageUrl: "https://img/5.jpg" },
 					]);
 					expect(result.details).toEqual({ totalItems: 2, nextPage: 2 });
 					return undefined;

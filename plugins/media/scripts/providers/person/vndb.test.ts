@@ -31,16 +31,7 @@ describe("person.vndb sandbox script", () => {
 			execution,
 		).pipe(
 			Effect.map((result) => {
-				expect(result.items).toEqual([
-					{
-						externalId: "p1",
-						imageProperty: { kind: "null", value: null },
-						titleProperty: { kind: "text", value: "KID" },
-						calloutProperty: { kind: "null", value: null },
-						primarySubtitleProperty: { kind: "null", value: null },
-						secondarySubtitleProperty: { kind: "null", value: null },
-					},
-				]);
+				expect(result.items).toEqual([{ title: "KID", externalId: "p1" }]);
 				expect(result.details).toEqual({ totalItems: 1, nextPage: null });
 				return undefined;
 			}),

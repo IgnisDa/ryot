@@ -20,7 +20,7 @@ const makeHost = (httpCall: GiantBombHost["httpCall"]) =>
 const execution = { metadata: {}, sandboxScriptId: "script_test" };
 
 describe("video-game-group.giant-bomb sandbox script", () => {
-	it("maps franchise search hits with a null primary subtitle", () => {
+	it("maps franchise search hits without metadata", () => {
 		const host = makeHost(() =>
 			httpSuccess({
 				error: "OK",
@@ -33,14 +33,7 @@ describe("video-game-group.giant-bomb sandbox script", () => {
 			runSandboxTestScript(search, { query: "zelda", page: 1, pageSize: 20 }, host, execution).pipe(
 				Effect.map((result) => {
 					expect(result.items).toEqual([
-						{
-							externalId: "3025-1",
-							calloutProperty: { kind: "null", value: null },
-							titleProperty: { kind: "text", value: "Zelda" },
-							primarySubtitleProperty: { kind: "null", value: null },
-							secondarySubtitleProperty: { kind: "null", value: null },
-							imageProperty: { kind: "image", value: { type: "remote", url: "https://img/f.jpg" } },
-						},
+						{ title: "Zelda", externalId: "3025-1", imageUrl: "https://img/f.jpg" },
 					]);
 					expect(result.details).toEqual({ totalItems: 1, nextPage: null });
 				}),

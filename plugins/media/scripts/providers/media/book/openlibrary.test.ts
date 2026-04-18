@@ -42,18 +42,10 @@ describe("book.openlibrary sandbox script", () => {
 				Effect.map((result) => {
 					expect(result.items).toEqual([
 						{
+							metadata: [2001],
+							title: "The Work",
 							externalId: "OL1W",
-							calloutProperty: { kind: "null", value: null },
-							titleProperty: { kind: "text", value: "The Work" },
-							primarySubtitleProperty: { kind: "number", value: 2001 },
-							secondarySubtitleProperty: { kind: "null", value: null },
-							imageProperty: {
-								kind: "image",
-								value: {
-									type: "remote",
-									url: "https://covers.openlibrary.org/b/id/111-M.jpg?default=false",
-								},
-							},
+							imageUrl: "https://covers.openlibrary.org/b/id/111-M.jpg?default=false",
 						},
 					]);
 					expect(result.details).toEqual({ totalItems: 2, nextPage: null });

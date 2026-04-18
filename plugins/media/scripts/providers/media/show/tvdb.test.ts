@@ -425,22 +425,8 @@ describe("show.tvdb sandbox script", () => {
 			runSandboxTestScript(search, { query: "test", page: 1, pageSize: 20 }, host, execution).pipe(
 				Effect.map((result) => {
 					expect(result.items).toEqual([
-						{
-							externalId: "42",
-							calloutProperty: { kind: "null", value: null },
-							titleProperty: { kind: "text", value: "Found Show" },
-							primarySubtitleProperty: { kind: "null", value: null },
-							secondarySubtitleProperty: { kind: "null", value: null },
-							imageProperty: { kind: "image", value: { type: "remote", url: "p.jpg" } },
-						},
-						{
-							externalId: "43",
-							imageProperty: { kind: "null", value: null },
-							calloutProperty: { kind: "null", value: null },
-							titleProperty: { kind: "text", value: "Title Only" },
-							primarySubtitleProperty: { kind: "null", value: null },
-							secondarySubtitleProperty: { kind: "null", value: null },
-						},
+						{ externalId: "42", imageUrl: "p.jpg", title: "Found Show" },
+						{ externalId: "43", title: "Title Only" },
 					]);
 					expect(result.details).toEqual({ totalItems: 2, nextPage: 2 });
 					return undefined;
