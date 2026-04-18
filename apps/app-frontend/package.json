@@ -3,12 +3,12 @@
 	"type": "module",
 	"name": "@ryot/app-frontend",
 	"scripts": {
-		"test": "bun test",
 		"typecheck": "tsc",
 		"lint": "biome check .",
 		"preview": "vite preview",
 		"dev": "bun --bun vite dev",
-		"build": "bun --bun vite build"
+		"build": "bun --bun vite build",
+		"test": "bun test --only-failures"
 	},
 	"dependencies": {
 		"@better-auth/api-key": "1.5.6",
