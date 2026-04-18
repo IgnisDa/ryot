@@ -105,6 +105,7 @@ export function Sidebar(props: {
 	accountImage: string | null;
 	onWorkspaceOpen: () => void;
 	workspace: NavigationWorkspace;
+	onOpenSearch?: (() => void) | undefined;
 	onNavigate: (item: NavigationItem) => void;
 	onEditSection?: ((section: CustomizeSection) => void) | undefined;
 }) {
@@ -122,7 +123,14 @@ export function Sidebar(props: {
 					onPress={props.onWorkspaceOpen}
 					summary={getWorkspaceSummary(items)}
 				/>
-				<View className="h-10 flex-row items-center gap-2.5 rounded-lg border border-border bg-bg px-2.5">
+				<Pressable
+					accessibilityRole="button"
+					onPress={props.onOpenSearch}
+					disabled={!props.onOpenSearch}
+					accessibilityLabel="Open command center"
+					accessibilityState={{ disabled: !props.onOpenSearch }}
+					className="h-10 flex-row items-center gap-2.5 rounded-lg border border-border bg-bg px-2.5"
+				>
 					<NavigationIcon className="text-text-muted" name="search" size={16} />
 					<Text className="min-w-0 flex-1 font-ui text-sm text-text-subtle">Search</Text>
 					<View
@@ -130,7 +138,7 @@ export function Sidebar(props: {
 					>
 						<Text className="font-mono text-xs text-text-subtle">⌘K</Text>
 					</View>
-				</View>
+				</Pressable>
 
 				<View className="mt-2 gap-1.5">
 					<SectionHeader
