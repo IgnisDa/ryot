@@ -34,6 +34,27 @@ describe("GET /entity-schemas", () => {
 		expect(firstSchema?.propertiesSchema).toBeDefined();
 	});
 
+	it("includes the built-in collection schema in the default platform", async () => {
+		const { client, cookies } = await createAuthenticatedClient();
+		const builtinTracker = await findBuiltinTracker(client, cookies);
+		const schemas = await listEntitySchemas(client, cookies, {
+			trackerId: builtinTracker.id,
+		});
+		const collectionSchema = schemas.find(
+			(schema) => schema.slug === "collection",
+		);
+
+		expect(collectionSchema).toBeDefined();
+		expect(collectionSchema).toMatchObject({
+			providers: [],
+			icon: "folders",
+			isBuiltin: true,
+			name: "Collection",
+			accentColor: "#F59E0B",
+			propertiesSchema: { fields: {} },
+		});
+	});
+
 	it("returns 200 and lists custom entity schemas for custom tracker", async () => {
 		const { client, cookies } = await createAuthenticatedClient();
 
@@ -406,6 +427,32 @@ describe("POST /entity-schemas", () => {
 		expect(response.status).toBe(400);
 		expect(error?.error).toBeDefined();
 		expect(error?.error?.message).toBe("Entity schema slug already exists");
+	});
+
+	it("returns 400 when attempting to create the reserved collection schema slug", async () => {
+		const { client, cookies } = await createAuthenticatedClient();
+
+		const { trackerId } = await createTracker(client, cookies, {
+			name: "Tracker",
+		});
+
+		const { response, error } = await client.POST("/entity-schemas", {
+			headers: { Cookie: cookies },
+			body: {
+				trackerId,
+				icon: "folders",
+				name: "Collection",
+				slug: "collection",
+				accentColor: "#F59E0B",
+				propertiesSchema: { fields: { title: { type: "string" } } },
+			},
+		});
+
+		expect(response.status).toBe(400);
+		expect(error?.error).toBeDefined();
+		expect(error?.error?.message).toBe(
+			'Entity schema slug "collection" is reserved for built-in schemas',
+		);
 	});
 });
 
