@@ -31,13 +31,12 @@ export type AppSchemaRulePath = ReadonlyArray<string>;
 
 export type AppSchemaRuleValue = boolean | null | number | string;
 
-export type AppPropertyRoundTransform = {
+export type AppPropertyRoundNormalization = {
 	readonly scale: number;
-	readonly mode: "half_up";
 };
 
-export type AppPropertyTransform = {
-	readonly round?: AppPropertyRoundTransform | undefined;
+export type AppPropertyNormalization = {
+	readonly round: AppPropertyRoundNormalization;
 };
 
 export type AppSchemaUnknownKeysPolicy = "strip" | "strict" | "passthrough";
@@ -75,7 +74,6 @@ type AppPropertyBase<TValidation> = {
 	readonly secret?: true | undefined;
 	readonly validation?: TValidation | undefined;
 	readonly translatable?: true | undefined;
-	readonly transform?: AppPropertyTransform | undefined;
 };
 
 export type AppStringProperty = AppPropertyBase<AppStringPropertyValidation> & {
@@ -86,11 +84,13 @@ export type AppStringProperty = AppPropertyBase<AppStringPropertyValidation> & {
 export type AppNumberProperty = AppPropertyBase<AppNumberPropertyValidation> & {
 	readonly type: "number";
 	readonly defaultValue?: number | undefined;
+	readonly normalize?: AppPropertyNormalization | undefined;
 };
 
 export type AppIntegerProperty = AppPropertyBase<AppNumberPropertyValidation> & {
 	readonly type: "integer";
 	readonly defaultValue?: number | undefined;
+	readonly normalize?: AppPropertyNormalization | undefined;
 };
 
 export type AppBooleanProperty = AppPropertyBase<AppPropertyValidationBase> & {
@@ -281,12 +281,11 @@ const arrayValidationSchema = strictStruct({
 	),
 );
 
-const roundTransformSchema = strictStruct({
-	scale: nonNegativeInteger,
-	mode: Schema.Literal("half_up"),
-});
+const roundNormalizationSchema = strictStruct({ scale: nonNegativeInteger });
 
-const numberTransformSchema = strictStruct({ round: Schema.optional(roundTransformSchema) });
+const numberNormalizationSchema = strictStruct({
+	round: roundNormalizationSchema,
+});
 
 const rulePathSchema = Schema.Array(nonEmptyTrimmedString).pipe(
 	Schema.check(Schema.isMinLength(1)),
@@ -472,14 +471,14 @@ const numberPropertySchema = strictStruct({
 	...propertyBaseFields,
 	type: Schema.Literal("number"),
 	defaultValue: Schema.optional(Schema.Number),
-	transform: Schema.optional(numberTransformSchema),
+	normalize: Schema.optional(numberNormalizationSchema),
 	validation: Schema.optional(numberValidationSchema),
 });
 
 const integerPropertySchema = strictStruct({
 	...propertyBaseFields,
 	type: Schema.Literal("integer"),
-	transform: Schema.optional(numberTransformSchema),
+	normalize: Schema.optional(numberNormalizationSchema),
 	validation: Schema.optional(numberValidationSchema),
 	defaultValue: Schema.optional(Schema.Number.pipe(Schema.check(Schema.isInt()))),
 });
