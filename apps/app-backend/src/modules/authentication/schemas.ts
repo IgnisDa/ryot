@@ -27,13 +27,6 @@ export const defaultUserPreferences: UserPreferences = {
 	},
 };
 
-export const meResponseSchema = dataSchema(
-	z.object({
-		user: z.unknown(),
-		session: z.unknown().nullish(),
-	}),
-);
-
 export const signUpBody = z.object({
 	name: z.string().min(1),
 	email: z.email().min(1),
