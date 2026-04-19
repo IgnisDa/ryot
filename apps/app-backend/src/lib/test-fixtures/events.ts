@@ -4,10 +4,14 @@ import {
 	withOverrides,
 } from "~/lib/test-fixtures/fixture-helpers";
 import {
+	createAnimeProgressPropertiesSchema,
 	createCompletePropertiesSchema,
+	createMangaProgressPropertiesSchema,
 	createNoteAndRatingPropertiesSchema,
+	createPodcastProgressPropertiesSchema,
 	createProgressPercentPropertiesSchema,
 	createReviewPropertiesSchema,
+	createShowProgressPropertiesSchema,
 } from "~/lib/test-fixtures/property-schemas";
 import type {
 	CreateEventBody,
@@ -130,6 +134,74 @@ export const createBuiltinProgressEventDeps = (
 				eventSchemaSlug: "progress",
 				eventSchemaId: input.eventSchemaId,
 				propertiesSchema: createProgressPercentPropertiesSchema(),
+			}),
+		...overrides,
+	});
+
+export const createBuiltinShowProgressEventDeps = (
+	overrides: Partial<EventServiceDeps> = {},
+): EventServiceDeps =>
+	createEventDeps({
+		getEventCreateScopeForUser: async (input) =>
+			createEventCreateScope({
+				isBuiltin: true,
+				entitySchemaSlug: "show",
+				entityId: input.entityId,
+				eventSchemaName: "Progress",
+				eventSchemaSlug: "progress",
+				eventSchemaId: input.eventSchemaId,
+				propertiesSchema: createShowProgressPropertiesSchema(),
+			}),
+		...overrides,
+	});
+
+export const createBuiltinAnimeProgressEventDeps = (
+	overrides: Partial<EventServiceDeps> = {},
+): EventServiceDeps =>
+	createEventDeps({
+		getEventCreateScopeForUser: async (input) =>
+			createEventCreateScope({
+				isBuiltin: true,
+				entitySchemaSlug: "anime",
+				entityId: input.entityId,
+				eventSchemaName: "Progress",
+				eventSchemaSlug: "progress",
+				eventSchemaId: input.eventSchemaId,
+				propertiesSchema: createAnimeProgressPropertiesSchema(),
+			}),
+		...overrides,
+	});
+
+export const createBuiltinMangaProgressEventDeps = (
+	overrides: Partial<EventServiceDeps> = {},
+): EventServiceDeps =>
+	createEventDeps({
+		getEventCreateScopeForUser: async (input) =>
+			createEventCreateScope({
+				isBuiltin: true,
+				entitySchemaSlug: "manga",
+				entityId: input.entityId,
+				eventSchemaName: "Progress",
+				eventSchemaSlug: "progress",
+				eventSchemaId: input.eventSchemaId,
+				propertiesSchema: createMangaProgressPropertiesSchema(),
+			}),
+		...overrides,
+	});
+
+export const createBuiltinPodcastProgressEventDeps = (
+	overrides: Partial<EventServiceDeps> = {},
+): EventServiceDeps =>
+	createEventDeps({
+		getEventCreateScopeForUser: async (input) =>
+			createEventCreateScope({
+				isBuiltin: true,
+				entityId: input.entityId,
+				eventSchemaName: "Progress",
+				eventSchemaSlug: "progress",
+				entitySchemaSlug: "podcast",
+				eventSchemaId: input.eventSchemaId,
+				propertiesSchema: createPodcastProgressPropertiesSchema(),
 			}),
 		...overrides,
 	});
