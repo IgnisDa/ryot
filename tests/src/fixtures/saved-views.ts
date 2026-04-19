@@ -13,9 +13,9 @@ import {
 	decodeSavedViewRecordsResponse,
 } from "@ryot/ryotql-recipes/saved-view-records";
 import { buildSavedViewDocument } from "@ryot/ryotql-recipes/saved-views";
-import { Data, Effect, Result } from "effect";
+import { Data, Effect } from "effect";
 
-import { requirePresent } from "~/support/assertions";
+import { requirePresent, resultToEffect } from "~/support/assertions";
 
 import type { Client } from "./auth";
 import {
@@ -57,9 +57,6 @@ type ReorderSavedViewsBody = ContractPayload<"savedViews", "reorder">;
 class SavedViewFixtureError extends Data.TaggedError("SavedViewFixtureError")<{
 	readonly message: string;
 }> {}
-
-const decodeResult = <A, E>(result: Result.Result<A, E>) =>
-	Result.isSuccess(result) ? Effect.succeed(result.success) : Effect.fail(result.failure);
 
 export const rowsDocument: SavedViewQueryDocument = buildSavedViewDocument({
 	entitySchemaSlugs: ["book"],
@@ -279,7 +276,7 @@ export const listSavedViews = (
 				}),
 			}),
 		);
-		const decoded = yield* decodeResult(decodeSavedViewRecordsResponse(response));
+		const decoded = yield* resultToEffect(decodeSavedViewRecordsResponse(response));
 
 		return decoded.items;
 	});
@@ -297,11 +294,9 @@ export const getSavedView = (client: Client, viewSlug: string) =>
 		const response = yield* client.call((c) =>
 			c.ryotql.execute({ payload: buildSavedViewRecordDocument({ slug: viewSlug }) }),
 		);
-		const decoded = yield* decodeResult(decodeSavedViewRecordResponse(response));
+		const decoded = yield* resultToEffect(decodeSavedViewRecordResponse(response));
 		if (!decoded) {
-			return yield* Effect.fail(
-				new SavedViewFixtureError({ message: `Saved view '${viewSlug}' not found` }),
-			);
+			return yield* new SavedViewFixtureError({ message: `Saved view '${viewSlug}' not found` });
 		}
 
 		return decoded;

@@ -216,6 +216,20 @@ const savedView: CatalogTable = {
 	},
 };
 
+const notificationChannel: CatalogTable = {
+	primaryKey: "id",
+	name: "notification_channel",
+	visibility: { user: { type: "owned", column: "user_id", includeGlobal: false } },
+	fields: {
+		id: physicalField("id", "text"),
+		channel: physicalField("platform", "text"),
+		createdAt: physicalField("created_at", "date"),
+		updatedAt: physicalField("updated_at", "date"),
+		description: physicalField("description", "text"),
+		isDisabled: physicalField("is_disabled", "boolean"),
+	},
+};
+
 const tables: Readonly<Record<string, CatalogTable>> = {
 	event,
 	entity,
@@ -223,6 +237,7 @@ const tables: Readonly<Record<string, CatalogTable>> = {
 	savedView,
 	pluginState,
 	relationship,
+	notificationChannel,
 };
 
 export const getCatalogTable = (name: string) => tables[name];
