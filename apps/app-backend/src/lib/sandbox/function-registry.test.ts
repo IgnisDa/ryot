@@ -4,8 +4,8 @@ import { hostFunctionRegistry } from "./function-registry";
 describe("hostFunctionRegistry", () => {
 	it("registers the expected host function keys", () => {
 		expect(Object.keys(hostFunctionRegistry).sort()).toEqual([
+			"executeQuery",
 			"getAppConfigValue",
-			"getEntitySchemas",
 			"httpCall",
 		]);
 	});
