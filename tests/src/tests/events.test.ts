@@ -124,13 +124,9 @@ describe("Events bulk POST", () => {
 	});
 
 	it("filters listed events by event schema slug", async () => {
-		const {
-			userId,
-			cookies,
-			client: apiClient,
-		} = await createAuthenticatedClient();
+		const { cookies, client: apiClient } = await createAuthenticatedClient();
 		const { entityId, completeEventSchemaId, progressEventSchemaId } =
-			await createBuiltinMediaLifecycleFixture(apiClient, cookies, userId);
+			await createBuiltinMediaLifecycleFixture(apiClient, cookies);
 
 		const createResult = await apiClient.POST("/events", {
 			headers: { Cookie: cookies },
@@ -187,13 +183,9 @@ describe("Events bulk POST", () => {
 	});
 
 	it("creates repeated built-in backlog events and lists them", async () => {
-		const {
-			client: apiClient,
-			cookies,
-			userId,
-		} = await createAuthenticatedClient();
+		const { cookies, client: apiClient } = await createAuthenticatedClient();
 		const { entityId, backlogEventSchemaId } =
-			await createBuiltinMediaLifecycleFixture(apiClient, cookies, userId);
+			await createBuiltinMediaLifecycleFixture(apiClient, cookies);
 
 		const createResult = await apiClient.POST("/events", {
 			headers: { Cookie: cookies },
@@ -216,13 +208,9 @@ describe("Events bulk POST", () => {
 	});
 
 	it("creates built-in progress events with rounded values and no completion side effects", async () => {
-		const {
-			client: apiClient,
-			cookies,
-			userId,
-		} = await createAuthenticatedClient();
+		const { cookies, client: apiClient } = await createAuthenticatedClient();
 		const { entityId, progressEventSchemaId } =
-			await createBuiltinMediaLifecycleFixture(apiClient, cookies, userId);
+			await createBuiltinMediaLifecycleFixture(apiClient, cookies);
 
 		const createResult = await apiClient.POST("/events", {
 			headers: { Cookie: cookies },
@@ -257,13 +245,9 @@ describe("Events bulk POST", () => {
 	});
 
 	it("creates repeated built-in complete events without relying on progress", async () => {
-		const {
-			client: apiClient,
-			cookies,
-			userId,
-		} = await createAuthenticatedClient();
+		const { cookies, client: apiClient } = await createAuthenticatedClient();
 		const { entityId, completeEventSchemaId } =
-			await createBuiltinMediaLifecycleFixture(apiClient, cookies, userId);
+			await createBuiltinMediaLifecycleFixture(apiClient, cookies);
 
 		const createResult = await apiClient.POST("/events", {
 			headers: { Cookie: cookies },
@@ -303,13 +287,9 @@ describe("Events bulk POST", () => {
 	});
 
 	it("creates repeated built-in review events before completion exists", async () => {
-		const {
-			client: apiClient,
-			cookies,
-			userId,
-		} = await createAuthenticatedClient();
+		const { cookies, client: apiClient } = await createAuthenticatedClient();
 		const { entityId, reviewEventSchemaId } =
-			await createBuiltinMediaLifecycleFixture(apiClient, cookies, userId);
+			await createBuiltinMediaLifecycleFixture(apiClient, cookies);
 
 		const createResult = await apiClient.POST("/events", {
 			headers: { Cookie: cookies },

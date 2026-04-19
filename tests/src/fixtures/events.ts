@@ -154,7 +154,6 @@ export async function createRuleEventFixture(client: Client, cookies: string) {
 export async function createBuiltinMediaLifecycleFixture(
 	client: Client,
 	cookies: string,
-	_userId: string,
 	options: BuiltinMediaLifecycleFixtureOptions = {},
 ) {
 	const entitySchemaSlug = options.entitySchemaSlug ?? "book";
