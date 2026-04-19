@@ -16,7 +16,7 @@ import { ChevronLeft, ChevronRight, Search } from "lucide-react";
 import { useCallback, useMemo, useState } from "react";
 import {
 	buildMembershipFormSchema,
-	getSelectedCollection,
+	type CollectionMembershipFormValues,
 	toMembershipPayload,
 	useCollectionDiscovery,
 	useCollectionsDestination,
@@ -381,25 +381,18 @@ export function SearchEntityModalContent(props: {
 	);
 
 	const handleSaveCollection = useCallback(
-		async (item: SearchResultItem) => {
-			const state = getActionState(item.identifier);
-			if (!state.selectedCollectionId) {
-				return;
-			}
-
+		async (item: SearchResultItem, values: CollectionMembershipFormValues) => {
 			const selectedCollection =
 				collectionState.type === "collections"
-					? getSelectedCollection(
-							collectionState.collections,
-							state.selectedCollectionId,
+					? collectionState.collections.find(
+							(collection) => collection.id === values.collectionId,
 						)
 					: undefined;
-			const formValues = {
-				properties: state.collectionProperties,
-				collectionId: state.selectedCollectionId,
-			};
-			const validationResult =
-				buildMembershipFormSchema(selectedCollection).safeParse(formValues);
+			const validationResult = buildMembershipFormSchema(
+				collectionState.type === "collections"
+					? collectionState.collections
+					: [],
+			).safeParse(values);
 			if (!validationResult.success) {
 				patchActionState(item.identifier, {
 					actionError:
@@ -434,7 +427,7 @@ export function SearchEntityModalContent(props: {
 				const collectionName =
 					collectionState.type === "collections"
 						? (collectionState.collections.find(
-								(c) => c.id === state.selectedCollectionId,
+								(c) => c.id === validationResult.data.collectionId,
 							)?.name ?? "collection")
 						: "collection";
 				notifications.show({
@@ -467,9 +460,9 @@ export function SearchEntityModalContent(props: {
 			addToCollection,
 			collectionState,
 			markDone,
-			getActionState,
 			ensureItemEntity,
 			patchActionState,
+			getActionState,
 		],
 	);
 
@@ -561,7 +554,6 @@ export function SearchEntityModalContent(props: {
 											providerName={activeProvider?.name ?? ""}
 											onBacklog={() => void handleBacklog(item)}
 											onSaveReview={() => handleSaveReview(item)}
-											onSaveCollection={() => void handleSaveCollection(item)}
 											actionState={getActionState(item.identifier)}
 											lifecycleErrorMessage={lifecycleErrorMessage}
 											addStatus={addStatus[item.identifier] ?? "idle"}
@@ -578,6 +570,17 @@ export function SearchEntityModalContent(props: {
 											onPatchActionState={(patch) =>
 												patchActionState(item.identifier, patch)
 											}
+											onSaveCollection={(values) =>
+												void handleSaveCollection(item, values)
+											}
+											onTogglePanel={(panel) => {
+												setSelectedResultId(item.identifier);
+												const state = getActionState(item.identifier);
+												patchActionState(item.identifier, {
+													actionError: null,
+													openPanel: state.openPanel === panel ? null : panel,
+												});
+											}}
 											onToggleActions={() => {
 												const isCurrentlyExpanded =
 													selectedResultId === item.identifier;
@@ -597,14 +600,6 @@ export function SearchEntityModalContent(props: {
 														openPanel: null,
 													});
 												}
-											}}
-											onTogglePanel={(panel) => {
-												setSelectedResultId(item.identifier);
-												const state = getActionState(item.identifier);
-												patchActionState(item.identifier, {
-													actionError: null,
-													openPanel: state.openPanel === panel ? null : panel,
-												});
 											}}
 										/>
 									))}
