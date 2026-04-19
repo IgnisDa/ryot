@@ -235,13 +235,12 @@ function buildSeason(seasonData) {
 
 	return {
 		id,
-		name: `Season ${seasonNumber}`,
-		overview: null,
+		episodes,
+		publishDate,
 		seasonNumber,
 		posterImages,
-		publishDate,
 		backdropImages: [],
-		episodes,
+		name: `Season ${seasonNumber}`,
 	};
 }
 
@@ -431,10 +430,7 @@ driver("details", async function (context) {
 			sourceUrl,
 			publishYear,
 			showSeasons,
-			isNsfw: null,
 			freeCreators,
-			providerRating: null,
-			productionStatus: null,
 			assets: { remoteImages },
 			description:
 				typeof show?.overview === "string" && show.overview.trim()
