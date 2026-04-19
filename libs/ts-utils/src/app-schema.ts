@@ -708,7 +708,8 @@ export const fromAppSchema = (property: AppPropertyDefinition): z.ZodType => {
 				const schema = fromAppSchema(value);
 				shape[key] = isAppPropertyRequired(value) ? schema : schema.optional();
 			}
-			return withUnknownKeysPolicy(shape, p.unknownKeys);
+			const schema = withUnknownKeysPolicy(shape, p.unknownKeys);
+			return isRequired ? schema : schema.nullish();
 		})
 		.exhaustive();
 };
