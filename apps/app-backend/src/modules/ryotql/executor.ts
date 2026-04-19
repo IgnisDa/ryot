@@ -428,7 +428,11 @@ const expressionNullable = (expr: ScalarExpression, scope: CompileScope): boolea
 	return true;
 };
 
-const compilePredicate = (predicate: Predicate, scope: CompileScope): SqlFragment => {
+const compilePredicate = (
+	predicate: Predicate,
+	scope: CompileScope,
+	total = false,
+): SqlFragment => {
 	if (predicate.type === "exists") {
 		return compileExists(predicate, scope);
 	}
@@ -446,10 +450,12 @@ const compilePredicate = (predicate: Predicate, scope: CompileScope): SqlFragmen
 			expressionKind(predicate.left, scope) === "json" &&
 			expressionKind(predicate.right, scope) === "json"
 		) {
-			return sql`COALESCE(${compileJsonValue(predicate.left, scope)} ${operator} ${compileJsonValue(predicate.right, scope)}, false)`;
+			const jsonComparison = sql`${compileJsonValue(predicate.left, scope)} ${operator} ${compileJsonValue(predicate.right, scope)}`;
+			return total ? sql`COALESCE(${jsonComparison}, false)` : jsonComparison;
 		}
 		const comparison = sql`${compileExpression(predicate.left, scope)} ${operator} ${compileExpression(predicate.right, scope)}`;
-		return expressionNullable(predicate.left, scope) || expressionNullable(predicate.right, scope)
+		return total &&
+			(expressionNullable(predicate.left, scope) || expressionNullable(predicate.right, scope))
 			? sql`COALESCE(${comparison}, false)`
 			: comparison;
 	}
@@ -459,12 +465,12 @@ const compilePredicate = (predicate: Predicate, scope: CompileScope): SqlFragmen
 		}
 		const separator = predicate.type === "and" ? sql` AND ` : sql` OR `;
 		return sql`(${sql.join(
-			predicate.predicates.map((value) => compilePredicate(value, scope)),
+			predicate.predicates.map((value) => compilePredicate(value, scope, total)),
 			separator,
 		)})`;
 	}
 	if (predicate.type === "not") {
-		return sql`(NOT ${compilePredicate(predicate.predicate, scope)})`;
+		return sql`(NOT ${compilePredicate(predicate.predicate, scope, true)})`;
 	}
 	if (predicate.type === "isNull" || predicate.type === "isNotNull") {
 		const operator = predicate.type === "isNull" ? sql`IS NULL` : sql`IS NOT NULL`;
@@ -472,7 +478,8 @@ const compilePredicate = (predicate: Predicate, scope: CompileScope): SqlFragmen
 	}
 	if (predicate.type === "contains") {
 		if (expressionKind(predicate.left, scope) === "json") {
-			return sql`COALESCE(${compileJsonValue(predicate.left, scope)} @> ${compileJsonValue(predicate.right, scope)}, false)`;
+			const containment = sql`${compileJsonValue(predicate.left, scope)} @> ${compileJsonValue(predicate.right, scope)}`;
+			return total ? sql`COALESCE(${containment}, false)` : containment;
 		}
 		const left = compileExpression(predicate.left, scope);
 		const right = compileExpression(predicate.right, scope);
@@ -480,24 +487,27 @@ const compilePredicate = (predicate: Predicate, scope: CompileScope): SqlFragmen
 			predicate.right.type === "literal" && typeof predicate.right.value === "string"
 				? sql`${`%${predicate.right.value.replace(/\\/g, "\\\\").replace(/%/g, "\\%").replace(/_/g, "\\_")}%`}`
 				: sql`('%' || replace(replace(replace(${right}, '\\', '\\\\'), '%', '\\%'), '_', '\\_') || '%')`;
-		return sql`COALESCE(${left} COLLATE "C" ILIKE ${pattern}, false)`;
+		const match = sql`${left} COLLATE "C" ILIKE ${pattern}`;
+		return total ? sql`COALESCE(${match}, false)` : match;
 	}
 	if (predicate.values.length === 0) {
 		return sql`false`;
 	}
 	const kind = expressionKind(predicate.expr, scope);
 	if (kind === "json") {
-		return sql`COALESCE(${compileJsonValue(predicate.expr, scope)} IN (${sql.join(
+		const jsonMembership = sql`${compileJsonValue(predicate.expr, scope)} IN (${sql.join(
 			predicate.values.map((value) => compileJsonValue(value, scope)),
 			sql`, `,
-		)}), false)`;
+		)})`;
+		return total ? sql`COALESCE(${jsonMembership}, false)` : jsonMembership;
 	}
 	const comparison = sql`${compileExpression(predicate.expr, scope)} IN (${sql.join(
 		predicate.values.map((value) => compileExpression(value, scope)),
 		sql`, `,
 	)})`;
-	return expressionNullable(predicate.expr, scope) ||
-		predicate.values.some((value) => expressionNullable(value, scope))
+	return total &&
+		(expressionNullable(predicate.expr, scope) ||
+			predicate.values.some((value) => expressionNullable(value, scope)))
 		? sql`COALESCE(${comparison}, false)`
 		: comparison;
 };
