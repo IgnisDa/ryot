@@ -111,6 +111,8 @@ const createCompletedSandboxResult = (
 		status: "completed",
 		logs: result.data.logs ?? null,
 		error: result.data.error ?? null,
+		timings: result.data.timings ?? null,
+		denoMetrics: result.data.denoMetrics ?? null,
 		value:
 			value === undefined
 				? null
