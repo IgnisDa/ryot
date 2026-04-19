@@ -4,7 +4,7 @@
 
 **Type:** AFK
 
-**Status:** todo
+**Status:** done
 
 ## What to build
 
@@ -14,12 +14,12 @@ The migrated route responses use direct success values and typed tagged errors. 
 
 ## Acceptance criteria
 
-- [ ] Authenticated users can list their trackers
-- [ ] Authenticated users can create custom trackers
-- [ ] Authenticated users can update tracker fields including disabled state
-- [ ] Authenticated users can reorder visible trackers
-- [ ] Cross-user tracker access is rejected without leaking resource existence
-- [ ] Tracker E2E tests use the Effect client and pass against the real server
+- [x] Authenticated users can list their trackers
+- [x] Authenticated users can create custom trackers
+- [x] Authenticated users can update tracker fields including disabled state
+- [x] Authenticated users can reorder visible trackers
+- [x] Cross-user tracker access is rejected without leaking resource existence
+- [x] Tracker E2E tests use the Effect client and pass against the real server
 
 ## User stories addressed
 
