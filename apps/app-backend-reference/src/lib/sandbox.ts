@@ -1,7 +1,7 @@
 import type { CommandExecutor } from "@effect/platform";
 import { Command, FileSystem } from "@effect/platform";
 import type { PlatformError } from "@effect/platform/Error";
-import { Context, Duration, Effect, Layer, Pool, Queue, Runtime, Stream } from "effect";
+import { Duration, Effect, Pool, Queue, Runtime, Stream } from "effect";
 
 import { getBuiltinSandboxScript } from "./builtin-scripts";
 import { AppConfig } from "./config";
@@ -55,34 +55,6 @@ const httpCallTimeoutMs = 8_000;
 const defaultHeaders = {
 	"User-Agent": "Ryot Reference ( https://github.com/ignisda/ryot )",
 } satisfies Record<string, string>;
-
-export class BridgeService extends Context.Tag("BridgeService")<
-	BridgeService,
-	{
-		readonly port: number;
-		readonly addSession: (executionId: string, session: ExecutionSession) => Effect.Effect<void>;
-		readonly removeSession: (executionId: string) => Effect.Effect<void>;
-	}
->() {}
-
-export class RunnerFile extends Context.Tag("RunnerFile")<
-	RunnerFile,
-	{ readonly path: string }
->() {}
-
-export class ProcessPool extends Context.Tag("ProcessPool")<
-	ProcessPool,
-	Pool.Pool<PooledProcess, PlatformError>
->() {}
-
-export class SandboxService extends Context.Tag("SandboxService")<
-	SandboxService,
-	{
-		readonly run: (
-			input: SandboxRunInput,
-		) => Effect.Effect<SandboxRunOutput, SandboxRunError | TimeoutError>;
-	}
->() {}
 
 const parseSandboxSession = (raw: string): SandboxSessionRecord => {
 	const parsed = JSON.parse(raw);
@@ -202,22 +174,8 @@ const makeSpawnDenoProcess = (bridgePort: number, denoDir: string, runnerPath: s
 		return { process: denoProcess, stdinQueue, responseQueue };
 	});
 
-export const RunnerFileLive = Layer.scoped(
-	RunnerFile,
-	Effect.gen(function* () {
-		const fs = yield* FileSystem.FileSystem;
-		const path = yield* fs.makeTempFileScoped({
-			prefix: "ryot-reference-sandbox-",
-			suffix: ".mjs",
-		});
-		yield* fs.writeFileString(path, sandboxRunnerSource);
-		return { path };
-	}),
-);
-
-export const BridgeServerLive = Layer.scoped(
-	BridgeService,
-	Effect.gen(function* () {
+export class BridgeService extends Effect.Service<BridgeService>()("BridgeService", {
+	scoped: Effect.gen(function* () {
 		const redis = yield* RedisService;
 		const runtime = yield* Effect.runtime();
 		const executionFunctions = new Map<string, Record<string, BoundHostFunction>>();
@@ -309,11 +267,22 @@ export const BridgeServerLive = Layer.scoped(
 			port: server.port ?? 0,
 		};
 	}),
-);
+}) {}
 
-export const ProcessPoolLive = Layer.scoped(
-	ProcessPool,
-	Effect.gen(function* () {
+export class RunnerFile extends Effect.Service<RunnerFile>()("RunnerFile", {
+	scoped: Effect.gen(function* () {
+		const fs = yield* FileSystem.FileSystem;
+		const path = yield* fs.makeTempFileScoped({
+			prefix: "ryot-reference-sandbox-",
+			suffix: ".mjs",
+		});
+		yield* fs.writeFileString(path, sandboxRunnerSource);
+		return { path };
+	}),
+}) {}
+
+export class ProcessPool extends Effect.Service<ProcessPool>()("ProcessPool", {
+	scoped: Effect.gen(function* () {
 		const bridge = yield* BridgeService;
 		const config = yield* AppConfig;
 		const runner = yield* RunnerFile;
@@ -322,11 +291,11 @@ export const ProcessPoolLive = Layer.scoped(
 			size: 5,
 		});
 	}),
-);
+	dependencies: [BridgeService.Default, RunnerFile.Default],
+}) {}
 
-export const SandboxLive = Layer.effect(
-	SandboxService,
-	Effect.gen(function* () {
+export class SandboxService extends Effect.Service<SandboxService>()("SandboxService", {
+	effect: Effect.gen(function* () {
 		const bridge = yield* BridgeService;
 		const config = yield* AppConfig;
 		const pool = yield* ProcessPool;
@@ -410,7 +379,7 @@ export const SandboxLive = Layer.effect(
 		} satisfies Record<string, BoundHostFunction>;
 
 		return {
-			run: (input) =>
+			run: (input: SandboxRunInput) =>
 				Effect.scoped(
 					Effect.gen(function* () {
 						const script = getBuiltinSandboxScript(input.scriptSlug);
@@ -499,8 +468,5 @@ export const SandboxLive = Layer.effect(
 				),
 		};
 	}),
-).pipe(
-	Layer.provide(ProcessPoolLive),
-	Layer.provide(RunnerFileLive),
-	Layer.provide(BridgeServerLive),
-);
+	dependencies: [ProcessPool.Default, BridgeService.Default],
+}) {}

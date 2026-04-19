@@ -1,6 +1,6 @@
 import type { Multipart } from "@effect/platform";
 import { FileSystem } from "@effect/platform";
-import { Context, Effect, Layer } from "effect";
+import { Effect } from "effect";
 
 import type { CurrentUserValue } from "../../lib/auth";
 import type { DbError, ValidationError } from "../../lib/errors";
@@ -10,19 +10,8 @@ import type { UploadedFile } from "./schemas";
 
 const isTextFile = (file: Multipart.PersistedFile) => file.name.toLowerCase().endsWith(".txt");
 
-export class UploadsService extends Context.Tag("UploadsService")<
-	UploadsService,
-	{
-		readonly uploadTemporary: (
-			user: CurrentUserValue,
-			files: ReadonlyArray<Multipart.PersistedFile>,
-		) => Effect.Effect<ReadonlyArray<UploadedFile>, DbError | ValidationError>;
-	}
->() {}
-
-export const UploadsServiceLive = Layer.effect(
-	UploadsService,
-	Effect.gen(function* () {
+export class UploadsService extends Effect.Service<UploadsService>()("UploadsService", {
+	effect: Effect.gen(function* () {
 		const fs = yield* FileSystem.FileSystem;
 		const uploads = yield* UploadsRepository;
 
@@ -40,7 +29,10 @@ export const UploadsServiceLive = Layer.effect(
 		};
 
 		return {
-			uploadTemporary: (user, files) =>
+			uploadTemporary: (
+				user: CurrentUserValue,
+				files: ReadonlyArray<Multipart.PersistedFile>,
+			): Effect.Effect<ReadonlyArray<UploadedFile>, DbError | ValidationError> =>
 				Effect.gen(function* () {
 					const validationError = validateFiles(files);
 					if (validationError) {
@@ -68,4 +60,4 @@ export const UploadsServiceLive = Layer.effect(
 				}),
 		};
 	}),
-);
+}) {}

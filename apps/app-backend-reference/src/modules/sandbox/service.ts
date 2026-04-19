@@ -1,5 +1,5 @@
 import { eq, sql } from "drizzle-orm";
-import { Context, Effect, Layer, Schema } from "effect";
+import { Effect, Schema } from "effect";
 
 import { requireAccess } from "../../lib/access";
 import type { CurrentUserValue } from "../../lib/auth";
@@ -24,28 +24,13 @@ const mapRun = (row: SandboxRunRow): SandboxRunResult => ({
 	updatedAt: row.updatedAt.toISOString(),
 });
 
-export class SandboxApiService extends Context.Tag("SandboxApiService")<
-	SandboxApiService,
-	{
-		readonly get: (
-			user: CurrentUserValue,
-			runId: string,
-		) => Effect.Effect<SandboxRunResult, SandboxRunError>;
-		readonly run: (
-			user: CurrentUserValue,
-			payload: RunSandboxPayload,
-		) => Effect.Effect<SandboxRunResult, SandboxRunError>;
-	}
->() {}
-
 const dbError = (cause: unknown) => new SandboxRunError({ message: unknownToMessage(cause) });
 
 const runNotFound = (runId: string) =>
 	new SandboxRunError({ message: `Sandbox run ${runId} not found` });
 
-export const SandboxApiServiceLive = Layer.effect(
-	SandboxApiService,
-	Effect.gen(function* () {
+export class SandboxApiService extends Effect.Service<SandboxApiService>()("SandboxApiService", {
+	effect: Effect.gen(function* () {
 		const { db } = yield* DbService;
 		const sandbox = yield* SandboxService;
 
@@ -60,7 +45,7 @@ export const SandboxApiServiceLive = Layer.effect(
 			}).pipe(Effect.asVoid);
 
 		return {
-			get: (user, runId) =>
+			get: (user: CurrentUserValue, runId: string) =>
 				Effect.tryPromise({
 					try: () =>
 						db.select().from(schema.sandboxRun).where(eq(schema.sandboxRun.id, runId)).limit(1),
@@ -79,7 +64,7 @@ export const SandboxApiServiceLive = Layer.effect(
 					),
 					Effect.map(mapRun),
 				),
-			run: (user, payload) =>
+			run: (user: CurrentUserValue, payload: RunSandboxPayload) =>
 				Effect.gen(function* () {
 					const [row] = yield* Effect.tryPromise({
 						try: () =>
@@ -132,4 +117,4 @@ export const SandboxApiServiceLive = Layer.effect(
 				}),
 		};
 	}),
-);
+}) {}

@@ -1,4 +1,4 @@
-import { Context, Effect, Layer } from "effect";
+import { Effect } from "effect";
 
 import type { CurrentUserValue } from "../../lib/auth";
 import { TransactionRunner } from "../../lib/db";
@@ -14,29 +14,16 @@ import type {
 	UniqueConstraintResult,
 } from "./schemas";
 
-export class PatternsService extends Context.Tag("PatternsService")<
-	PatternsService,
-	{
-		readonly dbTransaction: (
-			user: CurrentUserValue,
-			payload: DbTransactionPayload,
-		) => Effect.Effect<PatternsResult, DbError | PatternsRejected>;
-		readonly uniqueConstraint: (
-			user: CurrentUserValue,
-			payload: RunUniqueConstraintPayload,
-		) => Effect.Effect<UniqueConstraintResult, DbError | PatternsDuplicateItem>;
-		readonly filterCondition: (payload: FilterConditionPayload) => Effect.Effect<FilterResult>;
-	}
->() {}
-
-export const PatternsServiceLive = Layer.effect(
-	PatternsService,
-	Effect.gen(function* () {
+export class PatternsService extends Effect.Service<PatternsService>()("PatternsService", {
+	effect: Effect.gen(function* () {
 		const runInTransaction = yield* TransactionRunner;
 		const repository = yield* PatternsRepository;
 
 		return {
-			dbTransaction: (user, payload) =>
+			dbTransaction: (
+				user: CurrentUserValue,
+				payload: DbTransactionPayload,
+			): Effect.Effect<PatternsResult, DbError | PatternsRejected> =>
 				runInTransaction(
 					Effect.gen(function* () {
 						const run = yield* repository.createRun(user.id);
@@ -52,7 +39,10 @@ export const PatternsServiceLive = Layer.effect(
 						return { runId: run.id, stepId: step.id };
 					}),
 				),
-			uniqueConstraint: (user, payload) =>
+			uniqueConstraint: (
+				user: CurrentUserValue,
+				payload: RunUniqueConstraintPayload,
+			): Effect.Effect<UniqueConstraintResult, DbError | PatternsDuplicateItem> =>
 				runInTransaction(
 					Effect.gen(function* () {
 						const run = yield* repository.createRun(user.id);
@@ -69,7 +59,8 @@ export const PatternsServiceLive = Layer.effect(
 						};
 					}),
 				),
-			filterCondition: (_payload) => Effect.succeed({ status: true as const }),
+			filterCondition: (_payload: FilterConditionPayload): Effect.Effect<FilterResult> =>
+				Effect.succeed({ status: true as const }),
 		};
 	}),
-);
+}) {}

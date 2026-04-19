@@ -3,9 +3,10 @@ import { HttpApiMiddleware, HttpApiSecurity, HttpServerRequest } from "@effect/p
 import { betterAuth } from "better-auth";
 import { drizzleAdapter } from "better-auth/adapters/drizzle";
 import { Context, Effect, Layer, Redacted, Runtime } from "effect";
+import type Redis from "ioredis";
 
 import { AppConfig, type AppConfigValue } from "./config";
-import { DbService, schema } from "./db";
+import { DbService, type DbRoot, schema } from "./db";
 import { unauthorized, Unauthorized } from "./errors";
 import { RedisService } from "./redis";
 
@@ -52,8 +53,8 @@ export class AdminMiddleware extends HttpApiMiddleware.Tag<AdminMiddleware>()("A
 const bootstrapNewUser = (userId: string) => Effect.logInfo("reference auth bootstrap", { userId });
 
 const makeAuthInstance = (args: {
-	readonly db: DbService["Type"]["db"];
-	readonly redis: RedisService["Type"]["client"];
+	readonly db: DbRoot;
+	readonly redis: Redis;
 	readonly runtime: Runtime.Runtime<DbService | RedisService>;
 	readonly config: AppConfigValue;
 }) =>
@@ -81,17 +82,8 @@ const makeAuthInstance = (args: {
 
 export type AuthInstance = ReturnType<typeof makeAuthInstance>;
 
-export class AuthService extends Context.Tag("AuthService")<
-	AuthService,
-	{
-		readonly auth: AuthInstance;
-		readonly currentUser: (headers: Headers) => Effect.Effect<CurrentUserValue, Unauthorized>;
-	}
->() {}
-
-export const AuthLive = Layer.effect(
-	AuthService,
-	Effect.gen(function* () {
+export class AuthService extends Effect.Service<AuthService>()("AuthService", {
+	effect: Effect.gen(function* () {
 		const config = yield* AppConfig;
 		const redis = yield* RedisService;
 		const db = yield* DbService;
@@ -100,7 +92,7 @@ export const AuthLive = Layer.effect(
 
 		return {
 			auth,
-			currentUser: (headers) =>
+			currentUser: (headers: Headers) =>
 				Effect.tryPromise({
 					try: () => auth.api.getSession({ headers }),
 					catch: () => unauthorized(),
@@ -117,7 +109,7 @@ export const AuthLive = Layer.effect(
 				),
 		};
 	}),
-);
+}) {}
 
 export const AuthMiddlewareLive = Layer.effect(
 	AuthMiddleware,
