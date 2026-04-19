@@ -38,6 +38,8 @@ Monitoring cron pages through the pinned `media-monitoring-targets` RyotQL scrip
 
 Media entities use six event schemas: `backlog`, `progress`, `complete`, `dropped`, `on_hold`, and `review`. `schemas/entity-schemas.ts` owns which event schemas and properties each entity supports.
 
+Provider imports run `automation.media-library-membership-on-import` after provider population for every eligible media schema. The automation queries the importing user's library and idempotently creates `in-library`; it is separate from the event-based `policy.media-library-membership` that handles lifecycle and collection membership.
+
 ### Episode Tracking
 
 Shows and podcasts record progress on `show-episode` and `podcast-episode`, not parent entities. Anime and manga store episode, volume, or chapter position on their own progress, dropped, and on-hold events. Complete events always represent whole entity and carry no episode fields.

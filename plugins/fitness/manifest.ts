@@ -50,6 +50,7 @@ export const fitnessPlugin = definePlugin({
 		eventAutomations: [],
 		signalAutomations: [],
 		relationshipAutomations: [],
+		providerEntityImportAutomations: [],
 		entityAutomations: [
 			{
 				operation: "create",

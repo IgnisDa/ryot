@@ -84,6 +84,7 @@ export const fixtureManifest = () =>
 			eventAutomations: [],
 			signalAutomations: [],
 			relationshipAutomations: [],
+			providerEntityImportAutomations: [],
 			entityAutomations: [
 				{
 					operation: "create",

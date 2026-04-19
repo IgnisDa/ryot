@@ -168,10 +168,8 @@ describe("getNavigationMode", () => {
 		["view:movies", "home", "dismissTo"],
 		["home", "home", "dismissTo"],
 		["view:movies", "collection", "push"],
-	])("from %s to a %s destination is %s", (activeKey, kind, expected) => {
-		expect(getNavigationMode(activeKey, { kind: kind as "view" | "home" | "collection" })).toBe(
-			expected,
-		);
+	] as const)("from %s to a %s destination is %s", (activeKey, kind, expected) => {
+		expect(getNavigationMode(activeKey, { kind })).toBe(expected);
 	});
 });
 

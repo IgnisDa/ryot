@@ -106,7 +106,7 @@ it("declares the complete media-owned source", () => {
 		"https://coverartarchive.org",
 	);
 	expect(mediaPlugin.providers).toHaveLength(51);
-	expect(mediaPlugin.scripts).toHaveLength(180);
+	expect(mediaPlugin.scripts).toHaveLength(181);
 	expect(mediaPlugin.integrationProviders).toHaveLength(13);
 	expect(mediaPlugin.scripts.every((script) => !("providerInformation" in script))).toBe(true);
 	expect(mediaPlugin.scripts.find(({ slug }) => slug === "book.google-books.search")).toMatchObject(
@@ -304,5 +304,14 @@ it("binds library membership to media events and collection membership", () => {
 	);
 	expect(bindings).not.toContainEqual(
 		expect.objectContaining({ eventSchemaSlug: "fixture:event" }),
+	);
+});
+
+it("binds provider imports to library membership for every eligible schema", () => {
+	expect(mediaPlugin.bindings.providerEntityImportAutomations).toEqual(
+		mediaLibraryEligibleEntitySchemaSlugs.map((entitySchemaSlug) => ({
+			entitySchemaSlug,
+			scriptSlug: "automation.media-library-membership-on-import",
+		})),
 	);
 });
