@@ -92,7 +92,6 @@ export const entitySchemaRecord = (
 	pluginSlug: "media",
 	propertiesSchema: {},
 	id: "entity-schema-1",
-	accentColor: "#000000",
 	...overrides,
 });
 

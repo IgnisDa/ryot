@@ -22,7 +22,6 @@ export type EntitySchemaDefinition = {
 	readonly icon: string;
 	readonly name: string;
 	readonly slug: string;
-	readonly accentColor: string;
 	readonly pluginSlug: string | null;
 	readonly propertiesSchema: AppSchema;
 	readonly userState?: PluginEntitySchema["userState"];
@@ -64,7 +63,6 @@ export type SavedViewDefinition = {
 	readonly name: string;
 	readonly slug: string;
 	readonly sortOrder: number;
-	readonly accentColor: string;
 	readonly pluginSlug: string | null;
 	readonly queryDocument: RyotQLDocument;
 	readonly displayConfiguration: DisplayConfiguration;

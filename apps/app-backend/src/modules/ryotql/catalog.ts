@@ -210,7 +210,6 @@ const savedView: CatalogTable = {
 		sortOrder: physicalField("sort_order", "number"),
 		pluginSlug: physicalField("plugin_slug", "text"),
 		isBuiltin: physicalField("is_builtin", "boolean"),
-		accentColor: physicalField("accent_color", "text"),
 		isDisabled: physicalField("is_disabled", "boolean"),
 		queryDocument: physicalField("query_document", "json"),
 		displayConfiguration: physicalField("display_configuration", "json"),

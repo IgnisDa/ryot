@@ -13,7 +13,6 @@ type CreateSavedViewInput = {
 	readonly name: string;
 	readonly icon: string;
 	readonly userId: UserId;
-	readonly accentColor: string;
 	readonly pluginSlug: PluginSlug | null | undefined;
 	readonly queryDocument: (typeof schema.savedView.$inferSelect)["queryDocument"];
 	readonly displayConfiguration: (typeof schema.savedView.$inferSelect)["displayConfiguration"];
@@ -27,7 +26,6 @@ type UpdateSavedViewData = {
 	readonly icon: string;
 	readonly name: string;
 	readonly isDisabled: boolean;
-	readonly accentColor: string;
 	readonly sortOrder?: number | undefined;
 	readonly pluginSlug?: PluginSlug | undefined;
 	readonly queryDocument: (typeof schema.savedView.$inferSelect)["queryDocument"];
@@ -41,7 +39,6 @@ const toListedSavedView = (row: SavedViewRow) => ({
 	isBuiltin: row.isBuiltin,
 	sortOrder: row.sortOrder,
 	isDisabled: row.isDisabled,
-	accentColor: row.accentColor,
 	queryDocument: row.queryDocument,
 	id: SavedViewId.make(row.id),
 	createdAt: row.createdAt.toISOString(),
@@ -130,7 +127,6 @@ export class SavedViewsRepository extends Context.Service<SavedViewsRepository>(
 							slug: input.slug,
 							name: input.name,
 							icon: input.icon,
-							accentColor: input.accentColor,
 							queryDocument: input.queryDocument,
 							pluginSlug: input.pluginSlug ?? null,
 							sortOrder: (orderRow?.maxSortOrder ?? -1) + 1,
@@ -166,7 +162,6 @@ export class SavedViewsRepository extends Context.Service<SavedViewsRepository>(
 							name: data.name,
 							pluginSlug: nextPluginSlug,
 							isDisabled: data.isDisabled,
-							accentColor: data.accentColor,
 							queryDocument: data.queryDocument,
 							displayConfiguration: data.displayConfiguration,
 							...(sortOrder === undefined ? {} : { sortOrder }),
