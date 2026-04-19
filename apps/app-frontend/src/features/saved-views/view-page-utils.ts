@@ -34,14 +34,22 @@ const createRuntimeField = (key: string, expression: ViewExpression) => ({
 const buildCardFields = (input: {
 	image: ViewExpression | null;
 	title: ViewExpression | null;
-	badge: ViewExpression | null;
-	subtitle: ViewExpression | null;
+	callout: ViewExpression | null;
+	primarySubtitle: ViewExpression | null;
+	secondarySubtitle: ViewExpression | null;
 }) => {
 	return [
 		createRuntimeField("image", input.image ?? nullExpression),
 		createRuntimeField("title", input.title ?? nullExpression),
-		createRuntimeField("subtitle", input.subtitle ?? nullExpression),
-		createRuntimeField("badge", input.badge ?? nullExpression),
+		createRuntimeField(
+			"primarySubtitle",
+			input.primarySubtitle ?? nullExpression,
+		),
+		createRuntimeField(
+			"secondarySubtitle",
+			input.secondarySubtitle ?? nullExpression,
+		),
+		createRuntimeField("callout", input.callout ?? nullExpression),
 	];
 };
 
@@ -62,8 +70,9 @@ const buildCardRuntimeFields = (configuration: CardDisplayConfiguration) => {
 	return buildCardFields({
 		image: configuration.imageProperty,
 		title: configuration.titleProperty,
-		badge: configuration.badgeProperty,
-		subtitle: configuration.subtitleProperty,
+		callout: configuration.calloutProperty,
+		primarySubtitle: configuration.primarySubtitleProperty,
+		secondarySubtitle: configuration.secondarySubtitleProperty,
 	});
 };
 
@@ -106,8 +115,9 @@ export function createDisabledQueryEngineRequest(): QueryEngineRequest {
 			expression: createEntityColumnExpression("book", "name"),
 		},
 		fields: buildCardFields({
-			badge: null,
-			subtitle: null,
+			callout: null,
+			primarySubtitle: null,
+			secondarySubtitle: null,
 			title: createEntityColumnExpression("book", "name"),
 			image: createEntityColumnExpression("book", "image"),
 		}),

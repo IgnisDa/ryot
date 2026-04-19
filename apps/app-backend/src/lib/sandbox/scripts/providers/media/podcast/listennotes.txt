@@ -112,12 +112,13 @@ function mapSearchItem(item, dayjs) {
 
   return {
     externalId,
-    badgeProperty: { kind: "null", value: null },
+    calloutProperty: { kind: "null", value: null },
     titleProperty: { kind: "text", value: title },
-    subtitleProperty:
+    primarySubtitleProperty:
       publishYear === null
         ? { kind: "null", value: null }
         : { kind: "number", value: publishYear },
+    secondarySubtitleProperty: { kind: "null", value: null },
     imageProperty: imageProperty ?? { kind: "null", value: null },
   };
 }

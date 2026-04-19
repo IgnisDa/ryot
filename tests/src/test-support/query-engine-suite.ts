@@ -162,18 +162,31 @@ export function registerQueryEnginePresentationAndErrorTests() {
 		expect(gridResult.response.status).toBe(200);
 		expect(listResult.response.status).toBe(200);
 		expect(
-			getQueryEngineFieldOrThrow(gridResult.data?.data.items[0], "badge"),
+			getQueryEngineFieldOrThrow(gridResult.data?.data.items[0], "callout"),
 		).toEqual({
-			key: "badge",
+			key: "callout",
 			kind: "text",
 			value: "phone",
 		});
 		expect(
-			getQueryEngineFieldOrThrow(gridResult.data?.data.items[0], "subtitle"),
+			getQueryEngineFieldOrThrow(
+				gridResult.data?.data.items[0],
+				"primarySubtitle",
+			),
 		).toEqual({
-			key: "subtitle",
+			key: "primarySubtitle",
 			kind: "number",
 			value: 2018,
+		});
+		expect(
+			getQueryEngineFieldOrThrow(
+				gridResult.data?.data.items[0],
+				"secondarySubtitle",
+			),
+		).toEqual({
+			key: "secondarySubtitle",
+			kind: "null",
+			value: null,
 		});
 		expect(
 			getQueryEngineFieldOrThrow(gridResult.data?.data.items[0], "title"),
@@ -190,18 +203,31 @@ export function registerQueryEnginePresentationAndErrorTests() {
 			value: { kind: "remote", url: "https://example.com/alpha-phone.png" },
 		});
 		expect(
-			getQueryEngineFieldOrThrow(listResult.data?.data.items[0], "badge"),
+			getQueryEngineFieldOrThrow(listResult.data?.data.items[0], "callout"),
 		).toEqual({
-			key: "badge",
+			key: "callout",
 			kind: "text",
 			value: "phone",
 		});
 		expect(
-			getQueryEngineFieldOrThrow(listResult.data?.data.items[0], "subtitle"),
+			getQueryEngineFieldOrThrow(
+				listResult.data?.data.items[0],
+				"primarySubtitle",
+			),
 		).toEqual({
-			key: "subtitle",
+			key: "primarySubtitle",
 			kind: "number",
 			value: 2018,
+		});
+		expect(
+			getQueryEngineFieldOrThrow(
+				listResult.data?.data.items[0],
+				"secondarySubtitle",
+			),
+		).toEqual({
+			key: "secondarySubtitle",
+			kind: "null",
+			value: null,
 		});
 		expect(
 			getQueryEngineFieldOrThrow(listResult.data?.data.items[0], "title"),
@@ -232,25 +258,36 @@ export function registerQueryEnginePresentationAndErrorTests() {
 				entitySchemaSlugs: [schema.slug],
 				pagination: { page: 1, limit: 1 },
 				displayConfiguration: buildGridDisplayConfiguration(
-					{ badgeProperty: [], subtitleProperty: [] },
+					{
+						calloutProperty: [],
+						primarySubtitleProperty: [],
+						secondarySubtitleProperty: [],
+					},
 					[schema.slug],
 				),
 			}),
 		);
 
 		expect(response.status).toBe(200);
-		expect(getQueryEngineFieldOrThrow(data?.data.items[0], "badge")).toEqual({
-			key: "badge",
+		expect(getQueryEngineFieldOrThrow(data?.data.items[0], "callout")).toEqual({
+			key: "callout",
 			kind: "null",
 			value: null,
 		});
-		expect(getQueryEngineFieldOrThrow(data?.data.items[0], "subtitle")).toEqual(
-			{
-				key: "subtitle",
-				kind: "null",
-				value: null,
-			},
-		);
+		expect(
+			getQueryEngineFieldOrThrow(data?.data.items[0], "primarySubtitle"),
+		).toEqual({
+			key: "primarySubtitle",
+			kind: "null",
+			value: null,
+		});
+		expect(
+			getQueryEngineFieldOrThrow(data?.data.items[0], "secondarySubtitle"),
+		).toEqual({
+			key: "secondarySubtitle",
+			kind: "null",
+			value: null,
+		});
 		expect(getQueryEngineFieldOrThrow(data?.data.items[0], "title")).toEqual({
 			key: "title",
 			kind: "text",
@@ -308,14 +345,15 @@ export function registerQueryEnginePresentationAndErrorTests() {
 				},
 				displayConfiguration: buildGridDisplayConfiguration(
 					{
-						badgeProperty: [
+						calloutProperty: [
 							entityField(smartphoneSlug, "year"),
 							entityField(tabletSlug, "releaseYear"),
 						],
-						subtitleProperty: [
+						primarySubtitleProperty: [
 							entityField(smartphoneSlug, "manufacturer"),
 							entityField(tabletSlug, "maker"),
 						],
+						secondarySubtitleProperty: null,
 					},
 					[smartphoneSlug, tabletSlug],
 				),
@@ -323,30 +361,30 @@ export function registerQueryEnginePresentationAndErrorTests() {
 		);
 
 		expect(response.status).toBe(200);
-		expect(getQueryEngineFieldOrThrow(data?.data.items[0], "badge")).toEqual({
-			key: "badge",
+		expect(getQueryEngineFieldOrThrow(data?.data.items[0], "callout")).toEqual({
+			key: "callout",
 			kind: "number",
 			value: 2018,
 		});
-		expect(getQueryEngineFieldOrThrow(data?.data.items[0], "subtitle")).toEqual(
-			{
-				key: "subtitle",
-				kind: "text",
-				value: "Acme",
-			},
-		);
-		expect(getQueryEngineFieldOrThrow(data?.data.items[1], "badge")).toEqual({
-			key: "badge",
+		expect(
+			getQueryEngineFieldOrThrow(data?.data.items[0], "primarySubtitle"),
+		).toEqual({
+			key: "primarySubtitle",
+			kind: "text",
+			value: "Acme",
+		});
+		expect(getQueryEngineFieldOrThrow(data?.data.items[1], "callout")).toEqual({
+			key: "callout",
 			kind: "number",
 			value: 2019,
 		});
-		expect(getQueryEngineFieldOrThrow(data?.data.items[1], "subtitle")).toEqual(
-			{
-				key: "subtitle",
-				kind: "text",
-				value: "Tabula",
-			},
-		);
+		expect(
+			getQueryEngineFieldOrThrow(data?.data.items[1], "primarySubtitle"),
+		).toEqual({
+			key: "primarySubtitle",
+			kind: "text",
+			value: "Tabula",
+		});
 	});
 
 	it("rejects mixed image and text display fallbacks when @image is null", async () => {
@@ -364,8 +402,9 @@ export function registerQueryEnginePresentationAndErrorTests() {
 					left: entityColumnExpression(schema.slug, "name"),
 				},
 				displayConfiguration: {
-					badgeProperty: null,
-					subtitleProperty: null,
+					calloutProperty: null,
+					primarySubtitleProperty: null,
+					secondarySubtitleProperty: null,
 					titleProperty: [entityField(schema.slug, "name")],
 					imageProperty: [
 						entityField(schema.slug, "image"),
@@ -394,8 +433,9 @@ export function registerQueryEnginePresentationAndErrorTests() {
 					left: entityColumnExpression(schema.slug, "name"),
 				},
 				displayConfiguration: {
-					badgeProperty: null,
-					subtitleProperty: null,
+					calloutProperty: null,
+					primarySubtitleProperty: null,
+					secondarySubtitleProperty: null,
 					titleProperty: [entityField(schema.slug, "name")],
 					imageProperty: [
 						entityField(schema.slug, "image"),
@@ -501,8 +541,9 @@ export function registerQueryEnginePresentationAndErrorTests() {
 					{ key: "review", kind: "latestEvent", eventSchemaSlug: "review" },
 				],
 				displayConfiguration: buildGridDisplayConfiguration({
-					subtitleProperty: null,
-					badgeProperty: ["event.review.properties.rating"],
+					calloutProperty: ["event.review.properties.rating"],
+					primarySubtitleProperty: null,
+					secondarySubtitleProperty: null,
 				}),
 			}),
 		);
@@ -514,8 +555,8 @@ export function registerQueryEnginePresentationAndErrorTests() {
 			"Omega Phone",
 		]);
 		for (const item of data?.data.items ?? []) {
-			expect(getQueryEngineFieldOrThrow(item, "badge")).toEqual({
-				key: "badge",
+			expect(getQueryEngineFieldOrThrow(item, "callout")).toEqual({
+				key: "callout",
 				kind: "null",
 				value: null,
 			});
@@ -538,8 +579,9 @@ export function registerQueryEnginePresentationAndErrorTests() {
 					{ key: "review", kind: "latestEvent", eventSchemaSlug: "review" },
 				],
 				displayConfiguration: buildGridDisplayConfiguration({
-					subtitleProperty: null,
-					badgeProperty: ["event.review.properties.rating"],
+					calloutProperty: ["event.review.properties.rating"],
+					primarySubtitleProperty: null,
+					secondarySubtitleProperty: null,
 				}),
 			}),
 		);
@@ -550,7 +592,7 @@ export function registerQueryEnginePresentationAndErrorTests() {
 			"Gamma Phone",
 		]);
 		for (const item of data?.data.items ?? []) {
-			expect(getQueryEngineFieldOrThrow(item, "badge").kind).toBe("number");
+			expect(getQueryEngineFieldOrThrow(item, "callout").kind).toBe("number");
 		}
 	});
 

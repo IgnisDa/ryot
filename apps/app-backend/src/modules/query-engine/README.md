@@ -82,8 +82,9 @@ Saved views persist the same query AST and then point display slots directly at 
         "type": "reference",
         "reference": { "type": "computed-field", "key": "label" }
       },
-      "subtitleProperty": null,
-      "badgeProperty": {
+      "primarySubtitleProperty": null,
+      "secondarySubtitleProperty": null,
+      "calloutProperty": {
         "type": "reference",
         "reference": { "type": "computed-field", "key": "nextYear" }
       }
@@ -97,8 +98,9 @@ Saved views persist the same query AST and then point display slots directly at 
         "type": "reference",
         "reference": { "type": "computed-field", "key": "label" }
       },
-      "subtitleProperty": null,
-      "badgeProperty": {
+      "primarySubtitleProperty": null,
+      "secondarySubtitleProperty": null,
+      "calloutProperty": {
         "type": "reference",
         "reference": { "type": "computed-field", "key": "nextYear" }
       }
@@ -190,7 +192,7 @@ Each field looks like this:
 
 ```json
 {
-  "key": "subtitle",
+  "key": "primarySubtitle",
   "expression": {
     "type": "coalesce",
     "values": [
@@ -522,7 +524,7 @@ Note:
 
 ## Common UI Mappings
 
-Typical field keys still look like UI slots such as `image`, `title`, `subtitle`, `badge`, or `column_0`, but each one now carries a single `expression` instead of a `references` array.
+Typical field keys still look like UI slots such as `image`, `title`, `primarySubtitle`, `secondarySubtitle`, `callout`, or `column_0`, but each one now carries a single `expression` instead of a `references` array.
 
 ## Query Examples
 
@@ -568,7 +570,7 @@ Typical field keys still look like UI slots such as `image`, `title`, `subtitle`
       }
     },
     {
-      "key": "subtitle",
+      "key": "primarySubtitle",
       "expression": {
         "type": "reference",
         "reference": { "type": "entity", "slug": "book", "path": ["properties", "author"] }
@@ -679,7 +681,7 @@ Show entities with their latest review rating and note.
 }
 ```
 
-### 4. Event-Based Badge With Entity Fallback
+### 4. Event-Based Callout With Entity Fallback
 
 Use latest review rating when present, otherwise show publish year.
 
@@ -714,7 +716,7 @@ Use latest review rating when present, otherwise show publish year.
       }
     },
     {
-      "key": "badge",
+      "key": "callout",
       "expression": {
         "type": "coalesce",
         "values": [

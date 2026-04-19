@@ -83,12 +83,17 @@ const buildRuntimeFields = (input: {
 				expression: configuration.titleProperty ?? nullViewExpression,
 			},
 			{
-				key: "subtitle",
-				expression: configuration.subtitleProperty ?? nullViewExpression,
+				key: "primarySubtitle",
+				expression: configuration.primarySubtitleProperty ?? nullViewExpression,
 			},
 			{
-				key: "badge",
-				expression: configuration.badgeProperty ?? nullViewExpression,
+				key: "secondarySubtitle",
+				expression:
+					configuration.secondarySubtitleProperty ?? nullViewExpression,
+			},
+			{
+				key: "callout",
+				expression: configuration.calloutProperty ?? nullViewExpression,
 			},
 		];
 	};

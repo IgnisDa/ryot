@@ -2643,14 +2643,16 @@ export interface paths {
                                     grid: {
                                         imageProperty: components["schemas"]["NullableViewExpression"];
                                         titleProperty: components["schemas"]["NullableViewExpression"];
-                                        badgeProperty: components["schemas"]["NullableViewExpression"];
-                                        subtitleProperty: components["schemas"]["NullableViewExpression"];
+                                        calloutProperty: components["schemas"]["NullableViewExpression"];
+                                        primarySubtitleProperty: components["schemas"]["NullableViewExpression"];
+                                        secondarySubtitleProperty: components["schemas"]["NullableViewExpression"];
                                     };
                                     list: {
                                         imageProperty: components["schemas"]["NullableViewExpression"];
                                         titleProperty: components["schemas"]["NullableViewExpression"];
-                                        badgeProperty: components["schemas"]["NullableViewExpression"];
-                                        subtitleProperty: components["schemas"]["NullableViewExpression"];
+                                        calloutProperty: components["schemas"]["NullableViewExpression"];
+                                        primarySubtitleProperty: components["schemas"]["NullableViewExpression"];
+                                        secondarySubtitleProperty: components["schemas"]["NullableViewExpression"];
                                     };
                                     table: {
                                         columns: {
@@ -2724,14 +2726,16 @@ export interface paths {
                             grid: {
                                 imageProperty: components["schemas"]["NullableViewExpression"];
                                 titleProperty: components["schemas"]["NullableViewExpression"];
-                                badgeProperty: components["schemas"]["NullableViewExpression"];
-                                subtitleProperty: components["schemas"]["NullableViewExpression"];
+                                calloutProperty: components["schemas"]["NullableViewExpression"];
+                                primarySubtitleProperty: components["schemas"]["NullableViewExpression"];
+                                secondarySubtitleProperty: components["schemas"]["NullableViewExpression"];
                             };
                             list: {
                                 imageProperty: components["schemas"]["NullableViewExpression"];
                                 titleProperty: components["schemas"]["NullableViewExpression"];
-                                badgeProperty: components["schemas"]["NullableViewExpression"];
-                                subtitleProperty: components["schemas"]["NullableViewExpression"];
+                                calloutProperty: components["schemas"]["NullableViewExpression"];
+                                primarySubtitleProperty: components["schemas"]["NullableViewExpression"];
+                                secondarySubtitleProperty: components["schemas"]["NullableViewExpression"];
                             };
                             table: {
                                 columns: {
@@ -2787,14 +2791,16 @@ export interface paths {
                                     grid: {
                                         imageProperty: components["schemas"]["NullableViewExpression"];
                                         titleProperty: components["schemas"]["NullableViewExpression"];
-                                        badgeProperty: components["schemas"]["NullableViewExpression"];
-                                        subtitleProperty: components["schemas"]["NullableViewExpression"];
+                                        calloutProperty: components["schemas"]["NullableViewExpression"];
+                                        primarySubtitleProperty: components["schemas"]["NullableViewExpression"];
+                                        secondarySubtitleProperty: components["schemas"]["NullableViewExpression"];
                                     };
                                     list: {
                                         imageProperty: components["schemas"]["NullableViewExpression"];
                                         titleProperty: components["schemas"]["NullableViewExpression"];
-                                        badgeProperty: components["schemas"]["NullableViewExpression"];
-                                        subtitleProperty: components["schemas"]["NullableViewExpression"];
+                                        calloutProperty: components["schemas"]["NullableViewExpression"];
+                                        primarySubtitleProperty: components["schemas"]["NullableViewExpression"];
+                                        secondarySubtitleProperty: components["schemas"]["NullableViewExpression"];
                                     };
                                     table: {
                                         columns: {
@@ -2898,14 +2904,16 @@ export interface paths {
                                     grid: {
                                         imageProperty: components["schemas"]["NullableViewExpression"];
                                         titleProperty: components["schemas"]["NullableViewExpression"];
-                                        badgeProperty: components["schemas"]["NullableViewExpression"];
-                                        subtitleProperty: components["schemas"]["NullableViewExpression"];
+                                        calloutProperty: components["schemas"]["NullableViewExpression"];
+                                        primarySubtitleProperty: components["schemas"]["NullableViewExpression"];
+                                        secondarySubtitleProperty: components["schemas"]["NullableViewExpression"];
                                     };
                                     list: {
                                         imageProperty: components["schemas"]["NullableViewExpression"];
                                         titleProperty: components["schemas"]["NullableViewExpression"];
-                                        badgeProperty: components["schemas"]["NullableViewExpression"];
-                                        subtitleProperty: components["schemas"]["NullableViewExpression"];
+                                        calloutProperty: components["schemas"]["NullableViewExpression"];
+                                        primarySubtitleProperty: components["schemas"]["NullableViewExpression"];
+                                        secondarySubtitleProperty: components["schemas"]["NullableViewExpression"];
                                     };
                                     table: {
                                         columns: {
@@ -2984,14 +2992,16 @@ export interface paths {
                             grid: {
                                 imageProperty: components["schemas"]["NullableViewExpression"];
                                 titleProperty: components["schemas"]["NullableViewExpression"];
-                                badgeProperty: components["schemas"]["NullableViewExpression"];
-                                subtitleProperty: components["schemas"]["NullableViewExpression"];
+                                calloutProperty: components["schemas"]["NullableViewExpression"];
+                                primarySubtitleProperty: components["schemas"]["NullableViewExpression"];
+                                secondarySubtitleProperty: components["schemas"]["NullableViewExpression"];
                             };
                             list: {
                                 imageProperty: components["schemas"]["NullableViewExpression"];
                                 titleProperty: components["schemas"]["NullableViewExpression"];
-                                badgeProperty: components["schemas"]["NullableViewExpression"];
-                                subtitleProperty: components["schemas"]["NullableViewExpression"];
+                                calloutProperty: components["schemas"]["NullableViewExpression"];
+                                primarySubtitleProperty: components["schemas"]["NullableViewExpression"];
+                                secondarySubtitleProperty: components["schemas"]["NullableViewExpression"];
                             };
                             table: {
                                 columns: {
@@ -3047,14 +3057,16 @@ export interface paths {
                                     grid: {
                                         imageProperty: components["schemas"]["NullableViewExpression"];
                                         titleProperty: components["schemas"]["NullableViewExpression"];
-                                        badgeProperty: components["schemas"]["NullableViewExpression"];
-                                        subtitleProperty: components["schemas"]["NullableViewExpression"];
+                                        calloutProperty: components["schemas"]["NullableViewExpression"];
+                                        primarySubtitleProperty: components["schemas"]["NullableViewExpression"];
+                                        secondarySubtitleProperty: components["schemas"]["NullableViewExpression"];
                                     };
                                     list: {
                                         imageProperty: components["schemas"]["NullableViewExpression"];
                                         titleProperty: components["schemas"]["NullableViewExpression"];
-                                        badgeProperty: components["schemas"]["NullableViewExpression"];
-                                        subtitleProperty: components["schemas"]["NullableViewExpression"];
+                                        calloutProperty: components["schemas"]["NullableViewExpression"];
+                                        primarySubtitleProperty: components["schemas"]["NullableViewExpression"];
+                                        secondarySubtitleProperty: components["schemas"]["NullableViewExpression"];
                                     };
                                     table: {
                                         columns: {
@@ -3157,14 +3169,16 @@ export interface paths {
                                     grid: {
                                         imageProperty: components["schemas"]["NullableViewExpression"];
                                         titleProperty: components["schemas"]["NullableViewExpression"];
-                                        badgeProperty: components["schemas"]["NullableViewExpression"];
-                                        subtitleProperty: components["schemas"]["NullableViewExpression"];
+                                        calloutProperty: components["schemas"]["NullableViewExpression"];
+                                        primarySubtitleProperty: components["schemas"]["NullableViewExpression"];
+                                        secondarySubtitleProperty: components["schemas"]["NullableViewExpression"];
                                     };
                                     list: {
                                         imageProperty: components["schemas"]["NullableViewExpression"];
                                         titleProperty: components["schemas"]["NullableViewExpression"];
-                                        badgeProperty: components["schemas"]["NullableViewExpression"];
-                                        subtitleProperty: components["schemas"]["NullableViewExpression"];
+                                        calloutProperty: components["schemas"]["NullableViewExpression"];
+                                        primarySubtitleProperty: components["schemas"]["NullableViewExpression"];
+                                        secondarySubtitleProperty: components["schemas"]["NullableViewExpression"];
                                     };
                                     table: {
                                         columns: {
@@ -3280,14 +3294,16 @@ export interface paths {
                                     grid: {
                                         imageProperty: components["schemas"]["NullableViewExpression"];
                                         titleProperty: components["schemas"]["NullableViewExpression"];
-                                        badgeProperty: components["schemas"]["NullableViewExpression"];
-                                        subtitleProperty: components["schemas"]["NullableViewExpression"];
+                                        calloutProperty: components["schemas"]["NullableViewExpression"];
+                                        primarySubtitleProperty: components["schemas"]["NullableViewExpression"];
+                                        secondarySubtitleProperty: components["schemas"]["NullableViewExpression"];
                                     };
                                     list: {
                                         imageProperty: components["schemas"]["NullableViewExpression"];
                                         titleProperty: components["schemas"]["NullableViewExpression"];
-                                        badgeProperty: components["schemas"]["NullableViewExpression"];
-                                        subtitleProperty: components["schemas"]["NullableViewExpression"];
+                                        calloutProperty: components["schemas"]["NullableViewExpression"];
+                                        primarySubtitleProperty: components["schemas"]["NullableViewExpression"];
+                                        secondarySubtitleProperty: components["schemas"]["NullableViewExpression"];
                                     };
                                     table: {
                                         columns: {
