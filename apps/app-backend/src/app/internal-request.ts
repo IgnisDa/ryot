@@ -58,10 +58,6 @@ export const normalizeBaseAppPath = (path: string) => {
 		throw new Error("appApiCall cannot target /api/auth routes");
 	}
 
-	if (pathname === "/sandbox" || pathname.startsWith("/sandbox/")) {
-		throw new Error("appApiCall cannot target /api/sandbox routes");
-	}
-
 	return `${pathname}${requestUrl.search}`;
 };
 

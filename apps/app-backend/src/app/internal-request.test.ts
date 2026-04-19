@@ -35,12 +35,6 @@ describe("normalizeBaseAppPath", () => {
 		);
 	});
 
-	it("rejects percent-encoded /api/sandbox routes", () => {
-		expect(() => normalizeBaseAppPath("/api/%73andbox/result/job_1")).toThrow(
-			"appApiCall cannot target /api/sandbox routes",
-		);
-	});
-
 	it("rejects malformed percent-encoded paths", () => {
 		expect(() => normalizeBaseAppPath("/api/%ZZquery-engine/execute")).toThrow(
 			"appApiCall path is invalid",
