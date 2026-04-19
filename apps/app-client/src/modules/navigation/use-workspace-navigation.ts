@@ -5,9 +5,12 @@ import { useApiScope } from "@/api/scope";
 import { useInternalRequestFailureLogging } from "@/api/use-internal-request-failure-logging";
 import { useAuthClient } from "@/modules/auth/client";
 import { navigationAtom, scopedWorkspaceAtom } from "@/modules/navigation/atoms";
+import { savedViewSessionAtom } from "@/modules/saved-views/atoms";
+import { emptySavedViewSession } from "@/modules/saved-views/session-state";
 
 import {
 	getNavigationHref,
+	getNavigationMode,
 	getSettingsHref,
 	getWorkspaceHref,
 	type NavigationItem,
@@ -35,6 +38,7 @@ export function useWorkspaceNavigation(): WorkspaceNavigation {
 	const { data: session } = client.useSession();
 	const workspaceAtom = scopedWorkspaceAtom(scope);
 	const setWorkspace = useAtomSet(workspaceAtom);
+	const resetSavedViewSession = useAtomSet(savedViewSessionAtom(scope));
 	const selectedWorkspace = useAtomValue(workspaceAtom);
 	const navigationResult = useAtomValue(navigationAtom(scope));
 	const params = useGlobalSearchParams<{ workspace?: string }>();
@@ -61,12 +65,31 @@ export function useWorkspaceNavigation(): WorkspaceNavigation {
 		accountEmail: session?.user.email ?? "Email unavailable",
 		accountName: session?.user.name ?? session?.user.email ?? "Account",
 		openSettings: () => router.navigate(getSettingsHref(state.workspace.slug)),
-		navigate: (item) => router.navigate(getNavigationHref(state.workspace.slug, item)),
+		navigate: (item) => {
+			const href = getNavigationHref(state.workspace.slug, item);
+			const mode = getNavigationMode(state.activeKey, item);
+			if (mode === "dismissTo") {
+				router.dismissTo(href);
+				return;
+			}
+			if (mode === "replace") {
+				router.replace(href);
+				return;
+			}
+			router.push(href);
+		},
 		selectWorkspace: (slug) => {
-			if (!state.data.workspaces.some((item) => item.slug === slug)) {
+			if (
+				slug === state.workspace.slug ||
+				!state.data.workspaces.some((item) => item.slug === slug)
+			) {
 				return;
 			}
 			setWorkspace(slug);
+			resetSavedViewSession(emptySavedViewSession);
+			if (router.canDismiss()) {
+				router.dismissAll();
+			}
 			router.replace(getWorkspaceHref(slug));
 		},
 	};

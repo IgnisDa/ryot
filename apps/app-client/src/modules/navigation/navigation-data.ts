@@ -6,6 +6,8 @@ import type {
 
 export type NavigationItem = NavigationView & { kind: "view" | "collection" | "home" };
 
+export type NavigationMode = "push" | "replace" | "dismissTo";
+
 export type NavigationItems = {
 	views: readonly NavigationItem[];
 	savedViews: readonly NavigationItem[];
@@ -87,6 +89,19 @@ export function getNavigationHref(workspace: string, item: Pick<NavigationItem, 
 		return { params: { entityId: item.slug }, pathname: "/e/[entityId]" as const };
 	}
 	return { params: { viewSlug: item.slug }, pathname: "/v/[viewSlug]" as const };
+}
+
+export function getNavigationMode(
+	activeKey: string,
+	item: Pick<NavigationItem, "kind">,
+): NavigationMode {
+	if (item.kind === "home") {
+		return "dismissTo";
+	}
+	if (item.kind === "view" && activeKey.startsWith("view:")) {
+		return "replace";
+	}
+	return "push";
 }
 
 export const getEntityHref = (entityId: string) => ({

@@ -8,6 +8,7 @@ import {
 	getEnabledItems,
 	getNavigationHref,
 	getNavigationItems,
+	getNavigationMode,
 	getSettingsHref,
 	getWorkspaceHref,
 	getWorkspacePickerSummary,
@@ -155,6 +156,22 @@ it("creates a settings route", () => {
 	expect(getSettingsHref("media")).toEqual({
 		params: { workspace: "media" },
 		pathname: "/[workspace]/settings",
+	});
+});
+
+describe("getNavigationMode", () => {
+	it.each([
+		["view:movies", "view", "replace"],
+		["home", "view", "push"],
+		["settings", "view", "push"],
+		["collection:c1", "view", "push"],
+		["view:movies", "home", "dismissTo"],
+		["home", "home", "dismissTo"],
+		["view:movies", "collection", "push"],
+	])("from %s to a %s destination is %s", (activeKey, kind, expected) => {
+		expect(getNavigationMode(activeKey, { kind: kind as "view" | "home" | "collection" })).toBe(
+			expected,
+		);
 	});
 });
 
