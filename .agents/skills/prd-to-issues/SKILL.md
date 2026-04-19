@@ -27,8 +27,11 @@ The **final task must always be a codebase cleanup task** (AFK). It must not be 
 
 - Duplicate code, logic, or utilities that can be consolidated
 - Duplicate or redundant types and interfaces
+- Rename-only or passthrough type aliases; prefer importing canonical types directly from the module that defines them
+- Needless exported or re-exported types that merely proxy another module's types
 - Duplicate, overlapping, or value-free tests (see AGENTS.md anti-patterns)
 - Dead code: unreachable branches, unused variables, unused imports, unused exports
+- Leftover TODO / FIXME comments that were resolved during implementation
 - Temporary or scaffold code introduced to unblock an earlier slice
 - YAGNI violations: abstractions or configuration options added speculatively but never actually used
 
@@ -108,15 +111,18 @@ The cleanup task file must use this template instead:
 
 ## What to build
 
-Review every file touched during this plan and remove anything that is no longer needed or was introduced as scaffolding.
+Review every file touched during this plan and remove anything that is no longer needed or was introduced as scaffolding. Prefer canonical imports over local type aliases or passthrough type exports.
 
 ## Acceptance criteria
 
 - [ ] No duplicate functions, utilities, or logic blocks introduced by this plan
 - [ ] No duplicate or redundant types / interfaces
+- [ ] No rename-only or passthrough type aliases; canonical types are imported directly from their defining module
+- [ ] No unnecessary exported or re-exported types that callers can import from the canonical source module
 - [ ] No duplicate, overlapping, or value-free tests (per AGENTS.md anti-patterns)
 - [ ] No unused imports, variables, or exports in changed files
 - [ ] No unreachable or dead code branches introduced by this plan
+- [ ] No leftover TODO / FIXME comments that were resolved
 - [ ] No temporary scaffold code introduced to unblock an earlier slice
 - [ ] No YAGNI violations: speculative abstractions or config options never actually consumed
 
