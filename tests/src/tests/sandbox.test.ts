@@ -94,7 +94,7 @@ describe("sandbox async flow", () => {
 		expect(result.error).toBeNull();
 	});
 
-	it("completes a script that uses appApiCall against query-engine", async () => {
+	it("completes a script that uses executeQueryEngine", async () => {
 		const { client, cookies } = await createAuthenticatedClient();
 		const { trackerId } = await createTracker(client, cookies, {
 			name: "Sandbox Schema Tracker",
@@ -111,27 +111,25 @@ describe("sandbox async flow", () => {
 			entitySchemaId: schema.id,
 		});
 		const { id: scriptId } = await createSandboxScript(client, cookies, {
-			name: "app-api-call-query-engine",
-			metadata: { allowedHostFunctions: ["appApiCall"] },
-			slug: `app-api-call-query-engine-${crypto.randomUUID()}`,
+			name: "execute-query-engine",
+			slug: `execute-query-engine-${crypto.randomUUID()}`,
+			metadata: { allowedHostFunctions: ["executeQueryEngine"] },
 			code: `
 driver("main", async function() {
-  const result = await appApiCall("POST", "/query-engine/execute", {
-    body: {
-      mode: "entities",
-      scope: [${JSON.stringify(slug)}],
-      pagination: { page: 1, limit: 10 },
-      sort: { direction: "asc", expression: { type: "reference", reference: { path: ["name"], type: "entity", slug: ${JSON.stringify(slug)} } } },
-      fields: [
-        { key: "id", expression: { type: "reference", reference: { path: ["id"], type: "entity", slug: ${JSON.stringify(slug)} } } },
-        { key: "name", expression: { type: "reference", reference: { path: ["name"], type: "entity", slug: ${JSON.stringify(slug)} } } }
-      ]
-    }
+  const result = await executeQueryEngine({
+    mode: "entities",
+    scope: [${JSON.stringify(slug)}],
+    pagination: { page: 1, limit: 10 },
+    sort: { direction: "asc", expression: { type: "reference", reference: { path: ["name"], type: "entity", slug: ${JSON.stringify(slug)} } } },
+    fields: [
+      { key: "id", expression: { type: "reference", reference: { path: ["id"], type: "entity", slug: ${JSON.stringify(slug)} } } },
+      { key: "name", expression: { type: "reference", reference: { path: ["name"], type: "entity", slug: ${JSON.stringify(slug)} } } }
+    ]
   });
   if (!result.success) {
     throw new Error(result.error);
   }
-  return result.data.body.data.items;
+  return result.data.data.items;
 });
 `,
 		});
@@ -161,32 +159,30 @@ driver("main", async function() {
 		expect(value[0]?.id?.value).toBeDefined();
 	});
 
-	it("returns an error when appApiCall hits query-engine with a missing schema slug", async () => {
+	it("returns an error when executeQueryEngine uses a missing schema slug", async () => {
 		const { client, cookies } = await createAuthenticatedClient();
 		const { id: scriptId } = await createSandboxScript(client, cookies, {
-			name: "app-api-call-missing-schema",
-			metadata: { allowedHostFunctions: ["appApiCall"] },
-			slug: `app-api-call-missing-schema-${crypto.randomUUID()}`,
+			name: "execute-query-engine-missing-schema",
+			metadata: { allowedHostFunctions: ["executeQueryEngine"] },
+			slug: `execute-query-engine-missing-schema-${crypto.randomUUID()}`,
 			code: `
 driver("main", async function() {
-  const result = await appApiCall("POST", "/query-engine/execute", {
-    body: {
-      mode: "entities",
-      scope: ["does-not-exist"],
-      pagination: { page: 1, limit: 10 },
-      sort: {
-        direction: "asc",
-        expression: {
-          type: "reference",
-          reference: { path: ["name"], type: "entity", slug: "does-not-exist" }
-        }
+  const result = await executeQueryEngine({
+    mode: "entities",
+    scope: ["does-not-exist"],
+    pagination: { page: 1, limit: 10 },
+    sort: {
+      direction: "asc",
+      expression: {
+        type: "reference",
+        reference: { path: ["name"], type: "entity", slug: "does-not-exist" }
       }
     }
   });
   if (result.success) {
     throw new Error("Expected query-engine request to fail");
   }
-  throw new Error(JSON.stringify(result.data?.body ?? result.error));
+  throw new Error(result.error);
 });
 `,
 		});
@@ -203,6 +199,48 @@ driver("main", async function() {
 		}
 
 		expect(result.error).toContain("Schema 'does-not-exist' not found");
+	});
+
+	it("completes a script that uses getSystemConfig", async () => {
+		const { client, cookies } = await createAuthenticatedClient();
+		const { id: scriptId } = await createSandboxScript(client, cookies, {
+			name: "get-system-config",
+			slug: `get-system-config-${crypto.randomUUID()}`,
+			metadata: { allowedHostFunctions: ["getSystemConfig"] },
+			code: `
+driver("main", async function() {
+  const result = await getSystemConfig();
+  if (!result.success) {
+    throw new Error(result.error);
+  }
+  return result.data.auth;
+});
+`,
+		});
+		const { jobId } = await enqueueSandboxScript(client, cookies, {
+			scriptId,
+			driverName: "main",
+		});
+
+		const result = await pollSandboxResult(client, cookies, jobId);
+
+		expect(result.status).toBe("completed");
+		if (result.status !== "completed") {
+			throw new Error("Expected sandbox job to complete");
+		}
+
+		expect(result.error).toBeNull();
+
+		// oxlint-disable-next-line typescript-eslint/no-unsafe-type-assertion
+		const value = result.value as {
+			localAuthDisabled?: boolean;
+			oidcEnabled?: boolean;
+			signupAllowed?: boolean;
+		};
+
+		expect(typeof value.localAuthDisabled).toBe("boolean");
+		expect(typeof value.oidcEnabled).toBe("boolean");
+		expect(typeof value.signupAllowed).toBe("boolean");
 	});
 
 	it("completes a script that uses getUserPreferences", async () => {
@@ -536,21 +574,18 @@ describe("sandbox enqueue by script ID", () => {
 		expect(result.status).not.toBe("pending");
 	}, 30_000);
 
-	it("completes with a host-function error when appApiCall is not allowed", async () => {
+	it("completes with a host-function error when executeQueryEngine is not allowed", async () => {
 		const { client, cookies } = await createAuthenticatedClient();
 		const { id: scriptId } = await createSandboxScript(client, cookies, {
 			metadata: {},
 			name: "no-host-functions",
 			slug: `no-host-functions-${crypto.randomUUID()}`,
 			code: `driver("main", async function() {
-  return await appApiCall("GET", "/system/health");
+  return await executeQueryEngine({ mode: "entities", scope: ["movie"], pagination: { page: 1, limit: 1 }, sort: { direction: "asc", expression: { type: "reference", reference: { path: ["name"], type: "entity", slug: "movie" } } } });
 });`,
 		});
 
-		const { jobId } = await enqueueSandboxScript(client, cookies, {
-			scriptId,
-			driverName: "main",
-		});
+		const { jobId } = await enqueueSandboxScript(client, cookies, { scriptId, driverName: "main" });
 
 		const result = await pollSandboxResult(client, cookies, jobId);
 		expect(result.status).toBe("completed");
@@ -558,36 +593,7 @@ describe("sandbox enqueue by script ID", () => {
 			throw new Error("Expected sandbox job to complete");
 		}
 
-		expect(result.error).toContain("appApiCall is not defined");
-	});
-
-	it("rejects appApiCall attempts to target /api/auth routes", async () => {
-		const { client, cookies } = await createAuthenticatedClient();
-		const { id: scriptId } = await createSandboxScript(client, cookies, {
-			name: "app-api-call-auth-route",
-			metadata: { allowedHostFunctions: ["appApiCall"] },
-			slug: `app-api-call-auth-route-${crypto.randomUUID()}`,
-			code: `driver("main", async function() {
-  const result = await appApiCall("GET", "/api/auth/session");
-  if (!result.success) {
-    throw new Error(result.error);
-  }
-  return result.data;
-});`,
-		});
-
-		const { jobId } = await enqueueSandboxScript(client, cookies, {
-			scriptId,
-			driverName: "main",
-		});
-
-		const result = await pollSandboxResult(client, cookies, jobId);
-		expect(result.status).toBe("completed");
-		if (result.status !== "completed") {
-			throw new Error("Expected sandbox job to complete");
-		}
-
-		expect(result.error).toContain("appApiCall cannot target /api/auth routes");
+		expect(result.error).toContain("executeQueryEngine is not defined");
 	});
 });
 

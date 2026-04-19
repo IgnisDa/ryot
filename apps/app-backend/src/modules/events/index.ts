@@ -1,5 +1,6 @@
 export type { CreateEventsJobData } from "./jobs";
 export { createEventsJobData, createEventsJobName } from "./jobs";
+export { createEventBulkBody, listEventsQuery } from "./schemas";
 export type { CreateEventBody, CreateEventBulkBody, ListedEvent } from "./schemas";
 export type {
 	CreatedEventData,
@@ -14,10 +15,12 @@ export {
 	createEventBySchemaSlugWithTriggers,
 	createEventsBestEffortWithTriggers,
 	createEventsWithTriggers,
+	enqueueEventsForUser,
 	listEntityEvents,
 	parseEventProperties,
 	resolveEventCreateInput,
 	resolveEventEntityId,
 	resolveEventSchemaId,
+	validateEventCreateInputForUser,
 } from "./service";
 export { createEventsWorker } from "./worker";

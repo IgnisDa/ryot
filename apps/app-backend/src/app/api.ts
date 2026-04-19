@@ -24,8 +24,6 @@ import { systemApi } from "~/modules/system/routes";
 import { trackersApi } from "~/modules/trackers/routes";
 import { uploadsApi } from "~/modules/uploads/routes";
 
-import { registerInternalAppRequestHandler } from "./internal-request";
-
 const openApiTags = [
 	{
 		name: "system",
@@ -133,8 +131,6 @@ const baseApp = new OpenAPIHono<{ Variables: MaybeAuthType }>()
 	.route("/integrations", integrationsApi)
 	.route("/webhooks/integrations", integrationWebhooksApi)
 	.route("/query-engine", queryEngineApi);
-
-registerInternalAppRequestHandler((request) => baseApp.fetch(request));
 
 export const getAppBackendOpenApiDocument = (origin: string) =>
 	baseApp.getOpenAPIDocument(createOpenApiDocumentConfig(origin));
