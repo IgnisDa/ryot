@@ -40,6 +40,15 @@ Status, enable, and disable accept at most 50 entity IDs. Their RyotQL document 
 
 Monitoring cron pages through the pinned `media-monitoring-targets` RyotQL script, deduplicates global monitored entity IDs, and invokes kernel provider population in refresh batches of at most 100. Plugin scope exposes global plugin-owned media and cross-user plugin-owned monitoring relationships, but no user-owned endpoint entity fields. Query access stays in the pinned system script; durable child dispatch stays in the workflow. Kernel uses concurrency four and deterministic index-derived child IDs.
 
+## Imports
+
+The Trakt importer accepts one of two explicit payloads:
+
+- User mode: `{ source: "trakt", mode: "user", username }` imports the user's history, ratings, watchlist, lists, and collection.
+- List mode: `{ source: "trakt", mode: "list", url, collection }` imports movies and shows from a public Trakt list into the named Ryot collection.
+
+List URLs must use `trakt.tv` or `www.trakt.tv` and the `/users/{username}/lists/{slug}` path. Query parameters, fragments, and a trailing slash are allowed. Trakt imports require the configured `traktClientId` plugin setting.
+
 ## Lifecycle
 
 Media entities use six event schemas: `backlog`, `progress`, `complete`, `dropped`, `on_hold`, and `review`. `schemas/entity-schemas.ts` owns which event schemas and properties each entity supports.

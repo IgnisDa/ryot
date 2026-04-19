@@ -77,7 +77,7 @@ it("maps a registry payload source onto no file inputs", () => {
 				description: "Trakt account",
 				workflowSlug: "trakt-import",
 			},
-			{ source: "trakt", username: "alice" },
+			{ source: "trakt", mode: "user", username: "alice" },
 		),
 	).toEqual([]);
 });

@@ -50,6 +50,32 @@ it("passes Netflix profile selection from source payload to its parser activity"
 	});
 });
 
+it.each([
+	["user mode", { mode: "user", username: "alice" }, { mode: "user", username: "alice" }],
+	[
+		"list mode",
+		{ mode: "list", collection: "Favorites", url: "https://trakt.tv/users/alice/lists/favorites" },
+		{ mode: "list", collection: "Favorites", url: "https://trakt.tv/users/alice/lists/favorites" },
+	],
+])("passes Trakt $0 fields to its parser activity", async (_, sourcePayload, input) => {
+	const envelope = await Effect.runPromise(
+		workflow.run(
+			{ runId: `run-trakt-${_}`, source: "trakt", sourcePayload },
+			{ replayJournal: () => Effect.succeed([]) } satisfies WorkflowReplayHost,
+			{ metadata: {}, sandboxScriptId: "media-import" },
+		),
+	);
+	expect(envelope).toMatchObject({
+		state: "pending",
+		requests: [
+			{
+				kind: "activity",
+				args: { scriptSlug: "import.trakt", input: { start: 0, limit: 25, ...input } },
+			},
+		],
+	});
+});
+
 it("passes credentialed source payload fields to its parser activity", async () => {
 	const envelope = await Effect.runPromise(
 		workflow.run(
@@ -164,8 +190,8 @@ const showEntityRef = {
 	kind: "resolved",
 	externalId: "20",
 	sourceLabel: "Lost",
-	providerSlug: "show.tmdb",
 	entitySchemaSlug: "show",
+	providerSlug: "show.tmdb",
 };
 
 const progressEvent = (occurredAt: string, unresolvedEpisode?: JsonValue) => ({
@@ -244,6 +270,57 @@ it("fails the workflow rather than dying when a source payload is incomplete", a
 	);
 	assert(envelope.state === "failed");
 	expect(envelope.error).toContain("Import job is missing IGDB collection");
+	expect(envelope.requests).toEqual([]);
+});
+
+it.each([
+	["missing mode", {}, "Import job is missing or invalid Trakt mode"],
+	[
+		"legacy username-only payload",
+		{ username: "alice" },
+		"Import job is missing or invalid Trakt mode",
+	],
+	["missing user username", { mode: "user" }, "Import job is missing Trakt username"],
+	[
+		"blank user username",
+		{ mode: "user", username: "   " },
+		"Import job is missing Trakt username",
+	],
+	[
+		"missing list URL",
+		{ mode: "list", collection: "Favorites" },
+		"Import job is missing or invalid Trakt list URL",
+	],
+	[
+		"invalid list URL",
+		{ mode: "list", url: "not-a-url", collection: "Favorites" },
+		"Import job is missing or invalid Trakt list URL",
+	],
+	[
+		"missing list collection",
+		{ mode: "list", url: "https://trakt.tv/lists/favorites" },
+		"Import job is missing Trakt collection",
+	],
+	[
+		"blank list collection",
+		{ mode: "list", url: "https://trakt.tv/users/alice/lists/favorites", collection: "   " },
+		"Import job is missing Trakt collection",
+	],
+	[
+		"invalid mode",
+		{ mode: "other", username: "alice" },
+		"Import job is missing or invalid Trakt mode",
+	],
+])("fails the Trakt workflow on $0", async (_, sourcePayload, error) => {
+	const envelope = await Effect.runPromise(
+		workflow.run(
+			{ runId: "run-trakt-invalid", source: "trakt", sourcePayload },
+			{ replayJournal: () => Effect.succeed([]) } satisfies WorkflowReplayHost,
+			{ metadata: {}, sandboxScriptId: "media-import" },
+		),
+	);
+	assert(envelope.state === "failed");
+	expect(envelope.error).toContain(error);
 	expect(envelope.requests).toEqual([]);
 });
 
