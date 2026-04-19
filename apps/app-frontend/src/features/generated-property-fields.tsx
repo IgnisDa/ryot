@@ -10,15 +10,32 @@ type GeneratedPropertyFieldConfig =
 			label: string;
 			kind: "checkbox";
 			required: boolean;
+	  }
+	| {
+			kind: "text";
+			label: string;
+			required: boolean;
 			placeholder?: string;
 			inputType?: HTMLInputTypeAttribute;
 	  }
 	| {
 			label: string;
+			kind: "number";
 			required: boolean;
 			placeholder?: string;
-			kind: "number" | "text";
-			inputType?: HTMLInputTypeAttribute;
+	  }
+	| {
+			label: string;
+			kind: "select";
+			required: boolean;
+			placeholder?: string;
+			options: [string, ...string[]];
+	  }
+	| {
+			label: string;
+			required: boolean;
+			kind: "multiselect";
+			options: [string, ...string[]];
 	  };
 
 type GeneratedPropertyFieldOptions = {
@@ -44,6 +61,19 @@ type GeneratedPropertyFieldRenderProps = {
 		placeholder?: string;
 		type?: HTMLInputTypeAttribute;
 	}>;
+	SelectField: ComponentType<{
+		label: string;
+		data: string[];
+		required?: boolean;
+		disabled?: boolean;
+		placeholder?: string;
+	}>;
+	MultiSelectField: ComponentType<{
+		label: string;
+		data: string[];
+		required?: boolean;
+		disabled?: boolean;
+	}>;
 };
 
 type GeneratedPropertyFieldProps = {
@@ -67,37 +97,54 @@ export function getGeneratedPropertyFieldConfig(
 	const label = propertyDef.label;
 	const required = isAppPropertyRequired(propertyDef);
 
-	return match(propertyDef.type)
-		.with("boolean", () => ({ kind: "checkbox" as const, label, required }))
-		.with("date", () => ({
+	return match(propertyDef)
+		.with({ type: "boolean" }, () => ({
+			label,
+			required,
+			kind: "checkbox" as const,
+		}))
+		.with({ type: "date" }, () => ({
 			label,
 			required,
 			kind: "text" as const,
 			inputType: "date" as const,
 		}))
-		.with("datetime", () => ({
+		.with({ type: "datetime" }, () => ({
 			label,
 			required,
 			kind: "text" as const,
 			placeholder: "2026-03-27T14:30:00Z",
 		}))
-		.with("integer", () => ({
+		.with({ type: "integer" }, () => ({
 			label,
 			required,
 			kind: "number" as const,
 			placeholder: `Enter ${label}`,
 		}))
-		.with("number", () => ({
+		.with({ type: "number" }, () => ({
 			label,
 			required,
 			kind: "number" as const,
 			placeholder: `Enter ${label}`,
 		}))
-		.with("string", () => ({
+		.with({ type: "string" }, () => ({
 			label,
 			required,
 			kind: "text" as const,
 			placeholder: `Enter ${label}`,
+		}))
+		.with({ type: "enum" }, (p) => ({
+			label,
+			required,
+			options: p.options,
+			kind: "select" as const,
+			placeholder: `Select ${label}`,
+		}))
+		.with({ type: "enum-array" }, (p) => ({
+			label,
+			required,
+			options: p.options,
+			kind: "multiselect" as const,
 		}))
 		.otherwise(() => {
 			if (options.fallback === "text") {
@@ -128,29 +175,46 @@ export function GeneratedPropertyField(props: GeneratedPropertyFieldProps) {
 	return (
 		<props.form.AppField name={fieldName}>
 			{(field) =>
-				match(config.kind)
-					.with("checkbox", () => (
+				match(config)
+					.with({ kind: "checkbox" }, (cfg) => (
 						<field.CheckboxField
-							label={config.label}
+							label={cfg.label}
+							required={cfg.required}
 							disabled={props.disabled}
-							required={config.required}
 						/>
 					))
-					.with("number", () => (
+					.with({ kind: "number" }, (cfg) => (
 						<field.NumberField
-							label={config.label}
+							label={cfg.label}
+							required={cfg.required}
 							disabled={props.disabled}
-							required={config.required}
-							placeholder={config.placeholder}
+							placeholder={cfg.placeholder}
 						/>
 					))
-					.with("text", () => (
+					.with({ kind: "text" }, (cfg) => (
 						<field.TextField
-							label={config.label}
-							type={config.inputType}
+							label={cfg.label}
+							type={cfg.inputType}
+							required={cfg.required}
 							disabled={props.disabled}
-							required={config.required}
-							placeholder={config.placeholder}
+							placeholder={cfg.placeholder}
+						/>
+					))
+					.with({ kind: "select" }, (cfg) => (
+						<field.SelectField
+							label={cfg.label}
+							data={cfg.options}
+							required={cfg.required}
+							disabled={props.disabled}
+							placeholder={cfg.placeholder}
+						/>
+					))
+					.with({ kind: "multiselect" }, (cfg) => (
+						<field.MultiSelectField
+							label={cfg.label}
+							data={cfg.options}
+							required={cfg.required}
+							disabled={props.disabled}
 						/>
 					))
 					.exhaustive()

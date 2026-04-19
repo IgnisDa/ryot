@@ -103,10 +103,23 @@ export type AppObjectProperty = AppPropertyBase<AppObjectPropertyValidation> & {
 	properties: Record<string, AppPropertyDefinition>;
 };
 
+export type AppEnumProperty = AppPropertyBase<AppPropertyValidationBase> & {
+	type: "enum";
+	options: [string, ...string[]];
+};
+
+export type AppEnumArrayProperty =
+	AppPropertyBase<AppArrayPropertyValidation> & {
+		type: "enum-array";
+		options: [string, ...string[]];
+	};
+
 export type AppPropertyDefinition =
 	| AppArrayProperty
+	| AppEnumProperty
 	| AppObjectProperty
-	| AppPrimitiveProperty;
+	| AppPrimitiveProperty
+	| AppEnumArrayProperty;
 
 export type AppSchemaFields = Record<string, AppPropertyDefinition>;
 
@@ -560,6 +573,17 @@ export const fromAppSchema = (property: AppPropertyDefinition): z.ZodType => {
 			const schema = applyNumberValidation(z.number().int(), p.validation);
 			const withTransform = withNumberTransform(schema, p.transform);
 			return isRequired ? withTransform : withTransform.nullish();
+		})
+		.with({ type: "enum" }, (p) => {
+			const schema = z.enum(p.options);
+			return isRequired ? schema : schema.nullish();
+		})
+		.with({ type: "enum-array" }, (p) => {
+			const schema = applyArrayValidation(
+				z.array(z.enum(p.options)),
+				p.validation,
+			);
+			return isRequired ? schema : schema.nullish();
 		})
 		.with({ type: "array" }, (p) => {
 			const schema = applyArrayValidation(
