@@ -1,5 +1,5 @@
 import { and, desc, eq, isNull, or } from "drizzle-orm";
-import { type DbClient, db } from "~/lib/db";
+import { assertPersisted, type DbClient, db } from "~/lib/db";
 import { entity, entitySchema, relationship } from "~/lib/db/schema";
 import { getBuiltinRelationshipSchemaBySlug } from "~/modules/relationship-schemas";
 import type { AddToCollectionData, CollectionResponse } from "./schemas";
@@ -79,11 +79,7 @@ export const createLibraryEntityForUser = async (
 		})
 		.returning({ id: entity.id });
 
-	if (!createdEntity) {
-		throw new Error("Could not persist library entity");
-	}
-
-	return createdEntity;
+	return assertPersisted(createdEntity, "library entity");
 };
 
 export const createCollectionForUser = async (input: {
@@ -105,11 +101,9 @@ export const createCollectionForUser = async (input: {
 		})
 		.returning(collectionSelection);
 
-	if (!createdEntity) {
-		throw new Error("Could not persist collection");
-	}
-
-	return toCollectionResponse(createdEntity as CollectionRow);
+	return toCollectionResponse(
+		assertPersisted(createdEntity, "collection") as CollectionRow,
+	);
 };
 
 const membershipSelection = {
