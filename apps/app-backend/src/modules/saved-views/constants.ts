@@ -1,30 +1,17 @@
+import {
+	createEntityColumnExpression as buildEntityColumnExpression,
+	createEntityPropertyExpression as buildEntityPropertyExpression,
+} from "@ryot/ts-utils";
 import { match } from "ts-pattern";
 import type { ViewExpression } from "~/lib/views/expression";
 import type {
 	DisplayConfiguration,
+	GridConfig,
 	SavedViewQueryDefinition,
 	TableConfig,
 } from "./schemas";
 
-export const buildEntityColumnExpression = (
-	schemaSlug: string,
-	column: string,
-): ViewExpression => ({
-	type: "reference",
-	reference: { type: "entity", slug: schemaSlug, path: [column] },
-});
-
-export const buildEntityPropertyExpression = (
-	schemaSlug: string,
-	property: string,
-): ViewExpression => ({
-	type: "reference",
-	reference: {
-		type: "entity",
-		slug: schemaSlug,
-		path: ["properties", property],
-	},
-});
+export { buildEntityColumnExpression, buildEntityPropertyExpression };
 
 const buildConditionalConcatProperty = (
 	schemaSlug: string,
@@ -167,11 +154,10 @@ const buildTableColumnsForSlug = (slug: string): TableConfig["columns"] => {
 		.otherwise(() => [nameColumn, yearColumn]);
 };
 
-type EntityCardConfig = {
-	calloutProperty: ViewExpression | null;
-	primarySubtitleProperty: ViewExpression | null;
-	secondarySubtitleProperty: ViewExpression | null;
-};
+type EntityCardConfig = Pick<
+	GridConfig,
+	"calloutProperty" | "primarySubtitleProperty" | "secondarySubtitleProperty"
+>;
 
 const createEntityCardConfig = (slug?: string): EntityCardConfig => {
 	if (!slug) {
@@ -226,7 +212,7 @@ export const createDefaultDisplayConfiguration = (
 		imageProperty: entitySchemaSlug
 			? buildEntityColumnExpression(entitySchemaSlug, "image")
 			: null,
-	};
+	} satisfies GridConfig;
 	return {
 		grid: cardConfig,
 		list: cardConfig,

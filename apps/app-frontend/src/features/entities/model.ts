@@ -1,38 +1,33 @@
-import { dayjs } from "@ryot/ts-utils";
+import {
+	createEntityColumnExpression,
+	createEntityPropertyExpression,
+	dayjs,
+} from "@ryot/ts-utils";
 import type {
 	ApiGetResponseData,
 	ApiPostRequestBody,
 	ApiPostResponseData,
 } from "~/lib/api/types";
 
+export { createEntityColumnExpression, createEntityPropertyExpression };
+
 type QueryEngineRequest = ApiPostRequestBody<"/query-engine/execute">;
 type ApiEntity = ApiGetResponseData<"/entities/{entityId}">;
-type ApiQueryEngineEntity =
-	ApiPostResponseData<"/query-engine/execute">["items"][number];
-type ApiEntityInput = ApiEntity | ApiQueryEngineEntity;
-type ViewExpression = NonNullable<
-	QueryEngineRequest["fields"]
->[number]["expression"];
+type QueryEngineResponse = ApiPostResponseData<"/query-engine/execute">;
+type QueryEngineItem = QueryEngineResponse["items"][number];
+type ApiEntityInput = ApiEntity | QueryEngineItem;
 
-export const createEntityColumnExpression = (
-	schemaSlug: string,
-	column: string,
-): ViewExpression => ({
-	type: "reference",
-	reference: { type: "entity", slug: schemaSlug, path: [column] },
-});
-
-export const createEntityPropertyExpression = (
-	schemaSlug: string,
-	property: string,
-): ViewExpression => ({
-	type: "reference",
-	reference: {
-		type: "entity",
-		slug: schemaSlug,
-		path: ["properties", property],
-	},
-});
+export type SearchResultItem = {
+	externalId: string;
+	calloutProperty: { kind: "null"; value: null };
+	titleProperty: { kind: "text"; value: string };
+	primarySubtitleProperty: { kind: "number" | "null"; value: number | null };
+	secondarySubtitleProperty: { kind: "null"; value: null };
+	imageProperty: {
+		kind: "image" | "null";
+		value: { kind: "remote"; url: string } | null;
+	};
+};
 
 export type AppEntityImage =
 	| null
@@ -48,8 +43,8 @@ export type AppEntity = Omit<
 	populatedAt?: Date;
 	image: AppEntityImage;
 	sandboxScriptId: string | null;
-	fields?: ApiQueryEngineEntity["fields"];
-	entitySchemaSlug?: ApiQueryEngineEntity["entitySchemaSlug"];
+	fields?: QueryEngineItem["fields"];
+	entitySchemaSlug?: QueryEngineItem["entitySchemaSlug"];
 };
 
 export function createEntityRuntimeRequest(
@@ -96,7 +91,7 @@ export function toAppEntityImage(image: unknown): AppEntityImage {
 
 function isQueryEngineEntity(
 	entity: ApiEntityInput,
-): entity is ApiQueryEngineEntity {
+): entity is QueryEngineItem {
 	return "entitySchemaSlug" in entity;
 }
 

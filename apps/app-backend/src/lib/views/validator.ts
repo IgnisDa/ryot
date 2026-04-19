@@ -1,4 +1,6 @@
 import type { RuntimeRef } from "@ryot/ts-utils";
+import type { QueryEngineRequest } from "~/modules/query-engine";
+import type { DisplayConfiguration } from "~/modules/saved-views";
 import {
 	getComputedFieldOrThrow,
 	prepareComputedFields,
@@ -9,7 +11,6 @@ import {
 	assertSortableExpression,
 	inferViewExpressionType,
 } from "./expression-analysis";
-import type { ViewPredicate } from "./filtering";
 import { validateViewPredicateAgainstSchemas } from "./predicate-validator";
 import {
 	displayBuiltins,
@@ -24,34 +25,6 @@ import {
 	type QueryEngineSchemaLike,
 	sortFilterBuiltins,
 } from "./reference";
-
-type QueryEngineRequestLike = {
-	eventJoins: unknown[];
-	entitySchemaSlugs: string[];
-	filter: ViewPredicate | null;
-	computedFields?: ViewComputedField[];
-	pagination: { page: number; limit: number };
-	fields: Array<{ expression: ViewExpression; key: string }>;
-	sort: { expression: ViewExpression; direction: "asc" | "desc" };
-};
-
-type DisplayConfigurationLike = {
-	table: { columns: Array<{ label: string; expression: ViewExpression }> };
-	grid: {
-		imageProperty: ViewExpression | null;
-		titleProperty: ViewExpression | null;
-		calloutProperty: ViewExpression | null;
-		primarySubtitleProperty: ViewExpression | null;
-		secondarySubtitleProperty: ViewExpression | null;
-	};
-	list: {
-		imageProperty: ViewExpression | null;
-		titleProperty: ViewExpression | null;
-		calloutProperty: ViewExpression | null;
-		primarySubtitleProperty: ViewExpression | null;
-		secondarySubtitleProperty: ViewExpression | null;
-	};
-};
 
 type ValidationSchemaRow = QueryEngineSchemaLike;
 type ValidationEventJoinRow = QueryEngineEventJoinLike;
@@ -259,7 +232,7 @@ const validateComputedFields = (input: {
 };
 
 export const validateQueryEngineReferences = (
-	request: QueryEngineRequestLike,
+	request: QueryEngineRequest,
 	context: QueryEngineReferenceContext<
 		ValidationSchemaRow,
 		ValidationEventJoinRow
@@ -304,7 +277,7 @@ export const validateQueryEngineReferences = (
 };
 
 export const validateSavedViewDisplayConfiguration = (
-	displayConfiguration: DisplayConfigurationLike,
+	displayConfiguration: DisplayConfiguration,
 	context: QueryEngineReferenceContext<
 		ValidationSchemaRow,
 		ValidationEventJoinRow
