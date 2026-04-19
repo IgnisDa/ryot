@@ -249,8 +249,6 @@ This prevents an edge swipe on a movie detail page from unexpectedly opening the
 
 ## 5. Header dimensions and styling
 
-The current mobile screenshot feels oversized because the back, search, and filter controls are placed inside large circular surfaces.
-
 Use these approximate dimensions:
 
 ```text
