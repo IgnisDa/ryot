@@ -171,15 +171,15 @@ The module migration proceeds from infrastructure and leaf modules toward highly
 
 ## Tasks
 
-**Overall Progress:** 0 of 32 tasks completed
+**Overall Progress:** 1 of 32 tasks completed
 
-**Current Task:** [Task 01](./01-workspace-rename-and-effect-server-shell.md) (todo)
+**Current Task:** [Task 02](./02-pure-contract-exports-and-stub-surface.md) (todo)
 
 ### Task List
 
 | #   | Task                                                                                                 | Type | Status |
 | --- | ---------------------------------------------------------------------------------------------------- | ---- | ------ |
-| 01  | [Workspace Rename And Effect Server Shell](./01-workspace-rename-and-effect-server-shell.md)         | AFK  | todo   |
+| 01  | [Workspace Rename And Effect Server Shell](./01-workspace-rename-and-effect-server-shell.md)         | AFK  | done   |
 | 02  | [Pure Contract Exports And Stub Surface](./02-pure-contract-exports-and-stub-surface.md)             | AFK  | todo   |
 | 03  | [Effect E2E Client Harness](./03-effect-e2e-client-harness.md)                                       | AFK  | todo   |
 | 04  | [Config And System Endpoints](./04-config-and-system-endpoints.md)                                   | AFK  | todo   |
