@@ -207,20 +207,22 @@ describe("POST /entities", () => {
 	);
 });
 
-describe("GET /entities/:id — global entity read access", () => {
-	it.live("returns 200 for the importing user and for a second user who never imported", () =>
-		Effect.gen(function* () {
-			const { client: clientA } = yield* createAuthenticatedClient();
-			const { entity } = yield* createGlobalBookEntityFixture(clientA);
+describe("global entity read access", () => {
+	it.live(
+		"returns the entity for the importing user and for a second user who never imported",
+		() =>
+			Effect.gen(function* () {
+				const { client: clientA } = yield* createAuthenticatedClient();
+				const { entity } = yield* createGlobalBookEntityFixture(clientA);
 
-			yield* insertLibraryMembership(clientA, { mediaEntityId: entity.id });
-			const entityA = yield* getEntity(clientA, entity.id);
-			expect(entityA.id).toBe(entity.id);
+				yield* insertLibraryMembership(clientA, { mediaEntityId: entity.id });
+				const entityA = yield* getEntity(clientA, entity.id);
+				expect(entityA.id).toBe(entity.id);
 
-			const { client: clientB } = yield* createAuthenticatedClient();
-			const entityB = yield* getEntity(clientB, entity.id);
-			expect(entityB.id).toBe(entity.id);
-		}),
+				const { client: clientB } = yield* createAuthenticatedClient();
+				const entityB = yield* getEntity(clientB, entity.id);
+				expect(entityB.id).toBe(entity.id);
+			}),
 	);
 });
 

@@ -1,15 +1,20 @@
 import { EntityId } from "@ryot/contract/schema/brands";
-import { column, document, eq, field, literal, rows, table } from "@ryot/ryotql";
+import { column, descending, document, eq, field, literal, rows, table } from "@ryot/ryotql";
 import { Effect } from "effect";
 
-import { requireString } from "~/support/assertions";
+import { requireObjectRecord, requireString } from "~/support/assertions";
 
 import type { Client } from "./auth";
 import { createEntity } from "./entities";
 import { findBuiltinSchemaBySlug } from "./entity-schemas";
 import { listEventSchemas, requireEventSchemaBySlug } from "./event-schemas";
 import { pollUntil } from "./polling";
-import { executeRyotQL, requireRyotQLTextField } from "./ryotql";
+import {
+	executeRyotQL,
+	requireRows,
+	requireRyotQLFieldValue,
+	requireRyotQLTextField,
+} from "./ryotql";
 
 export const createWorkoutEntityFixture = (client: Client) =>
 	Effect.gen(function* () {
@@ -44,9 +49,42 @@ export const waitForSessionEventCount = (
 	pollUntil(
 		`${expectedCount} events on session ${sessionEntityId}`,
 		Effect.gen(function* () {
-			const events = yield* client.call((c) =>
-				c.events.list({ query: { sessionEntityId: EntityId.make(sessionEntityId) } }),
+			const event = table("event", "event");
+			const result = yield* executeRyotQL(
+				client,
+				document({
+					events: rows(event, {
+						page: 1,
+						limit: 100,
+						where: eq(column(event, "sessionEntityId"), literal(sessionEntityId)),
+						orderBy: [
+							descending(column(event, "occurredAt")),
+							descending(column(event, "createdAt")),
+							descending(column(event, "id")),
+						],
+						fields: [
+							field("entityId", column(event, "entityId")),
+							field("sessionEntityId", column(event, "sessionEntityId")),
+							field("properties", column(event, "properties")),
+						],
+					}),
+				}),
 			);
+			const eventRows = requireRows(result.data.events, "events");
+			const events = eventRows.items.map((item) => {
+				const properties = requireRyotQLFieldValue(item, "properties");
+				if (properties.kind !== "json") {
+					throw new Error("Expected session event properties to be JSON");
+				}
+				return {
+					entityId: EntityId.make(requireRyotQLTextField(item, "entityId")),
+					sessionEntityId: EntityId.make(requireRyotQLTextField(item, "sessionEntityId")),
+					properties: requireObjectRecord(
+						properties.value,
+						"Session event properties must be an object",
+					),
+				};
+			});
 			return events.length >= expectedCount ? events : null;
 		}),
 	);

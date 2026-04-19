@@ -1,7 +1,8 @@
-import { EntityId, EventSchemaSlug } from "@ryot/contract/schema/brands";
+import { EntityId, EventId, EventSchemaSlug } from "@ryot/contract/schema/brands";
+import { and, column, descending, document, eq, field, literal, rows, table } from "@ryot/ryotql";
 import { Effect } from "effect";
 
-import { assertPresent } from "~/support/assertions";
+import { assertPresent, requireObjectRecord, requireString } from "~/support/assertions";
 
 import type { Client } from "./auth";
 import { createEntity } from "./entities";
@@ -9,6 +10,13 @@ import { createPluginSchema, findBuiltinSchemaBySlug } from "./entity-schemas";
 import { createEventSchema, listEventSchemas, requireEventSchemaBySlug } from "./event-schemas";
 import { seedMediaEntity } from "./media";
 import { pollUntil } from "./polling";
+import {
+	executeRyotQL,
+	requireRows,
+	requireRyotQLDateField,
+	requireRyotQLFieldValue,
+	requireRyotQLTextField,
+} from "./ryotql";
 
 const defaultMediaProperties = {
 	genres: [],
@@ -58,7 +66,7 @@ export const waitForEventCount = (client: Client, entityId: string, expectedCoun
 	pollUntil(
 		`${expectedCount} events on entity ${entityId}`,
 		Effect.gen(function* () {
-			const events = yield* listEventsForEntity(client, entityId);
+			const events = yield* listEventsForEntity(client, entityId, 1, 100);
 			return events.length >= expectedCount ? events : null;
 		}),
 	);
@@ -141,31 +149,76 @@ export const createRuleEventFixture = (client: Client) =>
 export const listEventsForEntity = (
 	client: Client,
 	entityId: string,
+	page: number,
+	limit: number,
 	options: { eventSchemaSlug?: string } = {},
 ) =>
-	client.call((c) =>
-		c.events.list({
-			query: {
-				entityId: EntityId.make(entityId),
-				...(options.eventSchemaSlug
-					? { eventSchemaSlug: EventSchemaSlug.make(options.eventSchemaSlug) }
-					: {}),
-			},
-		}),
-	);
+	Effect.gen(function* () {
+		const event = table("event", "event");
+		const entityPredicate = eq(column(event, "entityId"), literal(entityId));
+		const where = options.eventSchemaSlug
+			? and(entityPredicate, eq(column(event, "eventSchemaSlug"), literal(options.eventSchemaSlug)))
+			: entityPredicate;
+		const result = yield* executeRyotQL(
+			client,
+			document({
+				events: rows(event, {
+					page,
+					limit,
+					orderBy: [
+						descending(column(event, "occurredAt")),
+						descending(column(event, "createdAt")),
+						descending(column(event, "id")),
+					],
+					fields: [
+						field("id", column(event, "id")),
+						field("occurredAt", column(event, "occurredAt")),
+						field("properties", column(event, "properties")),
+						field("eventSchemaSlug", column(event, "eventSchemaSlug")),
+						field("sessionEntityId", column(event, "sessionEntityId")),
+					],
+					where,
+				}),
+			}),
+		);
+		const events = requireRows(result.data.events, "events");
+
+		return events.items.map((item) => {
+			const properties = requireRyotQLFieldValue(item, "properties");
+			if (properties.kind !== "json") {
+				throw new Error("Expected event properties to be JSON");
+			}
+			const sessionEntityId = requireRyotQLFieldValue(item, "sessionEntityId");
+			if (sessionEntityId.kind !== "null" && sessionEntityId.kind !== "text") {
+				throw new Error("Expected event sessionEntityId to be text or null");
+			}
+			return {
+				occurredAt: requireRyotQLDateField(item, "occurredAt"),
+				id: EventId.make(requireRyotQLTextField(item, "id")),
+				properties: requireObjectRecord(properties.value, "Event properties must be an object"),
+				eventSchemaSlug: EventSchemaSlug.make(requireRyotQLTextField(item, "eventSchemaSlug")),
+				sessionEntityId:
+					sessionEntityId.kind === "text"
+						? EntityId.make(
+								requireString(sessionEntityId.value, "Expected sessionEntityId to contain text"),
+							)
+						: undefined,
+			};
+		});
+	});
 
 export const waitForEventWithSchema = (client: Client, entityId: string, eventSchemaSlug: string) =>
 	pollUntil(
 		`${eventSchemaSlug} event on entity ${entityId}`,
 		Effect.gen(function* () {
-			const events = yield* listEventsForEntity(client, entityId);
+			const events = yield* listEventsForEntity(client, entityId, 1, 100);
 			return events.find((event) => event.eventSchemaSlug === eventSchemaSlug) ?? null;
 		}),
 	);
 
 export const listEventSlugs = (client: Client, entityId: string) =>
 	Effect.gen(function* () {
-		const events = yield* listEventsForEntity(client, entityId);
+		const events = yield* listEventsForEntity(client, entityId, 1, 100);
 		return events.map((event) => event.eventSchemaSlug);
 	});
 
