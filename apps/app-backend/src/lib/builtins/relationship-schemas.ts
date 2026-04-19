@@ -29,8 +29,6 @@ const builtinMediaEntitySchemaSlugs = [
 	"visual-novel",
 ];
 
-const builtinNonGroupMediaEntitySchemaSlugs = builtinMediaEntitySchemaSlugs;
-
 const groupRolesPropertiesSchema = {
 	fields: {
 		order: {
@@ -59,7 +57,7 @@ const buildCreditRelationshipSchemas = (input: {
 	characterDescription?: string;
 	targetEntitySchemaSlugs?: string[];
 }) =>
-	(input.targetEntitySchemaSlugs ?? builtinNonGroupMediaEntitySchemaSlugs).map((mediaSlug) => ({
+	(input.targetEntitySchemaSlugs ?? builtinMediaEntitySchemaSlugs).map((mediaSlug) => ({
 		sourceEntitySchemaSlug: input.sourceSlug,
 		targetEntitySchemaSlug: mediaSlug,
 		slug: normalizeSlug(`${input.sourceSlug} to ${mediaSlug}`),
@@ -165,7 +163,7 @@ export const builtinRelationshipSchemas = (): BuiltinRelationshipSchema[] => [
 	},
 	...buildCreditRelationshipSchemas({
 		sourceSlug: "person",
-		targetEntitySchemaSlugs: builtinNonGroupMediaEntitySchemaSlugs,
+		targetEntitySchemaSlugs: builtinMediaEntitySchemaSlugs,
 		characterDescription: "Character played by this person in this production",
 		orderDescription: "Display order of this person in the production credits",
 		rolesItemDescription: "A specific role name (e.g. Director, Actor, Writer)",
@@ -173,7 +171,7 @@ export const builtinRelationshipSchemas = (): BuiltinRelationshipSchema[] => [
 	}),
 	...buildCreditRelationshipSchemas({
 		sourceSlug: "company",
-		targetEntitySchemaSlugs: builtinNonGroupMediaEntitySchemaSlugs,
+		targetEntitySchemaSlugs: builtinMediaEntitySchemaSlugs,
 		orderDescription: "Display order of this company in the production credits",
 		rolesItemDescription: "A specific role name (e.g. Developer, Publisher, Studio)",
 		rolesDescription:
