@@ -1,7 +1,6 @@
-import { FileSystem, Path } from "@effect/platform";
-import { BunContext, BunPath } from "@effect/platform-bun";
+import { BunServices, BunPath } from "@effect/platform-bun";
 import { describe, expect, it } from "@effect/vitest";
-import { Effect } from "effect";
+import { Effect, FileSystem, Path } from "effect";
 
 import {
 	analyzeRuntimeModules,
@@ -27,7 +26,7 @@ const analyzeSources = (sources: Readonly<Record<string, string>>) =>
 		}
 
 		return yield* analyzeRuntimeModules(path.join(srcDir, "modules"));
-	}).pipe(Effect.provide(BunContext.layer));
+	}).pipe(Effect.provide(BunServices.layer));
 
 describe("runtime module analysis", () => {
 	it.effect("extracts alias and relative runtime imports but ignores type-only imports", () =>
@@ -58,7 +57,7 @@ describe("runtime module analysis", () => {
 		}),
 	);
 
-	it.scoped("detects an existing direct module cycle", () =>
+	it.effect("detects an existing direct module cycle", () =>
 		Effect.gen(function* () {
 			const cycles = yield* analyzeSources({
 				"modules/beta/service.ts": 'import "../alpha/service";',
@@ -69,7 +68,7 @@ describe("runtime module analysis", () => {
 		}),
 	);
 
-	it.scoped("detects a cycle through backend lib runtime files", () =>
+	it.effect("detects a cycle through backend lib runtime files", () =>
 		Effect.gen(function* () {
 			const cycles = yield* analyzeSources({
 				"modules/alpha/service.ts": 'import "#lib/bridge";',
@@ -81,7 +80,7 @@ describe("runtime module analysis", () => {
 		}),
 	);
 
-	it.scoped("accepts an acyclic dependency through backend app runtime files", () =>
+	it.effect("accepts an acyclic dependency through backend app runtime files", () =>
 		Effect.gen(function* () {
 			const cycles = yield* analyzeSources({
 				"modules/alpha/service.ts": 'import "#app/bridge";',
