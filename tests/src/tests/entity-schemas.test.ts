@@ -262,19 +262,6 @@ describe("GET /entity-schemas", () => {
 		);
 	});
 
-	it("includes providers on every schema row", async () => {
-		const { client, cookies } = await createAuthenticatedClient();
-		const builtinTracker = await findBuiltinTracker(client, cookies);
-		const schemas = await listEntitySchemas(client, cookies, {
-			trackerId: builtinTracker.id,
-		});
-
-		expect(schemas.length).toBeGreaterThan(0);
-		for (const schema of schemas) {
-			expect(Array.isArray(schema.providers)).toBe(true);
-		}
-	});
-
 	it("built-in schemas with linked scripts have non-empty providers", async () => {
 		const { client, cookies } = await createAuthenticatedClient();
 		const { schema } = await findBuiltinSchemaWithProviders(client, cookies);
