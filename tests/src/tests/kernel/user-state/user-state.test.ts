@@ -23,6 +23,7 @@ import {
 	requireEventSchemaBySlug,
 	requireRelationshipSchemaBySlug,
 	pollUntil,
+	requireRows,
 } from "~/fixtures";
 import { assertPresent, assertTaggedError } from "~/support/assertions";
 import { describe, expect, it } from "~/support/effect-test";
@@ -64,11 +65,7 @@ const getLibraryEntityId = (client: Client) =>
 				}),
 			}),
 		);
-		const libraries = result.data.libraries;
-		assertPresent(libraries, "Missing library result");
-		if (libraries.type !== "rows") {
-			throw new Error("Expected library rows");
-		}
+		const libraries = requireRows(result.data.libraries, "libraries");
 		const libraryRow = libraries.items[0];
 		assertPresent(libraryRow, "Missing library entity");
 		return EntityId.make(requireRyotQLTextField(libraryRow, "id"));

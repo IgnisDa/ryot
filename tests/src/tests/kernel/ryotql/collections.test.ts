@@ -6,6 +6,7 @@ import {
 	createCollection,
 	executeRyotQL,
 	postBackendJson,
+	requireRows,
 	requireRyotQLTextField,
 } from "~/fixtures";
 import { describe, expect, it } from "~/support/effect-test";
@@ -25,10 +26,7 @@ describe("RyotQL collections tracer", () => {
 				first.client,
 				buildAllCollectionsDocument({ page: 1, limit: 10 }),
 			);
-			const rows = result.data["collections"];
-			if (rows?.type !== "rows") {
-				throw new Error("Expected collections result");
-			}
+			const rows = requireRows(result.data["collections"], "collections");
 
 			expect(rows.pageInfo).toEqual({ page: 1, limit: 10, total: 2, hasMore: false });
 			expect(rows.items.map((item) => requireRyotQLTextField(item, "id"))).toEqual(
