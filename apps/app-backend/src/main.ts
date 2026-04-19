@@ -6,18 +6,6 @@ import { AppLive, MigrationOnlyLive } from "./app/layers";
 import { appConfigDefinition } from "./lib/infrastructure/config/definition";
 import { bootPluginSources } from "./modules/plugins/boot-sources";
 
-let shutdownTimer: ReturnType<typeof setTimeout> | undefined;
-
-const onShutdownSignal = () => {
-	if (shutdownTimer !== undefined) {
-		return;
-	}
-	shutdownTimer = setTimeout(() => process.exit(1), 30_000);
-};
-
-process.on("SIGINT", onShutdownSignal);
-process.on("SIGTERM", onShutdownSignal);
-
 const { nodeEnv, runMigrationOnly } = await Effect.runPromise(
 	Config.all({
 		nodeEnv: Config.string("NODE_ENV").pipe(Config.withDefault("development")),
