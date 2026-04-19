@@ -8,7 +8,9 @@ export type {
 	SandboxEnqueueResult,
 } from "./schemas";
 export {
+	sandboxCompletedResultSchema,
 	sandboxFailedResultSchema,
+	sandboxJobParams,
 	sandboxPendingResultSchema,
 } from "./schemas";
 export type {
