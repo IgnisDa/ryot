@@ -1,14 +1,12 @@
 import type { ViewExpression } from "~/lib/views/expression";
 import type { ViewPredicate } from "~/lib/views/filtering";
 
-export const entityExpression = (
+export const schemaPropertyExpression = (
 	schemaSlug: string,
 	field: string,
 ): ViewExpression => ({
 	type: "reference",
-	reference: field.startsWith("@")
-		? { type: "entity-column", slug: schemaSlug, column: field.slice(1) }
-		: { type: "schema-property", slug: schemaSlug, property: field },
+	reference: { type: "schema-property", slug: schemaSlug, property: [field] },
 });
 
 export const eventExpression = (
@@ -16,9 +14,7 @@ export const eventExpression = (
 	field: string,
 ): ViewExpression => ({
 	type: "reference",
-	reference: field.startsWith("@")
-		? { type: "event-join-column", joinKey, column: field.slice(1) }
-		: { type: "event-join-property", joinKey, property: field },
+	reference: { type: "event-join-property", joinKey, property: [field] },
 });
 
 export const computedExpression = (key: string): ViewExpression => ({
