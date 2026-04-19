@@ -153,21 +153,21 @@ function collectGenres(genres, tags) {
   return [...genreSet];
 }
 
-driver("search", async function(context) {
-  const pageSize =
-    Number.isFinite(Number(context?.pageSize)) &&
-    Number(context.pageSize) > 0 &&
-    Number(context.pageSize) <= 100
-      ? Math.floor(Number(context.pageSize))
-      : 20;
-  const currentPage = Number.isFinite(Number(context?.page))
-    ? Math.max(1, Math.floor(Number(context.page)))
-    : 1;
-  const query = typeof context?.query === "string" ? context.query.trim() : "";
+async function cleanHtmlDescription(html) {
+  if (typeof html !== "string" || !html.trim()) return null;
+  const { load } = await import("npm:cheerio");
+  const $ = load(html);
+  $("br").replaceWith("\n");
+  return $.root().text().trim() || null;
+}
 
-  if (!query) {
-    throw new Error("query is required");
-  }
+driver("search", async function(context) {
+  const { z } = await import("npm:zod");
+  const { query, page: currentPage, pageSize } = z.object({
+    query: z.string().trim().min(1, "query is required"),
+    page: z.coerce.number().min(1).transform(Math.floor).catch(1),
+    pageSize: z.coerce.number().min(1).max(100).transform(Math.floor).catch(20),
+  }).parse(context ?? {});
 
   const titleLang = await getAnilistTitleLanguage();
 
@@ -274,11 +274,11 @@ query MediaSearchQuery($page: Int!, $perPage: Int!, $search: String!, $type: Med
 });
 
 driver("details", async function(context) {
-  const contextIdentifier =
-    typeof context?.identifier === "string" ? context.identifier.trim() : "";
-  if (!contextIdentifier) {
-    throw new Error("identifier is required");
-  }
+  const { z } = await import("npm:zod");
+
+  const { identifier: contextIdentifier } = z.object({
+    identifier: z.string().trim().min(1, "identifier is required"),
+  }).parse(context ?? {});
 
   if (!/^\d+$/.test(contextIdentifier)) {
     throw new Error("identifier must be a numeric Anilist media id");
@@ -373,6 +373,10 @@ query MediaDetailsQuery($id: Int!) {
       ? toTitleCase(media.status)
       : null;
 
+  const rawDescription =
+    typeof media?.description === "string" ? media.description : null;
+  const description = await cleanHtmlDescription(rawDescription);
+
   return {
     name: title,
     externalId: payloadIdentifier,
@@ -384,8 +388,7 @@ query MediaDetailsQuery($id: Int!) {
       genres: collectGenres(media.genres, media.tags),
       isNsfw: typeof media?.isAdult === "boolean" ? media.isAdult : null,
       sourceUrl: `https://anilist.co/manga/${payloadIdentifier}/${encodeURIComponent(title)}`,
-      description:
-        typeof media?.description === "string" ? media.description : null,
+      description,
       assets: {
         remoteImages: collectImages(media.coverImage, media.bannerImage),
       },
