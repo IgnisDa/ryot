@@ -4,7 +4,7 @@
 
 **Type:** AFK
 
-**Status:** todo
+**Status:** done
 
 ## What to build
 
@@ -14,12 +14,12 @@ There is no public route surface for this module in the current API; verificatio
 
 ## Acceptance criteria
 
-- [ ] Builtin relationship schemas seeded earlier can be loaded by slug
-- [ ] Relationship schema scopes expose source, target, and property schema data needed by writers
-- [ ] Missing schemas fail as typed not-found/domain errors at service boundaries
-- [ ] Relationship schema code uses the migrated property schema representation
-- [ ] Focused unit tests cover found and missing relationship schema reads
-- [ ] No new backend code imports relationship helpers from legacy utility packages
+- [x] Builtin relationship schemas seeded earlier can be loaded by slug
+- [x] Relationship schema scopes expose source, target, and property schema data needed by writers
+- [x] Missing schemas fail as typed not-found/domain errors at service boundaries
+- [x] Relationship schema code uses the migrated property schema representation
+- [x] Focused unit tests cover found and missing relationship schema reads
+- [x] No new backend code imports relationship helpers from legacy utility packages
 
 ## User stories addressed
 
