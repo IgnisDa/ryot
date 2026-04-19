@@ -3,11 +3,14 @@ import { Effect, Schema } from "effect";
 import { DbError } from "../errors";
 import { AppSchema, type AppPropertyDefinition } from "./property-schema";
 
-export const decodeStoredSchema = <A, I>(
+export const decodeStoredSchema = <S extends Schema.Constraint>(
 	value: unknown,
-	valueSchema: Schema.Schema<A, I>,
+	valueSchema: S,
 	message: string,
-) => Schema.decodeUnknown(valueSchema)(value).pipe(Effect.mapError(() => new DbError({ message })));
+) =>
+	Schema.decodeUnknownEffect(valueSchema)(value).pipe(
+		Effect.mapError(() => new DbError({ message })),
+	);
 
 export const decodeStoredAppSchema = (value: unknown, message: string) =>
 	decodeStoredSchema(value, AppSchema, message);

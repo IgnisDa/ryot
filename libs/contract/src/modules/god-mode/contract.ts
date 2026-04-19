@@ -1,12 +1,12 @@
-import { HttpApiEndpoint, HttpApiGroup, HttpApiSchema, OpenApi } from "@effect/platform";
-import { Schema } from "effect";
+import { Schema, Effect, SchemaGetter } from "effect";
+import { HttpApiEndpoint, HttpApiGroup, HttpApiSchema, OpenApi } from "effect/unstable/httpapi";
 
 import { AdminMiddleware } from "../../auth-middleware";
-import { InternalError, NotFound, Unauthorized } from "../../errors";
+import { BadRequest, InternalError, NotFound } from "../../errors";
 import { UserId } from "../../schema/brands";
 import { Email } from "../../schema/utils";
 
-const UserAuthState = Schema.Literal("credential", "oidc", "none", "mixed");
+const UserAuthState = Schema.Literals(["credential", "oidc", "none", "mixed"]);
 
 const UserListItem = Schema.Struct({
 	id: Schema.String,
@@ -23,13 +23,13 @@ const ListUsersResponse = Schema.Struct({
 	users: Schema.Array(UserListItem),
 });
 
-const ProvisionUserBody = Schema.Union(
+const ProvisionUserBody = Schema.Union([
 	Schema.Struct({
 		email: Email,
 		name: Schema.String,
 		provider: Schema.Literal("credential"),
 	}).pipe(
-		Schema.annotations({
+		Schema.annotate({
 			identifier: "CredentialProvisionUserBody",
 			title: "Credential Provision User",
 		}),
@@ -39,10 +39,8 @@ const ProvisionUserBody = Schema.Union(
 		name: Schema.String,
 		oidcIssuerId: Schema.String,
 		provider: Schema.Literal("oidc"),
-	}).pipe(
-		Schema.annotations({ identifier: "OidcProvisionUserBody", title: "OIDC Provision User" }),
-	),
-);
+	}).pipe(Schema.annotate({ identifier: "OidcProvisionUserBody", title: "OIDC Provision User" })),
+]);
 
 export type ProvisionUserBody = Schema.Schema.Type<typeof ProvisionUserBody>;
 
@@ -68,59 +66,98 @@ const SetDisabledResponse = Schema.Struct({
 
 const DeleteUserResponse = Schema.Struct({ id: UserId });
 
-const userIdParam = HttpApiSchema.param("userId", UserId);
-
 export const GodModeGroup = HttpApiGroup.make("godMode")
 	.annotate(OpenApi.Description, "Provides administrative user management operations")
-	.addError(Unauthorized, { status: 401 })
 	.add(
-		HttpApiEndpoint.get("listUsers", "/god-mode/users")
-			.setUrlParams(
-				Schema.Struct({
-					search: Schema.optional(Schema.String),
-					offset: Schema.optionalWith(Schema.NumberFromString, { default: () => 0 }),
-					limit: Schema.optionalWith(Schema.NumberFromString, { default: () => 50 }),
-				}),
-			)
-			.addSuccess(ListUsersResponse)
+		HttpApiEndpoint.get("listUsers", "/god-mode/users", {
+			query: {
+				search: Schema.optional(Schema.String),
+				offset: Schema.NumberFromString.pipe(
+					(schema) =>
+						Schema.optional(schema).pipe(
+							Schema.decodeTo(Schema.toType(schema), {
+								decode: SchemaGetter.withDefault(Effect.sync(() => 0)),
+								encode: SchemaGetter.required(),
+							}),
+						),
+					Schema.withConstructorDefault(Effect.sync(() => 0)),
+				),
+				limit: Schema.NumberFromString.pipe(
+					(schema) =>
+						Schema.optional(schema).pipe(
+							Schema.decodeTo(Schema.toType(schema), {
+								decode: SchemaGetter.withDefault(Effect.sync(() => 50)),
+								encode: SchemaGetter.required(),
+							}),
+						),
+					Schema.withConstructorDefault(Effect.sync(() => 50)),
+				),
+			},
+			success: ListUsersResponse,
+			error: [BadRequest.pipe(HttpApiSchema.status(400))],
+		})
 			.middleware(AdminMiddleware)
 			.annotate(OpenApi.Description, "Lists users with pagination and optional search"),
 	)
 	.add(
-		HttpApiEndpoint.post("provisionUser", "/god-mode/users/provision")
-			.setPayload(ProvisionUserBody)
-			.addSuccess(ProvisionUserResponse, { status: 201 })
-			.addError(InternalError, { status: 500 })
+		HttpApiEndpoint.post("provisionUser", "/god-mode/users/provision", {
+			payload: ProvisionUserBody,
+			success: ProvisionUserResponse.pipe(HttpApiSchema.status(201)),
+			error: [
+				BadRequest.pipe(HttpApiSchema.status(400)),
+				InternalError.pipe(HttpApiSchema.status(500)),
+			],
+		})
 			.middleware(AdminMiddleware)
 			.annotate(OpenApi.Description, "Provisions a credential or OIDC user"),
 	)
 	.add(
-		HttpApiEndpoint.post("resetUser")`/god-mode/users/${userIdParam}/reset`
-			.addSuccess(ResetUserResponse)
-			.addError(InternalError, { status: 500 })
+		HttpApiEndpoint.post("resetUser", "/god-mode/users/:userId/reset", {
+			params: { userId: UserId },
+			success: ResetUserResponse,
+			error: [
+				BadRequest.pipe(HttpApiSchema.status(400)),
+				InternalError.pipe(HttpApiSchema.status(500)),
+			],
+		})
 			.middleware(AdminMiddleware)
 			.annotate(OpenApi.Description, "Resets a user account"),
 	)
 	.add(
-		HttpApiEndpoint.post("resetUserPassword")`/god-mode/users/${userIdParam}/reset-password`
-			.addSuccess(ResetPasswordResponse)
-			.addError(InternalError, { status: 500 })
+		HttpApiEndpoint.post("resetUserPassword", "/god-mode/users/:userId/reset-password", {
+			params: { userId: UserId },
+			success: ResetPasswordResponse,
+			error: [
+				BadRequest.pipe(HttpApiSchema.status(400)),
+				InternalError.pipe(HttpApiSchema.status(500)),
+			],
+		})
 			.middleware(AdminMiddleware)
 			.annotate(OpenApi.Description, "Creates a password reset URL for a user"),
 	)
 	.add(
-		HttpApiEndpoint.post("setUserDisabled")`/god-mode/users/${userIdParam}/disable/set`
-			.setPayload(SetDisabledBody)
-			.addSuccess(SetDisabledResponse)
-			.addError(InternalError, { status: 500 })
+		HttpApiEndpoint.post("setUserDisabled", "/god-mode/users/:userId/disable/set", {
+			params: { userId: UserId },
+			payload: SetDisabledBody,
+			success: SetDisabledResponse,
+			error: [
+				BadRequest.pipe(HttpApiSchema.status(400)),
+				InternalError.pipe(HttpApiSchema.status(500)),
+			],
+		})
 			.middleware(AdminMiddleware)
 			.annotate(OpenApi.Description, "Enables or disables a user account"),
 	)
 	.add(
-		HttpApiEndpoint.del("deleteUser")`/god-mode/users/${userIdParam}`
-			.addSuccess(DeleteUserResponse)
-			.addError(NotFound, { status: 404 })
-			.addError(InternalError, { status: 500 })
+		HttpApiEndpoint.delete("deleteUser", "/god-mode/users/:userId", {
+			params: { userId: UserId },
+			success: DeleteUserResponse,
+			error: [
+				BadRequest.pipe(HttpApiSchema.status(400)),
+				NotFound.pipe(HttpApiSchema.status(404)),
+				InternalError.pipe(HttpApiSchema.status(500)),
+			],
+		})
 			.middleware(AdminMiddleware)
 			.annotate(OpenApi.Description, "Deletes a user account"),
 	);

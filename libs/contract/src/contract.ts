@@ -1,6 +1,5 @@
-import { HttpApi, OpenApi } from "@effect/platform";
+import { HttpApi, OpenApi } from "effect/unstable/httpapi";
 
-import { BadRequest } from "./errors";
 import { AutomationsGroup } from "./modules/automations/contract";
 import { CollectionsGroup } from "./modules/collections/contract";
 import { DefinitionsGroup } from "./modules/definitions/contract";
@@ -23,7 +22,6 @@ import { UserPreferencesGroup } from "./modules/user-preferences/contract";
 import { UserStateGroup } from "./modules/user-state/contract";
 
 export const AppContract = HttpApi.make("ryot")
-	.addError(BadRequest, { status: 400 })
 	.add(SystemGroup)
 	.add(AutomationsGroup)
 	.add(DefinitionsGroup)
