@@ -154,18 +154,22 @@ describe("Events bulk POST", () => {
 			params: { query: { entityId, eventSchemaSlug: "progress" } },
 		});
 		expect(progressEventsResult.response.status).toBe(200);
-		expect(progressEventsResult.data?.data.map((event) => event.eventSchemaSlug)).toEqual([
-			"progress",
-		]);
+		expect(
+			progressEventsResult.data?.data.map(
+				(event: { eventSchemaSlug: string }) => event.eventSchemaSlug,
+			),
+		).toEqual(["progress"]);
 
 		const completeEventsResult = await apiClient.GET("/events", {
 			headers: { Cookie: cookies },
 			params: { query: { entityId, eventSchemaSlug: "complete" } },
 		});
 		expect(completeEventsResult.response.status).toBe(200);
-		expect(completeEventsResult.data?.data.map((event) => event.eventSchemaSlug)).toEqual([
-			"complete",
-		]);
+		expect(
+			completeEventsResult.data?.data.map(
+				(event: { eventSchemaSlug: string }) => event.eventSchemaSlug,
+			),
+		).toEqual(["complete"]);
 
 		const missingEventsResult = await apiClient.GET("/events", {
 			headers: { Cookie: cookies },
@@ -230,7 +234,11 @@ describe("Events bulk POST", () => {
 		expect(events.map((event) => event.eventSchemaSlug)).toEqual(["progress", "progress"]);
 		expect(
 			// oxlint-disable-next-line typescript-eslint/no-unsafe-type-assertion
-			sortBy(events.map((event) => event.properties.progressPercent as number)),
+			sortBy(
+				events.map(
+					(event) => (event.properties as Record<string, unknown>).progressPercent as number,
+				),
+			),
 		).toEqual([25.56, 50.44]);
 	});
 
@@ -484,7 +492,11 @@ describe("Events bulk POST", () => {
 		expect(events.map((event) => event.eventSchemaSlug)).toEqual(["dropped", "dropped"]);
 		expect(
 			// oxlint-disable-next-line typescript-eslint/no-unsafe-type-assertion
-			sortBy(events.map((event) => event.properties.progressPercent as number)),
+			sortBy(
+				events.map(
+					(event) => (event.properties as Record<string, unknown>).progressPercent as number,
+				),
+			),
 		).toEqual([33.33, 66.67]);
 	});
 
@@ -519,7 +531,11 @@ describe("Events bulk POST", () => {
 		expect(events.map((event) => event.eventSchemaSlug)).toEqual(["on_hold", "on_hold"]);
 		expect(
 			// oxlint-disable-next-line typescript-eslint/no-unsafe-type-assertion
-			sortBy(events.map((event) => event.properties.progressPercent as number)),
+			sortBy(
+				events.map(
+					(event) => (event.properties as Record<string, unknown>).progressPercent as number,
+				),
+			),
 		).toEqual([45.56, 75.44]);
 	});
 

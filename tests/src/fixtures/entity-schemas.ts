@@ -1,25 +1,36 @@
-import type { components, paths } from "@ryot/generated/openapi/app-backend";
+import type { AppPropertyDefinition, AppSchema } from "@ryot/ts-utils/app-schema";
 
 import { assertPresent, requirePresent, requireResponseData } from "../test-support/assertions";
 import type { Client } from "./auth";
+import type { ClientBody } from "./backend-client";
 import { type PollOptions, pollUntil } from "./polling";
 import { createTracker, listTrackers } from "./trackers";
 
-type EnqueueEntitySearchBody = NonNullable<
-	paths["/entity-schemas/search"]["post"]["requestBody"]
->["content"]["application/json"];
+export type { AppPropertyDefinition, AppSchema };
 
-type EnqueueEntityImportBody = NonNullable<
-	paths["/entities/import"]["post"]["requestBody"]
->["content"]["application/json"];
+type EnqueueEntitySearchBody = ClientBody<"entity-schemas", "search">;
 
-export type AppPropertyDefinition = components["schemas"]["AppPropertyDefinition"];
+type EnqueueEntityImportBody = ClientBody<"entities", "import">;
 
-type PostEntitySchemaBody = NonNullable<
-	paths["/entity-schemas"]["post"]["requestBody"]
->["content"]["application/json"];
+type EntitySchemaRecord = {
+	id: string;
+	name: string;
+	slug: string;
+	icon: string;
+	trackerId: string;
+	accentColor: string;
+	isBuiltin: boolean;
+	propertiesSchema: AppSchema;
+	providers: ReadonlyArray<{ name: string; scriptId: string }>;
+};
 
-export type AppSchema = PostEntitySchemaBody["propertiesSchema"];
+// TODO(Task 11): Replace these tests-only entity schema assertions with the public
+// AppContract types once propertiesSchema and providers are typed in the contract.
+const toEntitySchemaRecord = (value: unknown) => value as EntitySchemaRecord;
+
+// TODO(Task 11): Replace these tests-only entity schema assertions with the public
+// AppContract types once propertiesSchema and providers are typed in the contract.
+const toEntitySchemaRecords = (value: unknown) => value as readonly EntitySchemaRecord[];
 
 export interface CreateEntitySchemaOptions {
 	icon?: string;
@@ -46,7 +57,7 @@ export async function createEntitySchema(
 		},
 	} = options;
 
-	const { data, response } = await client.POST("/entity-schemas", {
+	const { data, response } = await client["entity-schemas"].create({
 		headers: { Cookie: cookies },
 		body: {
 			icon,
@@ -58,7 +69,9 @@ export async function createEntitySchema(
 		},
 	});
 
-	const schema = requireResponseData(response, data, `Failed to create entity schema '${name}'`);
+	const schema = toEntitySchemaRecord(
+		requireResponseData(response, data, `Failed to create entity schema '${name}'`),
+	);
 	return {
 		schemaId: requirePresent(schema.id, `Failed to create entity schema '${name}'`),
 		slug: requirePresent(schema.slug, `Failed to create entity schema '${name}'`),
@@ -71,21 +84,25 @@ export async function listEntitySchemas(
 	cookies: string,
 	options: { slugs?: string[]; trackerId?: string },
 ) {
-	const { data, response } = await client.POST("/entity-schemas/list", {
+	const { data, response } = await client["entity-schemas"].list({
 		body: options,
 		headers: { Cookie: cookies },
 	});
 
-	return requireResponseData(response, data, "Failed to list entity schemas");
+	return toEntitySchemaRecords(
+		requireResponseData(response, data, "Failed to list entity schemas"),
+	);
 }
 
 export async function getEntitySchema(client: Client, cookies: string, entitySchemaId: string) {
-	const { data, response } = await client.GET("/entity-schemas/{entitySchemaId}", {
+	const { data, response } = await client["entity-schemas"].get({
 		headers: { Cookie: cookies },
 		params: { path: { entitySchemaId } },
 	});
 
-	return requireResponseData(response, data, `Failed to get entity schema '${entitySchemaId}'`);
+	return toEntitySchemaRecord(
+		requireResponseData(response, data, `Failed to get entity schema '${entitySchemaId}'`),
+	);
 }
 
 export async function findBuiltinEntitySchema(client: Client, cookies: string) {
@@ -138,7 +155,7 @@ export async function enqueueEntitySearch(
 	cookies: string,
 	body: EnqueueEntitySearchBody,
 ) {
-	const { data, response } = await client.POST("/entity-schemas/search", {
+	const { data, response } = await client["entity-schemas"].search({
 		body,
 		headers: { Cookie: cookies },
 	});
@@ -160,7 +177,7 @@ export async function pollEntitySearchResult(
 	return pollUntil(
 		`entity search job '${jobId}'`,
 		async () => {
-			const { data, response } = await client.GET("/entity-schemas/search/{jobId}", {
+			const { data, response } = await client["entity-schemas"].getSearchResult({
 				params: { path: { jobId } },
 				headers: { Cookie: cookies },
 			});
@@ -180,7 +197,7 @@ export async function enqueueEntityImport(
 	cookies: string,
 	body: EnqueueEntityImportBody,
 ) {
-	const { data, response } = await client.POST("/entities/import", {
+	const { data, response } = await client.entities.import({
 		body,
 		headers: { Cookie: cookies },
 	});
@@ -202,7 +219,7 @@ export async function pollEntityImportResult(
 	return pollUntil(
 		`entity import job '${jobId}'`,
 		async () => {
-			const { data, response } = await client.GET("/entities/import/{jobId}", {
+			const { data, response } = await client.entities.getImportResult({
 				params: { path: { jobId } },
 				headers: { Cookie: cookies },
 			});
@@ -217,7 +234,9 @@ export async function pollEntityImportResult(
 	);
 }
 
-export function getFirstProviderScriptId(schema: { providers: Array<{ scriptId: string }> }) {
+export function getFirstProviderScriptId(schema: {
+	providers: ReadonlyArray<{ scriptId: string }>;
+}) {
 	const scriptId = schema.providers[0]?.scriptId;
 	return requirePresent(scriptId, "No provider found for schema");
 }

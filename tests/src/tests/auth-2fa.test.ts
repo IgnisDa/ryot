@@ -22,7 +22,7 @@ describe("Two-factor sign-in flow", () => {
 			"Two-factor setup did not return any backup codes",
 		);
 
-		const enabledSession = await client.GET("/trackers", {
+		const enabledSession = await client.trackers.list({
 			headers: { Cookie: twoFactorCookies },
 		});
 		expect(enabledSession.response.status).toBe(200);
@@ -42,7 +42,7 @@ describe("Two-factor sign-in flow", () => {
 		const signInData = await signInResponse.json();
 		expect(signInData).toHaveProperty("twoFactorRedirect", true);
 
-		const unauthorizedResponse = await client.GET("/trackers", {
+		const unauthorizedResponse = await client.trackers.list({
 			headers: { Cookie: signInCookies },
 		});
 		expect(unauthorizedResponse.response.status).toBe(401);
@@ -62,7 +62,7 @@ describe("Two-factor sign-in flow", () => {
 		const verifiedCookies = verifySetCookies.length
 			? cookieHeaderFromSetCookies(verifySetCookies)
 			: signInCookies;
-		const protectedResponse = await client.GET("/trackers", {
+		const protectedResponse = await client.trackers.list({
 			headers: { Cookie: verifiedCookies },
 		});
 		expect(protectedResponse.response.status).toBe(200);
