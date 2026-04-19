@@ -1,7 +1,7 @@
 import { z } from "@hono/zod-openapi";
 
-import { dataSchema, itemDataSchema, listDataSchema } from "~/lib/openapi";
-import { createIdParamsSchema, nonEmptyStringSchema, positiveIntSchema } from "~/lib/zod";
+import { itemDataSchema, listDataSchema } from "~/lib/openapi";
+import { createIdParamsSchema, nonEmptyStringSchema } from "~/lib/zod";
 
 export const importRunStatus = z.enum(["pending", "running", "completed", "failed"]);
 export type ImportRunStatus = z.infer<typeof importRunStatus>;
@@ -197,19 +197,21 @@ export type ListedImportRunFailure = z.infer<typeof listedImportRunFailureSchema
 
 export const importRunParams = createIdParamsSchema("runId");
 
-export const listImportRunFailuresQuery = z.object({
-	page: positiveIntSchema.default(1),
-	limit: positiveIntSchema.default(20),
+export const getImportRunQuery = z.object({
+	page: z.coerce.number().int().positive().default(1),
+	limit: z.coerce.number().int().positive().default(20),
 });
 
-export const createImportRunResponseSchema = itemDataSchema(z.object({ id: nonEmptyStringSchema }));
-export const getImportRunResponseSchema = itemDataSchema(listedImportRunSchema);
-export const listImportRunsResponseSchema = listDataSchema(listedImportRunSchema);
-export const listImportRunFailuresResponseSchema = dataSchema(
-	z.object({
+export const detailedImportRunSchema = listedImportRunSchema.extend({
+	failures: z.object({
 		page: z.number().int(),
-		limit: z.number().int(),
 		total: z.number().int(),
+		limit: z.number().int(),
 		items: z.array(listedImportRunFailureSchema),
 	}),
-);
+});
+export type DetailedImportRun = z.infer<typeof detailedImportRunSchema>;
+
+export const getImportRunResponseSchema = itemDataSchema(detailedImportRunSchema);
+export const listImportRunsResponseSchema = listDataSchema(listedImportRunSchema);
+export const createImportRunResponseSchema = itemDataSchema(z.object({ id: nonEmptyStringSchema }));
