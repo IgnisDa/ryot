@@ -23,6 +23,15 @@ If you have not already explored the codebase, do so to understand the current s
 
 Break the PRD into **tracer bullet** tasks. Each task is a thin vertical slice that cuts through ALL integration layers end-to-end, NOT a horizontal slice of one layer.
 
+The **final task must always be a codebase cleanup task** (AFK). It must not be merged or skipped. It reviews every change introduced by the feature and removes anything that is no longer needed or that was introduced as scaffolding. Specifically it must cover:
+
+- Duplicate code, logic, or utilities that can be consolidated
+- Duplicate or redundant types and interfaces
+- Duplicate, overlapping, or value-free tests (see AGENTS.md anti-patterns)
+- Dead code: unreachable branches, unused variables, unused imports, unused exports
+- Temporary or scaffold code introduced to unblock an earlier slice
+- YAGNI violations: abstractions or configuration options added speculatively but never actually used
+
 Slices may be 'HITL' or 'AFK'. HITL slices require human interaction, such as an architectural decision or a design review. AFK slices can be implemented and merged without human interaction. Prefer AFK over HITL where possible.
 
 <vertical-slice-rules>
@@ -85,6 +94,33 @@ Reference by number from the parent PRD:
 - User story 7
 
 </task-template>
+
+The cleanup task file must use this template instead:
+
+<cleanup-task-template>
+# Codebase Cleanup
+
+**Parent Plan:** [{Plan Name}](./README.md)
+
+**Type:** AFK
+
+**Status:** todo
+
+## What to build
+
+Review every file touched during this plan and remove anything that is no longer needed or was introduced as scaffolding.
+
+## Acceptance criteria
+
+- [ ] No duplicate functions, utilities, or logic blocks introduced by this plan
+- [ ] No duplicate or redundant types / interfaces
+- [ ] No duplicate, overlapping, or value-free tests (per AGENTS.md anti-patterns)
+- [ ] No unused imports, variables, or exports in changed files
+- [ ] No unreachable or dead code branches introduced by this plan
+- [ ] No temporary scaffold code introduced to unblock an earlier slice
+- [ ] No YAGNI violations: speculative abstractions or config options never actually consumed
+
+</cleanup-task-template>
 
 After creating all task files, update the parent README.md file to replace the placeholder Tasks section with the actual task tracking table:
 
