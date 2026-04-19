@@ -233,7 +233,7 @@ driver("details", async function(context) {
       chapters,
       productionStatus: productionStatus,
       publishYear: parsePublishYear(payload?.year, dayjs),
-      assets: { images: collectImages(payload?.image), videos: [] },
+      images: collectImages(payload?.image),
       genres: collectGenres(payload?.genres, payload?.categories),
       sourceUrl: typeof payload?.url === "string" ? payload.url : null,
       description: typeof payload?.description === "string" ? payload.description : null,

@@ -1,14 +1,10 @@
 import { toAppSchemaProperties } from "@ryot/ts-utils";
-import {
-	nullableBooleanSchema,
-	nullableIntSchema,
-	remoteImagesAssetsSchema,
-} from "../zod";
+import { imagesSchema, nullableBooleanSchema, nullableIntSchema } from "../zod";
 import { mediaWithFreeCreatorsPropertiesSchema } from "./common";
 
 export const bookPropertiesSchema =
 	mediaWithFreeCreatorsPropertiesSchema.extend({
-		assets: remoteImagesAssetsSchema,
+		images: imagesSchema,
 		pages: nullableIntSchema,
 		isCompilation: nullableBooleanSchema,
 	});
