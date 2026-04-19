@@ -143,7 +143,7 @@ const formatFuzzyDate = (value: unknown) => {
 	if (yearValue === null || monthValue === null || dayValue === null) {
 		return null;
 	}
-	const dt = DateTime.unsafeFromDate(
+	const dt = DateTime.fromDateUnsafe(
 		new Date(Date.UTC(Math.trunc(yearValue), Math.trunc(monthValue) - 1, Math.trunc(dayValue))),
 	);
 	return DateTime.formatIsoDateUtc(dt);

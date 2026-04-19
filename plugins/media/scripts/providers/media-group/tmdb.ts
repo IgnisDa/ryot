@@ -149,7 +149,7 @@ export const translate = defineProvider({
 						`/collection/${input.externalId}/images`,
 						{ include_image_language: langCode },
 						token,
-					).pipe(Effect.catchAll(() => Effect.succeed({}))),
+					).pipe(Effect.catch(() => Effect.succeed({}))),
 				],
 				{ concurrency: "unbounded" },
 			);

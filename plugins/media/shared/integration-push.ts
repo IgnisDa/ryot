@@ -20,7 +20,7 @@ export const normalizeBaseUrl = (value: unknown) =>
 	typeof value === "string" ? value.trim().replace(/\/+$/, "") : "";
 
 export const parseJsonBody = (
-	result: Effect.Effect.Success<ReturnType<IntegrationPushHost["httpCall"]>>,
+	result: Effect.Success<ReturnType<IntegrationPushHost["httpCall"]>>,
 ): unknown => {
 	const body = result.body;
 	if (typeof body !== "string" || !body.trim()) {

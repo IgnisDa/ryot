@@ -42,7 +42,7 @@ const getTvdbApiKey = (host: TvdbHost) =>
 
 export const getTvdbAccessToken = (host: TvdbHost): Effect.Effect<string, unknown> =>
 	host.getCachedValue(TOKEN_CACHE_KEY).pipe(
-		Effect.catchAll(() => Effect.succeed(null)),
+		Effect.catch(() => Effect.succeed(null)),
 		Effect.flatMap((cached) => {
 			const cachedToken = stringValue(cached);
 			if (cachedToken) {
@@ -68,7 +68,7 @@ export const getTvdbAccessToken = (host: TvdbHost): Effect.Effect<string, unknow
 						const accessToken = `Bearer ${token}`;
 						return host.setCachedValue(TOKEN_CACHE_KEY, accessToken, TOKEN_CACHE_TTL_SECONDS).pipe(
 							Effect.as(accessToken),
-							Effect.catchAll((error) => {
+							Effect.catch((error) => {
 								console.warn(`TVDB token cache write failed: ${error.message}`);
 								return Effect.succeed(accessToken);
 							}),
@@ -108,7 +108,7 @@ const tvdbRequest = (
 						}
 						return payload;
 					}),
-					Effect.catchAll((error) =>
+					Effect.catch((error) =>
 						options.allowMissing
 							? Effect.succeed(null)
 							: Effect.fail(new Error(error.message || `TVDB request failed: ${path}`)),

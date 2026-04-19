@@ -149,7 +149,7 @@ export const translate = defineProvider({
 		return Effect.all([
 			tvdbGetOptional(host, `/movies/${input.externalId}/translations/${providerLanguage}`),
 			tvdbGet(host, `/movies/${input.externalId}/extended`).pipe(
-				Effect.catchAll(() => Effect.succeed(null)),
+				Effect.catch(() => Effect.succeed(null)),
 			),
 		]).pipe(
 			Effect.map(([translationData, detailsData]) => {
