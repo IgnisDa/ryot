@@ -5,11 +5,7 @@ import {
 	nullableBooleanSchema,
 	nullableIntSchema,
 } from "../zod/base";
-import { mediaPropertiesSchema } from "./common";
-
-const freeCreatorSchema = z
-	.object({ role: z.string(), name: z.string() })
-	.strict();
+import { freeCreatorSchema, mediaPropertiesSchema } from "./common";
 
 export const personStubSchema = z
 	.object({
