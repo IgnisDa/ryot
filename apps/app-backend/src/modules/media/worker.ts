@@ -99,7 +99,6 @@ const processPersonStubs = async (input: {
 
 		await upsertPersonRelationship({
 			relType,
-			userId: input.userId,
 			properties: relProperties,
 			targetEntityId: input.mediaEntityId,
 			sourceEntityId: existingOrCreated.id,

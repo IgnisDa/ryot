@@ -1,5 +1,5 @@
 {
-	"id": "88a71775-bd9f-4449-9e02-c2a1d0f22a3b",
+	"id": "706fad27-1fcb-40e3-a856-836c9fa6c37f",
 	"prevId": "00000000-0000-0000-0000-000000000000",
 	"version": "7",
 	"dialect": "postgresql",
@@ -1165,6 +1165,34 @@
 					"isUnique": false,
 					"concurrently": false,
 					"method": "gin",
+					"with": {}
+				},
+				"relationship_global_source_target_rel_type_unique": {
+					"name": "relationship_global_source_target_rel_type_unique",
+					"columns": [
+						{
+							"expression": "source_entity_id",
+							"isExpression": false,
+							"asc": true,
+							"nulls": "last"
+						},
+						{
+							"expression": "target_entity_id",
+							"isExpression": false,
+							"asc": true,
+							"nulls": "last"
+						},
+						{
+							"expression": "rel_type",
+							"isExpression": false,
+							"asc": true,
+							"nulls": "last"
+						}
+					],
+					"isUnique": true,
+					"where": "\"relationship\".\"user_id\" is null",
+					"concurrently": false,
+					"method": "btree",
 					"with": {}
 				}
 			},
