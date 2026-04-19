@@ -354,13 +354,16 @@ export const upsertRelationship = async (
 	return assertPersisted(savedRelationship, "relationship");
 };
 
-export const deleteRelationship = async (input: {
-	userId: string;
-	sourceEntityId: string;
-	targetEntityId: string;
-	relationshipSchemaId: string;
-}) => {
-	const [deletedRelationship] = await db
+export const deleteRelationship = async (
+	input: {
+		userId: string;
+		sourceEntityId: string;
+		targetEntityId: string;
+		relationshipSchemaId: string;
+	},
+	database: DbClient = db,
+) => {
+	const [deletedRelationship] = await database
 		.delete(relationship)
 		.where(
 			and(
@@ -373,6 +376,26 @@ export const deleteRelationship = async (input: {
 		.returning(relationshipSelection);
 
 	return deletedRelationship;
+};
+
+export const deleteUserRelationshipsForEntity = async (
+	input: { userId: string; entityId: string },
+	database: DbClient = db,
+) => {
+	const deletedRelationships = await database
+		.delete(relationship)
+		.where(
+			and(
+				eq(relationship.userId, input.userId),
+				or(
+					eq(relationship.sourceEntityId, input.entityId),
+					eq(relationship.targetEntityId, input.entityId),
+				),
+			),
+		)
+		.returning({ id: relationship.id });
+
+	return deletedRelationships.length;
 };
 
 export const getRelationshipForUser = async (input: {
