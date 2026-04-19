@@ -13,18 +13,16 @@ const user = {
 	email: "user@example.com",
 } satisfies CurrentUserValue;
 
-const stubCurrentDb = Layer.effect(CurrentDb, Effect.die("CurrentDb not used in unit tests"));
-
 const dbRunnerLayer = Layer.succeed(
 	DbRunner,
 	<A, E, R>(effect: Effect.Effect<A, E, R>): Effect.Effect<A, E, Exclude<R, CurrentDb>> =>
-		Effect.provide(effect, stubCurrentDb),
+		Effect.provideService(effect, CurrentDb, Object.create(null)),
 );
 
 const transactionLayer = Layer.succeed(
 	TransactionRunner,
 	<A, E, R>(effect: Effect.Effect<A, E, R>): Effect.Effect<A, E, Exclude<R, CurrentDb>> =>
-		Effect.provide(effect, stubCurrentDb),
+		Effect.provideService(effect, CurrentDb, Object.create(null)),
 );
 
 it.effect("normalizes tracker slugs before creating custom trackers", () => {
