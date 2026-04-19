@@ -10,6 +10,7 @@ RyotQL is the focused read API at `POST /ryotql/execute`.
 - Localized entity names and properties with translation status as a normal catalog field.
 - Visibility for every table occurrence: entity, event, and relationship rows are user-or-global, plugin metadata is public, and plugin state and saved views are user-only.
 - Runtime field kinds: `text`, `date`, `number`, `boolean`, `json`, and `null`.
+- Row and include fields may use the SDK `star(table)` helper to select every approved catalog field for that table alias.
 
 The entity catalog currently exposes `id`, `name`, `userId`, `createdAt`, `updatedAt`, `properties`, `externalId`, `populatedAt`, `providerId`, `translationStatus`, and `entitySchemaSlug`. Other physical columns are not queryable.
 
@@ -22,6 +23,8 @@ The plugin catalog exposes `slug`, `status`, `version`, `manifest`, and `ingeste
 ## Document Shape
 
 Every document contains a non-empty `queries` object. Each entry is independent and has an explicit root table and alias, an optional predicate and joins, and one rows, aggregate, or time-series output.
+
+Rows and includes support qualified wildcard selections. `star(table("entity", "entity"))` expands to the approved fields for the `entity` alias only; joined aliases are not included unless they are explicitly selected with another `star()` or `field()`. Wildcards can be mixed with explicit fields, but duplicate output keys are rejected. Aggregate `groupBy` selections remain explicit. Wildcards expand through the RyotQL catalog, so hidden physical and authorization columns are never exposed.
 
 RyotQL validates the complete document before execution. Named queries execute sequentially in declaration order inside one repeatable-read, read-only transaction, so they share one database snapshot. Any validation or execution failure fails the complete request; partial result envelopes are not returned.
 
