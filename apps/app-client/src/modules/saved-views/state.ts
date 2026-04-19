@@ -1,19 +1,16 @@
 import type { RyotQLDocument } from "@ryot/contract/modules/ryotql/language";
-import type { DownloadResolutionResponse } from "@ryot/contract/modules/uploads/schemas";
 import type { SavedViewRecord } from "@ryot/ryotql-recipes/saved-view-records";
 import type {
 	SavedViewCardResultItem,
 	SavedViewResult,
 	SavedViewTableResultItem,
 } from "@ryot/ryotql-recipes/saved-views";
-import type { Cause } from "effect";
 import { AsyncResult } from "effect/unstable/reactivity";
 
 import { isRyotQLMalformedResultCause } from "@/api/ryotql";
 
 import {
 	collectManagedAssets,
-	resolvedAssetUrls,
 	type SavedViewCardItem,
 	type SavedViewDisplayData,
 	type SavedViewTableItem,
@@ -62,15 +59,6 @@ export type SavedViewNormalizedState<Item extends SavedViewItem = SavedViewItem>
 	readonly pages: readonly SavedViewPage[];
 	readonly itemsById: ReadonlyMap<string, Item>;
 };
-
-export type SavedViewManagedAssetsState =
-	| { readonly status: "ready"; readonly urls: ReadonlyMap<string, string> }
-	| { readonly status: "loading"; readonly urls: ReadonlyMap<string, string> }
-	| {
-			readonly status: "unavailable";
-			readonly cause: Cause.Cause<unknown>;
-			readonly urls: ReadonlyMap<string, string>;
-	  };
 
 const uniqueEntityIds = (entityIds: readonly string[]) => {
 	const seen = new Set<string>();
@@ -232,17 +220,4 @@ export const savedViewReadyState = (
 		assets: collectManagedAssets(items),
 		entityIds: items.map((item) => item.entityId),
 	};
-};
-
-export const mapManagedAssetResolution = (
-	result: AsyncResult.AsyncResult<DownloadResolutionResponse, unknown>,
-	resolveUrl: (url: string) => string,
-): SavedViewManagedAssetsState => {
-	if (AsyncResult.isSuccess(result)) {
-		return { status: "ready", urls: resolvedAssetUrls(result.value, resolveUrl) };
-	}
-	if (AsyncResult.isFailure(result)) {
-		return { status: "unavailable", cause: result.cause, urls: new Map() };
-	}
-	return { status: "loading", urls: new Map() };
 };
