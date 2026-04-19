@@ -13,7 +13,7 @@
 	},
 	"dependencies": {
 		"@better-auth/expo": "1.6.15",
-		"@effect/atom-react": "4.0.0-beta.105",
+		"@effect/atom-react": "4.0.0-beta.107",
 		"@expo-google-fonts/lora": "^0.4.2",
 		"@expo-google-fonts/outfit": "^0.4.3",
 		"@expo/material-symbols": "^0.1.1",
@@ -25,7 +25,7 @@
 		"@tailwindcss/postcss": "^4.1.13",
 		"better-auth": "1.6.15",
 		"clsx": "^2.1.1",
-		"effect": "4.0.0-beta.105",
+		"effect": "4.0.0-beta.107",
 		"expo": "~57.0.11",
 		"expo-constants": "~57.0.9",
 		"expo-dev-client": "~57.0.10",
@@ -55,7 +55,7 @@
 		"vaul": "^1.1.2"
 	},
 	"devDependencies": {
-		"@effect/vitest": "4.0.0-beta.105",
+		"@effect/vitest": "4.0.0-beta.107",
 		"@ryot/testing": "workspace:*",
 		"@types/react": "~19.2.2",
 		"babel-plugin-module-resolver": "5.0.3",
