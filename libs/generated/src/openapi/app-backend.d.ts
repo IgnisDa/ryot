@@ -2285,6 +2285,7 @@ export interface paths {
             parameters: {
                 query: {
                     entityId: string;
+                    eventSchemaSlug?: string;
                 };
                 header?: never;
                 path?: never;

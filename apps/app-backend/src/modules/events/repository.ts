@@ -110,13 +110,20 @@ export const getEventCreateScopeForUser = async (input: {
 export const listEventsByEntityForUser = async (input: {
 	userId: string;
 	entityId: string;
+	eventSchemaSlug?: string;
 }) => {
 	const rows = await db
 		.select(listedEventSelection)
 		.from(event)
 		.innerJoin(eventSchema, eq(event.eventSchemaId, eventSchema.id))
 		.where(
-			and(eq(event.userId, input.userId), eq(event.entityId, input.entityId)),
+			and(
+				eq(event.userId, input.userId),
+				eq(event.entityId, input.entityId),
+				input.eventSchemaSlug
+					? eq(eventSchema.slug, input.eventSchemaSlug)
+					: undefined,
+			),
 		)
 		.orderBy(desc(event.createdAt));
 

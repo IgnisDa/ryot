@@ -29,7 +29,10 @@ import type {
 
 export type EventPropertiesShape = Record<string, unknown>;
 
-export type CreatedEventData = ListedEvent & { entitySchemaId: string };
+export type CreatedEventData = ListedEvent & {
+	entitySchemaId: string;
+	entitySchemaSlug: string;
+};
 
 type EventMutationError = "not_found" | "validation";
 
@@ -61,6 +64,7 @@ const enqueueEventSchemaTriggerJob = async (input: {
 			entityId: string;
 			eventSchemaId: string;
 			entitySchemaId: string;
+			entitySchemaSlug: string;
 			eventSchemaSlug: string;
 			properties: Record<string, unknown>;
 		};
@@ -147,7 +151,7 @@ const resolveEventCreateInputResult = (
 	);
 
 export const listEntityEvents = async (
-	input: { entityId: string; userId: string },
+	input: { entityId: string; userId: string; eventSchemaSlug?: string },
 	deps: EventServiceDeps = eventServiceDeps,
 ): Promise<EventServiceResult<ListedEvent[]>> => {
 	const entityIdResult = resolveEventEntityIdResult(input.entityId);
@@ -169,6 +173,7 @@ export const listEntityEvents = async (
 	const events = await deps.listEventsByEntityForUser({
 		userId: input.userId,
 		entityId: entityIdResult.data,
+		eventSchemaSlug: input.eventSchemaSlug,
 	});
 
 	return serviceData(events);
@@ -252,6 +257,7 @@ export const createEvent = async (
 	return serviceData({
 		...createdEvent,
 		entitySchemaId: eventScope.entitySchemaId,
+		entitySchemaSlug: eventScope.entitySchemaSlug,
 	});
 };
 
@@ -329,6 +335,7 @@ export const processEventSchemaTriggers = async (
 					eventSchemaId: createdEvent.eventSchemaId,
 					entitySchemaId: createdEvent.entitySchemaId,
 					eventSchemaSlug: createdEvent.eventSchemaSlug,
+					entitySchemaSlug: createdEvent.entitySchemaSlug,
 				},
 			};
 
