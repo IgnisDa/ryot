@@ -97,6 +97,7 @@ export function SearchEntityModalContent(props: {
 		trackedExternalIds,
 		selectedProviderIndex,
 		setSelectedProviderIndex,
+		ensuredEntityByExternalId,
 	} = useEntitySearch({ entitySchema: props.entitySchema });
 
 	const [selectedResultId, setSelectedResultId] = useState<string | null>(null);
@@ -105,6 +106,9 @@ export function SearchEntityModalContent(props: {
 	>({});
 
 	const isPersonSchema = props.entitySchema.slug === "person";
+	const isEpisodicEntity = ["show", "anime", "manga", "podcast"].includes(
+		props.entitySchema.slug,
+	);
 	const accentColor = props.entitySchema.accentColor ?? "#8C7560";
 	const activeProvider = props.entitySchema.providers[selectedProviderIndex];
 	const lifecycleErrorMessage = useMemo(() => {
@@ -306,7 +310,17 @@ export function SearchEntityModalContent(props: {
 					logDate: state.logDate,
 					startedOn: state.logStartedOn,
 					completedOn: state.logCompletedOn,
+					entitySchemaSlug: props.entitySchema.slug,
 					eventSchemas: eventSchemasQuery.eventSchemas,
+					showSeason: state.showSeason === "" ? undefined : state.showSeason,
+					showEpisode: state.showEpisode === "" ? undefined : state.showEpisode,
+					mangaVolume: state.mangaVolume === "" ? undefined : state.mangaVolume,
+					animeEpisode:
+						state.animeEpisode === "" ? undefined : state.animeEpisode,
+					mangaChapter:
+						state.mangaChapter === "" ? undefined : state.mangaChapter,
+					podcastEpisode:
+						state.podcastEpisode === "" ? undefined : state.podcastEpisode,
 				});
 			} catch (error) {
 				patchActionState(item.externalId, {
@@ -334,7 +348,19 @@ export function SearchEntityModalContent(props: {
 						logDate: state.logDate,
 						startedOn: state.logStartedOn,
 						completedOn: state.logCompletedOn,
+						entitySchemaSlug: props.entitySchema.slug,
 						eventSchemas: eventSchemasQuery.eventSchemas,
+						showSeason: state.showSeason === "" ? undefined : state.showSeason,
+						showEpisode:
+							state.showEpisode === "" ? undefined : state.showEpisode,
+						animeEpisode:
+							state.animeEpisode === "" ? undefined : state.animeEpisode,
+						mangaChapter:
+							state.mangaChapter === "" ? undefined : state.mangaChapter,
+						mangaVolume:
+							state.mangaVolume === "" ? undefined : state.mangaVolume,
+						podcastEpisode:
+							state.podcastEpisode === "" ? undefined : state.podcastEpisode,
 					}),
 			});
 		},
@@ -477,6 +503,40 @@ export function SearchEntityModalContent(props: {
 
 	const canUseCollectionAction = true;
 
+	const handleOpenPanel = useCallback(
+		(item: SearchResultItem, panel: "log" | "rate" | "collection") => {
+			setSelectedResultId(item.externalId);
+			const state = getActionState(item.externalId);
+			patchActionState(item.externalId, {
+				actionError: null,
+				openPanel: state.openPanel === panel ? null : panel,
+			});
+
+			if (
+				panel === "log" &&
+				state.openPanel !== panel &&
+				isEpisodicEntity &&
+				!ensuredEntityByExternalId[item.externalId]
+			) {
+				void ensureItemEntity(item).catch((error) => {
+					if (isCancelledEntitySearchError(error)) {
+						return;
+					}
+					patchActionState(item.externalId, {
+						actionError: getErrorMessage(error),
+					});
+				});
+			}
+		},
+		[
+			getActionState,
+			patchActionState,
+			isEpisodicEntity,
+			ensureItemEntity,
+			ensuredEntityByExternalId,
+		],
+	);
+
 	const providerCount = props.entitySchema.providers.length;
 	const providerData = props.entitySchema.providers.map((provider, index) => ({
 		label: provider.name,
@@ -586,6 +646,7 @@ export function SearchEntityModalContent(props: {
 											entityName={props.entitySchema.name}
 											onSaveLog={() => handleSaveLog(item)}
 											providerName={activeProvider?.name ?? ""}
+											entitySchemaSlug={props.entitySchema.slug}
 											onBacklog={() => void handleBacklog(item)}
 											onSaveReview={() => handleSaveReview(item)}
 											actionState={getActionState(item.externalId)}
@@ -594,10 +655,15 @@ export function SearchEntityModalContent(props: {
 											addStatus={addStatus[item.externalId] ?? "idle"}
 											isLifecycleLoading={eventSchemasQuery.isLoading}
 											isExpanded={selectedResultId === item.externalId}
+											onTogglePanel={(panel) => handleOpenPanel(item, panel)}
 											onRetryCollectionDiscovery={() => refetchCollections()}
 											isTracked={trackedExternalIds.has(item.externalId)}
 											collectionsDestination={
 												collectionsDestination.destination
+											}
+											entityProperties={
+												ensuredEntityByExternalId[item.externalId]
+													?.properties as Record<string, unknown> | undefined
 											}
 											onPatchActionState={(patch) =>
 												patchActionState(item.externalId, patch)
@@ -605,14 +671,17 @@ export function SearchEntityModalContent(props: {
 											onSaveCollection={(values) =>
 												handleSaveCollection(item, values)
 											}
-											onTogglePanel={(panel) => {
-												setSelectedResultId(item.externalId);
-												const state = getActionState(item.externalId);
-												patchActionState(item.externalId, {
-													actionError: null,
-													openPanel: state.openPanel === panel ? null : panel,
-												});
-											}}
+											isLoadingEntityProperties={
+												isEpisodicEntity &&
+												addStatus[item.externalId] === "loading"
+											}
+											propertyLoadError={
+												isEpisodicEntity &&
+												addStatus[item.externalId] === "error"
+													? (addError[item.externalId] ??
+														"Could not load episode details.")
+													: null
+											}
 											onToggleActions={() => {
 												const isCurrentlyExpanded =
 													selectedResultId === item.externalId;

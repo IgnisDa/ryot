@@ -4,6 +4,7 @@ import { createEventSchemaFixture } from "~/features/test-fixtures";
 import {
 	createBacklogEventPayload,
 	createLogEventPayload,
+	createProgressEventPayload,
 	createReviewEventPayload,
 	getMediaDoneActionLabel,
 	getMediaLifecycleUnavailableMessage,
@@ -57,6 +58,7 @@ describe("createLogEventPayload", () => {
 				logDate: "now",
 				completedOn: "",
 				entityId: "entity-1",
+				entitySchemaSlug: "movie",
 				eventSchemas: createLifecycleSchemas(),
 			}),
 		).toEqual([
@@ -75,6 +77,7 @@ describe("createLogEventPayload", () => {
 				completedOn: "",
 				logDate: "unknown",
 				entityId: "entity-1",
+				entitySchemaSlug: "movie",
 				eventSchemas: createLifecycleSchemas(),
 			}),
 		).toEqual([
@@ -90,16 +93,39 @@ describe("createLogEventPayload", () => {
 		expect(
 			createLogEventPayload({
 				startedOn: "",
+				showSeason: 1,
+				showEpisode: 2,
 				completedOn: "",
 				logDate: "started",
 				entityId: "entity-1",
+				entitySchemaSlug: "show",
 				eventSchemas: createLifecycleSchemas(),
 			}),
 		).toEqual([
 			{
 				entityId: "entity-1",
 				eventSchemaId: "progress-id",
-				properties: { progressPercent: 1 },
+				properties: { progressPercent: 1, showSeason: 1, showEpisode: 2 },
+			},
+		]);
+	});
+
+	it("maps episodic just now to a progress event with granular fields", () => {
+		expect(
+			createLogEventPayload({
+				logDate: "now",
+				startedOn: "",
+				completedOn: "",
+				podcastEpisode: 14,
+				entityId: "entity-1",
+				entitySchemaSlug: "podcast",
+				eventSchemas: createLifecycleSchemas(),
+			}),
+		).toEqual([
+			{
+				entityId: "entity-1",
+				eventSchemaId: "progress-id",
+				properties: { progressPercent: 100, podcastEpisode: 14 },
 			},
 		]);
 	});
@@ -108,6 +134,7 @@ describe("createLogEventPayload", () => {
 		const payload = createLogEventPayload({
 			logDate: "custom",
 			entityId: "entity-1",
+			entitySchemaSlug: "movie",
 			startedOn: "2026-03-27T09:15",
 			completedOn: "2026-03-27T18:30",
 			eventSchemas: createLifecycleSchemas(),
@@ -128,6 +155,7 @@ describe("createLogEventPayload", () => {
 				startedOn: "",
 				logDate: "custom",
 				entityId: "entity-1",
+				entitySchemaSlug: "movie",
 				completedOn: "2026-03-27T18:30",
 				eventSchemas: createLifecycleSchemas(),
 			}),
@@ -150,6 +178,7 @@ describe("createLogEventPayload", () => {
 				completedOn: "",
 				logDate: "custom",
 				entityId: "entity-1",
+				entitySchemaSlug: "movie",
 				eventSchemas: createLifecycleSchemas(),
 			}),
 		).toThrow("Completed on must be a valid date and time");
@@ -160,11 +189,57 @@ describe("createLogEventPayload", () => {
 			createLogEventPayload({
 				logDate: "custom",
 				entityId: "entity-1",
+				entitySchemaSlug: "movie",
 				startedOn: "2026-03-28T18:30",
 				completedOn: "2026-03-27T18:30",
 				eventSchemas: createLifecycleSchemas(),
 			}),
 		).toThrow("Started on must be before completed on");
+	});
+
+	it("maps episodic custom timestamps to a progress event with granular fields", () => {
+		expect(
+			createLogEventPayload({
+				mangaVolume: 8,
+				logDate: "custom",
+				mangaChapter: 42.5,
+				entityId: "entity-1",
+				entitySchemaSlug: "manga",
+				startedOn: "2026-03-27T09:15",
+				completedOn: "2026-03-27T18:30",
+				eventSchemas: createLifecycleSchemas(),
+			}),
+		).toEqual([
+			{
+				entityId: "entity-1",
+				eventSchemaId: "progress-id",
+				properties: {
+					mangaVolume: 8,
+					mangaChapter: 42.5,
+					progressPercent: 100,
+				},
+			},
+		]);
+	});
+});
+
+describe("createProgressEventPayload", () => {
+	it("includes episodic progress fields when provided", () => {
+		expect(
+			createProgressEventPayload({
+				showSeason: 1,
+				showEpisode: 3,
+				entityId: "entity-1",
+				progressPercent: 25,
+				eventSchemas: createLifecycleSchemas(),
+			}),
+		).toEqual([
+			{
+				entityId: "entity-1",
+				eventSchemaId: "progress-id",
+				properties: { progressPercent: 25, showSeason: 1, showEpisode: 3 },
+			},
+		]);
 	});
 });
 
