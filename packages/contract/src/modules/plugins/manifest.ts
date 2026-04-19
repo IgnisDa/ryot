@@ -1,9 +1,9 @@
 import { Result, Schema, SchemaGetter } from "effect";
 
-import { DisplayConfiguration } from "../../display-configuration";
 import { AppSchema } from "../../schema/property-schema";
 import { RyotQLDocument } from "../ryotql/language";
 import { SANDBOX_HOST_CAPABILITIES } from "../sandbox/wire";
+import { SavedViewDisplayConfiguration } from "../saved-views/schemas";
 import { pluginConfigEnvironmentKey } from "./plugin-config";
 
 const strictStruct = <Fields extends Schema.Struct.Fields>(fields: Fields) =>
@@ -14,7 +14,6 @@ const strictParseOptions = {
 } satisfies Schema.Annotations.Filter;
 const PluginAppSchema = Schema.toType(AppSchema);
 const PluginQueryDocument = Schema.toType(RyotQLDocument);
-const PluginDisplayConfiguration = Schema.toType(DisplayConfiguration);
 
 export const PluginMetadata = strictStruct({
 	icon: Schema.String,
@@ -90,7 +89,7 @@ export const PluginSavedView = strictStruct({
 	slug: Schema.String,
 	sortOrder: Schema.Number,
 	queryDocument: PluginQueryDocument,
-	displayConfiguration: PluginDisplayConfiguration,
+	displayConfiguration: SavedViewDisplayConfiguration,
 	pluginSlug: Schema.NullOr(Schema.String),
 });
 

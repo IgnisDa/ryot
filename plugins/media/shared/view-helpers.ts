@@ -1,193 +1,142 @@
 import {
-	createConcatExpression,
-	createConditionalExpression,
-	createEntityColumnExpression,
-	createEntityPropertyExpression,
-	createEntityPropertyPathExpression,
-	createEntitySchemaExpression,
-	createEventAggregateExpression,
-	createIsNotNullExpression,
-	createLiteralExpression,
-	type QueryExpression,
-} from "@ryot/contract/display-configuration";
+	and,
+	average,
+	column,
+	concat,
+	conditional,
+	eq,
+	castNumber,
+	jsonPath,
+	isNotNull,
+	literal,
+	table,
+} from "@ryot/ryotql";
+import type { SavedViewProjectionInput } from "@ryot/ryotql-recipes/saved-views";
 
-const entityColumn = (slug: string, column: string) => createEntityColumnExpression(slug, column);
+type ViewExpressions = Omit<SavedViewProjectionInput, "entityId">;
 
-// Cards show the first image from the schema-defined `images` property.
-const entityImageProperty = (slug: string): QueryExpression | null =>
-	createEntityPropertyPathExpression(slug, ["images", "0"]);
+const entity = table("entity", "entity");
+const entityColumn = (name: string) => column(entity, name);
+const entityProperty = (property: string) => jsonPath(column(entity, "properties"), property);
+const entityImage = () => jsonPath(column(entity, "properties"), "images", 0);
 
-const entityProperty = (slug: string, property: string) =>
-	createEntityPropertyExpression(slug, property);
-
-const entitySchemaColumn = (column: string) => createEntitySchemaExpression(column);
-
-const eventAggregateAvg = (eventSchemaSlug: string, propertyPath: string[]) =>
-	createEventAggregateExpression(eventSchemaSlug, "avg", propertyPath);
-
-const conditionalConcat = (slug: string, property: string, unit: string) =>
-	createConditionalExpression({
-		whenFalse: createLiteralExpression(null),
-		condition: createIsNotNullExpression(entityProperty(slug, property)),
-		whenTrue: createConcatExpression([
-			entityProperty(slug, property),
-			createLiteralExpression(unit),
-		]),
+const reviewRatingAverage = () => {
+	const review = table("event", "review");
+	return average(review, castNumber(jsonPath(column(review, "properties"), "rating")), {
+		where: and(
+			eq(column(review, "entityId"), column(entity, "id")),
+			eq(column(review, "eventSchemaSlug"), literal("review")),
+		),
 	});
+};
 
-const avgRatingCallout = eventAggregateAvg("review", ["properties", "rating"]);
+const conditionalUnit = (property: string, unit: string) => {
+	const value = entityProperty(property);
+	return conditional(isNotNull(value), concat(value, literal(unit)), literal(null));
+};
 
-const eyebrowSchemaName = entitySchemaColumn("name");
-
-const buildSecondarySubtitle = (slug: string) => {
+const secondarySubtitle = (slug: string) => {
 	switch (slug) {
 		case "book":
 		case "show":
-			return entityProperty(slug, "productionStatus");
+			return entityProperty("productionStatus");
 		case "comic-book":
-			return conditionalConcat(slug, "pages", " pages");
+			return conditionalUnit("pages", " pages");
 		case "movie":
 		case "audiobook":
-			return conditionalConcat(slug, "runtime", " min");
+			return conditionalUnit("runtime", " min");
 		case "manga":
-			return conditionalConcat(slug, "chapters", " ch");
+			return conditionalUnit("chapters", " ch");
 		case "anime":
-			return conditionalConcat(slug, "episodes", " eps");
+			return conditionalUnit("episodes", " eps");
 		case "podcast":
-			return conditionalConcat(slug, "totalEpisodes", " eps");
+			return conditionalUnit("totalEpisodes", " eps");
 		case "visual-novel":
-			return conditionalConcat(slug, "lengthMinutes", " min");
+			return conditionalUnit("lengthMinutes", " min");
 		default:
 			return null;
 	}
 };
 
-const buildCardConfig = (slug: string) => {
-	switch (slug) {
-		case "person":
-			return {
-				calloutProperty: null,
-				eyebrowProperty: eyebrowSchemaName,
-				primarySubtitleProperty: entityProperty(slug, "birthPlace"),
-				secondarySubtitleProperty: entityProperty(slug, "birthDate"),
-			};
-		case "company":
-			return {
-				calloutProperty: avgRatingCallout,
-				eyebrowProperty: eyebrowSchemaName,
-				primarySubtitleProperty: entityProperty(slug, "foundedYear"),
-				secondarySubtitleProperty: null,
-			};
-		case "book-group":
-		case "movie-group":
-		case "music-group":
-		case "audiobook-group":
-		case "comic-book-group":
-		case "video-game-group":
-			return {
-				calloutProperty: avgRatingCallout,
-				eyebrowProperty: eyebrowSchemaName,
-				primarySubtitleProperty: entityProperty(slug, "parts"),
-				secondarySubtitleProperty: null,
-			};
-		default:
-			return {
-				calloutProperty: avgRatingCallout,
-				eyebrowProperty: eyebrowSchemaName,
-				secondarySubtitleProperty: buildSecondarySubtitle(slug),
-				primarySubtitleProperty: entityProperty(slug, "publishYear"),
-			};
+const cardExpressions = (slug: string, schemaName: string): ViewExpressions["grid"] => {
+	const eyebrow = literal(schemaName);
+	if (slug === "person") {
+		return {
+			eyebrow,
+			callout: null,
+			image: entityImage(),
+			title: entityColumn("name"),
+			primarySubtitle: entityProperty("birthPlace"),
+			secondarySubtitle: entityProperty("birthDate"),
+		};
 	}
-};
-
-type TableColumn = { expression: QueryExpression; label: string };
-
-const buildTableColumns = (slug: string) => {
-	const nameCol: TableColumn = { expression: entityColumn(slug, "name"), label: "Name" };
-	const yearCol: TableColumn = { expression: entityProperty(slug, "publishYear"), label: "Year" };
-	switch (slug) {
-		case "person":
-			return [nameCol, { expression: entityProperty(slug, "birthPlace"), label: "Birth Place" }];
-		case "company":
-			return [nameCol, { expression: entityProperty(slug, "foundedYear"), label: "Founded Year" }];
-		case "book-group":
-		case "movie-group":
-		case "music-group":
-		case "audiobook-group":
-		case "comic-book-group":
-		case "video-game-group":
-			return [nameCol, { expression: entityProperty(slug, "parts"), label: "Parts" }];
-		case "book":
-		case "comic-book":
-			return [nameCol, yearCol, { expression: entityProperty(slug, "pages"), label: "Pages" }];
-		case "show":
-			return [
-				nameCol,
-				yearCol,
-				{ expression: entityProperty(slug, "productionStatus"), label: "Status" },
-			];
-		case "movie":
-		case "audiobook":
-			return [nameCol, yearCol, { expression: entityProperty(slug, "runtime"), label: "Runtime" }];
-		case "anime":
-			return [
-				nameCol,
-				yearCol,
-				{ expression: entityProperty(slug, "episodes"), label: "Episodes" },
-			];
-		case "manga":
-			return [
-				nameCol,
-				yearCol,
-				{ expression: entityProperty(slug, "chapters"), label: "Chapters" },
-			];
-		case "podcast":
-			return [
-				nameCol,
-				yearCol,
-				{ expression: entityProperty(slug, "totalEpisodes"), label: "Episodes" },
-			];
-		case "visual-novel":
-			return [
-				nameCol,
-				yearCol,
-				{ expression: entityProperty(slug, "lengthMinutes"), label: "Length" },
-			];
-		default:
-			return [nameCol, yearCol];
+	if (slug === "company") {
+		return {
+			eyebrow,
+			image: entityImage(),
+			secondarySubtitle: null,
+			callout: reviewRatingAverage(),
+			title: entityColumn("name"),
+			primarySubtitle: entityProperty("foundedYear"),
+		};
 	}
+	if (slug.endsWith("-group")) {
+		return {
+			eyebrow,
+			image: entityImage(),
+			secondarySubtitle: null,
+			callout: reviewRatingAverage(),
+			title: entityColumn("name"),
+			primarySubtitle: entityProperty("parts"),
+		};
+	}
+	return {
+		eyebrow,
+		image: entityImage(),
+		callout: reviewRatingAverage(),
+		title: entityColumn("name"),
+		secondarySubtitle: secondarySubtitle(slug),
+		primarySubtitle: entityProperty("publishYear"),
+	};
 };
 
-export const buildDisplayConfig = (slug: string) => {
-	const cardConfig = buildCardConfig(slug);
-	const card = {
-		titleProperty: entityColumn(slug, "name"),
-		imageProperty: entityImageProperty(slug),
-		...cardConfig,
-	};
-	return {
-		grid: { ...card },
-		list: { ...card },
-		table: { columns: buildTableColumns(slug) },
-		entityIdProperty: entityColumn(slug, "id"),
-	};
+const tableColumns = (slug: string): ViewExpressions["table"] => {
+	const name = { label: "Name", expression: entityColumn("name") };
+	const year = { label: "Year", expression: entityProperty("publishYear") };
+	if (slug === "person") {
+		return [name, { label: "Birth Place", expression: entityProperty("birthPlace") }];
+	}
+	if (slug === "company") {
+		return [name, { label: "Founded Year", expression: entityProperty("foundedYear") }];
+	}
+	if (slug.endsWith("-group")) {
+		return [name, { label: "Parts", expression: entityProperty("parts") }];
+	}
+	if (slug === "book" || slug === "comic-book") {
+		return [name, year, { label: "Pages", expression: entityProperty("pages") }];
+	}
+	if (slug === "show") {
+		return [name, year, { label: "Status", expression: entityProperty("productionStatus") }];
+	}
+	if (slug === "movie" || slug === "audiobook") {
+		return [name, year, { label: "Runtime", expression: entityProperty("runtime") }];
+	}
+	if (slug === "anime") {
+		return [name, year, { label: "Episodes", expression: entityProperty("episodes") }];
+	}
+	if (slug === "manga") {
+		return [name, year, { label: "Chapters", expression: entityProperty("chapters") }];
+	}
+	if (slug === "podcast") {
+		return [name, year, { label: "Episodes", expression: entityProperty("totalEpisodes") }];
+	}
+	if (slug === "visual-novel") {
+		return [name, year, { label: "Length", expression: entityProperty("lengthMinutes") }];
+	}
+	return [name, year];
 };
 
-export const buildDefaultDisplayConfig = (slug: string) => {
-	const titleProperty = entityColumn(slug, "name");
-	const card = {
-		calloutProperty: null,
-		eyebrowProperty: null,
-		imageProperty: null,
-		primarySubtitleProperty: null,
-		secondarySubtitleProperty: null,
-		titleProperty,
-	};
-
-	return {
-		grid: { ...card },
-		list: { ...card },
-		table: { columns: [{ label: "Name", expression: titleProperty }] },
-		entityIdProperty: entityColumn(slug, "id"),
-	};
+export const buildViewExpressions = (slug: string, schemaName: string): ViewExpressions => {
+	const card = cardExpressions(slug, schemaName);
+	return { grid: card, list: card, table: tableColumns(slug) };
 };

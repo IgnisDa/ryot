@@ -6,24 +6,32 @@ import {
 	castDate,
 	castNumber,
 	column,
+	concat,
 	contains,
+	conditional,
 	count,
 	document,
 	eq,
 	exists,
 	field,
+	floor,
 	first,
 	include,
+	integer,
+	isNotNull,
 	join,
 	jsonPath,
+	kebabCase,
 	literal,
 	measure,
 	measureDescending,
 	rows,
+	round,
 	star,
 	sum,
 	table,
 	timeSeries,
+	titleCase,
 } from "@ryot/ryotql";
 
 import { getCatalogTable } from "./catalog";
@@ -436,6 +444,58 @@ it("validates nested expression aliases, fields, JSON paths, and scalar kinds", 
 			}),
 		),
 	).toBe("Query 'entities': Comparison operands must have compatible types");
+});
+
+it("validates scalar operations, recursive predicates, and operand kinds", () => {
+	const entity = table("entity", "entity");
+	const valid = rows(entity, {
+		fields: [
+			field("concat", concat(column(entity, "name"), literal(" suffix"))),
+			field(
+				"conditional",
+				conditional(eq(column(entity, "name"), literal("Ryot")), literal("yes"), literal(null)),
+			),
+			field("title", titleCase(column(entity, "name"))),
+			field("kebab", kebabCase(column(entity, "name"))),
+			field("round", round(literal(1.5))),
+			field("floor", floor(literal(1.5))),
+			field("integer", integer(literal(-1.5))),
+			field("notNull", isNotNull(column(entity, "name"))),
+		],
+	});
+	expect(validateRyotQLDocument(document({ entities: valid }))).toBeNull();
+
+	const missing = table("entity", "missing");
+	expect(
+		validateRyotQLDocument(
+			document({
+				entities: rows(entity, {
+					fields: [
+						field(
+							"value",
+							conditional(eq(column(missing, "id"), literal("id")), literal("yes"), literal("no")),
+						),
+					],
+				}),
+			}),
+		),
+	).toBe("Query 'entities': Unknown table alias 'missing'");
+	expect(
+		validateRyotQLDocument(
+			document({
+				entities: rows(entity, { fields: [field("value", round(column(entity, "name")))] }),
+			}),
+		),
+	).toBe("Query 'entities': Numeric operands must be numeric: text");
+	expect(
+		validateRyotQLDocument(
+			document({
+				entities: rows(entity, {
+					fields: [field("value", titleCase(column(entity, "createdAt")))],
+				}),
+			}),
+		),
+	).toBe("Query 'entities': Text operands must be text: date");
 });
 
 it("validates include correlation, lexical scopes, keys, limits, and depth", () => {

@@ -7,7 +7,7 @@ import {
 	runContract,
 	type ContractProgram,
 } from "@ryot/contract/client";
-import type { QueryExpression, RuntimeRef } from "@ryot/contract/display-configuration";
+import type { ScalarExpression } from "@ryot/contract/modules/ryotql/language";
 import {
 	EventSchemaSlug,
 	PluginSlug,
@@ -18,7 +18,8 @@ import {
 } from "@ryot/contract/schema/brands";
 import { imagesField } from "@ryot/contract/schema/core";
 import type { AppSchema } from "@ryot/contract/schema/property-schema";
-import { buildSavedViewDocument } from "@ryot/ryotql-recipes/saved-views";
+import { column, coalesce, jsonPath, literal, table } from "@ryot/ryotql";
+import { buildSavedViewDocument, buildSavedViewProjection } from "@ryot/ryotql-recipes/saved-views";
 import { dayjs } from "@ryot/ts-utils/dayjs";
 import { createAuthClient } from "better-auth/client";
 
@@ -98,40 +99,13 @@ type AddToCollectionBody = ContractPayload<"collections", "createMembership">;
 type CreateSavedViewBody = ContractPayload<"savedViews", "create">;
 type SavedViewQueryDocument = CreateSavedViewBody["queryDocument"];
 type SavedViewDisplayConfiguration = CreateSavedViewBody["displayConfiguration"];
-type SavedViewTableColumn = {
-	label: string;
-	expression?: SavedViewDisplayConfiguration["table"]["columns"][number]["expression"];
-	property?: string[];
-};
-type SavedViewExpression = QueryExpression;
-type SavedViewReference = RuntimeRef;
-type SavedViewDisplayConfigInput = {
-	entityIdProperty?: string[] | null;
-	grid: {
-		eyebrowProperty: string[] | null;
-		imageProperty: string[] | null;
-		titleProperty: string[] | null;
-		calloutProperty: string[] | null;
-		primarySubtitleProperty: string[] | null;
-		secondarySubtitleProperty: string[] | null;
-	};
-	list: {
-		eyebrowProperty: string[] | null;
-		imageProperty: string[] | null;
-		titleProperty: string[] | null;
-		calloutProperty: string[] | null;
-		primarySubtitleProperty: string[] | null;
-		secondarySubtitleProperty: string[] | null;
-	};
-	table: { columns: SavedViewTableColumn[] };
-};
 
 type SavedViewSpec = {
 	name: string;
 	icon: string;
 	pluginSlug?: PluginSlug;
 	queryDocument: SavedViewQueryDocument;
-	displayConfiguration: SavedViewDisplayConfigInput;
+	displayConfiguration: SavedViewDisplayConfiguration;
 };
 
 class APIClient {
@@ -404,65 +378,40 @@ async function createEvents(apiClient: APIClient, events: EventPayload[]): Promi
 	await apiClient.run((c) => c.events.create({ payload: events }));
 }
 
-const literalExpression = (value: unknown): SavedViewExpression => ({
-	type: "literal",
-	value,
+const seedEntity = table("entity", "entity");
+const seedProperties = column(seedEntity, "properties");
+const seedProperty = (property: string) => jsonPath(seedProperties, property);
+const seedImage = () => jsonPath(seedProperties, "images", 0);
+const seedName = () => column(seedEntity, "name");
+const seedCreatedAt = () => column(seedEntity, "createdAt");
+type SeedTableColumn = Parameters<typeof buildSavedViewProjection>[0]["table"][number];
+
+const defaultProjection = buildSavedViewProjection({
+	entityId: column(seedEntity, "id"),
+	grid: {
+		title: seedName(),
+		image: seedImage(),
+		eyebrow: literal("Saved View"),
+		callout: seedProperty("type"),
+		primarySubtitle: seedProperty("city"),
+		secondarySubtitle: seedProperty("region"),
+	},
+	list: {
+		title: seedName(),
+		image: seedImage(),
+		eyebrow: literal("Saved View"),
+		callout: seedProperty("type"),
+		primarySubtitle: seedProperty("city"),
+		secondarySubtitle: seedProperty("region"),
+	},
+	table: [
+		{ label: "Name", expression: seedName() },
+		{ label: "Primary", expression: seedProperty("type") },
+		{ label: "Secondary", expression: seedProperty("city") },
+		{ label: "Created", expression: seedCreatedAt() },
+		{ label: "Details", expression: seedProperty("description") },
+	],
 });
-
-const parseReference = (reference: string): SavedViewReference => {
-	const segments = reference.split(".");
-	const [namespace, segment, third, ...rest] = segments;
-
-	if (namespace === "computed") {
-		if (!segment || third !== undefined) {
-			throw new Error(`Invalid saved view reference '${reference}'`);
-		}
-
-		return { type: "computed-field", key: segment };
-	}
-
-	if (namespace === "entity") {
-		if (!segment || !third) {
-			throw new Error(`Invalid saved view reference '${reference}'`);
-		}
-
-		if (third === "properties") {
-			if (rest.length === 0) {
-				throw new Error(`Invalid saved view reference '${reference}'`);
-			}
-
-			return { type: "entity", slug: segment, path: [third, ...rest] };
-		}
-
-		if (rest.length > 0) {
-			throw new Error(`Invalid saved view reference '${reference}'`);
-		}
-
-		return { type: "entity", slug: segment, path: [third] };
-	}
-
-	if (namespace === "event") {
-		if (!segment || !third) {
-			throw new Error(`Invalid saved view reference '${reference}'`);
-		}
-
-		if (third === "properties") {
-			if (rest.length === 0) {
-				throw new Error(`Invalid saved view reference '${reference}'`);
-			}
-
-			return { type: "event-join", joinKey: segment, path: [third, ...rest] };
-		}
-
-		if (rest.length > 0) {
-			throw new Error(`Invalid saved view reference '${reference}'`);
-		}
-
-		return { type: "event-join", joinKey: segment, path: [third] };
-	}
-
-	throw new Error(`Invalid saved view reference '${reference}'`);
-};
 
 function savedViewQueryDocument(scope: readonly string[]): SavedViewQueryDocument {
 	const [first] = scope;
@@ -471,160 +420,21 @@ function savedViewQueryDocument(scope: readonly string[]): SavedViewQueryDocumen
 	}
 
 	return buildSavedViewDocument({
-		entitySchemaSlugs: scope as [string, ...string[]],
+		page: 1,
 		limit: 20,
+		entitySchemaSlugs: scope as [string, ...string[]],
+		fields: defaultProjection.fields,
 	});
 }
-
-const savedViewEntitySchemaSlugs = (document: SavedViewQueryDocument) => {
-	const slugs = new Set<string>();
-	const visit = (value: unknown) => {
-		if (!value || typeof value !== "object") {
-			return;
-		}
-		if (Array.isArray(value)) {
-			value.forEach(visit);
-			return;
-		}
-		const record = value as Record<string, unknown>;
-		const left = record.left as Record<string, unknown> | undefined;
-		const right = record.right as Record<string, unknown> | undefined;
-		const addSchemaSlug = (expr: Record<string, unknown> | undefined, literal: unknown) => {
-			if (
-				expr?.type === "column" &&
-				expr.field === "entitySchemaSlug" &&
-				typeof literal === "string"
-			) {
-				slugs.add(literal);
-			}
-		};
-		if (right?.type === "literal") {
-			addSchemaSlug(left, right.value);
-		}
-		if (left?.type === "literal") {
-			addSchemaSlug(right, left.value);
-		}
-		const expression = record.expr as Record<string, unknown> | undefined;
-		if (Array.isArray(record.values)) {
-			for (const item of record.values) {
-				const literal = item as Record<string, unknown>;
-				if (literal?.type === "literal") {
-					addSchemaSlug(expression, literal.value);
-				}
-			}
-		}
-		Object.values(record).forEach(visit);
-	};
-	visit(document);
-	return [...slugs];
-};
 
 async function createSavedView(
 	apiClient: APIClient,
 	name: string,
 	icon: string,
 	queryDocument: SavedViewQueryDocument,
-	displayConfiguration: SavedViewDisplayConfigInput,
+	displayConfiguration: SavedViewDisplayConfiguration,
 	pluginSlug?: PluginSlug,
 ) {
-	const sourceSchemas = savedViewEntitySchemaSlugs(queryDocument);
-	const toExpression = (
-		input: string[] | SavedViewExpression | null,
-	): SavedViewExpression | null => {
-		if (input === null) {
-			return null;
-		}
-
-		if (!Array.isArray(input)) {
-			return input;
-		}
-
-		if (!input.length) {
-			return literalExpression(null);
-		}
-
-		const normalizeReference = (value: string) => {
-			if (value.startsWith("@")) {
-				return expandEntityBuiltinReference(value);
-			}
-			if (
-				!value.startsWith("entity.") &&
-				!value.startsWith("event.") &&
-				!value.startsWith("computed.") &&
-				value.split(".").length === 2
-			) {
-				const [schemaSlug, prop] = value.split(".");
-				return [`entity.${schemaSlug}.properties.${prop}`];
-			}
-			return [value];
-		};
-
-		const values = input
-			.flatMap((reference) => normalizeReference(reference))
-			.map((reference) => ({
-				type: "reference" as const,
-				reference: parseReference(reference),
-			}));
-
-		return values.length === 1
-			? (values[0] ?? literalExpression(null))
-			: { type: "coalesce", values };
-	};
-
-	const expandEntityBuiltinReference = (value: string) => {
-		if (!value.startsWith("@")) {
-			return [value];
-		}
-
-		const column = value.slice(1);
-		return sourceSchemas.map((schemaSlug) => {
-			// The `@image` shorthand resolves to the first image in the images property.
-			if (column === "image") {
-				return `entity.${schemaSlug}.properties.images.0`;
-			}
-			return `entity.${schemaSlug}.${column}`;
-		});
-	};
-
-	const normalizedDisplayConfiguration: SavedViewDisplayConfiguration = {
-		entityIdProperty:
-			toExpression(
-				displayConfiguration.entityIdProperty ??
-					sourceSchemas.map((slug) => schemaField(slug, "id")),
-			) ?? literalExpression(null),
-		grid: {
-			...displayConfiguration.grid,
-			eyebrowProperty: toExpression(displayConfiguration.grid.eyebrowProperty) ?? null,
-			imageProperty: toExpression(displayConfiguration.grid.imageProperty) ?? null,
-			titleProperty:
-				toExpression(displayConfiguration.grid.titleProperty) ?? literalExpression(null),
-			calloutProperty: toExpression(displayConfiguration.grid.calloutProperty) ?? null,
-			primarySubtitleProperty:
-				toExpression(displayConfiguration.grid.primarySubtitleProperty) ?? null,
-			secondarySubtitleProperty:
-				toExpression(displayConfiguration.grid.secondarySubtitleProperty) ?? null,
-		},
-		list: {
-			...displayConfiguration.list,
-			eyebrowProperty: toExpression(displayConfiguration.list.eyebrowProperty) ?? null,
-			imageProperty: toExpression(displayConfiguration.list.imageProperty) ?? null,
-			titleProperty:
-				toExpression(displayConfiguration.list.titleProperty) ?? literalExpression(null),
-			calloutProperty: toExpression(displayConfiguration.list.calloutProperty) ?? null,
-			primarySubtitleProperty:
-				toExpression(displayConfiguration.list.primarySubtitleProperty) ?? null,
-			secondarySubtitleProperty:
-				toExpression(displayConfiguration.list.secondarySubtitleProperty) ?? null,
-		},
-		table: {
-			columns: displayConfiguration.table.columns.map((column) => ({
-				label: column.label,
-				expression:
-					toExpression(column.property ?? column.expression ?? null) ?? literalExpression(null),
-			})),
-		},
-	};
-
 	return apiClient.run((c) =>
 		c.savedViews.create({
 			payload: {
@@ -632,7 +442,7 @@ async function createSavedView(
 				icon,
 				pluginSlug,
 				queryDocument,
-				displayConfiguration: normalizedDisplayConfiguration,
+				displayConfiguration,
 			},
 		}),
 	);
@@ -640,71 +450,64 @@ async function createSavedView(
 
 // ─── Display helpers ─────────────────────────────────────────────────────────
 
-function propertyReference(...fields: string[]) {
-	return fields;
+function propertyReference(...expressions: ReadonlyArray<ScalarExpression | string | null>) {
+	const [first, ...rest] = expressions.filter(
+		(expression): expression is ScalarExpression =>
+			typeof expression === "object" && expression !== null,
+	);
+	return first && rest.length > 0 ? coalesce(first, ...rest) : (first ?? literal(null));
 }
 
-function schemaField(schemaSlug: string, property: string) {
-	const entityBuiltins = new Set([
-		"id",
-		"name",
-		"createdAt",
-		"updatedAt",
-		"externalId",
-		"providerId",
-	]);
-	if (entityBuiltins.has(property)) {
-		return `entity.${schemaSlug}.${property}`;
-	}
-
-	return `entity.${schemaSlug}.properties.${property}`;
+function schemaField(_schemaSlug: string, property: string): ScalarExpression {
+	const builtins = new Set(["id", "name", "createdAt", "updatedAt", "externalId", "providerId"]);
+	return builtins.has(property) ? column(seedEntity, property) : seedProperty(property);
 }
 
 function cardConfig(
-	imageProperty: string[] | null,
-	titleProperty: string[] | null,
-	calloutProperty: string[] | null,
-	primarySubtitleProperty: string[] | null,
-	secondarySubtitleProperty: string[] | null = null,
-	eyebrowProperty: string[] | null = null,
-): {
-	eyebrowProperty: string[] | null;
-	imageProperty: string[] | null;
-	titleProperty: string[] | null;
-	calloutProperty: string[] | null;
-	primarySubtitleProperty: string[] | null;
-	secondarySubtitleProperty: string[] | null;
-} {
-	return {
-		eyebrowProperty,
-		imageProperty,
-		titleProperty,
-		calloutProperty,
-		primarySubtitleProperty,
-		secondarySubtitleProperty,
-	};
+	image: ScalarExpression | null,
+	title: ScalarExpression,
+	callout: ScalarExpression | null,
+	primarySubtitle: ScalarExpression | null,
+	secondarySubtitle: ScalarExpression | null = null,
+	eyebrow: ScalarExpression | null = null,
+) {
+	return { eyebrow, image, title, callout, primarySubtitle, secondarySubtitle };
 }
 
-function tableColumn(label: string, ...property: string[]): SavedViewTableColumn {
-	return { label, property };
+function tableColumn(
+	label: string,
+	...expressions: ReadonlyArray<ScalarExpression | string>
+): SeedTableColumn {
+	const expression = expressions.find(
+		(value): value is ScalarExpression => typeof value === "object" && value !== null,
+	);
+	return { label, expression: expression ?? literal(null) };
 }
 
 function buildDisplayConfiguration(
-	grid: {
-		eyebrowProperty: string[] | null;
-		imageProperty: string[] | null;
-		titleProperty: string[] | null;
-		calloutProperty: string[] | null;
-		primarySubtitleProperty: string[] | null;
-		secondarySubtitleProperty: string[] | null;
-	},
-	columns: SavedViewTableColumn[],
+	grid: ReturnType<typeof cardConfig>,
+	columns: ReadonlyArray<SeedTableColumn>,
 	list = grid,
-): SavedViewDisplayConfigInput {
+): SavedViewDisplayConfiguration {
+	const card = (prefix: "grid" | "list", input: ReturnType<typeof cardConfig>) => ({
+		titleField: `${prefix}Title`,
+		imageField: input.image === null ? null : `${prefix}Image`,
+		eyebrowField: input.eyebrow === null ? null : `${prefix}Eyebrow`,
+		calloutField: input.callout === null ? null : `${prefix}Callout`,
+		primarySubtitleField: input.primarySubtitle === null ? null : `${prefix}PrimarySubtitle`,
+		secondarySubtitleField: input.secondarySubtitle === null ? null : `${prefix}SecondarySubtitle`,
+	});
+
 	return {
-		grid,
-		list,
-		table: { columns },
+		entityIdField: "entityId",
+		grid: card("grid", grid),
+		list: card("list", list),
+		table: {
+			columns: columns.map((column, index) => ({
+				field: `tableColumn${index}`,
+				label: column.label,
+			})) as unknown as SavedViewDisplayConfiguration["table"]["columns"],
+		},
 	};
 }
 
