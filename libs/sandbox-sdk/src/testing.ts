@@ -35,25 +35,25 @@ export function defineSandboxTestHost(_manifest: SandboxManifest, host: unknown)
 }
 
 export const runSandboxTestScript = <
-	Input extends Schema.Schema.AnyNoContext,
-	Output extends Schema.Schema.AnyNoContext,
+	Input extends Schema.Codec<unknown, unknown>,
+	Output extends Schema.ConstraintDecoder<unknown>,
 	Host,
 >(
 	script: {
 		readonly input: Input;
 		readonly output: Output;
 		readonly run: (
-			input: Schema.Schema.Type<Input>,
+			input: Input["Type"],
 			host: Host,
 			execution: ExecutionMetadata,
-		) => Effect.Effect<Schema.Schema.Type<Output>, unknown>;
+		) => Effect.Effect<Output["Type"], unknown>;
 	},
-	input: Schema.Schema.Encoded<Input>,
+	input: Schema.Codec.Encoded<Input>,
 	host: NoInfer<Host>,
 	execution: ExecutionMetadata,
 ) => {
-	return Schema.decodeUnknown(script.input)(input).pipe(
+	return Schema.decodeUnknownEffect(script.input)(input).pipe(
 		Effect.flatMap((parsedInput) => script.run(parsedInput, host, execution)),
-		Effect.flatMap(Schema.decodeUnknown(script.output)),
+		Effect.flatMap(Schema.decodeUnknownEffect(script.output)),
 	);
 };
