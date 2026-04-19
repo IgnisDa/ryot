@@ -23,17 +23,7 @@ If you have not already explored the codebase, do so to understand the current s
 
 Break the PRD into **tracer bullet** tasks. Each task is a thin vertical slice that cuts through ALL integration layers end-to-end, NOT a horizontal slice of one layer.
 
-The **final task must always be a codebase cleanup task** (AFK). It must not be merged or skipped. It reviews every change introduced by the feature and removes anything that is no longer needed or that was introduced as scaffolding. Specifically it must cover:
-
-- Duplicate code, logic, or utilities that can be consolidated
-- Duplicate or redundant types and interfaces
-- Rename-only or passthrough type aliases; prefer importing canonical types directly from the module that defines them
-- Needless exported or re-exported types that merely proxy another module's types
-- Duplicate, overlapping, or value-free tests (see AGENTS.md anti-patterns)
-- Dead code: unreachable branches, unused variables, unused imports, unused exports
-- Leftover TODO / FIXME comments that were resolved during implementation
-- Temporary or scaffold code introduced to unblock an earlier slice
-- YAGNI violations: abstractions or configuration options added speculatively but never actually used
+The **final task must always be a codebase cleanup task** (AFK). It must not be merged or skipped. It must explicitly follow the `codebase-cleanup` skill, and it should be scoped to the touched files and directly affected modules for the plan.
 
 Slices may be 'HITL' or 'AFK'. HITL slices require human interaction, such as an architectural decision or a design review. AFK slices can be implemented and merged without human interaction. Prefer AFK over HITL where possible.
 
@@ -111,20 +101,13 @@ The cleanup task file must use this template instead:
 
 ## What to build
 
-Review every file touched during this plan and remove anything that is no longer needed or was introduced as scaffolding. Prefer canonical imports over local type aliases or passthrough type exports.
+Review every file touched during this plan and remove anything that is no longer needed or was introduced as scaffolding. Follow the `codebase-cleanup` skill, with special attention to duplicate code, duplicate or alias-only types, dead code, unnecessary exports, shallow wrappers, stale support artifacts, and speculative abstractions. The cleanup is scoped to touched files and directly affected modules, not unrelated opportunistic refactors.
 
 ## Acceptance criteria
 
-- [ ] No duplicate functions, utilities, or logic blocks introduced by this plan
-- [ ] No duplicate or redundant types / interfaces
-- [ ] No rename-only or passthrough type aliases; canonical types are imported directly from their defining module
-- [ ] No unnecessary exported or re-exported types that callers can import from the canonical source module
-- [ ] No duplicate, overlapping, or value-free tests (per AGENTS.md anti-patterns)
-- [ ] No unused imports, variables, or exports in changed files
-- [ ] No unreachable or dead code branches introduced by this plan
-- [ ] No leftover TODO / FIXME comments that were resolved
-- [ ] No temporary scaffold code introduced to unblock an earlier slice
-- [ ] No YAGNI violations: speculative abstractions or config options never actually consumed
+- [ ] The task is executed using the `codebase-cleanup` skill
+- [ ] The cleanup pass covers all files touched by this plan and any directly affected modules
+- [ ] Any removals or simplifications are reflected in the changed code before the plan is considered complete
 
 </cleanup-task-template>
 
