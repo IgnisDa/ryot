@@ -5,6 +5,7 @@ import {
 	entitySchema,
 	entitySchemaScript,
 	eventSchema,
+	eventSchemaTrigger,
 	relationshipSchema,
 	sandboxScript,
 } from "~/lib/db/schema";
@@ -202,6 +203,50 @@ export const ensureBuiltinRelationshipSchema = async (input: {
 	});
 
 	return schemaId;
+};
+
+export const ensureBuiltinEventSchemaTrigger = async (input: {
+	name: string;
+	database: DbClient;
+	eventSchemaId: string;
+	sandboxScriptId: string;
+}) => {
+	const [existing] = await input.database
+		.select({ id: eventSchemaTrigger.id })
+		.from(eventSchemaTrigger)
+		.where(
+			and(
+				isNull(eventSchemaTrigger.userId),
+				eq(eventSchemaTrigger.eventSchemaId, input.eventSchemaId),
+				eq(eventSchemaTrigger.sandboxScriptId, input.sandboxScriptId),
+			),
+		)
+		.limit(1);
+
+	if (existing) {
+		await input.database
+			.update(eventSchemaTrigger)
+			.set({
+				isActive: true,
+				isBuiltin: true,
+				name: input.name,
+			})
+			.where(eq(eventSchemaTrigger.id, existing.id));
+
+		return existing.id;
+	}
+
+	const triggerId = generateId();
+	await input.database.insert(eventSchemaTrigger).values({
+		id: triggerId,
+		isActive: true,
+		isBuiltin: true,
+		name: input.name,
+		eventSchemaId: input.eventSchemaId,
+		sandboxScriptId: input.sandboxScriptId,
+	});
+
+	return triggerId;
 };
 
 export const linkScriptToEntitySchema = async (input: {

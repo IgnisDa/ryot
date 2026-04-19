@@ -1,0 +1,36 @@
+driver("trigger", async function (context) {
+  const trigger = context.trigger;
+  if (!trigger) return;
+
+  if (trigger.properties.progressPercent !== 100) return;
+
+  const schemasResult = await appApiCall(
+    "GET",
+    "/event-schemas?entitySchemaId=" + trigger.entitySchemaId,
+  );
+  if (!schemasResult.success) {
+    throw new Error(schemasResult.error);
+  }
+
+  const schemas = schemasResult.data.body && schemasResult.data.body.data;
+  if (!Array.isArray(schemas)) return;
+
+  const completeSchema = schemas.find(function (s) {
+    return s.slug === "complete";
+  });
+  if (!completeSchema) return;
+
+  const completionResult = await appApiCall("POST", "/events", {
+    body: [
+      {
+        entityId: trigger.entityId,
+        eventSchemaId: completeSchema.id,
+        properties: { completionMode: "just_now" },
+      },
+    ],
+  });
+
+  if (!completionResult.success) {
+    throw new Error(completionResult.error);
+  }
+});

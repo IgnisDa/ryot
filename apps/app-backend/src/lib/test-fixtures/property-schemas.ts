@@ -59,8 +59,8 @@ export const createProgressPercentPropertiesSchema = () => ({
 			label: "Progress Percent",
 			transform: { round: { mode: "half_up" as const, scale: 2 } },
 			validation: {
+				maximum: 100,
 				exclusiveMinimum: 0,
-				exclusiveMaximum: 100,
 				required: true as const,
 			},
 		},
