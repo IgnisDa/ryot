@@ -10,11 +10,15 @@ const defaultJobOptions = {
 export const createQueues = () => {
 	const connection = getRedisConnection();
 	const eventsQueue = new Queue("events", { connection, defaultJobOptions });
-	const sandboxQueue = new Queue("sandbox", {
+	const sandboxQueue = new Queue("sandbox", { connection, defaultJobOptions });
+	const mediaQueue = new Queue("media", {
 		connection,
-		defaultJobOptions,
+		defaultJobOptions: {
+			...defaultJobOptions,
+			removeOnComplete: { age: 86400, count: 1000 },
+		},
 	});
-	return { eventsQueue, sandboxQueue };
+	return { eventsQueue, mediaQueue, sandboxQueue };
 };
 
 export type Queues = ReturnType<typeof createQueues>;
