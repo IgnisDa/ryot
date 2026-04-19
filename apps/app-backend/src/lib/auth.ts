@@ -16,6 +16,7 @@ export class AdminAccess extends Context.Tag("AdminAccess")<
 	{ readonly authorized: true }
 >() {}
 
+// @effect-diagnostics-next-line leakingRequirements:off
 export class AuthMiddleware extends HttpApiMiddleware.Tag<AuthMiddleware>()("AuthMiddleware", {
 	failure: Unauthorized,
 	provides: CurrentUser,
