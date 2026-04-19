@@ -11,6 +11,7 @@ import {
 	Textarea,
 	TextInput,
 } from "@mantine/core";
+import { Link } from "@tanstack/react-router";
 import { Star } from "lucide-react";
 import {
 	buildCollectionSelectionPatch,
@@ -246,8 +247,8 @@ export function EpisodicProgressFields(props: {
 						limit={50}
 						label="Episode"
 						data={props.showEpisodeOptions}
-						value={toSelectValue(props.actionState.showEpisode)}
 						disabled={props.actionState.showSeason === ""}
+						value={toSelectValue(props.actionState.showEpisode)}
 						onChange={(value) =>
 							props.onPatchActionState({
 								showEpisode: value ? Number(value) : "",
@@ -360,12 +361,12 @@ function toNumberInputValue(value: string | number) {
 }
 
 export function SearchResultReviewPanel(props: {
-	actionState: SearchResultRowActionState;
-	accentColor: string;
 	border: string;
-	onPatchActionState: (patch: Partial<SearchResultRowActionState>) => void;
-	onSaveReview: () => void;
 	textMuted: string;
+	accentColor: string;
+	onSaveReview: () => void;
+	actionState: SearchResultRowActionState;
+	onPatchActionState: (patch: Partial<SearchResultRowActionState>) => void;
 }) {
 	return (
 		<Box mt="xs" pt="sm" style={{ borderTop: `1px solid ${props.border}` }}>
@@ -403,20 +404,20 @@ export function SearchResultReviewPanel(props: {
 				))}
 				{props.actionState.rateStars > 0 ? (
 					<Text
+						ml={4}
 						fz="sm"
 						fw={600}
 						c={props.accentColor}
 						ff="var(--mantine-font-family-monospace)"
-						ml={4}
 					>
 						{props.actionState.rateStars}/5
 					</Text>
 				) : null}
 			</Group>
 			<Textarea
-				size="xs"
 				mb="sm"
 				autosize
+				size="xs"
 				minRows={2}
 				maxRows={4}
 				placeholder="Write a review (optional)..."
@@ -428,15 +429,15 @@ export function SearchResultReviewPanel(props: {
 			<Group gap="xs">
 				<Button
 					size="compact-xs"
+					onClick={props.onSaveReview}
 					disabled={!props.actionState.rateStars}
 					style={{ backgroundColor: props.accentColor, color: "white" }}
-					onClick={props.onSaveReview}
 				>
 					Save
 				</Button>
 				<Button
-					size="compact-xs"
 					variant="subtle"
+					size="compact-xs"
 					onClick={() => props.onPatchActionState({ openPanel: null })}
 				>
 					Cancel
@@ -466,11 +467,9 @@ export function SearchResultCollectionPanel(props: {
 			: [];
 	const defaultCollection = getSelectedCollection(collections);
 	const form = useAppForm({
-		defaultValues: buildDefaultMembershipFormValues(defaultCollection),
-		validators: {
-			onChange: buildMembershipFormSchema(collections) as never,
-		},
+		validators: { onChange: buildMembershipFormSchema(collections) },
 		onSubmit: async ({ value }) => await props.onSaveCollection(value),
+		defaultValues: buildDefaultMembershipFormValues(defaultCollection),
 	});
 
 	if (props.collectionState.type === "loading") {
@@ -523,17 +522,18 @@ export function SearchResultCollectionPanel(props: {
 					</Text>
 					{props.collectionsDestination.type === "view" ? (
 						<Button
-							href={`/views/${props.collectionsDestination.viewId}`}
-							size="compact-xs"
+							target="_blank"
+							component={Link}
 							variant="subtle"
-							component="a"
+							size="compact-xs"
+							to={`/views/${props.collectionsDestination.viewId}`}
 						>
 							Go to Collections
 						</Button>
 					) : null}
 					<Button
-						size="compact-xs"
 						variant="subtle"
+						size="compact-xs"
 						onClick={() => props.onPatchActionState({ openPanel: null })}
 					>
 						Close
