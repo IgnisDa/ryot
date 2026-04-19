@@ -71,6 +71,20 @@ const withTransaction = <A, E, R>(
 		return yield* Effect.failCause(exit.cause);
 	});
 
+export class DbRunner extends Context.Tag("DbRunner")<
+	DbRunner,
+	<A, E, R>(effect: Effect.Effect<A, E, R>) => Effect.Effect<A, E, Exclude<R, CurrentDb>>
+>() {}
+
+export const DbRunnerLive = Layer.effect(
+	DbRunner,
+	Effect.gen(function* () {
+		const { db } = yield* DbService;
+		return <A, E, R>(effect: Effect.Effect<A, E, R>): Effect.Effect<A, E, Exclude<R, CurrentDb>> =>
+			Effect.provideService(effect, CurrentDb, db);
+	}),
+);
+
 export class TransactionRunner extends Context.Tag("TransactionRunner")<
 	TransactionRunner,
 	<A, E, R>(effect: Effect.Effect<A, E, R>) => Effect.Effect<A, E | DbError, Exclude<R, CurrentDb>>
