@@ -1392,17 +1392,16 @@ export interface paths {
                                 slug: string;
                                 trackerId: string;
                                 isBuiltin: boolean;
+                                providers: {
+                                    name: string;
+                                    scriptId: string;
+                                }[];
                                 propertiesSchema: {
                                     rules?: components["schemas"]["AppSchemaRule"][];
                                     fields: {
                                         [key: string]: components["schemas"]["AppPropertyDefinition"];
                                     };
                                 };
-                                providers: {
-                                    name: string;
-                                    scriptId: string;
-                                    searchDriverName?: string;
-                                }[];
                                 /** @description A Lucide icon name (e.g., 'book', 'dumbbell', 'gamepad-2'). See https://lucide.dev/icons/ */
                                 icon: string;
                                 accentColor: string;
@@ -1500,17 +1499,16 @@ export interface paths {
                                 slug: string;
                                 trackerId: string;
                                 isBuiltin: boolean;
+                                providers: {
+                                    name: string;
+                                    scriptId: string;
+                                }[];
                                 propertiesSchema: {
                                     rules?: components["schemas"]["AppSchemaRule"][];
                                     fields: {
                                         [key: string]: components["schemas"]["AppPropertyDefinition"];
                                     };
                                 };
-                                providers: {
-                                    name: string;
-                                    scriptId: string;
-                                    searchDriverName?: string;
-                                }[];
                                 /** @description A Lucide icon name (e.g., 'book', 'dumbbell', 'gamepad-2'). See https://lucide.dev/icons/ */
                                 icon: string;
                                 accentColor: string;
@@ -1591,17 +1589,16 @@ export interface paths {
                                 slug: string;
                                 trackerId: string;
                                 isBuiltin: boolean;
+                                providers: {
+                                    name: string;
+                                    scriptId: string;
+                                }[];
                                 propertiesSchema: {
                                     rules?: components["schemas"]["AppSchemaRule"][];
                                     fields: {
                                         [key: string]: components["schemas"]["AppPropertyDefinition"];
                                     };
                                 };
-                                providers: {
-                                    name: string;
-                                    scriptId: string;
-                                    searchDriverName?: string;
-                                }[];
                                 /** @description A Lucide icon name (e.g., 'book', 'dumbbell', 'gamepad-2'). See https://lucide.dev/icons/ */
                                 icon: string;
                                 accentColor: string;
