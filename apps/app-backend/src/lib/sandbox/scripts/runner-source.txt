@@ -4,10 +4,11 @@ const payload = JSON.parse(new TextDecoder().decode(stdinBytes));
 const code = payload.code;
 const token = payload.token;
 const apiBase = payload.apiBase;
+const scriptId = payload.scriptId;
+const driverName = payload.driverName;
 const context = payload.context ?? {};
 const executionId = payload.executionId;
 const apiFunctions = payload.apiFunctions ?? [];
-const driverName = payload.driverName;
 
 const driverRegistry = {};
 const driver = (name, fn) => { driverRegistry[name] = fn; };
@@ -87,7 +88,8 @@ try {
 			writeResult({ success: false, error: `Driver "${driverName}" is not defined in this script` });
 			Deno.exit(0);
 		}
-		const driverResult = await driverFn(context);
+		const meta = scriptId ? { sandboxScriptId: scriptId } : undefined;
+		const driverResult = await driverFn(context, meta);
 		writeResult({ success: true, value: driverResult ?? null });
 	} else {
 		writeResult({ success: true, value: value ?? null });
