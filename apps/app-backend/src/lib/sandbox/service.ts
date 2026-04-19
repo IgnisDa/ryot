@@ -8,6 +8,7 @@ import { BridgeServer } from "./bridge";
 import {
 	defaultMaxHeapMB,
 	defaultTimeoutMs,
+	sandboxWorkerConcurrency,
 	vendoredPackages,
 } from "./constants";
 import {
@@ -15,11 +16,13 @@ import {
 	hostFunctionRegistry,
 } from "./function-registry";
 import {
+	type QueuedRunResult,
 	type SandboxRunJobData,
 	sandboxRunJobData,
 	sandboxRunJobName,
 } from "./jobs";
 import { PackageCacheManager } from "./package-cache";
+import { ProcessPool, type SpawnedProcess } from "./process-pool";
 import { getSandboxScriptById } from "./repository";
 import { RunnerFileManager } from "./runner";
 import type {
@@ -37,6 +40,7 @@ import {
 } from "./utils";
 
 export class SandboxService {
+	private processPool: ProcessPool | null = null;
 	private readonly bridgeServer = new BridgeServer();
 	private readonly runnerManager = new RunnerFileManager();
 	private readonly packageCache = new PackageCacheManager();
@@ -50,9 +54,22 @@ export class SandboxService {
 		await this.bridgeServer.start();
 		await this.runnerManager.create();
 		await this.packageCache.populate(vendoredPackages);
+
+		const bridgePort = this.bridgeServer.getPort();
+		const runnerPath = this.runnerManager.getPath();
+
+		if (!bridgePort || !runnerPath) {
+			throw new Error("Sandbox service failed to initialize");
+		}
+
+		this.processPool = new ProcessPool(sandboxWorkerConcurrency + 2, () =>
+			this.spawnProcess(bridgePort, runnerPath, defaultMaxHeapMB),
+		);
+		this.processPool.fill();
 	}
 
 	async stop() {
+		this.processPool?.drain();
 		await this.bridgeServer.clearSessions();
 		await this.bridgeServer.stop();
 		await this.runnerManager.remove();
@@ -94,8 +111,8 @@ export class SandboxService {
 
 	createWorker() {
 		const worker = new Worker("sandbox", async (job) => this.processJob(job), {
-			concurrency: 5,
 			connection: getRedisConnection(),
+			concurrency: sandboxWorkerConcurrency,
 		});
 		worker.on("error", onWorkerError("sandbox"));
 		return worker;
@@ -171,6 +188,8 @@ export class SandboxService {
 	}
 
 	private async execute(options: SandboxExecutionOptions) {
+		const t0 = performance.now();
+
 		const bridgePort = this.bridgeServer.getPort();
 		const runnerPath = this.runnerManager.getPath();
 
@@ -194,36 +213,22 @@ export class SandboxService {
 				.valueOf(),
 		});
 
+		const t1 = performance.now();
+		const cpuBefore = process.cpuUsage();
+
 		try {
 			let timedOut = false;
 
-			const denoArgs = [
-				"run",
-				"--deny-run",
-				"--deny-env",
-				"--deny-ffi",
-				"--no-prompt",
-				"--no-remote",
-				"--cached-only",
-				"--deny-write",
-				`--allow-read=${runnerPath}`,
-				`--allow-net=127.0.0.1:${bridgePort}`,
-				`--v8-flags=--max-heap-size=${maxHeapMB}`,
-				runnerPath,
-			];
-
-			const proc = Bun.spawn(["deno", ...denoArgs], {
-				stdin: "pipe",
-				stderr: "pipe",
-				stdout: "pipe",
-				env: { DENO_DIR: this.packageCache.getDir(), PATH: process.env.PATH },
-			});
+			const isDefaultHeap = maxHeapMB === this.executionDefaults.maxHeapMB;
+			const pooledProc = isDefaultHeap
+				? (this.processPool?.checkout() ?? null)
+				: null;
+			const poolHit = pooledProc !== null;
+			const proc =
+				pooledProc ?? this.spawnProcess(bridgePort, runnerPath, maxHeapMB);
 
 			if (!proc.stdin) {
-				return {
-					success: false,
-					error: "Sandbox stdin is unavailable",
-				};
+				return { success: false, error: "Sandbox stdin is unavailable" };
 			}
 
 			const clearTimeoutGuard = attachTimeoutGuard(proc, timeoutMs, () => {
@@ -259,12 +264,24 @@ export class SandboxService {
 				readStream(proc.stdout),
 			]).finally(() => clearTimeoutGuard());
 
+			const t2 = performance.now();
+			const cpuDelta = process.cpuUsage(cpuBefore);
+			const timings = {
+				poolHit,
+				totalMs: Math.round(t2 - t0),
+				processMs: Math.round(t2 - t1),
+				hostSetupMs: Math.round(t1 - t0),
+				cpuUserMs: Math.round(cpuDelta.user / 1000),
+				cpuSystemMs: Math.round(cpuDelta.system / 1000),
+			};
+
 			const logs = stderrText.trim() || undefined;
 			const resultText = stdoutText.trim();
 
 			if (timedOut) {
 				return {
 					logs,
+					timings,
 					success: false,
 					error: `Sandbox timed out after ${timeoutMs}ms`,
 				};
@@ -275,13 +292,16 @@ export class SandboxService {
 
 				return {
 					logs,
+					timings,
 					value: parsed.value,
 					error: parsed.error,
+					denoMetrics: parsed.denoMetrics,
 					success: Boolean(parsed.success),
 				};
 			} catch {
 				return {
 					logs,
+					timings,
 					success: false,
 					error:
 						exit.signal === "SIGTERM" || exit.signal === "SIGKILL"
@@ -297,6 +317,36 @@ export class SandboxService {
 		} finally {
 			await this.bridgeServer.removeSession(executionId);
 		}
+	}
+
+	private spawnProcess(
+		bridgePort: number,
+		runnerPath: string,
+		maxHeapMB: number,
+	): SpawnedProcess {
+		return Bun.spawn(
+			[
+				"deno",
+				"run",
+				"--deny-run",
+				"--deny-env",
+				"--deny-ffi",
+				"--no-prompt",
+				"--no-remote",
+				"--cached-only",
+				"--deny-write",
+				`--allow-read=${runnerPath}`,
+				`--allow-net=127.0.0.1:${bridgePort}`,
+				`--v8-flags=--max-heap-size=${maxHeapMB}`,
+				runnerPath,
+			],
+			{
+				stdin: "pipe",
+				stderr: "pipe",
+				stdout: "pipe",
+				env: { DENO_DIR: this.packageCache.getDir(), PATH: process.env.PATH },
+			},
+		);
 	}
 
 	private resolveApiFunctions(descriptors: ApiFunctionDescriptor[]) {
@@ -331,13 +381,6 @@ type SandboxExecutionOptions = Pick<
 > & {
 	code: string;
 	apiFunctions?: Record<string, (...args: Array<unknown>) => Promise<unknown>>;
-};
-
-export type QueuedRunResult = {
-	value?: unknown;
-	success: boolean;
-	logs?: string | null;
-	error?: string | null;
 };
 
 type SandboxJobLookupResult = {
