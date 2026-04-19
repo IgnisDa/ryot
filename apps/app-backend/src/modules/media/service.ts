@@ -510,7 +510,7 @@ export const getLibraryStats = async (
 	userId: string,
 	deps: MediaServiceDeps = defaultDeps,
 ) => {
-	// NOTE: Limit of 10000 entities. If user has more tracked entities,
+	// TODO: Limit of 10000 entities. If user has more tracked entities,
 	// stats will be incomplete. Consider pagination or database-level
 	// aggregation if this becomes a constraint.
 	const request: QueryEngineRequest = {
