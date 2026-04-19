@@ -1,3 +1,7 @@
+# Sandbox `appApiCall` Host Function
+
+> **Status: Complete** — All 2 tasks finished. This document is a historical reference.
+
 ## Problem Statement
 
 Ryot's sandbox system currently exposes only a narrow set of backend capabilities through dedicated host functions such as `executeQuery`. That model does not scale well. Every new backend capability would require a new sandbox-specific host function, duplicated validation, duplicated integration logic, and duplicated tests.
