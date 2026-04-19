@@ -3,63 +3,7 @@ import { Schema } from "effect";
 
 import { AuthMiddleware } from "../../lib/auth";
 import { BadRequest, NotFound, NotImplemented, RateLimited, Unauthorized } from "../../lib/errors";
-
-const Pagination = Schema.Struct({ page: Schema.Number, limit: Schema.Number });
-
-const DateRange = Schema.Struct({ endAt: Schema.String, startAt: Schema.String });
-
-// Request bodies - full field/filter/sort schemas defined in Task 22 (Saved View Query Language Exports)
-const EntitiesQueryRequest = Schema.Struct({
-	mode: Schema.Literal("entities"),
-	fields: Schema.Unknown,
-	pagination: Pagination,
-	scope: Schema.Array(Schema.String),
-	sort: Schema.optional(Schema.Unknown),
-	filter: Schema.optional(Schema.Unknown),
-	eventJoins: Schema.optional(Schema.Unknown),
-	computedFields: Schema.optional(Schema.Unknown),
-	relationshipJoins: Schema.optional(Schema.Unknown),
-});
-
-const EventsQueryRequest = Schema.Struct({
-	mode: Schema.Literal("events"),
-	fields: Schema.Unknown,
-	pagination: Pagination,
-	eventSchemas: Schema.Unknown,
-	scope: Schema.Array(Schema.String),
-	sort: Schema.optional(Schema.Unknown),
-	filter: Schema.optional(Schema.Unknown),
-	eventJoins: Schema.optional(Schema.Unknown),
-	computedFields: Schema.optional(Schema.Unknown),
-});
-
-const AggregateQueryRequest = Schema.Struct({
-	mode: Schema.Literal("aggregate"),
-	aggregations: Schema.Unknown,
-	scope: Schema.Array(Schema.String),
-	filter: Schema.optional(Schema.Unknown),
-	eventJoins: Schema.optional(Schema.Unknown),
-	computedFields: Schema.optional(Schema.Unknown),
-	relationshipJoins: Schema.optional(Schema.Unknown),
-});
-
-const TimeSeriesQueryRequest = Schema.Struct({
-	mode: Schema.Literal("timeSeries"),
-	metric: Schema.Unknown,
-	dateRange: DateRange,
-	eventSchemas: Schema.Unknown,
-	scope: Schema.Array(Schema.String),
-	bucket: Schema.Literal("day", "hour", "month", "week"),
-	filter: Schema.optional(Schema.Unknown),
-	computedFields: Schema.optional(Schema.Unknown),
-});
-
-const QueryEngineRequest = Schema.Union(
-	EntitiesQueryRequest,
-	EventsQueryRequest,
-	AggregateQueryRequest,
-	TimeSeriesQueryRequest,
-);
+import { DateRange, QueryEngineRequest } from "../../query-language";
 
 // Response bodies
 const TableFieldValue = Schema.Struct({ kind: Schema.String, value: Schema.Unknown });
