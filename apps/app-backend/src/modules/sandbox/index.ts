@@ -1,4 +1,7 @@
-export { getSandboxScriptForUser } from "./repository";
+export {
+	getBuiltinSandboxScriptBySlug,
+	getSandboxScriptForUser,
+} from "./repository";
 export type {
 	EnqueueSandboxBody,
 	PollSandboxResult,
