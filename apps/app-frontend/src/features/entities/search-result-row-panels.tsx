@@ -2,8 +2,10 @@ import {
 	ActionIcon,
 	Box,
 	Button,
+	Checkbox,
 	Group,
 	Loader,
+	NumberInput,
 	Select,
 	Stack,
 	Text,
@@ -11,7 +13,15 @@ import {
 	TextInput,
 } from "@mantine/core";
 import { Star } from "lucide-react";
-import type { CollectionDiscoveryState } from "~/features/collections";
+import {
+	buildCollectionSelectionPatch,
+	buildMembershipFormSchema,
+	type CollectionDiscoveryState,
+	getMembershipPropertyEntries,
+	getSelectedCollection,
+} from "~/features/collections";
+import { getGeneratedPropertyFieldConfig } from "~/features/generated-property-fields";
+import { normalizeNumberInputValue } from "~/hooks/forms";
 import type { MediaSearchLogDateOption } from "./search-modal-media-actions";
 import type { SearchResultRowActionState } from "./search-result-row";
 
@@ -254,6 +264,27 @@ export function SearchResultCollectionPanel(props: {
 	}
 
 	const collections = props.collectionState.collections;
+	const selectedCollection = props.actionState.selectedCollectionId
+		? collections.find(
+				(collection) =>
+					collection.id === props.actionState.selectedCollectionId,
+			)
+		: undefined;
+	const propertyEntries = getMembershipPropertyEntries(
+		selectedCollection?.membershipPropertiesSchema,
+	);
+	const validationResult = buildMembershipFormSchema(
+		selectedCollection,
+	).safeParse({
+		properties: props.actionState.collectionProperties,
+		collectionId: props.actionState.selectedCollectionId ?? "",
+	});
+	const validationMessage = validationResult.success
+		? null
+		: (validationResult.error.issues[0]?.message ??
+			"Collection details are invalid.");
+	const canSave =
+		hasSelectedCollection && !isDisabled && validationResult.success;
 
 	return (
 		<Box mt="xs" pt="sm" style={{ borderTop: `1px solid ${props.border}` }}>
@@ -265,16 +296,124 @@ export function SearchResultCollectionPanel(props: {
 				mb="sm"
 				data={collections.map((c) => ({ value: c.id, label: c.name }))}
 				value={props.actionState.selectedCollectionId ?? null}
-				onChange={(value) =>
-					props.onPatchActionState({ selectedCollectionId: value })
-				}
+				onChange={(value) => {
+					if (!value) {
+						props.onPatchActionState({
+							actionError: null,
+							selectedCollectionId: null,
+							collectionProperties: {},
+						});
+						return;
+					}
+
+					const nextCollection = getSelectedCollection(collections, value);
+					const nextValues = buildCollectionSelectionPatch(nextCollection, {
+						properties: props.actionState.collectionProperties,
+						collectionId: value,
+					});
+
+					props.onPatchActionState({
+						actionError: null,
+						selectedCollectionId: nextValues.collectionId,
+						collectionProperties: nextValues.properties,
+					});
+				}}
 				placeholder="Choose a collection..."
 			/>
+
+			{selectedCollection && propertyEntries.length > 0 ? (
+				<Stack gap="xs" mb="sm">
+					{propertyEntries.map(({ key, definition }) => {
+						const config = getGeneratedPropertyFieldConfig(key, definition);
+						if (!config) {
+							return null;
+						}
+
+						const value = props.actionState.collectionProperties[key];
+
+						if (config.kind === "checkbox") {
+							return (
+								<Checkbox
+									key={key}
+									label={config.label}
+									required={config.required}
+									disabled={isDisabled}
+									checked={Boolean(value)}
+									onChange={(event) =>
+										props.onPatchActionState({
+											actionError: null,
+											collectionProperties: {
+												...props.actionState.collectionProperties,
+												[key]: event.currentTarget.checked,
+											},
+										})
+									}
+								/>
+							);
+						}
+
+						if (config.kind === "number") {
+							return (
+								<NumberInput
+									key={key}
+									size="xs"
+									label={config.label}
+									required={config.required}
+									disabled={isDisabled}
+									value={
+										typeof value === "number" || typeof value === "string"
+											? value
+											: ""
+									}
+									placeholder={config.placeholder}
+									onChange={(nextValue) =>
+										props.onPatchActionState({
+											actionError: null,
+											collectionProperties: {
+												...props.actionState.collectionProperties,
+												[key]: normalizeNumberInputValue(nextValue),
+											},
+										})
+									}
+								/>
+							);
+						}
+
+						return (
+							<TextInput
+								key={key}
+								size="xs"
+								label={config.label}
+								type={config.inputType}
+								required={config.required}
+								disabled={isDisabled}
+								value={typeof value === "string" ? value : ""}
+								placeholder={config.placeholder}
+								onChange={(event) =>
+									props.onPatchActionState({
+										actionError: null,
+										collectionProperties: {
+											...props.actionState.collectionProperties,
+											[key]: event.currentTarget.value,
+										},
+									})
+								}
+							/>
+						);
+					})}
+				</Stack>
+			) : null}
+
+			{hasSelectedCollection && validationMessage ? (
+				<Text c="red" fz="xs" mb="sm">
+					{validationMessage}
+				</Text>
+			) : null}
 
 			<Group gap="xs">
 				<Button
 					size="compact-xs"
-					disabled={!hasSelectedCollection || isDisabled}
+					disabled={!canSave}
 					loading={props.isEnsuringEntity}
 					style={{ backgroundColor: props.accentColor, color: "white" }}
 					onClick={props.onSaveCollection}
