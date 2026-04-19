@@ -52,7 +52,12 @@ export const getEntityScopeForUser = async (input: {
 		.select(entityAccessScopeWithSchemaJoinSelection)
 		.from(entity)
 		.innerJoin(entitySchema, eq(entity.entitySchemaId, entitySchema.id))
-		.where(and(eq(entity.id, input.entityId), eq(entity.userId, input.userId)))
+		.where(
+			and(
+				eq(entity.id, input.entityId),
+				or(isNull(entity.userId), eq(entity.userId, input.userId)),
+			),
+		)
 		.limit(1);
 
 	return foundEntity;
@@ -66,6 +71,7 @@ export const getEventCreateScopeForUser = async (input: {
 	const [foundScope] = await db
 		.select({
 			entityId: entity.id,
+			entityUserId: entity.userId,
 			eventSchemaId: eventSchema.id,
 			isBuiltin: entitySchema.isBuiltin,
 			eventSchemaName: eventSchema.name,
@@ -84,7 +90,12 @@ export const getEventCreateScopeForUser = async (input: {
 				eventSchemaVisibleToUserClause(input.userId),
 			),
 		)
-		.where(and(eq(entity.id, input.entityId), eq(entity.userId, input.userId)))
+		.where(
+			and(
+				eq(entity.id, input.entityId),
+				or(isNull(entity.userId), eq(entity.userId, input.userId)),
+			),
+		)
 		.limit(1);
 
 	return foundScope

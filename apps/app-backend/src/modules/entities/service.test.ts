@@ -202,6 +202,45 @@ describe("getEntityDetail", () => {
 			message: "Entity not found",
 		});
 	});
+
+	it("returns entity data for a global entity with a builtin schema visible to any user", async () => {
+		const globalEntity = createListedEntity({ id: "entity_global" });
+		const result = await getEntityDetail(
+			{ entityId: "entity_global", userId: "user_1" },
+			createEntityDeps({
+				getEntityScopeForUser: async (input) => ({
+					isBuiltin: true,
+					entityUserId: null,
+					entityId: input.entityId,
+					entitySchemaSlug: "book",
+					entitySchemaId: "schema_1",
+				}),
+				getEntityByIdForUser: async () => globalEntity,
+			}),
+		);
+
+		expect(result).toEqual({ data: globalEntity });
+	});
+
+	it("returns not found for a user-scoped builtin entity", async () => {
+		const result = await getEntityDetail(
+			{ entityId: "entity_library", userId: "user_1" },
+			createEntityDeps({
+				getEntityScopeForUser: async (input) => ({
+					isBuiltin: true,
+					entityId: input.entityId,
+					entityUserId: input.userId,
+					entitySchemaSlug: "library",
+					entitySchemaId: "schema_library",
+				}),
+				getEntityByIdForUser: async () => {
+					throw new Error("Should not fetch hidden builtin entity details");
+				},
+			}),
+		);
+
+		expect(result).toEqual({ error: "not_found", message: "Entity not found" });
+	});
 });
 
 describe("createEntity", () => {
@@ -255,12 +294,7 @@ describe("createEntity", () => {
 		});
 	});
 
-	it("allows creation for a built-in schema when provenance fields are provided", async () => {
-		const createdEntity = createListedEntity({
-			name: "Built-in Book",
-			externalId: "ol:OL12345W",
-			sandboxScriptId: "script_details_1",
-		});
+	it("returns validation for a built-in schema even when provenance fields are provided", async () => {
 		const deps = createEntityDeps({
 			getEntitySchemaScopeForUser: async () => ({
 				userId: null,
@@ -268,8 +302,6 @@ describe("createEntity", () => {
 				isBuiltin: true,
 				propertiesSchema: { fields: { title: { type: "string" as const } } },
 			}),
-			findEntityByExternalIdForUser: async () => undefined,
-			createEntityForUser: async () => createdEntity,
 		});
 
 		const result = await createEntity(
@@ -284,7 +316,10 @@ describe("createEntity", () => {
 			deps,
 		);
 
-		expect(result).toEqual({ data: createdEntity });
+		expect(result).toEqual({
+			error: "validation",
+			message: "Built-in entity schemas do not support manual entity creation",
+		});
 	});
 
 	it("returns validation for a blank entity schema id", async () => {

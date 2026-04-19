@@ -4,7 +4,7 @@
 
 **Type:** AFK
 
-**Status:** todo
+**Status:** done
 
 ## Backwards compatibility
 
@@ -13,6 +13,7 @@ Backwards compatibility with existing user-scoped media entity rows is not requi
 ## What to build
 
 Allow users to add global entities to their collections, and implicitly add those entities to the user's library when they do so.
+Backwards compatibility with existing user-scoped media entity rows is not required.
 
 **`collections/repository.ts`** — `getEntityById` currently guards membership operations with `eq(entity.userId, userId)`. Broaden this to `or(isNull(entity.userId), eq(entity.userId, userId))` so global entities pass the existence check. Return `entity.userId` (or a derived `isGlobal` flag) alongside `entity.id` so the service can decide whether to write `in_library`.
 
@@ -30,15 +31,22 @@ Allow users to add global entities to their collections, and implicitly add thos
 
 ## Acceptance criteria
 
-- [ ] `POST /collections/memberships` succeeds when the entity is global (`userId = null`).
-- [ ] Adding a global entity to a collection automatically upserts an `in_library` relationship for the requesting user.
-- [ ] Adding a global entity that is already `in_library` does not produce a duplicate `in_library` row.
-- [ ] Adding a user-owned entity (collection, custom schema entity) does not write an `in_library` row.
-- [ ] A user cannot add a global entity to another user's collection — the collection ownership check is unchanged and continues to return `404`.
-- [ ] If the user's library entity is missing, `addToCollection` returns a clear server error.
-- [ ] Unit tests cover all four cases described above.
-- [ ] E2E test verifies: add global entity to collection → `in_library` exists for the user.
-- [ ] `bun run typecheck`, `bun run test`, and `bun run lint` pass in both `apps/app-backend` and `tests`.
+- [x] `POST /collections/memberships` succeeds when the entity is global (`userId = null`).
+- [x] Adding a global entity to a collection automatically upserts an `in_library` relationship for the requesting user.
+- [x] Adding a global entity that is already `in_library` does not produce a duplicate `in_library` row.
+- [x] Adding a user-owned entity (collection, custom schema entity) does not write an `in_library` row.
+- [x] A user cannot add a global entity to another user's collection — the collection ownership check is unchanged and continues to return `404`.
+- [x] If the user's library entity is missing, `addToCollection` fails clearly instead of proceeding with the collection write.
+- [x] Unit tests cover the global entity membership upsert, idempotent path, user-owned entity path, missing-library error, and invalid membership payload regression.
+- [x] E2E test verifies: add global entity to collection -> `in_library` exists for the user.
+- [x] `bun run typecheck`, `bun run test`, and `bun run lint` pass in both `apps/app-backend` and `tests`.
+
+## Notes
+
+- `collections/repository.ts` now treats global entities as readable for collection membership operations by broadening `getEntityById` to `entity.userId IS NULL OR entity.userId = :userId` and returning `entity.userId` for the service decision.
+- `collections/service.ts` mirrors the Task 05 events pattern: `addToCollection` validates membership properties first, then implicitly upserts `in_library` for global entities, then writes `member_of`.
+- Validation happens before the implicit library side effect, so rejected membership payloads do not mutate library membership.
+- The E2E test verifies the `in_library` side effect with a direct database assertion rather than widening product APIs.
 
 ## Blocked by
 
