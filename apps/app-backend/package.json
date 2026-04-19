@@ -6,24 +6,30 @@
 		"./contract": "./src/contract.ts"
 	},
 	"scripts": {
-		"test": "bun test",
+		"test": "bun --bun run vitest run",
 		"dev": "bun run --watch src/index.ts",
 		"db:generate": "bun --bun drizzle-kit generate",
 		"check": "tsc && oxfmt . --write && oxlint . --type-aware --fix",
 		"build": "bun build src/index.ts --outdir dist --target bun --sourcemap"
 	},
 	"dependencies": {
+		"@better-auth/api-key": "1.6.15",
+		"@better-auth/redis-storage": "1.6.15",
 		"@effect/platform": "0.96.1",
 		"@effect/platform-bun": "0.90.0",
 		"better-auth": "1.6.15",
 		"drizzle-orm": "0.45.2",
 		"effect": "3.21.3",
+		"ioredis": "5.11.1",
 		"pg": "8.21.0"
 	},
 	"devDependencies": {
+		"@effect/vitest": "0.29.0",
+		"@types/ioredis": "5.0.0",
 		"@types/pg": "8.20.0",
 		"bun-types": "1.3.14",
 		"drizzle-kit": "0.31.10",
-		"typescript": "6.0.3"
+		"typescript": "6.0.3",
+		"vitest": "3.2.6"
 	}
 }
