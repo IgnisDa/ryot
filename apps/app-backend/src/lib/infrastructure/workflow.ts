@@ -1,13 +1,13 @@
-import { ClusterWorkflowEngine, SingleRunner } from "@effect/cluster";
-import * as PersistedQueue from "@effect/experimental/PersistedQueue";
-import * as PersistedQueueRedis from "@effect/experimental/PersistedQueue/Redis";
+import { BunRedis } from "@effect/platform-bun";
 import { PgClient } from "@effect/sql-pg";
-import { WorkflowEngine, WorkflowInstance } from "@effect/workflow/WorkflowEngine";
 import { Context, Duration, Effect, Layer, Redacted } from "effect";
+import { ClusterWorkflowEngine, SingleRunner } from "effect/unstable/cluster";
+import { PersistedQueue } from "effect/unstable/persistence";
+import { WorkflowEngine, WorkflowInstance } from "effect/unstable/workflow/WorkflowEngine";
 
 import { AppConfig } from "./config/service";
 
-const WorkflowPgClientLive = Layer.unwrapEffect(
+const WorkflowPgClientLive = Layer.unwrap(
 	Effect.map(AppConfig, (config) =>
 		PgClient.layer({
 			url: config.database.url,
@@ -51,12 +51,6 @@ const ClusterWorkflowEngineLive = ClusterWorkflowEngine.layer.pipe(
 	Layer.provide(WorkflowPgClientLive),
 );
 
-const omitWorkflowParent = <R>(context: Context.Context<R>) => {
-	const services = new Map(context.unsafeMap);
-	services.delete(WorkflowInstance.key);
-	return Context.unsafeMake<R>(services);
-};
-
 // TODO: https://github.com/Effect-TS/effect/issues/6294
 // Production workaround, not the default composition model. Detaching removes
 // structured parent ownership, so use it only with a deterministic execution
@@ -64,41 +58,36 @@ const omitWorkflowParent = <R>(context: Context.Context<R>) => {
 // await the detached execution or observe its durable terminal state and
 // propagate failure; cancellation and timeout behavior must remain explicit.
 // Prefer structured children again once the upstream resume defect is fixed.
-export const withoutWorkflowParent = <A, E, R>(effect: Effect.Effect<A, E, R>) =>
-	Effect.mapInputContext(effect, (context: Context.Context<R>) => omitWorkflowParent(context));
+const omitWorkflowParent = <R>(context: Context.Context<R>): Context.Context<R> =>
+	Context.makeUnsafe<R>(Context.omit(WorkflowInstance)(context).mapUnsafe);
 
-export const detachDiscardedWorkflowChildren = (engine: WorkflowEngine["Type"]) => ({
-	...engine,
-	execute: ((workflow, options) => {
-		const execution = engine.execute(workflow, options);
-		return options.discard ? withoutWorkflowParent(execution) : execution;
-	}) as WorkflowEngine["Type"]["execute"],
-});
+export const withoutWorkflowParent = <A, E, R>(
+	effect: WorkflowInstance extends R ? never : Effect.Effect<A, E, R>,
+): Effect.Effect<A, E, R> => Effect.updateContext(effect, omitWorkflowParent);
+
+export const detachDiscardedWorkflowChildren = (engine: WorkflowEngine["Service"]) =>
+	({
+		...engine,
+		execute: (workflow, options) => {
+			const execution = engine.execute(workflow, options);
+			return options.discard ? Effect.updateContext(execution, omitWorkflowParent) : execution;
+		},
+	}) satisfies WorkflowEngine["Service"];
 
 export const WorkflowEngineLive = Layer.effect(
 	WorkflowEngine,
 	Effect.map(WorkflowEngine, detachDiscardedWorkflowChildren),
 ).pipe(Layer.provide(ClusterWorkflowEngineLive));
 
-const RedisPersistedQueueStoreLive = Layer.scoped(
-	PersistedQueue.PersistedQueueStore,
-	Effect.gen(function* () {
-		const config = yield* AppConfig;
-		const url = new URL(Redacted.value(config.redisUrl));
-		const db = url.pathname.length > 1 ? Number.parseInt(url.pathname.slice(1)) || 0 : 0;
-
-		return yield* PersistedQueueRedis.make({
-			db,
-			host: url.hostname,
-			prefix: "ryot:pq:",
-			password: url.password || undefined,
-			username: url.username || undefined,
-			// Below the 1s default so a trigger chain's queue hops don't compound.
-			pollInterval: Duration.millis(250),
-			port: url.port ? Number.parseInt(url.port) : 6379,
-		});
-	}),
+const RedisLive = Layer.unwrap(
+	Effect.map(AppConfig, (config) => BunRedis.layer({ url: Redacted.value(config.redisUrl) })),
 );
+
+const RedisPersistedQueueStoreLive = PersistedQueue.layerStoreRedis({
+	prefix: "ryot:pq:",
+	// Below the 1s default so a trigger chain's queue hops don't compound.
+	pollInterval: Duration.millis(250),
+}).pipe(Layer.provide(RedisLive));
 
 export const PersistedQueueLive = PersistedQueue.layer.pipe(
 	Layer.provide(RedisPersistedQueueStoreLive),
