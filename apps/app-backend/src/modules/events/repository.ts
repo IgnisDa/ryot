@@ -1,5 +1,5 @@
 import type { AppSchema } from "@ryot/ts-utils";
-import { and, desc, eq, isNull, or } from "drizzle-orm";
+import { and, desc, eq, inArray, isNull, or } from "drizzle-orm";
 import { assertPersisted, db } from "~/lib/db";
 import {
 	entity,
@@ -7,6 +7,7 @@ import {
 	entitySchema,
 	event,
 	eventSchema,
+	eventSchemaTrigger,
 } from "~/lib/db/schema";
 import type { ListedEvent } from "./schemas";
 import type { EventPropertiesShape } from "./service";
@@ -145,4 +146,37 @@ export const createEventForUser = async (input: {
 		eventSchemaName: input.eventSchemaName,
 		eventSchemaSlug: input.eventSchemaSlug,
 	});
+};
+
+export type ActiveEventSchemaTriggerRow = {
+	id: string;
+	eventSchemaId: string;
+	sandboxScriptId: string;
+};
+
+export const getActiveEventSchemaTriggersForEventSchemas = async (input: {
+	userId: string;
+	eventSchemaIds: string[];
+}): Promise<ActiveEventSchemaTriggerRow[]> => {
+	if (input.eventSchemaIds.length === 0) {
+		return [];
+	}
+
+	return db
+		.select({
+			id: eventSchemaTrigger.id,
+			eventSchemaId: eventSchemaTrigger.eventSchemaId,
+			sandboxScriptId: eventSchemaTrigger.sandboxScriptId,
+		})
+		.from(eventSchemaTrigger)
+		.where(
+			and(
+				inArray(eventSchemaTrigger.eventSchemaId, input.eventSchemaIds),
+				eq(eventSchemaTrigger.isActive, true),
+				or(
+					isNull(eventSchemaTrigger.userId),
+					eq(eventSchemaTrigger.userId, input.userId),
+				),
+			),
+		);
 };

@@ -1,4 +1,6 @@
+import { and, eq, isNull } from "drizzle-orm";
 import type { DbClient } from "~/lib/db";
+import { eventSchema as eventSchemaTable } from "~/lib/db/schema";
 import {
 	authenticationBuiltinEntitySchemas,
 	authenticationBuiltinRelationshipSchemas,
@@ -6,11 +8,13 @@ import {
 import {
 	ensureBuiltinEntitySchema,
 	ensureBuiltinEntitySchemaEventSchemas,
+	ensureBuiltinEventSchemaTrigger,
 	ensureBuiltinRelationshipSchema,
 	ensureBuiltinSandboxScript,
 	linkScriptToEntitySchema,
 } from "./helpers";
 import {
+	builtinEventSchemaTriggerLinks,
 	builtinSandboxScripts,
 	entitySchemaScriptLinks,
 	personSchemaScriptLinks,
@@ -70,6 +74,34 @@ export const seedInitialDatabase = async (database: DbClient) => {
 				entitySchemaId,
 				sandboxScriptId: scriptId,
 			});
+		}
+
+		for (const triggerLink of builtinEventSchemaTriggerLinks()) {
+			const scriptId = scriptIds.get(triggerLink.scriptSlug);
+			if (!scriptId) {
+				throw new Error(
+					`Missing script id for trigger script ${triggerLink.scriptSlug}`,
+				);
+			}
+
+			const matchingEventSchemas = await tx
+				.select({ id: eventSchemaTable.id })
+				.from(eventSchemaTable)
+				.where(
+					and(
+						eq(eventSchemaTable.slug, triggerLink.eventSchemaSlug),
+						isNull(eventSchemaTable.userId),
+					),
+				);
+
+			for (const es of matchingEventSchemas) {
+				await ensureBuiltinEventSchemaTrigger({
+					database: tx,
+					eventSchemaId: es.id,
+					sandboxScriptId: scriptId,
+					name: triggerLink.triggerName,
+				});
+			}
 		}
 
 		console.info("Seeding relationship schemas...");

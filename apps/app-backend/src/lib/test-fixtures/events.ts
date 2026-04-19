@@ -64,7 +64,9 @@ export const createEventDeps = (
 	overrides: Partial<EventServiceDeps> = {},
 ): EventServiceDeps => ({
 	upsertInLibraryRelationship: async () => {},
+	enqueueEventSchemaTriggerJob: async () => {},
 	getUserLibraryEntityId: async () => "library_1",
+	getActiveEventSchemaTriggersForEventSchemas: async () => [],
 	listEventsByEntityForUser: async () => [createListedEvent()],
 	getEntityScopeForUser: async (input) => ({
 		isBuiltin: false,
