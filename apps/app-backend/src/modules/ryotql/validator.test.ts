@@ -128,6 +128,30 @@ it("exposes only approved application-table fields", () => {
 		user: { type: "owned", column: "user_id", includeGlobal: false },
 	});
 	expect(notificationChannel && "plugin" in notificationChannel.visibility).toBe(false);
+	expect(new Set(Object.keys(getCatalogTable("integration")?.fields ?? {}))).toEqual(
+		new Set([
+			"id",
+			"lot",
+			"name",
+			"provider",
+			"pluginSlug",
+			"isDisabled",
+			"syncOwnership",
+			"minimumProgress",
+			"maximumProgress",
+			"extraSettings",
+			"lastFinishedAt",
+			"createdAt",
+			"updatedAt",
+		]),
+	);
+	const integration = getCatalogTable("integration");
+	expect(integration?.name).toBe("integration");
+	expect(integration?.primaryKey).toBe("id");
+	expect(integration?.visibility).toEqual({
+		user: { type: "owned", column: "user_id", includeGlobal: false },
+	});
+	expect(integration && "plugin" in integration.visibility).toBe(false);
 });
 
 it("rejects hidden application-table fields", () => {
@@ -140,6 +164,9 @@ it("rejects hidden application-table fields", () => {
 		["notificationChannel", "userId"],
 		["notificationChannel", "channelSpecifics"],
 		["notificationChannel", "platform_specifics"],
+		["integration", "userId"],
+		["integration", "providerSpecifics"],
+		["integration", "webhookUrl"],
 	] as const) {
 		const source = table(tableName, "source");
 		const catalogName = getCatalogTable(tableName)?.name;
