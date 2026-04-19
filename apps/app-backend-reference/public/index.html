@@ -1,0 +1,70 @@
+<!doctype html>
+<html lang="en">
+	<head>
+		<meta charset="UTF-8" />
+		<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+		<title>Ryot Reference Backend</title>
+		<link
+			rel="icon"
+			href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>⚡</text></svg>"
+		/>
+		<link rel="stylesheet" href="/styles.css" />
+	</head>
+	<body>
+		<header>
+			<h1>Ryot Reference Backend</h1>
+			<span id="user-info"></span>
+		</header>
+		<main>
+			<section id="auth-section">
+				<h2>Sign in</h2>
+				<form id="signin-form">
+					<input type="email" id="email" placeholder="Email" required />
+					<input type="password" id="password" placeholder="Password" required />
+					<button type="submit">Sign in</button>
+					<button type="button" id="signup-btn">Sign up</button>
+				</form>
+				<p id="auth-error" class="error"></p>
+			</section>
+
+			<div id="app-sections" hidden>
+				<section>
+					<h2>Audible Runs</h2>
+					<form id="audible-query-form">
+						<input
+							type="text"
+							id="audible-query"
+							placeholder="Search Audible for a title"
+							required
+						/>
+						<button type="submit">Run Query</button>
+					</form>
+					<form id="audible-upload-form">
+						<input type="file" id="audible-upload" accept=".txt,text/plain" required />
+						<button type="submit">Upload Query File</button>
+					</form>
+					<p id="audible-error" class="error"></p>
+					<div id="audible-list"></div>
+				</section>
+
+				<section>
+					<h2>Sandbox</h2>
+					<form id="sandbox-form">
+						<select id="sandbox-driver">
+							<option value="search">search</option>
+							<option value="details">details</option>
+						</select>
+						<textarea
+							id="sandbox-context"
+							rows="4"
+							placeholder='{"query":"Dune","page":1,"pageSize":3}'
+						></textarea>
+						<button type="submit">Run</button>
+					</form>
+					<div id="sandbox-result"></div>
+				</section>
+			</div>
+		</main>
+		<script src="/app.js"></script>
+	</body>
+</html>
