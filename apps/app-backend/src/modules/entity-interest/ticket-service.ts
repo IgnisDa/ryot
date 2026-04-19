@@ -1,0 +1,82 @@
+import { unauthorized } from "@ryot/contract/errors";
+import type { EntityInterestSocketTicketResponse } from "@ryot/contract/modules/entity-interest/messages";
+import { UserId } from "@ryot/contract/schema/brands";
+import { sha256Hex } from "@ryot/ts-utils/crypto";
+import { Clock, Context, DateTime, Effect, Layer, Schema } from "effect";
+
+import { RedisService } from "#lib/infrastructure/redis";
+
+export const ENTITY_INTEREST_SOCKET_TICKET_TTL_SECONDS = 30;
+
+const CONSUME_TICKET_SCRIPT = `
+local value = redis.call('GET', KEYS[1])
+if value then
+  redis.call('DEL', KEYS[1])
+end
+return value
+`;
+const TICKET_PATTERN = /^[A-Za-z0-9_-]{43}$/;
+const TicketValue = Schema.Struct({
+	userId: UserId,
+	preferredLanguage: Schema.NullOr(Schema.String),
+});
+
+export const entityInterestTicketKey = (ticketHash: string) =>
+	`ryot:entity-interest:ticket:${ticketHash}`;
+
+const ticketHash = (ticket: string) => sha256Hex(ticket);
+const makeTicket = () =>
+	Buffer.from(crypto.getRandomValues(new Uint8Array(32))).toString("base64url");
+
+export class EntityInterestTicketService extends Context.Service<EntityInterestTicketService>()(
+	"EntityInterestTicketService",
+	{
+		make: Effect.gen(function* () {
+			const redis = yield* RedisService;
+
+			const create = Effect.fn("EntityInterestTicketService.create")(function* (input: {
+				readonly userId: UserId;
+				readonly preferredLanguage: string | null;
+			}) {
+				const ticket = makeTicket();
+				const now = yield* Clock.currentTimeMillis;
+				const value = yield* Schema.encodeUnknownEffect(Schema.fromJsonString(TicketValue))(
+					input,
+				).pipe(Effect.orDie);
+				yield* Effect.tryPromise(() =>
+					redis.client.set(
+						entityInterestTicketKey(ticketHash(ticket)),
+						value,
+						"EX",
+						ENTITY_INTEREST_SOCKET_TICKET_TTL_SECONDS,
+					),
+				).pipe(Effect.orDie);
+				return {
+					ticket,
+					expiresAt: DateTime.formatIso(
+						DateTime.makeUnsafe(now + ENTITY_INTEREST_SOCKET_TICKET_TTL_SECONDS * 1_000),
+					),
+				} satisfies EntityInterestSocketTicketResponse;
+			});
+
+			const consume = Effect.fn("EntityInterestTicketService.consume")(function* (ticket: string) {
+				if (!TICKET_PATTERN.test(ticket)) {
+					return yield* unauthorized();
+				}
+				const raw = yield* Effect.tryPromise(() =>
+					redis.client.eval(CONSUME_TICKET_SCRIPT, 1, entityInterestTicketKey(ticketHash(ticket))),
+				).pipe(Effect.orDie);
+				if (typeof raw !== "string") {
+					return yield* unauthorized();
+				}
+				return yield* Schema.decodeUnknownEffect(Schema.fromJsonString(TicketValue))(raw).pipe(
+					Effect.mapError(() => unauthorized()),
+				);
+			});
+
+			return { create, consume };
+		}),
+	},
+) {
+	static readonly layer = Layer.effect(this, this.make);
+}

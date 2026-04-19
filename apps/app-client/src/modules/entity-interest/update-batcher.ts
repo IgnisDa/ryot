@@ -1,11 +1,11 @@
-import type { EntityUpdatedFrame } from "@ryot/contract/modules/entity-interest/messages";
+import type { EntityInterestEntityUpdatedMessage } from "@ryot/contract/modules/entity-interest/messages";
 import { Context, Effect, Fiber, FiberSet, Layer } from "effect";
 
 const DEFAULT_ENTITY_UPDATE_BATCH_SIZE = 25;
 const DEFAULT_ENTITY_UPDATE_BATCH_WINDOW_MS = 250;
 
 export type EntityUpdateBatchHandler = (
-	updates: readonly EntityUpdatedFrame[],
+	updates: readonly EntityInterestEntityUpdatedMessage[],
 ) => Effect.Effect<void, unknown>;
 
 type EntityUpdateBatcherOptions = {
@@ -23,8 +23,8 @@ type RunningFiber = {
 export class EntityUpdateBatcher extends Context.Service<
 	EntityUpdateBatcher,
 	{
-		readonly push: (update: EntityUpdatedFrame) => Effect.Effect<void>;
 		readonly setBlocked: (blocked: boolean) => Effect.Effect<void>;
+		readonly push: (update: EntityInterestEntityUpdatedMessage) => Effect.Effect<void>;
 	}
 >()("ryot/app-client/entity-interest/EntityUpdateBatcher") {
 	static readonly make = (options: EntityUpdateBatcherOptions) =>
@@ -34,7 +34,7 @@ export class EntityUpdateBatcher extends Context.Service<
 			let windowElapsed = false;
 			let window: RunningFiber | undefined;
 			let inFlight: RunningFiber | undefined;
-			const pending = new Map<string, EntityUpdatedFrame>();
+			const pending = new Map<string, EntityInterestEntityUpdatedMessage>();
 			const windowMs = options.windowMs ?? DEFAULT_ENTITY_UPDATE_BATCH_WINDOW_MS;
 			const maxBatchSize = options.maxBatchSize ?? DEFAULT_ENTITY_UPDATE_BATCH_SIZE;
 			const runFork = yield* FiberSet.makeRuntime<never, void, never>();
@@ -81,7 +81,7 @@ export class EntityUpdateBatcher extends Context.Service<
 				if (runningWindow?.fiber) {
 					yield* Fiber.interrupt(runningWindow.fiber);
 				}
-				const updates: EntityUpdatedFrame[] = [];
+				const updates: EntityInterestEntityUpdatedMessage[] = [];
 				for (const [entityId, update] of pending) {
 					updates.push(update);
 					pending.delete(entityId);
@@ -119,7 +119,9 @@ export class EntityUpdateBatcher extends Context.Service<
 				}
 			});
 
-			const push = Effect.fn("EntityUpdateBatcher.push")(function* (update: EntityUpdatedFrame) {
+			const push = Effect.fn("EntityUpdateBatcher.push")(function* (
+				update: EntityInterestEntityUpdatedMessage,
+			) {
 				if (disposed) {
 					return;
 				}

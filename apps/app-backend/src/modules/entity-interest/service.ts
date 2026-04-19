@@ -1,15 +1,12 @@
 import type { CurrentUserValue } from "@ryot/contract/auth-middleware";
-import {
-	type DeclareInterestBody,
-	MAX_INTEREST_ENTITY_IDS,
-} from "@ryot/contract/modules/entity-interest/messages";
-import type { UserId } from "@ryot/contract/schema/brands";
+import { badRequest, notFound } from "@ryot/contract/errors";
+import type { EntityInterestEntityUpdatedMessage } from "@ryot/contract/modules/entity-interest/messages";
 import { Context, Effect, Layer } from "effect";
 
 import { MAX_ROOT_PAGE_SIZE } from "#modules/ryotql/validator";
 
 import { InterestReconciler } from "./reconciler";
-import { EntityInterestStore } from "./store";
+import { EntityInterestStore, type PendingInterest } from "./store";
 
 const chunk = <T>(items: readonly T[], size: number) => {
 	const chunks: T[][] = [];
@@ -19,66 +16,76 @@ const chunk = <T>(items: readonly T[], size: number) => {
 	return chunks;
 };
 
+export type ReconciledCompletion = {
+	readonly pending: PendingInterest;
+	readonly message: EntityInterestEntityUpdatedMessage;
+};
+
 export class InterestService extends Context.Service<InterestService>()("InterestService", {
 	make: Effect.gen(function* () {
 		const store = yield* EntityInterestStore;
 		const reconciler = yield* InterestReconciler;
 
-		const setInterest = Effect.fn("InterestService.setInterest")(function* (input: {
-			userId: UserId;
-			streamId: string;
-			entityIds: readonly string[];
-			preferredLanguage?: string | null;
+		const reconcile = Effect.fn("InterestService.reconcile")(function* (input: {
+			readonly sessionId: string;
+			readonly user: CurrentUserValue;
+			readonly pending: readonly PendingInterest[];
 		}) {
-			const entityIds = input.entityIds.slice(0, MAX_INTEREST_ENTITY_IDS);
-			if (entityIds.length < input.entityIds.length) {
-				yield* Effect.logWarning("interest set truncated").pipe(
-					Effect.annotateLogs({
-						streamId: input.streamId,
-						cap: MAX_INTEREST_ENTITY_IDS,
-						declared: input.entityIds.length,
-					}),
+			const terminal: ReconciledCompletion[] = [];
+			for (const pending of chunk(input.pending, MAX_ROOT_PAGE_SIZE)) {
+				const result = yield* reconciler.reconcile(
+					input.user,
+					pending.map(({ entityId }) => entityId),
 				);
-			}
-			return yield* store.replaceInterest({
-				entityIds,
-				userId: input.userId,
-				streamId: input.streamId,
-				preferredLanguage: input.preferredLanguage ?? null,
-			});
-		});
-
-		const declareInterest = Effect.fn("InterestService.declareInterest")(function* (
-			user: CurrentUserValue,
-			payload: DeclareInterestBody,
-		) {
-			const { generation, pendingEntityIds } = yield* setInterest({
-				userId: user.id,
-				streamId: payload.streamId,
-				entityIds: payload.entityIds,
-				preferredLanguage: user.preferences.language,
-			});
-			const terminal = [];
-			for (const entityIds of chunk(pendingEntityIds, MAX_ROOT_PAGE_SIZE)) {
-				const result = yield* reconciler.reconcile(user, entityIds);
-				const currentGeneration = yield* store.markReconciled({
-					generation,
-					streamId: payload.streamId,
-					entityIds: result.reconciledEntityIds,
+				const visibleIds = new Set<string>(result.reconciledEntityIds);
+				const visible = pending.filter(({ entityId }) => visibleIds.has(entityId));
+				yield* store.removePending({
+					sessionId: input.sessionId,
+					pending: pending.filter(({ entityId }) => !visibleIds.has(entityId)),
 				});
-				if (!currentGeneration) {
-					break;
-				}
+				const terminalIds = new Set<string>(result.terminal.map(({ entityId }) => entityId));
+				yield* store.markReconciled({
+					sessionId: input.sessionId,
+					pending: visible.filter(({ entityId }) => !terminalIds.has(entityId)),
+				});
+				const pendingById = new Map(visible.map((item) => [item.entityId, item]));
 				for (const update of result.terminal) {
-					if (yield* store.hasInterest(payload.streamId, update.entityId)) {
-						terminal.push(update);
+					const current = pendingById.get(update.entityId);
+					if (current !== undefined) {
+						terminal.push({ pending: current, message: { type: "entity-updated", ...update } });
 					}
 				}
 			}
-			return { terminal };
+			return terminal;
 		});
 
-		return { setInterest, declareInterest };
+		const setEntityInterestMembership = Effect.fn("InterestService.setEntityInterestMembership")(
+			function* (input: { readonly sessionId: string; readonly entityIds: readonly string[] }) {
+				const [metadata] = yield* store.getSessionMetadata([input.sessionId]);
+				if (metadata === undefined) {
+					return yield* notFound("Unknown session");
+				}
+				const result = yield* store.replaceInterest({
+					entityIds: input.entityIds,
+					sessionId: input.sessionId,
+					revision: metadata.revision + 1,
+				});
+				if (result.status === "missing-session") {
+					return yield* notFound("Unknown session");
+				}
+				if (result.status !== "applied") {
+					return yield* badRequest(
+						result.status === "limit-exceeded"
+							? "Entity interest limit exceeded"
+							: "Entity interest membership changed concurrently",
+					);
+				}
+				yield* store.markReconciled({ sessionId: input.sessionId, pending: result.pending });
+				return undefined;
+			},
+		);
+
+		return { reconcile, setEntityInterestMembership };
 	}),
 }) {
 	static readonly layer = Layer.effect(this, this.make);

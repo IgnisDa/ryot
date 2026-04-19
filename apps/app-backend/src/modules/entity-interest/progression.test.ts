@@ -70,43 +70,43 @@ it.effect("uses one entity lease and requests each distinct noncanonical languag
 	const events: string[] = [];
 	const released: string[] = [];
 	const store = Layer.mock(EntityInterestStore)({
-		listInterestedStreams: () =>
+		listInterestedSessions: () =>
 			Effect.sync(() => {
 				events.push("list");
-				return ["stream-1", "stream-2", "stream-3", "stream-4", "stream-5"];
+				return ["session-1", "session-2", "session-3", "session-4", "session-5"];
 			}),
-		getStreamMetadata: (streamIds) =>
+		getSessionMetadata: (sessionIds) =>
 			Effect.sync(() => {
-				events.push(`metadata:${streamIds.join(",")}`);
+				events.push(`metadata:${sessionIds.join(",")}`);
 				return [
 					{
-						generation: 1,
+						revision: 1,
 						preferredLanguage: "es",
-						streamId: streamIds[0] ?? "",
+						sessionId: sessionIds[0] ?? "",
 						userId: UserId.make("user-1"),
 					},
 					{
-						generation: 1,
+						revision: 1,
 						preferredLanguage: "es",
-						streamId: streamIds[1] ?? "",
+						sessionId: sessionIds[1] ?? "",
 						userId: UserId.make("user-2"),
 					},
 					{
-						generation: 1,
+						revision: 1,
 						preferredLanguage: "fr",
-						streamId: streamIds[2] ?? "",
+						sessionId: sessionIds[2] ?? "",
 						userId: UserId.make("user-3"),
 					},
 					{
-						generation: 1,
+						revision: 1,
 						preferredLanguage: "en",
-						streamId: streamIds[3] ?? "",
+						sessionId: sessionIds[3] ?? "",
 						userId: UserId.make("user-4"),
 					},
 					{
-						generation: 1,
+						revision: 1,
 						preferredLanguage: null,
-						streamId: streamIds[4] ?? "",
+						sessionId: sessionIds[4] ?? "",
 						userId: UserId.make("user-5"),
 					},
 				];
@@ -134,7 +134,7 @@ it.effect("uses one entity lease and requests each distinct noncanonical languag
 		expect(events).toEqual([
 			"acquire",
 			"list",
-			"metadata:stream-1,stream-2,stream-3,stream-4,stream-5",
+			"metadata:session-1,session-2,session-3,session-4,session-5",
 			"release",
 		]);
 		expect(requests.map(({ language }) => language)).toEqual(["es", "fr"]);
@@ -149,8 +149,8 @@ it.effect("retries a contended lease once near expiry", () => {
 	const released: string[] = [];
 	const requests: RequestFillInput[] = [];
 	const store = Layer.mock(EntityInterestStore)({
-		listInterestedStreams: () => Effect.succeed(["stream-1"]),
-		getStreamMetadata: () => Effect.succeed([]),
+		listInterestedSessions: () => Effect.succeed(["session-1"]),
+		getSessionMetadata: () => Effect.succeed([]),
 	});
 	const redis = makeRedisService({
 		acquireLease: (key) =>

@@ -14,7 +14,7 @@ export * from "./events";
 export * from "./imports";
 export * from "./notifications";
 export * from "./operational-gate";
-export * from "./interest-sse";
+export * from "./interest-websocket";
 export * from "./measurements";
 export * from "./media";
 export * from "./media-monitoring";
