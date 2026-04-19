@@ -316,6 +316,29 @@ describe("fromAppSchema", () => {
 });
 
 describe("fromAppSchemaObject", () => {
+	it("accepts null for non-required object fields", () => {
+		const schema = fromAppSchemaObject({
+			fields: {
+				timeToBeat: {
+					type: "object",
+					label: "Time To Beat",
+					properties: {
+						hastily: { label: "Hastily", type: "integer" },
+						normally: { label: "Normally", type: "integer" },
+						completely: { label: "Completely", type: "integer" },
+					},
+				},
+			},
+		});
+
+		expect(schema.safeParse({ timeToBeat: null }).success).toBeTrue();
+		expect(schema.safeParse({ timeToBeat: undefined }).success).toBeTrue();
+		expect(
+			schema.safeParse({ timeToBeat: { hastily: 5, normally: 10, completely: 20 } })
+				.success,
+		).toBeTrue();
+	});
+
 	it("applies conditional required rules", () => {
 		const schema = fromAppSchemaObject({
 			fields: {
