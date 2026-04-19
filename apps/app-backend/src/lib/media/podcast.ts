@@ -1,6 +1,6 @@
 import { z } from "@hono/zod-openapi";
 import { toAppSchemaProperties } from "@ryot/ts-utils";
-import { nullableIntSchema, nullableStringSchema } from "../zod/base";
+import { nullableIntSchema, nullableStringSchema } from "../zod";
 import { freeCreatorSchema, mediaPropertiesSchema } from "./common";
 
 const podcastEpisodeSchema = z

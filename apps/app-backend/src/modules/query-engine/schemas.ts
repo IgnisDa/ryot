@@ -6,7 +6,7 @@ import {
 	viewExpressionSchema,
 } from "~/lib/views/expression";
 import { nullableViewPredicateSchema } from "~/lib/views/filtering";
-import { timestampFields } from "~/lib/zod/base";
+import { timestampFields } from "~/lib/zod";
 import {
 	eventJoinDefinitionArraySchema,
 	sortDefinitionSchema,
