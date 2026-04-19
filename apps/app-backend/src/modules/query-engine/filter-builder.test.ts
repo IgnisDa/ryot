@@ -256,7 +256,7 @@ describe("buildFilterWhereClause", () => {
 		);
 
 		expect(clause.sql).toContain("event_join_review");
-		expect(clause.sql).toContain("-> 'properties'");
+		expect(clause.params).toContain("properties");
 		expect(clause.params).toContain("rating");
 		expect(clause.params).toContain(4);
 	});
