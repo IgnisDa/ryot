@@ -1,7 +1,8 @@
-import { Button, Group, Modal, Stack, Text } from "@mantine/core";
+import { Button, Group, Modal, Stack } from "@mantine/core";
+import { FormError } from "~/components/PageStates";
 import type { PropertySchemaRow } from "~/features/property-schemas/form";
 import { PropertySchemasBuilder } from "~/features/property-schemas/properties-builder";
-import { useAppForm } from "~/hooks/forms";
+import { createFormSubmitHandler, useAppForm } from "~/hooks/forms";
 import {
 	type CreateCollectionPayload,
 	createCollectionFormSchema,
@@ -40,20 +41,10 @@ export function CreateCollectionModal(props: {
 			onClose={props.onClose}
 			overlayProps={{ backgroundOpacity: 0.55, blur: 3 }}
 		>
-			<form
-				onSubmit={(event) => {
-					event.preventDefault();
-					event.stopPropagation();
-					void form.handleSubmit();
-				}}
-			>
+			<form onSubmit={createFormSubmitHandler(form.handleSubmit)}>
 				<form.AppForm>
 					<Stack gap="md">
-						{props.errorMessage ? (
-							<Text c="red" size="sm">
-								{props.errorMessage}
-							</Text>
-						) : null}
+						<FormError message={props.errorMessage} />
 						<form.AppField name="name">
 							{(field) => (
 								<field.TextField
