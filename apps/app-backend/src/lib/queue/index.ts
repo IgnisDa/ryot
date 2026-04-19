@@ -8,7 +8,7 @@ let workers: Workers | null = null;
 export const initializeQueues = async () => {
 	queues = createQueues();
 	await queues.eventsQueue.waitUntilReady();
-	await queues.sandboxScriptQueue.waitUntilReady();
+	await queues.sandboxQueue.waitUntilReady();
 	console.info("Queues initialized");
 	return queues;
 };
@@ -36,7 +36,7 @@ export const getWorkers = () => {
 export const shutdownQueues = async () => {
 	if (queues) {
 		await queues.eventsQueue.close();
-		await queues.sandboxScriptQueue.close();
+		await queues.sandboxQueue.close();
 		queues = null;
 		if (!workers) {
 			await shutdownQueueRedisConnection();
@@ -48,7 +48,7 @@ export const shutdownQueues = async () => {
 export const shutdownWorkers = async () => {
 	if (workers) {
 		await workers.eventsWorker.close();
-		await workers.sandboxScriptWorker.close();
+		await workers.sandboxWorker.close();
 		workers = null;
 		if (!queues) {
 			await shutdownQueueRedisConnection();
