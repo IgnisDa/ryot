@@ -65,15 +65,21 @@ export const decodeEntityReadResponse = (response: unknown): EntityRecord => {
 	};
 };
 
-export const decodeProgressEvents = (response: unknown): readonly MediaProgressEvent[] =>
-	decodeRyotqlQuery(response, "events", ryotqlRowsResultSchema(eventRowSchema)).items.map(
-		(row) => ({
+export const decodeProgressEventsPage = (response: unknown) => {
+	const result = decodeRyotqlQuery(response, "events", ryotqlRowsResultSchema(eventRowSchema));
+	return {
+		hasMore: result.pageInfo.hasMore,
+		events: result.items.map((row) => ({
 			id: row.id.value,
 			createdAt: row.createdAt.value,
 			occurredAt: row.occurredAt.value,
 			properties: row.properties.value,
-		}),
-	);
+		})),
+	};
+};
+
+export const decodeProgressEvents = (response: unknown): readonly MediaProgressEvent[] =>
+	decodeProgressEventsPage(response).events;
 
 export const decodeEntityIds = (response: unknown, queryName: string) =>
 	decodeRyotqlQuery(response, queryName, ryotqlRowsResultSchema(entityIdRowSchema)).items.map(
