@@ -24,6 +24,7 @@ const entitySelection = {
 	updatedAt: entity.updatedAt,
 	externalId: entity.externalId,
 	properties: entity.properties,
+	populatedAt: entity.populatedAt,
 	entitySchemaId: entity.entitySchemaId,
 	sandboxScriptId: entity.sandboxScriptId,
 };
@@ -204,7 +205,7 @@ export const createGlobalEntity = async (input: {
 		.returning(entitySelection);
 
 	if (createdEntity) {
-		return toListedEntity(createdEntity);
+		return { entity: toListedEntity(createdEntity), isNew: true };
 	}
 
 	const existing = await findGlobalEntityByExternalId(input);
@@ -212,12 +213,13 @@ export const createGlobalEntity = async (input: {
 		throw new Error("Could not persist or find global entity after conflict");
 	}
 
-	return existing;
+	return { entity: existing, isNew: false };
 };
 
 export const updateGlobalEntityById = async (input: {
 	name: string;
 	entityId: string;
+	populatedAt: Date;
 	entitySchemaId: string;
 	removePropertyKeys?: string[];
 	image: ImageSchemaType | null;
@@ -228,11 +230,12 @@ export const updateGlobalEntityById = async (input: {
 		sql`${entity.properties}`,
 	);
 
-	await db
+	const [updated] = await db
 		.update(entity)
 		.set({
 			name: input.name,
 			image: input.image,
+			populatedAt: input.populatedAt,
 			properties: sql`${propertiesBase} || ${JSON.stringify(input.properties)}::jsonb`,
 		})
 		.where(
@@ -241,7 +244,14 @@ export const updateGlobalEntityById = async (input: {
 				isNull(entity.userId),
 				eq(entity.entitySchemaId, input.entitySchemaId),
 			),
-		);
+		)
+		.returning(entitySelection);
+
+	if (!updated) {
+		throw new Error(`Failed to update global entity '${input.entityId}'`);
+	}
+
+	return toListedEntity(updated);
 };
 
 export const buildPersonRelationshipProperties = (

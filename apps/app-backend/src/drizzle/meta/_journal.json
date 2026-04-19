@@ -15,6 +15,13 @@
 			"when": 1776610301702,
 			"tag": "0001_brown_molly_hayes",
 			"breakpoints": true
+		},
+		{
+			"idx": 2,
+			"version": "7",
+			"when": 1776758998170,
+			"tag": "0002_sticky_dreaming_celestial",
+			"breakpoints": true
 		}
 	]
 }
