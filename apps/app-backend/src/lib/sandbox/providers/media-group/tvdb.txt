@@ -1,0 +1,151 @@
+function parseJsonResponse(responseBody) {
+  try {
+    return JSON.parse(responseBody);
+  } catch {
+    throw new Error("TVDB returned invalid JSON");
+  }
+}
+
+const TVDB_BASE_URL = "https://api4.thetvdb.com/v4";
+const TOKEN_CACHE_KEY = "tvdb_access_token";
+
+async function getTvdbApiKey() {
+  const resp = await getAppConfigValue("moviesAndShows.tvdb.apiKey");
+  if (!resp?.success) {
+    throw new Error(resp?.error ?? "Failed to retrieve TVDB API key");
+  }
+  const key = typeof resp.data === "string" ? resp.data.trim() : null;
+  if (!key) {
+    throw new Error(
+      "TVDB API key is not configured. Set MOVIES_AND_SHOWS_TVDB_API_KEY in your environment.",
+    );
+  }
+  return key;
+}
+
+async function getTvdbAccessToken() {
+  const cached = await getCachedValue(TOKEN_CACHE_KEY);
+  if (cached?.success && typeof cached.data === "string" && cached.data) {
+    return cached.data;
+  }
+
+  const apiKey = await getTvdbApiKey();
+  const response = await httpCall("POST", `${TVDB_BASE_URL}/login`, {
+    body: JSON.stringify({ apikey: apiKey }),
+    headers: { "Content-Type": "application/json" },
+  });
+
+  if (!response?.success) {
+    throw new Error(response?.error ?? "TVDB login request failed");
+  }
+
+  const payload = parseJsonResponse(response.data.body);
+  if (payload?.status !== "success" || !payload?.data?.token) {
+    throw new Error("TVDB login returned no token");
+  }
+
+  const accessToken = `Bearer ${payload.data.token}`;
+  // TVDB tokens are valid for 30 days; cache for 23 hours as a safety buffer.
+  const cacheResult = await setCachedValue(TOKEN_CACHE_KEY, accessToken, 23 * 60 * 60);
+  if (!cacheResult?.success) {
+    console.warn(`TVDB token cache write failed: ${cacheResult?.error}`);
+  }
+
+  return accessToken;
+}
+
+async function tvdbGet(path) {
+  const token = await getTvdbAccessToken();
+  const response = await httpCall("GET", `${TVDB_BASE_URL}${path}`, {
+    headers: { Authorization: token },
+  });
+  if (!response?.success) {
+    throw new Error(response?.error ?? `TVDB request failed: ${path}`);
+  }
+  const payload = parseJsonResponse(response.data.body);
+  if (payload?.status && payload.status !== "success") {
+    throw new Error(`TVDB API error: ${payload.message ?? payload.status}`);
+  }
+  return payload?.data ?? payload;
+}
+
+driver("search", async function () {
+  throw new Error("TVDB does not support movie group search");
+});
+
+driver("details", async function (context) {
+  const { z } = await import("npm:zod");
+
+  const { externalId } = z
+    .object({ externalId: z.string().trim().min(1, "externalId is required") })
+    .parse(context ?? {});
+
+  if (!/^\d+$/.test(externalId)) {
+    throw new Error("externalId must be a numeric TVDB list ID");
+  }
+
+  const data = await tvdbGet(`/lists/${externalId}/extended`);
+
+  const title =
+    typeof data?.name === "string" && data.name.trim()
+      ? data.name.trim()
+      : "Unnamed List";
+
+  const description =
+    typeof data?.overview === "string" && data.overview.trim()
+      ? data.overview.trim()
+      : null;
+
+  const images = [];
+  if (typeof data?.image === "string" && data.image.trim()) {
+    images.push({ type: "remote", url: data.image.trim() });
+  }
+
+  const entities = Array.isArray(data?.entities) ? data.entities : [];
+  const movieEntities = entities.filter(
+    (e) => e && typeof e === "object" && e.movieId != null,
+  );
+  const parts = movieEntities.length;
+
+  const relatedEntities = movieEntities
+    .sort((a, b) => {
+      const orderA = typeof a.order === "number" ? a.order : 0;
+      const orderB = typeof b.order === "number" ? b.order : 0;
+      return orderA - orderB;
+    })
+    .map((entity, idx) => {
+      const memberId =
+        typeof entity.movieId === "string" && entity.movieId.trim()
+          ? entity.movieId.trim()
+          : null;
+      if (!memberId) return null;
+      const memberName =
+        typeof entity.name === "string" && entity.name.trim()
+          ? entity.name.trim()
+          : "Loading...";
+      return {
+        name: memberName,
+        externalId: memberId,
+        reverseDirection: true,
+        scriptSlug: "movie.tvdb",
+        relationshipProperties: { order: idx + 1 },
+      };
+    })
+    .filter((e) => e !== null);
+
+  const sourceUrl =
+    typeof data?.url === "string" && data.url.trim()
+      ? `https://thetvdb.com/lists/${data.url.trim()}`
+      : null;
+
+  return {
+    name: title,
+    relatedEntities,
+    properties: {
+      parts,
+      images,
+      sourceUrl,
+      description,
+    },
+  };
+});

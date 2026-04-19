@@ -1,0 +1,115 @@
+function parseJsonResponse(responseBody) {
+  try {
+    return JSON.parse(responseBody);
+  } catch {
+    throw new Error("Audnex returned invalid JSON");
+  }
+}
+
+const PAGE_SIZE = 20;
+
+driver("search", async function(context) {
+  const { z } = await import("npm:zod");
+  const { query, page: currentPage, pageSize } = z.object({
+    query: z.string().trim().min(1, "query is required"),
+    page: z.coerce.number().min(1).transform(Math.floor).catch(1),
+    pageSize: z.coerce.number().min(1).max(100).transform(Math.floor).catch(PAGE_SIZE),
+  }).parse(context ?? {});
+
+  const params = new URLSearchParams({
+    name: query,
+    region: "us",
+  });
+
+  const response = await httpCall(
+    "GET",
+    `https://api.audnex.us/authors?${params.toString()}`,
+  );
+
+  if (!response?.success) {
+    throw new Error(response?.error ?? "Audnex author search request failed");
+  }
+
+  const data = parseJsonResponse(response.data.body);
+  const allItems = Array.isArray(data) ? data : [];
+
+  const totalItems = allItems.length;
+
+  const startIndex = (currentPage - 1) * pageSize;
+  const endIndex = Math.min(startIndex + pageSize, totalItems);
+  const pageItems = allItems.slice(startIndex, endIndex);
+
+  const items = pageItems
+    .map((author) => {
+      const externalId =
+        typeof author?.asin === "string" ? author.asin.trim() : "";
+      if (!externalId) {
+        return null;
+      }
+
+      const name = typeof author?.name === "string" ? author.name.trim() : "";
+
+      return {
+        externalId,
+        calloutProperty: { kind: "null", value: null },
+        titleProperty: { kind: "text", value: name },
+        primarySubtitleProperty: { kind: "null", value: null },
+        secondarySubtitleProperty: { kind: "null", value: null },
+        imageProperty: { kind: "null", value: null },
+      };
+    })
+    .filter((item) => item !== null);
+
+  return {
+    items,
+    details: {
+      totalItems,
+      nextPage: endIndex < totalItems ? currentPage + 1 : null,
+    },
+  };
+});
+
+driver("details", async function(context) {
+  const { z } = await import("npm:zod");
+  const { externalId } = z.object({
+    externalId: z.string().trim().min(1, "externalId is required"),
+  }).parse(context ?? {});
+
+  const params = new URLSearchParams({ region: "us" });
+
+  const response = await httpCall(
+    "GET",
+    `https://api.audnex.us/authors/${externalId}?${params.toString()}`,
+  );
+
+  if (!response?.success) {
+    throw new Error(response?.error ?? "Audnex author details request failed");
+  }
+
+  const data = parseJsonResponse(response.data.body);
+
+  const name = typeof data?.name === "string" ? data.name.trim() : "";
+  if (!name) {
+    throw new Error("Audnex returned no author name");
+  }
+
+  const image =
+    typeof data?.image === "string" && data.image.trim()
+      ? data.image.trim()
+      : null;
+
+  const description =
+    typeof data?.description === "string" ? data.description : null;
+
+  const sourceUrl = `https://www.audible.com/author/${externalId}`;
+
+  return {
+    name,
+    properties: {
+      sourceUrl,
+      description,
+      alternateNames: [],
+      images: image ? [{ type: "remote", url: image }] : [],
+    },
+  };
+});

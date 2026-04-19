@@ -178,9 +178,9 @@ The module migration proceeds from infrastructure and leaf modules toward highly
 
 ## Tasks
 
-**Overall Progress:** 5 of 32 tasks completed
+**Overall Progress:** 6 of 32 tasks completed
 
-**Current Task:** [Task 06](./06-static-builtins-and-seed-manifests.md) (todo)
+**Current Task:** [Task 07](./07-better-auth-email-sessions.md) (todo)
 
 ### Task List
 
@@ -191,7 +191,7 @@ The module migration proceeds from infrastructure and leaf modules toward highly
 | 03  | [Effect E2E Client Harness](./03-effect-e2e-client-harness.md)                                       | AFK  | done   |
 | 04  | [Config And System Endpoints](./04-config-and-system-endpoints.md)                                   | AFK  | done   |
 | 05  | [Real Schema Migrations And Transaction Layer](./05-real-schema-migrations-and-transaction-layer.md) | AFK  | done   |
-| 06  | [Static Builtins And Seed Manifests](./06-static-builtins-and-seed-manifests.md)                     | AFK  | todo   |
+| 06  | [Static Builtins And Seed Manifests](./06-static-builtins-and-seed-manifests.md)                     | AFK  | done   |
 | 07  | [Better Auth Email Sessions](./07-better-auth-email-sessions.md)                                     | AFK  | todo   |
 | 08  | [Auth Middleware And Security Schemes](./08-auth-middleware-and-security-schemes.md)                 | AFK  | todo   |
 | 09  | [Trackers Domain Slice](./09-trackers-domain-slice.md)                                               | AFK  | todo   |

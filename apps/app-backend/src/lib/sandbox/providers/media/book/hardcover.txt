@@ -1,0 +1,519 @@
+function parseJsonResponse(responseBody) {
+  try {
+    return JSON.parse(responseBody);
+  } catch {
+    throw new Error("Hardcover returned invalid JSON");
+  }
+}
+
+function collectImages(imageField, imagesArray) {
+  const imageSet = new Set();
+
+  if (
+    imageField &&
+    typeof imageField === "object" &&
+    typeof imageField.url === "string"
+  ) {
+    const trimmed = imageField.url.trim();
+    if (trimmed) {
+      imageSet.add(trimmed);
+    }
+  }
+
+  if (Array.isArray(imagesArray)) {
+    for (const img of imagesArray) {
+      if (img && typeof img === "object" && typeof img.url === "string") {
+        const trimmed = img.url.trim();
+        if (trimmed) {
+          imageSet.add(trimmed);
+        }
+      }
+    }
+  }
+
+  return [...imageSet];
+}
+
+function collectPeople(contributions) {
+  if (!Array.isArray(contributions)) {
+    return [];
+  }
+
+  const relatedEntityByKey = new Map();
+  const addRelatedEntity = (relatedEntity) => {
+    const key = `${relatedEntity.scriptSlug}:${relatedEntity.externalId}`;
+    const existing = relatedEntityByKey.get(key);
+    if (!existing) {
+      relatedEntityByKey.set(key, relatedEntity);
+      return;
+    }
+
+    const roles = new Set([
+      ...(Array.isArray(existing.relationshipProperties.roles)
+        ? existing.relationshipProperties.roles
+        : []),
+      ...(Array.isArray(relatedEntity.relationshipProperties.roles)
+        ? relatedEntity.relationshipProperties.roles
+        : []),
+    ]);
+    existing.relationshipProperties.roles = [...roles];
+    if (existing.name === "Loading..." && relatedEntity.name !== "Loading...") {
+      existing.name = relatedEntity.name;
+    }
+  };
+
+  for (const contrib of contributions) {
+    if (!contrib || typeof contrib !== "object") {
+      continue;
+    }
+
+    const authorId = contrib.author_id;
+    if (authorId === null || authorId === undefined) {
+      continue;
+    }
+
+    const personIdentifier = String(authorId).trim();
+    if (!personIdentifier) {
+      continue;
+    }
+
+    const authorName =
+      contrib.author &&
+      typeof contrib.author === "object" &&
+      typeof contrib.author.name === "string"
+        ? contrib.author.name.trim()
+        : "Loading...";
+
+    const role =
+      typeof contrib.contribution === "string" && contrib.contribution.trim()
+        ? contrib.contribution.trim()
+        : "Author";
+
+    addRelatedEntity({
+      name: authorName,
+      externalId: personIdentifier,
+      scriptSlug: "person.hardcover",
+      relationshipProperties: {
+        roles: [role],
+      },
+    });
+  }
+
+  return [...relatedEntityByKey.values()];
+}
+
+function collectGenres(cachedTags) {
+  const genreSet = new Set();
+
+  if (!cachedTags || typeof cachedTags !== "object") {
+    return [];
+  }
+
+  const genreArray = cachedTags.Genre;
+  if (!Array.isArray(genreArray)) {
+    return [];
+  }
+
+  for (const genreItem of genreArray) {
+    if (!genreItem || typeof genreItem !== "object") {
+      continue;
+    }
+
+    const tag = genreItem.tag;
+    if (typeof tag !== "string") {
+      continue;
+    }
+
+    const titleTag = toTitleCase(tag.trim());
+    if (titleTag) {
+      genreSet.add(titleTag);
+    }
+  }
+
+  return [...genreSet];
+}
+
+async function getHardcoverApiKey() {
+  const configValueResponse = await getAppConfigValue("books.hardcover.apiKey");
+  if (!configValueResponse?.success) {
+    throw new Error(
+      configValueResponse?.error ?? "Could not load Hardcover API key",
+    );
+  }
+
+  const apiKey =
+    typeof configValueResponse.data === "string"
+      ? configValueResponse.data.trim()
+      : "";
+  if (!apiKey) {
+    throw new Error("BOOKS_HARDCOVER_API_KEY is not configured");
+  }
+
+  return apiKey;
+}
+
+driver("search", async function(context) {
+  const { z } = await import("npm:zod");
+  const { query, page: currentPage, pageSize } = z.object({
+    query: z.string().trim().min(1, "query is required"),
+    page: z.coerce.number().min(1).transform(Math.floor).catch(1),
+    pageSize: z.coerce.number().min(1).max(100).transform(Math.floor).catch(20),
+  }).parse(context ?? {});
+
+  const apiKey = await getHardcoverApiKey();
+
+  const graphqlQuery = `
+query {
+  search(
+    page: ${currentPage},
+    per_page: ${pageSize},
+    query: "${query.replace(/"/g, '\\"')}",
+    query_type: "book"
+  ) {
+    results
+  }
+}
+`;
+
+  const response = await httpCall(
+    "POST",
+    "https://api.hardcover.app/v1/graphql",
+    {
+      body: JSON.stringify({ query: graphqlQuery }),
+      headers: {
+        Authorization: apiKey,
+        "Content-Type": "application/json",
+      },
+    },
+  );
+
+  if (!response?.success) {
+    throw new Error(response?.error ?? "Hardcover search request failed");
+  }
+
+  let payload;
+  try {
+    payload = JSON.parse(response.data.body);
+  } catch {
+    throw new Error("Hardcover returned invalid JSON");
+  }
+
+  const resultsData =
+    payload?.data?.search?.results &&
+    typeof payload.data.search.results === "object"
+      ? payload.data.search.results
+      : null;
+
+  if (!resultsData) {
+    throw new Error("Hardcover returned invalid response structure");
+  }
+
+  const totalItems =
+    typeof resultsData.found === "number" && Number.isFinite(resultsData.found)
+      ? Math.max(0, Math.trunc(resultsData.found))
+      : 0;
+
+  const hits = Array.isArray(resultsData.hits) ? resultsData.hits : [];
+  const items = hits
+    .map((hit) => {
+      const doc = hit?.document;
+      if (!doc || typeof doc !== "object") {
+        return null;
+      }
+
+      const externalId = doc.id;
+      if (!externalId) {
+        return null;
+      }
+
+      const title = typeof doc.title === "string" ? doc.title : "";
+      const releaseYear =
+        typeof doc.release_year === "number" && Number.isFinite(doc.release_year)
+          ? doc.release_year
+          : null;
+
+      let image = null;
+      if (
+        doc.image &&
+        typeof doc.image === "object" &&
+        typeof doc.image.url === "string"
+      ) {
+        image = doc.image.url;
+      }
+
+      return {
+        externalId,
+        calloutProperty: { kind: "null", value: null },
+        titleProperty: { kind: "text", value: title },
+        primarySubtitleProperty:
+          releaseYear === null
+            ? { kind: "null", value: null }
+            : { kind: "number", value: releaseYear },
+        secondarySubtitleProperty: { kind: "null", value: null },
+        imageProperty:
+          image === null
+            ? { kind: "null", value: null }
+            : { kind: "image", value: { type: "remote", url: image } },
+      };
+    })
+    .filter((item) => item !== null);
+
+  return {
+    items,
+    details: {
+      totalItems: totalItems,
+      nextPage: currentPage * pageSize < totalItems ? currentPage + 1 : null,
+    },
+  };
+});
+
+driver("details", async function(context) {
+  const { z } = await import("npm:zod");
+  const apiKey = await getHardcoverApiKey();
+
+  const { externalId: contextIdentifier } = z.object({
+    externalId: z.string().trim().min(1, "externalId is required"),
+  }).parse(context ?? {});
+
+  if (!/^\d+$/.test(contextIdentifier)) {
+    throw new Error("externalId must be a numeric Hardcover book id");
+  }
+
+  const bookId = Number(contextIdentifier);
+  if (!Number.isSafeInteger(bookId)) {
+    throw new Error("externalId must be a safe integer Hardcover book id");
+  }
+
+  const graphqlQuery = `
+query GetHardcoverBookDetails($id: Int!) {
+  books_by_pk(id: $id) {
+    id
+    slug
+    pages
+    title
+    description
+    release_date
+    release_year
+    image { url }
+    images { url }
+    cached_tags
+    contributions {
+      contribution
+      author_id
+      author { name }
+    }
+    book_series {
+      series {
+        id
+        name
+      }
+      publisher {
+        id
+        name
+      }
+    }
+  }
+}
+`;
+
+  const response = await httpCall(
+    "POST",
+    "https://api.hardcover.app/v1/graphql",
+    {
+      body: JSON.stringify({ query: graphqlQuery, variables: { id: bookId } }),
+      headers: {
+        Authorization: apiKey,
+        "Content-Type": "application/json",
+      },
+    },
+  );
+
+  if (!response?.success) {
+    throw new Error(response?.error ?? "Hardcover details request failed");
+  }
+
+  const payload = parseJsonResponse(response.data.body);
+
+  if (Array.isArray(payload?.errors) && payload.errors.length > 0) {
+    const firstError = payload.errors[0];
+    const errorMessage =
+      firstError && typeof firstError.message === "string"
+        ? firstError.message
+        : "unknown GraphQL error";
+    throw new Error(`Hardcover details GraphQL error: ${errorMessage}`);
+  }
+
+  const bookData =
+    payload?.data?.books_by_pk && typeof payload.data.books_by_pk === "object"
+      ? payload.data.books_by_pk
+      : null;
+
+  if (!bookData) {
+    throw new Error("Hardcover returned no book data");
+  }
+
+  const title = typeof bookData.title === "string" ? bookData.title : "";
+  if (!title) {
+    throw new Error("Hardcover book data is missing title");
+  }
+
+  const externalId =
+    typeof bookData.id === "string" && bookData.id.trim()
+      ? bookData.id
+      : contextIdentifier;
+
+  const pages =
+    typeof bookData.pages === "number" && Number.isFinite(bookData.pages)
+      ? Math.max(0, Math.trunc(bookData.pages))
+      : null;
+
+  const releaseYear =
+    typeof bookData.release_year === "number" &&
+    Number.isFinite(bookData.release_year)
+      ? bookData.release_year
+      : null;
+
+  const releaseDate =
+    typeof bookData.release_date === "string" && bookData.release_date.trim()
+      ? bookData.release_date.trim()
+      : null;
+
+  const slug = typeof bookData.slug === "string" ? bookData.slug.trim() : "";
+  const sourceUrl = slug
+    ? `https://hardcover.app/books/${slug}`
+    : `https://hardcover.app/books/${externalId}`;
+
+  const relatedEntities = collectPeople(bookData.contributions);
+  const relatedEntityByKey = new Map(
+    relatedEntities.map((relatedEntity) => [
+      `${relatedEntity.scriptSlug}:${relatedEntity.externalId}`,
+      relatedEntity,
+    ]),
+  );
+  const addRelatedEntity = (relatedEntity) => {
+    const key = `${relatedEntity.scriptSlug}:${relatedEntity.externalId}`;
+    const existing = relatedEntityByKey.get(key);
+    if (!existing) {
+      relatedEntityByKey.set(key, relatedEntity);
+      relatedEntities.push(relatedEntity);
+      return;
+    }
+
+    const roles = new Set([
+      ...(Array.isArray(existing.relationshipProperties.roles)
+        ? existing.relationshipProperties.roles
+        : []),
+      ...(Array.isArray(relatedEntity.relationshipProperties.roles)
+        ? relatedEntity.relationshipProperties.roles
+        : []),
+    ]);
+    existing.relationshipProperties.roles = [...roles];
+    if (existing.name === "Loading..." && relatedEntity.name !== "Loading...") {
+      existing.name = relatedEntity.name;
+    }
+  };
+
+  if (Array.isArray(bookData.book_series)) {
+    for (const series of bookData.book_series) {
+      const bookSeries = series?.series;
+      if (bookSeries && typeof bookSeries === "object") {
+        const seriesId = bookSeries.id != null ? String(bookSeries.id) : null;
+        const seriesName =
+          typeof bookSeries.name === "string" && bookSeries.name.trim()
+            ? bookSeries.name.trim()
+            : "Loading...";
+        if (seriesId) {
+          addRelatedEntity({
+            name: seriesName,
+            externalId: seriesId,
+            scriptSlug: "book-group.hardcover",
+            relationshipProperties: {
+              roles: ["Member"],
+            },
+          });
+        }
+      }
+      const pub = series?.publisher;
+      if (!pub || typeof pub !== "object") {
+        continue;
+      }
+      const pubId = pub.id != null ? String(pub.id) : null;
+      if (!pubId) {
+        continue;
+      }
+      const pubName =
+        typeof pub.name === "string" && pub.name.trim()
+          ? pub.name.trim()
+          : "Loading...";
+      addRelatedEntity({
+        name: pubName,
+        externalId: pubId,
+        scriptSlug: "company.hardcover",
+        relationshipProperties: {
+          roles: ["Publisher"],
+        },
+      });
+    }
+  }
+
+  return {
+    name: title,
+    properties: {
+      pages,
+      sourceUrl: sourceUrl,
+      unlinkedCreators: [],
+      publishDate: releaseDate,
+      publishYear: releaseYear,
+      genres: collectGenres(bookData.cached_tags),
+      images: collectImages(bookData.image, bookData.images).map((url) => ({ type: "remote", url })),
+      description:
+        typeof bookData.description === "string" ? bookData.description : null,
+    },
+    relatedEntities,
+  };
+});
+
+driver("resolve", async function(context) {
+  if (!context || context.identifierType !== "isbn") {
+    throw new Error("Hardcover resolve supports only isbn identifiers");
+  }
+  const value = typeof context.value === "string" ? context.value.trim() : "";
+  if (!value) {
+    throw new Error("Hardcover resolve requires a non-empty isbn value");
+  }
+
+  const apiKey = await getHardcoverApiKey();
+
+  const isbnQueries = [
+    `query ResolveHardcoverBookByIsbn10($isbn: String!) { editions(where: { isbn_10: { _eq: $isbn } }) { book_id } }`,
+    `query ResolveHardcoverBookByIsbn13($isbn: String!) { editions(where: { isbn_13: { _eq: $isbn } }) { book_id } }`,
+  ];
+
+  for (const graphqlQuery of isbnQueries) {
+    const response = await httpCall(
+      "POST",
+      "https://api.hardcover.app/v1/graphql",
+      {
+        body: JSON.stringify({ query: graphqlQuery, variables: { isbn: value } }),
+        headers: {
+          Authorization: apiKey,
+          "Content-Type": "application/json",
+        },
+      },
+    );
+    if (!response?.success) {
+      throw new Error(response?.error ?? "Hardcover ISBN lookup failed");
+    }
+
+    const payload = parseJsonResponse(response.data.body);
+    const bookId = payload?.data?.editions?.[0]?.book_id;
+    if (bookId !== undefined && bookId !== null) {
+      const normalized = String(bookId).trim();
+      if (normalized) {
+        return { externalId: normalized };
+      }
+    }
+  }
+
+  return { externalId: null };
+});

@@ -1,0 +1,151 @@
+function parseJsonResponse(responseBody) {
+  try {
+    return JSON.parse(responseBody);
+  } catch {
+    throw new Error("Metron returned invalid JSON");
+  }
+}
+
+const METRON_BASE_URL = "https://metron.cloud/api";
+
+async function getMetronCredentials() {
+  const usernameResponse = await getAppConfigValue("comicBooks.metron.username");
+  if (!usernameResponse?.success) {
+    throw new Error(usernameResponse?.error ?? "Could not load Metron username");
+  }
+  const passwordResponse = await getAppConfigValue("comicBooks.metron.password");
+  if (!passwordResponse?.success) {
+    throw new Error(passwordResponse?.error ?? "Could not load Metron password");
+  }
+  const username =
+    typeof usernameResponse.data === "string" ? usernameResponse.data.trim() : null;
+  const password =
+    typeof passwordResponse.data === "string" ? passwordResponse.data.trim() : null;
+  if (!username || !password) {
+    throw new Error("Metron credentials are not configured");
+  }
+  return { username, password };
+}
+
+async function metronGet(path) {
+  const { username, password } = await getMetronCredentials();
+  const response = await httpCall("GET", `${METRON_BASE_URL}${path}`, {
+    headers: { Authorization: `Basic ${btoa(`${username}:${password}`)}` },
+  });
+  if (!response?.success) {
+    throw new Error(response?.error ?? `Metron request failed: ${path}`);
+  }
+  return parseJsonResponse(response.data.body);
+}
+
+driver("search", async function (context) {
+  const { z } = await import("npm:zod");
+
+  const { query, page: currentPage, pageSize } = z
+    .object({
+      query: z.string().trim().min(1, "query is required"),
+      page: z.coerce.number().min(1).transform(Math.floor).catch(1),
+      pageSize: z.coerce.number().min(1).max(100).transform(Math.floor).catch(20),
+    })
+    .parse(context ?? {});
+
+  const params = new URLSearchParams({
+    name: query,
+    page: String(currentPage),
+    page_size: String(pageSize),
+  });
+  const data = await metronGet(`/series/?${params.toString()}`);
+
+  const results = Array.isArray(data?.results) ? data.results : [];
+  const totalItems = typeof data?.count === "number" ? data.count : results.length;
+
+  const items = results
+    .map((s) => {
+      if (!s || typeof s !== "object") return null;
+      const id =
+        typeof s.id === "number" ? String(Math.trunc(s.id)) : null;
+      if (!id) return null;
+      const name =
+        typeof s.name === "string" && s.name.trim() ? s.name.trim() : null;
+      if (!name) return null;
+      const parts =
+        typeof s.issue_count === "number" ? s.issue_count : null;
+      return {
+        externalId: id,
+        calloutProperty: { kind: "null", value: null },
+        titleProperty: { kind: "text", value: name },
+        primarySubtitleProperty:
+          parts === null
+            ? { kind: "null", value: null }
+            : { kind: "number", value: parts },
+        secondarySubtitleProperty: { kind: "null", value: null },
+        imageProperty: { kind: "null", value: null },
+      };
+    })
+    .filter((item) => item !== null);
+
+  const nextPage = data?.next != null ? currentPage + 1 : null;
+
+  return { items, details: { totalItems, nextPage } };
+});
+
+driver("details", async function (context) {
+  const { z } = await import("npm:zod");
+
+  const { externalId } = z
+    .object({ externalId: z.string().trim().min(1, "externalId is required") })
+    .parse(context ?? {});
+
+  if (!/^\d+$/.test(externalId)) {
+    throw new Error("externalId must be a numeric Metron series ID");
+  }
+
+  const series = await metronGet(`/series/${externalId}/`);
+
+  const title =
+    typeof series?.name === "string" && series.name.trim() ? series.name.trim() : null;
+  if (!title) throw new Error("Metron series is missing name");
+
+  const description =
+    typeof series?.desc === "string" && series.desc.trim()
+      ? series.desc.trim()
+      : null;
+
+  const parts =
+    typeof series?.issue_count === "number" ? series.issue_count : 0;
+
+  // Fetch the issue list for this series to get member items with positions.
+  const issueListData = await metronGet(`/series/${externalId}/issue_list/?limit=100`);
+  const issueList = Array.isArray(issueListData?.results) ? issueListData.results : [];
+  const relatedEntities = issueList
+    .map((issue, idx) => {
+      const memberId =
+        typeof issue?.id === "number" ? String(Math.trunc(issue.id)) : null;
+      if (!memberId) return null;
+      const memberName =
+        typeof issue?.issue === "string" && issue.issue.trim()
+          ? issue.issue.trim()
+          : typeof issue?.issue_name === "string" && issue.issue_name.trim()
+            ? issue.issue_name.trim()
+            : "Loading...";
+      return {
+        name: memberName,
+        externalId: memberId,
+        reverseDirection: true,
+        scriptSlug: "comic-book.metron",
+        relationshipProperties: { order: idx + 1 },
+      };
+    })
+    .filter((e) => e !== null);
+
+  return {
+    name: title,
+    relatedEntities,
+    properties: {
+      parts,
+      images: [],
+      description,
+      sourceUrl: `https://metron.cloud/series/${externalId}`,
+    },
+  };
+});

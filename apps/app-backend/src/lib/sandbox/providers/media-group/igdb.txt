@@ -1,0 +1,251 @@
+function parseJsonResponse(responseBody) {
+  try {
+    return JSON.parse(responseBody);
+  } catch {
+    throw new Error("IGDB returned invalid JSON");
+  }
+}
+
+const BASE_URL = "https://api.igdb.com/v4";
+const AUTH_URL = "https://id.twitch.tv/oauth2/token";
+const IMAGE_BASE_URL = "https://images.igdb.com/igdb/image/upload/t_cover_big";
+const TOKEN_CACHE_KEY = "access_token";
+
+async function getCredentials() {
+  const [clientIdResp, clientSecretResp] = await Promise.all([
+    getAppConfigValue("videoGames.twitch.clientId"),
+    getAppConfigValue("videoGames.twitch.clientSecret"),
+  ]);
+  if (!clientIdResp?.success) {
+    throw new Error(clientIdResp?.error ?? "Failed to retrieve Twitch Client ID");
+  }
+  if (!clientSecretResp?.success) {
+    throw new Error(clientSecretResp?.error ?? "Failed to retrieve Twitch Client Secret");
+  }
+  const clientId = typeof clientIdResp.data === "string" ? clientIdResp.data.trim() : null;
+  const clientSecret =
+    typeof clientSecretResp.data === "string" ? clientSecretResp.data.trim() : null;
+  if (!clientId) {
+    throw new Error(
+      "Twitch Client ID is not configured. Set VIDEO_GAMES_TWITCH_CLIENT_ID in your environment.",
+    );
+  }
+  if (!clientSecret) {
+    throw new Error(
+      "Twitch Client Secret is not configured. Set VIDEO_GAMES_TWITCH_CLIENT_SECRET in your environment.",
+    );
+  }
+  return { clientId, clientSecret };
+}
+
+async function getAccessToken() {
+  const { z } = await import("npm:zod");
+
+  const cached = await getCachedValue(TOKEN_CACHE_KEY);
+  if (cached?.success && cached.data !== null) {
+    const TokenSchema = z.object({ accessToken: z.string(), clientId: z.string() });
+    const parsed = TokenSchema.safeParse(cached.data);
+    if (parsed.success) return parsed.data;
+  }
+
+  const { clientId, clientSecret } = await getCredentials();
+  const authUrl = `${AUTH_URL}?grant_type=client_credentials&client_id=${encodeURIComponent(clientId)}&client_secret=${encodeURIComponent(clientSecret)}`;
+  const response = await httpCall("POST", authUrl, {
+    headers: { "Content-Type": "application/x-www-form-urlencoded" },
+  });
+  if (!response?.success) {
+    throw new Error(response?.error ?? "Twitch OAuth token request failed");
+  }
+  const payload = parseJsonResponse(response.data.body);
+  if (!payload.access_token) throw new Error("Twitch OAuth returned no access token");
+
+  const rawTokenType =
+    typeof payload.token_type === "string" ? payload.token_type : "bearer";
+  const tokenType = rawTokenType.charAt(0).toUpperCase() + rawTokenType.slice(1);
+  const accessToken = `${tokenType} ${payload.access_token}`;
+  const expiresIn =
+    typeof payload.expires_in === "number" && payload.expires_in > 0
+      ? payload.expires_in
+      : 3600;
+
+  const cacheResult = await setCachedValue(
+    TOKEN_CACHE_KEY,
+    { accessToken, clientId },
+    Math.max(60, expiresIn - 300),
+  );
+  if (!cacheResult?.success) {
+    console.warn(`IGDB token cache write failed: ${cacheResult?.error}`);
+  }
+
+  return { accessToken, clientId };
+}
+
+function getImageUrl(imageId) {
+  return `${IMAGE_BASE_URL}/${imageId}.jpg`;
+}
+
+async function makeIgdbRequest(path, body) {
+  const { accessToken, clientId } = await getAccessToken();
+  const response = await httpCall("POST", `${BASE_URL}/${path}`, {
+    body,
+    headers: {
+      Accept: "application/json",
+      "Client-ID": clientId,
+      "Content-Type": "text/plain",
+      Authorization: accessToken,
+    },
+  });
+  if (!response?.success) {
+    throw new Error(response?.error ?? `IGDB ${path} request failed`);
+  }
+  return {
+    data: parseJsonResponse(response.data.body),
+    headers: response.data.headers,
+  };
+}
+
+function toSlug(str) {
+  return str
+    .toLowerCase()
+    .replace(/[^a-z0-9\s-]/g, "")
+    .trim()
+    .replace(/\s+/g, "-")
+    .replace(/-+/g, "-");
+}
+
+const COLLECTION_FIELDS =
+  "fields id, name, games.id, games.name, games.cover.*, games.version_parent;";
+
+driver("search", async function (context) {
+  const { z } = await import("npm:zod");
+
+  const { query, page: currentPage, pageSize } = z
+    .object({
+      query: z.string().trim().min(1, "query is required"),
+      page: z.coerce.number().min(1).transform(Math.floor).catch(1),
+      pageSize: z.coerce.number().min(1).max(100).transform(Math.floor).catch(20),
+    })
+    .parse(context ?? {});
+
+  const offset = (currentPage - 1) * pageSize;
+  const body = [
+    COLLECTION_FIELDS,
+    `search "${query}";`,
+    `limit ${pageSize};`,
+    `offset: ${offset};`,
+  ].join("\n");
+
+  const { data: results, headers } = await makeIgdbRequest("collections", body);
+
+  if (!Array.isArray(results)) {
+    throw new Error("IGDB search returned unexpected response format");
+  }
+
+  const totalItems =
+    typeof headers["x-count"] === "string" && Number.isFinite(Number(headers["x-count"]))
+      ? Number(headers["x-count"])
+      : results.length + offset;
+
+  const items = results
+    .map((c) => {
+      if (!c || typeof c !== "object") return null;
+      const id =
+        typeof c.id === "number" ? String(c.id) : null;
+      if (!id) return null;
+      const name =
+        typeof c.name === "string" && c.name.trim() ? c.name.trim() : null;
+      if (!name) return null;
+      const games = Array.isArray(c.games) ? c.games : [];
+      const parts = games.length > 0 ? games.length : null;
+      const firstCover = games
+        .map((g) => g?.cover?.image_id)
+        .find((imgId) => typeof imgId === "string");
+      const image = firstCover ? getImageUrl(firstCover) : null;
+      return {
+        externalId: id,
+        calloutProperty: { kind: "null", value: null },
+        titleProperty: { kind: "text", value: name },
+        primarySubtitleProperty:
+          parts === null
+            ? { kind: "null", value: null }
+            : { kind: "number", value: parts },
+        secondarySubtitleProperty: { kind: "null", value: null },
+        imageProperty:
+          image === null
+            ? { kind: "null", value: null }
+            : { kind: "image", value: { type: "remote", url: image } },
+      };
+    })
+    .filter((item) => item !== null);
+
+  return {
+    items,
+    details: {
+      totalItems,
+      nextPage: offset + results.length < totalItems ? currentPage + 1 : null,
+    },
+  };
+});
+
+driver("details", async function (context) {
+  const { z } = await import("npm:zod");
+
+  const { externalId } = z
+    .object({ externalId: z.string().trim().min(1, "externalId is required") })
+    .parse(context ?? {});
+
+  if (!/^\d+$/.test(externalId)) {
+    throw new Error("externalId must be a numeric IGDB collection ID");
+  }
+
+  const body = [COLLECTION_FIELDS, `where id = ${externalId};`].join("\n");
+  const { data: results } = await makeIgdbRequest("collections", body);
+
+  if (!Array.isArray(results) || results.length === 0) {
+    throw new Error("IGDB returned no collection data for this externalId");
+  }
+
+  const collection = results[0];
+  const title =
+    typeof collection?.name === "string" && collection.name.trim()
+      ? collection.name.trim()
+      : null;
+  if (!title) throw new Error("IGDB collection payload is missing name");
+
+  // Filter out DLC / version entries (version_parent set means it's a child edition)
+  const games = (Array.isArray(collection.games) ? collection.games : []).filter(
+    (g) => g && g.version_parent == null,
+  );
+  const parts = games.length;
+
+  const relatedEntities = games
+    .map((game, idx) => {
+      const memberId =
+        typeof game?.id === "number" ? String(Math.trunc(game.id)) : null;
+      if (!memberId) return null;
+      const memberName =
+        typeof game?.name === "string" && game.name.trim()
+          ? game.name.trim()
+          : "Loading...";
+      return {
+        name: memberName,
+        externalId: memberId,
+        reverseDirection: true,
+        scriptSlug: "video-game.igdb",
+        relationshipProperties: { order: idx + 1 },
+      };
+    })
+    .filter((e) => e !== null);
+
+  const sourceUrl = `https://www.igdb.com/collection/${toSlug(title)}`;
+
+  return {
+    name: title,
+    relatedEntities,
+    properties: {
+      parts,
+      sourceUrl,
+      images: [],
+    },
+  };
+});
