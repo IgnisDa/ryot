@@ -102,6 +102,7 @@ export function SearchEntityModalContent(props: {
 		Record<string, SearchResultRowActionState>
 	>({});
 
+	const isPersonSchema = props.entitySchema.slug === "person";
 	const accentColor = props.entitySchema.accentColor ?? "#8C7560";
 	const activeProvider = props.entitySchema.providers[selectedProviderIndex];
 	const lifecycleErrorMessage = useMemo(() => {
@@ -109,8 +110,21 @@ export function SearchEntityModalContent(props: {
 			return "Lifecycle actions failed to load.";
 		}
 
+		if (isPersonSchema) {
+			const hasReviewSchema = eventSchemasQuery.eventSchemas.some(
+				(s) => s.slug === "review",
+			);
+			return hasReviewSchema
+				? null
+				: "Review is unavailable. Please check your event schemas configuration.";
+		}
+
 		return getMediaLifecycleUnavailableMessage(eventSchemasQuery.eventSchemas);
-	}, [eventSchemasQuery.eventSchemas, eventSchemasQuery.isError]);
+	}, [
+		isPersonSchema,
+		eventSchemasQuery.isError,
+		eventSchemasQuery.eventSchemas,
+	]);
 
 	const getActionState = useCallback(
 		(identifier: string) =>
@@ -547,6 +561,7 @@ export function SearchEntityModalContent(props: {
 											item={item}
 											key={item.identifier}
 											accentColor={accentColor}
+											isPersonSchema={isPersonSchema}
 											collectionState={collectionState}
 											onAdd={() => void handleAdd(item)}
 											addError={addError[item.identifier]}
@@ -566,9 +581,6 @@ export function SearchEntityModalContent(props: {
 											}
 											onRetryCollectionDiscovery={() =>
 												void refetchCollections()
-											}
-											primaryAction={
-												props.initialAction === "backlog" ? "backlog" : "add"
 											}
 											onPatchActionState={(patch) =>
 												patchActionState(item.identifier, patch)
