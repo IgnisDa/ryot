@@ -1,4 +1,4 @@
-import { resolveRequiredString } from "@ryot/ts-utils";
+import { isEqual, resolveRequiredString } from "@ryot/ts-utils";
 import { buildReorderedIds } from "~/lib/reorder";
 import {
 	type ServiceResult,
@@ -6,6 +6,11 @@ import {
 	serviceError,
 	wrapServiceValidator,
 } from "~/lib/result";
+import {
+	QueryEngineNotFoundError,
+	QueryEngineValidationError,
+} from "~/lib/views/errors";
+import { prepareForValidation } from "~/modules/query-engine";
 import {
 	countSavedViewsByIdsForUser,
 	createSavedViewForUser,
@@ -27,6 +32,17 @@ const savedViewNotFoundError = "Saved view not found";
 const builtinSavedViewError = "Cannot modify built-in saved views";
 const savedViewIdsUnknownError = "Saved view ids contain unknown saved views";
 
+type PrepareSavedViewValidationInput = Pick<
+	CreateSavedViewBody,
+	"displayConfiguration" | "queryDefinition"
+> & {
+	userId: string;
+};
+
+type PrepareForValidation = (
+	input: PrepareSavedViewValidationInput,
+) => Promise<void>;
+
 export type SavedViewServiceDeps = {
 	createSavedViewForUser: typeof createSavedViewForUser;
 	getSavedViewByIdForUser: typeof getSavedViewByIdForUser;
@@ -36,6 +52,7 @@ export type SavedViewServiceDeps = {
 	listUserSavedViewIdsInOrder: typeof listUserSavedViewIdsInOrder;
 	persistSavedViewOrderForUser: typeof persistSavedViewOrderForUser;
 	updateSavedViewDisabledByIdForUser: typeof updateSavedViewDisabledByIdForUser;
+	prepareForValidation: PrepareForValidation;
 };
 
 export type SavedViewServiceResult<T> = ServiceResult<
@@ -51,6 +68,7 @@ const savedViewServiceDeps: SavedViewServiceDeps = {
 	deleteSavedViewByIdForUser,
 	getSavedViewByIdForUser,
 	listUserSavedViewIdsInOrder,
+	prepareForValidation,
 	persistSavedViewOrderForUser,
 	updateSavedViewByIdForUser,
 	updateSavedViewDisabledByIdForUser,
@@ -111,6 +129,69 @@ const resolveMissingMutationResult = async (
 
 const buildClonedSavedViewName = (name: string) => `${name} (Copy)`;
 
+const mapValidationErrorResult = (error: unknown) => {
+	if (
+		error instanceof QueryEngineNotFoundError ||
+		error instanceof QueryEngineValidationError
+	) {
+		return serviceError("validation", error.message);
+	}
+
+	throw error;
+};
+
+const ensureBuiltinUpdateIsAllowed = (
+	currentView: ListedSavedView,
+	body: UpdateSavedViewBody,
+):
+	| Extract<SavedViewValidationResult<never>, { error: "validation" }>
+	| undefined => {
+	if (!currentView.isBuiltin) {
+		return;
+	}
+
+	const nextName = body.name ?? currentView.name;
+	const nextIcon = body.icon ?? currentView.icon;
+	const nextTrackerId = body.trackerId ?? currentView.trackerId ?? undefined;
+	const nextAccentColor = body.accentColor ?? currentView.accentColor;
+	const nextQueryDefinition =
+		body.queryDefinition ?? currentView.queryDefinition;
+	const nextDisplayConfiguration =
+		body.displayConfiguration ?? currentView.displayConfiguration;
+	const currentTrackerId = currentView.trackerId ?? undefined;
+
+	const attemptsMutation =
+		nextName !== currentView.name ||
+		nextIcon !== currentView.icon ||
+		nextTrackerId !== currentTrackerId ||
+		nextAccentColor !== currentView.accentColor ||
+		!isEqual(nextQueryDefinition, currentView.queryDefinition) ||
+		!isEqual(nextDisplayConfiguration, currentView.displayConfiguration);
+
+	if (attemptsMutation) {
+		return serviceError("validation", builtinSavedViewError);
+	}
+};
+const validateDefinition = async (
+	input: Pick<
+		CreateSavedViewBody,
+		"displayConfiguration" | "queryDefinition"
+	> & { userId: string },
+	deps: SavedViewServiceDeps,
+): Promise<
+	Extract<SavedViewValidationResult<never>, { error: "validation" }> | undefined
+> => {
+	try {
+		await deps.prepareForValidation({
+			displayConfiguration: input.displayConfiguration,
+			queryDefinition: input.queryDefinition,
+			userId: input.userId,
+		});
+	} catch (error) {
+		return mapValidationErrorResult(error);
+	}
+};
+
 export const createSavedView = async (
 	input: { body: CreateSavedViewBody; userId: string },
 	deps: SavedViewServiceDeps = savedViewServiceDeps,
@@ -121,6 +202,18 @@ export const createSavedView = async (
 	);
 	if ("error" in nameResult) {
 		return nameResult;
+	}
+
+	const validationResult = await validateDefinition(
+		{
+			displayConfiguration: input.body.displayConfiguration,
+			queryDefinition: input.body.queryDefinition,
+			userId: input.userId,
+		},
+		deps,
+	);
+	if (validationResult) {
+		return validationResult;
 	}
 
 	const createdView = await deps.createSavedViewForUser({
@@ -150,6 +243,14 @@ export const updateSavedView = async (
 	}
 
 	if (existingViewResult.data.isBuiltin) {
+		const builtinMutationResult = ensureBuiltinUpdateIsAllowed(
+			existingViewResult.data,
+			input.body,
+		);
+		if (builtinMutationResult) {
+			return builtinMutationResult;
+		}
+
 		const updatedView = await deps.updateSavedViewDisabledByIdForUser({
 			userId: input.userId,
 			viewId: input.viewId,
@@ -169,6 +270,18 @@ export const updateSavedView = async (
 	);
 	if ("error" in nameResult) {
 		return nameResult;
+	}
+
+	const validationResult = await validateDefinition(
+		{
+			displayConfiguration: input.body.displayConfiguration,
+			queryDefinition: input.body.queryDefinition,
+			userId: input.userId,
+		},
+		deps,
+	);
+	if (validationResult) {
+		return validationResult;
 	}
 
 	const updatedView = await deps.updateSavedViewByIdForUser({
@@ -220,6 +333,18 @@ export const cloneSavedView = async (
 	);
 	if ("error" in clonedNameResult) {
 		return clonedNameResult;
+	}
+
+	const validationResult = await validateDefinition(
+		{
+			displayConfiguration: sourceView.displayConfiguration,
+			queryDefinition: sourceView.queryDefinition,
+			userId: input.userId,
+		},
+		deps,
+	);
+	if (validationResult) {
+		return validationResult;
 	}
 
 	const clonedView = await deps.createSavedViewForUser({
