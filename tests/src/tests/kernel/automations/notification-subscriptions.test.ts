@@ -1,4 +1,3 @@
-import { AutomationRuleId } from "@ryot/contract/schema/brands";
 import { Effect } from "effect";
 
 import {
@@ -10,10 +9,10 @@ import {
 	findBuiltinSchemaBySlug,
 	getAutomationCatalogSchema,
 	getEntity,
-	getNotificationRule,
+	getNotificationSubscriptionState,
 	installNotificationRule,
 	listAutomationCatalog,
-	listNotificationRules,
+	listNotificationSubscriptionStates,
 	pollUntil,
 	postBackendJson,
 	setNotificationRuleActive,
@@ -38,7 +37,7 @@ describe("notification subscription catalog and rules", () => {
 		Effect.gen(function* () {
 			const { client } = yield* createAuthenticatedClient();
 			const catalog = yield* listAutomationCatalog(client);
-			const rules = yield* listNotificationRules(client);
+			const rules = yield* listNotificationSubscriptionStates(client, { limit: 100, page: 1 });
 
 			expect(catalog.map((schema) => schema.slug).sort()).toEqual([
 				"company.media-group.associated",
@@ -58,7 +57,7 @@ describe("notification subscription catalog and rules", () => {
 			]);
 			expect(catalog.some((schema) => schema.slug.startsWith("automation.test-"))).toBe(false);
 			expect(rules).toHaveLength(catalog.length);
-			expect(rules.map((rule) => rule.signalSchema.id).sort()).toEqual(
+			expect(rules.map((rule) => rule.signalSchemaSlug).sort()).toEqual(
 				catalog.map((schema) => schema.id).sort(),
 			);
 			expect(rules.every((rule) => rule.isActive)).toBe(true);
@@ -72,31 +71,34 @@ describe("notification subscription catalog and rules", () => {
 		Effect.gen(function* () {
 			const owner = yield* createAuthenticatedClient();
 			const other = yield* createAuthenticatedClient();
-			const ownerRules = yield* listNotificationRules(owner.client);
+			const catalog = yield* listAutomationCatalog(owner.client);
+			const ownerRules = yield* listNotificationSubscriptionStates(owner.client, {
+				page: 1,
+				limit: 100,
+			});
+			const reviewSchema = requirePresent(
+				catalog.find((schema) => schema.id === "review.created"),
+				"Expected the review notification schema",
+			);
 			const reviewRule = requirePresent(
-				ownerRules.find((rule) => rule.signalSchema.slug === "review.created"),
+				ownerRules.find((rule) => rule.signalSchemaSlug === reviewSchema.id),
 				"Expected the default review notification rule",
 			);
 
-			const inaccessible = yield* Effect.flip(
-				other.client.call((c) =>
-					c.automations.getRule({ params: { ruleId: AutomationRuleId.make(reviewRule.id) } }),
-				),
+			const inaccessible = yield* getNotificationSubscriptionState(other.client, reviewRule.id);
+			expect(inaccessible).toBeNull();
+			const nonexistent = yield* getNotificationSubscriptionState(
+				owner.client,
+				`missing-${crypto.randomUUID()}`,
 			);
-			assertTaggedError(inaccessible, "NotFound");
-			const nonexistent = yield* Effect.flip(
-				owner.client.call((c) =>
-					c.automations.getRule({
-						params: { ruleId: AutomationRuleId.make(`missing-${crypto.randomUUID()}`) },
-					}),
-				),
-			);
-			assertTaggedError(nonexistent, "NotFound");
-			expect(inaccessible).toEqual(nonexistent);
+			expect(nonexistent).toBeNull();
 
 			const deactivated = yield* setNotificationRuleActive(owner.client, reviewRule.id, false);
 			expect(deactivated.isActive).toBe(false);
-			const loadedDeactivated = yield* getNotificationRule(owner.client, reviewRule.id);
+			const loadedDeactivated = requirePresent(
+				yield* getNotificationSubscriptionState(owner.client, reviewRule.id),
+				"Expected the deactivated notification rule",
+			);
 			expect(loadedDeactivated.isActive).toBe(false);
 			const activated = yield* setNotificationRuleActive(owner.client, reviewRule.id, true);
 			expect(activated.isActive).toBe(true);
@@ -104,16 +106,16 @@ describe("notification subscription catalog and rules", () => {
 			expect(yield* deleteNotificationRule(owner.client, reviewRule.id)).toEqual({
 				id: reviewRule.id,
 			});
-			const reinstalled = yield* installNotificationRule(owner.client, reviewRule.signalSchema.id);
+			const reinstalled = yield* installNotificationRule(owner.client, reviewRule.signalSchemaSlug);
 			expect(reinstalled.id).not.toBe(reviewRule.id);
-			expect(reinstalled.name).toBe(reviewRule.name);
+			expect(reinstalled.name).toBe(reviewSchema.name);
 			expect(reinstalled.isActive).toBe(true);
-			expect(reinstalled.signalSchema).toEqual(reviewRule.signalSchema);
+			expect(reinstalled.signalSchema).toEqual(reviewSchema);
 
 			const conflict = yield* Effect.flip(
 				owner.client.call((c) =>
 					c.automations.installRule({
-						payload: { signalSchemaSlug: reviewRule.signalSchema.id },
+						payload: { signalSchemaSlug: reviewRule.signalSchemaSlug },
 					}),
 				),
 			);
@@ -125,7 +127,7 @@ describe("notification subscription catalog and rules", () => {
 					{
 						operation: "signal",
 						scriptId: "caller-selected-script",
-						signalSchemaSlug: reviewRule.signalSchema.id,
+						signalSchemaSlug: reviewRule.signalSchemaSlug,
 					},
 					owner.cookies,
 				),

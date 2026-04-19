@@ -50,15 +50,9 @@ export const listActiveIntegrations = (
 	provider: NonNullable<ListIntegrationsOptions["provider"]>,
 ) => host.listIntegrations({ provider, isDisabled: false });
 
-export const fetchEntity = (
-	host: IntegrationPushHost,
-	entityId: string,
-	entitySchemaSlug: string,
-) =>
+export const fetchEntity = (host: IntegrationPushHost, entityId: string) =>
 	host
-		.executeRyotql(
-			buildEntityReadDocument({ entityIds: [entityId], entitySchemaSlugs: [entitySchemaSlug] }),
-		)
+		.executeRyotql(buildEntityReadDocument({ entityIds: [entityId] }))
 		.pipe(Effect.map(decodeEntityReadResponse));
 
 export const resolveEntityProviderName = (host: IntegrationPushHost, entity: EntityRecord) => {

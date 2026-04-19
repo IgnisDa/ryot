@@ -80,7 +80,7 @@ export const countEntityTranslations = (entityId: string) =>
 		return rows.length;
 	});
 
-/** Re-reads the entity detail endpoint until its translationStatus settles to `target`. */
+/** Re-reads the entity until its translationStatus settles to `target`. */
 export const pollEntityUntilTranslationStatus = (
 	client: Client,
 	entityId: string,

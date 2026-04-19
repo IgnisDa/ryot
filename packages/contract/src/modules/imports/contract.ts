@@ -4,12 +4,7 @@ import { HttpApiEndpoint, HttpApiGroup, HttpApiSchema, OpenApi } from "effect/un
 import { AuthMiddleware } from "../../auth-middleware";
 import { BadRequest, NotFound } from "../../errors";
 import { ImportRunId } from "../../schema/brands";
-import {
-	CreateImportRunBody,
-	DetailedImportRun,
-	GetImportRunParams,
-	ListedImportRun,
-} from "./schemas";
+import { CreateImportRunBody } from "./schemas";
 
 export const ImportsGroup = HttpApiGroup.make("imports")
 	.annotate(OpenApi.Description, "Creates and manages data import runs")
@@ -19,20 +14,6 @@ export const ImportsGroup = HttpApiGroup.make("imports")
 			success: Schema.Struct({ id: Schema.String }).pipe(HttpApiSchema.status(201)),
 			error: [BadRequest.pipe(HttpApiSchema.status(400))],
 		}).annotate(OpenApi.Description, "Creates an import run"),
-	)
-	.add(
-		HttpApiEndpoint.get("listRuns", "/imports/runs", {
-			success: Schema.Array(ListedImportRun),
-			error: [BadRequest.pipe(HttpApiSchema.status(400))],
-		}).annotate(OpenApi.Description, "Lists import runs"),
-	)
-	.add(
-		HttpApiEndpoint.get("getRun", "/imports/runs/:runId", {
-			params: { runId: ImportRunId },
-			query: GetImportRunParams,
-			success: DetailedImportRun,
-			error: [BadRequest.pipe(HttpApiSchema.status(400)), NotFound.pipe(HttpApiSchema.status(404))],
-		}).annotate(OpenApi.Description, "Gets an import run by ID"),
 	)
 	.add(
 		HttpApiEndpoint.delete("deleteRun", "/imports/runs/:runId", {

@@ -1,6 +1,6 @@
 import { expect, it } from "@effect/vitest";
 import type { CurrentUserValue } from "@ryot/contract/auth-middleware";
-import { BadRequest, NotFound } from "@ryot/contract/errors";
+import { BadRequest } from "@ryot/contract/errors";
 import type { RyotQLDocument } from "@ryot/contract/modules/ryotql/language";
 import type {
 	CreateSavedViewBody,
@@ -144,17 +144,6 @@ it.effect("reports a duplicate when a concurrent create wins the unique insert",
 			exit,
 			new BadRequest({ message: "A saved view with this name already exists" }),
 		);
-	}).pipe(Effect.provide(layer));
-});
-
-it.effect("returns not found when getting a view the user does not own", () => {
-	const layer = makeServiceLayer(makeRepository({ findBySlug: () => Effect.succeed(null) }));
-
-	return Effect.gen(function* () {
-		const service = yield* SavedViewsService;
-		const exit = yield* Effect.exit(service.get(user, "non-existent"));
-
-		assertExitFails(exit, new NotFound({ message: "Saved view not found" }));
 	}).pipe(Effect.provide(layer));
 });
 
