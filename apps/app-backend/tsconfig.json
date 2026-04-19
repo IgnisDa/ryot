@@ -15,7 +15,7 @@
 				"name": "@effect/language-service",
 				"diagnosticSeverity": {
 					"newPromise": "warning",
-					"asyncFunction": "off",
+					"asyncFunction": "warning",
 					"processEnvInEffect": "error",
 					"nodeBuiltinImport": "warning",
 					"globalFetchInEffect": "error",
