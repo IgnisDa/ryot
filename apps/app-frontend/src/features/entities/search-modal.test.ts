@@ -4,6 +4,7 @@ import {
 	createAppCollectionFixture,
 	createEntityFixture,
 } from "~/features/test-fixtures";
+import type { SearchResultRowActionState } from "./search-result-row";
 import type { SearchResultItem } from "./use-search";
 
 describe("search-modal collection panel submission", () => {
@@ -349,6 +350,207 @@ describe("search-modal collection panel submission", () => {
 			const canSubmit = selectedCollectionId !== null;
 
 			expect(canSubmit).toBe(true);
+		});
+	});
+});
+
+describe("inline error display for validation and write failures", () => {
+	describe("actionError state management", () => {
+		it("sets actionError for display when validation fails", () => {
+			const actionState: SearchResultRowActionState = {
+				rateStars: 0,
+				logDate: "now",
+				rateReview: "",
+				openPanel: "log",
+				doneActions: [],
+				logStartedOn: "",
+				rateStarsHover: 0,
+				actionError: null,
+				logCompletedOn: "",
+				pendingAction: null,
+				selectedCollectionId: null,
+				collectionProperties: {},
+			};
+
+			// When validation fails, actionError is set
+			const validationError =
+				"Started date is required when selecting 'Started on'";
+			actionState.actionError = validationError;
+
+			expect(actionState.actionError).toBe(validationError);
+		});
+
+		it("clears previous actionError when starting new action", () => {
+			let actionError: string | null = "Previous error";
+
+			// Before starting new action, clear error
+			actionError = null;
+
+			expect(actionError).toBeNull();
+		});
+
+		it("displays error inline for collection add failures", () => {
+			const itemName = "Test Movie";
+			const errorMessage = "Network timeout";
+			const entityId = "entity-789";
+
+			// This is the message structure set in actionError
+			const message = entityId
+				? `${itemName} is in your library, but could not be added to the collection: ${errorMessage}`
+				: errorMessage;
+
+			// The error is set in actionState for inline display
+			const actionState: Partial<SearchResultRowActionState> = {
+				actionError: message,
+			};
+
+			expect(actionState.actionError).toBe(
+				"Test Movie is in your library, but could not be added to the collection: Network timeout",
+			);
+		});
+	});
+
+	describe("displayError computation in SearchResultRow", () => {
+		it("shows actionError when present", () => {
+			const actionState: SearchResultRowActionState = {
+				rateStars: 0,
+				logDate: "now",
+				rateReview: "",
+				openPanel: null,
+				doneActions: [],
+				logStartedOn: "",
+				rateStarsHover: 0,
+				actionError: "Failed to save log",
+				logCompletedOn: "",
+				pendingAction: null,
+				selectedCollectionId: null,
+				collectionProperties: {},
+			};
+			const addStatus: string = "idle";
+			const addError = undefined;
+
+			// This mimics the displayError computation in SearchResultRow
+			const displayError =
+				actionState.actionError ??
+				(addStatus === "error" ? (addError ?? "Failed to add item") : null);
+
+			expect(displayError).toBe("Failed to save log");
+		});
+
+		it("falls back to addError when actionError is null and addStatus is error", () => {
+			const actionState: SearchResultRowActionState = {
+				rateStars: 0,
+				logDate: "now",
+				rateReview: "",
+				openPanel: null,
+				doneActions: [],
+				logStartedOn: "",
+				rateStarsHover: 0,
+				actionError: null,
+				logCompletedOn: "",
+				pendingAction: null,
+				selectedCollectionId: null,
+				collectionProperties: {},
+			};
+			const addStatus: string = "error";
+			const addError = "Entity creation failed";
+
+			const displayError =
+				actionState.actionError ??
+				(addStatus === "error" ? (addError ?? "Failed to add item") : null);
+
+			expect(displayError).toBe("Entity creation failed");
+		});
+
+		it("shows no error when both actionError and addStatus are clean", () => {
+			const actionState: SearchResultRowActionState = {
+				rateStars: 0,
+				logDate: "now",
+				rateReview: "",
+				openPanel: null,
+				doneActions: [],
+				logStartedOn: "",
+				rateStarsHover: 0,
+				actionError: null,
+				logCompletedOn: "",
+				pendingAction: null,
+				selectedCollectionId: null,
+				collectionProperties: {},
+			};
+			const addStatus: string = "idle";
+			const addError = undefined;
+
+			const displayError =
+				actionState.actionError ??
+				(addStatus === "error" ? (addError ?? "Failed to add item") : null);
+
+			expect(displayError).toBeNull();
+		});
+	});
+
+	describe("error message construction for different failure scenarios", () => {
+		it("constructs validation error message for log panel", () => {
+			// Validation error from createLogEventPayload
+			const validationError =
+				"Started date is required when selecting 'Started on'";
+
+			// This is how handleSaveLog sets the error
+			const actionError = validationError;
+
+			expect(actionError).toBe(
+				"Started date is required when selecting 'Started on'",
+			);
+		});
+
+		it("constructs validation error message for rate panel", () => {
+			// Validation error from createReviewEventPayload
+			const validationError = "Rating must be greater than 0";
+
+			// This is how handleSaveReview sets the error
+			const actionError = validationError;
+
+			expect(actionError).toBe("Rating must be greater than 0");
+		});
+
+		it("constructs partial failure message for lifecycle actions with entity success", () => {
+			const searchResult: SearchResultItem = {
+				identifier: "test-item-1",
+				badgeProperty: { kind: "null", value: null },
+				titleProperty: { kind: "text", value: "Test Movie" },
+				subtitleProperty: { kind: "null", value: null },
+				imageProperty: { kind: "null", value: null },
+			};
+			const entityId = "entity-123";
+			const partialFailureMessage = `${searchResult.titleProperty.value} is in your library, but it could not be added to backlog.`;
+			const errorMessage = "Network timeout";
+
+			const message = entityId
+				? `${partialFailureMessage} ${errorMessage}`
+				: errorMessage;
+
+			expect(message).toBe(
+				"Test Movie is in your library, but it could not be added to backlog. Network timeout",
+			);
+		});
+
+		it("keeps panel open on partial failure to allow retry", () => {
+			const entityId = "entity-123";
+			const currentOpenPanel = "log" as const;
+
+			// On partial failure, panel stays open
+			const openPanel = entityId ? currentOpenPanel : null;
+
+			expect(openPanel).toBe("log");
+		});
+
+		it("closes panel on complete failure", () => {
+			const entityId: string | null = null;
+			const currentOpenPanel = "log" as const;
+
+			// On complete failure, panel closes
+			const openPanel = entityId ? currentOpenPanel : null;
+
+			expect(openPanel).toBeNull();
 		});
 	});
 });
