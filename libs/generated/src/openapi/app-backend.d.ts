@@ -403,19 +403,9 @@ export interface paths {
                                 };
                                 /** @enum {string} */
                                 status: "completed";
-                                denoMetrics?: {
-                                    startupMs: number;
-                                    scriptExecMs: number;
-                                    memoryRssBytes: number;
-                                    memoryHeapUsedBytes: number;
-                                } | null;
-                                timings?: {
+                                timing?: {
                                     totalMs: number;
-                                    processMs: number;
-                                    hostSetupMs: number;
-                                    poolHit?: boolean;
-                                    cpuUserMs?: number;
-                                    cpuSystemMs?: number;
+                                    executionMs: number;
                                 } | null;
                             };
                         };
@@ -1767,19 +1757,9 @@ export interface paths {
                                 };
                                 /** @enum {string} */
                                 status: "completed";
-                                denoMetrics?: {
-                                    startupMs: number;
-                                    scriptExecMs: number;
-                                    memoryRssBytes: number;
-                                    memoryHeapUsedBytes: number;
-                                } | null;
-                                timings?: {
+                                timing?: {
                                     totalMs: number;
-                                    processMs: number;
-                                    hostSetupMs: number;
-                                    poolHit?: boolean;
-                                    cpuUserMs?: number;
-                                    cpuSystemMs?: number;
+                                    executionMs: number;
                                 } | null;
                             };
                         };
