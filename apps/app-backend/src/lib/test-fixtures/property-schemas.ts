@@ -67,6 +67,54 @@ export const createProgressPercentPropertiesSchema = () => ({
 	},
 });
 
+export const createShowProgressPropertiesSchema = () => ({
+	fields: {
+		showSeason: { label: "Show Season", type: "integer" as const },
+		showEpisode: { label: "Show Episode", type: "integer" as const },
+		progressPercent:
+			createProgressPercentPropertiesSchema().fields.progressPercent,
+	},
+	rules: [
+		{
+			path: ["showSeason"],
+			kind: "validation" as const,
+			validation: { required: true as const },
+			when: { operator: "exists" as const, path: ["showEpisode"] },
+		},
+		{
+			path: ["showEpisode"],
+			kind: "validation" as const,
+			validation: { required: true as const },
+			when: { operator: "exists" as const, path: ["showSeason"] },
+		},
+	],
+});
+
+export const createAnimeProgressPropertiesSchema = () => ({
+	fields: {
+		animeEpisode: { label: "Anime Episode", type: "integer" as const },
+		progressPercent:
+			createProgressPercentPropertiesSchema().fields.progressPercent,
+	},
+});
+
+export const createMangaProgressPropertiesSchema = () => ({
+	fields: {
+		mangaVolume: { label: "Manga Volume", type: "integer" as const },
+		mangaChapter: { label: "Manga Chapter", type: "number" as const },
+		progressPercent:
+			createProgressPercentPropertiesSchema().fields.progressPercent,
+	},
+});
+
+export const createPodcastProgressPropertiesSchema = () => ({
+	fields: {
+		podcastEpisode: { label: "Podcast Episode", type: "integer" as const },
+		progressPercent:
+			createProgressPercentPropertiesSchema().fields.progressPercent,
+	},
+});
+
 export const createCompletePropertiesSchema = () => ({
 	fields: {
 		startedOn: { label: "Started On", type: "datetime" as const },
@@ -82,13 +130,13 @@ export const createCompletePropertiesSchema = () => ({
 	},
 	rules: [
 		{
-			kind: "validation" as const,
 			path: ["completedOn"],
+			kind: "validation" as const,
 			validation: { required: true as const },
 			when: {
-				value: "custom_timestamps",
 				operator: "eq" as const,
 				path: ["completionMode"],
+				value: "custom_timestamps",
 			},
 		},
 	],

@@ -1,3 +1,4 @@
+import type { AppSchema } from "@ryot/ts-utils";
 import { normalizeSlug } from "@ryot/ts-utils";
 import { match } from "ts-pattern";
 import { animePropertiesJsonSchema } from "~/lib/media/anime";
@@ -36,7 +37,68 @@ export const authenticationBuiltinTrackers = () => [
 	},
 ];
 
-const mediaLifecycleEventSchemas = () => [
+const progressPercentPropertiesSchema = () => ({
+	fields: {
+		progressPercent: {
+			type: "number" as const,
+			label: "Progress Percent",
+			transform: { round: { mode: "half_up" as const, scale: 2 } },
+			validation: {
+				maximum: 100,
+				exclusiveMinimum: 0,
+				required: true as const,
+			},
+		},
+	},
+});
+
+const progressPropertiesSchemaByEntity = (
+	entitySchemaSlug: string | undefined,
+): AppSchema =>
+	match(entitySchemaSlug)
+		.with("show", () => ({
+			fields: {
+				...progressPercentPropertiesSchema().fields,
+				showSeason: { label: "Show Season", type: "integer" as const },
+				showEpisode: { label: "Show Episode", type: "integer" as const },
+			},
+			rules: [
+				{
+					path: ["showSeason"],
+					kind: "validation" as const,
+					validation: { required: true as const },
+					when: { operator: "exists" as const, path: ["showEpisode"] },
+				},
+				{
+					path: ["showEpisode"],
+					kind: "validation" as const,
+					validation: { required: true as const },
+					when: { operator: "exists" as const, path: ["showSeason"] },
+				},
+			],
+		}))
+		.with("anime", () => ({
+			fields: {
+				...progressPercentPropertiesSchema().fields,
+				animeEpisode: { label: "Anime Episode", type: "integer" as const },
+			},
+		}))
+		.with("manga", () => ({
+			fields: {
+				...progressPercentPropertiesSchema().fields,
+				mangaVolume: { label: "Manga Volume", type: "integer" as const },
+				mangaChapter: { label: "Manga Chapter", type: "number" as const },
+			},
+		}))
+		.with("podcast", () => ({
+			fields: {
+				...progressPercentPropertiesSchema().fields,
+				podcastEpisode: { label: "Podcast Episode", type: "integer" as const },
+			},
+		}))
+		.otherwise(() => progressPercentPropertiesSchema());
+
+const mediaLifecycleEventSchemas = (entitySchemaSlug?: string) => [
 	{ name: "Backlog", slug: "backlog", propertiesSchema: { fields: {} } },
 	{
 		name: "Complete",
@@ -71,20 +133,7 @@ const mediaLifecycleEventSchemas = () => [
 	{
 		name: "Progress",
 		slug: "progress",
-		propertiesSchema: {
-			fields: {
-				progressPercent: {
-					type: "number" as const,
-					label: "Progress Percent",
-					transform: { round: { mode: "half_up" as const, scale: 2 } },
-					validation: {
-						maximum: 100,
-						exclusiveMinimum: 0,
-						required: true as const,
-					},
-				},
-			},
-		},
+		propertiesSchema: progressPropertiesSchemaByEntity(entitySchemaSlug),
 	},
 	{
 		name: "Review",
@@ -118,7 +167,7 @@ export const authenticationBuiltinEntitySchemas = () => [
 		trackerSlug: "media",
 		accentColor: "#6B7280",
 		propertiesSchema: personPropertiesJsonSchema,
-		eventSchemas: mediaLifecycleEventSchemas().filter(
+		eventSchemas: mediaLifecycleEventSchemas("person").filter(
 			(schema) => schema.slug === "review",
 		),
 	},
@@ -128,7 +177,7 @@ export const authenticationBuiltinEntitySchemas = () => [
 		icon: "book-open",
 		trackerSlug: "media",
 		accentColor: "#5B7FFF",
-		eventSchemas: mediaLifecycleEventSchemas(),
+		eventSchemas: mediaLifecycleEventSchemas("book"),
 		propertiesSchema: bookPropertiesJsonSchema,
 	},
 	{
@@ -137,14 +186,14 @@ export const authenticationBuiltinEntitySchemas = () => [
 		name: "Comic Book",
 		trackerSlug: "media",
 		accentColor: "#FF6B35",
-		eventSchemas: mediaLifecycleEventSchemas(),
+		eventSchemas: mediaLifecycleEventSchemas("comic-book"),
 		propertiesSchema: comicBookPropertiesJsonSchema,
 	},
 	{
 		icon: "tv",
 		slug: "anime",
 		name: "Anime",
-		eventSchemas: mediaLifecycleEventSchemas(),
+		eventSchemas: mediaLifecycleEventSchemas("anime"),
 		trackerSlug: "media",
 		accentColor: "#FB7185",
 		propertiesSchema: animePropertiesJsonSchema,
@@ -155,7 +204,7 @@ export const authenticationBuiltinEntitySchemas = () => [
 		icon: "clapperboard",
 		trackerSlug: "media",
 		accentColor: "#FACC15",
-		eventSchemas: mediaLifecycleEventSchemas(),
+		eventSchemas: mediaLifecycleEventSchemas("movie"),
 		propertiesSchema: moviePropertiesJsonSchema,
 	},
 	{
@@ -164,7 +213,7 @@ export const authenticationBuiltinEntitySchemas = () => [
 		icon: "monitor-play",
 		trackerSlug: "media",
 		accentColor: "#8B5CF6",
-		eventSchemas: mediaLifecycleEventSchemas(),
+		eventSchemas: mediaLifecycleEventSchemas("show"),
 		propertiesSchema: showPropertiesJsonSchema,
 	},
 	{
@@ -173,7 +222,7 @@ export const authenticationBuiltinEntitySchemas = () => [
 		icon: "book",
 		trackerSlug: "media",
 		accentColor: "#A78BFA",
-		eventSchemas: mediaLifecycleEventSchemas(),
+		eventSchemas: mediaLifecycleEventSchemas("manga"),
 		propertiesSchema: mangaPropertiesJsonSchema,
 	},
 	{
@@ -182,7 +231,7 @@ export const authenticationBuiltinEntitySchemas = () => [
 		icon: "headphones",
 		trackerSlug: "media",
 		accentColor: "#F97316",
-		eventSchemas: mediaLifecycleEventSchemas(),
+		eventSchemas: mediaLifecycleEventSchemas("audiobook"),
 		propertiesSchema: audiobookPropertiesJsonSchema,
 	},
 	{
@@ -191,7 +240,7 @@ export const authenticationBuiltinEntitySchemas = () => [
 		icon: "podcast",
 		trackerSlug: "media",
 		accentColor: "#06B6D4",
-		eventSchemas: mediaLifecycleEventSchemas(),
+		eventSchemas: mediaLifecycleEventSchemas("podcast"),
 		propertiesSchema: podcastPropertiesJsonSchema,
 	},
 	{
@@ -200,7 +249,7 @@ export const authenticationBuiltinEntitySchemas = () => [
 		name: "Video Game",
 		trackerSlug: "media",
 		accentColor: "#22C55E",
-		eventSchemas: mediaLifecycleEventSchemas(),
+		eventSchemas: mediaLifecycleEventSchemas("video-game"),
 		propertiesSchema: videoGamePropertiesJsonSchema,
 	},
 	{
@@ -209,7 +258,7 @@ export const authenticationBuiltinEntitySchemas = () => [
 		icon: "music",
 		trackerSlug: "media",
 		accentColor: "#EC4899",
-		eventSchemas: mediaLifecycleEventSchemas(),
+		eventSchemas: mediaLifecycleEventSchemas("music"),
 		propertiesSchema: musicPropertiesJsonSchema,
 	},
 	{
@@ -218,7 +267,7 @@ export const authenticationBuiltinEntitySchemas = () => [
 		name: "Visual Novel",
 		trackerSlug: "media",
 		accentColor: "#F472B6",
-		eventSchemas: mediaLifecycleEventSchemas(),
+		eventSchemas: mediaLifecycleEventSchemas("visual-novel"),
 		propertiesSchema: visualNovelPropertiesJsonSchema,
 	},
 	{
