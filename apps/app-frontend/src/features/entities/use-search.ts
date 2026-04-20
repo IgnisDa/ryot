@@ -457,6 +457,16 @@ export function useEntitySearch(props: { entitySchema: AppEntitySchema }) {
 		[addStateById],
 	);
 
+	const ensuredEntityByExternalId = useMemo(
+		() =>
+			Object.fromEntries(
+				Object.entries(addStateById)
+					.filter(([, item]) => item.entity)
+					.map(([externalId, item]) => [externalId, item.entity]),
+			),
+		[addStateById],
+	);
+
 	const searchError = useMemo(() => {
 		if (!searchQuery.error || isCancelledEntitySearchError(searchQuery.error)) {
 			return null;
@@ -485,6 +495,7 @@ export function useEntitySearch(props: { entitySchema: AppEntitySchema }) {
 		clearSearch,
 		searchError,
 		ensureItemEntity,
+		ensuredEntityByExternalId,
 		trackedExternalIds,
 		selectedProviderIndex,
 		setSelectedProviderIndex,
