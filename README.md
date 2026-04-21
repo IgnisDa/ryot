@@ -94,15 +94,44 @@ Try the [live demo](https://demo.ryot.io/_s/acl_vUMPnPirkHlT) to explore the int
 ### Technical
 
 - Self-hosted with full data ownership
+- TypeScript on [Bun](https://bun.sh) — [Hono](https://hono.dev) backend, [React](https://react.dev) + [TanStack Router](https://tanstack.com/router) frontend
+- PostgreSQL with [Drizzle ORM](https://orm.drizzle.team), Redis-backed job queues via [BullMQ](https://docs.bullmq.io)
+- [REST/OpenAPI](https://docs.ryot.io) API with auto-generated type-safe clients
 - OpenID Connect [authentication](https://docs.ryot.io/guides/authentication.html)
 - Notifications via Discord, Ntfy, Apprise
-- [GraphQL API](https://app.ryot.io/backend/graphql) for custom integrations
+- Sandboxed user scripting powered by Deno subprocesses
 - PWA support for mobile use
-- Written in Rust for performance
 
 ## Pro Version
 
 Ryot Pro adds profile sharing, personalized recommendations, supercharged collections and more. [Learn more](https://ryot.io) about the pro version.
+
+## Development
+
+Prerequisites: [Bun](https://bun.sh) 1.3.9+, [Docker](https://www.docker.com) (for PostgreSQL and Redis).
+
+```bash
+bun install
+docker compose up -d ryot-postgres ryot-redis
+bun run dev
+```
+
+The backend starts on port 3000 and the frontend proxies to it on port 8000. Configure environment variables in `apps/app-backend/.env` (requires at minimum `DATABASE_URL`, `REDIS_URL`, `SERVER_ADMIN_ACCESS_TOKEN`, `FRONTEND_URL`).
+
+Other commands: `bun run test`, `bun run typecheck`, `bun run lint`.
+
+## Project Structure
+
+```
+apps/
+  app-backend/       TypeScript backend (Hono, Drizzle, BullMQ)
+  app-frontend/      React frontend (TanStack Router, Mantine)
+libs/
+  generated/         Auto-generated OpenAPI types
+  ts-utils/          Shared TypeScript utilities
+tests/               End-to-end and integration tests
+docs/tasks/          Feature PRDs and task breakdowns
+```
 
 ## Community
 
