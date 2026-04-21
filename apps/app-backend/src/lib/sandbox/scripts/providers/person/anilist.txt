@@ -144,12 +144,13 @@ query StaffSearchQuery($search: String!, $page: Int!, $perPage: Int!) {
 
 			return {
 				externalId: String(staffId),
-				badgeProperty: { kind: "null", value: null },
+				calloutProperty: { kind: "null", value: null },
 				titleProperty: { kind: "text", value: name },
-				subtitleProperty:
+				primarySubtitleProperty:
 					birthYear === null
 						? { kind: "null", value: null }
 						: { kind: "number", value: birthYear },
+				secondarySubtitleProperty: { kind: "null", value: null },
 				imageProperty:
 					image === null
 						? { kind: "null", value: null }

@@ -18,16 +18,18 @@ export const defaultSavedViewDisplayConfiguration: AppSavedView["displayConfigur
 			columns: [{ label: "Name", expression: nameExpression }],
 		},
 		grid: {
-			badgeProperty: nullExpression,
+			calloutProperty: nullExpression,
 			titleProperty: nameExpression,
 			imageProperty: imageExpression,
-			subtitleProperty: nullExpression,
+			primarySubtitleProperty: nullExpression,
+			secondarySubtitleProperty: nullExpression,
 		},
 		list: {
-			badgeProperty: nullExpression,
+			calloutProperty: nullExpression,
 			titleProperty: nameExpression,
 			imageProperty: imageExpression,
-			subtitleProperty: nullExpression,
+			primarySubtitleProperty: nullExpression,
+			secondarySubtitleProperty: nullExpression,
 		},
 	};
 
