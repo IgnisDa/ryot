@@ -1,1 +1,0 @@
-ALTER TABLE "entity" ADD COLUMN "populated_at" timestamp DEFAULT now() NOT NULL;
