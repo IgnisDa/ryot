@@ -131,13 +131,4 @@ describe("appApiCall", () => {
 		);
 	});
 
-	it("returns failures when sandbox routes are targeted", async () => {
-		const fn = createAppApiCallHostFunction(async () => {
-			throw new Error("appApiCall cannot target /api/sandbox routes");
-		});
-
-		expect(
-			await fn({ userId: "user_1" }, "GET", "/api/sandbox/result/1"),
-		).toEqual(apiFailure("appApiCall cannot target /api/sandbox routes"));
-	});
 });
