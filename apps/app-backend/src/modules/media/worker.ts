@@ -15,10 +15,12 @@ import { imagesSchema } from "~/lib/zod";
 import {
 	getEntitySchemaScopeForUser,
 	getUserLibraryEntityId,
+	type ListedEntity,
 	upsertInLibraryRelationship,
 } from "~/modules/entities";
 import {
 	createGlobalEntity,
+	findGlobalEntityByExternalId,
 	updateGlobalEntityById,
 	upsertPersonRelationship,
 } from "~/modules/entities/repository";
@@ -69,6 +71,77 @@ const normalizeLegacyImages = (properties: Record<string, unknown>) => {
 	}
 
 	return { ...properties, images: parsedImages.data };
+};
+
+export const hasImportedEntityDetails = (
+	entity: Pick<ListedEntity, "image" | "properties" | "populatedAt">,
+) => {
+	if (entity.populatedAt.getTime() <= 0) {
+		return false;
+	}
+
+	return entity.image !== null || Object.keys(entity.properties).length > 0;
+};
+
+export type MediaWorkerDeps = {
+	createGlobalEntity: typeof createGlobalEntity;
+	updateGlobalEntityById: typeof updateGlobalEntityById;
+	getUserLibraryEntityId: typeof getUserLibraryEntityId;
+	getSandboxScriptForUser: typeof getSandboxScriptForUser;
+	getEntitySchemaScopeForUser: typeof getEntitySchemaScopeForUser;
+	upsertInLibraryRelationship: typeof upsertInLibraryRelationship;
+	findGlobalEntityByExternalId: typeof findGlobalEntityByExternalId;
+	getBuiltinEntitySchemaBySlug: typeof getBuiltinEntitySchemaBySlug;
+	getBuiltinSandboxScriptBySlug: typeof getBuiltinSandboxScriptBySlug;
+};
+
+const mediaWorkerDeps: MediaWorkerDeps = {
+	createGlobalEntity,
+	updateGlobalEntityById,
+	getUserLibraryEntityId,
+	getSandboxScriptForUser,
+	getEntitySchemaScopeForUser,
+	upsertInLibraryRelationship,
+	findGlobalEntityByExternalId,
+	getBuiltinEntitySchemaBySlug,
+	getBuiltinSandboxScriptBySlug,
+};
+
+const findImportedGlobalEntity = async (
+	input: {
+		externalId: string;
+		entitySchemaId: string;
+		sandboxScriptId: string;
+	},
+	deps: Pick<MediaWorkerDeps, "findGlobalEntityByExternalId"> = mediaWorkerDeps,
+) => {
+	const existingEntity = await deps.findGlobalEntityByExternalId(input);
+	if (!existingEntity || !hasImportedEntityDetails(existingEntity)) {
+		return null;
+	}
+
+	return existingEntity;
+};
+
+const upsertMediaEntityInLibrary = async (
+	input: { userId: string; mediaEntityId: string },
+	deps: Pick<
+		MediaWorkerDeps,
+		"getUserLibraryEntityId" | "upsertInLibraryRelationship"
+	> = mediaWorkerDeps,
+) => {
+	const libraryEntityId = await deps.getUserLibraryEntityId({
+		userId: input.userId,
+	});
+	if (!libraryEntityId) {
+		throw new Error("User library entity not found");
+	}
+
+	await deps.upsertInLibraryRelationship({
+		libraryEntityId,
+		userId: input.userId,
+		mediaEntityId: input.mediaEntityId,
+	});
 };
 
 const queueSandboxChildRun = async (input: {
@@ -194,7 +267,7 @@ const processPersonStubs = async (input: {
 			relationshipSchemaId: mediaRelSchema.id,
 		});
 
-		if (isNew) {
+		if (isNew || !hasImportedEntityDetails(existingOrCreated)) {
 			await getQueues().mediaQueue.add(
 				personPopulateJobName,
 				{
@@ -209,7 +282,11 @@ const processPersonStubs = async (input: {
 	}
 };
 
-const processMediaImportJob = async (job: Job, token?: string) => {
+export const processMediaImportJob = async (
+	job: Job,
+	token?: string,
+	deps: MediaWorkerDeps = mediaWorkerDeps,
+) => {
 	const parsed = mediaImportJobData.safeParse(job.data);
 	if (!parsed.success) {
 		throw new Error("Media import job payload is invalid");
@@ -219,10 +296,25 @@ const processMediaImportJob = async (job: Job, token?: string) => {
 
 	let step = parsed.data.step;
 	if (!step) {
-		const script = await getSandboxScriptForUser({ userId, scriptId });
+		const script = await deps.getSandboxScriptForUser({ userId, scriptId });
 		if (!script) {
 			throw new Error("Sandbox script not found");
 		}
+	}
+
+	const existingEntity = await findImportedGlobalEntity(
+		{ externalId, entitySchemaId, sandboxScriptId: scriptId },
+		deps,
+	);
+	if (existingEntity) {
+		await upsertMediaEntityInLibrary(
+			{ userId, mediaEntityId: existingEntity.id },
+			deps,
+		);
+		return existingEntity;
+	}
+
+	if (!step) {
 		await queueSandboxChildRun({
 			job,
 			childJobId: `${job.id}_sandbox`,
@@ -261,7 +353,10 @@ const processMediaImportJob = async (job: Job, token?: string) => {
 	}
 
 	const details = detailsParsed.data;
-	const scope = await getEntitySchemaScopeForUser({ userId, entitySchemaId });
+	const scope = await deps.getEntitySchemaScopeForUser({
+		userId,
+		entitySchemaId,
+	});
 	if (!scope) {
 		throw new Error("Entity schema not found");
 	}
@@ -288,14 +383,14 @@ const processMediaImportJob = async (job: Job, token?: string) => {
 
 	const image = extractPrimaryImage(validatedProperties.images);
 
-	const { entity: mediaEntity, isNew } = await createGlobalEntity({
+	const { entity: mediaEntity, isNew } = await deps.createGlobalEntity({
+		externalId,
 		entitySchemaId,
 		name: details.name,
 		sandboxScriptId: scriptId,
-		externalId,
 	});
 
-	const updatedEntity = await updateGlobalEntityById({
+	const updatedEntity = await deps.updateGlobalEntityById({
 		image,
 		entitySchemaId,
 		name: details.name,
@@ -305,16 +400,10 @@ const processMediaImportJob = async (job: Job, token?: string) => {
 		populatedAt: isNew ? new Date() : mediaEntity.populatedAt,
 	});
 
-	const libraryEntityId = await getUserLibraryEntityId({ userId });
-	if (!libraryEntityId) {
-		throw new Error("User library entity not found");
-	}
-
-	await upsertInLibraryRelationship({
-		userId,
-		libraryEntityId,
-		mediaEntityId: mediaEntity.id,
-	});
+	await upsertMediaEntityInLibrary(
+		{ userId, mediaEntityId: mediaEntity.id },
+		deps,
+	);
 
 	await processPersonStubs({
 		userId,
@@ -325,21 +414,41 @@ const processMediaImportJob = async (job: Job, token?: string) => {
 	return updatedEntity;
 };
 
-const processPersonPopulateJob = async (job: Job, token?: string) => {
+export const processPersonPopulateJob = async (
+	job: Job,
+	token?: string,
+	deps: MediaWorkerDeps = mediaWorkerDeps,
+) => {
 	const parsed = personPopulateJobData.safeParse(job.data);
 	if (!parsed.success) {
 		throw new Error("Person populate job payload is invalid");
 	}
 
 	const { userId, scriptSlug, externalId, personEntityId } = parsed.data;
+	const personScript = await deps.getBuiltinSandboxScriptBySlug(scriptSlug);
+	if (!personScript) {
+		throw new Error("Person script not found");
+	}
+
+	const personSchema = await deps.getBuiltinEntitySchemaBySlug("person");
+	if (!personSchema) {
+		throw new Error("Person entity schema not found");
+	}
+
+	const existingEntity = await findImportedGlobalEntity(
+		{
+			externalId,
+			entitySchemaId: personSchema.id,
+			sandboxScriptId: personScript.id,
+		},
+		deps,
+	);
+	if (existingEntity) {
+		return;
+	}
 
 	let step = parsed.data.step;
 	if (!step) {
-		const personScript = await getBuiltinSandboxScriptBySlug(scriptSlug);
-		if (!personScript) {
-			throw new Error("Person script not found");
-		}
-
 		await queueSandboxChildRun({
 			job,
 			childJobId: `${job.id}_sandbox`,
@@ -379,11 +488,6 @@ const processPersonPopulateJob = async (job: Job, token?: string) => {
 		throw new Error("Person details script returned an unexpected shape");
 	}
 
-	const personSchema = await getBuiltinEntitySchemaBySlug("person");
-	if (!personSchema) {
-		throw new Error("Person entity schema not found");
-	}
-
 	const details = detailsParsed.data;
 	const schemaFieldKeys = Object.keys(
 		(personSchema.propertiesSchema as AppSchema).fields,
@@ -405,7 +509,7 @@ const processPersonPopulateJob = async (job: Job, token?: string) => {
 
 	const image = extractPrimaryImage(validatedProperties.data.images);
 
-	await updateGlobalEntityById({
+	await deps.updateGlobalEntityById({
 		image,
 		name: details.name,
 		populatedAt: new Date(),
