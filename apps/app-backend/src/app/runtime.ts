@@ -1,10 +1,14 @@
 import { join } from "node:path";
 import { serve } from "@hono/node-server";
+import { eq, sql } from "drizzle-orm";
 import { config, IS_DEVELOPMENT } from "~/lib/config";
 import { generateConfigDocs } from "~/lib/config/docs";
+import { db } from "~/lib/db";
 import { migrateDB } from "~/lib/db/migrate";
+import { entity } from "~/lib/db/schema";
 import { generateOpenApiTypes } from "~/lib/openapi-docs";
 import {
+	getQueues,
 	initializeQueues,
 	initializeWorkers,
 	shutdownQueues,
@@ -15,6 +19,8 @@ import {
 	initializeSandboxService,
 	shutdownSandboxService,
 } from "~/lib/sandbox";
+import { getBuiltinEntitySchemaBySlug } from "~/modules/entity-schemas/repository";
+import { exerciseSeedJobName } from "~/modules/fitness";
 import { initializeMetrics } from "~/modules/system";
 import { getServer } from "./server";
 
@@ -41,6 +47,24 @@ export const startServer = async () => {
 	await initializeQueues();
 	await initializeSandboxService();
 	await initializeWorkers();
+
+	const exerciseSchema = await getBuiltinEntitySchemaBySlug("exercise");
+	if (exerciseSchema) {
+		const result = await db
+			.select({ count: sql<number>`count(*)::int` })
+			.from(entity)
+			.where(eq(entity.entitySchemaId, exerciseSchema.id));
+		if ((result[0]?.count ?? 0) === 0) {
+			await getQueues().fitnessQueue.add(
+				exerciseSeedJobName,
+				{},
+				{
+					jobId: "exercise-seed-initial",
+				},
+			);
+			console.info("Exercise seed job dispatched");
+		}
+	}
 
 	const app = getServer();
 	const server = serve({ port: config.port, fetch: app.fetch }, (c) => {

@@ -8,6 +8,13 @@
 			"when": 1776760138801,
 			"tag": "0000_same_harpoon",
 			"breakpoints": true
+		},
+		{
+			"idx": 1,
+			"version": "7",
+			"when": 1776881110647,
+			"tag": "0001_zippy_moon_knight",
+			"breakpoints": true
 		}
 	]
 }
