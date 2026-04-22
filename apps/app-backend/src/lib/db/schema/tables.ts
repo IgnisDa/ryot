@@ -1,4 +1,3 @@
-import { z } from "@hono/zod-openapi";
 import { dayjs } from "@ryot/ts-utils";
 import { generateId } from "better-auth";
 import { isNull, sql } from "drizzle-orm";
@@ -13,46 +12,8 @@ import {
 	unique,
 	uniqueIndex,
 } from "drizzle-orm/pg-core";
+import type { ImageSchemaType } from "../../zod";
 import { user } from "./auth";
-
-const remoteImageUrlSchema = z
-	.string()
-	.trim()
-	.superRefine((value, ctx) => {
-		try {
-			const parsedUrl = new URL(value);
-			if (!["http:", "https:"].includes(parsedUrl.protocol)) {
-				throw new Error();
-			}
-		} catch {
-			ctx.addIssue({
-				code: z.ZodIssueCode.custom,
-				message: "Entity image remote url must be a valid URL",
-			});
-		}
-	});
-
-const s3ImageKeySchema = z
-	.string()
-	.trim()
-	.min(1, "Entity image s3 key is required");
-
-export const remoteImageSchema = z.strictObject({
-	url: remoteImageUrlSchema,
-	kind: z.literal("remote"),
-});
-
-export const s3ImageSchema = z.strictObject({
-	key: s3ImageKeySchema,
-	kind: z.literal("s3"),
-});
-
-export const ImageSchema = z.discriminatedUnion("kind", [
-	s3ImageSchema,
-	remoteImageSchema,
-]);
-
-export type ImageSchemaType = z.infer<typeof ImageSchema>;
 
 export const tracker = pgTable(
 	"tracker",

@@ -5,9 +5,9 @@ import {
 	entityAccessScopeWithSchemaJoinSelection,
 	entitySchema,
 	entitySchemaAccessScopeSelection,
-	type ImageSchemaType,
 	relationship,
 } from "~/lib/db/schema";
+import type { ImageSchemaType } from "~/lib/zod";
 import { getBuiltinRelationshipSchemaBySlug } from "~/modules/relationship-schemas";
 import type { ListedEntity } from "./schemas";
 import type { EntityPropertiesShape } from "./service";
