@@ -8,6 +8,7 @@ import { nullableViewPredicateSchema } from "~/lib/views/filtering";
 import { ImageSchema, timestampFields } from "~/lib/zod";
 import {
 	eventJoinDefinitionArraySchema,
+	relationshipFilterArraySchema,
 	sortDefinitionSchema,
 } from "../saved-views/schemas";
 
@@ -29,6 +30,7 @@ export const executeQueryEngineBody = z
 		pagination: paginationSchema,
 		computedFields: computedFieldArraySchema,
 		eventJoins: eventJoinDefinitionArraySchema,
+		relationships: relationshipFilterArraySchema,
 		filter: nullableViewPredicateSchema.default(null),
 		entitySchemaSlugs: z
 			.array(z.string())

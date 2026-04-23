@@ -29,6 +29,13 @@
 			"when": 1776917017226,
 			"tag": "0003_small_multiple_man",
 			"breakpoints": true
+		},
+		{
+			"idx": 4,
+			"version": "7",
+			"when": 1776929303189,
+			"tag": "0004_nice_green_goblin",
+			"breakpoints": true
 		}
 	]
 }
