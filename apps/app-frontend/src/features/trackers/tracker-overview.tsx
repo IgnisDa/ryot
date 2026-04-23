@@ -261,8 +261,8 @@ export function TrackerOverview(props: TrackerOverviewProps) {
 							<Group gap="xs">
 								{summary.savedView && (
 									<Link
-										to="/views/$viewId"
-										params={{ viewId: summary.savedView.id }}
+										to="/views/$viewSlug"
+										params={{ viewSlug: summary.savedView.slug }}
 									>
 										<Button component="span" size="xs" variant="light">
 											Open all

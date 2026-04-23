@@ -18,7 +18,7 @@ import { useApiClient } from "~/hooks/api";
 import { useModalForm } from "~/hooks/modal-form";
 import { getErrorMessage } from "~/lib/errors";
 
-export const Route = createFileRoute("/_protected/views/$viewId")({
+export const Route = createFileRoute("/_protected/views/$viewSlug")({
 	component: RouteComponent,
 });
 
@@ -27,7 +27,7 @@ function RouteComponent() {
 	const canGoBack = useCanGoBack();
 	const apiClient = useApiClient();
 	const navigate = Route.useNavigate();
-	const { viewId } = Route.useParams();
+	const { viewSlug } = Route.useParams();
 	const queryClient = useQueryClient();
 	const savedViewMutations = useSavedViewMutations();
 	const collectionMutations = useCollectionMutations();
@@ -52,10 +52,10 @@ function RouteComponent() {
 		setActionError(null);
 
 		try {
-			const clonedView = await savedViewMutations.cloneViewById(viewId);
+			const clonedView = await savedViewMutations.cloneViewBySlug(viewSlug);
 			await navigate({
-				to: "/views/$viewId",
-				params: { viewId: clonedView.data.id },
+				to: "/views/$viewSlug",
+				params: { viewSlug: clonedView.data.slug },
 			});
 		} catch (error) {
 			setActionError(getErrorMessage(error, "Failed to clone saved view."));
@@ -73,7 +73,7 @@ function RouteComponent() {
 			),
 			onConfirm: async () => {
 				try {
-					await savedViewMutations.deleteViewById(viewId);
+					await savedViewMutations.deleteViewBySlug(viewSlug);
 					if (canGoBack) {
 						router.history.back();
 						return;
@@ -92,7 +92,7 @@ function RouteComponent() {
 	return (
 		<>
 			<SavedViewPage
-				viewId={viewId}
+				viewSlug={viewSlug}
 				onClone={handleClone}
 				onDelete={handleDelete}
 				actionError={actionError}

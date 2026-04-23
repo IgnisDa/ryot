@@ -21,9 +21,9 @@ import {
 } from "./view-page-utils";
 
 type ViewLayout =
-	keyof ApiGetResponseData<"/saved-views/{viewId}">["displayConfiguration"];
+	keyof ApiGetResponseData<"/saved-views/{viewSlug}">["displayConfiguration"];
 type SavedViewDisplayConfiguration =
-	ApiGetResponseData<"/saved-views/{viewId}">["displayConfiguration"];
+	ApiGetResponseData<"/saved-views/{viewSlug}">["displayConfiguration"];
 type QueryEngineMeta = ApiPostResponseData<"/query-engine/execute">["meta"];
 
 function EntityThumbnail(props: {

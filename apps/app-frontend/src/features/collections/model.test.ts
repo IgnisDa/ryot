@@ -239,15 +239,16 @@ describe("resolveCollectionsDestination", () => {
 	it("returns view with id when builtin collections view exists", () => {
 		const views = [
 			createSavedViewFixture({
-				id: "view-collections",
 				isBuiltin: true,
 				trackerId: null,
+				slug: "collections",
+				id: "view-collections",
 				queryDefinition: { entitySchemaSlugs: ["collection"] },
 			}),
 		];
 
 		const result = resolveCollectionsDestination(views);
 
-		expect(result).toEqual({ type: "view", viewId: "view-collections" });
+		expect(result).toEqual({ type: "view", viewSlug: "collections" });
 	});
 });

@@ -91,6 +91,7 @@ describe("authentication bootstrap helpers", () => {
 				],
 				savedViews: [
 					{
+						slug: "all-books",
 						name: "All Books",
 						trackerSlug: "media",
 						displayConfiguration,
@@ -102,6 +103,7 @@ describe("authentication bootstrap helpers", () => {
 			{
 				isBuiltin: true,
 				icon: "book-open",
+				slug: "all-books",
 				name: "All Books",
 				displayConfiguration,
 				trackerId: "tracker-1",
@@ -122,6 +124,7 @@ describe("authentication bootstrap helpers", () => {
 				savedViews: [
 					{
 						icon: "folders",
+						slug: "collections",
 						queryDefinition,
 						name: "Collections",
 						accentColor: "#F59E0B",
@@ -134,6 +137,7 @@ describe("authentication bootstrap helpers", () => {
 				icon: "folders",
 				queryDefinition,
 				isBuiltin: true,
+				slug: "collections",
 				name: "Collections",
 				trackerId: undefined,
 				displayConfiguration,
@@ -149,6 +153,7 @@ describe("authentication bootstrap helpers", () => {
 				trackers: [{ id: "tracker-1", slug: "media" }],
 				savedViews: [
 					{
+						slug: "all-books",
 						name: "All Books",
 						trackerSlug: "media",
 						entitySchemaSlug: "book",
