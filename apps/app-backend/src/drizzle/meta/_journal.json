@@ -5,36 +5,8 @@
 		{
 			"idx": 0,
 			"version": "7",
-			"when": 1776760138801,
-			"tag": "0000_same_harpoon",
-			"breakpoints": true
-		},
-		{
-			"idx": 1,
-			"version": "7",
-			"when": 1776881110647,
-			"tag": "0001_zippy_moon_knight",
-			"breakpoints": true
-		},
-		{
-			"idx": 2,
-			"version": "7",
-			"when": 1776915332450,
-			"tag": "0002_broad_kree",
-			"breakpoints": true
-		},
-		{
-			"idx": 3,
-			"version": "7",
-			"when": 1776917017226,
-			"tag": "0003_small_multiple_man",
-			"breakpoints": true
-		},
-		{
-			"idx": 4,
-			"version": "7",
-			"when": 1776929303189,
-			"tag": "0004_nice_green_goblin",
+			"when": 1776931474872,
+			"tag": "0000_public_gamma_corps",
 			"breakpoints": true
 		}
 	]
