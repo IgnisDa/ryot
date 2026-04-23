@@ -63,6 +63,7 @@ const buildRuntimeRequestBase = (input: {
 	filter: input.view.queryDefinition.filter ?? null,
 	eventJoins: input.view.queryDefinition.eventJoins,
 	pagination: { page: input.page, limit: input.limit },
+	relationships: input.view.queryDefinition.relationships,
 	computedFields: input.view.queryDefinition.computedFields,
 	entitySchemaSlugs: input.view.queryDefinition.entitySchemaSlugs,
 });
@@ -108,6 +109,7 @@ export function createDisabledQueryEngineRequest(): QueryEngineRequest {
 	return {
 		filter: null,
 		eventJoins: [],
+		relationships: [],
 		computedFields: [],
 		entitySchemaSlugs: ["book"],
 		pagination: { page: 1, limit: GRID_LIMIT },
