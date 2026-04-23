@@ -1,12 +1,17 @@
 import { describe, expect, it } from "bun:test";
 import {
+	createComputedFieldExpression,
+	createEntityColumnExpression,
+	createEntityPropertyExpression,
+	createEventAggregateExpression,
+} from "@ryot/ts-utils";
+import {
 	buildComputedField,
 	buildGridDisplayConfiguration,
 	buildGridRequest,
 	buildQueryEngineField,
 	buildTableDisplayConfiguration,
 	buildTableRequest,
-	computedFieldExpression,
 	createAuthenticatedClient,
 	createCrossSchemaQueryEngineFixture,
 	createEntitySchema,
@@ -14,9 +19,7 @@ import {
 	createQueryEngineEntity,
 	createSingleSchemaQueryEngineFixture,
 	createTracker,
-	entityColumnExpression,
 	entityField,
-	eventAggregateExpression,
 	executeQueryEngine,
 	findBuiltinSchemaBySlug,
 	findBuiltinSchemaWithProviders,
@@ -24,7 +27,6 @@ import {
 	insertLibraryMembership,
 	listEventSchemas,
 	literalExpression,
-	schemaPropertyExpression,
 	seedMediaEntity,
 	waitForEventCount,
 } from "../fixtures";
@@ -68,7 +70,7 @@ describe("Query engine E2E", () => {
 					operator: "eq",
 					type: "comparison",
 					right: literalExpression(entity.name),
-					left: entityColumnExpression(schema.slug, "name"),
+					left: createEntityColumnExpression(schema.slug, "name"),
 				},
 			}),
 		);
@@ -168,7 +170,7 @@ describe("Query engine E2E", () => {
 				{
 					primarySubtitleProperty: null,
 					secondarySubtitleProperty: null,
-					calloutProperty: eventAggregateExpression(
+					calloutProperty: createEventAggregateExpression(
 						"review",
 						["rating"],
 						"avg",
@@ -180,7 +182,7 @@ describe("Query engine E2E", () => {
 				operator: "eq",
 				type: "comparison",
 				right: literalExpression(entity.name),
-				left: entityColumnExpression(schema.slug, "name"),
+				left: createEntityColumnExpression(schema.slug, "name"),
 			},
 		});
 
@@ -246,7 +248,7 @@ describe("Query engine E2E", () => {
 				operator: "eq",
 				type: "comparison",
 				right: literalExpression(entity.name),
-				left: entityColumnExpression(schema.slug, "name"),
+				left: createEntityColumnExpression(schema.slug, "name"),
 			},
 		});
 
@@ -339,7 +341,7 @@ describe("Query engine E2E", () => {
 			pagination: { page: 1, limit: 1 },
 			sort: {
 				direction: "asc",
-				expression: entityColumnExpression(schema.slug, "name"),
+				expression: createEntityColumnExpression(schema.slug, "name"),
 			},
 			fields: [
 				buildQueryEngineField("label", { type: "literal", value: "Pinned" }),
@@ -387,7 +389,7 @@ describe("Query engine E2E", () => {
 			entitySchemaSlugs: [schema.slug],
 			pagination: { page: 1, limit: 5 },
 			sort: {
-				expression: entityColumnExpression(schema.slug, "name"),
+				expression: createEntityColumnExpression(schema.slug, "name"),
 				direction: "asc",
 			},
 			fields: [
@@ -428,9 +430,9 @@ describe("Query engine E2E", () => {
 	it("sorts and filters by computed fields in raw runtime requests", async () => {
 		const { client, cookies, schema } =
 			await createSingleSchemaQueryEngineFixture();
-		const yearExpression = schemaPropertyExpression(schema.slug, "year");
-		const nextYearReference = computedFieldExpression("nextYear");
-		const labelReference = computedFieldExpression("label");
+		const yearExpression = createEntityPropertyExpression(schema.slug, "year");
+		const nextYearReference = createComputedFieldExpression("nextYear");
+		const labelReference = createComputedFieldExpression("label");
 
 		const { data, response } = await executeQueryEngine(client, cookies, {
 			eventJoins: [],
@@ -495,7 +497,7 @@ describe("Query engine E2E", () => {
 				pagination: { page: 1, limit: 5 },
 				sort: {
 					direction: "asc",
-					expression: entityColumnExpression(schema.slug, "name"),
+					expression: createEntityColumnExpression(schema.slug, "name"),
 				},
 				filter: null,
 				fields: [buildQueryEngineField("title", ["computed.missingLabel"])],
@@ -507,7 +509,7 @@ describe("Query engine E2E", () => {
 			pagination: { page: 1, limit: 5 },
 			sort: {
 				direction: "asc",
-				expression: entityColumnExpression(schema.slug, "name"),
+				expression: createEntityColumnExpression(schema.slug, "name"),
 			},
 			filter: null,
 			computedFields: [
@@ -537,12 +539,12 @@ describe("Query engine E2E", () => {
 			pagination: { page: 1, limit: 5 },
 			sort: {
 				direction: "asc",
-				expression: computedFieldExpression("cover"),
+				expression: createComputedFieldExpression("cover"),
 			},
 			computedFields: [
 				{
 					key: "cover",
-					expression: entityColumnExpression(schema.slug, "image"),
+					expression: createEntityColumnExpression(schema.slug, "image"),
 				},
 			],
 			fields: [
@@ -555,13 +557,13 @@ describe("Query engine E2E", () => {
 			pagination: { page: 1, limit: 5 },
 			sort: {
 				direction: "asc",
-				expression: entityColumnExpression(schema.slug, "name"),
+				expression: createEntityColumnExpression(schema.slug, "name"),
 			},
 			filter: {
 				operator: "eq",
 				type: "comparison",
 				right: { type: "literal", value: "2021" },
-				left: computedFieldExpression("nextYear"),
+				left: createComputedFieldExpression("nextYear"),
 			},
 			computedFields: [
 				{
@@ -613,12 +615,12 @@ describe("Query engine E2E", () => {
 	it("supports arithmetic, normalization, concat, and conditionals in runtime expressions", async () => {
 		const { client, cookies, schema } =
 			await createSingleSchemaQueryEngineFixture();
-		const categoryExpression = schemaPropertyExpression(
+		const categoryExpression = createEntityPropertyExpression(
 			schema.slug,
 			"category",
 		);
-		const nameExpression = entityColumnExpression(schema.slug, "name");
-		const yearExpression = schemaPropertyExpression(schema.slug, "year");
+		const nameExpression = createEntityColumnExpression(schema.slug, "name");
+		const yearExpression = createEntityPropertyExpression(schema.slug, "year");
 
 		const { data, response } = await executeQueryEngine(client, cookies, {
 			eventJoins: [],
@@ -703,7 +705,7 @@ describe("Query engine E2E", () => {
 	it("truncates integer normalization toward zero for fractional values", async () => {
 		const { client, cookies, schema } =
 			await createSingleSchemaQueryEngineFixture();
-		const yearExpression = schemaPropertyExpression(schema.slug, "year");
+		const yearExpression = createEntityPropertyExpression(schema.slug, "year");
 
 		const { data, response } = await executeQueryEngine(client, cookies, {
 			eventJoins: [],
@@ -714,11 +716,11 @@ describe("Query engine E2E", () => {
 				operator: "eq",
 				type: "comparison",
 				right: { type: "literal", value: "Alpha Phone" },
-				left: entityColumnExpression(schema.slug, "name"),
+				left: createEntityColumnExpression(schema.slug, "name"),
 			},
 			sort: {
 				direction: "asc",
-				expression: entityColumnExpression(schema.slug, "name"),
+				expression: createEntityColumnExpression(schema.slug, "name"),
 			},
 			fields: [
 				buildQueryEngineField("integerNormalized", {
@@ -748,7 +750,7 @@ describe("Query engine E2E", () => {
 				filter: {
 					type: "comparison" as const,
 					operator: "eq" as const,
-					left: schemaPropertyExpression(schema.slug, "category"),
+					left: createEntityPropertyExpression(schema.slug, "category"),
 					right: literalExpression("phone"),
 				},
 			},
@@ -757,7 +759,7 @@ describe("Query engine E2E", () => {
 				filter: {
 					type: "comparison" as const,
 					operator: "neq" as const,
-					left: schemaPropertyExpression(schema.slug, "category"),
+					left: createEntityPropertyExpression(schema.slug, "category"),
 					right: literalExpression("phone"),
 				},
 			},
@@ -766,7 +768,7 @@ describe("Query engine E2E", () => {
 				filter: {
 					type: "comparison" as const,
 					operator: "gt" as const,
-					left: schemaPropertyExpression(schema.slug, "year"),
+					left: createEntityPropertyExpression(schema.slug, "year"),
 					right: literalExpression(2019),
 				},
 			},
@@ -775,7 +777,7 @@ describe("Query engine E2E", () => {
 				filter: {
 					type: "comparison" as const,
 					operator: "gte" as const,
-					left: schemaPropertyExpression(schema.slug, "year"),
+					left: createEntityPropertyExpression(schema.slug, "year"),
 					right: literalExpression(2020),
 				},
 			},
@@ -784,7 +786,7 @@ describe("Query engine E2E", () => {
 				filter: {
 					type: "comparison" as const,
 					operator: "lt" as const,
-					left: schemaPropertyExpression(schema.slug, "year"),
+					left: createEntityPropertyExpression(schema.slug, "year"),
 					right: literalExpression(2020),
 				},
 			},
@@ -793,7 +795,7 @@ describe("Query engine E2E", () => {
 				filter: {
 					type: "comparison" as const,
 					operator: "lte" as const,
-					left: schemaPropertyExpression(schema.slug, "year"),
+					left: createEntityPropertyExpression(schema.slug, "year"),
 					right: literalExpression(2019),
 				},
 			},
@@ -801,7 +803,7 @@ describe("Query engine E2E", () => {
 				expected: ["Beta Tablet", "Delta Watch"],
 				filter: {
 					type: "in" as const,
-					expression: schemaPropertyExpression(schema.slug, "category"),
+					expression: createEntityPropertyExpression(schema.slug, "category"),
 					values: [literalExpression("tablet"), literalExpression("wearable")],
 				},
 			},
@@ -809,14 +811,14 @@ describe("Query engine E2E", () => {
 				expected: ["Omega Prototype"],
 				filter: {
 					type: "isNull" as const,
-					expression: schemaPropertyExpression(schema.slug, "category"),
+					expression: createEntityPropertyExpression(schema.slug, "category"),
 				},
 			},
 			{
 				expected: ["Alpha Phone", "Beta Tablet", "Delta Watch", "Gamma Phone"],
 				filter: {
 					type: "isNotNull" as const,
-					expression: schemaPropertyExpression(schema.slug, "category"),
+					expression: createEntityPropertyExpression(schema.slug, "category"),
 				},
 			},
 		];
@@ -852,13 +854,13 @@ describe("Query engine E2E", () => {
 						{
 							type: "comparison",
 							operator: "gte",
-							left: schemaPropertyExpression(schema.slug, "year"),
+							left: createEntityPropertyExpression(schema.slug, "year"),
 							right: literalExpression(2020),
 						},
 						{
 							type: "comparison",
 							operator: "eq",
-							left: schemaPropertyExpression(schema.slug, "category"),
+							left: createEntityPropertyExpression(schema.slug, "category"),
 							right: literalExpression("phone"),
 						},
 					],
@@ -888,7 +890,7 @@ describe("Query engine E2E", () => {
 					predicates: [
 						{
 							type: "in",
-							expression: entityColumnExpression(smartphoneSlug, "name"),
+							expression: createEntityColumnExpression(smartphoneSlug, "name"),
 							values: [
 								literalExpression("Alpha Phone"),
 								literalExpression("Delta Tablet"),
@@ -896,7 +898,7 @@ describe("Query engine E2E", () => {
 						},
 						{
 							type: "in",
-							expression: entityColumnExpression(tabletSlug, "name"),
+							expression: createEntityColumnExpression(tabletSlug, "name"),
 							values: [
 								literalExpression("Alpha Phone"),
 								literalExpression("Delta Tablet"),
@@ -933,13 +935,13 @@ describe("Query engine E2E", () => {
 						{
 							type: "comparison",
 							operator: "gte",
-							left: schemaPropertyExpression(smartphoneSlug, "year"),
+							left: createEntityPropertyExpression(smartphoneSlug, "year"),
 							right: literalExpression(2020),
 						},
 						{
 							type: "comparison",
 							operator: "gte",
-							left: schemaPropertyExpression(tabletSlug, "releaseYear"),
+							left: createEntityPropertyExpression(tabletSlug, "releaseYear"),
 							right: literalExpression(2021),
 						},
 					],
@@ -969,7 +971,7 @@ describe("Query engine E2E", () => {
 			buildGridRequest({
 				entitySchemaSlugs: [schema.slug],
 				sort: {
-					expression: entityColumnExpression(schema.slug, "name"),
+					expression: createEntityColumnExpression(schema.slug, "name"),
 					direction: "desc",
 				},
 			}),
@@ -980,7 +982,7 @@ describe("Query engine E2E", () => {
 			buildGridRequest({
 				entitySchemaSlugs: [schema.slug],
 				sort: {
-					expression: schemaPropertyExpression(schema.slug, "year"),
+					expression: createEntityPropertyExpression(schema.slug, "year"),
 					direction: "asc",
 				},
 			}),
@@ -1023,7 +1025,7 @@ describe("Query engine E2E", () => {
 			buildTableRequest({
 				entitySchemaSlugs: [schema.slug],
 				sort: {
-					expression: entityColumnExpression(schema.slug, "id"),
+					expression: createEntityColumnExpression(schema.slug, "id"),
 					direction: "asc",
 				},
 				displayConfiguration: buildTableDisplayConfiguration([
@@ -1033,7 +1035,7 @@ describe("Query engine E2E", () => {
 				filter: {
 					type: "comparison",
 					operator: "eq",
-					left: entityColumnExpression(schema.slug, "id"),
+					left: createEntityColumnExpression(schema.slug, "id"),
 					right: literalExpression(targetId),
 				},
 			}),
@@ -1072,7 +1074,7 @@ describe("Query engine E2E", () => {
 				}),
 				filter: {
 					type: "contains",
-					expression: entityColumnExpression(schema.slug, "id"),
+					expression: createEntityColumnExpression(schema.slug, "id"),
 					value: literalExpression(suffix),
 				},
 			}),
@@ -1100,8 +1102,8 @@ describe("Query engine E2E", () => {
 			expression: {
 				type: "coalesce" as const,
 				values: [
-					schemaPropertyExpression(smartphoneSlug, "year"),
-					schemaPropertyExpression(tabletSlug, "releaseYear"),
+					createEntityPropertyExpression(smartphoneSlug, "year"),
+					createEntityPropertyExpression(tabletSlug, "releaseYear"),
 				],
 			},
 		};
@@ -1224,7 +1226,7 @@ describe("Query engine E2E", () => {
 				filter: {
 					type: "comparison",
 					operator: "eq",
-					left: schemaPropertyExpression(schema.slug, "category"),
+					left: createEntityPropertyExpression(schema.slug, "category"),
 					right: literalExpression("console"),
 				},
 			}),
@@ -1265,7 +1267,7 @@ describe("Query engine E2E", () => {
 				filter: {
 					type: "comparison",
 					operator: "eq",
-					left: schemaPropertyExpression(schema.slug, "category"),
+					left: createEntityPropertyExpression(schema.slug, "category"),
 					right: literalExpression("phone"),
 				},
 			}),
@@ -1279,7 +1281,7 @@ describe("Query engine E2E", () => {
 				filter: {
 					type: "comparison",
 					operator: "eq",
-					left: schemaPropertyExpression(schema.slug, "category"),
+					left: createEntityPropertyExpression(schema.slug, "category"),
 					right: literalExpression("console"),
 				},
 			}),
@@ -1337,7 +1339,7 @@ describe("Query engine E2E", () => {
 				entitySchemaSlugs: [schema.slug],
 				filter: {
 					type: "contains",
-					expression: entityColumnExpression(schema.slug, "name"),
+					expression: createEntityColumnExpression(schema.slug, "name"),
 					value: literalExpression("Phone"),
 				},
 			}),
@@ -1349,7 +1351,7 @@ describe("Query engine E2E", () => {
 				entitySchemaSlugs: [schema.slug],
 				filter: {
 					type: "contains",
-					expression: schemaPropertyExpression(schema.slug, "category"),
+					expression: createEntityPropertyExpression(schema.slug, "category"),
 					value: literalExpression("phone"),
 				},
 			}),
@@ -1424,7 +1426,7 @@ describe("Query engine E2E", () => {
 				}),
 				filter: {
 					type: "contains",
-					expression: schemaPropertyExpression(schema.slug, "tags"),
+					expression: createEntityPropertyExpression(schema.slug, "tags"),
 					value: literalExpression("action"),
 				},
 			}),
@@ -1487,7 +1489,7 @@ describe("Query engine E2E", () => {
 				displayConfiguration: neutralDisplay,
 				filter: {
 					type: "contains",
-					expression: schemaPropertyExpression(schema.slug, "sku"),
+					expression: createEntityPropertyExpression(schema.slug, "sku"),
 					value: literalExpression("A%B"),
 				},
 			}),
@@ -1500,7 +1502,7 @@ describe("Query engine E2E", () => {
 				displayConfiguration: neutralDisplay,
 				filter: {
 					type: "contains",
-					expression: schemaPropertyExpression(schema.slug, "sku"),
+					expression: createEntityPropertyExpression(schema.slug, "sku"),
 					value: literalExpression("A_B"),
 				},
 			}),
@@ -1548,7 +1550,7 @@ describe("Query engine E2E", () => {
 				}),
 				filter: {
 					type: "contains",
-					expression: schemaPropertyExpression(schema.slug, "tags"),
+					expression: createEntityPropertyExpression(schema.slug, "tags"),
 					value: literalExpression(["sci-fi", "action"]),
 				},
 			}),
@@ -1599,7 +1601,7 @@ describe("Query engine E2E", () => {
 					operator: "eq",
 					type: "comparison",
 					right: literalExpression(externalId),
-					left: entityColumnExpression(schema.slug, "externalId"),
+					left: createEntityColumnExpression(schema.slug, "externalId"),
 				},
 			}),
 		);
@@ -1638,7 +1640,7 @@ describe("Query engine E2E", () => {
 					operator: "eq",
 					type: "comparison",
 					right: literalExpression("Alpha Phone"),
-					left: entityColumnExpression(schema.slug, "name"),
+					left: createEntityColumnExpression(schema.slug, "name"),
 				},
 			}),
 		);
@@ -1669,7 +1671,7 @@ describe("Query engine E2E", () => {
 				}),
 				filter: {
 					type: "isNull",
-					expression: entityColumnExpression(schema.slug, "externalId"),
+					expression: createEntityColumnExpression(schema.slug, "externalId"),
 				},
 			}),
 		);
@@ -1752,13 +1754,16 @@ describe("Query engine E2E", () => {
 							operator: "eq",
 							type: "comparison",
 							right: literalExpression(externalId),
-							left: entityColumnExpression(mediaSchema.slug, "externalId"),
+							left: createEntityColumnExpression(
+								mediaSchema.slug,
+								"externalId",
+							),
 						},
 						{
 							operator: "eq",
 							type: "comparison",
 							right: literalExpression(userEntityName),
-							left: entityColumnExpression(userSchema.slug, "name"),
+							left: createEntityColumnExpression(userSchema.slug, "name"),
 						},
 					],
 				},

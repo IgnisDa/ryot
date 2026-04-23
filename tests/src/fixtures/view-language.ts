@@ -22,36 +22,6 @@ export const literalExpression = (value: unknown | null): ViewExpression => ({
 	type: "literal",
 });
 
-export const entityColumnExpression = (
-	slug: string,
-	column: string,
-): ViewExpression => ({
-	type: "reference",
-	reference: { type: "entity", slug, path: [column] },
-});
-
-export const schemaPropertyExpression = (
-	slug: string,
-	property: string,
-): ViewExpression => ({
-	type: "reference",
-	reference: { type: "entity", slug, path: ["properties", property] },
-});
-
-export const computedFieldExpression = (key: string): ViewExpression => ({
-	type: "reference",
-	reference: { type: "computed-field", key },
-});
-
-export const eventAggregateExpression = (
-	eventSchemaSlug: string,
-	path: string[],
-	aggregation: EventAggregation,
-): ViewExpression => ({
-	type: "reference",
-	reference: { type: "event-aggregate", eventSchemaSlug, path, aggregation },
-});
-
 export const parseFieldPath = (field: string): RuntimeRef => {
 	const [namespace, segment, tail, ...rest] = field.split(".");
 

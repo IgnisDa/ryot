@@ -65,6 +65,13 @@ export const createEventAggregateExpression = (
 	reference: { type: "event-aggregate", eventSchemaSlug, path, aggregation },
 });
 
+export const createComputedFieldExpression = (
+	key: string,
+): RuntimeReferenceExpression => ({
+	type: "reference",
+	reference: { key, type: "computed-field" },
+});
+
 export const createTransformExpression = (
 	name: ViewTransformName,
 	expression: RuntimeReferenceExpression,
