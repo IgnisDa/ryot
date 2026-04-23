@@ -210,11 +210,14 @@ export {
 	createEntityColumnExpression,
 	createEntityPropertyExpression,
 	createEventAggregateExpression,
+	createTransformExpression,
 	type EventAggregation,
 	entityBuiltinColumns,
 	eventJoinBuiltinColumns,
 	type RuntimeRef,
 	type RuntimeReferenceExpression,
+	type TransformExpression,
+	type ViewTransformName,
 } from "./view-language";
 export type { Dayjs };
 export {

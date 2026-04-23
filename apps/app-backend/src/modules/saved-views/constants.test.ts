@@ -3,6 +3,7 @@ import {
 	createEntityColumnExpression,
 	createEntityPropertyExpression,
 	createEventAggregateExpression,
+	createTransformExpression,
 } from "@ryot/ts-utils";
 import { createDefaultDisplayConfiguration } from "./constants";
 
@@ -22,13 +23,22 @@ describe("createDefaultDisplayConfiguration", () => {
 		const displayConfiguration = createDefaultDisplayConfiguration("exercise");
 
 		expect(displayConfiguration.grid.calloutProperty).toEqual(
-			createEntityPropertyExpression("exercise", "level"),
+			createTransformExpression(
+				"titleCase",
+				createEntityPropertyExpression("exercise", "level"),
+			),
 		);
 		expect(displayConfiguration.grid.primarySubtitleProperty).toEqual(
-			createEntityPropertyExpression("exercise", "lot"),
+			createTransformExpression(
+				"titleCase",
+				createEntityPropertyExpression("exercise", "lot"),
+			),
 		);
 		expect(displayConfiguration.grid.secondarySubtitleProperty).toEqual(
-			createEntityPropertyExpression("exercise", "equipment"),
+			createTransformExpression(
+				"titleCase",
+				createEntityPropertyExpression("exercise", "equipment"),
+			),
 		);
 		expect(displayConfiguration.table.columns).toEqual([
 			{
@@ -37,11 +47,17 @@ describe("createDefaultDisplayConfiguration", () => {
 			},
 			{
 				label: "Level",
-				expression: createEntityPropertyExpression("exercise", "level"),
+				expression: createTransformExpression(
+					"titleCase",
+					createEntityPropertyExpression("exercise", "level"),
+				),
 			},
 			{
 				label: "Equipment",
-				expression: createEntityPropertyExpression("exercise", "equipment"),
+				expression: createTransformExpression(
+					"titleCase",
+					createEntityPropertyExpression("exercise", "equipment"),
+				),
 			},
 		]);
 	});

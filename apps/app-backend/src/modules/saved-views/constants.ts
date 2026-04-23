@@ -2,6 +2,7 @@ import {
 	createEntityColumnExpression,
 	createEntityPropertyExpression,
 	createEventAggregateExpression,
+	createTransformExpression,
 } from "@ryot/ts-utils";
 import { match } from "ts-pattern";
 import type { ViewExpression } from "~/lib/views/expression";
@@ -35,7 +36,12 @@ const buildConditionalConcatProperty = (
 const buildSecondarySubtitleForSlug = (slug: string): ViewExpression | null => {
 	return match(slug)
 		.with("book", () => buildConditionalConcatProperty(slug, "pages", " pages"))
-		.with("exercise", () => createEntityPropertyExpression(slug, "equipment"))
+		.with("exercise", () =>
+			createTransformExpression(
+				"titleCase",
+				createEntityPropertyExpression(slug, "equipment"),
+			),
+		)
 		.with("show", () =>
 			createEntityPropertyExpression(slug, "productionStatus"),
 		)
@@ -84,11 +90,17 @@ const buildTableColumnsForSlug = (slug: string): TableConfig["columns"] => {
 			nameColumn,
 			{
 				label: "Level",
-				expression: createEntityPropertyExpression(slug, "level"),
+				expression: createTransformExpression(
+					"titleCase",
+					createEntityPropertyExpression(slug, "level"),
+				),
 			},
 			{
 				label: "Equipment",
-				expression: createEntityPropertyExpression(slug, "equipment"),
+				expression: createTransformExpression(
+					"titleCase",
+					createEntityPropertyExpression(slug, "equipment"),
+				),
 			},
 		])
 		.with("collection", () => [nameColumn])
@@ -203,8 +215,14 @@ const createEntityCardConfig = (slug?: string): EntityCardConfig => {
 	if (slug === "exercise") {
 		return {
 			secondarySubtitleProperty: buildSecondarySubtitleForSlug(slug),
-			calloutProperty: createEntityPropertyExpression(slug, "level"),
-			primarySubtitleProperty: createEntityPropertyExpression(slug, "lot"),
+			calloutProperty: createTransformExpression(
+				"titleCase",
+				createEntityPropertyExpression(slug, "level"),
+			),
+			primarySubtitleProperty: createTransformExpression(
+				"titleCase",
+				createEntityPropertyExpression(slug, "lot"),
+			),
 		};
 	}
 	return {
