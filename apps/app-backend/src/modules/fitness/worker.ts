@@ -18,7 +18,7 @@ const IMAGES_PREFIX_URL =
 const GITHUB_EXERCISES_URL =
 	"https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/dist/exercises.json";
 
-const categoryToLot = (category: string): string | null => {
+const categoryToKind = (category: string): string | null => {
 	const lower = category.toLowerCase();
 	if (lower === "cardio") {
 		return "distance_and_duration";
@@ -82,8 +82,8 @@ export const buildExerciseSeedEntityValues = (
 	now: Date,
 ) => {
 	const category = ex.category as string | undefined;
-	const lot = category ? categoryToLot(category) : null;
-	if (!lot) {
+	const kind = category ? categoryToKind(category) : null;
+	if (!kind) {
 		return {
 			status: "skipped" as const,
 			reason: `unrecognized category: ${category}`,
@@ -109,7 +109,7 @@ export const buildExerciseSeedEntityValues = (
 	const muscles = Array.from(new Set([...primaryMuscles, ...secondaryMuscles]));
 
 	const properties = parseExerciseProperties({
-		lot,
+		kind,
 		images,
 		muscles,
 		source: "github",
