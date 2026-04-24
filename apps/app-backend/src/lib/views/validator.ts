@@ -164,7 +164,8 @@ export const validateExpressionAgainstSchemas = (
 	if (
 		expression.type === "round" ||
 		expression.type === "floor" ||
-		expression.type === "integer"
+		expression.type === "integer" ||
+		expression.type === "transform"
 	) {
 		validateExpressionAgainstSchemas(
 			expression.expression,

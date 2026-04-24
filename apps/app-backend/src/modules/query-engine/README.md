@@ -259,6 +259,7 @@ Supported expression nodes:
 - `integer`
 - `concat`
 - `conditional`
+- `transform`
 
 Conditional expressions use `whenTrue` and `whenFalse`:
 
@@ -311,6 +312,38 @@ String composition example:
       "reference": { "type": "entity", "slug": "book", "path": ["name"] }
     }
   ]
+}
+```
+
+String transform examples:
+
+Transform expressions apply a named string transformation to the inner expression.
+Supported transforms: `titleCase`, `kebabCase`.
+
+- `titleCase` normalizes underscores and hyphens to spaces, then capitalizes the first letter of each word (`reps_and_weight` → `Reps And Weight`).
+- `kebabCase` normalizes underscores and spaces to hyphens and lowercases (`Reps And Weight` → `reps-and-weight`).
+
+The inner expression must be concat-compatible (scalars only — images, arrays, and objects are rejected).
+
+```json
+{
+  "type": "transform",
+  "name": "titleCase",
+  "expression": {
+    "type": "reference",
+    "reference": { "type": "entity", "slug": "exercise", "path": ["properties", "lot"] }
+  }
+}
+```
+
+```json
+{
+  "type": "transform",
+  "name": "kebabCase",
+  "expression": {
+    "type": "reference",
+    "reference": { "type": "entity", "slug": "exercise", "path": ["properties", "equipment"] }
+  }
 }
 ```
 
