@@ -1,14 +1,16 @@
 import { describe, expect, it } from "bun:test";
 import type { AppSchema } from "@ryot/ts-utils";
+import {
+	createComputedFieldExpression,
+	createEntityPropertyExpression,
+} from "@ryot/ts-utils";
 import { PgDialect } from "drizzle-orm/pg-core";
 import {
 	comparisonPredicate as comparison,
-	computedExpression,
 	createSmartphoneSchema,
 	createTabletSchema,
 	eventExpression,
 	literalExpression,
-	schemaPropertyExpression,
 } from "~/lib/test-fixtures";
 import type { ViewComputedField } from "~/lib/views/expression";
 import type { ViewPredicate } from "~/lib/views/filtering";
@@ -90,7 +92,7 @@ describe("buildFilterWhereClause", () => {
 	it("builds comparison predicates for schema properties", () => {
 		const clause = serializeClause(
 			comparison(
-				schemaPropertyExpression("smartphones", "manufacturer"),
+				createEntityPropertyExpression("smartphones", "manufacturer"),
 				"eq",
 				literalExpression("Apple"),
 			),
@@ -104,7 +106,7 @@ describe("buildFilterWhereClause", () => {
 	it("casts integer comparisons before evaluation", () => {
 		const clause = serializeClause(
 			comparison(
-				schemaPropertyExpression("smartphones", "releaseYear"),
+				createEntityPropertyExpression("smartphones", "releaseYear"),
 				"eq",
 				literalExpression(2023),
 			),
@@ -139,14 +141,14 @@ describe("buildFilterWhereClause", () => {
 	it("supports computed-field references inside predicates", () => {
 		const clause = serializeClause(
 			comparison(
-				computedExpression("makerLabel"),
+				createComputedFieldExpression("makerLabel"),
 				"eq",
 				literalExpression("Apple"),
 			),
 			[
 				{
 					key: "makerLabel",
-					expression: schemaPropertyExpression("smartphones", "manufacturer"),
+					expression: createEntityPropertyExpression("smartphones", "manufacturer"),
 				},
 			],
 		);
@@ -161,7 +163,7 @@ describe("buildFilterWhereClause", () => {
 			type: "and",
 			predicates: [
 				comparison(
-					schemaPropertyExpression("smartphones", "releaseYear"),
+					createEntityPropertyExpression("smartphones", "releaseYear"),
 					"gte",
 					literalExpression(2020),
 				),
@@ -169,12 +171,12 @@ describe("buildFilterWhereClause", () => {
 					type: "or",
 					predicates: [
 						comparison(
-							schemaPropertyExpression("smartphones", "manufacturer"),
+							createEntityPropertyExpression("smartphones", "manufacturer"),
 							"eq",
 							literalExpression("Apple"),
 						),
 						comparison(
-							schemaPropertyExpression("tablets", "maker"),
+							createEntityPropertyExpression("tablets", "maker"),
 							"eq",
 							literalExpression("Apple"),
 						),
@@ -191,11 +193,11 @@ describe("buildFilterWhereClause", () => {
 	it("builds null-check predicates", () => {
 		const nullClause = serializeClause({
 			type: "isNull",
-			expression: schemaPropertyExpression("smartphones", "manufacturer"),
+			expression: createEntityPropertyExpression("smartphones", "manufacturer"),
 		});
 		const notNullClause = serializeClause({
 			type: "isNotNull",
-			expression: schemaPropertyExpression("smartphones", "manufacturer"),
+			expression: createEntityPropertyExpression("smartphones", "manufacturer"),
 		});
 
 		expect(nullClause.sql.toLowerCase()).toContain(" is null");
@@ -205,7 +207,7 @@ describe("buildFilterWhereClause", () => {
 	it("builds in predicates with expression values", () => {
 		const clause = serializeClause({
 			type: "in",
-			expression: schemaPropertyExpression("smartphones", "manufacturer"),
+			expression: createEntityPropertyExpression("smartphones", "manufacturer"),
 			values: [literalExpression("Apple"), literalExpression("Samsung")],
 		});
 
@@ -217,7 +219,7 @@ describe("buildFilterWhereClause", () => {
 	it("builds contains predicates for string expressions", () => {
 		const clause = serializeClause({
 			type: "contains",
-			expression: schemaPropertyExpression("smartphones", "manufacturer"),
+			expression: createEntityPropertyExpression("smartphones", "manufacturer"),
 			value: literalExpression("Apple"),
 		});
 
@@ -228,7 +230,7 @@ describe("buildFilterWhereClause", () => {
 	it("builds contains predicates for array expressions", () => {
 		const clause = serializeClause({
 			type: "contains",
-			expression: schemaPropertyExpression("smartphones", "tags"),
+			expression: createEntityPropertyExpression("smartphones", "tags"),
 			value: literalExpression("sci-fi"),
 		});
 
@@ -239,7 +241,7 @@ describe("buildFilterWhereClause", () => {
 	it("treats jsonb null object expressions as null for null checks", () => {
 		const clause = serializeClause({
 			type: "isNull",
-			expression: schemaPropertyExpression("smartphones", "metadata"),
+			expression: createEntityPropertyExpression("smartphones", "metadata"),
 		});
 
 		expect(clause.sql.toLowerCase()).toContain("nullif");

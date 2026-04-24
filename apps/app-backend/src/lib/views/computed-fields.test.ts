@@ -1,5 +1,6 @@
 import { describe, expect, it } from "bun:test";
-import { computedExpression, literalExpression } from "~/lib/test-fixtures";
+import { createComputedFieldExpression } from "@ryot/ts-utils";
+import { literalExpression } from "~/lib/test-fixtures";
 import {
 	buildComputedFieldMap,
 	getComputedFieldDependencies,
@@ -11,13 +12,13 @@ describe("computed fields", () => {
 		expect(
 			getComputedFieldDependencies({
 				type: "conditional",
-				whenTrue: computedExpression("label"),
+				whenTrue: createComputedFieldExpression("label"),
 				whenFalse: literalExpression(null),
 				condition: {
 					operator: "gte",
 					type: "comparison",
 					right: literalExpression(4),
-					left: computedExpression("score"),
+					left: createComputedFieldExpression("score"),
 				},
 			}),
 		).toEqual(["score", "label"]);
@@ -26,8 +27,8 @@ describe("computed fields", () => {
 	it("orders nested computed fields in dependency order", () => {
 		expect(
 			orderComputedFields([
-				{ key: "summary", expression: computedExpression("label") },
-				{ key: "label", expression: computedExpression("base") },
+				{ key: "summary", expression: createComputedFieldExpression("label") },
+				{ key: "label", expression: createComputedFieldExpression("base") },
 				{ key: "base", expression: literalExpression("Alpha") },
 			]).map((field) => field.key),
 		).toEqual(["base", "label", "summary"]);
@@ -45,9 +46,9 @@ describe("computed fields", () => {
 	it("rejects dependency cycles with the full path", () => {
 		expect(() =>
 			orderComputedFields([
-				{ key: "first", expression: computedExpression("second") },
-				{ key: "second", expression: computedExpression("third") },
-				{ key: "third", expression: computedExpression("first") },
+				{ key: "first", expression: createComputedFieldExpression("second") },
+				{ key: "second", expression: createComputedFieldExpression("third") },
+				{ key: "third", expression: createComputedFieldExpression("first") },
 			]),
 		).toThrow(
 			"Computed field dependency cycle detected: first -> second -> third -> first",
