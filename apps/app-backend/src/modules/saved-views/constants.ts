@@ -188,12 +188,12 @@ const createEntityCardConfig = (slug?: string): EntityCardConfig => {
 		};
 	}
 	return {
+		secondarySubtitleProperty: buildSecondarySubtitleForSlug(slug),
 		calloutProperty: createEntityPropertyExpression(slug, "providerRating"),
 		primarySubtitleProperty: createEntityPropertyExpression(
 			slug,
 			"publishYear",
 		),
-		secondarySubtitleProperty: buildSecondarySubtitleForSlug(slug),
 	};
 };
 
