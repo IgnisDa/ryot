@@ -331,7 +331,7 @@ The inner expression must be concat-compatible (scalars only — images, arrays,
   "name": "titleCase",
   "expression": {
     "type": "reference",
-    "reference": { "type": "entity", "slug": "exercise", "path": ["properties", "lot"] }
+    "reference": { "type": "entity", "slug": "exercise", "path": ["properties", "kind"] }
   }
 }
 ```
