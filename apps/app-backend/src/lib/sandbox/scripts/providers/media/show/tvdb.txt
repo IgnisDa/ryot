@@ -7,7 +7,6 @@ function parseJsonResponse(responseBody) {
 }
 
 const TVDB_BASE_URL = "https://api4.thetvdb.com/v4";
-const PAGE_SIZE = 20;
 const TOKEN_CACHE_KEY = "tvdb_access_token";
 
 async function getTvdbApiKey() {
@@ -239,16 +238,22 @@ driver("search", async function (context) {
     throw new Error("query is required");
   }
 
+  const pageSize =
+    Number.isFinite(Number(context?.pageSize)) &&
+    Number(context.pageSize) > 0 &&
+    Number(context.pageSize) <= 100
+      ? Math.floor(Number(context.pageSize))
+      : 20;
   const currentPage = Number.isFinite(Number(context?.page))
     ? Math.max(1, Math.floor(Number(context.page)))
     : 1;
-  const offset = (currentPage - 1) * PAGE_SIZE;
+  const offset = (currentPage - 1) * pageSize;
 
   const data = await tvdbGet("/search", {
     query,
     type: "series",
     offset: String(offset),
-    limit: String(PAGE_SIZE),
+    limit: String(pageSize),
   });
 
   const results = Array.isArray(data?.data) ? data.data : [];
