@@ -65,6 +65,14 @@ export class InternalError extends Schema.TaggedError<InternalError>()("Internal
 	message: Schema.String,
 }) {}
 
+export class SandboxRunError extends Schema.TaggedError<SandboxRunError>()("SandboxRunError", {
+	message: Schema.String,
+}) {}
+
+export class TimeoutError extends Schema.TaggedError<TimeoutError>()("TimeoutError", {
+	message: Schema.String,
+}) {}
+
 // TODO: Temporary marker error returned from all skeleton route handlers.
 // Remove module by module as behavior is migrated.
 export class NotImplemented extends Schema.TaggedError<NotImplemented>()("NotImplemented", {
