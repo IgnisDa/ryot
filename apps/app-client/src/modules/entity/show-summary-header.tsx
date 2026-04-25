@@ -86,12 +86,12 @@ function ShowIdentityLine(props: { readonly show: ShowSummary }) {
 	const { show } = props;
 	const release = showReleaseLabel(show);
 	return (
-		<Text className="font-ui text-[13px] text-text-muted">
+		<Text className="font-ui text-[13px] text-text">
 			{SHOW_TYPE_LABEL}
 			{show.providerName === null ? null : (
 				<>
 					{" • "}
-					<Text className="text-accent-text">{show.providerName}</Text>
+					<Text className="font-ui-medium">{show.providerName}</Text>
 				</>
 			)}
 			{release === undefined ? null : ` • ${release}`}
@@ -107,13 +107,17 @@ function ShowDescription(props: {
 	return (
 		<View className="gap-1 pt-1">
 			<Text
-				className="font-ui text-[14px] leading-6 text-text-muted"
+				className="font-ui text-[14px] leading-6 text-text"
 				numberOfLines={props.isExpanded ? undefined : DESCRIPTION_CLAMP}
 			>
 				{props.text}
 			</Text>
 			<View className="items-start">
-				<ShowLinkButton label={props.isExpanded ? "Less" : "More"} onPress={props.onToggle} />
+				<ShowLinkButton
+					tone="plain"
+					onPress={props.onToggle}
+					label={props.isExpanded ? "Less" : "More"}
+				/>
 			</View>
 		</View>
 	);
