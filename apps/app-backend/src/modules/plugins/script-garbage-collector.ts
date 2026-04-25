@@ -1,5 +1,4 @@
-import { FileSystem, Path } from "@effect/platform";
-import { Effect, Option, Ref } from "effect";
+import { Context, Effect, Layer, Option, Ref, FileSystem, Path } from "effect";
 
 import { TransactionRunner } from "#lib/infrastructure/db/service";
 import { garbageCollectSandboxCompiledModules } from "#lib/infrastructure/sandbox-runtime/compiled-modules";
@@ -9,10 +8,10 @@ import { SandboxWorkflowReferenceRepository } from "#modules/sandbox/workflow-re
 import { PluginLoader } from "./loader";
 import { PluginRepository } from "./repository";
 
-export class ScriptGarbageCollector extends Effect.Service<ScriptGarbageCollector>()(
+export class ScriptGarbageCollector extends Context.Service<ScriptGarbageCollector>()(
 	"ScriptGarbageCollector",
 	{
-		effect: Effect.gen(function* () {
+		make: Effect.gen(function* () {
 			const path = yield* Path.Path;
 			const loader = yield* PluginLoader;
 			const fs = yield* FileSystem.FileSystem;
@@ -80,4 +79,6 @@ export class ScriptGarbageCollector extends Effect.Service<ScriptGarbageCollecto
 			return { collect, recordKernelContentHashes };
 		}),
 	},
-) {}
+) {
+	static readonly layer = Layer.effect(this, this.make);
+}

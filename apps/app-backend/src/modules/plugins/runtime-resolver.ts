@@ -15,7 +15,7 @@ import {
 } from "@ryot/contract/schema/brands";
 import type { PluginProviderOperation } from "@ryot/plugin-kit/manifest";
 import { and, desc, eq, isNotNull, isNull } from "drizzle-orm";
-import { Data, Effect, Layer } from "effect";
+import { Context, Data, Effect, Layer } from "effect";
 
 import * as schema from "#lib/infrastructure/db/schema/tables/combined";
 import { CurrentDb, dbEffect } from "#lib/infrastructure/db/service";
@@ -123,10 +123,10 @@ export const findActiveWorkflowScriptInSnapshot = (
 		: Effect.succeed(null);
 };
 
-export class PluginRuntimeResolver extends Effect.Service<PluginRuntimeResolver>()(
+export class PluginRuntimeResolver extends Context.Service<PluginRuntimeResolver>()(
 	"PluginRuntimeResolver",
 	{
-		effect: Effect.gen(function* () {
+		make: Effect.gen(function* () {
 			const loader = yield* PluginLoader;
 
 			const findActiveScript = Effect.fn("PluginRuntimeResolver.findActiveScript")(function* (
@@ -701,8 +701,10 @@ export class PluginRuntimeResolver extends Effect.Service<PluginRuntimeResolver>
 			};
 		}),
 	},
-) {}
+) {
+	static readonly layer = Layer.effect(this, this.make);
+}
 
-export const PluginRuntimeResolverLive = PluginRuntimeResolver.Default.pipe(
+export const PluginRuntimeResolverLive = PluginRuntimeResolver.layer.pipe(
 	Layer.provideMerge(PluginLoaderLive),
 );

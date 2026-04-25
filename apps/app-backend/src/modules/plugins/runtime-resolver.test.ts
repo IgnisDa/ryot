@@ -1,7 +1,7 @@
 import { expect, it } from "@effect/vitest";
 import { SandboxProviderId, SandboxScriptId } from "@ryot/contract/schema/brands";
 import type { PluginManifest } from "@ryot/plugin-kit/manifest";
-import { Cause, Deferred, Effect, Exit, Fiber, Layer, Option, Runtime } from "effect";
+import { Cause, Deferred, Effect, Exit, Fiber, Layer, Option } from "effect";
 import { assert } from "vitest";
 
 import * as schema from "#lib/infrastructure/db/schema/tables/combined";
@@ -251,10 +251,10 @@ const makeLayer = (
 			}),
 		}),
 	};
-	return PluginRuntimeResolver.Default.pipe(
+	return PluginRuntimeResolver.layer.pipe(
 		Layer.provideMerge(
 			Layer.mergeAll(
-				Layer.succeed(PluginLoader, { _tag: "PluginLoader", ...loader }),
+				Layer.succeed(PluginLoader, { ...loader }),
 				Layer.succeed(CurrentDb, Object.assign(Object.create(null), db)),
 			),
 		),
@@ -378,7 +378,7 @@ it.effect("returns a contextual typed failure for an unsupported operation", () 
 		const resolver = yield* PluginRuntimeResolver;
 		const exit = yield* Effect.exit(resolver.resolveTranslateScript(providerId));
 		assert(Exit.isFailure(exit));
-		const error = Option.getOrThrow(Cause.failureOption(exit.cause));
+		const error = Option.getOrThrow(Cause.findErrorOption(exit.cause));
 		expect(error).toBeInstanceOf(UnsupportedProviderOperationError);
 		expect(error).toMatchObject({
 			providerId,
@@ -395,12 +395,11 @@ it.effect(
 		Effect.gen(function* () {
 			const selected = yield* Deferred.make<void>();
 			const release = yield* Deferred.make<void>();
-			const runtime = yield* Effect.runtime();
+			const runtime = yield* Effect.context();
 			const loader = makePluginLoader(makeDefinitionRegistry());
 			loader.load(normalizedPlugin());
 			let snapshotReads = 0;
 			const countedLoader = {
-				_tag: "PluginLoader" as const,
 				...loader,
 				getSnapshot: () => {
 					snapshotReads += 1;
@@ -413,9 +412,9 @@ it.effect(
 						where: () => ({
 							limit: () => {
 								if (table === schema.sandboxProvider) {
-									return Runtime.runPromise(runtime)(
+									return Effect.runPromiseWith(runtime)(
 										Deferred.succeed(selected, undefined).pipe(
-											Effect.zipRight(Deferred.await(release)),
+											Effect.andThen(Deferred.await(release)),
 										),
 									).then(() => [providerRow]);
 								}
@@ -425,7 +424,7 @@ it.effect(
 					}),
 				}),
 			};
-			const layer = PluginRuntimeResolver.Default.pipe(
+			const layer = PluginRuntimeResolver.layer.pipe(
 				Layer.provideMerge(
 					Layer.mergeAll(
 						Layer.succeed(PluginLoader, countedLoader),
@@ -433,7 +432,7 @@ it.effect(
 					),
 				),
 			);
-			const fiber = yield* Effect.fork(
+			const fiber = yield* Effect.forkChild(
 				Effect.gen(function* () {
 					const resolver = yield* PluginRuntimeResolver;
 					return yield* resolver.resolveDetailsScript(providerId);
