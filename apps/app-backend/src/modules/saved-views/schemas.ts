@@ -116,6 +116,7 @@ export type SavedViewQueryDefinition = z.infer<
 
 export const listedSavedViewSchema = z.object({
 	id: z.string(),
+	slug: z.string(),
 	name: z.string(),
 	...timestampFields,
 	isBuiltin: z.boolean(),
@@ -148,7 +149,7 @@ export const createSavedViewBody = z.object(savedViewMutableFields);
 
 export const savedViewResponseSchema = itemDataSchema(listedSavedViewSchema);
 
-export const savedViewParams = createIdParamsSchema("viewId");
+export const savedViewParams = createIdParamsSchema("viewSlug");
 
 export const updateSavedViewBody = z.object({
 	isDisabled: z.boolean(),
@@ -157,13 +158,13 @@ export const updateSavedViewBody = z.object({
 
 export const reorderSavedViewsBody = z.object({
 	trackerId: nonEmptyTrimmedStringSchema.optional(),
-	viewIds: createUniqueNonEmptyTrimmedStringArraySchema({
-		duplicateMessage: "Saved view ids must be unique",
+	viewSlugs: createUniqueNonEmptyTrimmedStringArraySchema({
+		duplicateMessage: "Saved view slugs must be unique",
 	}),
 });
 
 export const reorderSavedViewsResponseSchema = itemDataSchema(
-	z.object({ viewIds: z.array(z.string()) }),
+	z.object({ viewSlugs: z.array(z.string()) }),
 );
 
 export type ListedSavedView = z.infer<typeof listedSavedViewSchema>;
