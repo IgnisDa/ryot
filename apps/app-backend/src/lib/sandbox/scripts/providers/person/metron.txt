@@ -1,0 +1,184 @@
+function parseJsonResponse(responseBody) {
+  try {
+    return JSON.parse(responseBody);
+  } catch {
+    throw new Error("Metron returned invalid JSON");
+  }
+}
+
+function getString(value) {
+  if (typeof value !== "string") {
+    return null;
+  }
+
+  const trimmed = value.trim();
+  return trimmed ? trimmed : null;
+}
+
+function getIdentifier(value) {
+  if (typeof value === "number" && Number.isFinite(value)) {
+    return String(Math.trunc(value));
+  }
+  if (typeof value === "string" && value.trim()) {
+    return value.trim();
+  }
+
+  return null;
+}
+
+function parseYear(value) {
+  const date = getString(value);
+  if (!date) {
+    return null;
+  }
+
+  const yearToken = date.slice(0, 4);
+  if (!/^\d{4}$/.test(yearToken)) {
+    return null;
+  }
+
+  const year = Number(yearToken);
+  return Number.isFinite(year) ? year : null;
+}
+
+async function getMetronCredentials() {
+  const usernameResponse = await getAppConfigValue("COMIC_BOOK_METRON_USERNAME");
+  if (!usernameResponse?.success) {
+    throw new Error(
+      usernameResponse?.error ?? "Could not load Metron username",
+    );
+  }
+
+  const passwordResponse = await getAppConfigValue("COMIC_BOOK_METRON_PASSWORD");
+  if (!passwordResponse?.success) {
+    throw new Error(
+      passwordResponse?.error ?? "Could not load Metron password",
+    );
+  }
+
+  const username = getString(usernameResponse.data);
+  const password = getString(passwordResponse.data);
+  if (!username || !password) {
+    throw new Error("Metron credentials are not configured");
+  }
+
+  return { username, password };
+}
+
+async function loadMetronJson(url, errorPrefix) {
+  const credentials = await getMetronCredentials();
+  const response = await httpCall("GET", url, {
+    headers: {
+      Authorization: `Basic ${btoa(`${credentials.username}:${credentials.password}`)}`,
+    },
+  });
+
+  if (!response?.success) {
+    throw new Error(response?.error ?? `${errorPrefix} request failed`);
+  }
+
+  return parseJsonResponse(response.data.body);
+}
+
+driver("search", async function(context) {
+  const pageSize =
+    Number.isFinite(Number(context?.pageSize)) &&
+    Number(context.pageSize) > 0 &&
+    Number(context.pageSize) <= 100
+      ? Math.floor(Number(context.pageSize))
+      : 20;
+  const currentPage = Number.isFinite(Number(context?.page))
+    ? Math.max(1, Math.floor(Number(context.page)))
+    : 1;
+  const query = typeof context?.query === "string" ? context.query.trim() : "";
+
+  if (!query) {
+    throw new Error("query is required");
+  }
+
+  const params = new URLSearchParams({
+    name: query,
+    page: String(currentPage),
+    page_size: String(pageSize),
+  });
+
+  const payload = await loadMetronJson(
+    `https://metron.cloud/api/creator/?${params.toString()}`,
+    "Metron creator search",
+  );
+
+  const totalItems =
+    typeof payload?.count === "number" && Number.isFinite(payload.count)
+      ? Math.max(0, Math.trunc(payload.count))
+      : 0;
+
+  const creators = Array.isArray(payload?.results) ? payload.results : [];
+  const items = creators
+    .map((creator) => {
+      const identifier = getIdentifier(creator?.id);
+      const name = getString(creator?.name);
+      if (!identifier || !name) {
+        return null;
+      }
+
+      const image = getString(creator?.image);
+      const birthYear = parseYear(creator?.birth);
+
+      return {
+        identifier,
+        badgeProperty: { kind: "null", value: null },
+        titleProperty: { kind: "text", value: name },
+        subtitleProperty:
+          birthYear === null
+            ? { kind: "null", value: null }
+            : { kind: "number", value: birthYear },
+        imageProperty:
+          image === null
+            ? { kind: "null", value: null }
+            : { kind: "image", value: { kind: "remote", url: image } },
+      };
+    })
+    .filter((item) => item !== null);
+
+  return {
+    items,
+    details: {
+      totalItems,
+      nextPage: currentPage * pageSize < totalItems ? currentPage + 1 : null,
+    },
+  };
+});
+
+driver("details", async function(context) {
+  const identifier = typeof context?.identifier === "string" ? context.identifier.trim() : "";
+  if (!identifier) {
+    throw new Error("identifier is required");
+  }
+
+  const payload = await loadMetronJson(
+    `https://metron.cloud/api/creator/${encodeURIComponent(identifier)}/`,
+    "Metron creator details",
+  );
+
+  const name = getString(payload?.name);
+  if (!name) {
+    throw new Error("Metron creator payload is missing name");
+  }
+
+  const image = getString(payload?.image);
+
+  return {
+    name,
+    properties: {
+      gender: null,
+      website: null,
+      birthPlace: null,
+      alternateNames: [],
+      description: getString(payload?.desc),
+      birthDate: getString(payload?.birth),
+      deathDate: getString(payload?.death),
+      sourceUrl: `https://metron.cloud/creator/${identifier}`,
+      assets: { remoteImages: image ? [image] : [] },
+    },
+  };
+});
