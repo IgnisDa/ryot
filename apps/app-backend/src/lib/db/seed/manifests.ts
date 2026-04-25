@@ -1,4 +1,4 @@
-import type { AppConfigEnvKey } from "~/lib/config";
+import type { AppConfigPath } from "~/lib/config";
 import anilistAnimeScriptCode from "~/lib/sandbox/scripts/providers/media/anime/anilist.txt";
 import myanimelistAnimeScriptCode from "~/lib/sandbox/scripts/providers/media/anime/myanimelist.txt";
 import audibleAudiobookScriptCode from "~/lib/sandbox/scripts/providers/media/audiobook/audible.txt";
@@ -48,7 +48,7 @@ type BuiltinScriptEntry = {
 	slug: string;
 	code: string;
 	metadata: {
-		requiredAppConfigKeys?: Array<AppConfigEnvKey>;
+		requiredAppConfigKeys?: Array<AppConfigPath>;
 		allowedHostFunctions: typeof BUILTIN_ALLOWED_HOST_FUNCTIONS;
 	};
 };
@@ -57,7 +57,7 @@ const script = (
 	name: string,
 	slug: string,
 	code: string,
-	requiredAppConfigKeys?: Array<AppConfigEnvKey>,
+	requiredAppConfigKeys?: Array<AppConfigPath>,
 ): BuiltinScriptEntry => ({
 	name,
 	slug,
@@ -84,63 +84,63 @@ export const builtinSandboxScripts = (): BuiltinScriptEntry[] => [
 	script("YouTube Music", "music.youtube-music", youtubeMusicScriptCode),
 	script("YouTube Music", "person.youtube-music", youtubeMusicPersonScriptCode),
 	script("Hardcover", "book.hardcover", hardcoverBookScriptCode, [
-		"BOOKS_HARDCOVER_API_KEY",
+		"books.hardcover.apiKey",
 	]),
 	script("Hardcover", "person.hardcover", hardcoverPersonScriptCode, [
-		"BOOKS_HARDCOVER_API_KEY",
+		"books.hardcover.apiKey",
 	]),
 	script("Google Books", "book.google-book", googleBooksBookScriptCode, [
-		"BOOKS_GOOGLE_BOOKS_API_KEY",
+		"books.googleBooks.apiKey",
 	]),
 	script("ListenNotes", "podcast.listennotes", listennotesPodcastScriptCode, [
-		"PODCASTS_LISTENNOTES_API_KEY",
+		"podcasts.listenNotes.apiKey",
 	]),
 	script("GiantBomb", "video-game.giant-bomb", giantBombVideoGameScriptCode, [
-		"VIDEO_GAMES_GIANT_BOMB_API_KEY",
+		"videoGames.giantBomb.apiKey",
 	]),
 	script("TMDB", "movie.tmdb", tmdbMovieScriptCode, [
-		"MOVIES_AND_SHOWS_TMDB_ACCESS_TOKEN",
+		"moviesAndShows.tmdb.accessToken",
 	]),
 	script("TMDB", "show.tmdb", tmdbShowScriptCode, [
-		"MOVIES_AND_SHOWS_TMDB_ACCESS_TOKEN",
+		"moviesAndShows.tmdb.accessToken",
 	]),
 	script("TMDB", "person.tmdb", tmdbPersonScriptCode, [
-		"MOVIES_AND_SHOWS_TMDB_ACCESS_TOKEN",
+		"moviesAndShows.tmdb.accessToken",
 	]),
 	script("TVDB", "movie.tvdb", tvdbMovieScriptCode, [
-		"MOVIES_AND_SHOWS_TVDB_API_KEY",
+		"moviesAndShows.tvdb.apiKey",
 	]),
 	script("TVDB", "show.tvdb", tvdbShowScriptCode, [
-		"MOVIES_AND_SHOWS_TVDB_API_KEY",
+		"moviesAndShows.tvdb.apiKey",
 	]),
 	script("TVDB", "person.tvdb", tvdbPersonScriptCode, [
-		"MOVIES_AND_SHOWS_TVDB_API_KEY",
+		"moviesAndShows.tvdb.apiKey",
 	]),
 	script("MyAnimeList", "anime.myanimelist", myanimelistAnimeScriptCode, [
-		"ANIME_AND_MANGA_MAL_CLIENT_ID",
+		"animeAndManga.mal.clientId",
 	]),
 	script("MyAnimeList", "manga.myanimelist", myanimelistMangaScriptCode, [
-		"ANIME_AND_MANGA_MAL_CLIENT_ID",
+		"animeAndManga.mal.clientId",
 	]),
 	script("Metron", "comic-book.metron", metronComicBookScriptCode, [
-		"COMIC_BOOK_METRON_USERNAME",
-		"COMIC_BOOK_METRON_PASSWORD",
+		"comicBooks.metron.username",
+		"comicBooks.metron.password",
 	]),
 	script("Metron", "person.metron", metronPersonScriptCode, [
-		"COMIC_BOOK_METRON_USERNAME",
-		"COMIC_BOOK_METRON_PASSWORD",
+		"comicBooks.metron.username",
+		"comicBooks.metron.password",
 	]),
 	script("Spotify", "music.spotify", spotifyMusicScriptCode, [
-		"MUSIC_SPOTIFY_CLIENT_ID",
-		"MUSIC_SPOTIFY_CLIENT_SECRET",
+		"music.spotify.clientId",
+		"music.spotify.clientSecret",
 	]),
 	script("Spotify", "person.spotify", spotifyPersonScriptCode, [
-		"MUSIC_SPOTIFY_CLIENT_ID",
-		"MUSIC_SPOTIFY_CLIENT_SECRET",
+		"music.spotify.clientId",
+		"music.spotify.clientSecret",
 	]),
 	script("IGDB", "video-game.igdb", igdbVideoGameScriptCode, [
-		"VIDEO_GAMES_TWITCH_CLIENT_ID",
-		"VIDEO_GAMES_TWITCH_CLIENT_SECRET",
+		"videoGames.twitch.clientId",
+		"videoGames.twitch.clientSecret",
 	]),
 ];
 
