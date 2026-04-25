@@ -41,6 +41,7 @@ export const seedInitialDatabase = async (database: DbClient) => {
 				code: script.code,
 				name: script.name,
 				slug: script.slug,
+				metadata: script.metadata,
 			});
 			scriptIds.set(script.slug, scriptId);
 		}
