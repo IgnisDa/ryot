@@ -4,7 +4,7 @@
 
 **Type:** AFK
 
-**Status:** todo
+**Status:** done
 
 ## What to build
 
@@ -14,12 +14,12 @@ This slice should support basic event E2E coverage and unblock collections and i
 
 ## Acceptance criteria
 
-- [ ] Authenticated users can create events for accessible entities and event schemas
-- [ ] Authenticated users can list events for accessible entities
-- [ ] Event properties validate against the selected event schema
-- [ ] Session entity references are validated when supplied
-- [ ] Basic event creation avoids running before/after sandbox triggers in this slice
-- [ ] Basic events E2E tests pass through the Effect client
+- [x] Authenticated users can create events for accessible entities and event schemas
+- [x] Authenticated users can list events for accessible entities
+- [x] Event properties validate against the selected event schema
+- [x] Session entity references are validated when supplied
+- [x] Basic event creation avoids running before/after sandbox triggers in this slice
+- [x] Basic events E2E tests pass through the Effect client
 
 ## User stories addressed
 
