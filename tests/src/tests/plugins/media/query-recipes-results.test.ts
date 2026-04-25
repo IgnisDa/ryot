@@ -166,7 +166,18 @@ describe("Media RyotQL query recipe results", () => {
 						name: `Season ${seasonNumber}`,
 						entitySchemaSlug: showSeasonSchemaId,
 						externalId: `query-recipe-season-${seasonNumber}-${suffix}`,
-						properties: { seasonNumber, description: null, releaseDate: null },
+						properties: {
+							seasonNumber,
+							releaseDate: `2024-0${seasonNumber}-01`,
+							description: `Season ${seasonNumber} overview`,
+							images: [
+								{
+									type: "remote",
+									purpose: "cover",
+									url: `https://images.test/season-${seasonNumber}.jpg`,
+								},
+							],
+						},
 					}),
 				),
 			);
@@ -183,8 +194,15 @@ describe("Media RyotQL query recipe results", () => {
 								runtime: 40,
 								seasonNumber,
 								episodeNumber,
-								publishDate: null,
-								description: null,
+								publishDate: `2024-0${seasonNumber}-0${episodeNumber}`,
+								description: `Season ${seasonNumber} episode ${episodeNumber} synopsis`,
+								images: [
+									{
+										type: "remote",
+										purpose: "still",
+										url: `https://images.test/episode-${seasonNumber}-${episodeNumber}.jpg`,
+									},
+								],
 							},
 						}),
 					),
@@ -281,6 +299,20 @@ describe("Media RyotQL query recipe results", () => {
 			assertPresent(secondSeasonEpisodeResult, "Expected second-season episode result");
 			expect(firstEpisodeResult.name).toBe("Season 1 Episode 1");
 			expect(firstEpisodeResult.state).toBe("complete");
+			expect(firstSeasonResult).toMatchObject({
+				seasonNumber: 1,
+				releaseDate: "2024-01-01",
+				description: "Season 1 overview",
+				images: [{ type: "remote", purpose: "cover", url: "https://images.test/season-1.jpg" }],
+			});
+			expect(firstEpisodeResult).toMatchObject({
+				runtime: 40,
+				seasonNumber: 1,
+				episodeNumber: 1,
+				publishDate: "2024-01-01",
+				description: "Season 1 episode 1 synopsis",
+				images: [{ type: "remote", purpose: "still", url: "https://images.test/episode-1-1.jpg" }],
+			});
 			expect(secondSeasonEpisodeResult.name).toBe("Season 2 Episode 1");
 			expect(secondSeasonEpisodeResult.state).toBe("untracked");
 			expect(firstEpisodeResult).not.toHaveProperty("hasProgress");
