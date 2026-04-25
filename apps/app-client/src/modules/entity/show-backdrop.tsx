@@ -4,7 +4,7 @@ import { View } from "react-native";
 import { withPageAlpha } from "@/modules/theme/page-background-color";
 import { usePageBackgroundColor } from "@/modules/theme/use-page-background-color";
 import { RemoteImage } from "@/modules/ui/image-with-fallback";
-import { resolveAssetUrl } from "@/modules/ui/managed-assets";
+import { useManagedAssetUrl } from "@/modules/ui/managed-asset-context";
 
 import { showBackdropAsset, type ShowSummary } from "./show-summary-state";
 
@@ -12,13 +12,10 @@ const SCRIM_OPACITY = 0.7;
 
 const SCRIM_HOLD_STOP = 0.35;
 
-export function ShowBackdrop(props: {
-	readonly show: ShowSummary;
-	readonly managedUrls: ReadonlyMap<string, string>;
-}) {
+export function ShowBackdrop(props: { readonly show: ShowSummary }) {
 	const background = usePageBackgroundColor();
 	const asset = showBackdropAsset(props.show);
-	const url = asset ? resolveAssetUrl(asset, props.managedUrls) : undefined;
+	const url = useManagedAssetUrl(asset);
 	if (!url) {
 		return null;
 	}
