@@ -208,7 +208,6 @@ export function WorkspaceDrawer(props: {
 						<WorkspaceSheet
 							onSelect={selectWorkspace}
 							data={props.navigation.data}
-							items={props.navigation.items}
 							onClose={() => setSheet(null)}
 							currentWorkspaceSlug={props.navigation.workspace.slug}
 						/>
