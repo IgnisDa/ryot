@@ -130,5 +130,4 @@ describe("appApiCall", () => {
 			apiFailure("appApiCall cannot target /api/auth routes"),
 		);
 	});
-
 });

@@ -19,6 +19,7 @@ const listedEntityDefaults: ListedEntity = {
 	entitySchemaId: "schema_1",
 	createdAt: createCreatedAt(),
 	updatedAt: createUpdatedAt(),
+	populatedAt: createCreatedAt(),
 	properties: { title: "My Book" },
 };
 
