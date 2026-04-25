@@ -4,28 +4,10 @@ import type { CurrentUserValue } from "../../lib/auth";
 import { DbRunner, TransactionRunner } from "../../lib/db";
 import { BadRequest, badRequest, conflict, notFound } from "../../lib/errors";
 import { buildReorderedIds } from "../../lib/reorder";
+import { slugify } from "../../lib/slug";
+import { trimToNull } from "../../lib/validation";
 import { TrackersRepository } from "./repository";
 import type { CreateTrackerBody, ReorderTrackersBody, UpdateTrackerBody } from "./schemas";
-
-const normalizeSlug = (value: string): string =>
-	value
-		.replaceAll("_", "-")
-		.trim()
-		.toLowerCase()
-		.replace(/\s+/g, "-")
-		.replace(/[^a-z0-9-]/g, "")
-		.replace(/-+/g, "-")
-		.replace(/^-+|-+$/g, "");
-
-const resolveRequiredText = (value: string) => {
-	const trimmed = value.trim();
-	return trimmed.length > 0 ? trimmed : null;
-};
-
-const resolveRequiredTrackerId = (trackerId: string) => {
-	const resolvedTrackerId = trackerId.trim();
-	return resolvedTrackerId.length > 0 ? resolvedTrackerId : null;
-};
 
 const resolveOptionalDescription = (description: string | undefined) => {
 	if (description === undefined) {
@@ -37,13 +19,13 @@ const resolveOptionalDescription = (description: string | undefined) => {
 };
 
 const resolveCreatePayload = (payload: CreateTrackerBody) => {
-	const name = resolveRequiredText(payload.name);
-	const icon = resolveRequiredText(payload.icon);
-	const accentColor = resolveRequiredText(payload.accentColor);
+	const name = trimToNull(payload.name);
+	const icon = trimToNull(payload.icon);
+	const accentColor = trimToNull(payload.accentColor);
 	const description = resolveOptionalDescription(payload.description);
 
 	const candidate = payload.slug?.trim() ?? name;
-	const slug = candidate ? normalizeSlug(candidate) : null;
+	const slug = candidate ? slugify(candidate) : null;
 
 	if (!name) {
 		return badRequest("Tracker name is required");
@@ -93,13 +75,13 @@ const resolveUpdatePayload = (input: {
 	}
 
 	const name =
-		input.payload.name === undefined ? input.current.name : resolveRequiredText(input.payload.name);
+		input.payload.name === undefined ? input.current.name : trimToNull(input.payload.name);
 	const icon =
-		input.payload.icon === undefined ? input.current.icon : resolveRequiredText(input.payload.icon);
+		input.payload.icon === undefined ? input.current.icon : trimToNull(input.payload.icon);
 	const accentColor =
 		input.payload.accentColor === undefined
 			? input.current.accentColor
-			: resolveRequiredText(input.payload.accentColor);
+			: trimToNull(input.payload.accentColor);
 
 	if (!name) {
 		return badRequest("Tracker name is required");
@@ -175,7 +157,7 @@ export class TrackersService extends Effect.Service<TrackersService>()("Trackers
 				}),
 			update: (user: CurrentUserValue, trackerId: string, payload: UpdateTrackerBody) =>
 				Effect.gen(function* () {
-					const resolvedTrackerId = resolveRequiredTrackerId(trackerId);
+					const resolvedTrackerId = trimToNull(trackerId);
 					if (!resolvedTrackerId) {
 						return yield* badRequest("Tracker id is required");
 					}

@@ -1,28 +1,26 @@
 import { and, eq, isNull, or } from "drizzle-orm";
-import { Effect, Either, Schema } from "effect";
+import { Effect } from "effect";
 
 import { CurrentDb, dbEffect, schema } from "../../lib/db";
-import { DbError } from "../../lib/errors";
-import { AppSchema } from "../../lib/schema";
+import type { DbError } from "../../lib/errors";
+import { decodeStoredAppSchema } from "../../lib/schema";
 import type { RelationshipSchemaScope } from "./schemas";
 
 type Row = typeof schema.relationshipSchema.$inferSelect;
 
 const toScope = (row: Row): Effect.Effect<RelationshipSchemaScope, DbError> =>
 	Effect.gen(function* () {
-		const decoded = Schema.decodeUnknownEither(AppSchema)(row.propertiesSchema);
-		if (Either.isLeft(decoded)) {
-			return yield* new DbError({
-				message: `Invalid propertiesSchema for relationship schema ${row.id}`,
-			});
-		}
+		const propertiesSchema = yield* decodeStoredAppSchema(
+			row.propertiesSchema,
+			`Invalid propertiesSchema for relationship schema ${row.id}`,
+		);
 
 		return {
 			id: row.id,
 			slug: row.slug,
 			name: row.name,
+			propertiesSchema,
 			isBuiltin: row.isBuiltin,
-			propertiesSchema: decoded.right,
 			sourceEntitySchemaId: row.sourceEntitySchemaId ?? null,
 			targetEntitySchemaId: row.targetEntitySchemaId ?? null,
 		};
