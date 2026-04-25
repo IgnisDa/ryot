@@ -185,9 +185,9 @@ const createBuiltinSavedViews = (
 					name: view.name,
 					isBuiltin: true,
 					slug: view.slug,
+					queryDefinition,
 					trackerId: tracker?.id ?? null,
-					queryDefinition: queryDefinition as Record<string, unknown>,
-					displayConfiguration: view.displayConfiguration as Record<string, unknown>,
+					displayConfiguration: view.displayConfiguration,
 				},
 			];
 		});

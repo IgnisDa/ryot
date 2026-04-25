@@ -3,8 +3,11 @@ import { Schema } from "effect";
 
 import { AuthMiddleware } from "../../lib/auth";
 import { NotFound, NotImplemented, RateLimited, Unauthorized } from "../../lib/errors";
+import { importRunStatuses, type ImportRunStatus as ImportRunStatusType } from "./types";
 
-const ImportRunStatus = Schema.Literal("pending", "running", "completed", "failed");
+export const ImportRunStatus = Schema.Literal(...importRunStatuses);
+
+export type ImportRunStatus = ImportRunStatusType;
 
 export const ListedImportRun = Schema.Struct({
 	id: Schema.String,
@@ -38,8 +41,8 @@ const DetailedImportRun = Schema.Struct({
 	updatedAt: Schema.String,
 	failedItems: Schema.Number,
 	importedItems: Schema.Number,
-	processedItems: Schema.Number,
 	inputSummary: Schema.Unknown,
+	processedItems: Schema.Number,
 	startedAt: Schema.optional(Schema.String),
 	finishedAt: Schema.optional(Schema.String),
 	totalItems: Schema.optional(Schema.Number),

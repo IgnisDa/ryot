@@ -5,23 +5,27 @@ import { CurrentDb, dbEffect, schema } from "../../lib/db";
 import { DbError } from "../../lib/errors";
 import type { CollectionResponse, MembershipRelationship } from "./schemas";
 
-type CollectionEventSchema = {
-	readonly id: string;
-	readonly name: string;
-	readonly slug: string;
-};
+type CollectionEventSchema = Pick<typeof schema.eventSchema.$inferSelect, "id" | "name" | "slug">;
 
 type CollectionSchema = {
-	readonly id: string;
-	readonly entitySchemaId: string;
+	readonly id: (typeof schema.entitySchema.$inferSelect)["id"];
+	readonly entitySchemaId: (typeof schema.entitySchema.$inferSelect)["id"];
 	readonly propertiesSchema: Record<string, unknown>;
 };
 
-type EntityForMembership = {
-	readonly id: string;
-	readonly userId: string | null;
-	readonly entitySchemaSlug: string;
+type EntityForMembership = Pick<typeof schema.entity.$inferSelect, "id" | "userId"> & {
+	readonly entitySchemaSlug: (typeof schema.entitySchema.$inferSelect)["slug"];
 };
+
+type CollectionRow = Pick<
+	typeof schema.entity.$inferSelect,
+	"id" | "name" | "createdAt" | "updatedAt" | "properties" | "entitySchemaId"
+>;
+
+type MembershipRow = Pick<
+	typeof schema.relationship.$inferSelect,
+	"id" | "createdAt" | "properties" | "sourceEntityId" | "targetEntityId" | "relationshipSchemaId"
+>;
 
 type MembershipWithInsertedFlag = MembershipRelationship & {
 	readonly wasInserted: boolean;
@@ -46,14 +50,7 @@ const membershipSelection = {
 	wasInserted: sql<boolean>`(xmax = '0'::xid)`,
 };
 
-const toCollectionResponse = (row: {
-	id: string;
-	name: string;
-	createdAt: Date;
-	updatedAt: Date;
-	entitySchemaId: string;
-	properties: Record<string, unknown>;
-}): CollectionResponse => ({
+const toCollectionResponse = (row: CollectionRow): CollectionResponse => ({
 	id: row.id,
 	name: row.name,
 	properties: row.properties,
@@ -62,14 +59,7 @@ const toCollectionResponse = (row: {
 	updatedAt: row.updatedAt.toISOString(),
 });
 
-const toMembershipRelationship = (row: {
-	id: string;
-	createdAt: Date;
-	sourceEntityId: string;
-	targetEntityId: string;
-	relationshipSchemaId: string;
-	properties: Record<string, unknown>;
-}): MembershipRelationship => ({
+const toMembershipRelationship = (row: MembershipRow): MembershipRelationship => ({
 	id: row.id,
 	properties: row.properties,
 	sourceEntityId: row.sourceEntityId,

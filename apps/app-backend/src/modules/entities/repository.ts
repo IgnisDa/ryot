@@ -7,29 +7,25 @@ import type { AppSchema } from "../../lib/schema";
 import { decodeStoredAppSchema } from "../../lib/schema";
 import type { ListedEntity } from "./schemas";
 
-type EntityImage = Record<string, unknown> | null;
+type EntityRow = Pick<
+	typeof schema.entity.$inferSelect,
+	| "id"
+	| "name"
+	| "image"
+	| "createdAt"
+	| "updatedAt"
+	| "properties"
+	| "externalId"
+	| "populatedAt"
+	| "entitySchemaId"
+	| "sandboxScriptId"
+>;
 
-type EntityRow = {
-	readonly id: string;
-	readonly name: string;
-	readonly createdAt: Date;
-	readonly updatedAt: Date;
-	readonly image: EntityImage;
-	readonly entitySchemaId: string;
-	readonly populatedAt: Date | null;
-	readonly externalId: string | null;
-	readonly sandboxScriptId: string | null;
-	readonly properties: Record<string, unknown>;
-};
-
-type RelationshipRow = {
-	readonly id: string;
-	readonly createdAt: Date;
+type RelationshipRow = Pick<
+	typeof schema.relationship.$inferSelect,
+	"id" | "createdAt" | "properties" | "sourceEntityId" | "targetEntityId" | "relationshipSchemaId"
+> & {
 	readonly wasInserted: boolean;
-	readonly sourceEntityId: string;
-	readonly targetEntityId: string;
-	readonly relationshipSchemaId: string;
-	readonly properties: Record<string, unknown>;
 };
 
 export type EntitySchemaScope = {
@@ -148,7 +144,7 @@ const entitySchemaVisibleToUserClause = (userId: string) =>
 const entityVisibleToUserClause = (userId: string) =>
 	or(isNull(schema.entity.userId), eq(schema.entity.userId, userId));
 
-const imageToUrl = (image: EntityImage) => {
+const imageToUrl = (image: EntityRow["image"]) => {
 	if (!image || typeof image !== "object") {
 		return null;
 	}
