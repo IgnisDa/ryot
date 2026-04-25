@@ -107,7 +107,7 @@ export function ShowActionButton(props: {
 			onPress={props.onPress}
 			accessibilityRole="button"
 			className={clsx(
-				"h-8 flex-1 items-center justify-center rounded-md md:w-full md:flex-none",
+				"h-12 flex-1 items-center justify-center rounded-md md:h-8 md:w-full md:flex-none",
 				isPrimary ? "bg-accent" : "border border-border bg-surface-2",
 			)}
 		>
