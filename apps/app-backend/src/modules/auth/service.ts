@@ -2,11 +2,12 @@ import { apiKey } from "@better-auth/api-key";
 import { runWithAdapter } from "@better-auth/core/context";
 import { expo } from "@better-auth/expo";
 import { redisStorage } from "@better-auth/redis-storage";
-import { HttpServerRequest } from "@effect/platform";
 import {
+	AdminAccess,
 	AdminMiddleware,
 	AuthMiddleware,
 	type CachedUserPreferences,
+	CurrentUser,
 	defaultUserPreferences,
 	normalizeUserPreferences,
 } from "@ryot/contract/auth-middleware";
@@ -15,7 +16,8 @@ import { UserId } from "@ryot/contract/schema/brands";
 import { betterAuth } from "better-auth";
 import { drizzleAdapter } from "better-auth/adapters/drizzle";
 import { genericOAuth, twoFactor } from "better-auth/plugins";
-import { Context, Effect, Layer, Option, Redacted, Runtime, Schema } from "effect";
+import { Context, Effect, Layer, Option, Redacted, Schema } from "effect";
+import { HttpServerRequest } from "effect/unstable/http";
 import type Redis from "ioredis";
 
 import { AppConfig, type AppConfigValue, isOidcEnabled } from "#lib/infrastructure/config/service";
@@ -34,16 +36,16 @@ import { gateSessionCreation } from "./session-gate";
 
 const schema = { ...schemaAuth, ...schemaTables, ...schemaRelations };
 
-export class AuthUserBootstrap extends Context.Tag("AuthUserBootstrap")<
+export class AuthUserBootstrap extends Context.Service<
 	AuthUserBootstrap,
 	{ run: (userId: string) => Effect.Effect<void, unknown> }
->() {}
+>()("AuthUserBootstrap") {}
 
 const makeAuthInstance = (args: {
 	readonly db: DbRoot;
 	readonly redis: Redis;
 	readonly config: AppConfigValue;
-	readonly runtime: Runtime.Runtime<DbService | RedisService | TransactionRunner>;
+	readonly runtime: Context.Context<DbService | RedisService | TransactionRunner>;
 	readonly bootstrapNewUser: (userId: string) => Effect.Effect<void, unknown>;
 }) => {
 	const corsOrigins = Option.match(args.config.server.corsOrigins, {
@@ -58,11 +60,11 @@ const makeAuthInstance = (args: {
 	const oidcEnabled = isOidcEnabled(args.config);
 
 	const runBootstrapForSession = (userId: string) =>
-		Runtime.runPromise(args.runtime)(
+		Effect.runPromiseWith(args.runtime)(
 			args
 				.bootstrapNewUser(userId)
 				.pipe(
-					Effect.tapErrorCause((cause) =>
+					Effect.tapCause((cause) =>
 						Effect.logError("session bootstrap rerun failed", cause).pipe(
 							Effect.annotateLogs({ userId }),
 						),
@@ -105,7 +107,7 @@ const makeAuthInstance = (args: {
 			revokeSessionsOnPasswordReset: true,
 			disableSignUp: !args.config.users.allowRegistration || args.config.users.disableLocalAuth,
 			sendResetPassword: ({ user, token }) =>
-				Runtime.runPromise(args.runtime)(
+				Effect.runPromiseWith(args.runtime)(
 					Effect.gen(function* () {
 						const pendingKey = redisKeys.godModePendingReset(user.email);
 						const correlationId = yield* Effect.tryPromise(() => args.redis.get(pendingKey));
@@ -114,7 +116,9 @@ const makeAuthInstance = (args: {
 						}
 						const resetUrl = `${args.config.frontendUrl}/reset-password?token=${token}`;
 						const channel = redisKeys.godModeResetChannel(correlationId);
-						const message = yield* Schema.encode(Schema.parseJson(Schema.Unknown))({
+						const message = yield* Schema.encodeUnknownEffect(
+							Schema.fromJsonString(Schema.Unknown),
+						)({
 							email: user.email,
 							resetUrl,
 						});
@@ -128,7 +132,7 @@ const makeAuthInstance = (args: {
 							),
 						);
 					}).pipe(
-						Effect.catchAllCause((cause) =>
+						Effect.catchCause((cause) =>
 							Effect.logError("reset password delivery failed", cause).pipe(
 								Effect.annotateLogs({ email: user.email }),
 							),
@@ -143,11 +147,11 @@ const makeAuthInstance = (args: {
 			user: {
 				create: {
 					after: (user) =>
-						Runtime.runPromise(args.runtime)(
+						Effect.runPromiseWith(args.runtime)(
 							args
 								.bootstrapNewUser(user.id)
 								.pipe(
-									Effect.catchAllCause((cause) =>
+									Effect.catchCause((cause) =>
 										Effect.logError("user bootstrap failed", cause).pipe(
 											Effect.annotateLogs({ userId: user.id }),
 										),
@@ -201,13 +205,13 @@ const isAPIError = (
 ): error is { body?: { code?: string; details?: { tryAgainIn?: number } } } =>
 	typeof error === "object" && error !== null && "body" in error;
 
-export class AuthService extends Effect.Service<AuthService>()("AuthService", {
-	effect: Effect.gen(function* () {
+export class AuthService extends Context.Service<AuthService>()("AuthService", {
+	make: Effect.gen(function* () {
 		const db = yield* DbService;
 		const config = yield* AppConfig;
 		const redis = yield* RedisService;
 		const userBootstrap = yield* AuthUserBootstrap;
-		const runtime = yield* Effect.runtime<DbService | RedisService | TransactionRunner>();
+		const runtime = yield* Effect.context<DbService | RedisService | TransactionRunner>();
 		const auth = makeAuthInstance({
 			config,
 			runtime,
@@ -350,7 +354,9 @@ export class AuthService extends Effect.Service<AuthService>()("AuthService", {
 				),
 		};
 	}),
-}) {}
+}) {
+	static readonly layer = Layer.effect(this, this.make);
+}
 
 export const AuthMiddlewareLive = Layer.effect(
 	AuthMiddleware,
@@ -360,7 +366,7 @@ export const AuthMiddlewareLive = Layer.effect(
 		const resolveFromRequest = Effect.gen(function* () {
 			const request = yield* HttpServerRequest.HttpServerRequest;
 			const user = yield* auth.currentUser(new Headers(request.headers));
-			const span = yield* Effect.optionFromOptional(Effect.currentSpan);
+			const span = yield* Effect.catchNoSuchElement(Effect.currentSpan);
 			yield* Effect.annotateLogsScoped(
 				Option.isSome(span)
 					? { userId: user.id, traceId: span.value.traceId }
@@ -372,7 +378,16 @@ export const AuthMiddlewareLive = Layer.effect(
 		const resolveWithToken = (token: Redacted.Redacted) =>
 			Redacted.value(token) === "" ? Effect.fail(unauthorized()) : resolveFromRequest;
 
-		return { cookie: resolveWithToken, apiKey: resolveWithToken };
+		return {
+			cookie: (httpEffect, { credential }) =>
+				Effect.flatMap(resolveWithToken(credential), (user) =>
+					Effect.provideService(httpEffect, CurrentUser, user),
+				),
+			apiKey: (httpEffect, { credential }) =>
+				Effect.flatMap(resolveWithToken(credential), (user) =>
+					Effect.provideService(httpEffect, CurrentUser, user),
+				),
+		};
 	}),
 );
 
@@ -382,10 +397,10 @@ export const AdminMiddlewareLive = Layer.effect(
 		const config = yield* AppConfig;
 
 		return {
-			adminToken: (token) => {
-				const value = Redacted.value(token);
+			adminToken: (httpEffect, { credential }) => {
+				const value = Redacted.value(credential);
 				return value !== "" && value === Redacted.value(config.server.adminAccessToken)
-					? Effect.succeed({ authorized: true as const })
+					? Effect.provideService(httpEffect, AdminAccess, { authorized: true as const })
 					: Effect.fail(unauthorized());
 			},
 		};
