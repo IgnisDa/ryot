@@ -24,7 +24,7 @@ type UpdateUserPreferences = (
 ) => Effect.Effect<void>;
 
 const makeServiceLayer = (updateUserPreferences: UpdateUserPreferences = () => Effect.void) =>
-	UserPreferencesService.Default.pipe(
+	UserPreferencesService.layer.pipe(
 		Layer.provide(
 			Layer.succeed(AuthService, Object.assign(Object.create(null), { updateUserPreferences })),
 		),

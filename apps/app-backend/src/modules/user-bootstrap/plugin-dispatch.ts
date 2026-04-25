@@ -1,7 +1,7 @@
 import { SandboxRunError } from "@ryot/contract/errors";
 import type { SandboxExecutionPayload } from "@ryot/contract/modules/sandbox/schemas";
 import type { UserId } from "@ryot/contract/schema/brands";
-import { Effect } from "effect";
+import { Context, Effect, Layer } from "effect";
 
 import { DbRunner } from "#lib/infrastructure/db/service";
 import { SandboxService } from "#lib/infrastructure/sandbox-runtime/service";
@@ -84,10 +84,10 @@ export const makePluginUserBootstrapDispatcher = (
 		return { dispatchAll };
 	});
 
-export class PluginUserBootstrapDispatcher extends Effect.Service<PluginUserBootstrapDispatcher>()(
+export class PluginUserBootstrapDispatcher extends Context.Service<PluginUserBootstrapDispatcher>()(
 	"PluginUserBootstrapDispatcher",
 	{
-		effect: Effect.gen(function* () {
+		make: Effect.gen(function* () {
 			const runWithDb = yield* DbRunner;
 			const loader = yield* PluginLoader;
 			const sandbox = yield* SandboxService;
@@ -106,4 +106,6 @@ export class PluginUserBootstrapDispatcher extends Effect.Service<PluginUserBoot
 			);
 		}),
 	},
-) {}
+) {
+	static readonly layer = Layer.effect(this, this.make);
+}
