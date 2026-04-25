@@ -1,0 +1,298 @@
+function parseJsonResponse(responseBody) {
+  try {
+    return JSON.parse(responseBody);
+  } catch {
+    throw new Error("TVDB returned invalid JSON");
+  }
+}
+
+const TVDB_BASE_URL = "https://api4.thetvdb.com/v4";
+const PAGE_SIZE = 20;
+const TOKEN_CACHE_KEY = "tvdb_access_token";
+
+async function getTvdbApiKey() {
+  const resp = await getAppConfigValue("MOVIES_AND_SHOWS_TVDB_API_KEY");
+  if (!resp?.success) {
+    throw new Error(resp?.error ?? "Failed to retrieve TVDB API key");
+  }
+  const key = typeof resp.data === "string" ? resp.data.trim() : null;
+  if (!key) {
+    throw new Error(
+      "TVDB API key is not configured. Set MOVIES_AND_SHOWS_TVDB_API_KEY in your environment.",
+    );
+  }
+  return key;
+}
+
+async function getTvdbAccessToken() {
+  const cached = await getCachedValue(TOKEN_CACHE_KEY);
+  if (cached?.success && typeof cached.data === "string" && cached.data) {
+    return cached.data;
+  }
+
+  const apiKey = await getTvdbApiKey();
+  const response = await httpCall("POST", `${TVDB_BASE_URL}/login`, {
+    body: JSON.stringify({ apikey: apiKey }),
+    headers: { "Content-Type": "application/json" },
+  });
+
+  if (!response?.success) {
+    throw new Error(response?.error ?? "TVDB login request failed");
+  }
+
+  const payload = parseJsonResponse(response.data.body);
+  if (payload?.status !== "success" || !payload?.data?.token) {
+    throw new Error("TVDB login returned no token");
+  }
+
+  const accessToken = `Bearer ${payload.data.token}`;
+  // TVDB tokens are valid for 30 days; cache for 23 hours as a safety buffer.
+  const cacheResult = await setCachedValue(TOKEN_CACHE_KEY, accessToken, 23 * 60 * 60);
+  if (!cacheResult?.success) {
+    console.warn(`TVDB token cache write failed: ${cacheResult?.error}`);
+  }
+
+  return accessToken;
+}
+
+async function tvdbGet(path, params) {
+  const token = await getTvdbAccessToken();
+  const query =
+    params && Object.keys(params).length > 0
+      ? `?${new URLSearchParams(params).toString()}`
+      : "";
+  const url = `${TVDB_BASE_URL}${path}${query}`;
+  const response = await httpCall("GET", url, {
+    headers: { Authorization: token },
+  });
+
+  if (!response?.success) {
+    throw new Error(response?.error ?? `TVDB request failed: ${path}`);
+  }
+
+  const payload = parseJsonResponse(response.data.body);
+  if (payload?.status && payload.status !== "success") {
+    throw new Error(`TVDB API error: ${payload.message ?? payload.status}`);
+  }
+
+  return payload;
+}
+
+function parsePublishYear(str) {
+  if (typeof str !== "string" || !str.trim()) {
+    return null;
+  }
+  const yearToken = str.trim().slice(0, 4);
+  if (!/^\d{4}$/.test(yearToken)) {
+    return null;
+  }
+  const year = Number(yearToken);
+  return Number.isFinite(year) && year > 0 ? year : null;
+}
+
+function collectImages(mainImage, imageUrl, artworks) {
+  const seen = new Set();
+  const images = [];
+
+  const addImage = (url) => {
+    if (typeof url === "string" && url.trim() && !seen.has(url)) {
+      seen.add(url);
+      images.push(url);
+    }
+  };
+
+  addImage(mainImage);
+  addImage(imageUrl);
+
+  if (Array.isArray(artworks)) {
+    for (const art of artworks) {
+      addImage(art?.image);
+    }
+  }
+
+  return images;
+}
+
+function collectGenres(genresArray) {
+  if (!Array.isArray(genresArray)) {
+    return [];
+  }
+  return genresArray
+    .map((g) => (typeof g?.name === "string" ? g.name.trim() : ""))
+    .filter((name) => name.length > 0);
+}
+
+function collectFreeCreators(characters) {
+  if (!Array.isArray(characters)) {
+    return [];
+  }
+
+  const seen = new Set();
+  const creators = [];
+
+  for (const chr of characters.slice(0, 20)) {
+    const name =
+      typeof chr?.personName === "string" ? chr.personName.trim() : "";
+    if (!name) {
+      continue;
+    }
+    const role =
+      typeof chr?.peopleType === "string" && chr.peopleType.trim()
+        ? chr.peopleType.trim()
+        : "Cast";
+    const key = `${name}:${role}`;
+    if (seen.has(key)) {
+      continue;
+    }
+    seen.add(key);
+    creators.push({ name, role });
+  }
+
+  return creators;
+}
+
+driver("search", async function (context) {
+  const query =
+    typeof context?.query === "string" ? context.query.trim() : "";
+  if (!query) {
+    throw new Error("query is required");
+  }
+
+  const currentPage = Number.isFinite(Number(context?.page))
+    ? Math.max(1, Math.floor(Number(context.page)))
+    : 1;
+  const offset = (currentPage - 1) * PAGE_SIZE;
+
+  const data = await tvdbGet("/search", {
+    query,
+    type: "movie",
+    offset: String(offset),
+    limit: String(PAGE_SIZE),
+  });
+
+  const results = Array.isArray(data?.data) ? data.data : [];
+  const totalItems =
+    typeof data?.links?.total_items === "number" &&
+    Number.isFinite(data.links.total_items)
+      ? data.links.total_items
+      : results.length + offset;
+  const hasNext = data?.links?.next != null;
+
+  const items = results
+    .map((item) => {
+      const id =
+        typeof item?.tvdb_id === "string" && item.tvdb_id.trim()
+          ? item.tvdb_id.trim()
+          : null;
+      if (!id) {
+        return null;
+      }
+
+      const title =
+        typeof item?.name === "string" && item.name.trim()
+          ? item.name.trim()
+          : typeof item?.title === "string" && item.title.trim()
+          ? item.title.trim()
+          : null;
+      if (!title) {
+        return null;
+      }
+
+      const imageUrl = item?.poster ?? item?.image_url ?? null;
+      const image = typeof imageUrl === "string" && imageUrl.trim() ? imageUrl.trim() : null;
+
+      return {
+        identifier: id,
+        badgeProperty: { kind: "null", value: null },
+        titleProperty: { kind: "text", value: title },
+        subtitleProperty: { kind: "null", value: null },
+        imageProperty:
+          image === null
+            ? { kind: "null", value: null }
+            : { kind: "image", value: { kind: "remote", url: image } },
+      };
+    })
+    .filter((item) => item !== null);
+
+  return {
+    items,
+    details: {
+      totalItems,
+      nextPage: hasNext ? currentPage + 1 : null,
+    },
+  };
+});
+
+driver("details", async function (context) {
+  const identifier =
+    typeof context?.identifier === "string" ? context.identifier.trim() : "";
+  if (!identifier) {
+    throw new Error("identifier is required");
+  }
+
+  if (!/^\d+$/.test(identifier)) {
+    throw new Error("identifier must be a numeric TVDB movie ID");
+  }
+
+  const data = await tvdbGet(`/movies/${identifier}/extended`);
+  const movie = data?.data;
+  if (!movie) {
+    throw new Error("TVDB returned no data for this movie");
+  }
+
+  const title =
+    typeof movie?.name === "string" && movie.name.trim()
+      ? movie.name.trim()
+      : typeof movie?.title === "string" && movie.title.trim()
+      ? movie.title.trim()
+      : null;
+  if (!title) {
+    throw new Error("TVDB returned no title for this movie");
+  }
+
+  const remoteImages = collectImages(movie?.image, movie?.image_url, movie?.artworks);
+  const genres = collectGenres(movie?.genres);
+  const freeCreators = collectFreeCreators(movie?.characters);
+
+  const firstAired =
+    typeof movie?.firstAired === "string" && movie.firstAired.trim()
+      ? movie.firstAired.trim()
+      : null;
+
+  const publishYear =
+    parsePublishYear(typeof movie?.year === "string" ? movie.year : null) ??
+    parsePublishYear(firstAired);
+
+  const runtime =
+    typeof movie?.averageRuntime === "number" &&
+    Number.isFinite(movie.averageRuntime) &&
+    movie.averageRuntime > 0
+      ? Math.trunc(movie.averageRuntime)
+      : null;
+
+  const slug =
+    typeof movie?.slug === "string" && movie.slug.trim()
+      ? movie.slug.trim()
+      : null;
+  const sourceUrl = slug ? `https://thetvdb.com/movies/${slug}` : null;
+
+  return {
+    name: title,
+    externalId: identifier,
+    properties: {
+      runtime,
+      genres,
+      isNsfw: null,
+      providerRating: null,
+      publishYear,
+      freeCreators,
+      description:
+        typeof movie?.overview === "string" && movie.overview.trim()
+          ? movie.overview.trim()
+          : null,
+      productionStatus: null,
+      assets: { remoteImages },
+      sourceUrl,
+    },
+  };
+});
