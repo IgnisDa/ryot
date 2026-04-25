@@ -126,6 +126,7 @@ CREATE TABLE "relationship_schema" (
 );
 --> statement-breakpoint
 CREATE TABLE "sandbox_script" (
+	"metadata" jsonb,
 	"slug" text NOT NULL,
 	"name" text NOT NULL,
 	"code" text NOT NULL,
