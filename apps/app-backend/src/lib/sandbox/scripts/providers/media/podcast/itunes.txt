@@ -28,24 +28,18 @@ function getPositiveInt(value) {
   return parsed !== null && parsed > 0 ? parsed : null;
 }
 
-function getNullableDate(value) {
-  const parsed = getNullableString(value);
-  if (!parsed) {
-    return null;
-  }
-
-  const date = new Date(parsed);
-  return Number.isNaN(date.getTime()) ? null : date;
+function getPublishYear(value, dayjs) {
+  const s = getNullableString(value);
+  if (!s) return null;
+  const d = dayjs(s);
+  return d.isValid() ? Number(d.toISOString().slice(0, 4)) : null;
 }
 
-function getPublishYear(value) {
-  const date = getNullableDate(value);
-  return date ? date.getUTCFullYear() : null;
-}
-
-function getIsoDate(value) {
-  const date = getNullableDate(value);
-  return date ? date.toISOString().slice(0, 10) : null;
+function getIsoDate(value, dayjs) {
+  const s = getNullableString(value);
+  if (!s) return null;
+  const d = dayjs(s);
+  return d.isValid() ? d.toISOString().slice(0, 10) : null;
 }
 
 function collectImages(item) {
@@ -113,20 +107,15 @@ async function searchItunes(params) {
 }
 
 driver("search", async function(context) {
-  const query = typeof context?.query === "string" ? context.query.trim() : "";
-  if (!query) {
-    throw new Error("query is required");
-  }
+  const { z } = await import("npm:zod");
+  const dayjs = (await import("npm:dayjs")).default;
 
-  const pageSize =
-    Number.isFinite(Number(context?.pageSize)) &&
-    Number(context.pageSize) > 0 &&
-    Number(context.pageSize) <= 100
-      ? Math.floor(Number(context.pageSize))
-      : 20;
-  const currentPage = Number.isFinite(Number(context?.page))
-    ? Math.max(1, Math.floor(Number(context.page)))
-    : 1;
+  const { query, page: currentPage, pageSize } = z.object({
+    query: z.string().trim().min(1, "query is required"),
+    page: z.coerce.number().min(1).transform(Math.floor).catch(1),
+    pageSize: z.coerce.number().min(1).max(100).transform(Math.floor).catch(20),
+  }).parse(context ?? {});
+
   const resultLimit = Math.min(currentPage * pageSize, 200);
 
   const payload = await searchItunes({
@@ -153,7 +142,7 @@ driver("search", async function(context) {
       }
 
       const image = collectImages(item)[0] ?? null;
-      const publishYear = getPublishYear(item?.releaseDate);
+      const publishYear = getPublishYear(item?.releaseDate, dayjs);
 
       return {
         identifier,
@@ -181,11 +170,12 @@ driver("search", async function(context) {
 });
 
 driver("details", async function(context) {
-  const identifier =
-    typeof context?.identifier === "string" ? context.identifier.trim() : "";
-  if (!identifier) {
-    throw new Error("identifier is required");
-  }
+  const { z } = await import("npm:zod");
+  const dayjs = (await import("npm:dayjs")).default;
+
+  const { identifier } = z.object({
+    identifier: z.string().trim().min(1, "identifier is required"),
+  }).parse(context ?? {});
 
   const detailsPayload = await lookup({
     id: identifier,
@@ -231,7 +221,7 @@ driver("details", async function(context) {
     .map((episode) => {
       const id = String(episode?.trackId ?? "").trim();
       const episodeTitle = getString(episode?.trackName);
-      const publishDate = getIsoDate(episode?.releaseDate);
+      const publishDate = getIsoDate(episode?.releaseDate, dayjs);
       if (!id || !episodeTitle || !publishDate) {
         return null;
       }
@@ -265,7 +255,7 @@ driver("details", async function(context) {
     .map((episode, index) => ({ ...episode, number: index + 1 }));
 
   const image = collectImages(podcast);
-  const publishYear = getPublishYear(podcast?.releaseDate);
+  const publishYear = getPublishYear(podcast?.releaseDate, dayjs);
 
   return {
     name: title,

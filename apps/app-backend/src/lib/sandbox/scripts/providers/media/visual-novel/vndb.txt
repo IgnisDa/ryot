@@ -7,17 +7,10 @@ function parseJsonResponse(responseBody) {
 }
 
 // VNDB partial dates are "YYYY-MM-DD", "YYYY-MM", or "YYYY".
-// We only need the four-digit year prefix.
-function extractYear(released) {
-  if (typeof released !== "string" || !released.trim()) {
-    return null;
-  }
-  const yearToken = released.trim().slice(0, 4);
-  if (!/^\d{4}$/.test(yearToken)) {
-    return null;
-  }
-  const year = Number(yearToken);
-  return Number.isFinite(year) ? year : null;
+function extractYear(released, dayjs) {
+  if (typeof released !== "string" || !released.trim()) return null;
+  const d = dayjs(released.trim());
+  return d.isValid() ? d.year() : null;
 }
 
 function devstatusToString(devstatus) {
@@ -70,21 +63,14 @@ const DETAIL_FIELDS =
   "length_minutes,tags.name,devstatus,description,rating";
 
 driver("search", async function (context) {
-  const pageSize =
-    Number.isFinite(Number(context?.pageSize)) &&
-    Number(context.pageSize) > 0 &&
-    Number(context.pageSize) <= 100
-      ? Math.floor(Number(context.pageSize))
-      : 20;
-  const currentPage = Number.isFinite(Number(context?.page))
-    ? Math.max(1, Math.floor(Number(context.page)))
-    : 1;
-  const query =
-    typeof context?.query === "string" ? context.query.trim() : "";
+  const { z } = await import("npm:zod");
+  const dayjs = (await import("npm:dayjs")).default;
 
-  if (!query) {
-    throw new Error("query is required");
-  }
+  const { query, page: currentPage, pageSize } = z.object({
+    query: z.string().trim().min(1, "query is required"),
+    page: z.coerce.number().min(1).transform(Math.floor).catch(1),
+    pageSize: z.coerce.number().min(1).max(100).transform(Math.floor).catch(20),
+  }).parse(context ?? {});
 
   const response = await httpCall("POST", `${BASE_URL}/vn`, {
     headers: {
@@ -133,7 +119,7 @@ driver("search", async function (context) {
         return null;
       }
 
-      const publishYear = extractYear(vn.released);
+      const publishYear = extractYear(vn.released, dayjs);
       const image =
         vn.image &&
         typeof vn.image === "object" &&
@@ -168,14 +154,12 @@ driver("search", async function (context) {
 });
 
 driver("details", async function (context) {
-  const identifier =
-    typeof context?.identifier === "string"
-      ? context.identifier.trim()
-      : "";
+  const { z } = await import("npm:zod");
+  const dayjs = (await import("npm:dayjs")).default;
 
-  if (!identifier) {
-    throw new Error("identifier is required");
-  }
+  const { identifier } = z.object({
+    identifier: z.string().trim().min(1, "identifier is required"),
+  }).parse(context ?? {});
 
   if (!/^v\d+$/.test(identifier)) {
     throw new Error(
@@ -289,7 +273,7 @@ driver("details", async function (context) {
       productionStatus,
       lengthMinutes,
       assets: { remoteImages },
-      publishYear: extractYear(vn.released),
+      publishYear: extractYear(vn.released, dayjs),
       sourceUrl: `https://vndb.org/${identifier}`,
       people,
     },
