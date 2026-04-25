@@ -1,5 +1,4 @@
 import { describe, expect, it } from "bun:test";
-import { Client as PgClient } from "pg";
 import {
 	createAuthenticatedClient,
 	createCollection,
@@ -8,7 +7,7 @@ import {
 	getFirstProviderScriptId,
 	seedMediaEntity,
 } from "../fixtures";
-import { getTestDatabaseUrl } from "../setup";
+import { getPgClient } from "../setup";
 
 describe("POST /collections", () => {
 	it("creates a collection with valid membershipPropertiesSchema", async () => {
@@ -368,30 +367,23 @@ describe("POST /collections", () => {
 			expect(data?.data?.memberOf?.sourceEntityId).toBe(entity.id);
 			expect(data?.data?.memberOf?.targetEntityId).toBe(collection.id);
 
-			const pg = new PgClient({ connectionString: getTestDatabaseUrl() });
-			await pg.connect();
+			const membership = await getPgClient().query(
+				`select r.id
+				 from relationship r
+				 inner join relationship_schema rs on rs.id = r.relationship_schema_id
+				 inner join entity library_entity on library_entity.id = r.target_entity_id
+				 inner join entity_schema library_schema on library_schema.id = library_entity.entity_schema_id
+				 inner join "user" u on u.id = library_entity.user_id
+				 where rs.slug = 'in-library'
+				   and r.user_id = u.id
+				   and r.source_entity_id = $1
+				   and u.email = $2
+				   and library_schema.slug = 'library'
+				 limit 1`,
+				[entity.id, email],
+			);
 
-			try {
-				const membership = await pg.query(
-					`select r.id
-					 from relationship r
-					 inner join relationship_schema rs on rs.id = r.relationship_schema_id
-					 inner join entity library_entity on library_entity.id = r.target_entity_id
-					 inner join entity_schema library_schema on library_schema.id = library_entity.entity_schema_id
-					 inner join "user" u on u.id = library_entity.user_id
-					 where rs.slug = 'in-library'
-					   and r.user_id = u.id
-					   and r.source_entity_id = $1
-					   and u.email = $2
-					   and library_schema.slug = 'library'
-					 limit 1`,
-					[entity.id, email],
-				);
-
-				expect(membership.rowCount).toBe(1);
-			} finally {
-				await pg.end();
-			}
+			expect(membership.rowCount).toBe(1);
 		});
 
 		it("adds an entity with custom properties", async () => {
