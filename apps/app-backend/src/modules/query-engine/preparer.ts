@@ -19,7 +19,7 @@ import {
 	validateSavedViewDisplayConfiguration,
 } from "~/lib/views/validator";
 import { propertySchemaObjectSchema } from "~/modules/property-schemas";
-import { getSavedViewByIdForUser } from "../saved-views/repository";
+import { getSavedViewBySlugForUser } from "../saved-views/repository";
 import type {
 	DisplayConfiguration,
 	EventJoinDefinition,
@@ -350,13 +350,13 @@ export const prepareForValidation = async (input: {
 
 export const prepareSavedView = async (input: {
 	userId: string;
-	viewId: string;
+	viewSlug: string;
 }): Promise<{
 	execute(execution: SavedViewExecutionInput): Promise<QueryEngineResponse>;
 }> => {
-	const savedView = await getSavedViewByIdForUser({
+	const savedView = await getSavedViewBySlugForUser({
 		userId: input.userId,
-		viewId: input.viewId,
+		viewSlug: input.viewSlug,
 	});
 	if (!savedView) {
 		throw new QueryEngineNotFoundError("Saved view not found");

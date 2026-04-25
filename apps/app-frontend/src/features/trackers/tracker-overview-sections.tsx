@@ -176,8 +176,8 @@ export function TrackerOverviewSavedViews(props: { views: AppSavedView[] }) {
 						{props.views.map((view) => (
 							<Link
 								key={view.id}
-								to="/views/$viewId"
-								params={{ viewId: view.id }}
+								to="/views/$viewSlug"
+								params={{ viewSlug: view.slug }}
 								style={{
 									color: textLink,
 									fontSize: "var(--mantine-font-size-sm)",

@@ -63,6 +63,7 @@ const listedSavedViewDefaults: ListedSavedView = {
 	icon: "book",
 	sortOrder: 0,
 	name: "Reading",
+	slug: "reading",
 	isBuiltin: false,
 	isDisabled: false,
 	trackerId: "tracker_1",
@@ -75,7 +76,7 @@ const listedSavedViewDefaults: ListedSavedView = {
 
 const reorderSavedViewsBodyDefaults: ReorderSavedViewsBody = {
 	trackerId: "tracker_1",
-	viewIds: ["view_2", "view_1"],
+	viewSlugs: ["view_2", "view_1"],
 };
 
 export const createQueryDefinition = (
@@ -136,18 +137,22 @@ export const createSavedViewDeps = (
 	overrides: Partial<SavedViewServiceDeps> = {},
 ): SavedViewServiceDeps => ({
 	prepareForValidation: async () => {},
-	persistSavedViewOrderForUser: async (input) => input.viewIds,
-	countSavedViewsByIdsForUser: async (input) => input.viewIds.length,
-	listUserSavedViewIdsInOrder: async () => ["view_1", "view_2", "view_3"],
-	deleteSavedViewByIdForUser: async (input) =>
-		createListedSavedView({ id: input.viewId }),
-	getSavedViewByIdForUser: async (input) =>
-		createListedSavedView({ id: input.viewId }),
-	updateSavedViewDisabledByIdForUser: async (input) =>
-		createListedSavedView({ id: input.viewId, isDisabled: input.isDisabled }),
+	persistSavedViewOrderForUser: async (input) => input.viewSlugs,
+	countSavedViewsBySlugForUser: async (input) => input.viewSlugs.length,
+	listUserSavedViewSlugsInOrder: async () => ["view_1", "view_2", "view_3"],
+	deleteSavedViewBySlugForUser: async (input) =>
+		createListedSavedView({ slug: input.viewSlug }),
+	getSavedViewBySlugForUser: async (input) =>
+		createListedSavedView({ slug: input.viewSlug }),
+	updateSavedViewDisabledBySlugForUser: async (input) =>
+		createListedSavedView({
+			slug: input.viewSlug,
+			isDisabled: input.isDisabled,
+		}),
 	createSavedViewForUser: async (input) =>
 		createListedSavedView({
 			icon: input.icon,
+			slug: input.slug,
 			name: input.name,
 			isBuiltin: input.isBuiltin,
 			accentColor: input.accentColor,
@@ -155,9 +160,9 @@ export const createSavedViewDeps = (
 			queryDefinition: input.queryDefinition,
 			displayConfiguration: input.displayConfiguration,
 		}),
-	updateSavedViewByIdForUser: async (input) =>
+	updateSavedViewBySlugForUser: async (input) =>
 		createListedSavedView({
-			id: input.viewId,
+			slug: input.viewSlug,
 			icon: input.data.icon,
 			name: input.data.name,
 			accentColor: input.data.accentColor,

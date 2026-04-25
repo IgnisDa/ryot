@@ -86,8 +86,8 @@ export function findBuiltinCollectionsView(
 }
 
 export type CollectionsDestination =
-	| { type: "view"; viewId: string }
-	| { type: "none" };
+	| { type: "none" }
+	| { type: "view"; viewSlug: string };
 
 export function resolveCollectionsDestination(
 	savedViews: AppSavedView[],
@@ -96,5 +96,5 @@ export function resolveCollectionsDestination(
 	if (!view) {
 		return { type: "none" };
 	}
-	return { type: "view", viewId: view.id };
+	return { type: "view", viewSlug: view.slug };
 }
