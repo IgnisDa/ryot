@@ -1,4 +1,3 @@
-import { Workflow } from "@effect/workflow";
 import { BadRequest, DbError, NotFound, SandboxRunError } from "@ryot/contract/errors";
 import {
 	AutomationOperation,
@@ -17,13 +16,16 @@ import {
 	UserId,
 } from "@ryot/contract/schema/brands";
 import { Schema } from "effect";
+import { Workflow } from "effect/unstable/workflow";
 
-export const SubscriptionExecutionWorkflowError = Schema.Union(
+import { withoutSchemaServices } from "#lib/shared/schema";
+
+export const SubscriptionExecutionWorkflowError = Schema.Union([
 	DbError,
 	NotFound,
 	BadRequest,
 	SandboxRunError,
-);
+]);
 
 const EntityReference = Schema.Struct({
 	id: EntityId,
@@ -62,7 +64,7 @@ const SignalSnapshot = Schema.Struct({
 	properties: AutomationProperties,
 });
 
-const AutomationSource = Schema.Union(
+const AutomationSource = Schema.Union([
 	Schema.Struct({ kind: Schema.Literal("signal"), signal: SignalSnapshot }),
 	Schema.Struct({
 		kind: Schema.Literal("entity"),
@@ -79,7 +81,7 @@ const AutomationSource = Schema.Union(
 		after: Schema.optional(RelationshipSnapshot),
 		before: Schema.optional(RelationshipSnapshot),
 	}),
-);
+]);
 
 const PopulationContext = Schema.Struct({
 	rootPreviouslyPopulated: Schema.Boolean,
@@ -99,11 +101,11 @@ const PopulationContext = Schema.Struct({
 		Schema.Struct({
 			id: Schema.String,
 			isLeader: Schema.Boolean,
-			afterCount: Schema.Number,
-			beforeCount: Schema.Number,
-			createdCount: Schema.Number,
-			deletedCount: Schema.Number,
-			updatedCount: Schema.Number,
+			afterCount: Schema.Finite,
+			beforeCount: Schema.Finite,
+			createdCount: Schema.Finite,
+			deletedCount: Schema.Finite,
+			updatedCount: Schema.Finite,
 		}),
 	),
 });
@@ -125,10 +127,9 @@ const SubscriptionExecutionWorkflowPayloadSchema = Schema.Struct({
 export type SubscriptionExecutionWorkflowPayload =
 	typeof SubscriptionExecutionWorkflowPayloadSchema.Type;
 
-export const SubscriptionExecutionWorkflow = Workflow.make({
-	name: "SubscriptionExecutionWorkflow",
-	error: SubscriptionExecutionWorkflowError,
-	success: Schema.NullOr(SubscriptionRunId),
-	payload: SubscriptionExecutionWorkflowPayloadSchema,
+export const SubscriptionExecutionWorkflow = Workflow.make("SubscriptionExecutionWorkflow", {
+	error: withoutSchemaServices(SubscriptionExecutionWorkflowError),
+	success: withoutSchemaServices(Schema.NullOr(SubscriptionRunId)),
+	payload: withoutSchemaServices(SubscriptionExecutionWorkflowPayloadSchema),
 	idempotencyKey: ({ occurrenceId, ruleId }) => `${occurrenceId}:${ruleId}`,
 });
