@@ -1,7 +1,7 @@
 import { expect, it } from "@effect/vitest";
-import { WorkflowEngine } from "@effect/workflow/WorkflowEngine";
 import { ImportRunId, IntegrationId, UserId } from "@ryot/contract/schema/brands";
 import { Effect, Layer } from "effect";
+import { WorkflowEngine } from "effect/unstable/workflow/WorkflowEngine";
 
 import { dbRunnerLayer, makeWorkflowEngine, transactionLayer } from "#lib/test-utils/effect";
 import { ImportsService } from "#modules/imports/service";
@@ -16,14 +16,14 @@ const integrationId = IntegrationId.make("integration-1");
 const mockRepository = Layer.mock(IntegrationsRepository);
 
 const makeLayer = (repository: Layer.Layer<IntegrationsRepository>) =>
-	IntegrationsService.Default.pipe(
+	IntegrationsService.layer.pipe(
 		Layer.provide(
 			Layer.mergeAll(
 				dbRunnerLayer,
 				transactionLayer,
 				repository,
 				IntegrationProviderCatalogLive,
-				Layer.mock(ImportsService, { _tag: "ImportsService" }),
+				Layer.mock(ImportsService, {}),
 				Layer.succeed(WorkflowEngine, makeWorkflowEngine()),
 			),
 		),
@@ -31,7 +31,6 @@ const makeLayer = (repository: Layer.Layer<IntegrationsRepository>) =>
 
 it.effect("recognizes a committed auto-disable claim when its activity retries", () => {
 	const repository = mockRepository({
-		_tag: "IntegrationsRepository",
 		hasAutoDisableClaim: () => Effect.succeed(true),
 		insertAutoDisableClaim: () => Effect.die("retry inserted the claim again"),
 		disableForUserIfEnabled: () => Effect.die("retry attempted the transition again"),
@@ -46,7 +45,6 @@ it.effect("recognizes a committed auto-disable claim when its activity retries",
 it.effect("persists the winning transition claim atomically", () => {
 	const calls: string[] = [];
 	const repository = mockRepository({
-		_tag: "IntegrationsRepository",
 		hasAutoDisableClaim: () => Effect.succeed(false),
 		disableForUserIfEnabled: () => {
 			calls.push("disable");
@@ -68,7 +66,6 @@ it.effect("persists the winning transition claim atomically", () => {
 it.effect("does not claim a transition won by another run", () => {
 	let checks = 0;
 	const repository = mockRepository({
-		_tag: "IntegrationsRepository",
 		disableForUserIfEnabled: () => Effect.succeed(false),
 		insertAutoDisableClaim: () => Effect.die("losing run inserted a claim"),
 		hasAutoDisableClaim: () => {

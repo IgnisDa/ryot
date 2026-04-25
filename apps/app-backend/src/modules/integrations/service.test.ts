@@ -1,6 +1,6 @@
 import { describe, expect, it } from "@effect/vitest";
-import { WorkflowEngine } from "@effect/workflow/WorkflowEngine";
 import { Effect, Layer } from "effect";
+import { WorkflowEngine } from "effect/unstable/workflow/WorkflowEngine";
 
 import { dbRunnerLayer, makeWorkflowEngine, transactionLayer } from "#lib/test-utils/effect";
 import { ImportsService } from "#modules/imports/service";
@@ -81,7 +81,6 @@ describe("update", () => {
 			},
 		});
 		const repository = Layer.mock(IntegrationsRepository)({
-			_tag: "IntegrationsRepository",
 			getForUser: () => Effect.succeed(state),
 			updateForUser: (input) => {
 				state = {
@@ -95,17 +94,16 @@ describe("update", () => {
 			find: () => registered,
 			list: () => [registered],
 			findOwned: () => registered,
-			_tag: "IntegrationProviderCatalog",
 			resolveOwned: () => ({ provider: registered, script: Effect.succeed(null) }),
 		});
-		const layer = IntegrationsService.Default.pipe(
+		const layer = IntegrationsService.layer.pipe(
 			Layer.provide(
 				Layer.mergeAll(
 					dbRunnerLayer,
 					transactionLayer,
 					repository,
 					providerCatalog,
-					Layer.mock(ImportsService, { _tag: "ImportsService" }),
+					Layer.mock(ImportsService, {}),
 					Layer.succeed(WorkflowEngine, makeWorkflowEngine()),
 				),
 			),
@@ -146,7 +144,6 @@ describe("update", () => {
 			scriptSlug: "replacement.integration",
 		} satisfies RegisteredIntegrationProvider;
 		const repository = Layer.mock(IntegrationsRepository)({
-			_tag: "IntegrationsRepository",
 			getForUser: () => Effect.succeed(existing),
 			updateForUser: () => {
 				updated = true;
@@ -158,16 +155,15 @@ describe("update", () => {
 			find: () => replacement,
 			resolveOwned: () => null,
 			list: () => [replacement],
-			_tag: "IntegrationProviderCatalog",
 		});
-		const layer = IntegrationsService.Default.pipe(
+		const layer = IntegrationsService.layer.pipe(
 			Layer.provide(
 				Layer.mergeAll(
 					dbRunnerLayer,
 					transactionLayer,
 					repository,
 					providerCatalog,
-					Layer.mock(ImportsService, { _tag: "ImportsService" }),
+					Layer.mock(ImportsService, {}),
 					Layer.succeed(WorkflowEngine, makeWorkflowEngine()),
 				),
 			),

@@ -1,6 +1,6 @@
 import { expect, it } from "@effect/vitest";
-import { WorkflowEngine, WorkflowInstance } from "@effect/workflow/WorkflowEngine";
 import { Effect, Layer } from "effect";
+import { WorkflowEngine, WorkflowInstance } from "effect/unstable/workflow/WorkflowEngine";
 
 import { makeWorkflowEngine } from "#lib/test-utils/effect";
 import { FrequentCronWorkflow } from "#modules/scheduler/cron-workflow";
@@ -8,7 +8,7 @@ import { FrequentCronWorkflow } from "#modules/scheduler/cron-workflow";
 import { integrationsFrequentTask } from "./frequent-task";
 
 it.effect("dispatches the reconciliation workflow with a tick-derived execution id", () => {
-	const captured: Array<Parameters<WorkflowEngine["Type"]["execute"]>[1]> = [];
+	const captured: Array<Parameters<WorkflowEngine["Service"]["execute"]>[1]> = [];
 	const instance = WorkflowInstance.initial(FrequentCronWorkflow, "exec-int");
 	const engine = makeWorkflowEngine({
 		execute: (_workflow, options) => {
