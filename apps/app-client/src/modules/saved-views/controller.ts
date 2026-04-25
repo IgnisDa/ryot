@@ -38,24 +38,32 @@ type SavedViewOperation = {
 
 type SavedViewLayoutState = {
 	readonly data: SavedViewNormalizedState;
-	readonly failure: SavedViewRequestFailure | undefined;
 	readonly operation: SavedViewOperation | undefined;
+	readonly failure: SavedViewRequestFailure | undefined;
+};
+
+type SavedViewVisibleData = {
+	readonly identity: string;
+	readonly layout: SavedViewLayout;
+	readonly queryDocument: RyotQLDocument;
+	readonly data: SavedViewNormalizedState;
 };
 
 export type SavedViewControllerState = {
 	readonly identity: string;
 	readonly generation: number;
-	readonly pendingRefresh: boolean;
 	readonly retryRefresh: boolean;
+	readonly pendingRefresh: boolean;
 	readonly activeLayout: SavedViewLayout;
+	readonly visible: SavedViewVisibleData | undefined;
 	readonly layouts: Partial<Record<SavedViewLayout, SavedViewLayoutState>>;
 };
 
 export type SavedViewControllerEvent =
 	| {
-			readonly type: "identity-changed";
 			readonly identity: string;
 			readonly layout: SavedViewLayout;
+			readonly type: "identity-changed";
 	  }
 	| { readonly type: "layout-changed"; readonly layout: SavedViewLayout }
 	| { readonly type: "refresh-requested" }
@@ -78,6 +86,14 @@ export type SavedViewControllerEvent =
 
 const emptyData = (): SavedViewNormalizedState => ({ itemsById: new Map(), pages: [] });
 
+const latestQueryDocument = (data: SavedViewNormalizedState) => {
+	const page = data.pages.at(-1);
+	if (!page) {
+		throw new TypeError("Saved-view data requires at least one page");
+	}
+	return page.queryDocument;
+};
+
 const emptyLayout = (): SavedViewLayoutState => ({
 	data: emptyData(),
 	failure: undefined,
@@ -89,10 +105,11 @@ export const createSavedViewControllerState = (
 	activeLayout: SavedViewLayout,
 ): SavedViewControllerState => ({
 	identity,
-	generation: 0,
-	pendingRefresh: false,
-	retryRefresh: false,
 	activeLayout,
+	generation: 0,
+	visible: undefined,
+	retryRefresh: false,
+	pendingRefresh: false,
 	layouts: { [activeLayout]: emptyLayout() },
 });
 
@@ -123,9 +140,13 @@ export const savedViewControllerReducer = (
 	event: SavedViewControllerEvent,
 ): SavedViewControllerState => {
 	if (event.type === "identity-changed") {
-		return event.identity === state.identity
-			? state
-			: createSavedViewControllerState(event.identity, event.layout);
+		if (event.identity === state.identity) {
+			return state;
+		}
+		return {
+			...createSavedViewControllerState(event.identity, event.layout),
+			visible: state.visible,
+		};
 	}
 	if (event.type === "layout-changed") {
 		if (event.layout === state.activeLayout) {
@@ -137,13 +158,24 @@ export const savedViewControllerReducer = (
 				{ ...current, operation: undefined },
 			]),
 		) as SavedViewControllerState["layouts"];
+		const nextLayout = layouts[event.layout] ?? emptyLayout();
+		const nextData = nextLayout.data.pages.length > 0 ? nextLayout.data : undefined;
 		return {
 			...state,
-			pendingRefresh: false,
 			retryRefresh: false,
-			layouts: { ...layouts, [event.layout]: layouts[event.layout] ?? emptyLayout() },
-			generation: state.generation + 1,
+			pendingRefresh: false,
 			activeLayout: event.layout,
+			generation: state.generation + 1,
+			layouts: { ...layouts, [event.layout]: nextLayout },
+			visible:
+				nextData === undefined
+					? state.visible
+					: {
+							data: nextData,
+							layout: event.layout,
+							identity: state.identity,
+							queryDocument: latestQueryDocument(nextData),
+						},
 		};
 	}
 	if (event.type === "refresh-requested") {
@@ -163,8 +195,8 @@ export const savedViewControllerReducer = (
 		return updateLayout(
 			{
 				...state,
-				generation: event.token.generation,
 				retryRefresh: false,
+				generation: event.token.generation,
 				pendingRefresh: event.phase === "refresh" ? false : state.pendingRefresh,
 			},
 			event.token.layout,
@@ -179,12 +211,20 @@ export const savedViewControllerReducer = (
 		if (!isCurrentRequest(state, event.token)) {
 			return state;
 		}
-		return updateLayout({ ...state, retryRefresh: false }, event.token.layout, (current) => ({
-			...current,
-			data: event.data,
-			failure: undefined,
-			operation: undefined,
-		}));
+		return updateLayout(
+			{
+				...state,
+				retryRefresh: false,
+				visible: {
+					data: event.data,
+					identity: state.identity,
+					layout: event.token.layout,
+					queryDocument: latestQueryDocument(event.data),
+				},
+			},
+			event.token.layout,
+			(current) => ({ ...current, data: event.data, failure: undefined, operation: undefined }),
+		);
 	}
 	if (!isCurrentRequest(state, event.token)) {
 		return state;
@@ -197,23 +237,33 @@ export const savedViewControllerReducer = (
 			pendingRefresh: phase === "initial" ? false : state.pendingRefresh,
 		},
 		event.token.layout,
-		(current) => ({
-			...current,
-			failure: event.failure,
-			operation: undefined,
-		}),
+		(current) => ({ ...current, operation: undefined, failure: event.failure }),
 	);
 };
 
 export const savedViewControllerResult = (
 	state: SavedViewControllerState,
 ): SavedViewResultState => {
-	const current = state.layouts[state.activeLayout] ?? emptyLayout();
-	if (current.data.pages.length > 0) {
-		return materializeSavedViewData(current.data, state.activeLayout);
+	const active = state.layouts[state.activeLayout] ?? emptyLayout();
+	if (active.data.pages.length === 0 && active.failure) {
+		return active.failure;
 	}
-	return current.failure ?? { status: "loading" };
+	if (state.visible) {
+		return materializeSavedViewData(state.visible.data, state.visible.layout);
+	}
+	return active.failure ?? { status: "loading" };
 };
+
+export const savedViewControllerQueryDocument = (state: SavedViewControllerState) =>
+	state.visible?.queryDocument;
+
+export const isSavedViewLayoutChanging = (state: SavedViewControllerState) =>
+	state.visible !== undefined && state.visible.layout !== state.activeLayout;
+
+export const isSavedViewSearching = (state: SavedViewControllerState) =>
+	state.visible !== undefined &&
+	state.visible.identity !== state.identity &&
+	state.visible.layout === state.activeLayout;
 
 export const isSavedViewLoadingMore = (state: SavedViewControllerState) =>
 	state.layouts[state.activeLayout]?.operation?.phase === "load-more";
