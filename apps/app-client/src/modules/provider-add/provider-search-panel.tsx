@@ -1,6 +1,5 @@
 import { useAtomSet, useAtomValue } from "@effect/atom-react";
 import type { EntitySchemaSlug, SandboxProviderId } from "@ryot/contract/schema/brands";
-import clsx from "clsx";
 import { Cause, Effect, Match } from "effect";
 import { useEffect, useEffectEvent, useReducer, useRef, useState } from "react";
 import { ActivityIndicator, Pressable, ScrollView, Text, TextInput, View } from "react-native";
@@ -9,6 +8,9 @@ import { queryProviderSearchOptions, searchProviderEntities } from "@/api/provid
 import { useApiScope } from "@/api/scope";
 import { useInternalRequestFailureLogging } from "@/api/use-internal-request-failure-logging";
 import { AppIcon } from "@/modules/icons";
+import { AppButton } from "@/modules/ui/button";
+import { AppChip } from "@/modules/ui/chip";
+import { AppStatusState } from "@/modules/ui/status-state";
 
 import { providerEntityLinksAtom, providerSearchAtom, rememberedProviderAtom } from "./atoms";
 import {
@@ -51,15 +53,6 @@ function StatusLine(props: { readonly text: string }) {
 	return <Text className="font-ui text-sm text-text-muted">{props.text}</Text>;
 }
 
-function StatusMessage(props: { readonly title: string; readonly detail: string }) {
-	return (
-		<View className="min-h-32 items-center justify-center gap-2 px-6">
-			<Text className="font-ui-medium text-base text-text">{props.title}</Text>
-			<Text className="text-center font-ui text-sm text-text-muted">{props.detail}</Text>
-		</View>
-	);
-}
-
 function ProviderChips(props: {
 	readonly selectedProviderId: SandboxProviderId | undefined;
 	readonly providers: readonly ProviderSearchSummary[];
@@ -71,28 +64,13 @@ function ProviderChips(props: {
 				{props.providers.map((provider) => {
 					const checked = provider.providerId === props.selectedProviderId;
 					return (
-						<Pressable
-							accessibilityRole="radio"
+						<AppChip
+							role="radio"
+							checked={checked}
 							key={provider.providerId}
-							accessibilityState={{ checked }}
+							label={provider.providerName}
 							onPress={() => props.onSelect(provider)}
-							accessibilityLabel={provider.providerName}
-							className={clsx(
-								"h-7 items-center justify-center rounded-pill border px-3",
-								checked && "border-accent-border bg-accent-soft",
-								!checked && "border-border-strong",
-							)}
-						>
-							<Text
-								className={clsx(
-									"font-ui-medium text-xs",
-									checked && "text-accent-text",
-									!checked && "text-text-muted",
-								)}
-							>
-								{provider.providerName}
-							</Text>
-						</Pressable>
+						/>
 					);
 				})}
 			</View>
@@ -162,14 +140,11 @@ function ProviderSearchResults(props: {
 				entitySchemaSlug={props.entitySchemaSlug}
 			/>
 			{hasMoreProviderSearchResults(props.state) && props.state.status !== "loading-more" ? (
-				<Pressable
+				<AppButton
+					label="Load more"
 					onPress={props.onLoadMore}
-					accessibilityRole="button"
 					accessibilityLabel="Load more results"
-					className="items-center rounded-lg border border-border-strong py-2.5"
-				>
-					<Text className="font-ui-medium text-sm text-text">Load more</Text>
-				</Pressable>
+				/>
 			) : null}
 			{props.state.status === "loading-more" ? (
 				<ActivityIndicator size="small" accessibilityLabel="Loading more results" />
@@ -425,10 +400,10 @@ export function ProviderSearchPanel(props: {
 					</View>
 				)),
 				Match.when({ status: "transport-error" }, (failure) => (
-					<StatusMessage {...providerAddError(failure)} />
+					<AppStatusState className="min-h-32" {...providerAddError(failure)} />
 				)),
 				Match.when({ status: "malformed" }, (failure) => (
-					<StatusMessage {...providerAddError(failure)} />
+					<AppStatusState className="min-h-32" {...providerAddError(failure)} />
 				)),
 				Match.when({ status: "ready" }, (ready) =>
 					ready.providers.length === 0 ? (
@@ -489,14 +464,12 @@ export function ProviderSearchPanel(props: {
 												<Text className="font-ui text-sm text-text-muted">
 													Could not load filters.
 												</Text>
-												<Pressable
-													accessibilityRole="button"
+												<AppButton
+													label="Retry"
+													className="self-start"
 													onPress={retryProviderOptions}
 													accessibilityLabel="Retry loading filters"
-													className="self-start rounded-lg border border-border-strong px-3 py-2"
-												>
-													<Text className="font-ui-medium text-sm text-text">Retry</Text>
-												</Pressable>
+												/>
 											</View>
 										)),
 										Match.when({ status: "ready" }, (ready) => (
@@ -523,15 +496,15 @@ export function ProviderSearchPanel(props: {
 						)),
 						Match.when("failed", () => (
 							<View className="gap-2">
-								<StatusMessage {...providerAddError({ status: "transport-error" })} />
-								<Pressable
-									accessibilityRole="button"
+								<AppStatusState
+									className="min-h-32"
+									{...providerAddError({ status: "transport-error" })}
+								/>
+								<AppButton
+									label="Try again"
 									onPress={() => void requestSearch()}
 									accessibilityLabel="Try searching again"
-									className="items-center rounded-lg border border-border-strong py-2.5"
-								>
-									<Text className="font-ui-medium text-sm text-text">Try again</Text>
-								</Pressable>
+								/>
 							</View>
 						)),
 						Match.orElse(() => (

@@ -3,6 +3,7 @@ import type { ReactNode } from "react";
 import { Pressable, Text, View } from "react-native";
 
 import { AppIcon } from "@/modules/icons";
+import { AppStatusState } from "@/modules/ui/status-state";
 
 export function ShowChip(props: { readonly label: string }) {
 	return (
@@ -135,10 +136,13 @@ export function ShowStatusMessage(props: {
 	readonly onRetry?: () => void;
 }) {
 	return (
-		<View className="min-h-96 items-center justify-center gap-3 px-6">
-			<Text className="font-ui-medium text-base text-text">{props.title}</Text>
-			<Text className="max-w-xl text-center font-ui text-sm text-text-muted">{props.detail}</Text>
-			{props.onRetry ? <ShowLinkButton label="Try again" onPress={props.onRetry} /> : null}
-		</View>
+		<AppStatusState
+			title={props.title}
+			className="min-h-96"
+			detail={props.detail}
+			action={
+				props.onRetry ? <ShowLinkButton label="Try again" onPress={props.onRetry} /> : undefined
+			}
+		/>
 	);
 }

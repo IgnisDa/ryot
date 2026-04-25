@@ -47,7 +47,11 @@ function AuthBadge(props: { state: GodModeUser["authState"] }) {
 	);
 }
 
-function UserRow(props: GodModeScope & { user: GodModeUser; onUnauthorized: () => void }) {
+function UserRow(props: {
+	readonly user: GodModeUser;
+	readonly scope: GodModeScope;
+	readonly onUnauthorized: () => void;
+}) {
 	const mounted = useRef(true);
 	const [copied, setCopied] = useState(false);
 	const [error, setError] = useState<string | null>(null);
@@ -55,10 +59,8 @@ function UserRow(props: GodModeScope & { user: GodModeUser; onUnauthorized: () =
 	const [pending, setPending] = useState<"reset" | "disabled" | null>(null);
 	const [result, setResult] = useState<{ email: string; resetUrl: string } | null>(null);
 	const request = {
+		...props.scope,
 		userId: props.user.id,
-		serverUrl: props.serverUrl,
-		adminToken: props.adminToken,
-		sessionId: props.sessionId,
 	};
 	const resetPassword = useAtomSet(resetUserPasswordAtom(request), { mode: "promiseExit" });
 	const setUserDisabled = useAtomSet(setUserDisabledAtom(request), { mode: "promiseExit" });
@@ -234,12 +236,11 @@ function UserRow(props: GodModeScope & { user: GodModeUser; onUnauthorized: () =
 	);
 }
 
-export function GodModeUserList(
-	props: GodModeScope & {
-		onUnauthorized: () => void;
-		users: readonly GodModeUser[];
-	},
-) {
+export function GodModeUserList(props: {
+	readonly scope: GodModeScope;
+	readonly onUnauthorized: () => void;
+	readonly users: readonly GodModeUser[];
+}) {
 	if (props.users.length === 0) {
 		return (
 			<View className="items-center rounded-xl border border-border bg-surface p-6">
@@ -254,9 +255,7 @@ export function GodModeUserList(
 				<UserRow
 					user={user}
 					key={user.id}
-					serverUrl={props.serverUrl}
-					adminToken={props.adminToken}
-					sessionId={props.sessionId}
+					scope={props.scope}
 					onUnauthorized={props.onUnauthorized}
 				/>
 			))}

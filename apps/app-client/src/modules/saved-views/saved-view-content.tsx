@@ -11,7 +11,9 @@ import { AppIcon } from "@/modules/icons";
 import { NavigationStatus } from "@/modules/navigation/navigation-status";
 import { ProviderAddHost, useProviderAddFlow } from "@/modules/provider-add/add-flow-host";
 import { usePreferredProvider } from "@/modules/provider-add/use-preferred-provider";
+import { AppButton } from "@/modules/ui/button";
 import { ManagedAssetHost } from "@/modules/ui/managed-asset-host";
+import { AppStatusState } from "@/modules/ui/status-state";
 
 import { SavedViewFrame } from "./saved-view-frame";
 import { SavedViewGrid } from "./saved-view-grid";
@@ -40,25 +42,28 @@ function EmptyState(props: {
 	entitySchemaSlug: EntitySchemaSlug | null;
 }) {
 	return (
-		<View className="min-h-96 items-center justify-center gap-3 px-6">
-			<AppIcon className="text-text-subtle" name="library" size={40} />
-			<Text className="text-center font-ui-semibold text-xl text-text">{props.name} is empty</Text>
-			<Text className="text-center font-ui text-sm text-text-muted">
-				{props.entitySchemaSlug === null
+		<AppStatusState
+			titleSize="large"
+			className="min-h-96"
+			title={`${props.name} is empty`}
+			icon={<AppIcon className="text-text-subtle" name="library" size={40} />}
+			detail={
+				props.entitySchemaSlug === null
 					? "No items have been added to this view yet."
-					: "Search online to add your first item."}
-			</Text>
-			{props.onAdd ? (
-				<Pressable
-					onPress={props.onAdd}
-					accessibilityRole="button"
-					className="flex-row items-center gap-2 rounded-pill bg-accent px-4 py-2.5"
-				>
-					<AppIcon className="text-accent-ink" name="search" size={16} />
-					<Text className="font-ui-semibold text-accent-ink">Search online</Text>
-				</Pressable>
-			) : null}
-		</View>
+					: "Search online to add your first item."
+			}
+			action={
+				props.onAdd ? (
+					<AppButton
+						variant="primary"
+						label="Search online"
+						onPress={props.onAdd}
+						className="rounded-pill"
+						leading={<AppIcon className="text-accent-ink" name="search" size={16} />}
+					/>
+				) : undefined
+			}
+		/>
 	);
 }
 
@@ -98,56 +103,60 @@ function SearchEmptyState(props: {
 	entitySchemaSlug: EntitySchemaSlug | null;
 }) {
 	return (
-		<View className="min-h-96 items-center justify-center gap-3 px-6">
-			<AppIcon className="text-text-subtle" name="search-x" size={36} />
-			<Text className="text-center font-ui-semibold text-xl text-text">
-				No matches in {props.name}
-			</Text>
-			<Text className="text-center font-ui text-sm text-text-muted">
-				Nothing in this view matches “{props.query}”.
-			</Text>
-			{props.onAdd && props.entitySchemaSlug ? (
-				<SearchProviderAction
-					query={props.query}
-					onPress={props.onAdd}
-					entitySchemaSlug={props.entitySchemaSlug}
-				/>
-			) : null}
-		</View>
+		<AppStatusState
+			titleSize="large"
+			className="min-h-96"
+			title={`No matches in ${props.name}`}
+			detail={`Nothing in this view matches “${props.query}”.`}
+			icon={<AppIcon className="text-text-subtle" name="search-x" size={36} />}
+			action={
+				props.onAdd && props.entitySchemaSlug ? (
+					<SearchProviderAction
+						query={props.query}
+						onPress={props.onAdd}
+						entitySchemaSlug={props.entitySchemaSlug}
+					/>
+				) : undefined
+			}
+		/>
 	);
 }
 
 function SearchingState() {
 	return (
-		<View className="min-h-96 items-center justify-center gap-3 px-6">
-			<ActivityIndicator accessibilityLabel="Searching saved view" />
-			<Text className="font-ui text-sm text-text-muted">Searching...</Text>
-		</View>
+		<AppStatusState
+			className="min-h-96"
+			detail="Searching..."
+			icon={<ActivityIndicator accessibilityLabel="Searching saved view" />}
+		/>
 	);
 }
 
 export function SavedViewErrorState(props: SavedViewError & { onRetry?: () => void }) {
 	return (
-		<View className="min-h-96 items-center justify-center gap-3 px-6">
-			<Text className="font-ui-medium text-base text-text">{props.title}</Text>
-			<Text className="max-w-xl text-center font-ui text-sm text-text-muted">{props.detail}</Text>
-			{props.onRetry ? (
-				<Pressable accessibilityRole="button" onPress={props.onRetry}>
-					<Text className="font-ui-medium text-sm text-accent-text">Try again</Text>
-				</Pressable>
-			) : null}
-		</View>
+		<AppStatusState
+			title={props.title}
+			detail={props.detail}
+			className="min-h-96"
+			action={
+				props.onRetry ? (
+					<Pressable accessibilityRole="button" onPress={props.onRetry}>
+						<Text className="font-ui-medium text-sm text-accent-text">Try again</Text>
+					</Pressable>
+				) : undefined
+			}
+		/>
 	);
 }
 
-function SavedViewItems(props: SavedViewActiveData) {
-	if (props.layout === "grid") {
-		return <SavedViewGrid items={props.data.items} />;
+function SavedViewItems(props: { readonly state: SavedViewActiveData }) {
+	if (props.state.layout === "grid") {
+		return <SavedViewGrid items={props.state.data.items} />;
 	}
-	if (props.layout === "list") {
-		return <SavedViewList items={props.data.items} />;
+	if (props.state.layout === "list") {
+		return <SavedViewList items={props.state.data.items} />;
 	}
-	return <SavedViewTable items={props.data.items} />;
+	return <SavedViewTable items={props.state.data.items} />;
 }
 
 function SavedViewWebActions(props: {
@@ -224,7 +233,7 @@ function SavedViewDisplay(
 	if (items.length > 0) {
 		content = (
 			<>
-				<SavedViewItems {...props} />
+				<SavedViewItems state={props} />
 				<SavedViewPagination
 					loaded={items.length}
 					name={props.record.name}

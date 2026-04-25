@@ -1,7 +1,7 @@
 import type { NavigationData, NavigationWorkspace } from "@ryot/ryotql-recipes/navigation";
-import { AsyncResult } from "effect/unstable/reactivity";
+import type { AsyncResult } from "effect/unstable/reactivity";
 
-import { isRyotQLMalformedResultCause } from "@/api/ryotql";
+import { classifyRyotQLResult } from "@/api/ryotql";
 
 import {
 	getActiveNavigationKey,
@@ -39,24 +39,25 @@ export function mapNavigationState(props: {
 	readonly selectedWorkspace: string;
 	readonly result: AsyncResult.AsyncResult<NavigationData, unknown>;
 }): NavigationState {
-	if (AsyncResult.isFailure(props.result)) {
-		const malformed = isRyotQLMalformedResultCause(props.result.cause);
+	const state = classifyRyotQLResult(props.result);
+	if (state.status === "malformed" || state.status === "transport-error") {
+		const malformed = state.status === "malformed";
 		return {
 			status: "error",
+			failure: { kind: malformed ? "malformed" : "transport", cause: state.cause },
 			title: malformed ? "Unable to display navigation" : "Unable to load navigation",
-			failure: { kind: malformed ? "malformed" : "transport", cause: props.result.cause },
 			detail: malformed
 				? "The server returned navigation data that could not be displayed. Try again later."
 				: "The server could not load navigation. Check your connection and try again.",
 		};
 	}
-	if (!AsyncResult.isSuccess(props.result)) {
+	if (state.status === "loading") {
 		return { status: "loading" };
 	}
 
 	const data = {
-		...props.result.value,
-		workspaces: getEnabledItems(props.result.value.workspaces),
+		...state.value,
+		workspaces: getEnabledItems(state.value.workspaces),
 	} satisfies NavigationData;
 	if (data.workspaces.length === 0) {
 		return {
