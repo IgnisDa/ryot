@@ -1,4 +1,5 @@
 import { SimpleGrid, Stack, Text, UnstyledButton } from "@mantine/core";
+import { useHover } from "@mantine/hooks";
 import { modals } from "@mantine/modals";
 import {
 	SearchEntityModalContent,
@@ -7,10 +8,66 @@ import {
 import type { AppEntitySchema } from "~/features/entity-schemas/model";
 import { TrackerIcon } from "~/features/trackers/icons";
 import { useThemeTokens } from "~/hooks/theme";
+import { colorMix, STONE } from "../shared";
 import {
 	ContinueLoggingModalContent,
 	StartLoggingModalContent,
 } from "./modals";
+
+function TypePickerCard(props: {
+	schema: AppEntitySchema;
+	onSelect: () => void;
+	t: ReturnType<typeof useThemeTokens>;
+}) {
+	const { hovered, ref } = useHover();
+	const accent = props.schema.accentColor ?? STONE;
+
+	return (
+		<UnstyledButton
+			ref={ref}
+			onClick={props.onSelect}
+			style={{
+				padding: "14px 8px",
+				borderRadius: "var(--mantine-radius-md)",
+				transition: "background 140ms ease, border-color 140ms ease",
+				background: colorMix(accent, hovered ? 0.15 : 0.07),
+				border: `1px solid ${colorMix(accent, hovered ? 0.45 : 0.2)}`,
+			}}
+		>
+			<Stack gap={8} align="center">
+				<TrackerIcon size={28} icon={props.schema.icon} color={accent} />
+				<Text
+					fz="xs"
+					fw={600}
+					ta="center"
+					c={props.t.textPrimary}
+					ff="var(--mantine-headings-font-family)"
+				>
+					{props.schema.name}
+				</Text>
+			</Stack>
+		</UnstyledButton>
+	);
+}
+
+function TypePickerGrid(props: {
+	schemas: AppEntitySchema[];
+	onSelect: (schema: AppEntitySchema) => void;
+	t: ReturnType<typeof useThemeTokens>;
+}) {
+	return (
+		<SimpleGrid cols={{ base: 3, sm: 4 }} spacing="xs">
+			{props.schemas.map((schema) => (
+				<TypePickerCard
+					t={props.t}
+					key={schema.id}
+					schema={schema}
+					onSelect={() => props.onSelect(schema)}
+				/>
+			))}
+		</SimpleGrid>
+	);
+}
 
 type ModalHandlersDeps = {
 	trackerId: string;
@@ -38,7 +95,6 @@ export function useMediaOverviewModalHandlers(deps: ModalHandlersDeps) {
 			),
 			title: (
 				<SearchEntityModalTitle
-					actionVerb="Queue"
 					entitySchemaName={schema.name}
 					onBack={() => modals.close(searchModalId)}
 				/>
@@ -104,21 +160,6 @@ export function useMediaOverviewModalHandlers(deps: ModalHandlersDeps) {
 		});
 	};
 
-	const ENTITY_SUBTITLES: Record<string, string> = {
-		book: "Log books you've read",
-		movie: "Log films you've seen",
-		music: "Rate albums and tracks",
-		anime: "Watch and follow series",
-		"comic-book": "Track your issues",
-		manga: "Follow volumes and series",
-		person: "Follow creators and cast",
-		show: "Track episodes and seasons",
-		audiobook: "Listen to spoken books",
-		"visual-novel": "Track your reading",
-		podcast: "Subscribe and log episodes",
-		"video-game": "Log your play sessions",
-	};
-
 	const openTypePickerModal = () => {
 		const typePickerModalId = `builtin-media-type-picker-${deps.trackerId}`;
 
@@ -133,36 +174,11 @@ export function useMediaOverviewModalHandlers(deps: ModalHandlersDeps) {
 				</Text>
 			),
 			children: (
-				<SimpleGrid cols={{ base: 3, sm: 4 }} spacing="sm">
-					{deps.searchableSchemas.map((schema) => {
-						return (
-							<UnstyledButton
-								key={schema.id}
-								onClick={() => openSearchModal(schema)}
-							>
-								<Stack gap={6} align="center">
-									<TrackerIcon
-										size={24}
-										icon={schema.icon}
-										color={schema.accentColor}
-									/>
-									<Text
-										fz="xs"
-										fw={600}
-										c={t.textPrimary}
-										ff="var(--mantine-headings-font-family)"
-									>
-										{schema.name}
-									</Text>
-									<Text fz={10} c={t.textMuted}>
-										{ENTITY_SUBTITLES[schema.slug] ??
-											`Search and track ${schema.name.toLowerCase()}`}
-									</Text>
-								</Stack>
-							</UnstyledButton>
-						);
-					})}
-				</SimpleGrid>
+				<TypePickerGrid
+					t={t}
+					onSelect={openSearchModal}
+					schemas={deps.searchableSchemas}
+				/>
 			),
 		});
 	};
