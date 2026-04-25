@@ -1,5 +1,4 @@
 import { expect, it } from "@effect/vitest";
-import { WorkflowEngine, WorkflowInstance } from "@effect/workflow/WorkflowEngine";
 import {
 	EntityId,
 	EntitySchemaSlug,
@@ -7,6 +6,7 @@ import {
 	UserId,
 } from "@ryot/contract/schema/brands";
 import { Effect } from "effect";
+import { WorkflowEngine, WorkflowInstance } from "effect/unstable/workflow/WorkflowEngine";
 
 import { makeWorkflowActivityEngine } from "#lib/test-utils/effect";
 
@@ -54,7 +54,7 @@ const importWithoutMembership = (entitySchemaSlug: string) => {
 			makeWorkflowActivityEngine(instance, {
 				execute: (workflow, options) =>
 					Effect.sync(() => {
-						calls.push({ name: workflow.name, options });
+						calls.push({ name: workflow._tag, options });
 						return entity;
 					}),
 			}),

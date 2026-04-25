@@ -1,8 +1,8 @@
-import { HttpApiBuilder } from "@effect/platform";
 import { CurrentUser } from "@ryot/contract/auth-middleware";
 import { AppContract } from "@ryot/contract/contract";
 import { dieOnDbError } from "@ryot/contract/errors";
 import { Effect } from "effect";
+import { HttpApiBuilder } from "effect/unstable/httpapi";
 
 import { EntityImportService } from "./service";
 
@@ -18,11 +18,11 @@ export const EntityImportRoutesLive = HttpApiBuilder.group(
 					return yield* service.import(user, payload).pipe(dieOnDbError);
 				}),
 			)
-			.handle("getImportResult", ({ path }) =>
+			.handle("getImportResult", ({ params }) =>
 				Effect.gen(function* () {
 					const user = yield* CurrentUser;
 					const service = yield* EntityImportService;
-					return yield* service.getImportResult(user, path.jobId);
+					return yield* service.getImportResult(user, params.jobId);
 				}),
 			),
 );
