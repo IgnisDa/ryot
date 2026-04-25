@@ -4,6 +4,7 @@ import { Effect, Exit, Layer } from "effect";
 import type { CurrentUserValue } from "../../lib/auth";
 import { CurrentDb, DbRunner, TransactionRunner } from "../../lib/db";
 import { BadRequest, Conflict, NotFound } from "../../lib/errors";
+import { SandboxApiService } from "../sandbox/service";
 import { TrackersRepository } from "../trackers/repository";
 import { EntitySchemasRepository } from "./repository";
 import { EntitySchemasService } from "./service";
@@ -26,6 +27,16 @@ const transactionLayer = Layer.succeed(
 		Effect.provideService(effect, CurrentDb, Object.create(null)),
 );
 
+const fakeSandboxApiService = (): SandboxApiService =>
+	Object.assign(Object.create(null), {
+		_tag: "SandboxApiService" as const,
+		enqueue: () => Effect.die("not used in this test"),
+		getResult: () => Effect.die("not used in this test"),
+		createScript: () => Effect.die("not used in this test"),
+	});
+
+const fakeSandboxApiServiceLayer = Layer.succeed(SandboxApiService, fakeSandboxApiService());
+
 const makeEntitySchemasServiceLayer = (
 	repository: EntitySchemasRepository,
 	trackers: TrackersRepository,
@@ -35,6 +46,7 @@ const makeEntitySchemasServiceLayer = (
 			Layer.mergeAll(
 				dbRunnerLayer,
 				transactionLayer,
+				fakeSandboxApiServiceLayer,
 				Layer.succeed(EntitySchemasRepository, repository),
 				Layer.succeed(TrackersRepository, trackers),
 			),
