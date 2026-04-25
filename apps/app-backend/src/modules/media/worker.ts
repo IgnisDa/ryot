@@ -23,7 +23,6 @@ import {
 import { getBuiltinEntitySchemaBySlug } from "~/modules/entity-schemas/repository";
 import { getBuiltinRelationshipSchemaBySlug } from "~/modules/relationship-schemas";
 import {
-	createApiFunctionDescriptors,
 	getBuiltinSandboxScriptBySlug,
 	getSandboxScriptForUser,
 } from "~/modules/sandbox";
@@ -159,10 +158,8 @@ const processMediaImportJob = async (job: Job) => {
 	const sandboxResult = await getSandboxService().executeQueuedRun({
 		userId,
 		scriptId,
-		code: script.code,
 		driverName: "details",
 		context: { identifier },
-		apiFunctionDescriptors: createApiFunctionDescriptors(userId, scriptId),
 	});
 
 	if (!sandboxResult.success) {
@@ -260,12 +257,7 @@ const processPersonPopulateJob = async (job: Job) => {
 		userId,
 		driverName: "details",
 		context: { identifier },
-		code: personScript.code,
 		scriptId: personScript.id,
-		apiFunctionDescriptors: createApiFunctionDescriptors(
-			userId,
-			personScript.id,
-		),
 	});
 
 	if (!sandboxResult.success) {
