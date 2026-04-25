@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { pageBackgroundColor } from "./page-background-color";
+import { pageBackgroundColor, withPageAlpha } from "./page-background-color";
 
 describe("page background color", () => {
 	it("follows the system scheme when no theme is chosen", () => {
@@ -15,5 +15,11 @@ describe("page background color", () => {
 	it("prefers an explicit theme over the system scheme", () => {
 		expect(pageBackgroundColor("dark", "light")).toBe("#101113");
 		expect(pageBackgroundColor("light", "dark")).toBe("#f5f2ec");
+	});
+
+	it("appends a two-digit alpha channel to a base color", () => {
+		expect(withPageAlpha("#101113", 0)).toBe("#10111300");
+		expect(withPageAlpha("#101113", 1)).toBe("#101113ff");
+		expect(withPageAlpha("#101113", 0.35)).toBe("#10111359");
 	});
 });
