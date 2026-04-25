@@ -1,7 +1,9 @@
 import { withOverrides } from "~/lib/test-fixtures/fixture-helpers";
 import { createOptionalTitlePropertiesSchema } from "~/lib/test-fixtures/property-schemas";
+import type { ListedEntity } from "~/modules/entities";
 import type {
 	CreateEntitySchemaBody,
+	EntityImportDeps,
 	EntitySchemaServiceDeps,
 	EntitySearchDeps,
 	ListedEntitySchema,
@@ -14,10 +16,10 @@ import type {
 const listedEntitySchemaDefaults: ListedEntitySchema = {
 	slug: "books",
 	name: "Books",
-	id: "schema_1",
-	icon: "book-open",
-	isBuiltin: false,
 	providers: [],
+	id: "schema_1",
+	isBuiltin: false,
+	icon: "book-open",
 	trackerId: "tracker_1",
 	accentColor: "#5B7FFF",
 	propertiesSchema: createOptionalTitlePropertiesSchema(),
@@ -71,5 +73,25 @@ export const createEntitySearchDeps = (
 ): EntitySearchDeps => ({
 	enqueueSandboxJob: async () => ({ data: entitySearchEnqueueResult }),
 	getSandboxJobResult: async () => ({ data: entitySearchPendingResult }),
+	...overrides,
+});
+
+const entityImportPendingJob = {
+	failedReason: undefined,
+	returnvalue: {} as ListedEntity,
+	getState: async () => "waiting" as const,
+	data: {
+		userId: "user_1",
+		scriptId: "script_1",
+		identifier: "id_1",
+		entitySchemaId: "schema_1",
+	},
+};
+
+export const createEntityImportDeps = (
+	overrides: Partial<EntityImportDeps> = {},
+): EntityImportDeps => ({
+	addJobToQueue: async () => {},
+	getJobFromQueue: async () => entityImportPendingJob,
 	...overrides,
 });
