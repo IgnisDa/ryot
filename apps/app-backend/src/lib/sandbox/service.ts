@@ -3,13 +3,18 @@ import { generateId } from "better-auth";
 import type { Job } from "bullmq";
 import { getQueues } from "../queue";
 import { BridgeServer } from "./bridge";
-import { defaultMaxHeapMB, defaultTimeoutMs } from "./constants";
+import {
+	defaultMaxHeapMB,
+	defaultTimeoutMs,
+	vendoredPackages,
+} from "./constants";
 import { hostFunctionRegistry } from "./function-registry";
 import {
 	type SandboxRunJobData,
 	sandboxRunJobData,
 	sandboxRunJobName,
 } from "./jobs";
+import { PackageCacheManager } from "./package-cache";
 import { RunnerFileManager } from "./runner";
 import type {
 	HostFunctionFactory,
@@ -26,6 +31,7 @@ import {
 export class SandboxService {
 	private readonly bridgeServer = new BridgeServer();
 	private readonly runnerManager = new RunnerFileManager();
+	private readonly packageCache = new PackageCacheManager();
 
 	private readonly executionDefaults = {
 		maxHeapMB: defaultMaxHeapMB,
@@ -35,6 +41,7 @@ export class SandboxService {
 	async start() {
 		await this.bridgeServer.start();
 		await this.runnerManager.create();
+		await this.packageCache.populate(vendoredPackages);
 	}
 
 	async stop() {
@@ -130,7 +137,7 @@ export class SandboxService {
 				"--deny-ffi",
 				"--no-prompt",
 				"--no-remote",
-				"--no-npm",
+				"--cached-only",
 				"--deny-write",
 				`--allow-read=${runnerPath}`,
 				`--allow-net=127.0.0.1:${bridgePort}`,
@@ -142,7 +149,7 @@ export class SandboxService {
 				stdin: "pipe",
 				stderr: "pipe",
 				stdout: "pipe",
-				env: { PATH: process.env.PATH },
+				env: { DENO_DIR: this.packageCache.getDir(), PATH: process.env.PATH },
 			});
 
 			if (!proc.stdin) {
