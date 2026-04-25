@@ -150,20 +150,15 @@ const makeTransactionLayer = (db: object) =>
 	);
 
 const bootstrapEntitiesServiceLayer = Layer.mock(EntitiesService)({
-	_tag: "EntitiesService",
 	create: () => Effect.succeed(Object.create(null)),
 });
 const bootstrapNotificationSubscriptionsServiceLayer = Layer.mock(NotificationSubscriptionsService)(
 	{
-		_tag: "NotificationSubscriptionsService",
 		ensureDefaultRules: () => Effect.void,
 	},
 );
-const bootstrapSavedViewsServiceLayer = Layer.mock(SavedViewsService)({
-	_tag: "SavedViewsService",
-});
+const bootstrapSavedViewsServiceLayer = Layer.mock(SavedViewsService)({});
 const pluginUserBootstrapDispatcherLayer = Layer.mock(PluginUserBootstrapDispatcher)({
-	_tag: "PluginUserBootstrapDispatcher",
 	dispatchAll: () => Effect.sync((): undefined => undefined),
 });
 
@@ -174,14 +169,14 @@ const makeServiceLayer = (
 	transactionDb = makeBootstrapDb(),
 	auth: ReturnType<typeof makeAuthMock> = makeAuthMock(authState),
 ): Layer.Layer<GodModeService> =>
-	GodModeService.Default.pipe(
+	GodModeService.layer.pipe(
 		Layer.provide(
 			Layer.mergeAll(
 				makeDbRunnerLayer(db),
 				makeDbServiceLayer(db),
 				makeTransactionLayer(transactionDb),
-				DefinitionRegistry.Default,
-				GodModeRepository.Default,
+				DefinitionRegistry.layer,
+				GodModeRepository.layer,
 				makeAppConfigLayer({ users: { disableLocalAuth } }),
 				Layer.succeed(AuthService, auth),
 				Layer.succeed(RedisService, makeRedisMock()),
@@ -197,14 +192,14 @@ const makeProvisionLayer = (
 	db: object,
 	auth: ReturnType<typeof makeProvisionAuthMock>,
 ): Layer.Layer<GodModeService> =>
-	GodModeService.Default.pipe(
+	GodModeService.layer.pipe(
 		Layer.provide(
 			Layer.mergeAll(
 				makeDbRunnerLayer(db),
 				makeDbServiceLayer(db),
 				makeTransactionLayer(makeBootstrapDb()),
-				DefinitionRegistry.Default,
-				GodModeRepository.Default,
+				DefinitionRegistry.layer,
+				GodModeRepository.layer,
 				makeAppConfigLayer(),
 				Layer.succeed(AuthService, auth),
 				Layer.succeed(RedisService, makeRedisMock()),
