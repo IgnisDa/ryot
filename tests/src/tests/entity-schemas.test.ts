@@ -760,4 +760,33 @@ describe("GET /entity-schemas/import/{jobId}", () => {
 
 		expect(["completed", "failed"]).toContain(result.status);
 	}, 30_000);
+
+	it("returns entity with populated properties in the completed import result", async () => {
+		const { client, cookies } = await createAuthenticatedClient();
+		const { schema } = await findBuiltinSchemaWithProviders(client, cookies);
+		const detailsScriptId = schema.providers.find(
+			(p) => p.name === "OpenLibrary",
+		)?.scriptId;
+		if (!detailsScriptId) {
+			throw new Error("OpenLibrary provider script not found");
+		}
+
+		const { jobId } = await enqueueEntityImport(client, cookies, {
+			externalId: "OL267933W",
+			scriptId: detailsScriptId,
+			entitySchemaId: schema.id,
+		});
+
+		const result = await pollEntityImportResult(client, cookies, jobId, {
+			timeoutMs: 30_000,
+		});
+
+		if (result.status !== "completed") {
+			return;
+		}
+
+		const properties = result.data.properties as Record<string, unknown>;
+		expect(properties).not.toEqual({});
+		expect(properties.populatedAt).toBeDefined();
+	}, 30_000);
 });
