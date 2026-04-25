@@ -16,42 +16,44 @@ const createJobData = (
 	userId: "user_1",
 	driverName: "main",
 	scriptId: "script_1",
-	code: 'driver("main", async function() { return 1; });',
 	...overrides,
 });
 
+const createScriptFetcher =
+	(metadata?: object) => async (_scriptId: string) => ({
+		metadata: metadata ?? null,
+		code: 'driver("main", async function() { return 1; });',
+	});
+
 describe("SandboxService.executeQueuedRun", () => {
-	it("reconstructs bound host functions from descriptors", async () => {
+	it("returns error when the script is not found", async () => {
+		const service = new SandboxService();
+
+		const result = await service.executeQueuedRun(
+			createJobData(),
+			async () => null,
+		);
+
+		expect(result).toEqual({
+			success: false,
+			error: "Sandbox script not found",
+		});
+	});
+
+	it("builds descriptors from allowedHostFunctions in metadata", async () => {
 		const service = new SandboxService();
 		const testService = service as unknown as TestSandboxExecutor;
 		let capturedOptions: unknown;
 
 		testService.execute = async (options: unknown) => {
 			capturedOptions = options;
-			return {
-				value: "ok",
-				success: true,
-				logs: undefined,
-				error: undefined,
-			};
+			return { value: "ok", success: true, logs: null, error: null };
 		};
 
-		expect(
-			service.executeQueuedRun(
-				createJobData({
-					timeoutMs: 2500,
-					context: { page: 2 },
-					apiFunctionDescriptors: [
-						{ context: {}, functionKey: "getAppConfigValue" },
-					],
-				}),
-			),
-		).resolves.toEqual({
-			value: "ok",
-			success: true,
-			logs: undefined,
-			error: undefined,
-		});
+		await service.executeQueuedRun(
+			createJobData({ timeoutMs: 2500, context: { page: 2 } }),
+			createScriptFetcher({ allowedHostFunctions: ["getAppConfigValue"] }),
+		);
 
 		expect(capturedOptions).toMatchObject({
 			timeoutMs: 2500,
@@ -70,7 +72,37 @@ describe("SandboxService.executeQueuedRun", () => {
 		expect(Object.keys(apiFunctions).sort()).toEqual(["getAppConfigValue"]);
 	});
 
-	it("throws before execute when a descriptor uses an unknown function key", async () => {
+	it("uses all registry functions when metadata has no allowedHostFunctions", async () => {
+		const service = new SandboxService();
+		const testService = service as unknown as TestSandboxExecutor;
+		let capturedOptions: unknown;
+
+		testService.execute = async (options: unknown) => {
+			capturedOptions = options;
+			return { value: "ok", success: true, logs: null, error: null };
+		};
+
+		await service.executeQueuedRun(createJobData(), createScriptFetcher());
+
+		const apiFunctions = (
+			capturedOptions as {
+				apiFunctions: Record<
+					string,
+					(...args: Array<unknown>) => Promise<unknown>
+				>;
+			}
+		).apiFunctions;
+		expect(Object.keys(apiFunctions).sort()).toEqual([
+			"executeQuery",
+			"getAppConfigValue",
+			"getCachedValue",
+			"getUserPreferences",
+			"httpCall",
+			"setCachedValue",
+		]);
+	});
+
+	it("throws before execute when metadata has an unknown function key", async () => {
 		const service = new SandboxService();
 		const testService = service as unknown as TestSandboxExecutor;
 		let executeCalled = false;
@@ -82,63 +114,29 @@ describe("SandboxService.executeQueuedRun", () => {
 
 		expect(
 			service.executeQueuedRun(
-				createJobData({
-					apiFunctionDescriptors: [
-						{ context: {}, functionKey: "missingFunction" },
-					],
-				}),
+				createJobData(),
+				createScriptFetcher({ allowedHostFunctions: ["missingFunction"] }),
 			),
 		).rejects.toThrow("Unknown sandbox host function: missingFunction");
 		expect(executeCalled).toBe(false);
 	});
 
-	it("calls execute without extra functions when descriptors are absent", async () => {
+	it("forwards driverName in execute payload", async () => {
 		const service = new SandboxService();
 		const testService = service as unknown as TestSandboxExecutor;
 		let capturedOptions: unknown;
 
 		testService.execute = async (options: unknown) => {
 			capturedOptions = options;
-			return {
-				success: true,
-				logs: undefined,
-				value: undefined,
-				error: undefined,
-			};
-		};
-
-		await service.executeQueuedRun(createJobData());
-
-		expect(capturedOptions).toMatchObject({
-			code: 'driver("main", async function() { return 1; });',
-		});
-		expect((capturedOptions as { apiFunctions?: unknown }).apiFunctions).toBe(
-			undefined,
-		);
-	});
-
-	it("calls execute without extra functions when descriptors are empty", async () => {
-		const service = new SandboxService();
-		const testService = service as unknown as TestSandboxExecutor;
-		let capturedOptions: unknown;
-
-		testService.execute = async (options: unknown) => {
-			capturedOptions = options;
-			return {
-				success: true,
-				logs: undefined,
-				value: undefined,
-				error: undefined,
-			};
+			return { success: true, logs: null, error: null, value: null };
 		};
 
 		await service.executeQueuedRun(
-			createJobData({ apiFunctionDescriptors: [] }),
+			createJobData({ driverName: "details" }),
+			createScriptFetcher(),
 		);
 
-		expect((capturedOptions as { apiFunctions?: unknown }).apiFunctions).toBe(
-			undefined,
-		);
+		expect(capturedOptions).toMatchObject({ driverName: "details" });
 	});
 });
 
@@ -203,8 +201,8 @@ describe("SandboxService.getJobByIdForUser", () => {
 	});
 });
 
-describe("SandboxService driverName support", () => {
-	it("includes driverName in job data when enqueuing with driverName", async () => {
+describe("SandboxService.enqueue", () => {
+	it("includes driverName in job data when enqueuing", async () => {
 		const service = new SandboxService();
 		const testService = service as unknown as TestSandboxQueueAccessor;
 		const addedJobs: Array<{ name: string; data: unknown; opts: unknown }> = [];
@@ -222,31 +220,10 @@ describe("SandboxService driverName support", () => {
 			userId: "user_1",
 			scriptId: "script_1",
 			driverName: "search",
-			code: 'driver("search", async function() { return 1; });',
 		});
 
 		expect(addedJobs).toHaveLength(1);
 		const jobData = addedJobs[0]?.data as { driverName?: string } | undefined;
 		expect(jobData?.driverName).toBe("search");
-	});
-
-	it("forwards driverName in execute payload", async () => {
-		const service = new SandboxService();
-		const testService = service as unknown as TestSandboxExecutor;
-		let capturedOptions: unknown;
-
-		testService.execute = async (options: unknown) => {
-			capturedOptions = options;
-			return {
-				success: true,
-				logs: undefined,
-				value: undefined,
-				error: undefined,
-			};
-		};
-
-		await service.executeQueuedRun(createJobData({ driverName: "details" }));
-
-		expect(capturedOptions).toMatchObject({ driverName: "details" });
 	});
 });
