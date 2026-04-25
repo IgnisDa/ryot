@@ -85,12 +85,23 @@ Keep files combined when that remains clear. Do not add barrels or speculative a
 
 ## Phase 1: Confirm Design Direction
 
-- [ ] Inspect `Web Saved View` and `Mobile Saved View` directly through Pencil.
-- [ ] Record only the required spacing, typography, image treatment, row density, table treatment, responsive behavior, and display states.
-- [ ] Map visual regions to the existing display slots without adding domain-specific behavior.
-- [ ] Use the web selector direction on desktop.
-- [ ] On mobile, place a compact, single-line grid/list/table selector below the heading, based on the existing `Control / Layout Segmented` component direction.
-- [ ] Do not edit `design.pen` unless separately requested.
+- [x] Inspect `Web Saved View` and `Mobile Saved View` directly through Pencil.
+- [x] Record only the required spacing, typography, image treatment, row density, table treatment, responsive behavior, and display states.
+- [x] Map visual regions to the existing display slots without adding domain-specific behavior.
+- [x] Use the web selector direction on desktop.
+- [x] On mobile, place a compact, single-line grid/list/table selector below the heading, based on the existing `Control / Layout Segmented` component direction.
+- [x] Do not edit `design.pen` unless separately requested.
+
+### Confirmed Visual Direction
+
+- Desktop content uses a 32 px inset and 20 px section spacing. The heading pairs the view icon with a 30 px title and a secondary 14 px result count. Keep the 34 px, three-icon web segmented selector in the heading region.
+- Mobile content uses a 16 px inset. The heading pairs the view icon with a 19 px semibold title and an 11 px result count. Place the 36 px, three-icon pill selector on its own single line below the heading rather than reproducing search, filter, add, or navigation controls.
+- Grid uses dominant cropped imagery. Desktop uses compact poster cards with an approximately 170 by 228 image, 14 px title, 12 px supporting text, and 18-20 px gaps. Mobile uses two edge-to-edge columns with a narrow gap, image overlays, a 16 px semibold title, and compact supporting values.
+- List uses separated compact rows. Desktop rows are approximately 72 px with a 44 by 64 cropped image, 15 px title, and 13 px supporting values. Mobile rows are approximately 120 px with a 70 by 104 cropped image, 17 px semibold title, and tightly stacked supporting values.
+- Table uses a subdued 34 px header and compact rows separated by fine rules. Desktop rows are approximately 48 px with a 26 by 36 leading image; mobile rows are approximately 56 px with a 22 by 32 leading image and retain all configured columns through horizontal overflow.
+- Map `overlineField`, `titleField`, `primaryMetadataField`, `secondaryMetadataField`, and `calloutField` to progressively supporting card text without inferring meaning from field names. Map each layout's independent `imageField` to its image region. Map ordered table columns to labeled cells and place the optional table image before the first cell value.
+- Loading, missing, failure, malformed-response, and empty states use the same calm centered treatment within the content region. The empty state shows only the specified icon and copy; omit all representative search, create, and add actions.
+- `design.pen` was inspected only and was not edited.
 
 ## Phase 2: Add Data And Preference Atoms
 
