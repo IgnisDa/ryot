@@ -29,9 +29,11 @@ export const IS_DEVELOPMENT = config.NODE_ENV === "development";
 
 const appConfigSchema = z.object({
 	BOOKS_HARDCOVER_API_KEY: z.string().optional(),
+	MUSIC_SPOTIFY_CLIENT_ID: z.string().optional(),
 	BOOKS_GOOGLE_BOOKS_API_KEY: z.string().optional(),
 	COMIC_BOOK_METRON_PASSWORD: z.string().optional(),
 	COMIC_BOOK_METRON_USERNAME: z.string().optional(),
+	MUSIC_SPOTIFY_CLIENT_SECRET: z.string().optional(),
 	VIDEO_GAMES_TWITCH_CLIENT_ID: z.string().optional(),
 	PODCASTS_LISTENNOTES_API_KEY: z.string().optional(),
 	ANIME_AND_MANGA_MAL_CLIENT_ID: z.string().optional(),
