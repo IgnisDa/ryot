@@ -5,7 +5,7 @@ import {
 	nullableStringSchema,
 	stringArraySchema,
 } from "../zod";
-import { freeCreatorSchema, mediaPropertiesSchema } from "./common";
+import { mediaWithFreeCreatorsPropertiesSchema } from "./common";
 
 const showEpisodeSchema = z
 	.object({
@@ -32,10 +32,10 @@ const showSeasonSchema = z
 	})
 	.strict();
 
-export const showPropertiesSchema = mediaPropertiesSchema.extend({
-	showSeasons: z.array(showSeasonSchema),
-	freeCreators: z.array(freeCreatorSchema),
-});
+export const showPropertiesSchema =
+	mediaWithFreeCreatorsPropertiesSchema.extend({
+		showSeasons: z.array(showSeasonSchema),
+	});
 
 export const showPropertiesJsonSchema =
 	toAppSchemaProperties(showPropertiesSchema);
