@@ -17,13 +17,15 @@ export const pollUntil = <A, E, R>(label: string, check: Effect.Effect<A | null,
 			while: (error) => error instanceof PollIncomplete,
 			schedule: Schedule.spaced(Duration.millis(intervalMs)),
 		}),
-		Effect.catchAll((error) =>
+		Effect.catch((error) =>
 			error instanceof PollIncomplete ? Effect.die(error) : Effect.fail(error),
 		),
-		Effect.timeoutFail({
+		Effect.timeoutOrElse({
 			duration: Duration.millis(timeoutMs),
-			onTimeout: () =>
-				new PollTimeout({ message: `'${label}' did not complete within ${timeoutMs}ms` }),
+			orElse: () =>
+				Effect.fail(
+					new PollTimeout({ message: `'${label}' did not complete within ${timeoutMs}ms` }),
+				),
 		}),
 	);
 };
