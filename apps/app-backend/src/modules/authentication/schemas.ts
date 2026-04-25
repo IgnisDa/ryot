@@ -1,6 +1,27 @@
 import { z } from "@hono/zod-openapi";
 import { dataSchema } from "~/lib/openapi";
 
+const userProviderLanguagePreferencesSchema = z.object({
+	source: z.string(),
+	preferredLanguage: z.string(),
+});
+
+const userLanguagePreferencesSchema = z.object({
+	providers: z.array(userProviderLanguagePreferencesSchema),
+});
+
+export const userPreferencesSchema = z.object({
+	languages: userLanguagePreferencesSchema,
+});
+
+export type UserPreferences = z.infer<typeof userPreferencesSchema>;
+
+export const defaultUserPreferences: UserPreferences = {
+	languages: {
+		providers: [{ source: "audible", preferredLanguage: "US" }],
+	},
+};
+
 export const meResponseSchema = dataSchema(
 	z.object({
 		user: z.unknown(),
