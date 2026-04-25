@@ -61,10 +61,11 @@ describe("POST /events with global entities", () => {
 			const membership = await pg.query(
 				`select r.id
 				 from relationship r
+				 inner join relationship_schema rs on rs.id = r.relationship_schema_id
 				 inner join entity library_entity on library_entity.id = r.target_entity_id
 				 inner join entity_schema library_schema on library_schema.id = library_entity.entity_schema_id
 				 inner join "user" u on u.id = library_entity.user_id
-				 where r.rel_type = 'in_library'
+				 where rs.slug = 'in_library'
 				   and r.user_id = u.id
 				   and r.source_entity_id = $1
 				   and u.email = $2
