@@ -1,0 +1,416 @@
+function parseJsonResponse(responseBody) {
+  try {
+    return JSON.parse(responseBody);
+  } catch {
+    throw new Error("TVDB returned invalid JSON");
+  }
+}
+
+const TVDB_BASE_URL = "https://api4.thetvdb.com/v4";
+const PAGE_SIZE = 20;
+const TOKEN_CACHE_KEY = "tvdb_access_token";
+
+async function getTvdbApiKey() {
+  const resp = await getAppConfigValue("MOVIES_AND_SHOWS_TVDB_API_KEY");
+  if (!resp?.success) {
+    throw new Error(resp?.error ?? "Failed to retrieve TVDB API key");
+  }
+  const key = typeof resp.data === "string" ? resp.data.trim() : null;
+  if (!key) {
+    throw new Error(
+      "TVDB API key is not configured. Set MOVIES_AND_SHOWS_TVDB_API_KEY in your environment.",
+    );
+  }
+  return key;
+}
+
+async function getTvdbAccessToken() {
+  const cached = await getCachedValue(TOKEN_CACHE_KEY);
+  if (cached?.success && typeof cached.data === "string" && cached.data) {
+    return cached.data;
+  }
+
+  const apiKey = await getTvdbApiKey();
+  const response = await httpCall("POST", `${TVDB_BASE_URL}/login`, {
+    body: JSON.stringify({ apikey: apiKey }),
+    headers: { "Content-Type": "application/json" },
+  });
+
+  if (!response?.success) {
+    throw new Error(response?.error ?? "TVDB login request failed");
+  }
+
+  const payload = parseJsonResponse(response.data.body);
+  if (payload?.status !== "success" || !payload?.data?.token) {
+    throw new Error("TVDB login returned no token");
+  }
+
+  const accessToken = `Bearer ${payload.data.token}`;
+  // TVDB tokens are valid for 30 days; cache for 23 hours as a safety buffer.
+  const cacheResult = await setCachedValue(TOKEN_CACHE_KEY, accessToken, 23 * 60 * 60);
+  if (!cacheResult?.success) {
+    console.warn(`TVDB token cache write failed: ${cacheResult?.error}`);
+  }
+
+  return accessToken;
+}
+
+async function tvdbGet(path, params) {
+  const token = await getTvdbAccessToken();
+  const query =
+    params && Object.keys(params).length > 0
+      ? `?${new URLSearchParams(params).toString()}`
+      : "";
+  const url = `${TVDB_BASE_URL}${path}${query}`;
+  const response = await httpCall("GET", url, {
+    headers: { Authorization: token },
+  });
+
+  if (!response?.success) {
+    throw new Error(response?.error ?? `TVDB request failed: ${path}`);
+  }
+
+  const payload = parseJsonResponse(response.data.body);
+  if (payload?.status && payload.status !== "success") {
+    throw new Error(`TVDB API error: ${payload.message ?? payload.status}`);
+  }
+
+  return payload;
+}
+
+function parsePublishYear(str) {
+  if (typeof str !== "string" || !str.trim()) {
+    return null;
+  }
+  const yearToken = str.trim().slice(0, 4);
+  if (!/^\d{4}$/.test(yearToken)) {
+    return null;
+  }
+  const year = Number(yearToken);
+  return Number.isFinite(year) && year > 0 ? year : null;
+}
+
+function collectImages(mainImage, artworks) {
+  const seen = new Set();
+  const images = [];
+
+  const addImage = (url) => {
+    if (typeof url === "string" && url.trim() && !seen.has(url)) {
+      seen.add(url);
+      images.push(url);
+    }
+  };
+
+  addImage(mainImage);
+
+  if (Array.isArray(artworks)) {
+    for (const art of artworks) {
+      addImage(art?.image);
+    }
+  }
+
+  return images;
+}
+
+function collectGenres(genresArray) {
+  if (!Array.isArray(genresArray)) {
+    return [];
+  }
+  return genresArray
+    .map((g) => (typeof g?.name === "string" ? g.name.trim() : ""))
+    .filter((name) => name.length > 0);
+}
+
+function collectFreeCreators(characters) {
+  if (!Array.isArray(characters)) {
+    return [];
+  }
+
+  const seen = new Set();
+  const creators = [];
+
+  for (const chr of characters.slice(0, 20)) {
+    const name =
+      typeof chr?.personName === "string" ? chr.personName.trim() : "";
+    if (!name) {
+      continue;
+    }
+    const role =
+      typeof chr?.peopleType === "string" && chr.peopleType.trim()
+        ? chr.peopleType.trim()
+        : "Cast";
+    const key = `${name}:${role}`;
+    if (seen.has(key)) {
+      continue;
+    }
+    seen.add(key);
+    creators.push({ name, role });
+  }
+
+  return creators;
+}
+
+function buildSeason(seasonData) {
+  const id =
+    typeof seasonData?.id === "number" &&
+    Number.isFinite(seasonData.id) &&
+    seasonData.id > 0
+      ? Math.trunc(seasonData.id)
+      : -1;
+
+  const seasonNumber =
+    typeof seasonData?.number === "number" &&
+    Number.isFinite(seasonData.number)
+      ? Math.trunc(seasonData.number)
+      : 0;
+
+  const yearStr =
+    typeof seasonData?.year === "string" && /^\d{4}$/.test(seasonData.year.trim())
+      ? seasonData.year.trim()
+      : null;
+  const publishDate = yearStr ? `${yearStr}-01-01` : null;
+
+  const posterImages = [];
+  if (typeof seasonData?.image === "string" && seasonData.image.trim()) {
+    posterImages.push(seasonData.image.trim());
+  }
+  if (Array.isArray(seasonData?.artwork)) {
+    for (const art of seasonData.artwork) {
+      if (typeof art?.image === "string" && art.image.trim()) {
+        posterImages.push(art.image.trim());
+      }
+    }
+  }
+
+  const episodeList = Array.isArray(seasonData?.episodes) ? seasonData.episodes : [];
+  const episodes = episodeList.map((ep) => {
+    const epId =
+      typeof ep?.id === "number" && Number.isFinite(ep.id) && ep.id > 0
+        ? Math.trunc(ep.id)
+        : -1;
+    const epName =
+      typeof ep?.name === "string" && ep.name.trim() ? ep.name.trim() : "";
+    const epRuntime =
+      typeof ep?.runtime === "number" &&
+      Number.isFinite(ep.runtime) &&
+      ep.runtime > 0
+        ? Math.trunc(ep.runtime)
+        : null;
+    const epOverview =
+      typeof ep?.overview === "string" && ep.overview.trim()
+        ? ep.overview.trim()
+        : null;
+    const epNumber =
+      typeof ep?.number === "number" && Number.isFinite(ep.number)
+        ? Math.trunc(ep.number)
+        : 0;
+    const epPublishDate =
+      typeof ep?.aired === "string" && ep.aired.trim() ? ep.aired.trim() : null;
+    const epPosterImages =
+      typeof ep?.image === "string" && ep.image.trim() ? [ep.image.trim()] : [];
+
+    return {
+      id: epId,
+      name: epName,
+      runtime: epRuntime,
+      overview: epOverview,
+      episodeNumber: epNumber,
+      publishDate: epPublishDate,
+      posterImages: epPosterImages,
+    };
+  });
+
+  return {
+    id,
+    name: `Season ${seasonNumber}`,
+    overview: null,
+    seasonNumber,
+    posterImages,
+    publishDate,
+    backdropImages: [],
+    episodes,
+  };
+}
+
+driver("search", async function (context) {
+  const query =
+    typeof context?.query === "string" ? context.query.trim() : "";
+  if (!query) {
+    throw new Error("query is required");
+  }
+
+  const currentPage = Number.isFinite(Number(context?.page))
+    ? Math.max(1, Math.floor(Number(context.page)))
+    : 1;
+  const offset = (currentPage - 1) * PAGE_SIZE;
+
+  const data = await tvdbGet("/search", {
+    query,
+    type: "series",
+    offset: String(offset),
+    limit: String(PAGE_SIZE),
+  });
+
+  const results = Array.isArray(data?.data) ? data.data : [];
+  const totalItems =
+    typeof data?.links?.total_items === "number" &&
+    Number.isFinite(data.links.total_items)
+      ? data.links.total_items
+      : results.length + offset;
+  const hasNext = data?.links?.next != null;
+
+  const items = results
+    .map((item) => {
+      const id =
+        typeof item?.tvdb_id === "string" && item.tvdb_id.trim()
+          ? item.tvdb_id.trim()
+          : null;
+      if (!id) {
+        return null;
+      }
+
+      const title =
+        typeof item?.name === "string" && item.name.trim()
+          ? item.name.trim()
+          : typeof item?.title === "string" && item.title.trim()
+          ? item.title.trim()
+          : null;
+      if (!title) {
+        return null;
+      }
+
+      const imageUrl = item?.poster ?? item?.image_url ?? null;
+      const image =
+        typeof imageUrl === "string" && imageUrl.trim() ? imageUrl.trim() : null;
+
+      return {
+        identifier: id,
+        badgeProperty: { kind: "null", value: null },
+        titleProperty: { kind: "text", value: title },
+        subtitleProperty: { kind: "null", value: null },
+        imageProperty:
+          image === null
+            ? { kind: "null", value: null }
+            : { kind: "image", value: { kind: "remote", url: image } },
+      };
+    })
+    .filter((item) => item !== null);
+
+  return {
+    items,
+    details: {
+      totalItems,
+      nextPage: hasNext ? currentPage + 1 : null,
+    },
+  };
+});
+
+driver("details", async function (context) {
+  const identifier =
+    typeof context?.identifier === "string" ? context.identifier.trim() : "";
+  if (!identifier) {
+    throw new Error("identifier is required");
+  }
+
+  if (!/^\d+$/.test(identifier)) {
+    throw new Error("identifier must be a numeric TVDB series ID");
+  }
+
+  const data = await tvdbGet(`/series/${identifier}/extended`);
+  const show = data?.data;
+  if (!show) {
+    throw new Error("TVDB returned no data for this series");
+  }
+
+  const title =
+    typeof show?.name === "string" && show.name.trim()
+      ? show.name.trim()
+      : null;
+  if (!title) {
+    throw new Error("TVDB returned no name for this series");
+  }
+
+  const remoteImages = collectImages(show?.image, show?.artworks);
+  const genres = collectGenres(show?.genres);
+  const freeCreators = collectFreeCreators(show?.characters);
+
+  const firstAired =
+    typeof show?.firstAired === "string" && show.firstAired.trim()
+      ? show.firstAired.trim()
+      : null;
+
+  const publishYear =
+    parsePublishYear(typeof show?.year === "string" ? show.year : null) ??
+    parsePublishYear(firstAired);
+
+  // Deduplicate seasons by number, keeping the first ID encountered per number.
+  const seasonsRaw = Array.isArray(show?.seasons) ? show.seasons : [];
+  const seasonIdByNumber = new Map();
+  for (const s of seasonsRaw) {
+    const num =
+      typeof s?.number === "number" && Number.isFinite(s.number)
+        ? Math.trunc(s.number)
+        : null;
+    const id =
+      typeof s?.id === "number" && Number.isFinite(s.id) ? Math.trunc(s.id) : null;
+    if (num !== null && id !== null && !seasonIdByNumber.has(num)) {
+      seasonIdByNumber.set(num, id);
+    }
+  }
+
+  const seasonIds = Array.from(seasonIdByNumber.values());
+
+  const BATCH_SIZE = 5;
+  const allSeasonResponses = [];
+  for (let i = 0; i < seasonIds.length; i += BATCH_SIZE) {
+    const batch = seasonIds.slice(i, i + BATCH_SIZE);
+    const batchResults = await Promise.all(
+      batch.map((sid) => tvdbGet(`/seasons/${sid}/extended`)),
+    );
+    allSeasonResponses.push(...batchResults);
+  }
+
+  const officialSeasons = allSeasonResponses
+    .map((r) => r?.data)
+    .filter(
+      (s) =>
+        s != null &&
+        typeof s?.type === "object" &&
+        s.type?.type === "official",
+    )
+    .sort(
+      (a, b) =>
+        (typeof a?.number === "number" ? a.number : 0) -
+        (typeof b?.number === "number" ? b.number : 0),
+    );
+
+  const showSeasons = officialSeasons.map(buildSeason);
+
+  const slug =
+    typeof show?.slug === "string" && show.slug.trim()
+      ? show.slug.trim()
+      : null;
+  const sourceUrl = slug
+    ? `https://thetvdb.com/series/${slug}`
+    : `https://thetvdb.com/series/${identifier}`;
+
+  return {
+    name: title,
+    externalId: identifier,
+    properties: {
+      showSeasons,
+      genres,
+      isNsfw: null,
+      providerRating: null,
+      publishYear,
+      freeCreators,
+      description:
+        typeof show?.overview === "string" && show.overview.trim()
+          ? show.overview.trim()
+          : null,
+      productionStatus: null,
+      assets: { remoteImages },
+      sourceUrl,
+    },
+  };
+});
