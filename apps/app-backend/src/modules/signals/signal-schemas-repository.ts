@@ -8,7 +8,7 @@ import {
 	type UserId,
 } from "@ryot/contract/schema/brands";
 import type { AppSchema } from "@ryot/contract/schema/property-schema";
-import { Effect } from "effect";
+import { Context, Effect, Layer } from "effect";
 
 import { DefinitionRegistry } from "#modules/definition-registry/service";
 
@@ -27,10 +27,10 @@ export type BuiltinSignalSchemaInput = Pick<
 	"audiencePolicy" | "catalogState" | "name" | "propertiesSchema" | "slug"
 >;
 
-export class SignalSchemasRepository extends Effect.Service<SignalSchemasRepository>()(
+export class SignalSchemasRepository extends Context.Service<SignalSchemasRepository>()(
 	"SignalSchemasRepository",
 	{
-		effect: Effect.gen(function* () {
+		make: Effect.gen(function* () {
 			const definitions = yield* DefinitionRegistry;
 			const scope = (slug: string): SignalSchemaScope | null => {
 				const definition = definitions.getSignalSchema(slug);
@@ -57,13 +57,12 @@ export class SignalSchemasRepository extends Effect.Service<SignalSchemasReposit
 			const findBuiltinById = (id: SignalSchemaSlug) => Effect.succeed(scope(id));
 			const findActiveBuiltinById = (id: SignalSchemaSlug) =>
 				Effect.succeed(scope(id)?.catalogState === "active" ? scope(id) : null);
-			const listActiveBuiltins = () =>
-				Effect.succeed(
-					Object.keys(definitions.getSnapshot().signalSchemas).flatMap((slug) => {
-						const value = scope(slug);
-						return value?.catalogState === "active" ? [value] : [];
-					}),
-				);
+			const listActiveBuiltins = Effect.succeed(
+				Object.keys(definitions.getSnapshot().signalSchemas).flatMap((slug) => {
+					const value = scope(slug);
+					return value?.catalogState === "active" ? [value] : [];
+				}),
+			);
 			const insertBuiltin = (input: BuiltinSignalSchemaInput) =>
 				Effect.succeed(
 					scope(input.slug) ?? {
@@ -88,4 +87,6 @@ export class SignalSchemasRepository extends Effect.Service<SignalSchemasReposit
 			};
 		}),
 	},
-) {}
+) {
+	static readonly layer = Layer.effect(this, this.make);
+}
