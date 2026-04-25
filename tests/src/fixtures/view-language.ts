@@ -1,5 +1,6 @@
 import type { paths } from "@ryot/generated/openapi/app-backend";
 import {
+	type EventAggregation,
 	entityBuiltinColumns,
 	eventJoinBuiltinColumns,
 	type RuntimeRef,
@@ -40,6 +41,15 @@ export const schemaPropertyExpression = (
 export const computedFieldExpression = (key: string): ViewExpression => ({
 	type: "reference",
 	reference: { type: "computed-field", key },
+});
+
+export const eventAggregateExpression = (
+	eventSchemaSlug: string,
+	path: string[],
+	aggregation: EventAggregation,
+): ViewExpression => ({
+	type: "reference",
+	reference: { type: "event-aggregate", eventSchemaSlug, path, aggregation },
 });
 
 export const parseFieldPath = (field: string): RuntimeRef => {

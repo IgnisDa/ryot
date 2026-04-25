@@ -35,6 +35,14 @@ export const runtimeReferenceSchema = z
 				type: z.literal("computed-field"),
 			})
 			.strict(),
+		z
+			.object({
+				type: z.literal("event-aggregate"),
+				eventSchemaSlug: nonEmptyTrimmedStringSchema,
+				aggregation: z.enum(["avg", "count", "max", "min", "sum"]),
+				path: z.array(nonEmptyTrimmedStringSchema).min(1),
+			})
+			.strict(),
 	])
 	.openapi("QueryEngineReference");
 

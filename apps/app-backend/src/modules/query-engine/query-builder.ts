@@ -223,7 +223,11 @@ export const executePreparedQuery = async (input: {
 	const context: QueryEngineReferenceContext<
 		QueryEngineSchemaRow,
 		QueryEnginePreparedEventJoin
-	> = { schemaMap: input.schemaMap, eventJoinMap: input.eventJoinMap };
+	> = {
+		userId: input.userId,
+		schemaMap: input.schemaMap,
+		eventJoinMap: input.eventJoinMap,
+	};
 	const filterWhereClause = buildFilterWhereClause({
 		context,
 		alias: "joined_entities",
