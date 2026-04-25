@@ -1,6 +1,5 @@
-import { BunContext } from "@effect/platform-bun";
+import { BunServices } from "@effect/platform-bun";
 import { expect, it } from "@effect/vitest";
-import { WorkflowEngine } from "@effect/workflow/WorkflowEngine";
 import { SandboxRunError } from "@ryot/contract/errors";
 import {
 	EntitySchemaSlug,
@@ -11,6 +10,7 @@ import {
 	UserId,
 } from "@ryot/contract/schema/brands";
 import { Effect, Layer } from "effect";
+import { WorkflowEngine } from "effect/unstable/workflow/WorkflowEngine";
 
 import { ServerRun } from "#lib/infrastructure/server-run";
 import { dbRunnerLayer, makeAppConfigLayer, makeWorkflowEngine } from "#lib/test-utils/effect";
@@ -31,9 +31,8 @@ const mockImportsRepository = Layer.mock(ImportsRepository);
 const mockIntegrationsRepository = Layer.mock(IntegrationsRepository);
 
 const unownedRepositories = Layer.mergeAll(
-	mockImportsRepository({ _tag: "ImportsRepository", getRunById: () => Effect.succeed(null) }),
+	mockImportsRepository({ getRunById: () => Effect.succeed(null) }),
 	mockIntegrationsRepository({
-		_tag: "IntegrationsRepository",
 		getForUser: () => Effect.succeed(null),
 	}),
 );
@@ -44,10 +43,10 @@ const referencesLayer = (repositories: Layer.Layer<ImportsRepository | Integrati
 		Layer.mergeAll(
 			dbRunnerLayer,
 			repositories,
-			BunContext.layer,
+			BunServices.layer,
 			makeAppConfigLayer(),
-			Layer.succeed(ServerRun, { _tag: "ServerRun", id: "test-server-run" }),
-			Layer.mock(PluginRuntimeResolver)({ _tag: "PluginRuntimeResolver" }),
+			Layer.succeed(ServerRun, { id: "test-server-run" }),
+			Layer.mock(PluginRuntimeResolver)({}),
 		),
 	);
 
@@ -59,11 +58,10 @@ const populationReferencesLayer = (
 		Layer.mergeAll(
 			dbRunnerLayer,
 			unownedRepositories,
-			BunContext.layer,
+			BunServices.layer,
 			makeAppConfigLayer(),
-			Layer.succeed(ServerRun, { _tag: "ServerRun", id: "test-server-run" }),
+			Layer.succeed(ServerRun, { id: "test-server-run" }),
 			Layer.mock(PluginRuntimeResolver)({
-				_tag: "PluginRuntimeResolver",
 				findActiveScriptById: () =>
 					Effect.succeed({
 						providerId: null,
@@ -113,7 +111,7 @@ it.effect("binds kernel workflow user ids to the trusted execution authority", (
 		execute: (workflow, options) =>
 			Effect.sync(() => {
 				payloads.push(options.payload);
-				return workflow.name === "EventCreateWorkflow" ? [] : { id: "entity-1" };
+				return workflow._tag === "EventCreateWorkflow" ? [] : { id: "entity-1" };
 			}),
 	});
 
@@ -167,11 +165,10 @@ it.effect("resolves plugin provider slugs before dispatching entity imports", ()
 		Layer.mergeAll(
 			dbRunnerLayer,
 			unownedRepositories,
-			BunContext.layer,
+			BunServices.layer,
 			makeAppConfigLayer(),
-			Layer.succeed(ServerRun, { _tag: "ServerRun", id: "test-server-run" }),
+			Layer.succeed(ServerRun, { id: "test-server-run" }),
 			Layer.mock(PluginRuntimeResolver)({
-				_tag: "PluginRuntimeResolver",
 				findSchemaProviderBySlug: () =>
 					Effect.succeed({
 						entitySchemaSlug: EntitySchemaSlug.make("show"),
@@ -226,7 +223,6 @@ it.effect("binds import harvest provenance to the trusted parent workflow execut
 	});
 	const ownedRepositories = Layer.mergeAll(
 		mockImportsRepository({
-			_tag: "ImportsRepository",
 			getRunById: () =>
 				Effect.succeed({
 					progress: 0,
@@ -245,7 +241,7 @@ it.effect("binds import harvest provenance to the trusted parent workflow execut
 					updatedAt: "2026-01-01T00:00:00.000Z",
 				}),
 		}),
-		mockIntegrationsRepository({ _tag: "IntegrationsRepository" }),
+		mockIntegrationsRepository({}),
 	);
 
 	return Effect.gen(function* () {
