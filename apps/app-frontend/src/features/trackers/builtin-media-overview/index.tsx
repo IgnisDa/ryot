@@ -110,7 +110,7 @@ export function BuiltinMediaTrackerOverview(
 		...continueItems,
 		...rateTheseItems,
 		...activityItems.map((item) => ({
-			id: item.id,
+			id: item.entityId,
 			image: item.entity.image,
 		})),
 	].map((item) => ({ id: item.id, image: toAppEntityImage(item.image) }));
@@ -159,14 +159,15 @@ export function BuiltinMediaTrackerOverview(
 		const occurredAt = dayjs(item.occurredAt);
 		return {
 			id: item.id,
-			date: getActivityDateLabel(occurredAt),
-			time: getLastActivityLabel(occurredAt.toDate()),
-			title: item.entity.name,
-			action: getActivityActionLabel(item),
-			rating: item.rating,
 			sub: undefined,
+			rating: item.rating,
+			title: item.entity.name,
+			entityId: item.entityId,
+			action: getActivityActionLabel(item),
+			date: getActivityDateLabel(occurredAt),
 			entitySchemaSlug: item.entity.entitySchemaSlug,
-			imageUrl: imageUrls.imageUrlByEntityId.get(item.id),
+			time: getLastActivityLabel(occurredAt.toDate()),
+			imageUrl: imageUrls.imageUrlByEntityId.get(item.entityId),
 		};
 	});
 	const dateGroups = liveActivityEvents.reduce<

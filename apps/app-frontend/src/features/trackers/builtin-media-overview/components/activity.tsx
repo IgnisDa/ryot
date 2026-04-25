@@ -91,6 +91,7 @@ interface EventRowProps {
 		time: string;
 		title: string;
 		action: string;
+		entityId: string;
 		imageUrl?: string;
 		rating: number | null;
 		entitySchemaSlug: string;
@@ -126,7 +127,7 @@ export function EventRow(props: EventRowProps) {
 				<Link
 					className="title-link"
 					to="/entities/$entityId"
-					params={{ entityId: props.event.id }}
+					params={{ entityId: props.event.entityId }}
 				>
 					<Text
 						fz="sm"

@@ -711,6 +711,7 @@ export interface paths {
                             data: {
                                 items: {
                                     id: string;
+                                    entityId: string;
                                     /** Format: date-time */
                                     occurredAt: string;
                                     rating: number | null;
