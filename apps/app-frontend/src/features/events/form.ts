@@ -1,17 +1,13 @@
-import type {
-	AppPropertyDefinition,
-	AppSchema,
-	AppSchemaRuleCondition,
-} from "@ryot/ts-utils";
-import {
-	fromAppSchemaObject,
-	isAppPropertyRequired,
-	trimmedOrUndefined,
-} from "@ryot/ts-utils";
-import { match } from "ts-pattern";
+import type { AppSchema } from "@ryot/ts-utils";
+import { trimmedOrUndefined } from "@ryot/ts-utils";
 import { z } from "zod";
 import type { ApiPostRequestBody } from "~/lib/api/types";
 import type { AppEventSchema } from "../event-schemas/model";
+import {
+	buildPrimitivePropertiesSchema,
+	getUnsupportedRequiredProperties,
+	reconcilePrimitiveProperties,
+} from "../property-schemas/primitive-schema-utils";
 
 export type CreateEventFormValues = {
 	eventSchemaId: string;
@@ -41,38 +37,14 @@ export const buildEventPropertyDefaults = (propertiesSchema: AppSchema) => {
 export function getUnsupportedRequiredEventProperties(
 	propertiesSchema: AppSchema,
 ) {
-	return Object.entries(propertiesSchema.fields)
-		.filter(
-			([, propertyDef]) =>
-				isAppPropertyRequired(propertyDef) && !isPrimitiveProperty(propertyDef),
-		)
-		.map(([key]) => key);
+	return getUnsupportedRequiredProperties(propertiesSchema);
 }
 
 export function reconcileEventProperties(
 	propertiesSchema: AppSchema,
 	currentProperties: Record<string, unknown>,
 ) {
-	const properties: Record<string, unknown> = {};
-
-	for (const [key, propertyDef] of Object.entries(propertiesSchema.fields)) {
-		if (!isPrimitiveProperty(propertyDef)) {
-			continue;
-		}
-
-		const currentValue = currentProperties[key];
-		if (isValidPropertyValue(propertyDef, currentValue)) {
-			properties[key] = currentValue;
-			continue;
-		}
-
-		const defaultValue = getDefaultValue(propertyDef);
-		if (isAppPropertyRequired(propertyDef) && defaultValue !== undefined) {
-			properties[key] = defaultValue;
-		}
-	}
-
-	return properties;
+	return reconcilePrimitiveProperties(propertiesSchema, currentProperties);
 }
 
 export const buildCreateEventFormSchema = (
@@ -112,7 +84,7 @@ export const buildCreateEventFormSchema = (
 				});
 			}
 
-			const result = buildEventPropertiesSchema(
+			const result = buildPrimitivePropertiesSchema(
 				selectedEventSchema.propertiesSchema,
 			).safeParse(value.properties);
 
@@ -189,86 +161,10 @@ export function getEventFormReconciliationState(
 	};
 }
 
-const getDefaultValue = (propertyDef: AppPropertyDefinition): unknown => {
-	return match(propertyDef.type)
-		.with("string", "date", "datetime", () => "")
-		.with("number", "integer", () => 0)
-		.with("boolean", () => false)
-		.otherwise(() => undefined);
-};
-
 export function getUnsupportedRequiredPropertiesMessage(
 	propertyKeys: string[],
 ) {
 	return `This event schema cannot be logged here yet because it requires unsupported properties: ${propertyKeys.join(", ")}.`;
-}
-
-function isPrimitiveProperty(propertyDef: AppPropertyDefinition) {
-	return match(propertyDef.type)
-		.with(
-			"boolean",
-			"date",
-			"datetime",
-			"integer",
-			"number",
-			"string",
-			() => true,
-		)
-		.otherwise(() => false);
-}
-
-function isValidPropertyValue(
-	propertyDef: AppPropertyDefinition,
-	value: unknown,
-) {
-	return match(propertyDef.type)
-		.with("string", "date", "datetime", () => typeof value === "string")
-		.with("number", () => typeof value === "number" && Number.isFinite(value))
-		.with("integer", () => Number.isInteger(value))
-		.with("boolean", () => typeof value === "boolean")
-		.otherwise(() => false);
-}
-
-const buildEventPropertiesSchema = (propertiesSchema: AppSchema) => {
-	const fields: AppSchema["fields"] = {};
-	const supportedKeys = new Set<string>();
-
-	for (const [key, propertyDef] of Object.entries(propertiesSchema.fields)) {
-		if (!isPrimitiveProperty(propertyDef)) {
-			continue;
-		}
-
-		supportedKeys.add(key);
-		fields[key] = propertyDef;
-	}
-
-	return fromAppSchemaObject(
-		{
-			fields,
-			rules: propertiesSchema.rules?.filter(
-				(rule) =>
-					isSupportedPrimitiveRuleCondition(rule.when, supportedKeys) &&
-					rule.path.length === 1 &&
-					supportedKeys.has(rule.path[0] ?? ""),
-			),
-		},
-		{ unknownKeys: "strip" },
-	);
-};
-
-function isSupportedPrimitiveRuleCondition(
-	condition: AppSchemaRuleCondition,
-	supportedKeys: Set<string>,
-): boolean {
-	return match(condition)
-		.with({ operator: "all" }, { operator: "any" }, (cond) =>
-			cond.conditions.every((value) =>
-				isSupportedPrimitiveRuleCondition(value, supportedKeys),
-			),
-		)
-		.otherwise(
-			(cond) => cond.path.length === 1 && supportedKeys.has(cond.path[0] ?? ""),
-		);
 }
 
 function findEventSchema(
@@ -293,9 +189,9 @@ export function toCreateEventPayload(
 		input.eventSchemaId,
 	);
 	const properties = selectedEventSchema
-		? buildEventPropertiesSchema(selectedEventSchema.propertiesSchema).parse(
-				input.properties,
-			)
+		? buildPrimitivePropertiesSchema(
+				selectedEventSchema.propertiesSchema,
+			).parse(input.properties)
 		: input.properties;
 
 	const item: CreateEventSinglePayload = {
