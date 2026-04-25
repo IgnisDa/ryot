@@ -1,13 +1,23 @@
 import { describe, expect, it } from "bun:test";
 import type { Client } from "../fixtures";
 import {
+	buildGridRequest,
 	createAuthenticatedClient,
 	entityColumnExpression,
+	entityField,
+	executeQueryEngine,
+	getQueryEngineFieldOrThrow,
 	listEntitySchemas,
 	listSavedViews,
 	listTrackers,
+	literalExpression,
 	schemaPropertyExpression,
 } from "../fixtures";
+import { pollUntil } from "../fixtures/polling";
+
+const seededExerciseName = "3/4 Sit-Up";
+const seededExerciseImageUrl =
+	"https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/3_4_Sit-Up/0.jpg";
 
 const findBuiltinTrackerBySlug = async (
 	client: Client,
@@ -26,6 +36,42 @@ const findBuiltinTrackerBySlug = async (
 	}
 
 	return tracker;
+};
+
+const waitForSeededExercise = async (client: Client, cookies: string) => {
+	return pollUntil(
+		`exercise '${seededExerciseName}' to be queryable`,
+		async () => {
+			const { data, response } = await executeQueryEngine(
+				client,
+				cookies,
+				buildGridRequest({
+					entitySchemaSlugs: ["exercise"],
+					pagination: { page: 1, limit: 1 },
+					displayConfiguration: {
+						titleProperty: [entityField("exercise", "name")],
+						imageProperty: [entityField("exercise", "image")],
+						calloutProperty: [entityField("exercise", "level")],
+						primarySubtitleProperty: [entityField("exercise", "lot")],
+						secondarySubtitleProperty: [entityField("exercise", "equipment")],
+					},
+					filter: {
+						operator: "eq",
+						type: "comparison",
+						right: literalExpression(seededExerciseName),
+						left: entityColumnExpression("exercise", "name"),
+					},
+				}),
+			);
+
+			if (response.status !== 200 || !data?.data) {
+				throw new Error("Failed to query seeded exercises");
+			}
+
+			return data.data.items[0] ?? null;
+		},
+		{ intervalMs: 1000, timeoutMs: 60000 },
+	);
 };
 
 describe("Exercises E2E", () => {
@@ -48,10 +94,7 @@ describe("Exercises E2E", () => {
 		expect(exerciseSchema?.isBuiltin).toBe(true);
 		expect(exerciseSchema?.trackerId).toBe(fitnessTracker.id);
 		expect(exerciseSchema?.accentColor).toBe("#2DD4BF");
-		expect(exerciseSchema?.providers).toHaveLength(1);
-		expect(exerciseSchema?.providers[0]).toMatchObject({
-			name: "Free Exercise DB",
-		});
+		expect(exerciseSchema?.providers).toEqual([]);
 		expect(exerciseSchema?.propertiesSchema.fields.muscles).toMatchObject({
 			label: "Muscles",
 			type: "enum-array",
@@ -131,6 +174,44 @@ describe("Exercises E2E", () => {
 					),
 				},
 			},
+		});
+	});
+
+	it("lists seeded built-in exercises through the query engine", async () => {
+		const { client, cookies } = await createAuthenticatedClient();
+		const exercise = await waitForSeededExercise(client, cookies);
+
+		expect(exercise.name).toBe(seededExerciseName);
+		expect(exercise.entitySchemaSlug).toBe("exercise");
+		expect(exercise.sandboxScriptId).toBeNull();
+		expect(exercise.image).toEqual({
+			kind: "remote",
+			url: seededExerciseImageUrl,
+		});
+		expect(getQueryEngineFieldOrThrow(exercise, "title")).toEqual({
+			key: "title",
+			kind: "text",
+			value: seededExerciseName,
+		});
+		expect(getQueryEngineFieldOrThrow(exercise, "image")).toEqual({
+			key: "image",
+			kind: "image",
+			value: { kind: "remote", url: seededExerciseImageUrl },
+		});
+		expect(getQueryEngineFieldOrThrow(exercise, "callout")).toEqual({
+			kind: "text",
+			key: "callout",
+			value: "beginner",
+		});
+		expect(getQueryEngineFieldOrThrow(exercise, "primarySubtitle")).toEqual({
+			kind: "text",
+			key: "primarySubtitle",
+			value: "reps_and_weight",
+		});
+		expect(getQueryEngineFieldOrThrow(exercise, "secondarySubtitle")).toEqual({
+			kind: "text",
+			value: "body_only",
+			key: "secondarySubtitle",
 		});
 	});
 });
