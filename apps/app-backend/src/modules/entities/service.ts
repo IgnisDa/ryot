@@ -11,7 +11,7 @@ import { EntityId, EntitySchemaSlug, SandboxProviderId } from "@ryot/contract/sc
 import type { UserId } from "@ryot/contract/schema/brands";
 import { buildEntityDetailQueryDocument } from "@ryot/query-engine/recipes/app";
 import { generateId } from "better-auth";
-import { DateTime, Effect, Schema } from "effect";
+import { Context, DateTime, Effect, Layer, Schema } from "effect";
 
 import { DbRunner, TransactionRunner } from "#lib/infrastructure/db/service";
 import { parseAppSchemaProperties } from "#lib/property-schema/property-schema-runtime";
@@ -117,8 +117,8 @@ const toListedEntity = Effect.fn("toListedEntityFromQueryEngine")(function* (row
 	};
 });
 
-export class EntitiesService extends Effect.Service<EntitiesService>()("EntitiesService", {
-	effect: Effect.gen(function* () {
+export class EntitiesService extends Context.Service<EntitiesService>()("EntitiesService", {
+	make: Effect.gen(function* () {
 		const runWithDb = yield* DbRunner;
 		const repository = yield* EntitiesRepository;
 		const queryEngine = yield* QueryEngineService;
@@ -439,7 +439,7 @@ export class EntitiesService extends Effect.Service<EntitiesService>()("Entities
 			}
 
 			const entity = yield* toListedEntity(row);
-			const translationStatus = yield* Schema.decodeUnknown(TranslationStatus)(
+			const translationStatus = yield* Schema.decodeUnknownEffect(TranslationStatus)(
 				yield* requireStringField(row, "translationStatus"),
 			).pipe(Effect.orDie);
 
@@ -474,4 +474,6 @@ export class EntitiesService extends Effect.Service<EntitiesService>()("Entities
 			upsertGlobalEntities,
 		};
 	}),
-}) {}
+}) {
+	static readonly layer = Layer.effect(this, this.make);
+}

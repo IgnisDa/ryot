@@ -1,6 +1,6 @@
 import { describe, expect, it } from "@effect/vitest";
 import { UserId } from "@ryot/contract/schema/brands";
-import { Chunk, Deferred, Effect, Fiber, Stream } from "effect";
+import { Deferred, Effect, Fiber, Stream } from "effect";
 
 import type { StreamEnqueue, StreamRegistry } from "./registry";
 import { events } from "./stream";
@@ -13,11 +13,10 @@ const makeRegistry = (
 	removed: string[],
 	registered?: Deferred.Deferred<void>,
 ): typeof StreamRegistry.Service => ({
-	_tag: "StreamRegistry",
 	add: (id: string, _userId: UserId, _enqueue: StreamEnqueue) => {
 		added.push(id);
 		if (registered) {
-			Deferred.unsafeDone(registered, Effect.void);
+			Deferred.doneUnsafe(registered, Effect.void);
 		}
 	},
 	remove: (id: string) => {
@@ -27,10 +26,8 @@ const makeRegistry = (
 	hasInterest: () => false,
 });
 
-const decode = (frames: Chunk.Chunk<Uint8Array>): string =>
-	Chunk.toReadonlyArray(frames)
-		.map((bytes) => new TextDecoder().decode(bytes))
-		.join("");
+const decode = (frames: ReadonlyArray<Uint8Array>): string =>
+	frames.map((bytes) => new TextDecoder().decode(bytes)).join("");
 
 describe("interest event stream", () => {
 	it.effect("registers the stream and emits a connected frame on subscribe", () =>
@@ -60,7 +57,7 @@ describe("interest event stream", () => {
 			const fiber = yield* Stream.merge(
 				events(streamId, userId, registry),
 				Stream.fromEffect(Effect.never),
-			).pipe(Stream.runDrain, Effect.fork);
+			).pipe(Stream.runDrain, Effect.forkChild);
 
 			yield* Deferred.await(registered);
 			yield* Fiber.interrupt(fiber);
