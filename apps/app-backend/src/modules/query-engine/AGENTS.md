@@ -4,7 +4,7 @@
 
 ## Module Purpose
 
-Accepts a declarative query (entity schema slugs, fields, expressions, filters, sorts, pagination) and returns typed, display-ready results for grids, lists, and tables.
+Accepts a declarative query (scope, fields, expressions, filters, sorts, pagination) and returns typed, display-ready results for grids, lists, and tables.
 
 ## Abstraction Boundaries
 

@@ -81,7 +81,7 @@ export function findBuiltinCollectionsView(
 		(view) =>
 			view.isBuiltin &&
 			view.trackerId === null &&
-			view.queryDefinition.entitySchemaSlugs.includes("collection"),
+			view.queryDefinition.scope.includes("collection"),
 	);
 }
 
