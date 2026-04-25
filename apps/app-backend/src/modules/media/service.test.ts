@@ -346,6 +346,106 @@ describe("getUpNextItems", () => {
 		expect(result.items[0]?.id).toBe("anime-1");
 	});
 
+	it("uses a lifecycle-aware filter so newer progress or complete events remove items from Up Next", async () => {
+		let capturedFilter: unknown;
+
+		await getUpNextItems("user_1", {
+			executeSectionQuery: async (_userId, request) => {
+				capturedFilter = request.filter;
+				return makeSectionResult([], { limit: 10 });
+			},
+		});
+
+		expect(capturedFilter).toEqual({
+			type: "and",
+			predicates: [
+				{
+					type: "isNotNull",
+					expression: {
+						type: "reference",
+						reference: {
+							type: "event",
+							joinKey: "backlog",
+							path: ["createdAt"],
+						},
+					},
+				},
+				{
+					type: "or",
+					predicates: [
+						{
+							type: "isNull",
+							expression: {
+								type: "reference",
+								reference: {
+									type: "event",
+									joinKey: "progress",
+									path: ["createdAt"],
+								},
+							},
+						},
+						{
+							operator: "gt",
+							type: "comparison",
+							left: {
+								type: "reference",
+								reference: {
+									type: "event",
+									joinKey: "backlog",
+									path: ["createdAt"],
+								},
+							},
+							right: {
+								type: "reference",
+								reference: {
+									type: "event",
+									joinKey: "progress",
+									path: ["createdAt"],
+								},
+							},
+						},
+					],
+				},
+				{
+					type: "or",
+					predicates: [
+						{
+							type: "isNull",
+							expression: {
+								type: "reference",
+								reference: {
+									type: "event",
+									joinKey: "complete",
+									path: ["createdAt"],
+								},
+							},
+						},
+						{
+							operator: "gt",
+							type: "comparison",
+							left: {
+								type: "reference",
+								reference: {
+									type: "event",
+									joinKey: "backlog",
+									path: ["createdAt"],
+								},
+							},
+							right: {
+								type: "reference",
+								reference: {
+									type: "event",
+									joinKey: "complete",
+									path: ["createdAt"],
+								},
+							},
+						},
+					],
+				},
+			],
+		});
+	});
+
 	it("maps QueryEngineNotFoundError to not_found error", async () => {
 		const result = await getUpNextItems("user_1", {
 			executeSectionQuery: async () => {
