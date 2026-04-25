@@ -16,8 +16,12 @@ import { SandboxRunError, TimeoutError, unknownToMessage } from "./errors";
 import { redisKeys, RedisService } from "./redis";
 import { makeAdditionalSandboxApiFunctions } from "./sandbox-host-functions";
 import { BridgeService, invalidateProcess, ProcessPool } from "./sandbox-runtime";
-
-type BoundHostFunction = (...args: ReadonlyArray<unknown>) => Promise<unknown>;
+import {
+	apiFailure,
+	apiSuccess,
+	type BoundHostFunction,
+	requireSandboxRunInput,
+} from "./sandbox-shared";
 
 type HttpCallOptions = {
 	body?: string;
@@ -73,9 +77,6 @@ const decodeSandboxRunnerResponse = Schema.decodeUnknownSync(
 	Schema.parseJson(SandboxRunnerResponse),
 );
 
-const apiSuccess = <T>(data: T) => ({ data, success: true as const });
-const apiFailure = (error: string) => ({ error, success: false as const });
-
 const makeInvalidResponse = () => new SandboxRunError({ message: invalidResponseMessage });
 
 const parseHttpCallOptions = (options: unknown): HttpCallOptions => {
@@ -112,23 +113,6 @@ const parseHttpCallOptions = (options: unknown): HttpCallOptions => {
 	}
 
 	return parsed;
-};
-
-const isSandboxRunInput = (value: unknown): value is SandboxRunInput =>
-	value !== null &&
-	typeof value === "object" &&
-	typeof Reflect.get(value, "userId") === "string" &&
-	typeof Reflect.get(value, "scriptId") === "string" &&
-	typeof Reflect.get(value, "driverName") === "string" &&
-	typeof Reflect.get(value, "executionId") === "string";
-
-const requireSandboxRunInput = (args: ReadonlyArray<unknown>, index: number, fnName: string) => {
-	const input = args[index];
-	if (!isSandboxRunInput(input)) {
-		throw new Error(`${fnName} is missing sandbox execution input`);
-	}
-
-	return input;
 };
 
 export class SandboxService extends Effect.Service<SandboxService>()("SandboxService", {
