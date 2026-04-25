@@ -1,8 +1,6 @@
-import type { Multipart } from "@effect/platform";
-import { FileSystem } from "@effect/platform";
+import { FileSystem, Multipart } from "@effect/platform";
 import { it, expect } from "@effect/vitest";
-import type { Cause } from "effect";
-import { Effect, Exit, Layer, Option } from "effect";
+import { Cause, Effect, Exit, Inspectable, Layer, Option } from "effect";
 
 import type { CurrentUserValue } from "../../lib/auth";
 import { BadRequest } from "../../lib/errors";
@@ -18,8 +16,17 @@ const user: CurrentUserValue = {
 
 Bun.env.TMPDIR = "/tmp/ryot-test-uploads";
 
-const fakeFile = (name: string, contentType: string) =>
-	({ name, contentType, path: `/tmp/test-uploads/${name}` }) as Multipart.PersistedFile;
+const fakeFile = (name: string, contentType: string): Multipart.PersistedFile => ({
+	name,
+	key: name,
+	contentType,
+	toJSON: () => ({}),
+	_tag: "PersistedFile",
+	path: `/tmp/test-uploads/${name}`,
+	[Multipart.TypeId]: Multipart.TypeId,
+	toString: () => `PersistedFile(${name})`,
+	[Inspectable.NodeInspectSymbol]: () => `PersistedFile(${name})`,
+});
 
 const makeS3Mock = (overrides: Record<string, unknown> = {}): S3Service =>
 	Object.assign(Object.create(null), {
@@ -381,14 +388,14 @@ it.effect("rejects oversized temporary upload files", () => {
 		const exit = yield* Effect.exit(
 			service.uploadTemporary(user, [fakeFile("report.csv", "text/csv")]),
 		);
+		expect(Exit.isFailure(exit)).toBe(true);
 		if (Exit.isFailure(exit)) {
-			expect(exit.cause._tag).toBe("Fail");
-			expect((exit.cause as Cause.Fail<BadRequest>).error).toBeInstanceOf(BadRequest);
-			expect((exit.cause as Cause.Fail<BadRequest>).error.message).toMatch(
-				/exceeds maximum allowed size/,
-			);
-		} else {
-			throw new Error("Expected failure");
+			const failure = Cause.failureOption(exit.cause);
+			expect(Option.isSome(failure)).toBe(true);
+			if (Option.isSome(failure)) {
+				expect(failure.value).toBeInstanceOf(BadRequest);
+				expect(failure.value.message).toMatch(/exceeds maximum allowed size/);
+			}
 		}
 	}).pipe(
 		Effect.provide(
