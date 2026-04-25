@@ -8,7 +8,7 @@ import {
 	nonEmptyStringSchema,
 	nonEmptyTrimmedStringSchema,
 	stringUnknownRecordSchema,
-} from "~/lib/zod/base";
+} from "~/lib/zod";
 import { listedEntitySchema } from "~/modules/entities";
 import {
 	sandboxCompletedResultSchema,
