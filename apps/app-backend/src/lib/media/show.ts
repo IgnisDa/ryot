@@ -3,6 +3,7 @@ import { toAppSchemaProperties } from "@ryot/ts-utils";
 import {
 	nullableIntSchema,
 	nullableStringSchema,
+	remoteImagesAssetsSchema,
 	stringArraySchema,
 } from "../zod";
 import { mediaWithFreeCreatorsPropertiesSchema } from "./common";
@@ -34,6 +35,7 @@ const showSeasonSchema = z
 
 export const showPropertiesSchema =
 	mediaWithFreeCreatorsPropertiesSchema.extend({
+		assets: remoteImagesAssetsSchema,
 		showSeasons: z.array(showSeasonSchema),
 	});
 

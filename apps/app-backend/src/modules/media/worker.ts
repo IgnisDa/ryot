@@ -2,6 +2,7 @@ import { z } from "@hono/zod-openapi";
 import { type AppSchema, normalizeSlug } from "@ryot/ts-utils";
 import { type Job, WaitingChildrenError, Worker } from "bullmq";
 import { and, eq, isNull } from "drizzle-orm";
+import { parseAppSchemaProperties } from "~/lib/app/schema-validation";
 import { db } from "~/lib/db";
 import { entity, entitySchema } from "~/lib/db/schema";
 import { personStubSchema } from "~/lib/media/common";
@@ -10,6 +11,7 @@ import { getQueues } from "~/lib/queue";
 import { getRedisConnection } from "~/lib/queue/connection";
 import { onWorkerError } from "~/lib/queue/utils";
 import { sandboxRunJobName, sandboxRunJobResult } from "~/lib/sandbox/jobs";
+import { remoteImagesAssetsSchema } from "~/lib/zod";
 import {
 	getEntitySchemaScopeForUser,
 	getUserLibraryEntityId,
@@ -43,6 +45,11 @@ const personDetailsResultSchema = z.object({
 	name: z.string(),
 	properties: z.record(z.string(), z.unknown()),
 });
+
+const extractPrimaryAssetImage = (assets: unknown) => {
+	const parsedAssets = remoteImagesAssetsSchema.safeParse(assets);
+	return parsedAssets.success ? (parsedAssets.data.images[0] ?? null) : null;
+};
 
 const queueSandboxChildRun = async (input: {
 	job: Job;
@@ -261,14 +268,24 @@ const processMediaImportJob = async (job: Job, token?: string) => {
 			properties[key] = details.properties[key];
 		}
 	}
+	const scope = await getEntitySchemaScopeForUser({ userId, entitySchemaId });
+	if (!scope) {
+		throw new Error("Entity schema not found");
+	}
+	const validatedProperties = parseAppSchemaProperties({
+		properties,
+		kind: "Media",
+		propertiesSchema: scope.propertiesSchema as AppSchema,
+	});
+	const parsedAssets = remoteImagesAssetsSchema.safeParse(
+		validatedProperties.assets,
+	);
+	if (!parsedAssets.success) {
+		throw new Error("Media details assets are invalid");
+	}
+	validatedProperties.assets = parsedAssets.data;
 
-	const assets = details.properties.assets as
-		| { remoteImages?: string[] }
-		| undefined;
-	const firstImage = assets?.remoteImages?.[0];
-	const image = firstImage
-		? { kind: "remote" as const, url: firstImage }
-		: null;
+	const image = extractPrimaryAssetImage(validatedProperties.assets);
 
 	const mediaEntity = await createGlobalEntity({
 		entitySchemaId,
@@ -288,7 +305,10 @@ const processMediaImportJob = async (job: Job, token?: string) => {
 			entitySchemaId,
 			name: details.name,
 			entityId: mediaEntity.id,
-			properties: { ...properties, populatedAt: new Date().toISOString() },
+			properties: {
+				...validatedProperties,
+				populatedAt: new Date().toISOString(),
+			},
 		});
 	}
 
@@ -389,13 +409,7 @@ const processPersonPopulateJob = async (job: Job, token?: string) => {
 		throw new Error("Person details properties are invalid");
 	}
 
-	const assets = details.properties.assets as
-		| { remoteImages?: string[] }
-		| undefined;
-	const firstImage = assets?.remoteImages?.[0];
-	const image = firstImage
-		? { kind: "remote" as const, url: firstImage }
-		: null;
+	const image = extractPrimaryAssetImage(details.properties.assets);
 
 	await updateGlobalEntityById({
 		image,
