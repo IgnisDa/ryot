@@ -1,9 +1,11 @@
 import { describe, expect, it } from "bun:test";
+import {
+	createComputedFieldExpression,
+	createEntityPropertyExpression,
+} from "@ryot/ts-utils";
 import { PgDialect } from "drizzle-orm/pg-core";
 import {
-	computedExpression,
 	createSmartphoneSchema,
-	schemaPropertyExpression,
 	transformExpression,
 } from "~/lib/test-fixtures";
 import type { ViewExpression } from "~/lib/views/expression";
@@ -16,7 +18,7 @@ const context = {
 	schemaMap: buildSchemaMap([createSmartphoneSchema()]),
 };
 
-const yearExpression = schemaPropertyExpression("smartphones", "releaseYear");
+const yearExpression = createEntityPropertyExpression("smartphones", "releaseYear");
 
 describe("createScalarExpressionCompiler", () => {
 	it("compiles nested computed fields for scalar query stages", () => {
@@ -39,7 +41,7 @@ describe("createScalarExpressionCompiler", () => {
 						type: "concat",
 						values: [
 							{ type: "literal", value: "Release " },
-							computedExpression("nextYear"),
+							createComputedFieldExpression("nextYear"),
 						],
 					},
 				},
@@ -47,7 +49,7 @@ describe("createScalarExpressionCompiler", () => {
 		});
 
 		const query = dialect.sqlToQuery(
-			compiler.compile(computedExpression("label")),
+			compiler.compile(createComputedFieldExpression("label")),
 		);
 
 		expect(query.sql.toLowerCase()).toContain("concat(");
@@ -71,9 +73,9 @@ describe("createScalarExpressionCompiler", () => {
 			],
 		});
 
-		const first = compiler.compile(computedExpression("nextYear"), "integer");
-		const second = compiler.compile(computedExpression("nextYear"), "integer");
-		const third = compiler.compile(computedExpression("nextYear"), "number");
+		const first = compiler.compile(createComputedFieldExpression("nextYear"), "integer");
+		const second = compiler.compile(createComputedFieldExpression("nextYear"), "integer");
+		const third = compiler.compile(createComputedFieldExpression("nextYear"), "number");
 
 		expect(first).toBe(second);
 		expect(first).not.toBe(third);
@@ -123,7 +125,7 @@ describe("createScalarExpressionCompiler", () => {
 		});
 
 		expect(() =>
-			compiler.compile(computedExpression("cover"), "string"),
+			compiler.compile(createComputedFieldExpression("cover"), "string"),
 		).toThrow(
 			"Image expressions are display-only and cannot be compiled for sort or filter usage",
 		);
@@ -140,7 +142,7 @@ describe("createScalarExpressionCompiler", () => {
 				compiler.compile(
 					transformExpression(
 						"titleCase",
-						schemaPropertyExpression("smartphones", "nameplate"),
+						createEntityPropertyExpression("smartphones", "nameplate"),
 					),
 				),
 			);
@@ -161,7 +163,7 @@ describe("createScalarExpressionCompiler", () => {
 				compiler.compile(
 					transformExpression(
 						"kebabCase",
-						schemaPropertyExpression("smartphones", "nameplate"),
+						createEntityPropertyExpression("smartphones", "nameplate"),
 					),
 				),
 			);
