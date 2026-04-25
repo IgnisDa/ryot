@@ -21,12 +21,8 @@ type ModalHandlersDeps = {
 export function useMediaOverviewModalHandlers(deps: ModalHandlersDeps) {
 	const t = useThemeTokens();
 
-	const openSearchModal = (
-		schema: AppEntitySchema,
-		intent: "log" | "backlog",
-	) => {
+	const openSearchModal = (schema: AppEntitySchema) => {
 		const searchModalId = `builtin-media-search-${deps.trackerId}-${schema.id}`;
-		const actionVerb = intent === "log" ? "Start" : "Queue";
 
 		modals.open({
 			size: "lg",
@@ -36,13 +32,13 @@ export function useMediaOverviewModalHandlers(deps: ModalHandlersDeps) {
 			children: (
 				<SearchEntityModalContent
 					entitySchema={schema}
-					initialAction={intent}
+					initialAction="backlog"
 					onActionCompleted={deps.invalidateOverview}
 				/>
 			),
 			title: (
 				<SearchEntityModalTitle
-					actionVerb={actionVerb}
+					actionVerb="Queue"
 					entitySchemaName={schema.name}
 					onBack={() => modals.close(searchModalId)}
 				/>
@@ -108,8 +104,7 @@ export function useMediaOverviewModalHandlers(deps: ModalHandlersDeps) {
 		});
 	};
 
-	const openTypePickerModal = (intent: "log" | "backlog") => {
-		const title = intent === "log" ? "Start something" : "Queue something";
+	const openTypePickerModal = () => {
 		const typePickerModalId = `builtin-media-type-picker-${deps.trackerId}`;
 
 		modals.open({
@@ -119,7 +114,7 @@ export function useMediaOverviewModalHandlers(deps: ModalHandlersDeps) {
 			overlayProps: { backgroundOpacity: 0.55, blur: 3 },
 			title: (
 				<Text ff="var(--mantine-headings-font-family)" fw={600} fz="md">
-					{title}
+					Queue something
 				</Text>
 			),
 			children: (
@@ -128,7 +123,7 @@ export function useMediaOverviewModalHandlers(deps: ModalHandlersDeps) {
 						return (
 							<UnstyledButton
 								key={schema.id}
-								onClick={() => openSearchModal(schema, intent)}
+								onClick={() => openSearchModal(schema)}
 							>
 								<Stack gap={6} align="center">
 									<TrackerIcon
@@ -157,7 +152,6 @@ export function useMediaOverviewModalHandlers(deps: ModalHandlersDeps) {
 	};
 
 	return {
-		openSearchModal,
 		handleStartItem,
 		handleContinueItem,
 		openTypePickerModal,
