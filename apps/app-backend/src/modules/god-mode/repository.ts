@@ -8,7 +8,6 @@ import { Database, mapDatabaseErrors } from "#lib/infrastructure/db/service";
 const userSearchClause = (search?: string) =>
 	search ? ilike(schema.user.email, `%${search.trim()}%`) : undefined;
 
-/** @effect-expect-leaking Database */
 export class GodModeRepository extends Context.Service<GodModeRepository>()("GodModeRepository", {
 	make: Effect.sync(() => {
 		const countUsers = Effect.fn("GodModeRepository.countUsers")(function* (search?: string) {

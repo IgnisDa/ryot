@@ -79,7 +79,6 @@ const ownedChannelWhere = (input: { channelId: NotificationChannelId; userId: Us
 		eq(schema.notificationChannel.userId, input.userId),
 	);
 
-/** @effect-expect-leaking Database */
 export class NotificationsRepository extends Context.Service<NotificationsRepository>()(
 	"NotificationsRepository",
 	{

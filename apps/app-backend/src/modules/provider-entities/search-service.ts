@@ -37,7 +37,6 @@ const decodeCachedSources = (value: string | null) => {
 	return Result.isSuccess(decoded) ? decoded.success.sources : null;
 };
 
-/** @effect-expect-leaking Database */
 export class ProviderEntitySearchService extends Context.Service<ProviderEntitySearchService>()(
 	"ProviderEntitySearchService",
 	{
