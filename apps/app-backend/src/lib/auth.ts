@@ -112,14 +112,14 @@ const makeAuthInstance = (args: {
 				create: {
 					// @effect-diagnostics-next-line asyncFunction:off
 					after: async (user) => {
-						try {
-							await Runtime.runPromise(args.runtime)(bootstrapNewUser(user.id));
-						} catch (error) {
-							// Do not re-throw: the user row is already committed at this point.
-							// Re-throwing cannot roll back user creation and only surfaces a
-							// spurious failure to the caller while leaving bootstrap incomplete.
-							console.error("[auth] bootstrapNewUser failed for user", user.id, error);
-						}
+						await Runtime.runPromise(args.runtime)(
+							bootstrapNewUser(user.id).pipe(
+								Effect.tapErrorCause((cause) =>
+									Effect.logError("[auth] bootstrapNewUser failed for user", user.id, cause),
+								),
+								Effect.catchAllCause(() => Effect.void),
+							),
+						);
 					},
 				},
 			},
