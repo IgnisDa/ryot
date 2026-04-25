@@ -22,6 +22,9 @@ export const manifest = defineManifest({
 
 type Properties = Readonly<Record<string, JsonValue>>;
 type AutomationHost = SandboxHost<typeof manifest.capabilities>;
+type CompletionSource =
+	| AutomationEventSnapshot
+	| (MediaProgressEvent & { readonly sessionEntityId?: string | null });
 type CompletionCandidate = {
 	readonly emitterEventId: string;
 	readonly completionEvent: MediaProgressEvent;
@@ -192,7 +195,7 @@ const createCompletionEvent = (
 	automation: AutomationContext,
 	event: AutomationEventSnapshot,
 	completeSchema: EventSchemaRecord,
-	source: AutomationEventSnapshot | MediaProgressEvent,
+	source: CompletionSource,
 ) => {
 	const occurredAt =
 		source === event ? source.occurredAt || event.occurredAt : normalizeDate(source.occurredAt);
@@ -203,6 +206,9 @@ const createCompletionEvent = (
 				entityId: event.subject.id,
 				eventSchemaSlug: completeSchema.id,
 				occurredAt,
+				...(source.sessionEntityId === undefined || source.sessionEntityId === null
+					? {}
+					: { sessionEntityId: source.sessionEntityId }),
 				properties: {
 					...getInheritedCompletionProperties(automation, properties),
 					completedOn: occurredAt,

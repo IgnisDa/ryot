@@ -4,9 +4,13 @@ import {
 	createAuthenticatedClient,
 	createBuiltinMediaLifecycleFixture,
 	getBuiltinEntitySchemaSlug,
+	insertGlobalRelationship,
 	listEventsForEntity,
 	listEventSchemas,
+	listRelationshipSchemas,
 	requireEventSchemaBySlug,
+	requireRelationshipSchemaBySlug,
+	seedGlobalShowEpisodeTree,
 	seedMediaEntity,
 	waitForEventCount,
 	waitForEventWithSchema,
@@ -297,9 +301,25 @@ describe("Event automations", () => {
 		Effect.gen(function* () {
 			const { client } = yield* createAuthenticatedClient();
 
+			const podcastSchemaId = yield* getBuiltinEntitySchemaSlug("podcast");
 			const podcastEpisodeSchemaId = yield* getBuiltinEntitySchemaSlug("podcast-episode");
 			const eventSchemas = yield* listEventSchemas(client, podcastEpisodeSchemaId);
 			const progressEventSchema = requireEventSchemaBySlug(eventSchemas, "progress");
+			const relationshipSchemas = yield* listRelationshipSchemas(client, {
+				slugs: ["podcast-to-podcast-episode"],
+			});
+			const podcastEpisodeRelationship = requireRelationshipSchemaBySlug(
+				relationshipSchemas,
+				"podcast-to-podcast-episode",
+			);
+			const podcast = yield* seedMediaEntity({
+				userId: null,
+				properties: {},
+				providerId: null,
+				name: "Podcast with Episode 1",
+				entitySchemaSlug: podcastSchemaId,
+				externalId: `podcast-${crypto.randomUUID()}`,
+			});
 			const entity = yield* seedMediaEntity({
 				userId: null,
 				providerId: null,
@@ -313,45 +333,10 @@ describe("Event automations", () => {
 					description: "First podcast episode",
 				},
 			});
-
-			yield* client.call((c) =>
-				c.events.create({
-					payload: [
-						{
-							entityId: entity.id,
-							properties: { progressPercent: 100 },
-							eventSchemaSlug: progressEventSchema.id,
-						},
-					],
-				}),
-			);
-
-			const completeEvent = yield* waitForEventWithSchema(client, entity.id, "complete");
-
-			expect(completeEvent.eventSchemaSlug).toBe("complete");
-		}),
-	);
-
-	it.live("logging 100% show episode progress creates a completion event", () =>
-		Effect.gen(function* () {
-			const { client } = yield* createAuthenticatedClient();
-
-			const showEpisodeSchemaId = yield* getBuiltinEntitySchemaSlug("show-episode");
-			const eventSchemas = yield* listEventSchemas(client, showEpisodeSchemaId);
-			const progressEventSchema = requireEventSchemaBySlug(eventSchemas, "progress");
-			const entity = yield* seedMediaEntity({
-				userId: null,
-				providerId: null,
-				name: "Show Episode 1",
-				entitySchemaSlug: showEpisodeSchemaId,
-				externalId: `show-episode-${crypto.randomUUID()}`,
-				properties: {
-					runtime: 45,
-					seasonNumber: 1,
-					episodeNumber: 1,
-					publishDate: null,
-					description: "First show episode",
-				},
+			yield* insertGlobalRelationship({
+				targetEntityId: entity.id,
+				sourceEntityId: podcast.id,
+				relationshipSchemaSlug: podcastEpisodeRelationship.id,
 			});
 
 			yield* client.call((c) =>
@@ -369,6 +354,37 @@ describe("Event automations", () => {
 			const completeEvent = yield* waitForEventWithSchema(client, entity.id, "complete");
 
 			expect(completeEvent.eventSchemaSlug).toBe("complete");
+			expect(completeEvent.sessionEntityId).toBe(podcast.id);
+		}),
+	);
+
+	it.live("logging 100% show episode progress creates a completion event", () =>
+		Effect.gen(function* () {
+			const { client } = yield* createAuthenticatedClient();
+
+			const { showId, episodeId } = yield* seedGlobalShowEpisodeTree(client, {
+				showName: "Show Episode Completion",
+			});
+			const showEpisodeSchemaId = yield* getBuiltinEntitySchemaSlug("show-episode");
+			const eventSchemas = yield* listEventSchemas(client, showEpisodeSchemaId);
+			const progressEventSchema = requireEventSchemaBySlug(eventSchemas, "progress");
+
+			yield* client.call((c) =>
+				c.events.create({
+					payload: [
+						{
+							entityId: episodeId,
+							properties: { progressPercent: 100 },
+							eventSchemaSlug: progressEventSchema.id,
+						},
+					],
+				}),
+			);
+
+			const completeEvent = yield* waitForEventWithSchema(client, episodeId, "complete");
+
+			expect(completeEvent.eventSchemaSlug).toBe("complete");
+			expect(completeEvent.sessionEntityId).toBe(showId);
 		}),
 	);
 
@@ -380,10 +396,7 @@ describe("Event automations", () => {
 
 				const { entityId, progressEventSchemaSlug } = yield* createBuiltinMediaLifecycleFixture(
 					client,
-					{
-						entitySchemaSlug: "movie",
-						properties: { images: [] },
-					},
+					{ entitySchemaSlug: "movie", properties: { images: [] } },
 				);
 
 				yield* client.call((c) =>
@@ -418,10 +431,7 @@ describe("Event automations", () => {
 
 				const { entityId, progressEventSchemaSlug } = yield* createBuiltinMediaLifecycleFixture(
 					client,
-					{
-						entitySchemaSlug: "movie",
-						properties: { images: [] },
-					},
+					{ entitySchemaSlug: "movie", properties: { images: [] } },
 				);
 
 				yield* client.call((c) =>
@@ -454,10 +464,7 @@ describe("Event automations", () => {
 
 			const { entityId, progressEventSchemaSlug } = yield* createBuiltinMediaLifecycleFixture(
 				client,
-				{
-					entitySchemaSlug: "movie",
-					properties: { images: [] },
-				},
+				{ entitySchemaSlug: "movie", properties: { images: [] } },
 			);
 
 			yield* client.call((c) =>
@@ -477,8 +484,8 @@ describe("Event automations", () => {
 
 			expect(completeEvent.properties).not.toHaveProperty("consumedOn");
 			expect(completeEvent.properties).toMatchObject({
-				completionMode: "custom_timestamps",
 				completedOn: isoAt(1),
+				completionMode: "custom_timestamps",
 			});
 			expect(completeEvent.occurredAt).toBe(isoAt(1));
 		}),
@@ -490,10 +497,7 @@ describe("Event automations", () => {
 
 			const { entityId, progressEventSchemaSlug } = yield* createBuiltinMediaLifecycleFixture(
 				client,
-				{
-					entitySchemaSlug: "movie",
-					properties: { images: [] },
-				},
+				{ entitySchemaSlug: "movie", properties: { images: [] } },
 			);
 
 			yield* client.call((c) =>

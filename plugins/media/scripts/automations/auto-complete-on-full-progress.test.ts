@@ -116,6 +116,28 @@ describe("auto-complete-on-full-progress sandbox script", () => {
 		);
 	});
 
+	it.each(["show-episode", "podcast-episode"] as const)(
+		"copies the session entity to a %s completion event",
+		(entitySchemaSlug) => {
+			const { created, host } = createHost({});
+			return Effect.runPromise(
+				run(
+					eventAutomationContext({
+						sessionEntityId: "parent-1",
+						properties: { progressPercent: 100 },
+						subject: { id: "entity-1", name: "Episode", entitySchemaSlug },
+					}),
+					host,
+				).pipe(
+					Effect.map(() => {
+						expect(created[0]?.[0]).toMatchObject({ sessionEntityId: "parent-1" });
+						return undefined;
+					}),
+				),
+			);
+		},
+	);
+
 	it("waits for complete anime coverage and emits on the completing episode", () => {
 		const events = [
 			eventRecord({

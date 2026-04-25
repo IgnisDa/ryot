@@ -1,7 +1,8 @@
+import { column, literal, table } from "@ryot/ryotql";
 import { Result } from "effect";
 import { assert, describe, expect, it } from "vitest";
 
-import { eventHistoryRecipe } from "./events";
+import { eventHistoryRecipe, eventIsAfter, eventOrderDescending, latestEventField } from "./events";
 import { rowsResponse } from "./test-utils";
 
 const pageInfo = { hasMore: false, limit: 25, nextCursor: null };
@@ -27,6 +28,90 @@ const recipe = eventHistoryRecipe({
 const responseWithItems = (items: readonly unknown[]) => rowsResponse("events", items, pageInfo);
 
 describe("event recipes", () => {
+	it("uses the chronological total order for event expressions", () => {
+		const current = table("event", "current");
+		const boundary = table("event", "boundary");
+
+		expect(eventOrderDescending(current)).toEqual([
+			{ direction: "desc", expr: column(current, "occurredAt") },
+			{ direction: "desc", expr: column(current, "createdAt") },
+			{ direction: "desc", expr: column(current, "id") },
+		]);
+		expect(eventIsAfter(current, boundary)).toEqual({
+			type: "or",
+			predicates: [
+				{
+					operator: "gt",
+					type: "comparison",
+					left: column(current, "occurredAt"),
+					right: column(boundary, "occurredAt"),
+				},
+				{
+					type: "and",
+					predicates: [
+						{
+							operator: "eq",
+							type: "comparison",
+							left: column(current, "occurredAt"),
+							right: column(boundary, "occurredAt"),
+						},
+						{
+							operator: "gt",
+							type: "comparison",
+							left: column(current, "createdAt"),
+							right: column(boundary, "createdAt"),
+						},
+					],
+				},
+				{
+					type: "and",
+					predicates: [
+						{
+							operator: "eq",
+							type: "comparison",
+							left: column(current, "occurredAt"),
+							right: column(boundary, "occurredAt"),
+						},
+						{
+							operator: "eq",
+							type: "comparison",
+							left: column(current, "createdAt"),
+							right: column(boundary, "createdAt"),
+						},
+						{
+							operator: "gt",
+							type: "comparison",
+							left: column(current, "id"),
+							right: column(boundary, "id"),
+						},
+					],
+				},
+			],
+		});
+	});
+
+	it("builds latest fields with the standard event order", () => {
+		const source = table("event", "source");
+		const expression = latestEventField(source, {
+			select: column(source, "eventSchemaSlug"),
+			where: eventIsAfter(source, {
+				id: literal("event-1"),
+				createdAt: literal("2026-01-01T00:00:00.000Z"),
+				occurredAt: literal("2026-01-01T00:00:00.000Z"),
+			}),
+		});
+
+		expect(expression).toMatchObject({
+			type: "first",
+			select: { field: "eventSchemaSlug", tableAlias: "source" },
+			orderBy: [
+				{ direction: "desc", expr: { field: "occurredAt", tableAlias: "source" } },
+				{ direction: "desc", expr: { field: "createdAt", tableAlias: "source" } },
+				{ direction: "desc", expr: { field: "id", tableAlias: "source" } },
+			],
+		});
+	});
+
 	it("prepares the joined history query and decodes plain event values", () => {
 		const query = recipe.document.queries.events;
 		assert(query);
