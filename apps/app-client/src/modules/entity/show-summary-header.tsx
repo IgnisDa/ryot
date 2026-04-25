@@ -122,8 +122,8 @@ function ShowDescription(props: {
 function ShowIdentity(props: { readonly show: ShowSummary; readonly description: ReactNode }) {
 	const { show } = props;
 	return (
-		<View className="min-w-0 flex-1 gap-2.5">
-			<Text className="font-display-semibold text-[26px] leading-8 text-text md:text-[34px] md:leading-10">
+		<View className="min-w-0 gap-2.5 pt-4 md:flex-1 md:pt-0">
+			<Text className="font-display-semibold text-[30px] leading-9 text-text md:text-[34px] md:leading-10">
 				{show.name}
 			</Text>
 			<ShowIdentityLine show={show} />
@@ -135,7 +135,7 @@ function ShowIdentity(props: { readonly show: ShowSummary; readonly description:
 				</View>
 			)}
 			<ShowFactRow show={show} />
-			<View className="hidden md:flex">{props.description}</View>
+			{props.description}
 		</View>
 	);
 }
@@ -237,16 +237,13 @@ export function ShowSummaryHeader(props: {
 		);
 	return (
 		<View className="gap-4 md:flex-row md:items-start md:gap-8">
-			<View className="min-w-0 gap-4 md:flex-1">
-				<View className="flex-row gap-3.5 md:gap-8">
-					<ShowAssetImage
-						managedUrls={props.managedUrls}
-						asset={showPosterAsset(props.show)}
-						className="aspect-2/3 w-36 shrink-0 md:w-60"
-					/>
-					<ShowIdentity show={props.show} description={descriptionNode} />
-				</View>
-				<View className="md:hidden">{descriptionNode}</View>
+			<View className="min-w-0 md:flex-1 md:flex-row md:gap-8">
+				<ShowAssetImage
+					managedUrls={props.managedUrls}
+					asset={showPosterAsset(props.show)}
+					className="aspect-2/3 w-40 shrink-0 md:w-60"
+				/>
+				<ShowIdentity show={props.show} description={descriptionNode} />
 			</View>
 			<ShowStatusRail show={props.show} />
 		</View>
