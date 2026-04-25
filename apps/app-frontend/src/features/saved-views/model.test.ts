@@ -34,9 +34,9 @@ describe("toAppSavedView", () => {
 					expression: {
 						type: "reference",
 						reference: {
-							column: "name",
+							path: ["name"],
+							type: "entity",
 							slug: "schema-1",
-							type: "entity-column",
 						},
 					},
 				},
