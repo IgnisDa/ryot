@@ -66,9 +66,10 @@ function getBestThumbnailUrl(thumbnail) {
 }
 
 driver("search", async function (context) {
-  const query =
-    typeof context?.query === "string" ? context.query.trim() : "";
-  if (!query) throw new Error("query is required");
+  const { z } = await import("npm:zod");
+  const { query } = z.object({
+    query: z.string().trim().min(1, "query is required"),
+  }).parse(context ?? {});
 
   const { Innertube } = await import("npm:youtubei.js");
   const yt = await Innertube.create({
@@ -103,11 +104,10 @@ driver("search", async function (context) {
 });
 
 driver("details", async function (context) {
-  const identifier =
-    typeof context?.identifier === "string"
-      ? context.identifier.trim()
-      : "";
-  if (!identifier) throw new Error("identifier is required");
+  const { z } = await import("npm:zod");
+  const { identifier } = z.object({
+    identifier: z.string().trim().min(1, "identifier is required"),
+  }).parse(context ?? {});
 
   const { Innertube } = await import("npm:youtubei.js");
   const yt = await Innertube.create({
