@@ -1,4 +1,5 @@
 import type { AppConfigPath } from "~/lib/config";
+import freeExerciseDbScriptCode from "~/lib/sandbox/scripts/providers/exercise/free-exercise-db.txt";
 import anilistAnimeScriptCode from "~/lib/sandbox/scripts/providers/media/anime/anilist.txt";
 import myanimelistAnimeScriptCode from "~/lib/sandbox/scripts/providers/media/anime/myanimelist.txt";
 import audibleAudiobookScriptCode from "~/lib/sandbox/scripts/providers/media/audiobook/audible.txt";
@@ -70,6 +71,11 @@ const script = (
 });
 
 export const builtinSandboxScripts = (): BuiltinScriptEntry[] => [
+	script(
+		"Free Exercise DB",
+		"exercise.free-exercise-db",
+		freeExerciseDbScriptCode,
+	),
 	script("OpenLibrary", "book.openlibrary", openLibraryBookScriptCode),
 	script("Audible", "audiobook.audible", audibleAudiobookScriptCode),
 	script("iTunes", "podcast.itunes", itunesPodcastScriptCode),
@@ -264,4 +270,9 @@ export const personSchemaScriptLinks = () =>
 		{ schemaSlug: "person", scriptSlug: "person.tvdb" },
 		{ schemaSlug: "person", scriptSlug: "person.youtube-music" },
 		{ schemaSlug: "person", scriptSlug: "person.vndb" },
+	] as const;
+
+export const exerciseSchemaScriptLinks = () =>
+	[
+		{ schemaSlug: "exercise", scriptSlug: "exercise.free-exercise-db" },
 	] as const;
