@@ -124,7 +124,7 @@ function ProviderSearchResultList(props: {
 		`provider entity links ${links.status}`,
 		"cause" in links ? links.cause : undefined,
 	);
-	const linked = links.status === "ready" ? links.externalIds : undefined;
+	const linked = links.status === "ready" ? links.entityIds : undefined;
 
 	return (
 		<View className="gap-1">
@@ -133,7 +133,7 @@ function ProviderSearchResultList(props: {
 					item={item}
 					key={item.externalId}
 					onAdd={() => props.onAdd(item.externalId)}
-					isLinked={linked?.has(item.externalId) ?? false}
+					linkedEntityId={linked?.get(item.externalId)}
 					entry={providerEntityImportEntry(props.importState, item.externalId)}
 				/>
 			))}
