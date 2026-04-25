@@ -23,7 +23,7 @@ import {
 } from "~/lib/views/expression-analysis";
 import type { ViewPredicate } from "~/lib/views/filtering";
 import type { PropertyType } from "~/lib/views/reference";
-import type { SqlExpression } from "./sql-expression-policy";
+import type { SqlExpression } from "./sql-expression-helpers";
 
 const toJsonbExpression = (expression: SqlExpression) =>
 	sql`to_jsonb(${expression})`;
