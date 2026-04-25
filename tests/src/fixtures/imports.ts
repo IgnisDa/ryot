@@ -25,9 +25,9 @@ export async function uploadTemporaryFile(
 		headers: { Cookie: cookies },
 	});
 
-	const json: { data?: string[] } = await response.json();
-	const tokens = requireResponseData(response, json.data, "Failed to upload temporary file");
-	return requirePresent(tokens[0], "Upload token is missing");
+	const tokens: string[] = await response.json();
+	const token = requirePresent(tokens[0], "Upload token is missing");
+	return token;
 }
 
 export async function startOpenScaleImport(

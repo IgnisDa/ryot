@@ -178,9 +178,9 @@ The module migration proceeds from infrastructure and leaf modules toward highly
 
 ## Tasks
 
-**Overall Progress:** 17 of 32 tasks completed
+**Overall Progress:** 18 of 32 tasks completed
 
-**Current Task:** [Task 18](./18-uploads-temporary-and-presigned.md) (todo)
+**Current Task:** [Task 19](./19-sandbox-runtime-and-direct-runs.md) (todo)
 
 ### Task List
 
@@ -203,8 +203,7 @@ The module migration proceeds from infrastructure and leaf modules toward highly
 | 15  | [Entity Create Get Clear State](./15-entity-create-get-clear-state.md)                               | AFK  | done   |
 | 16  | [Event Create List Without Triggers](./16-event-create-list-without-triggers.md)                     | AFK  | done   |
 | 17  | [Collections And Library Membership](./17-collections-and-library-membership.md)                     | AFK  | done   |
-| 18  | [Uploads Temporary And Presigned](./18-uploads-temporary-and-presigned.md)                           | AFK  | todo   |
-| 18  | [Uploads Temporary And Presigned](./18-uploads-temporary-and-presigned.md)                           | AFK  | todo   |
+| 18  | [Uploads Temporary And Presigned](./18-uploads-temporary-and-presigned.md)                           | AFK  | done   |
 | 19  | [Sandbox Runtime And Direct Runs](./19-sandbox-runtime-and-direct-runs.md)                           | AFK  | todo   |
 | 20  | [Entity Provider Search And Import](./20-entity-provider-search-and-import.md)                       | AFK  | todo   |
 | 21  | [Event Trigger Workflows](./21-event-trigger-workflows.md)                                           | AFK  | todo   |
