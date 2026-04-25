@@ -7,12 +7,20 @@ import {
 	podcastsByLifecycleStateRecipe,
 	showDetailRecipe,
 	showsByLifecycleStateRecipe,
+	showOverviewRecipe,
 	showSummaryRecipe,
 	trendingMediaRecipe,
 } from "./query-recipes";
 
 const showRows = (items: readonly Record<string, unknown>[]) =>
 	rowsResult(items, { hasMore: false, limit: 1, nextCursor: null });
+
+const OVERVIEW_RECIPE = showOverviewRecipe({
+	peopleLimit: 12,
+	companyLimit: 6,
+	entityId: "show-1",
+	recommendationLimit: 12,
+});
 
 const SHOW_SUMMARY_ROW = {
 	owned: null,
@@ -382,5 +390,249 @@ describe("media query recipes", () => {
 				},
 			}),
 		).toMatchObject({ success: { show: { images: [{ type: "s3", key: "legacy-image" }] } } });
+	});
+	it("reads show credits from the relationship side that points at the show", () => {
+		const recipe = showOverviewRecipe({
+			peopleLimit: 12,
+			companyLimit: 6,
+			entityId: "show-1",
+			recommendationLimit: 12,
+		});
+		const people = recipe.document.queries["people"];
+		const companies = recipe.document.queries["companies"];
+		if (people?.output.type !== "rows" || companies?.output.type !== "rows") {
+			throw new Error("Expected people and companies rows queries");
+		}
+
+		expect(people.from).toMatchObject({ table: "relationship", alias: "personRelationship" });
+		expect(people.joins?.[0]).toMatchObject({
+			type: "inner",
+			table: { alias: "person" },
+			on: {
+				right: { field: "id", tableAlias: "person" },
+				left: { field: "sourceEntityId", tableAlias: "personRelationship" },
+			},
+		});
+		expect(people.where).toMatchObject({
+			type: "and",
+			predicates: [
+				{ right: { type: "literal", value: "person" } },
+				{
+					right: { type: "literal", value: "show-1" },
+					left: { field: "targetEntityId", tableAlias: "personRelationship" },
+				},
+				{ right: { type: "literal", value: "person-to-show" } },
+			],
+		});
+		expect(companies.where).toMatchObject({
+			type: "and",
+			predicates: [
+				{ right: { type: "literal", value: "company" } },
+				{
+					right: { type: "literal", value: "show-1" },
+					left: { field: "targetEntityId", tableAlias: "companyRelationship" },
+				},
+				{ right: { type: "literal", value: "company-to-show" } },
+			],
+		});
+		expect(people.output.pagination).toMatchObject({ limit: 12 });
+		expect(companies.output.pagination).toMatchObject({ limit: 6 });
+		expect(people.output.fields.map((field) => ("key" in field ? field.key : null))).toEqual([
+			"id",
+			"name",
+			"images",
+			"order",
+			"roles",
+			"character",
+		]);
+		expect(companies.output.fields.map((field) => ("key" in field ? field.key : null))).toEqual([
+			"id",
+			"name",
+			"images",
+			"order",
+			"roles",
+		]);
+	});
+
+	it("orders credits by relationship order before a stable name tiebreaker", () => {
+		const recipe = showOverviewRecipe({
+			peopleLimit: 12,
+			companyLimit: 6,
+			entityId: "show-1",
+			recommendationLimit: 12,
+		});
+		const people = recipe.document.queries["people"];
+		if (people?.output.type !== "rows") {
+			throw new Error("Expected people rows query");
+		}
+
+		expect(people.output.orderBy).toMatchObject([
+			{
+				direction: "asc",
+				expr: { target: "number", type: "cast", expr: { path: ["order"], type: "jsonPath" } },
+			},
+			{ direction: "asc", expr: { field: "name", tableAlias: "person" } },
+		]);
+	});
+
+	it("reads recommendations from the outgoing suggestion side of the show", () => {
+		const recipe = showOverviewRecipe({
+			peopleLimit: 12,
+			companyLimit: 6,
+			entityId: "show-1",
+			recommendationLimit: 8,
+		});
+		const recommendations = recipe.document.queries["recommendations"];
+		if (recommendations?.output.type !== "rows") {
+			throw new Error("Expected recommendations rows query");
+		}
+
+		expect(recommendations.output.pagination).toMatchObject({ limit: 8 });
+		expect(recommendations.where).toMatchObject({
+			type: "and",
+			predicates: [
+				{ right: { type: "literal", value: "show" } },
+				{
+					right: { type: "literal", value: "show-1" },
+					left: { field: "sourceEntityId", tableAlias: "suggestionRelationship" },
+				},
+				{ right: { type: "literal", value: "media-suggestion" } },
+			],
+		});
+		expect(recommendations.output.orderBy).toMatchObject([
+			{ direction: "asc", expr: { field: "name", tableAlias: "suggested" } },
+		]);
+		expect(
+			recommendations.output.fields.map((field) => ("key" in field ? field.key : null)),
+		).toEqual(["id", "name", "images"]);
+	});
+
+	it("decodes show credits, companies and recommendations with their locators", () => {
+		expect(
+			OVERVIEW_RECIPE.decode({
+				data: {
+					people: showRows([
+						{
+							order: 1,
+							id: "person-1",
+							roles: ["Creator"],
+							name: "Jack Thorne",
+							character: "Narrator",
+							images: [{ type: "remote", url: "https://images.test/jack.jpg", purpose: "profile" }],
+						},
+					]),
+					companies: showRows([
+						{
+							order: 1,
+							id: "company-1",
+							name: "Warp Films",
+							roles: ["Production Company"],
+							images: [{ type: "s3", key: "warp-logo", purpose: "logo" }],
+						},
+					]),
+					recommendations: showRows([
+						{
+							id: "show-2",
+							name: "Bad Girls",
+							images: [{ type: "local", key: "bad-girls-cover", purpose: "cover" }],
+						},
+					]),
+				},
+			}),
+		).toMatchObject({
+			success: {
+				people: {
+					items: [
+						{
+							order: 1,
+							id: "person-1",
+							roles: ["Creator"],
+							name: "Jack Thorne",
+							character: "Narrator",
+							images: [{ type: "remote", url: "https://images.test/jack.jpg", purpose: "profile" }],
+						},
+					],
+				},
+				companies: {
+					items: [
+						{
+							order: 1,
+							id: "company-1",
+							name: "Warp Films",
+							roles: ["Production Company"],
+							images: [{ type: "s3", key: "warp-logo", purpose: "logo" }],
+						},
+					],
+				},
+				recommendations: {
+					items: [
+						{
+							id: "show-2",
+							name: "Bad Girls",
+							images: [{ type: "local", key: "bad-girls-cover", purpose: "cover" }],
+						},
+					],
+				},
+			},
+		});
+	});
+
+	it("decodes credits that omit order, roles, character and images", () => {
+		expect(
+			OVERVIEW_RECIPE.decode({
+				data: {
+					companies: showRows([]),
+					recommendations: showRows([{ id: "show-2", name: "Bad Girls", images: null }]),
+					people: showRows([
+						{
+							order: null,
+							roles: null,
+							images: null,
+							id: "person-1",
+							character: null,
+							name: "Jo Johnson",
+						},
+					]),
+				},
+			}),
+		).toMatchObject({
+			success: {
+				recommendations: { items: [{ images: null }] },
+				people: {
+					items: [{ order: null, roles: null, images: null, character: null, name: "Jo Johnson" }],
+				},
+			},
+		});
+	});
+
+	it("decodes an entity with no credits or recommendations as empty sections", () => {
+		expect(
+			OVERVIEW_RECIPE.decode({
+				data: { people: showRows([]), companies: showRows([]), recommendations: showRows([]) },
+			}),
+		).toMatchObject({
+			success: { people: { items: [] }, companies: { items: [] }, recommendations: { items: [] } },
+		});
+	});
+
+	it("rejects show credits whose image locators are malformed", () => {
+		expect(
+			OVERVIEW_RECIPE.decode({
+				data: {
+					companies: showRows([]),
+					recommendations: showRows([]),
+					people: showRows([
+						{
+							order: 1,
+							roles: null,
+							id: "person-1",
+							character: null,
+							name: "Jack Thorne",
+							images: [{ type: "ftp", url: 12 }],
+						},
+					]),
+				},
+			})._tag,
+		).toBe("Failure");
 	});
 });

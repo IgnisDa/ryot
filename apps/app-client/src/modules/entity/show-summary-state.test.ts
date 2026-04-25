@@ -11,6 +11,7 @@ import {
 	showCollectionsLabel,
 	showEpisodeCountLabel,
 	showEpisodeFact,
+	showGalleryAssets,
 	showLifecycleLabel,
 	showManagedAssets,
 	showOwnershipLabel,
@@ -121,19 +122,37 @@ describe("show summary state", () => {
 		});
 	});
 
-	it("collects only the managed locators that the summary renders", () => {
+	it("collects the managed locators the poster, backdrop and gallery render", () => {
 		const show = decodeShowSummary({
 			images: [
 				{ type: "s3", key: "cover-key", purpose: "cover" },
 				{ type: "s3", key: "backdrop-key", purpose: "backdrop" },
-				{ type: "s3", key: "unused-still-key", purpose: "still" },
+				{ type: "s3", key: "still-key", purpose: "still" },
 			],
 		});
 
 		expect(showManagedAssets(show)).toEqual([
 			{ type: "s3", key: "backdrop-key" },
 			{ type: "s3", key: "cover-key" },
+			{ type: "s3", key: "still-key" },
 		]);
+	});
+
+	it("keeps gallery assets in provider order and bounds the preview", () => {
+		const show = decodeShowSummary({
+			images: Array.from({ length: 12 }, (_, index) => ({
+				type: "remote",
+				purpose: "still",
+				url: `https://images.test/still-${index}.jpg`,
+			})),
+		});
+
+		expect(showGalleryAssets(show)).toHaveLength(10);
+		expect(showGalleryAssets(show).at(0)).toEqual({
+			type: "remote",
+			url: "https://images.test/still-0.jpg",
+		});
+		expect(showGalleryAssets(decodeShowSummary({ images: null }))).toEqual([]);
 	});
 
 	it("falls back to no poster when images are missing or empty", () => {
