@@ -4,7 +4,7 @@
 
 **Type:** AFK
 
-**Status:** todo
+**Status:** done
 
 ## What to build
 
@@ -14,12 +14,12 @@ Trigger execution is not part of this slice; trigger links seeded for builtins c
 
 ## Acceptance criteria
 
-- [ ] Authenticated users can list event schemas available to them
-- [ ] Authenticated users can create custom event schemas for accessible entity schemas
-- [ ] Invalid property schemas fail with typed validation errors
-- [ ] Reserved or duplicate slugs fail with typed validation errors
-- [ ] Cross-user entity-schema access fails without leaking resource existence
-- [ ] Basic event-schema E2E tests use the Effect client and pass
+- [x] Authenticated users can list event schemas available to them
+- [x] Authenticated users can create custom event schemas for accessible entity schemas
+- [x] Invalid property schemas fail with typed validation errors
+- [x] Reserved or duplicate slugs fail with typed validation errors
+- [x] Cross-user entity-schema access fails without leaking resource existence
+- [x] Basic event-schema E2E tests use the Effect client and pass
 
 ## User stories addressed
 

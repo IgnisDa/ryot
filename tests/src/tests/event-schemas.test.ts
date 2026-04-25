@@ -48,18 +48,20 @@ describe("GET /event-schemas", () => {
 					description: "Number of repetitions performed in this set",
 				},
 				weight: {
-					label: "Weight",
 					type: "number",
+					label: "Weight",
 					description: "Weight used in this set in the user's preferred unit",
 				},
 				setOrder: {
 					type: "integer",
 					label: "Set Order",
+					validation: { minimum: 0 },
 					description: "Zero-based position of this set within the exercise",
 				},
 				exerciseOrder: {
 					type: "integer",
 					label: "Exercise Order",
+					validation: { minimum: 0 },
 					description: "Zero-based position of this exercise within the workout",
 				},
 				setLot: {
@@ -67,7 +69,6 @@ describe("GET /event-schemas", () => {
 					label: "Set Lot",
 					description: "Set type: normal, warm_up, drop, or failure",
 					options: ["normal", "warm_up", "drop", "failure"],
-					validation: { required: true },
 				},
 				distance: {
 					type: "number",
@@ -87,6 +88,7 @@ describe("GET /event-schemas", () => {
 				rpe: {
 					label: "Rpe",
 					type: "integer",
+					validation: { maximum: 10, minimum: 0 },
 					description: "Rate of perceived exertion from 0 (no effort) to 10 (maximal effort)",
 				},
 			},
@@ -443,6 +445,27 @@ describe("GET /event-schemas", () => {
 			expect(onHoldSchema).toMatchObject({ fields: sessionFields });
 		}
 	});
+
+	it("returns 404 when accessing another user's entity schema", async () => {
+		const owner = await createAuthenticatedClient();
+		const intruder = await createAuthenticatedClient();
+		const { trackerId } = await createTracker(owner.client, owner.cookies, {
+			name: "Owner Event Schema Tracker",
+		});
+		const { schemaId: entitySchemaId } = await createEntitySchema(owner.client, owner.cookies, {
+			trackerId,
+			name: "Owner Entity",
+			slug: "owner-entity",
+		});
+
+		const { error, response } = await intruder.client["event-schemas"].list({
+			headers: { Cookie: intruder.cookies },
+			params: { query: { entitySchemaId } },
+		});
+
+		expect(response.status).toBe(404);
+		expect(error?.error.message).toBe("Entity schema not found");
+	});
 });
 
 describe("POST /event-schemas", () => {
@@ -457,7 +480,7 @@ describe("POST /event-schemas", () => {
 			slug: "custom-entity",
 		});
 
-		const { data, response } = await client.POST("/event-schemas", {
+		const { data, response } = await client["event-schemas"].create({
 			headers: { Cookie: cookies },
 			body: {
 				entitySchemaId,
@@ -469,11 +492,45 @@ describe("POST /event-schemas", () => {
 			},
 		});
 
-		expect(response.status).toBe(200);
-		expect(data?.data).toBeDefined();
-		expect(data?.data.name).toBe("My Event");
-		expect(data?.data.slug).toBe("my-event");
-		expect(data?.data.entitySchemaId).toBe(entitySchemaId);
+		expect(response.status).toBe(201);
+		expect(data?.name).toBe("My Event");
+		expect(data?.slug).toBe("my-event");
+		expect(data?.entitySchemaId).toBe(entitySchemaId);
+	});
+
+	it("returns 400 when event schema properties schema is invalid", async () => {
+		const { client, cookies } = await createAuthenticatedClient();
+		const { trackerId } = await createTracker(client, cookies, {
+			name: "Event Schema Tracker",
+		});
+		const { schemaId: entitySchemaId } = await createEntitySchema(client, cookies, {
+			trackerId,
+			name: "Custom Entity",
+			slug: "custom-entity",
+		});
+
+		const { error, response } = await client["event-schemas"].create({
+			headers: { Cookie: cookies },
+			body: {
+				entitySchemaId,
+				name: "Invalid Event",
+				slug: "invalid-event",
+				propertiesSchema: {
+					fields: { status: { type: "string", label: "Status", description: "Status" } },
+					rules: [
+						{
+							path: ["missing"],
+							kind: "validation",
+							validation: { required: true },
+							when: { operator: "eq", path: ["status"], value: "completed" },
+						},
+					],
+				},
+			},
+		});
+
+		expect(response.status).toBe(400);
+		expect(error?.error.message).toContain("Rule path 'missing' does not exist");
 	});
 
 	it("returns 400 when event schema slug already exists for the same entity schema", async () => {
@@ -496,7 +553,7 @@ describe("POST /event-schemas", () => {
 			},
 		});
 
-		const { response, error } = await client.POST("/event-schemas", {
+		const { response, error } = await client["event-schemas"].create({
 			headers: { Cookie: cookies },
 			body: {
 				entitySchemaId,
@@ -508,7 +565,7 @@ describe("POST /event-schemas", () => {
 			},
 		});
 
-		expect(response.status).toBe(400);
+		expect(response.status).toBe(409);
 		expect(error?.error).toBeDefined();
 		expect(error?.error.message).toBe("Event schema slug already exists");
 	});
