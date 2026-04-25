@@ -4,7 +4,7 @@
 
 **Type:** AFK
 
-**Status:** todo
+**Status:** done
 
 ## What to build
 
@@ -14,12 +14,12 @@ Collection membership writes should use canonical entity and relationship write 
 
 ## Acceptance criteria
 
-- [ ] Authenticated users can create collections
-- [ ] Authenticated users can add entities to collections with validated membership properties
-- [ ] Authenticated users can remove entities from collections
-- [ ] Library entity creation and ensure-in-library behavior work for bootstrap and entity/import flows
-- [ ] Collection operations use canonical relationship and event write paths where applicable
-- [ ] Collections E2E tests pass through the Effect client
+- [x] Authenticated users can create collections
+- [x] Authenticated users can add entities to collections with validated membership properties
+- [x] Authenticated users can remove entities from collections
+- [x] Library entity creation and ensure-in-library behavior work for bootstrap and entity/import flows
+- [x] Collection operations use canonical relationship and event write paths where applicable
+- [x] Collections E2E tests pass through the Effect client
 
 ## User stories addressed
 
