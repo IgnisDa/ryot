@@ -3,7 +3,11 @@ import {
 	createSmartphoneSchema,
 	createTabletSchema,
 } from "~/lib/test-fixtures";
-import { buildSchemaMap, getPropertyType } from "./reference";
+import {
+	buildSchemaMap,
+	getEntitySchemaColumnPropertyType,
+	getPropertyType,
+} from "./reference";
 
 const smartphoneSchema = createSmartphoneSchema();
 
@@ -82,5 +86,40 @@ describe("buildSchemaMap", () => {
 		expect(schemaMap.get("smartphones")).toEqual(smartphoneSchema);
 		expect(schemaMap.get("tablets")).toEqual(tabletSchema);
 		expect(schemaMap.size).toBe(2);
+	});
+});
+
+describe("getEntitySchemaColumnPropertyType", () => {
+	it("returns 'boolean' for isBuiltin", () => {
+		expect(getEntitySchemaColumnPropertyType("isBuiltin")).toBe("boolean");
+	});
+
+	it("returns 'datetime' for createdAt", () => {
+		expect(getEntitySchemaColumnPropertyType("createdAt")).toBe("datetime");
+	});
+
+	it("returns 'datetime' for updatedAt", () => {
+		expect(getEntitySchemaColumnPropertyType("updatedAt")).toBe("datetime");
+	});
+
+	it("returns 'string' for icon", () => {
+		expect(getEntitySchemaColumnPropertyType("icon")).toBe("string");
+	});
+
+	it("returns 'string' for string columns (slug, name, id, accentColor, userId)", () => {
+		expect(getEntitySchemaColumnPropertyType("slug")).toBe("string");
+		expect(getEntitySchemaColumnPropertyType("name")).toBe("string");
+		expect(getEntitySchemaColumnPropertyType("id")).toBe("string");
+		expect(getEntitySchemaColumnPropertyType("accentColor")).toBe("string");
+		expect(getEntitySchemaColumnPropertyType("userId")).toBe("string");
+	});
+
+	it("returns null for an unknown column", () => {
+		expect(getEntitySchemaColumnPropertyType("propertiesSchema")).toBeNull();
+		expect(getEntitySchemaColumnPropertyType("unknown")).toBeNull();
+	});
+
+	it("returns null for an empty column name", () => {
+		expect(getEntitySchemaColumnPropertyType("")).toBeNull();
 	});
 });

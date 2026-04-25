@@ -21,8 +21,6 @@ export function createQueryEngineCollectionFixture(
 		externalId: null,
 		name: "My Collection",
 		sandboxScriptId: null,
-		entitySchemaSlug: "collection",
-		entitySchemaId: "schema-collection",
 		createdAt: "2026-03-08T08:00:00.000Z",
 		updatedAt: "2026-03-08T08:30:00.000Z",
 		...overrides,
