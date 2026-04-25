@@ -1,7 +1,7 @@
 import { SandboxScriptId } from "@ryot/contract/schema/brands";
 import type { WorkflowDurableCallRequest } from "@ryot/sandbox-sdk/workflow";
 import { and, eq } from "drizzle-orm";
-import { Effect } from "effect";
+import { Context, Effect, Layer } from "effect";
 
 import * as schema from "#lib/infrastructure/db/schema/tables/combined";
 import { CurrentDb, dbEffect } from "#lib/infrastructure/db/service";
@@ -34,8 +34,8 @@ export const isWorkflowCallTargetKind = (
 	(request.kind === "child" && kind === "workflow") ||
 	(request.kind === "activity" && kind === "activity");
 
-export class SandboxRepository extends Effect.Service<SandboxRepository>()("SandboxRepository", {
-	sync: () => {
+export class SandboxRepository extends Context.Service<SandboxRepository>()("SandboxRepository", {
+	make: Effect.sync(() => {
 		const getScript = Effect.fn("SandboxRepository.getScript")(function* (
 			scriptId: SandboxScriptId,
 		) {
@@ -195,5 +195,7 @@ export class SandboxRepository extends Effect.Service<SandboxRepository>()("Sand
 			listStoredScripts,
 			resolveWorkflowCallScript,
 		};
-	},
-}) {}
+	}),
+}) {
+	static readonly layer = Layer.effect(this, this.make);
+}

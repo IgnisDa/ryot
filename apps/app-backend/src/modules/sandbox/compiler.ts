@@ -1,9 +1,22 @@
-import { Command, CommandExecutor, FileSystem, Path } from "@effect/platform";
-import { BunContext } from "@effect/platform-bun";
+import { BunServices } from "@effect/platform-bun";
 import { SandboxCompilationFailure } from "@ryot/contract/modules/sandbox/schemas";
 import { CompilerWorkerResponse } from "@ryot/sandbox-compiler/protocol";
 import { sandboxManifestSchema } from "@ryot/sandbox-sdk/core";
-import { Duration, Effect, Either, Fiber, Ref, Schema, Stream } from "effect";
+import {
+	Context,
+	Duration,
+	Effect,
+	Result,
+	Fiber,
+	Layer,
+	Ref,
+	Schema,
+	Stream,
+	FileSystem,
+	Path,
+	Semaphore,
+} from "effect";
+import { ChildProcess, ChildProcessSpawner } from "effect/unstable/process";
 
 import { SANDBOX_LIMITS, utf8ByteLength } from "#lib/infrastructure/sandbox-runtime/limits";
 
@@ -12,20 +25,21 @@ const processFailure = (code: string, message: string) =>
 		message: "Sandbox TypeScript compilation failed",
 		diagnostics: [{ code, message, line: 1, column: 1, severity: "error", file: "script.ts" }],
 	});
-const decodeCompilerWorkerResponse = Schema.decode(Schema.parseJson(CompilerWorkerResponse));
+const decodeCompilerWorkerResponse = Schema.decodeUnknownEffect(
+	Schema.fromJsonString(CompilerWorkerResponse),
+);
 
 const readProportionalBytes = (memory: string) => {
 	const match = /^Pss:\s+(\d+)\s+kB$/m.exec(memory);
 	return match?.[1] ? Number(match[1]) * 2 ** 10 : 0;
 };
 
-export class SandboxCompiler extends Effect.Service<SandboxCompiler>()("SandboxCompiler", {
-	dependencies: [BunContext.layer],
-	effect: Effect.gen(function* () {
+export class SandboxCompiler extends Context.Service<SandboxCompiler>()("SandboxCompiler", {
+	make: Effect.gen(function* () {
 		const fs = yield* FileSystem.FileSystem;
 		const path = yield* Path.Path;
-		const executor = yield* CommandExecutor.CommandExecutor;
-		const semaphore = yield* Effect.makeSemaphore(SANDBOX_LIMITS.compiler.concurrency);
+		const spawner = yield* ChildProcessSpawner.ChildProcessSpawner;
+		const semaphore = yield* Semaphore.make(SANDBOX_LIMITS.compiler.concurrency);
 		const current = new URL(import.meta.url);
 		const currentPath = yield* path.fromFileUrl(current).pipe(Effect.orDie);
 		const compilerWorkerPath = currentPath.endsWith(".ts")
@@ -69,20 +83,26 @@ export class SandboxCompiler extends Effect.Service<SandboxCompiler>()("SandboxC
 		const runWorker = (source: string) =>
 			Effect.scoped(
 				Effect.gen(function* () {
-					const command = Command.make(
+					const command = ChildProcess.make(
 						process.execPath,
-						"--smol",
-						"--no-orphans",
-						"--no-install",
-						"--no-env-file",
-						compilerWorkerPath,
-					).pipe(Command.feed(source), Command.stdout("pipe"), Command.stderr("pipe"));
-					const worker = yield* executor.start(command);
-					yield* Effect.addFinalizer(() => worker.kill("SIGKILL").pipe(Effect.ignore));
+						["--smol", "--no-orphans", "--no-install", "--no-env-file", compilerWorkerPath],
+						{
+							stdin: Stream.succeed(new TextEncoder().encode(source)),
+							stdout: "pipe",
+							stderr: "pipe",
+						},
+					);
+					const worker = yield* spawner.spawn(command);
+					yield* Effect.addFinalizer(() =>
+						worker.kill({ killSignal: "SIGKILL" }).pipe(Effect.ignore),
+					);
 
 					const stdout = yield* worker.stdout.pipe(
-						Stream.decodeText("utf-8"),
-						Stream.runFold("", (output, chunk) => output + chunk),
+						Stream.decodeText({ encoding: "utf-8" }),
+						Stream.runFold(
+							() => "",
+							(output, chunk) => output + chunk,
+						),
 						Effect.forkScoped,
 					);
 					const stderr = yield* worker.stderr.pipe(Stream.runDrain, Effect.forkScoped);
@@ -91,28 +111,28 @@ export class SandboxCompiler extends Effect.Service<SandboxCompiler>()("SandboxC
 					if (process.platform === "linux") {
 						yield* Effect.gen(function* () {
 							const pid = Number(worker.pid);
-							const rootMemory = yield* Effect.either(
+							const rootMemory = yield* Effect.result(
 								fs.readFileString(`/proc/${pid}/smaps_rollup`),
 							);
-							if (Either.isLeft(rootMemory)) {
+							if (Result.isFailure(rootMemory)) {
 								const running = yield* worker.isRunning.pipe(Effect.orElseSucceed(() => false));
 								if (running) {
 									yield* Ref.set(memorySupervisionFailed, true);
-									yield* worker.kill("SIGKILL").pipe(Effect.ignore);
+									yield* worker.kill({ killSignal: "SIGKILL" }).pipe(Effect.ignore);
 								}
 								yield* Effect.sleep(Duration.millis(SANDBOX_LIMITS.compiler.memoryPollIntervalMs));
 								return;
 							}
-							const memoryBytes = yield* processTreeMemoryBytes(pid, new Set(), rootMemory.right);
+							const memoryBytes = yield* processTreeMemoryBytes(pid, new Set(), rootMemory.success);
 							if (memoryBytes > SANDBOX_LIMITS.compiler.memoryBytes) {
 								yield* Ref.set(memoryExceeded, true);
-								yield* worker.kill("SIGKILL").pipe(Effect.ignore);
+								yield* worker.kill({ killSignal: "SIGKILL" }).pipe(Effect.ignore);
 							}
 							yield* Effect.sleep(Duration.millis(SANDBOX_LIMITS.compiler.memoryPollIntervalMs));
 						}).pipe(Effect.forever, Effect.forkScoped);
 					}
 
-					const exitCode = yield* Effect.either(worker.exitCode);
+					const exitCode = yield* Effect.result(worker.exitCode);
 					if (yield* Ref.get(memoryExceeded)) {
 						return yield* processFailure(
 							"RYOT_COMPILER_MEMORY",
@@ -125,7 +145,7 @@ export class SandboxCompiler extends Effect.Service<SandboxCompiler>()("SandboxC
 							"Sandbox compiler memory supervision became unavailable",
 						);
 					}
-					if (Either.isLeft(exitCode) || Number(exitCode.right) !== 0) {
+					if (Result.isFailure(exitCode) || Number(exitCode.success) !== 0) {
 						return yield* processFailure(
 							"RYOT_COMPILER_PROCESS",
 							"Sandbox compiler process exited before returning a result",
@@ -158,12 +178,14 @@ export class SandboxCompiler extends Effect.Service<SandboxCompiler>()("SandboxC
 
 			return semaphore.withPermits(1)(
 				runWorker(source).pipe(
-					Effect.timeoutFail({
+					Effect.timeoutOrElse({
 						duration: Duration.millis(SANDBOX_LIMITS.compiler.timeoutMs),
-						onTimeout: () =>
-							processFailure(
-								"RYOT_COMPILER_TIMEOUT",
-								`Sandbox compilation timed out after ${SANDBOX_LIMITS.compiler.timeoutMs}ms`,
+						orElse: () =>
+							Effect.fail(
+								processFailure(
+									"RYOT_COMPILER_TIMEOUT",
+									`Sandbox compilation timed out after ${SANDBOX_LIMITS.compiler.timeoutMs}ms`,
+								),
 							),
 					}),
 					Effect.flatMap((output) =>
@@ -186,7 +208,7 @@ export class SandboxCompiler extends Effect.Service<SandboxCompiler>()("SandboxC
 							);
 						}
 
-						return Schema.decodeUnknown(sandboxManifestSchema)(response.value.manifest).pipe(
+						return Schema.decodeUnknownEffect(sandboxManifestSchema)(response.value.manifest).pipe(
 							Effect.mapError(() =>
 								processFailure(
 									"RYOT_COMPILER_PROCESS",
@@ -206,4 +228,6 @@ export class SandboxCompiler extends Effect.Service<SandboxCompiler>()("SandboxC
 
 		return { compile };
 	}),
-}) {}
+}) {
+	static readonly layer = Layer.effect(this, this.make).pipe(Layer.provide(BunServices.layer));
+}

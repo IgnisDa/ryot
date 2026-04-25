@@ -15,10 +15,10 @@ import {
 	decodeProviderTranslateResult,
 } from "./provider-contracts";
 
-const decodeSdkSearch = SandboxSchema.decodeUnknown(providerSearchResultSchema);
-const decodeSdkDetails = SandboxSchema.decodeUnknown(providerDetailsResultSchema);
-const decodeSdkResolve = SandboxSchema.decodeUnknown(providerResolveResultSchema);
-const decodeSdkTranslate = SandboxSchema.decodeUnknown(providerTranslateResultSchema);
+const decodeSdkSearch = SandboxSchema.decodeUnknownEffect(providerSearchResultSchema);
+const decodeSdkDetails = SandboxSchema.decodeUnknownEffect(providerDetailsResultSchema);
+const decodeSdkResolve = SandboxSchema.decodeUnknownEffect(providerResolveResultSchema);
+const decodeSdkTranslate = SandboxSchema.decodeUnknownEffect(providerTranslateResultSchema);
 
 it.effect("keeps Effect provider decoders in parity with SDK encoded results", () =>
 	Effect.gen(function* () {

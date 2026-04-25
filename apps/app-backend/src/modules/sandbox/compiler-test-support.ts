@@ -27,4 +27,4 @@ export const compileSandboxSourceForTest = (source: string) =>
 	Effect.gen(function* () {
 		const compiler = yield* SandboxCompiler;
 		return yield* compiler.compile(source);
-	}).pipe(Effect.provide(SandboxCompiler.Default));
+	}).pipe(Effect.provide(SandboxCompiler.layer));
