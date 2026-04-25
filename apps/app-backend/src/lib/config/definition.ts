@@ -16,6 +16,11 @@ export const systemConfigDef = Config.all({
 		allowRegistration: Config.boolean("USERS_ALLOW_REGISTRATION").pipe(Config.withDefault(true)),
 		disableLocalAuth: Config.boolean("USERS_DISABLE_LOCAL_AUTH").pipe(Config.withDefault(false)),
 	}),
+	scheduler: Config.all({
+		progressUpdateThresholdHours: Config.integer("SERVER_PROGRESS_UPDATE_THRESHOLD").pipe(
+			Config.withDefault(2),
+		),
+	}),
 	sandbox: Config.all({
 		timeoutMs: Config.integer("SANDBOX_TIMEOUT_MS").pipe(Config.withDefault(10_000)),
 		denoDir: Config.string("SANDBOX_DENO_DIR").pipe(Config.withDefault("/tmp/ryot-sandbox-deno")),

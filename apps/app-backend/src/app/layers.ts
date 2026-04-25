@@ -21,6 +21,7 @@ import { EventSchemasRepository } from "../modules/event-schemas/repository";
 import { EventSchemasService } from "../modules/event-schemas/service";
 import { EventsRepository } from "../modules/events/repository";
 import { EventsService } from "../modules/events/service";
+import { IntegrationsRepository } from "../modules/integrations/repository";
 import { RelationshipSchemasRepository } from "../modules/relationship-schemas/repository";
 import { RelationshipSchemasService } from "../modules/relationship-schemas/service";
 import { SandboxRepository } from "../modules/sandbox/repository";
@@ -49,6 +50,7 @@ const RepositoriesLive = Layer.mergeAll(
 	EventSchemasRepository.Default,
 	EventsRepository.Default,
 	SandboxRepository.Default,
+	IntegrationsRepository.Default,
 	RelationshipSchemasRepository.Default,
 );
 
