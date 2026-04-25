@@ -40,7 +40,13 @@ export type SearchResultRowActionState = {
 	logStartedOn: string;
 	rateStarsHover: number;
 	logCompletedOn: string;
+	showSeason: number | "";
+	showEpisode: number | "";
+	animeEpisode: number | "";
+	mangaChapter: number | "";
+	mangaVolume: number | "";
 	actionError: string | null;
+	podcastEpisode: number | "";
 	logDate: MediaSearchLogDateOption;
 	doneActions: MediaSearchDoneAction[];
 	openPanel: "log" | "rate" | "collection" | null;
@@ -51,11 +57,17 @@ export const defaultSearchResultRowActionState: SearchResultRowActionState = {
 	rateStars: 0,
 	logDate: "now",
 	rateReview: "",
+	showSeason: "",
+	mangaVolume: "",
+	showEpisode: "",
 	openPanel: null,
 	doneActions: [],
+	animeEpisode: "",
+	mangaChapter: "",
 	logStartedOn: "",
 	rateStarsHover: 0,
 	actionError: null,
+	podcastEpisode: "",
 	logCompletedOn: "",
 	pendingAction: null,
 };
@@ -252,15 +264,19 @@ export function SearchResultRow(props: {
 	onSaveLog: () => void;
 	item: SearchResultItem;
 	isPersonSchema: boolean;
+	entitySchemaSlug: string;
 	onSaveReview: () => void;
 	isLifecycleLoading: boolean;
 	onToggleActions: () => void;
 	addError: string | undefined;
 	canUseCollectionAction: boolean;
+	propertyLoadError?: string | null;
+	isLoadingEntityProperties?: boolean;
 	lifecycleErrorMessage: string | null;
 	onRetryCollectionDiscovery: () => void;
 	actionState: SearchResultRowActionState;
 	collectionState: CollectionDiscoveryState;
+	entityProperties?: Record<string, unknown>;
 	collectionsDestination: CollectionsDestination;
 	onTogglePanel: (panel: "log" | "rate" | "collection") => void;
 	addStatus: "idle" | "loading" | "done" | "error" | "partial_error";
@@ -458,7 +474,11 @@ export function SearchResultRow(props: {
 								onSaveLog={props.onSaveLog}
 								actionState={props.actionState}
 								accentColor={props.accentColor}
+								entityProperties={props.entityProperties}
+								entitySchemaSlug={props.entitySchemaSlug}
+								propertyLoadError={props.propertyLoadError}
 								onPatchActionState={props.onPatchActionState}
+								isLoadingEntityProperties={props.isLoadingEntityProperties}
 							/>
 						) : null}
 
