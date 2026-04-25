@@ -1619,6 +1619,39 @@ async function importMediaEntity(
 	}
 }
 
+// ─── Episodic progress helpers ───────────────────────────────────────────────
+
+const EPISODIC_MEDIA_SLUGS = new Set<MediaEntitySchemaSlug>([
+	"show",
+	"anime",
+	"manga",
+	"podcast",
+]);
+
+function generateEpisodicProgressFields(
+	slug: MediaEntitySchemaSlug,
+): Record<string, unknown> {
+	if (slug === "show") {
+		return { showSeason: randomInt(1, 3), showEpisode: randomInt(1, 20) };
+	}
+	if (slug === "anime") {
+		return { animeEpisode: randomInt(1, 500) };
+	}
+	if (slug === "manga") {
+		const fields: Record<string, unknown> = {
+			mangaChapter: faker.number.float({ min: 1, max: 300, fractionDigits: 0 }),
+		};
+		if (faker.datatype.boolean()) {
+			fields.mangaVolume = randomInt(1, 30);
+		}
+		return fields;
+	}
+	if (slug === "podcast") {
+		return { podcastEpisode: randomInt(1, 200) };
+	}
+	return {};
+}
+
 // ─── Media seeding ──────────────────────────────────────────────────────────
 
 async function seedMedia(client: APIClient) {
@@ -1786,10 +1819,14 @@ async function seedMedia(client: APIClient) {
 		}
 
 		for (const entity of progressEntities) {
+			const slug = schema.slug as MediaEntitySchemaSlug;
+			const episodicFields = EPISODIC_MEDIA_SLUGS.has(slug)
+				? generateEpisodicProgressFields(slug)
+				: {};
 			mediaEvents.push({
 				entityId: entity.id,
 				eventSchemaId: eventSchemas.progress.id,
-				properties: { progressPercent: randomInt(10, 85) },
+				properties: { progressPercent: randomInt(10, 85), ...episodicFields },
 			});
 		}
 
