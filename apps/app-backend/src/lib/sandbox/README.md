@@ -21,7 +21,7 @@ The model is:
 
 ## How one execution works
 
-1. `POST /sandbox/enqueue` accepts `{ code, context? }` and returns a BullMQ `jobId` immediately.
+1. `POST /sandbox/enqueue` accepts `{ code, driverName, context? }` and returns a BullMQ `jobId` immediately.
 2. The route builds `apiFunctionDescriptors` server-side and stores them in the job payload.
 3. A worker calls `SandboxService.executeQueuedRun(...)` for the job.
 4. The service reconstructs bound host functions from the static registry, then creates a unique `executionId` and one-time bearer token.
@@ -29,12 +29,13 @@ The model is:
    - Redis stores `{ token, expiresAt }` under `sandbox:session:<executionId>` with TTL.
    - An in-memory map stores the bound host functions for that execution.
 6. A Deno subprocess is spawned with restricted permissions.
-7. The service sends one JSON payload over stdin (`code`, `context`, bridge URL, token, function names, execution id, script id).
+7. The service sends one JSON payload over stdin (`code`, `driverName`, `context`, bridge URL, token, function names, execution id, script id).
 8. Inside Deno (`scripts/runner-source.txt`):
    - payload is parsed,
    - `console.*` is redirected to stderr,
    - host-function stubs are created so user code can call `await someHostFn(...)`,
-   - user code runs in an async wrapper with `context` and optional `meta` arguments,
+   - user code runs in an async wrapper, which registers drivers via `driver(name, fn)`,
+   - the named driver is looked up and called with `context` and optional `meta`,
    - final result is written as JSON to stdout.
 9. Bridge calls from stubs hit `POST /rpc/:executionId/:fnName`:
    - execution and expiry are checked,
@@ -85,19 +86,12 @@ For stateless functions use an empty context object. For stateful functions, bin
 
 ## Driver functions
 
-Driver functions are the entry points in sandbox scripts. They receive two arguments:
+Driver functions are the only entry points in sandbox scripts. Every script must register at least one driver using `driver(name, fn)`, and the caller must supply a matching `driverName` when enqueueing.
+
+A driver receives two arguments:
 
 1. `context` — user-provided execution context containing input data (e.g., search query, page size)
 2. `meta` — system-provided metadata object containing `{ sandboxScriptId: string }` when running from a stored script, or `undefined` when running ad-hoc code
-
-User code can call:
-
-```js
-const response = await myHostFn("a", "b");
-return response;
-```
-
-Or define a driver function:
 
 ```js
 driver("search", async function(context, meta) {
