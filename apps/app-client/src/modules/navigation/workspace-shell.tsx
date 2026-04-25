@@ -1,3 +1,4 @@
+import clsx from "clsx";
 import { Slot } from "expo-router";
 import { useState } from "react";
 import { Pressable, Text, View } from "react-native";
@@ -40,7 +41,12 @@ function WorkspaceShellContent() {
 	return (
 		<View className="flex-1">
 			<View className="flex-1 flex-row">
-				<View className="hidden w-66 flex-col border-r border-border bg-surface md:flex">
+				<View
+					className={clsx(
+						"hidden flex-col border-r border-border bg-surface md:flex",
+						customize === null ? "w-66" : "w-100",
+					)}
+				>
 					{customize === null ? (
 						<Sidebar
 							className="flex-1"
