@@ -478,7 +478,7 @@ describe("addToCollection", () => {
 		}
 	});
 
-	it("upserts in_library when adding a global entity to a collection", async () => {
+	it("upserts in-library when adding a global entity to a collection", async () => {
 		const calls: Array<{
 			userId: string;
 			mediaEntityId: string;
@@ -529,7 +529,7 @@ describe("addToCollection", () => {
 		expect(upsertCalls).toBe(1);
 	});
 
-	it("does not upsert in_library for a user-owned entity", async () => {
+	it("does not upsert in-library for a user-owned entity", async () => {
 		let upsertCalls = 0;
 
 		const result = await addToCollection(
@@ -566,7 +566,7 @@ describe("addToCollection", () => {
 		});
 	});
 
-	it("does not upsert in_library when membership properties are invalid", async () => {
+	it("does not upsert in-library when membership properties are invalid", async () => {
 		let upsertCalls = 0;
 
 		const result = await addToCollection(

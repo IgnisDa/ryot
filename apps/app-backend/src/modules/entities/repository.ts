@@ -242,29 +242,65 @@ export const updateGlobalEntityById = async (input: {
 		);
 };
 
+export const buildPersonRelationshipProperties = (
+	existing: Record<string, unknown> | undefined,
+	role: string,
+	extraProperties: Record<string, unknown>,
+): Record<string, unknown> => {
+	const existingRoles = (existing?.roles as string[] | undefined) ?? [];
+	const mergedRoles = Array.from(new Set([...existingRoles, role]));
+	return { ...existing, ...extraProperties, roles: mergedRoles };
+};
+
 export const upsertPersonRelationship = async (input: {
-	relationshipSchemaId: string;
+	role: string;
 	sourceEntityId: string;
 	targetEntityId: string;
-	properties: Record<string, unknown>;
+	relationshipSchemaId: string;
+	extraProperties: Record<string, unknown>;
 }) => {
-	await db
-		.insert(relationship)
-		.values({
-			properties: input.properties,
-			sourceEntityId: input.sourceEntityId,
-			targetEntityId: input.targetEntityId,
-			relationshipSchemaId: input.relationshipSchemaId,
-		})
-		.onConflictDoUpdate({
-			set: { properties: input.properties },
-			targetWhere: isNull(relationship.userId),
-			target: [
-				relationship.sourceEntityId,
-				relationship.targetEntityId,
-				relationship.relationshipSchemaId,
-			],
-		});
+	await db.transaction(async (tx) => {
+		const [existing] = await tx
+			.select({ properties: relationship.properties })
+			.from(relationship)
+			.where(
+				and(
+					isNull(relationship.userId),
+					eq(relationship.sourceEntityId, input.sourceEntityId),
+					eq(relationship.targetEntityId, input.targetEntityId),
+					eq(relationship.relationshipSchemaId, input.relationshipSchemaId),
+				),
+			)
+			.for("update")
+			.limit(1);
+
+		const existingProperties =
+			(existing?.properties as Record<string, unknown> | undefined) ??
+			undefined;
+		const mergedProperties = buildPersonRelationshipProperties(
+			existingProperties,
+			input.role,
+			input.extraProperties,
+		);
+
+		await tx
+			.insert(relationship)
+			.values({
+				properties: mergedProperties,
+				sourceEntityId: input.sourceEntityId,
+				targetEntityId: input.targetEntityId,
+				relationshipSchemaId: input.relationshipSchemaId,
+			})
+			.onConflictDoUpdate({
+				set: { properties: mergedProperties },
+				targetWhere: isNull(relationship.userId),
+				target: [
+					relationship.sourceEntityId,
+					relationship.targetEntityId,
+					relationship.relationshipSchemaId,
+				],
+			});
+	});
 };
 
 export const getUserLibraryEntityId = async (
@@ -317,9 +353,9 @@ export const upsertInLibraryRelationship = async (
 		values: InLibraryRelationshipValues,
 	) => Promise<void> = insertInLibraryRelationship,
 ) => {
-	const found = await getBuiltinRelationshipSchemaBySlug("in_library");
+	const found = await getBuiltinRelationshipSchemaBySlug("in-library");
 	if (!found) {
-		throw new Error("in_library relationship schema not found");
+		throw new Error("in-library relationship schema not found");
 	}
 	await insert({
 		properties: {},
