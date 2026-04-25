@@ -1,5 +1,7 @@
-import { Workflow } from "@effect/workflow";
 import { Effect, Schema } from "effect";
+import { Workflow } from "effect/unstable/workflow";
+
+import { withoutSchemaServices } from "#lib/shared/schema";
 
 import type { CronTask, CronTaskContext } from "./types";
 
@@ -10,7 +12,7 @@ export const runTasks = <E, R>(tasks: ReadonlyArray<CronTask<E, R>>, ctx: CronTa
 			task
 				.run(ctx)
 				.pipe(
-					Effect.catchAllCause((cause) =>
+					Effect.catchCause((cause) =>
 						Effect.logError("cron task failed", cause).pipe(
 							Effect.annotateLogs({ task: task.name }),
 						),
@@ -25,10 +27,9 @@ export const CronRunPayload = Schema.Struct({
 
 export type CronRunPayload = typeof CronRunPayload.Type;
 
-export const FrequentCronWorkflow = Workflow.make({
-	error: Schema.Never,
-	success: Schema.Void,
-	payload: CronRunPayload,
-	name: "FrequentCronWorkflow",
+export const FrequentCronWorkflow = Workflow.make("FrequentCronWorkflow", {
+	error: withoutSchemaServices(Schema.Never),
+	success: withoutSchemaServices(Schema.Void),
+	payload: withoutSchemaServices(CronRunPayload),
 	idempotencyKey: ({ executionId }) => executionId,
 });
