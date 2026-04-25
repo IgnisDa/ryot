@@ -2,8 +2,8 @@ import { Effect } from "effect";
 
 import type { CurrentUserValue } from "../../lib/auth";
 import { DbRunner, TransactionRunner } from "../../lib/db";
-import type { DbError, NotFound } from "../../lib/errors";
-import { BadRequest, badRequest, notFound } from "../../lib/errors";
+import type { BadRequest, DbError, NotFound } from "../../lib/errors";
+import { badRequest, notFound } from "../../lib/errors";
 import { parseAppSchemaProperties } from "../../lib/property-schema-runtime";
 import { requireText, trimToNull } from "../../lib/validation";
 import { RelationshipSchemasRepository } from "../relationship-schemas/repository";
@@ -39,7 +39,7 @@ const validateRelationshipSchemaTargets = (input: {
 		return badRequest("Relationship target entity schema does not match");
 	}
 
-	return null;
+	return Effect.void;
 };
 
 type EntitiesServiceShape = {
@@ -128,10 +128,7 @@ export class EntitiesService extends Effect.Service<EntitiesService>()("Entities
 						}
 					}
 
-					const name = requireText(payload.name, "Entity name is required");
-					if (name instanceof BadRequest) {
-						return yield* name;
-					}
+					const name = yield* requireText(payload.name, "Entity name is required");
 
 					const properties = yield* parseAppSchemaProperties({
 						kind: "Entity",
@@ -237,14 +234,11 @@ export class EntitiesService extends Effect.Service<EntitiesService>()("Entities
 						return yield* notFound(entityNotFoundError);
 					}
 
-					const mismatch = validateRelationshipSchemaTargets({
+					yield* validateRelationshipSchemaTargets({
 						relationshipSchema,
 						sourceEntitySchemaId: sourceEntity.entitySchemaId,
 						targetEntitySchemaId: targetEntity.entitySchemaId,
 					});
-					if (mismatch) {
-						return yield* mismatch;
-					}
 
 					const properties = yield* parseAppSchemaProperties({
 						kind: "Relationship",
@@ -292,14 +286,11 @@ export class EntitiesService extends Effect.Service<EntitiesService>()("Entities
 						return yield* notFound(entityNotFoundError);
 					}
 
-					const mismatch = validateRelationshipSchemaTargets({
+					yield* validateRelationshipSchemaTargets({
 						relationshipSchema,
 						sourceEntitySchemaId: sourceEntity.entitySchemaId,
 						targetEntitySchemaId: targetEntity.entitySchemaId,
 					});
-					if (mismatch) {
-						return yield* mismatch;
-					}
 
 					const properties = yield* parseAppSchemaProperties({
 						kind: "Relationship",
@@ -331,14 +322,11 @@ export class EntitiesService extends Effect.Service<EntitiesService>()("Entities
 						return yield* notFound(entityNotFoundError);
 					}
 
-					const mismatch = validateRelationshipSchemaTargets({
+					yield* validateRelationshipSchemaTargets({
 						relationshipSchema,
 						sourceEntitySchemaId: sourceEntity.entitySchemaId,
 						targetEntitySchemaId: targetEntity.entitySchemaId,
 					});
-					if (mismatch) {
-						return yield* mismatch;
-					}
 
 					const properties = yield* parseAppSchemaProperties({
 						kind: "Relationship",
