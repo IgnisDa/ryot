@@ -125,22 +125,13 @@ export const userRelations = relations(user, ({ many }) => ({
 }));
 
 export const sessionRelations = relations(session, ({ one }) => ({
-	user: one(user, {
-		references: [user.id],
-		fields: [session.userId],
-	}),
+	user: one(user, { references: [user.id], fields: [session.userId] }),
 }));
 
 export const accountRelations = relations(account, ({ one }) => ({
-	user: one(user, {
-		references: [user.id],
-		fields: [account.userId],
-	}),
+	user: one(user, { references: [user.id], fields: [account.userId] }),
 }));
 
 export const twoFactorRelations = relations(twoFactor, ({ one }) => ({
-	user: one(user, {
-		references: [user.id],
-		fields: [twoFactor.userId],
-	}),
+	user: one(user, { references: [user.id], fields: [twoFactor.userId] }),
 }));
