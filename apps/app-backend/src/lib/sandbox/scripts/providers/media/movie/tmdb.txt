@@ -289,7 +289,6 @@ driver("details", async function (context) {
 
   return {
     name: title,
-    externalId: identifier,
     properties: {
       runtime,
       genres: collectGenres(movieData?.genres),

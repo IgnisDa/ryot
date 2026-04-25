@@ -334,7 +334,6 @@ driver("details", async function(context) {
 
   return {
     name: title,
-    externalId: identifier,
     suggestions: recommendations,
     properties: {
       genres: collectGenres(podcast?.genre_ids, genresById),
