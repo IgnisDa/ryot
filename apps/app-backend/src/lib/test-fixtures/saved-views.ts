@@ -16,6 +16,8 @@ import type {
 const queryDefinitionDefaults: SavedViewQueryDefinition = {
 	filter: null,
 	eventJoins: [],
+	relationships: [],
+	computedFields: [],
 	entitySchemaSlugs: ["books"],
 	sort: {
 		direction: "asc",

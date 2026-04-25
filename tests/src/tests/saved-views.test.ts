@@ -172,6 +172,7 @@ describe("Saved views E2E", () => {
 		expect(fetchedUpdatedClone.queryDefinition).toEqual({
 			...updatedCloneInput.queryDefinition,
 			eventJoins: updatedCloneInput.queryDefinition.eventJoins ?? [],
+			relationships: updatedCloneInput.queryDefinition.relationships ?? [],
 		});
 		expect(fetchedUpdatedClone.displayConfiguration).toEqual(
 			updatedCloneInput.displayConfiguration,
