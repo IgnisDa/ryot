@@ -7,10 +7,11 @@ import { APIError } from "better-auth/api";
 import { genericOAuth, twoFactor } from "better-auth/plugins";
 import { eq } from "drizzle-orm";
 import { Context, Effect, Layer, Option, Redacted, Runtime, Schema } from "effect";
+import type Redis from "ioredis";
 
 import { bootstrapNewUser, defaultUserPreferences } from "./builtins/bootstrap";
 import { AppConfig, type AppConfigValue, isOidcEnabled } from "./config";
-import type { TransactionRunner } from "./db";
+import type { DbRoot, TransactionRunner } from "./db";
 import { DbService, schema } from "./db";
 import { rateLimited, RateLimited, unauthorized, Unauthorized } from "./errors";
 import { RedisService } from "./redis";
@@ -46,8 +47,8 @@ export class AdminMiddleware extends HttpApiMiddleware.Tag<AdminMiddleware>()("A
 
 const makeAuthInstance = (args: {
 	readonly config: AppConfigValue;
-	readonly db: DbService["Type"]["db"];
-	readonly redis: RedisService["Type"]["client"];
+	readonly db: DbRoot;
+	readonly redis: Redis;
 	readonly runtime: Runtime.Runtime<DbService | RedisService | TransactionRunner>;
 }) => {
 	const corsOrigins = Option.match(args.config.server.corsOrigins, {
@@ -160,24 +161,13 @@ const makeAuthInstance = (args: {
 
 export type AuthInstance = ReturnType<typeof makeAuthInstance>;
 
-export class AuthService extends Context.Tag("AuthService")<
-	AuthService,
-	{
-		readonly auth: AuthInstance;
-		readonly currentUser: (
-			headers: Headers,
-		) => Effect.Effect<CurrentUserValue, Unauthorized | RateLimited>;
-	}
->() {}
-
 const isAPIError = (
 	error: unknown,
 ): error is { body?: { code?: string; details?: { tryAgainIn?: number } } } =>
 	typeof error === "object" && error !== null && "body" in error;
 
-export const AuthLive = Layer.effect(
-	AuthService,
-	Effect.gen(function* () {
+export class AuthService extends Effect.Service<AuthService>()("AuthService", {
+	effect: Effect.gen(function* () {
 		const db = yield* DbService;
 		const config = yield* AppConfig;
 		const redis = yield* RedisService;
@@ -186,7 +176,7 @@ export const AuthLive = Layer.effect(
 
 		return {
 			auth,
-			currentUser: (headers) =>
+			currentUser: (headers: Headers) =>
 				Effect.tryPromise({
 					try: () => auth.api.getSession({ headers }),
 					catch: (error) => {
@@ -211,7 +201,7 @@ export const AuthLive = Layer.effect(
 				),
 		};
 	}),
-);
+}) {}
 
 export const AuthMiddlewareLive = Layer.effect(
 	AuthMiddleware,
