@@ -65,7 +65,7 @@ export function CustomizePanel(props: {
 						Views · {viewsCount.shown} of {viewsCount.total} shown
 					</Text>
 				</View>
-				<View className="overflow-hidden rounded-lg border border-border bg-surface">
+				<View className="overflow-hidden rounded-lg border border-border bg-raised">
 					<CustomizeHomeRow />
 					<ReorderableList
 						onDrop={props.onDrop}
@@ -75,10 +75,11 @@ export function CustomizePanel(props: {
 						items={props.draft.views}
 						keyExtractor={(item) => item.slug}
 						onReorder={(fromIndex, toIndex) => props.onMove("views", fromIndex, toIndex)}
-						renderItem={({ handle, item }) => (
+						renderItem={({ handle, index, item }) => (
 							<CustomizeRow
-								handle={handle}
 								item={item}
+								handle={handle}
+								isLast={index === props.draft.views.length - 1}
 								onToggle={(slug) => props.onToggle("views", slug)}
 							/>
 						)}
@@ -95,7 +96,7 @@ export function CustomizePanel(props: {
 						Saved Views · {savedViewsCount.shown} of {savedViewsCount.total} shown
 					</Text>
 				</View>
-				<View className="overflow-hidden rounded-lg border border-border bg-surface">
+				<View className="overflow-hidden rounded-lg border border-border bg-raised">
 					{props.draft.savedViews.length === 0 ? (
 						<Text className="px-2 py-1 font-ui text-xs text-text-subtle">No saved views yet.</Text>
 					) : (
@@ -107,10 +108,11 @@ export function CustomizePanel(props: {
 							items={props.draft.savedViews}
 							keyExtractor={(item) => item.slug}
 							onReorder={(fromIndex, toIndex) => props.onMove("savedViews", fromIndex, toIndex)}
-							renderItem={({ handle, item }) => (
+							renderItem={({ handle, index, item }) => (
 								<CustomizeRow
 									handle={handle}
 									item={item}
+									isLast={index === props.draft.savedViews.length - 1}
 									onToggle={(slug) => props.onToggle("savedViews", slug)}
 								/>
 							)}
