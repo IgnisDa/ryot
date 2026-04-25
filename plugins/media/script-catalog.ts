@@ -60,8 +60,6 @@ import { manifest as manifest21 } from "./scripts/providers/company/tmdb-details
 import { manifest as manifest22 } from "./scripts/providers/company/tmdb-search.sandbox";
 import { manifest as manifest23 } from "./scripts/providers/company/tvdb-details.sandbox";
 import { manifest as manifest24 } from "./scripts/providers/company/tvdb-search.sandbox";
-import { manifest as manifest25 } from "./scripts/providers/company/vndb-details.sandbox";
-import { manifest as manifest26 } from "./scripts/providers/company/vndb-search.sandbox";
 import { manifest as manifest27 } from "./scripts/providers/media-group/audible-details.sandbox";
 import { manifest as manifest28 } from "./scripts/providers/media-group/audible-search.sandbox";
 import { manifest as manifest29 } from "./scripts/providers/media-group/giant-bomb-details.sandbox";
@@ -169,6 +167,8 @@ import { manifest as manifest127 } from "./scripts/providers/person/tmdb.transla
 import { manifest as manifest128 } from "./scripts/providers/person/tvdb.details.sandbox";
 import { manifest as manifest129 } from "./scripts/providers/person/tvdb.search.sandbox";
 import { manifest as manifest130 } from "./scripts/providers/person/tvdb.translate.sandbox";
+import { manifest as manifest25 } from "./scripts/providers/person/vndb-details.sandbox";
+import { manifest as manifest26 } from "./scripts/providers/person/vndb-search.sandbox";
 import { manifest as manifest131 } from "./scripts/providers/person/youtube-music.details.sandbox";
 import { manifest as manifest132 } from "./scripts/providers/person/youtube-music.search.sandbox";
 import { manifest as manifest133 } from "./scripts/providers/person/youtube-music.translate.sandbox";
@@ -325,14 +325,14 @@ export const mediaScripts = [
 	),
 	providerScript(
 		manifest25,
-		"scripts/providers/company/vndb-details.sandbox.ts",
-		"company.vndb",
+		"scripts/providers/person/vndb-details.sandbox.ts",
+		"person.vndb",
 		"details",
 	),
 	providerScript(
 		manifest26,
-		"scripts/providers/company/vndb-search.sandbox.ts",
-		"company.vndb",
+		"scripts/providers/person/vndb-search.sandbox.ts",
+		"person.vndb",
 		"search",
 	),
 	providerScript(
