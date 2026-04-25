@@ -175,4 +175,66 @@ describe("buildResolvedFieldsExpression", () => {
 			expect(query.sql).not.toContain("to_char(");
 		});
 	});
+
+	describe("transform expression display values", () => {
+		it("titleCase transform resolves to text kind", () => {
+			const query = dialect.sqlToQuery(
+				buildResolvedFieldsExpression({
+					context,
+					alias: "entities",
+					computedFields: [],
+					fields: [
+						{
+							key: "formattedName",
+							expression: {
+								type: "transform",
+								name: "titleCase",
+								expression: {
+									type: "reference",
+									reference: {
+										type: "entity",
+										slug: "smartphones",
+										path: ["properties", "nameplate"],
+									},
+								},
+							},
+						},
+					],
+				}),
+			);
+
+			expect(query.sql).toContain("initcap(");
+			expect(query.sql).toContain("'text'");
+		});
+
+		it("kebabCase transform resolves to text kind", () => {
+			const query = dialect.sqlToQuery(
+				buildResolvedFieldsExpression({
+					context,
+					alias: "entities",
+					computedFields: [],
+					fields: [
+						{
+							key: "slugified",
+							expression: {
+								type: "transform",
+								name: "kebabCase",
+								expression: {
+									type: "reference",
+									reference: {
+										type: "entity",
+										slug: "smartphones",
+										path: ["properties", "nameplate"],
+									},
+								},
+							},
+						},
+					],
+				}),
+			);
+
+			expect(query.sql).toContain("lower(");
+			expect(query.sql).toContain("'text'");
+		});
+	});
 });
