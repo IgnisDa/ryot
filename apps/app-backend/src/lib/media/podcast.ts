@@ -1,7 +1,7 @@
 import { z } from "@hono/zod-openapi";
 import { toAppSchemaProperties } from "@ryot/ts-utils";
 import { nullableIntSchema, nullableStringSchema } from "../zod";
-import { freeCreatorSchema, mediaPropertiesSchema } from "./common";
+import { mediaWithFreeCreatorsPropertiesSchema } from "./common";
 
 const podcastEpisodeSchema = z
 	.object({
@@ -15,11 +15,11 @@ const podcastEpisodeSchema = z
 	})
 	.strict();
 
-export const podcastPropertiesSchema = mediaPropertiesSchema.extend({
-	totalEpisodes: nullableIntSchema,
-	episodes: z.array(podcastEpisodeSchema),
-	freeCreators: z.array(freeCreatorSchema),
-});
+export const podcastPropertiesSchema =
+	mediaWithFreeCreatorsPropertiesSchema.extend({
+		totalEpisodes: nullableIntSchema,
+		episodes: z.array(podcastEpisodeSchema),
+	});
 
 export const podcastPropertiesJsonSchema = toAppSchemaProperties(
 	podcastPropertiesSchema,
