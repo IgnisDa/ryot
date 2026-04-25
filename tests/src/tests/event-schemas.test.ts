@@ -131,4 +131,125 @@ describe("GET /event-schemas", () => {
 			});
 		}
 	});
+
+	it("exposes per-entity progress schema variants for episodic media", async () => {
+		const { client, cookies } = await createAuthenticatedClient();
+		const { schemas } = await listBuiltinEntitySchemas(client, cookies);
+
+		const getProgressSchema = async (slug: string) => {
+			const mediaSchema = schemas.find((schema) => schema.slug === slug);
+			expect(mediaSchema).toBeDefined();
+			if (!mediaSchema) {
+				throw new Error(`Missing built-in ${slug} schema`);
+			}
+
+			const eventSchemas = await listEventSchemas(
+				client,
+				cookies,
+				mediaSchema.id,
+			);
+			const progressSchema = eventSchemas.find(
+				(schema) => schema.slug === "progress",
+			);
+			expect(progressSchema).toBeDefined();
+			if (!progressSchema) {
+				throw new Error(`Missing built-in progress schema for ${slug}`);
+			}
+
+			return progressSchema.propertiesSchema as Record<string, unknown>;
+		};
+
+		const showProgressSchema = await getProgressSchema("show");
+		expect(showProgressSchema).toMatchObject({
+			fields: {
+				progressPercent: {
+					type: "number",
+					label: "Progress Percent",
+					transform: { round: { mode: "half_up", scale: 2 } },
+					validation: {
+						required: true,
+						exclusiveMinimum: 0,
+						maximum: 100,
+					},
+				},
+				showSeason: { type: "integer", label: "Show Season" },
+				showEpisode: { type: "integer", label: "Show Episode" },
+			},
+			rules: [
+				{
+					kind: "validation",
+					path: ["showSeason"],
+					validation: { required: true },
+					when: { operator: "exists", path: ["showEpisode"] },
+				},
+				{
+					kind: "validation",
+					path: ["showEpisode"],
+					validation: { required: true },
+					when: { operator: "exists", path: ["showSeason"] },
+				},
+			],
+		});
+
+		const animeProgressSchema = await getProgressSchema("anime");
+		expect(animeProgressSchema).toMatchObject({
+			fields: {
+				progressPercent: { type: "number", label: "Progress Percent" },
+				animeEpisode: { type: "integer", label: "Anime Episode" },
+			},
+		});
+
+		const mangaProgressSchema = await getProgressSchema("manga");
+		expect(mangaProgressSchema).toMatchObject({
+			fields: {
+				progressPercent: { type: "number", label: "Progress Percent" },
+				mangaChapter: { type: "number", label: "Manga Chapter" },
+				mangaVolume: { type: "integer", label: "Manga Volume" },
+			},
+		});
+
+		const podcastProgressSchema = await getProgressSchema("podcast");
+		expect(podcastProgressSchema).toMatchObject({
+			fields: {
+				progressPercent: { type: "number", label: "Progress Percent" },
+				podcastEpisode: { type: "integer", label: "Podcast Episode" },
+			},
+		});
+
+		const movieProgressSchema = await getProgressSchema("movie");
+		expect(movieProgressSchema).toMatchObject({
+			fields: {
+				progressPercent: {
+					type: "number",
+					label: "Progress Percent",
+					transform: { round: { mode: "half_up", scale: 2 } },
+					validation: {
+						required: true,
+						exclusiveMinimum: 0,
+						maximum: 100,
+					},
+				},
+			},
+		});
+		expect(
+			(movieProgressSchema.fields as Record<string, unknown>).showSeason,
+		).toBe(undefined);
+		expect(
+			(movieProgressSchema.fields as Record<string, unknown>).showEpisode,
+		).toBe(undefined);
+
+		for (const slug of [
+			"book",
+			"comic-book",
+			"audiobook",
+			"video-game",
+			"music",
+			"visual-novel",
+		]) {
+			const progressSchema = await getProgressSchema(slug);
+			expect(progressSchema).toEqual(movieProgressSchema);
+		}
+
+		expect(showProgressSchema).not.toEqual(movieProgressSchema);
+	});
 });
