@@ -238,17 +238,13 @@ driver("details", async function (context) {
   return {
     name: title,
     properties: {
-      genres: [],
-      isNsfw: null,
-      publishYear,
-      duration,
-      byVariousArtists,
       people,
-      sourceUrl: `https://musicbrainz.org/recording/${externalId}`,
+      duration,
+      genres: [],
+      publishYear,
+      byVariousArtists,
       assets: { remoteImages: coverUrl ? [coverUrl] : [] },
-      description: null,
-      providerRating: null,
-      productionStatus: null,
+      sourceUrl: `https://musicbrainz.org/recording/${externalId}`,
     },
   };
 });
