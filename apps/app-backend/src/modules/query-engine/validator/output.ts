@@ -258,7 +258,7 @@ export const validateTimeSeriesOutput = (
 	if (Option.isNone(startAt) || Option.isNone(endAt)) {
 		return "Time-series range startAt and endAt must be valid dates";
 	}
-	if (!DateTime.lessThan(startAt.value, endAt.value)) {
+	if (!DateTime.isLessThan(startAt.value, endAt.value)) {
 		return "Time-series range startAt must be before endAt";
 	}
 
