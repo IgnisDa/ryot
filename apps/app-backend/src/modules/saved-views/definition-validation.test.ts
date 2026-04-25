@@ -14,28 +14,32 @@ const book = table("entity", "book");
 const queryDocument = document({
 	savedView: rows(book, {
 		orderBy: [ascending(column(book, "name"))],
-		fields: [field("id", column(book, "id")), field("name", column(book, "name"))],
+		fields: [
+			field("id", column(book, "id")),
+			field("name", column(book, "name")),
+			field("count", literal(1)),
+		],
 	}),
 }) satisfies RyotQLDocument;
 
 const displayConfiguration = {
 	entityIdField: "id",
-	table: { columns: [{ label: "Name", field: "name" }] },
+	table: { imageField: null, columns: [{ label: "Name", field: "name" }] },
 	grid: {
 		imageField: null,
 		titleField: "name",
-		eyebrowField: null,
 		calloutField: null,
-		primarySubtitleField: null,
-		secondarySubtitleField: null,
+		overlineField: null,
+		primaryMetadataField: null,
+		secondaryMetadataField: null,
 	},
 	list: {
-		titleField: "name",
 		imageField: null,
-		eyebrowField: null,
+		titleField: "name",
 		calloutField: null,
-		primarySubtitleField: null,
-		secondarySubtitleField: null,
+		overlineField: null,
+		primaryMetadataField: null,
+		secondaryMetadataField: null,
 	},
 } satisfies SavedViewDisplayConfiguration;
 
@@ -48,27 +52,15 @@ it.effect("accepts a valid saved view definition", () =>
 
 it.effect("rejects a non-text entity ID expression", () =>
 	Effect.gen(function* () {
-		const invalidQueryDocument = {
-			...queryDocument,
-			queries: {
-				savedView: {
-					...queryDocument.queries.savedView,
-					output: {
-						...queryDocument.queries.savedView.output,
-						fields: [...queryDocument.queries.savedView.output.fields, field("count", literal(1))],
-					},
-				},
-			},
-		} as RyotQLDocument;
 		const exit = yield* Effect.exit(
 			validateSavedViewDefinition({
-				queryDocument: invalidQueryDocument,
+				queryDocument,
 				displayConfiguration: { ...displayConfiguration, entityIdField: "count" },
 			}),
 		);
 		expect(
 			getSavedViewValidationError({
-				queryDocument: invalidQueryDocument,
+				queryDocument,
 				displayConfiguration: { ...displayConfiguration, entityIdField: "count" },
 			}),
 		).toBe("Saved view entityIdField must resolve to text");
@@ -77,5 +69,56 @@ it.effect("rejects a non-text entity ID expression", () =>
 			exit,
 			new BadRequest({ message: "Saved view entityIdField must resolve to text" }),
 		);
+	}),
+);
+
+it.effect("rejects non-text title and image expressions", () =>
+	Effect.sync(() => {
+		const invalidConfigurations = [
+			{
+				expected: "Saved view grid titleField must resolve to text",
+				value: {
+					...displayConfiguration,
+					grid: { ...displayConfiguration.grid, titleField: "count" },
+				},
+			},
+			{
+				expected: "Saved view list titleField must resolve to text",
+				value: {
+					...displayConfiguration,
+					list: { ...displayConfiguration.list, titleField: "count" },
+				},
+			},
+			{
+				expected: "Saved view grid imageField must resolve to text",
+				value: {
+					...displayConfiguration,
+					grid: { ...displayConfiguration.grid, imageField: "count" },
+				},
+			},
+			{
+				expected: "Saved view list imageField must resolve to text",
+				value: {
+					...displayConfiguration,
+					list: { ...displayConfiguration.list, imageField: "count" },
+				},
+			},
+			{
+				expected: "Saved view table imageField must resolve to text",
+				value: {
+					...displayConfiguration,
+					table: { ...displayConfiguration.table, imageField: "count" },
+				},
+			},
+		] satisfies ReadonlyArray<{
+			readonly expected: string;
+			readonly value: SavedViewDisplayConfiguration;
+		}>;
+
+		for (const { expected, value } of invalidConfigurations) {
+			expect(getSavedViewValidationError({ queryDocument, displayConfiguration: value })).toBe(
+				expected,
+			);
+		}
 	}),
 );

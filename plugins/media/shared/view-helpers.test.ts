@@ -11,16 +11,20 @@ describe("buildViewExpressions", () => {
 			type: "column",
 			tableAlias: "entity",
 		});
-		expect(config.grid.eyebrow).toEqual({ type: "literal", value: "Movie" });
+		expect(config.grid.overline).toEqual({ type: "literal", value: "Movie" });
 		expect(config.grid.image).toEqual({
-			type: "jsonPath",
-			path: ["images", 0],
-			expr: { type: "column", field: "properties", tableAlias: "entity" },
+			type: "cast",
+			target: "text",
+			expr: {
+				type: "jsonPath",
+				path: ["images", 0, "url"],
+				expr: { type: "column", field: "properties", tableAlias: "entity" },
+			},
 		});
 	});
 
 	it("uses conditional unit subtitles", () => {
-		const expression = buildViewExpressions("movie", "Movie").grid.secondarySubtitle;
+		const expression = buildViewExpressions("movie", "Movie").grid.secondaryMetadata;
 
 		expect(expression).toMatchObject({
 			type: "conditional",
@@ -67,6 +71,8 @@ describe("buildViewExpressions", () => {
 		["custom-schema", ["Name", "Year"]],
 		["anime", ["Name", "Year", "Episodes"]],
 	] as const)("builds the expected %s table columns", (slug, labels) => {
-		expect(buildViewExpressions(slug, "Schema").table.map(({ label }) => label)).toEqual(labels);
+		expect(buildViewExpressions(slug, "Schema").table.columns.map(({ label }) => label)).toEqual(
+			labels,
+		);
 	});
 });

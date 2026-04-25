@@ -24,54 +24,68 @@ describe("saved-view recipes", () => {
 	it("allocates stable keys across every saved-view layout", () => {
 		const projection = buildSavedViewProjection({
 			entityId: literal("id"),
-			table: [{ label: "Name", expression: literal("name") }],
+			table: {
+				image: literal("table image"),
+				columns: [
+					{ label: "Name", expression: literal("name") },
+					{ label: "Year", expression: literal(2026) },
+				],
+			},
 			grid: {
 				image: null,
 				callout: null,
-				secondarySubtitle: null,
-				eyebrow: literal("Grid"),
+				secondaryMetadata: null,
+				overline: literal("Grid"),
 				title: literal("grid title"),
-				primarySubtitle: literal("Primary"),
+				primaryMetadata: literal("Primary"),
 			},
 			list: {
-				eyebrow: null,
-				primarySubtitle: null,
+				overline: null,
+				primaryMetadata: null,
 				image: literal("image"),
 				callout: literal("Callout"),
 				title: literal("list title"),
-				secondarySubtitle: literal("Secondary"),
+				secondaryMetadata: literal("Secondary"),
 			},
 		});
 
 		expect(projection.fields.map(({ key }) => key)).toEqual([
 			"entityId",
 			"gridTitle",
-			"gridEyebrow",
-			"gridPrimarySubtitle",
+			"gridOverline",
+			"gridPrimaryMetadata",
 			"listTitle",
 			"listImage",
 			"listCallout",
-			"listSecondarySubtitle",
+			"listSecondaryMetadata",
+			"tableImage",
 			"tableColumn0",
+			"tableColumn1",
 		]);
 		expect(projection.displayConfiguration).toEqual({
 			entityIdField: "entityId",
-			table: { columns: [{ label: "Name", field: "tableColumn0" }] },
+			table: {
+				imageField: "tableImage",
+				columns: [
+					{ label: "Name", field: "tableColumn0" },
+					{ label: "Year", field: "tableColumn1" },
+				],
+			},
 			grid: {
 				imageField: null,
 				calloutField: null,
 				titleField: "gridTitle",
-				eyebrowField: "gridEyebrow",
-				secondarySubtitleField: null,
-				primarySubtitleField: "gridPrimarySubtitle",
+				secondaryMetadataField: null,
+				overlineField: "gridOverline",
+				primaryMetadataField: "gridPrimaryMetadata",
 			},
 			list: {
-				eyebrowField: null,
+				overlineField: null,
 				imageField: "listImage",
 				titleField: "listTitle",
-				primarySubtitleField: null,
+				primaryMetadataField: null,
 				calloutField: "listCallout",
-				secondarySubtitleField: "listSecondarySubtitle",
+				secondaryMetadataField: "listSecondaryMetadata",
 			},
 		});
 	});
