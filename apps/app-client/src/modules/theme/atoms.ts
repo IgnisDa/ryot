@@ -5,6 +5,8 @@ import { appStorageRuntime } from "@/persistence/storage";
 
 const themeSchema = Schema.Literals(["light", "dark", "system"]);
 
+export type ThemePreference = Schema.Schema.Type<typeof themeSchema>;
+
 export const themeAtom = Atom.kvs({
 	key: "theme",
 	schema: themeSchema,

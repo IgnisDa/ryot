@@ -1,11 +1,10 @@
-import { useRouter } from "expo-router";
 import { useState, type ReactNode } from "react";
 import { View } from "react-native";
 
 import { HeaderAction, HeaderLeadingControl } from "./header/header-control";
 import { HeaderFrame } from "./header/header-frame";
 import { HeaderOverflowMenu, type HeaderOverflowItem } from "./header/header-overflow-menu";
-import { getWorkspaceHref } from "./navigation-data";
+import { useGoBack } from "./use-go-back";
 
 export function ChildScreenFrame(props: {
 	title: string;
@@ -15,16 +14,8 @@ export function ChildScreenFrame(props: {
 	heroHeight?: number;
 	overflowItems?: readonly HeaderOverflowItem[];
 }) {
-	const router = useRouter();
+	const goBack = useGoBack();
 	const [isOverflowOpen, setIsOverflowOpen] = useState(false);
-
-	function goBack() {
-		if (router.canGoBack()) {
-			router.back();
-			return;
-		}
-		router.replace(getWorkspaceHref());
-	}
 
 	return (
 		<View className="relative flex-1 bg-bg">

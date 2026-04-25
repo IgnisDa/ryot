@@ -1,3 +1,4 @@
+import { rowsResult } from "@ryot/ryotql-recipes/test-utils";
 import { describe, expect, it } from "vitest";
 
 import {
@@ -6,16 +7,43 @@ import {
 	podcastsByLifecycleStateRecipe,
 	showDetailRecipe,
 	showsByLifecycleStateRecipe,
+	showSummaryRecipe,
 	trendingMediaRecipe,
 } from "./query-recipes";
 
+const showRows = (items: readonly Record<string, unknown>[]) =>
+	rowsResult(items, { hasMore: false, limit: 1, nextCursor: null });
+
+const SHOW_SUMMARY_ROW = {
+	owned: null,
+	id: "show-1",
+	totalSeasons: 1,
+	totalEpisodes: 4,
+	isInLibrary: true,
+	isMonitored: true,
+	publishYear: 2025,
+	state: "complete",
+	schemaSlug: "show",
+	name: "Adolescence",
+	providerName: "TMDB",
+	providerRating: 78.25,
+	productionStatus: "Ended",
+	publishDate: "2025-03-13",
+	genres: ["Drama", "Crime"],
+	description: "A synopsis.",
+	collections: {
+		pageInfo: { hasMore: false, limit: 6 },
+		items: [{ id: "collection-1", name: "Completed" }],
+	},
+	images: [
+		{ type: "remote", url: "https://images.test/backdrop.jpg", purpose: "backdrop" },
+		{ type: "remote", url: "https://images.test/cover.jpg", purpose: "cover" },
+	],
+};
+
 describe("media query recipes", () => {
 	it("builds show details with caller-owned nested limits", () => {
-		const recipe = showDetailRecipe({
-			seasonLimit: 4,
-			episodeLimit: 12,
-			entityId: "show-id",
-		});
+		const recipe = showDetailRecipe({ seasonLimit: 4, episodeLimit: 12, entityId: "show-id" });
 		const show = recipe.document.queries["show"];
 		if (show?.output.type !== "rows") {
 			throw new Error("Expected show rows query");
@@ -187,5 +215,172 @@ describe("media query recipes", () => {
 				},
 			}),
 		).toMatchObject({ success: { items: [{ id: "book-1", rank: 1 }] } });
+	});
+
+	it("selects the show summary alongside the requested entity schema", () => {
+		const recipe = showSummaryRecipe({ collectionLimit: 6, entityId: "show-1" });
+		const show = recipe.document.queries["show"];
+		const requested = recipe.document.queries["requested"];
+		if (show?.output.type !== "rows" || requested?.output.type !== "rows") {
+			throw new Error("Expected show and requested rows queries");
+		}
+
+		expect(requested.output.fields.map((field) => ("key" in field ? field.key : null))).toEqual([
+			"schemaSlug",
+		]);
+		expect(show.output.fields.map((field) => ("key" in field ? field.key : null))).toEqual([
+			"id",
+			"name",
+			"schemaSlug",
+			"state",
+			"owned",
+			"genres",
+			"images",
+			"providerName",
+			"description",
+			"publishDate",
+			"productionStatus",
+			"publishYear",
+			"totalSeasons",
+			"totalEpisodes",
+			"providerRating",
+			"isMonitored",
+			"isInLibrary",
+		]);
+		expect(show.output.include?.[0]).toMatchObject({ key: "collections", limit: 6 });
+		expect(show.joins?.[0]).toMatchObject({ type: "left", table: { alias: "provider" } });
+	});
+
+	it("decodes a show summary with collections and asset locators", () => {
+		const recipe = showSummaryRecipe({ collectionLimit: 6, entityId: "show-1" });
+
+		expect(
+			recipe.decode({
+				data: { show: showRows([SHOW_SUMMARY_ROW]), requested: showRows([{ schemaSlug: "show" }]) },
+			}),
+		).toMatchObject({
+			success: {
+				entitySchemaSlug: "show",
+				show: {
+					owned: null,
+					id: "show-1",
+					state: "complete",
+					publishYear: 2025,
+					isInLibrary: true,
+					isMonitored: true,
+					providerName: "TMDB",
+					genres: ["Drama", "Crime"],
+					collections: { items: [{ id: "collection-1", name: "Completed" }] },
+					images: [
+						{ type: "remote", url: "https://images.test/backdrop.jpg", purpose: "backdrop" },
+						{ type: "remote", url: "https://images.test/cover.jpg", purpose: "cover" },
+					],
+				},
+			},
+		});
+	});
+
+	it("decodes a missing show as an absent summary and absent schema", () => {
+		const recipe = showSummaryRecipe({ collectionLimit: 6, entityId: "missing" });
+
+		expect(recipe.decode({ data: { requested: showRows([]), show: showRows([]) } })).toMatchObject({
+			success: { show: null, entitySchemaSlug: null },
+		});
+	});
+
+	it("decodes a non-show entity as an absent summary with its schema slug", () => {
+		const recipe = showSummaryRecipe({ collectionLimit: 6, entityId: "book-1" });
+
+		expect(
+			recipe.decode({
+				data: { requested: showRows([{ schemaSlug: "book" }]), show: showRows([]) },
+			}),
+		).toMatchObject({ success: { show: null, entitySchemaSlug: "book" } });
+	});
+
+	it("decodes omitted optional show properties as null", () => {
+		const recipe = showSummaryRecipe({ collectionLimit: 6, entityId: "show-1" });
+
+		expect(
+			recipe.decode({
+				data: {
+					requested: showRows([{ schemaSlug: "show" }]),
+					show: showRows([
+						{
+							...SHOW_SUMMARY_ROW,
+							genres: null,
+							images: null,
+							publishYear: null,
+							description: null,
+							publishDate: null,
+							providerName: null,
+							totalSeasons: null,
+							totalEpisodes: null,
+							providerRating: null,
+							productionStatus: null,
+						},
+					]),
+				},
+			}),
+		).toMatchObject({
+			success: { show: { genres: null, images: null, publishYear: null, providerName: null } },
+		});
+	});
+
+	it("rejects a show summary whose lifecycle state is not a media state", () => {
+		const recipe = showSummaryRecipe({ collectionLimit: 6, entityId: "show-1" });
+
+		expect(
+			recipe.decode({
+				data: {
+					requested: showRows([{ schemaSlug: "show" }]),
+					show: showRows([{ ...SHOW_SUMMARY_ROW, state: "watching" }]),
+				},
+			})._tag,
+		).toBe("Failure");
+	});
+
+	it("rejects a show summary whose image locators are malformed", () => {
+		const recipe = showSummaryRecipe({ collectionLimit: 6, entityId: "show-1" });
+
+		expect(
+			recipe.decode({
+				data: {
+					requested: showRows([{ schemaSlug: "show" }]),
+					show: showRows([{ ...SHOW_SUMMARY_ROW, images: [{ type: "ftp", url: 12 }] }]),
+				},
+			})._tag,
+		).toBe("Failure");
+	});
+
+	it("rejects a show summary whose image purpose is outside the media contract", () => {
+		const recipe = showSummaryRecipe({ collectionLimit: 6, entityId: "show-1" });
+
+		expect(
+			recipe.decode({
+				data: {
+					requested: showRows([{ schemaSlug: "show" }]),
+					show: showRows([
+						{
+							...SHOW_SUMMARY_ROW,
+							images: [{ type: "remote", url: "https://images.test/a.jpg", purpose: "poster" }],
+						},
+					]),
+				},
+			})._tag,
+		).toBe("Failure");
+	});
+
+	it("decodes images without a recorded purpose", () => {
+		const recipe = showSummaryRecipe({ collectionLimit: 6, entityId: "show-1" });
+
+		expect(
+			recipe.decode({
+				data: {
+					requested: showRows([{ schemaSlug: "show" }]),
+					show: showRows([{ ...SHOW_SUMMARY_ROW, images: [{ type: "s3", key: "legacy-image" }] }]),
+				},
+			}),
+		).toMatchObject({ success: { show: { images: [{ type: "s3", key: "legacy-image" }] } } });
 	});
 });
