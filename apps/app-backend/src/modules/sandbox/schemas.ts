@@ -1,29 +1,17 @@
 import { z } from "@hono/zod-openapi";
-import { dataSchema } from "~/lib/openapi";
+import { dataSchema, itemDataSchema } from "~/lib/openapi";
 import {
 	createIdParamsSchema,
+	createNameWithOptionalSlugSchema,
 	nonEmptyStringSchema,
 	stringUnknownRecordSchema,
 } from "~/lib/zod/base";
 
-const enqueueSandboxCodeBody = z.object({
-	driverName: nonEmptyStringSchema,
-	kind: z.literal("code").optional(),
-	context: stringUnknownRecordSchema.optional(),
-	code: nonEmptyStringSchema.max(20_000),
-});
-
-const enqueueSandboxScriptBody = z.object({
+export const enqueueSandboxBody = z.object({
 	scriptId: nonEmptyStringSchema,
-	kind: z.literal("script"),
 	driverName: nonEmptyStringSchema,
 	context: stringUnknownRecordSchema.optional(),
 });
-
-export const enqueueSandboxBody = z.union([
-	enqueueSandboxCodeBody,
-	enqueueSandboxScriptBody,
-]);
 
 export const sandboxJobParams = createIdParamsSchema("jobId");
 
@@ -34,6 +22,20 @@ export const enqueueSandboxResponseSchema = dataSchema(
 export type SandboxEnqueueResult = z.infer<
 	typeof enqueueSandboxResponseSchema.shape.data
 >;
+
+export const createSandboxScriptBody = createNameWithOptionalSlugSchema({
+	code: nonEmptyStringSchema.max(20_000),
+});
+
+const sandboxScriptSchema = z.object({
+	id: nonEmptyStringSchema,
+	name: nonEmptyStringSchema,
+	slug: nonEmptyStringSchema,
+	code: nonEmptyStringSchema,
+});
+
+export const createSandboxScriptResponseSchema =
+	itemDataSchema(sandboxScriptSchema);
 
 export const sandboxPendingResultSchema = z.object({
 	status: z.literal("pending"),
@@ -68,7 +70,9 @@ export const pollSandboxResultResponseSchema = dataSchema(
 	]),
 );
 
+export type SandboxScript = z.infer<typeof sandboxScriptSchema>;
 export type EnqueueSandboxBody = z.infer<typeof enqueueSandboxBody>;
+export type CreateSandboxScriptBody = z.infer<typeof createSandboxScriptBody>;
 export type PollSandboxResult = z.infer<
 	typeof pollSandboxResultResponseSchema.shape.data
 >;
