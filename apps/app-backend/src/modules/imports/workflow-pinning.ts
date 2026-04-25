@@ -15,7 +15,7 @@ export type ImportWorkflowPinningValue = {
 	release: (executionId: string) => Effect.Effect<void, DbError>;
 };
 
-export class ImportWorkflowPinning extends Context.Tag("ImportWorkflowPinning")<
+export class ImportWorkflowPinning extends Context.Service<
 	ImportWorkflowPinning,
 	ImportWorkflowPinningValue
->() {}
+>()("ImportWorkflowPinning") {}

@@ -16,14 +16,12 @@ const makeImportRunFailuresService = (
 	overrides: MockOverrides<typeof mockImportRunFailuresService> = {},
 ) =>
 	mockImportRunFailuresService({
-		_tag: "ImportRunFailuresService",
 		create: () => Effect.void,
 		...overrides,
 	});
 
 const makeImportsService = (overrides: MockOverrides<typeof mockImportsService> = {}) =>
 	mockImportsService({
-		_tag: "ImportsService",
 		update: () => Effect.void,
 		...overrides,
 	});
