@@ -1,5 +1,6 @@
 import anilistAnimeScriptCode from "~/lib/sandbox/scripts/providers/media/anime/anilist.txt";
 import myanimelistAnimeScriptCode from "~/lib/sandbox/scripts/providers/media/anime/myanimelist.txt";
+import audibleAudiobookScriptCode from "~/lib/sandbox/scripts/providers/media/audiobook/audible.txt";
 import googleBooksBookScriptCode from "~/lib/sandbox/scripts/providers/media/book/google-books.txt";
 import hardcoverBookScriptCode from "~/lib/sandbox/scripts/providers/media/book/hardcover.txt";
 import openLibraryBookScriptCode from "~/lib/sandbox/scripts/providers/media/book/openlibrary.txt";
@@ -7,6 +8,7 @@ import anilistMangaScriptCode from "~/lib/sandbox/scripts/providers/media/manga/
 import mangaUpdatesMangaScriptCode from "~/lib/sandbox/scripts/providers/media/manga/manga-updates.txt";
 import myanimelistMangaScriptCode from "~/lib/sandbox/scripts/providers/media/manga/myanimelist.txt";
 import anilistPersonScriptCode from "~/lib/sandbox/scripts/providers/person/anilist.txt";
+import audiblePersonScriptCode from "~/lib/sandbox/scripts/providers/person/audible.txt";
 import hardcoverPersonScriptCode from "~/lib/sandbox/scripts/providers/person/hardcover.txt";
 
 export const builtinSandboxScripts = () => [
@@ -51,6 +53,11 @@ export const builtinSandboxScripts = () => [
 		code: mangaUpdatesMangaScriptCode,
 	},
 	{
+		name: "Audible",
+		slug: "audiobook.audible",
+		code: audibleAudiobookScriptCode,
+	},
+	{
 		name: "Anilist",
 		slug: "person.anilist",
 		code: anilistPersonScriptCode,
@@ -59,6 +66,11 @@ export const builtinSandboxScripts = () => [
 		name: "Hardcover",
 		slug: "person.hardcover",
 		code: hardcoverPersonScriptCode,
+	},
+	{
+		name: "Audible",
+		slug: "person.audible",
+		code: audiblePersonScriptCode,
 	},
 ];
 
@@ -96,10 +108,15 @@ export const entitySchemaScriptLinks = () =>
 			schemaSlug: "manga",
 			scriptSlug: "manga.manga-updates",
 		},
+		{
+			schemaSlug: "audiobook",
+			scriptSlug: "audiobook.audible",
+		},
 	] as const;
 
 export const personSchemaScriptLinks = () =>
 	[
 		{ schemaSlug: "person", scriptSlug: "person.anilist" },
+		{ schemaSlug: "person", scriptSlug: "person.audible" },
 		{ schemaSlug: "person", scriptSlug: "person.hardcover" },
 	] as const;
