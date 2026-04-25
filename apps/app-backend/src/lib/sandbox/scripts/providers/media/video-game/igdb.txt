@@ -1,0 +1,434 @@
+function parseJsonResponse(responseBody) {
+  try {
+    return JSON.parse(responseBody);
+  } catch {
+    throw new Error("IGDB returned invalid JSON");
+  }
+}
+
+async function getCredentials() {
+  const [clientIdResp, clientSecretResp] = await Promise.all([
+    getAppConfigValue("VIDEO_GAMES_TWITCH_CLIENT_ID"),
+    getAppConfigValue("VIDEO_GAMES_TWITCH_CLIENT_SECRET"),
+  ]);
+
+  if (!clientIdResp?.success) {
+    throw new Error(
+      clientIdResp?.error ?? "Failed to retrieve Twitch Client ID",
+    );
+  }
+  if (!clientSecretResp?.success) {
+    throw new Error(
+      clientSecretResp?.error ?? "Failed to retrieve Twitch Client Secret",
+    );
+  }
+
+  const clientId =
+    typeof clientIdResp.data === "string" ? clientIdResp.data.trim() : null;
+  const clientSecret =
+    typeof clientSecretResp.data === "string"
+      ? clientSecretResp.data.trim()
+      : null;
+
+  if (!clientId) {
+    throw new Error(
+      "Twitch Client ID is not configured. Set VIDEO_GAMES_TWITCH_CLIENT_ID in your environment.",
+    );
+  }
+  if (!clientSecret) {
+    throw new Error(
+      "Twitch Client Secret is not configured. Set VIDEO_GAMES_TWITCH_CLIENT_SECRET in your environment.",
+    );
+  }
+
+  return { clientId, clientSecret };
+}
+
+const TOKEN_CACHE_KEY = "access_token";
+const BASE_URL = "https://api.igdb.com/v4";
+const AUTH_URL = "https://id.twitch.tv/oauth2/token";
+const IMAGE_BASE_URL = "https://images.igdb.com/igdb/image/upload/t_cover_big";
+
+async function getAccessToken() {
+  const cached = await getCachedValue(TOKEN_CACHE_KEY);
+  if (cached?.success && cached.data !== null) {
+    const cachedData = cached.data;
+    if (
+      cachedData &&
+      typeof cachedData === "object" &&
+      typeof cachedData.accessToken === "string" &&
+      typeof cachedData.clientId === "string"
+    ) {
+      return { accessToken: cachedData.accessToken, clientId: cachedData.clientId };
+    }
+  }
+
+  const { clientId, clientSecret } = await getCredentials();
+
+  const authUrl = `${AUTH_URL}?grant_type=client_credentials&client_id=${encodeURIComponent(clientId)}&client_secret=${encodeURIComponent(clientSecret)}`;
+  const response = await httpCall("POST", authUrl, {
+    headers: { "Content-Type": "application/x-www-form-urlencoded" },
+  });
+
+  if (!response?.success) {
+    throw new Error(response?.error ?? "Twitch OAuth token request failed");
+  }
+
+  const payload = parseJsonResponse(response.data.body);
+
+  if (!payload.access_token) {
+    throw new Error("Twitch OAuth returned no access token");
+  }
+
+  // Twitch returns token_type as "bearer" (lowercase); normalize to "Bearer"
+  // so the Authorization header value matches the conventional scheme casing.
+  const rawTokenType =
+    typeof payload.token_type === "string" ? payload.token_type : "bearer";
+  const tokenType =
+    rawTokenType.charAt(0).toUpperCase() + rawTokenType.slice(1);
+  const accessToken = `${tokenType} ${payload.access_token}`;
+  const expiresIn =
+    typeof payload.expires_in === "number" && payload.expires_in > 0
+      ? payload.expires_in
+      : 3600;
+  // Store with 5-minute safety buffer so we never use a nearly-expired token.
+  const expiryWithBuffer = Math.max(60, expiresIn - 300);
+
+  const cacheResult = await setCachedValue(
+    TOKEN_CACHE_KEY,
+    { accessToken, clientId },
+    expiryWithBuffer,
+  );
+  if (!cacheResult?.success) {
+    console.warn(`IGDB token cache write failed: ${cacheResult?.error}`);
+  }
+
+  return { accessToken, clientId };
+}
+
+function getImageUrl(imageId) {
+  return `${IMAGE_BASE_URL}/${imageId}.jpg`;
+}
+
+function extractYear(unixTimestamp) {
+  if (typeof unixTimestamp !== "number" || !Number.isFinite(unixTimestamp)) {
+    return null;
+  }
+  return new Date(unixTimestamp * 1000).getFullYear();
+}
+
+function unixToIsoDate(unixTimestamp) {
+  if (typeof unixTimestamp !== "number" || !Number.isFinite(unixTimestamp)) {
+    return null;
+  }
+  return new Date(unixTimestamp * 1000).toISOString().split("T")[0];
+}
+
+// IGDB game_time_to_beats values are in seconds; the app schema stores minutes.
+function secondsToMinutes(seconds) {
+  if (
+    typeof seconds !== "number" ||
+    !Number.isFinite(seconds) ||
+    seconds <= 0
+  ) {
+    return null;
+  }
+  return Math.round(seconds / 60);
+}
+
+// Fallback slug builder used only when the IGDB API does not return a slug
+// field.  The API-provided slug (game.slug) is always preferred because it
+// exactly matches IGDB's own URL scheme.
+function toSlug(str) {
+  return str
+    .toLowerCase()
+    .replace(/[^a-z0-9\s-]/g, "")
+    .trim()
+    .replace(/\s+/g, "-")
+    .replace(/-+/g, "-");
+}
+
+// IGDB release_dates entries each carry a platform name and an optional Unix
+// timestamp date.  release_region is a nested object with a string region field.
+function buildPlatformReleases(releaseDates) {
+  if (!Array.isArray(releaseDates) || releaseDates.length === 0) {
+    return null;
+  }
+
+  const releases = releaseDates
+    .map((rd) => {
+      if (!rd || typeof rd !== "object") {
+        return null;
+      }
+
+      const platformName =
+        rd.platform &&
+        typeof rd.platform === "object" &&
+        typeof rd.platform.name === "string"
+          ? rd.platform.name.trim()
+          : null;
+      if (!platformName) {
+        return null;
+      }
+
+      const releaseDate = unixToIsoDate(rd.date);
+      const releaseRegion =
+        rd.release_region &&
+        typeof rd.release_region === "object" &&
+        typeof rd.release_region.region === "string" &&
+        rd.release_region.region.trim()
+          ? rd.release_region.region.trim()
+          : null;
+
+      return { name: platformName, releaseDate, releaseRegion };
+    })
+    .filter((r) => r !== null);
+
+  if (releases.length === 0) {
+    return null;
+  }
+
+  releases.sort((a, b) => a.name.localeCompare(b.name));
+  return releases;
+}
+
+async function makeIgdbRequest(path, body) {
+  const { accessToken, clientId } = await getAccessToken();
+
+  const response = await httpCall("POST", `${BASE_URL}/${path}`, {
+    body,
+    headers: {
+      Accept: "application/json",
+      "Client-ID": clientId,
+      "Content-Type": "text/plain",
+      Authorization: accessToken,
+    },
+  });
+
+  if (!response?.success) {
+    throw new Error(response?.error ?? `IGDB ${path} request failed`);
+  }
+
+  return { data: parseJsonResponse(response.data.body), headers: response.data.headers };
+}
+
+const SEARCH_FIELDS = "id, name, cover.image_id, first_release_date";
+
+// Only the fields actually consumed by the details driver are requested.
+// artworks are included for additional cover images.
+const DETAIL_FIELDS = [
+  "id",
+  "slug",
+  "name",
+  "rating",
+  "summary",
+  "genres.name",
+  "cover.image_id",
+  "artworks.image_id",
+  "first_release_date",
+  "release_dates.date",
+  "release_dates.platform.name",
+  "release_dates.release_region.region",
+].join(", ");
+
+driver("search", async function(context) {
+  const pageSize = 20;
+  const currentPage = Number.isFinite(Number(context?.page))
+    ? Math.max(1, Math.floor(Number(context.page)))
+    : 1;
+  const query =
+    typeof context?.query === "string" ? context.query.trim() : "";
+
+  if (!query) {
+    throw new Error("query is required");
+  }
+
+  const offset = (currentPage - 1) * pageSize;
+
+  const body = [
+    `fields ${SEARCH_FIELDS};`,
+    "where version_parent = null;",
+    `search "${query}";`,
+    `limit ${pageSize};`,
+    `offset ${offset};`,
+  ].join("\n");
+
+  const { data: results, headers } = await makeIgdbRequest("games", body);
+
+  if (!Array.isArray(results)) {
+    throw new Error("IGDB search returned unexpected response format");
+  }
+
+  const totalItems =
+    typeof headers["x-count"] === "string" &&
+    Number.isFinite(Number(headers["x-count"]))
+      ? Number(headers["x-count"])
+      : results.length + offset;
+
+  const items = results
+    .map((game) => {
+      if (!game || typeof game !== "object") {
+        return null;
+      }
+
+      const identifier =
+        typeof game.id === "number" ? String(game.id) : null;
+      if (!identifier) {
+        return null;
+      }
+
+      const name =
+        typeof game.name === "string" && game.name.trim()
+          ? game.name.trim()
+          : null;
+      if (!name) {
+        return null;
+      }
+
+      const publishYear = extractYear(game.first_release_date);
+      const image =
+        game.cover && typeof game.cover.image_id === "string"
+          ? getImageUrl(game.cover.image_id)
+          : null;
+
+      return {
+        identifier,
+        badgeProperty: { kind: "null", value: null },
+        titleProperty: { kind: "text", value: name },
+        subtitleProperty:
+          publishYear === null
+            ? { kind: "null", value: null }
+            : { kind: "number", value: publishYear },
+        imageProperty:
+          image === null
+            ? { kind: "null", value: null }
+            : { kind: "image", value: { kind: "remote", url: image } },
+      };
+    })
+    .filter((item) => item !== null);
+
+  return {
+    items,
+    details: {
+      totalItems,
+      nextPage: offset + results.length < totalItems ? currentPage + 1 : null,
+    },
+  };
+});
+
+driver("details", async function(context) {
+  const identifier =
+    typeof context?.identifier === "string"
+      ? context.identifier.trim()
+      : "";
+
+  if (!identifier) {
+    throw new Error("identifier is required");
+  }
+
+  if (!/^\d+$/.test(identifier)) {
+    throw new Error(
+      "identifier must be a numeric IGDB game ID (e.g., '1020')",
+    );
+  }
+
+  // No version_parent filter here: details should resolve any valid IGDB game
+  // ID, including edition/version entries.  The search driver filters those out
+  // to keep results clean, but a user may legitimately request a specific edition.
+  const gameBody = [
+    `fields ${DETAIL_FIELDS};`,
+    `where id = ${identifier};`,
+  ].join("\n");
+
+  const ttbBody = [
+    "fields normally, hastily, completely;",
+    `where game_id = ${identifier};`,
+  ].join("\n");
+
+  const [gameResult, ttbResult] = await Promise.all([
+    makeIgdbRequest("games", gameBody),
+    makeIgdbRequest("game_time_to_beats", ttbBody),
+  ]);
+
+  const gameList = gameResult.data;
+  if (!Array.isArray(gameList) || gameList.length === 0) {
+    throw new Error("IGDB returned no game data for this identifier");
+  }
+
+  const game = gameList[0];
+
+  const name =
+    typeof game.name === "string" && game.name.trim()
+      ? game.name.trim()
+      : null;
+  if (!name) {
+    throw new Error("IGDB game payload is missing name");
+  }
+
+  const remoteImages = [];
+  if (game.cover && typeof game.cover.image_id === "string") {
+    remoteImages.push(getImageUrl(game.cover.image_id));
+  }
+  if (Array.isArray(game.artworks)) {
+    for (const artwork of game.artworks) {
+      if (artwork && typeof artwork.image_id === "string") {
+        remoteImages.push(getImageUrl(artwork.image_id));
+      }
+    }
+  }
+
+  const genres = Array.isArray(game.genres)
+    ? game.genres
+        .map((g) =>
+          g && typeof g.name === "string" ? g.name.trim() : null,
+        )
+        .filter((g) => g !== null && g.length > 0)
+    : [];
+
+  const platformReleases = buildPlatformReleases(game.release_dates);
+
+  const ttbList = ttbResult.data;
+  const ttbEntry =
+    Array.isArray(ttbList) && ttbList.length > 0 ? ttbList[0] : null;
+  const timeToBeat = ttbEntry
+    ? {
+        hastily: secondsToMinutes(ttbEntry.hastily),
+        normally: secondsToMinutes(ttbEntry.normally),
+        completely: secondsToMinutes(ttbEntry.completely),
+      }
+    : null;
+
+  const providerRating =
+    typeof game.rating === "number" && Number.isFinite(game.rating)
+      ? game.rating
+      : null;
+
+  const description =
+    typeof game.summary === "string" && game.summary.trim()
+      ? game.summary.trim()
+      : null;
+
+  // Prefer the API-provided slug (exact match to IGDB's URL scheme).
+  // Fall back to a local slugifier only if IGDB omits the slug field.
+  const gameSlug =
+    typeof game.slug === "string" && game.slug.trim()
+      ? game.slug.trim()
+      : toSlug(name);
+
+  return {
+    name,
+    externalId: identifier,
+    properties: {
+      genres,
+      timeToBeat,
+      description,
+      isNsfw: null,
+      providerRating,
+      platformReleases,
+      productionStatus: null,
+      assets: { remoteImages },
+      publishYear: extractYear(game.first_release_date),
+      sourceUrl: `https://www.igdb.com/games/${gameSlug}`,
+    },
+  };
+});
