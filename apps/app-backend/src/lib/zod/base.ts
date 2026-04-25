@@ -66,17 +66,6 @@ export const createNameWithOptionalSlugSchema = <TShape extends z.ZodRawShape>(
 		...shape,
 	});
 
-export const createImportEnvelopeSchema = <TProperties extends z.ZodType>(
-	propertiesSchema: TProperties,
-) =>
-	z
-		.object({
-			name: z.string(),
-			properties: propertiesSchema,
-			externalId: nonEmptyTrimmedStringSchema,
-		})
-		.strict();
-
 export const remoteImagesAssetsSchema = z
 	.object({ remoteImages: stringArraySchema })
 	.strict();
