@@ -9,7 +9,7 @@ import { resolveAssetUrl } from "@/modules/ui/managed-assets";
 
 import { showBackdropAsset, type ShowSummary } from "./show-summary-state";
 
-const HERO_HEIGHT = 176;
+export const SHOW_ART_HEIGHT = 176;
 
 const SCRIM_TOP_ALPHA = 0.35;
 
@@ -29,7 +29,7 @@ export function ShowHero(props: {
 	return (
 		<View
 			pointerEvents="none"
-			style={{ top: -offset, height: offset + HERO_HEIGHT }}
+			style={{ top: -offset, height: offset + SHOW_ART_HEIGHT }}
 			className="absolute inset-x-0 -mx-4 overflow-hidden md:hidden"
 		>
 			<RemoteImage key={url} url={url} className="h-full w-full" />
