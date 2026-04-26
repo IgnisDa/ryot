@@ -1,49 +1,183 @@
-import { Config, Redacted } from "effect";
+import { Config } from "effect";
 
-export const systemConfigDefinition = Config.all({
-	port: Config.integer("PORT").pipe(Config.withDefault(3000)),
-	frontendUrl: Config.string("FRONTEND_URL").pipe(Config.withDefault("http://localhost:3000")),
-	frontend: Config.all({
-		oidcButtonLabel: Config.string("FRONTEND_OIDC_BUTTON_LABEL").pipe(Config.option),
-	}),
-	databaseUrl: Config.redacted("DATABASE_URL").pipe(
-		Config.withDefault(Redacted.make("postgres://postgres:postgres@localhost:5432/postgres")),
+import { boolField, group, intField, optField, secretField, strField } from "./builder";
+
+const fields = {
+	port: intField("PORT", "HTTP port the server listens on", { default: 8000 }),
+	oidcClientId: optField(strField("SERVER_OIDC_CLIENT_ID", "OIDC client ID")),
+	oidcIssuerUrl: optField(strField("SERVER_OIDC_ISSUER_URL", "OIDC issuer URL")),
+	oidcClientSecret: optField(secretField("SERVER_OIDC_CLIENT_SECRET", "OIDC client secret")),
+	s3Url: optField(strField("FILE_STORAGE_S3_URL", "S3-compatible endpoint URL")),
+	s3Region: optField(strField("FILE_STORAGE_S3_REGION", "S3 bucket region")),
+	s3BucketName: optField(strField("FILE_STORAGE_S3_BUCKET_NAME", "S3 bucket name")),
+	s3AccessKeyId: optField(secretField("FILE_STORAGE_S3_ACCESS_KEY_ID", "S3 access key ID")),
+	s3SecretAccessKey: optField(
+		secretField("FILE_STORAGE_S3_SECRET_ACCESS_KEY", "S3 secret access key"),
 	),
-	redisUrl: Config.redacted("REDIS_URL").pipe(
-		Config.withDefault(Redacted.make("redis://localhost:6379")),
+	redisUrl: secretField("REDIS_URL", "Redis connection string", {
+		default: "redis://localhost:6379",
+	}),
+	frontendUrl: strField("FRONTEND_URL", "Public URL of the frontend application", {
+		default: "http://localhost:3000",
+	}),
+	databaseUrl: secretField("DATABASE_URL", "PostgreSQL connection string", {
+		default: "postgres://postgres:postgres@localhost:5432/postgres",
+	}),
+	oidcButtonLabel: optField(
+		strField("FRONTEND_OIDC_BUTTON_LABEL", "Label for the OIDC sign-in button"),
 	),
-	users: Config.all({
-		allowRegistration: Config.boolean("USERS_ALLOW_REGISTRATION").pipe(Config.withDefault(true)),
-		disableLocalAuth: Config.boolean("USERS_DISABLE_LOCAL_AUTH").pipe(Config.withDefault(false)),
+	allowRegistration: boolField(
+		"USERS_ALLOW_REGISTRATION",
+		"Allow new users to register via email and password",
+		{ default: true },
+	),
+	disableLocalAuth: boolField(
+		"USERS_DISABLE_LOCAL_AUTH",
+		"Disable local email/password authentication, requiring OIDC",
+		{ default: false },
+	),
+	progressUpdateThresholdHours: intField(
+		"SERVER_PROGRESS_UPDATE_THRESHOLD",
+		"Minimum hours between automatic progress updates for an entity",
+		{ default: 2 },
+	),
+	timeoutMs: intField(
+		"SANDBOX_TIMEOUT_MS",
+		"Maximum execution time for a sandbox job in milliseconds",
+		{ default: 10_000 },
+	),
+	denoDir: strField(
+		"SANDBOX_DENO_DIR",
+		"Directory used by Deno for caching modules inside the sandbox",
+		{ default: "/tmp/ryot-sandbox-deno" },
+	),
+	jobIdSecret: secretField("SANDBOX_JOB_ID_SECRET", "Secret used to sign sandbox job identifiers", {
+		default: "changeme",
 	}),
-	scheduler: Config.all({
-		progressUpdateThresholdHours: Config.integer("SERVER_PROGRESS_UPDATE_THRESHOLD").pipe(
-			Config.withDefault(2),
-		),
+	corsOrigins: optField(
+		strField("SERVER_CORS_ORIGINS", "Comma-separated list of allowed CORS origins"),
+	),
+	adminAccessToken: secretField(
+		"SERVER_ADMIN_ACCESS_TOKEN",
+		"Bearer token required for god-mode admin endpoints",
+		{ default: "changeme" },
+	),
+};
+
+const frontendGroup = group(
+	"Frontend display settings",
+	Config.all({ oidcButtonLabel: fields.oidcButtonLabel.config }),
+	{ oidcButtonLabel: fields.oidcButtonLabel.meta },
+);
+
+const usersGroup = group(
+	"User account settings",
+	Config.all({
+		disableLocalAuth: fields.disableLocalAuth.config,
+		allowRegistration: fields.allowRegistration.config,
 	}),
-	sandbox: Config.all({
-		timeoutMs: Config.integer("SANDBOX_TIMEOUT_MS").pipe(Config.withDefault(10_000)),
-		denoDir: Config.string("SANDBOX_DENO_DIR").pipe(Config.withDefault("/tmp/ryot-sandbox-deno")),
-		jobIdSecret: Config.redacted("SANDBOX_JOB_ID_SECRET").pipe(
-			Config.withDefault(Redacted.make("changeme")),
-		),
+	{
+		disableLocalAuth: fields.disableLocalAuth.meta,
+		allowRegistration: fields.allowRegistration.meta,
+	},
+);
+
+const schedulerGroup = group(
+	"Scheduler settings",
+	Config.all({ progressUpdateThresholdHours: fields.progressUpdateThresholdHours.config }),
+	{ progressUpdateThresholdHours: fields.progressUpdateThresholdHours.meta },
+);
+
+const sandboxGroup = group(
+	"Sandbox execution settings",
+	Config.all({
+		denoDir: fields.denoDir.config,
+		timeoutMs: fields.timeoutMs.config,
+		jobIdSecret: fields.jobIdSecret.config,
 	}),
-	server: Config.all({
-		corsOrigins: Config.string("SERVER_CORS_ORIGINS").pipe(Config.option),
-		adminAccessToken: Config.redacted("SERVER_ADMIN_ACCESS_TOKEN").pipe(
-			Config.withDefault(Redacted.make("changeme")),
-		),
-		oidc: Config.all({
-			clientId: Config.string("SERVER_OIDC_CLIENT_ID").pipe(Config.option),
-			issuerUrl: Config.string("SERVER_OIDC_ISSUER_URL").pipe(Config.option),
-			clientSecret: Config.redacted("SERVER_OIDC_CLIENT_SECRET").pipe(Config.option),
-		}),
+	{
+		denoDir: fields.denoDir.meta,
+		timeoutMs: fields.timeoutMs.meta,
+		jobIdSecret: fields.jobIdSecret.meta,
+	},
+);
+
+const oidcGroup = group(
+	"OIDC provider",
+	Config.all({
+		clientId: fields.oidcClientId.config,
+		issuerUrl: fields.oidcIssuerUrl.config,
+		clientSecret: fields.oidcClientSecret.config,
 	}),
-	fileStorage: Config.all({
-		url: Config.string("FILE_STORAGE_S3_URL").pipe(Config.option),
-		region: Config.string("FILE_STORAGE_S3_REGION").pipe(Config.option),
-		bucketName: Config.string("FILE_STORAGE_S3_BUCKET_NAME").pipe(Config.option),
-		accessKeyId: Config.redacted("FILE_STORAGE_S3_ACCESS_KEY_ID").pipe(Config.option),
-		secretAccessKey: Config.redacted("FILE_STORAGE_S3_SECRET_ACCESS_KEY").pipe(Config.option),
+	{
+		clientId: fields.oidcClientId.meta,
+		issuerUrl: fields.oidcIssuerUrl.meta,
+		clientSecret: fields.oidcClientSecret.meta,
+	},
+);
+
+const serverGroup = group(
+	"Server settings",
+	Config.all({
+		oidc: oidcGroup.config,
+		corsOrigins: fields.corsOrigins.config,
+		adminAccessToken: fields.adminAccessToken.config,
 	}),
-});
+	{
+		oidc: oidcGroup.meta,
+		corsOrigins: fields.corsOrigins.meta,
+		adminAccessToken: fields.adminAccessToken.meta,
+	},
+);
+
+const fileStorageGroup = group(
+	"S3-compatible file storage",
+	Config.all({
+		url: fields.s3Url.config,
+		region: fields.s3Region.config,
+		bucketName: fields.s3BucketName.config,
+		accessKeyId: fields.s3AccessKeyId.config,
+		secretAccessKey: fields.s3SecretAccessKey.config,
+	}),
+	{
+		url: fields.s3Url.meta,
+		region: fields.s3Region.meta,
+		bucketName: fields.s3BucketName.meta,
+		accessKeyId: fields.s3AccessKeyId.meta,
+		secretAccessKey: fields.s3SecretAccessKey.meta,
+	},
+);
+
+export const systemConfigDefinition = group(
+	"Core system configuration",
+	Config.all({
+		port: fields.port.config,
+		users: usersGroup.config,
+		server: serverGroup.config,
+		sandbox: sandboxGroup.config,
+		frontend: frontendGroup.config,
+		redisUrl: fields.redisUrl.config,
+		scheduler: schedulerGroup.config,
+		fileStorage: fileStorageGroup.config,
+		frontendUrl: fields.frontendUrl.config,
+		databaseUrl: fields.databaseUrl.config,
+	}),
+	{
+		port: fields.port.meta,
+		users: usersGroup.meta,
+		server: serverGroup.meta,
+		sandbox: sandboxGroup.meta,
+		frontend: frontendGroup.meta,
+		redisUrl: fields.redisUrl.meta,
+		scheduler: schedulerGroup.meta,
+		fileStorage: fileStorageGroup.meta,
+		frontendUrl: fields.frontendUrl.meta,
+		databaseUrl: fields.databaseUrl.meta,
+	},
+);
+
+export const providerConfigDefinition = group(
+	"Provider integration configuration",
+	Config.succeed({}),
+	{},
+);
