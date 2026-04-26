@@ -60,12 +60,10 @@ describe("book.hardcover sandbox script", () => {
 				Effect.map((result) => {
 					expect(result.items).toEqual([
 						{
+							metadata: [2020],
 							externalId: "b1",
-							calloutProperty: { kind: "null", value: null },
-							titleProperty: { kind: "text", value: "Book One" },
-							primarySubtitleProperty: { kind: "number", value: 2020 },
-							secondarySubtitleProperty: { kind: "null", value: null },
-							imageProperty: { kind: "image", value: { type: "remote", url: "https://img/1.jpg" } },
+							title: "Book One",
+							imageUrl: "https://img/1.jpg",
 						},
 					]);
 					expect(result.details).toEqual({ totalItems: 3, nextPage: null });

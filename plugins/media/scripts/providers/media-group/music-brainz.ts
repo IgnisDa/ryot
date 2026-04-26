@@ -117,16 +117,7 @@ export const search = defineProvider({
 						return [];
 					}
 					const title = stringValue(record?.["title"]) ?? id;
-					return [
-						{
-							externalId: id,
-							titleProperty: { kind: "text" as const, value: title },
-							calloutProperty: { kind: "null" as const, value: null },
-							imageProperty: { kind: "null" as const, value: null },
-							primarySubtitleProperty: { kind: "null" as const, value: null },
-							secondarySubtitleProperty: { kind: "null" as const, value: null },
-						},
-					];
+					return [{ title, externalId: id }];
 				});
 				return Effect.succeed({
 					items,

@@ -70,14 +70,13 @@ export default defineOperation({
 							Effect.map(({ items }) =>
 								items.map(
 									(item): MetadataLookupTitleMatchCandidate => ({
+										title: item.title,
 										externalId: item.externalId,
 										providerSlug: provider.providerSlug,
-										title: item.titleProperty.value,
 										entitySchemaSlug: provider.entitySchemaSlug,
 										publishYear:
-											item.primarySubtitleProperty?.kind === "number"
-												? item.primarySubtitleProperty.value
-												: null,
+											item.metadata?.find((value): value is number => typeof value === "number") ??
+											null,
 									}),
 								),
 							),

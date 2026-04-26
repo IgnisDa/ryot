@@ -70,18 +70,10 @@ export const buildTrackSearch = (client: MusicSearchClient, query: string, pageS
 					const thumb = getBestThumbnailUrl(record["thumbnail"]);
 					return [
 						{
+							title: coerceTrimmed(title),
 							externalId: coerceTrimmed(id),
-							calloutProperty: { kind: "null" as const, value: null },
-							titleProperty: { kind: "text" as const, value: coerceTrimmed(title) },
-							secondarySubtitleProperty: { kind: "null" as const, value: null },
-							imageProperty:
-								thumb === null
-									? { kind: "null" as const, value: null }
-									: { kind: "image" as const, value: { type: "remote" as const, url: thumb } },
-							primarySubtitleProperty:
-								year === null
-									? { kind: "null" as const, value: null }
-									: { kind: "number" as const, value: Number(year) },
+							...(thumb === null ? {} : { imageUrl: thumb }),
+							...(year === null ? {} : { metadata: [Number(year)] as const }),
 						},
 					];
 				});

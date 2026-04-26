@@ -63,16 +63,9 @@ query {
 				return [
 					{
 						externalId,
-						titleProperty: { kind: "text" as const, value: name },
-						calloutProperty: { kind: "null" as const, value: null },
-						secondarySubtitleProperty: { kind: "null" as const, value: null },
-						imageProperty: image
-							? { kind: "image" as const, value: { type: "remote" as const, url: image } }
-							: { kind: "null" as const, value: null },
-						primarySubtitleProperty:
-							parts === null
-								? { kind: "null" as const, value: null }
-								: { kind: "number" as const, value: parts },
+						title: name,
+						...(image === null ? {} : { imageUrl: image }),
+						...(parts === null ? {} : { metadata: [parts] as const }),
 					},
 				];
 			});

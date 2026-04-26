@@ -67,17 +67,10 @@ export const search = defineProvider({
 					const publishYear = parsePublishYear(show["first_air_date"]);
 					return [
 						{
+							title,
 							externalId: String(Math.trunc(id)),
-							titleProperty: { kind: "text" as const, value: title },
-							calloutProperty: { kind: "null" as const, value: null },
-							secondarySubtitleProperty: { kind: "null" as const, value: null },
-							imageProperty: image
-								? { kind: "image" as const, value: { type: "remote" as const, url: image } }
-								: { kind: "null" as const, value: null },
-							primarySubtitleProperty:
-								publishYear === null
-									? { kind: "null" as const, value: null }
-									: { kind: "number" as const, value: publishYear },
+							...(image === null ? {} : { imageUrl: image }),
+							...(publishYear === null ? {} : { metadata: [publishYear] as const }),
 						},
 					];
 				})

@@ -77,18 +77,10 @@ export const search = defineProvider({
 					const birthYear = birthYearValue === null ? null : Math.trunc(birthYearValue);
 					return [
 						{
+							title: name,
 							externalId: String(staffId),
-							titleProperty: { kind: "text" as const, value: name },
-							calloutProperty: { kind: "null" as const, value: null },
-							secondarySubtitleProperty: { kind: "null" as const, value: null },
-							primarySubtitleProperty:
-								birthYear === null
-									? { kind: "null" as const, value: null }
-									: { kind: "number" as const, value: birthYear },
-							imageProperty:
-								image === null
-									? { kind: "null" as const, value: null }
-									: { kind: "image" as const, value: { type: "remote" as const, url: image } },
+							...(image === null ? {} : { imageUrl: image }),
+							...(birthYear === null ? {} : { metadata: [birthYear] as const }),
 						},
 					];
 				});

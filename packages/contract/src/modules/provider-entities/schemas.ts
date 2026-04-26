@@ -62,24 +62,23 @@ export type SearchProviderOptionsBody = typeof SearchProviderOptionsBody.Type;
 export const SearchProviderOptionsResponse = strictStruct({ schema: Schema.NullOr(AppSchema) });
 export type SearchProviderOptionsResponse = typeof SearchProviderOptionsResponse.Type;
 
-const ProviderEntitySearchItem = strictStruct({
+const trimmedNonEmptyString = Schema.Trim.pipe(Schema.check(Schema.isMinLength(1)));
+const providerSearchResultMetadataValueSchema = Schema.Union([
+	Schema.Finite,
+	trimmedNonEmptyString,
+]);
+export const ProviderSearchResultItem = strictStruct({
+	title: trimmedNonEmptyString,
 	externalId: ProviderEntityReference.fields.externalId,
-	imageProperty: Schema.optional(jsonValueSchema),
-	calloutProperty: Schema.optional(jsonValueSchema),
-	secondarySubtitleProperty: Schema.optional(jsonValueSchema),
-	titleProperty: strictStruct({ kind: Schema.Literal("text"), value: Schema.String }),
-	primarySubtitleProperty: Schema.optional(
-		Schema.Union([
-			strictStruct({ kind: Schema.Literal("null"), value: Schema.Null }),
-			strictStruct({ kind: Schema.Literal("number"), value: Schema.Number }),
-		]),
-	),
+	imageUrl: Schema.optional(trimmedNonEmptyString),
+	metadata: Schema.optional(Schema.NonEmptyArray(providerSearchResultMetadataValueSchema)),
 });
+export type ProviderSearchResultItem = typeof ProviderSearchResultItem.Type;
 
 export const SearchProviderEntitiesResponse = strictStruct({
 	providerName: Schema.String,
-	items: Schema.Array(ProviderEntitySearchItem),
 	providerId: ProviderEntityReference.fields.providerId,
+	items: Schema.Array(ProviderSearchResultItem),
 	rootEntitySchemaSlug: ProviderEntityReference.fields.entitySchemaSlug,
 	details: Schema.optional(
 		strictStruct({ totalItems: Schema.Number, nextPage: Schema.NullOr(Schema.Number) }),

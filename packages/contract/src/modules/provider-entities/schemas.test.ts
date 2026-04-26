@@ -17,11 +17,18 @@ describe("provider entity boundary schemas", () => {
 			options: { passRawQuery: true },
 		};
 		const response = {
-			items: [],
 			providerName: "Books",
 			providerId: "provider_1",
 			rootEntitySchemaSlug: "book",
 			details: { totalItems: 0, nextPage: null },
+			items: [
+				{
+					title: "The Work",
+					externalId: "book_1",
+					metadata: ["Author", 2024],
+					imageUrl: "https://images.test/book.jpg",
+				},
+			],
 		};
 
 		expect(Schema.decodeUnknownSync(SearchProviderEntitiesBody)(body)).toEqual(body);
@@ -53,6 +60,18 @@ describe("provider entity boundary schemas", () => {
 			Schema.decodeUnknownSync(SearchProviderEntitiesResponse)({
 				...response,
 				entitySchemaSlug: "book",
+			}),
+		).toThrow();
+		expect(() =>
+			Schema.decodeUnknownSync(SearchProviderEntitiesResponse)({
+				...response,
+				items: [{ externalId: "book_1", title: "The Work", metadata: [] }],
+			}),
+		).toThrow();
+		expect(() =>
+			Schema.decodeUnknownSync(SearchProviderEntitiesResponse)({
+				...response,
+				items: [{ externalId: "book_1", title: "The Work", extraField: true }],
 			}),
 		).toThrow();
 	});

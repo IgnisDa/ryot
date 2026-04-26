@@ -229,11 +229,9 @@ describe("anime.anilist sandbox script", () => {
 					expect(result.items).toEqual([
 						{
 							externalId: "7",
-							titleProperty: { kind: "text", value: "Romaji Pick" },
-							calloutProperty: { kind: "null", value: null },
-							secondarySubtitleProperty: { kind: "null", value: null },
-							primarySubtitleProperty: { kind: "number", value: 2001 },
-							imageProperty: { kind: "image", value: { type: "remote", url: "https://img/7.jpg" } },
+							metadata: [2001],
+							title: "Romaji Pick",
+							imageUrl: "https://img/7.jpg",
 						},
 					]);
 					return undefined;

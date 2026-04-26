@@ -36,16 +36,7 @@ describe("company.hardcover sandbox script", () => {
 			execution,
 		).pipe(
 			Effect.map((result) => {
-				expect(result.items).toEqual([
-					{
-						externalId: "200",
-						imageProperty: { kind: "null", value: null },
-						calloutProperty: { kind: "null", value: null },
-						titleProperty: { kind: "text", value: "Pub House" },
-						primarySubtitleProperty: { kind: "null", value: null },
-						secondarySubtitleProperty: { kind: "null", value: null },
-					},
-				]);
+				expect(result.items).toEqual([{ externalId: "200", title: "Pub House" }]);
 				expect(result.details).toEqual({ totalItems: 21, nextPage: null });
 				return undefined;
 			}),

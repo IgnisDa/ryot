@@ -66,14 +66,14 @@ export default defineScript({
 									Effect.map(({ items }) =>
 										items.map(
 											(item): MetadataLookupTitleMatchCandidate => ({
+												title: item.title,
 												entitySchemaSlug: "movie",
 												externalId: item.externalId,
-												title: item.titleProperty.value,
 												providerSlug: movieManifest.slug,
 												publishYear:
-													item.primarySubtitleProperty?.kind === "number"
-														? item.primarySubtitleProperty.value
-														: null,
+													item.metadata?.find(
+														(value): value is number => typeof value === "number",
+													) ?? null,
 											}),
 										),
 									),
@@ -85,14 +85,14 @@ export default defineScript({
 									Effect.map(({ items }) =>
 										items.map(
 											(item): MetadataLookupTitleMatchCandidate => ({
+												title: item.title,
 												entitySchemaSlug: "show",
 												externalId: item.externalId,
-												title: item.titleProperty.value,
 												providerSlug: showManifest.slug,
 												publishYear:
-													item.primarySubtitleProperty?.kind === "number"
-														? item.primarySubtitleProperty.value
-														: null,
+													item.metadata?.find(
+														(value): value is number => typeof value === "number",
+													) ?? null,
 											}),
 										),
 									),
@@ -119,8 +119,8 @@ export default defineScript({
 							return Effect.succeed({
 								matchedTitle: match.title,
 								entityRef: {
-									kind: "resolved" as const,
 									sourceLabel: match.title,
+									kind: "resolved" as const,
 									externalId: match.externalId,
 									providerSlug: match.providerSlug,
 									entitySchemaSlug: match.entitySchemaSlug,

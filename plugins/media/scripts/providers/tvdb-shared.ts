@@ -346,23 +346,9 @@ export const searchTvdb = (
 				}
 				const imageValue = imageKeys.reduce<unknown>((value, key) => value ?? item[key], null);
 				const image = stringValue(imageValue);
-				return [
-					{
-						externalId: id,
-						titleProperty: { kind: "text" as const, value: title },
-						calloutProperty: { kind: "null" as const, value: null },
-						primarySubtitleProperty: { kind: "null" as const, value: null },
-						secondarySubtitleProperty: { kind: "null" as const, value: null },
-						imageProperty: image
-							? { kind: "image" as const, value: { type: "remote" as const, url: image } }
-							: { kind: "null" as const, value: null },
-					},
-				];
+				return [{ title, externalId: id, ...(image === null ? {} : { imageUrl: image }) }];
 			});
-			return {
-				items,
-				details: { totalItems, nextPage: hasNext ? input.page + 1 : null },
-			};
+			return { items, details: { totalItems, nextPage: hasNext ? input.page + 1 : null } };
 		}),
 	);
 };

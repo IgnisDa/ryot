@@ -79,21 +79,38 @@ describe("provider result contracts", () => {
 			decode(providerSearchResultSchema)({
 				items: [
 					{
-						externalId: "show-1",
-						titleProperty: { kind: "text", value: "Show" },
-						primarySubtitleProperty: { kind: "number", value: 2024 },
+						title: " Show ",
+						externalId: " show-1 ",
+						metadata: [" 2024 ", 2024],
+						imageUrl: " https://images.test/show.jpg ",
 					},
 				],
 			}),
 		).toEqual({
 			items: [
 				{
+					title: "Show",
 					externalId: "show-1",
-					titleProperty: { kind: "text", value: "Show" },
-					primarySubtitleProperty: { kind: "number", value: 2024 },
+					metadata: ["2024", 2024],
+					imageUrl: "https://images.test/show.jpg",
 				},
 			],
 		});
+		expect(() =>
+			decode(providerSearchResultSchema)({
+				items: [{ externalId: "show-1", title: "Show", metadata: [] }],
+			}),
+		).toThrow();
+		expect(() =>
+			decode(providerSearchResultSchema)({
+				items: [{ externalId: "show-1", title: "Show", metadata: ["   "] }],
+			}),
+		).toThrow();
+		expect(() =>
+			decode(providerSearchResultSchema)({
+				items: [{ externalId: "show-1", title: "Show", metadata: [Number.NaN] }],
+			}),
+		).toThrow();
 		expect(
 			decode(providerDetailsResultSchema)({
 				name: "Show",

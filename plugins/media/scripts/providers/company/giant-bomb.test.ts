@@ -20,7 +20,7 @@ const makeHost = (httpCall: GiantBombHost["httpCall"]) =>
 const execution = { metadata: {}, sandboxScriptId: "script_test" };
 
 describe("company.giant-bomb sandbox script", () => {
-	it("maps search hits with a null primary subtitle", () => {
+	it("maps search hits without metadata", () => {
 		const host = makeHost(() =>
 			httpSuccess({
 				error: "OK",
@@ -39,14 +39,7 @@ describe("company.giant-bomb sandbox script", () => {
 		).pipe(
 			Effect.map((result) => {
 				expect(result.items).toEqual([
-					{
-						externalId: "4010-1",
-						calloutProperty: { kind: "null", value: null },
-						titleProperty: { kind: "text", value: "Studio X" },
-						primarySubtitleProperty: { kind: "null", value: null },
-						secondarySubtitleProperty: { kind: "null", value: null },
-						imageProperty: { kind: "image", value: { type: "remote", url: "https://img/c.jpg" } },
-					},
+					{ title: "Studio X", externalId: "4010-1", imageUrl: "https://img/c.jpg" },
 				]);
 				expect(result.details).toEqual({ totalItems: 1, nextPage: null });
 				return undefined;
@@ -60,10 +53,10 @@ describe("company.giant-bomb sandbox script", () => {
 			httpSuccess({
 				error: "OK",
 				results: {
-					name: "Studio X",
 					deck: "Maker.",
-					aliases: "StudioX\nSX",
+					name: "Studio X",
 					location_state: null,
+					aliases: "StudioX\nSX",
 					location_city: "Kyoto",
 					location_country: "Japan",
 					date_founded: "1995-03-01",
@@ -71,10 +64,10 @@ describe("company.giant-bomb sandbox script", () => {
 					website: "https://studiox.com",
 					image: { original_url: "https://img/c.jpg" },
 					site_detail_url: "https://www.giantbomb.com/studiox/",
+					published_games: [{ guid: "3030-1", name: "Game One" }],
 					developed_games: [
 						{ guid: "3030-1", name: "Game One", api_detail_url: "https://x/api/game/3030-1/" },
 					],
-					published_games: [{ guid: "3030-1", name: "Game One" }],
 				},
 			}),
 		);
