@@ -78,27 +78,23 @@ describe("POST /entities", () => {
 		expect(second.id).toBe(first.id);
 	});
 
-	it("returns 400 for a built-in schema even when provenance fields are provided", async () => {
+	it("creates an entity for a built-in schema that was previously restricted", async () => {
 		const { client, cookies } = await createAuthenticatedClient();
 		const { schema } = await findBuiltinSchemaWithProviders(client, cookies);
 		const providerScriptId = getFirstProviderScriptId(schema);
 
-		const { response, error } = await client.POST("/entities", {
-			headers: { Cookie: cookies },
-			body: {
-				image: null,
-				properties: {},
-				name: "Built-in Book",
-				entitySchemaId: schema.id,
-				externalId: "ext-builtin-test",
-				sandboxScriptId: providerScriptId,
-			},
+		const entity = await createEntity(client, cookies, {
+			image: null,
+			properties: {},
+			name: "Built-in Book",
+			entitySchemaId: schema.id,
+			externalId: `ext-builtin-${crypto.randomUUID()}`,
+			sandboxScriptId: providerScriptId,
 		});
 
-		expect(response.status).toBe(400);
-		expect(error?.error?.message).toBe(
-			"Built-in entity schemas do not support manual entity creation",
-		);
+		expect(entity.id).toBeDefined();
+		expect(entity.name).toBe("Built-in Book");
+		expect(entity.entitySchemaId).toBe(schema.id);
 	});
 
 	it("creates a built-in workout entity through the generic entity endpoint", async () => {
