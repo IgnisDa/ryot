@@ -450,11 +450,18 @@ async function createSavedView(
 
 // ─── Display helpers ─────────────────────────────────────────────────────────
 
+function displayExpression(expression: ScalarExpression | string | null) {
+	if (typeof expression !== "string") {
+		return expression;
+	}
+	const property = expression.startsWith("@") ? expression.slice(1) : expression;
+	return property === "image" ? seedImage() : schemaField("", property);
+}
+
 function propertyReference(...expressions: ReadonlyArray<ScalarExpression | string | null>) {
-	const [first, ...rest] = expressions.filter(
-		(expression): expression is ScalarExpression =>
-			typeof expression === "object" && expression !== null,
-	);
+	const [first, ...rest] = expressions
+		.map(displayExpression)
+		.filter((expression): expression is ScalarExpression => expression !== null);
 	return first && rest.length > 0 ? coalesce(first, ...rest) : (first ?? literal(null));
 }
 
@@ -478,9 +485,7 @@ function tableColumn(
 	label: string,
 	...expressions: ReadonlyArray<ScalarExpression | string>
 ): SeedTableColumn {
-	const expression = expressions.find(
-		(value): value is ScalarExpression => typeof value === "object" && value !== null,
-	);
+	const expression = expressions.map(displayExpression).find((value) => value !== null);
 	return { label, expression: expression ?? literal(null) };
 }
 
