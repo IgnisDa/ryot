@@ -3,6 +3,7 @@ import {
 	createComputedFieldExpression,
 	createEntityColumnExpression,
 	createEntityPropertyExpression,
+	createEntitySchemaExpression,
 	createEventAggregateExpression,
 } from "@ryot/ts-utils";
 import {
@@ -286,8 +287,6 @@ describe("Query engine E2E", () => {
 		expect(result?.items).toHaveLength(5);
 		expect(firstItem?.id).toBeDefined();
 		expect(firstItem?.name).toBe("Alpha Phone");
-		expect(firstItem?.entitySchemaId).toBe(schema.schemaId);
-		expect(firstItem?.entitySchemaSlug).toBe(schema.slug);
 		expect(Number.isNaN(Date.parse(String(firstItem?.createdAt)))).toBe(false);
 		expect(Number.isNaN(Date.parse(String(firstItem?.updatedAt)))).toBe(false);
 		expect(firstItem?.image).toEqual({
@@ -1774,16 +1773,198 @@ describe("Query engine E2E", () => {
 		expect(data?.data.items).toHaveLength(2);
 
 		const globalItem = data?.data.items.find(
-			(item) => item.entitySchemaSlug === mediaSchema.slug,
+			(item) => item.name === globalEntity.name,
 		);
 		const userItem = data?.data.items.find(
-			(item) => item.entitySchemaSlug === userSchema.slug,
+			(item) => item.name === userEntityName,
 		);
 
 		expect(globalItem?.externalId).toBe(externalId);
 		expect(globalItem?.sandboxScriptId).toBe(provider.scriptId);
 		expect(userItem?.externalId).toBeNull();
 		expect(userItem?.sandboxScriptId).toBeNull();
+	});
+
+	describe("entity-schema fields", () => {
+		it("returns entity schema slug as a field", async () => {
+			const { client, cookies, schema } =
+				await createSingleSchemaQueryEngineFixture();
+			const { data, response } = await executeQueryEngine(client, cookies, {
+				eventJoins: [],
+				entitySchemaSlugs: [schema.slug],
+				pagination: { page: 1, limit: 1 },
+				sort: {
+					direction: "asc",
+					expression: createEntityColumnExpression(schema.slug, "name"),
+				},
+				fields: [
+					buildQueryEngineField(
+						"entitySchemaSlug",
+						createEntitySchemaExpression("slug"),
+					),
+				],
+			});
+
+			expect(response.status).toBe(200);
+			const field = getQueryEngineFieldOrThrow(
+				data?.data.items[0],
+				"entitySchemaSlug",
+			);
+			expect(field.kind).toBe("text");
+			expect(field.value).toBe(schema.slug);
+		});
+
+		it("returns entity schema name as a field", async () => {
+			const { client, cookies, schema } =
+				await createSingleSchemaQueryEngineFixture();
+			const { data, response } = await executeQueryEngine(client, cookies, {
+				eventJoins: [],
+				entitySchemaSlugs: [schema.slug],
+				pagination: { page: 1, limit: 1 },
+				sort: {
+					direction: "asc",
+					expression: createEntityColumnExpression(schema.slug, "name"),
+				},
+				fields: [
+					buildQueryEngineField(
+						"entitySchemaName",
+						createEntitySchemaExpression("name"),
+					),
+				],
+			});
+
+			expect(response.status).toBe(200);
+			expect(data?.data.items[0]?.fields).toEqual([
+				{ key: "entitySchemaName", kind: "text", value: schema.data.name },
+			]);
+		});
+
+		it("returns entity schema isBuiltin as a boolean field", async () => {
+			const { client, cookies, schema } =
+				await createSingleSchemaQueryEngineFixture();
+			const { data, response } = await executeQueryEngine(client, cookies, {
+				eventJoins: [],
+				entitySchemaSlugs: [schema.slug],
+				pagination: { page: 1, limit: 1 },
+				sort: {
+					direction: "asc",
+					expression: createEntityColumnExpression(schema.slug, "name"),
+				},
+				fields: [
+					buildQueryEngineField(
+						"isBuiltin",
+						createEntitySchemaExpression("isBuiltin"),
+					),
+				],
+			});
+
+			expect(response.status).toBe(200);
+			expect(data?.data.items[0]?.fields).toEqual([
+				{ key: "isBuiltin", kind: "boolean", value: false },
+			]);
+		});
+
+		it("returns correct entity schema slug per entity in multi-schema queries", async () => {
+			const { client, cookies, smartphoneSlug, tabletSlug } =
+				await createCrossSchemaQueryEngineFixture();
+			const { data, response } = await executeQueryEngine(client, cookies, {
+				eventJoins: [],
+				pagination: { page: 1, limit: 20 },
+				entitySchemaSlugs: [smartphoneSlug, tabletSlug],
+				sort: {
+					direction: "asc",
+					expression: createEntityColumnExpression(smartphoneSlug, "name"),
+				},
+				fields: [
+					buildQueryEngineField(
+						"entitySchemaSlug",
+						createEntitySchemaExpression("slug"),
+					),
+				],
+			});
+
+			expect(response.status).toBe(200);
+			const slugs = data?.data.items.map(
+				(item) => item.fields.find((f) => f.key === "entitySchemaSlug")?.value,
+			);
+			expect(
+				slugs?.every((slug) => slug === smartphoneSlug || slug === tabletSlug),
+			).toBe(true);
+			expect(slugs?.some((slug) => slug === smartphoneSlug)).toBe(true);
+			expect(slugs?.some((slug) => slug === tabletSlug)).toBe(true);
+		});
+
+		it("can filter by entity schema slug", async () => {
+			const { client, cookies, schema } =
+				await createSingleSchemaQueryEngineFixture();
+			const { data, response } = await executeQueryEngine(client, cookies, {
+				fields: [],
+				eventJoins: [],
+				entitySchemaSlugs: [schema.slug],
+				pagination: { page: 1, limit: 10 },
+				sort: {
+					direction: "asc",
+					expression: createEntityColumnExpression(schema.slug, "name"),
+				},
+				filter: {
+					operator: "eq",
+					type: "comparison",
+					left: createEntitySchemaExpression("slug"),
+					right: literalExpression(schema.slug),
+				},
+			});
+
+			expect(response.status).toBe(200);
+			expect(data?.data.items.length).toBeGreaterThan(0);
+		});
+
+		it("can sort by entity schema name", async () => {
+			const { client, cookies, smartphoneSlug, tabletSlug } =
+				await createCrossSchemaQueryEngineFixture();
+			const { data, response } = await executeQueryEngine(client, cookies, {
+				entitySchemaSlugs: [smartphoneSlug, tabletSlug],
+				eventJoins: [],
+				pagination: { page: 1, limit: 20 },
+				sort: {
+					direction: "asc",
+					expression: createEntitySchemaExpression("name"),
+				},
+				fields: [
+					buildQueryEngineField(
+						"entitySchemaName",
+						createEntitySchemaExpression("name"),
+					),
+				],
+			});
+
+			expect(response.status).toBe(200);
+			const names = data?.data.items.map(
+				(item) => item.fields.find((f) => f.key === "entitySchemaName")?.value,
+			);
+			expect(names?.length).toBeGreaterThan(1);
+		});
+
+		it("rejects invalid entity schema columns", async () => {
+			const { client, cookies, schema } =
+				await createSingleSchemaQueryEngineFixture();
+			const { response } = await executeQueryEngine(client, cookies, {
+				eventJoins: [],
+				entitySchemaSlugs: [schema.slug],
+				pagination: { page: 1, limit: 1 },
+				sort: {
+					direction: "asc",
+					expression: createEntityColumnExpression(schema.slug, "name"),
+				},
+				fields: [
+					buildQueryEngineField(
+						"bad",
+						createEntitySchemaExpression("propertiesSchema"),
+					),
+				],
+			});
+
+			expect(response.status).toBe(400);
+		});
 	});
 
 	registerQueryEnginePresentationAndErrorTests();

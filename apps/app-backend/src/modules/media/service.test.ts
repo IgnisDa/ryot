@@ -18,14 +18,13 @@ const date = (value: string) => dayjs.utc(value).toDate();
 
 type SectionField = {
 	key: string;
-	value: Date | number;
-	kind: "date" | "number";
+	value: Date | number | string;
+	kind: "date" | "number" | "text";
 };
 
 const makeSectionItem = (opts: {
 	id: string;
 	name: string;
-	entitySchemaId: string;
 	fields?: SectionField[];
 	entitySchemaSlug: string;
 }) => ({
@@ -34,11 +33,16 @@ const makeSectionItem = (opts: {
 	name: opts.name,
 	externalId: null,
 	sandboxScriptId: null,
-	fields: opts.fields ?? [],
 	createdAt: date("2024-01-01"),
 	updatedAt: date("2024-01-01"),
-	entitySchemaId: opts.entitySchemaId,
-	entitySchemaSlug: opts.entitySchemaSlug,
+	fields: [
+		{
+			kind: "text" as const,
+			key: "entitySchemaSlug",
+			value: opts.entitySchemaSlug,
+		},
+		...(opts.fields ?? []),
+	],
 });
 
 const makeSectionResult = <T>(items: T[], opts: { limit?: number } = {}) => ({
@@ -66,7 +70,6 @@ describe("getContinueItems", () => {
 								id: "book-1",
 								name: "Test Book",
 								entitySchemaSlug: "book",
-								entitySchemaId: "schema-1",
 								fields: [
 									{
 										kind: "date",
@@ -100,7 +103,6 @@ describe("getContinueItems", () => {
 							makeSectionItem({
 								id: "audiobook-1",
 								name: "Test Audiobook",
-								entitySchemaId: "schema-ab",
 								entitySchemaSlug: "audiobook",
 								fields: [
 									{
@@ -136,7 +138,6 @@ describe("getContinueItems", () => {
 							makeSectionItem({
 								id: "podcast-1",
 								name: "Test Podcast",
-								entitySchemaId: "schema-pc",
 								entitySchemaSlug: "podcast",
 								fields: [
 									{
@@ -172,7 +173,6 @@ describe("getContinueItems", () => {
 							makeSectionItem({
 								id: "comic-1",
 								name: "Test Comic",
-								entitySchemaId: "schema-cb",
 								entitySchemaSlug: "comic-book",
 								fields: [
 									{
@@ -209,7 +209,6 @@ describe("getContinueItems", () => {
 								id: "book-1",
 								name: "With Progress",
 								entitySchemaSlug: "book",
-								entitySchemaId: "schema-1",
 								fields: [
 									{
 										kind: "date",
@@ -222,7 +221,6 @@ describe("getContinueItems", () => {
 								id: "book-2",
 								name: "Without Progress",
 								entitySchemaSlug: "book",
-								entitySchemaId: "schema-1",
 							}),
 						],
 						{ limit: 6 },
@@ -295,7 +293,6 @@ describe("getUpNextItems", () => {
 								id: "anime-1",
 								name: "Test Anime",
 								entitySchemaSlug: "anime",
-								entitySchemaId: "schema-2",
 								fields: [
 									{ key: "backlogAt", kind: "date", value: date("2024-03-20") },
 								],
@@ -325,7 +322,6 @@ describe("getUpNextItems", () => {
 								id: "anime-1",
 								name: "With Backlog",
 								entitySchemaSlug: "anime",
-								entitySchemaId: "schema-2",
 								fields: [
 									{ key: "backlogAt", kind: "date", value: date("2024-03-20") },
 								],
@@ -334,7 +330,6 @@ describe("getUpNextItems", () => {
 								id: "anime-2",
 								name: "Without Backlog",
 								entitySchemaSlug: "anime",
-								entitySchemaId: "schema-2",
 							}),
 						],
 						{ limit: 20 },
@@ -497,7 +492,6 @@ describe("getRateTheseItems", () => {
 								id: "manga-1",
 								name: "Test Manga",
 								entitySchemaSlug: "manga",
-								entitySchemaId: "schema-3",
 								fields: [
 									{
 										kind: "date",
@@ -531,7 +525,6 @@ describe("getRateTheseItems", () => {
 								id: "manga-1",
 								name: "With Complete",
 								entitySchemaSlug: "manga",
-								entitySchemaId: "schema-3",
 								fields: [
 									{
 										key: "completeAt",
@@ -544,7 +537,6 @@ describe("getRateTheseItems", () => {
 								id: "manga-2",
 								name: "Without Complete",
 								entitySchemaSlug: "manga",
-								entitySchemaId: "schema-3",
 							}),
 						],
 						{ limit: 12 },
@@ -775,6 +767,7 @@ const makeLibraryItem = (opts: {
 	reviewRating?: number;
 	entitySchemaSlug?: string;
 }) => {
+	const slug = opts.entitySchemaSlug ?? "book";
 	const fields: SectionField[] = [];
 	if (opts.backlogAt) {
 		fields.push({ key: "backlogAt", kind: "date", value: opts.backlogAt });
@@ -795,9 +788,8 @@ const makeLibraryItem = (opts: {
 	return makeSectionItem({
 		fields,
 		id: opts.id,
+		entitySchemaSlug: slug,
 		name: `Entity ${opts.id}`,
-		entitySchemaId: "schema-1",
-		entitySchemaSlug: opts.entitySchemaSlug ?? "book",
 	});
 };
 

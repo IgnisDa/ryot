@@ -17,6 +17,7 @@ import {
 } from "~/lib/views/expression-analysis";
 import {
 	getEntityColumnPropertyType,
+	getEntitySchemaColumnPropertyType,
 	getEventJoinColumnPropertyType,
 	getEventJoinForReference,
 	getEventJoinPropertyType,
@@ -193,7 +194,7 @@ const buildEntityExpression = <
 			return valueExpression;
 		}
 
-		return sql`case when ${sql.raw(input.alias)}.entity_schema_slug = ${input.reference.slug} then ${valueExpression} else null end`;
+		return sql`case when ${sql.raw(input.alias)}.entity_schema_data ->> ${"slug"} = ${input.reference.slug} then ${valueExpression} else null end`;
 	}
 
 	const [column] = input.reference.path;
@@ -245,7 +246,7 @@ const buildEntityExpression = <
 		return valueExpression;
 	}
 
-	return sql`case when ${sql.raw(input.alias)}.entity_schema_slug = ${input.reference.slug} then ${valueExpression} else null end`;
+	return sql`case when ${sql.raw(input.alias)}.entity_schema_data ->> ${"slug"} = ${input.reference.slug} then ${valueExpression} else null end`;
 };
 
 const buildEventExpression = <
@@ -308,6 +309,41 @@ const buildEventExpression = <
 			propertyText: sql`${joinColumn} ->> ${column}`,
 		},
 	);
+};
+
+const buildEntitySchemaExpression = (input: {
+	alias: string;
+	targetType?: PropertyType;
+	reference: Extract<RuntimeRef, { type: "entity-schema" }>;
+}) => {
+	const [column] = input.reference.path;
+	if (!column) {
+		throw new QueryEngineValidationError(
+			"Entity schema reference path must not be empty",
+		);
+	}
+
+	if (input.reference.path.length > 1) {
+		throw new QueryEngineValidationError(
+			"Entity schema references do not support nested paths",
+		);
+	}
+
+	const propertyType = getEntitySchemaColumnPropertyType(column);
+	if (!propertyType) {
+		throw new QueryEngineValidationError(
+			`Unsupported entity schema column '${column}'`,
+		);
+	}
+
+	const expression = sql`${sql.raw(input.alias)}.entity_schema_data ->> ${column}`;
+
+	return input.targetType
+		? castExpressionToType(expression, input.targetType)
+		: castExpressionToType(
+				expression,
+				normalizeExpressionPropertyType(propertyType),
+			);
 };
 
 const buildEventAggregateExpression = <
@@ -534,6 +570,14 @@ export const createScalarExpressionCompiler = <
 				targetType,
 				alias: input.alias,
 				context: input.context,
+			});
+		}
+
+		if (reference.type === "entity-schema") {
+			return buildEntitySchemaExpression({
+				reference,
+				targetType,
+				alias: input.alias,
 			});
 		}
 

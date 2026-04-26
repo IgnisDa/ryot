@@ -315,7 +315,6 @@ export function SavedViewPage(props: {
 						</Group>
 					</Paper>
 				) : null}
-
 			</Stack>
 		</Container>
 	);

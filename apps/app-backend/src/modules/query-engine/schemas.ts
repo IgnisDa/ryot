@@ -72,8 +72,6 @@ const queryEngineBaseItemSchema = z
 		id: z.string(),
 		name: z.string(),
 		...timestampFields,
-		entitySchemaId: z.string(),
-		entitySchemaSlug: z.string(),
 		image: ImageSchema.nullable(),
 		externalId: z.string().nullable(),
 		sandboxScriptId: z.string().nullable(),
