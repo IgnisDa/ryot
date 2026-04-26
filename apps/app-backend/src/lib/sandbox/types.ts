@@ -2,6 +2,13 @@ import { z } from "@hono/zod-openapi";
 import { nonEmptyStringSchema, stringUnknownRecordSchema } from "~/lib/zod";
 import type { sandboxRunJobData, sandboxRunJobResult } from "./jobs";
 
+export const sandboxScriptMetadataSchema = z.object({
+	allowedHostFunctions: z.array(z.string()).optional(),
+	requiredAppConfigKeys: z.array(z.string()).optional(),
+});
+
+export type SandboxScriptMetadata = z.infer<typeof sandboxScriptMetadataSchema>;
+
 export type HostFunction<TContext extends Record<string, unknown>> = (
 	context: TContext,
 	...args: Array<unknown>
@@ -20,12 +27,7 @@ export type ApiFunctionDescriptor = z.infer<typeof apiFunctionDescriptorSchema>;
 
 export type SandboxEnqueueOptions = Pick<
 	z.infer<typeof sandboxRunJobData>,
-	| "code"
-	| "userId"
-	| "context"
-	| "scriptId"
-	| "driverName"
-	| "apiFunctionDescriptors"
+	"userId" | "context" | "scriptId" | "driverName"
 >;
 
 export type SandboxResult = z.infer<typeof sandboxRunJobResult>;
