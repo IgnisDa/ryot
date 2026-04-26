@@ -4,17 +4,13 @@ import { decodeSavedViewRecordsResponse } from "@ryot/ryotql-recipes/saved-view-
 import clsx from "clsx";
 import { Cause, Exit, Result } from "effect";
 import { AsyncResult } from "effect/unstable/reactivity";
-import { router } from "expo-router";
 import { Pressable, Text, View } from "react-native";
 
-import { useAuthClient } from "@/modules/auth/client";
 import { navigationAtom } from "@/modules/navigation/atoms";
 import { notificationChannelsAtom } from "@/modules/notifications/atoms";
 import { createSavedViewAtom, savedViewsAtom } from "@/modules/saved-views/atoms";
 
 export default function AppHome() {
-	const client = useAuthClient();
-	const { data: session } = client.useSession();
 	const savedViews = useAtomValue(savedViewsAtom);
 	const refreshNavigation = useAtomRefresh(navigationAtom);
 	const refreshSavedViews = useAtomRefresh(savedViewsAtom);
@@ -56,19 +52,10 @@ export default function AppHome() {
 		}
 	}
 
-	async function handleSignOut() {
-		await client.signOut();
-		router.replace("/auth");
-	}
-
 	return (
 		<View className="w-full items-center">
 			<View className="w-full max-w-2xl gap-5">
 				<Text className="font-display-semibold text-3xl text-text">You're in.</Text>
-				<Text className="font-ui text-base leading-6 text-text-muted">
-					Signed in as {session?.user.email}. These responses come from authenticated API requests.
-				</Text>
-
 				<View className="gap-3 rounded-xl border border-border bg-surface p-5">
 					<Text className="font-ui-semibold text-base text-text">RyotQL saved-view records</Text>
 					<Pressable
@@ -183,10 +170,6 @@ export default function AppHome() {
 						})
 						.render()}
 				</View>
-
-				<Pressable accessibilityRole="button" onPress={() => void handleSignOut()}>
-					<Text className="font-ui-medium text-base text-accent-text">Sign out</Text>
-				</Pressable>
 			</View>
 		</View>
 	);

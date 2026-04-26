@@ -1,9 +1,11 @@
 import { useAtomSet, useAtomValue } from "@effect/atom-react";
 import type { NavigationWorkspace } from "@ryot/ryotql-recipes/navigation";
 import clsx from "clsx";
+import { router } from "expo-router";
 import { useState, type ReactNode } from "react";
 import { Pressable, ScrollView, Text, TextInput, View } from "react-native";
 
+import { useAuthClient } from "@/modules/auth/client";
 import { AppIcon as NavigationIcon } from "@/modules/icons";
 import { themeAtom } from "@/modules/theme/atoms";
 
@@ -115,14 +117,20 @@ export function Sidebar(props: {
 	onNavigate: (item: NavigationItem) => void;
 }) {
 	const items = props.items;
+	const client = useAuthClient();
 	const theme = useAtomValue(themeAtom);
 	const setTheme = useAtomSet(themeAtom);
-	const [isReordering, setIsReordering] = useState(false);
 	const [viewOrder, setViewOrder] = useState(items.views);
+	const [isReordering, setIsReordering] = useState(false);
 
 	function cycleTheme() {
 		const currentIndex = THEME_ORDER.indexOf(theme);
 		setTheme(THEME_ORDER[(currentIndex + 1) % THEME_ORDER.length]);
+	}
+
+	async function handleSignOut() {
+		await client.signOut();
+		router.replace("/auth");
 	}
 
 	function moveView(index: number) {
@@ -260,9 +268,14 @@ export function Sidebar(props: {
 			</ScrollView>
 			<View className="border-t border-border px-3 py-3">
 				<View className="flex-row items-center gap-2 rounded-md px-2 py-1.5">
-					<View className="h-7 w-7 items-center justify-center rounded-full bg-surface-2">
-						<NavigationIcon className="text-text-muted" name="user" size={15} />
-					</View>
+					<Pressable
+						accessibilityRole="button"
+						accessibilityLabel="Sign out"
+						onPress={() => void handleSignOut()}
+						className="h-7 w-7 items-center justify-center rounded-full bg-surface-2"
+					>
+						<NavigationIcon className="text-text-muted" name="logout" size={15} />
+					</Pressable>
 					<View className="flex-1">
 						<Text className="font-ui-medium text-xs text-text">{props.accountName}</Text>
 						<Text className="font-ui text-xs text-text-muted">{props.accountEmail}</Text>
