@@ -134,16 +134,15 @@ const parseCustomListIds = (value: string | null | undefined): number[] => {
 	if (!raw) {
 		return [];
 	}
-	try {
-		const parsed = JSON.parse(raw) as unknown;
-		return Array.isArray(parsed)
-			? parsed.filter(
-					(entry): entry is number => typeof entry === "number" && Number.isInteger(entry),
-				)
-			: [];
-	} catch {
+	const parsed = Either.try(() => JSON.parse(raw) as unknown);
+	if (Either.isLeft(parsed)) {
 		return [];
 	}
+	return Array.isArray(parsed.right)
+		? parsed.right.filter(
+				(entry): entry is number => typeof entry === "number" && Number.isInteger(entry),
+			)
+		: [];
 };
 
 export const adaptAnilistExport = (

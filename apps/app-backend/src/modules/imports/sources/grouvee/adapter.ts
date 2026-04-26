@@ -1,4 +1,4 @@
-import { Option, Schema } from "effect";
+import { Either, Option, Schema } from "effect";
 
 import {
 	addCollectionMembership,
@@ -58,14 +58,14 @@ const parseShelfNames = (value: string): string[] => {
 	if (!trimmed) {
 		return [];
 	}
-	try {
-		return Option.match(decodeShelfRecord(JSON.parse(trimmed)), {
-			onNone: () => [],
-			onSome: (record) => Object.keys(record),
-		});
-	} catch {
+	const parsed = Either.try(() => JSON.parse(trimmed) as unknown);
+	if (Either.isLeft(parsed)) {
 		return [];
 	}
+	return Option.match(decodeShelfRecord(parsed.right), {
+		onNone: () => [],
+		onSome: (record) => Object.keys(record),
+	});
 };
 
 const parseDateEntries = (value: string): ReadonlyArray<GrouveeDateEntry> => {
@@ -73,11 +73,11 @@ const parseDateEntries = (value: string): ReadonlyArray<GrouveeDateEntry> => {
 	if (!trimmed) {
 		return [];
 	}
-	try {
-		return Option.getOrElse(decodeDateEntries(JSON.parse(trimmed)), () => []);
-	} catch {
+	const parsed = Either.try(() => JSON.parse(trimmed) as unknown);
+	if (Either.isLeft(parsed)) {
 		return [];
 	}
+	return Option.getOrElse(decodeDateEntries(parsed.right), () => []);
 };
 
 const parseStatusEntries = (value: string): ReadonlyArray<GrouveeStatusEntry> => {
@@ -85,11 +85,11 @@ const parseStatusEntries = (value: string): ReadonlyArray<GrouveeStatusEntry> =>
 	if (!trimmed) {
 		return [];
 	}
-	try {
-		return Option.getOrElse(decodeStatusEntries(JSON.parse(trimmed)), () => []);
-	} catch {
+	const parsed = Either.try(() => JSON.parse(trimmed) as unknown);
+	if (Either.isLeft(parsed)) {
 		return [];
 	}
+	return Option.getOrElse(decodeStatusEntries(parsed.right), () => []);
 };
 
 const getShelfLifecycle = (shelf: string) => {

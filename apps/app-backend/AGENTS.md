@@ -19,6 +19,7 @@ Remove explicit return type annotations when TypeScript can trivially infer them
 ## Runtime APIs And Diagnostics
 
 - Prefer Effect platform primitives over `node:*` imports in app-backend code. Use Bun APIs when Effect has no suitable primitive. Use Node built-ins only when neither Effect nor Bun provides a practical equivalent, and keep the reason local and explicit.
+- Prefer Effect exception-capture primitives over raw `try/catch` in app-backend TypeScript. Use `Effect.try` / `Effect.tryPromise` when the surrounding API is already Effect-based, and `Either.try` for synchronous parsing or row-level fallback logic. Sandbox scripts are the exception when they need direct host-style error handling.
 - Do not add `@effect-diagnostics` or `oxlint-disable` comments by default. Prefer typed Effect errors, Effect Schema decoding/encoding, promise-returning callbacks, and small pure helpers that satisfy the diagnostics. If a suppression is unavoidable, keep it narrowly scoped and explain why the API cannot be expressed cleanly.
 
 ## Module Boundaries
