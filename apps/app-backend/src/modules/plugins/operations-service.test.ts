@@ -130,6 +130,7 @@ const makeLayer = (input: {
 							input.currentUserId
 								? (input.currentUserGate ?? Effect.void).pipe(
 										Effect.as({
+											image: null,
 											name: "User",
 											id: input.currentUserId,
 											email: "user@example.com",

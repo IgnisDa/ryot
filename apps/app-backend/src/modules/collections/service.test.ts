@@ -40,6 +40,7 @@ import { CollectionsService } from "./service";
 const now = "2026-06-14T00:00:00.000Z";
 
 const user: CurrentUserValue = {
+	image: null,
 	name: "Test User",
 	email: "user@example.com",
 	id: UserId.make("user-id"),
