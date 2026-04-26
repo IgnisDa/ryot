@@ -3,6 +3,7 @@ import { Pressable, Text, TextInput, View } from "react-native";
 
 export function TokenForm(props: {
 	token: string;
+	error?: string | null;
 	onSubmit: () => void;
 	onTokenChange: (value: string) => void;
 }) {
@@ -25,6 +26,7 @@ export function TokenForm(props: {
 			</Text>
 			<TextInput
 				autoFocus
+				secureTextEntry
 				returnKeyType="go"
 				autoCorrect={false}
 				value={props.token}
@@ -35,6 +37,7 @@ export function TokenForm(props: {
 				accessibilityLabel="Admin access token"
 				className="rounded-lg border border-border bg-raised px-4 py-3 font-ui text-base text-text"
 			/>
+			{props.error && <Text className="font-ui text-sm text-danger">{props.error}</Text>}
 			<Pressable
 				disabled={!canSubmit}
 				onPress={handleSubmit}
