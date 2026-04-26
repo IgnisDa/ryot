@@ -1,10 +1,8 @@
 import {
-	ActionIcon,
 	Badge,
 	Box,
 	Button,
 	Container,
-	Drawer,
 	Group,
 	Pagination,
 	Paper,
@@ -12,11 +10,10 @@ import {
 	Stack,
 	Text,
 } from "@mantine/core";
-import { useDisclosure, useLocalStorage } from "@mantine/hooks";
+import { useLocalStorage } from "@mantine/hooks";
 import {
 	Copy,
 	FolderPlus,
-	Info,
 	LayoutGrid,
 	List,
 	Table2,
@@ -36,7 +33,6 @@ import { useThemeTokens } from "~/hooks/theme";
 import type { ApiGetResponseData } from "~/lib/api/types";
 import { STORAGE_KEYS } from "~/lib/storage-keys";
 import { getAccentMuted } from "~/lib/theme";
-import { SavedViewDrawerContent } from "./components/saved-view-drawer-content";
 import { SavedViewResults } from "./view-page-sections";
 import {
 	createDisabledQueryEngineRequest,
@@ -65,7 +61,6 @@ export function SavedViewPage(props: {
 }) {
 	const apiClient = useApiClient();
 	const { surface, textPrimary, textSecondary } = useThemeTokens();
-	const [drawerOpened, drawer] = useDisclosure(false);
 	const [layout, setLayout] = useLocalStorage<ViewLayout>({
 		key: `${STORAGE_KEYS.viewLayout}:${props.viewSlug}`,
 		defaultValue: "grid",
@@ -275,14 +270,6 @@ export function SavedViewPage(props: {
 									{ label: <Table2 size={14} />, value: "table" },
 								]}
 							/>
-							<ActionIcon
-								size="lg"
-								variant="light"
-								onClick={drawer.open}
-								style={{ backgroundColor: accentMuted, color: accentColor }}
-							>
-								<Info size={18} />
-							</ActionIcon>
 						</Group>
 					</Group>
 					{props.actionError ? (
@@ -329,24 +316,6 @@ export function SavedViewPage(props: {
 					</Paper>
 				) : null}
 
-				<Drawer
-					size="md"
-					position="right"
-					title="View details"
-					opened={drawerOpened}
-					onClose={drawer.close}
-					styles={{
-						body: { backgroundColor: surface },
-						header: { backgroundColor: surface },
-						content: { backgroundColor: surface },
-					}}
-				>
-					<SavedViewDrawerContent
-						view={savedView}
-						onClone={props.onClone}
-						isCloning={props.isCloning ?? false}
-					/>
-				</Drawer>
 			</Stack>
 		</Container>
 	);
