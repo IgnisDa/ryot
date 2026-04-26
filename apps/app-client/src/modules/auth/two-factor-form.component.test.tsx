@@ -1,4 +1,4 @@
-import { describe, expect, it, jest } from "@jest/globals";
+import { describe, expect, it } from "@jest/globals";
 import { fireEvent, render, screen, userEvent } from "@testing-library/react-native";
 import { useState } from "react";
 
@@ -18,7 +18,11 @@ function TwoFactorHarness(props: { onSubmit: (code: string) => Promise<string | 
 
 describe("two-factor form", () => {
 	it("requires a code before submission", async () => {
-		const submit = jest.fn(() => Promise.resolve(undefined));
+		const submitted: string[] = [];
+		const submit = (code: string) => {
+			submitted.push(code);
+			return Promise.resolve(undefined);
+		};
 		await render(<TwoFactorHarness onSubmit={submit} />);
 
 		await fireEvent(screen.getByLabelText("Authenticator code"), "submitEditing");
@@ -26,12 +30,16 @@ describe("two-factor form", () => {
 		expect(await screen.findByRole("alert")).toHaveTextContent(
 			"Enter your two-factor authentication code.",
 		);
-		expect(submit).not.toHaveBeenCalled();
+		expect(submitted).toEqual([]);
 	});
 
 	it("submits a trimmed code from the keyboard", async () => {
 		const user = userEvent.setup();
-		const submit = jest.fn(() => Promise.resolve(undefined));
+		const submitted: string[] = [];
+		const submit = (code: string) => {
+			submitted.push(code);
+			return Promise.resolve(undefined);
+		};
 		await render(<TwoFactorHarness onSubmit={submit} />);
 		await user.press(screen.getByRole("button", { name: "Use a backup code" }));
 		const input = screen.getByLabelText("Backup code");
@@ -39,7 +47,7 @@ describe("two-factor form", () => {
 		await user.type(input, " 123456 ");
 		await fireEvent(input, "submitEditing");
 
-		expect(submit).toHaveBeenCalledWith("123456");
+		expect(submitted).toEqual(["123456"]);
 	});
 
 	it("clears the code after a rejected submission", async () => {
