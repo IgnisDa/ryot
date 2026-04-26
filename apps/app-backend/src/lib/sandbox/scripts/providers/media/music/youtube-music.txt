@@ -91,12 +91,13 @@ driver("search", async function (context) {
 
       allItems.push({
         externalId: String(id),
-        badgeProperty: { kind: "null", value: null },
+        calloutProperty: { kind: "null", value: null },
         titleProperty: { kind: "text", value: String(title) },
-        subtitleProperty:
+        primarySubtitleProperty:
           year === null
             ? { kind: "null", value: null }
             : { kind: "number", value: Number(year) },
+        secondarySubtitleProperty: { kind: "null", value: null },
         imageProperty:
           thumb === null
             ? { kind: "null", value: null }
