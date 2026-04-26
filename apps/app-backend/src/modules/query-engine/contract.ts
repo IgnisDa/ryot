@@ -47,11 +47,11 @@ const QueryEngineResponse = Schema.Union(
 export const QueryEngineGroup = HttpApiGroup.make("queryEngine")
 	.addError(Unauthorized, { status: 401 })
 	.addError(RateLimited, { status: 429 })
+	.middleware(AuthMiddleware)
 	.add(
 		HttpApiEndpoint.post("execute", "/query-engine/execute")
 			.setPayload(QueryEngineRequest)
 			.addSuccess(QueryEngineResponse)
 			.addError(BadRequest, { status: 400 })
-			.addError(NotFound, { status: 404 })
-			.middleware(AuthMiddleware),
+			.addError(NotFound, { status: 404 }),
 	);

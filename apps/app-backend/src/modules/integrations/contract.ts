@@ -42,40 +42,35 @@ export const IntegrationsGroup = HttpApiGroup.make("integrations")
 					isDisabled: Schema.optional(Schema.BooleanFromString),
 				}),
 			)
-			.addSuccess(Schema.Array(ListedIntegration))
-			.middleware(AuthMiddleware),
+			.addSuccess(Schema.Array(ListedIntegration)),
 	)
 	.add(
 		HttpApiEndpoint.post("create", "/integrations")
 			.setPayload(CreateIntegrationBody)
-			.addSuccess(Schema.Struct({ id: Schema.String }), { status: 201 })
-			.middleware(AuthMiddleware),
+			.addSuccess(Schema.Struct({ id: Schema.String }), { status: 201 }),
 	)
 	.add(
 		HttpApiEndpoint.get("get")`/integrations/${integrationIdParam}`
 			.addSuccess(ListedIntegration)
-			.addError(NotFound, { status: 404 })
-			.middleware(AuthMiddleware),
+			.addError(NotFound, { status: 404 }),
 	)
 	.add(
 		HttpApiEndpoint.patch("update")`/integrations/${integrationIdParam}`
 			.setPayload(UpdateIntegrationBody)
 			.addSuccess(ListedIntegration)
-			.addError(NotFound, { status: 404 })
-			.middleware(AuthMiddleware),
+			.addError(NotFound, { status: 404 }),
 	)
 	.add(
 		HttpApiEndpoint.del("delete")`/integrations/${integrationIdParam}`
 			.addSuccess(Schema.Struct({ id: Schema.String }))
-			.addError(NotFound, { status: 404 })
-			.middleware(AuthMiddleware),
+			.addError(NotFound, { status: 404 }),
 	)
 	.add(
 		HttpApiEndpoint.get("getRuns")`/integrations/${integrationIdParam}/runs`
 			.addSuccess(Schema.Array(ListedImportRun))
-			.addError(NotFound, { status: 404 })
-			.middleware(AuthMiddleware),
+			.addError(NotFound, { status: 404 }),
 	)
+	.middlewareEndpoints(AuthMiddleware)
 	.add(
 		HttpApiEndpoint.post("webhook")`/webhooks/integrations/${integrationIdParam}`
 			.addSuccess(Schema.Struct({ runId: Schema.String }), { status: 202 })

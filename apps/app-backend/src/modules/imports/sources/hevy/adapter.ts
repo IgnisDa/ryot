@@ -92,18 +92,26 @@ const MONTH_ABBR: Record<string, string> = {
 
 const toIsoFromDdMmmYyyy = (value: string): string | null => {
 	const m = /^(\d{1,2})\s+([A-Za-z]{3})\s+(\d{4}),\s*(\d{2}:\d{2})$/.exec(value);
-	if (!m) {return null;}
+	if (!m) {
+		return null;
+	}
 	const [, day, mon, year, time] = m;
-	if (!day || !mon || !year || !time) {return null;}
+	if (!day || !mon || !year || !time) {
+		return null;
+	}
 	const month = MONTH_ABBR[mon];
 	return month ? `${year}-${month}-${day.padStart(2, "0")}T${time}:00` : null;
 };
 
 const toIsoFromMmmDdYyyy = (value: string): string | null => {
 	const m = /^([A-Za-z]{3})\s+(\d{1,2})\s+(\d{4}),\s*(\d{2}:\d{2})$/.exec(value);
-	if (!m) {return null;}
+	if (!m) {
+		return null;
+	}
 	const [, mon, day, year, time] = m;
-	if (!mon || !day || !year || !time) {return null;}
+	if (!mon || !day || !year || !time) {
+		return null;
+	}
 	const month = MONTH_ABBR[mon];
 	return month ? `${year}-${month}-${day.padStart(2, "0")}T${time}:00` : null;
 };
