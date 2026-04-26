@@ -595,6 +595,11 @@ const showActivityEpisodeSlugs = ["complete", "review"] as const;
 
 const showActivityParentSlugs = ["backlog", "on_hold", "dropped", "complete", "review"] as const;
 
+const showActivityCollectionSlugs = [
+	"add-entity-to-collection",
+	"remove-entity-from-collection",
+] as const;
+
 const eventSchemaIsOneOf = (event: Table, slugs: readonly string[]) =>
 	inArray(
 		column(event, "eventSchemaSlug"),
@@ -666,12 +671,15 @@ export const showActivityRecipe = defineRecipe(
 		readonly parentEventLimit: number;
 		readonly episodeEventLimit: number;
 		readonly episodeProgressLimit: number;
+		readonly collectionEventLimit: number;
 	}) => {
 		const parentEvent = table("event", "parentEvent");
 		const episodeEvent = table("event", "episodeEvent");
 		const eventEpisode = table("entity", "eventEpisode");
 		const progressEvent = table("event", "progressEvent");
 		const progressProbe = table("event", "progressProbe");
+		const collectionEvent = table("event", "collectionEvent");
+		const eventCollection = table("entity", "eventCollection");
 		const progressEpisode = table("entity", "progressEpisode");
 		const isProgressOf = (event: Table) =>
 			and(
@@ -753,8 +761,35 @@ export const showActivityRecipe = defineRecipe(
 						showEpisodeMembership(progressEpisode, input.entityId, "progressEpisodeShow"),
 					),
 				}),
+				collectionEvents: selectedRows(collectionEvent, {
+					limit: input.collectionEventLimit,
+					orderBy: eventOrderDescending(collectionEvent),
+					joins: [
+						join(
+							"inner",
+							eventCollection,
+							eq(column(collectionEvent, "entityId"), column(eventCollection, "id")),
+						),
+					],
+					selection: {
+						id: selectedField(column(collectionEvent, "id"), EventId),
+						collectionId: selectedField(column(eventCollection, "id"), EntityId),
+						collectionName: selectedField(column(eventCollection, "name"), Schema.String),
+						createdAt: selectedField(column(collectionEvent, "createdAt"), IsoDateString),
+						occurredAt: selectedField(column(collectionEvent, "occurredAt"), IsoDateString),
+						eventSchemaSlug: selectedField(
+							column(collectionEvent, "eventSchemaSlug"),
+							Schema.Literals(showActivityCollectionSlugs),
+						),
+					},
+					where: and(
+						entitySchema(eventCollection, "collection"),
+						eventSchemaIsOneOf(collectionEvent, showActivityCollectionSlugs),
+						eq(propertyText(collectionEvent, "entityId"), literal(input.entityId)),
+					),
+				}),
 			},
-			map: ({ parentEvents, episodeEvents, episodeProgress }) => {
+			map: ({ parentEvents, episodeEvents, episodeProgress, collectionEvents }) => {
 				const events = [
 					...parentEvents.items.map((row) => ({ ...row, kind: "parent" as const })),
 					...episodeEvents.items.map(
@@ -783,13 +818,24 @@ export const showActivityRecipe = defineRecipe(
 							eventSchemaSlug: "progress" as const,
 						})),
 					),
+					...collectionEvents.items.map(({ collectionId, collectionName, ...row }) => ({
+						...row,
+						text: null,
+						rating: null,
+						timeSpent: null,
+						isSpoiler: null,
+						consumedOn: null,
+						kind: "collection" as const,
+						collection: { id: collectionId, name: collectionName },
+					})),
 				];
 				return Result.succeed({
 					events: events.sort(compareShowActivityDescending),
 					truncated:
 						parentEvents.pageInfo.hasMore ||
 						episodeEvents.pageInfo.hasMore ||
-						episodeProgress.pageInfo.hasMore,
+						episodeProgress.pageInfo.hasMore ||
+						collectionEvents.pageInfo.hasMore,
 				});
 			},
 		};

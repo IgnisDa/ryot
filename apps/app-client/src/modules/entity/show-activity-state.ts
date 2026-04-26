@@ -19,8 +19,8 @@ import { preferredMediaImageAsset } from "./media-image";
 import { optionalText, showEpisodeOriginLabel } from "./show-episodes-state";
 
 type ParentActivityEvent = Extract<ShowActivityEvent, { kind: "parent" }>;
-
 type EpisodeActivityEvent = Extract<ShowActivityEvent, { kind: "episode" }>;
+type CollectionActivityEvent = Extract<ShowActivityEvent, { kind: "collection" }>;
 
 export type ShowActivityFact = { readonly label: string; readonly value: string };
 
@@ -231,8 +231,20 @@ const episodeEventLabel = (event: EpisodeActivityEvent) =>
 		Match.exhaustive,
 	);
 
+const collectionEventLabel = (event: CollectionActivityEvent) =>
+	Match.value(event.eventSchemaSlug).pipe(
+		Match.when("add-entity-to-collection", () => `Added to ${event.collection.name}`),
+		Match.when("remove-entity-from-collection", () => `Removed from ${event.collection.name}`),
+		Match.exhaustive,
+	);
+
 export const showActivityLabel = (event: ShowActivityEvent) =>
-	event.kind === "parent" ? parentEventLabel(event) : episodeEventLabel(event);
+	Match.value(event).pipe(
+		Match.when({ kind: "parent" }, parentEventLabel),
+		Match.when({ kind: "episode" }, episodeEventLabel),
+		Match.when({ kind: "collection" }, collectionEventLabel),
+		Match.exhaustive,
+	);
 
 const episodeContextLabel = (event: EpisodeActivityEvent) =>
 	event.eventSchemaSlug === "review"
@@ -268,6 +280,8 @@ export const showActivityToneClass = (event: ShowActivityEvent) =>
 		Match.when("review", () => "bg-gold"),
 		Match.when("progress", () => "bg-accent"),
 		Match.when("complete", () => "bg-success"),
+		Match.when("add-entity-to-collection", () => "bg-info"),
+		Match.when("remove-entity-from-collection", () => "bg-danger"),
 		Match.orElse(() => "bg-border-strong"),
 	);
 
