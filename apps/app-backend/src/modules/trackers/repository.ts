@@ -1,5 +1,5 @@
 import { and, asc, eq, inArray, ne, sql } from "drizzle-orm";
-import { type DbClient, db } from "~/lib/db";
+import { assertPersisted, type DbClient, db } from "~/lib/db";
 import { tracker } from "~/lib/db/schema";
 import type { ListedTracker } from "./schemas";
 
@@ -160,11 +160,7 @@ export const createTrackerForUser = async (input: {
 		})
 		.returning(trackerSelection);
 
-	if (!createdTracker) {
-		throw new Error("Could not persist tracker");
-	}
-
-	return toListedTracker(createdTracker);
+	return toListedTracker(assertPersisted(createdTracker, "tracker"));
 };
 
 export const createBuiltinTrackersForUser = async (input: {
