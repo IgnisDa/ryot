@@ -22,13 +22,13 @@ export type SavedViewTableMapping = typeof SavedViewTableMapping.Type;
 
 const SavedViewCardLayout = strictStruct({
 	...SavedViewCardMapping.fields,
-	itemIdField: OutputFieldKey,
+	entityIdField: OutputFieldKey,
 	queryDocument: RyotQLDocument,
 });
 
 const SavedViewTableLayout = strictStruct({
 	...SavedViewTableMapping.fields,
-	itemIdField: OutputFieldKey,
+	entityIdField: OutputFieldKey,
 	queryDocument: RyotQLDocument,
 });
 

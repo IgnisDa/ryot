@@ -195,8 +195,8 @@ const getLayoutValidationError = (
 	const projectionKeys = new Set(rootFields.map((selection) => selection.key));
 	const configuredFields =
 		"columns" in layout
-			? [layout.itemIdField, layout.imageField, ...layout.columns.map(({ field }) => field)]
-			: [layout.itemIdField, ...cardFields(layout)];
+			? [layout.entityIdField, layout.imageField, ...layout.columns.map(({ field }) => field)]
+			: [layout.entityIdField, ...cardFields(layout)];
 	for (const field of configuredFields) {
 		if (field === null) {
 			continue;
@@ -208,7 +208,7 @@ const getLayoutValidationError = (
 
 	const scope = rootScope(queryDocument);
 	const textFields = [
-		{ field: layout.itemIdField, slot: "itemIdField" },
+		{ field: layout.entityIdField, slot: "entityIdField" },
 		...("titleField" in layout ? [{ field: layout.titleField, slot: "titleField" }] : []),
 	];
 	for (const { field, slot } of textFields) {
@@ -219,6 +219,18 @@ const getLayoutValidationError = (
 		if (expressionKind(selection.expr, scope) !== "text") {
 			return `${slot} must resolve to text`;
 		}
+	}
+	const entityIdSelection = displayExpression(rootFields, layout.entityIdField);
+	const entityIdTable =
+		entityIdSelection?.expr.type === "column"
+			? scope.get(entityIdSelection.expr.tableAlias)
+			: undefined;
+	if (
+		entityIdSelection?.expr.type !== "column" ||
+		entityIdTable?.name !== "entity" ||
+		entityIdSelection.expr.field !== entityIdTable.primaryKey
+	) {
+		return "entityIdField must project an entity primary key";
 	}
 	const imageField = layout.imageField;
 	for (const { field, slot } of imageField === null

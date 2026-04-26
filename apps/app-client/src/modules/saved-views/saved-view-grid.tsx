@@ -1,4 +1,7 @@
-import { Text, View } from "react-native";
+import { Link } from "expo-router";
+import { Pressable, Text, View } from "react-native";
+
+import { getEntityHref } from "@/modules/navigation/navigation-data";
 
 import type { SavedViewCardItem, SavedViewScalarValue } from "./display-data";
 import { formatSavedViewValue } from "./display-value";
@@ -19,39 +22,45 @@ export function SavedViewGrid(props: {
 	return (
 		<View className="-mx-1.5 flex-row flex-wrap md:-mx-2.5">
 			{props.items.map((item) => (
-				<View
-					key={item.id}
-					className="w-1/2 gap-2 px-1.5 pb-5 sm:w-1/3 md:w-1/4 md:px-2.5 lg:w-1/5 xl:w-1/6"
-				>
-					<SavedViewImageView
-						image={item.image}
-						managedUrls={props.managedUrls}
-						className="aspect-3/4 w-full rounded-lg bg-surface-2"
-					/>
-					<View className="gap-1">
-						{item.overline && (
-							<Value
-								value={item.overline}
-								className="font-ui-medium text-[11px] uppercase tracking-wide text-text-subtle"
-							/>
-						)}
-						<Text
-							numberOfLines={2}
-							className="font-ui-semibold text-base text-text md:font-ui md:text-sm"
-						>
-							{item.title}
-						</Text>
-						{item.primaryMetadata && (
-							<Value value={item.primaryMetadata} className="font-ui text-xs text-text-muted" />
-						)}
-						{item.secondaryMetadata && (
-							<Value value={item.secondaryMetadata} className="font-ui text-xs text-text-subtle" />
-						)}
-						{item.callout && (
-							<Value value={item.callout} className="font-ui-semibold text-xs text-accent-text" />
-						)}
-					</View>
-				</View>
+				<Link asChild key={item.entityId} href={getEntityHref(item.entityId)}>
+					<Pressable
+						accessibilityRole="link"
+						accessibilityLabel={`Open ${item.title}`}
+						className="w-1/2 gap-2 rounded-lg px-1.5 pb-5 focus-visible:outline-2 focus-visible:outline-accent sm:w-1/3 md:w-1/4 md:px-2.5 lg:w-1/5 xl:w-1/6"
+					>
+						<SavedViewImageView
+							image={item.image}
+							managedUrls={props.managedUrls}
+							className="aspect-3/4 w-full rounded-lg bg-surface-2"
+						/>
+						<View className="gap-1">
+							{item.overline && (
+								<Value
+									value={item.overline}
+									className="font-ui-medium text-[11px] uppercase tracking-wide text-text-subtle"
+								/>
+							)}
+							<Text
+								numberOfLines={2}
+								className="font-ui-semibold text-base text-text md:font-ui md:text-sm"
+							>
+								{item.title}
+							</Text>
+							{item.primaryMetadata && (
+								<Value value={item.primaryMetadata} className="font-ui text-xs text-text-muted" />
+							)}
+							{item.secondaryMetadata && (
+								<Value
+									value={item.secondaryMetadata}
+									className="font-ui text-xs text-text-subtle"
+								/>
+							)}
+							{item.callout && (
+								<Value value={item.callout} className="font-ui-semibold text-xs text-accent-text" />
+							)}
+						</View>
+					</Pressable>
+				</Link>
 			))}
 		</View>
 	);

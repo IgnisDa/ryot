@@ -85,6 +85,11 @@ export function getNavigationHref(workspace: string, item: Pick<NavigationItem, 
 	return { params: { viewSlug: item.slug }, pathname: "/v/[viewSlug]" as const };
 }
 
+export const getEntityHref = (entityId: string) => ({
+	params: { entityId },
+	pathname: "/e/[entityId]" as const,
+});
+
 export function getActiveNavigationKey(pathname: string) {
 	if (pathname.endsWith("/settings")) {
 		return "settings";
