@@ -385,8 +385,8 @@ describe("Query engine E2E", () => {
 			entitySchemaId: schema.schemaId,
 			propertiesSchema: {
 				fields: {
-					label: { type: "string", label: "Label" },
-					rating: { type: "number", label: "Rating" },
+					label: { type: "string", label: "Label", description: "Label" },
+					rating: { type: "number", label: "Rating", description: "Rating" },
 				},
 			},
 		});
@@ -1396,7 +1396,8 @@ describe("Query engine E2E", () => {
 					tags: {
 						type: "array",
 						label: "Tags",
-						items: { type: "string", label: "Tag" },
+						description: "Tags",
+						items: { type: "string", label: "Tag", description: "Tag" },
 					},
 				},
 			},
@@ -1463,7 +1464,9 @@ describe("Query engine E2E", () => {
 		const schema = await createEntitySchema(client, cookies, {
 			trackerId,
 			name: "Product",
-			propertiesSchema: { fields: { sku: { type: "string", label: "SKU" } } },
+			propertiesSchema: {
+				fields: { sku: { type: "string", label: "SKU", description: "SKU" } },
+			},
 		});
 
 		await createQueryEngineEntity({
@@ -1551,7 +1554,8 @@ describe("Query engine E2E", () => {
 					tags: {
 						type: "array",
 						label: "Tags",
-						items: { type: "string", label: "Tag" },
+						description: "Tags",
+						items: { type: "string", label: "Tag", description: "Tag" },
 					},
 				},
 			},
@@ -1728,7 +1732,13 @@ describe("Query engine E2E", () => {
 			trackerId,
 			name: "UserItem",
 			propertiesSchema: {
-				fields: { title: { type: "string" as const, label: "Title" } },
+				fields: {
+					title: {
+						label: "Title",
+						description: "Title",
+						type: "string" as const,
+					},
+				},
 			},
 		});
 		const userEntityName = `Cross Schema User ${crypto.randomUUID()}`;

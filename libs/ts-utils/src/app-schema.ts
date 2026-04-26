@@ -55,6 +55,7 @@ export type AppStringPropertyValidation = AppPropertyValidationBase & {
 
 type AppPropertyBase<TValidation> = {
 	label: string;
+	description: string;
 	validation?: TValidation;
 	transform?: AppPropertyTransform;
 };
@@ -418,6 +419,7 @@ const applyArrayValidation = (
 const createEnumProperty = (input: {
 	isRequired: boolean;
 	label: string;
+	description: string;
 	options: string[];
 }) => {
 	if (input.options.length === 0) {
@@ -427,6 +429,7 @@ const createEnumProperty = (input: {
 	return withRequiredValidation(
 		{
 			label: input.label,
+			description: input.description,
 			type: "enum",
 			options: input.options as [string, ...string[]],
 		},
@@ -436,6 +439,7 @@ const createEnumProperty = (input: {
 
 const toAppSchemaDiscriminatedUnion = (input: {
 	label: string;
+	description: string;
 	isRequired: boolean;
 	value: { options: readonly unknown[] };
 }) => {
@@ -462,6 +466,7 @@ const toAppSchemaDiscriminatedUnion = (input: {
 		}
 
 		const label = getDefaultPropertyLabel(key);
+		const description = childSchemas[0]?.description ?? label;
 		const isRequiredInAllOptions = options.every(
 			(option) => key in option.shape,
 		);
@@ -470,6 +475,7 @@ const toAppSchemaDiscriminatedUnion = (input: {
 		)
 			? createEnumProperty({
 					label,
+					description,
 					isRequired: isRequiredInAllOptions,
 					options: [
 						...new Set(
@@ -481,6 +487,7 @@ const toAppSchemaDiscriminatedUnion = (input: {
 					childSchemas[0] as z.ZodType,
 					isRequiredInAllOptions,
 					label,
+					description,
 				);
 
 		properties[key] = isRequiredInAllOptions
@@ -491,6 +498,7 @@ const toAppSchemaDiscriminatedUnion = (input: {
 	return withRequiredValidation(
 		{
 			label: input.label,
+			description: input.description,
 			type: "object",
 			properties,
 			...(unknownKeys === "strip" || unknownKeys === "passthrough"
@@ -548,6 +556,7 @@ const toAppSchemaInternal = (
 	schema: z.ZodType,
 	includeRequiredValidation: boolean,
 	label: string,
+	description: string,
 ): AppPropertyDefinition => {
 	const { isRequired, value } = isRequiredSchema(schema);
 	const applyRequiredValidation = <T extends AppPropertyDefinition>(
@@ -560,26 +569,27 @@ const toAppSchemaInternal = (
 	if (value instanceof z.ZodString) {
 		return applyRequiredValidation(
 			value.format === "date"
-				? { label, type: "date" }
-				: { label, type: "string" },
+				? { label, description, type: "date" }
+				: { label, description, type: "string" },
 		);
 	}
 
 	if (value instanceof z.ZodNumber) {
 		return applyRequiredValidation(
 			value.format === "safeint"
-				? { label, type: "integer" }
-				: { label, type: "number" },
+				? { label, description, type: "integer" }
+				: { label, description, type: "number" },
 		);
 	}
 
 	if (value instanceof z.ZodBoolean) {
-		return applyRequiredValidation({ label, type: "boolean" });
+		return applyRequiredValidation({ label, description, type: "boolean" });
 	}
 
 	if (value instanceof z.ZodEnum) {
 		return createEnumProperty({
 			label,
+			description,
 			isRequired,
 			options: value.options.filter(
 				(option): option is string => typeof option === "string",
@@ -590,6 +600,7 @@ const toAppSchemaInternal = (
 	if (value instanceof z.ZodLiteral) {
 		return createEnumProperty({
 			label,
+			description,
 			isRequired,
 			options: Array.from(value.values).filter(
 				(option): option is string => typeof option === "string",
@@ -598,14 +609,20 @@ const toAppSchemaInternal = (
 	}
 
 	if (value.constructor.name === "ZodISODateTime") {
-		return applyRequiredValidation({ label, type: "datetime" });
+		return applyRequiredValidation({ label, description, type: "datetime" });
 	}
 
 	if (value instanceof z.ZodArray) {
 		return applyRequiredValidation({
 			label,
+			description,
 			items: withoutRequiredValidation(
-				toAppSchemaInternal(value.element as z.ZodType, false, "Item"),
+				toAppSchemaInternal(
+					value.element as z.ZodType,
+					false,
+					"Item",
+					(value.element as z.ZodType).description ?? "Item",
+				),
 			),
 			type: "array",
 		});
@@ -614,16 +631,19 @@ const toAppSchemaInternal = (
 	if (value instanceof z.ZodObject) {
 		const properties: Record<string, AppPropertyDefinition> = {};
 		for (const [key, child] of Object.entries(value.shape)) {
+			const childLabel = getDefaultPropertyLabel(key);
 			properties[key] = toAppSchemaInternal(
 				child as z.ZodType,
 				true,
-				getDefaultPropertyLabel(key),
+				childLabel,
+				(child as z.ZodType).description ?? childLabel,
 			);
 		}
 
 		const unknownKeys = getUnknownKeysPolicy(value);
 		return applyRequiredValidation({
 			label,
+			description,
 			properties,
 			type: "object",
 			...(unknownKeys === "strip" || unknownKeys === "passthrough"
@@ -633,14 +653,19 @@ const toAppSchemaInternal = (
 	}
 
 	if (value instanceof z.ZodDiscriminatedUnion) {
-		return toAppSchemaDiscriminatedUnion({ label, isRequired, value });
+		return toAppSchemaDiscriminatedUnion({
+			label,
+			description,
+			isRequired,
+			value,
+		});
 	}
 
 	throw new Error(`Unsupported Zod type: ${value.constructor.name}`);
 };
 
 export const toAppSchema = (schema: z.ZodType): AppPropertyDefinition =>
-	toAppSchemaInternal(schema, true, "Value");
+	toAppSchemaInternal(schema, true, "Value", schema.description ?? "Value");
 
 export const toAppSchemaProperties = (
 	schema: z.ZodObject<z.ZodRawShape>,
@@ -648,10 +673,12 @@ export const toAppSchemaProperties = (
 	const fields: AppSchemaFields = {};
 
 	for (const [key, value] of Object.entries(schema.shape)) {
+		const label = getDefaultPropertyLabel(key);
 		fields[key] = toAppSchemaInternal(
 			value as z.ZodType,
 			false,
-			getDefaultPropertyLabel(key),
+			label,
+			(value as z.ZodType).description ?? label,
 		);
 	}
 

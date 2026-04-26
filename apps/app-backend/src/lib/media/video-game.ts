@@ -7,9 +7,15 @@ import { mediaPropertiesSchema } from "./common";
 // (e.g., IGDB). GiantBomb does not provide this.
 const videoGameTimeToBeatSchema = z
 	.object({
-		hastily: nullableIntSchema,
-		normally: nullableIntSchema,
-		completely: nullableIntSchema,
+		hastily: nullableIntSchema.describe(
+			"Estimated minutes to rush through the main story",
+		),
+		normally: nullableIntSchema.describe(
+			"Estimated minutes for a typical playthrough",
+		),
+		completely: nullableIntSchema.describe(
+			"Estimated minutes for a full 100% completion run",
+		),
 	})
 	.strict()
 	.nullish();
@@ -19,16 +25,25 @@ const videoGameTimeToBeatSchema = z
 // names; those fields will be null for GiantBomb-sourced entities.
 const videoGamePlatformReleaseSchema = z
 	.object({
-		name: z.string(),
-		releaseDate: nullableStringSchema,
-		releaseRegion: nullableStringSchema,
+		name: z.string().describe("Platform name"),
+		releaseDate: nullableStringSchema.describe("Release date on this platform"),
+		releaseRegion: nullableStringSchema.describe(
+			"Geographic region of this release",
+		),
 	})
 	.strict();
 
 export const videoGamePropertiesSchema = mediaPropertiesSchema.extend({
-	images: imagesSchema,
-	timeToBeat: videoGameTimeToBeatSchema,
-	platformReleases: z.array(videoGamePlatformReleaseSchema).nullish(),
+	images: imagesSchema.describe(
+		"Cover and promotional images for this video game",
+	),
+	timeToBeat: videoGameTimeToBeatSchema.describe(
+		"Estimated time to complete the game at different paces",
+	),
+	platformReleases: z
+		.array(videoGamePlatformReleaseSchema)
+		.nullish()
+		.describe("Platform-specific release information"),
 });
 
 export const videoGamePropertiesJsonSchema = toAppSchemaProperties(

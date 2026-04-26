@@ -9,8 +9,9 @@ describe("propertySchemaObjectSchema", () => {
 		const result = propertySchemaObjectSchema.safeParse({
 			fields: {
 				progressPercent: {
-					label: "Progress Percent",
 					type: "number",
+					label: "Progress Percent",
+					description: "Progress Percent",
 					validation: { maximum: 5, exclusiveMinimum: 10 },
 				},
 			},
@@ -21,7 +22,9 @@ describe("propertySchemaObjectSchema", () => {
 
 	it("rejects rules that point at missing fields", () => {
 		const result = propertySchemaObjectSchema.safeParse({
-			fields: { status: { label: "Status", type: "string" } },
+			fields: {
+				status: { type: "string", label: "Status", description: "Status" },
+			},
 			rules: [
 				{
 					kind: "validation",
@@ -38,8 +41,8 @@ describe("propertySchemaObjectSchema", () => {
 	it("rejects rules whose condition values do not match field types", () => {
 		const result = propertySchemaObjectSchema.safeParse({
 			fields: {
-				status: { label: "Status", type: "string" },
-				rating: { label: "Rating", type: "integer" },
+				status: { type: "string", label: "Status", description: "Status" },
+				rating: { type: "integer", label: "Rating", description: "Rating" },
 			},
 			rules: [
 				{
@@ -51,6 +54,13 @@ describe("propertySchemaObjectSchema", () => {
 			],
 		});
 
+		expect(result.success).toBeFalse();
+	});
+
+	it("rejects properties missing description", () => {
+		const result = propertySchemaObjectSchema.safeParse({
+			fields: { status: { label: "Status", type: "string" } },
+		});
 		expect(result.success).toBeFalse();
 	});
 });

@@ -18,23 +18,34 @@ describe("toCreateCollectionPayload", () => {
 		const payload = toCreateCollectionPayload({
 			name: "Recommended to me",
 			properties: [
-				row({ id: "friend", key: "friend", label: "Recommended by" }),
+				row({
+					id: "friend",
+					key: "friend",
+					label: "Recommended by",
+					description: "Recommended by",
+				}),
 				row({
 					id: "rating",
 					key: "rating",
 					required: true,
 					type: "integer",
 					label: "Rating",
+					description: "Rating",
 				}),
 			],
 		});
 
 		expect(payload.membershipPropertiesSchema).toEqual({
 			fields: {
-				friend: { type: "string", label: "Recommended by" },
+				friend: {
+					type: "string",
+					label: "Recommended by",
+					description: "Recommended by",
+				},
 				rating: {
 					type: "integer",
 					label: "Rating",
+					description: "Rating",
 					validation: { required: true },
 				},
 			},

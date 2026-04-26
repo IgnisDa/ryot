@@ -4,8 +4,10 @@ import { mediaWithFreeCreatorsPropertiesSchema } from "./common";
 
 export const audiobookPropertiesSchema =
 	mediaWithFreeCreatorsPropertiesSchema.extend({
-		images: imagesSchema,
-		runtime: nullableIntSchema,
+		images: imagesSchema.describe(
+			"Cover and promotional images for this audiobook",
+		),
+		runtime: nullableIntSchema.describe("Total listening time in minutes"),
 	});
 
 export const audiobookPropertiesJsonSchema = toAppSchemaProperties(

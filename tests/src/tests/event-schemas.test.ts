@@ -47,14 +47,55 @@ describe("GET /event-schemas", () => {
 		expect(eventSchemas.map((schema) => schema.slug)).toEqual(["workout-set"]);
 		expect(eventSchemas[0]?.propertiesSchema).toMatchObject({
 			fields: {
-				reps: { label: "Reps", type: "number" },
-				weight: { label: "Weight", type: "number" },
-				setOrder: { label: "Set Order", type: "integer" },
-				exerciseOrder: { label: "Exercise Order", type: "integer" },
+				reps: {
+					label: "Reps",
+					type: "number",
+					description: "Number of repetitions performed in this set",
+				},
+				weight: {
+					label: "Weight",
+					type: "number",
+					description: "Weight used in this set in the user's preferred unit",
+				},
+				setOrder: {
+					type: "integer",
+					label: "Set Order",
+					description: "Zero-based position of this set within the exercise",
+				},
+				exerciseOrder: {
+					type: "integer",
+					label: "Exercise Order",
+					description:
+						"Zero-based position of this exercise within the workout",
+				},
 				setLot: {
 					type: "enum",
 					label: "Set Lot",
+					description: "Set type: normal, warm_up, drop, or failure",
 					options: ["normal", "warm_up", "drop", "failure"],
+					validation: { required: true },
+				},
+				distance: {
+					type: "number",
+					label: "Distance",
+					description:
+						"Distance covered in this set in the user's preferred unit",
+				},
+				duration: {
+					type: "number",
+					label: "Duration",
+					description: "Duration of this set in seconds",
+				},
+				note: {
+					label: "Note",
+					type: "string",
+					description: "Optional note specific to this set",
+				},
+				rpe: {
+					label: "Rpe",
+					type: "integer",
+					description:
+						"Rate of perceived exertion from 0 (no effort) to 10 (maximal effort)",
 				},
 			},
 		});
@@ -94,12 +135,9 @@ describe("GET /event-schemas", () => {
 					progressPercent: {
 						type: "number",
 						label: "Progress Percent",
+						description: "Percentage of the media completed so far (0–100)",
 						transform: { round: { mode: "half_up", scale: 2 } },
-						validation: {
-							required: true,
-							exclusiveMinimum: 0,
-							maximum: 100,
-						},
+						validation: { maximum: 100, required: true, exclusiveMinimum: 0 },
 					},
 				},
 			});
@@ -115,11 +153,21 @@ describe("GET /event-schemas", () => {
 				completeSchema.propertiesSchema as Record<string, unknown>,
 			).toMatchObject({
 				fields: {
-					startedOn: { type: "datetime", label: "Started On" },
-					completedOn: { type: "datetime", label: "Completed On" },
+					startedOn: {
+						type: "datetime",
+						label: "Started On",
+						description: "Date and time you started consuming this media",
+					},
+					completedOn: {
+						type: "datetime",
+						label: "Completed On",
+						description: "Date and time you finished consuming this media",
+					},
 					completionMode: {
 						type: "string",
 						label: "Completion Mode",
+						description:
+							"How the completion timestamps were determined: just_now, unknown, or custom_timestamps",
 						validation: {
 							required: true,
 							pattern: "^(just_now|unknown|custom_timestamps)$",
@@ -151,10 +199,15 @@ describe("GET /event-schemas", () => {
 				reviewSchema.propertiesSchema as Record<string, unknown>,
 			).toMatchObject({
 				fields: {
-					review: { type: "string", label: "Review" },
+					review: {
+						type: "string",
+						label: "Review",
+						description: "Your written thoughts or notes about this media",
+					},
 					rating: {
 						type: "integer",
 						label: "Rating",
+						description: "Your personal rating from 1 (lowest) to 5 (highest)",
 						validation: { required: true, maximum: 5, minimum: 1 },
 					},
 				},
@@ -195,15 +248,20 @@ describe("GET /event-schemas", () => {
 				progressPercent: {
 					type: "number",
 					label: "Progress Percent",
+					description: "Percentage of the media completed so far (0–100)",
 					transform: { round: { mode: "half_up", scale: 2 } },
-					validation: {
-						required: true,
-						exclusiveMinimum: 0,
-						maximum: 100,
-					},
+					validation: { maximum: 100, required: true, exclusiveMinimum: 0 },
 				},
-				showSeason: { type: "integer", label: "Show Season" },
-				showEpisode: { type: "integer", label: "Show Episode" },
+				showSeason: {
+					type: "integer",
+					label: "Show Season",
+					description: "Season number being tracked",
+				},
+				showEpisode: {
+					type: "integer",
+					label: "Show Episode",
+					description: "Episode number within the current season",
+				},
 			},
 			rules: [
 				{
@@ -224,25 +282,53 @@ describe("GET /event-schemas", () => {
 		const animeProgressSchema = await getProgressSchema("anime");
 		expect(animeProgressSchema).toMatchObject({
 			fields: {
-				progressPercent: { type: "number", label: "Progress Percent" },
-				animeEpisode: { type: "integer", label: "Anime Episode" },
+				progressPercent: {
+					type: "number",
+					label: "Progress Percent",
+					description: "Percentage of the media completed so far (0–100)",
+				},
+				animeEpisode: {
+					type: "integer",
+					label: "Anime Episode",
+					description: "Episode number of the anime being tracked",
+				},
 			},
 		});
 
 		const mangaProgressSchema = await getProgressSchema("manga");
 		expect(mangaProgressSchema).toMatchObject({
 			fields: {
-				progressPercent: { type: "number", label: "Progress Percent" },
-				mangaChapter: { type: "number", label: "Manga Chapter" },
-				mangaVolume: { type: "integer", label: "Manga Volume" },
+				progressPercent: {
+					type: "number",
+					label: "Progress Percent",
+					description: "Percentage of the media completed so far (0–100)",
+				},
+				mangaChapter: {
+					type: "number",
+					label: "Manga Chapter",
+					description: "Chapter number of the manga being tracked",
+				},
+				mangaVolume: {
+					type: "integer",
+					label: "Manga Volume",
+					description: "Volume number of the manga being tracked",
+				},
 			},
 		});
 
 		const podcastProgressSchema = await getProgressSchema("podcast");
 		expect(podcastProgressSchema).toMatchObject({
 			fields: {
-				progressPercent: { type: "number", label: "Progress Percent" },
-				podcastEpisode: { type: "integer", label: "Podcast Episode" },
+				progressPercent: {
+					type: "number",
+					label: "Progress Percent",
+					description: "Percentage of the media completed so far (0–100)",
+				},
+				podcastEpisode: {
+					type: "integer",
+					label: "Podcast Episode",
+					description: "Episode number of the podcast being tracked",
+				},
 			},
 		});
 
@@ -252,12 +338,9 @@ describe("GET /event-schemas", () => {
 				progressPercent: {
 					type: "number",
 					label: "Progress Percent",
+					description: "Percentage of the media completed so far (0–100)",
 					transform: { round: { mode: "half_up", scale: 2 } },
-					validation: {
-						required: true,
-						exclusiveMinimum: 0,
-						maximum: 100,
-					},
+					validation: { maximum: 100, required: true, exclusiveMinimum: 0 },
 				},
 			},
 		});

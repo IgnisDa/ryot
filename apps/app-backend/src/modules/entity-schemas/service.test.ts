@@ -117,7 +117,13 @@ describe("parseEntitySchemaPropertiesSchema", () => {
 	it("rejects array property without items", () => {
 		expect(() =>
 			parseEntitySchemaPropertiesSchema({
-				fields: { tags: { label: "Tags", type: "array" } },
+				fields: {
+					tags: {
+						label: "Tags",
+						type: "array",
+						description: "Tags",
+					},
+				},
 			}),
 		).toThrow("Invalid input: expected object, received undefined");
 	});
@@ -125,7 +131,13 @@ describe("parseEntitySchemaPropertiesSchema", () => {
 	it("rejects object property without properties", () => {
 		expect(() =>
 			parseEntitySchemaPropertiesSchema({
-				fields: { metadata: { label: "Metadata", type: "object" } },
+				fields: {
+					metadata: {
+						label: "Metadata",
+						type: "object",
+						description: "Metadata",
+					},
+				},
 			}),
 		).toThrow("Invalid input: expected record, received undefined");
 	});

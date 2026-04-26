@@ -8,6 +8,7 @@ export function createEventFixture(
 		id: "event-1",
 		properties: {},
 		entityId: "entity-1",
+		sessionEntityId: null,
 		eventSchemaId: "schema-1",
 		eventSchemaName: "Logged",
 		eventSchemaSlug: "logged",

@@ -7,6 +7,7 @@ describe("getGeneratedPropertyFieldConfig", () => {
 			getGeneratedPropertyFieldConfig("notes", {
 				type: "string",
 				label: "Notes",
+				description: "Notes",
 				validation: { required: true },
 			}),
 		).toEqual({
@@ -20,6 +21,7 @@ describe("getGeneratedPropertyFieldConfig", () => {
 			getGeneratedPropertyFieldConfig("completed", {
 				type: "boolean",
 				label: "Completed",
+				description: "Completed",
 			}),
 		).toEqual({
 			required: false,
@@ -31,6 +33,7 @@ describe("getGeneratedPropertyFieldConfig", () => {
 			getGeneratedPropertyFieldConfig("startedOn", {
 				type: "date",
 				label: "Started On",
+				description: "Started On",
 				validation: { required: true },
 			}),
 		).toEqual({
@@ -44,6 +47,7 @@ describe("getGeneratedPropertyFieldConfig", () => {
 			getGeneratedPropertyFieldConfig("completedAt", {
 				type: "datetime",
 				label: "Completed At",
+				description: "Completed At",
 				validation: { required: true },
 			}),
 		).toEqual({
@@ -56,6 +60,7 @@ describe("getGeneratedPropertyFieldConfig", () => {
 		expect(
 			getGeneratedPropertyFieldConfig("pages", {
 				label: "Pages",
+				description: "Pages",
 				type: "integer",
 				validation: { required: true },
 			}),
@@ -71,8 +76,9 @@ describe("getGeneratedPropertyFieldConfig", () => {
 		expect(
 			getGeneratedPropertyFieldConfig("tags", {
 				label: "Tags",
+				description: "Tags",
 				type: "array",
-				items: { label: "Item", type: "string" },
+				items: { label: "Item", description: "Item", type: "string" },
 			}),
 		).toBeNull();
 	});
@@ -82,6 +88,7 @@ describe("getGeneratedPropertyFieldConfig", () => {
 			getGeneratedPropertyFieldConfig("status", {
 				type: "enum",
 				label: "Status",
+				description: "Status",
 				validation: { required: true },
 				options: ["draft", "published", "archived"],
 			}),
@@ -98,6 +105,7 @@ describe("getGeneratedPropertyFieldConfig", () => {
 		expect(
 			getGeneratedPropertyFieldConfig("genres", {
 				label: "Genres",
+				description: "Genres",
 				type: "enum-array",
 				options: ["fiction", "non-fiction", "mystery"],
 			}),
@@ -115,12 +123,14 @@ describe("getGeneratedPropertyFieldConfig", () => {
 				"metadata",
 				{
 					label: "Metadata",
+					description: "Metadata",
 					type: "object",
 					validation: { required: true },
 					properties: {
 						rating: {
 							type: "number",
 							label: "Rating",
+							description: "Rating",
 							validation: { required: true },
 						},
 					},

@@ -383,9 +383,17 @@ export async function createSingleSchemaQueryEngineFixture() {
 		name: "Device",
 		propertiesSchema: {
 			fields: {
-				year: { type: "integer", label: "Year" },
-				category: { type: "string", label: "Category" },
-				manufacturer: { type: "string", label: "Manufacturer" },
+				year: { type: "integer", label: "Year", description: "Year" },
+				category: {
+					type: "string",
+					label: "Category",
+					description: "Category",
+				},
+				manufacturer: {
+					type: "string",
+					label: "Manufacturer",
+					description: "Manufacturer",
+				},
 			},
 		},
 	});
@@ -437,9 +445,17 @@ export async function createCrossSchemaQueryEngineFixture() {
 		slug: `smartphones-${crypto.randomUUID()}`,
 		propertiesSchema: {
 			fields: {
-				year: { type: "integer", label: "Year" },
-				category: { type: "string", label: "Category" },
-				manufacturer: { type: "string", label: "Manufacturer" },
+				year: { type: "integer", label: "Year", description: "Year" },
+				category: {
+					type: "string",
+					label: "Category",
+					description: "Category",
+				},
+				manufacturer: {
+					type: "string",
+					label: "Manufacturer",
+					description: "Manufacturer",
+				},
 			},
 		},
 	});
@@ -450,10 +466,22 @@ export async function createCrossSchemaQueryEngineFixture() {
 		slug: `tablets-${crypto.randomUUID()}`,
 		propertiesSchema: {
 			fields: {
-				maker: { type: "string", label: "Maker" },
-				category: { type: "string", label: "Category" },
-				releaseYear: { type: "integer", label: "Release Year" },
-				releaseLabel: { type: "string", label: "Release Label" },
+				maker: { type: "string", label: "Maker", description: "Maker" },
+				category: {
+					type: "string",
+					label: "Category",
+					description: "Category",
+				},
+				releaseYear: {
+					type: "integer",
+					label: "Release Year",
+					description: "Release year",
+				},
+				releaseLabel: {
+					type: "string",
+					label: "Release Label",
+					description: "Release label",
+				},
 			},
 		},
 	});
