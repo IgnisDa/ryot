@@ -174,12 +174,14 @@ export const createEventsForUser = (
 	deps: CreateEventsCoreDependencies,
 	input: {
 		readonly userId: string;
+		readonly importRunId?: string;
+		readonly integrationId?: string;
 		readonly origin: EventCreateOrigin;
 		readonly payload: ReadonlyArray<CreateEventItem>;
 	},
 ): Effect.Effect<{ count: number }, BadRequest | NotFound | DbError> =>
 	Effect.gen(function* () {
-		const { userId, origin, payload } = input;
+		const { userId, origin, payload, importRunId, integrationId } = input;
 		const createdEvents: CreatedEventWithContext[] = [];
 
 		for (const item of payload) {
@@ -223,9 +225,6 @@ export const createEventsForUser = (
 
 			let skipped = false;
 			for (const trigger of beforeTriggers) {
-				// TODO(Task 26/27): (effect-migration) when "import"/"integration" origins are wired, thread the legacy
-				// EventWriteContext fields (importRunId, integrationId) into this trigger context —
-				// the integration-progress-policy script reads `trigger.integrationId`.
 				const triggerContext = {
 					trigger: {
 						userId,
@@ -237,7 +236,9 @@ export const createEventsForUser = (
 						sessionEntityId: rawSessionEntityId,
 						eventSchemaSlug: eventSchemaScope.slug,
 						occurredAt: rawOccurredAt.toISOString(),
+						...(importRunId ? { importRunId } : {}),
 						entitySchemaId: entityScope.entitySchemaId,
+						...(integrationId ? { integrationId } : {}),
 						entitySchemaSlug: entityScope.entitySchemaSlug,
 					},
 				};

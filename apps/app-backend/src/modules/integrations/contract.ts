@@ -2,32 +2,15 @@ import { HttpApiEndpoint, HttpApiGroup, HttpApiSchema } from "@effect/platform";
 import { Schema } from "effect";
 
 import { AuthMiddleware } from "~/lib/auth";
-import { NotFound, NotImplemented, RateLimited, Unauthorized } from "~/lib/errors";
+import { BadRequest, NotFound, NotImplemented, RateLimited, Unauthorized } from "~/lib/errors";
 import { ListedImportRun } from "~/modules/imports/schemas";
 
-import { CreateIntegrationBody, UpdateIntegrationBody } from "./schemas";
-import { integrationLots, type IntegrationLot as IntegrationLotType } from "./types";
-
-export const IntegrationLot = Schema.Literal(...integrationLots);
-
-export type IntegrationLot = IntegrationLotType;
-
-export const ListedIntegration = Schema.Struct({
-	id: Schema.String,
-	lot: IntegrationLot,
-	provider: Schema.String,
-	createdAt: Schema.String,
-	updatedAt: Schema.String,
-	isDisabled: Schema.Boolean,
-	syncOwnership: Schema.Boolean,
-	extraSettings: Schema.Unknown,
-	minimumProgress: Schema.Number,
-	maximumProgress: Schema.Number,
-	providerSpecifics: Schema.Unknown,
-	name: Schema.optional(Schema.String),
-	webhookUrl: Schema.optional(Schema.String),
-	lastFinishedAt: Schema.optional(Schema.String),
-});
+import {
+	CreateIntegrationBody,
+	IntegrationProvider,
+	ListedIntegration,
+	UpdateIntegrationBody,
+} from "./schemas";
 
 const integrationIdParam = HttpApiSchema.param("integrationId", Schema.String);
 
@@ -38,7 +21,7 @@ export const IntegrationsGroup = HttpApiGroup.make("integrations")
 		HttpApiEndpoint.get("list", "/integrations")
 			.setUrlParams(
 				Schema.Struct({
-					provider: Schema.optional(Schema.String),
+					provider: Schema.optional(IntegrationProvider),
 					isDisabled: Schema.optional(Schema.BooleanFromString),
 				}),
 			)
@@ -47,6 +30,7 @@ export const IntegrationsGroup = HttpApiGroup.make("integrations")
 	.add(
 		HttpApiEndpoint.post("create", "/integrations")
 			.setPayload(CreateIntegrationBody)
+			.addError(BadRequest, { status: 400 })
 			.addSuccess(Schema.Struct({ id: Schema.String }), { status: 201 }),
 	)
 	.add(
@@ -58,6 +42,7 @@ export const IntegrationsGroup = HttpApiGroup.make("integrations")
 		HttpApiEndpoint.patch("update")`/integrations/${integrationIdParam}`
 			.setPayload(UpdateIntegrationBody)
 			.addSuccess(ListedIntegration)
+			.addError(BadRequest, { status: 400 })
 			.addError(NotFound, { status: 404 }),
 	)
 	.add(
@@ -73,7 +58,9 @@ export const IntegrationsGroup = HttpApiGroup.make("integrations")
 	.middlewareEndpoints(AuthMiddleware)
 	.add(
 		HttpApiEndpoint.post("webhook")`/webhooks/integrations/${integrationIdParam}`
+			.setPayload(Schema.Unknown)
 			.addSuccess(Schema.Struct({ runId: Schema.String }), { status: 202 })
+			.addError(BadRequest, { status: 400 })
 			.addError(NotFound, { status: 404 }),
 	)
 	.addError(NotImplemented, { status: 501 });

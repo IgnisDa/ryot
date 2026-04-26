@@ -17,6 +17,11 @@ import type { DisplayConfiguration, SavedViewQueryDefinition } from "~/lib/query
 import type { AppSchema } from "~/lib/schema";
 import type { EventTriggerMetadata } from "~/modules/events/schemas";
 import type { ImportRunFailureStage, ImportRunStatus } from "~/modules/imports/types";
+import type {
+	IntegrationExtraSettings,
+	IntegrationProvider,
+	IntegrationProviderSpecifics,
+} from "~/modules/integrations/schemas";
 import type { IntegrationLot } from "~/modules/integrations/types";
 
 import { user } from "./auth";
@@ -400,17 +405,15 @@ export const integration = pgTable(
 	"integration",
 	{
 		name: text(),
-		provider: text().notNull(),
 		lot: text().notNull().$type<IntegrationLot>(),
 		isDisabled: boolean().notNull().default(false),
+		provider: text().$type<IntegrationProvider>().notNull(),
 		syncOwnership: boolean().notNull().default(false),
 		minimumProgress: numeric().notNull().default("2"),
 		maximumProgress: numeric().notNull().default("95"),
 		lastFinishedAt: timestamp({ withTimezone: true }),
-		// TODO(effect-migration): restore concrete integration settings/provider types
-		// when the integration module ports them into app-backend.
-		extraSettings: jsonb().$type<Record<string, unknown>>().notNull(),
-		providerSpecifics: jsonb().$type<Record<string, unknown>>().notNull(),
+		extraSettings: jsonb().$type<IntegrationExtraSettings>().notNull(),
+		providerSpecifics: jsonb().$type<IntegrationProviderSpecifics>().notNull(),
 		createdAt: timestamp({ withTimezone: true }).defaultNow().notNull(),
 		userId: text()
 			.notNull()

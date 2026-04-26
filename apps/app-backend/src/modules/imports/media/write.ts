@@ -18,6 +18,7 @@ export const writeMediaEntityGroups = (input: {
 	entityGroups: ImportMediaEntityGroup[];
 	entityIdsByKey: ReadonlyMap<string, string>;
 	onProgress: (processed: number) => Effect.Effect<void, DbError>;
+	eventContext?: { origin: "import" | "integration"; integrationId?: string };
 }) =>
 	Effect.gen(function* () {
 		const runWithDb = yield* DbRunner;
@@ -141,16 +142,24 @@ export const writeMediaEntityGroups = (input: {
 					eventSchemaCache.set(schemaKey, eventSchema);
 				}
 
-				const created = yield* events
-					.createForImport(input.userId, [
-						{
-							entityId,
-							occurredAt: ev.occurredAt,
-							properties: ev.properties,
-							eventSchemaId: eventSchema.id,
-						},
-					])
-					.pipe(Effect.either);
+				const eventPayload = [
+					{
+						entityId,
+						occurredAt: ev.occurredAt,
+						properties: ev.properties,
+						eventSchemaId: eventSchema.id,
+					},
+				];
+				const created = yield* (
+					input.eventContext?.origin === "integration" && input.eventContext.integrationId
+						? events.createForIntegration({
+								userId: input.userId,
+								payload: eventPayload,
+								importRunId: input.runId,
+								integrationId: input.eventContext.integrationId,
+							})
+						: events.createForImport(input.userId, eventPayload, input.runId)
+				).pipe(Effect.either);
 				if (Either.isLeft(created)) {
 					groupFailed = true;
 					yield* recordImportRunFailure({

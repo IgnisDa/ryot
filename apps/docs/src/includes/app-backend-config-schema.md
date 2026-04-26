@@ -52,6 +52,7 @@
 
 | Variable | Description | Required | Default |
 |---|---|---|---|
+| `SCHEDULER_FREQUENT_CRON_JOBS_SCHEDULE` | Interval phrase used to poll enabled yank integrations | No | `every 5 minutes` |
 | `SERVER_PROGRESS_UPDATE_THRESHOLD` | Minimum hours between automatic progress updates for an entity | No | `2` |
 
 ### S3-compatible file storage
