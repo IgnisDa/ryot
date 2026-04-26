@@ -14,7 +14,7 @@ import { AppConfig, type AppConfigValue, isOidcEnabled } from "./config";
 import type { DbRoot, TransactionRunner } from "./db";
 import { DbService, schema } from "./db";
 import { rateLimited, RateLimited, unauthorized, Unauthorized } from "./errors";
-import { RedisService } from "./redis";
+import { redisKeys, RedisService } from "./redis";
 
 export type CurrentUserValue = {
 	readonly id: string;
@@ -88,6 +88,27 @@ const makeAuthInstance = (args: {
 			autoSignIn: false,
 			revokeSessionsOnPasswordReset: true,
 			disableSignUp: !args.config.users.allowRegistration || args.config.users.disableLocalAuth,
+			// @effect-diagnostics-next-line asyncFunction:off
+			sendResetPassword: async ({ user, token }) => {
+				try {
+					const pendingKey = redisKeys.godModePendingReset(user.email);
+					const correlationId = await args.redis.get(pendingKey);
+					if (!correlationId) {
+						return;
+					}
+					const resetUrl = `${args.config.frontendUrl}/reset-password?token=${token}`;
+					const channel = redisKeys.godModeResetChannel(correlationId);
+					await args.redis.publish(channel, JSON.stringify({ email: user.email, resetUrl }));
+					await args.redis.eval(
+						"if redis.call('get', KEYS[1]) == ARGV[1] then return redis.call('del', KEYS[1]) else return 0 end",
+						1,
+						pendingKey,
+						correlationId,
+					);
+				} catch (error) {
+					console.error("[auth] sendResetPassword publish failed", user.email, error);
+				}
+			},
 		},
 		databaseHooks: {
 			session: {

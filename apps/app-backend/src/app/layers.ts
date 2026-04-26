@@ -21,6 +21,7 @@ import { EventSchemasRepository } from "~/modules/event-schemas/repository";
 import { EventSchemasService } from "~/modules/event-schemas/service";
 import { EventsRepository } from "~/modules/events/repository";
 import { EventsService } from "~/modules/events/service";
+import { GodModeService } from "~/modules/god-mode/service";
 import { IntegrationsRepository } from "~/modules/integrations/repository";
 import { QueryEngineService } from "~/modules/query-engine/service";
 import { RelationshipSchemasRepository } from "~/modules/relationship-schemas/repository";
@@ -74,6 +75,7 @@ const ServicesLive = Layer.mergeAll(
 	EntitySchemasService.Default,
 	EventSchemasService.Default,
 	EventsService.Default,
+	GodModeService.Default,
 	QueryEngineService.Default,
 	RelationshipSchemasService.Default,
 	SavedViewsService.Default,

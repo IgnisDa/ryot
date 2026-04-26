@@ -13,6 +13,12 @@ const ADMIN_TOKEN = "test-admin-token";
 const ADMIN_ACCESS_TOKEN_HEADER = "Admin-Access-Token";
 
 const adminAccessTokenHeaders = (token: string) => ({ [ADMIN_ACCESS_TOKEN_HEADER]: token });
+const godModeListQuery = (search?: string) => ({
+	limit: 50,
+	offset: 0,
+	...(search ? { search } : {}),
+});
+const trackersListQuery = { includeDisabled: false };
 
 async function getUserIdByEmail(email: string) {
 	const result = await getPgClient().query<{ id: string }>(
@@ -78,13 +84,16 @@ async function createOidcUser(name: string) {
 describe("God-mode admin token enforcement", () => {
 	it("rejects user listing without auth header", async () => {
 		const client = getBackendClient();
-		const { response } = await client.GET("/god-mode/users");
+		const { response } = await client["god-mode"].listUsers({
+			params: { query: godModeListQuery() },
+		});
 		expect(response.status).toBe(401);
 	});
 
 	it("rejects user listing with wrong admin token", async () => {
 		const client = getBackendClient();
-		const { response } = await client.GET("/god-mode/users", {
+		const { response } = await client["god-mode"].listUsers({
+			params: { query: godModeListQuery() },
 			headers: adminAccessTokenHeaders(WRONG_TOKEN),
 		});
 		expect(response.status).toBe(401);
@@ -92,7 +101,7 @@ describe("God-mode admin token enforcement", () => {
 
 	it("rejects reset generation without auth header", async () => {
 		const client = getBackendClient();
-		const { response } = await client.POST("/god-mode/users/{userId}/reset-password", {
+		const { response } = await client["god-mode"].resetUserPassword({
 			params: { path: { userId: "any-id" } },
 		});
 		expect(response.status).toBe(401);
@@ -100,7 +109,7 @@ describe("God-mode admin token enforcement", () => {
 
 	it("rejects reset generation with wrong admin token", async () => {
 		const client = getBackendClient();
-		const { response } = await client.POST("/god-mode/users/{userId}/reset-password", {
+		const { response } = await client["god-mode"].resetUserPassword({
 			params: { path: { userId: "any-id" } },
 			headers: adminAccessTokenHeaders(WRONG_TOKEN),
 		});
@@ -109,7 +118,7 @@ describe("God-mode admin token enforcement", () => {
 
 	it("rejects ban set without auth header", async () => {
 		const client = getBackendClient();
-		const { response } = await client.POST("/god-mode/users/{userId}/ban/set", {
+		const { response } = await client["god-mode"].setUserBan({
 			body: { banned: true },
 			params: { path: { userId: "any-id" } },
 		});
@@ -118,7 +127,7 @@ describe("God-mode admin token enforcement", () => {
 
 	it("rejects ban set with wrong admin token", async () => {
 		const client = getBackendClient();
-		const { response } = await client.POST("/god-mode/users/{userId}/ban/set", {
+		const { response } = await client["god-mode"].setUserBan({
 			body: { banned: true },
 			params: { path: { userId: "any-id" } },
 			headers: adminAccessTokenHeaders(WRONG_TOKEN),
@@ -132,12 +141,12 @@ describe("User listing with correct admin token", () => {
 		const client = getBackendClient();
 		const { email } = await createNoAccountUser("NoneUser");
 
-		const { data, response } = await client.GET("/god-mode/users", {
-			params: { query: { search: email } },
+		const { data, response } = await client["god-mode"].listUsers({
+			params: { query: godModeListQuery(email) },
 			headers: adminAccessTokenHeaders(ADMIN_TOKEN),
 		});
 		expect(response.status).toBe(200);
-		const user = data?.data.users[0];
+		const user = data?.users[0];
 		expect(user?.authState).toBe("none");
 		expect(user?.email).toBe(email);
 	});
@@ -146,25 +155,25 @@ describe("User listing with correct admin token", () => {
 		const client = getBackendClient();
 		const { email } = await createOidcUser("ListOidcUser");
 
-		const { data, response } = await client.GET("/god-mode/users", {
-			params: { query: { search: email } },
+		const { data, response } = await client["god-mode"].listUsers({
+			params: { query: godModeListQuery(email) },
 			headers: adminAccessTokenHeaders(ADMIN_TOKEN),
 		});
 		expect(response.status).toBe(200);
-		expect(data?.data.users[0]?.authState).toBe("oidc");
+		expect(data?.users[0]?.authState).toBe("oidc");
 	});
 
 	it("classifies credential users as 'credential'", async () => {
 		const client = getBackendClient();
 		const { email } = await createTestUser();
 
-		const { data, response } = await client.GET("/god-mode/users", {
-			params: { query: { search: email } },
+		const { data, response } = await client["god-mode"].listUsers({
+			params: { query: godModeListQuery(email) },
 			headers: adminAccessTokenHeaders(ADMIN_TOKEN),
 		});
 		expect(response.status).toBe(200);
-		expect(data?.data.users[0]?.authState).toBe("credential");
-		expect(data?.data.users[0]?.bannedAt).toBeNull();
+		expect(data?.users[0]?.authState).toBe("credential");
+		expect(data?.users[0]?.bannedAt).toBeNull();
 	});
 
 	it("classifies mixed auth users as 'mixed'", async () => {
@@ -187,12 +196,12 @@ describe("User listing with correct admin token", () => {
 			[randomUUID(), `oidc-sub-${dayjs().valueOf()}`, userId],
 		);
 
-		const { data, response } = await client.GET("/god-mode/users", {
-			params: { query: { search: email } },
+		const { data, response } = await client["god-mode"].listUsers({
+			params: { query: godModeListQuery(email) },
 			headers: adminAccessTokenHeaders(ADMIN_TOKEN),
 		});
 		expect(response.status).toBe(200);
-		expect(data?.data.users[0]?.authState).toBe("mixed");
+		expect(data?.users[0]?.authState).toBe("mixed");
 	});
 });
 
@@ -203,40 +212,41 @@ describe("God-mode ban set", () => {
 		const userId = await getUserIdByEmail(email);
 		const apiKey = await createApiKey(cookies);
 
-		const { response: sessionBefore } = await client.GET("/trackers", {
+		const { response: sessionBefore } = await client.trackers.list({
+			params: { query: trackersListQuery },
 			headers: { Cookie: cookies },
 		});
 		expect(sessionBefore.status).toBe(200);
 
-		const { response: apiKeyBefore } = await client.GET("/trackers", {
+		const { response: apiKeyBefore } = await client.trackers.list({
+			params: { query: trackersListQuery },
 			headers: { "X-Api-Key": apiKey },
 		});
 		expect(apiKeyBefore.status).toBe(200);
 
-		const { data: banData, response: banResponse } = await client.POST(
-			"/god-mode/users/{userId}/ban/set",
-			{
-				body: { banned: true },
-				params: { path: { userId } },
-				headers: adminAccessTokenHeaders(ADMIN_TOKEN),
-			},
-		);
+		const { data: banData, response: banResponse } = await client["god-mode"].setUserBan({
+			body: { banned: true },
+			params: { path: { userId } },
+			headers: adminAccessTokenHeaders(ADMIN_TOKEN),
+		});
 		expect(banResponse.status).toBe(200);
-		expect(banData?.data.bannedAt).toBeString();
+		expect(typeof banData?.bannedAt).toBe("string");
 
-		const { data: listData, response: listResponse } = await client.GET("/god-mode/users", {
-			params: { query: { search: email } },
+		const { data: listData, response: listResponse } = await client["god-mode"].listUsers({
+			params: { query: godModeListQuery(email) },
 			headers: adminAccessTokenHeaders(ADMIN_TOKEN),
 		});
 		expect(listResponse.status).toBe(200);
-		expect(listData?.data.users[0]?.bannedAt).toBe(banData?.data.bannedAt);
+		expect(listData?.users[0]?.bannedAt).toBe(banData?.bannedAt);
 
-		const { response: revokedSession } = await client.GET("/trackers", {
+		const { response: revokedSession } = await client.trackers.list({
+			params: { query: trackersListQuery },
 			headers: { Cookie: cookies },
 		});
 		expect(revokedSession.status).toBe(401);
 
-		const { response: blockedApiKey } = await client.GET("/trackers", {
+		const { response: blockedApiKey } = await client.trackers.list({
+			params: { query: trackersListQuery },
 			headers: { "X-Api-Key": apiKey },
 		});
 		expect(blockedApiKey.status).toBe(401);
@@ -244,16 +254,13 @@ describe("God-mode ban set", () => {
 		const blockedSignIn = await signInWithPassword(email, password);
 		expect(blockedSignIn.status).toBe(403);
 
-		const { data: enableData, response: enableResponse } = await client.POST(
-			"/god-mode/users/{userId}/ban/set",
-			{
-				body: { banned: false },
-				params: { path: { userId } },
-				headers: adminAccessTokenHeaders(ADMIN_TOKEN),
-			},
-		);
+		const { data: enableData, response: enableResponse } = await client["god-mode"].setUserBan({
+			body: { banned: false },
+			params: { path: { userId } },
+			headers: adminAccessTokenHeaders(ADMIN_TOKEN),
+		});
 		expect(enableResponse.status).toBe(200);
-		expect(enableData?.data.bannedAt).toBeNull();
+		expect(enableData?.bannedAt).toBeNull();
 
 		const restoredSignIn = await signInWithPassword(email, password);
 		expect(restoredSignIn.ok).toBe(true);
@@ -267,21 +274,20 @@ describe("Reset link generation and completion for credential user", () => {
 
 		const userId = await getUserIdByEmail(email);
 
-		const { data: resetData, response: resetResponse } = await client.POST(
-			"/god-mode/users/{userId}/reset-password",
+		const { data: resetData, response: resetResponse } = await client["god-mode"].resetUserPassword(
 			{
 				params: { path: { userId } },
 				headers: adminAccessTokenHeaders(ADMIN_TOKEN),
 			},
 		);
 		expect(resetResponse.status).toBe(200);
-		expect(resetData?.data).toBeDefined();
-		expect(resetData?.data.email).toBe(email);
-		expect(resetData?.data.resetUrl).toBeString();
-		expect(resetData?.data.resetUrl).toMatch(/\/reset-password\?token=.+/);
+		expect(resetData).toBeDefined();
+		expect(resetData?.email).toBe(email);
+		expect(typeof resetData?.resetUrl).toBe("string");
+		expect(resetData?.resetUrl).toMatch(/\/reset-password\?token=.+/);
 
-		const token = new URL(resetData?.data.resetUrl ?? "").searchParams.get("token");
-		expect(token).toBeString();
+		const token = new URL(resetData?.resetUrl ?? "").searchParams.get("token");
+		expect(typeof token).toBe("string");
 		if (!token) {
 			throw new Error("missing token");
 		}
@@ -303,7 +309,8 @@ describe("Reset link generation and completion for credential user", () => {
 		const cookies = cookieHeaderFromSetCookies(
 			requireNonEmptyArray(setCookies, "Expected session cookies after sign-in"),
 		);
-		const { response: trackersRes } = await client.GET("/trackers", {
+		const { response: trackersRes } = await client.trackers.list({
+			params: { query: trackersListQuery },
 			headers: { Cookie: cookies },
 		});
 		expect(trackersRes.status).toBe(200);
@@ -313,23 +320,23 @@ describe("Reset link generation and completion for credential user", () => {
 		const client = getBackendClient();
 		const { cookies, email } = await createTestUser();
 
-		const { response: trackersBefore } = await client.GET("/trackers", {
+		const { response: trackersBefore } = await client.trackers.list({
+			params: { query: trackersListQuery },
 			headers: { Cookie: cookies },
 		});
 		expect(trackersBefore.status).toBe(200);
 
 		const userId = await getUserIdByEmail(email);
 
-		const { data: resetData, response: resetResponse } = await client.POST(
-			"/god-mode/users/{userId}/reset-password",
+		const { data: resetData, response: resetResponse } = await client["god-mode"].resetUserPassword(
 			{
 				params: { path: { userId } },
 				headers: adminAccessTokenHeaders(ADMIN_TOKEN),
 			},
 		);
 		expect(resetResponse.status).toBe(200);
-		const token = new URL(resetData?.data.resetUrl ?? "").searchParams.get("token");
-		expect(token).toBeString();
+		const token = new URL(resetData?.resetUrl ?? "").searchParams.get("token");
+		expect(typeof token).toBe("string");
 		if (!token) {
 			throw new Error("missing token");
 		}
@@ -341,7 +348,8 @@ describe("Reset link generation and completion for credential user", () => {
 		});
 		expect(resetError).toBeNull();
 
-		const { response: oldSessionRes } = await client.GET("/trackers", {
+		const { response: oldSessionRes } = await client.trackers.list({
+			params: { query: trackersListQuery },
 			headers: { Cookie: cookies },
 		});
 		expect(oldSessionRes.status).toBe(401);
@@ -353,7 +361,8 @@ describe("Reset link generation and completion for credential user", () => {
 		const newCookies = cookieHeaderFromSetCookies(
 			requireNonEmptyArray(newSetCookies, "Expected session cookies after re-sign-in"),
 		);
-		const { response: newSessionRes } = await client.GET("/trackers", {
+		const { response: newSessionRes } = await client.trackers.list({
+			params: { query: trackersListQuery },
 			headers: { Cookie: newCookies },
 		});
 		expect(newSessionRes.status).toBe(200);
@@ -365,17 +374,16 @@ describe("Reset link generation and completion for no-account user", () => {
 		const client = getBackendClient();
 		const { email, userId } = await createNoAccountUser("NoneReset");
 
-		const { data: resetData, response: resetResponse } = await client.POST(
-			"/god-mode/users/{userId}/reset-password",
+		const { data: resetData, response: resetResponse } = await client["god-mode"].resetUserPassword(
 			{
 				params: { path: { userId } },
 				headers: adminAccessTokenHeaders(ADMIN_TOKEN),
 			},
 		);
 		expect(resetResponse.status).toBe(200);
-		expect(resetData?.data.email).toBe(email);
-		const token = new URL(resetData?.data.resetUrl ?? "").searchParams.get("token");
-		expect(token).toBeString();
+		expect(resetData?.email).toBe(email);
+		const token = new URL(resetData?.resetUrl ?? "").searchParams.get("token");
+		expect(typeof token).toBe("string");
 		if (!token) {
 			throw new Error("missing token");
 		}
@@ -403,7 +411,7 @@ describe("OIDC user restrictions", () => {
 		const client = getBackendClient();
 		const { userId } = await createOidcUser("BlockedOidc");
 
-		const { error, response } = await client.POST("/god-mode/users/{userId}/reset-password", {
+		const { error, response } = await client["god-mode"].resetUserPassword({
 			params: { path: { userId } },
 			headers: adminAccessTokenHeaders(ADMIN_TOKEN),
 		});
@@ -425,7 +433,7 @@ describe("Mixed auth user restrictions", () => {
 			[randomUUID(), `oidc-sub-${dayjs().valueOf()}`, userId],
 		);
 
-		const { error, response } = await client.POST("/god-mode/users/{userId}/reset-password", {
+		const { error, response } = await client["god-mode"].resetUserPassword({
 			params: { path: { userId } },
 			headers: adminAccessTokenHeaders(ADMIN_TOKEN),
 		});
