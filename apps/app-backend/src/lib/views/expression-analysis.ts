@@ -74,6 +74,7 @@ const createLiteralTypeInfo = (
 export const normalizeExpressionPropertyType = (propertyType: PropertyType) => {
 	return match(propertyType)
 		.with("datetime", () => "date" as const)
+		.with("enum-array", () => "array" as const)
 		.otherwise((value) => value);
 };
 

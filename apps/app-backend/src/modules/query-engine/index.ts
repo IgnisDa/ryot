@@ -4,10 +4,7 @@ export {
 	prepareForValidation,
 	prepareSavedView,
 } from "./preparer";
-export type {
-	QueryEnginePreparedEventJoin,
-	QueryEngineSchemaRow,
-} from "./query-builder";
+export type { QueryEngineSchemaRow } from "./query-builder";
 export {
 	calculatePagination,
 	executePreparedQuery,
