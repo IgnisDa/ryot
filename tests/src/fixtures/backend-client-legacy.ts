@@ -72,14 +72,6 @@ type LegacyCapableBackendClient = {
 	"query-engine": {
 		execute: RouteMethod;
 	};
-	"saved-views": {
-		clone: RouteMethod;
-		create: RouteMethod;
-		delete: RouteMethod;
-		get: RouteMethod;
-		reorder: RouteMethod;
-		update: RouteMethod;
-	};
 	sandbox: {
 		enqueue: RouteMethod;
 		getResult: RouteMethod;
@@ -127,8 +119,9 @@ const toLegacyResponse = async (path: string, response: LegacyResponse): LegacyR
 	};
 };
 
-// TODO(Task 22): Remove these legacy path-string test client methods once the
+// TODO(Task 22/23): Remove these legacy path-string test client methods once the
 // remaining tests call the contract client methods directly.
+// Saved-views entries were removed as part of Task 23.
 const getHandlers: Record<string, LegacyRouteHandler> = {
 	"/entity-schemas/{entitySchemaId}": (client, request) =>
 		client["entity-schemas"].get(request as never),
@@ -145,7 +138,6 @@ const getHandlers: Record<string, LegacyRouteHandler> = {
 	"/integrations/{integrationId}/runs": (client, request) =>
 		client.integrations.getRuns(request as never),
 	"/sandbox/result/{jobId}": (client, request) => client.sandbox.getResult(request as never),
-	"/saved-views/{viewSlug}": (client, request) => client["saved-views"].get(request as never),
 	"/system/config": (client, request) => client.system.config(request as never),
 	"/trackers": (client, request) => client.trackers.list(request as never),
 };
@@ -169,10 +161,6 @@ const postHandlers: Record<string, LegacyRouteHandler> = {
 	"/integrations": (client, request) => client.integrations.create(request as never),
 	"/query-engine/execute": (client, request) => client["query-engine"].execute(request as never),
 	"/sandbox/enqueue": (client, request) => client.sandbox.enqueue(request as never),
-	"/saved-views": (client, request) => client["saved-views"].create(request as never),
-	"/saved-views/{viewSlug}/clone": (client, request) =>
-		client["saved-views"].clone(request as never),
-	"/saved-views/reorder": (client, request) => client["saved-views"].reorder(request as never),
 	"/uploads/presigned": (client, request) => client.uploads.createPresigned(request as never),
 	"/uploads/presigned/download": (client, request) =>
 		client.uploads.createPresignedDownload(request as never),
@@ -183,9 +171,7 @@ const patchHandlers: Record<string, LegacyRouteHandler> = {
 		client.integrations.update(request as never),
 };
 
-const putHandlers: Record<string, LegacyRouteHandler> = {
-	"/saved-views/{viewSlug}": (client, request) => client["saved-views"].update(request as never),
-};
+const putHandlers: Record<string, LegacyRouteHandler> = {};
 
 const deleteHandlers: Record<string, LegacyRouteHandler> = {
 	"/collections/memberships": (client, request) =>
@@ -193,7 +179,6 @@ const deleteHandlers: Record<string, LegacyRouteHandler> = {
 	"/entities/{entityId}/user-state": (client, request) =>
 		client.entities.clearUserState(request as never),
 	"/imports/runs/{runId}": (client, request) => client.imports.deleteRun(request as never),
-	"/saved-views/{viewSlug}": (client, request) => client["saved-views"].delete(request as never),
 };
 
 export function withLegacyBackendClientMethods<T extends LegacyCapableBackendClient>(
