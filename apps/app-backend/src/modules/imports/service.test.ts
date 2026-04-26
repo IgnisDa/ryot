@@ -114,6 +114,7 @@ const makeServiceLayer = (
 		Layer.succeed(WorkflowEngine, makeWorkflowEngine()),
 	),
 	pinning = importWorkflowPinningLayer,
+	redis = makeRedisService(),
 ) =>
 	ImportsService.layer.pipe(
 		Layer.provideMerge(
@@ -122,7 +123,7 @@ const makeServiceLayer = (
 				databaseLayer,
 				makeAppConfigLayer(),
 				pinning,
-				Layer.succeed(RedisService, makeRedisService()),
+				Layer.succeed(RedisService, redis),
 				makeImportRunFailuresService(),
 				dependencies,
 				repository,
@@ -522,5 +523,56 @@ it.effect("queues a payload run when the registry declares the source as payload
 			},
 		]);
 		expect(events).toEqual(["pinned", "queued"]);
+	}).pipe(Effect.provide(layer));
+});
+
+it.effect("queues payload mode for a named source when every optional upload is omitted", () => {
+	const executed: unknown[] = [];
+	const source = {
+		lot: "named",
+		configSchema,
+		input: "file",
+		slug: "trakt",
+		name: "Trakt",
+		pluginSlug: "media",
+		description: "Trakt import",
+		workflowSlug: "trakt-import",
+		requiredPluginConfigKeys: [],
+		artifacts: [
+			{
+				required: false,
+				key: "exportFilePath",
+				allowedFileExtensions: ["zip"],
+				uploadTokenField: "exportUploadToken",
+			},
+		],
+	} satisfies RegisteredImportSource;
+	const layer = makeServiceLayer(
+		makeImportsRepository(),
+		Layer.mergeAll(
+			makeImportSourceCatalog(source),
+			mockUploadsService({ claimTemporaryUpload: () => Effect.die("upload must not be claimed") }),
+			Layer.succeed(
+				WorkflowEngine,
+				makeWorkflowEngine({
+					execute: (_workflow, options) =>
+						Effect.sync(() => {
+							executed.push(options);
+						}),
+				}),
+			),
+		),
+		importWorkflowPinningLayer,
+		makeRedisService({ set: () => Effect.void }),
+	);
+
+	return Effect.gen(function* () {
+		const service = yield* ImportsService;
+		expect(
+			yield* service.startImportRun(user, { source: "trakt", mode: "user", username: "alice" }),
+		).toEqual({ id: "run-1" });
+		expect(executed[0]).toMatchObject({
+			payload: { source: "trakt", sourcePayloadKey: "run-1" },
+		});
 	}).pipe(Effect.provide(layer));
 });
