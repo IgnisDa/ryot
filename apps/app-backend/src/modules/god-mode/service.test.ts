@@ -118,14 +118,20 @@ const transactionLayer = Layer.succeed(
 		Effect.provideService(effect, CurrentDb, makeBootstrapDb()),
 );
 
-const makeServiceLayer = (db: object): Layer.Layer<GodModeService> =>
+const makeServiceLayer = (db: object, disableLocalAuth = false): Layer.Layer<GodModeService> =>
 	GodModeService.Default.pipe(
 		Layer.provide(
 			Layer.mergeAll(
 				makeDbRunnerLayer(db),
 				makeDbServiceLayer(db),
 				transactionLayer,
-				Layer.succeed(AppConfig, Object.assign(Object.create(null), appConfig)),
+				Layer.succeed(
+					AppConfig,
+					Object.assign(Object.create(null), {
+						...appConfig,
+						users: { ...appConfig.users, disableLocalAuth },
+					}),
+				),
 				Layer.succeed(AuthService, makeAuthMock()),
 				Layer.succeed(RedisService, makeRedisMock()),
 			),
@@ -308,30 +314,36 @@ describe("classifyAuthState", () => {
 
 describe("checkResetEligibility", () => {
 	vitestIt("allows credential users to reset", () => {
-		expect(checkResetEligibility("credential", false)).toBeNull();
+		expect(checkResetEligibility("credential")).toBeNull();
 	});
 
 	vitestIt("allows users with no accounts to reset", () => {
-		expect(checkResetEligibility("none", false)).toBeNull();
+		expect(checkResetEligibility("none")).toBeNull();
 	});
 
 	vitestIt("blocks oidc users from reset", () => {
-		expect(checkResetEligibility("oidc", false)).toBe(
+		expect(checkResetEligibility("oidc")).toBe(
 			"Cannot generate reset link for user with auth state 'oidc'. Only 'credential' and 'none' users are eligible.",
 		);
 	});
 
 	vitestIt("blocks mixed users from reset", () => {
-		expect(checkResetEligibility("mixed", false)).toBe(
+		expect(checkResetEligibility("mixed")).toBe(
 			"Cannot generate reset link for user with auth state 'mixed'. Only 'credential' and 'none' users are eligible.",
 		);
 	});
+});
 
-	vitestIt("blocks resets when local auth is disabled", () => {
-		expect(checkResetEligibility("credential", true)).toBe(
-			"Local authentication is disabled on this instance",
+it.effect("blocks password reset when local auth is disabled", () => {
+	const { db } = makeListUsersDb({ total: 0, users: [], accounts: [] });
+
+	return Effect.gen(function* () {
+		const service = yield* GodModeService;
+		const exit = yield* Effect.exit(service.resetUserPassword("user_1"));
+		expect(exit).toEqual(
+			Exit.fail(new BadRequest({ message: "Local authentication is disabled on this instance" })),
 		);
-	});
+	}).pipe(Effect.provide(makeServiceLayer(db, true)));
 });
 
 it.effect("returns users with total count and auth states", () => {

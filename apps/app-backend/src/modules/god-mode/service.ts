@@ -1,5 +1,5 @@
 import { asc, eq, ilike, inArray, sql } from "drizzle-orm";
-import { DateTime, Effect } from "effect";
+import { DateTime, Effect, Either } from "effect";
 
 import { AuthService } from "~/lib/auth";
 import { bootstrapNewUser, defaultUserPreferences } from "~/lib/builtins/bootstrap";
@@ -7,6 +7,8 @@ import { AppConfig } from "~/lib/config";
 import { CurrentDb, DbRunner, dbEffect, schema } from "~/lib/db";
 import { badRequest, internalError } from "~/lib/errors";
 import { redisKeys, RedisService } from "~/lib/redis";
+
+import type { ProvisionUserBody } from "./contract";
 
 const RESET_LINK_TIMEOUT_MS = 10_000;
 
@@ -25,14 +27,7 @@ export const classifyAuthState = (accounts: ReadonlyArray<{ providerId: string }
 	return "none" as const;
 };
 
-export const checkResetEligibility = (
-	authState: ReturnType<typeof classifyAuthState>,
-	disableLocalAuth: boolean,
-) => {
-	if (disableLocalAuth) {
-		return "Local authentication is disabled on this instance";
-	}
-
+export const checkResetEligibility = (authState: ReturnType<typeof classifyAuthState>) => {
 	if (authState !== "credential" && authState !== "none") {
 		return `Cannot generate reset link for user with auth state '${authState}'. Only 'credential' and 'none' users are eligible.`;
 	}
@@ -41,19 +36,19 @@ export const checkResetEligibility = (
 };
 
 const parseResetLinkMessage = (message: string) => {
-	try {
-		const parsed: unknown = JSON.parse(message);
-		if (parsed !== null && typeof parsed === "object") {
-			const email = Reflect.get(parsed, "email");
-			const resetUrl = Reflect.get(parsed, "resetUrl");
-			if (typeof email === "string" && typeof resetUrl === "string") {
-				return { email, resetUrl };
-			}
-		}
-		return null;
-	} catch {
+	const parsed = Either.try(() => JSON.parse(message));
+	if (Either.isLeft(parsed)) {
 		return null;
 	}
+	const value = parsed.right;
+	if (value !== null && typeof value === "object") {
+		const email = Reflect.get(value, "email");
+		const resetUrl = Reflect.get(value, "resetUrl");
+		if (typeof email === "string" && typeof resetUrl === "string") {
+			return { email, resetUrl };
+		}
+	}
+	return null;
 };
 
 const parseActiveSessionTokens = (value: string | null) => {
@@ -61,22 +56,18 @@ const parseActiveSessionTokens = (value: string | null) => {
 		return [] as Array<string>;
 	}
 
-	try {
-		const parsed: unknown = JSON.parse(value);
-		if (!Array.isArray(parsed)) {
-			return [] as Array<string>;
-		}
-
-		return parsed.flatMap((entry) => {
-			if (entry === null || typeof entry !== "object") {
-				return [];
-			}
-			const token = Reflect.get(entry, "token");
-			return typeof token === "string" ? [token] : [];
-		});
-	} catch {
+	const parsed = Either.try(() => JSON.parse(value));
+	if (Either.isLeft(parsed) || !Array.isArray(parsed.right)) {
 		return [] as Array<string>;
 	}
+
+	return parsed.right.flatMap((entry: unknown) => {
+		if (entry === null || typeof entry !== "object") {
+			return [];
+		}
+		const token = Reflect.get(entry, "token");
+		return typeof token === "string" ? [token] : [];
+	});
 };
 
 export class GodModeService extends Effect.Service<GodModeService>()("GodModeService", {
@@ -145,7 +136,7 @@ export class GodModeService extends Effect.Service<GodModeService>()("GodModeSer
 							email: u.email,
 							createdAt: u.createdAt.toISOString(),
 							bannedAt: u.bannedAt?.toISOString() ?? null,
-							twoFactorEnabled: u.twoFactorEnabled ?? undefined,
+							twoFactorEnabled: u.twoFactorEnabled ?? null,
 							authState: classifyAuthState(accountsByUser.get(u.id) ?? []),
 						}));
 
@@ -153,12 +144,7 @@ export class GodModeService extends Effect.Service<GodModeService>()("GodModeSer
 					}),
 				),
 
-			provisionUser: (input: {
-				name: string;
-				email: string;
-				oidcIssuerId?: string;
-				provider: "credential" | "oidc";
-			}) =>
+			provisionUser: (input: ProvisionUserBody) =>
 				Effect.gen(function* () {
 					const existing = yield* runWithDb(
 						Effect.gen(function* () {
@@ -193,14 +179,13 @@ export class GodModeService extends Effect.Service<GodModeService>()("GodModeSer
 								}),
 							);
 
-							const oidcIssuerId = input.oidcIssuerId;
-							if (input.provider === "oidc" && oidcIssuerId) {
+							if (input.provider === "oidc") {
 								yield* dbEffect(() =>
 									db.insert(schema.account).values({
 										userId,
 										providerId: "oidc",
 										id: crypto.randomUUID(),
-										accountId: oidcIssuerId,
+										accountId: input.oidcIssuerId,
 									}),
 								);
 							}
@@ -274,6 +259,10 @@ export class GodModeService extends Effect.Service<GodModeService>()("GodModeSer
 
 			resetUserPassword: (userId: string) =>
 				Effect.gen(function* () {
+					if (config.users.disableLocalAuth) {
+						return yield* badRequest("Local authentication is disabled on this instance");
+					}
+
 					const userData = yield* runWithDb(
 						Effect.gen(function* () {
 							const db = yield* CurrentDb;
@@ -302,7 +291,7 @@ export class GodModeService extends Effect.Service<GodModeService>()("GodModeSer
 					}
 
 					const authState = classifyAuthState(userData.accounts);
-					const eligibilityError = checkResetEligibility(authState, config.users.disableLocalAuth);
+					const eligibilityError = checkResetEligibility(authState);
 					if (eligibilityError) {
 						return yield* badRequest(eligibilityError);
 					}
