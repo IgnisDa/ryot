@@ -27,9 +27,11 @@ const options: { mode: ServerMode; label: string; subtitle: string }[] = [
 ];
 
 export default function Onboarding() {
-	const [url, setUrl] = useState("");
 	const setServerUrl = useSetAtom(serverUrlAtom);
 	const [mode, setMode] = useState<ServerMode>("cloud");
+	const [url, setUrl] = useState(
+		Platform.OS === "web" ? window.location.origin : "",
+	);
 
 	const resolvedUrl =
 		mode === "cloud" ? CLOUD_URL : url.trim().replace(/\/$/, "");
