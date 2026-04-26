@@ -4,13 +4,15 @@ import { Effect } from "effect";
 
 import {
 	createAuthenticatedClient,
-	createSavedViewWithQueryDocument,
+	buildSavedViewLayouts,
+	createSavedViewWithGridDocument,
 	findBuiltinPluginBySlug,
 	getSavedView,
 	listSavedViews,
 	rowsDocument,
 	rowsFields,
-	updateSavedViewWithQueryDocument,
+	rowsLayouts,
+	updateSavedViewWithGridDocument,
 } from "~/fixtures";
 import { assertCondition, assertPresent } from "~/support/assertions";
 import { describe, expect, it } from "~/support/effect-test";
@@ -33,7 +35,7 @@ describe("Saved views query documents E2E", () => {
 			const views = yield* listSavedViews(client, { pluginSlug: mediaPlugin.slug });
 			const allBooksView = views.find((view) => view.name === "All Books");
 
-			expect(allBooksView?.queryDocument).toMatchObject({
+			expect(allBooksView?.layouts.grid.queryDocument).toMatchObject({
 				queries: {
 					savedView: {
 						from: { alias: "entity", table: "entity" },
@@ -41,9 +43,8 @@ describe("Saved views query documents E2E", () => {
 							type: "rows",
 							pagination: { page: 1 },
 							fields: expect.arrayContaining([
-								expect.objectContaining({ key: "entityId" }),
-								expect.objectContaining({ key: "gridTitle" }),
-								expect.objectContaining({ key: "listTitle" }),
+								expect.objectContaining({ key: "itemId" }),
+								expect.objectContaining({ key: "title" }),
 							]),
 						},
 						where: {
@@ -70,47 +71,49 @@ describe("Saved views query documents E2E", () => {
 		Effect.gen(function* () {
 			const { client } = yield* createAuthenticatedClient();
 
-			const createdView = yield* createSavedViewWithQueryDocument(client, rowsDocument, {
+			const createdView = yield* createSavedViewWithGridDocument(client, rowsDocument, {
 				name: `Rows View ${crypto.randomUUID()}`,
 			});
 			const fetchedView = yield* getSavedView(client, createdView.slug);
 
-			expect(createdView.queryDocument).toEqual(rowsDocument);
-			expect(fetchedView.queryDocument).toEqual(rowsDocument);
-			expect(fetchedView.displayConfiguration.entityIdField).toBe("entityId");
-			expect(fetchedView.displayConfiguration.grid.titleField).toBe("gridTitle");
-			expect(fetchedView.displayConfiguration.list.titleField).toBe("listTitle");
-			expect(fetchedView.displayConfiguration.table.columns[0].field).toBe("tableColumn0");
+			expect(createdView.layouts).toEqual(rowsLayouts);
+			expect(fetchedView.layouts).toEqual(rowsLayouts);
+			expect(fetchedView.layouts.grid.itemIdField).toBe("itemId");
+			expect(fetchedView.layouts.grid.titleField).toBe("title");
+			expect(fetchedView.layouts.list.titleField).toBe("title");
+			expect(fetchedView.layouts.table.columns[0].field).toBe("column0");
 		}),
 	);
 
 	it.live("updates a saved view's explicit rows query document", () =>
 		Effect.gen(function* () {
 			const { client } = yield* createAuthenticatedClient();
-			const createdView = yield* createSavedViewWithQueryDocument(client, rowsDocument, {
+			const createdView = yield* createSavedViewWithGridDocument(client, rowsDocument, {
 				name: `Updatable View ${crypto.randomUUID()}`,
 			});
 
-			const updatedView = yield* updateSavedViewWithQueryDocument(
+			const updatedView = yield* updateSavedViewWithGridDocument(
 				client,
 				createdView.slug,
 				alternateRowsDocument,
 			);
 			const fetchedView = yield* getSavedView(client, createdView.slug);
 
-			expect(updatedView.queryDocument).toEqual(alternateRowsDocument);
-			expect(fetchedView.queryDocument).toEqual(alternateRowsDocument);
+			expect(updatedView.layouts.grid.queryDocument).toEqual(alternateRowsDocument);
+			expect(fetchedView.layouts.grid.queryDocument).toEqual(alternateRowsDocument);
+			expect(fetchedView.layouts.list).toEqual(rowsLayouts.list);
+			expect(fetchedView.layouts.table).toEqual(rowsLayouts.table);
 		}),
 	);
 
 	it.live("preserves explicit fields and display keys without nested results", () =>
 		Effect.gen(function* () {
 			const { client } = yield* createAuthenticatedClient();
-			const createdView = yield* createSavedViewWithQueryDocument(client, rowsDocument, {
+			const createdView = yield* createSavedViewWithGridDocument(client, rowsDocument, {
 				name: `Projected View ${crypto.randomUUID()}`,
 			});
 			const fetchedView = yield* getSavedView(client, createdView.slug);
-			const query = fetchedView.queryDocument.queries.savedView;
+			const query = fetchedView.layouts.grid.queryDocument.queries.savedView;
 			assertPresent(query, "Expected the saved-view query");
 			assertCondition(
 				query.output.type === "rows",
@@ -122,7 +125,7 @@ describe("Saved views query documents E2E", () => {
 			expect(output.include).toBeUndefined();
 			expect(output.fields.every((selection) => "key" in selection)).toBe(true);
 			expect(output.fields.map((selection) => "key" in selection && selection.key)).toEqual(
-				expect.arrayContaining(["entityId", "gridTitle", "listTitle", "tableColumn0"]),
+				expect.arrayContaining(["itemId", "title", "image"]),
 			);
 		}),
 	);
@@ -130,20 +133,17 @@ describe("Saved views query documents E2E", () => {
 	it.live("accepts an unknown entity discriminator as an empty saved view", () =>
 		Effect.gen(function* () {
 			const { client } = yield* createAuthenticatedClient();
-			const documentWithUnknownSchema = buildSavedViewDocument({
-				page: 1,
-				limit: 2,
-				entitySchemaSlugs: ["does-not-exist"],
-				fields: rowsFields,
-			});
-
-			const createdView = yield* createSavedViewWithQueryDocument(
+			const layouts = buildSavedViewLayouts({}, ["does-not-exist"]);
+			const createdView = yield* createSavedViewWithGridDocument(
 				client,
-				documentWithUnknownSchema,
-				{ name: `Unknown Entity Schema View ${crypto.randomUUID()}` },
+				layouts.grid.queryDocument,
+				{
+					layouts,
+					name: `Unknown Entity Schema View ${crypto.randomUUID()}`,
+				},
 			);
 
-			expect(createdView.queryDocument).toEqual(documentWithUnknownSchema);
+			expect(createdView.layouts).toEqual(layouts);
 		}),
 	);
 });

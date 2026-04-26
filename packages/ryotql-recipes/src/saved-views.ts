@@ -4,7 +4,10 @@ import type {
 	Predicate,
 	ScalarExpression,
 } from "@ryot/contract/modules/ryotql/language";
-import type { SavedViewDisplayConfiguration } from "@ryot/contract/modules/saved-views/schemas";
+import type {
+	SavedViewCardMapping,
+	SavedViewTableMapping,
+} from "@ryot/contract/modules/saved-views/schemas";
 import {
 	and,
 	ascending,
@@ -19,91 +22,97 @@ import {
 } from "@ryot/ryotql";
 
 type CardExpressions = {
-	[Key in keyof SavedViewDisplayConfiguration["grid"] as Key extends `${infer Name}Field`
+	[Key in keyof SavedViewCardMapping as Key extends `${infer Name}Field`
 		? Name
 		: never]: Key extends "titleField" ? ScalarExpression : ScalarExpression | null;
 };
 
-type TableColumnExpression = Omit<
-	SavedViewDisplayConfiguration["table"]["columns"][number],
-	"field"
-> & {
+type TableColumnExpression = Omit<SavedViewTableMapping["columns"][number], "field"> & {
 	readonly expression: ScalarExpression;
 };
 
-export type SavedViewProjectionInput = {
-	readonly grid: CardExpressions;
-	readonly list: CardExpressions;
-	readonly entityId: ScalarExpression;
-	readonly table: {
-		readonly image: ScalarExpression | null;
-		readonly columns: readonly [TableColumnExpression, ...TableColumnExpression[]];
-	};
+type CardProjectionInput = {
+	readonly card: CardExpressions;
+	readonly itemId: ScalarExpression;
 };
 
-const cardFields = (layout: "grid" | "list", card: CardExpressions) => {
-	const title = `${layout}Title`;
-	const image = `${layout}Image`;
-	const callout = `${layout}Callout`;
-	const overline = `${layout}Overline`;
-	const primaryMetadata = `${layout}PrimaryMetadata`;
-	const secondaryMetadata = `${layout}SecondaryMetadata`;
+type TableProjectionInput = {
+	readonly itemId: ScalarExpression;
+	readonly image: ScalarExpression | null;
+	readonly columns: readonly [TableColumnExpression, ...TableColumnExpression[]];
+};
+
+export type SavedViewLayoutProjectionsInput = {
+	readonly grid: CardProjectionInput;
+	readonly list: CardProjectionInput;
+	readonly table: TableProjectionInput;
+};
+
+const cardProjection = (input: CardProjectionInput) => {
+	const title = "title";
+	const image = "image";
+	const itemId = "itemId";
+	const callout = "callout";
+	const overline = "overline";
+	const primaryMetadata = "primaryMetadata";
+	const secondaryMetadata = "secondaryMetadata";
 	return {
 		fields: [
-			field(title, card.title),
-			...(card.image === null ? [] : [field(image, card.image)]),
-			...(card.overline === null ? [] : [field(overline, card.overline)]),
-			...(card.callout === null ? [] : [field(callout, card.callout)]),
-			...(card.primaryMetadata === null ? [] : [field(primaryMetadata, card.primaryMetadata)]),
-			...(card.secondaryMetadata === null
+			field(itemId, input.itemId),
+			field(title, input.card.title),
+			...(input.card.image === null ? [] : [field(image, input.card.image)]),
+			...(input.card.overline === null ? [] : [field(overline, input.card.overline)]),
+			...(input.card.callout === null ? [] : [field(callout, input.card.callout)]),
+			...(input.card.primaryMetadata === null
 				? []
-				: [field(secondaryMetadata, card.secondaryMetadata)]),
+				: [field(primaryMetadata, input.card.primaryMetadata)]),
+			...(input.card.secondaryMetadata === null
+				? []
+				: [field(secondaryMetadata, input.card.secondaryMetadata)]),
 		] satisfies readonly FieldSelection[],
-		displayConfiguration: {
+		mappings: {
+			itemIdField: itemId,
 			titleField: title,
-			imageField: card.image === null ? null : image,
-			calloutField: card.callout === null ? null : callout,
-			overlineField: card.overline === null ? null : overline,
-			primaryMetadataField: card.primaryMetadata === null ? null : primaryMetadata,
-			secondaryMetadataField: card.secondaryMetadata === null ? null : secondaryMetadata,
-		},
+			imageField: input.card.image === null ? null : image,
+			calloutField: input.card.callout === null ? null : callout,
+			overlineField: input.card.overline === null ? null : overline,
+			primaryMetadataField: input.card.primaryMetadata === null ? null : primaryMetadata,
+			secondaryMetadataField: input.card.secondaryMetadata === null ? null : secondaryMetadata,
+		} satisfies SavedViewCardMapping & { readonly itemIdField: string },
 	};
 };
 
-export const buildSavedViewProjection = (input: SavedViewProjectionInput) => {
-	const tableImage = "tableImage";
-	const grid = cardFields("grid", input.grid);
-	const list = cardFields("list", input.list);
-	const [firstTableColumn, ...remainingTableColumns] = input.table.columns;
-	const tableDisplayColumns = [
-		{ field: "tableColumn0", label: firstTableColumn.label },
+const tableProjection = (input: TableProjectionInput) => {
+	const itemId = "itemId";
+	const image = "image";
+	const [firstTableColumn, ...remainingTableColumns] = input.columns;
+	const columns = [
+		{ field: "column0", label: firstTableColumn.label },
 		...remainingTableColumns.map((tableColumn, index) => ({
-			field: `tableColumn${index + 1}`,
 			label: tableColumn.label,
+			field: `column${index + 1}`,
 		})),
 	] as const;
 
 	return {
 		fields: [
-			field("entityId", input.entityId),
-			...grid.fields,
-			...list.fields,
-			...(input.table.image === null ? [] : [field(tableImage, input.table.image)]),
-			...input.table.columns.map((tableColumn, index) =>
-				field(`tableColumn${index}`, tableColumn.expression),
-			),
+			field(itemId, input.itemId),
+			...(input.image === null ? [] : [field(image, input.image)]),
+			...input.columns.map((tableColumn, index) => field(`column${index}`, tableColumn.expression)),
 		] satisfies readonly FieldSelection[],
-		displayConfiguration: {
-			entityIdField: "entityId",
-			grid: grid.displayConfiguration,
-			list: list.displayConfiguration,
-			table: {
-				columns: tableDisplayColumns,
-				imageField: input.table.image === null ? null : tableImage,
-			},
-		} satisfies SavedViewDisplayConfiguration,
+		mappings: {
+			columns,
+			itemIdField: itemId,
+			imageField: input.image === null ? null : image,
+		} satisfies SavedViewTableMapping & { readonly itemIdField: string },
 	};
 };
+
+export const buildSavedViewLayoutProjections = (input: SavedViewLayoutProjectionsInput) => ({
+	grid: cardProjection(input.grid),
+	list: cardProjection(input.list),
+	table: tableProjection(input.table),
+});
 
 export const buildSavedViewDocument = (input: {
 	readonly page?: number | undefined;

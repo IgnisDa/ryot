@@ -1,6 +1,6 @@
 import { column, literal, table } from "@ryot/ryotql";
 import { buildAllCollectionsDocument } from "@ryot/ryotql-recipes/collections";
-import { buildSavedViewProjection } from "@ryot/ryotql-recipes/saved-views";
+import { buildSavedViewLayoutProjections } from "@ryot/ryotql-recipes/saved-views";
 
 import { manifest as notificationManifest } from "./kernel-scripts/notification.sandbox";
 import type { DefinitionSource } from "./service";
@@ -93,29 +93,50 @@ const collectionSchema = {
 };
 
 const collection = table("entity", "collection");
-const collectionProjection = buildSavedViewProjection({
-	entityId: column(collection, "id"),
+const collectionProjections = buildSavedViewLayoutProjections({
 	table: {
+		itemId: column(collection, "id"),
 		image: null,
 		columns: [{ label: "Name", expression: column(collection, "name") }],
 	},
 	grid: {
-		image: null,
-		callout: null,
-		primaryMetadata: null,
-		secondaryMetadata: null,
-		overline: literal(collectionSchema.name),
-		title: column(collection, "name"),
+		itemId: column(collection, "id"),
+		card: {
+			image: null,
+			callout: null,
+			primaryMetadata: null,
+			secondaryMetadata: null,
+			overline: literal(collectionSchema.name),
+			title: column(collection, "name"),
+		},
 	},
 	list: {
-		image: null,
-		callout: null,
-		primaryMetadata: null,
-		secondaryMetadata: null,
-		overline: literal(collectionSchema.name),
-		title: column(collection, "name"),
+		itemId: column(collection, "id"),
+		card: {
+			image: null,
+			callout: null,
+			primaryMetadata: null,
+			secondaryMetadata: null,
+			overline: literal(collectionSchema.name),
+			title: column(collection, "name"),
+		},
 	},
 });
+
+const collectionLayouts = {
+	grid: {
+		...collectionProjections.grid.mappings,
+		queryDocument: buildAllCollectionsDocument({ fields: collectionProjections.grid.fields }),
+	},
+	list: {
+		...collectionProjections.list.mappings,
+		queryDocument: buildAllCollectionsDocument({ fields: collectionProjections.list.fields }),
+	},
+	table: {
+		...collectionProjections.table.mappings,
+		queryDocument: buildAllCollectionsDocument({ fields: collectionProjections.table.fields }),
+	},
+};
 
 export const kernelDefinitionSource = (): DefinitionSource => ({
 	entitySchemas: [collectionSchema],
@@ -170,9 +191,8 @@ export const kernelDefinitionSource = (): DefinitionSource => ({
 			pluginSlug: null,
 			slug: "collections",
 			name: "All Collections",
+			layouts: collectionLayouts,
 			icon: collectionSchema.icon,
-			displayConfiguration: collectionProjection.displayConfiguration,
-			queryDocument: buildAllCollectionsDocument({ fields: collectionProjection.fields }),
 		},
 	],
 });

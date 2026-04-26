@@ -1,15 +1,10 @@
-import type {
-	FieldSelection,
-	IncludeResult,
-	RowItem,
-} from "@ryot/contract/modules/ryotql/language";
+import type { IncludeResult, RowItem } from "@ryot/contract/modules/ryotql/language";
 import type { AssetLocator } from "@ryot/contract/modules/uploads/schemas";
 import {
 	buildWorkoutDetailQueryDocument,
 	buildWorkoutTemplateDetailQueryDocument,
 	buildWorkoutTemplateListQueryDocument,
 } from "@ryot/fitness-plugin/query-recipes";
-import { column, field, jsonPath, literal, table } from "@ryot/ryotql";
 import { Effect } from "effect";
 
 import {
@@ -63,22 +58,6 @@ const requireRyotQLInclude = (item: RowItem, key: string): IncludeResult => {
 	}
 	return value;
 };
-
-const savedViewEntity = table("entity", "entity");
-const expectedSavedViewFields = [
-	field("entityId", column(savedViewEntity, "id")),
-	field("gridTitle", column(savedViewEntity, "name")),
-	field("gridOverline", literal("Workout Template")),
-	field("gridPrimaryMetadata", column(savedViewEntity, "createdAt")),
-	field("gridSecondaryMetadata", jsonPath(column(savedViewEntity, "properties"), "comment")),
-	field("listTitle", column(savedViewEntity, "name")),
-	field("listOverline", literal("Workout Template")),
-	field("listPrimaryMetadata", column(savedViewEntity, "createdAt")),
-	field("listSecondaryMetadata", jsonPath(column(savedViewEntity, "properties"), "comment")),
-	field("tableColumn0", column(savedViewEntity, "name")),
-	field("tableColumn1", column(savedViewEntity, "createdAt")),
-	field("tableColumn2", jsonPath(column(savedViewEntity, "properties"), "comment")),
-] satisfies readonly FieldSelection[];
 
 describe("Workout Templates E2E", () => {
 	it.live("links the built-in workout-template schema to the fitness plugin", () =>
@@ -213,7 +192,7 @@ describe("Workout Templates E2E", () => {
 					allWorkoutTemplatesView,
 					"Expected the built-in All Workout Templates saved view",
 				);
-				const savedViewQuery = allWorkoutTemplatesView.queryDocument.queries.savedView;
+				const savedViewQuery = allWorkoutTemplatesView.layouts.grid.queryDocument.queries.savedView;
 				assertPresent(savedViewQuery, "Expected the All Workout Templates saved-view query");
 				assertCondition(
 					savedViewQuery.output.type === "rows",
@@ -224,48 +203,48 @@ describe("Workout Templates E2E", () => {
 					isBuiltin: true,
 					pluginSlug: fitnessPlugin.slug,
 					name: "All Workout Templates",
-					queryDocument: {
-						queries: {
-							savedView: {
-								output: {
-									orderBy: [{ direction: "desc", expr: { type: "column", field: "createdAt" } }],
-								},
-								where: {
-									right: { value: "workout-template" },
-									left: { field: "entitySchemaSlug", tableAlias: "entity" },
-								},
-							},
-						},
-					},
-					displayConfiguration: {
-						entityIdField: "entityId",
+					layouts: {
 						grid: {
+							itemIdField: "itemId",
 							imageField: null,
 							calloutField: null,
-							titleField: "gridTitle",
-							overlineField: "gridOverline",
-							primaryMetadataField: "gridPrimaryMetadata",
-							secondaryMetadataField: "gridSecondaryMetadata",
+							titleField: "title",
+							overlineField: "overline",
+							primaryMetadataField: "primaryMetadata",
+							secondaryMetadataField: "secondaryMetadata",
 						},
 						list: {
+							itemIdField: "itemId",
 							imageField: null,
 							calloutField: null,
-							titleField: "listTitle",
-							overlineField: "listOverline",
-							primaryMetadataField: "listPrimaryMetadata",
-							secondaryMetadataField: "listSecondaryMetadata",
+							titleField: "title",
+							overlineField: "overline",
+							primaryMetadataField: "primaryMetadata",
+							secondaryMetadataField: "secondaryMetadata",
 						},
 						table: {
+							itemIdField: "itemId",
 							imageField: null,
 							columns: [
-								{ label: "Name", field: "tableColumn0" },
-								{ label: "Created At", field: "tableColumn1" },
-								{ label: "Comment", field: "tableColumn2" },
+								{ label: "Name", field: "column0" },
+								{ label: "Created At", field: "column1" },
+								{ label: "Comment", field: "column2" },
 							],
 						},
 					},
 				});
-				expect(savedViewQuery.output.fields).toEqual(expectedSavedViewFields);
+				expect(savedViewQuery).toMatchObject({
+					output: {
+						orderBy: [{ direction: "desc", expr: { type: "column", field: "createdAt" } }],
+					},
+					where: {
+						right: { value: "workout-template" },
+						left: { field: "entitySchemaSlug", tableAlias: "entity" },
+					},
+				});
+				expect(
+					savedViewQuery.output.fields.map((selection) => "key" in selection && selection.key),
+				).toEqual(["itemId", "title", "overline", "primaryMetadata", "secondaryMetadata"]);
 
 				const { workoutTemplate, workoutTemplateId } =
 					yield* createWorkoutTemplateEntityFixture(client);

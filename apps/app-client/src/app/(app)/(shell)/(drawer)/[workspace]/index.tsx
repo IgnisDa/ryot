@@ -38,8 +38,7 @@ export default function AppHome() {
 			payload: {
 				icon: "star",
 				name: `Random view ${randomSuffix}`,
-				queryDocument: savedViewTemplate.queryDocument,
-				displayConfiguration: savedViewTemplate.displayConfiguration,
+				layouts: savedViewTemplate.layouts,
 				...(savedViewTemplate.pluginSlug === null
 					? {}
 					: { pluginSlug: savedViewTemplate.pluginSlug }),

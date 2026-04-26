@@ -1,5 +1,5 @@
 import { column, table } from "@ryot/ryotql";
-import { buildSavedViewProjection } from "@ryot/ryotql-recipes/saved-views";
+import { buildSavedViewLayoutProjections } from "@ryot/ryotql-recipes/saved-views";
 
 import { buildDefaultMediaSavedViewQueryDocument } from "./query-recipes";
 import { mediaEntitySchemas } from "./schemas/entity-schemas";
@@ -64,9 +64,12 @@ export const mediaSavedViews = () => {
 		if (!schema) {
 			throw new Error(`Missing media entity schema: ${view.entitySchemaSlug}`);
 		}
-		const projection = buildSavedViewProjection({
-			entityId: column(entity, "id"),
-			...buildViewExpressions(view.entitySchemaSlug, schema.name),
+		const itemId = column(entity, "id");
+		const expressions = buildViewExpressions(view.entitySchemaSlug, schema.name);
+		const projections = buildSavedViewLayoutProjections({
+			table: { itemId, ...expressions.table },
+			grid: { itemId, card: expressions.grid },
+			list: { itemId, card: expressions.list },
 		});
 		return {
 			sortOrder,
@@ -74,11 +77,29 @@ export const mediaSavedViews = () => {
 			slug: view.slug,
 			icon: schema.icon,
 			pluginSlug: "media",
-			displayConfiguration: projection.displayConfiguration,
-			queryDocument: buildDefaultMediaSavedViewQueryDocument({
-				fields: projection.fields,
-				schemas: [view.entitySchemaSlug],
-			}),
+			layouts: {
+				grid: {
+					...projections.grid.mappings,
+					queryDocument: buildDefaultMediaSavedViewQueryDocument({
+						fields: projections.grid.fields,
+						schemas: [view.entitySchemaSlug],
+					}),
+				},
+				list: {
+					...projections.list.mappings,
+					queryDocument: buildDefaultMediaSavedViewQueryDocument({
+						fields: projections.list.fields,
+						schemas: [view.entitySchemaSlug],
+					}),
+				},
+				table: {
+					...projections.table.mappings,
+					queryDocument: buildDefaultMediaSavedViewQueryDocument({
+						fields: projections.table.fields,
+						schemas: [view.entitySchemaSlug],
+					}),
+				},
+			},
 		};
 	});
 };

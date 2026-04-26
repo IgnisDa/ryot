@@ -14,8 +14,7 @@ type CreateSavedViewInput = {
 	readonly icon: string;
 	readonly userId: UserId;
 	readonly pluginSlug: PluginSlug | null | undefined;
-	readonly queryDocument: (typeof schema.savedView.$inferSelect)["queryDocument"];
-	readonly displayConfiguration: (typeof schema.savedView.$inferSelect)["displayConfiguration"];
+	readonly layouts: (typeof schema.savedView.$inferSelect)["layouts"];
 };
 
 type BuiltinSavedViewInput = Omit<CreateSavedViewInput, "userId"> & {
@@ -28,22 +27,20 @@ type UpdateSavedViewData = {
 	readonly isDisabled: boolean;
 	readonly sortOrder?: number | undefined;
 	readonly pluginSlug?: PluginSlug | undefined;
-	readonly queryDocument: (typeof schema.savedView.$inferSelect)["queryDocument"];
-	readonly displayConfiguration: (typeof schema.savedView.$inferSelect)["displayConfiguration"];
+	readonly layouts: (typeof schema.savedView.$inferSelect)["layouts"];
 };
 
 const toListedSavedView = (row: SavedViewRow) => ({
 	slug: row.slug,
 	name: row.name,
 	icon: row.icon,
+	layouts: row.layouts,
 	isBuiltin: row.isBuiltin,
 	sortOrder: row.sortOrder,
 	isDisabled: row.isDisabled,
-	queryDocument: row.queryDocument,
 	id: SavedViewId.make(row.id),
 	createdAt: row.createdAt.toISOString(),
 	updatedAt: row.updatedAt.toISOString(),
-	displayConfiguration: row.displayConfiguration,
 	pluginSlug: row.pluginSlug === null ? null : PluginSlug.make(row.pluginSlug),
 });
 
@@ -127,10 +124,9 @@ export class SavedViewsRepository extends Context.Service<SavedViewsRepository>(
 							slug: input.slug,
 							name: input.name,
 							icon: input.icon,
-							queryDocument: input.queryDocument,
+							layouts: input.layouts,
 							pluginSlug: input.pluginSlug ?? null,
 							sortOrder: (orderRow?.maxSortOrder ?? -1) + 1,
-							displayConfiguration: input.displayConfiguration,
 						})
 						.onConflictDoNothing({
 							target: [schema.savedView.userId, schema.savedView.slug],
@@ -160,10 +156,9 @@ export class SavedViewsRepository extends Context.Service<SavedViewsRepository>(
 						.set({
 							icon: data.icon,
 							name: data.name,
+							layouts: data.layouts,
 							pluginSlug: nextPluginSlug,
 							isDisabled: data.isDisabled,
-							queryDocument: data.queryDocument,
-							displayConfiguration: data.displayConfiguration,
 							...(sortOrder === undefined ? {} : { sortOrder }),
 						})
 						.where(and(eq(schema.savedView.slug, viewSlug), eq(schema.savedView.userId, userId)))

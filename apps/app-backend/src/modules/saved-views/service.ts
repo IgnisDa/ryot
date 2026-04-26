@@ -37,17 +37,14 @@ export class SavedViewsService extends Context.Service<SavedViewsService>()("Sav
 			yield* runWithDb(
 				repository.ensureBuiltinViews(
 					userId,
-					views.map(
-						({ slug, name, icon, sortOrder, pluginSlug, queryDocument, displayConfiguration }) => ({
-							slug,
-							name,
-							icon,
-							sortOrder,
-							queryDocument,
-							displayConfiguration,
-							pluginSlug: pluginSlug ? PluginSlug.make(pluginSlug) : null,
-						}),
-					),
+					views.map(({ slug, name, icon, layouts, sortOrder, pluginSlug }) => ({
+						slug,
+						name,
+						icon,
+						layouts,
+						sortOrder,
+						pluginSlug: pluginSlug ? PluginSlug.make(pluginSlug) : null,
+					})),
 				),
 			);
 		});
@@ -85,9 +82,8 @@ export class SavedViewsService extends Context.Service<SavedViewsService>()("Sav
 					name,
 					userId: user.id,
 					icon: payload.icon,
+					layouts: payload.layouts,
 					pluginSlug: payload.pluginSlug,
-					queryDocument: payload.queryDocument,
-					displayConfiguration: payload.displayConfiguration,
 				}),
 			);
 			return created ?? (yield* badRequest("A saved view with this name already exists"));
@@ -104,8 +100,7 @@ export class SavedViewsService extends Context.Service<SavedViewsService>()("Sav
 					payload.name !== current.name ||
 					payload.icon !== current.icon ||
 					(payload.pluginSlug ?? null) !== current.pluginSlug ||
-					!Bun.deepEquals(payload.queryDocument, current.queryDocument) ||
-					!Bun.deepEquals(payload.displayConfiguration, current.displayConfiguration)
+					!Bun.deepEquals(payload.layouts, current.layouts)
 				) {
 					return yield* badRequest(builtinViewMutationMessage);
 				}
@@ -151,9 +146,8 @@ export class SavedViewsService extends Context.Service<SavedViewsService>()("Sav
 			const source = yield* requireSavedView(user, viewSlug);
 			return yield* create(user, {
 				icon: source.icon,
+				layouts: source.layouts,
 				name: `${source.name} (Copy)`,
-				queryDocument: source.queryDocument,
-				displayConfiguration: source.displayConfiguration,
 				...(source.pluginSlug ? { pluginSlug: source.pluginSlug } : {}),
 			});
 		});
