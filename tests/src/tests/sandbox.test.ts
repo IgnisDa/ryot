@@ -112,7 +112,7 @@ driver("main", async function() {
   const result = await executeQuery({
     entitySchemaSlugs: [${JSON.stringify(slug)}],
     pagination: { page: 1, limit: 10 },
-    sort: { direction: "asc", expression: { type: "reference", reference: { column: "name", type: "entity-column", slug: ${JSON.stringify(slug)} } } }
+    sort: { direction: "asc", expression: { type: "reference", reference: { path: ["name"], type: "entity", slug: ${JSON.stringify(slug)} } } }
   });
   if (!result.success) {
     throw new Error(result.error);
@@ -162,7 +162,7 @@ driver("main", async function() {
       direction: "asc",
       expression: {
         type: "reference",
-        reference: { column: "name", type: "entity-column", slug: "does-not-exist" }
+        reference: { path: ["name"], type: "entity", slug: "does-not-exist" }
       }
     }
   });

@@ -23,9 +23,9 @@ describe("buildResolvedFieldsExpression", () => {
 						expression: {
 							type: "reference",
 							reference: {
+								type: "entity",
 								slug: "smartphones",
-								property: ["metadata"],
-								type: "schema-property",
+								path: ["properties", "metadata"],
 							},
 						},
 					},
@@ -50,9 +50,9 @@ describe("buildResolvedFieldsExpression", () => {
 							expression: {
 								type: "reference",
 								reference: {
+									type: "entity",
 									slug: "smartphones",
-									property: ["announcedAt"],
-									type: "schema-property",
+									path: ["properties", "announcedAt"],
 								},
 							},
 						},
@@ -76,9 +76,9 @@ describe("buildResolvedFieldsExpression", () => {
 							expression: {
 								type: "reference",
 								reference: {
+									type: "entity",
 									slug: "smartphones",
-									type: "schema-property",
-									property: ["announcedAt"],
+									path: ["properties", "announcedAt"],
 								},
 							},
 						},
@@ -90,7 +90,7 @@ describe("buildResolvedFieldsExpression", () => {
 			expect(query.sql).toContain("at time zone 'UTC'");
 		});
 
-		it("applies UTC formatting to entity-column date fields (createdAt/updatedAt)", () => {
+		it("applies UTC formatting to entity builtin date fields (createdAt/updatedAt)", () => {
 			const query = dialect.sqlToQuery(
 				buildResolvedFieldsExpression({
 					context,
@@ -102,9 +102,9 @@ describe("buildResolvedFieldsExpression", () => {
 							expression: {
 								type: "reference",
 								reference: {
+									type: "entity",
 									slug: "smartphones",
-									column: "createdAt",
-									type: "entity-column",
+									path: ["createdAt"],
 								},
 							},
 						},
@@ -128,9 +128,9 @@ describe("buildResolvedFieldsExpression", () => {
 							expression: {
 								type: "reference",
 								reference: {
+									type: "entity",
 									slug: "smartphones",
-									type: "schema-property",
-									property: ["releasedAt"],
+									path: ["properties", "releasedAt"],
 								},
 							},
 						},
@@ -161,9 +161,9 @@ describe("buildResolvedFieldsExpression", () => {
 							expression: {
 								type: "reference",
 								reference: {
+									type: "entity",
 									slug: "smartphones",
-									property: [property],
-									type: "schema-property",
+									path: ["properties", property],
 								},
 							},
 						},

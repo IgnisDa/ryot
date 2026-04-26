@@ -6,7 +6,7 @@ export const buildEntityColumnExpression = (
 	column: string,
 ): ViewExpression => ({
 	type: "reference",
-	reference: { type: "entity-column", slug: schemaSlug, column },
+	reference: { type: "entity", slug: schemaSlug, path: [column] },
 });
 
 export const createDefaultDisplayConfiguration = (

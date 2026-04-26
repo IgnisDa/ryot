@@ -52,9 +52,9 @@ describe("toSidebarData", () => {
 						expression: {
 							type: "reference",
 							reference: {
-								column: "name",
+								path: ["name"],
+								type: "entity",
 								slug: "schema-2",
-								type: "entity-column",
 							},
 						},
 					},

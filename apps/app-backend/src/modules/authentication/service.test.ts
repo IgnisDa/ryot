@@ -72,7 +72,7 @@ describe("authentication bootstrap helpers", () => {
 				direction: "asc",
 				expression: {
 					type: "reference",
-					reference: { type: "entity-column", slug: "book", column: "name" },
+					reference: { type: "entity", slug: "book", path: ["name"] },
 				},
 			},
 		});
