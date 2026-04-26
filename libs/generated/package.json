@@ -7,17 +7,10 @@
 	},
 	"scripts": {
 		"build": "tsc",
-		"typecheck": "tsc",
-		"backend-graphql": "graphql-codegen --config src/graphql/backend/codegen.ts"
+		"typecheck": "tsc"
 	},
 	"devDependencies": {
-		"@graphql-codegen/cli": "6.1.1",
-		"@graphql-codegen/client-preset": "5.2.2",
 		"@types/node": "25.3.0",
 		"typescript": "6.0.2"
-	},
-	"dependencies": {
-		"@graphql-typed-document-node/core": "3.2.0",
-		"graphql": "16.12.0"
 	}
 }
