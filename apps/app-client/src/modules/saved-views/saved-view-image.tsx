@@ -1,5 +1,6 @@
 import clsx from "clsx";
 import { Image } from "expo-image";
+import { styled } from "nativewind";
 import { useState } from "react";
 import { View } from "react-native";
 
@@ -7,6 +8,10 @@ import { AppIcon } from "@/modules/icons";
 
 import type { SavedViewImage } from "./display-data";
 import { resolveSavedViewImageUrl } from "./display-data";
+
+const StyledImage = styled(Image, {
+	className: { target: "style" },
+});
 
 function MissingImage(props: { className: string }) {
 	return (
@@ -22,9 +27,9 @@ function RemoteImage(props: { className: string; url: string }) {
 		return <MissingImage className={props.className} />;
 	}
 	return (
-		<Image
-			accessible={false}
+		<StyledImage
 			contentFit="cover"
+			accessible={false}
 			source={{ uri: props.url }}
 			className={props.className}
 			onError={() => setFailed(true)}

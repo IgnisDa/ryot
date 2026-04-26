@@ -14,6 +14,7 @@ import {
 	savedViewRecordAtom,
 	savedViewResultAtom,
 } from "@/api/atoms";
+import { useAuthClient } from "@/modules/auth/client";
 import { AppIcon } from "@/modules/icons";
 import { NavigationStatus } from "@/modules/navigation/navigation-status";
 import {
@@ -71,6 +72,7 @@ function SavedViewItems(props: {
 function SavedViewResolvedContent(props: {
 	icon: string;
 	name: string;
+	userId: string;
 	viewSlug: string;
 	data: SavedViewDisplayData;
 	layout: "grid" | "list" | "table";
@@ -84,7 +86,7 @@ function SavedViewResolvedContent(props: {
 		<SavedViewManagedContent
 			{...props}
 			serverUrl={serverUrl}
-			serializedRequest={JSON.stringify({ assets, serverUrl })}
+			serializedRequest={JSON.stringify({ assets, serverUrl, userId: props.userId })}
 		/>
 	);
 }
@@ -140,20 +142,29 @@ function SavedViewDisplay(
 	);
 }
 
-function SavedViewContent(props: { record: SavedViewRecord }) {
-	const queryResult = useAtomValue(savedViewResultAtom(props.record));
+function SavedViewContent(props: { record: SavedViewRecord; serverUrl: string; userId: string }) {
+	const queryResult = useAtomValue(
+		savedViewResultAtom(
+			JSON.stringify({
+				userId: props.userId,
+				serverUrl: props.serverUrl,
+				queryDocument: props.record.queryDocument,
+			}),
+		),
+	);
 	const layout = useAtomValue(savedViewLayoutAtom(props.record.slug));
+	if (AsyncResult.isFailure(queryResult)) {
+		return (
+			<ErrorState title="Unable to load saved view" detail={Cause.pretty(queryResult.cause)} />
+		);
+	}
 	const response = Option.getOrUndefined(AsyncResult.value(queryResult));
 	const decoded = response
 		? decodeSavedViewDisplayData(response, props.record.displayConfiguration)
 		: undefined;
 
 	if (!response) {
-		return AsyncResult.isFailure(queryResult) ? (
-			<ErrorState title="Unable to load saved view" detail={Cause.pretty(queryResult.cause)} />
-		) : (
-			<NavigationStatus title="Loading saved view..." />
-		);
+		return <NavigationStatus title="Loading saved view..." />;
 	}
 	if (!decoded || Result.isFailure(decoded)) {
 		return (
@@ -167,6 +178,7 @@ function SavedViewContent(props: { record: SavedViewRecord }) {
 	return (
 		<SavedViewResolvedContent
 			layout={layout}
+			userId={props.userId}
 			data={decoded.success}
 			icon={props.record.icon}
 			name={props.record.name}
@@ -176,26 +188,36 @@ function SavedViewContent(props: { record: SavedViewRecord }) {
 }
 
 export default function SavedViewScreen() {
+	const client = useAuthClient();
+	const serverUrl = useServerUrl();
+	const { data: session, isPending } = client.useSession();
 	const { viewSlug } = useLocalSearchParams<{ viewSlug?: string | string[] }>();
 	const slug = (Array.isArray(viewSlug) ? viewSlug[0] : viewSlug)?.trim();
 
+	if (isPending || !serverUrl) {
+		return <NavigationStatus title="Loading saved view..." />;
+	}
+	if (!session) {
+		return <NavigationStatus title="Unable to load saved view" />;
+	}
 	if (!slug) {
 		return <NavigationStatus title="Saved view not found" detail="The view URL is invalid." />;
 	}
-	return <SavedViewRecordLoader slug={slug} />;
+	return <SavedViewRecordLoader slug={slug} serverUrl={serverUrl} userId={session.user.id} />;
 }
 
-function SavedViewRecordLoader(props: { slug: string }) {
-	const recordResult = useAtomValue(savedViewRecordAtom(props.slug));
+function SavedViewRecordLoader(props: { slug: string; serverUrl: string; userId: string }) {
+	const recordResult = useAtomValue(savedViewRecordAtom(JSON.stringify(props)));
+	if (AsyncResult.isFailure(recordResult)) {
+		return (
+			<ErrorState title="Unable to load saved view" detail={Cause.pretty(recordResult.cause)} />
+		);
+	}
 	const response = Option.getOrUndefined(AsyncResult.value(recordResult));
 	const decoded = response ? decodeSavedViewRecordResponse(response) : undefined;
 
 	if (!response) {
-		return AsyncResult.isFailure(recordResult) ? (
-			<ErrorState title="Unable to load saved view" detail={Cause.pretty(recordResult.cause)} />
-		) : (
-			<NavigationStatus title="Loading saved view..." />
-		);
+		return <NavigationStatus title="Loading saved view..." />;
 	}
 	if (!decoded || Result.isFailure(decoded)) {
 		return (
@@ -210,5 +232,7 @@ function SavedViewRecordLoader(props: { slug: string }) {
 			<NavigationStatus title="Saved view not found" detail="This saved view does not exist." />
 		);
 	}
-	return <SavedViewContent record={decoded.success} />;
+	return (
+		<SavedViewContent record={decoded.success} userId={props.userId} serverUrl={props.serverUrl} />
+	);
 }

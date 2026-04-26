@@ -54,7 +54,11 @@ export type SavedViewDisplayItem = {
 	readonly list: SavedViewCardData;
 	readonly table: {
 		readonly image: SavedViewImage;
-		readonly cells: readonly { readonly label: string; readonly value: SavedViewScalarValue }[];
+		readonly cells: readonly {
+			readonly key: string;
+			readonly label: string;
+			readonly value: SavedViewScalarValue;
+		}[];
 	};
 };
 
@@ -172,7 +176,7 @@ const decodeItem = (row: ScalarRow, configuration: SavedViewDisplayConfiguration
 		const image = yield* getImage(row, configuration.table.imageField);
 		const cells = yield* Result.all(
 			configuration.table.columns.map(({ field, label }) =>
-				Result.map(getField(row, field), (value) => ({ label, value })),
+				Result.map(getField(row, field), (value) => ({ key: field, label, value })),
 			),
 		);
 		return { id, grid, list, table: { image, cells } };
