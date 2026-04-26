@@ -1,4 +1,5 @@
 import { useAtom, useAtomValue, useSetAtom } from "jotai";
+import { Plus } from "lucide-react-native";
 import Animated, { SlideInRight, SlideOutRight } from "react-native-reanimated";
 import { Box } from "@/components/ui/box";
 import { Pressable } from "@/components/ui/pressable";
@@ -63,9 +64,13 @@ export function SpineSubFlyout({ onNavigate, pinned = false }: Props) {
 				})}
 			</Box>
 			<Box className="h-[0.5px] mt-3.5 mb-3.5 mx-6 bg-ink/20" />
-			<Text className="text-[12px] text-ink-soft font-sans px-6">
-				＋ new schema
-			</Text>
+			<Pressable
+				className="flex-row items-center gap-1.5 px-6 min-h-[44px]"
+				accessibilityRole="button"
+			>
+				<Plus size={12} color="#5a5347" strokeWidth={1.5} />
+				<Text className="text-[12px] text-ink-soft font-sans">new schema</Text>
+			</Pressable>
 		</>
 	);
 
