@@ -107,7 +107,7 @@ describe("SandboxService.executeQueuedRun", () => {
 		expect(Object.keys(apiFunctions).sort()).toEqual([]);
 	});
 
-	it("throws before execute when metadata is invalid", async () => {
+	it("returns error before execute when metadata is invalid", async () => {
 		const service = new SandboxService();
 		const testService = service as unknown as TestSandboxExecutor;
 		let executeCalled = false;
@@ -117,16 +117,19 @@ describe("SandboxService.executeQueuedRun", () => {
 			return { success: true };
 		};
 
-		expect(
-			testService.executeQueuedRun(
-				createJobData(),
-				createScriptFetcher({ allowedHostFunctions: "not-an-array" }),
-			),
-		).rejects.toThrow("Sandbox script metadata is invalid");
+		const result = await testService.executeQueuedRun(
+			createJobData(),
+			createScriptFetcher({ allowedHostFunctions: "not-an-array" }),
+		);
+
+		expect((result as { success: boolean }).success).toBe(false);
+		expect((result as { error: string }).error).toContain(
+			"Sandbox script metadata is invalid",
+		);
 		expect(executeCalled).toBe(false);
 	});
 
-	it("throws before execute when metadata has an unknown function key", async () => {
+	it("returns error before execute when metadata has an unknown function key", async () => {
 		const service = new SandboxService();
 		const testService = service as unknown as TestSandboxExecutor;
 		let executeCalled = false;
@@ -136,12 +139,15 @@ describe("SandboxService.executeQueuedRun", () => {
 			return { success: true };
 		};
 
-		expect(
-			testService.executeQueuedRun(
-				createJobData(),
-				createScriptFetcher({ allowedHostFunctions: ["missingFunction"] }),
-			),
-		).rejects.toThrow("Unknown sandbox host function: missingFunction");
+		const result = await testService.executeQueuedRun(
+			createJobData(),
+			createScriptFetcher({ allowedHostFunctions: ["missingFunction"] }),
+		);
+
+		expect((result as { success: boolean }).success).toBe(false);
+		expect((result as { error: string }).error).toBe(
+			"Unknown sandbox host function: missingFunction",
+		);
 		expect(executeCalled).toBe(false);
 	});
 
