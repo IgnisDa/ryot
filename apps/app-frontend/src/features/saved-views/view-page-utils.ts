@@ -1,8 +1,10 @@
 import {
 	createEntityColumnExpression,
 	createEntitySchemaExpression,
+	getQueryEngineField,
 } from "@ryot/ts-utils";
 import { match } from "ts-pattern";
+import { createEntityIdentityFields } from "~/features/entities/model";
 import type {
 	ApiGetResponseData,
 	ApiPostRequestBody,
@@ -12,7 +14,8 @@ import type {
 type SavedView = ApiGetResponseData<"/saved-views/{viewSlug}">;
 type QueryEngineRequest = ApiPostRequestBody<"/query-engine/execute">;
 type QueryEngineResponse = ApiPostResponseData<"/query-engine/execute">;
-type RuntimeField = QueryEngineResponse["items"][number]["fields"][number];
+type RuntimeItem = QueryEngineResponse["items"][number];
+type RuntimeField = RuntimeItem[number];
 type RuntimeRequestField = NonNullable<QueryEngineRequest["fields"]>[number];
 type ViewExpression = RuntimeRequestField["expression"];
 type CardDisplayConfiguration = SavedView["displayConfiguration"]["grid"];
@@ -98,6 +101,9 @@ export function createQueryEngineRequest(input: {
 		.with("grid", () => ({
 			...base,
 			fields: [
+				...createEntityIdentityFields(
+					input.view.queryDefinition.entitySchemaSlugs,
+				),
 				...buildCardRuntimeFields(input.view.displayConfiguration.grid),
 				entitySchemaSlugField,
 			],
@@ -105,16 +111,24 @@ export function createQueryEngineRequest(input: {
 		.with("list", () => ({
 			...base,
 			fields: [
+				...createEntityIdentityFields(
+					input.view.queryDefinition.entitySchemaSlugs,
+				),
 				...buildCardRuntimeFields(input.view.displayConfiguration.list),
 				entitySchemaSlugField,
 			],
 		}))
 		.with("table", () => ({
 			...base,
-			fields: input.view.displayConfiguration.table.columns.map(
-				(column, index) =>
+			fields: [
+				...createEntityIdentityFields(
+					input.view.queryDefinition.entitySchemaSlugs,
+					{ includeImage: false },
+				),
+				...input.view.displayConfiguration.table.columns.map((column, index) =>
 					createRuntimeField(`column_${index}`, column.expression),
-			),
+				),
+			],
 		}))
 		.exhaustive();
 }
@@ -132,6 +146,7 @@ export function createDisabledQueryEngineRequest(): QueryEngineRequest {
 			expression: createEntityColumnExpression("book", "name"),
 		},
 		fields: [
+			...createEntityIdentityFields(["book"]),
 			...buildCardFields({
 				callout: null,
 				primarySubtitle: null,
@@ -153,10 +168,10 @@ export function getPageLimit(layout: ViewLayout) {
 }
 
 export function getRuntimeField(
-	item: { fields?: RuntimeField[] },
+	item: { fields?: RuntimeField[] } | RuntimeField[],
 	key: string,
 ): RuntimeField | undefined {
-	return item.fields?.find((field) => field.key === key);
+	return getQueryEngineField(Array.isArray(item) ? item : item.fields, key);
 }
 
 export function isRuntimeField(value: unknown): value is RuntimeField {

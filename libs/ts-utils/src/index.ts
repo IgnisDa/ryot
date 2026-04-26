@@ -201,6 +201,7 @@ export {
 	toAppSchemaProperties,
 } from "./app-schema";
 export { dayjs } from "./dayjs";
+export { getQueryEngineField } from "./query-engine";
 export {
 	normalizeSlug,
 	resolveRequiredSlug,
