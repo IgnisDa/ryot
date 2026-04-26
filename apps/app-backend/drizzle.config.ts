@@ -6,5 +6,5 @@ export default defineConfig({
 	casing: "snake_case",
 	dialect: "postgresql",
 	schema: "./src/lib/db/schema/index.ts",
-	dbCredentials: { url: config.DATABASE_URL },
+	dbCredentials: { url: config.databaseUrl },
 });
