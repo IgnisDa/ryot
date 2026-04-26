@@ -3,7 +3,7 @@ import {
 	type AppArrayPropertyValidation,
 	type AppNumberPropertyValidation,
 	type AppPropertyPrimitiveType,
-	type AppPropertyTransform,
+	type AppPropertyNormalization,
 	type AppStringPropertyValidation,
 	AppSchema,
 	type AppSchemaFields,
@@ -329,17 +329,16 @@ const applyArrayValidation = <A, I, R>(
 	return value;
 };
 
-const withRoundTransform = (
+const withRoundNormalization = (
 	schema: NumberValueSchema,
-	transform?: AppPropertyTransform,
+	normalization?: AppPropertyNormalization,
 ): NumberValueSchema => {
-	const round = transform?.round;
-	if (!round) {
+	if (!normalization) {
 		return schema;
 	}
 	return Schema.Finite.pipe(
 		Schema.decodeTo(schema, {
-			decode: SchemaGetter.transform((value) => roundHalfUp(value, round.scale)),
+			decode: SchemaGetter.transform((value) => roundHalfUp(value, normalization.round.scale)),
 			encode: SchemaGetter.transform((value) => value),
 		}),
 	);
@@ -404,16 +403,16 @@ const createPropertyValueSchema = (property: AppPropertyDefinition): PropertyVal
 		return isAppPropertyRequired(property) ? Schema.Boolean : Schema.NullOr(Schema.Boolean);
 	}
 	if (property.type === "number") {
-		const value = withRoundTransform(
+		const value = withRoundNormalization(
 			applyNumberValidation(Schema.Finite, property.validation),
-			property.transform,
+			property.normalize,
 		);
 		return isAppPropertyRequired(property) ? value : Schema.NullOr(value);
 	}
 	if (property.type === "integer") {
-		const value = withRoundTransform(
+		const value = withRoundNormalization(
 			applyNumberValidation(Schema.Finite.pipe(Schema.check(Schema.isInt())), property.validation),
-			property.transform,
+			property.normalize,
 		);
 		return isAppPropertyRequired(property) ? value : Schema.NullOr(value);
 	}

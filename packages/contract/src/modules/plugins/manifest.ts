@@ -203,10 +203,11 @@ export const PluginConfigSchema = PluginAppSchema.pipe(
 					(field) =>
 						pluginConfigFieldTypes.has(field.type) &&
 						field.translatable === undefined &&
-						field.transform === undefined,
+						((field.type !== "number" && field.type !== "integer") ||
+							field.normalize === undefined),
 				)
 					? true
-					: "Expected a strict, top-level plugin config schema without translation, transforms, or rules",
+					: "Expected a strict, top-level plugin config schema without translation, normalization, or rules",
 			strictParseOptions,
 		),
 	),
