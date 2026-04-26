@@ -5,6 +5,7 @@ import {
 	createEntitySchema,
 	createTracker,
 	createTrackerWithSchema,
+	findBuiltinSchemaBySlug,
 	findBuiltinSchemaWithProviders,
 	getEntitySchema,
 	getFirstProviderScriptId,
@@ -98,6 +99,32 @@ describe("POST /entities", () => {
 		expect(error?.error?.message).toBe(
 			"Built-in entity schemas do not support manual entity creation",
 		);
+	});
+
+	it("creates a built-in workout entity through the generic entity endpoint", async () => {
+		const { client, cookies } = await createAuthenticatedClient();
+		const { schema } = await findBuiltinSchemaBySlug(
+			client,
+			cookies,
+			"workout",
+		);
+
+		const entity = await createEntity(client, cookies, {
+			image: null,
+			name: "Push Day",
+			entitySchemaId: schema.id,
+			properties: {
+				endedAt: "2026-04-27T11:00:00Z",
+				startedAt: "2026-04-27T10:00:00Z",
+			},
+		});
+
+		expect(entity.id).toBeDefined();
+		expect(entity.entitySchemaId).toBe(schema.id);
+		expect(entity.properties).toMatchObject({
+			endedAt: "2026-04-27T11:00:00Z",
+			startedAt: "2026-04-27T10:00:00Z",
+		});
 	});
 
 	it("returns 400 when only externalId is provided without sandboxScriptId", async () => {

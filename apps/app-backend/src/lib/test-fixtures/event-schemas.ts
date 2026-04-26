@@ -36,6 +36,7 @@ export const createEventSchemaDeps = (
 		createListedEventSchema(),
 	],
 	getEntitySchemaScopeForUser: async (input) => ({
+		slug: "custom",
 		isBuiltin: false,
 		userId: input.userId,
 		id: input.entitySchemaId,
