@@ -193,7 +193,7 @@ driver("search", async function (context) {
       const image = typeof imageUrl === "string" && imageUrl.trim() ? imageUrl.trim() : null;
 
       return {
-        identifier: id,
+        externalId: id,
         badgeProperty: { kind: "null", value: null },
         titleProperty: { kind: "text", value: title },
         subtitleProperty: { kind: "null", value: null },
@@ -218,15 +218,15 @@ driver("details", async function (context) {
   const { z } = await import("npm:zod");
   const dayjs = (await import("npm:dayjs")).default;
 
-  const { identifier } = z.object({
-    identifier: z.string().trim().min(1, "identifier is required"),
+  const { externalId } = z.object({
+    externalId: z.string().trim().min(1, "externalId is required"),
   }).parse(context ?? {});
 
-  if (!/^\d+$/.test(identifier)) {
-    throw new Error("identifier must be a numeric TVDB movie ID");
+  if (!/^\d+$/.test(externalId)) {
+    throw new Error("externalId must be a numeric TVDB movie ID");
   }
 
-  const data = await tvdbGet(`/movies/${identifier}/extended`);
+  const data = await tvdbGet(`/movies/${externalId}/extended`);
   const movie = data?.data;
   if (!movie) {
     throw new Error("TVDB returned no data for this movie");
