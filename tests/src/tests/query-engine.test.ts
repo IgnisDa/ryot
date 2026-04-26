@@ -16,6 +16,7 @@ import {
 	buildTableDisplayConfiguration,
 	buildTableRequest,
 	createAuthenticatedClient,
+	createCollection,
 	createCrossSchemaQueryEngineFixture,
 	createEntitySchema,
 	createEventSchema,
@@ -294,6 +295,97 @@ describe("Query engine E2E", () => {
 		expect(getItemTitles(userAResult.data?.data.items)).toEqual([entity.name]);
 		expect(userBResult.response.status).toBe(200);
 		expect(userBResult.data?.data.items).toEqual([]);
+	});
+
+	it("deduplicates global entities that match multiple relationship filters", async () => {
+		const { client, cookies, userId } = await createAuthenticatedClient();
+		const { schema } = await findBuiltinSchemaWithProviders(client, cookies);
+		const provider = schema.providers[0];
+		if (!provider) {
+			throw new Error("No provider found");
+		}
+
+		const entity = await seedMediaEntity({
+			image: null,
+			userId: null,
+			properties: {},
+			entitySchemaId: schema.id,
+			sandboxScriptId: provider.scriptId,
+			name: `Multi Relationship Entity ${crypto.randomUUID()}`,
+			externalId: `multi-relationship-entity-${crypto.randomUUID()}`,
+		});
+		await insertLibraryMembership({ mediaEntityId: entity.id, userId });
+
+		const collection = await createCollection(client, cookies, {
+			name: `Query Engine Multi Match ${crypto.randomUUID()}`,
+		});
+		const addToCollection = await client.POST("/collections/memberships", {
+			headers: { Cookie: cookies },
+			body: { entityId: entity.id, collectionId: collection.id },
+		});
+		expect(addToCollection.response.status).toBe(200);
+
+		const { data, response } = await executeQueryEngine(
+			client,
+			cookies,
+			buildGridRequest({
+				scope: [schema.slug],
+				relationships: [
+					{ relationshipSchemaSlug: "in-library" },
+					{ relationshipSchemaSlug: "member-of" },
+				],
+				displayConfiguration: buildGridDisplayConfiguration(
+					{
+						calloutProperty: null,
+						primarySubtitleProperty: null,
+						secondarySubtitleProperty: null,
+					},
+					[schema.slug],
+				),
+				filter: {
+					operator: "eq",
+					type: "comparison",
+					right: literalExpression(entity.name),
+					left: createEntityColumnExpression(schema.slug, "name"),
+				},
+			}),
+		);
+
+		expect(response.status).toBe(200);
+		expect(getItemTitles(data?.data.items)).toEqual([entity.name]);
+		expect(data?.data.meta.pagination.total).toBe(1);
+
+		const aggregateResult = await client.POST("/query-engine/execute", {
+			headers: { Cookie: cookies },
+			body: {
+				mode: "aggregate",
+				scope: [schema.slug],
+				filter: {
+					type: "comparison",
+					operator: "eq",
+					left: createEntityColumnExpression(schema.slug, "name"),
+					right: literalExpression(entity.name),
+				},
+				eventJoins: [],
+				relationships: [
+					{ relationshipSchemaSlug: "in-library" },
+					{ relationshipSchemaSlug: "member-of" },
+				],
+				computedFields: [],
+				aggregations: [{ key: "total", aggregation: { type: "count" } }],
+			},
+		});
+
+		expect(aggregateResult.response.status).toBe(200);
+		const aggregateValues =
+			aggregateResult.data?.data.mode === "aggregate"
+				? aggregateResult.data.data.data.values
+				: [];
+		expect(getAggregateValue(aggregateValues, "total")).toEqual({
+			key: "total",
+			kind: "number",
+			value: 1,
+		});
 	});
 
 	it("executes a simple single-schema query with the full response shape", async () => {
@@ -3318,6 +3410,83 @@ describe("Query engine E2E", () => {
 			expect(response.status).toBe(400);
 			expect(error?.error?.message).toBe(
 				"Primary event references are not supported in this query mode",
+			);
+		});
+
+		it("rejects primary event property sort expressions without eventSchemaSlug in events mode", async () => {
+			const { client, cookies } = await createAuthenticatedClient();
+			const { trackerId } = await createTracker(client, cookies, {
+				name: "Primary Event Schema Slug Tracker",
+			});
+			const schema = await createEntitySchema(client, cookies, {
+				trackerId,
+				name: "StrictEventProps",
+				propertiesSchema: {
+					fields: {
+						title: {
+							label: "Title",
+							description: "Title",
+							type: "string" as const,
+						},
+					},
+				},
+			});
+			const reviewSchema = await createEventSchema(client, cookies, {
+				name: "Review",
+				slug: "review",
+				entitySchemaId: schema.schemaId,
+				propertiesSchema: {
+					fields: {
+						rating: {
+							label: "Rating",
+							description: "Rating",
+							type: "integer" as const,
+						},
+					},
+				},
+			});
+			const entityId = await createQueryEngineEntity({
+				client,
+				cookies,
+				name: "Strict Event Entity",
+				entitySchemaId: schema.schemaId,
+				properties: {},
+			});
+			await createQueryEngineEvent({
+				client,
+				cookies,
+				entityId,
+				eventSchemaId: reviewSchema.id,
+				properties: { rating: 5 },
+			});
+
+			const { error, response } = await client.POST("/query-engine/execute", {
+				headers: { Cookie: cookies },
+				body: {
+					filter: null,
+					mode: "events",
+					eventJoins: [],
+					computedFields: [],
+					scope: [schema.slug],
+					eventSchemas: [reviewSchema.slug],
+					pagination: { page: 1, limit: 10 },
+					sort: {
+						direction: "asc",
+						expression: {
+							type: "reference",
+							reference: {
+								type: "event",
+								path: ["properties", "rating"],
+							},
+						},
+					},
+					fields: [],
+				},
+			});
+
+			expect(response.status).toBe(400);
+			expect(error?.error?.message).toBe(
+				"Primary event property references in this context must specify eventSchemaSlug",
 			);
 		});
 	});
