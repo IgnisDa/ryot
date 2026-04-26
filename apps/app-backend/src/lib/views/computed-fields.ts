@@ -1,4 +1,4 @@
-import { match } from "ts-pattern";
+import { Match } from "effect";
 
 import type { QueryComputedField, QueryExpression, QueryFilter } from "~/lib/query-language";
 
@@ -40,24 +40,24 @@ const collectExpressionDependencies = (
 	expression: QueryExpression,
 	dependencies: string[],
 ): string[] => {
-	return match(expression)
-		.with({ type: "literal" }, () => dependencies)
-		.with({ type: "reference" }, (expr) => {
+	return Match.value(expression).pipe(
+		Match.when({ type: "literal" }, () => dependencies),
+		Match.when({ type: "reference" }, (expr) => {
 			if (expr.reference.type === "computed-field") {
 				dependencies.push(expr.reference.key);
 			}
 			return dependencies;
-		})
-		.with({ type: "isNotNull" }, (expr) => {
+		}),
+		Match.when({ type: "isNotNull" }, (expr) => {
 			collectExpressionDependencies(expr.expression, dependencies);
 			return dependencies;
-		})
-		.with({ type: "arithmetic" }, (expr) => {
+		}),
+		Match.when({ type: "arithmetic" }, (expr) => {
 			collectExpressionDependencies(expr.left, dependencies);
 			collectExpressionDependencies(expr.right, dependencies);
 			return dependencies;
-		})
-		.with(
+		}),
+		Match.whenOr(
 			{ type: "round" },
 			{ type: "floor" },
 			{ type: "integer" },
@@ -66,56 +66,58 @@ const collectExpressionDependencies = (
 				collectExpressionDependencies(expr.expression, dependencies);
 				return dependencies;
 			},
-		)
-		.with({ type: "conditional" }, (expr) => {
+		),
+		Match.when({ type: "conditional" }, (expr) => {
 			collectPredicateDependencies(expr.condition, dependencies);
 			collectExpressionDependencies(expr.whenTrue, dependencies);
 			collectExpressionDependencies(expr.whenFalse, dependencies);
 			return dependencies;
-		})
-		.with({ type: "coalesce" }, { type: "concat" }, (expr) => {
+		}),
+		Match.whenOr({ type: "coalesce" }, { type: "concat" }, (expr) => {
 			for (const value of expr.values) {
 				collectExpressionDependencies(value, dependencies);
 			}
 			return dependencies;
-		})
-		.exhaustive();
+		}),
+		Match.exhaustive,
+	);
 };
 
 const collectPredicateDependencies = (predicate: QueryFilter, dependencies: string[]): string[] => {
-	return match(predicate)
-		.with({ type: "and" }, { type: "or" }, (pred) => {
+	return Match.value(predicate).pipe(
+		Match.whenOr({ type: "and" }, { type: "or" }, (pred) => {
 			for (const child of pred.predicates) {
 				collectPredicateDependencies(child, dependencies);
 			}
 			return dependencies;
-		})
-		.with({ type: "not" }, (pred) => {
+		}),
+		Match.when({ type: "not" }, (pred) => {
 			collectPredicateDependencies(pred.predicate, dependencies);
 			return dependencies;
-		})
-		.with({ type: "comparison" }, (pred) => {
+		}),
+		Match.when({ type: "comparison" }, (pred) => {
 			collectExpressionDependencies(pred.left, dependencies);
 			collectExpressionDependencies(pred.right, dependencies);
 			return dependencies;
-		})
-		.with({ type: "contains" }, (pred) => {
+		}),
+		Match.when({ type: "contains" }, (pred) => {
 			collectExpressionDependencies(pred.expression, dependencies);
 			collectExpressionDependencies(pred.value, dependencies);
 			return dependencies;
-		})
-		.with({ type: "isNull" }, { type: "isNotNull" }, (pred) => {
+		}),
+		Match.whenOr({ type: "isNull" }, { type: "isNotNull" }, (pred) => {
 			collectExpressionDependencies(pred.expression, dependencies);
 			return dependencies;
-		})
-		.with({ type: "in" }, (pred) => {
+		}),
+		Match.when({ type: "in" }, (pred) => {
 			collectExpressionDependencies(pred.expression, dependencies);
 			for (const value of pred.values) {
 				collectExpressionDependencies(value, dependencies);
 			}
 			return dependencies;
-		})
-		.exhaustive();
+		}),
+		Match.exhaustive,
+	);
 };
 
 export const getComputedFieldDependencies = (expression: QueryExpression): string[] => {
