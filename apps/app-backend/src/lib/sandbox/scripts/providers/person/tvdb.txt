@@ -224,7 +224,6 @@ driver("details", async function (context) {
 		properties: {
 			gender,
 			description,
-			website: null,
 			alternateNames: [],
 			assets: { remoteImages: image ? [image] : [] },
 			sourceUrl: slug
