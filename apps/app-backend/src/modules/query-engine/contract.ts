@@ -2,7 +2,7 @@ import { HttpApiEndpoint, HttpApiGroup } from "@effect/platform";
 import { Schema } from "effect";
 
 import { AuthMiddleware } from "~/lib/auth";
-import { BadRequest, NotFound, NotImplemented, RateLimited, Unauthorized } from "~/lib/errors";
+import { BadRequest, NotFound, RateLimited, Unauthorized } from "~/lib/errors";
 import { DateRange, QueryEngineRequest } from "~/lib/query-language";
 
 // Response bodies
@@ -55,5 +55,4 @@ export const QueryEngineGroup = HttpApiGroup.make("query-engine")
 			.addError(BadRequest, { status: 400 })
 			.addError(NotFound, { status: 404 })
 			.middleware(AuthMiddleware),
-	)
-	.addError(NotImplemented, { status: 501 });
+	);
