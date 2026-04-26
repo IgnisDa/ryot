@@ -5,7 +5,7 @@ import { createQueryEngineRequest } from "./view-page-utils";
 describe("createQueryEngineRequest", () => {
 	it("does not request hidden entityImage for table layouts", () => {
 		const view = createSavedViewFixture({
-			queryDefinition: { entitySchemaSlugs: ["show"] },
+			queryDefinition: { scope: ["show"] },
 		});
 
 		const result = createQueryEngineRequest({
@@ -23,7 +23,7 @@ describe("createQueryEngineRequest", () => {
 	it("preserves saved view relationships in runtime requests", () => {
 		const view = createSavedViewFixture({
 			queryDefinition: {
-				entitySchemaSlugs: ["show"],
+				scope: ["show"],
 				relationships: [{ relationshipSchemaSlug: "in-library" }],
 			},
 		});

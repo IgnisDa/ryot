@@ -148,7 +148,7 @@ export function registerQueryEnginePresentationAndErrorTests() {
 			client,
 			cookies,
 			buildGridRequest({
-				entitySchemaSlugs: [schema.slug],
+				scope: [schema.slug],
 				pagination: { page: 1, limit: 1 },
 			}),
 		);
@@ -156,7 +156,7 @@ export function registerQueryEnginePresentationAndErrorTests() {
 			client,
 			cookies,
 			buildListRequest({
-				entitySchemaSlugs: [schema.slug],
+				scope: [schema.slug],
 				pagination: { page: 1, limit: 1 },
 			}),
 		);
@@ -257,7 +257,7 @@ export function registerQueryEnginePresentationAndErrorTests() {
 			client,
 			cookies,
 			buildGridRequest({
-				entitySchemaSlugs: [schema.slug],
+				scope: [schema.slug],
 				pagination: { page: 1, limit: 1 },
 				displayConfiguration: buildGridDisplayConfiguration(
 					{
@@ -309,7 +309,7 @@ export function registerQueryEnginePresentationAndErrorTests() {
 			client,
 			cookies,
 			buildTableRequest({
-				entitySchemaSlugs: [schema.slug],
+				scope: [schema.slug],
 				pagination: { page: 1, limit: 1 },
 				displayConfiguration: buildTableDisplayConfiguration([
 					{ label: "Name", property: [entityField(schema.slug, "name")] },
@@ -334,7 +334,7 @@ export function registerQueryEnginePresentationAndErrorTests() {
 			client,
 			cookies,
 			buildGridRequest({
-				entitySchemaSlugs: [smartphoneSlug, tabletSlug],
+				scope: [smartphoneSlug, tabletSlug],
 				sort: {
 					direction: "asc",
 					expression: {
@@ -396,7 +396,7 @@ export function registerQueryEnginePresentationAndErrorTests() {
 			client,
 			cookies,
 			buildGridRequest({
-				entitySchemaSlugs: [schema.slug],
+				scope: [schema.slug],
 				filter: {
 					operator: "eq",
 					type: "comparison",
@@ -427,7 +427,7 @@ export function registerQueryEnginePresentationAndErrorTests() {
 			client,
 			cookies,
 			buildListRequest({
-				entitySchemaSlugs: [schema.slug],
+				scope: [schema.slug],
 				filter: {
 					operator: "eq",
 					type: "comparison",
@@ -458,7 +458,7 @@ export function registerQueryEnginePresentationAndErrorTests() {
 			client,
 			cookies,
 			buildTableRequest({
-				entitySchemaSlugs: [schema.slug],
+				scope: [schema.slug],
 				filter: {
 					operator: "eq",
 					type: "comparison",
@@ -491,7 +491,7 @@ export function registerQueryEnginePresentationAndErrorTests() {
 			client,
 			cookies,
 			buildTableRequest({
-				entitySchemaSlugs: [schema.slug],
+				scope: [schema.slug],
 				sort: { expression: reviewRatingRef, direction: "desc" },
 				filter: {
 					type: "comparison",
@@ -538,7 +538,7 @@ export function registerQueryEnginePresentationAndErrorTests() {
 			client,
 			cookies,
 			buildGridRequest({
-				entitySchemaSlugs: [smartphoneSlug, tabletSlug],
+				scope: [smartphoneSlug, tabletSlug],
 				filter: { type: "isNull", expression: reviewRatingRef },
 				eventJoins: [
 					{ key: "review", kind: "latestEvent", eventSchemaSlug: "review" },
@@ -579,7 +579,7 @@ export function registerQueryEnginePresentationAndErrorTests() {
 			client,
 			cookies,
 			buildGridRequest({
-				entitySchemaSlugs: [smartphoneSlug, tabletSlug],
+				scope: [smartphoneSlug, tabletSlug],
 				filter: { type: "isNotNull", expression: reviewRatingRef },
 				eventJoins: [
 					{ key: "review", kind: "latestEvent", eventSchemaSlug: "review" },
@@ -612,13 +612,13 @@ export function registerQueryEnginePresentationAndErrorTests() {
 		const missingSchemaResult = await executeQueryEngine(
 			client,
 			cookies,
-			buildGridRequest({ entitySchemaSlugs: ["missing-schema"] }),
+			buildGridRequest({ scope: ["missing-schema"] }),
 		);
 		const missingPropertyResult = await executeQueryEngine(
 			client,
 			cookies,
 			buildGridRequest({
-				entitySchemaSlugs: [schema.slug],
+				scope: [schema.slug],
 				filter: {
 					operator: "eq",
 					type: "comparison",
@@ -631,7 +631,7 @@ export function registerQueryEnginePresentationAndErrorTests() {
 			client,
 			cookies,
 			buildGridRequest({
-				entitySchemaSlugs: [schema.slug],
+				scope: [schema.slug],
 				filter: {
 					operator: "eq",
 					type: "comparison",

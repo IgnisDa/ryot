@@ -47,7 +47,7 @@ describe("toSidebarData", () => {
 				queryDefinition: {
 					eventJoins: [],
 					computedFields: [],
-					entitySchemaSlugs: ["schema-2"],
+					scope: ["schema-2"],
 					sort: {
 						direction: "asc",
 						expression: {
