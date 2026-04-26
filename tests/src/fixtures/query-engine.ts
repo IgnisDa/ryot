@@ -1,4 +1,5 @@
 import type { paths } from "@ryot/generated/openapi/app-backend";
+import { getQueryEngineField } from "@ryot/ts-utils";
 import { type Client, createAuthenticatedClient } from "./auth";
 import { createEntitySchema } from "./entity-schemas";
 import { waitForEventCount } from "./events";
@@ -277,7 +278,7 @@ export function getQueryEngineFieldOrThrow(
 	item: QueryEngineResponseItem | undefined,
 	key: string,
 ) {
-	const field = item?.fields.find((entry) => entry.key === key);
+	const field = getQueryEngineField(item, key);
 	if (!field) {
 		throw new Error(`Expected query engine field '${key}'`);
 	}
