@@ -5,21 +5,31 @@ import { mediaWithFreeCreatorsPropertiesSchema } from "./common";
 
 const podcastEpisodeSchema = z
 	.object({
-		id: z.string(),
-		title: z.string(),
-		publishDate: z.string(),
-		number: z.number().int(),
-		runtime: nullableIntSchema,
-		overview: nullableStringSchema,
-		thumbnail: nullableStringSchema,
+		id: z.string().describe("Unique identifier for this episode"),
+		title: z.string().describe("Episode title"),
+		publishDate: z.string().describe("Date this episode was published"),
+		number: z.number().int().describe("Episode number in the feed"),
+		runtime: nullableIntSchema.describe("Episode runtime in minutes"),
+		overview: nullableStringSchema.describe(
+			"Episode description or show notes",
+		),
+		thumbnail: nullableStringSchema.describe(
+			"Thumbnail image URL for this episode",
+		),
 	})
 	.strict();
 
 export const podcastPropertiesSchema =
 	mediaWithFreeCreatorsPropertiesSchema.extend({
-		images: imagesSchema,
-		totalEpisodes: nullableIntSchema,
-		episodes: z.array(podcastEpisodeSchema),
+		images: imagesSchema.describe(
+			"Cover and promotional images for this podcast",
+		),
+		totalEpisodes: nullableIntSchema.describe(
+			"Total number of episodes published by this podcast",
+		),
+		episodes: z
+			.array(podcastEpisodeSchema)
+			.describe("List of podcast episodes"),
 	});
 
 export const podcastPropertiesJsonSchema = toAppSchemaProperties(

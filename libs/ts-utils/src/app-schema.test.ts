@@ -14,31 +14,37 @@ describe("toAppSchema", () => {
 	it("marks non-optional primitive fields as required", () => {
 		expect(toAppSchema(z.string())).toEqual({
 			label: "Value",
+			description: "Value",
 			type: "string",
 			validation: { required: true },
 		});
 		expect(toAppSchema(z.number())).toEqual({
 			label: "Value",
+			description: "Value",
 			type: "number",
 			validation: { required: true },
 		});
 		expect(toAppSchema(z.number().int())).toEqual({
 			label: "Value",
+			description: "Value",
 			type: "integer",
 			validation: { required: true },
 		});
 		expect(toAppSchema(z.boolean())).toEqual({
 			label: "Value",
+			description: "Value",
 			type: "boolean",
 			validation: { required: true },
 		});
 		expect(toAppSchema(z.string().date())).toEqual({
 			type: "date",
 			label: "Value",
+			description: "Value",
 			validation: { required: true },
 		});
 		expect(toAppSchema(z.iso.datetime())).toEqual({
 			label: "Value",
+			description: "Value",
 			type: "datetime",
 			validation: { required: true },
 		});
@@ -47,14 +53,17 @@ describe("toAppSchema", () => {
 	it("drops required when wrappers make a field optional", () => {
 		expect(toAppSchema(z.string().optional())).toEqual({
 			label: "Value",
+			description: "Value",
 			type: "string",
 		});
 		expect(toAppSchema(z.number().nullable())).toEqual({
 			label: "Value",
+			description: "Value",
 			type: "number",
 		});
 		expect(toAppSchema(z.boolean().nullish())).toEqual({
 			label: "Value",
+			description: "Value",
 			type: "boolean",
 		});
 	});
@@ -72,18 +81,25 @@ describe("toAppSchema", () => {
 		).toEqual({
 			type: "object",
 			label: "Value",
+			description: "Value",
 			unknownKeys: "strip",
 			validation: { required: true },
 			properties: {
 				author: {
 					label: "Author",
+					description: "Author",
 					type: "object",
 					unknownKeys: "strip",
 					validation: { required: true },
 					properties: {
-						age: { label: "Age", type: "integer" },
+						age: {
+							label: "Age",
+							description: "Age",
+							type: "integer",
+						},
 						name: {
 							label: "Name",
+							description: "Name",
 							type: "string",
 							validation: { required: true },
 						},
@@ -97,8 +113,9 @@ describe("toAppSchema", () => {
 		expect(toAppSchema(z.array(z.string()))).toEqual({
 			type: "array",
 			label: "Value",
+			description: "Value",
 			validation: { required: true },
-			items: { label: "Item", type: "string" },
+			items: { label: "Item", description: "Item", type: "string" },
 		});
 	});
 });
@@ -114,8 +131,16 @@ describe("toAppSchemaProperties", () => {
 			),
 		).toEqual({
 			fields: {
-				title: { label: "Title", type: "string" },
-				pages: { label: "Pages", type: "integer" },
+				title: {
+					label: "Title",
+					description: "Title",
+					type: "string",
+				},
+				pages: {
+					label: "Pages",
+					description: "Pages",
+					type: "integer",
+				},
 			},
 		});
 	});
@@ -136,20 +161,31 @@ describe("toAppSchemaProperties", () => {
 			fields: {
 				images: {
 					label: "Images",
+					description: "Images",
 					type: "array",
 					items: {
 						label: "Item",
+						description: "Item",
 						type: "object",
 						unknownKeys: "strip",
 						properties: {
-							key: { label: "Key", type: "string" },
+							key: {
+								label: "Key",
+								description: "Key",
+								type: "string",
+							},
 							kind: {
 								label: "Kind",
+								description: "Kind",
 								type: "enum",
 								options: ["remote", "s3"],
 								validation: { required: true },
 							},
-							url: { label: "Url", type: "string" },
+							url: {
+								label: "Url",
+								description: "Url",
+								type: "string",
+							},
 						},
 					},
 				},
@@ -163,15 +199,22 @@ describe("fromAppSchema", () => {
 		const schema = fromAppSchema({
 			type: "object",
 			label: "Value",
+			description: "Value",
 			properties: {
 				author: {
 					label: "Author",
+					description: "Author",
 					type: "object",
 					validation: { required: true },
 					properties: {
-						age: { label: "Age", type: "integer" },
+						age: {
+							label: "Age",
+							description: "Age",
+							type: "integer",
+						},
 						name: {
 							label: "Name",
+							description: "Name",
 							type: "string",
 							validation: { required: true },
 						},
@@ -191,16 +234,19 @@ describe("fromAppSchema", () => {
 		const schema = fromAppSchema({
 			type: "object",
 			label: "Value",
+			description: "Value",
 			unknownKeys: "strip",
 			properties: {
 				author: {
 					label: "Author",
+					description: "Author",
 					type: "object",
 					unknownKeys: "strip",
 					validation: { required: true },
 					properties: {
 						name: {
 							label: "Name",
+							description: "Name",
 							type: "string",
 							validation: { required: true },
 						},
@@ -221,16 +267,19 @@ describe("fromAppSchema", () => {
 		const schema = fromAppSchema({
 			type: "object",
 			label: "Value",
+			description: "Value",
 			unknownKeys: "passthrough",
 			properties: {
 				author: {
 					label: "Author",
+					description: "Author",
 					type: "object",
 					unknownKeys: "passthrough",
 					validation: { required: true },
 					properties: {
 						name: {
 							label: "Name",
+							description: "Name",
 							type: "string",
 							validation: { required: true },
 						},
@@ -254,6 +303,7 @@ describe("fromAppSchema", () => {
 		const schema = fromAppSchema({
 			type: "number",
 			label: "Value",
+			description: "Value",
 			transform: { round: { mode: "half_up", scale: 2 } },
 			validation: { exclusiveMaximum: 100, exclusiveMinimum: 0 },
 		});
@@ -267,6 +317,7 @@ describe("fromAppSchema", () => {
 		const schema = fromAppSchema({
 			type: "enum",
 			label: "Status",
+			description: "Status",
 			options: ["draft", "published", "archived"],
 		});
 
@@ -280,6 +331,7 @@ describe("fromAppSchema", () => {
 		const schema = fromAppSchema({
 			type: "enum",
 			label: "Status",
+			description: "Status",
 			validation: { required: true },
 			options: ["active", "inactive"],
 		});
@@ -292,6 +344,7 @@ describe("fromAppSchema", () => {
 	it("accepts valid enum-array values and rejects items outside options", () => {
 		const schema = fromAppSchema({
 			label: "Genres",
+			description: "Genres",
 			type: "enum-array",
 			options: ["fiction", "non-fiction", "mystery"],
 		});
@@ -304,6 +357,7 @@ describe("fromAppSchema", () => {
 	it("applies minItems/maxItems validation to enum-array", () => {
 		const schema = fromAppSchema({
 			label: "Tags",
+			description: "Tags",
 			type: "enum-array",
 			options: ["a", "b", "c"],
 			validation: { minItems: 1, maxItems: 2 },
@@ -322,10 +376,23 @@ describe("fromAppSchemaObject", () => {
 				timeToBeat: {
 					type: "object",
 					label: "Time To Beat",
+					description: "Time To Beat",
 					properties: {
-						hastily: { label: "Hastily", type: "integer" },
-						normally: { label: "Normally", type: "integer" },
-						completely: { label: "Completely", type: "integer" },
+						hastily: {
+							label: "Hastily",
+							description: "Hastily",
+							type: "integer",
+						},
+						normally: {
+							label: "Normally",
+							description: "Normally",
+							type: "integer",
+						},
+						completely: {
+							label: "Completely",
+							description: "Completely",
+							type: "integer",
+						},
 					},
 				},
 			},
@@ -343,9 +410,14 @@ describe("fromAppSchemaObject", () => {
 	it("applies conditional required rules", () => {
 		const schema = fromAppSchemaObject({
 			fields: {
-				progressPercent: { label: "Progress Percent", type: "number" },
+				progressPercent: {
+					label: "Progress Percent",
+					description: "Progress Percent",
+					type: "number",
+				},
 				status: {
 					label: "Status",
+					description: "Status",
 					type: "string",
 					validation: { required: true },
 				},
@@ -373,10 +445,23 @@ describe("fromAppSchemaObject", () => {
 				metadata: {
 					type: "object",
 					label: "Metadata",
+					description: "Metadata",
 					properties: {
-						score: { label: "Score", type: "integer" },
-						status: { label: "Status", type: "string" },
-						verified: { label: "Verified", type: "boolean" },
+						score: {
+							label: "Score",
+							description: "Score",
+							type: "integer",
+						},
+						status: {
+							label: "Status",
+							description: "Status",
+							type: "string",
+						},
+						verified: {
+							label: "Verified",
+							description: "Verified",
+							type: "boolean",
+						},
 					},
 				},
 			},
@@ -437,21 +522,33 @@ describe("fromAppSchemaObject", () => {
 describe("getAppPropertyDefinitionAtPath", () => {
 	it("resolves top-level and nested object properties", () => {
 		const fields = {
-			rating: { label: "Rating", type: "integer" as const },
+			rating: {
+				label: "Rating",
+				description: "Rating",
+				type: "integer" as const,
+			},
 			metadata: {
 				label: "Metadata",
+				description: "Metadata",
 				type: "object" as const,
-				properties: { title: { label: "Title", type: "string" as const } },
+				properties: {
+					title: {
+						label: "Title",
+						description: "Title",
+						type: "string" as const,
+					},
+				},
 			},
 		};
 
 		expect(getAppPropertyDefinitionAtPath(fields, ["rating"])).toEqual({
 			type: "integer",
 			label: "Rating",
+			description: "Rating",
 		});
 		expect(
 			getAppPropertyDefinitionAtPath(fields, ["metadata", "title"]),
-		).toEqual({ label: "Title", type: "string" });
+		).toEqual({ label: "Title", description: "Title", type: "string" });
 		expect(
 			getAppPropertyDefinitionAtPath(fields, ["metadata", "missing"]),
 		).toBe(undefined);
@@ -461,11 +558,16 @@ describe("getAppPropertyDefinitionAtPath", () => {
 describe("isAppPropertyRequired", () => {
 	it("reads required state from validation metadata", () => {
 		expect(
-			isAppPropertyRequired({ label: "Value", type: "string" }),
+			isAppPropertyRequired({
+				label: "Value",
+				description: "Value",
+				type: "string",
+			}),
 		).toBeFalse();
 		expect(
 			isAppPropertyRequired({
 				label: "Value",
+				description: "Value",
 				type: "string",
 				validation: { required: true },
 			}),
