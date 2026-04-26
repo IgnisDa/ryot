@@ -798,7 +798,11 @@ const libraryQueryResult = (items: ReturnType<typeof makeLibraryItem>[]) =>
 describe("getLibraryStats", () => {
 	it("does not request entity identity fields for stats", async () => {
 		let capturedRequest:
-			| Parameters<NonNullable<Parameters<typeof getLibraryStats>[1]>["executeSectionQuery"]>[1]
+			| Parameters<
+					NonNullable<
+						Parameters<typeof getLibraryStats>[1]
+					>["executeSectionQuery"]
+			  >[1]
 			| undefined;
 
 		expectDataResult(
@@ -810,9 +814,9 @@ describe("getLibraryStats", () => {
 			}),
 		);
 
-		expect(capturedRequest?.fields.some((field) => field.key === "entityId")).toBe(
-			false,
-		);
+		expect(
+			capturedRequest?.fields.some((field) => field.key === "entityId"),
+		).toBe(false);
 		expect(
 			capturedRequest?.fields.some((field) => field.key === "entityName"),
 		).toBe(false);
