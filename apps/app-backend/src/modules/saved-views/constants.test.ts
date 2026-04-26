@@ -12,10 +12,10 @@ describe("createDefaultDisplayConfiguration", () => {
 		const displayConfiguration = createDefaultDisplayConfiguration("show");
 
 		expect(displayConfiguration.grid.calloutProperty).toEqual(
-			createEventAggregateExpression("review", ["rating"], "avg"),
+			createEventAggregateExpression("review", ["properties", "rating"], "avg"),
 		);
 		expect(displayConfiguration.list.calloutProperty).toEqual(
-			createEventAggregateExpression("review", ["rating"], "avg"),
+			createEventAggregateExpression("review", ["properties", "rating"], "avg"),
 		);
 	});
 
