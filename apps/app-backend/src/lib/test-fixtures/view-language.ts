@@ -1,5 +1,5 @@
 import type { EventAggregation } from "@ryot/ts-utils";
-import type { ViewExpression } from "~/lib/views/expression";
+import type { ViewExpression, ViewTransformName } from "~/lib/views/expression";
 import type { ViewPredicate } from "~/lib/views/filtering";
 
 export const schemaPropertyExpression = (
@@ -46,6 +46,15 @@ export const literalExpression = (value: unknown): ViewExpression => ({
 });
 
 export const nullExpression = (): ViewExpression => literalExpression(null);
+
+export const transformExpression = (
+	name: ViewTransformName,
+	expression: ViewExpression,
+): ViewExpression => ({
+	name,
+	expression,
+	type: "transform",
+});
 
 export const coalesceExpression = (
 	...values: ViewExpression[]
