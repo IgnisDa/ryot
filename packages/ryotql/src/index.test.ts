@@ -21,6 +21,7 @@ import {
 	count,
 	countDistinct,
 	defineRecipe,
+	dateBucket,
 	document,
 	divide,
 	eq,
@@ -28,6 +29,7 @@ import {
 	floor,
 	first,
 	gt,
+	groupDescending,
 	gte,
 	exists,
 	isNotNull,
@@ -86,6 +88,38 @@ describe("RyotQL builders", () => {
 					},
 				},
 			},
+		});
+	});
+
+	it("builds timezone-aware date buckets and aggregate group ordering", () => {
+		const event = table("event", "event");
+		const day = dateBucket(column(event, "occurredAt"), {
+			bucket: "day",
+			timeZone: "America/New_York",
+		});
+		const query = aggregate(event, {
+			limit: 30,
+			orderBy: [groupDescending("day")],
+			groupBy: [field("day", day)],
+			measures: [measure("count", { function: "count" })],
+		});
+
+		expect(query.output).toEqual({
+			limit: 30,
+			type: "aggregate",
+			orderBy: [{ direction: "desc", key: "day" }],
+			measures: [{ key: "count", aggregation: { function: "count" } }],
+			groupBy: [
+				{
+					key: "day",
+					expr: {
+						bucket: "day",
+						type: "dateBucket",
+						timeZone: "America/New_York",
+						expr: { type: "column", tableAlias: "event", field: "occurredAt" },
+					},
+				},
+			],
 		});
 	});
 

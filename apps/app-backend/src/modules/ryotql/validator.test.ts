@@ -10,12 +10,14 @@ import {
 	contains,
 	conditional,
 	count,
+	dateBucket,
 	document,
 	eq,
 	exists,
 	field,
 	floor,
 	first,
+	groupDescending,
 	include,
 	integer,
 	isNotNull,
@@ -512,7 +514,31 @@ it("validates aggregate keys, grouped requirements, ordering, and limits", () =>
 				}),
 			}),
 		),
-	).toBe("Query 'entities': Unknown aggregate measure key 'missing'");
+	).toBe("Query 'entities': Unknown aggregate order key 'missing'");
+	expect(
+		validateRyotQLDocument(
+			document({
+				entities: aggregate(entity, {
+					limit: 10,
+					groupBy: [group],
+					measures: [countMeasure],
+					orderBy: [groupDescending("name")],
+				}),
+			}),
+		),
+	).toBeNull();
+	expect(
+		validateRyotQLDocument(
+			document({
+				entities: aggregate(entity, {
+					limit: 10,
+					measures: [countMeasure],
+					orderBy: [groupDescending("metadata")],
+					groupBy: [field("metadata", jsonPath(column(entity, "properties"), "metadata"))],
+				}),
+			}),
+		),
+	).toBe("Query 'entities': Aggregate group order key 'metadata' must resolve to a scalar value");
 	expect(
 		validateRyotQLDocument(
 			document({
@@ -525,6 +551,27 @@ it("validates aggregate keys, grouped requirements, ordering, and limits", () =>
 			}),
 		),
 	).toBe("Query 'entities': Duplicate aggregate output key 'count'");
+});
+
+it("validates timezone-aware date bucket expressions", () => {
+	const entity = table("entity", "entity");
+	const query = (expr: Parameters<typeof dateBucket>[0], timeZone = "America/New_York") =>
+		document({
+			entities: rows(entity, {
+				fields: [field("day", dateBucket(expr, { bucket: "day", timeZone }))],
+			}),
+		});
+
+	expect(validateRyotQLDocument(query(column(entity, "createdAt")))).toBeNull();
+	expect(validateRyotQLDocument(query(column(entity, "name")))).toBe(
+		"Query 'entities': Date buckets require a date expression",
+	);
+	expect(validateRyotQLDocument(query(column(entity, "createdAt"), "Invalid/Zone"))).toBe(
+		"Query 'entities': Invalid date bucket time zone 'Invalid/Zone'",
+	);
+	expect(validateRyotQLDocument(query(column(entity, "createdAt"), "+05:30"))).toBe(
+		"Query 'entities': Invalid date bucket time zone '+05:30'",
+	);
 });
 
 it("validates time-series ranges, expressions, measures, and bucket limits", () => {

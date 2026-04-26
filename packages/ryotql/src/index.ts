@@ -28,12 +28,13 @@ import { Result, Schema } from "effect";
 
 type CastExpression = Extract<ScalarExpression, { type: "cast" }>;
 type FirstExpression = Extract<ScalarExpression, { type: "first" }>;
-type AggregateExpression = Extract<ScalarExpression, { type: "aggregate" }>;
-type ArithmeticExpression = Extract<ScalarExpression, { type: "arithmetic" }>;
-type ConditionalExpression = Extract<ScalarExpression, { type: "conditional" }>;
-type JsonPathExpression = Extract<ScalarExpression, { type: "jsonPath" }>;
-type TransformExpression = Extract<ScalarExpression, { type: "transform" }>;
 type ComparisonPredicate = Extract<Predicate, { type: "comparison" }>;
+type JsonPathExpression = Extract<ScalarExpression, { type: "jsonPath" }>;
+type AggregateExpression = Extract<ScalarExpression, { type: "aggregate" }>;
+type TransformExpression = Extract<ScalarExpression, { type: "transform" }>;
+type ArithmeticExpression = Extract<ScalarExpression, { type: "arithmetic" }>;
+type DateBucketExpression = Extract<ScalarExpression, { type: "dateBucket" }>;
+type ConditionalExpression = Extract<ScalarExpression, { type: "conditional" }>;
 type CorrelatedQueryInput = {
 	readonly where?: Predicate | undefined;
 	readonly joins?: readonly Join[] | undefined;
@@ -85,6 +86,11 @@ export const castDate = (expr: ScalarExpression) => cast("date", expr);
 export const castJson = (expr: ScalarExpression) => cast("json", expr);
 export const castNumber = (expr: ScalarExpression) => cast("number", expr);
 export const castBoolean = (expr: ScalarExpression) => cast("boolean", expr);
+
+export const dateBucket = (
+	expr: ScalarExpression,
+	input: Pick<DateBucketExpression, "bucket" | "timeZone">,
+): DateBucketExpression => ({ expr, type: "dateBucket", ...input });
 
 export const coalesce = (
 	first: ScalarExpression,
@@ -271,6 +277,8 @@ export const measure = (key: string, aggregation: AggregationSpec): AggregateMea
 	aggregation,
 });
 
+export const groupAscending = (key: string): AggregateOrderBy => ({ direction: "asc", key });
+export const groupDescending = (key: string): AggregateOrderBy => ({ direction: "desc", key });
 export const measureAscending = (key: string): AggregateOrderBy => ({ direction: "asc", key });
 export const measureDescending = (key: string): AggregateOrderBy => ({ direction: "desc", key });
 
