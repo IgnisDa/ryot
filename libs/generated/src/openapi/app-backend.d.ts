@@ -92,6 +92,51 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/system/config": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get application configuration with sensitive values masked */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Masked application configuration */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            data: {
+                                system: {
+                                    [key: string]: unknown;
+                                };
+                                providers: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/authentication/me": {
         parameters: {
             query?: never;
@@ -4062,14 +4107,14 @@ export interface components {
             condition: components["schemas"]["ViewPredicate"];
         };
         QueryEngineReference: {
-            slug: string;
             /** @enum {string} */
             type: "entity";
+            slug: string;
             path: string[];
         } | {
-            joinKey: string;
             /** @enum {string} */
             type: "event";
+            joinKey: string;
             path: string[];
         } | {
             key: string;
