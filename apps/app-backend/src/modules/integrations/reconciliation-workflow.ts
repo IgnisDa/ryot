@@ -2,7 +2,7 @@ import { Effect, Layer, Schema } from "effect";
 import { Activity, Workflow } from "effect/unstable/workflow";
 import { WorkflowEngine } from "effect/unstable/workflow/WorkflowEngine";
 
-import { withoutSchemaServices } from "#lib/shared/schema";
+import type { DurableSchema } from "#lib/infrastructure/workflow";
 
 import { ProcessIntegrationRunWorkflow } from "./integration-workflow";
 import { IntegrationReconciliationRun } from "./jobs";
@@ -17,9 +17,9 @@ export type IntegrationReconciliationPayload = typeof IntegrationReconciliationP
 export const IntegrationReconciliationWorkflow = Workflow.make(
 	"IntegrationReconciliationWorkflow",
 	{
-		success: withoutSchemaServices(Schema.Void),
-		error: withoutSchemaServices(Schema.Never),
-		payload: withoutSchemaServices(IntegrationReconciliationPayload),
+		success: Schema.Void satisfies DurableSchema,
+		error: Schema.Never satisfies DurableSchema,
+		payload: IntegrationReconciliationPayload satisfies DurableSchema,
 		idempotencyKey: ({ executionId }) => executionId,
 	},
 );
