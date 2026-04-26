@@ -3,8 +3,9 @@ import { PgDialect } from "drizzle-orm/pg-core";
 import {
 	computedExpression,
 	createSmartphoneSchema,
-	entityExpression,
+	schemaPropertyExpression,
 } from "~/lib/test-fixtures";
+import type { ViewExpression } from "~/lib/views/expression";
 import { buildEventJoinMap, buildSchemaMap } from "~/lib/views/reference";
 import { createScalarExpressionCompiler } from "./expression-compiler";
 
@@ -14,7 +15,7 @@ const context = {
 	schemaMap: buildSchemaMap([createSmartphoneSchema()]),
 };
 
-const yearExpression = entityExpression("smartphones", "releaseYear");
+const yearExpression = schemaPropertyExpression("smartphones", "releaseYear");
 
 describe("createScalarExpressionCompiler", () => {
 	it("compiles nested computed fields for scalar query stages", () => {
@@ -75,6 +76,30 @@ describe("createScalarExpressionCompiler", () => {
 
 		expect(first).toBe(second);
 		expect(first).not.toBe(third);
+	});
+
+	it("compiles a nested schema-property path using chained JSON traversal operators", () => {
+		const compiler = createScalarExpressionCompiler({
+			alias: "entities",
+			context,
+		});
+
+		const nestedRef: ViewExpression = {
+			type: "reference",
+			reference: {
+				slug: "smartphones",
+				type: "schema-property",
+				property: ["metadata", "source"],
+			},
+		};
+
+		const query = dialect.sqlToQuery(compiler.compile(nestedRef));
+
+		expect(query.sql).toContain("entities.properties ->");
+		expect(query.sql).toContain("->>");
+		expect(query.params.indexOf("metadata")).toBeLessThan(
+			query.params.indexOf("source"),
+		);
 	});
 
 	it("rejects image computed fields in scalar sort and filter contexts", () => {

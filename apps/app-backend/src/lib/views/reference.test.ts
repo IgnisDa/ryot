@@ -3,25 +3,73 @@ import {
 	createSmartphoneSchema,
 	createTabletSchema,
 } from "~/lib/test-fixtures";
-import { buildSchemaMap, getPropertyType, parseFieldPath } from "./reference";
+import { buildSchemaMap, getPropertyType } from "./reference";
 
 const smartphoneSchema = createSmartphoneSchema();
 
-const entityField = (schemaSlug: string, field: string) => {
-	return `entity.${schemaSlug}.${field}`;
-};
-
 describe("getPropertyType", () => {
 	it("returns property types for supported primitives", () => {
-		expect(getPropertyType(smartphoneSchema, "nameplate")).toBe("string");
-		expect(getPropertyType(smartphoneSchema, "releaseYear")).toBe("integer");
-		expect(getPropertyType(smartphoneSchema, "screenSize")).toBe("number");
-		expect(getPropertyType(smartphoneSchema, "isFoldable")).toBe("boolean");
-		expect(getPropertyType(smartphoneSchema, "announcedAt")).toBe("date");
+		expect(getPropertyType(smartphoneSchema, ["nameplate"])).toBe("string");
+		expect(getPropertyType(smartphoneSchema, ["releaseYear"])).toBe("integer");
+		expect(getPropertyType(smartphoneSchema, ["screenSize"])).toBe("number");
+		expect(getPropertyType(smartphoneSchema, ["isFoldable"])).toBe("boolean");
+		expect(getPropertyType(smartphoneSchema, ["announcedAt"])).toBe("date");
+	});
+
+	it("traverses nested object property paths", () => {
+		expect(getPropertyType(smartphoneSchema, ["metadata", "source"])).toBe(
+			"string",
+		);
+	});
+
+	it("returns null for an empty property path", () => {
+		expect(getPropertyType(smartphoneSchema, [])).toBeNull();
 	});
 
 	it("returns null for an unknown property", () => {
-		expect(getPropertyType(smartphoneSchema, "missingProperty")).toBeNull();
+		expect(getPropertyType(smartphoneSchema, ["missingProperty"])).toBeNull();
+	});
+
+	it("returns null when an intermediate segment is not an object type", () => {
+		expect(
+			getPropertyType(smartphoneSchema, ["nameplate", "nonexistent"]),
+		).toBeNull();
+	});
+
+	it("returns null when a nested segment is missing", () => {
+		expect(
+			getPropertyType(smartphoneSchema, ["metadata", "nonexistent"]),
+		).toBeNull();
+	});
+
+	it("traverses three levels of nested object property paths", () => {
+		const deepSchema = {
+			slug: "deep",
+			propertiesSchema: {
+				fields: {
+					meta: {
+						label: "Meta",
+						type: "object" as const,
+						properties: {
+							source: {
+								label: "Source",
+								type: "object" as const,
+								properties: {
+									origin: { label: "Origin", type: "string" as const },
+								},
+							},
+						},
+					},
+				},
+			},
+		};
+
+		expect(getPropertyType(deepSchema, ["meta", "source", "origin"])).toBe(
+			"string",
+		);
+		expect(
+			getPropertyType(deepSchema, ["meta", "source", "nonexistent"]),
+		).toBeNull();
 	});
 });
 
@@ -34,59 +82,5 @@ describe("buildSchemaMap", () => {
 		expect(schemaMap.get("smartphones")).toEqual(smartphoneSchema);
 		expect(schemaMap.get("tablets")).toEqual(tabletSchema);
 		expect(schemaMap.size).toBe(2);
-	});
-});
-
-describe("parseFieldPath", () => {
-	it("parses entity-qualified built-in references", () => {
-		expect(parseFieldPath(entityField("smartphones", "@id"))).toEqual({
-			column: "id",
-			slug: "smartphones",
-			type: "entity-column",
-		});
-
-		expect(parseFieldPath(entityField("smartphones", "@name"))).toEqual({
-			column: "name",
-			slug: "smartphones",
-			type: "entity-column",
-		});
-	});
-
-	it("parses entity-qualified property references", () => {
-		expect(parseFieldPath(entityField("smartphones", "year"))).toEqual({
-			property: "year",
-			slug: "smartphones",
-			type: "schema-property",
-		});
-	});
-
-	it("parses joined event property references", () => {
-		expect(parseFieldPath("event.review.rating")).toEqual({
-			joinKey: "review",
-			property: "rating",
-			type: "event-join-property",
-		});
-	});
-
-	it("parses joined event column references", () => {
-		expect(parseFieldPath("event.review.@createdAt")).toEqual({
-			joinKey: "review",
-			column: "createdAt",
-			type: "event-join-column",
-		});
-	});
-
-	it("rejects malformed field paths", () => {
-		expect(() => parseFieldPath("@name")).toThrow("Invalid field path: @name");
-		expect(() => parseFieldPath("year")).toThrow("Invalid field path: year");
-		expect(() => parseFieldPath("smartphones.year")).toThrow(
-			"Invalid field path: smartphones.year",
-		);
-		expect(() => parseFieldPath("entity.smartphones.year.value")).toThrow(
-			"Invalid field path: entity.smartphones.year.value",
-		);
-		expect(() => parseFieldPath("event.review")).toThrow(
-			"Invalid field path: event.review",
-		);
 	});
 });
