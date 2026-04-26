@@ -16,7 +16,7 @@ const user = {
 	name: "User",
 	email: "user@example.com",
 	id: UserId.make("user-1"),
-	preferences: { isNsfw: false, language: "es", disableIntegrations: false },
+	preferences: { allowNsfw: false, language: "es", disableIntegrations: false },
 } satisfies CurrentUserValue;
 
 type Connections = Pick<typeof LocalStreamConnections.Service, "add" | "remove">;

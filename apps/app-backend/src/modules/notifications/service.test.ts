@@ -14,7 +14,7 @@ const user = {
 	name: "Test User",
 	email: "user@example.com",
 	id: UserId.make("user-1"),
-	preferences: { isNsfw: false, language: null, disableIntegrations: false },
+	preferences: { allowNsfw: false, language: null, disableIntegrations: false },
 } satisfies CurrentUserValue;
 
 const repositoryLayer = Layer.succeed(

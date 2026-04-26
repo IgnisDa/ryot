@@ -6,13 +6,13 @@ import { RateLimited, Unauthorized } from "./errors";
 import type { UserId } from "./schema/brands";
 
 export type CachedUserPreferences = {
-	readonly isNsfw: boolean;
+	readonly allowNsfw: boolean;
 	readonly language: string | null;
 	readonly disableIntegrations: boolean;
 };
 
 export const defaultUserPreferences: CachedUserPreferences = {
-	isNsfw: false,
+	allowNsfw: false,
 	language: null,
 	disableIntegrations: false,
 };
@@ -22,7 +22,7 @@ export const defaultUserPreferences: CachedUserPreferences = {
 export const normalizeUserPreferences = (value: unknown): CachedUserPreferences => {
 	const record = isObjectRecord(value) ? value : {};
 	return {
-		isNsfw: record["isNsfw"] === true,
+		allowNsfw: record["allowNsfw"] === true,
 		disableIntegrations: record["disableIntegrations"] === true,
 		language:
 			typeof record["language"] === "string" && record["language"].length > 0

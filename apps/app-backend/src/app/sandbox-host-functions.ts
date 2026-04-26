@@ -119,7 +119,7 @@ const encodeConfigValues = (label: string, values: Readonly<Record<string, unkno
 export const normalizePreferences = (value: unknown) => {
 	const source = isObjectRecord(value) ? value : {};
 	return {
-		isNsfw: source["isNsfw"] === true,
+		allowNsfw: source["allowNsfw"] === true,
 		disableIntegrations: source["disableIntegrations"] === true,
 	};
 };
