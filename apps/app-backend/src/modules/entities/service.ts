@@ -180,10 +180,6 @@ export const getEntityDetail = async (
 	if ("error" in entityResult) {
 		return serviceError("not_found", entityResult.message);
 	}
-	if (entityResult.data.isBuiltin && entityResult.data.entityUserId !== null) {
-		return serviceError("not_found", entityNotFoundError);
-	}
-
 	const entity = await deps.getEntityByIdForUser({
 		userId: input.userId,
 		entityId: entityIdResult.data,
