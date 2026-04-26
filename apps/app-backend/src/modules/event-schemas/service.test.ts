@@ -139,6 +139,7 @@ describe("listEventSchemas", () => {
 				createEventSchemaDeps({
 					listEventSchemasByEntitySchemaForUser: async () => eventSchemas,
 					getEntitySchemaScopeForUser: async (input) => ({
+						slug: "book",
 						isBuiltin: true,
 						userId: input.userId,
 						id: input.entitySchemaId,
@@ -198,6 +199,7 @@ describe("createEventSchema", () => {
 			{ userId: "user_1", body: createEventSchemaBody() },
 			createEventSchemaDeps({
 				getEntitySchemaScopeForUser: async (input) => ({
+					slug: "book",
 					isBuiltin: true,
 					userId: input.userId,
 					id: input.entitySchemaId,
