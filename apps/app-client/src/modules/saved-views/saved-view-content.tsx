@@ -2,7 +2,7 @@ import type { RyotQLDocument } from "@ryot/contract/modules/ryotql/language";
 import type { EntitySchemaSlug } from "@ryot/contract/schema/brands";
 import type { SavedViewRecord } from "@ryot/ryotql-recipes/saved-view-records";
 import clsx from "clsx";
-import { useRef, type ReactNode } from "react";
+import { useEffect, useRef, type ReactNode } from "react";
 import type { TextInput } from "react-native";
 import { ActivityIndicator, Platform, Pressable, Text, View } from "react-native";
 
@@ -156,10 +156,34 @@ function SavedViewWebActions(props: {
 	readonly onAdd?: () => void;
 	readonly search: SavedViewSearch;
 }) {
+	const onAdd = props.onAdd;
 	const [layout, setLayout] = useSavedViewLayout(props.viewSlug);
 	const searchInputRef = useRef<TextInput>(null);
 	const isUnavailable = props.isEmpty && props.search.query === "";
 	useSavedViewSearchShortcut(searchInputRef, !isUnavailable);
+	useEffect(() => {
+		if (Platform.OS !== "web" || !onAdd) {
+			return undefined;
+		}
+		const handleKeyDown = (event: KeyboardEvent) => {
+			const target = event.target;
+			if (
+				event.key.toLowerCase() !== "a" ||
+				event.metaKey ||
+				event.ctrlKey ||
+				event.altKey ||
+				event.shiftKey ||
+				(target instanceof HTMLElement &&
+					(target.isContentEditable || ["INPUT", "SELECT", "TEXTAREA"].includes(target.tagName)))
+			) {
+				return;
+			}
+			event.preventDefault();
+			onAdd();
+		};
+		document.addEventListener("keydown", handleKeyDown);
+		return () => document.removeEventListener("keydown", handleKeyDown);
+	}, [onAdd]);
 	return (
 		<View className="hidden flex-row items-center gap-2.5 md:flex">
 			<SavedViewSearchField
@@ -196,6 +220,9 @@ function SavedViewWebActions(props: {
 				>
 					<AppIcon className="text-accent-ink" name="plus" size={15} />
 					<Text className="font-ui-semibold text-[13px] text-accent-ink">Add</Text>
+					<View className="ml-1 rounded border border-accent-ink px-1.5 py-0.5">
+						<Text className="font-mono text-[11px] text-accent-ink">A</Text>
+					</View>
 				</Pressable>
 			) : null}
 		</View>
