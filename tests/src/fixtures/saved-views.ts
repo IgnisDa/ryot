@@ -1,11 +1,13 @@
 import type { paths } from "@ryot/generated/openapi/app-backend";
+import {
+	createEntityColumnExpression,
+	createEntityPropertyExpression,
+} from "@ryot/ts-utils";
 import type { Client } from "./auth";
 import {
 	type ExpressionInput,
-	entityColumnExpression,
 	entityField,
 	literalExpression,
-	schemaPropertyExpression,
 	toRequiredExpression,
 } from "./view-language";
 
@@ -136,13 +138,13 @@ const defaultUpdatedQueryDefinition: QueryDefinition = {
 	entitySchemaSlugs: ["book", "anime"],
 	sort: {
 		direction: "desc",
-		expression: entityColumnExpression("book", "createdAt"),
+		expression: createEntityColumnExpression("book", "createdAt"),
 	},
 	filter: {
 		operator: "gte",
 		type: "comparison",
 		right: literalExpression(2020),
-		left: schemaPropertyExpression("book", "publishYear"),
+		left: createEntityPropertyExpression("book", "publishYear"),
 	},
 };
 
