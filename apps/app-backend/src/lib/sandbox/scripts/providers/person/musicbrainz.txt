@@ -176,7 +176,7 @@ driver("details", async function (context) {
       birthPlace,
       description,
       alternateNames,
-      assets: { remoteImages: [] },
+      assets: { images: [], videos: [] },
       sourceUrl: `https://musicbrainz.org/artist/${externalId}`,
     },
   };

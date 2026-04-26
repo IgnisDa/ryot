@@ -301,10 +301,10 @@ driver("details", async function(context) {
 
   const platformReleases = buildPlatformReleases(game.platforms);
 
-  const remoteImages = [];
+  const images = [];
   const primaryImage = getPrioritizedImage(game.image);
   if (primaryImage) {
-    remoteImages.push(primaryImage);
+    images.push({ kind: "remote", url: primaryImage });
   }
 
   return {
@@ -312,7 +312,7 @@ driver("details", async function(context) {
     properties: {
       genres,
       platformReleases,
-      assets: { remoteImages },
+      assets: { images, videos: [] },
       publishYear: extractYear(game.original_release_date),
       description: combineDescription(game.deck, game.description),
       sourceUrl:
