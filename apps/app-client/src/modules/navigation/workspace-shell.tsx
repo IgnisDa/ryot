@@ -1,7 +1,8 @@
+import { useHotkey } from "@tanstack/react-hotkeys";
 import clsx from "clsx";
 import { Slot } from "expo-router";
-import { useEffect, useState } from "react";
-import { Modal, Platform, Pressable, Text, View } from "react-native";
+import { useState } from "react";
+import { Modal, Pressable, Text, View } from "react-native";
 
 import { AppIcon } from "@/modules/icons";
 
@@ -19,20 +20,7 @@ function WorkspaceShellContent() {
 	const [isWorkspaceOpen, setIsWorkspaceOpen] = useState(false);
 	const [isCommandCenterOpen, setIsCommandCenterOpen] = useState(false);
 
-	useEffect(() => {
-		if (Platform.OS !== "web") {
-			return undefined;
-		}
-		const handleKeyDown = (event: KeyboardEvent) => {
-			if (event.key.toLowerCase() !== "k" || !event.metaKey) {
-				return;
-			}
-			event.preventDefault();
-			setIsCommandCenterOpen(true);
-		};
-		document.addEventListener("keydown", handleKeyDown);
-		return () => document.removeEventListener("keydown", handleKeyDown);
-	}, []);
+	useHotkey("Meta+K", () => setIsCommandCenterOpen(true), { stopPropagation: false });
 
 	function navigate(item: NavigationItem) {
 		setIsWorkspaceOpen(false);

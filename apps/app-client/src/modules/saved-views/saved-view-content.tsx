@@ -1,8 +1,9 @@
 import type { RyotQLDocument } from "@ryot/contract/modules/ryotql/language";
 import type { EntitySchemaSlug } from "@ryot/contract/schema/brands";
 import type { SavedViewRecord } from "@ryot/ryotql-recipes/saved-view-records";
+import { useHotkey } from "@tanstack/react-hotkeys";
 import clsx from "clsx";
-import { useEffect, useRef, type ReactNode } from "react";
+import { useRef, type ReactNode } from "react";
 import type { TextInput } from "react-native";
 import { ActivityIndicator, Platform, Pressable, Text, View } from "react-native";
 
@@ -161,29 +162,7 @@ function SavedViewWebActions(props: {
 	const searchInputRef = useRef<TextInput>(null);
 	const isUnavailable = props.isEmpty && props.search.query === "";
 	useSavedViewSearchShortcut(searchInputRef, !isUnavailable);
-	useEffect(() => {
-		if (Platform.OS !== "web" || !onAdd) {
-			return undefined;
-		}
-		const handleKeyDown = (event: KeyboardEvent) => {
-			const target = event.target;
-			if (
-				event.key.toLowerCase() !== "a" ||
-				event.metaKey ||
-				event.ctrlKey ||
-				event.altKey ||
-				event.shiftKey ||
-				(target instanceof HTMLElement &&
-					(target.isContentEditable || ["INPUT", "SELECT", "TEXTAREA"].includes(target.tagName)))
-			) {
-				return;
-			}
-			event.preventDefault();
-			onAdd();
-		};
-		document.addEventListener("keydown", handleKeyDown);
-		return () => document.removeEventListener("keydown", handleKeyDown);
-	}, [onAdd]);
+	useHotkey("A", () => onAdd?.(), { enabled: Boolean(onAdd), stopPropagation: false });
 	return (
 		<View className="hidden flex-row items-center gap-2.5 md:flex">
 			<SavedViewSearchField
