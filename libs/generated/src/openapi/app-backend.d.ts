@@ -220,6 +220,10 @@ export interface paths {
                     "application/json": {
                         name: string;
                         slug?: string;
+                        metadata?: {
+                            allowedHostFunctions?: string[];
+                            requiredAppConfigKeys?: string[];
+                        };
                         code: string;
                     };
                 };
@@ -237,6 +241,10 @@ export interface paths {
                                 name: string;
                                 slug: string;
                                 code: string;
+                                metadata: {
+                                    allowedHostFunctions?: string[];
+                                    requiredAppConfigKeys?: string[];
+                                };
                             };
                         };
                     };

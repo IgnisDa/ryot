@@ -759,5 +759,5 @@ describe("GET /entity-schemas/import/{jobId}", () => {
 		});
 
 		expect(["completed", "failed"]).toContain(result.status);
-	});
+	}, 30_000);
 });

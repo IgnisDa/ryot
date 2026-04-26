@@ -8,8 +8,13 @@ import {
 	wrapServiceValidator,
 } from "~/lib/result";
 import { getSandboxService } from "~/lib/sandbox";
+import { hostFunctionRegistry } from "~/lib/sandbox/function-registry";
 import { sandboxRunJobResult } from "~/lib/sandbox/jobs";
-import type { SandboxEnqueueOptions } from "~/lib/sandbox/types";
+import {
+	type SandboxEnqueueOptions,
+	type SandboxScriptMetadata,
+	sandboxScriptMetadataSchema,
+} from "~/lib/sandbox/types";
 import {
 	createSandboxScriptForUser,
 	getSandboxScriptBySlugForUser,
@@ -49,6 +54,20 @@ const sandboxScriptUniqueConstraint = "sandbox_script_user_slug_unique";
 const sandboxJobResultUnavailableMessage = "Sandbox job result unavailable";
 const sandboxScriptSlugExistsError =
 	"A sandbox script with this slug already exists";
+
+const validateAllowedHostFunctions = (allowedHostFunctions?: string[]) => {
+	if (!allowedHostFunctions) {
+		return;
+	}
+
+	for (const functionKey of allowedHostFunctions) {
+		if (
+			!hostFunctionRegistry[functionKey as keyof typeof hostFunctionRegistry]
+		) {
+			throw new Error(`Unknown sandbox host function: ${functionKey}`);
+		}
+	}
+};
 
 const enqueueSandboxJob = async (input: SandboxEnqueueOptions) =>
 	getSandboxService().enqueue(input);
@@ -127,8 +146,21 @@ export const createSandboxScript = async (
 		return serviceError("validation", sandboxScriptSlugExistsError);
 	}
 
+	let metadata: SandboxScriptMetadata;
+	try {
+		metadata = sandboxScriptMetadataSchema.parse(input.body.metadata ?? {});
+		validateAllowedHostFunctions(metadata.allowedHostFunctions);
+	} catch (error) {
+		if (error instanceof Error) {
+			return serviceError("validation", error.message);
+		}
+
+		throw error;
+	}
+
 	try {
 		const created = await deps.createSandboxScriptForUser({
+			metadata,
 			userId: input.userId,
 			name: input.body.name,
 			slug: slugResult.data,
@@ -139,6 +171,7 @@ export const createSandboxScript = async (
 		if (isUniqueConstraintError(error, sandboxScriptUniqueConstraint)) {
 			return serviceError("validation", sandboxScriptSlugExistsError);
 		}
+
 		throw error;
 	}
 };

@@ -200,6 +200,25 @@ describe("createSandboxScript", () => {
 		});
 	});
 
+	it("returns validation when the repository hits the unique constraint", async () => {
+		const result = await createSandboxScript(
+			{ userId: "user_1", body: { name: "My Script", code: mockCode } },
+			createSandboxScriptDeps({
+				createSandboxScriptForUser: async () => {
+					throw {
+						code: "23505",
+						constraint: "sandbox_script_user_slug_unique",
+					};
+				},
+			}),
+		);
+
+		expect(result).toEqual({
+			error: "validation",
+			message: "A sandbox script with this slug already exists",
+		});
+	});
+
 	it("returns the created script on success", async () => {
 		const result = await createSandboxScript(
 			{ userId: "user_1", body: { name: "My Script", code: mockCode } },
@@ -208,11 +227,77 @@ describe("createSandboxScript", () => {
 
 		expect(result).toEqual({
 			data: {
+				metadata: {},
 				id: "script_1",
 				code: mockCode,
 				name: "My Script",
 				slug: "my-script",
 			},
 		});
+	});
+
+	it("stores validated metadata on success", async () => {
+		let capturedMetadata: unknown;
+
+		await createSandboxScript(
+			{
+				userId: "user_1",
+				body: {
+					code: mockCode,
+					name: "My Script",
+					metadata: { allowedHostFunctions: ["appApiCall"] },
+				},
+			},
+			createSandboxScriptDeps({
+				createSandboxScriptForUser: async (input) => {
+					capturedMetadata = input.metadata;
+					return {
+						id: "script_1",
+						code: input.code,
+						name: input.name,
+						slug: input.slug,
+						metadata: input.metadata,
+					};
+				},
+			}),
+		);
+
+		expect(capturedMetadata).toEqual({ allowedHostFunctions: ["appApiCall"] });
+	});
+
+	it("returns validation when metadata references an unknown host function", async () => {
+		const result = await createSandboxScript(
+			{
+				userId: "user_1",
+				body: {
+					code: mockCode,
+					name: "My Script",
+					metadata: { allowedHostFunctions: ["missingFunction"] },
+				},
+			},
+			createSandboxScriptDeps({
+				createSandboxScriptForUser: async () => {
+					throw new Error("should not be called");
+				},
+			}),
+		);
+
+		expect(result).toEqual({
+			error: "validation",
+			message: "Unknown sandbox host function: missingFunction",
+		});
+	});
+
+	it("rethrows unexpected repository failures", async () => {
+		expect(
+			createSandboxScript(
+				{ userId: "user_1", body: { name: "My Script", code: mockCode } },
+				createSandboxScriptDeps({
+					createSandboxScriptForUser: async () => {
+						throw new Error("database offline");
+					},
+				}),
+			),
+		).rejects.toThrow("database offline");
 	});
 });
