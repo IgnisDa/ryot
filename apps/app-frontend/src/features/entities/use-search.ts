@@ -226,17 +226,17 @@ export function useEntitySearch(props: { entitySchema: AppEntitySchema }) {
 
 	const searchQuery = useQuery({
 		retry: false,
+		refetchOnWindowFocus: false,
 		enabled: submittedSearch !== null,
 		placeholderData: keepPreviousData,
 		queryKey: [...entitySearchQueryKey, submittedSearch],
 		queryFn: async ({ signal }) => {
-			const currentSearch = submittedSearch;
-			if (!currentSearch) {
+			if (!submittedSearch) {
 				throw new Error("Search request is unavailable");
 			}
 
 			const provider =
-				props.entitySchema.providers[currentSearch.providerIndex];
+				props.entitySchema.providers[submittedSearch.providerIndex];
 			if (!provider) {
 				throw new Error("Search provider is unavailable");
 			}
@@ -247,8 +247,8 @@ export function useEntitySearch(props: { entitySchema: AppEntitySchema }) {
 					scriptId: provider.scriptId,
 					context: {
 						pageSize: 10,
-						page: currentSearch.page,
-						query: currentSearch.query,
+						page: submittedSearch.page,
+						query: submittedSearch.query,
 					},
 				},
 			});
