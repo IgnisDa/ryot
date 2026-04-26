@@ -34,7 +34,7 @@ import {
 	buildCastedValueExpression,
 	buildCoalescedExpression,
 	type SqlExpression,
-} from "./sql-expression-policy";
+} from "./sql-expression-helpers";
 
 const getEventJoinColumnName = (joinKey: string) => `event_join_${joinKey}`;
 
