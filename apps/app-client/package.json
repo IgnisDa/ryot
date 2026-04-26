@@ -18,7 +18,6 @@
 		"@expo-google-fonts/outfit": "^0.4.3",
 		"@expo/material-symbols": "^0.1.1",
 		"@expo/ui": "~57.0.9",
-		"@ryot/app-backend": "workspace:*",
 		"@ryot/contract": "workspace:*",
 		"@ryot/ryotql-recipes": "workspace:*",
 		"@ryot/ts-utils": "workspace:*",
