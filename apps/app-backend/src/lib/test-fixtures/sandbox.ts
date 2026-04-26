@@ -4,6 +4,7 @@ import type {
 } from "~/modules/sandbox";
 
 const sandboxScriptDefault = {
+	metadata: {},
 	id: "script_1",
 	name: "My Script",
 	slug: "my-script",

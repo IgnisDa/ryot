@@ -5,12 +5,64 @@ import {
 	createEntitySchema,
 	createTracker,
 	createTrackerWithSchema,
-	enqueueEntityImport,
 	findBuiltinSchemaWithProviders,
 	getEntitySchema,
 	getFirstProviderScriptId,
-	pollEntityImportResult,
+	seedMediaEntity,
 } from "../fixtures";
+import { getPgClient } from "../setup";
+
+async function insertLibraryMembership(input: {
+	userId: string;
+	mediaEntityId: string;
+}) {
+	const pg = getPgClient();
+
+	const libraryResult = await pg.query<{ id: string }>(
+		`select e.id
+		 from entity e
+		 inner join entity_schema es on es.id = e.entity_schema_id
+		 where e.user_id = $1
+		   and es.slug = 'library'
+		   and es.user_id is null
+		 limit 1`,
+		[input.userId],
+	);
+	const libraryEntityId = libraryResult.rows[0]?.id;
+	if (!libraryEntityId) {
+		throw new Error(`Missing library entity for user '${input.userId}'`);
+	}
+
+	const schemaResult = await pg.query<{ id: string }>(
+		`select id from relationship_schema
+		 where slug = 'in-library' and user_id is null
+		 limit 1`,
+	);
+	const inLibrarySchemaId = schemaResult.rows[0]?.id;
+	if (!inLibrarySchemaId) {
+		throw new Error("Missing in-library relationship schema");
+	}
+
+	await pg.query(
+		`insert into relationship (
+				id,
+				user_id,
+				relationship_schema_id,
+				properties,
+				source_entity_id,
+				target_entity_id
+			) values ($1, $2, $3, $4::jsonb, $5, $6)
+			on conflict (user_id, source_entity_id, target_entity_id, relationship_schema_id) do nothing`,
+		[
+			crypto.randomUUID(),
+			input.userId,
+			inLibrarySchemaId,
+			JSON.stringify({}),
+			input.mediaEntityId,
+			libraryEntityId,
+		],
+	);
+}
 
 describe("POST /entities", () => {
 	it("creates entity normally when no provenance fields are provided", async () => {
@@ -38,8 +90,8 @@ describe("POST /entities", () => {
 
 		const entity = await createEntity(client, cookies, {
 			image: null,
-			externalId: "ext-001",
 			sandboxScriptId,
+			externalId: "ext-001",
 			name: "External Entity",
 			entitySchemaId: schemaId,
 			properties: { title: "External Entity" },
@@ -147,32 +199,27 @@ describe("POST /entities", () => {
 
 describe("GET /entities/:id — global entity read access", () => {
 	it("returns 200 for the importing user and for a second user who never imported", async () => {
-		const { client: clientA, cookies: cookiesA } =
-			await createAuthenticatedClient();
+		const {
+			userId,
+			client: clientA,
+			cookies: cookiesA,
+		} = await createAuthenticatedClient();
 		const { schema } = await findBuiltinSchemaWithProviders(clientA, cookiesA);
-		const detailsScriptId = schema.providers.find(
-			(p) => p.name === "OpenLibrary",
-		)?.scriptId;
-		if (!detailsScriptId) {
-			throw new Error("OpenLibrary provider script not found");
-		}
+		const providerScriptId = getFirstProviderScriptId(schema);
 
-		const { jobId } = await enqueueEntityImport(clientA, cookiesA, {
-			externalId: "OL267933W",
-			scriptId: detailsScriptId,
+		const entity = await seedMediaEntity({
+			image: null,
+			userId: null,
+			properties: {},
 			entitySchemaId: schema.id,
+			sandboxScriptId: providerScriptId,
+			externalId: `global-book-${crypto.randomUUID()}`,
+			name: `Global Built-in Book ${crypto.randomUUID()}`,
 		});
 
-		const result = await pollEntityImportResult(clientA, cookiesA, jobId, {
-			timeoutMs: 30_000,
-		});
+		await insertLibraryMembership({ userId, mediaEntityId: entity.id });
 
-		expect(result.status).toBe("completed");
-		if (result.status !== "completed") {
-			throw new Error("Expected media import to complete");
-		}
-
-		const entityId = result.data.id;
+		const entityId = entity.id;
 
 		const { response: responseA } = await clientA.GET("/entities/{entityId}", {
 			headers: { Cookie: cookiesA },
@@ -187,7 +234,7 @@ describe("GET /entities/:id — global entity read access", () => {
 			params: { path: { entityId } },
 		});
 		expect(responseB.status).toBe(200);
-	});
+	}, 30_000);
 });
 
 describe("POST /entities — enum and enum-array property schema validation", () => {
