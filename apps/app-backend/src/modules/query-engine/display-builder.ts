@@ -16,8 +16,7 @@ import type {
 } from "~/lib/views/reference";
 import { createScalarExpressionCompiler } from "./expression-compiler";
 import type { QueryEngineField, ResolvedDisplayValue } from "./schemas";
-
-type SqlExpression = ReturnType<typeof sql>;
+import type { SqlExpression } from "./sql-expression-policy";
 
 type DisplayExpressionResolverInput<
 	TSchema extends QueryEngineSchemaLike,
