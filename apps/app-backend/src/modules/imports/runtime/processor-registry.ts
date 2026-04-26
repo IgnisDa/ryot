@@ -1,4 +1,4 @@
-import type { FileSystem, HttpClient } from "@effect/platform";
+import type { FileSystem, HttpClient, Path } from "@effect/platform";
 import type { WorkflowEngine } from "@effect/workflow/WorkflowEngine";
 import { Effect } from "effect";
 
@@ -46,6 +46,7 @@ type FileSourceProcessorInput = SourcePayloadProcessorInput & { filePath: string
 
 type ImportProcessRequirements =
 	| DbRunner
+	| Path.Path
 	| AppConfig
 	| EventsService
 	| WorkflowEngine

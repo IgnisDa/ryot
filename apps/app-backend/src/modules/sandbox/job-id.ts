@@ -1,17 +1,20 @@
-import { createHmac, timingSafeEqual } from "node:crypto";
-
 const separator = ".";
+const textEncoder = new TextEncoder();
 
 const createSignature = (secret: string, executionId: string, userId: string) =>
-	createHmac("sha256", secret).update(`${executionId}:${userId}`).digest("base64url");
+	new Bun.CryptoHasher("sha256", secret).update(`${executionId}:${userId}`).digest("base64url");
 
 const signaturesMatch = (actual: string, expected: string) => {
-	const actualBuffer = Buffer.from(actual);
-	const expectedBuffer = Buffer.from(expected);
+	const actualBytes = textEncoder.encode(actual);
+	const expectedBytes = textEncoder.encode(expected);
+	const length = Math.max(actualBytes.length, expectedBytes.length);
+	let mismatch = actualBytes.length ^ expectedBytes.length;
 
-	return (
-		actualBuffer.length === expectedBuffer.length && timingSafeEqual(actualBuffer, expectedBuffer)
-	);
+	for (let index = 0; index < length; index++) {
+		mismatch |= (actualBytes[index] ?? 0) ^ (expectedBytes[index] ?? 0);
+	}
+
+	return mismatch === 0;
 };
 
 export const createSandboxJobId = (secret: string, executionId: string, userId: string) =>

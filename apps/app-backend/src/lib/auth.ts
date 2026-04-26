@@ -29,7 +29,11 @@ export class AdminAccess extends Context.Tag("AdminAccess")<
 	{ readonly authorized: true }
 >() {}
 
-// @effect-diagnostics-next-line leakingRequirements:off
+/**
+ * @effect-expect-leaking HttpServerRequest
+ * @effect-expect-leaking ParsedSearchParams
+ * @effect-expect-leaking RouteContext
+ */
 export class AuthMiddleware extends HttpApiMiddleware.Tag<AuthMiddleware>()("AuthMiddleware", {
 	provides: CurrentUser,
 	failure: Schema.Union(Unauthorized, RateLimited),
@@ -88,9 +92,8 @@ const makeAuthInstance = (args: {
 			autoSignIn: false,
 			revokeSessionsOnPasswordReset: true,
 			disableSignUp: !args.config.users.allowRegistration || args.config.users.disableLocalAuth,
-			// @effect-diagnostics-next-line asyncFunction:off
-			sendResetPassword: async ({ user, token }) => {
-				await Runtime.runPromise(args.runtime)(
+			sendResetPassword: ({ user, token }) =>
+				Runtime.runPromise(args.runtime)(
 					Effect.gen(function* () {
 						const pendingKey = redisKeys.godModePendingReset(user.email);
 						const correlationId = yield* Effect.tryPromise(() => args.redis.get(pendingKey));
@@ -118,41 +121,39 @@ const makeAuthInstance = (args: {
 						),
 						Effect.catchAllCause(() => Effect.void),
 					),
-				);
-			},
+				),
 		},
 		databaseHooks: {
 			session: {
 				create: {
-					// @effect-diagnostics-next-line asyncFunction:off
-					before: async (session) => {
-						const [foundUser] = await args.db
+					before: (session) =>
+						args.db
 							.select({ bannedAt: schema.user.bannedAt })
 							.from(schema.user)
 							.where(eq(schema.user.id, session.userId))
-							.limit(1);
-						if (foundUser?.bannedAt) {
-							throw APIError.from("FORBIDDEN", {
-								code: "USER_DISABLED",
-								message: "This user has been disabled.",
-							});
-						}
-					},
+							.limit(1)
+							.then(([foundUser]) => {
+								if (foundUser?.bannedAt) {
+									throw APIError.from("FORBIDDEN", {
+										code: "USER_DISABLED",
+										message: "This user has been disabled.",
+									});
+								}
+								return undefined;
+							}),
 				},
 			},
 			user: {
 				create: {
-					// @effect-diagnostics-next-line asyncFunction:off
-					after: async (user) => {
-						await Runtime.runPromise(args.runtime)(
+					after: (user) =>
+						Runtime.runPromise(args.runtime)(
 							bootstrapNewUser(user.id).pipe(
 								Effect.tapErrorCause((cause) =>
 									Effect.logError("[auth] bootstrapNewUser failed for user", user.id, cause),
 								),
 								Effect.catchAllCause(() => Effect.void),
 							),
-						);
-					},
+						),
 				},
 			},
 		},
@@ -166,7 +167,7 @@ const makeAuthInstance = (args: {
 				rateLimit: {
 					maxRequests: 60,
 					timeWindow: 60 * 1000,
-					enabled: process.env.NODE_ENV === "production",
+					enabled: Bun.env.NODE_ENV === "production",
 				},
 			}),
 			...(oidcEnabled
