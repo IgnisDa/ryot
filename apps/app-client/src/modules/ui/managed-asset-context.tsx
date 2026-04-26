@@ -27,8 +27,16 @@ export function useManagedAssetUrl(asset: AssetLocator | undefined) {
 export function ManagedAssetImage(props: {
 	readonly className: string;
 	readonly onError?: () => void;
+	readonly collapsable?: boolean;
 	readonly asset: AssetLocator | undefined;
 }) {
 	const url = useManagedAssetUrl(props.asset);
-	return <ImageWithFallback className={props.className} url={url} onError={props.onError} />;
+	return (
+		<ImageWithFallback
+			url={url}
+			onError={props.onError}
+			className={props.className}
+			collapsable={props.collapsable}
+		/>
+	);
 }

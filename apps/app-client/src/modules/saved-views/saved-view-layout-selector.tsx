@@ -41,7 +41,7 @@ export function SavedViewLayoutSelector(props: {
 						accessibilityState={{ checked: selected }}
 						accessibilityLabel={`${option.label} view`}
 						className={clsx(
-							"h-7 w-9.5 items-center justify-center rounded-pill border border-transparent md:w-7.5 md:rounded-sm",
+							"will-change-variable h-7 w-9.5 items-center justify-center rounded-pill border border-transparent md:w-7.5 md:rounded-sm",
 							"focus-visible:border-accent focus-visible:outline-none",
 							selected && "bg-raised shadow-sm",
 						)}
