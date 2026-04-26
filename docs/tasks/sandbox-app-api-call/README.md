@@ -100,13 +100,13 @@ Authenticated sandbox API calls will be executed safely inside the backend proce
 
 ## Tasks
 
-**Overall Progress:** 0 of 2 tasks completed
+**Overall Progress:** 2 of 2 tasks completed
 
-**Current Task:** [Task 01](./01-add-app-api-call-end-to-end.md) (todo)
+**Current Task:** None
 
 ### Task List
 
 | #   | Task                                                                   | Type | Status |
 | --- | ---------------------------------------------------------------------- | ---- | ------ |
-| 01  | [Add `appApiCall` End-to-End](./01-add-app-api-call-end-to-end.md)     | AFK  | todo   |
-| 02  | [Harden Sandbox Permissions And Metadata](./02-harden-sandbox-permissions-and-metadata.md) | AFK  | todo   |
+| 01  | [Add `appApiCall` End-to-End](./01-add-app-api-call-end-to-end.md)     | AFK  | done   |
+| 02  | [Harden Sandbox Permissions And Metadata](./02-harden-sandbox-permissions-and-metadata.md) | AFK  | done   |
