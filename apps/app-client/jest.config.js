@@ -1,3 +1,5 @@
+process.env.TZ = "UTC";
+
 /** @type {import('jest').Config} */
 module.exports = {
 	watchman: false,

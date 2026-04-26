@@ -19,12 +19,14 @@ import {
 	castNumber,
 	castText,
 	column,
+	count,
 	descending,
 	defineRecipe,
 	eq,
 	exists,
 	first,
 	inArray,
+	isNull,
 	join,
 	jsonPath,
 	literal,
@@ -36,6 +38,7 @@ import {
 	selectedMeasure,
 	selectedOptionalRow,
 	selectedRows,
+	sum,
 	table,
 } from "@ryot/ryotql";
 import { IsoDateString } from "@ryot/ryotql-recipes/codecs";
@@ -642,9 +645,9 @@ const showActivityEventSelection = (event: Table) => ({
 const showActivityEpisodeSelection = (episode: Table) => ({
 	episodeId: selectedField(column(episode, "id"), EntityId),
 	episodeName: selectedField(column(episode, "name"), Schema.String),
-	episodeImages: selectedField(propertyJson(episode, "images"), MediaImageListSchema),
 	seasonNumber: selectedField(propertyNumber(episode, "seasonNumber"), Schema.Number),
 	episodeNumber: selectedField(propertyNumber(episode, "episodeNumber"), Schema.Number),
+	episodeRuntime: selectedField(propertyNumber(episode, "runtime"), Schema.NullOr(Schema.Number)),
 });
 
 const showActivityEpisode = (
@@ -652,10 +655,43 @@ const showActivityEpisode = (
 ) => ({
 	id: row.episodeId,
 	name: row.episodeName,
-	images: row.episodeImages,
+	runtime: row.episodeRuntime,
 	seasonNumber: row.seasonNumber,
 	episodeNumber: row.episodeNumber,
 });
+
+const showActivitySeasonCoverage = (season: Table) => {
+	const episode = table("entity", "coverageEpisode");
+	const seasonEpisode = table("relationship", "coverageSeasonEpisode");
+	const runtime = propertyNumber(episode, "runtime");
+	const joins = [
+		join(
+			"inner",
+			seasonEpisode,
+			eq(column(seasonEpisode, "targetEntityId"), column(episode, "id")),
+		),
+	];
+	const inSeason = and(
+		entitySchema(episode, "show-episode"),
+		relationshipTo(seasonEpisode, season, episode, "show-season-to-show-episode"),
+	);
+	const isWatched = and(
+		inSeason,
+		eq(episodeLifecycleStateExpression(episode, "coverageEpisodeLifecycle"), literal("complete")),
+	);
+	return {
+		episodeTotal: selectedField(count(episode, { joins, where: inSeason }), Schema.Number),
+		watchedTotal: selectedField(count(episode, { joins, where: isWatched }), Schema.Number),
+		watchedMinutes: selectedField(
+			sum(episode, runtime, { joins, where: isWatched }),
+			Schema.NullOr(Schema.Number),
+		),
+		watchedUnknownRuntime: selectedField(
+			count(episode, { joins, where: and(isWatched, isNull(runtime)) }),
+			Schema.Number,
+		),
+	};
+};
 
 const compareShowActivityDescending = (
 	left: { readonly id: string; readonly createdAt: string; readonly occurredAt: string },
@@ -668,12 +704,16 @@ const compareShowActivityDescending = (
 export const showActivityRecipe = defineRecipe(
 	(input: {
 		readonly entityId: string;
+		readonly seasonLimit: number;
 		readonly parentEventLimit: number;
 		readonly episodeEventLimit: number;
 		readonly episodeProgressLimit: number;
 		readonly collectionEventLimit: number;
 	}) => {
+		const show = table("entity", "activityShow");
+		const season = table("entity", "coverageSeason");
 		const parentEvent = table("event", "parentEvent");
+		const watchEvent = table("event", "watchCountEvent");
 		const episodeEvent = table("event", "episodeEvent");
 		const eventEpisode = table("entity", "eventEpisode");
 		const progressEvent = table("event", "progressEvent");
@@ -681,6 +721,7 @@ export const showActivityRecipe = defineRecipe(
 		const collectionEvent = table("event", "collectionEvent");
 		const eventCollection = table("entity", "eventCollection");
 		const progressEpisode = table("entity", "progressEpisode");
+		const showSeason = table("relationship", "coverageShowSeason");
 		const isProgressOf = (event: Table) =>
 			and(
 				eq(column(event, "entityId"), column(progressEpisode, "id")),
@@ -688,11 +729,58 @@ export const showActivityRecipe = defineRecipe(
 			);
 		return {
 			queries: {
+				totals: selectedOptionalRow(show, {
+					orderBy: [ascending(column(show, "id"))],
+					where: and(entitySchema(show, "show"), entityId(show, input.entityId)),
+					selection: {
+						watchCount: selectedField(
+							count(watchEvent, {
+								where: and(
+									eq(column(watchEvent, "entityId"), column(show, "id")),
+									eq(column(watchEvent, "eventSchemaSlug"), literal("complete")),
+								),
+							}),
+							Schema.Number,
+						),
+					},
+				}),
+				seasons: selectedRows(season, {
+					limit: input.seasonLimit,
+					orderBy: [
+						ascending(propertyNumber(season, "seasonNumber")),
+						ascending(column(season, "id")),
+					],
+					joins: [
+						join(
+							"inner",
+							showSeason,
+							eq(column(showSeason, "targetEntityId"), column(season, "id")),
+						),
+					],
+					selection: {
+						id: selectedField(column(season, "id"), EntityId),
+						seasonNumber: selectedField(propertyNumber(season, "seasonNumber"), Schema.Number),
+						...showActivitySeasonCoverage(season),
+					},
+					where: and(
+						entitySchema(season, "show-season"),
+						eq(column(showSeason, "sourceEntityId"), literal(input.entityId)),
+						eq(column(showSeason, "relationshipSchemaSlug"), literal("show-to-show-season")),
+					),
+				}),
 				parentEvents: selectedRows(parentEvent, {
 					limit: input.parentEventLimit,
 					orderBy: eventOrderDescending(parentEvent),
 					selection: {
 						...showActivityEventSelection(parentEvent),
+						startedOn: selectedField(
+							propertyText(parentEvent, "startedOn"),
+							Schema.NullOr(IsoDateString),
+						),
+						completedOn: selectedField(
+							propertyText(parentEvent, "completedOn"),
+							Schema.NullOr(IsoDateString),
+						),
 						eventSchemaSlug: selectedField(
 							column(parentEvent, "eventSchemaSlug"),
 							Schema.Literals(showActivityParentSlugs),
@@ -758,6 +846,10 @@ export const showActivityRecipe = defineRecipe(
 					where: and(
 						entitySchema(progressEpisode, "show-episode"),
 						exists(progressProbe, { where: isProgressOf(progressProbe) }),
+						eq(
+							episodeLifecycleStateExpression(progressEpisode, "progressEpisodeLifecycle"),
+							literal("in_progress"),
+						),
 						showEpisodeMembership(progressEpisode, input.entityId, "progressEpisodeShow"),
 					),
 				}),
@@ -789,11 +881,18 @@ export const showActivityRecipe = defineRecipe(
 					),
 				}),
 			},
-			map: ({ parentEvents, episodeEvents, episodeProgress, collectionEvents }) => {
+			map: ({
+				totals,
+				seasons,
+				parentEvents,
+				episodeEvents,
+				episodeProgress,
+				collectionEvents,
+			}) => {
 				const events = [
 					...parentEvents.items.map((row) => ({ ...row, kind: "parent" as const })),
 					...episodeEvents.items.map(
-						({ episodeId, episodeName, seasonNumber, episodeImages, episodeNumber, ...row }) => ({
+						({ episodeId, episodeName, seasonNumber, episodeNumber, episodeRuntime, ...row }) => ({
 							...row,
 							kind: "episode" as const,
 							progressPercent: null,
@@ -801,8 +900,8 @@ export const showActivityRecipe = defineRecipe(
 								episodeId,
 								episodeName,
 								seasonNumber,
-								episodeImages,
 								episodeNumber,
+								episodeRuntime,
 							}),
 						}),
 					),
@@ -830,8 +929,11 @@ export const showActivityRecipe = defineRecipe(
 					})),
 				];
 				return Result.succeed({
+					seasons: seasons.items,
+					watchCount: totals?.watchCount ?? 0,
 					events: events.sort(compareShowActivityDescending),
 					truncated:
+						seasons.pageInfo.hasMore ||
 						parentEvents.pageInfo.hasMore ||
 						episodeEvents.pageInfo.hasMore ||
 						episodeProgress.pageInfo.hasMore ||
