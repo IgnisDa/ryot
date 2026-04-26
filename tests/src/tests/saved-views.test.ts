@@ -224,26 +224,52 @@ describe("Saved views E2E", () => {
 		expect(deleteResult.error?.error?.message).toBe(builtinViewError);
 	});
 
-	it("allows toggling isDisabled on a built-in view without changing other fields", async () => {
+	it("rejects built-in updates that attempt to change fields other than isDisabled", async () => {
 		const { client, cookies } = await createAuthenticatedClient();
 		const builtinView = await findBuiltinSavedView(client, cookies);
 
-		const disabledView = await updateSavedView(
-			client,
-			cookies,
-			builtinView.id,
-			{ isDisabled: true, name: "Attempted Rename" },
-		);
-		const fetchedDisabled = await getSavedView(client, cookies, builtinView.id);
-
-		expect(disabledView.isDisabled).toBe(true);
-		expect(disabledView.name).toBe(builtinView.name);
-		expect(fetchedDisabled.isDisabled).toBe(true);
-		expect(fetchedDisabled.name).toBe(builtinView.name);
-
-		await updateSavedView(client, cookies, builtinView.id, {
-			isDisabled: false,
+		const invalidUpdate = await client.PUT("/saved-views/{viewId}", {
+			headers: { Cookie: cookies },
+			params: { path: { viewId: builtinView.id } },
+			body: buildUpdatedSavedViewBody({
+				isDisabled: true,
+				name: "Attempted Rename",
+			}),
 		});
+
+		expect(invalidUpdate.response.status).toBe(400);
+		expect(invalidUpdate.error?.error?.message).toBe(builtinViewError);
+
+		const disableResult = await client.PUT("/saved-views/{viewId}", {
+			headers: { Cookie: cookies },
+			params: { path: { viewId: builtinView.id } },
+			body: {
+				icon: builtinView.icon,
+				name: builtinView.name,
+				isDisabled: true,
+				accentColor: builtinView.accentColor,
+				queryDefinition: builtinView.queryDefinition,
+				displayConfiguration: builtinView.displayConfiguration,
+				...(builtinView.trackerId ? { trackerId: builtinView.trackerId } : {}),
+			},
+		});
+		expect(disableResult.response.status).toBe(200);
+		expect(disableResult.data?.data.isDisabled).toBe(true);
+
+		const reEnableResult = await client.PUT("/saved-views/{viewId}", {
+			headers: { Cookie: cookies },
+			params: { path: { viewId: builtinView.id } },
+			body: {
+				icon: builtinView.icon,
+				name: builtinView.name,
+				isDisabled: false,
+				accentColor: builtinView.accentColor,
+				queryDefinition: builtinView.queryDefinition,
+				displayConfiguration: builtinView.displayConfiguration,
+				...(builtinView.trackerId ? { trackerId: builtinView.trackerId } : {}),
+			},
+		});
+		expect(reEnableResult.response.status).toBe(200);
 		const fetchedReEnabled = await getSavedView(
 			client,
 			cookies,

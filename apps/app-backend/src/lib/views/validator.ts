@@ -1,5 +1,3 @@
-import type { QueryEngineRequest } from "~/modules/query-engine";
-import type { DisplayConfiguration } from "~/modules/saved-views";
 import {
 	getComputedFieldOrThrow,
 	prepareComputedFields,
@@ -14,6 +12,7 @@ import {
 	assertSortableExpression,
 	inferViewExpressionType,
 } from "./expression-analysis";
+import type { ViewPredicate } from "./filtering";
 import { validateViewPredicateAgainstSchemas } from "./predicate-validator";
 import {
 	displayBuiltins,
@@ -28,6 +27,32 @@ import {
 	type QueryEngineSchemaLike,
 	sortFilterBuiltins,
 } from "./reference";
+
+type QueryEngineRequestLike = {
+	fields: Array<{ expression: ViewExpression; key: string }>;
+	sort: { expression: ViewExpression; direction: "asc" | "desc" };
+	filter: ViewPredicate | null;
+	eventJoins: unknown[];
+	entitySchemaSlugs: string[];
+	computedFields?: ViewComputedField[];
+	pagination: { page: number; limit: number };
+};
+
+type DisplayConfigurationLike = {
+	grid: {
+		imageProperty: ViewExpression | null;
+		titleProperty: ViewExpression | null;
+		badgeProperty: ViewExpression | null;
+		subtitleProperty: ViewExpression | null;
+	};
+	list: {
+		imageProperty: ViewExpression | null;
+		titleProperty: ViewExpression | null;
+		badgeProperty: ViewExpression | null;
+		subtitleProperty: ViewExpression | null;
+	};
+	table: { columns: Array<{ label: string; expression: ViewExpression }> };
+};
 
 type ValidationSchemaRow = QueryEngineSchemaLike;
 type ValidationEventJoinRow = QueryEngineEventJoinLike;
@@ -229,7 +254,7 @@ const validateComputedFields = (input: {
 };
 
 export const validateQueryEngineReferences = (
-	request: QueryEngineRequest,
+	request: QueryEngineRequestLike,
 	context: QueryEngineReferenceContext<
 		ValidationSchemaRow,
 		ValidationEventJoinRow
@@ -274,7 +299,7 @@ export const validateQueryEngineReferences = (
 };
 
 export const validateSavedViewDisplayConfiguration = (
-	displayConfiguration: DisplayConfiguration,
+	displayConfiguration: DisplayConfigurationLike,
 	context: QueryEngineReferenceContext<
 		ValidationSchemaRow,
 		ValidationEventJoinRow
