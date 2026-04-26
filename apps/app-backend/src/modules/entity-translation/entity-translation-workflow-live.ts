@@ -6,7 +6,7 @@ import { Activity } from "effect/unstable/workflow";
 
 import { DbRunner } from "#lib/infrastructure/db/service";
 import { redisKeys, RedisService } from "#lib/infrastructure/redis";
-import { withoutSchemaServices } from "#lib/shared/schema";
+import type { DurableSchema } from "#lib/infrastructure/workflow";
 import { decodeProviderTranslateResult } from "#modules/sandbox/provider-contracts";
 
 import {
@@ -27,8 +27,8 @@ const writeTranslationOverlay = Effect.fn("writeTranslationOverlay")(function* (
 	const repository = yield* TranslationsRepository;
 
 	return yield* Activity.make({
-		success: withoutSchemaServices(Schema.Void),
-		error: withoutSchemaServices(SandboxRunError),
+		success: Schema.Void satisfies DurableSchema,
+		error: SandboxRunError satisfies DurableSchema,
 		name: "write-translation-overlay",
 		execute: Effect.gen(function* () {
 			const populatedAt = yield* DateTime.nowAsDate;
