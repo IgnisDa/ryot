@@ -1,4 +1,4 @@
-import { dayjs } from "~/lib/dayjs";
+import { DateTime, Option } from "effect";
 
 import {
 	parseCsvText,
@@ -75,16 +75,45 @@ const parseHevyRow = (row: Record<string, string>, rowIdx: number): HevyRow => {
 	};
 };
 
-const HEVY_DATE_FORMATS = ["DD MMM YYYY, HH:mm", "MMM DD YYYY, HH:mm"];
+const MONTH_ABBR: Record<string, string> = {
+	Jan: "01",
+	Feb: "02",
+	Mar: "03",
+	Apr: "04",
+	May: "05",
+	Jun: "06",
+	Jul: "07",
+	Aug: "08",
+	Sep: "09",
+	Oct: "10",
+	Nov: "11",
+	Dec: "12",
+};
 
-const parseHevyDate = (value: string, timezone: string): ReturnType<typeof dayjs> => {
-	for (const fmt of HEVY_DATE_FORMATS) {
-		const parsed = dayjs(value, fmt, true);
-		if (parsed.isValid()) {
-			return dayjs.tz(parsed.format("YYYY-MM-DDTHH:mm:ss"), timezone);
-		}
-	}
-	return dayjs.tz(value, timezone);
+const toIsoFromDdMmmYyyy = (value: string): string | null => {
+	const m = /^(\d{1,2})\s+([A-Za-z]{3})\s+(\d{4}),\s*(\d{2}:\d{2})$/.exec(value);
+	if (!m) {return null;}
+	const [, day, mon, year, time] = m;
+	if (!day || !mon || !year || !time) {return null;}
+	const month = MONTH_ABBR[mon];
+	return month ? `${year}-${month}-${day.padStart(2, "0")}T${time}:00` : null;
+};
+
+const toIsoFromMmmDdYyyy = (value: string): string | null => {
+	const m = /^([A-Za-z]{3})\s+(\d{1,2})\s+(\d{4}),\s*(\d{2}:\d{2})$/.exec(value);
+	if (!m) {return null;}
+	const [, mon, day, year, time] = m;
+	if (!mon || !day || !year || !time) {return null;}
+	const month = MONTH_ABBR[mon];
+	return month ? `${year}-${month}-${day.padStart(2, "0")}T${time}:00` : null;
+};
+
+const parseHevyDate = (value: string, timezone: string) => {
+	const isoStr = toIsoFromDdMmmYyyy(value) ?? toIsoFromMmmDdYyyy(value);
+	return DateTime.makeZoned(isoStr ?? value.replace(" ", "T"), {
+		timeZone: timezone,
+		adjustForTimeZone: true,
+	});
 };
 
 const toWorkoutSet = (row: HevyRow): WorkoutImportSet => {
@@ -163,7 +192,7 @@ export const adaptHevyCsv = (csvText: string, timezone: string): WorkoutAdapterR
 
 		const sourceLabel = sourceLabelForWorkout(firstRow);
 		const startedAt = parseHevyDate(firstRow.startTime, timezone);
-		if (!startedAt.isValid()) {
+		if (Option.isNone(startedAt)) {
 			failures.push({
 				sourceLabel,
 				sourceIdentifier,
@@ -174,7 +203,7 @@ export const adaptHevyCsv = (csvText: string, timezone: string): WorkoutAdapterR
 		}
 
 		const endedAtParsed = parseHevyDate(firstRow.endTime, timezone);
-		const endedAt = endedAtParsed.isValid() ? endedAtParsed.toISOString() : null;
+		const endedAt = Option.isSome(endedAtParsed) ? DateTime.formatIso(endedAtParsed.value) : null;
 
 		const exercisesByName = new Map<string, HevyRow[]>();
 		for (const row of workoutRows) {
@@ -216,7 +245,7 @@ export const adaptHevyCsv = (csvText: string, timezone: string): WorkoutAdapterR
 			sourceIdentifier,
 			name: firstRow.title,
 			itemIndex: firstRow.itemIndex,
-			startedAt: startedAt.toISOString(),
+			startedAt: DateTime.formatIso(startedAt.value),
 			comment: firstRow.description ?? null,
 		});
 	}
