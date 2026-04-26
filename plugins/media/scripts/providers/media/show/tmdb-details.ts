@@ -56,7 +56,9 @@ const buildSeason = (
 					parentShowExternalId,
 					description: stringValue(episode["overview"]),
 					publishDate: stringValue(episode["air_date"]),
-					...(imageUrl ? { images: [{ type: "remote" as const, url: imageUrl }] } : {}),
+					...(imageUrl
+						? { images: [{ type: "remote" as const, url: imageUrl, purpose: "still" as const }] }
+						: {}),
 				},
 			},
 		];
@@ -72,7 +74,9 @@ const buildSeason = (
 			parentShowExternalId,
 			description: stringValue(seasonData["overview"]),
 			releaseDate: stringValue(seasonData["air_date"]),
-			...(posterUrl ? { images: [{ type: "remote" as const, url: posterUrl }] } : {}),
+			...(posterUrl
+				? { images: [{ type: "remote" as const, url: posterUrl, purpose: "cover" as const }] }
+				: {}),
 		},
 	};
 };

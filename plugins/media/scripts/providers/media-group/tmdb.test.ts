@@ -96,7 +96,13 @@ describe("movie-group.tmdb sandbox script", () => {
 						name: "Exemple",
 						properties: {
 							description: "Description",
-							images: [{ type: "remote", url: "https://image.tmdb.org/t/p/original/poster.jpg" }],
+							images: [
+								{
+									type: "remote",
+									url: "https://image.tmdb.org/t/p/original/poster.jpg",
+									purpose: "cover",
+								},
+							],
 						},
 					});
 				}),

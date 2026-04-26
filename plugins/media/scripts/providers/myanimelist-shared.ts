@@ -86,7 +86,7 @@ export const collectImages = (mainPicture: unknown) => {
 			urls.add(url);
 		}
 	}
-	return [...urls].map((url) => ({ type: "remote" as const, url }));
+	return [...urls].map((url) => ({ type: "remote" as const, url, purpose: "cover" as const }));
 };
 
 export const collectGenres = (genres: unknown) => {

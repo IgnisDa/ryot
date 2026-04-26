@@ -35,8 +35,8 @@ describe("person.youtube-music sandbox script", () => {
 			alternateNames: [],
 			sourceUrl: "https://music.youtube.com/channel/artist-1",
 			images: [
-				{ type: "remote", url: "https://img/big.jpg" },
-				{ type: "remote", url: "https://img/small.jpg" },
+				{ type: "remote", url: "https://img/big.jpg", purpose: "profile" },
+				{ type: "remote", url: "https://img/small.jpg", purpose: "profile" },
 			],
 		});
 		expect(details.relatedEntityGroups).toEqual([

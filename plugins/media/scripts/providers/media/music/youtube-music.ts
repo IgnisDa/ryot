@@ -168,6 +168,7 @@ export const buildTrackDetails = (client: TrackQueueClient, externalId: string) 
 						images: getThumbnailUrls(trackRecord["thumbnail"]).map((url) => ({
 							url,
 							type: "remote" as const,
+							purpose: "cover" as const,
 						})),
 					},
 				};

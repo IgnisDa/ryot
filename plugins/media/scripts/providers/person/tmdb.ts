@@ -217,7 +217,11 @@ export const details = defineProvider({
 							description: stringValue(personData["biography"]),
 							birthPlace: stringValue(personData["place_of_birth"]),
 							sourceUrl: `https://www.themoviedb.org/person/${input.externalId}`,
-							images: [...imageUrls].map((url) => ({ type: "remote" as const, url })),
+							images: [...imageUrls].map((url) => ({
+								type: "remote" as const,
+								url,
+								purpose: "profile" as const,
+							})),
 						},
 					};
 				}),
@@ -253,12 +257,15 @@ export const translate = defineProvider({
 					const name = firstTranslationValue(candidates, (data) => data["name"]);
 					const description = firstTranslationValue(candidates, (data) => data["biography"]);
 					const imageUrl = getLocalizedImageUrl(imagesData, "profiles", langCode);
-					const properties: Record<string, string | Array<{ type: "remote"; url: string }>> = {};
+					const properties: Record<
+						string,
+						string | Array<{ type: "remote"; url: string; purpose: "profile" }>
+					> = {};
 					if (description) {
 						properties["description"] = description;
 					}
 					if (imageUrl) {
-						properties["images"] = [{ type: "remote", url: imageUrl }];
+						properties["images"] = [{ type: "remote", url: imageUrl, purpose: "profile" }];
 					}
 					const result: {
 						name?: string;

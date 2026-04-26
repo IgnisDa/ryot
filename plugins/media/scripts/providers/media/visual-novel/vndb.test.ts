@@ -113,9 +113,9 @@ describe("visual-novel.vndb sandbox script", () => {
 						genres: ["Mystery", "Science Fiction"],
 						sourceUrl: "https://vndb.org/v17",
 						images: [
-							{ type: "remote", url: "https://i/cover.jpg" },
-							{ type: "remote", url: "https://i/shot1.jpg" },
-							{ type: "remote", url: "https://i/shot2.jpg" },
+							{ type: "remote", url: "https://i/cover.jpg", purpose: "cover" },
+							{ type: "remote", url: "https://i/shot1.jpg", purpose: "screenshot" },
+							{ type: "remote", url: "https://i/shot2.jpg", purpose: "screenshot" },
 						],
 					});
 					return undefined;

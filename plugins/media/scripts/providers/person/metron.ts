@@ -99,7 +99,9 @@ export const details = defineProvider({
 						deathDate: stringValue(payload?.["death"]),
 						description: stringValue(payload?.["desc"]),
 						sourceUrl: `https://metron.cloud/creator/${input.externalId}`,
-						images: image ? [{ type: "remote" as const, url: image }] : [],
+						images: image
+							? [{ type: "remote" as const, url: image, purpose: "profile" as const }]
+							: [],
 					},
 				};
 			}),

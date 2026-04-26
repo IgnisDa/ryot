@@ -84,7 +84,8 @@ export const translate = defineProvider({
 			]);
 			const detailsShow = detailsData ? asRecord(detailsData["data"]) : null;
 			const artworks = detailsShow ? (detailsShow["artworks"] ?? detailsShow["artwork"]) : null;
-			const image = getLocalizedArtwork(artworks, providerLanguage);
+			const purpose = input.entitySchemaSlug === "show-episode" ? "still" : "cover";
+			const image = getLocalizedArtwork(artworks, providerLanguage, purpose);
 			return buildTranslationResult(translationData, image);
 		});
 	},

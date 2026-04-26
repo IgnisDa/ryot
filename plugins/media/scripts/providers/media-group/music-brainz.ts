@@ -224,7 +224,9 @@ export const details = defineProvider({
 				properties: {
 					description,
 					parts: trackCount > 0 ? trackCount : null,
-					images: coverUrl ? [{ type: "remote" as const, url: coverUrl }] : [],
+					images: coverUrl
+						? [{ type: "remote" as const, url: coverUrl, purpose: "cover" as const }]
+						: [],
 					sourceUrl: `https://musicbrainz.org/release-group/${input.externalId}`,
 				},
 			};

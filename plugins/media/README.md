@@ -4,6 +4,12 @@ Media plugin owns media schemas, relationships, saved views, providers, operatio
 
 Provider declarations explicitly identify their root entity schema. Saved views do not carry sandbox script declarations.
 
+## Images
+
+Media images use `{ type, url/key, purpose }`; remote assets use `url`, local and S3 assets use `key`, and `purpose` is required. Valid purposes are `cover`, `backdrop`, `profile`, `logo`, `still`, `screenshot`, and `artwork`.
+
+Providers put the preferred foreground image at `images[0]` when one is available; otherwise, the first available image remains the default. Within each purpose, preserve provider order. URL deduplication retains the first classification. Localized image overlays may replace the complete `images` array for a language; an omitted overlay keeps the canonical images.
+
 ## Operations
 
 Every media operation accepts a list and returns `results`. Per-item misses are values such as `status: "notFound"` or `entityId: null`, not operation failures.

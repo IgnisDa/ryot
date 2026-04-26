@@ -272,6 +272,7 @@ export const details = defineProvider({
 					sourceUrl: `https://openlibrary.org/works/${externalId}/${title}`,
 					images: [...coverIdSet].map((coverId) => ({
 						type: "remote" as const,
+						purpose: "cover" as const,
 						url: coverImageUrl(coverId),
 					})),
 				},
