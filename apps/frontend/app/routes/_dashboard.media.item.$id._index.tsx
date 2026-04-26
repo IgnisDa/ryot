@@ -231,7 +231,7 @@ const editSeenItem = z.object({
 	showEpisodeNumber: z.coerce.number().optional(),
 	animeEpisodeNumber: z.coerce.number().optional(),
 	podcastEpisodeNumber: z.coerce.number().optional(),
-	providersConsumedOn: z.array(z.string()).optional(),
+	providersConsumedOn: z.array(z.string()).transform((a) => a.filter(Boolean)),
 });
 
 export default function Page() {
