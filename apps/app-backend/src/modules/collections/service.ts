@@ -57,6 +57,12 @@ type CollectionsServiceShape = {
 		userId: string,
 		entityId: string,
 	) => Effect.Effect<void, DbError>;
+	readonly markEntityOwnedInLibrary: (input: {
+		userId: string;
+		entityId: string;
+		provider: string;
+		syncedAt: string;
+	}) => Effect.Effect<void, DbError>;
 };
 
 export class CollectionsService extends Effect.Service<CollectionsService>()("CollectionsService", {
@@ -370,6 +376,48 @@ export class CollectionsService extends Effect.Service<CollectionsService>()("Co
 							sourceEntityId: entityId,
 							targetEntityId: libraryEntityId,
 							relationshipSchemaId: inLibrary.id,
+						}),
+					);
+					return undefined;
+				}),
+
+			markEntityOwnedInLibrary: (input) =>
+				Effect.gen(function* () {
+					const libraryEntityId = yield* runWithDb(
+						repository.getUserLibraryEntityId({ userId: input.userId }),
+					);
+					if (!libraryEntityId) {
+						return yield* Effect.die("Library entity not found for user");
+					}
+
+					const inLibrary = yield* inLibrarySchema;
+					const existing = yield* runWithDb(
+						entitiesRepository.findRelationshipProperties({
+							userId: input.userId,
+							sourceEntityId: input.entityId,
+							targetEntityId: libraryEntityId,
+							relationshipSchemaId: inLibrary.id,
+						}),
+					);
+					const existingProperties = isPlainObject(existing) ? existing : {};
+					const currentSources = Array.isArray(existingProperties.ownershipSources)
+						? existingProperties.ownershipSources.filter(
+								(source): source is string => typeof source === "string",
+							)
+						: [];
+
+					yield* runWithDb(
+						entitiesRepository.upsertRelationship({
+							userId: input.userId,
+							sourceEntityId: input.entityId,
+							targetEntityId: libraryEntityId,
+							relationshipSchemaId: inLibrary.id,
+							properties: {
+								...existingProperties,
+								owned: true,
+								ownershipSyncedAt: input.syncedAt,
+								ownershipSources: [...new Set([...currentSources, input.provider])],
+							},
 						}),
 					);
 					return undefined;

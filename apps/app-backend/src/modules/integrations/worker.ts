@@ -6,30 +6,61 @@ import {
 	processMediaImport,
 	type MediaImportAdapterResult,
 } from "~/modules/imports/media/import-processor";
+import type { ImportEntityRef } from "~/modules/imports/media/types";
 import { ImportsRepository } from "~/modules/imports/repository";
 import {
 	failImportRun,
 	recordImportRunFailure,
 	sanitizeErrorMessage,
 } from "~/modules/imports/runtime/failures";
-import { adaptAudiobookshelfData } from "~/modules/imports/sources/audiobookshelf/adapter";
-import { adaptPlexData } from "~/modules/imports/sources/plex/adapter";
-import { buildMovieOrShowImportRef } from "~/modules/imports/sources/shared/provider-refs";
+import {
+	adaptAudiobookshelfData,
+	syncAudiobookshelfOwnedItems,
+} from "~/modules/imports/sources/audiobookshelf/adapter";
+import { adaptPlexData, syncPlexYankOwnedItems } from "~/modules/imports/sources/plex/adapter";
 
 import { IntegrationsRepository, type IntegrationRecord } from "./repository";
+import { getSinkAdapterResult } from "./sinks";
+import { adaptKomgaData, syncKomgaOwnedItems } from "./yank/komga";
 
-type AudiobookshelfIntegration = IntegrationRecord & {
-	readonly providerSpecifics: Extract<
-		IntegrationRecord["providerSpecifics"],
-		{ kind: "audiobookshelf" }
-	>;
-};
+type OwnedItem = { entityRef: ImportEntityRef; provider: string };
+
+export const appendOwnedItems = (
+	progress: MediaImportAdapterResult,
+	ownedItems: ReadonlyArray<OwnedItem>,
+): MediaImportAdapterResult => ({
+	failures: progress.failures,
+	entityGroups: [
+		...progress.entityGroups,
+		...ownedItems.map(({ entityRef, provider }, idx) => ({
+			entityRef,
+			events: [],
+			collectionMemberships: [],
+			ownershipProvider: provider,
+			itemIndex: progress.entityGroups.length + idx,
+		})),
+	],
+});
+
+const withOwnership = <EA, RA, EO, RO>(
+	syncOwnership: boolean,
+	progress: Effect.Effect<MediaImportAdapterResult, EA, RA>,
+	ownedItems: Effect.Effect<ReadonlyArray<OwnedItem>, EO, RO>,
+): Effect.Effect<MediaImportAdapterResult, EA | EO, RA | RO> =>
+	syncOwnership
+		? Effect.gen(function* () {
+				const progressResult = yield* progress;
+				const owned = yield* ownedItems;
+				return appendOwnedItems(progressResult, owned);
+			})
+		: progress;
 
 const IntegrationRunJobData = Schema.Struct({
 	runId: Schema.String,
 	userId: Schema.String,
 	integrationId: Schema.String,
-	payload: Schema.optional(Schema.Unknown),
+	rawBody: Schema.optional(Schema.String),
+	contentType: Schema.optional(Schema.String),
 });
 
 type IntegrationRunJobData = typeof IntegrationRunJobData.Type;
@@ -37,111 +68,6 @@ type IntegrationRunJobData = typeof IntegrationRunJobData.Type;
 class IntegrationRunError extends Schema.TaggedError<IntegrationRunError>()("IntegrationRunError", {
 	message: Schema.String,
 }) {}
-
-const isObjectRecord = (value: unknown): value is Record<string, unknown> =>
-	typeof value === "object" && value !== null && !Array.isArray(value);
-
-const unsupportedSinkResult = (provider: string): MediaImportAdapterResult => ({
-	entityGroups: [],
-	failures: [
-		{
-			itemIndex: 0,
-			stage: "source_fetch",
-			message: `${provider} integration is not implemented in V2 yet`,
-		},
-	],
-});
-
-const invalidKodiPayloadResult = (): MediaImportAdapterResult => ({
-	entityGroups: [],
-	failures: [
-		{
-			itemIndex: 0,
-			stage: "input_transformation",
-			message: "Could not parse Kodi webhook payload",
-		},
-	],
-});
-
-export const parseKodiSinkPayload = (payload: unknown): MediaImportAdapterResult => {
-	if (!isObjectRecord(payload)) {
-		return invalidKodiPayloadResult();
-	}
-
-	const lot = payload.lot;
-	const progress = payload.progress;
-	const identifier = payload.identifier;
-	const rawSeason = payload.show_season_number;
-	const rawEpisode = payload.show_episode_number;
-
-	if (typeof progress !== "number" || !Number.isFinite(progress)) {
-		return invalidKodiPayloadResult();
-	}
-
-	if (lot !== "movie" && lot !== "show") {
-		return invalidKodiPayloadResult();
-	}
-
-	const normalizedIdentifier =
-		typeof identifier === "string"
-			? identifier.trim()
-			: typeof identifier === "number" && Number.isFinite(identifier)
-				? String(identifier)
-				: "";
-	const ref = buildMovieOrShowImportRef({
-		entitySchemaSlug: lot,
-		sourceLabel: normalizedIdentifier,
-		providerIds: { tmdb: normalizedIdentifier },
-	});
-	if (!ref) {
-		return {
-			entityGroups: [],
-			failures: [
-				{
-					itemIndex: 0,
-					stage: "input_transformation",
-					message: "Kodi webhook payload is missing a TMDB identifier",
-				},
-			],
-		};
-	}
-
-	return {
-		failures: [],
-		entityGroups: [
-			{
-				entityRef: ref,
-				itemIndex: 0,
-				collectionMemberships: [],
-				events: [
-					{
-						eventSchemaSlug: "progress",
-						occurredAt: new Date().toISOString(),
-						properties: {
-							consumedOn: "kodi",
-							progressPercent: progress,
-							...(lot === "show" && Number.isInteger(rawSeason) ? { showSeason: rawSeason } : {}),
-							...(lot === "show" && Number.isInteger(rawEpisode)
-								? { showEpisode: rawEpisode }
-								: {}),
-						},
-					},
-				],
-			},
-		],
-	};
-};
-
-export const getSinkAdapterResult = (
-	integration: IntegrationRecord,
-	payload: unknown,
-): MediaImportAdapterResult => {
-	const kind = integration.providerSpecifics.kind;
-	if (kind === "kodi") {
-		return parseKodiSinkPayload(payload);
-	}
-	return unsupportedSinkResult(integration.provider);
-};
 
 const markFailedRunCounts = (runId: string, failureCount: number) =>
 	Effect.gen(function* () {
@@ -238,26 +164,18 @@ export const finalizeIntegrationRun = (integration: IntegrationRecord, runId: st
 		);
 	});
 
-const runAudiobookshelfIntegration = (input: {
-	integration: IntegrationRecord;
-	runId: string;
-	providerSpecifics: AudiobookshelfIntegration["providerSpecifics"];
-}) =>
-	processMediaImport({
-		runId: input.runId,
-		sourceName: "Audiobookshelf",
-		userId: input.integration.userId,
-		adapterErrorFallback: "Failed to fetch data from Audiobookshelf",
-		eventContext: { origin: "integration", integrationId: input.integration.id },
-		loadAdapterResult: adaptAudiobookshelfData({
-			apiKey: input.providerSpecifics.token,
-			apiUrl: input.providerSpecifics.baseUrl,
-		}),
-	});
-
-const runSinkIntegration = (integration: IntegrationRecord, runId: string, payload: unknown) =>
+const runSinkIntegration = (
+	integration: IntegrationRecord,
+	runId: string,
+	rawBody: string | undefined,
+	contentType: string | undefined,
+) =>
 	Effect.gen(function* () {
-		const adapterResult = getSinkAdapterResult(integration, payload);
+		const adapterResult = getSinkAdapterResult(
+			integration,
+			rawBody ?? "",
+			contentType ?? "application/json",
+		);
 		if (adapterResult.entityGroups.length === 0 && adapterResult.failures.length > 0) {
 			yield* failAdapterOnlyRun(runId, adapterResult);
 			return;
@@ -274,21 +192,52 @@ const runSinkIntegration = (integration: IntegrationRecord, runId: string, paylo
 	});
 
 const runYankIntegration = (integration: IntegrationRecord, runId: string) => {
-	const providerSpecifics = integration.providerSpecifics;
-	if (providerSpecifics.kind === "audiobookshelf") {
-		return runAudiobookshelfIntegration({ integration, runId, providerSpecifics });
-	}
-	if (providerSpecifics.kind === "plex_yank") {
+	const specs = integration.providerSpecifics;
+	const eventContext = { origin: "integration" as const, integrationId: integration.id };
+
+	if (specs.kind === "audiobookshelf") {
+		const credentials = { apiKey: specs.token, apiUrl: specs.baseUrl };
 		return processMediaImport({
 			runId,
+			eventContext,
+			userId: integration.userId,
+			sourceName: "Audiobookshelf",
+			adapterErrorFallback: "Failed to fetch data from Audiobookshelf",
+			loadAdapterResult: withOwnership(
+				integration.syncOwnership,
+				adaptAudiobookshelfData(credentials),
+				syncAudiobookshelfOwnedItems(credentials),
+			),
+		});
+	}
+	if (specs.kind === "plex_yank") {
+		const credentials = { apiKey: specs.token, apiUrl: specs.baseUrl };
+		return processMediaImport({
+			runId,
+			eventContext,
 			sourceName: "Plex",
 			userId: integration.userId,
 			adapterErrorFallback: "Failed to fetch data from Plex",
-			eventContext: { origin: "integration", integrationId: integration.id },
-			loadAdapterResult: adaptPlexData({
-				apiKey: providerSpecifics.token,
-				apiUrl: providerSpecifics.baseUrl,
-			}),
+			loadAdapterResult: withOwnership(
+				integration.syncOwnership,
+				adaptPlexData(credentials),
+				syncPlexYankOwnedItems(credentials),
+			),
+		});
+	}
+	if (specs.kind === "komga") {
+		const credentials = { apiKey: specs.apiKey, baseUrl: specs.baseUrl };
+		return processMediaImport({
+			runId,
+			eventContext,
+			sourceName: "Komga",
+			userId: integration.userId,
+			adapterErrorFallback: "Failed to fetch data from Komga",
+			loadAdapterResult: withOwnership(
+				integration.syncOwnership,
+				adaptKomgaData(credentials),
+				syncKomgaOwnedItems(credentials),
+			),
 		});
 	}
 
@@ -333,7 +282,7 @@ const processIntegrationRunJob = (payload: IntegrationRunJobData) =>
 
 		const runEffect =
 			integration.lot === "sink"
-				? runSinkIntegration(integration, payload.runId, payload.payload)
+				? runSinkIntegration(integration, payload.runId, payload.rawBody, payload.contentType)
 				: runYankIntegration(integration, payload.runId);
 
 		yield* runEffect.pipe(

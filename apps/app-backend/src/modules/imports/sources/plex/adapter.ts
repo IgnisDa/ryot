@@ -7,6 +7,7 @@ import type {
 	MediaImportAdapterFailure,
 	MediaImportAdapterResult,
 } from "../../media/import-processor";
+import type { ImportEntityRef } from "../../media/types";
 import { requestSourceJson } from "../../runtime/source-api";
 import { createSourceFetchFailure, isNotNullAdapterFailure } from "../shared/adapter-utils";
 import { buildMovieOrShowImportRef } from "../shared/provider-refs";
@@ -191,4 +192,48 @@ export const adaptPlexData = (input: PlexAdapterInput) =>
 			failures,
 			entityGroups: finalizeEntityGroups(groupMap),
 		} satisfies MediaImportAdapterResult;
+	});
+
+export const syncPlexYankOwnedItems = (input: { apiKey: string; apiUrl: string }) =>
+	Effect.gen(function* () {
+		const headers = createPlexHeaders(input.apiKey);
+		const ownedItems: Array<{ entityRef: ImportEntityRef; provider: string }> = [];
+
+		const librariesResponse = yield* requestSourceJson({
+			headers,
+			sourceName: "Plex",
+			baseUrl: input.apiUrl,
+			path: "library/sections",
+		}).pipe(Effect.flatMap(decodeDirectories));
+
+		for (const directory of librariesResponse.MediaContainer.Directory) {
+			if (directory.type !== "movie" && directory.type !== "show") {
+				continue;
+			}
+
+			const itemsResult = yield* requestSourceJson({
+				headers,
+				sourceName: "Plex",
+				baseUrl: input.apiUrl,
+				query: { includeGuids: 1 },
+				path: `library/sections/${directory.key}/all`,
+			}).pipe(Effect.flatMap(decodeMetadata), Effect.either);
+			if (Either.isLeft(itemsResult)) {
+				continue;
+			}
+
+			const entitySchemaSlug = directory.type === "movie" ? "movie" : "show";
+			for (const item of itemsResult.right.MediaContainer.Metadata ?? []) {
+				const ref = buildMovieOrShowImportRef({
+					entitySchemaSlug,
+					sourceLabel: item.title,
+					providerIds: getGuidProviderIds(item.Guid),
+				});
+				if (ref) {
+					ownedItems.push({ entityRef: ref, provider: "plex_yank" });
+				}
+			}
+		}
+
+		return ownedItems;
 	});
