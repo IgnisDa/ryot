@@ -1,8 +1,9 @@
 import { HttpApiBuilder } from "@effect/platform";
 import { Effect } from "effect";
 
-import { CurrentUser } from "../../lib/auth";
-import { AppContract } from "../../lib/contract";
+import { CurrentUser } from "~/lib/auth";
+import { AppContract } from "~/lib/contract";
+
 import { UploadsService } from "./service";
 
 export const UploadsRoutesLive = HttpApiBuilder.group(AppContract, "uploads", (handlers) =>

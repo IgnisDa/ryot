@@ -4,8 +4,8 @@ import { Effect } from "effect";
 
 import { CurrentDb, dbEffect, TransactionRunner } from "~/lib/db";
 import * as schema from "~/lib/db/schema";
+import type { AppSchema } from "~/lib/schema";
 
-import type { AppSchema } from "../schema";
 import { builtinEntitySchemas } from "./entity-schemas";
 import {
 	builtinEventSchemaTriggerLinks,

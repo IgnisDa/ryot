@@ -1,12 +1,13 @@
 import { Effect } from "effect";
 
-import type { CurrentUserValue } from "../../lib/auth";
-import { builtinEntitySchemas } from "../../lib/builtins/entity-schemas";
-import { DbRunner } from "../../lib/db";
-import { badRequest, conflict, notFound } from "../../lib/errors";
-import { parseLabeledPropertySchemaInput } from "../../lib/property-schema-runtime";
-import { slugify } from "../../lib/slug";
-import { requireText } from "../../lib/validation";
+import type { CurrentUserValue } from "~/lib/auth";
+import { builtinEntitySchemas } from "~/lib/builtins/entity-schemas";
+import { DbRunner } from "~/lib/db";
+import { badRequest, conflict, notFound } from "~/lib/errors";
+import { parseLabeledPropertySchemaInput } from "~/lib/property-schema-runtime";
+import { slugify } from "~/lib/slug";
+import { requireText } from "~/lib/validation";
+
 import { EventSchemasRepository } from "./repository";
 import type { CreateEventSchemaBody } from "./schemas";
 

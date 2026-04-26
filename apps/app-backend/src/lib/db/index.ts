@@ -2,8 +2,9 @@ import { drizzle } from "drizzle-orm/node-postgres";
 import { Context, Effect, Exit, Layer, Redacted, Runtime } from "effect";
 import { Pool } from "pg";
 
-import { AppConfig } from "../config";
-import { DbError, unknownToDbError } from "../errors";
+import { AppConfig } from "~/lib/config";
+import { DbError, unknownToDbError } from "~/lib/errors";
+
 import * as schema from "./schema";
 
 const makeDb = (pool: Pool) => drizzle(pool, { schema, casing: "snake_case" });

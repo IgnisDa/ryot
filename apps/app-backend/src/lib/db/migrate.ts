@@ -1,7 +1,8 @@
 import { migrate } from "drizzle-orm/node-postgres/migrator";
 import { Effect } from "effect";
 
-import { unknownToDbError } from "../errors";
+import { unknownToDbError } from "~/lib/errors";
+
 import { DbService } from "./index";
 
 export const migrateDB = Effect.gen(function* () {

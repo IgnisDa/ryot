@@ -1,18 +1,19 @@
 import { DateTime, Effect } from "effect";
 
-import type { CurrentUserValue } from "../../lib/auth";
-import { DbRunner, TransactionRunner } from "../../lib/db";
-import type { BadRequest, DbError, NotFound } from "../../lib/errors";
-import { badRequest, notFound } from "../../lib/errors";
+import type { CurrentUserValue } from "~/lib/auth";
+import { DbRunner, TransactionRunner } from "~/lib/db";
+import type { BadRequest, DbError, NotFound } from "~/lib/errors";
+import { badRequest, notFound } from "~/lib/errors";
 import {
 	parseAppSchemaProperties,
 	parseLabeledPropertySchemaInput,
-} from "../../lib/property-schema-runtime";
-import { decodeStoredAppSchema } from "../../lib/schema";
-import { requireText } from "../../lib/validation";
-import { EntitiesRepository } from "../entities/repository";
-import { EventsRepository } from "../events/repository";
-import { RelationshipSchemasRepository } from "../relationship-schemas/repository";
+} from "~/lib/property-schema-runtime";
+import { decodeStoredAppSchema } from "~/lib/schema";
+import { requireText } from "~/lib/validation";
+import { EntitiesRepository } from "~/modules/entities/repository";
+import { EventsRepository } from "~/modules/events/repository";
+import { RelationshipSchemasRepository } from "~/modules/relationship-schemas/repository";
+
 import { CollectionsRepository } from "./repository";
 import type {
 	CollectionResponse,

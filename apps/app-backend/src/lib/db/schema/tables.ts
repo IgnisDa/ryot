@@ -13,11 +13,12 @@ import {
 	uniqueIndex,
 } from "drizzle-orm/pg-core";
 
-import type { EventSchemaTriggerMetadata } from "../../../modules/events/schemas";
-import type { ImportRunStatus } from "../../../modules/imports/types";
-import type { IntegrationLot } from "../../../modules/integrations/types";
-import type { DisplayConfiguration, SavedViewQueryDefinition } from "../../query-language";
-import type { AppSchema } from "../../schema";
+import type { DisplayConfiguration, SavedViewQueryDefinition } from "~/lib/query-language";
+import type { AppSchema } from "~/lib/schema";
+import type { EventSchemaTriggerMetadata } from "~/modules/events/schemas";
+import type { ImportRunStatus } from "~/modules/imports/types";
+import type { IntegrationLot } from "~/modules/integrations/types";
+
 import { user } from "./auth";
 
 export const tracker = pgTable(

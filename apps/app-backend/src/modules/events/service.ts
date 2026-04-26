@@ -1,14 +1,15 @@
 import { WorkflowEngine } from "@effect/workflow/WorkflowEngine";
 import { Effect } from "effect";
 
-import type { CurrentUserValue } from "../../lib/auth";
-import { DbRunner } from "../../lib/db";
-import type { BadRequest, DbError, NotFound } from "../../lib/errors";
-import { badRequest, notFound } from "../../lib/errors";
-import { SandboxService } from "../../lib/sandbox";
-import { EntitiesRepository } from "../entities/repository";
-import { EventSchemasRepository } from "../event-schemas/repository";
-import { SandboxRepository } from "../sandbox/repository";
+import type { CurrentUserValue } from "~/lib/auth";
+import { DbRunner } from "~/lib/db";
+import type { BadRequest, DbError, NotFound } from "~/lib/errors";
+import { badRequest, notFound } from "~/lib/errors";
+import { SandboxService } from "~/lib/sandbox";
+import { EntitiesRepository } from "~/modules/entities/repository";
+import { EventSchemasRepository } from "~/modules/event-schemas/repository";
+import { SandboxRepository } from "~/modules/sandbox/repository";
+
 import { createEventsForUser } from "./create-core";
 import { EventsRepository } from "./repository";
 import type { CreateEventItem, CreateEventsResponse, ListedEvent } from "./schemas";

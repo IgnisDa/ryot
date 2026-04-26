@@ -1,8 +1,9 @@
 import { HttpApiEndpoint, HttpApiGroup, HttpApiSchema } from "@effect/platform";
 import { Schema } from "effect";
 
-import { AuthMiddleware } from "../../lib/auth";
-import { BadRequest, NotFound, NotImplemented, RateLimited, Unauthorized } from "../../lib/errors";
+import { AuthMiddleware } from "~/lib/auth";
+import { BadRequest, NotFound, NotImplemented, RateLimited, Unauthorized } from "~/lib/errors";
+
 import {
 	CreateSavedViewBody,
 	ListedSavedView,

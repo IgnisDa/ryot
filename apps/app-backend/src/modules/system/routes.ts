@@ -1,8 +1,8 @@
 import { HttpApiBuilder } from "@effect/platform";
 import { Effect, Option } from "effect";
 
-import { AppConfig, isOidcEnabled } from "../../lib/config";
-import { AppContract } from "../../lib/contract";
+import { AppConfig, isOidcEnabled } from "~/lib/config";
+import { AppContract } from "~/lib/contract";
 
 export const SystemRoutesLive = HttpApiBuilder.group(AppContract, "system", (handlers) =>
 	handlers
