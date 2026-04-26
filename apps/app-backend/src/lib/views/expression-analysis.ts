@@ -6,6 +6,7 @@ import type { ViewComputedField, ViewExpression } from "./expression";
 import { supportsComparableFilter, supportsContainsFilter } from "./policy";
 import {
 	getEntityColumnPropertyDefinition,
+	getEntitySchemaColumnPropertyDefinition,
 	getEventJoinColumnPropertyDefinition,
 	getEventJoinForReference,
 	getEventJoinPropertyDefinition,
@@ -374,6 +375,30 @@ export const inferViewExpressionType = <
 			type: propertyType,
 			label: "Event Aggregate",
 		});
+	}
+
+	if (reference.type === "entity-schema") {
+		const [column] = reference.path;
+		if (!column) {
+			throw new QueryEngineValidationError(
+				"Entity schema reference path must not be empty",
+			);
+		}
+		if (reference.path.length > 1) {
+			throw new QueryEngineValidationError(
+				`Entity schema column 'entity-schema.${reference.path.join(".")}' does not support nested paths`,
+			);
+		}
+		const propertyDefinition = getEntitySchemaColumnPropertyDefinition(column);
+		if (!propertyDefinition) {
+			throw new QueryEngineValidationError(
+				`Unsupported entity schema column 'entity-schema.${column}'`,
+			);
+		}
+		return createPropertyTypeInfo(
+			normalizeExpressionPropertyType(propertyDefinition.type),
+			propertyDefinition,
+		);
 	}
 
 	const join = getEventJoinForReference(input.context.eventJoinMap, reference);

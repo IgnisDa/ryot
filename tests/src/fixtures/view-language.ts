@@ -2,6 +2,7 @@ import type { paths } from "@ryot/generated/openapi/app-backend";
 import {
 	type EventAggregation,
 	entityBuiltinColumns,
+	entitySchemaBuiltinColumns,
 	eventJoinBuiltinColumns,
 	type RuntimeRef,
 } from "@ryot/ts-utils";
@@ -51,6 +52,17 @@ export const parseFieldPath = (field: string): RuntimeRef => {
 		}
 
 		return { joinKey: segment, path: [tail], type: "event" };
+	}
+
+	if (namespace === "entity-schema") {
+		if (!segment || tail !== undefined || rest.length > 0) {
+			throw new Error(`Invalid field path: ${field}`);
+		}
+		if (!entitySchemaBuiltinColumns.has(segment)) {
+			throw new Error(`Invalid field path: ${field}`);
+		}
+
+		return { path: [segment], type: "entity-schema" };
 	}
 
 	if (namespace !== "entity" || !segment || !tail) {

@@ -4,7 +4,7 @@
 
 **Type:** AFK
 
-**Status:** todo
+**Status:** done
 
 ## What to build
 
@@ -51,16 +51,16 @@ The end-to-end backend integration: SQL compilation for entity schema references
 
 ## Acceptance criteria
 
-- [ ] `buildEntitySchemaExpression` for slug produces `alias.entity_schema_data ->> 'slug'`
-- [ ] `buildEntitySchemaExpression` for isBuiltin produces `(alias.entity_schema_data ->> 'isBuiltin')::boolean`
-- [ ] `buildEntitySchemaExpression` for createdAt produces `(alias.entity_schema_data ->> 'createdAt')::timestamptz`
-- [ ] Multi-schema entity references still work (CASE WHEN uses `alias.entity_schema_data ->> 'slug'`)
-- [ ] Base entities CTE includes `entity_schema_data` JSONB column
-- [ ] `entity_schema_slug` and `entity_schema_id` no longer appear in the CTE or final SELECT
-- [ ] `QueryEngineItem` no longer has `entitySchemaSlug` or `entitySchemaId` fields
-- [ ] Query engine integration test passes with an entity schema field in the `fields` array
-- [ ] All existing query engine tests still pass (tests that assert `entitySchemaSlug` are updated)
-- [ ] All existing saved view tests still pass
+- [x] `buildEntitySchemaExpression` for slug produces `alias.entity_schema_data ->> 'slug'`
+- [x] `buildEntitySchemaExpression` for isBuiltin produces `(alias.entity_schema_data ->> 'isBuiltin')::boolean`
+- [x] `buildEntitySchemaExpression` for createdAt produces `(alias.entity_schema_data ->> 'createdAt')::timestamptz`
+- [x] Multi-schema entity references still work (CASE WHEN uses `alias.entity_schema_data ->> 'slug'`)
+- [x] Base entities CTE includes `entity_schema_data` JSONB column
+- [x] `entity_schema_slug` and `entity_schema_id` no longer appear in the CTE or final SELECT
+- [x] `QueryEngineItem` no longer has `entitySchemaSlug` or `entitySchemaId` fields
+- [x] Query engine integration test passes with an entity schema field in the `fields` array
+- [x] All existing query engine tests still pass (tests that assert `entitySchemaSlug` are updated)
+- [x] All existing saved view tests still pass
 
 ## User stories addressed
 

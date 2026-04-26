@@ -68,6 +68,11 @@ const eventJoinPropertyExpression = (joinKey: string, property: string) => ({
 	},
 });
 
+const entitySchemaExpression = (column: string) => ({
+	type: "reference" as const,
+	reference: { type: "entity-schema" as const, path: [column] },
+});
+
 const coalesceExpression = (
 	...values: Array<
 		| ReturnType<typeof literalExpression>
@@ -111,7 +116,8 @@ const toNullableDate = (value: unknown): Date | null => {
 const toBuiltinMediaSourceItem = (
 	item: QueryEngineResponseData["items"][number],
 ): BuiltInMediaOverviewSourceItem | null => {
-	if (!isBuiltInMediaEntitySchemaSlug(item.entitySchemaSlug)) {
+	const slug = getFieldValue(item, "entitySchemaSlug");
+	if (typeof slug !== "string" || !isBuiltInMediaEntitySchemaSlug(slug)) {
 		return null;
 	}
 
@@ -119,7 +125,7 @@ const toBuiltinMediaSourceItem = (
 		id: item.id,
 		title: item.name,
 		image: item.image,
-		entitySchemaSlug: item.entitySchemaSlug,
+		entitySchemaSlug: slug,
 		reviewAt: toNullableDate(getFieldValue(item, "reviewAt")),
 		backlogAt: toNullableDate(getFieldValue(item, "backlogAt")),
 		progressAt: toNullableDate(getFieldValue(item, "progressAt")),
@@ -191,6 +197,10 @@ const buildBaseRequest = (): Omit<
 			{ key: "entityCreatedAt", expression: entityCreatedAt },
 		],
 		fields: [
+			{
+				key: "entitySchemaSlug",
+				expression: entitySchemaExpression("slug"),
+			},
 			{
 				key: "publishYear",
 				expression: computedFieldExpression("publishYear"),

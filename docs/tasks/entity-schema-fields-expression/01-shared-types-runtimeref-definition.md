@@ -4,7 +4,13 @@
 
 **Type:** AFK
 
-**Status:** todo
+**Status:** done
+
+## Completion notes
+
+- Added stub throw branches in `expression-compiler.ts`, `expression-analysis.ts`, and `validator.ts` for the new `entity-schema` variant to preserve exhaustiveness narrowing. Full logic belongs to Tasks 02–03.
+- Tests added for `getEntitySchemaColumnPropertyType` covering all 9 columns, unknown columns, and invalid inputs.
+- `runtimeReferenceSchema` and `createEntitySchemaExpression` correctness is verified through the compile-time `RuntimeRef` ↔ schema bidirectional `extends` assertion.
 
 ## What to build
 
@@ -29,15 +35,15 @@ Define the new `entity-schema` RuntimeRef variant and all supporting type/config
 
 ## Acceptance criteria
 
-- [ ] `entitySchemaBuiltinColumns` contains exactly 9 camelCase column names, no `propertiesSchema`
-- [ ] `createEntitySchemaExpression("slug")` produces `{ type: "reference", reference: { type: "entity-schema", path: ["slug"] } }`
-- [ ] `runtimeReferenceSchema` accepts `{ type: "entity-schema", path: ["slug"] }` and rejects `{ type: "entity-schema", path: [] }`
-- [ ] `getEntitySchemaColumnPropertyType("isBuiltin")` returns `"boolean"`
-- [ ] `getEntitySchemaColumnPropertyType("createdAt")` returns `"datetime"`
-- [ ] `getEntitySchemaColumnPropertyType("icon")` returns `"string"`
-- [ ] `sortFilterBuiltins` includes filterable entity schema column names (`id`, `slug`, `name`, `isBuiltin`, `userId`, `createdAt`, `updatedAt`)
-- [ ] `displayBuiltins` includes all 9 entity schema column names
-- [ ] TypeScript compilation succeeds with the new types
+- [x] `entitySchemaBuiltinColumns` contains exactly 9 camelCase column names, no `propertiesSchema`
+- [x] `createEntitySchemaExpression("slug")` produces `{ type: "reference", reference: { type: "entity-schema", path: ["slug"] } }`
+- [x] `runtimeReferenceSchema` accepts `{ type: "entity-schema", path: ["slug"] }` and rejects `{ type: "entity-schema", path: [] }`
+- [x] `getEntitySchemaColumnPropertyType("isBuiltin")` returns `"boolean"`
+- [x] `getEntitySchemaColumnPropertyType("createdAt")` returns `"datetime"`
+- [x] `getEntitySchemaColumnPropertyType("icon")` returns `"string"`
+- [x] `sortFilterBuiltins` includes filterable entity schema column names (`id`, `slug`, `name`, `isBuiltin`, `userId`, `createdAt`, `updatedAt`)
+- [x] `displayBuiltins` includes all 9 entity schema column names
+- [x] TypeScript compilation succeeds with the new types
 
 ## User stories addressed
 

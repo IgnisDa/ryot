@@ -27,6 +27,7 @@ export const validateViewPredicateAgainstSchemas = <
 	TJoin extends QueryEngineEventJoinLike,
 >(input: {
 	predicate: ViewPredicate;
+	validBuiltins: ReadonlySet<string>;
 	computedFields?: ViewComputedField[];
 	context: QueryEngineReferenceContext<TSchema, TJoin>;
 }) => {
@@ -75,6 +76,24 @@ export const validateViewPredicateAgainstSchemas = <
 		});
 	};
 
+	const validateFilterExpression = (
+		expression: Parameters<typeof inferViewExpressionType>[0]["expression"],
+	) => {
+		const result = getType(expression);
+		if (
+			expression.type === "reference" &&
+			expression.reference.type === "entity-schema"
+		) {
+			const [column] = expression.reference.path;
+			if (column && !input.validBuiltins.has(column)) {
+				throw new QueryEngineValidationError(
+					`Entity schema column 'entity-schema.${column}' is not valid in this context`,
+				);
+			}
+		}
+		return result;
+	};
+
 	const validatePredicate = (predicate: ViewPredicate): void => {
 		if (predicate.type === "and" || predicate.type === "or") {
 			for (const child of predicate.predicates) {
@@ -91,15 +110,15 @@ export const validateViewPredicateAgainstSchemas = <
 
 		if (predicate.type === "isNull" || predicate.type === "isNotNull") {
 			assertFilterCompatibleExpression(
-				getType(predicate.expression),
+				validateFilterExpression(predicate.expression),
 				"filtering",
 			);
 			return;
 		}
 
 		if (predicate.type === "contains") {
-			const expressionType = getType(predicate.expression);
-			const valueType = getType(predicate.value);
+			const expressionType = validateFilterExpression(predicate.expression);
+			const valueType = validateFilterExpression(predicate.value);
 			assertContainsCompatibleExpression(expressionType);
 			assertFilterCompatibleExpression(valueType, "filtering");
 
@@ -175,14 +194,14 @@ export const validateViewPredicateAgainstSchemas = <
 		}
 
 		if (predicate.type === "in") {
-			const expressionType = getType(predicate.expression);
+			const expressionType = validateFilterExpression(predicate.expression);
 			assertComparableExpression(expressionType, "in");
 
 			for (const value of predicate.values) {
 				assertCompatibleComparisonTypes({
 					operator: "in",
 					left: expressionType,
-					right: getType(value),
+					right: validateFilterExpression(value),
 				});
 			}
 
@@ -191,8 +210,8 @@ export const validateViewPredicateAgainstSchemas = <
 
 		assertCompatibleComparisonTypes({
 			operator: predicate.operator,
-			left: getType(predicate.left),
-			right: getType(predicate.right),
+			left: validateFilterExpression(predicate.left),
+			right: validateFilterExpression(predicate.right),
 		});
 	};
 

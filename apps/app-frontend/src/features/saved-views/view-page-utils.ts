@@ -1,4 +1,7 @@
-import { createEntityColumnExpression } from "@ryot/ts-utils";
+import {
+	createEntityColumnExpression,
+	createEntitySchemaExpression,
+} from "@ryot/ts-utils";
 import { match } from "ts-pattern";
 import type {
 	ApiGetResponseData,
@@ -31,6 +34,11 @@ const createRuntimeField = (
 	key,
 	expression,
 });
+
+const entitySchemaSlugField = createRuntimeField(
+	"entitySchemaSlug",
+	createEntitySchemaExpression("slug"),
+);
 
 const buildCardFields = (input: {
 	image: ViewExpression | null;
@@ -89,11 +97,17 @@ export function createQueryEngineRequest(input: {
 	return match(input.layout)
 		.with("grid", () => ({
 			...base,
-			fields: buildCardRuntimeFields(input.view.displayConfiguration.grid),
+			fields: [
+				...buildCardRuntimeFields(input.view.displayConfiguration.grid),
+				entitySchemaSlugField,
+			],
 		}))
 		.with("list", () => ({
 			...base,
-			fields: buildCardRuntimeFields(input.view.displayConfiguration.list),
+			fields: [
+				...buildCardRuntimeFields(input.view.displayConfiguration.list),
+				entitySchemaSlugField,
+			],
 		}))
 		.with("table", () => ({
 			...base,
@@ -117,13 +131,16 @@ export function createDisabledQueryEngineRequest(): QueryEngineRequest {
 			direction: "asc",
 			expression: createEntityColumnExpression("book", "name"),
 		},
-		fields: buildCardFields({
-			callout: null,
-			primarySubtitle: null,
-			secondarySubtitle: null,
-			title: createEntityColumnExpression("book", "name"),
-			image: createEntityColumnExpression("book", "image"),
-		}),
+		fields: [
+			...buildCardFields({
+				callout: null,
+				primarySubtitle: null,
+				secondarySubtitle: null,
+				title: createEntityColumnExpression("book", "name"),
+				image: createEntityColumnExpression("book", "image"),
+			}),
+			entitySchemaSlugField,
+		],
 	};
 }
 

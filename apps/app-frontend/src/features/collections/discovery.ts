@@ -1,4 +1,7 @@
-import { createEntityPropertyExpression } from "@ryot/ts-utils";
+import {
+	createEntityPropertyExpression,
+	createEntitySchemaExpression,
+} from "@ryot/ts-utils";
 import { createEntityRuntimeRequest } from "~/features/entities/model";
 import { useApiClient } from "~/hooks/api";
 import {
@@ -25,6 +28,10 @@ export function useCollectionsQuery(enabled = true) {
 							COLLECTION_ENTITY_SCHEMA_SLUG,
 							"membershipPropertiesSchema",
 						),
+					},
+					{
+						key: "entitySchemaSlug",
+						expression: createEntitySchemaExpression("slug"),
 					},
 				],
 			},
