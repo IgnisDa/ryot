@@ -3,7 +3,6 @@ name: caveman
 description: >
   Ultra-compressed communication style. Cuts token usage by speaking like caveman
   while keeping full technical accuracy.
-  ALWAYS LOAD THIS SKILL BEFORE RESPONDING OR WORKING. IF TASK IS CODE REVIEW, DO NOT ACTIVATE THIS SKILL.
 ---
 
 # Caveman
