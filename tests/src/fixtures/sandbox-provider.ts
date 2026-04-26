@@ -222,12 +222,12 @@ export function providerSandboxSource(input: {
 	const resultSchema = `provider${input.operation[0]?.toUpperCase()}${input.operation.slice(1)}ResultSchema`;
 	const isTranslate = input.operation === "translate";
 	const declarations = isTranslate
-		? `const translations = Schema.decodeUnknownSync(
-  Schema.Record({ key: Schema.String, value: providerTranslateResultSchema }),
+		? `const translations = Schema.decodeSync(
+  Schema.Record(Schema.String, providerTranslateResultSchema),
 )(
   JSON.parse(${JSON.stringify(JSON.stringify(input.result))}),
 );`
-		: `const result = Schema.decodeUnknownSync(${resultSchema})(
+		: `const result = Schema.decodeSync(${resultSchema})(
   JSON.parse(${JSON.stringify(JSON.stringify(input.result))}),
 );`;
 	const run = isTranslate
