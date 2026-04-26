@@ -187,7 +187,7 @@ driver("details", async function(context) {
     product?.product_images?.["2400"] ??
     product?.product_images?.["500"] ??
     null;
-  const remoteImages = imageUrl ? [imageUrl] : [];
+  const images = imageUrl ? [{ kind: "remote", url: imageUrl }] : [];
 
   const publishYear = parseReleaseYear(product?.release_date, dayjs);
 
@@ -296,7 +296,7 @@ driver("details", async function(context) {
       providerRating,
       genres: [...genreSet],
       sourceUrl,
-      assets: { remoteImages },
+      assets: { images, videos: [] },
     },
   };
 });
