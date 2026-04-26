@@ -8,7 +8,7 @@ import { createTracker, listTrackers } from "./trackers";
 
 export type { AppPropertyDefinition, AppSchema };
 
-type EnqueueEntitySearchBody = ClientBody<"entity-schemas", "search">;
+type EnqueueEntitySearchBody = ClientBody<"entitySchemas", "search">;
 
 type EnqueueEntityImportBody = ClientBody<"entities", "import">;
 
@@ -37,7 +37,7 @@ export async function createEntitySchema(
 		},
 	} = options;
 
-	const { data, response } = await client["entity-schemas"].create({
+	const { data, response } = await client.entitySchemas.create({
 		headers: { Cookie: cookies },
 		body: {
 			icon,
@@ -62,7 +62,7 @@ export async function listEntitySchemas(
 	cookies: string,
 	options: { slugs?: string[]; trackerId?: string },
 ) {
-	const { data, response } = await client["entity-schemas"].list({
+	const { data, response } = await client.entitySchemas.list({
 		body: options,
 		headers: { Cookie: cookies },
 	});
@@ -71,7 +71,7 @@ export async function listEntitySchemas(
 }
 
 export async function getEntitySchema(client: Client, cookies: string, entitySchemaId: string) {
-	const { data, response } = await client["entity-schemas"].get({
+	const { data, response } = await client.entitySchemas.get({
 		headers: { Cookie: cookies },
 		params: { path: { entitySchemaId } },
 	});
@@ -129,7 +129,7 @@ export async function enqueueEntitySearch(
 	cookies: string,
 	body: EnqueueEntitySearchBody,
 ) {
-	const { data, response } = await client["entity-schemas"].search({
+	const { data, response } = await client.entitySchemas.search({
 		body,
 		headers: { Cookie: cookies },
 	});
@@ -151,7 +151,7 @@ export async function pollEntitySearchResult(
 	return pollUntil(
 		`entity search job '${jobId}'`,
 		async () => {
-			const { data, response } = await client["entity-schemas"].getSearchResult({
+			const { data, response } = await client.entitySchemas.getSearchResult({
 				params: { path: { jobId } },
 				headers: { Cookie: cookies },
 			});

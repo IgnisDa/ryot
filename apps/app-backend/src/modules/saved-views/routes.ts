@@ -7,7 +7,7 @@ import { dieOnDbError } from "~/lib/errors";
 
 import { SavedViewsService } from "./service";
 
-export const SavedViewsRoutesLive = HttpApiBuilder.group(AppContract, "saved-views", (handlers) =>
+export const SavedViewsRoutesLive = HttpApiBuilder.group(AppContract, "savedViews", (handlers) =>
 	handlers
 		.handle("list", ({ urlParams }) =>
 			Effect.gen(function* () {

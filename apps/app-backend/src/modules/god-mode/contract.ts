@@ -55,7 +55,7 @@ const SetBanResponse = Schema.Struct({
 
 const userIdParam = HttpApiSchema.param("userId", Schema.String);
 
-export const GodModeGroup = HttpApiGroup.make("god-mode")
+export const GodModeGroup = HttpApiGroup.make("godMode")
 	.addError(Unauthorized, { status: 401 })
 	.add(
 		HttpApiEndpoint.get("listUsers", "/god-mode/users")
