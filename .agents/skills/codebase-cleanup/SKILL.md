@@ -26,6 +26,7 @@ Specifically look for:
 - Unnecessary public API surface: exported types, functions, constants, or helpers that do not need to be shared
 - Duplicate, overlapping, or value-free tests
 - Dead code: unreachable branches, unused variables, unused imports, unused exports
+- Stray comments: orphaned inline notes, commented-out code blocks, stale doc comments, or leftover explanatory comments that no longer relate to the surrounding code
 - Leftover TODO / FIXME comments that were resolved during implementation
 - Temporary compatibility layers or dual code paths left behind after the new path lands
 - Stale fixtures, mocks, snapshots, docs, scripts, feature flags, or config/env knobs introduced only for the implementation
@@ -52,6 +53,7 @@ Specifically look for:
 - [ ] No duplicate, overlapping, or value-free tests remain
 - [ ] No unused imports, variables, or exports remain in changed files
 - [ ] No unreachable or dead code branches remain in changed code
+- [ ] No stray comments (orphaned notes, commented-out code, stale doc comments, or leftover explanations) remain in changed code
 - [ ] No resolved TODO / FIXME comments remain
 - [ ] No temporary compatibility layers or dual code paths remain unless explicitly required
 - [ ] No stale fixtures, mocks, snapshots, docs, scripts, feature flags, or config/env knobs remain from the implementation
