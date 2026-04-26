@@ -122,11 +122,13 @@ export const createExpressionCompilerCore = (input: {
 				const textExpr = buildTextValueExpression(compile(expr.expression));
 
 				return Match.value(expr.name).pipe(
-					Match.when("titleCase", () =>
-						sql`initcap(replace(replace(${textExpr}, '_', ' '), '-', ' '))`,
+					Match.when(
+						"titleCase",
+						() => sql`initcap(replace(replace(${textExpr}, '_', ' '), '-', ' '))`,
 					),
-					Match.when("kebabCase", () =>
-						sql`lower(replace(replace(${textExpr}, '_', '-'), ' ', '-'))`,
+					Match.when(
+						"kebabCase",
+						() => sql`lower(replace(replace(${textExpr}, '_', '-'), ' ', '-'))`,
 					),
 					Match.exhaustive,
 				);

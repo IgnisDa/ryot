@@ -31,7 +31,6 @@ export const defaultUserPreferences: UserPreferences = {
 	},
 };
 
-// Step 1: Insert builtin trackers for user; returns { id, slug }[] in slug order.
 const createBuiltinTrackers = (userId: string) =>
 	Effect.gen(function* () {
 		const db = yield* CurrentDb;
@@ -70,7 +69,6 @@ const createBuiltinTrackers = (userId: string) =>
 		return rows;
 	});
 
-// Step 2: Load the seeded builtin entity schemas (global, no userId).
 const listBuiltinEntitySchemas = Effect.gen(function* () {
 	const db = yield* CurrentDb;
 	const rows = yield* dbEffect(() =>
@@ -90,7 +88,6 @@ const listBuiltinEntitySchemas = Effect.gen(function* () {
 type TrackerRow = { id: string; slug: string };
 type EntitySchemaRow = { accentColor: string; icon: string; id: string; slug: string };
 
-// Step 3: Link builtin entity schemas to their corresponding tracker.
 const createTrackerEntitySchemaLinks = (trackers: TrackerRow[], entitySchemas: EntitySchemaRow[]) =>
 	Effect.gen(function* () {
 		const db = yield* CurrentDb;
@@ -121,7 +118,6 @@ const createTrackerEntitySchemaLinks = (trackers: TrackerRow[], entitySchemas: E
 		);
 	});
 
-// Step 4: Create the default builtin saved views for the user.
 const createBuiltinSavedViews = (
 	userId: string,
 	trackers: TrackerRow[],
@@ -203,7 +199,6 @@ const createBuiltinSavedViews = (
 		);
 	});
 
-// Step 5: Ensure the user's library entity exists (idempotent).
 const ensureLibraryEntity = (userId: string, entitySchemas: EntitySchemaRow[]) =>
 	Effect.gen(function* () {
 		const db = yield* CurrentDb;
