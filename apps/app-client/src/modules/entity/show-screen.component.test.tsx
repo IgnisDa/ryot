@@ -6,6 +6,9 @@ import { useEffect, type ReactNode } from "react";
 
 import { RyotQLMalformedResultError } from "@/api/ryotql";
 
+import { ShowActivity } from "./show-activity";
+import { decodeShowActivity } from "./show-activity-fixture";
+import { mapShowActivity, type ShowActivityState } from "./show-activity-state";
 import { ShowEpisodes } from "./show-episodes";
 import { decodeShowEpisodesResult } from "./show-episodes-fixture";
 import { mapShowEpisodes, type ShowEpisodesState } from "./show-episodes-state";
@@ -29,12 +32,23 @@ const overviewState = (rows: Parameters<typeof decodeShowOverview>[0] = {}): Sho
 const episodesState = (): ShowEpisodesState =>
 	mapShowEpisodes(AsyncResult.success(decodeShowEpisodesResult({})));
 
+const activityState = (): ShowActivityState =>
+	mapShowActivity(AsyncResult.success(decodeShowActivity()));
+
 function EpisodesTabProbe(props: { readonly onLoad: () => void }) {
 	const { onLoad } = props;
 	useEffect(() => {
 		onLoad();
 	}, [onLoad]);
 	return <ShowEpisodes state={episodesState()} refresh={() => undefined} />;
+}
+
+function ActivityTabProbe(props: { readonly onLoad: () => void }) {
+	const { onLoad } = props;
+	useEffect(() => {
+		onLoad();
+	}, [onLoad]);
+	return <ShowActivity state={activityState()} refresh={() => undefined} />;
 }
 
 const readyState = (overrides: Record<string, unknown> = {}): ShowSummaryState =>
@@ -54,6 +68,7 @@ const renderContent = (
 	state: ShowSummaryState,
 	options: {
 		readonly episodes?: ReactNode;
+		readonly activity?: ReactNode;
 		readonly refresh?: () => void;
 		readonly overview?: ShowOverviewState;
 		readonly refreshOverview?: () => void;
@@ -66,6 +81,7 @@ const renderContent = (
 			overview={options.overview ?? overviewState()}
 			refreshOverview={options.refreshOverview ?? (() => undefined)}
 			episodes={options.episodes ?? <EpisodesTabProbe onLoad={() => undefined} />}
+			activity={options.activity ?? <ActivityTabProbe onLoad={() => undefined} />}
 		/>,
 	);
 
@@ -181,13 +197,50 @@ describe("show screen content", () => {
 		await renderContent(readyState());
 		const monitoring = screen.getByRole("switch", { name: "Toggle media monitoring" });
 
-		await user.press(screen.getByRole("tab", { name: "Activity" }));
 		await user.press(monitoring);
 		await user.press(screen.getByRole("button", { name: "Log activity" }));
 
 		expect(screen.getByRole("tab", { name: "Overview" })).toBeSelected();
 		expect(screen.getByRole("tab", { name: "Activity" })).not.toBeSelected();
 		expect(monitoring).not.toBeChecked();
+	});
+
+	it("loads the activity tab only once it is selected", async () => {
+		const user = userEvent.setup();
+		const loads: number[] = [];
+		await renderContent(readyState(), {
+			activity: <ActivityTabProbe onLoad={() => loads.push(1)} />,
+		});
+
+		expect(loads).toEqual([]);
+
+		await user.press(screen.getByRole("tab", { name: "Activity" }));
+
+		expect(loads).toEqual([1]);
+		expect(screen.getByRole("tab", { name: "Activity" })).toBeSelected();
+		expect(screen.getByText("Adolescence")).toBeOnTheScreen();
+		expect(screen.getByText("Completed the show")).toBeOnTheScreen();
+		expect(screen.queryByText("Cast & crew")).not.toBeOnTheScreen();
+	});
+
+	it("keeps the summary and the other tabs when the activity query fails", async () => {
+		const user = userEvent.setup();
+		const cause = Cause.fail(new Error("offline"));
+		await renderContent(readyState(), {
+			activity: (
+				<ShowActivity
+					refresh={() => undefined}
+					state={mapShowActivity(AsyncResult.failure(cause))}
+				/>
+			),
+		});
+
+		await user.press(screen.getByRole("tab", { name: "Activity" }));
+
+		expect(screen.getByText("Adolescence")).toBeOnTheScreen();
+		expect(screen.getByText("Unable to load activity")).toBeOnTheScreen();
+		expect(screen.getByRole("tab", { name: "Overview" })).toBeOnTheScreen();
+		expect(screen.getByRole("tab", { name: "Episodes" })).toBeOnTheScreen();
 	});
 
 	it("loads the episodes tab only once it is selected", async () => {
