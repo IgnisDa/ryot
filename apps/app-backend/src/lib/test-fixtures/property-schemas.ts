@@ -128,7 +128,7 @@ export const createNestedPeoplePropertySchema = () => ({
 				type: "object" as const,
 				properties: {
 					role: { label: "Role", type: "string" as const },
-					identifier: { label: "Identifier", type: "string" as const },
+					externalId: { label: "External ID", type: "string" as const },
 				},
 			},
 		},
