@@ -666,7 +666,7 @@ describe("sandbox enqueue by script ID", () => {
 });
 
 describe("sandbox result observability", () => {
-	it("completed result includes populated timings with a pool hit and denoMetrics", async () => {
+	it("completed result includes timing with totalMs and executionMs", async () => {
 		const { client, cookies } = await createAuthenticatedClient();
 		const { id: scriptId } = await createSandboxScript(client, cookies, {
 			name: "observability-check",
@@ -684,17 +684,10 @@ describe("sandbox result observability", () => {
 			throw new Error("Expected sandbox job to complete");
 		}
 
-		if (!result.timings) {
-			throw new Error("Expected timings to be present");
+		if (!result.timing) {
+			throw new Error("Expected timing to be present");
 		}
-		expect(result.timings.totalMs).toBeGreaterThan(0);
-		expect(result.timings.processMs).toBeGreaterThanOrEqual(0);
-		expect(result.timings.poolHit).toBe(true);
-
-		if (!result.denoMetrics) {
-			throw new Error("Expected denoMetrics to be present");
-		}
-		expect(typeof result.denoMetrics.startupMs).toBe("number");
-		expect(typeof result.denoMetrics.scriptExecMs).toBe("number");
+		expect(result.timing.totalMs).toBeGreaterThan(0);
+		expect(result.timing.executionMs).toBeGreaterThanOrEqual(0);
 	});
 });
