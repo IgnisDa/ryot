@@ -10,7 +10,6 @@ import { nullViewExpression } from "~/lib/views/expression";
 import {
 	buildEventJoinMap,
 	buildSchemaMap,
-	type QueryEngineEventJoinLike,
 	type QueryEngineEventSchemaLike,
 	type QueryEngineSchemaLike,
 } from "~/lib/views/reference";
@@ -28,6 +27,7 @@ import type {
 } from "../saved-views/schemas";
 import {
 	executePreparedQuery,
+	type QueryEnginePreparedEventJoin,
 	type QueryEngineSchemaRow,
 } from "./query-builder";
 import type {
@@ -35,10 +35,6 @@ import type {
 	QueryEngineRequest,
 	QueryEngineResponse,
 } from "./schemas";
-
-type QueryEngineEventSchemaRow = QueryEngineEventSchemaLike;
-
-type PreparedEventJoin = QueryEngineEventJoinLike<QueryEngineEventSchemaRow>;
 
 export type SavedViewLayout = keyof DisplayConfiguration;
 
@@ -48,12 +44,12 @@ export type SavedViewExecutionInput = {
 };
 
 type PreparedQueryContext = {
-	eventJoins: PreparedEventJoin[];
+	eventJoins: QueryEnginePreparedEventJoin[];
 	relationshipSchemaIds: string[];
 	eventSchemaSlugs: ReadonlySet<string>;
 	runtimeSchemas: QueryEngineSchemaRow[];
 	schemaMap: Map<string, QueryEngineSchemaRow>;
-	eventJoinMap: Map<string, PreparedEventJoin>;
+	eventJoinMap: Map<string, QueryEnginePreparedEventJoin>;
 };
 
 const parseAppSchema = (value: unknown) => {
@@ -70,11 +66,11 @@ const normalizeQueryDefinition = (
 	computedFields: queryDefinition.computedFields ?? [],
 });
 
-const buildRuntimeFields = (input: {
+const buildPreparedFields = (input: {
 	layout: SavedViewLayout;
 	displayConfiguration: DisplayConfiguration;
 }): QueryEngineField[] => {
-	const buildCardRuntimeFields = (
+	const buildCardPreparedFields = (
 		configuration: DisplayConfiguration["grid"],
 	) => {
 		return [
@@ -103,8 +99,12 @@ const buildRuntimeFields = (input: {
 	};
 
 	return match(input.layout)
-		.with("grid", () => buildCardRuntimeFields(input.displayConfiguration.grid))
-		.with("list", () => buildCardRuntimeFields(input.displayConfiguration.list))
+		.with("grid", () =>
+			buildCardPreparedFields(input.displayConfiguration.grid),
+		)
+		.with("list", () =>
+			buildCardPreparedFields(input.displayConfiguration.list),
+		)
 		.with("table", () => {
 			return input.displayConfiguration.table.columns.map((column, index) => ({
 				key: `column_${index}`,
@@ -114,7 +114,7 @@ const buildRuntimeFields = (input: {
 		.exhaustive();
 };
 
-const buildRuntimeRequest = (input: {
+const buildPreparedRequest = (input: {
 	fields: QueryEngineField[];
 	queryDefinition: SavedViewQueryDefinition;
 	pagination: QueryEngineRequest["pagination"];
@@ -135,7 +135,7 @@ const validateSavedViewDefinition = (input: {
 	eventSchemaSlugs: ReadonlySet<string>;
 	queryDefinition: SavedViewQueryDefinition;
 	displayConfiguration: DisplayConfiguration;
-	eventJoinMap: Map<string, PreparedEventJoin>;
+	eventJoinMap: Map<string, QueryEnginePreparedEventJoin>;
 	schemaMap: Map<string, QueryEngineSchemaLike>;
 }) => {
 	const context = {
@@ -144,7 +144,7 @@ const validateSavedViewDefinition = (input: {
 		eventSchemaSlugs: input.eventSchemaSlugs,
 	};
 	validateQueryEngineReferences(
-		buildRuntimeRequest({
+		buildPreparedRequest({
 			fields: [],
 			pagination: { page: 1, limit: 1 },
 			queryDefinition: input.queryDefinition,
@@ -208,7 +208,7 @@ const loadVisibleEventJoins = async (input: {
 	userId: string;
 	eventJoins: EventJoinDefinition[];
 	runtimeSchemas: QueryEngineSchemaRow[];
-}): Promise<PreparedEventJoin[]> => {
+}): Promise<QueryEnginePreparedEventJoin[]> => {
 	if (!input.eventJoins.length) {
 		return [];
 	}
@@ -243,7 +243,7 @@ const loadVisibleEventJoins = async (input: {
 	}));
 	const eventSchemasByEntitySchemaKey = new Map<
 		string,
-		QueryEngineEventSchemaRow
+		QueryEngineEventSchemaLike
 	>();
 	for (const schema of visibleEventSchemas) {
 		const key = `${schema.entitySchemaSlug}:${schema.slug}`;
@@ -382,7 +382,7 @@ export const prepareAndExecute = async (input: {
 		queryDefinition,
 	});
 
-	const request = buildRuntimeRequest({
+	const request = buildPreparedRequest({
 		queryDefinition,
 		fields: input.request.fields,
 		pagination: input.request.pagination,
@@ -455,10 +455,10 @@ export const prepareSavedView = async (input: {
 
 	return {
 		execute: async (execution) => {
-			const request = buildRuntimeRequest({
+			const request = buildPreparedRequest({
 				pagination: execution.pagination,
 				queryDefinition,
-				fields: buildRuntimeFields({
+				fields: buildPreparedFields({
 					layout: execution.layout,
 					displayConfiguration: savedView.displayConfiguration,
 				}),
