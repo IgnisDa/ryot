@@ -4,9 +4,15 @@ import { assert, describe, expect, it } from "vitest";
 
 import { RyotQLMalformedResultError } from "@/api/ryotql";
 
-import { decodeShowEpisodesResult, showEpisodeRow, showSeasonRow } from "./show-episodes-fixture";
+import {
+	decodeShowEpisodesResult,
+	decodeShowSeasonEpisodesResult,
+	showEpisodeRow,
+	showSeasonRow,
+} from "./show-episodes-fixture";
 import {
 	mapShowEpisodes,
+	mapShowSeasonEpisodes,
 	selectedShowSeason,
 	showEpisodeAirDateLabel,
 	showEpisodeRuntimeLabel,
@@ -24,6 +30,7 @@ import {
 } from "./show-episodes-state";
 
 type SeasonInput = Parameters<typeof decodeShowEpisodesResult>[0]["seasons"];
+type SeasonEpisodesInput = Parameters<typeof decodeShowSeasonEpisodesResult>[0];
 
 const episode = (overrides: Record<string, unknown>) => ({ ...showEpisodeRow, ...overrides });
 
@@ -33,12 +40,20 @@ const readySeasons = (seasons: SeasonInput) => {
 	return state.seasons;
 };
 
+const readySeasonEpisodes = (input: SeasonEpisodesInput = {}) => {
+	const state = mapShowSeasonEpisodes(AsyncResult.success(decodeShowSeasonEpisodesResult(input)));
+	assert(state.status === "ready");
+	return state.season;
+};
+
+const readyEpisodes = (input: SeasonEpisodesInput = {}) =>
+	readySeasonEpisodes(input).episodes.items;
+
 const specialsSeason = {
 	...showSeasonRow,
 	id: "season-0",
 	seasonNumber: 0,
 	name: "Specials",
-	episodes: [episode({ id: "special-1", seasonNumber: 0, state: "untracked" })],
 };
 
 describe("show episodes state", () => {
@@ -54,11 +69,22 @@ describe("show episodes state", () => {
 		expect(mapShowEpisodes(AsyncResult.failure(transport)).status).toBe("transport-error");
 	});
 
+	it("maps a selected season response with its nested episodes", () => {
+		const state = mapShowSeasonEpisodes(
+			AsyncResult.success(decodeShowSeasonEpisodesResult({ episodes: [showEpisodeRow] })),
+		);
+
+		expect(state).toMatchObject({
+			status: "ready",
+			season: { id: "season-1", episodes: { items: [{ id: "episode-1" }] } },
+		});
+	});
+
 	it("keeps error copy free of decoder and transport internals", () => {
 		expect(showEpisodesError({ status: "malformed" }).detail).not.toContain("RyotQL");
 		expect(showEpisodesError({ status: "transport-error" })).toEqual({
 			title: "Unable to load episodes",
-			detail: "The seasons and episodes could not be loaded. Check your connection and try again.",
+			detail: "The seasons could not be loaded. Check your connection and try again.",
 		});
 	});
 
@@ -73,9 +99,9 @@ describe("show episodes state", () => {
 
 	it("orders regular seasons ascending and keeps specials last", () => {
 		const seasons = readySeasons([
-			{ ...showSeasonRow, id: "season-2", seasonNumber: 2, episodes: [] },
+			{ ...showSeasonRow, id: "season-2", seasonNumber: 2 },
 			specialsSeason,
-			{ ...showSeasonRow, episodes: [] },
+			showSeasonRow,
 		]);
 
 		expect(seasons.map((season) => season.id)).toEqual(["season-1", "season-2", "season-0"]);
@@ -83,7 +109,7 @@ describe("show episodes state", () => {
 
 	it("labels season zero as specials and falls back to the season number", () => {
 		const seasons = readySeasons([
-			{ ...showSeasonRow, name: "", episodes: [] },
+			{ ...showSeasonRow, name: "" },
 			{ ...specialsSeason, name: "Extras" },
 		]);
 		const [regular, specials] = seasons;
@@ -94,7 +120,7 @@ describe("show episodes state", () => {
 	});
 
 	it("defaults to the first regular season and to specials when nothing else exists", () => {
-		const mixed = readySeasons([specialsSeason, { ...showSeasonRow, episodes: [] }]);
+		const mixed = readySeasons([specialsSeason, showSeasonRow]);
 		const onlySpecials = readySeasons([specialsSeason]);
 
 		expect(selectedShowSeason(mixed, null).id).toBe("season-1");
@@ -104,17 +130,14 @@ describe("show episodes state", () => {
 	});
 
 	it("derives completion counts from the loaded episode lifecycle states", () => {
-		const [season] = readySeasons([
-			{
-				...showSeasonRow,
-				episodes: [
-					episode({ id: "episode-1", episodeNumber: 1, state: "complete" }),
-					episode({ id: "episode-2", episodeNumber: 2, state: "in_progress" }),
-					episode({ id: "episode-3", episodeNumber: 3, state: "untracked" }),
-					episode({ id: "episode-4", episodeNumber: 4, state: "complete" }),
-				],
-			},
-		]);
+		const season = readySeasonEpisodes({
+			episodes: [
+				episode({ id: "episode-1", episodeNumber: 1, state: "complete" }),
+				episode({ id: "episode-2", episodeNumber: 2, state: "in_progress" }),
+				episode({ id: "episode-3", episodeNumber: 3, state: "untracked" }),
+				episode({ id: "episode-4", episodeNumber: 4, state: "complete" }),
+			],
+		});
 
 		expect(showSeasonEpisodeCountLabel(season)).toBe("4 episodes");
 		expect(showSeasonCompletedLabel(season)).toBe("2 watched");
@@ -122,16 +145,17 @@ describe("show episodes state", () => {
 	});
 
 	it("never presents a partial season as an exact total", () => {
-		const [season] = readySeasons([
-			{ ...showSeasonRow, hasMore: true, episodes: [episode({ state: "complete" })] },
-		]);
+		const season = readySeasonEpisodes({
+			hasMore: true,
+			episodes: [episode({ state: "complete" })],
+		});
 
 		expect(showSeasonEpisodeCountLabel(season)).toBe("1+ episodes");
 		expect(showSeasonCompletionPercent(season)).toBeUndefined();
 	});
 
 	it("omits counts and completion for a season with no loaded episodes", () => {
-		const [season] = readySeasons([{ ...showSeasonRow, episodes: [] }]);
+		const season = readySeasonEpisodes({ episodes: [] });
 
 		expect(showSeasonEpisodeCountLabel(season)).toBeUndefined();
 		expect(showSeasonCompletedLabel(season)).toBeUndefined();
@@ -140,16 +164,13 @@ describe("show episodes state", () => {
 
 	it("prefers an in-progress regular episode for next up", () => {
 		const nextUp = showNextUpEpisode(
-			readySeasons([
-				{
-					...showSeasonRow,
-					episodes: [
-						episode({ id: "episode-1", episodeNumber: 1, state: "complete" }),
-						episode({ id: "episode-2", episodeNumber: 2, state: "untracked" }),
-						episode({ id: "episode-3", episodeNumber: 3, state: "in_progress" }),
-					],
-				},
-			]),
+			readyEpisodes({
+				episodes: [
+					episode({ id: "episode-1", episodeNumber: 1, state: "complete" }),
+					episode({ id: "episode-2", episodeNumber: 2, state: "untracked" }),
+					episode({ id: "episode-3", episodeNumber: 3, state: "in_progress" }),
+				],
+			}),
 		);
 
 		expect(nextUp?.id).toBe("episode-3");
@@ -157,86 +178,34 @@ describe("show episodes state", () => {
 
 	it("falls back to the first untracked episode after the completed ones", () => {
 		const nextUp = showNextUpEpisode(
-			readySeasons([
-				{
-					...showSeasonRow,
-					episodes: [
-						episode({ id: "episode-1", episodeNumber: 1, state: "complete" }),
-						episode({ id: "episode-2", episodeNumber: 2, state: "untracked" }),
-					],
-				},
-				{
-					...showSeasonRow,
-					id: "season-2",
-					seasonNumber: 2,
-					episodes: [episode({ id: "episode-3", seasonNumber: 2, state: "untracked" })],
-				},
-			]),
+			readyEpisodes({
+				episodes: [
+					episode({ id: "episode-1", episodeNumber: 1, state: "complete" }),
+					episode({ id: "episode-2", episodeNumber: 2, state: "untracked" }),
+				],
+			}),
 		);
 
 		expect(nextUp?.id).toBe("episode-2");
 	});
 
-	it("continues into the following season once a season is finished", () => {
-		const nextUp = showNextUpEpisode(
-			readySeasons([
-				{ ...showSeasonRow, episodes: [episode({ id: "episode-1", state: "complete" })] },
-				{
-					...showSeasonRow,
-					id: "season-2",
-					seasonNumber: 2,
-					episodes: [episode({ id: "episode-2", seasonNumber: 2, state: "untracked" })],
-				},
-			]),
-		);
-
-		expect(nextUp?.id).toBe("episode-2");
-	});
-
-	it("has no next up for an untracked, finished or specials-only show", () => {
-		const untracked = readySeasons([
-			{ ...showSeasonRow, episodes: [episode({ state: "untracked" })] },
-		]);
-		const finished = readySeasons([
-			{ ...showSeasonRow, episodes: [episode({ state: "complete" })] },
-		]);
-
-		expect(showNextUpEpisode(untracked)).toBeUndefined();
-		expect(showNextUpEpisode(finished)).toBeUndefined();
-		expect(showNextUpEpisode(readySeasons([specialsSeason]))).toBeUndefined();
-	});
-
-	it("ignores specials when picking the next regular episode", () => {
-		const nextUp = showNextUpEpisode(
-			readySeasons([
-				{
-					...specialsSeason,
-					episodes: [episode({ id: "special-1", seasonNumber: 0, state: "in_progress" })],
-				},
-				{
-					...showSeasonRow,
-					episodes: [
-						episode({ id: "episode-1", episodeNumber: 1, state: "complete" }),
-						episode({ id: "episode-2", episodeNumber: 2, state: "untracked" }),
-					],
-				},
-			]),
-		);
-
-		expect(nextUp?.id).toBe("episode-2");
+	it("has no next up for an untracked or finished season", () => {
+		expect(
+			showNextUpEpisode(readyEpisodes({ episodes: [episode({ state: "untracked" })] })),
+		).toBeUndefined();
+		expect(
+			showNextUpEpisode(readyEpisodes({ episodes: [episode({ state: "complete" })] })),
+		).toBeUndefined();
 	});
 
 	it("formats the metadata providers recorded and omits the rest", () => {
-		const [season] = readySeasons([
-			{
-				...showSeasonRow,
-				episodes: [
-					showEpisodeRow,
-					episode({ id: "episode-2", runtime: null, publishDate: null, description: "  " }),
-				],
-			},
-		]);
-		const [first, second] = season.episodes.items;
+		const [season] = readySeasons([showSeasonRow]);
+		const [first, second] = readyEpisodes({
+			episodes: [
+				showEpisodeRow,
+				episode({ id: "episode-2", runtime: null, publishDate: null, description: "  " }),
+			],
+		});
 
 		expect(showSeasonReleaseLabel(season)).toBe("Mar 13, 2025");
 		expect(showSeasonDescription(season)).toBe("The complete limited series.");
@@ -249,9 +218,7 @@ describe("show episodes state", () => {
 	});
 
 	it("omits season metadata the provider left out", () => {
-		const [season] = readySeasons([
-			{ ...showSeasonRow, releaseDate: null, description: null, episodes: [] },
-		]);
+		const [season] = readySeasons([{ ...showSeasonRow, releaseDate: null, description: null }]);
 
 		expect(showSeasonReleaseLabel(season)).toBeUndefined();
 		expect(showSeasonDescription(season)).toBeUndefined();
@@ -265,17 +232,20 @@ describe("show episodes state", () => {
 
 	it("collects only the managed locators the episodes tab renders", () => {
 		const seasons = readySeasons([
-			{
-				...showSeasonRow,
-				images: [{ type: "s3", key: "season-cover", purpose: "cover" }],
-				episodes: [
-					episode({ images: [{ type: "local", key: "episode-still", purpose: "still" }] }),
-					episode({ id: "episode-2", images: null }),
-				],
-			},
+			{ ...showSeasonRow, images: [{ type: "s3", key: "season-cover", purpose: "cover" }] },
 		]);
+		const seasonEpisodes = mapShowSeasonEpisodes(
+			AsyncResult.success(
+				decodeShowSeasonEpisodesResult({
+					episodes: [
+						episode({ images: [{ type: "local", key: "episode-still", purpose: "still" }] }),
+						episode({ id: "episode-2", images: null }),
+					],
+				}),
+			),
+		);
 
-		expect(showEpisodesManagedAssets(seasons)).toEqual([
+		expect(showEpisodesManagedAssets(seasons, seasonEpisodes)).toEqual([
 			{ type: "local", key: "episode-still" },
 			{ type: "s3", key: "season-cover" },
 		]);

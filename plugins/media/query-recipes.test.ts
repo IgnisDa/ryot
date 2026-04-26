@@ -5,11 +5,12 @@ import {
 	collectionMediaSuggestionsRecipe,
 	podcastDetailRecipe,
 	podcastsByLifecycleStateRecipe,
-	showDetailRecipe,
-	showsByLifecycleStateRecipe,
 	showActivityRecipe,
 	showOverviewRecipe,
+	showSeasonEpisodesRecipe,
+	showSeasonsRecipe,
 	showSummaryRecipe,
+	showsByLifecycleStateRecipe,
 	trendingMediaRecipe,
 } from "./query-recipes";
 
@@ -129,29 +130,43 @@ const SHOW_SUMMARY_ROW = {
 };
 
 describe("media query recipes", () => {
-	it("builds show details with caller-owned nested limits", () => {
-		const recipe = showDetailRecipe({ seasonLimit: 4, episodeLimit: 12, entityId: "show-id" });
+	it("builds show seasons without nested episodes", () => {
+		const recipe = showSeasonsRecipe({ seasonLimit: 4, entityId: "show-id" });
 		const show = recipe.document.queries["show"];
 		if (show?.output.type !== "rows") {
 			throw new Error("Expected show rows query");
 		}
 		const seasons = show.output.include?.[0];
-		const episodes = seasons && "include" in seasons ? seasons.include?.[0] : undefined;
 
 		expect(show.where).toMatchObject({ type: "and" });
 		expect(show.output.fields.map((field) => ("key" in field ? field.key : null))).toEqual([
 			"id",
 			"name",
 			"schemaSlug",
-			"state",
 		]);
 		expect(seasons).toMatchObject({ key: "seasons", limit: 4 });
-		expect(episodes).toMatchObject({ key: "episodes", limit: 12 });
+		expect(seasons?.include).toBeUndefined();
 		expect(
 			seasons && "fields" in seasons
 				? seasons.fields.map((field) => ("key" in field ? field.key : null))
 				: [],
 		).toEqual(["id", "name", "schemaSlug", "seasonNumber", "images", "releaseDate", "description"]);
+	});
+
+	it("builds selected season episodes with the caller-owned limit", () => {
+		const recipe = showSeasonEpisodesRecipe({ episodeLimit: 12, seasonId: "season-id" });
+		const season = recipe.document.queries["season"];
+		if (season?.output.type !== "rows") {
+			throw new Error("Expected season rows query");
+		}
+		const episodes = season.output.include?.[0];
+
+		expect(season.output.fields.map((field) => ("key" in field ? field.key : null))).toEqual([
+			"id",
+			"name",
+			"schemaSlug",
+		]);
+		expect(episodes).toMatchObject({ key: "episodes", limit: 12 });
 		expect(
 			episodes && "fields" in episodes
 				? episodes.fields.map((field) => ("key" in field ? field.key : null))
