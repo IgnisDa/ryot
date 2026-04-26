@@ -387,6 +387,7 @@ export const eventSchemaTrigger = pgTable(
 export const savedView = pgTable(
 	"saved_view",
 	{
+		slug: text().notNull(),
 		name: text().notNull(),
 		icon: text().notNull(),
 		accentColor: text().notNull(),
@@ -411,5 +412,6 @@ export const savedView = pgTable(
 	(table) => [
 		index("saved_view_user_id_idx").on(table.userId),
 		index("saved_view_tracker_id_idx").on(table.trackerId),
+		unique("saved_view_user_slug_unique").on(table.userId, table.slug),
 	],
 );

@@ -109,14 +109,14 @@ describe("createSavedView", () => {
 describe("updateSavedView", () => {
 	it("rejects built-in definition changes while still allowing disable toggles", async () => {
 		const deps = createSavedViewDeps({
-			getSavedViewByIdForUser: async () =>
+			getSavedViewBySlugForUser: async () =>
 				createListedSavedView({ isBuiltin: true, name: "Books" }),
 		});
 
 		const result = await updateSavedView(
 			{
 				userId: "user_1",
-				viewId: "view_1",
+				viewSlug: "view_1",
 				body: createUpdateSavedViewBody({ name: "Renamed Books" }),
 			},
 			deps,
@@ -131,11 +131,11 @@ describe("updateSavedView", () => {
 	it("returns validation error before persisting an invalid definition", async () => {
 		let wasPersisted = false;
 		const deps = createSavedViewDeps({
-			getSavedViewByIdForUser: async () => createListedSavedView(),
+			getSavedViewBySlugForUser: async () => createListedSavedView(),
 			prepareForValidation: async () => {
 				throw new QueryEngineValidationError("Invalid sort expression");
 			},
-			updateSavedViewByIdForUser: async () => {
+			updateSavedViewBySlugForUser: async () => {
 				wasPersisted = true;
 				return createListedSavedView();
 			},
@@ -144,7 +144,7 @@ describe("updateSavedView", () => {
 		const result = await updateSavedView(
 			{
 				userId: "user_1",
-				viewId: "view_1",
+				viewSlug: "view_1",
 				body: createUpdateSavedViewBody(),
 			},
 			deps,
@@ -164,12 +164,12 @@ describe("updateSavedView", () => {
 			prepareForValidation: async () => {
 				validated = true;
 			},
-			getSavedViewByIdForUser: async () =>
+			getSavedViewBySlugForUser: async () =>
 				createListedSavedView({ trackerId: "tracker_1" }),
-			updateSavedViewByIdForUser: async (input) => {
+			updateSavedViewBySlugForUser: async (input) => {
 				currentTrackerId = input.currentTrackerId;
 				return createListedSavedView({
-					id: input.viewId,
+					slug: input.viewSlug,
 					name: input.data.name,
 					trackerId: input.data.trackerId ?? null,
 				});
@@ -180,7 +180,7 @@ describe("updateSavedView", () => {
 			await updateSavedView(
 				{
 					userId: "user_1",
-					viewId: "view_1",
+					viewSlug: "view_1",
 					body: createUpdateSavedViewBody({
 						trackerId: undefined,
 						name: "  Updated Reading  ",
@@ -200,12 +200,12 @@ describe("updateSavedView", () => {
 describe("deleteSavedView", () => {
 	it("rejects deleting built-in views", async () => {
 		const deps = createSavedViewDeps({
-			getSavedViewByIdForUser: async () =>
+			getSavedViewBySlugForUser: async () =>
 				createListedSavedView({ isBuiltin: true }),
 		});
 
 		const result = await deleteSavedView(
-			{ userId: "user_1", viewId: "view_1" },
+			{ userId: "user_1", viewSlug: "view_1" },
 			deps,
 		);
 
@@ -220,7 +220,7 @@ describe("cloneSavedView", () => {
 	it("clones through the validation boundary with a generated name", async () => {
 		let clonedName: string | undefined;
 		const deps = createSavedViewDeps({
-			getSavedViewByIdForUser: async () =>
+			getSavedViewBySlugForUser: async () =>
 				createListedSavedView({ name: "Reading", trackerId: null }),
 			createSavedViewForUser: async (input) => {
 				clonedName = input.name;
@@ -232,7 +232,7 @@ describe("cloneSavedView", () => {
 		});
 
 		const clonedView = expectDataResult(
-			await cloneSavedView({ userId: "user_1", viewId: "view_1" }, deps),
+			await cloneSavedView({ userId: "user_1", viewSlug: "view_1" }, deps),
 		);
 
 		expect(clonedName).toBe("Reading (Copy)");
@@ -244,7 +244,7 @@ describe("cloneSavedView", () => {
 describe("reorderSavedViews", () => {
 	it("rejects reorder requests containing unknown scoped ids", async () => {
 		const deps = createSavedViewDeps({
-			countSavedViewsByIdsForUser: async () => 1,
+			countSavedViewsBySlugForUser: async () => 1,
 		});
 
 		const result = await reorderSavedViews(
@@ -257,7 +257,7 @@ describe("reorderSavedViews", () => {
 
 		expect(result).toEqual({
 			error: "validation",
-			message: "Saved view ids contain unknown saved views",
+			message: "Saved view slugs contain unknown saved views",
 		});
 	});
 });

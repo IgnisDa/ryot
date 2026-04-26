@@ -9,7 +9,7 @@ import {
 	createValidationServiceErrorResult,
 	jsonBody,
 } from "~/lib/openapi";
-import { getSavedViewByIdForUser, listSavedViewsForUser } from "./repository";
+import { getSavedViewBySlugForUser, listSavedViewsForUser } from "./repository";
 import {
 	createSavedViewBody,
 	listSavedViewsQuery,
@@ -56,12 +56,12 @@ const createSavedViewRoute = createAuthRoute(
 	}),
 );
 
-const getSavedViewByIdRoute = createAuthRoute(
+const getSavedViewBySlugRoute = createAuthRoute(
 	createRoute({
 		method: "get",
-		path: "/{viewId}",
+		path: "/{viewSlug}",
 		tags: ["saved-views"],
-		summary: "Get a saved view by ID",
+		summary: "Get a saved view by slug",
 		request: { params: savedViewParams },
 		responses: createStandardResponses({
 			includePayloadError: false,
@@ -75,9 +75,9 @@ const getSavedViewByIdRoute = createAuthRoute(
 const updateSavedViewRoute = createAuthRoute(
 	createRoute({
 		method: "put",
-		path: "/{viewId}",
+		path: "/{viewSlug}",
 		tags: ["saved-views"],
-		summary: "Update a saved view by ID",
+		summary: "Update a saved view by slug",
 		description:
 			"For user-defined views, all fields are applied. Built-in views only allow `isDisabled` to change; attempts to modify other fields are rejected.",
 		request: {
@@ -95,7 +95,7 @@ const updateSavedViewRoute = createAuthRoute(
 const deleteSavedViewRoute = createAuthRoute(
 	createRoute({
 		method: "delete",
-		path: "/{viewId}",
+		path: "/{viewSlug}",
 		tags: ["saved-views"],
 		summary: "Delete a user-defined saved view",
 		request: { params: savedViewParams },
@@ -111,7 +111,7 @@ const cloneSavedViewRoute = createAuthRoute(
 	createRoute({
 		method: "post",
 		tags: ["saved-views"],
-		path: "/{viewId}/clone",
+		path: "/{viewSlug}/clone",
 		request: { params: savedViewParams },
 		summary: "Clone an existing saved view",
 		responses: createStandardResponses({
@@ -154,13 +154,13 @@ export const savedViewsApi = new OpenAPIHono<{ Variables: AuthType }>()
 		const response = createSuccessResult(views);
 		return c.json(response.body, response.status);
 	})
-	.openapi(getSavedViewByIdRoute, async (c) => {
+	.openapi(getSavedViewBySlugRoute, async (c) => {
 		const user = c.get("user");
 		const params = c.req.valid("param");
 
-		const view = await getSavedViewByIdForUser({
+		const view = await getSavedViewBySlugForUser({
 			userId: user.id,
-			viewId: params.viewId,
+			viewSlug: params.viewSlug,
 		});
 
 		if (!view) {
@@ -181,7 +181,7 @@ export const savedViewsApi = new OpenAPIHono<{ Variables: AuthType }>()
 		const result = await updateSavedView({
 			body,
 			userId: user.id,
-			viewId: params.viewId,
+			viewSlug: params.viewSlug,
 		});
 		if ("error" in result) {
 			const response = createServiceErrorResult(result);
@@ -210,7 +210,7 @@ export const savedViewsApi = new OpenAPIHono<{ Variables: AuthType }>()
 
 		const result = await deleteSavedView({
 			userId: user.id,
-			viewId: params.viewId,
+			viewSlug: params.viewSlug,
 		});
 		if ("error" in result) {
 			const response = createServiceErrorResult(result);
@@ -226,7 +226,7 @@ export const savedViewsApi = new OpenAPIHono<{ Variables: AuthType }>()
 
 		const result = await cloneSavedView({
 			userId: user.id,
-			viewId: params.viewId,
+			viewSlug: params.viewSlug,
 		});
 		if ("error" in result) {
 			const response = createServiceErrorResult(result);
