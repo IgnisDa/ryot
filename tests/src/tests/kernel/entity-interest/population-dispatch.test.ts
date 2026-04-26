@@ -43,52 +43,50 @@ describe("entity population via client-declared interest", () => {
 		await Effect.runPromise(uninstallTestProvider(provider));
 	});
 
-	it.scopedLive(
-		"keeps a bare read side-effect-free and populates once client interest is declared",
-		() =>
-			Effect.gen(function* () {
-				const auth = yield* createAuthenticatedClient();
-				const { client } = auth;
+	it.live("keeps a bare read side-effect-free and populates once client interest is declared", () =>
+		Effect.gen(function* () {
+			const auth = yield* createAuthenticatedClient();
+			const { client } = auth;
 
-				const { schema } = yield* findBuiltinSchemaBySlug(client, "company");
-				const provenance = {
-					entitySchemaSlug: schema.slug,
-					providerId: provider.providerId,
-					externalId: `e2e-populate-${crypto.randomUUID()}`,
-				};
+			const { schema } = yield* findBuiltinSchemaBySlug(client, "company");
+			const provenance = {
+				entitySchemaSlug: schema.slug,
+				providerId: provider.providerId,
+				externalId: `e2e-populate-${crypto.randomUUID()}`,
+			};
 
-				const seeded = yield* seedMediaEntity({
-					userId: null,
-					properties: {},
-					name: "Partial Studio",
-					entitySchemaSlug: schema.id,
-					externalId: provenance.externalId,
-					providerId: provider.providerId,
-				});
+			const seeded = yield* seedMediaEntity({
+				userId: null,
+				properties: {},
+				name: "Partial Studio",
+				entitySchemaSlug: schema.id,
+				externalId: provenance.externalId,
+				providerId: provider.providerId,
+			});
 
-				const fetched = yield* getEntity(client, seeded.id);
-				expect(fetched.id).toBe(seeded.id);
-				expect(fetched.populatedAt).toBeNull();
+			const fetched = yield* getEntity(client, seeded.id);
+			expect(fetched.id).toBe(seeded.id);
+			expect(fetched.populatedAt).toBeNull();
 
-				yield* Effect.sleep(Duration.millis(GRACE_WINDOW_MS));
-				const afterGrace = yield* getGlobalEntityByProvenance(client, provenance);
-				expect(afterGrace.populatedAt).toBeNull();
+			yield* Effect.sleep(Duration.millis(GRACE_WINDOW_MS));
+			const afterGrace = yield* getGlobalEntityByProvenance(client, provenance);
+			expect(afterGrace.populatedAt).toBeNull();
 
-				const stream = yield* openInterestStreamScoped(auth);
-				yield* Effect.promise(() => stream.declareInterest([seeded.id]));
+			const stream = yield* openInterestStreamScoped(auth);
+			yield* Effect.promise(() => stream.declareInterest([seeded.id]));
 
-				const populated = yield* waitForEntityPopulated(client, provenance);
-				expect(populated.populatedAt).not.toBeNull();
-				expect(populated.name).toBe(POPULATED_NAME);
+			const populated = yield* waitForEntityPopulated(client, provenance);
+			expect(populated.populatedAt).not.toBeNull();
+			expect(populated.name).toBe(POPULATED_NAME);
 
-				const event = yield* Effect.promise(() =>
-					stream.waitForEntityUpdated(seeded.id, "populated", { timeoutMs: 30_000 }),
-				);
-				expect(event.reason).toBe("populated");
-			}),
+			const event = yield* Effect.promise(() =>
+				stream.waitForEntityUpdated(seeded.id, "populated", { timeoutMs: 30_000 }),
+			);
+			expect(event.reason).toBe("populated");
+		}),
 	);
 
-	it.scopedLive("emits an immediate catch-up event for an already-terminal entity", () =>
+	it.live("emits an immediate catch-up event for an already-terminal entity", () =>
 		Effect.gen(function* () {
 			const auth = yield* createAuthenticatedClient();
 			const { client } = auth;

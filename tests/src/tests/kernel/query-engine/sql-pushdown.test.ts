@@ -246,7 +246,7 @@ describe("aggregate over a correlated-exists filtered source", () => {
 				completeSlug,
 				moduleLessonSlug,
 				courseModuleSlug,
-			} = yield* createCourseLessonFilterFixture();
+			} = yield* createCourseLessonFilterFixture;
 			const doc: QueryEnginePayload = {
 				source: {
 					alias: "course",
