@@ -175,6 +175,32 @@ export class CollectionsRepository extends Effect.Service<CollectionsRepository>
 					return toCollectionResponse(row);
 				}),
 
+			findCollectionByNameForUser: (input: {
+				name: string;
+				userId: string;
+				entitySchemaId: string;
+			}) =>
+				Effect.gen(function* () {
+					const db = yield* CurrentDb;
+					const [row] = yield* dbEffect(() =>
+						db
+							.select(collectionSelection)
+							.from(schema.entity)
+							.where(
+								and(
+									eq(schema.entity.name, input.name),
+									eq(schema.entity.userId, input.userId),
+									isNull(schema.entity.externalId),
+									isNull(schema.entity.sandboxScriptId),
+									eq(schema.entity.entitySchemaId, input.entitySchemaId),
+								),
+							)
+							.limit(1),
+					);
+
+					return row ? toCollectionResponse(row) : null;
+				}),
+
 			getCollectionById: (collectionId: string, userId: string) =>
 				Effect.gen(function* () {
 					const db = yield* CurrentDb;
