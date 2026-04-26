@@ -2,9 +2,9 @@ import type { ShowSeasonEpisodesResult, ShowSeasonsResult } from "@ryot/media-pl
 import { Match } from "effect";
 import type { AsyncResult } from "effect/unstable/reactivity";
 
-import { classifyRyotQLResult } from "@/api/ryotql";
+import { classifyRyotQLResult, type MappedRyotQLResultState } from "@/api/ryotql";
 import { formatDateOnlyLabel } from "@/modules/ui/date";
-import { canonicalManagedAssets } from "@/modules/ui/managed-assets";
+import { collectManagedAssetLocators } from "@/modules/ui/managed-assets";
 
 import { preferredMediaImageAsset } from "./media-image";
 
@@ -17,19 +17,23 @@ export type ShowEpisode = ShowSeasonEpisodes["episodes"]["items"][number];
 
 export type ShowSeasonList = readonly [ShowSeason, ...ShowSeason[]];
 
-export type ShowEpisodesState =
-	| { readonly status: "empty" }
-	| { readonly status: "loading" }
-	| { readonly status: "malformed"; readonly cause: unknown }
-	| { readonly status: "ready"; readonly seasons: ShowSeasonList }
-	| { readonly status: "transport-error"; readonly cause: unknown };
+export type ShowEpisodesState = MappedRyotQLResultState<
+	{ readonly status: "empty" } | { readonly status: "ready"; readonly seasons: ShowSeasonList }
+>;
 
-export type ShowSeasonEpisodesState =
-	| { readonly status: "empty" }
-	| { readonly status: "loading" }
-	| { readonly status: "malformed"; readonly cause: unknown }
-	| { readonly status: "transport-error"; readonly cause: unknown }
-	| { readonly status: "ready"; readonly season: ShowSeasonEpisodes };
+export type ShowSeasonEpisodesState = MappedRyotQLResultState<
+	{ readonly status: "empty" } | { readonly status: "ready"; readonly season: ShowSeasonEpisodes }
+>;
+
+type ShowEpisodesFailure = Pick<
+	Extract<ShowEpisodesState, { status: "transport-error" | "malformed" }>,
+	"status"
+>;
+
+type ShowSeasonEpisodesFailure = Pick<
+	Extract<ShowSeasonEpisodesState, { status: "transport-error" | "malformed" }>,
+	"status"
+>;
 
 const SPECIALS_LABEL = "Specials";
 
@@ -69,7 +73,7 @@ export const mapShowSeasonEpisodes = (
 	return state.value === null ? { status: "empty" } : { status: "ready", season: state.value };
 };
 
-export const showEpisodesError = (state: { readonly status: "transport-error" | "malformed" }) => ({
+export const showEpisodesError = (state: ShowEpisodesFailure) => ({
 	title: "Unable to load episodes",
 	detail:
 		state.status === "transport-error"
@@ -77,9 +81,7 @@ export const showEpisodesError = (state: { readonly status: "transport-error" | 
 			: "These seasons came back in a form that could not be displayed. Try again later.",
 });
 
-export const showSeasonEpisodesError = (state: {
-	readonly status: "transport-error" | "malformed";
-}) => ({
+export const showSeasonEpisodesError = (state: ShowSeasonEpisodesFailure) => ({
 	title: "Unable to load this season",
 	detail:
 		state.status === "transport-error"
@@ -188,11 +190,9 @@ export const showEpisodesManagedAssets = (
 	seasons: ShowSeasonList,
 	seasonEpisodes: ShowSeasonEpisodesState,
 ) =>
-	canonicalManagedAssets(
-		[
-			...seasons.map(showSeasonAsset),
-			...(seasonEpisodes.status === "ready"
-				? seasonEpisodes.season.episodes.items.map(showEpisodeAsset)
-				: []),
-		].flatMap((asset) => (asset === undefined || asset.type === "remote" ? [] : [asset])),
-	);
+	collectManagedAssetLocators([
+		...seasons.map(showSeasonAsset),
+		...(seasonEpisodes.status === "ready"
+			? seasonEpisodes.season.episodes.items.map(showEpisodeAsset)
+			: []),
+	]);

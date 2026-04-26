@@ -4,6 +4,7 @@ import { describe, expect, it } from "vitest";
 
 import {
 	canonicalManagedAssets,
+	collectManagedAssetLocators,
 	managedAssetKey,
 	mapManagedAssetResolution,
 	resolveAssetUrl,
@@ -13,11 +14,13 @@ import {
 const resolveUrl = (url: string) => url;
 const s3 = { type: "s3", key: "poster.jpg" } as const;
 const local = { type: "local", key: "cover.jpg" } as const;
+const remote = { type: "remote", url: "https://images.test/remote.jpg" } as const;
 
 describe("managed assets", () => {
 	it("canonicalizes managed assets by type and key", () => {
 		expect(managedAssetKey(local)).toBe("local:cover.jpg");
 		expect(canonicalManagedAssets([s3, local, s3])).toEqual([local, s3]);
+		expect(collectManagedAssetLocators([s3, undefined, remote, local, s3])).toEqual([local, s3]);
 	});
 
 	it("resolves remote and managed asset URLs", () => {
@@ -25,8 +28,6 @@ describe("managed assets", () => {
 			[managedAssetKey(local), "https://server.test/api/uploads/local/cover.jpg"],
 			[managedAssetKey(s3), "https://s3.test/poster.jpg"],
 		]);
-		const remote = { type: "remote", url: "https://images.test/remote.jpg" } as const;
-
 		expect(resolveAssetUrl(remote, urls)).toBe(remote.url);
 		expect(resolveAssetUrl(local, urls)).toBe(urls.get(managedAssetKey(local)));
 		expect(resolveAssetUrl(s3, urls)).toBe(urls.get(managedAssetKey(s3)));

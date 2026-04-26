@@ -1,8 +1,8 @@
 import type { ShowOverviewResult } from "@ryot/media-plugin/query-recipes";
 import type { AsyncResult } from "effect/unstable/reactivity";
 
-import { classifyRyotQLResult } from "@/api/ryotql";
-import { canonicalManagedAssets } from "@/modules/ui/managed-assets";
+import { classifyRyotQLResult, type MappedRyotQLResultState } from "@/api/ryotql";
+import { collectManagedAssetLocators } from "@/modules/ui/managed-assets";
 
 import { preferredMediaImageAsset } from "./media-image";
 
@@ -14,11 +14,15 @@ export type ShowCompany = ShowOverview["companies"]["items"][number];
 
 export type ShowRecommendation = ShowOverview["recommendations"]["items"][number];
 
-export type ShowOverviewState =
-	| { readonly status: "loading" }
-	| { readonly status: "malformed"; readonly cause: unknown }
-	| { readonly status: "ready"; readonly overview: ShowOverview }
-	| { readonly status: "transport-error"; readonly cause: unknown };
+export type ShowOverviewState = MappedRyotQLResultState<{
+	readonly status: "ready";
+	readonly overview: ShowOverview;
+}>;
+
+type ShowOverviewFailure = Pick<
+	Extract<ShowOverviewState, { status: "transport-error" | "malformed" }>,
+	"status"
+>;
 
 export const mapShowOverview = (
 	result: AsyncResult.AsyncResult<ShowOverviewResult, unknown>,
@@ -27,7 +31,7 @@ export const mapShowOverview = (
 	return state.status === "ready" ? { status: "ready", overview: state.value } : state;
 };
 
-export const showOverviewError = (state: { readonly status: "transport-error" | "malformed" }) => ({
+export const showOverviewError = (state: ShowOverviewFailure) => ({
 	title: "Unable to load these details",
 	detail:
 		state.status === "transport-error"
@@ -45,13 +49,11 @@ export const showRecommendationAsset = (recommendation: ShowRecommendation) =>
 	preferredMediaImageAsset(recommendation.images, "cover");
 
 export const showOverviewManagedAssets = (overview: ShowOverview) =>
-	canonicalManagedAssets(
-		[
-			...overview.people.items.map(showPersonAsset),
-			...overview.companies.items.map(showCompanyAsset),
-			...overview.recommendations.items.map(showRecommendationAsset),
-		].flatMap((asset) => (asset === undefined || asset.type === "remote" ? [] : [asset])),
-	);
+	collectManagedAssetLocators([
+		...overview.people.items.map(showPersonAsset),
+		...overview.companies.items.map(showCompanyAsset),
+		...overview.recommendations.items.map(showRecommendationAsset),
+	]);
 
 export const showRolesLabel = (roles: readonly string[] | null) =>
 	roles === null || roles.length === 0 ? undefined : roles.join(", ");
