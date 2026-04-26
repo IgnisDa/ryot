@@ -20,19 +20,17 @@ const user = {
 	email: "user@example.com",
 } satisfies CurrentUserValue;
 
-const dbRunnerLayer = Layer.succeed(
-	DbRunner,
-	<A, E, R>(effect: Effect.Effect<A, E, R>): Effect.Effect<A, E, Exclude<R, CurrentDb>> =>
-		Effect.provideService(effect, CurrentDb, Object.create(null)),
+const dbRunnerLayer = Layer.succeed(DbRunner, <A, E, R>(effect: Effect.Effect<A, E, R>) =>
+	Effect.provideService(effect, CurrentDb, Object.create(null)),
 );
 
 const transactionLayer = Layer.succeed(
 	TransactionRunner,
-	<A, E, R>(effect: Effect.Effect<A, E, R>): Effect.Effect<A, E, Exclude<R, CurrentDb>> =>
+	<A, E, R>(effect: Effect.Effect<A, E, R>) =>
 		Effect.provideService(effect, CurrentDb, Object.create(null)),
 );
 
-const defaultEntitiesRepository = (): EntitiesRepository =>
+const defaultEntitiesRepository = () =>
 	Object.assign(Object.create(null), {
 		_tag: "EntitiesRepository" as const,
 		createEntity: () => Effect.die("unused"),
@@ -52,20 +50,19 @@ const defaultEntitiesRepository = (): EntitiesRepository =>
 		deleteUserRelationshipsForEntity: () => Effect.die("unused"),
 	});
 
-const defaultRelationshipSchemasRepository = (): RelationshipSchemasRepository =>
+const defaultRelationshipSchemasRepository = () =>
 	Object.assign(Object.create(null), {
 		findById: () => Effect.die("unused"),
 		_tag: "RelationshipSchemasRepository" as const,
 		findBuiltinBySlug: () => Effect.die("unused"),
 	});
 
-const makeEntitiesRepository = (overrides: Partial<EntitiesRepository> = {}): EntitiesRepository =>
+const makeEntitiesRepository = (overrides: Partial<EntitiesRepository> = {}) =>
 	Object.assign(Object.create(null), defaultEntitiesRepository(), overrides);
 
 const makeRelationshipSchemasRepository = (
 	overrides: Partial<RelationshipSchemasRepository> = {},
-): RelationshipSchemasRepository =>
-	Object.assign(Object.create(null), defaultRelationshipSchemasRepository(), overrides);
+) => Object.assign(Object.create(null), defaultRelationshipSchemasRepository(), overrides);
 
 const fakeAppConfigLayer = Layer.succeed(AppConfig, {
 	port: 3000,
@@ -91,7 +88,7 @@ const fakeAppConfigLayer = Layer.succeed(AppConfig, {
 	},
 });
 
-const makeWorkflowEngine = (): WorkflowEngine["Type"] =>
+const makeWorkflowEngine = () =>
 	({
 		poll: () => Effect.die("not used in this test"),
 		resume: () => Effect.die("not used in this test"),
@@ -106,7 +103,7 @@ const makeWorkflowEngine = (): WorkflowEngine["Type"] =>
 
 const fakeWorkflowEngineLayer = Layer.succeed(WorkflowEngine, makeWorkflowEngine());
 
-const defaultSandboxRepository = (): SandboxRepository =>
+const defaultSandboxRepository = () =>
 	Object.assign(Object.create(null), {
 		_tag: "SandboxRepository" as const,
 		createScript: () => Effect.die("unused"),

@@ -15,15 +15,13 @@ const user = {
 	email: "user@example.com",
 } satisfies CurrentUserValue;
 
-const dbRunnerLayer = Layer.succeed(
-	DbRunner,
-	<A, E, R>(effect: Effect.Effect<A, E, R>): Effect.Effect<A, E, Exclude<R, CurrentDb>> =>
-		Effect.provideService(effect, CurrentDb, Object.create(null)),
+const dbRunnerLayer = Layer.succeed(DbRunner, <A, E, R>(effect: Effect.Effect<A, E, R>) =>
+	Effect.provideService(effect, CurrentDb, Object.create(null)),
 );
 
 const transactionLayer = Layer.succeed(
 	TransactionRunner,
-	<A, E, R>(effect: Effect.Effect<A, E, R>): Effect.Effect<A, E, Exclude<R, CurrentDb>> =>
+	<A, E, R>(effect: Effect.Effect<A, E, R>) =>
 		Effect.provideService(effect, CurrentDb, Object.create(null)),
 );
 
@@ -70,7 +68,7 @@ const baseListedSavedView: ListedSavedView = {
 	},
 };
 
-const defaultRepository = (): SavedViewsRepository =>
+const defaultRepository = () =>
 	Object.assign(Object.create(null), {
 		_tag: "SavedViewsRepository" as const,
 		create: () => Effect.die("unused"),
@@ -84,7 +82,7 @@ const defaultRepository = (): SavedViewsRepository =>
 		updateDisabledBySlug: () => Effect.die("unused"),
 	});
 
-const makeRepository = (overrides: Partial<SavedViewsRepository> = {}): SavedViewsRepository =>
+const makeRepository = (overrides: Partial<SavedViewsRepository> = {}) =>
 	Object.assign(Object.create(null), defaultRepository(), overrides);
 
 const makeServiceLayer = (repository: SavedViewsRepository) =>

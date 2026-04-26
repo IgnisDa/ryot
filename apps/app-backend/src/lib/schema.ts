@@ -6,48 +6,31 @@ import { AppSchema, type AppPropertyDefinition } from "./property-schema";
 export * from "./property-schema";
 export * from "./property-schema-runtime";
 
-export const decodeStoredAppSchema = (
-	value: unknown,
-	message: string,
-): Effect.Effect<AppSchema, DbError> =>
+export const decodeStoredAppSchema = (value: unknown, message: string) =>
 	Schema.decodeUnknown(AppSchema)(value).pipe(Effect.mapError(() => new DbError({ message })));
 
-export const stringField = (label: string, description: string): AppPropertyDefinition => ({
-	label,
-	description,
-	type: "string",
-});
+export const stringField = (label: string, description: string) =>
+	({ label, description, type: "string" }) as const;
 
-export const integerField = (label: string, description: string): AppPropertyDefinition => ({
-	label,
-	description,
-	type: "integer",
-});
+export const integerField = (label: string, description: string) =>
+	({ label, description, type: "integer" }) as const;
 
-export const numberField = (label: string, description: string): AppPropertyDefinition => ({
-	label,
-	description,
-	type: "number",
-});
+export const numberField = (label: string, description: string) =>
+	({ label, description, type: "number" }) as const;
 
-export const booleanField = (label: string, description: string): AppPropertyDefinition => ({
-	label,
-	description,
-	type: "boolean",
-});
+export const booleanField = (label: string, description: string) =>
+	({ label, description, type: "boolean" }) as const;
 
-export const datetimeField = (label: string, description: string): AppPropertyDefinition => ({
-	label,
-	description,
-	type: "datetime",
-});
+export const datetimeField = (label: string, description: string) =>
+	({ label, description, type: "datetime" }) as const;
 
-export const stringArrayField = (label: string, description: string): AppPropertyDefinition => ({
-	label,
-	description,
-	type: "array",
-	items: { type: "string", label: "Item", description: "Item" },
-});
+export const stringArrayField = (label: string, description: string) =>
+	({
+		label,
+		description,
+		type: "array",
+		items: { type: "string", label: "Item", description: "Item" },
+	}) as const;
 
 export const imageItemSchema: AppPropertyDefinition = {
 	label: "Item",
@@ -67,12 +50,13 @@ export const imageItemSchema: AppPropertyDefinition = {
 	},
 };
 
-export const imagesField = (description: string): AppPropertyDefinition => ({
-	description,
-	type: "array",
-	label: "Images",
-	items: imageItemSchema,
-});
+export const imagesField = (description: string) =>
+	({
+		description,
+		type: "array",
+		label: "Images",
+		items: imageItemSchema,
+	}) as const;
 
 export const mediaBaseFields = {
 	genres: stringArrayField("Genres", "List of genres this media is categorized under"),

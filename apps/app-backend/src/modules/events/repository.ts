@@ -86,7 +86,7 @@ const createdEventSelection = {
 	sessionEntityId: schema.event.sessionEntityId,
 };
 
-const toListedEvent = (row: EventRow): ListedEvent => ({
+const toListedEvent = (row: EventRow) => ({
 	id: row.id,
 	entityId: row.entityId,
 	properties: row.properties,

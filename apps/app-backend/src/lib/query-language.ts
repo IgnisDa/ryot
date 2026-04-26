@@ -357,46 +357,47 @@ export function getQueryEngineField(
 	return field !== undefined ? { ...field, key } : undefined;
 }
 
-export const createLiteralExpression = (value: unknown): QueryExpression => ({
-	value,
-	type: "literal",
-});
+export const createLiteralExpression = (value: unknown) =>
+	({
+		value,
+		type: "literal",
+	}) as const;
 
-export const createEntityColumnExpression = (slug: string, column: string): QueryExpression => ({
-	type: "reference",
-	reference: { type: "entity", slug, path: [column] },
-});
+export const createEntityColumnExpression = (slug: string, column: string) =>
+	({
+		type: "reference",
+		reference: { type: "entity", slug, path: [column] },
+	}) as const;
 
-export const createEntityPropertyExpression = (
-	slug: string,
-	property: string,
-): QueryExpression => ({
-	type: "reference",
-	reference: { type: "entity", slug, path: ["properties", property] },
-});
+export const createEntityPropertyExpression = (slug: string, property: string) =>
+	({
+		type: "reference",
+		reference: { type: "entity", slug, path: ["properties", property] },
+	}) as const;
 
-export const createEntitySchemaExpression = (column: string): QueryExpression => ({
-	type: "reference",
-	reference: { type: "entity-schema", path: [column] },
-});
+export const createEntitySchemaExpression = (column: string) =>
+	({
+		type: "reference",
+		reference: { type: "entity-schema", path: [column] },
+	}) as const;
 
 export const createEventAggregateExpression = (
 	eventSchemaSlug: string,
 	aggregation: typeof EventAggregation.Type,
 	path?: ReadonlyArray<string>,
-): QueryExpression => ({
-	type: "reference",
-	reference: { type: "event-aggregate", aggregation, eventSchemaSlug, ...(path ? { path } : {}) },
-});
+) =>
+	({
+		type: "reference",
+		reference: { type: "event-aggregate", aggregation, eventSchemaSlug, ...(path ? { path } : {}) },
+	}) as const;
 
 export const createTransformExpression = (
 	name: typeof ViewTransformName.Type,
 	expression: QueryExpression,
-): QueryExpression => ({ type: "transform", name, expression });
+) => ({ type: "transform", name, expression }) as const;
 
-export const createConcatExpression = (
-	values: ReadonlyArray<QueryExpression>,
-): QueryExpression => ({ values, type: "concat" });
+export const createConcatExpression = (values: ReadonlyArray<QueryExpression>) =>
+	({ values, type: "concat" }) as const;
 
 export const createIsNotNullExpression = (expression: QueryExpression) => ({
 	expression,
@@ -407,4 +408,4 @@ export const createConditionalExpression = (input: {
 	condition: QueryFilter;
 	whenTrue: QueryExpression;
 	whenFalse: QueryExpression;
-}): QueryExpression => ({ type: "conditional", ...input });
+}) => ({ type: "conditional", ...input }) as const;

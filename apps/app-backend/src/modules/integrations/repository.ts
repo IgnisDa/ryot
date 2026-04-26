@@ -52,7 +52,7 @@ const integrationSelection = {
 	providerSpecifics: schema.integration.providerSpecifics,
 };
 
-const normalizeIntegration = (frontendUrl: string, row: IntegrationRow): Integration => {
+const normalizeIntegration = (frontendUrl: string, row: IntegrationRow) => {
 	const integration: Integration = {
 		id: row.id,
 		lot: row.lot,

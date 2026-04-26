@@ -4,8 +4,6 @@ import { Effect } from "effect";
 import { CurrentDb, dbEffect, isUniqueConstraintError, schema } from "~/lib/db";
 import { DbError } from "~/lib/errors";
 
-import type { ListedSavedView } from "./schemas";
-
 type SavedViewRow = typeof schema.savedView.$inferSelect;
 
 type CreateSavedViewInput = {
@@ -32,7 +30,7 @@ type UpdateSavedViewData = {
 
 const savedViewUserSlugConstraint = "saved_view_user_slug_unique";
 
-const toListedSavedView = (row: SavedViewRow): ListedSavedView => ({
+const toListedSavedView = (row: SavedViewRow) => ({
 	id: row.id,
 	slug: row.slug,
 	name: row.name,
