@@ -27,6 +27,10 @@ type EventsServiceShape = {
 		user: CurrentUserValue,
 		payload: ReadonlyArray<CreateEventItem>,
 	) => Effect.Effect<CreateEventsResponse, BadRequest | DbError | NotFound>;
+	readonly createForImport: (
+		userId: string,
+		payload: ReadonlyArray<CreateEventItem>,
+	) => Effect.Effect<CreateEventsResponse, BadRequest | DbError | NotFound>;
 };
 
 export class EventsService extends Effect.Service<EventsService>()("EventsService", {
@@ -84,6 +88,19 @@ export class EventsService extends Effect.Service<EventsService>()("EventsServic
 						runSandboxScript: (sandboxInput) => sandbox.run(sandboxInput),
 					},
 					{ userId: user.id, origin: "api", payload },
+				),
+			createForImport: (userId, payload) =>
+				createEventsForUser(
+					{
+						runWithDb,
+						sandboxRepository,
+						entitiesRepository,
+						eventSchemasRepository,
+						workflowEngine: engine,
+						eventsRepository: repository,
+						runSandboxScript: (sandboxInput) => sandbox.run(sandboxInput),
+					},
+					{ userId, origin: "import", payload },
 				),
 		} satisfies EventsServiceShape;
 	}),

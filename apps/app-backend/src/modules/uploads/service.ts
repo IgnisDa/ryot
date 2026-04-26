@@ -88,6 +88,10 @@ type UploadsServiceShape = {
 		user: CurrentUserValue,
 		files: ReadonlyArray<Multipart.PersistedFile>,
 	) => Effect.Effect<readonly string[], BadRequest>;
+	readonly claimUploadToken: (
+		token: string,
+		userId: string,
+	) => Effect.Effect<{ resolvedPath: string }, BadRequest>;
 };
 
 export class UploadsService extends Effect.Service<UploadsService>()("UploadsService", {
@@ -182,8 +186,27 @@ export class UploadsService extends Effect.Service<UploadsService>()("UploadsSer
 				return tokens;
 			});
 
+		const claimUploadToken = (
+			token: string,
+			userId: string,
+		): Effect.Effect<{ resolvedPath: string }, BadRequest> =>
+			Effect.gen(function* () {
+				const raw = yield* redis.getdel(redisKeys.uploadToken(token));
+				if (!raw) {
+					return yield* badRequest("Upload token is invalid or has expired");
+				}
+				const value = yield* Schema.decode(Schema.parseJson(UploadTokenValue))(raw).pipe(
+					Effect.mapError(() => badRequest("Upload token is invalid or has expired")),
+				);
+				if (value.userId !== userId) {
+					return yield* badRequest("Upload token does not belong to this user");
+				}
+				return { resolvedPath: value.resolvedPath };
+			});
+
 		return {
 			uploadTemporary,
+			claimUploadToken,
 			createPresignedUpload,
 			createPresignedDownload,
 		} satisfies UploadsServiceShape;

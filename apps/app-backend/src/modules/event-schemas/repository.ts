@@ -92,6 +92,35 @@ export class EventSchemasRepository extends Effect.Service<EventSchemasRepositor
 
 					return yield* toListedEventSchema(row);
 				}),
+			getBuiltinBySlug: (input: { entitySchemaId: string; slug: string }) =>
+				Effect.gen(function* () {
+					const db = yield* CurrentDb;
+					const [row] = yield* dbEffect(() =>
+						db
+							.select({
+								id: schema.eventSchema.id,
+								propertiesSchema: schema.eventSchema.propertiesSchema,
+							})
+							.from(schema.eventSchema)
+							.where(
+								and(
+									eq(schema.eventSchema.slug, input.slug),
+									isNull(schema.eventSchema.userId),
+									eq(schema.eventSchema.isBuiltin, true),
+									eq(schema.eventSchema.entitySchemaId, input.entitySchemaId),
+								),
+							)
+							.limit(1),
+					);
+					if (!row) {
+						return null;
+					}
+					const propertiesSchema = yield* decodeStoredAppSchema(
+						row.propertiesSchema,
+						"Invalid event properties schema in database",
+					);
+					return { id: row.id, propertiesSchema };
+				}),
 			createEventSchema: (input: {
 				name: string;
 				slug: string;
