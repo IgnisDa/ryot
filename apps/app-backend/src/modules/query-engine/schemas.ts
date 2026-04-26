@@ -6,9 +6,11 @@ import {
 } from "~/lib/views/expression";
 import { nullableViewPredicateSchema } from "~/lib/views/filtering";
 import {
+	aggregationFieldArraySchema,
 	eventJoinDefinitionArraySchema,
 	relationshipFilterArraySchema,
 	sortDefinitionSchema,
+	timeSeriesMetricSchema,
 } from "../saved-views/schemas";
 
 const paginationSchema = z.object({
@@ -23,27 +25,89 @@ export const queryEngineFieldSchema = z
 	})
 	.strict();
 
-export const queryEngineRequestSchema = z
+const queryEngineScopeSchema = z
+	.array(z.string())
+	.min(1, "At least one entity schema slug is required");
+
+const eventSchemasSchema = z
+	.array(z.string())
+	.min(1, "At least one event schema slug is required");
+
+const entityQueryEngineFieldsSchema = z
+	.array(queryEngineFieldSchema)
+	.refine(
+		(fields) =>
+			new Set(fields.map((field) => field.key)).size === fields.length,
+		"Field keys must be unique",
+	)
+	.default([]);
+
+const queryEngineRequestBaseSchema = z.object({
+	scope: queryEngineScopeSchema,
+	computedFields: computedFieldArraySchema,
+	eventJoins: eventJoinDefinitionArraySchema,
+	relationships: relationshipFilterArraySchema,
+	filter: nullableViewPredicateSchema.default(null),
+});
+
+export const entityQueryEngineRequestSchema = queryEngineRequestBaseSchema
+	.extend({
+		sort: sortDefinitionSchema,
+		pagination: paginationSchema,
+		mode: z.literal("entities"),
+		fields: entityQueryEngineFieldsSchema,
+	})
+	.strict();
+
+export const aggregateQueryEngineRequestSchema = queryEngineRequestBaseSchema
+	.extend({
+		mode: z.literal("aggregate"),
+		aggregations: aggregationFieldArraySchema,
+	})
+	.strict();
+
+export const eventsQueryEngineRequestSchema = z
 	.object({
 		sort: sortDefinitionSchema,
 		pagination: paginationSchema,
+		scope: queryEngineScopeSchema,
+		mode: z.literal("events"),
+		eventSchemas: eventSchemasSchema,
+		fields: entityQueryEngineFieldsSchema,
 		computedFields: computedFieldArraySchema,
 		eventJoins: eventJoinDefinitionArraySchema,
-		relationships: relationshipFilterArraySchema,
 		filter: nullableViewPredicateSchema.default(null),
-		scope: z
-			.array(z.string())
-			.min(1, "At least one entity schema slug is required"),
-		fields: z
-			.array(queryEngineFieldSchema)
-			.refine(
-				(fields) =>
-					new Set(fields.map((field) => field.key)).size === fields.length,
-				"Field keys must be unique",
-			)
-			.default([]),
 	})
 	.strict();
+
+export const timeSeriesQueryEngineRequestSchema = z
+	.object({
+		scope: queryEngineScopeSchema,
+		metric: timeSeriesMetricSchema,
+		eventSchemas: eventSchemasSchema,
+		mode: z.literal("timeSeries"),
+		computedFields: computedFieldArraySchema,
+		filter: nullableViewPredicateSchema.default(null),
+		bucket: z.enum(["day", "hour", "month", "week"]),
+		dateRange: z
+			.object({
+				endAt: z.iso.datetime({ offset: true }),
+				startAt: z.iso.datetime({ offset: true }),
+			})
+			.strict()
+			.refine(
+				(range) => new Date(range.startAt) < new Date(range.endAt),
+				"startAt must be before endAt",
+			),
+	})
+	.strict();
+
+export const queryEngineRequestSchema = z.discriminatedUnion("mode", [
+	entityQueryEngineRequestSchema,
+	eventsQueryEngineRequestSchema,
+	aggregateQueryEngineRequestSchema,
+	timeSeriesQueryEngineRequestSchema,
+]);
 
 export const resolvedDisplayValueKindSchema = z.enum([
 	"json",
@@ -77,27 +141,99 @@ const queryEnginePaginationSchema = z.object({
 	hasPreviousPage: z.boolean(),
 });
 
-const executeQueryEngineResponseDataSchema = z
+const executeEntityQueryEngineResponseDataSchema = z
 	.object({
 		items: z.array(queryEngineItemSchema),
 		meta: z.object({ pagination: queryEnginePaginationSchema }).strict(),
 	})
 	.strict();
 
+const aggregateValueSchema = resolvedDisplayValueSchema
+	.extend({ key: z.string() })
+	.strict();
+
+const executeAggregateQueryEngineResponseDataSchema = z
+	.object({ values: z.array(aggregateValueSchema) })
+	.strict();
+
+const timeSeriesBucketSchema = z
+	.object({ date: z.string(), value: z.number() })
+	.strict();
+
+const executeTimeSeriesQueryEngineResponseDataSchema = z
+	.object({ buckets: z.array(timeSeriesBucketSchema) })
+	.strict();
+
+const queryEngineResponseDataSchema = z.discriminatedUnion("mode", [
+	z
+		.object({
+			mode: z.literal("entities"),
+			data: executeEntityQueryEngineResponseDataSchema,
+		})
+		.strict(),
+	z
+		.object({
+			mode: z.literal("aggregate"),
+			data: executeAggregateQueryEngineResponseDataSchema,
+		})
+		.strict(),
+	z
+		.object({
+			mode: z.literal("events"),
+			data: executeEntityQueryEngineResponseDataSchema,
+		})
+		.strict(),
+	z
+		.object({
+			mode: z.literal("timeSeries"),
+			data: executeTimeSeriesQueryEngineResponseDataSchema,
+		})
+		.strict(),
+]);
+
 export const executeQueryEngineResponseSchema = dataSchema(
-	executeQueryEngineResponseDataSchema,
+	queryEngineResponseDataSchema,
 );
 
 export type QueryEngineItem = z.infer<typeof queryEngineItemSchema>;
 export type QueryEngineField = z.infer<typeof queryEngineFieldSchema>;
 export type QueryEngineRequest = z.infer<typeof queryEngineRequestSchema>;
-export type ResolvedDisplayValue = z.infer<typeof resolvedDisplayValueSchema>;
-export type QueryEngineResponse = z.infer<
-	typeof executeQueryEngineResponseSchema
->["data"];
-export type QueryEngineResponseData = z.infer<
-	typeof executeQueryEngineResponseDataSchema
+export type EntityQueryEngineRequest = z.infer<
+	typeof entityQueryEngineRequestSchema
 >;
+export type AggregateQueryEngineRequest = z.infer<
+	typeof aggregateQueryEngineRequestSchema
+>;
+export type EventsQueryEngineRequest = z.infer<
+	typeof eventsQueryEngineRequestSchema
+>;
+export type ResolvedDisplayValue = z.infer<typeof resolvedDisplayValueSchema>;
+export type QueryEngineResponse = z.infer<typeof queryEngineResponseDataSchema>;
+export type QueryEngineEntityResponse = Extract<
+	QueryEngineResponse,
+	{ mode: "entities" }
+>;
+export type QueryEngineAggregateResponse = Extract<
+	QueryEngineResponse,
+	{ mode: "aggregate" }
+>;
+export type QueryEngineEventsResponse = Extract<
+	QueryEngineResponse,
+	{ mode: "events" }
+>;
+export type QueryEngineTimeSeriesResponse = Extract<
+	QueryEngineResponse,
+	{ mode: "timeSeries" }
+>;
+export type TimeSeriesQueryEngineRequest = z.infer<
+	typeof timeSeriesQueryEngineRequestSchema
+>;
+export type QueryEngineEntityResponseData = QueryEngineEntityResponse["data"];
+export type QueryEngineAggregateResponseData =
+	QueryEngineAggregateResponse["data"];
+export type QueryEngineEventsResponseData = QueryEngineEventsResponse["data"];
+export type QueryEngineTimeSeriesResponseData =
+	QueryEngineTimeSeriesResponse["data"];
 export type QueryEngineResolvedField = z.infer<
 	typeof resolvedQueryEngineFieldSchema
 >;

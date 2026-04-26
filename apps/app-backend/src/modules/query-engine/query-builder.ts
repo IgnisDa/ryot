@@ -1,28 +1,27 @@
 import { sql } from "drizzle-orm";
 import { db } from "~/lib/db";
-import { entity, entitySchema, event, relationship } from "~/lib/db/schema";
 import type {
 	QueryEngineEventJoinLike,
 	QueryEngineReferenceContext,
-	QueryEngineSchemaLike,
 } from "~/lib/views/reference";
 import { buildResolvedFieldsExpression } from "./display-builder";
 import { buildFilterWhereClause } from "./filter-builder";
+import {
+	buildBaseEntitiesCte,
+	buildJoinedEntitiesCte,
+	buildLatestEventJoinCte,
+	type QueryEngineSchemaRow,
+} from "./query-ctes";
 import type {
+	EntityQueryEngineRequest,
+	QueryEngineEntityResponse,
 	QueryEngineItem,
-	QueryEngineRequest,
-	QueryEngineResponse,
 } from "./schemas";
 import { buildSortExpression } from "./sort-builder";
-import { getEventJoinColumnName } from "./sql-expression-helpers";
 
-export type QueryEngineSchemaRow = QueryEngineSchemaLike & {
-	id: string;
-};
-
-type QueryRow = {
+export type QueryRow = {
 	total: number;
-	entity_id: string | null;
+	row_id: string | null;
 	fields: QueryEngineItem | null;
 };
 
@@ -36,137 +35,6 @@ type PaginationResult = PaginationInput & {
 	totalPages: number;
 	hasNextPage: boolean;
 	hasPreviousPage: boolean;
-};
-
-const getEventJoinCteName = (joinKey: string) => `latest_event_join_${joinKey}`;
-
-const buildBaseEntitiesCte = (input: {
-	userId: string;
-	entitySchemaIds: string[];
-	relationshipSchemaIds: string[];
-}) => {
-	const entitySchemaIdList = sql.join(
-		input.entitySchemaIds.map((entitySchemaId) => sql`${entitySchemaId}`),
-		sql`, `,
-	);
-
-	const entitySchemaData = sql`jsonb_build_object(
-		'id', ${entitySchema.id},
-		'slug', ${entitySchema.slug},
-		'name', ${entitySchema.name},
-		'icon', ${entitySchema.icon},
-		'userId', ${entitySchema.userId},
-		'isBuiltin', ${entitySchema.isBuiltin},
-		'createdAt', ${entitySchema.createdAt},
-		'updatedAt', ${entitySchema.updatedAt},
-		'accentColor', ${entitySchema.accentColor}
-	)`;
-
-	const entityColumns = sql`
-		${entity.id} as id,
-		${entity.name} as name,
-		${entity.image} as image,
-		${entity.createdAt} as created_at,
-		${entity.updatedAt} as updated_at,
-		${entity.properties} as properties,
-		${entity.externalId} as external_id,
-		${entity.sandboxScriptId} as sandbox_script_id,
-		${entitySchemaData} as entity_schema_data
-	`;
-
-	const userOwnedEntities = sql`
-		select ${entityColumns}
-		from ${entity}
-		inner join ${entitySchema}
-			on ${entity.entitySchemaId} = ${entitySchema.id}
-		where ${entity.userId} = ${input.userId}
-			and ${entity.entitySchemaId} in (${entitySchemaIdList})
-	`;
-
-	if (input.relationshipSchemaIds.length === 0) {
-		return sql`
-			base_entities as (
-				${userOwnedEntities}
-				union
-				select ${entityColumns}
-				from ${entity}
-				inner join ${entitySchema}
-					on ${entity.entitySchemaId} = ${entitySchema.id}
-				where ${entity.userId} is null
-					and ${entity.entitySchemaId} in (${entitySchemaIdList})
-			)
-		`;
-	}
-
-	const relationshipSchemaIdList = sql.join(
-		input.relationshipSchemaIds.map((id) => sql`${id}`),
-		sql`, `,
-	);
-
-	return sql`
-		base_entities as (
-			${userOwnedEntities}
-			union
-			select ${entityColumns}
-			from ${entity}
-			inner join ${entitySchema}
-				on ${entity.entitySchemaId} = ${entitySchema.id}
-			inner join ${relationship}
-				on ${relationship.sourceEntityId} = ${entity.id}
-			where ${entity.userId} is null
-				and ${entity.entitySchemaId} in (${entitySchemaIdList})
-				and ${relationship.userId} = ${input.userId}
-				and ${relationship.relationshipSchemaId} in (${relationshipSchemaIdList})
-		)
-	`;
-};
-
-const buildLatestEventJoinCte = (input: {
-	join: QueryEngineEventJoinLike;
-	userId: string;
-}) => {
-	const eventSchemaIdList = sql.join(
-		input.join.eventSchemas.map((schema) => sql`${schema.id}`),
-		sql`, `,
-	);
-
-	return sql`
-		${sql.raw(getEventJoinCteName(input.join.key))} as (
-			select distinct on (${event.entityId})
-				${event.entityId} as entity_id,
-				jsonb_build_object(
-					'id', ${event.id},
-					'createdAt', ${event.createdAt},
-					'updatedAt', ${event.updatedAt},
-					'properties', ${event.properties}
-				) as latest_event
-			from ${event}
-			where ${event.userId} = ${input.userId}
-				and ${event.eventSchemaId} in (${eventSchemaIdList})
-			order by ${event.entityId}, ${event.createdAt} desc, ${event.id} desc
-		)
-	`;
-};
-
-const buildJoinedEntitiesCte = (eventJoins: QueryEngineEventJoinLike[]) => {
-	const selectJoins = eventJoins.map((join) => {
-		return sql`${sql.raw(getEventJoinCteName(join.key))}.latest_event as ${sql.raw(getEventJoinColumnName(join.key))}`;
-	});
-	const leftJoins = eventJoins.map((join) => {
-		return sql`
-			left join ${sql.raw(getEventJoinCteName(join.key))}
-				on ${sql.raw(getEventJoinCteName(join.key))}.entity_id = base_entities.id
-		`;
-	});
-
-	return sql`
-		joined_entities as (
-			select
-				base_entities.*${selectJoins.length ? sql`, ${sql.join(selectJoins, sql`, `)}` : sql``}
-			from base_entities
-			${sql.join(leftJoins, sql` `)}
-		)
-	`;
 };
 
 export const calculatePagination = (
@@ -184,7 +52,7 @@ export const calculatePagination = (
 };
 
 export const mapQueryRowToItem = (row: QueryRow): QueryEngineItem | null => {
-	if (row.entity_id === null) {
+	if (row.row_id === null) {
 		return null;
 	}
 
@@ -193,13 +61,13 @@ export const mapQueryRowToItem = (row: QueryRow): QueryEngineItem | null => {
 
 export const executePreparedQuery = async (input: {
 	userId: string;
-	request: QueryEngineRequest;
+	request: EntityQueryEngineRequest;
 	relationshipSchemaIds: string[];
 	runtimeSchemas: QueryEngineSchemaRow[];
 	eventJoins: QueryEngineEventJoinLike[];
 	schemaMap: Map<string, QueryEngineSchemaRow>;
 	eventJoinMap: Map<string, QueryEngineEventJoinLike>;
-}): Promise<QueryEngineResponse> => {
+}): Promise<QueryEngineEntityResponse> => {
 	const context: QueryEngineReferenceContext<
 		QueryEngineSchemaRow,
 		QueryEngineEventJoinLike
@@ -270,7 +138,7 @@ export const executePreparedQuery = async (input: {
 				limit ${input.request.pagination.limit}
 			)
 		select
-			paginated_entities.id as entity_id,
+			paginated_entities.id as row_id,
 			entity_count.total,
 			${resolvedFields} as fields
 		from entity_count
@@ -286,10 +154,13 @@ export const executePreparedQuery = async (input: {
 	});
 
 	return {
-		meta: { pagination },
-		items: dataResult.rows.flatMap((row) => {
-			const item = mapQueryRowToItem(row);
-			return item ? [item] : [];
-		}),
-	} satisfies QueryEngineResponse;
+		mode: "entities",
+		data: {
+			meta: { pagination },
+			items: dataResult.rows.flatMap((row) => {
+				const item = mapQueryRowToItem(row);
+				return item ? [item] : [];
+			}),
+		},
+	} satisfies QueryEngineEntityResponse;
 };
