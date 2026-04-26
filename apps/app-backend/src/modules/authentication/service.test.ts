@@ -121,19 +121,19 @@ describe("authentication bootstrap helpers", () => {
 		expect(displayConfiguration.grid.calloutProperty).toEqual({
 			type: "reference",
 			reference: {
-				path: ["rating"],
 				aggregation: "avg",
 				type: "event-aggregate",
 				eventSchemaSlug: "review",
+				path: ["properties", "rating"],
 			},
 		});
 		expect(displayConfiguration.list.calloutProperty).toEqual({
 			type: "reference",
 			reference: {
-				path: ["rating"],
 				aggregation: "avg",
 				type: "event-aggregate",
 				eventSchemaSlug: "review",
+				path: ["properties", "rating"],
 			},
 		});
 	});

@@ -115,10 +115,8 @@ Built-ins per join: `id`, `createdAt`, `updatedAt`. Properties via `["properties
 
 Aggregations: `avg`, `count`, `max`, `min`, `sum`. Type inference returns `integer` for `count` and `number` for all others.
 
-> **Path convention differs from event joins**: event-aggregate `path` is relative to the event's `properties` object — omit the leading `"properties"` segment. Use `["rating"]`, not `["properties", "rating"]`.
-
 ```json
-{ "type": "event-aggregate", "eventSchemaSlug": "review", "path": ["rating"], "aggregation": "avg" }
+{ "type": "event-aggregate", "eventSchemaSlug": "review", "path": ["properties", "rating"], "aggregation": "avg" }
 ```
 
 - Scoped to the authenticated user — user A sees only their own aggregates.
