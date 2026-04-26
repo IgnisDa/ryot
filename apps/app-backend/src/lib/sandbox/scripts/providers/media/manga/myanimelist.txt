@@ -264,7 +264,7 @@ driver("details", async function(context) {
       productionStatus: productionStatus,
       genres: collectGenres(payload?.genres),
       publishYear: parsePublishYear(payload?.start_date, dayjs),
-      assets: { images: collectImages(payload?.main_picture), videos: [] },
+      images: collectImages(payload?.main_picture),
       description: typeof payload?.synopsis === "string" ? payload.synopsis : null,
       providerRating:
         typeof payload?.mean === "number" && Number.isFinite(payload.mean)
