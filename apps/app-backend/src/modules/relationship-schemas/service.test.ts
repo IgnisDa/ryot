@@ -39,7 +39,7 @@ it.effect("returns builtin relationship schema by slug", () => {
 
 	return Effect.gen(function* () {
 		const service = yield* RelationshipSchemasService;
-		const found = yield* service.getBuiltinBySlug("in-library");
+		const found = yield* service.findBuiltinBySlug("in-library");
 		expect(found).toEqual(scope);
 	}).pipe(Effect.provide(layer));
 });
@@ -60,7 +60,7 @@ it.effect("returns not found when builtin slug does not exist", () => {
 
 	return Effect.gen(function* () {
 		const service = yield* RelationshipSchemasService;
-		const exit = yield* Effect.exit(service.getBuiltinBySlug("missing"));
+		const exit = yield* Effect.exit(service.findBuiltinBySlug("missing"));
 		expect(exit).toEqual(Exit.fail(new NotFound({ message: "Relationship schema not found" })));
 	}).pipe(Effect.provide(layer));
 });
@@ -81,7 +81,7 @@ it.effect("returns relationship schema by id for user scope", () => {
 
 	return Effect.gen(function* () {
 		const service = yield* RelationshipSchemasService;
-		const found = yield* service.getById("rs-id", "user-id");
+		const found = yield* service.findById("rs-id", "user-id");
 		expect(found).toEqual(scope);
 	}).pipe(Effect.provide(layer));
 });
@@ -102,7 +102,7 @@ it.effect("returns not found when id does not exist or is inaccessible", () => {
 
 	return Effect.gen(function* () {
 		const service = yield* RelationshipSchemasService;
-		const exit = yield* Effect.exit(service.getById("missing", "user-id"));
+		const exit = yield* Effect.exit(service.findById("missing", "user-id"));
 		expect(exit).toEqual(Exit.fail(new NotFound({ message: "Relationship schema not found" })));
 	}).pipe(Effect.provide(layer));
 });
@@ -123,7 +123,7 @@ it.effect("finds builtin schema by id with null userId", () => {
 
 	return Effect.gen(function* () {
 		const service = yield* RelationshipSchemasService;
-		const found = yield* service.getById("rs-id", null);
+		const found = yield* service.findById("rs-id", null);
 		expect(found).toEqual(scope);
 	}).pipe(Effect.provide(layer));
 });

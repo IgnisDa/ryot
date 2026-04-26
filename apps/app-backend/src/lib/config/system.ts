@@ -1,7 +1,7 @@
 import type { Config } from "effect";
 
-import { systemConfigDef } from "./definition";
+import { systemConfigDefinition } from "./definition";
 
-export const SystemConfigSource = systemConfigDef;
+export const SystemConfigSource = systemConfigDefinition;
 
 export type SystemConfigValue = Config.Config.Success<typeof SystemConfigSource>;

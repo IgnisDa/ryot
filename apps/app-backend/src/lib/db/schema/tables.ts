@@ -15,7 +15,7 @@ import {
 
 import type { DisplayConfiguration, SavedViewQueryDefinition } from "~/lib/query-language";
 import type { AppSchema } from "~/lib/schema";
-import type { EventSchemaTriggerMetadata } from "~/modules/events/schemas";
+import type { EventTriggerMetadata } from "~/modules/events/schemas";
 import type { ImportRunStatus } from "~/modules/imports/types";
 import type { IntegrationLot } from "~/modules/integrations/types";
 
@@ -364,7 +364,7 @@ export const eventSchemaTrigger = pgTable(
 		isActive: boolean().notNull().default(true),
 		isBuiltin: boolean().notNull().default(false),
 		phase: text().notNull().default("after_create"),
-		metadata: jsonb().$type<EventSchemaTriggerMetadata>().notNull(),
+		metadata: jsonb().$type<EventTriggerMetadata>().notNull(),
 		createdAt: timestamp({ withTimezone: true }).defaultNow().notNull(),
 		userId: text().references(() => user.id, { onDelete: "cascade" }),
 		eventSchemaId: text()

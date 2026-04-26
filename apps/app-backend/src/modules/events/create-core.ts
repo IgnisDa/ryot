@@ -10,8 +10,8 @@ import type { SandboxRunInput, SandboxRunOutput } from "~/lib/sandbox";
 import { requireText } from "~/lib/validation";
 import type { EntitiesRepository } from "~/modules/entities/repository";
 import type { EventSchemasRepository } from "~/modules/event-schemas/repository";
-import { RunSandboxWorkflow } from "~/modules/sandbox/definitions";
 import type { SandboxRepository } from "~/modules/sandbox/repository";
+import { RunSandboxWorkflow } from "~/modules/sandbox/workflow-definitions";
 
 import type { AfterCreateTriggerRow, BeforeCreateTriggerRow, EventsRepository } from "./repository";
 import { BeforeTriggerResult } from "./schemas";
