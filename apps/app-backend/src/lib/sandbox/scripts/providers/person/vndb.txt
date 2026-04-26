@@ -137,14 +137,9 @@ driver("details", async function (context) {
   return {
     name,
     properties: {
-      gender: null,
-      website: null,
-      birthDate: null,
-      deathDate: null,
-      birthPlace: null,
+      images: [],
       description,
       alternateNames: [],
-      assets: { images: [], videos: [] },
       sourceUrl: `https://vndb.org/${externalId}`,
     },
   };

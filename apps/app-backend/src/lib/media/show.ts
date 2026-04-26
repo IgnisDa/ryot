@@ -1,9 +1,9 @@
 import { z } from "@hono/zod-openapi";
 import { toAppSchemaProperties } from "@ryot/ts-utils";
 import {
+	imagesSchema,
 	nullableIntSchema,
 	nullableStringSchema,
-	remoteImagesAssetsSchema,
 	stringArraySchema,
 } from "../zod";
 import { mediaWithFreeCreatorsPropertiesSchema } from "./common";
@@ -35,7 +35,7 @@ const showSeasonSchema = z
 
 export const showPropertiesSchema =
 	mediaWithFreeCreatorsPropertiesSchema.extend({
-		assets: remoteImagesAssetsSchema,
+		images: imagesSchema,
 		showSeasons: z.array(showSeasonSchema),
 	});
 
