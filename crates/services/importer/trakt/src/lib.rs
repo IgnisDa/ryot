@@ -16,6 +16,11 @@ use rust_decimal::{Decimal, dec};
 use sea_orm::prelude::DateTimeUtc;
 use serde::{Deserialize, Serialize};
 
+mod export;
+
+#[cfg(test)]
+mod tests;
+
 const API_URL: &str = "https://api.trakt.tv";
 const API_VERSION: &str = "2";
 
@@ -32,40 +37,55 @@ async fn fetch_json<T: serde::de::DeserializeOwned>(
 }
 
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
-struct Id {
-    trakt: Option<u64>,
-    tmdb: Option<u64>,
+pub(crate) struct Id {
+    pub(crate) trakt: Option<u64>,
+    pub(crate) tmdb: Option<u64>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-struct Item {
-    ids: Id,
-    season: Option<i32>,
-    number: Option<i32>,
-    title: Option<String>,
+pub(crate) struct Item {
+    pub(crate) ids: Id,
+    pub(crate) season: Option<i32>,
+    pub(crate) number: Option<i32>,
+    pub(crate) title: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-struct ListItemResponse {
-    show: Option<Item>,
-    movie: Option<Item>,
-    season: Option<Item>,
-    episode: Option<Item>,
-    rating: Option<Decimal>,
-    rated_at: Option<DateTimeUtc>,
-    watched_at: Option<DateTimeUtc>,
+pub(crate) struct CommentResponse {
+    pub(crate) comment: String,
+    pub(crate) spoiler: bool,
+    pub(crate) created_at: DateTimeUtc,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub(crate) struct ListItemResponse {
+    pub(crate) show: Option<Item>,
+    pub(crate) movie: Option<Item>,
+    pub(crate) season: Option<Item>,
+    pub(crate) episode: Option<Item>,
+    pub(crate) rating: Option<Decimal>,
+    pub(crate) comment: Option<CommentResponse>,
+    pub(crate) rated_at: Option<DateTimeUtc>,
+    pub(crate) watched_at: Option<DateTimeUtc>,
 }
 
 #[derive(Debug, Serialize, Deserialize, Default)]
-struct ListResponse {
-    ids: Id,
-    name: String,
-    description: Option<String>,
+pub(crate) struct ListResponse {
+    pub(crate) ids: Id,
+    pub(crate) name: String,
+    pub(crate) description: Option<String>,
     #[serde(default)]
-    items: Vec<ListItemResponse>,
+    pub(crate) items: Vec<ListItemResponse>,
 }
 
 pub async fn import(input: DeployTraktImportInput, client_id: &str) -> Result<ImportResult> {
+    match input {
+        DeployTraktImportInput::Export(input) => export::import(&input.export_path),
+        input => import_from_api(input, client_id).await,
+    }
+}
+
+async fn import_from_api(input: DeployTraktImportInput, client_id: &str) -> Result<ImportResult> {
     let mut failed = vec![];
 
     let client = get_base_http_client(Some(vec![
@@ -167,23 +187,14 @@ pub async fn import(input: DeployTraktImportInput, client_id: &str) -> Result<Im
                 for item in ratings.iter() {
                     match process_item(item) {
                         Ok(mut d) => {
-                            let (show_season_number, show_episode_number) =
-                                if let Some(season) = item.season.as_ref() {
-                                    (season.number, None)
-                                } else if let Some(episode) = item.episode.as_ref() {
-                                    (episode.season, episode.number)
-                                } else if let Some(show) = item.show.as_ref() {
-                                    (show.season, show.number)
-                                } else {
-                                    (None, None)
-                                };
+                            let (show_season_number, show_episode_number) = show_coordinates(item);
                             d.reviews.push(ImportOrExportItemRating {
+                                show_season_number,
+                                show_episode_number,
                                 rating: item
                                     .rating
                                     // DEV: Rates items out of 10
                                     .map(|e| e * dec!(10)),
-                                show_season_number,
-                                show_episode_number,
                                 review: Some(ImportOrExportItemReview {
                                     date: item.rated_at,
                                     spoiler: Some(false),
@@ -255,8 +266,8 @@ pub async fn import(input: DeployTraktImportInput, client_id: &str) -> Result<Im
                         {
                             failed.push(ImportFailedItem {
                                 lot: Some(d.lot),
-                                step: ImportFailStep::ItemDetailsFromSource,
                                 identifier: "".to_owned(),
+                                step: ImportFailStep::ItemDetailsFromSource,
                                 error: Some(
                                     "Item is a show but does not have a season or episode number"
                                         .to_owned(),
@@ -265,9 +276,9 @@ pub async fn import(input: DeployTraktImportInput, client_id: &str) -> Result<Im
                             continue;
                         }
                         d.seen_history.push(ImportOrExportMetadataItemSeen {
+                            ended_on: item.watched_at,
                             show_season_number,
                             show_episode_number,
-                            ended_on: item.watched_at,
                             providers_consumed_on: Some(vec![ImportSource::Trakt.to_string()]),
                             ..Default::default()
                         });
@@ -293,15 +304,18 @@ pub async fn import(input: DeployTraktImportInput, client_id: &str) -> Result<Im
             }));
             completed
         }
+        DeployTraktImportInput::Export(_) => unreachable!(),
     };
-    Ok(ImportResult { completed, failed })
+    Ok(ImportResult { failed, completed })
 }
 
-fn process_item(i: &ListItemResponse) -> Result<ImportOrExportMetadataItem, ImportFailedItem> {
+pub(crate) fn process_item(
+    i: &ListItemResponse,
+) -> Result<ImportOrExportMetadataItem, ImportFailedItem> {
     fn err(i: &ListItemResponse, msg: &str) -> ImportFailedItem {
         ImportFailedItem {
-            identifier: format!("{i:#?}"),
             error: Some(msg.to_owned()),
+            identifier: format!("{i:#?}"),
             step: ImportFailStep::ItemDetailsFromSource,
             ..Default::default()
         }
@@ -326,5 +340,17 @@ fn process_item(i: &ListItemResponse) -> Result<ImportOrExportMetadataItem, Impo
             ..Default::default()
         }),
         None => Err(err(i, "Item does not have an associated TMDB id")),
+    }
+}
+
+pub(crate) fn show_coordinates(item: &ListItemResponse) -> (Option<i32>, Option<i32>) {
+    if let Some(season) = item.season.as_ref() {
+        (season.number, None)
+    } else if let Some(episode) = item.episode.as_ref() {
+        (episode.season, episode.number)
+    } else if let Some(show) = item.show.as_ref() {
+        (show.season, show.number)
+    } else {
+        (None, None)
     }
 }

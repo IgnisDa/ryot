@@ -16,7 +16,7 @@ Ryot serves the final configuration loaded at the `/backend/config` endpoint as 
 | `MOVIES_AND_SHOWS_TMDB_ACCESS_TOKEN` | The access token issued by TMDB. **Required** to enable movies and shows tracking. [More information](guides/movies-and-shows.md) |
 | `VIDEO_GAMES_TWITCH_CLIENT_ID`       | The client ID issued by Twitch. **Required** to enable video games tracking. [More information](guides/video-games.md)            |
 | `VIDEO_GAMES_TWITCH_CLIENT_SECRET`   | The client secret issued by Twitch. **Required** to enable video games tracking.                                                  |
-| `SERVER_IMPORTER_TRAKT_CLIENT_ID`    | The client ID issued by Trakt. **Required** to enable Trakt import. [More information](guides/trakt.md)                           |
+| `SERVER_IMPORTER_TRAKT_CLIENT_ID`    | The client ID issued by Trakt. **Required only** for Trakt username/public-list API imports, not ZIP exports. [More information](guides/trakt.md) |
 | `ANIME_AND_MANGA_MAL_CLIENT_ID`      | The client ID issued by MyAnimeList. **Required** to enable MyAnimeList import. [More information](guides/anime-and-manga.md)     |
 
 ## Health endpoint
