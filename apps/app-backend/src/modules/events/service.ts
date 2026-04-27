@@ -40,6 +40,7 @@ export type EventServiceDeps = {
 	createEventForUser: typeof createEventForUser;
 	getEntityScopeForUser: typeof getEntityScopeForUser;
 	getUserLibraryEntityId: typeof getUserLibraryEntityId;
+	getSessionEntityScopeForUser: typeof getEntityScopeForUser;
 	listEventsByEntityForUser: typeof listEventsByEntityForUser;
 	getEventCreateScopeForUser: typeof getEventCreateScopeForUser;
 	upsertInLibraryRelationship: typeof upsertInLibraryRelationship;
@@ -53,6 +54,7 @@ const entityNotFoundError = "Entity not found";
 const eventSchemaNotFoundError = "Event schema not found";
 const eventSchemaMismatchError =
 	"Event schema does not belong to the entity schema";
+const sessionEntityNotFoundError = "Session entity not found";
 
 const enqueueEventSchemaTriggerJob = async (input: {
 	jobId: string;
@@ -95,6 +97,7 @@ const eventServiceDeps: EventServiceDeps = {
 	upsertInLibraryRelationship,
 	enqueueEventSchemaTriggerJob,
 	getActiveEventSchemaTriggersForEventSchemas,
+	getSessionEntityScopeForUser: getEntityScopeForUser,
 };
 
 const resolveEventEntityIdResult = (entityId: string) =>
@@ -109,11 +112,45 @@ const resolveEventSchemaIdResult = (eventSchemaId: string) =>
 		"Event schema id is required",
 	);
 
+const resolveSessionEntityIdResult = (sessionEntityId: string) =>
+	wrapServiceValidator(
+		() => resolveSessionEntityId(sessionEntityId),
+		"Session entity id is required",
+	);
+
 export const resolveEventEntityId = (entityId: string) =>
 	resolveRequiredString(entityId, "Entity id");
 
 export const resolveEventSchemaId = (eventSchemaId: string) =>
 	resolveRequiredString(eventSchemaId, "Event schema id");
+
+export const resolveSessionEntityId = (sessionEntityId: string) =>
+	resolveRequiredString(sessionEntityId, "Session entity id");
+
+const resolveReadableSessionEntityId = async (
+	input: { userId: string; sessionEntityId: string },
+	deps: Pick<EventServiceDeps, "getSessionEntityScopeForUser">,
+): Promise<EventServiceResult<string>> => {
+	const sessionEntityIdResult = resolveSessionEntityIdResult(
+		input.sessionEntityId,
+	);
+	if ("error" in sessionEntityIdResult) {
+		return sessionEntityIdResult;
+	}
+
+	const sessionEntityResult = checkReadAccess(
+		await deps.getSessionEntityScopeForUser({
+			userId: input.userId,
+			entityId: sessionEntityIdResult.data,
+		}),
+		{ not_found: sessionEntityNotFoundError },
+	);
+	if ("error" in sessionEntityResult) {
+		return serviceError("not_found", sessionEntityResult.message);
+	}
+
+	return serviceData(sessionEntityIdResult.data);
+};
 
 export const parseEventProperties = (input: {
 	properties: unknown;
@@ -132,12 +169,20 @@ export const resolveEventCreateInput = (
 ) => {
 	const entityId = resolveEventEntityId(input.entityId);
 	const eventSchemaId = resolveEventSchemaId(input.eventSchemaId);
+	const sessionEntityId = input.sessionEntityId
+		? resolveSessionEntityId(input.sessionEntityId)
+		: undefined;
 	const parsedProperties = parseEventProperties({
 		properties: input.properties,
 		propertiesSchema: input.propertiesSchema,
 	});
 
-	return { entityId, properties: parsedProperties, eventSchemaId };
+	return {
+		entityId,
+		eventSchemaId,
+		sessionEntityId,
+		properties: parsedProperties,
+	};
 };
 
 const resolveEventCreateInputResult = (
@@ -151,32 +196,81 @@ const resolveEventCreateInputResult = (
 	);
 
 export const listEntityEvents = async (
-	input: { entityId: string; userId: string; eventSchemaSlug?: string },
+	input: {
+		userId: string;
+		entityId?: string;
+		sessionEntityId?: string;
+		eventSchemaSlug?: string;
+	},
 	deps: EventServiceDeps = eventServiceDeps,
 ): Promise<EventServiceResult<ListedEvent[]>> => {
-	const entityIdResult = resolveEventEntityIdResult(input.entityId);
-	if ("error" in entityIdResult) {
-		return entityIdResult;
-	}
+	if (input.entityId) {
+		const entityIdResult = resolveEventEntityIdResult(input.entityId);
+		if ("error" in entityIdResult) {
+			return entityIdResult;
+		}
 
-	const entityResult = checkReadAccess(
-		await deps.getEntityScopeForUser({
+		const entityResult = checkReadAccess(
+			await deps.getEntityScopeForUser({
+				userId: input.userId,
+				entityId: entityIdResult.data,
+			}),
+			{ not_found: entityNotFoundError },
+		);
+		if ("error" in entityResult) {
+			return serviceError("not_found", entityResult.message);
+		}
+
+		if (input.sessionEntityId) {
+			const sessionEntityIdResult = await resolveReadableSessionEntityId(
+				{ userId: input.userId, sessionEntityId: input.sessionEntityId },
+				deps,
+			);
+			if ("error" in sessionEntityIdResult) {
+				return sessionEntityIdResult;
+			}
+
+			const events = await deps.listEventsByEntityForUser({
+				userId: input.userId,
+				eventSchemaSlug: input.eventSchemaSlug,
+				entityId: entityIdResult.data,
+				sessionEntityId: sessionEntityIdResult.data,
+			});
+
+			return serviceData(events);
+		}
+
+		const events = await deps.listEventsByEntityForUser({
 			userId: input.userId,
 			entityId: entityIdResult.data,
-		}),
-		{ not_found: entityNotFoundError },
-	);
-	if ("error" in entityResult) {
-		return serviceError("not_found", entityResult.message);
+			eventSchemaSlug: input.eventSchemaSlug,
+		});
+
+		return serviceData(events);
 	}
 
-	const events = await deps.listEventsByEntityForUser({
-		userId: input.userId,
-		entityId: entityIdResult.data,
-		eventSchemaSlug: input.eventSchemaSlug,
-	});
+	if (input.sessionEntityId) {
+		const sessionEntityIdResult = await resolveReadableSessionEntityId(
+			{ userId: input.userId, sessionEntityId: input.sessionEntityId },
+			deps,
+		);
+		if ("error" in sessionEntityIdResult) {
+			return sessionEntityIdResult;
+		}
 
-	return serviceData(events);
+		const events = await deps.listEventsByEntityForUser({
+			userId: input.userId,
+			eventSchemaSlug: input.eventSchemaSlug,
+			sessionEntityId: sessionEntityIdResult.data,
+		});
+
+		return serviceData(events);
+	}
+
+	return serviceError(
+		"validation",
+		"Either entityId or sessionEntityId is required",
+	);
 };
 
 export const createEvent = async (
@@ -193,6 +287,19 @@ export const createEvent = async (
 	);
 	if ("error" in eventSchemaIdResult) {
 		return eventSchemaIdResult;
+	}
+
+	let sessionEntityId: string | undefined;
+	if (input.body.sessionEntityId) {
+		const sessionEntityIdResult = await resolveReadableSessionEntityId(
+			{ userId: input.userId, sessionEntityId: input.body.sessionEntityId },
+			deps,
+		);
+		if ("error" in sessionEntityIdResult) {
+			return sessionEntityIdResult;
+		}
+
+		sessionEntityId = sessionEntityIdResult.data;
 	}
 
 	const eventScope = await deps.getEventCreateScopeForUser({
@@ -226,6 +333,7 @@ export const createEvent = async (
 	const eventInput = resolveEventCreateInputResult({
 		entityId: input.body.entityId,
 		properties: input.body.properties,
+		sessionEntityId,
 		eventSchemaId: input.body.eventSchemaId,
 		propertiesSchema: eventScope.propertiesSchema,
 	});
@@ -252,6 +360,7 @@ export const createEvent = async (
 		eventSchemaName: eventScope.eventSchemaName,
 		eventSchemaSlug: eventScope.eventSchemaSlug,
 		eventSchemaId: eventInput.data.eventSchemaId,
+		sessionEntityId: eventInput.data.sessionEntityId,
 	});
 
 	return serviceData({

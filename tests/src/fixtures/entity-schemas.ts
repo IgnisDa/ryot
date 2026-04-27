@@ -1,7 +1,7 @@
 import type { components, paths } from "@ryot/generated/openapi/app-backend";
 import type { Client } from "./auth";
 import { type PollOptions, pollUntil } from "./polling";
-import { createTracker, findBuiltinTracker } from "./trackers";
+import { createTracker, listTrackers } from "./trackers";
 
 type EnqueueEntitySearchBody = NonNullable<
 	paths["/entity-schemas/search"]["post"]["requestBody"]
@@ -126,25 +126,37 @@ export async function findBuiltinSchemaBySlug(
 	cookies: string,
 	slug: string,
 ) {
-	const builtinTracker = await findBuiltinTracker(client, cookies);
-	const schemas = await listEntitySchemas(client, cookies, {
-		slugs: [slug],
-		trackerId: builtinTracker.id,
+	const trackers = await listTrackers(client, cookies, {
+		includeDisabled: true,
 	});
-	const schema = schemas[0];
+	const builtinTrackers = trackers.filter((tracker) => tracker.isBuiltin);
 
-	if (!schema) {
-		throw new Error(`Built-in entity schema '${slug}' not found`);
+	for (const builtinTracker of builtinTrackers) {
+		const schemas = await listEntitySchemas(client, cookies, {
+			slugs: [slug],
+			trackerId: builtinTracker.id,
+		});
+		const schema = schemas[0];
+
+		if (schema) {
+			return { schema, builtinTracker };
+		}
 	}
 
-	return { schema, builtinTracker };
+	throw new Error(`Built-in entity schema '${slug}' not found`);
 }
 
 export async function listBuiltinEntitySchemas(
 	client: Client,
 	cookies: string,
 ) {
-	const builtinTracker = await findBuiltinTracker(client, cookies);
+	const trackers = await listTrackers(client, cookies, {
+		includeDisabled: true,
+	});
+	const builtinTracker = trackers.find((tracker) => tracker.isBuiltin);
+	if (!builtinTracker) {
+		throw new Error("Built-in tracker not found");
+	}
 	const schemas = await listEntitySchemas(client, cookies, {
 		trackerId: builtinTracker.id,
 	});

@@ -30,6 +30,36 @@ describe("GET /event-schemas", () => {
 		expect(eventSchemas.some((schema) => schema.slug === "read")).toBe(false);
 	});
 
+	it("returns the seeded workout-set event schema for exercise", async () => {
+		const { client, cookies } = await createAuthenticatedClient();
+		const { schema: exerciseSchema } = await findBuiltinSchemaBySlug(
+			client,
+			cookies,
+			"exercise",
+		);
+
+		const eventSchemas = await listEventSchemas(
+			client,
+			cookies,
+			exerciseSchema.id,
+		);
+
+		expect(eventSchemas.map((schema) => schema.slug)).toEqual(["workout-set"]);
+		expect(eventSchemas[0]?.propertiesSchema).toMatchObject({
+			fields: {
+				reps: { label: "Reps", type: "number" },
+				weight: { label: "Weight", type: "number" },
+				setOrder: { label: "Set Order", type: "integer" },
+				exerciseOrder: { label: "Exercise Order", type: "integer" },
+				setLot: {
+					type: "enum",
+					label: "Set Lot",
+					options: ["normal", "warm_up", "drop", "failure"],
+				},
+			},
+		});
+	});
+
 	it("exposes lifecycle schemas for each supported built-in media schema", async () => {
 		const { client, cookies } = await createAuthenticatedClient();
 		const { schemas } = await listBuiltinEntitySchemas(client, cookies);

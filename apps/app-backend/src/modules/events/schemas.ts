@@ -14,6 +14,7 @@ export const listedEventSchema = z.object({
 	eventSchemaName: z.string(),
 	eventSchemaSlug: z.string(),
 	properties: unknownObjectSchema,
+	sessionEntityId: z.string().nullable(),
 });
 
 export const listEventsResponseSchema = listDataSchema(listedEventSchema);
@@ -22,15 +23,23 @@ export const createEventBulkResponseSchema = itemDataSchema(
 	z.object({ count: z.number().int() }),
 );
 
-export const listEventsQuery = z.object({
-	entityId: nonEmptyTrimmedStringSchema,
-	eventSchemaSlug: nonEmptyTrimmedStringSchema.optional(),
-});
+export const listEventsQuery = z
+	.object({
+		entityId: nonEmptyTrimmedStringSchema.optional(),
+		sessionEntityId: nonEmptyTrimmedStringSchema.optional(),
+		eventSchemaSlug: nonEmptyTrimmedStringSchema.optional(),
+	})
+	.refine(
+		(query) =>
+			query.entityId !== undefined || query.sessionEntityId !== undefined,
+		"Either entityId or sessionEntityId is required",
+	);
 
 export const createEventBody = z.object({
 	properties: unknownObjectSchema,
 	entityId: nonEmptyTrimmedStringSchema,
 	eventSchemaId: nonEmptyTrimmedStringSchema,
+	sessionEntityId: nonEmptyTrimmedStringSchema.optional(),
 });
 
 export const createEventBulkBody = z.array(createEventBody);
