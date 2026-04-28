@@ -361,7 +361,7 @@ export const authenticationBuiltinEntitySchemas = () => [
 		icon: "dumbbell",
 		eventSchemas: [],
 		trackerSlug: "fitness",
-		accentColor: "#2DD4BF",
+		accentColor: "#22C55E",
 		propertiesSchema: workoutPropertiesJsonSchema,
 	},
 ];
