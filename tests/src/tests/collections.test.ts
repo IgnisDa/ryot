@@ -18,10 +18,12 @@ describe("POST /collections", () => {
 				friendWhoRecommendedIt: {
 					type: "string" as const,
 					label: "Friend Who Recommended It",
+					description: "Friend Who Recommended It",
 				},
 				whereTheyRecommendedIt: {
 					type: "string" as const,
 					label: "Where They Recommended It",
+					description: "Where They Recommended It",
 				},
 			},
 		};
@@ -95,14 +97,28 @@ describe("POST /collections", () => {
 					friendWhoRecommendedIt: {
 						type: "string" as const,
 						label: "Friend Who Recommended It",
+						description: "Friend Who Recommended It",
 					},
 					recommendationDetails: {
 						type: "object" as const,
 						label: "Recommendation Details",
+						description: "Recommendation Details",
 						properties: {
-							when: { type: "date" as const, label: "When" },
-							where: { type: "string" as const, label: "Where" },
-							rating: { type: "integer" as const, label: "Rating" },
+							when: {
+								type: "date" as const,
+								label: "When",
+								description: "When",
+							},
+							where: {
+								type: "string" as const,
+								label: "Where",
+								description: "Where",
+							},
+							rating: {
+								type: "integer" as const,
+								label: "Rating",
+								description: "Rating",
+							},
 						},
 					},
 				},
@@ -128,17 +144,32 @@ describe("POST /collections", () => {
 					tags: {
 						type: "array" as const,
 						label: "Tags",
-						items: { type: "string" as const, label: "Tag" },
+						description: "Tags",
+						items: {
+							type: "string" as const,
+							label: "Tag",
+							description: "Tag",
+						},
 					},
 					recommendations: {
 						type: "array" as const,
 						label: "Recommendations",
+						description: "Recommendations",
 						items: {
 							type: "object" as const,
 							label: "Recommendation",
+							description: "Recommendation",
 							properties: {
-								friend: { type: "string" as const, label: "Friend" },
-								context: { type: "string" as const, label: "Context" },
+								friend: {
+									type: "string" as const,
+									label: "Friend",
+									description: "Friend",
+								},
+								context: {
+									type: "string" as const,
+									label: "Context",
+									description: "Context",
+								},
 							},
 						},
 					},
@@ -212,28 +243,52 @@ describe("POST /collections", () => {
 
 			const membershipPropertiesSchema = {
 				fields: {
-					priority: { type: "integer" as const, label: "Priority" },
+					priority: {
+						type: "integer" as const,
+						label: "Priority",
+						description: "Priority",
+					},
 					metadata: {
 						label: "Metadata",
+						description: "Metadata",
 						type: "object" as const,
 						properties: {
 							source: {
 								label: "Source",
+								description: "Source",
 								type: "object" as const,
 								properties: {
-									url: { type: "string" as const, label: "URL" },
-									name: { type: "string" as const, label: "Name" },
+									url: {
+										type: "string" as const,
+										label: "URL",
+										description: "URL",
+									},
+									name: {
+										type: "string" as const,
+										label: "Name",
+										description: "Name",
+									},
 								},
 							},
 							tags: {
 								label: "Tags",
+								description: "Tags",
 								type: "array" as const,
 								items: {
 									type: "object" as const,
 									label: "Tag",
+									description: "Tag",
 									properties: {
-										label: { type: "string" as const, label: "Label" },
-										color: { type: "string" as const, label: "Color" },
+										label: {
+											type: "string" as const,
+											label: "Label",
+											description: "Label",
+										},
+										color: {
+											type: "string" as const,
+											label: "Color",
+											description: "Color",
+										},
 									},
 								},
 							},
@@ -381,8 +436,12 @@ describe("POST /collections", () => {
 				description: "Movies with recommendation info",
 				membershipPropertiesSchema: {
 					fields: {
-						rating: { type: "integer", label: "Rating" },
-						recommendedBy: { type: "string", label: "Recommended By" },
+						rating: { type: "integer", label: "Rating", description: "Rating" },
+						recommendedBy: {
+							type: "string",
+							label: "Recommended By",
+							description: "Recommended By",
+						},
 					},
 				},
 			});
@@ -417,8 +476,12 @@ describe("POST /collections", () => {
 				name: "Upsert Collection",
 				membershipPropertiesSchema: {
 					fields: {
-						rating: { type: "integer", label: "Rating" },
-						recommendedBy: { type: "string", label: "Recommended By" },
+						rating: { type: "integer", label: "Rating", description: "Rating" },
+						recommendedBy: {
+							type: "string",
+							label: "Recommended By",
+							description: "Recommended By",
+						},
 					},
 				},
 			});

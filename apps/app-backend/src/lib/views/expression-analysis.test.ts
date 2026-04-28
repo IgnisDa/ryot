@@ -29,7 +29,11 @@ describe("inferViewExpressionType", () => {
 		).toEqual({
 			kind: "property",
 			propertyType: "integer",
-			propertyDefinition: { label: "Value", type: "integer" },
+			propertyDefinition: {
+				label: "Value",
+				type: "integer",
+				description: "Computed numeric value",
+			},
 		});
 
 		expect(
@@ -47,7 +51,11 @@ describe("inferViewExpressionType", () => {
 		).toEqual({
 			kind: "property",
 			propertyType: "string",
-			propertyDefinition: { label: "Value", type: "string" },
+			propertyDefinition: {
+				label: "Value",
+				type: "string",
+				description: "Computed text value",
+			},
 		});
 
 		expect(
@@ -64,7 +72,11 @@ describe("inferViewExpressionType", () => {
 		).toEqual({
 			kind: "property",
 			propertyType: "integer",
-			propertyDefinition: { label: "Value", type: "integer" },
+			propertyDefinition: {
+				label: "Value",
+				type: "integer",
+				description: "Normalized integer value",
+			},
 		});
 	});
 
@@ -166,7 +178,11 @@ describe("inferViewExpressionType", () => {
 		).toEqual({
 			kind: "property",
 			propertyType: "string",
-			propertyDefinition: { label: "Value", type: "string" },
+			propertyDefinition: {
+				label: "Value",
+				type: "string",
+				description: "Computed text value",
+			},
 		});
 
 		expect(() =>

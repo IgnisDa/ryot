@@ -47,7 +47,13 @@ export async function createEntitySchema(
 		accentColor = "#00FF00",
 		slug = `schema-${crypto.randomUUID()}`,
 		propertiesSchema = {
-			fields: { title: { type: "string" as const, label: "Title" } },
+			fields: {
+				title: {
+					label: "Title",
+					description: "Title",
+					type: "string" as const,
+				},
+			},
 		},
 	} = options;
 

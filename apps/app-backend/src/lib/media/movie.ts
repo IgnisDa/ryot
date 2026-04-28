@@ -4,8 +4,10 @@ import { mediaWithFreeCreatorsPropertiesSchema } from "./common";
 
 export const moviePropertiesSchema =
 	mediaWithFreeCreatorsPropertiesSchema.extend({
-		images: imagesSchema,
-		runtime: nullableIntSchema,
+		images: imagesSchema.describe(
+			"Cover and promotional images for this movie",
+		),
+		runtime: nullableIntSchema.describe("Runtime in minutes"),
 	});
 
 export const moviePropertiesJsonSchema = toAppSchemaProperties(

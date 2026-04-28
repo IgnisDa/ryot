@@ -18,11 +18,27 @@ describe("getEntityDetailProperties", () => {
 		const properties = getEntityDetailProperties(
 			{
 				fields: {
-					notes: { label: "Notes", type: "string" },
-					startedOn: { label: "Started On", type: "date" },
-					distanceKm: { label: "Distance", type: "number" },
-					completed: { label: "Completed", type: "boolean" },
-					completedAt: { label: "Completed At", type: "datetime" },
+					notes: { label: "Notes", description: "Notes", type: "string" },
+					startedOn: {
+						label: "Started On",
+						description: "Started On",
+						type: "date",
+					},
+					distanceKm: {
+						label: "Distance",
+						description: "Distance",
+						type: "number",
+					},
+					completed: {
+						label: "Completed",
+						description: "Completed",
+						type: "boolean",
+					},
+					completedAt: {
+						label: "Completed At",
+						description: "Completed At",
+						type: "datetime",
+					},
 				},
 			},
 			entity.properties,
@@ -79,16 +95,24 @@ describe("getEntityDetailProperties", () => {
 		const properties = getEntityDetailProperties(
 			{
 				fields: {
-					mood: { label: "Mood", type: "string" },
+					mood: { label: "Mood", description: "Mood", type: "string" },
 					tags: {
 						label: "Tags",
+						description: "Tags",
 						type: "array",
-						items: { label: "Item", type: "string" },
+						items: { label: "Item", description: "Item", type: "string" },
 					},
 					metadata: {
 						type: "object",
 						label: "Metadata",
-						properties: { source: { label: "Source", type: "string" } },
+						description: "Metadata",
+						properties: {
+							source: {
+								label: "Source",
+								description: "Source",
+								type: "string",
+							},
+						},
 					},
 				},
 			},

@@ -24,9 +24,13 @@ describe("collection discovery data flow", () => {
 		it("returns collection with membershipPropertiesSchema for selector rendering", () => {
 			const schema = {
 				fields: {
-					rating: { type: "integer", label: "Rating" },
-					notes: { type: "string", label: "Notes" },
-					priority: { type: "string", label: "Priority" },
+					rating: { type: "integer", label: "Rating", description: "Rating" },
+					notes: { type: "string", label: "Notes", description: "Notes" },
+					priority: {
+						type: "string",
+						label: "Priority",
+						description: "Priority",
+					},
 				},
 			};
 			const entity = createQueryEngineCollectionWithSchema(
@@ -44,17 +48,23 @@ describe("collection discovery data flow", () => {
 			expect(result.membershipPropertiesSchema?.fields.rating).toEqual({
 				type: "integer",
 				label: "Rating",
+				description: "Rating",
 			});
 			expect(result.membershipPropertiesSchema?.fields.notes).toEqual({
 				type: "string",
 				label: "Notes",
+				description: "Notes",
 			});
 		});
 
 		it("returns all required data for search-modal collection selector", () => {
 			const schema = {
 				fields: {
-					priority: { type: "string", label: "Priority Level" },
+					priority: {
+						type: "string",
+						label: "Priority Level",
+						description: "Priority Level",
+					},
 				},
 			};
 			const entity = createQueryEngineCollectionWithSchema(
@@ -96,7 +106,7 @@ describe("collection discovery data flow", () => {
 		it("returns collections state with full data including schema for each collection", () => {
 			const schemaA = {
 				fields: {
-					rating: { type: "integer", label: "Rating" },
+					rating: { type: "integer", label: "Rating", description: "Rating" },
 				},
 			};
 			const schemaB = { fields: {} };
@@ -140,8 +150,16 @@ describe("collection discovery data flow", () => {
 		it("provides membershipPropertiesSchema for form generation", () => {
 			const schema = {
 				fields: {
-					note: { type: "string", label: "Personal Note" },
-					dateAdded: { type: "string", label: "Date Added" },
+					note: {
+						type: "string",
+						label: "Personal Note",
+						description: "Personal Note",
+					},
+					dateAdded: {
+						type: "string",
+						label: "Date Added",
+						description: "Date Added",
+					},
 				},
 			};
 			const entity = createQueryEngineCollectionWithSchema(
@@ -157,10 +175,12 @@ describe("collection discovery data flow", () => {
 			expect(result.membershipPropertiesSchema?.fields.note).toEqual({
 				type: "string",
 				label: "Personal Note",
+				description: "Personal Note",
 			});
 			expect(result.membershipPropertiesSchema?.fields.dateAdded).toEqual({
 				type: "string",
 				label: "Date Added",
+				description: "Date Added",
 			});
 		});
 

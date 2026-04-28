@@ -50,8 +50,8 @@ describe("extractMembershipPropertiesSchema", () => {
 	it("extracts membershipPropertiesSchema from json field with fields", () => {
 		const schema = {
 			fields: {
-				rating: { type: "integer", label: "Rating" },
-				notes: { type: "string", label: "Notes" },
+				rating: { type: "integer", label: "Rating", description: "Rating" },
+				notes: { type: "string", label: "Notes", description: "Notes" },
 			},
 		};
 		const fields = [
@@ -92,7 +92,7 @@ describe("toAppCollection", () => {
 	it("extracts membershipPropertiesSchema when present", () => {
 		const schema = {
 			fields: {
-				rating: { type: "integer", label: "Rating" },
+				rating: { type: "integer", label: "Rating", description: "Rating" },
 			},
 		};
 		const entity = createQueryEngineCollectionWithSchema(
@@ -132,7 +132,13 @@ describe("getCollectionDiscoveryState", () => {
 	it("returns collections state when collections exist", () => {
 		const collections = [
 			createQueryEngineCollectionWithSchema("col-1", "Favorites", {
-				fields: { rating: { type: "integer", label: "Rating" } },
+				fields: {
+					rating: {
+						type: "integer",
+						label: "Rating",
+						description: "Rating",
+					},
+				},
 			}),
 		].map(toAppCollection);
 
