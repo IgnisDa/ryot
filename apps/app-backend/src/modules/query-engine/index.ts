@@ -1,4 +1,3 @@
-export type { QueryEngineContext } from "./context";
 export {
 	normalizeRequestPerMode,
 	prepareAndExecute,
@@ -17,6 +16,7 @@ export type {
 	EventsQueryEngineRequest,
 	QueryEngineAggregateResponse,
 	QueryEngineAggregateResponseData,
+	QueryEngineContext,
 	QueryEngineEntityResponse,
 	QueryEngineEntityResponseData,
 	QueryEngineEventsResponse,

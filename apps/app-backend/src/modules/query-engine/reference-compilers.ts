@@ -16,7 +16,7 @@ import {
 	getPropertyType,
 	getSchemaForReference,
 } from "~/lib/views/reference";
-import type { QueryEngineContext } from "./context";
+import type { QueryEngineContext } from "./schemas";
 import {
 	buildCastedValueExpression,
 	buildPropertyPathExpression,

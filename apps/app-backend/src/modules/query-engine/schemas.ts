@@ -5,6 +5,11 @@ import {
 	viewExpressionSchema,
 } from "~/lib/views/expression";
 import { nullableViewPredicateSchema } from "~/lib/views/filtering";
+import type {
+	QueryEngineEventJoinLike,
+	QueryEngineReferenceContext,
+	QueryEngineSchemaLike,
+} from "~/lib/views/reference";
 import {
 	aggregationFieldArraySchema,
 	eventJoinDefinitionArraySchema,
@@ -12,6 +17,11 @@ import {
 	sortDefinitionSchema,
 	timeSeriesMetricSchema,
 } from "../saved-views/schemas";
+
+export type QueryEngineContext = QueryEngineReferenceContext<
+	QueryEngineSchemaLike,
+	QueryEngineEventJoinLike
+>;
 
 const paginationSchema = z.object({
 	page: z.number().int().min(1),
