@@ -30,19 +30,27 @@ export type QueryEngineEventJoinLike<
 	eventSchemaMap: Map<string, TEventSchema>;
 };
 
+// Partial override map for entity SQL column names. Used in events mode where
+// entity data is stored under prefixed column names to avoid conflicts with the
+// event row's own columns (e.g., `entity_properties` instead of `properties`).
+export type EntityColumnOverrides = {
+	id?: string;
+	properties?: string;
+	created_at?: string;
+	updated_at?: string;
+};
+
 export type QueryEngineReferenceContext<
 	TSchema extends QueryEngineSchemaLike = QueryEngineSchemaLike,
 	TJoin extends QueryEngineEventJoinLike = QueryEngineEventJoinLike,
 > = {
-	// Required for SQL compilation (event-aggregate subqueries). Optional during
-	// validation-only paths where no SQL is generated.
 	userId?: string;
+	supportsPrimaryEventRefs?: boolean;
 	schemaMap: Map<string, TSchema>;
 	eventJoinMap: Map<string, TJoin>;
-	// Set of event schema slugs visible to the current user for the entity
-	// schemas in the query. Used to validate event-aggregate references. When
-	// absent, event-aggregate slug validation is skipped.
 	eventSchemaSlugs?: ReadonlySet<string>;
+	entityColumnOverrides?: EntityColumnOverrides;
+	eventSchemaMap?: Map<string, QueryEngineEventSchemaLike[]>;
 };
 
 type RuntimeColumnConfig = {
@@ -148,6 +156,77 @@ const eventJoinColumns = {
 			"Updated At",
 			"datetime",
 			"Event update timestamp",
+		),
+	},
+} satisfies Record<string, RuntimeColumnConfig>;
+
+const eventRuntimeColumns = {
+	id: {
+		filter: true,
+		display: true,
+		property: createRuntimeProperty("ID", "string", "Event id"),
+	},
+	createdAt: {
+		filter: true,
+		display: true,
+		property: createRuntimeProperty(
+			"Created At",
+			"datetime",
+			"Event creation timestamp",
+		),
+	},
+	updatedAt: {
+		filter: true,
+		display: true,
+		property: createRuntimeProperty(
+			"Updated At",
+			"datetime",
+			"Event update timestamp",
+		),
+	},
+} satisfies Record<string, RuntimeColumnConfig>;
+
+const eventSchemaRuntimeColumns = {
+	id: {
+		filter: true,
+		display: true,
+		property: createRuntimeProperty("ID", "string", "Event schema id"),
+	},
+	name: {
+		filter: true,
+		display: true,
+		property: createRuntimeProperty("Name", "string", "Event schema name"),
+	},
+	slug: {
+		filter: true,
+		display: true,
+		property: createRuntimeProperty("Slug", "string", "Event schema slug"),
+	},
+	isBuiltin: {
+		filter: true,
+		display: true,
+		property: createRuntimeProperty(
+			"Is Builtin",
+			"boolean",
+			"Whether the event schema is built in",
+		),
+	},
+	createdAt: {
+		filter: true,
+		display: true,
+		property: createRuntimeProperty(
+			"Created At",
+			"datetime",
+			"Event schema creation timestamp",
+		),
+	},
+	updatedAt: {
+		filter: true,
+		display: true,
+		property: createRuntimeProperty(
+			"Updated At",
+			"datetime",
+			"Event schema update timestamp",
 		),
 	},
 } satisfies Record<string, RuntimeColumnConfig>;
@@ -292,7 +371,7 @@ export const getEventJoinColumnPropertyType = (
 
 const formatEventJoinReferencePrefix = (joinKey: string) => `event.${joinKey}`;
 
-const serializeComparablePropertyDefinition = (
+export const serializeComparablePropertyDefinition = (
 	property: AppPropertyDefinition,
 ): string => {
 	const { description: _description, label: _label, ...rest } = property;
@@ -391,7 +470,7 @@ export const getEventJoinForReference = <
 	TJoin extends QueryEngineEventJoinLike,
 >(
 	eventJoinMap: Map<string, TJoin>,
-	reference: Extract<RuntimeRef, { type: "event" }>,
+	reference: Extract<RuntimeRef, { type: "event-join" }>,
 ): TJoin => {
 	const foundJoin = eventJoinMap.get(reference.joinKey);
 	if (!foundJoin) {
@@ -473,3 +552,53 @@ export const getEventJoinPropertyType = <
 ): PropertyType => {
 	return getEventJoinPropertyDefinition(join, propertyPath).type;
 };
+
+export const getEventColumnPropertyDefinition = (
+	column: string,
+): AppPropertyDefinition | null => {
+	return getRuntimeColumnConfig(eventRuntimeColumns, column)?.property ?? null;
+};
+
+export const getEventColumnPropertyType = (
+	column: string,
+): PropertyType | null => {
+	return getEventColumnPropertyDefinition(column)?.type ?? null;
+};
+
+export const getEventSchemaColumnPropertyDefinition = (
+	column: string,
+): AppPropertyDefinition | null => {
+	return (
+		getRuntimeColumnConfig(eventSchemaRuntimeColumns, column)?.property ?? null
+	);
+};
+
+export const getEventSchemaColumnPropertyType = (
+	column: string,
+): PropertyType | null => {
+	return getEventSchemaColumnPropertyDefinition(column)?.type ?? null;
+};
+
+export const eventSortFilterBuiltins: ReadonlySet<string> = new Set(
+	Object.entries(eventRuntimeColumns)
+		.filter(([, value]) => value.filter)
+		.map(([key]) => key),
+);
+
+export const eventDisplayBuiltins: ReadonlySet<string> = new Set(
+	Object.entries(eventRuntimeColumns)
+		.filter(([, value]) => value.display)
+		.map(([key]) => key),
+);
+
+export const eventSchemaSortFilterBuiltins: ReadonlySet<string> = new Set(
+	Object.entries(eventSchemaRuntimeColumns)
+		.filter(([, value]) => value.filter)
+		.map(([key]) => key),
+);
+
+export const eventSchemaDisplayBuiltins: ReadonlySet<string> = new Set(
+	Object.entries(eventSchemaRuntimeColumns)
+		.filter(([, value]) => value.display)
+		.map(([key]) => key),
+);

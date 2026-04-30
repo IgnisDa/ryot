@@ -1,7 +1,9 @@
 import { dayjs, getQueryEngineField } from "@ryot/ts-utils";
 import {
+	type BuiltinMediaEntitySchemaSlug,
 	builtinMediaEntitySchemaSlugSet,
 	builtinMediaEntitySchemaSlugs,
+	builtinMediaEventSchemaSlugs,
 } from "~/lib/media/constants";
 import { serviceData, serviceError } from "~/lib/result";
 import {
@@ -9,14 +11,15 @@ import {
 	QueryEngineValidationError,
 } from "~/lib/views/errors";
 import {
+	type AggregateQueryEngineRequest,
+	type EntityQueryEngineRequest,
+	type EventsQueryEngineRequest,
 	prepareAndExecute,
+	type QueryEngineItem,
 	type QueryEngineRequest,
-	type QueryEngineResponseData,
+	type QueryEngineResponse,
+	type TimeSeriesQueryEngineRequest,
 } from "~/modules/query-engine";
-import {
-	listRecentActivityEventsForUser,
-	listWeekActivityEventsForUser,
-} from "./repository";
 import {
 	type BuiltInMediaOverviewSourceItem,
 	buildContinueSectionResponse,
@@ -26,6 +29,7 @@ import {
 	buildWeekActivitySectionResponse,
 	type ContinueSourceItem,
 	type RateTheseSourceItem,
+	type RecentActivitySourceItem,
 	type UpNextSourceItem,
 } from "./response-builder";
 
@@ -33,11 +37,6 @@ const mediaOverviewMisconfiguredError =
 	"Built-in media overview configuration is invalid";
 
 const SECTION_LIMITS = { upNext: 6, continue: 6, rateThese: 6, activity: 12 };
-
-const literalExpression = (value: unknown) => ({
-	value,
-	type: "literal" as const,
-});
 
 const computedFieldExpression = (key: string) => ({
 	type: "reference" as const,
@@ -59,14 +58,14 @@ const entityPropertyExpression = (slug: string, property: string) => ({
 
 const eventJoinColumnExpression = (joinKey: string, column: "createdAt") => ({
 	type: "reference" as const,
-	reference: { joinKey, path: [column], type: "event" as const },
+	reference: { joinKey, path: [column], type: "event-join" as const },
 });
 
 const eventJoinPropertyExpression = (joinKey: string, property: string) => ({
 	type: "reference" as const,
 	reference: {
 		joinKey,
-		type: "event" as const,
+		type: "event-join" as const,
 		path: ["properties", property],
 	},
 });
@@ -76,9 +75,30 @@ const entitySchemaExpression = (column: string) => ({
 	reference: { type: "entity-schema" as const, path: [column] },
 });
 
+const eventColumnExpression = (column: "createdAt" | "id") => ({
+	type: "reference" as const,
+	reference: { type: "event" as const, path: [column] },
+});
+
+const eventPropertyExpression = (
+	eventSchemaSlug: string,
+	property: string,
+) => ({
+	type: "reference" as const,
+	reference: {
+		eventSchemaSlug,
+		type: "event" as const,
+		path: ["properties", property],
+	},
+});
+
+const eventSchemaColumnExpression = (column: string) => ({
+	type: "reference" as const,
+	reference: { type: "event-schema" as const, path: [column] },
+});
+
 const coalesceExpression = (
 	...values: Array<
-		| ReturnType<typeof literalExpression>
 		| ReturnType<typeof entityColumnExpression>
 		| ReturnType<typeof computedFieldExpression>
 		| ReturnType<typeof entityPropertyExpression>
@@ -96,10 +116,8 @@ const mediaEntityColumnExpression = (
 		),
 	);
 
-const getFieldValue = (
-	item: QueryEngineResponseData["items"][number],
-	key: string,
-) => getQueryEngineField(item, key)?.value;
+const getFieldValue = (item: QueryEngineItem, key: string) =>
+	getQueryEngineField(item, key)?.value;
 
 const toNullableNumber = (value: unknown) => {
 	if (typeof value === "number" && Number.isFinite(value)) {
@@ -126,7 +144,7 @@ const toNullableDate = (value: unknown): Date | null => {
 };
 
 const toBuiltinMediaSourceItem = (
-	item: QueryEngineResponseData["items"][number],
+	item: QueryEngineItem,
 ): BuiltInMediaOverviewSourceItem | null => {
 	const slug = getFieldValue(item, "entitySchemaSlug");
 	if (typeof slug !== "string" || !isBuiltInMediaEntitySchemaSlug(slug)) {
@@ -141,9 +159,9 @@ const toBuiltinMediaSourceItem = (
 	return {
 		id: entityId,
 		title: entityName,
-		image: toNullableImage(getFieldValue(item, "entityImage")),
 		entitySchemaSlug: slug,
 		reviewAt: toNullableDate(getFieldValue(item, "reviewAt")),
+		image: toNullableImage(getFieldValue(item, "entityImage")),
 		backlogAt: toNullableDate(getFieldValue(item, "backlogAt")),
 		progressAt: toNullableDate(getFieldValue(item, "progressAt")),
 		completeAt: toNullableDate(getFieldValue(item, "completeAt")),
@@ -152,32 +170,6 @@ const toBuiltinMediaSourceItem = (
 		publishYear: toNullableNumber(getFieldValue(item, "publishYear")),
 		reviewRating: toNullableNumber(getFieldValue(item, "reviewRating")),
 		progressPercent: toNullableNumber(getFieldValue(item, "progressPercent")),
-	};
-};
-
-type LibraryStatsSourceItem = Pick<
-	BuiltInMediaOverviewSourceItem,
-	| "backlogAt"
-	| "completeAt"
-	| "entitySchemaSlug"
-	| "progressAt"
-	| "reviewRating"
->;
-
-const toLibraryStatsSourceItem = (
-	item: QueryEngineResponseData["items"][number],
-): LibraryStatsSourceItem | null => {
-	const slug = getFieldValue(item, "entitySchemaSlug");
-	if (typeof slug !== "string" || !isBuiltInMediaEntitySchemaSlug(slug)) {
-		return null;
-	}
-
-	return {
-		entitySchemaSlug: slug,
-		reviewRating: toNullableNumber(getFieldValue(item, "reviewRating")),
-		backlogAt: toNullableDate(getFieldValue(item, "backlogAt")),
-		progressAt: toNullableDate(getFieldValue(item, "progressAt")),
-		completeAt: toNullableDate(getFieldValue(item, "completeAt")),
 	};
 };
 
@@ -209,20 +201,10 @@ const toNullableImage = (
 	return null;
 };
 
-type BuildBaseRequestOptions = {
-	includeEntityIdentity?: boolean;
-};
-
 const buildBaseRequest = (): Omit<
-	QueryEngineRequest,
+	EntityQueryEngineRequest,
 	"filter" | "pagination" | "sort"
 > => {
-	return buildBaseRequestWithOptions();
-};
-
-const buildBaseRequestWithOptions = (
-	options: BuildBaseRequestOptions = {},
-): Omit<QueryEngineRequest, "filter" | "pagination" | "sort"> => {
 	const entityCreatedAt = mediaEntityColumnExpression("createdAt");
 	const publishYear = coalesceExpression(
 		entityPropertyExpression("book", "publishYear"),
@@ -246,6 +228,7 @@ const buildBaseRequestWithOptions = (
 	);
 
 	return {
+		mode: "entities",
 		scope: [...builtinMediaEntitySchemaSlugs],
 		relationships: [{ relationshipSchemaSlug: "in-library" }],
 		eventJoins: [
@@ -260,19 +243,15 @@ const buildBaseRequestWithOptions = (
 			{ key: "entityCreatedAt", expression: entityCreatedAt },
 		],
 		fields: [
-			...(options.includeEntityIdentity === false
-				? []
-				: [
-						{ key: "entityId", expression: mediaEntityColumnExpression("id") },
-						{
-							key: "entityName",
-							expression: mediaEntityColumnExpression("name"),
-						},
-						{
-							key: "entityImage",
-							expression: mediaEntityColumnExpression("image"),
-						},
-					]),
+			{ key: "entityId", expression: mediaEntityColumnExpression("id") },
+			{
+				key: "entityName",
+				expression: mediaEntityColumnExpression("name"),
+			},
+			{
+				key: "entityImage",
+				expression: mediaEntityColumnExpression("image"),
+			},
 			{
 				key: "entitySchemaSlug",
 				expression: entitySchemaExpression("slug"),
@@ -314,31 +293,22 @@ const buildBaseRequestWithOptions = (
 	};
 };
 
-type ExecuteSectionQuery = (
+type ExecuteQuery = (
 	userId: string,
 	request: QueryEngineRequest,
-) => Promise<QueryEngineResponseData>;
+) => Promise<QueryEngineResponse>;
 
-type MediaServiceDeps = {
-	executeSectionQuery: ExecuteSectionQuery;
-	listWeekActivityEventsForUser?: typeof listWeekActivityEventsForUser;
-	listRecentActivityEventsForUser?: typeof listRecentActivityEventsForUser;
-};
+type MediaServiceDeps = { executeQuery: ExecuteQuery };
 
 const defaultDeps: MediaServiceDeps = {
-	listWeekActivityEventsForUser,
-	listRecentActivityEventsForUser,
-	executeSectionQuery: (userId, request) =>
-		prepareAndExecute({ userId, request }),
+	executeQuery: (userId, request) => prepareAndExecute({ userId, request }),
 };
 
-const getDateKey = (date: Date) => dayjs.utc(date).format("YYYY-MM-DD");
-
-const getCurrentWeekRange = (now = dayjs().toDate()) => {
-	const startAt = dayjs.utc(now).startOf("isoWeek");
-	const endAt = startAt.add(7, "day");
-
-	return { startAt: startAt.toDate(), endAt: endAt.toDate() };
+const requireEntitiesResult = (result: QueryEngineResponse) => {
+	if (result.mode !== "entities") {
+		throw new Error("Expected entity-mode query engine response");
+	}
+	return result.data;
 };
 
 export const getContinueItems = async (
@@ -351,17 +321,11 @@ export const getContinueItems = async (
 	const filter = {
 		type: "and" as const,
 		predicates: [
-			{
-				expression: progressAtRef,
-				type: "isNotNull" as const,
-			},
+			{ expression: progressAtRef, type: "isNotNull" as const },
 			{
 				type: "or" as const,
 				predicates: [
-					{
-						type: "isNull" as const,
-						expression: completeAtRef,
-					},
+					{ type: "isNull" as const, expression: completeAtRef },
 					{
 						left: progressAtRef,
 						right: completeAtRef,
@@ -373,7 +337,7 @@ export const getContinueItems = async (
 		],
 	};
 
-	const request: QueryEngineRequest = {
+	const request: EntityQueryEngineRequest = {
 		...buildBaseRequest(),
 		filter,
 		sort: { direction: "desc", expression: progressAtRef },
@@ -381,7 +345,9 @@ export const getContinueItems = async (
 	};
 
 	try {
-		const result = await deps.executeSectionQuery(userId, request);
+		const result = requireEntitiesResult(
+			await deps.executeQuery(userId, request),
+		);
 		const items = result.items.flatMap((item) => {
 			const mapped = toBuiltinMediaSourceItem(item);
 			if (mapped?.progressAt) {
@@ -440,7 +406,7 @@ export const getUpNextItems = async (
 		],
 	};
 
-	const request: QueryEngineRequest = {
+	const request: EntityQueryEngineRequest = {
 		...buildBaseRequest(),
 		filter,
 		sort: { direction: "desc", expression: backlogAtRef },
@@ -448,7 +414,9 @@ export const getUpNextItems = async (
 	};
 
 	try {
-		const result = await deps.executeSectionQuery(userId, request);
+		const result = requireEntitiesResult(
+			await deps.executeQuery(userId, request),
+		);
 		const items = result.items.flatMap((item) => {
 			const mapped = toBuiltinMediaSourceItem(item);
 			if (mapped?.backlogAt) {
@@ -500,7 +468,7 @@ export const getRateTheseItems = async (
 		completeAtRef,
 	);
 
-	const request: QueryEngineRequest = {
+	const request: EntityQueryEngineRequest = {
 		...buildBaseRequest(),
 		filter,
 		pagination: { page: 1, limit: SECTION_LIMITS.rateThese },
@@ -508,7 +476,9 @@ export const getRateTheseItems = async (
 	};
 
 	try {
-		const result = await deps.executeSectionQuery(userId, request);
+		const result = requireEntitiesResult(
+			await deps.executeQuery(userId, request),
+		);
 		const items = result.items.flatMap((item) => {
 			const mapped = toBuiltinMediaSourceItem(item);
 			if (mapped?.completeAt) {
@@ -528,18 +498,121 @@ export const getRateTheseItems = async (
 	}
 };
 
+const toRecentActivitySourceItem = (
+	item: QueryEngineItem,
+): RecentActivitySourceItem | null => {
+	const eventId = getFieldValue(item, "eventId");
+	const entityId = getFieldValue(item, "entityId");
+	const entityName = getFieldValue(item, "entityName");
+	const eventSchemaSlug = getFieldValue(item, "eventSchemaSlug");
+	const entitySchemaSlug = getFieldValue(item, "entitySchemaSlug");
+
+	if (
+		typeof eventId !== "string" ||
+		typeof entityId !== "string" ||
+		typeof entityName !== "string" ||
+		typeof eventSchemaSlug !== "string" ||
+		typeof entitySchemaSlug !== "string"
+	) {
+		return null;
+	}
+
+	if (
+		!builtinMediaEventSchemaSlugs.includes(
+			eventSchemaSlug as (typeof builtinMediaEventSchemaSlugs)[number],
+		) ||
+		!isBuiltInMediaEntitySchemaSlug(entitySchemaSlug)
+	) {
+		return null;
+	}
+
+	const eventCreatedAt = toNullableDate(getFieldValue(item, "eventCreatedAt"));
+	if (!eventCreatedAt) {
+		return null;
+	}
+
+	const completedOn = toNullableDate(getFieldValue(item, "eventCompletedOn"));
+	const occurredAt =
+		eventSchemaSlug === "complete" && completedOn
+			? completedOn
+			: eventCreatedAt;
+
+	return {
+		entityId,
+		occurredAt,
+		id: eventId,
+		rating: toNullableNumber(getFieldValue(item, "eventRating")),
+		eventSchemaSlug:
+			eventSchemaSlug as (typeof builtinMediaEventSchemaSlugs)[number],
+		entity: {
+			name: entityName,
+			entitySchemaSlug,
+			image: toNullableImage(getFieldValue(item, "entityImage")),
+		},
+	};
+};
+
 export const getRecentActivityItems = async (
 	userId: string,
 	deps: MediaServiceDeps = defaultDeps,
 ) => {
-	const listRecentActivity =
-		deps.listRecentActivityEventsForUser ?? listRecentActivityEventsForUser;
-	const items = await listRecentActivity({
-		userId,
-		limit: SECTION_LIMITS.activity,
-	});
+	const request: EventsQueryEngineRequest = {
+		mode: "events",
+		filter: null,
+		eventJoins: [],
+		computedFields: [],
+		scope: [...builtinMediaEntitySchemaSlugs],
+		eventSchemas: [...builtinMediaEventSchemaSlugs],
+		pagination: { page: 1, limit: SECTION_LIMITS.activity },
+		sort: { direction: "desc", expression: eventColumnExpression("createdAt") },
+		fields: [
+			{ key: "eventId", expression: eventColumnExpression("id") },
+			{ key: "eventCreatedAt", expression: eventColumnExpression("createdAt") },
+			{
+				key: "eventSchemaSlug",
+				expression: eventSchemaColumnExpression("slug"),
+			},
+			{
+				key: "eventCompletedOn",
+				expression: eventPropertyExpression("complete", "completedOn"),
+			},
+			{
+				key: "eventRating",
+				expression: eventPropertyExpression("review", "rating"),
+			},
+			{ key: "entityId", expression: mediaEntityColumnExpression("id") },
+			{ key: "entityName", expression: mediaEntityColumnExpression("name") },
+			{ key: "entityImage", expression: mediaEntityColumnExpression("image") },
+			{ key: "entitySchemaSlug", expression: entitySchemaExpression("slug") },
+		],
+	};
 
-	return serviceData(buildRecentActivitySectionResponse(items));
+	try {
+		const result = await deps.executeQuery(userId, request);
+		if (result.mode !== "events") {
+			throw new Error("Expected events-mode query engine response");
+		}
+		const items = result.data.items.flatMap((item) => {
+			const mapped = toRecentActivitySourceItem(item);
+			return mapped ? [mapped] : [];
+		});
+		return serviceData(buildRecentActivitySectionResponse(items));
+	} catch (error) {
+		if (error instanceof QueryEngineNotFoundError) {
+			return serviceError("not_found", mediaOverviewMisconfiguredError);
+		}
+		if (error instanceof QueryEngineValidationError) {
+			return serviceError("validation", mediaOverviewMisconfiguredError);
+		}
+		throw error;
+	}
+};
+
+const getCurrentWeekRange = (now = dayjs().toDate()) => {
+	const startAt = dayjs.utc(now).startOf("isoWeek");
+	const endAt = startAt.add(7, "day");
+
+	return { endAt: endAt.toISOString(), startAt: startAt.toISOString() };
 };
 
 export const getWeekActivity = async (
@@ -547,115 +620,166 @@ export const getWeekActivity = async (
 	deps: MediaServiceDeps = defaultDeps,
 ) => {
 	const { startAt, endAt } = getCurrentWeekRange();
-	const listWeekActivity =
-		deps.listWeekActivityEventsForUser ?? listWeekActivityEventsForUser;
-	const events = await listWeekActivity({ endAt, userId, startAt });
-	const countByDayKey = new Map<string, number>();
 
-	for (const event of events) {
-		const key = getDateKey(event.occurredAt);
-		countByDayKey.set(key, (countByDayKey.get(key) ?? 0) + 1);
+	const request: TimeSeriesQueryEngineRequest = {
+		filter: null,
+		bucket: "day",
+		computedFields: [],
+		mode: "timeSeries",
+		metric: { type: "count" },
+		dateRange: { startAt, endAt },
+		scope: [...builtinMediaEntitySchemaSlugs],
+		eventSchemas: [...builtinMediaEventSchemaSlugs],
+	};
+
+	try {
+		const result = await deps.executeQuery(userId, request);
+		if (result.mode !== "timeSeries") {
+			throw new Error("Expected timeSeries-mode query engine response");
+		}
+		const items = result.data.buckets.map((bucket) => ({
+			date: dayjs.utc(bucket.date).toDate(),
+			count: bucket.value,
+		}));
+		return serviceData(buildWeekActivitySectionResponse({ items }));
+	} catch (error) {
+		if (error instanceof QueryEngineNotFoundError) {
+			return serviceError("not_found", mediaOverviewMisconfiguredError);
+		}
+		if (error instanceof QueryEngineValidationError) {
+			return serviceError("validation", mediaOverviewMisconfiguredError);
+		}
+		throw error;
 	}
-
-	const items = Array.from({ length: 7 }, (_, index) => {
-		const date = dayjs.utc(startAt).add(index, "day").toDate();
-		return { date, count: countByDayKey.get(getDateKey(date)) ?? 0 };
-	});
-
-	return serviceData(buildWeekActivitySectionResponse({ items }));
 };
 
-const isBacklogItem = (
-	item: Pick<LibraryStatsSourceItem, "backlogAt" | "completeAt" | "progressAt">,
-): boolean => {
-	return (
-		item.backlogAt !== null &&
-		item.progressAt === null &&
-		item.completeAt === null
-	);
+const mediaLibraryEventJoins: AggregateQueryEngineRequest["eventJoins"] = [
+	{ key: "review", kind: "latestEvent", eventSchemaSlug: "review" },
+	{ key: "backlog", kind: "latestEvent", eventSchemaSlug: "backlog" },
+	{ key: "progress", kind: "latestEvent", eventSchemaSlug: "progress" },
+	{ key: "complete", kind: "latestEvent", eventSchemaSlug: "complete" },
+];
+
+const backlogAtRef = eventJoinColumnExpression("backlog", "createdAt");
+const progressAtRef = eventJoinColumnExpression("progress", "createdAt");
+const completeAtRef = eventJoinColumnExpression("complete", "createdAt");
+
+const inBacklogPredicate = {
+	type: "and" as const,
+	predicates: [
+		{ type: "isNotNull" as const, expression: backlogAtRef },
+		{ type: "isNull" as const, expression: progressAtRef },
+		{ type: "isNull" as const, expression: completeAtRef },
+	],
 };
 
-const isInProgressItem = (
-	item: Pick<LibraryStatsSourceItem, "completeAt" | "progressAt">,
-): boolean => {
-	if (item.progressAt === null) {
-		return false;
-	}
-	if (item.completeAt === null) {
-		return true;
-	}
-	return dayjs(item.progressAt).isAfter(item.completeAt);
+const inProgressPredicate = {
+	type: "and" as const,
+	predicates: [
+		{ type: "isNotNull" as const, expression: progressAtRef },
+		{
+			type: "or" as const,
+			predicates: [
+				{ type: "isNull" as const, expression: completeAtRef },
+				{
+					left: progressAtRef,
+					right: completeAtRef,
+					operator: "gt" as const,
+					type: "comparison" as const,
+				},
+			],
+		},
+	],
 };
 
-const isCompletedItem = (
-	item: Pick<LibraryStatsSourceItem, "completeAt" | "progressAt">,
-): boolean => {
-	if (item.completeAt === null) {
-		return false;
-	}
-	if (item.progressAt === null) {
-		return true;
-	}
-	return dayjs(item.completeAt).isAfter(item.progressAt);
+const completedPredicate = {
+	type: "and" as const,
+	predicates: [
+		{ type: "isNotNull" as const, expression: completeAtRef },
+		{
+			type: "or" as const,
+			predicates: [
+				{ type: "isNull" as const, expression: progressAtRef },
+				{
+					left: completeAtRef,
+					right: progressAtRef,
+					operator: "gt" as const,
+					type: "comparison" as const,
+				},
+			],
+		},
+	],
 };
 
 export const getLibraryStats = async (
 	userId: string,
 	deps: MediaServiceDeps = defaultDeps,
 ) => {
-	// TODO: Limit of 10000 entities. If user has more tracked entities,
-	// stats will be incomplete. Consider pagination or database-level
-	// aggregation if this becomes a constraint.
-	const request: QueryEngineRequest = {
-		...buildBaseRequestWithOptions({ includeEntityIdentity: false }),
+	const request: AggregateQueryEngineRequest = {
 		filter: null,
-		pagination: { page: 1, limit: 10000 },
-		sort: {
-			direction: "desc",
-			expression: computedFieldExpression("entityCreatedAt"),
-		},
+		mode: "aggregate",
+		computedFields: [],
+		eventJoins: mediaLibraryEventJoins,
+		scope: [...builtinMediaEntitySchemaSlugs],
+		relationships: [{ relationshipSchemaSlug: "in-library" }],
+		aggregations: [
+			{ key: "total", aggregation: { type: "count" } },
+			{
+				key: "inBacklog",
+				aggregation: { type: "countWhere", predicate: inBacklogPredicate },
+			},
+			{
+				key: "inProgress",
+				aggregation: { type: "countWhere", predicate: inProgressPredicate },
+			},
+			{
+				key: "completed",
+				aggregation: { type: "countWhere", predicate: completedPredicate },
+			},
+			{
+				key: "avgRating",
+				aggregation: {
+					type: "avg",
+					expression: eventJoinPropertyExpression("review", "rating"),
+				},
+			},
+			{
+				key: "bySchema",
+				aggregation: {
+					type: "countBy",
+					groupBy: entitySchemaExpression("slug"),
+				},
+			},
+		],
 	};
 
 	try {
-		const result = await deps.executeSectionQuery(userId, request);
-		const items = result.items.flatMap((item) => {
-			const mapped = toLibraryStatsSourceItem(item);
-			if (mapped) {
-				return [mapped];
-			}
-			return [];
-		});
-
-		const entityTypeCounts = new Map<string, number>();
-		let inBacklog = 0;
-		let completed = 0;
-		let ratingSum = 0;
-		let inProgress = 0;
-		let ratingCount = 0;
-
-		for (const item of items) {
-			entityTypeCounts.set(
-				item.entitySchemaSlug,
-				(entityTypeCounts.get(item.entitySchemaSlug) ?? 0) + 1,
-			);
-
-			if (isBacklogItem(item)) {
-				inBacklog++;
-			}
-			if (isInProgressItem(item)) {
-				inProgress++;
-			}
-			if (isCompletedItem(item)) {
-				completed++;
-			}
-			if (item.reviewRating !== null) {
-				ratingCount++;
-				ratingSum += item.reviewRating;
-			}
+		const result = await deps.executeQuery(userId, request);
+		if (result.mode !== "aggregate") {
+			throw new Error("Expected aggregate-mode query engine response");
 		}
 
-		const total = items.length;
-		const avgRating = ratingCount > 0 ? ratingSum / ratingCount : null;
+		const findValue = (key: string) =>
+			result.data.values.find((v) => v.key === key)?.value;
+
+		const bySchemaRaw = findValue("bySchema");
+		const total = toNullableNumber(findValue("total")) ?? 0;
+		const avgRating = toNullableNumber(findValue("avgRating"));
+		const inBacklog = toNullableNumber(findValue("inBacklog")) ?? 0;
+		const completed = toNullableNumber(findValue("completed")) ?? 0;
+		const inProgress = toNullableNumber(findValue("inProgress")) ?? 0;
+		const entityTypeCounts =
+			bySchemaRaw && typeof bySchemaRaw === "object"
+				? (Object.fromEntries(
+						Object.entries(bySchemaRaw).flatMap(([key, val]) => {
+							const count = toNullableNumber(val);
+							if (count === null || !isBuiltInMediaEntitySchemaSlug(key)) {
+								return [];
+							}
+							return [[key, count]];
+						}),
+					) as Record<BuiltinMediaEntitySchemaSlug, number>)
+				: ({} as Record<BuiltinMediaEntitySchemaSlug, number>);
 
 		return serviceData({
 			total,
@@ -663,7 +787,7 @@ export const getLibraryStats = async (
 			completed,
 			avgRating,
 			inProgress,
-			entityTypeCounts: Object.fromEntries(entityTypeCounts),
+			entityTypeCounts,
 		});
 	} catch (error) {
 		if (error instanceof QueryEngineNotFoundError) {

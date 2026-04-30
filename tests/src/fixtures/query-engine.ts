@@ -16,24 +16,37 @@ import {
 	type ViewExpression,
 } from "./view-language";
 
-type ExecuteQueryEngineBody = NonNullable<
-	paths["/query-engine/execute"]["post"]["requestBody"]
->["content"]["application/json"];
+type ExecuteQueryEngineBody = Extract<
+	NonNullable<
+		paths["/query-engine/execute"]["post"]["requestBody"]
+	>["content"]["application/json"],
+	{ mode: "entities" }
+>;
 type ExecuteQueryEngineResponse =
 	paths["/query-engine/execute"]["post"]["responses"][200]["content"]["application/json"];
+type ExecuteEntityQueryEngineResponse = Extract<
+	ExecuteQueryEngineResponse["data"],
+	{ mode: "entities" }
+>;
 type ComputedField = NonNullable<
 	ExecuteQueryEngineBody["computedFields"]
 >[number];
-type QueryEngineResponseItem =
-	ExecuteQueryEngineResponse["data"]["items"][number];
+type QueryEngineResponseItem = Extract<
+	ExecuteQueryEngineResponse["data"],
+	{ mode: "entities" }
+>["data"]["items"][number];
 
 type RuntimeField = {
 	key: string;
 	expression: ViewExpression;
 };
 
-export type QueryEngineRequest = Omit<ExecuteQueryEngineBody, "fields"> & {
+export type QueryEngineRequest = Omit<
+	ExecuteQueryEngineBody,
+	"fields" | "mode"
+> & {
 	fields: RuntimeField[];
+	mode?: ExecuteQueryEngineBody["mode"];
 };
 
 type GridDisplayConfiguration = CardDisplayConfigurationInput;
@@ -182,6 +195,7 @@ const buildQueryEngineRequest = (
 	},
 ): QueryEngineRequest => ({
 	eventJoins: [],
+	mode: "entities",
 	computedFields: [],
 	pagination: { page: 1, limit: 10 },
 	sort: defaultSort(input.scope),
@@ -289,10 +303,16 @@ export async function executeQueryEngine(
 	cookies: string,
 	body: QueryEngineRequest,
 ) {
-	return client.POST("/query-engine/execute", {
-		body,
+	const result = await client.POST("/query-engine/execute", {
+		body: { ...body, mode: body.mode ?? "entities" },
 		headers: { Cookie: cookies },
 	});
+
+	return {
+		error: result.error,
+		response: result.response,
+		data: result.data?.data as ExecuteEntityQueryEngineResponse | undefined,
+	};
 }
 
 export async function createQueryEngineEntity(input: CreateEntityInput) {

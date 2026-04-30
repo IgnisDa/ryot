@@ -40,7 +40,9 @@ export type RuntimeRef =
 	| { key: string; type: "computed-field" }
 	| { path: string[]; type: "entity-schema" }
 	| { slug: string; path: string[]; type: "entity" }
-	| { joinKey: string; path: string[]; type: "event" }
+	| { joinKey: string; path: string[]; type: "event-join" }
+	| { eventSchemaSlug?: string; path: string[]; type: "event" }
+	| { path: string[]; type: "event-schema" }
 	| {
 			path: string[];
 			eventSchemaSlug: string;

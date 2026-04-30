@@ -18,9 +18,11 @@ import {
 import {
 	getEntityColumnPropertyType,
 	getEntitySchemaColumnPropertyType,
+	getEventColumnPropertyType,
 	getEventJoinColumnPropertyType,
 	getEventJoinForReference,
 	getEventJoinPropertyType,
+	getEventSchemaColumnPropertyType,
 	getPropertyType,
 	getSchemaForReference,
 	type PropertyType,
@@ -167,6 +169,7 @@ const buildEntityExpression = <
 		input.context.schemaMap,
 		input.reference,
 	);
+	const overrides = input.context.entityColumnOverrides;
 
 	if (input.reference.path[0] === "properties") {
 		const propertyPath = input.reference.path.slice(1);
@@ -177,7 +180,8 @@ const buildEntityExpression = <
 			);
 		}
 
-		const base = sql`${sql.raw(input.alias)}.properties`;
+		const propertiesCol = overrides?.properties ?? "properties";
+		const base = sql`${sql.raw(`${input.alias}.${propertiesCol}`)}`;
 		const valueExpression = buildCastedValueExpression(
 			input.targetType ?? normalizeExpressionPropertyType(propertyType),
 			{
@@ -202,22 +206,35 @@ const buildEntityExpression = <
 			"Entity reference path must not be empty",
 		);
 	}
-	const expression = match(column)
-		.with("id", () => sql`${sql.raw(input.alias)}.id`)
-		.with("name", () => sql`${sql.raw(input.alias)}.name`)
-		.with("image", () => sql`${sql.raw(input.alias)}.image`)
-		.with("createdAt", () => sql`${sql.raw(input.alias)}.created_at`)
-		.with("updatedAt", () => sql`${sql.raw(input.alias)}.updated_at`)
-		.with("externalId", () => sql`${sql.raw(input.alias)}.external_id`)
-		.with(
-			"sandboxScriptId",
-			() => sql`${sql.raw(input.alias)}.sandbox_script_id`,
-		)
-		.otherwise(() => {
-			throw new QueryEngineValidationError(
-				`Unsupported entity column '${column}'`,
-			);
-		});
+
+	const sqlCol = (() => {
+		if (column === "id") {
+			return overrides?.id ?? "id";
+		}
+		if (column === "createdAt") {
+			return overrides?.created_at ?? "created_at";
+		}
+		if (column === "updatedAt") {
+			return overrides?.updated_at ?? "updated_at";
+		}
+		return null;
+	})();
+
+	const expression = sqlCol
+		? sql`${sql.raw(`${input.alias}.${sqlCol}`)}`
+		: match(column)
+				.with("name", () => sql`${sql.raw(input.alias)}.name`)
+				.with("image", () => sql`${sql.raw(input.alias)}.image`)
+				.with("externalId", () => sql`${sql.raw(input.alias)}.external_id`)
+				.with(
+					"sandboxScriptId",
+					() => sql`${sql.raw(input.alias)}.sandbox_script_id`,
+				)
+				.otherwise(() => {
+					throw new QueryEngineValidationError(
+						`Unsupported entity column '${column}'`,
+					);
+				});
 
 	const actualType =
 		column === "image"
@@ -248,13 +265,13 @@ const buildEntityExpression = <
 	return sql`case when ${sql.raw(input.alias)}.entity_schema_data ->> ${"slug"} = ${input.reference.slug} then ${valueExpression} else null end`;
 };
 
-const buildEventExpression = <
+const buildEventJoinExpression = <
 	TSchema extends QueryEngineSchemaLike,
 	TJoin extends QueryEngineEventJoinLike,
 >(input: {
 	alias: string;
 	targetType?: PropertyType;
-	reference: Extract<RuntimeRef, { type: "event" }>;
+	reference: Extract<RuntimeRef, { type: "event-join" }>;
 	context: QueryEngineReferenceContext<TSchema, TJoin>;
 }) => {
 	const joinColumn = buildEventJoinJsonColumnExpression(
@@ -291,7 +308,7 @@ const buildEventExpression = <
 	const [column] = input.reference.path;
 	if (!column) {
 		throw new QueryEngineValidationError(
-			"Event reference path must not be empty",
+			"Event join reference path must not be empty",
 		);
 	}
 	const propertyType = getEventJoinColumnPropertyType(column);
@@ -368,9 +385,6 @@ const buildEventAggregateExpression = <
 
 	let subquery: SqlExpression;
 	if (aggregation === "count") {
-		// `count` counts all matching events regardless of the property path.
-		// The Zod schema requires a non-empty path for all aggregation types, but
-		// for `count` the path is not used in the SQL.
 		subquery = sql`(
 			select count(*)
 			from ${event} as e_agg
@@ -393,9 +407,6 @@ const buildEventAggregateExpression = <
 			"text",
 		);
 		const numericValue = sql`case when jsonb_typeof(${propertyJsonExpr}) = 'number' then (${propertyTextExpr})::numeric else null end`;
-		// Safe to use sql.raw: `aggregation` is constrained to the Zod enum
-		// ("avg" | "count" | "max" | "min" | "sum") validated at the API boundary,
-		// with a compile-time alignment assertion in expression.ts.
 		const aggFn = sql.raw(aggregation);
 		subquery = sql`(
 			select ${aggFn}(${numericValue})
@@ -410,6 +421,114 @@ const buildEventAggregateExpression = <
 	return input.targetType
 		? castExpressionToType(subquery, input.targetType)
 		: castExpressionToType(subquery, actualType);
+};
+
+const buildEventExpression = <
+	TSchema extends QueryEngineSchemaLike,
+	TJoin extends QueryEngineEventJoinLike,
+>(input: {
+	alias: string;
+	targetType?: PropertyType;
+	reference: Extract<RuntimeRef, { type: "event" }>;
+	context: QueryEngineReferenceContext<TSchema, TJoin>;
+}) => {
+	if (input.reference.path[0] === "properties") {
+		const propertyPath = input.reference.path.slice(1);
+		const { eventSchemaSlug } = input.reference;
+
+		const base = sql`${sql.raw(input.alias)}.properties`;
+		const propertyType = (() => {
+			if (eventSchemaSlug && input.context.eventSchemaMap) {
+				const eventSchemas = input.context.eventSchemaMap.get(eventSchemaSlug);
+				const [schema] = eventSchemas ?? [];
+				if (schema) {
+					return getPropertyType(schema, propertyPath) ?? "string";
+				}
+			}
+
+			return "string" as const;
+		})();
+
+		const valueExpression = buildCastedValueExpression(
+			input.targetType ?? normalizeExpressionPropertyType(propertyType),
+			{
+				propertyJson: buildPropertyPathExpression(base, propertyPath, "json"),
+				propertyText: buildPropertyPathExpression(base, propertyPath, "text"),
+			},
+		);
+
+		if (!eventSchemaSlug) {
+			return valueExpression;
+		}
+
+		return sql`case when ${sql.raw(input.alias)}.event_schema_data ->> ${"slug"} = ${eventSchemaSlug} then ${valueExpression} else null end`;
+	}
+
+	const [column] = input.reference.path;
+	if (!column) {
+		throw new QueryEngineValidationError(
+			"Event reference path must not be empty",
+		);
+	}
+
+	const propertyType = getEventColumnPropertyType(column);
+	if (!propertyType) {
+		throw new QueryEngineValidationError(
+			`Unsupported event column 'event.${column}'`,
+		);
+	}
+
+	const expression = match(column)
+		.with("id", () => sql`${sql.raw(input.alias)}.id`)
+		.with("createdAt", () => sql`${sql.raw(input.alias)}.created_at`)
+		.with("updatedAt", () => sql`${sql.raw(input.alias)}.updated_at`)
+		.otherwise(() => {
+			throw new QueryEngineValidationError(
+				`Unsupported event column 'event.${column}'`,
+			);
+		});
+
+	return input.targetType
+		? castExpressionToType(expression, input.targetType)
+		: castExpressionToType(
+				expression,
+				normalizeExpressionPropertyType(propertyType),
+			);
+};
+
+const buildEventSchemaExpression = (input: {
+	alias: string;
+	targetType?: PropertyType;
+	reference: Extract<RuntimeRef, { type: "event-schema" }>;
+}) => {
+	const [column] = input.reference.path;
+	if (!column) {
+		throw new QueryEngineValidationError(
+			"Event schema reference path must not be empty",
+		);
+	}
+
+	if (input.reference.path.length > 1) {
+		throw new QueryEngineValidationError(
+			"Event schema references do not support nested paths",
+		);
+	}
+
+	const propertyType = getEventSchemaColumnPropertyType(column);
+	if (!propertyType) {
+		throw new QueryEngineValidationError(
+			`Unsupported event schema column '${column}'`,
+		);
+	}
+
+	const expression = sql`${sql.raw(input.alias)}.event_schema_data ->> ${column}`;
+
+	return input.targetType
+		? castExpressionToType(expression, input.targetType)
+		: castExpressionToType(
+				expression,
+				normalizeExpressionPropertyType(propertyType),
+			);
 };
 
 export const createScalarExpressionCompiler = <
@@ -590,12 +709,35 @@ export const createScalarExpressionCompiler = <
 			});
 		}
 
-		return buildEventExpression({
-			reference,
-			targetType,
-			alias: input.alias,
-			context: input.context,
-		});
+		if (reference.type === "event-join") {
+			return buildEventJoinExpression({
+				reference,
+				targetType,
+				alias: input.alias,
+				context: input.context,
+			});
+		}
+
+		if (reference.type === "event") {
+			return buildEventExpression({
+				reference,
+				targetType,
+				alias: input.alias,
+				context: input.context,
+			});
+		}
+
+		if (reference.type === "event-schema") {
+			return buildEventSchemaExpression({
+				reference,
+				targetType,
+				alias: input.alias,
+			});
+		}
+
+		throw new QueryEngineValidationError(
+			`Reference type '${(reference as { type: string }).type}' is not supported in this query mode`,
+		);
 	};
 
 	return { compile, getTypeInfo };

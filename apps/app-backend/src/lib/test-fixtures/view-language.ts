@@ -6,7 +6,7 @@ export const eventExpression = (
 	field: string,
 ): ViewExpression => ({
 	type: "reference",
-	reference: { type: "event", joinKey, path: ["properties", field] },
+	reference: { type: "event-join", joinKey, path: ["properties", field] },
 });
 
 export const literalExpression = (value: unknown): ViewExpression => ({

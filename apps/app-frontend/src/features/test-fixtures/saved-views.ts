@@ -1,7 +1,11 @@
 import { createEntityColumnExpression } from "@ryot/ts-utils";
-import type { AppSavedView } from "~/features/saved-views/model";
+import type {
+	AppEntitySavedView,
+	AppSavedView,
+} from "~/features/saved-views/model";
 
-type ViewExpression = AppSavedView["queryDefinition"]["sort"]["expression"];
+type ViewExpression =
+	AppEntitySavedView["queryDefinition"]["sort"]["expression"];
 
 const literalExpression = (value: unknown | null): ViewExpression => ({
 	value,
@@ -37,7 +41,7 @@ type SavedViewFixtureOverrides = Omit<
 	Partial<AppSavedView>,
 	"queryDefinition"
 > & {
-	queryDefinition?: Partial<AppSavedView["queryDefinition"]>;
+	queryDefinition?: Partial<AppEntitySavedView["queryDefinition"]>;
 };
 
 export function createSavedViewFixture(
@@ -46,6 +50,7 @@ export function createSavedViewFixture(
 	const { queryDefinition: queryDefinitionOverride, ...viewOverrides } =
 		overrides;
 	const queryDefinition = {
+		mode: "entities",
 		filter: queryDefinitionOverride?.filter ?? null,
 		eventJoins: queryDefinitionOverride?.eventJoins ?? [],
 		relationships: queryDefinitionOverride?.relationships ?? [],
@@ -55,7 +60,7 @@ export function createSavedViewFixture(
 			direction: "asc",
 			expression: nameExpression,
 		},
-	} satisfies AppSavedView["queryDefinition"];
+	} satisfies AppEntitySavedView["queryDefinition"];
 
 	return {
 		id: "view-1",
@@ -73,4 +78,10 @@ export function createSavedViewFixture(
 		displayConfiguration: defaultSavedViewDisplayConfiguration,
 		...viewOverrides,
 	};
+}
+
+export function createEntitySavedViewFixture(
+	overrides: SavedViewFixtureOverrides = {},
+): AppEntitySavedView {
+	return createSavedViewFixture(overrides) as AppEntitySavedView;
 }
