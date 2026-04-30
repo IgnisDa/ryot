@@ -3,22 +3,15 @@ import {
 	assertSortableExpression,
 	normalizeExpressionPropertyType,
 } from "~/lib/views/expression-analysis";
-import type {
-	QueryEngineEventJoinLike,
-	QueryEngineReferenceContext,
-	QueryEngineSchemaLike,
-} from "~/lib/views/reference";
+import type { QueryEngineContext } from "./context";
 import { createScalarExpressionCompiler } from "./expression-compiler";
 import { createExpressionTypeResolver } from "./expression-type-resolver";
 
-export const buildSortExpression = <
-	TSchema extends QueryEngineSchemaLike,
-	TJoin extends QueryEngineEventJoinLike,
->(input: {
+export const buildSortExpression = (input: {
 	alias: string;
 	expression: ViewExpression;
+	context: QueryEngineContext;
 	computedFields?: ViewComputedField[];
-	context: QueryEngineReferenceContext<TSchema, TJoin>;
 }) => {
 	const getTypeInfo = createExpressionTypeResolver({
 		context: input.context,

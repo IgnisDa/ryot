@@ -3,8 +3,8 @@ import { db } from "~/lib/db";
 import type {
 	QueryEngineEventJoinLike,
 	QueryEngineEventSchemaLike,
-	QueryEngineReferenceContext,
 } from "~/lib/views/reference";
+import type { QueryEngineContext } from "./context";
 import { buildResolvedFieldsExpression } from "./display-builder";
 import { buildFilterWhereClause } from "./filter-builder";
 import {
@@ -18,6 +18,7 @@ import {
 	buildLatestEventJoinCte,
 	buildPaginatedQuerySql,
 	EVENT_FIRST_ENTITY_COLUMN_OVERRIDES,
+	type PaginationConfig,
 	type QueryEngineSchemaRow,
 } from "./query-ctes";
 import type {
@@ -35,10 +36,7 @@ export const executeEventQuery = async (input: {
 	eventJoinMap: Map<string, QueryEngineEventJoinLike>;
 	eventSchemaMap: Map<string, QueryEngineEventSchemaLike[]>;
 }): Promise<QueryEngineEventsResponse> => {
-	const context: QueryEngineReferenceContext<
-		QueryEngineSchemaRow,
-		QueryEngineEventJoinLike
-	> = {
+	const context: QueryEngineContext = {
 		userId: input.userId,
 		schemaMap: input.schemaMap,
 		eventJoinMap: input.eventJoinMap,
@@ -84,20 +82,24 @@ export const executeEventQuery = async (input: {
 	const offset =
 		(input.request.pagination.page - 1) * input.request.pagination.limit;
 
+	const paginationConfig: PaginationConfig = {
+		offset,
+		rowIdColumn: "id",
+		countAlias: "event_count",
+		sortedAlias: "sorted_events",
+		filteredAlias: "filtered_events",
+		joinedTableName: "joined_events",
+		paginatedAlias: "paginated_events",
+		limit: input.request.pagination.limit,
+	};
+
 	const dataResult = await db.execute<QueryRow>(
 		buildPaginatedQuerySql({
-			offset,
+			...paginationConfig,
 			direction,
 			filterClause,
 			sortExpression,
 			resolvedFields,
-			rowIdColumn: "id",
-			countAlias: "event_count",
-			sortedAlias: "sorted_events",
-			filteredAlias: "filtered_events",
-			joinedTableName: "joined_events",
-			paginatedAlias: "paginated_events",
-			limit: input.request.pagination.limit,
 			withCtes: [baseEventsCte, ...latestEventJoinCtes, joinedEventsCte],
 		}),
 	);

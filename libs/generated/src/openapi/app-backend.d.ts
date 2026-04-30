@@ -2691,6 +2691,9 @@ export interface paths {
                                 isBuiltin: boolean;
                                 isDisabled: boolean;
                                 sortOrder: number;
+                                /** @description A Lucide icon name (e.g., 'book', 'dumbbell', 'gamepad-2'). See https://lucide.dev/icons/ */
+                                icon: string;
+                                accentColor: string;
                                 trackerId: string | null;
                                 queryDefinition: {
                                     scope: string[];
@@ -2707,103 +2710,13 @@ export interface paths {
                                         relationshipSchemaSlug: string;
                                     }[];
                                     filter?: components["schemas"]["NullableViewPredicate"];
+                                    sort: {
+                                        expression: components["schemas"]["ViewExpression"];
+                                        /** @enum {string} */
+                                        direction: "asc" | "desc";
+                                    };
                                     /** @enum {string} */
                                     mode: "entities";
-                                    sort: {
-                                        expression: components["schemas"]["ViewExpression"];
-                                        /** @enum {string} */
-                                        direction: "asc" | "desc";
-                                    };
-                                } | {
-                                    scope: string[];
-                                    computedFields?: components["schemas"]["ViewComputedField"][];
-                                    /** @default [] */
-                                    eventJoins: {
-                                        key: string;
-                                        /** @enum {string} */
-                                        kind: "latestEvent";
-                                        eventSchemaSlug: string;
-                                    }[];
-                                    /** @default [] */
-                                    relationships: {
-                                        relationshipSchemaSlug: string;
-                                    }[];
-                                    filter?: components["schemas"]["NullableViewPredicate"];
-                                    /** @enum {string} */
-                                    mode: "aggregate";
-                                    aggregations: {
-                                        key: string;
-                                        aggregation: {
-                                            /** @enum {string} */
-                                            type: "count";
-                                        } | {
-                                            /** @enum {string} */
-                                            type: "countWhere";
-                                            predicate: components["schemas"]["ViewPredicate"];
-                                        } | {
-                                            /** @enum {string} */
-                                            type: "sum";
-                                            expression: components["schemas"]["ViewExpression"];
-                                        } | {
-                                            /** @enum {string} */
-                                            type: "avg";
-                                            expression: components["schemas"]["ViewExpression"];
-                                        } | {
-                                            /** @enum {string} */
-                                            type: "min";
-                                            expression: components["schemas"]["ViewExpression"];
-                                        } | {
-                                            /** @enum {string} */
-                                            type: "max";
-                                            expression: components["schemas"]["ViewExpression"];
-                                        } | {
-                                            /** @enum {string} */
-                                            type: "countBy";
-                                            groupBy: components["schemas"]["ViewExpression"];
-                                        };
-                                    }[];
-                                } | {
-                                    /** @enum {string} */
-                                    mode: "events";
-                                    scope: string[];
-                                    eventSchemas: string[];
-                                    computedFields?: components["schemas"]["ViewComputedField"][];
-                                    /** @default [] */
-                                    eventJoins: {
-                                        key: string;
-                                        /** @enum {string} */
-                                        kind: "latestEvent";
-                                        eventSchemaSlug: string;
-                                    }[];
-                                    filter?: components["schemas"]["NullableViewPredicate"];
-                                    sort: {
-                                        expression: components["schemas"]["ViewExpression"];
-                                        /** @enum {string} */
-                                        direction: "asc" | "desc";
-                                    };
-                                } | {
-                                    /** @enum {string} */
-                                    mode: "timeSeries";
-                                    scope: string[];
-                                    eventSchemas: string[];
-                                    dateRange: {
-                                        /** Format: date-time */
-                                        endAt: string;
-                                        /** Format: date-time */
-                                        startAt: string;
-                                    };
-                                    /** @enum {string} */
-                                    bucket: "day" | "hour" | "month" | "week";
-                                    metric: {
-                                        /** @enum {string} */
-                                        type: "count";
-                                    } | {
-                                        /** @enum {string} */
-                                        type: "sum";
-                                        expression: components["schemas"]["ViewExpression"];
-                                    };
-                                    filter?: components["schemas"]["NullableViewPredicate"];
-                                    computedFields?: components["schemas"]["ViewComputedField"][];
                                 } | {
                                     scope: string[];
                                     computedFields?: components["schemas"]["ViewComputedField"][];
@@ -2847,9 +2760,6 @@ export interface paths {
                                         }[];
                                     };
                                 };
-                                /** @description A Lucide icon name (e.g., 'book', 'dumbbell', 'gamepad-2'). See https://lucide.dev/icons/ */
-                                icon: string;
-                                accentColor: string;
                             }[];
                         };
                     };
@@ -2906,103 +2816,13 @@ export interface paths {
                                 relationshipSchemaSlug: string;
                             }[];
                             filter?: components["schemas"]["NullableViewPredicate"];
+                            sort: {
+                                expression: components["schemas"]["ViewExpression"];
+                                /** @enum {string} */
+                                direction: "asc" | "desc";
+                            };
                             /** @enum {string} */
                             mode: "entities";
-                            sort: {
-                                expression: components["schemas"]["ViewExpression"];
-                                /** @enum {string} */
-                                direction: "asc" | "desc";
-                            };
-                        } | {
-                            scope: string[];
-                            computedFields?: components["schemas"]["ViewComputedField"][];
-                            /** @default [] */
-                            eventJoins?: {
-                                key: string;
-                                /** @enum {string} */
-                                kind: "latestEvent";
-                                eventSchemaSlug: string;
-                            }[];
-                            /** @default [] */
-                            relationships?: {
-                                relationshipSchemaSlug: string;
-                            }[];
-                            filter?: components["schemas"]["NullableViewPredicate"];
-                            /** @enum {string} */
-                            mode: "aggregate";
-                            aggregations: {
-                                key: string;
-                                aggregation: {
-                                    /** @enum {string} */
-                                    type: "count";
-                                } | {
-                                    /** @enum {string} */
-                                    type: "countWhere";
-                                    predicate: components["schemas"]["ViewPredicate"];
-                                } | {
-                                    /** @enum {string} */
-                                    type: "sum";
-                                    expression: components["schemas"]["ViewExpression"];
-                                } | {
-                                    /** @enum {string} */
-                                    type: "avg";
-                                    expression: components["schemas"]["ViewExpression"];
-                                } | {
-                                    /** @enum {string} */
-                                    type: "min";
-                                    expression: components["schemas"]["ViewExpression"];
-                                } | {
-                                    /** @enum {string} */
-                                    type: "max";
-                                    expression: components["schemas"]["ViewExpression"];
-                                } | {
-                                    /** @enum {string} */
-                                    type: "countBy";
-                                    groupBy: components["schemas"]["ViewExpression"];
-                                };
-                            }[];
-                        } | {
-                            /** @enum {string} */
-                            mode: "events";
-                            scope: string[];
-                            eventSchemas: string[];
-                            computedFields?: components["schemas"]["ViewComputedField"][];
-                            /** @default [] */
-                            eventJoins?: {
-                                key: string;
-                                /** @enum {string} */
-                                kind: "latestEvent";
-                                eventSchemaSlug: string;
-                            }[];
-                            filter?: components["schemas"]["NullableViewPredicate"];
-                            sort: {
-                                expression: components["schemas"]["ViewExpression"];
-                                /** @enum {string} */
-                                direction: "asc" | "desc";
-                            };
-                        } | {
-                            /** @enum {string} */
-                            mode: "timeSeries";
-                            scope: string[];
-                            eventSchemas: string[];
-                            dateRange: {
-                                /** Format: date-time */
-                                endAt: string;
-                                /** Format: date-time */
-                                startAt: string;
-                            };
-                            /** @enum {string} */
-                            bucket: "day" | "hour" | "month" | "week";
-                            metric: {
-                                /** @enum {string} */
-                                type: "count";
-                            } | {
-                                /** @enum {string} */
-                                type: "sum";
-                                expression: components["schemas"]["ViewExpression"];
-                            };
-                            filter?: components["schemas"]["NullableViewPredicate"];
-                            computedFields?: components["schemas"]["ViewComputedField"][];
                         } | {
                             scope: string[];
                             computedFields?: components["schemas"]["ViewComputedField"][];
@@ -3072,6 +2892,9 @@ export interface paths {
                                 isBuiltin: boolean;
                                 isDisabled: boolean;
                                 sortOrder: number;
+                                /** @description A Lucide icon name (e.g., 'book', 'dumbbell', 'gamepad-2'). See https://lucide.dev/icons/ */
+                                icon: string;
+                                accentColor: string;
                                 trackerId: string | null;
                                 queryDefinition: {
                                     scope: string[];
@@ -3088,103 +2911,13 @@ export interface paths {
                                         relationshipSchemaSlug: string;
                                     }[];
                                     filter?: components["schemas"]["NullableViewPredicate"];
+                                    sort: {
+                                        expression: components["schemas"]["ViewExpression"];
+                                        /** @enum {string} */
+                                        direction: "asc" | "desc";
+                                    };
                                     /** @enum {string} */
                                     mode: "entities";
-                                    sort: {
-                                        expression: components["schemas"]["ViewExpression"];
-                                        /** @enum {string} */
-                                        direction: "asc" | "desc";
-                                    };
-                                } | {
-                                    scope: string[];
-                                    computedFields?: components["schemas"]["ViewComputedField"][];
-                                    /** @default [] */
-                                    eventJoins: {
-                                        key: string;
-                                        /** @enum {string} */
-                                        kind: "latestEvent";
-                                        eventSchemaSlug: string;
-                                    }[];
-                                    /** @default [] */
-                                    relationships: {
-                                        relationshipSchemaSlug: string;
-                                    }[];
-                                    filter?: components["schemas"]["NullableViewPredicate"];
-                                    /** @enum {string} */
-                                    mode: "aggregate";
-                                    aggregations: {
-                                        key: string;
-                                        aggregation: {
-                                            /** @enum {string} */
-                                            type: "count";
-                                        } | {
-                                            /** @enum {string} */
-                                            type: "countWhere";
-                                            predicate: components["schemas"]["ViewPredicate"];
-                                        } | {
-                                            /** @enum {string} */
-                                            type: "sum";
-                                            expression: components["schemas"]["ViewExpression"];
-                                        } | {
-                                            /** @enum {string} */
-                                            type: "avg";
-                                            expression: components["schemas"]["ViewExpression"];
-                                        } | {
-                                            /** @enum {string} */
-                                            type: "min";
-                                            expression: components["schemas"]["ViewExpression"];
-                                        } | {
-                                            /** @enum {string} */
-                                            type: "max";
-                                            expression: components["schemas"]["ViewExpression"];
-                                        } | {
-                                            /** @enum {string} */
-                                            type: "countBy";
-                                            groupBy: components["schemas"]["ViewExpression"];
-                                        };
-                                    }[];
-                                } | {
-                                    /** @enum {string} */
-                                    mode: "events";
-                                    scope: string[];
-                                    eventSchemas: string[];
-                                    computedFields?: components["schemas"]["ViewComputedField"][];
-                                    /** @default [] */
-                                    eventJoins: {
-                                        key: string;
-                                        /** @enum {string} */
-                                        kind: "latestEvent";
-                                        eventSchemaSlug: string;
-                                    }[];
-                                    filter?: components["schemas"]["NullableViewPredicate"];
-                                    sort: {
-                                        expression: components["schemas"]["ViewExpression"];
-                                        /** @enum {string} */
-                                        direction: "asc" | "desc";
-                                    };
-                                } | {
-                                    /** @enum {string} */
-                                    mode: "timeSeries";
-                                    scope: string[];
-                                    eventSchemas: string[];
-                                    dateRange: {
-                                        /** Format: date-time */
-                                        endAt: string;
-                                        /** Format: date-time */
-                                        startAt: string;
-                                    };
-                                    /** @enum {string} */
-                                    bucket: "day" | "hour" | "month" | "week";
-                                    metric: {
-                                        /** @enum {string} */
-                                        type: "count";
-                                    } | {
-                                        /** @enum {string} */
-                                        type: "sum";
-                                        expression: components["schemas"]["ViewExpression"];
-                                    };
-                                    filter?: components["schemas"]["NullableViewPredicate"];
-                                    computedFields?: components["schemas"]["ViewComputedField"][];
                                 } | {
                                     scope: string[];
                                     computedFields?: components["schemas"]["ViewComputedField"][];
@@ -3228,9 +2961,6 @@ export interface paths {
                                         }[];
                                     };
                                 };
-                                /** @description A Lucide icon name (e.g., 'book', 'dumbbell', 'gamepad-2'). See https://lucide.dev/icons/ */
-                                icon: string;
-                                accentColor: string;
                             };
                         };
                     };
@@ -3302,6 +3032,9 @@ export interface paths {
                                 isBuiltin: boolean;
                                 isDisabled: boolean;
                                 sortOrder: number;
+                                /** @description A Lucide icon name (e.g., 'book', 'dumbbell', 'gamepad-2'). See https://lucide.dev/icons/ */
+                                icon: string;
+                                accentColor: string;
                                 trackerId: string | null;
                                 queryDefinition: {
                                     scope: string[];
@@ -3318,103 +3051,13 @@ export interface paths {
                                         relationshipSchemaSlug: string;
                                     }[];
                                     filter?: components["schemas"]["NullableViewPredicate"];
+                                    sort: {
+                                        expression: components["schemas"]["ViewExpression"];
+                                        /** @enum {string} */
+                                        direction: "asc" | "desc";
+                                    };
                                     /** @enum {string} */
                                     mode: "entities";
-                                    sort: {
-                                        expression: components["schemas"]["ViewExpression"];
-                                        /** @enum {string} */
-                                        direction: "asc" | "desc";
-                                    };
-                                } | {
-                                    scope: string[];
-                                    computedFields?: components["schemas"]["ViewComputedField"][];
-                                    /** @default [] */
-                                    eventJoins: {
-                                        key: string;
-                                        /** @enum {string} */
-                                        kind: "latestEvent";
-                                        eventSchemaSlug: string;
-                                    }[];
-                                    /** @default [] */
-                                    relationships: {
-                                        relationshipSchemaSlug: string;
-                                    }[];
-                                    filter?: components["schemas"]["NullableViewPredicate"];
-                                    /** @enum {string} */
-                                    mode: "aggregate";
-                                    aggregations: {
-                                        key: string;
-                                        aggregation: {
-                                            /** @enum {string} */
-                                            type: "count";
-                                        } | {
-                                            /** @enum {string} */
-                                            type: "countWhere";
-                                            predicate: components["schemas"]["ViewPredicate"];
-                                        } | {
-                                            /** @enum {string} */
-                                            type: "sum";
-                                            expression: components["schemas"]["ViewExpression"];
-                                        } | {
-                                            /** @enum {string} */
-                                            type: "avg";
-                                            expression: components["schemas"]["ViewExpression"];
-                                        } | {
-                                            /** @enum {string} */
-                                            type: "min";
-                                            expression: components["schemas"]["ViewExpression"];
-                                        } | {
-                                            /** @enum {string} */
-                                            type: "max";
-                                            expression: components["schemas"]["ViewExpression"];
-                                        } | {
-                                            /** @enum {string} */
-                                            type: "countBy";
-                                            groupBy: components["schemas"]["ViewExpression"];
-                                        };
-                                    }[];
-                                } | {
-                                    /** @enum {string} */
-                                    mode: "events";
-                                    scope: string[];
-                                    eventSchemas: string[];
-                                    computedFields?: components["schemas"]["ViewComputedField"][];
-                                    /** @default [] */
-                                    eventJoins: {
-                                        key: string;
-                                        /** @enum {string} */
-                                        kind: "latestEvent";
-                                        eventSchemaSlug: string;
-                                    }[];
-                                    filter?: components["schemas"]["NullableViewPredicate"];
-                                    sort: {
-                                        expression: components["schemas"]["ViewExpression"];
-                                        /** @enum {string} */
-                                        direction: "asc" | "desc";
-                                    };
-                                } | {
-                                    /** @enum {string} */
-                                    mode: "timeSeries";
-                                    scope: string[];
-                                    eventSchemas: string[];
-                                    dateRange: {
-                                        /** Format: date-time */
-                                        endAt: string;
-                                        /** Format: date-time */
-                                        startAt: string;
-                                    };
-                                    /** @enum {string} */
-                                    bucket: "day" | "hour" | "month" | "week";
-                                    metric: {
-                                        /** @enum {string} */
-                                        type: "count";
-                                    } | {
-                                        /** @enum {string} */
-                                        type: "sum";
-                                        expression: components["schemas"]["ViewExpression"];
-                                    };
-                                    filter?: components["schemas"]["NullableViewPredicate"];
-                                    computedFields?: components["schemas"]["ViewComputedField"][];
                                 } | {
                                     scope: string[];
                                     computedFields?: components["schemas"]["ViewComputedField"][];
@@ -3458,9 +3101,6 @@ export interface paths {
                                         }[];
                                     };
                                 };
-                                /** @description A Lucide icon name (e.g., 'book', 'dumbbell', 'gamepad-2'). See https://lucide.dev/icons/ */
-                                icon: string;
-                                accentColor: string;
                             };
                         };
                     };
@@ -3522,103 +3162,13 @@ export interface paths {
                                 relationshipSchemaSlug: string;
                             }[];
                             filter?: components["schemas"]["NullableViewPredicate"];
+                            sort: {
+                                expression: components["schemas"]["ViewExpression"];
+                                /** @enum {string} */
+                                direction: "asc" | "desc";
+                            };
                             /** @enum {string} */
                             mode: "entities";
-                            sort: {
-                                expression: components["schemas"]["ViewExpression"];
-                                /** @enum {string} */
-                                direction: "asc" | "desc";
-                            };
-                        } | {
-                            scope: string[];
-                            computedFields?: components["schemas"]["ViewComputedField"][];
-                            /** @default [] */
-                            eventJoins?: {
-                                key: string;
-                                /** @enum {string} */
-                                kind: "latestEvent";
-                                eventSchemaSlug: string;
-                            }[];
-                            /** @default [] */
-                            relationships?: {
-                                relationshipSchemaSlug: string;
-                            }[];
-                            filter?: components["schemas"]["NullableViewPredicate"];
-                            /** @enum {string} */
-                            mode: "aggregate";
-                            aggregations: {
-                                key: string;
-                                aggregation: {
-                                    /** @enum {string} */
-                                    type: "count";
-                                } | {
-                                    /** @enum {string} */
-                                    type: "countWhere";
-                                    predicate: components["schemas"]["ViewPredicate"];
-                                } | {
-                                    /** @enum {string} */
-                                    type: "sum";
-                                    expression: components["schemas"]["ViewExpression"];
-                                } | {
-                                    /** @enum {string} */
-                                    type: "avg";
-                                    expression: components["schemas"]["ViewExpression"];
-                                } | {
-                                    /** @enum {string} */
-                                    type: "min";
-                                    expression: components["schemas"]["ViewExpression"];
-                                } | {
-                                    /** @enum {string} */
-                                    type: "max";
-                                    expression: components["schemas"]["ViewExpression"];
-                                } | {
-                                    /** @enum {string} */
-                                    type: "countBy";
-                                    groupBy: components["schemas"]["ViewExpression"];
-                                };
-                            }[];
-                        } | {
-                            /** @enum {string} */
-                            mode: "events";
-                            scope: string[];
-                            eventSchemas: string[];
-                            computedFields?: components["schemas"]["ViewComputedField"][];
-                            /** @default [] */
-                            eventJoins?: {
-                                key: string;
-                                /** @enum {string} */
-                                kind: "latestEvent";
-                                eventSchemaSlug: string;
-                            }[];
-                            filter?: components["schemas"]["NullableViewPredicate"];
-                            sort: {
-                                expression: components["schemas"]["ViewExpression"];
-                                /** @enum {string} */
-                                direction: "asc" | "desc";
-                            };
-                        } | {
-                            /** @enum {string} */
-                            mode: "timeSeries";
-                            scope: string[];
-                            eventSchemas: string[];
-                            dateRange: {
-                                /** Format: date-time */
-                                endAt: string;
-                                /** Format: date-time */
-                                startAt: string;
-                            };
-                            /** @enum {string} */
-                            bucket: "day" | "hour" | "month" | "week";
-                            metric: {
-                                /** @enum {string} */
-                                type: "count";
-                            } | {
-                                /** @enum {string} */
-                                type: "sum";
-                                expression: components["schemas"]["ViewExpression"];
-                            };
-                            filter?: components["schemas"]["NullableViewPredicate"];
-                            computedFields?: components["schemas"]["ViewComputedField"][];
                         } | {
                             scope: string[];
                             computedFields?: components["schemas"]["ViewComputedField"][];
@@ -3688,6 +3238,9 @@ export interface paths {
                                 isBuiltin: boolean;
                                 isDisabled: boolean;
                                 sortOrder: number;
+                                /** @description A Lucide icon name (e.g., 'book', 'dumbbell', 'gamepad-2'). See https://lucide.dev/icons/ */
+                                icon: string;
+                                accentColor: string;
                                 trackerId: string | null;
                                 queryDefinition: {
                                     scope: string[];
@@ -3704,103 +3257,13 @@ export interface paths {
                                         relationshipSchemaSlug: string;
                                     }[];
                                     filter?: components["schemas"]["NullableViewPredicate"];
+                                    sort: {
+                                        expression: components["schemas"]["ViewExpression"];
+                                        /** @enum {string} */
+                                        direction: "asc" | "desc";
+                                    };
                                     /** @enum {string} */
                                     mode: "entities";
-                                    sort: {
-                                        expression: components["schemas"]["ViewExpression"];
-                                        /** @enum {string} */
-                                        direction: "asc" | "desc";
-                                    };
-                                } | {
-                                    scope: string[];
-                                    computedFields?: components["schemas"]["ViewComputedField"][];
-                                    /** @default [] */
-                                    eventJoins: {
-                                        key: string;
-                                        /** @enum {string} */
-                                        kind: "latestEvent";
-                                        eventSchemaSlug: string;
-                                    }[];
-                                    /** @default [] */
-                                    relationships: {
-                                        relationshipSchemaSlug: string;
-                                    }[];
-                                    filter?: components["schemas"]["NullableViewPredicate"];
-                                    /** @enum {string} */
-                                    mode: "aggregate";
-                                    aggregations: {
-                                        key: string;
-                                        aggregation: {
-                                            /** @enum {string} */
-                                            type: "count";
-                                        } | {
-                                            /** @enum {string} */
-                                            type: "countWhere";
-                                            predicate: components["schemas"]["ViewPredicate"];
-                                        } | {
-                                            /** @enum {string} */
-                                            type: "sum";
-                                            expression: components["schemas"]["ViewExpression"];
-                                        } | {
-                                            /** @enum {string} */
-                                            type: "avg";
-                                            expression: components["schemas"]["ViewExpression"];
-                                        } | {
-                                            /** @enum {string} */
-                                            type: "min";
-                                            expression: components["schemas"]["ViewExpression"];
-                                        } | {
-                                            /** @enum {string} */
-                                            type: "max";
-                                            expression: components["schemas"]["ViewExpression"];
-                                        } | {
-                                            /** @enum {string} */
-                                            type: "countBy";
-                                            groupBy: components["schemas"]["ViewExpression"];
-                                        };
-                                    }[];
-                                } | {
-                                    /** @enum {string} */
-                                    mode: "events";
-                                    scope: string[];
-                                    eventSchemas: string[];
-                                    computedFields?: components["schemas"]["ViewComputedField"][];
-                                    /** @default [] */
-                                    eventJoins: {
-                                        key: string;
-                                        /** @enum {string} */
-                                        kind: "latestEvent";
-                                        eventSchemaSlug: string;
-                                    }[];
-                                    filter?: components["schemas"]["NullableViewPredicate"];
-                                    sort: {
-                                        expression: components["schemas"]["ViewExpression"];
-                                        /** @enum {string} */
-                                        direction: "asc" | "desc";
-                                    };
-                                } | {
-                                    /** @enum {string} */
-                                    mode: "timeSeries";
-                                    scope: string[];
-                                    eventSchemas: string[];
-                                    dateRange: {
-                                        /** Format: date-time */
-                                        endAt: string;
-                                        /** Format: date-time */
-                                        startAt: string;
-                                    };
-                                    /** @enum {string} */
-                                    bucket: "day" | "hour" | "month" | "week";
-                                    metric: {
-                                        /** @enum {string} */
-                                        type: "count";
-                                    } | {
-                                        /** @enum {string} */
-                                        type: "sum";
-                                        expression: components["schemas"]["ViewExpression"];
-                                    };
-                                    filter?: components["schemas"]["NullableViewPredicate"];
-                                    computedFields?: components["schemas"]["ViewComputedField"][];
                                 } | {
                                     scope: string[];
                                     computedFields?: components["schemas"]["ViewComputedField"][];
@@ -3844,9 +3307,6 @@ export interface paths {
                                         }[];
                                     };
                                 };
-                                /** @description A Lucide icon name (e.g., 'book', 'dumbbell', 'gamepad-2'). See https://lucide.dev/icons/ */
-                                icon: string;
-                                accentColor: string;
                             };
                         };
                     };
@@ -3917,6 +3377,9 @@ export interface paths {
                                 isBuiltin: boolean;
                                 isDisabled: boolean;
                                 sortOrder: number;
+                                /** @description A Lucide icon name (e.g., 'book', 'dumbbell', 'gamepad-2'). See https://lucide.dev/icons/ */
+                                icon: string;
+                                accentColor: string;
                                 trackerId: string | null;
                                 queryDefinition: {
                                     scope: string[];
@@ -3933,103 +3396,13 @@ export interface paths {
                                         relationshipSchemaSlug: string;
                                     }[];
                                     filter?: components["schemas"]["NullableViewPredicate"];
+                                    sort: {
+                                        expression: components["schemas"]["ViewExpression"];
+                                        /** @enum {string} */
+                                        direction: "asc" | "desc";
+                                    };
                                     /** @enum {string} */
                                     mode: "entities";
-                                    sort: {
-                                        expression: components["schemas"]["ViewExpression"];
-                                        /** @enum {string} */
-                                        direction: "asc" | "desc";
-                                    };
-                                } | {
-                                    scope: string[];
-                                    computedFields?: components["schemas"]["ViewComputedField"][];
-                                    /** @default [] */
-                                    eventJoins: {
-                                        key: string;
-                                        /** @enum {string} */
-                                        kind: "latestEvent";
-                                        eventSchemaSlug: string;
-                                    }[];
-                                    /** @default [] */
-                                    relationships: {
-                                        relationshipSchemaSlug: string;
-                                    }[];
-                                    filter?: components["schemas"]["NullableViewPredicate"];
-                                    /** @enum {string} */
-                                    mode: "aggregate";
-                                    aggregations: {
-                                        key: string;
-                                        aggregation: {
-                                            /** @enum {string} */
-                                            type: "count";
-                                        } | {
-                                            /** @enum {string} */
-                                            type: "countWhere";
-                                            predicate: components["schemas"]["ViewPredicate"];
-                                        } | {
-                                            /** @enum {string} */
-                                            type: "sum";
-                                            expression: components["schemas"]["ViewExpression"];
-                                        } | {
-                                            /** @enum {string} */
-                                            type: "avg";
-                                            expression: components["schemas"]["ViewExpression"];
-                                        } | {
-                                            /** @enum {string} */
-                                            type: "min";
-                                            expression: components["schemas"]["ViewExpression"];
-                                        } | {
-                                            /** @enum {string} */
-                                            type: "max";
-                                            expression: components["schemas"]["ViewExpression"];
-                                        } | {
-                                            /** @enum {string} */
-                                            type: "countBy";
-                                            groupBy: components["schemas"]["ViewExpression"];
-                                        };
-                                    }[];
-                                } | {
-                                    /** @enum {string} */
-                                    mode: "events";
-                                    scope: string[];
-                                    eventSchemas: string[];
-                                    computedFields?: components["schemas"]["ViewComputedField"][];
-                                    /** @default [] */
-                                    eventJoins: {
-                                        key: string;
-                                        /** @enum {string} */
-                                        kind: "latestEvent";
-                                        eventSchemaSlug: string;
-                                    }[];
-                                    filter?: components["schemas"]["NullableViewPredicate"];
-                                    sort: {
-                                        expression: components["schemas"]["ViewExpression"];
-                                        /** @enum {string} */
-                                        direction: "asc" | "desc";
-                                    };
-                                } | {
-                                    /** @enum {string} */
-                                    mode: "timeSeries";
-                                    scope: string[];
-                                    eventSchemas: string[];
-                                    dateRange: {
-                                        /** Format: date-time */
-                                        endAt: string;
-                                        /** Format: date-time */
-                                        startAt: string;
-                                    };
-                                    /** @enum {string} */
-                                    bucket: "day" | "hour" | "month" | "week";
-                                    metric: {
-                                        /** @enum {string} */
-                                        type: "count";
-                                    } | {
-                                        /** @enum {string} */
-                                        type: "sum";
-                                        expression: components["schemas"]["ViewExpression"];
-                                    };
-                                    filter?: components["schemas"]["NullableViewPredicate"];
-                                    computedFields?: components["schemas"]["ViewComputedField"][];
                                 } | {
                                     scope: string[];
                                     computedFields?: components["schemas"]["ViewComputedField"][];
@@ -4073,9 +3446,6 @@ export interface paths {
                                         }[];
                                     };
                                 };
-                                /** @description A Lucide icon name (e.g., 'book', 'dumbbell', 'gamepad-2'). See https://lucide.dev/icons/ */
-                                icon: string;
-                                accentColor: string;
                             };
                         };
                     };
@@ -4159,6 +3529,9 @@ export interface paths {
                                 isBuiltin: boolean;
                                 isDisabled: boolean;
                                 sortOrder: number;
+                                /** @description A Lucide icon name (e.g., 'book', 'dumbbell', 'gamepad-2'). See https://lucide.dev/icons/ */
+                                icon: string;
+                                accentColor: string;
                                 trackerId: string | null;
                                 queryDefinition: {
                                     scope: string[];
@@ -4175,103 +3548,13 @@ export interface paths {
                                         relationshipSchemaSlug: string;
                                     }[];
                                     filter?: components["schemas"]["NullableViewPredicate"];
+                                    sort: {
+                                        expression: components["schemas"]["ViewExpression"];
+                                        /** @enum {string} */
+                                        direction: "asc" | "desc";
+                                    };
                                     /** @enum {string} */
                                     mode: "entities";
-                                    sort: {
-                                        expression: components["schemas"]["ViewExpression"];
-                                        /** @enum {string} */
-                                        direction: "asc" | "desc";
-                                    };
-                                } | {
-                                    scope: string[];
-                                    computedFields?: components["schemas"]["ViewComputedField"][];
-                                    /** @default [] */
-                                    eventJoins: {
-                                        key: string;
-                                        /** @enum {string} */
-                                        kind: "latestEvent";
-                                        eventSchemaSlug: string;
-                                    }[];
-                                    /** @default [] */
-                                    relationships: {
-                                        relationshipSchemaSlug: string;
-                                    }[];
-                                    filter?: components["schemas"]["NullableViewPredicate"];
-                                    /** @enum {string} */
-                                    mode: "aggregate";
-                                    aggregations: {
-                                        key: string;
-                                        aggregation: {
-                                            /** @enum {string} */
-                                            type: "count";
-                                        } | {
-                                            /** @enum {string} */
-                                            type: "countWhere";
-                                            predicate: components["schemas"]["ViewPredicate"];
-                                        } | {
-                                            /** @enum {string} */
-                                            type: "sum";
-                                            expression: components["schemas"]["ViewExpression"];
-                                        } | {
-                                            /** @enum {string} */
-                                            type: "avg";
-                                            expression: components["schemas"]["ViewExpression"];
-                                        } | {
-                                            /** @enum {string} */
-                                            type: "min";
-                                            expression: components["schemas"]["ViewExpression"];
-                                        } | {
-                                            /** @enum {string} */
-                                            type: "max";
-                                            expression: components["schemas"]["ViewExpression"];
-                                        } | {
-                                            /** @enum {string} */
-                                            type: "countBy";
-                                            groupBy: components["schemas"]["ViewExpression"];
-                                        };
-                                    }[];
-                                } | {
-                                    /** @enum {string} */
-                                    mode: "events";
-                                    scope: string[];
-                                    eventSchemas: string[];
-                                    computedFields?: components["schemas"]["ViewComputedField"][];
-                                    /** @default [] */
-                                    eventJoins: {
-                                        key: string;
-                                        /** @enum {string} */
-                                        kind: "latestEvent";
-                                        eventSchemaSlug: string;
-                                    }[];
-                                    filter?: components["schemas"]["NullableViewPredicate"];
-                                    sort: {
-                                        expression: components["schemas"]["ViewExpression"];
-                                        /** @enum {string} */
-                                        direction: "asc" | "desc";
-                                    };
-                                } | {
-                                    /** @enum {string} */
-                                    mode: "timeSeries";
-                                    scope: string[];
-                                    eventSchemas: string[];
-                                    dateRange: {
-                                        /** Format: date-time */
-                                        endAt: string;
-                                        /** Format: date-time */
-                                        startAt: string;
-                                    };
-                                    /** @enum {string} */
-                                    bucket: "day" | "hour" | "month" | "week";
-                                    metric: {
-                                        /** @enum {string} */
-                                        type: "count";
-                                    } | {
-                                        /** @enum {string} */
-                                        type: "sum";
-                                        expression: components["schemas"]["ViewExpression"];
-                                    };
-                                    filter?: components["schemas"]["NullableViewPredicate"];
-                                    computedFields?: components["schemas"]["ViewComputedField"][];
                                 } | {
                                     scope: string[];
                                     computedFields?: components["schemas"]["ViewComputedField"][];
@@ -4315,9 +3598,6 @@ export interface paths {
                                         }[];
                                     };
                                 };
-                                /** @description A Lucide icon name (e.g., 'book', 'dumbbell', 'gamepad-2'). See https://lucide.dev/icons/ */
-                                icon: string;
-                                accentColor: string;
                             };
                         };
                     };
@@ -4716,6 +3996,7 @@ export interface paths {
             requestBody?: {
                 content: {
                     "application/json": {
+                        scope: string[];
                         computedFields?: components["schemas"]["ViewComputedField"][];
                         /** @default [] */
                         eventJoins?: {
@@ -4729,24 +4010,52 @@ export interface paths {
                             relationshipSchemaSlug: string;
                         }[];
                         filter?: components["schemas"]["NullableViewPredicate"];
-                        scope: string[];
-                        /** @enum {string} */
-                        mode: "entities";
                         sort: {
                             expression: components["schemas"]["ViewExpression"];
                             /** @enum {string} */
                             direction: "asc" | "desc";
                         };
+                        pagination: {
+                            page: number;
+                            limit: number;
+                        };
+                        /** @enum {string} */
+                        mode: "entities";
                         /** @default [] */
                         fields?: {
                             expression: components["schemas"]["ViewExpression"];
                             key: string;
                         }[];
+                    } | {
+                        sort: {
+                            expression: components["schemas"]["ViewExpression"];
+                            /** @enum {string} */
+                            direction: "asc" | "desc";
+                        };
                         pagination: {
                             page: number;
                             limit: number;
                         };
+                        scope: string[];
+                        /** @enum {string} */
+                        mode: "events";
+                        eventSchemas: string[];
+                        /** @default [] */
+                        fields?: {
+                            expression: components["schemas"]["ViewExpression"];
+                            key: string;
+                        }[];
+                        computedFields?: components["schemas"]["ViewComputedField"][];
+                        /** @default [] */
+                        eventJoins?: {
+                            key: string;
+                            /** @enum {string} */
+                            kind: "latestEvent";
+                            eventSchemaSlug: string;
+                        }[];
+                        filter?: components["schemas"]["NullableViewPredicate"];
                     } | {
+                        scope: string[];
                         computedFields?: components["schemas"]["ViewComputedField"][];
                         /** @default [] */
                         eventJoins?: {
@@ -4760,7 +4069,6 @@ export interface paths {
                             relationshipSchemaSlug: string;
                         }[];
                         filter?: components["schemas"]["NullableViewPredicate"];
-                        scope: string[];
                         /** @enum {string} */
                         mode: "aggregate";
                         aggregations: {
@@ -4769,9 +4077,9 @@ export interface paths {
                                 /** @enum {string} */
                                 type: "count";
                             } | {
+                                predicate: components["schemas"]["ViewPredicate"];
                                 /** @enum {string} */
                                 type: "countWhere";
-                                predicate: components["schemas"]["ViewPredicate"];
                             } | {
                                 /** @enum {string} */
                                 type: "sum";
@@ -4795,46 +4103,7 @@ export interface paths {
                             };
                         }[];
                     } | {
-                        /** @enum {string} */
-                        mode: "events";
                         scope: string[];
-                        eventSchemas: string[];
-                        /** @default [] */
-                        fields?: {
-                            expression: components["schemas"]["ViewExpression"];
-                            key: string;
-                        }[];
-                        sort: {
-                            expression: components["schemas"]["ViewExpression"];
-                            /** @enum {string} */
-                            direction: "asc" | "desc";
-                        };
-                        pagination: {
-                            page: number;
-                            limit: number;
-                        };
-                        filter?: components["schemas"]["NullableViewPredicate"];
-                        computedFields?: components["schemas"]["ViewComputedField"][];
-                        /** @default [] */
-                        eventJoins?: {
-                            key: string;
-                            /** @enum {string} */
-                            kind: "latestEvent";
-                            eventSchemaSlug: string;
-                        }[];
-                    } | {
-                        /** @enum {string} */
-                        mode: "timeSeries";
-                        scope: string[];
-                        eventSchemas: string[];
-                        dateRange: {
-                            /** Format: date-time */
-                            endAt: string;
-                            /** Format: date-time */
-                            startAt: string;
-                        };
-                        /** @enum {string} */
-                        bucket: "day" | "hour" | "month" | "week";
                         metric: {
                             /** @enum {string} */
                             type: "count";
@@ -4843,8 +4112,19 @@ export interface paths {
                             type: "sum";
                             expression: components["schemas"]["ViewExpression"];
                         };
-                        filter?: components["schemas"]["NullableViewPredicate"];
+                        eventSchemas: string[];
+                        /** @enum {string} */
+                        mode: "timeSeries";
                         computedFields?: components["schemas"]["ViewComputedField"][];
+                        filter?: components["schemas"]["NullableViewPredicate"];
+                        /** @enum {string} */
+                        bucket: "day" | "hour" | "month" | "week";
+                        dateRange: {
+                            /** Format: date-time */
+                            endAt: string;
+                            /** Format: date-time */
+                            startAt: string;
+                        };
                     };
                 };
             };
