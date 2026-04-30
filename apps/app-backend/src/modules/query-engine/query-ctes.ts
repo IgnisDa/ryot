@@ -11,7 +11,10 @@ import type {
 	QueryEngineEventJoinLike,
 	QueryEngineSchemaLike,
 } from "~/lib/views/reference";
-import { getEventJoinColumnName } from "./sql-expression-helpers";
+import {
+	getEventJoinColumnName,
+	type SqlExpression,
+} from "./sql-expression-helpers";
 
 export type QueryEngineSchemaRow = QueryEngineSchemaLike & {
 	id: string;
@@ -236,3 +239,56 @@ export const buildJoinedEntitiesCte = (
 		baseCte: "base_entities",
 		cteName: "joined_entities",
 	});
+
+export const buildPaginatedQuerySql = (input: {
+	limit: number;
+	offset: number;
+	countAlias: string;
+	rowIdColumn: string;
+	sortedAlias: string;
+	filteredAlias: string;
+	paginatedAlias: string;
+	joinedTableName: string;
+	direction: SqlExpression;
+	withCtes: SqlExpression[];
+	filterClause: SqlExpression;
+	sortExpression: SqlExpression;
+	resolvedFields: SqlExpression;
+}) => {
+	const cteList = sql.join(input.withCtes, sql`, `);
+
+	return sql`
+		with
+			${cteList},
+			${sql.raw(input.filteredAlias)} as (
+				select * from ${sql.raw(input.joinedTableName)} where ${input.filterClause}
+			),
+			${sql.raw(input.sortedAlias)} as (
+				select
+					${sql.raw(input.filteredAlias)}.*,
+					count(*) over ()::integer as total,
+					row_number() over (
+						order by ${input.sortExpression} ${input.direction} nulls last, ${sql.raw(input.filteredAlias)}.id asc
+					) as sort_index
+				from ${sql.raw(input.filteredAlias)}
+			),
+			${sql.raw(input.countAlias)} as (
+				select coalesce(max(total), 0)::integer as total
+				from ${sql.raw(input.sortedAlias)}
+			),
+			${sql.raw(input.paginatedAlias)} as (
+				select *
+				from ${sql.raw(input.sortedAlias)}
+				order by sort_index
+				offset ${input.offset}
+				limit ${input.limit}
+			)
+		select
+			${sql.raw(input.paginatedAlias)}.${sql.raw(input.rowIdColumn)} as row_id,
+			${sql.raw(input.countAlias)}.total,
+			${input.resolvedFields} as fields
+		from ${sql.raw(input.countAlias)}
+		left join ${sql.raw(input.paginatedAlias)} on true
+		order by sort_index
+	`;
+};
