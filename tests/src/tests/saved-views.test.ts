@@ -775,7 +775,7 @@ describe("Saved views E2E", () => {
 					relationships: [],
 					computedFields: [],
 					aggregations: [{ key: "total", aggregation: { type: "count" } }],
-				},
+				} as unknown as NonNullable<SavedViewBodyOverrides["queryDefinition"]>,
 			}),
 		});
 
