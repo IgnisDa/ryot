@@ -6,7 +6,10 @@ export type AppEntitySavedView = AppSavedView;
 export function isEntitySavedView(
 	view: AppSavedView,
 ): view is AppEntitySavedView {
-	return !("mode" in view.queryDefinition) || view.queryDefinition.mode === "entities";
+	return (
+		!("mode" in view.queryDefinition) ||
+		view.queryDefinition.mode === "entities"
+	);
 }
 
 export function sortSavedViewsByOrder(views: AppSavedView[]): AppSavedView[] {
