@@ -8,6 +8,7 @@ import type {
 	QueryEngineReferenceContext,
 } from "~/lib/views/reference";
 import { createScalarExpressionCompiler } from "./expression-compiler";
+import { createExpressionTypeResolver } from "./expression-type-resolver";
 import { buildFilterWhereClause } from "./filter-builder";
 import {
 	buildEventFirstCte,
@@ -90,8 +91,13 @@ export const executeTimeSeriesQuery = async (input: {
 	});
 	const filterClause = filterWhereClause ?? sql`true`;
 
+	const getTypeInfo = createExpressionTypeResolver({
+		context,
+		computedFields: input.request.computedFields,
+	});
 	const compiler = createScalarExpressionCompiler({
 		context,
+		getTypeInfo,
 		alias: "filtered_events",
 		computedFields: input.request.computedFields,
 	});

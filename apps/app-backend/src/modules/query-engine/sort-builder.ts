@@ -9,6 +9,7 @@ import type {
 	QueryEngineSchemaLike,
 } from "~/lib/views/reference";
 import { createScalarExpressionCompiler } from "./expression-compiler";
+import { createExpressionTypeResolver } from "./expression-type-resolver";
 
 export const buildSortExpression = <
 	TSchema extends QueryEngineSchemaLike,
@@ -19,12 +20,17 @@ export const buildSortExpression = <
 	computedFields?: ViewComputedField[];
 	context: QueryEngineReferenceContext<TSchema, TJoin>;
 }) => {
+	const getTypeInfo = createExpressionTypeResolver({
+		context: input.context,
+		computedFields: input.computedFields,
+	});
 	const compiler = createScalarExpressionCompiler({
+		getTypeInfo,
 		alias: input.alias,
 		context: input.context,
 		computedFields: input.computedFields,
 	});
-	const typeInfo = compiler.getTypeInfo(input.expression);
+	const typeInfo = getTypeInfo(input.expression);
 	assertSortableExpression(typeInfo);
 
 	return compiler.compile(

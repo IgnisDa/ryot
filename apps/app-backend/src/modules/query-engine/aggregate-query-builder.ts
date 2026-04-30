@@ -5,6 +5,7 @@ import type {
 	QueryEngineReferenceContext,
 } from "~/lib/views/reference";
 import { createScalarExpressionCompiler } from "./expression-compiler";
+import { createExpressionTypeResolver } from "./expression-type-resolver";
 import { buildFilterWhereClause } from "./filter-builder";
 import {
 	buildBaseEntitiesCte,
@@ -145,8 +146,13 @@ export const executeAggregateQuery = async (input: {
 		predicate: input.request.filter,
 		computedFields: input.request.computedFields,
 	});
+	const getTypeInfo = createExpressionTypeResolver({
+		context,
+		computedFields: input.request.computedFields,
+	});
 	const compiler = createScalarExpressionCompiler({
 		context,
+		getTypeInfo,
 		alias: "filtered_entities",
 		computedFields: input.request.computedFields,
 	});
@@ -165,10 +171,13 @@ export const executeAggregateQuery = async (input: {
 		},
 	);
 	const filterClause = filterWhereClause ?? sql`true`;
+	const cteList = sql.join(
+		[baseEntitiesCte, ...latestEventJoinCtes, joinedEntitiesCte],
+		sql`, `,
+	);
 	const result = await db.execute<AggregateRow>(sql`
 		with
-			${baseEntitiesCte}${latestEventJoinCtes.length ? sql`, ${sql.join(latestEventJoinCtes, sql`, `)}` : sql``},
-			${joinedEntitiesCte},
+			${cteList},
 			filtered_entities as (
 				select *
 				from joined_entities
