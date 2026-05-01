@@ -1,16 +1,18 @@
 import { sql } from "drizzle-orm";
 import { buildResolvedFieldsExpression } from "./display-builder";
+import { createScalarExpressionCompiler } from "./expression-compiler";
+import { createExpressionTypeResolver } from "./expression-type-resolver";
 import { buildFilterWhereClause } from "./filter-builder";
 import { executePaginatedQuery } from "./paginated-query-sql";
-import type { PreparedQueryContext } from "./preparer";
+import { buildQueryContext, type PreparedQueryContext } from "./preparer";
 import {
 	buildBaseEntitiesCte,
 	buildJoinedEntitiesCte,
 	buildLatestEventJoinCte,
+	ENTITY_CTE_ALIASES,
 } from "./query-ctes";
 import type {
 	EntityQueryEngineRequest,
-	QueryEngineContext,
 	QueryEngineEntityResponse,
 } from "./schemas";
 import { buildSortExpression } from "./sort-builder";
@@ -20,15 +22,32 @@ export const executePreparedQuery = async (input: {
 	context: PreparedQueryContext;
 	request: EntityQueryEngineRequest;
 }): Promise<QueryEngineEntityResponse> => {
-	const queryContext: QueryEngineContext = {
-		userId: input.userId,
-		schemaMap: input.context.schemaMap,
-		eventJoinMap: input.context.eventJoinMap,
+	const queryContext = buildQueryContext(input.userId, input.context);
+	const getTypeInfo = createExpressionTypeResolver({
+		context: queryContext,
+		computedFields: input.request.computedFields,
+	});
+	const createCompiler = (alias: string) => {
+		const { compile } = createScalarExpressionCompiler({
+			alias,
+			getTypeInfo,
+			context: queryContext,
+			computedFields: input.request.computedFields,
+		});
+		return { compile, getTypeInfo };
 	};
+	const filterCompiler = createCompiler(ENTITY_CTE_ALIASES.joined);
 	const filterWhereClause = buildFilterWhereClause({
 		context: queryContext,
-		alias: "joined_entities",
+		compiler: filterCompiler,
 		predicate: input.request.filter,
+		computedFields: input.request.computedFields,
+	});
+	const sortCompiler = createCompiler(ENTITY_CTE_ALIASES.filtered);
+	const sortExpression = buildSortExpression({
+		context: queryContext,
+		compiler: sortCompiler,
+		expression: input.request.sort.expression,
 		computedFields: input.request.computedFields,
 	});
 	const baseEntitiesCte = buildBaseEntitiesCte({
@@ -40,16 +59,11 @@ export const executePreparedQuery = async (input: {
 		return buildLatestEventJoinCte({ join, userId: input.userId });
 	});
 	const joinedEntitiesCte = buildJoinedEntitiesCte(input.context.eventJoins);
-	const sortExpression = buildSortExpression({
-		context: queryContext,
-		alias: "filtered_entities",
-		expression: input.request.sort.expression,
-		computedFields: input.request.computedFields,
-	});
 	const resolvedFields = buildResolvedFieldsExpression({
+		getTypeInfo,
 		context: queryContext,
-		alias: "paginated_entities",
 		fields: input.request.fields,
+		alias: ENTITY_CTE_ALIASES.paginated,
 		computedFields: input.request.computedFields,
 	});
 	const direction = sql.raw(input.request.sort.direction.toUpperCase());
@@ -64,11 +78,11 @@ export const executePreparedQuery = async (input: {
 		withCtes: [baseEntitiesCte, ...latestEventJoinCtes, joinedEntitiesCte],
 		paginationConfig: {
 			rowIdColumn: "id",
-			countAlias: "entity_count",
-			sortedAlias: "sorted_entities",
-			filteredAlias: "filtered_entities",
-			joinedTableName: "joined_entities",
-			paginatedAlias: "paginated_entities",
+			countAlias: ENTITY_CTE_ALIASES.count,
+			sortedAlias: ENTITY_CTE_ALIASES.sorted,
+			filteredAlias: ENTITY_CTE_ALIASES.filtered,
+			joinedTableName: ENTITY_CTE_ALIASES.joined,
+			paginatedAlias: ENTITY_CTE_ALIASES.paginated,
 		},
 	});
 

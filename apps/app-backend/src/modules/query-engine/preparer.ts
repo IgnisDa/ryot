@@ -34,6 +34,7 @@ import {
 import type { QueryEngineSchemaRow } from "./query-ctes";
 import type {
 	EntityQueryEngineRequest,
+	QueryEngineContext,
 	QueryEngineField,
 	QueryEngineRequest,
 	QueryEngineResponse,
@@ -65,18 +66,22 @@ export type PreparedQueryContext = {
 	eventSchemaMap?: Map<string, QueryEngineEventSchemaLike[]>;
 };
 
+export const buildQueryContext = (
+	userId: string,
+	context: PreparedQueryContext,
+	overrides?: Partial<QueryEngineContext>,
+): QueryEngineContext => ({
+	userId,
+	schemaMap: context.schemaMap,
+	eventJoinMap: context.eventJoinMap,
+	...overrides,
+});
+
 export const normalizeRequestPerMode = (
 	request: QueryEngineRequest,
 ): PrepareContextInput => {
 	return match(request)
-		.with({ mode: "entities" }, (r) => ({
-			mode: r.mode,
-			scope: r.scope,
-			eventJoins: r.eventJoins,
-			eventSchemas: [] as string[],
-			relationships: r.relationships,
-		}))
-		.with({ mode: "aggregate" }, (r) => ({
+		.with({ mode: "entities" }, { mode: "aggregate" }, (r) => ({
 			mode: r.mode,
 			scope: r.scope,
 			eventJoins: r.eventJoins,
