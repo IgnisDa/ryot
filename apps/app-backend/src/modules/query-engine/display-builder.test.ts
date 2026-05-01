@@ -61,7 +61,7 @@ describe("buildResolvedFieldsExpression", () => {
 			);
 
 			expect(query.sql).toContain("at time zone 'UTC'");
-			expect(query.sql).toContain('YYYY-MM-DD"T"HH24:MI:SS.MS3"Z"');
+			expect(query.sql).toContain('YYYY-MM-DD"T"HH24:MI:SS.FF3"Z"');
 		});
 
 		it("wraps date in to_char with UTC timezone, not plain to_jsonb", () => {
@@ -113,7 +113,7 @@ describe("buildResolvedFieldsExpression", () => {
 			);
 
 			expect(query.sql).toContain("at time zone 'UTC'");
-			expect(query.sql).toContain('YYYY-MM-DD"T"HH24:MI:SS.MS3"Z"');
+			expect(query.sql).toContain('YYYY-MM-DD"T"HH24:MI:SS.FF3"Z"');
 		});
 
 		it("applies UTC formatting to datetime properties (normalized to date)", () => {
@@ -139,7 +139,7 @@ describe("buildResolvedFieldsExpression", () => {
 			);
 
 			expect(query.sql).toContain("at time zone 'UTC'");
-			expect(query.sql).toContain('YYYY-MM-DD"T"HH24:MI:SS.MS3"Z"');
+			expect(query.sql).toContain('YYYY-MM-DD"T"HH24:MI:SS.FF3"Z"');
 		});
 	});
 

@@ -538,6 +538,12 @@ export function registerQueryEnginePresentationAndErrorTests() {
 			{ key: "column_1", kind: "number", value: 4 },
 			{ key: "column_2", kind: "date" },
 		]);
+		for (const item of data?.data.items ?? []) {
+			const reviewedAt = getQueryEngineFieldOrThrow(item, "column_2").value;
+			expect(reviewedAt).toMatch(
+				/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/,
+			);
+		}
 	});
 
 	it("treats missing event schemas and missing event rows as null join values", async () => {

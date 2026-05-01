@@ -1,109 +1,19 @@
 import { sql } from "drizzle-orm";
-import { db } from "~/lib/db";
 import { buildResolvedFieldsExpression } from "./display-builder";
 import { buildFilterWhereClause } from "./filter-builder";
+import { executePaginatedQuery } from "./paginated-query-sql";
 import type { PreparedQueryContext } from "./preparer";
 import {
 	buildBaseEntitiesCte,
 	buildJoinedEntitiesCte,
 	buildLatestEventJoinCte,
-	buildPaginatedQuerySql,
-	type PaginationConfig,
 } from "./query-ctes";
 import type {
 	EntityQueryEngineRequest,
 	QueryEngineContext,
 	QueryEngineEntityResponse,
-	QueryEngineItem,
 } from "./schemas";
 import { buildSortExpression } from "./sort-builder";
-import type { SqlExpression } from "./sql-expression-helpers";
-
-export type QueryRow = {
-	total: number;
-	row_id: string | null;
-	fields: QueryEngineItem | null;
-};
-
-type PaginationInput = {
-	page: number;
-	total: number;
-	limit: number;
-};
-
-type PaginationResult = PaginationInput & {
-	totalPages: number;
-	hasNextPage: boolean;
-	hasPreviousPage: boolean;
-};
-
-export const calculatePagination = (
-	input: PaginationInput,
-): PaginationResult => {
-	const totalPages =
-		input.total === 0 ? 0 : Math.ceil(input.total / input.limit);
-
-	return {
-		...input,
-		totalPages,
-		hasNextPage: input.page < totalPages,
-		hasPreviousPage: totalPages > 0 && input.page > 1,
-	};
-};
-
-export const mapQueryRowToItem = (row: QueryRow): QueryEngineItem | null => {
-	if (row.row_id === null) {
-		return null;
-	}
-
-	return row.fields ?? [];
-};
-
-export const executePaginatedQuery = async (input: {
-	direction: SqlExpression;
-	withCtes: SqlExpression[];
-	filterClause: SqlExpression;
-	sortExpression: SqlExpression;
-	resolvedFields: SqlExpression;
-	pagination: { page: number; limit: number };
-	paginationConfig: Omit<PaginationConfig, "limit" | "offset">;
-}): Promise<{
-	items: QueryEngineItem[];
-	pagination: ReturnType<typeof calculatePagination>;
-}> => {
-	const offset = (input.pagination.page - 1) * input.pagination.limit;
-	const config: PaginationConfig = {
-		offset,
-		limit: input.pagination.limit,
-		countAlias: input.paginationConfig.countAlias,
-		rowIdColumn: input.paginationConfig.rowIdColumn,
-		sortedAlias: input.paginationConfig.sortedAlias,
-		filteredAlias: input.paginationConfig.filteredAlias,
-		paginatedAlias: input.paginationConfig.paginatedAlias,
-		joinedTableName: input.paginationConfig.joinedTableName,
-	};
-	const dataResult = await db.execute<QueryRow>(
-		buildPaginatedQuerySql({
-			...config,
-			withCtes: input.withCtes,
-			direction: input.direction,
-			filterClause: input.filterClause,
-			sortExpression: input.sortExpression,
-			resolvedFields: input.resolvedFields,
-		}),
-	);
-	const total = dataResult.rows[0]?.total ?? 0;
-	const pagination = calculatePagination({
-		total,
-		page: input.pagination.page,
-		limit: input.pagination.limit,
-	});
-	const items = dataResult.rows.flatMap((row) => {
-		const item = mapQueryRowToItem(row);
-		return item ? [item] : [];
-	});
-	return { pagination, items };
-};
 
 export const executePreparedQuery = async (input: {
 	userId: string;
