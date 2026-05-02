@@ -1,4 +1,4 @@
-import { executeQuery } from "./host-functions/execute-query";
+import { appApiCall } from "./host-functions/app-api-call";
 import { getAppConfigValue } from "./host-functions/get-app-config-value";
 import { getCachedValue } from "./host-functions/get-cached-value";
 import { getUserPreferences } from "./host-functions/get-user-preferences";
@@ -20,7 +20,7 @@ const createHostFunctionFactory = <TContext extends Record<string, unknown>>(
 
 export const hostFunctionRegistry = {
 	httpCall: createHostFunctionFactory(httpCall),
-	executeQuery: createHostFunctionFactory(executeQuery),
+	appApiCall: createHostFunctionFactory(appApiCall),
 	getCachedValue: createHostFunctionFactory(getCachedValue),
 	setCachedValue: createHostFunctionFactory(setCachedValue),
 	getAppConfigValue: createHostFunctionFactory(getAppConfigValue),
@@ -35,7 +35,7 @@ const buildFunctionContext = (
 	if (functionKey === "getCachedValue" || functionKey === "setCachedValue") {
 		return { scriptId };
 	}
-	if (functionKey === "executeQuery" || functionKey === "getUserPreferences") {
+	if (functionKey === "appApiCall" || functionKey === "getUserPreferences") {
 		return { userId };
 	}
 	return {};
