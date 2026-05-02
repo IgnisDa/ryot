@@ -100,7 +100,7 @@ describe("createSavedView", () => {
 			},
 		});
 
-		await expect(
+		expect(
 			createSavedView({ userId: "user_1", body: createSavedViewBody() }, deps),
 		).rejects.toThrow("Database connection lost");
 	});
