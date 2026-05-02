@@ -113,6 +113,29 @@ describe("authentication bootstrap helpers", () => {
 		]);
 	});
 
+	it("uses average user rating as the built-in media callout", () => {
+		const displayConfiguration = createDefaultDisplayConfiguration("book");
+
+		expect(displayConfiguration.grid.calloutProperty).toEqual({
+			type: "reference",
+			reference: {
+				path: ["rating"],
+				aggregation: "avg",
+				type: "event-aggregate",
+				eventSchemaSlug: "review",
+			},
+		});
+		expect(displayConfiguration.list.calloutProperty).toEqual({
+			type: "reference",
+			reference: {
+				path: ["rating"],
+				aggregation: "avg",
+				type: "event-aggregate",
+				eventSchemaSlug: "review",
+			},
+		});
+	});
+
 	it("builds built-in saved views without trackers", () => {
 		const queryDefinition = createQueryDefinition({ entitySchemaSlugs: [] });
 		const displayConfiguration = createDefaultDisplayConfiguration();

@@ -76,6 +76,21 @@ export const validateRuntimeReferenceAgainstSchemas = (
 		return;
 	}
 
+	if (reference.type === "event-aggregate") {
+		if (
+			context.eventSchemaSlugs &&
+			!context.eventSchemaSlugs.has(reference.eventSchemaSlug)
+		) {
+			throw new QueryEngineValidationError(
+				`Event schema '${reference.eventSchemaSlug}' is not available for the requested entity schemas`,
+			);
+		}
+		// Path validation is not performed here because event schemas can differ
+		// per entity schema, making cross-schema property resolution complex. The
+		// SQL subquery handles invalid paths gracefully by returning NULL.
+		return;
+	}
+
 	const join = getEventJoinForReference(context.eventJoinMap, reference);
 
 	if (reference.path[0] === "properties") {
