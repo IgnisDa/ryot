@@ -88,6 +88,7 @@ export function TrackerSheet() {
 					showsVerticalScrollIndicator={false}
 					contentContainerStyle={{
 						paddingTop: 4,
+						paddingLeft: Math.max(insets.left, 8),
 						paddingBottom: insets.bottom + 24,
 					}}
 				>
@@ -158,11 +159,20 @@ export function TrackerSheet() {
 															key={item.key}
 															accessibilityRole="button"
 															accessibilityLabel={item.name}
-															className="pl-13 pr-6 min-h-11 justify-center flex-row items-center"
+															className="pl-13 pr-6 min-h-11 justify-center flex-row items-center relative"
 															onPress={() =>
 																handleSubItemPress(tracker.slug, item)
 															}
 														>
+															{isSubActive && (
+																<Box
+																	className="absolute left-0 top-2 bottom-2 w-0.75"
+																	style={{
+																		backgroundColor:
+																			item.accentColor ?? undefined,
+																	}}
+																/>
+															)}
 															<Box className="mr-2">
 																<TrackerIcon icon={item.icon} size={14} />
 															</Box>
