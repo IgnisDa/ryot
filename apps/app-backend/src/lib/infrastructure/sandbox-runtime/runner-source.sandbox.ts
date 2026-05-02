@@ -36,6 +36,7 @@ const encoder = new TextEncoder();
 const nativeDate = globalThis.Date;
 const arrayIsArray = Array.isArray;
 const nativeError = globalThis.Error;
+nativeError.stackTraceLimit = Infinity;
 const createDictionary = Object.create;
 const nativeString = globalThis.String;
 const readFile = Deno.readFile.bind(Deno);

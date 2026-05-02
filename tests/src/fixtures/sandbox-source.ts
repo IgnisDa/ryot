@@ -190,6 +190,30 @@ export function throwingSandboxSource(input: SandboxSourceIdentity & { readonly 
 	});
 }
 
+export function deepThrowingSandboxSource(
+	input: SandboxSourceIdentity & { readonly message: string },
+) {
+	const frameCount = 12;
+	const frames = Array.from({ length: frameCount }, (_, index) => {
+		const frameName = `sandboxFrame${index}`;
+		if (index === frameCount - 1) {
+			return `const ${frameName} = () => { throw new Error(${JSON.stringify(input.message)}); };`;
+		}
+		return `const ${frameName} = () => sandboxFrame${index + 1}();`;
+	}).join("\n");
+
+	return scriptModuleSource({
+		...input,
+		capabilities: [],
+		outputSchema: "Schema.Unknown",
+		inputSchema: "Schema.Struct({})",
+		run: `() => Effect.sync(() => {
+    ${frames}
+    return sandboxFrame0();
+  })`,
+	});
+}
+
 export function runtimeManifestMismatchSandboxSource(input: SandboxSourceIdentity) {
 	return scriptModuleSource({
 		...input,
