@@ -1,5 +1,5 @@
+import { createEntityColumnExpression } from "@ryot/ts-utils";
 import { match } from "ts-pattern";
-import { createEntityColumnExpression } from "~/features/entities/model";
 import type {
 	ApiGetResponseData,
 	ApiPostRequestBody,

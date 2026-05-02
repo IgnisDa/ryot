@@ -1,4 +1,4 @@
-import { createEntityColumnExpression } from "~/features/entities/model";
+import { createEntityColumnExpression } from "@ryot/ts-utils";
 import type { AppSavedView } from "~/features/saved-views/model";
 
 type ViewExpression = AppSavedView["queryDefinition"]["sort"]["expression"];
