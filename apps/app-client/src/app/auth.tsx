@@ -11,8 +11,8 @@ import { Button, ButtonText } from "@/components/ui/button";
 import { Input, InputField } from "@/components/ui/input";
 import { Pressable } from "@/components/ui/pressable";
 import { Text } from "@/components/ui/text";
-import { useSystemConfig } from "@/lib/api-client";
 import { useAuthClient, useSetServerUrl } from "@/lib/atoms";
+import { useSystemConfig } from "@/lib/contract-client";
 import { useAppForm } from "@/lib/forms";
 import { getNameFromEmail } from "@/lib/user";
 
