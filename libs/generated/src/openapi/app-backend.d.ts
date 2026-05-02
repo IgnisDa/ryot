@@ -2624,7 +2624,7 @@ export interface paths {
                                 sortOrder: number;
                                 trackerId: string | null;
                                 queryDefinition: {
-                                    entitySchemaSlugs: string[];
+                                    scope: string[];
                                     sort: {
                                         expression: components["schemas"]["ViewExpression"];
                                         /** @enum {string} */
@@ -2711,7 +2711,7 @@ export interface paths {
                     "application/json": {
                         name: string;
                         queryDefinition: {
-                            entitySchemaSlugs: string[];
+                            scope: string[];
                             sort: {
                                 expression: components["schemas"]["ViewExpression"];
                                 /** @enum {string} */
@@ -2781,7 +2781,7 @@ export interface paths {
                                 sortOrder: number;
                                 trackerId: string | null;
                                 queryDefinition: {
-                                    entitySchemaSlugs: string[];
+                                    scope: string[];
                                     sort: {
                                         expression: components["schemas"]["ViewExpression"];
                                         /** @enum {string} */
@@ -2899,7 +2899,7 @@ export interface paths {
                                 sortOrder: number;
                                 trackerId: string | null;
                                 queryDefinition: {
-                                    entitySchemaSlugs: string[];
+                                    scope: string[];
                                     sort: {
                                         expression: components["schemas"]["ViewExpression"];
                                         /** @enum {string} */
@@ -2991,7 +2991,7 @@ export interface paths {
                         isDisabled: boolean;
                         name: string;
                         queryDefinition: {
-                            entitySchemaSlugs: string[];
+                            scope: string[];
                             sort: {
                                 expression: components["schemas"]["ViewExpression"];
                                 /** @enum {string} */
@@ -3061,7 +3061,7 @@ export interface paths {
                                 sortOrder: number;
                                 trackerId: string | null;
                                 queryDefinition: {
-                                    entitySchemaSlugs: string[];
+                                    scope: string[];
                                     sort: {
                                         expression: components["schemas"]["ViewExpression"];
                                         /** @enum {string} */
@@ -3178,7 +3178,7 @@ export interface paths {
                                 sortOrder: number;
                                 trackerId: string | null;
                                 queryDefinition: {
-                                    entitySchemaSlugs: string[];
+                                    scope: string[];
                                     sort: {
                                         expression: components["schemas"]["ViewExpression"];
                                         /** @enum {string} */
@@ -3308,7 +3308,7 @@ export interface paths {
                                 sortOrder: number;
                                 trackerId: string | null;
                                 queryDefinition: {
-                                    entitySchemaSlugs: string[];
+                                    scope: string[];
                                     sort: {
                                         expression: components["schemas"]["ViewExpression"];
                                         /** @enum {string} */
@@ -3773,7 +3773,7 @@ export interface paths {
                             relationshipSchemaSlug: string;
                         }[];
                         filter?: components["schemas"]["NullableViewPredicate"];
-                        entitySchemaSlugs: string[];
+                        scope: string[];
                         /** @default [] */
                         fields?: {
                             expression: components["schemas"]["ViewExpression"];
