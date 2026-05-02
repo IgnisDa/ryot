@@ -169,6 +169,7 @@ describe("getActiveNavigationKey", () => {
 	it.each([
 		["/media", "home"],
 		["/media/settings", "settings"],
+		["/media/settings/integrations", "settings"],
 		["/v/movies", "view:movies"],
 		["/e/collection-1", "collection:collection-1"],
 	])("resolves %s to %s", (pathname, expected) => {
