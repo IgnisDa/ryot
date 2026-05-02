@@ -55,7 +55,7 @@ type LoadedMediaImportAdapterResult = {
 	adapterResult: typeof MediaImportAdapterResultSchema.Type;
 };
 
-type MediaImportWorkflowOperations<RLoad, RResolve, RImport, RSearch, RCleanup> = {
+type MediaImportWorkflowOperations<RLoad, RResolve, RImport, RSearch = never, RCleanup = never> = {
 	cleanupArtifacts: (input: {
 		cleanupPaths: ReadonlyArray<string>;
 		sourcePayloadKey?: string;
@@ -111,7 +111,13 @@ const isProgressUpdateDue = (processed: number, groups: number) =>
 
 const activityKey = (value: string) => Buffer.from(value, "utf8").toString("base64url") || "empty";
 
-export const runOneTimeMediaImportWorkflow = <RLoad, RResolve, RImport, RSearch, RCleanup>(
+export const runOneTimeMediaImportWorkflow = <
+	RLoad,
+	RResolve,
+	RImport,
+	RSearch = never,
+	RCleanup = never,
+>(
 	payload: ImportRunJobData,
 	executionId: string,
 	operations: MediaImportWorkflowOperations<RLoad, RResolve, RImport, RSearch, RCleanup>,
