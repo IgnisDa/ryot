@@ -1017,6 +1017,45 @@ describe("Query engine E2E", () => {
 		]);
 	});
 
+	it("supports titleCase and kebabCase transforms in runtime expressions", async () => {
+		const { client, cookies, schema } =
+			await createSingleSchemaQueryEngineFixture();
+		const { data, response } = await executeQueryEngine(client, cookies, {
+			eventJoins: [],
+			computedFields: [],
+			scope: [schema.slug],
+			pagination: { page: 1, limit: 1 },
+			sort: {
+				direction: "asc",
+				expression: createEntityColumnExpression(schema.slug, "name"),
+			},
+			filter: {
+				operator: "eq",
+				type: "comparison",
+				right: literalExpression("Gamma Phone"),
+				left: createEntityColumnExpression(schema.slug, "name"),
+			},
+			fields: [
+				buildQueryEngineField("titleCased", {
+					type: "transform",
+					name: "titleCase",
+					expression: createEntityPropertyExpression(schema.slug, "category"),
+				}),
+				buildQueryEngineField("kebabCased", {
+					type: "transform",
+					name: "kebabCase",
+					expression: createEntityPropertyExpression(schema.slug, "category"),
+				}),
+			],
+		});
+
+		expect(response.status).toBe(200);
+		expect(data?.data.items[0]).toEqual([
+			{ key: "titleCased", kind: "text", value: "Phone" },
+			{ key: "kebabCased", kind: "text", value: "phone" },
+		]);
+	});
+
 	it("truncates integer normalization toward zero for fractional values", async () => {
 		const { client, cookies, schema } =
 			await createSingleSchemaQueryEngineFixture();
@@ -1027,15 +1066,15 @@ describe("Query engine E2E", () => {
 			computedFields: [],
 			scope: [schema.slug],
 			pagination: { page: 1, limit: 1 },
+			sort: {
+				direction: "asc",
+				expression: createEntityColumnExpression(schema.slug, "name"),
+			},
 			filter: {
 				operator: "eq",
 				type: "comparison",
 				right: { type: "literal", value: "Alpha Phone" },
 				left: createEntityColumnExpression(schema.slug, "name"),
-			},
-			sort: {
-				direction: "asc",
-				expression: createEntityColumnExpression(schema.slug, "name"),
 			},
 			fields: [
 				buildQueryEngineField("integerNormalized", {
@@ -1153,6 +1192,33 @@ describe("Query engine E2E", () => {
 		}
 	});
 
+	it("supports not predicate to negate filters", async () => {
+		const { client, cookies, schema } =
+			await createSingleSchemaQueryEngineFixture();
+		const { data, response } = await executeQueryEngine(
+			client,
+			cookies,
+			buildGridRequest({
+				scope: [schema.slug],
+				filter: {
+					type: "not",
+					predicate: {
+						operator: "eq",
+						type: "comparison",
+						right: literalExpression("phone"),
+						left: createEntityPropertyExpression(schema.slug, "category"),
+					},
+				},
+			}),
+		);
+
+		expect(response.status).toBe(200);
+		expect(getItemTitles(data?.data.items)).toEqual([
+			"Beta Tablet",
+			"Delta Watch",
+		]);
+	});
+
 	it("ands multiple filters within a single schema", async () => {
 		const { client, cookies, schema } =
 			await createSingleSchemaQueryEngineFixture();
@@ -1165,16 +1231,16 @@ describe("Query engine E2E", () => {
 					type: "and",
 					predicates: [
 						{
-							type: "comparison",
 							operator: "gte",
-							left: createEntityPropertyExpression(schema.slug, "year"),
+							type: "comparison",
 							right: literalExpression(2020),
+							left: createEntityPropertyExpression(schema.slug, "year"),
 						},
 						{
-							type: "comparison",
 							operator: "eq",
-							left: createEntityPropertyExpression(schema.slug, "category"),
+							type: "comparison",
 							right: literalExpression("phone"),
+							left: createEntityPropertyExpression(schema.slug, "category"),
 						},
 					],
 				},
