@@ -319,17 +319,20 @@ const getBuiltInSavedViewName = (slug: BuiltinMediaEntitySchemaSlug) => {
 
 export const authenticationBuiltinSavedViews = () => [
 	{
+		slug: "collections",
 		name: "Collections",
 		entitySchemaSlug: "collection",
 		displayConfiguration: createDefaultDisplayConfiguration("collection"),
 	},
 	{
+		slug: "all-persons",
 		name: "All Persons",
 		trackerSlug: "media",
 		entitySchemaSlug: "person",
 		displayConfiguration: createDefaultDisplayConfiguration("person"),
 	},
 	{
+		slug: "all-exercises",
 		name: "All Exercises",
 		trackerSlug: "fitness",
 		entitySchemaSlug: "exercise",
@@ -339,6 +342,7 @@ export const authenticationBuiltinSavedViews = () => [
 		trackerSlug: "media",
 		entitySchemaSlug: slug,
 		name: getBuiltInSavedViewName(slug),
+		slug: normalizeSlug(getBuiltInSavedViewName(slug)),
 		displayConfiguration: createDefaultDisplayConfiguration(slug),
 	})),
 ];
