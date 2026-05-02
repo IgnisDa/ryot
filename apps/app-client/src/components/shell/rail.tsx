@@ -71,7 +71,7 @@ function RailItem({
 	);
 }
 
-export function SpineRail({ translateX, onClose, pinned = false }: Props) {
+export function ShellRail({ translateX, onClose, pinned = false }: Props) {
 	const user = useUser();
 	const { trackers, libraryViews, userItem, isLoading } = useNavigationData(
 		user?.name,
