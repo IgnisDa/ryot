@@ -107,9 +107,7 @@ export function SavedViewPage(props: {
 				continue;
 			}
 
-			const imageField = item.fields
-				? getRuntimeField(item, "image")
-				: undefined;
+			const imageField = getRuntimeField(item, "image");
 			if (isRuntimeField(imageField) && imageField.kind === "image") {
 				entries.push({
 					id: item.id,
