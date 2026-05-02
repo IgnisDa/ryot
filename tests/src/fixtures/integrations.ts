@@ -13,11 +13,7 @@ type WebhookPayload = ContractPayload<"integrations", "webhook">;
 type CreateIntegrationBody = ContractPayload<"integrations", "create">;
 
 export const createIntegration = (client: Client, body: CreateIntegrationBody) =>
-	Effect.gen(function* () {
-		const result = yield* client.call((c) => c.integrations.create({ payload: body }));
-		requirePresent(result.id, "Failed to create integration");
-		return result;
-	});
+	client.call((c) => c.integrations.create({ payload: body }));
 
 export const createKodiIntegration = (client: Client) =>
 	createIntegration(client, {
@@ -26,18 +22,15 @@ export const createKodiIntegration = (client: Client) =>
 	});
 
 export const createAudiobookshelfIntegration = (client: Client) =>
-	Effect.gen(function* () {
-		const { id } = yield* createIntegration(client, {
-			name: "ABS",
-			isDisabled: true,
-			provider: "audiobookshelf",
-			providerSpecifics: {
-				token: "test-token",
-				kind: "audiobookshelf",
-				baseUrl: "https://abs.example.com",
-			},
-		});
-		return requirePresent(yield* getIntegration(client, id), "Created integration not found");
+	createIntegration(client, {
+		name: "ABS",
+		isDisabled: true,
+		provider: "audiobookshelf",
+		providerSpecifics: {
+			token: "test-token",
+			kind: "audiobookshelf",
+			baseUrl: "https://abs.example.com",
+		},
 	});
 
 export const listIntegrations = (

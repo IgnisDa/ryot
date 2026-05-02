@@ -1,4 +1,5 @@
 import { describe, expect, it } from "@effect/vitest";
+import { SandboxScriptId } from "@ryot/contract/schema/brands";
 import { Effect, Layer } from "effect";
 import { WorkflowEngine } from "effect/unstable/workflow/WorkflowEngine";
 
@@ -34,6 +35,153 @@ describe("validateProgressThresholds", () => {
 
 	it("rejects minimum greater than maximum", () => {
 		expect(validateProgressThresholds(96, 95)).toMatch(/minimumProgress must not exceed/);
+	});
+});
+
+describe("client endpoints", () => {
+	it.effect(
+		"lists provider schemas and derives creatability from lot and script availability",
+		() => {
+			const yank = {
+				lot: "yank",
+				slug: "komga",
+				name: "Komga",
+				pluginSlug: "media",
+				description: "Komga yank",
+				settingsSchema: { fields: {} },
+				scriptSlug: "integration.komga",
+			} satisfies RegisteredIntegrationProvider;
+			const inactiveSink = {
+				lot: "sink",
+				slug: "kodi",
+				name: "Kodi",
+				pluginSlug: "media",
+				description: "Kodi sink",
+				scriptSlug: "integration.kodi",
+				settingsSchema: { fields: {} },
+			} satisfies RegisteredIntegrationProvider;
+			const push = {
+				lot: "push",
+				slug: "radarr",
+				name: "Radarr",
+				scriptSlug: null,
+				pluginSlug: "media",
+				description: "Radarr push",
+				settingsSchema: { fields: {} },
+			} satisfies RegisteredIntegrationProvider;
+			const now = new Date(0);
+			const activeScript = {
+				metadata: {},
+				name: "Komga",
+				createdAt: now,
+				updatedAt: now,
+				source: "source",
+				providerId: null,
+				compiledFormat: 1,
+				pluginSlug: "media",
+				compiledCode: "compiled",
+				slug: "integration.komga",
+				contentHash: "content-hash",
+				id: SandboxScriptId.make("active-script"),
+			};
+			const providerCatalog = Layer.mock(IntegrationProviderCatalog)({
+				find: () => null,
+				findOwned: () => null,
+				list: () => [yank, inactiveSink, push],
+				resolveOwned: (slug) => ({
+					provider: slug === yank.slug ? yank : inactiveSink,
+					script: slug === yank.slug ? Effect.succeed(activeScript) : Effect.succeed(null),
+				}),
+			});
+			const layer = IntegrationsService.layer.pipe(
+				Layer.provideMerge(
+					Layer.mergeAll(
+						databaseLayer,
+						providerCatalog,
+						Layer.mock(ImportsService, {}),
+						Layer.mock(IntegrationsRepository, {}),
+						Layer.succeed(WorkflowEngine, makeWorkflowEngine()),
+					),
+				),
+			);
+
+			return Effect.gen(function* () {
+				const providers = yield* (yield* IntegrationsService).listIntegrationProviders();
+
+				expect(providers.map(({ slug, isCreatable }) => [slug, isCreatable])).toEqual([
+					["komga", true],
+					["kodi", false],
+					["radarr", true],
+				]);
+				expect(providers[0]?.commonSchema.fields).toMatchObject({
+					name: { type: "string" },
+					isDisabled: { type: "boolean", defaultValue: false },
+					minimumProgress: { type: "number", defaultValue: 2 },
+					maximumProgress: { type: "number", defaultValue: 95 },
+					syncOwnership: { type: "boolean", defaultValue: false },
+					disableOnContinuousErrors: { type: "boolean", defaultValue: false },
+				});
+				expect(providers[0]?.commonSchema.fields["minimumProgress"]?.validation).toEqual({
+					minimum: 0,
+					maximum: 100,
+				});
+				expect(providers[2]?.commonSchema.fields).not.toHaveProperty("minimumProgress");
+				expect(providers[2]?.commonSchema.fields).not.toHaveProperty("syncOwnership");
+				expect(providers[0]).not.toHaveProperty("scriptSlug");
+			}).pipe(Effect.provide(layer));
+		},
+	);
+
+	it.effect("gets an owned integration through client redaction", () => {
+		const integration = makeIntegration({
+			provider: "komga",
+			providerSpecifics: { kind: "komga", baseUrl: "https://komga.test", token: "secret" },
+		});
+		const registered = {
+			lot: "yank",
+			slug: "komga",
+			name: "Komga",
+			description: "Komga yank",
+			scriptSlug: "integration.komga",
+			pluginSlug: integration.pluginSlug,
+			settingsSchema: {
+				fields: {
+					kind: { type: "string", label: "Kind", description: "Kind" },
+					baseUrl: { type: "string", label: "Base URL", description: "Base URL" },
+					token: { type: "string", label: "Token", description: "Token", secret: true },
+				},
+			},
+		} satisfies RegisteredIntegrationProvider;
+		const layer = IntegrationsService.layer.pipe(
+			Layer.provideMerge(
+				Layer.mergeAll(
+					databaseLayer,
+					Layer.mock(ImportsService, {}),
+					Layer.mock(IntegrationsRepository, {
+						getForUser: () => Effect.succeed(integration),
+					}),
+					Layer.mock(IntegrationProviderCatalog, {
+						find: () => null,
+						list: () => [registered],
+						findOwned: () => registered,
+						resolveOwned: () => null,
+					}),
+					Layer.succeed(WorkflowEngine, makeWorkflowEngine()),
+				),
+			),
+		);
+
+		return Effect.gen(function* () {
+			const listed = yield* (yield* IntegrationsService).getForClient(
+				integration.userId,
+				integration.id,
+			);
+
+			expect(listed.providerSpecifics).toEqual({
+				kind: "komga",
+				baseUrl: "https://komga.test",
+			});
+		}).pipe(Effect.provide(layer));
 	});
 });
 
