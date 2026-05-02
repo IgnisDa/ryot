@@ -10,6 +10,7 @@ import { getGateHref, getRedirectDestination } from "@/modules/navigation/redire
 import { useSafeRedirectTo } from "@/modules/navigation/use-safe-redirect-to";
 import { systemConfigAtom } from "@/modules/server/atoms";
 import { useServerUrl, useSetServerUrl } from "@/modules/server/state";
+import { CLOUD_URL } from "@/modules/server/url";
 
 function AuthLoading() {
 	return (
@@ -25,10 +26,11 @@ export default function Auth() {
 	const redirectTo = useSafeRedirectTo();
 	const setServerUrl = useSetServerUrl();
 
-	const config = useAtomValue(systemConfigAtom);
+	const configAtom = systemConfigAtom(serverUrl ?? CLOUD_URL);
+	const config = useAtomValue(configAtom);
 	const { data: session, isPending } = client.useSession();
 	const [hasResolvedSession, setHasResolvedSession] = useState(!isPending);
-	const refreshConfig = useAtomRefresh(systemConfigAtom);
+	const refreshConfig = useAtomRefresh(configAtom);
 
 	useEffect(() => {
 		if (!isPending) {

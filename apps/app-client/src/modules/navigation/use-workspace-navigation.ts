@@ -1,35 +1,24 @@
-import { useAtomValue } from "@effect/atom-react";
-import {
-	decodeNavigationResponse,
-	type NavigationData,
-	type NavigationWorkspace,
-} from "@ryot/ryotql-recipes/navigation";
-import { Cause, Result } from "effect";
-import { AsyncResult } from "effect/unstable/reactivity";
+import { useAtomSet, useAtomValue } from "@effect/atom-react";
+import { Cause, Effect } from "effect";
+import { AsyncResult, Atom } from "effect/unstable/reactivity";
 import { router, useGlobalSearchParams, usePathname } from "expo-router";
+import { useEffect } from "react";
 
 import { useAuthClient } from "@/modules/auth/client";
-import { navigationAtom } from "@/modules/navigation/atoms";
-import { useSetWorkspace, useWorkspace } from "@/modules/server/state";
+import { navigationAtom, scopedWorkspaceAtom } from "@/modules/navigation/atoms";
+import { useServerUrl } from "@/modules/server/state";
+import { CLOUD_URL } from "@/modules/server/url";
 
+import { getNavigationHref, type NavigationItem } from "./navigation-data";
 import {
-	getActiveNavigationKey,
-	getCurrentWorkspace,
-	getEnabledItems,
-	getNavigationHref,
-	getNavigationItems,
-	type NavigationItem,
-	type NavigationItems,
-} from "./navigation-data";
+	mapNavigationState,
+	type NavigationFailure,
+	type ReadyNavigationState,
+} from "./navigation-state";
 
-export type ReadyWorkspaceNavigation = {
-	status: "ready";
-	activeKey: string;
+export type ReadyWorkspaceNavigation = ReadyNavigationState & {
 	accountName: string;
 	accountEmail: string;
-	data: NavigationData;
-	items: NavigationItems;
-	workspace: NavigationWorkspace;
 	selectWorkspace: (slug: string) => void;
 	navigate: (item: NavigationItem) => void;
 };
@@ -39,60 +28,57 @@ export type WorkspaceNavigation =
 	| ReadyWorkspaceNavigation
 	| { status: "error"; detail?: string; title: string };
 
+const unavailableNavigationAtom = Atom.make(AsyncResult.initial());
+const unavailableWorkspaceAtom = Atom.make("media");
+
+function useNavigationFailureLogging(failure: NavigationFailure | undefined) {
+	const kind = failure?.kind;
+	let detail: string | undefined;
+	if (failure) {
+		detail = Cause.isCause(failure.cause) ? Cause.pretty(failure.cause) : String(failure.cause);
+	}
+	useEffect(() => {
+		if (!kind || !detail) {
+			return;
+		}
+		Effect.runSync(Effect.logWarning(`navigation ${kind} failure`, detail));
+	}, [detail, kind]);
+}
+
 export function useWorkspaceNavigation(): WorkspaceNavigation {
 	const client = useAuthClient();
 	const pathname = usePathname();
-	const setWorkspace = useSetWorkspace();
-	const selectedWorkspace = useWorkspace();
+	const serverUrl = useServerUrl() ?? CLOUD_URL;
 	const { data: session } = client.useSession();
-	const navigationResult = useAtomValue(navigationAtom);
+	const scope = session ? { serverUrl, userId: session.user.id } : undefined;
+	const workspaceAtom = scope ? scopedWorkspaceAtom(scope) : unavailableWorkspaceAtom;
+	const setWorkspace = useAtomSet(workspaceAtom);
+	const selectedWorkspace = useAtomValue(workspaceAtom);
+	const navigationResult = useAtomValue(scope ? navigationAtom(scope) : unavailableNavigationAtom);
 	const params = useGlobalSearchParams<{ workspace?: string }>();
 	const routeWorkspace = Array.isArray(params.workspace) ? params.workspace[0] : params.workspace;
-
-	if (AsyncResult.isFailure(navigationResult)) {
-		return {
-			status: "error",
-			title: "Unable to load navigation",
-			detail: Cause.pretty(navigationResult.cause),
-		};
+	const state = mapNavigationState({
+		pathname,
+		routeWorkspace,
+		selectedWorkspace,
+		result: navigationResult,
+	});
+	useNavigationFailureLogging(state.status === "error" ? state.failure : undefined);
+	if (state.status === "error") {
+		return { status: "error", title: state.title, detail: state.detail };
 	}
-	if (!AsyncResult.isSuccess(navigationResult)) {
-		return { status: "loading" };
+	if (state.status === "loading") {
+		return state;
 	}
-
-	const decoded = decodeNavigationResponse(navigationResult.value);
-	if (Result.isFailure(decoded)) {
-		return { status: "error", title: "Unable to load navigation", detail: String(decoded.failure) };
-	}
-	const data = {
-		...decoded.success,
-		workspaces: getEnabledItems(decoded.success.workspaces),
-	} satisfies NavigationData;
-	if (data.workspaces.length === 0) {
-		return {
-			status: "error",
-			title: "No enabled workspaces",
-			detail: "Enable a plugin to create a workspace.",
-		};
-	}
-
-	const workspace = getCurrentWorkspace(data.workspaces, routeWorkspace, selectedWorkspace);
-	if (!workspace) {
-		return { status: "error", title: "No workspace selected" };
-	}
-	const items = getNavigationItems({ data, workspaceSlug: workspace.slug });
 
 	return {
-		data,
-		items,
-		workspace,
+		...state,
 		status: "ready",
-		activeKey: getActiveNavigationKey(pathname),
 		accountEmail: session?.user.email ?? "Email unavailable",
 		accountName: session?.user.name ?? session?.user.email ?? "Account",
-		navigate: (item) => router.navigate(getNavigationHref(workspace.slug, item)),
+		navigate: (item) => router.navigate(getNavigationHref(state.workspace.slug, item)),
 		selectWorkspace: (slug) => {
-			if (!data.workspaces.some((item) => item.slug === slug)) {
+			if (!state.data.workspaces.some((item) => item.slug === slug)) {
 				return;
 			}
 			setWorkspace(slug);

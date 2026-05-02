@@ -1,19 +1,14 @@
-import clsx from "clsx";
 import { Slot } from "expo-router";
 import { useState } from "react";
 import { Pressable, Text, View } from "react-native";
 
 import { AppIcon as NavigationIcon } from "@/modules/icons";
 
-import {
-	getNavigationItems,
-	getWorkspacePickerSummary,
-	type NavigationItem,
-} from "./navigation-data";
-import { NavigationStatus } from "./navigation-status";
+import type { NavigationItem } from "./navigation-data";
 import { Sidebar } from "./sidebar";
-import { useWorkspaceNavigation } from "./use-workspace-navigation";
 import { useWorkspaceDrawer, WorkspaceDrawer } from "./workspace-drawer";
+import { WorkspaceNavigationLayout } from "./workspace-navigation-layout";
+import { WorkspacePickerList } from "./workspace-picker";
 
 function WorkspaceShellContent() {
 	const { navigation } = useWorkspaceDrawer();
@@ -64,51 +59,12 @@ function WorkspaceShellContent() {
 							<NavigationIcon className="text-text-muted" name="search" size={14} />
 							<Text className="font-ui text-xs text-text-muted">Find workspace</Text>
 						</View>
-						<View className="w-full gap-2">
-							{navigation.data.workspaces.map((item) => {
-								const workspaceItems = getNavigationItems({
-									data: navigation.data,
-									workspaceSlug: item.slug,
-								});
-								const isCurrent = item.slug === navigation.workspace.slug;
-								return (
-									<Pressable
-										key={item.slug}
-										accessibilityRole="button"
-										onPress={() => selectWorkspace(item.slug)}
-										accessibilityLabel={`Switch to ${item.name} workspace`}
-										className={clsx(
-											"w-full flex-row items-center gap-3 rounded-xl border px-3 py-3",
-											isCurrent ? "border-accent bg-accent-soft" : "border-border bg-surface",
-										)}
-									>
-										<View
-											className={clsx(
-												"h-9 w-9 items-center justify-center rounded-[10px]",
-												isCurrent ? "bg-accent" : "bg-surface-2",
-											)}
-										>
-											<NavigationIcon
-												size={18}
-												name={item.icon}
-												className={clsx(isCurrent ? "text-accent-ink" : "text-text")}
-											/>
-										</View>
-										<View className="flex-1">
-											<Text className="font-ui text-[15px] text-text">{item.name}</Text>
-											<Text className="font-ui text-xs text-text-muted">
-												{getWorkspacePickerSummary(workspaceItems)}
-											</Text>
-										</View>
-										<NavigationIcon
-											size={16}
-											name={isCurrent ? "circle-check" : "chevron-right"}
-											className={clsx(isCurrent ? "text-accent-text" : "text-text-subtle")}
-										/>
-									</Pressable>
-								);
-							})}
-						</View>
+						<WorkspacePickerList
+							variant="desktop"
+							data={navigation.data}
+							onSelect={selectWorkspace}
+							currentWorkspaceSlug={navigation.workspace.slug}
+						/>
 					</View>
 				</>
 			)}
@@ -117,18 +73,13 @@ function WorkspaceShellContent() {
 }
 
 export function WorkspaceShell() {
-	const navigation = useWorkspaceNavigation();
-
-	if (navigation.status === "loading") {
-		return <NavigationStatus title="Loading navigation..." />;
-	}
-	if (navigation.status === "error") {
-		return <NavigationStatus title={navigation.title} detail={navigation.detail} />;
-	}
-
 	return (
-		<WorkspaceDrawer navigation={navigation}>
-			<WorkspaceShellContent />
-		</WorkspaceDrawer>
+		<WorkspaceNavigationLayout>
+			{(navigation) => (
+				<WorkspaceDrawer navigation={navigation}>
+					<WorkspaceShellContent />
+				</WorkspaceDrawer>
+			)}
+		</WorkspaceNavigationLayout>
 	);
 }

@@ -1,8 +1,12 @@
 import { useAtomSet, useAtomValue } from "@effect/atom-react";
 
-import { serverUrlAtom, workspaceAtom } from "@/modules/server/storage";
+import { serverUrlAtom } from "@/modules/server/storage";
+
+import { normalizeServerOrigin } from "./url";
 
 export const useServerUrl = () => useAtomValue(serverUrlAtom);
-export const useWorkspace = () => useAtomValue(workspaceAtom);
-export const useSetServerUrl = () => useAtomSet(serverUrlAtom);
-export const useSetWorkspace = () => useAtomSet(workspaceAtom);
+export const useSetServerUrl = () => {
+	const setServerUrl = useAtomSet(serverUrlAtom);
+	return (serverUrl: string | null) =>
+		setServerUrl(serverUrl === null ? null : normalizeServerOrigin(serverUrl));
+};
