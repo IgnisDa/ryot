@@ -9,24 +9,11 @@ import {
 	type ViewExpressionTypeInfo,
 } from "~/lib/views/expression-analysis";
 import { getPropertyDisplayKind } from "~/lib/views/policy";
-import type {
-	QueryEngineEventJoinLike,
-	QueryEngineReferenceContext,
-	QueryEngineSchemaLike,
-} from "~/lib/views/reference";
+import type { QueryEngineContext } from "./context";
 import { createScalarExpressionCompiler } from "./expression-compiler";
 import { createExpressionTypeResolver } from "./expression-type-resolver";
 import type { QueryEngineField, ResolvedDisplayValue } from "./schemas";
 import type { SqlExpression } from "./sql-expression-helpers";
-
-type DisplayExpressionResolverInput<
-	TSchema extends QueryEngineSchemaLike,
-	TJoin extends QueryEngineEventJoinLike,
-> = {
-	alias: string;
-	computedFields?: ViewComputedField[];
-	context: QueryEngineReferenceContext<TSchema, TJoin>;
-};
 
 const buildResolvedDisplayValueObject = (input: {
 	value: SqlExpression;
@@ -114,13 +101,11 @@ const toDisplayJsonValue = (input: {
 	return sql`to_jsonb(${input.expression})`;
 };
 
-const createDisplayExpressionResolver = <
-	TSchema extends QueryEngineSchemaLike,
-	TJoin extends QueryEngineEventJoinLike,
->(
-	input: DisplayExpressionResolverInput<TSchema, TJoin>,
-) => {
-	const computedFieldCache = new Map<string, SqlExpression>();
+const createDisplayExpressionResolver = (input: {
+	alias: string;
+	context: QueryEngineContext;
+	computedFields?: ViewComputedField[];
+}) => {
 	const { computedFieldMap, orderedComputedFields } = prepareComputedFields(
 		input.computedFields,
 	);
@@ -134,6 +119,7 @@ const createDisplayExpressionResolver = <
 		context: input.context,
 		computedFields: input.computedFields,
 	});
+	const displayCache = new Map<string, SqlExpression>();
 
 	const buildResolvedDisplayValueExpression = (
 		expression: ViewExpression,
@@ -149,20 +135,20 @@ const createDisplayExpressionResolver = <
 			expression.type === "reference" &&
 			expression.reference.type === "computed-field"
 		) {
+			const cached = displayCache.get(expression.reference.key);
+			if (cached) {
+				return cached;
+			}
+
 			const computedField = getComputedFieldOrThrow(
 				computedFieldMap,
 				expression.reference.key,
 			);
 
-			const cached = computedFieldCache.get(expression.reference.key);
-			if (cached) {
-				return cached;
-			}
-
 			const resolved = buildResolvedDisplayValueExpression(
 				computedField.expression,
 			);
-			computedFieldCache.set(expression.reference.key, resolved);
+			displayCache.set(expression.reference.key, resolved);
 			return resolved;
 		}
 
@@ -185,8 +171,8 @@ const createDisplayExpressionResolver = <
 	};
 
 	for (const computedField of orderedComputedFields) {
-		if (!computedFieldCache.has(computedField.key)) {
-			computedFieldCache.set(
+		if (!displayCache.has(computedField.key)) {
+			displayCache.set(
 				computedField.key,
 				buildResolvedDisplayValueExpression(computedField.expression),
 			);
@@ -196,14 +182,11 @@ const createDisplayExpressionResolver = <
 	return buildResolvedDisplayValueExpression;
 };
 
-export const buildResolvedFieldsExpression = <
-	TSchema extends QueryEngineSchemaLike,
-	TJoin extends QueryEngineEventJoinLike,
->(input: {
+export const buildResolvedFieldsExpression = (input: {
 	alias: string;
 	fields: QueryEngineField[];
+	context: QueryEngineContext;
 	computedFields?: ViewComputedField[];
-	context: QueryEngineReferenceContext<TSchema, TJoin>;
 }) => {
 	const resolveExpression = createDisplayExpressionResolver({
 		alias: input.alias,

@@ -4,17 +4,10 @@ import {
 	inferViewExpressionType,
 	type ViewExpressionTypeInfo,
 } from "~/lib/views/expression-analysis";
-import type {
-	QueryEngineEventJoinLike,
-	QueryEngineReferenceContext,
-	QueryEngineSchemaLike,
-} from "~/lib/views/reference";
+import type { QueryEngineContext } from "./context";
 
-export const createExpressionTypeResolver = <
-	TSchema extends QueryEngineSchemaLike,
-	TJoin extends QueryEngineEventJoinLike,
->(input: {
-	context: QueryEngineReferenceContext<TSchema, TJoin>;
+export const createExpressionTypeResolver = (input: {
+	context: QueryEngineContext;
 	computedFields?: ViewComputedField[];
 }) => {
 	const computedFieldMap = buildComputedFieldMap(input.computedFields);

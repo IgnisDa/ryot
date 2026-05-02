@@ -14,10 +14,22 @@ import type {
 import {
 	getEventJoinColumnName,
 	type SqlExpression,
+	sanitizeIdentifier,
 } from "./sql-expression-helpers";
 
 export type QueryEngineSchemaRow = QueryEngineSchemaLike & {
 	id: string;
+};
+
+export type PaginationConfig = {
+	limit: number;
+	offset: number;
+	countAlias: string;
+	rowIdColumn: string;
+	sortedAlias: string;
+	filteredAlias: string;
+	paginatedAlias: string;
+	joinedTableName: string;
 };
 
 export const EVENT_FIRST_ENTITY_COLUMN_OVERRIDES: EntityColumnOverrides = {
@@ -131,6 +143,7 @@ export const buildEventFirstCte = (input: {
 	eventSchemaSlugs: string[];
 	dateRange?: { startAt: string; endAt: string };
 }) => {
+	sanitizeIdentifier(input.cteName, "CTE name");
 	const entitySchemaIdList = sql.join(
 		input.entitySchemaIds.map((id) => sql`${id}`),
 		sql`, `,
@@ -181,6 +194,7 @@ export const buildLatestEventJoinCte = (input: {
 	join: QueryEngineEventJoinLike;
 	userId: string;
 }) => {
+	sanitizeIdentifier(input.join.key, "event join key");
 	const eventSchemaIdList = sql.join(
 		input.join.eventSchemas.map((schema) => sql`${schema.id}`),
 		sql`, `,
@@ -210,7 +224,11 @@ export const buildJoinedCte = (input: {
 	entityIdColumn: string;
 	eventJoins: QueryEngineEventJoinLike[];
 }) => {
+	sanitizeIdentifier(input.cteName, "CTE name");
+	sanitizeIdentifier(input.baseCte, "CTE name");
+	sanitizeIdentifier(input.entityIdColumn, "column name");
 	const selectJoins = input.eventJoins.map((join) => {
+		sanitizeIdentifier(join.key, "event join key");
 		return sql`${sql.raw(getEventJoinCteName(join.key))}.latest_event as ${sql.raw(getEventJoinColumnName(join.key))}`;
 	});
 	const leftJoins = input.eventJoins.map((join) => {
@@ -240,21 +258,21 @@ export const buildJoinedEntitiesCte = (
 		cteName: "joined_entities",
 	});
 
-export const buildPaginatedQuerySql = (input: {
-	limit: number;
-	offset: number;
-	countAlias: string;
-	rowIdColumn: string;
-	sortedAlias: string;
-	filteredAlias: string;
-	paginatedAlias: string;
-	joinedTableName: string;
-	direction: SqlExpression;
-	withCtes: SqlExpression[];
-	filterClause: SqlExpression;
-	sortExpression: SqlExpression;
-	resolvedFields: SqlExpression;
-}) => {
+export const buildPaginatedQuerySql = (
+	input: PaginationConfig & {
+		direction: SqlExpression;
+		withCtes: SqlExpression[];
+		filterClause: SqlExpression;
+		sortExpression: SqlExpression;
+		resolvedFields: SqlExpression;
+	},
+) => {
+	sanitizeIdentifier(input.rowIdColumn, "column name");
+	sanitizeIdentifier(input.countAlias, "CTE alias");
+	sanitizeIdentifier(input.sortedAlias, "CTE alias");
+	sanitizeIdentifier(input.filteredAlias, "CTE alias");
+	sanitizeIdentifier(input.paginatedAlias, "CTE alias");
+	sanitizeIdentifier(input.joinedTableName, "table name");
 	const cteList = sql.join(input.withCtes, sql`, `);
 
 	return sql`

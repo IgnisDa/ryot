@@ -1,9 +1,7 @@
 import { sql } from "drizzle-orm";
 import { db } from "~/lib/db";
-import type {
-	QueryEngineEventJoinLike,
-	QueryEngineReferenceContext,
-} from "~/lib/views/reference";
+import type { QueryEngineEventJoinLike } from "~/lib/views/reference";
+import type { QueryEngineContext } from "./context";
 import { buildResolvedFieldsExpression } from "./display-builder";
 import { buildFilterWhereClause } from "./filter-builder";
 import {
@@ -11,6 +9,7 @@ import {
 	buildJoinedEntitiesCte,
 	buildLatestEventJoinCte,
 	buildPaginatedQuerySql,
+	type PaginationConfig,
 	type QueryEngineSchemaRow,
 } from "./query-ctes";
 import type {
@@ -69,10 +68,7 @@ export const executePreparedQuery = async (input: {
 	schemaMap: Map<string, QueryEngineSchemaRow>;
 	eventJoinMap: Map<string, QueryEngineEventJoinLike>;
 }): Promise<QueryEngineEntityResponse> => {
-	const context: QueryEngineReferenceContext<
-		QueryEngineSchemaRow,
-		QueryEngineEventJoinLike
-	> = {
+	const context: QueryEngineContext = {
 		userId: input.userId,
 		schemaMap: input.schemaMap,
 		eventJoinMap: input.eventJoinMap,
@@ -109,20 +105,24 @@ export const executePreparedQuery = async (input: {
 	const direction = sql.raw(input.request.sort.direction.toUpperCase());
 	const filterClause = filterWhereClause ?? sql`true`;
 
+	const paginationConfig: PaginationConfig = {
+		limit: input.request.pagination.limit,
+		offset,
+		rowIdColumn: "id",
+		countAlias: "entity_count",
+		sortedAlias: "sorted_entities",
+		filteredAlias: "filtered_entities",
+		joinedTableName: "joined_entities",
+		paginatedAlias: "paginated_entities",
+	};
+
 	const dataResult = await db.execute<QueryRow>(
 		buildPaginatedQuerySql({
-			offset,
+			...paginationConfig,
 			direction,
 			filterClause,
 			sortExpression,
 			resolvedFields,
-			rowIdColumn: "id",
-			countAlias: "entity_count",
-			sortedAlias: "sorted_entities",
-			filteredAlias: "filtered_entities",
-			joinedTableName: "joined_entities",
-			paginatedAlias: "paginated_entities",
-			limit: input.request.pagination.limit,
 			withCtes: [baseEntitiesCte, ...latestEventJoinCtes, joinedEntitiesCte],
 		}),
 	);

@@ -20,6 +20,98 @@ const parseAppSchema = (value: unknown) => {
 	return propertySchemaObjectSchema.parse(value);
 };
 
+export const validateUniqueSchemaSlugs = (
+	uniqueSlugs: string[],
+	schemas: QueryEngineSchemaRow[],
+) => {
+	const schemasBySlug = new Map<string, QueryEngineSchemaRow[]>();
+	for (const schema of schemas) {
+		const existing = schemasBySlug.get(schema.slug) ?? [];
+		existing.push(schema);
+		schemasBySlug.set(schema.slug, existing);
+	}
+
+	for (const slug of uniqueSlugs) {
+		const found = schemasBySlug.get(slug);
+		if (!found?.length) {
+			throw new QueryEngineNotFoundError(`Schema '${slug}' not found`);
+		}
+
+		if (found.length > 1) {
+			throw new QueryEngineValidationError(
+				`Schema '${slug}' resolves to multiple visible schemas`,
+			);
+		}
+	}
+};
+
+export const validateVisibleEventJoins = (
+	eventJoins: EventJoinDefinition[],
+	visibleEventSchemas: (QueryEngineEventSchemaLike & {
+		entitySchemaSlug: string;
+	})[],
+) => {
+	const eventSchemasByEntitySchemaKey = new Map<
+		string,
+		QueryEngineEventSchemaLike
+	>();
+	for (const schema of visibleEventSchemas) {
+		const key = `${schema.entitySchemaSlug}:${schema.slug}`;
+		if (eventSchemasByEntitySchemaKey.has(key)) {
+			throw new QueryEngineValidationError(
+				`Event schema '${schema.slug}' resolves to multiple visible schemas for entity schema '${schema.entitySchemaSlug}'`,
+			);
+		}
+
+		eventSchemasByEntitySchemaKey.set(key, schema);
+	}
+
+	return eventJoins.map((join) => {
+		const eventSchemas = visibleEventSchemas.filter(
+			(schema) => schema.slug === join.eventSchemaSlug,
+		);
+		if (!eventSchemas.length) {
+			throw new QueryEngineValidationError(
+				`Event schema '${join.eventSchemaSlug}' is not available for the requested entity schemas`,
+			);
+		}
+
+		return {
+			...join,
+			eventSchemas,
+			eventSchemaMap: new Map(
+				eventSchemas.map((schema) => [schema.entitySchemaSlug, schema]),
+			),
+		};
+	});
+};
+
+export const validateEventSchemaSlugs = (
+	uniqueSlugs: string[],
+	rows: { slug: string }[],
+) => {
+	for (const slug of uniqueSlugs) {
+		if (!rows.some((r) => r.slug === slug)) {
+			throw new QueryEngineNotFoundError(
+				`Event schema '${slug}' not found for the requested entity schemas`,
+			);
+		}
+	}
+};
+
+export const validateRelationshipSlugs = (
+	uniqueSlugs: string[],
+	foundSlugs: Set<string>,
+) => {
+	for (const slug of uniqueSlugs) {
+		if (!foundSlugs.has(slug)) {
+			throw new QueryEngineNotFoundError(
+				`Relationship schema '${slug}' not found`,
+			);
+		}
+	}
+};
+
 export const loadVisibleSchemas = async (input: {
 	userId: string;
 	scope: string[];
@@ -43,25 +135,7 @@ export const loadVisibleSchemas = async (input: {
 		...row,
 		propertiesSchema: parseAppSchema(row.propertiesSchema),
 	}));
-	const schemasBySlug = new Map<string, QueryEngineSchemaRow[]>();
-	for (const schema of schemas) {
-		const existing = schemasBySlug.get(schema.slug) ?? [];
-		existing.push(schema);
-		schemasBySlug.set(schema.slug, existing);
-	}
-
-	for (const slug of uniqueSlugs) {
-		const found = schemasBySlug.get(slug);
-		if (!found?.length) {
-			throw new QueryEngineNotFoundError(`Schema '${slug}' not found`);
-		}
-
-		if (found.length > 1) {
-			throw new QueryEngineValidationError(
-				`Schema '${slug}' resolves to multiple visible schemas`,
-			);
-		}
-	}
+	validateUniqueSchemaSlugs(uniqueSlugs, schemas);
 
 	return schemas;
 };
@@ -103,39 +177,8 @@ export const loadVisibleEventJoins = async (input: {
 		...row,
 		propertiesSchema: parseAppSchema(row.propertiesSchema),
 	}));
-	const eventSchemasByEntitySchemaKey = new Map<
-		string,
-		QueryEngineEventSchemaLike
-	>();
-	for (const schema of visibleEventSchemas) {
-		const key = `${schema.entitySchemaSlug}:${schema.slug}`;
-		if (eventSchemasByEntitySchemaKey.has(key)) {
-			throw new QueryEngineValidationError(
-				`Event schema '${schema.slug}' resolves to multiple visible schemas for entity schema '${schema.entitySchemaSlug}'`,
-			);
-		}
 
-		eventSchemasByEntitySchemaKey.set(key, schema);
-	}
-
-	return input.eventJoins.map((join) => {
-		const eventSchemas = visibleEventSchemas.filter(
-			(schema) => schema.slug === join.eventSchemaSlug,
-		);
-		if (!eventSchemas.length) {
-			throw new QueryEngineValidationError(
-				`Event schema '${join.eventSchemaSlug}' is not available for the requested entity schemas`,
-			);
-		}
-
-		return {
-			...join,
-			eventSchemas,
-			eventSchemaMap: new Map(
-				eventSchemas.map((schema) => [schema.entitySchemaSlug, schema]),
-			),
-		};
-	});
+	return validateVisibleEventJoins(input.eventJoins, visibleEventSchemas);
 };
 
 export const loadRelationshipSchemaIds = async (
@@ -159,13 +202,7 @@ export const loadRelationshipSchemaIds = async (
 		);
 
 	const foundSlugs = new Set(rows.map((r) => r.slug));
-	for (const slug of uniqueSlugs) {
-		if (!foundSlugs.has(slug)) {
-			throw new QueryEngineNotFoundError(
-				`Relationship schema '${slug}' not found`,
-			);
-		}
-	}
+	validateRelationshipSlugs(uniqueSlugs, foundSlugs);
 
 	return rows.map((r) => r.id);
 };
@@ -225,13 +262,7 @@ export const loadEventSchemasBySlug = async (input: {
 			),
 		);
 
-	for (const slug of uniqueSlugs) {
-		if (!rows.some((r) => r.slug === slug)) {
-			throw new QueryEngineNotFoundError(
-				`Event schema '${slug}' not found for the requested entity schemas`,
-			);
-		}
-	}
+	validateEventSchemaSlugs(uniqueSlugs, rows);
 
 	const eventSchemaMap = new Map<string, QueryEngineEventSchemaLike[]>();
 	for (const row of rows) {
