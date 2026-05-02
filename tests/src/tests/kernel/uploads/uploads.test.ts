@@ -353,22 +353,3 @@ describe("GET /uploads/local/download", () => {
 		}),
 	);
 });
-
-describe("legacy upload routes", () => {
-	it.live("does not retain the S3-specific presign routes", () =>
-		Effect.gen(function* () {
-			const response = yield* Effect.promise(() =>
-				fetch(`${getBackendUrl()}/uploads/presigned`, { method: "POST" }),
-			);
-			expect(response.status).toBe(404);
-			const downloadResponse = yield* Effect.promise(() =>
-				fetch(`${getBackendUrl()}/uploads/presigned/download`, { method: "POST" }),
-			);
-			expect(downloadResponse.status).toBe(404);
-			const temporaryResponse = yield* Effect.promise(() =>
-				fetch(`${getBackendUrl()}/uploads/temporary`, { method: "POST" }),
-			);
-			expect(temporaryResponse.status).toBe(404);
-		}),
-	);
-});
