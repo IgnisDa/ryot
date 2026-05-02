@@ -2,72 +2,38 @@ import { sql } from "drizzle-orm";
 import { db } from "~/lib/db";
 import type {
 	QueryEngineEventJoinLike,
+	QueryEngineEventSchemaLike,
 	QueryEngineReferenceContext,
 } from "~/lib/views/reference";
 import { buildResolvedFieldsExpression } from "./display-builder";
 import { buildFilterWhereClause } from "./filter-builder";
 import {
-	buildBaseEntitiesCte,
-	buildJoinedEntitiesCte,
+	calculatePagination,
+	mapQueryRowToItem,
+	type QueryRow,
+} from "./query-builder";
+import {
+	buildEventFirstCte,
+	buildJoinedCte,
 	buildLatestEventJoinCte,
+	EVENT_FIRST_ENTITY_COLUMN_OVERRIDES,
 	type QueryEngineSchemaRow,
 } from "./query-ctes";
 import type {
-	EntityQueryEngineRequest,
-	QueryEngineEntityResponse,
-	QueryEngineItem,
+	EventsQueryEngineRequest,
+	QueryEngineEventsResponse,
 } from "./schemas";
 import { buildSortExpression } from "./sort-builder";
 
-export type QueryRow = {
-	total: number;
-	row_id: string | null;
-	fields: QueryEngineItem | null;
-};
-
-type PaginationInput = {
-	page: number;
-	total: number;
-	limit: number;
-};
-
-type PaginationResult = PaginationInput & {
-	totalPages: number;
-	hasNextPage: boolean;
-	hasPreviousPage: boolean;
-};
-
-export const calculatePagination = (
-	input: PaginationInput,
-): PaginationResult => {
-	const totalPages =
-		input.total === 0 ? 0 : Math.ceil(input.total / input.limit);
-
-	return {
-		...input,
-		totalPages,
-		hasNextPage: input.page < totalPages,
-		hasPreviousPage: totalPages > 0 && input.page > 1,
-	};
-};
-
-export const mapQueryRowToItem = (row: QueryRow): QueryEngineItem | null => {
-	if (row.row_id === null) {
-		return null;
-	}
-
-	return row.fields ?? [];
-};
-
-export const executePreparedQuery = async (input: {
+export const executeEventQuery = async (input: {
 	userId: string;
-	request: EntityQueryEngineRequest;
-	relationshipSchemaIds: string[];
+	request: EventsQueryEngineRequest;
 	runtimeSchemas: QueryEngineSchemaRow[];
 	eventJoins: QueryEngineEventJoinLike[];
 	schemaMap: Map<string, QueryEngineSchemaRow>;
 	eventJoinMap: Map<string, QueryEngineEventJoinLike>;
-}): Promise<QueryEngineEntityResponse> => {
+	eventSchemaMap: Map<string, QueryEngineEventSchemaLike[]>;
+}): Promise<QueryEngineEventsResponse> => {
 	const context: QueryEngineReferenceContext<
 		QueryEngineSchemaRow,
 		QueryEngineEventJoinLike
@@ -75,74 +41,83 @@ export const executePreparedQuery = async (input: {
 		userId: input.userId,
 		schemaMap: input.schemaMap,
 		eventJoinMap: input.eventJoinMap,
+		eventSchemaMap: input.eventSchemaMap,
+		entityColumnOverrides: EVENT_FIRST_ENTITY_COLUMN_OVERRIDES,
 	};
-	const filterWhereClause = buildFilterWhereClause({
-		context,
-		alias: "joined_entities",
-		predicate: input.request.filter,
-		computedFields: input.request.computedFields,
-	});
-	const baseEntitiesCte = buildBaseEntitiesCte({
+
+	const baseEventsCte = buildEventFirstCte({
+		cteName: "base_events",
 		userId: input.userId,
-		relationshipSchemaIds: input.relationshipSchemaIds,
-		entitySchemaIds: input.runtimeSchemas.map((schema) => schema.id),
+		entitySchemaIds: input.runtimeSchemas.map((s) => s.id),
+		eventSchemaSlugs: input.request.eventSchemas,
 	});
 	const latestEventJoinCtes = input.eventJoins.map((join) => {
 		return buildLatestEventJoinCte({ join, userId: input.userId });
 	});
-	const joinedEntitiesCte = buildJoinedEntitiesCte(input.eventJoins);
+	const joinedEventsCte = buildJoinedCte({
+		baseCte: "base_events",
+		cteName: "joined_events",
+		entityIdColumn: "entity_id",
+		eventJoins: input.eventJoins,
+	});
+	const filterWhereClause = buildFilterWhereClause({
+		context,
+		alias: "joined_events",
+		predicate: input.request.filter,
+		computedFields: input.request.computedFields,
+	});
 	const sortExpression = buildSortExpression({
 		context,
-		alias: "filtered_entities",
+		alias: "filtered_events",
 		expression: input.request.sort.expression,
 		computedFields: input.request.computedFields,
 	});
-	const offset =
-		(input.request.pagination.page - 1) * input.request.pagination.limit;
 	const resolvedFields = buildResolvedFieldsExpression({
 		context,
-		alias: "paginated_entities",
+		alias: "paginated_events",
 		fields: input.request.fields,
 		computedFields: input.request.computedFields,
 	});
 	const direction = sql.raw(input.request.sort.direction.toUpperCase());
 	const filterClause = filterWhereClause ?? sql`true`;
+	const offset =
+		(input.request.pagination.page - 1) * input.request.pagination.limit;
 
 	const dataResult = await db.execute<QueryRow>(sql`
 		with
-			${baseEntitiesCte}${latestEventJoinCtes.length ? sql`, ${sql.join(latestEventJoinCtes, sql`, `)}` : sql``},
-			${joinedEntitiesCte},
-			filtered_entities as (
+			${baseEventsCte}${latestEventJoinCtes.length ? sql`, ${sql.join(latestEventJoinCtes, sql`, `)}` : sql``},
+			${joinedEventsCte},
+			filtered_events as (
 				select *
-				from joined_entities
+				from joined_events
 				where ${filterClause}
 			),
-			sorted_entities as (
+			sorted_events as (
 				select
-					filtered_entities.*,
+					filtered_events.*,
 					count(*) over ()::integer as total,
 					row_number() over (
-						order by ${sortExpression} ${direction} nulls last, filtered_entities.id asc
+						order by ${sortExpression} ${direction} nulls last, filtered_events.id asc
 					) as sort_index
-				from filtered_entities
+				from filtered_events
 			),
-			entity_count as (
+			event_count as (
 				select coalesce(max(total), 0)::integer as total
-				from sorted_entities
+				from sorted_events
 			),
-			paginated_entities as (
+			paginated_events as (
 				select *
-				from sorted_entities
+				from sorted_events
 				order by sort_index
 				offset ${offset}
 				limit ${input.request.pagination.limit}
 			)
 		select
-			paginated_entities.id as row_id,
-			entity_count.total,
+			paginated_events.id as row_id,
+			event_count.total,
 			${resolvedFields} as fields
-		from entity_count
-		left join paginated_entities on true
+		from event_count
+		left join paginated_events on true
 		order by sort_index
 	`);
 
@@ -154,7 +129,7 @@ export const executePreparedQuery = async (input: {
 	});
 
 	return {
-		mode: "entities",
+		mode: "events",
 		data: {
 			meta: { pagination },
 			items: dataResult.rows.flatMap((row) => {
@@ -162,5 +137,5 @@ export const executePreparedQuery = async (input: {
 				return item ? [item] : [];
 			}),
 		},
-	} satisfies QueryEngineEntityResponse;
+	} satisfies QueryEngineEventsResponse;
 };

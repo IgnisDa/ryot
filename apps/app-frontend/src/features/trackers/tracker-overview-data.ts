@@ -11,7 +11,11 @@ import { sortEventSchemas } from "~/features/event-schemas/model";
 import type { AppEvent } from "~/features/events/model";
 import { sortEvents, toAppEvent } from "~/features/events/model";
 import { useSavedViewsQuery } from "~/features/saved-views/hooks";
-import type { AppSavedView } from "~/features/saved-views/model";
+import {
+	type AppEntitySavedView,
+	type AppSavedView,
+	isEntitySavedView,
+} from "~/features/saved-views/model";
 import { useApiClient } from "~/hooks/api";
 import type { AppTracker } from "./model";
 
@@ -25,9 +29,9 @@ interface TrackerOverviewActivity {
 export interface TrackerOverviewSummary {
 	count: number;
 	schema: AppEntitySchema;
-	savedView?: AppSavedView;
 	latestEntity?: AppEntity;
 	eventSchemaCount: number;
+	savedView?: AppEntitySavedView;
 }
 
 export interface TrackerOverviewEntityCard {
@@ -125,7 +129,10 @@ export function useTrackerOverviewData(input: {
 			return [];
 		}
 
-		return (query.data?.data.items ?? []).map((entity) => ({
+		const payload = query.data?.data;
+		const items = payload?.mode === "entities" ? payload.data.items : [];
+
+		return items.map((entity) => ({
 			entity: toAppEntity(entity),
 			schema,
 		}));
@@ -205,8 +212,10 @@ export function useTrackerOverviewData(input: {
 		const entities = entitiesWithSchema
 			.filter((item) => item.schema.id === schema.id)
 			.map((item) => item.entity);
-		const savedView = trackerSavedViews.find((view) =>
-			view.queryDefinition.scope.includes(schema.slug),
+		const savedView = trackerSavedViews.find(
+			(view): view is AppEntitySavedView =>
+				isEntitySavedView(view) &&
+				view.queryDefinition.scope.includes(schema.slug),
 		);
 
 		return {

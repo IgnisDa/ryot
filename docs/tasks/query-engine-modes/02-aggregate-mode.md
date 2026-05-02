@@ -4,7 +4,7 @@
 
 **Type:** AFK
 
-**Status:** todo
+**Status:** done
 
 ## What to build
 
@@ -95,21 +95,21 @@ The inner `expression` in sum/avg/min/max aggregations must resolve to a numeric
 
 ## Acceptance criteria
 
-- [ ] Request schema is a discriminated union on `mode` with `entities` and `aggregate` variants
-- [ ] Response schema is a discriminated union on `mode`
-- [ ] `SavedViewQueryDefinition` is a discriminated union on `mode`
-- [ ] Existing entity mode continues to work unchanged (all existing tests pass)
-- [ ] Aggregate mode `count` returns correct total count
-- [ ] Aggregate mode `countWhere` returns correct conditional count (composes with top-level filter)
-- [ ] Aggregate mode `sum`/`avg`/`min`/`max` return correct values for numeric expressions
-- [ ] Aggregate mode `sum`/`avg`/`min`/`max` reject non-numeric expressions at request time
-- [ ] Aggregate mode `countBy` returns correct JSON map with null keys excluded
-- [ ] Empty set produces count=0, avg=null, countBy={}
-- [ ] `event` and `event-schema` references are rejected in aggregate mode
-- [ ] Shared CTE builders are extracted and reused by both entity and aggregate modes
-- [ ] Unit tests cover each aggregation type, empty sets, numeric validation rejection
-- [ ] E2E tests exercise aggregate mode through the HTTP endpoint
-- [ ] `bun run typecheck`, `bun run test`, and `bun run lint` pass
+- [x] Request schema is a discriminated union on `mode` with `entities` and `aggregate` variants
+- [x] Response schema is a discriminated union on `mode`
+- [x] `SavedViewQueryDefinition` is a discriminated union on `mode`
+- [x] Existing entity mode continues to work unchanged (all existing tests pass)
+- [x] Aggregate mode `count` returns correct total count
+- [x] Aggregate mode `countWhere` returns correct conditional count (composes with top-level filter)
+- [x] Aggregate mode `sum`/`avg`/`min`/`max` return correct values for numeric expressions
+- [x] Aggregate mode `sum`/`avg`/`min`/`max` reject non-numeric expressions at request time
+- [x] Aggregate mode `countBy` returns correct JSON map with null keys excluded
+- [x] Empty set produces count=0, avg=null, countBy={}
+- [x] `event` and `event-schema` references are rejected in aggregate mode
+- [x] Shared CTE builders are extracted and reused by both entity and aggregate modes
+- [x] Unit tests cover each aggregation type, empty sets, numeric validation rejection
+- [x] E2E tests exercise aggregate mode through the HTTP endpoint
+- [x] `bun run typecheck`, `bun run test`, and `bun run lint` pass
 
 ## User stories addressed
 
