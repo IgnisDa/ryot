@@ -33,7 +33,13 @@ async function createImageFallbackFixture() {
 		trackerId,
 		name: "Fallback Image Device",
 		propertiesSchema: {
-			fields: { category: { label: "Category", type: "string" } },
+			fields: {
+				category: {
+					type: "string",
+					label: "Category",
+					description: "Category",
+				},
+			},
 		},
 	});
 
@@ -65,8 +71,8 @@ async function createLatestEventJoinFixture() {
 		entitySchemaId: schema.schemaId,
 		propertiesSchema: {
 			fields: {
-				note: { label: "Note", type: "string" },
-				rating: { label: "Rating", type: "number" },
+				note: { label: "Note", type: "string", description: "Review note" },
+				rating: { label: "Rating", type: "number", description: "Rating" },
 			},
 		},
 	});
@@ -117,7 +123,13 @@ async function createMixedLatestEventJoinFixture() {
 		slug: "review",
 		entitySchemaId: smartphoneSchema.schemaId,
 		propertiesSchema: {
-			fields: { rating: { label: "Rating", type: "number" } },
+			fields: {
+				rating: {
+					label: "Rating",
+					type: "number",
+					description: "Rating",
+				},
+			},
 		},
 	});
 

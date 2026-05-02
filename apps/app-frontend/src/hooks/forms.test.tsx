@@ -22,6 +22,7 @@ describe("GeneratedPropertyField", () => {
 			propertyDef: {
 				type: "boolean",
 				label: "Completed",
+				description: "Completed",
 				validation: { required: true },
 			},
 		});

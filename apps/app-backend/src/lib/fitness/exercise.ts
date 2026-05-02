@@ -25,23 +25,47 @@ const muscleEnum = z.enum([
 
 const exercisePropertiesZodSchema = z
 	.object({
-		images: imagesSchema,
+		images: imagesSchema.describe(
+			"Cover and demonstration images for this exercise",
+		),
 		// muscles is overridden below to enum-array; z.array is used here so that
 		// toAppSchemaProperties resolves all other fields (especially images).
-		muscles: z.array(muscleEnum),
-		instructions: z.array(z.string()),
-		source: z.enum(["github", "custom"]),
-		force: z.enum(["pull", "push", "static"]).nullish(),
-		level: z.enum(["beginner", "intermediate", "expert"]),
-		mechanic: z.enum(["compound", "isolation"]).nullish(),
-		kind: z.enum([
-			"reps",
-			"duration",
-			"reps_and_weight",
-			"reps_and_duration",
-			"distance_and_duration",
-			"reps_and_duration_and_distance",
-		]),
+		muscles: z
+			.array(muscleEnum)
+			.describe("Muscle groups trained by this exercise"),
+		instructions: z
+			.array(z.string())
+			.describe("Step-by-step instructions for performing this exercise"),
+		source: z
+			.enum(["github", "custom"])
+			.describe(
+				"Origin of this exercise: github (built-in library) or custom (user-created)",
+			),
+		force: z
+			.enum(["pull", "push", "static"])
+			.nullish()
+			.describe("Direction of force applied: pull, push, or static hold"),
+		level: z
+			.enum(["beginner", "intermediate", "expert"])
+			.describe(
+				"Recommended experience level: beginner, intermediate, or expert",
+			),
+		mechanic: z
+			.enum(["compound", "isolation"])
+			.nullish()
+			.describe(
+				"Whether the exercise uses multiple joints (compound) or a single joint (isolation)",
+			),
+		kind: z
+			.enum([
+				"reps",
+				"duration",
+				"reps_and_weight",
+				"reps_and_duration",
+				"distance_and_duration",
+				"reps_and_duration_and_distance",
+			])
+			.describe("Which measurements are used to track sets of this exercise"),
 		equipment: z
 			.enum([
 				"bands",
@@ -57,7 +81,8 @@ const exercisePropertiesZodSchema = z
 				"exercise_ball",
 				"medicine_ball",
 			])
-			.nullish(),
+			.nullish()
+			.describe("Equipment required to perform this exercise"),
 	})
 	.strict();
 
@@ -69,6 +94,8 @@ export const exercisePropertiesJsonSchema: AppSchema = {
 		muscles: {
 			label: "Muscles",
 			type: "enum-array",
+			description:
+				"Primary and secondary muscle groups targeted by this exercise",
 			validation: { required: true },
 			options: muscleEnum.options as [string, ...string[]],
 		},
