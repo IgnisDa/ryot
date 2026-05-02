@@ -70,63 +70,65 @@ export default function Onboarding() {
 			style={{ flex: 1 }}
 			behavior={Platform.OS === "ios" ? "padding" : "height"}
 		>
-			<Box className="flex-1 bg-background px-6 justify-center gap-8">
-				<Box className="items-center gap-4">
-					<Text className="text-muted-foreground text-center">
-						Connect to your Ryot instance
-					</Text>
-				</Box>
-				<Box className="gap-3">
-					{options.map((opt) => {
-						const selected = mode === opt.mode;
-						return (
-							<Pressable
-								key={opt.mode}
-								onPress={() => {
-									setMode(opt.mode);
-									setError(null);
-								}}
-								className={
-									selected
-										? "rounded-lg border border-primary bg-primary/5 p-4 gap-1"
-										: "rounded-lg border border-border bg-transparent p-4 gap-1"
-								}
-							>
-								<Text
+			<Box className="flex-1 bg-background justify-center items-center">
+				<Box className="w-full max-w-md px-6 gap-8">
+					<Box className="items-center gap-4">
+						<Text className="text-muted-foreground text-center">
+							Connect to your Ryot instance
+						</Text>
+					</Box>
+					<Box className="gap-3">
+						{options.map((opt) => {
+							const selected = mode === opt.mode;
+							return (
+								<Pressable
+									key={opt.mode}
+									onPress={() => {
+										setMode(opt.mode);
+										setError(null);
+									}}
 									className={
 										selected
-											? "font-medium text-sm text-primary"
-											: "font-medium text-sm text-foreground"
+											? "rounded-lg border border-primary bg-primary/5 p-4 gap-1"
+											: "rounded-lg border border-border bg-transparent p-4 gap-1"
 									}
 								>
-									{opt.label}
-								</Text>
-								<Text className="text-muted-foreground text-xs">
-									{opt.subtitle}
-								</Text>
-							</Pressable>
-						);
-					})}
-					{mode === "self-hosted" && (
-						<Input>
-							<InputField
-								value={url}
-								keyboardType="url"
-								autoCorrect={false}
-								autoCapitalize="none"
-								placeholder="https://ryot.yourdomain.com"
-								onChangeText={(text) => {
-									setUrl(text);
-									setError(null);
-								}}
-							/>
-						</Input>
-					)}
-					{error && <Text className="text-destructive text-sm">{error}</Text>}
-					<Button disabled={isDisabled} onPress={handleConnect}>
-						{loading && <ButtonSpinner />}
-						<ButtonText>{loading ? "Connecting..." : "Continue"}</ButtonText>
-					</Button>
+									<Text
+										className={
+											selected
+												? "font-medium text-sm text-primary"
+												: "font-medium text-sm text-foreground"
+										}
+									>
+										{opt.label}
+									</Text>
+									<Text className="text-muted-foreground text-xs">
+										{opt.subtitle}
+									</Text>
+								</Pressable>
+							);
+						})}
+						{mode === "self-hosted" && (
+							<Input>
+								<InputField
+									value={url}
+									keyboardType="url"
+									autoCorrect={false}
+									autoCapitalize="none"
+									placeholder="https://ryot.yourdomain.com"
+									onChangeText={(text) => {
+										setUrl(text);
+										setError(null);
+									}}
+								/>
+							</Input>
+						)}
+						{error && <Text className="text-destructive text-sm">{error}</Text>}
+						<Button disabled={isDisabled} onPress={handleConnect}>
+							{loading && <ButtonSpinner />}
+							<ButtonText>{loading ? "Connecting..." : "Continue"}</ButtonText>
+						</Button>
+					</Box>
 				</Box>
 			</Box>
 		</KeyboardAvoidingView>

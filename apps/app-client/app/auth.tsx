@@ -104,78 +104,84 @@ export default function Auth() {
 			style={{ flex: 1 }}
 			behavior={Platform.OS === "ios" ? "padding" : "height"}
 		>
-			<Box className="flex-1 bg-background px-6 justify-center gap-8">
-				<Box className="items-center gap-3">
-					<Box className="items-center gap-1">
-						<Text className="text-xl font-semibold text-foreground">
-							{modeContent.title}
-						</Text>
-						<Text className="text-muted-foreground text-sm text-center">
-							{modeContent.subtitle}
-						</Text>
+			<Box className="flex-1 bg-background justify-center items-center">
+				<Box className="w-full max-w-md px-6 gap-8">
+					<Box className="items-center gap-3">
+						<Box className="items-center gap-1">
+							<Text className="text-xl font-semibold text-foreground">
+								{modeContent.title}
+							</Text>
+							<Text className="text-muted-foreground text-sm text-center">
+								{modeContent.subtitle}
+							</Text>
+						</Box>
 					</Box>
-				</Box>
-				<Box className="gap-4">
-					<Box className="flex-row rounded-lg border border-border overflow-hidden">
-						{(["login", "signup"] as const).map((m) => (
-							<Pressable
-								key={m}
-								onPress={() => switchMode(m)}
-								className={
-									mode === m
-										? "flex-1 py-2 items-center bg-primary"
-										: "flex-1 py-2 items-center bg-transparent"
-								}
-							>
-								<Text
+					<Box className="gap-4">
+						<Box className="flex-row rounded-lg border border-border overflow-hidden">
+							{(["login", "signup"] as const).map((m) => (
+								<Pressable
+									key={m}
+									onPress={() => switchMode(m)}
 									className={
 										mode === m
-											? "text-sm font-medium text-primary-foreground"
-											: "text-sm font-medium text-muted-foreground"
+											? "flex-1 py-2 items-center bg-primary"
+											: "flex-1 py-2 items-center bg-transparent"
 									}
 								>
-									{m === "login" ? "Log in" : "Sign up"}
-								</Text>
-							</Pressable>
-						))}
-					</Box>
-					<form.AppForm>
-						<Box className="gap-3">
-							<form.AppField name="email">
-								{(field) => (
-									<field.TextField
-										autoCorrect={false}
-										autoCapitalize="none"
-										keyboardType="email-address"
-										placeholder="you@example.com"
-									/>
-								)}
-							</form.AppField>
-							<form.AppField name="password">
-								{(field) => (
-									<field.TextField
-										secureTextEntry
-										returnKeyType="go"
-										placeholder="Password"
-										autoComplete={modeContent.passwordAutoComplete}
-										onSubmitEditing={() => void form.handleSubmit()}
-									/>
-								)}
-							</form.AppField>
-							{submitError && (
-								<Text className="text-destructive text-sm">{submitError}</Text>
-							)}
-							<form.SubmitButton
-								label={modeContent.actionLabel}
-								pendingLabel={modeContent.pendingLabel}
-							/>
+									<Text
+										className={
+											mode === m
+												? "text-sm font-medium text-primary-foreground"
+												: "text-sm font-medium text-muted-foreground"
+										}
+									>
+										{m === "login" ? "Log in" : "Sign up"}
+									</Text>
+								</Pressable>
+							))}
 						</Box>
-					</form.AppForm>
-				</Box>
-				<Box className="items-center">
-					<Pressable onPress={handleChangeServer}>
-						<Text className="text-muted-foreground text-sm">Change server</Text>
-					</Pressable>
+						<form.AppForm>
+							<Box className="gap-3">
+								<form.AppField name="email">
+									{(field) => (
+										<field.TextField
+											autoCorrect={false}
+											autoCapitalize="none"
+											keyboardType="email-address"
+											placeholder="you@example.com"
+										/>
+									)}
+								</form.AppField>
+								<form.AppField name="password">
+									{(field) => (
+										<field.TextField
+											secureTextEntry
+											returnKeyType="go"
+											placeholder="Password"
+											autoComplete={modeContent.passwordAutoComplete}
+											onSubmitEditing={() => void form.handleSubmit()}
+										/>
+									)}
+								</form.AppField>
+								{submitError && (
+									<Text className="text-destructive text-sm">
+										{submitError}
+									</Text>
+								)}
+								<form.SubmitButton
+									label={modeContent.actionLabel}
+									pendingLabel={modeContent.pendingLabel}
+								/>
+							</Box>
+						</form.AppForm>
+					</Box>
+					<Box className="items-center">
+						<Pressable onPress={handleChangeServer}>
+							<Text className="text-muted-foreground text-sm">
+								Change server
+							</Text>
+						</Pressable>
+					</Box>
 				</Box>
 			</Box>
 		</KeyboardAvoidingView>
