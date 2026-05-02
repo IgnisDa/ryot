@@ -1,5 +1,4 @@
-import type { ViewComputedField } from "~/lib/views/expression";
-import type { ViewPredicate } from "~/lib/views/filtering";
+import type { ViewComputedField, ViewPredicate } from "~/lib/views/expression";
 
 import { createScalarExpressionCompiler, type ExpressionCompiler } from "./expression-compiler";
 import { createExpressionTypeResolver } from "./expression-type-resolver";
@@ -7,11 +6,11 @@ import { buildPredicateClause } from "./predicate-clause-builder";
 import type { QueryEngineContext } from "./schemas";
 
 export const buildFilterWhereClause = (input: {
+	alias?: string;
 	context: QueryEngineContext;
 	compiler?: ExpressionCompiler;
 	predicate: ViewPredicate | null;
 	computedFields?: ViewComputedField[];
-	alias?: string;
 }) => {
 	if (!input.predicate) {
 		return undefined;
