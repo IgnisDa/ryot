@@ -16,6 +16,7 @@ import {
 	buildEventFirstCte,
 	buildJoinedCte,
 	buildLatestEventJoinCte,
+	buildPaginatedQuerySql,
 	EVENT_FIRST_ENTITY_COLUMN_OVERRIDES,
 	type QueryEngineSchemaRow,
 } from "./query-ctes";
@@ -83,43 +84,23 @@ export const executeEventQuery = async (input: {
 	const offset =
 		(input.request.pagination.page - 1) * input.request.pagination.limit;
 
-	const dataResult = await db.execute<QueryRow>(sql`
-		with
-			${baseEventsCte}${latestEventJoinCtes.length ? sql`, ${sql.join(latestEventJoinCtes, sql`, `)}` : sql``},
-			${joinedEventsCte},
-			filtered_events as (
-				select *
-				from joined_events
-				where ${filterClause}
-			),
-			sorted_events as (
-				select
-					filtered_events.*,
-					count(*) over ()::integer as total,
-					row_number() over (
-						order by ${sortExpression} ${direction} nulls last, filtered_events.id asc
-					) as sort_index
-				from filtered_events
-			),
-			event_count as (
-				select coalesce(max(total), 0)::integer as total
-				from sorted_events
-			),
-			paginated_events as (
-				select *
-				from sorted_events
-				order by sort_index
-				offset ${offset}
-				limit ${input.request.pagination.limit}
-			)
-		select
-			paginated_events.id as row_id,
-			event_count.total,
-			${resolvedFields} as fields
-		from event_count
-		left join paginated_events on true
-		order by sort_index
-	`);
+	const dataResult = await db.execute<QueryRow>(
+		buildPaginatedQuerySql({
+			offset,
+			direction,
+			filterClause,
+			sortExpression,
+			resolvedFields,
+			rowIdColumn: "id",
+			countAlias: "event_count",
+			sortedAlias: "sorted_events",
+			filteredAlias: "filtered_events",
+			joinedTableName: "joined_events",
+			paginatedAlias: "paginated_events",
+			limit: input.request.pagination.limit,
+			withCtes: [baseEventsCte, ...latestEventJoinCtes, joinedEventsCte],
+		}),
+	);
 
 	const total = dataResult.rows[0]?.total ?? 0;
 	const pagination = calculatePagination({
