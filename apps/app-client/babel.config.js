@@ -10,16 +10,7 @@ module.exports = (api) => {
 		// Metro fix in progress: https://github.com/facebook/metro/pull/1494
 		presets: [["babel-preset-expo", { unstable_transformImportMeta: true }]],
 		plugins: [
-			[
-				"module-resolver",
-				{
-					root: ["./"],
-					alias: {
-						"@": "./",
-						"tailwind.config": "./tailwind.config.js",
-					},
-				},
-			],
+			["module-resolver", { root: ["./"], alias: { "@": "./" } }],
 			"react-native-worklets/plugin",
 		],
 	};
