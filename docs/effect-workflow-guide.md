@@ -471,7 +471,7 @@ inside an `Activity.make` body has been refactored so the dispatch now happens f
 
 `sandbox/workflow-boundaries.test.ts` pins these as source-text assertions (e.g. exactly one
 `.execute(EventCreateWorkflow, …)` and it lives in the add-to-collection workflow body, zero
-`.execute(RunSandboxWorkflow, …)` in `event-creation.ts`), so a regression can't reintroduce a
+`.execute(SandboxSubmissionWorkflow, …)` in `event-creation.ts`), so a regression can't reintroduce a
 transitive dispatch silently.
 
 ### No versioning primitive of any kind
@@ -608,7 +608,7 @@ above:
   shell whose activity prepares eligible runs and whose body dispatches one
   `ProcessIntegrationRunWorkflow` child per run id.
 - **Pre-existing owners** unchanged by this structure: `ProviderEntityPopulationWorkflow`,
-  `TranslateEntityWorkflow`, `NotificationDeliveryWorkflow`, `RunSandboxWorkflow` +
+  `TranslateEntityWorkflow`, `NotificationDeliveryWorkflow`, `SandboxSubmissionWorkflow` +
   `SandboxExecutionQueue`, `CreateDefaultSavedViewWorkflow`, `ProcessImportRunWorkflow`,
   `ProcessIntegrationRunWorkflow`.
 
@@ -640,7 +640,8 @@ above:
   belongs in an activity, never a finalizer.
 - **`workflow-boundaries.test.ts`** (`sandbox/workflow-boundaries.test.ts`) is a source-text
   conformance test that pins the single-owner invariants: which files may execute
-  `RunSandboxWorkflow` (and how many times), that the collections service no longer references
+  `SandboxSubmissionWorkflow` (and how many times), that workflow-owned sandbox callers use
+  `SandboxExecutionQueue` directly, that the collections service no longer references
   `EventCreateWorkflow` while the add-to-collection workflow body is its one sanctioned dispatcher,
   and that import paths do not bypass their plugin workflow owners. It's a strong guard, but it
   matches call sites by source text — it checks *which module* dispatches *which* child and how
