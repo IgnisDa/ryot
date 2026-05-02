@@ -189,6 +189,103 @@ describe("Saved views E2E", () => {
 		});
 	});
 
+	it("keeps built-in media saved views executable after refetching their definitions", async () => {
+		const { client, cookies, userId } = await createAuthenticatedClient();
+		const { schema } = await findBuiltinSchemaBySlug(client, cookies, "show");
+		const provider = schema.providers[0];
+		if (!provider) {
+			throw new Error("No provider found");
+		}
+
+		const entity = await seedMediaEntity({
+			image: null,
+			userId: null,
+			entitySchemaId: schema.id,
+			sandboxScriptId: provider.scriptId,
+			name: `Refetched Saved View Show ${crypto.randomUUID()}`,
+			externalId: `refetched-saved-view-show-${crypto.randomUUID()}`,
+			properties: {
+				genres: [],
+				images: [],
+				isNsfw: null,
+				showSeasons: [],
+				sourceUrl: null,
+				freeCreators: [],
+				description: null,
+				publishYear: 2017,
+				providerRating: 90.1,
+				productionStatus: "Ended",
+			},
+		});
+
+		await insertLibraryMembership({
+			userId,
+			mediaEntityId: entity.id,
+		});
+
+		const eventSchemas = await listEventSchemas(client, cookies, schema.id);
+		const reviewEventSchemaId = eventSchemas.find(
+			(item) => item.slug === "review",
+		)?.id;
+		if (!reviewEventSchemaId) {
+			throw new Error("Missing review event schema");
+		}
+
+		const createReviews = await client.POST("/events", {
+			headers: { Cookie: cookies },
+			body: [
+				{
+					entityId: entity.id,
+					eventSchemaId: reviewEventSchemaId,
+					properties: { rating: 1, review: "Low" },
+				},
+				{
+					entityId: entity.id,
+					eventSchemaId: reviewEventSchemaId,
+					properties: { rating: 5, review: "High" },
+				},
+			],
+		});
+		expect(createReviews.response.status).toBe(200);
+		await waitForEventCount(client, cookies, entity.id, 2);
+
+		const view = await getSavedView(client, cookies, "all-shows");
+		const queryDefinition = view.queryDefinition as Extract<
+			typeof view.queryDefinition,
+			{ mode: "entities" }
+		>;
+
+		const { data, response } = await executeQueryEngine(
+			client,
+			cookies,
+			buildGridRequest({
+				sort: queryDefinition.sort,
+				scope: queryDefinition.scope,
+				eventJoins: queryDefinition.eventJoins,
+				relationships: queryDefinition.relationships,
+				computedFields: queryDefinition.computedFields,
+				filter: {
+					operator: "eq",
+					type: "comparison",
+					right: literalExpression(entity.name),
+					left: createEntityColumnExpression("show", "name"),
+				},
+				displayConfiguration: {
+					...view.displayConfiguration.grid,
+					primarySubtitleProperty: null,
+					secondarySubtitleProperty: null,
+				},
+			}),
+		);
+
+		expect(response.status).toBe(200);
+		expect(getQueryEngineFieldOrThrow(data?.data.items[0], "callout")).toEqual({
+			value: 3,
+			key: "callout",
+			kind: "number",
+		});
+	});
+
 	it("returns built-in all-shows with in-library scoping for each user", async () => {
 		const userA = await createAuthenticatedClient();
 		const userB = await createAuthenticatedClient();

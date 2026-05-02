@@ -98,7 +98,7 @@ const toDisplayJsonValue = (input: {
 	}
 
 	if (propertyType === "date") {
-		return sql`to_jsonb(to_char(${input.expression} at time zone 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.MS3"Z"'))`;
+		return sql`to_jsonb(to_char(${input.expression} at time zone 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.FF3"Z"'))`;
 	}
 
 	return sql`to_jsonb(${input.expression})`;
