@@ -166,9 +166,9 @@ The implementation should favor direct replacement over compatibility. Existing 
 
 ## Tasks
 
-**Overall Progress:** 5 of 7 tasks completed
+**Overall Progress:** 6 of 7 tasks completed
 
-**Current Task:** [Task 06](./06-sandbox-boundary-and-raw-engine-audit.md) (todo)
+**Current Task:** [Task 07](./07-codebase-cleanup.md) (todo)
 
 ### Task List
 
@@ -179,5 +179,5 @@ The implementation should favor direct replacement over compatibility. Existing 
 | 03  | [One-Time Non-Media Import Workflow Orchestration](./03-one-time-non-media-import-workflow-orchestration.md) | AFK  | done   |
 | 04  | [Integration Sink Workflow Orchestration](./04-integration-sink-workflow-orchestration.md)                   | AFK  | done   |
 | 05  | [Integration Yank Workflow Orchestration](./05-integration-yank-workflow-orchestration.md)                   | AFK  | done   |
-| 06  | [Sandbox Boundary And Raw Engine Audit](./06-sandbox-boundary-and-raw-engine-audit.md)                       | AFK  | todo   |
+| 06  | [Sandbox Boundary And Raw Engine Audit](./06-sandbox-boundary-and-raw-engine-audit.md)                       | AFK  | done   |
 | 07  | [Codebase Cleanup](./07-codebase-cleanup.md)                                                                 | AFK  | todo   |

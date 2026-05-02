@@ -317,6 +317,7 @@ it.effect("orchestrates one-time media imports through workflow-owned phases", (
 						resolvedCalls.push(input);
 						return { externalId: "OL123M" };
 					}),
+				searchEntities: () => Effect.die("unused"),
 				importEntity: (input) =>
 					Effect.sync(() => {
 						importedCalls.push(input);
@@ -437,6 +438,7 @@ it.effect(
 							resolveCalled = true;
 							return { externalId: null };
 						}),
+					searchEntities: () => Effect.die("unused"),
 					importEntity: () =>
 						Effect.sync(() => {
 							importCalled = true;
