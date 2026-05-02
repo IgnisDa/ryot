@@ -379,7 +379,7 @@ export class CollectionsService extends Effect.Service<CollectionsService>()("Co
 						}),
 					);
 					return undefined;
-				}),
+				}).pipe(Effect.asVoid),
 
 			markEntityOwnedInLibrary: (input) =>
 				Effect.gen(function* () {
@@ -421,7 +421,7 @@ export class CollectionsService extends Effect.Service<CollectionsService>()("Co
 						}),
 					);
 					return undefined;
-				}),
+				}).pipe(Effect.asVoid),
 		} satisfies CollectionsServiceShape;
 	}),
 }) {}

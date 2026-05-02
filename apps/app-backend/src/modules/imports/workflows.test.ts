@@ -245,7 +245,11 @@ it.effect("orchestrates one-time media imports through workflow-owned phases", (
 				),
 		}),
 		collectionsService: makeCollectionsService({
-			ensureEntityInLibrary: () => Effect.succeed(undefined),
+			ensureEntityInLibrary: () => Effect.void,
+			markEntityOwnedInLibrary: (input) => {
+				ownershipMarks.push(input);
+				return Effect.void;
+			},
 			getOrCreateCollection: (_userId, name) =>
 				Effect.succeed({
 					name,
@@ -267,10 +271,6 @@ it.effect("orchestrates one-time media imports through workflow-owned phases", (
 						relationshipSchemaId: "relationship-1",
 					},
 				});
-			},
-			markEntityOwnedInLibrary: (input) => {
-				ownershipMarks.push(input);
-				return Effect.succeed(undefined);
 			},
 		}),
 		eventsService: makeEventsService({
