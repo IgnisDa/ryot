@@ -3,27 +3,22 @@ import {
 	assertSortableExpression,
 	normalizeExpressionPropertyType,
 } from "~/lib/views/expression-analysis";
-import { createScalarExpressionCompiler } from "./expression-compiler";
+import {
+	createScalarExpressionCompiler,
+	type ExpressionCompiler,
+} from "./expression-compiler";
 import { createExpressionTypeResolver } from "./expression-type-resolver";
 import type { QueryEngineContext } from "./schemas";
 
 export const buildSortExpression = (input: {
-	alias: string;
+	alias?: string;
 	expression: ViewExpression;
 	context: QueryEngineContext;
+	compiler?: ExpressionCompiler;
 	computedFields?: ViewComputedField[];
 }) => {
-	const getTypeInfo = createExpressionTypeResolver({
-		context: input.context,
-		computedFields: input.computedFields,
-	});
-	const compiler = createScalarExpressionCompiler({
-		getTypeInfo,
-		alias: input.alias,
-		context: input.context,
-		computedFields: input.computedFields,
-	});
-	const typeInfo = getTypeInfo(input.expression);
+	const compiler = input.compiler ?? createDefaultCompiler(input);
+	const typeInfo = compiler.getTypeInfo(input.expression);
 	assertSortableExpression(typeInfo);
 
 	return compiler.compile(
@@ -32,4 +27,25 @@ export const buildSortExpression = (input: {
 			? normalizeExpressionPropertyType(typeInfo.propertyType)
 			: undefined,
 	);
+};
+
+const createDefaultCompiler = (input: {
+	alias?: string;
+	context: QueryEngineContext;
+	computedFields?: ViewComputedField[];
+}): ExpressionCompiler => {
+	if (!input.alias) {
+		throw new Error("alias is required when no compiler is provided");
+	}
+	const getTypeInfo = createExpressionTypeResolver({
+		context: input.context,
+		computedFields: input.computedFields,
+	});
+	const { compile } = createScalarExpressionCompiler({
+		getTypeInfo,
+		alias: input.alias,
+		context: input.context,
+		computedFields: input.computedFields,
+	});
+	return { compile, getTypeInfo };
 };

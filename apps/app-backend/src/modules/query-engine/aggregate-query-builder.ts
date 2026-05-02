@@ -1,9 +1,12 @@
 import { sql } from "drizzle-orm";
 import { db } from "~/lib/db";
-import { createScalarExpressionCompiler } from "./expression-compiler";
+import {
+	createScalarExpressionCompiler,
+	type ExpressionCompiler,
+} from "./expression-compiler";
 import { createExpressionTypeResolver } from "./expression-type-resolver";
 import { buildFilterWhereClause } from "./filter-builder";
-import type { PreparedQueryContext } from "./preparer";
+import { buildQueryContext, type PreparedQueryContext } from "./preparer";
 import {
 	buildBaseEntitiesCte,
 	buildJoinedEntitiesCte,
@@ -17,7 +20,7 @@ import type {
 } from "./schemas";
 import { sanitizeIdentifier } from "./sql-expression-helpers";
 
-type AggregateRow = Record<string, unknown>;
+type AggregateRow = Record<`aggregation_${number}`, unknown>;
 
 const buildCountByAggregationExpression = (input: {
 	alias: string;
@@ -43,6 +46,7 @@ const buildCountByAggregationExpression = (input: {
 const buildAggregationExpression = (input: {
 	alias: string;
 	compiler: ReturnType<typeof createScalarExpressionCompiler>;
+	expressionCompiler: ExpressionCompiler;
 	aggregation: AggregateQueryEngineRequest["aggregations"][number]["aggregation"];
 	computedFields: AggregateQueryEngineRequest["computedFields"];
 	context: QueryEngineContext;
@@ -53,8 +57,8 @@ const buildAggregationExpression = (input: {
 
 	if (input.aggregation.type === "countWhere") {
 		const predicateClause = buildFilterWhereClause({
-			alias: input.alias,
 			context: input.context,
+			compiler: input.expressionCompiler,
 			computedFields: input.computedFields,
 			predicate: input.aggregation.predicate,
 		});
@@ -115,10 +119,19 @@ export const executeAggregateQuery = async (input: {
 	context: PreparedQueryContext;
 	request: AggregateQueryEngineRequest;
 }): Promise<QueryEngineAggregateResponse> => {
-	const queryContext: QueryEngineContext = {
-		userId: input.userId,
-		schemaMap: input.context.schemaMap,
-		eventJoinMap: input.context.eventJoinMap,
+	const queryContext = buildQueryContext(input.userId, input.context);
+	const getTypeInfo = createExpressionTypeResolver({
+		context: queryContext,
+		computedFields: input.request.computedFields,
+	});
+	const createCompiler = (alias: string) => {
+		const { compile } = createScalarExpressionCompiler({
+			alias,
+			getTypeInfo,
+			context: queryContext,
+			computedFields: input.request.computedFields,
+		});
+		return { compile, getTypeInfo };
 	};
 	const baseEntitiesCte = buildBaseEntitiesCte({
 		userId: input.userId,
@@ -129,29 +142,28 @@ export const executeAggregateQuery = async (input: {
 		return buildLatestEventJoinCte({ join, userId: input.userId });
 	});
 	const joinedEntitiesCte = buildJoinedEntitiesCte(input.context.eventJoins);
+	const filterCompiler = createCompiler("joined_entities");
 	const filterWhereClause = buildFilterWhereClause({
 		context: queryContext,
-		alias: "joined_entities",
+		compiler: filterCompiler,
 		predicate: input.request.filter,
 		computedFields: input.request.computedFields,
 	});
-	const getTypeInfo = createExpressionTypeResolver({
-		context: queryContext,
-		computedFields: input.request.computedFields,
-	});
-	const compiler = createScalarExpressionCompiler({
+	const aggregationCompiler = createScalarExpressionCompiler({
 		getTypeInfo,
 		context: queryContext,
 		alias: "filtered_entities",
 		computedFields: input.request.computedFields,
 	});
+	const aggregationExpressionCompiler = createCompiler("filtered_entities");
 	const selectExpressions = input.request.aggregations.map(
 		(aggregationField, index) => {
 			const columnName = `aggregation_${index}`;
 			const expression = buildAggregationExpression({
-				compiler,
 				context: queryContext,
 				alias: "filtered_entities",
+				compiler: aggregationCompiler,
+				expressionCompiler: aggregationExpressionCompiler,
 				aggregation: aggregationField.aggregation,
 				computedFields: input.request.computedFields,
 			});
