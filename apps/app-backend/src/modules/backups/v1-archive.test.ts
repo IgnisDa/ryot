@@ -1,0 +1,744 @@
+import { BunFileSystem } from "@effect/platform-bun";
+import { assert, describe, expect, it } from "@effect/vitest";
+import type { AppSchema } from "@ryot/contract/schema/property-schema";
+import { Effect, FileSystem, Schema, Stream } from "effect";
+import { Zip, zipSync, unzipSync, ZipPassThrough } from "fflate";
+
+import { BackupArchiveError } from "#modules/backup-data/archive-error";
+import { redactV1SchemaSecrets } from "#modules/backup-data/v1-rewrites";
+
+import { IncrementalSha256 } from "./streaming";
+import {
+	createV1ArchiveStream,
+	sortV1ArchiveRecords,
+	validateV1Archive,
+	validateV1ArchiveStream,
+	zipChunks,
+	type CreateV1ArchiveInput,
+} from "./v1-archive";
+import {
+	V1Manifest,
+	V1Profile,
+	V1EntityDependency,
+	V1_SECTION_PATHS,
+	type V1ArchiveRecords,
+} from "./v1-codec";
+
+const timestamp = "2026-08-23T12:00:00.000Z";
+const encoder = new TextEncoder();
+const decodeManifest = (bytes: Uint8Array) =>
+	Schema.decodeUnknownSync(Schema.fromJsonString(V1Manifest))(new TextDecoder().decode(bytes));
+const decodeProfile = (bytes: Uint8Array) =>
+	Schema.decodeUnknownSync(Schema.fromJsonString(V1Profile))(new TextDecoder().decode(bytes));
+
+const fixtureRoot = new URL("./fixtures/v1/", import.meta.url);
+const fixtureAssetPath = "assets/4e9f9b5970ac45bda328dad77c7d42509ed643390b7084c699b5460225ab4643";
+const fixturePaths = ["manifest.json", ...V1_SECTION_PATHS, fixtureAssetPath] as const;
+
+const fixtureArchive = (fs: FileSystem.FileSystem) =>
+	zipChunks(
+		fixturePaths.map((path) => ({
+			chunks: Stream.toAsyncIterable(fs.stream(new URL(path, fixtureRoot).pathname)),
+			compression: "store" as const,
+			path,
+		})),
+	);
+
+const concat = (chunks: Iterable<Uint8Array>) => {
+	const values = [...chunks];
+	const output = new Uint8Array(values.reduce((size, chunk) => size + chunk.byteLength, 0));
+	let offset = 0;
+	for (const chunk of values) {
+		output.set(chunk, offset);
+		offset += chunk.byteLength;
+	}
+	return output;
+};
+
+const emptyRecords = (): V1ArchiveRecords => ({
+	events: [],
+	entities: [],
+	savedViews: [],
+	pluginState: [],
+	relationships: [],
+	entityDependencies: [],
+	notificationSubscriptions: [],
+	profile: { image: null, name: "Test User", preferences: { locale: "en" } },
+});
+
+const archiveInput = (records = emptyRecords()): CreateV1ArchiveInput => {
+	const asset = encoder.encode("streamed asset bytes");
+	const hash = new IncrementalSha256();
+	hash.update(asset);
+	const measured = hash.digest();
+	return {
+		records,
+		appVersion: "1.2.3",
+		createdAt: timestamp,
+		archiveId: "archive-1",
+		redactions: ["/plugin-state/media/config/token"],
+		requiredPlugins: [
+			{ slug: "z-plugin", version: "2.0.0" },
+			{ slug: "a-plugin", version: "1.0.0" },
+		],
+		assets: [
+			{
+				chunks: [asset.slice(0, 5), asset.slice(5)],
+				metadata: {
+					size: measured.bytes,
+					sha256: measured.sha256,
+					contentType: "text/plain",
+					path: `assets/${measured.sha256}`,
+				},
+			},
+		],
+	};
+};
+
+const rawZip = (paths: ReadonlyArray<string>) => {
+	const chunks: Uint8Array[] = [];
+	const zip = new Zip((error, chunk) => {
+		if (error !== null) {
+			throw error;
+		}
+		chunks.push(chunk.slice());
+	});
+	for (const path of paths) {
+		const file = new ZipPassThrough(path);
+		zip.add(file);
+		file.push(encoder.encode("value"), true);
+	}
+	zip.end();
+	return chunks;
+};
+
+const mutateArchive = Effect.fn(function* (
+	input: CreateV1ArchiveInput,
+	mutate: (files: Record<string, Uint8Array>) => void,
+) {
+	const chunks = yield* Stream.runCollect(createV1ArchiveStream(input));
+	const files = unzipSync(concat(chunks)) as Record<string, Uint8Array>;
+	mutate(files);
+	return zipSync(files);
+});
+
+const replaceSection = (files: Record<string, Uint8Array>, path: string, bytes: Uint8Array) => {
+	const manifestFile = files["manifest.json"];
+	assert(manifestFile !== undefined);
+	const manifest = decodeManifest(manifestFile);
+	const hash = new IncrementalSha256();
+	hash.update(bytes);
+	files[path] = bytes;
+	files["manifest.json"] = encoder.encode(
+		`${JSON.stringify({
+			...manifest,
+			sections: manifest.sections.map((section) =>
+				section.path === path
+					? Object.assign({}, section, { sha256: hash.digest().sha256 })
+					: section,
+			),
+		})}\n`,
+	);
+};
+
+const validationError = Effect.fn(function* <E>(stream: Stream.Stream<Uint8Array, E>) {
+	return yield* validateV1ArchiveStream(stream).pipe(
+		Effect.provide(BunFileSystem.layer),
+		Effect.flip,
+	);
+});
+
+const dependency = (
+	id: string,
+	translations: V1ArchiveRecords["entityDependencies"][number]["translations"],
+) => ({
+	id,
+	translations,
+	properties: {},
+	provider: null,
+	externalId: null,
+	populatedAt: null,
+	name: "Dependency",
+	createdAt: timestamp,
+	updatedAt: timestamp,
+	entitySchemaSlug: "collection",
+	identity: { kind: "unmanaged" as const },
+});
+
+const translation = (id: string, language: string) => ({
+	id,
+	language,
+	name: null,
+	properties: null,
+	populatedAt: null,
+	createdAt: timestamp,
+	updatedAt: timestamp,
+});
+
+describe("V1 streaming ZIP validation", () => {
+	it.effect("validates the checked-in V1 golden archive fixture", () =>
+		Effect.gen(function* () {
+			const validated = yield* Effect.gen(function* () {
+				const fs = yield* FileSystem.FileSystem;
+				return yield* validateV1Archive(fixtureArchive(fs));
+			}).pipe(Effect.provide(BunFileSystem.layer));
+			expect(validated.manifest).toMatchObject({
+				version: 1,
+				createdAt: timestamp,
+				format: "ryot-backup",
+				appVersion: "golden-fixture",
+				archiveId: "golden-v1-archive",
+				redactions: ["/plugin-state/fixture-plugin/config/token"],
+				requiredPlugins: [{ slug: "fixture-plugin", version: "1.0.0" }],
+			});
+			expect(validated.manifest.sections).toEqual([
+				{
+					count: 1,
+					path: "profile.json",
+					sha256: "48034e099f0a5003924652b229d0e87f18adb213e8f36ba46cc65387513242ee",
+				},
+				{
+					count: 1,
+					path: "plugin-state.ndjson",
+					sha256: "8c81fdb21290dda7a082800fb601d126d1b46697bad2b076c0be83d1dc12db24",
+				},
+				{
+					count: 1,
+					path: "entities.ndjson",
+					sha256: "56a692df2ce2e2c39a2815b01056d49a55546f2cf14d498064008d0a51b1c4b9",
+				},
+				{
+					count: 1,
+					path: "entity-dependencies.ndjson",
+					sha256: "34888ae23eb9018d6b38e9e16085149a5fcdfc717aa543e8210ecc461fa842ca",
+				},
+				{
+					count: 1,
+					path: "relationships.ndjson",
+					sha256: "f15e3bea42dc518aa7b6839d285658644b365f100df7ade30877cf284491efe3",
+				},
+				{
+					count: 1,
+					path: "events.ndjson",
+					sha256: "b8254dbfdfca5c1a619c376ebee8dc03eb2a7047307eba8f7fe291135021e725",
+				},
+				{
+					count: 2,
+					path: "saved-views.ndjson",
+					sha256: "ac57488ca6ddbe92b469d1083093cf86db8e2e7acc2453fc89e83d78fef055e4",
+				},
+				{
+					count: 1,
+					path: "notification-subscriptions.ndjson",
+					sha256: "1e8091a93918df6d739b5ac209a1d7e4189a253977911d2fee2fc1a8ad9ff08e",
+				},
+			]);
+			expect(validated.manifest.assets).toEqual([
+				{
+					size: 13,
+					path: fixtureAssetPath,
+					contentType: "text/plain",
+					sha256: "4e9f9b5970ac45bda328dad77c7d42509ed643390b7084c699b5460225ab4643",
+				},
+			]);
+			expect(validated.records.profile).toEqual({
+				name: "Golden Fixture User",
+				image: null,
+				preferences: {
+					theme: "dark",
+					language: "en",
+					showArchived: false,
+					nested: { source: "fixture" },
+				},
+			});
+			expect(validated.records.pluginState[0]).toMatchObject({
+				id: "plugin-state-1",
+				pluginSlug: "fixture-plugin",
+				config: { token: "<redacted>", enabled: true },
+			});
+			expect(validated.records.entities[0]).toMatchObject({
+				id: "entity-1",
+				name: "Golden Book",
+				provider: { pluginSlug: "fixture-plugin", providerSlug: "fixture-books" },
+			});
+			expect(validated.records.entityDependencies[0]).toMatchObject({
+				id: "dependency-1",
+				provider: null,
+				translations: [{ id: "translation-1", name: null, language: "en" }],
+				identity: {
+					kind: "bootstrap",
+					pluginSlug: "fixture-plugin",
+					externalId: "bootstrap-author-1",
+				},
+			});
+			expect(validated.records.relationships[0]).toMatchObject({
+				scope: "user",
+				id: "relationship-1",
+				sourceEntityId: "entity-1",
+				targetEntityId: "dependency-1",
+			});
+			expect(validated.records.events[0]).toMatchObject({
+				id: "event-1",
+				entityId: "entity-1",
+				sessionEntityId: null,
+			});
+			expect(
+				validated.records.savedViews.map(({ kind, isBuiltin }) => ({ kind, isBuiltin })),
+			).toEqual([
+				{ kind: "custom", isBuiltin: false },
+				{ kind: "builtin-override", isBuiltin: true },
+			]);
+			expect(validated.records.notificationSubscriptions[0]).toEqual({
+				isActive: true,
+				signalSchemaSlug: "fixture.signal",
+				metadata: { channel: "email", template: "fixture-alert", attempts: 1 },
+			});
+			const asset = validated.assets[0];
+			assert(asset !== undefined);
+			expect(asset).toMatchObject({
+				size: 13,
+				path: fixtureAssetPath,
+				contentType: "text/plain",
+				sha256: "4e9f9b5970ac45bda328dad77c7d42509ed643390b7084c699b5460225ab4643",
+			});
+			const assetBytes = yield* Stream.runCollect(asset.stream);
+			expect(new TextDecoder().decode(concat(assetBytes))).toBe("golden asset\n");
+			yield* validated.cleanup;
+		}),
+	);
+
+	it.effect("round trips records and spools asset bytes", () =>
+		Effect.gen(function* () {
+			const validated = yield* validateV1ArchiveStream(createV1ArchiveStream(archiveInput())).pipe(
+				Effect.provide(BunFileSystem.layer),
+			);
+			expect(validated.manifest).toMatchObject({
+				version: 1,
+				appVersion: "1.2.3",
+				format: "ryot-backup",
+				archiveId: "archive-1",
+				requiredPlugins: [
+					{ slug: "a-plugin", version: "1.0.0" },
+					{ slug: "z-plugin", version: "2.0.0" },
+				],
+			});
+			expect(validated.records.profile).toEqual({
+				image: null,
+				name: "Test User",
+				preferences: { locale: "en" },
+			});
+			expect(validated.assets).toHaveLength(1);
+			const asset = validated.assets[0];
+			assert(asset !== undefined);
+			const bytes = yield* Stream.runCollect(asset.stream);
+			expect(new TextDecoder().decode(concat(bytes))).toBe("streamed asset bytes");
+			yield* validated.cleanup;
+		}),
+	);
+
+	it.effect("serializes only portable profile and exact manifest fields", () =>
+		Effect.gen(function* () {
+			const schema: AppSchema = {
+				fields: {
+					note: { type: "string", label: "Note", description: "Note" },
+					token: { secret: true, type: "string", label: "Token", description: "Token" },
+				},
+			};
+			const sourceConfig = { token: "two-factor-secret", note: "ordinary user text must remain" };
+			const redacted = redactV1SchemaSecrets(sourceConfig, schema, "/plugin-state/plugin-1/config");
+			const records = emptyRecords();
+			const input = archiveInput({
+				...records,
+				pluginState: [
+					{
+						sortOrder: 0,
+						id: "plugin-1",
+						isDisabled: false,
+						createdAt: timestamp,
+						updatedAt: timestamp,
+						pluginSlug: "a-plugin",
+						config: redacted.redacted,
+					},
+				],
+			});
+			const archiveBytes = concat(
+				yield* Stream.runCollect(
+					createV1ArchiveStream({ ...input, redactions: redacted.redactions }),
+				),
+			);
+			const files = unzipSync(archiveBytes) as Record<string, Uint8Array>;
+			const serializedEntries = new TextDecoder().decode(concat(Object.values(files)));
+			expect(serializedEntries).not.toContain(sourceConfig.token);
+			expect(serializedEntries).toContain(sourceConfig.note);
+			const manifestFile = files["manifest.json"];
+			const profileFile = files["profile.json"];
+			assert(manifestFile !== undefined);
+			assert(profileFile !== undefined);
+			const manifest = decodeManifest(manifestFile);
+			expect(Object.keys(manifest)).toEqual([
+				"format",
+				"version",
+				"archiveId",
+				"appVersion",
+				"createdAt",
+				"sections",
+				"assets",
+				"requiredPlugins",
+				"redactions",
+			]);
+			expect(manifest.sections.map((section) => section.path)).toEqual([...V1_SECTION_PATHS]);
+			expect(Object.keys(manifest.sections[0] ?? {})).toEqual(["path", "count", "sha256"]);
+			expect(Object.keys(manifest.assets[0] ?? {})).toEqual([
+				"path",
+				"size",
+				"sha256",
+				"contentType",
+			]);
+			expect(Object.keys(manifest.requiredPlugins[0] ?? {})).toEqual(["slug", "version"]);
+			expect(Object.keys(decodeProfile(profileFile))).toEqual(["name", "image", "preferences"]);
+		}),
+	);
+
+	it("rejects duplicate required plugin slugs when creating an archive", () => {
+		const input = archiveInput();
+		expect(() =>
+			createV1ArchiveStream({
+				...input,
+				requiredPlugins: [...input.requiredPlugins, { slug: "a-plugin", version: "2.0.0" }],
+			}),
+		).toThrow("Duplicate required plugin slug 'a-plugin'");
+	});
+
+	it.effect("rejects missing ZIP structures, truncated payloads, and trailing bytes", () =>
+		Effect.gen(function* () {
+			const archive = concat(yield* Stream.runCollect(createV1ArchiveStream(archiveInput())));
+			const eocd = archive.byteLength - 22;
+			const centralOffset = new DataView(archive.buffer, archive.byteOffset + eocd, 22).getUint32(
+				16,
+				true,
+			);
+			const withoutEocd = archive.slice(0, eocd);
+			const withoutCentral = concat([archive.slice(0, centralOffset), archive.slice(eocd)]);
+			const truncatedPayload = concat([
+				archive.slice(0, centralOffset - 1),
+				archive.slice(centralOffset),
+			]);
+			const trailingBytes = concat([archive, encoder.encode("trailing")]);
+			for (const malformed of [withoutEocd, withoutCentral, truncatedPayload, trailingBytes]) {
+				const error = yield* validationError(Stream.make(malformed));
+				expect(error.reason).toBe("invalid_archive");
+			}
+		}),
+	);
+
+	it.effect("rejects multidisk and Zip64 EOCD markers", () =>
+		Effect.gen(function* () {
+			const archive = concat(yield* Stream.runCollect(createV1ArchiveStream(archiveInput())));
+			const eocd = archive.byteLength - 22;
+			const multidisk = archive.slice();
+			new DataView(multidisk.buffer, multidisk.byteOffset + eocd, 22).setUint16(4, 1, true);
+			const zip64 = archive.slice();
+			const zip64Eocd = new DataView(zip64.buffer, zip64.byteOffset + eocd, 22);
+			zip64Eocd.setUint16(8, 0xffff, true);
+			zip64Eocd.setUint16(10, 0xffff, true);
+			for (const malformed of [multidisk, zip64]) {
+				const error = yield* validationError(Stream.make(malformed));
+				expect(error.reason).toBe("unsupported_format");
+			}
+		}),
+	);
+
+	it.effect("rejects traversal and absolute paths", () =>
+		Effect.gen(function* () {
+			for (const path of ["../manifest.json", "/manifest.json", "C:/manifest.json"]) {
+				const error = yield* validationError(Stream.fromIterable(rawZip([path])));
+				expect(error.reason).toBe("invalid_path");
+			}
+		}),
+	);
+
+	it.effect("rejects duplicate ZIP paths", () =>
+		Effect.gen(function* () {
+			const error = yield* validationError(
+				Stream.fromIterable(rawZip(["manifest.json", "manifest.json"])),
+			);
+			expect(error.reason).toBe("duplicate_path");
+		}),
+	);
+
+	it.effect("rejects invalid manifest sections and required plugin slugs", () =>
+		Effect.gen(function* () {
+			const missingSectionArchive = yield* mutateArchive(archiveInput(), (files) => {
+				const manifestFile = files["manifest.json"];
+				assert(manifestFile !== undefined);
+				const manifest = decodeManifest(manifestFile);
+				files["manifest.json"] = encoder.encode(
+					`${JSON.stringify({ ...manifest, sections: manifest.sections.slice(0, -1) })}\n`,
+				);
+			});
+			const missingSectionError = yield* validationError(Stream.make(missingSectionArchive));
+			expect(missingSectionError.reason).toBe("missing_entry");
+
+			const duplicateSectionArchive = yield* mutateArchive(archiveInput(), (files) => {
+				const manifestFile = files["manifest.json"];
+				assert(manifestFile !== undefined);
+				const manifest = decodeManifest(manifestFile);
+				files["manifest.json"] = encoder.encode(
+					`${JSON.stringify({
+						...manifest,
+						sections: manifest.sections.map((section, index) =>
+							index === 1 ? manifest.sections[0] : section,
+						),
+					})}\n`,
+				);
+			});
+			const duplicateSectionError = yield* validationError(Stream.make(duplicateSectionArchive));
+			expect(duplicateSectionError.reason).toBe("duplicate_path");
+
+			const duplicatePluginArchive = yield* mutateArchive(archiveInput(), (files) => {
+				const manifestFile = files["manifest.json"];
+				assert(manifestFile !== undefined);
+				const manifest = decodeManifest(manifestFile);
+				const plugin = manifest.requiredPlugins[0];
+				assert(plugin !== undefined);
+				files["manifest.json"] = encoder.encode(
+					`${JSON.stringify({
+						...manifest,
+						requiredPlugins: [...manifest.requiredPlugins, plugin],
+					})}\n`,
+				);
+			});
+			const duplicatePluginError = yield* validationError(Stream.make(duplicatePluginArchive));
+			expect(duplicatePluginError.reason).toBe("duplicate_record_id");
+		}),
+	);
+
+	it.effect("rejects checksum and count mismatches", () =>
+		Effect.gen(function* () {
+			const checksumArchive = yield* mutateArchive(archiveInput(), (files) => {
+				files["events.ndjson"] = encoder.encode('{"id":"unexpected"}\n');
+			});
+			const checksumError = yield* validationError(Stream.make(checksumArchive));
+			expect(checksumError.reason).toBe("checksum_mismatch");
+			const assetChecksumArchive = yield* mutateArchive(archiveInput(), (files) => {
+				const assetPath = Object.keys(files).find((path) => path.startsWith("assets/"));
+				assert(assetPath !== undefined);
+				files[assetPath] = encoder.encode("corrupted asset");
+			});
+			const assetChecksumError = yield* validationError(Stream.make(assetChecksumArchive));
+			expect(assetChecksumError.reason).toBe("checksum_mismatch");
+
+			const countArchive = yield* mutateArchive(archiveInput(), (files) => {
+				const manifestFile = files["manifest.json"];
+				assert(manifestFile !== undefined);
+				const manifest = decodeManifest(manifestFile);
+				const events = manifest.sections.findIndex((section) => section.path === "events.ndjson");
+				assert(events >= 0);
+				files["manifest.json"] = encoder.encode(
+					`${JSON.stringify({
+						...manifest,
+						sections: manifest.sections.map((section, index) =>
+							index === events ? Object.assign({}, section, { count: 1 }) : section,
+						),
+					})}\n`,
+				);
+			});
+			const countError = yield* validationError(Stream.make(countArchive));
+			expect(countError.reason).toBe("count_mismatch");
+		}),
+	);
+
+	it.effect("rejects undeclared assets", () =>
+		Effect.gen(function* () {
+			const archive = yield* mutateArchive(archiveInput(), (files) => {
+				files[`assets/${"a".repeat(64)}`] = encoder.encode("undeclared");
+			});
+			const error = yield* validationError(Stream.make(archive));
+			expect(error.reason).toBe("undeclared_asset");
+		}),
+	);
+
+	it("rejects duplicate record IDs while creating an archive", () => {
+		const duplicate = {
+			id: "entity-1",
+			name: "Entity",
+			properties: {},
+			provider: null,
+			externalId: null,
+			populatedAt: null,
+			createdAt: timestamp,
+			updatedAt: timestamp,
+			entitySchemaSlug: "collection",
+		} as const;
+		const records = emptyRecords();
+		expect(() =>
+			createV1ArchiveStream(archiveInput({ ...records, entities: [duplicate, { ...duplicate }] })),
+		).toThrow("Duplicate record id 'entity-1'");
+	});
+
+	it("enforces creation limits and preserves already sorted arrays", () => {
+		const records = emptyRecords();
+		const sorted = sortV1ArchiveRecords(records);
+		expect(sorted.events).toBe(records.events);
+		expect(sorted.entities).toBe(records.entities);
+		expect(sorted.entityDependencies).toBe(records.entityDependencies);
+		expect(sorted.notificationSubscriptions).toBe(records.notificationSubscriptions);
+		expect(() => createV1ArchiveStream(archiveInput(), { maxEntryCount: 1 })).toThrow(
+			"ZIP entry limit exceeded",
+		);
+		expect(() => createV1ArchiveStream(archiveInput(), { maxMetadataEntryBytes: 1 })).toThrow(
+			"ZIP entry is too large",
+		);
+		expect(() => createV1ArchiveStream(archiveInput(), { maxEntryBytes: 1 })).toThrow(
+			"ZIP entry is too large",
+		);
+		expect(() => createV1ArchiveStream(archiveInput(), { maxTotalUncompressedBytes: 1 })).toThrow(
+			"ZIP total size limit exceeded",
+		);
+		expect(() =>
+			createV1ArchiveStream(
+				archiveInput({
+					...records,
+					entities: [
+						{
+							id: "entity-1",
+							name: "Entity",
+							properties: {},
+							provider: null,
+							externalId: null,
+							populatedAt: null,
+							createdAt: timestamp,
+							updatedAt: timestamp,
+							entitySchemaSlug: "collection",
+						},
+					],
+				}),
+				{ maxRecordsPerSection: 0 },
+			),
+		).toThrow("Section record limit exceeded");
+	});
+
+	it("rejects global translation IDs and per-dependency languages while creating", () => {
+		const records = emptyRecords();
+		expect(() =>
+			createV1ArchiveStream(
+				archiveInput({
+					...records,
+					entityDependencies: [
+						dependency("one", [translation("translation", "en")]),
+						dependency("two", [translation("translation", "fr")]),
+					],
+				}),
+			),
+		).toThrow("Duplicate translation id 'translation'");
+		expect(() =>
+			createV1ArchiveStream(
+				archiveInput({
+					...records,
+					entityDependencies: [
+						dependency("one", [translation("one", "en"), translation("two", "en")]),
+					],
+				}),
+			),
+		).toThrow("Duplicate translation language 'en'");
+	});
+
+	it.effect("rejects duplicate translation IDs and languages during validation", () =>
+		Effect.gen(function* () {
+			const records = emptyRecords();
+			const duplicateIdArchive = yield* mutateArchive(
+				archiveInput({
+					...records,
+					entityDependencies: [
+						dependency("one", [translation("one", "en")]),
+						dependency("two", [translation("two", "fr")]),
+					],
+				}),
+				(files) => {
+					const path = "entity-dependencies.ndjson";
+					const section = files[path];
+					assert(section !== undefined);
+					const dependencies = new TextDecoder()
+						.decode(section)
+						.trimEnd()
+						.split("\n")
+						.map((line) => Schema.decodeUnknownSync(V1EntityDependency)(JSON.parse(line)));
+					const secondDependency = dependencies[1];
+					const first = dependencies[0]?.translations[0];
+					const second = secondDependency?.translations[0];
+					assert(first !== undefined && second !== undefined && secondDependency !== undefined);
+					dependencies[1] = {
+						...secondDependency,
+						translations: [{ ...second, id: first.id }],
+					};
+					replaceSection(
+						files,
+						path,
+						encoder.encode(`${dependencies.map((value) => JSON.stringify(value)).join("\n")}\n`),
+					);
+				},
+			);
+			expect((yield* validationError(Stream.make(duplicateIdArchive))).reason).toBe(
+				"duplicate_record_id",
+			);
+
+			const duplicateLanguageArchive = yield* mutateArchive(
+				archiveInput({
+					...records,
+					entityDependencies: [
+						dependency("one", [translation("one", "en"), translation("two", "fr")]),
+					],
+				}),
+				(files) => {
+					const path = "entity-dependencies.ndjson";
+					const section = files[path];
+					assert(section !== undefined);
+					const record = Schema.decodeUnknownSync(V1EntityDependency)(
+						JSON.parse(new TextDecoder().decode(section).trimEnd()),
+					);
+					const first = record.translations[0];
+					const second = record.translations[1];
+					assert(first !== undefined && second !== undefined);
+					replaceSection(
+						files,
+						path,
+						encoder.encode(
+							`${JSON.stringify({
+								...record,
+								translations: [first, { ...second, language: first.language }],
+							})}\n`,
+						),
+					);
+				},
+			);
+			expect((yield* validationError(Stream.make(duplicateLanguageArchive))).reason).toBe(
+				"duplicate_record_id",
+			);
+		}),
+	);
+
+	it.effect("rejects an asset stream that differs from its manifest metadata", () =>
+		Effect.gen(function* () {
+			const input = archiveInput();
+			const asset = input.assets[0];
+			assert(asset !== undefined);
+			const error = yield* Stream.runDrain(
+				createV1ArchiveStream({
+					...input,
+					assets: [{ ...asset, chunks: [encoder.encode("changed asset bytes")] }],
+				}),
+			).pipe(Effect.flip);
+			expect(error).toBeInstanceOf(BackupArchiveError);
+			expect(error).toMatchObject({ reason: "checksum_mismatch" });
+		}),
+	);
+
+	it.effect("honors lower test entry limits", () =>
+		Effect.gen(function* () {
+			const error = yield* validateV1ArchiveStream(createV1ArchiveStream(archiveInput()), {
+				maxEntryCount: 1,
+			}).pipe(Effect.provide(BunFileSystem.layer), Effect.flip);
+			expect(error.reason).toBe("entry_count_exceeded");
+		}),
+	);
+});

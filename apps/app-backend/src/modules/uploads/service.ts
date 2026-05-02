@@ -7,18 +7,21 @@ import {
 	type UploadIntentInput,
 } from "@ryot/contract/modules/uploads/schemas";
 import {
-	UPLOAD_MAX_FILE_BYTES,
 	type UploadContentType,
+	uploadMaxBytes,
 	uploadContentTypeExtensions,
 	uploadContentTypes,
 } from "@ryot/contract/modules/uploads/upload-policy";
 import { UserId } from "@ryot/contract/schema/brands";
 import { generateId } from "better-auth";
+import { CryptoHasher } from "bun";
 import { Clock, Context, DateTime, Effect, Layer, Schema, Stream } from "effect";
 
 import { LocalStorageService } from "#lib/infrastructure/local-storage";
 import { RedisService, redisKeys } from "#lib/infrastructure/redis";
 import { S3Service } from "#lib/infrastructure/s3";
+
+import { type RegisterManagedAssetInput, UploadsRepository } from "./repository";
 
 const UPLOAD_TOKEN_TTL_SECONDS = 15 * 60;
 const UPLOAD_URL_EXPIRY_SECONDS = 15 * 60;
@@ -34,6 +37,7 @@ const UploadIntentMetadata = Schema.Struct({
 	expiresAt: Schema.Finite,
 	provider: UploadProvider,
 	contentType: Schema.String,
+	claimId: Schema.optional(Schema.String),
 	claimedAt: Schema.optional(Schema.Finite),
 	cleaningAt: Schema.optional(Schema.Finite),
 	state: Schema.Literals(["pending", "completed", "claimed", "cleaning"]),
@@ -48,8 +52,21 @@ type UploadIntentMetadata = typeof UploadIntentMetadata.Type;
 
 const UploadTokenValue = Schema.Struct({ intentId: Schema.String, userId: UserId });
 
+export type StagedPermanentAsset = {
+	locator: ManagedAssetLocator;
+	metadata: RegisterManagedAssetInput;
+};
+
 const resolveExtension = (contentType: UploadContentType) =>
 	uploadContentTypeExtensions[contentType][0];
+
+const resolvePermanentExtension = (contentType: string) => {
+	const normalized = contentType.split(";", 1)[0]?.trim().toLowerCase() ?? "";
+	if (isUploadContentType(normalized)) {
+		return resolveExtension(normalized);
+	}
+	return normalized === "application/octet-stream" ? "bin" : null;
+};
 
 const isUploadContentType = (value: string): value is UploadContentType =>
 	(uploadContentTypes as readonly string[]).includes(value);
@@ -94,21 +111,217 @@ const resolveFileName = (name: string): Effect.Effect<string, BadRequest> => {
 	return Effect.succeed(fileName);
 };
 
-const resolveContentTypeFromKey = (key: string): Effect.Effect<UploadContentType, BadRequest> => {
-	const extension = key.split(".").pop()?.toLowerCase() ?? "";
-	const entry = Object.entries(uploadContentTypeExtensions).find(([, extensions]) =>
-		extensions.includes(extension),
+const isPermanentObjectKey = (key: string) => /^permanent\/[A-Za-z0-9_-]+\.[a-z0-9]+$/.test(key);
+
+const validateManagedAsset = (input: RegisterManagedAssetInput) => {
+	if (!isPermanentObjectKey(input.key)) {
+		return Effect.fail(badRequest("Permanent object key is invalid"));
+	}
+	if (!/^[a-f0-9]{64}$/.test(input.sha256)) {
+		return Effect.fail(badRequest("Managed asset SHA-256 is invalid"));
+	}
+	if (!Number.isSafeInteger(input.size) || input.size < 0) {
+		return Effect.fail(badRequest("Managed asset size is invalid"));
+	}
+	return Effect.void;
+};
+
+const ownerNamespace = (ownerUserId: UserId) =>
+	new CryptoHasher("sha256").update(ownerUserId).digest("hex");
+
+const storedMetadataMatches = (
+	stored: { contentType: string | null; size: number },
+	metadata: Pick<RegisterManagedAssetInput, "contentType" | "size">,
+) =>
+	stored.size === metadata.size &&
+	(stored.contentType === null ||
+		stored.contentType.split(";", 1)[0]?.trim().toLowerCase() ===
+			metadata.contentType.split(";", 1)[0]?.trim().toLowerCase());
+
+const limitStreamBytes = (stream: Stream.Stream<Uint8Array, unknown>, maxBytes: number) => {
+	let size = 0;
+	return stream.pipe(
+		Stream.mapEffect((chunk) => {
+			size += chunk.byteLength;
+			return size > maxBytes
+				? Effect.fail(badRequest(`Upload exceeds maximum allowed size of ${maxBytes} bytes`))
+				: Effect.succeed(chunk);
+		}),
 	);
-	return entry && isUploadContentType(entry[0])
-		? Effect.succeed(entry[0])
-		: Effect.fail(badRequest("Local object key has an unsupported file extension"));
 };
 
 export class UploadsService extends Context.Service<UploadsService>()("UploadsService", {
 	make: Effect.gen(function* () {
 		const redis = yield* RedisService;
 		const s3Service = yield* S3Service;
+		const repository = yield* UploadsRepository;
 		const localStorage = yield* LocalStorageService;
+
+		const openObject = Effect.fn("UploadsService.openObject")(function* (
+			locator: ManagedAssetLocator,
+		) {
+			return yield* locator.type === "local"
+				? localStorage.openObject(locator.key)
+				: s3Service.openObject(locator.key);
+		});
+
+		const writeObject = Effect.fn("UploadsService.writeObject")(function* (
+			locator: ManagedAssetLocator,
+			stream: Stream.Stream<Uint8Array, unknown>,
+			contentType: string,
+			contentLength: number | undefined,
+			maxBytes: number,
+		) {
+			if (contentLength !== undefined && contentLength > maxBytes) {
+				return yield* badRequest(`Upload exceeds maximum allowed size of ${maxBytes} bytes`);
+			}
+			if (locator.type === "local") {
+				return yield* localStorage.writeObject(
+					locator.key,
+					stream,
+					contentLength === undefined ? undefined : String(contentLength),
+					maxBytes,
+				);
+			}
+			const bounded = limitStreamBytes(stream, maxBytes);
+			return yield* s3Service
+				.writeObject(locator.key, bounded, contentType)
+				.pipe(
+					Effect.catchCause((cause) =>
+						s3Service
+							.deleteObject(locator.key)
+							.pipe(Effect.ignore, Effect.andThen(Effect.failCause(cause))),
+					),
+				);
+		});
+
+		const selectStorageProvider = Effect.fn("UploadsService.selectStorageProvider")(function* (
+			kind: "permanent" | "temporary",
+		) {
+			if (localStorage.isConfiguredForKind(kind)) {
+				return "local" as const;
+			}
+			if (s3Service.isConfigured) {
+				return "s3" as const;
+			}
+			return yield* badRequest("No object storage provider is configured");
+		});
+
+		const statObject = Effect.fn("UploadsService.statObject")(function* (
+			locator: ManagedAssetLocator,
+		) {
+			const info = yield* locator.type === "local"
+				? localStorage.statObject(locator.key)
+				: s3Service.statObject(locator.key);
+			return {
+				size: Number(info.size),
+				contentType: locator.type === "s3" ? info.type : null,
+			};
+		});
+
+		const deleteObject = Effect.fn("UploadsService.deleteObject")(function* (
+			locator: ManagedAssetLocator,
+		) {
+			yield* locator.type === "local"
+				? localStorage.deleteObject(locator.key)
+				: s3Service.deleteObject(locator.key);
+		});
+
+		const registerManagedAsset = Effect.fn("UploadsService.registerManagedAsset")(function* (
+			input: RegisterManagedAssetInput,
+		) {
+			yield* validateManagedAsset(input);
+			return yield* repository.registerPermanentOwnedObject(input);
+		});
+
+		const listManagedAssetsForOwner = Effect.fn("UploadsService.listManagedAssetsForOwner")(
+			function* (ownerUserId: UserId) {
+				return yield* repository.listByOwner(ownerUserId);
+			},
+		);
+
+		const verifyManagedAssetOwnership = Effect.fn("UploadsService.verifyManagedAssetOwnership")(
+			function* (ownerUserId: UserId, locators: ReadonlyArray<ManagedAssetLocator>) {
+				const assets = yield* repository.listByOwnerAndLocators(ownerUserId, locators);
+				const requested = new Set(locators.map(({ type, key }) => `${type}\0${key}`));
+				if (assets.length !== requested.size) {
+					return yield* badRequest("One or more managed assets do not belong to this user");
+				}
+				return assets;
+			},
+		);
+
+		const stageContentAddressedPermanentAsset = Effect.fn(
+			"UploadsService.stageContentAddressedPermanentAsset",
+		)(function* (
+			input: Omit<RegisterManagedAssetInput, "key"> & {
+				stream: Stream.Stream<Uint8Array, unknown>;
+			},
+		) {
+			const extension = resolvePermanentExtension(input.contentType);
+			if (extension === null) {
+				return yield* badRequest("Managed asset content type is unsupported");
+			}
+			const metadata: RegisterManagedAssetInput = {
+				...input,
+				key: `permanent/${ownerNamespace(input.ownerUserId)}_${input.sha256}.${extension}`,
+			};
+			yield* validateManagedAsset(metadata);
+			const locator: ManagedAssetLocator = { type: metadata.provider, key: metadata.key };
+			const existing = yield* statObject(locator).pipe(Effect.option);
+			if (existing._tag === "Some") {
+				if (!storedMetadataMatches(existing.value, metadata)) {
+					return yield* badRequest("Stored managed asset does not match its metadata");
+				}
+				const hasher = new CryptoHasher("sha256");
+				const object = yield* openObject(locator);
+				yield* Stream.runForEach(object, (chunk) =>
+					Effect.sync(() => {
+						hasher.update(chunk);
+					}),
+				);
+				if (hasher.digest("hex") !== metadata.sha256) {
+					return yield* badRequest("Stored managed asset does not match its metadata");
+				}
+				return { locator, metadata } satisfies StagedPermanentAsset;
+			}
+
+			let size = 0;
+			const hasher = new CryptoHasher("sha256");
+			const measured = input.stream.pipe(
+				Stream.mapEffect((chunk) =>
+					Effect.sync(() => {
+						size += chunk.byteLength;
+						hasher.update(chunk);
+						return chunk;
+					}),
+				),
+			);
+			return yield* Effect.gen(function* () {
+				yield* writeObject(locator, measured, metadata.contentType, metadata.size, metadata.size);
+				if (size !== metadata.size || hasher.digest("hex") !== metadata.sha256) {
+					return yield* badRequest("Stored managed asset does not match its metadata");
+				}
+				const stored = yield* statObject(locator);
+				if (!storedMetadataMatches(stored, metadata)) {
+					return yield* badRequest("Stored managed asset does not match its metadata");
+				}
+				return { locator, metadata } satisfies StagedPermanentAsset;
+			}).pipe(
+				Effect.catchCause((cause) =>
+					deleteObject(locator).pipe(Effect.ignore, Effect.andThen(Effect.failCause(cause))),
+				),
+			);
+		});
+
+		const cleanupStagedPermanentAsset = Effect.fn("UploadsService.cleanupStagedPermanentAsset")(
+			function* (staged: StagedPermanentAsset) {
+				if (yield* repository.getByLocator(staged.locator)) {
+					return;
+				}
+				yield* deleteObject(staged.locator);
+			},
+		);
 
 		const createUploadIntent = Effect.fn("UploadsService.createUploadIntent")(function* (
 			user: CurrentUserValue,
@@ -223,15 +436,14 @@ export class UploadsService extends Context.Service<UploadsService>()("UploadsSe
 						: yield* s3Service
 								.statObject(metadata.objectKey)
 								.pipe(Effect.mapError(() => badRequest("Upload object is missing or invalid")));
-				if (Number(info.size) > UPLOAD_MAX_FILE_BYTES) {
+				const maxBytes = uploadMaxBytes(metadata.kind, metadata.contentType);
+				if (Number(info.size) > maxBytes) {
 					yield* (
 						metadata.provider === "local"
 							? localStorage.deleteObject(metadata.objectKey)
 							: s3Service.deleteObject(metadata.objectKey)
 					).pipe(Effect.ignore);
-					return yield* badRequest(
-						`Upload exceeds maximum allowed size of ${UPLOAD_MAX_FILE_BYTES} bytes`,
-					);
+					return yield* badRequest(`Upload exceeds maximum allowed size of ${maxBytes} bytes`);
 				}
 				if (
 					metadata.provider === "s3" &&
@@ -249,6 +461,31 @@ export class UploadsService extends Context.Service<UploadsService>()("UploadsSe
 								),
 							}
 						: { type: metadata.provider, key: metadata.objectKey };
+				if (metadata.kind === "permanent") {
+					const locator: ManagedAssetLocator = {
+						type: metadata.provider,
+						key: metadata.objectKey,
+					};
+					const hasher = new CryptoHasher("sha256");
+					const objectStream = yield* openObject(locator);
+					yield* Stream.runForEach(objectStream, (chunk) =>
+						Effect.sync(() => {
+							hasher.update(chunk);
+						}),
+					).pipe(Effect.mapError(() => badRequest("Upload object could not be read")));
+					yield* registerManagedAsset({
+						key: locator.key,
+						ownerUserId: user.id,
+						provider: locator.type,
+						size: Number(info.size),
+						contentType: metadata.contentType,
+						sha256: hasher.digest("hex"),
+					}).pipe(
+						Effect.catchTag("Conflict", () =>
+							Effect.fail(badRequest("Upload object is already registered")),
+						),
+					);
+				}
 				const storedCompletion =
 					metadata.kind === "temporary"
 						? { expiresAt: now + UPLOAD_TOKEN_TTL_SECONDS, token: completion.token }
@@ -343,7 +580,12 @@ export class UploadsService extends Context.Service<UploadsService>()("UploadsSe
 					),
 				);
 				yield* localStorage
-					.writeObject(metadata.objectKey, renewedStream, contentLength)
+					.writeObject(
+						metadata.objectKey,
+						renewedStream,
+						contentLength,
+						uploadMaxBytes(metadata.kind, metadata.contentType),
+					)
 					.pipe(
 						Effect.mapError((error) =>
 							error instanceof Error
@@ -378,39 +620,37 @@ export class UploadsService extends Context.Service<UploadsService>()("UploadsSe
 		});
 
 		const resolveDownloads = Effect.fn("UploadsService.resolveDownloads")(function* (
-			_user: CurrentUserValue,
+			user: CurrentUserValue,
 			assets: ReadonlyArray<{ key: string; type: "local" | "s3" }>,
 		) {
+			const owned = yield* verifyManagedAssetOwnership(user.id, assets);
+			const ownedByLocator = new Map(
+				owned.map((asset) => [`${asset.provider}\0${asset.key}`, asset] as const),
+			);
 			const now = Math.floor((yield* Clock.currentTimeMillis) / 1000);
 			const resolved = yield* Effect.forEach(assets, (asset) =>
 				Effect.gen(function* () {
+					const managed = ownedByLocator.get(`${asset.type}\0${asset.key}`);
+					if (!managed) {
+						return yield* badRequest("Managed asset does not belong to this user");
+					}
 					const downloadUrl =
 						asset.type === "local"
 							? yield* Effect.gen(function* () {
-									yield* localStorage
-										.statObject(asset.key)
-										.pipe(
-											Effect.mapError(() =>
-												badRequest("Local download object is missing or invalid"),
-											),
-										);
-									return yield* localStorage
-										.createDownloadTarget(
-											asset.key,
-											yield* resolveContentTypeFromKey(asset.key),
-											now,
-										)
-										.pipe(
-											Effect.mapError(() =>
-												badRequest("Local download object is missing or invalid"),
-											),
-										);
-								})
+									yield* localStorage.statObject(asset.key);
+									return yield* localStorage.createDownloadTarget(
+										asset.key,
+										managed.contentType,
+										now,
+									);
+								}).pipe(
+									Effect.mapError(() => badRequest("Local download object is missing or invalid")),
+								)
 							: yield* s3Service.presignDownload(asset.key, UPLOAD_URL_EXPIRY_SECONDS);
 					return { asset, downloadUrl };
-				}).pipe(Effect.catchTag("BadRequest", () => Effect.succeed(null))),
+				}),
 			);
-			return resolved.filter((result) => result !== null);
+			return resolved;
 		});
 
 		const resolveLocalDownload = Effect.fn("UploadsService.resolveLocalDownload")(function* (
@@ -514,6 +754,7 @@ export class UploadsService extends Context.Service<UploadsService>()("UploadsSe
 		const claimTemporaryUpload = Effect.fn("UploadsService.claimTemporaryUpload")(function* (
 			token: string,
 			userId: UserId,
+			claimId: string,
 		) {
 			const rawToken = yield* redis.get(redisKeys.uploadToken(token));
 			if (!rawToken) {
@@ -536,7 +777,7 @@ export class UploadsService extends Context.Service<UploadsService>()("UploadsSe
 				if (
 					metadata.userId !== userId ||
 					metadata.kind !== "temporary" ||
-					metadata.state !== "completed" ||
+					(metadata.state !== "completed" && metadata.state !== "claimed") ||
 					metadata.expiresAt <= now ||
 					!metadata.completion ||
 					!("token" in metadata.completion) ||
@@ -544,15 +785,27 @@ export class UploadsService extends Context.Service<UploadsService>()("UploadsSe
 				) {
 					return yield* badRequest("Upload token is invalid or has expired");
 				}
+				if (metadata.state === "claimed" && metadata.claimId !== claimId) {
+					return yield* badRequest("Upload token was claimed by a different operation");
+				}
 				const resolvedPath =
 					metadata.provider === "local"
 						? yield* localStorage
 								.resolveObjectPath(metadata.objectKey)
 								.pipe(Effect.mapError(() => badRequest("Upload object is missing or invalid")))
 						: null;
+				if (metadata.state === "claimed") {
+					return {
+						intentId: tokenValue.intentId,
+						...(resolvedPath === null ? {} : { resolvedPath }),
+						locator: { type: metadata.provider, key: metadata.objectKey },
+						leaseExpiresAt: DateTime.formatIso(DateTime.makeUnsafe(metadata.expiresAt * 1000)),
+					};
+				}
 				const leaseExpiresAt = now + PROCESSING_LEASE_SECONDS;
 				const claimed = {
 					...metadata,
+					claimId,
 					claimedAt: now,
 					state: "claimed" as const,
 					expiresAt: leaseExpiresAt,
@@ -560,13 +813,15 @@ export class UploadsService extends Context.Service<UploadsService>()("UploadsSe
 				const encoded = yield* Schema.encodeUnknownEffect(
 					Schema.fromJsonString(UploadIntentMetadata),
 				)(claimed).pipe(Effect.orDie);
-				yield* redis.setAndIndexAndDelete(
+				yield* redis.setAndIndexAndSet(
 					redisKeys.uploadIntent(tokenValue.intentId),
 					encoded,
 					redisKeys.uploadIntentExpiry,
 					leaseExpiresAt,
 					tokenValue.intentId,
 					redisKeys.uploadToken(token),
+					rawToken,
+					PROCESSING_LEASE_SECONDS,
 				);
 				return {
 					intentId: tokenValue.intentId,
@@ -590,14 +845,24 @@ export class UploadsService extends Context.Service<UploadsService>()("UploadsSe
 		});
 
 		return {
+			openObject,
+			statObject,
+			writeObject,
+			deleteObject,
 			putLocalIntent,
 			resolveDownloads,
 			createUploadIntent,
 			completeUploadIntent,
+			registerManagedAsset,
 			resolveLocalDownload,
 			claimTemporaryUpload,
+			selectStorageProvider,
 			deleteTemporaryUpload,
 			cleanupPendingIntents,
+			listManagedAssetsForOwner,
+			verifyManagedAssetOwnership,
+			cleanupStagedPermanentAsset,
+			stageContentAddressedPermanentAsset,
 		};
 	}),
 }) {
