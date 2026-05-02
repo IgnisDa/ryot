@@ -1,4 +1,4 @@
-import type { MetadataLookupResult } from "@ryot/plugin-media/operations/schemas";
+import type { MetadataLookupResult } from "@ryot/media-fitness/operations/schemas";
 
 export interface RawMediaData {
 	title: string;
