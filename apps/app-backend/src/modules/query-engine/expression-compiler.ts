@@ -480,6 +480,22 @@ export const createScalarExpressionCompiler = <
 			)})`;
 		}
 
+		if (expression.type === "transform") {
+			assertConcatCompatibleExpression(getTypeInfo(expression.expression));
+			const textExpr = buildTextValueExpression(compile(expression.expression));
+
+			return match(expression.name)
+				.with(
+					"titleCase",
+					() => sql`initcap(replace(replace(${textExpr}, '_', ' '), '-', ' '))`,
+				)
+				.with(
+					"kebabCase",
+					() => sql`lower(replace(replace(${textExpr}, '_', '-'), ' ', '-'))`,
+				)
+				.exhaustive();
+		}
+
 		if (expression.type === "conditional") {
 			const typeInfo = getTypeInfo(expression);
 			const conditionalTargetType =
