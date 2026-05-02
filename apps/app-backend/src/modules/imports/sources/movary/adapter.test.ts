@@ -4,17 +4,15 @@ import { adaptMovaryExports } from "./adapter";
 
 describe("adaptMovaryExports", () => {
 	it("maps Movary history, ratings, and watchlist rows onto movie events", () => {
-		const result = adaptMovaryExports(
-			{
-				watchlistCsv: ["title,tmdb_id", "Arrival,42"].join("\n"),
-				ratingsCsv: ["title,tmdbId,userRating", "Arrival,42,8.5"].join("\n"),
-				historyCsv: [
-					"title,tmdb_id,watched_at,comment",
-					"Arrival,42,2026-01-03,Excellent ending",
-				].join("\n"),
-			},
-			{ now: () => "2026-01-10T00:00:00.000Z" },
-		);
+		const result = adaptMovaryExports({
+			importedAt: "2026-01-10T00:00:00.000Z",
+			watchlistCsv: ["title,tmdb_id", "Arrival,42"].join("\n"),
+			ratingsCsv: ["title,tmdbId,userRating", "Arrival,42,8.5"].join("\n"),
+			historyCsv: [
+				"title,tmdb_id,watched_at,comment",
+				"Arrival,42,2026-01-03,Excellent ending",
+			].join("\n"),
+		});
 
 		expect(result.failures).toEqual([]);
 		expect(result.entityGroups).toEqual([
@@ -58,14 +56,12 @@ describe("adaptMovaryExports", () => {
 	});
 
 	it("records per-file row failures with stable item indices", () => {
-		const result = adaptMovaryExports(
-			{
-				watchlistCsv: ["title,tmdb_id", "Missing Id,,"].join("\n"),
-				ratingsCsv: ["title,tmdb_id,user_rating", "Bad Rating,99,12"].join("\n"),
-				historyCsv: ["title,tmdb_id,watched_at", "Broken Date,42,nope"].join("\n"),
-			},
-			{ now: () => "2026-01-10T00:00:00.000Z" },
-		);
+		const result = adaptMovaryExports({
+			importedAt: "2026-01-10T00:00:00.000Z",
+			watchlistCsv: ["title,tmdb_id", "Missing Id,,"].join("\n"),
+			ratingsCsv: ["title,tmdb_id,user_rating", "Bad Rating,99,12"].join("\n"),
+			historyCsv: ["title,tmdb_id,watched_at", "Broken Date,42,nope"].join("\n"),
+		});
 
 		expect(result.entityGroups).toEqual([]);
 		expect(result.failures).toEqual([
@@ -90,14 +86,12 @@ describe("adaptMovaryExports", () => {
 	});
 
 	it("accepts either snake_case or camelCase Movary headers", () => {
-		const result = adaptMovaryExports(
-			{
-				watchlistCsv: ["title,tmdbId", "Alien,55"].join("\n"),
-				ratingsCsv: ["title,tmdb_id,userRating", "Alien,55,7"].join("\n"),
-				historyCsv: ["title,tmdbId,watchedAt", "Alien,55,2026-02-01"].join("\n"),
-			},
-			{ now: () => "2026-02-10T00:00:00.000Z" },
-		);
+		const result = adaptMovaryExports({
+			importedAt: "2026-02-10T00:00:00.000Z",
+			watchlistCsv: ["title,tmdbId", "Alien,55"].join("\n"),
+			ratingsCsv: ["title,tmdb_id,userRating", "Alien,55,7"].join("\n"),
+			historyCsv: ["title,tmdbId,watchedAt", "Alien,55,2026-02-01"].join("\n"),
+		});
 
 		expect(result.failures).toEqual([]);
 		expect(result.entityGroups).toHaveLength(1);
