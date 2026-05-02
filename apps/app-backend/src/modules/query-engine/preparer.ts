@@ -7,6 +7,7 @@ import {
 	QueryEngineValidationError,
 } from "~/lib/views/errors";
 import { nullViewExpression } from "~/lib/views/expression";
+import type { QueryEngineEventJoinLike } from "~/lib/views/reference";
 import {
 	buildEventJoinMap,
 	buildSchemaMap,
@@ -27,7 +28,6 @@ import type {
 } from "../saved-views/schemas";
 import {
 	executePreparedQuery,
-	type QueryEnginePreparedEventJoin,
 	type QueryEngineSchemaRow,
 } from "./query-builder";
 import type {
@@ -44,12 +44,12 @@ export type SavedViewExecutionInput = {
 };
 
 type PreparedQueryContext = {
-	eventJoins: QueryEnginePreparedEventJoin[];
 	relationshipSchemaIds: string[];
 	eventSchemaSlugs: ReadonlySet<string>;
+	eventJoins: QueryEngineEventJoinLike[];
 	runtimeSchemas: QueryEngineSchemaRow[];
 	schemaMap: Map<string, QueryEngineSchemaRow>;
-	eventJoinMap: Map<string, QueryEnginePreparedEventJoin>;
+	eventJoinMap: Map<string, QueryEngineEventJoinLike>;
 };
 
 const parseAppSchema = (value: unknown) => {
@@ -135,8 +135,8 @@ const validateSavedViewDefinition = (input: {
 	eventSchemaSlugs: ReadonlySet<string>;
 	queryDefinition: SavedViewQueryDefinition;
 	displayConfiguration: DisplayConfiguration;
-	eventJoinMap: Map<string, QueryEnginePreparedEventJoin>;
 	schemaMap: Map<string, QueryEngineSchemaLike>;
+	eventJoinMap: Map<string, QueryEngineEventJoinLike>;
 }) => {
 	const context = {
 		schemaMap: input.schemaMap,
@@ -208,7 +208,7 @@ const loadVisibleEventJoins = async (input: {
 	userId: string;
 	eventJoins: EventJoinDefinition[];
 	runtimeSchemas: QueryEngineSchemaRow[];
-}): Promise<QueryEnginePreparedEventJoin[]> => {
+}): Promise<QueryEngineEventJoinLike[]> => {
 	if (!input.eventJoins.length) {
 		return [];
 	}
