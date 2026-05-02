@@ -222,10 +222,10 @@ export function MediaTrackerOverview() {
 								</Pressable>
 							</Box>
 						)}
-						<Text className="mt-2 text-[10px] font-sans uppercase tracking-[2px] text-muted-foreground">
+						<Text className="mt-2 text-[10px] font-sans uppercase tracking-[2px] text-muted-foreground web:text-xs">
 							Media
 						</Text>
-						<Text className="mt-0.5 text-[38px] font-heading-semibold leading-[40px] tracking-[-0.5px] text-foreground">
+						<Text className="mt-0.5 text-[38px] font-heading-semibold leading-[40px] tracking-[-0.5px] text-foreground web:text-[52px] web:leading-[56px]">
 							Overview
 						</Text>
 						{isDesktop ? (
@@ -242,7 +242,7 @@ export function MediaTrackerOverview() {
 									onPress={() => console.log("Track Something pressed")}
 								>
 									<Plus color="#1c1917" size={16} strokeWidth={2} />
-									<Text className="text-[13px] font-sans-semibold text-primary-foreground">
+									<Text className="text-[13px] font-sans-semibold text-primary-foreground web:text-[15px]">
 										Track Something
 									</Text>
 								</Pressable>
@@ -269,7 +269,7 @@ export function MediaTrackerOverview() {
 									}}
 								>
 									<Text
-										className="mb-4 text-[10px] font-sans-semibold uppercase tracking-[2px]"
+										className="mb-4 text-[10px] font-sans-semibold uppercase tracking-[2px] web:text-xs"
 										style={{ color: SECTION_ACCENTS.continue }}
 									>
 										In Progress
@@ -309,7 +309,7 @@ export function MediaTrackerOverview() {
 					onPress={() => console.log("Track Something pressed")}
 				>
 					<Plus color="#1c1917" size={16} strokeWidth={2} />
-					<Text className="text-[13px] font-sans-semibold text-primary-foreground">
+					<Text className="text-[13px] font-sans-semibold text-primary-foreground web:text-[15px]">
 						Track Something
 					</Text>
 				</Pressable>
