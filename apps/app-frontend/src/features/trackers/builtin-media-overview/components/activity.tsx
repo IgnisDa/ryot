@@ -181,6 +181,13 @@ interface TypeBarProps {
 }
 
 export function TypeBar(props: TypeBarProps) {
+	if (props.total === 0) {
+		return (
+			<Text fz="sm" c={props.textMuted}>
+				No activity recorded yet.
+			</Text>
+		);
+	}
 	return (
 		<Stack gap={6}>
 			<Box
