@@ -18,3 +18,24 @@ export type RuntimeRef =
 	| { key: string; type: "computed-field" }
 	| { slug: string; path: string[]; type: "entity" }
 	| { joinKey: string; path: string[]; type: "event" };
+
+export type RuntimeReferenceExpression = {
+	type: "reference";
+	reference: RuntimeRef;
+};
+
+export const createEntityColumnExpression = (
+	slug: string,
+	column: string,
+): RuntimeReferenceExpression => ({
+	type: "reference",
+	reference: { type: "entity", slug, path: [column] },
+});
+
+export const createEntityPropertyExpression = (
+	slug: string,
+	property: string,
+): RuntimeReferenceExpression => ({
+	type: "reference",
+	reference: { type: "entity", slug, path: ["properties", property] },
+});
