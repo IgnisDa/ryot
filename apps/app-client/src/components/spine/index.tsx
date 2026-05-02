@@ -2,7 +2,11 @@ import { usePathname } from "expo-router";
 import type { ReactNode } from "react";
 import { useWindowDimensions } from "react-native";
 import { Box } from "@/components/ui/box";
-import { useNavSheetOpen, useSearchOpen, useTrackers } from "@/lib/navigation";
+import {
+	useNavigationData,
+	useNavSheetOpen,
+	useSearchOpen,
+} from "@/lib/navigation";
 import { SpineRail } from "./rail";
 import { SearchOverlay } from "./search-overlay";
 import { SpineSubFlyout } from "./sub-flyout";
@@ -13,16 +17,17 @@ const TABLET_BREAKPOINT = 768;
 type Props = { children: ReactNode };
 
 export function SpineNavigation({ children }: Props) {
-	const { width: screenWidth } = useWindowDimensions();
-	const trackers = useTrackers();
+	const pathname = usePathname();
 	const searchOpen = useSearchOpen();
 	const navSheetOpen = useNavSheetOpen();
-	const pathname = usePathname();
+	const { trackers } = useNavigationData();
+	const { width: screenWidth } = useWindowDimensions();
 	const segments = pathname.split("/").filter(Boolean);
-	const trackerId = segments[0] || "home";
+	const trackerSlug = segments[0] || "home";
 	const isSubRoute = segments.length >= 2;
-	const activeTracker = trackers.find((t) => t.id === trackerId);
-	const subFlyoutOpen = activeTracker?.subItems?.length && !isSubRoute;
+	const activeTracker = trackers.find((t) => t.slug === trackerSlug);
+	const subFlyoutOpen =
+		(activeTracker?.subItems?.length ?? 0) > 0 && !isSubRoute;
 
 	const isTablet = screenWidth >= TABLET_BREAKPOINT;
 
