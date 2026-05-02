@@ -208,7 +208,7 @@ BEGIN
 			'Season ' || show_seasons.season_number::text
 		),
 		show_seasons.created_at,
-		NOW(),
+		NULL,
 		NULL,
 		jsonb_strip_nulls(jsonb_build_object(
 			'description',  show_seasons.value ->> 'overview',
@@ -255,7 +255,7 @@ BEGIN
 			'Episode ' || (show_episodes.episode_value ->> 'episode_number')
 		),
 		show_episodes.created_at,
-		NOW(),
+		NULL,
 		NULL,
 		jsonb_strip_nulls(jsonb_build_object(
 			'runtime',       CASE WHEN (show_episodes.episode_value ->> 'runtime') ~ '^[0-9]+$'
@@ -305,7 +305,7 @@ BEGIN
 			'Episode ' || (podcast_episodes.value ->> 'number')
 		),
 		podcast_episodes.created_at,
-		NOW(),
+		NULL,
 		NULL,
 		jsonb_strip_nulls(jsonb_build_object(
 			'runtime',       CASE WHEN (podcast_episodes.value ->> 'runtime') ~ '^[0-9]+$'
