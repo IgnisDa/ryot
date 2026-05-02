@@ -197,11 +197,11 @@ export const runOneTimeNonMediaImportWorkflow = <
 				),
 			});
 
-			cleanupPaths = loadOutcome.cleanupPaths;
+			cleanupPaths = [...new Set([...initialCleanupPaths, ...loadOutcome.cleanupPaths])];
 			if (loadOutcome._tag === "failed") {
 				yield* failRunAndCleanup({
 					message: loadOutcome.message,
-					cleanupPaths: loadOutcome.cleanupPaths,
+					cleanupPaths,
 					failureName: "fail-import-run-on-load-error",
 					cleanupName: "cleanup-import-artifacts-on-load-failure",
 				});

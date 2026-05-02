@@ -522,11 +522,7 @@ it.effect("fails the run and cleans up when non-media adapter loading fails", ()
 					Effect.sync(() => {
 						cleanupCalls.push(input);
 					}),
-				loadAdapterResult: () =>
-					Effect.fail({
-						message: "Could not read import file",
-						cleanupPaths: ["/tmp/open-scale.csv"],
-					}),
+				loadAdapterResult: () => Effect.die("Could not read import file"),
 			});
 
 			expect(cleanupCalls).toEqual([{ cleanupPaths: ["/tmp/open-scale.csv"] }]);

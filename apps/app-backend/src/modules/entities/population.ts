@@ -1,7 +1,8 @@
 import { Effect, Schema } from "effect";
 
 import { DbRunner } from "~/lib/db";
-import { dieOnDbError } from "~/lib/errors";
+import { SandboxRunError, dieOnDbError } from "~/lib/errors";
+import { parseAppSchemaProperties } from "~/lib/property-schema-runtime";
 import { RelationshipSchemasRepository } from "~/modules/relationship-schemas/repository";
 
 import { EntitiesRepository } from "./repository";
@@ -98,7 +99,11 @@ export const processRelatedEntity = (input: {
 		}
 
 		const relProps = input.relatedEntity.relationshipProperties;
-		const properties: Record<string, unknown> = isPlainRecord(relProps) ? relProps : {};
+		const properties = yield* parseAppSchemaProperties({
+			kind: "Relationship",
+			properties: isPlainRecord(relProps) ? relProps : {},
+			propertiesSchema: relationshipSchema.propertiesSchema,
+		}).pipe(Effect.mapError((error) => new SandboxRunError({ message: error.message })));
 
 		yield* runWithDb(
 			repository.upsertEntityRelationship({
@@ -108,7 +113,4 @@ export const processRelatedEntity = (input: {
 				relationshipSchemaId: relationshipSchema.id,
 			}),
 		);
-	}).pipe(
-		Effect.catchAll(() => Effect.void),
-		dieOnDbError,
-	);
+	}).pipe(dieOnDbError);
