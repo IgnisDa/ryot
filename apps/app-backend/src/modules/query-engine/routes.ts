@@ -15,8 +15,8 @@ import {
 } from "~/lib/views/errors";
 import { prepareAndExecute } from "./preparer";
 import {
-	executeQueryEngineBody,
 	executeQueryEngineResponseSchema,
+	queryEngineRequestSchema,
 } from "./schemas";
 
 const executeQueryEngineRoute = createAuthRoute(
@@ -26,7 +26,7 @@ const executeQueryEngineRoute = createAuthRoute(
 		tags: ["query-engine"],
 		request: {
 			body: {
-				content: { "application/json": { schema: executeQueryEngineBody } },
+				content: { "application/json": { schema: queryEngineRequestSchema } },
 			},
 		},
 		summary: "Execute a declarative query-engine request",
