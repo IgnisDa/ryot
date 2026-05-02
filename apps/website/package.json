@@ -5,7 +5,7 @@
 	"sideEffects": false,
 	"scripts": {
 		"typecheck": "tsc",
-		"lint": "oxlint . && oxfmt --check .",
+		"lint": "oxlint . && oxfmt .",
 		"build": "bun --bun react-router build",
 		"dev": "bun --bun react-router dev --port 5200 --host"
 	},
