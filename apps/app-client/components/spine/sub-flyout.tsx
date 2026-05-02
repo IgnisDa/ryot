@@ -65,7 +65,7 @@ export function SpineSubFlyout({ onNavigate, pinned = false }: Props) {
 			</Box>
 			<Box className="h-[0.5px] mt-3.5 mb-3.5 mx-6 bg-ink/20" />
 			<Pressable
-				className="flex-row items-center gap-1.5 px-6 min-h-[44px]"
+				className="flex-row items-center gap-1.5 px-6 min-h-11"
 				accessibilityRole="button"
 			>
 				<Plus size={12} color="#5a5347" strokeWidth={1.5} />
@@ -76,9 +76,13 @@ export function SpineSubFlyout({ onNavigate, pinned = false }: Props) {
 
 	if (pinned) {
 		return (
-			<Box className="w-55 pt-16 pb-20 border-l-[0.5px] border-l-ink/20 bg-paper">
+			<Animated.View
+				entering={SlideInRight.duration(220)}
+				exiting={SlideOutRight.duration(180)}
+				className="w-55 pt-16 pb-20 border-l-[0.5px] border-l-ink/20 bg-paper"
+			>
 				{content}
-			</Box>
+			</Animated.View>
 		);
 	}
 
