@@ -177,9 +177,11 @@ const withUnknownKeysPolicy = (
 };
 
 const getUnknownKeysPolicy = (schema: z.ZodObject<z.ZodRawShape>): AppSchemaUnknownKeysPolicy => {
-	const definition = schema._def as {
+	// oxlint-disable-next-line no-underscore-dangle
+	const definition = schema.def as {
 		catchall?: { _def?: { type?: string } };
 	};
+	// oxlint-disable-next-line no-underscore-dangle
 	const catchallType = definition.catchall?._def?.type;
 	if (catchallType === "unknown") {
 		return "passthrough";
