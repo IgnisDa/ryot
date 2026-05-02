@@ -1,7 +1,6 @@
 import { router, Stack } from "expo-router";
 import { useAtomValue } from "jotai";
 import { useEffect } from "react";
-import { StyleSheet, View } from "react-native";
 import { SpineNavigation } from "@/components/spine";
 import { Box } from "@/components/ui/box";
 import { Center } from "@/components/ui/center";
@@ -33,11 +32,8 @@ export default function AppLayout() {
 	}
 
 	return (
-		<View style={styles.root}>
+		<SpineNavigation>
 			<Stack screenOptions={{ headerShown: false }} />
-			<SpineNavigation />
-		</View>
+		</SpineNavigation>
 	);
 }
-
-const styles = StyleSheet.create({ root: { flex: 1 } });
