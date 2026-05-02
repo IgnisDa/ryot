@@ -1,16 +1,14 @@
-import { useForm } from "@tanstack/react-form";
 import { router } from "expo-router";
 import { useAtomValue, useSetAtom } from "jotai";
 import { useState } from "react";
 import { KeyboardAvoidingView, Platform, Pressable } from "react-native";
 import { z } from "zod";
 import { Box } from "@/components/ui/box";
-import { Button, ButtonSpinner, ButtonText } from "@/components/ui/button";
-import { Input, InputField } from "@/components/ui/input";
 import { Text } from "@/components/ui/text";
 import { createApiClient } from "@/lib/api";
 import { CLOUD_URL, serverUrlAtom } from "@/lib/atoms";
 import { authClientAtom } from "@/lib/auth";
+import { useAppForm } from "@/lib/forms";
 
 type AuthMode = "login" | "signup";
 
@@ -48,16 +46,6 @@ function getNameFromEmail(email: string) {
 		.join(" ");
 }
 
-function resolveError(error: unknown): string | undefined {
-	if (typeof error === "string") {
-		return error;
-	}
-	if (error && typeof error === "object" && "message" in error) {
-		return String((error as { message: unknown }).message);
-	}
-	return undefined;
-}
-
 export default function Auth() {
 	const serverUrl = useAtomValue(serverUrlAtom);
 	const setServerUrl = useSetAtom(serverUrlAtom);
@@ -68,7 +56,7 @@ export default function Auth() {
 	const modeContent = modes[mode];
 	const apiClient = createApiClient((serverUrl ?? CLOUD_URL) as string);
 
-	const form = useForm({
+	const form = useAppForm({
 		validators: { onChange: schema },
 		defaultValues: { email: "", password: "" },
 		onSubmit: async ({ value }) => {
@@ -151,79 +139,36 @@ export default function Auth() {
 							</Pressable>
 						))}
 					</Box>
-					<Box className="gap-3">
-						<form.Field name="email">
-							{(field) => (
-								<Box className="gap-1">
-									<Input>
-										<InputField
-											autoCorrect={false}
-											autoCapitalize="none"
-											value={field.state.value}
-											onBlur={field.handleBlur}
-											keyboardType="email-address"
-											placeholder="you@example.com"
-											onChangeText={field.handleChange}
-										/>
-									</Input>
-									{field.state.meta.isTouched &&
-										field.state.meta.errors.length > 0 && (
-											<Text className="text-destructive text-xs">
-												{field.state.meta.errors
-													.map(resolveError)
-													.filter(Boolean)
-													.join(", ")}
-											</Text>
-										)}
-								</Box>
+					<form.AppForm>
+						<Box className="gap-3">
+							<form.AppField name="email">
+								{(field) => (
+									<field.TextField
+										autoCorrect={false}
+										autoCapitalize="none"
+										keyboardType="email-address"
+										placeholder="you@example.com"
+									/>
+								)}
+							</form.AppField>
+							<form.AppField name="password">
+								{(field) => (
+									<field.TextField
+										secureTextEntry
+										placeholder="Password"
+										autoComplete={modeContent.passwordAutoComplete}
+									/>
+								)}
+							</form.AppField>
+							{submitError && (
+								<Text className="text-destructive text-sm">{submitError}</Text>
 							)}
-						</form.Field>
-						<form.Field name="password">
-							{(field) => (
-								<Box className="gap-1">
-									<Input>
-										<InputField
-											secureTextEntry
-											placeholder="Password"
-											value={field.state.value}
-											onBlur={field.handleBlur}
-											onChangeText={field.handleChange}
-											autoComplete={modeContent.passwordAutoComplete}
-										/>
-									</Input>
-									{field.state.meta.isTouched &&
-										field.state.meta.errors.length > 0 && (
-											<Text className="text-destructive text-xs">
-												{field.state.meta.errors
-													.map(resolveError)
-													.filter(Boolean)
-													.join(", ")}
-											</Text>
-										)}
-								</Box>
-							)}
-						</form.Field>
-						{submitError && (
-							<Text className="text-destructive text-sm">{submitError}</Text>
-						)}
-						<form.Subscribe
-							selector={(state) => [state.canSubmit, state.isSubmitting]}
-						>
-							{([canSubmit, isSubmitting]) => (
-								<Button
-									disabled={!canSubmit || isSubmitting}
-									onPress={() => void form.handleSubmit()}
-								>
-									{isSubmitting && <ButtonSpinner />}
-									<ButtonText>
-										{isSubmitting
-											? modeContent.pendingLabel
-											: modeContent.actionLabel}
-									</ButtonText>
-								</Button>
-							)}
-						</form.Subscribe>
-					</Box>
+							<form.SubmitButton
+								label={modeContent.actionLabel}
+								pendingLabel={modeContent.pendingLabel}
+							/>
+						</Box>
+					</form.AppForm>
 				</Box>
 				<Box className="items-center">
 					<Pressable onPress={handleChangeServer}>
