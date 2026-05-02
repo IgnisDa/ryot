@@ -42,6 +42,7 @@ import {
 import {
 	MarkEntityAsPartialMenuItem,
 	ToggleMediaMonitorMenuItem,
+	WebSearchMenuItem,
 } from "~/components/media/menu-items";
 import {
 	useMetadataGroupDetails,
@@ -342,6 +343,7 @@ export default function Page() {
 												entityLot={EntityLot.Person}
 												entityId={loaderData.personId}
 											/>
+											<WebSearchMenuItem title={title} />
 										</Menu.Dropdown>
 									</Menu>
 									{personDetails.data && (
