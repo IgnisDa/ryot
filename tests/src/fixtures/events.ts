@@ -13,6 +13,49 @@ import {
 import { seedMediaEntity } from "./media";
 import { type PollOptions, pollUntil } from "./polling";
 
+const defaultMediaProperties = {
+	genres: [],
+	isNsfw: null,
+	sourceUrl: null,
+	description: null,
+	publishYear: null,
+	providerRating: null,
+	productionStatus: null,
+};
+
+const defaultMediaPropertiesWithCreators = {
+	...defaultMediaProperties,
+	freeCreators: [],
+};
+
+type BuiltinMediaLifecycleFixtureOptions = {
+	entitySchemaSlug?: string;
+	properties?: Record<string, unknown>;
+};
+
+const propertiesBySchemaSlug: Record<string, Record<string, unknown>> = {
+	book: { ...defaultMediaProperties },
+	movie: { ...defaultMediaProperties, images: [] },
+	anime: { ...defaultMediaProperties, images: [], episodes: null },
+	manga: {
+		...defaultMediaProperties,
+		images: [],
+		volumes: null,
+		chapters: null,
+	},
+	show: {
+		...defaultMediaPropertiesWithCreators,
+		images: [],
+		showSeasons: [],
+	},
+	podcast: {
+		...defaultMediaPropertiesWithCreators,
+		images: [],
+		episodes: [],
+		totalEpisodes: null,
+	},
+};
+
 export async function waitForEventCount(
 	client: Client,
 	cookies: string,
@@ -111,20 +154,26 @@ export async function createRuleEventFixture(client: Client, cookies: string) {
 export async function createBuiltinMediaLifecycleFixture(
 	client: Client,
 	cookies: string,
-	userId: string,
+	_userId: string,
+	options: BuiltinMediaLifecycleFixtureOptions = {},
 ) {
-	const { schema: bookSchema } = await findBuiltinSchemaBySlug(
+	const entitySchemaSlug = options.entitySchemaSlug ?? "book";
+	const { schema: selectedSchema } = await findBuiltinSchemaBySlug(
 		client,
 		cookies,
-		"book",
+		entitySchemaSlug,
 	);
 
-	const providerScriptId = bookSchema.providers[0]?.scriptId;
+	const providerScriptId = selectedSchema.providers[0]?.scriptId;
 	if (!providerScriptId) {
-		throw new Error("Missing built-in book provider");
+		throw new Error(`Missing built-in ${entitySchemaSlug} provider`);
 	}
 
-	const eventSchemas = await listEventSchemas(client, cookies, bookSchema.id);
+	const eventSchemas = await listEventSchemas(
+		client,
+		cookies,
+		selectedSchema.id,
+	);
 	const backlogEventSchema = requireEventSchemaBySlug(eventSchemas, "backlog");
 	const progressEventSchema = requireEventSchemaBySlug(
 		eventSchemas,
@@ -137,9 +186,9 @@ export async function createBuiltinMediaLifecycleFixture(
 	const reviewEventSchema = requireEventSchemaBySlug(eventSchemas, "review");
 
 	const { schemas } = await listBuiltinEntitySchemas(client, cookies);
-	const otherSchema = schemas.find((schema) => schema.slug === "anime");
+	const otherSchema = schemas.find((schema) => schema.id !== selectedSchema.id);
 	if (!otherSchema) {
-		throw new Error("Missing built-in anime schema");
+		throw new Error("Missing mismatched built-in schema");
 	}
 
 	const otherEventSchemas = await listEventSchemas(
@@ -153,13 +202,16 @@ export async function createBuiltinMediaLifecycleFixture(
 	);
 
 	const entity = await seedMediaEntity({
-		userId,
 		image: null,
-		properties: {},
-		entitySchemaId: bookSchema.id,
+		userId: null,
+		entitySchemaId: selectedSchema.id,
 		sandboxScriptId: providerScriptId,
-		externalId: `book-${crypto.randomUUID()}`,
-		name: `Built-in Book ${crypto.randomUUID()}`,
+		externalId: `${entitySchemaSlug}-${crypto.randomUUID()}`,
+		name: `Built-in ${entitySchemaSlug} ${crypto.randomUUID()}`,
+		properties: {
+			...(propertiesBySchemaSlug[entitySchemaSlug] ?? defaultMediaProperties),
+			...(options.properties ?? {}),
+		},
 	});
 
 	return {
