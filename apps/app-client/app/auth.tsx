@@ -1,3 +1,4 @@
+import { useMutation } from "@tanstack/react-query";
 import { router } from "expo-router";
 import { useAtomValue, useSetAtom } from "jotai";
 import { useState } from "react";
@@ -51,45 +52,39 @@ export default function Auth() {
 	const setServerUrl = useSetAtom(serverUrlAtom);
 	const authClient = useAtomValue(authClientAtom);
 	const [mode, setMode] = useState<AuthMode>("login");
-	const [submitError, setSubmitError] = useState<string | null>(null);
 
 	const modeContent = modes[mode];
 	const apiClient = createApiClient((serverUrl ?? CLOUD_URL) as string);
+
+	const authMutation = useMutation({
+		mutationFn: async ({ email, password }: z.infer<typeof schema>) => {
+			if (mode === "signup") {
+				const { error } = await apiClient.POST("/authentication/email", {
+					body: { email, password, name: getNameFromEmail(email) },
+				});
+				if (error) {
+					throw new Error(error.error.message);
+				}
+			}
+			const { error } = await authClient.signIn.email({ email, password });
+			if (error) {
+				throw new Error(error.message ?? "Invalid email or password");
+			}
+		},
+		onSuccess: () => router.replace("/(app)"),
+	});
 
 	const form = useAppForm({
 		validators: { onChange: schema },
 		defaultValues: { email: "", password: "" },
 		onSubmit: async ({ value }) => {
-			setSubmitError(null);
-			const { email, password } = value;
-
-			if (mode === "signup") {
-				const { error: signupError } = await apiClient.POST(
-					"/authentication/email",
-					{ body: { email, password, name: getNameFromEmail(email) } },
-				);
-				if (signupError) {
-					setSubmitError(signupError.error.message);
-					return;
-				}
-			}
-
-			const { error: signInError } = await authClient.signIn.email({
-				email,
-				password,
-			});
-			if (signInError) {
-				setSubmitError(signInError.message ?? "Invalid email or password");
-				return;
-			}
-
-			router.replace("/(app)");
+			await authMutation.mutateAsync(value);
 		},
 	});
 
 	function switchMode(next: AuthMode) {
 		setMode(next);
-		setSubmitError(null);
+		authMutation.reset();
 		form.setFieldValue("password", "");
 	}
 
@@ -163,9 +158,9 @@ export default function Auth() {
 										/>
 									)}
 								</form.AppField>
-								{submitError && (
+								{authMutation.error && (
 									<Text className="text-destructive text-sm">
-										{submitError}
+										{authMutation.error.message}
 									</Text>
 								)}
 								<form.SubmitButton
