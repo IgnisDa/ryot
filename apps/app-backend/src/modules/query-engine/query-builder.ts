@@ -4,7 +4,6 @@ import {
 	entity,
 	entitySchema,
 	event,
-	type ImageSchemaType,
 	relationship,
 	relationshipSchema,
 } from "~/lib/db/schema";
@@ -13,6 +12,7 @@ import type {
 	QueryEngineReferenceContext,
 	QueryEngineSchemaLike,
 } from "~/lib/views/reference";
+import type { ImageSchemaType } from "~/lib/zod";
 import { getUserLibraryEntityId } from "~/modules/entities";
 import { buildResolvedFieldsExpression } from "./display-builder";
 import { buildFilterWhereClause } from "./filter-builder";
