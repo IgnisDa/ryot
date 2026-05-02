@@ -28,9 +28,7 @@ export const EntityDetail = Schema.Struct({
 export type EntityDetail = typeof EntityDetail.Type;
 
 const RequiredEntitySchemaSlug = Schema.Trim.pipe(
-	Schema.check(
-		Schema.makeFilter((schemaFilterInput) => ((value) => value.length > 0)(schemaFilterInput)),
-	),
+	Schema.check(Schema.makeFilter((value) => value.length > 0)),
 ).pipe(Schema.decodeTo(EntitySchemaSlug));
 
 const OptionalExternalId = Schema.String.pipe(

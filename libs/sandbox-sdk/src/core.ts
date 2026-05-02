@@ -621,11 +621,7 @@ export type SandboxHostImplementationMap<Context> = CoreSandboxHostImplementatio
 	AutomationSandboxHostImplementationMap<Context>;
 
 const manifestStringSchema = Schema.String.pipe(
-	Schema.check(
-		Schema.makeFilter((schemaFilterInput) =>
-			((value) => value.length > 0 && value === value.trim())(schemaFilterInput),
-		),
-	),
+	Schema.check(Schema.makeFilter((value) => value.length > 0 && value === value.trim())),
 );
 
 const manifestSlugSchema = Schema.String.pipe(
