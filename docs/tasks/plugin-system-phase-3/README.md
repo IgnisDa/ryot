@@ -188,7 +188,7 @@ payload)` contract endpoint that validates against the declared schemas, dispatc
     direct script, and returns the result — batch-first payloads — so that the static typed contract
     never grows plugin-specific endpoints (Decision 9; plan §2).
 13. As a first-party client, I want the plugin package to export its operation input/output
-    types and a small typed `invoke` wrapper in `libs/plugin-kit` ("recipes"), so that
+    types and a small typed `invoke` wrapper in `packages/plugin-kit` ("recipes"), so that
     first-party clients call operations with full typing (`[RECOMMENDED]`; Decision 9; plan §2).
 14. As the owner, I want `metadata-lookup` rewritten as media-plugin operations and the browser
     extension migrated in the same step to the invoke endpoint (it is the sole external
@@ -324,7 +324,7 @@ duration)` (durable timer), and `child(name, workflowRef, input)` (composes anot
 ### Cross-cutting
 
 37. As the implementing agent, I want every new host function to follow the existing contract
-    pattern (`libs/sandbox-sdk` contract + `bridge-adapter.ts` validation +
+    pattern (`packages/sandbox-sdk` contract + `bridge-adapter.ts` validation +
     `host-functions.ts` implementation + limits entry) and carry a span, so that new syscalls
     are consistent with the existing syscall surface and observable (plan standing rules).
 38. As the owner, I want the branch to stay shippable after **every step** — backend `check`
@@ -349,7 +349,7 @@ them (and risk drift), this PRD points to the exact sections that own them:
 
 - **Standing host-function rules** — batch-first signatures, query pushdown via
   `executeQueryEngine` (no new list-and-filter functions), coarse atomic writes, generic naming
-  never explicable by one plugin, the existing contract pattern (`libs/sandbox-sdk` +
+  never explicable by one plugin, the existing contract pattern (`packages/sandbox-sdk` +
   `bridge-adapter.ts` + `host-functions.ts` + limits), and per-call observability: Decision 8
   and plan "Standing rules".
 - **Step 0a — Effect-native sandbox cutover** — vendoring `effect` host-pinned via
@@ -371,7 +371,7 @@ them (and risk drift), this PRD points to the exact sections that own them:
   exists for trending; exercises rely on boot dispatch): plan §1 and its 2026-07-26 amendment.
 - **Step 2 — operations (invoke)** — the `operations` manifest section, the single generic
   `plugins.invoke` endpoint (validation, auth, dispatch, batch-first), the `[RECOMMENDED]`
-  first-party recipe typing in `libs/plugin-kit`, the browser-extension migration, the internal
+  first-party recipe typing in `packages/plugin-kit`, the browser-extension migration, the internal
   `invokeOperation` scaffolding for `episode-resolver`, and the contract-group deletion:
   Decision 9 and plan §2.
 - **Step 3 — durable workflows** — the **mandatory spike** protocol and findings-recording, the

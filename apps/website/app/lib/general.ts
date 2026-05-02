@@ -16,7 +16,7 @@ type ConfigData = {
 export const contactEmail = "ignisda2001@gmail.com";
 export const startUrl = withFragment($path("/"), "start-here");
 export const logoUrl =
-	"https://raw.githubusercontent.com/IgnisDa/ryot/main/libs/assets/icon-512x512.png";
+	"https://raw.githubusercontent.com/IgnisDa/ryot/main/packages/assets/icon-512x512.png";
 
 export const initializePaddleForApplication = (
 	clientToken: string,

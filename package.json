@@ -2,7 +2,7 @@
 	"name": "@ryot/root",
 	"workspaces": [
 		"apps/*",
-		"libs/*",
+		"packages/*",
 		"plugins/*",
 		"tests*"
 	],

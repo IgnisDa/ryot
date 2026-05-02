@@ -74,7 +74,7 @@ describing history.
   `bridge-adapter.test.ts`, `observability-host-functions.test.ts`, and SDK `core.test.ts`, and is
   documented as `log`'s pair. Kept. None of the four _actually_ withdrawn host functions
   (`putRunBlobs`, `getRunBlobs`, `recordImportFailures`, `reportImportProgress`) exists anywhere.
-- **`libs/sandbox-compiler/src/compiler-source.ts` driver-map diagnostics** — the
+- **`packages/sandbox-compiler/src/compiler-source.ts` driver-map diagnostics** — the
   `defineDriver`/`defineProviderDriver`/`drivers`-literal checks reject the withdrawn API rather
   than supporting it, so they are a regression guardrail, not a compatibility layer. Kept.
 - **`parseCsvText` duplicated between `plugins/fitness` and `plugins/media`** — the two plugins are
