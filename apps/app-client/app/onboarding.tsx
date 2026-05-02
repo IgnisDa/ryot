@@ -1,8 +1,7 @@
 import { router } from "expo-router";
 import { useSetAtom } from "jotai";
 import { useState } from "react";
-import { KeyboardAvoidingView, Platform } from "react-native";
-import Logo from "@/assets/icons/Logo";
+import { KeyboardAvoidingView, Platform, Pressable } from "react-native";
 import { Box } from "@/components/ui/box";
 import { Button, ButtonSpinner, ButtonText } from "@/components/ui/button";
 import { Input, InputField } from "@/components/ui/input";
@@ -10,39 +9,61 @@ import { Text } from "@/components/ui/text";
 import { createApiClient } from "@/lib/api";
 import { CLOUD_URL, serverUrlAtom } from "@/lib/atoms";
 
+type ServerMode = "cloud" | "self-hosted";
+
+const options: { mode: ServerMode; label: string; subtitle: string }[] = [
+	{
+		mode: "cloud",
+		label: "Ryot Cloud",
+		subtitle: "Managed by Ryot at app.ryot.io",
+	},
+	{
+		mode: "self-hosted",
+		label: "Self-hosted",
+		subtitle: "Connect to your own instance",
+	},
+];
+
 export default function Onboarding() {
-	const [url, setUrl] = useState(CLOUD_URL);
-	const [loading, setLoading] = useState(false);
+	const [url, setUrl] = useState("");
 	const setServerUrl = useSetAtom(serverUrlAtom);
+	const [loading, setLoading] = useState(false);
+	const [mode, setMode] = useState<ServerMode>("cloud");
 	const [error, setError] = useState<string | null>(null);
 
+	const resolvedUrl =
+		mode === "cloud" ? CLOUD_URL : url.trim().replace(/\/$/, "");
+
 	async function handleConnect() {
-		const normalized = url.trim().replace(/\/$/, "");
 		setError(null);
 
-		try {
-			new URL(normalized);
-		} catch {
-			setError("Please enter a valid URL");
-			return;
+		if (mode === "self-hosted") {
+			try {
+				new URL(resolvedUrl);
+			} catch {
+				setError("Please enter a valid URL");
+				return;
+			}
 		}
 
 		setLoading(true);
 		try {
 			const { error: fetchError } =
-				await createApiClient(normalized).GET("/system/health");
+				await createApiClient(resolvedUrl).GET("/system/health");
 			if (fetchError) {
 				setError("Could not reach the server");
 				return;
 			}
-			setServerUrl(normalized);
-			router.replace("/(app)");
+			setServerUrl(resolvedUrl);
+			router.replace("/auth");
 		} catch {
 			setError("Could not reach the server");
 		} finally {
 			setLoading(false);
 		}
 	}
+
+	const isDisabled = loading || (mode === "self-hosted" && !url.trim());
 
 	return (
 		<KeyboardAvoidingView
@@ -51,29 +72,60 @@ export default function Onboarding() {
 		>
 			<Box className="flex-1 bg-background px-6 justify-center gap-8">
 				<Box className="items-center gap-4">
-					<Logo />
 					<Text className="text-muted-foreground text-center">
 						Connect to your Ryot instance
 					</Text>
 				</Box>
 				<Box className="gap-3">
-					<Input>
-						<InputField
-							value={url}
-							keyboardType="url"
-							autoCorrect={false}
-							autoCapitalize="none"
-							placeholder="https://app.ryot.io"
-							onChangeText={(text) => {
-								setUrl(text);
-								setError(null);
-							}}
-						/>
-					</Input>
+					{options.map((opt) => {
+						const selected = mode === opt.mode;
+						return (
+							<Pressable
+								key={opt.mode}
+								onPress={() => {
+									setMode(opt.mode);
+									setError(null);
+								}}
+								className={
+									selected
+										? "rounded-lg border border-primary bg-primary/5 p-4 gap-1"
+										: "rounded-lg border border-border bg-transparent p-4 gap-1"
+								}
+							>
+								<Text
+									className={
+										selected
+											? "font-medium text-sm text-primary"
+											: "font-medium text-sm text-foreground"
+									}
+								>
+									{opt.label}
+								</Text>
+								<Text className="text-muted-foreground text-xs">
+									{opt.subtitle}
+								</Text>
+							</Pressable>
+						);
+					})}
+					{mode === "self-hosted" && (
+						<Input>
+							<InputField
+								value={url}
+								keyboardType="url"
+								autoCorrect={false}
+								autoCapitalize="none"
+								placeholder="https://ryot.yourdomain.com"
+								onChangeText={(text) => {
+									setUrl(text);
+									setError(null);
+								}}
+							/>
+						</Input>
+					)}
 					{error && <Text className="text-destructive text-sm">{error}</Text>}
-					<Button disabled={loading} onPress={handleConnect}>
+					<Button disabled={isDisabled} onPress={handleConnect}>
 						{loading && <ButtonSpinner />}
-						<ButtonText>{loading ? "Connecting..." : "Connect"}</ButtonText>
+						<ButtonText>{loading ? "Connecting..." : "Continue"}</ButtonText>
 					</Button>
 				</Box>
 			</Box>
