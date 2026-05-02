@@ -1,10 +1,11 @@
-import { DurableQueue, Workflow } from "@effect/workflow";
-import { DateTime, Effect, Layer, Schema } from "effect";
+import { DurableQueue } from "@effect/workflow";
+import { DateTime, Effect, Schema } from "effect";
 
 import { DbRunner } from "~/lib/db";
 import {
 	processMediaImport,
 	type MediaImportAdapterResult,
+	type MediaImportAdapterResultSchema,
 } from "~/modules/imports/media/import-processor";
 import type { ImportEntityRef } from "~/modules/imports/media/types";
 import { ImportsRepository } from "~/modules/imports/repository";
@@ -19,8 +20,8 @@ import {
 } from "~/modules/imports/sources/audiobookshelf/adapter";
 import { adaptPlexData, syncPlexYankOwnedItems } from "~/modules/imports/sources/plex/adapter";
 
+import { IntegrationRunError, IntegrationRunJobData } from "./jobs";
 import { IntegrationsRepository, type IntegrationRecord } from "./repository";
-import { getSinkAdapterResult } from "./sinks";
 import { adaptKomgaData, syncKomgaOwnedItems } from "./yank/komga";
 import { adaptYoutubeMusicData } from "./yank/youtube-music";
 
@@ -56,20 +57,6 @@ const withOwnership = <EA, RA, EO, RO>(
 			})
 		: progress;
 
-const IntegrationRunJobData = Schema.Struct({
-	runId: Schema.String,
-	userId: Schema.String,
-	integrationId: Schema.String,
-	rawBody: Schema.optional(Schema.String),
-	contentType: Schema.optional(Schema.String),
-});
-
-type IntegrationRunJobData = typeof IntegrationRunJobData.Type;
-
-class IntegrationRunError extends Schema.TaggedError<IntegrationRunError>()("IntegrationRunError", {
-	message: Schema.String,
-}) {}
-
 const markFailedRunCounts = (runId: string, failureCount: number) =>
 	Effect.gen(function* () {
 		const repository = yield* ImportsRepository;
@@ -85,17 +72,20 @@ const markFailedRunCounts = (runId: string, failureCount: number) =>
 		);
 	});
 
-export const failAdapterOnlyRun = (runId: string, result: MediaImportAdapterResult) =>
+export const failAdapterOnlyRun = (
+	runId: string,
+	result: typeof MediaImportAdapterResultSchema.Type,
+) =>
 	Effect.gen(function* () {
 		for (const failure of result.failures) {
 			yield* recordImportRunFailure({
 				runId,
 				message: failure.message,
 				itemIndex: failure.itemIndex,
-				context: failure.context ?? null,
 				sourceLabel: failure.sourceLabel,
 				sourceIdentifier: failure.sourceIdentifier,
 				stage: failure.stage ?? "input_transformation",
+				context: failure.context ? { ...failure.context } : null,
 			});
 		}
 
@@ -163,33 +153,6 @@ export const finalizeIntegrationRun = (integration: IntegrationRecord, runId: st
 				})
 				.pipe(Effect.asVoid),
 		);
-	});
-
-const runSinkIntegration = (
-	integration: IntegrationRecord,
-	runId: string,
-	rawBody: string | undefined,
-	contentType: string | undefined,
-) =>
-	Effect.gen(function* () {
-		const adapterResult = getSinkAdapterResult(
-			integration,
-			rawBody ?? "",
-			contentType ?? "application/json",
-		);
-		if (adapterResult.entityGroups.length === 0 && adapterResult.failures.length > 0) {
-			yield* failAdapterOnlyRun(runId, adapterResult);
-			return;
-		}
-
-		yield* processMediaImport({
-			runId,
-			userId: integration.userId,
-			sourceName: integration.provider,
-			loadAdapterResult: Effect.succeed(adapterResult),
-			eventContext: { origin: "integration", integrationId: integration.id },
-			adapterErrorFallback: `Failed to parse ${integration.provider} webhook payload`,
-		});
 	});
 
 const runYankIntegration = (integration: IntegrationRecord, runId: string) =>
@@ -302,22 +265,14 @@ const processIntegrationRunJob = (payload: IntegrationRunJobData) =>
 
 		yield* markRunStarted(payload.runId);
 
-		const onRunError = (error: unknown) =>
-			failImportRun(
-				payload.runId,
-				sanitizeErrorMessage(error, "Integration job failed unexpectedly"),
-			);
-
-		if (integration.lot === "sink") {
-			yield* runSinkIntegration(
-				integration,
-				payload.runId,
-				payload.rawBody,
-				payload.contentType,
-			).pipe(Effect.catchAll(onRunError));
-		} else {
-			yield* runYankIntegration(integration, payload.runId).pipe(Effect.catchAll(onRunError));
-		}
+		yield* runYankIntegration(integration, payload.runId).pipe(
+			Effect.catchAll((error) =>
+				failImportRun(
+					payload.runId,
+					sanitizeErrorMessage(error, "Integration job failed unexpectedly"),
+				),
+			),
+		);
 		yield* finalizeIntegrationRun(integration, payload.runId);
 	});
 
@@ -325,21 +280,4 @@ export const IntegrationRunQueueWorkerLive = DurableQueue.worker(
 	IntegrationRunQueue,
 	(payload) => processIntegrationRunJob(payload).pipe(Effect.orDie),
 	{ concurrency: 1 },
-);
-
-export const ProcessIntegrationRunWorkflow = Workflow.make({
-	success: Schema.Void,
-	error: IntegrationRunError,
-	payload: IntegrationRunJobData,
-	idempotencyKey: ({ runId }) => runId,
-	name: "ProcessIntegrationRunWorkflow",
-});
-
-const ProcessIntegrationRunWorkflowLive = ProcessIntegrationRunWorkflow.toLayer((payload) =>
-	DurableQueue.process(IntegrationRunQueue, payload),
-);
-
-export const IntegrationWorkflowDefinitionsLive = Layer.mergeAll(
-	IntegrationRunQueueWorkerLive,
-	ProcessIntegrationRunWorkflowLive,
 );
