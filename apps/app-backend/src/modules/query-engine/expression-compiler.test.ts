@@ -12,11 +12,25 @@ import {
 import type { ViewExpression } from "~/lib/views/expression";
 import { buildEventJoinMap, buildSchemaMap } from "~/lib/views/reference";
 import { createScalarExpressionCompiler } from "./expression-compiler";
+import { createExpressionTypeResolver } from "./expression-type-resolver";
 
 const dialect = new PgDialect();
 const context = {
 	eventJoinMap: buildEventJoinMap([]),
 	schemaMap: buildSchemaMap([createSmartphoneSchema()]),
+};
+
+const createTestCompiler = (
+	input: Omit<
+		Parameters<typeof createScalarExpressionCompiler>[0],
+		"getTypeInfo"
+	>,
+) => {
+	const getTypeInfo = createExpressionTypeResolver({
+		context: input.context,
+		computedFields: input.computedFields,
+	});
+	return createScalarExpressionCompiler({ ...input, getTypeInfo });
 };
 
 const yearExpression = createEntityPropertyExpression(
@@ -26,7 +40,7 @@ const yearExpression = createEntityPropertyExpression(
 
 describe("createScalarExpressionCompiler", () => {
 	it("compiles nested computed fields for scalar query stages", () => {
-		const compiler = createScalarExpressionCompiler({
+		const compiler = createTestCompiler({
 			alias: "entities",
 			context,
 			computedFields: [
@@ -61,7 +75,7 @@ describe("createScalarExpressionCompiler", () => {
 	});
 
 	it("reuses cached computed field expressions for the same target type", () => {
-		const compiler = createScalarExpressionCompiler({
+		const compiler = createTestCompiler({
 			alias: "entities",
 			context,
 			computedFields: [
@@ -95,10 +109,7 @@ describe("createScalarExpressionCompiler", () => {
 	});
 
 	it("compiles a nested entity property path using chained JSON traversal operators", () => {
-		const compiler = createScalarExpressionCompiler({
-			alias: "entities",
-			context,
-		});
+		const compiler = createTestCompiler({ context, alias: "entities" });
 
 		const nestedRef: ViewExpression = {
 			type: "reference",
@@ -119,7 +130,7 @@ describe("createScalarExpressionCompiler", () => {
 	});
 
 	it("rejects image computed fields in scalar sort and filter contexts", () => {
-		const compiler = createScalarExpressionCompiler({
+		const compiler = createTestCompiler({
 			context,
 			alias: "entities",
 			computedFields: [
@@ -146,10 +157,7 @@ describe("createScalarExpressionCompiler", () => {
 
 	describe("event references", () => {
 		it("compiles event.id as direct column access", () => {
-			const compiler = createScalarExpressionCompiler({
-				context,
-				alias: "events",
-			});
+			const compiler = createTestCompiler({ context, alias: "events" });
 
 			const query = dialect.sqlToQuery(
 				compiler.compile({
@@ -162,10 +170,7 @@ describe("createScalarExpressionCompiler", () => {
 		});
 
 		it("compiles event.createdAt with timestamptz cast", () => {
-			const compiler = createScalarExpressionCompiler({
-				context,
-				alias: "events",
-			});
+			const compiler = createTestCompiler({ context, alias: "events" });
 
 			const query = dialect.sqlToQuery(
 				compiler.compile({
@@ -179,10 +184,7 @@ describe("createScalarExpressionCompiler", () => {
 		});
 
 		it("compiles event property path as JSONB access", () => {
-			const compiler = createScalarExpressionCompiler({
-				context,
-				alias: "events",
-			});
+			const compiler = createTestCompiler({ context, alias: "events" });
 
 			const query = dialect.sqlToQuery(
 				compiler.compile({
@@ -196,10 +198,7 @@ describe("createScalarExpressionCompiler", () => {
 		});
 
 		it("wraps property access in CASE WHEN when eventSchemaSlug is provided", () => {
-			const compiler = createScalarExpressionCompiler({
-				context,
-				alias: "events",
-			});
+			const compiler = createTestCompiler({ context, alias: "events" });
 
 			const query = dialect.sqlToQuery(
 				compiler.compile({
@@ -219,10 +218,7 @@ describe("createScalarExpressionCompiler", () => {
 		});
 
 		it("rejects unsupported event built-in columns", () => {
-			const compiler = createScalarExpressionCompiler({
-				context,
-				alias: "events",
-			});
+			const compiler = createTestCompiler({ context, alias: "events" });
 
 			expect(() =>
 				compiler.compile({
@@ -235,10 +231,7 @@ describe("createScalarExpressionCompiler", () => {
 
 	describe("event-schema references", () => {
 		it("compiles event-schema.slug as JSONB text extraction", () => {
-			const compiler = createScalarExpressionCompiler({
-				context,
-				alias: "events",
-			});
+			const compiler = createTestCompiler({ context, alias: "events" });
 
 			const query = dialect.sqlToQuery(
 				compiler.compile({
@@ -252,10 +245,7 @@ describe("createScalarExpressionCompiler", () => {
 		});
 
 		it("compiles event-schema.name as JSONB text extraction", () => {
-			const compiler = createScalarExpressionCompiler({
-				alias: "events",
-				context,
-			});
+			const compiler = createTestCompiler({ context, alias: "events" });
 
 			const query = dialect.sqlToQuery(
 				compiler.compile({
@@ -269,10 +259,7 @@ describe("createScalarExpressionCompiler", () => {
 		});
 
 		it("compiles event-schema.isBuiltin with boolean cast", () => {
-			const compiler = createScalarExpressionCompiler({
-				context,
-				alias: "events",
-			});
+			const compiler = createTestCompiler({ context, alias: "events" });
 
 			const query = dialect.sqlToQuery(
 				compiler.compile({
@@ -287,10 +274,7 @@ describe("createScalarExpressionCompiler", () => {
 		});
 
 		it("compiles event-schema.createdAt with timestamptz cast", () => {
-			const compiler = createScalarExpressionCompiler({
-				context,
-				alias: "events",
-			});
+			const compiler = createTestCompiler({ context, alias: "events" });
 
 			const query = dialect.sqlToQuery(
 				compiler.compile({
@@ -305,10 +289,7 @@ describe("createScalarExpressionCompiler", () => {
 		});
 
 		it("rejects unsupported event-schema columns", () => {
-			const compiler = createScalarExpressionCompiler({
-				context,
-				alias: "events",
-			});
+			const compiler = createTestCompiler({ context, alias: "events" });
 
 			expect(() =>
 				compiler.compile({
@@ -319,10 +300,7 @@ describe("createScalarExpressionCompiler", () => {
 		});
 
 		it("rejects nested paths", () => {
-			const compiler = createScalarExpressionCompiler({
-				context,
-				alias: "events",
-			});
+			const compiler = createTestCompiler({ context, alias: "events" });
 
 			expect(() =>
 				compiler.compile({
@@ -344,7 +322,7 @@ describe("createScalarExpressionCompiler", () => {
 					updated_at: "entity_updated_at",
 				},
 			};
-			const compiler = createScalarExpressionCompiler({
+			const compiler = createTestCompiler({
 				alias: "events",
 				context: eventsContext,
 			});
@@ -374,7 +352,7 @@ describe("createScalarExpressionCompiler", () => {
 					updated_at: "entity_updated_at",
 				},
 			};
-			const compiler = createScalarExpressionCompiler({
+			const compiler = createTestCompiler({
 				alias: "events",
 				context: eventsContext,
 			});
@@ -393,10 +371,7 @@ describe("createScalarExpressionCompiler", () => {
 
 	describe("transform expressions", () => {
 		it("compiles titleCase transform using initcap with separator normalization", () => {
-			const compiler = createScalarExpressionCompiler({
-				context,
-				alias: "entities",
-			});
+			const compiler = createTestCompiler({ context, alias: "entities" });
 
 			const query = dialect.sqlToQuery(
 				compiler.compile(
@@ -414,10 +389,7 @@ describe("createScalarExpressionCompiler", () => {
 		});
 
 		it("compiles kebabCase transform using lower with separator normalization", () => {
-			const compiler = createScalarExpressionCompiler({
-				context,
-				alias: "entities",
-			});
+			const compiler = createTestCompiler({ context, alias: "entities" });
 
 			const query = dialect.sqlToQuery(
 				compiler.compile(
@@ -434,10 +406,7 @@ describe("createScalarExpressionCompiler", () => {
 		});
 
 		it("rejects image expressions inside transforms", () => {
-			const compiler = createScalarExpressionCompiler({
-				context,
-				alias: "entities",
-			});
+			const compiler = createTestCompiler({ context, alias: "entities" });
 
 			const imageTransform: ViewExpression = {
 				type: "transform",
@@ -456,10 +425,7 @@ describe("createScalarExpressionCompiler", () => {
 
 	describe("entity-schema expressions", () => {
 		it("compiles entity schema slug as a text extraction", () => {
-			const compiler = createScalarExpressionCompiler({
-				context,
-				alias: "entities",
-			});
+			const compiler = createTestCompiler({ context, alias: "entities" });
 
 			const query = dialect.sqlToQuery(
 				compiler.compile(createEntitySchemaExpression("slug")),
@@ -470,10 +436,7 @@ describe("createScalarExpressionCompiler", () => {
 		});
 
 		it("compiles entity schema name as a text extraction", () => {
-			const compiler = createScalarExpressionCompiler({
-				context,
-				alias: "entities",
-			});
+			const compiler = createTestCompiler({ context, alias: "entities" });
 
 			const query = dialect.sqlToQuery(
 				compiler.compile(createEntitySchemaExpression("name")),
@@ -484,10 +447,7 @@ describe("createScalarExpressionCompiler", () => {
 		});
 
 		it("compiles entity schema isBuiltin with boolean cast", () => {
-			const compiler = createScalarExpressionCompiler({
-				context,
-				alias: "entities",
-			});
+			const compiler = createTestCompiler({ context, alias: "entities" });
 
 			const query = dialect.sqlToQuery(
 				compiler.compile(createEntitySchemaExpression("isBuiltin")),
@@ -499,10 +459,7 @@ describe("createScalarExpressionCompiler", () => {
 		});
 
 		it("compiles entity schema createdAt with timestamptz cast", () => {
-			const compiler = createScalarExpressionCompiler({
-				context,
-				alias: "entities",
-			});
+			const compiler = createTestCompiler({ context, alias: "entities" });
 
 			const query = dialect.sqlToQuery(
 				compiler.compile(createEntitySchemaExpression("createdAt")),
@@ -514,10 +471,7 @@ describe("createScalarExpressionCompiler", () => {
 		});
 
 		it("compiles entity schema updatedAt with timestamptz cast", () => {
-			const compiler = createScalarExpressionCompiler({
-				context,
-				alias: "entities",
-			});
+			const compiler = createTestCompiler({ context, alias: "entities" });
 
 			const query = dialect.sqlToQuery(
 				compiler.compile(createEntitySchemaExpression("updatedAt")),
@@ -529,10 +483,7 @@ describe("createScalarExpressionCompiler", () => {
 		});
 
 		it("rejects unsupported entity schema columns", () => {
-			const compiler = createScalarExpressionCompiler({
-				context,
-				alias: "entities",
-			});
+			const compiler = createTestCompiler({ context, alias: "entities" });
 
 			expect(() =>
 				compiler.compile(createEntitySchemaExpression("propertiesSchema")),
@@ -540,10 +491,7 @@ describe("createScalarExpressionCompiler", () => {
 		});
 
 		it("does not apply multi-schema CASE WHEN wrapping", () => {
-			const compiler = createScalarExpressionCompiler({
-				context,
-				alias: "entities",
-			});
+			const compiler = createTestCompiler({ context, alias: "entities" });
 
 			const query = dialect.sqlToQuery(
 				compiler.compile(createEntitySchemaExpression("slug")),

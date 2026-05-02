@@ -15,6 +15,7 @@ import type {
 	QueryEngineSchemaLike,
 } from "~/lib/views/reference";
 import { createScalarExpressionCompiler } from "./expression-compiler";
+import { createExpressionTypeResolver } from "./expression-type-resolver";
 import type { QueryEngineField, ResolvedDisplayValue } from "./schemas";
 import type { SqlExpression } from "./sql-expression-helpers";
 
@@ -123,7 +124,12 @@ const createDisplayExpressionResolver = <
 	const { computedFieldMap, orderedComputedFields } = prepareComputedFields(
 		input.computedFields,
 	);
-	const scalarCompiler = createScalarExpressionCompiler({
+	const getTypeInfo = createExpressionTypeResolver({
+		context: input.context,
+		computedFields: input.computedFields,
+	});
+	const { compile } = createScalarExpressionCompiler({
+		getTypeInfo,
 		alias: input.alias,
 		context: input.context,
 		computedFields: input.computedFields,
@@ -160,12 +166,12 @@ const createDisplayExpressionResolver = <
 			return resolved;
 		}
 
-		const typeInfo = scalarCompiler.getTypeInfo(expression);
+		const typeInfo = getTypeInfo(expression);
 		if (typeInfo.kind === "null") {
 			return buildNullResolvedDisplayValueObject();
 		}
 
-		const compiled = scalarCompiler.compile(
+		const compiled = compile(
 			expression,
 			typeInfo.kind === "property" ? typeInfo.propertyType : undefined,
 		);
