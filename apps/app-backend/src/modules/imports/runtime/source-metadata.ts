@@ -1,158 +1,144 @@
 import type { CreateImportRunBody } from "@ryot/contract/modules/imports/schemas";
 import { pluginConfigEnvironmentKey } from "@ryot/contract/modules/plugins/plugin-config";
 import type { JsonValue } from "@ryot/contract/modules/ryotql/language";
-import { Effect } from "effect";
+import { jsonValueSchema } from "@ryot/contract/modules/sandbox/wire";
+import { TemporaryUploadToken } from "@ryot/contract/modules/uploads/schemas";
+import {
+	type AppPropertyDefinition,
+	getOrderedAppSchemaFieldEntries,
+} from "@ryot/contract/schema/property-schema";
+import { Effect, Schema } from "effect";
 
 import { isPluginConfigKeyConfigured } from "#lib/infrastructure/sandbox-runtime/app-config";
+import {
+	formatPropertyIssues,
+	parseAppSchemaProperties,
+} from "#lib/property-schema/property-schema-runtime";
 import type { RegisteredImportSource } from "#modules/plugins/import-source-catalog";
 
 export type ImportSourceFileInput = {
-	bodyField: string;
+	key: string;
+	uploadToken: TemporaryUploadToken;
 	allowedExtensions: string[];
-	required: boolean | undefined;
-	payloadKey: string | undefined;
-	artifactKey: string | undefined;
-	uploadToken: string | undefined;
 };
 
 const isUploadTokenField = (field: string) =>
 	field === "uploadToken" || field.endsWith("UploadToken");
 
 const internalPayloadFields = new Set([
-	"integrationContext",
 	"integrationId",
+	"integrationContext",
 	"integrationScriptSlug",
 ]);
 
-export const readTrimmedBodyField = (
-	body: CreateImportRunBody,
-	field: string,
-): string | undefined => {
-	const value = Reflect.get(body, field);
-	if (typeof value !== "string") {
-		return undefined;
-	}
-	const trimmed = value.trim();
-	return trimmed.length > 0 ? trimmed : undefined;
+type UploadProperty = Extract<AppPropertyDefinition, { type: "string" }> & {
+	readonly format: {
+		readonly kind: "upload";
+		readonly allowedFileExtensions: ReadonlyArray<string>;
+	};
 };
 
-export const registryImportSourceFileInputs = (
-	source: RegisteredImportSource,
-	body: CreateImportRunBody,
-): ImportSourceFileInput[] => {
-	if (source.input === "payload") {
-		return [];
-	}
-	if (source.lot === "single") {
-		return [
-			{
-				required: undefined,
-				payloadKey: undefined,
-				artifactKey: undefined,
-				bodyField: "uploadToken",
-				allowedExtensions: [...source.allowedFileExtensions],
-				uploadToken: readTrimmedBodyField(body, "uploadToken"),
-			},
-		];
-	}
-	return source.artifacts.map((artifact) => ({
-		payloadKey: artifact.key,
-		artifactKey: artifact.key,
-		required: artifact.required,
-		bodyField: artifact.uploadTokenField,
-		allowedExtensions: [...artifact.allowedFileExtensions],
-		uploadToken: readTrimmedBodyField(body, artifact.uploadTokenField),
-	}));
-};
+const uploadFields = (source: RegisteredImportSource) =>
+	getOrderedAppSchemaFieldEntries(source.inputSchema.fields).filter(
+		(entry): entry is [string, UploadProperty] =>
+			entry[1].type === "string" && entry[1].format?.kind === "upload",
+	);
 
-export const registryImportSourceInputError = (
-	source: RegisteredImportSource,
-	body: CreateImportRunBody,
-) => {
-	const fileInputs = registryImportSourceFileInputs(source, body);
-	const declaredTokenFields = new Set(fileInputs.map(({ bodyField }) => bodyField));
-	const undeclaredTokenField = Object.keys(body).find(
-		(field) => isUploadTokenField(field) && !declaredTokenFields.has(field),
-	);
-	if (undeclaredTokenField) {
-		return `Import source does not declare upload token field: ${undeclaredTokenField}`;
-	}
-	const artifactPayloadFields = new Set(
-		fileInputs.flatMap(({ artifactKey, payloadKey }) =>
-			[artifactKey, payloadKey].filter((field): field is string => field !== undefined),
-		),
-	);
-	const reservedPayloadField = Object.keys(body).find(
-		(field) => internalPayloadFields.has(field) || artifactPayloadFields.has(field),
-	);
-	if (reservedPayloadField) {
-		return `Import source payload field is reserved: ${reservedPayloadField}`;
-	}
-	if (fileInputs.some(({ required, uploadToken }) => required !== false && !uploadToken)) {
-		return "Import source requires an upload token";
-	}
-	if (
-		fileInputs.some(({ required }) => required !== false) &&
-		fileInputs.every(({ uploadToken }) => !uploadToken)
-	) {
-		return "Import source requires at least one upload token";
-	}
-	return undefined;
-};
+const isJsonValue = Schema.is(jsonValueSchema);
+const isTemporaryUploadToken = Schema.is(TemporaryUploadToken);
 
-export const registryImportSourceStartError = Effect.fn("registryImportSourceStartError")(
-	function* (source: RegisteredImportSource) {
-		const missing = yield* Effect.filter(source.requiredPluginConfigKeys, (key) =>
-			isPluginConfigKeyConfigured({
-				key,
-				pluginSlug: source.pluginSlug,
-				configSchema: source.configSchema,
-			}).pipe(Effect.map((configured) => !configured)),
+export const parseRegistryImportSourceInput = Effect.fn("parseRegistryImportSourceInput")(
+	function* (source: RegisteredImportSource, body: CreateImportRunBody) {
+		const declaredUploadFields = new Set(uploadFields(source).map(([field]) => field));
+		const undeclaredTokenField = Object.keys(body).find(
+			(field) => isUploadTokenField(field) && !declaredUploadFields.has(field),
 		);
-		return missing.length === 0
-			? undefined
-			: `${source.name} importer is not configured. Set ${missing.map((key) => pluginConfigEnvironmentKey(source.pluginSlug, key)).join(", ")}.`;
+		if (undeclaredTokenField) {
+			return yield* Effect.fail(
+				`Import source does not declare upload token field: ${undeclaredTokenField}`,
+			);
+		}
+		const reservedPayloadField = Object.keys(body).find((field) =>
+			internalPayloadFields.has(field),
+		);
+		if (reservedPayloadField) {
+			return yield* Effect.fail(`Import source payload field is reserved: ${reservedPayloadField}`);
+		}
+
+		const { source: _source, ...properties } = body;
+		return yield* parseAppSchemaProperties({
+			properties,
+			kind: "Import source input",
+			propertiesSchema: source.inputSchema,
+		}).pipe(
+			Effect.mapError(
+				(error) => `Import source input is invalid: ${formatPropertyIssues(error.issues)}`,
+			),
+		);
 	},
 );
 
-const payloadEntries = (body: CreateImportRunBody, source: RegisteredImportSource) => {
-	const fileInputs = registryImportSourceFileInputs(source, body);
-	const excludedFields = new Set(
-		fileInputs.flatMap(({ artifactKey, bodyField, payloadKey }) =>
-			[artifactKey, bodyField, payloadKey].filter((field): field is string => field !== undefined),
-		),
+export const registryImportSourceFileInputs = (
+	source: RegisteredImportSource,
+	properties: Readonly<Record<string, unknown>>,
+): ImportSourceFileInput[] =>
+	uploadFields(source).flatMap(([key, property]) => {
+		const uploadToken = properties[key];
+		return isTemporaryUploadToken(uploadToken)
+			? [
+					{
+						key,
+						uploadToken,
+						allowedExtensions: [...property.format.allowedFileExtensions],
+					},
+				]
+			: [];
+	});
+
+export const registryImportSourceMissingConfigKeys = Effect.fn(
+	"registryImportSourceMissingConfigKeys",
+)(function* (source: RegisteredImportSource) {
+	const missing = yield* Effect.filter(source.requiredPluginConfigKeys, (key) =>
+		isPluginConfigKeyConfigured({
+			key,
+			pluginSlug: source.pluginSlug,
+			configSchema: source.configSchema,
+		}).pipe(Effect.map((configured) => !configured)),
 	);
-	return Object.entries(body).filter(
-		([key]) => key !== "source" && !internalPayloadFields.has(key) && !excludedFields.has(key),
-	);
-};
+	return missing.map((key) => pluginConfigEnvironmentKey(source.pluginSlug, key));
+});
+
+export const registryImportSourceStartError = Effect.fn("registryImportSourceStartError")(
+	function* (source: RegisteredImportSource) {
+		const missing = yield* registryImportSourceMissingConfigKeys(source);
+		return missing.length === 0
+			? undefined
+			: `${source.name} importer is not configured. Set ${missing.join(", ")}.`;
+	},
+);
 
 export const buildImportSourcePayload = (
-	body: CreateImportRunBody,
+	properties: Readonly<Record<string, unknown>>,
 	source: RegisteredImportSource,
 ): Record<string, JsonValue> | undefined => {
+	const fileInputs = registryImportSourceFileInputs(source, properties);
+	const uploadFieldKeys = new Set(fileInputs.map(({ key }) => key));
 	const payload = Object.fromEntries(
-		payloadEntries(body, source).map(([key, value]) => [key, value]),
+		Object.entries(properties).filter(
+			(entry): entry is [string, JsonValue] =>
+				!uploadFieldKeys.has(entry[0]) && isJsonValue(entry[1]),
+		),
 	);
+	for (const fileInput of fileInputs) {
+		payload[fileInput.key] = fileInput.key;
+	}
 	return Object.keys(payload).length > 0 ? payload : undefined;
 };
 
-const artifactSummaryKey = (key: string) =>
-	`has${key.charAt(0).toUpperCase()}${key.slice(1).replace(/FilePath$/, "File")}`;
-
 export const buildImportInputSummary = (
-	body: CreateImportRunBody,
-	source: RegisteredImportSource,
-): Record<string, unknown> => {
-	const summary: Record<string, unknown> = { source: body.source };
-	if (source.input === "file" && source.lot === "single") {
-		summary["hasFile"] = true;
-	}
-	if (source.input === "file" && source.lot === "named") {
-		for (const artifact of source.artifacts) {
-			summary[artifactSummaryKey(artifact.key)] =
-				artifact.required || Boolean(readTrimmedBodyField(body, artifact.uploadTokenField));
-		}
-	}
-	return summary;
-};
+	source: string,
+	fileNames: Readonly<Record<string, string>>,
+): Record<string, unknown> => ({
+	source,
+	...(Object.keys(fileNames).length > 0 ? { fileNames } : {}),
+});
