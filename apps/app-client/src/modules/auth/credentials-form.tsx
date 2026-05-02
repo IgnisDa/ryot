@@ -1,8 +1,7 @@
 import { useForm } from "@tanstack/react-form";
-import clsx from "clsx";
 import { useRef, useState } from "react";
 import type { TextInput } from "react-native";
-import { Pressable, Text, View } from "react-native";
+import { Text, View } from "react-native";
 
 import {
 	FormField,
@@ -11,6 +10,7 @@ import {
 	FormTextInput,
 	standardFormErrorVisibility,
 } from "@/modules/ui/form";
+import { AppSegmentedControl, type AppSegment } from "@/modules/ui/segmented-control";
 
 export type AuthMode = "login" | "signup";
 export type CredentialsValues = { email: string; password: string };
@@ -29,6 +29,11 @@ const content = {
 		subtitle: "Start a library shaped around you.",
 	},
 } as const;
+
+const modeSegments = [
+	{ value: "login", label: "Sign in" },
+	{ value: "signup", label: "Sign up" },
+] as const satisfies readonly AppSegment<AuthMode>[];
 
 export function CredentialsForm(props: {
 	mode: AuthMode;
@@ -68,30 +73,15 @@ export function CredentialsForm(props: {
 				<form.Subscribe selector={(state) => state.isSubmitting}>
 					{(isSubmitting) =>
 						props.signupAllowed ? (
-							<View className="flex-row rounded-lg bg-surface-2 p-1">
-								{(["login", "signup"] as const).map((option) => (
-									<Pressable
-										key={option}
-										accessibilityRole="tab"
-										onPress={() => changeMode(option)}
-										disabled={(props.disabled ?? false) || isSubmitting}
-										accessibilityState={{ selected: props.mode === option }}
-										className={clsx(
-											"flex-1 items-center rounded-md py-2",
-											props.mode === option && "bg-raised shadow-sm",
-										)}
-									>
-										<Text
-											className={clsx(
-												"font-ui-medium text-sm",
-												props.mode === option ? "text-text" : "text-text-muted",
-											)}
-										>
-											{option === "login" ? "Sign in" : "Sign up"}
-										</Text>
-									</Pressable>
-								))}
-							</View>
+							<AppSegmentedControl
+								stretch
+								role="tab"
+								value={props.mode}
+								onChange={changeMode}
+								segments={modeSegments}
+								label="Authentication mode"
+								disabled={(props.disabled ?? false) || isSubmitting}
+							/>
 						) : null
 					}
 				</form.Subscribe>
