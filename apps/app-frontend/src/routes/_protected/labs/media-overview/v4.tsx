@@ -700,7 +700,7 @@ function RateTheseSection() {
 
 function LibraryBreakdown() {
 	const types = Object.entries(LIBRARY_STATS.entityTypeCounts) as [SchemaSlug, number][];
-	const sorted = [...types].sort((a, b) => b[1] - a[1]);
+	const sorted = types.toSorted((a, b) => b[1] - a[1]);
 	const maxCount = Math.max(...sorted.map(([, c]) => c), 1);
 
 	return (
