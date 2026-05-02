@@ -1,20 +1,22 @@
+import { BunFileSystem } from "@effect/platform-bun";
+import { expect, it } from "@effect/vitest";
 import { PluginManifest } from "@ryot/plugin-kit/manifest";
 import { sortBy } from "@ryot/ts-utils/lodash";
-import { Schema } from "effect";
-import { expect, it } from "vitest";
+import { Effect, FileSystem, Schema } from "effect";
 
 import { mediaPlugin } from "./manifest";
 import { mediaLibraryEligibleEntitySchemaSlugs } from "./schemas/media-schema-slugs";
 
-it("catalogs every sandbox script exactly once", async () => {
-	const sandboxEntries = await Array.fromAsync(
-		new Bun.Glob("scripts/**/*.sandbox.ts").scan({ cwd: process.cwd() }),
-	);
-	const catalogEntries = mediaPlugin.scripts.map(({ entry }) => entry);
+it.effect("catalogs every sandbox script exactly once", () =>
+	Effect.gen(function* () {
+		const fs = yield* FileSystem.FileSystem;
+		const sandboxEntries = yield* fs.glob("scripts/**/*.sandbox.ts", { root: process.cwd() });
+		const catalogEntries = mediaPlugin.scripts.map(({ entry }) => entry);
 
-	expect(sortBy(catalogEntries)).toEqual(sortBy(sandboxEntries));
-	expect(new Set(catalogEntries).size).toBe(catalogEntries.length);
-});
+		expect(sortBy(catalogEntries)).toEqual(sortBy(sandboxEntries));
+		expect(new Set(catalogEntries).size).toBe(catalogEntries.length);
+	}).pipe(Effect.provide(BunFileSystem.layer)),
+);
 
 it("declares the complete media-owned source", () => {
 	expect(() => Schema.decodeUnknownSync(PluginManifest)(mediaPlugin)).not.toThrow();
