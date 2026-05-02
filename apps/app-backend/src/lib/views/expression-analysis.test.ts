@@ -197,4 +197,88 @@ describe("inferViewExpressionType", () => {
 			"Computed field 'missingField' is not part of this runtime request",
 		);
 	});
+
+	it("infers datetime type for event.createdAt built-in column", () => {
+		expect(
+			inferViewExpressionType({
+				context,
+				expression: {
+					type: "reference",
+					reference: { type: "event", path: ["createdAt"] },
+				},
+			}),
+		).toMatchObject({ kind: "property", propertyType: "date" });
+	});
+
+	it("infers string type for event.id built-in column", () => {
+		expect(
+			inferViewExpressionType({
+				context,
+				expression: {
+					type: "reference",
+					reference: { type: "event", path: ["id"] },
+				},
+			}),
+		).toMatchObject({ kind: "property", propertyType: "string" });
+	});
+
+	it("infers string type for event property without eventSchemaSlug (fallback)", () => {
+		expect(
+			inferViewExpressionType({
+				context,
+				expression: {
+					type: "reference",
+					reference: { type: "event", path: ["properties", "rating"] },
+				},
+			}),
+		).toMatchObject({ kind: "property", propertyType: "string" });
+	});
+
+	it("infers string type for event-schema.slug column", () => {
+		expect(
+			inferViewExpressionType({
+				context,
+				expression: {
+					type: "reference",
+					reference: { type: "event-schema", path: ["slug"] },
+				},
+			}),
+		).toMatchObject({ kind: "property", propertyType: "string" });
+	});
+
+	it("infers boolean type for event-schema.isBuiltin column", () => {
+		expect(
+			inferViewExpressionType({
+				context,
+				expression: {
+					type: "reference",
+					reference: { type: "event-schema", path: ["isBuiltin"] },
+				},
+			}),
+		).toMatchObject({ kind: "property", propertyType: "boolean" });
+	});
+
+	it("rejects unsupported event built-in columns", () => {
+		expect(() =>
+			inferViewExpressionType({
+				context,
+				expression: {
+					type: "reference",
+					reference: { type: "event", path: ["unknownColumn"] },
+				},
+			}),
+		).toThrow("Unsupported event column");
+	});
+
+	it("rejects unsupported event-schema columns", () => {
+		expect(() =>
+			inferViewExpressionType({
+				context,
+				expression: {
+					type: "reference",
+					reference: { type: "event-schema", path: ["propertiesSchema"] },
+				},
+			}),
+		).toThrow("Unsupported event schema column");
+	});
 });

@@ -7,11 +7,13 @@ import {
 	QueryEngineValidationError,
 } from "~/lib/views/errors";
 import { nullViewExpression } from "~/lib/views/expression";
-import type { QueryEngineEventJoinLike } from "~/lib/views/reference";
+import type {
+	QueryEngineEventJoinLike,
+	QueryEngineEventSchemaLike,
+} from "~/lib/views/reference";
 import {
 	buildEventJoinMap,
 	buildSchemaMap,
-	type QueryEngineEventSchemaLike,
 	type QueryEngineSchemaLike,
 } from "~/lib/views/reference";
 import {
@@ -26,21 +28,34 @@ import type {
 	RelationshipFilter,
 	SavedViewQueryDefinition,
 } from "../saved-views/schemas";
-import {
-	executePreparedQuery,
-	type QueryEngineSchemaRow,
-} from "./query-builder";
+import { executeAggregateQuery } from "./aggregate-query-builder";
+import { executeEventQuery } from "./event-query-builder";
+import { executePreparedQuery } from "./query-builder";
+import type { QueryEngineSchemaRow } from "./query-ctes";
 import type {
+	EntityQueryEngineRequest,
 	QueryEngineField,
 	QueryEngineRequest,
 	QueryEngineResponse,
 } from "./schemas";
+import { executeTimeSeriesQuery } from "./time-series-query-builder";
 
 export type SavedViewLayout = keyof DisplayConfiguration;
 
 export type SavedViewExecutionInput = {
 	layout: SavedViewLayout;
-	pagination: QueryEngineRequest["pagination"];
+	pagination: EntityQueryEngineRequest["pagination"];
+};
+
+// Internal type used by prepareContext — covers all four modes so that
+// prepareAndExecute can drive it without going through SavedViewQueryDefinition
+// (which is entity-only for the public saved-view API).
+type PrepareContextInput = {
+	scope: string[];
+	eventSchemas: string[];
+	mode: QueryEngineRequest["mode"];
+	eventJoins: EventJoinDefinition[];
+	relationships: RelationshipFilter[];
 };
 
 type PreparedQueryContext = {
@@ -50,21 +65,12 @@ type PreparedQueryContext = {
 	runtimeSchemas: QueryEngineSchemaRow[];
 	schemaMap: Map<string, QueryEngineSchemaRow>;
 	eventJoinMap: Map<string, QueryEngineEventJoinLike>;
+	eventSchemaMap?: Map<string, QueryEngineEventSchemaLike[]>;
 };
 
 const parseAppSchema = (value: unknown) => {
 	return propertySchemaObjectSchema.parse(value);
 };
-
-const normalizeQueryDefinition = (
-	queryDefinition: SavedViewQueryDefinition,
-): SavedViewQueryDefinition => ({
-	...queryDefinition,
-	filter: queryDefinition.filter ?? null,
-	eventJoins: queryDefinition.eventJoins ?? [],
-	relationships: queryDefinition.relationships ?? [],
-	computedFields: queryDefinition.computedFields ?? [],
-});
 
 const buildPreparedFields = (input: {
 	layout: SavedViewLayout;
@@ -114,20 +120,21 @@ const buildPreparedFields = (input: {
 		.exhaustive();
 };
 
-const buildPreparedRequest = (input: {
+const buildPreparedEntityRequest = (input: {
 	fields: QueryEngineField[];
 	queryDefinition: SavedViewQueryDefinition;
-	pagination: QueryEngineRequest["pagination"];
-}): QueryEngineRequest => {
+	pagination: EntityQueryEngineRequest["pagination"];
+}): EntityQueryEngineRequest => {
 	return {
+		mode: "entities",
 		fields: input.fields,
 		pagination: input.pagination,
 		sort: input.queryDefinition.sort,
+		scope: input.queryDefinition.scope,
 		filter: input.queryDefinition.filter,
 		eventJoins: input.queryDefinition.eventJoins,
 		relationships: input.queryDefinition.relationships,
 		computedFields: input.queryDefinition.computedFields,
-		scope: input.queryDefinition.scope,
 	};
 };
 
@@ -137,14 +144,16 @@ const validateSavedViewDefinition = (input: {
 	displayConfiguration: DisplayConfiguration;
 	schemaMap: Map<string, QueryEngineSchemaLike>;
 	eventJoinMap: Map<string, QueryEngineEventJoinLike>;
+	eventSchemaMap?: Map<string, QueryEngineEventSchemaLike[]>;
 }) => {
 	const context = {
 		schemaMap: input.schemaMap,
 		eventJoinMap: input.eventJoinMap,
+		eventSchemaMap: input.eventSchemaMap,
 		eventSchemaSlugs: input.eventSchemaSlugs,
 	};
 	validateQueryEngineReferences(
-		buildPreparedRequest({
+		buildPreparedEntityRequest({
 			fields: [],
 			pagination: { page: 1, limit: 1 },
 			queryDefinition: input.queryDefinition,
@@ -332,25 +341,91 @@ const loadEventSchemaSlugs = async (input: {
 	return new Set(rows.map((r) => r.slug));
 };
 
+const loadEventSchemasBySlug = async (input: {
+	userId: string;
+	eventSchemaSlugs: string[];
+	runtimeSchemas: QueryEngineSchemaRow[];
+}): Promise<Map<string, QueryEngineEventSchemaLike[]>> => {
+	if (!input.eventSchemaSlugs.length || !input.runtimeSchemas.length) {
+		return new Map();
+	}
+
+	const uniqueSlugs = [...new Set(input.eventSchemaSlugs)];
+	const rows = await db
+		.select({
+			id: eventSchema.id,
+			slug: eventSchema.slug,
+			entitySchemaSlug: entitySchema.slug,
+			entitySchemaId: eventSchema.entitySchemaId,
+			propertiesSchema: eventSchema.propertiesSchema,
+		})
+		.from(eventSchema)
+		.innerJoin(entitySchema, eq(eventSchema.entitySchemaId, entitySchema.id))
+		.where(
+			and(
+				inArray(
+					eventSchema.entitySchemaId,
+					input.runtimeSchemas.map((s) => s.id),
+				),
+				inArray(eventSchema.slug, uniqueSlugs),
+				or(isNull(eventSchema.userId), eq(eventSchema.userId, input.userId)),
+			),
+		);
+
+	for (const slug of uniqueSlugs) {
+		if (!rows.some((r) => r.slug === slug)) {
+			throw new QueryEngineNotFoundError(
+				`Event schema '${slug}' not found for the requested entity schemas`,
+			);
+		}
+	}
+
+	const eventSchemaMap = new Map<string, QueryEngineEventSchemaLike[]>();
+	for (const row of rows) {
+		const parsedRow = {
+			...row,
+			propertiesSchema: parseAppSchema(row.propertiesSchema),
+		};
+		const existing = eventSchemaMap.get(row.slug) ?? [];
+		existing.push(parsedRow);
+		eventSchemaMap.set(row.slug, existing);
+	}
+
+	return eventSchemaMap;
+};
+
 const prepareContext = async (input: {
 	userId: string;
-	queryDefinition: SavedViewQueryDefinition;
+	query: PrepareContextInput;
 }): Promise<PreparedQueryContext> => {
+	const { query } = input;
 	const runtimeSchemas = await loadVisibleSchemas({
+		scope: query.scope,
 		userId: input.userId,
-		scope: input.queryDefinition.scope,
 	});
+
+	const eventJoinsForMode = query.mode === "timeSeries" ? [] : query.eventJoins;
 	const eventJoins = await loadVisibleEventJoins({
 		runtimeSchemas,
 		userId: input.userId,
-		eventJoins: input.queryDefinition.eventJoins,
+		eventJoins: eventJoinsForMode,
 	});
-	const relationshipSchemaIds = await loadRelationshipSchemaIds(
-		input.queryDefinition.relationships,
-	);
+
+	const relationshipSchemaIds =
+		query.mode !== "events" && query.mode !== "timeSeries"
+			? await loadRelationshipSchemaIds(query.relationships)
+			: [];
 	const eventSchemaSlugs = await loadEventSchemaSlugs({
 		runtimeSchemas,
 		userId: input.userId,
+	});
+	const eventSchemaMap = await loadEventSchemasBySlug({
+		runtimeSchemas,
+		userId: input.userId,
+		eventSchemaSlugs:
+			query.mode === "events" || query.mode === "timeSeries"
+				? query.eventSchemas
+				: [...eventSchemaSlugs],
 	});
 	const schemaMap = buildSchemaMap(runtimeSchemas);
 	const eventJoinMap = buildEventJoinMap(eventJoins);
@@ -360,6 +435,7 @@ const prepareContext = async (input: {
 		eventJoins,
 		eventJoinMap,
 		runtimeSchemas,
+		eventSchemaMap,
 		eventSchemaSlugs,
 		relationshipSchemaIds,
 	};
@@ -369,40 +445,91 @@ export const prepareAndExecute = async (input: {
 	userId: string;
 	request: QueryEngineRequest;
 }): Promise<QueryEngineResponse> => {
-	const queryDefinition = normalizeQueryDefinition({
-		sort: input.request.sort,
-		filter: input.request.filter,
-		eventJoins: input.request.eventJoins,
-		relationships: input.request.relationships,
-		computedFields: input.request.computedFields,
-		scope: input.request.scope,
-	});
-	const context = await prepareContext({
-		userId: input.userId,
-		queryDefinition,
-	});
+	const query: PrepareContextInput = match(input.request)
+		.with({ mode: "entities" }, (r) => ({
+			mode: r.mode,
+			scope: r.scope,
+			eventJoins: r.eventJoins,
+			eventSchemas: [] as string[],
+			relationships: r.relationships,
+		}))
+		.with({ mode: "aggregate" }, (r) => ({
+			mode: r.mode,
+			scope: r.scope,
+			eventJoins: r.eventJoins,
+			eventSchemas: [] as string[],
+			relationships: r.relationships,
+		}))
+		.with({ mode: "events" }, (r) => ({
+			mode: r.mode,
+			scope: r.scope,
+			eventJoins: r.eventJoins,
+			eventSchemas: r.eventSchemas,
+			relationships: [] as RelationshipFilter[],
+		}))
+		.with({ mode: "timeSeries" }, (r) => ({
+			mode: r.mode,
+			scope: r.scope,
+			eventSchemas: r.eventSchemas,
+			eventJoins: [] as EventJoinDefinition[],
+			relationships: [] as RelationshipFilter[],
+		}))
+		.exhaustive();
 
-	const request = buildPreparedRequest({
-		queryDefinition,
-		fields: input.request.fields,
-		pagination: input.request.pagination,
-	});
-
-	validateQueryEngineReferences(request, {
+	const context = await prepareContext({ userId: input.userId, query });
+	validateQueryEngineReferences(input.request, {
+		supportsPrimaryEventRefs:
+			input.request.mode === "events" || input.request.mode === "timeSeries",
 		schemaMap: context.schemaMap,
 		eventJoinMap: context.eventJoinMap,
+		eventSchemaMap: context.eventSchemaMap,
 		eventSchemaSlugs: context.eventSchemaSlugs,
 	});
 
-	return executePreparedQuery({
-		request,
-		userId: input.userId,
-		schemaMap: context.schemaMap,
-		eventJoins: context.eventJoins,
-		eventJoinMap: context.eventJoinMap,
-		runtimeSchemas: context.runtimeSchemas,
-		relationshipSchemaIds: context.relationshipSchemaIds,
-	});
+	return match(input.request)
+		.with({ mode: "entities" }, (request) =>
+			executePreparedQuery({
+				request,
+				userId: input.userId,
+				schemaMap: context.schemaMap,
+				eventJoins: context.eventJoins,
+				eventJoinMap: context.eventJoinMap,
+				runtimeSchemas: context.runtimeSchemas,
+				relationshipSchemaIds: context.relationshipSchemaIds,
+			}),
+		)
+		.with({ mode: "aggregate" }, (request) =>
+			executeAggregateQuery({
+				request,
+				userId: input.userId,
+				schemaMap: context.schemaMap,
+				eventJoins: context.eventJoins,
+				eventJoinMap: context.eventJoinMap,
+				runtimeSchemas: context.runtimeSchemas,
+				relationshipSchemaIds: context.relationshipSchemaIds,
+			}),
+		)
+		.with({ mode: "events" }, (request) =>
+			executeEventQuery({
+				request,
+				userId: input.userId,
+				schemaMap: context.schemaMap,
+				eventJoins: context.eventJoins,
+				eventJoinMap: context.eventJoinMap,
+				runtimeSchemas: context.runtimeSchemas,
+				eventSchemaMap: context.eventSchemaMap ?? new Map(),
+			}),
+		)
+		.with({ mode: "timeSeries" }, (request) =>
+			executeTimeSeriesQuery({
+				request,
+				userId: input.userId,
+				schemaMap: context.schemaMap,
+				runtimeSchemas: context.runtimeSchemas,
+				eventSchemaMap: context.eventSchemaMap ?? new Map(),
+			}),
+		)
+		.exhaustive();
 };
 
 export const prepareForValidation = async (input: {
@@ -410,16 +537,21 @@ export const prepareForValidation = async (input: {
 	queryDefinition: SavedViewQueryDefinition;
 	displayConfiguration: DisplayConfiguration;
 }): Promise<void> => {
-	const queryDefinition = normalizeQueryDefinition(input.queryDefinition);
 	const context = await prepareContext({
 		userId: input.userId,
-		queryDefinition,
+		query: {
+			mode: "entities",
+			eventSchemas: [],
+			scope: input.queryDefinition.scope,
+			eventJoins: input.queryDefinition.eventJoins,
+			relationships: input.queryDefinition.relationships,
+		},
 	});
-
 	validateSavedViewDefinition({
-		queryDefinition,
+		eventSchemaMap: context.eventSchemaMap,
 		schemaMap: context.schemaMap,
 		eventJoinMap: context.eventJoinMap,
+		queryDefinition: input.queryDefinition,
 		eventSchemaSlugs: context.eventSchemaSlugs,
 		displayConfiguration: input.displayConfiguration,
 	});
@@ -439,23 +571,30 @@ export const prepareSavedView = async (input: {
 		throw new QueryEngineNotFoundError("Saved view not found");
 	}
 
-	const queryDefinition = normalizeQueryDefinition(savedView.queryDefinition);
+	const queryDefinition = savedView.queryDefinition;
 	const context = await prepareContext({
 		userId: input.userId,
-		queryDefinition,
+		query: {
+			mode: "entities",
+			eventSchemas: [],
+			scope: queryDefinition.scope,
+			eventJoins: queryDefinition.eventJoins,
+			relationships: queryDefinition.relationships,
+		},
 	});
 
 	validateSavedViewDefinition({
 		queryDefinition,
 		schemaMap: context.schemaMap,
 		eventJoinMap: context.eventJoinMap,
+		eventSchemaMap: context.eventSchemaMap,
 		eventSchemaSlugs: context.eventSchemaSlugs,
 		displayConfiguration: savedView.displayConfiguration,
 	});
 
 	return {
 		execute: async (execution) => {
-			const request = buildPreparedRequest({
+			const request = buildPreparedEntityRequest({
 				pagination: execution.pagination,
 				queryDefinition,
 				fields: buildPreparedFields({
