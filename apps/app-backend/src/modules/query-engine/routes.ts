@@ -29,7 +29,7 @@ const executeQueryEngineRoute = createAuthRoute(
 				content: { "application/json": { schema: executeQueryEngineBody } },
 			},
 		},
-		summary: "Execute a compiled query-engine request",
+		summary: "Execute a declarative query-engine request",
 		responses: {
 			400: payloadErrorResponse(),
 			404: notFoundResponse("Entity schema does not exist for this user"),
