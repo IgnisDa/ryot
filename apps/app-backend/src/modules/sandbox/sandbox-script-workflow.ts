@@ -57,9 +57,7 @@ export const SandboxScriptWorkflowPayload = Schema.Struct({
 	authority: ExecutionAuthority,
 	grants: Schema.optional(SandboxExecutionGrants),
 	resolutionMode: Schema.Literals(["active", "exact"]),
-	// Effect injects this into child payloads before strict excess-property decoding.
-	"~@effect/workflow/parent": Schema.optional(Schema.Unknown),
-}).annotate({ parseOptions: { onExcessProperty: "error" as const } });
+});
 
 export type SandboxScriptWorkflowPayload = Schema.Schema.Type<typeof SandboxScriptWorkflowPayload>;
 
