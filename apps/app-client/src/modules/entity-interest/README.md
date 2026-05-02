@@ -34,4 +34,4 @@ The show overview selector returns its root entity and loaded people, companies,
 
 ## Show Episodes
 
-The episodes selector returns the show, the selected season, and every loaded episode. This requests missing translations for episode names and descriptions, and any completion refreshes the selected-season atom.
+The seasons selector returns the show and every loaded season, so translated season labels and descriptions refresh the seasons atom. The selected-season selector returns the show, selected season, and every loaded episode, so translated episode names and descriptions refresh the selected-season atom.
