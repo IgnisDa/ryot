@@ -26,9 +26,9 @@ const putUploadedBytes = (input: {
 	readonly headers: Readonly<Record<string, string>>;
 }) =>
 	Effect.gen(function* () {
-		const environment = yield* TransportEnvironment;
+		const { expoFetch } = yield* TransportEnvironment;
 		const response = yield* Effect.tryPromise(() =>
-			environment.expoFetch(input.url, {
+			expoFetch(input.url, {
 				body: input.bytes,
 				method: input.method,
 				headers: { ...input.headers },
