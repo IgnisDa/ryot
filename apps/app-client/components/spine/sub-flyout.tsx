@@ -1,7 +1,6 @@
 import { useAtom, useAtomValue, useSetAtom } from "jotai";
 import { Pressable, StyleSheet, Text, View } from "react-native";
-import type { SharedValue } from "react-native-reanimated";
-import Animated, { useAnimatedStyle } from "react-native-reanimated";
+import Animated, { SlideInRight, SlideOutRight } from "react-native-reanimated";
 import {
 	activeSubItemAtom,
 	activeTrackerIdAtom,
@@ -11,12 +10,14 @@ import {
 import { C, F } from "@/lib/theme";
 import { RAIL_WIDTH } from "./rail";
 
+export const FLYOUT_WIDTH = 220;
+
 type Props = {
-	railTranslateX: SharedValue<number>;
 	onNavigate: () => void;
+	pinned?: boolean;
 };
 
-export function SpineSubFlyout({ railTranslateX, onNavigate }: Props) {
+export function SpineSubFlyout({ onNavigate, pinned = false }: Props) {
 	const trackers = useAtomValue(trackersAtom);
 	const activeTrackerId = useAtomValue(activeTrackerIdAtom);
 	const [activeSubItem, setActiveSubItem] = useAtom(activeSubItemAtom);
@@ -25,9 +26,9 @@ export function SpineSubFlyout({ railTranslateX, onNavigate }: Props) {
 	const activeTracker = trackers.find((t) => t.id === activeTrackerId);
 	const subItems = activeTracker?.subItems ?? [];
 
-	const flyoutStyle = useAnimatedStyle(() => ({
-		transform: [{ translateX: railTranslateX.value }],
-	}));
+	if (!subItems.length) {
+		return null;
+	}
 
 	function handleSubItemPress(item: string) {
 		setActiveSubItem(item);
@@ -35,12 +36,8 @@ export function SpineSubFlyout({ railTranslateX, onNavigate }: Props) {
 		onNavigate();
 	}
 
-	if (!subItems.length) {
-		return null;
-	}
-
-	return (
-		<Animated.View style={[styles.flyout, flyoutStyle]}>
+	const content = (
+		<>
 			<Text style={styles.header}>
 				{activeTracker?.name} · {subItems.length} schemas
 			</Text>
@@ -69,6 +66,20 @@ export function SpineSubFlyout({ railTranslateX, onNavigate }: Props) {
 			</View>
 			<View style={styles.separator} />
 			<Text style={styles.addSchema}>＋ new schema</Text>
+		</>
+	);
+
+	if (pinned) {
+		return <View style={styles.flyoutPinned}>{content}</View>;
+	}
+
+	return (
+		<Animated.View
+			style={styles.flyout}
+			entering={SlideInRight.duration(220)}
+			exiting={SlideOutRight.duration(180)}
+		>
+			{content}
 		</Animated.View>
 	);
 }
@@ -77,7 +88,6 @@ const styles = StyleSheet.create({
 	flyout: {
 		top: 0,
 		bottom: 0,
-		width: 220,
 		zIndex: 25,
 		elevation: 10,
 		paddingTop: 64,
@@ -85,10 +95,19 @@ const styles = StyleSheet.create({
 		right: RAIL_WIDTH,
 		paddingBottom: 80,
 		shadowOpacity: 0.12,
+		width: FLYOUT_WIDTH,
 		shadowColor: "#000",
 		position: "absolute",
 		backgroundColor: C.paper,
 		shadowOffset: { width: -8, height: 0 },
+	},
+	flyoutPinned: {
+		width: FLYOUT_WIDTH,
+		paddingTop: 64,
+		paddingBottom: 80,
+		borderLeftWidth: 0.5,
+		borderLeftColor: C.rule,
+		backgroundColor: C.paper,
 	},
 	header: {
 		fontSize: 10,
