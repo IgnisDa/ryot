@@ -1,34 +1,34 @@
 import { notFound } from "@ryot/contract/errors";
-import type { EntityUpdatedFrame } from "@ryot/contract/modules/entity-interest/messages";
+import type { EntityInterestEntityUpdatedMessage } from "@ryot/contract/modules/entity-interest/messages";
 import { Context, Effect, Layer } from "effect";
 
-export type LocalStreamEnqueue = (frame: EntityUpdatedFrame) => void;
+export type LocalInterestSessionEnqueue = (message: EntityInterestEntityUpdatedMessage) => void;
 
-export class LocalStreamConnections extends Context.Service<LocalStreamConnections>()(
-	"LocalStreamConnections",
+export class LocalInterestSessions extends Context.Service<LocalInterestSessions>()(
+	"LocalInterestSessions",
 	{
 		make: Effect.sync(() => {
-			const connections = new Map<string, LocalStreamEnqueue>();
-			const add = (streamId: string, enqueue: LocalStreamEnqueue) =>
+			const sessions = new Map<string, LocalInterestSessionEnqueue>();
+			const add = (sessionId: string, enqueue: LocalInterestSessionEnqueue) =>
 				Effect.sync(() => {
-					if (connections.has(streamId)) {
+					if (sessions.has(sessionId)) {
 						return false;
 					}
-					connections.set(streamId, enqueue);
+					sessions.set(sessionId, enqueue);
 					return true;
 				}).pipe(
 					Effect.flatMap((claimed) =>
-						claimed ? Effect.void : Effect.fail(notFound("Unknown stream")),
+						claimed ? Effect.void : Effect.fail(notFound("Unknown session")),
 					),
 				);
-			const remove = (streamId: string, enqueue: LocalStreamEnqueue) =>
+			const remove = (sessionId: string, enqueue: LocalInterestSessionEnqueue) =>
 				Effect.sync(() => {
-					if (connections.get(streamId) === enqueue) {
-						connections.delete(streamId);
+					if (sessions.get(sessionId) === enqueue) {
+						sessions.delete(sessionId);
 					}
 				});
-			const enqueue = (streamId: string, frame: EntityUpdatedFrame) =>
-				Effect.sync(() => connections.get(streamId)?.(frame));
+			const enqueue = (sessionId: string, message: EntityInterestEntityUpdatedMessage) =>
+				Effect.sync(() => sessions.get(sessionId)?.(message));
 
 			return { add, remove, enqueue };
 		}),
