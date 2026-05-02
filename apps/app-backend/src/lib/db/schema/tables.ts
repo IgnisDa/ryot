@@ -233,6 +233,17 @@ export const entity = pgTable(
 		uniqueIndex("entity_global_external_id_unique")
 			.on(table.externalId, table.entitySchemaId, table.sandboxScriptId)
 			.where(isNull(table.userId)),
+		// `sandbox_script_id` can be NULL for built-in entities (e.g., exercises).
+		// Without NULLS NOT DISTINCT support in Drizzle's uniqueIndex(), the existing
+		// `entity_global_external_id_unique` index (which includes sandbox_script_id)
+		// treats NULL sandbox_script_id values as distinct, preventing correct upserts
+		// for global entities with no script. This separate partial index covers that case.
+		// TODO: collapse into `entity_global_external_id_unique` once Drizzle supports
+		// NULLS NOT DISTINCT on uniqueIndex():
+		// https://github.com/drizzle-team/drizzle-orm/issues/3892
+		uniqueIndex("entity_global_no_script_external_id_unique")
+			.on(table.externalId, table.entitySchemaId)
+			.where(sql`${table.userId} IS NULL AND ${table.sandboxScriptId} IS NULL`),
 	],
 );
 

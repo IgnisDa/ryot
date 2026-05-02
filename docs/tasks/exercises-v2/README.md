@@ -122,14 +122,14 @@ No automated tests are written for this feature. The seeding logic (mapping, nor
 
 ## Tasks
 
-**Overall Progress:** 0 of 3 tasks completed
+**Overall Progress:** 3 of 3 tasks completed
 
-**Current Task:** [Task 01](./01-exercise-schema-foundation.md) (todo)
+**Current Task:** All tasks complete.
 
 ### Task List
 
 | #   | Task                                                             | Type | Status |
 | --- | ---------------------------------------------------------------- | ---- | ------ |
-| 01  | [Exercise Schema Foundation](./01-exercise-schema-foundation.md) | AFK  | todo   |
-| 02  | [Exercise Seeding](./02-exercise-seeding.md)                     | AFK  | todo   |
-| 03  | [Codebase Cleanup](./03-codebase-cleanup.md)                     | AFK  | todo   |
+| 01  | [Exercise Schema Foundation](./01-exercise-schema-foundation.md) | AFK  | done   |
+| 02  | [Exercise Seeding](./02-exercise-seeding.md)                     | AFK  | done   |
+| 03  | [Codebase Cleanup](./03-codebase-cleanup.md)                     | AFK  | done   |
