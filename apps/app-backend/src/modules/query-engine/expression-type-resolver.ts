@@ -1,9 +1,9 @@
-import type { QueryComputedField, QueryExpression } from "~/lib/query-language";
-import { buildComputedFieldMap } from "~/lib/views/computed-fields";
+import type { QueryComputedField, QueryExpression } from "#lib/query-language";
+import { buildComputedFieldMap } from "#lib/views/computed-fields";
 import {
 	inferViewExpressionType,
 	type ViewExpressionTypeInfo,
-} from "~/lib/views/expression-analysis";
+} from "#lib/views/expression-analysis";
 
 import type { QueryEngineContext } from "./context";
 

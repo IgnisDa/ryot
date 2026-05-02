@@ -1,6 +1,6 @@
 import { Schema } from "effect";
 
-import { AppSchema } from "~/lib/schema";
+import { AppSchema } from "#lib/schema";
 
 export const Provider = Schema.Struct({
 	name: Schema.String,

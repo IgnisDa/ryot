@@ -1,6 +1,6 @@
-import type { QueryExpression } from "~/lib/query-language";
-import type { ViewExpressionTypeInfo } from "~/lib/views/expression-analysis";
-import { getPropertyDisplayKind } from "~/lib/views/policy";
+import type { QueryExpression } from "#lib/query-language";
+import type { ViewExpressionTypeInfo } from "#lib/views/expression-analysis";
+import { getPropertyDisplayKind } from "#lib/views/policy";
 
 export type ResolvedDisplayValue = {
 	kind: "boolean" | "date" | "image" | "json" | "null" | "number" | "text";

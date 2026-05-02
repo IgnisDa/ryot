@@ -1,12 +1,12 @@
 import { asc, eq, ilike, inArray, sql } from "drizzle-orm";
 import { DateTime, Effect, Either } from "effect";
 
-import { AuthService } from "~/lib/auth";
-import { bootstrapNewUser, defaultUserPreferences } from "~/lib/builtins/bootstrap";
-import { AppConfig } from "~/lib/config";
-import { CurrentDb, DbRunner, dbEffect, schema } from "~/lib/db";
-import { badRequest, internalError } from "~/lib/errors";
-import { redisKeys, RedisService } from "~/lib/redis";
+import { AuthService } from "#lib/auth";
+import { bootstrapNewUser, defaultUserPreferences } from "#lib/builtins/bootstrap";
+import { AppConfig } from "#lib/config";
+import { CurrentDb, DbRunner, dbEffect, schema } from "#lib/db";
+import { badRequest, internalError } from "#lib/errors";
+import { redisKeys, RedisService } from "#lib/redis";
 
 import type { ProvisionUserBody } from "./contract";
 

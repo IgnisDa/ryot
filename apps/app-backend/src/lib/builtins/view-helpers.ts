@@ -10,7 +10,7 @@ import {
 	createTransformExpression,
 	type QueryExpression,
 	type QueryRelationshipJoin,
-} from "~/lib/query-language";
+} from "#lib/query-language";
 
 const entityColumn = (slug: string, column: string) => createEntityColumnExpression(slug, column);
 

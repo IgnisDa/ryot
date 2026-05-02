@@ -1,7 +1,7 @@
 import { Activity } from "@effect/workflow";
 import { Effect, Schema } from "effect";
 
-import { unknownToMessage } from "~/lib/errors";
+import { unknownToMessage } from "#lib/errors";
 
 import type { ImportRunJobData } from "../jobs";
 import { failImportRun } from "./failures";

@@ -1,4 +1,4 @@
-import type { MediaImportAdapterResult } from "~/modules/imports/media/import-processor";
+import type { MediaImportAdapterResult } from "#modules/imports/media/import-processor";
 
 import type { IntegrationRecord } from "../repository";
 import { parseBrowserExtensionSink } from "./browser-extension";

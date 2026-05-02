@@ -1,9 +1,9 @@
 import { sql } from "drizzle-orm";
 import { Effect } from "effect";
 
-import type { CurrentDb } from "~/lib/db";
-import type { DbError } from "~/lib/errors";
-import type { EventsQueryRequest } from "~/lib/query-language";
+import type { CurrentDb } from "#lib/db";
+import type { DbError } from "#lib/errors";
+import type { EventsQueryRequest } from "#lib/query-language";
 
 import type { PreparedQueryContext } from "./context";
 import { buildJoinedCte } from "./event-join-ctes";

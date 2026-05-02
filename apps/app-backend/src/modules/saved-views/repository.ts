@@ -1,8 +1,8 @@
 import { and, asc, eq, inArray, isNull, sql } from "drizzle-orm";
 import { Effect } from "effect";
 
-import { CurrentDb, dbEffect, isUniqueConstraintError, schema } from "~/lib/db";
-import { DbError } from "~/lib/errors";
+import { CurrentDb, dbEffect, isUniqueConstraintError, schema } from "#lib/db";
+import { DbError } from "#lib/errors";
 
 type SavedViewRow = typeof schema.savedView.$inferSelect;
 

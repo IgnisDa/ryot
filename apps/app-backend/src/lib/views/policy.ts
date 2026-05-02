@@ -1,6 +1,6 @@
 import { Match } from "effect";
 
-import type { AppPropertyDefinition, AppPropertyPrimitiveType } from "~/lib/property-schema";
+import type { AppPropertyDefinition, AppPropertyPrimitiveType } from "#lib/property-schema";
 
 import type { PropertyType } from "./reference";
 

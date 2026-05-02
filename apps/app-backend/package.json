@@ -1,6 +1,12 @@
 {
 	"name": "@ryot/app-backend",
 	"main": "src/index.ts",
+	"imports": {
+		"#*": [
+			"./src/*.ts",
+			"./src/*/index.ts"
+		]
+	},
 	"exports": {
 		".": "./src/index.ts",
 		"./schema": "./src/lib/schema.ts",

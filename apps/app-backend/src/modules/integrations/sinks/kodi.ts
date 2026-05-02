@@ -1,5 +1,5 @@
-import type { MediaImportAdapterResult } from "~/modules/imports/media/import-processor";
-import { buildMovieOrShowImportRef } from "~/modules/imports/sources/shared/provider-refs";
+import type { MediaImportAdapterResult } from "#modules/imports/media/import-processor";
+import { buildMovieOrShowImportRef } from "#modules/imports/sources/shared/provider-refs";
 
 import { createSinkFailure, emptySinkResult, type SinkParser } from "./shared";
 

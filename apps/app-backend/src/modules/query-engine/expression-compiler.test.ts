@@ -5,7 +5,7 @@ import {
 	createEntitySchemaExpression,
 	createLiteralExpression,
 	createTransformExpression,
-} from "~/lib/query-language";
+} from "#lib/query-language";
 
 import {
 	context,

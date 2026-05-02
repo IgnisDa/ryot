@@ -4,12 +4,12 @@ import { PgDialect } from "drizzle-orm/pg-core";
 import { Effect, Exit, Layer, Option, Redacted } from "effect";
 import { describe, it as vitestIt } from "vitest";
 
-import { AuthService } from "~/lib/auth";
-import { defaultUserPreferences } from "~/lib/builtins/bootstrap";
-import { AppConfig, type AppConfigValue } from "~/lib/config";
-import { CurrentDb, DbRunner, DbService, schema, TransactionRunner } from "~/lib/db";
-import { BadRequest, DbError } from "~/lib/errors";
-import { RedisService } from "~/lib/redis";
+import { AuthService } from "#lib/auth";
+import { defaultUserPreferences } from "#lib/builtins/bootstrap";
+import { AppConfig, type AppConfigValue } from "#lib/config";
+import { CurrentDb, DbRunner, DbService, schema, TransactionRunner } from "#lib/db";
+import { BadRequest, DbError } from "#lib/errors";
+import { RedisService } from "#lib/redis";
 
 import { checkResetEligibility, classifyAuthState, GodModeService } from "./service";
 

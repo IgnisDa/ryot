@@ -1,9 +1,9 @@
 import { Effect, Schema } from "effect";
 
-import { DbRunner } from "~/lib/db";
-import { SandboxRunError, dieOnDbError } from "~/lib/errors";
-import { parseAppSchemaProperties } from "~/lib/property-schema-runtime";
-import { RelationshipSchemasRepository } from "~/modules/relationship-schemas/repository";
+import { DbRunner } from "#lib/db";
+import { SandboxRunError, dieOnDbError } from "#lib/errors";
+import { parseAppSchemaProperties } from "#lib/property-schema-runtime";
+import { RelationshipSchemasRepository } from "#modules/relationship-schemas/repository";
 
 import { EntitiesRepository } from "./repository";
 
