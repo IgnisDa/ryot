@@ -1,13 +1,14 @@
 import { useAtom, useAtomValue, useSetAtom } from "jotai";
-import { Pressable, StyleSheet, Text, View } from "react-native";
 import Animated, { SlideInRight, SlideOutRight } from "react-native-reanimated";
+import { Box } from "@/components/ui/box";
+import { Pressable } from "@/components/ui/pressable";
+import { Text } from "@/components/ui/text";
 import {
 	activeSubItemAtom,
 	activeTrackerIdAtom,
 	subFlyoutOpenAtom,
 	trackersAtom,
 } from "@/lib/navigation";
-import { C, F } from "@/lib/theme";
 import { RAIL_WIDTH } from "./rail";
 
 export const FLYOUT_WIDTH = 220;
@@ -38,44 +39,55 @@ export function SpineSubFlyout({ onNavigate, pinned = false }: Props) {
 
 	const content = (
 		<>
-			<Text style={styles.header}>
+			<Text className="text-[10px] text-ink-soft tracking-[2px] pb-3.5 font-sans px-6 uppercase">
 				{activeTracker?.name} · {subItems.length} schemas
 			</Text>
-			<View style={styles.itemsContainer}>
+			<Box className="gap-1 flex-wrap flex-row px-4">
 				{subItems.map((item) => {
 					const isActive = item === activeSubItem;
 					return (
 						<Pressable
 							key={item}
-							style={styles.item}
 							accessibilityLabel={item}
 							accessibilityRole="button"
 							onPress={() => handleSubItemPress(item)}
+							className="min-h-11 py-2 px-2 justify-center"
 						>
 							<Text
-								style={[
-									styles.itemText,
-									isActive ? styles.itemTextActive : styles.itemTextInactive,
-								]}
+								className={`text-[18px] ${isActive ? "text-terra font-serif-medium-italic" : "text-ink font-serif"}`}
 							>
 								{item}
 							</Text>
 						</Pressable>
 					);
 				})}
-			</View>
-			<View style={styles.separator} />
-			<Text style={styles.addSchema}>＋ new schema</Text>
+			</Box>
+			<Box className="h-[0.5px] mt-3.5 mb-3.5 mx-6 bg-ink/20" />
+			<Text className="text-[12px] text-ink-soft font-sans px-6">
+				＋ new schema
+			</Text>
 		</>
 	);
 
 	if (pinned) {
-		return <View style={styles.flyoutPinned}>{content}</View>;
+		return (
+			<Box className="w-55 pt-16 pb-20 border-l-[0.5px] border-l-ink/20 bg-paper">
+				{content}
+			</Box>
+		);
 	}
 
 	return (
 		<Animated.View
-			style={styles.flyout}
+			className="absolute top-0 bottom-0 z-25 pt-16 pb-20 bg-paper w-55"
+			style={{
+				elevation: 10,
+				shadowRadius: 24,
+				right: RAIL_WIDTH,
+				shadowColor: "#000",
+				shadowOpacity: 0.12,
+				shadowOffset: { width: -8, height: 0 },
+			}}
 			entering={SlideInRight.duration(220)}
 			exiting={SlideOutRight.duration(180)}
 		>
@@ -83,67 +95,3 @@ export function SpineSubFlyout({ onNavigate, pinned = false }: Props) {
 		</Animated.View>
 	);
 }
-
-const styles = StyleSheet.create({
-	flyout: {
-		top: 0,
-		bottom: 0,
-		zIndex: 25,
-		elevation: 10,
-		paddingTop: 64,
-		shadowRadius: 24,
-		right: RAIL_WIDTH,
-		paddingBottom: 80,
-		shadowOpacity: 0.12,
-		width: FLYOUT_WIDTH,
-		shadowColor: "#000",
-		position: "absolute",
-		backgroundColor: C.paper,
-		shadowOffset: { width: -8, height: 0 },
-	},
-	flyoutPinned: {
-		width: FLYOUT_WIDTH,
-		paddingTop: 64,
-		paddingBottom: 80,
-		borderLeftWidth: 0.5,
-		borderLeftColor: C.rule,
-		backgroundColor: C.paper,
-	},
-	header: {
-		fontSize: 10,
-		color: C.inkSoft,
-		letterSpacing: 2,
-		paddingBottom: 14,
-		fontFamily: F.sans,
-		paddingHorizontal: 24,
-		textTransform: "uppercase",
-	},
-	itemsContainer: {
-		gap: 4,
-		flexWrap: "wrap",
-		flexDirection: "row",
-		paddingHorizontal: 16,
-	},
-	item: {
-		minHeight: 44,
-		paddingVertical: 8,
-		paddingHorizontal: 8,
-		justifyContent: "center",
-	},
-	itemText: { fontSize: 18 },
-	itemTextInactive: { color: C.ink, fontFamily: F.serif },
-	itemTextActive: { color: C.accent, fontFamily: F.serifMediumItalic },
-	separator: {
-		height: 0.5,
-		marginTop: 14,
-		marginBottom: 14,
-		marginHorizontal: 24,
-		backgroundColor: C.rule,
-	},
-	addSchema: {
-		fontSize: 12,
-		color: C.inkSoft,
-		fontFamily: F.sans,
-		paddingHorizontal: 24,
-	},
-});
