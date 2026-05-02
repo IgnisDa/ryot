@@ -1,7 +1,11 @@
 import { Effect, Either } from "effect";
 
+import type {
+	LoadedMediaImportAdapterError,
+	LoadedMediaImportAdapterResult,
+} from "../../media/file-processor";
 import { processMediaImport } from "../../media/import-processor";
-import { failImportRun, sanitizeErrorMessage } from "../../runtime/failures";
+import { sanitizeErrorMessage } from "../../runtime/failures";
 import {
 	cleanupImportFile,
 	getValidatedOptionalPath,
@@ -40,6 +44,38 @@ export const processMyanimelistImport = (input: {
 	sourcePayload?: Record<string, unknown>;
 }) =>
 	Effect.gen(function* () {
+		let cleanupPaths: ReadonlyArray<string> = [];
+
+		yield* processMediaImport({
+			runId: input.runId,
+			userId: input.userId,
+			sourceName: "MyAnimeList",
+			adapterErrorFallback: "Could not parse MyAnimeList export data",
+			loadAdapterResult: loadMyanimelistAdapterResult(input).pipe(
+				Effect.tap(({ cleanupPaths: paths }) =>
+					Effect.sync(() => {
+						cleanupPaths = paths;
+					}),
+				),
+				Effect.map(({ adapterResult }) => adapterResult),
+				Effect.mapError((error) => error.message),
+			),
+		}).pipe(
+			Effect.ensuring(
+				Effect.suspend(() =>
+					Effect.forEach(new Set(cleanupPaths), cleanupImportFile, { discard: true }),
+				),
+			),
+		);
+	});
+
+export const loadMyanimelistAdapterResult = (input: {
+	runId: string;
+	userId: string;
+	filePath?: string;
+	sourcePayload?: Record<string, unknown>;
+}) =>
+	Effect.gen(function* () {
 		const paths = yield* Effect.try({
 			try: () => {
 				const animeFilePath = getValidatedOptionalPath(
@@ -59,8 +95,10 @@ export const processMyanimelistImport = (input: {
 		}).pipe(Effect.either);
 
 		if (Either.isLeft(paths)) {
-			yield* failImportRun(input.runId, paths.left);
-			return;
+			return yield* Effect.fail({
+				cleanupPaths: [],
+				message: paths.left,
+			} satisfies LoadedMediaImportAdapterError);
 		}
 
 		const { mangaFilePath, primaryFilePath, resolvedAnimeFilePath } = paths.right;
@@ -68,22 +106,28 @@ export const processMyanimelistImport = (input: {
 			(filePath): filePath is string => Boolean(filePath),
 		);
 
-		yield* processMediaImport({
-			runId: input.runId,
-			userId: input.userId,
-			sourceName: "MyAnimeList",
-			adapterErrorFallback: "Could not parse MyAnimeList export data",
-			loadAdapterResult: Effect.gen(function* () {
-				const animeXml = resolvedAnimeFilePath
-					? yield* decodeMyanimelistFile(resolvedAnimeFilePath)
-					: undefined;
-				const mangaXml = mangaFilePath ? yield* decodeMyanimelistFile(mangaFilePath) : undefined;
-				return yield* Effect.try({
-					try: () => adaptMyanimelistExports({ animeXml, mangaXml }),
-					catch: (error) => sanitizeErrorMessage(error, "Could not parse MyAnimeList export data"),
-				});
-			}),
-		}).pipe(
-			Effect.ensuring(Effect.forEach(new Set(cleanupPaths), cleanupImportFile, { discard: true })),
-		);
+		const animeXml = resolvedAnimeFilePath
+			? yield* decodeMyanimelistFile(resolvedAnimeFilePath).pipe(
+					Effect.mapError(
+						(message) => ({ message, cleanupPaths }) satisfies LoadedMediaImportAdapterError,
+					),
+				)
+			: undefined;
+		const mangaXml = mangaFilePath
+			? yield* decodeMyanimelistFile(mangaFilePath).pipe(
+					Effect.mapError(
+						(message) => ({ message, cleanupPaths }) satisfies LoadedMediaImportAdapterError,
+					),
+				)
+			: undefined;
+		const adapterResult = yield* Effect.try({
+			try: () => adaptMyanimelistExports({ animeXml, mangaXml }),
+			catch: (error) =>
+				({
+					message: sanitizeErrorMessage(error, "Could not parse MyAnimeList export data"),
+					cleanupPaths,
+				}) satisfies LoadedMediaImportAdapterError,
+		});
+
+		return { adapterResult, cleanupPaths } satisfies LoadedMediaImportAdapterResult;
 	});
