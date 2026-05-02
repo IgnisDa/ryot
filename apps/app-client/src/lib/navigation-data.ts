@@ -1,11 +1,10 @@
-import type { paths } from "@ryot/generated/openapi/app-backend";
 import { sortBy } from "@ryot/ts-utils/lodash";
 import type { Href } from "expo-router";
 
-type ApiTracker =
-	paths["/trackers"]["get"]["responses"][200]["content"]["application/json"]["data"][number];
-type ApiSavedView =
-	paths["/saved-views"]["get"]["responses"][200]["content"]["application/json"]["data"][number];
+import type { ContractClient, ContractSuccess } from "@/lib/contract-client";
+
+type TrackerListItem = ContractSuccess<ContractClient["trackers"]["list"]>[number];
+type SavedViewListItem = ContractSuccess<ContractClient["savedViews"]["list"]>[number];
 
 export type NavigationSubItem = {
 	key: string;
@@ -29,11 +28,10 @@ export function sortByOrderThenName<T extends { sortOrder: number; name: string 
 	return sortBy(items, [(item) => item.sortOrder, (item) => item.name]);
 }
 
-export function unwrapData<T>(body: { data: T[] } | undefined): T[] {
-	return body?.data ?? [];
-}
-
-export function buildNavigationItems(trackers: ApiTracker[], views: ApiSavedView[]) {
+export function buildNavigationItems(
+	trackers: readonly TrackerListItem[],
+	views: readonly SavedViewListItem[],
+) {
 	const enabledTrackers = trackers.filter((t) => !t.isDisabled);
 	const sortedTrackers = sortByOrderThenName(enabledTrackers);
 

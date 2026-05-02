@@ -1,9 +1,8 @@
-import type { paths } from "@ryot/generated/openapi/app-backend";
 import { dayjs } from "@ryot/ts-utils/dayjs";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import clsx from "clsx";
 import { Redirect } from "expo-router";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { ActivityIndicator, FlatList, KeyboardAvoidingView, Platform, Share } from "react-native";
 
 import { Box } from "@/components/ui/box";
@@ -11,11 +10,15 @@ import { Button, ButtonSpinner, ButtonText } from "@/components/ui/button";
 import { Input, InputField } from "@/components/ui/input";
 import { Pressable } from "@/components/ui/pressable";
 import { Text } from "@/components/ui/text";
-import { createApiClient } from "@/lib/api-client";
 import { useServerUrl } from "@/lib/atoms";
+import {
+	createContractRunner,
+	type ContractClient,
+	type ContractRunner,
+	type ContractSuccess,
+} from "@/lib/contract-client";
 
-type GodModeUser =
-	paths["/god-mode/users"]["get"]["responses"][200]["content"]["application/json"]["data"]["users"][number];
+type GodModeUser = ContractSuccess<ContractClient["godMode"]["listUsers"]>["users"][number];
 
 const godModeUsersQueryKey = (token: string) => ["god-mode-users", token] as const;
 
@@ -104,20 +107,15 @@ function TokenForm(props: {
 
 function UserList(props: { token: string; serverUrl: string; onReset: () => void }) {
 	const queryKey = godModeUsersQueryKey(props.token);
-	const apiClient = createApiClient(props.serverUrl);
+	const runContract = useMemo(
+		() => createContractRunner(props.serverUrl, { "Admin-Access-Token": props.token }),
+		[props.serverUrl, props.token],
+	);
 
 	const query = useQuery({
 		queryKey,
-		queryFn: async () => {
-			const { data, error } = await apiClient.GET("/god-mode/users", {
-				params: { query: { limit: 100 } },
-				headers: { "Admin-Access-Token": props.token },
-			});
-			if (error) {
-				throw new Error(error.error.message);
-			}
-			return data.data;
-		},
+		queryFn: () =>
+			runContract((client) => client.godMode.listUsers({ urlParams: { limit: 100, offset: 0 } })),
 	});
 
 	if (query.isLoading) {
@@ -163,7 +161,7 @@ function UserList(props: { token: string; serverUrl: string; onReset: () => void
 				data={users.users}
 				keyExtractor={(item) => item.id}
 				renderItem={({ item }) => (
-					<UserRowWithReset user={item} token={props.token} apiClient={apiClient} />
+					<UserRowWithReset user={item} token={props.token} runContract={runContract} />
 				)}
 			/>
 		</Box>
@@ -173,9 +171,9 @@ function UserList(props: { token: string; serverUrl: string; onReset: () => void
 function UserRowWithReset(props: {
 	token: string;
 	user: GodModeUser;
-	apiClient: ReturnType<typeof createApiClient>;
+	runContract: ContractRunner;
 }) {
-	const { user, token, apiClient } = props;
+	const { user, token, runContract } = props;
 	const [copied, setCopied] = useState(false);
 	const [error, setError] = useState<string | null>(null);
 	const queryClient = useQueryClient();
@@ -197,19 +195,8 @@ function UserRowWithReset(props: {
 			setError(null);
 			setResult(null);
 		},
-		mutationFn: async () => {
-			const { data, error: apiError } = await apiClient.POST(
-				"/god-mode/users/{userId}/reset-password",
-				{
-					params: { path: { userId: user.id } },
-					headers: { "Admin-Access-Token": token },
-				},
-			);
-			if (apiError) {
-				throw new Error(apiError.error.message);
-			}
-			return data.data;
-		},
+		mutationFn: () =>
+			runContract((client) => client.godMode.resetUserPassword({ path: { userId: user.id } })),
 	});
 
 	const setBanMutation = useMutation({
@@ -221,16 +208,10 @@ function UserRowWithReset(props: {
 			setError(null);
 			setResult(null);
 		},
-		mutationFn: async (banned: boolean) => {
-			const { error: apiError } = await apiClient.POST("/god-mode/users/{userId}/ban/set", {
-				body: { banned },
-				params: { path: { userId: user.id } },
-				headers: { "Admin-Access-Token": token },
-			});
-			if (apiError) {
-				throw new Error(apiError.error.message);
-			}
-		},
+		mutationFn: (banned: boolean) =>
+			runContract((client) =>
+				client.godMode.setUserBan({ path: { userId: user.id }, payload: { banned } }),
+			),
 	});
 
 	const isDisabled = !!user.bannedAt;

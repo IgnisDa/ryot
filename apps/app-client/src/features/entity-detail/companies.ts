@@ -54,12 +54,12 @@ function readRelatedCompany(
 }
 
 export async function loadRelatedCompanies(
-	apiClient: QueryEngineClient,
+	queryEngineClient: QueryEngineClient,
 	input: { entityId: string; entitySchemaSlug: string },
 ) {
 	const relationshipSchemaSlug = normalizeSlug(`company to ${input.entitySchemaSlug}`);
 	const companies = await loadQueryEngineEntities({
-		apiClient,
+		queryEngineClient,
 		errorMessage: "Failed to load related companies",
 		requestForPage: (page) => ({
 			mode: "entities",
