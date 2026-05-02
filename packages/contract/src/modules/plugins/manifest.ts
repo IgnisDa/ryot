@@ -1,14 +1,11 @@
 import { Result, Schema, SchemaGetter } from "effect";
 
 import { AppSchema, type AppPropertyDefinition } from "../../schema/property-schema";
-import { HttpUrl } from "../../schema/utils";
+import { HttpUrl, strictStruct } from "../../schema/utils";
 import { OutputFieldKey, RyotQLDocument } from "../ryotql/language";
 import { SANDBOX_HOST_CAPABILITIES } from "../sandbox/wire";
 import { SavedViewCardMapping, SavedViewTableMapping } from "../saved-views/schemas";
 import { pluginConfigEnvironmentKey } from "./plugin-config";
-
-const strictStruct = <Fields extends Schema.Struct.Fields>(fields: Fields) =>
-	Schema.Struct(fields).annotate({ parseOptions: { onExcessProperty: "error" } });
 
 const strictParseOptions = {
 	parseOptions: { onExcessProperty: "error" },
