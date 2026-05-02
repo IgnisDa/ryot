@@ -69,7 +69,7 @@ const createHost = (options: {
 }) =>
 	defineSandboxTestHost(manifest, {
 		httpCall: options.httpCall,
-		getEntity: () => (options.entity ? hostSuccess(options.entity) : hostFailure()),
+		getEntities: () => (options.entity ? hostSuccess([options.entity]) : hostFailure()),
 		getEntitySchema: () => hostSuccess(schema),
 		listIntegrations: () => hostSuccess(options.integrations ?? []),
 		getUserPreferences: () => hostSuccess({ isNsfw: false, disableIntegrations: false }),
