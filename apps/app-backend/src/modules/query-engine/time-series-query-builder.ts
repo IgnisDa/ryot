@@ -2,17 +2,16 @@ import { dayjs } from "@ryot/ts-utils";
 import { sql } from "drizzle-orm";
 import { match } from "ts-pattern";
 import { db } from "~/lib/db";
-import type { QueryEngineEventSchemaLike } from "~/lib/views/reference";
-import type { QueryEngineContext } from "./context";
 import { createScalarExpressionCompiler } from "./expression-compiler";
 import { createExpressionTypeResolver } from "./expression-type-resolver";
 import { buildFilterWhereClause } from "./filter-builder";
+import type { PreparedQueryContext } from "./preparer";
 import {
 	buildEventFirstCte,
 	EVENT_FIRST_ENTITY_COLUMN_OVERRIDES,
-	type QueryEngineSchemaRow,
 } from "./query-ctes";
 import type {
+	QueryEngineContext,
 	QueryEngineTimeSeriesResponse,
 	TimeSeriesQueryEngineRequest,
 } from "./schemas";
@@ -51,16 +50,14 @@ export const alignDateRangeToBucket = (input: {
 
 export const executeTimeSeriesQuery = async (input: {
 	userId: string;
+	context: PreparedQueryContext;
 	request: TimeSeriesQueryEngineRequest;
-	runtimeSchemas: QueryEngineSchemaRow[];
-	schemaMap: Map<string, QueryEngineSchemaRow>;
-	eventSchemaMap: Map<string, QueryEngineEventSchemaLike[]>;
 }): Promise<QueryEngineTimeSeriesResponse> => {
-	const context: QueryEngineContext = {
+	const queryContext: QueryEngineContext = {
 		userId: input.userId,
 		eventJoinMap: new Map(),
-		schemaMap: input.schemaMap,
-		eventSchemaMap: input.eventSchemaMap,
+		schemaMap: input.context.schemaMap,
+		eventSchemaMap: input.context.eventSchemaMap,
 		entityColumnOverrides: EVENT_FIRST_ENTITY_COLUMN_OVERRIDES,
 	};
 
@@ -74,11 +71,11 @@ export const executeTimeSeriesQuery = async (input: {
 		cteName: "matching_events",
 		dateRange: alignedDateRange,
 		eventSchemaSlugs: input.request.eventSchemas,
-		entitySchemaIds: input.runtimeSchemas.map((s) => s.id),
+		entitySchemaIds: input.context.runtimeSchemas.map((s) => s.id),
 	});
 
 	const filterWhereClause = buildFilterWhereClause({
-		context,
+		context: queryContext,
 		alias: "matching_events",
 		predicate: input.request.filter,
 		computedFields: input.request.computedFields,
@@ -86,12 +83,12 @@ export const executeTimeSeriesQuery = async (input: {
 	const filterClause = filterWhereClause ?? sql`true`;
 
 	const getTypeInfo = createExpressionTypeResolver({
-		context,
+		context: queryContext,
 		computedFields: input.request.computedFields,
 	});
 	const compiler = createScalarExpressionCompiler({
-		context,
 		getTypeInfo,
+		context: queryContext,
 		alias: "filtered_events",
 		computedFields: input.request.computedFields,
 	});
