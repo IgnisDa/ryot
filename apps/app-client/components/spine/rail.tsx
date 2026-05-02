@@ -1,4 +1,5 @@
 import { useAtom, useAtomValue, useSetAtom } from "jotai";
+import { ChevronRight } from "lucide-react-native";
 import { ScrollView } from "react-native";
 import type { SharedValue } from "react-native-reanimated";
 import Animated, {
@@ -87,9 +88,9 @@ export function SpineRail({ translateX, onClose, pinned = false }: Props) {
 							{tracker.name}
 						</Text>
 						{tracker.subItems?.length ? (
-							<Text className="text-[14px] opacity-60 ml-1 text-ink-mid font-sans">
-								›
-							</Text>
+							<Box className="opacity-60 ml-1">
+								<ChevronRight size={14} color="#8a8378" strokeWidth={1.5} />
+							</Box>
 						) : null}
 					</Pressable>
 				);

@@ -1,4 +1,5 @@
 import { useAtomValue, useSetAtom } from "jotai";
+import { ChevronRight } from "lucide-react-native";
 import { Box } from "@/components/ui/box";
 import { Pressable } from "@/components/ui/pressable";
 import { Text } from "@/components/ui/text";
@@ -33,9 +34,9 @@ export function BreadcrumbChip() {
 			</Text>
 			{activeSubItem != null && (
 				<>
-					<Text className="text-[11px] opacity-40 text-ink-soft font-sans">
-						›
-					</Text>
+					<Box className="opacity-40">
+						<ChevronRight size={10} color="#5a5347" strokeWidth={1.5} />
+					</Box>
 					<Text className="text-[12px] text-ink-soft font-serif-italic">
 						{activeSubItem}
 					</Text>
