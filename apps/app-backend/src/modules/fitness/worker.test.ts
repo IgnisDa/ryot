@@ -40,7 +40,7 @@ describe("buildExerciseSeedEntityValues", () => {
 					source: "github",
 					level: "beginner",
 					mechanic: "isolation",
-					lot: "reps_and_weight",
+					kind: "reps_and_weight",
 					equipment: "ez_curl_bar",
 					muscles: ["biceps", "forearms"],
 					instructions: ["Curl the bar."],
