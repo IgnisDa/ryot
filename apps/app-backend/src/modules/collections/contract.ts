@@ -1,6 +1,6 @@
 import { HttpApiEndpoint, HttpApiGroup } from "@effect/platform";
 
-import { AuthMiddleware } from "#lib/auth";
+import { AuthMiddleware } from "#lib/auth-middleware";
 import { BadRequest, NotFound, NotImplemented, RateLimited, Unauthorized } from "#lib/errors";
 
 import {
