@@ -1,1 +1,0 @@
-{"id":"relationship-1","properties":{"role":"author","weight":1},"createdAt":"2026-08-23T12:00:00.000Z","scope":"user","sourceEntityId":"entity-1","targetEntityId":"dependency-1","relationshipSchemaSlug":"fixture.authored-by"}

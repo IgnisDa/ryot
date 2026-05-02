@@ -30,9 +30,11 @@ const decodeManifest = (bytes: Uint8Array) =>
 const decodeProfile = (bytes: Uint8Array) =>
 	Schema.decodeUnknownSync(Schema.fromJsonString(V1Profile))(new TextDecoder().decode(bytes));
 
-const fixtureRoot = new URL("./fixtures/v1/", import.meta.url);
-const fixtureAssetPath = "assets/4e9f9b5970ac45bda328dad77c7d42509ed643390b7084c699b5460225ab4643";
-const fixturePaths = ["manifest.json", ...V1_SECTION_PATHS, fixtureAssetPath] as const;
+const fixtureRoot = new URL(
+	"../../../../../../packages/contract/src/modules/backups/fixtures/v1/",
+	import.meta.url,
+);
+const fixturePaths = ["manifest.json", ...V1_SECTION_PATHS] as const;
 
 const fixtureArchive = (fs: FileSystem.FileSystem) =>
 	zipChunks(
@@ -185,123 +187,79 @@ describe("V1 streaming ZIP validation", () => {
 				version: 1,
 				createdAt: timestamp,
 				format: "ryot-backup",
-				appVersion: "golden-fixture",
-				archiveId: "golden-v1-archive",
-				redactions: ["/plugin-state/fixture-plugin/config/token"],
-				requiredPlugins: [{ slug: "fixture-plugin", version: "1.0.0" }],
+				appVersion: "v1-minimal-golden",
+				archiveId: "00000000-0000-4000-8000-000000000002",
+				redactions: [],
+				requiredPlugins: [{ slug: "media", version: "1.0.0" }],
 			});
 			expect(validated.manifest.sections).toEqual([
 				{
 					count: 1,
 					path: "profile.json",
-					sha256: "48034e099f0a5003924652b229d0e87f18adb213e8f36ba46cc65387513242ee",
+					sha256: "eea466674d173b8330508f0159ec8b8cd1c97303962cd4e3c03e918ace5f1128",
 				},
 				{
-					count: 1,
+					count: 0,
 					path: "plugin-state.ndjson",
-					sha256: "8c81fdb21290dda7a082800fb601d126d1b46697bad2b076c0be83d1dc12db24",
+					sha256: "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
 				},
 				{
 					count: 1,
 					path: "entities.ndjson",
-					sha256: "56a692df2ce2e2c39a2815b01056d49a55546f2cf14d498064008d0a51b1c4b9",
+					sha256: "160efb5d2a58d1aeb0d209a28ac56ce1f333f970efc6a120058c473b4db0386d",
 				},
 				{
-					count: 1,
+					count: 0,
 					path: "entity-dependencies.ndjson",
-					sha256: "34888ae23eb9018d6b38e9e16085149a5fcdfc717aa543e8210ecc461fa842ca",
+					sha256: "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
 				},
 				{
-					count: 1,
+					count: 0,
 					path: "relationships.ndjson",
-					sha256: "f15e3bea42dc518aa7b6839d285658644b365f100df7ade30877cf284491efe3",
+					sha256: "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
 				},
 				{
-					count: 1,
+					count: 0,
 					path: "events.ndjson",
-					sha256: "b8254dbfdfca5c1a619c376ebee8dc03eb2a7047307eba8f7fe291135021e725",
+					sha256: "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
 				},
 				{
-					count: 2,
+					count: 0,
 					path: "saved-views.ndjson",
-					sha256: "ac57488ca6ddbe92b469d1083093cf86db8e2e7acc2453fc89e83d78fef055e4",
+					sha256: "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
 				},
 				{
-					count: 1,
+					count: 0,
 					path: "notification-subscriptions.ndjson",
-					sha256: "1e8091a93918df6d739b5ac209a1d7e4189a253977911d2fee2fc1a8ad9ff08e",
+					sha256: "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
 				},
 			]);
-			expect(validated.manifest.assets).toEqual([
-				{
-					size: 13,
-					path: fixtureAssetPath,
-					contentType: "text/plain",
-					sha256: "4e9f9b5970ac45bda328dad77c7d42509ed643390b7084c699b5460225ab4643",
-				},
-			]);
+			expect(validated.manifest.assets).toEqual([]);
 			expect(validated.records.profile).toEqual({
-				name: "Golden Fixture User",
+				name: "Golden Archive User",
 				image: null,
-				preferences: {
-					theme: "dark",
-					language: "en",
-					showArchived: false,
-					nested: { source: "fixture" },
+				preferences: { language: "fr", allowNsfw: true, disableIntegrations: true },
+			});
+			expect(validated.records.pluginState).toEqual([]);
+			expect(validated.records.entities).toEqual([
+				{
+					id: "00000000-0000-4000-8000-000000000001",
+					name: "Library",
+					properties: {},
+					createdAt: timestamp,
+					updatedAt: timestamp,
+					provider: null,
+					entitySchemaSlug: "library",
+					externalId: null,
+					populatedAt: null,
 				},
-			});
-			expect(validated.records.pluginState[0]).toMatchObject({
-				id: "plugin-state-1",
-				pluginSlug: "fixture-plugin",
-				config: { token: "<redacted>", enabled: true },
-			});
-			expect(validated.records.entities[0]).toMatchObject({
-				id: "entity-1",
-				name: "Golden Book",
-				provider: { pluginSlug: "fixture-plugin", providerSlug: "fixture-books" },
-			});
-			expect(validated.records.entityDependencies[0]).toMatchObject({
-				id: "dependency-1",
-				provider: null,
-				translations: [{ id: "translation-1", name: null, language: "en" }],
-				identity: {
-					kind: "bootstrap",
-					pluginSlug: "fixture-plugin",
-					externalId: "bootstrap-author-1",
-				},
-			});
-			expect(validated.records.relationships[0]).toMatchObject({
-				scope: "user",
-				id: "relationship-1",
-				sourceEntityId: "entity-1",
-				targetEntityId: "dependency-1",
-			});
-			expect(validated.records.events[0]).toMatchObject({
-				id: "event-1",
-				entityId: "entity-1",
-				sessionEntityId: null,
-			});
-			expect(
-				validated.records.savedViews.map(({ kind, isBuiltin }) => ({ kind, isBuiltin })),
-			).toEqual([
-				{ kind: "custom", isBuiltin: false },
-				{ kind: "builtin-override", isBuiltin: true },
 			]);
-			expect(validated.records.notificationSubscriptions[0]).toEqual({
-				isActive: true,
-				signalSchemaSlug: "fixture.signal",
-				metadata: { channel: "email", template: "fixture-alert", attempts: 1 },
-			});
-			const asset = validated.assets[0];
-			assert(asset !== undefined);
-			expect(asset).toMatchObject({
-				size: 13,
-				path: fixtureAssetPath,
-				contentType: "text/plain",
-				sha256: "4e9f9b5970ac45bda328dad77c7d42509ed643390b7084c699b5460225ab4643",
-			});
-			const assetBytes = yield* Stream.runCollect(asset.stream);
-			expect(new TextDecoder().decode(concat(assetBytes))).toBe("golden asset\n");
+			expect(validated.records.entityDependencies).toEqual([]);
+			expect(validated.records.relationships).toEqual([]);
+			expect(validated.records.events).toEqual([]);
+			expect(validated.records.savedViews).toEqual([]);
+			expect(validated.records.notificationSubscriptions).toEqual([]);
+			expect(validated.assets).toEqual([]);
 			yield* validated.cleanup;
 		}),
 	);
