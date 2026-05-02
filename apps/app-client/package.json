@@ -4,9 +4,9 @@
 	"private": true,
 	"main": "expo-router/entry",
 	"scripts": {
+		"dev": "expo start",
 		"ios": "expo run:ios",
 		"android": "expo run:android",
-		"dev": "expo start --port 3005",
 		"test:component": "jest --runInBand",
 		"test:unit": "bun --bun run vitest run",
 		"test": "bun run test:unit && bun run test:component",
