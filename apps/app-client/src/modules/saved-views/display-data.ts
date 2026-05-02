@@ -1,11 +1,10 @@
 import type { SavedViewDisplayValue } from "@ryot/contract/modules/saved-views/schemas";
 import type {
 	AssetLocator as AssetLocatorType,
-	DownloadResolutionResponse,
 	ManagedAssetLocator,
 } from "@ryot/contract/modules/uploads/schemas";
 
-import { canonicalManagedAssets, managedAssetKey } from "./managed-assets";
+import { canonicalManagedAssets } from "@/modules/ui/managed-assets";
 
 export type SavedViewScalarValue = SavedViewDisplayValue;
 
@@ -54,24 +53,4 @@ export const collectManagedAssets = (
 		}
 	}
 	return canonicalManagedAssets(assets);
-};
-
-export const resolvedAssetUrls = (
-	response: DownloadResolutionResponse,
-	resolveUrl: (url: string) => string,
-) =>
-	new Map(
-		response.map(({ asset, downloadUrl }) => [managedAssetKey(asset), resolveUrl(downloadUrl)]),
-	);
-
-export const resolveSavedViewImageUrl = (
-	image: SavedViewImage,
-	managedUrls: ReadonlyMap<string, string>,
-) => {
-	if (image.type !== "asset") {
-		return undefined;
-	}
-	return image.locator.type === "remote"
-		? image.locator.url
-		: managedUrls.get(managedAssetKey(image.locator));
 };
