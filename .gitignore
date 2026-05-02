@@ -55,3 +55,16 @@ templates
 
 *storybook.log
 storybook-static
+
+# React Native / Expo / Metro
+.kotlin/
+.metro-health-check*
+expo-env.d.ts
+npm-debug.*
+yarn-debug.*
+yarn-error.*
+*.pem
+apps/app-client/ios
+apps/app-client/android
+.env*.local
+*.tsbuildinfo
