@@ -10,6 +10,7 @@ export function ChildScreenFrame(props: {
 	title: string;
 	hero?: ReactNode;
 	meta?: ReactNode;
+	overlay?: ReactNode;
 	children: ReactNode;
 	heroHeight?: number;
 	overflowItems?: readonly HeaderOverflowItem[];
@@ -37,6 +38,11 @@ export function ChildScreenFrame(props: {
 			>
 				{props.children}
 			</HeaderFrame>
+			{props.overlay ? (
+				<View pointerEvents="box-none" className="absolute inset-0 z-50">
+					{props.overlay}
+				</View>
+			) : null}
 			{isOverflowOpen && props.overflowItems ? (
 				<HeaderOverflowMenu items={props.overflowItems} onClose={() => setIsOverflowOpen(false)} />
 			) : null}
