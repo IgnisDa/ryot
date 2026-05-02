@@ -30,10 +30,9 @@ type QueryRow = {
 	updated_at: Date | null;
 	external_id: string | null;
 	image: ImageSchemaType | null;
-	entity_schema_id: string | null;
 	sandbox_script_id: string | null;
-	entity_schema_slug: string | null;
 	fields: QueryEngineItem["fields"] | null;
+	entity_schema_data: Record<string, unknown> | null;
 };
 
 type PaginationInput = {
@@ -61,6 +60,18 @@ const buildBaseEntitiesCte = (input: {
 		sql`, `,
 	);
 
+	const entitySchemaData = sql`jsonb_build_object(
+		'id', ${entitySchema.id},
+		'slug', ${entitySchema.slug},
+		'name', ${entitySchema.name},
+		'icon', ${entitySchema.icon},
+		'userId', ${entitySchema.userId},
+		'isBuiltin', ${entitySchema.isBuiltin},
+		'createdAt', ${entitySchema.createdAt},
+		'updatedAt', ${entitySchema.updatedAt},
+		'accentColor', ${entitySchema.accentColor}
+	)`;
+
 	const entityColumns = sql`
 		${entity.id} as id,
 		${entity.name} as name,
@@ -69,9 +80,8 @@ const buildBaseEntitiesCte = (input: {
 		${entity.updatedAt} as updated_at,
 		${entity.properties} as properties,
 		${entity.externalId} as external_id,
-		${entitySchema.slug} as entity_schema_slug,
-		${entity.entitySchemaId} as entity_schema_id,
-		${entity.sandboxScriptId} as sandbox_script_id
+		${entity.sandboxScriptId} as sandbox_script_id,
+		${entitySchemaData} as entity_schema_data
 	`;
 
 	const userOwnedEntities = sql`
@@ -188,9 +198,7 @@ export const mapQueryRowToItem = (row: QueryRow): QueryEngineItem | null => {
 		row.id === null ||
 		row.name === null ||
 		row.created_at === null ||
-		row.updated_at === null ||
-		row.entity_schema_id === null ||
-		row.entity_schema_slug === null
+		row.updated_at === null
 	) {
 		return null;
 	}
@@ -203,9 +211,7 @@ export const mapQueryRowToItem = (row: QueryRow): QueryEngineItem | null => {
 		createdAt: row.created_at,
 		updatedAt: row.updated_at,
 		externalId: row.external_id,
-		entitySchemaId: row.entity_schema_id,
 		sandboxScriptId: row.sandbox_script_id,
-		entitySchemaSlug: row.entity_schema_slug,
 	};
 
 	return baseItem satisfies QueryEngineItem;
@@ -296,9 +302,8 @@ export const executePreparedQuery = async (input: {
 			created_at,
 			updated_at,
 			external_id,
-			entity_schema_id,
 			sandbox_script_id,
-			entity_schema_slug,
+			entity_schema_data,
 			entity_count.total,
 			${resolvedFields} as fields
 		from entity_count

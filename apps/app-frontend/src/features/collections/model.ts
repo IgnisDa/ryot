@@ -44,6 +44,9 @@ export function extractMembershipPropertiesSchema(
 export function toAppCollection(
 	entity: ApiQueryEngineCollection,
 ): AppCollection {
+	const entitySchemaSlugField = entity.fields.find(
+		(field) => field.key === "entitySchemaSlug",
+	);
 	return {
 		id: entity.id,
 		name: entity.name,
@@ -53,7 +56,10 @@ export function toAppCollection(
 		membershipPropertiesSchema: extractMembershipPropertiesSchema(
 			entity.fields,
 		),
-		entitySchemaSlug: entity.entitySchemaSlug,
+		entitySchemaSlug:
+			entitySchemaSlugField?.value != null
+				? String(entitySchemaSlugField.value)
+				: "collection",
 	};
 }
 
