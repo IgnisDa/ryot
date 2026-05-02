@@ -3,12 +3,12 @@ import { Schema } from "effect";
 
 import { AuthMiddleware } from "#lib/auth-middleware";
 import { BadRequest, NotFound, RateLimited, Unauthorized } from "#lib/errors";
-import { DateRange, QueryEngineRequest } from "#lib/query-language";
+import { DateRange, PaginationResult, QueryEngineRequest } from "#lib/query-language";
 
 const TableFieldValue = Schema.Struct({ kind: Schema.String, value: Schema.Unknown });
 
 const TableMeta = Schema.Struct({
-	pagination: Schema.Unknown,
+	pagination: PaginationResult,
 	fieldOrder: Schema.Array(Schema.String),
 });
 

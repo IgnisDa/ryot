@@ -1,5 +1,4 @@
 import { z } from "@hono/zod-openapi";
-import { toAppSchemaProperties } from "@ryot/ts-utils/app-schema";
 
 import { imagesSchema, nullableIntSchema, nullableStringSchema } from "../zod";
 
@@ -16,6 +15,5 @@ export const mediaGroupPropertiesSchema = z
 	})
 	.strict();
 
-export const mediaGroupPropertiesJsonSchema = toAppSchemaProperties(mediaGroupPropertiesSchema);
 
 export type MediaGroupProperties = z.infer<typeof mediaGroupPropertiesSchema>;

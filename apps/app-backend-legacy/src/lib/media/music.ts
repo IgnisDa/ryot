@@ -1,5 +1,4 @@
 import type { z } from "@hono/zod-openapi";
-import { toAppSchemaProperties } from "@ryot/ts-utils/app-schema";
 
 import { imagesSchema, nullableBooleanSchema, nullableIntSchema } from "../zod";
 import { mediaPropertiesSchema } from "./common";
@@ -12,6 +11,5 @@ export const musicPropertiesSchema = mediaPropertiesSchema.extend({
 	),
 });
 
-export const musicPropertiesJsonSchema = toAppSchemaProperties(musicPropertiesSchema);
 
 export type MusicProperties = z.infer<typeof musicPropertiesSchema>;
