@@ -8,9 +8,9 @@ const mmkv = Platform.OS !== "web" ? createMMKV() : null;
 
 const nativeStorage = mmkv
 	? createJSONStorage(() => ({
+			removeItem: (k: string) => mmkv.remove(k),
 			getItem: (k: string) => mmkv.getString(k) ?? null,
 			setItem: (k: string, v: string) => mmkv.set(k, v),
-			removeItem: (k: string) => mmkv.remove(k),
 			subscribe: (k: string, cb: (v: string | null) => void) => {
 				const { remove } = mmkv.addOnValueChangedListener((changed) => {
 					if (changed === k) {
