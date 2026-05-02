@@ -31,7 +31,7 @@ export const queryEngineRequestSchema = z
 		eventJoins: eventJoinDefinitionArraySchema,
 		relationships: relationshipFilterArraySchema,
 		filter: nullableViewPredicateSchema.default(null),
-		entitySchemaSlugs: z
+		scope: z
 			.array(z.string())
 			.min(1, "At least one entity schema slug is required"),
 		fields: z

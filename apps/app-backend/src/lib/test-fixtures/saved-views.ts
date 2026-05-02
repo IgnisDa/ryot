@@ -18,7 +18,7 @@ const queryDefinitionDefaults: SavedViewQueryDefinition = {
 	eventJoins: [],
 	relationships: [],
 	computedFields: [],
-	entitySchemaSlugs: ["books"],
+	scope: ["books"],
 	sort: {
 		direction: "asc",
 		expression: createEntityColumnExpression("books", "name"),
