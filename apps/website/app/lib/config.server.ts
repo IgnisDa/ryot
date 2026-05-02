@@ -1,4 +1,5 @@
 import { createHash } from "node:crypto";
+
 import { Polar } from "@polar-sh/sdk";
 import { memoize, zodBoolAsString } from "@ryot/ts-utils";
 import { Unkey } from "@unkey/api";
@@ -6,8 +7,10 @@ import { drizzle } from "drizzle-orm/postgres-js";
 import { GraphQLClient } from "graphql-request";
 import { createCookie } from "react-router";
 import { z } from "zod";
+
 import * as schema from "~/drizzle/schema.server";
 import { PlanTypes, ProductTypes } from "~/drizzle/schema.server";
+
 import { PRICING_METADATA } from "./pricing-config";
 
 // The number of days after a subscription expires that we allow access
@@ -45,13 +48,9 @@ const serverVariablesSchema = z.object({
 	SERVER_SMTP_SECURE: zodBoolAsString.optional(),
 });
 
-export const getServerVariables = memoize(() =>
-	serverVariablesSchema.parse(process.env),
-);
+export const getServerVariables = memoize(() => serverVariablesSchema.parse(process.env));
 
-export const getOauthCallbackUrl = memoize(
-	() => `${getServerVariables().FRONTEND_URL}/callback`,
-);
+export const getOauthCallbackUrl = memoize(() => `${getServerVariables().FRONTEND_URL}/callback`);
 
 const paddlePricesEnvSchema = z.array(
 	z.object({
@@ -66,9 +65,7 @@ const paddlePricesEnvSchema = z.array(
 );
 
 export const getPrices = memoize(() => {
-	const envPrices = paddlePricesEnvSchema.parse(
-		JSON.parse(getServerVariables().PADDLE_PRICE_IDS),
-	);
+	const envPrices = paddlePricesEnvSchema.parse(JSON.parse(getServerVariables().PADDLE_PRICE_IDS));
 
 	return envPrices.map((product) => ({
 		...product,
@@ -174,9 +171,7 @@ export const findPolarProductId = (
 	return price?.productId || null;
 };
 
-export const assignPaymentProvider = (
-	email: string,
-): schema.TPaymentProviders => {
+export const assignPaymentProvider = (email: string): schema.TPaymentProviders => {
 	const abPercent = getPolarAbPercent();
 	if (abPercent === 0) return "paddle";
 

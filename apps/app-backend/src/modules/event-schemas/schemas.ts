@@ -1,14 +1,11 @@
 import { z } from "@hono/zod-openapi";
+
 import { itemDataSchema, listDataSchema } from "~/lib/openapi";
-import {
-	createNameWithOptionalSlugSchema,
-	nonEmptyTrimmedStringSchema,
-} from "~/lib/zod";
+import { createNameWithOptionalSlugSchema, nonEmptyTrimmedStringSchema } from "~/lib/zod";
+
 import { createLabeledPropertySchemas } from "../property-schemas/schemas";
 
-const eventSchemaProperties = createLabeledPropertySchemas(
-	"Event schema properties",
-);
+const eventSchemaProperties = createLabeledPropertySchemas("Event schema properties");
 
 export const listedEventSchemaSchema = z.object({
 	id: z.string(),
@@ -18,13 +15,9 @@ export const listedEventSchemaSchema = z.object({
 	propertiesSchema: eventSchemaProperties.schema,
 });
 
-export const listEventSchemasResponseSchema = listDataSchema(
-	listedEventSchemaSchema,
-);
+export const listEventSchemasResponseSchema = listDataSchema(listedEventSchemaSchema);
 
-export const createEventSchemaResponseSchema = itemDataSchema(
-	listedEventSchemaSchema,
-);
+export const createEventSchemaResponseSchema = itemDataSchema(listedEventSchemaSchema);
 
 export const listEventSchemasQuery = z.object({
 	entitySchemaId: nonEmptyTrimmedStringSchema,

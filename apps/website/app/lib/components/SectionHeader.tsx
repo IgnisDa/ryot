@@ -1,6 +1,7 @@
 import { cn } from "@ryot/ts-utils";
 import type { LucideIcon } from "lucide-react";
 import type { ReactNode } from "react";
+
 import { Badge } from "~/lib/components/ui/badge";
 
 type SectionHeaderProps = {
@@ -33,12 +34,9 @@ export const SectionHeader = (props: SectionHeaderProps) => {
 			<HeadingTag className={headingClass}>{props.title}</HeadingTag>
 			{props.description && (
 				<p
-					className={cn(
-						"text-lg text-muted-foreground",
-						maxWidthClass,
-						"mx-auto",
-						{ "leading-relaxed": typeof props.description === "string" },
-					)}
+					className={cn("text-lg text-muted-foreground", maxWidthClass, "mx-auto", {
+						"leading-relaxed": typeof props.description === "string",
+					})}
 				>
 					{props.description}
 				</p>

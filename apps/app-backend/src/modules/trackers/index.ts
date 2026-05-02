@@ -4,10 +4,7 @@ export type {
 	ReorderTrackersBody,
 	UpdateTrackerBody,
 } from "./schemas";
-export type {
-	TrackerServiceDeps,
-	TrackerServiceResult,
-} from "./service";
+export type { TrackerServiceDeps, TrackerServiceResult } from "./service";
 export {
 	buildTrackerOrder,
 	createTracker,

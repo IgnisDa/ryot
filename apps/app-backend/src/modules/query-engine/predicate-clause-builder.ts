@@ -14,6 +14,7 @@ import {
 	sql,
 } from "drizzle-orm";
 import { match } from "ts-pattern";
+
 import { QueryEngineValidationError } from "~/lib/views/errors";
 import {
 	assertContainsCompatibleExpression,
@@ -21,11 +22,11 @@ import {
 	type ViewExpressionTypeInfo,
 } from "~/lib/views/expression-analysis";
 import type { ViewPredicate } from "~/lib/views/filtering";
+
 import type { ExpressionCompiler } from "./expression-compiler";
 import type { SqlExpression } from "./sql-expression-helpers";
 
-const toJsonbExpression = (expression: SqlExpression) =>
-	sql`to_jsonb(${expression})`;
+const toJsonbExpression = (expression: SqlExpression) => sql`to_jsonb(${expression})`;
 
 const buildEscapedContainsPattern = (expression: SqlExpression) => {
 	const textExpression = sql`(${expression})::text`;
@@ -40,9 +41,7 @@ const normalizeJsonNullForNullChecks = (input: {
 	typeInfo: ViewExpressionTypeInfo;
 }) => {
 	return input.typeInfo.kind === "property" &&
-		["array", "object"].includes(
-			normalizeExpressionPropertyType(input.typeInfo.propertyType),
-		)
+		["array", "object"].includes(normalizeExpressionPropertyType(input.typeInfo.propertyType))
 		? sql`nullif(${input.expression}, 'null'::jsonb)`
 		: input.expression;
 };
@@ -61,30 +60,19 @@ const buildContainsClause = (input: {
 
 	return match(expressionType.propertyType)
 		.with("string", () => {
-			const expression = input.compiler.compile(
-				input.predicate.expression,
-				"string",
-			);
+			const expression = input.compiler.compile(input.predicate.expression, "string");
 			const value = input.compiler.compile(input.predicate.value, "string");
 			return sql`${expression} ilike ${buildEscapedContainsPattern(value)} escape '\\'`;
 		})
 		.with("array", () => {
-			const expression = input.compiler.compile(
-				input.predicate.expression,
-				"array",
-			);
+			const expression = input.compiler.compile(input.predicate.expression, "array");
 			const valueType = input.compiler.getTypeInfo(input.predicate.value);
 			const value = input.compiler.compile(input.predicate.value);
 			return sql`${expression} @> jsonb_build_array(${valueType.kind === "property" && ["array", "object"].includes(valueType.propertyType) ? value : toJsonbExpression(value)})`;
 		})
 		.with("object", () => {
-			const expression = input.compiler.compile(
-				input.predicate.expression,
-				"object",
-			);
-			const value = toJsonbExpression(
-				input.compiler.compile(input.predicate.value),
-			);
+			const expression = input.compiler.compile(input.predicate.expression, "object");
+			const value = toJsonbExpression(input.compiler.compile(input.predicate.value));
 			return sql`${expression} @> ${value}`;
 		})
 		.otherwise(() => {
@@ -106,9 +94,7 @@ export const buildPredicateClause = (input: {
 				buildPredicateClause({ predicate: p, compiler }),
 			);
 			if (!first) {
-				throw new QueryEngineValidationError(
-					"And predicates must not be empty",
-				);
+				throw new QueryEngineValidationError("And predicates must not be empty");
 			}
 			return rest.length ? (and(first, ...rest) ?? first) : first;
 		})
@@ -168,13 +154,9 @@ export const buildPredicateClause = (input: {
 					? normalizeExpressionPropertyType(expressionType.propertyType)
 					: undefined;
 			const expression = compiler.compile(predicate.expression, targetType);
-			const values = predicate.values.map((value) =>
-				compiler.compile(value, targetType),
-			);
+			const values = predicate.values.map((value) => compiler.compile(value, targetType));
 			return inArray(expression, values);
 		})
-		.with({ type: "contains" }, (predicate) =>
-			buildContainsClause({ predicate, compiler }),
-		)
+		.with({ type: "contains" }, (predicate) => buildContainsClause({ predicate, compiler }))
 		.exhaustive();
 };

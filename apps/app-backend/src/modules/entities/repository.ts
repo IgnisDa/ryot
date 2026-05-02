@@ -1,4 +1,5 @@
 import { and, asc, eq, isNull, or, sql } from "drizzle-orm";
+
 import { assertPersisted, type DbClient, db } from "~/lib/db";
 import {
 	entity,
@@ -9,6 +10,7 @@ import {
 } from "~/lib/db/schema";
 import type { ImageSchemaType } from "~/lib/zod";
 import { getBuiltinRelationshipSchemaBySlug } from "~/modules/relationship-schemas";
+
 import type { ListedEntity } from "./schemas";
 import type { EntityPropertiesShape } from "./service";
 
@@ -53,20 +55,14 @@ export const getEntitySchemaScopeForUser = async (input: {
 		.select(entitySchemaScopeSelection)
 		.from(entitySchema)
 		.where(
-			and(
-				eq(entitySchema.id, input.entitySchemaId),
-				entitySchemaVisibleToUserClause(input.userId),
-			),
+			and(eq(entitySchema.id, input.entitySchemaId), entitySchemaVisibleToUserClause(input.userId)),
 		)
 		.limit(1);
 
 	return foundEntitySchema;
 };
 
-export const getEntityScopeForUser = async (input: {
-	userId: string;
-	entityId: string;
-}) => {
+export const getEntityScopeForUser = async (input: { userId: string; entityId: string }) => {
 	const [foundEntity] = await db
 		.select(entityAccessScopeWithSchemaJoinSelection)
 		.from(entity)
@@ -82,10 +78,7 @@ export const getEntityScopeForUser = async (input: {
 	return foundEntity;
 };
 
-export const getEntityByIdForUser = async (input: {
-	userId: string;
-	entityId: string;
-}) => {
+export const getEntityByIdForUser = async (input: { userId: string; entityId: string }) => {
 	const [foundEntity] = await db
 		.select(entitySelection)
 		.from(entity)
@@ -290,8 +283,7 @@ export const upsertPersonRelationship = async (input: {
 			.limit(1);
 
 		const existingProperties =
-			(existing?.properties as Record<string, unknown> | undefined) ??
-			undefined;
+			(existing?.properties as Record<string, unknown> | undefined) ?? undefined;
 		const mergedProperties = buildPersonRelationshipProperties(
 			existingProperties,
 			input.role,
@@ -346,9 +338,7 @@ type InLibraryRelationshipValues = {
 	properties: Record<string, unknown>;
 };
 
-const insertInLibraryRelationship = async (
-	values: InLibraryRelationshipValues,
-) => {
+const insertInLibraryRelationship = async (values: InLibraryRelationshipValues) => {
 	await db
 		.insert(relationship)
 		.values(values)
@@ -364,9 +354,7 @@ const insertInLibraryRelationship = async (
 
 export const upsertInLibraryRelationship = async (
 	input: { userId: string; mediaEntityId: string; libraryEntityId: string },
-	insert: (
-		values: InLibraryRelationshipValues,
-	) => Promise<void> = insertInLibraryRelationship,
+	insert: (values: InLibraryRelationshipValues) => Promise<void> = insertInLibraryRelationship,
 ) => {
 	const found = await getBuiltinRelationshipSchemaBySlug("in-library");
 	if (!found) {

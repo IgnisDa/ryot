@@ -1,32 +1,15 @@
-import {
-	Badge,
-	Box,
-	Button,
-	Group,
-	Loader,
-	Paper,
-	Stack,
-	Text,
-} from "@mantine/core";
-import {
-	Bookmark,
-	CheckCircle,
-	FolderPlus,
-	History,
-	Image as ImageIcon,
-	Star,
-} from "lucide-react";
+import { Badge, Box, Button, Group, Loader, Paper, Stack, Text } from "@mantine/core";
+import { Bookmark, CheckCircle, FolderPlus, History, Image as ImageIcon, Star } from "lucide-react";
+
 import type {
 	CollectionDiscoveryState,
 	CollectionMembershipFormValues,
 } from "~/features/collections";
 import type { CollectionsDestination } from "~/features/collections/model";
 import { useThemeTokens } from "~/hooks/theme";
+
 import type { SearchResultItem } from "./model";
-import type {
-	MediaSearchDoneAction,
-	MediaSearchLogDateOption,
-} from "./search-modal-media-actions";
+import type { MediaSearchDoneAction, MediaSearchLogDateOption } from "./search-modal-media-actions";
 import { getMediaDoneActionLabel } from "./search-modal-media-actions";
 import {
 	SearchResultCollectionPanel,
@@ -124,11 +107,7 @@ function EntityThumbnail(props: {
 				borderRadius: "var(--mantine-radius-sm)",
 			}}
 		>
-			<ImageIcon
-				strokeWidth={1.5}
-				color={t.textMuted}
-				size={props.iconSize ?? 24}
-			/>
+			<ImageIcon strokeWidth={1.5} color={t.textMuted} size={props.iconSize ?? 24} />
 		</Box>
 	);
 }
@@ -183,11 +162,7 @@ function SearchResultActions(props: {
 					leftSection={<Bookmark size={13} strokeWidth={1.5} />}
 					loading={props.actionState.pendingAction === "backlog"}
 					disabled={!props.canUseLifecycleActions || props.isWorking}
-					variant={
-						props.actionState.doneActions.includes("backlog")
-							? "light"
-							: "subtle"
-					}
+					variant={props.actionState.doneActions.includes("backlog") ? "light" : "subtle"}
 					style={
 						props.actionState.doneActions.includes("backlog")
 							? {
@@ -209,9 +184,7 @@ function SearchResultActions(props: {
 					!props.canUseCollectionAction ||
 					(props.isWorking && props.actionState.pendingAction !== "collection")
 				}
-				variant={
-					props.actionState.openPanel === "collection" ? "filled" : "subtle"
-				}
+				variant={props.actionState.openPanel === "collection" ? "filled" : "subtle"}
 				style={
 					props.actionState.openPanel === "collection"
 						? { backgroundColor: props.accentColor, color: "white" }
@@ -290,14 +263,11 @@ export function SearchResultRow(props: {
 			: undefined;
 	const isTracked = props.isTracked;
 	const isBacklogged = props.actionState.doneActions.includes("backlog");
-	const canUseLifecycleActions =
-		!props.isLifecycleLoading && !props.lifecycleErrorMessage;
+	const canUseLifecycleActions = !props.isLifecycleLoading && !props.lifecycleErrorMessage;
 
 	const displayError =
 		props.actionState.actionError ??
-		(props.addStatus === "error"
-			? (props.addError ?? "Failed to add item")
-			: null);
+		(props.addStatus === "error" ? (props.addError ?? "Failed to add item") : null);
 	const isWorking = props.actionState.pendingAction !== null;
 
 	return (
@@ -309,29 +279,18 @@ export function SearchResultRow(props: {
 				background: props.isExpanded
 					? `linear-gradient(180deg, ${withAlpha(props.accentColor, 0.08)} 0%, ${t.surface} 100%)`
 					: t.surface,
-				borderColor: props.isExpanded
-					? withAlpha(props.accentColor, 0.42)
-					: t.border,
+				borderColor: props.isExpanded ? withAlpha(props.accentColor, 0.42) : t.border,
 			}}
 		>
 			<Group gap="md" align="flex-start" wrap="nowrap">
-				<EntityThumbnail
-					width={48}
-					height={68}
-					iconSize={16}
-					imageUrl={imageUrl}
-				/>
+				<EntityThumbnail width={48} height={68} iconSize={16} imageUrl={imageUrl} />
 				<Stack gap={4} style={{ flex: 1, minWidth: 0 }}>
 					<Group gap={6} wrap="wrap">
 						<Text fw={600} fz="sm" lineClamp={1} c={t.textPrimary}>
 							{props.item.titleProperty.value}
 						</Text>
 						{isTracked ? (
-							<CheckCircle
-								size={16}
-								strokeWidth={1.5}
-								color="var(--mantine-color-green-6)"
-							/>
+							<CheckCircle size={16} strokeWidth={1.5} color="var(--mantine-color-green-6)" />
 						) : null}
 					</Group>
 					<Group gap={6} wrap="wrap">
@@ -362,12 +321,10 @@ export function SearchResultRow(props: {
 								variant={isBacklogged ? "light" : "filled"}
 								loading={props.actionState.pendingAction === "backlog"}
 								disabled={
-									isBacklogged ||
-									(isWorking && props.actionState.pendingAction !== "backlog")
+									isBacklogged || (isWorking && props.actionState.pendingAction !== "backlog")
 								}
 								leftSection={
-									props.actionState.pendingAction ===
-									"backlog" ? undefined : isBacklogged ? (
+									props.actionState.pendingAction === "backlog" ? undefined : isBacklogged ? (
 										<CheckCircle size={14} />
 									) : (
 										<Bookmark size={14} />
@@ -482,8 +439,7 @@ export function SearchResultRow(props: {
 							/>
 						) : null}
 
-						{props.actionState.openPanel === "rate" &&
-						canUseLifecycleActions ? (
+						{props.actionState.openPanel === "rate" && canUseLifecycleActions ? (
 							<SearchResultReviewPanel
 								border={t.border}
 								textMuted={t.textMuted}
@@ -494,8 +450,7 @@ export function SearchResultRow(props: {
 							/>
 						) : null}
 
-						{props.actionState.openPanel === "collection" &&
-						props.canUseCollectionAction ? (
+						{props.actionState.openPanel === "collection" && props.canUseCollectionAction ? (
 							<SearchResultCollectionPanel
 								border={t.border}
 								textMuted={t.textMuted}
@@ -505,9 +460,7 @@ export function SearchResultRow(props: {
 								onPatchActionState={props.onPatchActionState}
 								collectionsDestination={props.collectionsDestination}
 								onRetryCollectionDiscovery={props.onRetryCollectionDiscovery}
-								isEnsuringEntity={
-									props.actionState.pendingAction === "collection"
-								}
+								isEnsuringEntity={props.actionState.pendingAction === "collection"}
 							/>
 						) : null}
 					</Stack>

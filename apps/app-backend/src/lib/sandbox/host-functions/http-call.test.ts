@@ -1,14 +1,13 @@
 import { describe, expect, it } from "bun:test";
+
 import { apiFailure, apiSuccess } from "~/lib/sandbox/types";
+
 import { httpCall } from "./http-call";
 
 describe("httpCall", () => {
 	it("returns response details for a valid request", async () => {
 		const originalFetch = globalThis.fetch;
-		globalThis.fetch = (async (
-			input: string | URL | Request,
-			init?: RequestInit,
-		) => {
+		globalThis.fetch = (async (input: string | URL | Request, init?: RequestInit) => {
 			expect(input).toBe("https://example.com/test");
 			expect(init?.body).toBe('{"hello":"world"}');
 			expect(init?.method).toBe("POST");

@@ -8,13 +8,11 @@ export default defineConfig({
 	server: {
 		allowedHosts: true,
 		host: process.env.FRONTEND_HOST,
-		port: process.env.FRONTEND_PORT
-			? Number.parseInt(process.env.FRONTEND_PORT, 10)
-			: undefined,
+		port: process.env.FRONTEND_PORT ? Number.parseInt(process.env.FRONTEND_PORT, 10) : undefined,
 	},
 	plugins: [
 		reactRouter(),
-		// biome-ignore lint/suspicious/noExplicitAny: to satisfy the plugin's expected type
+		// oxlint-disable-next-line typescript/no-explicit-any
 		safeRoutes() as any,
 		tsconfigPaths({ ignoreConfigErrors: true }),
 		VitePWA({

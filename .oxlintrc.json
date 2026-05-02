@@ -1,0 +1,42 @@
+{
+	"env": { "node": true, "browser": true },
+	"settings": { "react": { "version": "19.0.0" } },
+	"$schema": "./node_modules/oxlint/configuration_schema.json",
+	"plugins": ["react", "typescript", "unicorn", "import", "oxc"],
+	"overrides": [
+		{
+			"rules": { "typescript/no-inferrable-types": "off" },
+			"files": ["*.test.ts", "*.test.tsx", "*.spec.ts", "*.spec.tsx"]
+		}
+	],
+	"ignorePatterns": [
+		"**/out/**",
+		"**/dist/**",
+		"**/.wxt/**",
+		"**/build/**",
+		"**/.vitepress/**",
+		"apps/frontend/app/styles/*.css",
+		"apps/app-frontend/src/routeTree.gen.ts",
+		"apps/docs/src/includes/export-schema.ts",
+		"libs/generated/src/openapi/app-backend.d.ts"
+	],
+	"rules": {
+		"no-param-reassign": "error",
+		"default-param-last": "error",
+		"react/self-closing-comp": "error",
+		"react/no-array-index-key": "warn",
+		"typescript/no-explicit-any": "warn",
+		"react-hooks/exhaustive-deps": "off",
+		"typescript/prefer-as-const": "error",
+		"typescript/no-inferrable-types": "error",
+		"unicorn/prefer-number-properties": "error",
+		"typescript/no-unused-vars": [
+			"error",
+			{
+				"varsIgnorePattern": "^_",
+				"argsIgnorePattern": "^_",
+				"caughtErrorsIgnorePattern": "^_"
+			}
+		]
+	}
+}

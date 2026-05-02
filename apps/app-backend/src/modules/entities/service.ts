@@ -1,14 +1,11 @@
 import { type AppSchema, resolveRequiredString } from "@ryot/ts-utils";
+
 import { checkReadAccess } from "~/lib/access";
 import { isUniqueConstraintError } from "~/lib/app/postgres";
 import { parseAppSchemaProperties } from "~/lib/app/schema-validation";
-import {
-	type ServiceResult,
-	serviceData,
-	serviceError,
-	wrapServiceValidator,
-} from "~/lib/result";
+import { type ServiceResult, serviceData, serviceError, wrapServiceValidator } from "~/lib/result";
 import { ImageSchema, type ImageSchemaType } from "~/lib/zod";
+
 import {
 	createEntityForUser,
 	findEntityByExternalIdForUser,
@@ -32,8 +29,7 @@ export type EntityServiceDeps = {
 
 export type EntityServiceResult<T> = ServiceResult<T, EntityMutationError>;
 
-const entityProvenanceUniqueConstraint =
-	"entity_user_schema_script_external_id_unique";
+const entityProvenanceUniqueConstraint = "entity_user_schema_script_external_id_unique";
 const entityNotFoundError = "Entity not found";
 const partialProvenanceError =
 	"externalId and sandboxScriptId must both be provided or both be omitted";
@@ -49,22 +45,14 @@ const entityServiceDeps: EntityServiceDeps = {
 };
 
 const resolveEntityIdResult = (entityId: string) =>
-	wrapServiceValidator(
-		() => resolveEntityId(entityId),
-		"Entity id is required",
-	);
+	wrapServiceValidator(() => resolveEntityId(entityId), "Entity id is required");
 
 const resolveEntitySchemaIdResult = (entitySchemaId: string) =>
-	wrapServiceValidator(
-		() => resolveEntitySchemaId(entitySchemaId),
-		"Entity schema id is required",
-	);
+	wrapServiceValidator(() => resolveEntitySchemaId(entitySchemaId), "Entity schema id is required");
 
-export const resolveEntityId = (entityId: string) =>
-	resolveRequiredString(entityId, "Entity id");
+export const resolveEntityId = (entityId: string) => resolveRequiredString(entityId, "Entity id");
 
-export const resolveEntityName = (name: string) =>
-	resolveRequiredString(name, "Entity name");
+export const resolveEntityName = (name: string) => resolveRequiredString(name, "Entity name");
 
 export const resolveEntitySchemaId = (entitySchemaId: string) =>
 	resolveRequiredString(entitySchemaId, "Entity schema id");
@@ -122,18 +110,12 @@ const resolveEntityCreateInputResult = (
 	input: Pick<CreateEntityBody, "image" | "name" | "properties"> & {
 		propertiesSchema: AppSchema;
 	},
-) =>
-	wrapServiceValidator(
-		() => resolveEntityCreateInput(input),
-		"Entity payload is invalid",
-	);
+) => wrapServiceValidator(() => resolveEntityCreateInput(input), "Entity payload is invalid");
 
 export const upsertInLibraryIfGlobal = async (
 	input: { userId: string; entityId: string; entityUserId: string | null },
 	deps: {
-		getUserLibraryEntityId: (input: {
-			userId: string;
-		}) => Promise<string | undefined>;
+		getUserLibraryEntityId: (input: { userId: string }) => Promise<string | undefined>;
 		upsertInLibraryRelationship: (input: {
 			userId: string;
 			mediaEntityId: string;
@@ -197,9 +179,7 @@ export const createEntity = async (
 		return serviceError("validation", partialProvenanceError);
 	}
 
-	const entitySchemaIdResult = resolveEntitySchemaIdResult(
-		input.body.entitySchemaId,
-	);
+	const entitySchemaIdResult = resolveEntitySchemaIdResult(input.body.entitySchemaId);
 	if ("error" in entitySchemaIdResult) {
 		return entitySchemaIdResult;
 	}
@@ -213,8 +193,7 @@ export const createEntity = async (
 	}
 
 	const provenance =
-		input.body.externalId !== undefined &&
-		input.body.sandboxScriptId !== undefined
+		input.body.externalId !== undefined && input.body.sandboxScriptId !== undefined
 			? {
 					externalId: input.body.externalId,
 					sandboxScriptId: input.body.sandboxScriptId,
@@ -256,10 +235,7 @@ export const createEntity = async (
 
 		return serviceData(createdEntity);
 	} catch (error) {
-		if (
-			isUniqueConstraintError(error, entityProvenanceUniqueConstraint) &&
-			provenance
-		) {
+		if (isUniqueConstraintError(error, entityProvenanceUniqueConstraint) && provenance) {
 			const existingEntity = await deps.findEntityByExternalIdForUser({
 				userId: input.userId,
 				externalId: provenance.externalId,

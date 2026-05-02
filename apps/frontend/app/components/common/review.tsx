@@ -34,6 +34,7 @@ import {
 } from "@tabler/icons-react";
 import { useMutation } from "@tanstack/react-query";
 import { match } from "ts-pattern";
+
 import { useSavedForm } from "~/lib/hooks/use-saved-form";
 import { reviewYellow } from "~/lib/shared/constants";
 import { dayjsLib } from "~/lib/shared/date-utils";
@@ -44,19 +45,14 @@ import {
 	formatRatingForDisplay,
 	getRatingUnitSuffix,
 } from "~/lib/shared/media-utils";
-import {
-	clientGqlService,
-	refreshEntityDetails,
-} from "~/lib/shared/react-query";
+import { clientGqlService, refreshEntityDetails } from "~/lib/shared/react-query";
 import { openConfirmationModal } from "~/lib/shared/ui-utils";
 import { useReviewEntity } from "~/lib/state/media";
 import { getThreePointSmileyEmoji } from "~/lib/types";
+
 import classes from "~/styles/common.module.css";
 
-export const DisplayThreePointReview = (props: {
-	size?: number;
-	rating?: number | null;
-}) => {
+export const DisplayThreePointReview = (props: { size?: number; rating?: number | null }) => {
 	if (props.rating == null) return null;
 	const smileyRating = convertDecimalToThreePointSmiley(props.rating);
 	const fontSize = props.size ? `${props.size}px` : "20px";
@@ -78,21 +74,14 @@ export const ReviewItemDisplay = (props: {
 	const userDetails = useUserDetails();
 	const userPreferences = useUserPreferences();
 	const reviewScale = userPreferences.general.reviewScale;
-	const ratingValue = convertRatingToUserScale(
-		props.review.rating,
-		reviewScale,
-	);
+	const ratingValue = convertRatingToUserScale(props.review.rating, reviewScale);
 	const ratingStringForScale =
-		ratingValue == null
-			? null
-			: formatRatingForDisplay(ratingValue, reviewScale);
+		ratingValue == null ? null : formatRatingForDisplay(ratingValue, reviewScale);
 	const ratingSuffix = getRatingUnitSuffix(reviewScale);
 	const [opened, { toggle }] = useDisclosure(false);
-	const [openedLeaveComment, { toggle: toggleLeaveComment }] =
-		useDisclosure(false);
+	const [openedLeaveComment, { toggle: toggleLeaveComment }] = useDisclosure(false);
 	const deleteReviewMutation = useMutation({
-		mutationFn: (reviewId: string) =>
-			clientGqlService.request(DeleteReviewDocument, { reviewId }),
+		mutationFn: (reviewId: string) => clientGqlService.request(DeleteReviewDocument, { reviewId }),
 		onSuccess: () => {
 			refreshEntityDetails(props.entityId);
 			notifications.show({
@@ -100,8 +89,7 @@ export const ReviewItemDisplay = (props: {
 				message: "Review deleted successfully",
 			});
 		},
-		onError: () =>
-			notifications.show({ color: "red", message: "Failed to delete review" }),
+		onError: () => notifications.show({ color: "red", message: "Failed to delete review" }),
 	});
 	const [_, setEntityToReview] = useReviewEntity();
 	const seenItemsAssociatedWith = props.review.seenItemsAssociatedWith.length;
@@ -117,8 +105,7 @@ export const ReviewItemDisplay = (props: {
 					: `Comment ${variables.shouldDelete ? "deleted" : "posted"} successfully`;
 			notifications.show({ color: "green", message });
 		},
-		onError: () =>
-			notifications.show({ color: "red", message: "Failed to update comment" }),
+		onError: () => notifications.show({ color: "red", message: "Failed to update comment" }),
 	});
 
 	const form = useSavedForm({
@@ -129,7 +116,7 @@ export const ReviewItemDisplay = (props: {
 	const RenderedText = () =>
 		props.review.textRendered ? (
 			<div
-				// biome-ignore lint/security/noDangerouslySetInnerHtml: generated on the backend securely
+				// oxlint-disable-next-line react/no-danger
 				dangerouslySetInnerHTML={{
 					__html: props.review.textRendered,
 				}}
@@ -194,10 +181,7 @@ export const ReviewItemDisplay = (props: {
 									))
 									.otherwise(() => (
 										<Flex align="center" gap={4}>
-											<IconStarFilled
-												size={16}
-												style={{ color: reviewYellow }}
-											/>
+											<IconStarFilled size={16} style={{ color: reviewYellow }} />
 											<Text className={classes.text} fw="bold">
 												{ratingStringForScale}
 												{ratingSuffix}
@@ -214,24 +198,16 @@ export const ReviewItemDisplay = (props: {
 							</Text>
 						) : null}
 						{isNumber(props.review.podcastExtraInformation?.episode) ? (
-							<Text c="dimmed">
-								EP-{props.review.podcastExtraInformation.episode}
-							</Text>
+							<Text c="dimmed">EP-{props.review.podcastExtraInformation.episode}</Text>
 						) : null}
 						{isNumber(props.review.animeExtraInformation?.episode) ? (
-							<Text c="dimmed">
-								EP-{props.review.animeExtraInformation.episode}
-							</Text>
+							<Text c="dimmed">EP-{props.review.animeExtraInformation.episode}</Text>
 						) : null}
 						{isNumber(props.review.mangaExtraInformation?.chapter) ? (
-							<Text c="dimmed">
-								Ch-{props.review.mangaExtraInformation.chapter}
-							</Text>
+							<Text c="dimmed">Ch-{props.review.mangaExtraInformation.chapter}</Text>
 						) : null}
 						{isNumber(props.review.mangaExtraInformation?.volume) ? (
-							<Text c="dimmed">
-								VOL-{props.review.mangaExtraInformation.volume}
-							</Text>
+							<Text c="dimmed">VOL-{props.review.mangaExtraInformation.volume}</Text>
 						) : null}
 					</Group>
 					{props.review.textRendered ? (
@@ -277,11 +253,7 @@ export const ReviewItemDisplay = (props: {
 							</Group>
 						</form>
 					) : (
-						<Button
-							variant="outline"
-							size="compact-md"
-							onClick={toggleLeaveComment}
-						>
+						<Button variant="outline" size="compact-md" onClick={toggleLeaveComment}>
 							Leave comment
 						</Button>
 					)}
@@ -296,9 +268,7 @@ export const ReviewItemDisplay = (props: {
 											</Avatar>
 											<Box>
 												<Text>{c.user.name}</Text>
-												{c.createdOn ? (
-													<Text>{dayjsLib(c.createdOn).format("L")}</Text>
-												) : null}
+												{c.createdOn ? <Text>{dayjsLib(c.createdOn).format("L")}</Text> : null}
 											</Box>
 											{userDetails.id === c.user.id ? (
 												<ActionIcon

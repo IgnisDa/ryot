@@ -1,14 +1,16 @@
 import { describe, expect, it } from "bun:test";
+
 import { appConfigEnvIndex, appConfigPathIndex } from "~/lib/config";
 import { apiFailure, apiSuccess } from "~/lib/sandbox/types";
+
 import { getAppConfigValue } from "./get-app-config-value";
 
 describe("getAppConfigValue", () => {
 	it("returns the configured value for a known path", async () => {
 		const envKey = appConfigPathIndex["books.hardcover.apiKey"];
-		expect(
-			getAppConfigValue({}, "  books.hardcover.apiKey  "),
-		).resolves.toEqual(apiSuccess(appConfigEnvIndex[envKey] ?? null));
+		expect(getAppConfigValue({}, "  books.hardcover.apiKey  ")).resolves.toEqual(
+			apiSuccess(appConfigEnvIndex[envKey] ?? null),
+		);
 	});
 
 	it("returns validation failure for a blank key", async () => {

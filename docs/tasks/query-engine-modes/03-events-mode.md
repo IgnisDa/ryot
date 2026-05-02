@@ -96,6 +96,7 @@ The validator needs to know the current mode to enforce this. Pass mode context 
 ### Preparer: event schema loading
 
 Events mode needs to load event schemas for:
+
 1. Validating `eventSchemas` slugs exist for the scoped entity schemas
 2. Loading event schema `propertiesSchema` for `event` property reference validation
 3. Building the `event_schema_data` JSONB

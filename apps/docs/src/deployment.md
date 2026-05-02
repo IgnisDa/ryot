@@ -11,13 +11,13 @@ is a non-exhaustive set of guides to deploy Ryot to alternative platforms.
 
 1. Click on "+ New Project" on your dashboard and select "Empty project".
 2. Once the project is created click on "+ New" and select "Database" and then
-  "Add PostgreSQL".
+   "Add PostgreSQL".
 3. Click on "+ New" again and select "Docker Image". Type `ignisda/ryot` and hit Enter.
 4. Click on the newly created service and go to the "Variables" section. Click on
-  "New Variable" and then "Add Reference". Click on "Add".
+   "New Variable" and then "Add Reference". Click on "Add".
 5. Go to the "Settings" tab and then click on "Generate Domain".
 6. Optionally, you can set the [health-check](https://docs.railway.app/deploy/healthchecks)
-  path to `/health`.
+   path to `/health`.
 
 ## Dokku
 
@@ -80,6 +80,7 @@ The demo Ryot instance is deployed to [Fly](https://fly.io). The following steps
 are required to deploy to Fly.
 
 1. Create a new postgres database for Ryot.
+
    ```bash
    flyctl postgres create ryot-db
    ```
@@ -91,6 +92,7 @@ are required to deploy to Fly.
    flyctl launch
    ```
 3. Connect the database.
+
    ```bash
    fly postgres attach --app ryot ryot-db
    ```

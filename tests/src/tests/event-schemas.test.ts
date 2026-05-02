@@ -1,4 +1,5 @@
 import { describe, expect, it } from "bun:test";
+
 import {
 	createAuthenticatedClient,
 	findBuiltinSchemaBySlug,
@@ -9,17 +10,9 @@ import {
 describe("GET /event-schemas", () => {
 	it("returns seeded built-in media lifecycle event schemas", async () => {
 		const { client, cookies } = await createAuthenticatedClient();
-		const { schema: mediaSchema } = await findBuiltinSchemaBySlug(
-			client,
-			cookies,
-			"book",
-		);
+		const { schema: mediaSchema } = await findBuiltinSchemaBySlug(client, cookies, "book");
 
-		const eventSchemas = await listEventSchemas(
-			client,
-			cookies,
-			mediaSchema.id,
-		);
+		const eventSchemas = await listEventSchemas(client, cookies, mediaSchema.id);
 
 		expect(eventSchemas.map((schema) => schema.slug).sort()).toEqual([
 			"backlog",
@@ -32,17 +25,9 @@ describe("GET /event-schemas", () => {
 
 	it("returns the seeded workout-set event schema for exercise", async () => {
 		const { client, cookies } = await createAuthenticatedClient();
-		const { schema: exerciseSchema } = await findBuiltinSchemaBySlug(
-			client,
-			cookies,
-			"exercise",
-		);
+		const { schema: exerciseSchema } = await findBuiltinSchemaBySlug(client, cookies, "exercise");
 
-		const eventSchemas = await listEventSchemas(
-			client,
-			cookies,
-			exerciseSchema.id,
-		);
+		const eventSchemas = await listEventSchemas(client, cookies, exerciseSchema.id);
 
 		expect(eventSchemas.map((schema) => schema.slug)).toEqual(["workout-set"]);
 		expect(eventSchemas[0]?.propertiesSchema).toMatchObject({
@@ -65,8 +50,7 @@ describe("GET /event-schemas", () => {
 				exerciseOrder: {
 					type: "integer",
 					label: "Exercise Order",
-					description:
-						"Zero-based position of this exercise within the workout",
+					description: "Zero-based position of this exercise within the workout",
 				},
 				setLot: {
 					type: "enum",
@@ -78,8 +62,7 @@ describe("GET /event-schemas", () => {
 				distance: {
 					type: "number",
 					label: "Distance",
-					description:
-						"Distance covered in this set in the user's preferred unit",
+					description: "Distance covered in this set in the user's preferred unit",
 				},
 				duration: {
 					type: "number",
@@ -94,8 +77,7 @@ describe("GET /event-schemas", () => {
 				rpe: {
 					label: "Rpe",
 					type: "integer",
-					description:
-						"Rate of perceived exertion from 0 (no effort) to 10 (maximal effort)",
+					description: "Rate of perceived exertion from 0 (no effort) to 10 (maximal effort)",
 				},
 			},
 		});
@@ -112,25 +94,15 @@ describe("GET /event-schemas", () => {
 				throw new Error(`Missing built-in ${slug} schema`);
 			}
 
-			const eventSchemas = await listEventSchemas(
-				client,
-				cookies,
-				mediaSchema.id,
-			);
-			expect(eventSchemas.some((schema) => schema.slug === "backlog")).toBe(
-				true,
-			);
-			const progressSchema = eventSchemas.find(
-				(schema) => schema.slug === "progress",
-			);
+			const eventSchemas = await listEventSchemas(client, cookies, mediaSchema.id);
+			expect(eventSchemas.some((schema) => schema.slug === "backlog")).toBe(true);
+			const progressSchema = eventSchemas.find((schema) => schema.slug === "progress");
 			expect(progressSchema).toBeDefined();
 			if (!progressSchema) {
 				throw new Error(`Missing built-in progress schema for ${slug}`);
 			}
 			expect(progressSchema.propertiesSchema).toBeDefined();
-			expect(
-				progressSchema.propertiesSchema as Record<string, unknown>,
-			).toMatchObject({
+			expect(progressSchema.propertiesSchema as Record<string, unknown>).toMatchObject({
 				fields: {
 					progressPercent: {
 						type: "number",
@@ -141,17 +113,13 @@ describe("GET /event-schemas", () => {
 					},
 				},
 			});
-			const completeSchema = eventSchemas.find(
-				(schema) => schema.slug === "complete",
-			);
+			const completeSchema = eventSchemas.find((schema) => schema.slug === "complete");
 			expect(completeSchema).toBeDefined();
 			if (!completeSchema) {
 				throw new Error(`Missing built-in complete schema for ${slug}`);
 			}
 			expect(completeSchema.propertiesSchema).toBeDefined();
-			expect(
-				completeSchema.propertiesSchema as Record<string, unknown>,
-			).toMatchObject({
+			expect(completeSchema.propertiesSchema as Record<string, unknown>).toMatchObject({
 				fields: {
 					startedOn: {
 						type: "datetime",
@@ -187,17 +155,13 @@ describe("GET /event-schemas", () => {
 					},
 				],
 			});
-			const reviewSchema = eventSchemas.find(
-				(schema) => schema.slug === "review",
-			);
+			const reviewSchema = eventSchemas.find((schema) => schema.slug === "review");
 			expect(reviewSchema).toBeDefined();
 			if (!reviewSchema) {
 				throw new Error(`Missing built-in review schema for ${slug}`);
 			}
 			expect(reviewSchema.propertiesSchema).toBeDefined();
-			expect(
-				reviewSchema.propertiesSchema as Record<string, unknown>,
-			).toMatchObject({
+			expect(reviewSchema.propertiesSchema as Record<string, unknown>).toMatchObject({
 				fields: {
 					review: {
 						type: "string",
@@ -226,14 +190,8 @@ describe("GET /event-schemas", () => {
 				throw new Error(`Missing built-in ${slug} schema`);
 			}
 
-			const eventSchemas = await listEventSchemas(
-				client,
-				cookies,
-				mediaSchema.id,
-			);
-			const progressSchema = eventSchemas.find(
-				(schema) => schema.slug === "progress",
-			);
+			const eventSchemas = await listEventSchemas(client, cookies, mediaSchema.id);
+			const progressSchema = eventSchemas.find((schema) => schema.slug === "progress");
 			expect(progressSchema).toBeDefined();
 			if (!progressSchema) {
 				throw new Error(`Missing built-in progress schema for ${slug}`);
@@ -344,21 +302,10 @@ describe("GET /event-schemas", () => {
 				},
 			},
 		});
-		expect(
-			(movieProgressSchema.fields as Record<string, unknown>).showSeason,
-		).toBe(undefined);
-		expect(
-			(movieProgressSchema.fields as Record<string, unknown>).showEpisode,
-		).toBe(undefined);
+		expect((movieProgressSchema.fields as Record<string, unknown>).showSeason).toBe(undefined);
+		expect((movieProgressSchema.fields as Record<string, unknown>).showEpisode).toBe(undefined);
 
-		for (const slug of [
-			"book",
-			"comic-book",
-			"audiobook",
-			"video-game",
-			"music",
-			"visual-novel",
-		]) {
+		for (const slug of ["book", "comic-book", "audiobook", "video-game", "music", "visual-novel"]) {
 			const progressSchema = await getProgressSchema(slug);
 			expect(progressSchema).toEqual(movieProgressSchema);
 		}

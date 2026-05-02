@@ -1,4 +1,5 @@
 import { describe, expect, it } from "bun:test";
+
 import { normalizeRequestPerMode } from "./preparer";
 
 describe("normalizeRequestPerMode", () => {
@@ -12,9 +13,7 @@ describe("normalizeRequestPerMode", () => {
 			pagination: { page: 1, limit: 20 },
 			relationships: [{ relationshipSchemaSlug: "owner" }],
 			sort: { expression: { type: "literal", value: null }, direction: "asc" },
-			eventJoins: [
-				{ key: "review", eventSchemaSlug: "review", kind: "latestEvent" },
-			],
+			eventJoins: [{ key: "review", eventSchemaSlug: "review", kind: "latestEvent" }],
 		});
 		expect(result.mode).toBe("entities");
 		expect(result.eventJoins).toHaveLength(1);
@@ -30,9 +29,7 @@ describe("normalizeRequestPerMode", () => {
 			mode: "aggregate",
 			computedFields: [],
 			relationships: [{ relationshipSchemaSlug: "owner" }],
-			eventJoins: [
-				{ key: "review", eventSchemaSlug: "review", kind: "latestEvent" },
-			],
+			eventJoins: [{ key: "review", eventSchemaSlug: "review", kind: "latestEvent" }],
 		});
 		expect(result.mode).toBe("aggregate");
 		expect(result.eventJoins).toHaveLength(1);
@@ -50,9 +47,7 @@ describe("normalizeRequestPerMode", () => {
 			pagination: { page: 1, limit: 20 },
 			eventSchemas: ["review", "complete"],
 			sort: { expression: { type: "literal", value: null }, direction: "asc" },
-			eventJoins: [
-				{ key: "review", eventSchemaSlug: "review", kind: "latestEvent" },
-			],
+			eventJoins: [{ key: "review", eventSchemaSlug: "review", kind: "latestEvent" }],
 		});
 		expect(result.mode).toBe("events");
 		expect(result.eventJoins).toHaveLength(1);

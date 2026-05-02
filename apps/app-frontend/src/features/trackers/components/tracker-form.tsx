@@ -1,7 +1,9 @@
 import { Button, Group, Stack } from "@mantine/core";
 import { useRef } from "react";
+
 import { useAppForm } from "~/hooks/forms";
 import { createNameFieldListeners } from "~/lib/slug-sync";
+
 import {
 	buildTrackerFormValues,
 	createTrackerFormSchema,
@@ -10,10 +12,7 @@ import {
 	toUpdateTrackerPayload,
 } from "../form";
 import { TrackerIcon, trackerIconSelectData } from "../icons";
-import {
-	useTrackerSidebarActions,
-	useTrackerSidebarState,
-} from "../sidebar-context";
+import { useTrackerSidebarActions, useTrackerSidebarState } from "../sidebar-context";
 
 export function TrackerForm() {
 	const state = useTrackerSidebarState();

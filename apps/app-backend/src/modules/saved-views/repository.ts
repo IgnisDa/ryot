@@ -1,15 +1,10 @@
 import { and, asc, eq, inArray, isNull, sql } from "drizzle-orm";
+
 import { assertPersisted, type DbClient, db } from "~/lib/db";
 import { savedView } from "~/lib/db/schema";
-import type {
-	CreateSavedViewBody,
-	ListedSavedView,
-	UpdateSavedViewBody,
-} from "./schemas";
-import {
-	displayConfigurationSchema,
-	storedSavedViewQueryDefinitionSchema,
-} from "./schemas";
+
+import type { CreateSavedViewBody, ListedSavedView, UpdateSavedViewBody } from "./schemas";
+import { displayConfigurationSchema, storedSavedViewQueryDefinitionSchema } from "./schemas";
 
 type SavedViewCreateInput = CreateSavedViewBody & {
 	slug: string;
@@ -17,10 +12,7 @@ type SavedViewCreateInput = CreateSavedViewBody & {
 	isBuiltin: boolean;
 };
 
-type SavedViewRow = Omit<
-	ListedSavedView,
-	"queryDefinition" | "displayConfiguration"
-> & {
+type SavedViewRow = Omit<ListedSavedView, "queryDefinition" | "displayConfiguration"> & {
 	queryDefinition: unknown;
 	displayConfiguration: unknown;
 };
@@ -42,15 +34,11 @@ const savedViewSelection = {
 };
 
 const toSavedView = (row: SavedViewRow): ListedSavedView => {
-	const queryDefinition = storedSavedViewQueryDefinitionSchema.parse(
-		row.queryDefinition,
-	);
+	const queryDefinition = storedSavedViewQueryDefinitionSchema.parse(row.queryDefinition);
 
 	return {
 		...row,
-		displayConfiguration: displayConfigurationSchema.parse(
-			row.displayConfiguration,
-		),
+		displayConfiguration: displayConfigurationSchema.parse(row.displayConfiguration),
 		queryDefinition: {
 			...queryDefinition,
 			eventJoins: queryDefinition.eventJoins ?? [],
@@ -73,12 +61,7 @@ const getNextSavedViewSortOrderForUser = async (input: {
 			maxSortOrder: sql<number>`coalesce(max(${savedView.sortOrder}), -1)`,
 		})
 		.from(savedView)
-		.where(
-			and(
-				eq(savedView.userId, input.userId),
-				withSavedViewScope(input.trackerId),
-			),
-		);
+		.where(and(eq(savedView.userId, input.userId), withSavedViewScope(input.trackerId)));
 
 	return Number(orderRow?.maxSortOrder ?? -1) + 1;
 };
@@ -102,28 +85,16 @@ export const listSavedViewsForUser = async (input: {
 		.select(savedViewSelection)
 		.from(savedView)
 		.where(and(...whereClauses))
-		.orderBy(
-			asc(savedView.trackerId),
-			asc(savedView.sortOrder),
-			asc(savedView.createdAt),
-		);
+		.orderBy(asc(savedView.trackerId), asc(savedView.sortOrder), asc(savedView.createdAt));
 
 	return rows.map(toSavedView);
 };
 
-export const getSavedViewBySlugForUser = async (input: {
-	userId: string;
-	viewSlug: string;
-}) => {
+export const getSavedViewBySlugForUser = async (input: { userId: string; viewSlug: string }) => {
 	const [foundView] = await db
 		.select(savedViewSelection)
 		.from(savedView)
-		.where(
-			and(
-				eq(savedView.userId, input.userId),
-				eq(savedView.slug, input.viewSlug),
-			),
-		)
+		.where(and(eq(savedView.userId, input.userId), eq(savedView.slug, input.viewSlug)))
 		.limit(1);
 
 	if (!foundView) {
@@ -243,12 +214,7 @@ export const listUserSavedViewSlugsInOrder = async (input: {
 	const rows = await db
 		.select({ viewSlug: savedView.slug })
 		.from(savedView)
-		.where(
-			and(
-				eq(savedView.userId, input.userId),
-				withSavedViewScope(input.trackerId),
-			),
-		)
+		.where(and(eq(savedView.userId, input.userId), withSavedViewScope(input.trackerId)))
 		.orderBy(asc(savedView.sortOrder), asc(savedView.createdAt));
 
 	return rows.map((row) => row.viewSlug);
@@ -309,10 +275,7 @@ export const persistSavedViewOrderForUser = async (input: {
 			return updatedSlugs;
 		});
 	} catch (error) {
-		if (
-			error instanceof Error &&
-			error.message === savedViewOrderPersistenceError
-		) {
+		if (error instanceof Error && error.message === savedViewOrderPersistenceError) {
 			return undefined;
 		}
 
@@ -328,12 +291,7 @@ export const updateSavedViewDisabledBySlugForUser = async (input: {
 	const [updatedView] = await db
 		.update(savedView)
 		.set({ isDisabled: input.isDisabled })
-		.where(
-			and(
-				eq(savedView.slug, input.viewSlug),
-				eq(savedView.userId, input.userId),
-			),
-		)
+		.where(and(eq(savedView.slug, input.viewSlug), eq(savedView.userId, input.userId)))
 		.returning(savedViewSelection);
 
 	if (!updatedView) {
@@ -343,10 +301,7 @@ export const updateSavedViewDisabledBySlugForUser = async (input: {
 	return toSavedView(updatedView);
 };
 
-export const deleteSavedViewBySlugForUser = async (input: {
-	userId: string;
-	viewSlug: string;
-}) => {
+export const deleteSavedViewBySlugForUser = async (input: { userId: string; viewSlug: string }) => {
 	const [deletedView] = await db
 		.delete(savedView)
 		.where(

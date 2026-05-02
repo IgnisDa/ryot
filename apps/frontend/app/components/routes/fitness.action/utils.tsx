@@ -3,13 +3,10 @@ import type { CurrentWorkoutStopwatch } from "~/lib/state/fitness";
 
 export const DEFAULT_SET_TIMEOUT_DELAY_MS = 800;
 
-export const getStopwatchMilliSeconds = (
-	currentStopwatch: CurrentWorkoutStopwatch,
-) => {
+export const getStopwatchMilliSeconds = (currentStopwatch: CurrentWorkoutStopwatch) => {
 	if (!currentStopwatch) return 0;
 	let total = 0;
-	for (const duration of currentStopwatch)
-		total += dayjsLib(duration.to).diff(duration.from);
+	for (const duration of currentStopwatch) total += dayjsLib(duration.to).diff(duration.from);
 	return total;
 };
 

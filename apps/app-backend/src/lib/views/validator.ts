@@ -1,6 +1,8 @@
 import type { RuntimeRef } from "@ryot/ts-utils";
+
 import type { QueryEngineRequest } from "~/modules/query-engine";
 import type { DisplayConfiguration } from "~/modules/saved-views";
+
 import {
 	buildComputedFieldMap,
 	getComputedFieldDependencies,
@@ -66,12 +68,9 @@ const getEventPropertyDefinition = (
 		);
 	}
 
-	const serializedDefinition =
-		serializeComparablePropertyDefinition(firstDefinition);
+	const serializedDefinition = serializeComparablePropertyDefinition(firstDefinition);
 	for (const definition of restDefinitions) {
-		if (
-			serializeComparablePropertyDefinition(definition) !== serializedDefinition
-		) {
+		if (serializeComparablePropertyDefinition(definition) !== serializedDefinition) {
 			throw new QueryEngineValidationError(
 				`Property '${propertyPath.join(".")}' has incompatible definitions across event schemas for slug '${eventSchemaSlug}'`,
 			);
@@ -106,32 +105,22 @@ const validateEventReference = (
 			);
 		}
 
-		getEventPropertyDefinition(
-			eventSchemas,
-			reference.eventSchemaSlug,
-			propertyPath,
-		);
+		getEventPropertyDefinition(eventSchemas, reference.eventSchemaSlug, propertyPath);
 
 		return;
 	}
 
 	const [column] = reference.path;
 	if (!column) {
-		throw new QueryEngineValidationError(
-			"Event reference path must not be empty",
-		);
+		throw new QueryEngineValidationError("Event reference path must not be empty");
 	}
 
 	if (!validBuiltins.has(column)) {
-		throw new QueryEngineValidationError(
-			`Unsupported event column 'event.${column}'`,
-		);
+		throw new QueryEngineValidationError(`Unsupported event column 'event.${column}'`);
 	}
 
 	if (!getEventColumnPropertyDefinition(column)) {
-		throw new QueryEngineValidationError(
-			`Unsupported event column 'event.${column}'`,
-		);
+		throw new QueryEngineValidationError(`Unsupported event column 'event.${column}'`);
 	}
 };
 const validateEventSchemaReference = (
@@ -140,9 +129,7 @@ const validateEventSchemaReference = (
 ): void => {
 	const [column] = reference.path;
 	if (!column) {
-		throw new QueryEngineValidationError(
-			"Event schema reference path must not be empty",
-		);
+		throw new QueryEngineValidationError("Event schema reference path must not be empty");
 	}
 	if (reference.path.length > 1) {
 		throw new QueryEngineValidationError(
@@ -170,10 +157,7 @@ const isPrimaryEventMode = <
 
 export const validateRuntimeReferenceAgainstSchemas = (
 	reference: RuntimeRef,
-	context: QueryEngineReferenceContext<
-		ValidationSchemaRow,
-		ValidationEventJoinRow
-	>,
+	context: QueryEngineReferenceContext<ValidationSchemaRow, ValidationEventJoinRow>,
 	validBuiltins: ReadonlySet<string>,
 ): void => {
 	if (reference.type === "computed-field") {
@@ -200,9 +184,7 @@ export const validateRuntimeReferenceAgainstSchemas = (
 
 		const [column] = reference.path;
 		if (!column) {
-			throw new QueryEngineValidationError(
-				"Entity reference path must not be empty",
-			);
+			throw new QueryEngineValidationError("Entity reference path must not be empty");
 		}
 		if (column === "image") {
 			return;
@@ -227,10 +209,7 @@ export const validateRuntimeReferenceAgainstSchemas = (
 			);
 		}
 
-		if (
-			context.eventSchemaSlugs &&
-			!context.eventSchemaSlugs.has(reference.eventSchemaSlug)
-		) {
+		if (context.eventSchemaSlugs && !context.eventSchemaSlugs.has(reference.eventSchemaSlug)) {
 			throw new QueryEngineValidationError(
 				`Event schema '${reference.eventSchemaSlug}' is not available for the requested entity schemas`,
 			);
@@ -268,9 +247,7 @@ export const validateRuntimeReferenceAgainstSchemas = (
 	if (reference.type === "entity-schema") {
 		const [column] = reference.path;
 		if (!column) {
-			throw new QueryEngineValidationError(
-				"Entity schema reference path must not be empty",
-			);
+			throw new QueryEngineValidationError("Entity schema reference path must not be empty");
 		}
 		if (reference.path.length > 1) {
 			throw new QueryEngineValidationError(
@@ -327,9 +304,7 @@ export const validateRuntimeReferenceAgainstSchemas = (
 
 	const [column] = reference.path;
 	if (!column) {
-		throw new QueryEngineValidationError(
-			"Event join reference path must not be empty",
-		);
+		throw new QueryEngineValidationError("Event join reference path must not be empty");
 	}
 	if (!getEventJoinColumnPropertyDefinition(column)) {
 		throw new QueryEngineValidationError(
@@ -352,23 +327,13 @@ const collectComputedFieldChain = (
 			return [];
 		}
 
-		const field = getComputedFieldOrThrow(
-			computedFieldMap,
-			expression.reference.key,
-		);
+		const field = getComputedFieldOrThrow(computedFieldMap, expression.reference.key);
 		if (seen.has(field.key)) {
 			return [];
 		}
 
 		seen.add(field.key);
-		return [
-			field,
-			...collectComputedFieldsInExpression(
-				field.expression,
-				computedFieldMap,
-				seen,
-			),
-		];
+		return [field, ...collectComputedFieldsInExpression(field.expression, computedFieldMap, seen)];
 	}
 
 	return collectComputedFieldsInExpression(expression, computedFieldMap, seen);
@@ -387,14 +352,7 @@ const collectComputedFieldsInExpression = (
 
 		const field = getComputedFieldOrThrow(computedFieldMap, key);
 		seen.add(key);
-		return [
-			field,
-			...collectComputedFieldsInExpression(
-				field.expression,
-				computedFieldMap,
-				seen,
-			),
-		];
+		return [field, ...collectComputedFieldsInExpression(field.expression, computedFieldMap, seen)];
 	});
 };
 
@@ -410,27 +368,16 @@ const withPrimaryEventSchemaSlugRequirement = <
 
 const validateStrictPrimaryEventRefsInExpression = (
 	expression: ViewExpression,
-	context: QueryEngineReferenceContext<
-		ValidationSchemaRow,
-		ValidationEventJoinRow
-	>,
+	context: QueryEngineReferenceContext<ValidationSchemaRow, ValidationEventJoinRow>,
 	validBuiltins: ReadonlySet<string>,
 	computedFieldMap: Map<string, ViewComputedField>,
 ) => {
 	const strictContext = context.requirePrimaryEventSchemaSlug
 		? context
 		: withPrimaryEventSchemaSlugRequirement(context);
-	validateExpressionAgainstSchemas(
-		expression,
-		strictContext,
-		validBuiltins,
-		computedFieldMap,
-	);
+	validateExpressionAgainstSchemas(expression, strictContext, validBuiltins, computedFieldMap);
 
-	for (const computedField of collectComputedFieldChain(
-		expression,
-		computedFieldMap,
-	)) {
+	for (const computedField of collectComputedFieldChain(expression, computedFieldMap)) {
 		validateExpressionAgainstSchemas(
 			computedField.expression,
 			strictContext,
@@ -442,10 +389,7 @@ const validateStrictPrimaryEventRefsInExpression = (
 
 const validateStrictPrimaryEventRefsInPredicate = (
 	predicate: ViewPredicate,
-	context: QueryEngineReferenceContext<
-		ValidationSchemaRow,
-		ValidationEventJoinRow
-	>,
+	context: QueryEngineReferenceContext<ValidationSchemaRow, ValidationEventJoinRow>,
 	validBuiltins: ReadonlySet<string>,
 	computedFields: ViewComputedField[] | undefined,
 ) => {
@@ -468,10 +412,7 @@ const validateStrictPrimaryEventRefsInPredicate = (
 
 export const validateExpressionAgainstSchemas = (
 	expression: ViewExpression,
-	context: QueryEngineReferenceContext<
-		ValidationSchemaRow,
-		ValidationEventJoinRow
-	>,
+	context: QueryEngineReferenceContext<ValidationSchemaRow, ValidationEventJoinRow>,
 	validBuiltins: ReadonlySet<string>,
 	computedFieldMap: Map<string, ViewComputedField> = new Map(),
 ): void => {
@@ -486,27 +427,13 @@ export const validateExpressionAgainstSchemas = (
 			return;
 		}
 
-		validateRuntimeReferenceAgainstSchemas(
-			expression.reference,
-			context,
-			validBuiltins,
-		);
+		validateRuntimeReferenceAgainstSchemas(expression.reference, context, validBuiltins);
 		return;
 	}
 
 	if (expression.type === "arithmetic") {
-		validateExpressionAgainstSchemas(
-			expression.left,
-			context,
-			validBuiltins,
-			computedFieldMap,
-		);
-		validateExpressionAgainstSchemas(
-			expression.right,
-			context,
-			validBuiltins,
-			computedFieldMap,
-		);
+		validateExpressionAgainstSchemas(expression.left, context, validBuiltins, computedFieldMap);
+		validateExpressionAgainstSchemas(expression.right, context, validBuiltins, computedFieldMap);
 		inferViewExpressionType({
 			context,
 			expression,
@@ -556,12 +483,7 @@ export const validateExpressionAgainstSchemas = (
 							computedFieldMap,
 						),
 		});
-		validateExpressionAgainstSchemas(
-			expression.whenTrue,
-			context,
-			validBuiltins,
-			computedFieldMap,
-		);
+		validateExpressionAgainstSchemas(expression.whenTrue, context, validBuiltins, computedFieldMap);
 		validateExpressionAgainstSchemas(
 			expression.whenFalse,
 			context,
@@ -577,12 +499,7 @@ export const validateExpressionAgainstSchemas = (
 	}
 
 	for (const value of expression.values) {
-		validateExpressionAgainstSchemas(
-			value,
-			context,
-			validBuiltins,
-			computedFieldMap,
-		);
+		validateExpressionAgainstSchemas(value, context, validBuiltins, computedFieldMap);
 	}
 
 	inferViewExpressionType({
@@ -595,14 +512,9 @@ export const validateExpressionAgainstSchemas = (
 const validateComputedFields = (input: {
 	validBuiltins: ReadonlySet<string>;
 	computedFields?: ViewComputedField[];
-	context: QueryEngineReferenceContext<
-		ValidationSchemaRow,
-		ValidationEventJoinRow
-	>;
+	context: QueryEngineReferenceContext<ValidationSchemaRow, ValidationEventJoinRow>;
 }) => {
-	const { computedFieldMap, orderedComputedFields } = prepareComputedFields(
-		input.computedFields,
-	);
+	const { computedFieldMap, orderedComputedFields } = prepareComputedFields(input.computedFields);
 
 	for (const computedField of orderedComputedFields) {
 		validateExpressionAgainstSchemas(
@@ -618,10 +530,7 @@ const validateComputedFields = (input: {
 
 const validateEntityQueryEngineReferences = (
 	request: Extract<QueryEngineRequest, { mode: "entities" }>,
-	context: QueryEngineReferenceContext<
-		ValidationSchemaRow,
-		ValidationEventJoinRow
-	>,
+	context: QueryEngineReferenceContext<ValidationSchemaRow, ValidationEventJoinRow>,
 ): void => {
 	const computedFieldMap = validateComputedFields({
 		context,
@@ -659,21 +568,13 @@ const validateEntityQueryEngineReferences = (
 	}
 
 	for (const field of request.fields) {
-		validateExpressionAgainstSchemas(
-			field.expression,
-			context,
-			displayBuiltins,
-			computedFieldMap,
-		);
+		validateExpressionAgainstSchemas(field.expression, context, displayBuiltins, computedFieldMap);
 	}
 };
 
 const validateAggregateQueryEngineReferences = (
 	request: Extract<QueryEngineRequest, { mode: "aggregate" }>,
-	context: QueryEngineReferenceContext<
-		ValidationSchemaRow,
-		ValidationEventJoinRow
-	>,
+	context: QueryEngineReferenceContext<ValidationSchemaRow, ValidationEventJoinRow>,
 ): void => {
 	const computedFieldMap = validateComputedFields({
 		context,
@@ -757,10 +658,7 @@ const validateAggregateQueryEngineReferences = (
 
 const validateEventsQueryEngineReferences = (
 	request: Extract<QueryEngineRequest, { mode: "events" }>,
-	context: QueryEngineReferenceContext<
-		ValidationSchemaRow,
-		ValidationEventJoinRow
-	>,
+	context: QueryEngineReferenceContext<ValidationSchemaRow, ValidationEventJoinRow>,
 ): void => {
 	// Validate computed fields using display builtins combined with event builtins
 	const eventsDisplayBuiltins = new Set([
@@ -821,10 +719,7 @@ const validateEventsQueryEngineReferences = (
 
 const validateTimeSeriesQueryEngineReferences = (
 	request: Extract<QueryEngineRequest, { mode: "timeSeries" }>,
-	context: QueryEngineReferenceContext<
-		ValidationSchemaRow,
-		ValidationEventJoinRow
-	>,
+	context: QueryEngineReferenceContext<ValidationSchemaRow, ValidationEventJoinRow>,
 ): void => {
 	const timeSeriesSortFilterBuiltins = new Set([
 		...sortFilterBuiltins,
@@ -873,10 +768,7 @@ const validateTimeSeriesQueryEngineReferences = (
 
 export const validateQueryEngineReferences = (
 	request: QueryEngineRequest,
-	context: QueryEngineReferenceContext<
-		ValidationSchemaRow,
-		ValidationEventJoinRow
-	>,
+	context: QueryEngineReferenceContext<ValidationSchemaRow, ValidationEventJoinRow>,
 ): void => {
 	if (request.mode === "entities") {
 		validateEntityQueryEngineReferences(request, context);
@@ -898,10 +790,7 @@ export const validateQueryEngineReferences = (
 
 export const validateSavedViewDisplayConfiguration = (
 	displayConfiguration: DisplayConfiguration,
-	context: QueryEngineReferenceContext<
-		ValidationSchemaRow,
-		ValidationEventJoinRow
-	>,
+	context: QueryEngineReferenceContext<ValidationSchemaRow, ValidationEventJoinRow>,
 	computedFields?: ViewComputedField[],
 ): void => {
 	if (isPrimaryEventMode(context)) {
@@ -929,21 +818,11 @@ export const validateSavedViewDisplayConfiguration = (
 		displayConfiguration.list.secondarySubtitleProperty,
 	]) {
 		if (refs) {
-			validateExpressionAgainstSchemas(
-				refs,
-				context,
-				displayBuiltins,
-				computedFieldMap,
-			);
+			validateExpressionAgainstSchemas(refs, context, displayBuiltins, computedFieldMap);
 		}
 	}
 
 	for (const column of displayConfiguration.table.columns) {
-		validateExpressionAgainstSchemas(
-			column.expression,
-			context,
-			displayBuiltins,
-			computedFieldMap,
-		);
+		validateExpressionAgainstSchemas(column.expression, context, displayBuiltins, computedFieldMap);
 	}
 };

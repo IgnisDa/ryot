@@ -1,4 +1,5 @@
 import { describe, expect, it } from "bun:test";
+
 import {
 	createEntityBody,
 	createEntityDeps,
@@ -9,6 +10,7 @@ import {
 	createTitleAndPagesPropertiesSchema,
 } from "~/lib/test-fixtures";
 import { expectDataResult } from "~/lib/test-helpers";
+
 import {
 	createEntity,
 	getEntityDetail,
@@ -35,9 +37,7 @@ describe("resolveEntitySchemaId", () => {
 	});
 
 	it("throws when the entity schema id is blank", () => {
-		expect(() => resolveEntitySchemaId("   ")).toThrow(
-			"Entity schema id is required",
-		);
+		expect(() => resolveEntitySchemaId("   ")).toThrow("Entity schema id is required");
 	});
 });
 
@@ -57,9 +57,10 @@ describe("parseEntityProperties", () => {
 
 		const properties = { pages: 350, title: "My Book" };
 
-		expect(
-			parseEntityProperties({ properties, propertiesSchema }),
-		).toMatchObject({ pages: 350, title: "My Book" });
+		expect(parseEntityProperties({ properties, propertiesSchema })).toMatchObject({
+			pages: 350,
+			title: "My Book",
+		});
 	});
 
 	it("accepts properties with optional fields missing", () => {
@@ -67,9 +68,9 @@ describe("parseEntityProperties", () => {
 
 		const properties = { title: "My Book" };
 
-		expect(
-			parseEntityProperties({ properties, propertiesSchema }),
-		).toMatchObject({ title: "My Book" });
+		expect(parseEntityProperties({ properties, propertiesSchema })).toMatchObject({
+			title: "My Book",
+		});
 	});
 
 	it("rejects properties missing required fields", () => {
@@ -77,9 +78,9 @@ describe("parseEntityProperties", () => {
 
 		const properties = { pages: 350 };
 
-		expect(() =>
-			parseEntityProperties({ properties, propertiesSchema }),
-		).toThrow("Entity properties validation failed");
+		expect(() => parseEntityProperties({ properties, propertiesSchema })).toThrow(
+			"Entity properties validation failed",
+		);
 	});
 
 	it("rejects properties with wrong type", () => {
@@ -90,25 +91,25 @@ describe("parseEntityProperties", () => {
 			pages: "not a number",
 		};
 
-		expect(() =>
-			parseEntityProperties({ properties, propertiesSchema }),
-		).toThrow("Entity properties validation failed");
+		expect(() => parseEntityProperties({ properties, propertiesSchema })).toThrow(
+			"Entity properties validation failed",
+		);
 	});
 
 	it("rejects non-object properties", () => {
 		const propertiesSchema = createOptionalTitlePropertiesSchema();
 
-		expect(() =>
-			parseEntityProperties({ properties: "not an object", propertiesSchema }),
-		).toThrow("Entity properties must be a JSON object");
+		expect(() => parseEntityProperties({ properties: "not an object", propertiesSchema })).toThrow(
+			"Entity properties must be a JSON object",
+		);
 	});
 
 	it("rejects array properties", () => {
 		const propertiesSchema = createOptionalTitlePropertiesSchema();
 
-		expect(() =>
-			parseEntityProperties({ properties: [], propertiesSchema }),
-		).toThrow("Entity properties must be a JSON object, not an array");
+		expect(() => parseEntityProperties({ properties: [], propertiesSchema })).toThrow(
+			"Entity properties must be a JSON object, not an array",
+		);
 	});
 
 	it("validates nested object properties", () => {
@@ -118,9 +119,7 @@ describe("parseEntityProperties", () => {
 			metadata: { year: 2024, author: "John Doe" },
 		};
 
-		expect(
-			parseEntityProperties({ properties, propertiesSchema }),
-		).toMatchObject(properties);
+		expect(parseEntityProperties({ properties, propertiesSchema })).toMatchObject(properties);
 	});
 });
 
@@ -377,8 +376,7 @@ describe("createEntity", () => {
 
 		expect(result).toEqual({
 			error: "validation",
-			message:
-				"externalId and sandboxScriptId must both be provided or both be omitted",
+			message: "externalId and sandboxScriptId must both be provided or both be omitted",
 		});
 	});
 
@@ -396,8 +394,7 @@ describe("createEntity", () => {
 
 		expect(result).toEqual({
 			error: "validation",
-			message:
-				"externalId and sandboxScriptId must both be provided or both be omitted",
+			message: "externalId and sandboxScriptId must both be provided or both be omitted",
 		});
 	});
 
@@ -437,9 +434,7 @@ describe("createEntity", () => {
 		const deps = createEntityDeps({
 			findEntityByExternalIdForUser: async () => undefined,
 			createEntityForUser: async (input) => {
-				capturedInput = input as unknown as Parameters<
-					typeof createEntityBody
-				>[0];
+				capturedInput = input as unknown as Parameters<typeof createEntityBody>[0];
 				return createListedEntity({
 					name: input.name,
 					externalId: input.externalId ?? null,

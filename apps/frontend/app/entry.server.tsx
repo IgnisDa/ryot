@@ -1,13 +1,10 @@
 import "dotenv/config";
 import { PassThrough } from "node:stream";
+
 import { createReadableStreamFromReadable } from "@react-router/node";
 import { isbot } from "isbot";
 import { renderToPipeableStream } from "react-dom/server";
-import {
-	type AppLoadContext,
-	type EntryContext,
-	ServerRouter,
-} from "react-router";
+import { type AppLoadContext, type EntryContext, ServerRouter } from "react-router";
 
 const ABORT_DELAY = 5_000;
 
@@ -19,18 +16,8 @@ export default function handleRequest(
 	_loadContext: AppLoadContext,
 ) {
 	return isbot(request.headers.get("user-agent") || "")
-		? handleBotRequest(
-				request,
-				responseStatusCode,
-				responseHeaders,
-				reactRouterContext,
-			)
-		: handleBrowserRequest(
-				request,
-				responseStatusCode,
-				responseHeaders,
-				reactRouterContext,
-			);
+		? handleBotRequest(request, responseStatusCode, responseHeaders, reactRouterContext)
+		: handleBrowserRequest(request, responseStatusCode, responseHeaders, reactRouterContext);
 }
 
 function handleBotRequest(
@@ -64,7 +51,7 @@ function handleBotRequest(
 					reject(error);
 				},
 				onError(error: unknown) {
-					// biome-ignore lint/style/noParameterAssign: part of the starter template
+					// oxlint-disable-next-line no-param-reassign
 					responseStatusCode = 500;
 					if (shellRendered) console.error(error);
 				},
@@ -106,7 +93,7 @@ function handleBrowserRequest(
 					reject(error);
 				},
 				onError(error: unknown) {
-					// biome-ignore lint/style/noParameterAssign: part of the starter template
+					// oxlint-disable-next-line no-param-reassign
 					responseStatusCode = 500;
 					if (shellRendered) console.error(error);
 				},
