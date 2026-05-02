@@ -55,7 +55,7 @@ const validateAllowedHostFunctions = (allowedHostFunctions?: string[]) => {
 	}
 
 	for (const functionKey of allowedHostFunctions) {
-		if (!hostFunctionRegistry[functionKey as keyof typeof hostFunctionRegistry]) {
+		if (!(functionKey in hostFunctionRegistry)) {
 			throw new Error(`Unknown sandbox host function: ${functionKey}`);
 		}
 	}
@@ -100,7 +100,8 @@ const createCompletedSandboxResult = (job: SandboxJobLookupResult["job"]): PollS
 		value:
 			value === undefined
 				? null
-				: (value as Extract<PollSandboxResult, { status: "completed" }>["value"]),
+				: // oxlint-disable-next-line no-unsafe-type-assertion
+					(value as Extract<PollSandboxResult, { status: "completed" }>["value"]),
 	};
 };
 

@@ -295,7 +295,7 @@ export type ViewPredicate =
 	| { type: "not"; predicate: ViewPredicate };
 
 export type ViewExpression =
-	| { type: "literal"; value: unknown | null }
+	| { type: "literal"; value: unknown }
 	| { type: "reference"; reference: RuntimeRef }
 	| { type: "concat"; values: ViewExpression[] }
 	| { type: "round"; expression: ViewExpression }

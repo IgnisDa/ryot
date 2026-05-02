@@ -44,7 +44,7 @@ const createPropertyTypeInfo = (
 	propertyDefinition: propertyDefinition ?? undefined,
 });
 
-const createLiteralTypeInfo = (value: unknown | null): ViewExpressionTypeInfo => {
+const createLiteralTypeInfo = (value: unknown): ViewExpressionTypeInfo => {
 	if (value === null) {
 		return { kind: "null" };
 	}

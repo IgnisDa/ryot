@@ -193,7 +193,7 @@ describe("getEntityDetail", () => {
 	it("returns not found when the entity does not exist", async () => {
 		const result = await getEntityDetail(
 			{ entityId: "entity_1", userId: "user_1" },
-			createEntityDeps({ getEntityScopeForUser: async () => undefined }),
+			createEntityDeps({ getEntityScopeForUser: () => Promise.resolve(undefined) }),
 		);
 
 		expect(result).toEqual({
@@ -207,14 +207,15 @@ describe("getEntityDetail", () => {
 		const result = await getEntityDetail(
 			{ entityId: "entity_global", userId: "user_1" },
 			createEntityDeps({
-				getEntityScopeForUser: async (input) => ({
-					isBuiltin: true,
-					entityUserId: null,
-					entityId: input.entityId,
-					entitySchemaSlug: "book",
-					entitySchemaId: "schema_1",
-				}),
-				getEntityByIdForUser: async () => globalEntity,
+				getEntityScopeForUser: (input) =>
+					Promise.resolve({
+						isBuiltin: true,
+						entityUserId: null,
+						entityId: input.entityId,
+						entitySchemaSlug: "book",
+						entitySchemaId: "schema_1",
+					}),
+				getEntityByIdForUser: () => Promise.resolve(globalEntity),
 			}),
 		);
 
@@ -226,14 +227,15 @@ describe("getEntityDetail", () => {
 		const result = await getEntityDetail(
 			{ entityId: "entity_library", userId: "user_1" },
 			createEntityDeps({
-				getEntityScopeForUser: async (input) => ({
-					isBuiltin: true,
-					entityId: input.entityId,
-					entityUserId: input.userId,
-					entitySchemaSlug: "library",
-					entitySchemaId: "schema_library",
-				}),
-				getEntityByIdForUser: async () => libraryEntity,
+				getEntityScopeForUser: (input) =>
+					Promise.resolve({
+						isBuiltin: true,
+						entityId: input.entityId,
+						entityUserId: input.userId,
+						entitySchemaSlug: "library",
+						entitySchemaId: "schema_library",
+					}),
+				getEntityByIdForUser: () => Promise.resolve(libraryEntity),
 			}),
 		);
 
@@ -245,14 +247,15 @@ describe("getEntityDetail", () => {
 		const result = await getEntityDetail(
 			{ entityId: "entity_workout", userId: "user_1" },
 			createEntityDeps({
-				getEntityScopeForUser: async (input) => ({
-					isBuiltin: true,
-					entityId: input.entityId,
-					entityUserId: input.userId,
-					entitySchemaSlug: "workout",
-					entitySchemaId: "schema_workout",
-				}),
-				getEntityByIdForUser: async () => workoutEntity,
+				getEntityScopeForUser: (input) =>
+					Promise.resolve({
+						isBuiltin: true,
+						entityId: input.entityId,
+						entityUserId: input.userId,
+						entitySchemaSlug: "workout",
+						entitySchemaId: "schema_workout",
+					}),
+				getEntityByIdForUser: () => Promise.resolve(workoutEntity),
 			}),
 		);
 
@@ -264,13 +267,15 @@ describe("createEntity", () => {
 	it("normalizes the payload before persisting", async () => {
 		let createdName: string | undefined;
 		const deps = createEntityDeps({
-			createEntityForUser: async (input) => {
+			createEntityForUser: (input) => {
 				createdName = input.name;
-				return createListedEntity({
-					name: input.name,
-					image: input.image,
-					properties: input.properties,
-				});
+				return Promise.resolve(
+					createListedEntity({
+						name: input.name,
+						image: input.image,
+						properties: input.properties,
+					}),
+				);
 			},
 		});
 
@@ -303,15 +308,16 @@ describe("createEntity", () => {
 				}),
 			},
 			createEntityDeps({
-				getEntitySchemaScopeForUser: async () => ({
-					userId: null,
-					slug: "book",
-					isBuiltin: true,
-					id: "schema_book",
-					propertiesSchema: {
-						fields: { title: { type: "string" as const } },
-					},
-				}),
+				getEntitySchemaScopeForUser: () =>
+					Promise.resolve({
+						userId: null,
+						slug: "book",
+						isBuiltin: true,
+						id: "schema_book",
+						propertiesSchema: {
+							fields: { title: { type: "string" as const } },
+						},
+					}),
 			}),
 		);
 
@@ -332,18 +338,19 @@ describe("createEntity", () => {
 				}),
 			},
 			createEntityDeps({
-				getEntitySchemaScopeForUser: async () => ({
-					userId: null,
-					slug: "workout",
-					isBuiltin: true,
-					id: "schema_workout",
-					propertiesSchema: {
-						fields: {
-							endedAt: { label: "Ended At", type: "datetime" as const },
-							startedAt: { label: "Started At", type: "datetime" as const },
+				getEntitySchemaScopeForUser: () =>
+					Promise.resolve({
+						userId: null,
+						slug: "workout",
+						isBuiltin: true,
+						id: "schema_workout",
+						propertiesSchema: {
+							fields: {
+								endedAt: { label: "Ended At", type: "datetime" as const },
+								startedAt: { label: "Started At", type: "datetime" as const },
+							},
 						},
-					},
-				}),
+					}),
 			}),
 		);
 
@@ -406,10 +413,10 @@ describe("createEntity", () => {
 		});
 		let createCalled = false;
 		const deps = createEntityDeps({
-			findEntityByExternalIdForUser: async () => existingEntity,
-			createEntityForUser: async (input) => {
+			findEntityByExternalIdForUser: () => Promise.resolve(existingEntity),
+			createEntityForUser: (input) => {
 				createCalled = true;
-				return createListedEntity({ name: input.name });
+				return Promise.resolve(createListedEntity({ name: input.name }));
 			},
 		});
 
@@ -432,14 +439,17 @@ describe("createEntity", () => {
 	it("creates a new entity with provenance fields when no matching entity exists", async () => {
 		let capturedInput: Parameters<typeof createEntityBody>[0] | undefined;
 		const deps = createEntityDeps({
-			findEntityByExternalIdForUser: async () => undefined,
-			createEntityForUser: async (input) => {
+			findEntityByExternalIdForUser: () => Promise.resolve(undefined),
+			createEntityForUser: (input) => {
+				// oxlint-disable-next-line no-unsafe-type-assertion
 				capturedInput = input as unknown as Parameters<typeof createEntityBody>[0];
-				return createListedEntity({
-					name: input.name,
-					externalId: input.externalId ?? null,
-					sandboxScriptId: input.sandboxScriptId ?? null,
-				});
+				return Promise.resolve(
+					createListedEntity({
+						name: input.name,
+						externalId: input.externalId ?? null,
+						sandboxScriptId: input.sandboxScriptId ?? null,
+					}),
+				);
 			},
 		});
 
