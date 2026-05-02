@@ -4,7 +4,7 @@
 
 **Type:** AFK
 
-**Status:** todo
+**Status:** done
 
 ## What to build
 
@@ -16,15 +16,15 @@ Standalone direct search or direct sandbox use outside a parent workflow may kee
 
 ## Acceptance criteria
 
-- [ ] Entity import workflow `toLayer` contains the import process graph and is not a single pass-through durable queue call
-- [ ] Entity import no longer relies on a whole-import durable queue worker that performs all business logic opaquely
-- [ ] Entity details sandbox execution is owned by the entity import workflow body through child workflow execution or direct durable queue processing
-- [ ] Entity population helpers no longer call the raw workflow engine for entity import's details sandbox step
-- [ ] A matching already-populated global entity short-circuits details sandbox execution while still ensuring user library membership
-- [ ] New or unpopulated global entities are populated through sandbox details, result decoding, schema property validation, primary entity persistence, related placeholder persistence, relationship persistence, and library membership
-- [ ] Repository writes and service side effects in the workflow are wrapped in durable activities or otherwise made replay-safe
-- [ ] Existing product behavior for starting an entity import and polling its result remains product-compatible
-- [ ] Tests cover successful import, sandbox details failure, already-populated short-circuit behavior, related entity and relationship writes, and library membership
+- [x] Entity import workflow `toLayer` contains the import process graph and is not a single pass-through durable queue call
+- [x] Entity import no longer relies on a whole-import durable queue worker that performs all business logic opaquely
+- [x] Entity details sandbox execution is owned by the entity import workflow body through direct durable queue processing
+- [x] Entity population helpers no longer call the raw workflow engine for entity import's details sandbox step
+- [x] A matching already-populated global entity short-circuits details sandbox execution while still ensuring user library membership
+- [x] New or unpopulated global entities are populated through sandbox details, result decoding, schema property validation, primary entity persistence, related placeholder persistence, relationship persistence, and library membership
+- [x] Repository writes and service side effects in the workflow are wrapped in durable activities or otherwise made replay-safe
+- [x] Existing product behavior for starting an entity import and polling its result remains product-compatible
+- [x] Tests cover successful import, sandbox details failure, already-populated short-circuit behavior, related entity and relationship writes, and library membership
 
 ## User stories addressed
 
@@ -48,3 +48,16 @@ Reference by number from the parent PRD:
 - User story 31
 - User story 32
 - User story 33
+
+## Implementation notes
+
+- **File:** `apps/app-backend/src/modules/entities/workflows.ts`
+- Removed the `EntityImportQueue` durable queue and `EntityImportQueueWorkerLive` — the workflow body now owns the full process graph directly.
+- Sandbox details execution uses `DurableQueue.process(SandboxExecutionQueue, ...)` from inside the workflow body.
+- Exported `runEntityImportWorkflow(...)` so tests can inject a fake sandbox step and assert orchestration branches directly.
+- Exported `EntityDetailsRelatedEntity`, `decodeEntityDetailsResult`, and `processRelatedEntity` from `population.ts` since the workflow composes them inline.
+- `populateGlobalEntity` was kept unchanged (still used by the media import path, out of scope for this task).
+
+- **Tests:** `apps/app-backend/src/modules/entities/workflows.test.ts`
+- Tests use a fake `WorkflowEngine`/`WorkflowInstance` to run `Activity.make` inline, avoiding the `layerMemory` engine limitation with `DurableQueue.process` inside workflow bodies (`@effect/workflow@0.18.2`).
+- Four tests: full successful import, already-populated short-circuit, sandbox failure, and sandbox-step orchestration assertion.
