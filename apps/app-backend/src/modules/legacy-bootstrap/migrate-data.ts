@@ -121,6 +121,13 @@ const resolveRelationshipMigrationTargets = (input: {
 	return targets;
 };
 
+const requireDefined = <T>(value: T | undefined, message: string): T => {
+	if (value === undefined) {
+		throw new Error(message);
+	}
+	return value;
+};
+
 const requireSchemaId = (map: Map<string, string>, slug: string, kind: string) => {
 	const id = map.get(slug);
 	if (id === undefined) {
@@ -252,11 +259,10 @@ export const migrateLegacyTables = Effect.gen(function* () {
 		"entity schema",
 	);
 
-	const workoutSetEventSchemaRow = workoutSetEventSchemaResult[0];
-	if (workoutSetEventSchemaRow === undefined) {
-		return yield* Effect.die(new Error('Missing event schema for slug "workout-set"'));
-	}
-	const workoutSetEventSchemaId = workoutSetEventSchemaRow.id;
+	const workoutSetEventSchemaId = requireDefined(
+		workoutSetEventSchemaResult[0],
+		'Missing event schema for slug "workout-set"',
+	).id;
 
 	const workoutToWorkoutTemplateRelationshipSchemaId = requireSchemaId(
 		relationshipSchemaIds,
@@ -285,70 +291,70 @@ export const migrateLegacyTables = Effect.gen(function* () {
 	);
 
 	const unsupportedMetadataSources = yield* getUnsupportedMetadataSources;
-	if (unsupportedMetadataSources.length > 0) {
-		return yield* Effect.die(
-			new Error(
-				`Unsupported legacy metadata sources: ${unsupportedMetadataSources
-					.map(({ lot, source }) => `${lot}|${source}`)
-					.join(", ")}`,
-			),
-		);
-	}
+	yield* unsupportedMetadataSources.length > 0
+		? Effect.die(
+				new Error(
+					`Unsupported legacy metadata sources: ${unsupportedMetadataSources
+						.map(({ lot, source }) => `${lot}|${source}`)
+						.join(", ")}`,
+				),
+			)
+		: Effect.void;
 
 	const unsupportedMetadataGroupSources = yield* getUnsupportedMetadataGroupSources;
-	if (unsupportedMetadataGroupSources.length > 0) {
-		return yield* Effect.die(
-			new Error(
-				`Unsupported legacy metadata group sources: ${unsupportedMetadataGroupSources
-					.map(({ lot, source }) => `${lot}|${source}`)
-					.join(", ")}`,
-			),
-		);
-	}
+	yield* unsupportedMetadataGroupSources.length > 0
+		? Effect.die(
+				new Error(
+					`Unsupported legacy metadata group sources: ${unsupportedMetadataGroupSources
+						.map(({ lot, source }) => `${lot}|${source}`)
+						.join(", ")}`,
+				),
+			)
+		: Effect.void;
 
 	const unsupportedPersonSources = yield* getUnsupportedPersonSources;
-	if (unsupportedPersonSources.length > 0) {
-		return yield* Effect.die(
-			new Error(
-				`Unsupported legacy person sources: ${unsupportedPersonSources
-					.map(({ entity_kind, source }) => `${entity_kind}|${source}`)
-					.join(", ")}`,
-			),
-		);
-	}
+	yield* unsupportedPersonSources.length > 0
+		? Effect.die(
+				new Error(
+					`Unsupported legacy person sources: ${unsupportedPersonSources
+						.map(({ entity_kind, source }) => `${entity_kind}|${source}`)
+						.join(", ")}`,
+				),
+			)
+		: Effect.void;
 
 	const unsupportedExerciseSources = yield* getUnsupportedExerciseSources;
-	if (unsupportedExerciseSources.length > 0) {
-		return yield* Effect.die(
-			new Error(
-				`Unsupported legacy exercise sources: ${unsupportedExerciseSources
-					.map(({ source }) => source)
-					.join(", ")}`,
-			),
-		);
-	}
+	yield* unsupportedExerciseSources.length > 0
+		? Effect.die(
+				new Error(
+					`Unsupported legacy exercise sources: ${unsupportedExerciseSources
+						.map(({ source }) => source)
+						.join(", ")}`,
+				),
+			)
+		: Effect.void;
 
 	const unsupportedExerciseLots = yield* getUnsupportedExerciseLots;
-	if (unsupportedExerciseLots.length > 0) {
-		return yield* Effect.die(
-			new Error(
-				`Unsupported legacy exercise lots: ${unsupportedExerciseLots
-					.map(({ lot }) => lot)
-					.join(", ")}`,
-			),
-		);
-	}
+	yield* unsupportedExerciseLots.length > 0
+		? Effect.die(
+				new Error(
+					`Unsupported legacy exercise lots: ${unsupportedExerciseLots
+						.map(({ lot }) => lot)
+						.join(", ")}`,
+				),
+			)
+		: Effect.void;
 
 	const invalidExerciseGithubOwnership = yield* getInvalidExerciseGithubOwnership;
-	if (invalidExerciseGithubOwnership.length > 0) {
-		return yield* Effect.die(
-			new Error(
-				`Legacy github exercise rows must not have a creator user id: ${invalidExerciseGithubOwnership
-					.map(({ id }) => id)
-					.join(", ")}`,
-			),
-		);
-	}
+	yield* invalidExerciseGithubOwnership.length > 0
+		? Effect.die(
+				new Error(
+					`Legacy github exercise rows must not have a creator user id: ${invalidExerciseGithubOwnership
+						.map(({ id }) => id)
+						.join(", ")}`,
+				),
+			)
+		: Effect.void;
 
 	const resolvedExerciseTargets = resolveEntityMigrationTargets(
 		exerciseEntityTargets,
