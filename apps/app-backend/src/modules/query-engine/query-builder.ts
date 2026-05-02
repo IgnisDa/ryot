@@ -10,6 +10,7 @@ import {
 	buildBaseEntitiesCte,
 	buildJoinedEntitiesCte,
 	buildLatestEventJoinCte,
+	buildPaginatedQuerySql,
 	type QueryEngineSchemaRow,
 } from "./query-ctes";
 import type {
@@ -108,43 +109,23 @@ export const executePreparedQuery = async (input: {
 	const direction = sql.raw(input.request.sort.direction.toUpperCase());
 	const filterClause = filterWhereClause ?? sql`true`;
 
-	const dataResult = await db.execute<QueryRow>(sql`
-		with
-			${baseEntitiesCte}${latestEventJoinCtes.length ? sql`, ${sql.join(latestEventJoinCtes, sql`, `)}` : sql``},
-			${joinedEntitiesCte},
-			filtered_entities as (
-				select *
-				from joined_entities
-				where ${filterClause}
-			),
-			sorted_entities as (
-				select
-					filtered_entities.*,
-					count(*) over ()::integer as total,
-					row_number() over (
-						order by ${sortExpression} ${direction} nulls last, filtered_entities.id asc
-					) as sort_index
-				from filtered_entities
-			),
-			entity_count as (
-				select coalesce(max(total), 0)::integer as total
-				from sorted_entities
-			),
-			paginated_entities as (
-				select *
-				from sorted_entities
-				order by sort_index
-				offset ${offset}
-				limit ${input.request.pagination.limit}
-			)
-		select
-			paginated_entities.id as row_id,
-			entity_count.total,
-			${resolvedFields} as fields
-		from entity_count
-		left join paginated_entities on true
-		order by sort_index
-	`);
+	const dataResult = await db.execute<QueryRow>(
+		buildPaginatedQuerySql({
+			offset,
+			direction,
+			filterClause,
+			sortExpression,
+			resolvedFields,
+			rowIdColumn: "id",
+			countAlias: "entity_count",
+			sortedAlias: "sorted_entities",
+			filteredAlias: "filtered_entities",
+			joinedTableName: "joined_entities",
+			paginatedAlias: "paginated_entities",
+			limit: input.request.pagination.limit,
+			withCtes: [baseEntitiesCte, ...latestEventJoinCtes, joinedEntitiesCte],
+		}),
+	);
 
 	const total = dataResult.rows[0]?.total ?? 0;
 	const pagination = calculatePagination({
