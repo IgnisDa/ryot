@@ -5,12 +5,12 @@ import type { BackupRunId, UserId } from "@ryot/contract/schema/brands";
 import { Context, DateTime, Effect, Layer, Result } from "effect";
 import { WorkflowEngine } from "effect/unstable/workflow/WorkflowEngine";
 
-import { BackupDataService } from "#modules/backup-data/data-service";
 import { UploadsService } from "#modules/uploads/service";
 
-import { ExportBackupWorkflow } from "./export-workflow";
-import { BackupsRepository } from "./repository";
-import { RestoreBackupWorkflow } from "./restore-workflow";
+import { ExportBackupWorkflow } from "./export/workflow";
+import { BackupAccountCleanliness } from "./restore/account-cleanliness";
+import { RestoreBackupWorkflow } from "./restore/workflow";
+import { BackupsRepository } from "./runs/repository";
 
 const mapDbToInternal = <A, E, R>(effect: Effect.Effect<A, E, R>) =>
 	effect.pipe(
@@ -23,11 +23,11 @@ const mapDbToInternal = <A, E, R>(effect: Effect.Effect<A, E, R>) =>
 export class BackupsService extends Context.Service<BackupsService>()("BackupsService", {
 	make: Effect.gen(function* () {
 		const engine = yield* WorkflowEngine;
-		const data = yield* BackupDataService;
+		const cleanliness = yield* BackupAccountCleanliness;
 		const uploads = yield* UploadsService;
 		const repository = yield* BackupsRepository;
 
-		const assertAccountIsClean = (userId: UserId) => data.assertAccountIsClean(userId);
+		const assertAccountIsClean = (userId: UserId) => cleanliness.assertAccountIsClean(userId);
 
 		const createExport = Effect.fn("BackupsService.createExport")(function* (
 			user: CurrentUserValue,
