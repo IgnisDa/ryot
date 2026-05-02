@@ -20,8 +20,6 @@ function WorkspaceShellContent() {
 	const [isWorkspaceOpen, setIsWorkspaceOpen] = useState(false);
 	const [isCommandCenterOpen, setIsCommandCenterOpen] = useState(false);
 
-	useHotkey("Meta+K", () => setIsCommandCenterOpen(true), { stopPropagation: false });
-
 	function navigate(item: NavigationItem) {
 		setIsWorkspaceOpen(false);
 		navigation.navigate(item);
@@ -41,6 +39,9 @@ function WorkspaceShellContent() {
 		setIsWorkspaceOpen(false);
 		setCustomize({ section });
 	}
+
+	useHotkey("Meta+K", () => setIsCommandCenterOpen(true), { stopPropagation: false });
+	useHotkey("Meta+,", openSettings, { stopPropagation: false });
 
 	return (
 		<View className="flex-1">
