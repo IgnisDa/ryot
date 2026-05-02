@@ -2,6 +2,7 @@ import { resolveRequiredString } from "@ryot/ts-utils";
 import { createDefaultQueryDefinition } from "../saved-views/constants";
 import type {
 	DisplayConfiguration,
+	RelationshipFilter,
 	SavedViewQueryDefinition,
 } from "../saved-views/schemas";
 
@@ -83,6 +84,7 @@ export const buildAuthenticationSavedViewInputs = (input: {
 		trackerSlug?: string;
 		accentColor?: string;
 		entitySchemaSlug?: string;
+		relationships?: RelationshipFilter[];
 		queryDefinition?: SavedViewQueryDefinition;
 		displayConfiguration: DisplayConfiguration;
 	}>;
@@ -140,9 +142,10 @@ export const buildAuthenticationSavedViewInputs = (input: {
 				);
 			}
 
-			resolvedQueryDefinition = createDefaultQueryDefinition([
-				entitySchema.slug,
-			]);
+			resolvedQueryDefinition = createDefaultQueryDefinition(
+				[entitySchema.slug],
+				{ relationships: savedView.relationships },
+			);
 		}
 
 		return {
