@@ -113,7 +113,7 @@ export const MediaMonitoringTarget = Schema.Struct({
 });
 
 export const MediaMonitoringTargetsActivityInput = Schema.Struct({
-	page: Schema.Number.pipe(Schema.check(Schema.isInt()), Schema.check(Schema.isGreaterThan(0))),
+	after: Schema.optional(Schema.String),
 	limit: Schema.Number.pipe(
 		Schema.check(Schema.isInt()),
 		Schema.check(Schema.isGreaterThan(0)),
@@ -122,8 +122,8 @@ export const MediaMonitoringTargetsActivityInput = Schema.Struct({
 });
 
 export const MediaMonitoringTargetsActivityOutput = Schema.Struct({
-	hasMore: Schema.Boolean,
 	items: Schema.Array(MediaMonitoringTarget),
+	nextCursor: Schema.NullOr(Schema.String),
 });
 
 export const MediaMonitoringSweepWorkflowInput = Schema.Struct({});

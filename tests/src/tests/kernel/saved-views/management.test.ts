@@ -20,7 +20,6 @@ import { describe, expect, it } from "~/support/effect-test";
 
 const buildSchemaRowsDocument = (slug: string) =>
 	buildSavedViewDocument({
-		page: 1,
 		limit: 2,
 		entitySchemaSlugs: [slug],
 		fields: rowsFields,

@@ -55,7 +55,7 @@ const rows = (items: readonly unknown[]) => ({
 		view: {
 			items,
 			type: "rows",
-			pageInfo: { page: 1, limit: 20, total: items.length, hasMore: false },
+			pageInfo: { limit: 20, hasMore: false, nextCursor: null },
 		},
 	},
 });
@@ -65,7 +65,7 @@ const recordResponse = (items: readonly unknown[]) => ({
 		savedView: {
 			items,
 			type: "rows",
-			pageInfo: { page: 1, limit: 1, total: items.length, hasMore: false },
+			pageInfo: { limit: 1, hasMore: false, nextCursor: null },
 		},
 	},
 });

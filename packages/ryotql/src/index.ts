@@ -296,7 +296,7 @@ export const include = (
 export const rows = (
 	from: TableReference,
 	input: {
-		readonly page?: number | undefined;
+		readonly after?: string | undefined;
 		readonly limit?: number | undefined;
 		readonly where?: Predicate | undefined;
 		readonly fields: readonly RowSelection[];
@@ -311,7 +311,7 @@ export const rows = (
 	output: {
 		type: "rows",
 		fields: [...input.fields],
-		pagination: { page: input.page ?? 1, limit: input.limit ?? 20 },
+		pagination: { limit: input.limit ?? 20, ...(input.after ? { after: input.after } : {}) },
 		...(isNonEmpty(input.include) ? { include: [...input.include] } : {}),
 		orderBy: input.orderBy ? [...input.orderBy] : [ascending(column(from, "id"))],
 	},

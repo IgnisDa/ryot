@@ -129,18 +129,21 @@ it("enforces the document rules independently for every layout", () => {
 		...queryDocument,
 		queries: { ...queryDocument.queries, second: queryDocument.queries.savedView },
 	};
-	const pageTwo = {
+	const withCursor = {
 		...queryDocument,
 		queries: {
 			savedView: {
 				...queryDocument.queries.savedView,
 				output: {
 					...queryDocument.queries.savedView.output,
-					pagination: { page: 2, limit: 20 },
+					pagination: {
+						...queryDocument.queries.savedView.output.pagination,
+						after: "persisted-cursor",
+					},
 				},
 			},
 		},
-	} satisfies RyotQLDocument;
+	};
 
 	expect(
 		getSavedViewValidationError({
@@ -149,7 +152,7 @@ it("enforces the document rules independently for every layout", () => {
 	).toBe("Grid layout: must contain exactly one named query");
 	expect(
 		getSavedViewValidationError({
-			layouts: { ...layouts, list: { ...layouts.list, queryDocument: pageTwo } },
+			layouts: { ...layouts, table: { ...layouts.table, queryDocument: withCursor } },
 		}),
-	).toBe("List layout: query pagination page must be 1");
+	).toBe("Table layout: query pagination must not contain a cursor");
 });

@@ -129,10 +129,10 @@ describe("RyotQL event queries", () => {
 
 			const event = table("event", "event");
 			const rating = castNumber(jsonPath(column(event, "properties"), "rating"));
-			const page = (pageNumber: number) =>
+			const page = (after?: string) =>
 				rows(event, {
 					limit: 2,
-					page: pageNumber,
+					after,
 					orderBy: [descending(rating)],
 					fields: [field("rating", rating)],
 					where: and(
@@ -140,18 +140,20 @@ describe("RyotQL event queries", () => {
 						gte(rating, literal(3)),
 					),
 				});
-			const result = yield* executeRyotQL(
-				client,
-				document({ firstPage: page(1), secondPage: page(2) }),
-			);
+			const result = yield* executeRyotQL(client, document({ events: page() }));
 
-			const firstPage = requireRows(result.data["firstPage"], "firstPage");
-			const secondPage = requireRows(result.data["secondPage"], "secondPage");
-			expect(firstPage.pageInfo).toEqual({ page: 1, limit: 2, total: 3, hasMore: true });
+			const firstPage = requireRows(result.data["events"], "events");
+			expect(firstPage.pageInfo).toMatchObject({ limit: 2, hasMore: true });
+			expect(firstPage.pageInfo.nextCursor).not.toBeNull();
 			expect(firstPage.items.map((item) => requireRyotQLFieldValue(item, "rating").value)).toEqual([
 				5, 4,
 			]);
-			expect(secondPage.pageInfo).toEqual({ page: 2, limit: 2, total: 3, hasMore: false });
+			const next = yield* executeRyotQL(
+				client,
+				document({ events: page(firstPage.pageInfo.nextCursor ?? undefined) }),
+			);
+			const secondPage = requireRows(next.data["events"], "events");
+			expect(secondPage.pageInfo).toEqual({ limit: 2, hasMore: false, nextCursor: null });
 			expect(secondPage.items.map((item) => requireRyotQLFieldValue(item, "rating").value)).toEqual(
 				[3],
 			);

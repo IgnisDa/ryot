@@ -8,7 +8,7 @@ const entityResponse = (populatedAt: unknown) => ({
 	data: {
 		entities: {
 			type: "rows",
-			pageInfo: { hasMore: false, limit: 1, page: 1, total: 1 },
+			pageInfo: { hasMore: false, limit: 1, nextCursor: null },
 			items: [
 				{
 					populatedAt,

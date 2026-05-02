@@ -8,7 +8,7 @@ const navigationResponse = {
 	data: {
 		workspaces: {
 			type: "rows",
-			pageInfo: { hasMore: false, limit: 100, page: 1, total: 2 },
+			pageInfo: { hasMore: false, limit: 100, nextCursor: null },
 			items: [
 				{
 					name: { kind: "text", value: "Media" },
@@ -28,7 +28,7 @@ const navigationResponse = {
 		},
 		savedViews: {
 			type: "rows",
-			pageInfo: { hasMore: false, limit: 100, page: 1, total: 2 },
+			pageInfo: { hasMore: false, limit: 100, nextCursor: null },
 			items: [
 				{
 					icon: { kind: "text", value: "film" },
@@ -50,7 +50,7 @@ const navigationResponse = {
 		},
 		collections: {
 			type: "rows",
-			pageInfo: { hasMore: false, limit: 100, page: 1, total: 1 },
+			pageInfo: { hasMore: false, limit: 100, nextCursor: null },
 			items: [
 				{
 					id: { kind: "text", value: "collection-1" },
@@ -84,7 +84,7 @@ describe("navigation recipe", () => {
 				},
 			],
 			output: {
-				pagination: { page: 1, limit: 100 },
+				pagination: { limit: 100 },
 				fields: [
 					{ key: "slug" },
 					{ key: "name" },
@@ -113,7 +113,7 @@ describe("navigation recipe", () => {
 		]);
 		expect(document.queries.collections).toMatchObject({
 			from: { alias: "collection", table: "entity" },
-			output: { pagination: { page: 1, limit: 100 } },
+			output: { pagination: { limit: 100 } },
 		});
 	});
 
@@ -156,7 +156,7 @@ describe("navigation recipe", () => {
 		const emptyRows = {
 			items: [],
 			type: "rows" as const,
-			pageInfo: { hasMore: false, limit: 100, page: 1, total: 0 },
+			pageInfo: { hasMore: false, limit: 100, nextCursor: null },
 		};
 
 		expect(

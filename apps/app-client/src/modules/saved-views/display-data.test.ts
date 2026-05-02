@@ -48,7 +48,7 @@ const response = (item: unknown) => ({
 		active: {
 			type: "rows",
 			items: [item],
-			pageInfo: { page: 1, limit: 20, total: 1, hasMore: false },
+			pageInfo: { limit: 20, hasMore: false, nextCursor: null },
 		},
 	},
 });

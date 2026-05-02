@@ -66,7 +66,7 @@ export const waitForEventCount = (client: Client, entityId: string, expectedCoun
 	pollUntil(
 		`${expectedCount} events on entity ${entityId}`,
 		Effect.gen(function* () {
-			const events = yield* listEventsForEntity(client, entityId, 1, 100);
+			const events = yield* listEventsForEntity(client, entityId, undefined, 100);
 			return events.length >= expectedCount ? events : null;
 		}),
 	);
@@ -149,7 +149,7 @@ export const createRuleEventFixture = (client: Client) =>
 export const listEventsForEntity = (
 	client: Client,
 	entityId: string,
-	page: number,
+	after: string | undefined,
 	limit: number,
 	options: { eventSchemaSlug?: string } = {},
 ) =>
@@ -163,7 +163,7 @@ export const listEventsForEntity = (
 			client,
 			document({
 				events: rows(event, {
-					page,
+					after,
 					limit,
 					orderBy: [
 						descending(column(event, "occurredAt")),
@@ -211,14 +211,14 @@ export const waitForEventWithSchema = (client: Client, entityId: string, eventSc
 	pollUntil(
 		`${eventSchemaSlug} event on entity ${entityId}`,
 		Effect.gen(function* () {
-			const events = yield* listEventsForEntity(client, entityId, 1, 100);
+			const events = yield* listEventsForEntity(client, entityId, undefined, 100);
 			return events.find((event) => event.eventSchemaSlug === eventSchemaSlug) ?? null;
 		}),
 	);
 
 export const listEventSlugs = (client: Client, entityId: string) =>
 	Effect.gen(function* () {
-		const events = yield* listEventsForEntity(client, entityId, 1, 100);
+		const events = yield* listEventsForEntity(client, entityId, undefined, 100);
 		return events.map((event) => event.eventSchemaSlug);
 	});
 
