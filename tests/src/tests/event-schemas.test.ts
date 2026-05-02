@@ -68,7 +68,7 @@ describe("GET /event-schemas", () => {
 						validation: {
 							required: true,
 							exclusiveMinimum: 0,
-							exclusiveMaximum: 100,
+							maximum: 100,
 						},
 					},
 				},
