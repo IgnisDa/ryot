@@ -315,6 +315,66 @@ async function createEvents(apiClient: APIClient, events: EventPayload[]): Promi
 	}
 }
 
+const literalExpression = (value: unknown | null): SavedViewExpression => ({
+	type: "literal",
+	value,
+});
+
+const parseReference = (reference: string): SavedViewQueryEngineRef => {
+	const segments = reference.split(".");
+	const [namespace, segment, third, ...rest] = segments;
+
+	if (namespace === "computed") {
+		if (!segment || third !== undefined) {
+			throw new Error(`Invalid saved view reference '${reference}'`);
+		}
+
+		return { type: "computed-field", key: segment };
+	}
+
+	if (namespace === "entity") {
+		if (!segment || !third) {
+			throw new Error(`Invalid saved view reference '${reference}'`);
+		}
+
+		if (third === "properties") {
+			if (rest.length === 0) {
+				throw new Error(`Invalid saved view reference '${reference}'`);
+			}
+
+			return { type: "entity", slug: segment, path: [third, ...rest] };
+		}
+
+		if (rest.length > 0) {
+			throw new Error(`Invalid saved view reference '${reference}'`);
+		}
+
+		return { type: "entity", slug: segment, path: [third] };
+	}
+
+	if (namespace === "event") {
+		if (!segment || !third) {
+			throw new Error(`Invalid saved view reference '${reference}'`);
+		}
+
+		if (third === "properties") {
+			if (rest.length === 0) {
+				throw new Error(`Invalid saved view reference '${reference}'`);
+			}
+
+			return { type: "event-join", joinKey: segment, path: [third, ...rest] };
+		}
+
+		if (rest.length > 0) {
+			throw new Error(`Invalid saved view reference '${reference}'`);
+		}
+
+		return { type: "event-join", joinKey: segment, path: [third] };
+	}
+
+	throw new Error(`Invalid saved view reference '${reference}'`);
+};
+
 async function createSavedView(
 	apiClient: APIClient,
 	name: string,
@@ -324,66 +384,6 @@ async function createSavedView(
 	displayConfiguration: SavedViewDisplayConfigInput,
 	trackerId?: string,
 ) {
-	const literalExpression = (value: unknown | null): SavedViewExpression => ({
-		type: "literal",
-		value,
-	});
-
-	const parseReference = (reference: string): SavedViewQueryEngineRef => {
-		const segments = reference.split(".");
-		const [namespace, segment, third, ...rest] = segments;
-
-		if (namespace === "computed") {
-			if (!segment || third !== undefined) {
-				throw new Error(`Invalid saved view reference '${reference}'`);
-			}
-
-			return { type: "computed-field", key: segment };
-		}
-
-		if (namespace === "entity") {
-			if (!segment || !third) {
-				throw new Error(`Invalid saved view reference '${reference}'`);
-			}
-
-			if (third === "properties") {
-				if (rest.length === 0) {
-					throw new Error(`Invalid saved view reference '${reference}'`);
-				}
-
-				return { type: "entity", slug: segment, path: [third, ...rest] };
-			}
-
-			if (rest.length > 0) {
-				throw new Error(`Invalid saved view reference '${reference}'`);
-			}
-
-			return { type: "entity", slug: segment, path: [third] };
-		}
-
-		if (namespace === "event") {
-			if (!segment || !third) {
-				throw new Error(`Invalid saved view reference '${reference}'`);
-			}
-
-			if (third === "properties") {
-				if (rest.length === 0) {
-					throw new Error(`Invalid saved view reference '${reference}'`);
-				}
-
-				return { type: "event-join", joinKey: segment, path: [third, ...rest] };
-			}
-
-			if (rest.length > 0) {
-				throw new Error(`Invalid saved view reference '${reference}'`);
-			}
-
-			return { type: "event-join", joinKey: segment, path: [third] };
-		}
-
-		throw new Error(`Invalid saved view reference '${reference}'`);
-	};
-
 	const toExpression = (
 		input: string[] | SavedViewExpression | null,
 	): SavedViewExpression | null => {
@@ -797,7 +797,7 @@ function sortDefinition(direction: "asc" | "desc", ...fields: string[]): SavedVi
 	return { fields, direction };
 }
 
-function displayConfiguration(
+function buildDisplayConfiguration(
 	grid: {
 		imageProperty: string[] | null;
 		titleProperty: string[] | null;
@@ -1028,6 +1028,7 @@ async function seedWhiskeys(client: APIClient) {
 	const entities: Awaited<ReturnType<typeof createEntity>>[] = [];
 	for (let i = 0; i < entityCount; i++) {
 		const whiskey = generateWhiskey();
+		// oxlint-disable-next-line no-await-in-loop
 		const entity = await createEntity(
 			client,
 			whiskey.name,
@@ -1137,6 +1138,7 @@ async function seedPlaces(client: APIClient) {
 	const entities: Awaited<ReturnType<typeof createEntity>>[] = [];
 	for (let i = 0; i < entityCount; i++) {
 		const place = generatePlace();
+		// oxlint-disable-next-line no-await-in-loop
 		const entity = await createEntity(
 			client,
 			place.name,
@@ -1270,6 +1272,7 @@ async function seedMobilePhones(client: APIClient) {
 	const entities: SeedEntity[] = [];
 	for (let i = 0; i < smartphoneCount; i++) {
 		const phone = generateSmartphone();
+		// oxlint-disable-next-line no-await-in-loop
 		const entity = await createEntity(
 			client,
 			phone.name,
@@ -1289,6 +1292,7 @@ async function seedMobilePhones(client: APIClient) {
 	const featurePhoneCount = randomInt(90, 110);
 	for (let i = 0; i < featurePhoneCount; i++) {
 		const phone = generateFeaturePhone();
+		// oxlint-disable-next-line no-await-in-loop
 		const entity = await createEntity(
 			client,
 			phone.name,
@@ -1308,6 +1312,7 @@ async function seedMobilePhones(client: APIClient) {
 	const tabletCount = randomInt(90, 110);
 	for (let i = 0; i < tabletCount; i++) {
 		const tablet = generateTablet();
+		// oxlint-disable-next-line no-await-in-loop
 		const entity = await createEntity(
 			client,
 			tablet.name,
@@ -1433,6 +1438,7 @@ async function pollSearchJob(
 	const startedAt = Date.now();
 	while (true) {
 		apiClient.incrementRequestCount();
+		// oxlint-disable-next-line no-await-in-loop
 		const { data, response } = await client.GET("/entity-schemas/search/{jobId}", {
 			params: { path: { jobId } },
 		});
@@ -1443,6 +1449,7 @@ async function pollSearchJob(
 			if (Date.now() - startedAt > 60000) {
 				throw new Error(`Search job ${jobId} timed out`);
 			}
+			// oxlint-disable-next-line no-await-in-loop
 			await sleep(500);
 			continue;
 		}
@@ -1491,6 +1498,7 @@ async function importMediaEntity(
 	const startedAt = Date.now();
 	while (true) {
 		apiClient.incrementRequestCount();
+		// oxlint-disable-next-line no-await-in-loop
 		const { data: pollData, response: pollResp } = await client.GET(
 			"/entity-schemas/import/{jobId}",
 			{ params: { path: { jobId } } },
@@ -1503,6 +1511,7 @@ async function importMediaEntity(
 			if (Date.now() - startedAt > 60000) {
 				return null;
 			}
+			// oxlint-disable-next-line no-await-in-loop
 			await sleep(500);
 			continue;
 		}
@@ -1572,6 +1581,7 @@ async function seedMedia(client: APIClient) {
 	for (const schema of schemas) {
 		const slug = schema.slug as MediaEntitySchemaSlug;
 		console.log(`\n  Searching: ${schema.name} (${slug})...`);
+		// oxlint-disable-next-line no-await-in-loop
 		const eventSchemas = await getMediaLifecycleEventSchemas(client, schema.id);
 
 		if (!schema.providers.length) {
@@ -1586,6 +1596,7 @@ async function seedMedia(client: APIClient) {
 			const identifiers: string[] = [];
 			for (const page of searchConfig.pages) {
 				try {
+					// oxlint-disable-next-line no-await-in-loop
 					const items = await searchMediaPage(client, scriptId, searchConfig.query, page);
 					for (const item of items) {
 						if (!identifiers.includes(item.externalId)) {
@@ -1619,6 +1630,7 @@ async function seedMedia(client: APIClient) {
 	const eventSchemasBySchemaId = new Map<string, MediaEventSchemas>();
 
 	for (const [index, item] of workItems.entries()) {
+		// oxlint-disable-next-line no-await-in-loop
 		const entity = await importMediaEntity(client, item.scriptId, item.externalId, item.schema.id);
 		if (entity) {
 			const list = entitiesBySchemaId.get(item.schema.id) ?? [];
@@ -1718,6 +1730,7 @@ async function seedMedia(client: APIClient) {
 			});
 		}
 
+		// oxlint-disable-next-line no-await-in-loop
 		await createEvents(client, mediaEvents);
 		console.log(`    ${schema.name}: ${entities.length} entities, ${mediaEvents.length} events`);
 
@@ -1818,6 +1831,7 @@ async function seedCollections(
 
 	console.log("  Adding whiskey memberships...");
 	for (const whiskey of faker.helpers.arrayElements(input.whiskeys, 10)) {
+		// oxlint-disable-next-line no-await-in-loop
 		await addEntityToCollection(client, {
 			entityId: whiskey.id,
 			collectionId: recommendedPours.id,
@@ -1841,6 +1855,7 @@ async function seedCollections(
 
 	console.log("  Adding place memberships...");
 	for (const [index, place] of faker.helpers.arrayElements(input.places, 10).entries()) {
+		// oxlint-disable-next-line no-await-in-loop
 		await addEntityToCollection(client, {
 			entityId: place.id,
 			collectionId: weekendEscapes.id,
@@ -1856,6 +1871,7 @@ async function seedCollections(
 
 	console.log("  Adding phone memberships...");
 	for (const phone of faker.helpers.arrayElements(input.phones, 12)) {
+		// oxlint-disable-next-line no-await-in-loop
 		await addEntityToCollection(client, {
 			entityId: phone.id,
 			collectionId: pocketFavorites.id,
@@ -1875,6 +1891,7 @@ async function seedCollections(
 		...faker.helpers.arrayElements(input.phones, 3),
 	];
 	for (const [index, entity] of showcaseMembers.entries()) {
+		// oxlint-disable-next-line no-await-in-loop
 		await addEntityToCollection(client, {
 			entityId: entity.id,
 			collectionId: allStarPicks.id,
@@ -1912,6 +1929,7 @@ async function seedCollections(
 		},
 	];
 	for (const [index, nestedCollection] of nestedCollections.entries()) {
+		// oxlint-disable-next-line no-await-in-loop
 		await addEntityToCollection(client, {
 			entityId: nestedCollection.entityId,
 			collectionId: collectionGuide.id,
@@ -1964,7 +1982,7 @@ async function seedSavedViews(
 				scope: ["whiskey"],
 				sort: sortDefinition("desc", schemaField("whiskey", "age")),
 			},
-			displayConfiguration: displayConfiguration(
+			displayConfiguration: buildDisplayConfiguration(
 				cardConfig(
 					propertyReference("@image"),
 					propertyReference("@name"),
@@ -1989,7 +2007,7 @@ async function seedSavedViews(
 				scope: ["whiskey"],
 				sort: sortDefinition("asc", "@name"),
 			},
-			displayConfiguration: displayConfiguration(
+			displayConfiguration: buildDisplayConfiguration(
 				defaultCard,
 				[
 					tableColumn("Name", "@name"),
@@ -2014,7 +2032,7 @@ async function seedSavedViews(
 				scope: ["whiskey"],
 				sort: sortDefinition("desc", schemaField("whiskey", "proof")),
 			},
-			displayConfiguration: displayConfiguration(
+			displayConfiguration: buildDisplayConfiguration(
 				defaultCard,
 				[
 					tableColumn("Name", "@name"),
@@ -2040,7 +2058,7 @@ async function seedSavedViews(
 				scope: ["whiskey"],
 				sort: sortDefinition("desc", "@createdAt"),
 			},
-			displayConfiguration: displayConfiguration(
+			displayConfiguration: buildDisplayConfiguration(
 				cardConfig(
 					propertyReference("@image"),
 					propertyReference("@name"),
@@ -2070,7 +2088,7 @@ async function seedSavedViews(
 				scope: ["whiskey"],
 				sort: sortDefinition("desc", schemaField("whiskey", "age")),
 			},
-			displayConfiguration: displayConfiguration(
+			displayConfiguration: buildDisplayConfiguration(
 				cardConfig(
 					propertyReference("@image"),
 					propertyReference("@name"),
@@ -2098,7 +2116,7 @@ async function seedSavedViews(
 					schemaField("whiskey", "distillery"),
 				),
 			},
-			displayConfiguration: displayConfiguration(
+			displayConfiguration: buildDisplayConfiguration(
 				cardConfig(
 					propertyReference("@image"),
 					propertyReference("@name"),
@@ -2128,7 +2146,7 @@ async function seedSavedViews(
 					schemaField("whiskey", "age"),
 				),
 			},
-			displayConfiguration: displayConfiguration(
+			displayConfiguration: buildDisplayConfiguration(
 				cardConfig(
 					propertyReference("@image"),
 					propertyReference("@name"),
@@ -2162,7 +2180,7 @@ async function seedSavedViews(
 				scope: ["place"],
 				sort: sortDefinition("asc", "@name"),
 			},
-			displayConfiguration: displayConfiguration(
+			displayConfiguration: buildDisplayConfiguration(
 				defaultCard,
 				[
 					tableColumn("Name", "@name"),
@@ -2193,7 +2211,7 @@ async function seedSavedViews(
 				scope: ["place"],
 				sort: sortDefinition("asc", schemaField("place", "city")),
 			},
-			displayConfiguration: displayConfiguration(
+			displayConfiguration: buildDisplayConfiguration(
 				cardConfig(
 					propertyReference("@image"),
 					propertyReference("@name"),
@@ -2218,7 +2236,7 @@ async function seedSavedViews(
 				scope: ["place"],
 				sort: sortDefinition("asc", "@name"),
 			},
-			displayConfiguration: displayConfiguration(
+			displayConfiguration: buildDisplayConfiguration(
 				cardConfig(
 					propertyReference("@image"),
 					propertyReference("@name"),
@@ -2242,7 +2260,7 @@ async function seedSavedViews(
 				scope: ["place"],
 				sort: sortDefinition("desc", "@createdAt"),
 			},
-			displayConfiguration: displayConfiguration(
+			displayConfiguration: buildDisplayConfiguration(
 				defaultCard,
 				[
 					tableColumn("Name", "@name"),
@@ -2267,7 +2285,7 @@ async function seedSavedViews(
 				scope: ["place"],
 				sort: sortDefinition("asc", schemaField("place", "country"), schemaField("place", "city")),
 			},
-			displayConfiguration: displayConfiguration(
+			displayConfiguration: buildDisplayConfiguration(
 				defaultCard,
 				[
 					tableColumn("Country", schemaField("place", "country")),
@@ -2293,7 +2311,7 @@ async function seedSavedViews(
 				scope: ["place"],
 				sort: sortDefinition("asc", schemaField("place", "country"), "@name"),
 			},
-			displayConfiguration: displayConfiguration(
+			displayConfiguration: buildDisplayConfiguration(
 				cardConfig(
 					propertyReference("@image"),
 					propertyReference("@name"),
@@ -2318,7 +2336,7 @@ async function seedSavedViews(
 				scope: ["place"],
 				sort: sortDefinition("asc", schemaField("place", "city"), schemaField("place", "address")),
 			},
-			displayConfiguration: displayConfiguration(
+			displayConfiguration: buildDisplayConfiguration(
 				defaultCard,
 				[
 					tableColumn("City", schemaField("place", "city")),
@@ -2347,7 +2365,7 @@ async function seedSavedViews(
 				scope: ["smartphone"],
 				sort: sortDefinition("desc", schemaField("smartphone", "year")),
 			},
-			displayConfiguration: displayConfiguration(
+			displayConfiguration: buildDisplayConfiguration(
 				cardConfig(
 					propertyReference("@image"),
 					propertyReference("@name"),
@@ -2375,7 +2393,7 @@ async function seedSavedViews(
 				scope: ["smartphone", "tablet"],
 				sort: sortDefinition("desc", "smartphone.storage_gb", "tablet.storage_gb"),
 			},
-			displayConfiguration: displayConfiguration(
+			displayConfiguration: buildDisplayConfiguration(
 				defaultCard,
 				[
 					tableColumn("Name", "@name"),
@@ -2404,7 +2422,7 @@ async function seedSavedViews(
 				scope: ["smartphone", "tablet"],
 				sort: sortDefinition("desc", "smartphone.year", "tablet.year"),
 			},
-			displayConfiguration: displayConfiguration(
+			displayConfiguration: buildDisplayConfiguration(
 				defaultCard,
 				[
 					tableColumn("Name", "@name"),
@@ -2433,7 +2451,7 @@ async function seedSavedViews(
 				scope: ["smartphone", "tablet"],
 				sort: sortDefinition("asc", "@name"),
 			},
-			displayConfiguration: displayConfiguration(
+			displayConfiguration: buildDisplayConfiguration(
 				cardConfig(
 					propertyReference("@image"),
 					propertyReference("@name"),
@@ -2464,7 +2482,7 @@ async function seedSavedViews(
 				scope: ["smartphone"],
 				sort: sortDefinition("desc", schemaField("smartphone", "price_usd")),
 			},
-			displayConfiguration: displayConfiguration(
+			displayConfiguration: buildDisplayConfiguration(
 				defaultCard,
 				[
 					tableColumn("Name", "@name"),
@@ -2497,7 +2515,7 @@ async function seedSavedViews(
 				scope: ["smartphone"],
 				sort: sortDefinition("asc", schemaField("smartphone", "price_usd")),
 			},
-			displayConfiguration: displayConfiguration(
+			displayConfiguration: buildDisplayConfiguration(
 				defaultCard,
 				[
 					tableColumn("Name", "@name"),
@@ -2525,7 +2543,7 @@ async function seedSavedViews(
 				scope: ["smartphone", "tablet"],
 				sort: sortDefinition("desc", "smartphone.screen_size", "tablet.screen_size"),
 			},
-			displayConfiguration: displayConfiguration(
+			displayConfiguration: buildDisplayConfiguration(
 				cardConfig(
 					propertyReference("@image"),
 					propertyReference("@name"),
@@ -2556,7 +2574,7 @@ async function seedSavedViews(
 				scope: ["tablet"],
 				sort: sortDefinition("desc", schemaField("tablet", "screen_size")),
 			},
-			displayConfiguration: displayConfiguration(
+			displayConfiguration: buildDisplayConfiguration(
 				cardConfig(
 					propertyReference("@image"),
 					propertyReference("@name"),
@@ -2587,7 +2605,7 @@ async function seedSavedViews(
 				scope: ["feature-phone"],
 				sort: sortDefinition("desc", schemaField("feature-phone", "year")),
 			},
-			displayConfiguration: displayConfiguration(
+			displayConfiguration: buildDisplayConfiguration(
 				defaultCard,
 				[
 					tableColumn("Name", "@name"),
@@ -2613,7 +2631,7 @@ async function seedSavedViews(
 				scope: ["smartphone", "feature-phone", "tablet"],
 				sort: sortDefinition("asc", "@name"),
 			},
-			displayConfiguration: displayConfiguration(
+			displayConfiguration: buildDisplayConfiguration(
 				cardConfig(
 					propertyReference("@image"),
 					propertyReference("@name"),
@@ -2649,7 +2667,7 @@ async function seedSavedViews(
 				scope: allSchemaSlugs,
 				sort: sortDefinition("desc", "@createdAt"),
 			},
-			displayConfiguration: displayConfiguration(
+			displayConfiguration: buildDisplayConfiguration(
 				defaultCard,
 				[
 					tableColumn("Name", "@name"),
@@ -2692,7 +2710,7 @@ async function seedSavedViews(
 				scope: allSchemaSlugs,
 				sort: sortDefinition("asc", "@name"),
 			},
-			displayConfiguration: displayConfiguration(
+			displayConfiguration: buildDisplayConfiguration(
 				defaultCard,
 				[
 					tableColumn("Name", "@name"),
@@ -2734,7 +2752,7 @@ async function seedSavedViews(
 				scope: allSchemaSlugs,
 				sort: sortDefinition("desc", "@updatedAt"),
 			},
-			displayConfiguration: displayConfiguration(
+			displayConfiguration: buildDisplayConfiguration(
 				cardConfig(
 					propertyReference("@image"),
 					propertyReference("@name"),
@@ -2782,7 +2800,7 @@ async function seedSavedViews(
 				eventJoins: [eventJoin("tasting", "tasting")],
 				sort: sortByExpr("desc", eventCol("tasting", "createdAt")),
 			},
-			displayConfiguration: displayConfiguration(
+			displayConfiguration: buildDisplayConfiguration(
 				cardConfig(
 					propertyReference("@image"),
 					propertyReference("@name"),
@@ -2809,7 +2827,7 @@ async function seedSavedViews(
 				filter: compare("gte", eventProp("tasting", "rating"), literal(8)),
 				sort: sortByExpr("desc", eventProp("tasting", "rating")),
 			},
-			displayConfiguration: displayConfiguration(
+			displayConfiguration: buildDisplayConfiguration(
 				cardConfig(
 					propertyReference("@image"),
 					propertyReference("@name"),
@@ -2836,7 +2854,7 @@ async function seedSavedViews(
 				filter: isNotNullPred(eventProp("purchase", "price")),
 				sort: sortByExpr("desc", eventProp("purchase", "price")),
 			},
-			displayConfiguration: displayConfiguration(
+			displayConfiguration: buildDisplayConfiguration(
 				cardConfig(
 					propertyReference("@image"),
 					propertyReference("@name"),
@@ -2863,7 +2881,7 @@ async function seedSavedViews(
 				filter: isNotNullPred(eventProp("visit", "date")),
 				sort: sortByExpr("desc", eventCol("visit", "createdAt")),
 			},
-			displayConfiguration: displayConfiguration(
+			displayConfiguration: buildDisplayConfiguration(
 				cardConfig(
 					propertyReference("@image"),
 					propertyReference("@name"),
@@ -2895,7 +2913,7 @@ async function seedSavedViews(
 				],
 				sort: sortByExpr("desc", computedRef("abv")),
 			},
-			displayConfiguration: displayConfiguration(
+			displayConfiguration: buildDisplayConfiguration(
 				cardConfig(
 					propertyReference("@image"),
 					propertyReference("@name"),
@@ -2938,7 +2956,7 @@ async function seedSavedViews(
 				],
 				sort: sortByExpr("desc", schemaProp("whiskey", "age")),
 			},
-			displayConfiguration: displayConfiguration(
+			displayConfiguration: buildDisplayConfiguration(
 				cardConfig(
 					propertyReference("@image"),
 					propertyReference("@name"),
@@ -2976,7 +2994,7 @@ async function seedSavedViews(
 				],
 				sort: sortDefinition("asc", "@name"),
 			},
-			displayConfiguration: displayConfiguration(
+			displayConfiguration: buildDisplayConfiguration(
 				cardConfig(
 					propertyReference("@image"),
 					propertyReference("@name"),
@@ -3018,7 +3036,7 @@ async function seedSavedViews(
 				filter: isNotNullPred(eventProp("tasting", "rating")),
 				sort: sortByExpr("desc", eventProp("tasting", "rating")),
 			},
-			displayConfiguration: displayConfiguration(
+			displayConfiguration: buildDisplayConfiguration(
 				cardConfig(
 					propertyReference("@image"),
 					propertyReference("@name"),
@@ -3048,7 +3066,7 @@ async function seedSavedViews(
 				),
 				sort: sortDefinition("desc", schemaField("whiskey", "age")),
 			},
-			displayConfiguration: displayConfiguration(
+			displayConfiguration: buildDisplayConfiguration(
 				cardConfig(
 					propertyReference("@image"),
 					propertyReference("@name"),
@@ -3073,7 +3091,7 @@ async function seedSavedViews(
 				filter: notPred(compare("eq", schemaProp("whiskey", "type"), literal("Rye"))),
 				sort: sortDefinition("asc", "@name"),
 			},
-			displayConfiguration: displayConfiguration(
+			displayConfiguration: buildDisplayConfiguration(
 				cardConfig(
 					propertyReference("@image"),
 					propertyReference("@name"),
@@ -3101,7 +3119,7 @@ async function seedSavedViews(
 				),
 				sort: sortByExpr("desc", coalesceExpr(schemaProp("whiskey", "age"), literal(0))),
 			},
-			displayConfiguration: displayConfiguration(
+			displayConfiguration: buildDisplayConfiguration(
 				cardConfig(
 					propertyReference("@image"),
 					propertyReference("@name"),
@@ -3127,7 +3145,7 @@ async function seedSavedViews(
 				filter: isNullPred(schemaProp("whiskey", "region")),
 				sort: sortDefinition("asc", "@name"),
 			},
-			displayConfiguration: displayConfiguration(
+			displayConfiguration: buildDisplayConfiguration(
 				cardConfig(
 					propertyReference("@image"),
 					propertyReference("@name"),
@@ -3155,7 +3173,7 @@ async function seedSavedViews(
 				),
 				sort: sortDefinition("asc", schemaField("place", "city")),
 			},
-			displayConfiguration: displayConfiguration(
+			displayConfiguration: buildDisplayConfiguration(
 				cardConfig(
 					propertyReference("@image"),
 					propertyReference("@name"),
@@ -3181,7 +3199,7 @@ async function seedSavedViews(
 				filter: containsPred(schemaProp("whiskey", "region"), literal("side")),
 				sort: sortDefinition("asc", schemaField("whiskey", "distillery")),
 			},
-			displayConfiguration: displayConfiguration(
+			displayConfiguration: buildDisplayConfiguration(
 				cardConfig(
 					propertyReference("@image"),
 					propertyReference("@name"),
@@ -3209,7 +3227,7 @@ async function seedSavedViews(
 				),
 				sort: sortDefinition("asc", "@name"),
 			},
-			displayConfiguration: displayConfiguration(
+			displayConfiguration: buildDisplayConfiguration(
 				cardConfig(
 					propertyReference("@image"),
 					propertyReference("@name"),
@@ -3239,6 +3257,7 @@ async function seedSavedViews(
 
 		for (const view of views) {
 			savedViews.push(
+				// oxlint-disable-next-line no-await-in-loop
 				await createSavedView(
 					client,
 					view.name,
