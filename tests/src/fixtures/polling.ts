@@ -1,4 +1,4 @@
-import { dayjs } from "@ryot/ts-utils/dayjs";
+import { DateTime, Duration } from "effect";
 
 export interface PollOptions {
 	timeoutMs?: number;
@@ -13,23 +13,25 @@ export async function pollUntil<T>(
 	options: PollOptions = {},
 ): Promise<T> {
 	const { intervalMs = 500, timeoutMs = 30_000 } = options;
-	const deadline = dayjs().add(timeoutMs, "millisecond");
+	const deadlineMs = DateTime.unsafeNow().pipe(
+		(now) => DateTime.addDuration(now, Duration.millis(timeoutMs)),
+		DateTime.toEpochMillis,
+	);
 
-	for (;;) {
-		// oxlint-disable-next-line no-await-in-loop
+	const poll = async (): Promise<T> => {
 		const result = await check();
 		if (result !== null) {
 			return result;
 		}
 
-		const remainingMs = deadline.diff(dayjs());
+		const remainingMs = deadlineMs - DateTime.toEpochMillis(DateTime.unsafeNow());
 		if (remainingMs <= 0) {
-			break;
+			throw new Error(`'${label}' did not complete within ${timeoutMs}ms`);
 		}
 
-		// oxlint-disable-next-line no-await-in-loop
 		await delay(Math.min(intervalMs, remainingMs));
-	}
+		return poll();
+	};
 
-	throw new Error(`'${label}' did not complete within ${timeoutMs}ms`);
+	return poll();
 }

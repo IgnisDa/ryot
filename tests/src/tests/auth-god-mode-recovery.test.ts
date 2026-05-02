@@ -1,7 +1,7 @@
 import { describe, expect, it } from "bun:test";
 import { randomUUID } from "node:crypto";
 
-import { dayjs } from "@ryot/ts-utils/dayjs";
+import { DateTime } from "effect";
 
 import { createTestAuthClient, createTestUser } from "../fixtures/auth";
 import { cookieHeaderFromSetCookies } from "../fixtures/auth-2fa";
@@ -19,6 +19,7 @@ const godModeListQuery = (search?: string) => ({
 	...(search ? { search } : {}),
 });
 const trackersListQuery = { includeDisabled: false };
+const uniqueTimestamp = () => DateTime.toEpochMillis(DateTime.unsafeNow());
 
 async function getUserIdByEmail(email: string) {
 	const result = await getPgClient().query<{ id: string }>(
@@ -55,7 +56,7 @@ async function createApiKey(cookies: string) {
 
 async function createNoAccountUser(name: string) {
 	const userId = randomUUID();
-	const email = `${name.toLowerCase()}-${dayjs().valueOf()}@example.com`;
+	const email = `${name.toLowerCase()}-${uniqueTimestamp()}@example.com`;
 	await getPgClient().query(
 		`INSERT INTO "user" (id, name, email, email_verified, preferences, created_at, updated_at)
 		 VALUES ($1, $2, $3, true, '{}', NOW(), NOW())`,
@@ -67,7 +68,7 @@ async function createNoAccountUser(name: string) {
 async function createOidcUser(name: string) {
 	const pg = getPgClient();
 	const userId = randomUUID();
-	const email = `${name.toLowerCase()}-${dayjs().valueOf()}@example.com`;
+	const email = `${name.toLowerCase()}-${uniqueTimestamp()}@example.com`;
 	await pg.query(
 		`INSERT INTO "user" (id, name, email, email_verified, preferences, created_at, updated_at)
 		 VALUES ($1, $2, $3, true, '{}', NOW(), NOW())`,
@@ -76,7 +77,7 @@ async function createOidcUser(name: string) {
 	await pg.query(
 		`INSERT INTO "account" (id, account_id, provider_id, user_id, created_at, updated_at)
 		 VALUES ($1, $2, 'oidc', $3, NOW(), NOW())`,
-		[randomUUID(), `oidc-sub-${dayjs().valueOf()}`, userId],
+		[randomUUID(), `oidc-sub-${uniqueTimestamp()}`, userId],
 	);
 	return { email, userId };
 }
@@ -193,7 +194,7 @@ describe("User listing with correct admin token", () => {
 		await getPgClient().query(
 			`INSERT INTO "account" (id, account_id, provider_id, user_id, created_at, updated_at)
 			 VALUES ($1, $2, 'oidc', $3, NOW(), NOW())`,
-			[randomUUID(), `oidc-sub-${dayjs().valueOf()}`, userId],
+			[randomUUID(), `oidc-sub-${uniqueTimestamp()}`, userId],
 		);
 
 		const { data, response } = await client.godMode.listUsers({
@@ -208,7 +209,7 @@ describe("User listing with correct admin token", () => {
 describe("User provisioning", () => {
 	it("provisions a credential user with no linked account", async () => {
 		const client = getBackendClient();
-		const email = `provision-cred-${dayjs().valueOf()}@example.com`;
+		const email = `provision-cred-${uniqueTimestamp()}@example.com`;
 
 		const { response } = await client.godMode.provisionUser({
 			body: { provider: "credential", email, name: "Provisioned Credential" },
@@ -225,14 +226,14 @@ describe("User provisioning", () => {
 
 	it("provisions an oidc user with a linked account", async () => {
 		const client = getBackendClient();
-		const email = `provision-oidc-${dayjs().valueOf()}@example.com`;
+		const email = `provision-oidc-${uniqueTimestamp()}@example.com`;
 
 		const { response } = await client.godMode.provisionUser({
 			body: {
 				email,
 				provider: "oidc",
 				name: "Provisioned Oidc",
-				oidcIssuerId: `oidc-sub-${dayjs().valueOf()}`,
+				oidcIssuerId: `oidc-sub-${uniqueTimestamp()}`,
 			},
 			headers: adminAccessTokenHeaders(ADMIN_TOKEN),
 		});
@@ -476,7 +477,7 @@ describe("Mixed auth user restrictions", () => {
 		await getPgClient().query(
 			`INSERT INTO "account" (id, account_id, provider_id, user_id, created_at, updated_at)
 			 VALUES ($1, $2, 'oidc', $3, NOW(), NOW())`,
-			[randomUUID(), `oidc-sub-${dayjs().valueOf()}`, userId],
+			[randomUUID(), `oidc-sub-${uniqueTimestamp()}`, userId],
 		);
 
 		const { error, response } = await client.godMode.resetUserPassword({

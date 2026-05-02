@@ -1,6 +1,6 @@
 import { describe, expect, it } from "bun:test";
 
-import { dayjs } from "@ryot/ts-utils/dayjs";
+import { DateTime, Duration } from "effect";
 
 import {
 	createAuthenticatedClient,
@@ -11,6 +11,14 @@ import {
 	createTracker,
 	literalExpression,
 } from "../fixtures";
+
+const currentTime = () => DateTime.unsafeNow();
+const startOfDay = (value = currentTime()) => DateTime.startOf(value, "day");
+const add = (
+	value: ReturnType<typeof currentTime>,
+	duration: Parameters<typeof DateTime.addDuration>[1],
+) => DateTime.addDuration(value, duration);
+const toIso = (value: ReturnType<typeof currentTime>) => DateTime.formatIso(value);
 
 describe("time-series mode", () => {
 	it("returns day buckets with correct event counts and fills empty buckets with 0", async () => {
@@ -63,8 +71,8 @@ describe("time-series mode", () => {
 		});
 
 		// Date range: today UTC to today+3 days UTC (3 day buckets)
-		const startAt = dayjs.utc().startOf("day").toISOString();
-		const endAt = dayjs.utc().startOf("day").add(3, "day").toISOString();
+		const startAt = toIso(startOfDay());
+		const endAt = toIso(add(startOfDay(), "3 days"));
 
 		const { data, response } = await client.POST("/query-engine/execute", {
 			headers: { Cookie: cookies },
@@ -117,8 +125,8 @@ describe("time-series mode", () => {
 			propertiesSchema: minimalPropertiesSchema,
 		});
 
-		const startAt = dayjs.utc().startOf("day").toISOString();
-		const endAt = dayjs.utc().startOf("day").add(1, "day").toISOString();
+		const startAt = toIso(startOfDay());
+		const endAt = toIso(add(startOfDay(), Duration.days(1)));
 
 		const { data, response } = await client.POST("/query-engine/execute", {
 			headers: { Cookie: cookies },
@@ -166,7 +174,7 @@ describe("time-series mode", () => {
 			propertiesSchema: minimalPropertiesSchema,
 		});
 
-		const now = dayjs.utc().toISOString();
+		const currentIso = toIso(currentTime());
 
 		const { response } = await client.POST("/query-engine/execute", {
 			headers: { Cookie: cookies },
@@ -179,7 +187,7 @@ describe("time-series mode", () => {
 				metric: { type: "count" },
 				eventSchemas: [reviewSchema.slug],
 				// endAt before startAt
-				dateRange: { startAt: now, endAt: now },
+				dateRange: { startAt: currentIso, endAt: currentIso },
 			},
 		});
 
@@ -227,8 +235,12 @@ describe("time-series mode", () => {
 			eventSchemaId: reviewSchema.id,
 		});
 
-		const startAt = dayjs.utc().add(1, "year").startOf("day").add(10, "hour").toISOString();
-		const endAt = dayjs.utc().add(1, "year").startOf("day").add(12, "hour").toISOString();
+		const futureDay = currentTime().pipe(
+			(value) => DateTime.addDuration(value, Duration.days(365)),
+			DateTime.startOf("day"),
+		);
+		const startAt = toIso(add(futureDay, "10 hours"));
+		const endAt = toIso(add(futureDay, "12 hours"));
 
 		const { data, response } = await client.POST("/query-engine/execute", {
 			headers: { Cookie: cookies },
@@ -279,7 +291,11 @@ describe("time-series mode", () => {
 
 		// This event's createdAt is now, but occurredAt is set 1 year in the past.
 		// A dateRange covering today should exclude it when filtering by occurredAt.
-		const pastOccurredAt = dayjs.utc().subtract(1, "year").startOf("day").toISOString();
+		const pastOccurredAt = currentTime().pipe(
+			(value) => DateTime.addDuration(value, Duration.days(-365)),
+			DateTime.startOf("day"),
+			DateTime.formatIso,
+		);
 		await createQueryEngineEvent({
 			client,
 			cookies,
@@ -299,8 +315,8 @@ describe("time-series mode", () => {
 			eventSchemaId: reviewSchema.id,
 		});
 
-		const startAt = dayjs.utc().startOf("day").toISOString();
-		const endAt = dayjs.utc().startOf("day").add(1, "day").toISOString();
+		const startAt = toIso(startOfDay());
+		const endAt = toIso(add(startOfDay(), Duration.days(1)));
 
 		const { data, response } = await client.POST("/query-engine/execute", {
 			headers: { Cookie: cookies },
@@ -351,18 +367,21 @@ describe("time-series mode", () => {
 			entitySchemaId: schema.schemaId,
 		});
 
-		const pastBucketStart = dayjs.utc().subtract(1, "year").startOf("day");
+		const pastBucketStart = currentTime().pipe(
+			(value) => DateTime.addDuration(value, Duration.days(-365)),
+			DateTime.startOf("day"),
+		);
 		await createQueryEngineEvent({
 			client,
 			cookies,
 			entityId,
 			properties: {},
 			eventSchemaId: reviewSchema.id,
-			occurredAt: pastBucketStart.toISOString(),
+			occurredAt: toIso(pastBucketStart),
 		});
 
-		const startAt = pastBucketStart.toISOString();
-		const endAt = pastBucketStart.add(1, "day").toISOString();
+		const startAt = toIso(pastBucketStart);
+		const endAt = toIso(add(pastBucketStart, Duration.days(1)));
 
 		const { data, response } = await client.POST("/query-engine/execute", {
 			headers: { Cookie: cookies },
@@ -381,7 +400,7 @@ describe("time-series mode", () => {
 		expect(response.status).toBe(200);
 		const buckets = data?.mode === "timeSeries" ? data.data.buckets : [];
 		expect(buckets).toHaveLength(1);
-		expect(dayjs.utc(buckets[0]?.date).toISOString()).toBe(startAt);
+		expect(buckets[0]?.date).toBe(startAt);
 		expect(buckets[0]?.value).toBe(1);
 	});
 
@@ -437,8 +456,8 @@ describe("time-series mode", () => {
 			eventSchemaId: reviewSchema.id,
 		});
 
-		const startAt = dayjs.utc().startOf("day").toISOString();
-		const endAt = dayjs.utc().startOf("day").add(1, "day").toISOString();
+		const startAt = toIso(startOfDay());
+		const endAt = toIso(add(startOfDay(), Duration.days(1)));
 
 		const { data, response } = await client.POST("/query-engine/execute", {
 			headers: { Cookie: cookies },
@@ -492,8 +511,8 @@ describe("time-series mode", () => {
 			propertiesSchema: minimalPropertiesSchema,
 		});
 
-		const startAt = dayjs.utc().startOf("day").toISOString();
-		const endAt = dayjs.utc().startOf("day").add(1, "day").toISOString();
+		const startAt = toIso(startOfDay());
+		const endAt = toIso(add(startOfDay(), Duration.days(1)));
 
 		const { error, response } = await client.POST("/query-engine/execute", {
 			headers: { Cookie: cookies },
@@ -541,8 +560,8 @@ describe("time-series mode", () => {
 			propertiesSchema: minimalPropertiesSchema,
 		});
 
-		const startAt = dayjs.utc().startOf("day").toISOString();
-		const endAt = dayjs.utc().startOf("day").add(1, "day").toISOString();
+		const startAt = toIso(startOfDay());
+		const endAt = toIso(add(startOfDay(), Duration.days(1)));
 
 		const { response } = await client.POST("/query-engine/execute", {
 			headers: { Cookie: cookies },

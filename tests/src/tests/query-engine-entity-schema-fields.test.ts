@@ -3,7 +3,7 @@ import { describe, expect, it } from "bun:test";
 import {
 	createEntityColumnExpression,
 	createEntitySchemaExpression,
-} from "@ryot/ts-utils/view-language";
+} from "@ryot/app-backend/query-language";
 
 import {
 	buildQueryEngineField,

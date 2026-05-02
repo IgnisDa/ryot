@@ -1,18 +1,30 @@
 import { getPgClient } from "../setup";
-import { requirePresent, requireResponseData } from "../test-support/assertions";
+import {
+	requireObjectRecord,
+	requirePresent,
+	requireResponseData,
+} from "../test-support/assertions";
 import type { Client } from "./auth";
 import type { ClientBody, ClientSuccess } from "./backend-client";
 import { createTrackerWithSchema } from "./entity-schemas";
 
 type CreateEntityBody = ClientBody<"entities", "create">;
-type EntityRecord = Omit<ClientSuccess<"entities", "create">, "properties"> & {
-	properties: Record<string, unknown>;
-};
 type CreateEntityInput = Omit<CreateEntityBody, "image"> & {
 	image?: CreateEntityBody["image"] | { type: "remote"; url: string } | null;
 };
 
 type ClearEntityUserStateData = ClientSuccess<"entities", "clearUserState">;
+
+function withRecordProperties<T extends { properties: unknown }>(
+	entity: T,
+): Omit<T, "properties"> & {
+	properties: Record<string, unknown>;
+} {
+	return {
+		...entity,
+		properties: requireObjectRecord(entity.properties, "Entity properties must be an object"),
+	};
+}
 
 function normalizeEntityImage(
 	image: CreateEntityInput["image"],
@@ -47,7 +59,7 @@ export async function createEntity(client: Client, cookies: string, body: Create
 
 	// TODO(Task 22): Remove this tests-only entity assertion once the public
 	// AppContract exposes typed entity properties.
-	return entity as EntityRecord;
+	return withRecordProperties(entity);
 }
 
 export async function getEntity(client: Client, cookies: string, entityId: string) {
@@ -58,7 +70,9 @@ export async function getEntity(client: Client, cookies: string, entityId: strin
 
 	// TODO(Task 22): Remove this tests-only entity assertion once the public
 	// AppContract exposes typed entity properties.
-	return requireResponseData(response, data, `Failed to get entity '${entityId}'`) as EntityRecord;
+	return withRecordProperties(
+		requireResponseData(response, data, `Failed to get entity '${entityId}'`),
+	);
 }
 
 export async function clearEntityUserState(

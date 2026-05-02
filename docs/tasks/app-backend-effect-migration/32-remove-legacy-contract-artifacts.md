@@ -4,7 +4,7 @@
 
 **Type:** AFK
 
-**Status:** todo
+**Status:** in_progress
 
 ## What to build
 
@@ -20,6 +20,12 @@ Do not run this before app-client and tests are migrated away from the legacy ge
 - [ ] Obsolete generated OpenAPI backend exports and generation scripts are removed when no longer needed
 - [ ] Unused `openapi-fetch` dependencies are removed from migrated packages
 - [ ] Full repository checks are no longer blocked by legacy contract artifacts
+
+## Progress Notes
+
+- `bun turbo --filter=@ryot/tests check` now passes again after switching broken tests imports from deleted `@ryot/ts-utils/view-language` helpers to `@ryot/app-backend/query-language`.
+- The initial tests-only cleanup removed a subset of `oxlint-disable` comments in polling and several query-engine/event test helpers while keeping the legacy adapter layer intact.
+- The remaining work is concentrated in the legacy tests client compatibility layer (`backend-client.ts`, `backend-client-legacy.ts`) and in removing obsolete workspace artifacts/dependencies.
 
 ## User stories addressed
 
