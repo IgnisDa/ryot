@@ -34,8 +34,9 @@ const createEntityCardDisplayConfigSchema = () =>
 	z.object({
 		imageProperty: nullableViewExpressionSchema,
 		titleProperty: nullableViewExpressionSchema,
-		badgeProperty: nullableViewExpressionSchema,
-		subtitleProperty: nullableViewExpressionSchema,
+		calloutProperty: nullableViewExpressionSchema,
+		primarySubtitleProperty: nullableViewExpressionSchema,
+		secondarySubtitleProperty: nullableViewExpressionSchema,
 	});
 
 export const sortDefinitionSchema = z.object({
@@ -63,6 +64,7 @@ export const eventJoinDefinitionArraySchema = z
 
 export type GridConfig = z.infer<typeof gridConfigSchema>;
 export type ListConfig = z.infer<typeof listConfigSchema>;
+
 export type TableConfig = z.infer<typeof tableConfigSchema>;
 export type SortDefinition = z.infer<typeof sortDefinitionSchema>;
 export type EventJoinDefinition = z.infer<typeof eventJoinDefinitionSchema>;

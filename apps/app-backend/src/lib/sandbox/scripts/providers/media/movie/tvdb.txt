@@ -226,9 +226,10 @@ driver("search", async function (context) {
 
 			return {
 				externalId: id,
-				badgeProperty: { kind: "null", value: null },
+				calloutProperty: { kind: "null", value: null },
 				titleProperty: { kind: "text", value: title },
-				subtitleProperty: { kind: "null", value: null },
+				primarySubtitleProperty: { kind: "null", value: null },
+				secondarySubtitleProperty: { kind: "null", value: null },
 				imageProperty:
 					image === null
 						? { kind: "null", value: null }

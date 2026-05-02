@@ -233,12 +233,13 @@ query {
 
       return {
         externalId,
-        badgeProperty: { kind: "null", value: null },
+        calloutProperty: { kind: "null", value: null },
         titleProperty: { kind: "text", value: title },
-        subtitleProperty:
+        primarySubtitleProperty:
           releaseYear === null
             ? { kind: "null", value: null }
             : { kind: "number", value: releaseYear },
+        secondarySubtitleProperty: { kind: "null", value: null },
         imageProperty:
           image === null
             ? { kind: "null", value: null }
