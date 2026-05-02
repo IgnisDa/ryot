@@ -47,33 +47,33 @@ import {
 } from "./view-page-utils";
 
 type ViewLayout =
-	keyof ApiGetResponseData<"/saved-views/{viewId}">["displayConfiguration"];
+	keyof ApiGetResponseData<"/saved-views/{viewSlug}">["displayConfiguration"];
 
 const isViewLayout = (value: string): value is ViewLayout => {
 	return ["grid", "list", "table"].includes(value);
 };
 
 export function SavedViewPage(props: {
-	viewId: string;
+	viewSlug: string;
 	isCloning?: boolean;
 	isDeleting?: boolean;
 	actionError?: string | null;
+	isCreatingCollection: boolean;
+	onCreateCollection: () => void;
 	onClone: () => void | Promise<void>;
 	onDelete: () => void | Promise<void>;
-	onCreateCollection: () => void;
-	isCreatingCollection: boolean;
 }) {
 	const apiClient = useApiClient();
 	const { surface, textPrimary, textSecondary } = useThemeTokens();
 	const [drawerOpened, drawer] = useDisclosure(false);
 	const [layout, setLayout] = useLocalStorage<ViewLayout>({
-		key: `${STORAGE_KEYS.viewLayout}:${props.viewId}`,
+		key: `${STORAGE_KEYS.viewLayout}:${props.viewSlug}`,
 		defaultValue: "grid",
 	});
 	const [page, setPage] = useState(1);
 
-	const savedViewQuery = apiClient.useQuery("get", "/saved-views/{viewId}", {
-		params: { path: { viewId: props.viewId } },
+	const savedViewQuery = apiClient.useQuery("get", "/saved-views/{viewSlug}", {
+		params: { path: { viewSlug: props.viewSlug } },
 	});
 	const savedView = savedViewQuery.data?.data;
 	const runtimeRequest = useMemo(
@@ -128,7 +128,7 @@ export function SavedViewPage(props: {
 
 	useEffect(() => {
 		setPage(1);
-	}, [layout, props.viewId, setPage]);
+	}, [layout, props.viewSlug, setPage]);
 
 	if (savedViewQuery.isLoading) {
 		return <LoadingState />;
