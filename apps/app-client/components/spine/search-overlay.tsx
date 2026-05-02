@@ -20,7 +20,7 @@ export function SearchOverlay() {
 		<Animated.View
 			exiting={SlideOutUp.duration(180)}
 			entering={SlideInDown.duration(220)}
-			className="absolute top-14 left-0 right-1 z-40 pt-6 pb-5 px-7 border-b-[0.5px] bg-paper border-b-ink/20"
+			className="absolute top-14 left-0 right-0 z-40 pt-6 pb-5 px-7 border-b-[0.5px] bg-paper border-b-ink/20"
 		>
 			<Text className="text-[10px] tracking-[2px] mb-2.5 text-ink-soft font-sans uppercase">
 				Search · all entities
