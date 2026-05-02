@@ -12,6 +12,7 @@ import type {
 	UserId,
 } from "@ryot/contract/schema/brands";
 import { SubscriptionRunId } from "@ryot/contract/schema/brands";
+import { sha256Base64Url } from "@ryot/ts-utils/crypto";
 import { stableStringify } from "@ryot/ts-utils/json";
 import { Context, DateTime, Effect, Layer, Schema } from "effect";
 
@@ -74,11 +75,7 @@ const truncateArtifact = (value: unknown) => {
 };
 
 const makeRunId = (occurrenceId: string, ruleId: AutomationRuleId) =>
-	SubscriptionRunId.make(
-		`run_${new Bun.CryptoHasher("sha256")
-			.update(stableStringify([occurrenceId, ruleId]))
-			.digest("base64url")}`,
-	);
+	SubscriptionRunId.make(`run_${sha256Base64Url(stableStringify([occurrenceId, ruleId]))}`);
 
 const matchesRowOwner = (
 	rule: Pick<ResolvedAutomationRule, "isBuiltin" | "kind" | "userId">,

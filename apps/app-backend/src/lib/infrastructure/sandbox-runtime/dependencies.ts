@@ -1,4 +1,5 @@
 import { SANDBOX_RUNTIME_SDK_IMPORTS, SANDBOX_SDK_ROOT_IMPORT } from "@ryot/sandbox-sdk/imports";
+import { createSha256Hasher } from "@ryot/ts-utils/crypto";
 import { Data, Effect, FileSystem, Path } from "effect";
 
 class SandboxRuntimeDependencyError extends Data.TaggedError("SandboxRuntimeDependencyError")<{
@@ -136,7 +137,7 @@ const runtimeContentHash = (fs: FileSystem.FileSystem, directory: string) =>
 				message: "Sandbox runtime module path is not a directory",
 			});
 		}
-		const hasher = new Bun.CryptoHasher("sha256");
+		const hasher = createSha256Hasher();
 		for (const file of runtimeDirectoryFiles) {
 			const contents = yield* fs.readFile(`${directory}/${file}`);
 			hasher.update(`${file.length}:${file}:${contents.byteLength}:`);
