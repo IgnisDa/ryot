@@ -20,6 +20,7 @@ import { LoadedMediaImportAdapterSuccess } from "./media/source-loaders";
 import { type ImportEntityRef, importEntityRefKey } from "./media/types";
 import { ImportsRepository } from "./repository";
 import { PROGRESS_UPDATE_INTERVAL, recordImportRunFailure } from "./runtime/failures";
+import { getTemporaryDirectory, resolveSafeImportFilePath } from "./runtime/files";
 import {
 	createImportRunLifecycle,
 	ImportRunError,
@@ -40,6 +41,7 @@ const PopulationScript = Schema.Struct({
 const LoadMediaImportFailed = Schema.TaggedStruct("failed", {
 	message: Schema.String,
 	cleanupPaths: Schema.Array(Schema.String),
+	fallbackToInitialCleanupPaths: Schema.Boolean,
 });
 
 const LoadMediaImportOutcome = Schema.Union(LoadMediaImportFailed, LoadedMediaImportAdapterSuccess);
@@ -124,12 +126,23 @@ export const runOneTimeMediaImportWorkflow = <
 		const collections = yield* CollectionsService;
 		const entitiesRepository = yield* EntitiesRepository;
 
-		const initialCleanupPaths = payload.filePath ? [payload.filePath] : [];
+		const initialCleanupPaths = payload.filePath
+			? (() => {
+					const safePathResult = resolveSafeImportFilePath(
+						payload.filePath,
+						getTemporaryDirectory(),
+					);
+					return "path" in safePathResult ? [safePathResult.path] : [];
+				})()
+			: [];
 		let cleanupPaths: ReadonlyArray<string> = initialCleanupPaths;
 		const { cleanupArtifactsBestEffort, failRunAndCleanup } = createImportRunLifecycle(
 			payload,
 			operations.cleanupArtifacts,
 		);
+		const mergeCleanupPaths = (paths: ReadonlyArray<string>) => [
+			...new Set([...initialCleanupPaths, ...paths]),
+		];
 
 		const createProgressReporter = (input: {
 			base: number;
@@ -192,6 +205,7 @@ export const runOneTimeMediaImportWorkflow = <
 					),
 					Effect.catchAll((error) =>
 						Effect.succeed({
+							fallbackToInitialCleanupPaths: false,
 							message: error.message,
 							_tag: "failed" as const,
 							cleanupPaths: [...error.cleanupPaths],
@@ -200,6 +214,7 @@ export const runOneTimeMediaImportWorkflow = <
 					Effect.catchAllCause((cause) =>
 						Effect.succeed({
 							cleanupPaths: [],
+							fallbackToInitialCleanupPaths: true,
 							_tag: "failed" as const,
 							message: unknownToMessage(Cause.squash(cause)),
 						}),
@@ -207,7 +222,12 @@ export const runOneTimeMediaImportWorkflow = <
 				),
 			});
 
-			cleanupPaths = [...new Set([...initialCleanupPaths, ...loadOutcome.cleanupPaths])];
+			cleanupPaths =
+				loadOutcome._tag === "failed"
+					? loadOutcome.fallbackToInitialCleanupPaths
+						? mergeCleanupPaths(loadOutcome.cleanupPaths)
+						: [...loadOutcome.cleanupPaths]
+					: mergeCleanupPaths(loadOutcome.cleanupPaths);
 			if (loadOutcome._tag === "failed") {
 				yield* failRunAndCleanup({
 					message: loadOutcome.message,

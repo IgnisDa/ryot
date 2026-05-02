@@ -7,9 +7,6 @@ import { RelationshipSchemasRepository } from "~/modules/relationship-schemas/re
 
 import { EntitiesRepository } from "./repository";
 
-const isPlainRecord = (v: unknown): v is Record<string, unknown> =>
-	v !== null && typeof v === "object" && !Array.isArray(v);
-
 export const EntityDetailsRelatedEntity = Schema.Struct({
 	name: Schema.String,
 	externalId: Schema.String,
@@ -101,7 +98,7 @@ export const processRelatedEntity = (input: {
 		const relProps = input.relatedEntity.relationshipProperties;
 		const properties = yield* parseAppSchemaProperties({
 			kind: "Relationship",
-			properties: isPlainRecord(relProps) ? relProps : {},
+			properties: relProps === undefined ? {} : relProps,
 			propertiesSchema: relationshipSchema.propertiesSchema,
 		}).pipe(Effect.mapError((error) => new SandboxRunError({ message: error.message })));
 

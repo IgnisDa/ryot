@@ -14,6 +14,7 @@ import { EventsService } from "~/modules/events/service";
 
 import { OpenScaleImportItemSchema, prepareOpenScaleWrites } from "./measurement/workflow";
 import { ImportsRepository } from "./repository";
+import { getTemporaryDirectory } from "./runtime/files";
 import { ProcessImportRunWorkflow } from "./worker";
 import { runOneTimeNonMediaImportWorkflow } from "./workflows-non-media";
 import { WorkoutImportItemSchema } from "./workout/domain";
@@ -501,6 +502,10 @@ it.effect("fails the workout run when workout schemas are missing", () => {
 it.effect("fails the run and cleans up when non-media adapter loading fails", () => {
 	const cleanupCalls: Array<Record<string, unknown>> = [];
 	const recordedUpdates: Array<Record<string, unknown>> = [];
+	const defectPayload = {
+		...measurementPayload,
+		filePath: `${getTemporaryDirectory()}/open-scale.csv`,
+	};
 
 	const options = {
 		importsRepository: makeImportsRepository({
@@ -515,7 +520,7 @@ it.effect("fails the run and cleans up when non-media adapter loading fails", ()
 		options,
 		"workflow-measurement-load-failure",
 		Effect.gen(function* () {
-			yield* runOneTimeNonMediaImportWorkflow(measurementPayload, {
+			yield* runOneTimeNonMediaImportWorkflow(defectPayload, {
 				itemSchema: OpenScaleImportItemSchema,
 				prepareWrites: prepareOpenScaleWrites,
 				cleanupArtifacts: (input) =>
@@ -525,7 +530,91 @@ it.effect("fails the run and cleans up when non-media adapter loading fails", ()
 				loadAdapterResult: () => Effect.die("Could not read import file"),
 			});
 
-			expect(cleanupCalls).toEqual([{ cleanupPaths: ["/tmp/open-scale.csv"] }]);
+			expect(cleanupCalls).toEqual([{ cleanupPaths: [defectPayload.filePath] }]);
+			expect(recordedUpdates).toContainEqual(
+				expect.objectContaining({
+					runId: "run-1",
+					status: "failed",
+					errorSummary: "Could not read import file",
+				}),
+			);
+		}),
+	);
+});
+
+it.effect("does not reintroduce invalid file paths during handled non-media load failures", () => {
+	const cleanupCalls: Array<Record<string, unknown>> = [];
+	const recordedUpdates: Array<Record<string, unknown>> = [];
+	const invalidPayload = { ...measurementPayload, filePath: "../../etc/passwd" };
+
+	const options = {
+		importsRepository: makeImportsRepository({
+			updateRun: (input) => {
+				recordedUpdates.push(input);
+				return Effect.void;
+			},
+		}),
+	} satisfies TestLayerOptions;
+
+	return withTestLayer(
+		options,
+		"workflow-measurement-invalid-path",
+		Effect.gen(function* () {
+			yield* runOneTimeNonMediaImportWorkflow(invalidPayload, {
+				itemSchema: OpenScaleImportItemSchema,
+				prepareWrites: prepareOpenScaleWrites,
+				cleanupArtifacts: (input) =>
+					Effect.sync(() => {
+						cleanupCalls.push(input);
+					}),
+				loadAdapterResult: () =>
+					Effect.fail({
+						message: "Import job has an invalid file path",
+						cleanupPaths: [],
+					}),
+			});
+
+			expect(cleanupCalls).toEqual([{ cleanupPaths: [] }]);
+			expect(recordedUpdates).toContainEqual(
+				expect.objectContaining({
+					runId: "run-1",
+					status: "failed",
+					errorSummary: "Import job has an invalid file path",
+				}),
+			);
+		}),
+	);
+});
+
+it.effect("does not attempt cleanup for invalid file paths when non-media loading defects", () => {
+	const cleanupCalls: Array<Record<string, unknown>> = [];
+	const recordedUpdates: Array<Record<string, unknown>> = [];
+	const invalidPayload = { ...measurementPayload, filePath: "../../etc/passwd" };
+
+	const options = {
+		importsRepository: makeImportsRepository({
+			updateRun: (input) => {
+				recordedUpdates.push(input);
+				return Effect.void;
+			},
+		}),
+	} satisfies TestLayerOptions;
+
+	return withTestLayer(
+		options,
+		"workflow-measurement-invalid-path-defect",
+		Effect.gen(function* () {
+			yield* runOneTimeNonMediaImportWorkflow(invalidPayload, {
+				itemSchema: OpenScaleImportItemSchema,
+				prepareWrites: prepareOpenScaleWrites,
+				loadAdapterResult: () => Effect.die("Could not read import file"),
+				cleanupArtifacts: (input) =>
+					Effect.sync(() => {
+						cleanupCalls.push(input);
+					}),
+			});
+
+			expect(cleanupCalls).toEqual([{ cleanupPaths: [] }]);
 			expect(recordedUpdates).toContainEqual(
 				expect.objectContaining({
 					runId: "run-1",
