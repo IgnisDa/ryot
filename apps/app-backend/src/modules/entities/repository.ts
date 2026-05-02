@@ -9,7 +9,6 @@ import { CurrentDb, dbEffect } from "#lib/infrastructure/db/service";
 import { DefinitionRegistry } from "#modules/definition-registry/service";
 import { PluginRuntimeResolver } from "#modules/plugins/runtime-resolver";
 
-import type { EntityReferenceSnapshot } from "./mutation-outcomes";
 import {
 	entitySelection,
 	entityVisibleToUserClause,
@@ -98,13 +97,11 @@ export class EntitiesRepository extends Context.Service<EntitiesRepository>()(
 							.orderBy(asc(schema.entity.id)),
 					);
 
-					return rows.map(
-						(row): EntityReferenceSnapshot => ({
-							name: row.name,
-							id: EntityId.make(row.id),
-							entitySchemaSlug: row.entitySchemaSlug,
-						}),
-					);
+					return rows.map((row) => ({
+						name: row.name,
+						id: EntityId.make(row.id),
+						entitySchemaSlug: row.entitySchemaSlug,
+					}));
 				},
 			);
 
