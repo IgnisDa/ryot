@@ -16,10 +16,10 @@ export const loadPluginSource = (packageRoot: string, manifest: unknown) =>
 				Effect.map((matchedPaths) => matchedPaths.filter((path) => !path.endsWith(".test.ts"))),
 			);
 		const entries = yield* Effect.forEach(paths, (path) =>
-			Effect.tryPromise({
-				try: () => Bun.file(`${packageRoot}/${path}`).text(),
-				catch: (error) => new PluginSourceError({ message: String(error) }),
-			}).pipe(Effect.map((contents) => [path, contents] as const)),
+			fs.readFileString(`${packageRoot}/${path}`).pipe(
+				Effect.mapError((error) => new PluginSourceError({ message: String(error) })),
+				Effect.map((contents) => [path, contents] as const),
+			),
 		);
 		return { manifest, files: Object.fromEntries(entries) } satisfies PluginSource;
 	});
