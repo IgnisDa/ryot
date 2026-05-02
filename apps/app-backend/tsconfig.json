@@ -22,7 +22,8 @@
 					"globalDateInEffect": "warning",
 					"globalTimersInEffect": "warning",
 					"preferSchemaOverJson": "warning",
-					"globalConsoleInEffect": "warning"
+					"globalConsoleInEffect": "warning",
+					"globalErrorInEffectFailure": "warning"
 				}
 			}
 		]
