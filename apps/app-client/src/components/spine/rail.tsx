@@ -1,3 +1,4 @@
+import clsx from "clsx";
 import { useAtom, useAtomValue, useSetAtom } from "jotai";
 import { ChevronRight } from "lucide-react-native";
 import { ScrollView } from "react-native";
@@ -83,7 +84,12 @@ export function SpineRail({ translateX, onClose, pinned = false }: Props) {
 							<Box className="absolute top-2 left-0 w-0.75 bottom-2 bg-primary" />
 						)}
 						<Text
-							className={`text-[17px] tracking-[0.2px] ${isActive ? "text-foreground font-heading-semibold" : "text-muted-foreground font-heading"}`}
+							className={clsx(
+								"text-[17px] tracking-[0.2px]",
+								isActive
+									? "text-foreground font-heading-semibold"
+									: "text-muted-foreground font-heading",
+							)}
 						>
 							{tracker.name}
 						</Text>
