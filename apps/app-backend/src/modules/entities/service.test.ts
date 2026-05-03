@@ -280,6 +280,7 @@ describe("createEntity", () => {
 			{ body: createEntityBody(), userId: "user_1" },
 			createEntityDeps({
 				getEntitySchemaScopeForUser: async () => ({
+					slug: "book",
 					userId: null,
 					id: "schema_1",
 					isBuiltin: true,
@@ -297,6 +298,7 @@ describe("createEntity", () => {
 	it("returns validation for a built-in schema even when provenance fields are provided", async () => {
 		const deps = createEntityDeps({
 			getEntitySchemaScopeForUser: async () => ({
+				slug: "book",
 				userId: null,
 				id: "schema_1",
 				isBuiltin: true,
@@ -320,6 +322,38 @@ describe("createEntity", () => {
 			error: "validation",
 			message: "Built-in entity schemas do not support manual entity creation",
 		});
+	});
+
+	it("allows manual creation for the built-in workout schema", async () => {
+		const result = await createEntity(
+			{
+				userId: "user_1",
+				body: createEntityBody({
+					entitySchemaId: "schema_workout",
+					name: "Push Day",
+					properties: {
+						endedAt: "2026-04-27T11:00:00Z",
+						startedAt: "2026-04-27T10:00:00Z",
+					},
+				}),
+			},
+			createEntityDeps({
+				getEntitySchemaScopeForUser: async () => ({
+					userId: null,
+					slug: "workout",
+					isBuiltin: true,
+					id: "schema_workout",
+					propertiesSchema: {
+						fields: {
+							endedAt: { label: "Ended At", type: "datetime" as const },
+							startedAt: { label: "Started At", type: "datetime" as const },
+						},
+					},
+				}),
+			}),
+		);
+
+		expect(result).toEqual({ data: expect.anything() });
 	});
 
 	it("returns validation for a blank entity schema id", async () => {
