@@ -1,5 +1,6 @@
 import clsx from "clsx";
-import { useAtom, useAtomValue, useSetAtom } from "jotai";
+import { router, usePathname } from "expo-router";
+import { useAtomValue, useSetAtom } from "jotai";
 import { ChevronDown, ChevronRight, Plus } from "lucide-react-native";
 import { useState } from "react";
 import { ScrollView } from "react-native";
@@ -13,19 +14,15 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Box } from "@/components/ui/box";
 import { Pressable } from "@/components/ui/pressable";
 import { Text } from "@/components/ui/text";
-import {
-	activeSubItemAtom,
-	activeTrackerIdAtom,
-	navSheetOpenAtom,
-	type Tracker,
-	trackersAtom,
-} from "@/lib/navigation";
+import { navSheetOpenAtom, type Tracker, trackersAtom } from "@/lib/navigation";
 
 export function TrackerSheet() {
 	const setOpen = useSetAtom(navSheetOpenAtom);
 	const trackers = useAtomValue(trackersAtom);
-	const [activeTrackerId, setActiveTrackerId] = useAtom(activeTrackerIdAtom);
-	const [activeSubItem, setActiveSubItem] = useAtom(activeSubItemAtom);
+	const pathname = usePathname();
+	const segments = pathname.split("/").filter(Boolean);
+	const activeTrackerId = segments[0] || "home";
+	const activeSubItem = segments[1] || null;
 	const [expandedId, setExpandedId] = useState<string | null>(null);
 	const insets = useSafeAreaInsets();
 
@@ -37,15 +34,14 @@ export function TrackerSheet() {
 		if (tracker.subItems?.length) {
 			setExpandedId((prev) => (prev === tracker.id ? null : tracker.id));
 		} else {
-			setActiveTrackerId(tracker.id);
-			setActiveSubItem(null);
+			const path = tracker.id === "home" ? "/" : `/${tracker.id}`;
+			router.push(path);
 			close();
 		}
 	}
 
 	function handleSubItemPress(trackerId: string, item: string) {
-		setActiveSubItem(item);
-		setActiveTrackerId(trackerId);
+		router.push(`/${trackerId}/${item}`);
 		close();
 	}
 
