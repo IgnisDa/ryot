@@ -127,7 +127,7 @@ export type ActivityItem = {
 export function StatPill({ color, label }: { color: string; label: string }) {
 	return (
 		<Box className="rounded-full px-2.5 py-1" style={{ backgroundColor: hexToRgba(color, 0.12) }}>
-			<Text className="text-[11px] font-sans-medium web:text-[13px]" style={{ color }}>
+			<Text className="text-[13px] font-sans-medium web:text-[15px]" style={{ color }}>
 				{label}
 			</Text>
 		</Box>
@@ -145,12 +145,12 @@ export function StatCard({ color, count, label }: { color: string; count: number
 			}}
 		>
 			<Text
-				className="text-[30px] font-heading-semibold leading-[32px] web:text-[36px] web:leading-[40px]"
+				className="text-[34px] font-heading-semibold leading-[36px] web:text-[40px] web:leading-[44px]"
 				style={{ color }}
 			>
 				{count}
 			</Text>
-			<Text className="mt-0.5 text-[10px] font-sans-medium uppercase tracking-[1px] text-muted-foreground web:text-xs">
+			<Text className="mt-0.5 text-xs font-sans-medium uppercase tracking-[1px] text-muted-foreground web:text-[14px]">
 				{label}
 			</Text>
 		</Box>
@@ -162,7 +162,7 @@ function SectionLabel({ color, label }: { color: string; label: string }) {
 		<Box className="mb-4 mt-8 flex-row items-center gap-3">
 			<Box className="h-px flex-1" style={{ backgroundColor: hexToRgba(color, 0.35) }} />
 			<Text
-				className="text-[10px] font-sans-semibold uppercase tracking-[2px] web:text-xs"
+				className="text-xs font-sans-semibold uppercase tracking-[2px] web:text-[14px]"
 				style={{ color }}
 			>
 				{label}
@@ -270,14 +270,14 @@ function StoryRing({
 				</Box>
 			</Box>
 			<Text
-				className="mt-1 text-center text-[8px] font-mono text-muted-foreground web:text-[10px]"
+				className="mt-1 text-center text-xs font-mono text-muted-foreground web:text-[14px]"
 				style={{ width: ringWidth }}
 				numberOfLines={1}
 			>
 				{item.labels.progress}
 			</Text>
 			<Text
-				className="mt-0.5 text-center text-[10px] font-sans-medium text-foreground web:text-xs"
+				className="mt-0.5 text-center text-xs font-sans-medium text-foreground web:text-[14px]"
 				style={{ width: ringWidth }}
 				numberOfLines={2}
 			>
@@ -325,12 +325,12 @@ export function StoryRingRow({
 	);
 }
 
-// ─── Up Next (responsive grid) ────────────────────────────────────────────────
+// ─── Backlog (responsive grid) ────────────────────────────────────────────────
 
 export function UpNextSection({ items }: { items: UpNextItem[] }) {
 	return (
 		<Box>
-			<SectionLabel color={SECTION_ACCENTS.upNext} label="Up Next" />
+			<SectionLabel color={SECTION_ACCENTS.upNext} label="Backlog" />
 			<Box className="flex-row flex-wrap gap-3">
 				{items.map((item) => {
 					const color = schemaColor(item.entitySchemaSlug);
@@ -349,7 +349,7 @@ export function UpNextSection({ items }: { items: UpNextItem[] }) {
 								) : (
 									<Box className="flex-1 items-center justify-center px-3">
 										<Text
-											className="text-center text-[10px] font-sans-medium uppercase tracking-[1px] web:text-xs"
+											className="text-center text-xs font-sans-medium uppercase tracking-[1px] web:text-[14px]"
 											style={{ color }}
 											numberOfLines={4}
 										>
@@ -362,23 +362,23 @@ export function UpNextSection({ items }: { items: UpNextItem[] }) {
 									style={{ backgroundColor: hexToRgba(color, 0.32) }}
 								>
 									<Text
-										className="text-[8px] font-sans-medium uppercase tracking-[0.5px] web:text-[10px]"
-										style={{ color }}
-									>
-										{item.entitySchemaSlug}
-									</Text>
-								</Box>
-							</Box>
-							<Text
-								className="mt-1.5 text-[11px] font-sans-medium text-foreground web:text-[13px]"
+								className="text-[10px] font-sans-medium uppercase tracking-[0.5px] web:text-xs"
+								style={{ color }}
+							>
+								{item.entitySchemaSlug}
+							</Text>
+						</Box>
+					</Box>
+					<Text
+						className="mt-1.5 text-[13px] font-sans-medium text-foreground web:text-[15px]"
 								numberOfLines={2}
 							>
 								{item.title}
 							</Text>
 							{item.subtitle.label ? (
-								<Text className="text-[10px] font-mono text-muted-foreground web:text-xs">
-									{item.subtitle.label}
-								</Text>
+				<Text className="text-xs font-mono text-muted-foreground web:text-[14px]">
+								{item.subtitle.label}
+							</Text>
 							) : null}
 						</Pressable>
 					);
@@ -427,7 +427,7 @@ function RateCard({ item, onNext }: { item: RateItem; onNext: () => void }) {
 							style={{ backgroundColor: hexToRgba(color, 0.38) }}
 						>
 							<Text
-								className="text-[9px] font-sans-medium uppercase tracking-[0.5px] web:text-[11px]"
+								className="text-[11px] font-sans-medium uppercase tracking-[0.5px] web:text-[13px]"
 								style={{ color }}
 							>
 								{item.entitySchemaSlug}
@@ -445,15 +445,15 @@ function RateCard({ item, onNext }: { item: RateItem; onNext: () => void }) {
 			</Box>
 			{/* Action area */}
 			<Box className="px-4 py-4">
-				<Text className="mb-3 text-[11px] font-sans text-muted-foreground web:text-[13px]">
+				<Text className="mb-3 text-[13px] font-sans text-muted-foreground web:text-[15px]">
 					How would you rate this?
 				</Text>
 				<Box className="flex-row items-center justify-between">
 					<StarRating rating={rating} onChange={setRating} />
 					<Pressable onPress={onNext} hitSlop={8}>
 						<Text
-							className={clsx(
-								"text-[12px] font-sans-medium web:text-sm",
+						className={clsx(
+							"text-sm font-sans-medium web:text-[16px]",
 								rating > 0 ? "font-sans-semibold" : "text-muted-foreground",
 							)}
 							style={rating > 0 ? { color } : undefined}
@@ -479,7 +479,7 @@ export function RateTheseSection({ items }: { items: RateItem[] }) {
 			<SectionLabel color={SECTION_ACCENTS.rateThese} label="Rate These" />
 			{idx >= items.length ? (
 				<Box className="items-center py-6">
-					<Text className="text-[13px] font-sans text-muted-foreground web:text-[15px]">
+					<Text className="text-[15px] font-sans text-muted-foreground web:text-[17px]">
 						All caught up ✓
 					</Text>
 				</Box>
@@ -544,18 +544,18 @@ export function ActivitySection({ items }: { items: ActivityItem[] }) {
 						{/* Content */}
 						<Box className={clsx("flex-1 pl-3", isLast ? "pb-2" : "pb-4")}>
 							<Box className="flex-row items-baseline gap-2">
-								<Text
-									className="flex-1 text-[13px] font-sans-medium text-foreground web:text-[15px]"
+							<Text
+								className="flex-1 text-[15px] font-sans-medium text-foreground web:text-[17px]"
 									numberOfLines={1}
 								>
 									{item.entityName}
 								</Text>
-								<Text className="text-[10px] font-mono text-stone-400 web:text-xs">
+								<Text className="text-xs font-mono text-stone-400 web:text-[14px]">
 									{timeAgo(item.occurredAt)}
 								</Text>
 							</Box>
 							<Box className="mt-0.5 flex-row items-center gap-1.5">
-								<Text className="text-[11px] font-sans-medium web:text-[13px]" style={{ color }}>
+								<Text className="text-[13px] font-sans-medium web:text-[15px]" style={{ color }}>
 									{activityLabel(item.eventSchemaSlug, item.rating)}
 								</Text>
 								<Box
@@ -563,11 +563,11 @@ export function ActivitySection({ items }: { items: ActivityItem[] }) {
 									style={{ backgroundColor: hexToRgba(color, 0.12) }}
 								>
 									<Text
-										className="text-[8px] font-sans-medium uppercase tracking-[0.5px] web:text-[10px]"
-										style={{ color }}
-									>
-										{item.entitySchemaSlug}
-									</Text>
+								className="text-[10px] font-sans-medium uppercase tracking-[0.5px] web:text-xs"
+								style={{ color }}
+							>
+								{item.entitySchemaSlug}
+							</Text>
 								</Box>
 							</Box>
 						</Box>
