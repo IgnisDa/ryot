@@ -43,7 +43,7 @@ export function ShellNavigation({ children }: Props) {
 	const layout = isTablet ? (
 		<Box className="flex-1 flex-row">
 			<Box className="flex-1">{children}</Box>
-			{subFlyoutOpen && <ShellSubFlyout pinned />}
+			{subFlyoutOpen && <ShellSubFlyout />}
 			<ShellRail pinned onClose={() => {}} />
 		</Box>
 	) : (
