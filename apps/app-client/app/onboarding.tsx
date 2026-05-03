@@ -124,7 +124,7 @@ export default function Onboarding() {
 							</Text>
 						)}
 						<Button
-							disabled={isDisabled}
+							isDisabled={isDisabled}
 							onPress={() => connectMutation.mutate(resolvedUrl)}
 						>
 							{connectMutation.isPending && <ButtonSpinner />}
