@@ -2,6 +2,7 @@ import { describe, expect, it } from "bun:test";
 import {
 	createEntityColumnExpression,
 	createEntityPropertyExpression,
+	createTransformExpression,
 } from "@ryot/ts-utils";
 import type { Client } from "../fixtures";
 import {
@@ -134,9 +135,15 @@ describe("Exercises E2E", () => {
 			name: "All Exercises",
 			trackerId: fitnessTracker.id,
 			queryDefinition: {
+				computedFields: [],
 				filter: null,
 				eventJoins: [],
 				entitySchemaSlugs: ["exercise"],
+				relationships: [],
+				sort: {
+					direction: "asc",
+					expression: createEntityColumnExpression("exercise", "name"),
+				},
 			},
 			displayConfiguration: {
 				table: {
@@ -147,13 +154,19 @@ describe("Exercises E2E", () => {
 						},
 						{
 							label: "Level",
-							expression: createEntityPropertyExpression("exercise", "level"),
+							expression: createTransformExpression(
+								"titleCase",
+								createEntityPropertyExpression("exercise", "level"),
+							),
 						},
 						{
 							label: "Equipment",
-							expression: createEntityPropertyExpression(
-								"exercise",
-								"equipment",
+							expression: createTransformExpression(
+								"titleCase",
+								createEntityPropertyExpression(
+									"exercise",
+									"equipment",
+								),
 							),
 						},
 					],
@@ -161,27 +174,33 @@ describe("Exercises E2E", () => {
 				grid: {
 					titleProperty: createEntityColumnExpression("exercise", "name"),
 					imageProperty: createEntityColumnExpression("exercise", "image"),
-					calloutProperty: createEntityPropertyExpression("exercise", "level"),
-					primarySubtitleProperty: createEntityPropertyExpression(
-						"exercise",
-						"kind",
+					calloutProperty: createTransformExpression(
+						"titleCase",
+						createEntityPropertyExpression("exercise", "level"),
 					),
-					secondarySubtitleProperty: createEntityPropertyExpression(
-						"exercise",
-						"equipment",
+					primarySubtitleProperty: createTransformExpression(
+						"titleCase",
+						createEntityPropertyExpression("exercise", "kind"),
+					),
+					secondarySubtitleProperty: createTransformExpression(
+						"titleCase",
+						createEntityPropertyExpression("exercise", "equipment"),
 					),
 				},
 				list: {
 					titleProperty: createEntityColumnExpression("exercise", "name"),
 					imageProperty: createEntityColumnExpression("exercise", "image"),
-					calloutProperty: createEntityPropertyExpression("exercise", "level"),
-					primarySubtitleProperty: createEntityPropertyExpression(
-						"exercise",
-						"kind",
+					calloutProperty: createTransformExpression(
+						"titleCase",
+						createEntityPropertyExpression("exercise", "level"),
 					),
-					secondarySubtitleProperty: createEntityPropertyExpression(
-						"exercise",
-						"equipment",
+					primarySubtitleProperty: createTransformExpression(
+						"titleCase",
+						createEntityPropertyExpression("exercise", "kind"),
+					),
+					secondarySubtitleProperty: createTransformExpression(
+						"titleCase",
+						createEntityPropertyExpression("exercise", "equipment"),
 					),
 				},
 			},
