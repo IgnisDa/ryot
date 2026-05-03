@@ -50,6 +50,33 @@ const makeRedis = (entries: ReadonlyArray<string | null>) => {
 	};
 };
 
+const evaluateProjection = (
+	fields: Map<string, string>,
+	args: ReadonlyArray<string>,
+	onRepair: (field: string) => void = () => undefined,
+	onExpire: () => void = () => undefined,
+) => {
+	const expectedHighWater = args[0] ?? "";
+	const encodedEntries = args.slice(2);
+	expect(expectedHighWater).toBe(String(encodedEntries.length));
+	expect(args[1]).toBe(String(24 * 60 * 60));
+
+	const projectionMatches =
+		fields.get("high-water") === expectedHighWater &&
+		encodedEntries.every((entry, index) => fields.get(String(index)) === entry);
+	if (!projectionMatches) {
+		fields.set("high-water", expectedHighWater);
+		onRepair("high-water");
+		encodedEntries.forEach((entry, index) => {
+			const field = String(index);
+			fields.set(field, entry);
+			onRepair(field);
+		});
+	}
+	onExpire();
+	return projectionMatches ? "matched" : "repaired";
+};
+
 it.effect("returns the full projected journal from one argument-free bootstrap call", () => {
 	const first = request(0, "first");
 	const second = request(1, "second");
@@ -135,28 +162,22 @@ it("isolates workflow replay bootstrap from script capabilities", () => {
 	).toEqual(["httpCall"]);
 });
 
-it.effect("rebuilds a deleted Redis projection from the durable journal", () => {
+it.effect("repairs an unchanged projection deleted at the former read-expire race point", () => {
 	const hashes = new Map<string, Map<string, string>>();
+	let deleteBeforeEvaluation = false;
+	let evalCalls = 0;
 	const client = {
-		expire: () => Promise.resolve(1),
-		hget: (key: string, field: string) => Promise.resolve(hashes.get(key)?.get(field) ?? null),
-		hmget: (key: string, ...fields: string[]) =>
-			Promise.resolve(fields.map((field) => hashes.get(key)?.get(field) ?? null)),
-		pipeline: () => {
-			const writes: Array<() => void> = [];
-			return {
-				expire: () => undefined,
-				exec: () => {
-					writes.forEach((write) => write());
-					return Promise.resolve([]);
-				},
-				hset: (key: string, field: string, value: string) =>
-					writes.push(() => {
-						const fields = hashes.get(key) ?? new Map<string, string>();
-						fields.set(field, value);
-						hashes.set(key, fields);
-					}),
-			};
+		eval: (_script: string, numberOfKeys: number, key: string, ...args: string[]) => {
+			expect(numberOfKeys).toBe(1);
+			evalCalls += 1;
+			if (deleteBeforeEvaluation) {
+				hashes.delete(key);
+				deleteBeforeEvaluation = false;
+			}
+			const fields = hashes.get(key) ?? new Map<string, string>();
+			const result = evaluateProjection(fields, args);
+			hashes.set(key, fields);
+			return Promise.resolve(result);
 		},
 	};
 	const journal = [
@@ -168,8 +189,9 @@ it.effect("rebuilds a deleted Redis projection from the durable journal", () => 
 		yield* projectWorkflowJournalWithRedis({ client }, "projection", journal);
 		const key = [...hashes.keys()][0];
 		expect(key).toBeTruthy();
-		hashes.delete(key ?? "");
+		deleteBeforeEvaluation = true;
 		yield* projectWorkflowJournalWithRedis({ client }, "projection", journal);
+		expect(evalCalls).toBe(2);
 		expect(Array.from(hashes.get(key ?? "")?.keys() ?? []).sort()).toEqual([
 			"0",
 			"1",
@@ -186,26 +208,24 @@ it.effect("repairs missing and stale projection entries from the authoritative j
 		["high-water", "1"],
 	]);
 	const hsetFields: string[] = [];
-	let pipelineCalls = 0;
+	let evalCalls = 0;
+	let expireCalls = 0;
+	let repairCalls = 0;
 	const client = {
-		expire: () => Promise.resolve(1),
-		hget: (_key: string, field: string) => Promise.resolve(fields.get(field) ?? null),
-		hmget: (_key: string, ...names: string[]) =>
-			Promise.resolve(names.map((name) => fields.get(name) ?? null)),
-		pipeline: () => {
-			pipelineCalls += 1;
-			const writes: Array<() => void> = [];
-			return {
-				expire: () => undefined,
-				hset: (_key: string, field: string, value: string) => {
-					hsetFields.push(field);
-					writes.push(() => fields.set(field, value));
+		eval: (_script: string, _numberOfKeys: number, _key: string, ...args: string[]) => {
+			evalCalls += 1;
+			const result = evaluateProjection(
+				fields,
+				args,
+				(field) => hsetFields.push(field),
+				() => {
+					expireCalls += 1;
 				},
-				exec: () => {
-					writes.forEach((write) => write());
-					return Promise.resolve([]);
-				},
-			};
+			);
+			if (result === "repaired") {
+				repairCalls += 1;
+			}
+			return Promise.resolve(result);
 		},
 	};
 	const journal = [
@@ -216,19 +236,21 @@ it.effect("repairs missing and stale projection entries from the authoritative j
 	return Effect.gen(function* () {
 		yield* projectWorkflowJournalWithRedis({ client }, "incremental", journal);
 		expect(hsetFields.filter((field) => /^\d+$/.test(field))).toEqual(["0", "1"]);
-		expect(pipelineCalls).toBe(1);
+		expect(repairCalls).toBe(1);
 		expect(fields.get("0")).toBeTruthy();
 		expect(fields.get("1")).toBeTruthy();
 		expect(fields.get("high-water")).toBe("2");
 
 		yield* projectWorkflowJournalWithRedis({ client }, "incremental", journal);
-		expect(pipelineCalls).toBe(1);
+		expect(evalCalls).toBe(2);
+		expect(expireCalls).toBe(2);
+		expect(repairCalls).toBe(1);
 
 		fields.delete("1");
 		hsetFields.length = 0;
 		yield* projectWorkflowJournalWithRedis({ client }, "incremental", journal);
-		expect(hsetFields.filter((field) => /^\d+$/.test(field))).toEqual(["1"]);
-		expect(pipelineCalls).toBe(2);
+		expect(hsetFields.filter((field) => /^\d+$/.test(field))).toEqual(["0", "1"]);
+		expect(repairCalls).toBe(2);
 
 		fields.set("high-water", "invalid");
 		fields.delete("0");
@@ -240,7 +262,7 @@ it.effect("repairs missing and stale projection entries from the authoritative j
 	});
 });
 
-it.effect("hides an ahead projection until durable memos rebuild the journal after restart", () => {
+it.effect("hides stale projection fields above shorter and empty journal high-water marks", () => {
 	const first = request(0, "first");
 	const second = request(1, "second");
 	const firstEntry = journalEntry(first, { result: 1 });
@@ -252,29 +274,12 @@ it.effect("hides an ahead projection until durable memos rebuild the journal aft
 	]);
 	let hmgetCalls = 0;
 	const client = {
-		expire: () => Promise.resolve(1),
+		eval: (_script: string, _numberOfKeys: number, _key: string, ...args: string[]) =>
+			Promise.resolve(evaluateProjection(fields, args)),
 		hget: (_key: string, field: string) => Promise.resolve(fields.get(field) ?? null),
 		hmget: (_key: string, ...names: string[]) => {
 			hmgetCalls += 1;
 			return Promise.resolve(names.map((name) => fields.get(name) ?? null));
-		},
-		pipeline: () => {
-			const writes: Array<() => void> = [];
-			return {
-				expire: () => undefined,
-				hset: (_key: string, field: string, value: string) =>
-					writes.push(() => fields.set(field, value)),
-				exec: () => {
-					writes.forEach((write) => write());
-					return Promise.resolve([]);
-				},
-				hsetnx: (_key: string, field: string, value: string) =>
-					writes.push(() => {
-						if (!fields.has(field)) {
-							fields.set(field, value);
-						}
-					}),
-			};
 		},
 	};
 	const replayJournal = makeWorkflowReplayJournalHostFunction("reconstructed", { client });
@@ -284,17 +289,21 @@ it.effect("hides an ahead projection until durable memos rebuild the journal aft
 	];
 
 	return Effect.gen(function* () {
-		yield* projectWorkflowJournalWithRedis({ client }, "reconstructed", []);
-		expect(fields.get("high-water")).toBe("0");
-		expect(yield* replayJournal([])).toEqual({ success: true, data: [] });
-		expect(hmgetCalls).toBe(0);
-
 		yield* projectWorkflowJournalWithRedis({ client }, "reconstructed", rebuiltJournal.slice(0, 1));
+		const projectedFirstEntry = fields.get("0");
 		expect(yield* replayJournal([])).toEqual({
 			success: true,
 			data: [{ request: first, value: { result: 1 } }],
 		});
-		expect(hmgetCalls).toBe(2);
+		expect(fields.get("1")).toBe(secondEntry);
+		expect(hmgetCalls).toBe(1);
+
+		yield* projectWorkflowJournalWithRedis({ client }, "reconstructed", []);
+		expect(fields.get("high-water")).toBe("0");
+		expect(fields.get("0")).toBe(projectedFirstEntry);
+		expect(fields.get("1")).toBe(secondEntry);
+		expect(yield* replayJournal([])).toEqual({ success: true, data: [] });
+		expect(hmgetCalls).toBe(1);
 
 		yield* projectWorkflowJournalWithRedis({ client }, "reconstructed", rebuiltJournal);
 		expect(yield* replayJournal([])).toEqual({
@@ -304,7 +313,7 @@ it.effect("hides an ahead projection until durable memos rebuild the journal aft
 				{ request: second, value: { result: 2 } },
 			],
 		});
-		expect(hmgetCalls).toBe(4);
+		expect(hmgetCalls).toBe(2);
 		expect(decodeJournalEntry(fields.get("0") ?? "")).toEqual({
 			request: first,
 			value: { result: 1 },
