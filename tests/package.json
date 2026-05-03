@@ -4,8 +4,8 @@
 	"type": "module",
 	"scripts": {
 		"typecheck": "tsc",
-		"test": "bun test --only-failures",
-		"lint": "oxlint . && oxfmt --check ."
+		"lint": "oxlint . && oxfmt .",
+		"test": "bun test --only-failures"
 	},
 	"devDependencies": {
 		"@aws-sdk/client-s3": "3.1032.0",

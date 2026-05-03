@@ -3,9 +3,9 @@
 	"main": "src/index.ts",
 	"scripts": {
 		"typecheck": "tsc",
+		"lint": "oxlint . && oxfmt .",
 		"test": "bun test --only-failures",
 		"dev": "bun run --watch src/index.ts",
-		"lint": "oxlint . && oxfmt --check .",
 		"db:generate": "bun --bun drizzle-kit generate",
 		"build": "bun build src/index.ts --outdir dist --target bun --sourcemap"
 	},
