@@ -11,13 +11,13 @@ export const IntegrationRunJobData = Schema.Struct({
 
 export type IntegrationRunJobData = typeof IntegrationRunJobData.Type;
 
-export const IntegrationReconciliationRun = Schema.Struct({
-	runId: ImportRunId,
+export const IntegrationSyncRun = Schema.Struct({
 	userId: UserId,
+	runId: ImportRunId,
 	integrationId: IntegrationId,
 });
 
-export type IntegrationReconciliationRun = typeof IntegrationReconciliationRun.Type;
+export type IntegrationSyncRun = typeof IntegrationSyncRun.Type;
 
 export class IntegrationRunError extends Schema.TaggedError<IntegrationRunError>()(
 	"IntegrationRunError",

@@ -53,6 +53,8 @@ export const getIntegration = (client: Client, id: string) =>
 export const deleteIntegration = (client: Client, id: string) =>
 	client.call((c) => c.integrations.delete({ params: { integrationId: IntegrationId.make(id) } }));
 
+export const syncIntegrations = (client: Client) => client.call((c) => c.integrations.sync());
+
 export const postIntegrationWebhook = (
 	client: Client,
 	integrationId: string,
