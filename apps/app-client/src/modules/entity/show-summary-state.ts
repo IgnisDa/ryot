@@ -1,8 +1,8 @@
 import type { ShowSummaryResult } from "@ryot/media-plugin/query-recipes";
 import { Match } from "effect";
-import { AsyncResult } from "effect/unstable/reactivity";
+import type { AsyncResult } from "effect/unstable/reactivity";
 
-import { isRyotQLMalformedResultCause } from "@/api/ryotql";
+import { classifyRyotQLResult } from "@/api/ryotql";
 import { canonicalManagedAssets } from "@/modules/ui/managed-assets";
 
 import { mediaImageAsset, mediaImageAssets, preferredMediaImageAsset } from "./media-image";
@@ -23,16 +23,11 @@ export type ShowSummaryError = { readonly title: string; readonly detail: string
 export const mapShowSummary = (
 	result: AsyncResult.AsyncResult<ShowSummaryResult, unknown>,
 ): ShowSummaryState => {
-	if (AsyncResult.isFailure(result)) {
-		return {
-			cause: result.cause,
-			status: isRyotQLMalformedResultCause(result.cause) ? "malformed" : "transport-error",
-		};
+	const state = classifyRyotQLResult(result);
+	if (state.status !== "ready") {
+		return state;
 	}
-	if (!AsyncResult.isSuccess(result)) {
-		return { status: "loading" };
-	}
-	const { show, entitySchemaSlug } = result.value;
+	const { show, entitySchemaSlug } = state.value;
 	if (show === null) {
 		return { status: "unavailable", reason: entitySchemaSlug === null ? "missing" : "unsupported" };
 	}

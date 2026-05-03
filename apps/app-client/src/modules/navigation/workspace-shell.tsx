@@ -10,10 +10,9 @@ import { AppModal } from "@/modules/ui/modal";
 import { CustomizeSidebarPanel } from "./customize/customize-sidebar-panel";
 import type { CustomizeSection } from "./customize/customize-state";
 import type { NavigationItem } from "./navigation-data";
-import { Sidebar } from "./sidebar";
 import { useWorkspaceDrawer, WorkspaceDrawer } from "./workspace-drawer";
-import { WorkspaceNavigationLayout } from "./workspace-navigation-layout";
 import { WorkspaceSwitcher } from "./workspace-picker";
+import { WorkspaceSidebar } from "./workspace-sidebar";
 
 function WorkspaceShellContent() {
 	const { navigation } = useWorkspaceDrawer();
@@ -54,18 +53,12 @@ function WorkspaceShellContent() {
 					)}
 				>
 					{customize === null ? (
-						<Sidebar
+						<WorkspaceSidebar
 							className="flex-1"
 							onNavigate={navigate}
-							items={navigation.items}
+							navigation={navigation}
 							onEditSection={openCustomize}
 							onOpenSettings={openSettings}
-							key={navigation.workspace.slug}
-							activeKey={navigation.activeKey}
-							workspace={navigation.workspace}
-							accountName={navigation.accountName}
-							accountEmail={navigation.accountEmail}
-							accountImage={navigation.accountImage}
 							onWorkspaceOpen={() => setIsWorkspaceOpen(true)}
 							onOpenSearch={() => setIsCommandCenterOpen(true)}
 						/>
@@ -133,12 +126,8 @@ function WorkspaceShellContent() {
 
 export function WorkspaceShell() {
 	return (
-		<WorkspaceNavigationLayout>
-			{(navigation) => (
-				<WorkspaceDrawer navigation={navigation}>
-					<WorkspaceShellContent />
-				</WorkspaceDrawer>
-			)}
-		</WorkspaceNavigationLayout>
+		<WorkspaceDrawer>
+			<WorkspaceShellContent />
+		</WorkspaceDrawer>
 	);
 }
