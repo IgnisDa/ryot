@@ -1,8 +1,7 @@
 import { dayjs } from "@ryot/ts-utils";
 import { ChevronDown, ChevronUp, Library } from "lucide-react-native";
-import type { ComponentRef } from "react";
-import { useEffect, useRef, useState } from "react";
-import { Image, Platform, ScrollView } from "react-native";
+import { useState } from "react";
+import { Image, ScrollView } from "react-native";
 import { match } from "ts-pattern";
 
 import { Box } from "@/components/ui/box";
@@ -10,6 +9,7 @@ import { Pressable } from "@/components/ui/pressable";
 import { Text } from "@/components/ui/text";
 import { hexToRgba } from "@/features/media/overview-utils";
 
+import { ExpandableText } from "./expandable-text";
 import type { EntityDetail, PodcastDetail, ShowDetail, VideoGameDetail } from "./types";
 
 // ─── helpers ──────────────────────────────────────────────────────────────────
@@ -39,7 +39,6 @@ export function getPrimaryCreator(entity: EntityDetail) {
 }
 
 const ACCENT = "#C9943A";
-const DESCRIPTION_PREVIEW_LINES = 4;
 
 // ─── small atoms ──────────────────────────────────────────────────────────────
 
@@ -81,46 +80,6 @@ function StatBlock({ label, value }: { label: string; value: string }) {
 // ─── AboutSection ─────────────────────────────────────────────────────────────
 
 export function AboutSection({ entity }: { entity: EntityDetail }) {
-	const [expanded, setExpanded] = useState(false);
-	const [canExpand, setCanExpand] = useState(false);
-	const descriptionRef = useRef<ComponentRef<typeof Text>>(null);
-
-	useEffect(() => {
-		if (Platform.OS !== "web") {
-			return undefined;
-		}
-		if (typeof HTMLElement === "undefined" || typeof window === "undefined") {
-			return undefined;
-		}
-
-		const description = descriptionRef.current;
-		if (!(description instanceof HTMLElement)) {
-			return undefined;
-		}
-
-		const updateCanExpand = () => {
-			const lineHeight = Number.parseFloat(window.getComputedStyle(description).lineHeight);
-			if (Number.isNaN(lineHeight)) {
-				return undefined;
-			}
-
-			setCanExpand(description.scrollHeight > lineHeight * DESCRIPTION_PREVIEW_LINES + 1);
-			return undefined;
-		};
-
-		updateCanExpand();
-
-		const resizeObserver =
-			typeof ResizeObserver === "undefined" ? undefined : new ResizeObserver(updateCanExpand);
-		resizeObserver?.observe(description);
-		window.addEventListener("resize", updateCanExpand);
-
-		return () => {
-			resizeObserver?.disconnect();
-			window.removeEventListener("resize", updateCanExpand);
-		};
-	}, [entity.description]);
-
 	if (!entity.description) {
 		return null;
 	}
@@ -135,33 +94,12 @@ export function AboutSection({ entity }: { entity: EntityDetail }) {
 
 	return (
 		<Box>
-			{Platform.OS !== "web" ? (
-				<Text
-					accessibilityElementsHidden
-					className="text-[15px] font-sans leading-[1.7]"
-					importantForAccessibility="no-hide-descendants"
-					style={{ left: 0, right: 0, opacity: 0, position: "absolute" }}
-					onTextLayout={(event) =>
-						setCanExpand(event.nativeEvent.lines.length > DESCRIPTION_PREVIEW_LINES)
-					}
-				>
-					{entity.description}
-				</Text>
-			) : null}
-			<Text
-				ref={descriptionRef}
-				numberOfLines={expanded ? undefined : DESCRIPTION_PREVIEW_LINES}
+			<ExpandableText
+				toggleTextStyle={{ color: ACCENT }}
 				className="text-[15px] font-sans leading-[1.7] text-muted-foreground web:text-[17px]"
 			>
 				{entity.description}
-			</Text>
-			{canExpand ? (
-				<Pressable className="mt-2 self-start" onPress={() => setExpanded((v) => !v)}>
-					<Text className="text-[13px] font-sans-medium web:text-[15px]" style={{ color: ACCENT }}>
-						{expanded ? "Show less" : "Read more"}
-					</Text>
-				</Pressable>
-			) : null}
+			</ExpandableText>
 			{primaryCreator && (
 				<Box className="mt-6 flex-row items-center gap-3 border-t border-border pt-4">
 					<Box>
