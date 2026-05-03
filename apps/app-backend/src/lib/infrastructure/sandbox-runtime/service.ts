@@ -9,6 +9,7 @@ import { generateId } from "better-auth";
 import {
 	Clock,
 	Context,
+	Deferred,
 	Duration,
 	Effect,
 	Layer,
@@ -57,6 +58,7 @@ import {
 } from "./observability-host-functions";
 import {
 	BridgeService,
+	formatSandboxStderr,
 	invalidateProcess,
 	ProcessPool,
 	recordSandboxExecutionFinished,
@@ -306,14 +308,39 @@ export class SandboxService extends Context.Service<SandboxService>()("SandboxSe
 
 					yield* Queue.offer(worker.stdinQueue, encoder.encode(requestLine));
 
+					const withProcessStderr = (message: string) =>
+						`${message}${formatSandboxStderr(worker.stderrTail.snapshot())}`;
+					const processFailure = (message: string) =>
+						Deferred.await(worker.stderrClosed).pipe(
+							Effect.ignore,
+							Effect.andThen(
+								Effect.fail(new SandboxRunError({ message: withProcessStderr(message) })),
+							),
+						);
+					const processExit = worker.process.exitCode.pipe(
+						Effect.flatMap((exitCode) =>
+							processFailure(
+								`Sandbox process exited with code ${Number(exitCode)} before returning a response`,
+							),
+						),
+						Effect.catch((error) =>
+							error instanceof SandboxRunError
+								? Effect.fail(error)
+								: processFailure("Sandbox process exited before returning a response"),
+						),
+					);
+
 					const responseLine = yield* Effect.raceFirst(
 						Queue.take(worker.responseQueue),
-						Effect.sleep(Duration.millis(timeoutMs)).pipe(
-							Effect.andThen(
-								Effect.fail(
-									new TimeoutError({
-										message: `Sandbox timed out after ${timeoutMs}ms`,
-									}),
+						Effect.raceFirst(
+							processExit,
+							Effect.sleep(Duration.millis(timeoutMs)).pipe(
+								Effect.andThen(
+									Effect.fail(
+										new TimeoutError({
+											message: withProcessStderr(`Sandbox timed out after ${timeoutMs}ms`),
+										}),
+									),
 								),
 							),
 						),
