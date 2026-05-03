@@ -4,8 +4,8 @@
 	"scripts": {
 		"build": "tsc",
 		"typecheck": "tsc",
-		"lint": "oxlint . && oxfmt .",
-		"test": "bun test --only-failures"
+		"test": "bun test --only-failures",
+		"lint": "oxlint . --fix && oxfmt . --write"
 	},
 	"dependencies": {
 		"@conform-to/zod": "1.19.0",

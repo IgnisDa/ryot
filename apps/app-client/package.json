@@ -8,9 +8,9 @@
 		"ios": "expo run:ios",
 		"web": "expo start --web",
 		"android": "expo run:android",
-		"lint": "oxlint . && oxfmt .",
 		"dev": "expo start --port 3005",
 		"test": "bun test --only-failures",
+		"lint": "oxlint . --fix && oxfmt . --write",
 		"build": "expo export --platform web --output-dir dist"
 	},
 	"dependencies": {

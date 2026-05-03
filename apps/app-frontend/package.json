@@ -6,9 +6,9 @@
 		"typecheck": "tsc",
 		"preview": "vite preview",
 		"dev": "bun --bun vite dev",
-		"lint": "oxlint . && oxfmt .",
 		"build": "bun --bun vite build",
-		"test": "bun test --only-failures"
+		"test": "bun test --only-failures",
+		"lint": "oxlint . --fix && oxfmt . --write"
 	},
 	"dependencies": {
 		"@better-auth/api-key": "1.6.5",
