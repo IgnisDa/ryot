@@ -9,7 +9,7 @@ import { Button, ButtonSpinner, ButtonText } from "@/components/ui/button";
 import { Input, InputField } from "@/components/ui/input";
 import { Pressable } from "@/components/ui/pressable";
 import { Text } from "@/components/ui/text";
-import { createApiClient } from "@/lib/api";
+import { createApiClient } from "@/lib/api-client";
 import { useSetServerUrl } from "@/lib/atoms";
 import { resolveServerUrl } from "@/lib/server";
 
