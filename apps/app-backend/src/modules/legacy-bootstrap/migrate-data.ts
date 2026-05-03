@@ -98,6 +98,12 @@ export const migrateLegacyTables = Effect.gen(function* () {
 	const workoutSetEventSchemaResult = definitions.getEventSchema("exercise", "workout-set")
 		? [{ id: "workout-set" }]
 		: [];
+	const addEntityToCollectionEventSchemaResult = definitions.getEventSchema(
+		"collection",
+		"add-entity-to-collection",
+	)
+		? [{ id: "add-entity-to-collection" }]
+		: [];
 
 	const persistedProviders = yield* mapDatabaseErrors(
 		database
@@ -201,6 +207,10 @@ export const migrateLegacyTables = Effect.gen(function* () {
 		"member-of",
 		"relationship schema",
 	);
+	const addEntityToCollectionEventSchemaSlug = requireDefined(
+		addEntityToCollectionEventSchemaResult[0],
+		'Missing event schema for slug "add-entity-to-collection"',
+	).id;
 
 	const measurementEntitySchemaSlug = requireSchemaId(
 		entitySchemaSlugs,
@@ -500,7 +510,10 @@ export const migrateLegacyTables = Effect.gen(function* () {
 				[],
 			);
 			yield* connection.executeRaw(
-				buildCollectionToEntityRelationshipMigrationSql(memberOfRelationshipSchemaSlug),
+				buildCollectionToEntityRelationshipMigrationSql(
+					addEntityToCollectionEventSchemaSlug,
+					memberOfRelationshipSchemaSlug,
+				),
 				[],
 			);
 			yield* connection.executeRaw(buildMetadataToMetadataRelationshipMigrationSql(), []);
