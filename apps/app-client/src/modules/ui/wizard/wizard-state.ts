@@ -28,8 +28,11 @@ const previousStep = {
 	configure: "pick",
 } as const satisfies Record<WizardStep, WizardStep>;
 
-export const wizardStepLabel = (step: WizardStep, headings: WizardStepHeadings) =>
-	`Step ${WIZARD_STEPS.indexOf(step) + 1} of ${WIZARD_STEPS.length} · ${headings[step]}`;
+export const wizardStepLabel = <Step extends string>(
+	step: Step,
+	steps: readonly Step[],
+	headings: Record<Step, string>,
+) => `Step ${steps.indexOf(step) + 1} of ${steps.length} · ${headings[step]}`;
 
 export const createWizardState = (): WizardState => ({ step: "pick", slug: undefined });
 

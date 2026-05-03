@@ -1,11 +1,8 @@
 import { DbError } from "@ryot/contract/errors";
 import type { ListedImportRun } from "@ryot/contract/modules/imports/schemas";
-import type {
-	ImportRunFailureStage,
-	ImportRunSource,
-	ImportRunStatus,
-} from "@ryot/contract/modules/imports/types";
+import type { ImportRunFailureStage, ImportRunSource } from "@ryot/contract/modules/imports/types";
 import { ImportRunId, type IntegrationId, type UserId } from "@ryot/contract/schema/brands";
+import type { RunStatus } from "@ryot/contract/schema/run-status";
 import { and, desc, eq, inArray } from "drizzle-orm";
 import { Context, Effect, Layer } from "effect";
 
@@ -112,13 +109,13 @@ export class ImportsRepository extends Context.Service<ImportsRepository>()("Imp
 			startedAt?: Date;
 			finishedAt?: Date;
 			progress?: number;
+			status?: RunStatus;
 			totalItems?: number;
 			failedItems?: number;
 			errorSummary?: string;
-			inputSummary?: Record<string, unknown>;
 			importedItems?: number;
 			processedItems?: number;
-			status?: ImportRunStatus;
+			inputSummary?: Record<string, unknown>;
 		}) {
 			const db = yield* Database;
 			const updates: Partial<typeof schema.importRun.$inferInsert> = {};
@@ -161,8 +158,8 @@ export class ImportsRepository extends Context.Service<ImportsRepository>()("Imp
 		});
 
 		const deleteRunById = Effect.fn("ImportsRepository.deleteRunById")(function* (input: {
-			runId: ImportRunId;
 			userId: UserId;
+			runId: ImportRunId;
 		}) {
 			const db = yield* Database;
 			yield* mapDatabaseErrors(
@@ -178,8 +175,8 @@ export class ImportsRepository extends Context.Service<ImportsRepository>()("Imp
 			runId: string;
 			message: string;
 			itemIndex: number;
-			sourceLabel?: string | null | undefined;
 			stage: ImportRunFailureStage;
+			sourceLabel?: string | null | undefined;
 			eventSchemaSlug?: string | null | undefined;
 			sourceIdentifier?: string | null | undefined;
 			entitySchemaSlug?: string | null | undefined;
@@ -202,13 +199,13 @@ export class ImportsRepository extends Context.Service<ImportsRepository>()("Imp
 		});
 
 		return {
+			updateRun,
 			createRun,
 			getRunById,
-			hasActiveRunForIntegration,
-			listRecentStatusesByIntegrationId,
-			updateRun,
 			deleteRunById,
 			createFailure,
+			hasActiveRunForIntegration,
+			listRecentStatusesByIntegrationId,
 		};
 	}),
 }) {

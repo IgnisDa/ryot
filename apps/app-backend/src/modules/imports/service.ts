@@ -1,13 +1,14 @@
 import type { CurrentUserValue } from "@ryot/contract/auth-middleware";
 import { badRequest, notFound } from "@ryot/contract/errors";
 import type { CreateImportRunBody } from "@ryot/contract/modules/imports/schemas";
-import type { ImportRunSource, ImportRunStatus } from "@ryot/contract/modules/imports/types";
+import type { ImportRunSource } from "@ryot/contract/modules/imports/types";
 import type {
 	ImportRunId,
 	IntegrationId,
 	SandboxScriptId,
 	UserId,
 } from "@ryot/contract/schema/brands";
+import type { RunStatus } from "@ryot/contract/schema/run-status";
 import { Context, DateTime, Effect, Result, Layer } from "effect";
 import { WorkflowEngine } from "effect/unstable/workflow/WorkflowEngine";
 
@@ -48,22 +49,22 @@ export type UpdateImportRunInput = {
 	startedAt?: Date;
 	finishedAt?: Date;
 	progress?: number;
+	status?: RunStatus;
 	runId: ImportRunId;
 	totalItems?: number;
 	failedItems?: number;
 	errorSummary?: string;
-	inputSummary?: Record<string, unknown>;
 	importedItems?: number;
 	processedItems?: number;
-	status?: ImportRunStatus;
+	inputSummary?: Record<string, unknown>;
 };
 
 export type DeleteImportRunInput = {
-	runId: ImportRunId;
 	userId: UserId;
+	runId: ImportRunId;
 };
 
-const isTerminalStatus = (status: ImportRunStatus): boolean =>
+const isTerminalStatus = (status: RunStatus): boolean =>
 	status === "completed" || status === "failed";
 
 export class ImportsService extends Context.Service<ImportsService>()("ImportsService", {

@@ -8,21 +8,17 @@ import { Text, View } from "react-native";
 
 import { useApiScope } from "@/api/scope";
 import { useInternalRequestFailureLogging } from "@/api/use-internal-request-failure-logging";
-import { ImportStatusPill } from "@/modules/import-runs/import-status-pill";
-import {
-	canDeleteImportRun,
-	importRunDurationLabel,
-	importRunTimestampLabel,
-	importSourceName,
-	isTerminalImportRunStatus,
-} from "@/modules/import-runs/run-presentation";
-import {
-	IMPORT_RUN_POLL_MS,
-	useImportRunPolling,
-} from "@/modules/import-runs/use-import-run-polling";
+import { canDeleteImportRun, importSourceName } from "@/modules/import-runs/run-presentation";
 import { ChildScreenFrame } from "@/modules/navigation/child-screen-frame";
 import type { HeaderOverflowItem } from "@/modules/navigation/header/header-overflow-menu";
 import { copyTextToClipboard } from "@/modules/ui/clipboard";
+import {
+	isTerminalRunStatus,
+	runDurationLabel,
+	runTimestampLabel,
+} from "@/modules/ui/run/run-status";
+import { RunStatusPill } from "@/modules/ui/run/run-status-pill";
+import { RUN_POLL_MS, useRunPolling } from "@/modules/ui/run/use-run-polling";
 
 import {
 	IMPORT_FAILURES_PAGE_SIZE,
@@ -64,17 +60,17 @@ export function ImportRunScreen(props: { runId: string }) {
 		AsyncResult.isFailure(result) ? result.cause : undefined,
 	);
 	useInternalRequestFailureLogging("import run delete failed", deleteFailure);
-	useImportRunPolling({
+	useRunPolling({
 		refresh,
-		intervalMs: IMPORT_RUN_POLL_MS,
-		enabled: run !== undefined && !isTerminalImportRunStatus(run.status),
+		intervalMs: RUN_POLL_MS,
+		enabled: run !== undefined && !isTerminalRunStatus(run.status),
 	});
 
 	const overflowItems: readonly HeaderOverflowItem[] | undefined =
 		run !== undefined && canDeleteImportRun(run.status)
 			? [{ label: "Delete record", isDestructive: true, onPress: () => setIsConfirming(true) }]
 			: undefined;
-	const duration = run === undefined ? undefined : importRunDurationLabel(run, nowMs);
+	const duration = run === undefined ? undefined : runDurationLabel(run, nowMs);
 
 	async function confirmDelete() {
 		setIsDeleting(true);
@@ -114,10 +110,10 @@ export function ImportRunScreen(props: { runId: string }) {
 				run === undefined ? undefined : (
 					<View className="gap-2">
 						<Text className="font-ui text-xs text-text-subtle">
-							{`Import · ${importRunTimestampLabel(run.createdAt)}`}
+							{`Import · ${runTimestampLabel(run.createdAt)}`}
 						</Text>
 						<View className="flex-row items-center gap-2">
-							<ImportStatusPill status={run.status} />
+							<RunStatusPill status={run.status} />
 							{duration === undefined ? null : (
 								<Text className="font-ui text-xs tabular-nums text-text-subtle">{duration}</Text>
 							)}
