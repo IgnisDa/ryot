@@ -94,10 +94,10 @@ describe("GET /event-schemas", () => {
 				throw new Error(`Missing built-in ${slug} schema`);
 			}
 
-		// oxlint-disable-next-line no-await-in-loop
-		const eventSchemas = await listEventSchemas(client, cookies, mediaSchema.id);
-		expect(eventSchemas.some((schema) => schema.slug === "backlog")).toBe(true);
-		const progressSchema = eventSchemas.find((schema) => schema.slug === "progress");
+			// oxlint-disable-next-line no-await-in-loop
+			const eventSchemas = await listEventSchemas(client, cookies, mediaSchema.id);
+			expect(eventSchemas.some((schema) => schema.slug === "backlog")).toBe(true);
+			const progressSchema = eventSchemas.find((schema) => schema.slug === "progress");
 			expect(progressSchema).toBeDefined();
 			if (!progressSchema) {
 				throw new Error(`Missing built-in progress schema for ${slug}`);
@@ -306,9 +306,9 @@ describe("GET /event-schemas", () => {
 		expect((movieProgressSchema.fields as Record<string, unknown>).showSeason).toBe(undefined);
 		expect((movieProgressSchema.fields as Record<string, unknown>).showEpisode).toBe(undefined);
 
-	for (const slug of ["book", "comic-book", "audiobook", "video-game", "music", "visual-novel"]) {
-		// oxlint-disable-next-line no-await-in-loop
-		const progressSchema = await getProgressSchema(slug);
+		for (const slug of ["book", "comic-book", "audiobook", "video-game", "music", "visual-novel"]) {
+			// oxlint-disable-next-line no-await-in-loop
+			const progressSchema = await getProgressSchema(slug);
 			expect(progressSchema).toEqual(movieProgressSchema);
 		}
 
