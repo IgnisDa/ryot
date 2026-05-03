@@ -3,18 +3,27 @@ import type {
 	SavedViewCardMapping,
 	SavedViewTableMapping,
 } from "@ryot/contract/modules/saved-views/schemas";
+import {
+	LocalAssetLocator,
+	RemoteAssetLocator,
+	S3AssetLocator,
+} from "@ryot/contract/modules/uploads/schemas";
 import { EntityId, EntitySchemaSlug } from "@ryot/contract/schema/brands";
 import type { Recipe } from "@ryot/ryotql";
 import {
 	and,
 	ascending,
+	castBoolean,
 	castDate,
+	castJson,
 	castNumber,
+	castText,
 	column,
 	descending,
 	defineRecipe,
 	eq,
 	exists,
+	first,
 	join,
 	jsonPath,
 	literal,
@@ -40,6 +49,7 @@ import {
 	showEpisodicKindConfig,
 	type EpisodicLifecycleState,
 } from "./operations/lifecycle-recipes";
+import { mediaImagePurposes } from "./schemas/property-schemas";
 
 type Table = ReturnType<typeof table>;
 
@@ -280,7 +290,7 @@ export const podcastsByLifecycleStateRecipe = defineRecipe(
 	},
 );
 
-const libraryExists = (entity: Table, alias: string) => {
+const libraryLinkExists = (entity: Table, alias: string, slug: string) => {
 	const library = table("entity", alias);
 	const relationship = table("relationship", `${alias}Relationship`);
 	return exists(library, {
@@ -294,10 +304,156 @@ const libraryExists = (entity: Table, alias: string) => {
 		where: and(
 			entitySchema(library, "library"),
 			eq(column(relationship, "sourceEntityId"), column(entity, "id")),
-			eq(column(relationship, "relationshipSchemaSlug"), literal("in-library")),
+			eq(column(relationship, "relationshipSchemaSlug"), literal(slug)),
 		),
 	});
 };
+
+const libraryOwnership = (entity: Table) => {
+	const library = table("entity", "ownershipLibrary");
+	const relationship = table("relationship", "ownershipRelationship");
+	return castBoolean(
+		first(relationship, {
+			select: jsonPath(column(relationship, "properties"), "owned"),
+			joins: [
+				join("inner", library, eq(column(relationship, "targetEntityId"), column(library, "id"))),
+			],
+			orderBy: [
+				descending(column(relationship, "createdAt")),
+				ascending(column(relationship, "id")),
+			],
+			where: and(
+				entitySchema(library, "library"),
+				eq(column(relationship, "sourceEntityId"), column(entity, "id")),
+				eq(column(relationship, "relationshipSchemaSlug"), literal("in-library")),
+			),
+		}),
+	);
+};
+
+const collectionMembershipInclude = (collectionLimit: number) => {
+	const entity = table("entity", "entity");
+	const collection = table("entity", "memberCollection");
+	const membership = table("relationship", "memberCollectionRelationship");
+
+	return selectedInclude(collection, {
+		limit: collectionLimit,
+		orderBy: [ascending(column(collection, "name")), ascending(column(collection, "id"))],
+		selection: {
+			id: selectedField(column(collection, "id"), EntityId),
+			name: selectedField(column(collection, "name"), Schema.String),
+		},
+		joins: [
+			join("inner", membership, eq(column(membership, "targetEntityId"), column(collection, "id"))),
+		],
+		where: and(
+			entitySchema(collection, "collection"),
+			eq(column(membership, "sourceEntityId"), column(entity, "id")),
+			eq(column(membership, "relationshipSchemaSlug"), literal("member-of")),
+		),
+	});
+};
+
+const MediaImagePurposeSchema = Schema.Literals(mediaImagePurposes);
+
+const mediaImageVariant = <Fields extends Schema.Struct.Fields>(fields: Fields) =>
+	Schema.Struct({ ...fields, purpose: Schema.optional(MediaImagePurposeSchema) });
+
+const MediaImageSchema = Schema.Union([
+	mediaImageVariant(S3AssetLocator.fields),
+	mediaImageVariant(LocalAssetLocator.fields),
+	mediaImageVariant(RemoteAssetLocator.fields),
+]);
+
+export type MediaImage = Schema.Schema.Type<typeof MediaImageSchema>;
+
+const propertyJson = (entity: Table, property: string) =>
+	castJson(jsonPath(column(entity, "properties"), property));
+
+const propertyText = (entity: Table, property: string) =>
+	castText(jsonPath(column(entity, "properties"), property));
+
+export const showSummaryRecipe = defineRecipe(
+	(input: { readonly entityId: string; readonly collectionLimit: number }) => {
+		const entity = table("entity", "entity");
+		const requested = table("entity", "requested");
+		const provider = table("sandboxProvider", "provider");
+		const lifecycle = episodicLifecycleExpressions(
+			showEpisodicKindConfig,
+			entity,
+			"showSummaryLifecycle",
+		);
+		return {
+			queries: {
+				requested: selectedOptionalRow(requested, {
+					orderBy: [ascending(column(requested, "id"))],
+					where: entityId(requested, input.entityId),
+					selection: {
+						schemaSlug: selectedField(column(requested, "entitySchemaSlug"), EntitySchemaSlug),
+					},
+				}),
+				show: selectedOptionalRow(entity, {
+					orderBy: [ascending(column(entity, "id"))],
+					include: { collections: collectionMembershipInclude(input.collectionLimit) },
+					where: and(entitySchema(entity, "show"), entityId(entity, input.entityId)),
+					joins: [join("left", provider, eq(column(entity, "providerId"), column(provider, "id")))],
+					selection: {
+						...entityIdentitySelection(entity),
+						state: selectedField(lifecycle.state, EpisodicLifecycleStateSchema),
+						owned: selectedField(libraryOwnership(entity), Schema.NullOr(Schema.Boolean)),
+						genres: selectedField(
+							propertyJson(entity, "genres"),
+							Schema.NullOr(Schema.Array(Schema.String)),
+						),
+						images: selectedField(
+							propertyJson(entity, "images"),
+							Schema.NullOr(Schema.Array(MediaImageSchema)),
+						),
+						providerName: selectedField(column(provider, "name"), Schema.NullOr(Schema.String)),
+						description: selectedField(
+							propertyText(entity, "description"),
+							Schema.NullOr(Schema.String),
+						),
+						publishDate: selectedField(
+							propertyText(entity, "publishDate"),
+							Schema.NullOr(Schema.String),
+						),
+						productionStatus: selectedField(
+							propertyText(entity, "productionStatus"),
+							Schema.NullOr(Schema.String),
+						),
+						publishYear: selectedField(
+							propertyNumber(entity, "publishYear"),
+							Schema.NullOr(Schema.Number),
+						),
+						totalSeasons: selectedField(
+							propertyNumber(entity, "totalSeasons"),
+							Schema.NullOr(Schema.Number),
+						),
+						totalEpisodes: selectedField(
+							propertyNumber(entity, "totalEpisodes"),
+							Schema.NullOr(Schema.Number),
+						),
+						providerRating: selectedField(
+							propertyNumber(entity, "providerRating"),
+							Schema.NullOr(Schema.Number),
+						),
+						isMonitored: selectedField(
+							libraryLinkExists(entity, "monitoringLibrary", "media-monitoring"),
+							Schema.Boolean,
+						),
+						isInLibrary: selectedField(
+							libraryLinkExists(entity, "inLibraryLibrary", "in-library"),
+							Schema.Boolean,
+						),
+					},
+				}),
+			},
+			map: ({ requested: requestedRow, show }) =>
+				Result.succeed({ show: show ?? null, entitySchemaSlug: requestedRow?.schemaSlug ?? null }),
+		};
+	},
+);
 
 const recommendationQuery = (input: {
 	readonly limit: number;
@@ -307,9 +463,9 @@ const recommendationQuery = (input: {
 		readonly target: Table;
 	}) => ReturnType<typeof and>;
 }) => {
-	const relationship = table("relationship", "relationship");
 	const source = table("entity", "sourceEntity");
 	const target = table("entity", "targetEntity");
+	const relationship = table("relationship", "relationship");
 	return selectedAggregate(relationship, {
 		limit: input.limit,
 		groupBy: entityIdentitySelection(target),
@@ -326,10 +482,7 @@ const recommendationQuery = (input: {
 		),
 		measures: {
 			recommendingSourceCount: selectedMeasure(
-				{
-					function: "countDistinct",
-					expr: column(source, "id"),
-				},
+				{ function: "countDistinct", expr: column(source, "id") },
 				Schema.Number,
 			),
 		},
@@ -343,7 +496,10 @@ export const personalMediaSuggestionsRecipe = defineRecipe(
 				limit: input.limit ?? 20,
 				entitySchemaSlug: input.entitySchemaSlug,
 				where: ({ source, target }) =>
-					and(libraryExists(source, "sourceLibrary"), not(libraryExists(target, "targetLibrary"))),
+					and(
+						libraryLinkExists(source, "sourceLibrary", "in-library"),
+						not(libraryLinkExists(target, "targetLibrary", "in-library")),
+					),
 			}),
 		},
 		map: ({ recommendations }) => Result.succeed(recommendations),
@@ -395,9 +551,9 @@ export const trendingMediaRecipe = defineRecipe(
 		readonly after?: string | undefined;
 		readonly limit?: number | undefined;
 	}) => {
-		const relationship = table("relationship", "relationship");
 		const source = table("entity", "sourceEntity");
 		const target = table("entity", "targetEntity");
+		const relationship = table("relationship", "relationship");
 		const rank = castNumber(jsonPath(column(relationship, "properties"), "rank"));
 		const fetchedAt = castDate(jsonPath(column(relationship, "properties"), "fetchedAt"));
 		return {
@@ -431,9 +587,9 @@ export const trendingMediaRecipe = defineRecipe(
 export const defaultMediaSavedViewRecipe = (input: {
 	readonly after?: string | undefined;
 	readonly limit?: number | undefined;
+	readonly fields: readonly FieldSelection[];
 	readonly schemas: readonly [string, ...string[]];
 	readonly orderBy?: readonly OrderBy[] | undefined;
-	readonly fields: readonly FieldSelection[];
 	readonly layout:
 		| { readonly type: "card"; readonly mapping: SavedViewCardMapping & { entityIdField: string } }
 		| {
@@ -449,31 +605,32 @@ export const defaultMediaSavedViewRecipe = (input: {
 		type: "generated",
 		after: input.after,
 		limit: input.limit,
+		fields: input.fields,
 		orderBy: input.orderBy,
 		entitySchemaSlugs: input.schemas,
-		fields: input.fields,
 		where: exists(membership, {
+			joins: [
+				join("inner", library, eq(column(membership, "targetEntityId"), column(library, "id"))),
+			],
 			where: and(
 				eq(column(membership, "sourceEntityId"), column(entity, "id")),
 				eq(column(membership, "relationshipSchemaSlug"), literal("in-library")),
 				eq(column(library, "entitySchemaSlug"), literal("library")),
 				eq(column(membership, "targetEntityId"), column(library, "id")),
 			),
-			joins: [
-				join("inner", library, eq(column(membership, "targetEntityId"), column(library, "id"))),
-			],
 		}),
 	} as const;
 	return savedViewRecipe({ layout: input.layout, source });
 };
 
 export type ShowDetailResult = Recipe.Success<typeof showDetailRecipe>;
-export type ShowsByLifecycleStateResult = Recipe.Success<typeof showsByLifecycleStateRecipe>;
+export type ShowSummaryResult = Recipe.Success<typeof showSummaryRecipe>;
 export type PodcastDetailResult = Recipe.Success<typeof podcastDetailRecipe>;
+export type TrendingMediaResult = Recipe.Success<typeof trendingMediaRecipe>;
+export type DefaultMediaSavedViewResult = Recipe.Success<typeof defaultMediaSavedViewRecipe>;
+export type ShowsByLifecycleStateResult = Recipe.Success<typeof showsByLifecycleStateRecipe>;
 export type PodcastsByLifecycleStateResult = Recipe.Success<typeof podcastsByLifecycleStateRecipe>;
 export type PersonalMediaSuggestionsResult = Recipe.Success<typeof personalMediaSuggestionsRecipe>;
 export type CollectionMediaSuggestionsResult = Recipe.Success<
 	typeof collectionMediaSuggestionsRecipe
 >;
-export type TrendingMediaResult = Recipe.Success<typeof trendingMediaRecipe>;
-export type DefaultMediaSavedViewResult = Recipe.Success<typeof defaultMediaSavedViewRecipe>;
