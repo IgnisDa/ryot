@@ -1,6 +1,5 @@
 import clsx from "clsx";
-import type { Href } from "expo-router";
-import { router, usePathname } from "expo-router";
+import { router } from "expo-router";
 import { ChevronDown, ChevronRight } from "lucide-react-native";
 import { useState } from "react";
 import { ScrollView } from "react-native";
@@ -17,7 +16,12 @@ import { Text } from "@/components/ui/text";
 import { useUser } from "@/lib/atoms";
 import { TrackerIcon } from "@/lib/icons";
 import type { NavigationItem, NavigationSubItem } from "@/lib/navigation";
-import { useNavigationData, useSetNavSheetOpen } from "@/lib/navigation";
+import {
+	navHref,
+	useActiveNav,
+	useNavigationData,
+	useSetNavSheetOpen,
+} from "@/lib/navigation";
 
 export function TrackerSheet() {
 	const user = useUser();
@@ -25,15 +29,7 @@ export function TrackerSheet() {
 	const { trackers, libraryViews, userItem, isLoading } = useNavigationData(
 		user?.name,
 	);
-	const pathname = usePathname();
-	const segments = pathname.split("/").filter(Boolean);
-	const isViewPath = segments[0] === "views";
-	const activeSubItemSlug = isViewPath ? (segments[1] ?? null) : null;
-	const activeTrackerSlug = isViewPath
-		? (trackers.find((t) =>
-				t.subItems.some((s) => s.slug === activeSubItemSlug),
-			)?.slug ?? "home")
-		: segments[0] || "home";
+	const { isViewPath, activeTrackerSlug, activeSubItemSlug } = useActiveNav();
 	const [expandedId, setExpandedId] = useState<string | null>(
 		trackers.find((t) => t.slug === activeTrackerSlug && t.subItems.length > 0)
 			?.key ?? null,
@@ -48,22 +44,16 @@ export function TrackerSheet() {
 		if (tracker.subItems.length > 0) {
 			setExpandedId((prev) => (prev === tracker.key ? null : tracker.key));
 			if (tracker.slug !== activeTrackerSlug) {
-				router.push(`/${tracker.slug}` as Href);
+				router.push(navHref(tracker));
 			}
 		} else {
-			const href: Href =
-				tracker.kind === "home"
-					? "/"
-					: tracker.kind === "view"
-						? (`/views/${tracker.slug}` as Href)
-						: (`/${tracker.slug}` as Href);
-			router.push(href);
+			router.push(navHref(tracker));
 			close();
 		}
 	}
 
 	function handleSubItemPress(subItem: NavigationSubItem) {
-		router.push(`/views/${subItem.slug}` as Href);
+		router.push(`/views/${subItem.slug}`);
 		close();
 	}
 
