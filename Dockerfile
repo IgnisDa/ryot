@@ -4,7 +4,7 @@ WORKDIR /app
 FROM base AS prepare
 RUN bun install --global turbo@2.8.10
 COPY . .
-RUN turbo prune @ryot/app-frontend @ryot/app-backend --docker
+RUN turbo prune @ryot/app-client @ryot/app-backend --docker
 
 FROM base AS builder
 COPY --from=prepare /app/out/json/ .
@@ -17,8 +17,8 @@ COPY --from=prepare /app/out/json/ .
 RUN bun install --ignore-scripts
 COPY --from=prepare /app/out/full/ .
 COPY --from=prepare /app/tsconfig.options.json ./tsconfig.options.json
+RUN bun run --filter @ryot/app-client build
 RUN bun run --filter @ryot/app-backend build
-RUN bun run --filter @ryot/app-frontend build
 
 FROM oven/bun:1.3.9-debian AS runner
 RUN useradd -m -u 1001 ryot
@@ -33,13 +33,13 @@ RUN apt-get update && apt-get install -y curl unzip && \
 # apps/app-backend/src/lib/sandbox/constants.ts
 RUN mkdir -p /home/ryot/tmp && \
     DENO_DIR=/home/ryot/tmp deno cache --no-config \
-      npm:zod npm:dayjs npm:cheerio npm:youtubei.js && \
+    npm:zod npm:dayjs npm:cheerio npm:youtubei.js && \
     chown -R ryot:ryot /home/ryot/tmp
 ENV RYOT_SANDBOX_DENO_DIR=/home/ryot/tmp
 WORKDIR /home/ryot
 COPY --chown=ryot:ryot apps/app-backend/src/drizzle ./src/drizzle
 COPY --from=builder --chown=ryot:ryot /app/apps/app-backend/dist ./dist
-COPY --from=builder --chown=ryot:ryot /app/apps/app-frontend/dist/client ./client
+COPY --from=builder --chown=ryot:ryot /app/apps/app-client/dist ./client
 USER ryot
 ENV NODE_ENV=production
 CMD ["bun", "run", "dist/index.js"]
