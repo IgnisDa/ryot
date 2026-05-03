@@ -14,7 +14,7 @@ describe("toAppSavedView", () => {
 		expect(result.isBuiltin).toBe(true);
 		expect(result.trackerId).toBe("tracker-1");
 		expect(result.accentColor).toBe("#5B7FFF");
-		expect(result.queryDefinition.entitySchemaSlugs).toEqual(["schema-1"]);
+		expect(result.queryDefinition.scope).toEqual(["schema-1"]);
 	});
 
 	it("handles user-created saved views", () => {
@@ -28,7 +28,7 @@ describe("toAppSavedView", () => {
 			queryDefinition: {
 				eventJoins: [],
 				computedFields: [],
-				entitySchemaSlugs: ["schema-1", "schema-2"],
+				scope: ["schema-1", "schema-2"],
 				sort: {
 					direction: "asc",
 					expression: {
@@ -47,10 +47,7 @@ describe("toAppSavedView", () => {
 		expect(result.isBuiltin).toBe(false);
 		expect(result.trackerId).toBeNull();
 		expect(result.accentColor).toBe("#2DD4BF");
-		expect(result.queryDefinition.entitySchemaSlugs).toEqual([
-			"schema-1",
-			"schema-2",
-		]);
+		expect(result.queryDefinition.scope).toEqual(["schema-1", "schema-2"]);
 	});
 });
 

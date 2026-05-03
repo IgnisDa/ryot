@@ -59,7 +59,7 @@ The runtime request should grow into a compiled contract that can support both b
 
 Suggested request shape:
 
-- `entitySchemaSlugs: string[]` — which schemas to query (using schema slugs, e.g., `["smartphones", "tablets"]`)
+- `scope: string[]` — which schemas to query (using schema slugs, e.g., `["smartphones", "tablets"]`)
 - `filters: FilterExpression[]` — flat array of filters (AND within each schema, OR across schema boundaries; compound nested logic in Phase 2)
 - `sort: { fields: string[], direction: "asc" | "desc" }` — how to order results (fields is an array for COALESCE across schemas)
 - `pagination: { page: number, limit: number }` — pagination parameters
@@ -142,7 +142,7 @@ The runtime request uses a discriminated union for display configuration with th
 
 ```typescript
 {
-  entitySchemaSlugs: string[]
+  scope: string[]
   filters: FilterExpression[]
   sort: SortDefinition
   pagination: PaginationParams
@@ -381,7 +381,7 @@ Even for single-schema views, the array format is required for consistency:
 
 The current saved-view definition only stores:
 
-- `entitySchemaSlugs: string[]`
+- `scope: string[]`
 
 That is too small for the saved-view renderer that was designed. A saved view needs to store both query semantics and presentation configuration.
 
@@ -395,11 +395,11 @@ The saved view schema should include:
 - `queryDefinition: jsonb` — the data query (required)
 - `displayConfiguration: jsonb` — the presentation config (required)
 
-**Note on `trackerId`**: This field is purely for UI organization and determines which tracker's sidebar section should display the saved view. It is **not** the source of truth for query scope — the actual schemas/trackers being queried are stored within `queryDefinition.entitySchemaSlugs`. For cross-tracker views querying multiple schemas, `trackerId` may be null or point to the primary tracker for sidebar placement purposes. The frontend sidebar rendering logic may also examine `queryDefinition` directly to determine appropriate placement when `trackerId` is null.
+**Note on `trackerId`**: This field is purely for UI organization and determines which tracker's sidebar section should display the saved view. It is **not** the source of truth for query scope — the actual schemas/trackers being queried are stored within `queryDefinition.scope`. For cross-tracker views querying multiple schemas, `trackerId` may be null or point to the primary tracker for sidebar placement purposes. The frontend sidebar rendering logic may also examine `queryDefinition` directly to determine appropriate placement when `trackerId` is null.
 
 The `queryDefinition` column stores:
 
-- `entitySchemaSlugs: string[]` — which schemas to query
+- `scope: string[]` — which schemas to query
 - `filters: FilterExpression[]` — flat array of filters using the schema-qualified property syntax (see "Runtime Contract" for AND/OR semantics)
 - `sort: { fields: string[], direction: "asc" | "desc" }` — ordering
 
@@ -441,7 +441,7 @@ Consider a "Smartphones" entity schema with properties:
   "trackerId": "smartphones-tracker-id",
   "isBuiltin": false,
   "queryDefinition": {
-    "entitySchemaSlugs": ["smartphones"],
+    "scope": ["smartphones"],
     "filters": [
       { "field": "smartphones.manufacturer", "op": "eq", "value": "Samsung" },
       { "field": "smartphones.year", "op": "lt", "value": 2025 }
@@ -483,7 +483,7 @@ This example demonstrates the COALESCE behavior for cross-schema views where dif
   "trackerId": null,
   "isBuiltin": false,
   "queryDefinition": {
-    "entitySchemaSlugs": ["smartphones", "tablets"],
+    "scope": ["smartphones", "tablets"],
     "filters": [
       { "field": "smartphones.year", "op": "gte", "value": 2020 },
       { "field": "tablets.release_year", "op": "gte", "value": 2020 }
@@ -535,7 +535,7 @@ This allows both entity types to render properly in the same unified list despit
 
 **Filter behavior:**
 
-Each filter is schema-qualified and only applies to entities from that schema. Top-level filters (`@name`, `@createdAt`, `@updatedAt`) apply to all entities regardless of schema. Note that `@image` filtering is not supported due to its complex ImageSchema structure. Schemas listed in `entitySchemaSlugs` that have no schema-specific filters include all their entities unconditionally. See "Complete SQL Query Example" for the full SQL translation.
+Each filter is schema-qualified and only applies to entities from that schema. Top-level filters (`@name`, `@createdAt`, `@updatedAt`) apply to all entities regardless of schema. Note that `@image` filtering is not supported due to its complex ImageSchema structure. Schemas listed in `scope` that have no schema-specific filters include all their entities unconditionally. See "Complete SQL Query Example" for the full SQL translation.
 
 **Sort behavior:**
 
@@ -549,7 +549,7 @@ The sort fields `["smartphones.year", "tablets.release_year"]` uses COALESCE to 
   "trackerId": "smartphones-tracker-id",
   "isBuiltin": false,
   "queryDefinition": {
-    "entitySchemaSlugs": ["smartphones"],
+    "scope": ["smartphones"],
     "filters": [
       { "field": "smartphones.year", "op": "lt", "value": 2020 },
       { "field": "smartphones.year", "op": "gt", "value": 2001 },
@@ -592,7 +592,7 @@ When the frontend loads View 1:
 
   ```json
   {
-    "entitySchemaSlugs": ["smartphones"],
+    "scope": ["smartphones"],
     "filters": [
       { "field": "smartphones.manufacturer", "op": "eq", "value": "Samsung" },
       { "field": "smartphones.year", "op": "lt", "value": 2025 }
@@ -623,7 +623,7 @@ Here is a complete SQL query demonstrating how the view-runtime translates a cro
 
 ```json
 {
-  "entitySchemaSlugs": ["smartphones", "tablets"],
+  "scope": ["smartphones", "tablets"],
   "filters": [
     { "field": "smartphones.year", "op": "gte", "value": 2020 },
     { "field": "tablets.release_year", "op": "gte", "value": 2020 }
@@ -777,7 +777,7 @@ The runtime module should query against the underlying tables and repositories i
 - add `GET /saved-views/{viewId}` (returns built-in and user-owned views)
 - add `PUT /saved-views/{viewId}` (full replacement with required fields)
 - add `POST /saved-views/{viewId}/clone` (pure copy, no request body, appends " (Copy)" to name)
-- add `queryDefinition` jsonb column to store query semantics (entitySchemaSlugs, filters, sort)
+- add `queryDefinition` jsonb column to store query semantics (scope, filters, sort)
 - add `displayConfiguration` jsonb column to store presentation config (grid config, list config, table config)
 - make both columns required with validation
 - apply minimal bootstrap fixes to ensure typechecking passes (full bootstrap implementation deferred to Phase 2)
@@ -1064,7 +1064,7 @@ Similarly, "Tom Hanks acted in Forrest Gump as Forrest" is a relationship: `Tom 
 
 ```json
 {
-  "entitySchemaSlugs": ["movies"],
+  "scope": ["movies"],
   "filters": [ /* entity property filters */ ],
   "relationships": [
     {
