@@ -30,12 +30,8 @@ describe("OpenAPI documentation", () => {
 		expect(spec.paths["/plugins/{pluginSlug}"]?.delete?.responses["409"]).toBeDefined();
 	});
 
-	it("accepts development and secure session cookies", () => {
+	it("does not expose Better Auth credential internals", () => {
 		const spec = OpenApi.fromApi(AppContract);
-		expect(spec.paths["/ryotql/execute"]?.post?.security).toEqual([
-			{ apiKey: [] },
-			{ cookie: [] },
-			{ secureCookie: [] },
-		]);
+		expect(spec.paths["/ryotql/execute"]?.post?.security).toEqual([]);
 	});
 });
