@@ -2,68 +2,83 @@ import clsx from "clsx";
 import { useState } from "react";
 import { ActivityIndicator, Pressable, Text, View } from "react-native";
 
+import { requestFailureCopy, type RequestFailureState } from "@/api/request-failure";
 import { AppIcon } from "@/modules/icons";
 import { AppButton } from "@/modules/ui/button";
 import { FormTextInput } from "@/modules/ui/form";
 import { AppStatusState } from "@/modules/ui/status-state";
 
 import {
-	groupImportSources,
-	type ImportSourceRow,
-	importSourceRequirement,
-	startableImportSources,
-} from "./source-selection";
-import { importSourceListError, type ImportSourceListState } from "./state";
+	availableCatalogEntries,
+	type CatalogEntry,
+	groupCatalogEntries,
+} from "./catalog-selection";
 
-function ImportSourceOption(props: {
+export type CatalogPickerState<Source> =
+	| RequestFailureState
+	| { readonly status: "empty" }
+	| { readonly status: "loading" }
+	| { readonly status: "ready"; readonly sources: readonly Source[] };
+
+export type CatalogPickerCopy = {
+	readonly emptyTitle: string;
+	readonly errorTitle: string;
+	readonly emptyDetail: string;
+	readonly errorSubject: string;
+	readonly loadingLabel: string;
+	readonly loadingDetail: string;
+};
+
+function CatalogOption(props: {
 	readonly isFirst: boolean;
+	readonly entry: CatalogEntry;
 	readonly onChoose: () => void;
-	readonly source: ImportSourceRow;
+	readonly chooseLabel: (entry: CatalogEntry) => string;
 }) {
-	const requirement = importSourceRequirement(props.source);
 	return (
 		<Pressable
 			onPress={props.onChoose}
 			accessibilityRole="button"
-			accessibilityHint={requirement}
-			disabled={!props.source.isStartable}
-			accessibilityState={{ disabled: !props.source.isStartable }}
-			accessibilityLabel={
-				props.source.isStartable
-					? `Import from ${props.source.name}`
-					: `${props.source.name} is unavailable`
-			}
+			disabled={!props.entry.isAvailable}
+			accessibilityHint={props.entry.requirement}
+			accessibilityLabel={props.chooseLabel(props.entry)}
+			accessibilityState={{ disabled: !props.entry.isAvailable }}
 			className={clsx(
 				"flex-row items-center gap-3 border-b border-border py-3",
 				props.isFirst && "border-t",
-				!props.source.isStartable && "opacity-70",
+				!props.entry.isAvailable && "opacity-70",
 			)}
 		>
 			<View className="min-w-0 flex-1 gap-0.5">
 				<Text numberOfLines={1} className="font-ui-medium text-sm text-text">
-					{props.source.name}
+					{props.entry.name}
 				</Text>
 				<Text numberOfLines={2} className="font-ui text-xs text-text-muted">
-					{props.source.description}
+					{props.entry.description}
 				</Text>
-				{requirement === undefined ? null : (
-					<Text className="font-ui text-xs text-danger">{requirement}</Text>
+				{props.entry.requirement === undefined ? null : (
+					<Text className="font-ui text-xs text-danger">{props.entry.requirement}</Text>
 				)}
 			</View>
 			<Text className="rounded-pill border border-border-strong px-2 py-0.5 font-ui-medium text-[11px] text-text-muted">
-				{props.source.inputShape}
+				{props.entry.badge}
 			</Text>
-			{props.source.isStartable ? (
+			{props.entry.isAvailable ? (
 				<AppIcon size={16} name="chevron-right" className="text-text-subtle" />
 			) : null}
 		</Pressable>
 	);
 }
 
-export function ImportSourcePicker(props: {
+export function CatalogPicker<
+	Source extends { name: string; pluginSlug: string; description: string },
+>(props: {
 	readonly onRetry: () => void;
-	readonly state: ImportSourceListState;
+	readonly copy: CatalogPickerCopy;
 	readonly onChoose: (slug: string) => void;
+	readonly state: CatalogPickerState<Source>;
+	readonly toEntry: (source: Source) => CatalogEntry;
+	readonly chooseLabel: (entry: CatalogEntry) => string;
 }) {
 	const [query, setQuery] = useState("");
 
@@ -71,13 +86,16 @@ export function ImportSourcePicker(props: {
 		return (
 			<AppStatusState
 				className="py-12"
-				detail="Loading the services you can import from..."
-				icon={<ActivityIndicator accessibilityLabel="Loading services" />}
+				detail={props.copy.loadingDetail}
+				icon={<ActivityIndicator accessibilityLabel={props.copy.loadingLabel} />}
 			/>
 		);
 	}
 	if (props.state.status === "malformed" || props.state.status === "transport-error") {
-		const error = importSourceListError(props.state);
+		const error = requestFailureCopy(props.state, {
+			title: props.copy.errorTitle,
+			subject: props.copy.errorSubject,
+		});
 		return (
 			<AppStatusState
 				className="py-10"
@@ -88,21 +106,21 @@ export function ImportSourcePicker(props: {
 			/>
 		);
 	}
-	if (props.state.status === "empty") {
+	if (props.state.status !== "ready") {
 		return (
 			<AppStatusState
 				className="py-12"
-				title="No services yet"
-				detail="Once a plugin on this server contributes an importer, it shows up here."
+				title={props.copy.emptyTitle}
+				detail={props.copy.emptyDetail}
 				icon={<AppIcon size={36} name="inbox" className="text-text-subtle" />}
 			/>
 		);
 	}
 
-	const groups = groupImportSources(props.state.sources, query);
-	const startable = startableImportSources(groups);
+	const groups = groupCatalogEntries(props.state.sources, query, props.toEntry);
+	const available = availableCatalogEntries(groups);
 	const chooseOnly = () => {
-		const only = startable.length === 1 ? startable.at(0) : undefined;
+		const only = available.length === 1 ? available.at(0) : undefined;
 		if (only !== undefined) {
 			props.onChoose(only.slug);
 		}
@@ -135,12 +153,13 @@ export function ImportSourcePicker(props: {
 							{group.heading}
 						</Text>
 						<View>
-							{group.sources.map((source, index) => (
-								<ImportSourceOption
-									source={source}
-									key={source.slug}
+							{group.entries.map((entry, index) => (
+								<CatalogOption
+									entry={entry}
+									key={entry.slug}
 									isFirst={index === 0}
-									onChoose={() => props.onChoose(source.slug)}
+									chooseLabel={props.chooseLabel}
+									onChoose={() => props.onChoose(entry.slug)}
 								/>
 							))}
 						</View>

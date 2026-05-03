@@ -346,7 +346,7 @@ describe("schema form state", () => {
 		expect(validateSchemaFormValues(defaultedSchema, values).get("note")).toBe(
 			"Defaults make note required",
 		);
-		expect(toSchemaFormPayload(defaultedSchema, values)).toEqual({});
+		expect(toSchemaFormPayload(defaultedSchema, values)).toEqual({ selections: [] });
 	});
 
 	it("restores nonblank default semantics when the UI value is cleared", () => {
@@ -511,7 +511,7 @@ describe("schema form state", () => {
 				region: undefined,
 			}),
 		).toEqual({ year: 2026, adult: false, title: "Dune", genres: ["epic"] });
-		expect(toSchemaFormPayload(schema, { genres: [] })).toEqual({});
+		expect(toSchemaFormPayload(schema, { note: "", region: undefined })).toEqual({});
 	});
 
 	it("validates primitive array bounds and item declarations", () => {
@@ -648,5 +648,81 @@ describe("schema form state", () => {
 			["tags", "multi-select"],
 			["list", "list"],
 		]);
+	});
+
+	it("keeps an emptied list in the payload so it can be cleared", () => {
+		const listSchema = {
+			fields: {
+				sites: {
+					...described("Sites"),
+					type: "array",
+					defaultValue: ["kept.example"],
+					items: { ...described("Site"), type: "string" },
+				},
+			},
+		} satisfies AppSchema;
+
+		expect(toSchemaFormPayload(listSchema, { sites: [] })).toEqual({ sites: [] });
+		expect(toSchemaFormPayload(listSchema, { sites: ["a.example"] })).toEqual({
+			sites: ["a.example"],
+		});
+	});
+
+	it("reports an emptied list as missing when the field is required", () => {
+		const listSchema = {
+			fields: {
+				sites: {
+					...described("Sites"),
+					type: "array",
+					validation: { required: true },
+					items: { ...described("Site"), type: "string" },
+				},
+			},
+		} satisfies AppSchema;
+
+		expect(validateSchemaFormValues(listSchema, { sites: [] }).get("sites")).toBe(
+			"Sites is required",
+		);
+		expect(validateSchemaFormValues(listSchema, { sites: ["a.example"] }).size).toBe(0);
+	});
+
+	it("enforces minItems once a list has been emptied", () => {
+		const listSchema = {
+			fields: {
+				sites: {
+					...described("Sites"),
+					type: "array",
+					validation: { minItems: 2 },
+					items: { ...described("Site"), type: "string" },
+				},
+			},
+		} satisfies AppSchema;
+
+		expect(validateSchemaFormValues(listSchema, { sites: [] }).get("sites")).toBe(
+			"Sites needs at least 2 items",
+		);
+	});
+
+	it("keeps a blank required secret valid when editing but not when creating", () => {
+		const secretSchema = {
+			fields: {
+				baseUrl: { ...described("Base URL"), type: "string", validation: { required: true } },
+				apiKey: {
+					...described("API key"),
+					type: "string",
+					secret: true,
+					validation: { required: true },
+				},
+			},
+		} satisfies AppSchema;
+		const values = { apiKey: "", baseUrl: "https://a.example" };
+
+		expect(validateSchemaFormValues(secretSchema, values, "edit").size).toBe(0);
+		expect(validateSchemaFormValues(secretSchema, values, "create").get("apiKey")).toBe(
+			"API key is required",
+		);
+		expect(validateSchemaFormValues(secretSchema, { apiKey: "k" }, "edit").get("baseUrl")).toBe(
+			"Base URL is required",
+		);
 	});
 });

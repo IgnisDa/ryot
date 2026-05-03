@@ -16,6 +16,10 @@ import {
 	importSourceName,
 	isTerminalImportRunStatus,
 } from "@/modules/import-runs/run-presentation";
+import {
+	IMPORT_RUN_POLL_MS,
+	useImportRunPolling,
+} from "@/modules/import-runs/use-import-run-polling";
 import { ChildScreenFrame } from "@/modules/navigation/child-screen-frame";
 import type { HeaderOverflowItem } from "@/modules/navigation/header/header-overflow-menu";
 import { copyTextToClipboard } from "@/modules/ui/clipboard";
@@ -30,7 +34,6 @@ import {
 import { ImportRunDeleteSheet } from "./import-run-delete-sheet";
 import { ImportRunView } from "./import-run-view";
 import { mapImportRunDetail, mapImportSourceNames } from "./state";
-import { IMPORT_RUN_POLL_MS, useImportRunPolling } from "./use-import-run-polling";
 
 const returnToList = () => {
 	if (router.canGoBack()) {
