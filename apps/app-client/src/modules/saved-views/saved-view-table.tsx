@@ -3,11 +3,12 @@ import { Link } from "expo-router";
 import { Pressable, Text, View } from "react-native";
 
 import { getEntityHref } from "@/modules/navigation/navigation-data";
+import { ImageTintOverlay, useImageTint } from "@/modules/ui/image-tint-view";
 
 import type { SavedViewTableItem } from "./display-data";
 import { formatSavedViewValue } from "./display-value";
 import { SavedViewImageView } from "./saved-view-image";
-import { SavedViewTintOverlay, useSavedViewTint } from "./saved-view-tint-view";
+import { savedViewImageUrl } from "./saved-view-image-url";
 
 const columnClassName = (index: number) =>
 	index === 0 ? "min-w-0 flex-1" : "w-16 shrink-0 md:w-28";
@@ -16,10 +17,9 @@ function SavedViewTableRow(props: {
 	item: SavedViewTableItem;
 	managedUrls: ReadonlyMap<string, string>;
 }) {
-	const { gradientStops, onImageError } = useSavedViewTint({
-		image: props.item.image,
-		managedUrls: props.managedUrls,
-	});
+	const { gradientStops, onImageError } = useImageTint(
+		savedViewImageUrl(props.item.image, props.managedUrls),
+	);
 
 	return (
 		<Link asChild href={getEntityHref(props.item.entityId)}>
@@ -27,7 +27,7 @@ function SavedViewTableRow(props: {
 				accessibilityRole="link"
 				className="relative h-15 flex-row items-center gap-3 overflow-hidden border-b border-border focus-visible:outline-2 focus-visible:outline-accent md:gap-4"
 			>
-				<SavedViewTintOverlay gradientStops={gradientStops} />
+				<ImageTintOverlay direction="horizontal" gradientStops={gradientStops} />
 				{props.item.cells.map((cell, index) => (
 					<View
 						key={`${props.item.entityId}:${cell.key}`}
