@@ -1,6 +1,5 @@
 import clsx from "clsx";
 import { router, usePathname } from "expo-router";
-import { useAtomValue } from "jotai";
 import { ChevronRight } from "lucide-react-native";
 import { ScrollView } from "react-native";
 import type { SharedValue } from "react-native-reanimated";
@@ -13,7 +12,7 @@ import { Box } from "@/components/ui/box";
 import { Pressable } from "@/components/ui/pressable";
 import { Text } from "@/components/ui/text";
 import type { Tracker } from "@/lib/navigation";
-import { trackersAtom } from "@/lib/navigation";
+import { useTrackers } from "@/lib/navigation";
 
 export const RAIL_WIDTH = 168;
 export const SPRING_CONFIG = { damping: 22, stiffness: 280 };
@@ -25,7 +24,7 @@ type Props = {
 };
 
 export function SpineRail({ translateX, onClose, pinned = false }: Props) {
-	const trackers = useAtomValue(trackersAtom);
+	const trackers = useTrackers();
 	const pathname = usePathname();
 	const segments = pathname.split("/").filter(Boolean);
 	const activeTrackerId = segments[0] || "home";
