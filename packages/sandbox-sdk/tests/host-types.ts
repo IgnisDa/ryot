@@ -118,7 +118,7 @@ const allDomainManifest = defineManifest({
 		"listEvents",
 		"createEvents",
 		"getIntegration",
-		"getEntitySchema",
+		"getEntitySchemas",
 		"listEventSchemas",
 		"listIntegrations",
 		"executeQueryEngine",
@@ -141,7 +141,10 @@ defineScript({
 			const properties: JsonValue = entity.properties;
 			const integration = yield* host.getIntegration();
 			const externalId: string | null = entity.externalId;
-			const entitySchema = yield* host.getEntitySchema("schema-1");
+			const [entitySchema] = yield* host.getEntitySchemas(["schema-1"]);
+			if (!entitySchema) {
+				return false;
+			}
 			const lot: "push" | "sink" | "yank" = integration.lot;
 			const provider: string = integration.provider;
 			const setting: JsonValue | undefined = integration.providerSpecifics["customSetting"];
@@ -203,11 +206,11 @@ defineScript({
 			const entityArg: Expect<
 				Equal<Parameters<typeof host.getEntities>[0], ReadonlyArray<string>>
 			> = true;
+			const entitySchemasArg: Expect<
+				Equal<Parameters<typeof host.getEntitySchemas>[0], ReadonlyArray<string>>
+			> = true;
 			void lot;
 			void total;
-			void changedCount;
-			void ensuredEntityId;
-			void ensuredWasInserted;
 			void deleted;
 			void inserted;
 			void providers;
@@ -216,6 +219,10 @@ defineScript({
 			void externalId;
 			void occurredAt;
 			void queryResult;
+			void changedCount;
+			void ensuredEntityId;
+			void entitySchemasArg;
+			void ensuredWasInserted;
 			return true;
 		}),
 });

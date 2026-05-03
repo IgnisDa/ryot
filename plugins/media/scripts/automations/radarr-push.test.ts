@@ -70,9 +70,9 @@ const createHost = (options: {
 }) =>
 	defineSandboxTestHost(manifest, {
 		httpCall: options.httpCall,
-		getEntities: () => (options.entity ? hostSuccess([options.entity]) : hostFailure()),
-		getEntitySchema: () => hostSuccess(schema),
+		getEntitySchemas: () => hostSuccess([schema]),
 		listIntegrations: () => hostSuccess(options.integrations ?? []),
+		getEntities: () => (options.entity ? hostSuccess([options.entity]) : hostFailure()),
 		getUserPreferences: () =>
 			hostSuccess({ isNsfw: false, disableIntegrations: options.disableIntegrations ?? false }),
 	});
@@ -82,8 +82,8 @@ describe("radarr-push sandbox script", () => {
 		const calls: HttpCall[] = [];
 		const host = createHost({
 			entity: movieEntity,
-			integrations: [radarrIntegration],
 			httpCall: createHttpCall(calls),
+			integrations: [radarrIntegration],
 		});
 		return Effect.runPromise(
 			definition
@@ -118,8 +118,8 @@ describe("radarr-push sandbox script", () => {
 		const unmatched = integrationRecord({
 			provider: "radarr",
 			providerSpecifics: {
-				profileId: "4",
 				tagIds: [3, 7],
+				profileId: "4",
 				apiKey: "radarr-key",
 				rootFolderPath: "/movies",
 				syncCollectionIds: ["other"],
@@ -163,8 +163,8 @@ describe("radarr-push sandbox script", () => {
 		const host = createHost({
 			entity: movieEntity,
 			disableIntegrations: true,
-			integrations: [radarrIntegration],
 			httpCall: createHttpCall(calls),
+			integrations: [radarrIntegration],
 		});
 		return Effect.runPromise(
 			definition
