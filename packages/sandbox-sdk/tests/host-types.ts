@@ -119,13 +119,13 @@ const allDomainManifest = defineManifest({
 	slug: "all-domain-capabilities",
 	capabilities: [
 		"createEvents",
-		"getIntegration",
 		"getEntitySchemas",
 		"listEventSchemas",
 		"listIntegrations",
 		"executeQueryEngine",
 		"ensureUserEntities",
 		"upsertGlobalEntities",
+		"getCurrentIntegration",
 		"changeUserRelationships",
 		"upsertGlobalRelationships",
 	],
@@ -136,7 +136,7 @@ defineScript({
 	output: Schema.Boolean,
 	run: (_input, host) =>
 		Effect.gen(function* () {
-			const integration = yield* host.getIntegration();
+			const integration = yield* host.getCurrentIntegration();
 			const [entitySchema] = yield* host.getEntitySchemas(["schema-1"]);
 			if (!entitySchema) {
 				return false;

@@ -42,7 +42,7 @@ const redactSecretValues = (
 
 /**
  * Client-facing boundary. `repository.normalizeIntegration` deliberately returns credentials
- * verbatim because integration scripts read them through the `getIntegration` host function.
+ * verbatim because integration scripts read them through the `getCurrentIntegration` host function.
  * Only the service methods
  * backing the `list` / `get` / `update` contract endpoints route through here.
  */

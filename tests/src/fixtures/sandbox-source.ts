@@ -495,3 +495,35 @@ export default defineOperation({
 });
 `;
 }
+
+export function integrationReadOperationSandboxSource(input: SandboxSourceIdentity) {
+	return `
+import { defineManifest } from "@ryot/sandbox-sdk/driver";
+import { defineOperation } from "@ryot/sandbox-sdk/operation";
+import { integrationRecordSchema } from "@ryot/sandbox-sdk/core";
+import { Effect, Schema } from "@ryot/sandbox-sdk/effect";
+
+export const manifest = defineManifest({
+  kind: "operation",
+  capabilities: ["getCurrentIntegration", "listIntegrations"],
+  requiredPluginConfigKeys: [],
+  requiredSystemConfigKeys: [],
+  name: ${JSON.stringify(input.name)},
+  slug: ${JSON.stringify(input.slug)},
+});
+
+export default defineOperation({
+  manifest,
+  input: Schema.Struct({ integrationId: Schema.String }),
+  output: Schema.Struct({
+    current: integrationRecordSchema,
+    enabled: Schema.Array(integrationRecordSchema),
+  }),
+  run: (_input, host) => Effect.gen(function* () {
+    const current = yield* host.getCurrentIntegration();
+    const enabled = yield* host.listIntegrations({ provider: "kodi", isDisabled: false });
+    return { current, enabled };
+  }),
+});
+`;
+}

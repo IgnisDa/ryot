@@ -224,7 +224,7 @@ unknown operation) + migrated suites green; extension works against invoke.
    before enqueueing the script ID. Keeping the generic catch-all closed and giving typed
    capabilities their own kinds remains the pattern Step 3's workflow scripts should follow where
    determinism requires a distinct host surface. Operations reuse only existing host
-   capabilities (metadata-lookup: `httpCall`/`getAppConfigValue`/`getUserPreferences`/`getIntegration`
+   capabilities (metadata-lookup: `httpCall`/`getAppConfigValue`/`getUserPreferences`/`getCurrentIntegration`
    composed with the in-repo TMDB provider search implementations; resolve-episodes: `executeQueryEngine`),
    so no new host functions or capability scopes are added this step.
 
@@ -620,7 +620,7 @@ and `fast-xml-parser` (MyAnimeList exports) through the Step 0a vendoring mechan
 payloads are multipart/form-data and are parsed in-script without a dependency. The approved-
 dependency set is open: later steps may vendor more through the same mechanism.
 
-**Credential scoping** [DECIDED]. `getIntegration` must resolve the integration from trusted
+**Credential scoping** [DECIDED]. `getCurrentIntegration` must resolve the integration from trusted
 execution state — the integration the execution belongs to — rather than from an arbitrary id
 supplied by the script.
 
@@ -628,7 +628,7 @@ supplied by the script.
 
 Task 07 landed the capability slice with no consumers. Five findings bind the later tasks.
 
-1. **`getIntegration` takes no arguments; the integration id lives on `ExecutionAuthority`.** The
+1. **`getCurrentIntegration` takes no arguments; the integration id lives on `ExecutionAuthority`.** The
    `user` variant gained an optional `integrationId`, set only by the `auth: "integration"`
    operation dispatch — where the same id already authenticated the call — so a script cannot
    substitute another. The subscription path reads the existing
@@ -742,7 +742,7 @@ logical `providerSlug` / `providerId`, never executable script identity.
 | `plugins/fitness` | —                                                           | —                                          | hevy, strong-app, open-scale                                                                                                                                 |
 
 Network access from adapter scripts is bounded through `httpCall` with integration credentials from
-the scoped `getIntegration`. Preserve `createProgressResult` semantics (`integrations/sinks/shared.ts`)
+the scoped `getCurrentIntegration`. Preserve `createProgressResult` semantics (`integrations/sinks/shared.ts`)
 — `occurredAt` is always set, and the progress-policy automation depends on it.
 
 Netflix is the one adapter that gets structurally simpler by moving. It needs TMDB searches

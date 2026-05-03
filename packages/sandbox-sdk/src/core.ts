@@ -173,14 +173,14 @@ export type CoreSandboxHostImplementationMap<Context> = {
 
 export const DOMAIN_SANDBOX_HOST_CAPABILITIES = [
 	"createEvents",
-	"getIntegration",
 	"getEntitySchemas",
 	"listEventSchemas",
 	"listIntegrations",
 	"executeQueryEngine",
 	"ensureUserEntities",
-	"changeUserRelationships",
 	"upsertGlobalEntities",
+	"getCurrentIntegration",
+	"changeUserRelationships",
 	"upsertGlobalRelationships",
 ] as const;
 export const domainSandboxHostCapabilitySchema = Schema.Literals([
@@ -422,7 +422,7 @@ export const queryDocumentSchema = jsonValueSchema;
 export type QueryDocument = Schema.Schema.Type<typeof queryDocumentSchema>;
 export type ListIntegrationsOptions = Schema.Schema.Type<typeof listIntegrationsOptionsSchema>;
 
-export const getIntegrationArgsSchema = Schema.Tuple([]);
+export const getCurrentIntegrationArgsSchema = Schema.Tuple([]);
 export const executeQueryEngineDataSchema = Schema.Unknown;
 export const getEntitySchemasArgsSchema = Schema.Tuple([
 	Schema.Array(sandboxIdSchema).pipe(
@@ -432,7 +432,7 @@ export const getEntitySchemasArgsSchema = Schema.Tuple([
 export const executeQueryEngineArgsSchema = Schema.Tuple([queryDocumentSchema]);
 export const listEventSchemasDataSchema = Schema.Array(eventSchemaRecordSchema);
 export const listIntegrationsDataSchema = Schema.Array(integrationRecordSchema);
-export const getIntegrationResultSchema = hostResultSchema(integrationRecordSchema);
+export const getCurrentIntegrationResultSchema = hostResultSchema(integrationRecordSchema);
 export const getEntitySchemasResultSchema = hostResultSchema(
 	Schema.Array(entitySchemaRecordSchema),
 );
@@ -506,10 +506,10 @@ export const domainSandboxHostContracts = {
 		success: upsertGlobalEntitiesDataSchema,
 		result: upsertGlobalEntitiesResultSchema,
 	},
-	getIntegration: {
-		args: getIntegrationArgsSchema,
+	getCurrentIntegration: {
+		args: getCurrentIntegrationArgsSchema,
 		success: integrationRecordSchema,
-		result: getIntegrationResultSchema,
+		result: getCurrentIntegrationResultSchema,
 	},
 	getEntitySchemas: {
 		args: getEntitySchemasArgsSchema,
