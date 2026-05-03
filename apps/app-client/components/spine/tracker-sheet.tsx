@@ -130,10 +130,7 @@ export function TrackerSheet() {
 								</Pressable>
 
 								{isExpanded && (
-									<Animated.View
-										entering={FadeIn.duration(150)}
-										exiting={FadeOut.duration(120)}
-									>
+									<Animated.View entering={FadeIn.duration(150)}>
 										{tracker.subItems?.map((item) => {
 											const isSubActive = isActive && item === activeSubItem;
 											return (
