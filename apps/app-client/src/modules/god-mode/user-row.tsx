@@ -4,17 +4,19 @@ import { useEffect, useRef, useState } from "react";
 import { Platform, Pressable, Share, Text, TextInput, View } from "react-native";
 
 import type {
-	GodModeUser,
 	GodModePasswordResetResult,
 	GodModeSetDisabledResult,
+	GodModeUser,
 } from "@/modules/god-mode/atoms";
 import { isUnauthorizedCause } from "@/modules/god-mode/errors";
+import { godModeUserColumns } from "@/modules/god-mode/user-columns";
 import type {
 	GodModeUserLifecycleOperation,
 	GodModeUserResetResult,
 } from "@/modules/god-mode/user-lifecycle";
 import { formatLocalDateLabel } from "@/modules/ui/date";
 import { DestructiveActionSheet } from "@/modules/ui/destructive-action-sheet";
+import { AppRowActionMenu } from "@/modules/ui/row-action-menu";
 
 const authBadges = {
 	oidc: { label: "OIDC", box: "bg-info-soft", text: "text-info" },
@@ -29,7 +31,7 @@ function StatusBadge(props: { disabledAt: string | null }) {
 	return (
 		<View
 			className={clsx(
-				"rounded-pill px-2.5 py-0.5",
+				"self-start rounded-pill px-2.5 py-0.5",
 				isDisabled ? "bg-surface-2" : "bg-success-soft",
 			)}
 		>
@@ -44,7 +46,7 @@ function AuthBadge(props: { state: GodModeUser["authState"] }) {
 	const badge = authBadges[props.state];
 
 	return (
-		<View className={clsx("rounded-pill px-2.5 py-0.5", badge.box)}>
+		<View className={clsx("self-start rounded-pill px-2.5 py-0.5", badge.box)}>
 			<Text className={clsx("font-ui-medium text-xs", badge.text)}>{badge.label}</Text>
 		</View>
 	);
@@ -218,10 +220,16 @@ export function GodModeUserRow(props: {
 		}
 	}
 
+	let resetHint: string | undefined;
+	if (!canReset) {
+		resetHint =
+			props.user.authState === "oidc" ? "OIDC-only user" : "Mixed auth — manual recovery needed";
+	}
+
 	return (
-		<View className="gap-2.5 border-b border-border py-3">
-			<View className="flex-row items-start gap-3">
-				<View className="min-w-0 flex-1 gap-0.5">
+		<View className="border-b border-border">
+			<View className="min-h-14 flex-row items-center gap-3 py-2 md:gap-4">
+				<View className={clsx(godModeUserColumns.email, "gap-0.5")}>
 					<Text
 						numberOfLines={1}
 						className={clsx(
@@ -231,7 +239,7 @@ export function GodModeUserRow(props: {
 					>
 						{props.user.email}
 					</Text>
-					<Text className="font-ui text-[13px] text-text-muted" numberOfLines={1}>
+					<Text numberOfLines={1} className="font-ui text-[13px] text-text-muted md:hidden">
 						{props.user.name}
 					</Text>
 					{props.user.disabledAt && (
@@ -240,87 +248,64 @@ export function GodModeUserRow(props: {
 						</Text>
 					)}
 				</View>
-				<View className="shrink-0 flex-row items-center gap-1.5">
-					<StatusBadge disabledAt={props.user.disabledAt} />
+				<View className={godModeUserColumns.name}>
+					<Text numberOfLines={1} className="font-ui text-sm text-text-muted">
+						{props.user.name}
+					</Text>
+				</View>
+				<View className={godModeUserColumns.auth}>
 					<AuthBadge state={props.user.authState} />
 				</View>
+				<View className={godModeUserColumns.status}>
+					<StatusBadge disabledAt={props.user.disabledAt} />
+				</View>
+				<View className={godModeUserColumns.created}>
+					<Text numberOfLines={1} className="font-ui text-sm text-text-muted">
+						{formatLocalDateLabel(props.user.createdAt)}
+					</Text>
+				</View>
+				<View className={godModeUserColumns.actions}>
+					<AppRowActionMenu
+						note={resetHint}
+						title="User actions"
+						subject={props.user.email}
+						items={[
+							{
+								disabled: !canReset || pending !== null,
+								onPress: () => void handleGenerateResetLink(),
+								label: pending === "password" ? "Generating..." : "Generate reset link",
+							},
+							{
+								label: disabledActionLabel,
+								disabled: pending !== null,
+								isDestructive: !isDisabled,
+								onPress: () => void handleToggleDisabled(),
+							},
+							{
+								isDestructive: true,
+								disabled: pending !== null,
+								label: pending === "reset" ? "Resetting..." : "Reset account",
+								onPress: () => {
+									setDestructiveError(undefined);
+									setConfirmation("reset");
+								},
+							},
+							{
+								isDestructive: true,
+								disabled: pending !== null,
+								label: pending === "delete" ? "Deleting..." : "Delete user",
+								onPress: () => {
+									setDestructiveError(undefined);
+									setConfirmation("delete");
+								},
+							},
+						]}
+					/>
+				</View>
 			</View>
-			<View className="flex-row flex-wrap items-center gap-2">
-				<Pressable
-					accessibilityRole="button"
-					disabled={!canReset || pending !== null}
-					onPress={() => void handleGenerateResetLink()}
-					accessibilityLabel={`Generate a password reset link for ${props.user.email}`}
-					className={clsx(
-						"rounded-lg bg-accent px-3 py-2",
-						(!canReset || pending !== null) && "opacity-50",
-					)}
-				>
-					<Text className="font-ui-medium text-[13px] text-accent-ink">
-						{pending === "password" ? "Generating..." : "Generate reset link"}
-					</Text>
-				</Pressable>
-				<Pressable
-					accessibilityRole="button"
-					disabled={pending !== null}
-					onPress={() => {
-						setDestructiveError(undefined);
-						setConfirmation("reset");
-					}}
-					accessibilityLabel={`Reset account for ${props.user.email}`}
-					className={clsx(
-						"rounded-lg border border-danger px-3 py-2",
-						pending !== null && "opacity-50",
-					)}
-				>
-					<Text className="font-ui-medium text-[13px] text-danger">
-						{pending === "reset" ? "Resetting..." : "Reset account"}
-					</Text>
-				</Pressable>
-				<Pressable
-					accessibilityRole="button"
-					disabled={pending !== null}
-					onPress={() => {
-						setDestructiveError(undefined);
-						setConfirmation("delete");
-					}}
-					accessibilityLabel={`Delete ${props.user.email}`}
-					className={clsx(
-						"rounded-lg border border-danger px-3 py-2",
-						pending !== null && "opacity-50",
-					)}
-				>
-					<Text className="font-ui-medium text-[13px] text-danger">
-						{pending === "delete" ? "Deleting..." : "Delete user"}
-					</Text>
-				</Pressable>
-				<Pressable
-					accessibilityRole="button"
-					disabled={pending !== null}
-					onPress={() => void handleToggleDisabled()}
-					className={clsx(
-						"rounded-lg border px-3 py-2",
-						isDisabled ? "border-border-strong" : "border-danger",
-						pending !== null && "opacity-50",
-					)}
-				>
-					<Text
-						className={clsx("font-ui-medium text-[13px]", isDisabled ? "text-text" : "text-danger")}
-					>
-						{disabledActionLabel}
-					</Text>
-				</Pressable>
-				{!canReset && (
-					<Text className="font-ui text-xs text-text-subtle">
-						{props.user.authState === "oidc"
-							? "OIDC-only user"
-							: "Mixed auth — manual recovery needed"}
-					</Text>
-				)}
-			</View>
-			{error && <Text className="font-ui text-xs text-danger">{error}</Text>}
+			{error && <Text className="pb-2 font-ui text-xs text-danger">{error}</Text>}
 			{result?.resetUrl && (
-				<View className="gap-2 rounded-lg border border-border bg-raised p-3">
+				<View className="mb-3 gap-2 rounded-lg border border-border bg-raised p-3">
 					<Text className="font-ui text-xs text-text-muted">Reset link for {result.email}</Text>
 					<View className="flex-row items-center gap-2">
 						<TextInput
@@ -347,7 +332,7 @@ export function GodModeUserRow(props: {
 				</View>
 			)}
 			{result?.resetUrl === null && (
-				<Text className="font-ui text-xs text-success">
+				<Text className="pb-2 font-ui text-xs text-success">
 					Account reset completed. This user signs in through OIDC, so no password reset link was
 					created.
 				</Text>
@@ -355,21 +340,21 @@ export function GodModeUserRow(props: {
 			{confirmation === null ? null : (
 				<DestructiveActionSheet
 					snapPoints={[360]}
+					errorMessage={destructiveError}
 					pending={pending === confirmation}
 					pendingLabel={confirmation === "reset" ? "Resetting..." : "Deleting..."}
-					errorMessage={destructiveError}
 					actionLabel={confirmation === "reset" ? "Reset account" : "Delete user"}
 					title={confirmation === "reset" ? "Reset this user?" : "Delete this user?"}
-					detail={
-						confirmation === "reset"
-							? "This permanently deletes all user data, including progress, collections, and preferences. This cannot be undone."
-							: "This permanently deletes the user and all of their data. This cannot be undone."
-					}
 					onConfirm={() => void (confirmation === "reset" ? handleResetUser() : handleDeleteUser())}
 					onClose={() => {
 						setDestructiveError(undefined);
 						setConfirmation(null);
 					}}
+					detail={
+						confirmation === "reset"
+							? "This permanently deletes all user data, including progress, collections, and preferences. This cannot be undone."
+							: "This permanently deletes the user and all of their data. This cannot be undone."
+					}
 				/>
 			)}
 		</View>

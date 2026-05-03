@@ -13,19 +13,19 @@ import { ProviderAddHost, useProviderAddFlow } from "@/modules/provider-add/add-
 import { usePreferredProvider } from "@/modules/provider-add/use-preferred-provider";
 import { AppButton } from "@/modules/ui/button";
 import { ManagedAssetHost } from "@/modules/ui/managed-asset-host";
+import { AppLoadMore } from "@/modules/ui/pagination";
+import {
+	AppSearchField,
+	type AppSearchState,
+	useSearchFieldShortcut,
+} from "@/modules/ui/search-field";
 import { AppStatusState } from "@/modules/ui/status-state";
 
 import { SavedViewFrame } from "./saved-view-frame";
 import { SavedViewGrid } from "./saved-view-grid";
 import { SavedViewLayoutSelector, useSavedViewLayout } from "./saved-view-layout-selector";
 import { SavedViewList } from "./saved-view-list";
-import { SavedViewPagination } from "./saved-view-pagination";
 import { SavedViewResultCount } from "./saved-view-result-count";
-import {
-	SavedViewSearchField,
-	type SavedViewSearch,
-	useSavedViewSearchShortcut,
-} from "./saved-view-search";
 import { SavedViewTable } from "./saved-view-table";
 import {
 	savedViewError,
@@ -164,16 +164,16 @@ function SavedViewWebActions(props: {
 	readonly viewSlug: string;
 	readonly hasItems: boolean;
 	readonly onAdd?: () => void;
-	readonly search: SavedViewSearch;
+	readonly search: AppSearchState;
 }) {
 	const onAdd = props.onAdd;
 	const [layout, setLayout] = useSavedViewLayout(props.viewSlug);
 	const searchInputRef = useRef<TextInput>(null);
-	useSavedViewSearchShortcut(searchInputRef);
+	useSearchFieldShortcut(searchInputRef);
 	useHotkey("A", () => onAdd?.(), { enabled: Boolean(onAdd), stopPropagation: false });
 	return (
 		<View className="hidden flex-row items-center gap-2.5 md:flex">
-			<SavedViewSearchField
+			<AppSearchField
 				showShortcut
 				name={props.viewName}
 				search={props.search}
@@ -219,9 +219,9 @@ function SavedViewDisplay(
 	props: SavedViewActiveData & {
 		readonly onAdd?: () => void;
 		readonly loadMore: () => void;
+		readonly search: AppSearchState;
 		readonly isLoadingMore: boolean;
 		readonly record: SavedViewRecord;
-		readonly search: SavedViewSearch;
 		readonly isTransitioning: boolean;
 	},
 ) {
@@ -231,7 +231,7 @@ function SavedViewDisplay(
 		content = (
 			<>
 				<SavedViewItems state={props} />
-				<SavedViewPagination
+				<AppLoadMore
 					loaded={items.length}
 					name={props.record.name}
 					onLoadMore={props.loadMore}
@@ -266,9 +266,9 @@ function SavedViewDisplay(
 export function SavedViewResultContent(props: {
 	readonly refresh: () => void;
 	readonly loadMore: () => void;
+	readonly search: AppSearchState;
 	readonly isLoadingMore: boolean;
 	readonly record: SavedViewRecord;
-	readonly search: SavedViewSearch;
 	readonly isLayoutChanging: boolean;
 	readonly initialScrollOffset: number;
 	readonly state: SavedViewResultState;

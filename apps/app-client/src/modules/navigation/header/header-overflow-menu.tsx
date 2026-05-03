@@ -3,13 +3,11 @@ import { useEffect, useEffectEvent } from "react";
 import { BackHandler, Platform, Pressable, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
+import type { AppMenuItem } from "@/modules/ui/menu-item";
+
 import { HEADER_ROW_HEIGHT } from "./header-metrics";
 
-export type HeaderOverflowItem = {
-	label: string;
-	onPress?: () => void;
-	isDestructive?: boolean;
-};
+export type HeaderOverflowItem = AppMenuItem;
 
 export function HeaderOverflowMenu(props: {
 	onClose: () => void;

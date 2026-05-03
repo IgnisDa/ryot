@@ -1,11 +1,12 @@
 import { Slot } from "expo-router";
 
-import { SettingsDesktopLayout } from "@/modules/settings/settings-desktop-layout";
+import { settingsSections } from "@/modules/settings/settings-sections";
+import { SectionSidebarLayout } from "@/modules/ui/section-nav";
 
 export default function SettingsLayout() {
 	return (
-		<SettingsDesktopLayout>
+		<SectionSidebarLayout title="Settings" fallbackSlug="general" sections={settingsSections}>
 			<Slot />
-		</SettingsDesktopLayout>
+		</SectionSidebarLayout>
 	);
 }
