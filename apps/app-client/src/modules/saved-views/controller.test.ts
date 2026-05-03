@@ -8,6 +8,7 @@ import {
 	fetchSavedViewPages,
 	savedViewControllerReducer,
 	savedViewControllerResult,
+	isSavedViewRequestActiveFor,
 	type SavedViewOperationToken,
 } from "./controller";
 import type { SavedViewCardItem } from "./display-data";
@@ -228,13 +229,77 @@ it("rejects stale identity and layout completions", () => {
 	expect(afterLayout).toBe(layoutState);
 });
 
+it("starts a cached layout while the previous layout request becomes stale", () => {
+	const data = (entityId: string, title: string) => ({
+		itemsById: new Map([[entityId, card(entityId, title)]]),
+		pages: [page([entityId], null)],
+	});
+	let state = createSavedViewControllerState("scope:record", "list");
+	const listInitial = token(state.identity, "list", state.generation + 1);
+	state = savedViewControllerReducer(state, {
+		phase: "initial",
+		token: listInitial,
+		type: "request-started",
+	});
+	state = savedViewControllerReducer(state, {
+		token: listInitial,
+		type: "request-succeeded",
+		data: data("entity-list", "Cached list"),
+	});
+	state = savedViewControllerReducer(state, { type: "layout-changed", layout: "grid" });
+	const gridInitial = token(state.identity, "grid", state.generation + 1);
+	state = savedViewControllerReducer(state, {
+		phase: "initial",
+		token: gridInitial,
+		type: "request-started",
+	});
+	state = savedViewControllerReducer(state, {
+		token: gridInitial,
+		type: "request-succeeded",
+		data: data("entity-grid", "Grid"),
+	});
+	const gridRefresh = token(state.identity, "grid", state.generation + 1);
+	state = savedViewControllerReducer(state, {
+		token: gridRefresh,
+		phase: "structural",
+		type: "request-started",
+	});
+
+	state = savedViewControllerReducer(state, { type: "layout-changed", layout: "list" });
+	expect(state.layouts.list?.data.pages).toHaveLength(1);
+	expect(isSavedViewRequestActiveFor(gridRefresh, state.identity, "list")).toBe(false);
+	const listRefresh = token(state.identity, "list", state.generation + 1);
+	state = savedViewControllerReducer(state, {
+		token: listRefresh,
+		phase: "structural",
+		type: "request-started",
+	});
+	const beforeGridCompletion = state;
+	state = savedViewControllerReducer(state, {
+		token: gridRefresh,
+		type: "request-succeeded",
+		data: data("stale-grid", "Stale grid"),
+	});
+	expect(state).toBe(beforeGridCompletion);
+	state = savedViewControllerReducer(state, {
+		token: listRefresh,
+		type: "request-succeeded",
+		data: data("entity-list", "Refreshed list"),
+	});
+	expect(savedViewControllerResult(state)).toMatchObject({
+		layout: "list",
+		entityIds: ["entity-list"],
+		data: { items: [{ title: "Refreshed list" }] },
+	});
+});
+
 it("hydrates only requested entities that remain loaded", () => {
 	let state = createSavedViewControllerState("scope:record", "grid");
 	const operation = token(state.identity);
 	state = savedViewControllerReducer(state, {
 		token: operation,
-		type: "request-started",
 		phase: "initial",
+		type: "request-started",
 	});
 	state = savedViewControllerReducer(state, {
 		token: operation,
@@ -243,17 +308,17 @@ it("hydrates only requested entities that remain loaded", () => {
 			itemsById: new Map([["entity-1", card("entity-1", "Old")]]),
 			pages: [
 				{
-					queryDocument: baseQuery,
 					entityIds: ["entity-1"],
+					queryDocument: baseQuery,
 					pageInfo: { limit: 2, hasMore: false, nextCursor: null },
 				},
 			],
 		},
 	});
 	state = savedViewControllerReducer(state, {
+		entityIds: ["entity-1"],
 		type: "hydration-succeeded",
 		token: { ...operation, generation: state.generation },
-		entityIds: ["entity-1"],
 		items: [card("entity-1", "Updated"), card("entity-2", "Unrelated")],
 	});
 	expect(savedViewControllerResult(state)).toMatchObject({
