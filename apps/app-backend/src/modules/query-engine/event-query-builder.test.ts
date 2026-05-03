@@ -2,7 +2,8 @@ import { describe, expect, it } from "bun:test";
 
 import { PgDialect } from "drizzle-orm/pg-core";
 
-import { buildEventFirstCte, buildJoinedCte, buildLatestEventJoinCte } from "./query-ctes";
+import { buildJoinedCte, buildLatestEventJoinCte } from "./event-join-ctes";
+import { buildEventFirstCte } from "./event-query-ctes";
 
 const dialect = new PgDialect();
 

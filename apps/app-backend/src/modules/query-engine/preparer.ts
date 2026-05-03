@@ -21,6 +21,7 @@ import type {
 	SavedViewQueryDefinition,
 } from "../saved-views/schemas";
 import { executeAggregateQuery } from "./aggregate-query-builder";
+import { type PreparedQueryContext } from "./context";
 import { executePreparedQuery } from "./entity-query-builder";
 import { executeEventQuery } from "./event-query-builder";
 import {
@@ -30,15 +31,15 @@ import {
 	loadVisibleEventJoins,
 	loadVisibleSchemas,
 } from "./loaders";
-import type { QueryEngineSchemaRow } from "./query-ctes";
 import type {
 	EntityQueryEngineRequest,
-	QueryEngineContext,
 	QueryEngineField,
 	QueryEngineRequest,
 	QueryEngineResponse,
 } from "./schemas";
 import { executeTimeSeriesQuery } from "./time-series-query-builder";
+
+export type { PreparedQueryContext } from "./context";
 
 export type SavedViewLayout = keyof DisplayConfiguration;
 
@@ -54,27 +55,6 @@ type PrepareContextInput = {
 	eventJoins: EventJoinDefinition[];
 	relationships: RelationshipFilter[];
 };
-
-export type PreparedQueryContext = {
-	relationshipSchemaIds: string[];
-	eventSchemaSlugs: ReadonlySet<string>;
-	eventJoins: QueryEngineEventJoinLike[];
-	runtimeSchemas: QueryEngineSchemaRow[];
-	schemaMap: Map<string, QueryEngineSchemaRow>;
-	eventJoinMap: Map<string, QueryEngineEventJoinLike>;
-	eventSchemaMap?: Map<string, QueryEngineEventSchemaLike[]>;
-};
-
-export const buildQueryContext = (
-	userId: string,
-	context: PreparedQueryContext,
-	overrides?: Partial<QueryEngineContext>,
-): QueryEngineContext => ({
-	userId,
-	schemaMap: context.schemaMap,
-	eventJoinMap: context.eventJoinMap,
-	...overrides,
-});
 
 export const normalizeRequestPerMode = (request: QueryEngineRequest): PrepareContextInput => {
 	return match(request)

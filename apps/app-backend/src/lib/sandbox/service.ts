@@ -185,7 +185,7 @@ export class SandboxService {
 		const context = options.context ?? {};
 		const timeoutMs = options.timeoutMs ?? this.executionDefaults.timeoutMs;
 		const maxHeapMB = options.maxHeapMB ?? this.executionDefaults.maxHeapMB;
-		const apiFunctions = { ...(options.apiFunctions ?? {}) };
+		const apiFunctions = { ...options.apiFunctions };
 
 		const token = generateId();
 		const executionId = generateId();

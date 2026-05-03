@@ -3,7 +3,7 @@ import { Scalar } from "@scalar/hono-api-reference";
 import { HTTPException } from "hono/http-exception";
 
 import { auth, type MaybeAuthType } from "~/lib/auth";
-import { ERROR_CODES, errorResponse } from "~/lib/openapi";
+import { ERROR_CODES, errorResponse } from "~/lib/openapi/errors";
 import { authenticationApi } from "~/modules/authentication/routes";
 import { collectionsApi } from "~/modules/collections/routes";
 import { entitiesApi } from "~/modules/entities/routes";

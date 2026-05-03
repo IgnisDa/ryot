@@ -1,6 +1,5 @@
 import { QueryEngineValidationError } from "./errors";
-import type { ViewComputedField, ViewExpression } from "./expression";
-import type { ViewPredicate } from "./filtering";
+import type { ViewComputedField, ViewExpression, ViewPredicate } from "./expression";
 
 export const buildComputedFieldMap = (computedFields: ViewComputedField[] = []) => {
 	const computedFieldMap = new Map<string, ViewComputedField>();

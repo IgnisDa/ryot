@@ -7,7 +7,7 @@ import type { QueryEngineEventJoinLike, QueryEngineEventSchemaLike } from "~/lib
 import { propertySchemaObjectSchema } from "~/modules/property-schemas";
 
 import type { EventJoinDefinition, RelationshipFilter } from "../saved-views/schemas";
-import type { QueryEngineSchemaRow } from "./query-ctes";
+import type { QueryEngineSchemaRow } from "./query-cte-shared";
 
 const parseAppSchema = (value: unknown) => {
 	return propertySchemaObjectSchema.parse(value);
@@ -109,10 +109,11 @@ export const loadVisibleSchemas = async (input: {
 			),
 		);
 
-	const schemas = rows.map((row) => ({
-		...row,
-		propertiesSchema: parseAppSchema(row.propertiesSchema),
-	}));
+	const schemas = rows.map((row) =>
+		Object.assign(row, {
+			propertiesSchema: parseAppSchema(row.propertiesSchema),
+		}),
+	);
 	validateUniqueSchemaSlugs(uniqueSlugs, schemas);
 
 	return schemas;
@@ -149,10 +150,11 @@ export const loadVisibleEventJoins = async (input: {
 			),
 		);
 
-	const visibleEventSchemas = rows.map((row) => ({
-		...row,
-		propertiesSchema: parseAppSchema(row.propertiesSchema),
-	}));
+	const visibleEventSchemas = rows.map((row) =>
+		Object.assign(row, {
+			propertiesSchema: parseAppSchema(row.propertiesSchema),
+		}),
+	);
 
 	return validateVisibleEventJoins(input.eventJoins, visibleEventSchemas);
 };

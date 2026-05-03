@@ -8,11 +8,24 @@ import {
 	validateUniqueSchemaSlugs,
 	validateVisibleEventJoins,
 } from "./loaders";
-import type { QueryEngineSchemaRow } from "./query-ctes";
+import type { QueryEngineSchemaRow } from "./query-cte-shared";
 
 const makeSchemaRow = (slug: string, id: string): QueryEngineSchemaRow => ({
 	id,
 	slug,
+	propertiesSchema: { fields: {} },
+});
+
+const makeEventSchema = (
+	slug: string,
+	id: string,
+	entitySchemaId: string,
+	entitySchemaSlug: string,
+) => ({
+	id,
+	slug,
+	entitySchemaId,
+	entitySchemaSlug,
 	propertiesSchema: { fields: {} },
 });
 
@@ -40,18 +53,7 @@ describe("validateUniqueSchemaSlugs", () => {
 });
 
 describe("validateVisibleEventJoins", () => {
-	const makeEventSchema = (
-		slug: string,
-		id: string,
-		entitySchemaId: string,
-		entitySchemaSlug: string,
-	) => ({
-		id,
-		slug,
-		entitySchemaId,
-		entitySchemaSlug,
-		propertiesSchema: { fields: {} },
-	});
+	// oxlint-disable-next-line unicorn/consistent-function-scoping
 
 	it("resolves event joins when schemas are found", () => {
 		const joins = [
