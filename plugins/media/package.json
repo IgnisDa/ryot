@@ -47,7 +47,7 @@
 		"@ryot/ryotql-recipes": "workspace:*",
 		"@ryot/sandbox-sdk": "workspace:*",
 		"@ryot/ts-utils": "workspace:*",
-		"effect": "4.0.0-beta.107"
+		"effect": "4.0.0-rc.111"
 	},
 	"devDependencies": {
 		"@effect/platform-bun": "4.0.0-beta.107",

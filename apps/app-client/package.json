@@ -30,7 +30,7 @@
 		"@tanstack/react-hotkeys": "^0.10.0",
 		"better-auth": "1.7.0-rc.6",
 		"clsx": "^2.1.1",
-		"effect": "4.0.0-beta.107",
+		"effect": "4.0.0-rc.111",
 		"expo": "~57.0.14",
 		"expo-constants": "~57.0.12",
 		"expo-crypto": "~57.0.1",
