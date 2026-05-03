@@ -124,6 +124,7 @@ export async function findBuiltinSchemaBySlug(client: Client, cookies: string, s
 	const builtinTrackers = trackers.filter((tracker) => tracker.isBuiltin);
 
 	for (const builtinTracker of builtinTrackers) {
+		// oxlint-disable-next-line no-await-in-loop
 		const schemas = await listEntitySchemas(client, cookies, {
 			slugs: [slug],
 			trackerId: builtinTracker.id,
