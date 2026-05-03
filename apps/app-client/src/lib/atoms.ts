@@ -6,8 +6,7 @@ import { atom, useAtomValue, useSetAtom } from "jotai";
 import { atomWithStorage, createJSONStorage } from "jotai/utils";
 import { Platform } from "react-native";
 import { createMMKV } from "react-native-mmkv";
-
-export const CLOUD_URL = "https://app.ryot.io";
+import { CLOUD_URL } from "@/lib/server";
 
 const STORAGE_PREFIX = "ryot";
 const AUTH_COOKIE_KEY = `${STORAGE_PREFIX}_cookie`;

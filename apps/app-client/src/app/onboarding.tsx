@@ -9,7 +9,8 @@ import { Input, InputField } from "@/components/ui/input";
 import { Pressable } from "@/components/ui/pressable";
 import { Text } from "@/components/ui/text";
 import { createApiClient } from "@/lib/api";
-import { CLOUD_URL, useSetServerUrl } from "@/lib/atoms";
+import { useSetServerUrl } from "@/lib/atoms";
+import { resolveServerUrl } from "@/lib/server";
 
 type ServerMode = "cloud" | "self-hosted";
 
@@ -33,8 +34,7 @@ export default function Onboarding() {
 		Platform.OS === "web" ? window.location.origin : "",
 	);
 
-	const resolvedUrl =
-		mode === "cloud" ? CLOUD_URL : url.trim().replace(/\/$/, "");
+	const resolvedUrl = resolveServerUrl(mode, url);
 
 	const connectMutation = useMutation({
 		mutationFn: async (targetUrl: string) => {

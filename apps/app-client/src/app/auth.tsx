@@ -8,13 +8,10 @@ import { Box } from "@/components/ui/box";
 import { Pressable } from "@/components/ui/pressable";
 import { Text } from "@/components/ui/text";
 import { createApiClient } from "@/lib/api";
-import {
-	CLOUD_URL,
-	useAuthClient,
-	useServerUrl,
-	useSetServerUrl,
-} from "@/lib/atoms";
+import { useAuthClient, useServerUrl, useSetServerUrl } from "@/lib/atoms";
 import { useAppForm } from "@/lib/forms";
+import { CLOUD_URL } from "@/lib/server";
+import { getNameFromEmail } from "@/lib/user";
 
 type AuthMode = "login" | "signup";
 
@@ -39,18 +36,6 @@ const schema = z.object({
 	email: z.email("Enter a valid email"),
 	password: z.string().min(8, "Password must be at least 8 characters"),
 });
-
-function getNameFromEmail(email: string) {
-	const [localPart = ""] = email.split("@");
-	const normalized = localPart.replace(/[._-]+/g, " ").trim();
-	if (!normalized) {
-		return "New User";
-	}
-	return normalized
-		.split(/\s+/)
-		.map((s) => (s ? `${s.charAt(0).toUpperCase()}${s.slice(1)}` : s))
-		.join(" ");
-}
 
 export default function Auth() {
 	const serverUrl = useServerUrl();
