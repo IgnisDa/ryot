@@ -1,4 +1,5 @@
 import { useMutation } from "@tanstack/react-query";
+import clsx from "clsx";
 import { router } from "expo-router";
 import { useSetAtom } from "jotai";
 import { useState } from "react";
@@ -82,18 +83,18 @@ export default function Onboarding() {
 										setMode(opt.mode);
 										connectMutation.reset();
 									}}
-									className={
+									className={clsx(
+										"rounded-lg border p-4 gap-1",
 										selected
-											? "rounded-lg border border-primary bg-primary/5 p-4 gap-1"
-											: "rounded-lg border border-border bg-transparent p-4 gap-1"
-									}
+											? "border-primary bg-primary/5"
+											: "border-border bg-transparent",
+									)}
 								>
 									<Text
-										className={
-											selected
-												? "font-medium text-sm text-primary"
-												: "font-medium text-sm text-foreground"
-										}
+										className={clsx(
+											"font-medium text-sm",
+											selected ? "text-primary" : "text-foreground",
+										)}
 									>
 										{opt.label}
 									</Text>
