@@ -21,8 +21,8 @@ type AppPropertyValidationBase = {
 };
 
 export type AppPropertyRoundTransform = {
-	mode: "half_up";
 	scale: number;
+	mode: "half_up";
 };
 
 export type AppPropertyTransform = {
@@ -113,8 +113,8 @@ export type AppEnumArrayProperty = AppPropertyBase<AppArrayPropertyValidation> &
 };
 
 export type AppPropertyDefinition =
-	| AppArrayProperty
 	| AppEnumProperty
+	| AppArrayProperty
 	| AppObjectProperty
 	| AppPrimitiveProperty
 	| AppEnumArrayProperty;
@@ -127,10 +127,10 @@ type AppSchemaLeafRuleCondition<T extends string, TValue = never> = {
 } & ([TValue] extends [never] ? object : { value: TValue });
 
 export type AppSchemaRuleCondition =
-	| AppSchemaLeafRuleCondition<"eq", AppSchemaRuleValue>
-	| AppSchemaLeafRuleCondition<"neq", AppSchemaRuleValue>
 	| AppSchemaLeafRuleCondition<"exists">
 	| AppSchemaLeafRuleCondition<"not_exists">
+	| AppSchemaLeafRuleCondition<"eq", AppSchemaRuleValue>
+	| AppSchemaLeafRuleCondition<"neq", AppSchemaRuleValue>
 	| AppSchemaLeafRuleCondition<"in", AppSchemaRuleValue[]>
 	| AppSchemaLeafRuleCondition<"not_in", AppSchemaRuleValue[]>
 	| {
@@ -166,7 +166,7 @@ const withUnknownKeysPolicy = (
 	unknownKeys?: AppSchemaUnknownKeysPolicy,
 ) => {
 	if (unknownKeys === "passthrough") {
-		return z.object(shape).passthrough();
+		return z.object(shape).loose();
 	}
 
 	if (unknownKeys === "strip") {
@@ -177,20 +177,13 @@ const withUnknownKeysPolicy = (
 };
 
 const getUnknownKeysPolicy = (schema: z.ZodObject<z.ZodRawShape>): AppSchemaUnknownKeysPolicy => {
-	// oxlint-disable-next-line no-underscore-dangle
-	const definition = schema.def as {
-		catchall?: { _def?: { type?: string } };
-	};
-	// oxlint-disable-next-line no-underscore-dangle
-	const catchallType = definition.catchall?._def?.type;
-	if (catchallType === "unknown") {
+	const catchall = schema.def.catchall;
+	if (catchall instanceof z.ZodUnknown) {
 		return "passthrough";
 	}
-
-	if (catchallType === "never") {
+	if (catchall instanceof z.ZodNever) {
 		return "strict";
 	}
-
 	return "strip";
 };
 
@@ -207,15 +200,18 @@ export const getDefaultPropertyLabel = (key: string) =>
 		.replace(/\s+/g, " ")
 		.replace(/\b\w/g, (value) => value.toUpperCase());
 
+const isStringRecord = (value: unknown): value is Record<string, unknown> =>
+	typeof value === "object" && value !== null && !Array.isArray(value);
+
 const getValueAtPath = (input: unknown, path: AppSchemaRulePath) => {
 	let value = input;
 
 	for (const segment of path) {
-		if (!value || typeof value !== "object" || Array.isArray(value)) {
+		if (!isStringRecord(value)) {
 			return undefined;
 		}
 
-		value = (value as Record<string, unknown>)[segment];
+		value = value[segment];
 	}
 
 	return value;
@@ -261,7 +257,7 @@ const withAppSchemaRules = (
 
 			match(rule)
 				.with({ kind: "validation" }, (r) => {
-					if (r.validation.required && getValueAtPath(input, r.path) === undefined) {
+					if (getValueAtPath(input, r.path) === undefined) {
 						ctx.addIssue({
 							path: r.path,
 							code: "custom",
@@ -278,9 +274,10 @@ const isRequiredSchema = (schema: z.ZodType) => {
 	let value = schema;
 	let isRequired = true;
 
-	while (true) {
+	for (;;) {
 		if (value instanceof z.ZodOptional || value instanceof z.ZodNullable) {
 			isRequired = false;
+			// oxlint-disable-next-line no-unsafe-type-assertion
 			value = value.unwrap() as z.ZodType;
 			continue;
 		}
@@ -297,13 +294,10 @@ const withRequiredValidation = <T extends AppPropertyDefinition>(
 		return property;
 	}
 
-	return {
-		...property,
-		validation: { ...property.validation, required: true },
-	};
+	return { ...property, validation: { ...property.validation, required: true } };
 };
 
-const withoutRequiredValidation = <T extends AppPropertyDefinition>(property: T) => {
+const withoutRequiredValidation = (property: AppPropertyDefinition): AppPropertyDefinition => {
 	if (!property.validation?.required) {
 		return property;
 	}
@@ -312,8 +306,9 @@ const withoutRequiredValidation = <T extends AppPropertyDefinition>(property: T)
 	delete validation.required;
 
 	if (Object.keys(validation).length === 0) {
-		const { validation: _validation, ...value } = property;
-		return value as T;
+		const copy = Object.assign({}, property);
+		delete copy.validation;
+		return copy;
 	}
 
 	return { ...property, validation };
@@ -393,22 +388,24 @@ const applyArrayValidation = (
 	return value;
 };
 
+const isNonEmptyArray = <T>(arr: T[]): arr is [T, ...T[]] => arr.length > 0;
+
 const createEnumProperty = (input: {
-	isRequired: boolean;
 	label: string;
-	description: string;
 	options: string[];
+	isRequired: boolean;
+	description: string;
 }) => {
-	if (input.options.length === 0) {
+	if (!isNonEmptyArray(input.options)) {
 		throw new Error("Enum property must contain at least one option");
 	}
 
 	return withRequiredValidation(
 		{
-			label: input.label,
-			description: input.description,
 			type: "enum",
-			options: input.options as [string, ...string[]],
+			label: input.label,
+			options: input.options,
+			description: input.description,
 		},
 		input.isRequired,
 	);
@@ -435,7 +432,8 @@ const toAppSchemaDiscriminatedUnion = (input: {
 
 	for (const key of keys) {
 		const childSchemas = options
-			.map((option) => option.shape[key] as z.ZodType | undefined)
+			.map((option) => option.shape[key])
+			// oxlint-disable-next-line no-unnecessary-condition
 			.filter((value): value is z.ZodType => value !== undefined);
 		if (childSchemas.length === 0) {
 			continue;
@@ -453,22 +451,17 @@ const toAppSchemaDiscriminatedUnion = (input: {
 						(value): value is string => typeof value === "string",
 					),
 				})
-			: toAppSchemaInternal(
-					childSchemas[0] as z.ZodType,
-					isRequiredInAllOptions,
-					label,
-					description,
-				);
+			: toAppSchemaInternal(childSchemas[0], isRequiredInAllOptions, label, description);
 
 		properties[key] = isRequiredInAllOptions ? property : withoutRequiredValidation(property);
 	}
 
 	return withRequiredValidation(
 		{
+			properties,
+			type: "object",
 			label: input.label,
 			description: input.description,
-			type: "object",
-			properties,
 			...(unknownKeys === "strip" || unknownKeys === "passthrough" ? { unknownKeys } : {}),
 		},
 		input.isRequired,
@@ -498,10 +491,10 @@ export const getAppPropertyDefinitionAtPath = (
 	let currentProperty: AppPropertyDefinition | undefined;
 
 	for (const segment of path) {
-		currentProperty = currentFields[segment];
-		if (!currentProperty) {
-			return;
+		if (!(segment in currentFields)) {
+			return undefined;
 		}
+		currentProperty = currentFields[segment];
 
 		if (currentProperty.type !== "object") {
 			currentFields = {};
@@ -524,12 +517,12 @@ const toAppSchemaInternal = (
 	const applyRequiredValidation = <T extends AppPropertyDefinition>(property: T) =>
 		includeRequiredValidation ? withRequiredValidation(property, isRequired) : property;
 
+	if (value instanceof z.ZodISODate) {
+		return applyRequiredValidation({ label, description, type: "date" });
+	}
+
 	if (value instanceof z.ZodString) {
-		return applyRequiredValidation(
-			value.format === "date"
-				? { label, description, type: "date" }
-				: { label, description, type: "string" },
-		);
+		return applyRequiredValidation({ label, description, type: "string" });
 	}
 
 	if (value instanceof z.ZodNumber) {
@@ -547,8 +540,8 @@ const toAppSchemaInternal = (
 	if (value instanceof z.ZodEnum) {
 		return createEnumProperty({
 			label,
-			description,
 			isRequired,
+			description,
 			options: value.options.filter((option): option is string => typeof option === "string"),
 		});
 	}
@@ -556,63 +549,56 @@ const toAppSchemaInternal = (
 	if (value instanceof z.ZodLiteral) {
 		return createEnumProperty({
 			label,
-			description,
 			isRequired,
+			description,
 			options: Array.from(value.values).filter(
 				(option): option is string => typeof option === "string",
 			),
 		});
 	}
 
-	if (value.constructor.name === "ZodISODateTime") {
+	if (value instanceof z.ZodISODateTime) {
 		return applyRequiredValidation({ label, description, type: "datetime" });
 	}
 
 	if (value instanceof z.ZodArray) {
+		// oxlint-disable-next-line no-unsafe-type-assertion
+		const element: z.ZodType = value.element as z.ZodType;
 		return applyRequiredValidation({
 			label,
 			description,
-			items: withoutRequiredValidation(
-				toAppSchemaInternal(
-					value.element as z.ZodType,
-					false,
-					"Item",
-					(value.element as z.ZodType).description ?? "Item",
-				),
-			),
 			type: "array",
+			items: withoutRequiredValidation(
+				toAppSchemaInternal(element, false, "Item", element.description ?? "Item"),
+			),
 		});
 	}
 
 	if (value instanceof z.ZodObject) {
 		const properties: Record<string, AppPropertyDefinition> = {};
 		for (const [key, child] of Object.entries(value.shape)) {
+			const typedChild: z.ZodType = child;
 			const childLabel = getDefaultPropertyLabel(key);
 			properties[key] = toAppSchemaInternal(
-				child as z.ZodType,
+				typedChild,
 				true,
 				childLabel,
-				(child as z.ZodType).description ?? childLabel,
+				typedChild.description ?? childLabel,
 			);
 		}
 
 		const unknownKeys = getUnknownKeysPolicy(value);
 		return applyRequiredValidation({
 			label,
-			description,
 			properties,
+			description,
 			type: "object",
 			...(unknownKeys === "strip" || unknownKeys === "passthrough" ? { unknownKeys } : {}),
 		});
 	}
 
 	if (value instanceof z.ZodDiscriminatedUnion) {
-		return toAppSchemaDiscriminatedUnion({
-			label,
-			description,
-			isRequired,
-			value,
-		});
+		return toAppSchemaDiscriminatedUnion({ label, value, isRequired, description });
 	}
 
 	throw new Error(`Unsupported Zod type: ${value.constructor.name}`);
@@ -624,14 +610,11 @@ export const toAppSchema = (schema: z.ZodType): AppPropertyDefinition =>
 export const toAppSchemaProperties = (schema: z.ZodObject<z.ZodRawShape>): AppSchema => {
 	const fields: AppSchemaFields = {};
 
-	for (const [key, value] of Object.entries(schema.shape)) {
+	for (const [key, rawValue] of Object.entries(schema.shape)) {
+		// oxlint-disable-next-line no-unsafe-type-assertion
+		const typedValue: z.ZodType = rawValue as z.ZodType;
 		const label = getDefaultPropertyLabel(key);
-		fields[key] = toAppSchemaInternal(
-			value as z.ZodType,
-			false,
-			label,
-			(value as z.ZodType).description ?? label,
-		);
+		fields[key] = toAppSchemaInternal(typedValue, false, label, typedValue.description ?? label);
 	}
 
 	return { fields };
