@@ -63,7 +63,7 @@ describe("mapQueryRowToItem", () => {
 		expect(
 			mapQueryRowToItem({
 				total: 1,
-				entity_id: "entity-1",
+				row_id: "entity-1",
 				fields: [
 					{ key: "title", kind: "text", value: "" },
 					{ key: "image", kind: "null", value: null },
@@ -79,7 +79,7 @@ describe("mapQueryRowToItem", () => {
 		expect(
 			mapQueryRowToItem({
 				total: 0,
-				entity_id: null,
+				row_id: null,
 				fields: null,
 			}),
 		).toBeNull();
@@ -89,7 +89,7 @@ describe("mapQueryRowToItem", () => {
 		expect(
 			mapQueryRowToItem({
 				total: 1,
-				entity_id: "entity-1",
+				row_id: "entity-1",
 				fields: [
 					{ key: "column_0", kind: "text", value: "Entity" },
 					{ key: "column_1", kind: "number", value: 2024 },
