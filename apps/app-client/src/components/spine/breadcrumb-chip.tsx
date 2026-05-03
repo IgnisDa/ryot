@@ -1,19 +1,17 @@
+import { usePathname } from "expo-router";
 import { useAtomValue, useSetAtom } from "jotai";
 import { ChevronRight } from "lucide-react-native";
 import { Box } from "@/components/ui/box";
 import { Pressable } from "@/components/ui/pressable";
 import { Text } from "@/components/ui/text";
-import {
-	activeSubItemAtom,
-	activeTrackerIdAtom,
-	searchOpenAtom,
-	trackersAtom,
-} from "@/lib/navigation";
+import { searchOpenAtom, trackersAtom } from "@/lib/navigation";
 
 export function BreadcrumbChip() {
 	const trackers = useAtomValue(trackersAtom);
-	const activeTrackerId = useAtomValue(activeTrackerIdAtom);
-	const activeSubItem = useAtomValue(activeSubItemAtom);
+	const pathname = usePathname();
+	const segments = pathname.split("/").filter(Boolean);
+	const activeTrackerId = segments[0] || "home";
+	const activeSubItem = segments[1] || null;
 	const setSearchOpen = useSetAtom(searchOpenAtom);
 
 	const activeTracker = trackers.find((t) => t.id === activeTrackerId);
