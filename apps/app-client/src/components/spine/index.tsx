@@ -1,11 +1,11 @@
-import { useAtomValue, useSetAtom } from "jotai";
+import { usePathname } from "expo-router";
+import { useAtomValue } from "jotai";
 import type { ReactNode } from "react";
 import { useWindowDimensions } from "react-native";
 import { Box } from "@/components/ui/box";
 import {
 	navSheetOpenAtom,
 	searchOpenAtom,
-	subFlyoutOpenAtom,
 	trackersAtom,
 } from "@/lib/navigation";
 import { SpineRail } from "./rail";
@@ -22,8 +22,12 @@ export function SpineNavigation({ children }: Props) {
 	const trackers = useAtomValue(trackersAtom);
 	const searchOpen = useAtomValue(searchOpenAtom);
 	const navSheetOpen = useAtomValue(navSheetOpenAtom);
-	const subFlyoutOpen = useAtomValue(subFlyoutOpenAtom);
-	const setSubFlyoutOpen = useSetAtom(subFlyoutOpenAtom);
+	const pathname = usePathname();
+	const segments = pathname.split("/").filter(Boolean);
+	const trackerId = segments[0] || "home";
+	const isSubRoute = segments.length >= 2;
+	const activeTracker = trackers.find((t) => t.id === trackerId);
+	const subFlyoutOpen = activeTracker?.subItems?.length && !isSubRoute;
 
 	const isTablet = screenWidth >= TABLET_BREAKPOINT;
 
@@ -35,9 +39,7 @@ export function SpineNavigation({ children }: Props) {
 		return (
 			<Box className="flex-1 flex-row">
 				<Box className="flex-1">{children}</Box>
-				{subFlyoutOpen && (
-					<SpineSubFlyout pinned onNavigate={() => setSubFlyoutOpen(false)} />
-				)}
+				{subFlyoutOpen && <SpineSubFlyout pinned />}
 				<SpineRail pinned onClose={() => {}} />
 			</Box>
 		);
