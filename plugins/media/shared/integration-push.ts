@@ -5,9 +5,16 @@ import type {
 	SandboxHost,
 } from "@ryot/sandbox-sdk/core";
 import { Effect } from "@ryot/sandbox-sdk/effect";
+import { buildEntityReadQuery, queryEngineEntityRows } from "@ryot/sandbox-sdk/query-engine";
 
 export type IntegrationPushHost = SandboxHost<
-	readonly ["httpCall", "getEntities", "getEntitySchemas", "listIntegrations", "getUserPreferences"]
+	readonly [
+		"httpCall",
+		"getEntitySchemas",
+		"listIntegrations",
+		"getUserPreferences",
+		"executeQueryEngine",
+	]
 >;
 
 const isObject = (value: unknown): value is Readonly<Record<string, unknown>> =>
@@ -41,10 +48,17 @@ export const listActiveIntegrations = (
 	provider: NonNullable<ListIntegrationsOptions["provider"]>,
 ) => host.listIntegrations({ provider, isDisabled: false });
 
-export const fetchEntity = (host: IntegrationPushHost, entityId: string) =>
+export const fetchEntity = (
+	host: IntegrationPushHost,
+	entityId: string,
+	entitySchemaSlug: string,
+) =>
 	host
-		.getEntities([entityId])
+		.executeQueryEngine(
+			buildEntityReadQuery({ entityIds: [entityId], entitySchemaSlugs: [entitySchemaSlug] }),
+		)
 		.pipe(
+			Effect.map(queryEngineEntityRows),
 			Effect.flatMap(([entity]) =>
 				entity ? Effect.succeed(entity) : Effect.fail({ message: "Entity not found" }),
 			),

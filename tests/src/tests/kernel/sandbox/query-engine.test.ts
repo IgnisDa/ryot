@@ -3,17 +3,19 @@ import { Effect } from "effect";
 import {
 	createAuthenticatedClient,
 	createEntity,
+	createEventTestFixture,
 	createPluginSchema,
-	entitiesSandboxSource,
+	entityRowsSandboxSource,
 	enqueueSandboxScript,
+	eventRowsSandboxSource,
 	installSandboxScriptScoped,
 	pollSandboxResult,
 } from "~/fixtures";
 import { assertCompleted } from "~/support/assertions";
 import { describe, expect, it } from "~/support/effect-test";
 
-describe("sandbox entity reads", () => {
-	it.live("reads multiple visible entities through one host call", () =>
+describe("sandbox query-engine reads", () => {
+	it.live("reads multiple visible entities through executeQueryEngine", () =>
 		Effect.gen(function* () {
 			const { client, userId } = yield* createAuthenticatedClient();
 			const { schemaId } = yield* createPluginSchema(client);
@@ -27,21 +29,21 @@ describe("sandbox entity reads", () => {
 				name: "Second entity",
 				entitySchemaSlug: schemaId,
 			});
-			const slug = `get-entities-${crypto.randomUUID()}`;
+			const slug = `query-entities-${crypto.randomUUID()}`;
 			const { scriptId } = yield* installSandboxScriptScoped({
 				slug,
-				name: "Get entities",
-				capabilities: ["getEntities"],
-				source: entitiesSandboxSource({ name: "Get entities", slug }),
+				name: "Query entities",
+				capabilities: ["executeQueryEngine"],
+				source: entityRowsSandboxSource({ name: "Query entities", slug }),
 			});
 			const { jobId } = yield* enqueueSandboxScript(userId, {
 				scriptId,
-				context: { ids: [first.id, second.id] },
+				context: { ids: [first.id, second.id], entitySchemaSlug: schemaId },
 			});
 
 			const result = yield* pollSandboxResult(userId, jobId);
 			expect(result.status).toBe("completed");
-			assertCompleted(result, "get entities sandbox job");
+			assertCompleted(result, "query entities sandbox job");
 			expect(result.error).toBeNull();
 			expect(result.value).toMatchObject([
 				{ id: first.id, name: "First entity" },
@@ -50,39 +52,42 @@ describe("sandbox entity reads", () => {
 
 			const { jobId: emptyJobId } = yield* enqueueSandboxScript(userId, {
 				scriptId,
-				context: { ids: [] },
+				context: { ids: [], entitySchemaSlug: schemaId },
 			});
 			const emptyResult = yield* pollSandboxResult(userId, emptyJobId);
-			assertCompleted(emptyResult, "empty get entities sandbox job");
+			assertCompleted(emptyResult, "empty query entities sandbox job");
 			expect(emptyResult.error).toBeNull();
 			expect(emptyResult.value).toEqual([]);
 		}),
 	);
 
-	it.live("fails entire batch when one entity is not visible", () =>
+	it.live("reads filtered events through executeQueryEngine", () =>
 		Effect.gen(function* () {
 			const { client, userId } = yield* createAuthenticatedClient();
-			const { schemaId } = yield* createPluginSchema(client);
-			const entity = yield* createEntity(client, {
-				properties: {},
-				name: "Visible entity",
-				entitySchemaSlug: schemaId,
-			});
-			const slug = `get-entities-missing-${crypto.randomUUID()}`;
+			const { entityId, entitySchemaSlug, eventSchemaSlug } = yield* createEventTestFixture(client);
+			yield* client.call((c) =>
+				c.events.create({
+					payload: [{ entityId, eventSchemaSlug, properties: { rating: 5 } }],
+				}),
+			);
+			const slug = `query-events-${crypto.randomUUID()}`;
 			const { scriptId } = yield* installSandboxScriptScoped({
 				slug,
-				name: "Get entities missing",
-				capabilities: ["getEntities"],
-				source: entitiesSandboxSource({ name: "Get entities missing", slug }),
+				name: "Query events",
+				capabilities: ["executeQueryEngine"],
+				source: eventRowsSandboxSource({ name: "Query events", slug }),
 			});
 			const { jobId } = yield* enqueueSandboxScript(userId, {
 				scriptId,
-				context: { ids: [entity.id, "missing-entity"] },
+				context: { entityId, entitySchemaSlug, eventSchemaSlug },
 			});
 
 			const result = yield* pollSandboxResult(userId, jobId);
-			assertCompleted(result, "get entities missing sandbox job");
-			expect(result.error).toMatchObject({ phase: "execute", message: "Entity not found" });
+			assertCompleted(result, "query events sandbox job");
+			expect(result.error).toBeNull();
+			expect(result.value).toMatchObject([
+				{ entityId, eventSchemaSlug, properties: { rating: 5 } },
+			]);
 		}),
 	);
 });
