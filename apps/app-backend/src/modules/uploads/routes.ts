@@ -26,7 +26,7 @@ export const UploadsRoutesLive = HttpApiBuilder.group(AppContract, "uploads", (h
 			Effect.gen(function* () {
 				const user = yield* CurrentUser;
 				const service = yield* UploadsService;
-				return yield* service.uploadTemporary(user, payload.files);
+				return yield* service.uploadTemporary(user, payload["files[]"]);
 			}),
 		),
 );
