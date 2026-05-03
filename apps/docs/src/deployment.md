@@ -9,8 +9,9 @@ is a non-exhaustive set of guides to deploy Ryot to alternative platforms.
 
 ## File storage
 
-Set `FILE_STORAGE_LOCAL_SIGNING_SECRET` for every deployment. Temporary uploads, imports, backup
-working files, and sandbox files always use local ephemeral storage at the default
+Local upload and download URLs use `SERVER_ADMIN_ACCESS_TOKEN` for signing. Keep that token stable
+across restarts because changing it invalidates outstanding local URLs. Temporary uploads, imports,
+backup working files, and sandbox files always use local ephemeral storage at the default
 `/home/ryot/work`; do not mount that directory as a persistent volume.
 
 For permanent files, use S3 first by configuring the S3 endpoint, bucket, access key, and secret
@@ -112,7 +113,6 @@ are required to deploy to Fly.
 4. Optionally you can configure the instance using `fly secrets set`.
    ```bash
    fly secrets set \
-     FILE_STORAGE_LOCAL_SIGNING_SECRET="$(openssl rand -hex 32)" \
      FILE_STORAGE_S3_URL='https://s3.example.com' \
      FILE_STORAGE_S3_REGION='us-east-1' \
      FILE_STORAGE_S3_BUCKET_NAME='ryot' \
