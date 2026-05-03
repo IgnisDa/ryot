@@ -119,7 +119,7 @@ query {
         imageProperty:
           image === null
             ? { kind: "null", value: null }
-            : { kind: "image", value: { kind: "remote", url: image } },
+            : { kind: "image", value: { type: "remote", url: image } },
       };
     })
     .filter((item) => item !== null);
@@ -242,7 +242,7 @@ query GetHardcoverAuthorDetails($id: Int!) {
       website,
       sourceUrl,
       alternateNames,
-      images: image ? [{ kind: "remote", url: image }] : [],
+      images: image ? [{ type: "remote", url: image }] : [],
       description: typeof authorData.bio === "string" ? authorData.bio : null,
       birthDate:
         typeof authorData.born_date === "string" ? authorData.born_date : null,

@@ -104,7 +104,7 @@ export const buildExerciseSeedEntityValues = (
 			(ex.images as string[])
 		: [];
 	const images = rawImages.map((path) => ({
-		kind: "remote" as const,
+		type: "remote" as const,
 		url: `${IMAGES_PREFIX_URL}/${path}`,
 	}));
 

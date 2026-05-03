@@ -233,7 +233,7 @@ driver("search", async function(context) {
         imageProperty:
           image === null
             ? { kind: "null", value: null }
-            : { kind: "image", value: { kind: "remote", url: image } },
+            : { kind: "image", value: { type: "remote", url: image } },
       };
     })
     .filter((item) => item !== null);
@@ -294,7 +294,7 @@ driver("details", async function(context) {
     properties: {
       pages,
       publishYear: parsePublishYear(volumeInfo?.publishedDate, dayjs),
-      images: collectImages(volumeInfo?.imageLinks).map((url) => ({ kind: "remote", url })),
+      images: collectImages(volumeInfo?.imageLinks).map((url) => ({ type: "remote", url })),
       genres: collectGenres(volumeInfo?.categories, volumeInfo?.mainCategory),
       sourceUrl: `https://www.google.co.in/books/edition/${title}/${externalId}`,
       freeCreators: collectFreeCreators(volumeInfo?.authors, volumeInfo?.publisher),

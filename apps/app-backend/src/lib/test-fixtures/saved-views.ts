@@ -18,9 +18,9 @@ const queryDefinitionDefaults: SavedViewQueryDefinition = {
 	filter: null,
 	eventJoins: [],
 	mode: "entities",
-	relationships: [],
-	computedFields: [],
 	scope: ["books"],
+	computedFields: [],
+	relationshipJoins: [],
 	sort: {
 		direction: "asc",
 		expression: createEntityColumnExpression("books", "name"),
@@ -129,7 +129,7 @@ export const createReorderSavedViewsBody = (
 export const createSavedViewDeps = (
 	overrides: Partial<SavedViewServiceDeps> = {},
 ): SavedViewServiceDeps => ({
-	prepareForValidation: () => Promise.resolve(),
+	loadAndValidateQueryContext: () => Promise.resolve(),
 	persistSavedViewOrderForUser: (input) => Promise.resolve(input.viewSlugs),
 	countSavedViewsBySlugForUser: (input) => Promise.resolve(input.viewSlugs.length),
 	listUserSavedViewSlugsInOrder: () => Promise.resolve(["view_1", "view_2", "view_3"]),
