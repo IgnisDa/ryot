@@ -1,5 +1,5 @@
 import { useGoBack } from "@/modules/navigation/use-go-back";
-import { ManagedAssets } from "@/modules/ui/managed-asset-host";
+import { ManagedAssetHost } from "@/modules/ui/managed-asset-host";
 
 import { ShowBackdrop } from "./show-backdrop";
 import { SHOW_ART_HEIGHT, ShowHero } from "./show-hero";
@@ -21,40 +21,30 @@ export function ShowScreen(props: { readonly entityId: string }) {
 	const title = state.status === "ready" ? state.show.name : "";
 	const hasArt = state.status === "ready" && showBackdropAsset(state.show) !== undefined;
 	return (
-		<ManagedAssets label="show summary" assets={assets}>
-			{(resolution) => (
-				<ShowScreenFrame
-					title={title}
-					onBack={goBack}
-					artHeight={hasArt ? SHOW_ART_HEIGHT : undefined}
-					tint={
-						state.status === "ready" ? (
-							<ShowTint show={state.show} managedUrls={resolution.urls} />
-						) : null
-					}
-					artwork={
-						state.status === "ready" ? (
-							<>
-								<ShowHero show={state.show} managedUrls={resolution.urls} />
-								<ShowBackdrop show={state.show} managedUrls={resolution.urls} />
-							</>
-						) : null
-					}
-				>
-					<ManagedAssets label="show overview" assets={overviewAssets}>
-						{(overviewResolution) => (
-							<ShowScreenContent
-								state={state}
-								refresh={refresh}
-								overview={overview.state}
-								managedUrls={resolution.urls}
-								refreshOverview={overview.refresh}
-								overviewManagedUrls={overviewResolution.urls}
-							/>
-						)}
-					</ManagedAssets>
-				</ShowScreenFrame>
-			)}
-		</ManagedAssets>
+		<ManagedAssetHost label="show summary" assets={assets}>
+			<ShowScreenFrame
+				title={title}
+				onBack={goBack}
+				artHeight={hasArt ? SHOW_ART_HEIGHT : undefined}
+				tint={state.status === "ready" ? <ShowTint show={state.show} /> : null}
+				artwork={
+					state.status === "ready" ? (
+						<>
+							<ShowHero show={state.show} />
+							<ShowBackdrop show={state.show} />
+						</>
+					) : null
+				}
+			>
+				<ManagedAssetHost label="show overview" assets={overviewAssets}>
+					<ShowScreenContent
+						state={state}
+						refresh={refresh}
+						overview={overview.state}
+						refreshOverview={overview.refresh}
+					/>
+				</ManagedAssetHost>
+			</ShowScreenFrame>
+		</ManagedAssetHost>
 	);
 }

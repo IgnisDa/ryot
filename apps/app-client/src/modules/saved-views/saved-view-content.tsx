@@ -11,7 +11,7 @@ import { AppIcon } from "@/modules/icons";
 import { NavigationStatus } from "@/modules/navigation/navigation-status";
 import { ProviderAddHost, useProviderAddFlow } from "@/modules/provider-add/add-flow-host";
 import { usePreferredProvider } from "@/modules/provider-add/use-preferred-provider";
-import { ManagedAssets } from "@/modules/ui/managed-asset-host";
+import { ManagedAssetHost } from "@/modules/ui/managed-asset-host";
 
 import { SavedViewFrame } from "./saved-view-frame";
 import { SavedViewGrid } from "./saved-view-grid";
@@ -140,14 +140,14 @@ export function SavedViewErrorState(props: SavedViewError & { onRetry?: () => vo
 	);
 }
 
-function SavedViewItems(props: SavedViewActiveData & { managedUrls: ReadonlyMap<string, string> }) {
+function SavedViewItems(props: SavedViewActiveData) {
 	if (props.layout === "grid") {
-		return <SavedViewGrid items={props.data.items} managedUrls={props.managedUrls} />;
+		return <SavedViewGrid items={props.data.items} />;
 	}
 	if (props.layout === "list") {
-		return <SavedViewList items={props.data.items} managedUrls={props.managedUrls} />;
+		return <SavedViewList items={props.data.items} />;
 	}
-	return <SavedViewTable items={props.data.items} managedUrls={props.managedUrls} />;
+	return <SavedViewTable items={props.data.items} />;
 }
 
 function SavedViewWebActions(props: {
@@ -217,7 +217,6 @@ function SavedViewDisplay(
 		readonly search: SavedViewSearch;
 		readonly isTransitioning: boolean;
 		readonly queryDocument: RyotQLDocument;
-		readonly managedUrls: ReadonlyMap<string, string>;
 	},
 ) {
 	const { items, pageInfo } = props.data;
@@ -328,21 +327,18 @@ export function SavedViewResultContent(props: {
 	if (props.state.status === "ready") {
 		const readyState = props.state;
 		content = (
-			<ManagedAssets label="saved-view" assets={readyState.assets}>
-				{(resolution) => (
-					<SavedViewDisplay
-						{...readyState}
-						onAdd={onAdd}
-						record={props.record}
-						search={props.search}
-						loadMore={props.loadMore}
-						managedUrls={resolution.urls}
-						queryDocument={props.queryDocument}
-						isLoadingMore={props.isLoadingMore}
-						isTransitioning={props.isLayoutChanging || props.search.isSearching}
-					/>
-				)}
-			</ManagedAssets>
+			<ManagedAssetHost label="saved-view" assets={readyState.assets}>
+				<SavedViewDisplay
+					{...readyState}
+					onAdd={onAdd}
+					record={props.record}
+					search={props.search}
+					loadMore={props.loadMore}
+					queryDocument={props.queryDocument}
+					isLoadingMore={props.isLoadingMore}
+					isTransitioning={props.isLayoutChanging || props.search.isSearching}
+				/>
+			</ManagedAssetHost>
 		);
 	} else if (props.state.status === "loading") {
 		content = <NavigationStatus title="Loading saved view..." />;
