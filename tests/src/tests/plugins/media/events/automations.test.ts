@@ -153,7 +153,7 @@ describe("Event automations", () => {
 			expect(completeEvent.eventSchemaSlug).toBe("complete");
 			expect(completeEvent.properties).toMatchObject({
 				completionMode: "custom_timestamps",
-				completedOn: isoAt(2),
+				completedOn: "2024-01-02T00:00:00+00:00",
 			});
 			expect(completeEvent.occurredAt).toBe(isoAt(2));
 
