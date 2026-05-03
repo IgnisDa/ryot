@@ -1,4 +1,3 @@
-import { useSetAtom } from "jotai";
 import { Menu } from "lucide-react-native";
 import type { ReactNode } from "react";
 import { ScrollView, useWindowDimensions } from "react-native";
@@ -7,7 +6,7 @@ import { BreadcrumbChip } from "@/components/spine/breadcrumb-chip";
 import { Box } from "@/components/ui/box";
 import { Pressable } from "@/components/ui/pressable";
 import { Text } from "@/components/ui/text";
-import { navSheetOpenAtom } from "@/lib/navigation";
+import { useSetNavSheetOpen } from "@/lib/navigation";
 
 const TABLET_BREAKPOINT = 768;
 
@@ -20,7 +19,7 @@ type Props = {
 export function PageHeader({ eyebrow, title, children }: Props) {
 	const { width } = useWindowDimensions();
 	const isTablet = width >= TABLET_BREAKPOINT;
-	const setNavSheetOpen = useSetAtom(navSheetOpenAtom);
+	const setNavSheetOpen = useSetNavSheetOpen();
 
 	return (
 		<Box className="flex-1 bg-background">
