@@ -2,7 +2,7 @@ import { HttpApiEndpoint, HttpApiGroup, HttpApiSchema } from "@effect/platform";
 import { Schema } from "effect";
 
 import { AuthMiddleware } from "#lib/auth-middleware";
-import { BadRequest, NotFound, NotImplemented, RateLimited, Unauthorized } from "#lib/errors";
+import { BadRequest, NotFound, RateLimited, Unauthorized } from "#lib/errors";
 import { ListedImportRun } from "#modules/imports/schemas";
 
 import {
@@ -61,5 +61,4 @@ export const IntegrationsGroup = HttpApiGroup.make("integrations")
 			.addSuccess(Schema.Struct({ runId: Schema.String }), { status: 202 })
 			.addError(BadRequest, { status: 400 })
 			.addError(NotFound, { status: 404 }),
-	)
-	.addError(NotImplemented, { status: 501 });
+	);

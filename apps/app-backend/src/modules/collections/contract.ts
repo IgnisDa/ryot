@@ -1,7 +1,7 @@
 import { HttpApiEndpoint, HttpApiGroup } from "@effect/platform";
 
 import { AuthMiddleware } from "#lib/auth-middleware";
-import { BadRequest, NotFound, NotImplemented, RateLimited, Unauthorized } from "#lib/errors";
+import { BadRequest, NotFound, RateLimited, Unauthorized } from "#lib/errors";
 
 import {
 	CollectionResponse,
@@ -34,5 +34,4 @@ export const CollectionsGroup = HttpApiGroup.make("collections")
 			.addSuccess(MembershipResponse)
 			.addError(BadRequest, { status: 400 })
 			.addError(NotFound, { status: 404 }),
-	)
-	.addError(NotImplemented, { status: 501 });
+	);
