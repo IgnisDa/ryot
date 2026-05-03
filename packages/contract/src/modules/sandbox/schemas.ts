@@ -112,6 +112,7 @@ export const SandboxExecutionPayload = strictStruct({
 	executionId: Schema.String,
 	authority: ExecutionAuthority,
 	grants: Schema.optional(SandboxExecutionGrants),
+	workflowExecutionId: Schema.optional(Schema.String),
 });
 
 export type SandboxExecutionPayload = Schema.Schema.Type<typeof SandboxExecutionPayload>;
@@ -142,18 +143,10 @@ export type SandboxExecutionError = Schema.Schema.Type<typeof SandboxExecutionEr
 
 export const SandboxCompletedResult = Schema.Struct({
 	value: Schema.Unknown,
-	status: Schema.Literal("completed"),
 	logs: Schema.Array(Schema.String),
+	status: Schema.Literal("completed"),
 	timing: Schema.optional(SandboxTiming),
 	error: Schema.NullOr(SandboxExecutionError),
-	harvest: Schema.optional(
-		Schema.NullOr(
-			Schema.Struct({
-				directory: Schema.String,
-				chunkPaths: Schema.Array(Schema.String),
-			}),
-		),
-	),
 });
 
 export type SandboxCompletedResult = Schema.Schema.Type<typeof SandboxCompletedResult>;

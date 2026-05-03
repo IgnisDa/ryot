@@ -289,8 +289,9 @@ duration)` (durable timer), and `child(name, workflowRef, input)` (composes anot
     slug to its owning plugin's workflow), so that the kernel stops knowing which sources are media
     (Decision 2; plan §4).
 35. As a sandbox adapter script, I want to return output too large for `execution.resultBytes` by
-    writing chunk files into my granted scratch directory and returning a small manifest, with the
-    **kernel** harvesting those files at execution end into run-scoped storage before cleanup, so
+     writing chunk files into my granted scratch directory and returning a small manifest, with the
+     **kernel** harvesting those files at execution end into run-scoped storage and opaque handles
+     before cleanup, so
     that full-size imports cross the boundary without raising `resultBytes` and re-introducing the
     context-pressure failure mode the step-3 spike hit (Decision 10; plan §4).
 36. As the kernel, I want to keep ownership of every entity, event, and relationship write — plugins
