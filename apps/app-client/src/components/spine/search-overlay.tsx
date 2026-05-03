@@ -20,9 +20,9 @@ export function SearchOverlay() {
 		<Animated.View
 			exiting={SlideOutUp.duration(180)}
 			entering={SlideInDown.duration(220)}
-			className="absolute top-14 left-0 right-0 z-40 pt-6 pb-5 px-7 border-b-[0.5px] bg-paper border-b-ink/20"
+			className="absolute top-14 left-0 right-0 z-40 pt-6 pb-5 px-7 border-b-[0.5px] bg-background border-b-border"
 		>
-			<Text className="text-[10px] tracking-[2px] mb-2.5 text-ink-soft font-sans uppercase">
+			<Text className="text-[10px] tracking-[2px] mb-2.5 text-muted-foreground font-sans uppercase">
 				Search · all entities
 			</Text>
 			<Box className="flex-row items-center">
@@ -31,16 +31,18 @@ export function SearchOverlay() {
 						autoFocus
 						placeholder="Search…"
 						returnKeyType="search"
-						placeholderTextColor="#8a8378"
-						className="text-[28px] text-ink font-serif"
+						placeholderTextColor="#78716c"
+						className="text-[28px] text-foreground font-heading"
 					/>
 				</Input>
 			</Box>
 			<Box className="gap-3.5 mt-7">
 				{MOCK_RESULTS.map((r) => (
 					<Pressable key={r.title} className="gap-0.5">
-						<Text className="text-[18px] text-ink font-serif">{r.title}</Text>
-						<Text className="text-[11px] text-ink-soft font-sans tracking-[1.5px] uppercase">
+						<Text className="text-[18px] text-foreground font-heading">
+							{r.title}
+						</Text>
+						<Text className="text-[11px] text-muted-foreground font-sans tracking-[1.5px] uppercase">
 							{r.kind}
 						</Text>
 					</Pressable>

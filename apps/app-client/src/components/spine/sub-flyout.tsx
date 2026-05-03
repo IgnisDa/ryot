@@ -60,7 +60,7 @@ export function SpineSubFlyout({
 
 	const content = (
 		<>
-			<Text className="text-[10px] text-ink-soft tracking-[2px] pb-3.5 font-sans px-6 uppercase">
+			<Text className="text-[10px] text-muted-foreground tracking-[2px] pb-3.5 font-sans px-6 uppercase">
 				{activeTracker?.name} · {subItems.length} schemas
 			</Text>
 			<Box className="gap-1 flex-wrap flex-row px-4">
@@ -75,7 +75,7 @@ export function SpineSubFlyout({
 							className="min-h-11 py-2 px-2 justify-center"
 						>
 							<Text
-								className={`text-[18px] ${isActive ? "text-terra font-serif-medium-italic" : "text-ink font-serif"}`}
+								className={`text-[18px] ${isActive ? "text-primary font-heading-semibold" : "text-foreground font-heading"}`}
 							>
 								{item}
 							</Text>
@@ -83,13 +83,15 @@ export function SpineSubFlyout({
 					);
 				})}
 			</Box>
-			<Box className="h-[0.5px] mt-3.5 mb-3.5 mx-6 bg-ink/20" />
+			<Box className="h-[0.5px] mt-3.5 mb-3.5 mx-6 bg-border" />
 			<Pressable
 				className="flex-row items-center gap-1.5 px-6 min-h-11"
 				accessibilityRole="button"
 			>
-				<Plus size={12} color="#5a5347" strokeWidth={1.5} />
-				<Text className="text-[12px] text-ink-soft font-sans">new schema</Text>
+				<Plus size={12} color="#78716c" strokeWidth={1.5} />
+				<Text className="text-[12px] text-muted-foreground font-sans">
+					new schema
+				</Text>
 			</Pressable>
 		</>
 	);
@@ -98,7 +100,7 @@ export function SpineSubFlyout({
 		return (
 			<Animated.View
 				style={pinnedStyle}
-				className="pt-16 pb-20 border-l-[0.5px] border-l-ink/20 bg-paper"
+				className="pt-16 pb-20 border-l-[0.5px] border-l-border bg-background"
 			>
 				{content}
 			</Animated.View>
@@ -113,7 +115,7 @@ export function SpineSubFlyout({
 		<Animated.View
 			entering={SlideInRight.duration(220)}
 			exiting={SlideOutRight.duration(180)}
-			className="absolute top-0 bottom-0 z-25 pt-16 pb-20 bg-paper w-55"
+			className="absolute top-0 bottom-0 z-25 pt-16 pb-20 bg-background w-55"
 			style={{
 				elevation: 10,
 				shadowRadius: 24,

@@ -1,16 +1,16 @@
 import { GluestackUIProvider } from "@/components/ui/gluestack-ui-provider";
 import "@/global.css";
+import { IBMPlexMono_400Regular } from "@expo-google-fonts/ibm-plex-mono";
 import {
-	Inter_400Regular,
-	Inter_500Medium,
-	Inter_600SemiBold,
-} from "@expo-google-fonts/inter";
+	Outfit_400Regular,
+	Outfit_500Medium,
+	Outfit_600SemiBold,
+} from "@expo-google-fonts/outfit";
 import {
-	Spectral_400Regular,
-	Spectral_400Regular_Italic,
-	Spectral_500Medium,
-	Spectral_500Medium_Italic,
-} from "@expo-google-fonts/spectral";
+	SpaceGrotesk_400Regular,
+	SpaceGrotesk_500Medium,
+	SpaceGrotesk_600SemiBold,
+} from "@expo-google-fonts/space-grotesk";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { useFonts } from "expo-font";
 import { Stack } from "expo-router";
@@ -28,13 +28,13 @@ SplashScreen.preventAutoHideAsync();
 
 export default function RootLayout() {
 	const [fontsLoaded] = useFonts({
-		Spectral_400Regular,
-		Spectral_400Regular_Italic,
-		Spectral_500Medium,
-		Spectral_500Medium_Italic,
-		Inter_400Regular,
-		Inter_500Medium,
-		Inter_600SemiBold,
+		Outfit_500Medium,
+		Outfit_400Regular,
+		Outfit_600SemiBold,
+		IBMPlexMono_400Regular,
+		SpaceGrotesk_500Medium,
+		SpaceGrotesk_400Regular,
+		SpaceGrotesk_600SemiBold,
 	});
 
 	useEffect(() => {
