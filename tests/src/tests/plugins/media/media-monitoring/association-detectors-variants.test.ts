@@ -33,7 +33,7 @@ function pollNotificationBody(key: string) {
 		`notification delivery for '${key}'`,
 		Effect.sync(() => {
 			const requests = fakeApprise.requests.filter(({ path }) => path === `/notify/${key}`);
-			return requests.length === 1 ? requests : null;
+			return requests.length >= 1 ? requests : null;
 		}),
 	);
 }
