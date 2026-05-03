@@ -30,8 +30,13 @@ describe("OpenAPI documentation", () => {
 		expect(spec.paths["/plugins/{pluginSlug}"]?.delete?.responses["409"]).toBeDefined();
 	});
 
-	it("does not expose Better Auth credential internals", () => {
+	it("documents API key authentication without Better Auth cookie internals", () => {
 		const spec = OpenApi.fromApi(AppContract);
-		expect(spec.paths["/ryotql/execute"]?.post?.security).toEqual([]);
+		expect(spec.paths["/ryotql/execute"]?.post?.security).toEqual([{ apiKey: [] }]);
+		expect(spec.components.securitySchemes["apiKey"]).toEqual({
+			in: "header",
+			name: "x-api-key",
+			type: "apiKey",
+		});
 	});
 });
