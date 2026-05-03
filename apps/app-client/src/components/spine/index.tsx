@@ -35,21 +35,23 @@ export function SpineNavigation({ children }: Props) {
 		return <>{children}</>;
 	}
 
-	if (isTablet) {
-		return (
-			<Box className="flex-1 flex-row">
-				<Box className="flex-1">{children}</Box>
-				{subFlyoutOpen && <SpineSubFlyout pinned />}
-				<SpineRail pinned onClose={() => {}} />
-			</Box>
-		);
-	}
+	const layout = isTablet ? (
+		<Box className="flex-1 flex-row">
+			<Box className="flex-1">{children}</Box>
+			{subFlyoutOpen && <SpineSubFlyout pinned />}
+			<SpineRail pinned onClose={() => {}} />
+		</Box>
+	) : (
+		<Box className="flex-1">
+			{children}
+			{navSheetOpen && <TrackerSheet />}
+		</Box>
+	);
 
 	return (
 		<Box className="flex-1">
-			{children}
+			{layout}
 			{searchOpen && <SearchOverlay />}
-			{navSheetOpen && <TrackerSheet />}
 		</Box>
 	);
 }

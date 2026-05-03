@@ -38,8 +38,7 @@ export function SpineRail({ translateX, onClose, pinned = false }: Props) {
 		if (tracker.id === activeTrackerId) {
 			return;
 		}
-		const path = tracker.id === "home" ? "/" : `/${tracker.id}`;
-		router.push(path);
+		router.push(tracker.id === "home" ? "/" : `/${tracker.id}`);
 		if (!pinned && translateX) {
 			translateX.value = withSpring(RAIL_WIDTH, SPRING_CONFIG, () => {
 				scheduleOnRN(onClose);
