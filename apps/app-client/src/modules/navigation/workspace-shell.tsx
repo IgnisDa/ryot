@@ -2,9 +2,10 @@ import { useHotkey } from "@tanstack/react-hotkeys";
 import clsx from "clsx";
 import { Slot } from "expo-router";
 import { useState } from "react";
-import { Modal, Pressable, Text, View } from "react-native";
+import { Pressable, Text, View } from "react-native";
 
 import { AppIcon } from "@/modules/icons";
+import { AppModal } from "@/modules/ui/modal";
 
 import { CustomizeSidebarPanel } from "./customize/customize-sidebar-panel";
 import type { CustomizeSection } from "./customize/customize-state";
@@ -113,27 +114,19 @@ function WorkspaceShellContent() {
 					</View>
 				</>
 			)}
-			<Modal
-				transparent
-				animationType="fade"
+			<AppModal
 				visible={isCommandCenterOpen}
-				onRequestClose={() => setIsCommandCenterOpen(false)}
+				closeLabel="Close command center"
+				className="items-center justify-center p-4"
+				onClose={() => setIsCommandCenterOpen(false)}
 			>
-				<View accessibilityViewIsModal className="flex-1 items-center justify-center p-4">
-					<Pressable
-						accessibilityRole="button"
-						className="absolute inset-0 bg-overlay"
-						accessibilityLabel="Close command center"
-						onPress={() => setIsCommandCenterOpen(false)}
-					/>
-					<View className="w-full max-w-xl rounded-xl border border-border bg-surface p-5 shadow-card">
-						<Text className="font-ui-semibold text-lg text-text">Command center</Text>
-						<Text className="mt-2 font-ui text-sm text-text-muted">
-							Command center content goes here.
-						</Text>
-					</View>
+				<View className="w-full max-w-xl rounded-xl border border-border bg-surface p-5 shadow-card">
+					<Text className="font-ui-semibold text-lg text-text">Command center</Text>
+					<Text className="mt-2 font-ui text-sm text-text-muted">
+						Command center content goes here.
+					</Text>
 				</View>
-			</Modal>
+			</AppModal>
 		</View>
 	);
 }
