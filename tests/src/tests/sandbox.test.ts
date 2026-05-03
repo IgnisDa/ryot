@@ -10,12 +10,13 @@ import {
 	createTracker,
 	enqueueSandboxScript,
 	findBuiltinSchemaWithProviders,
+	getBackendClient,
 	getFirstProviderScriptId,
 	pollSandboxResult,
 } from "../fixtures";
-import { getBackendClient } from "../setup";
 import {
 	assertPresent,
+	assertTaggedError,
 	requireArray,
 	requireObjectRecord,
 	requireString,
@@ -87,13 +88,12 @@ describe("sandbox async flow", () => {
 			driverName: "main",
 		});
 
-		const response = await other.client.sandbox.getResult({
-			params: { path: { jobId } },
-			headers: { Cookie: other.cookies },
+		const error = await other.client.runError((c) => c.sandbox.getResult({ path: { jobId } }), {
+			Cookie: other.cookies,
 		});
 
-		expect(response.response.status).toBe(404);
-		expect(response.error?.error.message).toBe("Sandbox job not found");
+		assertTaggedError(error, "NotFound");
+		expect(error.message).toBe("Sandbox job not found");
 	});
 
 	it("completes a script that uses httpCall", async () => {
@@ -326,13 +326,13 @@ driver("main", async function() {
 
 	it("returns 404 for a non-existent job id", async () => {
 		const { client, cookies } = await createAuthenticatedClient();
-		const { response, error } = await client.sandbox.getResult({
-			headers: { Cookie: cookies },
-			params: { path: { jobId: crypto.randomUUID() } },
-		});
+		const error = await client.runError(
+			(c) => c.sandbox.getResult({ path: { jobId: crypto.randomUUID() } }),
+			{ Cookie: cookies },
+		);
 
-		expect(response.status).toBe(404);
-		expect(error?.error.message).toBe("Sandbox job not found");
+		assertTaggedError(error, "NotFound");
+		expect(error.message).toBe("Sandbox job not found");
 	});
 
 	it("returns 404 when another user polls the job", async () => {
@@ -348,23 +348,21 @@ driver("main", async function() {
 			driverName: "main",
 		});
 
-		const { response, error } = await clientB.sandbox.getResult({
-			params: { path: { jobId } },
-			headers: { Cookie: cookiesB },
+		const error = await clientB.runError((c) => c.sandbox.getResult({ path: { jobId } }), {
+			Cookie: cookiesB,
 		});
 
-		expect(response.status).toBe(404);
-		expect(error?.error.message).toBe("Sandbox job not found");
+		assertTaggedError(error, "NotFound");
+		expect(error.message).toBe("Sandbox job not found");
 	});
 
 	it("returns 401 for unauthenticated enqueue", async () => {
 		const client = getBackendClient();
-		const { response, error } = await client.sandbox.enqueue({
-			body: { scriptId: crypto.randomUUID(), driverName: "main" },
-		});
+		const error = await client.runError((c) =>
+			c.sandbox.enqueue({ payload: { scriptId: crypto.randomUUID(), driverName: "main" } }),
+		);
 
-		expect(response.status).toBe(401);
-		expect(error?.error).toBeDefined();
+		assertTaggedError(error, "Unauthorized");
 	});
 
 	it("returns 401 for unauthenticated poll", async () => {
@@ -377,12 +375,11 @@ driver("main", async function() {
 		const { jobId } = await enqueueSandboxScript(client, cookies, { scriptId, driverName: "main" });
 
 		const unauthenticatedClient = getBackendClient();
-		const { response, error } = await unauthenticatedClient.sandbox.getResult({
-			params: { path: { jobId } },
-		});
+		const error = await unauthenticatedClient.runError((c) =>
+			c.sandbox.getResult({ path: { jobId } }),
+		);
 
-		expect(response.status).toBe(401);
-		expect(error?.error).toBeDefined();
+		assertTaggedError(error, "Unauthorized");
 	});
 });
 
@@ -524,12 +521,12 @@ describe("sandbox enqueue by script ID", () => {
 	it("returns 404 when the scriptId does not exist", async () => {
 		const { client, cookies } = await createAuthenticatedClient();
 
-		const { response } = await client.sandbox.enqueue({
-			headers: { Cookie: cookies },
-			body: { driverName: "main", scriptId: crypto.randomUUID() },
-		});
+		const error = await client.runError(
+			(c) => c.sandbox.enqueue({ payload: { driverName: "main", scriptId: crypto.randomUUID() } }),
+			{ Cookie: cookies },
+		);
 
-		expect(response.status).toBe(404);
+		assertTaggedError(error, "NotFound");
 	});
 
 	it("enqueues a built-in script and reaches a terminal state", async () => {

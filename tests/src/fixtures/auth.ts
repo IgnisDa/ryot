@@ -1,11 +1,11 @@
 import { createAuthClient } from "better-auth/client";
 
-import { getBackendClient, getBackendUrl, getPgClient } from "../setup";
+import { getBackendUrl, getPgClient } from "../setup";
 import { requireNonEmptyArray, requirePresent } from "../test-support/assertions";
 import { cookieHeaderFromSetCookies } from "./auth-2fa";
-import type { BackendClientCore } from "./backend-client";
+import { type ContractSession, makeSession } from "./contract-client";
 
-export type Client = BackendClientCore;
+export type Client = ContractSession;
 
 export const createTestAuthClient = (baseUrl = getBackendUrl()) =>
 	createAuthClient({ baseURL: new URL(baseUrl).origin });
@@ -55,8 +55,8 @@ export async function createTestUser() {
 }
 
 export async function createAuthenticatedClient() {
-	const client = getBackendClient();
 	const { cookies, email } = await createTestUser();
 	const userId = await getUserIdByEmail(email);
+	const client = makeSession();
 	return { client, cookies, email, userId };
 }

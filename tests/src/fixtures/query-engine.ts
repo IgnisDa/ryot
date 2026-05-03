@@ -8,8 +8,9 @@ import {
 	type SavedViewSort,
 } from "@ryot/app-backend/query-language";
 
-import { requirePresent, requireResponseData } from "../test-support/assertions";
+import { requirePresent } from "../test-support/assertions";
 import { type Client, createAuthenticatedClient } from "./auth";
+import type { ContractClient, ContractSuccess } from "./contract-client";
 import { createEntity } from "./entities";
 import { createEntitySchema } from "./entity-schemas";
 import { waitForEventCount } from "./events";
@@ -25,23 +26,10 @@ import {
 type QueryEngineFieldValue = { kind: string; value: unknown };
 type QueryEngineResponseItem = Readonly<Record<string, QueryEngineFieldValue>>;
 
-type EntitiesQueryEngineResponse = {
-	mode: "entities";
-	data: {
-		items: QueryEngineResponseItem[];
-		meta: {
-			fieldOrder: string[];
-			pagination: {
-				page: number;
-				limit: number;
-				total: number;
-				totalPages?: number;
-				hasNextPage?: boolean;
-				hasPreviousPage?: boolean;
-			};
-		};
-	};
-};
+type EntitiesQueryEngineResponse = Extract<
+	ContractSuccess<"queryEngine", "execute">,
+	{ mode: "entities" }
+>;
 
 type QueryEngineField = {
 	key: string;
@@ -322,23 +310,36 @@ export function getQueryEngineFieldValue(
 	return getQueryEngineFieldOrThrow(item, key).value;
 }
 
+const toExecuteRequest = (
+	body: QueryEngineRequest,
+): Parameters<ContractClient["queryEngine"]["execute"]>[0] =>
+	// The tests-only QueryEngineRequest is structurally compatible with the contract payload
+	// but not nominally assignable; launder through a JSON clone to stay free of `any`/assertions.
+	JSON.parse(JSON.stringify({ payload: { ...body, mode: body.mode ?? "entities" } }));
+
 export async function executeQueryEngine(
 	client: Client,
 	cookies: string,
 	body: QueryEngineRequest,
-) {
-	const result = await client.queryEngine.execute({
-		headers: { Cookie: cookies },
-		// oxlint-disable-next-line typescript-eslint/no-explicit-any
-		body: { ...body, mode: body.mode ?? "entities" } as any,
+): Promise<{ data: EntitiesQueryEngineResponse }> {
+	const result = await client.run((c) => c.queryEngine.execute(toExecuteRequest(body)), {
+		Cookie: cookies,
 	});
 
-	return {
-		error: result.error,
-		response: result.response,
-		// oxlint-disable-next-line typescript-eslint/no-explicit-any
-		data: result.data as unknown as EntitiesQueryEngineResponse,
-	};
+	// Tests only exercise entities-mode here; the JSON clone narrows to the entities member
+	// without an `any`-typed assertion.
+	const data: EntitiesQueryEngineResponse = JSON.parse(JSON.stringify(result));
+	return { data };
+}
+
+export async function executeQueryEngineError(
+	client: Client,
+	cookies: string,
+	body: QueryEngineRequest,
+) {
+	return client.runError((c) => c.queryEngine.execute(toExecuteRequest(body)), {
+		Cookie: cookies,
+	});
 }
 
 export async function createQueryEngineEntity(input: CreateEntityInput) {
@@ -359,28 +360,25 @@ export async function createQueryEngineEntity(input: CreateEntityInput) {
 }
 
 export async function createQueryEngineEvent(input: CreateQueryEngineEventInput) {
-	const before = await input.client.events.list({
-		headers: { Cookie: input.cookies },
-		params: { query: { entityId: input.entityId } },
-	});
-	const beforeCount = before.data?.length ?? 0;
+	const before = await input.client.run(
+		(c) => c.events.list({ urlParams: { entityId: input.entityId } }),
+		{ Cookie: input.cookies },
+	);
+	const beforeCount = before.length;
 
-	const { data, response } = await input.client.events.create({
-		headers: { Cookie: input.cookies },
-		body: [
-			{
-				entityId: input.entityId,
-				occurredAt: input.occurredAt,
-				properties: input.properties,
-				eventSchemaId: input.eventSchemaId,
-			},
-		],
-	});
-
-	const createdEvent = requireResponseData(
-		response,
-		data,
-		`Failed to create event for '${input.entityId}'`,
+	const createdEvent = await input.client.run(
+		(c) =>
+			c.events.create({
+				payload: [
+					{
+						entityId: input.entityId,
+						occurredAt: input.occurredAt,
+						properties: input.properties,
+						eventSchemaId: input.eventSchemaId,
+					},
+				],
+			}),
+		{ Cookie: input.cookies },
 	);
 	if (createdEvent.count !== 1) {
 		throw new Error(`Failed to create event for '${input.entityId}'`);

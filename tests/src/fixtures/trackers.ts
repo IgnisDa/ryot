@@ -1,4 +1,4 @@
-import { requirePresent, requireResponseData } from "../test-support/assertions";
+import { requirePresent } from "../test-support/assertions";
 import type { Client } from "./auth";
 
 export interface CreateTrackerOptions {
@@ -22,12 +22,11 @@ export async function createTracker(
 		description = "Test tracker description",
 	} = options;
 
-	const { data, response } = await client.trackers.create({
-		headers: { Cookie: cookies },
-		body: { icon, name, slug, accentColor, description },
-	});
+	const tracker = await client.run(
+		(c) => c.trackers.create({ payload: { icon, name, slug, accentColor, description } }),
+		{ Cookie: cookies },
+	);
 
-	const tracker = requireResponseData(response, data, `Failed to create tracker '${name}'`);
 	return {
 		tracker,
 		trackerId: requirePresent(tracker.id, `Failed to create tracker '${name}'`),
@@ -39,12 +38,10 @@ export async function listTrackers(
 	cookies: string,
 	options: { includeDisabled?: boolean } = {},
 ) {
-	const { data, response } = await client.trackers.list({
-		headers: { Cookie: cookies },
-		params: { query: { includeDisabled: options.includeDisabled ?? false } },
-	});
-
-	return requireResponseData(response, data, "Failed to list trackers");
+	return client.run(
+		(c) => c.trackers.list({ urlParams: { includeDisabled: options.includeDisabled ?? false } }),
+		{ Cookie: cookies },
+	);
 }
 
 export async function findBuiltinTracker(client: Client, cookies: string) {
@@ -68,15 +65,12 @@ export async function disableTracker(input: {
 	cookies: string;
 	client: Client;
 }) {
-	const result = await input.client.trackers.update({
-		body: { isDisabled: true },
-		headers: { Cookie: input.cookies },
-		params: { path: { trackerId: input.trackerId } },
-	});
-
-	return requireResponseData(
-		result.response,
-		result.data,
-		`Failed to disable tracker '${input.trackerId}'`,
+	return input.client.run(
+		(c) =>
+			c.trackers.update({
+				payload: { isDisabled: true },
+				path: { trackerId: input.trackerId },
+			}),
+		{ Cookie: input.cookies },
 	);
 }

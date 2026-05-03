@@ -59,11 +59,9 @@ export async function waitForEventCount(
 	return pollUntil(
 		`${expectedCount} events on entity ${entityId}`,
 		async () => {
-			const result = await client.events.list({
-				headers: { Cookie: cookies },
-				params: { query: { entityId } },
+			const events = await client.run((c) => c.events.list({ urlParams: { entityId } }), {
+				Cookie: cookies,
 			});
-			const events = result.data ?? [];
 			return events.length >= expectedCount ? events : null;
 		},
 		{ timeoutMs: 5000, intervalMs: 200, ...options },
@@ -146,12 +144,7 @@ export async function createRuleEventFixture(client: Client, cookies: string) {
 }
 
 export async function listEventsForEntity(client: Client, cookies: string, entityId: string) {
-	const result = await client.events.list({
-		headers: { Cookie: cookies },
-		params: { query: { entityId } },
-	});
-
-	return result.data ?? [];
+	return client.run((c) => c.events.list({ urlParams: { entityId } }), { Cookie: cookies });
 }
 
 export async function waitForEventWithSchema(

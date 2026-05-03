@@ -8,6 +8,7 @@ import {
 	listEventsForEntity,
 	queryInLibraryRelationship,
 } from "../fixtures";
+import { assertTaggedError } from "../test-support/assertions";
 
 describe("POST /collections", () => {
 	it("creates a collection with valid membershipPropertiesSchema", async () => {
@@ -60,30 +61,35 @@ describe("POST /collections", () => {
 	it("rejects collection creation with invalid membershipPropertiesSchema", async () => {
 		const { client, cookies } = await createAuthenticatedClient();
 
-		const { response, error } = await client.collections.create({
-			headers: { Cookie: cookies },
-			body: {
-				name: "Invalid Collection",
-				description: "Should fail",
-				membershipPropertiesSchema: { fields: { invalidField: { type: "invalid_type" } } },
-			},
-		});
+		const error = await client.runError(
+			(c) =>
+				c.collections.create({
+					payload: {
+						name: "Invalid Collection",
+						description: "Should fail",
+						membershipPropertiesSchema: { fields: { invalidField: { type: "invalid_type" } } },
+					},
+				}),
+			{ Cookie: cookies },
+		);
 
-		expect(response.status).toBe(400);
-		expect(error?.error.message).toContain("membershipPropertiesSchema must be a valid AppSchema");
+		assertTaggedError(error, "BadRequest");
+		expect(error.message).toContain("membershipPropertiesSchema must be a valid AppSchema");
 	});
 
 	it("rejects unauthenticated requests", async () => {
 		const { client } = await createAuthenticatedClient();
 
-		const { response } = await client.collections.create({
-			body: {
-				name: "Test Collection",
-				description: "Should fail",
-			},
-		});
+		const error = await client.runError((c) =>
+			c.collections.create({
+				payload: {
+					name: "Test Collection",
+					description: "Should fail",
+				},
+			}),
+		);
 
-		expect(response.status).toBe(401);
+		assertTaggedError(error, "Unauthorized");
 	});
 
 	describe("nested membershipPropertiesSchema validation", () => {
@@ -161,46 +167,48 @@ describe("POST /collections", () => {
 		it("rejects collection creation with invalid nested property type", async () => {
 			const { client, cookies } = await createAuthenticatedClient();
 
-			const { response, error } = await client.collections.create({
-				headers: { Cookie: cookies },
-				body: {
-					description: "Should fail",
-					name: "Invalid Nested Collection",
-					membershipPropertiesSchema: {
-						fields: {
-							nested: {
-								type: "object" as const,
-								properties: { invalidField: { type: "unknown_type" } },
+			const error = await client.runError(
+				(c) =>
+					c.collections.create({
+						payload: {
+							description: "Should fail",
+							name: "Invalid Nested Collection",
+							membershipPropertiesSchema: {
+								fields: {
+									nested: {
+										type: "object" as const,
+										properties: { invalidField: { type: "unknown_type" } },
+									},
+								},
 							},
 						},
-					},
-				},
-			});
-
-			expect(response.status).toBe(400);
-			expect(error?.error.message).toContain(
-				"membershipPropertiesSchema must be a valid AppSchema",
+					}),
+				{ Cookie: cookies },
 			);
+
+			assertTaggedError(error, "BadRequest");
+			expect(error.message).toContain("membershipPropertiesSchema must be a valid AppSchema");
 		});
 
 		it("rejects collection creation with invalid nested array item type", async () => {
 			const { client, cookies } = await createAuthenticatedClient();
 
-			const { response, error } = await client.collections.create({
-				headers: { Cookie: cookies },
-				body: {
-					description: "Should fail",
-					name: "Invalid Array Collection",
-					membershipPropertiesSchema: {
-						fields: { tags: { type: "array" as const, items: { type: "unknown_type" } } },
-					},
-				},
-			});
-
-			expect(response.status).toBe(400);
-			expect(error?.error.message).toContain(
-				"membershipPropertiesSchema must be a valid AppSchema",
+			const error = await client.runError(
+				(c) =>
+					c.collections.create({
+						payload: {
+							description: "Should fail",
+							name: "Invalid Array Collection",
+							membershipPropertiesSchema: {
+								fields: { tags: { type: "array" as const, items: { type: "unknown_type" } } },
+							},
+						},
+					}),
+				{ Cookie: cookies },
 			);
+
+			assertTaggedError(error, "BadRequest");
+			expect(error.message).toContain("membershipPropertiesSchema must be a valid AppSchema");
 		});
 
 		it("creates a collection with multi-level nested schema", async () => {
@@ -287,19 +295,21 @@ describe("POST /collections", () => {
 				description: "The child collection to be added",
 			});
 
-			const { data, response } = await client.collections.createMembership({
-				headers: { Cookie: cookies },
-				body: {
-					entityId: childCollection.id,
-					collectionId: parentCollection.id,
-				},
-			});
+			const data = await client.run(
+				(c) =>
+					c.collections.createMembership({
+						payload: {
+							entityId: childCollection.id,
+							collectionId: parentCollection.id,
+						},
+					}),
+				{ Cookie: cookies },
+			);
 
-			expect(response.status).toBe(200);
-			expect(data?.memberOf.id).toBeDefined();
-			expect(data?.memberOf.relationshipSchemaId).toBeDefined();
-			expect(data?.memberOf.sourceEntityId).toBe(childCollection.id);
-			expect(data?.memberOf.targetEntityId).toBe(parentCollection.id);
+			expect(data.memberOf.id).toBeDefined();
+			expect(data.memberOf.relationshipSchemaId).toBeDefined();
+			expect(data.memberOf.sourceEntityId).toBe(childCollection.id);
+			expect(data.memberOf.targetEntityId).toBe(parentCollection.id);
 		});
 
 		it("returns validation error when trying to add a collection to itself", async () => {
@@ -311,13 +321,16 @@ describe("POST /collections", () => {
 			});
 
 			// Try to add the collection to itself
-			const { response, error } = await client.collections.createMembership({
-				headers: { Cookie: cookies },
-				body: { entityId: collection.id, collectionId: collection.id },
-			});
+			const error = await client.runError(
+				(c) =>
+					c.collections.createMembership({
+						payload: { entityId: collection.id, collectionId: collection.id },
+					}),
+				{ Cookie: cookies },
+			);
 
-			expect(response.status).toBe(400);
-			expect(error?.error.message).toContain("Cannot add a collection to itself");
+			assertTaggedError(error, "BadRequest");
+			expect(error.message).toContain("Cannot add a collection to itself");
 		});
 
 		it("adds an entity to a collection", async () => {
@@ -330,16 +343,16 @@ describe("POST /collections", () => {
 
 			const { entityId } = await createTrackerWithSchemaAndEntity(client, cookies);
 
-			const { data, response } = await client.collections.createMembership({
-				headers: { Cookie: cookies },
-				body: { entityId, collectionId: collection.id },
-			});
+			const data = await client.run(
+				(c) =>
+					c.collections.createMembership({ payload: { entityId, collectionId: collection.id } }),
+				{ Cookie: cookies },
+			);
 
-			expect(response.status).toBe(200);
-			expect(data?.memberOf.id).toBeDefined();
-			expect(data?.memberOf.relationshipSchemaId).toBeDefined();
-			expect(data?.memberOf.sourceEntityId).toBe(entityId);
-			expect(data?.memberOf.targetEntityId).toBe(collection.id);
+			expect(data.memberOf.id).toBeDefined();
+			expect(data.memberOf.relationshipSchemaId).toBeDefined();
+			expect(data.memberOf.sourceEntityId).toBe(entityId);
+			expect(data.memberOf.targetEntityId).toBe(collection.id);
 		});
 
 		it("adds a global entity to a collection and upserts in_library", async () => {
@@ -351,14 +364,16 @@ describe("POST /collections", () => {
 				description: "For testing global entity membership",
 			});
 
-			const { data, response } = await client.collections.createMembership({
-				headers: { Cookie: cookies },
-				body: { entityId: entity.id, collectionId: collection.id },
-			});
+			const data = await client.run(
+				(c) =>
+					c.collections.createMembership({
+						payload: { entityId: entity.id, collectionId: collection.id },
+					}),
+				{ Cookie: cookies },
+			);
 
-			expect(response.status).toBe(200);
-			expect(data?.memberOf.sourceEntityId).toBe(entity.id);
-			expect(data?.memberOf.targetEntityId).toBe(collection.id);
+			expect(data.memberOf.sourceEntityId).toBe(entity.id);
+			expect(data.memberOf.targetEntityId).toBe(collection.id);
 
 			const membership = await queryInLibraryRelationship(entity.id, email);
 
@@ -385,17 +400,19 @@ describe("POST /collections", () => {
 
 			const { entityId } = await createTrackerWithSchemaAndEntity(client, cookies);
 
-			const { data, response } = await client.collections.createMembership({
-				headers: { Cookie: cookies },
-				body: {
-					entityId,
-					collectionId: collection.id,
-					properties: { rating: 5, recommendedBy: "John" },
-				},
-			});
+			const data = await client.run(
+				(c) =>
+					c.collections.createMembership({
+						payload: {
+							entityId,
+							collectionId: collection.id,
+							properties: { rating: 5, recommendedBy: "John" },
+						},
+					}),
+				{ Cookie: cookies },
+			);
 
-			expect(response.status).toBe(200);
-			expect(data?.memberOf.properties).toMatchObject({
+			expect(data.memberOf.properties).toMatchObject({
 				rating: 5,
 				recommendedBy: "John",
 			});
@@ -422,13 +439,15 @@ describe("POST /collections", () => {
 
 			const { entityId } = await createTrackerWithSchemaAndEntity(client, cookies);
 
-			const { data, response } = await client.collections.createMembership({
-				headers: { Cookie: cookies },
-				body: { entityId, properties: { rating: 4 }, collectionId: collection.id },
-			});
+			const data = await client.run(
+				(c) =>
+					c.collections.createMembership({
+						payload: { entityId, properties: { rating: 4 }, collectionId: collection.id },
+					}),
+				{ Cookie: cookies },
+			);
 
-			expect(response.status).toBe(200);
-			expect(data?.memberOf.properties).toMatchObject({ rating: 4, source: "manual" });
+			expect(data.memberOf.properties).toMatchObject({ rating: 4, source: "manual" });
 		});
 
 		it("upserts an existing membership instead of creating duplicates", async () => {
@@ -450,28 +469,32 @@ describe("POST /collections", () => {
 
 			const { entityId } = await createTrackerWithSchemaAndEntity(client, cookies);
 
-			const first = await client.collections.createMembership({
-				headers: { Cookie: cookies },
-				body: {
-					entityId,
-					collectionId: collection.id,
-					properties: { rating: 4, recommendedBy: "Alice" },
-				},
-			});
+			const first = await client.run(
+				(c) =>
+					c.collections.createMembership({
+						payload: {
+							entityId,
+							collectionId: collection.id,
+							properties: { rating: 4, recommendedBy: "Alice" },
+						},
+					}),
+				{ Cookie: cookies },
+			);
 
-			const second = await client.collections.createMembership({
-				headers: { Cookie: cookies },
-				body: {
-					entityId,
-					collectionId: collection.id,
-					properties: { rating: 5, recommendedBy: "Bob" },
-				},
-			});
+			const second = await client.run(
+				(c) =>
+					c.collections.createMembership({
+						payload: {
+							entityId,
+							collectionId: collection.id,
+							properties: { rating: 5, recommendedBy: "Bob" },
+						},
+					}),
+				{ Cookie: cookies },
+			);
 
-			expect(first.response.status).toBe(200);
-			expect(second.response.status).toBe(200);
-			expect(second.data?.memberOf.id).toBe(first.data?.memberOf.id);
-			expect(second.data?.memberOf.properties).toMatchObject({
+			expect(second.memberOf.id).toBe(first.memberOf.id);
+			expect(second.memberOf.properties).toMatchObject({
 				rating: 5,
 				recommendedBy: "Bob",
 			});
@@ -482,13 +505,16 @@ describe("POST /collections", () => {
 
 			const { entityId } = await createTrackerWithSchemaAndEntity(client, cookies);
 
-			const { response, error } = await client.collections.createMembership({
-				headers: { Cookie: cookies },
-				body: { entityId, collectionId: "nonexistent-collection-id" },
-			});
+			const error = await client.runError(
+				(c) =>
+					c.collections.createMembership({
+						payload: { entityId, collectionId: "nonexistent-collection-id" },
+					}),
+				{ Cookie: cookies },
+			);
 
-			expect(response.status).toBe(404);
-			expect(error?.error.message).toContain("Collection not found");
+			assertTaggedError(error, "NotFound");
+			expect(error.message).toContain("Collection not found");
 		});
 
 		it("returns 404 when entity does not exist", async () => {
@@ -499,13 +525,16 @@ describe("POST /collections", () => {
 				description: "For testing add to collection",
 			});
 
-			const { response, error } = await client.collections.createMembership({
-				headers: { Cookie: cookies },
-				body: { collectionId: collection.id, entityId: "nonexistent-entity-id" },
-			});
+			const error = await client.runError(
+				(c) =>
+					c.collections.createMembership({
+						payload: { collectionId: collection.id, entityId: "nonexistent-entity-id" },
+					}),
+				{ Cookie: cookies },
+			);
 
-			expect(response.status).toBe(404);
-			expect(error?.error.message).toContain("Entity not found");
+			assertTaggedError(error, "NotFound");
+			expect(error.message).toContain("Entity not found");
 		});
 
 		it("returns 404 when trying to add to another user's collection", async () => {
@@ -519,23 +548,26 @@ describe("POST /collections", () => {
 
 			const { entityId } = await createTrackerWithSchemaAndEntity(clientB, cookiesB);
 
-			const { response, error } = await clientB.collections.createMembership({
-				headers: { Cookie: cookiesB },
-				body: { entityId, collectionId: collection.id },
-			});
+			const error = await clientB.runError(
+				(c) =>
+					c.collections.createMembership({ payload: { entityId, collectionId: collection.id } }),
+				{ Cookie: cookiesB },
+			);
 
-			expect(response.status).toBe(404);
-			expect(error?.error.message).toContain("Collection not found");
+			assertTaggedError(error, "NotFound");
+			expect(error.message).toContain("Collection not found");
 		});
 
 		it("rejects unauthenticated requests", async () => {
 			const { client } = await createAuthenticatedClient();
 
-			const { response } = await client.collections.createMembership({
-				body: { entityId: "some-entity-id", collectionId: "some-collection-id" },
-			});
+			const error = await client.runError((c) =>
+				c.collections.createMembership({
+					payload: { entityId: "some-entity-id", collectionId: "some-collection-id" },
+				}),
+			);
 
-			expect(response.status).toBe(401);
+			assertTaggedError(error, "Unauthorized");
 		});
 	});
 
@@ -549,24 +581,21 @@ describe("POST /collections", () => {
 
 		const { entityId } = await createTrackerWithSchemaAndEntity(client, cookies);
 
-		const { data: addData, response: addResponse } = await client.collections.createMembership({
-			headers: { Cookie: cookies },
-			body: { entityId, collectionId: collection.id },
-		});
+		const addData = await client.run(
+			(c) => c.collections.createMembership({ payload: { entityId, collectionId: collection.id } }),
+			{ Cookie: cookies },
+		);
 
-		expect(addResponse.status).toBe(200);
-		expect(addData?.memberOf.relationshipSchemaId).toBeDefined();
+		expect(addData.memberOf.relationshipSchemaId).toBeDefined();
 
-		const { data: removeData, response: removeResponse } =
-			await client.collections.deleteMembership({
-				headers: { Cookie: cookies },
-				body: { entityId, collectionId: collection.id },
-			});
+		const removeData = await client.run(
+			(c) => c.collections.deleteMembership({ payload: { entityId, collectionId: collection.id } }),
+			{ Cookie: cookies },
+		);
 
-		expect(removeResponse.status).toBe(200);
-		expect(removeData?.memberOf.relationshipSchemaId).toBeDefined();
-		expect(removeData?.memberOf.sourceEntityId).toBe(entityId);
-		expect(removeData?.memberOf.targetEntityId).toBe(collection.id);
+		expect(removeData.memberOf.relationshipSchemaId).toBeDefined();
+		expect(removeData.memberOf.sourceEntityId).toBe(entityId);
+		expect(removeData.memberOf.targetEntityId).toBe(collection.id);
 	});
 
 	it("returns 404 when removing entity not in collection", async () => {
@@ -579,13 +608,13 @@ describe("POST /collections", () => {
 
 		const { entityId } = await createTrackerWithSchemaAndEntity(client, cookies);
 
-		const { response, error } = await client.collections.deleteMembership({
-			headers: { Cookie: cookies },
-			body: { entityId, collectionId: collection.id },
-		});
+		const error = await client.runError(
+			(c) => c.collections.deleteMembership({ payload: { entityId, collectionId: collection.id } }),
+			{ Cookie: cookies },
+		);
 
-		expect(response.status).toBe(404);
-		expect(error?.error.message).toContain("Entity is not in collection");
+		assertTaggedError(error, "NotFound");
+		expect(error.message).toContain("Entity is not in collection");
 	});
 
 	it("returns 404 when collection does not exist", async () => {
@@ -593,13 +622,16 @@ describe("POST /collections", () => {
 
 		const { entityId } = await createTrackerWithSchemaAndEntity(client, cookies);
 
-		const { response, error } = await client.collections.deleteMembership({
-			headers: { Cookie: cookies },
-			body: { entityId, collectionId: "nonexistent-collection-id" },
-		});
+		const error = await client.runError(
+			(c) =>
+				c.collections.deleteMembership({
+					payload: { entityId, collectionId: "nonexistent-collection-id" },
+				}),
+			{ Cookie: cookies },
+		);
 
-		expect(response.status).toBe(404);
-		expect(error?.error.message).toContain("Collection not found");
+		assertTaggedError(error, "NotFound");
+		expect(error.message).toContain("Collection not found");
 	});
 
 	it("returns 404 when trying to remove from another user's collection", async () => {
@@ -613,23 +645,25 @@ describe("POST /collections", () => {
 
 		const { entityId } = await createTrackerWithSchemaAndEntity(clientB, cookiesB);
 
-		const { response, error } = await clientB.collections.deleteMembership({
-			headers: { Cookie: cookiesB },
-			body: { entityId, collectionId: collection.id },
-		});
+		const error = await clientB.runError(
+			(c) => c.collections.deleteMembership({ payload: { entityId, collectionId: collection.id } }),
+			{ Cookie: cookiesB },
+		);
 
-		expect(response.status).toBe(404);
-		expect(error?.error.message).toContain("Collection not found");
+		assertTaggedError(error, "NotFound");
+		expect(error.message).toContain("Collection not found");
 	});
 
 	it("rejects unauthenticated requests", async () => {
 		const { client } = await createAuthenticatedClient();
 
-		const { response } = await client.collections.deleteMembership({
-			body: { entityId: "some-entity-id", collectionId: "some-collection-id" },
-		});
+		const error = await client.runError((c) =>
+			c.collections.deleteMembership({
+				payload: { entityId: "some-entity-id", collectionId: "some-collection-id" },
+			}),
+		);
 
-		expect(response.status).toBe(401);
+		assertTaggedError(error, "Unauthorized");
 	});
 });
 
@@ -640,13 +674,12 @@ describe("collection events", () => {
 		const collection = await createCollection(client, cookies, { name: "Event Test Collection" });
 		const { entityId } = await createTrackerWithSchemaAndEntity(client, cookies);
 
-		const { data: addData, response: addResponse } = await client.collections.createMembership({
-			headers: { Cookie: cookies },
-			body: { entityId, collectionId: collection.id },
-		});
+		const addData = await client.run(
+			(c) => c.collections.createMembership({ payload: { entityId, collectionId: collection.id } }),
+			{ Cookie: cookies },
+		);
 
-		expect(addResponse.status).toBe(200);
-		const relationshipId = addData?.memberOf.id;
+		const relationshipId = addData.memberOf.id;
 
 		const events = await listEventsForEntity(client, cookies, collection.id);
 		const addEvents = events.filter((e) => e.eventSchemaSlug === "add-entity-to-collection");
@@ -665,15 +698,15 @@ describe("collection events", () => {
 		const collection = await createCollection(client, cookies, { name: "Upsert Event Collection" });
 		const { entityId } = await createTrackerWithSchemaAndEntity(client, cookies);
 
-		await client.collections.createMembership({
-			headers: { Cookie: cookies },
-			body: { entityId, collectionId: collection.id },
-		});
+		await client.run(
+			(c) => c.collections.createMembership({ payload: { entityId, collectionId: collection.id } }),
+			{ Cookie: cookies },
+		);
 
-		await client.collections.createMembership({
-			headers: { Cookie: cookies },
-			body: { entityId, collectionId: collection.id },
-		});
+		await client.run(
+			(c) => c.collections.createMembership({ payload: { entityId, collectionId: collection.id } }),
+			{ Cookie: cookies },
+		);
 
 		const events = await listEventsForEntity(client, cookies, collection.id);
 		const addEvents = events.filter((e) => e.eventSchemaSlug === "add-entity-to-collection");
@@ -687,16 +720,16 @@ describe("collection events", () => {
 		const collection = await createCollection(client, cookies, { name: "Remove Event Collection" });
 		const { entityId } = await createTrackerWithSchemaAndEntity(client, cookies);
 
-		const { data: addData } = await client.collections.createMembership({
-			headers: { Cookie: cookies },
-			body: { entityId, collectionId: collection.id },
-		});
-		const relationshipId = addData?.memberOf.id;
+		const addData = await client.run(
+			(c) => c.collections.createMembership({ payload: { entityId, collectionId: collection.id } }),
+			{ Cookie: cookies },
+		);
+		const relationshipId = addData.memberOf.id;
 
-		await client.collections.deleteMembership({
-			headers: { Cookie: cookies },
-			body: { entityId, collectionId: collection.id },
-		});
+		await client.run(
+			(c) => c.collections.deleteMembership({ payload: { entityId, collectionId: collection.id } }),
+			{ Cookie: cookies },
+		);
 
 		const events = await listEventsForEntity(client, cookies, collection.id);
 		const removeEvents = events.filter(
@@ -719,12 +752,12 @@ describe("collection events", () => {
 		});
 		const { entityId } = await createTrackerWithSchemaAndEntity(client, cookies);
 
-		const { response } = await client.collections.deleteMembership({
-			headers: { Cookie: cookies },
-			body: { entityId, collectionId: collection.id },
-		});
+		const error = await client.runError(
+			(c) => c.collections.deleteMembership({ payload: { entityId, collectionId: collection.id } }),
+			{ Cookie: cookies },
+		);
 
-		expect(response.status).toBe(404);
+		assertTaggedError(error, "NotFound");
 
 		const events = await listEventsForEntity(client, cookies, collection.id);
 		const removeEvents = events.filter(

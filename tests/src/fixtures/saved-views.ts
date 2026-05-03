@@ -6,9 +6,9 @@ import {
 	type SavedViewQueryDefinition,
 } from "@ryot/app-backend/query-language";
 
-import { requirePresent, requireResponseData } from "../test-support/assertions";
+import { requirePresent } from "../test-support/assertions";
 import type { Client } from "./auth";
-import type { ClientBody, ClientSuccess } from "./backend-client";
+import type { ContractPayload, ContractSuccess } from "./contract-client";
 import {
 	type ExpressionInput,
 	entityField,
@@ -35,12 +35,12 @@ export type DisplayConfigurationInput = {
 	entityIdProperty?: ExpressionInput | null;
 };
 
-type CreateSavedViewBody = ClientBody<"savedViews", "create">;
-type UpdateSavedViewBody = ClientBody<"savedViews", "update">;
-type ReorderSavedViewsBody = ClientBody<"savedViews", "reorder">;
+type CreateSavedViewBody = ContractPayload<"savedViews", "create">;
+type UpdateSavedViewBody = ContractPayload<"savedViews", "update">;
+type ReorderSavedViewsBody = ContractPayload<"savedViews", "reorder">;
 type QueryDefinition = SavedViewQueryDefinition;
 
-type SavedViewRecord = ClientSuccess<"savedViews", "get">;
+type SavedViewRecord = ContractSuccess<"savedViews", "get">;
 
 type CreateSavedViewInput = Partial<
 	Omit<CreateSavedViewBody, "displayConfiguration" | "queryDefinition">
@@ -230,12 +230,9 @@ export async function createSavedView(
 	cookies: string,
 	overrides: CreateSavedViewInput = {},
 ): Promise<SavedViewRecord> {
-	const { data, response } = await client.savedViews.create({
-		headers: { Cookie: cookies },
-		body: buildSavedViewBody(overrides),
+	return client.run((c) => c.savedViews.create({ payload: buildSavedViewBody(overrides) }), {
+		Cookie: cookies,
 	});
-
-	return requireResponseData(response, data, "Failed to create saved view");
 }
 
 export async function listSavedViews(
@@ -243,17 +240,16 @@ export async function listSavedViews(
 	cookies: string,
 	options: { trackerId?: string; includeDisabled?: boolean } = {},
 ): Promise<readonly SavedViewRecord[]> {
-	const { data, response } = await client.savedViews.list({
-		headers: { Cookie: cookies },
-		params: {
-			query: {
-				includeDisabled: options.includeDisabled ?? false,
-				trackerId: options.trackerId,
-			},
-		},
-	});
-
-	return requireResponseData(response, data, "Failed to list saved views");
+	return client.run(
+		(c) =>
+			c.savedViews.list({
+				urlParams: {
+					includeDisabled: options.includeDisabled ?? false,
+					trackerId: options.trackerId,
+				},
+			}),
+		{ Cookie: cookies },
+	);
 }
 
 export async function findBuiltinSavedView(client: Client, cookies: string) {
@@ -268,12 +264,7 @@ export async function getSavedView(
 	cookies: string,
 	viewSlug: string,
 ): Promise<SavedViewRecord> {
-	const { data, response } = await client.savedViews.get({
-		headers: { Cookie: cookies },
-		params: { path: { viewSlug } },
-	});
-
-	return requireResponseData(response, data, `Failed to get saved view '${viewSlug}'`);
+	return client.run((c) => c.savedViews.get({ path: { viewSlug } }), { Cookie: cookies });
 }
 
 export async function updateSavedView(
@@ -282,13 +273,14 @@ export async function updateSavedView(
 	viewSlug: string,
 	overrides: UpdateSavedViewInput = {},
 ): Promise<SavedViewRecord> {
-	const { data, response } = await client.savedViews.update({
-		headers: { Cookie: cookies },
-		params: { path: { viewSlug } },
-		body: buildUpdatedSavedViewBody(overrides),
-	});
-
-	return requireResponseData(response, data, `Failed to update saved view '${viewSlug}'`);
+	return client.run(
+		(c) =>
+			c.savedViews.update({
+				path: { viewSlug },
+				payload: buildUpdatedSavedViewBody(overrides),
+			}),
+		{ Cookie: cookies },
+	);
 }
 
 export async function cloneSavedView(
@@ -296,12 +288,7 @@ export async function cloneSavedView(
 	cookies: string,
 	viewSlug: string,
 ): Promise<SavedViewRecord> {
-	const { data, response } = await client.savedViews.clone({
-		headers: { Cookie: cookies },
-		params: { path: { viewSlug } },
-	});
-
-	return requireResponseData(response, data, `Failed to clone saved view '${viewSlug}'`);
+	return client.run((c) => c.savedViews.clone({ path: { viewSlug } }), { Cookie: cookies });
 }
 
 export async function deleteSavedView(
@@ -309,12 +296,7 @@ export async function deleteSavedView(
 	cookies: string,
 	viewSlug: string,
 ): Promise<SavedViewRecord> {
-	const { data, response } = await client.savedViews.delete({
-		headers: { Cookie: cookies },
-		params: { path: { viewSlug } },
-	});
-
-	return requireResponseData(response, data, `Failed to delete saved view '${viewSlug}'`);
+	return client.run((c) => c.savedViews.delete({ path: { viewSlug } }), { Cookie: cookies });
 }
 
 export async function reorderSavedViews(
@@ -322,10 +304,5 @@ export async function reorderSavedViews(
 	cookies: string,
 	body: ReorderSavedViewsBody,
 ) {
-	const { data, response } = await client.savedViews.reorder({
-		body,
-		headers: { Cookie: cookies },
-	});
-
-	return requireResponseData(response, data, "Failed to reorder saved views");
+	return client.run((c) => c.savedViews.reorder({ payload: body }), { Cookie: cookies });
 }
