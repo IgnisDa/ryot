@@ -14,6 +14,8 @@ const settle = async () => {
 	await Promise.resolve();
 };
 
+const ignoreUpdate = () => undefined;
+
 const deferred = <T>() => {
 	let resolvePromise: ((value: T) => void) | undefined;
 	const promise = new Promise<T>((resolve) => {
@@ -44,8 +46,8 @@ describe("entity-interest coordinator", () => {
 			declarations.push([...entityIds]);
 			return Promise.resolve([]);
 		});
-		coordinator.setInterest("a", ["entity-1", "entity-2"]);
-		coordinator.setInterest("b", ["entity-2", "entity-3"]);
+		coordinator.setInterest("a", ["entity-1", "entity-2"], ignoreUpdate);
+		coordinator.setInterest("b", ["entity-2", "entity-3"], ignoreUpdate);
 		coordinator.setConnection("stream-1");
 		await settle();
 
@@ -62,11 +64,11 @@ describe("entity-interest coordinator", () => {
 			declarations.push([...entityIds]);
 			return Promise.resolve([]);
 		});
-		coordinator.setInterest("surface", ["entity-1", "entity-2"]);
+		coordinator.setInterest("surface", ["entity-1", "entity-2"], ignoreUpdate);
 		coordinator.setConnection("stream-1");
 		await settle();
 
-		coordinator.setInterest("surface", ["entity-2", "entity-1"]);
+		coordinator.setInterest("surface", ["entity-2", "entity-1"], ignoreUpdate);
 		await settle();
 
 		expect(declarations).toEqual([["entity-1", "entity-2"]]);
@@ -81,6 +83,7 @@ describe("entity-interest coordinator", () => {
 		coordinator.setInterest(
 			"surface",
 			Array.from({ length: MAX_INTEREST_ENTITY_IDS + 1 }, (_, index) => `entity-${index}`),
+			ignoreUpdate,
 		);
 		coordinator.setConnection("stream-1");
 		await settle();
@@ -88,7 +91,36 @@ describe("entity-interest coordinator", () => {
 		expect(declarations[0]).toHaveLength(MAX_INTEREST_ENTITY_IDS);
 	});
 
-	it("publishes terminal and stream updates and redeclares only after streamed population", async () => {
+	it("routes updates through owner indexes", async () => {
+		const ownerB: EntityUpdatedFrame[] = [];
+		const ownerA: EntityUpdatedFrame[] = [];
+		const ownerAReplacement: EntityUpdatedFrame[] = [];
+		const coordinator = new EntityInterestCoordinator((_streamId, _entityIds) =>
+			Promise.resolve([]),
+		);
+		coordinator.setInterest("a", ["entity-1"], (frame) => ownerA.push(frame));
+		coordinator.setInterest("b", ["entity-2"], (frame) => ownerB.push(frame));
+		coordinator.setConnection("stream-1");
+		await settle();
+
+		const first = { entityId: "entity-1", reason: "populated" } as const;
+		const second = { entityId: "entity-2", reason: "translated" } as const;
+		coordinator.receive(first);
+		coordinator.receive(second);
+
+		expect(ownerA).toEqual([first]);
+		expect(ownerB).toEqual([second]);
+
+		coordinator.setInterest("a", ["entity-2"], (frame) => ownerAReplacement.push(frame));
+		coordinator.receive(first);
+		coordinator.receive(second);
+
+		expect(ownerA).toEqual([first]);
+		expect(ownerAReplacement).toEqual([second]);
+		expect(ownerB).toEqual([second, second]);
+	});
+
+	it("publishes terminal and stream updates without population redeclaration", async () => {
 		const declarations: string[][] = [];
 		const updates: EntityUpdatedFrame[] = [];
 		const terminal = { entityId: "entity-1", reason: "populated" } as const;
@@ -96,8 +128,7 @@ describe("entity-interest coordinator", () => {
 			declarations.push([...entityIds]);
 			return Promise.resolve(declarations.length === 1 ? [terminal] : []);
 		});
-		coordinator.subscribe((frame) => updates.push(frame));
-		coordinator.setInterest("surface", ["entity-1"]);
+		coordinator.setInterest("surface", ["entity-1"], (frame) => updates.push(frame));
 		coordinator.setConnection("stream-1");
 		await settle();
 
@@ -106,7 +137,7 @@ describe("entity-interest coordinator", () => {
 
 		coordinator.receive(terminal);
 		await settle();
-		expect(declarations).toHaveLength(2);
+		expect(declarations).toHaveLength(1);
 		expect(updates).toEqual([terminal, terminal]);
 	});
 
@@ -117,9 +148,9 @@ describe("entity-interest coordinator", () => {
 			declarations.push([...entityIds]);
 			return declarations.length === 1 ? first.promise : Promise.resolve([]);
 		});
-		coordinator.setInterest("surface", ["entity-1"]);
+		coordinator.setInterest("surface", ["entity-1"], ignoreUpdate);
 		coordinator.setConnection("stream-1");
-		coordinator.setInterest("surface", ["entity-2"]);
+		coordinator.setInterest("surface", ["entity-2"], ignoreUpdate);
 		first.resolve([]);
 		await settle();
 
@@ -140,7 +171,7 @@ describe("entity-interest coordinator", () => {
 			retry.retryDelay,
 			(_error, attempt, retryDelayMs) => failures.push([attempt, retryDelayMs]),
 		);
-		coordinator.setInterest("surface", ["entity-1"]);
+		coordinator.setInterest("surface", ["entity-1"], ignoreUpdate);
 		coordinator.setConnection("stream-1");
 		await settle();
 
@@ -167,12 +198,12 @@ describe("entity-interest coordinator", () => {
 				? Promise.reject(new Error("declaration failed"))
 				: Promise.resolve([]);
 		}, retry.retryDelay);
-		coordinator.setInterest("surface", ["entity-1"]);
+		coordinator.setInterest("surface", ["entity-1"], ignoreUpdate);
 		coordinator.setConnection("stream-1");
 		await settle();
 
-		coordinator.setInterest("surface", ["entity-2"]);
-		coordinator.setInterest("surface", ["entity-3"]);
+		coordinator.setInterest("surface", ["entity-2"], ignoreUpdate);
+		coordinator.setInterest("surface", ["entity-3"], ignoreUpdate);
 		retry.delays[0]?.release();
 		await settle();
 
@@ -187,8 +218,7 @@ describe("entity-interest coordinator", () => {
 			declarations.push({ streamId, entityIds: [...entityIds], signal });
 			return declarations.length === 1 ? first.promise : Promise.resolve([]);
 		});
-		coordinator.subscribe((frame) => updates.push(frame));
-		coordinator.setInterest("surface", ["entity-1"]);
+		coordinator.setInterest("surface", ["entity-1"], (frame) => updates.push(frame));
 		coordinator.setConnection("stream-1");
 		coordinator.setConnection("stream-2");
 
@@ -200,6 +230,29 @@ describe("entity-interest coordinator", () => {
 		expect(updates).toEqual([]);
 	});
 
+	it("does not disconnect a newer stream when an older stream ends", async () => {
+		const first = deferred<readonly EntityUpdatedFrame[]>();
+		const declarations: string[] = [];
+		const updates: EntityUpdatedFrame[] = [];
+		const coordinator = new EntityInterestCoordinator((streamId) => {
+			declarations.push(streamId);
+			return declarations.length === 1 ? first.promise : Promise.resolve([]);
+		});
+		coordinator.setInterest("surface", ["entity-1"], (frame) => updates.push(frame));
+		coordinator.setConnection("stream-old");
+		coordinator.setConnection("stream-new");
+		coordinator.disconnect("stream-old");
+
+		first.resolve([]);
+		await settle();
+		coordinator.receive({ entityId: "entity-1", reason: "translated" });
+		coordinator.setInterest("surface", ["entity-2"], ignoreUpdate);
+		await settle();
+
+		expect(declarations).toEqual(["stream-old", "stream-new", "stream-new"]);
+		expect(updates).toEqual([{ entityId: "entity-1", reason: "translated" }]);
+	});
+
 	it("cancels retry work on disconnect", async () => {
 		const retry = controlledRetryDelay();
 		const declarations: string[] = [];
@@ -207,15 +260,35 @@ describe("entity-interest coordinator", () => {
 			declarations.push(streamId);
 			return Promise.reject(new Error("declaration failed"));
 		}, retry.retryDelay);
-		coordinator.setInterest("surface", ["entity-1"]);
+		coordinator.setInterest("surface", ["entity-1"], ignoreUpdate);
 		coordinator.setConnection("stream-1");
 		await settle();
 
-		coordinator.setConnection(undefined);
+		coordinator.disconnect("stream-1");
 		await settle();
 
 		expect(retry.delays[0]?.signal.aborted).toBe(true);
 		expect(declarations).toEqual(["stream-1"]);
+	});
+
+	it("can reconnect after disconnect", async () => {
+		const declarations: string[] = [];
+		const updates: EntityUpdatedFrame[] = [];
+		const coordinator = new EntityInterestCoordinator((streamId) => {
+			declarations.push(streamId);
+			return Promise.resolve([]);
+		});
+		coordinator.setInterest("surface", ["entity-1"], (frame) => updates.push(frame));
+		coordinator.setConnection("stream-1");
+		await settle();
+
+		coordinator.setConnection(undefined);
+		coordinator.setConnection("stream-2");
+		await settle();
+		coordinator.receive({ entityId: "entity-1", reason: "translated" });
+
+		expect(declarations).toEqual(["stream-1", "stream-2"]);
+		expect(updates).toEqual([{ entityId: "entity-1", reason: "translated" }]);
 	});
 
 	it("cancels declarations and listener emission on disposal", async () => {
@@ -226,8 +299,7 @@ describe("entity-interest coordinator", () => {
 			signals.push(signal);
 			return first.promise;
 		});
-		coordinator.subscribe((frame) => updates.push(frame));
-		coordinator.setInterest("surface", ["entity-1"]);
+		coordinator.setInterest("surface", ["entity-1"], (frame) => updates.push(frame));
 		coordinator.setConnection("stream-1");
 		coordinator.dispose();
 
@@ -248,7 +320,7 @@ describe("entity-interest coordinator", () => {
 			declarationCount += 1;
 			return Promise.reject(new Error("declaration failed"));
 		}, retry.retryDelay);
-		coordinator.setInterest("surface", ["entity-1"]);
+		coordinator.setInterest("surface", ["entity-1"], ignoreUpdate);
 		coordinator.setConnection("stream-1");
 		await settle();
 
