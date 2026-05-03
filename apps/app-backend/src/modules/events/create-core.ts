@@ -168,6 +168,8 @@ const dispatchAfterCreateTriggers = (
 		);
 	});
 
+type OnGlobalEntity = (userId: string, entityId: string) => Effect.Effect<void, DbError>;
+
 export const createEventsForUser = (
 	input: {
 		readonly userId: string;
@@ -177,6 +179,7 @@ export const createEventsForUser = (
 		readonly payload: ReadonlyArray<CreateEventItem>;
 	},
 	runSandboxScript: RunSandboxScript,
+	onGlobalEntity?: OnGlobalEntity,
 ): Effect.Effect<{ count: number }, BadRequest | NotFound | DbError, CreateEventsCoreContext> =>
 	Effect.gen(function* () {
 		const runWithDb = yield* DbRunner;
@@ -293,6 +296,10 @@ export const createEventsForUser = (
 					eventSchemaSlug: eventSchemaScope.slug,
 				}),
 			);
+
+			if (entityScope.entityUserId === null && onGlobalEntity) {
+				yield* onGlobalEntity(userId, entityScope.entityId);
+			}
 
 			createdEvents.push({
 				...createdEvent,

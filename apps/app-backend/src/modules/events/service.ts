@@ -11,6 +11,7 @@ import { EventSchemasRepository } from "#modules/event-schemas/repository";
 import { SandboxRepository } from "#modules/sandbox/repository";
 
 import { createEventsForUser } from "./create-core";
+import { GlobalEntityHook } from "./global-entity-hook";
 import { EventsRepository } from "./repository";
 import type { CreateEventItem, CreateEventsResponse, ListedEvent } from "./schemas";
 
@@ -47,6 +48,7 @@ export class EventsService extends Effect.Service<EventsService>()("EventsServic
 		const sandbox = yield* SandboxService;
 		const repository = yield* EventsRepository;
 		const sandboxRepository = yield* SandboxRepository;
+		const { onGlobalEntity } = yield* GlobalEntityHook;
 		const entitiesRepository = yield* EntitiesRepository;
 		const eventSchemasRepository = yield* EventSchemasRepository;
 
@@ -95,11 +97,19 @@ export class EventsService extends Effect.Service<EventsService>()("EventsServic
 				}),
 			create: (user, payload) =>
 				provideCreateEventsContext(
-					createEventsForUser({ userId: user.id, origin: "api", payload }, sandbox.run),
+					createEventsForUser(
+						{ userId: user.id, origin: "api", payload },
+						sandbox.run,
+						onGlobalEntity,
+					),
 				),
 			createForImport: (userId, payload, importRunId) =>
 				provideCreateEventsContext(
-					createEventsForUser({ userId, payload, importRunId, origin: "import" }, sandbox.run),
+					createEventsForUser(
+						{ userId, payload, importRunId, origin: "import" },
+						sandbox.run,
+						onGlobalEntity,
+					),
 				),
 			createForIntegration: (input) =>
 				provideCreateEventsContext(
@@ -112,6 +122,7 @@ export class EventsService extends Effect.Service<EventsService>()("EventsServic
 							integrationId: input.integrationId,
 						},
 						sandbox.run,
+						onGlobalEntity,
 					),
 				),
 		} satisfies EventsServiceShape;
