@@ -237,7 +237,7 @@ export function MediaTrackerOverview() {
 						<Box className="mt-6 flex-row px-[28]" style={{ gap: 32 }}>
 							{/* Left column — main content (~65%) */}
 							<Box className="flex-1">
-								<StoryRingRow items={FAKE_CONTINUE} wrap />
+								<StoryRingRow items={FAKE_CONTINUE} large wrap />
 								<UpNextSection items={FAKE_UP_NEXT} />
 							</Box>
 							{/* Right column — sidebar (~35%) */}
