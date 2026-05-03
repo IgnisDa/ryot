@@ -1,3 +1,4 @@
+import clsx from "clsx";
 import { useAtom, useAtomValue, useSetAtom } from "jotai";
 import { ChevronDown, ChevronRight, Plus } from "lucide-react-native";
 import { useState } from "react";
@@ -102,11 +103,12 @@ export function TrackerSheet() {
 										<Box className="absolute left-0 top-2 bottom-2 w-0.75 bg-primary" />
 									)}
 									<Text
-										className={`flex-1 text-[17px] tracking-[0.2px] ${
+										className={clsx(
+											"flex-1 text-[17px] tracking-[0.2px]",
 											isActive
 												? "text-foreground font-heading-semibold"
-												: "text-muted-foreground font-heading"
-										}`}
+												: "text-muted-foreground font-heading",
+										)}
 									>
 										{tracker.name}
 									</Text>
@@ -142,11 +144,12 @@ export function TrackerSheet() {
 													onPress={() => handleSubItemPress(tracker.id, item)}
 												>
 													<Text
-														className={`text-[18px] ${
+														className={clsx(
+															"text-[18px]",
 															isSubActive
 																? "text-primary font-heading-semibold"
-																: "text-foreground font-heading"
-														}`}
+																: "text-foreground font-heading",
+														)}
 													>
 														{item}
 													</Text>

@@ -1,4 +1,5 @@
 import { useMutation } from "@tanstack/react-query";
+import clsx from "clsx";
 import { router } from "expo-router";
 import { useAtomValue, useSetAtom } from "jotai";
 import { useState } from "react";
@@ -118,18 +119,18 @@ export default function Auth() {
 								<Pressable
 									key={m}
 									onPress={() => switchMode(m)}
-									className={
-										mode === m
-											? "flex-1 py-2 items-center bg-primary"
-											: "flex-1 py-2 items-center bg-transparent"
-									}
+									className={clsx(
+										"flex-1 py-2 items-center",
+										mode === m ? "bg-primary" : "bg-transparent",
+									)}
 								>
 									<Text
-										className={
+										className={clsx(
+											"text-sm font-medium",
 											mode === m
-												? "text-sm font-medium text-primary-foreground"
-												: "text-sm font-medium text-muted-foreground"
-										}
+												? "text-primary-foreground"
+												: "text-muted-foreground",
+										)}
 									>
 										{m === "login" ? "Log in" : "Sign up"}
 									</Text>
