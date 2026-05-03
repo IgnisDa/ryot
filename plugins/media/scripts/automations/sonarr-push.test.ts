@@ -142,7 +142,7 @@ describe("sonarr-push sandbox script", () => {
 		const host = createHost({
 			entity: showEntity,
 			integrations: [sonarrIntegration],
-			httpCall: () => httpFailure("already exists", 400),
+			httpCall: () => httpFailure("already exists"),
 		});
 		return Effect.runPromise(
 			definition

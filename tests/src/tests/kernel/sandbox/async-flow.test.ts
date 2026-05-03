@@ -7,6 +7,7 @@ import {
 	createPluginScope,
 	deepThrowingSandboxSource,
 	enqueueSandboxScript,
+	httpCallFailureSandboxSource,
 	httpCallSandboxSource,
 	installSandboxScriptScoped,
 	literalSandboxSource,
@@ -29,6 +30,7 @@ import { afterAll, beforeAll, describe, expect, it } from "~/support/effect-test
 import { type FakeHttpServer, startFakeHttpServer } from "~/support/fake-http-server";
 
 let httpServerUrl: string;
+let httpErrorServerUrl: string;
 let httpServer: FakeHttpServer;
 
 const configFixturePluginSlug = "e2e-sandbox-config-9d6f4b2a";
@@ -50,10 +52,16 @@ const configFixtureSchema = {
 } as const;
 
 beforeAll(async () => {
-	httpServer = await startFakeHttpServer(() =>
-		Response.json({ ok: true, source: "sandbox-test-server" }),
+	httpServer = await startFakeHttpServer((url) =>
+		url.pathname === "/sandbox-http-error"
+			? new Response(JSON.stringify({ error: "rate limited" }), {
+					status: 429,
+					headers: { "content-type": "application/json" },
+				})
+			: Response.json({ ok: true, source: "sandbox-test-server" }),
 	);
 	httpServerUrl = `${httpServer.url}/sandbox-http-call`;
+	httpErrorServerUrl = `${httpServer.url}/sandbox-http-error`;
 });
 
 afterAll(() => {
@@ -122,6 +130,30 @@ describe("sandbox async flow", () => {
 			expect(
 				JSON.parse(requireString(data.body, "Expected sandbox httpCall body to be a string")),
 			).toEqual({ ok: true, source: "sandbox-test-server" });
+		}),
+	);
+
+	it.live("preserves non-2xx httpCall response bodies", () =>
+		Effect.gen(function* () {
+			const { userId } = yield* createAuthenticatedClient();
+			const slug = `http-call-error-${crypto.randomUUID()}`;
+			const { scriptId } = yield* installSandboxScriptScoped({
+				slug,
+				name: "http-call-error",
+				capabilities: ["httpCall"],
+				source: httpCallFailureSandboxSource({
+					slug,
+					url: httpErrorServerUrl,
+					name: "http-call-error",
+				}),
+			});
+			const { jobId } = yield* enqueueSandboxScript(userId, { scriptId });
+
+			expect(requireCompletedSandboxValue(yield* pollSandboxResult(userId, jobId))).toEqual({
+				success: false,
+				error: "HTTP 429",
+				data: { body: JSON.stringify({ error: "rate limited" }), status: 429 },
+			});
 		}),
 	);
 

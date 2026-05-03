@@ -104,7 +104,7 @@ Find them mechanically: grep app-backend `src/` for `entitySchema`, `eventSchema
   somewhere near the storage layer; now slugs are stored directly, so resolution disappears.
   Preserve read semantics (`modules/query-engine/README.md` is the spec; the 21-file e2e
   suite pins it).
-- **Sandbox host functions** (`app/sandbox-host-functions.ts`,
+- **Sandbox host functions** (`apps/app-backend/src/app/sandbox-host-functions.ts`,
   `bridge-adapter.ts` implementations): `getEntitySchemas` and `listEventSchemas` re-read from
   the registry. Keep the sandbox-facing response shapes identical if possible (provider
   scripts consume them); if a shape must change, update `packages/sandbox-sdk` contracts and the
