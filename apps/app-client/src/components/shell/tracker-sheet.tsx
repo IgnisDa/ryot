@@ -11,8 +11,9 @@ import { Pressable } from "@/components/ui/pressable";
 import { Text } from "@/components/ui/text";
 import { useAuthClient, useUser } from "@/lib/atoms";
 import { TrackerIcon } from "@/lib/icons";
-import type { NavigationItem, NavigationSubItem } from "@/lib/navigation";
-import { navHref, useActiveNav, useNavigationData, useSetNavSheetOpen } from "@/lib/navigation";
+import { useActiveNav, useNavigationData, useSetNavSheetOpen } from "@/lib/navigation";
+import type { NavigationItem, NavigationSubItem } from "@/lib/navigation-data";
+import { navHref } from "@/lib/navigation-data";
 
 export function TrackerSheet() {
 	const user = useUser();

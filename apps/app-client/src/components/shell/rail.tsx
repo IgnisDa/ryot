@@ -11,14 +11,14 @@ import { Pressable } from "@/components/ui/pressable";
 import { Text } from "@/components/ui/text";
 import { useAuthClient, useUser } from "@/lib/atoms";
 import { TrackerIcon } from "@/lib/icons";
-import type { NavigationItem } from "@/lib/navigation";
 import {
-	navHref,
 	useActiveNav,
 	useNavigationData,
 	useOpenFlyout,
 	useScheduleFlyoutClose,
 } from "@/lib/navigation";
+import type { NavigationItem } from "@/lib/navigation-data";
+import { navHref } from "@/lib/navigation-data";
 
 export const RAIL_WIDTH = 168;
 export const SPRING_CONFIG = { damping: 22, stiffness: 280 };
