@@ -34,6 +34,7 @@
 		"@react-native-community/datetimepicker": "8.6.0",
 		"@ryot/generated": "workspace:*",
 		"@tanstack/react-form": "1.29.0",
+		"@tanstack/react-query": "5.100.8",
 		"babel-plugin-module-resolver": "5.0.3",
 		"better-auth": "1.6.9",
 		"buffer": "6.0.3",
