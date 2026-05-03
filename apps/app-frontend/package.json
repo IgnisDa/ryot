@@ -3,11 +3,11 @@
 	"private": true,
 	"type": "module",
 	"scripts": {
-		"typecheck": "tsc",
 		"preview": "vite preview",
 		"dev": "bun --bun vite dev",
 		"build": "bun --bun vite build",
 		"test": "bun test --only-failures",
+		"typecheck": "tsc && oxlint . --type-aware",
 		"lint": "oxlint . --fix && oxfmt . --write"
 	},
 	"dependencies": {
