@@ -3,18 +3,10 @@ import { Pressable, Text, View } from "react-native";
 
 import { getEntityHref } from "@/modules/navigation/navigation-data";
 
-import type { SavedViewCardItem, SavedViewScalarValue } from "./display-data";
-import { formatSavedViewValue } from "./display-value";
+import type { SavedViewCardItem } from "./display-data";
 import { SavedViewImageView } from "./saved-view-image";
 import { SavedViewTintOverlay, useSavedViewTint } from "./saved-view-tint-view";
-
-function Value(props: { value: SavedViewScalarValue; className: string }) {
-	return (
-		<Text className={props.className} numberOfLines={1}>
-			{formatSavedViewValue(props.value)}
-		</Text>
-	);
-}
+import { SavedViewValue } from "./saved-view-value";
 
 function SavedViewListRow(props: {
 	item: SavedViewCardItem;
@@ -41,7 +33,7 @@ function SavedViewListRow(props: {
 				/>
 				<View className="min-w-0 flex-1 gap-0.5">
 					{props.item.overline && (
-						<Value
+						<SavedViewValue
 							value={props.item.overline}
 							className="font-ui-medium text-[11px] uppercase tracking-wide text-text-subtle"
 						/>
@@ -53,20 +45,20 @@ function SavedViewListRow(props: {
 						{props.item.title}
 					</Text>
 					{props.item.primaryMetadata && (
-						<Value
+						<SavedViewValue
 							value={props.item.primaryMetadata}
 							className="font-ui text-[13px] text-text-muted"
 						/>
 					)}
 					{props.item.secondaryMetadata && (
-						<Value
+						<SavedViewValue
 							value={props.item.secondaryMetadata}
 							className="font-ui text-xs text-text-subtle"
 						/>
 					)}
 				</View>
 				{props.item.callout && (
-					<Value
+					<SavedViewValue
 						value={props.item.callout}
 						className="max-w-24 font-ui-semibold text-sm text-accent-text"
 					/>

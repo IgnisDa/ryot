@@ -290,3 +290,34 @@ The work is complete only when all statements are true:
 Review the final diff as an architecture change, not only as a compilation fix. Pay special attention to request cancellation, stale responses, server changes, provider remounting, and whether any fallback silently recreates the old two-source-of-truth design.
 
 Keep the final implementation smaller than the current one where possible. Do not replace the existing complexity with generic repositories, service locators, or speculative framework abstractions.
+
+## Implementation Record
+
+Status: Completed on 2026-08-15.
+
+- Bound public, authenticated, Expo, and admin transports and API services to an explicit normalized server URL.
+- Added a strict canonical authenticated `ApiScope` boundary and removed authenticated server/user prop drilling and fallbacks.
+- Replaced the saved-view result atom/ref hybrid with one reducer-owned controller using operation tokens, per-layout pages, and one coalesced structural refresh path.
+- Preserved saved-view controls, navigation and workspace search, placeholder routes, managed assets, layout persistence, pagination, hydration, and refresh behavior.
+- Mapped authentication failures to stable operation-specific copy and restricted diagnostics to allowlisted, non-secret metadata.
+- Removed the unused saved-view record state and dependency, and consolidated saved-view value rendering.
+- Added focused tests for transport binding, scope partitioning, stale operations, pagination and replacement, hydration, refresh coalescing, managed assets, authentication errors, and caller failure branches.
+
+Review findings and resolutions:
+
+- Fixed JSON and nested authentication secrets reaching logs by removing arbitrary error-message logging.
+- Fixed retained structural refreshes remaining blocked after initial, pagination, or active refresh work completed.
+- Replaced callback-only refresh tests with deferred counted-executor coverage through the real reducer and refresh service.
+- Added direct request-key/server coupling, multi-page load-more/replacement, and caller-level authentication branch tests.
+- Final re-review found no critical or high-confidence regressions; its remaining caller-branch test gap was addressed without another review cycle.
+
+Verification completed:
+
+- `bun turbo --filter=@ryot/app-client test`
+- `cd apps/app-client && bun x tsc --noEmit --incremental false`
+- `bun turbo --filter=@ryot/app-client check`
+- `bun turbo --filter=@ryot/app-client build`
+- Affected backend e2e files: saved views, RyotQL, RyotQL authorization, uploads, entity-interest authorization, and entity-interest population dispatch; 28 tests passed.
+- `git diff --check`
+
+No implementation blockers, plan deviations, or required scope expansions occurred. The affected e2e run emitted one non-fatal plugin cleanup warning because test entities still referenced the temporary plugin; the suite passed.

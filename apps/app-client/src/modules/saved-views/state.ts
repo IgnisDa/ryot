@@ -24,13 +24,6 @@ export type SavedViewError = {
 	readonly detail: string;
 };
 
-export type SavedViewRecordState =
-	| { readonly status: "loading" }
-	| { readonly status: "not-found" }
-	| { readonly status: "malformed"; readonly cause: unknown }
-	| { readonly status: "ready"; readonly record: SavedViewRecord }
-	| { readonly status: "transport-error"; readonly cause: Cause.Cause<unknown> };
-
 export type SavedViewActiveData =
 	| { readonly layout: "grid"; readonly data: SavedViewDisplayData<SavedViewCardItem> }
 	| { readonly layout: "list"; readonly data: SavedViewDisplayData<SavedViewCardItem> }
@@ -39,7 +32,7 @@ export type SavedViewActiveData =
 export type SavedViewResultState =
 	| { readonly status: "loading" }
 	| { readonly status: "malformed"; readonly cause: unknown }
-	| { readonly status: "transport-error"; readonly cause: Cause.Cause<unknown> }
+	| { readonly status: "transport-error"; readonly cause: unknown }
 	| ({
 			readonly status: "ready";
 			readonly entityIds: readonly string[];

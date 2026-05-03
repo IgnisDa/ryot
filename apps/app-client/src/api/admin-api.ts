@@ -1,18 +1,23 @@
 import { AppContract } from "@ryot/contract/contract";
+import { Layer } from "effect";
 import { AtomHttpApi } from "effect/unstable/reactivity";
 
 import { retryQueryResponse } from "@/api/app-api";
-import { adminTokenRequestLayer } from "@/api/transport";
+import { adminTokenRequestLayer, transportEnvironmentLive } from "@/api/transport";
 
-export const makeAdminApi = (adminToken: string) =>
+export const makeAdminApi = (serverUrl: string, adminToken: string) =>
 	AtomHttpApi.Service()("AdminApi", {
 		api: AppContract,
-		httpClient: adminTokenRequestLayer(adminToken),
+		httpClient: adminTokenRequestLayer(serverUrl, adminToken).pipe(
+			Layer.provide(transportEnvironmentLive),
+		),
 	});
 
-export const makeAdminQueryApi = (adminToken: string) =>
+export const makeAdminQueryApi = (serverUrl: string, adminToken: string) =>
 	AtomHttpApi.Service()("AdminQueryApi", {
 		api: AppContract,
 		transformResponse: retryQueryResponse,
-		httpClient: adminTokenRequestLayer(adminToken),
+		httpClient: adminTokenRequestLayer(serverUrl, adminToken).pipe(
+			Layer.provide(transportEnvironmentLive),
+		),
 	});
