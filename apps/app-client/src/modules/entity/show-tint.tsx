@@ -1,7 +1,6 @@
 import { View } from "react-native";
-import { useSafeAreaInsets } from "react-native-safe-area-context";
 
-import { HEADER_ROW_HEIGHT } from "@/modules/navigation/header/header-metrics";
+import { useHeaderContentOffset } from "@/modules/navigation/header/use-header-content-offset";
 import { ImageTintOverlay, useImageTint } from "@/modules/ui/image-tint-view";
 import { resolveAssetUrl } from "@/modules/ui/managed-assets";
 
@@ -13,12 +12,11 @@ export function ShowTint(props: {
 	readonly show: ShowSummary;
 	readonly managedUrls: ReadonlyMap<string, string>;
 }) {
-	const insets = useSafeAreaInsets();
+	const offset = useHeaderContentOffset();
 	const asset = showPosterAsset(props.show);
 	const { gradientStops } = useImageTint(
 		asset ? resolveAssetUrl(asset, props.managedUrls) : undefined,
 	);
-	const offset = insets.top + HEADER_ROW_HEIGHT;
 	return (
 		<View
 			pointerEvents="none"
