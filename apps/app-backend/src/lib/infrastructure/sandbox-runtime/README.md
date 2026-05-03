@@ -52,7 +52,7 @@ Scripts declare an exact manifest `capabilities` tuple. The SDK exposes only tho
 
 ## Process Pool
 
-`ProcessPool` keeps `config.sandbox.workerConcurrency + 2` idle Deno subprocesses ready. A pooled process has loaded Deno and is blocked on stdin waiting for its payload. On checkout, the pool immediately starts a replacement in the background.
+`ProcessPool` keeps `SANDBOX_LIMITS.workerConcurrency + 2` idle Deno subprocesses ready. A pooled process has loaded Deno and is blocked on stdin waiting for its payload. On checkout, the pool immediately starts a replacement in the background.
 
 The pool preserves process isolation because every subprocess is still single-use. Reusing a process across executions would allow global state pollution and weaken per-process memory limits.
 
@@ -191,9 +191,8 @@ fan out those independent child executions under the global sandbox worker bound
 
 Profile selection follows the persisted definition kind, not the caller or execution path.
 `script`, `activity`, `provider`, `automation`, and `operation` use the standard profile; only
-`workflow` uses the workflow profile. `limits.ts` owns the fixed values. The standard timeout comes
-from `SANDBOX_TIMEOUT_MS`, whose default is 10 seconds; workflows use the greater of that configured
-timeout and 30 seconds.
+`workflow` uses the workflow profile. `limits.ts` owns the fixed values. The standard timeout is
+10 seconds; workflows use the greater of that timeout and 30 seconds.
 
 | Profile  | Context | Final result | Host calls | HTTP calls | Durable calls |
 | -------- | ------- | ------------ | ---------- | ---------- | ------------- |
@@ -207,7 +206,7 @@ timeout and 30 seconds.
 | Runner request                                        | 2 MiB                         |
 | Bridge request / response                             | 1 MiB / 10 MiB                |
 | Concurrent in-flight host calls per execution         | 4                             |
-| HTTP request / streamed response body                 | 1 MiB / 10 MiB                |
+| HTTP request / streamed response body / call timeout  | 1 MiB / 10 MiB / 8 seconds    |
 | Log entry / count / total                             | 8 KiB / 500 / 256 KiB         |
 | Observability entry / count / total                   | 8 KiB / 500 / 256 KiB         |
 | Cache key / value / TTL                               | 256 bytes / 256 KiB / 30 days |
