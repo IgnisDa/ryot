@@ -13,16 +13,16 @@ export default function HomeScreen() {
 
 	if (!trackers.length) {
 		return (
-			<Box className="flex-1 bg-paper">
+			<Box className="flex-1 bg-background">
 				<SafeAreaView className="flex-1">
 					<Box className="flex-1 items-center justify-center px-[40]">
-						<Text className="text-[10px] tracking-[2px] text-ink-soft font-sans uppercase">
+						<Text className="text-[10px] tracking-[2px] text-muted-foreground font-sans uppercase">
 							Welcome
 						</Text>
-						<Text className="text-[32px] text-ink mt-2 leading-[36px] text-center tracking-[-0.5px] font-serif-italic">
+						<Text className="text-[32px] text-foreground mt-2 leading-[36px] text-center tracking-[-0.5px] font-heading-semibold">
 							{"Your journal\nis empty."}
 						</Text>
-						<Text className="text-[15px] mt-[18] leading-5.5 text-ink-soft font-serif text-center">
+						<Text className="text-[15px] mt-[18] leading-5.5 text-muted-foreground font-sans text-center">
 							Add your first tracker to start.{"\n"}Built-in: Media, Fitness. Or
 							build your own.
 						</Text>
@@ -44,9 +44,9 @@ export default function HomeScreen() {
 			eyebrow={`Today · ${today.format("DD MMM")}`}
 		>
 			<Box className="gap-[14] mt-[16]">
-				<Box className="h-[100] bg-paper-deep opacity-100" />
-				<Box className="h-[100] bg-paper-deep opacity-70" />
-				<Box className="h-[100] bg-paper-deep opacity-50" />
+				<Box className="h-[100] bg-stone-200 opacity-100" />
+				<Box className="h-[100] bg-stone-200 opacity-70" />
+				<Box className="h-[100] bg-stone-200 opacity-50" />
 			</Box>
 		</PageHeader>
 	);
