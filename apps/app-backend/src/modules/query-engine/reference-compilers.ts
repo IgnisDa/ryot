@@ -4,12 +4,7 @@ import { match } from "ts-pattern";
 import { event, eventSchema } from "~/lib/db/schema";
 import { QueryEngineValidationError } from "~/lib/views/errors";
 import { normalizeExpressionPropertyType } from "~/lib/views/expression-analysis";
-import type {
-	PropertyType,
-	QueryEngineEventJoinLike,
-	QueryEngineReferenceContext,
-	QueryEngineSchemaLike,
-} from "~/lib/views/reference";
+import type { PropertyType } from "~/lib/views/reference";
 import {
 	getEntityColumnPropertyType,
 	getEntitySchemaColumnPropertyType,
@@ -21,22 +16,22 @@ import {
 	getPropertyType,
 	getSchemaForReference,
 } from "~/lib/views/reference";
+import type { QueryEngineContext } from "./context";
 import {
 	buildCastedValueExpression,
 	buildPropertyPathExpression,
 	castExpressionToType,
 	type SqlExpression,
+	sanitizeIdentifier,
 } from "./sql-expression-helpers";
 
-export const buildEntityExpression = <
-	TSchema extends QueryEngineSchemaLike,
-	TJoin extends QueryEngineEventJoinLike,
->(input: {
+export const buildEntityExpression = (input: {
 	alias: string;
 	targetType?: PropertyType;
+	context: QueryEngineContext;
 	reference: Extract<RuntimeRef, { type: "entity" }>;
-	context: QueryEngineReferenceContext<TSchema, TJoin>;
 }) => {
+	const safeAlias = sanitizeIdentifier(input.alias, "table alias");
 	const schema = getSchemaForReference(
 		input.context.schemaMap,
 		input.reference,
@@ -53,7 +48,7 @@ export const buildEntityExpression = <
 		}
 
 		const propertiesCol = overrides?.properties ?? "properties";
-		const base = sql`${sql.raw(`${input.alias}.${propertiesCol}`)}`;
+		const base = sql`${sql.raw(`${safeAlias}.${propertiesCol}`)}`;
 		const valueExpression = buildCastedValueExpression(
 			input.targetType ?? normalizeExpressionPropertyType(propertyType),
 			{
@@ -69,7 +64,7 @@ export const buildEntityExpression = <
 			return valueExpression;
 		}
 
-		return sql`case when ${sql.raw(input.alias)}.entity_schema_data ->> ${"slug"} = ${input.reference.slug} then ${valueExpression} else null end`;
+		return sql`case when ${sql.raw(safeAlias)}.entity_schema_data ->> ${"slug"} = ${input.reference.slug} then ${valueExpression} else null end`;
 	}
 
 	const [column] = input.reference.path;
@@ -93,14 +88,14 @@ export const buildEntityExpression = <
 	})();
 
 	const expression = sqlCol
-		? sql`${sql.raw(`${input.alias}.${sqlCol}`)}`
+		? sql`${sql.raw(`${safeAlias}.${sqlCol}`)}`
 		: match(column)
-				.with("name", () => sql`${sql.raw(input.alias)}.name`)
-				.with("image", () => sql`${sql.raw(input.alias)}.image`)
-				.with("externalId", () => sql`${sql.raw(input.alias)}.external_id`)
+				.with("name", () => sql`${sql.raw(safeAlias)}.name`)
+				.with("image", () => sql`${sql.raw(safeAlias)}.image`)
+				.with("externalId", () => sql`${sql.raw(safeAlias)}.external_id`)
 				.with(
 					"sandboxScriptId",
-					() => sql`${sql.raw(input.alias)}.sandbox_script_id`,
+					() => sql`${sql.raw(safeAlias)}.sandbox_script_id`,
 				)
 				.otherwise(() => {
 					throw new QueryEngineValidationError(
@@ -134,19 +129,16 @@ export const buildEntityExpression = <
 		return valueExpression;
 	}
 
-	return sql`case when ${sql.raw(input.alias)}.entity_schema_data ->> ${"slug"} = ${input.reference.slug} then ${valueExpression} else null end`;
+	return sql`case when ${sql.raw(safeAlias)}.entity_schema_data ->> ${"slug"} = ${input.reference.slug} then ${valueExpression} else null end`;
 };
 
-export const buildEventJoinExpression = <
-	TSchema extends QueryEngineSchemaLike,
-	TJoin extends QueryEngineEventJoinLike,
->(input: {
+export const buildEventJoinExpression = (input: {
 	alias: string;
 	targetType?: PropertyType;
-	context: QueryEngineReferenceContext<TSchema, TJoin>;
+	context: QueryEngineContext;
 	reference: Extract<RuntimeRef, { type: "event-join" }>;
 }) => {
-	const joinColumn = sql`${sql.raw(`${input.alias}.event_join_${input.reference.joinKey}`)}`;
+	const joinColumn = sql`${sql.raw(`${sanitizeIdentifier(input.alias, "table alias")}.event_join_${input.reference.joinKey}`)}`;
 
 	if (input.reference.path[0] === "properties") {
 		const propertyPath = input.reference.path.slice(1);
@@ -221,7 +213,8 @@ export const buildEntitySchemaExpression = (input: {
 		);
 	}
 
-	const expression = sql`${sql.raw(input.alias)}.entity_schema_data ->> ${column}`;
+	const safeAlias = sanitizeIdentifier(input.alias, "table alias");
+	const expression = sql`${sql.raw(safeAlias)}.entity_schema_data ->> ${column}`;
 
 	return input.targetType
 		? castExpressionToType(expression, input.targetType)
@@ -231,13 +224,10 @@ export const buildEntitySchemaExpression = (input: {
 			);
 };
 
-export const buildEventAggregateExpression = <
-	TSchema extends QueryEngineSchemaLike,
-	TJoin extends QueryEngineEventJoinLike,
->(input: {
+export const buildEventAggregateExpression = (input: {
 	alias: string;
 	targetType?: PropertyType;
-	context: QueryEngineReferenceContext<TSchema, TJoin>;
+	context: QueryEngineContext;
 	reference: Extract<RuntimeRef, { type: "event-aggregate" }>;
 }) => {
 	const { userId } = input.context;
@@ -248,7 +238,8 @@ export const buildEventAggregateExpression = <
 	}
 
 	const { aggregation, eventSchemaSlug, path } = input.reference;
-	const entityIdExpr = sql`${sql.raw(input.alias)}.id`;
+	const safeAlias = sanitizeIdentifier(input.alias, "table alias");
+	const entityIdExpr = sql`${sql.raw(safeAlias)}.id`;
 	const actualType: PropertyType =
 		aggregation === "count" ? "integer" : "number";
 
@@ -292,20 +283,19 @@ export const buildEventAggregateExpression = <
 		: castExpressionToType(subquery, actualType);
 };
 
-export const buildEventExpression = <
-	TSchema extends QueryEngineSchemaLike,
-	TJoin extends QueryEngineEventJoinLike,
->(input: {
+export const buildEventExpression = (input: {
 	alias: string;
 	targetType?: PropertyType;
+	context: QueryEngineContext;
 	reference: Extract<RuntimeRef, { type: "event" }>;
-	context: QueryEngineReferenceContext<TSchema, TJoin>;
 }) => {
+	const safeAlias = sanitizeIdentifier(input.alias, "table alias");
+
 	if (input.reference.path[0] === "properties") {
 		const propertyPath = input.reference.path.slice(1);
 		const { eventSchemaSlug } = input.reference;
 
-		const base = sql`${sql.raw(input.alias)}.properties`;
+		const base = sql`${sql.raw(safeAlias)}.properties`;
 		const propertyType = (() => {
 			if (eventSchemaSlug && input.context.eventSchemaMap) {
 				const eventSchemas = input.context.eventSchemaMap.get(eventSchemaSlug);
@@ -330,7 +320,7 @@ export const buildEventExpression = <
 			return valueExpression;
 		}
 
-		return sql`case when ${sql.raw(input.alias)}.event_schema_data ->> ${"slug"} = ${eventSchemaSlug} then ${valueExpression} else null end`;
+		return sql`case when ${sql.raw(safeAlias)}.event_schema_data ->> ${"slug"} = ${eventSchemaSlug} then ${valueExpression} else null end`;
 	}
 
 	const [column] = input.reference.path;
@@ -348,9 +338,9 @@ export const buildEventExpression = <
 	}
 
 	const expression = match(column)
-		.with("id", () => sql`${sql.raw(input.alias)}.id`)
-		.with("createdAt", () => sql`${sql.raw(input.alias)}.created_at`)
-		.with("updatedAt", () => sql`${sql.raw(input.alias)}.updated_at`)
+		.with("id", () => sql`${sql.raw(safeAlias)}.id`)
+		.with("createdAt", () => sql`${sql.raw(safeAlias)}.created_at`)
+		.with("updatedAt", () => sql`${sql.raw(safeAlias)}.updated_at`)
 		.otherwise(() => {
 			throw new QueryEngineValidationError(
 				`Unsupported event column 'event.${column}'`,
@@ -390,7 +380,8 @@ export const buildEventSchemaExpression = (input: {
 		);
 	}
 
-	const expression = sql`${sql.raw(input.alias)}.event_schema_data ->> ${column}`;
+	const safeAlias = sanitizeIdentifier(input.alias, "table alias");
+	const expression = sql`${sql.raw(safeAlias)}.event_schema_data ->> ${column}`;
 
 	return input.targetType
 		? castExpressionToType(expression, input.targetType)

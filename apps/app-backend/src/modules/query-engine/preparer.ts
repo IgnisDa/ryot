@@ -47,9 +47,6 @@ export type SavedViewExecutionInput = {
 	pagination: EntityQueryEngineRequest["pagination"];
 };
 
-// Internal type used by prepareContext — covers all four modes so that
-// prepareAndExecute can drive it without going through SavedViewQueryDefinition
-// (which is entity-only for the public saved-view API).
 type PrepareContextInput = {
 	scope: string[];
 	eventSchemas: string[];
@@ -66,6 +63,41 @@ type PreparedQueryContext = {
 	schemaMap: Map<string, QueryEngineSchemaRow>;
 	eventJoinMap: Map<string, QueryEngineEventJoinLike>;
 	eventSchemaMap?: Map<string, QueryEngineEventSchemaLike[]>;
+};
+
+export const normalizeRequestPerMode = (
+	request: QueryEngineRequest,
+): PrepareContextInput => {
+	return match(request)
+		.with({ mode: "entities" }, (r) => ({
+			mode: r.mode,
+			scope: r.scope,
+			eventJoins: r.eventJoins,
+			eventSchemas: [] as string[],
+			relationships: r.relationships,
+		}))
+		.with({ mode: "aggregate" }, (r) => ({
+			mode: r.mode,
+			scope: r.scope,
+			eventJoins: r.eventJoins,
+			eventSchemas: [] as string[],
+			relationships: r.relationships,
+		}))
+		.with({ mode: "events" }, (r) => ({
+			mode: r.mode,
+			scope: r.scope,
+			eventJoins: r.eventJoins,
+			eventSchemas: r.eventSchemas,
+			relationships: [] as RelationshipFilter[],
+		}))
+		.with({ mode: "timeSeries" }, (r) => ({
+			mode: r.mode,
+			scope: r.scope,
+			eventSchemas: r.eventSchemas,
+			eventJoins: [] as EventJoinDefinition[],
+			relationships: [] as RelationshipFilter[],
+		}))
+		.exhaustive();
 };
 
 const buildPreparedFields = (input: {
@@ -214,36 +246,7 @@ export const prepareAndExecute = async (input: {
 	userId: string;
 	request: QueryEngineRequest;
 }): Promise<QueryEngineResponse> => {
-	const query: PrepareContextInput = match(input.request)
-		.with({ mode: "entities" }, (r) => ({
-			mode: r.mode,
-			scope: r.scope,
-			eventJoins: r.eventJoins,
-			eventSchemas: [] as string[],
-			relationships: r.relationships,
-		}))
-		.with({ mode: "aggregate" }, (r) => ({
-			mode: r.mode,
-			scope: r.scope,
-			eventJoins: r.eventJoins,
-			eventSchemas: [] as string[],
-			relationships: r.relationships,
-		}))
-		.with({ mode: "events" }, (r) => ({
-			mode: r.mode,
-			scope: r.scope,
-			eventJoins: r.eventJoins,
-			eventSchemas: r.eventSchemas,
-			relationships: [] as RelationshipFilter[],
-		}))
-		.with({ mode: "timeSeries" }, (r) => ({
-			mode: r.mode,
-			scope: r.scope,
-			eventSchemas: r.eventSchemas,
-			eventJoins: [] as EventJoinDefinition[],
-			relationships: [] as RelationshipFilter[],
-		}))
-		.exhaustive();
+	const query = normalizeRequestPerMode(input.request);
 
 	const context = await prepareContext({ userId: input.userId, query });
 	validateQueryEngineReferences(input.request, {
