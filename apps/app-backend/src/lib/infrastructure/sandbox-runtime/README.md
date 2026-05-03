@@ -85,18 +85,21 @@ Deno receives the import map and runs with `--cached-only`, `--no-npm`, `--no-re
 
 Host functions are bridge handlers exposed only when listed in the compiled module's manifest `capabilities`. The backend intersects those declarations with its implementation registry, and the runner intersects the approved names with the compiled definition's manifest before constructing the script host.
 
-| Scope                   | Functions                                                                                                                                                                                        |
-| ----------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| Runtime                 | `httpCall`, `log`, `span`                                                                                                                                                                        |
-| Script                  | `getPluginConfig`, `getSystemConfig`, `getCachedValue`, `setCachedValue`, `claimPersistentValue`                                                                                                 |
-| User                    | `changeUserRelationships`, `createEvents`, `ensureUserEntities`, `executeQueryEngine`, `getCurrentIntegration`, `getEntitySchemas`, `getUserPreferences`, `listEventSchemas`, `listIntegrations` |
-| Automation subscription | `emitSignal`, `sendNotification`                                                                                                                                                                 |
-| System cron / boot      | `upsertGlobalEntities`, `upsertGlobalRelationships`                                                                                                                                              |
+| Scope                   | Functions                                                                                                                                                                  |
+| ----------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Any non-workflow run    | `httpCall`, `log`, `span`, `getPluginConfig`, `getSystemConfig`, `getCachedValue`, `setCachedValue`, `claimPersistentValue`                                                |
+| User or subscription    | `changeUserRelationships`, `createEvents`, `executeQueryEngine`, `getCurrentIntegration`, `getEntitySchemas`, `getUserPreferences`, `listEventSchemas`, `listIntegrations` |
+| User only               | `ensureUserEntities`                                                                                                                                                       |
+| System activity         | `executeQueryEngine`                                                                                                                                                       |
+| System script           | `upsertGlobalEntities`, `upsertGlobalRelationships`                                                                                                                        |
+| Automation subscription | `emitSignal`, `sendNotification`                                                                                                                                           |
 
-Script-scoped functions use execution metadata such as `scriptId`. User-scoped functions require the executing user's `userId` and are unavailable for system executions. Entity and event data reads use `executeQueryEngine`; schema functions expose metadata only. `claimPersistentValue` atomically writes a persistent value only when the key does not already exist.
+Script-scoped functions use execution metadata such as `scriptId`. User-scoped functions require the executing user's `userId` and are unavailable for system executions, except `executeQueryEngine` for system activities. Entity and event data reads use `executeQueryEngine`; schema functions expose metadata only. `claimPersistentValue` atomically writes a persistent value only when the key does not already exist.
 
 `ensureUserEntities` is narrower than ordinary user scope: only a trusted boot-configured plugin's
 declared `userBootstrap` script receives it, and it may write only entity schemas owned by that plugin.
+The SDK capability requirement table is exhaustive; the backend uses it for host selection and
+runtime input narrowing. Provider scope and trusted bootstrap status remain kernel-side checks.
 
 Plugin scripts may read only their owning plugin's fields listed in `requiredPluginConfigKeys`.
 The runtime derives environment variable names from trusted script provenance and rejects normalized
@@ -106,7 +109,7 @@ name collisions when loading plugins. Explicitly exported kernel fields require 
 are coalesced, empty batches return empty records, and a batch fails when any requested key is not
 declared, readable, or configured.
 
-Automation functions require both a declared script capability and the server-only subscription-run marker. Other execution paths do not receive them even if stored metadata lists the capability. `sendNotification` additionally requires a user principal; system subscriptions cannot send notifications.
+Automation functions require both a declared script capability and the server-only subscription-run marker. Other execution paths do not receive them even if stored metadata lists the capability. `sendNotification` additionally requires the user principal carried by subscription executions.
 
 Cache keys are isolated per `(executing user, providerId)`. The dispatched `cacheNamespace` is the script's logical `providerId`, falling back to its `scriptId` only for a standalone script that belongs to no provider. Every script of one provider therefore shares that provider's cache, and executing the same script for two users produces disjoint entries even when both use the same script cache key; script ownership is not part of the cache key. `getCachedValue` and `setCachedValue` are refreshed after a backend restart, while `claimPersistentValue` remains persistent across restarts.
 
@@ -115,7 +118,7 @@ Cache keys are isolated per `(executing user, providerId)`. The dispatched `cach
 1. Define the script-facing schema and method in `@ryot/sandbox-sdk`.
 2. Implement app-bound context-first methods in `src/app/sandbox-host-functions.ts` or `src/app/automation-sandbox-host-functions.ts`; runtime-owned methods go in `runtime-host-functions.ts`.
 3. Decode its untrusted RPC argument array in `bridge-adapter.ts`; implementation functions must not accept unknown argument arrays.
-4. Use `requireUserSandboxRunInput(input, fnName)` for user-scoped functions.
+4. Use `requireSandboxCapabilityInput(input, capability)` for capability authorization.
 5. Add the function name to this section.
 
 ## Script Definitions
