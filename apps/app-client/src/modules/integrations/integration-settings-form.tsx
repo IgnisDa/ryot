@@ -1,7 +1,7 @@
 import type { ListedIntegrationProvider } from "@ryot/contract/modules/integrations/schemas";
 import { Text, View } from "react-native";
 
-import type { SchemaFileUpload } from "@/modules/ui/schema-form/file-upload";
+import type { SchemaFileUpload } from "@/modules/ui/schema-form/file/file-upload";
 import { SchemaForm, type SchemaFormApi } from "@/modules/ui/schema-form/schema-form";
 import type { SchemaFormMode } from "@/modules/ui/schema-form/schema-form-state";
 

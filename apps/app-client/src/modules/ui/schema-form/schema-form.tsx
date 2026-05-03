@@ -11,9 +11,9 @@ import { FormMessage, FormTextInput } from "@/modules/ui/form";
 import { AppSegmentedControl } from "@/modules/ui/segmented-control";
 import { AppSwitch } from "@/modules/ui/switch";
 
-import type { SchemaFileUpload } from "./file-upload";
-import { pickUploadFile } from "./pick-upload-file";
-import { SchemaFileField } from "./schema-file-field";
+import type { SchemaFileUpload } from "./file/file-upload";
+import { pickUploadFile } from "./file/pick-upload-file";
+import { SchemaFileField } from "./file/schema-file-field";
 import {
 	describeSchemaFormFields,
 	isRetainedSecretField,
@@ -27,11 +27,6 @@ import {
 } from "./schema-form-state";
 import { SchemaMultiSelect } from "./schema-multi-select";
 
-/**
- * Accepts several schemas so a form can render more than one of them against a single flat value
- * record. They stay separate rather than being merged because each carries its own `rules`, whose
- * paths are single-segment and only resolve within their own schema.
- */
 export function useSchemaForm(props: {
 	mode?: SchemaFormMode;
 	schemas: readonly (AppSchema | undefined)[];

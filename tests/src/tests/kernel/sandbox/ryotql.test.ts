@@ -1,4 +1,4 @@
-import { EntityId, EntitySchemaSlug, PluginSlug, UserId } from "@ryot/contract/schema/brands";
+import { EntityId, EntitySchemaSlug, PluginSlug } from "@ryot/contract/schema/brands";
 import { column, document, eq, field, literal, rows, table } from "@ryot/ryotql";
 import { Effect } from "effect";
 
@@ -8,6 +8,7 @@ import {
 	createEntity,
 	createEventTestFixture,
 	createPluginSchema,
+	deleteUserAndWait,
 	entityRowsSandboxSource,
 	enqueueSandboxScript,
 	eventRowsSandboxSource,
@@ -212,12 +213,7 @@ describe("sandbox RyotQL reads", () => {
 								)
 								.pipe(Effect.ignore);
 						}
-						yield* backend
-							.call(
-								(c) => c.godMode.deleteUser({ params: { userId: UserId.make(userId) } }),
-								adminHeaders,
-							)
-							.pipe(Effect.ignore);
+						yield* deleteUserAndWait(userId).pipe(Effect.ignore);
 						yield* uninstallTestPlugin(plugin).pipe(Effect.ignore);
 					}),
 			);

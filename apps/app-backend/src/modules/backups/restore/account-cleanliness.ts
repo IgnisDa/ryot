@@ -17,7 +17,7 @@ import { IntegrationsRepository } from "#modules/integrations/repository";
 import { NotificationsRepository } from "#modules/notifications/repository";
 import { RelationshipsRepository } from "#modules/relationships/repository";
 import { SavedViewsRepository } from "#modules/saved-views/repository";
-import { UploadsService } from "#modules/uploads/service";
+import { ManagedAssetsService } from "#modules/uploads/managed-assets/service";
 
 import { V1_BOOTSTRAP_SOURCE } from "../archive-v1/schemas";
 
@@ -162,7 +162,7 @@ export class BackupAccountCleanliness extends Context.Service<BackupAccountClean
 		make: Effect.gen(function* () {
 			const auth = yield* AuthRepository;
 			const events = yield* EventsRepository;
-			const uploads = yield* UploadsService;
+			const uploads = yield* ManagedAssetsService;
 			const entities = yield* EntitiesRepository;
 			const definitions = yield* DefinitionRegistry;
 			const savedViews = yield* SavedViewsRepository;

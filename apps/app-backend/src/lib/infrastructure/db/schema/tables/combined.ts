@@ -9,3 +9,4 @@ export * from "./translations";
 export * from "./uploads";
 export * from "./views";
 export * from "./auth";
+export * from "./user-lifecycle";

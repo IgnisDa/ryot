@@ -5,7 +5,7 @@ import type { BackupRunId, UserId } from "@ryot/contract/schema/brands";
 import { Context, DateTime, Effect, Layer, Result } from "effect";
 import { WorkflowEngine } from "effect/unstable/workflow/WorkflowEngine";
 
-import { UploadsService } from "#modules/uploads/service";
+import { ObjectStorageService } from "#modules/uploads/object-storage/service";
 
 import { ExportBackupWorkflow } from "./export/workflow";
 import { BackupAccountCleanliness } from "./restore/account-cleanliness";
@@ -24,7 +24,7 @@ export class BackupsService extends Context.Service<BackupsService>()("BackupsSe
 	make: Effect.gen(function* () {
 		const engine = yield* WorkflowEngine;
 		const cleanliness = yield* BackupAccountCleanliness;
-		const uploads = yield* UploadsService;
+		const uploads = yield* ObjectStorageService;
 		const repository = yield* BackupsRepository;
 
 		const assertAccountIsClean = (userId: UserId) => cleanliness.assertAccountIsClean(userId);
@@ -133,8 +133,8 @@ export class BackupsService extends Context.Service<BackupsService>()("BackupsSe
 			runId: BackupRunId,
 		) {
 			const run = yield* getRun(user, runId);
-			if (run.status === "running") {
-				return yield* conflict("Running backup runs cannot be deleted");
+			if (run.status === "pending" || run.status === "running") {
+				return yield* conflict("Pending or running backup runs cannot be deleted");
 			}
 			const artifact = yield* mapDbToInternal(
 				repository.getArtifactById({ runId, userId: user.id }),
@@ -147,8 +147,8 @@ export class BackupsService extends Context.Service<BackupsService>()("BackupsSe
 			const deleted = yield* mapDbToInternal(repository.deleteRunById({ runId, userId: user.id }));
 			if (!deleted) {
 				const current = yield* mapDbToInternal(repository.getRunById({ runId, userId: user.id }));
-				return yield* current?.status === "running"
-					? conflict("Running backup runs cannot be deleted")
+				return yield* current?.status === "pending" || current?.status === "running"
+					? conflict("Pending or running backup runs cannot be deleted")
 					: notFound("Backup run was not found");
 			}
 			return { id: deleted.id };

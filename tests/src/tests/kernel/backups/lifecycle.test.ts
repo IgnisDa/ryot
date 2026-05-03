@@ -1,17 +1,16 @@
 import { ManagedAssetLocator } from "@ryot/contract/modules/uploads/schemas";
-import { BackupRunId, UserId } from "@ryot/contract/schema/brands";
+import { BackupRunId } from "@ryot/contract/schema/brands";
 import { managedAssetItemSchema } from "@ryot/contract/schema/core";
 import { Effect, Schema } from "effect";
 
 import {
-	adminHeaders,
 	createAuthenticatedClient,
 	createEntity,
 	createEntitySchema,
 	createPluginScope,
+	deleteUserAndWait,
 	downloadBackupArchive,
 	exportAndDownloadBackup,
-	getBackendClient,
 	getEntity,
 	pollBackupRunUntilTerminal,
 	restoreBackup,
@@ -100,7 +99,7 @@ describe("backup lifecycle", () => {
 		}),
 	);
 
-	it.live("round-trips a schema-declared local managed asset into a clean account", () =>
+	it.live("round-trips a schema-declared managed asset into a clean account", () =>
 		Effect.gen(function* () {
 			const source = yield* createAuthenticatedClient();
 			const other = yield* createAuthenticatedClient();
@@ -128,7 +127,6 @@ describe("backup lifecycle", () => {
 				c.uploads.createIntent({
 					payload: {
 						kind: "permanent",
-						provider: "local",
 						contentType: "text/csv",
 						fileName: "backup-asset.csv",
 					},
@@ -145,8 +143,8 @@ describe("backup lifecycle", () => {
 			const sourceLocator = yield* source.client.call((c) =>
 				c.uploads.completeIntent({ params: { intentId: intent.intentId } }),
 			);
-			if (!("key" in sourceLocator) || sourceLocator.type !== "local") {
-				throw new Error("Expected a permanent local asset locator");
+			if (!("key" in sourceLocator)) {
+				throw new Error("Expected a permanent asset locator");
 			}
 
 			const title = `Backup asset entity ${crypto.randomUUID()}`;
@@ -168,10 +166,7 @@ describe("backup lifecycle", () => {
 			assertTaggedError(sourceOwnershipError, "BadRequest");
 
 			const { bytes: archive } = yield* exportAndDownloadBackup(source.client, source.cookies);
-			yield* getBackendClient().call(
-				(c) => c.godMode.deleteUser({ params: { userId: UserId.make(source.userId) } }),
-				adminHeaders,
-			);
+			yield* deleteUserAndWait(source.userId);
 
 			const target = yield* createAuthenticatedClient();
 			const restore = yield* restoreBackup(target.client, archive);
@@ -192,7 +187,7 @@ describe("backup lifecycle", () => {
 				title,
 				attachment: targetLocator,
 			});
-			expect(targetLocator.type).toBe("local");
+			expect(targetLocator.type).toBe("s3");
 			expect(targetLocator.key).not.toBe(sourceLocator.key);
 
 			const targetOwnershipError = yield* Effect.flip(

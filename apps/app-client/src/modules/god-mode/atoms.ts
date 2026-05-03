@@ -7,8 +7,11 @@ import { makeAdminApi, makeAdminQueryApi } from "@/api/admin-api";
 import { withAppQueryDefaults } from "@/api/client";
 import { normalizeServerOrigin } from "@/api/origin";
 import { adminRequestKey } from "@/api/request-key";
+import { runUserLifecycleOperation } from "@/modules/god-mode/user-lifecycle";
 
 export type GodModeUser = ContractSuccess<"godMode", "listUsers">["users"][number];
+export type GodModePasswordResetResult = ContractSuccess<"godMode", "resetUserPassword">;
+export type GodModeSetDisabledResult = ContractSuccess<"godMode", "setUserDisabled">;
 
 export type GodModeScope = {
 	readonly adminToken: string;
@@ -29,6 +32,42 @@ const createGodModeSession = (scope: GodModeScope) => {
 	const api = makeAdminApi(identity.serverUrl, scope.adminToken);
 	const queryApi = makeAdminQueryApi(identity.serverUrl, scope.adminToken);
 	const usersReactivityKey = [`god-mode-users:${key}`];
+	const deleteUser = Atom.family((userId: string) =>
+		api.runtime.fn(() =>
+			Effect.flatMap(api, (client) =>
+				Reactivity.mutation(
+					runUserLifecycleOperation({
+						poll: (operationId) =>
+							client.godMode.getUserLifecycleOperation({ params: { operationId } }),
+						start: client.godMode.deleteUser({ params: { userId: UserId.make(userId) } }),
+					}),
+					usersReactivityKey,
+				),
+			),
+		),
+	);
+	const resetUser = Atom.family((userId: string) =>
+		api.runtime.fn(() =>
+			Effect.flatMap(api, (client) =>
+				Reactivity.mutation(
+					runUserLifecycleOperation({
+						poll: (operationId) =>
+							client.godMode.getUserLifecycleOperation({ params: { operationId } }),
+						start: client.godMode.resetUser({ params: { userId: UserId.make(userId) } }),
+					}).pipe(
+						Effect.flatMap((operation) =>
+							operation.resetResult === null
+								? Effect.logWarning("completed god-mode reset had no reset result", operation).pipe(
+										Effect.andThen(Effect.fail(operation)),
+									)
+								: Effect.succeed(operation.resetResult),
+						),
+					),
+					usersReactivityKey,
+				),
+			),
+		),
+	);
 	const resetUserPassword = Atom.family((userId: string) =>
 		api.runtime.fn(() =>
 			Effect.flatMap(api, (client) =>
@@ -50,8 +89,10 @@ const createGodModeSession = (scope: GodModeScope) => {
 		),
 	);
 	return {
-		resetUserPassword,
+		resetUser,
+		deleteUser,
 		setUserDisabled,
+		resetUserPassword,
 		users: withAppQueryDefaults(
 			queryApi.query("godMode", "listUsers", {
 				query: { limit: 1000, offset: 0 },
@@ -81,6 +122,12 @@ export const clearGodModeSession = (scope: GodModeIdentity) => {
 };
 
 export const godModeUsersAtom = (scope: GodModeScope) => godModeSession(scope).users;
+
+export const deleteUserAtom = (request: GodModeScope & { readonly userId: string }) =>
+	godModeSession(request).deleteUser(request.userId);
+
+export const resetUserAtom = (request: GodModeScope & { readonly userId: string }) =>
+	godModeSession(request).resetUser(request.userId);
 
 export const resetUserPasswordAtom = (request: GodModeScope & { readonly userId: string }) =>
 	godModeSession(request).resetUserPassword(request.userId);
