@@ -1,4 +1,5 @@
 import { Badge, Box, Card, Text } from "@mantine/core";
+
 import { useThemeTokens } from "~/hooks/theme";
 
 export interface EntityCardProps {
@@ -11,12 +12,9 @@ export interface EntityCardProps {
 }
 
 export function EntityCard(props: EntityCardProps) {
-	const { isDark, surface, surfaceHover, border, textPrimary, textMuted } =
-		useThemeTokens();
+	const { isDark, surface, surfaceHover, border, textPrimary, textMuted } = useThemeTokens();
 	const borderAccent = "var(--mantine-color-accent-5)";
-	const textSecondary = isDark
-		? "var(--mantine-color-dark-3)"
-		: "var(--mantine-color-dark-5)";
+	const textSecondary = isDark ? "var(--mantine-color-dark-3)" : "var(--mantine-color-dark-5)";
 
 	const trackerColor = props.trackerColor ?? {
 		base: "#5B7FFF",
@@ -84,24 +82,14 @@ export function EntityCard(props: EntityCardProps) {
 				</Box>
 			)}
 			{!props.image && (
-				<Box
-					h={220}
-					bg={surfaceHover}
-					style={{ display: "grid", placeItems: "center" }}
-				>
+				<Box h={220} bg={surfaceHover} style={{ display: "grid", placeItems: "center" }}>
 					<Text c={textMuted} size="sm" fw={500}>
 						No image
 					</Text>
 				</Box>
 			)}
 			<Box p="lg">
-				<Text
-					mb={6}
-					fw={600}
-					size="md"
-					c={textPrimary}
-					ff="var(--mantine-headings-font-family)"
-				>
+				<Text mb={6} fw={600} size="md" c={textPrimary} ff="var(--mantine-headings-font-family)">
 					{props.name}
 				</Text>
 				<Badge

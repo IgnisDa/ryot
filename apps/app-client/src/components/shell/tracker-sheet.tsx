@@ -3,36 +3,24 @@ import { router } from "expo-router";
 import { ChevronDown, ChevronRight } from "lucide-react-native";
 import { useState } from "react";
 import { ScrollView } from "react-native";
-import Animated, {
-	FadeIn,
-	FadeOut,
-	SlideInDown,
-	SlideOutDown,
-} from "react-native-reanimated";
+import Animated, { FadeIn, FadeOut, SlideInDown, SlideOutDown } from "react-native-reanimated";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+
 import { Box } from "@/components/ui/box";
 import { Pressable } from "@/components/ui/pressable";
 import { Text } from "@/components/ui/text";
 import { useUser } from "@/lib/atoms";
 import { TrackerIcon } from "@/lib/icons";
 import type { NavigationItem, NavigationSubItem } from "@/lib/navigation";
-import {
-	navHref,
-	useActiveNav,
-	useNavigationData,
-	useSetNavSheetOpen,
-} from "@/lib/navigation";
+import { navHref, useActiveNav, useNavigationData, useSetNavSheetOpen } from "@/lib/navigation";
 
 export function TrackerSheet() {
 	const user = useUser();
 	const setOpen = useSetNavSheetOpen();
-	const { trackers, libraryViews, userItem, isLoading } = useNavigationData(
-		user?.name,
-	);
+	const { trackers, libraryViews, userItem, isLoading } = useNavigationData(user?.name);
 	const { isViewPath, activeTrackerSlug, activeSubItemSlug } = useActiveNav();
 	const [expandedId, setExpandedId] = useState<string | null>(
-		trackers.find((t) => t.slug === activeTrackerSlug && t.subItems.length > 0)
-			?.key ?? null,
+		trackers.find((t) => t.slug === activeTrackerSlug && t.subItems.length > 0)?.key ?? null,
 	);
 	const insets = useSafeAreaInsets();
 
@@ -138,17 +126,9 @@ export function TrackerSheet() {
 											{tracker.subItems.length > 0 ? (
 												<Box className="opacity-60 ml-2">
 													{isExpanded ? (
-														<ChevronDown
-															size={14}
-															color="#78716c"
-															strokeWidth={1.5}
-														/>
+														<ChevronDown size={14} color="#78716c" strokeWidth={1.5} />
 													) : (
-														<ChevronRight
-															size={14}
-															color="#78716c"
-															strokeWidth={1.5}
-														/>
+														<ChevronRight size={14} color="#78716c" strokeWidth={1.5} />
 													)}
 												</Box>
 											) : null}
@@ -157,8 +137,7 @@ export function TrackerSheet() {
 										{isExpanded && (
 											<Animated.View entering={FadeIn.duration(150)}>
 												{tracker.subItems.map((item) => {
-													const isSubActive =
-														isActive && item.slug === activeSubItemSlug;
+													const isSubActive = isActive && item.slug === activeSubItemSlug;
 													return (
 														<Pressable
 															key={item.key}
@@ -171,8 +150,7 @@ export function TrackerSheet() {
 																<Box
 																	className="absolute left-0 top-2 bottom-2 w-0.75"
 																	style={{
-																		backgroundColor:
-																			item.accentColor ?? undefined,
+																		backgroundColor: item.accentColor ?? undefined,
 																	}}
 																/>
 															)}
@@ -207,8 +185,7 @@ export function TrackerSheet() {
 										</Text>
 									</Box>
 									{libraryViews.map((view) => {
-										const isActive =
-											isViewPath && view.slug === activeSubItemSlug;
+										const isActive = isViewPath && view.slug === activeSubItemSlug;
 										return (
 											<Pressable
 												key={view.key}

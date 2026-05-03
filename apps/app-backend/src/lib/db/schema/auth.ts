@@ -1,14 +1,6 @@
 import { dayjs } from "@ryot/ts-utils";
 import { relations } from "drizzle-orm";
-import {
-	boolean,
-	index,
-	integer,
-	jsonb,
-	pgTable,
-	text,
-	timestamp,
-} from "drizzle-orm/pg-core";
+import { boolean, index, integer, jsonb, pgTable, text, timestamp } from "drizzle-orm/pg-core";
 
 export const user = pgTable("user", {
 	image: text(),

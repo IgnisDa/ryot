@@ -1,6 +1,8 @@
 import { useRef } from "react";
+
 import { useAppForm } from "~/hooks/forms";
 import { createNameFieldListeners } from "~/lib/slug-sync";
+
 import {
 	buildEntitySchemaFormValues,
 	type CreateEntitySchemaPayload,
@@ -13,9 +15,7 @@ type UseCreateEntitySchemaFormProps = {
 	onSubmit: (payload: CreateEntitySchemaPayload) => Promise<void>;
 };
 
-export function useCreateEntitySchemaForm(
-	props: UseCreateEntitySchemaFormProps,
-) {
+export function useCreateEntitySchemaForm(props: UseCreateEntitySchemaFormProps) {
 	const form = useAppForm({
 		defaultValues: buildEntitySchemaFormValues(),
 		validators: { onChange: createEntitySchemaFormSchema },
@@ -33,6 +33,4 @@ export function useCreateEntitySchemaForm(
 	});
 }
 
-export type CreateEntitySchemaForm = ReturnType<
-	typeof useCreateEntitySchemaForm
->;
+export type CreateEntitySchemaForm = ReturnType<typeof useCreateEntitySchemaForm>;

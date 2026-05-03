@@ -1,7 +1,4 @@
-import {
-	createQueryKeys,
-	mergeQueryKeys,
-} from "@lukemorales/query-key-factory";
+import { createQueryKeys, mergeQueryKeys } from "@lukemorales/query-key-factory";
 import {
 	type CollectionContentsInput,
 	type CollectionRecommendationsInput,
@@ -33,6 +30,7 @@ import {
 import { QueryClient, queryOptions, skipToken } from "@tanstack/react-query";
 import { GraphQLClient } from "graphql-request";
 import Cookies from "js-cookie";
+
 import { applicationBaseUrl, FRONTEND_AUTH_COOKIE_NAME } from "./constants";
 import { getMetadataDetails } from "./media-utils";
 
@@ -40,15 +38,12 @@ export const queryClient = new QueryClient({
 	defaultOptions: { queries: { placeholderData: (prev: unknown) => prev } },
 });
 
-export const clientGqlService = new GraphQLClient(
-	`${applicationBaseUrl}/backend/graphql`,
-	{
-		headers: () => {
-			const data = Cookies.get(FRONTEND_AUTH_COOKIE_NAME);
-			return { authorization: data ? `Bearer ${data}` : "" };
-		},
+export const clientGqlService = new GraphQLClient(`${applicationBaseUrl}/backend/graphql`, {
+	headers: () => {
+		const data = Cookies.get(FRONTEND_AUTH_COOKIE_NAME);
+		return { authorization: data ? `Bearer ${data}` : "" };
 	},
-);
+});
 
 const calendarQueryKeys = createQueryKeys("calendar", {
 	userCalendarEvents: (input: UserCalendarEventInput) => ({
@@ -246,8 +241,7 @@ export const getMetadataGroupDetailsQuery = (metadataGroupId?: string) =>
 
 export const getUserMetadataGroupDetailsQuery = (metadataGroupId?: string) =>
 	queryOptions({
-		queryKey:
-			queryFactory.media.userMetadataGroupDetails(metadataGroupId).queryKey,
+		queryKey: queryFactory.media.userMetadataGroupDetails(metadataGroupId).queryKey,
 		queryFn: metadataGroupId
 			? () =>
 					clientGqlService
@@ -256,10 +250,7 @@ export const getUserMetadataGroupDetailsQuery = (metadataGroupId?: string) =>
 			: skipToken,
 	});
 
-export const getUserEntityRecentlyConsumedQuery = (
-	entityId?: string,
-	entityLot?: EntityLot,
-) =>
+export const getUserEntityRecentlyConsumedQuery = (entityId?: string, entityLot?: EntityLot) =>
 	queryOptions({
 		queryKey: queryFactory.media.userEntityRecentlyConsumed(entityId).queryKey,
 		queryFn:

@@ -1,4 +1,5 @@
 import { useAppForm } from "~/hooks/forms";
+
 import type { AppEventSchema } from "../event-schemas/model";
 import {
 	buildCreateEventFormSchema,
@@ -20,9 +21,7 @@ export function useCreateEventForm(props: UseCreateEventFormProps) {
 			onChange: buildCreateEventFormSchema(props.eventSchemas),
 		},
 		onSubmit: async ({ value }) => {
-			await props.onSubmit(
-				toCreateEventPayload(value, props.entityId, props.eventSchemas),
-			);
+			await props.onSubmit(toCreateEventPayload(value, props.entityId, props.eventSchemas));
 		},
 	});
 

@@ -2,6 +2,7 @@ import { apiKey } from "@better-auth/api-key";
 import { redisStorage } from "@better-auth/redis-storage";
 import { betterAuth } from "better-auth";
 import { drizzleAdapter } from "better-auth/adapters/drizzle";
+
 import { config, IS_DEVELOPMENT } from "~/lib/config";
 import { db, schema } from "~/lib/db";
 import { redis } from "~/lib/redis";

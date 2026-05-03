@@ -40,6 +40,7 @@ import { $path } from "safe-routes";
 import invariant from "tiny-invariant";
 import { match } from "ts-pattern";
 import { useInterval, useMediaQuery } from "usehooks-ts";
+
 import {
 	clientGqlService,
 	getMetadataDetailsQuery,
@@ -65,11 +66,8 @@ import {
 } from "~/lib/state/fitness";
 import type { FitnessAction } from "~/lib/types";
 import type { loader as dashboardLoader } from "~/routes/_dashboard";
-import {
-	createDeployMediaEntityJob,
-	useEntityUpdateMonitor,
-	useTranslationValue,
-} from "./polling";
+
+import { createDeployMediaEntityJob, useEntityUpdateMonitor, useTranslationValue } from "./polling";
 
 export const useGetMantineColors = () => {
 	const theme = useMantineTheme();
@@ -100,8 +98,7 @@ export const useConfirmSubmit = () => {
 };
 
 export const useDashboardLayoutData = () => {
-	const loaderData =
-		useRouteLoaderData<typeof dashboardLoader>("routes/_dashboard");
+	const loaderData = useRouteLoaderData<typeof dashboardLoader>("routes/_dashboard");
 	invariant(loaderData);
 	return loaderData;
 };
@@ -109,8 +106,7 @@ export const useDashboardLayoutData = () => {
 export const useUserPreferences = () => useUserDetails().preferences;
 export const useCoreDetails = () => useDashboardLayoutData().coreDetails;
 export const useUserDetails = () => useDashboardLayoutData().userDetails;
-export const useCurrentColorSchema = () =>
-	useDashboardLayoutData().currentColorScheme;
+export const useCurrentColorSchema = () => useDashboardLayoutData().currentColorScheme;
 
 export const useGetWorkoutStarter = () => {
 	const navigate = useNavigate();
@@ -127,10 +123,7 @@ export const useGetWorkoutStarter = () => {
 	return fn;
 };
 
-export const useUserMetadataDetails = (
-	metadataId?: string,
-	enabled?: boolean,
-) => {
+export const useUserMetadataDetails = (metadataId?: string, enabled?: boolean) => {
 	return useQuery({ ...getUserMetadataDetailsQuery(metadataId), enabled });
 };
 
@@ -145,20 +138,14 @@ export const useExerciseDetails = (exerciseId?: string, enabled?: boolean) => {
 	});
 };
 
-export const useUserExerciseDetails = (
-	exerciseId?: string,
-	enabled?: boolean,
-) => {
+export const useUserExerciseDetails = (exerciseId?: string, enabled?: boolean) => {
 	return useQuery({
 		...getUserExerciseDetailsQuery(exerciseId || ""),
 		enabled,
 	});
 };
 
-export const useUserWorkoutDetails = (
-	workoutId?: string | null,
-	enabled?: boolean,
-) => {
+export const useUserWorkoutDetails = (workoutId?: string | null, enabled?: boolean) => {
 	return useQuery({
 		...getWorkoutDetailsQuery(workoutId || ""),
 		enabled,
@@ -250,10 +237,7 @@ export const usePersonTranslationValue = (props: {
 	});
 };
 
-export const useMetadataGroupDetails = (
-	metadataGroupId?: string,
-	enabled?: boolean,
-) => {
+export const useMetadataGroupDetails = (metadataGroupId?: string, enabled?: boolean) => {
 	const query = useQuery({
 		...getMetadataGroupDetailsQuery(metadataGroupId),
 		enabled,
@@ -263,10 +247,7 @@ export const useMetadataGroupDetails = (
 		entityId: metadataGroupId,
 		onUpdate: () => query.refetch(),
 		entityLot: EntityLot.MetadataGroup,
-		deployJob: createDeployMediaEntityJob(
-			metadataGroupId,
-			EntityLot.MetadataGroup,
-		),
+		deployJob: createDeployMediaEntityJob(metadataGroupId, EntityLot.MetadataGroup),
 		needsRefetch:
 			enabled !== false &&
 			query.data?.details.isPartial &&
@@ -295,10 +276,7 @@ export const useMetadataGroupTranslationValue = (props: {
 	});
 };
 
-export const useUserMetadataGroupDetails = (
-	metadataGroupId?: string,
-	enabled?: boolean,
-) => {
+export const useUserMetadataGroupDetails = (metadataGroupId?: string, enabled?: boolean) => {
 	return useQuery({
 		...getUserMetadataGroupDetailsQuery(metadataGroupId),
 		enabled,
@@ -317,10 +295,7 @@ export const useUserEntityRecentlyConsumed = (
 	});
 };
 
-export const useUserPeopleList = (
-	input: UserPeopleListInput,
-	enabled?: boolean,
-) =>
+export const useUserPeopleList = (input: UserPeopleListInput, enabled?: boolean) =>
 	useQuery({
 		enabled,
 		queryKey: queryFactory.media.userPeopleList(input).queryKey,
@@ -330,10 +305,7 @@ export const useUserPeopleList = (
 				.then((data) => data.userPeopleList),
 	});
 
-export const useUserMetadataList = (
-	input: UserMetadataListInput,
-	enabled?: boolean,
-) =>
+export const useUserMetadataList = (input: UserMetadataListInput, enabled?: boolean) =>
 	useQuery({
 		enabled,
 		queryKey: queryFactory.media.userMetadataList(input).queryKey,
@@ -343,10 +315,7 @@ export const useUserMetadataList = (
 				.then((data) => data.userMetadataList),
 	});
 
-export const useUserMetadataGroupList = (
-	input: UserMetadataGroupsListInput,
-	enabled?: boolean,
-) =>
+export const useUserMetadataGroupList = (input: UserMetadataGroupsListInput, enabled?: boolean) =>
 	useQuery({
 		enabled,
 		queryKey: queryFactory.media.userMetadataGroupsList(input).queryKey,
@@ -373,14 +342,13 @@ export const useNonHiddenUserCollections = () => {
 	const userDetails = useUserDetails();
 	const toDisplay = userCollections.filter(
 		(c) =>
-			c.collaborators.find((c) => c.collaborator.id === userDetails.id)
-				?.extraInformation?.isHidden !== true,
+			c.collaborators.find((c) => c.collaborator.id === userDetails.id)?.extraInformation
+				?.isHidden !== true,
 	);
 	return toDisplay;
 };
 
-export const useUserUnitSystem = () =>
-	useUserPreferences().fitness.exercises.unitSystem;
+export const useUserUnitSystem = () => useUserPreferences().fitness.exercises.unitSystem;
 
 export const useApplicationEvents = () => {
 	const { version, isServerKeyValidated: isPro } = useCoreDetails();
@@ -441,8 +409,7 @@ export const useGetWatchProviders = (mediaLot?: MediaLot) => {
 	const userPreferences = useUserPreferences();
 	if (!mediaLot) return [];
 	const watchProviders =
-		userPreferences.general.watchProviders.find((l) => l.lot === mediaLot)
-			?.values || [];
+		userPreferences.general.watchProviders.find((l) => l.lot === mediaLot)?.values || [];
 	return watchProviders;
 };
 
@@ -467,10 +434,9 @@ export const useDeployBulkMetadataProgressUpdateMutation = (title?: string) => {
 
 	const mutation = useMutation({
 		mutationFn: async (input: MetadataProgressUpdateInput[]) => {
-			const resp = await clientGqlService.request(
-				DeployBulkMetadataProgressUpdateDocument,
-				{ input },
-			);
+			const resp = await clientGqlService.request(DeployBulkMetadataProgressUpdateDocument, {
+				input,
+			});
 			return [resp, input.map((i) => i.metadataId)] as const;
 		},
 		onSuccess: (data) => {
@@ -507,10 +473,7 @@ export const useAddEntitiesToCollectionMutation = () => {
 export const useRemoveEntitiesFromCollectionMutation = () => {
 	const mutation = useMutation({
 		mutationFn: async (input: ChangeCollectionToEntitiesInput) => {
-			await clientGqlService.request(
-				DeployRemoveEntitiesFromCollectionJobDocument,
-				{ input },
-			);
+			await clientGqlService.request(DeployRemoveEntitiesFromCollectionJobDocument, { input });
 			return input;
 		},
 		onSettled: (d) => {
@@ -530,18 +493,14 @@ export const useExpireCacheKeyMutation = () =>
 export const useDeleteS3AssetMutation = () =>
 	useMutation({
 		mutationFn: (key: string) =>
-			clientGqlService
-				.request(DeleteS3ObjectDocument, { key })
-				.then((g) => g.deleteS3Object),
+			clientGqlService.request(DeleteS3ObjectDocument, { key }).then((g) => g.deleteS3Object),
 	});
 
 export const useUsersList = (query?: string) =>
 	useQuery({
 		queryKey: queryFactory.miscellaneous.usersList(query).queryKey,
 		queryFn: () =>
-			clientGqlService
-				.request(UsersListDocument, { query })
-				.then((data) => data.usersList),
+			clientGqlService.request(UsersListDocument, { query }).then((data) => data.usersList),
 	});
 
 export const useFormValidation = (dependency?: unknown) => {
@@ -596,24 +555,12 @@ export const useMarkUserOnboardingTourStatus = () => {
 	return markUserOnboardingTourAsCompleted;
 };
 
-export const useEntityAlreadyInCollections = (
-	entityId?: string,
-	entityLot?: EntityLot,
-) => {
+export const useEntityAlreadyInCollections = (entityId?: string, entityLot?: EntityLot) => {
 	const userCollections = useUserCollections();
 
-	const userMetadataDetails = useUserMetadataDetails(
-		entityId,
-		entityLot === EntityLot.Metadata,
-	);
-	const userExerciseDetails = useUserExerciseDetails(
-		entityId,
-		entityLot === EntityLot.Exercise,
-	);
-	const userWorkoutDetails = useUserWorkoutDetails(
-		entityId,
-		entityLot === EntityLot.Workout,
-	);
+	const userMetadataDetails = useUserMetadataDetails(entityId, entityLot === EntityLot.Metadata);
+	const userExerciseDetails = useUserExerciseDetails(entityId, entityLot === EntityLot.Exercise);
+	const userWorkoutDetails = useUserWorkoutDetails(entityId, entityLot === EntityLot.Workout);
 	const userWorkoutTemplateDetails = useUserWorkoutTemplateDetails(
 		entityId,
 		entityLot === EntityLot.WorkoutTemplate,
@@ -622,37 +569,26 @@ export const useEntityAlreadyInCollections = (
 		entityId,
 		entityLot === EntityLot.MetadataGroup,
 	);
-	const userPersonDetails = useUserPersonDetails(
-		entityId,
-		entityLot === EntityLot.Person,
-	);
+	const userPersonDetails = useUserPersonDetails(entityId, entityLot === EntityLot.Person);
 
 	const alreadyInCollectionIds = useMemo(() => {
 		if (!entityId) return undefined;
 
 		return match(entityLot)
 			.with(EntityLot.Exercise, () =>
-				userExerciseDetails.data?.collections.map(
-					(c) => c.details.collectionId,
-				),
+				userExerciseDetails.data?.collections.map((c) => c.details.collectionId),
 			)
 			.with(EntityLot.Workout, () =>
 				userWorkoutDetails.data?.collections.map((c) => c.details.collectionId),
 			)
 			.with(EntityLot.WorkoutTemplate, () =>
-				userWorkoutTemplateDetails.data?.collections.map(
-					(c) => c.details.collectionId,
-				),
+				userWorkoutTemplateDetails.data?.collections.map((c) => c.details.collectionId),
 			)
 			.with(EntityLot.Metadata, () =>
-				userMetadataDetails.data?.collections.map(
-					(c) => c.details.collectionId,
-				),
+				userMetadataDetails.data?.collections.map((c) => c.details.collectionId),
 			)
 			.with(EntityLot.MetadataGroup, () =>
-				userMetadataGroupDetails.data?.collections.map(
-					(c) => c.details.collectionId,
-				),
+				userMetadataGroupDetails.data?.collections.map((c) => c.details.collectionId),
 			)
 			.with(EntityLot.Person, () =>
 				userPersonDetails.data?.collections.map((c) => c.details.collectionId),

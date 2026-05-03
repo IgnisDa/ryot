@@ -8,11 +8,9 @@ import type {
 	AppSchemaRuleValue,
 	AppSchemaUnknownKeysPolicy,
 } from "@ryot/ts-utils";
-import {
-	appPropertyPrimitiveTypes,
-	getAppPropertyDefinitionAtPath,
-} from "@ryot/ts-utils";
+import { appPropertyPrimitiveTypes, getAppPropertyDefinitionAtPath } from "@ryot/ts-utils";
 import { match } from "ts-pattern";
+
 import { getComparablePropertyType } from "~/lib/views/policy";
 
 const propertySchemaMessage = "Properties must contain at least one property";
@@ -99,25 +97,18 @@ const numberValidationSchema = withValidationRange(
 		})
 		.refine(
 			(value) => {
-				if (
-					value.minimum !== undefined &&
-					value.exclusiveMinimum !== undefined
-				) {
+				if (value.minimum !== undefined && value.exclusiveMinimum !== undefined) {
 					return false;
 				}
 
-				if (
-					value.maximum !== undefined &&
-					value.exclusiveMaximum !== undefined
-				) {
+				if (value.maximum !== undefined && value.exclusiveMaximum !== undefined) {
 					return false;
 				}
 
 				return true;
 			},
 			{
-				message:
-					"Use either minimum or exclusiveMinimum, and either maximum or exclusiveMaximum",
+				message: "Use either minimum or exclusiveMinimum, and either maximum or exclusiveMaximum",
 			},
 		)
 		.refine(hasValidNumericBounds, {
@@ -163,10 +154,7 @@ const numberTransformSchema = z
 	.strictObject({ round: roundTransformSchema.optional() })
 	.openapi("AppNumberPropertyTransform");
 
-const rulePathSchema = z
-	.array(z.string().trim().min(1))
-	.min(1)
-	.openapi("AppSchemaRulePath");
+const rulePathSchema = z.array(z.string().trim().min(1)).min(1).openapi("AppSchemaRulePath");
 
 const ruleValueSchema: z.ZodType<AppSchemaRuleValue> = z
 	.union([z.boolean(), z.null(), z.number().finite(), z.string()])
@@ -292,9 +280,7 @@ propertyDefinitionSchema = z
 			enumArrayPropertySchema,
 		]),
 	)
-	.openapi(
-		"AppPropertyDefinition",
-	) as unknown as z.ZodType<AppPropertyDefinition>;
+	.openapi("AppPropertyDefinition") as unknown as z.ZodType<AppPropertyDefinition>;
 
 const ruleConditionPropertySchema = z
 	.strictObject({
@@ -361,9 +347,7 @@ appSchemaRuleConditionSchema = z
 			}),
 		]),
 	)
-	.openapi(
-		"AppSchemaRuleCondition",
-	) as unknown as z.ZodType<AppSchemaRuleCondition>;
+	.openapi("AppSchemaRuleCondition") as unknown as z.ZodType<AppSchemaRuleCondition>;
 
 const appSchemaRuleSchema = z
 	.strictObject({
@@ -380,10 +364,7 @@ const fieldsSchema = z.record(z.string(), propertyDefinitionSchema);
 const createNonEmptyFieldsSchema = (message: string) =>
 	fieldsSchema.refine((value) => Object.keys(value).length > 0, { message });
 
-const isCompatibleRuleValue = (
-	type: AppPropertyPrimitiveType,
-	value: AppSchemaRuleValue,
-) => {
+const isCompatibleRuleValue = (type: AppPropertyPrimitiveType, value: AppSchemaRuleValue) => {
 	return match(type)
 		.with("boolean", () => typeof value === "boolean")
 		.with("date", "datetime", "string", () => typeof value === "string")
@@ -401,11 +382,7 @@ const validateRuleCondition = (
 	match(condition)
 		.with({ operator: "all" }, { operator: "any" }, (cond) => {
 			for (const [index, value] of cond.conditions.entries()) {
-				validateRuleCondition(fields, value, ctx, [
-					...path,
-					"conditions",
-					index,
-				]);
+				validateRuleCondition(fields, value, ctx, [...path, "conditions", index]);
 			}
 		})
 		.otherwise((cond) => {
@@ -459,11 +436,7 @@ const validateRulePaths = (schema: AppSchema, ctx: z.RefinementCtx) => {
 			continue;
 		}
 
-		validateRuleCondition(schema.fields, rule.when, ctx, [
-			"rules",
-			index,
-			"when",
-		]);
+		validateRuleCondition(schema.fields, rule.when, ctx, ["rules", index, "when"]);
 	}
 };
 
@@ -489,8 +462,6 @@ export const createLabeledPropertySchemas = (label: string) => {
 export const propertySchemaObjectSchema: z.ZodType<AppSchema> =
 	createPropertySchemaObjectSchema().openapi("AppSchema");
 
-export const propertySchemaInputSchema = createPropertySchemaInputSchema(
-	propertySchemaMessage,
-);
+export const propertySchemaInputSchema = createPropertySchemaInputSchema(propertySchemaMessage);
 
 export const propertySchemaTypes = appPropertyPrimitiveTypes;

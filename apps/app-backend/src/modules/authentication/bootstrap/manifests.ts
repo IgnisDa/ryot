@@ -1,12 +1,10 @@
 import type { AppSchema } from "@ryot/ts-utils";
 import { normalizeSlug } from "@ryot/ts-utils";
 import { match } from "ts-pattern";
+
 import { exercisePropertiesJsonSchema } from "~/lib/fitness/exercise";
 import { measurementPropertiesJsonSchema } from "~/lib/fitness/measurement";
-import {
-	workoutPropertiesJsonSchema,
-	workoutSetPropertiesJsonSchema,
-} from "~/lib/fitness/workout";
+import { workoutPropertiesJsonSchema, workoutSetPropertiesJsonSchema } from "~/lib/fitness/workout";
 import { animePropertiesJsonSchema } from "~/lib/media/anime";
 import { audiobookPropertiesJsonSchema } from "~/lib/media/audiobook";
 import { bookPropertiesJsonSchema } from "~/lib/media/book";
@@ -59,9 +57,7 @@ const progressPercentPropertiesSchema = () => ({
 	},
 });
 
-const progressPropertiesSchemaByEntity = (
-	entitySchemaSlug: string | undefined,
-): AppSchema =>
+const progressPropertiesSchemaByEntity = (entitySchemaSlug: string | undefined): AppSchema =>
 	match(entitySchemaSlug)
 		.with("show", () => ({
 			fields: {
@@ -213,9 +209,7 @@ export const authenticationBuiltinEntitySchemas = () => [
 		trackerSlug: "media",
 		accentColor: "#4B5563",
 		propertiesSchema: personPropertiesJsonSchema,
-		eventSchemas: mediaLifecycleEventSchemas("person").filter(
-			(schema) => schema.slug === "review",
-		),
+		eventSchemas: mediaLifecycleEventSchemas("person").filter((schema) => schema.slug === "review"),
 	},
 	{
 		slug: "book",
@@ -462,8 +456,7 @@ export const authenticationBuiltinRelationshipSchemas = () => [
 			fields: {
 				roles: {
 					label: "Roles",
-					description:
-						"Roles this person filled in this production (e.g. Director, Actor, Writer)",
+					description: "Roles this person filled in this production (e.g. Director, Actor, Writer)",
 					type: "array" as const,
 					items: {
 						label: "Role",

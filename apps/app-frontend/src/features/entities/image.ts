@@ -1,4 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
+
 import type { AppEntity, AppEntityImage } from "~/features/entities/model";
 import { useApiClient } from "~/hooks/api";
 
@@ -57,9 +58,7 @@ export function useResolvedImageUrls(imageEntries: ImageEntry[]) {
 }
 
 export function useResolvedEntityImageUrls(entities: AppEntity[]) {
-	return useResolvedImageUrls(
-		entities.map((entity) => ({ id: entity.id, image: entity.image })),
-	);
+	return useResolvedImageUrls(entities.map((entity) => ({ id: entity.id, image: entity.image })));
 }
 
 export function useResolvedEntityImageUrl(entity: AppEntity | undefined) {

@@ -1,7 +1,9 @@
 import { z } from "@hono/zod-openapi";
 import type { RuntimeRef } from "@ryot/ts-utils";
+
 import { createNullableOpenApiRefSchema } from "~/lib/openapi";
 import { nonEmptyTrimmedStringSchema } from "~/lib/zod";
+
 import type { ViewPredicate } from "./filtering";
 import { viewPredicateSchema } from "./filtering";
 
@@ -86,8 +88,7 @@ export const viewComputedFieldSchema = z
 export const computedFieldArraySchema = z
 	.array(viewComputedFieldSchema)
 	.refine(
-		(fields) =>
-			new Set(fields.map((field) => field.key)).size === fields.length,
+		(fields) => new Set(fields.map((field) => field.key)).size === fields.length,
 		"Computed field keys must be unique",
 	)
 	.optional();
@@ -99,11 +100,7 @@ const isJsonValue = (value: unknown): value is JsonValue => {
 		return true;
 	}
 
-	if (
-		typeof value === "string" ||
-		typeof value === "number" ||
-		typeof value === "boolean"
-	) {
+	if (typeof value === "string" || typeof value === "number" || typeof value === "boolean") {
 		return true;
 	}
 

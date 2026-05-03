@@ -1,5 +1,7 @@
 import { describe, expect, it } from "bun:test";
+
 import { createAppCollectionFixture } from "~/features/test-fixtures";
+
 import {
 	defaultSearchResultRowActionState,
 	type SearchResultRowActionState,
@@ -20,9 +22,7 @@ describe("search-modal collection panel submission", () => {
 				}),
 			];
 
-			const selectedCollection = collections.find(
-				(c) => c.id === selectedCollectionId,
-			);
+			const selectedCollection = collections.find((c) => c.id === selectedCollectionId);
 			const resolvedName = selectedCollection?.name ?? "collection";
 
 			const message = `${itemName} was added to ${resolvedName}.`;

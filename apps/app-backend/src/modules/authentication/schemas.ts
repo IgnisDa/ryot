@@ -1,4 +1,5 @@
 import { z } from "@hono/zod-openapi";
+
 import { dataSchema } from "~/lib/openapi";
 
 const userProviderLanguagePreferencesSchema = z.object({
@@ -33,6 +34,4 @@ export const signUpBody = z.object({
 	password: z.string().min(8),
 });
 
-export const signUpResponseSchema = dataSchema(
-	z.object({ created: z.literal(true) }),
-);
+export const signUpResponseSchema = dataSchema(z.object({ created: z.literal(true) }));

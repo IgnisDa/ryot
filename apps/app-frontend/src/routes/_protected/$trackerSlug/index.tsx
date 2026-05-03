@@ -13,22 +13,17 @@ import {
 } from "@mantine/core";
 import { createFileRoute } from "@tanstack/react-router";
 import { useCallback, useState } from "react";
+
 import type { CreateEntityPayload } from "~/features/entities/form";
 import { useEntityMutations } from "~/features/entities/hooks";
 import type { AppEntity } from "~/features/entities/model";
 import { CreateEntityModal } from "~/features/entities/section";
 import { EntitySchemaCreateModal } from "~/features/entity-schemas/create-modal";
 import type { CreateEntitySchemaPayload } from "~/features/entity-schemas/form";
-import {
-	useEntitySchemaMutations,
-	useEntitySchemasQuery,
-} from "~/features/entity-schemas/hooks";
+import { useEntitySchemaMutations, useEntitySchemasQuery } from "~/features/entity-schemas/hooks";
 import { getTrackerEntitySchemaViewState } from "~/features/entity-schemas/model";
 import type { CreateEventSchemaPayload } from "~/features/event-schemas/form";
-import {
-	useEventSchemaMutations,
-	useEventSchemasQuery,
-} from "~/features/event-schemas/hooks";
+import { useEventSchemaMutations, useEventSchemasQuery } from "~/features/event-schemas/hooks";
 import { CreateEventSchemaModal } from "~/features/event-schemas/section";
 import type { CreateEventPayload } from "~/features/events/form";
 import { useEventMutations } from "~/features/events/hooks";
@@ -76,9 +71,7 @@ type TrackerModalState =
 
 function TrackerSchemaSection(props: { tracker: AppTracker }) {
 	const [openedModal, setOpenedModal] = useState<TrackerModalState>(null);
-	const [createErrorMessage, setCreateErrorMessage] = useState<string | null>(
-		null,
-	);
+	const [createErrorMessage, setCreateErrorMessage] = useState<string | null>(null);
 
 	const entitySchemaMutations = useEntitySchemaMutations(props.tracker.id);
 	const entitySchemasQuery = useEntitySchemasQuery(props.tracker.id, true);
@@ -86,15 +79,10 @@ function TrackerSchemaSection(props: { tracker: AppTracker }) {
 	const primaryEntitySchema = entitySchemasQuery.entitySchemas[0];
 	const selectedEntitySchema =
 		openedModal?.type === "entity" || openedModal?.type === "event-schema"
-			? entitySchemasQuery.entitySchemas.find(
-					(schema) => schema.id === openedModal.entitySchemaId,
-				)
+			? entitySchemasQuery.entitySchemas.find((schema) => schema.id === openedModal.entitySchemaId)
 			: undefined;
-	const selectedEntity =
-		openedModal?.type === "event" ? openedModal.entity : undefined;
-	const eventSchemaMutations = useEventSchemaMutations(
-		selectedEntitySchema?.id ?? "",
-	);
+	const selectedEntity = openedModal?.type === "event" ? openedModal.entity : undefined;
+	const eventSchemaMutations = useEventSchemaMutations(selectedEntitySchema?.id ?? "");
 	const entityMutations = useEntityMutations(selectedEntitySchema?.slug ?? "");
 	const eventMutations = useEventMutations(selectedEntity?.id ?? "");
 	const selectedEventSchemasQuery = useEventSchemasQuery(
@@ -232,11 +220,7 @@ function TrackerSchemaSection(props: { tracker: AppTracker }) {
 						We couldn't load the schemas for this tracker. Please try again.
 					</Text>
 					<Group>
-						<Button
-							size="xs"
-							variant="light"
-							onClick={() => entitySchemasQuery.refetch()}
-						>
+						<Button size="xs" variant="light" onClick={() => entitySchemasQuery.refetch()}>
 							Retry
 						</Button>
 					</Group>

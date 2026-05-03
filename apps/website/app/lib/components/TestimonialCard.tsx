@@ -1,4 +1,5 @@
 import { Card, CardContent } from "~/lib/components/ui/card";
+
 import { StarRating } from "./StarRating";
 
 export interface Testimonial {
@@ -23,15 +24,11 @@ export function TestimonialCard(props: TestimonialCardProps) {
 				<p className="text-foreground mb-4">{props.testimonial.quote}</p>
 				<div className="flex items-center">
 					<div className="w-10 h-10 bg-primary/20 rounded-full flex items-center justify-center mr-3">
-						<span className="text-primary font-semibold">
-							{props.testimonial.initials}
-						</span>
+						<span className="text-primary font-semibold">{props.testimonial.initials}</span>
 					</div>
 					<div>
 						<p className="font-medium">{props.testimonial.name}</p>
-						<p className="text-sm text-muted-foreground">
-							{props.testimonial.title}
-						</p>
+						<p className="text-sm text-muted-foreground">{props.testimonial.title}</p>
 					</div>
 				</div>
 			</CardContent>

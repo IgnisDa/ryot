@@ -1,19 +1,16 @@
 import { type AppSchema, chunk, resolveRequiredString } from "@ryot/ts-utils";
+
 import { checkReadAccess } from "~/lib/access";
 import { parseAppSchemaProperties } from "~/lib/app/schema-validation";
 import { getQueues } from "~/lib/queue";
-import {
-	type ServiceResult,
-	serviceData,
-	serviceError,
-	wrapServiceValidator,
-} from "~/lib/result";
+import { type ServiceResult, serviceData, serviceError, wrapServiceValidator } from "~/lib/result";
 import { sandboxRunJobName } from "~/lib/sandbox/jobs";
 import {
 	getUserLibraryEntityId,
 	upsertInLibraryIfGlobal,
 	upsertInLibraryRelationship,
 } from "~/modules/entities";
+
 import {
 	createEventForUser,
 	getActiveEventSchemaTriggersForEventSchemas,
@@ -21,11 +18,7 @@ import {
 	getEventCreateScopeForUser,
 	listEventsByEntityForUser,
 } from "./repository";
-import type {
-	CreateEventBody,
-	CreateEventBulkBody,
-	ListedEvent,
-} from "./schemas";
+import type { CreateEventBody, CreateEventBulkBody, ListedEvent } from "./schemas";
 
 export type EventPropertiesShape = Record<string, unknown>;
 
@@ -52,8 +45,7 @@ export type EventServiceResult<T> = ServiceResult<T, EventMutationError>;
 
 const entityNotFoundError = "Entity not found";
 const eventSchemaNotFoundError = "Event schema not found";
-const eventSchemaMismatchError =
-	"Event schema does not belong to the entity schema";
+const eventSchemaMismatchError = "Event schema does not belong to the entity schema";
 const sessionEntityNotFoundError = "Session entity not found";
 
 const enqueueEventSchemaTriggerJob = async (input: {
@@ -101,16 +93,10 @@ const eventServiceDeps: EventServiceDeps = {
 };
 
 const resolveEventEntityIdResult = (entityId: string) =>
-	wrapServiceValidator(
-		() => resolveEventEntityId(entityId),
-		"Entity id is required",
-	);
+	wrapServiceValidator(() => resolveEventEntityId(entityId), "Entity id is required");
 
 const resolveEventSchemaIdResult = (eventSchemaId: string) =>
-	wrapServiceValidator(
-		() => resolveEventSchemaId(eventSchemaId),
-		"Event schema id is required",
-	);
+	wrapServiceValidator(() => resolveEventSchemaId(eventSchemaId), "Event schema id is required");
 
 const resolveSessionEntityIdResult = (sessionEntityId: string) =>
 	wrapServiceValidator(
@@ -131,9 +117,7 @@ const resolveReadableSessionEntityId = async (
 	input: { userId: string; sessionEntityId: string },
 	deps: Pick<EventServiceDeps, "getSessionEntityScopeForUser">,
 ): Promise<EventServiceResult<string>> => {
-	const sessionEntityIdResult = resolveSessionEntityIdResult(
-		input.sessionEntityId,
-	);
+	const sessionEntityIdResult = resolveSessionEntityIdResult(input.sessionEntityId);
 	if ("error" in sessionEntityIdResult) {
 		return sessionEntityIdResult;
 	}
@@ -152,10 +136,7 @@ const resolveReadableSessionEntityId = async (
 	return serviceData(sessionEntityIdResult.data);
 };
 
-export const parseEventProperties = (input: {
-	properties: unknown;
-	propertiesSchema: AppSchema;
-}) =>
+export const parseEventProperties = (input: { properties: unknown; propertiesSchema: AppSchema }) =>
 	parseAppSchemaProperties({
 		kind: "Event",
 		properties: input.properties,
@@ -189,11 +170,7 @@ const resolveEventCreateInputResult = (
 	input: CreateEventBody & {
 		propertiesSchema: AppSchema;
 	},
-) =>
-	wrapServiceValidator(
-		() => resolveEventCreateInput(input),
-		"Event payload is invalid",
-	);
+) => wrapServiceValidator(() => resolveEventCreateInput(input), "Event payload is invalid");
 
 export const listEntityEvents = async (
 	input: {
@@ -267,10 +244,7 @@ export const listEntityEvents = async (
 		return serviceData(events);
 	}
 
-	return serviceError(
-		"validation",
-		"Either entityId or sessionEntityId is required",
-	);
+	return serviceError("validation", "Either entityId or sessionEntityId is required");
 };
 
 export const createEvent = async (
@@ -282,9 +256,7 @@ export const createEvent = async (
 		return entityIdResult;
 	}
 
-	const eventSchemaIdResult = resolveEventSchemaIdResult(
-		input.body.eventSchemaId,
-	);
+	const eventSchemaIdResult = resolveEventSchemaIdResult(input.body.eventSchemaId);
 	if ("error" in eventSchemaIdResult) {
 		return eventSchemaIdResult;
 	}
@@ -375,18 +347,13 @@ const BULK_CHUNK_SIZE = 1000;
 export const createEvents = async (
 	input: { body: CreateEventBulkBody; userId: string },
 	deps: EventServiceDeps = eventServiceDeps,
-): Promise<
-	EventServiceResult<{ count: number; createdEvents: CreatedEventData[] }>
-> => {
+): Promise<EventServiceResult<{ count: number; createdEvents: CreatedEventData[] }>> => {
 	const chunks = chunk(input.body, BULK_CHUNK_SIZE);
 	const createdEvents: CreatedEventData[] = [];
 
 	for (const chunk of chunks) {
 		for (const item of chunk) {
-			const result = await createEvent(
-				{ body: item, userId: input.userId },
-				deps,
-			);
+			const result = await createEvent({ body: item, userId: input.userId }, deps);
 			if ("error" in result) {
 				return result;
 			}
@@ -408,13 +375,9 @@ export const processEventSchemaTriggers = async (
 		return;
 	}
 
-	const uniqueSchemaIds = [
-		...new Set(input.createdEvents.map((event) => event.eventSchemaId)),
-	];
+	const uniqueSchemaIds = [...new Set(input.createdEvents.map((event) => event.eventSchemaId))];
 
-	let triggers: Awaited<
-		ReturnType<typeof getActiveEventSchemaTriggersForEventSchemas>
-	>;
+	let triggers: Awaited<ReturnType<typeof getActiveEventSchemaTriggersForEventSchemas>>;
 	try {
 		triggers = await deps.getActiveEventSchemaTriggersForEventSchemas({
 			userId: input.userId,

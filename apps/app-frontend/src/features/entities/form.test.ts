@@ -1,4 +1,5 @@
 import { describe, expect, it } from "bun:test";
+
 import {
 	buildCreateEntityFormSchema,
 	buildDefaultEntityFormValues,
@@ -224,9 +225,7 @@ describe("buildCreateEntityFormSchema", () => {
 		expect(result.success).toBeFalse();
 		if (!result.success) {
 			expect(result.error.issues[0]?.path).toEqual(["properties"]);
-			expect(result.error.issues[0]?.message).toInclude(
-				"requires unsupported properties",
-			);
+			expect(result.error.issues[0]?.message).toInclude("requires unsupported properties");
 		}
 	});
 
@@ -273,13 +272,9 @@ describe("buildCreateEntityFormSchema", () => {
 
 		const schema = buildCreateEntityFormSchema(propertiesSchema);
 
+		expect(schema.safeParse({ name: "Book", properties: { status: "draft" } }).success).toBeTrue();
 		expect(
-			schema.safeParse({ name: "Book", properties: { status: "draft" } })
-				.success,
-		).toBeTrue();
-		expect(
-			schema.safeParse({ name: "Book", properties: { status: "unknown" } })
-				.success,
+			schema.safeParse({ name: "Book", properties: { status: "unknown" } }).success,
 		).toBeFalse();
 	});
 
@@ -298,8 +293,7 @@ describe("buildCreateEntityFormSchema", () => {
 		const schema = buildCreateEntityFormSchema(propertiesSchema);
 
 		expect(
-			schema.safeParse({ name: "Book", properties: { genres: ["fiction"] } })
-				.success,
+			schema.safeParse({ name: "Book", properties: { genres: ["fiction"] } }).success,
 		).toBeTrue();
 		expect(
 			schema.safeParse({
@@ -499,11 +493,7 @@ describe("toCreateEntityPayload", () => {
 			},
 		};
 
-		const payload = toCreateEntityPayload(
-			formValues,
-			"schema-123",
-			propertiesSchema,
-		);
+		const payload = toCreateEntityPayload(formValues, "schema-123", propertiesSchema);
 
 		expect(payload).toEqual({
 			image: null,
@@ -552,11 +542,7 @@ describe("toCreateEntityPayload", () => {
 			},
 		};
 
-		const payload = toCreateEntityPayload(
-			formValues,
-			"schema-123",
-			propertiesSchema,
-		);
+		const payload = toCreateEntityPayload(formValues, "schema-123", propertiesSchema);
 
 		expect(payload.properties).toEqual({
 			title: "The Great Book",

@@ -1,10 +1,9 @@
 import { describe, expect, it } from "bun:test";
+
 import type { AppSchema } from "@ryot/ts-utils";
-import {
-	createComputedFieldExpression,
-	createEntityPropertyExpression,
-} from "@ryot/ts-utils";
+import { createComputedFieldExpression, createEntityPropertyExpression } from "@ryot/ts-utils";
 import { PgDialect } from "drizzle-orm/pg-core";
+
 import {
 	comparisonPredicate as comparison,
 	createSmartphoneSchema,
@@ -15,6 +14,7 @@ import {
 import type { ViewComputedField } from "~/lib/views/expression";
 import type { ViewPredicate } from "~/lib/views/filtering";
 import { buildEventJoinMap, buildSchemaMap } from "~/lib/views/reference";
+
 import { buildFilterWhereClause } from "./filter-builder";
 
 const dialect = new PgDialect();
@@ -76,10 +76,7 @@ const reviewJoin = {
 };
 const context = { schemaMap, eventJoinMap: buildEventJoinMap([reviewJoin]) };
 
-const serializeClause = (
-	predicate: ViewPredicate,
-	computedFields?: ViewComputedField[],
-) => {
+const serializeClause = (predicate: ViewPredicate, computedFields?: ViewComputedField[]) => {
 	const clause = buildFilterWhereClause({
 		context,
 		predicate,
@@ -146,18 +143,11 @@ describe("buildFilterWhereClause", () => {
 
 	it("supports computed-field references inside predicates", () => {
 		const clause = serializeClause(
-			comparison(
-				createComputedFieldExpression("makerLabel"),
-				"eq",
-				literalExpression("Apple"),
-			),
+			comparison(createComputedFieldExpression("makerLabel"), "eq", literalExpression("Apple")),
 			[
 				{
 					key: "makerLabel",
-					expression: createEntityPropertyExpression(
-						"smartphones",
-						"manufacturer",
-					),
+					expression: createEntityPropertyExpression("smartphones", "manufacturer"),
 				},
 			],
 		);
@@ -259,11 +249,7 @@ describe("buildFilterWhereClause", () => {
 
 	it("builds joined latest-event predicates", () => {
 		const clause = serializeClause(
-			comparison(
-				eventExpression("review", "rating"),
-				"gte",
-				literalExpression(4),
-			),
+			comparison(eventExpression("review", "rating"), "gte", literalExpression(4)),
 		);
 
 		expect(clause.sql).toContain("event_join_review");

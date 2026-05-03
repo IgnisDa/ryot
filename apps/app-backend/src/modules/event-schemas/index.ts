@@ -1,7 +1,4 @@
-export type {
-	CreateEventSchemaBody,
-	ListedEventSchema,
-} from "./schemas";
+export type { CreateEventSchemaBody, ListedEventSchema } from "./schemas";
 export type {
 	EventSchemaPropertiesShape,
 	EventSchemaServiceDeps,

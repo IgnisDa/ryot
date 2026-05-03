@@ -17,9 +17,7 @@ export enum ThreePointSmileyRating {
 	Sad = "Sad",
 }
 
-export const getThreePointSmileyEmoji = (
-	rating: ThreePointSmileyRating,
-): string => {
+export const getThreePointSmileyEmoji = (rating: ThreePointSmileyRating): string => {
 	const emojiByRating = {
 		[ThreePointSmileyRating.Happy]: "😊",
 		[ThreePointSmileyRating.Neutral]: "😐",
@@ -70,6 +68,4 @@ export interface SendNotificationProps {
 	data?: AppServiceWorkerNotificationData;
 }
 
-export type TimestampToStringResult<T> = T extends Date | string
-	? string
-	: null;
+export type TimestampToStringResult<T> = T extends Date | string ? string : null;

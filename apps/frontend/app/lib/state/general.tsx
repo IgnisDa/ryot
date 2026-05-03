@@ -21,9 +21,7 @@ const openedSidebarLinksAtom = atomWithStorage<OpenedSidebarLinks>(
 );
 
 export const useOpenedSidebarLinks = () => {
-	const [openedSidebarLinks, setOpenedSidebarLinks] = useAtom(
-		openedSidebarLinksAtom,
-	);
+	const [openedSidebarLinks, setOpenedSidebarLinks] = useAtom(openedSidebarLinksAtom);
 	return { openedSidebarLinks, setOpenedSidebarLinks };
 };
 

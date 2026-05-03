@@ -1,9 +1,9 @@
 import { describe, expect, it } from "bun:test";
+
 import type { Job } from "bullmq";
-import {
-	createListedEntity,
-	createOptionalTitlePropertiesSchema,
-} from "~/lib/test-fixtures";
+
+import { createListedEntity, createOptionalTitlePropertiesSchema } from "~/lib/test-fixtures";
+
 import {
 	hasImportedEntityDetails,
 	processMediaImportJob,
@@ -21,9 +21,7 @@ const createJob = (data: unknown): Job =>
 	}) as unknown as Job;
 
 const createMediaDeps = (
-	overrides: Partial<
-		NonNullable<Parameters<typeof processMediaImportJob>[2]>
-	> = {},
+	overrides: Partial<NonNullable<Parameters<typeof processMediaImportJob>[2]>> = {},
 ): NonNullable<Parameters<typeof processMediaImportJob>[2]> => ({
 	upsertInLibraryRelationship: async () => {},
 	getUserLibraryEntityId: async () => "library_1",
@@ -42,17 +40,14 @@ const createMediaDeps = (
 });
 
 const createPersonDeps = (
-	overrides: Partial<
-		NonNullable<Parameters<typeof processPersonPopulateJob>[2]>
-	> = {},
+	overrides: Partial<NonNullable<Parameters<typeof processPersonPopulateJob>[2]>> = {},
 ): NonNullable<Parameters<typeof processPersonPopulateJob>[2]> => ({
 	upsertInLibraryRelationship: async () => {},
 	getUserLibraryEntityId: async () => "library_1",
 	getEntitySchemaScopeForUser: async () => undefined,
 	findGlobalEntityByExternalId: async () => undefined,
 	getSandboxScriptForUser: async () => ({ id: "script_1" }) as never,
-	getBuiltinSandboxScriptBySlug: async () =>
-		({ id: "person_script_1" }) as never,
+	getBuiltinSandboxScriptBySlug: async () => ({ id: "person_script_1" }) as never,
 	createGlobalEntity: async () => {
 		throw new Error("createGlobalEntity should not be called");
 	},

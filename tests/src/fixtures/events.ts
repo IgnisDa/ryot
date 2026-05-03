@@ -5,11 +5,7 @@ import {
 	findBuiltinSchemaBySlug,
 	listBuiltinEntitySchemas,
 } from "./entity-schemas";
-import {
-	createEventSchema,
-	listEventSchemas,
-	requireEventSchemaBySlug,
-} from "./event-schemas";
+import { createEventSchema, listEventSchemas, requireEventSchemaBySlug } from "./event-schemas";
 import { seedMediaEntity } from "./media";
 import { type PollOptions, pollUntil } from "./polling";
 
@@ -78,11 +74,10 @@ export async function waitForEventCount(
 }
 
 export async function createEventTestFixture(client: Client, cookies: string) {
-	const { schemaId: entitySchemaId } = await createTrackerWithSchema(
-		client,
-		cookies,
-		{ name: "Test Item", slug: `item-${crypto.randomUUID()}` },
-	);
+	const { schemaId: entitySchemaId } = await createTrackerWithSchema(client, cookies, {
+		name: "Test Item",
+		slug: `item-${crypto.randomUUID()}`,
+	});
 	const eventSchema = await createEventSchema(client, cookies, {
 		entitySchemaId,
 		name: "Finished",
@@ -108,11 +103,10 @@ export async function createEventTestFixture(client: Client, cookies: string) {
 }
 
 export async function createRuleEventFixture(client: Client, cookies: string) {
-	const { schemaId: entitySchemaId } = await createTrackerWithSchema(
-		client,
-		cookies,
-		{ name: "Rule Test Item", slug: `rule-item-${crypto.randomUUID()}` },
-	);
+	const { schemaId: entitySchemaId } = await createTrackerWithSchema(client, cookies, {
+		name: "Rule Test Item",
+		slug: `rule-item-${crypto.randomUUID()}`,
+	});
 	const eventSchema = await createEventSchema(client, cookies, {
 		entitySchemaId,
 		name: "Progress Log",
@@ -171,20 +165,10 @@ export async function createBuiltinMediaLifecycleFixture(
 		throw new Error(`Missing built-in ${entitySchemaSlug} provider`);
 	}
 
-	const eventSchemas = await listEventSchemas(
-		client,
-		cookies,
-		selectedSchema.id,
-	);
+	const eventSchemas = await listEventSchemas(client, cookies, selectedSchema.id);
 	const backlogEventSchema = requireEventSchemaBySlug(eventSchemas, "backlog");
-	const progressEventSchema = requireEventSchemaBySlug(
-		eventSchemas,
-		"progress",
-	);
-	const completeEventSchema = requireEventSchemaBySlug(
-		eventSchemas,
-		"complete",
-	);
+	const progressEventSchema = requireEventSchemaBySlug(eventSchemas, "progress");
+	const completeEventSchema = requireEventSchemaBySlug(eventSchemas, "complete");
 	const reviewEventSchema = requireEventSchemaBySlug(eventSchemas, "review");
 
 	const { schemas } = await listBuiltinEntitySchemas(client, cookies);
@@ -193,15 +177,8 @@ export async function createBuiltinMediaLifecycleFixture(
 		throw new Error("Missing mismatched built-in schema");
 	}
 
-	const otherEventSchemas = await listEventSchemas(
-		client,
-		cookies,
-		otherSchema.id,
-	);
-	const mismatchedBacklogEventSchema = requireEventSchemaBySlug(
-		otherEventSchemas,
-		"backlog",
-	);
+	const otherEventSchemas = await listEventSchemas(client, cookies, otherSchema.id);
+	const mismatchedBacklogEventSchema = requireEventSchemaBySlug(otherEventSchemas, "backlog");
 
 	const entity = await seedMediaEntity({
 		image: null,

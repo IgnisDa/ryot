@@ -13,9 +13,7 @@ const defaultMessages: Record<AccessError, string> = {
  * existence check (`scope === undefined → not_found`). Individual rule objects
  * carry their own `message` field and are unaffected by `messages`.
  */
-export const checkAccess = <T>(
-	check: AccessCheck<T>,
-): AccessResult<T, AccessError> => {
+export const checkAccess = <T>(check: AccessCheck<T>): AccessResult<T, AccessError> => {
 	const messages = { ...defaultMessages, ...check.messages };
 
 	if (!check.scope) {
@@ -48,8 +46,7 @@ export const checkCustomAccess = <T extends { isBuiltin: boolean }>(
 	messages?: Partial<Record<"not_found" | "builtin_resource", string>>,
 ): AccessResult<T, "not_found" | "builtin_resource"> => {
 	const notFoundMessage = messages?.not_found ?? defaultMessages.not_found;
-	const builtinMessage =
-		messages?.builtin_resource ?? defaultMessages.builtin_resource;
+	const builtinMessage = messages?.builtin_resource ?? defaultMessages.builtin_resource;
 
 	if (!scope) {
 		return { error: "not_found", message: notFoundMessage };

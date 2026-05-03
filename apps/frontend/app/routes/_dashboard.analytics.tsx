@@ -59,11 +59,9 @@ import { useLoaderData } from "react-router";
 import { ClientOnly } from "remix-utils/client-only";
 import { match } from "ts-pattern";
 import { useLocalStorage } from "usehooks-ts";
+
 import { ProRequiredAlert } from "~/components/common";
-import {
-	displayDistanceWithUnit,
-	displayWeightWithUnit,
-} from "~/components/fitness/utils";
+import { displayDistanceWithUnit, displayWeightWithUnit } from "~/components/fitness/utils";
 import { PRO_REQUIRED_MESSAGE } from "~/lib/shared/constants";
 import {
 	convertUtcHourToLocalHour,
@@ -81,6 +79,7 @@ import { clientGqlService, queryFactory } from "~/lib/shared/react-query";
 import { selectRandomElement, triggerDownload } from "~/lib/shared/ui-utils";
 import { ApplicationTimeRange } from "~/lib/types";
 import { serverGqlService } from "~/lib/utilities.server";
+
 import type { Route } from "./+types/_dashboard.analytics";
 
 export type TimeSpanSettings = {
@@ -90,11 +89,10 @@ export type TimeSpanSettings = {
 };
 
 export const loader = async ({ request }: Route.LoaderArgs) => {
-	const { userAnalyticsParameters } =
-		await serverGqlService.authenticatedRequest(
-			request,
-			UserAnalyticsParametersDocument,
-		);
+	const { userAnalyticsParameters } = await serverGqlService.authenticatedRequest(
+		request,
+		UserAnalyticsParametersDocument,
+	);
 	return { userAnalyticsParameters };
 };
 
@@ -104,18 +102,18 @@ export const meta = () => {
 
 const useTimeSpanSettings = () => {
 	const loaderData = useLoaderData<typeof loader>();
-	const [timeSpanSettings, setTimeSpanSettings] =
-		useLocalStorage<TimeSpanSettings>("TimeSpanSettings", {
+	const [timeSpanSettings, setTimeSpanSettings] = useLocalStorage<TimeSpanSettings>(
+		"TimeSpanSettings",
+		{
 			range: ApplicationTimeRange.Past30Days,
-		});
+		},
+	);
 
 	const startDate =
 		timeSpanSettings.startDate ||
 		(timeSpanSettings.range === "All Time" &&
 			loaderData.userAnalyticsParameters.response.startDate) ||
-		formatDateToNaiveDate(
-			getStartTimeFromRange(timeSpanSettings.range) || new Date(),
-		);
+		formatDateToNaiveDate(getStartTimeFromRange(timeSpanSettings.range) || new Date());
 
 	const endDate =
 		timeSpanSettings.endDate ||
@@ -148,8 +146,7 @@ export default function Page() {
 	const toCaptureRef = useRef<HTMLDivElement>(null);
 	const [customRangeOpened, setCustomRangeOpened] = useState(false);
 	const [isCaptureLoading, setIsCaptureLoading] = useAtom(isCaptureLoadingAtom);
-	const { timeSpanSettings, setTimeSpanSettings, startDate, endDate } =
-		useTimeSpanSettings();
+	const { timeSpanSettings, setTimeSpanSettings, startDate, endDate } = useTimeSpanSettings();
 
 	return (
 		<>
@@ -190,12 +187,9 @@ export default function Page() {
 											<Menu.Item
 												ta="right"
 												key={range}
-												color={
-													timeSpanSettings.range === range ? "blue" : undefined
-												}
+												color={timeSpanSettings.range === range ? "blue" : undefined}
 												onClick={() => {
-													if (range === "Custom")
-														return setCustomRangeOpened(true);
+													if (range === "Custom") return setCustomRangeOpened(true);
 													setTimeSpanSettings(
 														produce(timeSpanSettings, (draft) => {
 															draft.range = range;
@@ -278,9 +272,7 @@ export default function Page() {
 											}, "image/png");
 										});
 									} else {
-										blob = await fetch(dataUrl).then((response) =>
-											response.blob(),
-										);
+										blob = await fetch(dataUrl).then((response) => response.blob());
 									}
 									downloadUrl = URL.createObjectURL(blob);
 									triggerDownload(downloadUrl, "download.png");
@@ -325,13 +317,10 @@ const ActivitySection = () => {
 		const data = Object.entries(d)
 			.filter(([_, value]) => value !== 0)
 			.map(([key, value]) => ({
-				[snakeCase(
-					key.replace("Count", "").replace("total", ""),
-				).toUpperCase()]: value,
+				[snakeCase(key.replace("Count", "").replace("total", "")).toUpperCase()]: value,
 			}))
 			.reduce(Object.assign, {});
-		for (const key in data)
-			if (isBoolean(trackSeries[key])) trackSeries[key] = true;
+		for (const key in data) if (isBoolean(trackSeries[key])) trackSeries[key] = true;
 		return data;
 	});
 	const series = pickBy(trackSeries);
@@ -361,10 +350,7 @@ const ActivitySection = () => {
 							dailyUserActivitiesData
 								? humanizeDuration(
 										dayjsLib
-											.duration(
-												dailyUserActivitiesData.totalDuration,
-												"minutes",
-											)
+											.duration(dailyUserActivitiesData.totalDuration, "minutes")
 											.asMilliseconds(),
 										{ largest: 2 },
 									)
@@ -373,8 +359,7 @@ const ActivitySection = () => {
 					/>
 				</SimpleGrid>
 				{dailyUserActivitiesData ? (
-					dailyUserActivitiesData.totalCount !== 0 &&
-					dailyUserActivitiesData.data ? (
+					dailyUserActivitiesData.totalCount !== 0 && dailyUserActivitiesData.data ? (
 						<BarChart
 							h="100%"
 							w="100%"
@@ -385,25 +370,17 @@ const ActivitySection = () => {
 							type="stacked"
 							data={dailyUserActivitiesData.data}
 							legendProps={{ verticalAlign: "bottom" }}
-							series={Object.keys(dailyUserActivitiesData.series).map(
-								(lot) => ({
-									name: lot,
-									color: MediaColors[lot],
-									label: changeCase(lot),
-								}),
-							)}
+							series={Object.keys(dailyUserActivitiesData.series).map((lot) => ({
+								name: lot,
+								color: MediaColors[lot],
+								label: changeCase(lot),
+							}))}
 							xAxisProps={{
 								tickFormatter: (v) =>
 									dayjsLib(v).format(
 										match(dailyUserActivitiesData.groupedBy)
-											.with(
-												DailyUserActivitiesResponseGroupedBy.Day,
-												() => "MMM D",
-											)
-											.with(
-												DailyUserActivitiesResponseGroupedBy.Month,
-												() => "MMM",
-											)
+											.with(DailyUserActivitiesResponseGroupedBy.Day, () => "MMM D")
+											.with(DailyUserActivitiesResponseGroupedBy.Month, () => "MMM")
 											.with(
 												DailyUserActivitiesResponseGroupedBy.Year,
 												DailyUserActivitiesResponseGroupedBy.AllTime,
@@ -430,24 +407,13 @@ const ActivitySection = () => {
 	);
 };
 
-const CustomDateSelectModal = (props: {
-	opened: boolean;
-	onClose: () => void;
-}) => {
+const CustomDateSelectModal = (props: { opened: boolean; onClose: () => void }) => {
 	const loaderData = useLoaderData<typeof loader>();
-	const { timeSpanSettings, setTimeSpanSettings, startDate, endDate } =
-		useTimeSpanSettings();
-	const [value, setValue] = useState<[string | null, string | null]>([
-		startDate,
-		endDate,
-	]);
+	const { timeSpanSettings, setTimeSpanSettings, startDate, endDate } = useTimeSpanSettings();
+	const [value, setValue] = useState<[string | null, string | null]>([startDate, endDate]);
 
 	return (
-		<Modal
-			opened={props.opened}
-			title="Select custom date range"
-			onClose={props.onClose}
-		>
+		<Modal opened={props.opened} title="Select custom date range" onClose={props.onClose}>
 			<Stack>
 				<DatePicker
 					mx="auto"
@@ -456,12 +422,8 @@ const CustomDateSelectModal = (props: {
 					value={value}
 					w="fit-content"
 					onChange={setValue}
-					minDate={dayjsLib(
-						loaderData.userAnalyticsParameters.response.startDate,
-					).toDate()}
-					maxDate={dayjsLib(
-						loaderData.userAnalyticsParameters.response.endDate,
-					).toDate()}
+					minDate={dayjsLib(loaderData.userAnalyticsParameters.response.startDate).toDate()}
+					maxDate={dayjsLib(loaderData.userAnalyticsParameters.response.endDate).toDate()}
 				/>
 				<Button
 					variant="default"
@@ -469,12 +431,8 @@ const CustomDateSelectModal = (props: {
 					onClick={() => {
 						setTimeSpanSettings(
 							produce(timeSpanSettings, (draft) => {
-								draft.startDate = formatDateToNaiveDate(
-									value[0] ? new Date(value[0]) : new Date(),
-								);
-								draft.endDate = formatDateToNaiveDate(
-									value[1] ? new Date(value[1]) : new Date(),
-								);
+								draft.startDate = formatDateToNaiveDate(value[0] ? new Date(value[0]) : new Date());
+								draft.endDate = formatDateToNaiveDate(value[1] ? new Date(value[1]) : new Date());
 								draft.range = ApplicationTimeRange.Custom;
 							}),
 						);
@@ -554,15 +512,12 @@ const TimeOfDayChart = () => {
 						const count =
 							data.hours
 								.find((d) => d.hour === h)
-								?.entities.filter(
-									(e) => e.entityLot === mKey || (e.metadataLot || "") === mKey,
-								).length || 0;
+								?.entities.filter((e) => e.entityLot === mKey || (e.metadataLot || "") === mKey)
+								.length || 0;
 						obj[mKey] = count;
 						if (count > 0) trackSeries.add(mKey);
 					}
-					obj.hour = dayjsLib()
-						.hour(convertUtcHourToLocalHour(h))
-						.format("h a");
+					obj.hour = dayjsLib().hour(convertUtcHourToLocalHour(h)).format("h a");
 					return obj;
 				});
 				const filteredHours = allHours.filter(
@@ -621,10 +576,9 @@ const StatisticsCard = () => {
 	const userPreferences = useUserPreferences();
 
 	const displayDuration = (duration: number) => {
-		return humanizeDuration(
-			dayjsLib.duration(duration, "minutes").asMilliseconds(),
-			{ largest: 1 },
-		);
+		return humanizeDuration(dayjsLib.duration(duration, "minutes").asMilliseconds(), {
+			largest: 1,
+		});
 	};
 
 	return (
@@ -632,13 +586,7 @@ const StatisticsCard = () => {
 			{(_, { fitness }) => ({
 				totalItems: fitness.workoutCount + fitness.measurementCount,
 				render: (
-					<SimpleGrid
-						cols={3}
-						h="100%"
-						w="100%"
-						p={{ md: "xl" }}
-						py={{ base: "md", md: "auto" }}
-					>
+					<SimpleGrid cols={3} h="100%" w="100%" p={{ md: "xl" }} py={{ base: "md", md: "auto" }}>
 						<StatItem
 							label="Workouts"
 							icon={IconStretching}
@@ -666,28 +614,14 @@ const StatisticsCard = () => {
 						<StatItem
 							label="Weight"
 							icon={IconWeight}
-							tooltipLabel={displayWeightWithUnit(
-								unitSystem,
-								fitness.workoutWeight,
-							)}
-							text={displayWeightWithUnit(
-								unitSystem,
-								fitness.workoutWeight,
-								true,
-							)}
+							tooltipLabel={displayWeightWithUnit(unitSystem, fitness.workoutWeight)}
+							text={displayWeightWithUnit(unitSystem, fitness.workoutWeight, true)}
 						/>
 						<StatItem
 							icon={IconRoad}
 							label="Distance"
-							tooltipLabel={displayDistanceWithUnit(
-								unitSystem,
-								fitness.workoutDistance,
-							)}
-							text={displayDistanceWithUnit(
-								unitSystem,
-								fitness.workoutDistance,
-								true,
-							)}
+							tooltipLabel={displayDistanceWithUnit(unitSystem, fitness.workoutDistance)}
+							text={displayDistanceWithUnit(unitSystem, fitness.workoutDistance, true)}
 						/>
 						<StatItem
 							label="Duration"
@@ -739,17 +673,12 @@ type ChartContainerProps = {
 };
 
 const ChartContainer = (props: ChartContainerProps) => {
-	const [count, setCount] = useLocalStorage(
-		`FitnessChartContainer-${props.title}`,
-		10,
-	);
+	const [count, setCount] = useLocalStorage(`FitnessChartContainer-${props.title}`, 10);
 	const userPreferences = useUserPreferences();
 	const [isCaptureLoading] = useAtom(isCaptureLoadingAtom);
 	const userAnalytics = useGetUserAnalytics();
 
-	const value = userAnalytics.data
-		? props.children(count, userAnalytics.data)
-		: undefined;
+	const value = userAnalytics.data ? props.children(count, userAnalytics.data) : undefined;
 
 	return userPreferences.featuresEnabled.fitness.enabled ? (
 		<Paper display="flex" h={380} withBorder={value?.totalItems === 0} p="md">
@@ -758,9 +687,7 @@ const ChartContainer = (props: ChartContainerProps) => {
 					<Text size="lg" fw="bold">
 						{props.title}
 					</Text>
-					{props.disableCounter ||
-					(value?.totalItems || 0) === 0 ||
-					isCaptureLoading ? null : (
+					{props.disableCounter || (value?.totalItems || 0) === 0 || isCaptureLoading ? null : (
 						<NumberInput
 							w={60}
 							min={2}

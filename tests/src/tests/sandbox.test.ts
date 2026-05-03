@@ -1,5 +1,7 @@
 import { afterAll, beforeAll, describe, expect, it } from "bun:test";
+
 import getPort from "get-port";
+
 import {
 	createAuthenticatedClient,
 	createEntity,
@@ -293,10 +295,8 @@ driver("main", async function() {
 	});
 
 	it("returns 404 when another user polls the job", async () => {
-		const { client: clientA, cookies: cookiesA } =
-			await createAuthenticatedClient();
-		const { client: clientB, cookies: cookiesB } =
-			await createAuthenticatedClient();
+		const { client: clientA, cookies: cookiesA } = await createAuthenticatedClient();
+		const { client: clientB, cookies: cookiesB } = await createAuthenticatedClient();
 		const { id: scriptId } = await createSandboxScript(clientA, cookiesA, {
 			name: "cross-user-job",
 			slug: `cross-user-job-${crypto.randomUUID()}`,
@@ -339,10 +339,9 @@ driver("main", async function() {
 		});
 
 		const unauthenticatedClient = getBackendClient();
-		const { response, error } = await unauthenticatedClient.GET(
-			"/sandbox/result/{jobId}",
-			{ params: { path: { jobId } } },
-		);
+		const { response, error } = await unauthenticatedClient.GET("/sandbox/result/{jobId}", {
+			params: { path: { jobId } },
+		});
 
 		expect(response.status).toBe(401);
 		expect(error?.error).toBeDefined();
@@ -449,10 +448,8 @@ describe("sandbox cache functions", () => {
 	});
 
 	it("built-in scripts share a cache partition across users for the same key", async () => {
-		const { client: clientA, cookies: cookiesA } =
-			await createAuthenticatedClient();
-		const { client: clientB, cookies: cookiesB } =
-			await createAuthenticatedClient();
+		const { client: clientA, cookies: cookiesA } = await createAuthenticatedClient();
+		const { client: clientB, cookies: cookiesB } = await createAuthenticatedClient();
 		const { schema } = await findBuiltinSchemaWithProviders(clientA, cookiesA);
 		const builtinScriptId = schema.providers[0]?.scriptId;
 		if (!builtinScriptId) {
@@ -461,38 +458,29 @@ describe("sandbox cache functions", () => {
 
 		const cacheKey = `builtin-shared-cache-${crypto.randomUUID()}`;
 
-		const { id: writerScriptId } = await createSandboxScript(
-			clientA,
-			cookiesA,
-			{
-				name: "builtin-cache-writer",
-				slug: `builtin-cache-writer-${crypto.randomUUID()}`,
-				metadata: { allowedHostFunctions: ["setCachedValue"] },
-				code: `driver("main", async function() {
+		const { id: writerScriptId } = await createSandboxScript(clientA, cookiesA, {
+			name: "builtin-cache-writer",
+			slug: `builtin-cache-writer-${crypto.randomUUID()}`,
+			metadata: { allowedHostFunctions: ["setCachedValue"] },
+			code: `driver("main", async function() {
   return await setCachedValue(${JSON.stringify(cacheKey)}, { sharedValue: true }, 60);
 });`,
-			},
-		);
+		});
 
-		const { jobId: writeJobId } = await enqueueSandboxScript(
-			clientA,
-			cookiesA,
-			{ scriptId: writerScriptId, driverName: "main" },
-		);
+		const { jobId: writeJobId } = await enqueueSandboxScript(clientA, cookiesA, {
+			scriptId: writerScriptId,
+			driverName: "main",
+		});
 		await pollSandboxResult(clientA, cookiesA, writeJobId);
 
-		const { id: readerScriptId } = await createSandboxScript(
-			clientB,
-			cookiesB,
-			{
-				name: "builtin-cache-reader",
-				slug: `builtin-cache-reader-${crypto.randomUUID()}`,
-				metadata: { allowedHostFunctions: ["getCachedValue"] },
-				code: `driver("main", async function() {
+		const { id: readerScriptId } = await createSandboxScript(clientB, cookiesB, {
+			name: "builtin-cache-reader",
+			slug: `builtin-cache-reader-${crypto.randomUUID()}`,
+			metadata: { allowedHostFunctions: ["getCachedValue"] },
+			code: `driver("main", async function() {
   return await getCachedValue(${JSON.stringify(cacheKey)});
 });`,
-			},
-		);
+		});
 
 		const { jobId: readJobId } = await enqueueSandboxScript(clientB, cookiesB, {
 			driverName: "main",
@@ -544,9 +532,7 @@ describe("sandbox enqueue by script ID", () => {
 
 		const result = await pollSandboxResult(client, cookies, jobId);
 
-		expect(result.status === "completed" || result.status === "failed").toBe(
-			true,
-		);
+		expect(result.status === "completed" || result.status === "failed").toBe(true);
 	}, 30_000);
 
 	it("completes with a host-function error when appApiCall is not allowed", async () => {

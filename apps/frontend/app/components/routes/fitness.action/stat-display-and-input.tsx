@@ -8,10 +8,8 @@ import { isNumber, isString } from "@ryot/ts-utils";
 import clsx from "clsx";
 import { produce } from "immer";
 import invariant from "tiny-invariant";
-import {
-	convertDurationFromMinutes,
-	convertDurationToMinutes,
-} from "~/components/fitness/utils";
+
+import { convertDurationFromMinutes, convertDurationToMinutes } from "~/components/fitness/utils";
 import { useCurrentWorkout, useGetSetAtIndex } from "~/lib/state/fitness";
 import {
 	ACTIVE_WORKOUT_REPS_TARGET,
@@ -36,11 +34,7 @@ export const StatDisplay = (props: {
 				cursor: props.onClick ? "pointer" : undefined,
 			}}
 		>
-			<Text
-				ta="center"
-				fz={{ md: "xl" }}
-				c={props.highlightValue ? "red" : undefined}
-			>
+			<Text ta="center" fz={{ md: "xl" }} c={props.highlightValue ? "red" : undefined}>
 				{props.value}
 			</Text>
 			<Text c="dimmed" size="sm" ta="center">
@@ -71,10 +65,7 @@ export const StatInput = (props: {
 		return Number(backendValue);
 	};
 
-	const [value, setValue] = useDebouncedState<string | number | undefined>(
-		getDisplayValue(),
-		500,
-	);
+	const [value, setValue] = useDebouncedState<string | number | undefined>(getDisplayValue(), 500);
 	const { advanceOnboardingTourStep } = useOnboardingTour();
 
 	const weightStepTourClassName =
@@ -95,18 +86,14 @@ export const StatInput = (props: {
 
 					if (!isString(value) && isNumber(value)) {
 						if (props.stat === "duration" && props.durationUnit) {
-							const minutes = convertDurationToMinutes(
-								value,
-								props.durationUnit,
-							);
+							const minutes = convertDurationToMinutes(value, props.durationUnit);
 							val = minutes.toString();
 						} else {
 							val = value.toString();
 						}
 					}
 
-					const draftSet =
-						draft.exercises[props.exerciseIdx].sets[props.setIdx];
+					const draftSet = draft.exercises[props.exerciseIdx].sets[props.setIdx];
 					draftSet.statistic[props.stat] = val;
 					if (val === null) draftSet.confirmedAt = null;
 					if (weightStepTourClassName && val === ACTIVE_WORKOUT_WEIGHT_TARGET)
@@ -119,10 +106,7 @@ export const StatInput = (props: {
 
 	const getInputStep = () => {
 		if (props.inputStep !== undefined) return props.inputStep;
-		if (
-			props.stat === "duration" &&
-			props.durationUnit === ExerciseDurationUnit.Seconds
-		) {
+		if (props.stat === "duration" && props.durationUnit === ExerciseDurationUnit.Seconds) {
 			return 1;
 		}
 		return undefined;
@@ -146,8 +130,7 @@ export const StatInput = (props: {
 					input: { fontSize: 15, width: rem(72), textAlign: "center" },
 				}}
 				decimalScale={
-					props.stat === "duration" &&
-					props.durationUnit === ExerciseDurationUnit.Seconds
+					props.stat === "duration" && props.durationUnit === ExerciseDurationUnit.Seconds
 						? 0
 						: isNumber(inputStep)
 							? Math.log10(1 / inputStep)

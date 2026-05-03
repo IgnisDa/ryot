@@ -8,11 +8,7 @@ export const normalizeSlug = (value: string) => {
 	});
 };
 
-export const resolveRequiredSlug = (input: {
-	name: string;
-	label: string;
-	slug?: string;
-}) => {
+export const resolveRequiredSlug = (input: { name: string; label: string; slug?: string }) => {
 	const candidate = input.slug ?? input.name;
 	const resolvedSlug = normalizeSlug(candidate);
 
