@@ -1199,6 +1199,7 @@ describe("Query engine E2E", () => {
 		];
 
 		for (const scenario of scenarios) {
+			// oxlint-disable-next-line no-await-in-loop
 			const { data, response } = await executeQueryEngine(
 				client,
 				cookies,
@@ -1578,6 +1579,7 @@ describe("Query engine E2E", () => {
 		];
 
 		for (const scenario of scenarios) {
+			// oxlint-disable-next-line no-await-in-loop
 			const { data, response } = await executeQueryEngine(
 				client,
 				cookies,
@@ -2742,6 +2744,7 @@ describe("Query engine E2E", () => {
 				properties: {},
 			});
 			for (const seq of [1, 2, 3, 4, 5]) {
+				// oxlint-disable-next-line no-await-in-loop
 				await createQueryEngineEvent({
 					client,
 					cookies,
@@ -3002,6 +3005,7 @@ describe("Query engine E2E", () => {
 				properties: {},
 			});
 			for (const rating of [1, 2, 3, 4, 5]) {
+				// oxlint-disable-next-line no-await-in-loop
 				await createQueryEngineEvent({
 					client,
 					cookies,
