@@ -12,19 +12,28 @@ import {
 	SpaceGrotesk_600SemiBold,
 } from "@expo-google-fonts/space-grotesk";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import * as DevClient from "expo-dev-client";
 import { useFonts } from "expo-font";
 import { Stack } from "expo-router";
 import * as SplashScreen from "expo-splash-screen";
 import { StatusBar } from "expo-status-bar";
 import { Provider } from "jotai";
 import { useEffect } from "react";
+import { Platform } from "react-native";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
+import { clearAppStorage } from "@/lib/atoms";
 
-const queryClient = new QueryClient();
+export const queryClient = new QueryClient();
 
 export { ErrorBoundary } from "expo-router";
 
 SplashScreen.preventAutoHideAsync();
+
+if (__DEV__ && Platform.OS !== "web") {
+	DevClient.registerDevMenuItems([
+		{ name: "Clear app storage", callback: () => clearAppStorage() },
+	]);
+}
 
 export default function RootLayout() {
 	const [fontsLoaded] = useFonts({
