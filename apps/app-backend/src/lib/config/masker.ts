@@ -3,7 +3,7 @@ import type { EnvIndex } from "./parser";
 import type { ConfigNode } from "./types";
 
 function maskNode(node: ConfigNode, envIndex: EnvIndex): unknown {
-	if (node._kind === "field") {
+	if (node.kind === "field") {
 		const raw = envIndex[node.envKey];
 		if (raw === undefined) {
 			return null;

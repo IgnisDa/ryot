@@ -191,7 +191,7 @@ export const buildBuiltInMediaOverviewResponse = (input: {
 export const buildUpNextSectionResponse = (
 	items: UpNextSourceItem[],
 ): BuiltInMediaOverviewUpNextResponse => {
-	const upNextItems = items.sort(compareUpNextSourceItems).map((item) => ({
+	const upNextItems = items.toSorted(compareUpNextSourceItems).map((item) => ({
 		id: item.id,
 		title: item.title,
 		image: item.image,
@@ -207,7 +207,7 @@ export const buildUpNextSectionResponse = (
 export const buildContinueSectionResponse = (
 	items: ContinueSourceItem[],
 ): BuiltInMediaOverviewContinueResponse => {
-	const continueItems = items.sort(compareContinueSourceItems).map((item) => {
+	const continueItems = items.toSorted(compareContinueSourceItems).map((item) => {
 		const currentUnits = resolveCurrentUnits({
 			totalUnits: item.totalUnits,
 			progressPercent: item.progressPercent,
@@ -243,7 +243,7 @@ export const buildContinueSectionResponse = (
 export const buildRateTheseSectionResponse = (
 	items: RateTheseSourceItem[],
 ): BuiltInMediaOverviewRateTheseResponse => {
-	const rateTheseItems = items.sort(compareRateTheseSourceItems).map((item) => ({
+	const rateTheseItems = items.toSorted(compareRateTheseSourceItems).map((item) => ({
 		id: item.id,
 		title: item.title,
 		image: item.image,
@@ -261,7 +261,7 @@ export const buildRecentActivitySectionResponse = (
 	items: RecentActivitySourceItem[],
 ): BuiltInMediaOverviewRecentActivityResponse => {
 	const activityItems = [...items]
-		.sort((left, right) => {
+		.toSorted((left, right) => {
 			const occurredAtDiff = dayjs(right.occurredAt).valueOf() - dayjs(left.occurredAt).valueOf();
 			if (occurredAtDiff !== 0) {
 				return occurredAtDiff;
@@ -285,7 +285,7 @@ export const buildWeekActivitySectionResponse = (input: {
 	items: WeekActivitySourceItem[];
 }): BuiltInMediaOverviewWeekActivityResponse => {
 	const weekItems = [...input.items]
-		.sort((left, right) => dayjs(left.date).valueOf() - dayjs(right.date).valueOf())
+		.toSorted((left, right) => dayjs(left.date).valueOf() - dayjs(right.date).valueOf())
 		.map((item) => ({
 			count: item.count,
 			dayLabel: dayjs.utc(item.date).format("ddd"),
