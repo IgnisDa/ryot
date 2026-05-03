@@ -1,4 +1,4 @@
-import { HttpUrl } from "@ryot/contract/schema/utils";
+import { HttpUrl, strictStruct } from "@ryot/contract/schema/utils";
 import { Schema } from "effect";
 
 const uploadTokenInput = <const Source extends string>(source: Source) =>
@@ -14,6 +14,19 @@ const urlAndKeyInput = <const Source extends string>(source: Source) =>
 		allowInsecureConnections: Schema.optional(Schema.Boolean),
 	}).pipe(Schema.annotate({ identifier: `MediaImportInput_${source}` }));
 
+const traktUserInput = strictStruct({
+	username: Schema.NonEmptyString,
+	mode: Schema.Literal("user"),
+	source: Schema.Literal("trakt"),
+}).pipe(Schema.annotate({ identifier: "MediaImportInput_trakt_user" }));
+
+const traktListInput = strictStruct({
+	url: HttpUrl,
+	collection: Schema.NonEmptyString,
+	mode: Schema.Literal("list"),
+	source: Schema.Literal("trakt"),
+}).pipe(Schema.annotate({ identifier: "MediaImportInput_trakt_list" }));
+
 export const MediaCreateImportRunBody = Schema.Union([
 	urlAndKeyInput("plex"),
 	uploadTokenInput("imdb"),
@@ -25,17 +38,16 @@ export const MediaCreateImportRunBody = Schema.Union([
 	uploadTokenInput("storygraph"),
 	urlAndKeyInput("media_tracker"),
 	urlAndKeyInput("audiobookshelf"),
-	Schema.Struct({ source: Schema.Literal("trakt"), username: Schema.NonEmptyString }).pipe(
-		Schema.annotate({ identifier: "MediaImportInput_trakt" }),
-	),
+	traktUserInput,
+	traktListInput,
 	Schema.Struct({
-		source: Schema.Literal("igdb"),
 		collection: Schema.NonEmptyString,
 		uploadToken: Schema.NonEmptyString,
+		source: Schema.Literal("igdb"),
 	}).pipe(Schema.annotate({ identifier: "MediaImportInput_igdb" })),
 	Schema.Struct({
-		source: Schema.Literal("netflix"),
 		uploadToken: Schema.NonEmptyString,
+		source: Schema.Literal("netflix"),
 		profileName: Schema.optional(Schema.String),
 	}).pipe(Schema.annotate({ identifier: "MediaImportInput_netflix" })),
 	Schema.Struct({

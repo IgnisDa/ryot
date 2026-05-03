@@ -13,6 +13,8 @@ import {
 	MediaImportDispatchParserInput,
 	MediaIntegrationAdapterResult,
 	MediaImportWriteChunkInput,
+	TraktImportTarget,
+	TraktImportUrl,
 } from "../../imports/schemas";
 import { ResolveEpisodesInput, ResolveEpisodesOutput } from "../../operations/schemas";
 import {
@@ -107,19 +109,10 @@ export default defineWorkflow({
 			const integrationScriptSlug = input.sourcePayload?.["integrationScriptSlug"];
 			const isIntegration =
 				typeof integrationId === "string" && typeof integrationScriptSlug === "string";
-			let parserInput: {
-				start: number;
-				limit: number;
-				apiKey?: string;
-				apiUrl?: string;
-				password?: string;
-				username?: string;
-				collection?: string;
-				profileName?: string;
-				hasAnimeFile?: boolean;
-				hasMangaFile?: boolean;
-				allowInsecureConnections?: boolean;
-			} = { start: 0, limit: BATCH_SIZE };
+			let parserInput: typeof MediaImportDispatchParserInput.Type = {
+				start: 0,
+				limit: BATCH_SIZE,
+			};
 			if (input.source === "igdb") {
 				const collection = input.sourcePayload?.["collection"];
 				if (typeof collection !== "string" || !collection.trim()) {
@@ -142,11 +135,48 @@ export default defineWorkflow({
 				parserInput = { ...parserInput, hasAnimeFile, hasMangaFile };
 			}
 			if (input.source === "trakt") {
-				const username = input.sourcePayload?.["username"];
-				if (typeof username !== "string" || !username.trim()) {
+				const target = input.sourcePayload ?? {};
+				const mode = target["mode"];
+				if (!Schema.is(TraktImportTarget)(target)) {
+					if (
+						mode === "user" &&
+						(!Schema.is(Schema.NonEmptyString)(target["username"]) ||
+							!String(target["username"]).trim())
+					) {
+						return yield* Effect.fail(new Error("Import job is missing Trakt username"));
+					}
+					if (mode === "user") {
+						return yield* Effect.fail(new Error("Import job has invalid Trakt user fields"));
+					}
+					if (mode === "list") {
+						if (!Schema.is(TraktImportUrl)(target["url"])) {
+							return yield* Effect.fail(
+								new Error("Import job is missing or invalid Trakt list URL"),
+							);
+						}
+						if (
+							!Schema.is(Schema.NonEmptyString)(target["collection"]) ||
+							!String(target["collection"]).trim()
+						) {
+							return yield* Effect.fail(new Error("Import job is missing Trakt collection"));
+						}
+						return yield* Effect.fail(new Error("Import job has invalid Trakt list fields"));
+					}
+					return yield* Effect.fail(new Error("Import job is missing or invalid Trakt mode"));
+				}
+				if (target.mode === "user" && !target.username.trim()) {
 					return yield* Effect.fail(new Error("Import job is missing Trakt username"));
 				}
-				parserInput = { ...parserInput, username: username.trim() };
+				if (target.mode === "list" && !target.collection.trim()) {
+					return yield* Effect.fail(new Error("Import job is missing Trakt collection"));
+				}
+				parserInput = {
+					...parserInput,
+					...target,
+					...(target.mode === "user"
+						? { username: target.username.trim() }
+						: { collection: target.collection.trim(), url: target.url.trim() }),
+				};
 			}
 			if (["plex", "audiobookshelf", "media_tracker"].includes(input.source)) {
 				const apiKey = input.sourcePayload?.["apiKey"];
