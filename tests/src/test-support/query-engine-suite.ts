@@ -212,6 +212,26 @@ export function registerQueryEnginePresentationAndErrorTests() {
 			kind: "image",
 			value: { type: "remote", url: "https://example.com/alpha-phone.png" },
 		});
+		expect(gridResult.data.data.meta.fieldOrder).toEqual([
+			"image",
+			"title",
+			"primarySubtitle",
+			"secondarySubtitle",
+			"callout",
+		]);
+		expect(Object.keys(gridResult.data.data.items[0] ?? {}).toSorted()).toEqual(
+			[...gridResult.data.data.meta.fieldOrder].toSorted(),
+		);
+		expect(listResult.data.data.meta.fieldOrder).toEqual([
+			"image",
+			"title",
+			"primarySubtitle",
+			"secondarySubtitle",
+			"callout",
+		]);
+		expect(Object.keys(listResult.data.data.items[0] ?? {}).toSorted()).toEqual(
+			[...listResult.data.data.meta.fieldOrder].toSorted(),
+		);
 		expect(getQueryEngineFieldOrThrow(gridResult.data.data.items[0], "image").value).toEqual({
 			type: "remote",
 			url: "https://example.com/alpha-phone.png",
@@ -278,11 +298,11 @@ export function registerQueryEnginePresentationAndErrorTests() {
 		);
 
 		expect(response.status).toBe(200);
-		expect(data.data.items[0]).toEqual([
-			{ key: "column_0", kind: "text", value: "Alpha Phone" },
-			{ key: "column_1", kind: "number", value: 2018 },
-			{ key: "column_2", kind: "null", value: null },
-		]);
+		expect(data.data.items[0]).toEqual({
+			column_0: { kind: "text", value: "Alpha Phone" },
+			column_1: { kind: "number", value: 2018 },
+			column_2: { kind: "null", value: null },
+		});
 	});
 
 	it("coalesces cross-schema display configuration values", async () => {
@@ -455,16 +475,20 @@ export function registerQueryEnginePresentationAndErrorTests() {
 		expect(
 			data.data.items.map((item) => getQueryEngineFieldOrThrow(item, "column_0").value),
 		).toEqual(["Alpha Phone", "Gamma Phone"]);
-		expect(data.data.items[0]).toMatchObject([
-			{ key: "column_0", kind: "text", value: "Alpha Phone" },
-			{ key: "column_1", kind: "number", value: 5 },
-			{ key: "column_2", kind: "date" },
-		]);
-		expect(data.data.items[1]).toMatchObject([
-			{ key: "column_0", kind: "text", value: "Gamma Phone" },
-			{ key: "column_1", kind: "number", value: 4 },
-			{ key: "column_2", kind: "date" },
-		]);
+		expect(data.data.items[0]).toMatchObject({
+			column_0: { kind: "text", value: "Alpha Phone" },
+			column_1: { kind: "number", value: 5 },
+			column_2: { kind: "date" },
+		});
+		expect(data.data.items[1]).toMatchObject({
+			column_0: { kind: "text", value: "Gamma Phone" },
+			column_1: { kind: "number", value: 4 },
+			column_2: { kind: "date" },
+		});
+		expect(data.data.meta.fieldOrder).toEqual(["column_0", "column_1", "column_2"]);
+		expect(Object.keys(data.data.items[0] ?? {}).toSorted()).toEqual(
+			[...data.data.meta.fieldOrder].toSorted(),
+		);
 		for (const item of data.data.items) {
 			const reviewedAt = getQueryEngineFieldOrThrow(item, "column_2").value;
 			expect(reviewedAt).toMatch(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/);

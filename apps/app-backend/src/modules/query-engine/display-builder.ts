@@ -191,16 +191,12 @@ export const buildResolvedFieldsExpression = (input: {
 	const fieldExpressions = input.fields.map((field) => {
 		const resolvedValue = resolveExpression(field.expression);
 
-		return sql`jsonb_build_object(
-			'key', cast(${field.key} as text),
-			'kind', ${resolvedValue} ->> 'kind',
-			'value', ${resolvedValue} -> 'value'
-		)`;
+		return sql`cast(${field.key} as text), ${resolvedValue}`;
 	});
 
 	if (!fieldExpressions.length) {
-		return sql`'[]'::jsonb`;
+		return sql`'{}'::jsonb`;
 	}
 
-	return sql`jsonb_build_array(${sql.join(fieldExpressions, sql`, `)})`;
+	return sql`jsonb_build_object(${sql.join(fieldExpressions, sql`, `)})`;
 };
