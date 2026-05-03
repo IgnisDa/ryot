@@ -1,8 +1,8 @@
 {
 	"name": "@ryot/graphql",
 	"scripts": {
-		"typecheck": "tsc",
-		"lint": "biome check ."
+		"build": "tsc",
+		"typecheck": "tsc"
 	},
 	"dependencies": {
 		"@ryot/generated": "workspace:*",
