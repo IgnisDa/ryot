@@ -26,7 +26,7 @@ export type NavigationItem = {
 export function sortByOrderThenName<T extends { sortOrder: number; name: string }>(
 	items: T[],
 ): T[] {
-	return [...items].sort((a, b) => {
+	return items.toSorted((a, b) => {
 		if (a.sortOrder !== b.sortOrder) {
 			return a.sortOrder - b.sortOrder;
 		}
