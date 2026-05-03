@@ -1,8 +1,10 @@
 import { describe, expect, it } from "vitest";
 
+import { createSavedViewControllerState } from "./controller";
 import {
 	emptySavedViewSession,
 	savedViewSessionEntry,
+	withSavedViewController,
 	withSavedViewQuery,
 	withSavedViewScrollOffset,
 } from "./session-state";
@@ -26,16 +28,23 @@ describe("savedViewSessionEntry", () => {
 });
 
 describe("saved view session retention", () => {
-	it("keeps query and scroll offset per slug", () => {
-		const withMovies = withSavedViewScrollOffset(
-			withSavedViewQuery(emptySavedViewSession, "media", "movies", "drama"),
+	it("keeps query, controller, and scroll offset per slug", () => {
+		const controller = createSavedViewControllerState("movies", "grid");
+		const withMovies = withSavedViewController(
+			withSavedViewScrollOffset(
+				withSavedViewQuery(emptySavedViewSession, "media", "movies", "drama"),
+				"media",
+				"movies",
+				420,
+			),
 			"media",
 			"movies",
-			420,
+			controller,
 		);
 		const session = withSavedViewQuery(withMovies, "media", "books", "ursula");
 
 		expect(savedViewSessionEntry(session, "media", "movies")).toEqual({
+			controller,
 			query: "drama",
 			scrollOffset: 420,
 		});
@@ -45,8 +54,13 @@ describe("saved view session retention", () => {
 		});
 	});
 
-	it("resets the scroll offset when the query changes", () => {
-		const scrolled = withSavedViewScrollOffset(emptySavedViewSession, "media", "movies", 420);
+	it("resets the controller and scroll offset when the query changes", () => {
+		const scrolled = withSavedViewController(
+			withSavedViewScrollOffset(emptySavedViewSession, "media", "movies", 420),
+			"media",
+			"movies",
+			createSavedViewControllerState("movies", "grid"),
+		);
 
 		expect(withSavedViewQuery(scrolled, "media", "movies", "drama")).toEqual({
 			workspace: "media",

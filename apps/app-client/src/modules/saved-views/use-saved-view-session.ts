@@ -4,8 +4,10 @@ import { useContext, useEffect, useRef, useState } from "react";
 import { useApiScope } from "@/api/scope";
 
 import { savedViewSessionAtom } from "./atoms";
+import type { SavedViewControllerState } from "./controller";
 import {
 	savedViewSessionEntry,
+	withSavedViewController,
 	withSavedViewQuery,
 	withSavedViewScrollOffset,
 	type SavedViewSessionEntry,
@@ -40,7 +42,13 @@ export function useSavedViewSession(props: { slug: string; workspace: string }) 
 	}, [atom, props.slug, props.workspace, query, registry]);
 
 	return {
+		initialController: restored.current.controller,
 		initialScrollOffset: restored.current.scrollOffset,
+		onControllerChange: (controller: SavedViewControllerState) =>
+			registry.set(
+				atom,
+				withSavedViewController(registry.get(atom), props.workspace, props.slug, controller),
+			),
 		onScrollOffsetChange: (offset: number) =>
 			registry.set(
 				atom,

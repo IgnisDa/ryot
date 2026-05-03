@@ -23,6 +23,7 @@ import {
 	savedViewControllerReducer,
 	savedViewControllerResult,
 	savedViewControllerQueryDocument,
+	type SavedViewControllerState,
 	type SavedViewOperationToken,
 	withSavedViewCursor,
 	withSavedViewSearch,
@@ -44,7 +45,14 @@ export const useSavedViewRecord = (slug: string) => {
 	return { state, refresh: useAtomRefresh(atom) };
 };
 
-export const useSavedViewResult = (record: SavedViewRecord, searchQuery = "") => {
+export const useSavedViewResult = (
+	record: SavedViewRecord,
+	searchQuery = "",
+	session?: {
+		readonly initialController?: SavedViewControllerState;
+		readonly onControllerChange: (controller: SavedViewControllerState) => void;
+	},
+) => {
 	const scope = useApiScope();
 	const revalidationVersion = useAtomValue(appRevalidationSignal);
 	const [layout] = useSavedViewLayout(record.slug);
@@ -55,9 +63,17 @@ export const useSavedViewResult = (record: SavedViewRecord, searchQuery = "") =>
 		record.layouts[layout],
 		normalizedSearchQuery,
 	);
-	const [controller, dispatch] = useReducer(savedViewControllerReducer, undefined, () =>
-		createSavedViewControllerState(identity, layout),
-	);
+	const [controller, dispatch] = useReducer(savedViewControllerReducer, undefined, () => {
+		const restored = session?.initialController;
+		if (restored?.identity !== identity) {
+			return createSavedViewControllerState(identity, layout);
+		}
+		const restoredLayout = savedViewControllerReducer(restored, {
+			type: "layout-changed",
+			layout,
+		});
+		return savedViewControllerReducer(restoredLayout, { type: "refresh-requested" });
+	});
 	const controllerRef = useRef(controller);
 	const operationSequence = useRef(controller.generation);
 	const activeRequest = useRef<SavedViewOperationToken | undefined>(undefined);
@@ -162,6 +178,15 @@ export const useSavedViewResult = (record: SavedViewRecord, searchQuery = "") =>
 	const isLoadingMore = isSavedViewLoadingMore(effectiveController);
 	const visibleQueryDocument =
 		savedViewControllerQueryDocument(effectiveController) ?? queryDocument;
+	const saveController = useEffectEvent((current: SavedViewControllerState) => {
+		session?.onControllerChange(current);
+	});
+	useEffect(() => {
+		if (Object.values(controller.layouts).some((current) => current.operation)) {
+			return;
+		}
+		saveController(controller);
+	}, [controller]);
 
 	const loadInitial = useEffectEvent(() => {
 		const current = controllerRef.current;
