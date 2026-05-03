@@ -4,9 +4,11 @@ import type { CurrentDb } from "#lib/db";
 import type { DbError } from "#lib/errors";
 import { BadRequest, NotFound } from "#lib/errors";
 import type {
+	DisplayConfiguration,
 	QueryEngineRequest,
 	QueryEventJoin,
 	QueryRelationshipJoin,
+	SavedViewQueryDefinition,
 } from "#lib/query-language";
 import { QueryEngineNotFoundError } from "#lib/views/errors";
 import {
@@ -14,8 +16,12 @@ import {
 	buildRelationshipJoinMap,
 	buildSchemaMap,
 	type QueryEngineEventSchemaLike,
+	type QueryEngineReferenceContext,
 } from "#lib/views/reference";
-import { validateQueryEngineReferences } from "#lib/views/validator";
+import {
+	validateQueryEngineReferences,
+	validateSavedViewDisplayConfiguration,
+} from "#lib/views/validator";
 
 import { executeAggregateQuery } from "./aggregate-query-builder";
 import type { PreparedQueryContext } from "./context";
@@ -171,6 +177,84 @@ const loadOptionalEventSchemaMap = (input: {
 		eventSchemaSlugs: [...input.eventSchemaSlugs],
 	});
 };
+
+const buildSavedViewValidationRequest = (
+	queryDefinition: SavedViewQueryDefinition,
+): Extract<QueryEngineRequest, { mode: "entities" }> => ({
+	fields: [],
+	mode: "entities",
+	sort: queryDefinition.sort,
+	filter: queryDefinition.filter,
+	scope: [...queryDefinition.scope],
+	pagination: { page: 1, limit: 1 },
+	eventJoins: [...queryDefinition.eventJoins],
+	computedFields: [...queryDefinition.computedFields],
+	relationshipJoins: [...(queryDefinition.relationshipJoins ?? [])],
+});
+
+const validateSavedViewDefinition = (input: {
+	context: QueryEngineReferenceContext;
+	queryDefinition: SavedViewQueryDefinition;
+	displayConfiguration: DisplayConfiguration;
+}) => {
+	validateQueryEngineReferences(
+		buildSavedViewValidationRequest(input.queryDefinition),
+		input.context,
+	);
+	validateSavedViewDisplayConfiguration(
+		input.displayConfiguration,
+		input.context,
+		input.queryDefinition.computedFields,
+	);
+};
+
+export const loadAndValidateQueryContext = (input: {
+	userId: string;
+	queryDefinition: SavedViewQueryDefinition;
+	displayConfiguration: DisplayConfiguration;
+}): Effect.Effect<void, BadRequest | DbError, CurrentDb> =>
+	Effect.gen(function* () {
+		const context = yield* prepareContext({
+			userId: input.userId,
+			query: {
+				mode: "entities",
+				eventSchemas: [],
+				scope: [...input.queryDefinition.scope],
+				eventJoins: [...input.queryDefinition.eventJoins],
+				relationshipJoins: [...(input.queryDefinition.relationshipJoins ?? [])],
+			},
+		});
+
+		const eventSchemaMap = yield* loadOptionalEventSchemaMap({
+			userId: input.userId,
+			runtimeSchemas: context.runtimeSchemas,
+			eventSchemaSlugs: context.eventSchemaSlugs,
+			shouldLoad:
+				hasEventAggregateRef(input.queryDefinition) ||
+				hasEventAggregateRef(input.displayConfiguration),
+		});
+
+		const validationContext = {
+			eventSchemaMap,
+			schemaMap: context.schemaMap,
+			eventJoinMap: context.eventJoinMap,
+			eventSchemaSlugs: context.eventSchemaSlugs,
+			relationshipJoinMap: context.relationshipJoinMap,
+		} satisfies QueryEngineReferenceContext;
+
+		yield* Effect.try({
+			try: () =>
+				validateSavedViewDefinition({
+					context: validationContext,
+					queryDefinition: input.queryDefinition,
+					displayConfiguration: input.displayConfiguration,
+				}),
+			catch: (error) =>
+				new BadRequest({ message: error instanceof Error ? error.message : String(error) }),
+		});
+	}).pipe(
+		Effect.catchTag("NotFound", (error) => Effect.fail(new BadRequest({ message: error.message }))),
+	);
 
 export const prepareAndExecute = (userId: string, request: QueryEngineRequest) =>
 	Effect.gen(function* () {

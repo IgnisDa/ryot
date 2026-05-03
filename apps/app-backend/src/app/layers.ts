@@ -94,6 +94,8 @@ const ApplicationInfrastructureLive = Layer.mergeAll(
 
 const SandboxServicesLive = Layer.mergeAll(SandboxApiService.Default, SandboxService.Default);
 
+const SavedViewsServiceLive = Layer.provide(SavedViewsService.Default, QueryEngineService.Default);
+
 const ServicesNeedingCollectionsScopeLive = Layer.mergeAll(
 	AuthService.Default,
 	EntitiesService.Default,
@@ -105,7 +107,7 @@ const ServicesNeedingCollectionsScopeLive = Layer.mergeAll(
 	IntegrationsService.Default,
 	QueryEngineService.Default,
 	RelationshipSchemasService.Default,
-	SavedViewsService.Default,
+	SavedViewsServiceLive,
 	TrackersService.Default,
 	UploadsService.Default,
 );
