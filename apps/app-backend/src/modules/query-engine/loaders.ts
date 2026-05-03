@@ -1,19 +1,12 @@
 import { and, eq, inArray, isNull, or } from "drizzle-orm";
+
 import { db } from "~/lib/db";
 import { entitySchema, eventSchema, relationshipSchema } from "~/lib/db/schema";
-import {
-	QueryEngineNotFoundError,
-	QueryEngineValidationError,
-} from "~/lib/views/errors";
-import type {
-	QueryEngineEventJoinLike,
-	QueryEngineEventSchemaLike,
-} from "~/lib/views/reference";
+import { QueryEngineNotFoundError, QueryEngineValidationError } from "~/lib/views/errors";
+import type { QueryEngineEventJoinLike, QueryEngineEventSchemaLike } from "~/lib/views/reference";
 import { propertySchemaObjectSchema } from "~/modules/property-schemas";
-import type {
-	EventJoinDefinition,
-	RelationshipFilter,
-} from "../saved-views/schemas";
+
+import type { EventJoinDefinition, RelationshipFilter } from "../saved-views/schemas";
 import type { QueryEngineSchemaRow } from "./query-ctes";
 
 const parseAppSchema = (value: unknown) => {
@@ -38,9 +31,7 @@ export const validateUniqueSchemaSlugs = (
 		}
 
 		if (found.length > 1) {
-			throw new QueryEngineValidationError(
-				`Schema '${slug}' resolves to multiple visible schemas`,
-			);
+			throw new QueryEngineValidationError(`Schema '${slug}' resolves to multiple visible schemas`);
 		}
 	}
 };
@@ -51,10 +42,7 @@ export const validateVisibleEventJoins = (
 		entitySchemaSlug: string;
 	})[],
 ) => {
-	const eventSchemasByEntitySchemaKey = new Map<
-		string,
-		QueryEngineEventSchemaLike
-	>();
+	const eventSchemasByEntitySchemaKey = new Map<string, QueryEngineEventSchemaLike>();
 	for (const schema of visibleEventSchemas) {
 		const key = `${schema.entitySchemaSlug}:${schema.slug}`;
 		if (eventSchemasByEntitySchemaKey.has(key)) {
@@ -79,17 +67,12 @@ export const validateVisibleEventJoins = (
 		return {
 			...join,
 			eventSchemas,
-			eventSchemaMap: new Map(
-				eventSchemas.map((schema) => [schema.entitySchemaSlug, schema]),
-			),
+			eventSchemaMap: new Map(eventSchemas.map((schema) => [schema.entitySchemaSlug, schema])),
 		};
 	});
 };
 
-export const validateEventSchemaSlugs = (
-	uniqueSlugs: string[],
-	rows: { slug: string }[],
-) => {
+export const validateEventSchemaSlugs = (uniqueSlugs: string[], rows: { slug: string }[]) => {
 	for (const slug of uniqueSlugs) {
 		if (!rows.some((r) => r.slug === slug)) {
 			throw new QueryEngineNotFoundError(
@@ -99,15 +82,10 @@ export const validateEventSchemaSlugs = (
 	}
 };
 
-export const validateRelationshipSlugs = (
-	uniqueSlugs: string[],
-	foundSlugs: Set<string>,
-) => {
+export const validateRelationshipSlugs = (uniqueSlugs: string[], foundSlugs: Set<string>) => {
 	for (const slug of uniqueSlugs) {
 		if (!foundSlugs.has(slug)) {
-			throw new QueryEngineNotFoundError(
-				`Relationship schema '${slug}' not found`,
-			);
+			throw new QueryEngineNotFoundError(`Relationship schema '${slug}' not found`);
 		}
 	}
 };
@@ -149,9 +127,7 @@ export const loadVisibleEventJoins = async (input: {
 		return [];
 	}
 
-	const uniqueEventSchemaSlugs = [
-		...new Set(input.eventJoins.map((join) => join.eventSchemaSlug)),
-	];
+	const uniqueEventSchemaSlugs = [...new Set(input.eventJoins.map((join) => join.eventSchemaSlug))];
 	const rows = await db
 		.select({
 			id: eventSchema.id,
@@ -188,18 +164,11 @@ export const loadRelationshipSchemaIds = async (
 		return [];
 	}
 
-	const uniqueSlugs = [
-		...new Set(relationships.map((r) => r.relationshipSchemaSlug)),
-	];
+	const uniqueSlugs = [...new Set(relationships.map((r) => r.relationshipSchemaSlug))];
 	const rows = await db
 		.select({ id: relationshipSchema.id, slug: relationshipSchema.slug })
 		.from(relationshipSchema)
-		.where(
-			and(
-				inArray(relationshipSchema.slug, uniqueSlugs),
-				isNull(relationshipSchema.userId),
-			),
-		);
+		.where(and(inArray(relationshipSchema.slug, uniqueSlugs), isNull(relationshipSchema.userId)));
 
 	const foundSlugs = new Set(rows.map((r) => r.slug));
 	validateRelationshipSlugs(uniqueSlugs, foundSlugs);

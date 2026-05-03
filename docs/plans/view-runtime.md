@@ -113,22 +113,22 @@ For grid/list layouts, the `resolvedProperties` object contains the resolved val
 
 ```json
 {
-  "id": "entity-123",
-  "name": "iPhone 15 Pro",
-  "image": { "kind": "s3", "key": "uploads/abc123.jpg" },
-  "entitySchemaId": "c3f8a9b2-...",
-  "entitySchemaSlug": "smartphones",
-  "createdAt": "2024-09-15T10:30:00Z",
-  "updatedAt": "2024-12-01T14:22:00Z",
-  "resolvedProperties": {
-    "imageProperty": {
-      "value": { "kind": "s3", "key": "uploads/abc123.jpg" },
-      "kind": "image"
-    },
-    "titleProperty": { "value": "iPhone 15 Pro", "kind": "text" },
-    "subtitleProperty": { "value": "Apple", "kind": "text" },
-    "badgeProperty": { "value": 999, "kind": "number" }
-  }
+	"id": "entity-123",
+	"name": "iPhone 15 Pro",
+	"image": { "kind": "s3", "key": "uploads/abc123.jpg" },
+	"entitySchemaId": "c3f8a9b2-...",
+	"entitySchemaSlug": "smartphones",
+	"createdAt": "2024-09-15T10:30:00Z",
+	"updatedAt": "2024-12-01T14:22:00Z",
+	"resolvedProperties": {
+		"imageProperty": {
+			"value": { "kind": "s3", "key": "uploads/abc123.jpg" },
+			"kind": "image"
+		},
+		"titleProperty": { "value": "iPhone 15 Pro", "kind": "text" },
+		"subtitleProperty": { "value": "Apple", "kind": "text" },
+		"badgeProperty": { "value": 999, "kind": "number" }
+	}
 }
 ```
 
@@ -155,22 +155,22 @@ Where:
 
 ```typescript
 type GridDisplayConfig = {
-  imageProperty?: string[]
-  titleProperty?: string[]
-  subtitleProperty?: string[]
-  badgeProperty?: string[] | null
-}
+	imageProperty?: string[];
+	titleProperty?: string[];
+	subtitleProperty?: string[];
+	badgeProperty?: string[] | null;
+};
 
 type ListDisplayConfig = {
-  imageProperty?: string[]
-  titleProperty?: string[]
-  subtitleProperty?: string[]
-  badgeProperty?: string[] | null
-}
+	imageProperty?: string[];
+	titleProperty?: string[];
+	subtitleProperty?: string[];
+	badgeProperty?: string[] | null;
+};
 
 type TableDisplayConfig = {
-  columns: Array<{ label: string, property: string[] }>
-}
+	columns: Array<{ label: string; property: string[] }>;
+};
 ```
 
 The `layout` field determines which display config type is present in `displayConfiguration`.
@@ -181,9 +181,9 @@ Filter expressions use a discriminated union by operator to validate value types
 
 ```typescript
 type FilterExpression =
-  | { field: string, op: "isNull", value?: null }
-  | { field: string, op: "in", value: any[] }
-  | { field: string, op: "eq" | "ne" | "gt" | "gte" | "lt" | "lte", value: any }
+	| { field: string; op: "isNull"; value?: null }
+	| { field: string; op: "in"; value: any[] }
+	| { field: string; op: "eq" | "ne" | "gt" | "gte" | "lt" | "lte"; value: any };
 ```
 
 The `isNull` operator accepts no value or null. The `in` operator requires an array. Other operators accept single values.
@@ -282,19 +282,19 @@ Single-schema view:
 
 ```json
 {
-  "filters": [
-    { "field": "smartphones.manufacturer", "op": "eq", "value": "Apple" },
-    { "field": "smartphones.year", "op": "gte", "value": 2020 }
-  ],
-  "sort": {
-    "fields": ["smartphones.year"],
-    "direction": "desc"
-  },
-  "displayConfiguration": {
-    "imageProperty": ["smartphones.product_image"],
-    "titleProperty": ["@name"],
-    "subtitleProperty": ["smartphones.manufacturer", "smartphones.year"]
-  }
+	"filters": [
+		{ "field": "smartphones.manufacturer", "op": "eq", "value": "Apple" },
+		{ "field": "smartphones.year", "op": "gte", "value": 2020 }
+	],
+	"sort": {
+		"fields": ["smartphones.year"],
+		"direction": "desc"
+	},
+	"displayConfiguration": {
+		"imageProperty": ["smartphones.product_image"],
+		"titleProperty": ["@name"],
+		"subtitleProperty": ["smartphones.manufacturer", "smartphones.year"]
+	}
 }
 ```
 
@@ -302,19 +302,19 @@ Cross-schema view:
 
 ```json
 {
-  "filters": [
-    { "field": "smartphones.year", "op": "gte", "value": 2020 },
-    { "field": "tablets.release_year", "op": "gte", "value": 2020 }
-  ],
-  "sort": {
-    "fields": ["smartphones.year", "tablets.release_year"],
-    "direction": "desc"
-  },
-  "displayConfiguration": {
-    "imageProperty": ["smartphones.product_image", "tablets.device_image"],
-    "titleProperty": ["@name"],
-    "subtitleProperty": ["smartphones.manufacturer", "tablets.maker"]
-  }
+	"filters": [
+		{ "field": "smartphones.year", "op": "gte", "value": 2020 },
+		{ "field": "tablets.release_year", "op": "gte", "value": 2020 }
+	],
+	"sort": {
+		"fields": ["smartphones.year", "tablets.release_year"],
+		"direction": "desc"
+	},
+	"displayConfiguration": {
+		"imageProperty": ["smartphones.product_image", "tablets.device_image"],
+		"titleProperty": ["@name"],
+		"subtitleProperty": ["smartphones.manufacturer", "tablets.maker"]
+	}
 }
 ```
 
@@ -358,10 +358,15 @@ Display configurations use the schema-qualified property syntax with one key add
 
 ```json
 {
-  "imageProperty": ["smartphones.product_image", "tablets.device_image"],
-  "titleProperty": ["@name"],
-  "subtitleProperty": ["smartphones.manufacturer", "tablets.maker", "smartphones.year", "tablets.release_year"],
-  "badgeProperty": ["smartphones.price_usd", "tablets.retail_price"]
+	"imageProperty": ["smartphones.product_image", "tablets.device_image"],
+	"titleProperty": ["@name"],
+	"subtitleProperty": [
+		"smartphones.manufacturer",
+		"tablets.maker",
+		"smartphones.year",
+		"tablets.release_year"
+	],
+	"badgeProperty": ["smartphones.price_usd", "tablets.retail_price"]
 }
 ```
 
@@ -371,9 +376,9 @@ Even for single-schema views, the array format is required for consistency:
 
 ```json
 {
-  "imageProperty": ["smartphones.product_image"],
-  "titleProperty": ["@name"],
-  "subtitleProperty": ["smartphones.manufacturer", "smartphones.year"]
+	"imageProperty": ["smartphones.product_image"],
+	"titleProperty": ["@name"],
+	"subtitleProperty": ["smartphones.manufacturer", "smartphones.year"]
 }
 ```
 
@@ -423,13 +428,13 @@ Consider a "Smartphones" entity schema with properties:
 
 ```json
 {
-  "manufacturer": { "type": "string", "label": "Manufacturer", "required": true },
-  "year": { "type": "integer", "label": "Year" },
-  "os": { "type": "string", "label": "OS" },
-  "screen_size": { "type": "number", "label": "Screen Size" },
-  "storage_gb": { "type": "integer", "label": "Storage (GB)" },
-  "ram_gb": { "type": "integer", "label": "RAM (GB)" },
-  "price_usd": { "type": "number", "label": "Price (USD)" }
+	"manufacturer": { "type": "string", "label": "Manufacturer", "required": true },
+	"year": { "type": "integer", "label": "Year" },
+	"os": { "type": "string", "label": "OS" },
+	"screen_size": { "type": "number", "label": "Screen Size" },
+	"storage_gb": { "type": "integer", "label": "Storage (GB)" },
+	"ram_gb": { "type": "integer", "label": "RAM (GB)" },
+	"price_usd": { "type": "number", "label": "Price (USD)" }
 }
 ```
 
@@ -437,39 +442,39 @@ Consider a "Smartphones" entity schema with properties:
 
 ```json
 {
-  "name": "Recent Samsung Phones",
-  "trackerId": "smartphones-tracker-id",
-  "isBuiltin": false,
-  "queryDefinition": {
-    "scope": ["smartphones"],
-    "filters": [
-      { "field": "smartphones.manufacturer", "op": "eq", "value": "Samsung" },
-      { "field": "smartphones.year", "op": "lt", "value": 2025 }
-    ],
-    "sort": { "fields": ["smartphones.year"], "direction": "desc" }
-  },
-  "displayConfiguration": {
-    "grid": {
-      "imageProperty": ["smartphones.product_image"],
-      "titleProperty": ["@name"],
-      "subtitleProperty": ["smartphones.manufacturer", "smartphones.year"],
-      "badgeProperty": ["smartphones.price_usd"]
-    },
-    "list": {
-      "imageProperty": ["smartphones.product_image"],
-      "titleProperty": ["@name"],
-      "subtitleProperty": ["smartphones.manufacturer", "smartphones.year", "smartphones.price_usd"],
-      "badgeProperty": null
-    },
-    "table": {
-      "columns": [
-        { "label": "Name", "property": ["@name"] },
-        { "label": "Manufacturer", "property": ["smartphones.manufacturer"] },
-        { "label": "Year", "property": ["smartphones.year"] },
-        { "label": "Price", "property": ["smartphones.price_usd"] }
-      ]
-    }
-  }
+	"name": "Recent Samsung Phones",
+	"trackerId": "smartphones-tracker-id",
+	"isBuiltin": false,
+	"queryDefinition": {
+		"scope": ["smartphones"],
+		"filters": [
+			{ "field": "smartphones.manufacturer", "op": "eq", "value": "Samsung" },
+			{ "field": "smartphones.year", "op": "lt", "value": 2025 }
+		],
+		"sort": { "fields": ["smartphones.year"], "direction": "desc" }
+	},
+	"displayConfiguration": {
+		"grid": {
+			"imageProperty": ["smartphones.product_image"],
+			"titleProperty": ["@name"],
+			"subtitleProperty": ["smartphones.manufacturer", "smartphones.year"],
+			"badgeProperty": ["smartphones.price_usd"]
+		},
+		"list": {
+			"imageProperty": ["smartphones.product_image"],
+			"titleProperty": ["@name"],
+			"subtitleProperty": ["smartphones.manufacturer", "smartphones.year", "smartphones.price_usd"],
+			"badgeProperty": null
+		},
+		"table": {
+			"columns": [
+				{ "label": "Name", "property": ["@name"] },
+				{ "label": "Manufacturer", "property": ["smartphones.manufacturer"] },
+				{ "label": "Year", "property": ["smartphones.year"] },
+				{ "label": "Price", "property": ["smartphones.price_usd"] }
+			]
+		}
+	}
 }
 ```
 
@@ -479,39 +484,51 @@ This example demonstrates the COALESCE behavior for cross-schema views where dif
 
 ```json
 {
-  "name": "Mobile Devices",
-  "trackerId": null,
-  "isBuiltin": false,
-  "queryDefinition": {
-    "scope": ["smartphones", "tablets"],
-    "filters": [
-      { "field": "smartphones.year", "op": "gte", "value": 2020 },
-      { "field": "tablets.release_year", "op": "gte", "value": 2020 }
-    ],
-    "sort": { "fields": ["smartphones.year", "tablets.release_year"], "direction": "desc" }
-  },
-  "displayConfiguration": {
-    "grid": {
-      "imageProperty": ["smartphones.product_image", "tablets.device_image"],
-      "titleProperty": ["@name"],
-      "subtitleProperty": ["smartphones.manufacturer", "tablets.maker", "smartphones.year", "tablets.release_year"],
-      "badgeProperty": ["smartphones.price_usd", "tablets.retail_price"]
-    },
-    "list": {
-      "imageProperty": ["smartphones.product_image", "tablets.device_image"],
-      "titleProperty": ["@name"],
-      "subtitleProperty": ["smartphones.manufacturer", "tablets.maker", "smartphones.year", "tablets.release_year", "smartphones.price_usd", "tablets.retail_price"],
-      "badgeProperty": null
-    },
-    "table": {
-      "columns": [
-        { "label": "Name", "property": ["@name"] },
-        { "label": "Maker", "property": ["smartphones.manufacturer", "tablets.maker"] },
-        { "label": "Year", "property": ["smartphones.year", "tablets.release_year"] },
-        { "label": "Price", "property": ["smartphones.price_usd", "tablets.retail_price"] }
-      ]
-    }
-  }
+	"name": "Mobile Devices",
+	"trackerId": null,
+	"isBuiltin": false,
+	"queryDefinition": {
+		"scope": ["smartphones", "tablets"],
+		"filters": [
+			{ "field": "smartphones.year", "op": "gte", "value": 2020 },
+			{ "field": "tablets.release_year", "op": "gte", "value": 2020 }
+		],
+		"sort": { "fields": ["smartphones.year", "tablets.release_year"], "direction": "desc" }
+	},
+	"displayConfiguration": {
+		"grid": {
+			"imageProperty": ["smartphones.product_image", "tablets.device_image"],
+			"titleProperty": ["@name"],
+			"subtitleProperty": [
+				"smartphones.manufacturer",
+				"tablets.maker",
+				"smartphones.year",
+				"tablets.release_year"
+			],
+			"badgeProperty": ["smartphones.price_usd", "tablets.retail_price"]
+		},
+		"list": {
+			"imageProperty": ["smartphones.product_image", "tablets.device_image"],
+			"titleProperty": ["@name"],
+			"subtitleProperty": [
+				"smartphones.manufacturer",
+				"tablets.maker",
+				"smartphones.year",
+				"tablets.release_year",
+				"smartphones.price_usd",
+				"tablets.retail_price"
+			],
+			"badgeProperty": null
+		},
+		"table": {
+			"columns": [
+				{ "label": "Name", "property": ["@name"] },
+				{ "label": "Maker", "property": ["smartphones.manufacturer", "tablets.maker"] },
+				{ "label": "Year", "property": ["smartphones.year", "tablets.release_year"] },
+				{ "label": "Price", "property": ["smartphones.price_usd", "tablets.retail_price"] }
+			]
+		}
+	}
 }
 ```
 
@@ -545,40 +562,40 @@ The sort fields `["smartphones.year", "tablets.release_year"]` uses COALESCE to 
 
 ```json
 {
-  "name": "Older Android Phones",
-  "trackerId": "smartphones-tracker-id",
-  "isBuiltin": false,
-  "queryDefinition": {
-    "scope": ["smartphones"],
-    "filters": [
-      { "field": "smartphones.year", "op": "lt", "value": 2020 },
-      { "field": "smartphones.year", "op": "gt", "value": 2001 },
-      { "field": "smartphones.os", "op": "eq", "value": "Android" }
-    ],
-    "sort": { "fields": ["smartphones.year"], "direction": "asc" }
-  },
-  "displayConfiguration": {
-    "grid": {
-      "imageProperty": ["smartphones.product_image"],
-      "titleProperty": ["@name"],
-      "subtitleProperty": ["smartphones.os", "smartphones.year"],
-      "badgeProperty": ["smartphones.screen_size"]
-    },
-    "list": {
-      "imageProperty": ["smartphones.product_image"],
-      "titleProperty": ["@name"],
-      "subtitleProperty": ["smartphones.os", "smartphones.year", "smartphones.screen_size"],
-      "badgeProperty": null
-    },
-    "table": {
-      "columns": [
-        { "label": "Name", "property": ["@name"] },
-        { "label": "OS", "property": ["smartphones.os"] },
-        { "label": "Year", "property": ["smartphones.year"] },
-        { "label": "Screen Size", "property": ["smartphones.screen_size"] }
-      ]
-    }
-  }
+	"name": "Older Android Phones",
+	"trackerId": "smartphones-tracker-id",
+	"isBuiltin": false,
+	"queryDefinition": {
+		"scope": ["smartphones"],
+		"filters": [
+			{ "field": "smartphones.year", "op": "lt", "value": 2020 },
+			{ "field": "smartphones.year", "op": "gt", "value": 2001 },
+			{ "field": "smartphones.os", "op": "eq", "value": "Android" }
+		],
+		"sort": { "fields": ["smartphones.year"], "direction": "asc" }
+	},
+	"displayConfiguration": {
+		"grid": {
+			"imageProperty": ["smartphones.product_image"],
+			"titleProperty": ["@name"],
+			"subtitleProperty": ["smartphones.os", "smartphones.year"],
+			"badgeProperty": ["smartphones.screen_size"]
+		},
+		"list": {
+			"imageProperty": ["smartphones.product_image"],
+			"titleProperty": ["@name"],
+			"subtitleProperty": ["smartphones.os", "smartphones.year", "smartphones.screen_size"],
+			"badgeProperty": null
+		},
+		"table": {
+			"columns": [
+				{ "label": "Name", "property": ["@name"] },
+				{ "label": "OS", "property": ["smartphones.os"] },
+				{ "label": "Year", "property": ["smartphones.year"] },
+				{ "label": "Screen Size", "property": ["smartphones.screen_size"] }
+			]
+		}
+	}
 }
 ```
 
@@ -590,25 +607,25 @@ When the frontend loads View 1:
 2. Frontend reads the current layout from `localStorage` (key: `view-layout:<viewId>`), defaulting to `"grid"` if absent
 3. Frontend compiles runtime request from `queryDefinition` + active layout config:
 
-  ```json
-  {
-    "scope": ["smartphones"],
-    "filters": [
-      { "field": "smartphones.manufacturer", "op": "eq", "value": "Samsung" },
-      { "field": "smartphones.year", "op": "lt", "value": 2025 }
-    ],
-    "sort": { "fields": ["smartphones.year"], "direction": "desc" },
-    "pagination": { "page": 1, "limit": 6 },
-    "displayConfiguration": {
-      "imageProperty": ["smartphones.product_image"],
-      "titleProperty": ["@name"],
-      "subtitleProperty": ["smartphones.manufacturer", "smartphones.year"],
-      "badgeProperty": ["smartphones.price_usd"]
-    }
-  }
-  ```
+```json
+{
+	"scope": ["smartphones"],
+	"filters": [
+		{ "field": "smartphones.manufacturer", "op": "eq", "value": "Samsung" },
+		{ "field": "smartphones.year", "op": "lt", "value": 2025 }
+	],
+	"sort": { "fields": ["smartphones.year"], "direction": "desc" },
+	"pagination": { "page": 1, "limit": 6 },
+	"displayConfiguration": {
+		"imageProperty": ["smartphones.product_image"],
+		"titleProperty": ["@name"],
+		"subtitleProperty": ["smartphones.manufacturer", "smartphones.year"],
+		"badgeProperty": ["smartphones.price_usd"]
+	}
+}
+```
 
-  The active layout's `displayConfiguration` is passed through unchanged so the runtime can resolve its property reference arrays using the rules described in "Display Configuration Property References".
+The active layout's `displayConfiguration` is passed through unchanged so the runtime can resolve its property reference arrays using the rules described in "Display Configuration Property References".
 
 4. `POST /view-runtime/execute` → returns entities with layout-specific display data (`resolvedProperties` for grid/list, `meta.table.columns` + `cells` for table)
 5. Frontend renders using the active layout and the runtime response directly, without inferring value types or rebuilding table headers
@@ -623,19 +640,24 @@ Here is a complete SQL query demonstrating how the view-runtime translates a cro
 
 ```json
 {
-  "scope": ["smartphones", "tablets"],
-  "filters": [
-    { "field": "smartphones.year", "op": "gte", "value": 2020 },
-    { "field": "tablets.release_year", "op": "gte", "value": 2020 }
-  ],
-  "sort": { "fields": ["smartphones.year", "tablets.release_year"], "direction": "desc" },
-  "pagination": { "page": 1, "limit": 20 },
-  "displayConfiguration": {
-    "imageProperty": ["smartphones.product_image", "tablets.device_image"],
-    "titleProperty": ["@name"],
-    "subtitleProperty": ["smartphones.manufacturer", "tablets.maker", "smartphones.year", "tablets.release_year"],
-    "badgeProperty": ["smartphones.price_usd", "tablets.retail_price"]
-  }
+	"scope": ["smartphones", "tablets"],
+	"filters": [
+		{ "field": "smartphones.year", "op": "gte", "value": 2020 },
+		{ "field": "tablets.release_year", "op": "gte", "value": 2020 }
+	],
+	"sort": { "fields": ["smartphones.year", "tablets.release_year"], "direction": "desc" },
+	"pagination": { "page": 1, "limit": 20 },
+	"displayConfiguration": {
+		"imageProperty": ["smartphones.product_image", "tablets.device_image"],
+		"titleProperty": ["@name"],
+		"subtitleProperty": [
+			"smartphones.manufacturer",
+			"tablets.maker",
+			"smartphones.year",
+			"tablets.release_year"
+		],
+		"badgeProperty": ["smartphones.price_usd", "tablets.retail_price"]
+	}
 }
 ```
 
@@ -712,17 +734,19 @@ The response would include pagination metadata grouped under `meta`:
 
 ```json
 {
-  "items": [ /* entities with resolved_properties */ ],
-  "meta": {
-    "pagination": {
-      "page": 1,
-      "total": 47,
-      "limit": 20,
-      "hasNextPage": true,
-      "hasPreviousPage": false,
-      "totalPages": 3
-    }
-  }
+	"items": [
+		/* entities with resolved_properties */
+	],
+	"meta": {
+		"pagination": {
+			"page": 1,
+			"total": 47,
+			"limit": 20,
+			"hasNextPage": true,
+			"hasPreviousPage": false,
+			"totalPages": 3
+		}
+	}
 }
 ```
 
@@ -859,6 +883,7 @@ When a user clones a saved view, all three layout configurations are copied from
 **Pagination uses page-based semantics.** Clients send `pagination: { page, limit }`, the backend derives SQL offsets internally, and out-of-range pages return an empty `items` array without clamping to the last page. The requested page is preserved in the response metadata so clients can reconcile their own navigation state cleanly.
 
 For zero results:
+
 - `totalPages: 0`
 - `hasNextPage: false`
 - `hasPreviousPage: false`
@@ -980,15 +1005,15 @@ Filter structure for Phase 2 might look like:
 
 ```json
 {
-  "and": [
-    { "field": "movies.year", "op": "gte", "value": 2020 },
-    {
-      "or": [
-        { "field": "movies.genre", "op": "contains", "value": "Sci-Fi" },
-        { "field": "movies.genre", "op": "contains", "value": "Fantasy" }
-      ]
-    }
-  ]
+	"and": [
+		{ "field": "movies.year", "op": "gte", "value": 2020 },
+		{
+			"or": [
+				{ "field": "movies.genre", "op": "contains", "value": "Sci-Fi" },
+				{ "field": "movies.genre", "op": "contains", "value": "Fantasy" }
+			]
+		}
+	]
 }
 ```
 
@@ -996,15 +1021,15 @@ For cross-schema views with OR logic:
 
 ```json
 {
-  "and": [
-    { "field": "@name", "op": "contains", "value": "Pro" },
-    {
-      "or": [
-        { "field": "smartphones.manufacturer", "op": "eq", "value": "Apple" },
-        { "field": "tablets.maker", "op": "eq", "value": "Samsung" }
-      ]
-    }
-  ]
+	"and": [
+		{ "field": "@name", "op": "contains", "value": "Pro" },
+		{
+			"or": [
+				{ "field": "smartphones.manufacturer", "op": "eq", "value": "Apple" },
+				{ "field": "tablets.maker", "op": "eq", "value": "Samsung" }
+			]
+		}
+	]
 }
 ```
 
@@ -1020,6 +1045,7 @@ Type-specific operators that add convenience but aren't essential for v1:
 - `isEmpty` / `isNotEmpty` (for array/object properties)
 
 The `contains` operator is complex because it has different semantics depending on property type:
+
 - For strings: `ILIKE '%value%'` for substring matching
 - For JSONB arrays: `@> '[value]'` for array containment
 - For JSONB objects: `@> '{"key": "value"}'` for object containment
@@ -1064,33 +1090,35 @@ Similarly, "Tom Hanks acted in Forrest Gump as Forrest" is a relationship: `Tom 
 
 ```json
 {
-  "scope": ["movies"],
-  "filters": [ /* entity property filters */ ],
-  "relationships": [
-    {
-      "direction": "incoming",
-      "from": "tom-hanks-id",
-      "type": "acted_in"
-    },
-    {
-      "direction": "outgoing",
-      "to": "favorites-collection-id",
-      "type": "member_of",
-      "propertyFilters": [
-        { "field": "member_of.bought_where", "op": "eq", "value": "Amazon" },
-        { "field": "@createdAt", "op": "gte", "value": "2024-01-01" }
-      ]
-    }
-  ],
-  "sort": {
-    "source": "relationship",
-    "relationshipIndex": 1,
-    "fields": ["member_of.bought_when"],
-    "direction": "desc"
-  },
-  "include": {
-    "relationships": true
-  }
+	"scope": ["movies"],
+	"filters": [
+		/* entity property filters */
+	],
+	"relationships": [
+		{
+			"direction": "incoming",
+			"from": "tom-hanks-id",
+			"type": "acted_in"
+		},
+		{
+			"direction": "outgoing",
+			"to": "favorites-collection-id",
+			"type": "member_of",
+			"propertyFilters": [
+				{ "field": "member_of.bought_where", "op": "eq", "value": "Amazon" },
+				{ "field": "@createdAt", "op": "gte", "value": "2024-01-01" }
+			]
+		}
+	],
+	"sort": {
+		"source": "relationship",
+		"relationshipIndex": 1,
+		"fields": ["member_of.bought_when"],
+		"direction": "desc"
+	},
+	"include": {
+		"relationships": true
+	}
 }
 ```
 
@@ -1098,31 +1126,33 @@ Similarly, "Tom Hanks acted in Forrest Gump as Forrest" is a relationship: `Tom 
 
 ```json
 {
-  "items": [
-    {
-      "id": "...",
-      "name": "Forrest Gump",
-      "resolvedProperties": { /* grid/list display slots, each shaped as { value, kind } */ },
-      "relationships": [
-        {
-          "id": "rel-123",
-          "direction": "incoming",
-          "sourceEntityId": "tom-hanks-id",
-          "targetEntityId": "movie-id",
-          "type": "acted_in",
-          "properties": { "role": "Forrest" }
-        },
-        {
-          "id": "rel-456",
-          "direction": "outgoing",
-          "sourceEntityId": "movie-id",
-          "targetEntityId": "favorites-collection-id",
-          "type": "member_of",
-          "properties": {}
-        }
-      ]
-    }
-  ]
+	"items": [
+		{
+			"id": "...",
+			"name": "Forrest Gump",
+			"resolvedProperties": {
+				/* grid/list display slots, each shaped as { value, kind } */
+			},
+			"relationships": [
+				{
+					"id": "rel-123",
+					"direction": "incoming",
+					"sourceEntityId": "tom-hanks-id",
+					"targetEntityId": "movie-id",
+					"type": "acted_in",
+					"properties": { "role": "Forrest" }
+				},
+				{
+					"id": "rel-456",
+					"direction": "outgoing",
+					"sourceEntityId": "movie-id",
+					"targetEntityId": "favorites-collection-id",
+					"type": "member_of",
+					"properties": {}
+				}
+			]
+		}
+	]
 }
 ```
 
@@ -1168,6 +1198,7 @@ However, relationship querying is essential for the saved view to become the tru
 Phase 1 delivers a working foundation for saved views and view-runtime execution with the following scope:
 
 **Saved Views Module:**
+
 - Add `GET /saved-views/{viewId}` (returns built-in and user-owned views)
 - Add `PUT /saved-views/{viewId}` (full replacement)
 - Add `POST /saved-views/{viewId}/clone` (pure copy, appends " (Copy)")
@@ -1177,6 +1208,7 @@ Phase 1 delivers a working foundation for saved views and view-runtime execution
 - Add reserved slug enforcement
 
 **View Runtime Module:**
+
 - Replace placeholder with full runtime contract
 - Pre-fetch entity schemas for type introspection
 - Implement filter execution (eq, ne, gt, gte, lt, lte, in, isNull)
@@ -1187,16 +1219,19 @@ Phase 1 delivers a working foundation for saved views and view-runtime execution
 - Use Drizzle query builder for type-safe SQL generation
 
 **Bootstrap:**
+
 - Update manifests with hardcoded display configurations
 - Minimal changes to satisfy type requirements
 - Accept that built-in views will be broken (fixed in Phase 2)
 
 **Testing:**
+
 - Add testing harness for live database tests (separate task)
 - Write unit tests for query builder SQL generation
 - Write integration tests for full execution flow
 
 **Validation Strategy:**
+
 - Trust frontend in Phase 1
 - Validate schema existence and property existence
 - Validate filter operator discriminated union
@@ -1204,6 +1239,7 @@ Phase 1 delivers a working foundation for saved views and view-runtime execution
 - Defer comprehensive validation to Phase 2
 
 **Deferred to Phase 2:**
+
 - `contains` operator (complex type-dependent behavior)
 - Event-based filtering
 - Relationship querying

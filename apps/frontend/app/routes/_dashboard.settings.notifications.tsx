@@ -40,24 +40,19 @@ import { data, Form, useLoaderData } from "react-router";
 import { match } from "ts-pattern";
 import { withQuery } from "ufo";
 import { z } from "zod";
+
 import { useSavedForm } from "~/lib/hooks/use-saved-form";
 import { dayjsLib } from "~/lib/shared/date-utils";
 import { useConfirmSubmit, useCoreDetails } from "~/lib/shared/hooks";
-import {
-	convertEnumToSelectData,
-	openConfirmationModal,
-} from "~/lib/shared/ui-utils";
+import { convertEnumToSelectData, openConfirmationModal } from "~/lib/shared/ui-utils";
 import { zodCommaDelimitedString } from "~/lib/shared/validation";
 import { createToastHeaders, serverGqlService } from "~/lib/utilities.server";
+
 import type { Route } from "./+types/_dashboard.settings.notifications";
 
 export const loader = async ({ request }: Route.LoaderArgs) => {
 	const [{ userNotificationPlatforms }] = await Promise.all([
-		serverGqlService.authenticatedRequest(
-			request,
-			UserNotificationPlatformsDocument,
-			{},
-		),
+		serverGqlService.authenticatedRequest(request, UserNotificationPlatformsDocument, {}),
 	]);
 	return { userNotificationPlatforms };
 };
@@ -72,11 +67,9 @@ export const action = async ({ request }: Route.ActionArgs) => {
 	return await match(intent)
 		.with("create", async () => {
 			const submission = processSubmission(formData, createSchema);
-			await serverGqlService.authenticatedRequest(
-				request,
-				CreateUserNotificationPlatformDocument,
-				{ input: submission },
-			);
+			await serverGqlService.authenticatedRequest(request, CreateUserNotificationPlatformDocument, {
+				input: submission,
+			});
 			return data({ status: "success", submission } as const);
 		})
 		.with("delete", async () => {
@@ -94,12 +87,11 @@ export const action = async ({ request }: Route.ActionArgs) => {
 			});
 		})
 		.with("test", async () => {
-			const { testUserNotificationPlatforms } =
-				await serverGqlService.authenticatedRequest(
-					request,
-					TestUserNotificationPlatformsDocument,
-					{},
-				);
+			const { testUserNotificationPlatforms } = await serverGqlService.authenticatedRequest(
+				request,
+				TestUserNotificationPlatformsDocument,
+				{},
+			);
 			return data({ status: "success" } as const, {
 				headers: await createToastHeaders({
 					type: testUserNotificationPlatforms ? "success" : "error",
@@ -112,11 +104,9 @@ export const action = async ({ request }: Route.ActionArgs) => {
 		.with("update", async () => {
 			const submission = processSubmission(formData, updateSchema);
 			submission.isDisabled = submission.isDisabled === true;
-			await serverGqlService.authenticatedRequest(
-				request,
-				UpdateUserNotificationPlatformDocument,
-				{ input: submission },
-			);
+			await serverGqlService.authenticatedRequest(request, UpdateUserNotificationPlatformDocument, {
+				input: submission,
+			});
 			return data({ status: "success", submission } as const, {
 				headers: await createToastHeaders({
 					type: "success",
@@ -306,10 +296,7 @@ export default function Page() {
 					<Title>Notification settings</Title>
 					{loaderData.userNotificationPlatforms.length > 0 ? (
 						loaderData.userNotificationPlatforms.map((notification) => (
-							<DisplayNotification
-								key={notification.id}
-								notification={notification}
-							/>
+							<DisplayNotification key={notification.id} notification={notification} />
 						))
 					) : (
 						<Text>No notification platforms configured</Text>
@@ -317,21 +304,13 @@ export default function Page() {
 					<Flex justify="end">
 						<Group>
 							{loaderData.userNotificationPlatforms.length > 0 ? (
-								<Form
-									replace
-									method="POST"
-									action={withQuery(".", { intent: "test" })}
-								>
+								<Form replace method="POST" action={withQuery(".", { intent: "test" })}>
 									<Button size="xs" variant="light" color="green" type="submit">
 										Trigger test notifications
 									</Button>
 								</Form>
 							) : null}
-							<Button
-								size="xs"
-								variant="light"
-								onClick={openCreateUserNotificationPlatformModal}
-							>
+							<Button size="xs" variant="light" onClick={openCreateUserNotificationPlatformModal}>
 								Add notification platform
 							</Button>
 						</Group>
@@ -346,34 +325,17 @@ const DisplayNotification = (props: {
 	notification: UserNotificationPlatformsQuery["userNotificationPlatforms"][number];
 }) => {
 	const submit = useConfirmSubmit();
-	const [editModalOpened, { open: openEditModal, close: closeEditModal }] =
-		useDisclosure(false);
-	const [isAdvancedSettingsOpen, { toggle: toggleAdvancedSettings }] =
-		useDisclosure(false);
+	const [editModalOpened, { open: openEditModal, close: closeEditModal }] = useDisclosure(false);
+	const [isAdvancedSettingsOpen, { toggle: toggleAdvancedSettings }] = useDisclosure(false);
 	const [configuredEvents, configuredEventsHandler] =
-		useListState<UserNotificationContentDiscriminants>(
-			props.notification.configuredEvents,
-		);
+		useListState<UserNotificationContentDiscriminants>(props.notification.configuredEvents);
 
 	return (
 		<>
-			<Modal
-				centered
-				opened={editModalOpened}
-				onClose={closeEditModal}
-				title="Edit Notification"
-			>
+			<Modal centered opened={editModalOpened} onClose={closeEditModal} title="Edit Notification">
 				<Form method="POST" action={withQuery(".", { intent: "update" })}>
-					<input
-						hidden
-						name="notificationId"
-						defaultValue={props.notification.id}
-					/>
-					<input
-						hidden
-						name="configuredEvents"
-						value={configuredEvents.join(",")}
-					/>
+					<input hidden name="notificationId" defaultValue={props.notification.id} />
+					<input hidden name="configuredEvents" value={configuredEvents.join(",")} />
 					<Stack>
 						<Switch
 							name="isDisabled"
@@ -387,97 +349,85 @@ const DisplayNotification = (props: {
 						</Flex>
 						<Collapse in={isAdvancedSettingsOpen}>
 							<Stack gap="xs">
-								{Object.values(UserNotificationContentDiscriminants).map(
-									(name) => (
-										<Switch
-											size="xs"
-											key={name}
-											defaultChecked={props.notification.configuredEvents.includes(
-												name,
-											)}
-											onChange={(value) => {
-												const checked = value.target.checked;
-												if (checked) configuredEventsHandler.append(name);
-												else
-													configuredEventsHandler.filter(
-														(event) => event !== name,
-													);
-											}}
-											label={match(name)
-												.with(
-													UserNotificationContentDiscriminants.OutdatedSeenEntries,
-													() =>
-														"Media has been in progress/on hold for too long",
-												)
-												.with(
-													UserNotificationContentDiscriminants.MetadataEpisodeNameChanged,
-													() => "Name of an episode changes",
-												)
-												.with(
-													UserNotificationContentDiscriminants.MetadataEpisodeImagesChanged,
-													() => "Images for an episode change",
-												)
-												.with(
-													UserNotificationContentDiscriminants.MetadataEpisodeReleased,
-													() => "An episode is released",
-												)
-												.with(
-													UserNotificationContentDiscriminants.MetadataPublished,
+								{Object.values(UserNotificationContentDiscriminants).map((name) => (
+									<Switch
+										size="xs"
+										key={name}
+										defaultChecked={props.notification.configuredEvents.includes(name)}
+										onChange={(value) => {
+											const checked = value.target.checked;
+											if (checked) configuredEventsHandler.append(name);
+											else configuredEventsHandler.filter((event) => event !== name);
+										}}
+										label={match(name)
+											.with(
+												UserNotificationContentDiscriminants.OutdatedSeenEntries,
+												() => "Media has been in progress/on hold for too long",
+											)
+											.with(
+												UserNotificationContentDiscriminants.MetadataEpisodeNameChanged,
+												() => "Name of an episode changes",
+											)
+											.with(
+												UserNotificationContentDiscriminants.MetadataEpisodeImagesChanged,
+												() => "Images for an episode change",
+											)
+											.with(
+												UserNotificationContentDiscriminants.MetadataEpisodeReleased,
+												() => "An episode is released",
+											)
+											.with(
+												UserNotificationContentDiscriminants.MetadataPublished,
 
-													() => "A media is published",
-												)
-												.with(
-													UserNotificationContentDiscriminants.MetadataStatusChanged,
-													() => "Status changes",
-												)
-												.with(
-													UserNotificationContentDiscriminants.MetadataReleaseDateChanged,
-													() => "Release date changes",
-												)
-												.with(
-													UserNotificationContentDiscriminants.MetadataNumberOfSeasonsChanged,
-													() => "Number of seasons changes",
-												)
-												.with(
-													UserNotificationContentDiscriminants.MetadataChaptersOrEpisodesChanged,
-													() =>
-														"Number of chapters/episodes changes for manga/anime",
-												)
-												.with(
-													UserNotificationContentDiscriminants.ReviewPosted,
-													() =>
-														"A new public review is posted for media/people you monitor",
-												)
-												.with(
-													UserNotificationContentDiscriminants.PersonMetadataAssociated,
-													() => "New media is associated with a person",
-												)
-												.with(
-													UserNotificationContentDiscriminants.PersonMetadataGroupAssociated,
-													() => "New media group is associated with a person",
-												)
-												.with(
-													UserNotificationContentDiscriminants.NotificationFromReminderCollection,
-													() =>
-														"When an item is added to the reminder collection",
-												)
-												.with(
-													UserNotificationContentDiscriminants.NewWorkoutCreated,
-													() => "A new workout is created",
-												)
-												.with(
-													UserNotificationContentDiscriminants.IntegrationDisabledDueToTooManyErrors,
-													() => "Integration disabled due to too many errors",
-												)
-												.with(
-													UserNotificationContentDiscriminants.MetadataMovedFromCompletedToWatchlistCollection,
-													() =>
-														"Media moved from the Completed to the Watchlist collection",
-												)
-												.exhaustive()}
-										/>
-									),
-								)}
+												() => "A media is published",
+											)
+											.with(
+												UserNotificationContentDiscriminants.MetadataStatusChanged,
+												() => "Status changes",
+											)
+											.with(
+												UserNotificationContentDiscriminants.MetadataReleaseDateChanged,
+												() => "Release date changes",
+											)
+											.with(
+												UserNotificationContentDiscriminants.MetadataNumberOfSeasonsChanged,
+												() => "Number of seasons changes",
+											)
+											.with(
+												UserNotificationContentDiscriminants.MetadataChaptersOrEpisodesChanged,
+												() => "Number of chapters/episodes changes for manga/anime",
+											)
+											.with(
+												UserNotificationContentDiscriminants.ReviewPosted,
+												() => "A new public review is posted for media/people you monitor",
+											)
+											.with(
+												UserNotificationContentDiscriminants.PersonMetadataAssociated,
+												() => "New media is associated with a person",
+											)
+											.with(
+												UserNotificationContentDiscriminants.PersonMetadataGroupAssociated,
+												() => "New media group is associated with a person",
+											)
+											.with(
+												UserNotificationContentDiscriminants.NotificationFromReminderCollection,
+												() => "When an item is added to the reminder collection",
+											)
+											.with(
+												UserNotificationContentDiscriminants.NewWorkoutCreated,
+												() => "A new workout is created",
+											)
+											.with(
+												UserNotificationContentDiscriminants.IntegrationDisabledDueToTooManyErrors,
+												() => "Integration disabled due to too many errors",
+											)
+											.with(
+												UserNotificationContentDiscriminants.MetadataMovedFromCompletedToWatchlistCollection,
+												() => "Media moved from the Completed to the Watchlist collection",
+											)
+											.exhaustive()}
+									/>
+								))}
 							</Stack>
 						</Collapse>
 						<Button type="submit" onClick={closeEditModal}>
@@ -520,11 +470,7 @@ const DisplayNotification = (props: {
 									justifyContent: "center",
 								}}
 							>
-								<input
-									hidden
-									name="notificationId"
-									defaultValue={props.notification.id}
-								/>
+								<input hidden name="notificationId" defaultValue={props.notification.id} />
 								<ActionIcon
 									type="submit"
 									color="red"

@@ -1,9 +1,8 @@
 import { sql } from "drizzle-orm";
+
 import { db } from "~/lib/db";
-import {
-	createScalarExpressionCompiler,
-	type ExpressionCompiler,
-} from "./expression-compiler";
+
+import { createScalarExpressionCompiler, type ExpressionCompiler } from "./expression-compiler";
 import { createExpressionTypeResolver } from "./expression-type-resolver";
 import { buildFilterWhereClause } from "./filter-builder";
 import { buildQueryContext, type PreparedQueryContext } from "./preparer";
@@ -74,10 +73,7 @@ const buildAggregationExpression = (input: {
 		});
 	}
 
-	const valueExpression = input.compiler.compile(
-		input.aggregation.expression,
-		"number",
-	);
+	const valueExpression = input.compiler.compile(input.aggregation.expression, "number");
 
 	if (input.aggregation.type === "sum") {
 		return sql`to_jsonb(sum(${valueExpression}))`;
@@ -156,26 +152,21 @@ export const executeAggregateQuery = async (input: {
 		computedFields: input.request.computedFields,
 	});
 	const aggregationExpressionCompiler = createCompiler("filtered_entities");
-	const selectExpressions = input.request.aggregations.map(
-		(aggregationField, index) => {
-			const columnName = `aggregation_${index}`;
-			const expression = buildAggregationExpression({
-				context: queryContext,
-				alias: "filtered_entities",
-				compiler: aggregationCompiler,
-				expressionCompiler: aggregationExpressionCompiler,
-				aggregation: aggregationField.aggregation,
-				computedFields: input.request.computedFields,
-			});
+	const selectExpressions = input.request.aggregations.map((aggregationField, index) => {
+		const columnName = `aggregation_${index}`;
+		const expression = buildAggregationExpression({
+			context: queryContext,
+			alias: "filtered_entities",
+			compiler: aggregationCompiler,
+			expressionCompiler: aggregationExpressionCompiler,
+			aggregation: aggregationField.aggregation,
+			computedFields: input.request.computedFields,
+		});
 
-			return sql`${expression} as ${sql.raw(sanitizeIdentifier(columnName, "column alias"))}`;
-		},
-	);
+		return sql`${expression} as ${sql.raw(sanitizeIdentifier(columnName, "column alias"))}`;
+	});
 	const filterClause = filterWhereClause ?? sql`true`;
-	const cteList = sql.join(
-		[baseEntitiesCte, ...latestEventJoinCtes, joinedEntitiesCte],
-		sql`, `,
-	);
+	const cteList = sql.join([baseEntitiesCte, ...latestEventJoinCtes, joinedEntitiesCte], sql`, `);
 	const result = await db.execute<AggregateRow>(sql`
 		with
 			${cteList},

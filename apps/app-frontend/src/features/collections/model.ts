@@ -1,4 +1,5 @@
 import { type AppSchema, getQueryEngineField } from "@ryot/ts-utils";
+
 import { type AppEntityImage, toAppEntity } from "~/features/entities/model";
 import {
 	type AppEntitySavedView,
@@ -44,9 +45,7 @@ export function extractMembershipPropertiesSchema(
 	return schema as CollectionMembershipPropertiesSchema;
 }
 
-export function toAppCollection(
-	entity: ApiQueryEngineCollection,
-): AppCollection {
+export function toAppCollection(entity: ApiQueryEngineCollection): AppCollection {
 	const appEntity = toAppEntity(entity);
 	const entitySchemaSlugField = getQueryEngineField(entity, "entitySchemaSlug");
 	return {
@@ -57,9 +56,7 @@ export function toAppCollection(
 		updatedAt: appEntity.updatedAt,
 		membershipPropertiesSchema: extractMembershipPropertiesSchema(entity),
 		entitySchemaSlug:
-			entitySchemaSlugField?.value != null
-				? String(entitySchemaSlugField.value)
-				: "collection",
+			entitySchemaSlugField?.value != null ? String(entitySchemaSlugField.value) : "collection",
 	};
 }
 
@@ -97,13 +94,9 @@ export function findBuiltinCollectionsView(
 	return undefined;
 }
 
-export type CollectionsDestination =
-	| { type: "none" }
-	| { type: "view"; viewSlug: string };
+export type CollectionsDestination = { type: "none" } | { type: "view"; viewSlug: string };
 
-export function resolveCollectionsDestination(
-	savedViews: AppSavedView[],
-): CollectionsDestination {
+export function resolveCollectionsDestination(savedViews: AppSavedView[]): CollectionsDestination {
 	const view = findBuiltinCollectionsView(savedViews);
 	if (!view) {
 		return { type: "none" };

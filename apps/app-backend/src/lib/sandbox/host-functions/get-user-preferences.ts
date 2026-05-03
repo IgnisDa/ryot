@@ -1,4 +1,5 @@
 import { eq } from "drizzle-orm";
+
 import { db } from "~/lib/db";
 import { user } from "~/lib/db/schema/auth";
 import {
@@ -13,9 +14,7 @@ type GetUserPreferencesContext = {
 	userId: string;
 };
 
-type GetUserDep = (
-	userId: string,
-) => Promise<{ preferences: unknown } | undefined>;
+type GetUserDep = (userId: string) => Promise<{ preferences: unknown } | undefined>;
 
 const defaultGetUser: GetUserDep = async (userId) => {
 	const [row] = await db
@@ -31,9 +30,7 @@ export const createGetUserPreferencesHostFunction = (
 ): HostFunction<GetUserPreferencesContext> => {
 	return async (context): Promise<ConfigValueResult> => {
 		if (typeof context.userId !== "string" || !context.userId.trim()) {
-			return apiFailure(
-				"getUserPreferences requires a non-empty userId in context",
-			);
+			return apiFailure("getUserPreferences requires a non-empty userId in context");
 		}
 
 		const row = await getUser(context.userId);

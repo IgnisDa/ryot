@@ -1,9 +1,7 @@
 import { sql } from "drizzle-orm";
 import { match } from "ts-pattern";
-import {
-	buildComputedFieldMap,
-	getComputedFieldOrThrow,
-} from "~/lib/views/computed-fields";
+
+import { buildComputedFieldMap, getComputedFieldOrThrow } from "~/lib/views/computed-fields";
 import type { ViewComputedField, ViewExpression } from "~/lib/views/expression";
 import {
 	assertConcatCompatibleExpression,
@@ -11,6 +9,7 @@ import {
 	type ViewExpressionTypeInfo,
 } from "~/lib/views/expression-analysis";
 import type { PropertyType } from "~/lib/views/reference";
+
 import { buildPredicateClause } from "./predicate-clause-builder";
 import {
 	buildEntityExpression,
@@ -40,19 +39,13 @@ export const createScalarExpressionCompiler = (input: {
 	const expressionCache = new Map<string, SqlExpression>();
 	const { getTypeInfo } = input;
 
-	const compile = (
-		expression: ViewExpression,
-		targetType?: PropertyType,
-	): SqlExpression => {
+	const compile = (expression: ViewExpression, targetType?: PropertyType): SqlExpression => {
 		return match(expression)
-			.with({ type: "literal" }, (expr) =>
-				buildLiteralExpression(expr.value, targetType),
-			)
+			.with({ type: "literal" }, (expr) => buildLiteralExpression(expr.value, targetType))
 			.with({ type: "coalesce" }, (expr) => {
 				const typeInfo = getTypeInfo(expr);
 				const coalesceTargetType =
-					targetType ??
-					(typeInfo.kind === "property" ? typeInfo.propertyType : undefined);
+					targetType ?? (typeInfo.kind === "property" ? typeInfo.propertyType : undefined);
 				return buildCoalescedExpression(
 					expr.values.map((value) => {
 						const compiledValue = compile(value, coalesceTargetType);
@@ -72,8 +65,7 @@ export const createScalarExpressionCompiler = (input: {
 				const arithmeticTargetType =
 					targetType ??
 					(expr.operator === "divide" ||
-					(leftType.kind === "property" &&
-						leftType.propertyType === "number") ||
+					(leftType.kind === "property" && leftType.propertyType === "number") ||
 					(rightType.kind === "property" && rightType.propertyType === "number")
 						? "number"
 						: "integer");
@@ -102,9 +94,7 @@ export const createScalarExpressionCompiler = (input: {
 			.with({ type: "integer" }, (expr) => {
 				const expressionType = getTypeInfo(expr.expression);
 				assertNumericExpression(expressionType, "Numeric normalization");
-				return buildIntegerNormalizationExpression(
-					compile(expr.expression, "number"),
-				);
+				return buildIntegerNormalizationExpression(compile(expr.expression, "number"));
 			})
 			.with({ type: "concat" }, (expr) => {
 				for (const value of expr.values) {
@@ -121,22 +111,14 @@ export const createScalarExpressionCompiler = (input: {
 				const textExpr = buildTextValueExpression(compile(expr.expression));
 
 				return match(expr.name)
-					.with(
-						"titleCase",
-						() =>
-							sql`initcap(replace(replace(${textExpr}, '_', ' '), '-', ' '))`,
-					)
-					.with(
-						"kebabCase",
-						() => sql`lower(replace(replace(${textExpr}, '_', '-'), ' ', '-'))`,
-					)
+					.with("titleCase", () => sql`initcap(replace(replace(${textExpr}, '_', ' '), '-', ' '))`)
+					.with("kebabCase", () => sql`lower(replace(replace(${textExpr}, '_', '-'), ' ', '-'))`)
 					.exhaustive();
 			})
 			.with({ type: "conditional" }, (expr) => {
 				const typeInfo = getTypeInfo(expr);
 				const conditionalTargetType =
-					targetType ??
-					(typeInfo.kind === "property" ? typeInfo.propertyType : undefined);
+					targetType ?? (typeInfo.kind === "property" ? typeInfo.propertyType : undefined);
 				const predicate = buildPredicateClause({
 					predicate: expr.condition,
 					compiler: { compile, getTypeInfo },
@@ -154,10 +136,7 @@ export const createScalarExpressionCompiler = (input: {
 							return cached;
 						}
 
-						const computedField = getComputedFieldOrThrow(
-							computedFieldMap,
-							ref.key,
-						);
+						const computedField = getComputedFieldOrThrow(computedFieldMap, ref.key);
 
 						const compiled = compile(computedField.expression, targetType);
 						expressionCache.set(cacheKey, compiled);

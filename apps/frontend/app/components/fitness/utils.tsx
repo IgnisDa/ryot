@@ -122,10 +122,7 @@ export const DisplaySetStatistics = (props: {
 
 	return (
 		<>
-			<Text
-				fz={props.hideExtras ? "xs" : "sm"}
-				ta={props.centerText ? "center" : undefined}
-			>
+			<Text fz={props.hideExtras ? "xs" : "sm"} ta={props.centerText ? "center" : undefined}>
 				{first}
 			</Text>
 			{!props.hideExtras && second ? (

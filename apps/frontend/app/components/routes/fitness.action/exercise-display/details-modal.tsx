@@ -1,14 +1,5 @@
 import { Carousel } from "@mantine/carousel";
-import {
-	Anchor,
-	FocusTrap,
-	Group,
-	Image,
-	Modal,
-	ScrollArea,
-	Select,
-	Stack,
-} from "@mantine/core";
+import { Anchor, FocusTrap, Group, Image, Modal, ScrollArea, Select, Stack } from "@mantine/core";
 import {
 	type ExerciseDetailsQuery,
 	type UserExerciseDetailsQuery,
@@ -17,6 +8,7 @@ import {
 import { produce } from "immer";
 import { useState } from "react";
 import { Link } from "react-router";
+
 import { ProRequiredAlert } from "~/components/common";
 import { ExerciseHistory } from "~/components/fitness/components";
 import { PRO_REQUIRED_MESSAGE } from "~/lib/shared/constants";
@@ -60,11 +52,7 @@ export const ExerciseDetailsModal = (props: ExerciseDetailsModalProps) => {
 			opened={props.opened}
 			onClose={props.onClose}
 			title={
-				<Anchor
-					fw="bold"
-					component={Link}
-					to={getExerciseDetailsPath(props.exerciseId)}
-				>
+				<Anchor fw="bold" component={Link} to={getExerciseDetailsPath(props.exerciseId)}>
 					{props.exerciseName || "..."}
 				</Anchor>
 			}
@@ -81,8 +69,7 @@ export const ExerciseDetailsModal = (props: ExerciseDetailsModalProps) => {
 						if (!currentWorkout) return;
 						setCurrentWorkout(
 							produce(currentWorkout, (draft) => {
-								draft.exercises[props.exerciseIdx].unitSystem =
-									v as UserUnitSystem;
+								draft.exercises[props.exerciseIdx].unitSystem = v as UserUnitSystem;
 							}),
 						);
 					}}
@@ -105,10 +92,7 @@ export const ExerciseDetailsModal = (props: ExerciseDetailsModalProps) => {
 					>
 						{exerciseHistory?.map((history, idx: number) => (
 							<Carousel.Slide key={`${history.workoutId}-${history.idx}`}>
-								{getSurroundingElements(
-									exerciseHistory,
-									activeHistoryIdx,
-								).includes(idx) ? (
+								{getSurroundingElements(exerciseHistory, activeHistoryIdx).includes(idx) ? (
 									<ExerciseHistory
 										hideExerciseDetails
 										hideExtraDetailsButton
@@ -116,24 +100,16 @@ export const ExerciseDetailsModal = (props: ExerciseDetailsModalProps) => {
 										entityId={history.workoutId}
 										fitnessEntityType={FitnessEntity.Workouts}
 										onCopyButtonClick={async () => {
-											const workout = await getWorkoutDetails(
-												history.workoutId,
-											);
+											const workout = await getWorkoutDetails(history.workoutId);
 											openConfirmationModal(
 												`Are you sure you want to copy all sets from "${workout.details.name}"?`,
 												() => {
-													const sets =
-														workout.details.information.exercises[history.idx]
-															.sets;
-													const converted = sets.map((set) =>
-														convertHistorySetToCurrentSet(set),
-													);
+													const sets = workout.details.information.exercises[history.idx].sets;
+													const converted = sets.map((set) => convertHistorySetToCurrentSet(set));
 													if (!currentWorkout) return;
 													setCurrentWorkout(
 														produce(currentWorkout, (draft) => {
-															draft.exercises[props.exerciseIdx].sets.push(
-																...converted,
-															);
+															draft.exercises[props.exerciseIdx].sets.push(...converted);
 														}),
 													);
 												},
@@ -145,9 +121,7 @@ export const ExerciseDetailsModal = (props: ExerciseDetailsModalProps) => {
 						))}
 					</Carousel>
 				) : (
-					<ProRequiredAlert
-						alertText={`${PRO_REQUIRED_MESSAGE}: inline workout history.`}
-					/>
+					<ProRequiredAlert alertText={`${PRO_REQUIRED_MESSAGE}: inline workout history.`} />
 				)}
 			</Stack>
 		</Modal>

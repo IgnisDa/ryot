@@ -26,14 +26,11 @@ import type { NavigateFunction } from "react-router";
 import { $path } from "safe-routes";
 import { match } from "ts-pattern";
 import { v4 as randomUUID } from "uuid";
+
 import { CURRENT_WORKOUT_KEY } from "~/lib/shared/constants";
 import { dayjsLib, getTimeOfDay } from "~/lib/shared/date-utils";
 import { useS3PresignedUrls } from "~/lib/shared/hooks";
-import {
-	clientGqlService,
-	queryClient,
-	queryFactory,
-} from "~/lib/shared/react-query";
+import { clientGqlService, queryClient, queryFactory } from "~/lib/shared/react-query";
 import { FitnessAction } from "~/lib/types";
 
 export type WorkoutDuration = {
@@ -96,10 +93,7 @@ export type InProgressWorkout = {
 
 export type CurrentWorkout = InProgressWorkout | null;
 
-const currentWorkoutAtom = atomWithStorage<CurrentWorkout>(
-	CURRENT_WORKOUT_KEY,
-	null,
-);
+const currentWorkoutAtom = atomWithStorage<CurrentWorkout>(CURRENT_WORKOUT_KEY, null);
 
 export const useCurrentWorkout = () => useAtom(currentWorkoutAtom);
 
@@ -168,18 +162,15 @@ export const getWorkoutDetails = async (workoutId: string) =>
 
 export const getWorkoutTemplateDetailsQuery = (workoutTemplateId: string) =>
 	queryOptions({
-		queryKey:
-			queryFactory.fitness.workoutTemplateDetails(workoutTemplateId).queryKey,
+		queryKey: queryFactory.fitness.workoutTemplateDetails(workoutTemplateId).queryKey,
 		queryFn: () =>
 			clientGqlService
 				.request(UserWorkoutTemplateDetailsDocument, { workoutTemplateId })
 				.then((data) => data.userWorkoutTemplateDetails.response),
 	});
 
-export type TWorkoutDetails =
-	UserWorkoutDetailsQuery["userWorkoutDetails"]["response"];
-type TSet =
-	TWorkoutDetails["details"]["information"]["exercises"][number]["sets"][number];
+export type TWorkoutDetails = UserWorkoutDetailsQuery["userWorkoutDetails"]["response"];
+type TSet = TWorkoutDetails["details"]["information"]["exercises"][number]["sets"][number];
 
 export const convertHistorySetToCurrentSet = (
 	set: Pick<TSet, "statistic" | "lot" | "note" | "restTime" | "rpe">,
@@ -291,8 +282,7 @@ const currentWorkoutTimerAtom = atomWithStorage<CurrentWorkoutTimer | null>(
 	null,
 );
 
-export const useCurrentWorkoutTimerAtom = () =>
-	useAtom(currentWorkoutTimerAtom);
+export const useCurrentWorkoutTimerAtom = () => useAtom(currentWorkoutTimerAtom);
 
 export type CurrentWorkoutStopwatch = Array<WorkoutDuration> | null;
 
@@ -301,8 +291,7 @@ const currentWorkoutStopwatchAtom = atomWithStorage<CurrentWorkoutStopwatch>(
 	null,
 );
 
-export const useCurrentWorkoutStopwatchAtom = () =>
-	useAtom(currentWorkoutStopwatchAtom);
+export const useCurrentWorkoutStopwatchAtom = () => useAtom(currentWorkoutStopwatchAtom);
 
 const measurementsDrawerAtom = atom<false | UserMeasurement | null>(false);
 
@@ -334,10 +323,7 @@ export const duplicateOldWorkout = async (
 	inProgress.updateWorkoutTemplateId = params.updateWorkoutTemplateId;
 	for (const [_exerciseIdx, ex] of workoutInformation.exercises.entries()) {
 		const sets = ex.sets.map((v) =>
-			convertHistorySetToCurrentSet(
-				v,
-				params.updateWorkoutId ? v.confirmedAt : undefined,
-			),
+			convertHistorySetToCurrentSet(v, params.updateWorkoutId ? v.confirmedAt : undefined),
 		);
 		inProgress.exercises.push({
 			images: [],
@@ -367,8 +353,7 @@ export const getRestTimerForSet = async (
 	const exerciseDetails = await getExerciseDetails(exerciseId);
 	const mergedSettings = mergeWith(
 		{},
-		exerciseDetails.userDetails.details?.exerciseExtraInformation?.settings
-			.setRestTimers || {},
+		exerciseDetails.userDetails.details?.exerciseExtraInformation?.settings.setRestTimers || {},
 		userPreferencesRestTimer,
 		(objValue?: number, srcValue?: number) => {
 			if (isNumber(objValue)) return objValue;
@@ -433,12 +418,7 @@ export const addExerciseToCurrentWorkout = async (
 	navigate($path("/fitness/:action", { action: currentWorkout.currentAction }));
 };
 
-export const useExerciseImages = (
-	exercise?: ExerciseDetailsQuery["exerciseDetails"],
-) => {
+export const useExerciseImages = (exercise?: ExerciseDetailsQuery["exerciseDetails"]) => {
 	const s3PresignedUrls = useS3PresignedUrls(exercise?.assets.s3Images);
-	return [
-		...(s3PresignedUrls.data || []),
-		...(exercise?.assets.remoteImages || []),
-	];
+	return [...(s3PresignedUrls.data || []), ...(exercise?.assets.remoteImages || [])];
 };

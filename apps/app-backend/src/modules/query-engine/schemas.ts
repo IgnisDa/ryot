@@ -1,15 +1,14 @@
 import { z } from "@hono/zod-openapi";
+
 import { dataSchema } from "~/lib/openapi";
-import {
-	computedFieldArraySchema,
-	viewExpressionSchema,
-} from "~/lib/views/expression";
+import { computedFieldArraySchema, viewExpressionSchema } from "~/lib/views/expression";
 import { nullableViewPredicateSchema } from "~/lib/views/filtering";
 import type {
 	QueryEngineEventJoinLike,
 	QueryEngineReferenceContext,
 	QueryEngineSchemaLike,
 } from "~/lib/views/reference";
+
 import {
 	aggregationFieldArraySchema,
 	eventJoinDefinitionArraySchema,
@@ -39,15 +38,12 @@ const queryEngineScopeSchema = z
 	.array(z.string())
 	.min(1, "At least one entity schema slug is required");
 
-const eventSchemasSchema = z
-	.array(z.string())
-	.min(1, "At least one event schema slug is required");
+const eventSchemasSchema = z.array(z.string()).min(1, "At least one event schema slug is required");
 
 const entityQueryEngineFieldsSchema = z
 	.array(queryEngineFieldSchema)
 	.refine(
-		(fields) =>
-			new Set(fields.map((field) => field.key)).size === fields.length,
+		(fields) => new Set(fields.map((field) => field.key)).size === fields.length,
 		"Field keys must be unique",
 	)
 	.default([]);
@@ -158,17 +154,13 @@ const executeEntityQueryEngineResponseDataSchema = z
 	})
 	.strict();
 
-const aggregateValueSchema = resolvedDisplayValueSchema
-	.extend({ key: z.string() })
-	.strict();
+const aggregateValueSchema = resolvedDisplayValueSchema.extend({ key: z.string() }).strict();
 
 const executeAggregateQueryEngineResponseDataSchema = z
 	.object({ values: z.array(aggregateValueSchema) })
 	.strict();
 
-const timeSeriesBucketSchema = z
-	.object({ date: z.string(), value: z.number() })
-	.strict();
+const timeSeriesBucketSchema = z.object({ date: z.string(), value: z.number() }).strict();
 
 const executeTimeSeriesQueryEngineResponseDataSchema = z
 	.object({ buckets: z.array(timeSeriesBucketSchema) })
@@ -201,49 +193,23 @@ const queryEngineResponseDataSchema = z.discriminatedUnion("mode", [
 		.strict(),
 ]);
 
-export const executeQueryEngineResponseSchema = dataSchema(
-	queryEngineResponseDataSchema,
-);
+export const executeQueryEngineResponseSchema = dataSchema(queryEngineResponseDataSchema);
 
 export type QueryEngineItem = z.infer<typeof queryEngineItemSchema>;
 export type QueryEngineField = z.infer<typeof queryEngineFieldSchema>;
 export type QueryEngineRequest = z.infer<typeof queryEngineRequestSchema>;
-export type EntityQueryEngineRequest = z.infer<
-	typeof entityQueryEngineRequestSchema
->;
-export type AggregateQueryEngineRequest = z.infer<
-	typeof aggregateQueryEngineRequestSchema
->;
-export type EventsQueryEngineRequest = z.infer<
-	typeof eventsQueryEngineRequestSchema
->;
+export type EntityQueryEngineRequest = z.infer<typeof entityQueryEngineRequestSchema>;
+export type AggregateQueryEngineRequest = z.infer<typeof aggregateQueryEngineRequestSchema>;
+export type EventsQueryEngineRequest = z.infer<typeof eventsQueryEngineRequestSchema>;
 export type ResolvedDisplayValue = z.infer<typeof resolvedDisplayValueSchema>;
 export type QueryEngineResponse = z.infer<typeof queryEngineResponseDataSchema>;
-export type QueryEngineEntityResponse = Extract<
-	QueryEngineResponse,
-	{ mode: "entities" }
->;
-export type QueryEngineAggregateResponse = Extract<
-	QueryEngineResponse,
-	{ mode: "aggregate" }
->;
-export type QueryEngineEventsResponse = Extract<
-	QueryEngineResponse,
-	{ mode: "events" }
->;
-export type QueryEngineTimeSeriesResponse = Extract<
-	QueryEngineResponse,
-	{ mode: "timeSeries" }
->;
-export type TimeSeriesQueryEngineRequest = z.infer<
-	typeof timeSeriesQueryEngineRequestSchema
->;
+export type QueryEngineEntityResponse = Extract<QueryEngineResponse, { mode: "entities" }>;
+export type QueryEngineAggregateResponse = Extract<QueryEngineResponse, { mode: "aggregate" }>;
+export type QueryEngineEventsResponse = Extract<QueryEngineResponse, { mode: "events" }>;
+export type QueryEngineTimeSeriesResponse = Extract<QueryEngineResponse, { mode: "timeSeries" }>;
+export type TimeSeriesQueryEngineRequest = z.infer<typeof timeSeriesQueryEngineRequestSchema>;
 export type QueryEngineEntityResponseData = QueryEngineEntityResponse["data"];
-export type QueryEngineAggregateResponseData =
-	QueryEngineAggregateResponse["data"];
+export type QueryEngineAggregateResponseData = QueryEngineAggregateResponse["data"];
 export type QueryEngineEventsResponseData = QueryEngineEventsResponse["data"];
-export type QueryEngineTimeSeriesResponseData =
-	QueryEngineTimeSeriesResponse["data"];
-export type QueryEngineResolvedField = z.infer<
-	typeof resolvedQueryEngineFieldSchema
->;
+export type QueryEngineTimeSeriesResponseData = QueryEngineTimeSeriesResponse["data"];
+export type QueryEngineResolvedField = z.infer<typeof resolvedQueryEngineFieldSchema>;

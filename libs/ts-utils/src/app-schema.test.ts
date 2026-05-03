@@ -1,5 +1,7 @@
 import { describe, expect, it } from "bun:test";
+
 import { z } from "zod";
+
 import {
 	fromAppSchema,
 	fromAppSchemaObject,
@@ -225,9 +227,7 @@ describe("fromAppSchema", () => {
 
 		expect(schema.safeParse({ author: { name: "Ada" } }).success).toBeTrue();
 		expect(schema.safeParse({ author: {} }).success).toBeFalse();
-		expect(
-			schema.safeParse({ author: { name: "Ada", extra: true } }).success,
-		).toBeFalse();
+		expect(schema.safeParse({ author: { name: "Ada", extra: true } }).success).toBeFalse();
 	});
 
 	it("strips unknown keys when an object property opts in", () => {
@@ -434,9 +434,7 @@ describe("fromAppSchemaObject", () => {
 
 		expect(schema.safeParse({ status: "in_progress" }).success).toBeTrue();
 		expect(schema.safeParse({ status: "completed" }).success).toBeFalse();
-		expect(
-			schema.safeParse({ status: "completed", progressPercent: 82 }).success,
-		).toBeTrue();
+		expect(schema.safeParse({ status: "completed", progressPercent: 82 }).success).toBeTrue();
 	});
 
 	it("supports nested all and any rule conditions", () => {
@@ -499,17 +497,12 @@ describe("fromAppSchemaObject", () => {
 			],
 		});
 
+		expect(schema.safeParse({ metadata: { status: "draft", verified: true } }).success).toBeTrue();
 		expect(
-			schema.safeParse({ metadata: { status: "draft", verified: true } })
-				.success,
+			schema.safeParse({ metadata: { status: "published", verified: false } }).success,
 		).toBeTrue();
 		expect(
-			schema.safeParse({ metadata: { status: "published", verified: false } })
-				.success,
-		).toBeTrue();
-		expect(
-			schema.safeParse({ metadata: { status: "published", verified: true } })
-				.success,
+			schema.safeParse({ metadata: { status: "published", verified: true } }).success,
 		).toBeFalse();
 		expect(
 			schema.safeParse({
@@ -546,12 +539,12 @@ describe("getAppPropertyDefinitionAtPath", () => {
 			label: "Rating",
 			description: "Rating",
 		});
-		expect(
-			getAppPropertyDefinitionAtPath(fields, ["metadata", "title"]),
-		).toEqual({ label: "Title", description: "Title", type: "string" });
-		expect(
-			getAppPropertyDefinitionAtPath(fields, ["metadata", "missing"]),
-		).toBe(undefined);
+		expect(getAppPropertyDefinitionAtPath(fields, ["metadata", "title"])).toEqual({
+			label: "Title",
+			description: "Title",
+			type: "string",
+		});
+		expect(getAppPropertyDefinitionAtPath(fields, ["metadata", "missing"])).toBe(undefined);
 	});
 });
 
@@ -583,23 +576,17 @@ describe("getDefaultPropertyLabel", () => {
 	});
 
 	it("converts snake_case keys to readable labels", () => {
-		expect(getDefaultPropertyLabel("my_property_name")).toBe(
-			"My Property Name",
-		);
+		expect(getDefaultPropertyLabel("my_property_name")).toBe("My Property Name");
 		expect(getDefaultPropertyLabel("first_name")).toBe("First Name");
 	});
 
 	it("converts kebab-case keys to readable labels", () => {
-		expect(getDefaultPropertyLabel("my-property-name")).toBe(
-			"My Property Name",
-		);
+		expect(getDefaultPropertyLabel("my-property-name")).toBe("My Property Name");
 		expect(getDefaultPropertyLabel("first-name")).toBe("First Name");
 	});
 
 	it("handles mixed case styles", () => {
-		expect(getDefaultPropertyLabel("my_Property-name")).toBe(
-			"My Property Name",
-		);
+		expect(getDefaultPropertyLabel("my_Property-name")).toBe("My Property Name");
 		expect(getDefaultPropertyLabel("myProperty_name")).toBe("My Property Name");
 	});
 

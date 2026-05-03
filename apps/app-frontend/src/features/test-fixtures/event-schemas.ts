@@ -1,8 +1,6 @@
 import type { AppEventSchema } from "~/features/event-schemas/model";
 
-export function createEventSchemaFixture(
-	overrides: Partial<AppEventSchema> = {},
-): AppEventSchema {
+export function createEventSchemaFixture(overrides: Partial<AppEventSchema> = {}): AppEventSchema {
 	return {
 		id: "schema-1",
 		name: "Reading",

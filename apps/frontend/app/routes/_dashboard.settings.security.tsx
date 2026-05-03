@@ -35,6 +35,7 @@ import { $path } from "safe-routes";
 import { match } from "ts-pattern";
 import { withQuery } from "ufo";
 import { z } from "zod";
+
 import { CopyableTextInput } from "~/components/common";
 import { redirectToQueryParam } from "~/lib/shared/constants";
 import {
@@ -47,6 +48,7 @@ import {
 import { clientGqlService } from "~/lib/shared/react-query";
 import { openConfirmationModal } from "~/lib/shared/ui-utils";
 import { createToastHeaders, serverGqlService } from "~/lib/utilities.server";
+
 import type { Route } from "./+types/_dashboard.settings.security";
 
 enum TwoFactorSetupStep {
@@ -121,9 +123,7 @@ const PasswordSection = () => {
 				message: "You will be logged out and redirected to set a new password",
 			});
 
-			navigate(
-				withQuery($path("/api/logout"), { [redirectToQueryParam]: url }),
-			);
+			navigate(withQuery($path("/api/logout"), { [redirectToQueryParam]: url }));
 		},
 		onError: () => {
 			notifications.show({
@@ -139,18 +139,13 @@ const PasswordSection = () => {
 			<Form method="POST" action={withQuery(".", { intent: "updateProfile" })}>
 				<input type="hidden" name="userId" defaultValue={userDetails.id} />
 				<Stack>
-					<CopyableTextInput
-						value={userDetails.id}
-						description="Database generated user ID"
-					/>
+					<CopyableTextInput value={userDetails.id} description="Database generated user ID" />
 					<TextInput
 						name="username"
 						label="Username"
 						disabled={isEditDisabled}
 						defaultValue={userDetails.name}
-						description={
-							isEditDisabled && "Username can not be changed for the demo user"
-						}
+						description={isEditDisabled && "Username can not be changed for the demo user"}
 					/>
 					<Button
 						fullWidth
@@ -158,13 +153,10 @@ const PasswordSection = () => {
 						onClick={(e) => {
 							const form = e.currentTarget.form;
 							e.preventDefault();
-							openConfirmationModal(
-								"Are you sure you want to update your profile?",
-								async () => {
-									submit(form);
-									await invalidateUserDetails();
-								},
-							);
+							openConfirmationModal("Are you sure you want to update your profile?", async () => {
+								submit(form);
+								await invalidateUserDetails();
+							});
 						}}
 					>
 						Update Profile
@@ -205,18 +197,12 @@ const TwoFactorAuthSection = () => {
 	const coreDetails = useCoreDetails();
 	const dashboardData = useDashboardLayoutData();
 	const isEditDisabled = dashboardData.isDemoInstance;
-	const [setupModalOpened, { open: openSetupModal, close: closeSetupModal }] =
-		useDisclosure(false);
-	const [regeneratedBackupCodes, setRegeneratedBackupCodes] = useState<
-		string[]
-	>([]);
+	const [setupModalOpened, { open: openSetupModal, close: closeSetupModal }] = useDisclosure(false);
+	const [regeneratedBackupCodes, setRegeneratedBackupCodes] = useState<string[]>([]);
 
 	const disableMutation = useMutation({
 		mutationFn: async () => {
-			const { disableTwoFactor } = await clientGqlService.request(
-				DisableTwoFactorDocument,
-				{},
-			);
+			const { disableTwoFactor } = await clientGqlService.request(DisableTwoFactorDocument, {});
 			return disableTwoFactor;
 		},
 		onSuccess: () => {
@@ -258,8 +244,8 @@ const TwoFactorAuthSection = () => {
 							Two-Factor Authentication
 						</Text>
 						<Text size="sm" c="dimmed">
-							Add an extra layer of security by requiring a code from your phone
-							in addition to your password.
+							Add an extra layer of security by requiring a code from your phone in addition to your
+							password.
 						</Text>
 						<Button onClick={openSetupModal} disabled={isEditDisabled}>
 							Enable Two-Factor Authentication
@@ -269,10 +255,7 @@ const TwoFactorAuthSection = () => {
 								Two-factor authentication can not be enabled for the demo user
 							</Text>
 						)}
-						<TwoFactorSetupModal
-							opened={setupModalOpened}
-							onClose={onCloseSetupModal}
-						/>
+						<TwoFactorSetupModal opened={setupModalOpened} onClose={onCloseSetupModal} />
 					</Stack>
 				</Paper>
 			) : (
@@ -288,8 +271,7 @@ const TwoFactorAuthSection = () => {
 								</Text>
 								{userDetails.timesTwoFactorBackupCodesUsed !== null && (
 									<Text size="xs" c="dimmed" mt="xs">
-										Backup codes used:{" "}
-										{userDetails.timesTwoFactorBackupCodesUsed} /{" "}
+										Backup codes used: {userDetails.timesTwoFactorBackupCodesUsed} /{" "}
 										{coreDetails.twoFactorBackupCodesCount}
 									</Text>
 								)}
@@ -410,10 +392,7 @@ const TwoFactorSetupModal = (props: TwoFactorSetupModalProps) => {
 				/>
 			)}
 			{step === TwoFactorSetupStep.BackupCodes && (
-				<BackupCodesStep
-					onComplete={onCloseSetupModal}
-					backupCodes={backupCodes}
-				/>
+				<BackupCodesStep onComplete={onCloseSetupModal} backupCodes={backupCodes} />
 			)}
 		</Modal>
 	);
@@ -430,9 +409,9 @@ const TwoFactorAuthStep = (props: TwoFactorAuthStepProps) => {
 	return (
 		<Stack>
 			<Alert>
-				You are about to enable two-factor authentication for your account. This
-				will require you to enter a code from your authenticator app each time
-				you log in. You will be logged out after enabling 2FA.
+				You are about to enable two-factor authentication for your account. This will require you to
+				enter a code from your authenticator app each time you log in. You will be logged out after
+				enabling 2FA.
 			</Alert>
 			{props.error && (
 				<Text c="red" size="sm">
@@ -440,11 +419,7 @@ const TwoFactorAuthStep = (props: TwoFactorAuthStepProps) => {
 				</Text>
 			)}
 			<Group justify="flex-end">
-				<Button
-					variant="subtle"
-					onClick={props.onClose}
-					disabled={props.isLoading}
-				>
+				<Button variant="subtle" onClick={props.onClose} disabled={props.isLoading}>
 					Cancel
 				</Button>
 				<Button onClick={props.onNext} loading={props.isLoading}>
@@ -473,25 +448,19 @@ const QRCodeStep = (props: QRCodeStepProps) => {
 	return (
 		<Stack>
 			<Text>
-				Scan the QR code below with your authenticator app (such as Google
-				Authenticator or 1Password).
+				Scan the QR code below with your authenticator app (such as Google Authenticator or
+				1Password).
 			</Text>
 			<Paper withBorder p="md" ta="center">
 				<Box mb="md">
-					<QRCodeSVG
-						level="M"
-						size={200}
-						marginSize={1}
-						value={props.setupData.qrCodeUrl}
-					/>
+					<QRCodeSVG level="M" size={200} marginSize={1} value={props.setupData.qrCodeUrl} />
 				</Box>
 				<Text size="xs" c="dimmed" ff="monospace">
 					Secret: {props.setupData.secret}
 				</Text>
 			</Paper>
 			<Text size="sm" c="dimmed">
-				If you can't scan the QR code, you can manually enter the secret key
-				shown above.
+				If you can't scan the QR code, you can manually enter the secret key shown above.
 			</Text>
 			<Group justify="space-between">
 				<Button variant="subtle" color="red" onClick={props.onCancel}>
@@ -539,10 +508,7 @@ const VerifyCodeStep = (props: VerifyCodeStepProps) => {
 	return (
 		<form onSubmit={form.onSubmit(handleSubmit)}>
 			<Stack>
-				<Text>
-					Enter the 6-digit code from your authenticator app to verify the
-					setup.
-				</Text>
+				<Text>Enter the 6-digit code from your authenticator app to verify the setup.</Text>
 				<Center>
 					<PinInput length={6} {...form.getInputProps("code")} />
 				</Center>
@@ -626,10 +592,5 @@ const BackupCodesStep = (props: BackupCodesStepProps) => {
 		navigate($path("/api/logout"));
 	};
 
-	return (
-		<BackupCodesDisplay
-			onComplete={handleComplete}
-			backupCodes={props.backupCodes}
-		/>
-	);
+	return <BackupCodesDisplay onComplete={handleComplete} backupCodes={props.backupCodes} />;
 };

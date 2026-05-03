@@ -1,4 +1,5 @@
 import { createRouter } from "@tanstack/react-router";
+
 import ApiClientProvider from "./hooks/api";
 import ReactQueryProvider from "./hooks/react-query";
 import { routeTree } from "./routeTree.gen";

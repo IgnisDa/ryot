@@ -1,4 +1,5 @@
 import type { paths } from "@ryot/generated/openapi/app-backend";
+
 import type { Client } from "./auth";
 import { type PollOptions, pollUntil } from "./polling";
 

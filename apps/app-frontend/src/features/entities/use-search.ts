@@ -1,20 +1,13 @@
-import {
-	createEntityColumnExpression,
-	dayjs,
-	getQueryEngineField,
-} from "@ryot/ts-utils";
-import {
-	keepPreviousData,
-	useQueries,
-	useQuery,
-	useQueryClient,
-} from "@tanstack/react-query";
+import { createEntityColumnExpression, dayjs, getQueryEngineField } from "@ryot/ts-utils";
+import { keepPreviousData, useQueries, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useCallback, useEffect, useMemo, useState } from "react";
+
 import type { AppEntitySchema } from "~/features/entity-schemas/model";
 import { useApiClient } from "~/hooks/api";
 import type { ApiPostResponseData } from "~/lib/api/types";
 import { getErrorMessage } from "~/lib/errors";
 import { sleep } from "~/lib/sleep";
+
 import {
 	createEntityRuntimeRequest,
 	queryEngineEntityFieldKeys,
@@ -55,10 +48,7 @@ function throwIfAborted(signal?: AbortSignal) {
 	}
 }
 
-function isSameSubmittedSearch(
-	current: SubmittedSearch | null,
-	next: SubmittedSearch,
-) {
+function isSameSubmittedSearch(current: SubmittedSearch | null, next: SubmittedSearch) {
 	return (
 		current?.page === next.page &&
 		current.query === next.query &&
@@ -76,27 +66,21 @@ export function useEntitySearch(props: { entitySchema: AppEntitySchema }) {
 
 	const [query, setQuery] = useState("");
 	const [selectedProviderIndex, setSelectedProviderIndex] = useState(0);
-	const [submittedSearch, setSubmittedSearch] =
-		useState<SubmittedSearch | null>(null);
+	const [submittedSearch, setSubmittedSearch] = useState<SubmittedSearch | null>(null);
 
 	const enqueueSearch = apiClient.useMutation("post", "/entity-schemas/search");
 	const ensuredEntityQueryKey = useMemo(
 		() => ["entity-search-ensured-entity", props.entitySchema.id],
 		[props.entitySchema.id],
 	);
-	const enqueueEntityImport = apiClient.useMutation(
-		"post",
-		"/entity-schemas/import",
-	);
+	const enqueueEntityImport = apiClient.useMutation("post", "/entity-schemas/import");
 	const entitySearchQueryKey = useMemo(
 		() => ["entity-search", props.entitySchema.id],
 		[props.entitySchema.id],
 	);
-	const entityListQueryKey = apiClient.queryOptions(
-		"post",
-		"/query-engine/execute",
-		{ body: createEntityRuntimeRequest(props.entitySchema.slug) },
-	).queryKey;
+	const entityListQueryKey = apiClient.queryOptions("post", "/query-engine/execute", {
+		body: createEntityRuntimeRequest(props.entitySchema.slug),
+	}).queryKey;
 
 	useEffect(() => {
 		return () => {
@@ -135,10 +119,7 @@ export function useEntitySearch(props: { entitySchema: AppEntitySchema }) {
 	);
 
 	const getEnsuredEntityQueryOptions = useCallback(
-		(
-			item: SearchResultItem,
-			provider: AppEntitySchema["providers"][number],
-		) => ({
+		(item: SearchResultItem, provider: AppEntitySchema["providers"][number]) => ({
 			retry: false,
 			staleTime: Number.POSITIVE_INFINITY,
 			queryKey: [...ensuredEntityQueryKey, provider.scriptId, item.externalId],
@@ -180,9 +161,7 @@ export function useEntitySearch(props: { entitySchema: AppEntitySchema }) {
 
 					if (!data || data.status === "failed") {
 						throw new Error(
-							data?.status === "failed"
-								? data.error
-								: "Entity import did not finish",
+							data?.status === "failed" ? data.error : "Entity import did not finish",
 						);
 					}
 
@@ -190,13 +169,7 @@ export function useEntitySearch(props: { entitySchema: AppEntitySchema }) {
 				}
 			},
 		}),
-		[
-			apiClient,
-			queryClient,
-			enqueueEntityImport,
-			ensuredEntityQueryKey,
-			props.entitySchema.id,
-		],
+		[apiClient, queryClient, enqueueEntityImport, ensuredEntityQueryKey, props.entitySchema.id],
 	);
 
 	const searchQuery = useQuery({
@@ -210,8 +183,7 @@ export function useEntitySearch(props: { entitySchema: AppEntitySchema }) {
 				throw new Error("Search request is unavailable");
 			}
 
-			const provider =
-				props.entitySchema.providers[submittedSearch.providerIndex];
+			const provider = props.entitySchema.providers[submittedSearch.providerIndex];
 			if (!provider) {
 				throw new Error("Search provider is unavailable");
 			}
@@ -283,9 +255,7 @@ export function useEntitySearch(props: { entitySchema: AppEntitySchema }) {
 	}, [ensuredEntityQueryKey, entitySearchQueryKey, queryClient]);
 
 	const goToPage = useCallback((newPage: number) => {
-		setSubmittedSearch((current) =>
-			current ? { ...current, page: newPage } : current,
-		);
+		setSubmittedSearch((current) => (current ? { ...current, page: newPage } : current));
 	}, []);
 
 	const currentResults = searchQuery.data?.items ?? [];
@@ -335,23 +305,15 @@ export function useEntitySearch(props: { entitySchema: AppEntitySchema }) {
 		};
 	}, [currentResults, currentResultProvider, props.entitySchema.slug]);
 
-	const trackedEntitiesQueryKey = apiClient.queryOptions(
-		"post",
-		"/query-engine/execute",
-		{
-			body:
-				trackedEntitiesBody ??
-				createEntityRuntimeRequest(props.entitySchema.slug),
-		},
-	).queryKey;
+	const trackedEntitiesQueryKey = apiClient.queryOptions("post", "/query-engine/execute", {
+		body: trackedEntitiesBody ?? createEntityRuntimeRequest(props.entitySchema.slug),
+	}).queryKey;
 
 	const trackedEntitiesQuery = apiClient.useQuery(
 		"post",
 		"/query-engine/execute",
 		{
-			body:
-				trackedEntitiesBody ??
-				createEntityRuntimeRequest(props.entitySchema.slug),
+			body: trackedEntitiesBody ?? createEntityRuntimeRequest(props.entitySchema.slug),
 		},
 		{ enabled: trackedEntitiesBody !== null },
 	);
@@ -361,11 +323,7 @@ export function useEntitySearch(props: { entitySchema: AppEntitySchema }) {
 		const items = payload?.mode === "entities" ? payload.data.items : [];
 		return new Set(
 			items
-				.map(
-					(item) =>
-						getQueryEngineField(item, queryEngineEntityFieldKeys.externalId)
-							?.value,
-				)
+				.map((item) => getQueryEngineField(item, queryEngineEntityFieldKeys.externalId)?.value)
 				.filter((id): id is string => id !== null),
 		);
 	}, [trackedEntitiesQuery.data]);
@@ -450,10 +408,7 @@ export function useEntitySearch(props: { entitySchema: AppEntitySchema }) {
 	const addStatus = useMemo(
 		() =>
 			Object.fromEntries(
-				Object.entries(addStateById).map(([externalId, item]) => [
-					externalId,
-					item.status,
-				]),
+				Object.entries(addStateById).map(([externalId, item]) => [externalId, item.status]),
 			),
 		[addStateById],
 	);

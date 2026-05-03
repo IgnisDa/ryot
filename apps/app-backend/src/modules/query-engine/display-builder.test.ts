@@ -1,7 +1,10 @@
 import { describe, expect, it } from "bun:test";
+
 import { PgDialect } from "drizzle-orm/pg-core";
+
 import { createSmartphoneSchema } from "~/lib/test-fixtures";
 import { buildEventJoinMap, buildSchemaMap } from "~/lib/views/reference";
+
 import { buildResolvedFieldsExpression } from "./display-builder";
 
 const dialect = new PgDialect();

@@ -16,12 +16,14 @@ import { dayjs } from "@ryot/ts-utils";
 import { useQueryClient } from "@tanstack/react-query";
 import { Bookmark, Clock } from "lucide-react";
 import { useCallback } from "react";
+
 import { useResolvedImageUrls } from "~/features/entities/image";
 import { toAppEntityImage } from "~/features/entities/model";
 import { useEntitySchemasQuery } from "~/features/entity-schemas/hooks";
 import type { AppTracker } from "~/features/trackers/model";
 import { useApiClient } from "~/hooks/api";
 import { useThemeTokens } from "~/hooks/theme";
+
 import { EventRow, StatChip, TypeBar, WeekStrip } from "./components/activity";
 import { BacklogCard, ContinueCard, RateCard } from "./components/cards";
 import { useMediaOverviewModalHandlers } from "./components/modal-handlers";
@@ -41,9 +43,7 @@ interface BuiltinMediaTrackerOverviewProps {
 	tracker: AppTracker;
 }
 
-export function BuiltinMediaTrackerOverview(
-	props: BuiltinMediaTrackerOverviewProps,
-) {
+export function BuiltinMediaTrackerOverview(props: BuiltinMediaTrackerOverviewProps) {
 	const t = useThemeTokens();
 	const apiClient = useApiClient();
 	const queryClient = useQueryClient();
@@ -61,22 +61,19 @@ export function BuiltinMediaTrackerOverview(
 
 	const invalidateUpNext = useCallback(() => {
 		void queryClient.invalidateQueries({
-			queryKey: apiClient.queryOptions("get", "/media/overview/up-next")
-				.queryKey,
+			queryKey: apiClient.queryOptions("get", "/media/overview/up-next").queryKey,
 		});
 	}, [apiClient, queryClient]);
 
 	const invalidateReviews = useCallback(() => {
 		void queryClient.invalidateQueries({
-			queryKey: apiClient.queryOptions("get", "/media/overview/review")
-				.queryKey,
+			queryKey: apiClient.queryOptions("get", "/media/overview/review").queryKey,
 		});
 	}, [apiClient, queryClient]);
 
 	const invalidateContinue = useCallback(() => {
 		void queryClient.invalidateQueries({
-			queryKey: apiClient.queryOptions("get", "/media/overview/continue")
-				.queryKey,
+			queryKey: apiClient.queryOptions("get", "/media/overview/continue").queryKey,
 		});
 	}, [apiClient, queryClient]);
 
@@ -94,9 +91,7 @@ export function BuiltinMediaTrackerOverview(
 	const activityItems = activityQuery.data?.data.items ?? [];
 	const rateTheseItems = rateTheseQuery.data?.data.items ?? [];
 
-	const searchableSchemas = entitySchemasQuery.entitySchemas.filter(
-		(s) => s.providers.length > 0,
-	);
+	const searchableSchemas = entitySchemasQuery.entitySchemas.filter((s) => s.providers.length > 0);
 
 	const { handleStartItem, handleContinueItem, openTypePickerModal } =
 		useMediaOverviewModalHandlers({
@@ -116,9 +111,7 @@ export function BuiltinMediaTrackerOverview(
 	].map((item) => ({ id: item.id, image: toAppEntityImage(item.image) }));
 	const imageUrls = useResolvedImageUrls(allImageEntries);
 
-	const schemaBySlug = new Map(
-		entitySchemasQuery.entitySchemas.map((s) => [s.slug, s]),
-	);
+	const schemaBySlug = new Map(entitySchemasQuery.entitySchemas.map((s) => [s.slug, s]));
 
 	if (
 		entitySchemasQuery.isLoading ||
@@ -170,19 +163,17 @@ export function BuiltinMediaTrackerOverview(
 			imageUrl: imageUrls.imageUrlByEntityId.get(item.entityId),
 		};
 	});
-	const dateGroups = liveActivityEvents.reduce<
-		Record<string, ActivityEventView[]>
-	>((acc, event) => {
-		if (!acc[event.date]) {
-			acc[event.date] = [];
-		}
-		acc[event.date]?.push(event);
-		return acc;
-	}, {});
-	const weekTotalEvents = liveWeekActivity.reduce(
-		(total, day) => total + day.count,
-		0,
+	const dateGroups = liveActivityEvents.reduce<Record<string, ActivityEventView[]>>(
+		(acc, event) => {
+			if (!acc[event.date]) {
+				acc[event.date] = [];
+			}
+			acc[event.date]?.push(event);
+			return acc;
+		},
+		{},
 	);
+	const weekTotalEvents = liveWeekActivity.reduce((total, day) => total + day.count, 0);
 
 	const libraryData = libraryQuery.data?.data;
 	const libraryTypeCounts = libraryData
@@ -197,13 +188,7 @@ export function BuiltinMediaTrackerOverview(
 		<Stack gap="xl" ref={mainRef}>
 			<Group justify="space-between" align="flex-end" gap="sm">
 				<Stack gap={6} maw={640}>
-					<Text
-						lh={1}
-						fz={30}
-						fw={700}
-						c={t.textPrimary}
-						ff="var(--mantine-headings-font-family)"
-					>
+					<Text lh={1} fz={30} fw={700} c={t.textPrimary} ff="var(--mantine-headings-font-family)">
 						Media
 					</Text>
 					<Group gap="xs" wrap="wrap">
@@ -268,11 +253,7 @@ export function BuiltinMediaTrackerOverview(
 							</Group>
 						}
 					/>
-					<SimpleGrid
-						spacing="sm"
-						ref={continueRef}
-						cols={{ base: 1, sm: 2, lg: 3 }}
-					>
+					<SimpleGrid spacing="sm" ref={continueRef} cols={{ base: 1, sm: 2, lg: 3 }}>
 						{continueItems.slice(0, 6).map((item) => (
 							<ContinueCard
 								item={item}
@@ -368,11 +349,7 @@ export function BuiltinMediaTrackerOverview(
 							</Text>
 						}
 					/>
-					<SimpleGrid
-						spacing="sm"
-						ref={rateTheseRef}
-						cols={{ base: 1, sm: 2, lg: 3 }}
-					>
+					<SimpleGrid spacing="sm" ref={rateTheseRef} cols={{ base: 1, sm: 2, lg: 3 }}>
 						{rateTheseItems.map((item) => (
 							<RateCard
 								item={item}
@@ -537,13 +514,7 @@ export function BuiltinMediaTrackerOverview(
 							background: `linear-gradient(180deg, color-mix(in srgb, ${SECTION_ACCENTS.library} 6%, transparent) 0%, ${t.surface} 100%)`,
 						}}
 					>
-						<Text
-							mb="xs"
-							fz="xs"
-							fw={600}
-							c={t.textMuted}
-							ff="var(--mantine-headings-font-family)"
-						>
+						<Text mb="xs" fz="xs" fw={600} c={t.textMuted} ff="var(--mantine-headings-font-family)">
 							Your collection
 						</Text>
 						<TypeBar

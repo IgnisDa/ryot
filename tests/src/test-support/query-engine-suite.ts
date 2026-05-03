@@ -1,8 +1,7 @@
 import { expect, it } from "bun:test";
-import {
-	createEntityColumnExpression,
-	createEntityPropertyExpression,
-} from "@ryot/ts-utils";
+
+import { createEntityColumnExpression, createEntityPropertyExpression } from "@ryot/ts-utils";
+
 import {
 	buildGridDisplayConfiguration,
 	buildGridRequest,
@@ -56,14 +55,11 @@ async function createImageFallbackFixture() {
 }
 
 async function createLatestEventJoinFixture() {
-	const { client, cookies, entityIdsByName, schema } =
-		await createSingleSchemaQueryEngineFixture();
+	const { client, cookies, entityIdsByName, schema } = await createSingleSchemaQueryEngineFixture();
 	const alphaPhoneId = entityIdsByName["Alpha Phone"];
 	const gammaPhoneId = entityIdsByName["Gamma Phone"];
 	if (!alphaPhoneId || !gammaPhoneId) {
-		throw new Error(
-			"Missing runtime entity fixture ids for latest event join test",
-		);
+		throw new Error("Missing runtime entity fixture ids for latest event join test");
 	}
 	const reviewSchema = await createEventSchema(client, cookies, {
 		name: "Review",
@@ -103,20 +99,12 @@ async function createLatestEventJoinFixture() {
 }
 
 async function createMixedLatestEventJoinFixture() {
-	const {
-		client,
-		cookies,
-		tabletSlug,
-		smartphoneSlug,
-		entityIdsByName,
-		smartphoneSchema,
-	} = await createCrossSchemaQueryEngineFixture();
+	const { client, cookies, tabletSlug, smartphoneSlug, entityIdsByName, smartphoneSchema } =
+		await createCrossSchemaQueryEngineFixture();
 	const alphaPhoneId = entityIdsByName["Alpha Phone"];
 	const gammaPhoneId = entityIdsByName["Gamma Phone"];
 	if (!alphaPhoneId || !gammaPhoneId) {
-		throw new Error(
-			"Missing mixed runtime entity fixture ids for latest event join test",
-		);
+		throw new Error("Missing mixed runtime entity fixture ids for latest event join test");
 	}
 	const reviewSchema = await createEventSchema(client, cookies, {
 		name: "Review",
@@ -153,8 +141,7 @@ async function createMixedLatestEventJoinFixture() {
 
 export function registerQueryEnginePresentationAndErrorTests() {
 	it("returns semantic keys for grid and list layouts with raw image unions", async () => {
-		const { client, cookies, schema } =
-			await createSingleSchemaQueryEngineFixture();
+		const { client, cookies, schema } = await createSingleSchemaQueryEngineFixture();
 
 		const gridResult = await executeQueryEngine(
 			client,
@@ -175,96 +162,68 @@ export function registerQueryEnginePresentationAndErrorTests() {
 
 		expect(gridResult.response.status).toBe(200);
 		expect(listResult.response.status).toBe(200);
-		expect(
-			getQueryEngineFieldOrThrow(gridResult.data?.data.items[0], "callout"),
-		).toEqual({
+		expect(getQueryEngineFieldOrThrow(gridResult.data?.data.items[0], "callout")).toEqual({
 			key: "callout",
 			kind: "text",
 			value: "phone",
 		});
-		expect(
-			getQueryEngineFieldOrThrow(
-				gridResult.data?.data.items[0],
-				"primarySubtitle",
-			),
-		).toEqual({
+		expect(getQueryEngineFieldOrThrow(gridResult.data?.data.items[0], "primarySubtitle")).toEqual({
 			key: "primarySubtitle",
 			kind: "number",
 			value: 2018,
 		});
-		expect(
-			getQueryEngineFieldOrThrow(
-				gridResult.data?.data.items[0],
-				"secondarySubtitle",
-			),
-		).toEqual({
-			key: "secondarySubtitle",
-			kind: "null",
-			value: null,
-		});
-		expect(
-			getQueryEngineFieldOrThrow(gridResult.data?.data.items[0], "title"),
-		).toEqual({
+		expect(getQueryEngineFieldOrThrow(gridResult.data?.data.items[0], "secondarySubtitle")).toEqual(
+			{
+				key: "secondarySubtitle",
+				kind: "null",
+				value: null,
+			},
+		);
+		expect(getQueryEngineFieldOrThrow(gridResult.data?.data.items[0], "title")).toEqual({
 			key: "title",
 			kind: "text",
 			value: "Alpha Phone",
 		});
-		expect(
-			getQueryEngineFieldOrThrow(gridResult.data?.data.items[0], "image"),
-		).toEqual({
+		expect(getQueryEngineFieldOrThrow(gridResult.data?.data.items[0], "image")).toEqual({
 			key: "image",
 			kind: "image",
 			value: { kind: "remote", url: "https://example.com/alpha-phone.png" },
 		});
-		expect(
-			getQueryEngineFieldOrThrow(listResult.data?.data.items[0], "callout"),
-		).toEqual({
+		expect(getQueryEngineFieldOrThrow(listResult.data?.data.items[0], "callout")).toEqual({
 			key: "callout",
 			kind: "text",
 			value: "phone",
 		});
-		expect(
-			getQueryEngineFieldOrThrow(
-				listResult.data?.data.items[0],
-				"primarySubtitle",
-			),
-		).toEqual({
+		expect(getQueryEngineFieldOrThrow(listResult.data?.data.items[0], "primarySubtitle")).toEqual({
 			key: "primarySubtitle",
 			kind: "number",
 			value: 2018,
 		});
-		expect(
-			getQueryEngineFieldOrThrow(
-				listResult.data?.data.items[0],
-				"secondarySubtitle",
-			),
-		).toEqual({
-			key: "secondarySubtitle",
-			kind: "null",
-			value: null,
-		});
-		expect(
-			getQueryEngineFieldOrThrow(listResult.data?.data.items[0], "title"),
-		).toEqual({
+		expect(getQueryEngineFieldOrThrow(listResult.data?.data.items[0], "secondarySubtitle")).toEqual(
+			{
+				key: "secondarySubtitle",
+				kind: "null",
+				value: null,
+			},
+		);
+		expect(getQueryEngineFieldOrThrow(listResult.data?.data.items[0], "title")).toEqual({
 			key: "title",
 			kind: "text",
 			value: "Alpha Phone",
 		});
-		expect(
-			getQueryEngineFieldOrThrow(listResult.data?.data.items[0], "image"),
-		).toEqual({
+		expect(getQueryEngineFieldOrThrow(listResult.data?.data.items[0], "image")).toEqual({
 			key: "image",
 			kind: "image",
 			value: { kind: "remote", url: "https://example.com/alpha-phone.png" },
 		});
-		expect(
-			getQueryEngineFieldOrThrow(gridResult.data?.data.items[0], "image").value,
-		).toEqual({ kind: "remote", url: "https://example.com/alpha-phone.png" });
+		expect(getQueryEngineFieldOrThrow(gridResult.data?.data.items[0], "image").value).toEqual({
+			kind: "remote",
+			url: "https://example.com/alpha-phone.png",
+		});
 	});
 
 	it("returns null wrappers for empty grid display references", async () => {
-		const { client, cookies, schema } =
-			await createSingleSchemaQueryEngineFixture();
+		const { client, cookies, schema } = await createSingleSchemaQueryEngineFixture();
 		const { data, response } = await executeQueryEngine(
 			client,
 			cookies,
@@ -288,16 +247,12 @@ export function registerQueryEnginePresentationAndErrorTests() {
 			kind: "null",
 			value: null,
 		});
-		expect(
-			getQueryEngineFieldOrThrow(data?.data.items[0], "primarySubtitle"),
-		).toEqual({
+		expect(getQueryEngineFieldOrThrow(data?.data.items[0], "primarySubtitle")).toEqual({
 			key: "primarySubtitle",
 			kind: "null",
 			value: null,
 		});
-		expect(
-			getQueryEngineFieldOrThrow(data?.data.items[0], "secondarySubtitle"),
-		).toEqual({
+		expect(getQueryEngineFieldOrThrow(data?.data.items[0], "secondarySubtitle")).toEqual({
 			key: "secondarySubtitle",
 			kind: "null",
 			value: null,
@@ -315,8 +270,7 @@ export function registerQueryEnginePresentationAndErrorTests() {
 	});
 
 	it("returns ordered table fields and null wrappers for empty property references", async () => {
-		const { client, cookies, schema } =
-			await createSingleSchemaQueryEngineFixture();
+		const { client, cookies, schema } = await createSingleSchemaQueryEngineFixture();
 		const { data, response } = await executeQueryEngine(
 			client,
 			cookies,
@@ -380,9 +334,7 @@ export function registerQueryEnginePresentationAndErrorTests() {
 			kind: "number",
 			value: 2018,
 		});
-		expect(
-			getQueryEngineFieldOrThrow(data?.data.items[0], "primarySubtitle"),
-		).toEqual({
+		expect(getQueryEngineFieldOrThrow(data?.data.items[0], "primarySubtitle")).toEqual({
 			key: "primarySubtitle",
 			kind: "text",
 			value: "Acme",
@@ -392,9 +344,7 @@ export function registerQueryEnginePresentationAndErrorTests() {
 			kind: "number",
 			value: 2019,
 		});
-		expect(
-			getQueryEngineFieldOrThrow(data?.data.items[1], "primarySubtitle"),
-		).toEqual({
+		expect(getQueryEngineFieldOrThrow(data?.data.items[1], "primarySubtitle")).toEqual({
 			key: "primarySubtitle",
 			kind: "text",
 			value: "Tabula",
@@ -420,10 +370,7 @@ export function registerQueryEnginePresentationAndErrorTests() {
 					primarySubtitleProperty: null,
 					secondarySubtitleProperty: null,
 					titleProperty: [entityField(schema.slug, "name")],
-					imageProperty: [
-						entityField(schema.slug, "image"),
-						entityField(schema.slug, "category"),
-					],
+					imageProperty: [entityField(schema.slug, "image"), entityField(schema.slug, "category")],
 				},
 			}),
 		);
@@ -451,10 +398,7 @@ export function registerQueryEnginePresentationAndErrorTests() {
 					primarySubtitleProperty: null,
 					secondarySubtitleProperty: null,
 					titleProperty: [entityField(schema.slug, "name")],
-					imageProperty: [
-						entityField(schema.slug, "image"),
-						entityField(schema.slug, "category"),
-					],
+					imageProperty: [entityField(schema.slug, "image"), entityField(schema.slug, "category")],
 				},
 			}),
 		);
@@ -480,10 +424,7 @@ export function registerQueryEnginePresentationAndErrorTests() {
 				displayConfiguration: buildTableDisplayConfiguration([
 					{
 						label: "Image",
-						property: [
-							entityField(schema.slug, "image"),
-							entityField(schema.slug, "category"),
-						],
+						property: [entityField(schema.slug, "image"), entityField(schema.slug, "category")],
 					},
 					{ label: "Name", property: [entityField(schema.slug, "name")] },
 				]),
@@ -496,9 +437,7 @@ export function registerQueryEnginePresentationAndErrorTests() {
 
 	it("filters, sorts, and displays latest-event join data", async () => {
 		const { client, cookies, schema } = await createLatestEventJoinFixture();
-		const reviewRatingRef = toRequiredExpression([
-			"event.review.properties.rating",
-		]);
+		const reviewRatingRef = toRequiredExpression(["event.review.properties.rating"]);
 		const { data, response } = await executeQueryEngine(
 			client,
 			cookies,
@@ -511,9 +450,7 @@ export function registerQueryEnginePresentationAndErrorTests() {
 					left: reviewRatingRef,
 					right: literalExpression(4),
 				},
-				eventJoins: [
-					{ key: "review", kind: "latestEvent", eventSchemaSlug: "review" },
-				],
+				eventJoins: [{ key: "review", kind: "latestEvent", eventSchemaSlug: "review" }],
 				displayConfiguration: buildTableDisplayConfiguration([
 					{ label: "Name", property: [entityField(schema.slug, "name")] },
 					{ label: "Rating", property: ["event.review.properties.rating"] },
@@ -524,9 +461,7 @@ export function registerQueryEnginePresentationAndErrorTests() {
 
 		expect(response.status).toBe(200);
 		expect(
-			data?.data.items.map(
-				(item) => getQueryEngineFieldOrThrow(item, "column_0").value,
-			),
+			data?.data.items.map((item) => getQueryEngineFieldOrThrow(item, "column_0").value),
 		).toEqual(["Alpha Phone", "Gamma Phone"]);
 		expect(data?.data.items[0]).toMatchObject([
 			{ key: "column_0", kind: "text", value: "Alpha Phone" },
@@ -540,27 +475,21 @@ export function registerQueryEnginePresentationAndErrorTests() {
 		]);
 		for (const item of data?.data.items ?? []) {
 			const reviewedAt = getQueryEngineFieldOrThrow(item, "column_2").value;
-			expect(reviewedAt).toMatch(
-				/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/,
-			);
+			expect(reviewedAt).toMatch(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/);
 		}
 	});
 
 	it("treats missing event schemas and missing event rows as null join values", async () => {
 		const { client, cookies, smartphoneSlug, tabletSlug } =
 			await createMixedLatestEventJoinFixture();
-		const reviewRatingRef = toRequiredExpression([
-			"event.review.properties.rating",
-		]);
+		const reviewRatingRef = toRequiredExpression(["event.review.properties.rating"]);
 		const { data, response } = await executeQueryEngine(
 			client,
 			cookies,
 			buildGridRequest({
 				scope: [smartphoneSlug, tabletSlug],
 				filter: { type: "isNull", expression: reviewRatingRef },
-				eventJoins: [
-					{ key: "review", kind: "latestEvent", eventSchemaSlug: "review" },
-				],
+				eventJoins: [{ key: "review", kind: "latestEvent", eventSchemaSlug: "review" }],
 				displayConfiguration: buildGridDisplayConfiguration(
 					{
 						calloutProperty: ["event.review.properties.rating"],
@@ -573,11 +502,9 @@ export function registerQueryEnginePresentationAndErrorTests() {
 		);
 
 		expect(response.status).toBe(200);
-		expect(
-			data?.data.items.map(
-				(item) => getQueryEngineFieldOrThrow(item, "title").value,
-			),
-		).toEqual(["Beta Tablet", "Delta Tablet", "Omega Phone"]);
+		expect(data?.data.items.map((item) => getQueryEngineFieldOrThrow(item, "title").value)).toEqual(
+			["Beta Tablet", "Delta Tablet", "Omega Phone"],
+		);
 		for (const item of data?.data.items ?? []) {
 			expect(getQueryEngineFieldOrThrow(item, "callout")).toEqual({
 				key: "callout",
@@ -590,18 +517,14 @@ export function registerQueryEnginePresentationAndErrorTests() {
 	it("returns only entities with a non-null event join value for isNotNull", async () => {
 		const { client, cookies, smartphoneSlug, tabletSlug } =
 			await createMixedLatestEventJoinFixture();
-		const reviewRatingRef = toRequiredExpression([
-			"event.review.properties.rating",
-		]);
+		const reviewRatingRef = toRequiredExpression(["event.review.properties.rating"]);
 		const { data, response } = await executeQueryEngine(
 			client,
 			cookies,
 			buildGridRequest({
 				scope: [smartphoneSlug, tabletSlug],
 				filter: { type: "isNotNull", expression: reviewRatingRef },
-				eventJoins: [
-					{ key: "review", kind: "latestEvent", eventSchemaSlug: "review" },
-				],
+				eventJoins: [{ key: "review", kind: "latestEvent", eventSchemaSlug: "review" }],
 				displayConfiguration: buildGridDisplayConfiguration(
 					{
 						calloutProperty: ["event.review.properties.rating"],
@@ -614,19 +537,16 @@ export function registerQueryEnginePresentationAndErrorTests() {
 		);
 
 		expect(response.status).toBe(200);
-		expect(
-			data?.data.items.map(
-				(item) => getQueryEngineFieldOrThrow(item, "title").value,
-			),
-		).toEqual(["Alpha Phone", "Gamma Phone"]);
+		expect(data?.data.items.map((item) => getQueryEngineFieldOrThrow(item, "title").value)).toEqual(
+			["Alpha Phone", "Gamma Phone"],
+		);
 		for (const item of data?.data.items ?? []) {
 			expect(getQueryEngineFieldOrThrow(item, "callout").kind).toBe("number");
 		}
 	});
 
 	it("returns 404 and 400 errors for invalid runtime requests", async () => {
-		const { client, cookies, schema } =
-			await createSingleSchemaQueryEngineFixture();
+		const { client, cookies, schema } = await createSingleSchemaQueryEngineFixture();
 		const missingSchemaResult = await executeQueryEngine(
 			client,
 			cookies,
@@ -660,9 +580,7 @@ export function registerQueryEnginePresentationAndErrorTests() {
 		);
 
 		expect(missingSchemaResult.response.status).toBe(404);
-		expect(missingSchemaResult.error?.error?.message).toBe(
-			"Schema 'missing-schema' not found",
-		);
+		expect(missingSchemaResult.error?.error?.message).toBe("Schema 'missing-schema' not found");
 		expect(missingPropertyResult.response.status).toBe(400);
 		expect(missingPropertyResult.error?.error?.message).toBe(
 			`Property 'missingProperty' not found in schema '${schema.slug}'`,

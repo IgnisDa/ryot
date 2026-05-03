@@ -100,9 +100,9 @@ dev environment lean.
 One app binary on the App Store and Google Play. On first launch the user sees
 an onboarding screen to configure their server URL.
 
-| User type | Server URL | How configured |
-|---|---|---|
-| Cloud | `https://app.ryot.io` | Pre-filled default, one tap |
+| User type   | Server URL             | How configured                                                 |
+| ----------- | ---------------------- | -------------------------------------------------------------- |
+| Cloud       | `https://app.ryot.io`  | Pre-filled default, one tap                                    |
 | Self-hosted | Their own instance URL | Typed manually or via QR code / deep link from the Ryot web UI |
 
 Self-hosted users on Android can also sideload an APK from GitHub releases,
@@ -141,12 +141,12 @@ app then conditionally checks on startup:
 const CLOUD_URL = "https://app.ryot.io";
 
 async function checkForUpdates() {
-    const serverUrl = await getServerUrl();
-    if (serverUrl !== CLOUD_URL) return; // self-hosted: skip entirely
-    const update = await Updates.checkForUpdateAsync();
-    if (!update.isAvailable) return;
-    await Updates.fetchUpdateAsync();
-    await Updates.reloadAsync();
+	const serverUrl = await getServerUrl();
+	if (serverUrl !== CLOUD_URL) return; // self-hosted: skip entirely
+	const update = await Updates.checkForUpdateAsync();
+	if (!update.isAvailable) return;
+	await Updates.fetchUpdateAsync();
+	await Updates.reloadAsync();
 }
 ```
 
@@ -173,11 +173,11 @@ Scheduled by the app directly on the device. No server involved. Fire even when
 the app is backgrounded or the phone is locked. This is what users have been
 asking for — rest timers that work when the screen is off.
 
-| Use case | Mechanism |
-|---|---|
-| Rest timer completion ("rest over, start your set") | `expo-notifications` + `expo-task-manager` |
-| Workout duration alerts | `expo-notifications` |
-| Scheduled daily reminders | `expo-notifications` (user sets a time, app schedules locally) |
+| Use case                                            | Mechanism                                                      |
+| --------------------------------------------------- | -------------------------------------------------------------- |
+| Rest timer completion ("rest over, start your set") | `expo-notifications` + `expo-task-manager`                     |
+| Workout duration alerts                             | `expo-notifications`                                           |
+| Scheduled daily reminders                           | `expo-notifications` (user sets a time, app schedules locally) |
 
 This completely replaces V1's service worker hack, which broke whenever the
 browser tab was backgrounded.
@@ -239,23 +239,23 @@ journal aesthetic) is implemented as Tailwind CSS v4 theme tokens:
 ```css
 /* global.css */
 @theme {
-    /* Accent — warm gold */
-    --color-accent-50:  #fffbeb;
-    --color-accent-500: #d4a574;
-    --color-accent-900: #5a4318;
+	/* Accent — warm gold */
+	--color-accent-50: #fffbeb;
+	--color-accent-500: #d4a574;
+	--color-accent-900: #5a4318;
 
-    /* Stone neutrals — warm, not blue-tinted */
-    --color-stone-50:  #fafaf9;
-    --color-stone-500: #78716c;
-    --color-stone-950: #1c1917;
+	/* Stone neutrals — warm, not blue-tinted */
+	--color-stone-50: #fafaf9;
+	--color-stone-500: #78716c;
+	--color-stone-950: #1c1917;
 
-    /* Typography */
-    --font-heading: "Space Grotesk", system-ui;
-    --font-body:    "Outfit", system-ui;
-    --font-mono:    "IBM Plex Mono", monospace;
+	/* Typography */
+	--font-heading: "Space Grotesk", system-ui;
+	--font-body: "Outfit", system-ui;
+	--font-mono: "IBM Plex Mono", monospace;
 
-    /* Radii */
-    --radius-card: 12px;
+	/* Radii */
+	--radius-card: 12px;
 }
 ```
 
@@ -297,7 +297,7 @@ TanStack Form's array manipulation API handles it without immer.
 
 ```typescript
 const workoutForm = useForm({
-    defaultValues: loadWorkoutFromStorage() ?? getDefaultWorkout(),
+	defaultValues: loadWorkoutFromStorage() ?? getDefaultWorkout(),
 });
 
 // Add an exercise
@@ -313,7 +313,10 @@ workoutForm.removeFieldValue("exercises", exIdx);
 workoutForm.moveFieldValues("exercises", fromIdx, toIdx);
 
 // Confirm a set
-workoutForm.setFieldValue(`exercises[${exIdx}].sets[${setIdx}].confirmedAt`, new Date().toISOString());
+workoutForm.setFieldValue(
+	`exercises[${exIdx}].sets[${setIdx}].confirmedAt`,
+	new Date().toISOString(),
+);
 ```
 
 The workout form state is persisted to MMKV so an in-progress workout survives
@@ -348,17 +351,17 @@ import { atomWithStorage, createJSONStorage } from "jotai/utils";
 const mmkv = Platform.OS !== "web" ? new MMKV() : null;
 
 const platformStorage = createJSONStorage(() =>
-    mmkv
-        ? {
-              getItem: (k) => mmkv.getString(k) ?? null,
-              setItem: (k, v) => mmkv.set(k, v),
-              removeItem: (k) => mmkv.delete(k),
-          }
-        : localStorage,
+	mmkv
+		? {
+				getItem: (k) => mmkv.getString(k) ?? null,
+				setItem: (k, v) => mmkv.set(k, v),
+				removeItem: (k) => mmkv.delete(k),
+			}
+		: localStorage,
 );
 
 export const atomWithPlatformStorage = <T>(key: string, initial: T) =>
-    atomWithStorage(key, initial, platformStorage);
+	atomWithStorage(key, initial, platformStorage);
 ```
 
 ---
@@ -367,66 +370,66 @@ export const atomWithPlatformStorage = <T>(key: string, initial: T) =>
 
 ### Framework and Navigation
 
-| Concern | Library | Why |
-|---|---|---|
-| Framework | Expo (managed workflow) | No local Xcode/Android Studio required. Handles native build complexity. First-class Bun + monorepo support. |
-| Routing / navigation | Expo Router | File-based routing matching TanStack Router's mental model. Built-in deep linking and web URL support. |
-| Web output | `web.output: "single"` | SPA output compatible with the existing Dockerfile/Hono static serving setup |
+| Concern              | Library                 | Why                                                                                                          |
+| -------------------- | ----------------------- | ------------------------------------------------------------------------------------------------------------ |
+| Framework            | Expo (managed workflow) | No local Xcode/Android Studio required. Handles native build complexity. First-class Bun + monorepo support. |
+| Routing / navigation | Expo Router             | File-based routing matching TanStack Router's mental model. Built-in deep linking and web URL support.       |
+| Web output           | `web.output: "single"`  | SPA output compatible with the existing Dockerfile/Hono static serving setup                                 |
 
 ### UI
 
-| Concern | Library | Why |
-|---|---|---|
-| Styling | NativeWind v5 | Tailwind CSS for React Native. Build-time compilation to native styles. Full web support. |
-| Component primitives | Gluestack UI v5 (alpha) | Copy-owned components (shadcn model). No fighting library defaults. Targets NativeWind v5 + Tailwind v4. |
-| Icons | `lucide-react-native` | Direct port of `lucide-react` (used in web frontend). Same icons, same API. |
-| Animations | `react-native-reanimated` v3 | Bundled with Expo. GPU-thread animations. |
-| Gestures | `react-native-gesture-handler` v2 | Bundled with Expo. Required by Reanimated and drag-and-drop. |
-| Toast notifications | `sonner-native` | Port of the Sonner web library. Consistent API, works on all three platforms. |
+| Concern              | Library                           | Why                                                                                                      |
+| -------------------- | --------------------------------- | -------------------------------------------------------------------------------------------------------- |
+| Styling              | NativeWind v5                     | Tailwind CSS for React Native. Build-time compilation to native styles. Full web support.                |
+| Component primitives | Gluestack UI v5 (alpha)           | Copy-owned components (shadcn model). No fighting library defaults. Targets NativeWind v5 + Tailwind v4. |
+| Icons                | `lucide-react-native`             | Direct port of `lucide-react` (used in web frontend). Same icons, same API.                              |
+| Animations           | `react-native-reanimated` v3      | Bundled with Expo. GPU-thread animations.                                                                |
+| Gestures             | `react-native-gesture-handler` v2 | Bundled with Expo. Required by Reanimated and drag-and-drop.                                             |
+| Toast notifications  | `sonner-native`                   | Port of the Sonner web library. Consistent API, works on all three platforms.                            |
 
 ### Data and State
 
-| Concern | Library |
-|---|---|
-| Server state | TanStack Query v5 |
-| Forms + workout session state | TanStack Form |
-| UI / timer state | Jotai |
-| Persistence | `react-native-mmkv` (native) / `localStorage` (web) via `atomWithPlatformStorage` |
-| API client | `openapi-fetch` + `@ryot/generated` |
-| Validation | Zod v4 |
-| Pattern matching | `ts-pattern` |
-| Date handling | `dayjs` via `@ryot/ts-utils` |
+| Concern                       | Library                                                                           |
+| ----------------------------- | --------------------------------------------------------------------------------- |
+| Server state                  | TanStack Query v5                                                                 |
+| Forms + workout session state | TanStack Form                                                                     |
+| UI / timer state              | Jotai                                                                             |
+| Persistence                   | `react-native-mmkv` (native) / `localStorage` (web) via `atomWithPlatformStorage` |
+| API client                    | `openapi-fetch` + `@ryot/generated`                                               |
+| Validation                    | Zod v4                                                                            |
+| Pattern matching              | `ts-pattern`                                                                      |
+| Date handling                 | `dayjs` via `@ryot/ts-utils`                                                      |
 
 ### Authentication
 
-| Concern | Library |
-|---|---|
-| Auth client | `better-auth` + `@better-auth/expo` (`expoClient` plugin) |
-| Secure token storage | `expo-secure-store` |
-| In-app browser (OAuth flows) | `expo-web-browser` |
+| Concern                      | Library                                                   |
+| ---------------------------- | --------------------------------------------------------- |
+| Auth client                  | `better-auth` + `@better-auth/expo` (`expoClient` plugin) |
+| Secure token storage         | `expo-secure-store`                                       |
+| In-app browser (OAuth flows) | `expo-web-browser`                                        |
 
 ### Lists and Drag-and-Drop
 
-| Concern | Library | Why |
-|---|---|---|
-| Virtualized lists | `@legendapp/list` | Faster than FlatList and FlashList. No recycling footguns. Dynamic item sizes without estimation. |
-| Drag to reorder (workout exercises) | `react-native-reanimated-dnd` | Explicit iOS/Android/web support. Built on Reanimated v3 + Gesture Handler v2 (already bundled). |
+| Concern                             | Library                       | Why                                                                                               |
+| ----------------------------------- | ----------------------------- | ------------------------------------------------------------------------------------------------- |
+| Virtualized lists                   | `@legendapp/list`             | Faster than FlatList and FlashList. No recycling footguns. Dynamic item sizes without estimation. |
+| Drag to reorder (workout exercises) | `react-native-reanimated-dnd` | Explicit iOS/Android/web support. Built on Reanimated v3 + Gesture Handler v2 (already bundled).  |
 
 ### Media and Files
 
-| Concern | Library |
-|---|---|
-| Image picker | `expo-image-picker` |
-| Image lightbox | Custom (Gluestack Modal + Reanimated pinch gesture, ~150 lines) |
-| Video playback (media trailers) | `expo-video` |
-| QR code display | `react-native-qrcode-svg` |
-| Screenshot / share | `react-native-view-shot` + `expo-sharing` |
-| SVG rendering | `react-native-svg` |
+| Concern                         | Library                                                         |
+| ------------------------------- | --------------------------------------------------------------- |
+| Image picker                    | `expo-image-picker`                                             |
+| Image lightbox                  | Custom (Gluestack Modal + Reanimated pinch gesture, ~150 lines) |
+| Video playback (media trailers) | `expo-video`                                                    |
+| QR code display                 | `react-native-qrcode-svg`                                       |
+| Screenshot / share              | `react-native-view-shot` + `expo-sharing`                       |
+| SVG rendering                   | `react-native-svg`                                              |
 
 ### Charts
 
-| Concern | Library | Notes |
-|---|---|---|
+| Concern                       | Library           | Notes                                                                                                                                                                                                             |
+| ----------------------------- | ----------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | Analytics + body measurements | Victory Native XL | Powered by React Native Skia (GPU-rendered). On web, requires Skia CanvasKit WASM (2.9 MB gzipped) loaded via `<WithSkiaWeb>` code-splitting — Skia only loads when a chart screen is visited, not on app launch. |
 
 Victory Native XL is chosen over recharts (used in V1) because recharts is
@@ -435,20 +438,20 @@ is GPU-accelerated and handles large datasets without frame drops.
 
 ### Fitness-Specific
 
-| Concern | Library |
-|---|---|
-| Screen wake lock (active workout) | `expo-keep-awake` |
-| Audio feedback (set confirmation) | `expo-audio` |
-| Local timer notifications | `expo-notifications` |
-| Background task continuity | `expo-task-manager` |
-| Media image carousels | `react-native-reanimated-carousel` |
+| Concern                           | Library                            |
+| --------------------------------- | ---------------------------------- |
+| Screen wake lock (active workout) | `expo-keep-awake`                  |
+| Audio feedback (set confirmation) | `expo-audio`                       |
+| Local timer notifications         | `expo-notifications`               |
+| Background task continuity        | `expo-task-manager`                |
+| Media image carousels             | `react-native-reanimated-carousel` |
 
 ### Forms and Input
 
-| Concern | Library |
-|---|---|
-| OTP / PIN input (2FA screens) | `react-native-otp-entry` |
-| Date picker | `@react-native-community/datetimepicker` |
+| Concern                       | Library                                  |
+| ----------------------------- | ---------------------------------------- |
+| OTP / PIN input (2FA screens) | `react-native-otp-entry`                 |
+| Date picker                   | `@react-native-community/datetimepicker` |
 
 ### Fonts
 
@@ -460,16 +463,16 @@ Same three typefaces as the web frontend, loaded via `expo-font`:
 
 ### Build and Tooling
 
-| Concern | Tool |
-|---|---|
-| Package manager | Bun (Expo has first-class Bun + monorepo support) |
-| Monorepo | Turbo (unchanged from rest of repo) |
-| Linting | Biome (unchanged) |
-| Unit testing | Bun test |
-| E2E testing | Maestro (EAS natively supports Maestro test jobs in CI) |
-| Native builds | EAS Build (remote cloud builds, no local Xcode required) |
-| App store submission | EAS Submit |
-| OTA JS updates | EAS Update (cloud users only — see OTA section) |
+| Concern              | Tool                                                     |
+| -------------------- | -------------------------------------------------------- |
+| Package manager      | Bun (Expo has first-class Bun + monorepo support)        |
+| Monorepo             | Turbo (unchanged from rest of repo)                      |
+| Linting              | Biome (unchanged)                                        |
+| Unit testing         | Bun test                                                 |
+| E2E testing          | Maestro (EAS natively supports Maestro test jobs in CI)  |
+| Native builds        | EAS Build (remote cloud builds, no local Xcode required) |
+| App store submission | EAS Submit                                               |
+| OTA JS updates       | EAS Update (cloud users only — see OTA section)          |
 
 ---
 
@@ -477,24 +480,24 @@ Same three typefaces as the web frontend, loaded via `expo-font`:
 
 Features from `apps/frontend` (V1) and their status in the mobile app:
 
-| V1 Feature | Mobile V1 Status | Notes |
-|---|---|---|
-| Media tracking (log, library, detail pages) | Ported | Core feature |
-| Fitness / workout logging | Ported | Primary reason for going native |
-| Rest timers | Ported | Now via `expo-notifications` — works with screen locked |
-| Body measurements | Ported | Charts via Victory Native XL |
-| Analytics | Ported | Charts via Victory Native XL |
-| Calendar view | Ported | List-based (no calendar grid component needed — V1 was also a list) |
-| Collections | Ported | |
-| Saved views | Ported | |
-| Settings (all pages) | Ported | |
-| Two-factor auth | Ported | OTP input via `react-native-otp-entry` |
-| Access link sharing | Ported | QR code via `react-native-qrcode-svg` |
-| Screenshot / export analytics | Ported | Via `react-native-view-shot` + `expo-sharing` |
-| Exercise image/video upload | Ported | Via `expo-image-picker` + existing presigned URL flow |
-| Video trailers (YouTube/Dailymotion) | Ported | Via `expo-video` (replaces `<iframe>`) |
-| Onboarding tour | Deferred | `react-joyride` is web-only; replace with native onboarding screens |
-| Muscle group body highlighter | Deferred | No maintained RN equivalent for DOM SVG rendering |
+| V1 Feature                                  | Mobile V1 Status | Notes                                                               |
+| ------------------------------------------- | ---------------- | ------------------------------------------------------------------- |
+| Media tracking (log, library, detail pages) | Ported           | Core feature                                                        |
+| Fitness / workout logging                   | Ported           | Primary reason for going native                                     |
+| Rest timers                                 | Ported           | Now via `expo-notifications` — works with screen locked             |
+| Body measurements                           | Ported           | Charts via Victory Native XL                                        |
+| Analytics                                   | Ported           | Charts via Victory Native XL                                        |
+| Calendar view                               | Ported           | List-based (no calendar grid component needed — V1 was also a list) |
+| Collections                                 | Ported           |                                                                     |
+| Saved views                                 | Ported           |                                                                     |
+| Settings (all pages)                        | Ported           |                                                                     |
+| Two-factor auth                             | Ported           | OTP input via `react-native-otp-entry`                              |
+| Access link sharing                         | Ported           | QR code via `react-native-qrcode-svg`                               |
+| Screenshot / export analytics               | Ported           | Via `react-native-view-shot` + `expo-sharing`                       |
+| Exercise image/video upload                 | Ported           | Via `expo-image-picker` + existing presigned URL flow               |
+| Video trailers (YouTube/Dailymotion)        | Ported           | Via `expo-video` (replaces `<iframe>`)                              |
+| Onboarding tour                             | Deferred         | `react-joyride` is web-only; replace with native onboarding screens |
+| Muscle group body highlighter               | Deferred         | No maintained RN equivalent for DOM SVG rendering                   |
 
 ---
 
@@ -502,28 +505,28 @@ Features from `apps/frontend` (V1) and their status in the mobile app:
 
 All libraries verified against iOS, Android, and web before inclusion:
 
-| Library | iOS | Android | Web | Notes |
-|---|---|---|---|---|
-| NativeWind v5 | ✅ | ✅ | ✅ | |
-| Gluestack UI | ✅ | ✅ | ✅ | |
-| TanStack Query / Form | ✅ | ✅ | ✅ | Pure JS |
-| Zod, ts-pattern, dayjs | ✅ | ✅ | ✅ | Pure JS |
-| openapi-fetch | ✅ | ✅ | ✅ | Uses global `fetch` |
-| better-auth + expo client | ✅ | ✅ | ✅ | |
-| Jotai | ✅ | ✅ | ✅ | Pure JS |
-| react-native-mmkv | ✅ | ✅ | ❌ | `localStorage` fallback via `atomWithPlatformStorage` |
-| @legendapp/list | ✅ | ✅ | ✅ | Via React Native Web |
-| react-native-reanimated-dnd | ✅ | ✅ | ✅ | Explicitly documented |
-| react-native-reanimated-carousel | ✅ | ✅ | ✅ | Improved web support in v4 |
-| Victory Native XL | ✅ | ✅ | ✅ | Skia WASM on web; requires `<WithSkiaWeb>` setup |
-| react-native-view-shot | ✅ | ✅ | ✅ | Uses `data-uri` format on web |
-| react-native-qrcode-svg | ✅ | ✅ | ✅ | Via `react-native-svg` |
-| expo-image-picker | ✅ | ✅ | ✅ | File input on web |
-| expo-sharing | ✅ | ✅ | ✅ | Web Share API on web |
-| expo-audio | ✅ | ✅ | ✅ | Web Audio API on web |
-| expo-keep-awake | ✅ | ✅ | ✅ | Wake Lock API on web |
-| sonner-native | ✅ | ✅ | ✅ | |
-| lucide-react-native | ✅ | ✅ | ✅ | |
+| Library                          | iOS | Android | Web | Notes                                                 |
+| -------------------------------- | --- | ------- | --- | ----------------------------------------------------- |
+| NativeWind v5                    | ✅  | ✅      | ✅  |                                                       |
+| Gluestack UI                     | ✅  | ✅      | ✅  |                                                       |
+| TanStack Query / Form            | ✅  | ✅      | ✅  | Pure JS                                               |
+| Zod, ts-pattern, dayjs           | ✅  | ✅      | ✅  | Pure JS                                               |
+| openapi-fetch                    | ✅  | ✅      | ✅  | Uses global `fetch`                                   |
+| better-auth + expo client        | ✅  | ✅      | ✅  |                                                       |
+| Jotai                            | ✅  | ✅      | ✅  | Pure JS                                               |
+| react-native-mmkv                | ✅  | ✅      | ❌  | `localStorage` fallback via `atomWithPlatformStorage` |
+| @legendapp/list                  | ✅  | ✅      | ✅  | Via React Native Web                                  |
+| react-native-reanimated-dnd      | ✅  | ✅      | ✅  | Explicitly documented                                 |
+| react-native-reanimated-carousel | ✅  | ✅      | ✅  | Improved web support in v4                            |
+| Victory Native XL                | ✅  | ✅      | ✅  | Skia WASM on web; requires `<WithSkiaWeb>` setup      |
+| react-native-view-shot           | ✅  | ✅      | ✅  | Uses `data-uri` format on web                         |
+| react-native-qrcode-svg          | ✅  | ✅      | ✅  | Via `react-native-svg`                                |
+| expo-image-picker                | ✅  | ✅      | ✅  | File input on web                                     |
+| expo-sharing                     | ✅  | ✅      | ✅  | Web Share API on web                                  |
+| expo-audio                       | ✅  | ✅      | ✅  | Web Audio API on web                                  |
+| expo-keep-awake                  | ✅  | ✅      | ✅  | Wake Lock API on web                                  |
+| sonner-native                    | ✅  | ✅      | ✅  |                                                       |
+| lucide-react-native              | ✅  | ✅      | ✅  |                                                       |
 
 ---
 

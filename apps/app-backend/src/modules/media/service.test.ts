@@ -1,14 +1,11 @@
 import { describe, expect, it } from "bun:test";
+
 import { dayjs } from "@ryot/ts-utils";
+
 import { expectDataResult } from "~/lib/test-helpers";
-import {
-	QueryEngineNotFoundError,
-	QueryEngineValidationError,
-} from "~/lib/views/errors";
-import type {
-	QueryEngineResponse,
-	ResolvedDisplayValue,
-} from "~/modules/query-engine";
+import { QueryEngineNotFoundError, QueryEngineValidationError } from "~/lib/views/errors";
+import type { QueryEngineResponse, ResolvedDisplayValue } from "~/modules/query-engine";
+
 import {
 	getContinueItems,
 	getLibraryStats,
@@ -301,9 +298,7 @@ describe("getUpNextItems", () => {
 								id: "anime-1",
 								name: "Test Anime",
 								entitySchemaSlug: "anime",
-								fields: [
-									{ key: "backlogAt", kind: "date", value: date("2024-03-20") },
-								],
+								fields: [{ key: "backlogAt", kind: "date", value: date("2024-03-20") }],
 							}),
 						],
 						{ limit: 6 },
@@ -330,9 +325,7 @@ describe("getUpNextItems", () => {
 								id: "anime-1",
 								name: "With Backlog",
 								entitySchemaSlug: "anime",
-								fields: [
-									{ key: "backlogAt", kind: "date", value: date("2024-03-20") },
-								],
+								fields: [{ key: "backlogAt", kind: "date", value: date("2024-03-20") }],
 							}),
 							makeSectionItem({
 								id: "anime-2",
@@ -769,9 +762,7 @@ describe("getRecentActivityItems", () => {
 		});
 
 		expect((capturedRequest as { mode: string }).mode).toBe("events");
-		expect(
-			(capturedRequest as { pagination: { limit: number } }).pagination.limit,
-		).toBe(12);
+		expect((capturedRequest as { pagination: { limit: number } }).pagination.limit).toBe(12);
 	});
 
 	it("maps QueryEngineNotFoundError to not_found error", async () => {
@@ -893,9 +884,7 @@ describe("getWeekActivity", () => {
 			"Sat",
 			"Sun",
 		]);
-		expect(result.items.map((item) => item.count)).toEqual([
-			0, 2, 0, 0, 1, 0, 0,
-		]);
+		expect(result.items.map((item) => item.count)).toEqual([0, 2, 0, 0, 1, 0, 0]);
 	});
 
 	it("sends time-series mode request for current ISO week with day bucket", async () => {
@@ -913,9 +902,7 @@ describe("getWeekActivity", () => {
 
 		expect((capturedRequest as { mode: string }).mode).toBe("timeSeries");
 		expect((capturedRequest as { bucket: string }).bucket).toBe("day");
-		expect((capturedRequest as { metric: { type: string } }).metric.type).toBe(
-			"count",
-		);
+		expect((capturedRequest as { metric: { type: string } }).metric.type).toBe("count");
 	});
 
 	it("maps QueryEngineNotFoundError to not_found error", async () => {

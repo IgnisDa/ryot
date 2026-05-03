@@ -1,6 +1,7 @@
 /// <reference lib="WebWorker" />
 
 import { match } from "ts-pattern";
+
 import type {
 	AppServiceWorkerMessageData,
 	AppServiceWorkerNotificationData,
@@ -32,16 +33,13 @@ self.addEventListener("notificationclick", (event) => {
 				const urlToOpen = data.link;
 				if (!urlToOpen) return;
 				event.waitUntil(
-					clients
-						.matchAll({ type: "window", includeUncontrolled: true })
-						.then((clientList) => {
-							for (let i = 0; i < clientList.length; i++) {
-								const client = clientList[i];
-								if (client.url === urlToOpen && "focus" in client)
-									return client.focus();
-							}
-							if (clients.openWindow) return clients.openWindow(urlToOpen);
-						}),
+					clients.matchAll({ type: "window", includeUncontrolled: true }).then((clientList) => {
+						for (let i = 0; i < clientList.length; i++) {
+							const client = clientList[i];
+							if (client.url === urlToOpen && "focus" in client) return client.focus();
+						}
+						if (clients.openWindow) return clients.openWindow(urlToOpen);
+					}),
 				);
 			})
 			.exhaustive();

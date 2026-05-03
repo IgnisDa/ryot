@@ -1,7 +1,9 @@
 import type { AppSchema } from "@ryot/ts-utils";
 import { trimmedOrUndefined } from "@ryot/ts-utils";
 import { z } from "zod";
+
 import type { ApiPostRequestBody } from "~/lib/api/types";
+
 import type { AppEventSchema } from "../event-schemas/model";
 import {
 	buildPrimitivePropertiesSchema,
@@ -18,10 +20,7 @@ export type CreateEventPayload = ApiPostRequestBody<"/events">;
 
 export type CreateEventSinglePayload = CreateEventPayload[number];
 
-export function getSelectedEventSchema(
-	eventSchemas: AppEventSchema[],
-	eventSchemaId?: string,
-) {
+export function getSelectedEventSchema(eventSchemas: AppEventSchema[], eventSchemaId?: string) {
 	const selectedEventSchema = findEventSchema(eventSchemas, eventSchemaId);
 	if (selectedEventSchema) {
 		return selectedEventSchema;
@@ -34,9 +33,7 @@ export const buildEventPropertyDefaults = (propertiesSchema: AppSchema) => {
 	return reconcileEventProperties(propertiesSchema, {});
 };
 
-export function getUnsupportedRequiredEventProperties(
-	propertiesSchema: AppSchema,
-) {
+export function getUnsupportedRequiredEventProperties(propertiesSchema: AppSchema) {
 	return getUnsupportedRequiredProperties(propertiesSchema);
 }
 
@@ -47,19 +44,14 @@ export function reconcileEventProperties(
 	return reconcilePrimitiveProperties(propertiesSchema, currentProperties);
 }
 
-export const buildCreateEventFormSchema = (
-	eventSchemas: AppEventSchema[] = [],
-) =>
+export const buildCreateEventFormSchema = (eventSchemas: AppEventSchema[] = []) =>
 	z
 		.object({
 			eventSchemaId: z.string().trim().min(1, "Event schema is required"),
 			properties: z.record(z.string(), z.unknown()),
 		})
 		.superRefine((value, ctx) => {
-			const selectedEventSchema = findEventSchema(
-				eventSchemas,
-				String(value.eventSchemaId ?? ""),
-			);
+			const selectedEventSchema = findEventSchema(eventSchemas, String(value.eventSchemaId ?? ""));
 
 			if (!selectedEventSchema) {
 				ctx.addIssue({
@@ -70,23 +62,20 @@ export const buildCreateEventFormSchema = (
 				return;
 			}
 
-			const unsupportedRequiredProperties =
-				getUnsupportedRequiredEventProperties(
-					selectedEventSchema.propertiesSchema,
-				);
+			const unsupportedRequiredProperties = getUnsupportedRequiredEventProperties(
+				selectedEventSchema.propertiesSchema,
+			);
 			if (unsupportedRequiredProperties.length > 0) {
 				ctx.addIssue({
 					code: "custom",
 					path: ["properties"],
-					message: getUnsupportedRequiredPropertiesMessage(
-						unsupportedRequiredProperties,
-					),
+					message: getUnsupportedRequiredPropertiesMessage(unsupportedRequiredProperties),
 				});
 			}
 
-			const result = buildPrimitivePropertiesSchema(
-				selectedEventSchema.propertiesSchema,
-			).safeParse(value.properties);
+			const result = buildPrimitivePropertiesSchema(selectedEventSchema.propertiesSchema).safeParse(
+				value.properties,
+			);
 
 			if (result.success) {
 				return;
@@ -104,16 +93,11 @@ export const buildDefaultEventFormValues = (
 	eventSchemas: AppEventSchema[],
 	eventSchemaId?: string,
 ): CreateEventFormValues => {
-	const selectedEventSchema = getSelectedEventSchema(
-		eventSchemas,
-		eventSchemaId,
-	);
+	const selectedEventSchema = getSelectedEventSchema(eventSchemas, eventSchemaId);
 
 	return {
 		eventSchemaId: selectedEventSchema?.id ?? "",
-		properties: buildEventPropertyDefaults(
-			selectedEventSchema?.propertiesSchema ?? { fields: {} },
-		),
+		properties: buildEventPropertyDefaults(selectedEventSchema?.propertiesSchema ?? { fields: {} }),
 	};
 };
 
@@ -121,10 +105,7 @@ export function syncCreateEventFormValues(
 	eventSchemas: AppEventSchema[],
 	values: CreateEventFormValues,
 ) {
-	const selectedEventSchema = getSelectedEventSchema(
-		eventSchemas,
-		values.eventSchemaId,
-	);
+	const selectedEventSchema = getSelectedEventSchema(eventSchemas, values.eventSchemaId);
 
 	return {
 		eventSchemaId: selectedEventSchema?.id ?? "",
@@ -150,10 +131,7 @@ export function getEventFormReconciliationState(
 	eventSchemas: AppEventSchema[],
 	eventSchemaId?: string,
 ) {
-	const selectedEventSchema = getSelectedEventSchema(
-		eventSchemas,
-		eventSchemaId,
-	);
+	const selectedEventSchema = getSelectedEventSchema(eventSchemas, eventSchemaId);
 
 	return {
 		eventSchemaId: selectedEventSchema?.id ?? "",
@@ -161,16 +139,11 @@ export function getEventFormReconciliationState(
 	};
 }
 
-export function getUnsupportedRequiredPropertiesMessage(
-	propertyKeys: string[],
-) {
+export function getUnsupportedRequiredPropertiesMessage(propertyKeys: string[]) {
 	return `This event schema cannot be logged here yet because it requires unsupported properties: ${propertyKeys.join(", ")}.`;
 }
 
-function findEventSchema(
-	eventSchemas: AppEventSchema[],
-	eventSchemaId?: string,
-) {
+function findEventSchema(eventSchemas: AppEventSchema[], eventSchemaId?: string) {
 	const selectedEventSchemaId = trimmedOrUndefined(eventSchemaId ?? "");
 	if (!selectedEventSchemaId) {
 		return;
@@ -184,14 +157,9 @@ export function toCreateEventPayload(
 	entityId: string,
 	eventSchemas: AppEventSchema[] = [],
 ): CreateEventPayload {
-	const selectedEventSchema = findEventSchema(
-		eventSchemas,
-		input.eventSchemaId,
-	);
+	const selectedEventSchema = findEventSchema(eventSchemas, input.eventSchemaId);
 	const properties = selectedEventSchema
-		? buildPrimitivePropertiesSchema(
-				selectedEventSchema.propertiesSchema,
-			).parse(input.properties)
+		? buildPrimitivePropertiesSchema(selectedEventSchema.propertiesSchema).parse(input.properties)
 		: input.properties;
 
 	const item: CreateEventSinglePayload = {

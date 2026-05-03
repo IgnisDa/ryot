@@ -1,10 +1,7 @@
 import { createRoute, OpenAPIHono, z } from "@hono/zod-openapi";
 import { sql } from "drizzle-orm";
-import {
-	appConfigEnvIndex,
-	getMaskedConfig,
-	systemConfigEnvIndex,
-} from "~/lib/config";
+
+import { appConfigEnvIndex, getMaskedConfig, systemConfigEnvIndex } from "~/lib/config";
 import { db } from "~/lib/db";
 import {
 	commonErrors,
@@ -16,6 +13,7 @@ import {
 	successResponse,
 } from "~/lib/openapi";
 import { redis } from "~/lib/redis";
+
 import { getMetricsAsText } from "./service";
 
 const healthResponseSchema = dataSchema(
@@ -30,10 +28,7 @@ const healthRoute = createRoute({
 	tags: ["system"],
 	summary: "Check database and Redis health",
 	responses: {
-		503: createErrorResponse(
-			"Database or Redis checks failed",
-			commonErrors.healthCheckFailed,
-		),
+		503: createErrorResponse("Database or Redis checks failed", commonErrors.healthCheckFailed),
 		200: jsonResponse("Database and Redis checks passed", healthResponseSchema),
 	},
 });

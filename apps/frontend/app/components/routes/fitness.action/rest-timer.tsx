@@ -3,6 +3,7 @@ import { useMemo, useState } from "react";
 import invariant from "tiny-invariant";
 import { match } from "ts-pattern";
 import { useInterval } from "usehooks-ts";
+
 import { dayjsLib } from "~/lib/shared/date-utils";
 import { useForceUpdateEverySecond } from "~/lib/shared/hooks";
 import {
@@ -10,6 +11,7 @@ import {
 	useCurrentWorkoutStopwatchAtom,
 	useCurrentWorkoutTimerAtom,
 } from "~/lib/state/fitness";
+
 import { StatDisplay } from "./stat-display-and-input";
 import { formatTimerDuration, getStopwatchMilliSeconds } from "./utils";
 
@@ -26,15 +28,11 @@ export const RestTimer = () => {
 	return match(currentWorkout.timerDrawerLot)
 		.with("timer", () =>
 			currentTimer
-				? formatTimerDuration(
-						dayjsLib(currentTimer.willEndAt).diff(currentTimer.wasPausedAt),
-					)
+				? formatTimerDuration(dayjsLib(currentTimer.willEndAt).diff(currentTimer.wasPausedAt))
 				: "Timer",
 		)
 		.with("stopwatch", () =>
-			currentStopwatch
-				? formatTimerDuration(stopwatchMilliSeconds)
-				: "Stopwatch",
+			currentStopwatch ? formatTimerDuration(stopwatchMilliSeconds) : "Stopwatch",
 		)
 		.exhaustive();
 };
@@ -75,8 +73,7 @@ export const WorkoutDurationTimer = (props: {
 						if (Object.keys(currentDurations.at(-1) || {}).length === 2) {
 							currentDurations.push({ from: dayjsLib().toISOString() });
 						} else {
-							currentDurations[currentDurations.length - 1].to =
-								dayjsLib().toISOString();
+							currentDurations[currentDurations.length - 1].to = dayjsLib().toISOString();
 						}
 					}),
 				);

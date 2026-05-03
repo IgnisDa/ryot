@@ -21,9 +21,5 @@ export function useApiClient() {
 }
 
 export default function ApiClientProvider(props: { children: ReactNode }) {
-	return (
-		<ApiClientContext.Provider value={api}>
-			{props.children}
-		</ApiClientContext.Provider>
-	);
+	return <ApiClientContext.Provider value={api}>{props.children}</ApiClientContext.Provider>;
 }

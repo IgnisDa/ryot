@@ -5,8 +5,10 @@ import {
 } from "@ryot/generated/graphql/backend/graphql";
 import { isFiniteNumber } from "@ryot/ts-utils";
 import { match } from "ts-pattern";
+
 import { WatchTimes } from "~/components/routes/dashboard/types";
 import type { MetadataDetails } from "~/components/routes/media-item/types";
+
 import type { BulkUpdateContext } from "./form-types";
 
 type EpisodeWithSeason = NonNullable<
@@ -113,13 +115,8 @@ const handleAnimeBulkUpdates = (context: BulkUpdateContext) => {
 		context.metadataToUpdate.animeEpisodeNumber
 	) {
 		const latestHistoryItem = context.history[0];
-		const lastSeenEpisode =
-			latestHistoryItem?.animeExtraInformation?.episode || 0;
-		for (
-			let i = lastSeenEpisode + 1;
-			i < context.metadataToUpdate.animeEpisodeNumber;
-			i++
-		) {
+		const lastSeenEpisode = latestHistoryItem?.animeExtraInformation?.episode || 0;
+		for (let i = lastSeenEpisode + 1; i < context.metadataToUpdate.animeEpisodeNumber; i++) {
 			context.updates.push({
 				metadataId: context.metadataToUpdate.metadataId,
 				change: createUpdateChange({
@@ -141,29 +138,20 @@ const handleMangaBulkUpdates = (context: BulkUpdateContext) => {
 		context.metadataToUpdate.mangaAllChaptersOrVolumesBefore
 	) {
 		const latestHistoryItem = context.history[0];
-		const mangaVolumeNumber = Number(
-			context.metadataToUpdate.mangaVolumeNumber,
-		);
-		const mangaChapterNumber = Number(
-			context.metadataToUpdate.mangaChapterNumber,
-		);
+		const mangaVolumeNumber = Number(context.metadataToUpdate.mangaVolumeNumber);
+		const mangaChapterNumber = Number(context.metadataToUpdate.mangaChapterNumber);
 
 		const hasValidChapter = isFiniteNumber(mangaChapterNumber);
 		const hasValidVolume = isFiniteNumber(mangaVolumeNumber);
 
-		if (
-			(hasValidChapter && hasValidVolume) ||
-			(!hasValidChapter && !hasValidVolume)
-		) {
-			const message =
-				"Exactly one of mangaChapterNumber or mangaVolumeNumber must be provided";
+		if ((hasValidChapter && hasValidVolume) || (!hasValidChapter && !hasValidVolume)) {
+			const message = "Exactly one of mangaChapterNumber or mangaVolumeNumber must be provided";
 			notifications.show({ color: "red", message: message });
 			throw new Error(message);
 		}
 
 		if (mangaVolumeNumber) {
-			const lastSeenVolume =
-				latestHistoryItem?.mangaExtraInformation?.volume || 0;
+			const lastSeenVolume = latestHistoryItem?.mangaExtraInformation?.volume || 0;
 			for (let i = lastSeenVolume + 1; i < mangaVolumeNumber; i++) {
 				context.updates.push({
 					metadataId: context.metadataToUpdate.metadataId,
@@ -239,10 +227,7 @@ const handleShowBulkUpdates = (context: BulkUpdateContext) => {
 			}
 		}
 
-		const episodeComesAfterOrIs = (
-			episodeA: EpisodeWithSeason,
-			episodeB: EpisodeWithSeason,
-		) => {
+		const episodeComesAfterOrIs = (episodeA: EpisodeWithSeason, episodeB: EpisodeWithSeason) => {
 			if (episodeA.seasonNumber > episodeB.seasonNumber) return true;
 			if (episodeA.seasonNumber === episodeB.seasonNumber)
 				return episodeA.episodeNumber >= episodeB.episodeNumber;
@@ -255,8 +240,7 @@ const handleShowBulkUpdates = (context: BulkUpdateContext) => {
 			if (context.metadataToUpdate.showSeasonEpisodesBefore)
 				if (episode.seasonNumber !== selectedEpisode.seasonNumber) return false;
 
-			if (episode.seasonNumber === 0 && selectedEpisode.seasonNumber !== 0)
-				return false;
+			if (episode.seasonNumber === 0 && selectedEpisode.seasonNumber !== 0) return false;
 
 			return true;
 		});
@@ -296,8 +280,7 @@ const handlePodcastBulkUpdates = (context: BulkUpdateContext) => {
 		);
 
 		if (selectedEpisode) {
-			const lastSeenEpisode =
-				latestHistoryItem?.podcastExtraInformation?.episode || 0;
+			const lastSeenEpisode = latestHistoryItem?.podcastExtraInformation?.episode || 0;
 
 			const allUnseenEpisodesBefore = podcastSpecifics.filter(
 				(e) => e.number < selectedEpisode.number && e.number > lastSeenEpisode,

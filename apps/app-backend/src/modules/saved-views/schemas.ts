@@ -1,15 +1,13 @@
 import { z } from "@hono/zod-openapi";
 import { zodBoolAsString } from "@ryot/ts-utils";
+
 import { itemDataSchema, listDataSchema } from "~/lib/openapi";
 import {
 	computedFieldArraySchema,
 	nullableViewExpressionSchema,
 	viewExpressionSchema,
 } from "~/lib/views/expression";
-import {
-	nullableViewPredicateSchema,
-	viewPredicateSchema,
-} from "~/lib/views/filtering";
+import { nullableViewPredicateSchema, viewPredicateSchema } from "~/lib/views/filtering";
 import {
 	createIdParamsSchema,
 	createNonEmptyStringArraySchema,
@@ -22,9 +20,7 @@ import {
 
 const storedSavedViewScopeSchema = z.array(nonEmptyTrimmedStringSchema);
 
-const scopeSchema = createNonEmptyStringArraySchema(
-	"At least one entity schema slug is required",
-);
+const scopeSchema = createNonEmptyStringArraySchema("At least one entity schema slug is required");
 
 const eventJoinKeySchema = nonEmptyTrimmedStringSchema.regex(
 	/^[A-Za-z_][A-Za-z0-9_]*$/,
@@ -69,9 +65,7 @@ export type ListConfig = z.infer<typeof listConfigSchema>;
 export type TableConfig = z.infer<typeof tableConfigSchema>;
 export type SortDefinition = z.infer<typeof sortDefinitionSchema>;
 export type EventJoinDefinition = z.infer<typeof eventJoinDefinitionSchema>;
-export type LatestEventJoinDefinition = z.infer<
-	typeof latestEventJoinDefinitionSchema
->;
+export type LatestEventJoinDefinition = z.infer<typeof latestEventJoinDefinitionSchema>;
 
 export const gridConfigSchema = createEntityCardDisplayConfigSchema();
 
@@ -98,37 +92,21 @@ const relationshipFilterSchema = z.object({
 	relationshipSchemaSlug: nonEmptyTrimmedStringSchema,
 });
 
-export const relationshipFilterArraySchema = z
-	.array(relationshipFilterSchema)
-	.default([]);
+export const relationshipFilterArraySchema = z.array(relationshipFilterSchema).default([]);
 
 export const timeSeriesMetricSchema = z.discriminatedUnion("type", [
 	z.object({ type: z.literal("count") }).strict(),
-	z
-		.object({ type: z.literal("sum"), expression: viewExpressionSchema })
-		.strict(),
+	z.object({ type: z.literal("sum"), expression: viewExpressionSchema }).strict(),
 ]);
 
 export const aggregateExpressionSchema = z.discriminatedUnion("type", [
 	z.object({ type: z.literal("count") }).strict(),
-	z
-		.object({ predicate: viewPredicateSchema, type: z.literal("countWhere") })
-		.strict(),
-	z
-		.object({ type: z.literal("sum"), expression: viewExpressionSchema })
-		.strict(),
-	z
-		.object({ type: z.literal("avg"), expression: viewExpressionSchema })
-		.strict(),
-	z
-		.object({ type: z.literal("min"), expression: viewExpressionSchema })
-		.strict(),
-	z
-		.object({ type: z.literal("max"), expression: viewExpressionSchema })
-		.strict(),
-	z
-		.object({ type: z.literal("countBy"), groupBy: viewExpressionSchema })
-		.strict(),
+	z.object({ predicate: viewPredicateSchema, type: z.literal("countWhere") }).strict(),
+	z.object({ type: z.literal("sum"), expression: viewExpressionSchema }).strict(),
+	z.object({ type: z.literal("avg"), expression: viewExpressionSchema }).strict(),
+	z.object({ type: z.literal("min"), expression: viewExpressionSchema }).strict(),
+	z.object({ type: z.literal("max"), expression: viewExpressionSchema }).strict(),
+	z.object({ type: z.literal("countBy"), groupBy: viewExpressionSchema }).strict(),
 ]);
 
 export const aggregationFieldSchema = z
@@ -141,15 +119,12 @@ export const aggregationFieldSchema = z
 export const aggregationFieldArraySchema = z
 	.array(aggregationFieldSchema)
 	.refine(
-		(fields) =>
-			new Set(fields.map((field) => field.key)).size === fields.length,
+		(fields) => new Set(fields.map((field) => field.key)).size === fields.length,
 		"Aggregation keys must be unique",
 	)
 	.min(1, "At least one aggregation is required");
 
-const createSavedViewQueryDefinitionBaseSchema = (
-	scope: typeof storedSavedViewScopeSchema,
-) =>
+const createSavedViewQueryDefinitionBaseSchema = (scope: typeof storedSavedViewScopeSchema) =>
 	z.object({
 		scope,
 		computedFields: computedFieldArraySchema,
@@ -158,9 +133,7 @@ const createSavedViewQueryDefinitionBaseSchema = (
 		filter: nullableViewPredicateSchema.default(null),
 	});
 
-const createEntitySavedViewQueryDefinitionSchema = (
-	scope: typeof storedSavedViewScopeSchema,
-) =>
+const createEntitySavedViewQueryDefinitionSchema = (scope: typeof storedSavedViewScopeSchema) =>
 	createSavedViewQueryDefinitionBaseSchema(scope)
 		.extend({ sort: sortDefinitionSchema, mode: z.literal("entities") })
 		.strict();
@@ -189,9 +162,7 @@ export const storedSavedViewQueryDefinitionSchema = z.union([
 	createLegacyEntitySavedViewQueryDefinitionSchema(storedSavedViewScopeSchema),
 ]);
 
-export type SavedViewQueryDefinition = z.infer<
-	typeof savedViewQueryDefinitionSchema
->;
+export type SavedViewQueryDefinition = z.infer<typeof savedViewQueryDefinitionSchema>;
 export type AggregateExpression = z.infer<typeof aggregateExpressionSchema>;
 export type AggregationField = z.infer<typeof aggregationFieldSchema>;
 export type TimeSeriesMetric = z.infer<typeof timeSeriesMetricSchema>;
@@ -210,9 +181,7 @@ export const listedSavedViewSchema = z.object({
 	displayConfiguration: displayConfigurationSchema,
 });
 
-export const listSavedViewsResponseSchema = listDataSchema(
-	listedSavedViewSchema,
-);
+export const listSavedViewsResponseSchema = listDataSchema(listedSavedViewSchema);
 
 export const listSavedViewsQuery = z.object({
 	trackerId: nonEmptyTrimmedStringSchema.optional(),

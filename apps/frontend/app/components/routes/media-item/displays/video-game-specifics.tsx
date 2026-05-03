@@ -1,17 +1,15 @@
 import { Paper, SimpleGrid, Stack, Table, Text, Title } from "@mantine/core";
 import type { VideoGameSpecifics } from "@ryot/generated/graphql/backend/graphql";
 import { humanizeDuration } from "@ryot/ts-utils/index";
+
 import { dayjsLib } from "~/lib/shared/date-utils";
 
-export function VideoGameSpecificsDisplay(props: {
-	specifics?: VideoGameSpecifics | null;
-}) {
+export function VideoGameSpecificsDisplay(props: { specifics?: VideoGameSpecifics | null }) {
 	const platformReleases = props.specifics?.platformReleases;
 	const timeToBeat = props.specifics?.timeToBeat;
 
 	const hasTimeToBeatData =
-		timeToBeat &&
-		(timeToBeat.hastily || timeToBeat.normally || timeToBeat.completely);
+		timeToBeat && (timeToBeat.hastily || timeToBeat.normally || timeToBeat.completely);
 	const hasPlatformReleases = platformReleases && platformReleases.length > 0;
 
 	if (!hasPlatformReleases && !hasTimeToBeatData) return null;

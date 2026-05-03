@@ -1,15 +1,7 @@
-import {
-	Anchor,
-	Button,
-	Code,
-	Container,
-	Group,
-	List,
-	Stack,
-	Text,
-} from "@mantine/core";
+import { Anchor, Button, Code, Container, Group, List, Stack, Text } from "@mantine/core";
 import { isRouteErrorResponse, Link, useRouteError } from "react-router";
 import { $path } from "safe-routes";
+
 import { discordLink } from "./utils";
 
 export function ErrorBoundary() {
@@ -55,22 +47,13 @@ export function ErrorBoundary() {
 						<Text>This could be due to several reasons:</Text>
 						<List>
 							<List.Item>Your login session has expired/revoked.</List.Item>
-							<List.Item>
-								You don't have permission to perform this action.
-							</List.Item>
+							<List.Item>You don't have permission to perform this action.</List.Item>
 							<List.Item>There was a backend server error.</List.Item>
 						</List>
-						<Text>
-							In most cases, logging out and then logging back in should fix the
-							issue.
-						</Text>
+						<Text>In most cases, logging out and then logging back in should fix the issue.</Text>
 						<Text>
 							If the error still persists please contact the developer on{" "}
-							<Anchor
-								target="_blank"
-								href={discordLink}
-								rel="noreferrer noopener"
-							>
+							<Anchor target="_blank" href={discordLink} rel="noreferrer noopener">
 								Discord
 							</Anchor>{" "}
 							or create an issue on{" "}

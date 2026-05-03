@@ -9,5 +9,5 @@ manually mark them as completed.
 :::
 
 1. Obtain an API token as described in the Audiobookshelf
-  [authentication](https://api.audiobookshelf.org/#authentication) docs.
+   [authentication](https://api.audiobookshelf.org/#authentication) docs.
 1. Enter the correct details in the input.

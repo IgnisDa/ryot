@@ -7,7 +7,8 @@
 - **Documentation lookup**: Use the `find-docs` skill to verify against current docs before answering or coding.
 - **Dependencies**: `cd <app> && bun add -E` (exact versions, no ranges).
 - **Bash paths**: Always quote with single quotes (e.g., `git add 'path/file.ts'`).
-- **Linting**: `biome` with `--write` to auto-fix. Example: `bun turbo --filter=@ryot/app-backend lint -- --write`.
+- **Linting**: `oxlint` with `--fix` to auto-fix. Example: `bun turbo --filter=@ryot/app-backend lint`.
+- **Formatting**: `oxfmt` to format files. Example: `npx oxfmt .` (writes), `npx oxfmt --check .` (checks only).
 
 ## YAGNI
 
@@ -26,9 +27,9 @@ Do not add functionality, abstractions, or generalization the user has not expli
 
 ```typescript
 const notification = {
-    color: "red",
-    title: "Invalid action",
-    message: "Changing preferences is disabled for demo users",
+	color: "red",
+	title: "Invalid action",
+	message: "Changing preferences is disabled for demo users",
 };
 ```
 
@@ -48,4 +49,4 @@ When creating commits:
 
 1. Read all dirty changes
 2. Group related changes into logical commits
-3. Write verbose messages focused on *why*, not *what*
+3. Write verbose messages focused on _why_, not _what_

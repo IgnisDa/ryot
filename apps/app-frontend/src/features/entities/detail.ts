@@ -19,21 +19,11 @@ function formatEntityDetailPropertyValue(
 	}
 
 	return match(propertyDef.type)
-		.with("boolean", () =>
-			typeof value === "boolean" ? (value ? "Yes" : "No") : null,
-		)
-		.with("integer", () =>
-			typeof value === "number" ? value.toLocaleString() : null,
-		)
-		.with("number", () =>
-			typeof value === "number" ? value.toLocaleString() : null,
-		)
-		.with("string", () =>
-			typeof value === "string" && value.trim() !== "" ? value : null,
-		)
-		.with("enum", () =>
-			typeof value === "string" && value.trim() !== "" ? value : null,
-		)
+		.with("boolean", () => (typeof value === "boolean" ? (value ? "Yes" : "No") : null))
+		.with("integer", () => (typeof value === "number" ? value.toLocaleString() : null))
+		.with("number", () => (typeof value === "number" ? value.toLocaleString() : null))
+		.with("string", () => (typeof value === "string" && value.trim() !== "" ? value : null))
+		.with("enum", () => (typeof value === "string" && value.trim() !== "" ? value : null))
 		.with("date", () => {
 			if (typeof value === "string" && value.trim() !== "") {
 				const parsed = dayjs(value);

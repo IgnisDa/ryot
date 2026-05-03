@@ -1,4 +1,5 @@
 import { dayjsLib } from "~/lib/shared/date-utils";
+
 import { SECONDS_IN_MONTH } from "./constants";
 import type { DurationInput } from "./types";
 
@@ -10,9 +11,7 @@ export const convertSecondsToDuration = (totalSeconds?: string | null) => {
 	const remainingDuration = dayjsLib.duration(remainingSeconds, "seconds");
 	const d = Math.floor(remainingDuration.asDays());
 	const h = Math.floor(remainingDuration.subtract(d, "day").asHours());
-	const min = Math.floor(
-		remainingDuration.subtract(d, "day").subtract(h, "hour").asMinutes(),
-	);
+	const min = Math.floor(remainingDuration.subtract(d, "day").subtract(h, "hour").asMinutes());
 	return {
 		d: d || undefined,
 		h: h || undefined,

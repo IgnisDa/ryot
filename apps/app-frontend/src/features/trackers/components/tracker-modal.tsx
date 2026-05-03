@@ -1,8 +1,6 @@
 import { Modal } from "@mantine/core";
-import {
-	useTrackerSidebarActions,
-	useTrackerSidebarState,
-} from "../sidebar-context";
+
+import { useTrackerSidebarActions, useTrackerSidebarState } from "../sidebar-context";
 import { TrackerForm } from "./tracker-form";
 
 export function TrackerModal() {

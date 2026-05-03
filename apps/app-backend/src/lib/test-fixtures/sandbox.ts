@@ -1,7 +1,4 @@
-import type {
-	SandboxScriptServiceDeps,
-	SandboxServiceDeps,
-} from "~/modules/sandbox";
+import type { SandboxScriptServiceDeps, SandboxServiceDeps } from "~/modules/sandbox";
 
 const sandboxScriptDefault = {
 	metadata: {},

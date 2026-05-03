@@ -1,9 +1,6 @@
 import { z } from "@hono/zod-openapi";
-import {
-	itemDataSchema,
-	listDataSchema,
-	unknownObjectSchema,
-} from "~/lib/openapi";
+
+import { itemDataSchema, listDataSchema, unknownObjectSchema } from "~/lib/openapi";
 import { nonEmptyTrimmedStringSchema, timestampFields } from "~/lib/zod";
 
 export const listedEventSchema = z.object({
@@ -19,9 +16,7 @@ export const listedEventSchema = z.object({
 
 export const listEventsResponseSchema = listDataSchema(listedEventSchema);
 
-export const createEventBulkResponseSchema = itemDataSchema(
-	z.object({ count: z.number().int() }),
-);
+export const createEventBulkResponseSchema = itemDataSchema(z.object({ count: z.number().int() }));
 
 export const listEventsQuery = z
 	.object({
@@ -30,8 +25,7 @@ export const listEventsQuery = z
 		eventSchemaSlug: nonEmptyTrimmedStringSchema.optional(),
 	})
 	.refine(
-		(query) =>
-			query.entityId !== undefined || query.sessionEntityId !== undefined,
+		(query) => query.entityId !== undefined || query.sessionEntityId !== undefined,
 		"Either entityId or sessionEntityId is required",
 	);
 

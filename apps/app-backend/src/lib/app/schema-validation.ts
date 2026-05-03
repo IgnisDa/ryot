@@ -20,18 +20,14 @@ export const parseAppSchemaProperties = (input: {
 	}
 
 	if (Array.isArray(input.properties)) {
-		throw new Error(
-			`${input.kind} properties must be a JSON object, not an array`,
-		);
+		throw new Error(`${input.kind} properties must be a JSON object, not an array`);
 	}
 
 	const validationSchema = fromAppSchemaObject(input.propertiesSchema);
 	const result = validationSchema.safeParse(input.properties);
 
 	if (!result.success) {
-		throw new Error(
-			`${input.kind} properties validation failed: ${result.error.message}`,
-		);
+		throw new Error(`${input.kind} properties validation failed: ${result.error.message}`);
 	}
 
 	return result.data as Record<string, unknown>;

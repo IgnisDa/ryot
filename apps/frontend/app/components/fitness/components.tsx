@@ -51,6 +51,7 @@ import type { ComponentType, Dispatch, SetStateAction } from "react";
 import { Link } from "react-router";
 import { $path } from "safe-routes";
 import { match } from "ts-pattern";
+
 import { useSavedForm } from "~/lib/hooks/use-saved-form";
 import { dayjsLib } from "~/lib/shared/date-utils";
 import {
@@ -69,6 +70,7 @@ import {
 	useExerciseImages,
 } from "~/lib/state/fitness";
 import { FitnessEntity } from "~/lib/types";
+
 import { ExerciseImagesList } from "./display-items";
 import {
 	DisplaySetStatistics,
@@ -102,13 +104,7 @@ export const DisplaySet = (props: {
 	return (
 		<Box key={`${props.idx}`} mb={2}>
 			<Flex align="center">
-				<Text
-					fz="sm"
-					mr="md"
-					fw="bold"
-					ff="monospace"
-					c={getSetColor(props.set.lot)}
-				>
+				<Text fz="sm" mr="md" fw="bold" ff="monospace" c={getSetColor(props.set.lot)}>
 					{match(props.set.lot)
 						.with(SetLot.Normal, () => props.idx + 1)
 						.otherwise(() => props.set.lot.at(0))}
@@ -164,36 +160,22 @@ export const ExerciseHistory = (props: {
 	const { data: workoutDetails } = useQuery(
 		// @ts-expect-error: Too complicated to fix and it just works this way
 		match(props.fitnessEntityType)
-			.with(FitnessEntity.Workouts, () =>
-				getWorkoutDetailsQuery(props.entityId),
-			)
-			.with(FitnessEntity.Templates, () =>
-				getWorkoutTemplateDetailsQuery(props.entityId),
-			)
+			.with(FitnessEntity.Workouts, () => getWorkoutDetailsQuery(props.entityId))
+			.with(FitnessEntity.Templates, () => getWorkoutTemplateDetailsQuery(props.entityId))
 			.exhaustive(),
 	);
 	const [opened, { toggle }] = useDisclosure(false);
-	const exercise = workoutDetails?.details.information.exercises.at(
-		props.exerciseIdx,
-	);
-	const { data: exerciseDetails } = useExerciseDetails(
-		exercise?.id,
-		!!exercise?.id,
-	);
-	const { data: userExerciseDetails } = useUserExerciseDetails(
-		exercise?.id,
-		!!exercise?.id,
-	);
+	const exercise = workoutDetails?.details.information.exercises.at(props.exerciseIdx);
+	const { data: exerciseDetails } = useExerciseDetails(exercise?.id, !!exercise?.id);
+	const { data: userExerciseDetails } = useUserExerciseDetails(exercise?.id, !!exercise?.id);
 	const durationUnit =
-		userExerciseDetails?.details?.exerciseExtraInformation?.settings
-			.defaultDurationUnit || ExerciseDurationUnit.Minutes;
+		userExerciseDetails?.details?.exerciseExtraInformation?.settings.defaultDurationUnit ||
+		ExerciseDurationUnit.Minutes;
 	const isInSuperset = props.supersetInformation?.find((s) =>
 		s.exercises.includes(props.exerciseIdx),
 	);
 
-	const exerciseS3ImagesPresigned = useS3PresignedUrls(
-		exercise?.assets?.s3Images,
-	);
+	const exerciseS3ImagesPresigned = useS3PresignedUrls(exercise?.assets?.s3Images);
 	const exerciseImages = [
 		...(exercise?.assets?.remoteImages || []),
 		...(exerciseS3ImagesPresigned.data || []),
@@ -210,18 +192,12 @@ export const ExerciseHistory = (props: {
 			withBorder
 			style={{
 				borderLeftWidth: isInSuperset ? "3px" : undefined,
-				borderLeftColor: isInSuperset
-					? theme.colors[isInSuperset.color][6]
-					: undefined,
+				borderLeftColor: isInSuperset ? theme.colors[isInSuperset.color][6] : undefined,
 			}}
 		>
 			{exerciseDetails && workoutDetails && exercise ? (
 				<>
-					<Stack
-						gap="xs"
-						ref={parent}
-						mb={exercise.sets.length > 0 ? "xs" : undefined}
-					>
+					<Stack gap="xs" ref={parent} mb={exercise.sets.length > 0 ? "xs" : undefined}>
 						<Box>
 							<Group justify="space-between" wrap="nowrap">
 								<Anchor
@@ -238,9 +214,7 @@ export const ExerciseHistory = (props: {
 											: getExerciseDetailsPath(exercise.id)
 									}
 								>
-									{props.hideExerciseDetails
-										? workoutDetails.details.name
-										: exerciseDetails.name}
+									{props.hideExerciseDetails ? workoutDetails.details.name : exerciseDetails.name}
 								</Anchor>
 								{hasExtraDetailsToShow && !props.hideExtraDetailsButton ? (
 									<ActionIcon onClick={toggle} variant="transparent">
@@ -280,10 +254,7 @@ export const ExerciseHistory = (props: {
 												label="weight"
 												icon={IconWeight}
 												quantity={exercise.total.weight}
-												value={displayWeightWithUnit(
-													exercise.unitSystem,
-													exercise.total.weight,
-												)}
+												value={displayWeightWithUnit(exercise.unitSystem, exercise.total.weight)}
 											/>
 											<DisplayExerciseAttributes
 												icon={IconRoad}
@@ -319,9 +290,7 @@ export const ExerciseHistory = (props: {
 								{exercise.notes.length === 1 ? undefined : `${idxN + 1})`} {n}
 							</Text>
 						))}
-						{exerciseImages.length > 0 ? (
-							<ExerciseImagesList images={exerciseImages} />
-						) : null}
+						{exerciseImages.length > 0 ? <ExerciseImagesList images={exerciseImages} /> : null}
 					</Stack>
 					{exercise.sets.map((set, idx) => (
 						<DisplaySet
@@ -366,21 +335,18 @@ export const ExerciseUpdatePreferencesModal = (props: {
 	onClose: () => void;
 	exerciseLot: ExerciseLot;
 }) => {
-	const { data: userExerciseDetails } = useUserExerciseDetails(
-		props.exerciseId,
-	);
+	const { data: userExerciseDetails } = useUserExerciseDetails(props.exerciseId);
 	const form = useSavedForm({
 		storageKeyPrefix: `ExerciseUpdatePreferencesModal-${props.exerciseId}`,
 		initialValues: {
 			excludeFromAnalytics:
-				userExerciseDetails?.details?.exerciseExtraInformation?.settings
-					.excludeFromAnalytics ?? false,
+				userExerciseDetails?.details?.exerciseExtraInformation?.settings.excludeFromAnalytics ??
+				false,
 			setRestTimers:
-				userExerciseDetails?.details?.exerciseExtraInformation?.settings
-					.setRestTimers ?? {},
+				userExerciseDetails?.details?.exerciseExtraInformation?.settings.setRestTimers ?? {},
 			defaultDurationUnit:
-				userExerciseDetails?.details?.exerciseExtraInformation?.settings
-					.defaultDurationUnit ?? ExerciseDurationUnit.Minutes,
+				userExerciseDetails?.details?.exerciseExtraInformation?.settings.defaultDurationUnit ??
+				ExerciseDurationUnit.Minutes,
 		},
 	});
 
@@ -392,12 +358,7 @@ export const ExerciseUpdatePreferencesModal = (props: {
 	});
 
 	return (
-		<Modal
-			centered
-			opened={props.opened}
-			onClose={props.onClose}
-			withCloseButton={false}
-		>
+		<Modal centered opened={props.opened} onClose={props.onClose} withCloseButton={false}>
 			<form
 				onSubmit={form.onSubmit(async (values) => {
 					await updateUserExerciseSettingsMutation.mutateAsync(values);
@@ -413,12 +374,12 @@ export const ExerciseUpdatePreferencesModal = (props: {
 				<Stack>
 					<Box>
 						<Text size="sm">
-							When a new set is added, rest timers will be added automatically
-							according to the settings below.
+							When a new set is added, rest timers will be added automatically according to the
+							settings below.
 						</Text>
 						<Text mt={4} size="xs" c="dimmed">
-							Note: Default rest timer durations for all exercises can be
-							changed in the fitness preferences.
+							Note: Default rest timer durations for all exercises can be changed in the fitness
+							preferences.
 						</Text>
 					</Box>
 					<SimpleGrid cols={2}>
@@ -453,10 +414,7 @@ export const ExerciseUpdatePreferencesModal = (props: {
 							),
 						)
 						.otherwise(() => null)}
-					<Button
-						type="submit"
-						loading={updateUserExerciseSettingsMutation.isPending}
-					>
+					<Button type="submit" loading={updateUserExerciseSettingsMutation.isPending}>
 						Save settings
 					</Button>
 				</Stack>
@@ -474,13 +432,7 @@ export const ExerciseMusclesModal = (props: {
 	setBodyViewSide: Dispatch<SetStateAction<"front" | "back">>;
 	setBodyViewGender: Dispatch<SetStateAction<"male" | "female">>;
 }) => (
-	<Modal
-		centered
-		size="lg"
-		title="Muscles"
-		opened={props.opened}
-		onClose={props.onClose}
-	>
+	<Modal centered size="lg" title="Muscles" opened={props.opened} onClose={props.onClose}>
 		<Stack>
 			<Group justify="center" gap="lg">
 				<Group gap="xs">
@@ -523,11 +475,7 @@ export const ExerciseMusclesModal = (props: {
 				</Group>
 			</Group>
 			<Center>
-				<Body
-					side={props.bodyViewSide}
-					data={props.bodyPartsData}
-					gender={props.bodyViewGender}
-				/>
+				<Body side={props.bodyViewSide} data={props.bodyPartsData} gender={props.bodyViewGender} />
 			</Center>
 		</Stack>
 	</Modal>

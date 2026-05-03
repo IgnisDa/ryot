@@ -1,5 +1,6 @@
 import { generateId } from "better-auth";
 import { and, eq, isNull, notInArray, sql } from "drizzle-orm";
+
 import type { DbClient } from "~/lib/db";
 import {
 	entitySchema,
@@ -67,12 +68,7 @@ export const ensureBuiltinEntitySchemaEventSchemas = async (input: {
 	if (expectedSlugs.length === 0) {
 		await input.database
 			.delete(eventSchema)
-			.where(
-				and(
-					eq(eventSchema.entitySchemaId, input.entitySchemaId),
-					isNull(eventSchema.userId),
-				),
-			);
+			.where(and(eq(eventSchema.entitySchemaId, input.entitySchemaId), isNull(eventSchema.userId)));
 	} else {
 		await input.database
 			.delete(eventSchema)
@@ -128,9 +124,7 @@ export const ensureBuiltinSandboxScript = async (input: {
 			isBuiltin: sandboxScript.isBuiltin,
 		})
 		.from(sandboxScript)
-		.where(
-			and(eq(sandboxScript.slug, input.slug), isNull(sandboxScript.userId)),
-		)
+		.where(and(eq(sandboxScript.slug, input.slug), isNull(sandboxScript.userId)))
 		.limit(1);
 
 	const scriptId = existingScript?.id ?? generateId();
@@ -144,10 +138,7 @@ export const ensureBuiltinSandboxScript = async (input: {
 	if (existingScript) {
 		// Builtin sandbox scripts intentionally refresh on every startup so the
 		// database always serves the latest bundled code and metadata.
-		await input.database
-			.update(sandboxScript)
-			.set(values)
-			.where(eq(sandboxScript.id, scriptId));
+		await input.database.update(sandboxScript).set(values).where(eq(sandboxScript.id, scriptId));
 	} else {
 		await input.database
 			.insert(sandboxScript)
@@ -168,12 +159,7 @@ export const ensureBuiltinRelationshipSchema = async (input: {
 	const [existing] = await input.database
 		.select({ id: relationshipSchema.id })
 		.from(relationshipSchema)
-		.where(
-			and(
-				eq(relationshipSchema.slug, input.slug),
-				isNull(relationshipSchema.userId),
-			),
-		)
+		.where(and(eq(relationshipSchema.slug, input.slug), isNull(relationshipSchema.userId)))
 		.limit(1);
 
 	if (existing) {

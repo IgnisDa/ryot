@@ -1,10 +1,9 @@
 import { describe, expect, it } from "bun:test";
+
 import { checkAccess, checkCustomAccess, checkReadAccess } from "./index";
 import type { ResourceScope } from "./types";
 
-const createTestScope = (
-	overrides?: Partial<ResourceScope>,
-): ResourceScope => ({
+const createTestScope = (overrides?: Partial<ResourceScope>): ResourceScope => ({
 	id: "test-id",
 	userId: "user-1",
 	isBuiltin: false,

@@ -1,12 +1,10 @@
 import type { paths } from "@ryot/generated/openapi/app-backend";
 import { getQueryEngineField } from "@ryot/ts-utils";
+
 import { type Client, createAuthenticatedClient } from "./auth";
 import { createEntitySchema } from "./entity-schemas";
 import { waitForEventCount } from "./events";
-import type {
-	CardDisplayConfigurationInput,
-	DisplayConfigurationInput,
-} from "./saved-views";
+import type { CardDisplayConfigurationInput, DisplayConfigurationInput } from "./saved-views";
 import { createTracker } from "./trackers";
 import {
 	type ExpressionInput,
@@ -17,9 +15,7 @@ import {
 } from "./view-language";
 
 type ExecuteQueryEngineBody = Extract<
-	NonNullable<
-		paths["/query-engine/execute"]["post"]["requestBody"]
-	>["content"]["application/json"],
+	NonNullable<paths["/query-engine/execute"]["post"]["requestBody"]>["content"]["application/json"],
 	{ mode: "entities" }
 >;
 type ExecuteQueryEngineResponse =
@@ -28,9 +24,7 @@ type ExecuteEntityQueryEngineResponse = Extract<
 	ExecuteQueryEngineResponse["data"],
 	{ mode: "entities" }
 >;
-type ComputedField = NonNullable<
-	ExecuteQueryEngineBody["computedFields"]
->[number];
+type ComputedField = NonNullable<ExecuteQueryEngineBody["computedFields"]>[number];
 type QueryEngineResponseItem = Extract<
 	ExecuteQueryEngineResponse["data"],
 	{ mode: "entities" }
@@ -41,10 +35,7 @@ type RuntimeField = {
 	expression: ViewExpression;
 };
 
-export type QueryEngineRequest = Omit<
-	ExecuteQueryEngineBody,
-	"fields" | "mode"
-> & {
+export type QueryEngineRequest = Omit<ExecuteQueryEngineBody, "fields" | "mode"> & {
 	fields: RuntimeField[];
 	mode?: ExecuteQueryEngineBody["mode"];
 };
@@ -95,15 +86,9 @@ const buildCardDisplayConfiguration = (
 
 	return {
 		calloutProperty: schemaSlug ? [entityField(schemaSlug, "category")] : null,
-		titleProperty: schemaSlugs.length
-			? qualifyBuiltinFields(schemaSlugs, "name")
-			: null,
-		imageProperty: schemaSlugs.length
-			? qualifyBuiltinFields(schemaSlugs, "image")
-			: null,
-		primarySubtitleProperty: schemaSlug
-			? [entityField(schemaSlug, "year")]
-			: null,
+		titleProperty: schemaSlugs.length ? qualifyBuiltinFields(schemaSlugs, "name") : null,
+		imageProperty: schemaSlugs.length ? qualifyBuiltinFields(schemaSlugs, "image") : null,
+		primarySubtitleProperty: schemaSlug ? [entityField(schemaSlug, "year")] : null,
 		secondarySubtitleProperty: null,
 		...overrides,
 	};
@@ -145,9 +130,7 @@ function toQueryEngineFields(input: RuntimeFieldsInput): RuntimeField[] {
 	if (input.layout === "table") {
 		return input.displayConfiguration.columns.map((column, index) => ({
 			key: `column_${index}`,
-			expression: toRequiredExpression(
-				column.expression ?? column.property ?? [],
-			),
+			expression: toRequiredExpression(column.expression ?? column.property ?? []),
 		}));
 	}
 
@@ -167,9 +150,7 @@ function toQueryEngineFields(input: RuntimeFieldsInput): RuntimeField[] {
 		},
 		{
 			key: "secondarySubtitle",
-			expression: toRequiredExpression(
-				config.secondarySubtitleProperty ?? null,
-			),
+			expression: toRequiredExpression(config.secondarySubtitleProperty ?? null),
 		},
 		{
 			key: "callout",
@@ -178,9 +159,7 @@ function toQueryEngineFields(input: RuntimeFieldsInput): RuntimeField[] {
 	];
 }
 
-const defaultSort = (
-	schemaSlugs: string[],
-): ExecuteQueryEngineBody["sort"] => ({
+const defaultSort = (schemaSlugs: string[]): ExecuteQueryEngineBody["sort"] => ({
 	direction: "asc",
 	expression: toRequiredExpression(
 		schemaSlugs.length ? qualifyBuiltinFields(schemaSlugs, "name") : [],
@@ -202,20 +181,14 @@ const buildQueryEngineRequest = (
 	...input,
 });
 
-export function buildQueryEngineField(
-	key: string,
-	expression: ExpressionInput,
-): RuntimeField {
+export function buildQueryEngineField(key: string, expression: ExpressionInput): RuntimeField {
 	return {
 		key,
 		expression: toRequiredExpression(expression),
 	};
 }
 
-export function buildComputedField(
-	key: string,
-	expression: ExpressionInput,
-): ComputedField {
+export function buildComputedField(key: string, expression: ExpressionInput): ComputedField {
 	return {
 		key,
 		expression: toRequiredExpression(expression),
@@ -276,8 +249,7 @@ export function buildTableRequest(
 		...requestOverrides
 	} = overrides;
 	const displayConfiguration =
-		displayConfigurationOverride ??
-		buildTableDisplayConfiguration(undefined, scope);
+		displayConfigurationOverride ?? buildTableDisplayConfiguration(undefined, scope);
 
 	return buildQueryEngineRequest({
 		scope,
@@ -286,10 +258,7 @@ export function buildTableRequest(
 	});
 }
 
-export function getQueryEngineFieldOrThrow(
-	item: QueryEngineResponseItem | undefined,
-	key: string,
-) {
+export function getQueryEngineFieldOrThrow(item: QueryEngineResponseItem | undefined, key: string) {
 	const field = getQueryEngineField(item, key);
 	if (!field) {
 		throw new Error(`Expected query engine field '${key}'`);
@@ -339,9 +308,7 @@ export async function createQueryEngineEntity(input: CreateEntityInput) {
 	return data.data.id;
 }
 
-export async function createQueryEngineEvent(
-	input: CreateQueryEngineEventInput,
-) {
+export async function createQueryEngineEvent(input: CreateQueryEngineEventInput) {
 	const before = await input.client.GET("/events", {
 		headers: { Cookie: input.cookies },
 		params: { query: { entityId: input.entityId } },
@@ -363,12 +330,7 @@ export async function createQueryEngineEvent(
 		throw new Error(`Failed to create event for '${input.entityId}'`);
 	}
 
-	await waitForEventCount(
-		input.client,
-		input.cookies,
-		input.entityId,
-		beforeCount + 1,
-	);
+	await waitForEventCount(input.client, input.cookies, input.entityId, beforeCount + 1);
 	return data.data.count;
 }
 

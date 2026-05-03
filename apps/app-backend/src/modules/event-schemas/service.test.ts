@@ -1,4 +1,5 @@
 import { describe, expect, it } from "bun:test";
+
 import {
 	createEventSchemaBody,
 	createEventSchemaDeps,
@@ -6,6 +7,7 @@ import {
 	createNoteProgressPropertiesSchema,
 } from "~/lib/test-fixtures";
 import { expectDataResult } from "~/lib/test-helpers";
+
 import {
 	createEventSchema,
 	listEventSchemas,
@@ -18,29 +20,21 @@ import {
 
 describe("resolveEventSchemaName", () => {
 	it("trims the provided name", () => {
-		expect(resolveEventSchemaName("  Reading Progress  ")).toBe(
-			"Reading Progress",
-		);
+		expect(resolveEventSchemaName("  Reading Progress  ")).toBe("Reading Progress");
 	});
 
 	it("throws when the name is blank", () => {
-		expect(() => resolveEventSchemaName("   ")).toThrow(
-			"Event schema name is required",
-		);
+		expect(() => resolveEventSchemaName("   ")).toThrow("Event schema name is required");
 	});
 });
 
 describe("resolveEventSchemaEntitySchemaId", () => {
 	it("trims the provided entity schema id", () => {
-		expect(resolveEventSchemaEntitySchemaId("  entity_schema_123  ")).toBe(
-			"entity_schema_123",
-		);
+		expect(resolveEventSchemaEntitySchemaId("  entity_schema_123  ")).toBe("entity_schema_123");
 	});
 
 	it("throws when the entity schema id is blank", () => {
-		expect(() => resolveEventSchemaEntitySchemaId("   ")).toThrow(
-			"Entity schema id is required",
-		);
+		expect(() => resolveEventSchemaEntitySchemaId("   ")).toThrow("Entity schema id is required");
 	});
 });
 
@@ -55,9 +49,7 @@ describe("resolveEventSchemaSlug", () => {
 	});
 
 	it("falls back to the name when no slug is provided", () => {
-		expect(resolveEventSchemaSlug({ name: "Reading Progress" })).toBe(
-			"reading-progress",
-		);
+		expect(resolveEventSchemaSlug({ name: "Reading Progress" })).toBe("reading-progress");
 	});
 });
 
@@ -75,9 +67,9 @@ describe("parseEventSchemaPropertiesSchema", () => {
 	});
 
 	it("rejects string inputs", () => {
-		expect(() =>
-			parseEventSchemaPropertiesSchema('{"progress":{"type":"integer"}}'),
-		).toThrow("Invalid input: expected object, received string");
+		expect(() => parseEventSchemaPropertiesSchema('{"progress":{"type":"integer"}}')).toThrow(
+			"Invalid input: expected object, received string",
+		);
 	});
 
 	it("rejects empty properties map", () => {

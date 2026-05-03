@@ -1,8 +1,10 @@
 import { Box, Button } from "@mantine/core";
 import { EntityTranslationVariant } from "@ryot/generated/graphql/backend/graphql";
 import { useMemo } from "react";
+
 import { useMetadataTranslationValue } from "~/lib/shared/hooks";
 import { useMetadataProgressUpdate } from "~/lib/state/media";
+
 import type { Season, SeasonProgress } from "../types";
 import { DisplaySeasonOrEpisodeDetails } from "./season-episode-details";
 

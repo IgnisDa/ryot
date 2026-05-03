@@ -1,8 +1,4 @@
-import {
-	DynamicIcon,
-	type IconName,
-	iconNames,
-} from "lucide-react/dynamic.mjs";
+import { DynamicIcon, type IconName, iconNames } from "lucide-react/dynamic.mjs";
 
 export interface TrackerIconOption {
 	label: string;

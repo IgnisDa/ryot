@@ -42,32 +42,21 @@ import {
 	IconWeight,
 } from "@tabler/icons-react";
 import { useQuery } from "@tanstack/react-query";
-import {
-	type inferParserType,
-	parseAsInteger,
-	parseAsString,
-	parseAsStringEnum,
-} from "nuqs";
+import { type inferParserType, parseAsInteger, parseAsString, parseAsStringEnum } from "nuqs";
 import type { ReactElement } from "react";
 import { Link } from "react-router";
 import { $path } from "safe-routes";
 import invariant from "tiny-invariant";
 import { match } from "ts-pattern";
+
 import {
 	ApplicationPagination,
 	DisplayListDetailsAndRefresh,
 	SkeletonLoader,
 } from "~/components/common";
 import { BulkCollectionEditingAffix } from "~/components/common/bulk-collection-editing-affix";
-import {
-	FilterPresetBar,
-	FilterPresetModalManager,
-} from "~/components/common/filter-presets";
-import {
-	DebouncedSearchInput,
-	FiltersModal,
-	SortOrderToggle,
-} from "~/components/common/filters";
+import { FilterPresetBar, FilterPresetModalManager } from "~/components/common/filter-presets";
+import { DebouncedSearchInput, FiltersModal, SortOrderToggle } from "~/components/common/filters";
 import { WorkoutRevisionScheduledAlert } from "~/components/fitness/display-items";
 import {
 	displayDistanceWithUnit,
@@ -89,21 +78,16 @@ import { clientGqlService, queryFactory } from "~/lib/shared/react-query";
 import { convertEnumToSelectData } from "~/lib/shared/ui-utils";
 import { useBulkEditCollection } from "~/lib/state/collection";
 import { getDefaultWorkout } from "~/lib/state/fitness";
-import {
-	OnboardingTourStepTarget,
-	useOnboardingTour,
-} from "~/lib/state/onboarding-tour";
+import { OnboardingTourStepTarget, useOnboardingTour } from "~/lib/state/onboarding-tour";
 import { FitnessAction, FitnessEntity } from "~/lib/types";
 
 const defaultQueryState = {
 	page: parseAsInteger.withDefault(1),
 	query: parseAsString.withDefault(""),
-	orderBy: parseAsStringEnum(Object.values(GraphqlSortOrder)).withDefault(
-		GraphqlSortOrder.Desc,
+	orderBy: parseAsStringEnum(Object.values(GraphqlSortOrder)).withDefault(GraphqlSortOrder.Desc),
+	sortBy: parseAsStringEnum(Object.values(UserTemplatesOrWorkoutsListSortBy)).withDefault(
+		UserTemplatesOrWorkoutsListSortBy.Time,
 	),
-	sortBy: parseAsStringEnum(
-		Object.values(UserTemplatesOrWorkoutsListSortBy),
-	).withDefault(UserTemplatesOrWorkoutsListSortBy.Time),
 };
 
 type FilterState = inferParserType<typeof defaultQueryState>;
@@ -114,9 +98,7 @@ export const meta = () => {
 
 const useBulkEditingState = () => {
 	const bulkEditingCollection = useBulkEditCollection();
-	return bulkEditingCollection.state === false
-		? null
-		: bulkEditingCollection.state;
+	return bulkEditingCollection.state === false ? null : bulkEditingCollection.state;
 };
 
 const buildQueryInput = (
@@ -149,14 +131,10 @@ export default function Page(props: { params: { entity: FitnessEntity } }) {
 	const { advanceOnboardingTourStep } = useOnboardingTour();
 	const { filters, resetFilters, updateFilters, haveFiltersChanged } =
 		useFiltersState(defaultQueryState);
-	const [
-		filtersModalOpened,
-		{ open: openFiltersModal, close: closeFiltersModal },
-	] = useDisclosure(false);
-	const [
-		presetModalOpened,
-		{ open: openPresetModal, close: closePresetModal },
-	] = useDisclosure(false);
+	const [filtersModalOpened, { open: openFiltersModal, close: closeFiltersModal }] =
+		useDisclosure(false);
+	const [presetModalOpened, { open: openPresetModal, close: closePresetModal }] =
+		useDisclosure(false);
 
 	const input = buildQueryInput(filters);
 
@@ -210,10 +188,9 @@ export default function Page(props: { params: { entity: FitnessEntity } }) {
 					});
 
 					if (entity === FitnessEntity.Workouts) {
-						const { userWorkoutsList } = await clientGqlService.request(
-							UserWorkoutsListDocument,
-							{ input: queryInput },
-						);
+						const { userWorkoutsList } = await clientGqlService.request(UserWorkoutsListDocument, {
+							input: queryInput,
+						});
 						return userWorkoutsList.response.items.map((workoutId) => ({
 							entityId: workoutId,
 							entityLot: EntityLot.Workout,
@@ -240,10 +217,7 @@ export default function Page(props: { params: { entity: FitnessEntity } }) {
 							variant="outline"
 							className={OnboardingTourStepTarget.AddNewWorkout}
 							onClick={async () => {
-								if (
-									!coreDetails.isServerKeyValidated &&
-									entity === FitnessEntity.Templates
-								) {
+								if (!coreDetails.isServerKeyValidated && entity === FitnessEntity.Templates) {
 									notifications.show({
 										color: "red",
 										message: PRO_REQUIRED_MESSAGE,
@@ -252,10 +226,7 @@ export default function Page(props: { params: { entity: FitnessEntity } }) {
 								}
 								const action = match(entity)
 									.with(FitnessEntity.Workouts, () => FitnessAction.LogWorkout)
-									.with(
-										FitnessEntity.Templates,
-										() => FitnessAction.CreateTemplate,
-									)
+									.with(FitnessEntity.Templates, () => FitnessAction.CreateTemplate)
 									.exhaustive();
 								advanceOnboardingTourStep();
 								startWorkout(getDefaultWorkout(action), action);
@@ -270,10 +241,7 @@ export default function Page(props: { params: { entity: FitnessEntity } }) {
 							placeholder={`Search for ${entity}`}
 							onChange={(query) => updateFilters({ query })}
 						/>
-						<ActionIcon
-							onClick={openFiltersModal}
-							color={haveFiltersChanged ? "blue" : "gray"}
-						>
+						<ActionIcon onClick={openFiltersModal} color={haveFiltersChanged ? "blue" : "gray"}>
 							<IconFilter size={24} />
 						</ActionIcon>
 						<FiltersModal
@@ -340,9 +308,7 @@ const DisplayFitnessEntity = (props: {
 	const bulkEditingCollection = useBulkEditCollection();
 	const [showDetails, setShowDetails] = useDisclosure(false);
 	const entityLot =
-		props.entity === FitnessEntity.Workouts
-			? EntityLot.Workout
-			: EntityLot.WorkoutTemplate;
+		props.entity === FitnessEntity.Workouts ? EntityLot.Workout : EntityLot.WorkoutTemplate;
 	const becItem = { entityId: props.entityId, entityLot };
 	const isAlreadyPresent = bulkEditingCollection.isAlreadyPresent(becItem);
 	const isAdded = bulkEditingCollection.isAdded(becItem);
@@ -361,9 +327,7 @@ const DisplayFitnessEntity = (props: {
 							timestamp: response.details.startTime,
 							information: response.details.information,
 							detail: humanizeDuration(
-								dayjsLib
-									.duration(response.details.duration, "second")
-									.asMilliseconds(),
+								dayjsLib.duration(response.details.duration, "second").asMilliseconds(),
 								{ round: true, units: ["h", "m"] },
 							),
 						})),
@@ -395,8 +359,7 @@ const DisplayFitnessEntity = (props: {
 			</Stack>
 		);
 
-	const personalBestsAchieved =
-		entityInformation.summary.total?.personalBestsAchieved || 0;
+	const personalBestsAchieved = entityInformation.summary.total?.personalBestsAchieved || 0;
 	const repsData = (entityInformation.information.exercises || [])
 		.map((e) => Number.parseInt(e.total?.reps || "0", 10))
 		.filter(Boolean);
@@ -437,9 +400,7 @@ const DisplayFitnessEntity = (props: {
 									{personalBestsAchieved !== 0 ? (
 										<DisplayStat
 											icon={<IconTrophy size={16} />}
-											data={`${personalBestsAchieved} PR${
-												personalBestsAchieved > 1 ? "s" : ""
-											}`}
+											data={`${personalBestsAchieved} PR${personalBestsAchieved > 1 ? "s" : ""}`}
 										/>
 									) : null}
 									{Number(entityInformation.summary.total.weight) !== 0 ? (
@@ -467,9 +428,7 @@ const DisplayFitnessEntity = (props: {
 						</Group>
 					</Box>
 					<Group wrap="nowrap" gap="xs">
-						{bulkEditingState &&
-						bulkEditingState.data.action === "add" &&
-						!isAlreadyPresent ? (
+						{bulkEditingState && bulkEditingState.data.action === "add" && !isAlreadyPresent ? (
 							<ActionIcon
 								color="green"
 								variant={isAdded ? "filled" : "outline"}
@@ -483,30 +442,19 @@ const DisplayFitnessEntity = (props: {
 							</ActionIcon>
 						) : null}
 						<ActionIcon onClick={() => setShowDetails.toggle()}>
-							{showDetails ? (
-								<IconChevronUp size={16} />
-							) : (
-								<IconChevronDown size={16} />
-							)}
+							{showDetails ? <IconChevronUp size={16} /> : <IconChevronDown size={16} />}
 						</ActionIcon>
 					</Group>
 				</Group>
-				{repsData.length >= 3 ? (
-					<Sparkline h="60" data={repsData} color="teal" />
-				) : null}
+				{repsData.length >= 3 ? <Sparkline h="60" data={repsData} color="teal" /> : null}
 				{showDetails ? (
 					<Box px={{ base: "xs", md: "md" }}>
 						<Group justify="space-between">
 							<Text fw="bold">Exercise</Text>
-							{props.entity === FitnessEntity.Workouts ? (
-								<Text fw="bold">Best set</Text>
-							) : null}
+							{props.entity === FitnessEntity.Workouts ? <Text fw="bold">Best set</Text> : null}
 						</Group>
 						{entityInformation.summary.exercises.map((exercise, idx) => (
-							<ExerciseDisplay
-								exercise={exercise}
-								key={`${idx}-${exercise.id}`}
-							/>
+							<ExerciseDisplay exercise={exercise} key={`${idx}-${exercise.id}`} />
 						))}
 					</Box>
 				) : null}
@@ -526,9 +474,7 @@ const DisplayStat = (props: { icon: ReactElement; data: string }) => {
 	);
 };
 
-const ExerciseDisplay = (props: {
-	exercise: WorkoutSummary["exercises"][number];
-}) => {
+const ExerciseDisplay = (props: { exercise: WorkoutSummary["exercises"][number] }) => {
 	const { data: exerciseDetails } = useExerciseDetails(props.exercise.id);
 	const stat = match(props.exercise.bestSet)
 		.with(undefined, null, () => {})

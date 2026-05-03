@@ -2,9 +2,7 @@ import { QueryEngineValidationError } from "./errors";
 import type { ViewComputedField, ViewExpression } from "./expression";
 import type { ViewPredicate } from "./filtering";
 
-export const buildComputedFieldMap = (
-	computedFields: ViewComputedField[] = [],
-) => {
+export const buildComputedFieldMap = (computedFields: ViewComputedField[] = []) => {
 	const computedFieldMap = new Map<string, ViewComputedField>();
 
 	for (const computedField of computedFields) {
@@ -34,10 +32,7 @@ export const getComputedFieldOrThrow = (
 	return computedField;
 };
 
-const collectExpressionDependencies = (
-	expression: ViewExpression,
-	dependencies: string[],
-) => {
+const collectExpressionDependencies = (expression: ViewExpression, dependencies: string[]) => {
 	if (expression.type === "literal") {
 		return dependencies;
 	}
@@ -80,10 +75,7 @@ const collectExpressionDependencies = (
 	return dependencies;
 };
 
-const collectPredicateDependencies = (
-	predicate: ViewPredicate,
-	dependencies: string[],
-) => {
+const collectPredicateDependencies = (predicate: ViewPredicate, dependencies: string[]) => {
 	if (predicate.type === "and" || predicate.type === "or") {
 		for (const child of predicate.predicates) {
 			collectPredicateDependencies(child, dependencies);
@@ -147,9 +139,7 @@ const orderComputedFieldsFromMap = (
 		const computedField = getComputedFieldOrThrow(computedFieldMap, key);
 
 		visiting.push(key);
-		for (const dependencyKey of getComputedFieldDependencies(
-			computedField.expression,
-		)) {
+		for (const dependencyKey of getComputedFieldDependencies(computedField.expression)) {
 			visit(dependencyKey);
 		}
 		visiting.pop();
@@ -164,17 +154,12 @@ const orderComputedFieldsFromMap = (
 	return orderedFields;
 };
 
-export const prepareComputedFields = (
-	computedFields: ViewComputedField[] = [],
-) => {
+export const prepareComputedFields = (computedFields: ViewComputedField[] = []) => {
 	const computedFieldMap = buildComputedFieldMap(computedFields);
 
 	return {
 		computedFieldMap,
-		orderedComputedFields: orderComputedFieldsFromMap(
-			computedFields,
-			computedFieldMap,
-		),
+		orderedComputedFields: orderComputedFieldsFromMap(computedFields, computedFieldMap),
 	};
 };
 

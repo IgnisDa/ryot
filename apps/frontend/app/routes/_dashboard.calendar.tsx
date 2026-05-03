@@ -1,12 +1,4 @@
-import {
-	ActionIcon,
-	Button,
-	Container,
-	Group,
-	Stack,
-	Text,
-	Title,
-} from "@mantine/core";
+import { ActionIcon, Button, Container, Group, Stack, Text, Title } from "@mantine/core";
 import {
 	UserCalendarEventsDocument,
 	type UserCalendarEventsQuery,
@@ -16,10 +8,8 @@ import { IconChevronLeft, IconChevronRight } from "@tabler/icons-react";
 import { useQuery } from "@tanstack/react-query";
 import { parseAsString } from "nuqs";
 import { useMemo } from "react";
-import {
-	DisplayListDetailsAndRefresh,
-	SkeletonLoader,
-} from "~/components/common";
+
+import { DisplayListDetailsAndRefresh, SkeletonLoader } from "~/components/common";
 import { ApplicationGrid } from "~/components/common/layout";
 import { MetadataDisplayItem } from "~/components/media/display-items";
 import { useFiltersState } from "~/lib/hooks/filters/use-state";
@@ -106,9 +96,7 @@ export default function Page() {
 
 type CalendarDate = UserCalendarEventsQuery["userCalendarEvents"][number];
 
-const CalendarEventMetadata = (props: {
-	item: CalendarDate["events"][number];
-}) => {
+const CalendarEventMetadata = (props: { item: CalendarDate["events"][number] }) => {
 	const additionalInformation = useMemo(() => {
 		if (props.item.showExtraInformation)
 			return `Upcoming: S${props.item.showExtraInformation?.season}-E${props.item.showExtraInformation?.episode}`;
@@ -146,10 +134,7 @@ const CalendarDate = (props: { data: CalendarDate }) => {
 			</Group>
 			<ApplicationGrid>
 				{props.data.events.map((calEvent) => (
-					<CalendarEventMetadata
-						item={calEvent}
-						key={calEvent.calendarEventId}
-					/>
+					<CalendarEventMetadata item={calEvent} key={calEvent.calendarEventId} />
 				))}
 			</ApplicationGrid>
 		</>

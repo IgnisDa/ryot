@@ -1,6 +1,9 @@
 import { describe, expect, it } from "bun:test";
+
 import { dayjs } from "@ryot/ts-utils";
+
 import { createEventFixture } from "~/features/test-fixtures";
+
 import { getEventListViewState, getRecentEvents, sortEvents } from "./model";
 
 describe("sortEvents", () => {
@@ -20,11 +23,7 @@ describe("sortEvents", () => {
 			}),
 		];
 
-		expect(sortEvents(events).map((event) => event.id)).toEqual([
-			"2",
-			"3",
-			"1",
-		]);
+		expect(sortEvents(events).map((event) => event.id)).toEqual(["2", "3", "1"]);
 	});
 
 	it("returns an empty array for empty input", () => {

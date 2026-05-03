@@ -18,17 +18,12 @@ import {
 	type UserMeasurementsListInput,
 } from "@ryot/generated/graphql/backend/graphql";
 import { cloneDeep, reverse, startCase } from "@ryot/ts-utils";
-import {
-	IconChartArea,
-	IconPencil,
-	IconPlus,
-	IconTable,
-	IconTrash,
-} from "@tabler/icons-react";
+import { IconChartArea, IconPencil, IconPlus, IconTable, IconTrash } from "@tabler/icons-react";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { DataTable } from "mantine-datatable";
 import { parseAsStringEnum } from "nuqs";
 import { useMemo } from "react";
+
 import { useFiltersState } from "~/lib/hooks/filters/use-state";
 import { dayjsLib, getDateFromTimeSpan } from "~/lib/shared/date-utils";
 import { useUserPreferences } from "~/lib/shared/hooks";
@@ -43,9 +38,7 @@ import { useMeasurementsDrawer } from "~/lib/state/fitness";
 import { TimeSpan } from "~/lib/types";
 
 const defaultFilterState = {
-	timeSpan: parseAsStringEnum(Object.values(TimeSpan)).withDefault(
-		TimeSpan.Last30Days,
-	),
+	timeSpan: parseAsStringEnum(Object.values(TimeSpan)).withDefault(TimeSpan.Last30Days),
 };
 
 export const meta = () => {
@@ -98,11 +91,10 @@ export default function Page() {
 		},
 	});
 
-	const selectedStatistics =
-		userPreferences.fitness.measurements.statistics.map((v) => ({
-			value: v.name,
-			label: `${startCase(v.name)} ${v.unit ? `(${v.unit})` : ""}`,
-		}));
+	const selectedStatistics = userPreferences.fitness.measurements.statistics.map((v) => ({
+		value: v.name,
+		label: `${startCase(v.name)} ${v.unit ? `(${v.unit})` : ""}`,
+	}));
 
 	const formattedData =
 		userMeasurementsList?.map((m) => {
@@ -186,8 +178,7 @@ export default function Page() {
 											<ActionIcon
 												color="blue"
 												onClick={() => {
-													if (measurement)
-														setMeasurementsDrawerData(measurement);
+													if (measurement) setMeasurementsDrawerData(measurement);
 												}}
 											>
 												<IconPencil />

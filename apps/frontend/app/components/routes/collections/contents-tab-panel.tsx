@@ -4,15 +4,10 @@ import {
 	CollectionContentsSortBy,
 } from "@ryot/generated/graphql/backend/graphql";
 import { IconFilter } from "@tabler/icons-react";
-import {
-	ApplicationPagination,
-	DisplayListDetailsAndRefresh,
-} from "~/components/common";
+
+import { ApplicationPagination, DisplayListDetailsAndRefresh } from "~/components/common";
 import { FilterPresetBar } from "~/components/common/filter-presets";
-import {
-	DebouncedSearchInput,
-	FiltersModal,
-} from "~/components/common/filters";
+import { DebouncedSearchInput, FiltersModal } from "~/components/common/filters";
 import { ApplicationGrid } from "~/components/common/layout";
 import { CollectionItem } from "~/components/routes/collections/collection-item";
 import { FiltersModalForm } from "~/components/routes/collections/filters-modal-form";
@@ -75,17 +70,12 @@ export function ContentsTabPanel(props: ContentsTabPanelProps) {
 						total={props.details.totalItems}
 						cacheId={props.collectionContents?.cacheId}
 						onRefreshButtonClicked={props.refreshCollectionContents}
-						isRandomSortOrderSelected={
-							props.filters.sortBy === CollectionContentsSortBy.Random
-						}
+						isRandomSortOrderSelected={props.filters.sortBy === CollectionContentsSortBy.Random}
 					/>
 				</>
 			) : (
 				<Group justify="end">
-					<Button
-						variant="outline"
-						onClick={() => props.setIsReorderMode(false)}
-					>
+					<Button variant="outline" onClick={() => props.setIsReorderMode(false)}>
 						Done Reordering
 					</Button>
 				</Group>

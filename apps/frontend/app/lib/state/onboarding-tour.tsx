@@ -1,8 +1,5 @@
 import { Box, Button, Group, Loader, Stack, Text } from "@mantine/core";
-import {
-	MediaLot,
-	UpdateUserPreferenceDocument,
-} from "@ryot/generated/graphql/backend/graphql";
+import { MediaLot, UpdateUserPreferenceDocument } from "@ryot/generated/graphql/backend/graphql";
 import { cloneDeep, isNumber } from "@ryot/ts-utils";
 import { produce } from "immer";
 import { useAtom } from "jotai";
@@ -11,6 +8,7 @@ import type { ReactNode } from "react";
 import type { Step } from "react-joyride";
 import { useNavigate } from "react-router";
 import { match } from "ts-pattern";
+
 import {
 	useApplicationEvents,
 	useMarkUserOnboardingTourStatus,
@@ -18,6 +16,7 @@ import {
 } from "~/lib/shared/hooks";
 import { clientGqlService } from "~/lib/shared/react-query";
 import { forcedDashboardPath } from "~/lib/shared/ui-utils";
+
 import { defaultSidebarLinksState, useOpenedSidebarLinks } from "./general";
 
 export const ACTIVE_WORKOUT_REPS_TARGET = "10";
@@ -119,9 +118,7 @@ export const useOnboardingTour = () => {
 		skipSecondarySteps?: true;
 	};
 
-	const advanceOnboardingTourStep = async (
-		input?: AdvanceOnboardingTourStep,
-	) => {
+	const advanceOnboardingTourStep = async (input?: AdvanceOnboardingTourStep) => {
 		if (!isOnboardingTourInProgress) return;
 
 		setTourState(
@@ -144,8 +141,7 @@ export const useOnboardingTour = () => {
 								.with(undefined, () => nextStepIndex)
 								.with(true, () => {
 									const target = onboardingTourSteps.findIndex(
-										(step, index) =>
-											index > nextStepIndex && !step.data?.isSecondaryStep,
+										(step, index) => index > nextStepIndex && !step.data?.isSecondaryStep,
 									);
 									return target !== -1 ? target : nextStepIndex;
 								})
@@ -169,16 +165,13 @@ export const useOnboardingTour = () => {
 					<Button
 						variant="outline"
 						size="compact-xs"
-						onClick={() =>
-							setTourState({ currentStepIndex: onboardingTourSteps.length })
-						}
+						onClick={() => setTourState({ currentStepIndex: onboardingTourSteps.length })}
 					>
 						Complete tour
 					</Button>
 				</Group>
 				<Text size="sm" c="dimmed">
-					Step {(tourState?.currentStepIndex || 0) + 1} of{" "}
-					{onboardingTourSteps.length}
+					Step {(tourState?.currentStepIndex || 0) + 1} of {onboardingTourSteps.length}
 				</Text>
 			</Group>
 		</Stack>
@@ -193,8 +186,7 @@ export const useOnboardingTour = () => {
 			},
 			{
 				target: OnboardingTourStepTarget.FirstSidebar,
-				content:
-					"Now, click on the audiobooks section to start tracking some audiobooks.",
+				content: "Now, click on the audiobooks section to start tracking some audiobooks.",
 			},
 			{
 				target: OnboardingTourStepTarget.GoToAudiobooksSection,
@@ -206,8 +198,7 @@ export const useOnboardingTour = () => {
 			},
 			{
 				target: OnboardingTourStepTarget.OpenMetadataProgressForm,
-				content:
-					"Great! Now, let's add this audiobook to your listening history.",
+				content: "Great! Now, let's add this audiobook to your listening history.",
 			},
 			{
 				target: OnboardingTourStepTarget.AddAudiobookToWatchedHistory,
@@ -226,16 +217,15 @@ export const useOnboardingTour = () => {
 			},
 			{
 				target: OnboardingTourStepTarget.GoBackToAudiobooksSection,
-				content:
-					"Great! Let's go back to the audiobooks section and see your library.",
+				content: "Great! Let's go back to the audiobooks section and see your library.",
 			},
 			{
 				target: OnboardingTourStepTarget.ShowAudiobooksListPage,
 				content: (
 					<Stack>
 						<Text>
-							Here are all the audiobooks in your library. Click on the next
-							button to continue to the fitness section.
+							Here are all the audiobooks in your library. Click on the next button to continue to
+							the fitness section.
 						</Text>
 						<Button.Group>
 							<Button
@@ -270,20 +260,17 @@ export const useOnboardingTour = () => {
 			{
 				data: { isSecondaryStep: true },
 				target: OnboardingTourStepTarget.OpenWorkoutsSection,
-				content:
-					"Click on the 'Workouts' section to see all your workouts and start a new one.",
+				content: "Click on the 'Workouts' section to see all your workouts and start a new one.",
 			},
 			{
 				data: { isSecondaryStep: true },
 				target: OnboardingTourStepTarget.AddNewWorkout,
-				content:
-					"This is the workouts section. Let's start by adding a new workout.",
+				content: "This is the workouts section. Let's start by adding a new workout.",
 			},
 			{
 				data: { isSecondaryStep: true },
 				target: OnboardingTourStepTarget.ClickOnAddAnExerciseButton,
-				content:
-					"You have started with an empty workout. Let's add a new exercise to it.",
+				content: "You have started with an empty workout. Let's add a new exercise to it.",
 			},
 			{
 				data: { isSecondaryStep: true },
@@ -340,8 +327,7 @@ export const useOnboardingTour = () => {
 			{
 				data: { isSecondaryStep: true },
 				target: OnboardingTourStepTarget.ClickOnTemplatesSidebarSection,
-				content:
-					"You can use templates to pre-plan your workouts and do them at a later time.",
+				content: "You can use templates to pre-plan your workouts and do them at a later time.",
 			},
 			{
 				data: { isSecondaryStep: true },
@@ -366,8 +352,7 @@ export const useOnboardingTour = () => {
 			},
 			{
 				target: OnboardingTourStepTarget.OpenSettingsPreferences,
-				content:
-					"You can use the preferences settings to customize your experience.",
+				content: "You can use the preferences settings to customize your experience.",
 			},
 		] as Step[]
 	).map((step) => ({
@@ -379,8 +364,7 @@ export const useOnboardingTour = () => {
 	}));
 
 	const isOnLastOnboardingTourStep =
-		tourState?.currentStepIndex === onboardingTourSteps.length &&
-		!tourState?.isCompleted;
+		tourState?.currentStepIndex === onboardingTourSteps.length && !tourState?.isCompleted;
 
 	return {
 		onboardingTourSteps,

@@ -6,9 +6,7 @@ type EventSchemaPropertiesBuilderProps = {
 	isLoading: boolean;
 };
 
-export function EventSchemaPropertiesBuilder(
-	props: EventSchemaPropertiesBuilderProps,
-) {
+export function EventSchemaPropertiesBuilder(props: EventSchemaPropertiesBuilderProps) {
 	return (
 		<PropertySchemasBuilder
 			form={props.form}

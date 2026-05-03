@@ -1,4 +1,5 @@
 import { createRoute, OpenAPIHono } from "@hono/zod-openapi";
+
 import type { AuthType } from "~/lib/auth";
 import {
 	createAuthRoute,
@@ -8,6 +9,7 @@ import {
 	jsonBody,
 } from "~/lib/openapi";
 import { getQueues } from "~/lib/queue";
+
 import { createEventsJobName } from "./jobs";
 import {
 	createEventBulkBody,
@@ -43,8 +45,7 @@ const createEventRoute = createAuthRoute(
 			"Enqueue events for an entity for async processing, including built-in media lifecycle actions",
 		responses: createStandardResponses({
 			successSchema: createEventBulkResponseSchema,
-			successDescription:
-				"Number of events submitted to the processing queue (not yet created)",
+			successDescription: "Number of events submitted to the processing queue (not yet created)",
 		}),
 	}),
 );

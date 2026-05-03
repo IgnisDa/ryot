@@ -1,4 +1,5 @@
 import { Button, Drawer, Modal, Stack, Text } from "@mantine/core";
+
 import { FullscreenImageModal } from "~/components/common/layout";
 import {
 	useCreateOrUpdateCollectionModal,
@@ -11,6 +12,7 @@ import {
 	useReviewEntity,
 } from "~/lib/state/media";
 import { useOnboardingTour } from "~/lib/state/onboarding-tour";
+
 import { AddEntityToCollectionsForm } from "./forms/add-entity-to-collections-form";
 import { CreateOrUpdateCollectionModal } from "./forms/create-or-update-collection-form";
 import { CreateOrUpdateMeasurementForm } from "./forms/create-or-update-measurement-form";
@@ -19,31 +21,22 @@ import { MetadataProgressUpdateForm } from "./forms/metadata-progress-update/pro
 import { ReviewEntityForm } from "./forms/review-entity-form";
 
 export function LayoutModals() {
-	const { metadataToUpdate, initializeMetadataToUpdate } =
-		useMetadataProgressUpdate();
-	const closeMetadataProgressUpdateModal = () =>
-		initializeMetadataToUpdate(null);
+	const { metadataToUpdate, initializeMetadataToUpdate } = useMetadataProgressUpdate();
+	const closeMetadataProgressUpdateModal = () => initializeMetadataToUpdate(null);
 	const [entityToReview, setEntityToReview] = useReviewEntity();
 	const closeReviewEntityModal = () => setEntityToReview(null);
-	const [addEntityToCollectionsData, setAddEntityToCollectionsData] =
-		useAddEntityToCollections();
-	const closeAddEntityToCollectionsDrawer = () =>
-		setAddEntityToCollectionsData(null);
-	const [
-		editEntityCollectionInformationData,
-		setEditEntityCollectionInformationData,
-	] = useEditEntityCollectionInformation();
+	const [addEntityToCollectionsData, setAddEntityToCollectionsData] = useAddEntityToCollections();
+	const closeAddEntityToCollectionsDrawer = () => setAddEntityToCollectionsData(null);
+	const [editEntityCollectionInformationData, setEditEntityCollectionInformationData] =
+		useEditEntityCollectionInformation();
 	const closeEditEntityCollectionInformationModal = () =>
 		setEditEntityCollectionInformationData(null);
-	const [measurementsDrawerData, setMeasurementsDrawerData] =
-		useMeasurementsDrawer();
+	const [measurementsDrawerData, setMeasurementsDrawerData] = useMeasurementsDrawer();
 	const closeMeasurementsDrawer = () => setMeasurementsDrawerData(false);
-	const { completeOnboardingTour, isOnLastOnboardingTourStep } =
-		useOnboardingTour();
+	const { completeOnboardingTour, isOnLastOnboardingTourStep } = useOnboardingTour();
 	const { isOpen: isCollectionModalOpen, close: closeCollectionModal } =
 		useCreateOrUpdateCollectionModal();
-	const isEditingMeasurement =
-		measurementsDrawerData && typeof measurementsDrawerData === "object";
+	const isEditingMeasurement = measurementsDrawerData && typeof measurementsDrawerData === "object";
 
 	return (
 		<>
@@ -67,9 +60,8 @@ export function LayoutModals() {
 			>
 				<Stack>
 					<Text>
-						These are just the basics to get you up and running. Ryot has a lot
-						more to offer and I encourage you to explore the app and see what it
-						can do for you.
+						These are just the basics to get you up and running. Ryot has a lot more to offer and I
+						encourage you to explore the app and see what it can do for you.
 					</Text>
 					<Text size="sm" c="dimmed">
 						You can restart the tour at any time from the profile settings.
@@ -100,15 +92,11 @@ export function LayoutModals() {
 			<Drawer
 				onClose={closeMeasurementsDrawer}
 				opened={measurementsDrawerData !== false}
-				title={
-					isEditingMeasurement ? "Edit measurement" : "Add new measurement"
-				}
+				title={isEditingMeasurement ? "Edit measurement" : "Add new measurement"}
 			>
 				<CreateOrUpdateMeasurementForm
 					closeMeasurementModal={closeMeasurementsDrawer}
-					measurementToUpdate={
-						isEditingMeasurement ? measurementsDrawerData : null
-					}
+					measurementToUpdate={isEditingMeasurement ? measurementsDrawerData : null}
 				/>
 			</Drawer>
 			<Modal
@@ -118,9 +106,7 @@ export function LayoutModals() {
 				opened={editEntityCollectionInformationData !== null}
 			>
 				<EditEntityCollectionInformationForm
-					closeEditEntityCollectionInformationModal={
-						closeEditEntityCollectionInformationModal
-					}
+					closeEditEntityCollectionInformationModal={closeEditEntityCollectionInformationModal}
 				/>
 			</Modal>
 			<Modal

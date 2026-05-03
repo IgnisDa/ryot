@@ -1,4 +1,5 @@
 import { describe, expect, it } from "bun:test";
+
 import { calculatePagination, mapQueryRowToItem } from "./paginated-query-sql";
 
 describe("calculatePagination", () => {

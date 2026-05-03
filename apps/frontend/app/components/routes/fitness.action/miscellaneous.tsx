@@ -16,15 +16,11 @@ import {
 import { useDebouncedState, useDidUpdate } from "@mantine/hooks";
 import { notifications } from "@mantine/notifications";
 import { isNumber, isString } from "@ryot/ts-utils";
-import {
-	IconCamera,
-	IconLibraryPhoto,
-	IconTrash,
-	IconVideo,
-} from "@tabler/icons-react";
+import { IconCamera, IconLibraryPhoto, IconTrash, IconVideo } from "@tabler/icons-react";
 import { produce } from "immer";
 import { useState } from "react";
 import invariant from "tiny-invariant";
+
 import { PRO_REQUIRED_MESSAGE } from "~/lib/shared/constants";
 import {
 	useCoreDetails,
@@ -33,10 +29,7 @@ import {
 	useS3PresignedUrls,
 	useUserPreferences,
 } from "~/lib/shared/hooks";
-import {
-	clientSideFileUpload,
-	openConfirmationModal,
-} from "~/lib/shared/ui-utils";
+import { clientSideFileUpload, openConfirmationModal } from "~/lib/shared/ui-utils";
 import { useCurrentWorkout } from "~/lib/state/fitness";
 import { useFullscreenImage } from "~/lib/state/general";
 
@@ -50,12 +43,8 @@ export const NameAndOtherInputs = (props: {
 
 	const [name, setName] = useDebouncedState(currentWorkout.name, 500);
 	const [comment, setComment] = useDebouncedState(currentWorkout.comment, 500);
-	const [isExtraInformationModalOpen, setIsExtraInformationModalOpen] =
-		useState(false);
-	const [caloriesBurnt, setCaloriesBurnt] = useDebouncedState(
-		currentWorkout.caloriesBurnt,
-		500,
-	);
+	const [isExtraInformationModalOpen, setIsExtraInformationModalOpen] = useState(false);
+	const [caloriesBurnt, setCaloriesBurnt] = useDebouncedState(currentWorkout.caloriesBurnt, 500);
 	const workoutHasImages = currentWorkout.images.length > 0;
 
 	useDidUpdate(() => {
@@ -130,10 +119,7 @@ export const NameAndOtherInputs = (props: {
 				label={
 					<Group justify="space-between" mr="xs">
 						<Text size="sm">Name</Text>
-						<Anchor
-							size="xs"
-							onClick={() => setIsExtraInformationModalOpen(true)}
-						>
+						<Anchor size="xs" onClick={() => setIsExtraInformationModalOpen(true)}>
 							More Information
 						</Anchor>
 					</Group>
@@ -176,9 +162,8 @@ const AssetDisplay = (props: {
 				color="red"
 				pos="absolute"
 				onClick={() => {
-					openConfirmationModal(
-						`Are you sure you want to remove this ${props.type}?`,
-						() => props.removeAsset(),
+					openConfirmationModal(`Are you sure you want to remove this ${props.type}?`, () =>
+						props.removeAsset(),
 					);
 				}}
 			>
@@ -214,10 +199,7 @@ export const UploadAssetsModal = (props: {
 
 	if (!currentWorkout) return null;
 
-	const afterFileSelected = async (
-		file: File | null,
-		type: "image" | "video",
-	) => {
+	const afterFileSelected = async (file: File | null, type: "image" | "video") => {
 		if (props.modalOpenedBy === null && !coreDetails.isServerKeyValidated) {
 			notifications.show({
 				color: "red",
@@ -268,18 +250,18 @@ export const UploadAssetsModal = (props: {
 				if (!exerciseIdx) return;
 				if (type === "image") {
 					if (exerciseIdx !== -1) {
-						draft.exercises[exerciseIdx].images = draft.exercises[
-							exerciseIdx
-						].images.filter((i) => i !== key);
+						draft.exercises[exerciseIdx].images = draft.exercises[exerciseIdx].images.filter(
+							(i) => i !== key,
+						);
 					} else {
 						draft.images = draft.images.filter((i) => i !== key);
 					}
 					return;
 				}
 				if (exerciseIdx !== -1) {
-					draft.exercises[exerciseIdx].videos = draft.exercises[
-						exerciseIdx
-					].videos.filter((i) => i !== key);
+					draft.exercises[exerciseIdx].videos = draft.exercises[exerciseIdx].videos.filter(
+						(i) => i !== key,
+					);
 				} else {
 					draft.videos = draft.videos.filter((i) => i !== key);
 				}
@@ -317,10 +299,7 @@ export const UploadAssetsModal = (props: {
 							</Avatar.Group>
 						) : null}
 						<Group justify="space-between">
-							<FileButton
-								accept="image/*"
-								onChange={(file) => afterFileSelected(file, "image")}
-							>
+							<FileButton accept="image/*" onChange={(file) => afterFileSelected(file, "image")}>
 								{(props) => (
 									<Button
 										{...props}
@@ -334,10 +313,7 @@ export const UploadAssetsModal = (props: {
 									</Button>
 								)}
 							</FileButton>
-							<FileButton
-								accept="video/*"
-								onChange={(file) => afterFileSelected(file, "video")}
-							>
+							<FileButton accept="video/*" onChange={(file) => afterFileSelected(file, "video")}>
 								{(props) => (
 									<Button
 										{...props}

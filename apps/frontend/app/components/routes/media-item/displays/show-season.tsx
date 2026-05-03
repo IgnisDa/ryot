@@ -2,11 +2,10 @@ import { Box, Button } from "@mantine/core";
 import { EntityTranslationVariant } from "@ryot/generated/graphql/backend/graphql";
 import { sum } from "@ryot/ts-utils";
 import { useMemo } from "react";
-import {
-	useMetadataTranslationValue,
-	useUserMetadataDetails,
-} from "~/lib/shared/hooks";
+
+import { useMetadataTranslationValue, useUserMetadataDetails } from "~/lib/shared/hooks";
 import { useMetadataProgressUpdate } from "~/lib/state/media";
+
 import type { Season } from "../types";
 import { DisplaySeasonOrEpisodeDetails } from "./season-episode-details";
 
@@ -19,9 +18,7 @@ export const DisplayShowSeason = (props: {
 	metadataId: string;
 	openSeasonModal: () => void;
 }) => {
-	const { data: userMetadataDetails } = useUserMetadataDetails(
-		props.metadataId,
-	);
+	const { data: userMetadataDetails } = useUserMetadataDetails(props.metadataId);
 	const { initializeMetadataToUpdate } = useMetadataProgressUpdate();
 
 	const seasonProgress = userMetadataDetails?.showProgress?.[props.seasonIdx];
@@ -53,10 +50,7 @@ export const DisplayShowSeason = (props: {
 				startDate={props.season.episodes.at(0)?.publishDate}
 				overview={seasonDescriptionTranslation || props.season.overview}
 				runtime={sum(props.season.episodes.map((e) => e.runtime || 0))}
-				name={getShowSeasonDisplayName(
-					props.season,
-					seasonTitleTranslation || props.season.name,
-				)}
+				name={getShowSeasonDisplayName(props.season, seasonTitleTranslation || props.season.name)}
 			>
 				{props.season.episodes.length > 0 ? (
 					<Button

@@ -1,9 +1,6 @@
 import { describe, expect, it } from "bun:test";
-import {
-	createNameFieldListeners,
-	resolveNextSlug,
-	syncSlugOnNameChange,
-} from "./slug-sync";
+
+import { createNameFieldListeners, resolveNextSlug, syncSlugOnNameChange } from "./slug-sync";
 
 describe("resolveNextSlug", () => {
 	it("derives the slug while it is blank", () => {

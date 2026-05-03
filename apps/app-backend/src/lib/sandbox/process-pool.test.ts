@@ -1,4 +1,5 @@
 import { describe, expect, it } from "bun:test";
+
 import { ProcessPool, type SpawnedProcess } from "./process-pool";
 
 type FakeProcess = {
@@ -83,9 +84,7 @@ describe("ProcessPool.checkout", () => {
 		const alive = makeAlive();
 		const procs = [exited, alive];
 		let idx = 0;
-		const pool = new ProcessPool(2, () =>
-			asSpawned(procs[idx++] ?? makeAlive()),
-		);
+		const pool = new ProcessPool(2, () => asSpawned(procs[idx++] ?? makeAlive()));
 		pool.fill();
 
 		const proc = pool.checkout();
@@ -95,9 +94,7 @@ describe("ProcessPool.checkout", () => {
 	it("returns null when all pooled processes have exited", () => {
 		const procs = [makeExited(), makeExited(), makeExited()];
 		let idx = 0;
-		const pool = new ProcessPool(3, () =>
-			asSpawned(procs[idx++] ?? makeExited()),
-		);
+		const pool = new ProcessPool(3, () => asSpawned(procs[idx++] ?? makeExited()));
 		pool.fill();
 		expect(pool.checkout()).toBeNull();
 	});

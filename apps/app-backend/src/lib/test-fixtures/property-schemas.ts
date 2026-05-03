@@ -83,8 +83,7 @@ export const createProgressPercentPropertiesSchema = () => ({
 
 export const createShowProgressPropertiesSchema = () => ({
 	fields: {
-		progressPercent:
-			createProgressPercentPropertiesSchema().fields.progressPercent,
+		progressPercent: createProgressPercentPropertiesSchema().fields.progressPercent,
 		showSeason: {
 			label: "Show Season",
 			type: "integer" as const,
@@ -114,8 +113,7 @@ export const createShowProgressPropertiesSchema = () => ({
 
 export const createAnimeProgressPropertiesSchema = () => ({
 	fields: {
-		progressPercent:
-			createProgressPercentPropertiesSchema().fields.progressPercent,
+		progressPercent: createProgressPercentPropertiesSchema().fields.progressPercent,
 		animeEpisode: {
 			label: "Anime Episode",
 			type: "integer" as const,
@@ -126,8 +124,7 @@ export const createAnimeProgressPropertiesSchema = () => ({
 
 export const createMangaProgressPropertiesSchema = () => ({
 	fields: {
-		progressPercent:
-			createProgressPercentPropertiesSchema().fields.progressPercent,
+		progressPercent: createProgressPercentPropertiesSchema().fields.progressPercent,
 		mangaVolume: {
 			label: "Manga Volume",
 			type: "integer" as const,
@@ -143,8 +140,7 @@ export const createMangaProgressPropertiesSchema = () => ({
 
 export const createPodcastProgressPropertiesSchema = () => ({
 	fields: {
-		progressPercent:
-			createProgressPercentPropertiesSchema().fields.progressPercent,
+		progressPercent: createProgressPercentPropertiesSchema().fields.progressPercent,
 		podcastEpisode: {
 			label: "Podcast Episode",
 			type: "integer" as const,
@@ -201,8 +197,7 @@ export const createReviewPropertiesSchema = () => ({
 	},
 });
 
-export const createWorkoutSetPropertiesSchema = () =>
-	workoutSetPropertiesJsonSchema;
+export const createWorkoutSetPropertiesSchema = () => workoutSetPropertiesJsonSchema;
 
 export const createNestedMetadataPropertiesSchema = () => ({
 	fields: {

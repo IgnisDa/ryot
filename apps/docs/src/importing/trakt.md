@@ -21,11 +21,11 @@ import. Also, items that have been "check(ed) in" will not be imported.
 
 1. Login to your Trakt account and go to the settings page.
 2. If your account is set to private, uncheck the box next to it. You can revert
-  this change once the import is complete.
+   this change once the import is complete.
 3. If you have any lists that are private, you need to change them to public.
-  Otherwise they will not be imported.
+   Otherwise they will not be imported.
 4. Find your profile slug. This is usually your username. You can find it by
-  going to your profile page, and checking the URL.
+   going to your profile page, and checking the URL.
 5. Enter this username in the input.
 
 ## List

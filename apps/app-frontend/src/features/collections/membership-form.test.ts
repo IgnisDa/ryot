@@ -1,8 +1,7 @@
 import { describe, expect, it } from "bun:test";
-import {
-	createAppCollectionFixture,
-	createEntityFixture,
-} from "~/features/test-fixtures";
+
+import { createAppCollectionFixture, createEntityFixture } from "~/features/test-fixtures";
+
 import { getUnsupportedRequiredProperties } from "../property-schemas/primitive-schema-utils";
 import {
 	buildCollectionSelectionPatch,
@@ -276,8 +275,7 @@ describe("buildMembershipFormSchema", () => {
 		expect(result.error.issues).toContainEqual(
 			expect.objectContaining({
 				path: ["properties"],
-				message:
-					"This collection requires unsupported properties: tags, metadata.",
+				message: "This collection requires unsupported properties: tags, metadata.",
 			}),
 		);
 	});
@@ -314,9 +312,7 @@ describe("buildMembershipFormSchema", () => {
 		];
 		const schema = buildMembershipFormSchema(collections);
 
-		expect(
-			schema.safeParse({ properties: {}, collectionId: "missing" }).success,
-		).toBeFalse();
+		expect(schema.safeParse({ properties: {}, collectionId: "missing" }).success).toBeFalse();
 		expect(
 			schema.safeParse({
 				collectionId: "collection-1",
@@ -369,10 +365,7 @@ describe("getUnsupportedRequiredProperties", () => {
 				},
 			},
 		};
-		expect(getUnsupportedRequiredProperties(schema)).toEqual([
-			"tags",
-			"metadata",
-		]);
+		expect(getUnsupportedRequiredProperties(schema)).toEqual(["tags", "metadata"]);
 	});
 });
 
@@ -383,9 +376,7 @@ describe("getSelectedCollection", () => {
 			createAppCollectionFixture({ id: "collection-2", name: "Second" }),
 		];
 
-		expect(getSelectedCollection(collections, "collection-2")?.id).toBe(
-			"collection-2",
-		);
+		expect(getSelectedCollection(collections, "collection-2")?.id).toBe("collection-2");
 	});
 
 	it("falls back to the first collection when the provided id is not found", () => {
@@ -394,9 +385,7 @@ describe("getSelectedCollection", () => {
 			createAppCollectionFixture({ id: "collection-2", name: "Second" }),
 		];
 
-		expect(getSelectedCollection(collections, "missing-id")?.id).toBe(
-			"collection-1",
-		);
+		expect(getSelectedCollection(collections, "missing-id")?.id).toBe("collection-1");
 	});
 
 	it("falls back to the first collection when no id is provided", () => {
@@ -409,9 +398,7 @@ describe("getSelectedCollection", () => {
 	});
 
 	it("handles empty or whitespace-only id", () => {
-		const collections = [
-			createAppCollectionFixture({ id: "collection-1", name: "First" }),
-		];
+		const collections = [createAppCollectionFixture({ id: "collection-1", name: "First" })];
 
 		expect(getSelectedCollection(collections, "  ")?.id).toBe("collection-1");
 	});
@@ -606,9 +593,7 @@ describe("reconcileMembershipProperties", () => {
 	});
 
 	it("returns empty object when schema has no fields", () => {
-		expect(
-			reconcileMembershipProperties({ fields: {} }, { old: "value" }),
-		).toEqual({});
+		expect(reconcileMembershipProperties({ fields: {} }, { old: "value" })).toEqual({});
 	});
 });
 

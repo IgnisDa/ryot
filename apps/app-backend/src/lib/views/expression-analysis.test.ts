@@ -1,10 +1,9 @@
 import { describe, expect, it } from "bun:test";
+
 import { createEntityPropertyExpression } from "@ryot/ts-utils";
-import {
-	createSmartphoneSchema,
-	createTabletSchema,
-	literalExpression,
-} from "~/lib/test-fixtures";
+
+import { createSmartphoneSchema, createTabletSchema, literalExpression } from "~/lib/test-fixtures";
+
 import type { ViewComputedField } from "./expression";
 import { inferViewExpressionType } from "./expression-analysis";
 import { buildEventJoinMap, buildSchemaMap } from "./reference";
@@ -63,10 +62,7 @@ describe("inferViewExpressionType", () => {
 				context,
 				expression: {
 					type: "round",
-					expression: createEntityPropertyExpression(
-						"smartphones",
-						"screenSize",
-					),
+					expression: createEntityPropertyExpression("smartphones", "screenSize"),
 				},
 			}),
 		).toEqual({
@@ -99,10 +95,7 @@ describe("inferViewExpressionType", () => {
 					whenFalse: { type: "literal", value: null },
 					condition: {
 						type: "isNotNull",
-						expression: createEntityPropertyExpression(
-							"smartphones",
-							"manufacturer",
-						),
+						expression: createEntityPropertyExpression("smartphones", "manufacturer"),
 					},
 				},
 			}),
@@ -113,35 +106,21 @@ describe("inferViewExpressionType", () => {
 				context,
 				expression: {
 					type: "concat",
-					values: [
-						createEntityPropertyExpression("smartphones", "manufacturer"),
-						imageExpression,
-					],
+					values: [createEntityPropertyExpression("smartphones", "manufacturer"), imageExpression],
 				},
 			}),
-		).toThrow(
-			"Image expressions are display-only and cannot be used in string composition",
-		);
+		).toThrow("Image expressions are display-only and cannot be used in string composition");
 
 		expect(() =>
 			inferViewExpressionType({
 				context,
 				expression: {
 					type: "conditional",
-					whenTrue: createEntityPropertyExpression(
-						"smartphones",
-						"manufacturer",
-					),
-					whenFalse: createEntityPropertyExpression(
-						"smartphones",
-						"releaseYear",
-					),
+					whenTrue: createEntityPropertyExpression("smartphones", "manufacturer"),
+					whenFalse: createEntityPropertyExpression("smartphones", "releaseYear"),
 					condition: {
 						type: "isNotNull",
-						expression: createEntityPropertyExpression(
-							"smartphones",
-							"manufacturer",
-						),
+						expression: createEntityPropertyExpression("smartphones", "manufacturer"),
 					},
 				},
 			}),
@@ -193,9 +172,7 @@ describe("inferViewExpressionType", () => {
 					reference: { type: "computed-field", key: "missingField" },
 				},
 			}),
-		).toThrow(
-			"Computed field 'missingField' is not part of this runtime request",
-		);
+		).toThrow("Computed field 'missingField' is not part of this runtime request");
 	});
 
 	it("infers datetime type for event.createdAt built-in column", () => {

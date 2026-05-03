@@ -1,5 +1,7 @@
 import { useQueryClient } from "@tanstack/react-query";
+
 import { useApiClient } from "~/hooks/api";
+
 import { type AppEntitySchema, sortEntitySchemas } from "./model";
 
 export function useEntitySchemaQuery(entitySchemaId: string, enabled = true) {
@@ -28,9 +30,7 @@ export function useEntitySchemasQuery(trackerId: string, enabled = true) {
 
 	return {
 		...query,
-		entitySchemas: sortEntitySchemas(
-			(query.data?.data as AppEntitySchema[] | undefined) ?? [],
-		),
+		entitySchemas: sortEntitySchemas((query.data?.data as AppEntitySchema[] | undefined) ?? []),
 	};
 }
 
@@ -45,9 +45,7 @@ export function useEntitySchemasBySlugQuery(slugs: string[], enabled = true) {
 
 	return {
 		...query,
-		entitySchemas: sortEntitySchemas(
-			(query.data?.data as AppEntitySchema[] | undefined) ?? [],
-		),
+		entitySchemas: sortEntitySchemas((query.data?.data as AppEntitySchema[] | undefined) ?? []),
 	};
 }
 
@@ -57,10 +55,7 @@ export function useEntitySchemaMutations(trackerId: string) {
 	const listQueryKey = apiClient.queryOptions("post", "/entity-schemas/list", {
 		body: { trackerId },
 	}).queryKey;
-	const savedViewsQueryKey = apiClient.queryOptions(
-		"get",
-		"/saved-views",
-	).queryKey;
+	const savedViewsQueryKey = apiClient.queryOptions("get", "/saved-views").queryKey;
 
 	const create = apiClient.useMutation(
 		"post",

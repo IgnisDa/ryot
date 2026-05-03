@@ -9,7 +9,4 @@ export {
 	propertySchemaTypes,
 } from "./schemas";
 
-export {
-	parseLabeledPropertySchemaInput,
-	parsePropertySchemaInput,
-} from "./service";
+export { parseLabeledPropertySchemaInput, parsePropertySchemaInput } from "./service";

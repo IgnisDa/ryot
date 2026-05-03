@@ -23,15 +23,12 @@ import type { ReactNode } from "react";
 import { Link } from "react-router";
 import { $path } from "safe-routes";
 import { withFragment } from "ufo";
+
 import { SectionHeader } from "~/lib/components/SectionHeader";
 import { Badge } from "~/lib/components/ui/badge";
 import { Button } from "~/lib/components/ui/button";
 import { Card, CardContent } from "~/lib/components/ui/card";
-import {
-	Carousel,
-	CarouselContent,
-	CarouselItem,
-} from "~/lib/components/ui/carousel";
+import { Carousel, CarouselContent, CarouselItem } from "~/lib/components/ui/carousel";
 import { ProBadge } from "~/lib/components/ui/pro-badge";
 import { usePaddleInitialization } from "~/lib/hooks/usePaddleInitialization";
 import {
@@ -60,8 +57,7 @@ export default function Page() {
 						subtitle="Comprehensive Tracking"
 						title={
 							<>
-								Think of Ryot as your{" "}
-								<span className="text-primary">second brain</span> with
+								Think of Ryot as your <span className="text-primary">second brain</span> with
 								superpowers ✨
 							</>
 						}
@@ -85,17 +81,11 @@ export default function Page() {
 									<div
 										className={`w-12 h-12 ${colorMap[card.color].bg} rounded-lg flex items-center justify-center mb-4`}
 									>
-										<card.icon
-											className={`w-6 h-6 ${colorMap[card.color].text}`}
-										/>
+										<card.icon className={`w-6 h-6 ${colorMap[card.color].text}`} />
 									</div>
 									<h3 className="text-xl font-semibold mb-3">{card.title}</h3>
-									<p className="text-muted-foreground mb-4">
-										{card.description}
-									</p>
-									<div
-										className={`flex items-center text-sm ${colorMap[card.color].text}`}
-									>
+									<p className="text-muted-foreground mb-4">{card.description}</p>
+									<div className={`flex items-center text-sm ${colorMap[card.color].text}`}>
 										<card.featureIcon className="w-4 h-4 mr-1" />
 										{card.feature}
 									</div>
@@ -116,22 +106,17 @@ export default function Page() {
 				/>
 			))}
 
-			<section
-				className={`${SECTION_Y_PADDING} bg-linear-to-r from-orange-50 to-pink-50`}
-			>
+			<section className={`${SECTION_Y_PADDING} bg-linear-to-r from-orange-50 to-pink-50`}>
 				<div className={`${SECTION_CONTAINER_NARROW} text-center`}>
 					<div className="flex items-center justify-center gap-3 mb-6">
 						<div className="w-12 h-12 bg-linear-to-r from-orange-500 to-pink-500 rounded-full flex items-center justify-center">
 							<Crown className="w-6 h-6 text-white" />
 						</div>
-						<span className="text-2xl font-bold text-foreground">
-							Unlock Pro Features
-						</span>
+						<span className="text-2xl font-bold text-foreground">Unlock Pro Features</span>
 					</div>
 					<p className="text-lg text-muted-foreground mb-8 max-w-2xl mx-auto leading-relaxed">
-						Get access to advanced analytics, custom collections, sharing
-						features, and much more with Ryot Pro. Upgrade your tracking
-						experience today.
+						Get access to advanced analytics, custom collections, sharing features, and much more
+						with Ryot Pro. Upgrade your tracking experience today.
 					</p>
 					<div className="flex flex-col sm:flex-row gap-4 justify-center">
 						<Link to={withFragment($path("/"), "pricing")}>
@@ -159,10 +144,7 @@ const FeatureItem = (props: { children: ReactNode; isPro?: boolean }) => (
 
 const FeatureCarousel = (props: { images: string[]; altPrefix: string }) => (
 	<div className="mb-16">
-		<Carousel
-			plugins={[Autoplay({ delay: 5000 })]}
-			className="w-full max-w-5xl mx-auto"
-		>
+		<Carousel plugins={[Autoplay({ delay: 5000 })]} className="w-full max-w-5xl mx-auto">
 			<CarouselContent>
 				{props.images.map((image, index) => (
 					<CarouselItem key={image} className="flex flex-col space-y-4">
@@ -184,12 +166,7 @@ const FeatureSection = (props: {
 	showDescription?: boolean;
 	data: (typeof FEATURE_DATA)[0];
 }) => {
-	const {
-		data,
-		isEven,
-		showDescription,
-		customGrid = "lg:grid-cols-2",
-	} = props;
+	const { data, isEven, showDescription, customGrid = "lg:grid-cols-2" } = props;
 	return (
 		<section className={cn(SECTION_Y_PADDING, !isEven && "bg-muted/30")}>
 			<div className={SECTION_CONTAINER}>
@@ -198,33 +175,24 @@ const FeatureSection = (props: {
 						<data.icon className="w-4 h-4 mr-2" />
 						{data.heading}
 					</Badge>
-					<h2 className="text-3xl lg:text-4xl font-bold text-foreground mb-8">
-						{data.title}
-					</h2>
+					<h2 className="text-3xl lg:text-4xl font-bold text-foreground mb-8">{data.title}</h2>
 					{showDescription && (
 						<div className="mb-8">
 							<h3 className="text-2xl font-semibold text-foreground mb-4">
 								{data.description?.title}
 							</h3>
-							<p className="text-muted-foreground max-w-2xl mx-auto">
-								{data.description?.text}
-							</p>
+							<p className="text-muted-foreground max-w-2xl mx-auto">{data.description?.text}</p>
 						</div>
 					)}
 				</div>
 
 				{data.images.length > 0 && (
-					<FeatureCarousel
-						images={data.images}
-						altPrefix={`${data.heading} interface`}
-					/>
+					<FeatureCarousel images={data.images} altPrefix={`${data.heading} interface`} />
 				)}
 
 				<div
 					className={cn(
-						customGrid === "single"
-							? "max-w-4xl mx-auto"
-							: cn("grid", customGrid, "gap-2"),
+						customGrid === "single" ? "max-w-4xl mx-auto" : cn("grid", customGrid, "gap-2"),
 						!isEven && "mb-16",
 					)}
 				>
@@ -445,8 +413,7 @@ const FEATURE_CARDS = [
 		icon: Share2,
 		color: "orange" as const,
 		title: "Social Features",
-		description:
-			"Share your progress and collections with friends and family members.",
+		description: "Share your progress and collections with friends and family members.",
 		feature: "Share with friends",
 		featureIcon: Users,
 	},
@@ -454,8 +421,7 @@ const FEATURE_CARDS = [
 		icon: Heart,
 		color: "red" as const,
 		title: "Personal Collections",
-		description:
-			"Create custom collections and add personal touches to make them uniquely yours.",
+		description: "Create custom collections and add personal touches to make them uniquely yours.",
 		feature: "Custom collections",
 		featureIcon: FolderHeart,
 	},
@@ -463,8 +429,7 @@ const FEATURE_CARDS = [
 		icon: Lock,
 		color: "gray" as const,
 		title: "Privacy First",
-		description:
-			"Your data stays secure with self-hosting options and complete privacy control.",
+		description: "Your data stays secure with self-hosting options and complete privacy control.",
 		feature: "Self-hosted",
 		featureIcon: CheckCircle,
 	},

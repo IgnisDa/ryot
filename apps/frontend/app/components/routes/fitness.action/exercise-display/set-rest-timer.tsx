@@ -1,11 +1,10 @@
 import { RingProgress, Text } from "@mantine/core";
+
 import { dayjsLib } from "~/lib/shared/date-utils";
 import { useForceUpdateEverySecond } from "~/lib/shared/hooks";
 import { useCurrentWorkoutTimerAtom } from "~/lib/state/fitness";
 
-export const DisplayExerciseSetRestTimer = (props: {
-	openTimerDrawer: () => void;
-}) => {
+export const DisplayExerciseSetRestTimer = (props: { openTimerDrawer: () => void }) => {
 	const [currentTimer] = useCurrentWorkoutTimerAtom();
 	useForceUpdateEverySecond();
 
@@ -21,21 +20,14 @@ export const DisplayExerciseSetRestTimer = (props: {
 			sections={[
 				{
 					value:
-						(dayjsLib(currentTimer.willEndAt).diff(
-							currentTimer.wasPausedAt,
-							"seconds",
-						) *
-							100) /
+						(dayjsLib(currentTimer.willEndAt).diff(currentTimer.wasPausedAt, "seconds") * 100) /
 						currentTimer.totalTime,
 					color: "blue",
 				},
 			]}
 			label={
 				<Text ta="center" size="xs">
-					{Math.floor(
-						dayjsLib(currentTimer.willEndAt).diff(currentTimer.wasPausedAt) /
-							1000,
-					)}
+					{Math.floor(dayjsLib(currentTimer.willEndAt).diff(currentTimer.wasPausedAt) / 1000)}
 				</Text>
 			}
 		/>

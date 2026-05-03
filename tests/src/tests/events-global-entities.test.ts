@@ -1,4 +1,5 @@
 import { describe, expect, it } from "bun:test";
+
 import {
 	createAuthenticatedClient,
 	findBuiltinSchemaWithProviders,
@@ -27,10 +28,7 @@ describe("POST /events with global entities", () => {
 		});
 
 		const eventSchemas = await listEventSchemas(client, cookies, schema.id);
-		const backlogEventSchema = requireEventSchemaBySlug(
-			eventSchemas,
-			"backlog",
-		);
+		const backlogEventSchema = requireEventSchemaBySlug(eventSchemas, "backlog");
 
 		const createResult = await client.POST("/events", {
 			headers: { Cookie: cookies },

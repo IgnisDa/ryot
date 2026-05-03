@@ -28,13 +28,7 @@ import {
 	ExerciseSource,
 	WorkoutSetPersonalBest,
 } from "@ryot/generated/graphql/backend/graphql";
-import {
-	changeCase,
-	parseParameters,
-	parseSearchQuery,
-	sortBy,
-	startCase,
-} from "@ryot/ts-utils";
+import { changeCase, parseParameters, parseSearchQuery, sortBy, startCase } from "@ryot/ts-utils";
 import {
 	IconChartPie,
 	IconCheck,
@@ -52,6 +46,7 @@ import invariant from "tiny-invariant";
 import { match } from "ts-pattern";
 import { useLocalStorage } from "usehooks-ts";
 import { z } from "zod";
+
 import { DisplayCollectionToEntity, SkeletonLoader } from "~/components/common";
 import { ReviewItemDisplay } from "~/components/common/review";
 import {
@@ -89,6 +84,7 @@ import {
 } from "~/lib/state/fitness";
 import { useAddEntityToCollections, useReviewEntity } from "~/lib/state/media";
 import { FitnessEntity, TimeSpan } from "~/lib/types";
+
 import type { Route } from "./+types/_dashboard.fitness.exercises.item.$id._index";
 
 const searchParamsSchema = z.object({
@@ -98,10 +94,7 @@ const searchParamsSchema = z.object({
 export type SearchParams = z.infer<typeof searchParamsSchema>;
 
 export const loader = async ({ params, request }: Route.LoaderArgs) => {
-	const { id: exerciseId } = parseParameters(
-		params,
-		z.object({ id: z.string() }),
-	);
+	const { id: exerciseId } = parseParameters(params, z.object({ id: z.string() }));
 	const query = parseSearchQuery(request, searchParamsSchema);
 	return { query, exerciseId };
 };
@@ -117,9 +110,7 @@ export default function Page() {
 	const userPreferences = useUserPreferences();
 	const loaderData = useLoaderData<typeof loader>();
 
-	const userExerciseDetailsQuery = useUserExerciseDetails(
-		loaderData.exerciseId,
-	);
+	const userExerciseDetailsQuery = useUserExerciseDetails(loaderData.exerciseId);
 	const exerciseDetailsQuery = useExerciseDetails(loaderData.exerciseId);
 
 	const exerciseDetails = exerciseDetailsQuery.data;
@@ -128,8 +119,7 @@ export default function Page() {
 	const canCurrentUserUpdate =
 		exerciseDetails?.source === ExerciseSource.Custom &&
 		userDetails.id === exerciseDetails.createdByUserId;
-	const exerciseNumTimesInteracted =
-		userExerciseDetails?.details?.exerciseNumTimesInteracted || 0;
+	const exerciseNumTimesInteracted = userExerciseDetails?.details?.exerciseNumTimesInteracted || 0;
 	const navigate = useNavigate();
 	const isFitnessActionActive = useIsFitnessActionActive();
 	const [currentWorkout, setCurrentWorkout] = useCurrentWorkout();
@@ -144,17 +134,16 @@ export default function Page() {
 		updatePreferencesModalOpened,
 		{ open: openUpdatePreferencesModal, close: closeUpdatePreferencesModal },
 	] = useDisclosure(false);
-	const [
-		musclesModalOpened,
-		{ open: openMusclesModal, close: closeMusclesModal },
-	] = useDisclosure(false);
+	const [musclesModalOpened, { open: openMusclesModal, close: closeMusclesModal }] =
+		useDisclosure(false);
 	const [bodyViewSide, setBodyViewSide] = useLocalStorage<"front" | "back">(
 		"ExerciseBodyViewSide",
 		"front",
 	);
-	const [bodyViewGender, setBodyViewGender] = useLocalStorage<
-		"male" | "female"
-	>("ExerciseBodyViewGender", "female");
+	const [bodyViewGender, setBodyViewGender] = useLocalStorage<"male" | "female">(
+		"ExerciseBodyViewGender",
+		"female",
+	);
 
 	const computedDateAfterForCharts = getDateFromTimeSpan(timeSpanForCharts);
 	const filteredHistoryForCharts = sortBy(
@@ -167,9 +156,8 @@ export default function Page() {
 			: workoutEndOn.isAfter(computedDateAfterForCharts);
 	});
 	const bestMappings =
-		coreDetails.exerciseParameters.lotMapping.find(
-			(lm) => lm.lot === exerciseDetails?.lot,
-		)?.bests || [];
+		coreDetails.exerciseParameters.lotMapping.find((lm) => lm.lot === exerciseDetails?.lot)
+			?.bests || [];
 	const images = useExerciseImages(exerciseDetails);
 
 	const bodyPartsData: ExtendedBodyPart[] =
@@ -226,32 +214,20 @@ export default function Page() {
 						defaultValue={loaderData.query.defaultTab || "overview"}
 					>
 						<Tabs.List mb="xs">
-							<Tabs.Tab
-								value="overview"
-								leftSection={<IconInfoCircle size={16} />}
-							>
+							<Tabs.Tab value="overview" leftSection={<IconInfoCircle size={16} />}>
 								Overview
 							</Tabs.Tab>
 							{exerciseNumTimesInteracted > 0 ? (
-								<Tabs.Tab
-									value="history"
-									leftSection={<IconHistoryToggle size={16} />}
-								>
+								<Tabs.Tab value="history" leftSection={<IconHistoryToggle size={16} />}>
 									History
 								</Tabs.Tab>
 							) : null}
 							{exerciseNumTimesInteracted > 0 ? (
 								<>
-									<Tabs.Tab
-										value="records"
-										leftSection={<IconTrophy size={16} />}
-									>
+									<Tabs.Tab value="records" leftSection={<IconTrophy size={16} />}>
 										Records
 									</Tabs.Tab>
-									<Tabs.Tab
-										value="charts"
-										leftSection={<IconChartPie size={16} />}
-									>
+									<Tabs.Tab value="charts" leftSection={<IconChartPie size={16} />}>
 										Charts
 									</Tabs.Tab>
 								</>
@@ -260,10 +236,7 @@ export default function Page() {
 								Actions
 							</Tabs.Tab>
 							{!userPreferences.general.disableReviews ? (
-								<Tabs.Tab
-									value="reviews"
-									leftSection={<IconMessageCircle2 size={16} />}
-								>
+								<Tabs.Tab value="reviews" leftSection={<IconMessageCircle2 size={16} />}>
 									Reviews
 								</Tabs.Tab>
 							) : null}
@@ -278,20 +251,15 @@ export default function Page() {
 									</Flex>
 								</ScrollArea>
 								<SimpleGrid py="xs" cols={4}>
-									{(["level", "force", "mechanic", "equipment"] as const).map(
-										(f) => (
-											<Fragment key={f}>
-												{exerciseDetails[f] ? (
-													<DisplayData name={f} data={exerciseDetails[f]} />
-												) : null}
-											</Fragment>
-										),
-									)}
+									{(["level", "force", "mechanic", "equipment"] as const).map((f) => (
+										<Fragment key={f}>
+											{exerciseDetails[f] ? (
+												<DisplayData name={f} data={exerciseDetails[f]} />
+											) : null}
+										</Fragment>
+									))}
 									{exerciseDetails.lot ? (
-										<DisplayData
-											name="Type"
-											data={changeCase(exerciseDetails.lot)}
-										/>
+										<DisplayData name="Type" data={changeCase(exerciseDetails.lot)} />
 									) : null}
 									{exerciseNumTimesInteracted > 0 ? (
 										<DisplayData
@@ -306,18 +274,14 @@ export default function Page() {
 												<DisplayData
 													noCasing
 													name="First done on"
-													data={dayjsLib(
-														userExerciseDetails.details.createdOn,
-													).format("ll")}
+													data={dayjsLib(userExerciseDetails.details.createdOn).format("ll")}
 												/>
 											) : null}
 											{userExerciseDetails.details?.lastUpdatedOn ? (
 												<DisplayData
 													noCasing
 													name="Last done on"
-													data={dayjsLib(
-														userExerciseDetails.details.lastUpdatedOn,
-													).format("ll")}
+													data={dayjsLib(userExerciseDetails.details.lastUpdatedOn).format("ll")}
 												/>
 											) : null}
 										</>
@@ -331,9 +295,7 @@ export default function Page() {
 												Muscles
 											</Anchor>
 											<Text fz="sm">
-												{exerciseDetails.muscles
-													.map((s) => startCase(s.toLowerCase()))
-													.join(", ")}
+												{exerciseDetails.muscles.map((s) => startCase(s.toLowerCase())).join(", ")}
 											</Text>
 										</Group>
 									</>
@@ -384,16 +346,16 @@ export default function Page() {
 													stat="weight"
 													val={displayWeightWithUnit(
 														unitSystem,
-														userExerciseDetails.details.exerciseExtraInformation
-															.lifetimeStats.weight,
+														userExerciseDetails.details.exerciseExtraInformation.lifetimeStats
+															.weight,
 													)}
 												/>
 												<DisplayLifetimeStatistic
 													stat="distance"
 													val={displayDistanceWithUnit(
 														unitSystem,
-														userExerciseDetails.details.exerciseExtraInformation
-															.lifetimeStats.distance,
+														userExerciseDetails.details.exerciseExtraInformation.lifetimeStats
+															.distance,
 													)}
 												/>
 												<DisplayLifetimeStatistic
@@ -403,8 +365,7 @@ export default function Page() {
 												<DisplayLifetimeStatistic
 													stat="reps"
 													val={
-														userExerciseDetails.details.exerciseExtraInformation
-															.lifetimeStats.reps
+														userExerciseDetails.details.exerciseExtraInformation.lifetimeStats.reps
 													}
 												/>
 												<DisplayLifetimeStatistic
@@ -413,8 +374,8 @@ export default function Page() {
 												/>
 											</Box>
 										</Stack>
-										{userExerciseDetails.details.exerciseExtraInformation
-											.personalBests.length > 0 ? (
+										{userExerciseDetails.details.exerciseExtraInformation.personalBests.length >
+										0 ? (
 											<Stack gap="sm">
 												<Text size="lg" td="underline">
 													Personal Bests
@@ -458,22 +419,10 @@ export default function Page() {
 													.with(WorkoutSetPersonalBest.OneRm, () => stat?.oneRm)
 													.with(WorkoutSetPersonalBest.Pace, () => stat?.pace)
 													.with(WorkoutSetPersonalBest.Reps, () => stat?.reps)
-													.with(
-														WorkoutSetPersonalBest.Time,
-														() => stat?.duration,
-													)
-													.with(
-														WorkoutSetPersonalBest.Volume,
-														() => stat?.volume,
-													)
-													.with(
-														WorkoutSetPersonalBest.Weight,
-														() => stat?.weight,
-													)
-													.with(
-														WorkoutSetPersonalBest.Distance,
-														() => stat?.distance,
-													)
+													.with(WorkoutSetPersonalBest.Time, () => stat?.duration)
+													.with(WorkoutSetPersonalBest.Volume, () => stat?.volume)
+													.with(WorkoutSetPersonalBest.Weight, () => stat?.weight)
+													.with(WorkoutSetPersonalBest.Distance, () => stat?.distance)
 													.exhaustive();
 												return {
 													name: dayjsLib(h.workoutEndOn).format("DD/MM/YYYY"),
@@ -493,9 +442,7 @@ export default function Page() {
 															data={data}
 															connectNulls
 															dataKey="name"
-															series={[
-																{ name: "value", label: changeCase(best) },
-															]}
+															series={[{ name: "value", label: changeCase(best) }]}
 														/>
 													</Stack>
 												</Paper>
@@ -508,10 +455,7 @@ export default function Page() {
 						<Tabs.Panel value="actions">
 							<MediaScrollArea>
 								<SimpleGrid cols={{ base: 1, md: 2 }} spacing="lg">
-									<Button
-										variant="outline"
-										onClick={() => openUpdatePreferencesModal()}
-									>
+									<Button variant="outline" onClick={() => openUpdatePreferencesModal()}>
 										Update preferences
 									</Button>
 									<Button

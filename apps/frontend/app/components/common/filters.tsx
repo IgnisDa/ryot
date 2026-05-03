@@ -11,12 +11,7 @@ import {
 	TextInput,
 	Title,
 } from "@mantine/core";
-import {
-	randomId,
-	useDebouncedValue,
-	useDidUpdate,
-	useListState,
-} from "@mantine/hooks";
+import { randomId, useDebouncedValue, useDidUpdate, useListState } from "@mantine/hooks";
 import {
 	GraphqlSortOrder,
 	type MediaCollectionFilter,
@@ -35,11 +30,10 @@ import {
 } from "@tabler/icons-react";
 import { produce } from "immer";
 import { type ReactNode, useState } from "react";
-import {
-	useCoreDetails,
-	useNonHiddenUserCollections,
-} from "~/lib/shared/hooks";
+
+import { useCoreDetails, useNonHiddenUserCollections } from "~/lib/shared/hooks";
 import type { OnboardingTourStepTarget } from "~/lib/state/onboarding-tour";
+
 import { ProRequiredAlert } from ".";
 
 export const FiltersModal = (props: {
@@ -49,12 +43,7 @@ export const FiltersModal = (props: {
 	onSavePreset: () => void;
 	closeFiltersModal: () => void;
 }) => (
-	<Modal
-		centered
-		opened={props.opened}
-		withCloseButton={false}
-		onClose={props.closeFiltersModal}
-	>
+	<Modal centered opened={props.opened} withCloseButton={false} onClose={props.closeFiltersModal}>
 		<Stack>
 			<Group justify="space-between">
 				<Title order={3}>Filters</Title>
@@ -96,9 +85,7 @@ export const CollectionsFilter = (props: {
 	const collections = useNonHiddenUserCollections();
 
 	useDidUpdate(() => {
-		const applicableFilters = coreDetails.isServerKeyValidated
-			? filters
-			: filters.slice(0, 1);
+		const applicableFilters = coreDetails.isServerKeyValidated ? filters : filters.slice(0, 1);
 		props.onFiltersChanged(applicableFilters.map((f) => f.data));
 	}, [filters]);
 
@@ -161,8 +148,7 @@ export const CollectionsFilter = (props: {
 										idx,
 										produce(f, (d) => {
 											d.data.presence =
-												d.data.presence ===
-												MediaCollectionPresenceFilter.PresentIn
+												d.data.presence === MediaCollectionPresenceFilter.PresentIn
 													? MediaCollectionPresenceFilter.NotPresentIn
 													: MediaCollectionPresenceFilter.PresentIn;
 										}),
@@ -190,11 +176,7 @@ export const CollectionsFilter = (props: {
 									)
 								}
 							/>
-							<ActionIcon
-								size="xs"
-								color="red"
-								onClick={() => filtersHandlers.remove(idx)}
-							>
+							<ActionIcon size="xs" color="red" onClick={() => filtersHandlers.remove(idx)}>
 								<IconX />
 							</ActionIcon>
 						</Group>
@@ -258,15 +240,10 @@ export const SortOrderToggle = (props: {
 }) => (
 	<ActionIcon
 		onClick={() => {
-			if (props.currentOrder === GraphqlSortOrder.Asc)
-				props.onOrderChange(GraphqlSortOrder.Desc);
+			if (props.currentOrder === GraphqlSortOrder.Asc) props.onOrderChange(GraphqlSortOrder.Desc);
 			else props.onOrderChange(GraphqlSortOrder.Asc);
 		}}
 	>
-		{props.currentOrder === GraphqlSortOrder.Asc ? (
-			<IconSortAscending />
-		) : (
-			<IconSortDescending />
-		)}
+		{props.currentOrder === GraphqlSortOrder.Asc ? <IconSortAscending /> : <IconSortDescending />}
 	</ActionIcon>
 );

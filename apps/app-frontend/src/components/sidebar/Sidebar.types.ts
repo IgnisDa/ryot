@@ -22,14 +22,7 @@ export type SidebarView = Pick<
 
 export type SidebarTracker = Pick<
 	AppTracker,
-	| "id"
-	| "icon"
-	| "slug"
-	| "name"
-	| "isDisabled"
-	| "sortOrder"
-	| "isBuiltin"
-	| "accentColor"
+	"id" | "icon" | "slug" | "name" | "isDisabled" | "sortOrder" | "isBuiltin" | "accentColor"
 > & {
 	isExpanded?: boolean;
 	views?: SidebarView[];

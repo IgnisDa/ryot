@@ -1,27 +1,15 @@
-import {
-	Badge,
-	Box,
-	Card,
-	Group,
-	Paper,
-	SimpleGrid,
-	Stack,
-	Text,
-} from "@mantine/core";
+import { Badge, Box, Card, Group, Paper, SimpleGrid, Stack, Text } from "@mantine/core";
 import { Link } from "@tanstack/react-router";
 import { Image as ImageIcon } from "lucide-react";
 import { DataTable, type DataTableColumn } from "mantine-datatable";
+
 import type { AppEntity } from "~/features/entities/model";
 import { useThemeTokens } from "~/hooks/theme";
 import type { ApiGetResponseData, ApiPostResponseData } from "~/lib/api/types";
-import {
-	formatRuntimeValue,
-	getRuntimeField,
-	isRuntimeField,
-} from "./view-page-utils";
 
-type ViewLayout =
-	keyof ApiGetResponseData<"/saved-views/{viewSlug}">["displayConfiguration"];
+import { formatRuntimeValue, getRuntimeField, isRuntimeField } from "./view-page-utils";
+
+type ViewLayout = keyof ApiGetResponseData<"/saved-views/{viewSlug}">["displayConfiguration"];
 type SavedViewDisplayConfiguration =
 	ApiGetResponseData<"/saved-views/{viewSlug}">["displayConfiguration"];
 type QueryEngineMeta = Extract<
@@ -73,11 +61,7 @@ function EntityThumbnail(props: {
 					{props.label}
 				</Text>
 			) : (
-				<ImageIcon
-					color={textMuted}
-					strokeWidth={1.5}
-					size={props.iconSize ?? 24}
-				/>
+				<ImageIcon color={textMuted} strokeWidth={1.5} size={props.iconSize ?? 24} />
 			)}
 		</Box>
 	);
@@ -103,10 +87,7 @@ export function SavedViewResults(props: {
 					const callout = getRuntimeField(item, "callout");
 					const primarySubtitle = getRuntimeField(item, "primarySubtitle");
 					const secondarySubtitle = getRuntimeField(item, "secondarySubtitle");
-					const entitySchemaSlugField = getRuntimeField(
-						item,
-						"entitySchemaSlug",
-					);
+					const entitySchemaSlugField = getRuntimeField(item, "entitySchemaSlug");
 
 					return (
 						<Link
@@ -115,12 +96,7 @@ export function SavedViewResults(props: {
 							params={{ entityId: item.id }}
 							style={{ color: "inherit", textDecoration: "none" }}
 						>
-							<Card
-								p={0}
-								radius="sm"
-								pos="relative"
-								style={{ overflow: "hidden" }}
-							>
+							<Card p={0} radius="sm" pos="relative" style={{ overflow: "hidden" }}>
 								<EntityThumbnail
 									height={300}
 									width="100%"
@@ -167,14 +143,12 @@ export function SavedViewResults(props: {
 									}}
 								>
 									<Stack gap={2}>
-										{isRuntimeField(primarySubtitle) &&
-										primarySubtitle.kind !== "null" ? (
+										{isRuntimeField(primarySubtitle) && primarySubtitle.kind !== "null" ? (
 											<Text size="xs" c="gray.4">
 												{formatRuntimeValue(primarySubtitle.value)}
 											</Text>
 										) : null}
-										{isRuntimeField(secondarySubtitle) &&
-										secondarySubtitle.kind !== "null" ? (
+										{isRuntimeField(secondarySubtitle) && secondarySubtitle.kind !== "null" ? (
 											<Text size="xs" c="gray.5">
 												{formatRuntimeValue(secondarySubtitle.value)}
 											</Text>
@@ -186,9 +160,7 @@ export function SavedViewResults(props: {
 											lineClamp={2}
 											ff="var(--mantine-headings-font-family)"
 										>
-											{isRuntimeField(title)
-												? formatRuntimeValue(title.value)
-												: item.name}
+											{isRuntimeField(title) ? formatRuntimeValue(title.value) : item.name}
 										</Text>
 									</Stack>
 								</Box>
@@ -209,10 +181,7 @@ export function SavedViewResults(props: {
 					const callout = getRuntimeField(item, "callout");
 					const primarySubtitle = getRuntimeField(item, "primarySubtitle");
 					const secondarySubtitle = getRuntimeField(item, "secondarySubtitle");
-					const entitySchemaSlugField = getRuntimeField(
-						item,
-						"entitySchemaSlug",
-					);
+					const entitySchemaSlugField = getRuntimeField(item, "entitySchemaSlug");
 
 					return (
 						<Link
@@ -223,11 +192,7 @@ export function SavedViewResults(props: {
 						>
 							<Paper p="md" withBorder radius="sm">
 								<Group justify="space-between" align="flex-start" wrap="nowrap">
-									<Group
-										gap="md"
-										wrap="nowrap"
-										style={{ flex: 1, minWidth: 0 }}
-									>
+									<Group gap="md" wrap="nowrap" style={{ flex: 1, minWidth: 0 }}>
 										<EntityThumbnail
 											width={60}
 											height={84}
@@ -246,18 +211,14 @@ export function SavedViewResults(props: {
 												c={textPrimary}
 												ff="var(--mantine-headings-font-family)"
 											>
-												{isRuntimeField(title)
-													? formatRuntimeValue(title.value)
-													: item.name}
+												{isRuntimeField(title) ? formatRuntimeValue(title.value) : item.name}
 											</Text>
-											{isRuntimeField(primarySubtitle) &&
-											primarySubtitle.kind !== "null" ? (
+											{isRuntimeField(primarySubtitle) && primarySubtitle.kind !== "null" ? (
 												<Text size="sm" c={textSecondary}>
 													{formatRuntimeValue(primarySubtitle.value)}
 												</Text>
 											) : null}
-											{isRuntimeField(secondarySubtitle) &&
-											secondarySubtitle.kind !== "null" ? (
+											{isRuntimeField(secondarySubtitle) && secondarySubtitle.kind !== "null" ? (
 												<Text size="xs" c="dimmed">
 													{formatRuntimeValue(secondarySubtitle.value)}
 												</Text>
@@ -270,12 +231,7 @@ export function SavedViewResults(props: {
 										</Stack>
 									</Group>
 									{isRuntimeField(callout) && callout.kind !== "null" ? (
-										<Badge
-											c="white"
-											size="lg"
-											variant="filled"
-											bg={props.accentColor}
-										>
+										<Badge c="white" size="lg" variant="filled" bg={props.accentColor}>
 											{formatRuntimeValue(callout.value)}
 										</Badge>
 									) : null}
@@ -288,64 +244,61 @@ export function SavedViewResults(props: {
 		);
 	}
 
-	const tableColumns = props.displayConfiguration.table.columns.map(
-		(column, index) => ({ key: `column_${index}`, label: column.label }),
-	);
+	const tableColumns = props.displayConfiguration.table.columns.map((column, index) => ({
+		key: `column_${index}`,
+		label: column.label,
+	}));
 	const linkColumnKey = tableColumns.find((column) =>
-		props.items.some(
-			(item) => getRuntimeField(item, column.key)?.kind === "text",
-		),
+		props.items.some((item) => getRuntimeField(item, column.key)?.kind === "text"),
 	)?.key;
 
-	const dataColumns: DataTableColumn<AppEntity>[] = tableColumns.map(
-		(column) => ({
-			title: column.label,
-			accessor: column.key,
-			titleStyle: {
-				fontWeight: 600,
-				fontSize: "12px",
-				letterSpacing: "0.5px",
-				color: props.accentColor,
-				textTransform: "uppercase",
-				fontFamily: "var(--mantine-headings-font-family)",
-			},
-			render: (item) => {
-				const field = getRuntimeField(item, column.key);
+	const dataColumns: DataTableColumn<AppEntity>[] = tableColumns.map((column) => ({
+		title: column.label,
+		accessor: column.key,
+		titleStyle: {
+			fontWeight: 600,
+			fontSize: "12px",
+			letterSpacing: "0.5px",
+			color: props.accentColor,
+			textTransform: "uppercase",
+			fontFamily: "var(--mantine-headings-font-family)",
+		},
+		render: (item) => {
+			const field = getRuntimeField(item, column.key);
 
-				if (field?.kind === "image") {
-					return (
-						<EntityThumbnail
-							width={40}
-							height={54}
-							iconSize={16}
-							radius="var(--mantine-radius-xs)"
-							imageUrl={props.imageUrlById.get(`${item.id}:${field.key}`)}
-						/>
-					);
-				}
-
-				if (column.key === linkColumnKey && field?.kind === "text") {
-					return (
-						<Link
-							to="/entities/$entityId"
-							params={{ entityId: item.id }}
-							style={{ color: props.accentColor, textDecoration: "none" }}
-						>
-							<Text size="sm" fw={500} ff="var(--mantine-headings-font-family)">
-								{formatRuntimeValue(field?.value)}
-							</Text>
-						</Link>
-					);
-				}
-
+			if (field?.kind === "image") {
 				return (
-					<Text size="sm" c={textSecondary}>
-						{formatRuntimeValue(field?.value)}
-					</Text>
+					<EntityThumbnail
+						width={40}
+						height={54}
+						iconSize={16}
+						radius="var(--mantine-radius-xs)"
+						imageUrl={props.imageUrlById.get(`${item.id}:${field.key}`)}
+					/>
 				);
-			},
-		}),
-	);
+			}
+
+			if (column.key === linkColumnKey && field?.kind === "text") {
+				return (
+					<Link
+						to="/entities/$entityId"
+						params={{ entityId: item.id }}
+						style={{ color: props.accentColor, textDecoration: "none" }}
+					>
+						<Text size="sm" fw={500} ff="var(--mantine-headings-font-family)">
+							{formatRuntimeValue(field?.value)}
+						</Text>
+					</Link>
+				);
+			}
+
+			return (
+				<Text size="sm" c={textSecondary}>
+					{formatRuntimeValue(field?.value)}
+				</Text>
+			);
+		},
+	}));
 
 	return (
 		<DataTable

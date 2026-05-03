@@ -1,4 +1,5 @@
 import { Link, Text } from "@react-email/components";
+
 import Layout from "../layout";
 
 const applicationLink = "https://app.ryot.io";
@@ -28,27 +29,24 @@ const PurchaseCompleteEmail = (props: PurchaseCompleteEmailProps) =>
 			<Text>
 				You have successfully purchased a {props.planType} plan for Ryot Pro (
 				{props.details.__typename}).{" "}
-				{props.renewOn
-					? `Your subscription will renew on ${props.renewOn}.`
-					: null}
+				{props.renewOn ? `Your subscription will renew on ${props.renewOn}.` : null}
 			</Text>
 			<Text>
 				{props.details.__typename === "self_hosted" ? (
 					<>
 						Your Pro Key is <strong>{props.details.key}</strong>. Please follow{" "}
-						<Link href="https://docs.ryot.io#upgrading-to-pro">these</Link>{" "}
-						instructions to install/upgrade Ryot with your key.
+						<Link href="https://docs.ryot.io#upgrading-to-pro">these</Link> instructions to
+						install/upgrade Ryot with your key.
 					</>
 				) : (
 					<>
-						Your account has been created on{" "}
-						<Link href={applicationLink}>{applicationLink}</Link> with{" "}
+						Your account has been created on <Link href={applicationLink}>{applicationLink}</Link>{" "}
+						with{" "}
 						{props.details.auth.provider === "google" ? (
 							`Google using the email ${props.details.auth.email}. Please login to get started`
 						) : (
 							<>
-								the username <strong>{props.details.auth.username}</strong>.
-								Please{" "}
+								the username <strong>{props.details.auth.username}</strong>. Please{" "}
 								<Link href={props.details.auth.passwordChangeUrl}>
 									click here to set your password
 								</Link>{" "}
