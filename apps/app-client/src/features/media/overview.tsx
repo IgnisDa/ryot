@@ -204,43 +204,45 @@ export function MediaTrackerOverview() {
 				showsVerticalScrollIndicator={false}
 				contentContainerStyle={{ paddingBottom: insets.bottom + 96 }}
 			>
-				{/* Page header */}
-				<Box className="px-[28]" style={{ paddingTop: insets.top + 16 }}>
-					{!isTablet && (
-						<Box className="flex-row justify-end">
-							<Pressable
-								className="-mr-1 p-1"
-								accessibilityLabel="Open navigation"
-								accessibilityRole="button"
-								onPress={() => setNavSheetOpen(true)}
-							>
-								<Menu color="#78716c" size={20} strokeWidth={1.5} />
-							</Pressable>
+				<Box className="w-full web:mx-auto web:max-w-[860px]">
+					{/* Page header */}
+					<Box className="px-[28]" style={{ paddingTop: insets.top + 16 }}>
+						{!isTablet && (
+							<Box className="flex-row justify-end">
+								<Pressable
+									className="-mr-1 p-1"
+									accessibilityLabel="Open navigation"
+									accessibilityRole="button"
+									onPress={() => setNavSheetOpen(true)}
+								>
+									<Menu color="#78716c" size={20} strokeWidth={1.5} />
+								</Pressable>
+							</Box>
+						)}
+						<Text className="mt-2 text-[10px] font-sans uppercase tracking-[2px] text-muted-foreground">
+							Media
+						</Text>
+						<Text className="mt-0.5 text-[38px] font-heading-semibold leading-[40px] tracking-[-0.5px] text-foreground">
+							Overview
+						</Text>
+						<Box className="mt-4 flex-row flex-wrap gap-2">
+							<StatPill color={SECTION_ACCENTS.continue} label="3 in progress" />
+							<StatPill color={SECTION_ACCENTS.upNext} label="8 queued" />
+							<StatPill color={SECTION_ACCENTS.rateThese} label="2 to rate" />
 						</Box>
-					)}
-					<Text className="mt-2 text-[10px] font-sans uppercase tracking-[2px] text-muted-foreground">
-						Media
-					</Text>
-					<Text className="mt-0.5 text-[38px] font-heading-semibold leading-[40px] tracking-[-0.5px] text-foreground">
-						Overview
-					</Text>
-					<Box className="mt-4 flex-row flex-wrap gap-2">
-						<StatPill color={SECTION_ACCENTS.continue} label="3 in progress" />
-						<StatPill color={SECTION_ACCENTS.upNext} label="8 queued" />
-						<StatPill color={SECTION_ACCENTS.rateThese} label="2 to rate" />
 					</Box>
-				</Box>
 
-				{/* Story rings — scrolls edge-to-edge with its own padding */}
-				<Box className="mt-6">
-					<StoryRingRow items={FAKE_CONTINUE} />
-				</Box>
+					{/* Story rings — scrolls edge-to-edge with its own padding */}
+					<Box className="mt-6">
+						<StoryRingRow items={FAKE_CONTINUE} />
+					</Box>
 
-				{/* Feed sections */}
-				<Box className="px-[28]">
-					<UpNextSection items={FAKE_UP_NEXT} />
-					<RateTheseSection items={FAKE_RATE_THESE} />
-					<ActivitySection items={FAKE_ACTIVITY} />
+					{/* Feed sections */}
+					<Box className="px-[28]">
+						<UpNextSection items={FAKE_UP_NEXT} />
+						<RateTheseSection items={FAKE_RATE_THESE} />
+						<ActivitySection items={FAKE_ACTIVITY} />
+					</Box>
 				</Box>
 			</ScrollView>
 
