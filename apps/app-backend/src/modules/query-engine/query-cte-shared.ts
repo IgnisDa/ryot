@@ -21,6 +21,24 @@ export type PaginationConfig = {
 	joinedTableName: string;
 };
 
+export const ENTITY_CTE_ALIASES = {
+	base: "base_entities",
+	count: "entity_count",
+	joined: "joined_entities",
+	sorted: "sorted_entities",
+	filtered: "filtered_entities",
+	paginated: "paginated_entities",
+} as const;
+
+export const EVENT_CTE_ALIASES = {
+	base: "base_events",
+	count: "event_count",
+	joined: "joined_events",
+	sorted: "sorted_events",
+	filtered: "filtered_events",
+	paginated: "paginated_events",
+} as const;
+
 export const EVENT_FIRST_ENTITY_COLUMN_OVERRIDES: EntityColumnOverrides = {
 	id: "entity_id",
 	properties: "entity_properties",
