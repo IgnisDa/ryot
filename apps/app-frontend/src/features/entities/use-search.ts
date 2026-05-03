@@ -300,6 +300,7 @@ export function useEntitySearch(props: { entitySchema: AppEntitySchema }) {
 		const schemaSlug = props.entitySchema.slug;
 		const base = createEntityRuntimeRequest(schemaSlug);
 		return {
+			mode: base.mode,
 			fields: base.fields,
 			eventJoins: [],
 			computedFields: [],
@@ -356,7 +357,8 @@ export function useEntitySearch(props: { entitySchema: AppEntitySchema }) {
 	);
 
 	const trackedExternalIds = useMemo(() => {
-		const items = trackedEntitiesQuery.data?.data.items ?? [];
+		const payload = trackedEntitiesQuery.data?.data;
+		const items = payload?.mode === "entities" ? payload.data.items : [];
 		return new Set(
 			items
 				.map(

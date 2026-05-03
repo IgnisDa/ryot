@@ -5,6 +5,10 @@ import {
 	QueryEngineNotFoundError,
 	QueryEngineValidationError,
 } from "~/lib/views/errors";
+import type {
+	QueryEngineResponse,
+	ResolvedDisplayValue,
+} from "~/modules/query-engine";
 import {
 	getContinueItems,
 	getLibraryStats,
@@ -45,15 +49,18 @@ const makeSectionItem = (opts: {
 ];
 
 const makeSectionResult = <T>(items: T[], opts: { limit?: number } = {}) => ({
-	items,
-	meta: {
-		pagination: {
-			page: 1,
-			hasNextPage: false,
-			total: items.length,
-			hasPreviousPage: false,
-			limit: opts.limit ?? items.length,
-			totalPages: items.length > 0 ? 1 : 0,
+	mode: "entities" as const,
+	data: {
+		items,
+		meta: {
+			pagination: {
+				page: 1,
+				hasNextPage: false,
+				total: items.length,
+				hasPreviousPage: false,
+				limit: opts.limit ?? items.length,
+				totalPages: items.length > 0 ? 1 : 0,
+			},
 		},
 	},
 });
@@ -62,7 +69,7 @@ describe("getContinueItems", () => {
 	it("returns continue items with progress", async () => {
 		const result = expectDataResult(
 			await getContinueItems("user_1", {
-				executeSectionQuery: async () =>
+				executeQuery: async () =>
 					makeSectionResult(
 						[
 							makeSectionItem({
@@ -96,7 +103,7 @@ describe("getContinueItems", () => {
 	it("returns audiobook continue item with runtime-based progress label and Log Progress cta", async () => {
 		const result = expectDataResult(
 			await getContinueItems("user_1", {
-				executeSectionQuery: async () =>
+				executeQuery: async () =>
 					makeSectionResult(
 						[
 							makeSectionItem({
@@ -131,7 +138,7 @@ describe("getContinueItems", () => {
 	it("returns podcast continue item with episode-based progress label and Log Progress cta", async () => {
 		const result = expectDataResult(
 			await getContinueItems("user_1", {
-				executeSectionQuery: async () =>
+				executeQuery: async () =>
 					makeSectionResult(
 						[
 							makeSectionItem({
@@ -166,7 +173,7 @@ describe("getContinueItems", () => {
 	it("returns comic-book continue item with page-based progress label and Log Progress cta", async () => {
 		const result = expectDataResult(
 			await getContinueItems("user_1", {
-				executeSectionQuery: async () =>
+				executeQuery: async () =>
 					makeSectionResult(
 						[
 							makeSectionItem({
@@ -201,7 +208,7 @@ describe("getContinueItems", () => {
 	it("filters items requiring progressAt", async () => {
 		const result = expectDataResult(
 			await getContinueItems("user_1", {
-				executeSectionQuery: async () =>
+				executeQuery: async () =>
 					makeSectionResult(
 						[
 							makeSectionItem({
@@ -233,7 +240,7 @@ describe("getContinueItems", () => {
 
 	it("maps QueryEngineNotFoundError to not_found error", async () => {
 		const result = await getContinueItems("user_1", {
-			executeSectionQuery: async () => {
+			executeQuery: async () => {
 				throw new QueryEngineNotFoundError("Schema missing");
 			},
 		});
@@ -246,7 +253,7 @@ describe("getContinueItems", () => {
 
 	it("maps QueryEngineValidationError to validation error", async () => {
 		const result = await getContinueItems("user_1", {
-			executeSectionQuery: async () => {
+			executeQuery: async () => {
 				throw new QueryEngineValidationError("Invalid config");
 			},
 		});
@@ -260,7 +267,7 @@ describe("getContinueItems", () => {
 	it("re-throws unexpected errors", async () => {
 		expect(
 			getContinueItems("user_1", {
-				executeSectionQuery: async () => {
+				executeQuery: async () => {
 					throw new Error("Unexpected error");
 				},
 			}),
@@ -271,8 +278,10 @@ describe("getContinueItems", () => {
 		let capturedLimit: number | undefined;
 
 		await getContinueItems("user_1", {
-			executeSectionQuery: async (_userId, request) => {
-				capturedLimit = request.pagination.limit;
+			executeQuery: async (_userId, request) => {
+				if (request.mode === "entities") {
+					capturedLimit = request.pagination.limit;
+				}
 				return makeSectionResult([], { limit: 10 });
 			},
 		});
@@ -285,7 +294,7 @@ describe("getUpNextItems", () => {
 	it("returns up next items with backlog", async () => {
 		const result = expectDataResult(
 			await getUpNextItems("user_1", {
-				executeSectionQuery: async () =>
+				executeQuery: async () =>
 					makeSectionResult(
 						[
 							makeSectionItem({
@@ -314,7 +323,7 @@ describe("getUpNextItems", () => {
 	it("filters items requiring backlogAt", async () => {
 		const result = expectDataResult(
 			await getUpNextItems("user_1", {
-				executeSectionQuery: async () =>
+				executeQuery: async () =>
 					makeSectionResult(
 						[
 							makeSectionItem({
@@ -344,8 +353,10 @@ describe("getUpNextItems", () => {
 		let capturedFilter: unknown;
 
 		await getUpNextItems("user_1", {
-			executeSectionQuery: async (_userId, request) => {
-				capturedFilter = request.filter;
+			executeQuery: async (_userId, request) => {
+				if (request.mode === "entities") {
+					capturedFilter = request.filter;
+				}
 				return makeSectionResult([], { limit: 10 });
 			},
 		});
@@ -358,7 +369,7 @@ describe("getUpNextItems", () => {
 					expression: {
 						type: "reference",
 						reference: {
-							type: "event",
+							type: "event-join",
 							joinKey: "backlog",
 							path: ["createdAt"],
 						},
@@ -372,7 +383,7 @@ describe("getUpNextItems", () => {
 							expression: {
 								type: "reference",
 								reference: {
-									type: "event",
+									type: "event-join",
 									joinKey: "progress",
 									path: ["createdAt"],
 								},
@@ -384,7 +395,7 @@ describe("getUpNextItems", () => {
 							left: {
 								type: "reference",
 								reference: {
-									type: "event",
+									type: "event-join",
 									joinKey: "backlog",
 									path: ["createdAt"],
 								},
@@ -392,7 +403,7 @@ describe("getUpNextItems", () => {
 							right: {
 								type: "reference",
 								reference: {
-									type: "event",
+									type: "event-join",
 									joinKey: "progress",
 									path: ["createdAt"],
 								},
@@ -408,7 +419,7 @@ describe("getUpNextItems", () => {
 							expression: {
 								type: "reference",
 								reference: {
-									type: "event",
+									type: "event-join",
 									joinKey: "complete",
 									path: ["createdAt"],
 								},
@@ -420,7 +431,7 @@ describe("getUpNextItems", () => {
 							left: {
 								type: "reference",
 								reference: {
-									type: "event",
+									type: "event-join",
 									joinKey: "backlog",
 									path: ["createdAt"],
 								},
@@ -428,7 +439,7 @@ describe("getUpNextItems", () => {
 							right: {
 								type: "reference",
 								reference: {
-									type: "event",
+									type: "event-join",
 									joinKey: "complete",
 									path: ["createdAt"],
 								},
@@ -442,7 +453,7 @@ describe("getUpNextItems", () => {
 
 	it("maps QueryEngineNotFoundError to not_found error", async () => {
 		const result = await getUpNextItems("user_1", {
-			executeSectionQuery: async () => {
+			executeQuery: async () => {
 				throw new QueryEngineNotFoundError("Schema missing");
 			},
 		});
@@ -455,7 +466,7 @@ describe("getUpNextItems", () => {
 
 	it("maps QueryEngineValidationError to validation error", async () => {
 		const result = await getUpNextItems("user_1", {
-			executeSectionQuery: async () => {
+			executeQuery: async () => {
 				throw new QueryEngineValidationError("Invalid config");
 			},
 		});
@@ -470,13 +481,25 @@ describe("getUpNextItems", () => {
 		let capturedLimit: number | undefined;
 
 		await getUpNextItems("user_1", {
-			executeSectionQuery: async (_userId, request) => {
-				capturedLimit = request.pagination.limit;
+			executeQuery: async (_userId, request) => {
+				if (request.mode === "entities") {
+					capturedLimit = request.pagination.limit;
+				}
 				return makeSectionResult([], { limit: 10 });
 			},
 		});
 
 		expect(capturedLimit).toBe(6);
+	});
+
+	it("re-throws unexpected errors", async () => {
+		expect(
+			getUpNextItems("user_1", {
+				executeQuery: async () => {
+					throw new Error("Unexpected error");
+				},
+			}),
+		).rejects.toThrow("Unexpected error");
 	});
 });
 
@@ -484,7 +507,7 @@ describe("getRateTheseItems", () => {
 	it("returns rate these items with complete", async () => {
 		const result = expectDataResult(
 			await getRateTheseItems("user_1", {
-				executeSectionQuery: async () =>
+				executeQuery: async () =>
 					makeSectionResult(
 						[
 							makeSectionItem({
@@ -517,7 +540,7 @@ describe("getRateTheseItems", () => {
 	it("filters items requiring completeAt", async () => {
 		const result = expectDataResult(
 			await getRateTheseItems("user_1", {
-				executeSectionQuery: async () =>
+				executeQuery: async () =>
 					makeSectionResult(
 						[
 							makeSectionItem({
@@ -549,7 +572,7 @@ describe("getRateTheseItems", () => {
 
 	it("maps QueryEngineNotFoundError to not_found error", async () => {
 		const result = await getRateTheseItems("user_1", {
-			executeSectionQuery: async () => {
+			executeQuery: async () => {
 				throw new QueryEngineNotFoundError("Schema missing");
 			},
 		});
@@ -562,7 +585,7 @@ describe("getRateTheseItems", () => {
 
 	it("maps QueryEngineValidationError to validation error", async () => {
 		const result = await getRateTheseItems("user_1", {
-			executeSectionQuery: async () => {
+			executeQuery: async () => {
 				throw new QueryEngineValidationError("Invalid config");
 			},
 		});
@@ -576,7 +599,7 @@ describe("getRateTheseItems", () => {
 	it("re-throws unexpected errors", async () => {
 		expect(
 			getRateTheseItems("user_1", {
-				executeSectionQuery: async () => {
+				executeQuery: async () => {
 					throw new Error("Unexpected error");
 				},
 			}),
@@ -587,8 +610,10 @@ describe("getRateTheseItems", () => {
 		let capturedLimit: number | undefined;
 
 		await getRateTheseItems("user_1", {
-			executeSectionQuery: async (_userId, request) => {
-				capturedLimit = request.pagination.limit;
+			executeQuery: async (_userId, request) => {
+				if (request.mode === "entities") {
+					capturedLimit = request.pagination.limit;
+				}
 				return makeSectionResult([], { limit: 10 });
 			},
 		});
@@ -597,40 +622,84 @@ describe("getRateTheseItems", () => {
 	});
 });
 
+const makeEventsResult = (
+	items: Array<Array<ResolvedDisplayValue & { key: string }>>,
+	opts: { limit?: number } = {},
+): QueryEngineResponse => ({
+	mode: "events" as const,
+	data: {
+		items,
+		meta: {
+			pagination: {
+				page: 1,
+				hasNextPage: false,
+				total: items.length,
+				hasPreviousPage: false,
+				limit: opts.limit ?? items.length,
+				totalPages: items.length > 0 ? 1 : 0,
+			},
+		},
+	},
+});
+
+const makeEventsItem = (opts: {
+	eventId: string;
+	entityId: string;
+	entityName: string;
+	eventCreatedAt: Date;
+	entityImage?: unknown;
+	eventSchemaSlug: string;
+	entitySchemaSlug: string;
+	eventRating?: number | null;
+	eventCompletedOn?: Date | null;
+}): Array<ResolvedDisplayValue & { key: string }> => [
+	{ key: "eventId", kind: "text", value: opts.eventId },
+	{ key: "entityId", kind: "text", value: opts.entityId },
+	{ key: "entityName", kind: "text", value: opts.entityName },
+	{
+		key: "entityImage",
+		kind: (opts.entityImage ? "image" : "null") as "image" | "null",
+		value: opts.entityImage ?? null,
+	},
+	{ key: "entitySchemaSlug", kind: "text", value: opts.entitySchemaSlug },
+	{ key: "eventSchemaSlug", kind: "text", value: opts.eventSchemaSlug },
+	{ key: "eventCreatedAt", kind: "date", value: opts.eventCreatedAt },
+	{
+		key: "eventCompletedOn",
+		kind: (opts.eventCompletedOn ? "date" : "null") as "date" | "null",
+		value: opts.eventCompletedOn ?? null,
+	},
+	{
+		key: "eventRating",
+		kind: (opts.eventRating != null ? "number" : "null") as "number" | "null",
+		value: opts.eventRating ?? null,
+	},
+];
+
 describe("getRecentActivityItems", () => {
-	it("returns recent activity items in reverse chronological order", async () => {
+	it("returns recent activity items mapped from events mode response", async () => {
 		const result = expectDataResult(
 			await getRecentActivityItems("user_1", {
-				listWeekActivityEventsForUser: async () => [],
-				executeSectionQuery: async () => {
-					throw new Error("Should not execute section query");
-				},
-				listRecentActivityEventsForUser: async () => [
-					{
-						rating: null,
-						id: "event-1",
-						entityId: "entity-1",
-						eventSchemaSlug: "progress",
-						occurredAt: date("2024-03-20T12:00:00Z"),
-						entity: {
-							image: null,
-							name: "Test Book",
+				executeQuery: async () =>
+					makeEventsResult([
+						makeEventsItem({
+							eventId: "event-1",
+							entityId: "entity-1",
+							entityName: "Test Book",
 							entitySchemaSlug: "book",
-						},
-					},
-					{
-						rating: 5,
-						id: "event-2",
-						entityId: "entity-2",
-						eventSchemaSlug: "review",
-						occurredAt: date("2024-03-21T12:00:00Z"),
-						entity: {
-							image: null,
-							name: "Test Manga",
+							eventSchemaSlug: "progress",
+							eventCreatedAt: date("2024-03-20T12:00:00Z"),
+						}),
+						makeEventsItem({
+							eventRating: 5,
+							eventId: "event-2",
+							entityId: "entity-2",
+							entityName: "Test Manga",
 							entitySchemaSlug: "manga",
-						},
-					},
-				],
+							eventSchemaSlug: "review",
+							eventCreatedAt: date("2024-03-21T12:00:00Z"),
+						}),
+					]),
 			}),
 		);
 
@@ -643,81 +712,174 @@ describe("getRecentActivityItems", () => {
 		});
 	});
 
-	it("uses an activity limit of 12", async () => {
-		let capturedLimit: number | undefined;
+	it("uses completedOn as occurredAt for complete events", async () => {
+		const completedOn = date("2024-03-15T00:00:00Z");
+		const createdAt = date("2024-03-20T12:00:00Z");
 
-		await getRecentActivityItems("user_1", {
-			executeSectionQuery: async () => {
-				throw new Error("Should not execute section query");
-			},
-			listRecentActivityEventsForUser: async (input) => {
-				capturedLimit = input.limit;
-				return [];
-			},
-			listWeekActivityEventsForUser: async () => [],
-		});
-
-		expect(capturedLimit).toBe(12);
-	});
-
-	it("orders same-timestamp activity by id descending", async () => {
-		const timestamp = date("2024-03-21T12:00:00Z");
 		const result = expectDataResult(
 			await getRecentActivityItems("user_1", {
-				listWeekActivityEventsForUser: async () => [],
-				executeSectionQuery: async () => {
-					throw new Error("Should not execute section query");
-				},
-				listRecentActivityEventsForUser: async () => [
-					{
-						rating: null,
-						id: "event-1",
-						entityId: "entity-1",
-						occurredAt: timestamp,
-						eventSchemaSlug: "review",
-						entity: {
-							image: null,
-							name: "Older Id",
-							entitySchemaSlug: "book",
-						},
-					},
-					{
-						rating: null,
-						id: "event-2",
-						entityId: "entity-2",
-						occurredAt: timestamp,
-						eventSchemaSlug: "review",
-						entity: {
-							image: null,
-							name: "Newer Id",
-							entitySchemaSlug: "manga",
-						},
-					},
-				],
+				executeQuery: async () =>
+					makeEventsResult([
+						makeEventsItem({
+							eventId: "event-1",
+							entityId: "entity-1",
+							entityName: "Test Movie",
+							eventCreatedAt: createdAt,
+							entitySchemaSlug: "movie",
+							eventSchemaSlug: "complete",
+							eventCompletedOn: completedOn,
+						}),
+					]),
 			}),
 		);
 
-		expect(result.items.map((item) => item.id)).toEqual(["event-2", "event-1"]);
+		expect(result.items[0]?.occurredAt).toEqual(completedOn);
+	});
+
+	it("falls back to eventCreatedAt as occurredAt when completedOn is absent for complete events", async () => {
+		const createdAt = date("2024-03-20T12:00:00Z");
+
+		const result = expectDataResult(
+			await getRecentActivityItems("user_1", {
+				executeQuery: async () =>
+					makeEventsResult([
+						makeEventsItem({
+							eventId: "event-1",
+							entityId: "entity-1",
+							entityName: "Test Movie",
+							entitySchemaSlug: "movie",
+							eventCreatedAt: createdAt,
+							eventSchemaSlug: "complete",
+						}),
+					]),
+			}),
+		);
+
+		expect(result.items[0]?.occurredAt).toEqual(createdAt);
+	});
+
+	it("sends events mode request with limit 12", async () => {
+		let capturedRequest: unknown;
+
+		await getRecentActivityItems("user_1", {
+			executeQuery: async (_userId, request) => {
+				capturedRequest = request;
+				return makeEventsResult([]);
+			},
+		});
+
+		expect((capturedRequest as { mode: string }).mode).toBe("events");
+		expect(
+			(capturedRequest as { pagination: { limit: number } }).pagination.limit,
+		).toBe(12);
+	});
+
+	it("maps QueryEngineNotFoundError to not_found error", async () => {
+		const result = await getRecentActivityItems("user_1", {
+			executeQuery: async () => {
+				throw new QueryEngineNotFoundError("Schema missing");
+			},
+		});
+
+		expect(result).toEqual({
+			error: "not_found",
+			message: "Built-in media overview configuration is invalid",
+		});
+	});
+
+	it("maps QueryEngineValidationError to validation error", async () => {
+		const result = await getRecentActivityItems("user_1", {
+			executeQuery: async () => {
+				throw new QueryEngineValidationError("Invalid config");
+			},
+		});
+
+		expect(result).toEqual({
+			error: "validation",
+			message: "Built-in media overview configuration is invalid",
+		});
+	});
+
+	it("drops items with unknown eventSchemaSlug", async () => {
+		const result = expectDataResult(
+			await getRecentActivityItems("user_1", {
+				executeQuery: async () =>
+					makeEventsResult([
+						makeEventsItem({
+							eventId: "event-1",
+							entityId: "entity-1",
+							entityName: "Test Book",
+							entitySchemaSlug: "book",
+							eventSchemaSlug: "unknown-event",
+							eventCreatedAt: date("2024-03-20T12:00:00Z"),
+						}),
+					]),
+			}),
+		);
+
+		expect(result.items).toHaveLength(0);
+	});
+
+	it("drops items with unknown entitySchemaSlug", async () => {
+		const result = expectDataResult(
+			await getRecentActivityItems("user_1", {
+				executeQuery: async () =>
+					makeEventsResult([
+						makeEventsItem({
+							eventId: "event-1",
+							entityId: "entity-1",
+							entityName: "Test Thing",
+							eventSchemaSlug: "review",
+							entitySchemaSlug: "unknown-entity",
+							eventCreatedAt: date("2024-03-20T12:00:00Z"),
+						}),
+					]),
+			}),
+		);
+
+		expect(result.items).toHaveLength(0);
+	});
+
+	it("drops items with null eventCreatedAt", async () => {
+		const item = makeEventsItem({
+			eventId: "event-1",
+			entityId: "entity-1",
+			entityName: "Test Book",
+			entitySchemaSlug: "book",
+			eventSchemaSlug: "progress",
+			eventCreatedAt: date("2024-03-20T12:00:00Z"),
+		});
+		const itemWithNullCreatedAt = item.map((field) =>
+			field.key === "eventCreatedAt"
+				? { key: "eventCreatedAt", kind: "null" as const, value: null }
+				: field,
+		);
+
+		const result = expectDataResult(
+			await getRecentActivityItems("user_1", {
+				executeQuery: async () => makeEventsResult([itemWithNullCreatedAt]),
+			}),
+		);
+
+		expect(result.items).toHaveLength(0);
 	});
 });
 
 describe("getWeekActivity", () => {
-	it("returns seven daily buckets for the current week", async () => {
+	it("returns seven daily buckets from time-series response", async () => {
 		const monday = dayjs.utc().startOf("isoWeek");
-		const tuesday = monday.add(1, "day").hour(12);
-		const friday = monday.add(4, "day").hour(18);
 
 		const result = expectDataResult(
 			await getWeekActivity("user_1", {
-				executeSectionQuery: async () => {
-					throw new Error("Should not execute section query");
-				},
-				listRecentActivityEventsForUser: async () => [],
-				listWeekActivityEventsForUser: async () => [
-					{ occurredAt: tuesday.toDate() },
-					{ occurredAt: tuesday.toDate() },
-					{ occurredAt: friday.toDate() },
-				],
+				executeQuery: async () => ({
+					mode: "timeSeries" as const,
+					data: {
+						buckets: Array.from({ length: 7 }, (_, i) => ({
+							date: monday.add(i, "day").toISOString(),
+							value: i === 1 ? 2 : i === 4 ? 1 : 0,
+						})),
+					},
+				}),
 			}),
 		);
 
@@ -736,255 +898,172 @@ describe("getWeekActivity", () => {
 		]);
 	});
 
-	it("labels week buckets in UTC", async () => {
-		const mondayUtc = dayjs.utc().startOf("isoWeek");
-		const sundayUtc = mondayUtc.add(6, "day").hour(23).minute(59);
+	it("sends time-series mode request for current ISO week with day bucket", async () => {
+		let capturedRequest: unknown;
 
-		const result = expectDataResult(
-			await getWeekActivity("user_1", {
-				listRecentActivityEventsForUser: async () => [],
-				executeSectionQuery: async () => {
-					throw new Error("Should not execute section query");
-				},
-				listWeekActivityEventsForUser: async () => [
-					{ occurredAt: mondayUtc.toDate() },
-					{ occurredAt: sundayUtc.toDate() },
-				],
-			}),
+		await getWeekActivity("user_1", {
+			executeQuery: async (_userId, request) => {
+				capturedRequest = request;
+				return {
+					mode: "timeSeries" as const,
+					data: { buckets: [] },
+				};
+			},
+		});
+
+		expect((capturedRequest as { mode: string }).mode).toBe("timeSeries");
+		expect((capturedRequest as { bucket: string }).bucket).toBe("day");
+		expect((capturedRequest as { metric: { type: string } }).metric.type).toBe(
+			"count",
 		);
+	});
 
-		expect(result.items[0]).toEqual({ count: 1, dayLabel: "Mon" });
-		expect(result.items[6]).toEqual({ count: 1, dayLabel: "Sun" });
+	it("maps QueryEngineNotFoundError to not_found error", async () => {
+		const result = await getWeekActivity("user_1", {
+			executeQuery: async () => {
+				throw new QueryEngineNotFoundError("Schema missing");
+			},
+		});
+
+		expect(result).toEqual({
+			error: "not_found",
+			message: "Built-in media overview configuration is invalid",
+		});
+	});
+
+	it("maps QueryEngineValidationError to validation error", async () => {
+		const result = await getWeekActivity("user_1", {
+			executeQuery: async () => {
+				throw new QueryEngineValidationError("Invalid config");
+			},
+		});
+
+		expect(result).toEqual({
+			error: "validation",
+			message: "Built-in media overview configuration is invalid",
+		});
 	});
 });
 
-const makeLibraryItem = (opts: {
-	id: string;
-	backlogAt?: Date;
-	progressAt?: Date;
-	completeAt?: Date;
-	reviewRating?: number;
-	entitySchemaSlug?: string;
-}) => {
-	const slug = opts.entitySchemaSlug ?? "book";
-	const fields: SectionField[] = [];
-	if (opts.backlogAt) {
-		fields.push({ key: "backlogAt", kind: "date", value: opts.backlogAt });
-	}
-	if (opts.progressAt) {
-		fields.push({ key: "progressAt", kind: "date", value: opts.progressAt });
-	}
-	if (opts.completeAt) {
-		fields.push({ key: "completeAt", kind: "date", value: opts.completeAt });
-	}
-	if (opts.reviewRating !== undefined) {
-		fields.push({
-			kind: "number",
-			key: "reviewRating",
-			value: opts.reviewRating,
-		});
-	}
-	return makeSectionItem({
-		fields,
-		id: opts.id,
-		entitySchemaSlug: slug,
-		name: `Entity ${opts.id}`,
-	});
-};
-
-const libraryQueryResult = (items: ReturnType<typeof makeLibraryItem>[]) =>
-	makeSectionResult(items, { limit: 10000 });
+const makeAggregateResult = (
+	values: Array<ResolvedDisplayValue & { key: string }>,
+): QueryEngineResponse => ({
+	mode: "aggregate" as const,
+	data: { values },
+});
 
 describe("getLibraryStats", () => {
-	it("does not request entity identity fields for stats", async () => {
-		let capturedRequest:
-			| Parameters<
-					NonNullable<
-						Parameters<typeof getLibraryStats>[1]
-					>["executeSectionQuery"]
-			  >[1]
-			| undefined;
-
-		expectDataResult(
-			await getLibraryStats("user_1", {
-				executeSectionQuery: async (_userId, request) => {
-					capturedRequest = request;
-					return libraryQueryResult([makeLibraryItem({ id: "e1" })]);
-				},
-			}),
-		);
-
-		expect(
-			capturedRequest?.fields.some((field) => field.key === "entityId"),
-		).toBe(false);
-		expect(
-			capturedRequest?.fields.some((field) => field.key === "entityName"),
-		).toBe(false);
-		expect(
-			capturedRequest?.fields.some((field) => field.key === "entityImage"),
-		).toBe(false);
-	});
-
-	it("counts total entities", async () => {
+	it("maps aggregate response values to library stats shape", async () => {
 		const result = expectDataResult(
 			await getLibraryStats("user_1", {
-				executeSectionQuery: async () =>
-					libraryQueryResult([
-						makeLibraryItem({ id: "e1" }),
-						makeLibraryItem({ id: "e2" }),
-						makeLibraryItem({ id: "e3" }),
+				executeQuery: async () =>
+					makeAggregateResult([
+						{ key: "total", kind: "number", value: 10 },
+						{ key: "inBacklog", kind: "number", value: 2 },
+						{ key: "inProgress", kind: "number", value: 3 },
+						{ key: "completed", kind: "number", value: 4 },
+						{ key: "avgRating", kind: "number", value: 7.5 },
+						{
+							kind: "json",
+							key: "bySchema",
+							value: { book: 5, anime: 3, movie: 2 },
+						},
 					]),
 			}),
 		);
 
-		expect(result.total).toBe(3);
+		expect(result.total).toBe(10);
+		expect(result.inBacklog).toBe(2);
+		expect(result.inProgress).toBe(3);
+		expect(result.completed).toBe(4);
+		expect(result.avgRating).toBe(7.5);
+		expect(result.entityTypeCounts).toMatchObject({
+			book: 5,
+			anime: 3,
+			movie: 2,
+		});
 	});
 
-	it("counts inBacklog items — backlog only, no progress, no complete", async () => {
+	it("returns null avgRating when aggregate value is null (empty set)", async () => {
 		const result = expectDataResult(
 			await getLibraryStats("user_1", {
-				executeSectionQuery: async () =>
-					libraryQueryResult([
-						makeLibraryItem({ id: "e1", backlogAt: date("2024-01-01") }),
-						makeLibraryItem({ id: "e2" }),
+				executeQuery: async () =>
+					makeAggregateResult([
+						{ key: "total", kind: "number", value: 0 },
+						{ key: "inBacklog", kind: "number", value: 0 },
+						{ key: "inProgress", kind: "number", value: 0 },
+						{ key: "completed", kind: "number", value: 0 },
+						{ key: "avgRating", kind: "null", value: null },
+						{ key: "bySchema", kind: "json", value: {} },
 					]),
-			}),
-		);
-
-		expect(result.inBacklog).toBe(1);
-	});
-
-	it("does not count inBacklog when item is also completed (backlog → complete shortcut)", async () => {
-		const result = expectDataResult(
-			await getLibraryStats("user_1", {
-				executeSectionQuery: async () =>
-					libraryQueryResult([
-						makeLibraryItem({
-							id: "e1",
-							backlogAt: date("2024-01-01"),
-							completeAt: date("2024-01-10"),
-						}),
-					]),
-			}),
-		);
-
-		expect(result.inBacklog).toBe(0);
-		expect(result.completed).toBe(1);
-	});
-
-	it("counts inProgress items — progress with no complete", async () => {
-		const result = expectDataResult(
-			await getLibraryStats("user_1", {
-				executeSectionQuery: async () =>
-					libraryQueryResult([
-						makeLibraryItem({ id: "e1", progressAt: date("2024-01-05") }),
-					]),
-			}),
-		);
-
-		expect(result.inProgress).toBe(1);
-	});
-
-	it("counts inProgress when progress is more recent than complete", async () => {
-		const result = expectDataResult(
-			await getLibraryStats("user_1", {
-				executeSectionQuery: async () =>
-					libraryQueryResult([
-						makeLibraryItem({
-							id: "e1",
-							progressAt: date("2024-01-10"),
-							completeAt: date("2024-01-05"),
-						}),
-					]),
-			}),
-		);
-
-		expect(result.inProgress).toBe(1);
-		expect(result.completed).toBe(0);
-	});
-
-	it("counts completed items — complete with no progress", async () => {
-		const result = expectDataResult(
-			await getLibraryStats("user_1", {
-				executeSectionQuery: async () =>
-					libraryQueryResult([
-						makeLibraryItem({ id: "e1", completeAt: date("2024-01-10") }),
-					]),
-			}),
-		);
-
-		expect(result.completed).toBe(1);
-		expect(result.inProgress).toBe(0);
-	});
-
-	it("counts completed when complete is more recent than progress", async () => {
-		const result = expectDataResult(
-			await getLibraryStats("user_1", {
-				executeSectionQuery: async () =>
-					libraryQueryResult([
-						makeLibraryItem({
-							id: "e1",
-							progressAt: date("2024-01-05"),
-							completeAt: date("2024-01-10"),
-						}),
-					]),
-			}),
-		);
-
-		expect(result.completed).toBe(1);
-		expect(result.inProgress).toBe(0);
-	});
-
-	it("computes avgRating as the mean of all review ratings", async () => {
-		const result = expectDataResult(
-			await getLibraryStats("user_1", {
-				executeSectionQuery: async () =>
-					libraryQueryResult([
-						makeLibraryItem({ id: "e1", reviewRating: 4 }),
-						makeLibraryItem({ id: "e2", reviewRating: 2 }),
-					]),
-			}),
-		);
-
-		expect(result.avgRating).toBe(3);
-	});
-
-	it("returns null avgRating when no entities have reviews", async () => {
-		const result = expectDataResult(
-			await getLibraryStats("user_1", {
-				executeSectionQuery: async () =>
-					libraryQueryResult([makeLibraryItem({ id: "e1" })]),
 			}),
 		);
 
 		expect(result.avgRating).toBeNull();
+		expect(result.total).toBe(0);
 	});
 
-	it("breaks down counts by entity schema slug", async () => {
-		const result = expectDataResult(
-			await getLibraryStats("user_1", {
-				executeSectionQuery: async () =>
-					libraryQueryResult([
-						makeLibraryItem({ id: "e1", entitySchemaSlug: "book" }),
-						makeLibraryItem({ id: "e2", entitySchemaSlug: "book" }),
-						makeLibraryItem({ id: "e3", entitySchemaSlug: "anime" }),
-						makeLibraryItem({ id: "e4", entitySchemaSlug: "audiobook" }),
-						makeLibraryItem({ id: "e5", entitySchemaSlug: "podcast" }),
-					]),
-			}),
-		);
+	it("sends aggregate mode request with correct aggregation keys", async () => {
+		let capturedRequest: unknown;
 
-		expect(result.entityTypeCounts).toEqual({
-			book: 2,
-			anime: 1,
-			podcast: 1,
-			audiobook: 1,
+		await getLibraryStats("user_1", {
+			executeQuery: async (_userId, request) => {
+				capturedRequest = request;
+				return makeAggregateResult([
+					{ key: "total", kind: "number", value: 0 },
+					{ key: "inBacklog", kind: "number", value: 0 },
+					{ key: "inProgress", kind: "number", value: 0 },
+					{ key: "completed", kind: "number", value: 0 },
+					{ key: "avgRating", kind: "null", value: null },
+					{ key: "bySchema", kind: "json", value: {} },
+				]);
+			},
 		});
+
+		const req = capturedRequest as {
+			mode: string;
+			aggregations: Array<{ key: string }>;
+		};
+		expect(req.mode).toBe("aggregate");
+		expect(req.aggregations.map((a) => a.key)).toEqual([
+			"total",
+			"inBacklog",
+			"inProgress",
+			"completed",
+			"avgRating",
+			"bySchema",
+		]);
+	});
+
+	it("uses in-library relationship filter", async () => {
+		let capturedRequest: unknown;
+
+		await getLibraryStats("user_1", {
+			executeQuery: async (_userId, request) => {
+				capturedRequest = request;
+				return makeAggregateResult([
+					{ key: "total", kind: "number", value: 0 },
+					{ key: "inBacklog", kind: "number", value: 0 },
+					{ key: "inProgress", kind: "number", value: 0 },
+					{ key: "completed", kind: "number", value: 0 },
+					{ key: "avgRating", kind: "null", value: null },
+					{ key: "bySchema", kind: "json", value: {} },
+				]);
+			},
+		});
+
+		expect(
+			(
+				capturedRequest as {
+					relationships: Array<{ relationshipSchemaSlug: string }>;
+				}
+			).relationships,
+		).toEqual([{ relationshipSchemaSlug: "in-library" }]);
 	});
 
 	it("maps QueryEngineNotFoundError to not_found error", async () => {
 		const result = await getLibraryStats("user_1", {
-			executeSectionQuery: async () => {
+			executeQuery: async () => {
 				throw new QueryEngineNotFoundError("Schema missing");
 			},
 		});
@@ -997,7 +1076,7 @@ describe("getLibraryStats", () => {
 
 	it("maps QueryEngineValidationError to validation error", async () => {
 		const result = await getLibraryStats("user_1", {
-			executeSectionQuery: async () => {
+			executeQuery: async () => {
 				throw new QueryEngineValidationError("Invalid config");
 			},
 		});
@@ -1011,7 +1090,7 @@ describe("getLibraryStats", () => {
 	it("re-throws unexpected errors", async () => {
 		expect(
 			getLibraryStats("user_1", {
-				executeSectionQuery: async () => {
+				executeQuery: async () => {
 					throw new Error("Unexpected error");
 				},
 			}),

@@ -9,10 +9,16 @@ import type {
 	ApiPostResponseData,
 } from "~/lib/api/types";
 
-type QueryEngineRequest = ApiPostRequestBody<"/query-engine/execute">;
+type QueryEngineRequest = Extract<
+	ApiPostRequestBody<"/query-engine/execute">,
+	{ mode: "entities" }
+>;
 type ApiEntity = ApiGetResponseData<"/entities/{entityId}">;
-type QueryEngineResponse = ApiPostResponseData<"/query-engine/execute">;
-type QueryEngineItem = QueryEngineResponse["items"][number];
+type QueryEngineResponse = Extract<
+	ApiPostResponseData<"/query-engine/execute">,
+	{ mode: "entities" }
+>;
+type QueryEngineItem = QueryEngineResponse["data"]["items"][number];
 type ApiEntityInput = ApiEntity | QueryEngineItem;
 
 export type SearchResultItem = {
@@ -120,6 +126,7 @@ export function createEntityRuntimeRequest(
 	entitySchemaSlug: string,
 ): QueryEngineRequest {
 	return {
+		mode: "entities",
 		fields: createEntityIdentityFields([entitySchemaSlug]),
 		eventJoins: [],
 		computedFields: [],

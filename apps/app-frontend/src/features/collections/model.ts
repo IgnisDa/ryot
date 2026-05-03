@@ -1,10 +1,16 @@
 import { type AppSchema, getQueryEngineField } from "@ryot/ts-utils";
 import { type AppEntityImage, toAppEntity } from "~/features/entities/model";
-import type { AppSavedView } from "~/features/saved-views/model";
+import {
+	type AppEntitySavedView,
+	type AppSavedView,
+	isEntitySavedView,
+} from "~/features/saved-views/model";
 import type { ApiPostResponseData } from "~/lib/api/types";
 
-type ApiQueryEngineCollection =
-	ApiPostResponseData<"/query-engine/execute">["items"][number];
+type ApiQueryEngineCollection = Extract<
+	ApiPostResponseData<"/query-engine/execute">,
+	{ mode: "entities" }
+>["data"]["items"][number];
 
 export type CollectionMembershipPropertiesSchema = AppSchema;
 
@@ -76,13 +82,19 @@ export function getCollectionDiscoveryState(
 
 export function findBuiltinCollectionsView(
 	savedViews: AppSavedView[],
-): AppSavedView | undefined {
-	return savedViews.find(
-		(view) =>
+): AppEntitySavedView | undefined {
+	for (const view of savedViews) {
+		if (
+			isEntitySavedView(view) &&
 			view.isBuiltin &&
 			view.trackerId === null &&
-			view.queryDefinition.scope.includes("collection"),
-	);
+			view.queryDefinition.scope.includes("collection")
+		) {
+			return view;
+		}
+	}
+
+	return undefined;
 }
 
 export type CollectionsDestination =
