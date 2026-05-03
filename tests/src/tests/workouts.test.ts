@@ -146,7 +146,7 @@ describe("Workouts E2E", () => {
 		const { workoutSetEventSchema } = await findWorkoutSetEventSchema(client, cookies);
 		const exerciseId = await waitForSeededExerciseId(client, cookies);
 
-		const createResult = await client.POST("/events", {
+		const createResult = await client.events.create({
 			headers: { Cookie: cookies },
 			body: [
 				{
@@ -165,7 +165,7 @@ describe("Workouts E2E", () => {
 		});
 
 		expect(createResult.response.status).toBe(200);
-		expect(createResult.data?.data.count).toBe(1);
+		expect(createResult.data?.count).toBe(1);
 
 		const events = await waitForSessionEventCount(client, cookies, workoutId, 1);
 		expect(events[0]?.sessionEntityId).toBe(workoutId);
@@ -179,7 +179,7 @@ describe("Workouts E2E", () => {
 		const { workoutSetEventSchema } = await findWorkoutSetEventSchema(client, cookies);
 		const exerciseId = await waitForSeededExerciseId(client, cookies);
 
-		await client.POST("/events", {
+		await client.events.create({
 			headers: { Cookie: cookies },
 			body: [
 				{
@@ -230,7 +230,7 @@ describe("Workouts E2E", () => {
 		const { workoutSetEventSchema } = await findWorkoutSetEventSchema(client, cookies);
 		const exerciseId = await waitForSeededExerciseId(client, cookies);
 
-		await client.POST("/events", {
+		await client.events.create({
 			headers: { Cookie: cookies },
 			body: [
 				{
@@ -268,7 +268,7 @@ describe("Workouts E2E", () => {
 	it("returns 400 when listing events without entityId or sessionEntityId", async () => {
 		const { client, cookies } = await createAuthenticatedClient();
 
-		const result = await client.GET("/events", {
+		const result = await client.events.list({
 			headers: { Cookie: cookies },
 		});
 

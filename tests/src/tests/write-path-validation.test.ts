@@ -27,9 +27,9 @@ describe("Entity write path — propertiesSchema validation", () => {
 			},
 		});
 
-		const { response, error } = await client.POST("/entities", {
+		const { response, error } = await client.entities.create({
 			headers: { Cookie: cookies },
-			body: { image: null, properties: {}, name: "Missing Required", entitySchemaId: schemaId },
+			body: { properties: {}, name: "Missing Required", entitySchemaId: schemaId },
 		});
 
 		expect(response.status).toBe(400);
@@ -52,10 +52,9 @@ describe("Entity write path — propertiesSchema validation", () => {
 			},
 		});
 
-		const { response } = await client.POST("/entities", {
+		const { response } = await client.entities.create({
 			headers: { Cookie: cookies },
 			body: {
-				image: null,
 				name: "Wrong Type",
 				entitySchemaId: schemaId,
 				properties: { count: "not-a-number" },
@@ -74,10 +73,9 @@ describe("Entity write path — propertiesSchema validation", () => {
 			},
 		});
 
-		const { response } = await client.POST("/entities", {
+		const { response } = await client.entities.create({
 			headers: { Cookie: cookies },
 			body: {
-				image: null,
 				name: "Extra Field",
 				entitySchemaId: schemaId,
 				properties: { title: "OK", undeclaredField: "should fail" },
@@ -121,7 +119,7 @@ describe("Event write path — propertiesSchema validation", () => {
 		const { client, cookies } = await createAuthenticatedClient();
 		const { entityId, eventSchemaId } = await createEventTestFixture(client, cookies);
 
-		const { response, error } = await client.POST("/events", {
+		const { response, error } = await client.events.create({
 			headers: { Cookie: cookies },
 			body: [{ entityId, eventSchemaId, properties: {} }],
 		});
@@ -134,7 +132,7 @@ describe("Event write path — propertiesSchema validation", () => {
 		const { client, cookies } = await createAuthenticatedClient();
 		const { entityId, eventSchemaId } = await createEventTestFixture(client, cookies);
 
-		const { response } = await client.POST("/events", {
+		const { response } = await client.events.create({
 			headers: { Cookie: cookies },
 			body: [{ entityId, eventSchemaId, properties: { rating: "not-a-number" } }],
 		});
@@ -146,7 +144,7 @@ describe("Event write path — propertiesSchema validation", () => {
 		const { client, cookies } = await createAuthenticatedClient();
 		const { entityId, eventSchemaId } = await createEventTestFixture(client, cookies);
 
-		const { response } = await client.POST("/events", {
+		const { response } = await client.events.create({
 			headers: { Cookie: cookies },
 			body: [{ entityId, eventSchemaId, properties: { rating: 4, undeclaredField: "bad" } }],
 		});
@@ -158,13 +156,13 @@ describe("Event write path — propertiesSchema validation", () => {
 		const { client, cookies } = await createAuthenticatedClient();
 		const { entityId, eventSchemaId } = await createEventTestFixture(client, cookies);
 
-		const { response, data } = await client.POST("/events", {
+		const { response, data } = await client.events.create({
 			headers: { Cookie: cookies },
 			body: [{ entityId, eventSchemaId, properties: { rating: 5 } }],
 		});
 
 		expect(response.status).toBe(200);
-		expect(data?.data.count).toBe(1);
+		expect(data?.count).toBe(1);
 	});
 });
 
@@ -226,13 +224,13 @@ describe("Collection membership — member-of relationship propertiesSchema vali
 		});
 		const { entityId } = await createTrackerWithSchemaAndEntity(client, cookies);
 
-		const { data, response } = await client.POST("/collections/memberships", {
+		const { data, response } = await client.collections.createMembership({
 			headers: { Cookie: cookies },
 			body: { entityId, collectionId: collection.id, properties: { score: 8 } },
 		});
 
 		expect(response.status).toBe(200);
-		expect(data?.data.memberOf.properties).toMatchObject({ score: 8 });
+		expect(data?.memberOf.properties).toMatchObject({ score: 8 });
 	});
 
 	it("rejects membership add when properties fail the collection's membershipPropertiesSchema", async () => {
@@ -252,7 +250,7 @@ describe("Collection membership — member-of relationship propertiesSchema vali
 		});
 		const { entityId } = await createTrackerWithSchemaAndEntity(client, cookies);
 
-		const { response, error } = await client.POST("/collections/memberships", {
+		const { response, error } = await client.collections.createMembership({
 			headers: { Cookie: cookies },
 			body: { entityId, collectionId: collection.id, properties: { score: 999 } },
 		});
@@ -266,7 +264,7 @@ describe("Collection membership — member-of relationship propertiesSchema vali
 		const collection = await createCollection(client, cookies, { name: "Open Collection" });
 		const { entityId } = await createTrackerWithSchemaAndEntity(client, cookies);
 
-		const { data, response } = await client.POST("/collections/memberships", {
+		const { data, response } = await client.collections.createMembership({
 			headers: { Cookie: cookies },
 			body: {
 				entityId,
@@ -276,6 +274,6 @@ describe("Collection membership — member-of relationship propertiesSchema vali
 		});
 
 		expect(response.status).toBe(200);
-		expect(data?.data.memberOf.properties).toMatchObject({ arbitrary: "any-value", number: 42 });
+		expect(data?.memberOf.properties).toMatchObject({ arbitrary: "any-value", number: 42 });
 	});
 });

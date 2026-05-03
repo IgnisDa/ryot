@@ -1,8 +1,6 @@
 import { FetchHttpClient } from "@effect/platform";
 import { Either, Effect } from "effect";
 
-import { withLegacyBackendClientMethods } from "./backend-client-legacy";
-import type { LegacyBackendClient } from "./backend-client-legacy";
 import { withClient } from "./backend-client-support";
 import type { ContractClient, RequestHeaders } from "./backend-client-support";
 
@@ -49,7 +47,6 @@ type BackendClientCore = {
 		[M in MethodKey<G>]: BackendMethod<G, M>;
 	};
 };
-type BackendClient = BackendClientCore & LegacyBackendClient;
 
 const statusByTag = {
 	BadRequest: 400,
@@ -269,7 +266,7 @@ async function executeRequest<G extends GroupKey, M extends MethodKey<G>>(
 	}
 }
 
-export function createBackendClient(baseUrl: string): BackendClient {
+export function createBackendClient(baseUrl: string): BackendClientCore {
 	const coreClient: BackendClientCore = {
 		collections: {
 			create: (request) =>
@@ -525,7 +522,7 @@ export function createBackendClient(baseUrl: string): BackendClient {
 		},
 	};
 
-	return withLegacyBackendClientMethods(coreClient);
+	return coreClient;
 }
 
 type MethodRequest<
@@ -556,4 +553,4 @@ export type ClientSuccess<
 	M extends keyof BackendClientCore[G],
 > = Exclude<MethodResult<G, M>["data"], undefined>;
 
-export type { BackendClient };
+export type { BackendClientCore };
