@@ -457,6 +457,10 @@ describe("bindSandboxHostFunctions", () => {
 				success: false,
 				error: "claimPersistentValue expects a positive integer ttlSeconds",
 			});
+			expect(yield* bound.setCachedValue(["lock", { owner: "user-1" }, 1.5])).toEqual({
+				success: false,
+				error: "setCachedValue expects a positive integer expiry in seconds",
+			});
 			expect(yield* bound.getPluginConfig([["apiToken"], "surplus"])).toEqual({
 				success: false,
 				error: "getPluginConfig received an invalid number of arguments",

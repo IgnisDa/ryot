@@ -32,6 +32,7 @@ import {
 import { sandboxRunnerSource } from "./runner.generated";
 import { apiFailure } from "./shared";
 import type { BoundHostFunction } from "./shared";
+import { readSandboxByteLimitedStream } from "./stream-utils";
 
 const SandboxSessionRecord = Schema.Struct({
 	token: Schema.String,
@@ -105,28 +106,15 @@ export const readSandboxBridgeRequestBody = (request: Request) => {
 		return Effect.succeed({ body: "", oversized: false } as const);
 	}
 
-	return Stream.fromReadableStream({
-		evaluate: () => stream,
-		onError: () => badRequest("Invalid request body"),
-	}).pipe(
-		Stream.runFoldEffect(
-			() => ({ bytes: 0, chunks: [] as Uint8Array[] }),
-			(state, chunk) => {
-				const bytes = state.bytes + chunk.byteLength;
-				return bytes > SANDBOX_LIMITS.bridge.requestBytes
-					? Effect.fail(oversizedBridgeRequest)
-					: Effect.succeed({ bytes, chunks: [...state.chunks, chunk] });
-			},
-		),
-		Effect.map(({ bytes, chunks }) => {
-			const body = new Uint8Array(bytes);
-			let offset = 0;
-			for (const chunk of chunks) {
-				body.set(chunk, offset);
-				offset += chunk.byteLength;
-			}
-			return { body: decoder.decode(body), oversized: false } as const;
+	return readSandboxByteLimitedStream(
+		Stream.fromReadableStream({
+			evaluate: () => stream,
+			onError: () => badRequest("Invalid request body"),
 		}),
+		SANDBOX_LIMITS.bridge.requestBytes,
+		oversizedBridgeRequest,
+	).pipe(
+		Effect.map((body) => ({ body: decoder.decode(body), oversized: false }) as const),
 		Effect.catch((error) =>
 			error === oversizedBridgeRequest
 				? Effect.succeed({ body: "", oversized: true } as const)
