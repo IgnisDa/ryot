@@ -7,7 +7,7 @@ import {
 import { match } from "ts-pattern";
 import { buildComputedFieldMap } from "./computed-fields";
 import { QueryEngineValidationError } from "./errors";
-import type { ViewComputedField } from "./expression";
+import type { ViewComputedField, ViewExpression } from "./expression";
 import {
 	assertComparableExpression,
 	assertCompatibleComparisonTypes,
@@ -30,6 +30,7 @@ export const validateViewPredicateAgainstSchemas = <
 	validBuiltins: ReadonlySet<string>;
 	computedFields?: ViewComputedField[];
 	context: QueryEngineReferenceContext<TSchema, TJoin>;
+	validateExpression?: (expression: ViewExpression) => void;
 }) => {
 	const computedFieldMap = buildComputedFieldMap(input.computedFields);
 	const typeCache = new Map();
@@ -79,6 +80,8 @@ export const validateViewPredicateAgainstSchemas = <
 	const validateFilterExpression = (
 		expression: Parameters<typeof inferViewExpressionType>[0]["expression"],
 	) => {
+		input.validateExpression?.(expression);
+
 		const result = getType(expression);
 		if (
 			expression.type === "reference" &&
