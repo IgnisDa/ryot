@@ -184,6 +184,41 @@ describe("sandbox cache functions", () => {
 		}),
 	);
 
+	it.live("claimPersistentValue persists an atomic claim across executions", () =>
+		Effect.gen(function* () {
+			const { userId } = yield* createAuthenticatedClient();
+			const cacheKey = `persistent-cache-test-${crypto.randomUUID()}`;
+			const slug = `persistent-cache-${crypto.randomUUID()}`;
+			const { scriptId } = yield* installSandboxScriptScoped({
+				slug,
+				name: "persistent-cache",
+				capabilities: ["claimPersistentValue"],
+				source: cacheSandboxSource({
+					slug,
+					key: cacheKey,
+					ttlSeconds: 60,
+					name: "persistent-cache",
+					operation: "claimPersistent",
+					value: { owner: "first-execution" },
+				}),
+			});
+
+			const first = yield* enqueueSandboxScript(userId, { scriptId });
+			const firstValue = requireObjectRecord(
+				requireCompletedSandboxValue(yield* pollSandboxResult(userId, first.jobId)),
+				"Expected first persistent claim result to be an object",
+			);
+			expect(firstValue.data).toEqual({ claimed: true });
+
+			const second = yield* enqueueSandboxScript(userId, { scriptId });
+			const secondValue = requireObjectRecord(
+				requireCompletedSandboxValue(yield* pollSandboxResult(userId, second.jobId)),
+				"Expected second persistent claim result to be an object",
+			);
+			expect(secondValue.data).toEqual({ claimed: false, value: { owner: "first-execution" } });
+		}),
+	);
+
 	it.live("provider scripts share cache while users and providers remain isolated", () =>
 		Effect.gen(function* () {
 			const { userId: userIdA } = yield* createAuthenticatedClient();
