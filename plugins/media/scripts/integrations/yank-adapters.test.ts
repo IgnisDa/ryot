@@ -12,6 +12,7 @@ import {
 	httpSuccess,
 	integrationRecord,
 } from "../automations/automation-test-utils";
+import type { HistoryClient } from "../providers/youtube-music-shared";
 import audiobookshelfDefinition, {
 	manifest as audiobookshelfManifest,
 } from "./yanks/audiobookshelf.sandbox";
@@ -21,7 +22,7 @@ import komgaDefinition, {
 } from "./yanks/komga.sandbox";
 import plexDefinition, { manifest as plexManifest } from "./yanks/plex.sandbox";
 import {
-	deduplicateWindow,
+	dailyProgressWindow,
 	manifest as youtubeMusicManifest,
 	runYoutubeMusicYank,
 } from "./yanks/youtube-music.sandbox";
@@ -30,10 +31,12 @@ const failure = Symbol("failure");
 type Route = JsonValue | typeof failure;
 type HttpCall = SandboxHost<typeof plexManifest.capabilities>["httpCall"];
 type EntityGroup = MediaIntegrationAdapterResult["entityGroups"][number];
+
 const routeKey = (url: string) => {
 	const parsed = new URL(url);
 	return `${parsed.pathname}${parsed.search}`;
 };
+
 const httpCall = (routes: Record<string, Route>): HttpCall =>
 	((_method, url) => {
 		const response = routes[routeKey(url)];
@@ -41,12 +44,37 @@ const httpCall = (routes: Record<string, Route>): HttpCall =>
 			? hostFailure("request failed")
 			: httpSuccess(response);
 	}) as HttpCall;
+
 const libraries = (entries: Array<Record<string, JsonValue>>) => ({
 	MediaContainer: { Directory: entries },
 });
+
 const metadata = (items: Array<Record<string, JsonValue>>) => ({
 	MediaContainer: { Metadata: items },
 });
+
+const historyClient = (
+	songs: ReadonlyArray<{ title: string; videoId: string }> = [{ title: "First", videoId: "v1" }],
+): HistoryClient => ({
+	getHistory: () =>
+		Promise.resolve({
+			sections: [
+				{
+					header: { type: "ItemSectionHeader", title: { text: "January 1, 2026" } },
+					contents: songs.map((song) => ({
+						type: "Video",
+						video_id: song.videoId,
+						title: { text: song.title },
+					})),
+				},
+			],
+		}),
+});
+
+const progressValues = (result: MediaIntegrationAdapterResult) =>
+	result.entityGroups.flatMap((group) =>
+		group.events.map((event) => event.properties["progressPercent"]),
+	);
 
 const runPlex = (routes: Record<string, Route>, syncOwnership = false) =>
 	Effect.runPromise(
@@ -533,23 +561,8 @@ describe("Komga yank", () => {
 });
 
 describe("YouTube Music yank", () => {
-	it("returns a zone-local date and a positive sub-day TTL for a valid timezone", () => {
-		const { localDate, ttlSeconds } = deduplicateWindow(
-			"America/New_York",
-			"2026-01-01T00:00:00.000Z",
-		);
-		expect(localDate).toMatch(/^\d{4}-\d{2}-\d{2}$/);
-		expect(ttlSeconds).toBeGreaterThan(0);
-		expect(ttlSeconds).toBeLessThanOrEqual(86_400);
-	});
-
-	it("falls back to a full-day TTL for an unknown timezone", () => {
-		const { localDate, ttlSeconds } = deduplicateWindow("Not/AZone", "2026-01-01T00:00:00.000Z");
-		expect(localDate).toMatch(/^\d{4}-\d{2}-\d{2}$/);
-		expect(ttlSeconds).toBe(86_400);
-	});
-
-	it("uses the workflow timestamp when reading history", async () => {
+	const setup = (songs?: ReadonlyArray<{ title: string; videoId: string }>) => {
+		const claims = new Set<string>();
 		const host = defineSandboxTestHost(youtubeMusicManifest, {
 			httpCall: httpCall({}),
 			getCurrentIntegration: () =>
@@ -560,30 +573,68 @@ describe("YouTube Music yank", () => {
 						providerSpecifics: { authCookie: "cookie", timezone: "UTC" },
 					}),
 				),
-			claimPersistentValue: () => hostSuccess({ claimed: true }),
+			claimPersistentValue: (key) => {
+				if (claims.has(key)) {
+					return hostSuccess({ claimed: false, value: true });
+				}
+				claims.add(key);
+				return hostSuccess({ claimed: true });
+			},
 		});
-		const result = await Effect.runPromise(
-			runYoutubeMusicYank({}, host, execution, () =>
-				Effect.succeed({
-					getHistory: () =>
-						Promise.resolve({
-							sections: [
-								{
-									header: {
-										type: "ItemSectionHeader",
-										title: { text: "January 1, 2026" },
-									},
-									contents: [{ type: "Video", video_id: "v1", title: { text: "First" } }],
-								},
-							],
-						}),
-				}),
-			),
+		const run = (startedAt: string) =>
+			Effect.runPromise(
+				runYoutubeMusicYank({}, host, { ...execution, startedAt }, () =>
+					Effect.succeed(historyClient(songs)),
+				),
+			);
+		return { claims, run };
+	};
+
+	it("returns a zone-local date and a positive sub-day TTL for a valid timezone", () => {
+		const { localDate, ttlSeconds } = dailyProgressWindow(
+			"America/New_York",
+			"2026-01-01T00:00:00.000Z",
 		);
-		expect(result.entityGroups).toHaveLength(1);
-		expect(result.entityGroups[0]?.entityRef).toMatchObject({
-			externalId: "v1",
-			providerSlug: "music.youtube-music",
-		});
+		expect(localDate).toMatch(/^\d{4}-\d{2}-\d{2}$/);
+		expect(ttlSeconds).toBeGreaterThan(0);
+		expect(ttlSeconds).toBeLessThanOrEqual(86_400);
+	});
+
+	it("falls back to a full-day TTL for an unknown timezone", () => {
+		const { isFinalWindow, localDate, ttlSeconds } = dailyProgressWindow(
+			"Not/AZone",
+			"2026-01-01T00:00:00.000Z",
+		);
+		expect(isFinalWindow).toBe(false);
+		expect(localDate).toMatch(/^\d{4}-\d{2}-\d{2}$/);
+		expect(ttlSeconds).toBe(86_400);
+	});
+
+	it("accounts for a longer local day when daylight saving time ends", () => {
+		const { ttlSeconds } = dailyProgressWindow("America/New_York", "2026-11-01T04:00:00.000Z");
+		expect(ttlSeconds).toBe(25 * 60 * 60);
+	});
+
+	it("starts the final window ten minutes before local midnight", () => {
+		expect(dailyProgressWindow("UTC", "2026-01-01T23:49:59.000Z").isFinalWindow).toBe(false);
+		expect(dailyProgressWindow("UTC", "2026-01-01T23:50:00.000Z").isFinalWindow).toBe(true);
+	});
+
+	it("emits 35 once, emits 100 once, then skips songs already completed that day", async () => {
+		const { run } = setup([
+			{ title: "First", videoId: "v1" },
+			{ title: "Second", videoId: "v2" },
+			{ title: "First duplicate", videoId: "v1" },
+		]);
+		expect(progressValues(await run("2026-01-01T12:00:00.000Z"))).toEqual([35, 35]);
+		expect(progressValues(await run("2026-01-01T12:05:00.000Z"))).toEqual([100, 100]);
+		expect(progressValues(await run("2026-01-01T12:10:00.000Z"))).toEqual([]);
+	});
+
+	it("completes a song directly when first found in the final ten minutes", async () => {
+		const { claims, run } = setup();
+		expect(progressValues(await run("2026-01-01T23:50:00.000Z"))).toEqual([100]);
+		expect(progressValues(await run("2026-01-01T23:55:00.000Z"))).toEqual([]);
+		expect([...claims]).toEqual([expect.stringMatching(/:v1:2026-01-01:completed$/)]);
 	});
 });

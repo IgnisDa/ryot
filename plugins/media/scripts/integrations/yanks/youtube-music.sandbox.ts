@@ -27,17 +27,27 @@ type HistoryClientFactory = (
 	authCookie: string,
 ) => Effect.Effect<HistoryClient, unknown>;
 
-export const deduplicateWindow = (timezone: string, startedAt: string) =>
+export const dailyProgressWindow = (timezone: string, startedAt: string) =>
 	Option.match(DateTime.makeZoned(DateTime.makeUnsafe(startedAt), { timeZone: timezone }), {
 		onNone: () => ({
 			ttlSeconds: 86_400,
+			isFinalWindow: false,
 			localDate: DateTime.formatIsoDateUtc(DateTime.makeUnsafe(startedAt)),
 		}),
 		onSome: (zoned) => {
-			const parts = DateTime.toParts(zoned);
+			const ttlSeconds = Math.max(
+				1,
+				Math.ceil(
+					(DateTime.toEpochMillis(DateTime.endOf(zoned, "day")) +
+						1 -
+						DateTime.toEpochMillis(zoned)) /
+						1_000,
+				),
+			);
 			return {
+				ttlSeconds,
+				isFinalWindow: ttlSeconds <= 10 * 60,
 				localDate: DateTime.formatIsoDate(zoned),
-				ttlSeconds: Math.max(1, 86_400 - parts.hour * 3_600 - parts.minute * 60 - parts.second),
 			};
 		},
 	});
@@ -57,14 +67,31 @@ export const runYoutubeMusicYank = (
 		const history = yield* createClient(host, authCookie).pipe(
 			Effect.flatMap((client) => buildHistory(client, timezone, occurredAt)),
 		);
-		const { localDate, ttlSeconds } = deduplicateWindow(timezone, occurredAt);
-		const entityGroups = yield* Effect.forEach(history.songs, (song, itemIndex) =>
+		const songs = [...new Map(history.songs.map((song) => [song.videoId, song])).values()];
+		const { isFinalWindow, localDate, ttlSeconds } = dailyProgressWindow(timezone, occurredAt);
+		const groups = yield* Effect.forEach(songs, (song, itemIndex) =>
 			Effect.gen(function* () {
-				const claim = yield* host.claimPersistentValue(
-					`${integration.id}:${song.videoId}:${localDate}`,
-					true,
-					ttlSeconds,
-				);
+				const key = `${integration.id}:${song.videoId}:${localDate}`;
+				let progressPercent: number | null = null;
+				if (isFinalWindow) {
+					const completed = yield* host.claimPersistentValue(`${key}:completed`, true, ttlSeconds);
+					progressPercent = completed.claimed ? 100 : null;
+				} else {
+					const seen = yield* host.claimPersistentValue(`${key}:seen`, true, ttlSeconds);
+					if (seen.claimed) {
+						progressPercent = 35;
+					} else {
+						const completed = yield* host.claimPersistentValue(
+							`${key}:completed`,
+							true,
+							ttlSeconds,
+						);
+						progressPercent = completed.claimed ? 100 : null;
+					}
+				}
+				if (progressPercent === null) {
+					return null;
+				}
 				return {
 					itemIndex,
 					collectionMemberships: [],
@@ -79,21 +106,19 @@ export const runYoutubeMusicYank = (
 						{
 							occurredAt,
 							eventSchemaSlug: "progress",
-							properties: {
-								consumedOn: "youtube_music",
-								progressPercent: claim.claimed ? 35 : 100,
-							},
+							properties: { progressPercent, consumedOn: "youtube_music" },
 						},
 					],
 				};
 			}),
 		);
+		const entityGroups = groups.filter((group) => group !== null);
 		return { failures: [], entityGroups };
 	});
 
 export default defineScript({
 	manifest,
 	input: Input,
-	output: MediaIntegrationAdapterResult,
 	run: runYoutubeMusicYank,
+	output: MediaIntegrationAdapterResult,
 });
