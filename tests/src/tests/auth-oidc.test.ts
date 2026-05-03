@@ -1,7 +1,6 @@
 import { afterAll, beforeAll, describe, expect, it } from "bun:test";
 import type { ChildProcess } from "node:child_process";
 
-import { config } from "dotenv";
 import getPort from "get-port";
 import { Client as PgClient } from "pg";
 import { GenericContainer, type StartedTestContainer, Wait } from "testcontainers";
@@ -19,8 +18,6 @@ import {
 	stopCoreTestInfrastructure,
 	waitForHealthCheck,
 } from "../test-support/provisioning";
-
-config({ path: ".env" });
 
 const OIDC_CLIENT_ID = "test-client";
 const S3_BUCKET_NAME = "ryot-oidc-test";
