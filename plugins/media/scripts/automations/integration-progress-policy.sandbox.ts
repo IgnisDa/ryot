@@ -13,7 +13,7 @@ export const manifest = defineManifest({
 	slug: "trigger.integration-progress-policy",
 	requiredPluginConfigKeys: ["progressUpdateThresholdHours"],
 	requiredSystemConfigKeys: [],
-	capabilities: ["listEvents", "getIntegration", "claimCachedValue", "getPluginConfigValue"],
+	capabilities: ["listEvents", "getIntegration", "claimCachedValue", "getPluginConfig"],
 });
 
 type Draft = AutomationPolicyInput["automation"]["source"]["draft"];
@@ -80,7 +80,8 @@ const sortLatestFirst = (left: EventRecord, right: EventRecord) => {
 };
 
 const getThresholdSeconds = (host: AutomationHost) =>
-	host.getPluginConfigValue("progressUpdateThresholdHours").pipe(
+	host.getPluginConfig(["progressUpdateThresholdHours"]).pipe(
+		Effect.map(({ progressUpdateThresholdHours }) => progressUpdateThresholdHours),
 		Effect.map((value) => {
 			const hours = toFiniteNumber(value);
 			return hours !== null && hours > 0 ? Math.round(hours * 3600) : DEFAULT_THRESHOLD_SECONDS;

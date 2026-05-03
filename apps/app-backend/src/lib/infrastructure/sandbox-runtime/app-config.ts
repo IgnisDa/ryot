@@ -35,26 +35,39 @@ const resolvePluginConfig = Effect.fn("resolvePluginConfig")(function* (input: {
 	});
 });
 
-export const getPluginConfigValue = Effect.fn("getPluginConfigValue")(function* (input: {
-	key: string;
+export const getPluginConfig = Effect.fn("getPluginConfig")(function* (input: {
+	keys: ReadonlyArray<string>;
 	metadata: unknown;
 	pluginSlug: string;
 	configSchema: AppSchema;
 }) {
-	if (!requiredKeys(input.metadata, "requiredPluginConfigKeys").includes(input.key)) {
-		return yield* Effect.fail(`Plugin config key "${input.key}" is not declared by this script`);
+	const keys = [...new Set(input.keys)];
+	const declaredKeys = new Set(requiredKeys(input.metadata, "requiredPluginConfigKeys"));
+	for (const key of keys) {
+		if (!declaredKeys.has(key)) {
+			return yield* Effect.fail(`Plugin config key "${key}" is not declared by this script`);
+		}
+		if (!Object.hasOwn(input.configSchema.fields, key)) {
+			return yield* Effect.fail(`Plugin config key "${key}" does not exist`);
+		}
 	}
-	if (!Object.hasOwn(input.configSchema.fields, input.key)) {
-		return yield* Effect.fail(`Plugin config key "${input.key}" does not exist`);
+
+	if (keys.length === 0) {
+		return {};
 	}
 
 	const parsed = yield* resolvePluginConfig(input);
-	const value = parsed[input.key];
-	return value === undefined
-		? yield* Effect.fail(
-				`Plugin config key "${input.key}" is not configured; set ${pluginConfigEnvironmentKey(input.pluginSlug, input.key)}`,
-			)
-		: value;
+	const values: Record<string, unknown> = {};
+	for (const key of keys) {
+		const value = parsed[key];
+		if (value === undefined) {
+			return yield* Effect.fail(
+				`Plugin config key "${key}" is not configured; set ${pluginConfigEnvironmentKey(input.pluginSlug, key)}`,
+			);
+		}
+		values[key] = value;
+	}
+	return values;
 });
 
 export const isPluginConfigKeyConfigured = Effect.fn("isPluginConfigKeyConfigured")(
@@ -67,25 +80,38 @@ export const isPluginConfigKeyConfigured = Effect.fn("isPluginConfigKeyConfigure
 	},
 );
 
-export const getSystemConfigValue = Effect.fn("getSystemConfigValue")(function* (
-	key: string,
+export const getSystemConfig = Effect.fn("getSystemConfig")(function* (
+	keys: ReadonlyArray<string>,
 	metadata: unknown,
 ) {
-	if (!pluginReadableSystemConfigKeys.has(key)) {
-		return yield* Effect.fail(`System config key "${key}" is not available to plugins`);
+	const uniqueKeys = [...new Set(keys)];
+	const declaredKeys = new Set(requiredKeys(metadata, "requiredSystemConfigKeys"));
+	for (const key of uniqueKeys) {
+		if (!pluginReadableSystemConfigKeys.has(key)) {
+			return yield* Effect.fail(`System config key "${key}" is not available to plugins`);
+		}
+		if (!declaredKeys.has(key)) {
+			return yield* Effect.fail(`System config key "${key}" is not declared by this script`);
+		}
 	}
-	if (!requiredKeys(metadata, "requiredSystemConfigKeys").includes(key)) {
-		return yield* Effect.fail(`System config key "${key}" is not declared by this script`);
+
+	if (uniqueKeys.length === 0) {
+		return {};
 	}
+
 	const definition = appConfigDefinition.fields.timezone;
-	if (definition.envKey === undefined) {
-		return yield* Effect.fail(`System config key "${key}" is not configured`);
-	}
 	const loaded = yield* configFromAppSchema(
-		{ fields: { [key]: definition.schema }, unknownKeys: "strict" },
+		{ fields: { timezone: definition.schema }, unknownKeys: "strict" },
 		() => definition.envKey ?? "",
 	);
-	const loadedValue = loaded[key];
-	const value = Option.isOption(loadedValue) ? Option.getOrUndefined(loadedValue) : loadedValue;
-	return value ?? definition.schema.defaultValue;
+	const values: Record<string, unknown> = {};
+	for (const key of uniqueKeys) {
+		if (definition.envKey === undefined) {
+			return yield* Effect.fail(`System config key "${key}" is not configured`);
+		}
+		const loadedValue = loaded[key];
+		const value = Option.isOption(loadedValue) ? Option.getOrUndefined(loadedValue) : loadedValue;
+		values[key] = value ?? definition.schema.defaultValue;
+	}
+	return values;
 });

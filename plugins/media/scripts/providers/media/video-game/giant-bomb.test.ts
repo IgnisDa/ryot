@@ -13,7 +13,8 @@ const httpSuccess = (body: unknown) =>
 const makeHost = (httpCall: GiantBombHost["httpCall"]) =>
 	defineSandboxTestHost(manifest, {
 		httpCall,
-		getPluginConfigValue: () => Effect.succeed("api-key"),
+		getPluginConfig: (keys) =>
+			Effect.succeed(Object.fromEntries(keys.map((key) => [key, "api-key"]))),
 	});
 const execution = { metadata: {}, sandboxScriptId: "script_test" };
 describe("video-game.giant-bomb sandbox script", () => {
@@ -22,8 +23,8 @@ describe("video-game.giant-bomb sandbox script", () => {
 			[searchManifest.slug, search.operation, searchManifest.capabilities],
 			[detailsManifest.slug, details.operation, detailsManifest.capabilities],
 		]).toEqual([
-			["video-game.giant-bomb.search", "search", ["httpCall", "getPluginConfigValue"]],
-			["video-game.giant-bomb.details", "details", ["httpCall", "getPluginConfigValue"]],
+			["video-game.giant-bomb.search", "search", ["httpCall", "getPluginConfig"]],
+			["video-game.giant-bomb.details", "details", ["httpCall", "getPluginConfig"]],
 		]);
 	});
 	it("maps search hits from the GiantBomb search endpoint", () => {

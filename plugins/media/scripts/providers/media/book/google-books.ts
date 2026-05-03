@@ -5,7 +5,7 @@ import { defineProvider } from "@ryot/sandbox-sdk/provider";
 
 import { toTitleCase } from "../../../script-helpers/title-case";
 
-type GoogleBooksHost = SandboxHost<readonly ["httpCall", "getPluginConfigValue"]>;
+type GoogleBooksHost = SandboxHost<readonly ["httpCall", "getPluginConfig"]>;
 
 type UnknownRecord = Record<string, unknown>;
 
@@ -32,7 +32,8 @@ const parseJsonResponse = (responseBody: string) => {
 };
 
 const getGoogleBooksApiKey = (host: GoogleBooksHost) =>
-	host.getPluginConfigValue("googleBooksApiKey").pipe(
+	host.getPluginConfig(["googleBooksApiKey"]).pipe(
+		Effect.map(({ googleBooksApiKey }) => googleBooksApiKey),
 		Effect.flatMap((value) => {
 			const apiKey = stringValue(value);
 			if (!apiKey) {
@@ -159,7 +160,7 @@ export const manifest = defineManifest({
 	kind: "provider",
 	name: "Google Books",
 	slug: "book.google-books",
-	capabilities: ["httpCall", "getPluginConfigValue"],
+	capabilities: ["httpCall", "getPluginConfig"],
 	requiredPluginConfigKeys: ["googleBooksApiKey"],
 	requiredSystemConfigKeys: [],
 });
