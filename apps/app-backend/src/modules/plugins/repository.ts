@@ -1,6 +1,7 @@
 import { DbError } from "@ryot/contract/errors";
 import type { PluginProviderOperation } from "@ryot/contract/modules/plugins/manifest";
-import { and, eq, inArray, isNull, notExists, notInArray, or, sql } from "drizzle-orm";
+import { SandboxProviderId } from "@ryot/contract/schema/brands";
+import { and, asc, eq, inArray, isNull, notExists, notInArray, or, sql } from "drizzle-orm";
 import { Context, Effect, Layer } from "effect";
 
 import { PLUGIN_INGESTION_ADVISORY_LOCK_KEY } from "#lib/infrastructure/db/advisory-locks";
@@ -114,6 +115,62 @@ export class PluginRepository extends Context.Service<PluginRepository>()("Plugi
 			);
 			return rows.map(({ manifest }) => manifest);
 		});
+
+		const listPortablePluginMetadata = Effect.fn("PluginRepository.listPortablePluginMetadata")(
+			function* () {
+				const db = yield* Database;
+				return yield* mapDatabaseErrors(
+					db
+						.select({
+							slug: schema.plugin.slug,
+							version: schema.plugin.version,
+							manifestMetadata: schema.plugin.manifest,
+						})
+						.from(schema.plugin)
+						.where(eq(schema.plugin.status, "active"))
+						.orderBy(asc(schema.plugin.slug)),
+				).pipe(
+					Effect.map((rows) =>
+						rows.map(({ manifestMetadata: manifest, slug, version }) => ({
+							slug,
+							version,
+							metadata: manifest.metadata,
+							configSchema: manifest.configSchema,
+							signalSchemaSlugs: manifest.signalSchemas.map(
+								({ slug: signalSchemaSlug }) => signalSchemaSlug,
+							),
+							relationshipSchemaSlugs: manifest.relationshipSchemas.map(
+								({ slug: relationshipSchemaSlug }) => relationshipSchemaSlug,
+							),
+						})),
+					),
+				);
+			},
+		);
+
+		const resolveProviderBySlugs = Effect.fn("PluginRepository.resolveProviderBySlugs")(
+			function* (input: { pluginSlug: string; providerSlug: string }) {
+				const db = yield* Database;
+				const [row] = yield* mapDatabaseErrors(
+					db
+						.select({
+							id: schema.sandboxProvider.id,
+							entitySchemaSlug: schema.sandboxProvider.rootEntitySchemaSlug,
+						})
+						.from(schema.sandboxProvider)
+						.innerJoin(schema.plugin, eq(schema.plugin.slug, schema.sandboxProvider.pluginSlug))
+						.where(
+							and(
+								eq(schema.plugin.status, "active"),
+								eq(schema.sandboxProvider.slug, input.providerSlug),
+								eq(schema.sandboxProvider.pluginSlug, input.pluginSlug),
+							),
+						)
+						.limit(1),
+				);
+				return row ? { ...row, id: SandboxProviderId.make(row.id) } : null;
+			},
+		);
 
 		const hasEntityReferences = Effect.fn("PluginRepository.hasEntityReferences")(
 			function* (input: { pluginSlug: string; entitySchemaSlugs: ReadonlyArray<string> }) {
@@ -498,11 +555,13 @@ export class PluginRepository extends Context.Service<PluginRepository>()("Plugi
 			deactivate,
 			lockIngestion,
 			findBySourceHash,
-			listActiveManifests,
 			persistKernelScript,
 			hasEntityReferences,
+			listActiveManifests,
+			resolveProviderBySlugs,
 			hasIntegrationReferences,
 			deleteUnreferencedScripts,
+			listPortablePluginMetadata,
 			listPersistedLivenessContentHashes,
 		};
 	}),

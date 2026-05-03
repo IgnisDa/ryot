@@ -106,6 +106,44 @@ export class AutomationsRepository extends Context.Service<AutomationsRepository
 	"AutomationsRepository",
 	{
 		make: Effect.sync(() => {
+			const listNotificationSubscriptionsForBackup = Effect.fn(
+				"AutomationsRepository.listNotificationSubscriptionsForBackup",
+			)(function* (userId: UserId) {
+				const db = yield* Database;
+				const rows = yield* mapDatabaseErrors(
+					db
+						.select()
+						.from(schema.notificationSubscriptionState)
+						.where(eq(schema.notificationSubscriptionState.userId, userId))
+						.orderBy(asc(schema.notificationSubscriptionState.id)),
+				);
+				return yield* Effect.all(rows.map(toStoredNotificationSubscription));
+			});
+
+			const restoreNotificationSubscriptionState = Effect.fn(
+				"AutomationsRepository.restoreNotificationSubscriptionState",
+			)(function* (input: {
+				userId: UserId;
+				isActive: boolean;
+				signalSchemaSlug: SignalSchemaSlug;
+				metadata: AutomationRuleMetadataValue | null;
+			}) {
+				const db = yield* Database;
+				const [row] = yield* mapDatabaseErrors(
+					db
+						.update(schema.notificationSubscriptionState)
+						.set({ isActive: input.isActive, metadata: input.metadata })
+						.where(
+							and(
+								eq(schema.notificationSubscriptionState.userId, input.userId),
+								eq(schema.notificationSubscriptionState.signalSchemaSlug, input.signalSchemaSlug),
+							),
+						)
+						.returning(),
+				);
+				return row ? yield* toStoredNotificationSubscription(row) : null;
+			});
+
 			const listActiveNotificationSubscriptions = Effect.fn(
 				"AutomationsRepository.listActiveNotificationSubscriptions",
 			)(function* (input: { userId: UserId; signalSchemaSlug: SignalSchemaSlug }) {
@@ -400,6 +438,8 @@ export class AutomationsRepository extends Context.Service<AutomationsRepository
 				setNotificationSubscriptionActive,
 				lockActiveNotificationSubscription,
 				listActiveNotificationSubscriptions,
+				restoreNotificationSubscriptionState,
+				listNotificationSubscriptionsForBackup,
 			};
 		}),
 	},

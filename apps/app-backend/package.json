@@ -36,6 +36,7 @@
 		"better-auth": "1.7.0-rc.6",
 		"drizzle-orm": "1.0.0-rc.5-169397b",
 		"effect": "4.0.0-rc.111",
+		"fflate": "0.8.3",
 		"ioredis": "5.11.1",
 		"nodemailer": "8.0.10",
 		"pg": "8.21.0",

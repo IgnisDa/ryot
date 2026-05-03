@@ -2,7 +2,7 @@ import { DbError } from "@ryot/contract/errors";
 import type { ListedEvent } from "@ryot/contract/modules/events/schemas";
 import type { UserId } from "@ryot/contract/schema/brands";
 import { EntityId, EventId, EventSchemaSlug } from "@ryot/contract/schema/brands";
-import { and, eq, or, sql } from "drizzle-orm";
+import { and, asc, eq, gt, or, sql } from "drizzle-orm";
 import { Context, Effect, Layer } from "effect";
 
 import * as schema from "#lib/infrastructure/db/schema/tables/combined";
@@ -32,6 +32,21 @@ export type UpdateEventEntityReferencesInput = EventIdentityInput & {
 	readonly mergeInto: EntityId;
 };
 
+type RestoreEventInput = Pick<
+	typeof schema.event.$inferInsert,
+	| "id"
+	| "userId"
+	| "entityId"
+	| "createdAt"
+	| "updatedAt"
+	| "occurredAt"
+	| "properties"
+	| "eventSchemaSlug"
+	| "sessionEntityId"
+>;
+
+export const BACKUP_EVENT_PAGE_SIZE = 500;
+
 const createdEventSelection = {
 	id: schema.event.id,
 	entityId: schema.event.entityId,
@@ -57,15 +72,58 @@ const toListedEvent = (row: EventRow): ListedEvent => ({
 
 export class EventsRepository extends Context.Service<EventsRepository>()("EventsRepository", {
 	make: Effect.sync(() => {
+		const listUserEventsForBackup = Effect.fn("EventsRepository.listUserEventsForBackup")(
+			function* (input: { userId: UserId; afterId?: EventId | undefined }) {
+				const db = yield* Database;
+				return yield* mapDatabaseErrors(
+					db
+						.select(createdEventSelection)
+						.from(schema.event)
+						.where(
+							and(
+								eq(schema.event.userId, input.userId),
+								input.afterId ? gt(schema.event.id, input.afterId) : undefined,
+							),
+						)
+						.orderBy(asc(schema.event.id))
+						.limit(BACKUP_EVENT_PAGE_SIZE),
+				);
+			},
+		);
+
+		const hasUserEvents = Effect.fn("EventsRepository.hasUserEvents")(function* (userId: UserId) {
+			const db = yield* Database;
+			const [row] = yield* mapDatabaseErrors(
+				db
+					.select({ id: schema.event.id })
+					.from(schema.event)
+					.where(eq(schema.event.userId, userId))
+					.limit(1),
+			);
+			return row !== undefined;
+		});
+
+		const restoreEvent = Effect.fn("EventsRepository.restoreEvent")(function* (
+			input: RestoreEventInput,
+		) {
+			const db = yield* Database;
+			const [row] = yield* mapDatabaseErrors(
+				db.insert(schema.event).values(input).returning({ id: schema.event.id }),
+			);
+			return row
+				? EventId.make(row.id)
+				: yield* new DbError({ message: "Event restore returned no row" });
+		});
+
 		const createEvent = Effect.fn("EventsRepository.createEvent")(function* (input: {
 			id?: EventId;
 			userId: UserId;
 			occurredAt: Date;
 			entityId: EntityId;
 			eventSchemaName: string;
-			sessionEntityId?: EntityId | undefined;
 			eventSchemaSlug: EventSchemaSlug;
 			properties: Record<string, unknown>;
+			sessionEntityId?: EntityId | undefined;
 		}) {
 			const db = yield* Database;
 			const [inserted] = yield* mapDatabaseErrors(
@@ -175,6 +233,9 @@ export class EventsRepository extends Context.Service<EventsRepository>()("Event
 		return {
 			deleteEvent,
 			createEvent,
+			restoreEvent,
+			hasUserEvents,
+			listUserEventsForBackup,
 			listUserEventIdsForEntity,
 			updateEventEntityReferences,
 		};
