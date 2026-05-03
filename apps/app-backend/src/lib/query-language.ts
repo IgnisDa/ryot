@@ -1,4 +1,4 @@
-import { Schema } from "effect";
+import { DateTime, Option, Schema } from "effect";
 
 import { strictStruct } from "./schema-utils";
 
@@ -194,7 +194,18 @@ export const PaginationResult = strictStruct({
 });
 export type PaginationResult = typeof PaginationResult.Type;
 
-export const DateRange = strictStruct({ endAt: Schema.String, startAt: Schema.String });
+export const DateRange = strictStruct({ endAt: Schema.String, startAt: Schema.String }).pipe(
+	Schema.filter(
+		(range) => {
+			const startAt = DateTime.make(range.startAt);
+			const endAt = DateTime.make(range.endAt);
+			return Option.isSome(startAt) && Option.isSome(endAt)
+				? DateTime.lessThan(startAt.value, endAt.value)
+				: false;
+		},
+		{ message: () => "startAt must be before endAt" },
+	),
+);
 export type DateRange = typeof DateRange.Type;
 
 export const SavedViewSort = strictStruct({
