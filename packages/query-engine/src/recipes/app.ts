@@ -1,10 +1,11 @@
 import {
 	buildQueryEngineEntityRowsDocument,
 	buildQueryEngineEventRowsDocument,
+	queryEngineEntityIdEquals,
 	queryEngineFields,
 } from "../documents";
 import {
-	queryEngineAnd,
+	queryEngineAndOrNull,
 	queryEngineComparison,
 	queryEngineComputedRef,
 	queryEngineField,
@@ -12,7 +13,6 @@ import {
 	queryEngineLiteral,
 	queryEngineOrder,
 	queryEngineOr,
-	queryEngineSchemaRef,
 	queryEngineSystemRef,
 	type QueryEngineNonEmptyArray,
 } from "../primitives";
@@ -20,19 +20,8 @@ import {
 const entityAlias = "entity";
 const eventAlias = "event";
 
-const entityIdEquals = (entityId: string) =>
-	queryEngineComparison(
-		"eq",
-		queryEngineSystemRef(entityAlias, "id"),
-		queryEngineLiteral(entityId),
-	);
-
 const combineFilters = <TExpr>(filters: readonly TExpr[]) => {
-	const [first, ...rest] = filters;
-	if (first === undefined) {
-		return null;
-	}
-	return rest.length === 0 ? first : queryEngineAnd(first, ...rest);
+	return queryEngineAndOrNull(filters);
 };
 
 export const buildEntityDetailQueryDocument = (input: {
@@ -40,10 +29,11 @@ export const buildEntityDetailQueryDocument = (input: {
 	entitySchemaSlug: string;
 }) =>
 	buildQueryEngineEntityRowsDocument({
-		alias: entityAlias,
 		limit: 1,
+		alias: entityAlias,
 		schemas: [input.entitySchemaSlug],
-		where: entityIdEquals(input.entityId),
+		where: queryEngineEntityIdEquals(entityAlias, input.entityId),
+		orderBy: [queryEngineOrder("asc", queryEngineSystemRef(entityAlias, "id"))],
 		fields: [
 			...queryEngineIdentityFields(entityAlias),
 			queryEngineFields.createdAt(entityAlias),
@@ -51,14 +41,13 @@ export const buildEntityDetailQueryDocument = (input: {
 			queryEngineFields.properties(entityAlias),
 			queryEngineFields.externalId(entityAlias),
 			queryEngineFields.populatedAt(entityAlias),
-			queryEngineField("entitySchemaSlug", queryEngineSystemRef(entityAlias, "entitySchemaSlug")),
-			queryEngineField("providerId", queryEngineSystemRef(entityAlias, "providerId")),
+			queryEngineFields.entitySchemaSlug(entityAlias),
+			queryEngineFields.providerId(entityAlias),
 			queryEngineField(
 				"translationStatus",
 				queryEngineComputedRef(entityAlias, "translationStatus"),
 			),
 		],
-		orderBy: [queryEngineOrder("asc", queryEngineSystemRef(entityAlias, "id"))],
 	});
 
 export const buildEntityInterestQueryDocument = (input: {
@@ -68,37 +57,40 @@ export const buildEntityInterestQueryDocument = (input: {
 	const [firstEntityId, ...restEntityIds] = input.entityIds;
 	const where =
 		restEntityIds.length === 0
-			? entityIdEquals(firstEntityId)
-			: queryEngineOr(entityIdEquals(firstEntityId), ...restEntityIds.map(entityIdEquals));
+			? queryEngineEntityIdEquals(entityAlias, firstEntityId)
+			: queryEngineOr(
+					queryEngineEntityIdEquals(entityAlias, firstEntityId),
+					...restEntityIds.map((entityId) => queryEngineEntityIdEquals(entityAlias, entityId)),
+				);
 
 	return buildQueryEngineEntityRowsDocument({
+		where,
 		alias: entityAlias,
 		limit: input.entityIds.length,
 		schemas: input.entitySchemaSlugs,
-		where,
+		orderBy: [queryEngineOrder("asc", queryEngineSystemRef(entityAlias, "id"))],
 		fields: [
 			...queryEngineIdentityFields(entityAlias),
 			queryEngineFields.populatedAt(entityAlias),
 			queryEngineFields.externalId(entityAlias),
 			queryEngineFields.properties(entityAlias),
-			queryEngineField("entitySchemaSlug", queryEngineSystemRef(entityAlias, "entitySchemaSlug")),
-			queryEngineField("providerId", queryEngineSystemRef(entityAlias, "providerId")),
+			queryEngineFields.entitySchemaSlug(entityAlias),
+			queryEngineFields.providerId(entityAlias),
 			queryEngineField(
 				"translationStatus",
 				queryEngineComputedRef(entityAlias, "translationStatus"),
 			),
 		],
-		orderBy: [queryEngineOrder("asc", queryEngineSystemRef(entityAlias, "id"))],
 	});
 };
 
 export const buildEventHistoryQueryDocument = (input: {
 	page: number;
-	eventSchemaSlugs: QueryEngineNonEmptyArray<string>;
-	entitySchemaSlugs: QueryEngineNonEmptyArray<string>;
+	limit?: number | undefined;
 	entityId?: string | undefined;
 	sessionEntityId?: string | undefined;
-	limit?: number | undefined;
+	eventSchemaSlugs: QueryEngineNonEmptyArray<string>;
+	entitySchemaSlugs: QueryEngineNonEmptyArray<string>;
 }) => {
 	const filters = [
 		...(input.entityId
@@ -122,28 +114,28 @@ export const buildEventHistoryQueryDocument = (input: {
 	];
 
 	return buildQueryEngineEventRowsDocument({
-		page: input.page,
-		limit: input.limit ?? 100,
 		eventAlias,
 		entityAlias,
+		page: input.page,
+		limit: input.limit ?? 100,
 		where: combineFilters(filters),
 		eventSchemas: input.eventSchemaSlugs,
 		entitySchemas: input.entitySchemaSlugs,
-		fields: [
-			queryEngineField("id", queryEngineSystemRef(eventAlias, "id")),
-			queryEngineField("entityId", queryEngineSystemRef(eventAlias, "entityId")),
-			queryEngineField("createdAt", queryEngineSystemRef(eventAlias, "createdAt")),
-			queryEngineField("updatedAt", queryEngineSystemRef(eventAlias, "updatedAt")),
-			queryEngineField("occurredAt", queryEngineSystemRef(eventAlias, "occurredAt")),
-			queryEngineField("properties", queryEngineSystemRef(eventAlias, "properties")),
-			queryEngineField("eventSchemaName", queryEngineSchemaRef(eventAlias, "name")),
-			queryEngineField("eventSchemaSlug", queryEngineSchemaRef(eventAlias, "slug")),
-			queryEngineField("sessionEntityId", queryEngineSystemRef(eventAlias, "sessionEntityId")),
-		],
 		orderBy: [
 			queryEngineOrder("desc", queryEngineSystemRef(eventAlias, "occurredAt")),
 			queryEngineOrder("desc", queryEngineSystemRef(eventAlias, "createdAt")),
 			queryEngineOrder("desc", queryEngineSystemRef(eventAlias, "id")),
+		],
+		fields: [
+			queryEngineFields.id(eventAlias),
+			queryEngineFields.entityId(eventAlias),
+			queryEngineFields.createdAt(eventAlias),
+			queryEngineFields.updatedAt(eventAlias),
+			queryEngineFields.occurredAt(eventAlias),
+			queryEngineFields.properties(eventAlias),
+			queryEngineFields.eventSchemaName(eventAlias),
+			queryEngineFields.eventSchemaSlug(eventAlias),
+			queryEngineFields.sessionEntityId(eventAlias),
 		],
 	});
 };
