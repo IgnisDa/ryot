@@ -73,7 +73,7 @@ export const executeInternalAppRequest = async (input: InternalAppRequestInput) 
 	}
 
 	const request = setInternalRequestAuth(
-		new Request(new URL(normalizedPath, internalAppOrigin), {
+		new Request(new URL(normalizedPath, internalAppOrigin).toString(), {
 			body,
 			headers,
 			method: input.method,
