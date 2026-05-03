@@ -62,13 +62,19 @@ export const TimerAndStopwatchDrawer = (props: {
 											draft.timerDrawerLot = "timer";
 										}),
 									);
-									if (isNumber(option)) props.startTimer({ duration: option });
-									else {
+									if (isNumber(option)) {
+										props.startTimer({ duration: option });
+									} else {
 										const input = prompt("Enter duration in seconds");
-										if (!input) return;
+										if (!input) {
+											return;
+										}
 										const intInput = Number.parseInt(input, 10);
-										if (intInput) props.startTimer({ duration: intInput });
-										else alert("Invalid input");
+										if (intInput) {
+											props.startTimer({ duration: intInput });
+										} else {
+											alert("Invalid input");
+										}
 									}
 								}}
 							>

@@ -73,7 +73,9 @@ export const useBulkEditCollection = () => {
 					},
 					remove: (toRemove: Entity) => {
 						const index = findIndex(toRemove, bec.targetEntities);
-						if (index === -1) return;
+						if (index === -1) {
+							return;
+						}
 						setBec(
 							produce(bec, (draft) => {
 								draft.targetEntities.splice(index, 1);
@@ -81,7 +83,9 @@ export const useBulkEditCollection = () => {
 						);
 					},
 					add: (toAdd: Entity) => {
-						if (findIndex(toAdd, bec.targetEntities) !== -1) return;
+						if (findIndex(toAdd, bec.targetEntities) !== -1) {
+							return;
+						}
 						setBec(
 							produce(bec, (draft) => {
 								draft.targetEntities.push(toAdd);

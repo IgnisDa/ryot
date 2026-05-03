@@ -28,7 +28,9 @@ export const EditEntityCollectionInformationForm = (props: {
 
 	const { formRef, isFormValid } = useFormValidation([userExtraInformationData]);
 
-	if (!editEntityCollectionInformationData) return null;
+	if (!editEntityCollectionInformationData) {
+		return null;
+	}
 
 	const thisCollection = userCollections.find(
 		(c) => c.id === editEntityCollectionInformationData.collectionId,
@@ -43,7 +45,9 @@ export const EditEntityCollectionInformationForm = (props: {
 
 	const handleSubmit = async (e: FormEvent<HTMLFormElement>) => {
 		e.preventDefault();
-		if (!editEntityCollectionInformationData) return;
+		if (!editEntityCollectionInformationData) {
+			return;
+		}
 
 		await addEntitiesToCollection.mutateAsync({
 			collectionName: editEntityCollectionInformationData.collectionName,

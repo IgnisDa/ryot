@@ -80,8 +80,9 @@ export const useOnboardingTour = () => {
 	const startOnboardingTour = async () => {
 		const newPreferences = produce(cloneDeep(userPreferences), (draft) => {
 			draft.featuresEnabled.media.enabled = true;
-			if (!draft.featuresEnabled.media.specific.includes(MediaLot.AudioBook))
+			if (!draft.featuresEnabled.media.specific.includes(MediaLot.AudioBook)) {
 				draft.featuresEnabled.media.specific.push(MediaLot.AudioBook);
+			}
 
 			draft.featuresEnabled.fitness.enabled = true;
 			draft.featuresEnabled.fitness.workouts = true;
@@ -104,7 +105,9 @@ export const useOnboardingTour = () => {
 	const completeOnboardingTour = async () => {
 		setTourState(
 			produce(tourState, (draft) => {
-				if (draft) draft.isCompleted = true;
+				if (draft) {
+					draft.isCompleted = true;
+				}
 			}),
 		);
 		await markUserOnboardingStatus.mutateAsync(true);
@@ -119,7 +122,9 @@ export const useOnboardingTour = () => {
 	};
 
 	const advanceOnboardingTourStep = async (input?: AdvanceOnboardingTourStep) => {
-		if (!isOnboardingTourInProgress) return;
+		if (!isOnboardingTourInProgress) {
+			return;
+		}
 
 		setTourState(
 			produce(tourState, (draft) => {
@@ -128,8 +133,9 @@ export const useOnboardingTour = () => {
 		);
 
 		return new Promise<void>((resolve) => {
-			if (input?.skipSecondarySteps || input?.collapseSidebar)
+			if (input?.skipSecondarySteps || input?.collapseSidebar) {
 				setOpenedSidebarLinks(defaultSidebarLinksState);
+			}
 
 			setTimeout(
 				() => {

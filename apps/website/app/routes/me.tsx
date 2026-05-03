@@ -43,7 +43,9 @@ import type { Route } from "./+types/me";
 
 export const loader = async ({ request }: Route.LoaderArgs) => {
 	const customerDetails = await getCustomerWithActivePurchase(request);
-	if (!customerDetails) return redirect(startUrl);
+	if (!customerDetails) {
+		return redirect(startUrl);
+	}
 
 	const serverVariables = getServerVariables();
 	const isCancelling = getCancellation(customerDetails.id);
@@ -85,7 +87,9 @@ const getAllPolarSubscriptionsForCustomer = async (customerId: string) => {
 		externalCustomerId: customerId,
 	});
 
-	for await (const page of subscriptionsIterator) allSubscriptions.push(...page.result.items);
+	for await (const page of subscriptionsIterator) {
+		allSubscriptions.push(...page.result.items);
+	}
 
 	return allSubscriptions;
 };
@@ -96,8 +100,12 @@ export const action = async ({ request }: Route.ActionArgs) => {
 	const serverVariables = getServerVariables();
 	return await match(intent)
 		.with("regenerateUnkeyKey", async () => {
-			if (!customer || !customer.planType) throw new Error("No customer found");
-			if (!customer.unkeyKeyId) throw new Error("No unkey key found");
+			if (!customer || !customer.planType) {
+				throw new Error("No customer found");
+			}
+			if (!customer.unkeyKeyId) {
+				throw new Error("No unkey key found");
+			}
 			const unkey = getUnkeyClient();
 			await unkey.keys.updateKey({
 				enabled: false,
@@ -117,7 +125,9 @@ export const action = async ({ request }: Route.ActionArgs) => {
 				renewOn: customer.renewOn || undefined,
 				details: { __typename: "self_hosted", key: created.key },
 			});
-			if (!emailElement) throw new Error("Failed to create email element");
+			if (!emailElement) {
+				throw new Error("Failed to create email element");
+			}
 			await sendEmail({
 				element: emailElement,
 				recipient: customer.email,
@@ -126,10 +136,14 @@ export const action = async ({ request }: Route.ActionArgs) => {
 			return data({});
 		})
 		.with("cancelSubscription", async () => {
-			if (!customer) throw new Error("No customer found");
+			if (!customer) {
+				throw new Error("No customer found");
+			}
 
 			if (customer.paymentProvider === "polar") {
-				if (!customer.polarCustomerId) throw new Error("No Polar customer ID found");
+				if (!customer.polarCustomerId) {
+					throw new Error("No Polar customer ID found");
+				}
 
 				const subscriptionsResponse = await getAllPolarSubscriptionsForCustomer(customer.id);
 
@@ -137,7 +151,9 @@ export const action = async ({ request }: Route.ActionArgs) => {
 					["active", "trialing"].includes(sub.status),
 				);
 
-				if (!activeSubscription) throw new Error("No active subscription found");
+				if (!activeSubscription) {
+					throw new Error("No active subscription found");
+				}
 
 				console.log("Active Polar Subscription:", {
 					customerId: customer.id,
@@ -154,7 +170,9 @@ export const action = async ({ request }: Route.ActionArgs) => {
 				});
 			}
 
-			if (!customer.paddleCustomerId) throw new Error("No Paddle customer ID found");
+			if (!customer.paddleCustomerId) {
+				throw new Error("No Paddle customer ID found");
+			}
 			const paddleClient = getPaddleServerClient();
 
 			const subscriptionsResponse = await getAllSubscriptionsForCustomer(customer.paddleCustomerId);
@@ -163,7 +181,9 @@ export const action = async ({ request }: Route.ActionArgs) => {
 				["active", "trialing"].includes(sub.status),
 			);
 
-			if (!activeSubscription) throw new Error("No active subscription found");
+			if (!activeSubscription) {
+				throw new Error("No active subscription found");
+			}
 
 			console.log("Active Paddle Subscription:", {
 				customerId: customer.id,
@@ -181,18 +201,26 @@ export const action = async ({ request }: Route.ActionArgs) => {
 			});
 		})
 		.with("checkoutPolar", async () => {
-			if (!customer) throw new Error("No customer found");
-			if (customer.paymentProvider !== "polar") throw new Error("Customer is not on Polar");
+			if (!customer) {
+				throw new Error("No customer found");
+			}
+			if (customer.paymentProvider !== "polar") {
+				throw new Error("Customer is not on Polar");
+			}
 
 			const formData = await request.formData();
 			const productType = formData.get("productType")?.toString() as TProductTypes;
 			const planType = formData.get("planType")?.toString() as TPlanTypes;
 
-			if (!productType || !planType) throw new Error("Product type and plan type are required");
+			if (!productType || !planType) {
+				throw new Error("Product type and plan type are required");
+			}
 
 			const productId = findPolarProductId(productType, planType);
 
-			if (!productId) throw new Error("Polar product not found");
+			if (!productId) {
+				throw new Error("Polar product not found");
+			}
 
 			setPurchaseInProgress(customer.id);
 
@@ -208,7 +236,9 @@ export const action = async ({ request }: Route.ActionArgs) => {
 			return redirect(checkout.url);
 		})
 		.with("checkoutPaddle", async () => {
-			if (!customer) throw new Error("No customer found");
+			if (!customer) {
+				throw new Error("No customer found");
+			}
 			setPurchaseInProgress(customer.id);
 			return data({});
 		})
@@ -230,7 +260,7 @@ export default function Index() {
 	const paddleCustomerId = loaderData.customerDetails.paddleCustomerId;
 
 	useEffect(() => {
-		if (!paddle)
+		if (!paddle) {
 			initializePaddleForApplication(
 				loaderData.clientToken,
 				loaderData.isSandbox,
@@ -252,6 +282,7 @@ export default function Index() {
 					setPaddle(paddleInstance);
 				}
 			});
+		}
 	}, [
 		paddle,
 		loaderData.isSandbox,
@@ -322,7 +353,9 @@ export default function Index() {
 												const yes = confirm(
 													"Are you sure you want to regenerate the unkey key? All old unkey keys will be invalidated.",
 												);
-												if (!yes) e.preventDefault();
+												if (!yes) {
+													e.preventDefault();
+												}
 											}}
 										>
 											Regenerate
@@ -396,7 +429,9 @@ export default function Index() {
 								const yes = confirm(
 									"Are you sure you want to cancel your subscription? You will lose access to the pro features immediately.",
 								);
-								if (!yes) e.preventDefault();
+								if (!yes) {
+									e.preventDefault();
+								}
 							}}
 						>
 							<Button variant="outline" type="submit">

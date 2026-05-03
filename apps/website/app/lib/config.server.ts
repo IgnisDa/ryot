@@ -165,7 +165,9 @@ export const findPolarProductId = (
 	const products = getPolarProducts();
 
 	const product = products.find((p) => p.type === productType);
-	if (!product) return null;
+	if (!product) {
+		return null;
+	}
 
 	const price = product.prices.find((p) => p.name === planType);
 	return price?.productId || null;
@@ -173,7 +175,9 @@ export const findPolarProductId = (
 
 export const assignPaymentProvider = (email: string): schema.TPaymentProviders => {
 	const abPercent = getPolarAbPercent();
-	if (abPercent === 0) return "paddle";
+	if (abPercent === 0) {
+		return "paddle";
+	}
 
 	const hash = createHash("sha256").update(email).digest("hex");
 	const hashInt = Number.parseInt(hash.substring(0, 8), 16);

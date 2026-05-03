@@ -52,8 +52,9 @@ export const action = async ({ request }: Route.ActionArgs) => {
 		.with("registerWithEmail", async () => {
 			const submission = processSubmission(formData, registerSchema);
 			const otpCode = getOtpCode(submission.email);
-			if (otpCode !== submission.otpCode)
+			if (otpCode !== submission.otpCode) {
 				throw data({ message: "Invalid OTP code." }, { status: 400 });
+			}
 
 			revokeOtpCode(submission.email);
 			const paymentProvider = assignPaymentProvider(submission.email);
@@ -66,7 +67,9 @@ export const action = async ({ request }: Route.ActionArgs) => {
 					set: { email: submission.email },
 				});
 			const customerId = dbCustomer.at(0)?.id;
-			if (!customerId) throw new Error("There was an error registering the user.");
+			if (!customerId) {
+				throw new Error("There was an error registering the user.");
+			}
 			console.log("Customer login successful:", { customerId });
 			return redirect($path("/me"), {
 				headers: {

@@ -9,7 +9,9 @@ import type { MediaFormProps } from "../utils/form-types";
 export const AnimeForm = (props: MediaFormProps) => {
 	const { metadataToUpdate, updateMetadataToUpdate } = useMetadataProgressUpdate();
 	const [{ data: metadataDetails }] = useMetadataDetails(props.metadataId);
-	if (!metadataDetails || metadataDetails.lot !== MediaLot.Anime || !metadataToUpdate) return null;
+	if (!metadataDetails || metadataDetails.lot !== MediaLot.Anime || !metadataToUpdate) {
+		return null;
+	}
 
 	const totalEpisodes = metadataDetails.animeSpecifics?.episodes;
 

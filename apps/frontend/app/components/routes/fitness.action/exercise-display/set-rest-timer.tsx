@@ -8,7 +8,9 @@ export const DisplayExerciseSetRestTimer = (props: { openTimerDrawer: () => void
 	const [currentTimer] = useCurrentWorkoutTimerAtom();
 	useForceUpdateEverySecond();
 
-	if (!currentTimer) return null;
+	if (!currentTimer) {
+		return null;
+	}
 
 	return (
 		<RingProgress
