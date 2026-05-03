@@ -1,6 +1,5 @@
 import clsx from "clsx";
 import { Link, usePathname } from "expo-router";
-import { useAtomValue } from "jotai";
 import { Plus } from "lucide-react-native";
 import Animated, {
 	FadeIn,
@@ -11,7 +10,7 @@ import Animated, {
 import { Box } from "@/components/ui/box";
 import { Pressable } from "@/components/ui/pressable";
 import { Text } from "@/components/ui/text";
-import { trackersAtom } from "@/lib/navigation";
+import { useTrackers } from "@/lib/navigation";
 import { RAIL_WIDTH } from "./rail";
 
 export const FLYOUT_WIDTH = 220;
@@ -21,7 +20,7 @@ type Props = {
 };
 
 export function SpineSubFlyout({ pinned = false }: Props) {
-	const trackers = useAtomValue(trackersAtom);
+	const trackers = useTrackers();
 	const pathname = usePathname();
 	const segments = pathname.split("/").filter(Boolean);
 	const activeTrackerId = segments[0] || "home";
