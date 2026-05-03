@@ -2,11 +2,16 @@
 	"env": { "node": true, "browser": true },
 	"settings": { "react": { "version": "19.0.0" } },
 	"$schema": "./node_modules/oxlint/configuration_schema.json",
-	"plugins": ["react", "typescript", "unicorn", "import", "oxc"],
+	"plugins": ["react", "typescript", "unicorn", "import", "oxc", "promise"],
+	"categories": { "perf": "warn", "suspicious": "warn", "correctness": "error" },
 	"overrides": [
 		{
-			"rules": { "typescript/no-inferrable-types": "off" },
-			"files": ["*.test.ts", "*.test.tsx", "*.spec.ts", "*.spec.tsx"]
+			"files": ["*.test.ts", "*.test.tsx", "*.spec.ts", "*.spec.tsx"],
+			"rules": {
+				"typescript/no-unsafe-argument": "off",
+				"typescript/no-inferrable-types": "off",
+				"typescript/no-unsafe-assignment": "off"
+			}
 		}
 	],
 	"ignorePatterns": [
@@ -15,21 +20,29 @@
 		"**/.wxt/**",
 		"**/build/**",
 		"**/.vitepress/**",
+		"libs/generated/**",
 		"apps/frontend/app/styles/*.css",
 		"apps/app-frontend/src/routeTree.gen.ts",
-		"apps/docs/src/includes/export-schema.ts",
-		"libs/generated/src/openapi/app-backend.d.ts"
+		"apps/docs/src/includes/export-schema.ts"
 	],
 	"rules": {
+		"no-else-return": "warn",
+		"import/no-cycle": "error",
+		"react-in-jsx-scope": "off",
 		"no-param-reassign": "error",
+		"eqeqeq": ["error", "smart"],
 		"default-param-last": "error",
+		"react/rules-of-hooks": "error",
 		"react/self-closing-comp": "error",
 		"react/no-array-index-key": "warn",
+		"import/no-named-as-default": "off",
 		"typescript/no-explicit-any": "warn",
 		"react-hooks/exhaustive-deps": "off",
 		"typescript/prefer-as-const": "error",
+		"react/jsx-no-useless-fragment": "warn",
 		"typescript/no-inferrable-types": "error",
 		"unicorn/prefer-number-properties": "error",
+		"typescript/consistent-type-imports": "warn",
 		"typescript/no-unused-vars": [
 			"error",
 			{
