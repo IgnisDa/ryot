@@ -18,10 +18,10 @@ function WorkspaceTopBar(props: { onMenuOpen: () => void }) {
 				accessibilityLabel="Open navigation"
 				className="items-center justify-center rounded-pill border border-border-strong bg-surface-2 p-1"
 			>
-				<NavigationIcon className="text-text-muted" name="menu" size={30} />
+				<NavigationIcon className="text-text-muted" name="menu" size={24} />
 			</Pressable>
 			<View className="flex-1 flex-row items-center gap-2 rounded-pill border border-border-strong bg-surface-2 px-2 py-1">
-				<NavigationIcon className="text-text-muted" name="search" size={30} />
+				<NavigationIcon className="text-text-muted" name="search" size={24} />
 				<Text className="font-ui text-lg text-text-subtle">Search</Text>
 			</View>
 		</View>
