@@ -249,6 +249,13 @@ export function DetailsSection({ entity }: { entity: EntityDetail }) {
 			}
 			break;
 		case "book":
+			if (entity.pages) {
+				rows.push({ label: "Pages", value: String(entity.pages) });
+			}
+			if (entity.isCompilation) {
+				rows.push({ label: "Compilation", value: "Yes" });
+			}
+			break;
 		case "comic-book":
 			if (entity.pages) {
 				rows.push({ label: "Pages", value: String(entity.pages) });
@@ -268,6 +275,9 @@ export function DetailsSection({ entity }: { entity: EntityDetail }) {
 					label: "Duration",
 					value: formatSeconds(entity.duration),
 				});
+			}
+			if (entity.byVariousArtists) {
+				rows.push({ label: "Artists", value: "Various" });
 			}
 			break;
 		case "video-game":
@@ -489,110 +499,36 @@ function VideoGameStats({ entity }: { entity: VideoGameDetail }) {
 // ─── TypeSpecificSection ──────────────────────────────────────────────────────
 
 export function TypeSpecificSection({ entity }: { entity: EntityDetail }) {
-	switch (entity.entitySchemaSlug) {
-		case "show":
-			return <ShowSeasonsList entity={entity} />;
-		case "podcast":
-			return <PodcastEpisodesList entity={entity} />;
-		case "video-game":
-			return <VideoGameStats entity={entity} />;
-		case "anime":
-			return (
-				<Box>
-					<SectionLabel label="Details" />
-					<Box className="flex-row gap-3">
-						{entity.episodes ? (
-							<StatBlock label="Episodes" value={String(entity.episodes)} />
-						) : null}
+	return match(entity)
+		.with({ entitySchemaSlug: "show" }, (e) => <ShowSeasonsList entity={e} />)
+		.with({ entitySchemaSlug: "video-game" }, (e) => <VideoGameStats entity={e} />)
+		.with({ entitySchemaSlug: "podcast" }, (e) => <PodcastEpisodesList entity={e} />)
+		.with({ entitySchemaSlug: "anime" }, (e) => (
+			<Box>
+				{e.airingSchedule && e.airingSchedule.length > 0 && (
+					<Box>
+						<SectionLabel label="Airing Schedule" />
+						{e.airingSchedule.map((item) => (
+							<Box
+								key={item.episode}
+								className="mb-2 flex-row items-center justify-between rounded-xl px-4 py-3"
+								style={{
+									borderWidth: 1,
+									borderColor: hexToRgba(ACCENT, 0.14),
+									backgroundColor: hexToRgba(ACCENT, 0.07),
+								}}
+							>
+								<Text className="text-[13px] font-sans-medium text-foreground web:text-[15px]">
+									{`Episode ${item.episode}`}
+								</Text>
+								<Text className="text-[12px] font-mono text-muted-foreground web:text-[14px]">
+									{dayjs(item.airingAt).format("MMM D, YYYY")}
+								</Text>
+							</Box>
+						))}
 					</Box>
-					{entity.airingSchedule && entity.airingSchedule.length > 0 && (
-						<Box>
-							<SectionLabel label="Airing Schedule" />
-							{entity.airingSchedule.map((item) => (
-								<Box
-									key={item.episode}
-									className="mb-2 flex-row items-center justify-between rounded-xl px-4 py-3"
-									style={{
-										backgroundColor: hexToRgba(ACCENT, 0.07),
-										borderWidth: 1,
-										borderColor: hexToRgba(ACCENT, 0.14),
-									}}
-								>
-									<Text className="text-[13px] font-sans-medium text-foreground web:text-[15px]">
-										{`Episode ${item.episode}`}
-									</Text>
-									<Text className="text-[12px] font-mono text-muted-foreground web:text-[14px]">
-										{dayjs(item.airingAt).format("MMM D, YYYY")}
-									</Text>
-								</Box>
-							))}
-						</Box>
-					)}
-				</Box>
-			);
-		case "manga":
-			return (
-				<Box>
-					<SectionLabel label="Details" />
-					<Box className="flex-row gap-3">
-						{entity.volumes ? <StatBlock label="Volumes" value={String(entity.volumes)} /> : null}
-						{entity.chapters ? (
-							<StatBlock label="Chapters" value={String(entity.chapters)} />
-						) : null}
-					</Box>
-				</Box>
-			);
-		case "book":
-			return entity.pages ? (
-				<Box>
-					<SectionLabel label="Details" />
-					<Box className="flex-row gap-3">
-						<StatBlock label="Pages" value={String(entity.pages)} />
-						{entity.isCompilation ? <StatBlock label="Type" value="Compilation" /> : null}
-					</Box>
-				</Box>
-			) : null;
-		case "comic-book":
-			return entity.pages ? (
-				<Box>
-					<SectionLabel label="Details" />
-					<Box className="flex-row gap-3">
-						<StatBlock label="Pages" value={String(entity.pages)} />
-					</Box>
-				</Box>
-			) : null;
-		case "music":
-			return (
-				<Box>
-					<SectionLabel label="Details" />
-					<Box className="flex-row gap-3">
-						{entity.duration ? (
-							<StatBlock label="Duration" value={formatSeconds(entity.duration)} />
-						) : null}
-						{entity.byVariousArtists ? <StatBlock label="Artists" value="Various" /> : null}
-					</Box>
-				</Box>
-			);
-		case "movie":
-		case "audiobook":
-			return entity.runtime ? (
-				<Box>
-					<SectionLabel label="Details" />
-					<Box className="flex-row gap-3">
-						<StatBlock label="Runtime" value={formatMinutes(entity.runtime)} />
-					</Box>
-				</Box>
-			) : null;
-		case "visual-novel":
-			return entity.lengthMinutes ? (
-				<Box>
-					<SectionLabel label="Details" />
-					<Box className="flex-row gap-3">
-						<StatBlock label="Est. Length" value={formatMinutes(entity.lengthMinutes)} />
-					</Box>
-				</Box>
-			) : null;
-		default:
-			return null;
-	}
+				)}
+			</Box>
+		))
+		.otherwise(() => null);
 }
