@@ -8,7 +8,7 @@ export const getServer = () => {
 		.use("*", metricsMiddleware)
 		.route("/api", apiApp)
 		.use("*", serveStatic({ root: "./client" }))
-		.use("*", serveStatic({ path: "./client/_shell.html" }));
+		.use("*", serveStatic({ path: "./client/index.html" }));
 
 	return app;
 };
