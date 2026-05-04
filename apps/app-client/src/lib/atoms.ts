@@ -9,6 +9,10 @@ import { createMMKV } from "react-native-mmkv";
 
 export const CLOUD_URL = "https://app.ryot.io";
 
+const STORAGE_PREFIX = "ryot";
+const AUTH_COOKIE_KEY = `${STORAGE_PREFIX}_cookie`;
+const AUTH_SESSION_KEY = `${STORAGE_PREFIX}_session_data`;
+
 const mmkv = Platform.OS !== "web" ? createMMKV() : null;
 
 export const atomWithPlatformStorage = <T>(key: string, initial: T) => {
@@ -48,7 +52,7 @@ const authClientAtom = atom((get) => {
 	const plugins =
 		Platform.OS !== "web"
 			? [
-					expoClient({ storagePrefix: "ryot", storage: nativeStorage }),
+					expoClient({ storagePrefix: STORAGE_PREFIX, storage: nativeStorage }),
 					apiKeyClient(),
 				]
 			: [apiKeyClient()];
@@ -63,4 +67,14 @@ export function useUser() {
 	const authClient = useAuthClient();
 	const { data: session } = authClient.useSession();
 	return session?.user ?? null;
+}
+
+export function clearAppStorage() {
+	SecureStore.deleteItemAsync(AUTH_COOKIE_KEY);
+	SecureStore.deleteItemAsync(AUTH_SESSION_KEY);
+	if (mmkv) {
+		mmkv.clearAll();
+	} else {
+		localStorage.clear();
+	}
 }
