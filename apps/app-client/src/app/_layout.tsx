@@ -1,6 +1,6 @@
-import { IBMPlexMono_400Regular } from "@expo-google-fonts/ibm-plex-mono";
-
+// oxlint-disable-next-line import/no-unassigned-import
 import "@/global.css";
+import { IBMPlexMono_400Regular } from "@expo-google-fonts/ibm-plex-mono";
 import { Outfit_400Regular, Outfit_500Medium, Outfit_600SemiBold } from "@expo-google-fonts/outfit";
 import {
 	SpaceGrotesk_400Regular,
@@ -59,6 +59,7 @@ export default function RootLayout() {
 			<Provider>
 				<GestureHandlerRootView style={{ flex: 1 }}>
 					<GluestackUIProvider mode="system">
+						{/* oxlint-disable-next-line react/style-prop-object */}
 						<StatusBar style="auto" />
 						<Stack screenOptions={{ headerShown: false }} />
 					</GluestackUIProvider>
