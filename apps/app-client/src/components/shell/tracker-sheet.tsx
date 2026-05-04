@@ -29,7 +29,10 @@ export function TrackerSheet() {
 	const segments = pathname.split("/").filter(Boolean);
 	const activeTrackerSlug = segments[0] || "home";
 	const activeSubItem = segments[1] || null;
-	const [expandedId, setExpandedId] = useState<string | null>(null);
+	const [expandedId, setExpandedId] = useState<string | null>(
+		trackers.find((t) => t.slug === activeTrackerSlug && t.subItems.length > 0)
+			?.key ?? null,
+	);
 	const insets = useSafeAreaInsets();
 
 	function close() {
@@ -39,6 +42,9 @@ export function TrackerSheet() {
 	function handleTrackerPress(tracker: NavigationItem) {
 		if (tracker.subItems.length > 0) {
 			setExpandedId((prev) => (prev === tracker.key ? null : tracker.key));
+			if (tracker.slug !== activeTrackerSlug) {
+				router.push(`/${tracker.slug}` as Href);
+			}
 		} else {
 			const href: Href =
 				tracker.kind === "home" ? "/" : (`/${tracker.slug}` as Href);
