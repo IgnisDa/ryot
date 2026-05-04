@@ -15,7 +15,7 @@ import {
 } from "./form";
 
 const input = createPropertySchemaInputFixture;
-const row = createPropertySchemaRowFixture;
+const rowFixture = createPropertySchemaRowFixture;
 
 describe("buildDefaultPropertySchemaRow", () => {
 	it("returns an empty optional string property row", () => {
@@ -76,8 +76,8 @@ describe("createPropertySchemaFormSchema", () => {
 			name: "Tasting",
 			slug: "tasting",
 			properties: [
-				row({ id: "rating", key: "rating", type: "number" }),
-				row({ id: "score", key: " rating ", type: "integer", required: true }),
+				rowFixture({ id: "rating", key: "rating", type: "number" }),
+				rowFixture({ id: "score", key: " rating ", type: "integer", required: true }),
 			],
 		});
 

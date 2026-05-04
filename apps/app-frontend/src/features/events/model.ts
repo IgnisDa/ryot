@@ -12,7 +12,7 @@ export type AppEvent = Omit<ApiEvent, "createdAt" | "updatedAt"> & {
 export type EventListViewState = { type: "empty" } | { type: "list"; events: AppEvent[] };
 
 export function sortEvents(events: AppEvent[]) {
-	return [...events].sort((a, b) => {
+	return events.toSorted((a, b) => {
 		return dayjs(b.createdAt).valueOf() - dayjs(a.createdAt).valueOf();
 	});
 }

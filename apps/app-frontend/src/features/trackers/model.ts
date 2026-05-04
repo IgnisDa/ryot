@@ -3,7 +3,7 @@ import type { ApiGetResponseData } from "~/lib/api/types";
 export type AppTracker = ApiGetResponseData<"/trackers">[number];
 
 export function sortTrackersByOrder(trackers: AppTracker[]): AppTracker[] {
-	return [...trackers].sort((a, b) => {
+	return trackers.toSorted((a, b) => {
 		if (a.sortOrder !== b.sortOrder) {
 			return a.sortOrder - b.sortOrder;
 		}
