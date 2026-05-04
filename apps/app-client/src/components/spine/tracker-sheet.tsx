@@ -1,6 +1,7 @@
 import clsx from "clsx";
+import type { Href } from "expo-router";
 import { router, usePathname } from "expo-router";
-import { ChevronDown, ChevronRight, Plus } from "lucide-react-native";
+import { ChevronDown, ChevronRight } from "lucide-react-native";
 import { useState } from "react";
 import { ScrollView } from "react-native";
 import Animated, {
@@ -13,18 +14,20 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Box } from "@/components/ui/box";
 import { Pressable } from "@/components/ui/pressable";
 import { Text } from "@/components/ui/text";
-import {
-	type Tracker,
-	useSetNavSheetOpen,
-	useTrackers,
-} from "@/lib/navigation";
+import { useUser } from "@/lib/atoms";
+import { TrackerIcon } from "@/lib/icons";
+import type { NavigationItem, NavigationSubItem } from "@/lib/navigation";
+import { useNavigationData, useSetNavSheetOpen } from "@/lib/navigation";
 
 export function TrackerSheet() {
+	const user = useUser();
 	const setOpen = useSetNavSheetOpen();
-	const trackers = useTrackers();
+	const { trackers, libraryViews, userItem, isLoading } = useNavigationData(
+		user?.name,
+	);
 	const pathname = usePathname();
 	const segments = pathname.split("/").filter(Boolean);
-	const activeTrackerId = segments[0] || "home";
+	const activeTrackerSlug = segments[0] || "home";
 	const activeSubItem = segments[1] || null;
 	const [expandedId, setExpandedId] = useState<string | null>(null);
 	const insets = useSafeAreaInsets();
@@ -33,17 +36,19 @@ export function TrackerSheet() {
 		setOpen(false);
 	}
 
-	function handleTrackerPress(tracker: Tracker) {
-		if (tracker.subItems?.length) {
-			setExpandedId((prev) => (prev === tracker.id ? null : tracker.id));
+	function handleTrackerPress(tracker: NavigationItem) {
+		if (tracker.subItems.length > 0) {
+			setExpandedId((prev) => (prev === tracker.key ? null : tracker.key));
 		} else {
-			router.push(tracker.id === "home" ? "/" : `/${tracker.id}`);
+			const href: Href =
+				tracker.kind === "home" ? "/" : (`/${tracker.slug}` as Href);
+			router.push(href);
 			close();
 		}
 	}
 
-	function handleSubItemPress(trackerId: string, item: string) {
-		router.push(`/${trackerId}/${item}`);
+	function handleSubItemPress(trackerSlug: string, subItem: NavigationSubItem) {
+		router.push(`/${trackerSlug}/${subItem.slug}` as Href);
 		close();
 	}
 
@@ -51,13 +56,13 @@ export function TrackerSheet() {
 		<Box className="absolute inset-0 z-20" pointerEvents="box-none">
 			<Animated.View
 				pointerEvents="auto"
-				className="absolute inset-0 bg-foreground/40"
 				entering={FadeIn.duration(200)}
 				exiting={FadeOut.duration(180)}
+				className="absolute inset-0 bg-foreground/40"
 			>
 				<Pressable
-					className="absolute inset-0"
 					onPress={close}
+					className="absolute inset-0"
 					accessibilityLabel="Close navigation"
 				/>
 			</Animated.View>
@@ -86,91 +91,157 @@ export function TrackerSheet() {
 						paddingBottom: insets.bottom + 24,
 					}}
 				>
-					{trackers.map((tracker) => {
-						const isActive = tracker.id === activeTrackerId;
-						const isExpanded = expandedId === tracker.id;
-						return (
-							<Box key={tracker.id}>
-								<Pressable
-									accessibilityRole="button"
-									accessibilityLabel={tracker.name}
-									onPress={() => handleTrackerPress(tracker)}
-									className="flex-row items-center px-6 min-h-13 relative"
-								>
-									{isActive && (
-										<Box className="absolute left-0 top-2 bottom-2 w-0.75 bg-primary" />
-									)}
-									<Text
-										className={clsx(
-											"flex-1 text-[17px] tracking-[0.2px]",
-											isActive
-												? "text-foreground font-heading-semibold"
-												: "text-muted-foreground font-heading",
-										)}
-									>
-										{tracker.name}
-									</Text>
-									{tracker.subItems?.length ? (
-										<Box className="opacity-60 ml-2">
-											{isExpanded ? (
-												<ChevronDown
-													size={14}
-													color="#78716c"
-													strokeWidth={1.5}
-												/>
-											) : (
-												<ChevronRight
-													size={14}
-													color="#78716c"
-													strokeWidth={1.5}
+					{isLoading ? (
+						<Text className="text-[14px] text-muted-foreground font-heading px-6 py-4">
+							Loading...
+						</Text>
+					) : (
+						<>
+							{trackers.map((tracker) => {
+								const isActive = tracker.slug === activeTrackerSlug;
+								const isExpanded = expandedId === tracker.key;
+								return (
+									<Box key={tracker.key}>
+										<Pressable
+											accessibilityRole="button"
+											accessibilityLabel={tracker.name}
+											onPress={() => handleTrackerPress(tracker)}
+											className="flex-row items-center px-6 min-h-13 relative"
+										>
+											{isActive && (
+												<Box
+													className="absolute left-0 top-2 bottom-2 w-0.75"
+													style={{
+														backgroundColor: tracker.accentColor ?? undefined,
+													}}
 												/>
 											)}
-										</Box>
-									) : null}
-								</Pressable>
+											<Box className="mr-2">
+												<TrackerIcon icon={tracker.icon} size={16} />
+											</Box>
+											<Text
+												className={clsx(
+													"flex-1 text-[17px] tracking-[0.2px]",
+													isActive
+														? "text-foreground font-heading-semibold"
+														: "text-muted-foreground font-heading",
+												)}
+											>
+												{tracker.name}
+											</Text>
+											{tracker.subItems.length > 0 ? (
+												<Box className="opacity-60 ml-2">
+													{isExpanded ? (
+														<ChevronDown
+															size={14}
+															color="#78716c"
+															strokeWidth={1.5}
+														/>
+													) : (
+														<ChevronRight
+															size={14}
+															color="#78716c"
+															strokeWidth={1.5}
+														/>
+													)}
+												</Box>
+											) : null}
+										</Pressable>
 
-								{isExpanded && (
-									<Animated.View entering={FadeIn.duration(150)}>
-										{tracker.subItems?.map((item) => {
-											const isSubActive = isActive && item === activeSubItem;
-											return (
-												<Pressable
-													key={item}
-													accessibilityLabel={item}
-													accessibilityRole="button"
-													className="pl-10 pr-6 min-h-11 justify-center"
-													onPress={() => handleSubItemPress(tracker.id, item)}
+										{isExpanded && (
+											<Animated.View entering={FadeIn.duration(150)}>
+												{tracker.subItems.map((item) => {
+													const isSubActive =
+														isActive && item.slug === activeSubItem;
+													return (
+														<Pressable
+															key={item.key}
+															accessibilityRole="button"
+															accessibilityLabel={item.name}
+															className="pl-13 pr-6 min-h-11 justify-center flex-row items-center"
+															onPress={() =>
+																handleSubItemPress(tracker.slug, item)
+															}
+														>
+															<Box className="mr-2">
+																<TrackerIcon icon={item.icon} size={14} />
+															</Box>
+															<Text
+																className={clsx(
+																	"flex-1 text-[18px]",
+																	isSubActive
+																		? "text-primary font-heading-semibold"
+																		: "text-foreground font-heading",
+																)}
+															>
+																{item.name}
+															</Text>
+														</Pressable>
+													);
+												})}
+											</Animated.View>
+										)}
+									</Box>
+								);
+							})}
+
+							{libraryViews.length > 0 && (
+								<>
+									<Box className="mt-3 mb-1 px-6">
+										<Box className="h-[0.5px] bg-border mb-3.5" />
+										<Text className="text-[10px] tracking-[2px] text-muted-foreground font-sans uppercase">
+											Views
+										</Text>
+									</Box>
+									{libraryViews.map((view) => {
+										const isActive = view.slug === activeTrackerSlug;
+										return (
+											<Pressable
+												key={view.key}
+												accessibilityRole="button"
+												accessibilityLabel={view.name}
+												onPress={() => handleTrackerPress(view)}
+												className="flex-row items-center px-6 min-h-13 relative"
+											>
+												{isActive && (
+													<Box
+														className="absolute left-0 top-2 bottom-2 w-0.75"
+														style={{
+															backgroundColor: view.accentColor ?? undefined,
+														}}
+													/>
+												)}
+												<Box className="mr-2">
+													<TrackerIcon icon={view.icon} size={16} />
+												</Box>
+												<Text
+													className={clsx(
+														"flex-1 text-[17px] tracking-[0.2px]",
+														isActive
+															? "text-foreground font-heading-semibold"
+															: "text-muted-foreground font-heading",
+													)}
 												>
-													<Text
-														className={clsx(
-															"text-[18px]",
-															isSubActive
-																? "text-primary font-heading-semibold"
-																: "text-foreground font-heading",
-														)}
-													>
-														{item}
-													</Text>
-												</Pressable>
-											);
-										})}
-									</Animated.View>
-								)}
-							</Box>
-						);
-					})}
+													{view.name}
+												</Text>
+											</Pressable>
+										);
+									})}
+								</>
+							)}
+						</>
+					)}
 
 					<Box className="mx-6 mt-2">
 						<Box className="h-[0.5px] bg-border mb-3.5" />
-						<Pressable
-							accessibilityRole="button"
-							className="flex-row items-center gap-1.5 min-h-11"
-						>
-							<Plus size={12} color="#78716c" strokeWidth={1.5} />
-							<Text className="text-[12px] text-muted-foreground font-sans">
-								new tracker
+						<Box className="flex-row items-center gap-2 min-h-11">
+							<Box className="opacity-40">
+								<TrackerIcon icon="user" size={16} />
+							</Box>
+							<Text className="text-[14px] text-muted-foreground font-heading">
+								{userItem.name}
 							</Text>
-						</Pressable>
+						</Box>
 					</Box>
 				</ScrollView>
 			</Animated.View>
