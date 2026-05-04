@@ -27,8 +27,13 @@ export function TrackerSheet() {
 	);
 	const pathname = usePathname();
 	const segments = pathname.split("/").filter(Boolean);
-	const activeTrackerSlug = segments[0] || "home";
-	const activeSubItem = segments[1] || null;
+	const isViewPath = segments[0] === "views";
+	const activeSubItemSlug = isViewPath ? (segments[1] ?? null) : null;
+	const activeTrackerSlug = isViewPath
+		? (trackers.find((t) =>
+				t.subItems.some((s) => s.slug === activeSubItemSlug),
+			)?.slug ?? "home")
+		: segments[0] || "home";
 	const [expandedId, setExpandedId] = useState<string | null>(
 		trackers.find((t) => t.slug === activeTrackerSlug && t.subItems.length > 0)
 			?.key ?? null,
@@ -47,14 +52,18 @@ export function TrackerSheet() {
 			}
 		} else {
 			const href: Href =
-				tracker.kind === "home" ? "/" : (`/${tracker.slug}` as Href);
+				tracker.kind === "home"
+					? "/"
+					: tracker.kind === "view"
+						? (`/views/${tracker.slug}` as Href)
+						: (`/${tracker.slug}` as Href);
 			router.push(href);
 			close();
 		}
 	}
 
-	function handleSubItemPress(trackerSlug: string, subItem: NavigationSubItem) {
-		router.push(`/${trackerSlug}/${subItem.slug}` as Href);
+	function handleSubItemPress(subItem: NavigationSubItem) {
+		router.push(`/views/${subItem.slug}` as Href);
 		close();
 	}
 
@@ -159,16 +168,14 @@ export function TrackerSheet() {
 											<Animated.View entering={FadeIn.duration(150)}>
 												{tracker.subItems.map((item) => {
 													const isSubActive =
-														isActive && item.slug === activeSubItem;
+														isActive && item.slug === activeSubItemSlug;
 													return (
 														<Pressable
 															key={item.key}
 															accessibilityRole="button"
 															accessibilityLabel={item.name}
 															className="pl-13 pr-6 min-h-11 justify-center flex-row items-center relative"
-															onPress={() =>
-																handleSubItemPress(tracker.slug, item)
-															}
+															onPress={() => handleSubItemPress(item)}
 														>
 															{isSubActive && (
 																<Box
@@ -210,7 +217,8 @@ export function TrackerSheet() {
 										</Text>
 									</Box>
 									{libraryViews.map((view) => {
-										const isActive = view.slug === activeTrackerSlug;
+										const isActive =
+											isViewPath && view.slug === activeSubItemSlug;
 										return (
 											<Pressable
 												key={view.key}
