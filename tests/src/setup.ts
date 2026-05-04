@@ -27,6 +27,7 @@ let pgContainer: StartedPostgreSqlContainer;
 async function waitForHealthCheck(url: string, maxRetries = 30, retryDelay = 1000) {
 	for (let i = 0; i < maxRetries; i++) {
 		try {
+			// oxlint-disable-next-line no-await-in-loop
 			const response = await fetch(url);
 			if (response.ok) {
 				console.log(`[E2E Setup] Health check passed for ${url}`);
@@ -37,6 +38,7 @@ async function waitForHealthCheck(url: string, maxRetries = 30, retryDelay = 100
 		}
 
 		if (i < maxRetries - 1) {
+			// oxlint-disable-next-line no-await-in-loop
 			await new Promise((resolve) => setTimeout(resolve, retryDelay));
 		}
 	}
