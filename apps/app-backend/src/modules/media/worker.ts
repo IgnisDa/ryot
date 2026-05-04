@@ -53,13 +53,13 @@ const extractPrimaryImage = (images: unknown) => {
 };
 
 export const hasImportedEntityDetails = (
-	entity: Pick<ListedEntity, "image" | "properties" | "populatedAt">,
+	entityRow: Pick<ListedEntity, "image" | "properties" | "populatedAt">,
 ) => {
-	if (entity.populatedAt.getTime() <= 0) {
+	if (entityRow.populatedAt.getTime() <= 0) {
 		return false;
 	}
 
-	return entity.image !== null || Object.keys(entity.properties).length > 0;
+	return entityRow.image !== null || Object.keys(entityRow.properties).length > 0;
 };
 
 export type MediaWorkerDeps = {
@@ -213,11 +213,13 @@ const processPersonStubs = async (input: {
 
 		const stub = stubResult.data;
 
+		// oxlint-disable-next-line no-await-in-loop
 		const personScript = await getBuiltinSandboxScriptBySlug(stub.scriptSlug);
 		if (!personScript) {
 			continue;
 		}
 
+		// oxlint-disable-next-line no-await-in-loop
 		const { entity: existingOrCreated, isNew } = await createGlobalEntity({
 			name: stub.name,
 			externalId: stub.externalId,
@@ -235,6 +237,7 @@ const processPersonStubs = async (input: {
 			extraProperties.order = stub.order;
 		}
 
+		// oxlint-disable-next-line no-await-in-loop
 		await upsertPersonRelationship({
 			role: roleSlug,
 			extraProperties,
@@ -244,6 +247,7 @@ const processPersonStubs = async (input: {
 		});
 
 		if (isNew || !hasImportedEntityDetails(existingOrCreated)) {
+			// oxlint-disable-next-line no-await-in-loop
 			await getQueues().mediaQueue.add(
 				personPopulateJobName,
 				{

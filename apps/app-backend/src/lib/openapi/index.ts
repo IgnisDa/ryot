@@ -4,15 +4,7 @@ import { z } from "@hono/zod-openapi";
 import { requireAuth } from "~/lib/auth/middleware";
 import type { ServiceResult } from "~/lib/result";
 
-export const ERROR_CODES = {
-	TIMEOUT: "timeout",
-	NOT_FOUND: "not_found",
-	RATE_LIMITED: "rate_limited",
-	INTERNAL_ERROR: "internal_error",
-	UNAUTHENTICATED: "unauthenticated",
-	VALIDATION_FAILED: "validation_failed",
-	HEALTH_CHECK_FAILED: "health_check_failed",
-} as const;
+import { ERROR_CODES, errorResponse } from "./errors";
 
 const createErrorSchema = (code: string, name: string) =>
 	z.object({ message: z.string(), code: z.literal(code) }).openapi(name);
@@ -119,10 +111,6 @@ export const resolveValidationData = <T>(
 	}
 	return result;
 };
-
-export const errorResponse = (code: string, message: string) => ({
-	error: { code, message },
-});
 
 export const dataSchema = <T extends z.ZodType>(schema: T) => z.object({ data: schema });
 

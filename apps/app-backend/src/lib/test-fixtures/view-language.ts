@@ -1,5 +1,4 @@
-import type { ViewExpression, ViewTransformName } from "~/lib/views/expression";
-import type { ViewPredicate } from "~/lib/views/filtering";
+import type { ViewExpression, ViewPredicate, ViewTransformName } from "~/lib/views/expression";
 
 export const eventExpression = (joinKey: string, field: string): ViewExpression => ({
 	type: "reference",

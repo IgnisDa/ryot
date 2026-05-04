@@ -1,5 +1,5 @@
 export type FieldDef = {
-	readonly _kind: "field";
+	readonly kind: "field";
 	readonly envKey: string;
 	readonly default?: string;
 	readonly optional?: boolean;
@@ -12,16 +12,16 @@ export interface GroupDef<
 	T extends Record<string, any> = Record<string, ConfigNode>,
 > {
 	readonly children: T;
-	readonly _kind: "group";
+	readonly kind: "group";
 	readonly description: string;
 }
 
 export type ConfigNode = FieldDef | GroupDef;
 
-type ExtractPathsFromNode<T extends ConfigNode, Path extends string> = T extends { _kind: "field" }
+type ExtractPathsFromNode<T extends ConfigNode, Path extends string> = T extends { kind: "field" }
 	? Path
 	: T extends {
-				_kind: "group";
+				kind: "group";
 				children: infer C extends Record<string, ConfigNode>;
 		  }
 		? ExtractPaths<C, Path>
@@ -31,10 +31,10 @@ export type ExtractPaths<T extends Record<string, ConfigNode>, Prefix extends st
 	[K in keyof T & string]: ExtractPathsFromNode<T[K], Prefix extends "" ? K : `${Prefix}.${K}`>;
 }[keyof T & string];
 
-type ParsedNode<T extends ConfigNode> = T extends { _kind: "field" }
+type ParsedNode<T extends ConfigNode> = T extends { kind: "field" }
 	? string | undefined
 	: T extends {
-				_kind: "group";
+				kind: "group";
 				children: infer R extends Record<string, ConfigNode>;
 		  }
 		? ParsedChildren<R>
@@ -45,12 +45,12 @@ export type ParsedChildren<T extends Record<string, ConfigNode>> = {
 };
 
 type ExtractEnvKeysFromNode<T extends ConfigNode> = T extends {
-	_kind: "field";
+	kind: "field";
 	envKey: infer K extends string;
 }
 	? K
 	: T extends {
-				_kind: "group";
+				kind: "group";
 				children: infer R extends Record<string, ConfigNode>;
 		  }
 		? { [K in keyof R]: ExtractEnvKeysFromNode<R[K]> }[keyof R]
@@ -62,14 +62,14 @@ export type ExtractEnvKeys<T extends Record<string, ConfigNode>> = {
 
 export function field<TEnvKey extends string>(
 	envKey: TEnvKey,
-	meta: Omit<FieldDef, "_kind" | "envKey">,
+	meta: Omit<FieldDef, "kind" | "envKey">,
 ): FieldDef & { envKey: TEnvKey } {
-	return { _kind: "field", envKey, ...meta } as FieldDef & { envKey: TEnvKey };
+	return { kind: "field", envKey, ...meta } as FieldDef & { envKey: TEnvKey };
 }
 
 export function group<T extends Record<string, ConfigNode>>(
 	description: string,
 	children: T,
 ): GroupDef<T> {
-	return { _kind: "group", description, children };
+	return { kind: "group", description, children };
 }

@@ -1,3 +1,4 @@
+// oxlint-disable-next-line import/no-unassigned-import
 import "dotenv/config";
 import { startServer } from "~/app/runtime";
 

@@ -13,7 +13,7 @@ type FieldRow = {
 };
 
 function collectFields(node: ConfigNode, level: number, lines: string[]): void {
-	if (node._kind === "field") {
+	if (node.kind === "field") {
 		return;
 	}
 
@@ -24,7 +24,7 @@ function collectFields(node: ConfigNode, level: number, lines: string[]): void {
 	const childGroups: GroupDef[] = [];
 
 	for (const [, child] of Object.entries(node.children as Record<string, ConfigNode>)) {
-		if (child._kind === "field") {
+		if (child.kind === "field") {
 			directFields.push({
 				envKey: child.envKey,
 				default: child.default ?? "—",

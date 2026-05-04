@@ -27,12 +27,14 @@ describe("getUserPreferences", () => {
 	});
 
 	it("returns failure when user is not found", async () => {
+		// oxlint-disable-next-line unicorn/consistent-function-scoping
 		const getUser = async () => undefined;
 		const fn = createGetUserPreferencesHostFunction(getUser);
 		expect(await fn(ctx)).toEqual(apiFailure("User not found"));
 	});
 
 	it("returns failure when userId is blank", async () => {
+		// oxlint-disable-next-line unicorn/consistent-function-scoping
 		const getUser = async () => undefined;
 		const fn = createGetUserPreferencesHostFunction(getUser);
 		expect(await fn({ userId: "   " })).toEqual(
@@ -41,6 +43,7 @@ describe("getUserPreferences", () => {
 	});
 
 	it("returns failure when preferences fail schema validation", async () => {
+		// oxlint-disable-next-line unicorn/consistent-function-scoping
 		const getUser = async () => ({
 			preferences: { isNsfw: "not-a-boolean", languages: { providers: [] } },
 		});

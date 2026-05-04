@@ -4,7 +4,7 @@ import { match } from "ts-pattern";
 
 import { buildComputedFieldMap } from "./computed-fields";
 import { QueryEngineValidationError } from "./errors";
-import type { ViewComputedField, ViewExpression } from "./expression";
+import type { ViewComputedField, ViewExpression, ViewPredicate } from "./expression";
 import {
 	assertComparableExpression,
 	assertCompatibleComparisonTypes,
@@ -12,7 +12,6 @@ import {
 	assertFilterCompatibleExpression,
 	inferViewExpressionType,
 } from "./expression-analysis";
-import type { ViewPredicate } from "./filtering";
 import type {
 	QueryEngineEventJoinLike,
 	QueryEngineReferenceContext,

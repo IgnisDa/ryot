@@ -210,6 +210,7 @@ export const persistTrackerOrderForUser = async (input: {
 }) => {
 	await db.transaction(async (tx) => {
 		for (const [index, trackerId] of input.trackerIds.entries()) {
+			// oxlint-disable-next-line no-await-in-loop
 			await tx
 				.update(tracker)
 				.set({ sortOrder: index })

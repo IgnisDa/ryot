@@ -253,6 +253,7 @@ export const persistSavedViewOrderForUser = async (input: {
 			const updatedSlugs: string[] = [];
 
 			for (const [index, viewSlug] of input.viewSlugs.entries()) {
+				// oxlint-disable-next-line no-await-in-loop
 				const [updatedView] = await tx
 					.update(savedView)
 					.set({ sortOrder: index })

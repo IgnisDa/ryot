@@ -6,7 +6,6 @@ export {
 	prepareForValidation,
 	prepareSavedView,
 } from "./preparer";
-export type { QueryEngineSchemaRow } from "./query-ctes";
 export type {
 	AggregateQueryEngineRequest,
 	EntityQueryEngineRequest,

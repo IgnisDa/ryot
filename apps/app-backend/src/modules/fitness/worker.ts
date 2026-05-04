@@ -166,6 +166,7 @@ export const processExerciseSeedJob = async () => {
 
 		const { values } = result;
 
+		// oxlint-disable-next-line no-await-in-loop
 		await db
 			.insert(entity)
 			.values(values)
