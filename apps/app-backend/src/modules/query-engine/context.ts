@@ -1,5 +1,4 @@
-import type { QueryEngineEventJoinLike } from "~/lib/views/reference";
-import type { QueryEngineEventSchemaLike } from "~/lib/views/reference";
+import type { QueryEngineEventJoinLike, QueryEngineEventSchemaLike } from "~/lib/views/reference";
 
 import type { QueryEngineSchemaRow } from "./query-cte-shared";
 import type { QueryEngineContext } from "./schemas";

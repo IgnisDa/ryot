@@ -3,8 +3,8 @@
 	"env": { "node": true, "browser": true },
 	"settings": { "react": { "version": "19.0.0" } },
 	"$schema": "./node_modules/oxlint/configuration_schema.json",
-	"plugins": ["react", "typescript", "unicorn", "import", "oxc", "promise"],
 	"categories": { "perf": "warn", "suspicious": "warn", "correctness": "error" },
+	"plugins": ["react", "typescript", "unicorn", "import", "oxc", "node", "promise"],
 	"overrides": [
 		{
 			"files": ["*.test.ts", "*.test.tsx", "*.spec.ts", "*.spec.tsx"],
@@ -34,6 +34,9 @@
 		"eqeqeq": ["error", "smart"],
 		"default-param-last": "error",
 		"react/rules-of-hooks": "error",
+		"import/no-duplicates": "error",
+		"import/no-self-import": "error",
+		"promise/no-return-wrap": "error",
 		"react/self-closing-comp": "error",
 		"react/no-array-index-key": "warn",
 		"import/no-named-as-default": "off",
@@ -42,8 +45,11 @@
 		"react-hooks/exhaustive-deps": "error",
 		"react/jsx-no-useless-fragment": "warn",
 		"typescript/no-inferrable-types": "error",
+		"typescript/no-non-null-assertion": "warn",
 		"unicorn/prefer-number-properties": "error",
 		"typescript/consistent-type-imports": "warn",
+		"unicorn/no-await-expression-member": "warn",
+		"react/jsx-no-constructed-context-values": "warn",
 		"typescript/no-unused-vars": [
 			"error",
 			{
