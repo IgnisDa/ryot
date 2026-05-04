@@ -1,10 +1,7 @@
 import type { ViewExpression, ViewTransformName } from "~/lib/views/expression";
 import type { ViewPredicate } from "~/lib/views/filtering";
 
-export const eventExpression = (
-	joinKey: string,
-	field: string,
-): ViewExpression => ({
+export const eventExpression = (joinKey: string, field: string): ViewExpression => ({
 	type: "reference",
 	reference: { type: "event-join", joinKey, path: ["properties", field] },
 });
@@ -25,9 +22,7 @@ export const transformExpression = (
 	type: "transform",
 });
 
-export const coalesceExpression = (
-	...values: ViewExpression[]
-): ViewExpression => ({
+export const coalesceExpression = (...values: ViewExpression[]): ViewExpression => ({
 	values,
 	type: "coalesce",
 });
@@ -37,10 +32,7 @@ export const sortDefinition = (expression: ViewExpression) => ({
 	direction: "asc" as const,
 });
 
-export function comparisonPredicate(
-	left: ViewExpression,
-	right: ViewExpression,
-): ViewPredicate;
+export function comparisonPredicate(left: ViewExpression, right: ViewExpression): ViewPredicate;
 export function comparisonPredicate(
 	left: ViewExpression,
 	operator: Extract<ViewPredicate, { type: "comparison" }>["operator"],
@@ -48,9 +40,7 @@ export function comparisonPredicate(
 ): ViewPredicate;
 export function comparisonPredicate(
 	left: ViewExpression,
-	operatorOrRight:
-		| ViewExpression
-		| Extract<ViewPredicate, { type: "comparison" }>["operator"],
+	operatorOrRight: ViewExpression | Extract<ViewPredicate, { type: "comparison" }>["operator"],
 	right?: ViewExpression,
 ): ViewPredicate {
 	if (typeof operatorOrRight === "string") {

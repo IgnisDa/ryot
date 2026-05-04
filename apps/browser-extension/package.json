@@ -1,22 +1,14 @@
 {
+	"name": "@ryot/browser-extension",
+	"version": "0.1.0",
 	"private": true,
 	"type": "module",
-	"version": "0.1.0",
-	"name": "@ryot/browser-extension",
 	"scripts": {
 		"typecheck": "tsc",
-		"lint": "biome check .",
 		"build-chrome": "wxt zip -b chrome",
+		"lint": "oxlint . && oxfmt --check .",
 		"build-firefox": "wxt zip -b firefox",
 		"build": "bun run build-chrome && bun run build-firefox"
-	},
-	"devDependencies": {
-		"@types/react": "19.2.14",
-		"@types/react-dom": "19.2.3",
-		"@wxt-dev/auto-icons": "1.1.0",
-		"@wxt-dev/module-react": "1.1.5",
-		"vite-tsconfig-paths": "6.1.1",
-		"wxt": "0.20.17"
 	},
 	"dependencies": {
 		"@ryot/generated": "workspace:*",
@@ -29,5 +21,13 @@
 		"react-dom": "19.2.4",
 		"tailwindcss": "4.1.18",
 		"ts-pattern": "5.9.0"
+	},
+	"devDependencies": {
+		"@types/react": "19.2.14",
+		"@types/react-dom": "19.2.3",
+		"@wxt-dev/auto-icons": "1.1.0",
+		"@wxt-dev/module-react": "1.1.5",
+		"vite-tsconfig-paths": "6.1.1",
+		"wxt": "0.20.17"
 	}
 }

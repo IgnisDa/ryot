@@ -1,4 +1,5 @@
 import type { AppSchema } from "@ryot/ts-utils";
+
 import { createPropertySchemaObjectSchema } from "./schemas";
 
 type PropertySchemaLabels = {
@@ -25,7 +26,5 @@ export const parsePropertySchemaInput = (
 	throw new Error(firstIssue.message);
 };
 
-export const parseLabeledPropertySchemaInput = (
-	input: unknown,
-	propertiesLabel: string,
-) => parsePropertySchemaInput(input, { propertiesLabel });
+export const parseLabeledPropertySchemaInput = (input: unknown, propertiesLabel: string) =>
+	parsePropertySchemaInput(input, { propertiesLabel });

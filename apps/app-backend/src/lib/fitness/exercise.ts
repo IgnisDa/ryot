@@ -1,6 +1,7 @@
 import { z } from "@hono/zod-openapi";
 import type { AppSchema } from "@ryot/ts-utils";
 import { toAppSchemaProperties } from "@ryot/ts-utils";
+
 import { imagesSchema } from "~/lib/zod";
 
 const muscleEnum = z.enum([
@@ -25,31 +26,23 @@ const muscleEnum = z.enum([
 
 const exercisePropertiesZodSchema = z
 	.object({
-		images: imagesSchema.describe(
-			"Cover and demonstration images for this exercise",
-		),
+		images: imagesSchema.describe("Cover and demonstration images for this exercise"),
 		// muscles is overridden below to enum-array; z.array is used here so that
 		// toAppSchemaProperties resolves all other fields (especially images).
-		muscles: z
-			.array(muscleEnum)
-			.describe("Muscle groups trained by this exercise"),
+		muscles: z.array(muscleEnum).describe("Muscle groups trained by this exercise"),
 		instructions: z
 			.array(z.string())
 			.describe("Step-by-step instructions for performing this exercise"),
 		source: z
 			.enum(["github", "custom"])
-			.describe(
-				"Origin of this exercise: github (built-in library) or custom (user-created)",
-			),
+			.describe("Origin of this exercise: github (built-in library) or custom (user-created)"),
 		force: z
 			.enum(["pull", "push", "static"])
 			.nullish()
 			.describe("Direction of force applied: pull, push, or static hold"),
 		level: z
 			.enum(["beginner", "intermediate", "expert"])
-			.describe(
-				"Recommended experience level: beginner, intermediate, or expert",
-			),
+			.describe("Recommended experience level: beginner, intermediate, or expert"),
 		mechanic: z
 			.enum(["compound", "isolation"])
 			.nullish()
@@ -94,8 +87,7 @@ export const exercisePropertiesJsonSchema: AppSchema = {
 		muscles: {
 			label: "Muscles",
 			type: "enum-array",
-			description:
-				"Primary and secondary muscle groups targeted by this exercise",
+			description: "Primary and secondary muscle groups targeted by this exercise",
 			validation: { required: true },
 			options: muscleEnum.options as [string, ...string[]],
 		},

@@ -12,9 +12,7 @@ export const getCachedValue: HostFunction<CachedValueContext> = async (
 	key,
 ): Promise<CachedValueResult> => {
 	if (typeof context.scriptId !== "string" || !context.scriptId.trim()) {
-		return apiFailure(
-			"getCachedValue requires a non-empty scriptId in context",
-		);
+		return apiFailure("getCachedValue requires a non-empty scriptId in context");
 	}
 
 	if (typeof key !== "string" || !key.trim()) {
@@ -22,9 +20,7 @@ export const getCachedValue: HostFunction<CachedValueContext> = async (
 	}
 
 	try {
-		const cached = await redis.get(
-			`sandbox:cache:${context.scriptId}:${key.trim()}`,
-		);
+		const cached = await redis.get(`sandbox:cache:${context.scriptId}:${key.trim()}`);
 		if (cached === null) {
 			return apiSuccess(null);
 		}
@@ -34,8 +30,6 @@ export const getCachedValue: HostFunction<CachedValueContext> = async (
 			return apiFailure("getCachedValue: stored value is not valid JSON");
 		}
 	} catch (error) {
-		return apiFailure(
-			error instanceof Error ? error.message : "getCachedValue failed",
-		);
+		return apiFailure(error instanceof Error ? error.message : "getCachedValue failed");
 	}
 };

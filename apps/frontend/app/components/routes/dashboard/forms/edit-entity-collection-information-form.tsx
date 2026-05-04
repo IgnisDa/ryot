@@ -3,6 +3,7 @@ import { notifications } from "@mantine/notifications";
 import type { Scalars } from "@ryot/generated/graphql/backend/graphql";
 import { type FormEvent, useState } from "react";
 import { Form } from "react-router";
+
 import { CollectionTemplateRenderer } from "~/components/common/collection-template-renderer";
 import {
 	useAddEntitiesToCollectionMutation,
@@ -18,17 +19,14 @@ export const EditEntityCollectionInformationForm = (props: {
 }) => {
 	const events = useApplicationEvents();
 	const userCollections = useUserCollections();
-	const [editEntityCollectionInformationData] =
-		useEditEntityCollectionInformation();
+	const [editEntityCollectionInformationData] = useEditEntityCollectionInformation();
 	const addEntitiesToCollection = useAddEntitiesToCollectionMutation();
 
 	const [userExtraInformationData, setUserExtraInformationData] = useState<
 		Scalars["JSON"]["input"]
 	>(editEntityCollectionInformationData?.existingInformation || {});
 
-	const { formRef, isFormValid } = useFormValidation([
-		userExtraInformationData,
-	]);
+	const { formRef, isFormValid } = useFormValidation([userExtraInformationData]);
 
 	if (!editEntityCollectionInformationData) return null;
 
@@ -71,10 +69,7 @@ export const EditEntityCollectionInformationForm = (props: {
 	return (
 		<Form ref={formRef} onSubmit={handleSubmit}>
 			<Stack>
-				<Text>
-					Editing information for:{" "}
-					{editEntityCollectionInformationData.collectionName}
-				</Text>
+				<Text>Editing information for: {editEntityCollectionInformationData.collectionName}</Text>
 				{thisCollection?.informationTemplate?.map((template) => (
 					<CollectionTemplateRenderer
 						key={template.name}

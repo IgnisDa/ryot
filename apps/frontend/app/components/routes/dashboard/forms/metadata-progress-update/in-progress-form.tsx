@@ -1,12 +1,4 @@
-import {
-	Button,
-	Flex,
-	Group,
-	NumberInput,
-	Slider,
-	Stack,
-	Text,
-} from "@mantine/core";
+import { Button, Flex, Group, NumberInput, Slider, Stack, Text } from "@mantine/core";
 import { MediaLot } from "@ryot/generated/graphql/backend/graphql";
 import { isNumber } from "@ryot/ts-utils";
 import {
@@ -17,6 +9,7 @@ import {
 	IconPercentage,
 } from "@tabler/icons-react";
 import { match } from "ts-pattern";
+
 import { useSavedForm } from "~/lib/hooks/use-saved-form";
 import { dayjsLib } from "~/lib/shared/date-utils";
 import {
@@ -24,23 +17,22 @@ import {
 	useMetadataDetails,
 } from "~/lib/shared/hooks";
 import { useMetadataProgressUpdate } from "~/lib/state/media";
+
 import type { MetadataInProgressFormProps } from "./utils/form-types";
 
-export const MetadataInProgressUpdateForm = (
-	props: MetadataInProgressFormProps,
-) => {
+export const MetadataInProgressUpdateForm = (props: MetadataInProgressFormProps) => {
 	const { metadataToUpdate } = useMetadataProgressUpdate();
 	const [{ data: metadataDetails }] = useMetadataDetails(props.metadataId);
-	const deployBulkMetadataProgressUpdate =
-		useDeployBulkMetadataProgressUpdateMutation(metadataDetails?.title);
+	const deployBulkMetadataProgressUpdate = useDeployBulkMetadataProgressUpdateMutation(
+		metadataDetails?.title,
+	);
 
 	const form = useSavedForm<{ progress: number }>({
 		storageKeyPrefix: `MetadataInProgressUpdateForm-${props.metadataId}`,
 		initialValues: { progress: Number(props.inProgress.progress) },
 		validate: {
 			progress: (value) => {
-				if (value < 0 || value > 100)
-					return "Progress must be between 0 and 100";
+				if (value < 0 || value > 100) return "Progress must be between 0 and 100";
 				return null;
 			},
 		},
@@ -58,14 +50,8 @@ export const MetadataInProgressUpdateForm = (
 
 	const [updateIcon, text] = match(metadataDetails.lot)
 		.with(MediaLot.Book, () => [<IconBook size={24} key="element" />, "Pages"])
-		.with(MediaLot.Anime, () => [
-			<IconDeviceTv size={24} key="element" />,
-			"Episodes",
-		])
-		.with(MediaLot.Manga, () => [
-			<IconBrandPagekit size={24} key="element" />,
-			"Chapters",
-		])
+		.with(MediaLot.Anime, () => [<IconDeviceTv size={24} key="element" />, "Episodes"])
+		.with(MediaLot.Manga, () => [<IconBrandPagekit size={24} key="element" />, "Chapters"])
 		.with(MediaLot.Movie, MediaLot.VisualNovel, MediaLot.AudioBook, () => [
 			<IconClock size={24} key="element" />,
 			"Minutes",
@@ -88,8 +74,7 @@ export const MetadataInProgressUpdateForm = (
 			<Stack>
 				<Stack gap="xs">
 					<Text size="xs" c="dimmed">
-						Last updated on{" "}
-						{dayjsLib(props.inProgress.lastUpdatedOn).format("LLL")}
+						Last updated on {dayjsLib(props.inProgress.lastUpdatedOn).format("LLL")}
 					</Text>
 					<Group>
 						<Slider
@@ -132,9 +117,7 @@ export const MetadataInProgressUpdateForm = (
 								leftSection={updateIcon}
 								max={Number(total)}
 								onFocus={(e) => e.target.select()}
-								value={
-									((Number(total) || 1) * (form.values.progress || 1)) / 100
-								}
+								value={((Number(total) || 1) * (form.values.progress || 1)) / 100}
 								onChange={(v) => {
 									const value = (Number(v) / (Number(total) || 1)) * 100;
 									form.setFieldValue("progress", value);

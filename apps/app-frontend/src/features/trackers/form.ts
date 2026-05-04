@@ -6,7 +6,9 @@ import {
 	zodRequiredSlug,
 } from "@ryot/ts-utils";
 import { z } from "zod";
+
 import type { ApiPatchRequestBody, ApiPostRequestBody } from "~/lib/api/types";
+
 import { resolveNextSlug } from "../../lib/slug-sync";
 
 export const createTrackerFormSchema = z.object({
@@ -31,8 +33,7 @@ export function buildTrackerFormValues(
 	};
 }
 
-export const defaultCreateTrackerFormValues: CreateTrackerFormValues =
-	buildTrackerFormValues();
+export const defaultCreateTrackerFormValues: CreateTrackerFormValues = buildTrackerFormValues();
 
 export const resolveNextTrackerSlug = resolveNextSlug;
 
@@ -40,9 +41,7 @@ export type CreateTrackerPayload = ApiPostRequestBody<"/trackers">;
 
 export type UpdateTrackerPayload = ApiPatchRequestBody<"/trackers/{trackerId}">;
 
-export function toCreateTrackerPayload(
-	input: CreateTrackerFormValues,
-): CreateTrackerPayload {
+export function toCreateTrackerPayload(input: CreateTrackerFormValues): CreateTrackerPayload {
 	const payload: CreateTrackerPayload = {
 		icon: input.icon.trim(),
 		name: input.name.trim(),
@@ -65,9 +64,6 @@ export function toUpdateTrackerPayload(
 		icon: input.icon.trim(),
 		name: input.name.trim(),
 		accentColor: input.accentColor.trim(),
-		description:
-			input.description !== undefined
-				? trimmedOrNull(input.description)
-				: undefined,
+		description: input.description !== undefined ? trimmedOrNull(input.description) : undefined,
 	};
 }

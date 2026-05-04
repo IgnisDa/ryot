@@ -6,10 +6,7 @@ export type PricingMetadata = {
 	linkToGithub?: boolean;
 };
 
-export const PRICING_METADATA: Record<
-	TProductTypes,
-	Record<TPlanTypes, PricingMetadata>
-> = {
+export const PRICING_METADATA: Record<TProductTypes, Record<TPlanTypes, PricingMetadata>> = {
 	cloud: {
 		free: {},
 		monthly: { amount: 3, trial: 7 },

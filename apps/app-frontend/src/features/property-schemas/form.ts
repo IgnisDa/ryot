@@ -6,6 +6,7 @@ import {
 	zodRequiredName,
 } from "@ryot/ts-utils";
 import { z } from "zod";
+
 import { resolveNextSlug } from "../../lib/slug-sync";
 
 export const propertySchemaTypes = appPropertyPrimitiveTypes;
@@ -80,13 +81,9 @@ export const createPropertySchemaFormSchema = z.object({
 		),
 });
 
-export type CreatePropertySchemaFormValues = z.infer<
-	typeof createPropertySchemaFormSchema
->;
+export type CreatePropertySchemaFormValues = z.infer<typeof createPropertySchemaFormSchema>;
 
-type PropertySchemaFormInput = Partial<
-	Omit<CreatePropertySchemaFormValues, "properties">
-> & {
+type PropertySchemaFormInput = Partial<Omit<CreatePropertySchemaFormValues, "properties">> & {
 	properties?: PropertySchemaInput[];
 };
 
@@ -105,8 +102,7 @@ export function buildPropertySchemaFormValues(
 	};
 }
 
-export const defaultCreatePropertySchemaFormValues =
-	buildPropertySchemaFormValues();
+export const defaultCreatePropertySchemaFormValues = buildPropertySchemaFormValues();
 
 export const buildPropertiesSchema = (properties: PropertySchemaInput[]) => {
 	const fields: AppSchema["fields"] = {};

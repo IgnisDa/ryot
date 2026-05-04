@@ -1,19 +1,12 @@
 import { z } from "@hono/zod-openapi";
+
 import { createNullableOpenApiRefSchema } from "~/lib/openapi";
+
 import { viewExpressionSchema } from "./expression";
 
-export const canonicalComparisonFilterOperators = [
-	"eq",
-	"gt",
-	"lt",
-	"neq",
-	"gte",
-	"lte",
-] as const;
+export const canonicalComparisonFilterOperators = ["eq", "gt", "lt", "neq", "gte", "lte"] as const;
 
-const comparisonFilterOperatorSchema = z.enum(
-	canonicalComparisonFilterOperators,
-);
+const comparisonFilterOperatorSchema = z.enum(canonicalComparisonFilterOperators);
 
 export const viewPredicateSchema: z.ZodType<ViewPredicate> = z
 	.lazy(() => {

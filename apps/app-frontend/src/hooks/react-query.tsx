@@ -17,9 +17,5 @@ export function getContext() {
 export default function ReactQueryProvider(props: { children: ReactNode }) {
 	const queryClient = getContext();
 
-	return (
-		<QueryClientProvider client={queryClient}>
-			{props.children}
-		</QueryClientProvider>
-	);
+	return <QueryClientProvider client={queryClient}>{props.children}</QueryClientProvider>;
 }

@@ -1,4 +1,5 @@
 import { z } from "@hono/zod-openapi";
+
 import { dataSchema } from "~/lib/openapi";
 import { nonEmptyTrimmedStringSchema } from "~/lib/zod";
 
@@ -28,13 +29,7 @@ export const presignedUploadUrlSchema = z.object({
 	key: nonEmptyTrimmedStringSchema,
 });
 
-export const getPresignedUploadUrlResponseSchema = dataSchema(
-	presignedUploadUrlSchema,
-);
+export const getPresignedUploadUrlResponseSchema = dataSchema(presignedUploadUrlSchema);
 
-export type GetPresignedUploadUrlBody = z.infer<
-	typeof getPresignedUploadUrlBody
->;
-export type GetPresignedDownloadUrlBody = z.infer<
-	typeof getPresignedDownloadUrlBody
->;
+export type GetPresignedUploadUrlBody = z.infer<typeof getPresignedUploadUrlBody>;
+export type GetPresignedDownloadUrlBody = z.infer<typeof getPresignedDownloadUrlBody>;

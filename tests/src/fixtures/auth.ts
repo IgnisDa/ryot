@@ -1,6 +1,7 @@
 import type { paths } from "@ryot/generated/openapi/app-backend";
 import { dayjs } from "@ryot/ts-utils";
 import type createClient from "openapi-fetch";
+
 import { getBackendClient, getBackendUrl, getPgClient } from "../setup";
 
 export type Client = ReturnType<typeof createClient<paths>>;

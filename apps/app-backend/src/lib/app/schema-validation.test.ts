@@ -1,5 +1,7 @@
 import { describe, expect, it } from "bun:test";
+
 import { createNoteAndRatingPropertiesSchema } from "~/lib/test-fixtures";
+
 import { parseAppSchemaProperties } from "./schema-validation";
 
 describe("parseAppSchemaProperties", () => {

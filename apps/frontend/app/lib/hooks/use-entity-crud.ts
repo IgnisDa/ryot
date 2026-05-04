@@ -2,11 +2,9 @@ import { useMutation } from "@tanstack/react-query";
 import type { DocumentNode } from "graphql";
 import { useNavigate } from "react-router";
 import invariant from "tiny-invariant";
+
 import { mergeImages, uploadImages } from "../shared/image-utils";
-import {
-	showEntityError,
-	showEntitySuccess,
-} from "../shared/notification-utils";
+import { showEntityError, showEntitySuccess } from "../shared/notification-utils";
 import { clientGqlService, refreshEntityDetails } from "../shared/react-query";
 
 export interface UseEntityCrudConfig<TValues, TDetails, TCreateResult> {
@@ -21,15 +19,8 @@ export interface UseEntityCrudConfig<TValues, TDetails, TCreateResult> {
 	extractIdFromUpdateResult: (result: unknown) => string;
 	extractIdFromCreateResult: (result: TCreateResult) => string;
 	transformToCreateInput: (values: TValues, s3Images: string[]) => unknown;
-	useDetailsHook: (
-		id?: string,
-		enabled?: boolean,
-	) => readonly [{ data?: TDetails }, ...unknown[]];
-	transformToUpdateInput: (
-		values: TValues,
-		s3Images: string[],
-		entityId: string,
-	) => unknown;
+	useDetailsHook: (id?: string, enabled?: boolean) => readonly [{ data?: TDetails }, ...unknown[]];
+	transformToUpdateInput: (values: TValues, s3Images: string[], entityId: string) => unknown;
 }
 
 export const useEntityCrud = <
@@ -55,10 +46,9 @@ export const useEntityCrud = <
 		mutationFn: async (values: TValues) => {
 			const s3Images = await uploadImages(values.images, config.s3Prefix);
 			const input = config.transformToCreateInput(values, s3Images);
-			const result = await clientGqlService.request<TCreateResult>(
-				config.createDocument,
-				{ input },
-			);
+			const result = await clientGqlService.request<TCreateResult>(config.createDocument, {
+				input,
+			});
 			return config.extractIdFromCreateResult(result);
 		},
 		onSuccess: (id) => {
@@ -76,11 +66,7 @@ export const useEntityCrud = <
 			invariant(config.entityId);
 			const uploadedImages = await uploadImages(values.images, config.s3Prefix);
 			const s3Images = mergeImages(values.existingImages, uploadedImages);
-			const input = config.transformToUpdateInput(
-				values,
-				s3Images,
-				config.entityId,
-			);
+			const input = config.transformToUpdateInput(values, s3Images, config.entityId);
 			const result = await clientGqlService.request(config.updateDocument, {
 				input,
 			});

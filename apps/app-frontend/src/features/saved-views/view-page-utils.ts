@@ -4,6 +4,7 @@ import {
 	getQueryEngineField,
 } from "@ryot/ts-utils";
 import { match } from "ts-pattern";
+
 import { createEntityIdentityFields } from "~/features/entities/model";
 import type { AppEntitySavedView } from "~/features/saved-views/model";
 import type { ApiPostRequestBody, ApiPostResponseData } from "~/lib/api/types";
@@ -33,10 +34,7 @@ const nullExpression = {
 	type: "literal",
 } satisfies ViewExpression;
 
-const createRuntimeField = (
-	key: string,
-	expression: ViewExpression,
-): RuntimeRequestField => ({
+const createRuntimeField = (key: string, expression: ViewExpression): RuntimeRequestField => ({
 	key,
 	expression,
 });
@@ -56,23 +54,13 @@ const buildCardFields = (input: {
 	return [
 		createRuntimeField("image", input.image ?? nullExpression),
 		createRuntimeField("title", input.title ?? nullExpression),
-		createRuntimeField(
-			"primarySubtitle",
-			input.primarySubtitle ?? nullExpression,
-		),
-		createRuntimeField(
-			"secondarySubtitle",
-			input.secondarySubtitle ?? nullExpression,
-		),
+		createRuntimeField("primarySubtitle", input.primarySubtitle ?? nullExpression),
+		createRuntimeField("secondarySubtitle", input.secondarySubtitle ?? nullExpression),
 		createRuntimeField("callout", input.callout ?? nullExpression),
 	];
 };
 
-const buildRuntimeRequestBase = (input: {
-	page: number;
-	limit: number;
-	view: SavedView;
-}) => ({
+const buildRuntimeRequestBase = (input: { page: number; limit: number; view: SavedView }) => ({
 	mode: "entities" as const,
 	sort: input.view.queryDefinition.sort,
 	filter: input.view.queryDefinition.filter ?? null,
@@ -175,9 +163,7 @@ export function getRuntimeField(
 }
 
 export function isRuntimeField(value: unknown): value is RuntimeField {
-	return (
-		!!value && typeof value === "object" && "kind" in value && "value" in value
-	);
+	return !!value && typeof value === "object" && "kind" in value && "value" in value;
 }
 
 export function formatRuntimeValue(value: unknown) {

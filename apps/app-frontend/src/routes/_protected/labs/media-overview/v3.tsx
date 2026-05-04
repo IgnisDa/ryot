@@ -189,8 +189,7 @@ const LIBRARY_STATS = {
 
 // --- Bento cell helpers ---
 
-const CELL_BORDER =
-	"1px solid color-mix(in srgb, var(--mantine-color-dark-4) 60%, transparent)";
+const CELL_BORDER = "1px solid color-mix(in srgb, var(--mantine-color-dark-4) 60%, transparent)";
 const CELL_RADIUS = 12;
 
 function BentoCell(props: {
@@ -286,12 +285,7 @@ function NowPlayingCell() {
 								<Text fz={10} c="dimmed">
 									Progress
 								</Text>
-								<Text
-									fz={11}
-									fw={700}
-									c={schema.accent}
-									ff="var(--mantine-font-family-monospace)"
-								>
+								<Text fz={11} fw={700} c={schema.accent} ff="var(--mantine-font-family-monospace)">
 									{pct}%
 								</Text>
 							</Group>
@@ -335,14 +329,7 @@ function ContinueCell() {
 
 	return (
 		<BentoCell gridArea="cont" p="sm">
-			<Text
-				fz={9}
-				fw={700}
-				tt="uppercase"
-				c="dimmed"
-				mb={8}
-				style={{ letterSpacing: "1px" }}
-			>
+			<Text fz={9} fw={700} tt="uppercase" c="dimmed" mb={8} style={{ letterSpacing: "1px" }}>
 				In Progress
 			</Text>
 			<Stack gap={8}>
@@ -386,12 +373,7 @@ function ContinueCell() {
 									bg="var(--mantine-color-dark-5)"
 								/>
 							</Box>
-							<Text
-								fz={11}
-								fw={700}
-								c={schema.accent}
-								ff="var(--mantine-font-family-monospace)"
-							>
+							<Text fz={11} fw={700} c={schema.accent} ff="var(--mantine-font-family-monospace)">
 								{item.progress.progressPercent}%
 							</Text>
 						</UnstyledButton>
@@ -408,13 +390,7 @@ function QueueCell() {
 	return (
 		<BentoCell gridArea="queue" p="sm">
 			<Group justify="space-between" mb={8}>
-				<Text
-					fz={9}
-					fw={700}
-					tt="uppercase"
-					c="dimmed"
-					style={{ letterSpacing: "1px" }}
-				>
+				<Text fz={9} fw={700} tt="uppercase" c="dimmed" style={{ letterSpacing: "1px" }}>
 					Up Next
 				</Text>
 				<Badge size="xs" variant="light" color="gray">
@@ -479,10 +455,7 @@ function StatsCell() {
 		{ label: "Rating", value: LIBRARY_STATS.avgRating.toFixed(1), color: GOLD },
 	];
 
-	const types = Object.entries(LIBRARY_STATS.entityTypeCounts) as [
-		SchemaSlug,
-		number,
-	][];
+	const types = Object.entries(LIBRARY_STATS.entityTypeCounts) as [SchemaSlug, number][];
 	const barTotal = types.reduce((s, [, c]) => s + c, 0);
 
 	return (
@@ -493,26 +466,14 @@ function StatsCell() {
 		>
 			<Group gap={6} mb={10}>
 				<BarChart3 size={12} color={GOLD} />
-				<Text
-					fz={9}
-					fw={700}
-					tt="uppercase"
-					c="dimmed"
-					style={{ letterSpacing: "1px" }}
-				>
+				<Text fz={9} fw={700} tt="uppercase" c="dimmed" style={{ letterSpacing: "1px" }}>
 					Library
 				</Text>
 			</Group>
 			<Group gap="md" mb="sm">
 				{stats.map((s) => (
 					<Box key={s.label}>
-						<Text
-							fz={16}
-							fw={700}
-							lh={1}
-							ff="var(--mantine-font-family-monospace)"
-							c={s.color}
-						>
+						<Text fz={16} fw={700} lh={1} ff="var(--mantine-font-family-monospace)" c={s.color}>
 							{s.value}
 						</Text>
 						<Text fz={8} c="dimmed" tt="uppercase" mt={2}>
@@ -522,10 +483,7 @@ function StatsCell() {
 				))}
 			</Group>
 			{/* Mini type bar */}
-			<Box
-				h={4}
-				style={{ display: "flex", borderRadius: 2, overflow: "hidden" }}
-			>
+			<Box h={4} style={{ display: "flex", borderRadius: 2, overflow: "hidden" }}>
 				{types.map(([slug, count]) => (
 					<Box
 						key={slug}
@@ -546,14 +504,7 @@ function StatsCell() {
 function ActivityCell() {
 	return (
 		<BentoCell gridArea="activity" p="sm">
-			<Text
-				fz={9}
-				fw={700}
-				tt="uppercase"
-				c="dimmed"
-				mb={8}
-				style={{ letterSpacing: "1px" }}
-			>
+			<Text fz={9} fw={700} tt="uppercase" c="dimmed" mb={8} style={{ letterSpacing: "1px" }}>
 				Activity
 			</Text>
 			<Stack gap={0}>
@@ -609,13 +560,7 @@ function RateCell() {
 			<Group justify="space-between" mb={8}>
 				<Group gap={6}>
 					<Star size={12} color="#D38D5A" />
-					<Text
-						fz={9}
-						fw={700}
-						tt="uppercase"
-						c="dimmed"
-						style={{ letterSpacing: "1px" }}
-					>
+					<Text fz={9} fw={700} tt="uppercase" c="dimmed" style={{ letterSpacing: "1px" }}>
 						Rate
 					</Text>
 				</Group>

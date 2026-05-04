@@ -10,15 +10,8 @@ import {
 } from "./query-engine";
 import { entityField } from "./view-language";
 
-export async function createWorkoutEntityFixture(
-	client: Client,
-	cookies: string,
-) {
-	const { schema: workoutSchema } = await findBuiltinSchemaBySlug(
-		client,
-		cookies,
-		"workout",
-	);
+export async function createWorkoutEntityFixture(client: Client, cookies: string) {
+	const { schema: workoutSchema } = await findBuiltinSchemaBySlug(client, cookies, "workout");
 
 	const workout = await createEntity(client, cookies, {
 		image: null,
@@ -33,24 +26,10 @@ export async function createWorkoutEntityFixture(
 	return { workoutId: workout.id };
 }
 
-export async function findWorkoutSetEventSchema(
-	client: Client,
-	cookies: string,
-) {
-	const { schema: exerciseSchema } = await findBuiltinSchemaBySlug(
-		client,
-		cookies,
-		"exercise",
-	);
-	const eventSchemas = await listEventSchemas(
-		client,
-		cookies,
-		exerciseSchema.id,
-	);
-	const workoutSetEventSchema = requireEventSchemaBySlug(
-		eventSchemas,
-		"workout-set",
-	);
+export async function findWorkoutSetEventSchema(client: Client, cookies: string) {
+	const { schema: exerciseSchema } = await findBuiltinSchemaBySlug(client, cookies, "exercise");
+	const eventSchemas = await listEventSchemas(client, cookies, exerciseSchema.id);
+	const workoutSetEventSchema = requireEventSchemaBySlug(eventSchemas, "workout-set");
 
 	return { workoutSetEventSchema };
 }

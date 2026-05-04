@@ -5,13 +5,10 @@ import { produce } from "immer";
 import { useEffect, useMemo, useState } from "react";
 import invariant from "tiny-invariant";
 import { v4 as randomUUID } from "uuid";
+
 import { useExerciseDetails, useGetMantineColors } from "~/lib/shared/hooks";
 import { openConfirmationModal } from "~/lib/shared/ui-utils";
-import {
-	type Exercise,
-	type Superset,
-	useCurrentWorkout,
-} from "~/lib/state/fitness";
+import { type Exercise, type Superset, useCurrentWorkout } from "~/lib/state/fitness";
 
 export const DisplaySupersetModal = (props: {
 	onClose: () => void;
@@ -29,11 +26,7 @@ export const DisplaySupersetModal = (props: {
 	}, [cw, props.supersetWith]);
 
 	return (
-		<Modal
-			onClose={props.onClose}
-			withCloseButton={false}
-			opened={isString(props.supersetWith)}
-		>
+		<Modal onClose={props.onClose} withCloseButton={false} opened={isString(props.supersetWith)}>
 			{props.supersetWith ? (
 				exerciseAlreadyInSuperset ? (
 					<EditSupersetModal
@@ -42,24 +35,16 @@ export const DisplaySupersetModal = (props: {
 						superset={exerciseAlreadyInSuperset}
 					/>
 				) : (
-					<CreateSupersetModal
-						onClose={props.onClose}
-						supersetWith={props.supersetWith}
-					/>
+					<CreateSupersetModal onClose={props.onClose} supersetWith={props.supersetWith} />
 				)
 			) : null}
 		</Modal>
 	);
 };
 
-const CreateSupersetModal = (props: {
-	onClose: () => void;
-	supersetWith: string;
-}) => {
+const CreateSupersetModal = (props: { onClose: () => void; supersetWith: string }) => {
 	const [cw, setCurrentWorkout] = useCurrentWorkout();
-	const [exercises, setExercisesHandle] = useListState<string>([
-		props.supersetWith,
-	]);
+	const [exercises, setExercisesHandle] = useListState<string>([props.supersetWith]);
 	const colors = useGetMantineColors();
 	const [selectedColor, setSelectedColor] = useState<string>("");
 	const [allowedColors, setAllowedColors] = useState<string[]>([]);
@@ -133,9 +118,7 @@ const CreateSupersetExerciseButton = (props: {
 	const index = props.exercises.indexOf(props.exercise.identifier);
 	invariant(cw);
 
-	const { data: exerciseDetails } = useExerciseDetails(
-		props.exercise.exerciseId,
-	);
+	const { data: exerciseDetails } = useExerciseDetails(props.exercise.exerciseId);
 
 	return (
 		<Button
@@ -143,9 +126,7 @@ const CreateSupersetExerciseButton = (props: {
 			fullWidth
 			color={props.selectedColor}
 			variant={index !== -1 ? "light" : "outline"}
-			disabled={cw.supersets
-				.flatMap((s) => s.exercises)
-				.includes(props.exercise.identifier)}
+			disabled={cw.supersets.flatMap((s) => s.exercises).includes(props.exercise.identifier)}
 			onClick={() => {
 				if (index !== -1) props.setExercisesHandle.remove(index);
 				else props.setExercisesHandle.append(props.exercise.identifier);
@@ -162,9 +143,7 @@ const EditSupersetModal = (props: {
 	superset: readonly [number, Superset];
 }) => {
 	const [cw, setCurrentWorkout] = useCurrentWorkout();
-	const [exercises, setExercisesHandle] = useListState<string>(
-		props.superset[1].exercises,
-	);
+	const [exercises, setExercisesHandle] = useListState<string>(props.superset[1].exercises);
 
 	if (!cw) return null;
 
@@ -187,17 +166,14 @@ const EditSupersetModal = (props: {
 					color="red"
 					flex="none"
 					onClick={() => {
-						openConfirmationModal(
-							"Are you sure you want to delete this superset?",
-							() => {
-								setCurrentWorkout(
-									produce(cw, (draft) => {
-										draft.supersets.splice(props.superset[0], 1);
-									}),
-								);
-								props.onClose();
-							},
-						);
+						openConfirmationModal("Are you sure you want to delete this superset?", () => {
+							setCurrentWorkout(
+								produce(cw, (draft) => {
+									draft.supersets.splice(props.superset[0], 1);
+								}),
+							);
+							props.onClose();
+						});
 					}}
 				>
 					Delete superset
@@ -205,8 +181,7 @@ const EditSupersetModal = (props: {
 				<Button
 					fullWidth
 					disabled={
-						exercises.length <= 1 ||
-						props.superset[1].exercises.length === exercises.length
+						exercises.length <= 1 || props.superset[1].exercises.length === exercises.length
 					}
 					onClick={() => {
 						setCurrentWorkout(
@@ -234,9 +209,7 @@ const EditSupersetExerciseButton = (props: {
 	const index = props.exercises.indexOf(props.exercise.identifier);
 	invariant(cw);
 
-	const { data: exerciseDetails } = useExerciseDetails(
-		props.exercise.exerciseId,
-	);
+	const { data: exerciseDetails } = useExerciseDetails(props.exercise.exerciseId);
 
 	return (
 		<Button

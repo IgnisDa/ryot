@@ -1,4 +1,5 @@
 import { and, eq, isNull, or } from "drizzle-orm";
+
 import { assertPersisted, db } from "~/lib/db";
 import { sandboxScript } from "~/lib/db/schema/tables";
 import type { SandboxScriptMetadata } from "~/lib/sandbox/types";
@@ -21,20 +22,14 @@ const sandboxScriptAccessSelection = {
 	isBuiltin: sandboxScript.isBuiltin,
 };
 
-export const getSandboxScriptForUser = async (input: {
-	scriptId: string;
-	userId: string;
-}) => {
+export const getSandboxScriptForUser = async (input: { scriptId: string; userId: string }) => {
 	const [foundSandboxScript] = await db
 		.select(sandboxScriptAccessSelection)
 		.from(sandboxScript)
 		.where(
 			and(
 				eq(sandboxScript.id, input.scriptId),
-				or(
-					eq(sandboxScript.isBuiltin, true),
-					eq(sandboxScript.userId, input.userId),
-				),
+				or(eq(sandboxScript.isBuiltin, true), eq(sandboxScript.userId, input.userId)),
 			),
 		)
 		.limit(1);
@@ -66,19 +61,11 @@ export const createSandboxScriptForUser = async (input: {
 	return { ...persistedScript, metadata: input.metadata };
 };
 
-export const getSandboxScriptBySlugForUser = async (input: {
-	slug: string;
-	userId: string;
-}) => {
+export const getSandboxScriptBySlugForUser = async (input: { slug: string; userId: string }) => {
 	const [found] = await db
 		.select({ id: sandboxScript.id })
 		.from(sandboxScript)
-		.where(
-			and(
-				eq(sandboxScript.slug, input.slug),
-				eq(sandboxScript.userId, input.userId),
-			),
-		)
+		.where(and(eq(sandboxScript.slug, input.slug), eq(sandboxScript.userId, input.userId)))
 		.limit(1);
 	return found;
 };

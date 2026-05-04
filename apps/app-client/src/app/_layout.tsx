@@ -1,11 +1,7 @@
-import { GluestackUIProvider } from "@/components/ui/gluestack-ui-provider";
-import "@/global.css";
 import { IBMPlexMono_400Regular } from "@expo-google-fonts/ibm-plex-mono";
-import {
-	Outfit_400Regular,
-	Outfit_500Medium,
-	Outfit_600SemiBold,
-} from "@expo-google-fonts/outfit";
+
+import "@/global.css";
+import { Outfit_400Regular, Outfit_500Medium, Outfit_600SemiBold } from "@expo-google-fonts/outfit";
 import {
 	SpaceGrotesk_400Regular,
 	SpaceGrotesk_500Medium,
@@ -21,6 +17,8 @@ import { Provider } from "jotai";
 import { useEffect } from "react";
 import { Platform } from "react-native";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
+
+import { GluestackUIProvider } from "@/components/ui/gluestack-ui-provider";
 import { clearAppStorage } from "@/lib/atoms";
 
 export const queryClient = new QueryClient();

@@ -8,12 +8,14 @@ import PurchaseCompleteEmail, {
 } from "@ryot/transactional/emails/purchase-complete";
 import { formatDateToNaiveDate } from "@ryot/ts-utils";
 import { and, eq, type InferSelectModel, isNull } from "drizzle-orm";
+
 import {
 	customerPurchases,
 	customers,
 	type TPlanTypes,
 	type TProductTypes,
 } from "~/drizzle/schema.server";
+
 import {
 	GRACE_PERIOD,
 	getDb,
@@ -21,11 +23,7 @@ import {
 	getServerVariables,
 	getUnkeyClient,
 } from "./config.server";
-import {
-	calculateRenewalDate,
-	createUnkeyKey,
-	sendEmail,
-} from "./utilities.server";
+import { calculateRenewalDate, createUnkeyKey, sendEmail } from "./utilities.server";
 
 type Customer = InferSelectModel<typeof customers>;
 
@@ -74,11 +72,7 @@ async function handleCloudPurchase(customer: Customer): Promise<{
 				adminAccessToken: serverVariables.SERVER_ADMIN_ACCESS_TOKEN,
 			},
 		});
-		const auth = await getCloudAuthDetails(
-			customer.ryotUserId,
-			email,
-			oidcIssuerId,
-		);
+		const auth = await getCloudAuthDetails(customer.ryotUserId, email, oidcIssuerId);
 		return {
 			unkeyKeyId: null,
 			ryotUserId: customer.ryotUserId,
@@ -86,17 +80,14 @@ async function handleCloudPurchase(customer: Customer): Promise<{
 		};
 	}
 
-	const { registerUser } = await getServerGqlService().request(
-		RegisterUserDocument,
-		{
-			input: {
-				adminAccessToken: serverVariables.SERVER_ADMIN_ACCESS_TOKEN,
-				data: oidcIssuerId
-					? { oidc: { email: email, issuerId: oidcIssuerId } }
-					: { password: { username: email, password: "" } },
-			},
+	const { registerUser } = await getServerGqlService().request(RegisterUserDocument, {
+		input: {
+			adminAccessToken: serverVariables.SERVER_ADMIN_ACCESS_TOKEN,
+			data: oidcIssuerId
+				? { oidc: { email: email, issuerId: oidcIssuerId } }
+				: { password: { username: email, password: "" } },
 		},
-	);
+	});
 	if (registerUser.__typename === "RegisterError") {
 		console.error(registerUser);
 		throw new Error("Failed to register user");
@@ -128,9 +119,7 @@ async function handleSelfHostedPurchase(
 			keyId: customer.unkeyKeyId,
 			meta: renewalDate
 				? {
-						expiry: formatDateToNaiveDate(
-							renewalDate.add(GRACE_PERIOD, "days"),
-						),
+						expiry: formatDateToNaiveDate(renewalDate.add(GRACE_PERIOD, "days")),
 					}
 				: undefined,
 		});
@@ -192,27 +181,19 @@ export async function provisionNewPurchase(
 		paddleCustomerId?: string | null;
 	} = {};
 
-	if (ryotUserId && ryotUserId !== customer.ryotUserId)
-		updateData.ryotUserId = ryotUserId;
-	if (unkeyKeyId && unkeyKeyId !== customer.unkeyKeyId)
-		updateData.unkeyKeyId = unkeyKeyId;
+	if (ryotUserId && ryotUserId !== customer.ryotUserId) updateData.ryotUserId = ryotUserId;
+	if (unkeyKeyId && unkeyKeyId !== customer.unkeyKeyId) updateData.unkeyKeyId = unkeyKeyId;
 
 	if (customer.paymentProvider === "paddle" && paymentProviderCustomerId) {
 		if (paymentProviderCustomerId !== customer.paddleCustomerId)
 			updateData.paddleCustomerId = paymentProviderCustomerId;
-	} else if (
-		customer.paymentProvider === "polar" &&
-		paymentProviderCustomerId
-	) {
+	} else if (customer.paymentProvider === "polar" && paymentProviderCustomerId) {
 		if (paymentProviderCustomerId !== customer.polarCustomerId)
 			updateData.polarCustomerId = paymentProviderCustomerId;
 	}
 
 	if (Object.keys(updateData).length > 0) {
-		await getDb()
-			.update(customers)
-			.set(updateData)
-			.where(eq(customers.id, customer.id));
+		await getDb().update(customers).set(updateData).where(eq(customers.id, customer.id));
 	}
 }
 
@@ -252,9 +233,7 @@ export async function provisionRenewal(
 			keyId: customer.unkeyKeyId,
 			meta: renewalDate
 				? {
-						expiry: formatDateToNaiveDate(
-							renewalDate.add(GRACE_PERIOD, "days"),
-						),
+						expiry: formatDateToNaiveDate(renewalDate.add(GRACE_PERIOD, "days")),
 					}
 				: undefined,
 		});
@@ -269,10 +248,7 @@ export async function revokePurchase(customer: Customer) {
 			updatedOn: new Date(),
 		})
 		.where(
-			and(
-				eq(customerPurchases.customerId, customer.id),
-				isNull(customerPurchases.cancelledOn),
-			),
+			and(eq(customerPurchases.customerId, customer.id), isNull(customerPurchases.cancelledOn)),
 		);
 
 	if (customer.ryotUserId) {
@@ -297,10 +273,7 @@ export async function revokePurchase(customer: Customer) {
 
 export async function getActivePurchase(customerId: string) {
 	return await getDb().query.customerPurchases.findFirst({
-		where: and(
-			eq(customerPurchases.customerId, customerId),
-			isNull(customerPurchases.cancelledOn),
-		),
+		where: and(eq(customerPurchases.customerId, customerId), isNull(customerPurchases.cancelledOn)),
 	});
 }
 
@@ -318,12 +291,7 @@ export async function handlePurchaseOrRenewal(
 			productType,
 			paymentProviderCustomerId,
 		});
-		await provisionNewPurchase(
-			customer,
-			planType,
-			productType,
-			paymentProviderCustomerId,
-		);
+		await provisionNewPurchase(customer, planType, productType, paymentProviderCustomerId);
 	} else {
 		console.log("Customer renewed plan:", {
 			planType,

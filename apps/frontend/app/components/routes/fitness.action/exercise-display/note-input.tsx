@@ -2,14 +2,11 @@ import { ActionIcon, Flex, Textarea } from "@mantine/core";
 import { useDebouncedState, useDidUpdate } from "@mantine/hooks";
 import { IconTrash } from "@tabler/icons-react";
 import { produce } from "immer";
+
 import { openConfirmationModal } from "~/lib/shared/ui-utils";
 import { useCurrentWorkout } from "~/lib/state/fitness";
 
-export const NoteInput = (props: {
-	note: string;
-	noteIdx: number;
-	exerciseIdx: number;
-}) => {
+export const NoteInput = (props: { note: string; noteIdx: number; exerciseIdx: number }) => {
 	const [value, setValue] = useDebouncedState(props.note, 500);
 	const [currentWorkout, setCurrentWorkout] = useCurrentWorkout();
 
@@ -20,13 +17,7 @@ export const NoteInput = (props: {
 					draft.exercises[props.exerciseIdx].notes[props.noteIdx] = value;
 				}),
 			);
-	}, [
-		value,
-		props.noteIdx,
-		currentWorkout,
-		setCurrentWorkout,
-		props.exerciseIdx,
-	]);
+	}, [value, props.noteIdx, currentWorkout, setCurrentWorkout, props.exerciseIdx]);
 
 	return (
 		<Flex align="center" gap="xs">
@@ -49,10 +40,7 @@ export const NoteInput = (props: {
 							if (currentWorkout)
 								setCurrentWorkout(
 									produce(currentWorkout, (draft) => {
-										draft.exercises[props.exerciseIdx].notes.splice(
-											props.noteIdx,
-											1,
-										);
+										draft.exercises[props.exerciseIdx].notes.splice(props.noteIdx, 1);
 									}),
 								);
 						},

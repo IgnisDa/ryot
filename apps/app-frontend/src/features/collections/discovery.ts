@@ -1,9 +1,8 @@
-import {
-	createEntityPropertyExpression,
-	createEntitySchemaExpression,
-} from "@ryot/ts-utils";
+import { createEntityPropertyExpression, createEntitySchemaExpression } from "@ryot/ts-utils";
+
 import { createEntityRuntimeRequest } from "~/features/entities/model";
 import { useApiClient } from "~/hooks/api";
+
 import {
 	type AppCollection,
 	type CollectionDiscoveryState,
@@ -55,8 +54,7 @@ export function useCollectionDiscovery(enabled = true): {
 	state: CollectionDiscoveryState;
 	refetch: () => void;
 } {
-	const { collections, isError, isLoading, refetch } =
-		useCollectionsQuery(enabled);
+	const { collections, isError, isLoading, refetch } = useCollectionsQuery(enabled);
 
 	const state = getCollectionDiscoveryState(isLoading, isError, collections);
 

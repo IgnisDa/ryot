@@ -5,11 +5,8 @@ import relativeTime from "dayjs/plugin/relativeTime";
 import timezone from "dayjs/plugin/timezone";
 import utc from "dayjs/plugin/utc";
 import { match } from "ts-pattern";
-import {
-	ApplicationTimeRange,
-	TimeSpan,
-	type TimestampToStringResult,
-} from "../types";
+
+import { ApplicationTimeRange, TimeSpan, type TimestampToStringResult } from "../types";
 
 dayjs.extend(utc);
 dayjs.extend(duration);
@@ -19,9 +16,7 @@ dayjs.extend(localizedFormat);
 
 export { dayjs as dayjsLib };
 
-export const convertTimestampToUtcString = <
-	T extends Date | string | null | undefined,
->(
+export const convertTimestampToUtcString = <T extends Date | string | null | undefined>(
 	dateTime: T,
 ): TimestampToStringResult<T> => {
 	if (!dateTime) return null as TimestampToStringResult<T>;
@@ -48,10 +43,7 @@ export const getTimeOfDay = (hours: number) => {
 	return "Night";
 };
 
-export const convertUtcHourToLocalHour = (
-	utcHour: number,
-	userTimezone?: string,
-) => {
+export const convertUtcHourToLocalHour = (utcHour: number, userTimezone?: string) => {
 	const targetTimezone = userTimezone || dayjs.tz.guess();
 	const utcDate = dayjs.utc().hour(utcHour).minute(0).second(0);
 	const localDate = utcDate.tz(targetTimezone);
@@ -67,12 +59,6 @@ export const getStartTimeFromRange = (range: ApplicationTimeRange) =>
 		.with(ApplicationTimeRange.Past7Days, () => dayjs().subtract(7, "day"))
 		.with(ApplicationTimeRange.Past30Days, () => dayjs().subtract(30, "day"))
 		.with(ApplicationTimeRange.Past6Months, () => dayjs().subtract(6, "month"))
-		.with(ApplicationTimeRange.Past12Months, () =>
-			dayjs().subtract(12, "month"),
-		)
-		.with(
-			ApplicationTimeRange.AllTime,
-			ApplicationTimeRange.Custom,
-			() => undefined,
-		)
+		.with(ApplicationTimeRange.Past12Months, () => dayjs().subtract(12, "month"))
+		.with(ApplicationTimeRange.AllTime, ApplicationTimeRange.Custom, () => undefined)
 		.exhaustive();

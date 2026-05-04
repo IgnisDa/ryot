@@ -1,16 +1,8 @@
 import { useAutoAnimate } from "@formkit/auto-animate/react";
-import {
-	Anchor,
-	Avatar,
-	Box,
-	Flex,
-	Group,
-	Indicator,
-	Stack,
-	Text,
-} from "@mantine/core";
+import { Anchor, Avatar, Box, Flex, Group, Indicator, Stack, Text } from "@mantine/core";
 import { humanizeDuration } from "@ryot/ts-utils";
 import type { ReactNode } from "react";
+
 import { dayjsLib } from "~/lib/shared/date-utils";
 
 export const DisplaySeasonOrEpisodeDetails = (props: {
@@ -30,17 +22,16 @@ export const DisplaySeasonOrEpisodeDetails = (props: {
 	const [parent] = useAutoAnimate();
 	const filteredElements = [
 		props.runtime
-			? humanizeDuration(
-					dayjsLib.duration(props.runtime, "minutes").asMilliseconds(),
-					{ units: ["h", "m"] },
-				)
+			? humanizeDuration(dayjsLib.duration(props.runtime, "minutes").asMilliseconds(), {
+					units: ["h", "m"],
+				})
 			: null,
 		props.publishDate ? dayjsLib(props.publishDate).format("ll") : null,
 		props.numEpisodes ? `${props.numEpisodes} episodes` : null,
 		props.startDate && props.endDate
-			? `${dayjsLib(props.startDate).format("MM/YYYY")} to ${dayjsLib(
-					props.endDate,
-				).format("MM/YYYY")}`
+			? `${dayjsLib(props.startDate).format("MM/YYYY")} to ${dayjsLib(props.endDate).format(
+					"MM/YYYY",
+				)}`
 			: null,
 	].filter((s) => s !== null);
 	const display =
@@ -84,11 +75,7 @@ export const DisplaySeasonOrEpisodeDetails = (props: {
 						disabled={!isSeen}
 						position="bottom-end"
 						style={{ zIndex: 0 }}
-						label={
-							props.displayIndicator === 1
-								? "Seen"
-								: `Seen × ${props.displayIndicator}`
-						}
+						label={props.displayIndicator === 1 ? "Seen" : `Seen × ${props.displayIndicator}`}
 					>
 						<Avatar
 							size="lg"
@@ -114,7 +101,7 @@ export const DisplaySeasonOrEpisodeDetails = (props: {
 					size="sm"
 					c="dimmed"
 					lineClamp={5}
-					// biome-ignore lint/security/noDangerouslySetInnerHtml: generated on the backend securely
+					// oxlint-disable-next-line react/no-danger
 					dangerouslySetInnerHTML={{ __html: props.overview }}
 				/>
 			) : null}

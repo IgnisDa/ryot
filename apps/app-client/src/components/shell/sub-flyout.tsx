@@ -1,15 +1,12 @@
 import clsx from "clsx";
 import { Link } from "expo-router";
-import Animated, {
-	FadeIn,
-	FadeOut,
-	SlideInRight,
-	SlideOutRight,
-} from "react-native-reanimated";
+import Animated, { FadeIn, FadeOut, SlideInRight, SlideOutRight } from "react-native-reanimated";
+
 import { Box } from "@/components/ui/box";
 import { Text } from "@/components/ui/text";
 import { TrackerIcon } from "@/lib/icons";
 import { useActiveNav, useNavigationData } from "@/lib/navigation";
+
 import { RAIL_WIDTH } from "./rail";
 
 type Props = {
@@ -30,8 +27,7 @@ export function ShellSubFlyout({ pinned = false }: Props) {
 	const content = (
 		<>
 			<Text className="text-[10px] text-muted-foreground tracking-[2px] pb-3.5 font-sans px-6 uppercase">
-				{activeTracker?.name} · {subItems.length}{" "}
-				{subItems.length === 1 ? "view" : "views"}
+				{activeTracker?.name} · {subItems.length} {subItems.length === 1 ? "view" : "views"}
 			</Text>
 			<Box className="gap-1 px-4">
 				{subItems.map((item) => {
@@ -56,9 +52,7 @@ export function ShellSubFlyout({ pinned = false }: Props) {
 							<Text
 								className={clsx(
 									"text-[18px]",
-									isActive
-										? "text-primary font-heading-semibold"
-										: "text-foreground font-heading",
+									isActive ? "text-primary font-heading-semibold" : "text-foreground font-heading",
 								)}
 							>
 								{item.name}

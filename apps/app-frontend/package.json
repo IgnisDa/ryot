@@ -1,14 +1,14 @@
 {
+	"name": "@ryot/app-frontend",
 	"private": true,
 	"type": "module",
-	"name": "@ryot/app-frontend",
 	"scripts": {
 		"typecheck": "tsc",
-		"lint": "biome check .",
 		"preview": "vite preview",
 		"dev": "bun --bun vite dev",
 		"build": "bun --bun vite build",
-		"test": "bun test --only-failures"
+		"test": "bun test --only-failures",
+		"lint": "oxlint . && oxfmt --check ."
 	},
 	"dependencies": {
 		"@better-auth/api-key": "1.6.5",

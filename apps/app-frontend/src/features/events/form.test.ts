@@ -1,5 +1,7 @@
 import { describe, expect, it } from "bun:test";
+
 import { createEventSchemaFixture } from "~/features/test-fixtures";
+
 import {
 	buildCreateEventFormSchema,
 	buildDefaultEventFormValues,
@@ -375,9 +377,7 @@ describe("getSelectedEventSchema", () => {
 			}),
 		];
 
-		expect(getSelectedEventSchema(eventSchemas, "missing-schema")?.id).toBe(
-			"schema-1",
-		);
+		expect(getSelectedEventSchema(eventSchemas, "missing-schema")?.id).toBe("schema-1");
 	});
 });
 

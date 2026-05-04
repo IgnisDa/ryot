@@ -7,7 +7,7 @@
   [guide](../configuration.md) for instructions.
 - Only Netflix exports in English are supported. Make sure your account language is set to
   English before requesting the export.
-:::
+  :::
 
 You can import your Netflix watch activity, ratings, and My List entries into Ryot.
 

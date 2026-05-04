@@ -1,4 +1,5 @@
 import { type Dayjs, dayjs } from "@ryot/ts-utils";
+
 import type { ApiGetResponseData } from "~/lib/api/types";
 
 export const GOLD = "#C9943A";
@@ -33,27 +34,18 @@ export function getQueueNote(slug: string, backlogAt: Dayjs, rank: number) {
 	return "Waiting in the wings";
 }
 
-export function getSectionBackground(props: {
-	accent: string;
-	isDark: boolean;
-	surface: string;
-}) {
+export function getSectionBackground(props: { accent: string; isDark: boolean; surface: string }) {
 	if (props.isDark) {
 		return `linear-gradient(180deg, ${colorMix(props.accent, 0.18)} 0%, ${props.surface} 22%, ${props.surface} 100%)`;
 	}
 	return `linear-gradient(180deg, ${colorMix(props.accent, 0.08)} 0%, ${colorMix(props.accent, 0.03)} 18%, ${props.surface} 40%, ${props.surface} 100%)`;
 }
 
-export type OverviewUpNextItem =
-	ApiGetResponseData<"/media/overview/up-next">["items"][number];
-export type OverviewContinueItem =
-	ApiGetResponseData<"/media/overview/continue">["items"][number];
-export type OverviewRateTheseItem =
-	ApiGetResponseData<"/media/overview/review">["items"][number];
-export type OverviewActivityItem =
-	ApiGetResponseData<"/media/overview/activity">["items"][number];
-export type OverviewWeekItem =
-	ApiGetResponseData<"/media/overview/week">["items"][number];
+export type OverviewUpNextItem = ApiGetResponseData<"/media/overview/up-next">["items"][number];
+export type OverviewContinueItem = ApiGetResponseData<"/media/overview/continue">["items"][number];
+export type OverviewRateTheseItem = ApiGetResponseData<"/media/overview/review">["items"][number];
+export type OverviewActivityItem = ApiGetResponseData<"/media/overview/activity">["items"][number];
+export type OverviewWeekItem = ApiGetResponseData<"/media/overview/week">["items"][number];
 
 export interface ActivityEventView {
 	id: string;
@@ -87,9 +79,7 @@ export function getActivityDateLabel(date: Dayjs) {
 
 export function getActivityActionLabel(item: OverviewActivityItem) {
 	if (item.eventSchemaSlug === "progress") {
-		return item.entity.entitySchemaSlug === "anime"
-			? "Watched"
-			: "Logged progress";
+		return item.entity.entitySchemaSlug === "anime" ? "Watched" : "Logged progress";
 	}
 	if (item.eventSchemaSlug === "backlog") {
 		return "Queued";

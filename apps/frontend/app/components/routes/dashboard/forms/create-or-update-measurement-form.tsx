@@ -1,11 +1,4 @@
-import {
-	Button,
-	NumberInput,
-	SimpleGrid,
-	Stack,
-	Textarea,
-	TextInput,
-} from "@mantine/core";
+import { Button, NumberInput, SimpleGrid, Stack, Textarea, TextInput } from "@mantine/core";
 import { DateTimePicker } from "@mantine/dates";
 import { notifications } from "@mantine/notifications";
 import {
@@ -16,13 +9,10 @@ import {
 import { changeCase, snakeCase } from "@ryot/ts-utils";
 import { useMutation } from "@tanstack/react-query";
 import { useEffect } from "react";
+
 import { useSavedForm } from "~/lib/hooks/use-saved-form";
 import { useApplicationEvents, useUserPreferences } from "~/lib/shared/hooks";
-import {
-	clientGqlService,
-	queryClient,
-	queryFactory,
-} from "~/lib/shared/react-query";
+import { clientGqlService, queryClient, queryFactory } from "~/lib/shared/react-query";
 
 const buildInput = (measurement?: UserMeasurement | null) =>
 	({
@@ -53,9 +43,7 @@ export const CreateOrUpdateMeasurementForm = (props: {
 		validate: {
 			information: {
 				statistics: (value) =>
-					value.some((s) => s.value)
-						? null
-						: "At least one statistic must have a value",
+					value.some((s) => s.value) ? null : "At least one statistic must have a value",
 			},
 		},
 	});
@@ -103,42 +91,29 @@ export const CreateOrUpdateMeasurementForm = (props: {
 				/>
 				<TextInput label="Name" {...form.getInputProps("name")} />
 				<SimpleGrid cols={2} style={{ alignItems: "end" }}>
-					{userPreferences.fitness.measurements.statistics.map(
-						({ name, unit }) => (
-							<NumberInput
-								key={name}
-								decimalScale={3}
-								label={changeCase(snakeCase(name)) + (unit ? ` (${unit})` : "")}
-								value={
-									form.values.information.statistics.find(
-										(s) => s.name === name,
-									)?.value
-								}
-								onChange={(v) => {
-									const idx = form.values.information.statistics.findIndex(
-										(s) => s.name === name,
-									);
-									const newStatistics = [...form.values.information.statistics];
-									if (idx !== -1)
-										newStatistics[idx] = {
-											...newStatistics[idx],
-											value: v.toString(),
-										};
-									else newStatistics.push({ name, value: v.toString() });
+					{userPreferences.fitness.measurements.statistics.map(({ name, unit }) => (
+						<NumberInput
+							key={name}
+							decimalScale={3}
+							label={changeCase(snakeCase(name)) + (unit ? ` (${unit})` : "")}
+							value={form.values.information.statistics.find((s) => s.name === name)?.value}
+							onChange={(v) => {
+								const idx = form.values.information.statistics.findIndex((s) => s.name === name);
+								const newStatistics = [...form.values.information.statistics];
+								if (idx !== -1)
+									newStatistics[idx] = {
+										...newStatistics[idx],
+										value: v.toString(),
+									};
+								else newStatistics.push({ name, value: v.toString() });
 
-									form.setFieldValue("information.statistics", newStatistics);
-								}}
-							/>
-						),
-					)}
+								form.setFieldValue("information.statistics", newStatistics);
+							}}
+						/>
+					))}
 				</SimpleGrid>
 				<Textarea label="Comment" {...form.getInputProps("comment")} />
-				<Button
-					mt="md"
-					w="100%"
-					type="submit"
-					loading={createMeasurementMutation.isPending}
-				>
+				<Button mt="md" w="100%" type="submit" loading={createMeasurementMutation.isPending}>
 					{props.measurementToUpdate ? "Update" : "Submit"}
 				</Button>
 			</Stack>

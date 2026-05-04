@@ -1,26 +1,16 @@
 import { getFormProps, getInputProps, useForm } from "@conform-to/react";
 import { parseWithZod } from "@conform-to/zod/v4";
-import {
-	Alert,
-	Button,
-	Container,
-	PasswordInput,
-	Stack,
-	Text,
-	Title,
-} from "@mantine/core";
+import { Alert, Button, Container, PasswordInput, Stack, Text, Title } from "@mantine/core";
 import { SetPasswordViaSessionDocument } from "@ryot/generated/graphql/backend/graphql";
 import { parseSearchQuery } from "@ryot/ts-utils";
 import { IconLock } from "@tabler/icons-react";
 import { data, Form, useActionData, useLoaderData } from "react-router";
 import { $path } from "safe-routes";
 import { z } from "zod";
+
 import { passwordConfirmationSchema } from "~/lib/shared/validation";
-import {
-	createToastHeaders,
-	redirectWithToast,
-	serverGqlService,
-} from "~/lib/utilities.server";
+import { createToastHeaders, redirectWithToast, serverGqlService } from "~/lib/utilities.server";
+
 import type { Route } from "./+types/change-password";
 
 const searchParamsSchema = z.object({ sessionId: z.string() });
@@ -68,8 +58,7 @@ export const action = async ({ request }: Route.ActionArgs) => {
 
 	return redirectWithToast($path("/auth"), {
 		type: "success",
-		message:
-			"Password set successfully. You can now log in with your new password.",
+		message: "Password set successfully. You can now log in with your new password.",
 	});
 };
 

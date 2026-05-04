@@ -1,18 +1,14 @@
 import { SimpleGrid, Stack, Text, UnstyledButton } from "@mantine/core";
 import { useHover } from "@mantine/hooks";
 import { modals } from "@mantine/modals";
-import {
-	SearchEntityModalContent,
-	SearchEntityModalTitle,
-} from "~/features/entities/search-modal";
+
+import { SearchEntityModalContent, SearchEntityModalTitle } from "~/features/entities/search-modal";
 import type { AppEntitySchema } from "~/features/entity-schemas/model";
 import { TrackerIcon } from "~/features/trackers/icons";
 import { useThemeTokens } from "~/hooks/theme";
+
 import { colorMix, STONE } from "../shared";
-import {
-	ContinueLoggingModalContent,
-	StartLoggingModalContent,
-} from "./modals";
+import { ContinueLoggingModalContent, StartLoggingModalContent } from "./modals";
 
 function TypePickerCard(props: {
 	schema: AppEntitySchema;
@@ -178,11 +174,7 @@ export function useMediaOverviewModalHandlers(deps: ModalHandlersDeps) {
 				</Text>
 			),
 			children: (
-				<TypePickerGrid
-					t={t}
-					onSelect={openSearchModal}
-					schemas={deps.searchableSchemas}
-				/>
+				<TypePickerGrid t={t} onSelect={openSearchModal} schemas={deps.searchableSchemas} />
 			),
 		});
 	};

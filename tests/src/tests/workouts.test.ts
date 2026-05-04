@@ -1,8 +1,7 @@
 import { describe, expect, it } from "bun:test";
-import {
-	createEntityColumnExpression,
-	createEntityPropertyExpression,
-} from "@ryot/ts-utils";
+
+import { createEntityColumnExpression, createEntityPropertyExpression } from "@ryot/ts-utils";
+
 import {
 	buildGridRequest,
 	createAuthenticatedClient,
@@ -23,11 +22,7 @@ import {
 describe("Workouts E2E", () => {
 	it("links the built-in workout schema to the fitness tracker", async () => {
 		const { client, cookies } = await createAuthenticatedClient();
-		const fitnessTracker = await findBuiltinTrackerBySlug(
-			client,
-			cookies,
-			"fitness",
-		);
+		const fitnessTracker = await findBuiltinTrackerBySlug(client, cookies, "fitness");
 		const schemas = await listEntitySchemas(client, cookies, {
 			trackerId: fitnessTracker.id,
 		});
@@ -41,11 +36,7 @@ describe("Workouts E2E", () => {
 
 	it("exposes the workout schema properties", async () => {
 		const { client, cookies } = await createAuthenticatedClient();
-		const { schema: workoutSchema } = await findBuiltinSchemaBySlug(
-			client,
-			cookies,
-			"workout",
-		);
+		const { schema: workoutSchema } = await findBuiltinSchemaBySlug(client, cookies, "workout");
 
 		expect(workoutSchema.propertiesSchema.fields).toMatchObject({
 			comment: {
@@ -73,11 +64,7 @@ describe("Workouts E2E", () => {
 
 	it("creates the built-in All Workouts saved view with workout defaults", async () => {
 		const { client, cookies } = await createAuthenticatedClient();
-		const fitnessTracker = await findBuiltinTrackerBySlug(
-			client,
-			cookies,
-			"fitness",
-		);
+		const fitnessTracker = await findBuiltinTrackerBySlug(client, cookies, "fitness");
 		const views = await listSavedViews(client, cookies, {
 			trackerId: fitnessTracker.id,
 		});
@@ -100,14 +87,8 @@ describe("Workouts E2E", () => {
 					calloutProperty: null,
 					titleProperty: createEntityColumnExpression("workout", "name"),
 					imageProperty: createEntityColumnExpression("workout", "image"),
-					primarySubtitleProperty: createEntityPropertyExpression(
-						"workout",
-						"startedAt",
-					),
-					secondarySubtitleProperty: createEntityPropertyExpression(
-						"workout",
-						"endedAt",
-					),
+					primarySubtitleProperty: createEntityPropertyExpression("workout", "startedAt"),
+					secondarySubtitleProperty: createEntityPropertyExpression("workout", "endedAt"),
 				},
 			},
 		});
@@ -147,19 +128,15 @@ describe("Workouts E2E", () => {
 
 		expect(result.response.status).toBe(200);
 		expect(result.data?.data.items.length).toBeGreaterThan(0);
-		expect(
-			getQueryEngineFieldOrThrow(result.data?.data.items[0], "primarySubtitle")
-				.key,
-		).toBe("primarySubtitle");
+		expect(getQueryEngineFieldOrThrow(result.data?.data.items[0], "primarySubtitle").key).toBe(
+			"primarySubtitle",
+		);
 	});
 
 	it("logs a workout set linked to a workout via sessionEntityId", async () => {
 		const { client, cookies } = await createAuthenticatedClient();
 		const { workoutId } = await createWorkoutEntityFixture(client, cookies);
-		const { workoutSetEventSchema } = await findWorkoutSetEventSchema(
-			client,
-			cookies,
-		);
+		const { workoutSetEventSchema } = await findWorkoutSetEventSchema(client, cookies);
 		const exerciseId = await waitForSeededExerciseId(client, cookies);
 
 		const createResult = await client.POST("/events", {
@@ -183,30 +160,16 @@ describe("Workouts E2E", () => {
 		expect(createResult.response.status).toBe(200);
 		expect(createResult.data?.data.count).toBe(1);
 
-		const events = await waitForSessionEventCount(
-			client,
-			cookies,
-			workoutId,
-			1,
-		);
+		const events = await waitForSessionEventCount(client, cookies, workoutId, 1);
 		expect(events[0]?.sessionEntityId).toBe(workoutId);
 		expect(events[0]?.entityId).toBe(exerciseId);
 	});
 
 	it("listing events by sessionEntityId returns only sets for that workout", async () => {
 		const { client, cookies } = await createAuthenticatedClient();
-		const { workoutId: workoutOneId } = await createWorkoutEntityFixture(
-			client,
-			cookies,
-		);
-		const { workoutId: workoutTwoId } = await createWorkoutEntityFixture(
-			client,
-			cookies,
-		);
-		const { workoutSetEventSchema } = await findWorkoutSetEventSchema(
-			client,
-			cookies,
-		);
+		const { workoutId: workoutOneId } = await createWorkoutEntityFixture(client, cookies);
+		const { workoutId: workoutTwoId } = await createWorkoutEntityFixture(client, cookies);
+		const { workoutSetEventSchema } = await findWorkoutSetEventSchema(client, cookies);
 		const exerciseId = await waitForSeededExerciseId(client, cookies);
 
 		await client.POST("/events", {
@@ -248,32 +211,16 @@ describe("Workouts E2E", () => {
 			],
 		});
 
-		const workoutOneEvents = await waitForSessionEventCount(
-			client,
-			cookies,
-			workoutOneId,
-			2,
-		);
+		const workoutOneEvents = await waitForSessionEventCount(client, cookies, workoutOneId, 2);
 		expect(workoutOneEvents).toHaveLength(2);
-		expect(
-			workoutOneEvents.every((event) => event.sessionEntityId === workoutOneId),
-		).toBe(true);
+		expect(workoutOneEvents.every((event) => event.sessionEntityId === workoutOneId)).toBe(true);
 	});
 
 	it("listing events by entityId spans multiple workouts for the same exercise", async () => {
 		const { client, cookies } = await createAuthenticatedClient();
-		const { workoutId: workoutOneId } = await createWorkoutEntityFixture(
-			client,
-			cookies,
-		);
-		const { workoutId: workoutTwoId } = await createWorkoutEntityFixture(
-			client,
-			cookies,
-		);
-		const { workoutSetEventSchema } = await findWorkoutSetEventSchema(
-			client,
-			cookies,
-		);
+		const { workoutId: workoutOneId } = await createWorkoutEntityFixture(client, cookies);
+		const { workoutId: workoutTwoId } = await createWorkoutEntityFixture(client, cookies);
+		const { workoutSetEventSchema } = await findWorkoutSetEventSchema(client, cookies);
 		const exerciseId = await waitForSeededExerciseId(client, cookies);
 
 		await client.POST("/events", {
@@ -304,16 +251,11 @@ describe("Workouts E2E", () => {
 			],
 		});
 
-		const exerciseEvents = await waitForEventCount(
-			client,
-			cookies,
-			exerciseId,
-			2,
-		);
+		const exerciseEvents = await waitForEventCount(client, cookies, exerciseId, 2);
 		expect(exerciseEvents).toHaveLength(2);
-		expect(
-			new Set(exerciseEvents.map((event) => event.sessionEntityId)),
-		).toEqual(new Set([workoutOneId, workoutTwoId]));
+		expect(new Set(exerciseEvents.map((event) => event.sessionEntityId))).toEqual(
+			new Set([workoutOneId, workoutTwoId]),
+		);
 	});
 
 	it("returns 400 when listing events without entityId or sessionEntityId", async () => {

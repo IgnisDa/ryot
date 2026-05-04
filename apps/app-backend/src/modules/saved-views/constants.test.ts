@@ -1,10 +1,12 @@
 import { describe, expect, it } from "bun:test";
+
 import {
 	createEntityColumnExpression,
 	createEntityPropertyExpression,
 	createEventAggregateExpression,
 	createTransformExpression,
 } from "@ryot/ts-utils";
+
 import { createDefaultDisplayConfiguration } from "./constants";
 
 describe("createDefaultDisplayConfiguration", () => {
@@ -23,16 +25,10 @@ describe("createDefaultDisplayConfiguration", () => {
 		const displayConfiguration = createDefaultDisplayConfiguration("exercise");
 
 		expect(displayConfiguration.grid.calloutProperty).toEqual(
-			createTransformExpression(
-				"titleCase",
-				createEntityPropertyExpression("exercise", "level"),
-			),
+			createTransformExpression("titleCase", createEntityPropertyExpression("exercise", "level")),
 		);
 		expect(displayConfiguration.grid.primarySubtitleProperty).toEqual(
-			createTransformExpression(
-				"titleCase",
-				createEntityPropertyExpression("exercise", "kind"),
-			),
+			createTransformExpression("titleCase", createEntityPropertyExpression("exercise", "kind")),
 		);
 		expect(displayConfiguration.grid.secondarySubtitleProperty).toEqual(
 			createTransformExpression(

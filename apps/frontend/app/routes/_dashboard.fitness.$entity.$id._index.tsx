@@ -55,17 +55,11 @@ import { match } from "ts-pattern";
 import { withQuery } from "ufo";
 import { useLocalStorage } from "usehooks-ts";
 import { z } from "zod";
-import {
-	DisplayCollectionToEntity,
-	ProRequiredAlert,
-	SkeletonLoader,
-} from "~/components/common";
+
+import { DisplayCollectionToEntity, ProRequiredAlert, SkeletonLoader } from "~/components/common";
 import { ExerciseHistory } from "~/components/fitness/components";
 import { WorkoutRevisionScheduledAlert } from "~/components/fitness/display-items";
-import {
-	displayDistanceWithUnit,
-	displayWeightWithUnit,
-} from "~/components/fitness/utils";
+import { displayDistanceWithUnit, displayWeightWithUnit } from "~/components/fitness/utils";
 import { PRO_REQUIRED_MESSAGE } from "~/lib/shared/constants";
 import { dayjsLib } from "~/lib/shared/date-utils";
 import {
@@ -85,11 +79,8 @@ import { duplicateOldWorkout } from "~/lib/state/fitness";
 import { useFullscreenImage } from "~/lib/state/general";
 import { useAddEntityToCollections } from "~/lib/state/media";
 import { FitnessAction, FitnessEntity } from "~/lib/types";
-import {
-	createToastHeaders,
-	redirectWithToast,
-	serverGqlService,
-} from "~/lib/utilities.server";
+import { createToastHeaders, redirectWithToast, serverGqlService } from "~/lib/utilities.server";
+
 import type { Route } from "./+types/_dashboard.fitness.$entity.$id._index";
 
 export const loader = async ({ params }: Route.LoaderArgs) => {
@@ -112,11 +103,9 @@ export const action = async ({ request }: Route.ActionArgs) => {
 			const submission = processSubmission(formData, editWorkoutSchema);
 			submission.startTime = dayjsLib(submission.startTime).toISOString();
 			submission.endTime = dayjsLib(submission.endTime).toISOString();
-			await serverGqlService.authenticatedRequest(
-				request,
-				UpdateUserWorkoutAttributesDocument,
-				{ input: submission },
-			);
+			await serverGqlService.authenticatedRequest(request, UpdateUserWorkoutAttributesDocument, {
+				input: submission,
+			});
 			return data({ status: "success", submission } as const, {
 				headers: await createToastHeaders({
 					type: "success",
@@ -127,17 +116,13 @@ export const action = async ({ request }: Route.ActionArgs) => {
 		.with("delete", async () => {
 			const submission = processSubmission(formData, deleteSchema);
 			if (submission.workoutId)
-				await serverGqlService.authenticatedRequest(
-					request,
-					DeleteUserWorkoutDocument,
-					{ workoutId: submission.workoutId },
-				);
+				await serverGqlService.authenticatedRequest(request, DeleteUserWorkoutDocument, {
+					workoutId: submission.workoutId,
+				});
 			else if (submission.templateId)
-				await serverGqlService.authenticatedRequest(
-					request,
-					DeleteUserWorkoutTemplateDocument,
-					{ workoutTemplateId: submission.templateId },
-				);
+				await serverGqlService.authenticatedRequest(request, DeleteUserWorkoutTemplateDocument, {
+					workoutTemplateId: submission.templateId,
+				});
 			const { entity } = submission;
 			return redirectWithToast($path("/fitness/:entity/list", { entity }), {
 				type: "success",
@@ -191,10 +176,8 @@ export default function Page() {
 	const userPreferences = useUserPreferences();
 	const invalidateUserDetails = useInvalidateUserDetails();
 	const { entityId, entity } = useLoaderData<typeof loader>();
-	const [
-		adjustTimeModalOpened,
-		{ open: adjustTimeModalOpen, close: adjustTimeModalClose },
-	] = useDisclosure(false);
+	const [adjustTimeModalOpened, { open: adjustTimeModalOpen, close: adjustTimeModalClose }] =
+		useDisclosure(false);
 	const [metadataConsumedOpened, setMetadataConsumedOpened] = useLocalStorage(
 		`MetadataConsumedOpened-${entityId}`,
 		false,
@@ -203,10 +186,7 @@ export default function Page() {
 	const [isWorkoutLoading, setIsWorkoutLoading] = useState(false);
 	const [_a, setAddEntityToCollectionsData] = useAddEntityToCollections();
 
-	const { data: workoutData } = useUserWorkoutDetails(
-		entityId,
-		entity === FitnessEntity.Workouts,
-	);
+	const { data: workoutData } = useUserWorkoutDetails(entityId, entity === FitnessEntity.Workouts);
 
 	const { data: templateData } = useUserWorkoutTemplateDetails(
 		entityId,
@@ -223,14 +203,9 @@ export default function Page() {
 		!!(workoutData?.details.templateId && entity === FitnessEntity.Workouts),
 	);
 
-	const currentData =
-		entity === FitnessEntity.Workouts ? workoutData : templateData;
-	const s3ImagesPresigned = useS3PresignedUrls(
-		currentData?.details.information.assets?.s3Images,
-	);
-	const s3VideosPresigned = useS3PresignedUrls(
-		currentData?.details.information.assets?.s3Videos,
-	);
+	const currentData = entity === FitnessEntity.Workouts ? workoutData : templateData;
+	const s3ImagesPresigned = useS3PresignedUrls(currentData?.details.information.assets?.s3Images);
+	const s3VideosPresigned = useS3PresignedUrls(currentData?.details.information.assets?.s3Videos);
 
 	const loaderData = useMemo(() => {
 		const baseData = match(entity)
@@ -293,8 +268,7 @@ export default function Page() {
 		if (!baseData) return null;
 
 		const remoteImages = baseData.information.assets?.remoteImages || [];
-		const remoteVideoUrls =
-			baseData.information.assets?.remoteVideos.map((v) => v.url) || [];
+		const remoteVideoUrls = baseData.information.assets?.remoteVideos.map((v) => v.url) || [];
 		const images = [...remoteImages, ...(s3ImagesPresigned.data || [])];
 		const videos = [...remoteVideoUrls, ...(s3VideosPresigned.data || [])];
 		const hasAssets = images.length > 0 || videos.length > 0;
@@ -374,12 +348,7 @@ export default function Page() {
 								label="End time"
 								defaultValue={new Date(loaderData.endTime)}
 							/>
-							<Button
-								name="id"
-								type="submit"
-								variant="outline"
-								value={loaderData.entityId}
-							>
+							<Button name="id" type="submit" variant="outline" value={loaderData.entityId}>
 								Submit
 							</Button>
 						</Stack>
@@ -476,9 +445,7 @@ export default function Page() {
 								.exhaustive()}
 							<Menu.Item
 								leftSection={<IconArchive size={14} />}
-								onClick={() =>
-									setAddEntityToCollectionsData({ entityId, entityLot })
-								}
+								onClick={() => setAddEntityToCollectionsData({ entityId, entityLot })}
 							>
 								Add to collection
 							</Menu.Item>
@@ -540,8 +507,7 @@ export default function Page() {
 						</Anchor>
 						<Text c="dimmed" span size="sm">
 							{" "}
-							on{" "}
-							{dayjsLib(loaderData.repeatedWorkout.doneOn).format("dddd, LLL")}
+							on {dayjsLib(loaderData.repeatedWorkout.doneOn).format("dddd, LLL")}
 						</Text>
 					</Box>
 				) : null}
@@ -564,9 +530,7 @@ export default function Page() {
 				) : null}
 				<Box>
 					<Text c="dimmed" span>
-						{loaderData.entity === FitnessEntity.Templates
-							? "Created on"
-							: "Done on"}{" "}
+						{loaderData.entity === FitnessEntity.Templates ? "Created on" : "Done on"}{" "}
 					</Text>
 					<Text span>{dayjsLib(loaderData.startTime).format("dddd, LLL")}</Text>
 					<SimpleGrid mt="xs" cols={{ base: 3, md: 4, xl: 5 }}>
@@ -574,9 +538,7 @@ export default function Page() {
 							<DisplayStat
 								icon={<IconClock size={16} />}
 								data={humanizeDuration(
-									dayjsLib
-										.duration(loaderData.duration, "second")
-										.asMilliseconds(),
+									dayjsLib.duration(loaderData.duration, "second").asMilliseconds(),
 									{
 										round: true,
 										units: ["h", "m"],
@@ -589,27 +551,20 @@ export default function Page() {
 								{Number(loaderData.summary.total.weight) !== 0 ? (
 									<DisplayStat
 										icon={<IconWeight size={16} />}
-										data={displayWeightWithUnit(
-											unitSystem,
-											loaderData.summary.total.weight,
-										)}
+										data={displayWeightWithUnit(unitSystem, loaderData.summary.total.weight)}
 									/>
 								) : null}
 								{Number(loaderData.summary.total.distance) > 0 ? (
 									<DisplayStat
 										icon={<IconRoad size={16} />}
-										data={displayDistanceWithUnit(
-											unitSystem,
-											loaderData.summary.total.distance,
-										)}
+										data={displayDistanceWithUnit(unitSystem, loaderData.summary.total.distance)}
 									/>
 								) : null}
 								<DisplayStat
 									icon={<IconBarbell size={16} />}
 									data={`${loaderData.summary.exercises.length} Exercises`}
 								/>
-								{Number(loaderData.summary.total.personalBestsAchieved) !==
-								0 ? (
+								{Number(loaderData.summary.total.personalBestsAchieved) !== 0 ? (
 									<DisplayStat
 										icon={<IconTrophy size={16} />}
 										data={`${loaderData.summary.total.personalBestsAchieved} PRs`}
@@ -618,14 +573,13 @@ export default function Page() {
 								{loaderData.summary.total.restTime > 0 ? (
 									<DisplayStat
 										icon={<IconZzz size={16} />}
-										data={humanizeDuration(
-											loaderData.summary.total.restTime * 1e3,
-											{ round: true, units: ["m", "s"] },
-										)}
+										data={humanizeDuration(loaderData.summary.total.restTime * 1e3, {
+											round: true,
+											units: ["m", "s"],
+										})}
 									/>
 								) : null}
-								{loaderData.caloriesBurnt &&
-								Number(loaderData.caloriesBurnt) > 0 ? (
+								{loaderData.caloriesBurnt && Number(loaderData.caloriesBurnt) > 0 ? (
 									<DisplayStat
 										icon={<IconFlame size={16} />}
 										data={`${loaderData.caloriesBurnt} ${userPreferences.fitness.logging.caloriesBurntUnit}`}
@@ -637,19 +591,13 @@ export default function Page() {
 				</Box>
 				{loaderData.metadataConsumed.length > 0 ? (
 					<Stack gap="xs">
-						<Anchor
-							size="xs"
-							onClick={() => setMetadataConsumedOpened(!metadataConsumedOpened)}
-						>
-							Consumed {loaderData.metadataConsumed.length} items during this
-							workout [{metadataConsumedOpened ? "collapse" : "expand"}]
+						<Anchor size="xs" onClick={() => setMetadataConsumedOpened(!metadataConsumedOpened)}>
+							Consumed {loaderData.metadataConsumed.length} items during this workout [
+							{metadataConsumedOpened ? "collapse" : "expand"}]
 						</Anchor>
 						<Collapse in={metadataConsumedOpened}>
 							{coreDetails.isServerKeyValidated ? (
-								<SimpleGrid
-									verticalSpacing="xs"
-									cols={{ base: 7, sm: 8, md: 10 }}
-								>
+								<SimpleGrid verticalSpacing="xs" cols={{ base: 7, sm: 8, md: 10 }}>
 									{metadataConsumedOpened &&
 										loaderData.metadataConsumed.map((m) => (
 											<ConsumedMetadataDisplay
@@ -674,10 +622,7 @@ export default function Page() {
 					</Box>
 				) : null}
 				{loaderData.hasAssets ? (
-					<WorkoutAssetsList
-						images={loaderData.images}
-						videos={loaderData.videos}
-					/>
+					<WorkoutAssetsList images={loaderData.images} videos={loaderData.videos} />
 				) : null}
 				{loaderData.information.exercises.map((exercise, idx) => (
 					<ExerciseHistory
@@ -693,20 +638,11 @@ export default function Page() {
 	);
 }
 
-const ConsumedMetadataDisplay = (props: {
-	enabled: boolean;
-	metadataId: string;
-}) => {
-	const [{ data: metadataDetails }] = useMetadataDetails(
-		props.metadataId,
-		props.enabled,
-	);
+const ConsumedMetadataDisplay = (props: { enabled: boolean; metadataId: string }) => {
+	const [{ data: metadataDetails }] = useMetadataDetails(props.metadataId, props.enabled);
 
 	const s3PresignedUrls = useS3PresignedUrls(metadataDetails?.assets.s3Images);
-	const images = [
-		...(metadataDetails?.assets.remoteImages || []),
-		...(s3PresignedUrls.data || []),
-	];
+	const images = [...(metadataDetails?.assets.remoteImages || []), ...(s3PresignedUrls.data || [])];
 
 	return (
 		<Link to={$path("/media/item/:id", { id: props.metadataId })}>

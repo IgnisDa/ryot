@@ -1,4 +1,5 @@
 import { describe, expect, it } from "bun:test";
+
 import {
 	createBuiltinAnimeProgressEventDeps,
 	createBuiltinBacklogEventDeps,
@@ -18,6 +19,7 @@ import {
 	createReviewPropertiesSchema,
 } from "~/lib/test-fixtures";
 import { expectDataResult } from "~/lib/test-helpers";
+
 import {
 	createEvent,
 	createEvents,
@@ -41,15 +43,11 @@ describe("resolveEventEntityId", () => {
 
 describe("resolveEventSchemaId", () => {
 	it("trims the provided event schema id", () => {
-		expect(resolveEventSchemaId("  event_schema_123  ")).toBe(
-			"event_schema_123",
-		);
+		expect(resolveEventSchemaId("  event_schema_123  ")).toBe("event_schema_123");
 	});
 
 	it("throws when the event schema id is blank", () => {
-		expect(() => resolveEventSchemaId("   ")).toThrow(
-			"Event schema id is required",
-		);
+		expect(() => resolveEventSchemaId("   ")).toThrow("Event schema id is required");
 	});
 });
 
@@ -59,9 +57,7 @@ describe("resolveSessionEntityId", () => {
 	});
 
 	it("throws when the session entity id is blank", () => {
-		expect(() => resolveSessionEntityId("   ")).toThrow(
-			"Session entity id is required",
-		);
+		expect(() => resolveSessionEntityId("   ")).toThrow("Session entity id is required");
 	});
 });
 
@@ -1040,10 +1036,7 @@ describe("createEvents", () => {
 	});
 
 	it("returns count of zero and empty createdEvents for an empty array", async () => {
-		const result = await createEvents(
-			{ userId: "user_1", body: [] },
-			createEventDeps(),
-		);
+		const result = await createEvents({ userId: "user_1", body: [] }, createEventDeps());
 
 		expect(result).not.toHaveProperty("error");
 		if ("data" in result) {
@@ -1056,11 +1049,7 @@ describe("createEvents", () => {
 		const result = await createEvents(
 			{
 				userId: "user_1",
-				body: [
-					createEventBody(),
-					{ ...createEventBody(), entityId: "   " },
-					createEventBody(),
-				],
+				body: [createEventBody(), { ...createEventBody(), entityId: "   " }, createEventBody()],
 			},
 			createEventDeps(),
 		);
@@ -1073,10 +1062,7 @@ describe("createEvents", () => {
 
 	it("chunks large arrays and counts all committed events", async () => {
 		const items = Array.from({ length: 2500 }, () => createEventBody());
-		const result = await createEvents(
-			{ userId: "user_1", body: items },
-			createEventDeps(),
-		);
+		const result = await createEvents({ userId: "user_1", body: items }, createEventDeps());
 
 		expect(result).not.toHaveProperty("error");
 		if ("data" in result) {

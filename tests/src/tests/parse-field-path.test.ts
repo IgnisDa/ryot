@@ -1,4 +1,5 @@
 import { describe, expect, it } from "bun:test";
+
 import { parseFieldPath } from "~/fixtures";
 
 describe("parseFieldPath", () => {
@@ -25,9 +26,7 @@ describe("parseFieldPath", () => {
 	});
 
 	it("parses deep entity schema property references", () => {
-		expect(
-			parseFieldPath("entity.smartphones.properties.metadata.source"),
-		).toEqual({
+		expect(parseFieldPath("entity.smartphones.properties.metadata.source")).toEqual({
 			type: "entity",
 			slug: "smartphones",
 			path: ["properties", "metadata", "source"],
@@ -100,8 +99,6 @@ describe("parseFieldPath", () => {
 		expect(() => parseFieldPath("smartphones.year")).toThrow(
 			"Invalid field path: smartphones.year",
 		);
-		expect(() => parseFieldPath("event.review")).toThrow(
-			"Invalid field path: event.review",
-		);
+		expect(() => parseFieldPath("event.review")).toThrow("Invalid field path: event.review");
 	});
 });

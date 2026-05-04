@@ -28,21 +28,15 @@ function normalizeEpisode(input: unknown) {
 }
 
 export function getOptionalInteger(value: unknown) {
-	return typeof value === "number" && Number.isInteger(value)
-		? value
-		: undefined;
+	return typeof value === "number" && Number.isInteger(value) ? value : undefined;
 }
 
 export function getOptionalNumber(value: unknown) {
-	return typeof value === "number" && Number.isFinite(value)
-		? value
-		: undefined;
+	return typeof value === "number" && Number.isFinite(value) ? value : undefined;
 }
 
 export function getShowSeasons(properties?: Record<string, unknown>) {
-	const seasons = Array.isArray(properties?.showSeasons)
-		? properties.showSeasons
-		: [];
+	const seasons = Array.isArray(properties?.showSeasons) ? properties.showSeasons : [];
 	return seasons
 		.map((season) => {
 			if (!season || typeof season !== "object") {
@@ -56,16 +50,10 @@ export function getShowSeasons(properties?: Record<string, unknown>) {
 			const episodes = Array.isArray(value.episodes) ? value.episodes : [];
 			return {
 				seasonNumber,
-				name:
-					typeof value.name === "string"
-						? value.name
-						: `Season ${seasonNumber}`,
+				name: typeof value.name === "string" ? value.name : `Season ${seasonNumber}`,
 				episodes: episodes
 					.map((episode) => normalizeEpisode(episode))
-					.filter(
-						(episode): episode is { number: number; label: string } =>
-							episode !== null,
-					),
+					.filter((episode): episode is { number: number; label: string } => episode !== null),
 			};
 		})
 		.filter(
@@ -80,13 +68,8 @@ export function getShowSeasons(properties?: Record<string, unknown>) {
 }
 
 export function getPodcastEpisodes(properties?: Record<string, unknown>) {
-	const episodes = Array.isArray(properties?.episodes)
-		? properties.episodes
-		: [];
+	const episodes = Array.isArray(properties?.episodes) ? properties.episodes : [];
 	return episodes
 		.map((episode) => normalizeEpisode(episode))
-		.filter(
-			(episode): episode is { number: number; label: string } =>
-				episode !== null,
-		);
+		.filter((episode): episode is { number: number; label: string } => episode !== null);
 }

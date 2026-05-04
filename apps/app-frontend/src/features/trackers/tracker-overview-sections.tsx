@@ -2,16 +2,15 @@ import { Anchor, Box, Button, Group, Paper, Stack, Text } from "@mantine/core";
 import { Link } from "@tanstack/react-router";
 import type { LucideIcon } from "lucide-react";
 import { FilePlus2, NotebookPen, Plus, Shapes } from "lucide-react";
+
 import type { AppSavedView } from "~/features/saved-views/model";
 import { useThemeTokens } from "~/hooks/theme";
 import { getAccentMuted } from "~/lib/theme";
+
 import { TrackerIcon } from "./icons";
 import type { AppTracker } from "./model";
 
-export function TrackerOverviewHeader(props: {
-	tracker: AppTracker;
-	accentColor: string;
-}) {
+export function TrackerOverviewHeader(props: { tracker: AppTracker; accentColor: string }) {
 	return (
 		<Stack gap="xs">
 			<Group gap="sm" align="center">
@@ -27,12 +26,7 @@ export function TrackerOverviewHeader(props: {
 					<TrackerIcon size={24} strokeWidth={2} icon={props.tracker.icon} />
 				</Box>
 				<Stack gap={2}>
-					<Text
-						fw={700}
-						lh={1.2}
-						size="xl"
-						ff="var(--mantine-headings-font-family)"
-					>
+					<Text fw={700} lh={1.2} size="xl" ff="var(--mantine-headings-font-family)">
 						{props.tracker.name}
 					</Text>
 					{props.tracker.description && (
@@ -100,13 +94,7 @@ export function TrackerOverviewQuickActions(props: {
 	return (
 		<Paper p="md" withBorder radius="md" bg={surface}>
 			<Stack gap="sm">
-				<Text
-					fw={600}
-					size="xs"
-					c="dimmed"
-					tt="uppercase"
-					style={{ letterSpacing: "0.8px" }}
-				>
+				<Text fw={600} size="xs" c="dimmed" tt="uppercase" style={{ letterSpacing: "0.8px" }}>
 					Quick Actions
 				</Text>
 				<Stack gap="xs">
@@ -158,13 +146,7 @@ export function TrackerOverviewSavedViews(props: { views: AppSavedView[] }) {
 	return (
 		<Paper p="md" withBorder radius="md" bg={surface}>
 			<Stack gap="sm">
-				<Text
-					fw={600}
-					size="xs"
-					c="dimmed"
-					tt="uppercase"
-					style={{ letterSpacing: "0.8px" }}
-				>
+				<Text fw={600} size="xs" c="dimmed" tt="uppercase" style={{ letterSpacing: "0.8px" }}>
 					Saved Views
 				</Text>
 				{props.views.length === 0 ? (
@@ -193,10 +175,7 @@ export function TrackerOverviewSavedViews(props: { views: AppSavedView[] }) {
 	);
 }
 
-export function TrackerOverviewEmptyPanel(props: {
-	title: string;
-	description: string;
-}) {
+export function TrackerOverviewEmptyPanel(props: { title: string; description: string }) {
 	const { surface } = useThemeTokens();
 
 	return (

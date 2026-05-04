@@ -1,9 +1,6 @@
 import { describe, expect, it } from "bun:test";
-import {
-	findEnabledTrackerBySlug,
-	selectEnabledTrackers,
-	sortTrackersByOrder,
-} from "./model";
+
+import { findEnabledTrackerBySlug, selectEnabledTrackers, sortTrackersByOrder } from "./model";
 import { createTrackerFixture } from "./test-fixtures";
 
 const f = createTrackerFixture;

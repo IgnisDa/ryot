@@ -1,12 +1,8 @@
 import { resolveRequiredSlug, resolveRequiredString } from "@ryot/ts-utils";
+
 import { isUniqueConstraintError } from "~/lib/app/postgres";
 import { resolveJobPollState } from "~/lib/queue/utils";
-import {
-	type ServiceResult,
-	serviceData,
-	serviceError,
-	wrapServiceValidator,
-} from "~/lib/result";
+import { type ServiceResult, serviceData, serviceError, wrapServiceValidator } from "~/lib/result";
 import { getSandboxService } from "~/lib/sandbox";
 import { hostFunctionRegistry } from "~/lib/sandbox/function-registry";
 import { sandboxRunJobResult } from "~/lib/sandbox/jobs";
@@ -15,6 +11,7 @@ import {
 	type SandboxScriptMetadata,
 	sandboxScriptMetadataSchema,
 } from "~/lib/sandbox/types";
+
 import {
 	createSandboxScriptForUser,
 	getSandboxScriptBySlugForUser,
@@ -30,9 +27,7 @@ import type {
 
 type SandboxMutationError = "not_found" | "validation";
 
-type SandboxJobLookupResult = NonNullable<
-	Awaited<ReturnType<typeof getSandboxJobByIdForUser>>
->;
+type SandboxJobLookupResult = NonNullable<Awaited<ReturnType<typeof getSandboxJobByIdForUser>>>;
 
 export type SandboxServiceDeps = {
 	enqueueSandboxJob: typeof enqueueSandboxJob;
@@ -52,8 +47,7 @@ const sandboxJobNotFoundError = "Sandbox job not found";
 const sandboxScriptNotFoundError = "Sandbox script not found";
 const sandboxScriptUniqueConstraint = "sandbox_script_user_slug_unique";
 const sandboxJobResultUnavailableMessage = "Sandbox job result unavailable";
-const sandboxScriptSlugExistsError =
-	"A sandbox script with this slug already exists";
+const sandboxScriptSlugExistsError = "A sandbox script with this slug already exists";
 
 const validateAllowedHostFunctions = (allowedHostFunctions?: string[]) => {
 	if (!allowedHostFunctions) {
@@ -61,9 +55,7 @@ const validateAllowedHostFunctions = (allowedHostFunctions?: string[]) => {
 	}
 
 	for (const functionKey of allowedHostFunctions) {
-		if (
-			!hostFunctionRegistry[functionKey as keyof typeof hostFunctionRegistry]
-		) {
+		if (!hostFunctionRegistry[functionKey as keyof typeof hostFunctionRegistry]) {
 			throw new Error(`Unknown sandbox host function: ${functionKey}`);
 		}
 	}
@@ -72,10 +64,8 @@ const validateAllowedHostFunctions = (allowedHostFunctions?: string[]) => {
 const enqueueSandboxJob = async (input: SandboxEnqueueOptions) =>
 	getSandboxService().enqueue(input);
 
-const getSandboxJobByIdForUser = async (input: {
-	jobId: string;
-	userId: string;
-}) => getSandboxService().getJobByIdForUser(input);
+const getSandboxJobByIdForUser = async (input: { jobId: string; userId: string }) =>
+	getSandboxService().getJobByIdForUser(input);
 
 const sandboxServiceDeps: SandboxServiceDeps = {
 	enqueueSandboxJob,
@@ -89,17 +79,12 @@ const sandboxScriptServiceDeps: SandboxScriptServiceDeps = {
 };
 
 const resolveSandboxJobIdResult = (jobId: string) =>
-	wrapServiceValidator(
-		() => resolveSandboxJobId(jobId),
-		"Sandbox job id is required",
-	);
+	wrapServiceValidator(() => resolveSandboxJobId(jobId), "Sandbox job id is required");
 
 export const resolveSandboxJobId = (jobId: string) =>
 	resolveRequiredString(jobId, "Sandbox job id");
 
-const createCompletedSandboxResult = (
-	job: SandboxJobLookupResult["job"],
-): PollSandboxResult => {
+const createCompletedSandboxResult = (job: SandboxJobLookupResult["job"]): PollSandboxResult => {
 	const result = sandboxRunJobResult.safeParse(job.returnvalue);
 	if (!result.success) {
 		return { status: "failed", error: sandboxJobResultUnavailableMessage };
@@ -115,10 +100,7 @@ const createCompletedSandboxResult = (
 		value:
 			value === undefined
 				? null
-				: (value as Extract<
-						PollSandboxResult,
-						{ status: "completed" }
-					>["value"]),
+				: (value as Extract<PollSandboxResult, { status: "completed" }>["value"]),
 	};
 };
 

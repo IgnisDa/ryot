@@ -1,21 +1,11 @@
-import {
-	Button,
-	Checkbox,
-	Group,
-	Modal,
-	Paper,
-	ScrollArea,
-	Stack,
-} from "@mantine/core";
+import { Button, Checkbox, Group, Modal, Paper, ScrollArea, Stack } from "@mantine/core";
 import { useForm } from "@mantine/form";
 import { useDidUpdate } from "@mantine/hooks";
 import { produce } from "immer";
 import invariant from "tiny-invariant";
+
 import { getSetStatisticsTextToDisplay } from "~/components/fitness/utils";
-import {
-	useDeleteS3AssetMutation,
-	useExerciseDetails,
-} from "~/lib/shared/hooks";
+import { useDeleteS3AssetMutation, useExerciseDetails } from "~/lib/shared/hooks";
 import { openConfirmationModal } from "~/lib/shared/ui-utils";
 import { useCurrentWorkout } from "~/lib/state/fitness";
 
@@ -32,9 +22,7 @@ const ExerciseItem = (props: {
 	const { data: exerciseDetails } = useExerciseDetails(exercise.exerciseId);
 
 	const setIdentifiers = exercise.sets.map((s) => s.identifier);
-	const selectedCount = setIdentifiers.filter((id) =>
-		props.selectedSets.includes(id),
-	).length;
+	const selectedCount = setIdentifiers.filter((id) => props.selectedSets.includes(id)).length;
 	const isFullySelected = selectedCount === setIdentifiers.length;
 	const isPartiallySelected = selectedCount > 0 && !isFullySelected;
 
@@ -83,8 +71,7 @@ export const BulkDeleteModal = (props: {
 	const form = useForm<{ selectedSets: string[] }>({
 		initialValues: { selectedSets: [] },
 		validate: {
-			selectedSets: (value) =>
-				value.length > 0 ? null : "Select at least one set to delete",
+			selectedSets: (value) => (value.length > 0 ? null : "Select at least one set to delete"),
 		},
 	});
 
@@ -134,10 +121,7 @@ export const BulkDeleteModal = (props: {
 				currentSets.filter((id) => !setIdentifiers.includes(id)),
 			);
 		} else {
-			form.setFieldValue(
-				"selectedSets",
-				Array.from(new Set([...currentSets, ...setIdentifiers])),
-			);
+			form.setFieldValue("selectedSets", Array.from(new Set([...currentSets, ...setIdentifiers])));
 		}
 	};
 
@@ -151,9 +135,7 @@ export const BulkDeleteModal = (props: {
 
 				for (let idx = 0; idx < currentWorkout.exercises.length; idx++) {
 					const exercise = currentWorkout.exercises[idx];
-					const remainingSets = exercise.sets.filter(
-						(set) => !selectedSetsSet.has(set.identifier),
-					);
+					const remainingSets = exercise.sets.filter((set) => !selectedSetsSet.has(set.identifier));
 
 					if (remainingSets.length === 0) {
 						const assets = [...exercise.images, ...exercise.videos];
@@ -197,11 +179,7 @@ export const BulkDeleteModal = (props: {
 	};
 
 	return (
-		<Modal
-			opened={props.opened}
-			onClose={props.onClose}
-			title="Select sets to delete"
-		>
+		<Modal opened={props.opened} onClose={props.onClose} title="Select sets to delete">
 			<form onSubmit={form.onSubmit(handleDelete)}>
 				<Stack gap="md" h="60vh">
 					<ScrollArea flex={1}>

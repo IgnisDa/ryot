@@ -1,8 +1,6 @@
 import { describe, expect, it } from "bun:test";
-import {
-	createPropertySchemaObjectSchema,
-	propertySchemaObjectSchema,
-} from "./schemas";
+
+import { createPropertySchemaObjectSchema, propertySchemaObjectSchema } from "./schemas";
 
 describe("propertySchemaObjectSchema", () => {
 	it("rejects contradictory numeric bounds", () => {

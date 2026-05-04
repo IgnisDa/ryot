@@ -14,33 +14,33 @@ Current shape:
 
 ```json
 {
-  "data": {
-    "meta": {
-      "pagination": {
-        "page": 1,
-        "total": 42,
-        "limit": 20,
-        "totalPages": 3,
-        "hasNextPage": true,
-        "hasPreviousPage": false
-      }
-    },
-    "items": [
-      {
-        "id": "ent_123",
-        "name": "Dune",
-        "createdAt": "2026-03-28T10:00:00.000Z",
-        "updatedAt": "2026-03-28T10:00:00.000Z",
-        "externalId": null,
-        "sandboxScriptId": null,
-        "image": { "kind": "remote", "url": "https://example.com/dune.jpg" },
-        "fields": [
-          { "key": "title", "kind": "text", "value": "Dune" },
-          { "key": "rating", "kind": "number", "value": 5 }
-        ]
-      }
-    ]
-  }
+	"data": {
+		"meta": {
+			"pagination": {
+				"page": 1,
+				"total": 42,
+				"limit": 20,
+				"totalPages": 3,
+				"hasNextPage": true,
+				"hasPreviousPage": false
+			}
+		},
+		"items": [
+			{
+				"id": "ent_123",
+				"name": "Dune",
+				"createdAt": "2026-03-28T10:00:00.000Z",
+				"updatedAt": "2026-03-28T10:00:00.000Z",
+				"externalId": null,
+				"sandboxScriptId": null,
+				"image": { "kind": "remote", "url": "https://example.com/dune.jpg" },
+				"fields": [
+					{ "key": "title", "kind": "text", "value": "Dune" },
+					{ "key": "rating", "kind": "number", "value": 5 }
+				]
+			}
+		]
+	}
 }
 ```
 
@@ -48,24 +48,24 @@ Target shape:
 
 ```json
 {
-  "data": {
-    "meta": {
-      "pagination": {
-        "page": 1,
-        "total": 42,
-        "limit": 20,
-        "totalPages": 3,
-        "hasNextPage": true,
-        "hasPreviousPage": false
-      }
-    },
-    "items": [
-      [
-        { "key": "title", "kind": "text", "value": "Dune" },
-        { "key": "rating", "kind": "number", "value": 5 }
-      ]
-    ]
-  }
+	"data": {
+		"meta": {
+			"pagination": {
+				"page": 1,
+				"total": 42,
+				"limit": 20,
+				"totalPages": 3,
+				"hasNextPage": true,
+				"hasPreviousPage": false
+			}
+		},
+		"items": [
+			[
+				{ "key": "title", "kind": "text", "value": "Dune" },
+				{ "key": "rating", "kind": "number", "value": 5 }
+			]
+		]
+	}
 }
 ```
 
@@ -88,41 +88,41 @@ Request:
 
 ```json
 {
-  "scope": ["book"],
-  "eventJoins": [],
-  "computedFields": [],
-  "filter": null,
-  "pagination": { "page": 1, "limit": 20 },
-  "sort": {
-    "direction": "asc",
-    "expression": {
-      "type": "reference",
-      "reference": { "type": "entity", "slug": "book", "path": ["name"] }
-    }
-  },
-  "fields": [
-    {
-      "key": "entityId",
-      "expression": {
-        "type": "reference",
-        "reference": { "type": "entity", "slug": "book", "path": ["id"] }
-      }
-    },
-    {
-      "key": "entityName",
-      "expression": {
-        "type": "reference",
-        "reference": { "type": "entity", "slug": "book", "path": ["name"] }
-      }
-    },
-    {
-      "key": "rating",
-      "expression": {
-        "type": "reference",
-        "reference": { "type": "entity", "slug": "book", "path": ["properties", "rating"] }
-      }
-    }
-  ]
+	"scope": ["book"],
+	"eventJoins": [],
+	"computedFields": [],
+	"filter": null,
+	"pagination": { "page": 1, "limit": 20 },
+	"sort": {
+		"direction": "asc",
+		"expression": {
+			"type": "reference",
+			"reference": { "type": "entity", "slug": "book", "path": ["name"] }
+		}
+	},
+	"fields": [
+		{
+			"key": "entityId",
+			"expression": {
+				"type": "reference",
+				"reference": { "type": "entity", "slug": "book", "path": ["id"] }
+			}
+		},
+		{
+			"key": "entityName",
+			"expression": {
+				"type": "reference",
+				"reference": { "type": "entity", "slug": "book", "path": ["name"] }
+			}
+		},
+		{
+			"key": "rating",
+			"expression": {
+				"type": "reference",
+				"reference": { "type": "entity", "slug": "book", "path": ["properties", "rating"] }
+			}
+		}
+	]
 }
 ```
 
@@ -130,25 +130,25 @@ Response:
 
 ```json
 {
-  "data": {
-    "meta": {
-      "pagination": {
-        "page": 1,
-        "total": 1,
-        "limit": 20,
-        "totalPages": 1,
-        "hasNextPage": false,
-        "hasPreviousPage": false
-      }
-    },
-    "items": [
-      [
-        { "key": "entityId", "kind": "text", "value": "ent_123" },
-        { "key": "entityName", "kind": "text", "value": "Dune" },
-        { "key": "rating", "kind": "number", "value": 5 }
-      ]
-    ]
-  }
+	"data": {
+		"meta": {
+			"pagination": {
+				"page": 1,
+				"total": 1,
+				"limit": 20,
+				"totalPages": 1,
+				"hasNextPage": false,
+				"hasPreviousPage": false
+			}
+		},
+		"items": [
+			[
+				{ "key": "entityId", "kind": "text", "value": "ent_123" },
+				{ "key": "entityName", "kind": "text", "value": "Dune" },
+				{ "key": "rating", "kind": "number", "value": 5 }
+			]
+		]
+	}
 }
 ```
 
@@ -158,19 +158,19 @@ Request:
 
 ```json
 {
-  "scope": ["book"],
-  "eventJoins": [],
-  "computedFields": [],
-  "filter": null,
-  "pagination": { "page": 1, "limit": 2 },
-  "sort": {
-    "direction": "asc",
-    "expression": {
-      "type": "reference",
-      "reference": { "type": "entity", "slug": "book", "path": ["name"] }
-    }
-  },
-  "fields": []
+	"scope": ["book"],
+	"eventJoins": [],
+	"computedFields": [],
+	"filter": null,
+	"pagination": { "page": 1, "limit": 2 },
+	"sort": {
+		"direction": "asc",
+		"expression": {
+			"type": "reference",
+			"reference": { "type": "entity", "slug": "book", "path": ["name"] }
+		}
+	},
+	"fields": []
 }
 ```
 
@@ -178,19 +178,19 @@ Response:
 
 ```json
 {
-  "data": {
-    "meta": {
-      "pagination": {
-        "page": 1,
-        "total": 2,
-        "limit": 2,
-        "totalPages": 1,
-        "hasNextPage": false,
-        "hasPreviousPage": false
-      }
-    },
-    "items": [[], []]
-  }
+	"data": {
+		"meta": {
+			"pagination": {
+				"page": 1,
+				"total": 2,
+				"limit": 2,
+				"totalPages": 1,
+				"hasNextPage": false,
+				"hasPreviousPage": false
+			}
+		},
+		"items": [[], []]
+	}
 }
 ```
 
@@ -202,16 +202,16 @@ Example internal field list for a grid view:
 
 ```json
 [
-  { "key": "entityId", "expression": "...coalesced id expression..." },
-  { "key": "entityName", "expression": "...coalesced name expression..." },
-  { "key": "entityCreatedAt", "expression": "...coalesced createdAt expression..." },
-  { "key": "entityUpdatedAt", "expression": "...coalesced updatedAt expression..." },
-  { "key": "entityImage", "expression": "...coalesced image expression..." },
-  { "key": "entityExternalId", "expression": "...coalesced externalId expression..." },
-  { "key": "entitySandboxScriptId", "expression": "...coalesced sandboxScriptId expression..." },
-  { "key": "image", "expression": "...display image expression..." },
-  { "key": "title", "expression": "...display title expression..." },
-  { "key": "callout", "expression": "...display callout expression..." }
+	{ "key": "entityId", "expression": "...coalesced id expression..." },
+	{ "key": "entityName", "expression": "...coalesced name expression..." },
+	{ "key": "entityCreatedAt", "expression": "...coalesced createdAt expression..." },
+	{ "key": "entityUpdatedAt", "expression": "...coalesced updatedAt expression..." },
+	{ "key": "entityImage", "expression": "...coalesced image expression..." },
+	{ "key": "entityExternalId", "expression": "...coalesced externalId expression..." },
+	{ "key": "entitySandboxScriptId", "expression": "...coalesced sandboxScriptId expression..." },
+	{ "key": "image", "expression": "...display image expression..." },
+	{ "key": "title", "expression": "...display title expression..." },
+	{ "key": "callout", "expression": "...display callout expression..." }
 ]
 ```
 
@@ -315,10 +315,10 @@ Expected shape:
 
 ```ts
 export function getQueryEngineField<T extends { key: string }>(
-  item: T[],
-  key: string,
+	item: T[],
+	key: string,
 ): T | undefined {
-  return item.find((field) => field.key === key);
+	return item.find((field) => field.key === key);
 }
 ```
 

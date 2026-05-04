@@ -1,10 +1,8 @@
 import { debounce, throttle } from "@ryot/ts-utils";
+
 import { storage } from "#imports";
-import {
-	MESSAGE_TYPES,
-	MIN_VIDEO_DURATION_SECONDS,
-	STORAGE_KEYS,
-} from "../lib/constants";
+
+import { MESSAGE_TYPES, MIN_VIDEO_DURATION_SECONDS, STORAGE_KEYS } from "../lib/constants";
 import type { MetadataLookupData, RawMediaData } from "../lib/extension-types";
 import { ExtensionStatus } from "../lib/extension-types";
 import { logger } from "../lib/logger";
@@ -23,15 +21,11 @@ export default defineContentScript({
 
 		let retryAttempts = 0;
 		const MAX_RETRY_ATTEMPTS = 10;
-		const RETRY_INTERVALS = [
-			2000, 3000, 4000, 5000, 6000, 8000, 10000, 12000, 15000, 20000,
-		];
+		const RETRY_INTERVALS = [2000, 3000, 4000, 5000, 6000, 8000, 10000, 12000, 15000, 20000];
 		let retryTimeoutId: ReturnType<typeof setTimeout> | null = null;
 
 		async function getHasFoundVideo(): Promise<boolean> {
-			return (
-				(await storage.getItem<boolean>(STORAGE_KEYS.HAS_FOUND_VIDEO)) || false
-			);
+			return (await storage.getItem<boolean>(STORAGE_KEYS.HAS_FOUND_VIDEO)) || false;
 		}
 
 		async function setHasFoundVideo(value: boolean): Promise<void> {
@@ -88,10 +82,7 @@ export default defineContentScript({
 			let highestScore = -1;
 
 			for (const video of videos) {
-				if (
-					video.readyState <= 0 ||
-					video.duration < MIN_VIDEO_DURATION_SECONDS
-				) {
+				if (video.readyState <= 0 || video.duration < MIN_VIDEO_DURATION_SECONDS) {
 					continue;
 				}
 
@@ -111,12 +102,7 @@ export default defineContentScript({
 
 		function extractProgressData(video: HTMLVideoElement): RawMediaData | null {
 			const title = extractMetadataTitle();
-			if (
-				!title ||
-				!video.duration ||
-				video.duration < MIN_VIDEO_DURATION_SECONDS
-			)
-				return null;
+			if (!title || !video.duration || video.duration < MIN_VIDEO_DURATION_SECONDS) return null;
 
 			return {
 				title,
@@ -124,10 +110,7 @@ export default defineContentScript({
 			};
 		}
 
-		async function sendProgressUpdate(
-			progressData: RawMediaData,
-			metadata: MetadataLookupData,
-		) {
+		async function sendProgressUpdate(progressData: RawMediaData, metadata: MetadataLookupData) {
 			try {
 				await browser.runtime.sendMessage({
 					type: MESSAGE_TYPES.SEND_PROGRESS_DATA,
@@ -145,11 +128,7 @@ export default defineContentScript({
 			updateExtensionStatus(ExtensionStatus.TrackingActive);
 
 			const sendProgress = () => {
-				if (
-					!document.contains(video) ||
-					!isRunning ||
-					currentUrl !== window.location.href
-				) {
+				if (!document.contains(video) || !isRunning || currentUrl !== window.location.href) {
 					return;
 				}
 
@@ -158,8 +137,7 @@ export default defineContentScript({
 					logger.debug("Sending progress", {
 						title: progressData.title,
 						progress: `${progressData.progress || 0}%`,
-						showInformation:
-							"notFound" in metadata ? null : metadata.showInformation,
+						showInformation: "notFound" in metadata ? null : metadata.showInformation,
 					});
 					sendProgressUpdate(progressData, metadata);
 				}
@@ -284,8 +262,7 @@ export default defineContentScript({
 
 			const checkForVideos = debounce(async () => {
 				const hasFoundVideo = await getHasFoundVideo();
-				if (!isRunning || currentUrl !== window.location.href || hasFoundVideo)
-					return;
+				if (!isRunning || currentUrl !== window.location.href || hasFoundVideo) return;
 				detectVideoWithRetry();
 			}, 500);
 
@@ -320,10 +297,7 @@ export default defineContentScript({
 						mutation.type === "attributes" &&
 						mutation.target instanceof HTMLVideoElement
 					) {
-						if (
-							mutation.attributeName === "src" ||
-							mutation.attributeName === "currentSrc"
-						) {
+						if (mutation.attributeName === "src" || mutation.attributeName === "currentSrc") {
 							checkForVideos();
 						}
 					}
@@ -419,9 +393,7 @@ export default defineContentScript({
 		}
 
 		async function init() {
-			const integrationUrl = await storage.getItem<string>(
-				STORAGE_KEYS.INTEGRATION_URL,
-			);
+			const integrationUrl = await storage.getItem<string>(STORAGE_KEYS.INTEGRATION_URL);
 
 			if (!integrationUrl) {
 				logger.info("Integration URL not set, monitoring disabled");

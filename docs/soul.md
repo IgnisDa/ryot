@@ -11,7 +11,7 @@
 
 Ryot is a ground-up rewrite of the original Ryot application. The core mission remains the same — be the only self-hosted tracker you will ever need — but the architecture, data model, and scope are fundamentally new.
 
-The original Ryot tracked media consumption and fitness. The new Ryot tracks *anything*. Movies, workouts, whiskeys, places, coffee, wine — whatever matters to you. It ships with curated, polished experiences for media and fitness, and gives you the tools to build your own tracker for everything else.
+The original Ryot tracked media consumption and fitness. The new Ryot tracks _anything_. Movies, workouts, whiskeys, places, coffee, wine — whatever matters to you. It ships with curated, polished experiences for media and fitness, and gives you the tools to build your own tracker for everything else.
 
 The elevator pitch: **A self-hosted personal data platform where every tracker of your life — what you watch, what you lift, what you taste, where you go — lives in one place, owned entirely by you.**
 
@@ -83,10 +83,10 @@ Example AppSchema definition:
 
 ```json
 {
-  "rating": { "type": "number", "label": "Rating" },
-  "pages": { "type": "integer", "label": "Pages" },
-  "title": { "type": "string", "label": "Title", "required": true },
-  "tags": { "type": "array", "label": "Tags", "items": { "type": "string", "label": "Tag" } }
+	"rating": { "type": "number", "label": "Rating" },
+	"pages": { "type": "integer", "label": "Pages" },
+	"title": { "type": "string", "label": "Title", "required": true },
+	"tags": { "type": "array", "label": "Tags", "items": { "type": "string", "label": "Tag" } }
 }
 ```
 
@@ -159,7 +159,7 @@ Power users who understand the implications can make breaking changes through ra
 
 The sidebar sub-items under a tracker (Movies, TV Shows, Books under Media; Workouts, Measurements under Fitness; or the single entry for a custom Whiskey tracker) are not custom-built pages. They are **pre-built, non-deletable saved views** that ship with each tracker. The "Movies" page is a saved view with the query `entity_schema = movie` and zero additional filters. When a user adds filters, sorts, or changes the layout, they're interacting with saved view configuration.
 
-This means there is no separate "entity list page" component. The saved view renderer *is* the entity list page. Custom trackers get the exact same browsing experience for free — when a user creates a Whiskey tracker, they automatically get a saved view in the sidebar that shows all whiskey entities.
+This means there is no separate "entity list page" component. The saved view renderer _is_ the entity list page. Custom trackers get the exact same browsing experience for free — when a user creates a Whiskey tracker, they automatically get a saved view in the sidebar that shows all whiskey entities.
 
 In the database schema, saved views have an `isBuiltin` boolean flag. Views with `isBuiltin = true` cannot be deleted through the UI or API — this protects the essential entity list views that ship with each schema. User-created saved views have `isBuiltin = false` and are deletable.
 
@@ -287,8 +287,8 @@ Both modes share the same accent and tracker color palettes, ensuring brand cons
 
 Each tracker has a dedicated color pair (base + muted background) used consistently across badges, stat card borders, activity log accent bars, and entity cards:
 
-| Tracker   | Base             | Usage                                                   |
-| ------- | ---------------- | ------------------------------------------------------- |
+| Tracker | Base             | Usage                                                     |
+| ------- | ---------------- | --------------------------------------------------------- |
 | Media   | #5B7FFF (blue)   | Default for content-consumption trackers                  |
 | Fitness | #2DD4BF (teal)   | Active/physical tracking trackers                         |
 | Whiskey | #D4A574 (gold)   | Matches the primary accent; tasting/appreciation trackers |

@@ -1,7 +1,9 @@
 import type { paths } from "@ryot/generated/openapi/app-backend";
 import createFetchClient from "openapi-fetch";
 import { useMemo } from "react";
+
 import { useAuthClient, useServerUrl } from "@/lib/atoms";
+
 import { CLOUD_URL } from "./server";
 
 export function useApiClient() {

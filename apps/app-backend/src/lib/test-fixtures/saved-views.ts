@@ -1,4 +1,5 @@
 import { createEntityColumnExpression } from "@ryot/ts-utils/src/view-language";
+
 import {
 	createCreatedAt,
 	createUpdatedAt,
@@ -26,31 +27,30 @@ const queryDefinitionDefaults: SavedViewQueryDefinition = {
 	},
 };
 
-const displayConfigurationDefaults: CreateSavedViewBody["displayConfiguration"] =
-	{
-		table: {
-			columns: [
-				{
-					label: "Name",
-					expression: createEntityColumnExpression("books", "name"),
-				},
-			],
-		},
-		grid: {
-			calloutProperty: null,
-			primarySubtitleProperty: null,
-			secondarySubtitleProperty: null,
-			titleProperty: createEntityColumnExpression("books", "name"),
-			imageProperty: createEntityColumnExpression("books", "image"),
-		},
-		list: {
-			calloutProperty: null,
-			primarySubtitleProperty: null,
-			secondarySubtitleProperty: null,
-			titleProperty: createEntityColumnExpression("books", "name"),
-			imageProperty: createEntityColumnExpression("books", "image"),
-		},
-	};
+const displayConfigurationDefaults: CreateSavedViewBody["displayConfiguration"] = {
+	table: {
+		columns: [
+			{
+				label: "Name",
+				expression: createEntityColumnExpression("books", "name"),
+			},
+		],
+	},
+	grid: {
+		calloutProperty: null,
+		primarySubtitleProperty: null,
+		secondarySubtitleProperty: null,
+		titleProperty: createEntityColumnExpression("books", "name"),
+		imageProperty: createEntityColumnExpression("books", "image"),
+	},
+	list: {
+		calloutProperty: null,
+		primarySubtitleProperty: null,
+		secondarySubtitleProperty: null,
+		titleProperty: createEntityColumnExpression("books", "name"),
+		imageProperty: createEntityColumnExpression("books", "image"),
+	},
+};
 
 const savedViewBodyDefaults: CreateSavedViewBody = {
 	icon: "book",
@@ -83,11 +83,8 @@ const reorderSavedViewsBodyDefaults: ReorderSavedViewsBody = {
 };
 
 export const createQueryDefinition = (
-	overrides: Partial<
-		Extract<SavedViewQueryDefinition, { mode: "entities" }>
-	> = {},
-): SavedViewQueryDefinition =>
-	withOverrides(queryDefinitionDefaults, overrides);
+	overrides: Partial<Extract<SavedViewQueryDefinition, { mode: "entities" }>> = {},
+): SavedViewQueryDefinition => withOverrides(queryDefinitionDefaults, overrides);
 
 export const createSavedViewDisplayConfiguration = () =>
 	withOverrides(displayConfigurationDefaults);
@@ -101,10 +98,7 @@ export const createSavedViewBody = (
 			? createQueryDefinition(overrides.queryDefinition)
 			: createQueryDefinition(),
 		displayConfiguration: overrides.displayConfiguration
-			? withOverrides(
-					displayConfigurationDefaults,
-					overrides.displayConfiguration,
-				)
+			? withOverrides(displayConfigurationDefaults, overrides.displayConfiguration)
 			: createSavedViewDisplayConfiguration(),
 	});
 
@@ -117,26 +111,20 @@ export const createUpdateSavedViewBody = (
 	...overrides,
 });
 
-export const createListedSavedView = (
-	overrides: Partial<ListedSavedView> = {},
-): ListedSavedView =>
+export const createListedSavedView = (overrides: Partial<ListedSavedView> = {}): ListedSavedView =>
 	withOverrides(listedSavedViewDefaults, {
 		...overrides,
 		queryDefinition: overrides.queryDefinition
 			? createQueryDefinition(overrides.queryDefinition)
 			: createQueryDefinition(),
 		displayConfiguration: overrides.displayConfiguration
-			? withOverrides(
-					displayConfigurationDefaults,
-					overrides.displayConfiguration,
-				)
+			? withOverrides(displayConfigurationDefaults, overrides.displayConfiguration)
 			: createSavedViewDisplayConfiguration(),
 	});
 
 export const createReorderSavedViewsBody = (
 	overrides: Partial<ReorderSavedViewsBody> = {},
-): ReorderSavedViewsBody =>
-	withOverrides(reorderSavedViewsBodyDefaults, overrides);
+): ReorderSavedViewsBody => withOverrides(reorderSavedViewsBodyDefaults, overrides);
 
 export const createSavedViewDeps = (
 	overrides: Partial<SavedViewServiceDeps> = {},
@@ -145,10 +133,8 @@ export const createSavedViewDeps = (
 	persistSavedViewOrderForUser: async (input) => input.viewSlugs,
 	countSavedViewsBySlugForUser: async (input) => input.viewSlugs.length,
 	listUserSavedViewSlugsInOrder: async () => ["view_1", "view_2", "view_3"],
-	deleteSavedViewBySlugForUser: async (input) =>
-		createListedSavedView({ slug: input.viewSlug }),
-	getSavedViewBySlugForUser: async (input) =>
-		createListedSavedView({ slug: input.viewSlug }),
+	deleteSavedViewBySlugForUser: async (input) => createListedSavedView({ slug: input.viewSlug }),
+	getSavedViewBySlugForUser: async (input) => createListedSavedView({ slug: input.viewSlug }),
 	updateSavedViewDisabledBySlugForUser: async (input) =>
 		createListedSavedView({
 			slug: input.viewSlug,

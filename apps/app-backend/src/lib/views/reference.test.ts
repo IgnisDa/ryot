@@ -1,8 +1,7 @@
 import { describe, expect, it } from "bun:test";
-import {
-	createSmartphoneSchema,
-	createTabletSchema,
-} from "~/lib/test-fixtures";
+
+import { createSmartphoneSchema, createTabletSchema } from "~/lib/test-fixtures";
+
 import {
 	buildSchemaMap,
 	getEntitySchemaColumnPropertyType,
@@ -22,9 +21,7 @@ describe("getPropertyType", () => {
 	});
 
 	it("traverses nested object property paths", () => {
-		expect(getPropertyType(smartphoneSchema, ["metadata", "source"])).toBe(
-			"string",
-		);
+		expect(getPropertyType(smartphoneSchema, ["metadata", "source"])).toBe("string");
 	});
 
 	it("returns null for an empty property path", () => {
@@ -36,15 +33,11 @@ describe("getPropertyType", () => {
 	});
 
 	it("returns null when an intermediate segment is not an object type", () => {
-		expect(
-			getPropertyType(smartphoneSchema, ["nameplate", "nonexistent"]),
-		).toBeNull();
+		expect(getPropertyType(smartphoneSchema, ["nameplate", "nonexistent"])).toBeNull();
 	});
 
 	it("returns null when a nested segment is missing", () => {
-		expect(
-			getPropertyType(smartphoneSchema, ["metadata", "nonexistent"]),
-		).toBeNull();
+		expect(getPropertyType(smartphoneSchema, ["metadata", "nonexistent"])).toBeNull();
 	});
 
 	it("traverses three levels of nested object property paths", () => {
@@ -75,12 +68,8 @@ describe("getPropertyType", () => {
 			},
 		};
 
-		expect(getPropertyType(deepSchema, ["meta", "source", "origin"])).toBe(
-			"string",
-		);
-		expect(
-			getPropertyType(deepSchema, ["meta", "source", "nonexistent"]),
-		).toBeNull();
+		expect(getPropertyType(deepSchema, ["meta", "source", "origin"])).toBe("string");
+		expect(getPropertyType(deepSchema, ["meta", "source", "nonexistent"])).toBeNull();
 	});
 });
 

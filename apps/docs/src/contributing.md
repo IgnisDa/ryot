@@ -6,7 +6,7 @@
 
 - Install [Rust](https://www.rust-lang.org) and [Caddy](https://caddyserver.com/) (>= 2.7).
 - Make sure you have PostgreSQL installed and running. I prefer using Docker e.g.
-`docker run -e POSTGRES_PASSWORD=postgres -e POSTGRES_USER=postgres -e POSTGRES_DB=postgres -p 5432:5432 postgres:18-alpine`
+  `docker run -e POSTGRES_PASSWORD=postgres -e POSTGRES_USER=postgres -e POSTGRES_DB=postgres -p 5432:5432 postgres:18-alpine`
 - Create the following environment file in the root of the repository:
 
   ```bash title=".env"

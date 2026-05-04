@@ -6,6 +6,7 @@ import { atom, useAtomValue, useSetAtom } from "jotai";
 import { atomWithStorage, createJSONStorage } from "jotai/utils";
 import { Platform } from "react-native";
 import { createMMKV } from "react-native-mmkv";
+
 import { CLOUD_URL } from "@/lib/server";
 
 const STORAGE_PREFIX = "ryot";
@@ -33,10 +34,7 @@ export const atomWithPlatformStorage = <T>(key: string, initial: T) => {
 	return atomWithStorage<T>(key, initial, storage, { getOnInit: true });
 };
 
-const serverUrlAtom = atomWithPlatformStorage<string | null>(
-	"server-url",
-	null,
-);
+const serverUrlAtom = atomWithPlatformStorage<string | null>("server-url", null);
 
 export const useServerUrl = () => useAtomValue(serverUrlAtom);
 export const useSetServerUrl = () => useSetAtom(serverUrlAtom);
@@ -50,10 +48,7 @@ const authClientAtom = atom((get) => {
 	const serverUrl = (get(serverUrlAtom) ?? CLOUD_URL) as string;
 	const plugins =
 		Platform.OS !== "web"
-			? [
-					expoClient({ storagePrefix: STORAGE_PREFIX, storage: nativeStorage }),
-					apiKeyClient(),
-				]
+			? [expoClient({ storagePrefix: STORAGE_PREFIX, storage: nativeStorage }), apiKeyClient()]
 			: [apiKeyClient()];
 	return createAuthClient({ baseURL: serverUrl, plugins });
 });

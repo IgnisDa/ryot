@@ -1,4 +1,5 @@
 import { describe, expect, it } from "bun:test";
+
 import type { SidebarApiKey } from "./sidebar-api-keys";
 import {
 	formatSidebarApiKeyDate,
@@ -6,9 +7,7 @@ import {
 	getSidebarApiKeyDisplayName,
 } from "./sidebar-api-keys";
 
-function createApiKeyFixture(
-	overrides: Partial<SidebarApiKey> = {},
-): SidebarApiKey {
+function createApiKeyFixture(overrides: Partial<SidebarApiKey> = {}): SidebarApiKey {
 	return {
 		id: "key-1",
 		enabled: true,

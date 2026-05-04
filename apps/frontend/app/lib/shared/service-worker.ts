@@ -1,7 +1,4 @@
-import type {
-	AppServiceWorkerMessageData,
-	SendNotificationProps,
-} from "../types";
+import type { AppServiceWorkerMessageData, SendNotificationProps } from "../types";
 import { LOGO_IMAGE_URL } from "./constants";
 
 export const sendNotificationToServiceWorker = (props: SendNotificationProps) =>
@@ -15,9 +12,6 @@ export const sendNotificationToServiceWorker = (props: SendNotificationProps) =>
 		});
 	});
 
-export const postMessageToServiceWorker = (
-	message: AppServiceWorkerMessageData,
-) => {
-	if (navigator.serviceWorker?.controller)
-		navigator.serviceWorker.controller.postMessage(message);
+export const postMessageToServiceWorker = (message: AppServiceWorkerMessageData) => {
+	if (navigator.serviceWorker?.controller) navigator.serviceWorker.controller.postMessage(message);
 };

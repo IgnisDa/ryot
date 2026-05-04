@@ -1,5 +1,7 @@
 import type { AppSchema } from "@ryot/ts-utils";
+
 import { useAppForm } from "~/hooks/forms";
+
 import {
 	buildCreateEntityFormSchema,
 	buildDefaultEntityFormValues,
@@ -21,11 +23,7 @@ export function useCreateEntityForm(props: UseCreateEntityFormProps) {
 		},
 		onSubmit: async ({ value }) => {
 			await props.onSubmit(
-				toCreateEntityPayload(
-					value,
-					props.entitySchemaId,
-					props.propertiesSchema,
-				),
+				toCreateEntityPayload(value, props.entitySchemaId, props.propertiesSchema),
 			);
 		},
 	});

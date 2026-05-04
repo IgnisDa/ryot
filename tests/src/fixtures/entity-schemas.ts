@@ -1,4 +1,5 @@
 import type { components, paths } from "@ryot/generated/openapi/app-backend";
+
 import type { Client } from "./auth";
 import { type PollOptions, pollUntil } from "./polling";
 import { createTracker, listTrackers } from "./trackers";
@@ -17,8 +18,7 @@ type EnqueueEntityImportBody = NonNullable<
 type PollEntityImportResponse =
 	paths["/entity-schemas/import/{jobId}"]["get"]["responses"][200]["content"]["application/json"]["data"];
 
-export type AppPropertyDefinition =
-	components["schemas"]["AppPropertyDefinition"];
+export type AppPropertyDefinition = components["schemas"]["AppPropertyDefinition"];
 
 type PostEntitySchemaBody = NonNullable<
 	paths["/entity-schemas"]["post"]["requestBody"]
@@ -93,18 +93,11 @@ export async function listEntitySchemas(
 	return data.data;
 }
 
-export async function getEntitySchema(
-	client: Client,
-	cookies: string,
-	entitySchemaId: string,
-) {
-	const { data, response } = await client.GET(
-		"/entity-schemas/{entitySchemaId}",
-		{
-			headers: { Cookie: cookies },
-			params: { path: { entitySchemaId } },
-		},
-	);
+export async function getEntitySchema(client: Client, cookies: string, entitySchemaId: string) {
+	const { data, response } = await client.GET("/entity-schemas/{entitySchemaId}", {
+		headers: { Cookie: cookies },
+		params: { path: { entitySchemaId } },
+	});
 
 	if (response.status !== 200 || !data?.data) {
 		throw new Error(`Failed to get entity schema '${entitySchemaId}'`);
@@ -114,10 +107,7 @@ export async function getEntitySchema(
 }
 
 export async function findBuiltinEntitySchema(client: Client, cookies: string) {
-	const { schemas, builtinTracker } = await listBuiltinEntitySchemas(
-		client,
-		cookies,
-	);
+	const { schemas, builtinTracker } = await listBuiltinEntitySchemas(client, cookies);
 	const firstSchema = schemas[0];
 
 	if (!firstSchema) {
@@ -127,11 +117,7 @@ export async function findBuiltinEntitySchema(client: Client, cookies: string) {
 	return { builtinTracker, schema: firstSchema };
 }
 
-export async function findBuiltinSchemaBySlug(
-	client: Client,
-	cookies: string,
-	slug: string,
-) {
+export async function findBuiltinSchemaBySlug(client: Client, cookies: string, slug: string) {
 	const trackers = await listTrackers(client, cookies, {
 		includeDisabled: true,
 	});
@@ -152,10 +138,7 @@ export async function findBuiltinSchemaBySlug(
 	throw new Error(`Built-in entity schema '${slug}' not found`);
 }
 
-export async function listBuiltinEntitySchemas(
-	client: Client,
-	cookies: string,
-) {
+export async function listBuiltinEntitySchemas(client: Client, cookies: string) {
 	const trackers = await listTrackers(client, cookies, {
 		includeDisabled: true,
 	});
@@ -169,10 +152,7 @@ export async function listBuiltinEntitySchemas(
 	return { schemas, builtinTracker };
 }
 
-export async function findBuiltinSchemaWithProviders(
-	client: Client,
-	cookies: string,
-) {
+export async function findBuiltinSchemaWithProviders(client: Client, cookies: string) {
 	return findBuiltinSchemaBySlug(client, cookies, "book");
 }
 
@@ -202,10 +182,10 @@ export async function pollEntitySearchResult(
 	return pollUntil(
 		`entity search job '${jobId}'`,
 		async () => {
-			const { data, response } = await client.GET(
-				"/entity-schemas/search/{jobId}",
-				{ params: { path: { jobId } }, headers: { Cookie: cookies } },
-			);
+			const { data, response } = await client.GET("/entity-schemas/search/{jobId}", {
+				params: { path: { jobId } },
+				headers: { Cookie: cookies },
+			});
 			if (response.status !== 200 || !data?.data) {
 				throw new Error(`Failed to poll entity search result '${jobId}'`);
 			}
@@ -242,10 +222,10 @@ export async function pollEntityImportResult(
 	return pollUntil(
 		`entity import job '${jobId}'`,
 		async () => {
-			const { data, response } = await client.GET(
-				"/entity-schemas/import/{jobId}",
-				{ params: { path: { jobId } }, headers: { Cookie: cookies } },
-			);
+			const { data, response } = await client.GET("/entity-schemas/import/{jobId}", {
+				params: { path: { jobId } },
+				headers: { Cookie: cookies },
+			});
 			if (response.status !== 200 || !data?.data) {
 				throw new Error(`Failed to poll entity import result '${jobId}'`);
 			}
@@ -256,9 +236,7 @@ export async function pollEntityImportResult(
 	);
 }
 
-export function getFirstProviderScriptId(schema: {
-	providers: Array<{ scriptId: string }>;
-}) {
+export function getFirstProviderScriptId(schema: { providers: Array<{ scriptId: string }> }) {
 	const scriptId = schema.providers[0]?.scriptId;
 	if (!scriptId) {
 		throw new Error("No provider found for schema");

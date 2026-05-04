@@ -1,5 +1,6 @@
 import { mkdirSync, writeFileSync } from "node:fs";
 import { dirname } from "node:path";
+
 import { appConfigDef, systemConfigDef } from "./definition";
 import type { ConfigNode, GroupDef } from "./types";
 
@@ -22,9 +23,7 @@ function collectFields(node: ConfigNode, level: number, lines: string[]): void {
 	const directFields: FieldRow[] = [];
 	const childGroups: GroupDef[] = [];
 
-	for (const [, child] of Object.entries(
-		node.children as Record<string, ConfigNode>,
-	)) {
+	for (const [, child] of Object.entries(node.children as Record<string, ConfigNode>)) {
 		if (child._kind === "field") {
 			directFields.push({
 				envKey: child.envKey,

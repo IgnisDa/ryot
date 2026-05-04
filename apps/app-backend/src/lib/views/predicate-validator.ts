@@ -1,10 +1,7 @@
 import { z } from "@hono/zod-openapi";
-import {
-	type AppObjectProperty,
-	type AppPropertyDefinition,
-	fromAppSchema,
-} from "@ryot/ts-utils";
+import { type AppObjectProperty, type AppPropertyDefinition, fromAppSchema } from "@ryot/ts-utils";
 import { match } from "ts-pattern";
+
 import { buildComputedFieldMap } from "./computed-fields";
 import { QueryEngineValidationError } from "./errors";
 import type { ViewComputedField, ViewExpression } from "./expression";
@@ -35,9 +32,7 @@ export const validateViewPredicateAgainstSchemas = <
 	const computedFieldMap = buildComputedFieldMap(input.computedFields);
 	const typeCache = new Map();
 
-	const createObjectContainsSchema = (
-		property: AppObjectProperty,
-	): z.ZodType => {
+	const createObjectContainsSchema = (property: AppObjectProperty): z.ZodType => {
 		const shape: Record<string, z.ZodType> = {};
 
 		for (const [key, value] of Object.entries(property.properties)) {
@@ -47,28 +42,20 @@ export const validateViewPredicateAgainstSchemas = <
 		return z.object(shape).strict();
 	};
 
-	const createContainsValueSchema = (
-		property: AppPropertyDefinition,
-	): z.ZodType => {
+	const createContainsValueSchema = (property: AppPropertyDefinition): z.ZodType => {
 		return match(property)
 			.with({ type: "object" }, (prop) => createObjectContainsSchema(prop))
 			.otherwise((prop) => fromAppSchema(prop));
 	};
 
-	const validateLiteralAgainstSchema = (
-		value: unknown,
-		schema: z.ZodType,
-		message: string,
-	) => {
+	const validateLiteralAgainstSchema = (value: unknown, schema: z.ZodType, message: string) => {
 		const result = schema.safeParse(value);
 		if (!result.success) {
 			throw new QueryEngineValidationError(message);
 		}
 	};
 
-	const getType = (
-		expression: Parameters<typeof inferViewExpressionType>[0]["expression"],
-	) => {
+	const getType = (expression: Parameters<typeof inferViewExpressionType>[0]["expression"]) => {
 		return inferViewExpressionType({
 			typeCache,
 			expression,
@@ -83,10 +70,7 @@ export const validateViewPredicateAgainstSchemas = <
 		input.validateExpression?.(expression);
 
 		const result = getType(expression);
-		if (
-			expression.type === "reference" &&
-			expression.reference.type === "entity-schema"
-		) {
+		if (expression.type === "reference" && expression.reference.type === "entity-schema") {
 			const [column] = expression.reference.path;
 			if (column && !input.validBuiltins.has(column)) {
 				throw new QueryEngineValidationError(
@@ -112,10 +96,7 @@ export const validateViewPredicateAgainstSchemas = <
 		}
 
 		if (predicate.type === "isNull" || predicate.type === "isNotNull") {
-			assertFilterCompatibleExpression(
-				validateFilterExpression(predicate.expression),
-				"filtering",
-			);
+			assertFilterCompatibleExpression(validateFilterExpression(predicate.expression), "filtering");
 			return;
 		}
 
@@ -125,14 +106,8 @@ export const validateViewPredicateAgainstSchemas = <
 			assertContainsCompatibleExpression(expressionType);
 			assertFilterCompatibleExpression(valueType, "filtering");
 
-			if (
-				expressionType.kind === "property" &&
-				expressionType.propertyType === "string"
-			) {
-				if (
-					valueType.kind !== "property" ||
-					valueType.propertyType !== "string"
-				) {
+			if (expressionType.kind === "property" && expressionType.propertyType === "string") {
+				if (valueType.kind !== "property" || valueType.propertyType !== "string") {
 					throw new QueryEngineValidationError(
 						"Filter operator 'contains' requires a string expression value for string expressions",
 					);
@@ -145,14 +120,8 @@ export const validateViewPredicateAgainstSchemas = <
 				);
 			}
 
-			if (
-				expressionType.kind === "property" &&
-				expressionType.propertyType === "array"
-			) {
-				if (
-					valueType.kind !== "property" ||
-					["array", "object"].includes(valueType.propertyType)
-				) {
+			if (expressionType.kind === "property" && expressionType.propertyType === "array") {
+				if (valueType.kind !== "property" || ["array", "object"].includes(valueType.propertyType)) {
 					throw new QueryEngineValidationError(
 						"Filter operator 'contains' for array expressions requires a scalar or object item expression",
 					);

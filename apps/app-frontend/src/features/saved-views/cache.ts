@@ -4,9 +4,7 @@ export function applySavedViewReorderPatch(
 	views: AppSavedView[],
 	input: { viewSlugs: string[]; trackerId?: string },
 ): AppSavedView[] {
-	const scopedViews = views.filter(
-		(view) => view.trackerId === (input.trackerId ?? null),
-	);
+	const scopedViews = views.filter((view) => view.trackerId === (input.trackerId ?? null));
 
 	const slugToView = new Map(scopedViews.map((view) => [view.slug, view]));
 	const reordered: AppSavedView[] = [];
@@ -31,9 +29,7 @@ export function applySavedViewReorderPatch(
 		sortOrder: index + 1,
 	}));
 
-	const reorderedMap = new Map(
-		reorderedWithOrder.map((view) => [view.slug, view]),
-	);
+	const reorderedMap = new Map(reorderedWithOrder.map((view) => [view.slug, view]));
 
 	return views.map((view) => reorderedMap.get(view.slug) ?? view);
 }

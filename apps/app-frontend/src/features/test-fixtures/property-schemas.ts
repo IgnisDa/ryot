@@ -1,7 +1,4 @@
-import type {
-	PropertySchemaInput,
-	PropertySchemaRow,
-} from "~/features/property-schemas/form";
+import type { PropertySchemaInput, PropertySchemaRow } from "~/features/property-schemas/form";
 
 export function createPropertySchemaInputFixture(
 	overrides: Partial<PropertySchemaInput> = {},

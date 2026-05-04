@@ -2,7 +2,9 @@ import { Drawer, Stack, Text } from "@mantine/core";
 import { isNumber } from "@ryot/ts-utils";
 import { useMemo } from "react";
 import { Virtuoso } from "react-virtuoso";
+
 import { useMetadataDetails, useUserMetadataDetails } from "~/lib/shared/hooks";
+
 import { DisplayShowEpisode } from "../displays/show-episode";
 import { getShowSeasonDisplayName } from "../displays/show-season";
 
@@ -39,18 +41,11 @@ export const DisplayShowSeasonEpisodesModal = (props: {
 	);
 };
 
-const DisplayShowSeasonEpisodes = (props: {
-	openedShowSeason: number;
-	metadataId: string;
-}) => {
-	const { data: userMetadataDetails } = useUserMetadataDetails(
-		props.metadataId,
-	);
+const DisplayShowSeasonEpisodes = (props: { openedShowSeason: number; metadataId: string }) => {
+	const { data: userMetadataDetails } = useUserMetadataDetails(props.metadataId);
 	const [{ data: metadataDetails }] = useMetadataDetails(props.metadataId);
-	const season =
-		metadataDetails?.showSpecifics?.seasons[props.openedShowSeason];
-	const seasonProgress =
-		userMetadataDetails?.showProgress?.[props.openedShowSeason];
+	const season = metadataDetails?.showSpecifics?.seasons[props.openedShowSeason];
+	const seasonProgress = userMetadataDetails?.showProgress?.[props.openedShowSeason];
 
 	return isNumber(props.openedShowSeason) && season ? (
 		<Stack h={{ base: "80vh", md: "90vh" }} gap="xs">

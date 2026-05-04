@@ -1,4 +1,5 @@
 import { Queue } from "bullmq";
+
 import { getRedisConnection } from "./connection";
 
 const defaultJobOptions = {

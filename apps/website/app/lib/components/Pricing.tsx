@@ -1,15 +1,9 @@
 import { changeCase, cn } from "@ryot/ts-utils";
-import {
-	CheckCircle,
-	Cloud,
-	Crown,
-	PlayIcon,
-	Server,
-	Sparkles,
-} from "lucide-react";
+import { CheckCircle, Cloud, Crown, PlayIcon, Server, Sparkles } from "lucide-react";
 import { useState } from "react";
 import { Link } from "react-router";
 import { $path } from "safe-routes";
+
 import type { TPrices } from "../config.server";
 import { getIcon, getIconBg, isPopular } from "./pricing-utils";
 import { Badge } from "./ui/badge";
@@ -31,9 +25,7 @@ export default function Pricing(props: {
 	const getProductTypeButtonClass = (index: number) =>
 		cn(
 			"inline-flex items-center gap-1 underline hover:no-underline transition-colors",
-			selectedProductTypeIndex === index
-				? "text-primary font-medium"
-				: "text-blue-500",
+			selectedProductTypeIndex === index ? "text-primary font-medium" : "text-blue-500",
 		);
 
 	const getColorThemeClasses = (cloudClass: string, selfHostedClass: string) =>
@@ -77,11 +69,7 @@ export default function Pricing(props: {
 						<div className="flex items-center gap-2 bg-muted/50 px-4 py-2 rounded-full">
 							<span className="text-muted-foreground">You have chosen:</span>
 							<div className="flex items-center gap-1 text-primary font-medium">
-								{isCloudType ? (
-									<Cloud className="w-4 h-4" />
-								) : (
-									<Server className="w-4 h-4" />
-								)}
+								{isCloudType ? <Cloud className="w-4 h-4" /> : <Server className="w-4 h-4" />}
 								{changeCase(selectedProductType.type)}
 							</div>
 						</div>
@@ -100,9 +88,7 @@ export default function Pricing(props: {
 					<div
 						className={cn(
 							"grid gap-6 mx-auto",
-							isThreeColumn
-								? "md:grid-cols-3 max-w-5xl"
-								: "md:grid-cols-4 max-w-6xl",
+							isThreeColumn ? "md:grid-cols-3 max-w-5xl" : "md:grid-cols-4 max-w-6xl",
 						)}
 					>
 						{selectedProductType.prices.map((p) => (
@@ -123,12 +109,7 @@ export default function Pricing(props: {
 										</Badge>
 									</div>
 								)}
-								<CardHeader
-									className={cn(
-										"text-center pt-8",
-										isThreeColumn ? "pb-6" : "pb-4",
-									)}
-								>
+								<CardHeader className={cn("text-center pt-8", isThreeColumn ? "pb-6" : "pb-4")}>
 									<div
 										className={cn(
 											isThreeColumn ? "w-12 h-12" : "w-10 h-10",
@@ -149,10 +130,7 @@ export default function Pricing(props: {
 									</CardTitle>
 									{p.amount ? (
 										<div
-											className={cn(
-												"flex items-center justify-center",
-												isThreeColumn && "mb-2",
-											)}
+											className={cn("flex items-center justify-center", isThreeColumn && "mb-2")}
 										>
 											<span
 												className={cn(
@@ -163,27 +141,18 @@ export default function Pricing(props: {
 												${p.amount}
 											</span>
 											{p.name.toLowerCase() === "monthly" && (
-												<span className="text-muted-foreground ml-2">
-													/month
-												</span>
+												<span className="text-muted-foreground ml-2">/month</span>
 											)}
 											{p.name.toLowerCase() === "yearly" && (
-												<span className="text-muted-foreground ml-2">
-													/year
-												</span>
+												<span className="text-muted-foreground ml-2">/year</span>
 											)}
 										</div>
 									) : (
-										<div className="text-xs text-muted-foreground">
-											Community Edition
-										</div>
+										<div className="text-xs text-muted-foreground">Community Edition</div>
 									)}
 									{p.trial && (
 										<div
-											className={cn(
-												isThreeColumn ? "text-sm" : "text-xs",
-												"text-muted-foreground",
-											)}
+											className={cn(isThreeColumn ? "text-sm" : "text-xs", "text-muted-foreground")}
 										>
 											{isPopular(p.name) && (
 												<>
@@ -198,10 +167,7 @@ export default function Pricing(props: {
 									)}
 									{p.name.toLowerCase() === "lifetime" && (
 										<div
-											className={cn(
-												isThreeColumn ? "text-sm" : "text-xs",
-												"text-muted-foreground",
-											)}
+											className={cn(isThreeColumn ? "text-sm" : "text-xs", "text-muted-foreground")}
 										>
 											One-time payment
 										</div>
@@ -234,9 +200,7 @@ export default function Pricing(props: {
 											)}
 										>
 											<PlayIcon size={16} className="mr-2" />
-											<span>
-												{props.isLoggedIn ? "Choose this" : "Get started"}
-											</span>
+											<span>{props.isLoggedIn ? "Choose this" : "Get started"}</span>
 										</Button>
 									</Link>
 								</CardContent>
@@ -263,10 +227,7 @@ export default function Pricing(props: {
 								)}
 							>
 								<CheckCircle
-									className={cn(
-										"w-6 h-6",
-										getColorThemeClasses("text-blue-600", "text-green-600"),
-									)}
+									className={cn("w-6 h-6", getColorThemeClasses("text-blue-600", "text-green-600"))}
 								/>
 							</div>
 							<span
@@ -284,8 +245,8 @@ export default function Pricing(props: {
 								getColorThemeClasses("text-blue-700", "text-green-700"),
 							)}
 						>
-							With any paid {isCloudType ? "cloud" : "self-hosted"} plan, you
-							get access to all Pro features.{" "}
+							With any paid {isCloudType ? "cloud" : "self-hosted"} plan, you get access to all Pro
+							features.{" "}
 							{isCloudType
 								? "The only difference is the payment frequency and trial period - choose what works best for you."
 								: "The only difference is the payment frequency - choose what works best for you."}

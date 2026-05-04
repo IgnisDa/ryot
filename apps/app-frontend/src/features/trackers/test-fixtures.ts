@@ -1,9 +1,7 @@
 import type { CreateTrackerFormValues } from "./form";
 import type { AppTracker } from "./model";
 
-export function createTrackerFixture(
-	overrides: Partial<AppTracker> = {},
-): AppTracker {
+export function createTrackerFixture(overrides: Partial<AppTracker> = {}): AppTracker {
 	return {
 		sortOrder: 1,
 		icon: "shapes",

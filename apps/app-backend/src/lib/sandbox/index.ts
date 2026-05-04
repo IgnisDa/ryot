@@ -14,9 +14,7 @@ export const initializeSandboxService = async () => {
 
 export const getSandboxService = () => {
 	if (!sandboxService) {
-		throw new Error(
-			"Sandbox service not initialized. Call initializeSandboxService() first.",
-		);
+		throw new Error("Sandbox service not initialized. Call initializeSandboxService() first.");
 	}
 	return sandboxService;
 };

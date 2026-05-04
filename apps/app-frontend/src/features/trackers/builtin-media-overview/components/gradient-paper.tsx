@@ -1,5 +1,6 @@
 import { Badge, Group, Paper, Text } from "@mantine/core";
 import type { ReactNode } from "react";
+
 import { colorMix, STONE } from "../shared";
 
 interface GradientPaperProps {
@@ -94,10 +95,7 @@ interface EntitySchemaRowProps {
 	right?: ReactNode;
 	textMuted: string;
 	entitySchemaSlug: string;
-	schemaBySlug: Map<
-		string,
-		{ accentColor?: string; icon?: string; name?: string }
-	>;
+	schemaBySlug: Map<string, { accentColor?: string; icon?: string; name?: string }>;
 }
 
 export function EntitySchemaRow(props: EntitySchemaRowProps) {

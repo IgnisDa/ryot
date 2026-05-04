@@ -1,23 +1,11 @@
-import {
-	ActionIcon,
-	Affix,
-	Button,
-	Group,
-	Modal,
-	Paper,
-	rem,
-	Stack,
-	Text,
-} from "@mantine/core";
+import { ActionIcon, Affix, Button, Group, Modal, Paper, rem, Stack, Text } from "@mantine/core";
 import { useDisclosure } from "@mantine/hooks";
 import { notifications } from "@mantine/notifications";
-import type {
-	EntityToCollectionInput,
-	Scalars,
-} from "@ryot/generated/graphql/backend/graphql";
+import type { EntityToCollectionInput, Scalars } from "@ryot/generated/graphql/backend/graphql";
 import { changeCase } from "@ryot/ts-utils";
 import { IconCancel } from "@tabler/icons-react";
 import { type FormEvent, useState } from "react";
+
 import {
 	useAddEntitiesToCollectionMutation,
 	useFormValidation,
@@ -25,27 +13,20 @@ import {
 	useUserCollections,
 } from "~/lib/shared/hooks";
 import { openConfirmationModal } from "~/lib/shared/ui-utils";
-import {
-	type BulkEditEntitiesToCollection,
-	useBulkEditCollection,
-} from "~/lib/state/collection";
+import { type BulkEditEntitiesToCollection, useBulkEditCollection } from "~/lib/state/collection";
+
 import { CollectionTemplateRenderer } from "./collection-template-renderer";
 
 export interface BulkCollectionEditingAffixProps {
 	bulkAddEntities: BulkEditEntitiesToCollection;
 }
 
-export const BulkCollectionEditingAffix = (
-	props: BulkCollectionEditingAffixProps,
-) => {
+export const BulkCollectionEditingAffix = (props: BulkCollectionEditingAffixProps) => {
 	const userCollections = useUserCollections();
 	const bulkEditingCollection = useBulkEditCollection();
 	const addEntitiesToCollection = useAddEntitiesToCollectionMutation();
-	const removeEntitiesFromCollection =
-		useRemoveEntitiesFromCollectionMutation();
-	const [bulkExtraInformation, setBulkExtraInformation] = useState<
-		Record<string, unknown>
-	>({});
+	const removeEntitiesFromCollection = useRemoveEntitiesFromCollectionMutation();
+	const [bulkExtraInformation, setBulkExtraInformation] = useState<Record<string, unknown>>({});
 	const { formRef, isFormValid } = useFormValidation([bulkExtraInformation]);
 	const [
 		extraInformationModalOpened,
@@ -56,12 +37,10 @@ export const BulkCollectionEditingAffix = (
 
 	if (!bulkEditingCollectionState) return null;
 
-	const { action, collection, targetEntities } =
-		bulkEditingCollectionState.data;
+	const { action, collection, targetEntities } = bulkEditingCollectionState.data;
 	const isRemoving = action === "remove";
 	const collectionDetails = userCollections.find((c) => c.id === collection.id);
-	const requiresExtraInformation =
-		!isRemoving && !!collectionDetails?.informationTemplate?.length;
+	const requiresExtraInformation = !isRemoving && !!collectionDetails?.informationTemplate?.length;
 
 	const resetExtraInformation = () => setBulkExtraInformation({});
 
@@ -80,9 +59,7 @@ export const BulkCollectionEditingAffix = (
 		});
 
 	const handleBulkAction = async (information?: Scalars["JSON"]["input"]) => {
-		const mutation = isRemoving
-			? removeEntitiesFromCollection
-			: addEntitiesToCollection;
+		const mutation = isRemoving ? removeEntitiesFromCollection : addEntitiesToCollection;
 		const actionText = isRemoving ? "Removing" : "Adding";
 
 		await mutation.mutateAsync({
@@ -111,10 +88,7 @@ export const BulkCollectionEditingAffix = (
 			openExtraInformationModal();
 			return;
 		}
-		openConfirmationModal(
-			getConfirmationMessage(),
-			() => void handleBulkAction(),
-		);
+		openConfirmationModal(getConfirmationMessage(), () => void handleBulkAction());
 	};
 
 	const closeExtraInformation = () => {
@@ -130,8 +104,7 @@ export const BulkCollectionEditingAffix = (
 		);
 	};
 
-	const isLoading =
-		addEntitiesToCollection.isPending || removeEntitiesFromCollection.isPending;
+	const isLoading = addEntitiesToCollection.isPending || removeEntitiesFromCollection.isPending;
 
 	return (
 		<>
@@ -160,11 +133,7 @@ export const BulkCollectionEditingAffix = (
 							/>
 						))}
 						<Group justify="flex-end">
-							<Button
-								type="button"
-								variant="subtle"
-								onClick={closeExtraInformation}
-							>
+							<Button type="button" variant="subtle" onClick={closeExtraInformation}>
 								Cancel
 							</Button>
 							<Button
@@ -182,23 +151,16 @@ export const BulkCollectionEditingAffix = (
 			<Affix position={{ bottom: rem(30) }} w="100%" px="sm">
 				<Paper withBorder shadow="xl" p="md" w={{ md: "40%" }} mx="auto">
 					<Group wrap="nowrap" justify="space-between">
-						<Text fz={{ base: "xs", md: "md" }}>
-							{targetEntities.length} items selected
-						</Text>
+						<Text fz={{ base: "xs", md: "md" }}>{targetEntities.length} items selected</Text>
 						<Group wrap="nowrap">
-							<ActionIcon
-								size="md"
-								onClick={() => bulkEditingCollectionState.stop()}
-							>
+							<ActionIcon size="md" onClick={() => bulkEditingCollectionState.stop()}>
 								<IconCancel />
 							</ActionIcon>
 							<Button
 								size="xs"
 								color="blue"
 								loading={bulkEditingCollectionState.data.isLoading}
-								onClick={() =>
-									bulkEditingCollectionState.bulkAdd(props.bulkAddEntities)
-								}
+								onClick={() => bulkEditingCollectionState.bulkAdd(props.bulkAddEntities)}
 							>
 								Select all items
 							</Button>
@@ -207,10 +169,7 @@ export const BulkCollectionEditingAffix = (
 								loading={isLoading}
 								onClick={handleConfirmBulkAction}
 								color={isRemoving ? "red" : "green"}
-								disabled={
-									targetEntities.length === 0 ||
-									(!isRemoving && !collectionDetails)
-								}
+								disabled={targetEntities.length === 0 || (!isRemoving && !collectionDetails)}
 							>
 								{changeCase(action)}
 							</Button>

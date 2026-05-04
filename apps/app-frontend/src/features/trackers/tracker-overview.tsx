@@ -1,15 +1,6 @@
-import {
-	Button,
-	Center,
-	Grid,
-	Group,
-	Loader,
-	Paper,
-	SimpleGrid,
-	Stack,
-	Text,
-} from "@mantine/core";
+import { Button, Center, Grid, Group, Loader, Paper, SimpleGrid, Stack, Text } from "@mantine/core";
 import { Link } from "@tanstack/react-router";
+
 import { EntityCard } from "~/components/EntityCard";
 import { StatsCard } from "~/components/StatsCard";
 import { useResolvedEntityImageUrls } from "~/features/entities/image";
@@ -17,6 +8,7 @@ import type { AppEntity } from "~/features/entities/model";
 import type { AppEntitySchema } from "~/features/entity-schemas/model";
 import type { AppTracker } from "~/features/trackers/model";
 import { getAccentMuted } from "~/lib/theme";
+
 import {
 	getActivityTimeLabel,
 	getLastActivityLabel,
@@ -40,17 +32,12 @@ export interface TrackerOverviewProps {
 }
 
 export function TrackerOverview(props: TrackerOverviewProps) {
-	const accentColor =
-		props.tracker.accentColor ||
-		props.entitySchemas[0]?.accentColor ||
-		"#D4A574";
+	const accentColor = props.tracker.accentColor || props.entitySchemas[0]?.accentColor || "#D4A574";
 	const overview = useTrackerOverviewData({
 		tracker: props.tracker,
 		entitySchemas: props.entitySchemas,
 	});
-	const imageUrls = useResolvedEntityImageUrls(
-		overview.recentEntities.map((item) => item.entity),
-	);
+	const imageUrls = useResolvedEntityImageUrls(overview.recentEntities.map((item) => item.entity));
 
 	if (overview.isLoading) {
 		return (
@@ -63,10 +50,7 @@ export function TrackerOverview(props: TrackerOverviewProps) {
 	if (overview.isError) {
 		return (
 			<Stack gap="md">
-				<TrackerOverviewHeader
-					tracker={props.tracker}
-					accentColor={accentColor}
-				/>
+				<TrackerOverviewHeader tracker={props.tracker} accentColor={accentColor} />
 				<TrackerOverviewEmptyPanel
 					title="Overview unavailable"
 					description="We could not load overview data for this tracker right now."
@@ -76,9 +60,7 @@ export function TrackerOverview(props: TrackerOverviewProps) {
 	}
 
 	const primarySchema = overview.primaryEntitySchema;
-	const entityActionLabel = primarySchema
-		? `Add ${primarySchema.name}`
-		: "Add entity schema";
+	const entityActionLabel = primarySchema ? `Add ${primarySchema.name}` : "Add entity schema";
 	const eventActionLabel = overview.primaryEventSchemas.length
 		? "Log event"
 		: primarySchema
@@ -87,22 +69,11 @@ export function TrackerOverview(props: TrackerOverviewProps) {
 
 	return (
 		<Stack gap="xl">
-			<TrackerOverviewHeader
-				tracker={props.tracker}
-				accentColor={accentColor}
-			/>
+			<TrackerOverviewHeader tracker={props.tracker} accentColor={accentColor} />
 
 			<SimpleGrid cols={{ base: 1, xs: 2, sm: 4 }} spacing="sm">
-				<StatsCard
-					color={accentColor}
-					label="Total Entries"
-					value={overview.totalEntities}
-				/>
-				<StatsCard
-					color={accentColor}
-					label="Logged Events"
-					value={overview.totalEvents}
-				/>
+				<StatsCard color={accentColor} label="Total Entries" value={overview.totalEntities} />
+				<StatsCard color={accentColor} label="Logged Events" value={overview.totalEvents} />
 				<StatsCard
 					label="Schemas"
 					color={accentColor}
@@ -132,8 +103,8 @@ export function TrackerOverview(props: TrackerOverviewProps) {
 								</Text>
 								{overview.recentActivities.length === 0 ? (
 									<Text c="dimmed" size="sm">
-										This tracker has no activity yet. Add your first entity or
-										log the first event to bring it to life.
+										This tracker has no activity yet. Add your first entity or log the first event
+										to bring it to life.
 									</Text>
 								) : (
 									<Stack gap="sm">
@@ -153,13 +124,7 @@ export function TrackerOverview(props: TrackerOverviewProps) {
 						</Paper>
 
 						<Stack gap="sm">
-							<Text
-								fw={600}
-								size="xs"
-								tt="uppercase"
-								c="dimmed"
-								style={{ letterSpacing: "0.8px" }}
-							>
+							<Text fw={600} size="xs" tt="uppercase" c="dimmed" style={{ letterSpacing: "0.8px" }}>
 								Recently Added
 							</Text>
 							{overview.recentEntities.length === 0 ? (
@@ -207,15 +172,10 @@ export function TrackerOverview(props: TrackerOverviewProps) {
 							entityActionLabel={entityActionLabel}
 							onAddSchema={props.onAddEntitySchema}
 							onCreateEntity={() =>
-								primarySchema
-									? props.onAddEntity(primarySchema.id)
-									: props.onAddEntitySchema()
+								primarySchema ? props.onAddEntity(primarySchema.id) : props.onAddEntitySchema()
 							}
 							onLogEvent={() => {
-								if (
-									overview.primaryEventSchemas.length &&
-									overview.primaryEntity
-								) {
+								if (overview.primaryEventSchemas.length && overview.primaryEntity) {
 									props.onLogEvent(overview.primaryEntity);
 									return;
 								}
@@ -232,13 +192,7 @@ export function TrackerOverview(props: TrackerOverviewProps) {
 			</Grid>
 
 			<Stack gap="md">
-				<Text
-					fw={600}
-					size="xs"
-					c="dimmed"
-					tt="uppercase"
-					style={{ letterSpacing: "0.8px" }}
-				>
+				<Text fw={600} size="xs" c="dimmed" tt="uppercase" style={{ letterSpacing: "0.8px" }}>
 					Your Schemas
 				</Text>
 				{overview.schemaSummaries.map((summary) => (
@@ -247,10 +201,8 @@ export function TrackerOverview(props: TrackerOverviewProps) {
 							<Stack gap={2}>
 								<Text fw={600}>{summary.schema.name}</Text>
 								<Text size="sm" c="dimmed">
-									{summary.count} tracked · {summary.eventSchemaCount} event
-									schemas ·{" "}
-									{Object.keys(summary.schema.propertiesSchema.fields).length}{" "}
-									properties
+									{summary.count} tracked · {summary.eventSchemaCount} event schemas ·{" "}
+									{Object.keys(summary.schema.propertiesSchema.fields).length} properties
 								</Text>
 								{summary.latestEntity && (
 									<Text size="xs" c="dimmed">
@@ -260,10 +212,7 @@ export function TrackerOverview(props: TrackerOverviewProps) {
 							</Stack>
 							<Group gap="xs">
 								{summary.savedView && (
-									<Link
-										to="/views/$viewSlug"
-										params={{ viewSlug: summary.savedView.slug }}
-									>
+									<Link to="/views/$viewSlug" params={{ viewSlug: summary.savedView.slug }}>
 										<Button component="span" size="xs" variant="light">
 											Open all
 										</Button>

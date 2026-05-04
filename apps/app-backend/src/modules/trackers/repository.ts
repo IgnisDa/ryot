@@ -1,6 +1,8 @@
 import { and, asc, eq, inArray, ne, sql } from "drizzle-orm";
+
 import { assertPersisted, type DbClient, db } from "~/lib/db";
 import { tracker } from "~/lib/db/schema";
+
 import type { ListedTracker } from "./schemas";
 
 type TrackerRow = Omit<ListedTracker, "description"> & {
@@ -45,10 +47,7 @@ const toListedTracker = (row: TrackerRow): ListedTracker => ({
 	description: row.description ?? null,
 });
 
-export const listTrackersByUser = async (
-	userId: string,
-	includeDisabled = false,
-) => {
+export const listTrackersByUser = async (userId: string, includeDisabled = false) => {
 	const whereClauses = [eq(tracker.userId, userId)];
 
 	if (!includeDisabled) {
@@ -59,33 +58,21 @@ export const listTrackersByUser = async (
 		.select(trackerSelection)
 		.from(tracker)
 		.where(and(...whereClauses))
-		.orderBy(
-			asc(tracker.isDisabled),
-			asc(tracker.sortOrder),
-			asc(tracker.name),
-		);
+		.orderBy(asc(tracker.isDisabled), asc(tracker.sortOrder), asc(tracker.name));
 
 	return rows.map(toListedTracker);
 };
 
-export const getVisibleTrackerById = async (input: {
-	userId: string;
-	trackerId: string;
-}) => {
+export const getVisibleTrackerById = async (input: { userId: string; trackerId: string }) => {
 	const foundTracker = await getTrackerScopeForUser(input);
 	return foundTracker ? { id: foundTracker.id } : foundTracker;
 };
 
-export const getTrackerScopeForUser = async (input: {
-	userId: string;
-	trackerId: string;
-}) => {
+export const getTrackerScopeForUser = async (input: { userId: string; trackerId: string }) => {
 	const [foundTracker] = await db
 		.select(trackerScopeSelection)
 		.from(tracker)
-		.where(
-			and(eq(tracker.id, input.trackerId), eq(tracker.userId, input.userId)),
-		)
+		.where(and(eq(tracker.id, input.trackerId), eq(tracker.userId, input.userId)))
 		.limit(1);
 
 	return foundTracker;
@@ -96,10 +83,7 @@ export const getTrackerBySlugForUser = async (input: {
 	slug: string;
 	excludeTrackerId?: string;
 }) => {
-	const whereClauses = [
-		eq(tracker.slug, input.slug),
-		eq(tracker.userId, input.userId),
-	];
+	const whereClauses = [eq(tracker.slug, input.slug), eq(tracker.userId, input.userId)];
 
 	if (input.excludeTrackerId) {
 		whereClauses.push(ne(tracker.id, input.excludeTrackerId));
@@ -114,16 +98,11 @@ export const getTrackerBySlugForUser = async (input: {
 	return foundTracker;
 };
 
-export const getOwnedTrackerById = async (input: {
-	userId: string;
-	trackerId: string;
-}) => {
+export const getOwnedTrackerById = async (input: { userId: string; trackerId: string }) => {
 	const [ownedTracker] = await db
 		.select(ownedTrackerSelection)
 		.from(tracker)
-		.where(
-			and(eq(tracker.id, input.trackerId), eq(tracker.userId, input.userId)),
-		)
+		.where(and(eq(tracker.id, input.trackerId), eq(tracker.userId, input.userId)))
 		.limit(1);
 
 	return ownedTracker;
@@ -220,12 +199,7 @@ export const countVisibleTrackersByIdsForUser = async (input: {
 	const rows = await db
 		.select({ id: tracker.id })
 		.from(tracker)
-		.where(
-			and(
-				eq(tracker.userId, input.userId),
-				inArray(tracker.id, input.trackerIds),
-			),
-		);
+		.where(and(eq(tracker.userId, input.userId), inArray(tracker.id, input.trackerIds)));
 
 	return rows.length;
 };
@@ -239,9 +213,7 @@ export const persistTrackerOrderForUser = async (input: {
 			await tx
 				.update(tracker)
 				.set({ sortOrder: index })
-				.where(
-					and(eq(tracker.id, trackerId), eq(tracker.userId, input.userId)),
-				);
+				.where(and(eq(tracker.id, trackerId), eq(tracker.userId, input.userId)));
 		}
 	});
 
@@ -268,9 +240,7 @@ export const updateTrackerForUser = async (input: {
 			description: input.description,
 			accentColor: input.accentColor,
 		})
-		.where(
-			and(eq(tracker.id, input.trackerId), eq(tracker.userId, input.userId)),
-		)
+		.where(and(eq(tracker.id, input.trackerId), eq(tracker.userId, input.userId)))
 		.returning(trackerSelection);
 
 	return updatedTracker ? toListedTracker(updatedTracker) : updatedTracker;

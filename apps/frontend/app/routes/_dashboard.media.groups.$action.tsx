@@ -22,22 +22,13 @@ import {
 	type UserMetadataGroupsListInput,
 } from "@ryot/generated/graphql/backend/graphql";
 import { cloneDeep, startCase } from "@ryot/ts-utils";
-import {
-	IconCheck,
-	IconFilter,
-	IconListCheck,
-	IconSearch,
-} from "@tabler/icons-react";
+import { IconCheck, IconFilter, IconListCheck, IconSearch } from "@tabler/icons-react";
 import { useQuery } from "@tanstack/react-query";
-import {
-	type inferParserType,
-	parseAsInteger,
-	parseAsString,
-	parseAsStringEnum,
-} from "nuqs";
+import { type inferParserType, parseAsInteger, parseAsString, parseAsStringEnum } from "nuqs";
 import { useMemo } from "react";
 import { useNavigate } from "react-router";
 import { $path } from "safe-routes";
+
 import {
 	ApplicationPagination,
 	CreateButton,
@@ -45,10 +36,7 @@ import {
 	SkeletonLoader,
 } from "~/components/common";
 import { BulkCollectionEditingAffix } from "~/components/common/bulk-collection-editing-affix";
-import {
-	FilterPresetBar,
-	FilterPresetModalManager,
-} from "~/components/common/filter-presets";
+import { FilterPresetBar, FilterPresetModalManager } from "~/components/common/filter-presets";
 import {
 	CollectionsFilter,
 	DebouncedSearchInput,
@@ -71,20 +59,16 @@ const defaultListQueryState = {
 	page: parseAsInteger.withDefault(1),
 	query: parseAsString.withDefault(""),
 	collections: parseAsCollectionsFilter.withDefault([]),
-	orderBy: parseAsStringEnum(Object.values(GraphqlSortOrder)).withDefault(
-		GraphqlSortOrder.Desc,
+	orderBy: parseAsStringEnum(Object.values(GraphqlSortOrder)).withDefault(GraphqlSortOrder.Desc),
+	sortBy: parseAsStringEnum(Object.values(PersonAndMetadataGroupsSortBy)).withDefault(
+		PersonAndMetadataGroupsSortBy.AssociatedEntityCount,
 	),
-	sortBy: parseAsStringEnum(
-		Object.values(PersonAndMetadataGroupsSortBy),
-	).withDefault(PersonAndMetadataGroupsSortBy.AssociatedEntityCount),
 };
 
 const defaultSearchQueryState = {
 	page: parseAsInteger.withDefault(1),
 	query: parseAsString.withDefault(""),
-	source: parseAsStringEnum(Object.values(MediaSource)).withDefault(
-		MediaSource.Tmdb,
-	),
+	source: parseAsStringEnum(Object.values(MediaSource)).withDefault(MediaSource.Tmdb),
 };
 
 type ListFilterState = inferParserType<typeof defaultListQueryState>;
@@ -147,10 +131,8 @@ export default function Page(props: { params: { action: string } }) {
 		[listFilters],
 	);
 
-	const {
-		data: userMetadataGroupsList,
-		refetch: refetchUserMetadataGroupsList,
-	} = useUserMetadataGroupList(listInput, action === "list");
+	const { data: userMetadataGroupsList, refetch: refetchUserMetadataGroupsList } =
+		useUserMetadataGroupList(listInput, action === "list");
 
 	const searchInput: MetadataGroupSearchInput = useMemo(() => {
 		const lot = coreDetails.metadataGroupSourceLotMappings.find(
@@ -173,8 +155,7 @@ export default function Page(props: { params: { action: string } }) {
 				.then((data) => data.metadataGroupSearch),
 	});
 
-	const searchInputValue =
-		action === "list" ? listFilters.query : searchFilters.query;
+	const searchInputValue = action === "list" ? listFilters.query : searchFilters.query;
 
 	return (
 		<>
@@ -222,9 +203,7 @@ export default function Page(props: { params: { action: string } }) {
 							<Tabs.Tab value="search" leftSection={<IconSearch size={24} />}>
 								<Text>Search</Text>
 							</Tabs.Tab>
-							<CreateButton
-								to={$path("/media/groups/update/:action", { action: "create" })}
-							/>
+							<CreateButton to={$path("/media/groups/update/:action", { action: "create" })} />
 						</Tabs.List>
 					</Tabs>
 					<Group wrap="nowrap">
@@ -252,9 +231,7 @@ export default function Page(props: { params: { action: string } }) {
 								>
 									<FiltersModalForm
 										filters={listFilters}
-										onFiltersChange={(key, value) =>
-											updateListFilters({ [key]: value })
-										}
+										onFiltersChange={(key, value) => updateListFilters({ [key]: value })}
 									/>
 								</FiltersModal>
 							</>
@@ -264,9 +241,7 @@ export default function Page(props: { params: { action: string } }) {
 								<Select
 									value={searchFilters.source}
 									data={metadataGroupSourceOptions}
-									onChange={(v) =>
-										v && updateSearchFilters({ source: v as MediaSource })
-									}
+									onChange={(v) => v && updateSearchFilters({ source: v as MediaSource })}
 								/>
 								<ActionIcon
 									onClick={searchModals.filtersModal.open}
@@ -283,12 +258,8 @@ export default function Page(props: { params: { action: string } }) {
 							</>
 						) : null}
 					</Group>
-					{action === "list" ? (
-						<FilterPresetBar presetManager={listPresets} />
-					) : null}
-					{action === "search" ? (
-						<FilterPresetBar presetManager={searchPresets} />
-					) : null}
+					{action === "list" ? <FilterPresetBar presetManager={listPresets} /> : null}
+					{action === "search" ? <FilterPresetBar presetManager={searchPresets} /> : null}
 
 					{action === "list" ? (
 						userMetadataGroupsList ? (
@@ -313,9 +284,7 @@ export default function Page(props: { params: { action: string } }) {
 								<ApplicationPagination
 									value={listFilters.page}
 									onChange={(page) => updateListFilters({ page })}
-									totalItems={
-										userMetadataGroupsList.response.details.totalItems
-									}
+									totalItems={userMetadataGroupsList.response.details.totalItems}
 								/>
 							</>
 						) : (
@@ -373,9 +342,7 @@ const FiltersModalForm = (props: FiltersModalFormProps) => {
 					w="100%"
 					value={filters.sortBy}
 					data={convertEnumToSelectData(PersonAndMetadataGroupsSortBy)}
-					onChange={(v) =>
-						v && onFiltersChange("sortBy", v as PersonAndMetadataGroupsSortBy)
-					}
+					onChange={(v) => v && onFiltersChange("sortBy", v as PersonAndMetadataGroupsSortBy)}
 				/>
 				{filters.sortBy !== PersonAndMetadataGroupsSortBy.Random ? (
 					<SortOrderToggle
@@ -408,9 +375,7 @@ const MetadataGroupListItem = (props: MetadataGroupListItemProps) => {
 			noEntityLot
 			metadataGroupId={props.item}
 			centerElement={
-				bulkEditingState &&
-				bulkEditingState.data.action === "add" &&
-				!isAlreadyPresent ? (
+				bulkEditingState && bulkEditingState.data.action === "add" && !isAlreadyPresent ? (
 					<ActionIcon
 						color="green"
 						variant={isAdded ? "filled" : "transparent"}

@@ -1,5 +1,6 @@
 import { z } from "@hono/zod-openapi";
 import { zodBoolAsString } from "@ryot/ts-utils";
+
 import { itemDataSchema, listDataSchema } from "~/lib/openapi";
 import {
 	createIdParamsSchema,
@@ -36,9 +37,7 @@ export const createTrackerBody = createNameWithOptionalSlugSchema({
 	...iconAndAccentColorFields,
 });
 
-const nullableTextInputSchema = z
-	.union([nonEmptyTrimmedStringSchema, z.null()])
-	.optional();
+const nullableTextInputSchema = z.union([nonEmptyTrimmedStringSchema, z.null()]).optional();
 
 export const updateTrackerBody = z
 	.object({

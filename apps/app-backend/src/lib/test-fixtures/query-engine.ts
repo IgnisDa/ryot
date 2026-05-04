@@ -83,10 +83,8 @@ const tabletSchemaDefaults = {
 	},
 };
 
-export const createSmartphoneSchema = (
-	overrides: Partial<typeof smartphoneSchemaDefaults> = {},
-) => withOverrides(smartphoneSchemaDefaults, overrides);
+export const createSmartphoneSchema = (overrides: Partial<typeof smartphoneSchemaDefaults> = {}) =>
+	withOverrides(smartphoneSchemaDefaults, overrides);
 
-export const createTabletSchema = (
-	overrides: Partial<typeof tabletSchemaDefaults> = {},
-) => withOverrides(tabletSchemaDefaults, overrides);
+export const createTabletSchema = (overrides: Partial<typeof tabletSchemaDefaults> = {}) =>
+	withOverrides(tabletSchemaDefaults, overrides);

@@ -1,5 +1,6 @@
 import { Box, Code, Grid, Stack } from "@mantine/core";
 import { createFileRoute } from "@tanstack/react-router";
+
 import { ErrorState, LoadingState } from "~/components/PageStates";
 import { getEntityDetailProperties } from "~/features/entities/detail";
 import {
@@ -35,10 +36,7 @@ function RouteComponent() {
 		entityQuery.entity?.entitySchemaId ?? "",
 		!!entityQuery.entity,
 	);
-	const eventsQuery = useEventsQuery(
-		entityQuery.entity?.id ?? "",
-		!!entityQuery.entity,
-	);
+	const eventsQuery = useEventsQuery(entityQuery.entity?.id ?? "", !!entityQuery.entity);
 	const eventMutations = useEventMutations(entityQuery.entity?.id ?? "");
 	const logEventModal = useModalForm((payload: CreateEventPayload) =>
 		eventMutations.create.mutateAsync({ body: payload }),
@@ -121,10 +119,7 @@ function RouteComponent() {
 				<Grid>
 					<Grid.Col span={{ base: 12, md: 8 }}>
 						<Stack gap="lg">
-							<EntityDetailPropertiesSection
-								border={border}
-								properties={properties}
-							/>
+							<EntityDetailPropertiesSection border={border} properties={properties} />
 
 							<EntityDetailEventTimeline
 								border={border}

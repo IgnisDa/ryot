@@ -1,5 +1,6 @@
 import { sql } from "drizzle-orm";
 import { match } from "ts-pattern";
+
 import { QueryEngineValidationError } from "~/lib/views/errors";
 import {
 	normalizeExpressionPropertyType,
@@ -20,8 +21,7 @@ export const sanitizeIdentifier = (name: string, label: string) => {
 	return name;
 };
 
-export const getEventJoinColumnName = (joinKey: string) =>
-	`event_join_${joinKey}`;
+export const getEventJoinColumnName = (joinKey: string) => `event_join_${joinKey}`;
 
 export const buildPropertyPathExpression = (
 	base: SqlExpression,
@@ -30,9 +30,7 @@ export const buildPropertyPathExpression = (
 ): SqlExpression => {
 	const last = propertyPath.at(-1);
 	if (!last) {
-		throw new QueryEngineValidationError(
-			"Property path must have at least one segment",
-		);
+		throw new QueryEngineValidationError("Property path must have at least one segment");
 	}
 
 	const intermediate = propertyPath.slice(0, -1);
@@ -41,15 +39,10 @@ export const buildPropertyPathExpression = (
 		current = sql`${current} -> ${segment}`;
 	}
 
-	return mode === "text"
-		? sql`${current} ->> ${last}`
-		: sql`${current} -> ${last}`;
+	return mode === "text" ? sql`${current} ->> ${last}` : sql`${current} -> ${last}`;
 };
 
-export const buildLiteralExpression = (
-	value: unknown | null,
-	targetType?: PropertyType,
-) => {
+export const buildLiteralExpression = (value: unknown | null, targetType?: PropertyType) => {
 	if (value === null) {
 		return sql`null`;
 	}
@@ -96,10 +89,7 @@ export const buildLiteralExpression = (
 		});
 };
 
-export const castExpressionToType = (
-	expression: SqlExpression,
-	targetType: PropertyType,
-) => {
+export const castExpressionToType = (expression: SqlExpression, targetType: PropertyType) => {
 	return match(targetType)
 		.with("number", () => sql`(${expression})::numeric`)
 		.with("boolean", () => sql`(${expression})::boolean`)
@@ -113,9 +103,7 @@ export const buildTextValueExpression = (expression: SqlExpression) => {
 	return sql`coalesce((${expression})::text, '')`;
 };
 
-export const buildIntegerNormalizationExpression = (
-	expression: SqlExpression,
-) => {
+export const buildIntegerNormalizationExpression = (expression: SqlExpression) => {
 	return sql`trunc((${expression})::numeric)::integer`;
 };
 
@@ -128,9 +116,7 @@ export const buildJsonNullNormalizedExpression = (input: {
 		input.targetType === "array" ||
 		input.targetType === "object" ||
 		(input.typeInfo.kind === "property" &&
-			["array", "object"].includes(
-				normalizeExpressionPropertyType(input.typeInfo.propertyType),
-			))
+			["array", "object"].includes(normalizeExpressionPropertyType(input.typeInfo.propertyType)))
 	) {
 		return sql`nullif(${input.expression}, 'null'::jsonb)`;
 	}
@@ -159,16 +145,8 @@ export const buildJsonColumnPropertyExpression = (input: {
 	return buildCastedValueExpression(
 		input.targetType ?? normalizeExpressionPropertyType(input.propertyType),
 		{
-			propertyJson: buildPropertyPathExpression(
-				input.base,
-				input.propertyPath,
-				"json",
-			),
-			propertyText: buildPropertyPathExpression(
-				input.base,
-				input.propertyPath,
-				"text",
-			),
+			propertyJson: buildPropertyPathExpression(input.base, input.propertyPath, "json"),
+			propertyText: buildPropertyPathExpression(input.base, input.propertyPath, "text"),
 		},
 	);
 };

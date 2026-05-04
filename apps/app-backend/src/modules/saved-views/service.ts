@@ -1,21 +1,11 @@
-import {
-	isEqual,
-	resolveRequiredSlug,
-	resolveRequiredString,
-} from "@ryot/ts-utils";
+import { isEqual, resolveRequiredSlug, resolveRequiredString } from "@ryot/ts-utils";
+
 import { isUniqueConstraintError } from "~/lib/app/postgres";
 import { buildReorderedIds } from "~/lib/reorder";
-import {
-	type ServiceResult,
-	serviceData,
-	serviceError,
-	wrapServiceValidator,
-} from "~/lib/result";
-import {
-	QueryEngineNotFoundError,
-	QueryEngineValidationError,
-} from "~/lib/views/errors";
+import { type ServiceResult, serviceData, serviceError, wrapServiceValidator } from "~/lib/result";
+import { QueryEngineNotFoundError, QueryEngineValidationError } from "~/lib/views/errors";
 import { prepareForValidation } from "~/modules/query-engine";
+
 import {
 	countSavedViewsBySlugForUser,
 	createSavedViewForUser,
@@ -35,10 +25,8 @@ import type {
 
 const savedViewNotFoundError = "Saved view not found";
 const builtinSavedViewError = "Cannot modify built-in saved views";
-const savedViewSlugsUnknownError =
-	"Saved view slugs contain unknown saved views";
-const duplicateSavedViewSlugError =
-	"A saved view with this name already exists";
+const savedViewSlugsUnknownError = "Saved view slugs contain unknown saved views";
+const duplicateSavedViewSlugError = "A saved view with this name already exists";
 const savedViewSlugConstraint = "saved_view_user_slug_unique";
 
 type PrepareSavedViewValidationInput = Pick<
@@ -48,9 +36,7 @@ type PrepareSavedViewValidationInput = Pick<
 	userId: string;
 };
 
-type PrepareForValidation = (
-	input: PrepareSavedViewValidationInput,
-) => Promise<void>;
+type PrepareForValidation = (input: PrepareSavedViewValidationInput) => Promise<void>;
 
 export type SavedViewServiceDeps = {
 	prepareForValidation: PrepareForValidation;
@@ -64,10 +50,7 @@ export type SavedViewServiceDeps = {
 	updateSavedViewDisabledBySlugForUser: typeof updateSavedViewDisabledBySlugForUser;
 };
 
-export type SavedViewServiceResult<T> = ServiceResult<
-	T,
-	"builtin" | "not_found" | "validation"
->;
+export type SavedViewServiceResult<T> = ServiceResult<T, "builtin" | "not_found" | "validation">;
 
 type SavedViewValidationResult<T> = ServiceResult<T, "validation">;
 
@@ -86,8 +69,7 @@ const savedViewServiceDeps: SavedViewServiceDeps = {
 export const resolveSavedViewName = (name: string) =>
 	resolveRequiredString(name, "Saved view name");
 
-export const buildBuiltinSavedViewName = (entitySchemaName: string) =>
-	`All ${entitySchemaName}s`;
+export const buildBuiltinSavedViewName = (entitySchemaName: string) => `All ${entitySchemaName}s`;
 
 const resolveSavedViewNameResult = (name: string, fallback: string) =>
 	wrapServiceValidator(() => resolveSavedViewName(name), fallback);
@@ -139,10 +121,7 @@ const resolveMissingMutationResult = async (
 const buildClonedSavedViewName = (name: string) => `${name} (Copy)`;
 
 const mapValidationErrorResult = (error: unknown) => {
-	if (
-		error instanceof QueryEngineNotFoundError ||
-		error instanceof QueryEngineValidationError
-	) {
+	if (error instanceof QueryEngineNotFoundError || error instanceof QueryEngineValidationError) {
 		return serviceError("validation", error.message);
 	}
 
@@ -152,9 +131,7 @@ const mapValidationErrorResult = (error: unknown) => {
 const ensureBuiltinUpdateIsAllowed = (
 	currentView: ListedSavedView,
 	body: UpdateSavedViewBody,
-):
-	| Extract<SavedViewValidationResult<never>, { error: "validation" }>
-	| undefined => {
+): Extract<SavedViewValidationResult<never>, { error: "validation" }> | undefined => {
 	if (!currentView.isBuiltin) {
 		return;
 	}
@@ -163,10 +140,8 @@ const ensureBuiltinUpdateIsAllowed = (
 	const nextIcon = body.icon ?? currentView.icon;
 	const nextTrackerId = body.trackerId ?? currentView.trackerId ?? undefined;
 	const nextAccentColor = body.accentColor ?? currentView.accentColor;
-	const nextQueryDefinition =
-		body.queryDefinition ?? currentView.queryDefinition;
-	const nextDisplayConfiguration =
-		body.displayConfiguration ?? currentView.displayConfiguration;
+	const nextQueryDefinition = body.queryDefinition ?? currentView.queryDefinition;
+	const nextDisplayConfiguration = body.displayConfiguration ?? currentView.displayConfiguration;
 	const currentTrackerId = currentView.trackerId ?? undefined;
 
 	const attemptsMutation =
@@ -182,14 +157,9 @@ const ensureBuiltinUpdateIsAllowed = (
 	}
 };
 const validateDefinition = async (
-	input: Pick<
-		CreateSavedViewBody,
-		"displayConfiguration" | "queryDefinition"
-	> & { userId: string },
+	input: Pick<CreateSavedViewBody, "displayConfiguration" | "queryDefinition"> & { userId: string },
 	deps: SavedViewServiceDeps,
-): Promise<
-	Extract<SavedViewValidationResult<never>, { error: "validation" }> | undefined
-> => {
+): Promise<Extract<SavedViewValidationResult<never>, { error: "validation" }> | undefined> => {
 	try {
 		await deps.prepareForValidation({
 			displayConfiguration: input.displayConfiguration,
@@ -205,10 +175,7 @@ export const createSavedView = async (
 	input: { body: CreateSavedViewBody; userId: string },
 	deps: SavedViewServiceDeps = savedViewServiceDeps,
 ): Promise<SavedViewValidationResult<ListedSavedView>> => {
-	const nameResult = resolveSavedViewNameResult(
-		input.body.name,
-		"Saved view name is invalid",
-	);
+	const nameResult = resolveSavedViewNameResult(input.body.name, "Saved view name is invalid");
 	if ("error" in nameResult) {
 		return nameResult;
 	}
@@ -265,10 +232,7 @@ export const updateSavedView = async (
 	}
 
 	if (existingViewResult.data.isBuiltin) {
-		const builtinMutationResult = ensureBuiltinUpdateIsAllowed(
-			existingViewResult.data,
-			input.body,
-		);
+		const builtinMutationResult = ensureBuiltinUpdateIsAllowed(existingViewResult.data, input.body);
 		if (builtinMutationResult) {
 			return builtinMutationResult;
 		}
@@ -286,10 +250,7 @@ export const updateSavedView = async (
 		return serviceData(updatedView);
 	}
 
-	const nameResult = resolveSavedViewNameResult(
-		input.body.name,
-		"Saved view name is invalid",
-	);
+	const nameResult = resolveSavedViewNameResult(input.body.name, "Saved view name is invalid");
 	if ("error" in nameResult) {
 		return nameResult;
 	}
@@ -314,10 +275,7 @@ export const updateSavedView = async (
 	});
 
 	if (!updatedView) {
-		return resolveMissingMutationResult(
-			{ viewSlug: input.viewSlug, userId: input.userId },
-			deps,
-		);
+		return resolveMissingMutationResult({ viewSlug: input.viewSlug, userId: input.userId }, deps);
 	}
 
 	return serviceData(updatedView);
@@ -350,10 +308,7 @@ export const cloneSavedView = async (
 	}
 
 	const clonedName = buildClonedSavedViewName(sourceView.name);
-	const clonedNameResult = resolveSavedViewNameResult(
-		clonedName,
-		"Cloned view name is invalid",
-	);
+	const clonedNameResult = resolveSavedViewNameResult(clonedName, "Cloned view name is invalid");
 	if ("error" in clonedNameResult) {
 		return clonedNameResult;
 	}

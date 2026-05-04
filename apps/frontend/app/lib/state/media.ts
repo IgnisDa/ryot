@@ -1,10 +1,7 @@
-import {
-	type EntityLot,
-	MediaLot,
-	type ReviewItem,
-} from "@ryot/generated/graphql/backend/graphql";
+import { type EntityLot, MediaLot, type ReviewItem } from "@ryot/generated/graphql/backend/graphql";
 import { atom, useAtom } from "jotai";
 import { match } from "ts-pattern";
+
 import {
 	getMetadataDetailsQuery,
 	getUserMetadataDetailsQuery,
@@ -30,9 +27,7 @@ export type UpdateProgressData = {
 const metadataProgressUpdateAtom = atom<UpdateProgressData | null>(null);
 
 export const useMetadataProgressUpdate = () => {
-	const [metadataToUpdate, updateMetadataToUpdate] = useAtom(
-		metadataProgressUpdateAtom,
-	);
+	const [metadataToUpdate, updateMetadataToUpdate] = useAtom(metadataProgressUpdateAtom);
 
 	const initializeMetadataToUpdate = async (
 		draft: UpdateProgressData | null,
@@ -41,9 +36,7 @@ export const useMetadataProgressUpdate = () => {
 		if (draft) {
 			const [metadataDetails, userMetadataDetails] = await Promise.all([
 				queryClient.ensureQueryData(getMetadataDetailsQuery(draft.metadataId)),
-				queryClient.ensureQueryData(
-					getUserMetadataDetailsQuery(draft.metadataId),
-				),
+				queryClient.ensureQueryData(getUserMetadataDetailsQuery(draft.metadataId)),
 			]);
 			draft.providersConsumedOn = [
 				...(userMetadataDetails.history.at(0)?.providersConsumedOn || []),
@@ -98,8 +91,7 @@ export type AddEntityToCollectionsData = {
 	entityLot: EntityLot;
 };
 
-export const addEntityToCollectionsAtom =
-	atom<AddEntityToCollectionsData | null>(null);
+export const addEntityToCollectionsAtom = atom<AddEntityToCollectionsData | null>(null);
 
 export const useAddEntityToCollections = () => {
 	return useAtom(addEntityToCollectionsAtom);

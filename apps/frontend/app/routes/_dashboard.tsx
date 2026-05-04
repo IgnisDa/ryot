@@ -48,6 +48,7 @@ import {
 import { ClientOnly } from "remix-utils/client-only";
 import { $path } from "safe-routes";
 import { withQuery } from "ufo";
+
 import { LayoutModals } from "~/components/routes/dashboard/layout-modals";
 import { Footer } from "~/components/routes/dashboard/navigation/footer";
 import { LinksGroup } from "~/components/routes/dashboard/navigation/links-group";
@@ -67,10 +68,7 @@ import {
 } from "~/lib/shared/hooks";
 import { forcedDashboardPath } from "~/lib/shared/ui-utils";
 import { useOpenedSidebarLinks } from "~/lib/state/general";
-import {
-	OnboardingTourStepTarget,
-	useOnboardingTour,
-} from "~/lib/state/onboarding-tour";
+import { OnboardingTourStepTarget, useOnboardingTour } from "~/lib/state/onboarding-tour";
 import { FitnessAction } from "~/lib/types";
 import {
 	colorSchemeCookie,
@@ -78,18 +76,17 @@ import {
 	getCoreDetails,
 	redirectIfNotAuthenticatedOrUpdated,
 } from "~/lib/utilities.server";
-import classes from "~/styles/dashboard.module.css";
+
 import type { Route } from "./+types/_dashboard";
+
+import classes from "~/styles/dashboard.module.css";
 
 export const loader = async ({ request }: Route.LoaderArgs) => {
 	const [coreDetails, userDetails] = await Promise.all([
 		getCoreDetails(),
 		redirectIfNotAuthenticatedOrUpdated(request),
 	]);
-	const desktopSidebarCollapsed = getCookieValue(
-		request,
-		desktopSidebarCollapsedCookie,
-	);
+	const desktopSidebarCollapsed = getCookieValue(request, desktopSidebarCollapsedCookie);
 
 	const currentColorScheme: MantineColorScheme = await colorSchemeCookie.parse(
 		request.headers.get("cookie") || "",
@@ -113,8 +110,7 @@ export const loader = async ({ request }: Route.LoaderArgs) => {
 		isAccessLinkSession,
 		desktopSidebarCollapsed,
 		userPreferences: userDetails.preferences,
-		isOnboardingTourCompleted:
-			userDetails.extraInformation?.isOnboardingTourCompleted,
+		isOnboardingTourCompleted: userDetails.extraInformation?.isOnboardingTourCompleted,
 	};
 };
 
@@ -134,13 +130,9 @@ export default function Layout() {
 	const Icon = getThemeIcon(loaderData.currentColorScheme);
 	const isFitnessActionActive = useIsFitnessActionActive();
 	const { openedSidebarLinks, setOpenedSidebarLinks } = useOpenedSidebarLinks();
-	const [mobileNavbarOpened, { toggle: toggleMobileNavbar }] =
-		useDisclosure(false);
-	const {
-		onboardingTourSteps,
-		isOnboardingTourInProgress,
-		currentOnboardingTourStepIndex,
-	} = useOnboardingTour();
+	const [mobileNavbarOpened, { toggle: toggleMobileNavbar }] = useDisclosure(false);
+	const { onboardingTourSteps, isOnboardingTourInProgress, currentOnboardingTourStepIndex } =
+		useOnboardingTour();
 
 	return (
 		<>
@@ -292,9 +284,7 @@ export default function Layout() {
 								setOpened={() => {}}
 								toggle={toggleMobileNavbar}
 								href={$path("/analytics")}
-								tourControlTarget={
-									OnboardingTourStepTarget.ClickOnAnalyticsSidebarSection
-								}
+								tourControlTarget={OnboardingTourStepTarget.ClickOnAnalyticsSidebarSection}
 							/>
 						) : null}
 						{userPreferences.featuresEnabled.others.calendar ? (
@@ -315,13 +305,10 @@ export default function Layout() {
 								setOpened={() => {}}
 								toggle={toggleMobileNavbar}
 								href={$path("/collections/list")}
-								tourControlTarget={
-									OnboardingTourStepTarget.ClickOnCollectionsSidebarSection
-								}
+								tourControlTarget={OnboardingTourStepTarget.ClickOnCollectionsSidebarSection}
 							/>
 						) : null}
-						{loaderData.isAccessLinkSession &&
-						!loaderData.isDemoInstance ? null : (
+						{loaderData.isAccessLinkSession && !loaderData.isDemoInstance ? null : (
 							<LinksGroup
 								label="Settings"
 								icon={IconSettings}
@@ -374,12 +361,7 @@ export default function Layout() {
 										<Icon size={16.8} stroke={1.5} />
 									</Center>
 									<Text size="sm" className={classes.value}>
-										{startCase(
-											loaderData.currentColorScheme === "dark"
-												? "light"
-												: "dark",
-										)}{" "}
-										theme
+										{startCase(loaderData.currentColorScheme === "dark" ? "light" : "dark")} theme
 									</Text>
 								</UnstyledButton>
 							</Group>
@@ -401,20 +383,8 @@ export default function Layout() {
 					<Flex justify="space-between" p="md" hiddenFrom="sm">
 						<Link to={forcedDashboardPath} style={{ all: "unset" }}>
 							<Group>
-								<Image
-									h={40}
-									w={40}
-									darkHidden
-									radius="md"
-									src={LOGO_IMAGE_URL}
-								/>
-								<Image
-									h={40}
-									w={40}
-									radius="md"
-									lightHidden
-									src="/logo-light.png"
-								/>
+								<Image h={40} w={40} darkHidden radius="md" src={LOGO_IMAGE_URL} />
+								<Image h={40} w={40} radius="md" lightHidden src="/logo-light.png" />
 								<Text size="xl" className={classes.logoText}>
 									Ryot
 								</Text>
@@ -432,11 +402,7 @@ export default function Layout() {
 							pb={40}
 							mih="90%"
 							style={{ flexGrow: 1 }}
-							ref={
-								userPreferences.general.disableNavigationAnimation
-									? undefined
-									: parent
-							}
+							ref={userPreferences.general.disableNavigationAnimation ? undefined : parent}
 						>
 							<Outlet />
 						</Box>

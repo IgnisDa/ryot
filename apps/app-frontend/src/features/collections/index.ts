@@ -1,7 +1,4 @@
-export {
-	useCollectionDiscovery,
-	useCollectionsQuery,
-} from "./discovery";
+export { useCollectionDiscovery, useCollectionsQuery } from "./discovery";
 export { useCollectionsDestination } from "./discovery-hooks";
 export { useCollectionMutations } from "./hooks";
 export type {

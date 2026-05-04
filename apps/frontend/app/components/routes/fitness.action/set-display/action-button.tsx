@@ -5,6 +5,7 @@ import { IconCheck, IconPlayerPlay, IconStopwatch } from "@tabler/icons-react";
 import clsx from "clsx";
 import { produce } from "immer";
 import invariant from "tiny-invariant";
+
 import { dayjsLib } from "~/lib/shared/date-utils";
 import {
 	type ExerciseSet,
@@ -13,12 +14,10 @@ import {
 	useGetSetAtIndex,
 } from "~/lib/state/fitness";
 import { OnboardingTourStepTarget } from "~/lib/state/onboarding-tour";
+
 import { focusOnExercise, usePlayFitnessSound } from "../hooks";
 import type { FuncStartTimer } from "../types";
-import {
-	isSetConfirmationDisabled,
-	useSetConfirmationHandler,
-} from "./functions";
+import { isSetConfirmationDisabled, useSetConfirmationHandler } from "./functions";
 
 const shouldShowPlayButton = (exerciseLot: ExerciseLot, set: ExerciseSet) => {
 	const durationBasedLots = [
@@ -89,9 +88,7 @@ export const SetActionButton = (props: SetActionButtonProps) => {
 								props.startTimer({
 									openTimerDrawer: true,
 									confirmSetOnFinish: setIdentifier,
-									duration: dayjsLib
-										.duration(Number(set.statistic.duration), "minute")
-										.asSeconds(),
+									duration: dayjsLib.duration(Number(set.statistic.duration), "minute").asSeconds(),
 								});
 								setCurrentWorkout(
 									produce(currentWorkout, (draft) => {
@@ -142,8 +139,7 @@ export const SetActionButton = (props: SetActionButtonProps) => {
 						variant={set.confirmedAt ? "filled" : "outline"}
 						disabled={isSetConfirmationDisabled(exercise.lot, set.statistic)}
 						className={clsx(
-							props.isOnboardingTourStep &&
-								OnboardingTourStepTarget.ConfirmSetForExercise,
+							props.isOnboardingTourStep && OnboardingTourStepTarget.ConfirmSetForExercise,
 						)}
 					>
 						<IconCheck />

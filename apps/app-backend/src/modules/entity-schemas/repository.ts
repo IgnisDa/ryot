@@ -1,5 +1,6 @@
 import { normalizeSlug } from "@ryot/ts-utils";
 import { and, asc, eq, inArray, isNull } from "drizzle-orm";
+
 import { assertPersisted, type DbClient, db } from "~/lib/db";
 import {
 	entitySchema,
@@ -9,6 +10,7 @@ import {
 	tracker,
 	trackerEntitySchema,
 } from "~/lib/db/schema";
+
 import {
 	createDefaultDisplayConfiguration,
 	createDefaultQueryDefinition,
@@ -19,15 +21,13 @@ import type { EntitySchemaPropertiesShape } from "./service";
 
 type ProviderWithMetadata = Provider & { scriptMetadata?: unknown };
 
-export type ListedEntitySchemaWithMetadata = Omit<
-	ListedEntitySchema,
-	"providers"
-> & { providers: ProviderWithMetadata[] };
+export type ListedEntitySchemaWithMetadata = Omit<ListedEntitySchema, "providers"> & {
+	providers: ProviderWithMetadata[];
+};
 
-type EntitySchemaRow = Omit<
-	ListedEntitySchemaWithMetadata,
-	"propertiesSchema"
-> & { propertiesSchema: unknown };
+type EntitySchemaRow = Omit<ListedEntitySchemaWithMetadata, "propertiesSchema"> & {
+	propertiesSchema: unknown;
+};
 
 const listedEntitySchemaSelection = {
 	id: entitySchema.id,
@@ -94,25 +94,13 @@ export const listEntitySchemasForUser = async (input: {
 		})
 		.from(trackerEntitySchema)
 		.innerJoin(tracker, eq(tracker.id, trackerEntitySchema.trackerId))
-		.innerJoin(
-			entitySchema,
-			eq(entitySchema.id, trackerEntitySchema.entitySchemaId),
-		)
-		.leftJoin(
-			entitySchemaScript,
-			eq(entitySchemaScript.entitySchemaId, entitySchema.id),
-		)
-		.leftJoin(
-			sandboxScript,
-			eq(sandboxScript.id, entitySchemaScript.sandboxScriptId),
-		)
+		.innerJoin(entitySchema, eq(entitySchema.id, trackerEntitySchema.entitySchemaId))
+		.leftJoin(entitySchemaScript, eq(entitySchemaScript.entitySchemaId, entitySchema.id))
+		.leftJoin(sandboxScript, eq(sandboxScript.id, entitySchemaScript.sandboxScriptId))
 		.where(and(...whereClauses))
 		.orderBy(asc(entitySchema.name), asc(entitySchema.createdAt));
 
-	const schemaMap = new Map<
-		string,
-		{ entry: EntitySchemaRow; seen: Set<string> }
-	>();
+	const schemaMap = new Map<string, { entry: EntitySchemaRow; seen: Set<string> }>();
 	for (const row of rows) {
 		const schemaKey = `${row.id}::${row.trackerId}`;
 		let record = schemaMap.get(schemaKey);
@@ -131,9 +119,7 @@ export const listEntitySchemasForUser = async (input: {
 			}
 		}
 	}
-	return Array.from(schemaMap.values()).map(({ entry }) =>
-		toListedEntitySchemaWithMetadata(entry),
-	);
+	return Array.from(schemaMap.values()).map(({ entry }) => toListedEntitySchemaWithMetadata(entry));
 };
 
 export const getEntitySchemaByIdForUser = async (input: {
@@ -148,25 +134,11 @@ export const getEntitySchemaByIdForUser = async (input: {
 			scriptId: entitySchemaScript.sandboxScriptId,
 		})
 		.from(entitySchema)
-		.innerJoin(
-			trackerEntitySchema,
-			eq(trackerEntitySchema.entitySchemaId, entitySchema.id),
-		)
+		.innerJoin(trackerEntitySchema, eq(trackerEntitySchema.entitySchemaId, entitySchema.id))
 		.innerJoin(tracker, eq(tracker.id, trackerEntitySchema.trackerId))
-		.leftJoin(
-			entitySchemaScript,
-			eq(entitySchemaScript.entitySchemaId, entitySchema.id),
-		)
-		.leftJoin(
-			sandboxScript,
-			eq(sandboxScript.id, entitySchemaScript.sandboxScriptId),
-		)
-		.where(
-			and(
-				eq(entitySchema.id, input.entitySchemaId),
-				eq(tracker.userId, input.userId),
-			),
-		)
+		.leftJoin(entitySchemaScript, eq(entitySchemaScript.entitySchemaId, entitySchema.id))
+		.leftJoin(sandboxScript, eq(sandboxScript.id, entitySchemaScript.sandboxScriptId))
+		.where(and(eq(entitySchema.id, input.entitySchemaId), eq(tracker.userId, input.userId)))
 		.orderBy(asc(trackerEntitySchema.createdAt));
 
 	const baseRow = rows[0];
@@ -191,27 +163,17 @@ export const getEntitySchemaByIdForUser = async (input: {
 	return toListedEntitySchemaWithMetadata({ ...baseRow, providers });
 };
 
-export const getEntitySchemaBySlugForUser = async (input: {
-	slug: string;
-	userId: string;
-}) => {
+export const getEntitySchemaBySlugForUser = async (input: { slug: string; userId: string }) => {
 	const [foundEntitySchema] = await db
 		.select({ id: entitySchema.id })
 		.from(entitySchema)
-		.where(
-			and(
-				eq(entitySchema.userId, input.userId),
-				eq(entitySchema.slug, input.slug),
-			),
-		)
+		.where(and(eq(entitySchema.userId, input.userId), eq(entitySchema.slug, input.slug)))
 		.limit(1);
 
 	return foundEntitySchema;
 };
 
-export const listBuiltinEntitySchemas = async (input?: {
-	database?: DbClient;
-}) => {
+export const listBuiltinEntitySchemas = async (input?: { database?: DbClient }) => {
 	const database = input?.database ?? db;
 
 	const rows = await database
@@ -287,10 +249,7 @@ export const createEntitySchemaForUser = async (input: {
 			})
 			.returning(createdEntitySchemaSelection);
 
-		const createdEntitySchema = assertPersisted(
-			maybeEntitySchema,
-			"entity schema",
-		);
+		const createdEntitySchema = assertPersisted(maybeEntitySchema, "entity schema");
 
 		const [maybeTrackerEntitySchema] = await tx
 			.insert(trackerEntitySchema)
@@ -316,12 +275,8 @@ export const createEntitySchemaForUser = async (input: {
 				trackerId: input.trackerId,
 				accentColor: input.accentColor,
 				slug: normalizeSlug(builtinSavedViewName),
-				displayConfiguration: createDefaultDisplayConfiguration(
-					createdEntitySchema.slug,
-				),
-				queryDefinition: createDefaultQueryDefinition([
-					createdEntitySchema.slug,
-				]),
+				displayConfiguration: createDefaultDisplayConfiguration(createdEntitySchema.slug),
+				queryDefinition: createDefaultQueryDefinition([createdEntitySchema.slug]),
 			})
 			.returning({ id: savedView.id });
 

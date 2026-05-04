@@ -1,8 +1,6 @@
 import { useSavedViewsQuery } from "~/features/saved-views/hooks";
-import {
-	type CollectionsDestination,
-	resolveCollectionsDestination,
-} from "./model";
+
+import { type CollectionsDestination, resolveCollectionsDestination } from "./model";
 
 export function useCollectionsDestination(): {
 	destination: CollectionsDestination;

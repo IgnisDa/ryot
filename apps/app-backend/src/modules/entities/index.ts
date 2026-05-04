@@ -3,16 +3,9 @@ export {
 	getUserLibraryEntityId,
 	upsertInLibraryRelationship,
 } from "./repository";
-export type {
-	CreateEntityBody,
-	ListedEntity,
-} from "./schemas";
+export type { CreateEntityBody, ListedEntity } from "./schemas";
 export { listedEntitySchema } from "./schemas";
-export type {
-	EntityPropertiesShape,
-	EntityServiceDeps,
-	EntityServiceResult,
-} from "./service";
+export type { EntityPropertiesShape, EntityServiceDeps, EntityServiceResult } from "./service";
 export {
 	createEntity,
 	getEntityDetail,

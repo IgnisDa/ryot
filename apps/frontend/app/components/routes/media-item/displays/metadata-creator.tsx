@@ -2,6 +2,7 @@ import { useInViewport } from "@mantine/hooks";
 import type { MetadataCreator } from "@ryot/generated/graphql/backend/graphql";
 import { useMemo } from "react";
 import { $path } from "safe-routes";
+
 import { BaseEntityDisplay } from "~/components/media/base-display";
 import { usePersonDetails } from "~/lib/shared/hooks";
 
@@ -25,9 +26,7 @@ export const MetadataCreatorDisplay = (props: { data: MetadataCreator }) => {
 			isPartialStatusActive={isPartialStatusActive}
 			image={personDetails?.details.assets.remoteImages.at(0)}
 			link={
-				props.data.isFree
-					? undefined
-					: $path("/media/people/item/:id", { id: props.data.idOrName })
+				props.data.isFree ? undefined : $path("/media/people/item/:id", { id: props.data.idOrName })
 			}
 		/>
 	);

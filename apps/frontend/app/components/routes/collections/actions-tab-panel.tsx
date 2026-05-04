@@ -8,6 +8,7 @@ import {
 } from "@ryot/generated/graphql/backend/graphql";
 import { useNavigate } from "react-router";
 import { $path } from "safe-routes";
+
 import type {
 	CollectionContents,
 	FilterState,

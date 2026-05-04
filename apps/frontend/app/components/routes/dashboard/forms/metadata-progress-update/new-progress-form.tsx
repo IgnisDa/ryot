@@ -6,6 +6,7 @@ import type {
 	MetadataProgressUpdateInput,
 } from "@ryot/generated/graphql/backend/graphql";
 import { match } from "ts-pattern";
+
 import { useSavedForm } from "~/lib/hooks/use-saved-form";
 import { convertTimestampToUtcString } from "~/lib/shared/date-utils";
 import {
@@ -13,35 +14,24 @@ import {
 	useMetadataDetails,
 } from "~/lib/shared/hooks";
 import { useMetadataProgressUpdate } from "~/lib/state/media";
-import {
-	OnboardingTourStepTarget,
-	useOnboardingTour,
-} from "~/lib/state/onboarding-tour";
+import { OnboardingTourStepTarget, useOnboardingTour } from "~/lib/state/onboarding-tour";
+
 import { WatchTimes } from "../../types";
 import { AnimeForm } from "./media-types/anime-form";
 import { MangaForm } from "./media-types/manga-form";
 import { PodcastForm } from "./media-types/podcast-form";
 import { ShowForm } from "./media-types/show-form";
-import {
-	createCustomDatesCompletedChange,
-	processBulkUpdates,
-} from "./utils/bulk-update-handlers";
-import {
-	CustomDatePicker,
-	ProviderSelect,
-	WatchTimeSelect,
-} from "./utils/common-elements";
+import { createCustomDatesCompletedChange, processBulkUpdates } from "./utils/bulk-update-handlers";
+import { CustomDatePicker, ProviderSelect, WatchTimeSelect } from "./utils/common-elements";
 import type { MetadataNewProgressFormProps } from "./utils/form-types";
 
-export const MetadataNewProgressUpdateForm = (
-	props: MetadataNewProgressFormProps,
-) => {
+export const MetadataNewProgressUpdateForm = (props: MetadataNewProgressFormProps) => {
 	const [parent] = useAutoAnimate();
-	const { metadataToUpdate, updateMetadataToUpdate } =
-		useMetadataProgressUpdate();
+	const { metadataToUpdate, updateMetadataToUpdate } = useMetadataProgressUpdate();
 	const [{ data: metadataDetails }] = useMetadataDetails(props.metadataId);
-	const deployBulkMetadataProgressUpdate =
-		useDeployBulkMetadataProgressUpdateMutation(metadataDetails?.title);
+	const deployBulkMetadataProgressUpdate = useDeployBulkMetadataProgressUpdateMutation(
+		metadataDetails?.title,
+	);
 	const { advanceOnboardingTourStep } = useOnboardingTour();
 
 	const form = useSavedForm<{
@@ -59,15 +49,11 @@ export const MetadataNewProgressUpdateForm = (
 		},
 		validate: {
 			startDate: (value, values) =>
-				values.watchTime === WatchTimes.CustomDates &&
-				value === null &&
-				values.finishDate === null
+				values.watchTime === WatchTimes.CustomDates && value === null && values.finishDate === null
 					? "Please select at least one date"
 					: null,
 			finishDate: (value, values) =>
-				values.watchTime === WatchTimes.CustomDates &&
-				value === null &&
-				values.startDate === null
+				values.watchTime === WatchTimes.CustomDates && value === null && values.startDate === null
 					? "Please select at least one date"
 					: null,
 		},
@@ -80,15 +66,10 @@ export const MetadataNewProgressUpdateForm = (
 				form.setFieldValue("startDate", null);
 				form.setFieldValue("finishDate", new Date());
 			})
-			.with(
-				WatchTimes.CustomDates,
-				WatchTimes.IDontRemember,
-				WatchTimes.JustStartedIt,
-				() => {
-					form.setFieldValue("startDate", null);
-					form.setFieldValue("finishDate", null);
-				},
-			)
+			.with(WatchTimes.CustomDates, WatchTimes.IDontRemember, WatchTimes.JustStartedIt, () => {
+				form.setFieldValue("startDate", null);
+				form.setFieldValue("finishDate", null);
+			})
 			.run();
 	};
 
@@ -105,12 +86,8 @@ export const MetadataNewProgressUpdateForm = (
 	return (
 		<form
 			onSubmit={form.onSubmit(async (values) => {
-				const startDateFormatted = convertTimestampToUtcString(
-					values.startDate,
-				);
-				const finishDateFormatted = convertTimestampToUtcString(
-					values.finishDate,
-				);
+				const startDateFormatted = convertTimestampToUtcString(values.startDate);
+				const finishDateFormatted = convertTimestampToUtcString(values.finishDate);
 				const currentDateFormatted = convertTimestampToUtcString(new Date());
 				const common: MetadataProgressUpdateCommonInput = {
 					showSeasonNumber: metadataToUpdate.showSeasonNumber,
@@ -178,9 +155,7 @@ export const MetadataNewProgressUpdateForm = (
 						startDate={form.values.startDate}
 						finishDate={form.values.finishDate}
 						onStartDateChange={(date) => form.setFieldValue("startDate", date)}
-						onFinishDateChange={(date) =>
-							form.setFieldValue("finishDate", date)
-						}
+						onFinishDateChange={(date) => form.setFieldValue("finishDate", date)}
 					/>
 				) : null}
 				{form.values.watchTime !== WatchTimes.JustStartedIt ? (

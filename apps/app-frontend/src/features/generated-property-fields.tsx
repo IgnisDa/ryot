@@ -1,7 +1,4 @@
-import {
-	type AppPropertyDefinition,
-	isAppPropertyRequired,
-} from "@ryot/ts-utils";
+import { type AppPropertyDefinition, isAppPropertyRequired } from "@ryot/ts-utils";
 import type { ComponentType, HTMLInputTypeAttribute, ReactNode } from "react";
 import { match } from "ts-pattern";
 
