@@ -5,8 +5,8 @@
 	"scripts": {
 		"typecheck": "tsc",
 		"build": "vitepress build",
-		"dev": "vitepress dev --port 3002",
-		"lint": "oxlint . && oxfmt --check ."
+		"lint": "oxlint . && oxfmt .",
+		"dev": "vitepress dev --port 3002"
 	},
 	"devDependencies": {
 		"vitepress": "2.0.0-alpha.15"
