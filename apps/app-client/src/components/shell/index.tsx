@@ -1,8 +1,8 @@
-import { usePathname } from "expo-router";
 import { type ReactNode, useEffect } from "react";
 import { useWindowDimensions } from "react-native";
 import { Box } from "@/components/ui/box";
 import {
+	useActiveNav,
 	useNavigationData,
 	useNavSheetOpen,
 	useSetSubFlyoutOpen,
@@ -17,19 +17,13 @@ const TABLET_BREAKPOINT = 768;
 type Props = { children: ReactNode };
 
 export function ShellNavigation({ children }: Props) {
-	const pathname = usePathname();
 	const navSheetOpen = useNavSheetOpen();
 	const subFlyoutOpen = useSubFlyoutOpen();
 	const setSubFlyoutOpen = useSetSubFlyoutOpen();
 	const { trackers } = useNavigationData();
 	const { width: screenWidth } = useWindowDimensions();
-	const segments = pathname.split("/").filter(Boolean);
-	const isViewPath = segments[0] === "views";
-	const trackerSlug = isViewPath
-		? (trackers.find((t) => t.subItems.some((s) => s.slug === segments[1]))
-				?.slug ?? "home")
-		: segments[0] || "home";
-	const activeTracker = trackers.find((t) => t.slug === trackerSlug);
+	const { activeTrackerSlug } = useActiveNav();
+	const activeTracker = trackers.find((t) => t.slug === activeTrackerSlug);
 
 	useEffect(() => {
 		setSubFlyoutOpen((activeTracker?.subItems?.length ?? 0) > 0);
