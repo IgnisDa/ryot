@@ -39,6 +39,7 @@
 		"expo-constants": "55.0.15",
 		"expo-dev-client": "55.0.30",
 		"expo-font": "55.0.6",
+		"expo-linear-gradient": "55.0.13",
 		"expo-linking": "55.0.14",
 		"expo-network": "~55.0.13",
 		"expo-router": "55.0.13",
