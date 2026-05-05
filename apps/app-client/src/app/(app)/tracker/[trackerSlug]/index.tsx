@@ -2,7 +2,7 @@ import { useLocalSearchParams } from "expo-router";
 
 import { gridStyles, PageHeader } from "@/components/shell/page-header";
 import { Box } from "@/components/ui/box";
-import { MediaTrackerOverview } from "@/features/media/overview_example";
+import { MediaTrackerOverview } from "@/features/media/overview";
 import { useNavigationData } from "@/lib/navigation";
 
 export default function TrackerScreen() {
