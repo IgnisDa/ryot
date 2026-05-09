@@ -498,7 +498,7 @@ function RatingSidebar() {
 
 function TypeBreakdown() {
 	const types = Object.entries(LIBRARY_STATS.entityTypeCounts) as [SchemaSlug, number][];
-	const sorted = [...types].sort((a, b) => b[1] - a[1]);
+	const sorted = types.toSorted((a, b) => b[1] - a[1]);
 
 	return (
 		<Box>
