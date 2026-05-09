@@ -1,12 +1,11 @@
 import { expect, it } from "@effect/vitest";
-import {
-	BadRequest,
-	NotFound,
-	SandboxRunError,
-	Unauthorized,
-	unauthorized,
-} from "@ryot/contract/errors";
+import { AuthUnauthorized } from "@ryot/contract/auth-middleware";
 import type { PluginManifest, PluginOperationAuth } from "@ryot/contract/modules/plugins/manifest";
+import {
+	PluginInvocationError,
+	PluginNotFoundError,
+	PluginRequestError,
+} from "@ryot/contract/modules/plugins/schemas";
 import { SandboxScriptId, UserId } from "@ryot/contract/schema/brands";
 import { Cause, Deferred, Effect, Exit, Fiber, Layer, Option } from "effect";
 import { Headers } from "effect/unstable/http";
@@ -137,7 +136,9 @@ const makeLayer = (input: {
 											preferences: { allowNsfw: false, language: null, disableIntegrations: false },
 										}),
 									)
-								: Effect.fail(unauthorized()),
+								: Effect.fail(
+										new AuthUnauthorized({ reason: { code: "authentication-required" } }),
+									),
 					}),
 					Layer.mock(PluginRuntimeResolver)({
 						findActiveOperation: ({ operationSlug, pluginSlug }) => {
@@ -199,7 +200,7 @@ it.effect("returns NotFound for an unknown plugin", () =>
 				operationSlug: OPERATION_SLUG,
 			}),
 		);
-		expectError(exit, NotFound);
+		expectError(exit, PluginNotFoundError);
 	}).pipe(Effect.provide(makeLayer({ auth: "user" }))),
 );
 
@@ -214,7 +215,7 @@ it.effect("returns NotFound for an unknown operation", () =>
 				operationSlug: "missing",
 			}),
 		);
-		expectError(exit, NotFound);
+		expectError(exit, PluginNotFoundError);
 	}).pipe(Effect.provide(makeLayer({ auth: "user" }))),
 );
 
@@ -229,7 +230,7 @@ it.effect("rejects integration operations without an integrationId payload", () 
 				operationSlug: OPERATION_SLUG,
 			}),
 		);
-		expectError(exit, BadRequest);
+		expectError(exit, PluginRequestError);
 	}).pipe(Effect.provide(makeLayer({ auth: "integration" }))),
 );
 
@@ -245,7 +246,7 @@ it.effect("rejects integration operations for a missing or disabled integration"
 					payload: { integrationId: "int-1" },
 				}),
 			);
-			expectError(exit, NotFound);
+			expectError(exit, PluginNotFoundError);
 		}).pipe(Effect.provide(makeLayer({ auth: "integration", integration }))),
 	),
 );
@@ -303,10 +304,24 @@ it.effect("propagates sandbox failures from operation scripts", () =>
 				operationSlug: OPERATION_SLUG,
 			}),
 		);
-		expectError(exit, SandboxRunError);
+		expectError(exit, PluginInvocationError);
 		assert(Exit.isFailure(exit));
 		const error = Option.getOrThrow(Cause.findErrorOption(exit.cause));
-		expect(error).toMatchObject({ message: "execute: operation failed" });
+		expect(error).toEqual(
+			new PluginInvocationError({
+				reason: {
+					code: "runtime-failed",
+					diagnostics: [
+						{
+							phase: "execute",
+							severity: "error",
+							message: "operation failed",
+							code: "sandbox-runtime-error",
+						},
+					],
+				},
+			}),
+		);
 	}).pipe(
 		Effect.provide(
 			makeLayer({
@@ -363,6 +378,6 @@ it.effect("rejects user operations without an authenticated session", () =>
 				operationSlug: OPERATION_SLUG,
 			}),
 		);
-		expectError(exit, Unauthorized);
+		expectError(exit, AuthUnauthorized);
 	}).pipe(Effect.provide(makeLayer({ auth: "user" }))),
 );

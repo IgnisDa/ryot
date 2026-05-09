@@ -1,5 +1,6 @@
 import { expect, it } from "@effect/vitest";
 import { BadRequest } from "@ryot/contract/errors";
+import { UploadBadRequest } from "@ryot/contract/modules/uploads/schemas";
 import { UserId } from "@ryot/contract/schema/brands";
 import { CryptoHasher } from "bun";
 import { Effect, Layer, Stream } from "effect";
@@ -74,10 +75,7 @@ it.effect("rejects a partially owned locator set", () => {
 				{ type: "local", key: "permanent/unowned.png" },
 			]),
 		);
-		assertExitFails(
-			exit,
-			new BadRequest({ message: "One or more managed assets do not belong to this user" }),
-		);
+		assertExitFails(exit, new UploadBadRequest({ reason: { code: "asset-forbidden" } }));
 	}).pipe(Effect.provide(makeLayer(owned)));
 });
 
@@ -207,7 +205,7 @@ it.effect("blocks managed asset registration while the owner lifecycle is active
 				sha256: "a".repeat(64),
 			}),
 		);
-		assertExitFails(exit, new BadRequest({ message: "User lifecycle operation is active" }));
+		assertExitFails(exit, new UploadBadRequest({ reason: { code: "lifecycle-active" } }));
 	}).pipe(Effect.provide(layer));
 });
 
@@ -274,7 +272,7 @@ it.effect(
 			});
 			active = true;
 			const error = yield* service.registerManagedAsset(staged.metadata).pipe(Effect.flip);
-			expect(error).toEqual(new BadRequest({ message: "User lifecycle operation is active" }));
+			expect(error).toEqual(new UploadBadRequest({ reason: { code: "lifecycle-active" } }));
 			yield* service.cleanupStagedPermanentAsset(staged);
 			expect(stored).toBe(false);
 			expect(deletes).toBe(1);

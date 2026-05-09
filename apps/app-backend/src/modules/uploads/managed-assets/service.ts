@@ -1,6 +1,5 @@
 import type { CurrentUserValue } from "@ryot/contract/auth-middleware";
-import { badRequest } from "@ryot/contract/errors";
-import type { ManagedAssetLocator } from "@ryot/contract/modules/uploads/schemas";
+import { type ManagedAssetLocator, UploadBadRequest } from "@ryot/contract/modules/uploads/schemas";
 import {
 	type UploadContentType,
 	uploadContentTypeExtensions,
@@ -42,13 +41,19 @@ const isPermanentObjectKey = (key: string) => /^permanent\/[A-Za-z0-9_-]+\.[a-z0
 
 const validateManagedAsset = (input: RegisterManagedAssetInput) => {
 	if (!isPermanentObjectKey(input.key)) {
-		return Effect.fail(badRequest("Permanent object key is invalid"));
+		return Effect.fail(
+			new UploadBadRequest({ reason: { code: "asset-metadata-invalid", field: "key" } }),
+		);
 	}
 	if (!/^[a-f0-9]{64}$/.test(input.sha256)) {
-		return Effect.fail(badRequest("Managed asset SHA-256 is invalid"));
+		return Effect.fail(
+			new UploadBadRequest({ reason: { code: "asset-metadata-invalid", field: "sha256" } }),
+		);
 	}
 	if (!Number.isSafeInteger(input.size) || input.size < 0) {
-		return Effect.fail(badRequest("Managed asset size is invalid"));
+		return Effect.fail(
+			new UploadBadRequest({ reason: { code: "asset-metadata-invalid", field: "size" } }),
+		);
 	}
 	return Effect.void;
 };
@@ -85,7 +90,7 @@ export class ManagedAssetsService extends Context.Service<ManagedAssetsService>(
 								Effect.gen(function* () {
 									yield* acquireUserWriteLock(input.ownerUserId);
 									if (yield* isUserLifecycleActive(input.ownerUserId)) {
-										return yield* badRequest("User lifecycle operation is active");
+										return yield* new UploadBadRequest({ reason: { code: "lifecycle-active" } });
 									}
 									return yield* repository.registerPermanentOwnedObject(input);
 								}).pipe(Effect.provideService(Database, transaction)),
@@ -99,7 +104,7 @@ export class ManagedAssetsService extends Context.Service<ManagedAssetsService>(
 			)(function* (input: RegisterManagedAssetInput) {
 				yield* validateManagedAsset(input);
 				if (yield* isUserLifecycleActive(input.ownerUserId)) {
-					return yield* badRequest("User lifecycle operation is active");
+					return yield* new UploadBadRequest({ reason: { code: "lifecycle-active" } });
 				}
 				return yield* repository.registerPermanentOwnedObject(input);
 			});
@@ -116,7 +121,7 @@ export class ManagedAssetsService extends Context.Service<ManagedAssetsService>(
 				const assets = yield* repository.listByOwnerAndLocators(ownerUserId, locators);
 				const requested = new Set(locators.map(({ type, key }) => `${type}\0${key}`));
 				if (assets.length !== requested.size) {
-					return yield* badRequest("One or more managed assets do not belong to this user");
+					return yield* new UploadBadRequest({ reason: { code: "asset-forbidden" } });
 				}
 				return assets;
 			});
@@ -129,11 +134,13 @@ export class ManagedAssetsService extends Context.Service<ManagedAssetsService>(
 				},
 			) {
 				if (yield* lifecycle.isActive(input.ownerUserId)) {
-					return yield* badRequest("User lifecycle operation is active");
+					return yield* new UploadBadRequest({ reason: { code: "lifecycle-active" } });
 				}
 				const extension = resolvePermanentExtension(input.contentType);
 				if (extension === null) {
-					return yield* badRequest("Managed asset content type is unsupported");
+					return yield* new UploadBadRequest({
+						reason: { code: "asset-content-type-unsupported", contentType: input.contentType },
+					});
 				}
 				const metadata: RegisterManagedAssetInput = {
 					...input,
@@ -144,7 +151,7 @@ export class ManagedAssetsService extends Context.Service<ManagedAssetsService>(
 				const verifyStoredObject = Effect.gen(function* () {
 					const stored = yield* objectStorage.statObject(locator);
 					if (!storedMetadataMatches(stored, metadata)) {
-						return yield* badRequest("Stored managed asset does not match its metadata");
+						return yield* new UploadBadRequest({ reason: { code: "asset-metadata-mismatch" } });
 					}
 					const hasher = new CryptoHasher("sha256");
 					const object = yield* objectStorage.openObject(locator);
@@ -154,7 +161,7 @@ export class ManagedAssetsService extends Context.Service<ManagedAssetsService>(
 						}),
 					);
 					if (hasher.digest("hex") !== metadata.sha256) {
-						return yield* badRequest("Stored managed asset does not match its metadata");
+						return yield* new UploadBadRequest({ reason: { code: "asset-metadata-mismatch" } });
 					}
 					return yield* Effect.void;
 				});
@@ -181,11 +188,11 @@ export class ManagedAssetsService extends Context.Service<ManagedAssetsService>(
 					);
 					if (created) {
 						if (size !== metadata.size || hasher.digest("hex") !== metadata.sha256) {
-							return yield* badRequest("Stored managed asset does not match its metadata");
+							return yield* new UploadBadRequest({ reason: { code: "asset-metadata-mismatch" } });
 						}
 						const stored = yield* objectStorage.statObject(locator);
 						if (!storedMetadataMatches(stored, metadata)) {
-							return yield* badRequest("Stored managed asset does not match its metadata");
+							return yield* new UploadBadRequest({ reason: { code: "asset-metadata-mismatch" } });
 						}
 					} else {
 						yield* verifyStoredObject;
@@ -227,7 +234,7 @@ export class ManagedAssetsService extends Context.Service<ManagedAssetsService>(
 					Effect.gen(function* () {
 						const managed = ownedByLocator.get(`${asset.type}\0${asset.key}`);
 						if (!managed) {
-							return yield* badRequest("Managed asset does not belong to this user");
+							return yield* new UploadBadRequest({ reason: { code: "asset-forbidden" } });
 						}
 						const downloadUrl =
 							asset.type === "local"
@@ -239,8 +246,8 @@ export class ManagedAssetsService extends Context.Service<ManagedAssetsService>(
 											now,
 										);
 									}).pipe(
-										Effect.mapError(() =>
-											badRequest("Local download object is missing or invalid"),
+										Effect.mapError(
+											() => new UploadBadRequest({ reason: { code: "invalid-download-target" } }),
 										),
 									)
 								: yield* s3Service.presignDownload(asset.key, UPLOAD_URL_EXPIRY_SECONDS);

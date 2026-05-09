@@ -2,6 +2,7 @@ import { createOAuthAccountIssuer } from "@better-auth/core/db";
 import { defaultUserPreferences } from "@ryot/contract/auth-middleware";
 import { InternalError, internalError } from "@ryot/contract/errors";
 import {
+	type UserLifecycleOperationFailure,
 	type UserLifecycleOperationKind,
 	UserResetResult,
 } from "@ryot/contract/modules/god-mode/user-lifecycle";
@@ -40,7 +41,10 @@ type UserLifecycleWorkflowOperationsValue = {
 		operationId: string,
 		result: UserResetResult | null,
 	) => Effect.Effect<void, InternalError>;
-	fail: (operationId: string, error: string) => Effect.Effect<void, InternalError>;
+	fail: (
+		operationId: string,
+		failure: UserLifecycleOperationFailure,
+	) => Effect.Effect<void, InternalError>;
 };
 
 export class UserLifecycleWorkflowOperations extends Context.Service<
@@ -193,9 +197,9 @@ export const UserLifecycleWorkflowOperationsLive = Layer.effect(
 				),
 				"User lifecycle completion could not be recorded",
 			);
-		const fail = (operationId: string, error: string) =>
+		const fail = (operationId: string, failure: UserLifecycleOperationFailure) =>
 			asInternal(
-				repository.markFailed(operationId, error),
+				repository.markFailed(operationId, failure),
 				"User lifecycle failure could not be recorded",
 			);
 		const provideDatabase = <A, E>(effect: Effect.Effect<A, E, Database>) =>
@@ -203,7 +207,7 @@ export const UserLifecycleWorkflowOperationsLive = Layer.effect(
 
 		return {
 			begin: (operationId) => provideDatabase(begin(operationId)),
-			fail: (operationId, error) => provideDatabase(fail(operationId, error)),
+			fail: (operationId, failure) => provideDatabase(fail(operationId, failure)),
 			cleanupObjects: (operationId) => provideDatabase(cleanupObjects(operationId)),
 			complete: (operationId, result) => provideDatabase(complete(operationId, result)),
 			recreateResetUser: (operationId) => provideDatabase(recreateResetUser(operationId)),
@@ -211,8 +215,6 @@ export const UserLifecycleWorkflowOperationsLive = Layer.effect(
 		} satisfies UserLifecycleWorkflowOperationsValue;
 	}),
 );
-
-const failureMessage = (error: InternalError) => error.message;
 
 export const runUserLifecycleWorkflow = Effect.fn("UserLifecycleWorkflow")(
 	function* (payload: UserLifecycleWorkflowPayload, executionId: string) {
@@ -229,7 +231,7 @@ export const runUserLifecycleWorkflow = Effect.fn("UserLifecycleWorkflow")(
 				name: "fail-unstarted-user-lifecycle",
 				error: InternalError satisfies DurableSchema,
 				success: Schema.Void satisfies DurableSchema,
-				execute: operations.fail(payload.operationId, failureMessage(started.failure)),
+				execute: operations.fail(payload.operationId, { code: "operation-start-failed" }),
 			}).pipe(Activity.retry({ times: 3 }));
 			return;
 		}
@@ -248,7 +250,7 @@ export const runUserLifecycleWorkflow = Effect.fn("UserLifecycleWorkflow")(
 				name: "fail-user-lifecycle-object-cleanup",
 				error: InternalError satisfies DurableSchema,
 				success: Schema.Void satisfies DurableSchema,
-				execute: operations.fail(payload.operationId, failureMessage(cleaned.failure)),
+				execute: operations.fail(payload.operationId, { code: "object-cleanup-failed" }),
 			}).pipe(Activity.retry({ times: 3 }));
 			return;
 		}
@@ -264,7 +266,7 @@ export const runUserLifecycleWorkflow = Effect.fn("UserLifecycleWorkflow")(
 				name: "fail-user-lifecycle-database-cleanup",
 				error: InternalError satisfies DurableSchema,
 				success: Schema.Void satisfies DurableSchema,
-				execute: operations.fail(payload.operationId, failureMessage(deleted.failure)),
+				execute: operations.fail(payload.operationId, { code: "database-cleanup-failed" }),
 			}).pipe(Activity.retry({ times: 3 }));
 			return;
 		}
@@ -282,7 +284,9 @@ export const runUserLifecycleWorkflow = Effect.fn("UserLifecycleWorkflow")(
 					name: "fail-reset-user-recreation",
 					error: InternalError satisfies DurableSchema,
 					success: Schema.Void satisfies DurableSchema,
-					execute: operations.fail(payload.operationId, failureMessage(recreated.failure)),
+					execute: operations.fail(payload.operationId, {
+						code: "reset-user-recreation-failed",
+					}),
 				}).pipe(Activity.retry({ times: 3 }));
 				return;
 			}
@@ -300,7 +304,9 @@ export const runUserLifecycleWorkflow = Effect.fn("UserLifecycleWorkflow")(
 				name: "fail-user-lifecycle-completion",
 				error: InternalError satisfies DurableSchema,
 				success: Schema.Void satisfies DurableSchema,
-				execute: operations.fail(payload.operationId, failureMessage(completed.failure)),
+				execute: operations.fail(payload.operationId, {
+					code: "operation-completion-failed",
+				}),
 			}).pipe(Activity.retry({ times: 3 }));
 		}
 	},

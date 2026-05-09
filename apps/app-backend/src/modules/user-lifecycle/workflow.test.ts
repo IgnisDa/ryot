@@ -72,6 +72,24 @@ it.effect("retries partial object cleanup before deleting the user", () => {
 	}).pipe(Effect.provide(layer));
 });
 
+it.effect("persists a safe stage failure instead of the internal cause", () => {
+	let persisted: unknown;
+	const layer = runWithOperations({
+		begin: () => Effect.fail(internalError("database password leaked")),
+		cleanupObjects: () => Effect.die("unused"),
+		deleteDatabaseUser: () => Effect.die("unused"),
+		recreateResetUser: () => Effect.die("unused"),
+		complete: () => Effect.die("unused"),
+		fail: (_operationId, failure) => Effect.sync(() => void (persisted = failure)),
+	});
+
+	return Effect.gen(function* () {
+		yield* runUserLifecycleWorkflow({ operationId: "operation-1" }, "execution-1");
+		expect(persisted).toEqual({ code: "operation-start-failed" });
+		expect(persisted).not.toHaveProperty("message");
+	}).pipe(Effect.provide(layer));
+});
+
 it.effect("recreates the same reset identity after cleanup", () => {
 	const calls: string[] = [];
 	const result = { userId, email: "user@example.com", resetUrl: null };
@@ -105,7 +123,7 @@ it.effect(
 			accessRevokedAt: new Date("2026-08-24T00:00:00.000Z"),
 			operation: {
 				userId,
-				error: null,
+				failure: null,
 				finishedAt: null,
 				id: "operation-1",
 				resetResult: null,
@@ -181,7 +199,7 @@ it.effect("keeps a recreated reset user disabled until completion", () => {
 		databaseCleanupCompletedAt: new Date("2026-08-24T00:00:01.000Z"),
 		operation: {
 			userId,
-			error: null,
+			failure: null,
 			finishedAt: null,
 			id: "operation-1",
 			resetResult: null,

@@ -1,8 +1,11 @@
 import type { CurrentUserValue } from "@ryot/contract/auth-middleware";
-import { badRequest, notFound } from "@ryot/contract/errors";
 import type {
 	SearchProviderEntitiesBody,
 	SearchProviderEntitiesResponse,
+} from "@ryot/contract/modules/provider-entities/schemas";
+import {
+	ProviderEntityBadRequest,
+	ProviderEntityNotFound,
 } from "@ryot/contract/modules/provider-entities/schemas";
 import { EntitySchemaSlug } from "@ryot/contract/schema/brands";
 import { materializeAppSchemaChoices } from "@ryot/contract/schema/property-schema";
@@ -25,8 +28,8 @@ import {
 } from "#modules/sandbox/provider-contracts";
 import { SandboxExecutionService } from "#modules/sandbox/service";
 
-const providerNotFound = () => notFound("Provider not found");
-const searchOptionsResolutionError = "Provider search options could not be resolved";
+const providerNotFound = (providerId: SearchProviderEntitiesBody["providerId"]) =>
+	new ProviderEntityNotFound({ reason: { code: "provider-not-found", providerId } });
 const decodeCachedSources = (value: string | null) => {
 	if (value === null) {
 		return null;
@@ -50,7 +53,7 @@ export class ProviderEntitySearchService extends Context.Service<ProviderEntityS
 			) {
 				const provider = yield* pluginRuntime.findActiveProviderById(providerId);
 				if (!provider) {
-					return yield* providerNotFound();
+					return yield* providerNotFound(providerId);
 				}
 
 				const resolved = yield* pluginRuntime.resolveSearchScript(providerId).pipe(
@@ -59,9 +62,11 @@ export class ProviderEntitySearchService extends Context.Service<ProviderEntityS
 							return error;
 						}
 						if (error.reason === "inactive_provider") {
-							return providerNotFound();
+							return providerNotFound(providerId);
 						}
-						return badRequest(`Provider '${provider.name}' does not support search`);
+						return new ProviderEntityBadRequest({
+							reason: { code: "search-unsupported", providerId },
+						});
 					}),
 				);
 				return { provider, resolved };
@@ -88,7 +93,7 @@ export class ProviderEntitySearchService extends Context.Service<ProviderEntityS
 						),
 						Effect.mapError((error) =>
 							error instanceof UnsupportedProviderOperationError
-								? badRequest(searchOptionsResolutionError)
+								? new ProviderEntityBadRequest({ reason: { code: "search-options-unavailable" } })
 								: error,
 						),
 					);
@@ -113,7 +118,9 @@ export class ProviderEntitySearchService extends Context.Service<ProviderEntityS
 				});
 				if (execution.error) {
 					yield* Effect.logError("provider search options execution failed", execution.error);
-					return yield* badRequest(searchOptionsResolutionError);
+					return yield* new ProviderEntityBadRequest({
+						reason: { code: "search-options-unavailable" },
+					});
 				}
 
 				const decoded = Schema.decodeUnknownResult(ProviderSearchOptionsResultSchema)(
@@ -124,7 +131,9 @@ export class ProviderEntitySearchService extends Context.Service<ProviderEntityS
 						"provider search options result could not be decoded",
 						decoded.failure,
 					);
-					return yield* badRequest(searchOptionsResolutionError);
+					return yield* new ProviderEntityBadRequest({
+						reason: { code: "search-options-unavailable" },
+					});
 				}
 				const materialized = materializeAppSchemaChoices(
 					resolved.optionsSchema,
@@ -135,7 +144,9 @@ export class ProviderEntitySearchService extends Context.Service<ProviderEntityS
 						"provider search options result could not be materialized",
 						materialized.failure,
 					);
-					return yield* badRequest(searchOptionsResolutionError);
+					return yield* new ProviderEntityBadRequest({
+						reason: { code: "search-options-unavailable" },
+					});
 				}
 				const encoded = yield* Schema.encodeEffect(
 					Schema.fromJsonString(ProviderSearchOptionsResultSchema),
@@ -152,7 +163,9 @@ export class ProviderEntitySearchService extends Context.Service<ProviderEntityS
 				let options: Record<string, unknown> | undefined;
 				if (resolved.optionsSchema === null) {
 					if (input.options !== undefined) {
-						return yield* badRequest("Provider search options are not supported");
+						return yield* new ProviderEntityBadRequest({
+							reason: { code: "search-options-unsupported", providerId: input.providerId },
+						});
 					}
 				} else if (
 					input.options === undefined &&
@@ -166,10 +179,17 @@ export class ProviderEntitySearchService extends Context.Service<ProviderEntityS
 							: ((yield* resolveSearchOptionsSchema(user, input.providerId)) ??
 								resolved.optionsSchema);
 					options = yield* parseAppSchemaProperties({
+						propertiesSchema: schema,
 						kind: "Provider search options",
 						properties: input.options ?? {},
-						propertiesSchema: schema,
-					}).pipe(Effect.mapError((error) => badRequest(error.message)));
+					}).pipe(
+						Effect.tapError((error) =>
+							Effect.logWarning("invalid provider search options", { issues: error.issues }),
+						),
+						Effect.mapError(
+							() => new ProviderEntityBadRequest({ reason: { code: "invalid-search-options" } }),
+						),
+					);
 				}
 				const execution = yield* sandbox.executeScript({
 					scriptId: resolved.id,
@@ -183,11 +203,13 @@ export class ProviderEntitySearchService extends Context.Service<ProviderEntityS
 					},
 				});
 				if (execution.error) {
-					return yield* badRequest(`${execution.error.phase}: ${execution.error.message}`);
+					yield* Effect.logError("provider search execution failed", execution.error);
+					return yield* new ProviderEntityBadRequest({ reason: { code: "search-failed" } });
 				}
 				const result = yield* decodeProviderSearchResult(execution.value).pipe(
-					Effect.mapError((error) =>
-						badRequest(`Invalid provider search result: ${error.message}`),
+					Effect.tapError((error) => Effect.logError("invalid provider search result", error)),
+					Effect.mapError(
+						() => new ProviderEntityBadRequest({ reason: { code: "invalid-search-result" } }),
 					),
 				);
 				return {

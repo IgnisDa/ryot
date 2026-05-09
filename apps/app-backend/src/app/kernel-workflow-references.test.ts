@@ -219,7 +219,7 @@ it.effect("keeps import handles opaque across the kernel child boundary", () => 
 					importedItems: 0,
 					totalItems: null,
 					processedItems: 0,
-					errorSummary: null,
+					failureReason: null,
 					status: "pending" as const,
 					source: "open_scale" as const,
 					id: ImportRunId.make("run-1"),

@@ -62,10 +62,20 @@ export type AdditionalSandboxHostImplementationMap = Omit<
 	| "claimPersistentValue"
 >;
 
-export const toSandboxHostError = (error: unknown): SandboxHostError =>
-	isObjectRecord(error) && typeof error["message"] === "string"
-		? { ...error, message: error["message"] }
-		: { message: unknownToMessage(error) };
+export const toSandboxHostError = (error: unknown): SandboxHostError => {
+	if (
+		isObjectRecord(error) &&
+		isObjectRecord(error["reason"]) &&
+		typeof error["reason"]["code"] === "string" &&
+		isJsonValue(error["reason"])
+	) {
+		return { message: error["reason"]["code"], data: error["reason"] };
+	}
+	if (isObjectRecord(error) && typeof error["message"] === "string") {
+		return { ...error, message: error["message"] };
+	}
+	return { message: unknownToMessage(error) };
+};
 
 export const sandboxHostFailure = (message: string) => Effect.fail(toSandboxHostError(message));
 

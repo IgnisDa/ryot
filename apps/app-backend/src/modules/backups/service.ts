@@ -1,6 +1,12 @@
 import type { CurrentUserValue } from "@ryot/contract/auth-middleware";
-import { DbError, badRequest, conflict, internalError, notFound } from "@ryot/contract/errors";
-import type { CreateRestoreBody } from "@ryot/contract/modules/backups/schemas";
+import { DbError } from "@ryot/contract/errors";
+import {
+	BackupBadRequest,
+	BackupConflict,
+	BackupInternalError,
+	BackupNotFound,
+	type CreateRestoreBody,
+} from "@ryot/contract/modules/backups/schemas";
 import type { BackupRunId, UserId } from "@ryot/contract/schema/brands";
 import { Context, DateTime, Effect, Layer, Result } from "effect";
 import { WorkflowEngine } from "effect/unstable/workflow/WorkflowEngine";
@@ -16,16 +22,33 @@ const mapDbToInternal = <A, E, R>(effect: Effect.Effect<A, E, R>) =>
 	effect.pipe(
 		Effect.catchIf(
 			(error): error is Extract<E, DbError> => error instanceof DbError,
-			() => Effect.fail(internalError("Backup persistence failed")),
+			(error) =>
+				Effect.logError("backup persistence failed", error).pipe(
+					Effect.andThen(
+						Effect.fail(new BackupInternalError({ reason: { code: "persistence-failed" } })),
+					),
+				),
+		),
+	);
+
+const storageFailure = <A, E, R>(
+	effect: Effect.Effect<A, E, R>,
+	code: "artifact-storage-unavailable" | "artifact-delete-failed",
+) =>
+	effect.pipe(
+		Effect.catchCause((cause) =>
+			Effect.logError("backup artifact storage operation failed", cause).pipe(
+				Effect.andThen(Effect.fail(new BackupInternalError({ reason: { code } }))),
+			),
 		),
 	);
 
 export class BackupsService extends Context.Service<BackupsService>()("BackupsService", {
 	make: Effect.gen(function* () {
 		const engine = yield* WorkflowEngine;
-		const cleanliness = yield* BackupAccountCleanliness;
 		const uploads = yield* ObjectStorageService;
 		const repository = yield* BackupsRepository;
+		const cleanliness = yield* BackupAccountCleanliness;
 
 		const assertAccountIsClean = (userId: UserId) => cleanliness.assertAccountIsClean(userId);
 
@@ -41,14 +64,15 @@ export class BackupsService extends Context.Service<BackupsService>()("BackupsSe
 				})
 				.pipe(Effect.result);
 			if (Result.isFailure(dispatched)) {
+				yield* Effect.logError("backup export dispatch failed", dispatched.failure);
 				yield* mapDbToInternal(
 					repository.failRun({
 						runId: run.id,
 						userId: user.id,
-						error: "Backup export could not be queued",
+						failure: { code: "unexpected-failure", operation: "export" },
 					}),
 				);
-				return yield* internalError("Backup export could not be queued");
+				return yield* new BackupInternalError({ reason: { code: "export-dispatch-failed" } });
 			}
 			return { id: run.id };
 		});
@@ -69,14 +93,15 @@ export class BackupsService extends Context.Service<BackupsService>()("BackupsSe
 				})
 				.pipe(Effect.result);
 			if (Result.isFailure(dispatched)) {
+				yield* Effect.logError("backup restore dispatch failed", dispatched.failure);
 				yield* mapDbToInternal(
 					repository.failRun({
 						runId: run.id,
 						userId: user.id,
-						error: "Backup restore could not be queued",
+						failure: { code: "unexpected-failure", operation: "restore" },
 					}),
 				);
-				return yield* internalError("Backup restore could not be queued");
+				return yield* new BackupInternalError({ reason: { code: "restore-dispatch-failed" } });
 			}
 			return { id: run.id };
 		});
@@ -92,7 +117,7 @@ export class BackupsService extends Context.Service<BackupsService>()("BackupsSe
 			runId: BackupRunId,
 		) {
 			const run = yield* mapDbToInternal(repository.getRunById({ runId, userId: user.id }));
-			return run ?? (yield* notFound("Backup run was not found"));
+			return run ?? (yield* new BackupNotFound({ reason: { code: "run-not-found" } }));
 		});
 
 		const downloadRun = Effect.fn("BackupsService.downloadRun")(function* (
@@ -101,30 +126,32 @@ export class BackupsService extends Context.Service<BackupsService>()("BackupsSe
 		) {
 			const run = yield* getRun(user, runId);
 			if (run.kind !== "export") {
-				return yield* badRequest("Restore runs have no download artifact");
+				return yield* new BackupBadRequest({ reason: { code: "restore-has-no-artifact" } });
 			}
 			if (run.status === "pending" || run.status === "running") {
-				return yield* conflict("Backup export is still running");
+				return yield* new BackupConflict({ reason: { code: "export-still-running" } });
 			}
 			if (run.status !== "completed" || !run.expiresAt) {
-				return yield* badRequest("Backup export has no downloadable artifact");
+				return yield* new BackupBadRequest({ reason: { code: "export-has-no-artifact" } });
 			}
 			if (Date.parse(run.expiresAt) <= (yield* DateTime.nowAsDate).getTime()) {
-				return yield* notFound("Backup export artifact has expired");
+				return yield* new BackupNotFound({ reason: { code: "artifact-expired" } });
 			}
 			const artifact = yield* mapDbToInternal(
 				repository.getArtifactById({ runId, userId: user.id }),
 			);
 			if (!artifact) {
-				return yield* notFound("Backup export artifact was not found");
+				return yield* new BackupNotFound({ reason: { code: "artifact-not-found" } });
 			}
 			const locator = { type: artifact.artifactProvider, key: artifact.artifactKey } as const;
-			const info = yield* uploads
-				.statObject(locator)
-				.pipe(Effect.mapError(() => internalError("Backup export artifact is unavailable")));
-			const stream = yield* uploads
-				.openObject(locator)
-				.pipe(Effect.mapError(() => internalError("Backup export artifact is unavailable")));
+			const info = yield* storageFailure(
+				uploads.statObject(locator),
+				"artifact-storage-unavailable",
+			);
+			const stream = yield* storageFailure(
+				uploads.openObject(locator),
+				"artifact-storage-unavailable",
+			);
 			return { stream, size: info.size, fileName: `ryot-backup-${run.id}.zip` };
 		});
 
@@ -134,22 +161,23 @@ export class BackupsService extends Context.Service<BackupsService>()("BackupsSe
 		) {
 			const run = yield* getRun(user, runId);
 			if (run.status === "pending" || run.status === "running") {
-				return yield* conflict("Pending or running backup runs cannot be deleted");
+				return yield* new BackupConflict({ reason: { code: "run-still-active" } });
 			}
 			const artifact = yield* mapDbToInternal(
 				repository.getArtifactById({ runId, userId: user.id }),
 			);
 			if (artifact) {
-				yield* uploads
-					.deleteObject({ type: artifact.artifactProvider, key: artifact.artifactKey })
-					.pipe(Effect.mapError(() => internalError("Backup artifact could not be deleted")));
+				yield* storageFailure(
+					uploads.deleteObject({ type: artifact.artifactProvider, key: artifact.artifactKey }),
+					"artifact-delete-failed",
+				);
 			}
 			const deleted = yield* mapDbToInternal(repository.deleteRunById({ runId, userId: user.id }));
 			if (!deleted) {
 				const current = yield* mapDbToInternal(repository.getRunById({ runId, userId: user.id }));
 				return yield* current?.status === "pending" || current?.status === "running"
-					? conflict("Pending or running backup runs cannot be deleted")
-					: notFound("Backup run was not found");
+					? new BackupConflict({ reason: { code: "run-still-active" } })
+					: new BackupNotFound({ reason: { code: "run-not-found" } });
 			}
 			return { id: deleted.id };
 		});

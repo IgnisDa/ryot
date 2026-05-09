@@ -81,7 +81,10 @@ statement; per-event reference rewriting and property validation stay per-event.
 
 ## Error fidelity
 
-Both workflows collapse failures into `InternalError` for the run row, but preserve the safe
-originating message: `BadRequest` messages pass through, and `BackupArchiveError` contributes its
-message plus its `reason` code. Archive limit breaches surface as typed stream failures rather than
-defects, so they reach that mapping instead of being flattened into a generic message.
+Both workflows persist structured failure data for the run row. Expected archive and restore
+failures retain the owning module's kebab-case reason code and structured parameters; they are not
+flattened into a generic error or prose message. Archive limit breaches remain typed failures so
+their reason and parameters survive the workflow boundary.
+
+Localized copy is owned by clients and is never persisted. Unexpected causes stay in backend logs;
+raw compiler/runtime diagnostics do not become workflow failure text.
