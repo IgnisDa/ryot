@@ -1,5 +1,6 @@
 import type { paths } from "@ryot/generated/openapi/app-backend";
 import { sortBy } from "@ryot/ts-utils";
+import type { Href } from "expo-router";
 
 type ApiTracker =
 	paths["/trackers"]["get"]["responses"][200]["content"]["application/json"]["data"][number];
@@ -70,4 +71,14 @@ export function buildNavigationItems(trackers: ApiTracker[], views: ApiSavedView
 	}));
 
 	return { trackerItems, libraryViews };
+}
+
+export function navHref(item: NavigationItem): Href {
+	if (item.kind === "home") {
+		return "/";
+	}
+	if (item.kind === "view") {
+		return `/views/${item.slug}` as Href;
+	}
+	return `/tracker/${item.slug}` as Href;
 }

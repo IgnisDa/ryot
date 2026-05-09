@@ -1,7 +1,7 @@
 import { describe, expect, it } from "bun:test";
 
 import type { NavigationItem } from "./navigation-data";
-import { buildNavigationItems, sortByOrderThenName } from "./navigation-data";
+import { buildNavigationItems, navHref, sortByOrderThenName } from "./navigation-data";
 
 // Minimal fixture factories — only the fields the functions under test inspect.
 
@@ -192,5 +192,36 @@ describe("buildNavigationItems", () => {
 		const { trackerItems } = buildNavigationItems([tracker], [v3, view, v2]);
 		const names = trackerItems[0].subItems.map((s) => s.name);
 		expect(names).toEqual(["Audiobooks", "Reading", "Wishlist"]);
+	});
+});
+
+function makeItem(partial: Partial<NavigationItem>): NavigationItem {
+	return {
+		key: "k",
+		name: "Name",
+		icon: "icon",
+		slug: "slug",
+		kind: "home",
+		subItems: [],
+		accentColor: null,
+		...partial,
+	};
+}
+
+describe("navHref", () => {
+	it('returns "/" for home items', () => {
+		expect(navHref(makeItem({ kind: "home" }))).toBe("/");
+	});
+
+	it('returns "/views/<slug>" for view items', () => {
+		expect(navHref(makeItem({ kind: "view", slug: "reading" }))).toBe("/views/reading");
+	});
+
+	it('returns "/tracker/<slug>" for tracker items', () => {
+		expect(navHref(makeItem({ kind: "tracker", slug: "books" }))).toBe("/tracker/books");
+	});
+
+	it('returns "/tracker/<slug>" for user items (falls through to tracker branch)', () => {
+		expect(navHref(makeItem({ kind: "user", slug: "user" }))).toBe("/tracker/user");
 	});
 });
