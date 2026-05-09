@@ -19,6 +19,30 @@ const MEDIA_SCOPE_SLUGS = [
 	"visual-novel",
 ];
 
+const CONTINUE_UNIT_LABELS: Record<string, string> = {
+	book: "pages",
+	show: "episodes",
+	anime: "episodes",
+	manga: "chapters",
+	movie: "percent",
+	music: "seconds",
+	podcast: "episodes",
+	audiobook: "minutes",
+	"comic-book": "pages",
+	"video-game": "percent",
+	"visual-novel": "percent",
+};
+
+const formatNumber = (value: number) => {
+	if (Number.isInteger(value)) {
+		return value.toString();
+	}
+	return value
+		.toFixed(2)
+		.replace(/\.0+$/, "")
+		.replace(/(\.\d*[1-9])0+$/, "$1");
+};
+
 export function useMediaOverviewData() {
 	const apiClient = useApiClient();
 
@@ -36,11 +60,227 @@ export function useMediaOverviewData() {
 	const continueQuery = useQuery({
 		queryKey: ["media", "overview", "continue"],
 		queryFn: async () => {
-			const response = await apiClient.GET("/media/overview/continue");
+			const response = await apiClient.POST("/query-engine/execute", {
+				body: {
+					mode: "entities",
+					scope: MEDIA_SCOPE_SLUGS,
+					relationships: [{ relationshipSchemaSlug: "in-library" }],
+					eventJoins: [
+						{ key: "progress", kind: "latestEvent", eventSchemaSlug: "progress" },
+						{ key: "complete", kind: "latestEvent", eventSchemaSlug: "complete" },
+					],
+					pagination: { page: 1, limit: 6 },
+					sort: {
+						direction: "desc",
+						expression: {
+							type: "reference",
+							reference: { type: "event-join", joinKey: "progress", path: ["createdAt"] },
+						},
+					},
+					filter: {
+						type: "and",
+						predicates: [
+							{
+								type: "isNotNull",
+								expression: {
+									type: "reference",
+									reference: { type: "event-join", joinKey: "progress", path: ["createdAt"] },
+								},
+							},
+							{
+								type: "or",
+								predicates: [
+									{
+										type: "isNull",
+										expression: {
+											type: "reference",
+											reference: { type: "event-join", joinKey: "complete", path: ["createdAt"] },
+										},
+									},
+									{
+										type: "comparison",
+										operator: "gt",
+										left: {
+											type: "reference",
+											reference: { type: "event-join", joinKey: "progress", path: ["createdAt"] },
+										},
+										right: {
+											type: "reference",
+											reference: { type: "event-join", joinKey: "complete", path: ["createdAt"] },
+										},
+									},
+								],
+							},
+						],
+					},
+					fields: [
+						{
+							key: "entityId",
+							expression: {
+								type: "coalesce",
+								values: MEDIA_SCOPE_SLUGS.map((slug) => ({
+									type: "reference" as const,
+									reference: { type: "entity" as const, slug, path: ["id"] },
+								})),
+							},
+						},
+						{
+							key: "entityName",
+							expression: {
+								type: "coalesce",
+								values: MEDIA_SCOPE_SLUGS.map((slug) => ({
+									type: "reference" as const,
+									reference: { type: "entity" as const, slug, path: ["name"] },
+								})),
+							},
+						},
+						{
+							key: "entityImage",
+							expression: {
+								type: "coalesce",
+								values: MEDIA_SCOPE_SLUGS.map((slug) => ({
+									type: "reference" as const,
+									reference: { type: "entity" as const, slug, path: ["image"] },
+								})),
+							},
+						},
+						{
+							key: "entitySchemaSlug",
+							expression: {
+								type: "reference",
+								reference: { type: "entity-schema", path: ["slug"] },
+							},
+						},
+						{
+							key: "totalUnits",
+							expression: {
+								type: "coalesce",
+								values: [
+									{
+										type: "reference",
+										reference: { type: "entity", slug: "book", path: ["properties", "pages"] },
+									},
+									{
+										type: "reference",
+										reference: {
+											type: "entity",
+											slug: "comic-book",
+											path: ["properties", "pages"],
+										},
+									},
+									{
+										type: "reference",
+										reference: { type: "entity", slug: "anime", path: ["properties", "episodes"] },
+									},
+									{
+										type: "reference",
+										reference: { slug: "manga", type: "entity", path: ["properties", "chapters"] },
+									},
+									{
+										type: "reference",
+										reference: {
+											type: "entity",
+											slug: "audiobook",
+											path: ["properties", "runtime"],
+										},
+									},
+									{
+										type: "reference",
+										reference: {
+											type: "entity",
+											slug: "podcast",
+											path: ["properties", "totalEpisodes"],
+										},
+									},
+									{
+										type: "reference",
+										reference: {
+											type: "entity",
+											slug: "music",
+											path: ["properties", "duration"],
+										},
+									},
+								],
+							},
+						},
+						{
+							key: "progressPercent",
+							expression: {
+								type: "reference",
+								reference: {
+									type: "event-join",
+									joinKey: "progress",
+									path: ["properties", "progressPercent"],
+								},
+							},
+						},
+					],
+				},
+			});
 			if (response.error) {
 				throw new Error(JSON.stringify(response.error));
 			}
-			return response.data;
+			const data = response.data.data;
+			if (data.mode !== "entities") {
+				return [];
+			}
+			return data.data.items.flatMap((item) => {
+				const getVal = (key: string) => getQueryEngineField(item, key)?.value;
+
+				const id = getVal("entityId");
+				const title = getVal("entityName");
+				const entitySchemaSlug = getVal("entitySchemaSlug");
+
+				if (
+					typeof id !== "string" ||
+					typeof title !== "string" ||
+					typeof entitySchemaSlug !== "string"
+				) {
+					return [];
+				}
+
+				const totalUnitsRaw = getVal("totalUnits");
+				const totalUnits = typeof totalUnitsRaw === "number" ? totalUnitsRaw : null;
+
+				const progressPercentRaw = getVal("progressPercent");
+				const progressPercent = typeof progressPercentRaw === "number" ? progressPercentRaw : null;
+
+				const currentUnitsRaw =
+					totalUnits !== null && progressPercent !== null
+						? (totalUnits * progressPercent) / 100
+						: null;
+				const currentUnits =
+					currentUnitsRaw === null
+						? null
+						: Number.isInteger(totalUnits)
+							? Math.round(currentUnitsRaw)
+							: Math.round((currentUnitsRaw + Number.EPSILON) * 100) / 100;
+
+				let progressLabel = "In progress";
+				if (currentUnits !== null && totalUnits !== null) {
+					const unitLabel = CONTINUE_UNIT_LABELS[entitySchemaSlug] ?? "units";
+					progressLabel = `${formatNumber(currentUnits)} / ${formatNumber(totalUnits)} ${unitLabel}`;
+				} else if (progressPercent !== null) {
+					progressLabel = `${formatNumber(progressPercent)}% complete`;
+				}
+
+				return [
+					{
+						id,
+						title,
+						entitySchemaSlug,
+						progress: { currentUnits, totalUnits, progressPercent },
+						image: toEntityImage(getQueryEngineField(item, "entityImage")?.value),
+						labels: {
+							progress: progressLabel,
+							cta:
+								entitySchemaSlug === "show" || entitySchemaSlug === "anime"
+									? "Next Episode"
+									: "Log Progress",
+						},
+					},
+				];
+			});
 		},
 	});
 
@@ -406,14 +646,7 @@ export function useMediaOverviewData() {
 		entitySchemaSlug: item.entitySchemaSlug,
 	}));
 
-	const continueItems = (continueQuery.data?.data.items ?? []).map((item) => ({
-		id: item.id,
-		title: item.title,
-		labels: item.labels,
-		progress: item.progress,
-		image: toEntityImage(item.image),
-		entitySchemaSlug: item.entitySchemaSlug,
-	}));
+	const continueItems = continueQuery.data ?? [];
 
 	const rateTheseItems = rateTheseQuery.data ?? [];
 
