@@ -5,6 +5,7 @@ import { afterEach, expect, it } from "vitest";
 
 import movary from "./movary.sandbox";
 import myanimelist from "./myanimelist.sandbox";
+import trakt from "./trakt.sandbox";
 
 const filesystemKey = Symbol.for("@ryot/sandbox-sdk/filesystem");
 const encoder = new TextEncoder();
@@ -68,5 +69,43 @@ it("reads only the supplied optional MyAnimeList named artifact", async () => {
 	expect(result.entityGroups[0]?.entityRef).toMatchObject({
 		externalId: "202",
 		providerSlug: "manga.myanimelist",
+	});
+});
+
+it("imports a Trakt ZIP without reading plugin configuration", async () => {
+	const keys: string[] = [];
+	const archive = Buffer.from(
+		"UEsDBBQAAAAIAC26Fl2/0MDqWQAAAGMAAAAUAAAAd2F0Y2hlZC1oaXN0b3J5Lmpzb26LrlYqTyxJzkhNiU8sUbJSMjIwMtE1MASiEAMDKzCKUtJRys0vy0xVsqpWKsksyQEylByLijLLEnOAUpkpxWCJosRsoAGGOkoluSlJSlbGRpYWZqa1tbWxAFBLAwQUAAAACAAtuhZdwFZCFjwAAAA/AAAAFAAAAGxpc3RzLXdhdGNobGlzdC5qc29ui65Wys0vy0xVsqpWKsksyQEylByLijLLEnOUdJQyU4rBEkWJ2SVKVoY6SiW5KUlKVsZGlhZmprW1tbEAUEsBAhQAFAAAAAgALboWXb/QwOpZAAAAYwAAABQAAAAAAAAAAAAAAAAAAAAAAHdhdGNoZWQtaGlzdG9yeS5qc29uUEsBAhQAFAAAAAgALboWXcBWQhY8AAAAPwAAABQAAAAAAAAAAAAAAAAAiwAAAGxpc3RzLXdhdGNobGlzdC5qc29uUEsFBgAAAAACAAIAhAAAAPkAAAAAAA==",
+		"base64",
+	);
+	Reflect.set(globalThis, filesystemKey, {
+		readArtifact: () => Promise.reject(new Error("single artifact must not be read")),
+		readNamedArtifact: (key: string) => {
+			keys.push(key);
+			return Promise.resolve(archive);
+		},
+		writeScratchChunks: () => Promise.resolve(),
+	});
+	const result = await Effect.runPromise(
+		trakt.run(
+			{ start: 0, limit: 25, mode: "export", hasExportFile: true },
+			{
+				getPluginConfig: () => Effect.die("plugin config must not be read"),
+				httpCall: () => Effect.die("HTTP must not be called"),
+			} satisfies SandboxHost<["artifact-read", "httpCall", "getPluginConfig"]>,
+			execution,
+		),
+	);
+	expect(keys).toEqual(["exportFilePath"]);
+	expect(result).toMatchObject({
+		failures: [],
+		totalItems: 2,
+		entityGroups: [
+			{
+				events: [{ eventSchemaSlug: "complete" }],
+				collectionMemberships: [{ collectionName: "Watchlist" }],
+				entityRef: { externalId: "329865", providerSlug: "movie.tmdb" },
+			},
+		],
 	});
 });

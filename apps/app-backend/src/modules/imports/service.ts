@@ -307,7 +307,7 @@ export class ImportsService extends Context.Service<ImportsService>()("ImportsSe
 			const inputSummary = buildImportInputSummary(body, registered);
 			const sourceFileInputs = registryImportSourceFileInputs(registered, body);
 
-			return sourceFileInputs.length > 0
+			return sourceFileInputs.some(({ uploadToken }) => uploadToken !== undefined)
 				? yield* startFileImportRun(
 						user,
 						body,

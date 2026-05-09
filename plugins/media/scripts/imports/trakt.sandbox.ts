@@ -1,9 +1,14 @@
 import { defineManifest, defineScript } from "@ryot/sandbox-sdk/driver";
 import { Effect } from "@ryot/sandbox-sdk/effect";
+import { unzipSync } from "@ryot/sandbox-sdk/fflate";
+import { readNamedArtifact } from "@ryot/sandbox-sdk/filesystem";
 
 import { batchMediaImportResult } from "../../imports/helpers";
 import { MediaImportAdapterBatch, TraktImportParserInput } from "../../imports/schemas";
-import { adaptTraktData } from "../../imports/trakt";
+import { adaptTraktData, adaptTraktExport, classifyTraktExportName } from "../../imports/trakt";
+
+const MAX_ENTRY_BYTES = 16 * 1024 * 1024;
+const MAX_TOTAL_BYTES = 256 * 1024 * 1024;
 
 export const manifest = defineManifest({
 	kind: "script",
@@ -11,7 +16,7 @@ export const manifest = defineManifest({
 	name: "Fetch Trakt import",
 	requiredSystemConfigKeys: [],
 	requiredPluginConfigKeys: ["traktClientId"],
-	capabilities: ["httpCall", "getPluginConfig"],
+	capabilities: ["artifact-read", "httpCall", "getPluginConfig"],
 });
 
 export default defineScript({
@@ -20,6 +25,34 @@ export default defineScript({
 	output: MediaImportAdapterBatch,
 	run: (input, host) =>
 		Effect.gen(function* () {
+			if (input.mode === "export") {
+				let totalBytes = 0;
+				const archive = unzipSync(yield* readNamedArtifact("exportFilePath"), {
+					filter: (file) => {
+						if (!classifyTraktExportName(file.name)) {
+							return false;
+						}
+						if (file.originalSize > MAX_ENTRY_BYTES) {
+							throw new Error(`Trakt export entry ${file.name} exceeds decompressed size limit`);
+						}
+						totalBytes += file.originalSize;
+						if (totalBytes > MAX_TOTAL_BYTES) {
+							throw new Error("Trakt export exceeds total decompressed size limit");
+						}
+						return true;
+					},
+				});
+				const actualEntries = Object.entries(archive);
+				if (actualEntries.some(([, bytes]) => bytes.byteLength > MAX_ENTRY_BYTES)) {
+					throw new Error("Trakt export entry exceeds decompressed size limit");
+				}
+				if (
+					actualEntries.reduce((total, [, bytes]) => total + bytes.byteLength, 0) > MAX_TOTAL_BYTES
+				) {
+					throw new Error("Trakt export exceeds total decompressed size limit");
+				}
+				return batchMediaImportResult(adaptTraktExport(archive), input.start, input.limit);
+			}
 			const { traktClientId: clientId } = yield* host.getPluginConfig(["traktClientId"]);
 			if (typeof clientId !== "string" || !clientId) {
 				throw new Error("Trakt importer is not configured. Set RYOT_PLUGIN_MEDIA_TRAKT_CLIENT_ID.");
