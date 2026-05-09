@@ -43,8 +43,12 @@ export const mapShowEpisodes = (
 	if (state.status !== "ready") {
 		return state;
 	}
-	const [first, ...rest] = orderShowSeasons(state.value?.seasons.items ?? []);
-	return first === undefined ? { status: "empty" } : { status: "ready", seasons: [first, ...rest] };
+	const seasons = orderShowSeasons(state.value?.seasons.items ?? []);
+	if (seasons.length === 0) {
+		return { status: "empty" };
+	}
+	const [first, ...rest] = seasons;
+	return { status: "ready", seasons: [first, ...rest] };
 };
 
 export const showEpisodesError = (state: { readonly status: "transport-error" | "malformed" }) => ({
