@@ -49,11 +49,212 @@ export function useMediaOverviewData() {
 	const upNextQuery = useQuery({
 		queryKey: ["media", "overview", "up-next"],
 		queryFn: async () => {
-			const response = await apiClient.GET("/media/overview/up-next");
+			const response = await apiClient.POST("/query-engine/execute", {
+				body: {
+					mode: "entities",
+					scope: MEDIA_SCOPE_SLUGS,
+					relationships: [{ relationshipSchemaSlug: "in-library" }],
+					eventJoins: [
+						{ key: "backlog", kind: "latestEvent", eventSchemaSlug: "backlog" },
+						{ key: "progress", kind: "latestEvent", eventSchemaSlug: "progress" },
+						{ key: "complete", kind: "latestEvent", eventSchemaSlug: "complete" },
+					],
+					pagination: { page: 1, limit: 6 },
+					sort: {
+						direction: "desc",
+						expression: {
+							type: "reference",
+							reference: { type: "event-join", joinKey: "backlog", path: ["createdAt"] },
+						},
+					},
+					filter: {
+						type: "and",
+						predicates: [
+							{
+								type: "isNotNull",
+								expression: {
+									type: "reference",
+									reference: { type: "event-join", joinKey: "backlog", path: ["createdAt"] },
+								},
+							},
+							{
+								type: "or",
+								predicates: [
+									{
+										type: "isNull",
+										expression: {
+											type: "reference",
+											reference: {
+												type: "event-join",
+												joinKey: "progress",
+												path: ["createdAt"],
+											},
+										},
+									},
+									{
+										type: "comparison",
+										operator: "gt",
+										left: {
+											type: "reference",
+											reference: {
+												type: "event-join",
+												joinKey: "backlog",
+												path: ["createdAt"],
+											},
+										},
+										right: {
+											type: "reference",
+											reference: {
+												type: "event-join",
+												joinKey: "progress",
+												path: ["createdAt"],
+											},
+										},
+									},
+								],
+							},
+							{
+								type: "or",
+								predicates: [
+									{
+										type: "isNull",
+										expression: {
+											type: "reference",
+											reference: {
+												type: "event-join",
+												joinKey: "complete",
+												path: ["createdAt"],
+											},
+										},
+									},
+									{
+										type: "comparison",
+										operator: "gt",
+										left: {
+											type: "reference",
+											reference: {
+												type: "event-join",
+												joinKey: "backlog",
+												path: ["createdAt"],
+											},
+										},
+										right: {
+											type: "reference",
+											reference: {
+												type: "event-join",
+												joinKey: "complete",
+												path: ["createdAt"],
+											},
+										},
+									},
+								],
+							},
+						],
+					},
+					fields: [
+						{
+							key: "entityId",
+							expression: {
+								type: "coalesce",
+								values: MEDIA_SCOPE_SLUGS.map((slug) => ({
+									type: "reference" as const,
+									reference: { type: "entity" as const, slug, path: ["id"] },
+								})),
+							},
+						},
+						{
+							key: "entityName",
+							expression: {
+								type: "coalesce",
+								values: MEDIA_SCOPE_SLUGS.map((slug) => ({
+									type: "reference" as const,
+									reference: { type: "entity" as const, slug, path: ["name"] },
+								})),
+							},
+						},
+						{
+							key: "entityImage",
+							expression: {
+								type: "coalesce",
+								values: MEDIA_SCOPE_SLUGS.map((slug) => ({
+									type: "reference" as const,
+									reference: { type: "entity" as const, slug, path: ["image"] },
+								})),
+							},
+						},
+						{
+							key: "entitySchemaSlug",
+							expression: {
+								type: "reference",
+								reference: { type: "entity-schema", path: ["slug"] },
+							},
+						},
+						{
+							key: "publishYear",
+							expression: {
+								type: "coalesce",
+								values: [
+									"book",
+									"show",
+									"movie",
+									"anime",
+									"manga",
+									"music",
+									"podcast",
+									"audiobook",
+									"comic-book",
+								].map((slug) => ({
+									type: "reference" as const,
+									reference: {
+										type: "entity" as const,
+										slug,
+										path: ["properties", "publishYear"],
+									},
+								})),
+							},
+						},
+					],
+				},
+			});
 			if (response.error) {
 				throw new Error(JSON.stringify(response.error));
 			}
-			return response.data;
+			const data = response.data.data;
+			if (data.mode !== "entities") {
+				return [];
+			}
+			return data.data.items.flatMap((item) => {
+				const getVal = (key: string) => getQueryEngineField(item, key)?.value;
+
+				const id = getVal("entityId");
+				const title = getVal("entityName");
+				const entitySchemaSlug = getVal("entitySchemaSlug");
+
+				if (
+					typeof id !== "string" ||
+					typeof title !== "string" ||
+					typeof entitySchemaSlug !== "string"
+				) {
+					return [];
+				}
+
+				const publishYearRaw = getVal("publishYear");
+				const publishYear = typeof publishYearRaw === "number" ? publishYearRaw : null;
+
+				return [
+					{
+						id,
+						title,
+						entitySchemaSlug,
+						image: toEntityImage(getQueryEngineField(item, "entityImage")?.value),
+						labels: { cta: "Start" as const },
+						subtitle: {
+							raw: publishYear,
+							label: publishYear === null ? null : publishYear.toString(),
+						},
+					},
+				];
+			});
 		},
 	});
 
@@ -637,14 +838,7 @@ export function useMediaOverviewData() {
 		},
 	});
 
-	const upNextItems = (upNextQuery.data?.data.items ?? []).map((item) => ({
-		id: item.id,
-		title: item.title,
-		labels: item.labels,
-		subtitle: item.subtitle,
-		image: toEntityImage(item.image),
-		entitySchemaSlug: item.entitySchemaSlug,
-	}));
+	const upNextItems = upNextQuery.data ?? [];
 
 	const continueItems = continueQuery.data ?? [];
 
