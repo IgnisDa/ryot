@@ -16,7 +16,6 @@ import { SandboxExecutionQueue } from "#modules/sandbox/durable-queues";
 
 const builtinExercisePageSize = 100;
 const builtinExerciseExpectedCount = 873;
-const systemEntityImportUserId = "system_entity_import";
 const builtinExerciseScriptSlug = "exercise.free-exercise-db";
 
 class BuiltinEntityPreloadError extends Schema.TaggedError<BuiltinEntityPreloadError>()(
@@ -109,10 +108,10 @@ const runBuiltinExercisePreload = (payload: typeof BuiltinExercisePreloadPayload
 			context: Record<string, unknown>;
 		}) =>
 			DurableQueue.process(SandboxExecutionQueue, {
+				userId: null,
 				context: input.context,
 				driverName: input.driverName,
 				executionId: input.executionId,
-				userId: systemEntityImportUserId,
 				scriptId: payload.sandboxScriptId,
 			}).pipe(
 				Effect.mapError((error) => new BuiltinEntityPreloadError({ message: error.message })),
