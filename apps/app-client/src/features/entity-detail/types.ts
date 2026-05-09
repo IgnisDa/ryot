@@ -1,6 +1,6 @@
 import type { EntityImage } from "@/lib/entity-image";
 
-export type UnlinkedCreator = { name: string; role: string; image?: string };
+export type UnlinkedCreator = { id?: string; name: string; role: string; image?: string };
 
 type CommonBase = {
 	id: string;
@@ -11,22 +11,20 @@ type CommonBase = {
 	sourceUrl: string | null;
 	description: string | null;
 	publishYear: number | null;
-	collections: string[] | null;
 	providerRating: number | null;
 	productionStatus: string | null;
+	unlinkedCreators: UnlinkedCreator[];
 };
 
 export type BookDetail = CommonBase & {
 	pages: number | null;
 	entitySchemaSlug: "book";
-	unlinkedCreators: UnlinkedCreator[];
 	isCompilation: boolean | null;
 };
 
 export type MovieDetail = CommonBase & {
 	runtime: number | null;
 	entitySchemaSlug: "movie";
-	unlinkedCreators: UnlinkedCreator[];
 };
 
 export type ShowEpisode = {
@@ -48,7 +46,6 @@ export type ShowSeason = {
 export type ShowDetail = CommonBase & {
 	entitySchemaSlug: "show";
 	showSeasons: ShowSeason[];
-	unlinkedCreators: UnlinkedCreator[];
 };
 
 export type AnimeDetail = CommonBase & {
@@ -70,7 +67,6 @@ export type ComicBookDetail = CommonBase & {
 
 export type AudiobookDetail = CommonBase & {
 	runtime: number | null;
-	unlinkedCreators: UnlinkedCreator[];
 	entitySchemaSlug: "audiobook";
 };
 
@@ -85,7 +81,6 @@ export type PodcastEpisode = {
 
 export type PodcastDetail = CommonBase & {
 	episodes: PodcastEpisode[];
-	unlinkedCreators: UnlinkedCreator[];
 	entitySchemaSlug: "podcast";
 	totalEpisodes: number | null;
 };
@@ -123,5 +118,3 @@ export type EntityDetail =
 	| AudiobookDetail
 	| VideoGameDetail
 	| VisualNovelDetail;
-
-export type EntitySchemaSlug = EntityDetail["entitySchemaSlug"];
