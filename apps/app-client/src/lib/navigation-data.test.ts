@@ -17,7 +17,8 @@ function makeTracker(partial: {
 	sortOrder: number;
 	isDisabled: boolean;
 }): TrackerFixture {
-	return partial as TrackerFixture;
+	// oxlint-disable-next-line typescript-eslint/no-unsafe-type-assertion
+	return partial as unknown as TrackerFixture;
 }
 
 function makeView(partial: {
@@ -30,7 +31,8 @@ function makeView(partial: {
 	isDisabled: boolean;
 	trackerId: string | null;
 }): ViewFixture {
-	return partial as ViewFixture;
+	// oxlint-disable-next-line typescript-eslint/no-unsafe-type-assertion
+	return partial as unknown as ViewFixture;
 }
 
 describe("sortByOrderThenName", () => {

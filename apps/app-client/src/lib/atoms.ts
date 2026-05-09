@@ -45,7 +45,7 @@ const nativeStorage = {
 };
 
 const authClientAtom = atom((get) => {
-	const serverUrl = (get(serverUrlAtom) ?? CLOUD_URL) as string;
+	const serverUrl = get(serverUrlAtom) ?? CLOUD_URL;
 	const plugins =
 		Platform.OS !== "web"
 			? [expoClient({ storagePrefix: STORAGE_PREFIX, storage: nativeStorage }), apiKeyClient()]
@@ -64,8 +64,8 @@ export function useUser() {
 }
 
 export function clearAppStorage() {
-	SecureStore.deleteItemAsync(AUTH_COOKIE_KEY);
-	SecureStore.deleteItemAsync(AUTH_SESSION_KEY);
+	void SecureStore.deleteItemAsync(AUTH_COOKIE_KEY);
+	void SecureStore.deleteItemAsync(AUTH_SESSION_KEY);
 	if (mmkv) {
 		mmkv.clearAll();
 	} else {

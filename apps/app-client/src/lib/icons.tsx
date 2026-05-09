@@ -48,7 +48,7 @@ type IconComponent = ComponentType<{
 	strokeWidth?: number;
 }>;
 
-const iconRegistry: Record<string, IconComponent> = {
+const iconRegistry: Partial<Record<string, IconComponent>> = {
 	tv: Tv,
 	zap: Zap,
 	car: Car,
