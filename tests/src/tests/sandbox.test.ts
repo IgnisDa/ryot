@@ -30,7 +30,7 @@ beforeAll(async () => {
 });
 
 afterAll(() => {
-	httpServer.stop(true);
+	void httpServer.stop(true);
 });
 
 describe("sandbox async flow", () => {
