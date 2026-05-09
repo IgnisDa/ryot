@@ -1,8 +1,10 @@
-{
-	"useTabs": true,
-	"sortImports": true,
-	"$schema": "./node_modules/oxfmt/configuration_schema.json",
-	"ignorePatterns": [
+import { defineConfig } from "oxfmt";
+
+export default defineConfig({
+	useTabs: true,
+	sortImports: true,
+	$schema: "./node_modules/oxfmt/configuration_schema.json",
+	ignorePatterns: [
 		"**/tmp/**",
 		"**/out/**",
 		"**/ios/**",
@@ -16,6 +18,6 @@
 		"apps/frontend/app/styles/*.css",
 		"apps/app-frontend/src/routeTree.gen.ts",
 		"apps/docs/src/includes/export-schema.ts",
-		"libs/generated/src/openapi/app-backend.d.ts"
-	]
-}
+		"libs/generated/src/openapi/app-backend.d.ts",
+	],
+});
