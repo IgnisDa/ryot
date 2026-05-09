@@ -153,28 +153,26 @@ export const makeRuntimeSandboxApiFunctions: Effect.Effect<
 					key.trim(),
 				);
 
-				return redis
-					.get(redisKey)
-					.pipe(
-						Effect.flatMap((cached) => {
-							if (cached === null) {
-								return Effect.succeed(null);
-							}
-							const valueError = sandboxCacheValueError("getCachedValue", cached, "stored value");
-							if (valueError) {
-								return Effect.fail(valueError);
-							}
-							return Schema.decodeUnknownEffect(Schema.fromJsonString(Schema.Unknown))(cached).pipe(
-								Effect.flatMap((value) =>
-									isJsonValue(value)
-										? Effect.succeed(value)
-										: Effect.fail("getCachedValue: stored value is not valid JSON"),
-								),
-								Effect.mapError(() => "getCachedValue: stored value is not valid JSON"),
-							);
-						}),
-					)
-					.pipe(sandboxHostEffect);
+				return redis.get(redisKey).pipe(
+					Effect.flatMap((cached) => {
+						if (cached === null) {
+							return Effect.succeed(null);
+						}
+						const valueError = sandboxCacheValueError("getCachedValue", cached, "stored value");
+						if (valueError) {
+							return Effect.fail(valueError);
+						}
+						return Schema.decodeUnknownEffect(Schema.fromJsonString(Schema.Unknown))(cached).pipe(
+							Effect.flatMap((value) =>
+								isJsonValue(value)
+									? Effect.succeed(value)
+									: Effect.fail("getCachedValue: stored value is not valid JSON"),
+							),
+							Effect.mapError(() => "getCachedValue: stored value is not valid JSON"),
+						);
+					}),
+					sandboxHostEffect,
+				);
 			});
 		},
 		httpCall: (_input, method, url, options) => {

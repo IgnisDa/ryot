@@ -6,11 +6,7 @@ import {
 import { hostFailure, hostSuccess, type SandboxHostError } from "@ryot/sandbox-sdk/wire";
 import { Effect, Schema, SchemaIssue } from "effect";
 
-import {
-	type BoundHostFunction,
-	type SandboxHostImplementationMap,
-	type SandboxRunInput,
-} from "./shared";
+import type { BoundHostFunction, SandboxHostImplementationMap, SandboxRunInput } from "./shared";
 
 type HostFailure = ReturnType<typeof hostFailure>;
 
