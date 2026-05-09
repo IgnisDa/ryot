@@ -24,9 +24,8 @@ import {
 	sandboxRunUserId,
 	type SandboxHostImplementationMap,
 } from "./shared";
-import { readSandboxByteLimitedStream } from "./stream-utils";
+import { readSandboxByteLimitedText } from "./stream-utils";
 
-const decoder = new TextDecoder();
 type BunRequestInit = RequestInit & { tls: { rejectUnauthorized: boolean } };
 const insecureRequestInit: BunRequestInit = { tls: { rejectUnauthorized: false } };
 const defaultHeaders = { "User-Agent": "Ryot ( https://github.com/ignisda/ryot )" };
@@ -37,11 +36,11 @@ export type RuntimeSandboxHostImplementationMap = Pick<
 >;
 
 export const readSandboxHttpResponseText = (response: HttpClientResponse.HttpClientResponse) =>
-	readSandboxByteLimitedStream(
+	readSandboxByteLimitedText(
 		response.stream,
 		SANDBOX_LIMITS.http.responseBytes,
 		`httpCall response body exceeds ${SANDBOX_LIMITS.http.responseBytes} bytes`,
-	).pipe(Effect.map((body) => decoder.decode(body)));
+	);
 
 const sandboxCacheInputError = (fnName: string, key: unknown, ttl?: unknown, ttlLabel?: string) => {
 	const keyError = sandboxCacheKeyError(fnName, key);
