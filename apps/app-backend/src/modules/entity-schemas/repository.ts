@@ -25,10 +25,6 @@ export type ListedEntitySchemaWithMetadata = Omit<ListedEntitySchema, "providers
 	providers: ProviderWithMetadata[];
 };
 
-type EntitySchemaRow = Omit<ListedEntitySchemaWithMetadata, "propertiesSchema"> & {
-	propertiesSchema: unknown;
-};
-
 const listedEntitySchemaSelection = {
 	id: entitySchema.id,
 	name: entitySchema.name,
@@ -57,16 +53,8 @@ const createdEntitySchemaSelection = {
 	propertiesSchema: entitySchema.propertiesSchema,
 };
 
-const toListedEntitySchemaWithMetadata = (
-	row: EntitySchemaRow,
-): ListedEntitySchemaWithMetadata => ({
-	...row,
-	// oxlint-disable-next-line no-unsafe-type-assertion
-	propertiesSchema: row.propertiesSchema as EntitySchemaPropertiesShape,
-});
-
-const toListedEntitySchema = (row: EntitySchemaRow): ListedEntitySchema => {
-	const { providers, ...rest } = toListedEntitySchemaWithMetadata(row);
+const toListedEntitySchema = (row: ListedEntitySchemaWithMetadata): ListedEntitySchema => {
+	const { providers, ...rest } = row;
 	return {
 		...rest,
 		providers: providers.map(({ scriptMetadata: _m, ...p }) => p),
@@ -101,7 +89,7 @@ export const listEntitySchemasForUser = async (input: {
 		.where(and(...whereClauses))
 		.orderBy(asc(entitySchema.name), asc(entitySchema.createdAt));
 
-	const schemaMap = new Map<string, { entry: EntitySchemaRow; seen: Set<string> }>();
+	const schemaMap = new Map<string, { entry: ListedEntitySchemaWithMetadata; seen: Set<string> }>();
 	for (const row of rows) {
 		const schemaKey = `${row.id}::${row.trackerId}`;
 		let record = schemaMap.get(schemaKey);
@@ -120,7 +108,7 @@ export const listEntitySchemasForUser = async (input: {
 			}
 		}
 	}
-	return Array.from(schemaMap.values()).map(({ entry }) => toListedEntitySchemaWithMetadata(entry));
+	return Array.from(schemaMap.values()).map(({ entry }) => entry);
 };
 
 export const getEntitySchemaByIdForUser = async (input: {
@@ -161,7 +149,8 @@ export const getEntitySchemaByIdForUser = async (input: {
 			}
 		}
 	}
-	return toListedEntitySchemaWithMetadata({ ...baseRow, providers });
+	const { scriptId: _si, scriptName: _sn, scriptMetadata: _sm, ...baseFields } = baseRow;
+	return { ...baseFields, providers };
 };
 
 export const getEntitySchemaBySlugForUser = async (input: { slug: string; userId: string }) => {
