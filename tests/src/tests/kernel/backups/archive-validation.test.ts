@@ -110,9 +110,10 @@ describe("V1 backup archive validation", () => {
 
 			const failed = yield* restoreBackup(client, zipSync({ ...entries, "profile.json": profile }));
 			expect(failed.run.status).toBe("failed");
-			if (failed.run.error !== null) {
-				expect(failed.run.error).toContain("Section checksum mismatch");
-			}
+			expect(failed.run.failure).toEqual({
+				code: "archive-invalid",
+				issue: "checksum-mismatch",
+			});
 			expect(yield* inspectAccount(yield* refreshedClient(email))).toEqual(before);
 
 			const restored = yield* restoreBackup(client, zipSync(entries));

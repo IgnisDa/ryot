@@ -28,7 +28,9 @@ describe("backup lifecycle", () => {
 			const runId = yield* startBackupExport(owner.client);
 			const completed = yield* pollBackupRunUntilTerminal(owner.client, runId);
 			if (completed.status !== "completed") {
-				throw new Error(`Backup export '${runId}' failed: ${completed.error ?? "unknown error"}`);
+				throw new Error(
+					`Backup export '${runId}' failed with ${completed.failure?.code ?? "unknown"}`,
+				);
 			}
 
 			const fetched = yield* owner.client.call((c) =>
@@ -40,9 +42,9 @@ describe("backup lifecycle", () => {
 			expect(listed.items.find(({ id }) => id === runId)).toEqual(completed);
 			expect(completed).toMatchObject({
 				id: runId,
-				error: null,
-				kind: "export",
+				failure: null,
 				progress: 100,
+				kind: "export",
 			});
 			expect(["local", "s3"]).toContain(completed.artifactProvider);
 			for (const timestamp of [
@@ -68,8 +70,10 @@ describe("backup lifecycle", () => {
 			const deleteError = yield* Effect.flip(
 				other.client.call((c) => c.backups.deleteRun({ params: { id: BackupRunId.make(runId) } })),
 			);
-			assertTaggedError(getError, "NotFound");
-			assertTaggedError(deleteError, "NotFound");
+			assertTaggedError(getError, "BackupNotFound");
+			assertTaggedError(deleteError, "BackupNotFound");
+			expect(getError.reason).toEqual({ code: "run-not-found" });
+			expect(deleteError.reason).toEqual({ code: "run-not-found" });
 
 			const otherDownload = yield* Effect.promise(() =>
 				fetch(`${getBackendUrl()}/backups/runs/${runId}/download`, {
@@ -90,7 +94,8 @@ describe("backup lifecycle", () => {
 			const deletedError = yield* Effect.flip(
 				owner.client.call((c) => c.backups.getRun({ params: { id: BackupRunId.make(runId) } })),
 			);
-			assertTaggedError(deletedError, "NotFound");
+			assertTaggedError(deletedError, "BackupNotFound");
+			expect(deletedError.reason).toEqual({ code: "run-not-found" });
 			expect(
 				(yield* owner.client.call((c) => c.backups.listRuns({}))).items.some(
 					({ id }) => id === runId,
@@ -163,7 +168,7 @@ describe("backup lifecycle", () => {
 					c.uploads.resolveDownloads({ payload: { assets: [sourceLocator] } }),
 				),
 			);
-			assertTaggedError(sourceOwnershipError, "BadRequest");
+			assertTaggedError(sourceOwnershipError, "UploadBadRequest");
 
 			const { bytes: archive } = yield* exportAndDownloadBackup(source.client, source.cookies);
 			yield* deleteUserAndWait(source.userId);
@@ -172,7 +177,7 @@ describe("backup lifecycle", () => {
 			const restore = yield* restoreBackup(target.client, archive);
 			if (restore.run.status !== "completed") {
 				throw new Error(
-					`Backup restore '${restore.id}' failed: ${restore.run.error ?? "unknown error"}`,
+					`Backup restore '${restore.id}' failed with ${restore.run.failure?.code ?? "unknown"}`,
 				);
 			}
 			const restoredEntity = yield* getEntity(target.client, sourceEntity.id);
@@ -195,7 +200,7 @@ describe("backup lifecycle", () => {
 					c.uploads.resolveDownloads({ payload: { assets: [targetLocator] } }),
 				),
 			);
-			assertTaggedError(targetOwnershipError, "BadRequest");
+			assertTaggedError(targetOwnershipError, "UploadBadRequest");
 			const resolved = yield* target.client.call((c) =>
 				c.uploads.resolveDownloads({ payload: { assets: [targetLocator] } }),
 			);

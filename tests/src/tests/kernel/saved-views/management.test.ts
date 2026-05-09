@@ -148,8 +148,10 @@ describe("saved views management", () => {
 				client.call((c) => c.savedViews.delete({ params: { viewSlug: builtinView.slug } })),
 			);
 
-			expect(error).toMatchObject({ _tag: "BadRequest" });
-			expect(error.message).toBe("Cannot modify built-in saved views");
+			expect(error).toMatchObject({
+				_tag: "SavedViewBadRequest",
+				reason: { code: "builtin-view-immutable", viewSlug: builtinView.slug },
+			});
 		}),
 	);
 
@@ -169,7 +171,10 @@ describe("saved views management", () => {
 					}),
 				),
 			);
-			expect(invalidUpdateError).toMatchObject({ _tag: "BadRequest" });
+			expect(invalidUpdateError).toMatchObject({
+				_tag: "SavedViewBadRequest",
+				reason: { code: "builtin-view-immutable", viewSlug: builtinView.slug },
+			});
 
 			const disabledView = yield* client.call((c) =>
 				c.savedViews.update({

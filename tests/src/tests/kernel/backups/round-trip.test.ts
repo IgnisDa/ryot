@@ -377,8 +377,8 @@ describe("backup export and restore round trip", () => {
 			});
 
 			const rejected = yield* Effect.flip(restoreBackup(target.client, bytes));
-			assertTaggedError(rejected, "Conflict");
-			expect(rejected.message).toContain("Account is not clean");
+			assertTaggedError(rejected, "BackupConflict");
+			expect(rejected.reason).toEqual({ code: "account-not-clean", category: "events" });
 		}),
 	);
 

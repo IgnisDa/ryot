@@ -33,15 +33,18 @@ describe("plugin integration ownership", () => {
 				}),
 				({ id }) =>
 					deleteIntegration(client, id).pipe(
-						Effect.catchTag("NotFound", () => Effect.void),
+						Effect.catchTag("IntegrationNotFoundError", () => Effect.void),
 						Effect.asVoid,
 						Effect.orDie,
 					),
 			);
 
 			const conflict = yield* Effect.flip(uninstallTestPluginStrict(plugin));
-			assertTaggedError(conflict, "Conflict");
-			expect(conflict.message).toContain("integrations reference it");
+			assertTaggedError(conflict, "PluginConflictError");
+			expect(conflict.reason).toEqual({
+				pluginSlug: plugin.pluginSlug,
+				code: "integration-referenced",
+			});
 
 			yield* deleteIntegration(client, created.id);
 			yield* uninstallTestPluginStrict(plugin);
