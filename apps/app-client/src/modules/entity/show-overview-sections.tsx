@@ -86,37 +86,45 @@ export function ShowPeopleSection(props: {
 					const roles = showRolesLabel(person.roles);
 					const character = showCharacterLabel(person.character);
 					return (
-						<View key={person.id} className="w-24 gap-2.5 md:w-28">
-							<ShowAssetImage
-								shape="circle"
-								className="aspect-square w-full"
-								asset={showPersonAsset(person)}
-							/>
-							<View className="gap-1">
-								<Text
-									numberOfLines={2}
-									className="text-center font-ui-medium text-[13px] leading-4.5 text-text"
-								>
-									{person.name}
-								</Text>
-								{roles === undefined ? null : (
+						<Link asChild key={person.id} href={getEntityHref(person.id)}>
+							<Pressable
+								accessibilityRole="link"
+								accessibilityLabel={`Open ${person.name}`}
+								className="w-24 gap-2.5 rounded-lg focus-visible:outline-2 focus-visible:outline-accent md:w-28"
+							>
+								<Link.AppleZoom>
+									<ShowAssetImage
+										shape="circle"
+										asset={showPersonAsset(person)}
+										className="aspect-square w-full"
+									/>
+								</Link.AppleZoom>
+								<View className="gap-1">
 									<Text
-										numberOfLines={1}
-										className="text-center font-ui text-[11px] leading-3.75 text-text-subtle"
+										numberOfLines={2}
+										className="text-center font-ui-medium text-[13px] leading-4.5 text-text"
 									>
-										{roles}
+										{person.name}
 									</Text>
-								)}
-								{character === undefined ? null : (
-									<Text
-										numberOfLines={1}
-										className="text-center font-ui text-[11px] leading-3.75 text-text-muted"
-									>
-										{character}
-									</Text>
-								)}
-							</View>
-						</View>
+									{roles === undefined ? null : (
+										<Text
+											numberOfLines={1}
+											className="text-center font-ui text-[11px] leading-3.75 text-text-subtle"
+										>
+											{roles}
+										</Text>
+									)}
+									{character === undefined ? null : (
+										<Text
+											numberOfLines={1}
+											className="text-center font-ui text-[11px] leading-3.75 text-text-muted"
+										>
+											{character}
+										</Text>
+									)}
+								</View>
+							</Pressable>
+						</Link>
 					);
 				})}
 			</ShowRail>
@@ -141,25 +149,33 @@ export function ShowCompaniesSection(props: {
 				{props.companies.map((company) => {
 					const roles = showRolesLabel(company.roles);
 					return (
-						<View key={company.id} className="flex-row items-center gap-3">
-							<ShowAssetImage className="h-9 w-9 shrink-0" asset={showCompanyAsset(company)} />
-							<View className="min-w-0 flex-1">
-								<Text
-									numberOfLines={1}
-									className="font-ui-medium text-[13px] leading-4.5 text-text"
-								>
-									{company.name}
-								</Text>
-								{roles === undefined ? null : (
+						<Link asChild key={company.id} href={getEntityHref(company.id)}>
+							<Pressable
+								accessibilityRole="link"
+								accessibilityLabel={`Open ${company.name}`}
+								className="flex-row items-center gap-3 rounded-lg focus-visible:outline-2 focus-visible:outline-accent"
+							>
+								<Link.AppleZoom>
+									<ShowAssetImage className="h-9 w-9 shrink-0" asset={showCompanyAsset(company)} />
+								</Link.AppleZoom>
+								<View className="min-w-0 flex-1">
 									<Text
 										numberOfLines={1}
-										className="font-ui text-[11px] leading-3.75 text-text-subtle"
+										className="font-ui-medium text-[13px] leading-4.5 text-text"
 									>
-										{roles}
+										{company.name}
 									</Text>
-								)}
-							</View>
-						</View>
+									{roles === undefined ? null : (
+										<Text
+											numberOfLines={1}
+											className="font-ui text-[11px] leading-3.75 text-text-subtle"
+										>
+											{roles}
+										</Text>
+									)}
+								</View>
+							</Pressable>
+						</Link>
 					);
 				})}
 			</View>
@@ -184,10 +200,12 @@ export function ShowRecommendationsSection(props: {
 							accessibilityLabel={`Open ${recommendation.name}`}
 							className="w-28 gap-2 rounded-lg focus-visible:outline-2 focus-visible:outline-accent md:w-32"
 						>
-							<ShowAssetImage
-								className="aspect-2/3 w-full"
-								asset={showRecommendationAsset(recommendation)}
-							/>
+							<Link.AppleZoom>
+								<ShowAssetImage
+									className="aspect-2/3 w-full"
+									asset={showRecommendationAsset(recommendation)}
+								/>
+							</Link.AppleZoom>
 							<Text numberOfLines={2} className="font-ui text-[12px] leading-4.25 text-text">
 								{recommendation.name}
 							</Text>
