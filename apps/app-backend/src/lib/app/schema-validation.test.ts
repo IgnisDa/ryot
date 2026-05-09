@@ -28,7 +28,7 @@ describe("parseAppSchemaProperties", () => {
 					},
 				},
 			}),
-		).toThrow("Entity properties validation failed");
+		).toThrow("Entity payload is invalid");
 	});
 
 	it("rejects unknown properties not declared in the schema", () => {
@@ -38,7 +38,7 @@ describe("parseAppSchemaProperties", () => {
 				properties: { extra: true },
 				propertiesSchema: { fields: {} },
 			}),
-		).toThrow("Event properties validation failed");
+		).toThrow("Event payload is invalid");
 	});
 
 	it("applies schema transforms before returning parsed data", () => {
@@ -124,6 +124,6 @@ describe("parseAppSchemaProperties", () => {
 					],
 				},
 			}),
-		).toThrow("Entity properties validation failed");
+		).toThrow("Entity payload is invalid");
 	});
 });
