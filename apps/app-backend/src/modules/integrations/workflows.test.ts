@@ -1,10 +1,9 @@
 import { expect, it } from "@effect/vitest";
-import { Workflow } from "@effect/workflow";
 import { WorkflowEngine, WorkflowInstance } from "@effect/workflow/WorkflowEngine";
 import { Effect, Layer } from "effect";
 
-import { CurrentDb, DbRunner } from "#lib/db";
 import { RedisService } from "#lib/redis";
+import { dbRunnerLayer, makeMock, makeWorkflowActivityEngine } from "#lib/test-support/effect";
 import { CollectionsService } from "#modules/collections/service";
 import { EntitiesRepository } from "#modules/entities/repository";
 import { EntitySchemasRepository } from "#modules/entity-schemas/repository";
@@ -12,70 +11,16 @@ import { EventSchemasRepository } from "#modules/event-schemas/repository";
 import { EventsService } from "#modules/events/service";
 import { ImportsRepository } from "#modules/imports/repository";
 
-import { IntegrationsRepository, type IntegrationRecord } from "./repository";
+import { IntegrationsRepository } from "./repository";
+import {
+	makeIntegration,
+	makeKomgaIntegration,
+	makeRun,
+	makeYoutubeMusicIntegration,
+} from "./test-support";
 import { ProcessIntegrationRunWorkflow, runIntegrationRunWorkflow } from "./workflows";
 
 const now = "2026-06-17T00:00:00.000Z";
-
-const dbRunnerLayer = Layer.succeed(DbRunner, <A, E, R>(effect: Effect.Effect<A, E, R>) =>
-	Effect.provideService(effect, CurrentDb, Object.create(null)),
-);
-
-const makeIntegration = (overrides: Partial<IntegrationRecord> = {}): IntegrationRecord => ({
-	name: null,
-	id: "int_1",
-	lot: "sink",
-	createdAt: now,
-	updatedAt: now,
-	userId: "user_1",
-	provider: "kodi",
-	isDisabled: false,
-	minimumProgress: 2,
-	maximumProgress: 95,
-	syncOwnership: false,
-	lastFinishedAt: null,
-	providerSpecifics: { kind: "kodi" },
-	webhookUrl: "http://localhost:3000/_i/int_1",
-	extraSettings: { disableOnContinuousErrors: false },
-	...overrides,
-});
-
-const makeKomgaIntegration = (overrides: Partial<IntegrationRecord> = {}) =>
-	makeIntegration({
-		lot: "yank",
-		provider: "komga",
-		providerSpecifics: { kind: "komga", apiKey: "key", baseUrl: "http://komga" },
-		...overrides,
-	});
-
-const makeYoutubeMusicIntegration = (overrides: Partial<IntegrationRecord> = {}) =>
-	makeIntegration({
-		lot: "yank",
-		provider: "youtube_music",
-		providerSpecifics: {
-			authCookie: "cookie",
-			kind: "youtube_music",
-			timezone: "America/New_York",
-		},
-		...overrides,
-	});
-
-const makeRun = (status: "completed" | "failed") => ({
-	status,
-	progress: 0,
-	id: "run_1",
-	source: "kodi",
-	failedItems: 0,
-	createdAt: now,
-	updatedAt: now,
-	startedAt: null,
-	finishedAt: null,
-	totalItems: null,
-	inputSummary: {},
-	importedItems: 0,
-	processedItems: 0,
-	errorSummary: null,
-});
 
 const mangaGroup = (overrides: Record<string, unknown> = {}) => ({
 	itemIndex: 0,
@@ -91,121 +36,136 @@ const mangaGroup = (overrides: Record<string, unknown> = {}) => ({
 	...overrides,
 });
 
-const defaultImportsRepository = () =>
-	Object.assign(Object.create(null), {
-		updateRun: () => Effect.void,
-		createFailure: () => Effect.void,
-		_tag: "ImportsRepository" as const,
-		createRun: () => Effect.die("unused"),
-		getRunById: () => Effect.succeed(null),
-		deleteRunById: () => Effect.die("unused"),
-		listRunsByUser: () => Effect.die("unused"),
-		listFailuresByRunId: () => Effect.die("unused"),
-		listRunsByIntegrationId: () => Effect.die("unused"),
-		hasActiveRunForIntegration: () => Effect.die("unused"),
-		listRecentStatusesByIntegrationId: () => Effect.succeed([]),
-	});
+const makeImportsRepository = (overrides: Partial<ImportsRepository> = {}) =>
+	makeMock<ImportsRepository>(
+		{
+			updateRun: () => Effect.void,
+			createFailure: () => Effect.void,
+			_tag: "ImportsRepository" as const,
+			createRun: () => Effect.die("unused"),
+			getRunById: () => Effect.succeed(null),
+			deleteRunById: () => Effect.die("unused"),
+			listRunsByUser: () => Effect.die("unused"),
+			listFailuresByRunId: () => Effect.die("unused"),
+			listRunsByIntegrationId: () => Effect.die("unused"),
+			hasActiveRunForIntegration: () => Effect.die("unused"),
+			listRecentStatusesByIntegrationId: () => Effect.succeed([]),
+		},
+		overrides,
+	);
 
-const defaultIntegrationsRepository = () =>
-	Object.assign(Object.create(null), {
-		_tag: "IntegrationsRepository" as const,
-		getForUser: () => Effect.die("unused"),
-		listForUser: () => Effect.die("unused"),
-		updateForUser: () => Effect.succeed(null),
-		deleteForUser: () => Effect.die("unused"),
-		createForUser: () => Effect.die("unused"),
-		getByIdAnyUser: () => Effect.succeed(makeIntegration()),
-		getUserDisableIntegrations: () => Effect.succeed(false),
-		listEnabledYankIntegrations: () => Effect.die("unused"),
-	});
+const makeIntegrationsRepository = (overrides: Partial<IntegrationsRepository> = {}) =>
+	makeMock<IntegrationsRepository>(
+		{
+			_tag: "IntegrationsRepository" as const,
+			getForUser: () => Effect.die("unused"),
+			listForUser: () => Effect.die("unused"),
+			updateForUser: () => Effect.succeed(null),
+			deleteForUser: () => Effect.die("unused"),
+			createForUser: () => Effect.die("unused"),
+			getByIdAnyUser: () => Effect.succeed(makeIntegration()),
+			getUserDisableIntegrations: () => Effect.succeed(false),
+			listEnabledYankIntegrations: () => Effect.die("unused"),
+		},
+		overrides,
+	);
 
-const defaultEntitiesRepository = () =>
-	Object.assign(Object.create(null), {
-		_tag: "EntitiesRepository" as const,
-		createEntity: () => Effect.die("unused"),
-		getByIdForUser: () => Effect.die("unused"),
-		getEntityScopeById: () => Effect.die("unused"),
-		insertRelationship: () => Effect.die("unused"),
-		upsertRelationship: () => Effect.die("unused"),
-		findEntitySchemaById: () => Effect.die("unused"),
-		getEntityScopeForUser: () => Effect.die("unused"),
-		upsertEntityRelationship: () => Effect.die("unused"),
-		deleteUserEventsForEntity: () => Effect.die("unused"),
-		createOrUpdateGlobalEntity: () => Effect.die("unused"),
-		findRelationshipProperties: () => Effect.die("unused"),
-		listMatchCandidatesBySchema: () => Effect.die("unused"),
-		getEntitySchemaScopeForUser: () => Effect.die("unused"),
-		findGlobalEntityByExternalId: () => Effect.die("unused"),
-		findEntityByExternalIdForUser: () => Effect.die("unused"),
-		deleteUserRelationshipsForEntity: () => Effect.die("unused"),
-		findEntitySchemaScriptBySlug: (slug: string) =>
-			Effect.succeed(
-				slug === "movie.tmdb"
-					? { entitySchemaId: "schema-movie", sandboxScriptId: "script-movie-tmdb" }
-					: slug === "manga.anilist"
-						? { entitySchemaId: "schema-manga", sandboxScriptId: "script-manga-anilist" }
-						: slug === "music.youtube-music"
-							? { entitySchemaId: "schema-music", sandboxScriptId: "script-youtube-music" }
-							: null,
-			),
-	});
+const makeEntitiesRepository = (overrides: Partial<EntitiesRepository> = {}) =>
+	makeMock<EntitiesRepository>(
+		{
+			_tag: "EntitiesRepository" as const,
+			createEntity: () => Effect.die("unused"),
+			getByIdForUser: () => Effect.die("unused"),
+			getEntityScopeById: () => Effect.die("unused"),
+			insertRelationship: () => Effect.die("unused"),
+			upsertRelationship: () => Effect.die("unused"),
+			findEntitySchemaById: () => Effect.die("unused"),
+			getEntityScopeForUser: () => Effect.die("unused"),
+			upsertEntityRelationship: () => Effect.die("unused"),
+			deleteUserEventsForEntity: () => Effect.die("unused"),
+			createOrUpdateGlobalEntity: () => Effect.die("unused"),
+			findRelationshipProperties: () => Effect.die("unused"),
+			listMatchCandidatesBySchema: () => Effect.die("unused"),
+			getEntitySchemaScopeForUser: () => Effect.die("unused"),
+			findGlobalEntityByExternalId: () => Effect.die("unused"),
+			findEntityByExternalIdForUser: () => Effect.die("unused"),
+			deleteUserRelationshipsForEntity: () => Effect.die("unused"),
+			findEntitySchemaScriptBySlug: (slug: string) =>
+				Effect.succeed(
+					slug === "movie.tmdb"
+						? { entitySchemaId: "schema-movie", sandboxScriptId: "script-movie-tmdb" }
+						: slug === "manga.anilist"
+							? { entitySchemaId: "schema-manga", sandboxScriptId: "script-manga-anilist" }
+							: slug === "music.youtube-music"
+								? { entitySchemaId: "schema-music", sandboxScriptId: "script-youtube-music" }
+								: null,
+				),
+		},
+		overrides,
+	);
 
-const defaultCollectionsService = () =>
-	Object.assign(Object.create(null), {
-		_tag: "CollectionsService" as const,
-		ensureEntityInLibrary: () => Effect.void,
-		create: () => Effect.die("unused"),
-		markEntityOwnedInLibrary: () => Effect.void,
-		addToCollection: () => Effect.die("unused"),
-		removeFromCollection: () => Effect.die("unused"),
-		getOrCreateCollection: () => Effect.die("unused"),
-		ensureLibraryEntityForUser: () => Effect.die("unused"),
-	});
+const makeCollectionsService = (overrides: Partial<CollectionsService> = {}) =>
+	makeMock<CollectionsService>(
+		{
+			_tag: "CollectionsService" as const,
+			ensureEntityInLibrary: () => Effect.void,
+			create: () => Effect.die("unused"),
+			markEntityOwnedInLibrary: () => Effect.void,
+			addToCollection: () => Effect.die("unused"),
+			removeFromCollection: () => Effect.die("unused"),
+			getOrCreateCollection: () => Effect.die("unused"),
+			ensureLibraryEntityForUser: () => Effect.die("unused"),
+		},
+		overrides,
+	);
 
-const defaultEventsService = () =>
-	Object.assign(Object.create(null), {
-		_tag: "EventsService" as const,
-		list: () => Effect.die("unused"),
-		create: () => Effect.die("unused"),
-		createForIntegration: () => Effect.die("unused"),
-		createForImport: () => Effect.succeed({ count: 1 }),
-	});
+const makeEventsService = (overrides: Partial<EventsService> = {}) =>
+	makeMock<EventsService>(
+		{
+			_tag: "EventsService" as const,
+			list: () => Effect.die("unused"),
+			create: () => Effect.die("unused"),
+			createForIntegration: () => Effect.die("unused"),
+			createForImport: () => Effect.succeed({ count: 1 }),
+		},
+		overrides,
+	);
 
-const defaultEventSchemasRepository = () =>
-	Object.assign(Object.create(null), {
-		_tag: "EventSchemasRepository" as const,
-		listForUser: () => Effect.die("unused"),
-		getScopeForUser: () => Effect.die("unused"),
-		createEventSchema: () => Effect.die("unused"),
-		updateEventSchema: () => Effect.die("unused"),
-		deleteEventSchema: () => Effect.die("unused"),
-		getEntitySchemaScopeById: () => Effect.die("unused"),
-		getBuiltinBySlug: () => Effect.succeed({ id: "event-schema-1" }),
-	});
+const makeEventSchemasRepository = (overrides: Partial<EventSchemasRepository> = {}) =>
+	makeMock<EventSchemasRepository>(
+		{
+			_tag: "EventSchemasRepository" as const,
+			listForUser: () => Effect.die("unused"),
+			getScopeForUser: () => Effect.die("unused"),
+			createEventSchema: () => Effect.die("unused"),
+			updateEventSchema: () => Effect.die("unused"),
+			deleteEventSchema: () => Effect.die("unused"),
+			getEntitySchemaScopeById: () => Effect.die("unused"),
+			getBuiltinBySlug: () => Effect.succeed({ id: "event-schema-1" }),
+		},
+		overrides,
+	);
 
-const defaultEntitySchemasRepository = () =>
-	Object.assign(Object.create(null), {
-		_tag: "EntitySchemasRepository" as const,
-		listByUser: () => Effect.die("unused"),
-		findBySlug: () => Effect.die("unused"),
-		getByIdForUser: () => Effect.die("unused"),
-		createEntitySchema: () => Effect.die("unused"),
-		updateEntitySchema: () => Effect.die("unused"),
-		deleteEntitySchema: () => Effect.die("unused"),
-		getBuiltinBySlug: () => Effect.succeed({ id: "builtin-schema" }),
-	});
+const makeEntitySchemasRepository = (overrides: Partial<EntitySchemasRepository> = {}) =>
+	makeMock<EntitySchemasRepository>(
+		{
+			_tag: "EntitySchemasRepository" as const,
+			listByUser: () => Effect.die("unused"),
+			findBySlug: () => Effect.die("unused"),
+			getByIdForUser: () => Effect.die("unused"),
+			createEntitySchema: () => Effect.die("unused"),
+			updateEntitySchema: () => Effect.die("unused"),
+			deleteEntitySchema: () => Effect.die("unused"),
+			getBuiltinBySlug: () => Effect.succeed({ id: "builtin-schema" }),
+		},
+		overrides,
+	);
 
-const defaultRedisService = (claimed = true) =>
-	Object.assign(Object.create(null), {
+const makeRedisService = (claimed = true) =>
+	makeMock<RedisService>({
 		_tag: "RedisService" as const,
 		claim: () => Effect.succeed(claimed),
 	});
-
-const makeImportsRepository = (overrides: Partial<ImportsRepository> = {}) =>
-	Object.assign(Object.create(null), defaultImportsRepository(), overrides);
-
-const makeIntegrationsRepository = (overrides: Partial<IntegrationsRepository> = {}) =>
-	Object.assign(Object.create(null), defaultIntegrationsRepository(), overrides);
 
 type TestLayerOptions = {
 	claimed?: boolean;
@@ -218,46 +178,18 @@ type TestLayerOptions = {
 const makeTestLayer = (options: TestLayerOptions) =>
 	Layer.mergeAll(
 		dbRunnerLayer,
-		Layer.succeed(RedisService, defaultRedisService(options.claimed)),
+		Layer.succeed(RedisService, makeRedisService(options.claimed)),
 		Layer.succeed(ImportsRepository, options.importsRepository ?? makeImportsRepository()),
 		Layer.succeed(
 			IntegrationsRepository,
 			options.integrationsRepository ?? makeIntegrationsRepository(),
 		),
-		Layer.succeed(EntitiesRepository, defaultEntitiesRepository()),
-		Layer.succeed(CollectionsService, options.collectionsService ?? defaultCollectionsService()),
-		Layer.succeed(EventsService, options.eventsService ?? defaultEventsService()),
-		Layer.succeed(EventSchemasRepository, defaultEventSchemasRepository()),
-		Layer.succeed(EntitySchemasRepository, defaultEntitySchemasRepository()),
+		Layer.succeed(EntitiesRepository, makeEntitiesRepository()),
+		Layer.succeed(CollectionsService, options.collectionsService ?? makeCollectionsService()),
+		Layer.succeed(EventsService, options.eventsService ?? makeEventsService()),
+		Layer.succeed(EventSchemasRepository, makeEventSchemasRepository()),
+		Layer.succeed(EntitySchemasRepository, makeEntitySchemasRepository()),
 	);
-
-const makeWorkflowEngine = (instance: WorkflowInstance["Type"]) => {
-	let engine: WorkflowEngine["Type"];
-
-	engine = {
-		poll: () => Effect.die("unused"),
-		resume: () => Effect.die("unused"),
-		execute: () => Effect.die("unused"),
-		register: () => Effect.die("unused"),
-		interrupt: () => Effect.die("unused"),
-		deferredDone: () => Effect.die("unused"),
-		scheduleClock: () => Effect.die("unused"),
-		deferredResult: () => Effect.die("unused"),
-		activityExecute: (activity) =>
-			Effect.gen(function* () {
-				const exit = yield* Effect.exit(
-					activity.execute.pipe(
-						Effect.provideService(WorkflowEngine, engine),
-						Effect.provideService(WorkflowInstance, instance),
-					),
-				);
-
-				return new Workflow.Complete({ exit });
-			}),
-	} as WorkflowEngine["Type"];
-
-	return engine;
-};
 
 const withTestLayer = <A, E, R>(
 	options: TestLayerOptions,
@@ -265,7 +197,7 @@ const withTestLayer = <A, E, R>(
 	effect: Effect.Effect<A, E, R>,
 ) => {
 	const instance = WorkflowInstance.initial(ProcessIntegrationRunWorkflow, executionId);
-	const engine = makeWorkflowEngine(instance);
+	const engine = makeWorkflowActivityEngine(instance);
 
 	return effect.pipe(
 		Effect.provideService(WorkflowEngine, engine),
@@ -300,7 +232,7 @@ it.effect("processes a successful sink run through shared media orchestration", 
 	const recordedUpdates: Array<Record<string, unknown>> = [];
 
 	const options = {
-		eventsService: Object.assign(Object.create(null), defaultEventsService(), {
+		eventsService: makeEventsService({
 			createForImport: () => Effect.die("should not be called"),
 			createForIntegration: (input: {
 				integrationId: string;
@@ -503,7 +435,7 @@ it.effect("processes a komga yank run through shared media orchestration", () =>
 	const recordedUpdates: Array<Record<string, unknown>> = [];
 
 	const options = {
-		eventsService: Object.assign(Object.create(null), defaultEventsService(), {
+		eventsService: makeEventsService({
 			createForImport: () => Effect.die("should not be called"),
 			createForIntegration: (input: {
 				userId: string;
@@ -639,7 +571,7 @@ it.effect("marks ownership for synced yank items", () => {
 			getByIdAnyUser: () => Effect.succeed(makeKomgaIntegration({ syncOwnership: true })),
 			updateForUser: () => Effect.succeed(makeKomgaIntegration()),
 		}),
-		collectionsService: Object.assign(Object.create(null), defaultCollectionsService(), {
+		collectionsService: makeCollectionsService({
 			markEntityOwnedInLibrary: (input: Record<string, unknown>) => {
 				ownershipMarks.push(input);
 				return Effect.void;
@@ -681,7 +613,7 @@ it.effect("processes a YouTube Music yank run through workflow-owned sandbox exe
 			updateForUser: () => Effect.succeed(makeYoutubeMusicIntegration()),
 			getByIdAnyUser: () => Effect.succeed(makeYoutubeMusicIntegration()),
 		}),
-		eventsService: Object.assign(Object.create(null), defaultEventsService(), {
+		eventsService: makeEventsService({
 			createForImport: () => Effect.die("should not be called"),
 			createForIntegration: (input: {
 				userId: string;

@@ -4,8 +4,13 @@ import { Effect, Exit, Layer, Option, Redacted } from "effect";
 
 import type { CurrentUserValue } from "#lib/auth";
 import { AppConfig } from "#lib/config";
-import { CurrentDb, DbRunner, TransactionRunner } from "#lib/db";
 import { BadRequest, NotFound } from "#lib/errors";
+import {
+	dbRunnerLayer,
+	makeMock,
+	makeWorkflowEngine,
+	transactionLayer,
+} from "#lib/test-support/effect";
 import { RelationshipSchemasRepository } from "#modules/relationship-schemas/repository";
 import { RelationshipsRepository } from "#modules/relationships/repository";
 import { SandboxRepository } from "#modules/sandbox/repository";
@@ -21,57 +26,48 @@ const user = {
 	email: "user@example.com",
 } satisfies CurrentUserValue;
 
-const dbRunnerLayer = Layer.succeed(DbRunner, <A, E, R>(effect: Effect.Effect<A, E, R>) =>
-	Effect.provideService(effect, CurrentDb, Object.create(null)),
-);
-
-const transactionLayer = Layer.succeed(
-	TransactionRunner,
-	<A, E, R>(effect: Effect.Effect<A, E, R>) =>
-		Effect.provideService(effect, CurrentDb, Object.create(null)),
-);
-
-const defaultEntitiesRepository = () =>
-	Object.assign(Object.create(null), {
-		_tag: "EntitiesRepository" as const,
-		createEntity: () => Effect.die("unused"),
-		getByIdForUser: () => Effect.die("unused"),
-		getEntityScopeById: () => Effect.die("unused"),
-		findEntitySchemaById: () => Effect.die("unused"),
-		getEntityScopeForUser: () => Effect.die("unused"),
-		createOrUpdateGlobalEntity: () => Effect.die("unused"),
-		getEntitySchemaScopeForUser: () => Effect.die("unused"),
-		findEntitySchemaScriptBySlug: () => Effect.die("unused"),
-		findGlobalEntityByExternalId: () => Effect.die("unused"),
-		findEntityByExternalIdForUser: () => Effect.die("unused"),
-	});
-
-const defaultRelationshipsRepository = () =>
-	Object.assign(Object.create(null), {
-		_tag: "RelationshipsRepository" as const,
-		insertRelationship: () => Effect.die("unused"),
-		upsertRelationship: () => Effect.die("unused"),
-		upsertEntityRelationship: () => Effect.die("unused"),
-		findRelationshipProperties: () => Effect.die("unused"),
-		deleteUserRelationshipsForEntity: () => Effect.die("unused"),
-	});
-
-const defaultRelationshipSchemasRepository = () =>
-	Object.assign(Object.create(null), {
-		findById: () => Effect.die("unused"),
-		_tag: "RelationshipSchemasRepository" as const,
-		findBuiltinBySlug: () => Effect.die("unused"),
-	});
-
 const makeEntitiesRepository = (overrides: Partial<EntitiesRepository> = {}) =>
-	Object.assign(Object.create(null), defaultEntitiesRepository(), overrides);
+	makeMock<EntitiesRepository>(
+		{
+			_tag: "EntitiesRepository" as const,
+			createEntity: () => Effect.die("unused"),
+			getByIdForUser: () => Effect.die("unused"),
+			getEntityScopeById: () => Effect.die("unused"),
+			findEntitySchemaById: () => Effect.die("unused"),
+			getEntityScopeForUser: () => Effect.die("unused"),
+			createOrUpdateGlobalEntity: () => Effect.die("unused"),
+			getEntitySchemaScopeForUser: () => Effect.die("unused"),
+			findEntitySchemaScriptBySlug: () => Effect.die("unused"),
+			findGlobalEntityByExternalId: () => Effect.die("unused"),
+			findEntityByExternalIdForUser: () => Effect.die("unused"),
+		},
+		overrides,
+	);
 
 const makeRelationshipsRepository = (overrides: Partial<RelationshipsRepository> = {}) =>
-	Object.assign(Object.create(null), defaultRelationshipsRepository(), overrides);
+	makeMock<RelationshipsRepository>(
+		{
+			_tag: "RelationshipsRepository" as const,
+			insertRelationship: () => Effect.die("unused"),
+			upsertRelationship: () => Effect.die("unused"),
+			upsertEntityRelationship: () => Effect.die("unused"),
+			findRelationshipProperties: () => Effect.die("unused"),
+			deleteUserRelationshipsForEntity: () => Effect.die("unused"),
+		},
+		overrides,
+	);
 
 const makeRelationshipSchemasRepository = (
 	overrides: Partial<RelationshipSchemasRepository> = {},
-) => Object.assign(Object.create(null), defaultRelationshipSchemasRepository(), overrides);
+) =>
+	makeMock<RelationshipSchemasRepository>(
+		{
+			findById: () => Effect.die("unused"),
+			_tag: "RelationshipSchemasRepository" as const,
+			findBuiltinBySlug: () => Effect.die("unused"),
+		},
+		overrides,
+	);
 
 const fakeAppConfigLayer = Layer.succeed(AppConfig, {
 	port: 3000,
@@ -103,28 +99,18 @@ const fakeAppConfigLayer = Layer.succeed(AppConfig, {
 	},
 });
 
-const makeWorkflowEngine = () =>
-	({
-		poll: () => Effect.die("not used in this test"),
-		resume: () => Effect.die("not used in this test"),
-		execute: () => Effect.die("not used in this test"),
-		register: () => Effect.die("not used in this test"),
-		interrupt: () => Effect.die("not used in this test"),
-		deferredDone: () => Effect.die("not used in this test"),
-		scheduleClock: () => Effect.die("not used in this test"),
-		deferredResult: () => Effect.die("not used in this test"),
-		activityExecute: () => Effect.die("not used in this test"),
-	}) as WorkflowEngine["Type"];
-
 const fakeWorkflowEngineLayer = Layer.succeed(WorkflowEngine, makeWorkflowEngine());
 
-const defaultSandboxRepository = () =>
-	Object.assign(Object.create(null), {
-		_tag: "SandboxRepository" as const,
-		createScript: () => Effect.die("unused"),
-		getScriptForUser: () => Effect.die("unused"),
-		findScriptBySlugForUser: () => Effect.die("unused"),
-	});
+const makeSandboxRepository = (overrides: Partial<SandboxRepository> = {}) =>
+	makeMock<SandboxRepository>(
+		{
+			_tag: "SandboxRepository" as const,
+			createScript: () => Effect.die("unused"),
+			getScriptForUser: () => Effect.die("unused"),
+			findScriptBySlugForUser: () => Effect.die("unused"),
+		},
+		overrides,
+	);
 
 const makeServiceLayer = (
 	repository: EntitiesRepository,
@@ -139,7 +125,7 @@ const makeServiceLayer = (
 				fakeAppConfigLayer,
 				fakeWorkflowEngineLayer,
 				Layer.succeed(EntitiesRepository, repository),
-				Layer.succeed(SandboxRepository, defaultSandboxRepository()),
+				Layer.succeed(SandboxRepository, makeSandboxRepository()),
 				Layer.succeed(RelationshipsRepository, relationshipsRepository),
 				Layer.succeed(RelationshipSchemasRepository, relationshipSchemasRepository),
 			),

@@ -1,15 +1,11 @@
 import { expect, it } from "@effect/vitest";
 import { Effect, Exit, Layer } from "effect";
 
-import { CurrentDb, DbRunner } from "#lib/db";
 import { NotFound } from "#lib/errors";
+import { dbRunnerLayer, makeMock } from "#lib/test-support/effect";
 
 import { RelationshipSchemasRepository } from "./repository";
 import { RelationshipSchemasService } from "./service";
-
-const dbRunnerLayer = Layer.succeed(DbRunner, <A, E, R>(effect: Effect.Effect<A, E, R>) =>
-	Effect.provideService(effect, CurrentDb, Object.create(null)),
-);
 
 const scope = {
 	id: "rs-id",
@@ -21,18 +17,28 @@ const scope = {
 	targetEntitySchemaId: "library-id",
 };
 
-it.effect("returns builtin relationship schema by slug", () => {
-	const layer = RelationshipSchemasService.Default.pipe(
+const makeRepository = (overrides: Partial<RelationshipSchemasRepository> = {}) =>
+	makeMock<RelationshipSchemasRepository>(
+		{
+			_tag: "RelationshipSchemasRepository" as const,
+			findById: () => Effect.die("unused"),
+			findBuiltinBySlug: () => Effect.die("unused"),
+		},
+		overrides,
+	);
+
+const makeServiceLayer = (repository: RelationshipSchemasRepository) =>
+	RelationshipSchemasService.Default.pipe(
 		Layer.provide(
-			Layer.mergeAll(
-				dbRunnerLayer,
-				Layer.mock(RelationshipSchemasRepository, {
-					_tag: "RelationshipSchemasRepository" as const,
-					findById: () => Effect.die("unused"),
-					findBuiltinBySlug: () => Effect.succeed(scope),
-				}),
-			),
+			Layer.mergeAll(dbRunnerLayer, Layer.succeed(RelationshipSchemasRepository, repository)),
 		),
+	);
+
+it.effect("returns builtin relationship schema by slug", () => {
+	const layer = makeServiceLayer(
+		makeRepository({
+			findBuiltinBySlug: () => Effect.succeed(scope),
+		}),
 	);
 
 	return Effect.gen(function* () {
@@ -43,17 +49,10 @@ it.effect("returns builtin relationship schema by slug", () => {
 });
 
 it.effect("returns not found when builtin slug does not exist", () => {
-	const layer = RelationshipSchemasService.Default.pipe(
-		Layer.provide(
-			Layer.mergeAll(
-				dbRunnerLayer,
-				Layer.mock(RelationshipSchemasRepository, {
-					_tag: "RelationshipSchemasRepository" as const,
-					findById: () => Effect.die("unused"),
-					findBuiltinBySlug: () => Effect.succeed(null),
-				}),
-			),
-		),
+	const layer = makeServiceLayer(
+		makeRepository({
+			findBuiltinBySlug: () => Effect.succeed(null),
+		}),
 	);
 
 	return Effect.gen(function* () {
@@ -64,17 +63,10 @@ it.effect("returns not found when builtin slug does not exist", () => {
 });
 
 it.effect("returns relationship schema by id for user scope", () => {
-	const layer = RelationshipSchemasService.Default.pipe(
-		Layer.provide(
-			Layer.mergeAll(
-				dbRunnerLayer,
-				Layer.mock(RelationshipSchemasRepository, {
-					_tag: "RelationshipSchemasRepository" as const,
-					findById: () => Effect.succeed(scope),
-					findBuiltinBySlug: () => Effect.die("unused"),
-				}),
-			),
-		),
+	const layer = makeServiceLayer(
+		makeRepository({
+			findById: () => Effect.succeed(scope),
+		}),
 	);
 
 	return Effect.gen(function* () {
@@ -85,17 +77,10 @@ it.effect("returns relationship schema by id for user scope", () => {
 });
 
 it.effect("returns not found when id does not exist or is inaccessible", () => {
-	const layer = RelationshipSchemasService.Default.pipe(
-		Layer.provide(
-			Layer.mergeAll(
-				dbRunnerLayer,
-				Layer.mock(RelationshipSchemasRepository, {
-					_tag: "RelationshipSchemasRepository" as const,
-					findById: () => Effect.succeed(null),
-					findBuiltinBySlug: () => Effect.die("unused"),
-				}),
-			),
-		),
+	const layer = makeServiceLayer(
+		makeRepository({
+			findById: () => Effect.succeed(null),
+		}),
 	);
 
 	return Effect.gen(function* () {
@@ -106,17 +91,10 @@ it.effect("returns not found when id does not exist or is inaccessible", () => {
 });
 
 it.effect("finds builtin schema by id with null userId", () => {
-	const layer = RelationshipSchemasService.Default.pipe(
-		Layer.provide(
-			Layer.mergeAll(
-				dbRunnerLayer,
-				Layer.mock(RelationshipSchemasRepository, {
-					_tag: "RelationshipSchemasRepository" as const,
-					findById: () => Effect.succeed(scope),
-					findBuiltinBySlug: () => Effect.die("unused"),
-				}),
-			),
-		),
+	const layer = makeServiceLayer(
+		makeRepository({
+			findById: () => Effect.succeed(scope),
+		}),
 	);
 
 	return Effect.gen(function* () {
