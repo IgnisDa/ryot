@@ -16,191 +16,8 @@ import {
 	StatPill,
 	StoryRingRow,
 	UpNextSection,
-	type ActivityItem,
-	type ContinueItem,
-	type RateItem,
-	type UpNextItem,
 } from "./overview-sections";
-
-// ─── Fake data ────────────────────────────────────────────────────────────────
-
-const FAKE_CONTINUE: ContinueItem[] = [
-	{
-		id: "c1",
-		title: "Severance",
-		entitySchemaSlug: "show",
-		imageUri: "https://media.themoviedb.org/t/p/w500/pPHpeI2X1qEd1CS1SeyrdhZ4qnT.jpg",
-		labels: { cta: "Continue", progress: "Ep 5 / 10" },
-		progress: { currentUnits: 5, progressPercent: 50, totalUnits: 10 },
-	},
-	{
-		id: "c2",
-		title: "The Name of the Wind",
-		entitySchemaSlug: "book",
-		imageUri: "https://covers.openlibrary.org/b/isbn/0756404746-L.jpg",
-		labels: { cta: "Resume", progress: "Ch 12 / 120" },
-		progress: { currentUnits: 12, progressPercent: 10, totalUnits: 120 },
-	},
-	{
-		id: "c3",
-		title: "Frieren: Beyond Journey's End",
-		entitySchemaSlug: "anime",
-		imageUri: "https://media.themoviedb.org/t/p/w500/dqZENchTd7lp5zht7BdlqM7RBhD.jpg",
-		labels: { cta: "Continue", progress: "Ep 14 / 28" },
-		progress: { currentUnits: 14, progressPercent: 50, totalUnits: 28 },
-	},
-	{
-		id: "c4",
-		title: "The White Lotus",
-		entitySchemaSlug: "show",
-		imageUri: null,
-		labels: { cta: "Continue", progress: "Ep 2 / 8" },
-		progress: { currentUnits: 2, progressPercent: 25, totalUnits: 8 },
-	},
-	{
-		id: "c5",
-		entitySchemaSlug: "game",
-		title: "GTA V",
-		imageUri: "https://media.rawg.io/media/games/456/456dea5e1c7e3cd07060c14e96612001.jpg",
-		labels: { cta: "Continue", progress: "2h played" },
-		progress: { currentUnits: 120, progressPercent: 100, totalUnits: 120 },
-	},
-];
-
-const FAKE_UP_NEXT: UpNextItem[] = [
-	{
-		id: "u1",
-		title: "Dune: Part Two",
-		entitySchemaSlug: "movie",
-		imageUri: "https://media.themoviedb.org/t/p/w500/1pdfLvkbY9ohJlCjQH2CZjjYVvJ.jpg",
-		labels: { cta: "Start" },
-		subtitle: { label: "2024", raw: 2024 },
-	},
-	{
-		id: "u2",
-		title: "Shogun",
-		entitySchemaSlug: "show",
-		imageUri: "https://media.themoviedb.org/t/p/w500/7O4iVfOMQmdCSxhOg1WnzG1AgYT.jpg",
-		labels: { cta: "Start" },
-		subtitle: { label: "2024", raw: 2024 },
-	},
-	{
-		id: "u3",
-		title: "Demon Slayer: Infinity Castle",
-		entitySchemaSlug: "movie",
-		imageUri: null,
-		labels: { cta: "Start" },
-		subtitle: { label: "2025", raw: 2025 },
-	},
-	{
-		id: "u4",
-		title: "Project Hail Mary",
-		entitySchemaSlug: "book",
-		imageUri: "https://covers.openlibrary.org/b/isbn/0593135202-L.jpg",
-		labels: { cta: "Start" },
-		subtitle: { label: null, raw: null },
-	},
-	{
-		id: "u5",
-		title: "Andor",
-		entitySchemaSlug: "show",
-		imageUri: "https://media.themoviedb.org/t/p/w500/khZqmwHQicTYoS7Flreb9EddFZC.jpg",
-		labels: { cta: "Start" },
-		subtitle: { label: "2022", raw: 2022 },
-	},
-];
-
-const FAKE_RATE_THESE: RateItem[] = [
-	{
-		id: "r1",
-		title: "The Bear",
-		entitySchemaSlug: "show",
-		imageUri: "https://media.themoviedb.org/t/p/w500/eKfVzzEazSIjJMrw9ADa2x8ksLz.jpg",
-		completedAt: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000),
-		rating: null,
-	},
-	{
-		id: "r2",
-		title: "Oppenheimer",
-		entitySchemaSlug: "movie",
-		imageUri: "https://media.themoviedb.org/t/p/w500/8Gxv8gSFCU0XGDykEGv7zR1n2ua.jpg",
-		completedAt: new Date(Date.now() - 5 * 24 * 60 * 60 * 1000),
-		rating: null,
-	},
-	{
-		id: "r3",
-		title: "Attack on Titan",
-		entitySchemaSlug: "anime",
-		imageUri: "https://media.themoviedb.org/t/p/w500/hTP1DtLGFamjfu8WqjnuQdP1n4i.jpg",
-		completedAt: new Date(Date.now() - 10 * 24 * 60 * 60 * 1000),
-		rating: null,
-	},
-];
-
-const FAKE_ACTIVITY: ActivityItem[] = [
-	{
-		id: "a1",
-		entityId: "c1",
-		entityName: "Severance",
-		entitySchemaSlug: "show",
-		eventSchemaSlug: "progress",
-		imageUri: "https://media.themoviedb.org/t/p/w500/pPHpeI2X1qEd1CS1SeyrdhZ4qnT.jpg",
-		occurredAt: new Date(Date.now() - 2 * 60 * 60 * 1000),
-		rating: null,
-	},
-	{
-		id: "a2",
-		entityId: "r2",
-		entityName: "Oppenheimer",
-		entitySchemaSlug: "movie",
-		eventSchemaSlug: "complete",
-		imageUri: "https://media.themoviedb.org/t/p/w500/8Gxv8gSFCU0XGDykEGv7zR1n2ua.jpg",
-		occurredAt: new Date(Date.now() - 24 * 60 * 60 * 1000),
-		rating: null,
-	},
-	{
-		id: "a3",
-		entityId: "r2",
-		entityName: "Oppenheimer",
-		entitySchemaSlug: "movie",
-		eventSchemaSlug: "review",
-		imageUri: "https://media.themoviedb.org/t/p/w500/8Gxv8gSFCU0XGDykEGv7zR1n2ua.jpg",
-		occurredAt: new Date(Date.now() - 24 * 60 * 60 * 1000 - 3600000),
-		rating: 9,
-	},
-	{
-		id: "a4",
-		entityId: "c2",
-		entityName: "The Name of the Wind",
-		entitySchemaSlug: "book",
-		eventSchemaSlug: "progress",
-		imageUri: "https://covers.openlibrary.org/b/isbn/0756404746-L.jpg",
-		occurredAt: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000),
-		rating: null,
-	},
-	{
-		id: "a5",
-		entityId: "c3",
-		entityName: "Frieren: Beyond Journey's End",
-		entitySchemaSlug: "anime",
-		eventSchemaSlug: "progress",
-		imageUri: "https://media.themoviedb.org/t/p/w500/dqZENchTd7lp5zht7BdlqM7RBhD.jpg",
-		occurredAt: new Date(Date.now() - 3 * 24 * 60 * 60 * 1000),
-		rating: null,
-	},
-	{
-		id: "a6",
-		entityId: "r1",
-		entityName: "The Bear",
-		entitySchemaSlug: "show",
-		eventSchemaSlug: "complete",
-		imageUri: "https://media.themoviedb.org/t/p/w500/eKfVzzEazSIjJMrw9ADa2x8ksLz.jpg",
-		occurredAt: new Date(Date.now() - 5 * 24 * 60 * 60 * 1000),
-		rating: null,
-	},
-];
-
-// ─── Screen ───────────────────────────────────────────────────────────────────
+import { useMediaOverviewData } from "./use-overview-data";
 
 export function MediaTrackerOverview() {
 	const insets = useSafeAreaInsets();
@@ -209,6 +26,23 @@ export function MediaTrackerOverview() {
 	const isDesktop = width >= 1024;
 	const setNavSheetOpen = useSetNavSheetOpen();
 
+	const {
+		isLoading,
+		imageUrlById,
+		activityItems,
+		continueItems,
+		rateTheseItems,
+		schemaColorMap,
+		upNextItems,
+	} = useMediaOverviewData();
+
+	const isEmpty =
+		!isLoading &&
+		upNextItems.length === 0 &&
+		activityItems.length === 0 &&
+		continueItems.length === 0 &&
+		rateTheseItems.length === 0;
+
 	return (
 		<Box className="flex-1 bg-background">
 			<ScrollView
@@ -216,7 +50,6 @@ export function MediaTrackerOverview() {
 				contentContainerStyle={{ paddingBottom: insets.bottom + 96 }}
 			>
 				<Box className="w-full web:mx-auto web:max-w-screen-xl">
-					{/* Page header */}
 					<Box className="px-[28]" style={{ paddingTop: insets.top + 16 }}>
 						{!isTablet && (
 							<Box className="flex-row justify-end">
@@ -239,9 +72,21 @@ export function MediaTrackerOverview() {
 						{isDesktop ? (
 							<Box className="mt-4 flex-row items-center justify-between">
 								<Box className="flex-row gap-3">
-									<StatCard color={SECTION_ACCENTS.continue} count={3} label="In Progress" />
-									<StatCard color={SECTION_ACCENTS.upNext} count={8} label="Queued" />
-									<StatCard color={SECTION_ACCENTS.rateThese} count={2} label="To Rate" />
+									<StatCard
+										color={SECTION_ACCENTS.continue}
+										count={continueItems.length}
+										label="In Progress"
+									/>
+									<StatCard
+										color={SECTION_ACCENTS.upNext}
+										count={upNextItems.length}
+										label="Queued"
+									/>
+									<StatCard
+										color={SECTION_ACCENTS.rateThese}
+										count={rateTheseItems.length}
+										label="To Rate"
+									/>
 								</Box>
 								<Pressable
 									className="flex-row items-center gap-2 rounded-full bg-primary px-5 py-3"
@@ -257,53 +102,89 @@ export function MediaTrackerOverview() {
 							</Box>
 						) : (
 							<Box className="mt-4 flex-row flex-wrap gap-2">
-								<StatPill color={SECTION_ACCENTS.continue} label="3 in progress" />
-								<StatPill color={SECTION_ACCENTS.upNext} label="8 queued" />
-								<StatPill color={SECTION_ACCENTS.rateThese} label="2 to rate" />
+								<StatPill
+									color={SECTION_ACCENTS.continue}
+									label={`${continueItems.length} in progress`}
+								/>
+								<StatPill color={SECTION_ACCENTS.upNext} label={`${upNextItems.length} queued`} />
+								<StatPill
+									color={SECTION_ACCENTS.rateThese}
+									label={`${rateTheseItems.length} to rate`}
+								/>
 							</Box>
 						)}
 					</Box>
 
-					{isDesktop ? (
+					{isEmpty ? (
+						<Box className="items-center px-[28] py-16">
+							<Text className="text-center text-[15px] font-sans text-muted-foreground web:text-[17px]">
+								Nothing tracked yet. Tap "Track Something" to add your first entry.
+							</Text>
+						</Box>
+					) : isDesktop ? (
 						<Box className="mt-6 flex-row px-[28]" style={{ gap: 32 }}>
-							{/* Left column — main content */}
 							<Box className="flex-1">
-								<Box
-									className="rounded-2xl p-5"
-									style={{
-										borderWidth: 1,
-										borderColor: hexToRgba(SECTION_ACCENTS.continue, 0.15),
-										backgroundColor: hexToRgba(SECTION_ACCENTS.continue, 0.06),
-									}}
-								>
-									<Text
-										className="mb-4 text-xs font-sans-semibold uppercase tracking-[2px] web:text-[14px]"
-										style={{ color: SECTION_ACCENTS.continue }}
+								{continueItems.length > 0 && (
+									<Box
+										className="rounded-2xl p-5"
+										style={{
+											borderWidth: 1,
+											borderColor: hexToRgba(SECTION_ACCENTS.continue, 0.15),
+											backgroundColor: hexToRgba(SECTION_ACCENTS.continue, 0.06),
+										}}
 									>
-										In Progress
-									</Text>
-									<StoryRingRow items={FAKE_CONTINUE} xlarge wrap wrapGap={28} />
-								</Box>
-								<UpNextSection items={FAKE_UP_NEXT} />
+										<Text
+											className="mb-4 text-xs font-sans-semibold uppercase tracking-[2px] web:text-[14px]"
+											style={{ color: SECTION_ACCENTS.continue }}
+										>
+											In Progress
+										</Text>
+										<StoryRingRow
+											xlarge
+											wrap
+											wrapGap={28}
+											items={continueItems}
+											imageUrls={imageUrlById}
+											schemaColorMap={schemaColorMap}
+										/>
+									</Box>
+								)}
+								<UpNextSection
+									items={upNextItems}
+									imageUrls={imageUrlById}
+									schemaColorMap={schemaColorMap}
+								/>
 							</Box>
-							{/* Right column — sidebar */}
 							<Box style={{ maxWidth: 400, width: "35%" }}>
-								<RateTheseSection items={FAKE_RATE_THESE} />
-								<ActivitySection items={FAKE_ACTIVITY} />
+								<RateTheseSection
+									items={rateTheseItems}
+									imageUrls={imageUrlById}
+									schemaColorMap={schemaColorMap}
+								/>
+								<ActivitySection items={activityItems} schemaColorMap={schemaColorMap} />
 							</Box>
 						</Box>
 					) : (
 						<>
-							{/* Story rings — scrolls edge-to-edge with its own padding */}
 							<Box className="mt-6">
-								<StoryRingRow items={FAKE_CONTINUE} />
+								<StoryRingRow
+									items={continueItems}
+									imageUrls={imageUrlById}
+									schemaColorMap={schemaColorMap}
+								/>
 							</Box>
-
-							{/* Feed sections */}
 							<Box className="px-[28]">
-								<UpNextSection items={FAKE_UP_NEXT} />
-								<RateTheseSection items={FAKE_RATE_THESE} />
-								<ActivitySection items={FAKE_ACTIVITY} />
+								<UpNextSection
+									items={upNextItems}
+									imageUrls={imageUrlById}
+									schemaColorMap={schemaColorMap}
+								/>
+								<RateTheseSection
+									items={rateTheseItems}
+									imageUrls={imageUrlById}
+									schemaColorMap={schemaColorMap}
+								/>
+								<ActivitySection items={activityItems} schemaColorMap={schemaColorMap} />
 							</Box>
 						</>
 					)}
