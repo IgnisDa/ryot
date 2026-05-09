@@ -2,7 +2,7 @@ import { z } from "@hono/zod-openapi";
 import { toAppSchemaProperties } from "@ryot/ts-utils";
 
 import { imagesSchema, nullableIntSchema, nullableStringSchema, stringArraySchema } from "../zod";
-import { mediaWithFreeCreatorsPropertiesSchema } from "./common";
+import { mediaPropertiesSchema } from "./common";
 
 const showEpisodeSchema = z
 	.object({
@@ -29,7 +29,7 @@ const showSeasonSchema = z
 	})
 	.strict();
 
-export const showPropertiesSchema = mediaWithFreeCreatorsPropertiesSchema.extend({
+export const showPropertiesSchema = mediaPropertiesSchema.extend({
 	images: imagesSchema.describe("Cover and promotional images for this show"),
 	showSeasons: z.array(showSeasonSchema).describe("Seasons in this show, each containing episodes"),
 });
