@@ -7,6 +7,7 @@ import { Text } from "react-native";
 import { temporaryFileUploadOperation } from "@/api/files/upload";
 import { useApiScope } from "@/api/scope";
 import { useInternalRequestFailureLogging } from "@/api/use-internal-request-failure-logging";
+import { useTrackEvent } from "@/modules/analytics/state";
 import { CatalogPicker } from "@/modules/ui/plugin-catalog/catalog-picker";
 import { findBySlug } from "@/modules/ui/plugin-catalog/catalog-selection";
 import { useSchemaForm } from "@/modules/ui/schema-form/schema-form";
@@ -54,6 +55,7 @@ export function IntegrationCreateWizard(props: { readonly onClose: () => void })
 	const providersAtom = integrationProvidersAtom(scope);
 	const result = useAtomValue(providersAtom);
 	const refreshProviders = useAtomRefresh(providersAtom);
+	const trackEvent = useTrackEvent();
 	const createIntegration = useAtomSet(createIntegrationAtom(scope), { mode: "promiseExit" });
 	const [pending, setPending] = useState(false);
 	const [saveCause, setSaveCause] = useState<unknown>();
@@ -91,6 +93,7 @@ export function IntegrationCreateWizard(props: { readonly onClose: () => void })
 			}
 			return;
 		}
+		trackEvent("Create Integration", { provider: provider.slug });
 		props.onClose();
 	});
 
