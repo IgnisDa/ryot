@@ -39,4 +39,8 @@ export const videoGamePropertiesSchema = mediaPropertiesSchema.extend({
 
 export const videoGamePropertiesJsonSchema = toAppSchemaProperties(videoGamePropertiesSchema);
 
+export type VideoGameTimeToBeat = z.infer<typeof videoGameTimeToBeatSchema>;
+
+export type VideoGamePlatformRelease = z.infer<typeof videoGamePlatformReleaseSchema>;
+
 export type VideoGameProperties = z.infer<typeof videoGamePropertiesSchema>;
