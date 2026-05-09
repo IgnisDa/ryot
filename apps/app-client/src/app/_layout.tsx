@@ -1,12 +1,8 @@
 // oxlint-disable-next-line import/no-unassigned-import
 import "@/global.css";
 import { IBMPlexMono_400Regular } from "@expo-google-fonts/ibm-plex-mono";
+import { Lora_400Regular, Lora_500Medium, Lora_600SemiBold } from "@expo-google-fonts/lora";
 import { Outfit_400Regular, Outfit_500Medium, Outfit_600SemiBold } from "@expo-google-fonts/outfit";
-import {
-	SpaceGrotesk_400Regular,
-	SpaceGrotesk_500Medium,
-	SpaceGrotesk_600SemiBold,
-} from "@expo-google-fonts/space-grotesk";
 import { QueryClientProvider } from "@tanstack/react-query";
 import * as DevClient from "expo-dev-client";
 import { useFonts } from "expo-font";
@@ -34,13 +30,13 @@ if (__DEV__ && Platform.OS !== "web") {
 
 export default function RootLayout() {
 	const [fontsLoaded] = useFonts({
-		Outfit_500Medium,
-		Outfit_400Regular,
-		Outfit_600SemiBold,
+		Lora_400Regular,
+		Lora_500Medium,
+		Lora_600SemiBold,
 		IBMPlexMono_400Regular,
-		SpaceGrotesk_500Medium,
-		SpaceGrotesk_400Regular,
-		SpaceGrotesk_600SemiBold,
+		Outfit_400Regular,
+		Outfit_500Medium,
+		Outfit_600SemiBold,
 	});
 
 	useAppFocus();
