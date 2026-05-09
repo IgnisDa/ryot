@@ -218,8 +218,7 @@ export const createEntity = async (
 		name: input.body.name,
 		image: input.body.image,
 		properties: input.body.properties,
-		// oxlint-disable-next-line no-unsafe-type-assertion
-		propertiesSchema: scope.propertiesSchema as AppSchema,
+		propertiesSchema: scope.propertiesSchema,
 	});
 	if ("error" in entityInput) {
 		return entityInput;
