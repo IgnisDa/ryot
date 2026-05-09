@@ -44,6 +44,7 @@ const unpopulatedGlobalEntityDate = new Date(0);
 
 const toListedEntity = (row: EntityRow): ListedEntity => ({
 	...row,
+	// oxlint-disable-next-line no-unsafe-type-assertion
 	properties: row.properties as EntityPropertiesShape,
 });
 
@@ -255,6 +256,7 @@ export const buildPersonRelationshipProperties = (
 	role: string,
 	extraProperties: Record<string, unknown>,
 ): Record<string, unknown> => {
+	// oxlint-disable-next-line no-unsafe-type-assertion
 	const existingRoles = (existing?.roles as string[] | undefined) ?? [];
 	const mergedRoles = Array.from(new Set([...existingRoles, role]));
 	return { ...existing, ...extraProperties, roles: mergedRoles };
@@ -282,6 +284,7 @@ export const upsertPersonRelationship = async (input: {
 			.for("update")
 			.limit(1);
 
+		// oxlint-disable-next-line no-unsafe-type-assertion
 		const existingProperties =
 			(existing?.properties as Record<string, unknown> | undefined) ?? undefined;
 		const mergedProperties = buildPersonRelationshipProperties(

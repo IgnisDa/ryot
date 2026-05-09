@@ -162,6 +162,7 @@ function isBuiltInMediaEntitySchemaSlug(
 	value: string,
 ): value is BuiltInMediaOverviewSourceItem["entitySchemaSlug"] {
 	return builtinMediaEntitySchemaSlugSet.has(
+		// oxlint-disable-next-line no-unsafe-type-assertion
 		value as BuiltInMediaOverviewSourceItem["entitySchemaSlug"],
 	);
 }
@@ -319,6 +320,7 @@ export const getContinueItems = async (userId: string, deps: MediaServiceDeps = 
 		const items = result.items.flatMap((item) => {
 			const mapped = toBuiltinMediaSourceItem(item);
 			if (mapped?.progressAt) {
+				// oxlint-disable-next-line no-unsafe-type-assertion
 				return [mapped as ContinueSourceItem];
 			}
 			return [];
@@ -383,6 +385,7 @@ export const getUpNextItems = async (userId: string, deps: MediaServiceDeps = de
 		const items = result.items.flatMap((item) => {
 			const mapped = toBuiltinMediaSourceItem(item);
 			if (mapped?.backlogAt) {
+				// oxlint-disable-next-line no-unsafe-type-assertion
 				return [mapped as UpNextSourceItem];
 			}
 			return [];
@@ -437,6 +440,7 @@ export const getRateTheseItems = async (userId: string, deps: MediaServiceDeps =
 		const items = result.items.flatMap((item) => {
 			const mapped = toBuiltinMediaSourceItem(item);
 			if (mapped?.completeAt) {
+				// oxlint-disable-next-line no-unsafe-type-assertion
 				return [mapped as RateTheseSourceItem];
 			}
 			return [];
@@ -472,6 +476,7 @@ const toRecentActivitySourceItem = (item: QueryEngineItem): RecentActivitySource
 
 	if (
 		!builtinMediaEventSchemaSlugs.includes(
+			// oxlint-disable-next-line no-unsafe-type-assertion
 			eventSchemaSlug as (typeof builtinMediaEventSchemaSlugs)[number],
 		) ||
 		!isBuiltInMediaEntitySchemaSlug(entitySchemaSlug)
@@ -492,6 +497,7 @@ const toRecentActivitySourceItem = (item: QueryEngineItem): RecentActivitySource
 		occurredAt,
 		id: eventId,
 		rating: toNullableNumber(getFieldValue(item, "eventRating")),
+		// oxlint-disable-next-line no-unsafe-type-assertion
 		eventSchemaSlug: eventSchemaSlug as (typeof builtinMediaEventSchemaSlugs)[number],
 		entity: {
 			name: entityName,
@@ -712,7 +718,8 @@ export const getLibraryStats = async (userId: string, deps: MediaServiceDeps = d
 		const inProgress = toNullableNumber(findValue("inProgress")) ?? 0;
 		const entityTypeCounts =
 			bySchemaRaw && typeof bySchemaRaw === "object"
-				? (Object.fromEntries(
+				? // oxlint-disable-next-line no-unsafe-type-assertion
+					(Object.fromEntries(
 						Object.entries(bySchemaRaw).flatMap(([key, val]) => {
 							const count = toNullableNumber(val);
 							if (count === null || !isBuiltInMediaEntitySchemaSlug(key)) {
@@ -721,7 +728,8 @@ export const getLibraryStats = async (userId: string, deps: MediaServiceDeps = d
 							return [[key, count]];
 						}),
 					) as Record<BuiltinMediaEntitySchemaSlug, number>)
-				: ({} as Record<BuiltinMediaEntitySchemaSlug, number>);
+				: // oxlint-disable-next-line no-unsafe-type-assertion
+					({} as Record<BuiltinMediaEntitySchemaSlug, number>);
 
 		return serviceData({
 			total,

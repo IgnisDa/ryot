@@ -104,7 +104,7 @@ describe("createCollection", () => {
 			await createCollection(
 				{ body: { name: "Test Collection" }, userId: "user-1" },
 				createCollectionDeps({
-					getBuiltinCollectionSchema: async () => undefined,
+					getBuiltinCollectionSchema: () => Promise.resolve(undefined),
 				}),
 			),
 		);
@@ -175,12 +175,12 @@ describe("createCollection", () => {
 		expect(err.message).toContain("membershipPropertiesSchema must be a valid AppSchema");
 	});
 
-	it("propagates repository errors", async () => {
-		expect(
+	it("propagates repository errors", () => {
+		return expect(
 			createCollection(
 				{ body: { name: "Test Collection" }, userId: "user-1" },
 				createCollectionDeps({
-					createCollectionForUser: async () => {
+					createCollectionForUser: () => {
 						throw new Error("Database connection lost");
 					},
 				}),
@@ -432,13 +432,15 @@ describe("createCollection", () => {
 					},
 				},
 				createCollectionDeps({
-					createCollectionForUser: async (input) => {
+					createCollectionForUser: (input) => {
 						wasCreateCalled = true;
-						return createCollectionResponse({
-							name: input.name,
-							properties: input.properties,
-							entitySchemaId: input.entitySchemaId,
-						});
+						return Promise.resolve(
+							createCollectionResponse({
+								name: input.name,
+								properties: input.properties,
+								entitySchemaId: input.entitySchemaId,
+							}),
+						);
 					},
 				}),
 			);
@@ -494,17 +496,19 @@ describe("addToCollection", () => {
 					},
 				},
 				createAddToCollectionDeps({
-					addEntityToCollection: async (input) =>
-						createAddToCollectionData({
-							memberOf: {
-								id: "rel_1",
-								properties: input.properties,
-								sourceEntityId: input.entityId,
-								targetEntityId: input.collectionId,
-								createdAt: "2024-01-01T00:00:00.000Z",
-								relationshipSchemaId: "rel_schema_member_of",
-							},
-						}),
+					addEntityToCollection: (input) =>
+						Promise.resolve(
+							createAddToCollectionData({
+								memberOf: {
+									id: "rel_1",
+									properties: input.properties,
+									sourceEntityId: input.entityId,
+									targetEntityId: input.collectionId,
+									createdAt: "2024-01-01T00:00:00.000Z",
+									relationshipSchemaId: "rel_schema_member_of",
+								},
+							}),
+						),
 				}),
 			),
 		);
@@ -529,10 +533,11 @@ describe("addToCollection", () => {
 					body: { collectionId: "collection-1", entityId: "entity-1" },
 				},
 				createAddToCollectionDeps({
-					getUserLibraryEntityId: async () => "library-123",
-					getEntityById: async () => ({ id: "entity-1", userId: null }),
-					upsertInLibraryRelationship: async (input) => {
+					getUserLibraryEntityId: () => Promise.resolve("library-123"),
+					getEntityById: () => Promise.resolve({ id: "entity-1", userId: null }),
+					upsertInLibraryRelationship: (input) => {
 						calls.push(input);
+						return Promise.resolve();
 					},
 				}),
 			),
@@ -557,9 +562,10 @@ describe("addToCollection", () => {
 					body: { collectionId: "collection-1", entityId: "entity-1" },
 				},
 				createAddToCollectionDeps({
-					getEntityById: async () => ({ id: "entity-1", userId: null }),
-					upsertInLibraryRelationship: async () => {
+					getEntityById: () => Promise.resolve({ id: "entity-1", userId: null }),
+					upsertInLibraryRelationship: () => {
 						upsertCalls++;
+						return Promise.resolve();
 					},
 				}),
 			),
@@ -578,8 +584,9 @@ describe("addToCollection", () => {
 					body: { collectionId: "collection-1", entityId: "entity-1" },
 				},
 				createAddToCollectionDeps({
-					upsertInLibraryRelationship: async () => {
+					upsertInLibraryRelationship: () => {
 						upsertCalls++;
+						return Promise.resolve();
 					},
 				}),
 			),
@@ -595,8 +602,8 @@ describe("addToCollection", () => {
 				body: { collectionId: "collection-1", entityId: "entity-1" },
 			},
 			createAddToCollectionDeps({
-				getUserLibraryEntityId: async () => undefined,
-				getEntityById: async () => ({ id: "entity-1", userId: null }),
+				getUserLibraryEntityId: () => Promise.resolve(undefined),
+				getEntityById: () => Promise.resolve({ id: "entity-1", userId: null }),
 			}),
 		);
 
@@ -619,23 +626,26 @@ describe("addToCollection", () => {
 				},
 			},
 			createAddToCollectionDeps({
-				getEntityById: async () => ({ id: "entity-1", userId: null }),
-				getCollectionById: async () =>
-					createCollectionResponse({
-						properties: {
-							membershipPropertiesSchema: {
-								fields: {
-									rating: {
-										type: "integer",
-										label: "Rating",
-										description: "Rating",
+				getEntityById: () => Promise.resolve({ id: "entity-1", userId: null }),
+				getCollectionById: () =>
+					Promise.resolve(
+						createCollectionResponse({
+							properties: {
+								membershipPropertiesSchema: {
+									fields: {
+										rating: {
+											type: "integer",
+											label: "Rating",
+											description: "Rating",
+										},
 									},
 								},
 							},
-						},
-					}),
-				upsertInLibraryRelationship: async () => {
+						}),
+					),
+				upsertInLibraryRelationship: () => {
 					upsertCalls++;
+					return Promise.resolve();
 				},
 			}),
 		);
@@ -661,37 +671,41 @@ describe("addToCollection", () => {
 					},
 				},
 				createAddToCollectionDeps({
-					getCollectionById: async () =>
-						createCollectionResponse({
-							properties: {
-								membershipPropertiesSchema: {
-									fields: {
-										rating: {
-											type: "integer",
-											label: "Rating",
-											description: "Rating",
-										},
-										recommendedBy: {
-											type: "string",
-											label: "Recommended By",
-											description: "Friend name",
+					getCollectionById: () =>
+						Promise.resolve(
+							createCollectionResponse({
+								properties: {
+									membershipPropertiesSchema: {
+										fields: {
+											rating: {
+												type: "integer",
+												label: "Rating",
+												description: "Rating",
+											},
+											recommendedBy: {
+												type: "string",
+												label: "Recommended By",
+												description: "Friend name",
+											},
 										},
 									},
 								},
-							},
-						}),
-					addEntityToCollection: async (input) => {
+							}),
+						),
+					addEntityToCollection: (input) => {
 						receivedProperties = input.properties;
-						return createAddToCollectionData({
-							memberOf: {
-								id: "rel_1",
-								properties: input.properties,
-								sourceEntityId: input.entityId,
-								targetEntityId: input.collectionId,
-								createdAt: "2024-01-01T00:00:00.000Z",
-								relationshipSchemaId: "rel_schema_member_of",
-							},
-						});
+						return Promise.resolve(
+							createAddToCollectionData({
+								memberOf: {
+									id: "rel_1",
+									properties: input.properties,
+									sourceEntityId: input.entityId,
+									targetEntityId: input.collectionId,
+									createdAt: "2024-01-01T00:00:00.000Z",
+									relationshipSchemaId: "rel_schema_member_of",
+								},
+							}),
+						);
 					},
 				}),
 			),
@@ -716,20 +730,22 @@ describe("addToCollection", () => {
 					},
 				},
 				createAddToCollectionDeps({
-					getCollectionById: async () =>
-						createCollectionResponse({
-							properties: {
-								membershipPropertiesSchema: {
-									fields: {
-										rating: {
-											type: "integer",
-											label: "Rating",
-											description: "Rating",
+					getCollectionById: () =>
+						Promise.resolve(
+							createCollectionResponse({
+								properties: {
+									membershipPropertiesSchema: {
+										fields: {
+											rating: {
+												type: "integer",
+												label: "Rating",
+												description: "Rating",
+											},
 										},
 									},
 								},
-							},
-						}),
+							}),
+						),
 				}),
 			),
 		);
@@ -750,21 +766,23 @@ describe("addToCollection", () => {
 					},
 				},
 				createAddToCollectionDeps({
-					getCollectionById: async () =>
-						createCollectionResponse({
-							properties: {
-								membershipPropertiesSchema: {
-									fields: {
-										recommendedBy: {
-											type: "string",
-											label: "Recommended By",
-											description: "Friend name",
-											validation: { required: true },
+					getCollectionById: () =>
+						Promise.resolve(
+							createCollectionResponse({
+								properties: {
+									membershipPropertiesSchema: {
+										fields: {
+											recommendedBy: {
+												type: "string",
+												label: "Recommended By",
+												description: "Friend name",
+												validation: { required: true },
+											},
 										},
 									},
 								},
-							},
-						}),
+							}),
+						),
 				}),
 			),
 		);
@@ -787,21 +805,23 @@ describe("addToCollection", () => {
 						},
 					},
 					createAddToCollectionDeps({
-						getCollectionById: async () =>
-							createCollectionResponse({
-								properties: {
-									membershipPropertiesSchema: {
-										fields: {
-											rating: {
-												type: "integer",
-												label: "Rating",
-												description: "Rating",
-												validation: { required: true },
+						getCollectionById: () =>
+							Promise.resolve(
+								createCollectionResponse({
+									properties: {
+										membershipPropertiesSchema: {
+											fields: {
+												rating: {
+													type: "integer",
+													label: "Rating",
+													description: "Rating",
+													validation: { required: true },
+												},
 											},
 										},
 									},
-								},
-							}),
+								}),
+							),
 					}),
 				),
 			);
@@ -821,20 +841,22 @@ describe("addToCollection", () => {
 						},
 					},
 					createAddToCollectionDeps({
-						getCollectionById: async () =>
-							createCollectionResponse({
-								properties: {
-									membershipPropertiesSchema: {
-										fields: {
-											score: {
-												type: "integer",
-												label: "Score",
-												description: "Score",
+						getCollectionById: () =>
+							Promise.resolve(
+								createCollectionResponse({
+									properties: {
+										membershipPropertiesSchema: {
+											fields: {
+												score: {
+													type: "integer",
+													label: "Score",
+													description: "Score",
+												},
 											},
 										},
 									},
-								},
-							}),
+								}),
+							),
 					}),
 				),
 			);
@@ -854,27 +876,29 @@ describe("addToCollection", () => {
 						},
 					},
 					createAddToCollectionDeps({
-						getCollectionById: async () =>
-							createCollectionResponse({
-								properties: {
-									membershipPropertiesSchema: {
-										fields: {
-											name: {
-												type: "string",
-												label: "Name",
-												description: "Name",
-												validation: { required: true },
-											},
-											priority: {
-												type: "integer",
-												label: "Priority",
-												description: "Priority",
-												validation: { required: true },
+						getCollectionById: () =>
+							Promise.resolve(
+								createCollectionResponse({
+									properties: {
+										membershipPropertiesSchema: {
+											fields: {
+												name: {
+													type: "string",
+													label: "Name",
+													description: "Name",
+													validation: { required: true },
+												},
+												priority: {
+													type: "integer",
+													label: "Priority",
+													description: "Priority",
+													validation: { required: true },
+												},
 											},
 										},
 									},
-								},
-							}),
+								}),
+							),
 					}),
 				),
 			);
@@ -895,27 +919,29 @@ describe("addToCollection", () => {
 						},
 					},
 					createAddToCollectionDeps({
-						getCollectionById: async () =>
-							createCollectionResponse({
-								properties: {
-									membershipPropertiesSchema: {
-										fields: {
-											details: {
-												type: "object",
-												label: "Details",
-												description: "Details",
-												properties: {
-													score: {
-														type: "integer",
-														label: "Score",
-														description: "Score",
+						getCollectionById: () =>
+							Promise.resolve(
+								createCollectionResponse({
+									properties: {
+										membershipPropertiesSchema: {
+											fields: {
+												details: {
+													type: "object",
+													label: "Details",
+													description: "Details",
+													properties: {
+														score: {
+															type: "integer",
+															label: "Score",
+															description: "Score",
+														},
 													},
 												},
 											},
 										},
 									},
-								},
-							}),
+								}),
+							),
 					}),
 				),
 			);
@@ -938,9 +964,9 @@ describe("addToCollection", () => {
 					},
 				},
 				createAddToCollectionDeps({
-					addEntityToCollection: async (input) => {
+					addEntityToCollection: (input) => {
 						receivedProperties = input.properties;
-						return createAddToCollectionData();
+						return Promise.resolve(createAddToCollectionData());
 					},
 				}),
 			),
@@ -968,44 +994,48 @@ describe("addToCollection", () => {
 					},
 				},
 				createAddToCollectionDeps({
-					getCollectionById: async () =>
-						createCollectionResponse({
-							properties: {
-								membershipPropertiesSchema: {
-									fields: {
-										recommendationDetails: {
-											type: "object",
-											label: "Recommendation Details",
-											description: "Recommendation details",
-											properties: {
-												friend: {
-													type: "string",
-													label: "Friend",
-													description: "Friend name",
-												},
-												context: {
-													type: "string",
-													label: "Context",
-													description: "Recommendation context",
+					getCollectionById: () =>
+						Promise.resolve(
+							createCollectionResponse({
+								properties: {
+									membershipPropertiesSchema: {
+										fields: {
+											recommendationDetails: {
+												type: "object",
+												label: "Recommendation Details",
+												description: "Recommendation details",
+												properties: {
+													friend: {
+														type: "string",
+														label: "Friend",
+														description: "Friend name",
+													},
+													context: {
+														type: "string",
+														label: "Context",
+														description: "Recommendation context",
+													},
 												},
 											},
 										},
 									},
 								},
-							},
-						}),
-					addEntityToCollection: async (input) => {
+							}),
+						),
+					addEntityToCollection: (input) => {
 						receivedProperties = input.properties;
-						return createAddToCollectionData({
-							memberOf: {
-								id: "rel_1",
-								properties: input.properties,
-								sourceEntityId: input.entityId,
-								targetEntityId: input.collectionId,
-								createdAt: "2024-01-01T00:00:00.000Z",
-								relationshipSchemaId: "rel_schema_member_of",
-							},
-						});
+						return Promise.resolve(
+							createAddToCollectionData({
+								memberOf: {
+									id: "rel_1",
+									properties: input.properties,
+									sourceEntityId: input.entityId,
+									targetEntityId: input.collectionId,
+									createdAt: "2024-01-01T00:00:00.000Z",
+									relationshipSchemaId: "rel_schema_member_of",
+								},
+							}),
+						);
 					},
 				}),
 			),
@@ -1033,32 +1063,34 @@ describe("addToCollection", () => {
 					},
 				},
 				createAddToCollectionDeps({
-					getCollectionById: async () =>
-						createCollectionResponse({
-							properties: {
-								membershipPropertiesSchema: {
-									fields: {
-										recommendationDetails: {
-											type: "object",
-											label: "Recommendation Details",
-											description: "Recommendation details",
-											properties: {
-												friend: {
-													type: "string",
-													label: "Friend",
-													description: "Friend name",
-												},
-												score: {
-													type: "integer",
-													label: "Score",
-													description: "Recommendation score",
+					getCollectionById: () =>
+						Promise.resolve(
+							createCollectionResponse({
+								properties: {
+									membershipPropertiesSchema: {
+										fields: {
+											recommendationDetails: {
+												type: "object",
+												label: "Recommendation Details",
+												description: "Recommendation details",
+												properties: {
+													friend: {
+														type: "string",
+														label: "Friend",
+														description: "Friend name",
+													},
+													score: {
+														type: "integer",
+														label: "Score",
+														description: "Recommendation score",
+													},
 												},
 											},
 										},
 									},
 								},
-							},
-						}),
+							}),
+						),
 				}),
 			),
 		);
@@ -1077,7 +1109,7 @@ describe("addToCollection", () => {
 						entityId: "entity-with-invisible-schema",
 					},
 				},
-				createAddToCollectionDeps({ getEntityById: async () => undefined }),
+				createAddToCollectionDeps({ getEntityById: () => Promise.resolve(undefined) }),
 			),
 		);
 
@@ -1092,7 +1124,7 @@ describe("addToCollection", () => {
 					userId: "user-1",
 					body: { collectionId: "nonexistent", entityId: "entity-1" },
 				},
-				createAddToCollectionDeps({ getCollectionById: async () => undefined }),
+				createAddToCollectionDeps({ getCollectionById: () => Promise.resolve(undefined) }),
 			),
 		);
 
@@ -1107,7 +1139,7 @@ describe("addToCollection", () => {
 					userId: "user-1",
 					body: { collectionId: "collection-1", entityId: "nonexistent" },
 				},
-				createAddToCollectionDeps({ getEntityById: async () => undefined }),
+				createAddToCollectionDeps({ getEntityById: () => Promise.resolve(undefined) }),
 			),
 		);
 
@@ -1125,9 +1157,9 @@ describe("addToCollection", () => {
 					body: { collectionId: "collection-1", entityId: "entity-1" },
 				},
 				createAddToCollectionDeps({
-					addEntityToCollection: async (input) => {
+					addEntityToCollection: (input) => {
 						receivedProperties = input.properties;
-						return createAddToCollectionData();
+						return Promise.resolve(createAddToCollectionData());
 					},
 				}),
 			),
@@ -1148,17 +1180,19 @@ describe("addToCollection", () => {
 					},
 				},
 				createAddToCollectionDeps({
-					addEntityToCollection: async (input) =>
-						createAddToCollectionData({
-							memberOf: {
-								id: "existing-rel-1",
-								properties: input.properties,
-								sourceEntityId: input.entityId,
-								targetEntityId: input.collectionId,
-								createdAt: "2024-01-01T00:00:00.000Z",
-								relationshipSchemaId: "rel_schema_member_of",
-							},
-						}),
+					addEntityToCollection: (input) =>
+						Promise.resolve(
+							createAddToCollectionData({
+								memberOf: {
+									id: "existing-rel-1",
+									properties: input.properties,
+									sourceEntityId: input.entityId,
+									targetEntityId: input.collectionId,
+									createdAt: "2024-01-01T00:00:00.000Z",
+									relationshipSchemaId: "rel_schema_member_of",
+								},
+							}),
+						),
 				}),
 			),
 		);
@@ -1172,23 +1206,25 @@ describe("addToCollection", () => {
 	it("prevents duplicate relationships by upserting", async () => {
 		let callCount = 0;
 
-		const addEntityToCollection = async (input: {
+		const addEntityToCollection = (input: {
 			userId: string;
 			entityId: string;
 			collectionId: string;
 			properties: Record<string, unknown>;
 		}) => {
 			callCount++;
-			return createAddToCollectionData({
-				memberOf: {
-					id: `rel_${callCount}`,
-					properties: input.properties,
-					sourceEntityId: input.entityId,
-					targetEntityId: input.collectionId,
-					createdAt: "2024-01-01T00:00:00.000Z",
-					relationshipSchemaId: "rel_schema_member_of",
-				},
-			});
+			return Promise.resolve(
+				createAddToCollectionData({
+					memberOf: {
+						id: `rel_${callCount}`,
+						properties: input.properties,
+						sourceEntityId: input.entityId,
+						targetEntityId: input.collectionId,
+						createdAt: "2024-01-01T00:00:00.000Z",
+						relationshipSchemaId: "rel_schema_member_of",
+					},
+				}),
+			);
 		};
 
 		await addToCollection(
@@ -1216,15 +1252,15 @@ describe("addToCollection", () => {
 		expect(callCount).toBe(2);
 	});
 
-	it("propagates repository errors", async () => {
-		expect(
+	it("propagates repository errors", () => {
+		return expect(
 			addToCollection(
 				{
 					userId: "user-1",
 					body: { collectionId: "collection-1", entityId: "entity-1" },
 				},
 				createAddToCollectionDeps({
-					addEntityToCollection: async () => {
+					addEntityToCollection: () => {
 						throw new Error("Database connection lost");
 					},
 				}),
@@ -1257,7 +1293,7 @@ describe("removeFromCollection", () => {
 					body: { collectionId: "nonexistent", entityId: "entity-1" },
 				},
 				createRemoveFromCollectionDeps({
-					getCollectionById: async () => undefined,
+					getCollectionById: () => Promise.resolve(undefined),
 				}),
 			),
 		);
@@ -1274,7 +1310,7 @@ describe("removeFromCollection", () => {
 					body: { collectionId: "collection-1", entityId: "nonexistent" },
 				},
 				createRemoveFromCollectionDeps({
-					getEntityById: async () => undefined,
+					getEntityById: () => Promise.resolve(undefined),
 				}),
 			),
 		);
@@ -1294,7 +1330,7 @@ describe("removeFromCollection", () => {
 					},
 				},
 				createRemoveFromCollectionDeps({
-					getEntityById: async () => undefined,
+					getEntityById: () => Promise.resolve(undefined),
 				}),
 			),
 		);
@@ -1311,7 +1347,7 @@ describe("removeFromCollection", () => {
 					body: { collectionId: "collection-1", entityId: "entity-1" },
 				},
 				createRemoveFromCollectionDeps({
-					removeEntityFromCollection: async () => undefined,
+					removeEntityFromCollection: () => Promise.resolve(undefined),
 				}),
 			),
 		);
@@ -1320,15 +1356,15 @@ describe("removeFromCollection", () => {
 		expect(err.message).toBe("Entity is not in collection");
 	});
 
-	it("propagates repository errors", async () => {
-		expect(
+	it("propagates repository errors", () => {
+		return expect(
 			removeFromCollection(
 				{
 					userId: "user-1",
 					body: { collectionId: "collection-1", entityId: "entity-1" },
 				},
 				createRemoveFromCollectionDeps({
-					removeEntityFromCollection: async () => {
+					removeEntityFromCollection: () => {
 						throw new Error("Database connection lost");
 					},
 				}),

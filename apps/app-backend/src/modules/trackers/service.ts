@@ -76,11 +76,10 @@ export const resolveTrackerPatch = (input: { current: TrackerState; input: Updat
 	return {
 		name,
 		slug: input.current.slug,
-		icon: input.input.icon === undefined ? input.current.icon : input.input.icon,
+		icon: input.input.icon ?? input.current.icon,
 		description:
 			input.input.description === undefined ? input.current.description : input.input.description,
-		accentColor:
-			input.input.accentColor === undefined ? input.current.accentColor : input.input.accentColor,
+		accentColor: input.input.accentColor ?? input.current.accentColor,
 	};
 };
 

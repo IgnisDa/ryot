@@ -21,6 +21,7 @@ const parseHttpCallOptions = (options: unknown) => {
 	}
 
 	const parsed: HttpCallOptions = {};
+	// oxlint-disable-next-line no-unsafe-type-assertion
 	const optionRecord = options as Record<string, unknown>;
 
 	if ("body" in optionRecord) {
@@ -41,6 +42,7 @@ const parseHttpCallOptions = (options: unknown) => {
 			!Array.isArray(optionRecord.headers) &&
 			optionRecord.headers !== null
 		) {
+			// oxlint-disable-next-line no-unsafe-type-assertion
 			const headerRecord = optionRecord.headers as Record<string, unknown>;
 			const headers: Record<string, string> = {};
 			for (const key of Object.keys(headerRecord)) {

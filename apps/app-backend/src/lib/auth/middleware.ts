@@ -33,10 +33,11 @@ const getUserById = async (userId: string) => {
 		foundUser
 			? {
 					...foundUser,
+					// oxlint-disable-next-line no-unsafe-type-assertion
 					preferences: foundUser.preferences as AuthenticatedUser["preferences"],
 				}
 			: null
-	) as AuthenticatedUser | null;
+	) as AuthenticatedUser | null; // oxlint-disable-next-line no-unsafe-type-assertion
 };
 
 type ResolveAuthenticatedUserDeps = {

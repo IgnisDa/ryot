@@ -103,7 +103,9 @@ export const systemApi = new OpenAPIHono()
 		});
 		return c.json(
 			successResponse({
+				// oxlint-disable-next-line no-unsafe-type-assertion
 				system: masked.system as Record<string, unknown>,
+				// oxlint-disable-next-line no-unsafe-type-assertion
 				providers: masked.providers as Record<string, unknown>,
 			}),
 			200,

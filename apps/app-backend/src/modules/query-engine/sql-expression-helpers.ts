@@ -42,7 +42,7 @@ export const buildPropertyPathExpression = (
 	return mode === "text" ? sql`${current} ->> ${last}` : sql`${current} -> ${last}`;
 };
 
-export const buildLiteralExpression = (value: unknown | null, targetType?: PropertyType) => {
+export const buildLiteralExpression = (value: unknown, targetType?: PropertyType) => {
 	if (value === null) {
 		return sql`null`;
 	}

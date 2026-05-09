@@ -20,6 +20,7 @@ const listedEventSchemaSelection = {
 
 const toListedEventSchema = (row: EventSchemaRow): ListedEventSchema => ({
 	...row,
+	// oxlint-disable-next-line no-unsafe-type-assertion
 	propertiesSchema: row.propertiesSchema as EventSchemaPropertiesShape,
 });
 

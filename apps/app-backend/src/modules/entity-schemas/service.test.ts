@@ -267,15 +267,16 @@ describe("listEntitySchemas", () => {
 		const result = await listEntitySchemas(
 			{ userId: "user_1" },
 			createEntitySchemaDeps({
-				listEntitySchemasForUser: async () => [
-					createListedEntitySchema({ slug: "books" }),
-					createListedEntitySchema({
-						id: "schema_2",
-						name: "Movies",
-						slug: "movies",
-						trackerId: "tracker_2",
-					}),
-				],
+				listEntitySchemasForUser: () =>
+					Promise.resolve([
+						createListedEntitySchema({ slug: "books" }),
+						createListedEntitySchema({
+							id: "schema_2",
+							name: "Movies",
+							slug: "movies",
+							trackerId: "tracker_2",
+						}),
+					]),
 			}),
 		);
 
@@ -295,7 +296,7 @@ describe("listEntitySchemas", () => {
 	it("returns not found when the tracker does not exist", async () => {
 		const result = await listEntitySchemas(
 			{ trackerId: "tracker_1", userId: "user_1" },
-			createEntitySchemaDeps({ getTrackerScopeForUser: async () => undefined }),
+			createEntitySchemaDeps({ getTrackerScopeForUser: () => Promise.resolve(undefined) }),
 		);
 
 		expect(result).toEqual({
@@ -310,13 +311,13 @@ describe("listEntitySchemas", () => {
 		const result = await listEntitySchemas(
 			{ slugs: ["books", "movies"], userId: "user_1" },
 			createEntitySchemaDeps({
-				getTrackerScopeForUser: async () => {
+				getTrackerScopeForUser: () => {
 					lookedUpTracker = true;
-					return undefined;
+					return Promise.resolve(undefined);
 				},
-				listEntitySchemasForUser: async (input) => {
+				listEntitySchemasForUser: (input) => {
 					listedSlugs = input.slugs;
-					return [createListedEntitySchema({ slug: "books" })];
+					return Promise.resolve([createListedEntitySchema({ slug: "books" })]);
 				},
 			}),
 		);
@@ -333,9 +334,9 @@ describe("createEntitySchema", () => {
 	it("normalizes the payload before persisting", async () => {
 		let createdSlug: string | undefined;
 		const deps = createEntitySchemaDeps({
-			createEntitySchemaForUser: async (input) => {
+			createEntitySchemaForUser: (input) => {
 				createdSlug = input.slug;
-				return createListedEntitySchema({ slug: input.slug, name: input.name });
+				return Promise.resolve(createListedEntitySchema({ slug: input.slug, name: input.name }));
 			},
 		});
 
@@ -360,11 +361,12 @@ describe("createEntitySchema", () => {
 		const result = await createEntitySchema(
 			{ body: createEntitySchemaBody(), userId: "user_1" },
 			createEntitySchemaDeps({
-				getTrackerScopeForUser: async () => ({
-					id: "tracker_1",
-					isBuiltin: true,
-					userId: "user_1",
-				}),
+				getTrackerScopeForUser: () =>
+					Promise.resolve({
+						id: "tracker_1",
+						isBuiltin: true,
+						userId: "user_1",
+					}),
 			}),
 		);
 
@@ -396,7 +398,7 @@ describe("getEntitySchemaById", () => {
 		const result = await getEntitySchemaById(
 			{ entitySchemaId: "schema_1", userId: "user_1" },
 			createEntitySchemaDeps({
-				getEntitySchemaByIdForUser: async () => schema,
+				getEntitySchemaByIdForUser: () => Promise.resolve(schema),
 			}),
 		);
 
@@ -407,7 +409,7 @@ describe("getEntitySchemaById", () => {
 		const result = await getEntitySchemaById(
 			{ entitySchemaId: "non_existent", userId: "user_1" },
 			createEntitySchemaDeps({
-				getEntitySchemaByIdForUser: async () => undefined,
+				getEntitySchemaByIdForUser: () => Promise.resolve(undefined),
 			}),
 		);
 
@@ -421,7 +423,7 @@ describe("getEntitySchemaById", () => {
 		const result = await getEntitySchemaById(
 			{ entitySchemaId: "schema_1", userId: "other_user" },
 			createEntitySchemaDeps({
-				getEntitySchemaByIdForUser: async () => undefined,
+				getEntitySchemaByIdForUser: () => Promise.resolve(undefined),
 			}),
 		);
 
@@ -437,10 +439,10 @@ describe("enqueueEntitySearch", () => {
 		let capturedBody: Record<string, unknown> | undefined;
 		let capturedUserId: string | undefined;
 		const deps = createEntitySearchDeps({
-			enqueueSandboxJob: async (input) => {
+			enqueueSandboxJob: (input) => {
 				capturedBody = input.body as Record<string, unknown>;
 				capturedUserId = input.userId;
-				return { data: { jobId: "job_search_1" } };
+				return Promise.resolve({ data: { jobId: "job_search_1" } });
 			},
 		});
 
@@ -462,7 +464,7 @@ describe("enqueueEntitySearch", () => {
 
 	it("returns the jobId returned by the sandbox", async () => {
 		const deps = createEntitySearchDeps({
-			enqueueSandboxJob: async () => ({ data: { jobId: "job_abc" } }),
+			enqueueSandboxJob: () => Promise.resolve({ data: { jobId: "job_abc" } }),
 		});
 
 		const result = await enqueueEntitySearch(
@@ -475,10 +477,11 @@ describe("enqueueEntitySearch", () => {
 
 	it("propagates not_found when the script does not exist", async () => {
 		const deps = createEntitySearchDeps({
-			enqueueSandboxJob: async () => ({
-				error: "not_found" as const,
-				message: "Sandbox script not found",
-			}),
+			enqueueSandboxJob: () =>
+				Promise.resolve({
+					error: "not_found" as const,
+					message: "Sandbox script not found",
+				}),
 		});
 
 		const result = await enqueueEntitySearch(
@@ -498,10 +501,10 @@ describe("getEntitySearchResult", () => {
 		let capturedJobId: string | undefined;
 		let capturedUserId: string | undefined;
 		const deps = createEntitySearchDeps({
-			getSandboxJobResult: async (input) => {
+			getSandboxJobResult: (input) => {
 				capturedJobId = input.jobId;
 				capturedUserId = input.userId;
-				return { data: { status: "pending" as const } };
+				return Promise.resolve({ data: { status: "pending" as const } });
 			},
 		});
 
@@ -513,10 +516,11 @@ describe("getEntitySearchResult", () => {
 
 	it("propagates not_found when the job does not exist", async () => {
 		const deps = createEntitySearchDeps({
-			getSandboxJobResult: async () => ({
-				error: "not_found" as const,
-				message: "Sandbox job not found",
-			}),
+			getSandboxJobResult: () =>
+				Promise.resolve({
+					error: "not_found" as const,
+					message: "Sandbox job not found",
+				}),
 		});
 
 		const result = await getEntitySearchResult({ jobId: "nonexistent", userId: "user_1" }, deps);
@@ -533,9 +537,10 @@ describe("importEntity", () => {
 		let capturedJobId: string | undefined;
 		let capturedPayload: Record<string, unknown> | undefined;
 		const deps = createEntityImportDeps({
-			addJobToQueue: async ({ jobId, payload }) => {
+			addJobToQueue: ({ jobId, payload }) => {
 				capturedJobId = jobId;
 				capturedPayload = payload as Record<string, unknown>;
+				return Promise.resolve();
 			},
 		});
 
@@ -581,7 +586,7 @@ describe("getEntityImportResult", () => {
 	it("returns not_found when the job does not exist", async () => {
 		const result = await getEntityImportResult(
 			{ jobId: "missing", userId: "user_1" },
-			createEntityImportDeps({ getJobFromQueue: async () => null }),
+			createEntityImportDeps({ getJobFromQueue: () => Promise.resolve(null) }),
 		);
 
 		expect(result).toEqual({
@@ -592,17 +597,19 @@ describe("getEntityImportResult", () => {
 
 	it("returns not_found when the job belongs to a different user", async () => {
 		const deps = createEntityImportDeps({
-			getJobFromQueue: async () => ({
-				failedReason: undefined,
-				returnvalue: {} as never,
-				getState: async () => "completed",
-				data: {
-					scriptId: "s",
-					externalId: "i",
-					entitySchemaId: "e",
-					userId: "other_user",
-				},
-			}),
+			getJobFromQueue: () =>
+				Promise.resolve({
+					failedReason: undefined,
+					// oxlint-disable-next-line no-unsafe-type-assertion
+					returnvalue: {} as never,
+					getState: () => Promise.resolve("completed" as const),
+					data: {
+						scriptId: "s",
+						externalId: "i",
+						entitySchemaId: "e",
+						userId: "other_user",
+					},
+				}),
 		});
 
 		const result = await getEntityImportResult({ jobId: "job_1", userId: "user_1" }, deps);
@@ -624,17 +631,19 @@ describe("getEntityImportResult", () => {
 
 	it("returns failed with the job's failedReason", async () => {
 		const deps = createEntityImportDeps({
-			getJobFromQueue: async () => ({
-				returnvalue: {} as never,
-				getState: async () => "failed",
-				failedReason: "Script threw an error",
-				data: {
-					scriptId: "s",
-					externalId: "i",
-					userId: "user_1",
-					entitySchemaId: "e",
-				},
-			}),
+			getJobFromQueue: () =>
+				Promise.resolve({
+					// oxlint-disable-next-line no-unsafe-type-assertion
+					returnvalue: {} as never,
+					getState: () => Promise.resolve("failed" as const),
+					failedReason: "Script threw an error",
+					data: {
+						scriptId: "s",
+						externalId: "i",
+						userId: "user_1",
+						entitySchemaId: "e",
+					},
+				}),
 		});
 
 		const result = await getEntityImportResult({ jobId: "job_1", userId: "user_1" }, deps);

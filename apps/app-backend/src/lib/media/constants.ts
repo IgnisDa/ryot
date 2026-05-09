@@ -10,7 +10,7 @@ export type BuiltinMediaEventSchemaSlug = (typeof builtinMediaEventSchemaSlugs)[
 
 export const builtinMediaEntitySchemaSlugs = Array.from(
 	new Set(builtinMediaEntitySchemaSlugValues),
-) as BuiltinMediaEntitySchemaSlug[];
+);
 
 export const builtinMediaEntitySchemaSlugSet: ReadonlySet<BuiltinMediaEntitySchemaSlug> = new Set(
 	builtinMediaEntitySchemaSlugs,

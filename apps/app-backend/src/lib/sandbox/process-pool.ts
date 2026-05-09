@@ -40,8 +40,9 @@ export class ProcessPool {
 	private pruneExited() {
 		let i = 0;
 		while (i < this.idle.length) {
-			const p = this.idle[i];
-			if (!p || p.exitCode !== null || p.signalCode !== null) {
+			const p = this.idle.at(i);
+			// oxlint-disable-next-line no-unnecessary-condition
+			if (p?.exitCode !== null || p?.signalCode !== null) {
 				this.idle.splice(i, 1);
 			} else {
 				i++;

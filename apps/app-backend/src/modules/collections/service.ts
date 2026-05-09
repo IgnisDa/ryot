@@ -152,6 +152,7 @@ export const addToCollection = async (
 	}
 
 	// Validate properties against collection's membershipPropertiesSchema if defined
+	// oxlint-disable-next-line no-unsafe-type-assertion
 	const membershipSchema = collection.properties.membershipPropertiesSchema as
 		| AppSchema
 		| undefined;

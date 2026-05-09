@@ -129,37 +129,45 @@ export const createReorderSavedViewsBody = (
 export const createSavedViewDeps = (
 	overrides: Partial<SavedViewServiceDeps> = {},
 ): SavedViewServiceDeps => ({
-	prepareForValidation: async () => {},
-	persistSavedViewOrderForUser: async (input) => input.viewSlugs,
-	countSavedViewsBySlugForUser: async (input) => input.viewSlugs.length,
-	listUserSavedViewSlugsInOrder: async () => ["view_1", "view_2", "view_3"],
-	deleteSavedViewBySlugForUser: async (input) => createListedSavedView({ slug: input.viewSlug }),
-	getSavedViewBySlugForUser: async (input) => createListedSavedView({ slug: input.viewSlug }),
-	updateSavedViewDisabledBySlugForUser: async (input) =>
-		createListedSavedView({
-			slug: input.viewSlug,
-			isDisabled: input.isDisabled,
-		}),
-	createSavedViewForUser: async (input) =>
-		createListedSavedView({
-			icon: input.icon,
-			slug: input.slug,
-			name: input.name,
-			isBuiltin: input.isBuiltin,
-			accentColor: input.accentColor,
-			trackerId: input.trackerId ?? null,
-			queryDefinition: input.queryDefinition,
-			displayConfiguration: input.displayConfiguration,
-		}),
-	updateSavedViewBySlugForUser: async (input) =>
-		createListedSavedView({
-			slug: input.viewSlug,
-			icon: input.data.icon,
-			name: input.data.name,
-			accentColor: input.data.accentColor,
-			trackerId: input.data.trackerId ?? null,
-			queryDefinition: input.data.queryDefinition,
-			displayConfiguration: input.data.displayConfiguration,
-		}),
+	prepareForValidation: () => Promise.resolve(),
+	persistSavedViewOrderForUser: (input) => Promise.resolve(input.viewSlugs),
+	countSavedViewsBySlugForUser: (input) => Promise.resolve(input.viewSlugs.length),
+	listUserSavedViewSlugsInOrder: () => Promise.resolve(["view_1", "view_2", "view_3"]),
+	deleteSavedViewBySlugForUser: (input) =>
+		Promise.resolve(createListedSavedView({ slug: input.viewSlug })),
+	getSavedViewBySlugForUser: (input) =>
+		Promise.resolve(createListedSavedView({ slug: input.viewSlug })),
+	updateSavedViewDisabledBySlugForUser: (input) =>
+		Promise.resolve(
+			createListedSavedView({
+				slug: input.viewSlug,
+				isDisabled: input.isDisabled,
+			}),
+		),
+	createSavedViewForUser: (input) =>
+		Promise.resolve(
+			createListedSavedView({
+				icon: input.icon,
+				slug: input.slug,
+				name: input.name,
+				isBuiltin: input.isBuiltin,
+				accentColor: input.accentColor,
+				trackerId: input.trackerId ?? null,
+				queryDefinition: input.queryDefinition,
+				displayConfiguration: input.displayConfiguration,
+			}),
+		),
+	updateSavedViewBySlugForUser: (input) =>
+		Promise.resolve(
+			createListedSavedView({
+				slug: input.viewSlug,
+				icon: input.data.icon,
+				name: input.data.name,
+				accentColor: input.data.accentColor,
+				trackerId: input.data.trackerId ?? null,
+				queryDefinition: input.data.queryDefinition,
+				displayConfiguration: input.data.displayConfiguration,
+			}),
+		),
 	...overrides,
 });

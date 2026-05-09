@@ -61,6 +61,7 @@ const toListedEntitySchemaWithMetadata = (
 	row: EntitySchemaRow,
 ): ListedEntitySchemaWithMetadata => ({
 	...row,
+	// oxlint-disable-next-line no-unsafe-type-assertion
 	propertiesSchema: row.propertiesSchema as EntitySchemaPropertiesShape,
 });
 
