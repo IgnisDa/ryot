@@ -119,14 +119,12 @@ describe("video-game.igdb sandbox script", () => {
 					pageSize: 20,
 					query: "game",
 					options: {
-						filters: {
-							genreIds: ["3"],
-							platformIds: ["4"],
-							gameModeIds: ["5"],
-							gameTypeIds: ["6"],
-							themeIds: ["1", "2"],
-							releaseDateRegionIds: ["7", "8"],
-						},
+						genreIds: ["3"],
+						platformIds: ["4"],
+						gameModeIds: ["5"],
+						gameTypeIds: ["6"],
+						themeIds: ["1", "2"],
+						releaseDateRegionIds: ["7", "8"],
 					},
 				},
 				host,
@@ -148,12 +146,7 @@ describe("video-game.igdb sandbox script", () => {
 		return Effect.runPromise(
 			runSandboxTestScript(
 				search,
-				{
-					page: 1,
-					pageSize: 20,
-					query: "game",
-					options: { filters: { allowGamesWithParent: true } },
-				},
+				{ page: 1, pageSize: 20, query: "game", options: { allowGamesWithParent: true } },
 				host,
 				execution,
 			),
@@ -174,12 +167,7 @@ describe("video-game.igdb sandbox script", () => {
 		return Effect.runPromise(
 			runSandboxTestScript(
 				search,
-				{
-					page: 1,
-					pageSize: 20,
-					query: "game",
-					options: { filters: { themeIds: [] } },
-				},
+				{ page: 1, pageSize: 20, query: "game", options: { themeIds: [] } },
 				host,
 				execution,
 			),
@@ -189,9 +177,9 @@ describe("video-game.igdb sandbox script", () => {
 	it("rejects invalid search options", async () => {
 		const host = makeHost({ httpCall: () => Effect.fail(new Error("unexpected request")) });
 		const invalidOptions: ReadonlyArray<Readonly<Record<string, JsonValue>>> = [
-			{ filters: { genreIds: [1] } },
-			{ filters: { allowGamesWithParent: "yes" } },
-			{ filters: { unsupported: [] } },
+			{ genreIds: [1] },
+			{ allowGamesWithParent: "yes" },
+			{ unsupported: [] },
 		];
 
 		await Promise.all(
