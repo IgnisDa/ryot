@@ -11,16 +11,15 @@ import {
 	eventExpression,
 	literalExpression,
 } from "~/lib/test-fixtures";
-import type { ViewComputedField } from "~/lib/views/expression";
-import type { ViewPredicate } from "~/lib/views/filtering";
+import type { ViewComputedField, ViewPredicate } from "~/lib/views/expression";
 import { buildEventJoinMap, buildSchemaMap } from "~/lib/views/reference";
 
 import { buildFilterWhereClause } from "./filter-builder";
 
 const dialect = new PgDialect();
 
-const smartphoneSchema = createSmartphoneSchema();
 const tabletSchema = createTabletSchema();
+const smartphoneSchema = createSmartphoneSchema();
 const schemaMap = buildSchemaMap([smartphoneSchema, tabletSchema]);
 const reviewEventPropertiesSchema: AppSchema = {
 	fields: {
