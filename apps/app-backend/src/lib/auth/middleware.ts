@@ -7,7 +7,7 @@ import { db } from "~/lib/db";
 import { user } from "~/lib/db/schema";
 
 import { auth, type MaybeAuthType } from ".";
-import { ERROR_CODES, errorResponse } from "../openapi";
+import { ERROR_CODES, errorResponse } from "../openapi/errors";
 
 type AuthenticatedUser = NonNullable<MaybeAuthType["user"]>;
 

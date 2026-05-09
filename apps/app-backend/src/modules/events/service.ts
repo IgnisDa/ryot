@@ -351,8 +351,9 @@ export const createEvents = async (
 	const chunks = chunk(input.body, BULK_CHUNK_SIZE);
 	const createdEvents: CreatedEventData[] = [];
 
-	for (const chunk of chunks) {
-		for (const item of chunk) {
+	for (const batch of chunks) {
+		for (const item of batch) {
+			// oxlint-disable-next-line no-await-in-loop
 			const result = await createEvent({ body: item, userId: input.userId }, deps);
 			if ("error" in result) {
 				return result;
@@ -412,6 +413,7 @@ export const processEventSchemaTriggers = async (
 			};
 
 			try {
+				// oxlint-disable-next-line no-await-in-loop
 				await deps.enqueueEventSchemaTriggerJob({
 					jobId,
 					context,
