@@ -32,6 +32,13 @@ export const canonicalManagedAssets = (assets: readonly ManagedAssetLocator[]) =
 		(left, right) => managedAssetKey(left).localeCompare(managedAssetKey(right)),
 	);
 
+export const collectManagedAssetLocators = (assets: readonly (AssetLocator | undefined)[]) =>
+	canonicalManagedAssets(
+		assets.filter(
+			(asset): asset is ManagedAssetLocator => asset !== undefined && asset.type !== "remote",
+		),
+	);
+
 export const resolvedAssetUrls = (
 	response: DownloadResolutionResponse,
 	resolveUrl: (url: string) => string,

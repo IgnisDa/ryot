@@ -22,6 +22,8 @@ route or screen
 
 Feature modules own their request documents, atoms, decoders, and typed application states. Presentation code consumes states such as `loading`, `ready`, `not-found`, or `malformed`; it does not inspect generic contract rows or Effect causes.
 
+States produced through `classifyRyotQLResult` derive their shared loading and failure variants with `MappedRyotQLResultState`. Feature state types add only their domain-specific ready, empty, or unavailable variants instead of copying the transport state shape.
+
 ## Cache Identity
 
 Authenticated data is scoped by `ApiScope` from `src/api/request-key.ts`:
@@ -46,6 +48,10 @@ Current scopes:
 | Saved-view layout   | Server, user, and view |
 
 Storage clearing removes only Ryot-owned keys. Auth storage is cleared through the auth module.
+
+## Managed Assets
+
+Feature state collects local and S3 locators, while `ManagedAssetHost` resolves their URLs and provides them through context. Nested hosts merge their URLs with the parent context so lazily loaded sections can add assets without hiding or re-resolving the screen's existing assets. Remote locators continue to resolve directly without entering the managed request.
 
 ## Mobile Navigation
 

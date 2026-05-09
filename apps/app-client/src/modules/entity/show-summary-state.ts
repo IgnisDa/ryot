@@ -2,23 +2,24 @@ import type { ShowSummaryResult } from "@ryot/media-plugin/query-recipes";
 import { Match } from "effect";
 import type { AsyncResult } from "effect/unstable/reactivity";
 
-import { classifyRyotQLResult } from "@/api/ryotql";
-import { canonicalManagedAssets } from "@/modules/ui/managed-assets";
+import { classifyRyotQLResult, type MappedRyotQLResultState } from "@/api/ryotql";
+import { collectManagedAssetLocators } from "@/modules/ui/managed-assets";
 
 import { mediaImageAsset, mediaImageAssets, preferredMediaImageAsset } from "./media-image";
 
 export type ShowSummary = NonNullable<ShowSummaryResult["show"]>;
 
-export type ShowSummaryUnavailableReason = "missing" | "unsupported";
+type ShowSummaryUnavailableReason = "missing" | "unsupported";
 
-export type ShowSummaryState =
-	| { readonly status: "loading" }
+export type ShowSummaryState = MappedRyotQLResultState<
 	| { readonly status: "ready"; readonly show: ShowSummary }
-	| { readonly status: "malformed"; readonly cause: unknown }
-	| { readonly status: "transport-error"; readonly cause: unknown }
-	| { readonly status: "unavailable"; readonly reason: ShowSummaryUnavailableReason };
+	| { readonly status: "unavailable"; readonly reason: ShowSummaryUnavailableReason }
+>;
 
-export type ShowSummaryError = { readonly title: string; readonly detail: string };
+type ShowSummaryFailure = Pick<
+	Extract<ShowSummaryState, { status: "transport-error" | "malformed" }>,
+	"status"
+>;
 
 export const mapShowSummary = (
 	result: AsyncResult.AsyncResult<ShowSummaryResult, unknown>,
@@ -34,9 +35,7 @@ export const mapShowSummary = (
 	return { status: "ready", show };
 };
 
-export const showSummaryError = (state: {
-	readonly status: "transport-error" | "malformed";
-}): ShowSummaryError =>
+export const showSummaryError = (state: ShowSummaryFailure) =>
 	state.status === "transport-error"
 		? {
 				title: "Unable to load this show",
@@ -47,7 +46,7 @@ export const showSummaryError = (state: {
 				detail: "This show returned data that could not be displayed. Try again later.",
 			};
 
-export const showSummaryUnavailable = (reason: ShowSummaryUnavailableReason): ShowSummaryError => ({
+export const showSummaryUnavailable = (reason: ShowSummaryUnavailableReason) => ({
 	title: "Show unavailable",
 	detail:
 		reason === "missing"
@@ -66,11 +65,11 @@ export const showGalleryAssets = (show: ShowSummary) =>
 	mediaImageAssets(show.images).slice(0, SHOW_GALLERY_LIMIT);
 
 export const showManagedAssets = (show: ShowSummary) =>
-	canonicalManagedAssets(
-		[showPosterAsset(show), showBackdropAsset(show), ...showGalleryAssets(show)].flatMap((asset) =>
-			asset === undefined || asset.type === "remote" ? [] : [asset],
-		),
-	);
+	collectManagedAssetLocators([
+		showPosterAsset(show),
+		showBackdropAsset(show),
+		...showGalleryAssets(show),
+	]);
 
 export const showReleaseLabel = (show: ShowSummary) =>
 	show.publishYear === null ? (show.publishDate ?? undefined) : String(show.publishYear);

@@ -6,14 +6,14 @@ import type {
 import { Match } from "effect";
 import type { AsyncResult } from "effect/unstable/reactivity";
 
-import { classifyRyotQLResult } from "@/api/ryotql";
+import { classifyRyotQLResult, type MappedRyotQLResultState } from "@/api/ryotql";
 import {
 	formatLocalDateKey,
 	formatLocalDateLabel,
 	formatLocalMonthDayLabel,
 	formatLocalYearLabel,
 } from "@/modules/ui/date";
-import { canonicalManagedAssets } from "@/modules/ui/managed-assets";
+import { collectManagedAssetLocators } from "@/modules/ui/managed-assets";
 
 import { preferredMediaImageAsset } from "./media-image";
 import { optionalText, showEpisodeOriginLabel } from "./show-episodes-state";
@@ -42,12 +42,14 @@ export type ShowActivityJournal = {
 	readonly cycles: readonly ShowActivityCycle[];
 };
 
-export type ShowActivityState =
-	| { readonly status: "empty" }
-	| { readonly status: "loading" }
-	| { readonly status: "malformed"; readonly cause: unknown }
-	| { readonly status: "transport-error"; readonly cause: unknown }
-	| { readonly status: "ready"; readonly journal: ShowActivityJournal };
+export type ShowActivityState = MappedRyotQLResultState<
+	{ readonly status: "empty" } | { readonly status: "ready"; readonly journal: ShowActivityJournal }
+>;
+
+type ShowActivityFailure = Pick<
+	Extract<ShowActivityState, { status: "transport-error" | "malformed" }>,
+	"status"
+>;
 
 type ViewingCycle = {
 	readonly completedAt: string | null;
@@ -195,7 +197,7 @@ export const mapShowActivity = (
 	return journal.cycles.length === 0 ? { status: "empty" } : { status: "ready", journal };
 };
 
-export const showActivityError = (state: { readonly status: "transport-error" | "malformed" }) => ({
+export const showActivityError = (state: ShowActivityFailure) => ({
 	title: "Unable to load activity",
 	detail:
 		state.status === "transport-error"
@@ -273,11 +275,10 @@ export const showActivityEpisodeAsset = (episode: ShowActivityEpisode) =>
 	preferredMediaImageAsset(episode.images, "still");
 
 export const showActivityManagedAssets = (journal: ShowActivityJournal) =>
-	canonicalManagedAssets(
+	collectManagedAssetLocators(
 		journal.cycles
 			.flatMap((cycle) => cycle.days.flatMap((day) => day.entries))
 			.flatMap((event) =>
 				event.kind === "episode" ? [showActivityEpisodeAsset(event.episode)] : [],
-			)
-			.flatMap((asset) => (asset === undefined || asset.type === "remote" ? [] : [asset])),
+			),
 	);
