@@ -253,24 +253,34 @@ describe("show.tvdb sandbox script", () => {
 	it("applies translation overrides, year fallback, numeric sourceUrl, merged relations", () => {
 		const host = makeHost((_method, url) => {
 			const { pathname } = new URL(url);
+			if (pathname.endsWith("/companies/types")) {
+				return httpSuccess({
+					data: [
+						{ companyTypeId: 1, companyTypeName: "Studio" },
+						{ companyTypeId: 2, companyTypeName: "Network" },
+					],
+				});
+			}
 			if (pathname.includes("/translations/")) {
 				return httpSuccess({ data: { name: "Localized Name", overview: "Localized Desc" } });
 			}
 			return httpSuccess({
 				data: {
-					name: "Canonical Name",
+					seasons: [],
 					year: "not-a-year",
+					name: "Canonical Name",
 					firstAired: "2015-06-01",
 					characters: [
 						{ peopleId: 5, personName: "Alice", peopleType: "Actor" },
 						{ peopleId: 5, personName: "Alice", peopleType: "Director" },
 						{ personName: "Bob", peopleType: "Writer" },
 					],
-					companies: {
-						studio: [{ id: 7, name: "Studio X" }],
-						network: [{ id: 7, name: "Studio X" }],
-					},
-					seasons: [],
+					companies: [
+						{ id: 7, name: "Studio X", primaryCompanyType: 1 },
+						{ id: 7, name: "Studio X", primaryCompanyType: 2 },
+						{ id: 8, name: "Company Y", primaryCompanyType: 99 },
+						{ name: "Missing ID", primaryCompanyType: 1 },
+					],
 				},
 			});
 		});
@@ -316,7 +326,19 @@ describe("show.tvdb sandbox script", () => {
 									providerSlug: "company.tvdb",
 									relationshipProperties: { roles: ["Studio", "Network"] },
 								},
+								{
+									externalId: "8",
+									name: "Company Y",
+									providerSlug: "company.tvdb",
+									relationshipProperties: { roles: ["Company"] },
+								},
 							],
+						},
+						{
+							entities: [],
+							direction: "outgoing",
+							synchronization: "authoritative",
+							relationshipSchemaSlug: "media-suggestion",
 						},
 					]);
 					return undefined;
