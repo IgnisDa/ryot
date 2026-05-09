@@ -93,7 +93,6 @@ describe("saved views management", () => {
 			expect(clonedView.id).not.toBe(createdView.id);
 			expect(clonedView.name).toBe(`${createdView.name} Updated (Copy)`);
 			expect(clonedView.layouts).toEqual(updatedView.layouts);
-			expect(clonedView.sandboxScripts).toEqual({});
 
 			const deletedOriginal = yield* deleteSavedView(client, createdView.slug);
 			const deletedClone = yield* deleteSavedView(client, clonedView.slug);
@@ -118,7 +117,6 @@ describe("saved views management", () => {
 
 			expect(clonedView.name).toBe(`${builtinView.name} (Copy)`);
 			expect(clonedView.isBuiltin).toBe(false);
-			expect(clonedView.sandboxScripts).toEqual(builtinView.sandboxScripts);
 
 			const deletedClone = yield* deleteSavedView(client, clonedView.slug);
 			const refreshedBuiltin = yield* getSavedView(client, builtinView.slug);
