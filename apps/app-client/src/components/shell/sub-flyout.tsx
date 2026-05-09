@@ -1,5 +1,5 @@
 import clsx from "clsx";
-import { Link, usePathname } from "expo-router";
+import { Link } from "expo-router";
 import Animated, {
 	FadeIn,
 	FadeOut,
@@ -9,7 +9,7 @@ import Animated, {
 import { Box } from "@/components/ui/box";
 import { Text } from "@/components/ui/text";
 import { TrackerIcon } from "@/lib/icons";
-import { useNavigationData } from "@/lib/navigation";
+import { useActiveNav, useNavigationData } from "@/lib/navigation";
 import { RAIL_WIDTH } from "./rail";
 
 type Props = {
@@ -17,15 +17,8 @@ type Props = {
 };
 
 export function ShellSubFlyout({ pinned = false }: Props) {
-	const pathname = usePathname();
 	const { trackers } = useNavigationData();
-	const segments = pathname.split("/").filter(Boolean);
-	const isViewPath = segments[0] === "views";
-	const activeSubItem = isViewPath ? (segments[1] ?? null) : null;
-	const activeTrackerSlug = isViewPath
-		? (trackers.find((t) => t.subItems.some((s) => s.slug === activeSubItem))
-				?.slug ?? "home")
-		: segments[0] || "home";
+	const { activeTrackerSlug, activeSubItemSlug } = useActiveNav();
 
 	const activeTracker = trackers.find((t) => t.slug === activeTrackerSlug);
 	const subItems = activeTracker?.subItems ?? [];
@@ -42,7 +35,7 @@ export function ShellSubFlyout({ pinned = false }: Props) {
 			</Text>
 			<Box className="gap-1 px-4">
 				{subItems.map((item) => {
-					const isActive = item.slug === activeSubItem;
+					const isActive = item.slug === activeSubItemSlug;
 					return (
 						<Link
 							key={item.key}
