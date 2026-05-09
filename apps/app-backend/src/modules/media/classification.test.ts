@@ -1,10 +1,8 @@
 import { describe, expect, it } from "bun:test";
+
 import { dayjs } from "@ryot/ts-utils";
-import {
-	compareContinueItems,
-	compareRateTheseItems,
-	compareUpNextItems,
-} from "./classification";
+
+import { compareContinueItems, compareRateTheseItems, compareUpNextItems } from "./classification";
 
 const date = (value: string) => dayjs(value).toDate();
 
@@ -16,9 +14,7 @@ describe("compareContinueItems", () => {
 			{ entityId: "c", progressAt: date("2024-01-01") },
 		];
 
-		expect(
-			items.sort(compareContinueItems).map((item) => item.entityId),
-		).toEqual(["a", "b", "c"]);
+		expect(items.sort(compareContinueItems).map((item) => item.entityId)).toEqual(["a", "b", "c"]);
 	});
 });
 
@@ -30,9 +26,7 @@ describe("compareUpNextItems", () => {
 			{ entityId: "c", backlogAt: date("2024-01-01") },
 		];
 
-		expect(items.sort(compareUpNextItems).map((item) => item.entityId)).toEqual(
-			["a", "b", "c"],
-		);
+		expect(items.sort(compareUpNextItems).map((item) => item.entityId)).toEqual(["a", "b", "c"]);
 	});
 });
 
@@ -48,8 +42,6 @@ describe("compareRateTheseItems", () => {
 			{ entityId: "c", completeAt: date("2024-01-01"), completedOn: null },
 		];
 
-		expect(
-			items.sort(compareRateTheseItems).map((item) => item.entityId),
-		).toEqual(["a", "b", "c"]);
+		expect(items.sort(compareRateTheseItems).map((item) => item.entityId)).toEqual(["a", "b", "c"]);
 	});
 });

@@ -1,6 +1,8 @@
 import { writeFileSync } from "node:fs";
+
 import { sql } from "drizzle-orm";
 import { migrate } from "drizzle-orm/postgres-js/migrator";
+
 import { getDb, getServerVariables, TEMP_DIRECTORY } from "~/lib/config.server";
 
 let hasRunStartup = false;

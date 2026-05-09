@@ -1,4 +1,5 @@
 import { describe, expect, it } from "bun:test";
+
 import { isUniqueConstraintError } from "./postgres";
 
 describe("isUniqueConstraintError", () => {
@@ -24,8 +25,6 @@ describe("isUniqueConstraintError", () => {
 				"entity_schema_user_slug_unique",
 			),
 		).toBeFalse();
-		expect(
-			isUniqueConstraintError(null, "entity_schema_user_slug_unique"),
-		).toBeFalse();
+		expect(isUniqueConstraintError(null, "entity_schema_user_slug_unique")).toBeFalse();
 	});
 });

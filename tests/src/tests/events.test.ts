@@ -1,4 +1,5 @@
 import { describe, expect, it } from "bun:test";
+
 import {
 	createAuthenticatedClient,
 	createBuiltinMediaLifecycleFixture,
@@ -10,10 +11,7 @@ import {
 describe("Events bulk POST", () => {
 	it("creates multiple events and returns the count", async () => {
 		const { client: apiClient, cookies } = await createAuthenticatedClient();
-		const { entityId, eventSchemaId } = await createEventTestFixture(
-			apiClient,
-			cookies,
-		);
+		const { entityId, eventSchemaId } = await createEventTestFixture(apiClient, cookies);
 
 		const result = await apiClient.POST("/events", {
 			headers: { Cookie: cookies },
@@ -54,10 +52,7 @@ describe("Events bulk POST", () => {
 
 	it("enforces conditional required rules end to end", async () => {
 		const { client: apiClient, cookies } = await createAuthenticatedClient();
-		const { entityId, eventSchemaId } = await createRuleEventFixture(
-			apiClient,
-			cookies,
-		);
+		const { entityId, eventSchemaId } = await createRuleEventFixture(apiClient, cookies);
 
 		const optionalResult = await apiClient.POST("/events", {
 			headers: { Cookie: cookies },
@@ -106,10 +101,7 @@ describe("Events bulk POST", () => {
 
 	it("persists events and they appear in the list", async () => {
 		const { client: apiClient, cookies } = await createAuthenticatedClient();
-		const { entityId, eventSchemaId } = await createEventTestFixture(
-			apiClient,
-			cookies,
-		);
+		const { entityId, eventSchemaId } = await createEventTestFixture(apiClient, cookies);
 
 		await apiClient.POST("/events", {
 			headers: { Cookie: cookies },
@@ -161,18 +153,18 @@ describe("Events bulk POST", () => {
 			params: { query: { entityId, eventSchemaSlug: "progress" } },
 		});
 		expect(progressEventsResult.response.status).toBe(200);
-		expect(
-			progressEventsResult.data?.data.map((event) => event.eventSchemaSlug),
-		).toEqual(["progress"]);
+		expect(progressEventsResult.data?.data.map((event) => event.eventSchemaSlug)).toEqual([
+			"progress",
+		]);
 
 		const completeEventsResult = await apiClient.GET("/events", {
 			headers: { Cookie: cookies },
 			params: { query: { entityId, eventSchemaSlug: "complete" } },
 		});
 		expect(completeEventsResult.response.status).toBe(200);
-		expect(
-			completeEventsResult.data?.data.map((event) => event.eventSchemaSlug),
-		).toEqual(["complete"]);
+		expect(completeEventsResult.data?.data.map((event) => event.eventSchemaSlug)).toEqual([
+			"complete",
+		]);
 
 		const missingEventsResult = await apiClient.GET("/events", {
 			headers: { Cookie: cookies },
@@ -184,8 +176,10 @@ describe("Events bulk POST", () => {
 
 	it("creates repeated built-in backlog events and lists them", async () => {
 		const { cookies, client: apiClient } = await createAuthenticatedClient();
-		const { entityId, backlogEventSchemaId } =
-			await createBuiltinMediaLifecycleFixture(apiClient, cookies);
+		const { entityId, backlogEventSchemaId } = await createBuiltinMediaLifecycleFixture(
+			apiClient,
+			cookies,
+		);
 
 		const createResult = await apiClient.POST("/events", {
 			headers: { Cookie: cookies },
@@ -200,17 +194,16 @@ describe("Events bulk POST", () => {
 
 		const events = await waitForEventCount(apiClient, cookies, entityId, 2);
 		expect(events).toHaveLength(2);
-		expect(events.map((event) => event.eventSchemaSlug)).toEqual([
-			"backlog",
-			"backlog",
-		]);
+		expect(events.map((event) => event.eventSchemaSlug)).toEqual(["backlog", "backlog"]);
 		expect(events.map((event) => event.properties)).toEqual([{}, {}]);
 	});
 
 	it("creates built-in progress events with rounded values and no completion side effects", async () => {
 		const { cookies, client: apiClient } = await createAuthenticatedClient();
-		const { entityId, progressEventSchemaId } =
-			await createBuiltinMediaLifecycleFixture(apiClient, cookies);
+		const { entityId, progressEventSchemaId } = await createBuiltinMediaLifecycleFixture(
+			apiClient,
+			cookies,
+		);
 
 		const createResult = await apiClient.POST("/events", {
 			headers: { Cookie: cookies },
@@ -233,21 +226,18 @@ describe("Events bulk POST", () => {
 
 		const events = await waitForEventCount(apiClient, cookies, entityId, 2);
 		expect(events).toHaveLength(2);
-		expect(events.map((event) => event.eventSchemaSlug)).toEqual([
-			"progress",
-			"progress",
-		]);
+		expect(events.map((event) => event.eventSchemaSlug)).toEqual(["progress", "progress"]);
 		expect(
-			events
-				.map((event) => event.properties.progressPercent as number)
-				.sort((a, b) => a - b),
+			events.map((event) => event.properties.progressPercent as number).sort((a, b) => a - b),
 		).toEqual([25.56, 50.44]);
 	});
 
 	it("creates repeated built-in complete events without relying on progress", async () => {
 		const { cookies, client: apiClient } = await createAuthenticatedClient();
-		const { entityId, completeEventSchemaId } =
-			await createBuiltinMediaLifecycleFixture(apiClient, cookies);
+		const { entityId, completeEventSchemaId } = await createBuiltinMediaLifecycleFixture(
+			apiClient,
+			cookies,
+		);
 
 		const createResult = await apiClient.POST("/events", {
 			headers: { Cookie: cookies },
@@ -273,10 +263,7 @@ describe("Events bulk POST", () => {
 
 		const events = await waitForEventCount(apiClient, cookies, entityId, 2);
 		expect(events).toHaveLength(2);
-		expect(events.map((event) => event.eventSchemaSlug)).toEqual([
-			"complete",
-			"complete",
-		]);
+		expect(events.map((event) => event.eventSchemaSlug)).toEqual(["complete", "complete"]);
 		expect(events.map((event) => event.properties)).toEqual([
 			{
 				completionMode: "custom_timestamps",
@@ -288,8 +275,10 @@ describe("Events bulk POST", () => {
 
 	it("creates repeated built-in review events before completion exists", async () => {
 		const { cookies, client: apiClient } = await createAuthenticatedClient();
-		const { entityId, reviewEventSchemaId } =
-			await createBuiltinMediaLifecycleFixture(apiClient, cookies);
+		const { entityId, reviewEventSchemaId } = await createBuiltinMediaLifecycleFixture(
+			apiClient,
+			cookies,
+		);
 
 		const createResult = await apiClient.POST("/events", {
 			headers: { Cookie: cookies },
@@ -312,10 +301,7 @@ describe("Events bulk POST", () => {
 
 		const events = await waitForEventCount(apiClient, cookies, entityId, 2);
 		expect(events).toHaveLength(2);
-		expect(events.map((event) => event.eventSchemaSlug)).toEqual([
-			"review",
-			"review",
-		]);
+		expect(events.map((event) => event.eventSchemaSlug)).toEqual(["review", "review"]);
 		expect(events.map((event) => event.properties)).toEqual([
 			{ review: "Even better", rating: 5 },
 			{ rating: 4 },

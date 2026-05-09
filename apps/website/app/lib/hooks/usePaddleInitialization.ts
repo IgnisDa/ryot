@@ -1,4 +1,5 @@
 import { useEffect } from "react";
+
 import { initializePaddleForApplication, useConfigData } from "~/lib/general";
 
 export const usePaddleInitialization = (paddleCustomerId?: string) => {

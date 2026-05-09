@@ -11,6 +11,7 @@ import {
 import { changeCase, snakeCase } from "@ryot/ts-utils";
 import { type ReactNode, useMemo } from "react";
 import { $path } from "safe-routes";
+
 import {
 	useMetadataDetails,
 	useMetadataGroupDetails,
@@ -24,6 +25,7 @@ import {
 	useUserMetadataGroupDetails,
 	useUserPersonDetails,
 } from "~/lib/shared/hooks";
+
 import { BaseEntityDisplayItem } from "../common/entity-display";
 
 export const MetadataDisplayItem = (props: {
@@ -43,10 +45,7 @@ export const MetadataDisplayItem = (props: {
 		{ data: metadataDetails, isLoading: isMetadataDetailsLoading },
 		isMetadataPartialStatusActive,
 	] = useMetadataDetails(props.metadataId, inViewport);
-	const { data: userMetadataDetails } = useUserMetadataDetails(
-		props.metadataId,
-		inViewport,
-	);
+	const { data: userMetadataDetails } = useUserMetadataDetails(props.metadataId, inViewport);
 	const { data: isMetadataRecentlyConsumed } = useUserEntityRecentlyConsumed(
 		props.metadataId,
 		EntityLot.Metadata,
@@ -95,11 +94,7 @@ export const MetadataDisplayItem = (props: {
 			return (episodeProgress?.timesSeen ?? 0) > 0;
 		}
 		return false;
-	}, [
-		userMetadataDetails,
-		props.calendarEventShowInfo,
-		props.calendarEventPodcastInfo,
-	]);
+	}, [userMetadataDetails, props.calendarEventShowInfo, props.calendarEventPodcastInfo]);
 
 	const extraInformation = useMemo(() => {
 		if (!metadataDetails || !userMetadataDetails) return "";
@@ -116,18 +111,14 @@ export const MetadataDisplayItem = (props: {
 		if (nextEntry) {
 			if (metadataDetails.lot === MediaLot.Show)
 				return `Next: S${nextEntry.season}-E${nextEntry.episode}`;
-			if (metadataDetails.lot === MediaLot.Podcast)
-				return `Next: EP-${nextEntry.episode}`;
+			if (metadataDetails.lot === MediaLot.Podcast) return `Next: EP-${nextEntry.episode}`;
 		}
 
 		return "";
 	}, [metadataDetails, userMetadataDetails]);
 
 	const s3PresignedUrls = useS3PresignedUrls(metadataDetails?.assets.s3Images);
-	const images = [
-		...(metadataDetails?.assets.remoteImages || []),
-		...(s3PresignedUrls.data || []),
-	];
+	const images = [...(metadataDetails?.assets.remoteImages || []), ...(s3PresignedUrls.data || [])];
 
 	return (
 		<BaseEntityDisplayItem
@@ -148,10 +139,7 @@ export const MetadataDisplayItem = (props: {
 			image={metadataImageTranslation || images.at(0)}
 			title={metadataTitleTranslation || metadataDetails?.title}
 			interactionButtons={["collection", "consume", "review", "watchlist"]}
-			hasInteracted={
-				props.shouldHighlightNameIfInteracted &&
-				userMetadataDetails?.hasInteracted
-			}
+			hasInteracted={props.shouldHighlightNameIfInteracted && userMetadataDetails?.hasInteracted}
 			onImageClickBehavior={[
 				$path("/media/item/:id", { id: props.metadataId }),
 				props.onImageClickBehavior,
@@ -183,12 +171,11 @@ export const MetadataGroupDisplayItem = (props: {
 		props.metadataGroupId,
 		inViewport,
 	);
-	const { data: isMetadataGroupRecentlyConsumed } =
-		useUserEntityRecentlyConsumed(
-			props.metadataGroupId,
-			EntityLot.MetadataGroup,
-			inViewport,
-		);
+	const { data: isMetadataGroupRecentlyConsumed } = useUserEntityRecentlyConsumed(
+		props.metadataGroupId,
+		EntityLot.MetadataGroup,
+		inViewport,
+	);
 
 	const metadataGroupTitleTranslation = useMetadataGroupTranslationValue({
 		metadataGroupId: props.metadataGroupId,
@@ -206,8 +193,7 @@ export const MetadataGroupDisplayItem = (props: {
 
 	const defaultAdditionalInformation = useMemo(() => {
 		const final = [];
-		if (!props.noEntityLot)
-			final.push(changeCase(snakeCase(EntityLot.MetadataGroup)));
+		if (!props.noEntityLot) final.push(changeCase(snakeCase(EntityLot.MetadataGroup)));
 
 		if (metadataGroupDetails?.details.parts)
 			final.push(`${metadataGroupDetails.details.parts} items`);
@@ -215,9 +201,7 @@ export const MetadataGroupDisplayItem = (props: {
 		return final;
 	}, [metadataGroupDetails, props.noEntityLot]);
 
-	const s3PresignedUrls = useS3PresignedUrls(
-		metadataGroupDetails?.details.assets.s3Images,
-	);
+	const s3PresignedUrls = useS3PresignedUrls(metadataGroupDetails?.details.assets.s3Images);
 	const images = [
 		...(metadataGroupDetails?.details.assets.remoteImages || []),
 		...(s3PresignedUrls.data || []),
@@ -237,15 +221,10 @@ export const MetadataGroupDisplayItem = (props: {
 			interactionButtons={["collection", "review", "watchlist"]}
 			isPartialStatusActive={isMetadataGroupPartialStatusActive}
 			image={metadataGroupImageTranslation || images.at(0)}
-			title={
-				metadataGroupTitleTranslation || metadataGroupDetails?.details.title
-			}
-			onImageClickBehavior={[
-				$path("/media/groups/item/:id", { id: props.metadataGroupId }),
-			]}
+			title={metadataGroupTitleTranslation || metadataGroupDetails?.details.title}
+			onImageClickBehavior={[$path("/media/groups/item/:id", { id: props.metadataGroupId })]}
 			hasInteracted={
-				props.shouldHighlightNameIfInteracted &&
-				userMetadataGroupDetails?.hasInteracted
+				props.shouldHighlightNameIfInteracted && userMetadataGroupDetails?.hasInteracted
 			}
 		/>
 	);
@@ -257,14 +236,9 @@ export const PersonDisplayItem = (props: {
 	shouldHighlightNameIfInteracted?: boolean;
 }) => {
 	const { ref, inViewport } = useInViewport();
-	const [
-		{ data: personDetails, isLoading: isPersonDetailsLoading },
-		isPersonPartialStatusActive,
-	] = usePersonDetails(props.personId, inViewport);
-	const { data: userPersonDetails } = useUserPersonDetails(
-		props.personId,
-		inViewport,
-	);
+	const [{ data: personDetails, isLoading: isPersonDetailsLoading }, isPersonPartialStatusActive] =
+		usePersonDetails(props.personId, inViewport);
+	const { data: userPersonDetails } = useUserPersonDetails(props.personId, inViewport);
 	const { data: isPersonRecentlyConsumed } = useUserEntityRecentlyConsumed(
 		props.personId,
 		EntityLot.Person,
@@ -294,9 +268,7 @@ export const PersonDisplayItem = (props: {
 		return final;
 	}, [personDetails]);
 
-	const s3PresignedUrls = useS3PresignedUrls(
-		personDetails?.details.assets.s3Images,
-	);
+	const s3PresignedUrls = useS3PresignedUrls(personDetails?.details.assets.s3Images);
 	const images = [
 		...(personDetails?.details.assets.remoteImages || []),
 		...(s3PresignedUrls.data || []),
@@ -316,13 +288,8 @@ export const PersonDisplayItem = (props: {
 			additionalInformation={defaultAdditionalInformation}
 			image={personImageTranslation || images.at(0)}
 			title={personTitleTranslation || personDetails?.details.name}
-			onImageClickBehavior={[
-				$path("/media/people/item/:id", { id: props.personId }),
-			]}
-			hasInteracted={
-				props.shouldHighlightNameIfInteracted &&
-				userPersonDetails?.hasInteracted
-			}
+			onImageClickBehavior={[$path("/media/people/item/:id", { id: props.personId })]}
+			hasInteracted={props.shouldHighlightNameIfInteracted && userPersonDetails?.hasInteracted}
 		/>
 	);
 };

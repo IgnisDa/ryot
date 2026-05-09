@@ -1,15 +1,13 @@
 import { dayjs } from "@ryot/ts-utils";
 import { match } from "ts-pattern";
+
 import type {
 	BuiltinMediaEntitySchemaSlug,
 	BuiltinMediaEventSchemaSlug,
 } from "~/lib/media/constants";
 import type { ImageSchemaType } from "~/lib/zod";
-import {
-	compareContinueItems,
-	compareRateTheseItems,
-	compareUpNextItems,
-} from "./classification";
+
+import { compareContinueItems, compareRateTheseItems, compareUpNextItems } from "./classification";
 import type {
 	BuiltInMediaOverviewContinueResponse,
 	BuiltInMediaOverviewRateTheseResponse,
@@ -81,12 +79,9 @@ const formatNumber = (value: number) => {
 		.replace(/(\.\d*[1-9])0+$/, "$1");
 };
 
-const roundToTwoDecimals = (value: number) =>
-	Math.round((value + Number.EPSILON) * 100) / 100;
+const roundToTwoDecimals = (value: number) => Math.round((value + Number.EPSILON) * 100) / 100;
 
-const resolveUnitLabel = (
-	entitySchemaSlug: BuiltInMediaOverviewSourceItem["entitySchemaSlug"],
-) =>
+const resolveUnitLabel = (entitySchemaSlug: BuiltInMediaOverviewSourceItem["entitySchemaSlug"]) =>
 	match(entitySchemaSlug)
 		.with("book", () => "pages")
 		.with("show", () => "episodes")
@@ -101,9 +96,7 @@ const resolveUnitLabel = (
 		.with("visual-novel", () => "percent")
 		.exhaustive();
 
-const resolveContinueCta = (
-	entitySchemaSlug: BuiltInMediaOverviewSourceItem["entitySchemaSlug"],
-) =>
+const resolveContinueCta = (entitySchemaSlug: BuiltInMediaOverviewSourceItem["entitySchemaSlug"]) =>
 	match(entitySchemaSlug)
 		.with("show", () => "Next Episode")
 		.with("anime", () => "Next Episode")
@@ -157,28 +150,19 @@ const buildProgressLabel = (input: {
 	return "In progress";
 };
 
-const compareContinueSourceItems = (
-	left: ContinueSourceItem,
-	right: ContinueSourceItem,
-) =>
+const compareContinueSourceItems = (left: ContinueSourceItem, right: ContinueSourceItem) =>
 	compareContinueItems(
 		{ entityId: left.id, progressAt: left.progressAt },
 		{ entityId: right.id, progressAt: right.progressAt },
 	);
 
-const compareUpNextSourceItems = (
-	left: UpNextSourceItem,
-	right: UpNextSourceItem,
-) =>
+const compareUpNextSourceItems = (left: UpNextSourceItem, right: UpNextSourceItem) =>
 	compareUpNextItems(
 		{ entityId: left.id, backlogAt: left.backlogAt },
 		{ entityId: right.id, backlogAt: right.backlogAt },
 	);
 
-const compareRateTheseSourceItems = (
-	left: RateTheseSourceItem,
-	right: RateTheseSourceItem,
-) =>
+const compareRateTheseSourceItems = (left: RateTheseSourceItem, right: RateTheseSourceItem) =>
 	compareRateTheseItems(
 		{
 			entityId: left.id,
@@ -259,18 +243,16 @@ export const buildContinueSectionResponse = (
 export const buildRateTheseSectionResponse = (
 	items: RateTheseSourceItem[],
 ): BuiltInMediaOverviewRateTheseResponse => {
-	const rateTheseItems = items
-		.sort(compareRateTheseSourceItems)
-		.map((item) => ({
-			id: item.id,
-			title: item.title,
-			image: item.image,
-			reviewAt: item.reviewAt,
-			rating: item.reviewRating,
-			entitySchemaSlug: item.entitySchemaSlug,
-			subtitle: buildSubtitle(item.publishYear),
-			completedAt: resolveRateTheseCompletedAt(item),
-		}));
+	const rateTheseItems = items.sort(compareRateTheseSourceItems).map((item) => ({
+		id: item.id,
+		title: item.title,
+		image: item.image,
+		reviewAt: item.reviewAt,
+		rating: item.reviewRating,
+		entitySchemaSlug: item.entitySchemaSlug,
+		subtitle: buildSubtitle(item.publishYear),
+		completedAt: resolveRateTheseCompletedAt(item),
+	}));
 
 	return { items: rateTheseItems, count: rateTheseItems.length };
 };
@@ -280,8 +262,7 @@ export const buildRecentActivitySectionResponse = (
 ): BuiltInMediaOverviewRecentActivityResponse => {
 	const activityItems = [...items]
 		.sort((left, right) => {
-			const occurredAtDiff =
-				dayjs(right.occurredAt).valueOf() - dayjs(left.occurredAt).valueOf();
+			const occurredAtDiff = dayjs(right.occurredAt).valueOf() - dayjs(left.occurredAt).valueOf();
 			if (occurredAtDiff !== 0) {
 				return occurredAtDiff;
 			}
@@ -304,9 +285,7 @@ export const buildWeekActivitySectionResponse = (input: {
 	items: WeekActivitySourceItem[];
 }): BuiltInMediaOverviewWeekActivityResponse => {
 	const weekItems = [...input.items]
-		.sort(
-			(left, right) => dayjs(left.date).valueOf() - dayjs(right.date).valueOf(),
-		)
+		.sort((left, right) => dayjs(left.date).valueOf() - dayjs(right.date).valueOf())
 		.map((item) => ({
 			count: item.count,
 			dayLabel: dayjs.utc(item.date).format("ddd"),

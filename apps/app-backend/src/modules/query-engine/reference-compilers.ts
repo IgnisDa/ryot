@@ -1,7 +1,4 @@
-export {
-	buildEntityExpression,
-	buildEntitySchemaExpression,
-} from "./entity-reference-compilers";
+export { buildEntityExpression, buildEntitySchemaExpression } from "./entity-reference-compilers";
 export {
 	buildEventAggregateExpression,
 	buildEventExpression,

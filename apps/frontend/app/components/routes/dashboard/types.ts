@@ -1,5 +1,6 @@
 import type { UserCollectionsListQuery } from "@ryot/generated/graphql/backend/graphql";
 import type { ComponentType } from "react";
+
 import type { UserMetadataDetails } from "../media-item/types";
 
 export enum WatchTimes {
@@ -20,8 +21,7 @@ export interface LinksGroupProps {
 	links?: Array<{ label: string; link: string; tourControlTarget?: string }>;
 }
 
-export type Collection =
-	UserCollectionsListQuery["userCollectionsList"]["response"][number];
+export type Collection = UserCollectionsListQuery["userCollectionsList"]["response"][number];
 
 export type InProgress = UserMetadataDetails["inProgress"];
 export type MetadataHistory = UserMetadataDetails["history"];

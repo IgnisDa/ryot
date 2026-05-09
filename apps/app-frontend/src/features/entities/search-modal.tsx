@@ -15,6 +15,7 @@ import { notifications } from "@mantine/notifications";
 import { useQueryClient } from "@tanstack/react-query";
 import { ChevronLeft, ChevronRight, Search } from "lucide-react";
 import { useCallback, useMemo, useState } from "react";
+
 import {
 	buildMembershipFormSchema,
 	type CollectionMembershipFormValues,
@@ -26,6 +27,7 @@ import type { AppEntitySchema } from "~/features/entity-schemas/model";
 import { useEventSchemasQuery } from "~/features/event-schemas/hooks";
 import { useApiClient } from "~/hooks/api";
 import { getErrorMessage } from "~/lib/errors";
+
 import type { SearchResultItem } from "./model";
 import {
 	createBacklogEventPayload,
@@ -70,13 +72,9 @@ export function SearchEntityModalContent(props: {
 	const apiClient = useApiClient();
 	const queryClient = useQueryClient();
 	const createEvents = apiClient.useMutation("post", "/events");
-	const addToCollection = apiClient.useMutation(
-		"post",
-		"/collections/memberships",
-	);
+	const addToCollection = apiClient.useMutation("post", "/collections/memberships");
 	const eventSchemasQuery = useEventSchemasQuery(props.entitySchema.id, true);
-	const { state: collectionState, refetch: refetchCollections } =
-		useCollectionDiscovery();
+	const { state: collectionState, refetch: refetchCollections } = useCollectionDiscovery();
 	const collectionsDestination = useCollectionsDestination();
 	const {
 		page,
@@ -106,9 +104,7 @@ export function SearchEntityModalContent(props: {
 	>({});
 
 	const isPersonSchema = props.entitySchema.slug === "person";
-	const isEpisodicEntity = ["show", "anime", "manga", "podcast"].includes(
-		props.entitySchema.slug,
-	);
+	const isEpisodicEntity = ["show", "anime", "manga", "podcast"].includes(props.entitySchema.slug);
 	const accentColor = props.entitySchema.accentColor ?? "#8C7560";
 	const activeProvider = props.entitySchema.providers[selectedProviderIndex];
 	const lifecycleErrorMessage = useMemo(() => {
@@ -117,24 +113,17 @@ export function SearchEntityModalContent(props: {
 		}
 
 		if (isPersonSchema) {
-			const hasReviewSchema = eventSchemasQuery.eventSchemas.some(
-				(s) => s.slug === "review",
-			);
+			const hasReviewSchema = eventSchemasQuery.eventSchemas.some((s) => s.slug === "review");
 			return hasReviewSchema
 				? null
 				: "Review is unavailable. Please check your event schemas configuration.";
 		}
 
 		return getMediaLifecycleUnavailableMessage(eventSchemasQuery.eventSchemas);
-	}, [
-		isPersonSchema,
-		eventSchemasQuery.isError,
-		eventSchemasQuery.eventSchemas,
-	]);
+	}, [isPersonSchema, eventSchemasQuery.isError, eventSchemasQuery.eventSchemas]);
 
 	const getActionState = useCallback(
-		(externalId: string) =>
-			actionStateById[externalId] ?? defaultSearchResultRowActionState,
+		(externalId: string) => actionStateById[externalId] ?? defaultSearchResultRowActionState,
 		[actionStateById],
 	);
 
@@ -152,10 +141,7 @@ export function SearchEntityModalContent(props: {
 	);
 
 	const markDone = useCallback(
-		(
-			externalId: string,
-			actions: SearchResultRowActionState["doneActions"],
-		) => {
+		(externalId: string, actions: SearchResultRowActionState["doneActions"]) => {
 			const current = getActionState(externalId);
 			patchActionState(externalId, {
 				doneActions: [...new Set([...current.doneActions, ...actions])],
@@ -210,9 +196,7 @@ export function SearchEntityModalContent(props: {
 			externalId: string;
 			item: SearchResultItem;
 			pendingAction: "backlog" | "log" | "rate";
-			buildPayload: (
-				entityId: string,
-			) => ReturnType<typeof createBacklogEventPayload>;
+			buildPayload: (entityId: string) => ReturnType<typeof createBacklogEventPayload>;
 			successMessage: string;
 			partialFailureMessage: string;
 			doneAction: "backlog" | "log" | "rate";
@@ -255,9 +239,7 @@ export function SearchEntityModalContent(props: {
 					: getErrorMessage(error);
 				patchActionState(input.externalId, {
 					actionError: message,
-					openPanel: entityId
-						? getActionState(input.externalId).openPanel
-						: null,
+					openPanel: entityId ? getActionState(input.externalId).openPanel : null,
 				});
 			} finally {
 				patchActionState(input.externalId, { pendingAction: null });
@@ -315,12 +297,9 @@ export function SearchEntityModalContent(props: {
 					showSeason: state.showSeason === "" ? undefined : state.showSeason,
 					showEpisode: state.showEpisode === "" ? undefined : state.showEpisode,
 					mangaVolume: state.mangaVolume === "" ? undefined : state.mangaVolume,
-					animeEpisode:
-						state.animeEpisode === "" ? undefined : state.animeEpisode,
-					mangaChapter:
-						state.mangaChapter === "" ? undefined : state.mangaChapter,
-					podcastEpisode:
-						state.podcastEpisode === "" ? undefined : state.podcastEpisode,
+					animeEpisode: state.animeEpisode === "" ? undefined : state.animeEpisode,
+					mangaChapter: state.mangaChapter === "" ? undefined : state.mangaChapter,
+					podcastEpisode: state.podcastEpisode === "" ? undefined : state.podcastEpisode,
 				});
 			} catch (error) {
 				patchActionState(item.externalId, {
@@ -351,16 +330,11 @@ export function SearchEntityModalContent(props: {
 						entitySchemaSlug: props.entitySchema.slug,
 						eventSchemas: eventSchemasQuery.eventSchemas,
 						showSeason: state.showSeason === "" ? undefined : state.showSeason,
-						showEpisode:
-							state.showEpisode === "" ? undefined : state.showEpisode,
-						animeEpisode:
-							state.animeEpisode === "" ? undefined : state.animeEpisode,
-						mangaChapter:
-							state.mangaChapter === "" ? undefined : state.mangaChapter,
-						mangaVolume:
-							state.mangaVolume === "" ? undefined : state.mangaVolume,
-						podcastEpisode:
-							state.podcastEpisode === "" ? undefined : state.podcastEpisode,
+						showEpisode: state.showEpisode === "" ? undefined : state.showEpisode,
+						animeEpisode: state.animeEpisode === "" ? undefined : state.animeEpisode,
+						mangaChapter: state.mangaChapter === "" ? undefined : state.mangaChapter,
+						mangaVolume: state.mangaVolume === "" ? undefined : state.mangaVolume,
+						podcastEpisode: state.podcastEpisode === "" ? undefined : state.podcastEpisode,
 					}),
 			});
 		},
@@ -423,20 +397,15 @@ export function SearchEntityModalContent(props: {
 		async (item: SearchResultItem, values: CollectionMembershipFormValues) => {
 			const selectedCollection =
 				collectionState.type === "collections"
-					? collectionState.collections.find(
-							(collection) => collection.id === values.collectionId,
-						)
+					? collectionState.collections.find((collection) => collection.id === values.collectionId)
 					: undefined;
 			const validationResult = buildMembershipFormSchema(
-				collectionState.type === "collections"
-					? collectionState.collections
-					: [],
+				collectionState.type === "collections" ? collectionState.collections : [],
 			).safeParse(values);
 			if (!validationResult.success) {
 				patchActionState(item.externalId, {
 					actionError:
-						validationResult.error.issues[0]?.message ??
-						"Collection details are invalid.",
+						validationResult.error.issues[0]?.message ?? "Collection details are invalid.",
 				});
 				return;
 			}
@@ -451,11 +420,7 @@ export function SearchEntityModalContent(props: {
 				const entity = await ensureItemEntity(item);
 				entityId = entity.id;
 				await addToCollection.mutateAsync({
-					body: toMembershipPayload(
-						validationResult.data,
-						entity.id,
-						selectedCollection,
-					),
+					body: toMembershipPayload(validationResult.data, entity.id, selectedCollection),
 				});
 				markDone(item.externalId, ["collection"]);
 				props.onActionCompleted?.();
@@ -465,9 +430,8 @@ export function SearchEntityModalContent(props: {
 				});
 				const collectionName =
 					collectionState.type === "collections"
-						? (collectionState.collections.find(
-								(c) => c.id === validationResult.data.collectionId,
-							)?.name ?? "collection")
+						? (collectionState.collections.find((c) => c.id === validationResult.data.collectionId)
+								?.name ?? "collection")
 						: "collection";
 				notifications.show({
 					color: "green",
@@ -658,40 +622,28 @@ export function SearchEntityModalContent(props: {
 											onTogglePanel={(panel) => handleOpenPanel(item, panel)}
 											onRetryCollectionDiscovery={() => refetchCollections()}
 											isTracked={trackedExternalIds.has(item.externalId)}
-											collectionsDestination={
-												collectionsDestination.destination
-											}
+											collectionsDestination={collectionsDestination.destination}
 											entityProperties={
-												ensuredEntityByExternalId[item.externalId]
-													?.properties as Record<string, unknown> | undefined
+												ensuredEntityByExternalId[item.externalId]?.properties as
+													| Record<string, unknown>
+													| undefined
 											}
-											onPatchActionState={(patch) =>
-												patchActionState(item.externalId, patch)
-											}
-											onSaveCollection={(values) =>
-												handleSaveCollection(item, values)
-											}
+											onPatchActionState={(patch) => patchActionState(item.externalId, patch)}
+											onSaveCollection={(values) => handleSaveCollection(item, values)}
 											isLoadingEntityProperties={
-												isEpisodicEntity &&
-												addStatus[item.externalId] === "loading"
+												isEpisodicEntity && addStatus[item.externalId] === "loading"
 											}
 											propertyLoadError={
-												isEpisodicEntity &&
-												addStatus[item.externalId] === "error"
-													? (addError[item.externalId] ??
-														"Could not load episode details.")
+												isEpisodicEntity && addStatus[item.externalId] === "error"
+													? (addError[item.externalId] ?? "Could not load episode details.")
 													: null
 											}
 											onToggleActions={() => {
-												const isCurrentlyExpanded =
-													selectedResultId === item.externalId;
+												const isCurrentlyExpanded = selectedResultId === item.externalId;
 												setSelectedResultId((current) =>
 													current === item.externalId ? null : item.externalId,
 												);
-												if (
-													!isCurrentlyExpanded &&
-													props.initialAction === "log"
-												) {
+												if (!isCurrentlyExpanded && props.initialAction === "log") {
 													patchActionState(item.externalId, {
 														openPanel: "log",
 														actionError: null,

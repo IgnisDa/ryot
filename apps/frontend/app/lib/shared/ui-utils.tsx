@@ -1,12 +1,10 @@
 import { Text } from "@mantine/core";
 import { modals } from "@mantine/modals";
-import {
-	MediaSource,
-	PresignedPutS3UrlDocument,
-} from "@ryot/generated/graphql/backend/graphql";
+import { MediaSource, PresignedPutS3UrlDocument } from "@ryot/generated/graphql/backend/graphql";
 import { startCase } from "@ryot/ts-utils";
 import { $path } from "safe-routes";
 import { match } from "ts-pattern";
+
 import { clientGqlService } from "./react-query";
 
 export const forcedDashboardPath = $path("/", { ignoreLandingPath: true });
@@ -27,10 +25,7 @@ export const getStringAsciiValue = (input: string) => {
 export const selectRandomElement = <T,>(array: T[], input: string): T =>
 	array[(getStringAsciiValue(input) + array.length) % array.length];
 
-export function getSurroundingElements<T>(
-	array: Array<T>,
-	elementIndex: number,
-): Array<number> {
+export function getSurroundingElements<T>(array: Array<T>, elementIndex: number): Array<number> {
 	if (array.length === 1) return [0];
 	const lastIndex = array.length - 1;
 	if (elementIndex === 0) return [lastIndex, elementIndex, elementIndex + 1];
@@ -48,10 +43,9 @@ export const openConfirmationModal = (title: string, onConfirm: () => void) =>
 
 export const clientSideFileUpload = async (file: File, prefix: string) => {
 	const body = await file.arrayBuffer();
-	const { presignedPutS3Url } = await clientGqlService.request(
-		PresignedPutS3UrlDocument,
-		{ prefix },
-	);
+	const { presignedPutS3Url } = await clientGqlService.request(PresignedPutS3UrlDocument, {
+		prefix,
+	});
 	await fetch(presignedPutS3Url.uploadUrl, {
 		body,
 		method: "PUT",

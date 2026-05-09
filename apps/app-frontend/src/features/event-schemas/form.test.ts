@@ -1,8 +1,10 @@
 import { describe, expect, it } from "bun:test";
+
 import {
 	createPropertySchemaInputFixture,
 	createPropertySchemaRowFixture,
 } from "~/features/test-fixtures";
+
 import {
 	buildDefaultEventSchemaPropertyRow,
 	buildEventSchemaFormValues,
@@ -74,9 +76,7 @@ describe("buildEventSchemaFormValues", () => {
 	});
 
 	it("maps existing values into form defaults", () => {
-		const properties = [
-			input({ key: "rating", type: "number", required: true }),
-		];
+		const properties = [input({ key: "rating", type: "number", required: true })];
 		const inputRow = properties[0];
 
 		if (!inputRow) {
@@ -125,9 +125,7 @@ describe("isEventSchemaPropertyRowsValid", () => {
 	});
 
 	it("returns false when a trimmed key is empty", () => {
-		expect(
-			isEventSchemaPropertyRowsValid([buildDefaultEventSchemaPropertyRow()]),
-		).toBeFalse();
+		expect(isEventSchemaPropertyRowsValid([buildDefaultEventSchemaPropertyRow()])).toBeFalse();
 	});
 
 	it("returns false when trimmed keys are duplicated", () => {
@@ -225,9 +223,7 @@ describe("createEventSchemaFormSchema", () => {
 	});
 
 	it("rejects a whitespace-only property key after trimming", () => {
-		const properties = [
-			row({ id: "rating", key: " \n\t ", type: "number" }),
-		] as const;
+		const properties = [row({ id: "rating", key: " \n\t ", type: "number" })] as const;
 		const result = createEventSchemaFormSchema.safeParse({
 			properties,
 			name: "Tasting",
@@ -266,11 +262,7 @@ describe("buildEventSchemaPropertiesSchema", () => {
 	});
 
 	it("maps integer type correctly", () => {
-		expect(
-			buildEventSchemaPropertiesSchema([
-				input({ key: "score", type: "integer" }),
-			]),
-		).toEqual({
+		expect(buildEventSchemaPropertiesSchema([input({ key: "score", type: "integer" })])).toEqual({
 			fields: {
 				score: { label: "Title", description: "Title", type: "integer" },
 			},

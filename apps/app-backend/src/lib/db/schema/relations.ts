@@ -1,4 +1,5 @@
 import { relations } from "drizzle-orm";
+
 import { user } from "./auth";
 import {
 	entity,
@@ -22,39 +23,33 @@ export const trackerRelations = relations(tracker, ({ one, many }) => ({
 	}),
 }));
 
-export const trackerEntitySchemaRelations = relations(
-	trackerEntitySchema,
-	({ one }) => ({
-		tracker: one(tracker, {
-			references: [tracker.id],
-			fields: [trackerEntitySchema.trackerId],
-		}),
-		entitySchema: one(entitySchema, {
-			references: [entitySchema.id],
-			fields: [trackerEntitySchema.entitySchemaId],
-		}),
+export const trackerEntitySchemaRelations = relations(trackerEntitySchema, ({ one }) => ({
+	tracker: one(tracker, {
+		references: [tracker.id],
+		fields: [trackerEntitySchema.trackerId],
 	}),
-);
+	entitySchema: one(entitySchema, {
+		references: [entitySchema.id],
+		fields: [trackerEntitySchema.entitySchemaId],
+	}),
+}));
 
-export const entitySchemaRelations = relations(
-	entitySchema,
-	({ one, many }) => ({
-		entities: many(entity),
-		eventSchemas: many(eventSchema),
-		entitySchemaScripts: many(entitySchemaScript),
-		trackerEntitySchemas: many(trackerEntitySchema),
-		sourceRelationshipSchemas: many(relationshipSchema, {
-			relationName: "sourceEntitySchema",
-		}),
-		targetRelationshipSchemas: many(relationshipSchema, {
-			relationName: "targetEntitySchema",
-		}),
-		user: one(user, {
-			references: [user.id],
-			fields: [entitySchema.userId],
-		}),
+export const entitySchemaRelations = relations(entitySchema, ({ one, many }) => ({
+	entities: many(entity),
+	eventSchemas: many(eventSchema),
+	entitySchemaScripts: many(entitySchemaScript),
+	trackerEntitySchemas: many(trackerEntitySchema),
+	sourceRelationshipSchemas: many(relationshipSchema, {
+		relationName: "sourceEntitySchema",
 	}),
-);
+	targetRelationshipSchemas: many(relationshipSchema, {
+		relationName: "targetEntitySchema",
+	}),
+	user: one(user, {
+		references: [user.id],
+		fields: [entitySchema.userId],
+	}),
+}));
 
 export const eventSchemaRelations = relations(eventSchema, ({ one, many }) => ({
 	events: many(event),
@@ -64,31 +59,25 @@ export const eventSchemaRelations = relations(eventSchema, ({ one, many }) => ({
 	}),
 }));
 
-export const sandboxScriptRelations = relations(
-	sandboxScript,
-	({ one, many }) => ({
-		entities: many(entity),
-		entityScriptLinks: many(entitySchemaScript),
-		user: one(user, {
-			references: [user.id],
-			fields: [sandboxScript.userId],
-		}),
+export const sandboxScriptRelations = relations(sandboxScript, ({ one, many }) => ({
+	entities: many(entity),
+	entityScriptLinks: many(entitySchemaScript),
+	user: one(user, {
+		references: [user.id],
+		fields: [sandboxScript.userId],
 	}),
-);
+}));
 
-export const entitySchemaScriptRelations = relations(
-	entitySchemaScript,
-	({ one }) => ({
-		entitySchema: one(entitySchema, {
-			references: [entitySchema.id],
-			fields: [entitySchemaScript.entitySchemaId],
-		}),
-		sandboxScript: one(sandboxScript, {
-			references: [sandboxScript.id],
-			fields: [entitySchemaScript.sandboxScriptId],
-		}),
+export const entitySchemaScriptRelations = relations(entitySchemaScript, ({ one }) => ({
+	entitySchema: one(entitySchema, {
+		references: [entitySchema.id],
+		fields: [entitySchemaScript.entitySchemaId],
 	}),
-);
+	sandboxScript: one(sandboxScript, {
+		references: [sandboxScript.id],
+		fields: [entitySchemaScript.sandboxScriptId],
+	}),
+}));
 
 export const entityRelations = relations(entity, ({ one, many }) => ({
 	events: many(event),
@@ -135,26 +124,23 @@ export const eventRelations = relations(event, ({ one }) => ({
 	}),
 }));
 
-export const relationshipSchemaRelations = relations(
-	relationshipSchema,
-	({ one, many }) => ({
-		relationships: many(relationship),
-		user: one(user, {
-			references: [user.id],
-			fields: [relationshipSchema.userId],
-		}),
-		sourceEntitySchema: one(entitySchema, {
-			references: [entitySchema.id],
-			relationName: "sourceEntitySchema",
-			fields: [relationshipSchema.sourceEntitySchemaId],
-		}),
-		targetEntitySchema: one(entitySchema, {
-			references: [entitySchema.id],
-			relationName: "targetEntitySchema",
-			fields: [relationshipSchema.targetEntitySchemaId],
-		}),
+export const relationshipSchemaRelations = relations(relationshipSchema, ({ one, many }) => ({
+	relationships: many(relationship),
+	user: one(user, {
+		references: [user.id],
+		fields: [relationshipSchema.userId],
 	}),
-);
+	sourceEntitySchema: one(entitySchema, {
+		references: [entitySchema.id],
+		relationName: "sourceEntitySchema",
+		fields: [relationshipSchema.sourceEntitySchemaId],
+	}),
+	targetEntitySchema: one(entitySchema, {
+		references: [entitySchema.id],
+		relationName: "targetEntitySchema",
+		fields: [relationshipSchema.targetEntitySchemaId],
+	}),
+}));
 
 export const relationshipRelations = relations(relationship, ({ one }) => ({
 	user: one(user, {

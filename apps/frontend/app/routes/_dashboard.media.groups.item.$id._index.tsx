@@ -1,38 +1,14 @@
-import {
-	Button,
-	Container,
-	Flex,
-	Group,
-	Menu,
-	SimpleGrid,
-	Stack,
-	Tabs,
-	Text,
-} from "@mantine/core";
-import {
-	EntityLot,
-	EntityTranslationVariant,
-} from "@ryot/generated/graphql/backend/graphql";
+import { Button, Container, Flex, Group, Menu, SimpleGrid, Stack, Tabs, Text } from "@mantine/core";
+import { EntityLot, EntityTranslationVariant } from "@ryot/generated/graphql/backend/graphql";
 import { parseParameters, parseSearchQuery } from "@ryot/ts-utils";
-import {
-	IconDeviceTv,
-	IconInfoCircle,
-	IconMessageCircle2,
-	IconUser,
-} from "@tabler/icons-react";
+import { IconDeviceTv, IconInfoCircle, IconMessageCircle2, IconUser } from "@tabler/icons-react";
 import { useLoaderData } from "react-router";
 import { z } from "zod";
-import {
-	DisplayCollectionToEntity,
-	EditButton,
-	SkeletonLoader,
-} from "~/components/common";
+
+import { DisplayCollectionToEntity, EditButton, SkeletonLoader } from "~/components/common";
 import { MediaDetailsLayout } from "~/components/common/layout";
 import { ReviewItemDisplay } from "~/components/common/review";
-import {
-	MediaScrollArea,
-	PartialMetadataDisplay,
-} from "~/components/media/base-display";
+import { MediaScrollArea, PartialMetadataDisplay } from "~/components/media/base-display";
 import {
 	MarkEntityAsPartialMenuItem,
 	ToggleMediaMonitorMenuItem,
@@ -45,6 +21,7 @@ import {
 	useUserPreferences,
 } from "~/lib/shared/hooks";
 import { useAddEntityToCollections, useReviewEntity } from "~/lib/state/media";
+
 import type { Route } from "./+types/_dashboard.media.groups.item.$id._index";
 
 const searchParamsSchema = z.object({
@@ -54,10 +31,7 @@ const searchParamsSchema = z.object({
 export type SearchParams = z.infer<typeof searchParamsSchema>;
 
 export const loader = async ({ request, params }: Route.LoaderArgs) => {
-	const { id: metadataGroupId } = parseParameters(
-		params,
-		z.object({ id: z.string() }),
-	);
+	const { id: metadataGroupId } = parseParameters(params, z.object({ id: z.string() }));
 	const query = parseSearchQuery(request, searchParamsSchema);
 
 	return { query, metadataGroupId };
@@ -73,11 +47,10 @@ export default function Page() {
 	const [_r, setEntityToReview] = useReviewEntity();
 	const [_a, setAddEntityToCollectionsData] = useAddEntityToCollections();
 
-	const [metadataGroupDetailsData, isMetadataGroupPartialStatusActive] =
-		useMetadataGroupDetails(loaderData.metadataGroupId);
-	const userMetadataGroupDetails = useUserMetadataGroupDetails(
+	const [metadataGroupDetailsData, isMetadataGroupPartialStatusActive] = useMetadataGroupDetails(
 		loaderData.metadataGroupId,
 	);
+	const userMetadataGroupDetails = useUserMetadataGroupDetails(loaderData.metadataGroupId);
 
 	const metadataGroupTitleTranslation = useMetadataGroupTranslationValue({
 		metadataGroupId: loaderData.metadataGroupId,
@@ -94,13 +67,9 @@ export default function Page() {
 		variant: EntityTranslationVariant.Image,
 	});
 
-	const title =
-		metadataGroupTitleTranslation ||
-		metadataGroupDetailsData.data?.details.title ||
-		"";
+	const title = metadataGroupTitleTranslation || metadataGroupDetailsData.data?.details.title || "";
 	const description =
-		metadataGroupDescriptionTranslation ||
-		metadataGroupDetailsData.data?.details.description;
+		metadataGroupDescriptionTranslation || metadataGroupDetailsData.data?.details.description;
 
 	return (
 		<Container>
@@ -117,9 +86,7 @@ export default function Page() {
 					}}
 				>
 					<Flex id="group-details" wrap="wrap" gap={4}>
-						<Text>
-							{metadataGroupDetailsData.data.details.parts} media items
-						</Text>
+						<Text>{metadataGroupDetailsData.data.details.parts} media items</Text>
 					</Flex>
 					{userMetadataGroupDetails.data.collections.length > 0 ? (
 						<Group>
@@ -142,17 +109,11 @@ export default function Page() {
 								Actions
 							</Tabs.Tab>
 							{!userPreferences.general.disableReviews ? (
-								<Tabs.Tab
-									value="reviews"
-									leftSection={<IconMessageCircle2 size={16} />}
-								>
+								<Tabs.Tab value="reviews" leftSection={<IconMessageCircle2 size={16} />}>
 									Reviews
 								</Tabs.Tab>
 							) : null}
-							<Tabs.Tab
-								value="overview"
-								leftSection={<IconInfoCircle size={16} />}
-							>
+							<Tabs.Tab value="overview" leftSection={<IconInfoCircle size={16} />}>
 								Overview
 							</Tabs.Tab>
 						</Tabs.List>
@@ -217,9 +178,7 @@ export default function Page() {
 											editRouteType="groups"
 											entityId={metadataGroupDetailsData.data.details.id}
 											source={metadataGroupDetailsData.data.details.source}
-											createdByUserId={
-												metadataGroupDetailsData.data.details.createdByUserId
-											}
+											createdByUserId={metadataGroupDetailsData.data.details.createdByUserId}
 										/>
 									)}
 								</SimpleGrid>
@@ -249,7 +208,7 @@ export default function Page() {
 						<Tabs.Panel value="overview">
 							{description ? (
 								<div
-									// biome-ignore lint/security/noDangerouslySetInnerHtml: generated by the backend securely
+									// oxlint-disable-next-line react/no-danger
 									dangerouslySetInnerHTML={{ __html: description }}
 								/>
 							) : (

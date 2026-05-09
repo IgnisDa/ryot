@@ -3,10 +3,8 @@ import {
 	assertSortableExpression,
 	normalizeExpressionPropertyType,
 } from "~/lib/views/expression-analysis";
-import {
-	createScalarExpressionCompiler,
-	type ExpressionCompiler,
-} from "./expression-compiler";
+
+import { createScalarExpressionCompiler, type ExpressionCompiler } from "./expression-compiler";
 import { createExpressionTypeResolver } from "./expression-type-resolver";
 import type { QueryEngineContext } from "./schemas";
 

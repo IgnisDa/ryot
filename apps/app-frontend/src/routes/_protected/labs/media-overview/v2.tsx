@@ -258,13 +258,7 @@ function StatRibbon() {
 			<Group justify="space-between" gap="xs">
 				{stats.map((s) => (
 					<Box key={s.label} ta="center" style={{ flex: 1 }}>
-						<Text
-							fz={20}
-							fw={700}
-							ff="var(--mantine-font-family-monospace)"
-							c={s.color}
-							lh={1.1}
-						>
+						<Text fz={20} fw={700} ff="var(--mantine-font-family-monospace)" c={s.color} lh={1.1}>
 							{s.value}
 						</Text>
 						<Text
@@ -337,20 +331,10 @@ function ContinueRingCard(props: { item: (typeof CONTINUE_ITEMS)[number] }) {
 				</Group>
 			</Box>
 			<Stack gap={0} align="flex-end">
-				<Text
-					fz={14}
-					fw={700}
-					ff="var(--mantine-font-family-monospace)"
-					c={schema.accent}
-					lh={1}
-				>
+				<Text fz={14} fw={700} ff="var(--mantine-font-family-monospace)" c={schema.accent} lh={1}>
 					{pct}%
 				</Text>
-				<Play
-					size={10}
-					color="var(--mantine-color-dimmed)"
-					style={{ marginTop: 4 }}
-				/>
+				<Play size={10} color="var(--mantine-color-dimmed)" style={{ marginTop: 4 }} />
 			</Stack>
 		</UnstyledButton>
 	);
@@ -360,13 +344,7 @@ function QueueCompact() {
 	return (
 		<Box>
 			<Group justify="space-between" mb={6}>
-				<Text
-					fz={10}
-					fw={700}
-					tt="uppercase"
-					c="dimmed"
-					style={{ letterSpacing: "1px" }}
-				>
+				<Text fz={10} fw={700} tt="uppercase" c="dimmed" style={{ letterSpacing: "1px" }}>
 					Queue
 				</Text>
 				<Badge size="xs" variant="light" color="gray">
@@ -387,9 +365,7 @@ function QueueCompact() {
 							gap: 8,
 							alignItems: "center",
 							borderBottom:
-								i < UP_NEXT_ITEMS.length - 1
-									? "1px solid var(--mantine-color-dark-6)"
-									: undefined,
+								i < UP_NEXT_ITEMS.length - 1 ? "1px solid var(--mantine-color-dark-6)" : undefined,
 						}}
 					>
 						<Text
@@ -419,14 +395,7 @@ function QueueCompact() {
 function ActivitySidebar() {
 	return (
 		<Box>
-			<Text
-				fz={10}
-				fw={700}
-				tt="uppercase"
-				c="dimmed"
-				mb="xs"
-				style={{ letterSpacing: "1px" }}
-			>
+			<Text fz={10} fw={700} tt="uppercase" c="dimmed" mb="xs" style={{ letterSpacing: "1px" }}>
 				Activity
 			</Text>
 			<Stack gap={0}>
@@ -466,13 +435,7 @@ function RatingSidebar() {
 	return (
 		<Box>
 			<Group justify="space-between" mb="xs">
-				<Text
-					fz={10}
-					fw={700}
-					tt="uppercase"
-					c="dimmed"
-					style={{ letterSpacing: "1px" }}
-				>
+				<Text fz={10} fw={700} tt="uppercase" c="dimmed" style={{ letterSpacing: "1px" }}>
 					Rate These
 				</Text>
 				<Badge size="xs" variant="light" color="orange">
@@ -534,22 +497,12 @@ function RatingSidebar() {
 }
 
 function TypeBreakdown() {
-	const types = Object.entries(LIBRARY_STATS.entityTypeCounts) as [
-		SchemaSlug,
-		number,
-	][];
+	const types = Object.entries(LIBRARY_STATS.entityTypeCounts) as [SchemaSlug, number][];
 	const sorted = [...types].sort((a, b) => b[1] - a[1]);
 
 	return (
 		<Box>
-			<Text
-				fz={10}
-				fw={700}
-				tt="uppercase"
-				c="dimmed"
-				mb="xs"
-				style={{ letterSpacing: "1px" }}
-			>
+			<Text fz={10} fw={700} tt="uppercase" c="dimmed" mb="xs" style={{ letterSpacing: "1px" }}>
 				Collection
 			</Text>
 			<Stack gap={4}>
@@ -561,9 +514,7 @@ function TypeBreakdown() {
 					const pct = Math.round((count / LIBRARY_STATS.total) * 100);
 					return (
 						<Group key={slug} gap="xs" wrap="nowrap">
-							<Box style={{ color: schema.accent, display: "flex" }}>
-								{schemaIcon(slug, 12)}
-							</Box>
+							<Box style={{ color: schema.accent, display: "flex" }}>{schemaIcon(slug, 12)}</Box>
 							<Text fz={10} w={70} truncate>
 								{schema.name}
 							</Text>
@@ -654,11 +605,7 @@ function DashboardOverview() {
 					}}
 				>
 					{/* Using SimpleGrid for responsive two-column */}
-					<SimpleGrid
-						cols={{ base: 1, md: 2 }}
-						spacing="lg"
-						style={{ gridColumn: "1 / -1" }}
-					>
+					<SimpleGrid cols={{ base: 1, md: 2 }} spacing="lg" style={{ gridColumn: "1 / -1" }}>
 						{/* Left column: Continue + Queue */}
 						<Stack gap="lg">
 							<Box>

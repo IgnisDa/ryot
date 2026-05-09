@@ -34,6 +34,6 @@ Books.
    "Enable".
 5. Click on "Credentials" on the left sidebar. Click on "Create Credentials" and select
    "API key".
-6.  Click on "Create" and copy the API key.
+6. Click on "Create" and copy the API key.
 7. Set the `BOOKS_GOOGLE_BOOKS_API_KEY` environment variable as described in the
    [configuration](../configuration.md) docs.

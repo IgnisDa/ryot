@@ -1,8 +1,10 @@
 import { Button, Group, Modal, Stack } from "@mantine/core";
+
 import { FormError } from "~/components/PageStates";
 import type { AppEntitySchema } from "~/features/entity-schemas/model";
 import { GeneratedPropertyField } from "~/features/generated-property-fields";
 import { createFormSubmitHandler } from "~/hooks/forms";
+
 import type { CreateEntityPayload } from "./form";
 import { useCreateEntityForm } from "./use-form";
 
@@ -20,18 +22,18 @@ export function CreateEntityModal(props: {
 		propertiesSchema: props.entitySchema.propertiesSchema,
 	});
 
-	const propertyFields = Object.entries(
-		props.entitySchema.propertiesSchema.fields,
-	).map(([propertyKey, propertyDef]) => (
-		<GeneratedPropertyField
-			form={entityForm}
-			key={propertyKey}
-			propertyKey={propertyKey}
-			propertyDef={propertyDef}
-			disabled={props.isLoading}
-			options={{ fallback: "text" }}
-		/>
-	));
+	const propertyFields = Object.entries(props.entitySchema.propertiesSchema.fields).map(
+		([propertyKey, propertyDef]) => (
+			<GeneratedPropertyField
+				form={entityForm}
+				key={propertyKey}
+				propertyKey={propertyKey}
+				propertyDef={propertyDef}
+				disabled={props.isLoading}
+				options={{ fallback: "text" }}
+			/>
+		),
+	);
 
 	return (
 		<Modal
@@ -59,9 +61,7 @@ export function CreateEntityModal(props: {
 						</entityForm.AppField>
 
 						<entityForm.AppField name="image">
-							{(field) => (
-								<field.ImageField label="Image" disabled={props.isLoading} />
-							)}
+							{(field) => <field.ImageField label="Image" disabled={props.isLoading} />}
 						</entityForm.AppField>
 
 						{propertyFields}

@@ -1,9 +1,9 @@
 import { $ } from "bun";
+
 import { readStream, waitForExit } from "./utils";
 
 const resolveCacheDir = () =>
-	process.env.RYOT_SANDBOX_DENO_DIR ??
-	`${process.env.HOME ?? "/root"}/ryot/tmp`;
+	process.env.RYOT_SANDBOX_DENO_DIR ?? `${process.env.HOME ?? "/root"}/ryot/tmp`;
 
 export class PackageCacheManager {
 	private readonly cacheDir = resolveCacheDir();
@@ -42,10 +42,7 @@ export class PackageCacheManager {
 					`Sandbox package cache population failed (exit ${exit.code}): ${stderr.trim()}`,
 				);
 			}
-			console.warn(
-				"Sandbox package cache refresh failed; using existing cache.",
-				stderr.trim(),
-			);
+			console.warn("Sandbox package cache refresh failed; using existing cache.", stderr.trim());
 		}
 	}
 

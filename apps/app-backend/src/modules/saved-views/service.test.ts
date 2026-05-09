@@ -1,4 +1,5 @@
 import { describe, expect, it } from "bun:test";
+
 import {
 	createListedSavedView,
 	createReorderSavedViewsBody,
@@ -8,6 +9,7 @@ import {
 } from "~/lib/test-fixtures";
 import { expectDataResult } from "~/lib/test-helpers";
 import { QueryEngineValidationError } from "~/lib/views/errors";
+
 import {
 	buildBuiltinSavedViewName,
 	cloneSavedView,
@@ -24,9 +26,7 @@ describe("resolveSavedViewName", () => {
 	});
 
 	it("throws when the name is blank", () => {
-		expect(() => resolveSavedViewName("   ")).toThrow(
-			"Saved view name is required",
-		);
+		expect(() => resolveSavedViewName("   ")).toThrow("Saved view name is required");
 	});
 });
 
@@ -81,10 +81,7 @@ describe("createSavedView", () => {
 			},
 		});
 
-		const result = await createSavedView(
-			{ userId: "user_1", body: createSavedViewBody() },
-			deps,
-		);
+		const result = await createSavedView({ userId: "user_1", body: createSavedViewBody() }, deps);
 
 		expect(result).toEqual({
 			error: "validation",
@@ -119,15 +116,11 @@ describe("createSavedView", () => {
 			},
 		});
 
-		const result = await createSavedView(
-			{ userId: "user_1", body: createSavedViewBody() },
-			deps,
-		);
+		const result = await createSavedView({ userId: "user_1", body: createSavedViewBody() }, deps);
 
 		expect(result).toEqual({
 			error: "validation",
-			message:
-				"Saved view display configuration only supports entity mode queries",
+			message: "Saved view display configuration only supports entity mode queries",
 		});
 		expect(wasPersisted).toBe(false);
 	});
@@ -191,8 +184,7 @@ describe("updateSavedView", () => {
 			prepareForValidation: async () => {
 				validated = true;
 			},
-			getSavedViewBySlugForUser: async () =>
-				createListedSavedView({ trackerId: "tracker_1" }),
+			getSavedViewBySlugForUser: async () => createListedSavedView({ trackerId: "tracker_1" }),
 			updateSavedViewBySlugForUser: async (input) => {
 				currentTrackerId = input.currentTrackerId;
 				return createListedSavedView({
@@ -227,14 +219,10 @@ describe("updateSavedView", () => {
 describe("deleteSavedView", () => {
 	it("rejects deleting built-in views", async () => {
 		const deps = createSavedViewDeps({
-			getSavedViewBySlugForUser: async () =>
-				createListedSavedView({ isBuiltin: true }),
+			getSavedViewBySlugForUser: async () => createListedSavedView({ isBuiltin: true }),
 		});
 
-		const result = await deleteSavedView(
-			{ userId: "user_1", viewSlug: "view_1" },
-			deps,
-		);
+		const result = await deleteSavedView({ userId: "user_1", viewSlug: "view_1" }, deps);
 
 		expect(result).toEqual({
 			error: "builtin",

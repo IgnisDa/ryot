@@ -92,9 +92,7 @@ export const httpCall: HostFunction<Record<string, never>> = async (
 	try {
 		parsedOptions = parseHttpCallOptions(options);
 	} catch (error) {
-		return apiFailure(
-			error instanceof Error ? error.message : "httpCall options are invalid",
-		);
+		return apiFailure(error instanceof Error ? error.message : "httpCall options are invalid");
 	}
 
 	try {
@@ -120,8 +118,6 @@ export const httpCall: HostFunction<Record<string, never>> = async (
 			headers: mapHeadersToObject(response.headers),
 		});
 	} catch (error) {
-		return apiFailure(
-			error instanceof Error ? error.message : "httpCall failed",
-		);
+		return apiFailure(error instanceof Error ? error.message : "httpCall failed");
 	}
 };

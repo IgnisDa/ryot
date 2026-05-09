@@ -9,12 +9,12 @@ major release, please follow each major version's migration steps in order.
 :::warning Environment Variables Change
 
 - If you had `SCHEDULER_FREQUENT_CRON_JOBS_EVERY_MINUTES=2` in your environment, then change
-   it to `SCHEDULER_FREQUENT_CRON_JOBS_SCHEDULE="every 2 minutes"`. Read more about
-   [yank integrations](./integrations/overview.md#yank-integrations).
+  it to `SCHEDULER_FREQUENT_CRON_JOBS_SCHEDULE="every 2 minutes"`. Read more about
+  [yank integrations](./integrations/overview.md#yank-integrations).
 - Localization-specific environment variables (eg: `MOVIES_AND_SHOWS_TMDB_LOCALE`,
-   `ANIME_AND_MANGA_ANILIST_PREFERRED_LANGUAGE` etc.) have been removed and are now
-   user level settings. Find them in language preference settings.
-:::
+  `ANIME_AND_MANGA_ANILIST_PREFERRED_LANGUAGE` etc.) have been removed and are now
+  user level settings. Find them in language preference settings.
+  :::
 
 1. Upgrade the server to `v9.6.0` to make sure all `v9` migrations are applied. For
    example, you can make this change: `image: "ignisda/ryot:v9.6.0"` in your docker-compose
@@ -144,6 +144,7 @@ new format.
 
 7. Connect to the database (`docker exec -u postgres -it ryot-db psql`) and run these SQL
    queries:
+
    ```sql
    DELETE FROM seaql_migrations;
 
@@ -183,6 +184,7 @@ new format.
 4. Stop the running server and create a backup of your database.
 
 5. Connect to the database and run these SQL queries:
+
    ```sql
    DELETE FROM seaql_migrations;
 
@@ -212,6 +214,7 @@ new format.
 1. Stop the running server and create a backup of your database.
 
 2. Run the last release of the server to perform all migrations (make sure to connect it to the correct database).
+
    ```bash
    $ docker run --volume ./ryot/data:/data ignisda/ryot:v1.22.1
    ```
@@ -219,6 +222,7 @@ new format.
 3. Once the migrations from the above step are done, stop the server.
 
 4. Before upgrading to the public release, connect to the database again and run these migrations:
+
    ```sql
    DELETE FROM seaql_migrations;
 

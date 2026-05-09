@@ -1,15 +1,7 @@
 import { getFormProps, getInputProps, useForm } from "@conform-to/react";
 import { parseWithZod } from "@conform-to/zod/v4";
 import { useAutoAnimate } from "@formkit/auto-animate/react";
-import {
-	Alert,
-	Anchor,
-	Button,
-	Divider,
-	PasswordInput,
-	Stack,
-	TextInput,
-} from "@mantine/core";
+import { Alert, Anchor, Button, Divider, PasswordInput, Stack, TextInput } from "@mantine/core";
 import {
 	GetOidcRedirectUrlDocument,
 	LoginErrorVariant,
@@ -31,6 +23,7 @@ import { $path } from "safe-routes";
 import { match } from "ts-pattern";
 import { withQuery } from "ufo";
 import { z } from "zod";
+
 import { passwordConfirmationSchema } from "~/lib/shared/validation";
 import {
 	createToastHeaders,
@@ -40,6 +33,7 @@ import {
 	serverGqlService,
 	twoFactorSessionStorage,
 } from "~/lib/utilities.server";
+
 import type { Route } from "./+types/auth";
 
 const searchParamsSchema = z.object({
@@ -47,8 +41,7 @@ const searchParamsSchema = z.object({
 	intent: z.enum(["login", "register"]).optional(),
 });
 
-export type SearchParams = z.infer<typeof searchParamsSchema> &
-	Record<string, string>;
+export type SearchParams = z.infer<typeof searchParamsSchema> & Record<string, string>;
 
 const getOidcRedirectUrl = () =>
 	serverGqlService
@@ -58,11 +51,7 @@ const getOidcRedirectUrl = () =>
 export const loader = async ({ request }: Route.LoaderArgs) => {
 	const query = parseSearchQuery(request, searchParamsSchema);
 	const [coreDetails] = await Promise.all([getCoreDetails()]);
-	if (
-		coreDetails.oidcEnabled &&
-		coreDetails.localAuthDisabled &&
-		query.autoOidcLaunch !== false
-	) {
+	if (coreDetails.oidcEnabled && coreDetails.localAuthDisabled && query.autoOidcLaunch !== false) {
 		const url = await getOidcRedirectUrl();
 		return redirect(url);
 	}
@@ -96,26 +85,20 @@ export const action = async ({ request }: Route.ActionArgs) => {
 							"Invalid form data",
 					}),
 				});
-			const { registerUser } = await serverGqlService.request(
-				RegisterUserDocument,
-				{
-					input: {
-						data: {
-							password: {
-								password: submission.value.password,
-								username: submission.value.username,
-							},
+			const { registerUser } = await serverGqlService.request(RegisterUserDocument, {
+				input: {
+					data: {
+						password: {
+							password: submission.value.password,
+							username: submission.value.username,
 						},
 					},
 				},
-			);
+			});
 			if (registerUser.__typename === "RegisterError") {
 				const message = match(registerUser.error)
 					.with(RegisterErrorVariant.Disabled, () => "Registration is disabled")
-					.with(
-						RegisterErrorVariant.IdentifierAlreadyExists,
-						() => "This username already exists",
-					)
+					.with(RegisterErrorVariant.IdentifierAlreadyExists, () => "This username already exists")
 					.exhaustive();
 				return data({} as const, {
 					headers: await createToastHeaders({ message, type: "error" }),
@@ -143,8 +126,7 @@ export const action = async ({ request }: Route.ActionArgs) => {
 			if (loginUser.__typename === "StringIdObject") {
 				const session = await twoFactorSessionStorage.getSession();
 				session.set("userId", loginUser.id);
-				const twoFactorCookie =
-					await twoFactorSessionStorage.commitSession(session);
+				const twoFactorCookie = await twoFactorSessionStorage.commitSession(session);
 				return redirect($path("/two-factor"), {
 					headers: new Headers({ "set-cookie": twoFactorCookie }),
 				});
@@ -159,10 +141,7 @@ export const action = async ({ request }: Route.ActionArgs) => {
 					LoginErrorVariant.AccountDisabled,
 					() => "This account has been disabled. Please contact support.",
 				)
-				.with(
-					LoginErrorVariant.IncorrectProviderChosen,
-					() => "The provider chosen was incorrect",
-				)
+				.with(LoginErrorVariant.IncorrectProviderChosen, () => "The provider chosen was incorrect")
 				.exhaustive();
 			return data({} as const, {
 				headers: await createToastHeaders({ message, type: "error" }),
@@ -192,14 +171,11 @@ export default function Page() {
 	const intent = loaderData.intent;
 
 	return (
-		<Stack
-			m="auto"
-			w={{ base: "80%", sm: "60%", md: "50%", lg: "40%", xl: "30%" }}
-		>
+		<Stack m="auto" w={{ base: "80%", sm: "60%", md: "50%", lg: "40%", xl: "30%" }}>
 			{loaderData.localAuthDisabled && !loaderData.oidcEnabled ? (
 				<Alert title="Authentication disabled" color="red">
-					Both local authentication and OpenID Connect are disabled. Please
-					contact the administrator.
+					Both local authentication and OpenID Connect are disabled. Please contact the
+					administrator.
 				</Alert>
 			) : null}
 			{!loaderData.localAuthDisabled ? (
@@ -207,7 +183,7 @@ export default function Page() {
 					method="POST"
 					action={withQuery(".", { intent })}
 					{...getFormProps(form)}
-					// biome-ignore lint/suspicious/noExplicitAny: too much work to fix
+					// oxlint-disable-next-line typescript/no-explicit-any
 					ref={parent as any}
 				>
 					<input
@@ -246,11 +222,7 @@ export default function Page() {
 			{loaderData.oidcEnabled ? (
 				<>
 					{!loaderData.localAuthDisabled ? <Divider label="OR" /> : null}
-					<Form
-						replace
-						method="POST"
-						action={withQuery(".", { intent: "getOidcRedirectUrl" })}
-					>
+					<Form replace method="POST" action={withQuery(".", { intent: "getOidcRedirectUrl" })}>
 						<Button
 							variant="outline"
 							color="gray"

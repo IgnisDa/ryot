@@ -8,12 +8,9 @@ import {
 import { isNumber } from "@ryot/ts-utils";
 import { IconTrashFilled } from "@tabler/icons-react";
 import { useMutation } from "@tanstack/react-query";
+
 import { DisplayCollectionEntity } from "~/components/common";
-import {
-	clientGqlService,
-	queryClient,
-	queryFactory,
-} from "~/lib/shared/react-query";
+import { clientGqlService, queryClient, queryFactory } from "~/lib/shared/react-query";
 import { useBulkEditCollection } from "~/lib/state/collection";
 
 export type CollectionItemProps = {
@@ -49,9 +46,7 @@ export const CollectionItem = (props: CollectionItemProps) => {
 	const handleRankClick = () => {
 		if (!props.isReorderMode) return;
 
-		const newRank = prompt(
-			`Enter new rank for this item (1-${props.totalItems}):`,
-		);
+		const newRank = prompt(`Enter new rank for this item (1-${props.totalItems}):`);
 		const rank = Number(newRank);
 		if (newRank && isNumber(rank))
 			if (rank >= 1 && rank <= props.totalItems)

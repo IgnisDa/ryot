@@ -1,4 +1,5 @@
 import { createRoute, OpenAPIHono } from "@hono/zod-openapi";
+
 import type { AuthType } from "~/lib/auth";
 import {
 	createAuthRoute,
@@ -9,6 +10,7 @@ import {
 	createValidationServiceErrorResult,
 	jsonBody,
 } from "~/lib/openapi";
+
 import { getSavedViewBySlugForUser, listSavedViewsForUser } from "./repository";
 import {
 	createSavedViewBody,
@@ -136,9 +138,7 @@ const reorderSavedViewsRoute = createAuthRoute(
 	}),
 );
 
-const savedViewNotFoundResult = createNotFoundErrorResult(
-	"Saved view not found",
-);
+const savedViewNotFoundResult = createNotFoundErrorResult("Saved view not found");
 
 export const savedViewsApi = new OpenAPIHono<{ Variables: AuthType }>()
 	.openapi(listSavedViewsRoute, async (c) => {
@@ -164,10 +164,7 @@ export const savedViewsApi = new OpenAPIHono<{ Variables: AuthType }>()
 		});
 
 		if (!view) {
-			return c.json(
-				savedViewNotFoundResult.body,
-				savedViewNotFoundResult.status,
-			);
+			return c.json(savedViewNotFoundResult.body, savedViewNotFoundResult.status);
 		}
 
 		const response = createSuccessResult(view);

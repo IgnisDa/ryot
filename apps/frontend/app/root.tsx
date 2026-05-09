@@ -5,7 +5,6 @@ import "@mantine/carousel/styles.css";
 import "@mantine/dates/styles.css";
 import "@mantine/notifications/styles.css";
 import "mantine-datatable/styles.layer.css";
-import { useRegisterSW } from "virtual:pwa-register/react";
 import {
 	ActionIcon,
 	Alert,
@@ -33,14 +32,13 @@ import {
 	useLoaderData,
 	useNavigation,
 } from "react-router";
+import { useRegisterSW } from "virtual:pwa-register/react";
+
 import { Toaster } from "~/components/toaster";
 import { LOGO_IMAGE_URL } from "~/lib/shared/constants";
 import { queryClient } from "~/lib/shared/react-query";
-import {
-	colorSchemeCookie,
-	extendResponseHeaders,
-	getToast,
-} from "~/lib/utilities.server";
+import { colorSchemeCookie, extendResponseHeaders, getToast } from "~/lib/utilities.server";
+
 import classes from "~/styles/common.module.css";
 
 const theme = createTheme({
@@ -106,9 +104,7 @@ export const links: LinksFunction = () => {
 
 export const loader = async ({ request }: LoaderFunctionArgs) => {
 	const { toast, headers: toastHeaders } = await getToast(request);
-	const colorScheme = await colorSchemeCookie.parse(
-		request.headers.get("cookie"),
-	);
+	const colorScheme = await colorSchemeCookie.parse(request.headers.get("cookie"));
 	const headers = new Headers();
 	const defaultColorScheme = colorScheme || "light";
 	if (toastHeaders) extendResponseHeaders(headers, toastHeaders);

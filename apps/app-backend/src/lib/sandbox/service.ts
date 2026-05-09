@@ -1,6 +1,7 @@
 import { dayjs } from "@ryot/ts-utils";
 import { generateId } from "better-auth";
 import { type Job, Worker } from "bullmq";
+
 import { getQueues } from "../queue";
 import { getRedisConnection } from "../queue/connection";
 import { onWorkerError } from "../queue/utils";
@@ -11,10 +12,7 @@ import {
 	sandboxWorkerConcurrency,
 	vendoredPackages,
 } from "./constants";
-import {
-	buildApiFunctionDescriptors,
-	hostFunctionRegistry,
-} from "./function-registry";
+import { buildApiFunctionDescriptors, hostFunctionRegistry } from "./function-registry";
 import {
 	type QueuedRunResult,
 	type SandboxRunJobData,
@@ -31,18 +29,9 @@ import { PackageCacheManager } from "./package-cache";
 import { ProcessPool, type SpawnedProcess } from "./process-pool";
 import { getSandboxScriptById } from "./repository";
 import { RunnerFileManager } from "./runner";
-import type {
-	ApiFunctionDescriptor,
-	HostFunctionFactory,
-	SandboxEnqueueOptions,
-} from "./types";
+import type { ApiFunctionDescriptor, HostFunctionFactory, SandboxEnqueueOptions } from "./types";
 import { sandboxScriptMetadataSchema } from "./types";
-import {
-	attachTimeoutGuard,
-	formatExit,
-	readStream,
-	waitForExit,
-} from "./utils";
+import { attachTimeoutGuard, formatExit, readStream, waitForExit } from "./utils";
 
 export class SandboxService {
 	private processPool: ProcessPool | null = null;
@@ -151,9 +140,7 @@ export class SandboxService {
 
 		const metadata = sandboxScriptMetadataSchema.safeParse(script.metadata);
 		if (!metadata.success) {
-			const errors = metadata.error.issues
-				.map((issue) => issue.message)
-				.join("; ");
+			const errors = metadata.error.issues.map((issue) => issue.message).join("; ");
 			return {
 				success: false,
 				error: `Sandbox script metadata is invalid: ${errors}`,
@@ -162,11 +149,7 @@ export class SandboxService {
 
 		const allowedKeys = metadata.data.allowedHostFunctions ?? [];
 
-		const descriptors = buildApiFunctionDescriptors(
-			allowedKeys,
-			jobData.userId,
-			jobData.scriptId,
-		);
+		const descriptors = buildApiFunctionDescriptors(allowedKeys, jobData.userId, jobData.scriptId);
 
 		let apiFunctions: ReturnType<typeof this.resolveApiFunctions>;
 		try {
@@ -174,10 +157,7 @@ export class SandboxService {
 		} catch (error) {
 			return {
 				success: false,
-				error:
-					error instanceof Error
-						? error.message
-						: "Failed to resolve host functions",
+				error: error instanceof Error ? error.message : "Failed to resolve host functions",
 			};
 		}
 
@@ -225,12 +205,9 @@ export class SandboxService {
 			let timedOut = false;
 
 			const isDefaultHeap = maxHeapMB === this.executionDefaults.maxHeapMB;
-			const pooledProc = isDefaultHeap
-				? (this.processPool?.checkout() ?? null)
-				: null;
+			const pooledProc = isDefaultHeap ? (this.processPool?.checkout() ?? null) : null;
 			const poolHit = pooledProc !== null;
-			const proc =
-				pooledProc ?? this.spawnProcess(bridgePort, runnerPath, maxHeapMB);
+			const proc = pooledProc ?? this.spawnProcess(bridgePort, runnerPath, maxHeapMB);
 
 			if (!proc.stdin) {
 				return { success: false, error: "Sandbox stdin is unavailable" };
@@ -353,11 +330,7 @@ export class SandboxService {
 		}
 	}
 
-	private spawnProcess(
-		bridgePort: number,
-		runnerPath: string,
-		maxHeapMB: number,
-	): SpawnedProcess {
+	private spawnProcess(bridgePort: number, runnerPath: string, maxHeapMB: number): SpawnedProcess {
 		return Bun.spawn(
 			[
 				"deno",
@@ -385,17 +358,12 @@ export class SandboxService {
 
 	private resolveApiFunctions(descriptors: ApiFunctionDescriptor[]) {
 		const apiFunctions: SandboxExecutionOptions["apiFunctions"] = {};
-		const registry = hostFunctionRegistry as Record<
-			string,
-			HostFunctionFactory
-		>;
+		const registry = hostFunctionRegistry as Record<string, HostFunctionFactory>;
 
 		for (const descriptor of descriptors) {
 			const factory = registry[descriptor.functionKey];
 			if (!factory) {
-				throw new Error(
-					`Unknown sandbox host function: ${descriptor.functionKey}`,
-				);
+				throw new Error(`Unknown sandbox host function: ${descriptor.functionKey}`);
 			}
 
 			apiFunctions[descriptor.functionKey] = factory(descriptor.context);

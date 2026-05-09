@@ -21,6 +21,7 @@ import { useQuery } from "@tanstack/react-query";
 import { parseAsInteger, parseAsString } from "nuqs";
 import { Link } from "react-router";
 import { $path } from "safe-routes";
+
 import {
 	ApplicationPagination,
 	DisplayListDetailsAndRefresh,
@@ -30,11 +31,7 @@ import {
 import { DebouncedSearchInput } from "~/components/common/filters";
 import { ApplicationGrid } from "~/components/common/layout";
 import { useFiltersState } from "~/lib/hooks/filters/use-state";
-import {
-	useCoreDetails,
-	useFallbackImageUrl,
-	useGetRandomMantineColor,
-} from "~/lib/shared/hooks";
+import { useCoreDetails, useFallbackImageUrl, useGetRandomMantineColor } from "~/lib/shared/hooks";
 import {
 	clientGqlService,
 	getMetadataDetailsQuery,
@@ -87,9 +84,7 @@ export default function Page() {
 						/>
 						{userGenresList.details.totalItems > 0 ? (
 							<>
-								<DisplayListDetailsAndRefresh
-									total={userGenresList.details.totalItems}
-								/>
+								<DisplayListDetailsAndRefresh total={userGenresList.details.totalItems} />
 								<ApplicationGrid>
 									{userGenresList.items.map((genreId) => (
 										<DisplayGenre key={genreId} genreId={genreId} />
@@ -115,34 +110,26 @@ const DisplayGenre = (props: { genreId: string }) => {
 		enabled: inViewport,
 		queryKey: queryFactory.media.genreImages(props.genreId).queryKey,
 		queryFn: async () => {
-			const { genreDetails } = await clientGqlService.request(
-				GenreDetailsDocument,
-				{ input: { genreId: props.genreId } },
-			);
+			const { genreDetails } = await clientGqlService.request(GenreDetailsDocument, {
+				input: { genreId: props.genreId },
+			});
 
 			const images = [];
 			const maxImages = 4;
 			const batchSize = 6;
 
-			const contentsBatch = genreDetails.response.contents.items.slice(
-				0,
-				batchSize,
-			);
+			const contentsBatch = genreDetails.response.contents.items.slice(0, batchSize);
 
 			const results = await Promise.all(
 				contentsBatch.map(async (content) => {
-					const { assets } = await queryClient.ensureQueryData(
-						getMetadataDetailsQuery(content),
-					);
+					const { assets } = await queryClient.ensureQueryData(getMetadataDetailsQuery(content));
 					return assets.remoteImages.length > 0 ? assets.remoteImages[0] : null;
 				}),
 			);
 
-			for (const image of results)
-				if (image && images.length <= maxImages) images.push(image);
+			for (const image of results) if (image && images.length <= maxImages) images.push(image);
 
-			if (images.length <= maxImages)
-				return { genreDetails, images: images.slice(0, 1) };
+			if (images.length <= maxImages) return { genreDetails, images: images.slice(0, 1) };
 
 			return { genreDetails, images };
 		},
@@ -155,10 +142,7 @@ const DisplayGenre = (props: { genreId: string }) => {
 	if (!genreData) return <Skeleton height={290} ref={ref} />;
 
 	return (
-		<Anchor
-			component={Link}
-			to={$path("/media/genre/:id", { id: props.genreId })}
-		>
+		<Anchor component={Link} to={$path("/media/genre/:id", { id: props.genreId })}>
 			<Stack gap={4}>
 				<Box pos="relative">
 					{coreDetails.isServerKeyValidated ? (
@@ -177,12 +161,7 @@ const DisplayGenre = (props: { genreId: string }) => {
 						</Paper>
 					) : (
 						<>
-							<Image
-								h={260}
-								radius="md"
-								alt={genreName}
-								fallbackSrc={fallbackImageUrl}
-							/>
+							<Image h={260} radius="md" alt={genreName} fallbackSrc={fallbackImageUrl} />
 							<Box pos="absolute" left={0} right={0} bottom={0}>
 								<ProRequiredAlert tooltipLabel="Collage image using genre contents" />
 							</Box>

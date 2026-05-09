@@ -2,10 +2,7 @@ import type { Client } from "./auth";
 import { createEntity } from "./entities";
 import { findBuiltinSchemaBySlug } from "./entity-schemas";
 
-export async function createMeasurementEntityFixture(
-	client: Client,
-	cookies: string,
-) {
+export async function createMeasurementEntityFixture(client: Client, cookies: string) {
 	const { schema: measurementSchema } = await findBuiltinSchemaBySlug(
 		client,
 		cookies,

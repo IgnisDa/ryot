@@ -14,26 +14,18 @@ import {
 	Text,
 	Title,
 } from "@mantine/core";
-import type {
-	EntityAssets,
-	MediaLot,
-	MediaSource,
-} from "@ryot/generated/graphql/backend/graphql";
+import type { EntityAssets, MediaLot, MediaSource } from "@ryot/generated/graphql/backend/graphql";
 import { changeCase } from "@ryot/ts-utils";
 import { IconExternalLink } from "@tabler/icons-react";
 import { type ReactNode, useState } from "react";
+
 import { useFallbackImageUrl, useS3PresignedUrls } from "~/lib/shared/hooks";
-import {
-	getProviderSourceImage,
-	getSurroundingElements,
-} from "~/lib/shared/ui-utils";
+import { getProviderSourceImage, getSurroundingElements } from "~/lib/shared/ui-utils";
 import { useFullscreenImage } from "~/lib/state/general";
+
 import classes from "~/styles/common.module.css";
 
-export const ApplicationGrid = (props: {
-	className?: string;
-	children: ReactNode;
-}) => {
+export const ApplicationGrid = (props: { className?: string; children: ReactNode }) => {
 	const [parent] = useAutoAnimate();
 
 	return (
@@ -74,11 +66,7 @@ export const MediaDetailsLayout = (props: {
 
 	return (
 		<Flex direction={{ base: "column", md: "row" }} gap="lg">
-			<Box
-				pos="relative"
-				id="images-container"
-				className={classes.imagesContainer}
-			>
+			<Box pos="relative" id="images-container" className={classes.imagesContainer}>
 				<Paper
 					px={10}
 					top={0}
@@ -101,22 +89,13 @@ export const MediaDetailsLayout = (props: {
 					</Text>
 					<Group wrap="nowrap">
 						{providerImage ? (
-							<Image
-								h={20}
-								alt="Logo"
-								fit="contain"
-								src={`/provider-logos/${providerImage}`}
-							/>
+							<Image h={20} alt="Logo" fit="contain" src={`/provider-logos/${providerImage}`} />
 						) : null}
 						{props.externalLink.href ? (
 							<ActionIcon
 								onClick={() => {
 									if (props.externalLink.href)
-										window.open(
-											props.externalLink.href,
-											"_blank",
-											"noopener,noreferrer",
-										);
+										window.open(props.externalLink.href, "_blank", "noopener,noreferrer");
 								}}
 							>
 								<IconExternalLink size={18} />
@@ -136,12 +115,7 @@ export const MediaDetailsLayout = (props: {
 					</Carousel>
 				) : (
 					<Box w="100%">
-						<Image
-							radius="lg"
-							height={400}
-							src={images[0]}
-							fallbackSrc={fallbackImageUrl}
-						/>
+						<Image radius="lg" height={400} src={images[0]} fallbackSrc={fallbackImageUrl} />
 					</Box>
 				)}
 			</Box>

@@ -37,6 +37,7 @@ import type { Params } from "react-router";
 import { twMerge } from "tailwind-merge";
 import invariant from "tiny-invariant";
 import { type output, type ZodTypeAny, z } from "zod";
+
 import { type Dayjs, dayjs } from "./dayjs";
 
 export const zodBoolAsString = z
@@ -85,10 +86,7 @@ export const trimmedOrNull = (value: string): string | null => {
 /**
  * Humanize a duration.
  */
-export const humanizeDuration = (
-	duration: number,
-	options?: HumanizeDurationOptions,
-) => {
+export const humanizeDuration = (duration: number, options?: HumanizeDurationOptions) => {
 	const service = new HumanizeDurationLanguage();
 	const humanizer = new HumanizeDuration(service);
 	return humanizer.humanize(duration, options);
@@ -102,8 +100,7 @@ export const formatQuantityWithCompactNotation = (value: number) =>
 /**
  * Format a `Date` into a Rust `NaiveDate`
  */
-export const formatDateToNaiveDate = (t: Date | Dayjs) =>
-	dayjs(t).format("YYYY-MM-DD");
+export const formatDateToNaiveDate = (t: Date | Dayjs) => dayjs(t).format("YYYY-MM-DD");
 
 /**
  * Generate initials for a given string.
@@ -111,17 +108,14 @@ export const formatDateToNaiveDate = (t: Date | Dayjs) =>
 export const getInitials = (name: string) => {
 	const rgx = new RegExp(/(\p{L}{1})\p{L}+/gu);
 	const initials = [...name.matchAll(rgx)];
-	const actualValues = (
-		(initials.shift()?.[1] || "") + (initials.pop()?.[1] || "")
-	).toUpperCase();
+	const actualValues = ((initials.shift()?.[1] || "") + (initials.pop()?.[1] || "")).toUpperCase();
 	return actualValues;
 };
 
 /**
  * Change case to a presentable format.
  */
-export const changeCase = (name: string) =>
-	startCase(camelCase(name.toLowerCase()));
+export const changeCase = (name: string) => startCase(camelCase(name.toLowerCase()));
 
 export const processSubmission = <Schema extends ZodTypeAny>(
 	formData: FormData,
@@ -202,11 +196,7 @@ export {
 } from "./app-schema";
 export { dayjs } from "./dayjs";
 export { getQueryEngineField } from "./query-engine";
-export {
-	normalizeSlug,
-	resolveRequiredSlug,
-	resolveRequiredString,
-} from "./slug";
+export { normalizeSlug, resolveRequiredSlug, resolveRequiredString } from "./slug";
 export {
 	createComputedFieldExpression,
 	createEntityColumnExpression,
