@@ -16,7 +16,7 @@ import {
 } from "./form";
 
 const input = createPropertySchemaInputFixture;
-const row = createPropertySchemaRowFixture;
+const rowFixture = createPropertySchemaRowFixture;
 
 describe("buildDefaultEntitySchemaPropertyRow", () => {
 	it("returns an empty optional string property row", () => {
@@ -164,7 +164,7 @@ describe("createEntitySchemaFormSchema", () => {
 			slug: "  \n\t ",
 			icon: "book-open",
 			accentColor: "#5B7FFF",
-			properties: [row({ id: "title", key: "title" })],
+			properties: [rowFixture({ id: "title", key: "title" })],
 		});
 
 		expect(result.success).toBeFalse();
@@ -186,7 +186,7 @@ describe("createEntitySchemaFormSchema", () => {
 			slug: "  \n\t ",
 			icon: "book-open",
 			accentColor: "#5B7FFF",
-			properties: [row({ id: "title", key: "title" })],
+			properties: [rowFixture({ id: "title", key: "title" })],
 		});
 
 		expect(result.success).toBeTrue();
@@ -216,8 +216,8 @@ describe("createEntitySchemaFormSchema", () => {
 
 	it("rejects duplicate trimmed property keys", () => {
 		const properties = [
-			row({ id: "title", key: "title" }),
-			row({ id: "rating", key: " title ", type: "number", required: true }),
+			rowFixture({ id: "title", key: "title" }),
+			rowFixture({ id: "rating", key: " title ", type: "number", required: true }),
 		] as const;
 		const result = createEntitySchemaFormSchema.safeParse({
 			properties,
@@ -241,7 +241,7 @@ describe("createEntitySchemaFormSchema", () => {
 	});
 
 	it("rejects a whitespace-only property key after trimming", () => {
-		const properties = [row({ id: "title", key: " \n\t " })] as const;
+		const properties = [rowFixture({ id: "title", key: " \n\t " })] as const;
 		const result = createEntitySchemaFormSchema.safeParse({
 			properties,
 			name: "Books",
@@ -269,7 +269,7 @@ describe("createEntitySchemaFormSchema", () => {
 			name: "Books",
 			slug: "books",
 			accentColor: "",
-			properties: [row({ id: "title", key: "title" })],
+			properties: [rowFixture({ id: "title", key: "title" })],
 		});
 
 		expect(result.success).toBeFalse();
@@ -331,13 +331,13 @@ describe("toCreateEntitySchemaPayload", () => {
 					icon: "  book-open  ",
 					accentColor: "  #5B7FFF  ",
 					properties: [
-						row({
+						rowFixture({
 							id: "released-on",
 							key: " releasedOn ",
 							type: "date",
 							required: true,
 						}),
-						row({ id: "rating", key: "rating", type: "number" }),
+						rowFixture({ id: "rating", key: "rating", type: "number" }),
 					],
 				},
 				"tracker-123",
@@ -374,7 +374,7 @@ describe("toCreateEntitySchemaPayload", () => {
 					icon: "book-open",
 					name: "  Books  ",
 					accentColor: "#5B7FFF",
-					properties: [row({ id: "title", key: "title" })],
+					properties: [rowFixture({ id: "title", key: "title" })],
 				},
 				"tracker-123",
 			),
