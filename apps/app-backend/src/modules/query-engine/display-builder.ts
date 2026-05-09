@@ -28,7 +28,7 @@ const normalizeJsonbNull = (expression: SqlExpression) => {
 	return sql`nullif(${expression}, 'null'::jsonb)`;
 };
 
-const buildLiteralValueExpression = (value: unknown | null) => {
+const buildLiteralValueExpression = (value: unknown) => {
 	if (value === null) {
 		return sql`null`;
 	}
@@ -36,7 +36,7 @@ const buildLiteralValueExpression = (value: unknown | null) => {
 	return sql`${JSON.stringify(value)}::jsonb`;
 };
 
-const getLiteralDisplayKind = (value: unknown | null): ResolvedDisplayValue["kind"] => {
+const getLiteralDisplayKind = (value: unknown): ResolvedDisplayValue["kind"] => {
 	if (value === null) {
 		return "null";
 	}

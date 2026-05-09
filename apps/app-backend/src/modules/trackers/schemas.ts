@@ -60,7 +60,7 @@ export const updateTrackerBody = z
 		if (value.icon === undefined) {
 			ctx.addIssue({
 				path: ["icon"],
-				code: z.ZodIssueCode.custom,
+				code: "custom",
 				message: "Icon is required",
 			});
 		}
@@ -68,7 +68,7 @@ export const updateTrackerBody = z
 		if (value.accentColor === undefined) {
 			ctx.addIssue({
 				path: ["accentColor"],
-				code: z.ZodIssueCode.custom,
+				code: "custom",
 				message: "Accent color is required",
 			});
 		}

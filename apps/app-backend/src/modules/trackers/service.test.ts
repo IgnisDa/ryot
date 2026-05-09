@@ -105,9 +105,9 @@ describe("createTracker", () => {
 	it("normalizes the slug before persisting", async () => {
 		let createdSlug: string | undefined;
 		const deps = createTrackerDeps({
-			createTrackerForUser: async (input) => {
+			createTrackerForUser: (input) => {
 				createdSlug = input.slug;
-				return createListedTracker({ slug: input.slug, name: input.name });
+				return Promise.resolve(createListedTracker({ slug: input.slug, name: input.name }));
 			},
 		});
 
@@ -129,7 +129,7 @@ describe("createTracker", () => {
 		const result = await createTracker(
 			{ body: createTrackerBody(), userId: "user_1" },
 			createTrackerDeps({
-				getTrackerBySlugForUser: async () => ({ id: "tracker_2" }),
+				getTrackerBySlugForUser: () => Promise.resolve({ id: "tracker_2" }),
 			}),
 		);
 
@@ -171,15 +171,17 @@ describe("updateTracker", () => {
 					},
 				},
 				createTrackerDeps({
-					updateTrackerForUser: async (input) => {
+					updateTrackerForUser: (input) => {
 						updateCallCount++;
-						return createListedTracker({
-							icon: input.icon,
-							name: input.name,
-							id: input.trackerId,
-							isDisabled: input.isDisabled,
-							accentColor: input.accentColor,
-						});
+						return Promise.resolve(
+							createListedTracker({
+								icon: input.icon,
+								name: input.name,
+								id: input.trackerId,
+								isDisabled: input.isDisabled,
+								accentColor: input.accentColor,
+							}),
+						);
 					},
 				}),
 			),
@@ -197,7 +199,7 @@ describe("updateTracker", () => {
 				trackerId: "tracker_1",
 				body: createUpdateTrackerBody(),
 			},
-			createTrackerDeps({ getOwnedTrackerById: async () => undefined }),
+			createTrackerDeps({ getOwnedTrackerById: () => Promise.resolve(undefined) }),
 		);
 
 		expect(result).toEqual({
@@ -238,7 +240,7 @@ describe("reorderTrackers", () => {
 	it("returns validation for unknown tracker ids", async () => {
 		const result = await reorderTrackers(
 			{ body: createReorderTrackersBody(), userId: "user_1" },
-			createTrackerDeps({ countVisibleTrackersByIdsForUser: async () => 1 }),
+			createTrackerDeps({ countVisibleTrackersByIdsForUser: () => Promise.resolve(1) }),
 		);
 
 		expect(result).toEqual({

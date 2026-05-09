@@ -227,10 +227,7 @@ const hasOwnKey = <T extends object>(value: T, key: PropertyKey): key is keyof T
 	return Object.hasOwn(value, key);
 };
 
-const getRuntimeColumnConfig = <T extends Record<string, RuntimeColumnConfig>>(
-	columns: T,
-	column: string,
-) => {
+const getRuntimeColumnConfig = (columns: Record<string, RuntimeColumnConfig>, column: string) => {
 	if (!hasOwnKey(columns, column)) {
 		return undefined;
 	}
@@ -248,12 +245,8 @@ export const sortFilterBuiltins: ReadonlySet<string> = new Set([
 ]);
 
 export const displayBuiltins: ReadonlySet<string> = new Set([
-	...Object.entries(entityRuntimeColumns)
-		.filter(([, value]) => value.display)
-		.map(([key]) => key),
-	...Object.entries(entitySchemaRuntimeColumns)
-		.filter(([, value]) => value.display)
-		.map(([key]) => key),
+	...Object.entries(entityRuntimeColumns).map(([key]) => key),
+	...Object.entries(entitySchemaRuntimeColumns).map(([key]) => key),
 ]);
 
 export const getEntityColumnPropertyDefinition = (column: string): AppPropertyDefinition | null => {
@@ -393,8 +386,8 @@ export const getEventJoinForReference = <TJoin extends QueryEngineEventJoinLike>
 	return foundJoin;
 };
 
-export const getEventJoinPropertyDefinition = <TJoin extends QueryEngineEventJoinLike>(
-	join: TJoin,
+export const getEventJoinPropertyDefinition = (
+	join: QueryEngineEventJoinLike,
 	propertyPath: string[],
 ): AppPropertyDefinition => {
 	const [first, ...rest] = propertyPath;
@@ -448,8 +441,8 @@ export const getEventJoinPropertyDefinition = <TJoin extends QueryEngineEventJoi
 	return firstDefinition;
 };
 
-export const getEventJoinPropertyType = <TJoin extends QueryEngineEventJoinLike>(
-	join: TJoin,
+export const getEventJoinPropertyType = (
+	join: QueryEngineEventJoinLike,
 	propertyPath: string[],
 ): PropertyType => {
 	return getEventJoinPropertyDefinition(join, propertyPath).type;
@@ -474,25 +467,17 @@ export const getEventSchemaColumnPropertyType = (column: string): PropertyType |
 };
 
 export const eventSortFilterBuiltins: ReadonlySet<string> = new Set(
-	Object.entries(eventRuntimeColumns)
-		.filter(([, value]) => value.filter)
-		.map(([key]) => key),
+	Object.entries(eventRuntimeColumns).map(([key]) => key),
 );
 
 export const eventDisplayBuiltins: ReadonlySet<string> = new Set(
-	Object.entries(eventRuntimeColumns)
-		.filter(([, value]) => value.display)
-		.map(([key]) => key),
+	Object.entries(eventRuntimeColumns).map(([key]) => key),
 );
 
 export const eventSchemaSortFilterBuiltins: ReadonlySet<string> = new Set(
-	Object.entries(eventSchemaRuntimeColumns)
-		.filter(([, value]) => value.filter)
-		.map(([key]) => key),
+	Object.entries(eventSchemaRuntimeColumns).map(([key]) => key),
 );
 
 export const eventSchemaDisplayBuiltins: ReadonlySet<string> = new Set(
-	Object.entries(eventSchemaRuntimeColumns)
-		.filter(([, value]) => value.display)
-		.map(([key]) => key),
+	Object.entries(eventSchemaRuntimeColumns).map(([key]) => key),
 );
