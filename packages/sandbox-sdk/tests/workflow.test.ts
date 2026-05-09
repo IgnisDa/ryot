@@ -85,12 +85,56 @@ describe("workflow definitions", () => {
 		expect(calls[0]).toBe("bootstrap");
 	});
 
-	test("returns a completed replay envelope with validated output", async () => {
+	test("emits parallel pending calls in deterministic order", async () => {
 		const manifest = defineManifest({
 			kind: "workflow",
 			capabilities: [],
+			name: "Parallel replay",
+			slug: "parallel-replay",
+			requiredPluginConfigKeys: [],
+			requiredSystemConfigKeys: [],
+		});
+		const workflow = defineWorkflow({
+			manifest,
+			input: Schema.Null,
+			output: Schema.Array(Schema.String),
+			run: (_input, replay) =>
+				Effect.all([replay.sleep("first", 10), replay.sleep("second", 20)], {
+					concurrency: "unbounded",
+				}).pipe(Effect.as(["first", "second"])),
+		});
+		const run = (journal: ReadonlyArray<null>) =>
+			RuntimeEffect.runPromise(
+				workflow.run(
+					null,
+					{ durableCalls: () => Effect.succeed(journal) },
+					{ metadata: {}, sandboxScriptId: "workflow-1" },
+				),
+			);
+
+		expect(await run([])).toEqual({
+			state: "pending",
+			requests: [
+				{ index: 0, name: "first", kind: "sleep", args: { durationMs: 10 } },
+				{ index: 1, name: "second", kind: "sleep", args: { durationMs: 20 } },
+			],
+		});
+		expect(await run([null, null])).toEqual({
+			state: "completed",
+			output: ["first", "second"],
+			requests: [
+				{ index: 0, name: "first", kind: "sleep", args: { durationMs: 10 } },
+				{ index: 1, name: "second", kind: "sleep", args: { durationMs: 20 } },
+			],
+		});
+	});
+
+	test("returns a completed replay envelope with validated output", async () => {
+		const manifest = defineManifest({
+			kind: "workflow",
 			name: "Complete",
 			slug: "complete",
+			capabilities: [],
 			requiredPluginConfigKeys: [],
 			requiredSystemConfigKeys: [],
 		});
@@ -199,7 +243,7 @@ describe("workflow definitions", () => {
 	});
 
 	test("exports only deterministic workflow Effect combinators", () => {
-		expect(Object.keys(Effect).sort()).toEqual(["as", "fail", "gen", "succeed"]);
+		expect(Object.keys(Effect).sort()).toEqual(["all", "as", "fail", "gen", "succeed"]);
 		expect(Reflect.get(Effect, "clockWith")).toBeUndefined();
 		expect(Reflect.get(Effect, "randomWith")).toBeUndefined();
 	});

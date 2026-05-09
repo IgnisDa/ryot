@@ -5,7 +5,7 @@ import type { SandboxExecutionPayload } from "@ryot/contract/modules/sandbox/sch
 import { SandboxScriptId, UserId } from "@ryot/contract/schema/brands";
 import { jsonValueSchema } from "@ryot/sandbox-sdk/wire";
 import { workflowReplayEnvelopeSchema } from "@ryot/sandbox-sdk/workflow";
-import { Effect, Layer, Schema, Stream } from "effect";
+import { Deferred, Effect, Layer, Schema, Stream } from "effect";
 import { ChildProcess } from "effect/unstable/process";
 import { Workflow } from "effect/unstable/workflow";
 import { WorkflowEngine, WorkflowInstance } from "effect/unstable/workflow/WorkflowEngine";
@@ -542,26 +542,118 @@ it.effect("rejects divergence beyond index zero before a replay's generic script
 	});
 });
 
-it.effect("registers only the first missing request after validating its full prefix", () => {
+it.effect("registers every missing request after validating its full prefix", () => {
+	const first = { index: 0, name: "first", kind: "sleep" as const, args: { durationMs: 10 } };
+	const third = { index: 2, name: "third", kind: "sleep" as const, args: { durationMs: 30 } };
+	const pending = { index: 1, name: "pending", kind: "sleep" as const, args: { durationMs: 20 } };
+	return Effect.gen(function* () {
+		expect(
+			yield* validateWorkflowReplayEnvelope(
+				{ state: "pending", requests: [first, pending, third] },
+				[{ value: null, request: first }],
+			),
+		).toEqual({ state: "pending", requests: [{ request: pending }, { request: third }] });
+	});
+});
+
+it.effect("executes a pending batch with request-indexed activity identities", () => {
+	const executionId = "batched-workflow";
+	const scriptId = SandboxScriptId.make("workflow-script");
+	const activityScriptId = SandboxScriptId.make("activity-script");
 	const first = {
 		index: 0,
 		name: "first",
-		kind: "sleep" as const,
-		args: { durationMs: 10 },
+		kind: "activity" as const,
+		args: { input: { value: 1 }, scriptSlug: "activity.first" },
 	};
-	const pending = {
+	const second = {
 		index: 1,
-		name: "pending",
-		kind: "sleep" as const,
-		args: { durationMs: 20 },
+		name: "second",
+		kind: "activity" as const,
+		args: { input: { value: 2 }, scriptSlug: "activity.second" },
 	};
+	const activityExecutionIds: string[] = [];
+	let activeActivities = 0;
+	let maxActiveActivities = 0;
+	const instance = WorkflowInstance.initial(SandboxScriptWorkflow, executionId);
+	const layer = Layer.mergeAll(
+		dbRunnerLayer,
+		controlledWorkflowDependencies,
+		Layer.succeed(WorkflowEngine, makeWorkflowActivityEngine(instance)),
+		Layer.succeed(WorkflowInstance, instance),
+		Layer.mock(SandboxRepository)({
+			getScriptPin: () =>
+				Effect.succeed({ scriptId, pluginSlug: null, contentHash: "workflow-hash" }),
+			resolveWorkflowCallScript: () => Effect.succeed(activityScriptId),
+		}),
+		Layer.mock(SandboxWorkflowReferenceRepository)({
+			lockIngestionShared: () => Effect.void,
+			registerInTransaction: () => Effect.die("unused"),
+			release: () => Effect.die("unused"),
+		}),
+	);
+
 	return Effect.gen(function* () {
-		expect(
-			yield* validateWorkflowReplayEnvelope({ state: "pending", requests: [first, pending] }, [
-				{ value: null, request: first },
-			]),
-		).toEqual({ state: "pending", request: pending });
-	});
+		const allActivitiesStarted = yield* Deferred.make<void>();
+		const result = yield* runSandboxScriptWorkflowBody(
+			{
+				scriptId,
+				input: {},
+				executionId,
+				resolutionMode: "exact",
+				authority: { type: "system" },
+			},
+			executionId,
+			(sandboxPayload) => {
+				if (sandboxPayload.executionId === `${executionId}-replay-0`) {
+					return Effect.succeed({
+						logs: [],
+						error: null,
+						harvest: null,
+						status: "completed" as const,
+						value: { state: "pending" as const, requests: [first, second] },
+					});
+				}
+				if (sandboxPayload.executionId === `${executionId}-replay-1`) {
+					return Effect.succeed({
+						logs: [],
+						error: null,
+						harvest: null,
+						status: "completed" as const,
+						value: {
+							output: { done: true },
+							requests: [first, second],
+							state: "completed" as const,
+						},
+					});
+				}
+				activityExecutionIds.push(sandboxPayload.executionId);
+				return Effect.gen(function* () {
+					activeActivities += 1;
+					maxActiveActivities = Math.max(maxActiveActivities, activeActivities);
+					if (activeActivities === 2) {
+						yield* Deferred.succeed(allActivitiesStarted, undefined);
+					}
+					yield* Deferred.await(allActivitiesStarted);
+					activeActivities -= 1;
+					return {
+						logs: [],
+						error: null,
+						harvest: null,
+						status: "completed" as const,
+						value: sandboxPayload.executionId,
+					};
+				});
+			},
+		);
+
+		expect(result).toEqual({ done: true });
+		expect(maxActiveActivities).toBe(2);
+		expect(activityExecutionIds.sort()).toEqual([
+			`${executionId}-activity-0`,
+			`${executionId}-activity-1`,
+		]);
+	}).pipe(Effect.provide(layer));
 });
 
 it.effect("accepts completion output only after the encountered trace matches the journal", () => {
