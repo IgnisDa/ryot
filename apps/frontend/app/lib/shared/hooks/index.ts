@@ -90,8 +90,12 @@ export const useFallbackImageUrl = (text = "No Image") => {
 export const useConfirmSubmit = () => {
 	const submit = useSubmit();
 	const fn = (e: FormEvent<HTMLFormElement> | HTMLFormElement | null) => {
-		if (!e) return;
-		if (e.preventDefault) e.preventDefault();
+		if (!e) {
+			return;
+		}
+		if (e.preventDefault) {
+			e.preventDefault();
+		}
 		submit(e.currentTarget || e, { navigate: false });
 	};
 	return fn;
@@ -407,7 +411,9 @@ export const useForceUpdateEverySecond = () => {
 
 export const useGetWatchProviders = (mediaLot?: MediaLot) => {
 	const userPreferences = useUserPreferences();
-	if (!mediaLot) return [];
+	if (!mediaLot) {
+		return [];
+	}
 	const watchProviders =
 		userPreferences.general.watchProviders.find((l) => l.lot === mediaLot)?.values || [];
 	return watchProviders;
@@ -464,7 +470,9 @@ export const useAddEntitiesToCollectionMutation = () => {
 			return input;
 		},
 		onSettled: (d) => {
-			for (const e of d?.entities || []) refreshEntityDetails(e.entityId);
+			for (const e of d?.entities || []) {
+				refreshEntityDetails(e.entityId);
+			}
 		},
 	});
 	return mutation;
@@ -477,7 +485,9 @@ export const useRemoveEntitiesFromCollectionMutation = () => {
 			return input;
 		},
 		onSettled: (d) => {
-			for (const e of d?.entities || []) refreshEntityDetails(e.entityId);
+			for (const e of d?.entities || []) {
+				refreshEntityDetails(e.entityId);
+			}
 		},
 	});
 	return mutation;
@@ -508,7 +518,9 @@ export const useFormValidation = (dependency?: unknown) => {
 	const [isFormValid, setIsFormValid] = useState(true);
 
 	const checkFormValidity = useCallback(() => {
-		if (formRef.current) setIsFormValid(formRef.current.checkValidity());
+		if (formRef.current) {
+			setIsFormValid(formRef.current.checkValidity());
+		}
 	}, []);
 
 	useEffect(() => {
@@ -572,7 +584,9 @@ export const useEntityAlreadyInCollections = (entityId?: string, entityLot?: Ent
 	const userPersonDetails = useUserPersonDetails(entityId, entityLot === EntityLot.Person);
 
 	const alreadyInCollectionIds = useMemo(() => {
-		if (!entityId) return undefined;
+		if (!entityId) {
+			return undefined;
+		}
 
 		return match(entityLot)
 			.with(EntityLot.Exercise, () =>
@@ -619,7 +633,9 @@ export const useS3PresignedUrls = (keys: string[] | undefined) => {
 		enabled: !!keys && keys.length > 0,
 		queryKey: queryFactory.miscellaneous.presignedS3Urls(keys).queryKey,
 		queryFn: async () => {
-			if (!keys) return [];
+			if (!keys) {
+				return [];
+			}
 			const results = await Promise.all(
 				keys.map((key) =>
 					clientGqlService

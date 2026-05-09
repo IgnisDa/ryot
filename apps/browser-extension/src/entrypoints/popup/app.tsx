@@ -109,7 +109,9 @@ const App = () => {
 	const handleSubmit = async (e: React.FormEvent) => {
 		e.preventDefault();
 
-		if (!validateUrl(url)) return;
+		if (!validateUrl(url)) {
+			return;
+		}
 
 		setFormState({ status: "submitting" });
 		await storage.setItem(STORAGE_KEYS.INTEGRATION_URL, url);
