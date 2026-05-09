@@ -3,21 +3,16 @@ import { gridStyles, PageHeader } from "@/components/shell/page-header";
 import { Box } from "@/components/ui/box";
 import { useNavigationData } from "@/lib/navigation";
 
-export default function SubItemScreen() {
-	const { trackerSlug, viewSlug } = useLocalSearchParams<{
-		viewSlug: string;
-		trackerSlug: string;
-	}>();
+export default function ViewScreen() {
+	const { viewSlug } = useLocalSearchParams<{ viewSlug: string }>();
 	const { trackers } = useNavigationData();
-	const trackerName =
-		trackers.find((t) => t.slug === trackerSlug)?.name ?? trackerSlug;
 	const subItem = trackers
-		.find((t) => t.slug === trackerSlug)
-		?.subItems.find((s) => s.slug === viewSlug);
+		.flatMap((t) => t.subItems)
+		.find((s) => s.slug === viewSlug);
 	const viewName = subItem?.name ?? viewSlug;
 
 	return (
-		<PageHeader eyebrow={`${trackerName} · ${viewName}`} title="Entries">
+		<PageHeader eyebrow={viewName} title="Entries">
 			<Box className={gridStyles.grid}>
 				{Array.from({ length: 6 }).map((_, i) => (
 					<Box
