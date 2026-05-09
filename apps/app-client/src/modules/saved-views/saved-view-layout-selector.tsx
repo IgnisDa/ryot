@@ -6,14 +6,13 @@ import { useApiScope } from "@/api/scope";
 import { AppIcon } from "@/modules/icons";
 
 import { savedViewLayoutAtom } from "./atoms";
+import type { SavedViewLayout } from "./storage";
 
 const layouts = [
 	{ icon: "grid", label: "Grid", value: "grid" },
 	{ icon: "list", label: "List", value: "list" },
 	{ icon: "table", label: "Table", value: "table" },
 ] as const;
-
-export type SavedViewLayout = (typeof layouts)[number]["value"];
 
 export const useSavedViewLayout = (viewSlug: string) => {
 	const scope = useApiScope();
