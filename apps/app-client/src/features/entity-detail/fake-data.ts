@@ -276,8 +276,37 @@ export const FAKE_ENTITY_DATA: Partial<Record<string, EntityDetail>> = {
 		episodes: 28,
 		description:
 			"The adventure is over but life goes on for an elf mage just beginning to learn what living is all about. Elf mage Frieren and her courageous fellow adventurers have defeated the Demon King and brought peace to the land. But Frieren will long outlive the rest of her party. How does she come to terms with the mortality of her friends?",
-		airingSchedule: null,
-		collections: null,
+		airingSchedule: [
+			{ episode: 1, airingAt: "2023-09-29" },
+			{ episode: 2, airingAt: "2023-09-29" },
+			{ episode: 3, airingAt: "2023-10-06" },
+			{ episode: 4, airingAt: "2023-10-13" },
+			{ episode: 5, airingAt: "2023-10-20" },
+			{ episode: 6, airingAt: "2023-10-27" },
+			{ episode: 7, airingAt: "2023-11-03" },
+			{ episode: 8, airingAt: "2023-11-10" },
+			{ episode: 9, airingAt: "2023-11-17" },
+			{ episode: 10, airingAt: "2023-11-24" },
+			{ episode: 11, airingAt: "2023-12-01" },
+			{ episode: 12, airingAt: "2023-12-08" },
+			{ episode: 13, airingAt: "2023-12-15" },
+			{ episode: 14, airingAt: "2023-12-22" },
+			{ episode: 15, airingAt: "2024-01-05" },
+			{ episode: 16, airingAt: "2024-01-12" },
+			{ episode: 17, airingAt: "2024-01-19" },
+			{ episode: 18, airingAt: "2024-01-26" },
+			{ episode: 19, airingAt: "2024-02-02" },
+			{ episode: 20, airingAt: "2024-02-09" },
+			{ episode: 21, airingAt: "2024-02-16" },
+			{ episode: 22, airingAt: "2024-02-23" },
+			{ episode: 23, airingAt: "2024-03-01" },
+			{ episode: 24, airingAt: "2024-03-08" },
+			{ episode: 25, airingAt: "2024-03-15" },
+			{ episode: 26, airingAt: "2024-03-22" },
+			{ episode: 27, airingAt: "2024-03-22" },
+			{ episode: 28, airingAt: "2024-03-22" },
+		],
+		collections: ["Anime Classics"],
 	},
 
 	manga: {
@@ -295,7 +324,7 @@ export const FAKE_ENTITY_DATA: Partial<Record<string, EntityDetail>> = {
 		chapters: 374,
 		description:
 			"Guts is a lone mercenary swordsman. His giant sword is as tall as he is and almost too heavy to lift—but he carries it with ease. He wanders a world of dark fantasy, slaying beasts and bounty targets alike with equal parts finesse and brutality.",
-		collections: null,
+		collections: ["Dark Fantasy Must-Reads"],
 	},
 
 	"comic-book": {
@@ -478,6 +507,6 @@ export const FAKE_ENTITY_DATA: Partial<Record<string, EntityDetail>> = {
 		lengthMinutes: 7200,
 		description:
 			"The Holy Grail War is a battle royale among seven magi who serve as Masters. Masters summon Servants—Heroic Spirits who are legendary heroes of old—to fight for the Holy Grail, a magical artifact that can grant any wish. Shirou Emiya becomes drawn into the Fifth Holy Grail War after encountering two Servants fighting in his school.",
-		collections: null,
+		collections: ["Visual Novel Pioneers"],
 	},
 };
