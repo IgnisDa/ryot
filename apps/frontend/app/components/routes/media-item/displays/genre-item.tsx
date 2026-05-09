@@ -2,6 +2,7 @@ import { Anchor, Box, Group } from "@mantine/core";
 import type { GenreListItem } from "@ryot/generated/graphql/backend/graphql";
 import { Link } from "react-router";
 import { $path } from "safe-routes";
+
 import { useGetRandomMantineColor } from "~/lib/shared/hooks";
 
 export function GenreItem(props: { genre: GenreListItem }) {

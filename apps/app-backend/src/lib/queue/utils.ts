@@ -11,9 +11,7 @@ export const resolveJobPollState = async <TCompleted>(
 	job: PollableJob,
 	failedMessage: string,
 	onCompleted: () => TCompleted,
-): Promise<
-	TCompleted | { status: "pending" } | { status: "failed"; error: string }
-> => {
+): Promise<TCompleted | { status: "pending" } | { status: "failed"; error: string }> => {
 	const state = await job.getState();
 	if (state === "completed") {
 		return onCompleted();

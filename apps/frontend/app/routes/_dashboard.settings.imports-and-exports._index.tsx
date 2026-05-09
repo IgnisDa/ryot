@@ -31,12 +31,7 @@ import {
 	type UserExportsQuery,
 	UserImportReportsDocument,
 } from "@ryot/generated/graphql/backend/graphql";
-import {
-	changeCase,
-	getActionIntent,
-	kebabCase,
-	processSubmission,
-} from "@ryot/ts-utils";
+import { changeCase, getActionIntent, kebabCase, processSubmission } from "@ryot/ts-utils";
 import { IconDownload, IconEye, IconTrash } from "@tabler/icons-react";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { filesize } from "filesize";
@@ -46,6 +41,7 @@ import { data, Form } from "react-router";
 import { match } from "ts-pattern";
 import { withQuery } from "ufo";
 import { z } from "zod";
+
 import { SkeletonLoader } from "~/components/common";
 import { dayjsLib } from "~/lib/shared/date-utils";
 import {
@@ -66,6 +62,7 @@ import {
 	parseFormDataWithTemporaryUpload,
 	serverGqlService,
 } from "~/lib/utilities.server";
+
 import type { Route } from "./+types/_dashboard.settings.imports-and-exports._index";
 
 export const meta = () => {
@@ -92,14 +89,9 @@ export const action = async ({ request }: Route.ActionArgs) => {
 						genericCsv: processSubmission(formData, genericCsvImportFormSchema),
 					}),
 				)
-				.with(
-					ImportSource.Plex,
-					ImportSource.Mediatracker,
-					ImportSource.Audiobookshelf,
-					() => ({
-						urlAndKey: processSubmission(formData, urlAndKeyImportFormSchema),
-					}),
-				)
+				.with(ImportSource.Plex, ImportSource.Mediatracker, ImportSource.Audiobookshelf, () => ({
+					urlAndKey: processSubmission(formData, urlAndKeyImportFormSchema),
+				}))
 				.with(ImportSource.StrongApp, () => ({
 					strongApp: processSubmission(formData, strongAppImportFormSchema),
 				}))
@@ -112,14 +104,9 @@ export const action = async ({ request }: Route.ActionArgs) => {
 				.with(ImportSource.Myanimelist, async () => ({
 					mal: processSubmission(formData, malImportFormSchema),
 				}))
-				.with(
-					ImportSource.GenericJson,
-					ImportSource.Anilist,
-					ImportSource.Watcharr,
-					async () => ({
-						path: processSubmission(formData, exportPathImportFormSchema),
-					}),
-				)
+				.with(ImportSource.GenericJson, ImportSource.Anilist, ImportSource.Watcharr, async () => ({
+					path: processSubmission(formData, exportPathImportFormSchema),
+				}))
 				.with(ImportSource.Netflix, async () => ({
 					netflix: processSubmission(formData, netflixImportFormSchema),
 				}))
@@ -130,11 +117,9 @@ export const action = async ({ request }: Route.ActionArgs) => {
 					igdb: processSubmission(formData, igdbImportFormSchema),
 				}))
 				.exhaustive();
-			await serverGqlService.authenticatedRequest(
-				request,
-				DeployImportJobDocument,
-				{ input: { source, ...values } },
-			);
+			await serverGqlService.authenticatedRequest(request, DeployImportJobDocument, {
+				input: { source, ...values },
+			});
 			return data({ status: "success" } as const, {
 				headers: await createToastHeaders({
 					type: "success",
@@ -143,10 +128,7 @@ export const action = async ({ request }: Route.ActionArgs) => {
 			});
 		})
 		.with("deployExport", async () => {
-			await serverGqlService.authenticatedRequest(
-				request,
-				DeployExportJobDocument,
-			);
+			await serverGqlService.authenticatedRequest(request, DeployExportJobDocument);
 			return data({ status: "success" } as const, {
 				headers: await createToastHeaders({
 					type: "success",
@@ -227,9 +209,7 @@ export default function Page() {
 		refetchInterval: 5000,
 		queryKey: ["userImportsReports"],
 		queryFn: () =>
-			clientGqlService
-				.request(UserImportReportsDocument)
-				.then((u) => u.userImportReports),
+			clientGqlService.request(UserImportReportsDocument).then((u) => u.userImportReports),
 	});
 
 	const deleteImportReportMutation = useMutation({
@@ -242,8 +222,7 @@ export default function Page() {
 
 	const userExportsQuery = useQuery({
 		queryKey: ["userExports"],
-		queryFn: () =>
-			clientGqlService.request(UserExportsDocument).then((u) => u.userExports),
+		queryFn: () => clientGqlService.request(UserExportsDocument).then((u) => u.userExports),
 	});
 
 	return (
@@ -262,11 +241,7 @@ export default function Page() {
 								action={withQuery(".", { intent: "deployImport" })}
 							>
 								<Stack>
-									<input
-										hidden
-										name="source"
-										defaultValue={deployImportSource}
-									/>
+									<input hidden name="source" defaultValue={deployImportSource} />
 									<Title order={2}>Import data</Title>
 									<Select
 										required
@@ -301,12 +276,7 @@ export default function Page() {
 																description="Also allows IP addresses"
 																placeholder="https://plex.mydomain.com"
 															/>
-															<TextInput
-																mt="sm"
-																required
-																name="apiKey"
-																label="API Key"
-															/>
+															<TextInput mt="sm" required name="apiKey" label="API Key" />
 															<Checkbox
 																mt="sm"
 																name="allowInsecureConnections"
@@ -325,12 +295,7 @@ export default function Page() {
 													ImportSource.Hardcover,
 													ImportSource.Storygraph,
 													() => (
-														<FileInput
-															required
-															name="csvPath"
-															accept=".csv"
-															label="CSV file"
-														/>
+														<FileInput required name="csvPath" accept=".csv" label="CSV file" />
 													),
 												)
 												.with(ImportSource.StrongApp, () => (
@@ -381,16 +346,8 @@ export default function Page() {
 															description="Also allows IP addresses"
 															placeholder="https://jellyfin.mydomain.com"
 														/>
-														<TextInput
-															required
-															name="username"
-															label="Username"
-														/>
-														<TextInput
-															mt="sm"
-															name="password"
-															label="Password"
-														/>
+														<TextInput required name="username" label="Username" />
+														<TextInput mt="sm" name="password" label="Password" />
 														<Checkbox
 															mt="sm"
 															name="allowInsecureConnections"
@@ -429,12 +386,7 @@ export default function Page() {
 															label="Collection"
 															data={userCollections.map((c) => c.name)}
 														/>
-														<FileInput
-															required
-															accept=".csv"
-															name="csvPath"
-															label="CSV File"
-														/>
+														<FileInput required accept=".csv" name="csvPath" label="CSV File" />
 													</>
 												))
 												.with(ImportSource.Myanimelist, () => (
@@ -511,16 +463,10 @@ export default function Page() {
 								userImportsReportsQuery.data.length > 0 ? (
 									<Stack>
 										{userImportsReportsQuery.data.map((report) => {
-											const isInProgress =
-												typeof report.wasSuccess !== "boolean";
+											const isInProgress = typeof report.wasSuccess !== "boolean";
 
 											return (
-												<Paper
-													p="md"
-													withBorder
-													key={report.id}
-													data-import-report-id={report.id}
-												>
+												<Paper p="md" withBorder key={report.id} data-import-report-id={report.id}>
 													<Group justify="space-between" wrap="nowrap">
 														<Stack gap="xs" flex={1} miw={0}>
 															<Box>
@@ -531,11 +477,7 @@ export default function Page() {
 																	offset={-3}
 																	processing={isInProgress}
 																	color={
-																		isInProgress
-																			? undefined
-																			: report.wasSuccess
-																				? "green"
-																				: "red"
+																		isInProgress ? undefined : report.wasSuccess ? "green" : "red"
 																	}
 																>
 																	{changeCase(report.source)}{" "}
@@ -550,21 +492,12 @@ export default function Page() {
 																		<Text span fw="bold" mr={4}>
 																			Estimated to finish at:
 																		</Text>
-																		{dayjsLib(
-																			report.estimatedFinishTime,
-																		).format("lll")}
+																		{dayjsLib(report.estimatedFinishTime).format("lll")}
 																	</Box>
 																	<Group wrap="nowrap">
-																		<Progress
-																			flex={1}
-																			animated
-																			value={Number(report.progress)}
-																		/>
+																		<Progress flex={1} animated value={Number(report.progress)} />
 																		<Text size="xs">
-																			{Number.parseFloat(
-																				report.progress,
-																			).toFixed(3)}
-																			%
+																			{Number.parseFloat(report.progress).toFixed(3)}%
 																		</Text>
 																	</Group>
 																</>
@@ -582,16 +515,11 @@ export default function Page() {
 																<ActionIcon
 																	color="red"
 																	variant="transparent"
-																	disabled={
-																		deleteImportReportMutation.isPending
-																	}
+																	disabled={deleteImportReportMutation.isPending}
 																	onClick={() => {
 																		openConfirmationModal(
 																			"Are you sure you want to delete this import report? This action is irreversible.",
-																			() =>
-																				deleteImportReportMutation.mutate(
-																					report.id,
-																				),
+																			() => deleteImportReportMutation.mutate(report.id),
 																		);
 																	}}
 																>
@@ -632,9 +560,7 @@ export default function Page() {
 																				<Text span fw="bold" mr={4}>
 																					Finished on:
 																				</Text>
-																				{dayjsLib(report.finishedOn).format(
-																					"lll",
-																				)}
+																				{dayjsLib(report.finishedOn).format("lll")}
 																			</>
 																		) : null}
 																	</Box>
@@ -648,8 +574,7 @@ export default function Page() {
 																	) : null}
 																</Group>
 															</Box>
-															{report.details &&
-															report.details.failedItems.length > 0 ? (
+															{report.details && report.details.failedItems.length > 0 ? (
 																<Box>
 																	<Group justify="space-between" mb="md">
 																		<Title order={4}>Failed Items</Title>
@@ -668,10 +593,7 @@ export default function Page() {
 																						type: "application/json",
 																					});
 																					const url = URL.createObjectURL(blob);
-																					triggerDownload(
-																						url,
-																						`failed-items-${report.id}.json`,
-																					);
+																					triggerDownload(url, `failed-items-${report.id}.json`);
 																					URL.revokeObjectURL(url);
 																				}}
 																			>
@@ -693,8 +615,7 @@ export default function Page() {
 																			{
 																				title: "Step",
 																				accessor: "step",
-																				render: (record) =>
-																					changeCase(record.step),
+																				render: (record) => changeCase(record.step),
 																			},
 																			{
 																				title: "Error",
@@ -705,9 +626,7 @@ export default function Page() {
 																				title: "Type",
 																				accessor: "lot",
 																				render: (record) =>
-																					record.lot
-																						? changeCase(record.lot)
-																						: "-",
+																					record.lot ? changeCase(record.lot) : "-",
 																			},
 																		]}
 																	/>
@@ -731,11 +650,7 @@ export default function Page() {
 						<Stack>
 							<Group justify="space-between">
 								<Title order={2}>Export data</Title>
-								<Anchor
-									size="xs"
-									target="_blank"
-									href={`${coreDetails.docsLink}/exporting.html`}
-								>
+								<Anchor size="xs" target="_blank" href={`${coreDetails.docsLink}/exporting.html`}>
 									Docs
 								</Anchor>
 							</Group>
@@ -744,11 +659,7 @@ export default function Page() {
 								encType="multipart/form-data"
 								action={withQuery(".", { intent: "deployExport" })}
 							>
-								<input
-									hidden
-									name="dummy"
-									defaultValue="this is required because of the encType"
-								/>
+								<input hidden name="dummy" defaultValue="this is required because of the encType" />
 								<Tooltip
 									label="Please enable file storage to use this feature"
 									disabled={!fileUploadNotAllowed}
@@ -772,11 +683,7 @@ export default function Page() {
 								userExportsQuery.data.length > 0 ? (
 									<Stack>
 										{userExportsQuery.data.map((exp) => (
-											<DisplayExport
-												item={exp}
-												key={exp.key}
-												refetch={userExportsQuery.refetch}
-											/>
+											<DisplayExport item={exp} key={exp.key} refetch={userExportsQuery.refetch} />
 										))}
 									</Stack>
 								) : (
@@ -802,10 +709,7 @@ const DisplayExport = (props: ExportItemProps) => {
 	const deleteS3AssetMutation = useDeleteS3AssetMutation();
 
 	const duration = useMemo(() => {
-		const seconds = dayjsLib(props.item.endedAt).diff(
-			dayjsLib(props.item.startedAt),
-			"second",
-		);
+		const seconds = dayjsLib(props.item.endedAt).diff(dayjsLib(props.item.startedAt), "second");
 		if (seconds < 60) return `${seconds}s`;
 		const minutes = Math.floor(seconds / 60);
 		const remainingSeconds = seconds % 60;
@@ -816,9 +720,7 @@ const DisplayExport = (props: ExportItemProps) => {
 		<Paper withBorder p={{ base: "sm", md: "md" }}>
 			<Group justify="space-between" wrap="wrap">
 				<Stack gap="xs" flex={1} miw={0}>
-					<Text span>
-						{dayjsLib(props.item.startedAt).format("MMM DD, YYYY [at] h:mm A")}
-					</Text>
+					<Text span>{dayjsLib(props.item.startedAt).format("MMM DD, YYYY [at] h:mm A")}</Text>
 					<Text span size="xs" c="dimmed">
 						(Took {duration}, {filesize(props.item.size)})
 					</Text>
@@ -837,9 +739,7 @@ const DisplayExport = (props: ExportItemProps) => {
 							openConfirmationModal(
 								"Are you sure you want to delete this export? This action is irreversible.",
 								() => {
-									deleteS3AssetMutation
-										.mutateAsync(props.item.key)
-										.then(() => props.refetch());
+									deleteS3AssetMutation.mutateAsync(props.item.key).then(() => props.refetch());
 								},
 							);
 						}}

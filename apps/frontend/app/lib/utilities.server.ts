@@ -6,23 +6,14 @@ import {
 	UserDetailsDocument,
 } from "@ryot/generated/graphql/backend/graphql";
 import { parse, type SerializeOptions, serialize } from "cookie";
-import {
-	ClientError,
-	GraphQLClient,
-	type RequestDocument,
-	type Variables,
-} from "graphql-request";
+import { ClientError, GraphQLClient, type RequestDocument, type Variables } from "graphql-request";
 import type { VariablesAndRequestHeadersArgs } from "node_modules/graphql-request/build/legacy/helpers/types";
-import {
-	createCookie,
-	createCookieSessionStorage,
-	data,
-	redirect,
-} from "react-router";
+import { createCookie, createCookieSessionStorage, data, redirect } from "react-router";
 import { $path } from "safe-routes";
 import { match } from "ts-pattern";
 import { v4 as randomUUID } from "uuid";
 import { z } from "zod";
+
 import { FRONTEND_AUTH_COOKIE_NAME, toastKey } from "~/lib/shared/constants";
 import { dayjsLib } from "~/lib/shared/date-utils";
 import { queryClient, queryFactory } from "~/lib/shared/react-query";
@@ -67,10 +58,7 @@ class AuthenticatedGraphQLClient extends GraphQLClient {
 							BackendError.MutationNotAllowed,
 							() => "You do not have permission to perform this action",
 						)
-						.with(
-							BackendError.AdminOnlyAction,
-							() => "You must be an admin to perform this action",
-						)
+						.with(BackendError.AdminOnlyAction, () => "You must be an admin to perform this action")
 						.otherwise(() => error);
 					return data({ message });
 				});
@@ -78,10 +66,9 @@ class AuthenticatedGraphQLClient extends GraphQLClient {
 	}
 }
 
-export const serverGqlService = new AuthenticatedGraphQLClient(
-	`${API_URL}/graphql`,
-	{ headers: { Connection: "keep-alive" } },
-);
+export const serverGqlService = new AuthenticatedGraphQLClient(`${API_URL}/graphql`, {
+	headers: { Connection: "keep-alive" },
+});
 
 export const getCookieValue = (request: Request, cookieName: string) =>
 	parse(request.headers.get("cookie") || "")[cookieName];
@@ -106,10 +93,7 @@ export const redirectIfNotAuthenticatedOrUpdated = async (request: Request) => {
 			);
 		}
 		if (userDetails.isDisabled)
-			throw redirect(
-				$path("/auth"),
-				await getResponseInit("This account has been disabled"),
-			);
+			throw redirect($path("/auth"), await getResponseInit("This account has been disabled"));
 
 		return userDetails;
 	} catch {
@@ -123,14 +107,11 @@ export const redirectIfNotAuthenticatedOrUpdated = async (request: Request) => {
 /**
  * Combine multiple header objects into one (uses append so headers are not overridden)
  */
-export const combineHeaders = (
-	...headers: Array<ResponseInit["headers"] | null | undefined>
-) => {
+export const combineHeaders = (...headers: Array<ResponseInit["headers"] | null | undefined>) => {
 	const combined = new Headers();
 	for (const header of headers) {
 		if (!header) continue;
-		for (const [key, value] of new Headers(header).entries())
-			combined.append(key, value);
+		for (const [key, value] of new Headers(header).entries()) combined.append(key, value);
 	}
 	return combined;
 };
@@ -140,8 +121,7 @@ export const MetadataIdSchema = z.object({ metadataId: z.string() });
 export const getCoreDetails = async () => {
 	return await queryClient.ensureQueryData({
 		queryKey: ["coreDetails"],
-		queryFn: () =>
-			serverGqlService.request(CoreDetailsDocument).then((d) => d.coreDetails),
+		queryFn: () => serverGqlService.request(CoreDetailsDocument).then((d) => d.coreDetails),
 	});
 };
 
@@ -213,11 +193,7 @@ type OptionalToast = Omit<Toast, "id" | "type"> & {
 	type?: z.infer<typeof TypeSchema>;
 };
 
-export const redirectWithToast = async (
-	url: string,
-	toast: OptionalToast,
-	init?: ResponseInit,
-) => {
+export const redirectWithToast = async (url: string, toast: OptionalToast, init?: ResponseInit) => {
 	return redirect(url, {
 		...init,
 		headers: combineHeaders(init?.headers, await createToastHeaders(toast)),
@@ -233,9 +209,7 @@ export const createToastHeaders = async (optionalToast: OptionalToast) => {
 };
 
 export const getToast = async (request: Request) => {
-	const session = await toastSessionStorage.getSession(
-		request.headers.get("cookie"),
-	);
+	const session = await toastSessionStorage.getSession(request.headers.get("cookie"));
 	const result = ToastSchema.safeParse(session.get(toastKey));
 	const toast = result.success ? result.data : null;
 	return {
@@ -248,13 +222,9 @@ export const getToast = async (request: Request) => {
 	};
 };
 
-export const getCookiesForApplication = async (
-	token: string,
-	tokenValidForDays?: number,
-) => {
+export const getCookiesForApplication = async (token: string, tokenValidForDays?: number) => {
 	const [coreDetails] = await Promise.all([getCoreDetails()]);
-	const maxAge =
-		(tokenValidForDays || coreDetails.tokenValidForDays) * 24 * 60 * 60;
+	const maxAge = (tokenValidForDays || coreDetails.tokenValidForDays) * 24 * 60 * 60;
 	const options = { maxAge, path: "/" } satisfies SerializeOptions;
 	return combineHeaders({
 		"set-cookie": serialize(FRONTEND_AUTH_COOKIE_NAME, token, options),
@@ -269,12 +239,8 @@ export const getLogoutCookies = () => {
 	});
 };
 
-export const extendResponseHeaders = (
-	responseHeaders: Headers,
-	headers: Headers,
-) => {
-	for (const [key, value] of headers.entries())
-		responseHeaders.append(key, value);
+export const extendResponseHeaders = (responseHeaders: Headers, headers: Headers) => {
+	for (const [key, value] of headers.entries()) responseHeaders.append(key, value);
 };
 
 export const parseFormDataWithTemporaryUpload = async (request: Request) => {

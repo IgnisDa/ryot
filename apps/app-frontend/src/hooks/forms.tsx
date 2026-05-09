@@ -20,12 +20,11 @@ import { createFormHook, createFormHookContexts } from "@tanstack/react-form";
 import { Link as LinkIcon, Upload } from "lucide-react";
 import type { ComponentProps, HTMLInputTypeAttribute, ReactNode } from "react";
 import { useState } from "react";
+
 import { useApiClient } from "~/hooks/api";
 import type { ApiPostRequestBody } from "~/lib/api/types";
 
-export function createFormSubmitHandler(
-	handleSubmit: () => void | Promise<void>,
-) {
+export function createFormSubmitHandler(handleSubmit: () => void | Promise<void>) {
 	return (event: React.FormEvent) => {
 		event.preventDefault();
 		event.stopPropagation();
@@ -33,14 +32,10 @@ export function createFormSubmitHandler(
 	};
 }
 
-function FieldErrors(props: {
-	errors: Array<{ message?: string } | string | null | undefined>;
-}) {
+function FieldErrors(props: { errors: Array<{ message?: string } | string | null | undefined> }) {
 	return (
 		<Text c="red" size="xs">
-			{props.errors
-				.map((e) => (typeof e === "string" ? e : e?.message))
-				.join(", ")}
+			{props.errors.map((e) => (typeof e === "string" ? e : e?.message)).join(", ")}
 		</Text>
 	);
 }
@@ -89,9 +84,7 @@ function TextField(props: TextFieldProps) {
 				autoComplete={props.autoComplete}
 				onChange={(event) => field.handleChange(event.target.value)}
 			/>
-			{!field.state.meta.isValid && (
-				<FieldErrors errors={field.state.meta.errors} />
-			)}
+			{!field.state.meta.isValid && <FieldErrors errors={field.state.meta.errors} />}
 		</div>
 	);
 }
@@ -120,13 +113,9 @@ function NumberField(props: NumberFieldProps) {
 				className={props.className}
 				placeholder={props.placeholder}
 				error={!field.state.meta.isValid}
-				onChange={(value) =>
-					field.handleChange(normalizeNumberInputValue(value))
-				}
+				onChange={(value) => field.handleChange(normalizeNumberInputValue(value))}
 			/>
-			{!field.state.meta.isValid && (
-				<FieldErrors errors={field.state.meta.errors} />
-			)}
+			{!field.state.meta.isValid && <FieldErrors errors={field.state.meta.errors} />}
 		</div>
 	);
 }
@@ -150,17 +139,12 @@ function CheckboxField(props: CheckboxFieldProps) {
 				checked={field.state.value}
 				onChange={(event) => field.handleChange(event.currentTarget.checked)}
 			/>
-			{!field.state.meta.isValid && (
-				<FieldErrors errors={field.state.meta.errors} />
-			)}
+			{!field.state.meta.isValid && <FieldErrors errors={field.state.meta.errors} />}
 		</div>
 	);
 }
 
-type ImageFieldValue =
-	| ApiPostRequestBody<"/entities">["image"]
-	| null
-	| undefined;
+type ImageFieldValue = ApiPostRequestBody<"/entities">["image"] | null | undefined;
 
 type ImageFieldProps = {
 	label: string;
@@ -207,8 +191,7 @@ function ImageField(props: ImageFieldProps) {
 
 				field.handleChange({ kind: "s3", key });
 			} catch (error) {
-				const errorMsg =
-					error instanceof Error ? error.message : "Upload failed";
+				const errorMsg = error instanceof Error ? error.message : "Upload failed";
 				setUploadError(errorMsg);
 				setTempFile(null);
 				setPreviewUrl(null);
@@ -402,9 +385,7 @@ function ImageField(props: ImageFieldProps) {
 				</Box>
 			</Stack>
 
-			{!field.state.meta.isValid && (
-				<FieldErrors errors={field.state.meta.errors} />
-			)}
+			{!field.state.meta.isValid && <FieldErrors errors={field.state.meta.errors} />}
 		</div>
 	);
 }
@@ -442,18 +423,12 @@ function SelectField(props: SelectFieldProps) {
 				leftSection={props.leftSection}
 				renderOption={props.renderOption}
 				error={!field.state.meta.isValid}
-				value={
-					props.value !== undefined ? props.value : field.state.value || null
-				}
+				value={props.value !== undefined ? props.value : field.state.value || null}
 				onChange={
-					props.onChange !== undefined
-						? props.onChange
-						: (value) => field.handleChange(value ?? "")
+					props.onChange !== undefined ? props.onChange : (value) => field.handleChange(value ?? "")
 				}
 			/>
-			{!field.state.meta.isValid && (
-				<FieldErrors errors={field.state.meta.errors} />
-			)}
+			{!field.state.meta.isValid && <FieldErrors errors={field.state.meta.errors} />}
 		</div>
 	);
 }
@@ -485,9 +460,7 @@ function MultiSelectField(props: MultiSelectFieldProps) {
 				error={!field.state.meta.isValid}
 				onChange={(value) => field.handleChange(value as string[])}
 			/>
-			{!field.state.meta.isValid && (
-				<FieldErrors errors={field.state.meta.errors} />
-			)}
+			{!field.state.meta.isValid && <FieldErrors errors={field.state.meta.errors} />}
 		</div>
 	);
 }
@@ -516,9 +489,7 @@ function TextareaField(props: TextareaFieldProps) {
 				error={!field.state.meta.isValid}
 				onChange={(event) => field.handleChange(event.currentTarget.value)}
 			/>
-			{!field.state.meta.isValid && (
-				<FieldErrors errors={field.state.meta.errors} />
-			)}
+			{!field.state.meta.isValid && <FieldErrors errors={field.state.meta.errors} />}
 		</div>
 	);
 }
@@ -545,9 +516,7 @@ function ColorInputField(props: ColorInputFieldProps) {
 				error={!field.state.meta.isValid}
 				onChange={(value) => field.handleChange(value)}
 			/>
-			{!field.state.meta.isValid && (
-				<FieldErrors errors={field.state.meta.errors} />
-			)}
+			{!field.state.meta.isValid && <FieldErrors errors={field.state.meta.errors} />}
 		</div>
 	);
 }
@@ -583,9 +552,7 @@ function SegmentedControlField(props: SegmentedControlFieldProps) {
 				value={String(field.state.value)}
 				onChange={(value) => field.handleChange(value)}
 			/>
-			{!field.state.meta.isValid && (
-				<FieldErrors errors={field.state.meta.errors} />
-			)}
+			{!field.state.meta.isValid && <FieldErrors errors={field.state.meta.errors} />}
 		</div>
 	);
 }
@@ -617,8 +584,7 @@ function SubmitButton(props: SubmitButtonProps) {
 	);
 }
 
-const { fieldContext, useFieldContext, formContext, useFormContext } =
-	createFormHookContexts();
+const { fieldContext, useFieldContext, formContext, useFormContext } = createFormHookContexts();
 
 export const { useAppForm } = createFormHook({
 	formContext,

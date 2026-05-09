@@ -1,6 +1,7 @@
 import { dayjs } from "@ryot/ts-utils";
 import { type Job, Worker } from "bullmq";
 import { sql } from "drizzle-orm";
+
 import { parseAppSchemaPropertiesSafe } from "~/lib/app/schema-validation";
 import { db } from "~/lib/db";
 import { entity } from "~/lib/db/schema";
@@ -8,6 +9,7 @@ import { exercisePropertiesJsonSchema } from "~/lib/fitness/exercise";
 import { getRedisConnection } from "~/lib/queue/connection";
 import { onWorkerError } from "~/lib/queue/utils";
 import { getBuiltinEntitySchemaBySlug } from "~/modules/entity-schemas/repository";
+
 import { exerciseSeedJobName } from "./jobs";
 
 const equipmentMap = { "e-z curl bar": "ez_curl_bar" } as const;
@@ -50,10 +52,7 @@ const normalizeEquipmentValue = (value: string | null | undefined) => {
 	}
 
 	const lower = value.toLowerCase();
-	return (
-		equipmentMap[lower as keyof typeof equipmentMap] ??
-		normalizeSlugValue(value)
-	);
+	return equipmentMap[lower as keyof typeof equipmentMap] ?? normalizeSlugValue(value);
 };
 
 const normalizeMuscleArray = (arr: unknown): string[] =>
@@ -117,9 +116,7 @@ export const buildExerciseSeedEntityValues = (
 		level: normalizeSlugValue(ex.level as string | null | undefined),
 		instructions: Array.isArray(ex.instructions) ? ex.instructions : [],
 		mechanic: normalizeSlugValue(ex.mechanic as string | null | undefined),
-		equipment: normalizeEquipmentValue(
-			ex.equipment as string | null | undefined,
-		),
+		equipment: normalizeEquipmentValue(ex.equipment as string | null | undefined),
 	});
 	if (!properties) {
 		return {
@@ -162,9 +159,7 @@ export const processExerciseSeedJob = async () => {
 	for (const ex of exercises) {
 		const result = buildExerciseSeedEntityValues(exerciseSchema.id, ex, now);
 		if (result.status === "skipped") {
-			console.warn(
-				`Skipping exercise seed row: ${result.reason} (name: ${String(ex.name)})`,
-			);
+			console.warn(`Skipping exercise seed row: ${result.reason} (name: ${String(ex.name)})`);
 			skipped++;
 			continue;
 		}
@@ -188,9 +183,7 @@ export const processExerciseSeedJob = async () => {
 		seeded++;
 	}
 
-	console.info(
-		`Exercise seed complete: ${seeded} upserted, ${skipped} skipped`,
-	);
+	console.info(`Exercise seed complete: ${seeded} upserted, ${skipped} skipped`);
 };
 
 const processFitnessJob = async (job: Job) => {

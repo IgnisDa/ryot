@@ -94,11 +94,11 @@ When a job arrives, `execute()` checks out an idle process from the pool in O(1)
 User scripts can import a curated set of pre-cached npm packages via dynamic `import()`:
 
 ```js
-driver("parse", async function(context) {
-  const { load } = await import("npm:cheerio");
-  const dayjs = (await import("npm:dayjs")).default;
-  const { z } = await import("npm:zod");
-  // ...
+driver("parse", async function (context) {
+	const { load } = await import("npm:cheerio");
+	const dayjs = (await import("npm:dayjs")).default;
+	const { z } = await import("npm:zod");
+	// ...
 });
 ```
 
@@ -152,10 +152,10 @@ A driver receives two arguments:
 2. `meta` — system-provided metadata object containing `{ sandboxScriptId: string }` when running from a stored script
 
 ```js
-driver("search", async function(context, meta) {
-  // meta.sandboxScriptId contains the script ID
-  const response = await httpCall("GET", "https://api.example.com/search");
-  return response;
+driver("search", async function (context, meta) {
+	// meta.sandboxScriptId contains the script ID
+	const response = await httpCall("GET", "https://api.example.com/search");
+	return response;
 });
 ```
 

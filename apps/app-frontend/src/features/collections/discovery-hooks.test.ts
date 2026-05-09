@@ -1,9 +1,8 @@
 import { describe, expect, it } from "bun:test";
+
 import { createSavedViewFixture } from "~/features/test-fixtures";
-import {
-	findBuiltinCollectionsView,
-	resolveCollectionsDestination,
-} from "./model";
+
+import { findBuiltinCollectionsView, resolveCollectionsDestination } from "./model";
 
 describe("useCollectionsDestination hook prerequisites", () => {
 	describe("findBuiltinCollectionsView", () => {

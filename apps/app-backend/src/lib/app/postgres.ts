@@ -1,7 +1,4 @@
-export const isUniqueConstraintError = (
-	error: unknown,
-	constraintName: string,
-) => {
+export const isUniqueConstraintError = (error: unknown, constraintName: string) => {
 	if (!error || typeof error !== "object") {
 		return false;
 	}

@@ -1,4 +1,5 @@
 import { z } from "@hono/zod-openapi";
+
 import {
 	nullableBooleanSchema,
 	nullableIntSchema,
@@ -9,15 +10,11 @@ import {
 
 export const mediaPropertiesSchema = z
 	.object({
-		genres: stringArraySchema.describe(
-			"List of genres this media is categorized under",
-		),
+		genres: stringArraySchema.describe("List of genres this media is categorized under"),
 		isNsfw: nullableBooleanSchema.describe(
 			"Whether this media contains adult or not-safe-for-work content",
 		),
-		publishYear: nullableIntSchema.describe(
-			"Year this media was first published or released",
-		),
+		publishYear: nullableIntSchema.describe("Year this media was first published or released"),
 		sourceUrl: nullableStringSchema.describe(
 			"Link to the original source or external provider page",
 		),
@@ -40,10 +37,9 @@ export const freeCreatorSchema = z
 	})
 	.strict();
 
-export const mediaWithFreeCreatorsPropertiesSchema =
-	mediaPropertiesSchema.extend({
-		freeCreators: z.array(freeCreatorSchema),
-	});
+export const mediaWithFreeCreatorsPropertiesSchema = mediaPropertiesSchema.extend({
+	freeCreators: z.array(freeCreatorSchema),
+});
 
 export const personStubSchema = z
 	.object({

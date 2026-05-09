@@ -1,4 +1,5 @@
 import promClient from "prom-client";
+
 import { pool } from "~/lib/db";
 import { redis } from "~/lib/redis";
 
@@ -107,10 +108,7 @@ export const updateRedisMetrics = async () => {
 		}
 
 		if (stats.total_commands_processed) {
-			const currentCommands = Number.parseInt(
-				stats.total_commands_processed,
-				10,
-			);
+			const currentCommands = Number.parseInt(stats.total_commands_processed, 10);
 			if (lastCommandsProcessed > 0) {
 				const delta = currentCommands - lastCommandsProcessed;
 				if (delta > 0) {

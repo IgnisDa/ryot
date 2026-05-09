@@ -11,8 +11,7 @@ type LifecycleSnapshot = {
 	completedOn: NullableDate;
 };
 
-const toMilliseconds = (value: NullableDate) =>
-	value ? dayjs(value).valueOf() : null;
+const toMilliseconds = (value: NullableDate) => (value ? dayjs(value).valueOf() : null);
 
 const compareNullableDatesDesc = (left: NullableDate, right: NullableDate) => {
 	const leftMilliseconds = toMilliseconds(left);
@@ -31,33 +30,22 @@ const compareNullableDatesDesc = (left: NullableDate, right: NullableDate) => {
 	return rightMilliseconds - leftMilliseconds;
 };
 
-const compareEntityIds = (left: string, right: string) =>
-	left.localeCompare(right);
+const compareEntityIds = (left: string, right: string) => left.localeCompare(right);
 
 export const compareContinueItems = (
 	left: Pick<LifecycleSnapshot, "entityId" | "progressAt">,
 	right: Pick<LifecycleSnapshot, "entityId" | "progressAt">,
 ) => {
-	const timestampOrder = compareNullableDatesDesc(
-		left.progressAt,
-		right.progressAt,
-	);
-	return timestampOrder !== 0
-		? timestampOrder
-		: compareEntityIds(left.entityId, right.entityId);
+	const timestampOrder = compareNullableDatesDesc(left.progressAt, right.progressAt);
+	return timestampOrder !== 0 ? timestampOrder : compareEntityIds(left.entityId, right.entityId);
 };
 
 export const compareUpNextItems = (
 	left: Pick<LifecycleSnapshot, "entityId" | "backlogAt">,
 	right: Pick<LifecycleSnapshot, "entityId" | "backlogAt">,
 ) => {
-	const timestampOrder = compareNullableDatesDesc(
-		left.backlogAt,
-		right.backlogAt,
-	);
-	return timestampOrder !== 0
-		? timestampOrder
-		: compareEntityIds(left.entityId, right.entityId);
+	const timestampOrder = compareNullableDatesDesc(left.backlogAt, right.backlogAt);
+	return timestampOrder !== 0 ? timestampOrder : compareEntityIds(left.entityId, right.entityId);
 };
 
 export const compareRateTheseItems = (
@@ -66,12 +54,7 @@ export const compareRateTheseItems = (
 ) => {
 	const leftCompletedAt = left.completedOn ?? left.completeAt;
 	const rightCompletedAt = right.completedOn ?? right.completeAt;
-	const timestampOrder = compareNullableDatesDesc(
-		leftCompletedAt,
-		rightCompletedAt,
-	);
+	const timestampOrder = compareNullableDatesDesc(leftCompletedAt, rightCompletedAt);
 
-	return timestampOrder !== 0
-		? timestampOrder
-		: compareEntityIds(left.entityId, right.entityId);
+	return timestampOrder !== 0 ? timestampOrder : compareEntityIds(left.entityId, right.entityId);
 };

@@ -1,6 +1,8 @@
 import { Badge, Box, Stack, Text, ThemeIcon } from "@mantine/core";
 import { useState } from "react";
+
 import { TrackerIcon } from "~/features/trackers/icons";
+
 import { colorMix, STONE } from "../shared";
 
 interface ArtworkProps {
@@ -77,8 +79,7 @@ export function Artwork(props: ArtworkProps) {
 				style={{
 					inset: 0,
 					position: "absolute",
-					background:
-						"linear-gradient(180deg, rgba(0, 0, 0, 0) 45%, rgba(0, 0, 0, 0.6) 100%)",
+					background: "linear-gradient(180deg, rgba(0, 0, 0, 0) 45%, rgba(0, 0, 0, 0.6) 100%)",
 				}}
 			/>
 			{props.note ? (

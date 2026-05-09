@@ -1,9 +1,6 @@
 import { type ParserMap, useQueryStates, type Values } from "nuqs";
 
-function isDefaultState<Parsers extends ParserMap>(
-	parsers: Parsers,
-	values: Values<Parsers>,
-) {
+function isDefaultState<Parsers extends ParserMap>(parsers: Parsers, values: Values<Parsers>) {
 	for (const [key, parser] of Object.entries(parsers)) {
 		if (
 			["page", "query"].includes(key) ||

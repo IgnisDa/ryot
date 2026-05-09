@@ -57,36 +57,20 @@ type CreateSavedViewBody = NonNullable<
 	paths["/saved-views"]["post"]["requestBody"]
 >["content"]["application/json"];
 type SavedViewQueryDefinition = CreateSavedViewBody["queryDefinition"];
-type EntitySavedViewQueryDefinition = Extract<
-	SavedViewQueryDefinition,
-	{ mode: "entities" }
->;
+type EntitySavedViewQueryDefinition = Extract<SavedViewQueryDefinition, { mode: "entities" }>;
 type SavedViewQueryInput = {
 	scope: string[];
 	eventJoins?: EntitySavedViewQueryDefinition["eventJoins"];
 	computedFields?: SavedViewQueryDefinition["computedFields"];
 	filter?: SavedViewQueryDefinition["filter"];
 	filters?: Array<{
-		op:
-			| "eq"
-			| "neq"
-			| "gt"
-			| "gte"
-			| "lt"
-			| "lte"
-			| "in"
-			| "contains"
-			| "isNull"
-			| "isNotNull";
+		op: "eq" | "neq" | "gt" | "gte" | "lt" | "lte" | "in" | "contains" | "isNull" | "isNotNull";
 		field: string;
 		value?: unknown;
 	}>;
-	sort:
-		| EntitySavedViewQueryDefinition["sort"]
-		| { direction: "asc" | "desc"; fields: string[] };
+	sort: EntitySavedViewQueryDefinition["sort"] | { direction: "asc" | "desc"; fields: string[] };
 };
-type SavedViewDisplayConfiguration =
-	CreateSavedViewBody["displayConfiguration"];
+type SavedViewDisplayConfiguration = CreateSavedViewBody["displayConfiguration"];
 type SavedViewTableColumn = {
 	label: string;
 	expression?: SavedViewDisplayConfiguration["table"]["columns"][number]["expression"];
@@ -94,20 +78,10 @@ type SavedViewTableColumn = {
 };
 type SavedViewExpression = EntitySavedViewQueryDefinition["sort"]["expression"];
 type SavedViewPredicate = NonNullable<SavedViewQueryDefinition["filter"]>;
-type SavedViewQueryEngineRef = Extract<
-	SavedViewExpression,
-	{ type: "reference" }
->["reference"];
-type ComputedFieldDef = NonNullable<
-	SavedViewQueryDefinition["computedFields"]
->[number];
-type EventJoinDef = NonNullable<
-	EntitySavedViewQueryDefinition["eventJoins"]
->[number];
-type SavedViewSortInput = Extract<
-	SavedViewQueryInput["sort"],
-	{ fields: string[] }
->;
+type SavedViewQueryEngineRef = Extract<SavedViewExpression, { type: "reference" }>["reference"];
+type ComputedFieldDef = NonNullable<SavedViewQueryDefinition["computedFields"]>[number];
+type EventJoinDef = NonNullable<EntitySavedViewQueryDefinition["eventJoins"]>[number];
+type SavedViewSortInput = Extract<SavedViewQueryInput["sort"], { fields: string[] }>;
 type SavedViewDisplayConfigInput = {
 	grid: {
 		imageProperty: string[] | null;
@@ -287,10 +261,7 @@ async function createEntity(
 	return data.data;
 }
 
-async function createCollection(
-	apiClient: APIClient,
-	body: CreateCollectionBody,
-) {
+async function createCollection(apiClient: APIClient, body: CreateCollectionBody) {
 	console.log(`  Creating collection: ${body.name}...`);
 	apiClient.incrementRequestCount();
 	const client = apiClient.getClient();
@@ -309,16 +280,10 @@ async function createCollection(
 	return data.data;
 }
 
-async function addEntityToCollection(
-	apiClient: APIClient,
-	body: AddToCollectionBody,
-) {
+async function addEntityToCollection(apiClient: APIClient, body: AddToCollectionBody) {
 	apiClient.incrementRequestCount();
 	const client = apiClient.getClient();
-	const { data, error, response } = await client.POST(
-		"/collections/memberships",
-		{ body },
-	);
+	const { data, error, response } = await client.POST("/collections/memberships", { body });
 
 	if (!response.ok || !data?.data) {
 		const details = error ? ` ${JSON.stringify(error)}` : "";
@@ -336,10 +301,7 @@ type EventPayload = NonNullable<
 	paths["/events"]["post"]["requestBody"]
 >["content"]["application/json"][number];
 
-async function createEvents(
-	apiClient: APIClient,
-	events: EventPayload[],
-): Promise<void> {
+async function createEvents(apiClient: APIClient, events: EventPayload[]): Promise<void> {
 	if (events.length === 0) {
 		return;
 	}
@@ -349,9 +311,7 @@ async function createEvents(
 
 	if (!response.ok) {
 		const details = data ? ` ${JSON.stringify(data)}` : "";
-		throw new Error(
-			`Failed to create events: ${response.statusText}${details}`,
-		);
+		throw new Error(`Failed to create events: ${response.statusText}${details}`);
 	}
 }
 
@@ -521,12 +481,9 @@ async function createSavedView(
 		});
 	};
 
-	const toPredicate = (
-		filter: NonNullable<SavedViewQueryInput["filters"]>[number],
-	) => {
+	const toPredicate = (filter: NonNullable<SavedViewQueryInput["filters"]>[number]) => {
 		const expression =
-			toExpression([normalizeFilterReference(filter.field)]) ??
-			literalExpression(null);
+			toExpression([normalizeFilterReference(filter.field)]) ?? literalExpression(null);
 		if (filter.op === "isNull") {
 			return { type: "isNull", expression } satisfies SavedViewPredicate;
 		}
@@ -561,19 +518,14 @@ async function createSavedView(
 		} satisfies SavedViewPredicate;
 	};
 
-	const getFilterGroupKey = (
-		filter: NonNullable<SavedViewQueryInput["filters"]>[number],
-	) => {
+	const getFilterGroupKey = (filter: NonNullable<SavedViewQueryInput["filters"]>[number]) => {
 		const reference = parseReference(normalizeFilterReference(filter.field));
 		return reference.type === "entity"
 			? reference.slug
 			: `${reference.type}:${JSON.stringify(reference)}`;
 	};
 
-	const combinePredicates = (
-		predicates: SavedViewPredicate[],
-		type: "and" | "or",
-	) => {
+	const combinePredicates = (predicates: SavedViewPredicate[], type: "and" | "or") => {
 		if (!predicates.length) {
 			return null;
 		}
@@ -604,9 +556,7 @@ async function createSavedView(
 
 		const groupedPredicates = Array.from(grouped.values())
 			.map((predicates) => combinePredicates(predicates, "and"))
-			.filter(
-				(predicate): predicate is SavedViewPredicate => predicate !== null,
-			);
+			.filter((predicate): predicate is SavedViewPredicate => predicate !== null);
 
 		return combinePredicates(groupedPredicates, "or");
 	};
@@ -622,47 +572,36 @@ async function createSavedView(
 				"expression" in queryDefinition.sort
 					? queryDefinition.sort.expression
 					: (toExpression(
-							normalizeSortFields(
-								(queryDefinition.sort as SavedViewSortInput).fields,
-							),
+							normalizeSortFields((queryDefinition.sort as SavedViewSortInput).fields),
 						) ?? literalExpression(null)),
 		},
 	} satisfies SavedViewQueryDefinition;
 	const normalizedDisplayConfiguration: SavedViewDisplayConfiguration = {
 		grid: {
 			...displayConfiguration.grid,
-			imageProperty:
-				toExpression(displayConfiguration.grid.imageProperty) ?? null,
-			titleProperty:
-				toExpression(displayConfiguration.grid.titleProperty) ?? null,
-			calloutProperty:
-				toExpression(displayConfiguration.grid.calloutProperty) ?? null,
+			imageProperty: toExpression(displayConfiguration.grid.imageProperty) ?? null,
+			titleProperty: toExpression(displayConfiguration.grid.titleProperty) ?? null,
+			calloutProperty: toExpression(displayConfiguration.grid.calloutProperty) ?? null,
 			primarySubtitleProperty:
 				toExpression(displayConfiguration.grid.primarySubtitleProperty) ?? null,
 			secondarySubtitleProperty:
-				toExpression(displayConfiguration.grid.secondarySubtitleProperty) ??
-				null,
+				toExpression(displayConfiguration.grid.secondarySubtitleProperty) ?? null,
 		},
 		list: {
 			...displayConfiguration.list,
-			imageProperty:
-				toExpression(displayConfiguration.list.imageProperty) ?? null,
-			titleProperty:
-				toExpression(displayConfiguration.list.titleProperty) ?? null,
-			calloutProperty:
-				toExpression(displayConfiguration.list.calloutProperty) ?? null,
+			imageProperty: toExpression(displayConfiguration.list.imageProperty) ?? null,
+			titleProperty: toExpression(displayConfiguration.list.titleProperty) ?? null,
+			calloutProperty: toExpression(displayConfiguration.list.calloutProperty) ?? null,
 			primarySubtitleProperty:
 				toExpression(displayConfiguration.list.primarySubtitleProperty) ?? null,
 			secondarySubtitleProperty:
-				toExpression(displayConfiguration.list.secondarySubtitleProperty) ??
-				null,
+				toExpression(displayConfiguration.list.secondarySubtitleProperty) ?? null,
 		},
 		table: {
 			columns: displayConfiguration.table.columns.map((column) => ({
 				label: column.label,
 				expression:
-					toExpression(column.property ?? column.expression ?? null) ??
-					literalExpression(null),
+					toExpression(column.property ?? column.expression ?? null) ?? literalExpression(null),
 			})),
 		},
 	};
@@ -790,10 +729,7 @@ function notPred(predicate: SavedViewPredicate): SavedViewPredicate {
 
 // ─── Query definition builders ───────────────────────────────────────────────
 
-function computedField(
-	key: string,
-	expression: SavedViewExpression,
-): ComputedFieldDef {
+function computedField(key: string, expression: SavedViewExpression): ComputedFieldDef {
 	return { key, expression };
 }
 
@@ -853,17 +789,11 @@ function cardConfig(
 	};
 }
 
-function tableColumn(
-	label: string,
-	...property: string[]
-): SavedViewTableColumn {
+function tableColumn(label: string, ...property: string[]): SavedViewTableColumn {
 	return { label, property };
 }
 
-function sortDefinition(
-	direction: "asc" | "desc",
-	...fields: string[]
-): SavedViewSortInput {
+function sortDefinition(direction: "asc" | "desc", ...fields: string[]): SavedViewSortInput {
 	return { fields, direction };
 }
 
@@ -935,14 +865,7 @@ function generateSmartphone(): {
 	name: string;
 	properties: Record<string, unknown>;
 } {
-	const manufacturers = [
-		"Apple",
-		"Samsung",
-		"Google",
-		"OnePlus",
-		"Xiaomi",
-		"Sony",
-	];
+	const manufacturers = ["Apple", "Samsung", "Google", "OnePlus", "Xiaomi", "Sony"];
 	const osList = ["iOS", "Android"];
 	const manufacturer = randomChoice(manufacturers);
 	const model = `${manufacturer} ${faker.commerce.productName()}`;
@@ -1075,41 +998,29 @@ async function seedWhiskeys(client: APIClient) {
 		},
 	);
 
-	const tastingSchema = await createEventSchema(
-		client,
-		"Tasting",
-		"tasting",
-		entitySchema.id,
-		{
-			fields: {
-				rating: {
-					type: "integer",
-					label: "Rating",
-					validation: { required: true, maximum: 10, minimum: 1 },
-				},
-				notes: { type: "string", label: "Notes" },
-				location: { type: "string", label: "Location" },
+	const tastingSchema = await createEventSchema(client, "Tasting", "tasting", entitySchema.id, {
+		fields: {
+			rating: {
+				type: "integer",
+				label: "Rating",
+				validation: { required: true, maximum: 10, minimum: 1 },
 			},
+			notes: { type: "string", label: "Notes" },
+			location: { type: "string", label: "Location" },
 		},
-	);
+	});
 
-	const purchaseSchema = await createEventSchema(
-		client,
-		"Purchase",
-		"purchase",
-		entitySchema.id,
-		{
-			fields: {
-				price: {
-					type: "number",
-					label: "Price",
-					validation: { required: true },
-				},
-				store: { type: "string", label: "Store" },
-				bottle_size: { type: "integer", label: "Bottle Size" },
+	const purchaseSchema = await createEventSchema(client, "Purchase", "purchase", entitySchema.id, {
+		fields: {
+			price: {
+				type: "number",
+				label: "Price",
+				validation: { required: true },
 			},
+			store: { type: "string", label: "Store" },
+			bottle_size: { type: "integer", label: "Bottle Size" },
 		},
-	);
+	});
 
 	const entityCount = randomInt(90, 110);
 	console.log(`\n  Creating ${entityCount} whiskey entities...`);
@@ -1141,9 +1052,7 @@ async function seedWhiskeys(client: APIClient) {
 		for (let i = 0; i < eventCount; i++) {
 			const schema = randomChoice(eventSchemas);
 			const properties =
-				schema.id === tastingSchema.id
-					? generateWhiskeyTasting()
-					: generateWhiskeyPurchase();
+				schema.id === tastingSchema.id ? generateWhiskeyTasting() : generateWhiskeyPurchase();
 
 			whiskeyEvents.push({
 				properties,
@@ -1194,51 +1103,33 @@ async function seedPlaces(client: APIClient) {
 		},
 	);
 
-	const visitSchema = await createEventSchema(
-		client,
-		"Visit",
-		"visit",
-		entitySchema.id,
-		{
-			fields: {
-				date: { type: "date", label: "Date", validation: { required: true } },
-				duration_hours: { type: "number", label: "Duration Hours" },
-				companions: { type: "string", label: "Companions" },
-				notes: { type: "string", label: "Notes" },
-			},
+	const visitSchema = await createEventSchema(client, "Visit", "visit", entitySchema.id, {
+		fields: {
+			date: { type: "date", label: "Date", validation: { required: true } },
+			duration_hours: { type: "number", label: "Duration Hours" },
+			companions: { type: "string", label: "Companions" },
+			notes: { type: "string", label: "Notes" },
 		},
-	);
+	});
 
-	const ratingSchema = await createEventSchema(
-		client,
-		"Rating",
-		"rating",
-		entitySchema.id,
-		{
-			fields: {
-				rating: {
-					type: "integer",
-					label: "Rating",
-					validation: { required: true, maximum: 5, minimum: 1 },
-				},
-				review: { type: "string", label: "Review" },
-				would_return: { type: "boolean", label: "Would Return" },
+	const ratingSchema = await createEventSchema(client, "Rating", "rating", entitySchema.id, {
+		fields: {
+			rating: {
+				type: "integer",
+				label: "Rating",
+				validation: { required: true, maximum: 5, minimum: 1 },
 			},
+			review: { type: "string", label: "Review" },
+			would_return: { type: "boolean", label: "Would Return" },
 		},
-	);
+	});
 
-	const photoSchema = await createEventSchema(
-		client,
-		"Photo",
-		"photo",
-		entitySchema.id,
-		{
-			fields: {
-				photo_url: { type: "string", label: "Photo URL" },
-				caption: { type: "string", label: "Caption" },
-			},
+	const photoSchema = await createEventSchema(client, "Photo", "photo", entitySchema.id, {
+		fields: {
+			photo_url: { type: "string", label: "Photo URL" },
+			caption: { type: "string", label: "Caption" },
 		},
-	);
+	});
 
 	const entityCount = randomInt(90, 110);
 	console.log(`\n  Creating ${entityCount} place entities...`);
@@ -1389,9 +1280,7 @@ async function seedMobilePhones(client: APIClient) {
 		entities.push(entity);
 
 		if ((i + 1) % 10 === 0) {
-			console.log(
-				`    Progress: ${i + 1}/${smartphoneCount} smartphones created`,
-			);
+			console.log(`    Progress: ${i + 1}/${smartphoneCount} smartphones created`);
 		}
 	}
 	console.log(`  ✓ Created ${smartphoneCount} smartphones`);
@@ -1410,9 +1299,7 @@ async function seedMobilePhones(client: APIClient) {
 		entities.push(entity);
 
 		if ((i + 1) % 10 === 0) {
-			console.log(
-				`    Progress: ${i + 1}/${featurePhoneCount} feature phones created`,
-			);
+			console.log(`    Progress: ${i + 1}/${featurePhoneCount} feature phones created`);
 		}
 	}
 	console.log(`  ✓ Created ${featurePhoneCount} feature phones`);
@@ -1479,10 +1366,7 @@ async function listMediaEntitySchemas(apiClient: APIClient, trackerId: string) {
 	return data.data;
 }
 
-async function getMediaLifecycleEventSchemas(
-	apiClient: APIClient,
-	entitySchemaId: string,
-) {
+async function getMediaLifecycleEventSchemas(apiClient: APIClient, entitySchemaId: string) {
 	apiClient.incrementRequestCount();
 	const client = apiClient.getClient();
 	const { data, response } = await client.GET("/event-schemas", {
@@ -1490,9 +1374,7 @@ async function getMediaLifecycleEventSchemas(
 	});
 
 	if (!response.ok || !data?.data) {
-		throw new Error(
-			`Failed to list event schemas for entity schema ${entitySchemaId}`,
-		);
+		throw new Error(`Failed to list event schemas for entity schema ${entitySchemaId}`);
 	}
 
 	const backlog = data.data.find((s) => s.slug === "backlog");
@@ -1501,9 +1383,7 @@ async function getMediaLifecycleEventSchemas(
 	const review = data.data.find((s) => s.slug === "review");
 
 	if (!backlog || !progress || !complete || !review) {
-		throw new Error(
-			`Missing lifecycle event schemas for entity schema ${entitySchemaId}`,
-		);
+		throw new Error(`Missing lifecycle event schemas for entity schema ${entitySchemaId}`);
 	}
 
 	return { backlog, complete, progress, review };
@@ -1527,10 +1407,7 @@ const MEDIA_ENTITY_SCHEMA_SLUGS = [
 
 type MediaEntitySchemaSlug = (typeof MEDIA_ENTITY_SCHEMA_SLUGS)[number];
 
-const MEDIA_SEARCH_QUERIES: Record<
-	MediaEntitySchemaSlug,
-	{ query: string; pages: number[] }
-> = {
+const MEDIA_SEARCH_QUERIES: Record<MediaEntitySchemaSlug, { query: string; pages: number[] }> = {
 	anime: { query: "naruto", pages: [1, 2] },
 	audiobook: { query: "thinking", pages: [1, 2] },
 	book: { query: "the lord", pages: [1, 2] },
@@ -1556,10 +1433,9 @@ async function pollSearchJob(
 	const startedAt = Date.now();
 	while (true) {
 		apiClient.incrementRequestCount();
-		const { data, response } = await client.GET(
-			"/entity-schemas/search/{jobId}",
-			{ params: { path: { jobId } } },
-		);
+		const { data, response } = await client.GET("/entity-schemas/search/{jobId}", {
+			params: { path: { jobId } },
+		});
 		if (!response.ok || !data?.data) {
 			throw new Error(`Failed to poll search job ${jobId}`);
 		}
@@ -1573,8 +1449,9 @@ async function pollSearchJob(
 		if (data.data.status === "failed") {
 			throw new Error(`Search job failed: ${data.data.error}`);
 		}
-		const value = (data.data as { status: "completed"; value: unknown })
-			.value as { items?: Array<{ externalId: string }> };
+		const value = (data.data as { status: "completed"; value: unknown }).value as {
+			items?: Array<{ externalId: string }>;
+		};
 		return value?.items ?? [];
 	}
 }
@@ -1604,10 +1481,9 @@ async function importMediaEntity(
 ): Promise<SeedEntity | null> {
 	const client = apiClient.getClient();
 	apiClient.incrementRequestCount();
-	const { data: importData, response: importResp } = await client.POST(
-		"/entity-schemas/import",
-		{ body: { scriptId, externalId, entitySchemaId } },
-	);
+	const { data: importData, response: importResp } = await client.POST("/entity-schemas/import", {
+		body: { scriptId, externalId, entitySchemaId },
+	});
 	if (!importResp.ok || !importData?.data) {
 		return null;
 	}
@@ -1639,16 +1515,9 @@ async function importMediaEntity(
 
 // ─── Episodic progress helpers ───────────────────────────────────────────────
 
-const EPISODIC_MEDIA_SLUGS = new Set<MediaEntitySchemaSlug>([
-	"show",
-	"anime",
-	"manga",
-	"podcast",
-]);
+const EPISODIC_MEDIA_SLUGS = new Set<MediaEntitySchemaSlug>(["show", "anime", "manga", "podcast"]);
 
-function generateEpisodicProgressFields(
-	slug: MediaEntitySchemaSlug,
-): Record<string, unknown> {
+function generateEpisodicProgressFields(slug: MediaEntitySchemaSlug): Record<string, unknown> {
 	if (slug === "show") {
 		return { showSeason: randomInt(1, 3), showEpisode: randomInt(1, 20) };
 	}
@@ -1676,9 +1545,7 @@ async function seedMedia(client: APIClient) {
 	console.log("\n🎬 Seeding Media Tracker...");
 
 	const builtinTracker = await getBuiltinTracker(client);
-	console.log(
-		`  Found builtin tracker: ${builtinTracker.name} (${builtinTracker.id})`,
-	);
+	console.log(`  Found builtin tracker: ${builtinTracker.name} (${builtinTracker.id})`);
 
 	const allSchemas = await listMediaEntitySchemas(client, builtinTracker.id);
 	const schemas = allSchemas.filter((s) =>
@@ -1692,9 +1559,7 @@ async function seedMedia(client: APIClient) {
 	let totalEvents = 0;
 	const allEntities: SeedEntity[] = [];
 
-	type MediaEventSchemas = Awaited<
-		ReturnType<typeof getMediaLifecycleEventSchemas>
-	>;
+	type MediaEventSchemas = Awaited<ReturnType<typeof getMediaLifecycleEventSchemas>>;
 	type WorkItem = {
 		externalId: string;
 		scriptId: string;
@@ -1721,27 +1586,18 @@ async function seedMedia(client: APIClient) {
 			const identifiers: string[] = [];
 			for (const page of searchConfig.pages) {
 				try {
-					const items = await searchMediaPage(
-						client,
-						scriptId,
-						searchConfig.query,
-						page,
-					);
+					const items = await searchMediaPage(client, scriptId, searchConfig.query, page);
 					for (const item of items) {
 						if (!identifiers.includes(item.externalId)) {
 							identifiers.push(item.externalId);
 						}
 					}
-					console.log(
-						`      Search "${searchConfig.query}" page ${page}: ${items.length} results`,
-					);
+					console.log(`      Search "${searchConfig.query}" page ${page}: ${items.length} results`);
 				} catch (err) {
 					console.log(`      Search page ${page} failed: ${err}`);
 				}
 			}
-			console.log(
-				`    Collected ${identifiers.length} unique identifiers from ${provider.name}`,
-			);
+			console.log(`    Collected ${identifiers.length} unique identifiers from ${provider.name}`);
 
 			for (const externalId of identifiers) {
 				workItems.push({ externalId, scriptId, schema, eventSchemas });
@@ -1756,21 +1612,14 @@ async function seedMedia(client: APIClient) {
 		workItems[i] = workItems[j] as WorkItem;
 		workItems[j] = temp as WorkItem;
 	}
-	console.log(
-		`\n  Importing ${workItems.length} entities (shuffled across all types)...`,
-	);
+	console.log(`\n  Importing ${workItems.length} entities (shuffled across all types)...`);
 
 	// Phase 3: import in shuffled order, group results by schema id
 	const entitiesBySchemaId = new Map<string, SeedEntity[]>();
 	const eventSchemasBySchemaId = new Map<string, MediaEventSchemas>();
 
 	for (const [index, item] of workItems.entries()) {
-		const entity = await importMediaEntity(
-			client,
-			item.scriptId,
-			item.externalId,
-			item.schema.id,
-		);
+		const entity = await importMediaEntity(client, item.scriptId, item.externalId, item.schema.id);
 		if (entity) {
 			const list = entitiesBySchemaId.get(item.schema.id) ?? [];
 			list.push(entity);
@@ -1814,10 +1663,7 @@ async function seedMedia(client: APIClient) {
 		const completeNoReviewCount = Math.ceil(entityCount * 0.24);
 
 		const backlogEntities = entities.slice(0, backlogCount);
-		const progressEntities = entities.slice(
-			backlogCount,
-			backlogCount + progressCount,
-		);
+		const progressEntities = entities.slice(backlogCount, backlogCount + progressCount);
 		const completeNoReviewEntities = entities.slice(
 			backlogCount + progressCount,
 			backlogCount + progressCount + completeNoReviewCount,
@@ -1867,25 +1713,19 @@ async function seedMedia(client: APIClient) {
 				eventSchemaId: eventSchemas.review.id,
 				properties: {
 					rating: randomInt(1, 5),
-					...(faker.datatype.boolean()
-						? { review: faker.lorem.sentences(randomInt(1, 3)) }
-						: {}),
+					...(faker.datatype.boolean() ? { review: faker.lorem.sentences(randomInt(1, 3)) } : {}),
 				},
 			});
 		}
 
 		await createEvents(client, mediaEvents);
-		console.log(
-			`    ${schema.name}: ${entities.length} entities, ${mediaEvents.length} events`,
-		);
+		console.log(`    ${schema.name}: ${entities.length} entities, ${mediaEvents.length} events`);
 
 		totalEntities += entities.length;
 		totalEvents += mediaEvents.length;
 	}
 
-	console.log(
-		`\n  ✓ Media seeding complete: ${totalEntities} entities, ${totalEvents} events`,
-	);
+	console.log(`\n  ✓ Media seeding complete: ${totalEntities} entities, ${totalEvents} events`);
 
 	return {
 		tracker: builtinTracker,
@@ -1963,8 +1803,7 @@ async function seedCollections(
 
 	const collectionGuide = await createCollection(client, {
 		name: "Collection Guide",
-		description:
-			"A collection of collections for browsing the seeded demo shelves",
+		description: "A collection of collections for browsing the seeded demo shelves",
 		membershipPropertiesSchema: {
 			fields: {
 				blurb: { type: "string" as const, label: "Blurb" },
@@ -2001,9 +1840,7 @@ async function seedCollections(
 	}
 
 	console.log("  Adding place memberships...");
-	for (const [index, place] of faker.helpers
-		.arrayElements(input.places, 10)
-		.entries()) {
+	for (const [index, place] of faker.helpers.arrayElements(input.places, 10).entries()) {
 		await addEntityToCollection(client, {
 			entityId: place.id,
 			collectionId: weekendEscapes.id,
@@ -2114,13 +1951,7 @@ async function seedSavedViews(
 		null,
 		null,
 	);
-	const allSchemaSlugs = [
-		"whiskey",
-		"place",
-		"smartphone",
-		"feature-phone",
-		"tablet",
-	];
+	const allSchemaSlugs = ["whiskey", "place", "smartphone", "feature-phone", "tablet"];
 
 	const whiskeyViews: SavedViewSpec[] = [
 		{
@@ -2129,9 +1960,7 @@ async function seedSavedViews(
 			icon: "wine",
 			accentColor: "#D97706",
 			queryDefinition: {
-				filters: [
-					{ op: "gte", field: schemaField("whiskey", "age"), value: 18 },
-				],
+				filters: [{ op: "gte", field: schemaField("whiskey", "age"), value: 18 }],
 				scope: ["whiskey"],
 				sort: sortDefinition("desc", schemaField("whiskey", "age")),
 			},
@@ -2156,9 +1985,7 @@ async function seedSavedViews(
 			icon: "wine",
 			accentColor: "#B45309",
 			queryDefinition: {
-				filters: [
-					{ op: "eq", field: schemaField("whiskey", "type"), value: "Scotch" },
-				],
+				filters: [{ op: "eq", field: schemaField("whiskey", "type"), value: "Scotch" }],
 				scope: ["whiskey"],
 				sort: sortDefinition("asc", "@name"),
 			},
@@ -2183,9 +2010,7 @@ async function seedSavedViews(
 			icon: "flame",
 			accentColor: "#DC2626",
 			queryDefinition: {
-				filters: [
-					{ op: "gte", field: schemaField("whiskey", "proof"), value: 100 },
-				],
+				filters: [{ op: "gte", field: schemaField("whiskey", "proof"), value: 100 }],
 				scope: ["whiskey"],
 				sort: sortDefinition("desc", schemaField("whiskey", "proof")),
 			},
@@ -2295,9 +2120,7 @@ async function seedSavedViews(
 			icon: "flame",
 			accentColor: "#991B1B",
 			queryDefinition: {
-				filters: [
-					{ op: "gte", field: schemaField("whiskey", "proof"), value: 120 },
-				],
+				filters: [{ op: "gte", field: schemaField("whiskey", "proof"), value: 120 }],
 				scope: ["whiskey"],
 				sort: sortDefinition(
 					"desc",
@@ -2391,9 +2214,7 @@ async function seedSavedViews(
 			icon: "tree",
 			accentColor: "#10B981",
 			queryDefinition: {
-				filters: [
-					{ op: "eq", field: schemaField("place", "type"), value: "Park" },
-				],
+				filters: [{ op: "eq", field: schemaField("place", "type"), value: "Park" }],
 				scope: ["place"],
 				sort: sortDefinition("asc", "@name"),
 			},
@@ -2444,11 +2265,7 @@ async function seedSavedViews(
 			queryDefinition: {
 				filters: [],
 				scope: ["place"],
-				sort: sortDefinition(
-					"asc",
-					schemaField("place", "country"),
-					schemaField("place", "city"),
-				),
+				sort: sortDefinition("asc", schemaField("place", "country"), schemaField("place", "city")),
 			},
 			displayConfiguration: displayConfiguration(
 				defaultCard,
@@ -2499,11 +2316,7 @@ async function seedSavedViews(
 			queryDefinition: {
 				filters: [],
 				scope: ["place"],
-				sort: sortDefinition(
-					"asc",
-					schemaField("place", "city"),
-					schemaField("place", "address"),
-				),
+				sort: sortDefinition("asc", schemaField("place", "city"), schemaField("place", "address")),
 			},
 			displayConfiguration: displayConfiguration(
 				defaultCard,
@@ -2530,9 +2343,7 @@ async function seedSavedViews(
 			icon: "smartphone",
 			accentColor: "#6366F1",
 			queryDefinition: {
-				filters: [
-					{ op: "gte", field: schemaField("smartphone", "year"), value: 2020 },
-				],
+				filters: [{ op: "gte", field: schemaField("smartphone", "year"), value: 2020 }],
 				scope: ["smartphone"],
 				sort: sortDefinition("desc", schemaField("smartphone", "year")),
 			},
@@ -2545,10 +2356,7 @@ async function seedSavedViews(
 				),
 				[
 					tableColumn("Name", "@name"),
-					tableColumn(
-						"Manufacturer",
-						schemaField("smartphone", "manufacturer"),
-					),
+					tableColumn("Manufacturer", schemaField("smartphone", "manufacturer")),
 					tableColumn("Year", schemaField("smartphone", "year")),
 					tableColumn("OS", schemaField("smartphone", "os")),
 				],
@@ -2565,22 +2373,14 @@ async function seedSavedViews(
 					{ op: "gte", field: "tablet.storage_gb", value: 256 },
 				],
 				scope: ["smartphone", "tablet"],
-				sort: sortDefinition(
-					"desc",
-					"smartphone.storage_gb",
-					"tablet.storage_gb",
-				),
+				sort: sortDefinition("desc", "smartphone.storage_gb", "tablet.storage_gb"),
 			},
 			displayConfiguration: displayConfiguration(
 				defaultCard,
 				[
 					tableColumn("Name", "@name"),
 					tableColumn("Storage", "smartphone.storage_gb", "tablet.storage_gb"),
-					tableColumn(
-						"Manufacturer",
-						"smartphone.manufacturer",
-						"tablet.manufacturer",
-					),
+					tableColumn("Manufacturer", "smartphone.manufacturer", "tablet.manufacturer"),
 					tableColumn("Year", "smartphone.year", "tablet.year"),
 				],
 				cardConfig(
@@ -2642,11 +2442,7 @@ async function seedSavedViews(
 				),
 				[
 					tableColumn("Name", "@name"),
-					tableColumn(
-						"Manufacturer",
-						"smartphone.manufacturer",
-						"tablet.manufacturer",
-					),
+					tableColumn("Manufacturer", "smartphone.manufacturer", "tablet.manufacturer"),
 					tableColumn("Year", "smartphone.year", "tablet.year"),
 					tableColumn("Platform", "smartphone.os", "tablet.os"),
 				],
@@ -2673,10 +2469,7 @@ async function seedSavedViews(
 				[
 					tableColumn("Name", "@name"),
 					tableColumn("Price", schemaField("smartphone", "price_usd")),
-					tableColumn(
-						"Manufacturer",
-						schemaField("smartphone", "manufacturer"),
-					),
+					tableColumn("Manufacturer", schemaField("smartphone", "manufacturer")),
 					tableColumn("Storage", schemaField("smartphone", "storage_gb")),
 					tableColumn("RAM", schemaField("smartphone", "ram_gb")),
 				],
@@ -2709,10 +2502,7 @@ async function seedSavedViews(
 				[
 					tableColumn("Name", "@name"),
 					tableColumn("Price", schemaField("smartphone", "price_usd")),
-					tableColumn(
-						"Manufacturer",
-						schemaField("smartphone", "manufacturer"),
-					),
+					tableColumn("Manufacturer", schemaField("smartphone", "manufacturer")),
 				],
 				cardConfig(
 					propertyReference("@image"),
@@ -2733,11 +2523,7 @@ async function seedSavedViews(
 					{ op: "gte", field: "tablet.screen_size", value: 11 },
 				],
 				scope: ["smartphone", "tablet"],
-				sort: sortDefinition(
-					"desc",
-					"smartphone.screen_size",
-					"tablet.screen_size",
-				),
+				sort: sortDefinition("desc", "smartphone.screen_size", "tablet.screen_size"),
 			},
 			displayConfiguration: displayConfiguration(
 				cardConfig(
@@ -2748,11 +2534,7 @@ async function seedSavedViews(
 				),
 				[
 					tableColumn("Name", "@name"),
-					tableColumn(
-						"Screen Size",
-						"smartphone.screen_size",
-						"tablet.screen_size",
-					),
+					tableColumn("Screen Size", "smartphone.screen_size", "tablet.screen_size"),
 					tableColumn("Platform", "smartphone.os", "tablet.os"),
 					tableColumn("Storage", "smartphone.storage_gb", "tablet.storage_gb"),
 				],
@@ -2809,10 +2591,7 @@ async function seedSavedViews(
 				defaultCard,
 				[
 					tableColumn("Name", "@name"),
-					tableColumn(
-						"Manufacturer",
-						schemaField("feature-phone", "manufacturer"),
-					),
+					tableColumn("Manufacturer", schemaField("feature-phone", "manufacturer")),
 					tableColumn("Year", schemaField("feature-phone", "year")),
 					tableColumn("Battery", schemaField("feature-phone", "battery_mah")),
 				],
@@ -2838,11 +2617,7 @@ async function seedSavedViews(
 				cardConfig(
 					propertyReference("@image"),
 					propertyReference("@name"),
-					propertyReference(
-						"smartphone.os",
-						"feature-phone.color",
-						"tablet.os",
-					),
+					propertyReference("smartphone.os", "feature-phone.color", "tablet.os"),
 					propertyReference(
 						"smartphone.manufacturer",
 						"feature-phone.manufacturer",
@@ -2851,24 +2626,14 @@ async function seedSavedViews(
 				),
 				[
 					tableColumn("Name", "@name"),
-					tableColumn(
-						"Primary Field",
-						"smartphone.os",
-						"feature-phone.color",
-						"tablet.os",
-					),
+					tableColumn("Primary Field", "smartphone.os", "feature-phone.color", "tablet.os"),
 					tableColumn(
 						"Manufacturer",
 						"smartphone.manufacturer",
 						"feature-phone.manufacturer",
 						"tablet.manufacturer",
 					),
-					tableColumn(
-						"Year",
-						"smartphone.year",
-						"feature-phone.year",
-						"tablet.year",
-					),
+					tableColumn("Year", "smartphone.year", "feature-phone.year", "tablet.year"),
 				],
 			),
 		},
@@ -3125,9 +2890,7 @@ async function seedSavedViews(
 				computedFields: [
 					computedField(
 						"abv",
-						roundExpr(
-							arithmetic("divide", schemaProp("whiskey", "proof"), literal(2)),
-						),
+						roundExpr(arithmetic("divide", schemaProp("whiskey", "proof"), literal(2))),
 					),
 				],
 				sort: sortByExpr("desc", computedRef("abv")),
@@ -3204,15 +2967,9 @@ async function seedSavedViews(
 						concat(
 							coalesceExpr(schemaProp("whiskey", "type"), literal("Unknown")),
 							literal(" from "),
-							coalesceExpr(
-								schemaProp("whiskey", "region"),
-								literal("Unknown Region"),
-							),
+							coalesceExpr(schemaProp("whiskey", "region"), literal("Unknown Region")),
 							literal(" ("),
-							coalesceExpr(
-								schemaProp("whiskey", "distillery"),
-								literal("Unknown Distillery"),
-							),
+							coalesceExpr(schemaProp("whiskey", "distillery"), literal("Unknown Distillery")),
 							literal(")"),
 						),
 					),
@@ -3244,9 +3001,7 @@ async function seedSavedViews(
 				computedFields: [
 					computedField(
 						"abv",
-						roundExpr(
-							arithmetic("divide", schemaProp("whiskey", "proof"), literal(2)),
-						),
+						roundExpr(arithmetic("divide", schemaProp("whiskey", "proof"), literal(2))),
 					),
 					computedField(
 						"value_score",
@@ -3315,9 +3070,7 @@ async function seedSavedViews(
 			accentColor: "#6B7280",
 			queryDefinition: {
 				scope: ["whiskey"],
-				filter: notPred(
-					compare("eq", schemaProp("whiskey", "type"), literal("Rye")),
-				),
+				filter: notPred(compare("eq", schemaProp("whiskey", "type"), literal("Rye"))),
 				sort: sortDefinition("asc", "@name"),
 			},
 			displayConfiguration: displayConfiguration(
@@ -3343,16 +3096,10 @@ async function seedSavedViews(
 			queryDefinition: {
 				scope: ["whiskey"],
 				filter: andPred(
-					inPred(schemaProp("whiskey", "type"), [
-						literal("Bourbon"),
-						literal("Scotch"),
-					]),
+					inPred(schemaProp("whiskey", "type"), [literal("Bourbon"), literal("Scotch")]),
 					compare("gte", schemaProp("whiskey", "proof"), literal(100)),
 				),
-				sort: sortByExpr(
-					"desc",
-					coalesceExpr(schemaProp("whiskey", "age"), literal(0)),
-				),
+				sort: sortByExpr("desc", coalesceExpr(schemaProp("whiskey", "age"), literal(0))),
 			},
 			displayConfiguration: displayConfiguration(
 				cardConfig(
@@ -3457,16 +3204,8 @@ async function seedSavedViews(
 			queryDefinition: {
 				scope: ["smartphone", "tablet"],
 				filter: orPred(
-					compare(
-						"neq",
-						schemaProp("smartphone", "manufacturer"),
-						literal("Apple"),
-					),
-					compare(
-						"neq",
-						schemaProp("tablet", "manufacturer"),
-						literal("Apple"),
-					),
+					compare("neq", schemaProp("smartphone", "manufacturer"), literal("Apple")),
+					compare("neq", schemaProp("tablet", "manufacturer"), literal("Apple")),
 				),
 				sort: sortDefinition("asc", "@name"),
 			},
@@ -3479,11 +3218,7 @@ async function seedSavedViews(
 				),
 				[
 					tableColumn("Name", "@name"),
-					tableColumn(
-						"Manufacturer",
-						"smartphone.manufacturer",
-						"tablet.manufacturer",
-					),
+					tableColumn("Manufacturer", "smartphone.manufacturer", "tablet.manufacturer"),
 					tableColumn("OS", "smartphone.os", "tablet.os"),
 					tableColumn("Year", "smartphone.year", "tablet.year"),
 				],
@@ -3561,15 +3296,11 @@ async function main() {
 	console.log(
 		`  Custom Entities: ${whiskeyStats.entityCount + placeStats.entityCount + phoneStats.entityCount}`,
 	);
-	console.log(
-		`  Custom Events: ${whiskeyStats.eventCount + placeStats.eventCount}`,
-	);
+	console.log(`  Custom Events: ${whiskeyStats.eventCount + placeStats.eventCount}`);
 	console.log(
 		`  Media Entities: ${mediaStats.entityCount} (${(mediaStats.entityCount / 11) | 0}+ per type across 11 schemas)`,
 	);
-	console.log(
-		`  Media Events: ${mediaStats.eventCount} (backlog, progress, complete, review)`,
-	);
+	console.log(`  Media Events: ${mediaStats.eventCount} (backlog, progress, complete, review)`);
 	console.log(`  Collections: ${collectionStats.collectionCount}`);
 	console.log(
 		`  Collection Memberships: ${collectionStats.membershipCount} (${collectionStats.nestedCollectionMembershipCount} nested collections)`,

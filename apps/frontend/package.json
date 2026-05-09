@@ -1,33 +1,13 @@
 {
 	"name": "@ryot/frontend",
 	"private": true,
-	"sideEffects": false,
 	"type": "module",
+	"sideEffects": false,
 	"scripts": {
 		"typecheck": "tsc",
-		"lint": "biome check .",
+		"lint": "oxlint . && oxfmt --check .",
 		"build": "bun --bun react-router build",
 		"dev": "bun --bun react-router dev --port 3000 --host"
-	},
-	"installConfig": {
-		"hoistingLimits": "workspaces"
-	},
-	"devDependencies": {
-		"@graphql-typed-document-node/core": "3.2.0",
-		"@react-router/dev": "7.13.0",
-		"@types/cookie": "1.0.0",
-		"@types/crypto-js": "4.2.2",
-		"@types/howler": "2.2.12",
-		"@types/js-cookie": "3.0.6",
-		"@types/react": "19.2.14",
-		"@types/react-dom": "19.2.3",
-		"@types/uuid": "11.0.0",
-		"postcss": "8.5.6",
-		"postcss-preset-mantine": "1.18.0",
-		"postcss-simple-vars": "7.0.1",
-		"typescript": "5.9.3",
-		"vite": "7.3.1",
-		"vite-tsconfig-paths": "6.1.1"
 	},
 	"dependencies": {
 		"@conform-to/react": "1.17.0",
@@ -92,5 +72,25 @@
 		"uuid": "13.0.0",
 		"vite-plugin-pwa": "1.2.0",
 		"zod": "4.3.6"
+	},
+	"devDependencies": {
+		"@graphql-typed-document-node/core": "3.2.0",
+		"@react-router/dev": "7.13.0",
+		"@types/cookie": "1.0.0",
+		"@types/crypto-js": "4.2.2",
+		"@types/howler": "2.2.12",
+		"@types/js-cookie": "3.0.6",
+		"@types/react": "19.2.14",
+		"@types/react-dom": "19.2.3",
+		"@types/uuid": "11.0.0",
+		"postcss": "8.5.6",
+		"postcss-preset-mantine": "1.18.0",
+		"postcss-simple-vars": "7.0.1",
+		"typescript": "5.9.3",
+		"vite": "7.3.1",
+		"vite-tsconfig-paths": "6.1.1"
+	},
+	"installConfig": {
+		"hoistingLimits": "workspaces"
 	}
 }

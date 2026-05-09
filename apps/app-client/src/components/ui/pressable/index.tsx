@@ -8,12 +8,11 @@ type IPressableProps = React.ComponentPropsWithoutRef<typeof UIPressable> & {
 	className?: string;
 };
 
-const Pressable = React.forwardRef<
-	React.ComponentRef<typeof UIPressable>,
-	IPressableProps
->(function Pressable({ className, ...props }, ref) {
-	return <UIPressable ref={ref} {...props} className={className} />;
-});
+const Pressable = React.forwardRef<React.ComponentRef<typeof UIPressable>, IPressableProps>(
+	function Pressable({ className, ...props }, ref) {
+		return <UIPressable ref={ref} {...props} className={className} />;
+	},
+);
 
 Pressable.displayName = "Pressable";
 
