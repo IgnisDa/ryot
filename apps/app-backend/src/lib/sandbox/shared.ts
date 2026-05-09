@@ -1,4 +1,4 @@
-import type { SandboxRunInput } from "./sandbox";
+import type { SandboxRunInput } from "./service";
 
 export type BoundHostFunction = (...args: ReadonlyArray<unknown>) => Promise<unknown>;
 

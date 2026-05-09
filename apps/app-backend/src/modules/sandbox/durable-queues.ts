@@ -3,7 +3,7 @@ import { Effect } from "effect";
 
 import { DbRunner } from "#lib/db";
 import { SandboxRunError, unknownToMessage } from "#lib/errors";
-import { SandboxService as RuntimeSandboxService } from "#lib/sandbox";
+import { SandboxService as RuntimeSandboxService } from "#lib/sandbox/service";
 
 import { SandboxRepository } from "./repository";
 import { SandboxCompletedResult, SandboxExecutionPayload } from "./schemas";
