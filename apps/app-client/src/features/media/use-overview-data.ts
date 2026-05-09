@@ -22,10 +22,10 @@ const MEDIA_SCOPE_SLUGS = [
 const CONTINUE_UNIT_LABELS: Record<string, string> = {
 	book: "pages",
 	show: "episodes",
-	anime: "episodes",
-	manga: "chapters",
 	movie: "percent",
 	music: "seconds",
+	anime: "episodes",
+	manga: "chapters",
 	podcast: "episodes",
 	audiobook: "minutes",
 	"comic-book": "pages",
@@ -42,6 +42,47 @@ const formatNumber = (value: number) => {
 		.replace(/\.0+$/, "")
 		.replace(/(\.\d*[1-9])0+$/, "$1");
 };
+
+const makeEntityCoalesceField = (key: string, path: string[]) => ({
+	key,
+	expression: {
+		type: "coalesce" as const,
+		values: MEDIA_SCOPE_SLUGS.map((slug) => ({
+			type: "reference" as const,
+			reference: { type: "entity" as const, slug, path },
+		})),
+	},
+});
+
+const COMMON_ENTITY_FIELDS = [
+	makeEntityCoalesceField("entityId", ["id"]),
+	makeEntityCoalesceField("entityName", ["name"]),
+	makeEntityCoalesceField("entityImage", ["image"]),
+	{
+		key: "entitySchemaSlug",
+		expression: {
+			type: "reference" as const,
+			reference: { type: "entity-schema" as const, path: ["slug"] },
+		},
+	},
+];
+
+function extractEntityBase(item: readonly { key: string; value?: unknown }[] | undefined) {
+	const getVal = (key: string) => getQueryEngineField(item, key)?.value;
+	const id = getVal("entityId");
+	const title = getVal("entityName");
+	const entitySchemaSlug = getVal("entitySchemaSlug");
+	if (typeof id !== "string" || typeof title !== "string" || typeof entitySchemaSlug !== "string") {
+		return null;
+	}
+	return {
+		id,
+		title,
+		getVal,
+		entitySchemaSlug,
+		image: toEntityImage(getVal("entityImage")),
+	};
+}
 
 export function useMediaOverviewData() {
 	const apiClient = useApiClient();
@@ -84,31 +125,19 @@ export function useMediaOverviewData() {
 										type: "isNull",
 										expression: {
 											type: "reference",
-											reference: {
-												type: "event-join",
-												joinKey: "progress",
-												path: ["createdAt"],
-											},
+											reference: { type: "event-join", path: ["createdAt"], joinKey: "progress" },
 										},
 									},
 									{
-										type: "comparison",
 										operator: "gt",
+										type: "comparison",
 										left: {
 											type: "reference",
-											reference: {
-												type: "event-join",
-												joinKey: "backlog",
-												path: ["createdAt"],
-											},
+											reference: { type: "event-join", joinKey: "backlog", path: ["createdAt"] },
 										},
 										right: {
 											type: "reference",
-											reference: {
-												type: "event-join",
-												joinKey: "progress",
-												path: ["createdAt"],
-											},
+											reference: { type: "event-join", path: ["createdAt"], joinKey: "progress" },
 										},
 									},
 								],
@@ -120,31 +149,19 @@ export function useMediaOverviewData() {
 										type: "isNull",
 										expression: {
 											type: "reference",
-											reference: {
-												type: "event-join",
-												joinKey: "complete",
-												path: ["createdAt"],
-											},
+											reference: { type: "event-join", path: ["createdAt"], joinKey: "complete" },
 										},
 									},
 									{
-										type: "comparison",
 										operator: "gt",
+										type: "comparison",
 										left: {
 											type: "reference",
-											reference: {
-												type: "event-join",
-												joinKey: "backlog",
-												path: ["createdAt"],
-											},
+											reference: { type: "event-join", joinKey: "backlog", path: ["createdAt"] },
 										},
 										right: {
 											type: "reference",
-											reference: {
-												type: "event-join",
-												joinKey: "complete",
-												path: ["createdAt"],
-											},
+											reference: { type: "event-join", joinKey: "complete", path: ["createdAt"] },
 										},
 									},
 								],
@@ -152,43 +169,7 @@ export function useMediaOverviewData() {
 						],
 					},
 					fields: [
-						{
-							key: "entityId",
-							expression: {
-								type: "coalesce",
-								values: MEDIA_SCOPE_SLUGS.map((slug) => ({
-									type: "reference" as const,
-									reference: { type: "entity" as const, slug, path: ["id"] },
-								})),
-							},
-						},
-						{
-							key: "entityName",
-							expression: {
-								type: "coalesce",
-								values: MEDIA_SCOPE_SLUGS.map((slug) => ({
-									type: "reference" as const,
-									reference: { type: "entity" as const, slug, path: ["name"] },
-								})),
-							},
-						},
-						{
-							key: "entityImage",
-							expression: {
-								type: "coalesce",
-								values: MEDIA_SCOPE_SLUGS.map((slug) => ({
-									type: "reference" as const,
-									reference: { type: "entity" as const, slug, path: ["image"] },
-								})),
-							},
-						},
-						{
-							key: "entitySchemaSlug",
-							expression: {
-								type: "reference",
-								reference: { type: "entity-schema", path: ["slug"] },
-							},
-						},
+						...COMMON_ENTITY_FIELDS,
 						{
 							key: "publishYear",
 							expression: {
@@ -206,8 +187,8 @@ export function useMediaOverviewData() {
 								].map((slug) => ({
 									type: "reference" as const,
 									reference: {
-										type: "entity" as const,
 										slug,
+										type: "entity" as const,
 										path: ["properties", "publishYear"],
 									},
 								})),
@@ -224,19 +205,11 @@ export function useMediaOverviewData() {
 				return [];
 			}
 			return data.data.items.flatMap((item) => {
-				const getVal = (key: string) => getQueryEngineField(item, key)?.value;
-
-				const id = getVal("entityId");
-				const title = getVal("entityName");
-				const entitySchemaSlug = getVal("entitySchemaSlug");
-
-				if (
-					typeof id !== "string" ||
-					typeof title !== "string" ||
-					typeof entitySchemaSlug !== "string"
-				) {
+				const base = extractEntityBase(item);
+				if (!base) {
 					return [];
 				}
+				const { id, title, entitySchemaSlug, image, getVal } = base;
 
 				const publishYearRaw = getVal("publishYear");
 				const publishYear = typeof publishYearRaw === "number" ? publishYearRaw : null;
@@ -245,9 +218,9 @@ export function useMediaOverviewData() {
 					{
 						id,
 						title,
+						image,
 						entitySchemaSlug,
-						image: toEntityImage(getQueryEngineField(item, "entityImage")?.value),
-						labels: { cta: "Start" as const },
+						labels: { cta: "Start" },
 						subtitle: {
 							raw: publishYear,
 							label: publishYear === null ? null : publishYear.toString(),
@@ -315,43 +288,7 @@ export function useMediaOverviewData() {
 						],
 					},
 					fields: [
-						{
-							key: "entityId",
-							expression: {
-								type: "coalesce",
-								values: MEDIA_SCOPE_SLUGS.map((slug) => ({
-									type: "reference" as const,
-									reference: { type: "entity" as const, slug, path: ["id"] },
-								})),
-							},
-						},
-						{
-							key: "entityName",
-							expression: {
-								type: "coalesce",
-								values: MEDIA_SCOPE_SLUGS.map((slug) => ({
-									type: "reference" as const,
-									reference: { type: "entity" as const, slug, path: ["name"] },
-								})),
-							},
-						},
-						{
-							key: "entityImage",
-							expression: {
-								type: "coalesce",
-								values: MEDIA_SCOPE_SLUGS.map((slug) => ({
-									type: "reference" as const,
-									reference: { type: "entity" as const, slug, path: ["image"] },
-								})),
-							},
-						},
-						{
-							key: "entitySchemaSlug",
-							expression: {
-								type: "reference",
-								reference: { type: "entity-schema", path: ["slug"] },
-							},
-						},
+						...COMMON_ENTITY_FIELDS,
 						{
 							key: "totalUnits",
 							expression: {
@@ -426,19 +363,11 @@ export function useMediaOverviewData() {
 				return [];
 			}
 			return data.data.items.flatMap((item) => {
-				const getVal = (key: string) => getQueryEngineField(item, key)?.value;
-
-				const id = getVal("entityId");
-				const title = getVal("entityName");
-				const entitySchemaSlug = getVal("entitySchemaSlug");
-
-				if (
-					typeof id !== "string" ||
-					typeof title !== "string" ||
-					typeof entitySchemaSlug !== "string"
-				) {
+				const base = extractEntityBase(item);
+				if (!base) {
 					return [];
 				}
+				const { id, title, entitySchemaSlug, image, getVal } = base;
 
 				const totalUnitsRaw = getVal("totalUnits");
 				const totalUnits = typeof totalUnitsRaw === "number" ? totalUnitsRaw : null;
@@ -470,8 +399,8 @@ export function useMediaOverviewData() {
 						id,
 						title,
 						entitySchemaSlug,
+						image,
 						progress: { currentUnits, totalUnits, progressPercent },
-						image: toEntityImage(getQueryEngineField(item, "entityImage")?.value),
 						labels: {
 							progress: progressLabel,
 							cta:
@@ -513,11 +442,7 @@ export function useMediaOverviewData() {
 								},
 								{
 									type: "reference",
-									reference: {
-										type: "event-join",
-										joinKey: "complete",
-										path: ["createdAt"],
-									},
+									reference: { type: "event-join", joinKey: "complete", path: ["createdAt"] },
 								},
 							],
 						},
@@ -529,11 +454,7 @@ export function useMediaOverviewData() {
 								type: "isNotNull",
 								expression: {
 									type: "reference",
-									reference: {
-										type: "event-join",
-										joinKey: "complete",
-										path: ["createdAt"],
-									},
+									reference: { type: "event-join", path: ["createdAt"], joinKey: "complete" },
 								},
 							},
 							{
@@ -543,11 +464,7 @@ export function useMediaOverviewData() {
 										type: "isNull",
 										expression: {
 											type: "reference",
-											reference: {
-												type: "event-join",
-												joinKey: "review",
-												path: ["createdAt"],
-											},
+											reference: { joinKey: "review", type: "event-join", path: ["createdAt"] },
 										},
 									},
 									{
@@ -563,11 +480,7 @@ export function useMediaOverviewData() {
 										},
 										right: {
 											type: "reference",
-											reference: {
-												type: "event-join",
-												joinKey: "review",
-												path: ["createdAt"],
-											},
+											reference: { joinKey: "review", type: "event-join", path: ["createdAt"] },
 										},
 									},
 								],
@@ -575,52 +488,12 @@ export function useMediaOverviewData() {
 						],
 					},
 					fields: [
-						{
-							key: "entityId",
-							expression: {
-								type: "coalesce",
-								values: MEDIA_SCOPE_SLUGS.map((slug) => ({
-									type: "reference" as const,
-									reference: { type: "entity" as const, slug, path: ["id"] },
-								})),
-							},
-						},
-						{
-							key: "entityName",
-							expression: {
-								type: "coalesce",
-								values: MEDIA_SCOPE_SLUGS.map((slug) => ({
-									type: "reference" as const,
-									reference: { type: "entity" as const, slug, path: ["name"] },
-								})),
-							},
-						},
-						{
-							key: "entityImage",
-							expression: {
-								type: "coalesce",
-								values: MEDIA_SCOPE_SLUGS.map((slug) => ({
-									type: "reference" as const,
-									reference: { type: "entity" as const, slug, path: ["image"] },
-								})),
-							},
-						},
-						{
-							key: "entitySchemaSlug",
-							expression: {
-								type: "reference",
-								reference: { type: "entity-schema", path: ["slug"] },
-							},
-						},
+						...COMMON_ENTITY_FIELDS,
 						{
 							key: "completeAt",
 							expression: {
 								type: "reference",
-								reference: {
-									type: "event-join",
-									joinKey: "complete",
-									path: ["createdAt"],
-								},
+								reference: { type: "event-join", joinKey: "complete", path: ["createdAt"] },
 							},
 						},
 						{
@@ -639,8 +512,8 @@ export function useMediaOverviewData() {
 							expression: {
 								type: "reference",
 								reference: {
-									type: "event-join",
 									joinKey: "review",
+									type: "event-join",
 									path: ["properties", "rating"],
 								},
 							},
@@ -656,19 +529,14 @@ export function useMediaOverviewData() {
 				return [];
 			}
 			return data.data.items.flatMap((item) => {
-				const getVal = (key: string) => getQueryEngineField(item, key)?.value;
+				const base = extractEntityBase(item);
+				if (!base) {
+					return [];
+				}
+				const { id, title, entitySchemaSlug, image, getVal } = base;
 
-				const id = getVal("entityId");
-				const title = getVal("entityName");
 				const completeAt = getVal("completeAt");
-				const entitySchemaSlug = getVal("entitySchemaSlug");
-
-				if (
-					typeof id !== "string" ||
-					typeof title !== "string" ||
-					typeof completeAt !== "string" ||
-					typeof entitySchemaSlug !== "string"
-				) {
+				if (typeof completeAt !== "string") {
 					return [];
 				}
 
@@ -681,11 +549,11 @@ export function useMediaOverviewData() {
 				return [
 					{
 						id,
+						image,
 						title,
 						rating,
 						completedAt,
 						entitySchemaSlug,
-						image: toEntityImage(getQueryEngineField(item, "entityImage")?.value),
 					},
 				];
 			});
@@ -743,43 +611,7 @@ export function useMediaOverviewData() {
 								},
 							},
 						},
-						{
-							key: "entityId",
-							expression: {
-								type: "coalesce",
-								values: MEDIA_SCOPE_SLUGS.map((slug) => ({
-									type: "reference" as const,
-									reference: { type: "entity" as const, slug, path: ["id"] },
-								})),
-							},
-						},
-						{
-							key: "entityName",
-							expression: {
-								type: "coalesce",
-								values: MEDIA_SCOPE_SLUGS.map((slug) => ({
-									type: "reference" as const,
-									reference: { type: "entity" as const, slug, path: ["name"] },
-								})),
-							},
-						},
-						{
-							key: "entityImage",
-							expression: {
-								type: "coalesce",
-								values: MEDIA_SCOPE_SLUGS.map((slug) => ({
-									type: "reference" as const,
-									reference: { type: "entity" as const, slug, path: ["image"] },
-								})),
-							},
-						},
-						{
-							key: "entitySchemaSlug",
-							expression: {
-								type: "reference",
-								reference: { type: "entity-schema", path: ["slug"] },
-							},
-						},
+						...COMMON_ENTITY_FIELDS,
 					],
 				},
 			});
@@ -839,12 +671,9 @@ export function useMediaOverviewData() {
 	});
 
 	const upNextItems = upNextQuery.data ?? [];
-
 	const continueItems = continueQuery.data ?? [];
-
-	const rateTheseItems = rateTheseQuery.data ?? [];
-
 	const activityItems = activityQuery.data ?? [];
+	const rateTheseItems = rateTheseQuery.data ?? [];
 
 	const imageEntries = [
 		...upNextItems.map((item) => ({ id: item.id, image: item.image })),
