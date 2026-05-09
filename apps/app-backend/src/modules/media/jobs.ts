@@ -39,3 +39,16 @@ export const companyPopulateJobData = z.object({
 });
 
 export type CompanyPopulateJobData = z.infer<typeof companyPopulateJobData>;
+
+export const groupPopulateJobName = "group-populate";
+
+export const groupPopulateJobData = z.object({
+	userId: nonEmptyStringSchema,
+	scriptSlug: nonEmptyStringSchema,
+	externalId: nonEmptyStringSchema,
+	groupEntityId: nonEmptyStringSchema,
+	groupSchemaSlug: nonEmptyStringSchema,
+	step: z.literal(mediaJobWaitingForSandboxStep).optional(),
+});
+
+export type GroupPopulateJobData = z.infer<typeof groupPopulateJobData>;

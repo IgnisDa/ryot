@@ -6,6 +6,16 @@ import igdbCompanyScriptCode from "~/lib/sandbox/scripts/providers/company/igdb.
 import tmdbCompanyScriptCode from "~/lib/sandbox/scripts/providers/company/tmdb.txt";
 import tvdbCompanyScriptCode from "~/lib/sandbox/scripts/providers/company/tvdb.txt";
 import vndbCompanyScriptCode from "~/lib/sandbox/scripts/providers/company/vndb.txt";
+import audibleAudiobookGroupScriptCode from "~/lib/sandbox/scripts/providers/media-group/audible.txt";
+import giantBombVideoGameGroupScriptCode from "~/lib/sandbox/scripts/providers/media-group/giant-bomb.txt";
+import hardcoverBookGroupScriptCode from "~/lib/sandbox/scripts/providers/media-group/hardcover.txt";
+import igdbVideoGameGroupScriptCode from "~/lib/sandbox/scripts/providers/media-group/igdb.txt";
+import metronComicBookGroupScriptCode from "~/lib/sandbox/scripts/providers/media-group/metron.txt";
+import musicbrainzMusicGroupScriptCode from "~/lib/sandbox/scripts/providers/media-group/musicbrainz.txt";
+import spotifyMusicGroupScriptCode from "~/lib/sandbox/scripts/providers/media-group/spotify.txt";
+import tmdbMovieGroupScriptCode from "~/lib/sandbox/scripts/providers/media-group/tmdb.txt";
+import tvdbMovieGroupScriptCode from "~/lib/sandbox/scripts/providers/media-group/tvdb.txt";
+import youtubeMusicGroupScriptCode from "~/lib/sandbox/scripts/providers/media-group/youtube-music.txt";
 import anilistAnimeScriptCode from "~/lib/sandbox/scripts/providers/media/anime/anilist.txt";
 import myanimelistAnimeScriptCode from "~/lib/sandbox/scripts/providers/media/anime/myanimelist.txt";
 import audibleAudiobookScriptCode from "~/lib/sandbox/scripts/providers/media/audiobook/audible.txt";
@@ -156,6 +166,29 @@ export const builtinSandboxScripts = (): BuiltinScriptEntry[] => [
 		"videoGames.twitch.clientId",
 		"videoGames.twitch.clientSecret",
 	]),
+	script("TMDB", "movie-group.tmdb", tmdbMovieGroupScriptCode, ["moviesAndShows.tmdb.accessToken"]),
+	script("TVDB", "movie-group.tvdb", tvdbMovieGroupScriptCode, ["moviesAndShows.tvdb.apiKey"]),
+	script("Audible", "audiobook-group.audible", audibleAudiobookGroupScriptCode),
+	script("Hardcover", "book-group.hardcover", hardcoverBookGroupScriptCode, [
+		"books.hardcover.apiKey",
+	]),
+	script("Metron", "comic-book-group.metron", metronComicBookGroupScriptCode, [
+		"comicBooks.metron.username",
+		"comicBooks.metron.password",
+	]),
+	script("Spotify", "music-group.spotify", spotifyMusicGroupScriptCode, [
+		"music.spotify.clientId",
+		"music.spotify.clientSecret",
+	]),
+	script("MusicBrainz", "music-group.musicbrainz", musicbrainzMusicGroupScriptCode),
+	script("YouTube Music", "music-group.youtube-music", youtubeMusicGroupScriptCode),
+	script("IGDB", "video-game-group.igdb", igdbVideoGameGroupScriptCode, [
+		"videoGames.twitch.clientId",
+		"videoGames.twitch.clientSecret",
+	]),
+	script("GiantBomb", "video-game-group.giant-bomb", giantBombVideoGameGroupScriptCode, [
+		"videoGames.giantBomb.apiKey",
+	]),
 	{
 		name: "Auto-Complete on Full Progress",
 		code: autoCompleteOnFullProgressScriptCode,
@@ -287,4 +320,18 @@ export const companySchemaScriptLinks = () =>
 		{ schemaSlug: "company", scriptSlug: "company.tmdb" },
 		{ schemaSlug: "company", scriptSlug: "company.tvdb" },
 		{ schemaSlug: "company", scriptSlug: "company.vndb" },
+	] as const;
+
+export const groupSchemaScriptLinks = () =>
+	[
+		{ schemaSlug: "movie-group", scriptSlug: "movie-group.tmdb" },
+		{ schemaSlug: "movie-group", scriptSlug: "movie-group.tvdb" },
+		{ schemaSlug: "audiobook-group", scriptSlug: "audiobook-group.audible" },
+		{ schemaSlug: "book-group", scriptSlug: "book-group.hardcover" },
+		{ schemaSlug: "comic-book-group", scriptSlug: "comic-book-group.metron" },
+		{ schemaSlug: "music-group", scriptSlug: "music-group.spotify" },
+		{ schemaSlug: "music-group", scriptSlug: "music-group.musicbrainz" },
+		{ schemaSlug: "music-group", scriptSlug: "music-group.youtube-music" },
+		{ schemaSlug: "video-game-group", scriptSlug: "video-game-group.igdb" },
+		{ schemaSlug: "video-game-group", scriptSlug: "video-game-group.giant-bomb" },
 	] as const;

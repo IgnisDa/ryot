@@ -2,11 +2,15 @@ import { describe, expect, it } from "bun:test";
 
 import type { Job } from "bullmq";
 
+import { mediaGroupPropertiesJsonSchema } from "~/lib/media/media-group";
 import { createListedEntity, createOptionalTitlePropertiesSchema } from "~/lib/test-fixtures";
+import type { SandboxScript } from "~/modules/sandbox";
 
+import { mediaJobWaitingForSandboxStep } from "./jobs";
 import {
 	hasImportedEntityDetails,
 	processMediaImportJob,
+	processGroupPopulateJob,
 	processPersonPopulateJob,
 } from "./worker";
 
@@ -40,6 +44,9 @@ const createMediaDeps = (
 	},
 	...overrides,
 });
+
+type MediaDeps = NonNullable<Parameters<typeof processMediaImportJob>[2]>;
+type UpdateGlobalEntityInput = Parameters<MediaDeps["updateGlobalEntityById"]>[0];
 
 const createPersonDeps = (
 	overrides: Partial<NonNullable<Parameters<typeof processPersonPopulateJob>[2]>> = {},
@@ -167,6 +174,165 @@ describe("processMediaImportJob", () => {
 		).rejects.toThrow();
 
 		expect(sandboxScriptLookups).toBe(1);
+	});
+});
+
+describe("processGroupPopulateJob", () => {
+	const groupScript = {
+		code: "",
+		metadata: {},
+		id: "script_1",
+		name: "Group Script",
+		slug: "movie-group.tmdb",
+	} satisfies SandboxScript;
+	const groupSchema = {
+		id: "group_schema_1",
+		propertiesSchema: mediaGroupPropertiesJsonSchema,
+	} satisfies NonNullable<Awaited<ReturnType<MediaDeps["getBuiltinEntitySchemaBySlug"]>>>;
+
+	it("updates a group entity from sandbox details", async () => {
+		let updates = 0;
+		let updatedInput: UpdateGlobalEntityInput | undefined;
+
+		await processGroupPopulateJob(
+			Object.assign(
+				createJob({
+					userId: "user_1",
+					externalId: "ext_1",
+					groupEntityId: "group_1",
+					scriptSlug: "movie-group.tmdb",
+					groupSchemaSlug: "movie-group",
+					step: mediaJobWaitingForSandboxStep,
+				}),
+				{
+					moveToWaitingChildren: () => Promise.resolve(false),
+					getChildrenValues: () =>
+						Promise.resolve({
+							child_1: {
+								logs: null,
+								error: null,
+								success: true,
+								value: {
+									name: "Movie Collection",
+									properties: {
+										parts: 12,
+										description: "A collection of movies",
+										sourceUrl: "https://example.com/collection",
+										images: [{ type: "remote", url: "https://example.com/group.jpg" }],
+									},
+								},
+							},
+						}),
+				},
+			),
+			"token_1",
+			createMediaDeps({
+				getBuiltinSandboxScriptBySlug: () => Promise.resolve(groupScript),
+				getBuiltinEntitySchemaBySlug: () => Promise.resolve(groupSchema),
+				updateGlobalEntityById: (input) => {
+					updates += 1;
+					updatedInput = input;
+					return Promise.resolve(
+						createListedEntity({
+							name: input.name,
+							image: input.image,
+							id: input.entityId,
+							externalId: "ext_1",
+							sandboxScriptId: "script_1",
+							properties: input.properties,
+							populatedAt: input.populatedAt,
+							entitySchemaId: input.entitySchemaId,
+						}),
+					);
+				},
+			}),
+		);
+
+		expect(updates).toBe(1);
+		expect(updatedInput?.entityId).toBe("group_1");
+		expect(updatedInput?.entitySchemaId).toBe("group_schema_1");
+		expect(updatedInput?.name).toBe("Movie Collection");
+		expect(updatedInput?.image).toEqual({ type: "remote", url: "https://example.com/group.jpg" });
+		expect(updatedInput?.removePropertyKeys).toEqual(["assets"]);
+		expect(updatedInput?.properties).toEqual({
+			parts: 12,
+			description: "A collection of movies",
+			sourceUrl: "https://example.com/collection",
+			images: [{ type: "remote", url: "https://example.com/group.jpg" }],
+		});
+		expect(updatedInput?.populatedAt instanceof Date).toBe(true);
+	});
+
+	it("skips sandbox population when the group already has imported details", async () => {
+		let updates = 0;
+
+		await processGroupPopulateJob(
+			createJob({
+				userId: "user_1",
+				externalId: "ext_1",
+				groupEntityId: "group_1",
+				groupSchemaSlug: "movie-group",
+				scriptSlug: "movie-group.tmdb",
+			}),
+			undefined,
+			createMediaDeps({
+				getBuiltinSandboxScriptBySlug: () => Promise.resolve(groupScript),
+				getBuiltinEntitySchemaBySlug: () => Promise.resolve(groupSchema),
+				findGlobalEntityByExternalId: () =>
+					Promise.resolve(
+						createListedEntity({
+							id: "group_1",
+							externalId: "ext_1",
+							sandboxScriptId: "script_1",
+							properties: { sourceUrl: "https://example.com/collection" },
+							populatedAt: new Date("2024-01-02T00:00:00.000Z"),
+						}),
+					),
+				updateGlobalEntityById: () => {
+					updates += 1;
+					throw new Error("updateGlobalEntityById should not be called");
+				},
+			}),
+		);
+
+		expect(updates).toBe(0);
+	});
+
+	it("continues to populate placeholder group entities", () => {
+		let scriptLookups = 0;
+
+		expect(
+			processGroupPopulateJob(
+				createJob({
+					userId: "user_1",
+					externalId: "ext_1",
+					groupEntityId: "group_1",
+					groupSchemaSlug: "movie-group",
+					scriptSlug: "movie-group.tmdb",
+				}),
+				undefined,
+				createMediaDeps({
+					getBuiltinSandboxScriptBySlug: () => {
+						scriptLookups += 1;
+						return Promise.resolve(groupScript);
+					},
+					getBuiltinEntitySchemaBySlug: () => Promise.resolve(groupSchema),
+					findGlobalEntityByExternalId: () =>
+						Promise.resolve(
+							createListedEntity({
+								image: null,
+								id: "group_1",
+								properties: {},
+								externalId: "ext_1",
+								sandboxScriptId: "script_1",
+								populatedAt: new Date(0),
+							}),
+						),
+				}),
+			),
+		).rejects.toThrow();
+
+		expect(scriptLookups).toBe(1);
 	});
 });
 
