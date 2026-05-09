@@ -1,6 +1,6 @@
 import { Menu } from "lucide-react-native";
 import type { ReactNode } from "react";
-import { ScrollView, useWindowDimensions } from "react-native";
+import { ScrollView } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { Box } from "@/components/ui/box";
@@ -8,14 +8,10 @@ import { Pressable } from "@/components/ui/pressable";
 import { Text } from "@/components/ui/text";
 import { useSetNavSheetOpen } from "@/lib/navigation";
 
-const TABLET_BREAKPOINT = 768;
-
 type Props = { title: string; eyebrow: string; children?: ReactNode };
 
 export function PageHeader({ eyebrow, title, children }: Props) {
 	const insets = useSafeAreaInsets();
-	const { width } = useWindowDimensions();
-	const isTablet = width >= TABLET_BREAKPOINT;
 	const setNavSheetOpen = useSetNavSheetOpen();
 
 	return (
@@ -28,18 +24,16 @@ export function PageHeader({ eyebrow, title, children }: Props) {
 					paddingTop: insets.top + 16,
 				}}
 			>
-				{!isTablet && (
-					<Box className="flex-row justify-end">
-						<Pressable
-							className="p-1 -mr-1"
-							accessibilityRole="button"
-							accessibilityLabel="Open navigation"
-							onPress={() => setNavSheetOpen(true)}
-						>
-							<Menu size={20} color="#78716c" strokeWidth={1.5} />
-						</Pressable>
-					</Box>
-				)}
+				<Box className="flex-row justify-end md:hidden">
+					<Pressable
+						className="-mr-1 p-1"
+						accessibilityRole="button"
+						accessibilityLabel="Open navigation"
+						onPress={() => setNavSheetOpen(true)}
+					>
+						<Menu size={20} color="#78716c" strokeWidth={1.5} />
+					</Pressable>
+				</Box>
 				<Text className="text-[10px] mt-[14] tracking-[2px] text-muted-foreground font-sans uppercase">
 					{eyebrow}
 				</Text>
