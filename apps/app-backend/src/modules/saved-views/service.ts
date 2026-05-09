@@ -133,15 +133,15 @@ const ensureBuiltinUpdateIsAllowed = (
 	body: UpdateSavedViewBody,
 ): Extract<SavedViewValidationResult<never>, { error: "validation" }> | undefined => {
 	if (!currentView.isBuiltin) {
-		return;
+		return undefined;
 	}
 
-	const nextName = body.name ?? currentView.name;
-	const nextIcon = body.icon ?? currentView.icon;
+	const nextName = body.name;
+	const nextIcon = body.icon;
 	const nextTrackerId = body.trackerId ?? currentView.trackerId ?? undefined;
-	const nextAccentColor = body.accentColor ?? currentView.accentColor;
-	const nextQueryDefinition = body.queryDefinition ?? currentView.queryDefinition;
-	const nextDisplayConfiguration = body.displayConfiguration ?? currentView.displayConfiguration;
+	const nextAccentColor = body.accentColor;
+	const nextQueryDefinition = body.queryDefinition;
+	const nextDisplayConfiguration = body.displayConfiguration;
 	const currentTrackerId = currentView.trackerId ?? undefined;
 
 	const attemptsMutation =
@@ -155,6 +155,8 @@ const ensureBuiltinUpdateIsAllowed = (
 	if (attemptsMutation) {
 		return serviceError("validation", builtinSavedViewError);
 	}
+
+	return undefined;
 };
 const validateDefinition = async (
 	input: Pick<CreateSavedViewBody, "displayConfiguration" | "queryDefinition"> & { userId: string },
@@ -169,6 +171,8 @@ const validateDefinition = async (
 	} catch (error) {
 		return mapValidationErrorResult(error);
 	}
+
+	return undefined;
 };
 
 export const createSavedView = async (

@@ -61,49 +61,55 @@ export const createEventCreateScope = (
 });
 
 export const createEventDeps = (overrides: Partial<EventServiceDeps> = {}): EventServiceDeps => ({
-	upsertInLibraryRelationship: async () => {},
-	enqueueEventSchemaTriggerJob: async () => {},
-	getUserLibraryEntityId: async () => "library_1",
-	getActiveEventSchemaTriggersForEventSchemas: async () => [],
-	listEventsByEntityForUser: async () => [createListedEvent()],
-	getEntityScopeForUser: async (input) => ({
-		isBuiltin: false,
-		entityId: input.entityId,
-		entityUserId: input.userId,
-		entitySchemaId: "schema_1",
-		entitySchemaSlug: "custom",
-	}),
-	getSessionEntityScopeForUser: async (input) => ({
-		isBuiltin: false,
-		entityId: input.entityId,
-		entityUserId: input.userId,
-		entitySchemaId: "schema_1",
-		entitySchemaSlug: "custom",
-	}),
-	getEventCreateScopeForUser: async (input) =>
-		createEventCreateScope({
+	upsertInLibraryRelationship: () => Promise.resolve(),
+	enqueueEventSchemaTriggerJob: () => Promise.resolve(),
+	getUserLibraryEntityId: () => Promise.resolve("library_1"),
+	getActiveEventSchemaTriggersForEventSchemas: () => Promise.resolve([]),
+	listEventsByEntityForUser: () => Promise.resolve([createListedEvent()]),
+	getEntityScopeForUser: (input) =>
+		Promise.resolve({
+			isBuiltin: false,
 			entityId: input.entityId,
-			eventSchemaId: input.eventSchemaId,
-			propertiesSchema: {
-				fields: {
-					rating: {
-						label: "Rating",
-						type: "number" as const,
-						description: "Rating score",
-						validation: { required: true as const },
+			entityUserId: input.userId,
+			entitySchemaId: "schema_1",
+			entitySchemaSlug: "custom",
+		}),
+	getSessionEntityScopeForUser: (input) =>
+		Promise.resolve({
+			isBuiltin: false,
+			entityId: input.entityId,
+			entityUserId: input.userId,
+			entitySchemaId: "schema_1",
+			entitySchemaSlug: "custom",
+		}),
+	getEventCreateScopeForUser: (input) =>
+		Promise.resolve(
+			createEventCreateScope({
+				entityId: input.entityId,
+				eventSchemaId: input.eventSchemaId,
+				propertiesSchema: {
+					fields: {
+						rating: {
+							label: "Rating",
+							type: "number" as const,
+							description: "Rating score",
+							validation: { required: true as const },
+						},
 					},
 				},
-			},
-		}),
-	createEventForUser: async (input) =>
-		createListedEvent({
-			entityId: input.entityId,
-			properties: input.properties,
-			eventSchemaId: input.eventSchemaId,
-			eventSchemaName: input.eventSchemaName,
-			eventSchemaSlug: input.eventSchemaSlug,
-			sessionEntityId: input.sessionEntityId ?? null,
-		}),
+			}),
+		),
+	createEventForUser: (input) =>
+		Promise.resolve(
+			createListedEvent({
+				entityId: input.entityId,
+				properties: input.properties,
+				eventSchemaId: input.eventSchemaId,
+				eventSchemaName: input.eventSchemaName,
+				eventSchemaSlug: input.eventSchemaSlug,
+				sessionEntityId: input.sessionEntityId ?? null,
+			}),
+		),
 	...overrides,
 });
 
@@ -111,16 +117,18 @@ export const createBuiltinBacklogEventDeps = (
 	overrides: Partial<EventServiceDeps> = {},
 ): EventServiceDeps =>
 	createEventDeps({
-		getEventCreateScopeForUser: async (input) =>
-			createEventCreateScope({
-				isBuiltin: true,
-				entitySchemaSlug: "book",
-				entityId: input.entityId,
-				eventSchemaName: "Backlog",
-				eventSchemaSlug: "backlog",
-				propertiesSchema: { fields: {} },
-				eventSchemaId: input.eventSchemaId,
-			}),
+		getEventCreateScopeForUser: (input) =>
+			Promise.resolve(
+				createEventCreateScope({
+					isBuiltin: true,
+					entitySchemaSlug: "book",
+					entityId: input.entityId,
+					eventSchemaName: "Backlog",
+					eventSchemaSlug: "backlog",
+					propertiesSchema: { fields: {} },
+					eventSchemaId: input.eventSchemaId,
+				}),
+			),
 		...overrides,
 	});
 
@@ -128,16 +136,18 @@ export const createBuiltinProgressEventDeps = (
 	overrides: Partial<EventServiceDeps> = {},
 ): EventServiceDeps =>
 	createEventDeps({
-		getEventCreateScopeForUser: async (input) =>
-			createEventCreateScope({
-				isBuiltin: true,
-				entitySchemaSlug: "book",
-				entityId: input.entityId,
-				eventSchemaName: "Progress",
-				eventSchemaSlug: "progress",
-				eventSchemaId: input.eventSchemaId,
-				propertiesSchema: createProgressPercentPropertiesSchema(),
-			}),
+		getEventCreateScopeForUser: (input) =>
+			Promise.resolve(
+				createEventCreateScope({
+					isBuiltin: true,
+					entitySchemaSlug: "book",
+					entityId: input.entityId,
+					eventSchemaName: "Progress",
+					eventSchemaSlug: "progress",
+					eventSchemaId: input.eventSchemaId,
+					propertiesSchema: createProgressPercentPropertiesSchema(),
+				}),
+			),
 		...overrides,
 	});
 
@@ -145,16 +155,18 @@ export const createBuiltinShowProgressEventDeps = (
 	overrides: Partial<EventServiceDeps> = {},
 ): EventServiceDeps =>
 	createEventDeps({
-		getEventCreateScopeForUser: async (input) =>
-			createEventCreateScope({
-				isBuiltin: true,
-				entitySchemaSlug: "show",
-				entityId: input.entityId,
-				eventSchemaName: "Progress",
-				eventSchemaSlug: "progress",
-				eventSchemaId: input.eventSchemaId,
-				propertiesSchema: createShowProgressPropertiesSchema(),
-			}),
+		getEventCreateScopeForUser: (input) =>
+			Promise.resolve(
+				createEventCreateScope({
+					isBuiltin: true,
+					entitySchemaSlug: "show",
+					entityId: input.entityId,
+					eventSchemaName: "Progress",
+					eventSchemaSlug: "progress",
+					eventSchemaId: input.eventSchemaId,
+					propertiesSchema: createShowProgressPropertiesSchema(),
+				}),
+			),
 		...overrides,
 	});
 
@@ -162,16 +174,18 @@ export const createBuiltinAnimeProgressEventDeps = (
 	overrides: Partial<EventServiceDeps> = {},
 ): EventServiceDeps =>
 	createEventDeps({
-		getEventCreateScopeForUser: async (input) =>
-			createEventCreateScope({
-				isBuiltin: true,
-				entitySchemaSlug: "anime",
-				entityId: input.entityId,
-				eventSchemaName: "Progress",
-				eventSchemaSlug: "progress",
-				eventSchemaId: input.eventSchemaId,
-				propertiesSchema: createAnimeProgressPropertiesSchema(),
-			}),
+		getEventCreateScopeForUser: (input) =>
+			Promise.resolve(
+				createEventCreateScope({
+					isBuiltin: true,
+					entitySchemaSlug: "anime",
+					entityId: input.entityId,
+					eventSchemaName: "Progress",
+					eventSchemaSlug: "progress",
+					eventSchemaId: input.eventSchemaId,
+					propertiesSchema: createAnimeProgressPropertiesSchema(),
+				}),
+			),
 		...overrides,
 	});
 
@@ -179,16 +193,18 @@ export const createBuiltinMangaProgressEventDeps = (
 	overrides: Partial<EventServiceDeps> = {},
 ): EventServiceDeps =>
 	createEventDeps({
-		getEventCreateScopeForUser: async (input) =>
-			createEventCreateScope({
-				isBuiltin: true,
-				entitySchemaSlug: "manga",
-				entityId: input.entityId,
-				eventSchemaName: "Progress",
-				eventSchemaSlug: "progress",
-				eventSchemaId: input.eventSchemaId,
-				propertiesSchema: createMangaProgressPropertiesSchema(),
-			}),
+		getEventCreateScopeForUser: (input) =>
+			Promise.resolve(
+				createEventCreateScope({
+					isBuiltin: true,
+					entitySchemaSlug: "manga",
+					entityId: input.entityId,
+					eventSchemaName: "Progress",
+					eventSchemaSlug: "progress",
+					eventSchemaId: input.eventSchemaId,
+					propertiesSchema: createMangaProgressPropertiesSchema(),
+				}),
+			),
 		...overrides,
 	});
 
@@ -196,16 +212,18 @@ export const createBuiltinPodcastProgressEventDeps = (
 	overrides: Partial<EventServiceDeps> = {},
 ): EventServiceDeps =>
 	createEventDeps({
-		getEventCreateScopeForUser: async (input) =>
-			createEventCreateScope({
-				isBuiltin: true,
-				entityId: input.entityId,
-				eventSchemaName: "Progress",
-				eventSchemaSlug: "progress",
-				entitySchemaSlug: "podcast",
-				eventSchemaId: input.eventSchemaId,
-				propertiesSchema: createPodcastProgressPropertiesSchema(),
-			}),
+		getEventCreateScopeForUser: (input) =>
+			Promise.resolve(
+				createEventCreateScope({
+					isBuiltin: true,
+					entityId: input.entityId,
+					eventSchemaName: "Progress",
+					eventSchemaSlug: "progress",
+					entitySchemaSlug: "podcast",
+					eventSchemaId: input.eventSchemaId,
+					propertiesSchema: createPodcastProgressPropertiesSchema(),
+				}),
+			),
 		...overrides,
 	});
 
@@ -213,16 +231,18 @@ export const createBuiltinCompleteEventDeps = (
 	overrides: Partial<EventServiceDeps> = {},
 ): EventServiceDeps =>
 	createEventDeps({
-		getEventCreateScopeForUser: async (input) =>
-			createEventCreateScope({
-				isBuiltin: true,
-				entitySchemaSlug: "book",
-				entityId: input.entityId,
-				eventSchemaName: "Complete",
-				eventSchemaSlug: "complete",
-				eventSchemaId: input.eventSchemaId,
-				propertiesSchema: createCompletePropertiesSchema(),
-			}),
+		getEventCreateScopeForUser: (input) =>
+			Promise.resolve(
+				createEventCreateScope({
+					isBuiltin: true,
+					entitySchemaSlug: "book",
+					entityId: input.entityId,
+					eventSchemaName: "Complete",
+					eventSchemaSlug: "complete",
+					eventSchemaId: input.eventSchemaId,
+					propertiesSchema: createCompletePropertiesSchema(),
+				}),
+			),
 		...overrides,
 	});
 
@@ -230,16 +250,18 @@ export const createBuiltinReviewEventDeps = (
 	overrides: Partial<EventServiceDeps> = {},
 ): EventServiceDeps =>
 	createEventDeps({
-		getEventCreateScopeForUser: async (input) =>
-			createEventCreateScope({
-				isBuiltin: true,
-				entitySchemaSlug: "book",
-				entityId: input.entityId,
-				eventSchemaName: "Review",
-				eventSchemaSlug: "review",
-				eventSchemaId: input.eventSchemaId,
-				propertiesSchema: createReviewPropertiesSchema(),
-			}),
+		getEventCreateScopeForUser: (input) =>
+			Promise.resolve(
+				createEventCreateScope({
+					isBuiltin: true,
+					entitySchemaSlug: "book",
+					entityId: input.entityId,
+					eventSchemaName: "Review",
+					eventSchemaSlug: "review",
+					eventSchemaId: input.eventSchemaId,
+					propertiesSchema: createReviewPropertiesSchema(),
+				}),
+			),
 		...overrides,
 	});
 
@@ -247,15 +269,17 @@ export const createBuiltinWorkoutSetEventDeps = (
 	overrides: Partial<EventServiceDeps> = {},
 ): EventServiceDeps =>
 	createEventDeps({
-		getEventCreateScopeForUser: async (input) =>
-			createEventCreateScope({
-				isBuiltin: true,
-				entityId: input.entityId,
-				entitySchemaSlug: "exercise",
-				eventSchemaName: "Workout Set",
-				eventSchemaSlug: "workout-set",
-				eventSchemaId: input.eventSchemaId,
-				propertiesSchema: createWorkoutSetPropertiesSchema(),
-			}),
+		getEventCreateScopeForUser: (input) =>
+			Promise.resolve(
+				createEventCreateScope({
+					isBuiltin: true,
+					entityId: input.entityId,
+					entitySchemaSlug: "exercise",
+					eventSchemaName: "Workout Set",
+					eventSchemaSlug: "workout-set",
+					eventSchemaId: input.eventSchemaId,
+					propertiesSchema: createWorkoutSetPropertiesSchema(),
+				}),
+			),
 		...overrides,
 	});

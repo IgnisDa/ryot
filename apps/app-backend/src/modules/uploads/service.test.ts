@@ -13,13 +13,13 @@ describe("createPresignedUpload", () => {
 		);
 	});
 
-	it("generates a canonical key when filename is omitted", async () => {
-		expect(
+	it("generates a canonical key when filename is omitted", () => {
+		return expect(
 			createPresignedUpload(
 				{ contentType: "image/png" },
 				{
 					generateObjectId: () => "image_123",
-					signUploadUrl: async ({ key }) => `https://example.com/${key}`,
+					signUploadUrl: ({ key }) => Promise.resolve(`https://example.com/${key}`),
 				},
 			),
 		).resolves.toEqual({
@@ -28,13 +28,13 @@ describe("createPresignedUpload", () => {
 		});
 	});
 
-	it("uses mime-based extension for jpeg uploads", async () => {
-		expect(
+	it("uses mime-based extension for jpeg uploads", () => {
+		return expect(
 			createPresignedUpload(
 				{ contentType: "image/jpeg" },
 				{
 					generateObjectId: () => "image_456",
-					signUploadUrl: async ({ key }) => `https://example.com/${key}`,
+					signUploadUrl: ({ key }) => Promise.resolve(`https://example.com/${key}`),
 				},
 			),
 		).resolves.toEqual({
@@ -45,11 +45,11 @@ describe("createPresignedUpload", () => {
 });
 
 describe("createPresignedDownloads", () => {
-	it("returns presigned URLs for multiple keys", async () => {
-		expect(
+	it("returns presigned URLs for multiple keys", () => {
+		return expect(
 			createPresignedDownloads(
 				{ keys: ["uploads/image_123.png", "uploads/image_456.jpg"] },
-				{ signDownloadUrl: async (k: string) => `https://example.com/${k}` },
+				{ signDownloadUrl: (k: string) => Promise.resolve(`https://example.com/${k}`) },
 			),
 		).resolves.toEqual([
 			{
