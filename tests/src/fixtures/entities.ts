@@ -6,7 +6,7 @@ import { createTrackerWithSchema } from "./entity-schemas";
 
 type CreateEntityBody = ContractPayload<"entities", "create">;
 type CreateEntityInput = Omit<CreateEntityBody, "image"> & {
-	image?: CreateEntityBody["image"] | { type: "remote"; url: string } | null;
+	image?: CreateEntityBody["image"] | null;
 };
 
 type ClearEntityUserStateData = ContractSuccess<"entities", "clearUserState">;
@@ -22,41 +22,15 @@ function withRecordProperties<T extends { properties: unknown }>(
 	};
 }
 
-function normalizeEntityImage(
-	image: CreateEntityInput["image"],
-): CreateEntityBody["image"] | undefined {
-	if (image === undefined || image === null) {
-		return undefined;
-	}
-
-	if (typeof image === "string") {
-		return image;
-	}
-
-	// TODO(Task 22): Remove this tests-only image compatibility bridge once tests
-	// pass the AppContract string URL directly.
-	return image.url;
-}
-
 export async function createEntity(client: Client, cookies: string, body: CreateEntityInput) {
 	const { image, ...rest } = body;
 	const entity = await client.run(
-		(c) =>
-			c.entities.create({
-				payload: {
-					...rest,
-					...(normalizeEntityImage(image) !== undefined && {
-						image: normalizeEntityImage(image),
-					}),
-				},
-			}),
+		(c) => c.entities.create({ payload: { ...rest, ...(image != null && { image }) } }),
 		{ Cookie: cookies },
 	);
 
 	requirePresent(entity.id, "Failed to create entity");
 
-	// TODO(Task 22): Remove this tests-only entity assertion once the public
-	// AppContract exposes typed entity properties.
 	return withRecordProperties(entity);
 }
 
@@ -65,8 +39,6 @@ export async function getEntity(client: Client, cookies: string, entityId: strin
 		Cookie: cookies,
 	});
 
-	// TODO(Task 22): Remove this tests-only entity assertion once the public
-	// AppContract exposes typed entity properties.
 	return withRecordProperties(entity);
 }
 

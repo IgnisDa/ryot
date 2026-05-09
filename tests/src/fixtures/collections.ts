@@ -33,8 +33,6 @@ export async function createCollection(
 
 	requirePresent(collection.id, `Failed to create collection '${name}'`);
 
-	// TODO(Task 22): Remove this tests-only collection assertion once the public
-	// AppContract exposes typed collection properties.
 	return {
 		...collection,
 		properties: requireObjectRecord(
