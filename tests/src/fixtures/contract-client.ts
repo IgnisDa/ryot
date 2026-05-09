@@ -23,7 +23,7 @@ export const makeSession = (
 		),
 });
 
-export const getBackendClient = (): ContractSession => makeSession();
+export const getBackendClient = (baseUrl?: string): ContractSession => makeSession(baseUrl);
 
 export async function postBackendJson(path: string, body: unknown, cookies?: string) {
 	return fetch(`${getBackendUrl()}${path}`, {

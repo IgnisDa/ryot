@@ -7,6 +7,7 @@ import { LegacyBootstrapMigrateDrop, MigrationsComplete } from "#lib/infrastruct
 import { DatabaseLive } from "#lib/infrastructure/db/service";
 import { LocalStorageService } from "#lib/infrastructure/local-storage";
 import { ObservabilityLive } from "#lib/infrastructure/observability";
+import { ProKeyService } from "#lib/infrastructure/pro-key";
 import { ProviderHttpAdmissionService } from "#lib/infrastructure/provider-http-admission";
 import { RedisService } from "#lib/infrastructure/redis";
 import { S3Service } from "#lib/infrastructure/s3";
@@ -163,6 +164,7 @@ const BaseInfrastructureServicesLive = Layer.provideMerge(
 		LocalStorageService.layer,
 		ServerRun.layer,
 		S3Service.layer,
+		ProKeyService.layer,
 		FetchHttpClient.layer,
 	),
 );

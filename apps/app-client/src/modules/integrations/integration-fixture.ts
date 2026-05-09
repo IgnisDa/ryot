@@ -39,8 +39,9 @@ export const yankProvider: ListedIntegrationProvider = {
 	commonSchema,
 	slug: "komga",
 	name: "Komga",
-	pluginSlug: "media",
 	isCreatable: true,
+	pluginSlug: "media",
+	requiresProKey: false,
 	description: "Import progress and ownership from Komga",
 	settingsSchema: {
 		fields: {
@@ -73,6 +74,7 @@ export const sinkProvider: ListedIntegrationProvider = {
 	name: "Kodi",
 	isCreatable: true,
 	pluginSlug: "media",
+	requiresProKey: false,
 	settingsSchema: { fields: {} },
 	description: "Receive Kodi playback webhooks",
 	commonSchema: {
@@ -88,6 +90,15 @@ export const unavailableProvider: ListedIntegrationProvider = {
 	name: "Emby",
 	isCreatable: false,
 	description: "Receive Emby playback webhooks",
+};
+
+export const proRequiredProvider: ListedIntegrationProvider = {
+	...sinkProvider,
+	isCreatable: false,
+	requiresProKey: true,
+	slug: "youtube_music",
+	name: "YouTube Music",
+	description: "Push listens to YouTube Music",
 };
 
 export const makeIntegrationSummary = (

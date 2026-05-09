@@ -22,6 +22,8 @@ const AuthConfig = Schema.Struct({
 
 const NotificationConfig = Schema.Struct({ smtpEnabled: Schema.Boolean });
 
+const ProConfig = Schema.Struct({ isServerKeyValidated: Schema.Boolean });
+
 const UmamiConfig = Schema.Struct({ hostUrl: Schema.String, websiteId: Schema.String });
 
 const AnalyticsConfig = Schema.Struct({ umami: Schema.optional(UmamiConfig) });
@@ -32,6 +34,7 @@ const FileStorageConfig = Schema.Struct({
 });
 
 export const SystemConfigResponse = Schema.Struct({
+	pro: ProConfig,
 	auth: AuthConfig,
 	analytics: AnalyticsConfig,
 	fileStorage: FileStorageConfig,
