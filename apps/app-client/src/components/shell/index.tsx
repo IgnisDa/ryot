@@ -1,4 +1,5 @@
-import { type ReactNode, useEffect } from "react";
+import type { ReactNode } from "react";
+import { useEffect } from "react";
 import { useWindowDimensions } from "react-native";
 
 import { Box } from "@/components/ui/box";
@@ -34,7 +35,7 @@ export function ShellNavigation({ children }: Props) {
 	const isTablet = screenWidth >= TABLET_BREAKPOINT;
 
 	if (!trackers.length) {
-		return <>{children}</>;
+		return children;
 	}
 
 	const layout = isTablet ? (
