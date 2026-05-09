@@ -3,7 +3,7 @@ import { Match } from "effect";
 
 import { schema } from "#lib/db";
 import type { QueryExpression } from "#lib/query-language";
-import type { AppSchema } from "#lib/schema";
+import type { AppSchema } from "#lib/schema/core";
 import { QueryEngineValidationError } from "#lib/views/errors";
 import { normalizeExpressionPropertyType } from "#lib/views/expression-analysis";
 import type { PropertyType } from "#lib/views/reference";

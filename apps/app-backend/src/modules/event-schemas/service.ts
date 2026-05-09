@@ -4,7 +4,7 @@ import type { CurrentUserValue } from "#lib/auth";
 import { builtinEntitySchemas } from "#lib/builtins/entity-schemas";
 import { DbRunner } from "#lib/db";
 import { badRequest, conflict, notFound } from "#lib/errors";
-import { parseLabeledPropertySchemaInput } from "#lib/schema";
+import { parseLabeledPropertySchemaInput } from "#lib/schema/core";
 import { slugify } from "#lib/slug";
 import { requireText } from "#lib/validation";
 

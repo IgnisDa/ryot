@@ -3,7 +3,7 @@ import { Cause, DateTime, Effect, Exit, Match, Option, Schema } from "effect";
 
 import { DbRunner } from "#lib/db";
 import { SandboxRunError, dieOnDbError, unknownToMessage } from "#lib/errors";
-import { parseAppSchemaProperties } from "#lib/schema";
+import { parseAppSchemaProperties } from "#lib/schema/core";
 import { SandboxExecutionQueue } from "#modules/sandbox/durable-queues";
 import type { SandboxCompletedResult as SandboxCompletedResultValue } from "#modules/sandbox/schemas";
 

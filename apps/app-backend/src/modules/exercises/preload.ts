@@ -5,7 +5,7 @@ import { Cause, DateTime, Effect, Layer, Schema } from "effect";
 
 import { CurrentDb, DbRunner, dbEffect, schema } from "#lib/db";
 import { unknownToMessage } from "#lib/errors";
-import { parseAppSchemaProperties } from "#lib/schema";
+import { parseAppSchemaProperties } from "#lib/schema/core";
 import {
 	decodeEntityDetailsResult,
 	decodeEntitySearchResult,

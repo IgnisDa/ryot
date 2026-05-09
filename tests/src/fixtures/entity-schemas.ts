@@ -1,4 +1,4 @@
-import type { AppPropertyDefinition, AppSchema } from "@ryot/app-backend/schema";
+import type { AppPropertyDefinition, AppSchema } from "@ryot/app-backend/schema/core";
 
 import { assertPresent, requirePresent } from "../test-support/assertions";
 import type { Client } from "./auth";
