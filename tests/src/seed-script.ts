@@ -84,7 +84,9 @@ type ComputedFieldDef = NonNullable<SavedViewQueryDefinition["computedFields"]>[
 type EventJoinDef = NonNullable<EntitySavedViewQueryDefinition["eventJoins"]>[number];
 type SavedViewSortInput = Extract<SavedViewQueryInput["sort"], { fields: string[] }>;
 type SavedViewDisplayConfigInput = {
+	entityIdProperty?: string[] | null;
 	grid: {
+		eyebrowProperty: string[] | null;
 		imageProperty: string[] | null;
 		titleProperty: string[] | null;
 		calloutProperty: string[] | null;
@@ -92,6 +94,7 @@ type SavedViewDisplayConfigInput = {
 		secondarySubtitleProperty: string[] | null;
 	};
 	list: {
+		eyebrowProperty: string[] | null;
 		imageProperty: string[] | null;
 		titleProperty: string[] | null;
 		calloutProperty: string[] | null;
@@ -578,10 +581,17 @@ async function createSavedView(
 		},
 	} satisfies SavedViewQueryDefinition;
 	const normalizedDisplayConfiguration: SavedViewDisplayConfiguration = {
+		entityIdProperty:
+			toExpression(
+				displayConfiguration.entityIdProperty ??
+					queryDefinition.scope.map((slug) => schemaField(slug, "id")),
+			) ?? literalExpression(null),
 		grid: {
 			...displayConfiguration.grid,
+			eyebrowProperty: toExpression(displayConfiguration.grid.eyebrowProperty) ?? null,
 			imageProperty: toExpression(displayConfiguration.grid.imageProperty) ?? null,
-			titleProperty: toExpression(displayConfiguration.grid.titleProperty) ?? null,
+			titleProperty:
+				toExpression(displayConfiguration.grid.titleProperty) ?? literalExpression(null),
 			calloutProperty: toExpression(displayConfiguration.grid.calloutProperty) ?? null,
 			primarySubtitleProperty:
 				toExpression(displayConfiguration.grid.primarySubtitleProperty) ?? null,
@@ -590,8 +600,10 @@ async function createSavedView(
 		},
 		list: {
 			...displayConfiguration.list,
+			eyebrowProperty: toExpression(displayConfiguration.list.eyebrowProperty) ?? null,
 			imageProperty: toExpression(displayConfiguration.list.imageProperty) ?? null,
-			titleProperty: toExpression(displayConfiguration.list.titleProperty) ?? null,
+			titleProperty:
+				toExpression(displayConfiguration.list.titleProperty) ?? literalExpression(null),
 			calloutProperty: toExpression(displayConfiguration.list.calloutProperty) ?? null,
 			primarySubtitleProperty:
 				toExpression(displayConfiguration.list.primarySubtitleProperty) ?? null,
@@ -774,7 +786,9 @@ function cardConfig(
 	calloutProperty: string[] | null,
 	primarySubtitleProperty: string[] | null,
 	secondarySubtitleProperty: string[] | null = null,
+	eyebrowProperty: string[] | null = null,
 ): {
+	eyebrowProperty: string[] | null;
 	imageProperty: string[] | null;
 	titleProperty: string[] | null;
 	calloutProperty: string[] | null;
@@ -782,6 +796,7 @@ function cardConfig(
 	secondarySubtitleProperty: string[] | null;
 } {
 	return {
+		eyebrowProperty,
 		imageProperty,
 		titleProperty,
 		calloutProperty,
@@ -800,6 +815,7 @@ function sortDefinition(direction: "asc" | "desc", ...fields: string[]): SavedVi
 
 function buildDisplayConfiguration(
 	grid: {
+		eyebrowProperty: string[] | null;
 		imageProperty: string[] | null;
 		titleProperty: string[] | null;
 		calloutProperty: string[] | null;
