@@ -10,8 +10,12 @@ import { ShowActivity } from "./show-activity";
 import { decodeShowActivity } from "./show-activity-fixture";
 import { mapShowActivity, type ShowActivityState } from "./show-activity-state";
 import { ShowEpisodes } from "./show-episodes";
-import { decodeShowEpisodesResult } from "./show-episodes-fixture";
-import { mapShowEpisodes, type ShowEpisodesState } from "./show-episodes-state";
+import { decodeShowEpisodesResult, decodeShowSeasonEpisodesResult } from "./show-episodes-fixture";
+import {
+	mapShowEpisodes,
+	mapShowSeasonEpisodes,
+	type ShowEpisodesState,
+} from "./show-episodes-state";
 import {
 	decodeShowOverview,
 	emptyShowOverview,
@@ -40,7 +44,18 @@ function EpisodesTabProbe(props: { readonly onLoad: () => void }) {
 	useEffect(() => {
 		onLoad();
 	}, [onLoad]);
-	return <ShowEpisodes state={episodesState()} refresh={() => undefined} />;
+	return (
+		<ShowEpisodes
+			selectedId={null}
+			state={episodesState()}
+			onSelect={() => undefined}
+			refresh={() => undefined}
+			onRefreshSeason={() => undefined}
+			seasonEpisodes={mapShowSeasonEpisodes(
+				AsyncResult.success(decodeShowSeasonEpisodesResult({})),
+			)}
+		/>
+	);
 }
 
 function ActivityTabProbe(props: { readonly onLoad: () => void }) {
