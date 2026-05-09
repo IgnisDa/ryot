@@ -79,13 +79,30 @@ export function ShellRail({ translateX, onClose, pinned = false }: Props) {
 	);
 	const pathname = usePathname();
 	const segments = pathname.split("/").filter(Boolean);
-	const activeTrackerSlug = segments[0] || "home";
+	const isViewPath = segments[0] === "views";
+	const activeViewSlug = isViewPath ? (segments[1] ?? null) : null;
+	const activeTrackerSlug = isViewPath
+		? (trackers.find((t) => t.subItems.some((s) => s.slug === activeViewSlug))
+				?.slug ?? "home")
+		: segments[0] || "home";
 
 	const railStyle = useAnimatedStyle(() => ({
 		transform: [{ translateX: translateX?.value ?? 0 }],
 	}));
 
 	function handlePress(item: NavigationItem) {
+		if (item.kind === "view") {
+			if (isViewPath && item.slug === activeViewSlug) {
+				return;
+			}
+			router.push(`/views/${item.slug}` as Href);
+			if (!pinned && translateX) {
+				translateX.value = withSpring(RAIL_WIDTH, SPRING_CONFIG, () => {
+					scheduleOnRN(onClose);
+				});
+			}
+			return;
+		}
 		if (item.slug === activeTrackerSlug) {
 			if (item.subItems.length > 0) {
 				setSubFlyoutOpen((prev) => !prev);
@@ -140,7 +157,7 @@ export function ShellRail({ translateX, onClose, pinned = false }: Props) {
 									key={view.key}
 									item={view}
 									onPress={() => handlePress(view)}
-									isActive={view.slug === activeTrackerSlug}
+									isActive={isViewPath && view.slug === activeViewSlug}
 								/>
 							))}
 						</>
