@@ -469,7 +469,7 @@ describe("DELETE /entities/:id/user-state", () => {
 		const libraryEntityId = await getLibraryEntityId(userId);
 
 		const error = await client.runError((c) =>
-			c.entities.clearUserState({ path: { entityId: libraryEntityId } }),
+			c.userState.clearUserState({ path: { entityId: libraryEntityId } }),
 		);
 
 		assertTaggedError(error, "BadRequest");
@@ -480,7 +480,7 @@ describe("DELETE /entities/:id/user-state", () => {
 		const client = getBackendClient();
 
 		const error = await client.runError((c) =>
-			c.entities.clearUserState({ path: { entityId: "entity_1" } }),
+			c.userState.clearUserState({ path: { entityId: "entity_1" } }),
 		);
 
 		assertTaggedError(error, "Unauthorized");

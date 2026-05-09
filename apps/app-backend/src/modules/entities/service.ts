@@ -4,16 +4,17 @@ import { Effect, Redacted } from "effect";
 
 import type { CurrentUserValue } from "#lib/auth";
 import { AppConfig } from "#lib/config";
-import { DbRunner, TransactionRunner } from "#lib/db";
+import { DbRunner } from "#lib/db";
 import type { BadRequest, DbError, NotFound } from "#lib/errors";
 import { badRequest, notFound } from "#lib/errors";
 import { createWorkflowJobId, resolveWorkflowExecutionId } from "#lib/job-id";
 import { parseAppSchemaProperties } from "#lib/schema/core";
 import { requireText, trimToNull } from "#lib/validation";
 import { RelationshipSchemasRepository } from "#modules/relationship-schemas/repository";
+import { RelationshipsRepository, type SavedRelationship } from "#modules/relationships/repository";
 import { SandboxRepository } from "#modules/sandbox/repository";
 
-import { EntitiesRepository, type SavedRelationship } from "./repository";
+import { EntitiesRepository } from "./repository";
 import type { CreateEntityBody, ListedEntity } from "./schemas";
 import {
 	EntityImportWorkflow,
@@ -26,7 +27,6 @@ const entitySchemaNotFoundError = "Entity schema not found";
 const importJobNotFoundError = "Entity import job not found";
 const sandboxScriptNotFoundError = "Sandbox script not found";
 const relationshipSchemaNotFoundError = "Relationship schema not found";
-const libraryEntityUserStateError = "Library entity user state cannot be cleared";
 const partialProvenanceError =
 	"externalId and sandboxScriptId must both be provided or both be omitted";
 
@@ -64,13 +64,6 @@ type EntitiesServiceShape = {
 		user: CurrentUserValue,
 		entityIdInput: string,
 	) => Effect.Effect<ListedEntity, BadRequest | DbError | NotFound>;
-	readonly clearUserState: (
-		user: CurrentUserValue,
-		entityIdInput: string,
-	) => Effect.Effect<
-		{ entityId: string; deletedEventsCount: number; deletedRelationshipsCount: number },
-		BadRequest | DbError | NotFound
-	>;
 	readonly import: (
 		user: CurrentUserValue,
 		payload: { scriptId: string; externalId: string; entitySchemaId: string },
@@ -107,8 +100,8 @@ export class EntitiesService extends Effect.Service<EntitiesService>()("Entities
 		const runWithDb = yield* DbRunner;
 		const engine = yield* WorkflowEngine;
 		const repository = yield* EntitiesRepository;
-		const runInTransaction = yield* TransactionRunner;
 		const sandboxRepository = yield* SandboxRepository;
+		const relationshipsRepository = yield* RelationshipsRepository;
 		const jobIdSecret = Redacted.value(config.sandbox.jobIdSecret);
 		const relationshipSchemasRepository = yield* RelationshipSchemasRepository;
 
@@ -192,39 +185,6 @@ export class EntitiesService extends Effect.Service<EntitiesService>()("Entities
 					}
 
 					return entity;
-				}),
-			clearUserState: (user: CurrentUserValue, entityIdInput: string) =>
-				Effect.gen(function* () {
-					const entityId = trimToNull(entityIdInput);
-					if (!entityId) {
-						return yield* badRequest("Entity id is required");
-					}
-
-					const scope = yield* runWithDb(
-						repository.getEntityScopeForUser({ userId: user.id, entityId }),
-					);
-					if (!scope) {
-						return yield* notFound(entityNotFoundError);
-					}
-
-					if (scope.entitySchemaSlug === "library") {
-						return yield* badRequest(libraryEntityUserStateError);
-					}
-
-					return yield* runInTransaction(
-						Effect.gen(function* () {
-							const deletedEventsCount = yield* repository.deleteUserEventsForEntity({
-								entityId,
-								userId: user.id,
-							});
-							const deletedRelationshipsCount = yield* repository.deleteUserRelationshipsForEntity({
-								entityId,
-								userId: user.id,
-							});
-
-							return { entityId, deletedEventsCount, deletedRelationshipsCount };
-						}),
-					);
 				}),
 			import: (
 				user: CurrentUserValue,
@@ -324,7 +284,7 @@ export class EntitiesService extends Effect.Service<EntitiesService>()("Entities
 					}).pipe(Effect.mapError((error) => badRequest(error.message)));
 
 					return yield* runWithDb(
-						repository.upsertRelationship({
+						relationshipsRepository.upsertRelationship({
 							...input,
 							properties,
 						}),
@@ -375,7 +335,9 @@ export class EntitiesService extends Effect.Service<EntitiesService>()("Entities
 						propertiesSchema: relationshipSchema.propertiesSchema,
 					}).pipe(Effect.mapError((error) => badRequest(error.message)));
 
-					return yield* runWithDb(repository.insertRelationship({ ...input, properties }));
+					return yield* runWithDb(
+						relationshipsRepository.insertRelationship({ ...input, properties }),
+					);
 				}),
 			writeEntityRelationship: (input: {
 				sourceEntityId: string;
@@ -411,7 +373,9 @@ export class EntitiesService extends Effect.Service<EntitiesService>()("Entities
 						propertiesSchema: relationshipSchema.propertiesSchema,
 					}).pipe(Effect.mapError((error) => badRequest(error.message)));
 
-					return yield* runWithDb(repository.upsertEntityRelationship({ ...input, properties }));
+					return yield* runWithDb(
+						relationshipsRepository.upsertEntityRelationship({ ...input, properties }),
+					);
 				}),
 		} satisfies EntitiesServiceShape;
 	}),

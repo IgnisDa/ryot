@@ -61,14 +61,6 @@ export const CreateEntityBody = Schema.Struct({
 
 export type CreateEntityBody = typeof CreateEntityBody.Type;
 
-export const ClearUserStateResponse = Schema.Struct({
-	entityId: Schema.String,
-	deletedEventsCount: Schema.Number,
-	deletedRelationshipsCount: Schema.Number,
-});
-
-export type ClearUserStateResponse = typeof ClearUserStateResponse.Type;
-
 export const ImportEntityBody = Schema.Struct({
 	scriptId: Schema.String,
 	externalId: Schema.String,

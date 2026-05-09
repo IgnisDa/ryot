@@ -31,6 +31,7 @@ import {
 	BuiltinEntityPreloaderLive,
 	BuiltinExercisePreloadWorkflowLive,
 } from "#modules/exercises/preload";
+import { GodModeRepository } from "#modules/god-mode/repository";
 import { GodModeService } from "#modules/god-mode/service";
 import { ImportsRepository } from "#modules/imports/repository";
 import { ImportsService } from "#modules/imports/service";
@@ -42,6 +43,7 @@ import { IntegrationWorkflowDefinitionsLive } from "#modules/integrations/workfl
 import { QueryEngineService } from "#modules/query-engine/service";
 import { RelationshipSchemasRepository } from "#modules/relationship-schemas/repository";
 import { RelationshipSchemasService } from "#modules/relationship-schemas/service";
+import { RelationshipsRepository } from "#modules/relationships/repository";
 import { SandboxRepository } from "#modules/sandbox/repository";
 import { SandboxApiService } from "#modules/sandbox/service";
 import { SandboxWorkflowDefinitionsLive } from "#modules/sandbox/workflows";
@@ -50,6 +52,7 @@ import { SavedViewsService } from "#modules/saved-views/service";
 import { TrackersRepository } from "#modules/trackers/repository";
 import { TrackersService } from "#modules/trackers/service";
 import { UploadsService } from "#modules/uploads/service";
+import { UserStateService } from "#modules/user-state/service";
 
 import { ServerLive } from "./server";
 
@@ -70,9 +73,11 @@ const RepositoriesLive = Layer.mergeAll(
 	EntitySchemasRepository.Default,
 	EventSchemasRepository.Default,
 	EventsRepository.Default,
+	GodModeRepository.Default,
 	ImportsRepository.Default,
 	IntegrationsRepository.Default,
 	RelationshipSchemasRepository.Default,
+	RelationshipsRepository.Default,
 	SandboxRepository.Default,
 	SavedViewsRepository.Default,
 	TrackersRepository.Default,
@@ -119,6 +124,7 @@ const ServicesNeedingCollectionsScopeLive = Layer.mergeAll(
 	SavedViewsServiceLive,
 	TrackersService.Default,
 	UploadsService.Default,
+	UserStateService.Default,
 );
 
 const CollectionsServicesLive = Layer.provideMerge(
