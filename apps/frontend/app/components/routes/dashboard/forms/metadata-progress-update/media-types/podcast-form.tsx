@@ -9,8 +9,9 @@ import type { MediaFormProps } from "../utils/form-types";
 export const PodcastForm = (props: MediaFormProps) => {
 	const { metadataToUpdate, updateMetadataToUpdate } = useMetadataProgressUpdate();
 	const [{ data: metadataDetails }] = useMetadataDetails(props.metadataId);
-	if (!metadataDetails || metadataDetails.lot !== MediaLot.Podcast || !metadataToUpdate)
+	if (!metadataDetails || metadataDetails.lot !== MediaLot.Podcast || !metadataToUpdate) {
 		return null;
+	}
 
 	return (
 		<>
