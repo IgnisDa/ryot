@@ -4,16 +4,7 @@ import { atom, useAtomValue, useSetAtom } from "jotai";
 import { useCallback, useMemo } from "react";
 
 import { useApiClient } from "@/lib/api-client";
-import {
-	buildNavigationItems,
-	navHref,
-	type NavigationItem,
-	type NavigationSubItem,
-	unwrapData,
-} from "@/lib/navigation-data";
-
-export type { NavigationItem, NavigationSubItem };
-export { navHref };
+import { buildNavigationItems, type NavigationItem, unwrapData } from "@/lib/navigation-data";
 
 const navSheetOpenAtom = atom(false);
 const subFlyoutOpenAtom = atom(false);
