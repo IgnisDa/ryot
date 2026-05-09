@@ -5,10 +5,10 @@ import {
 	createAuthenticatedClient,
 	createNotificationChannel,
 	enableMediaMonitoring,
-	enqueueEntityImport,
+	enqueueProviderEntityImport,
 	fakeProviderDetailsResult,
 	getBuiltinEntitySchemaSlug,
-	pollEntityImportResult,
+	pollProviderEntityImportResult,
 	installTestProvider,
 	seedMediaEntity,
 	startFakeAppriseServer,
@@ -97,12 +97,12 @@ describe("company and media-group association variants", () => {
 			});
 			yield* enableMediaMonitoring(companyMonitor.client, company.id);
 
-			const { jobId } = yield* enqueueEntityImport(importer.client, {
+			const { jobId } = yield* enqueueProviderEntityImport(importer.client, {
 				externalId: movieExternalId,
 				entitySchemaSlug: EntitySchemaSlug.make(movieSchemaId),
 				providerId: SandboxProviderId.make(movieProvider.providerId),
 			});
-			const result = yield* pollEntityImportResult(importer.client, jobId);
+			const result = yield* pollProviderEntityImportResult(importer.client, jobId);
 			assertCompleted(result, "company association media import");
 
 			const delivered = yield* pollNotificationBody("company-monitor");
@@ -219,12 +219,12 @@ describe("company and media-group association variants", () => {
 				enableMediaMonitoring(companyMonitor.client, company.id),
 			]);
 
-			const { jobId } = yield* enqueueEntityImport(importer.client, {
+			const { jobId } = yield* enqueueProviderEntityImport(importer.client, {
 				externalId: musicGroupExternalId,
 				entitySchemaSlug: EntitySchemaSlug.make(musicGroupSchemaId),
 				providerId: SandboxProviderId.make(musicGroupProvider.providerId),
 			});
-			const result = yield* pollEntityImportResult(importer.client, jobId);
+			const result = yield* pollProviderEntityImportResult(importer.client, jobId);
 			assertCompleted(result, "media-group association import");
 
 			const [personDelivered, companyDelivered] = yield* Effect.all([

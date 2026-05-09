@@ -3,7 +3,6 @@ import {
 	PluginSlug,
 	type SandboxProviderId,
 	type SandboxScriptId,
-	UserId,
 } from "@ryot/contract/schema/brands";
 import { Brand, Effect } from "effect";
 
@@ -16,12 +15,8 @@ import { createPluginScope, listInstalledPlugins } from "./plugins";
 import { pollUntil } from "./polling";
 import { installTestDefinitions } from "./test-plugin";
 
-type EnqueueEntitySearchBody = Omit<
-	ContractPayload<"testSupport", "enqueueSandbox">,
-	"executingUserId"
->;
-
-type EnqueueEntityImportBody = ContractPayload<"entityImport", "import">;
+type SearchProviderEntitiesBody = ContractPayload<"providerEntities", "search">;
+type ImportProviderEntityBody = ContractPayload<"providerEntities", "import">;
 type EntitySchemaInputSlug = ContractPayload<"entities", "create">["entitySchemaSlug"];
 type PluginManifest = ContractPayload<"plugins", "install">["manifest"];
 type PluginEntitySchema = PluginManifest["entitySchemas"][number];
@@ -179,34 +174,22 @@ export const listBuiltinEntitySchemas = (client: Client) =>
 export const findBuiltinSchemaWithProviders = (client: Client) =>
 	findBuiltinSchemaBySlug(client, "book");
 
-export const enqueueEntitySearch = (executingUserId: string, body: EnqueueEntitySearchBody) =>
-	Effect.gen(function* () {
-		const result = yield* getBackendClient().call(
-			(c) =>
-				c.testSupport.enqueueSandbox({
-					payload: { ...body, executingUserId: UserId.make(executingUserId) },
-				}),
-			adminHeaders,
-		);
+export const searchProviderEntities = (client: Client, body: SearchProviderEntitiesBody) =>
+	client.call((c) => c.providerEntities.search({ payload: body }));
 
-		return {
-			jobId: requirePresent(result.jobId, "Failed to enqueue entity search"),
-		};
-	});
-
-export const enqueueEntityImport = (client: Client, body: EnqueueEntityImportBody) =>
+export const enqueueProviderEntityImport = (client: Client, body: ImportProviderEntityBody) =>
 	Effect.gen(function* () {
-		const result = yield* client.call((c) => c.entityImport.import({ payload: body }));
+		const result = yield* client.call((c) => c.providerEntities.import({ payload: body }));
 
 		return { jobId: requirePresent(result.jobId, "Failed to enqueue entity import") };
 	});
 
-export const pollEntityImportResult = (client: Client, jobId: string) =>
+export const pollProviderEntityImportResult = (client: Client, jobId: string) =>
 	pollUntil(
 		`entity import job '${jobId}'`,
 		Effect.gen(function* () {
 			const result = yield* client.call((c) =>
-				c.entityImport.getImportResult({ params: { jobId } }),
+				c.providerEntities.getImportResult({ params: { jobId } }),
 			);
 			return result.status !== "pending" ? result : null;
 		}),
