@@ -212,5 +212,23 @@ export class TrackersRepository extends Effect.Service<TrackersRepository>()("Tr
 
 						return trackerIds;
 					}),
+		linkEntitySchema: (input: { trackerId: string; entitySchemaId: string }) =>
+			Effect.gen(function* () {
+				const db = yield* CurrentDb;
+				const [row] = yield* dbEffect(() =>
+					db
+						.insert(schema.trackerEntitySchema)
+						.values({ trackerId: input.trackerId, entitySchemaId: input.entitySchemaId })
+						.returning({ trackerId: schema.trackerEntitySchema.trackerId }),
+				);
+
+				if (!row) {
+					return yield* new DbError({
+						message: "Tracker entity schema link insert returned no row",
+					});
+				}
+
+				return row.trackerId;
+			}),
 	}),
 }) {}
