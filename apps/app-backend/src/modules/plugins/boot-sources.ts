@@ -1,5 +1,5 @@
 import fitnessPlugin from "@ryot/fitness-plugin";
-import mediaPlugin from "@ryot/media-fitness";
+import mediaPlugin from "@ryot/media-plugin";
 
 const packageRoot = (name: "fitness" | "media") =>
 	new URL(`../../../../../plugins/${name}/`, import.meta.url).pathname;

@@ -1,4 +1,4 @@
-import { builtinMediaEntitySchemaSlugs } from "@ryot/media-fitness/schemas/media-schema-slugs";
+import { builtinMediaEntitySchemaSlugs } from "@ryot/media-plugin/schemas/media-schema-slugs";
 import { Effect } from "effect";
 
 import { sandboxProvider } from "#lib/infrastructure/db/schema/tables/combined";
