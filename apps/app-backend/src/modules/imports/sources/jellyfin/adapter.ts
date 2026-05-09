@@ -11,6 +11,7 @@ import type {
 	MediaImportAdapterFailure,
 	MediaImportAdapterResult,
 } from "../../media/import-processor";
+import type { ImportMediaEntityGroup } from "../../media/types";
 import { requestSourceJson } from "../../runtime/source-api";
 import { createSourceFetchFailure, isNotNullAdapterFailure } from "../shared/adapter-utils";
 import { buildMovieOrShowImportRef } from "../shared/provider-refs";
@@ -83,7 +84,7 @@ const createJellyfinAuthHeaders = (accessToken?: string): Record<string, string>
 export const adaptJellyfinData = (input: JellyfinAdapterInput) =>
 	Effect.gen(function* () {
 		const failures: MediaImportAdapterFailure[] = [];
-		const groupMap = new Map<string, ReturnType<typeof getOrCreateMediaEntityGroup>>();
+		const groupMap = new Map<string, ImportMediaEntityGroup>();
 		const host = new URL(input.apiUrl).host;
 
 		const authResponse = yield* requestSourceJson({

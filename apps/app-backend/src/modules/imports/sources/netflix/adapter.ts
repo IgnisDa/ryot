@@ -13,7 +13,7 @@ import type {
 	MediaImportAdapterFailure,
 	MediaImportAdapterResult,
 } from "../../media/import-processor";
-import type { ResolvedImportEntityRef } from "../../media/types";
+import type { ImportMediaEntityGroup, ResolvedImportEntityRef } from "../../media/types";
 import { parseCsvText, readRequiredCsvCell } from "../../runtime/csv";
 import {
 	extractNetflixBaseTitle,
@@ -271,7 +271,7 @@ export const adaptNetflixExports = (
 		});
 
 		const failures: MediaImportAdapterFailure[] = [];
-		const groupMap = new Map<string, ReturnType<typeof getOrCreateMediaEntityGroup>>();
+		const groupMap = new Map<string, ImportMediaEntityGroup>();
 		const importedAt = input.importedAt;
 		const titleContext = new Map<string, "movie" | "show">();
 

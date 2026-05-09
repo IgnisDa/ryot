@@ -7,7 +7,7 @@ import type {
 	MediaImportAdapterFailure,
 	MediaImportAdapterResult,
 } from "../../media/import-processor";
-import type { ImportEntityRef } from "../../media/types";
+import type { ImportEntityRef, ImportMediaEntityGroup } from "../../media/types";
 import { requestSourceJson } from "../../runtime/source-api";
 import { createSourceFetchFailure, isNotNullAdapterFailure } from "../shared/adapter-utils";
 import { buildMovieOrShowImportRef } from "../shared/provider-refs";
@@ -75,7 +75,7 @@ export const adaptPlexData = (input: PlexAdapterInput) =>
 		const host = new URL(input.apiUrl).host;
 		const headers = createPlexHeaders(input.apiKey);
 		const failures: MediaImportAdapterFailure[] = [];
-		const groupMap = new Map<string, ReturnType<typeof getOrCreateMediaEntityGroup>>();
+		const groupMap = new Map<string, ImportMediaEntityGroup>();
 
 		const librariesResponse = yield* requestSourceJson({
 			headers,

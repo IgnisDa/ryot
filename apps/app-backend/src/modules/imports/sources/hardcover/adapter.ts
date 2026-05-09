@@ -20,6 +20,7 @@ import type {
 	MediaImportAdapterFailure,
 	MediaImportAdapterResult,
 } from "../../media/import-processor";
+import type { ImportMediaEntityGroup } from "../../media/types";
 import { parseCsvText } from "../../runtime/csv";
 
 const sanitizeListName = (value: string): string => value.replace(/\s*\(#\d+\)\s*$/, "").trim();
@@ -29,7 +30,7 @@ export const adaptHardcoverCsv = (csvText: string): MediaImportAdapterResult => 
 	assertRequiredHeaders(headers, ["Title", "Status", "Hardcover Book ID"], "Hardcover");
 
 	const failures: MediaImportAdapterFailure[] = [];
-	const groupMap = new Map<string, ReturnType<typeof getOrCreateMediaEntityGroup>>();
+	const groupMap = new Map<string, ImportMediaEntityGroup>();
 
 	for (let itemIndex = 0; itemIndex < rows.length; itemIndex++) {
 		const row = rows[itemIndex];

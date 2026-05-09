@@ -16,6 +16,7 @@ import type {
 	MediaImportAdapterFailure,
 	MediaImportAdapterResult,
 } from "../../media/import-processor";
+import type { ImportMediaEntityGroup } from "../../media/types";
 
 const WatcharrActivity = Schema.Struct({
 	type: Schema.String,
@@ -104,7 +105,7 @@ export const adaptWatcharrExport = (jsonText: string): MediaImportAdapterResult 
 	}
 
 	const failures: MediaImportAdapterFailure[] = [];
-	const groupMap = new Map<string, ReturnType<typeof getOrCreateMediaEntityGroup>>();
+	const groupMap = new Map<string, ImportMediaEntityGroup>();
 
 	for (let itemIndex = 0; itemIndex < parsed.length; itemIndex++) {
 		const rawItem = parsed[itemIndex];
