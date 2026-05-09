@@ -3,7 +3,7 @@ import { Effect } from "effect";
 import type { CurrentUserValue } from "#lib/auth";
 import { builtinEntitySchemas } from "#lib/builtins/entity-schemas";
 import { DbRunner, TransactionRunner } from "#lib/db";
-import { badRequest, notFound } from "#lib/errors";
+import { badRequest, conflict, notFound } from "#lib/errors";
 import { parseLabeledPropertySchemaInput } from "#lib/schema";
 import { slugify } from "#lib/slug";
 import { requireText, trimToNull } from "#lib/validation";
@@ -110,7 +110,7 @@ export class EntitySchemasService extends Effect.Service<EntitySchemasService>()
 
 						const existing = yield* runWithDb(repository.findBySlug(user.id, resolved.slug));
 						if (existing) {
-							return yield* badRequest("Entity schema slug already exists");
+							return yield* conflict("Entity schema slug already exists");
 						}
 
 						return yield* runInTransaction(

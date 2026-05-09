@@ -384,7 +384,7 @@ describe("POST /entity-schemas", () => {
 		expect(error.message).toBe("Tracker not found");
 	});
 
-	it("returns 400 when slug already exists for user", async () => {
+	it("returns 409 when slug already exists for user", async () => {
 		const { client } = await createAuthenticatedClient();
 
 		const { trackerId } = await createTracker(client, {
@@ -414,7 +414,7 @@ describe("POST /entity-schemas", () => {
 			}),
 		);
 
-		assertTaggedError(error, "BadRequest");
+		assertTaggedError(error, "Conflict");
 		expect(error.message).toBe("Entity schema slug already exists");
 	});
 
