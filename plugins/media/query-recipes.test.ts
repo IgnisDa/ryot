@@ -69,10 +69,26 @@ describe("media query recipes", () => {
 		expect(seasons).toMatchObject({ key: "seasons", limit: 4 });
 		expect(episodes).toMatchObject({ key: "episodes", limit: 12 });
 		expect(
+			seasons && "fields" in seasons
+				? seasons.fields.map((field) => ("key" in field ? field.key : null))
+				: [],
+		).toEqual(["id", "name", "schemaSlug", "seasonNumber", "images", "releaseDate", "description"]);
+		expect(
 			episodes && "fields" in episodes
 				? episodes.fields.map((field) => ("key" in field ? field.key : null))
 				: [],
-		).toEqual(["id", "name", "schemaSlug", "state", "episodeNumber"]);
+		).toEqual([
+			"id",
+			"name",
+			"schemaSlug",
+			"state",
+			"episodeNumber",
+			"seasonNumber",
+			"images",
+			"runtime",
+			"publishDate",
+			"description",
+		]);
 	});
 
 	it("builds podcast details with parent and episode lifecycle state", () => {
