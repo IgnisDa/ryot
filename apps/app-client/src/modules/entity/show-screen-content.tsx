@@ -1,3 +1,4 @@
+import { Match } from "effect";
 import { type ReactNode, useState } from "react";
 
 import { ShowOverview } from "./show-overview";
@@ -14,6 +15,7 @@ import { ShowTabBar, type ShowTabKey } from "./show-tabs";
 export function ShowScreenContent(props: {
 	readonly refresh: () => void;
 	readonly episodes: ReactNode;
+	readonly activity: ReactNode;
 	readonly state: ShowSummaryState;
 	readonly refreshOverview: () => void;
 	readonly overview: ShowOverviewState;
@@ -38,14 +40,17 @@ export function ShowScreenContent(props: {
 		<>
 			<ShowSummaryHeader show={state.show} />
 			<ShowTabBar activeTab={activeTab} onSelect={setActiveTab} />
-			{activeTab === "episodes" ? (
-				props.episodes
-			) : (
-				<ShowOverview
-					show={state.show}
-					overview={props.overview}
-					refreshOverview={props.refreshOverview}
-				/>
+			{Match.value(activeTab).pipe(
+				Match.when("episodes", () => props.episodes),
+				Match.when("activity", () => props.activity),
+				Match.when("overview", () => (
+					<ShowOverview
+						show={state.show}
+						overview={props.overview}
+						refreshOverview={props.refreshOverview}
+					/>
+				)),
+				Match.exhaustive,
 			)}
 		</>
 	);

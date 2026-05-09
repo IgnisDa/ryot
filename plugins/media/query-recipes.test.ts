@@ -7,6 +7,7 @@ import {
 	podcastsByLifecycleStateRecipe,
 	showDetailRecipe,
 	showsByLifecycleStateRecipe,
+	showActivityRecipe,
 	showOverviewRecipe,
 	showSummaryRecipe,
 	trendingMediaRecipe,
@@ -14,6 +15,84 @@ import {
 
 const showRows = (items: readonly Record<string, unknown>[]) =>
 	rowsResult(items, { hasMore: false, limit: 1, nextCursor: null });
+
+const ACTIVITY_RECIPE = showActivityRecipe({
+	entityId: "show-1",
+	parentEventLimit: 60,
+	episodeEventLimit: 100,
+	episodeProgressLimit: 100,
+});
+
+const activityRows = (items: readonly Record<string, unknown>[]) =>
+	rowsResult(items, { hasMore: false, limit: 100, nextCursor: null });
+
+const progressRows = (items: readonly Record<string, unknown>[]) =>
+	activityRows(
+		items.map(({ id, createdAt, occurredAt, consumedOn, progressPercent, ...episode }) => ({
+			...episode,
+			milestone: {
+				pageInfo: { hasMore: false, limit: 1 },
+				items: [{ id, createdAt, occurredAt, consumedOn, progressPercent }],
+			},
+		})),
+	);
+
+const PARENT_EVENT_ROW = {
+	text: null,
+	rating: null,
+	timeSpent: null,
+	isSpoiler: null,
+	consumedOn: null,
+	id: "parent-complete",
+	eventSchemaSlug: "complete",
+	createdAt: "2024-02-02T10:00:00.000Z",
+	occurredAt: "2024-02-02T09:00:00.000Z",
+};
+
+const EPISODE_EVENT_ROW = {
+	text: null,
+	rating: null,
+	seasonNumber: 1,
+	timeSpent: null,
+	isSpoiler: null,
+	episodeNumber: 1,
+	id: "episode-complete",
+	consumedOn: "Jellyfin",
+	episodeId: "episode-1",
+	episodeName: "The Arrest",
+	eventSchemaSlug: "complete",
+	createdAt: "2024-02-01T10:00:00.000Z",
+	occurredAt: "2024-02-01T09:00:00.000Z",
+	episodeImages: [{ type: "remote", url: "https://images.test/e1.jpg", purpose: "still" }],
+};
+
+const EPISODE_PROGRESS_ROW = {
+	seasonNumber: 0,
+	consumedOn: null,
+	episodeNumber: 3,
+	progressPercent: 40,
+	episodeImages: null,
+	id: "special-progress",
+	episodeId: "special-3",
+	episodeName: "Behind the scenes",
+	createdAt: "2024-02-03T10:00:00.000Z",
+	occurredAt: "2024-02-03T09:00:00.000Z",
+};
+
+const decodeActivity = (
+	input: {
+		readonly parentEvents?: readonly Record<string, unknown>[];
+		readonly episodeEvents?: readonly Record<string, unknown>[];
+		readonly episodeProgress?: readonly Record<string, unknown>[];
+	} = {},
+) =>
+	ACTIVITY_RECIPE.decode({
+		data: {
+			parentEvents: activityRows(input.parentEvents ?? []),
+			episodeEvents: activityRows(input.episodeEvents ?? []),
+			episodeProgress: progressRows(input.episodeProgress ?? []),
+		},
+	});
 
 const OVERVIEW_RECIPE = showOverviewRecipe({
 	peopleLimit: 12,
@@ -648,6 +727,273 @@ describe("media query recipes", () => {
 						},
 					]),
 				},
+			})._tag,
+		).toBe("Failure");
+	});
+	it("builds show activity from parent, episode and progress queries with caller-owned limits", () => {
+		const parentEvents = ACTIVITY_RECIPE.document.queries["parentEvents"];
+		const episodeEvents = ACTIVITY_RECIPE.document.queries["episodeEvents"];
+		const episodeProgress = ACTIVITY_RECIPE.document.queries["episodeProgress"];
+		if (
+			parentEvents?.output.type !== "rows" ||
+			episodeEvents?.output.type !== "rows" ||
+			episodeProgress?.output.type !== "rows"
+		) {
+			throw new Error("Expected parent, episode and progress rows queries");
+		}
+
+		expect(parentEvents.joins).toBeUndefined();
+		expect(parentEvents.output.pagination).toMatchObject({ limit: 60 });
+		expect(episodeEvents.output.pagination).toMatchObject({ limit: 100 });
+		expect(episodeProgress.output.pagination).toMatchObject({ limit: 100 });
+		expect(parentEvents.output.fields.map((field) => ("key" in field ? field.key : null))).toEqual([
+			"id",
+			"text",
+			"createdAt",
+			"occurredAt",
+			"rating",
+			"timeSpent",
+			"isSpoiler",
+			"consumedOn",
+			"eventSchemaSlug",
+		]);
+		expect(episodeEvents.output.fields.map((field) => ("key" in field ? field.key : null))).toEqual(
+			[
+				"id",
+				"text",
+				"createdAt",
+				"occurredAt",
+				"rating",
+				"timeSpent",
+				"isSpoiler",
+				"consumedOn",
+				"episodeId",
+				"episodeName",
+				"episodeImages",
+				"seasonNumber",
+				"episodeNumber",
+				"eventSchemaSlug",
+			],
+		);
+		expect(
+			episodeProgress.output.fields.map((field) => ("key" in field ? field.key : null)),
+		).toEqual(["episodeId", "episodeName", "episodeImages", "seasonNumber", "episodeNumber"]);
+	});
+
+	it("scopes parent activity to the show entity and its lifecycle events", () => {
+		const parentEvents = ACTIVITY_RECIPE.document.queries["parentEvents"];
+		if (parentEvents?.output.type !== "rows" || parentEvents.where?.type !== "and") {
+			throw new Error("Expected filtered parent event rows query");
+		}
+
+		expect(parentEvents.where.predicates[0]).toMatchObject({
+			type: "comparison",
+			right: { type: "literal", value: "show-1" },
+			left: { field: "entityId", tableAlias: "parentEvent" },
+		});
+		expect(parentEvents.where.predicates[1]).toMatchObject({
+			type: "in",
+			values: [
+				{ value: "backlog" },
+				{ value: "on_hold" },
+				{ value: "dropped" },
+				{ value: "complete" },
+				{ value: "review" },
+			],
+		});
+	});
+
+	it("reaches episode activity through season relationships instead of the event session", () => {
+		const episodeEvents = ACTIVITY_RECIPE.document.queries["episodeEvents"];
+		if (episodeEvents?.output.type !== "rows" || episodeEvents.where?.type !== "and") {
+			throw new Error("Expected filtered episode event rows query");
+		}
+		const membership = episodeEvents.where.predicates[2];
+		if (membership?.type !== "exists") {
+			throw new Error("Expected an episode membership existence predicate");
+		}
+
+		expect(JSON.stringify(episodeEvents)).not.toContain("sessionEntityId");
+		expect(JSON.stringify(membership)).not.toContain("seasonNumber");
+		expect(membership.query.from).toMatchObject({
+			table: "relationship",
+			alias: "episodeEventShowShowSeason",
+		});
+		expect(membership.query.joins?.map((join) => join.table.alias)).toEqual([
+			"episodeEventShowSeason",
+			"episodeEventShowSeasonEpisode",
+		]);
+	});
+
+	it("selects one collapsed progress milestone for every episode that recorded progress", () => {
+		const episodeProgress = ACTIVITY_RECIPE.document.queries["episodeProgress"];
+		if (episodeProgress?.output.type !== "rows") {
+			throw new Error("Expected progress rows query");
+		}
+		const milestone = episodeProgress.output.include?.[0];
+
+		expect(episodeProgress.from).toMatchObject({ table: "entity", alias: "progressEpisode" });
+		expect(milestone).toMatchObject({
+			limit: 1,
+			key: "milestone",
+			orderBy: [
+				{ direction: "desc", expr: { field: "occurredAt" } },
+				{ direction: "desc", expr: { field: "createdAt" } },
+				{ direction: "desc", expr: { field: "id" } },
+			],
+		});
+		expect(
+			milestone && "fields" in milestone
+				? milestone.fields.map((field) => ("key" in field ? field.key : null))
+				: [],
+		).toEqual(["id", "createdAt", "occurredAt", "consumedOn", "progressPercent"]);
+	});
+
+	it("merges activity queries into one authoritative descending event order", () => {
+		const sameInstant = { occurredAt: "2024-02-04T09:00:00.000Z" };
+
+		expect(
+			decodeActivity({
+				episodeEvents: [EPISODE_EVENT_ROW],
+				episodeProgress: [EPISODE_PROGRESS_ROW],
+				parentEvents: [
+					{ ...PARENT_EVENT_ROW, ...sameInstant, id: "b", createdAt: "2024-02-04T10:00:00.000Z" },
+					{ ...PARENT_EVENT_ROW, ...sameInstant, id: "a", createdAt: "2024-02-04T10:00:00.000Z" },
+					{ ...PARENT_EVENT_ROW, ...sameInstant, id: "c", createdAt: "2024-02-04T11:00:00.000Z" },
+				],
+			}),
+		).toMatchObject({
+			success: {
+				truncated: false,
+				events: [
+					{ id: "c" },
+					{ id: "b" },
+					{ id: "a" },
+					{ id: "special-progress" },
+					{ id: "episode-complete" },
+				],
+			},
+		});
+	});
+
+	it("keeps parent activity separate from episode activity without duplicating rows", () => {
+		const decoded = decodeActivity({
+			parentEvents: [PARENT_EVENT_ROW],
+			episodeEvents: [EPISODE_EVENT_ROW],
+			episodeProgress: [EPISODE_PROGRESS_ROW],
+		});
+		if (decoded._tag === "Failure") {
+			throw new Error("Expected a decoded activity result");
+		}
+
+		expect(decoded.success.events.map((event) => event.kind)).toEqual([
+			"episode",
+			"parent",
+			"episode",
+		]);
+		expect(decoded.success.events.filter((event) => event.kind === "parent")).toMatchObject([
+			{ id: "parent-complete", eventSchemaSlug: "complete" },
+		]);
+	});
+
+	it("decodes special-episode progress with its season and episode identity", () => {
+		expect(decodeActivity({ episodeProgress: [EPISODE_PROGRESS_ROW] })).toMatchObject({
+			success: {
+				events: [
+					{
+						progressPercent: 40,
+						eventSchemaSlug: "progress",
+						episode: {
+							images: null,
+							id: "special-3",
+							seasonNumber: 0,
+							episodeNumber: 3,
+							name: "Behind the scenes",
+						},
+					},
+				],
+			},
+		});
+	});
+
+	it("decodes activity whose optional event properties were never recorded", () => {
+		expect(
+			decodeActivity({
+				parentEvents: [{ ...PARENT_EVENT_ROW, eventSchemaSlug: "review" }],
+				episodeProgress: [{ ...EPISODE_PROGRESS_ROW, progressPercent: null }],
+				episodeEvents: [
+					{ ...EPISODE_EVENT_ROW, consumedOn: null, episodeImages: null, timeSpent: null },
+				],
+			}),
+		).toMatchObject({
+			success: {
+				events: [
+					{ progressPercent: null, consumedOn: null },
+					{ text: null, rating: null, isSpoiler: null, eventSchemaSlug: "review" },
+					{ timeSpent: null, consumedOn: null, episode: { images: null } },
+				],
+			},
+		});
+	});
+
+	it("decodes a review with its rating, body and spoiler flag", () => {
+		expect(
+			decodeActivity({
+				parentEvents: [
+					{
+						...PARENT_EVENT_ROW,
+						rating: 82,
+						isSpoiler: true,
+						id: "parent-review",
+						eventSchemaSlug: "review",
+						text: "The ending recontextualises everything.",
+					},
+				],
+			}),
+		).toMatchObject({
+			success: {
+				events: [
+					{
+						rating: 82,
+						isSpoiler: true,
+						eventSchemaSlug: "review",
+						text: "The ending recontextualises everything.",
+					},
+				],
+			},
+		});
+	});
+
+	it("reports truncation when any activity page holds more rows", () => {
+		expect(
+			ACTIVITY_RECIPE.decode({
+				data: {
+					episodeProgress: activityRows([]),
+					parentEvents: activityRows([PARENT_EVENT_ROW]),
+					episodeEvents: rowsResult([EPISODE_EVENT_ROW], {
+						limit: 100,
+						hasMore: true,
+						nextCursor: "episode-cursor",
+					}),
+				},
+			}),
+		).toMatchObject({ success: { truncated: true } });
+	});
+
+	it("decodes a show with no recorded activity as an empty event list", () => {
+		expect(decodeActivity()).toMatchObject({ success: { events: [], truncated: false } });
+	});
+
+	it("rejects activity whose event schema slug is outside the media lifecycle", () => {
+		expect(
+			decodeActivity({ parentEvents: [{ ...PARENT_EVENT_ROW, eventSchemaSlug: "watched" }] })._tag,
+		).toBe("Failure");
+	});
+
+	it("rejects episode activity whose image locators are malformed", () => {
+		expect(
+			decodeActivity({
+				episodeEvents: [{ ...EPISODE_EVENT_ROW, episodeImages: [{ type: "ftp", url: 12 }] }],
 			})._tag,
 		).toBe("Failure");
 	});
