@@ -189,6 +189,7 @@ export const kernelDefinitionSource = (): DefinitionSource => ({
 		{
 			sortOrder: 0,
 			pluginSlug: null,
+			sandboxScripts: {},
 			slug: "collections",
 			name: "All Collections",
 			layouts: collectionLayouts,

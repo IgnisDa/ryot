@@ -20,6 +20,7 @@ type TestPluginManifestInput = Partial<
 		TestPluginManifest,
 		| "boot"
 		| "crons"
+		| "savedViews"
 		| "scripts"
 		| "workflows"
 		| "providers"
@@ -57,7 +58,6 @@ const installedByScriptId = new Map<string, InstalledScriptRegistration>();
 const definitionManifests = new Map<string, TestPluginManifest>();
 
 export const testPluginManifest = (input: TestPluginManifestInput): TestPluginManifest => ({
-	savedViews: [],
 	userBootstrap: [],
 	signalSchemas: [],
 	boot: input.boot ?? [],
@@ -65,6 +65,7 @@ export const testPluginManifest = (input: TestPluginManifestInput): TestPluginMa
 	scripts: input.scripts ?? [],
 	workflows: input.workflows ?? [],
 	providers: input.providers ?? [],
+	savedViews: input.savedViews ?? [],
 	operations: input.operations ?? [],
 	importSources: input.importSources ?? [],
 	entitySchemas: input.entitySchemas ?? [],
@@ -118,6 +119,7 @@ export const installTestPlugin = (input: {
 	boot?: TestPluginManifest["boot"];
 	crons?: TestPluginManifest["crons"];
 	providers?: TestPluginManifest["providers"];
+	savedViews?: TestPluginManifest["savedViews"];
 	operations?: TestPluginManifest["operations"];
 	configSchema?: TestPluginManifest["configSchema"];
 	entitySchemas?: TestPluginManifest["entitySchemas"];
@@ -135,6 +137,7 @@ export const installTestPlugin = (input: {
 			scripts: [{ ...input.script, entry }],
 			...(input.boot ? { boot: input.boot } : {}),
 			...(input.crons ? { crons: input.crons } : {}),
+			...(input.savedViews ? { savedViews: input.savedViews } : {}),
 			...(input.operations ? { operations: input.operations } : {}),
 			...(input.entitySchemas ? { entitySchemas: input.entitySchemas } : {}),
 			...(input.linkToEntitySchemaSlug && input.providers?.[0]
@@ -165,20 +168,21 @@ export const installTestPlugin = (input: {
 
 export const installTestPluginBundle = (input: {
 	pluginSlug?: string;
-	files: InstallPluginPayload["files"];
 	linkToEntitySchemaSlug?: string;
 	crons?: TestPluginManifest["crons"];
+	files: InstallPluginPayload["files"];
 	scripts: TestPluginManifest["scripts"];
 	workflows?: TestPluginManifest["workflows"];
 	providers?: TestPluginManifest["providers"];
+	savedViews?: TestPluginManifest["savedViews"];
 	operations?: TestPluginManifest["operations"];
 	configSchema?: TestPluginManifest["configSchema"];
 	importSources?: TestPluginManifest["importSources"];
 	entitySchemas?: TestPluginManifest["entitySchemas"];
 	httpRateLimits?: TestPluginManifest["httpRateLimits"];
-	eventAutomations?: TestPluginManifest["bindings"]["eventAutomations"];
 	relationshipSchemas?: TestPluginManifest["relationshipSchemas"];
 	integrationProviders?: TestPluginManifest["integrationProviders"];
+	eventAutomations?: TestPluginManifest["bindings"]["eventAutomations"];
 }) =>
 	Effect.gen(function* () {
 		const pluginSlug = input.pluginSlug ?? `e2e-plugin-${randomUUID()}`;
@@ -188,6 +192,7 @@ export const installTestPluginBundle = (input: {
 			crons: input.crons,
 			scripts: input.scripts,
 			workflows: input.workflows,
+			savedViews: input.savedViews,
 			providers: input.providers ?? [],
 			configSchema: input.configSchema,
 			operations: input.operations ?? [],

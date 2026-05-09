@@ -15,6 +15,7 @@ type CreateSavedViewInput = {
 	readonly userId: UserId;
 	readonly pluginSlug: PluginSlug | null | undefined;
 	readonly layouts: (typeof schema.savedView.$inferSelect)["layouts"];
+	readonly sandboxScripts: (typeof schema.savedView.$inferSelect)["sandboxScripts"];
 };
 
 type BuiltinSavedViewInput = Omit<CreateSavedViewInput, "userId"> & {
@@ -38,6 +39,7 @@ const toListedSavedView = (row: SavedViewRow) => ({
 	isBuiltin: row.isBuiltin,
 	sortOrder: row.sortOrder,
 	isDisabled: row.isDisabled,
+	sandboxScripts: row.sandboxScripts,
 	id: SavedViewId.make(row.id),
 	createdAt: row.createdAt.toISOString(),
 	updatedAt: row.updatedAt.toISOString(),
@@ -125,6 +127,7 @@ export class SavedViewsRepository extends Context.Service<SavedViewsRepository>(
 							name: input.name,
 							icon: input.icon,
 							layouts: input.layouts,
+							sandboxScripts: input.sandboxScripts,
 							pluginSlug: input.pluginSlug ?? null,
 							sortOrder: (orderRow?.maxSortOrder ?? -1) + 1,
 						})
