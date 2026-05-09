@@ -1,5 +1,9 @@
-import type { UserId } from "@ryot/contract/schema/brands";
-import { PluginSlug, SavedViewId } from "@ryot/contract/schema/brands";
+import {
+	EntitySchemaSlug,
+	PluginSlug,
+	SavedViewId,
+	type UserId,
+} from "@ryot/contract/schema/brands";
 import { and, asc, eq, inArray, isNull, sql } from "drizzle-orm";
 import { Context, Effect, Layer } from "effect";
 
@@ -14,6 +18,7 @@ type CreateSavedViewInput = {
 	readonly icon: string;
 	readonly userId: UserId;
 	readonly pluginSlug: PluginSlug | null | undefined;
+	readonly entitySchemaSlug: EntitySchemaSlug | null;
 	readonly layouts: (typeof schema.savedView.$inferSelect)["layouts"];
 };
 
@@ -27,6 +32,7 @@ type UpdateSavedViewData = {
 	readonly isDisabled: boolean;
 	readonly sortOrder?: number | undefined;
 	readonly pluginSlug?: PluginSlug | undefined;
+	readonly entitySchemaSlug: EntitySchemaSlug | null;
 	readonly layouts: (typeof schema.savedView.$inferSelect)["layouts"];
 };
 
@@ -42,6 +48,8 @@ const toListedSavedView = (row: SavedViewRow) => ({
 	createdAt: row.createdAt.toISOString(),
 	updatedAt: row.updatedAt.toISOString(),
 	pluginSlug: row.pluginSlug === null ? null : PluginSlug.make(row.pluginSlug),
+	entitySchemaSlug:
+		row.entitySchemaSlug === null ? null : EntitySchemaSlug.make(row.entitySchemaSlug),
 });
 
 const withSavedViewScope = (pluginSlug?: PluginSlug) =>
@@ -126,6 +134,7 @@ export class SavedViewsRepository extends Context.Service<SavedViewsRepository>(
 							icon: input.icon,
 							layouts: input.layouts,
 							pluginSlug: input.pluginSlug ?? null,
+							entitySchemaSlug: input.entitySchemaSlug,
 							sortOrder: (orderRow?.maxSortOrder ?? -1) + 1,
 						})
 						.onConflictDoNothing({
@@ -159,6 +168,7 @@ export class SavedViewsRepository extends Context.Service<SavedViewsRepository>(
 							layouts: data.layouts,
 							pluginSlug: nextPluginSlug,
 							isDisabled: data.isDisabled,
+							entitySchemaSlug: data.entitySchemaSlug,
 							...(sortOrder === undefined ? {} : { sortOrder }),
 						})
 						.where(and(eq(schema.savedView.slug, viewSlug), eq(schema.savedView.userId, userId)))

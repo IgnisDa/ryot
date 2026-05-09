@@ -63,6 +63,7 @@ describe("Saved views query documents E2E", () => {
 					},
 				},
 			});
+			expect(allBooksView?.entitySchemaSlug).toBe("book");
 		}),
 	);
 
@@ -75,7 +76,9 @@ describe("Saved views query documents E2E", () => {
 			});
 			const fetchedView = yield* getSavedView(client, createdView.slug);
 
+			expect(createdView.entitySchemaSlug).toBe("book");
 			expect(createdView.layouts).toEqual(rowsLayouts);
+			expect(fetchedView.entitySchemaSlug).toBe("book");
 			expect(fetchedView.layouts).toEqual(rowsLayouts);
 			expect(fetchedView.layouts.grid.entityIdField).toBe("entityId");
 			expect(fetchedView.layouts.grid.titleField).toBe("title");
@@ -98,7 +101,9 @@ describe("Saved views query documents E2E", () => {
 			);
 			const fetchedView = yield* getSavedView(client, createdView.slug);
 
+			expect(updatedView.entitySchemaSlug).toBe("book");
 			expect(updatedView.layouts.grid.queryDocument).toEqual(alternateRowsDocument);
+			expect(fetchedView.entitySchemaSlug).toBe("book");
 			expect(fetchedView.layouts.grid.queryDocument).toEqual(alternateRowsDocument);
 			expect(fetchedView.layouts.list).toEqual(rowsLayouts.list);
 			expect(fetchedView.layouts.table).toEqual(rowsLayouts.table);
@@ -138,10 +143,12 @@ describe("Saved views query documents E2E", () => {
 				layouts.grid.queryDocument,
 				{
 					layouts,
+					entitySchemaSlug: null,
 					name: `Unknown Entity Schema View ${crypto.randomUUID()}`,
 				},
 			);
 
+			expect(createdView.entitySchemaSlug).toBeNull();
 			expect(createdView.layouts).toEqual(layouts);
 		}),
 	);

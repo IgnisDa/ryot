@@ -1,4 +1,3 @@
-import type { EntityDefinition } from "@ryot/contract/modules/definitions/schemas";
 import { decodeProviderEntityLinksResponse } from "@ryot/ryotql-recipes/provider-entity-links";
 import {
 	decodeProviderSearchResponse,
@@ -7,17 +6,10 @@ import {
 import { Match, Result } from "effect";
 import { AsyncResult } from "effect/unstable/reactivity";
 
-import { selectAddableDefinitions } from "./flow-state";
-
 type ProviderAddError = {
 	readonly title: string;
 	readonly detail: string;
 };
-
-export type EntityDefinitionsState =
-	| { readonly status: "loading" }
-	| { readonly status: "transport-error"; readonly cause: unknown }
-	| { readonly status: "ready"; readonly definitions: readonly EntityDefinition[] };
 
 type ProviderSummariesState =
 	| { readonly status: "loading" }
@@ -45,18 +37,6 @@ export const providerAddError = (state: {
 		})),
 		Match.exhaustive,
 	);
-
-export const mapEntityDefinitions = (
-	result: AsyncResult.AsyncResult<readonly EntityDefinition[], unknown>,
-): EntityDefinitionsState => {
-	if (AsyncResult.isFailure(result)) {
-		return { status: "transport-error", cause: result.cause };
-	}
-	if (!AsyncResult.isSuccess(result)) {
-		return { status: "loading" };
-	}
-	return { status: "ready", definitions: selectAddableDefinitions(result.value) };
-};
 
 export const mapProviderSummaries = (
 	result: AsyncResult.AsyncResult<unknown, unknown>,
