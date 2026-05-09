@@ -8,7 +8,7 @@ import { entity } from "~/lib/db/schema";
 import { exercisePropertiesJsonSchema } from "~/lib/fitness/exercise";
 import { getRedisConnection } from "~/lib/queue/connection";
 import { onWorkerError } from "~/lib/queue/utils";
-import { getBuiltinEntitySchemaBySlug } from "~/modules/entity-schemas/repository";
+import { getBuiltinEntitySchemaBySlug } from "~/modules/entity-schemas";
 
 import { exerciseSeedJobName } from "./jobs";
 
