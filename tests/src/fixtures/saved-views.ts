@@ -3,7 +3,6 @@ import {
 	createEntityPropertyExpression,
 	createEntitySchemaExpression,
 	type DisplayConfiguration,
-	type SavedViewQueryDefinition,
 } from "@ryot/app-backend/query-language";
 
 import { requirePresent } from "../test-support/assertions";
@@ -38,7 +37,7 @@ export type DisplayConfigurationInput = {
 type CreateSavedViewBody = ContractPayload<"savedViews", "create">;
 type UpdateSavedViewBody = ContractPayload<"savedViews", "update">;
 type ReorderSavedViewsBody = ContractPayload<"savedViews", "reorder">;
-type QueryDefinition = SavedViewQueryDefinition;
+type QueryDefinition = CreateSavedViewBody["queryDefinition"];
 
 type SavedViewRecord = ContractSuccess<"savedViews", "get">;
 
