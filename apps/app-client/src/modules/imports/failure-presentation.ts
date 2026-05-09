@@ -1,5 +1,6 @@
 import type { ImportRunFailureStage } from "@ryot/contract/modules/imports/types";
 import type { ImportRunFailure } from "@ryot/ryotql-recipes/import-runs";
+import { Match } from "effect";
 
 export type ImportFailureGroup = {
 	readonly pill: string;
@@ -7,8 +8,6 @@ export type ImportFailureGroup = {
 	readonly stage: ImportRunFailureStage;
 	readonly failures: readonly ImportRunFailure[];
 };
-
-export type ImportFailureContextEntry = { readonly key: string; readonly value: string };
 
 const stagePresentation = {
 	source_fetch: { pill: "Unreachable", heading: "Source unavailable" },
@@ -44,29 +43,33 @@ export const importFailureRowLabel = (
 ) =>
 	trimmed(failure.sourceLabel) ?? trimmed(failure.sourceIdentifier) ?? `Item #${failure.itemIndex}`;
 
-export const importFailureContextEntries = (
-	context: Record<string, unknown> | null,
-): readonly ImportFailureContextEntry[] => {
-	if (context === null) {
-		return [];
-	}
-	return Object.entries(context)
-		.map(([key, value]) => ({ key, value: formatContextValue(value) }))
-		.sort((left, right) => left.key.localeCompare(right.key));
-};
+export const importFailureReasonDetail = (failure: ImportRunFailure) =>
+	Match.value(failure.reason).pipe(
+		Match.when({ code: "source-fetch-failed" }, () => "The source could not be read."),
+		Match.when({ code: "input-transformation-failed" }, () => "The source data could not be read."),
+		Match.when(
+			{ code: "provider-resolution-failed" },
+			() => "No matching provider item was found.",
+		),
+		Match.when({ code: "provider-details-failed" }, () => "Provider details were unavailable."),
+		Match.when({ code: "event-policy-failed" }, () => "One of your rules blocked this item."),
+		Match.when({ code: "database-commit-failed" }, () => "This item could not be saved."),
+		Match.when({ code: "integration-not-found" }, () => "The integration was unavailable."),
+		Match.when({ code: "integration-disabled" }, () => "The integration was paused."),
+		Match.when({ code: "integrations-disabled" }, () => "Integrations were paused."),
+		Match.when({ code: "queue-unavailable" }, () => "The work could not be started."),
+		Match.when({ code: "unexpected-failure" }, () => "The import stopped unexpectedly."),
+		Match.exhaustive,
+	);
 
-function formatContextValue(value: unknown) {
-	if (value === null || value === undefined) {
-		return "—";
-	}
-	if (typeof value === "string") {
-		return value;
-	}
-	if (typeof value === "number" || typeof value === "boolean") {
-		return String(value);
-	}
-	return JSON.stringify(value);
-}
+export const importFailureProvenanceEntries = (failure: ImportRunFailure) =>
+	[
+		["Source ID", failure.sourceIdentifier],
+		["Entity schema", failure.entitySchemaSlug],
+		["Event schema", failure.eventSchemaSlug],
+	]
+		.filter((entry): entry is [string, string] => entry[1] !== null)
+		.map(([key, value]) => ({ key, value }));
 
 export const groupImportFailuresByStage = (
 	failures: readonly ImportRunFailure[],
@@ -99,8 +102,8 @@ export const buildImportFailureClipboardText = (input: {
 	for (const group of groupImportFailuresByStage(input.failures)) {
 		lines.push("", `${group.heading} (${group.stage})`);
 		for (const failure of group.failures) {
-			lines.push(`- ${importFailureRowLabel(failure)}: ${failure.message}`);
-			for (const entry of importFailureContextEntries(failure.context)) {
+			lines.push(`- ${importFailureRowLabel(failure)}: ${importFailureReasonDetail(failure)}`);
+			for (const entry of importFailureProvenanceEntries(failure)) {
 				lines.push(`    ${entry.key}: ${entry.value}`);
 			}
 		}

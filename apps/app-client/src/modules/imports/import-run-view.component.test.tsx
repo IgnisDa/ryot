@@ -91,13 +91,12 @@ describe("import run detail screen", () => {
 	it("rewrites the recorded error for a wholly failed run", async () => {
 		await renderView(readyState({ run: failedRunRow, failures: [] }));
 
-		expect(screen.getByText("Ran out of time")).toBeOnTheScreen();
+		expect(screen.getByText("Source unavailable")).toBeOnTheScreen();
 		expect(
 			screen.getByText(
-				"This import ran out of time before it finished. Nothing further was added.",
+				"The source could not be read. Check its availability, then start the import again.",
 			),
 		).toBeOnTheScreen();
-		expect(screen.queryByText(/ETIMEDOUT/)).not.toBeOnTheScreen();
 	});
 
 	it("groups failures under readable headings and never shows the raw stage", async () => {
@@ -113,19 +112,18 @@ describe("import run detail screen", () => {
 		expect(screen.queryByText(/provider_resolution/)).not.toBeOnTheScreen();
 	});
 
-	it("reveals the recorded context only once a row is expanded", async () => {
+	it("reveals typed provenance only once a row is expanded", async () => {
 		const user = userEvent.setup();
 		await renderView(readyState());
 		const row = screen.getByRole("button", { name: "The Long Way Home" });
 
 		expect(row).toBeCollapsed();
-		expect(screen.queryByText("My Rating")).not.toBeOnTheScreen();
+		expect(screen.queryByText("goodreads:8231")).not.toBeOnTheScreen();
 
 		await user.press(row);
 
 		expect(row).toBeExpanded();
-		expect(screen.getByText("My Rating")).toBeOnTheScreen();
-		expect(screen.getByText("four stars")).toBeOnTheScreen();
+		expect(screen.getByText("goodreads:8231")).toBeOnTheScreen();
 	});
 
 	it("hands the whole loaded failure set to the clipboard as text", async () => {
@@ -137,8 +135,8 @@ describe("import run detail screen", () => {
 
 		expect(copied).toHaveLength(1);
 		expect(copied[0]).toContain("Source: OpenScale");
-		expect(copied[0]).toContain("- The Long Way Home: The rating column was not a number");
-		expect(copied[0]).toContain("- Item #11: No provider match was found");
+		expect(copied[0]).toContain("- The Long Way Home: The source data could not be read.");
+		expect(copied[0]).toContain("- Item #11: No matching provider item was found.");
 		expect(screen.getByText("Copied")).toBeOnTheScreen();
 	});
 

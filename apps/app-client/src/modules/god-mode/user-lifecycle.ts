@@ -19,7 +19,7 @@ const operationOutcome = (operation: GodModeUserLifecycleOperation) =>
 	Match.value(operation.status).pipe(
 		Match.when("completed", () => Effect.succeed(operation)),
 		Match.when("failed", () =>
-			Effect.logWarning("god-mode user lifecycle operation failed", operation).pipe(
+			Effect.logWarning("god-mode user lifecycle operation failed", operation.failure).pipe(
 				Effect.andThen(Effect.fail(operation)),
 			),
 		),

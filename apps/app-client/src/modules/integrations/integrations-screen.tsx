@@ -4,7 +4,6 @@ import { AsyncResult } from "effect/unstable/reactivity";
 import { router } from "expo-router";
 import { useState } from "react";
 
-import { requestFailureMessage } from "@/api/request-failure";
 import { useApiScope } from "@/api/scope";
 import { useInternalRequestFailureLogging } from "@/api/use-internal-request-failure-logging";
 import { SearchParamModalHost, useSearchParamModal } from "@/modules/ui/search-param-modal";
@@ -55,9 +54,7 @@ export function IntegrationsScreen() {
 		setIsSyncing(false);
 		if (Exit.isFailure(exit)) {
 			setSyncCause(exit.cause);
-			setSyncDetail(
-				requestFailureMessage(exit.cause) ?? "Integration sync could not be started. Try again.",
-			);
+			setSyncDetail("Integration sync could not be started. Try again.");
 			return;
 		}
 		setSyncSucceeded(true);
