@@ -1,7 +1,7 @@
 import { DragDropContext, Draggable, Droppable } from "@hello-pangea/dnd";
 import { Drawer, Group, Paper, Stack, Text, ThemeIcon } from "@mantine/core";
 import { useDidUpdate, useListState } from "@mantine/hooks";
-import { isEqual } from "@ryot/ts-utils";
+import { isEqual } from "@ryot/ts-utils/lodash";
 import { IconDroplet, IconDropletFilled, IconDropletHalf2Filled } from "@tabler/icons-react";
 import { produce } from "immer";
 import invariant from "tiny-invariant";

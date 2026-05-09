@@ -5,7 +5,7 @@ import {
 	RegisterUserDocument,
 	UserByOidcIssuerIdDocument,
 } from "@ryot/generated/graphql/backend/graphql";
-import { parseSearchQuery } from "@ryot/ts-utils";
+import { parseSearchQuery } from "@ryot/ts-utils/request";
 import { data, redirect } from "react-router";
 import { $path } from "safe-routes";
 import { z } from "zod";
