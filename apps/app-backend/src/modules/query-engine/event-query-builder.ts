@@ -9,7 +9,6 @@ import {
 	buildQueryRuntime,
 	buildQuerySortExpression,
 	buildSortDirection,
-	resolveRequestedEventSchemaSlugs,
 } from "./query-builder-shared";
 import { EVENT_FIRST_ENTITY_COLUMN_OVERRIDES, EVENT_CTE_ALIASES } from "./query-cte-shared";
 import type { EventsQueryEngineRequest, QueryEngineEventsResponse } from "./schemas";
@@ -31,11 +30,8 @@ export const executeEventQuery = async (input: {
 	const baseEventsCte = buildEventFirstCte({
 		userId: input.userId,
 		cteName: EVENT_CTE_ALIASES.base,
+		eventSchemaSlugs: input.request.eventSchemas,
 		entitySchemaIds: input.context.runtimeSchemas.map((s) => s.id),
-		eventSchemaSlugs: resolveRequestedEventSchemaSlugs(
-			input.request.eventSchemas,
-			input.context.eventSchemaSlugs,
-		),
 	});
 	const latestEventJoinCtes = buildLatestEventJoinCtes(input.userId, input.context.eventJoins);
 	const joinedEventsCte = buildJoinedCte({
