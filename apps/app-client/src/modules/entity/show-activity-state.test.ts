@@ -5,20 +5,20 @@ import {
 	collectionRemovedEventRow,
 	decodeShowActivity,
 	emptyShowActivity,
-	episodeCompletionEventRow,
 	episodeReviewEventRow,
-	laterEpisodeCompletionEventRow,
+	firstWatchDayRow,
 	regularSeasonRow,
 	rewatchCompletionEventRow,
-	rewatchEpisodeEventRow,
+	rewatchWatchDayRow,
 	rewatchedShowActivity,
-	sameDayCompletionEventRow,
+	sameDayWatchRow,
 	showBacklogEventRow,
 	showCompletionEventRow,
 	showDroppedEventRow,
 	showOnHoldEventRow,
 	showReviewEventRow,
 	specialProgressRow,
+	secondWatchDayRow,
 	specialsSeasonRow,
 } from "./show-activity-fixture";
 import {
@@ -50,8 +50,9 @@ const labelsOf = (view: ShowActivityView) => allRows(view).map(showActivityRowLa
 const watchRows = (view: ShowActivityView) => allRows(view).filter((row) => row.type === "watch");
 
 describe("show activity progress rows", () => {
-	it("keeps a progress event whose episode was never completed", () => {
+	it("keeps a progress event the engine still reports as in flight", () => {
 		const view = viewOf({
+			watchDays: [],
 			parentEvents: [],
 			episodeEvents: [],
 			collectionEvents: [],
@@ -62,16 +63,14 @@ describe("show activity progress rows", () => {
 	});
 });
 
-describe("show activity watch sessions", () => {
-	it("collapses same-day completions into one session ordered by episode", () => {
+describe("show activity watch days", () => {
+	it("reads a day of watching as one row listing its episodes in order", () => {
 		const view = viewOf({
 			parentEvents: [],
+			episodeEvents: [],
 			episodeProgress: [],
 			collectionEvents: [],
-			episodeEvents: [
-				{ ...episodeCompletionEventRow, occurredAt: "2025-11-04T09:00:00.000Z" },
-				sameDayCompletionEventRow,
-			],
+			watchDays: [firstWatchDayRow, sameDayWatchRow],
 		});
 		const [session] = watchRows(view);
 
@@ -80,29 +79,43 @@ describe("show activity watch sessions", () => {
 		expect(showActivityRowLabel(session)).toBe("Watched 2 episodes");
 	});
 
-	it("keeps completions on different days as separate sessions", () => {
+	it("keeps separate days as separate rows", () => {
 		const view = viewOf({
 			parentEvents: [],
+			episodeEvents: [],
 			episodeProgress: [],
 			collectionEvents: [],
-			episodeEvents: [episodeCompletionEventRow, laterEpisodeCompletionEventRow],
+			watchDays: [firstWatchDayRow, secondWatchDayRow],
 		});
 
 		expect(watchRows(view)).toHaveLength(2);
 	});
 
-	it("collapses a day split by an unrelated event into one session", () => {
+	it("prefers logged time over episode length for each watched episode", () => {
 		const view = viewOf({
 			parentEvents: [],
+			episodeEvents: [],
 			episodeProgress: [],
-			episodeEvents: [
-				{ ...episodeCompletionEventRow, occurredAt: "2025-11-04T09:00:00.000Z" },
-				sameDayCompletionEventRow,
-			],
-			collectionEvents: [{ ...collectionAddedEventRow, occurredAt: "2025-11-04T13:00:00.000Z" }],
+			collectionEvents: [],
+			watchDays: [firstWatchDayRow, sameDayWatchRow],
 		});
+		const [session] = watchRows(view);
 
-		expect(watchRows(view)).toHaveLength(1);
+		expect(session.episodes.map((episode) => episode.minutes)).toEqual([66, 61]);
+	});
+
+	it("lists an episode once even when a day holds more than one source", () => {
+		const view = viewOf({
+			parentEvents: [],
+			episodeEvents: [],
+			episodeProgress: [],
+			collectionEvents: [],
+			watchDays: [firstWatchDayRow, { ...firstWatchDayRow, consumedOn: "Netflix" }],
+		});
+		const [session] = watchRows(view);
+
+		expect(session.episodes).toHaveLength(1);
+		expect(session.source).toBe("Jellyfin");
 	});
 });
 
@@ -119,21 +132,15 @@ describe("show activity watch segmentation", () => {
 		expect(view.timeline.open).toBeUndefined();
 	});
 
-	it("attributes an episode logged at the completion's instant to that watch, not the newer one", () => {
+	it("files a day of watching under the watch that closed it", () => {
 		const view = showActivityView(
 			decodeShowActivity({
+				watchCount: 2,
+				episodeEvents: [],
 				episodeProgress: [],
 				collectionEvents: [],
 				parentEvents: [showCompletionEventRow, rewatchCompletionEventRow],
-				episodeEvents: [
-					rewatchEpisodeEventRow,
-					{
-						...episodeCompletionEventRow,
-						id: "episode-1-at-completion",
-						createdAt: "2025-11-06T12:00:09.000Z",
-						occurredAt: showCompletionEventRow.occurredAt,
-					},
-				],
+				watchDays: [rewatchWatchDayRow, { ...firstWatchDayRow, day: "2025-11-06T00:00:00.000Z" }],
 			}),
 		);
 		assert(view?.timeline.layout === "segmented");
@@ -145,9 +152,10 @@ describe("show activity watch segmentation", () => {
 
 	it("never opens a watch for a collection change alone", () => {
 		const view = viewOf({
+			episodeEvents: [],
 			episodeProgress: [],
+			watchDays: [firstWatchDayRow],
 			parentEvents: [showCompletionEventRow],
-			episodeEvents: [episodeCompletionEventRow],
 			collectionEvents: [
 				{ ...collectionAddedEventRow, occurredAt: "2026-06-13T09:00:00.000Z" },
 				{ ...collectionRemovedEventRow, occurredAt: "2026-06-14T09:00:00.000Z" },
@@ -161,9 +169,10 @@ describe("show activity watch segmentation", () => {
 	it("never opens a watch for a review recorded after the last completion", () => {
 		const view = showActivityView(
 			decodeShowActivity({
+				episodeEvents: [],
 				episodeProgress: [],
 				collectionEvents: [],
-				episodeEvents: [episodeCompletionEventRow, rewatchEpisodeEventRow],
+				watchDays: [firstWatchDayRow, rewatchWatchDayRow],
 				parentEvents: [
 					showCompletionEventRow,
 					{ ...showReviewEventRow, occurredAt: "2026-04-01T12:00:00.000Z" },
@@ -278,6 +287,7 @@ describe("show activity summary", () => {
 describe("show activity labels", () => {
 	it("names every lifecycle beat", () => {
 		const view = viewOf({
+			watchDays: [],
 			episodeEvents: [],
 			episodeProgress: [],
 			collectionEvents: [],
@@ -293,6 +303,7 @@ describe("show activity labels", () => {
 
 	it("names collection changes in both directions", () => {
 		const view = viewOf({
+			watchDays: [],
 			parentEvents: [],
 			episodeEvents: [],
 			episodeProgress: [],

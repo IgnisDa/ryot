@@ -9,9 +9,9 @@ import { ShowActivity } from "./show-activity";
 import {
 	decodeShowActivity,
 	emptyShowActivity,
-	episodeCompletionEventRow,
+	firstWatchDayRow,
 	rewatchedShowActivity,
-	sameDayCompletionEventRow,
+	sameDayWatchRow,
 } from "./show-activity-fixture";
 import { mapShowActivity, type ShowActivityState } from "./show-activity-state";
 
@@ -88,12 +88,10 @@ describe("show activity tab", () => {
 		await renderActivity(
 			readyState({
 				parentEvents: [],
+				episodeEvents: [],
 				episodeProgress: [],
 				collectionEvents: [],
-				episodeEvents: [
-					{ ...episodeCompletionEventRow, occurredAt: "2025-11-04T09:00:00.000Z" },
-					sameDayCompletionEventRow,
-				],
+				watchDays: [firstWatchDayRow, sameDayWatchRow],
 			}),
 		);
 
