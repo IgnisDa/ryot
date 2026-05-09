@@ -121,11 +121,10 @@ function collectGenres(genresArray) {
 
 function collectPeople(characters) {
 	if (!Array.isArray(characters)) {
-		return { people: [], freeCreators: [] };
+		return { people: [] };
 	}
 
 	const people = [];
-	const freeCreators = [];
 	const seen = new Set();
 
 	for (const chr of characters.slice(0, 20)) {
@@ -154,12 +153,10 @@ function collectPeople(characters) {
 				externalId: String(peopleId),
 				scriptSlug: "person.tvdb",
 			});
-		} else {
-			freeCreators.push({ name, role });
 		}
 	}
 
-	return { people, freeCreators };
+	return { people };
 }
 
 driver("search", async function (context) {
@@ -283,7 +280,7 @@ driver("details", async function (context) {
 		movie?.artworks,
 	);
 	const genres = collectGenres(movie?.genres);
-	const { people, freeCreators } = collectPeople(movie?.characters);
+	const { people } = collectPeople(movie?.characters);
 
 	const firstAired =
 		typeof movie?.firstAired === "string" && movie.firstAired.trim()
@@ -318,7 +315,6 @@ driver("details", async function (context) {
 			runtime,
 			sourceUrl,
 			publishYear,
-			freeCreators,
 			description:
 				typeof movie?.overview === "string" && movie.overview.trim()
 					? movie.overview.trim()

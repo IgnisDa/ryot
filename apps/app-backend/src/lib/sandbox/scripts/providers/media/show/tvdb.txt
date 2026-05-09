@@ -120,11 +120,10 @@ function collectGenres(genresArray) {
 
 function collectPeople(characters) {
 	if (!Array.isArray(characters)) {
-		return { people: [], freeCreators: [] };
+		return { people: [] };
 	}
 
 	const people = [];
-	const freeCreators = [];
 	const seen = new Set();
 
 	for (const chr of characters.slice(0, 20)) {
@@ -153,12 +152,10 @@ function collectPeople(characters) {
 				externalId: String(peopleId),
 				scriptSlug: "person.tvdb",
 			});
-		} else {
-			freeCreators.push({ name, role });
 		}
 	}
 
-	return { people, freeCreators };
+	return { people };
 }
 
 function buildSeason(seasonData) {
@@ -359,7 +356,7 @@ driver("details", async function (context) {
 
 	const images = collectImages(show?.image, show?.artworks);
 	const genres = collectGenres(show?.genres);
-	const { people, freeCreators } = collectPeople(show?.characters);
+	const { people } = collectPeople(show?.characters);
 
 	const firstAired =
 		typeof show?.firstAired === "string" && show.firstAired.trim()
@@ -432,7 +429,6 @@ driver("details", async function (context) {
 			sourceUrl,
 			publishYear,
 			showSeasons,
-			freeCreators,
 			description:
 				typeof show?.overview === "string" && show.overview.trim()
 					? show.overview.trim()
