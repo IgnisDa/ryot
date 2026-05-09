@@ -26,13 +26,14 @@ import {
 	storeImportSourcePayload,
 } from "./runtime/source-payload-store";
 import type { CreateImportRunBody, DetailedImportRun, ListedImportRun } from "./schemas";
-import type { ImportRunStatus } from "./types";
+import type { ImportRunSource, ImportRunStatus } from "./types";
 import { ProcessImportRunWorkflow } from "./worker";
 
 const isTerminalStatus = (status: ImportRunStatus): boolean =>
 	status === "completed" || status === "failed";
 
 type ImportsServiceShape = {
+	readonly failRunForIntegration: (runId: string, message: string) => Effect.Effect<void, DbError>;
 	readonly startImportRun: (
 		user: CurrentUserValue,
 		body: CreateImportRunBody,
@@ -49,6 +50,19 @@ type ImportsServiceShape = {
 		user: CurrentUserValue,
 		runId: string,
 	) => Effect.Effect<{ id: string }, BadRequest | NotFound | DbError>;
+	readonly hasActiveRunForIntegration: (input: {
+		integrationId: string;
+	}) => Effect.Effect<boolean, DbError>;
+	readonly listRunsByIntegrationId: (input: {
+		userId: string;
+		integrationId: string;
+	}) => Effect.Effect<readonly ListedImportRun[], DbError>;
+	readonly createRunForIntegration: (input: {
+		userId: string;
+		integrationId: string;
+		source: ImportRunSource;
+		inputSummary: Record<string, unknown>;
+	}) => Effect.Effect<ListedImportRun, DbError>;
 };
 
 export class ImportsService extends Effect.Service<ImportsService>()("ImportsService", {
@@ -255,6 +269,28 @@ export class ImportsService extends Effect.Service<ImportsService>()("ImportsSer
 			listImportRuns,
 			startImportRun,
 			removeImportRun,
+			listRunsByIntegrationId: (input) => runWithDb(repository.listRunsByIntegrationId(input)),
+			hasActiveRunForIntegration: (input) =>
+				runWithDb(repository.hasActiveRunForIntegration(input)),
+			createRunForIntegration: (input) =>
+				runWithDb(
+					repository.createRun({
+						userId: input.userId,
+						source: input.source,
+						inputSummary: input.inputSummary,
+						integrationId: input.integrationId,
+					}),
+				),
+			failRunForIntegration: (runId, message) =>
+				Effect.gen(function* () {
+					const finishedAt = yield* DateTime.nowAsDate;
+					yield* runWithDb(
+						repository.updateRun({ runId, finishedAt, status: "failed", errorSummary: message }),
+					);
+					yield* runWithDb(
+						repository.createFailure({ runId, message, itemIndex: 0, stage: "source_fetch" }),
+					);
+				}),
 		} satisfies ImportsServiceShape;
 	}),
 }) {}
