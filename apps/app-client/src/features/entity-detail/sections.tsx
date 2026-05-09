@@ -10,7 +10,13 @@ import { Text } from "@/components/ui/text";
 import { hexToRgba } from "@/features/media/overview-utils";
 
 import { ExpandableText } from "./expandable-text";
-import type { EntityDetail, PodcastDetail, ShowDetail, VideoGameDetail } from "./types";
+import type {
+	EntityDetail,
+	PodcastDetail,
+	ShowDetail,
+	UnlinkedCreator,
+	VideoGameDetail,
+} from "./types";
 
 // ─── helpers ──────────────────────────────────────────────────────────────────
 
@@ -28,13 +34,13 @@ export function formatSeconds(secs: number): string {
 }
 
 export function getPrimaryCreator(entity: EntityDetail) {
-	if (!("freeCreators" in entity)) {
+	if (!("unlinkedCreators" in entity)) {
 		return undefined;
 	}
 	return (
-		entity.freeCreators.find((c) =>
+		entity.unlinkedCreators.find((c) =>
 			["director", "creator", "author"].includes(c.role.toLowerCase()),
-		) ?? entity.freeCreators[0]
+		) ?? entity.unlinkedCreators[0]
 	);
 }
 
@@ -118,11 +124,7 @@ export function AboutSection({ entity }: { entity: EntityDetail }) {
 
 // ─── CreatorsSection ──────────────────────────────────────────────────────────
 
-export function CreatorsSection({
-	creators,
-}: {
-	creators: Array<{ name: string; role: string; image?: string }>;
-}) {
+export function CreatorsSection({ creators }: { creators: UnlinkedCreator[] }) {
 	if (creators.length === 0) {
 		return null;
 	}

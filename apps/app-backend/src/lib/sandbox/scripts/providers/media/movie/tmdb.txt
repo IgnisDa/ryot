@@ -117,6 +117,7 @@ function collectGenres(genresArray) {
 
 function collectPeople(cast, crew) {
 	const people = [];
+	const unlinkedCreators = [];
 	const seen = new Set();
 
 	const castList = Array.isArray(cast) ? cast : [];
@@ -146,6 +147,8 @@ function collectPeople(cast, crew) {
 				externalId: String(id),
 				scriptSlug: "person.tmdb",
 			});
+		} else {
+			unlinkedCreators.push({ name, role });
 		}
 	}
 
@@ -180,10 +183,12 @@ function collectPeople(cast, crew) {
 				externalId: String(id),
 				scriptSlug: "person.tmdb",
 			});
+		} else {
+			unlinkedCreators.push({ name, role: job });
 		}
 	}
 
-	return { people };
+	return { people, unlinkedCreators };
 }
 
 driver("search", async function (context) {

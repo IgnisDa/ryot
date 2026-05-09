@@ -350,7 +350,7 @@ query GetHardcoverBookDetails($id: Int!) {
     name: title,
     properties: {
       pages,
-      freeCreators: [],
+      unlinkedCreators: [],
       sourceUrl: sourceUrl,
       publishYear: releaseYear,
       genres: collectGenres(bookData.cached_tags),
