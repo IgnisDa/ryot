@@ -7,10 +7,10 @@
 	],
 	"scripts": {
 		"dev": "turbo dev",
-		"lint": "turbo lint",
 		"test": "turbo test",
 		"build": "turbo build",
-		"typecheck": "turbo typecheck"
+		"check": "turbo check",
+		"format": "turbo format"
 	},
 	"devDependencies": {
 		"bun-types": "1.3.9",

@@ -8,7 +8,7 @@ This package contains end-to-end and integration-style tests for Ryot.
 
 ## Running Tests
 
-Run `bun run typecheck`, `bun run test`, and `bun run lint` in `tests` after changes.
+Run `bun run check`, `bun run test`, and `bun run format` in `tests` after changes.
 
 ## Conventions
 

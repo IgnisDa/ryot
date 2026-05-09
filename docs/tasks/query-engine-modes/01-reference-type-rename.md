@@ -43,13 +43,13 @@ In this task, only the Zod schemas and TypeScript types are defined. The express
 - [x] Validator rejects `event` and `event-schema` references in entity mode with a clear error message
 - [x] All existing tests pass with the renamed reference type
 - [x] Media service code uses the new `event-join` naming
-- [x] `bun run typecheck`, `bun run test`, and `bun run lint` pass
+- [x] `bun run check`, `bun run test`, and `bun run format` pass
 
 ## Notes
 
 - Kept the external field-path namespace as `event.*`; only the internal runtime discriminant changed to `event-join`.
 - Added structural `event` and `event-schema` reference variants in the shared type and Zod schema, but they remain intentionally rejected by the current entity-mode validator and expression analysis until later mode tasks land.
-- Verified with `bun turbo --filter='@ryot/ts-utils' --filter='@ryot/app-backend' --filter='@ryot/tests' lint -- --write`, `bun turbo --filter='@ryot/ts-utils' --filter='@ryot/app-backend' --filter='@ryot/tests' typecheck`, and `bun turbo --filter='@ryot/app-backend' --filter='@ryot/tests' test`.
+- Verified with `bun turbo --filter='@ryot/ts-utils' --filter='@ryot/app-backend' --filter='@ryot/tests' format -- --write`, `bun turbo --filter='@ryot/ts-utils' --filter='@ryot/app-backend' --filter='@ryot/tests' check`, and `bun turbo --filter='@ryot/app-backend' --filter='@ryot/tests' test`.
 
 ## User stories addressed
 
