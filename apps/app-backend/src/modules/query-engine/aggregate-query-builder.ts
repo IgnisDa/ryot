@@ -24,11 +24,10 @@ import { sanitizeIdentifier } from "./sql-expression-helpers";
 
 type AggregateRow = Record<`aggregation_${number}`, unknown>;
 
-type AggregateValue = {
-	key: string;
-	kind: "json" | "null" | "number";
-	value: unknown;
-};
+type AggregateValue =
+	| { key: string; kind: "number"; value: number }
+	| { key: string; kind: "json"; value: Record<string, number> }
+	| { key: string; kind: "null"; value: null };
 
 const isNumberRecord = (value: unknown): value is Record<string, number> => {
 	return (

@@ -36,7 +36,7 @@ const extractPrimaryRemoteImage = (images: unknown) => {
 		const type = Reflect.get(image, "type");
 		const url = Reflect.get(image, "url");
 		if (type === "remote" && typeof url === "string" && url.length > 0) {
-			return url;
+			return { type: "remote" as const, url };
 		}
 	}
 

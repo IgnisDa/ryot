@@ -10,7 +10,6 @@
 		"check": "tsc && oxfmt . --write && oxlint . --type-aware --fix"
 	},
 	"dependencies": {
-		"@ryot/generated": "workspace:*",
 		"@ryot/ts-utils": "workspace:*",
 		"@tailwindcss/vite": "4.1.18",
 		"graphql": "16.12.0",

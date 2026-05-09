@@ -5,7 +5,20 @@ import { AuthMiddleware } from "#lib/auth-middleware";
 import { BadRequest, NotFound, RateLimited, Unauthorized } from "#lib/errors";
 import { DateRange, PaginationResult, QueryEngineRequest } from "#lib/query-language";
 
-const TableFieldValue = Schema.Struct({ kind: Schema.String, value: Schema.Unknown });
+const TableFieldValue = Schema.Struct({
+	value: Schema.Unknown,
+	kind: Schema.Literal("boolean", "date", "image", "json", "null", "number", "text"),
+});
+
+const AggregateFieldValue = Schema.Union(
+	Schema.Struct({ key: Schema.String, kind: Schema.Literal("null"), value: Schema.Unknown }),
+	Schema.Struct({ key: Schema.String, kind: Schema.Literal("number"), value: Schema.Number }),
+	Schema.Struct({
+		key: Schema.String,
+		kind: Schema.Literal("json"),
+		value: Schema.Record({ key: Schema.String, value: Schema.Number }),
+	}),
+);
 
 const TableMeta = Schema.Struct({
 	pagination: PaginationResult,
@@ -13,6 +26,10 @@ const TableMeta = Schema.Struct({
 });
 
 const QueryEngineResponse = Schema.Union(
+	Schema.Struct({
+		mode: Schema.Literal("aggregate"),
+		data: Schema.Struct({ values: Schema.Array(AggregateFieldValue) }),
+	}),
 	Schema.Struct({
 		mode: Schema.Literal("entities"),
 		data: Schema.Struct({
@@ -25,14 +42,6 @@ const QueryEngineResponse = Schema.Union(
 		data: Schema.Struct({
 			meta: TableMeta,
 			items: Schema.Array(Schema.Record({ key: Schema.String, value: TableFieldValue })),
-		}),
-	}),
-	Schema.Struct({
-		mode: Schema.Literal("aggregate"),
-		data: Schema.Struct({
-			values: Schema.Array(
-				Schema.Struct({ key: Schema.String, kind: Schema.String, value: Schema.Unknown }),
-			),
 		}),
 	}),
 	Schema.Struct({

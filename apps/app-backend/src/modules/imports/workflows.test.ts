@@ -254,10 +254,13 @@ it.effect("orchestrates one-time media imports through workflow-owned phases", (
 			getOrCreateCollection: (_userId, name) =>
 				Effect.succeed({
 					name,
+					image: null,
 					createdAt: now,
 					updatedAt: now,
 					properties: {},
+					externalId: null,
 					id: `${name}-id`,
+					sandboxScriptId: null,
 					entitySchemaId: "schema-collection",
 				}),
 			addToCollection: (_user, payload) => {

@@ -6,6 +6,8 @@ import { DbError } from "#lib/errors";
 import type { AppSchema } from "#lib/schema";
 import { decodeStoredAppSchema } from "#lib/schema";
 
+import type { StoredEntityImage } from "./types";
+
 type EntityRow = Pick<
 	typeof schema.entity.$inferSelect,
 	| "id"
@@ -87,14 +89,12 @@ const entitySchemaVisibleToUserClause = (userId: string) =>
 const entityVisibleToUserClause = (userId: string) =>
 	or(isNull(schema.entity.userId), eq(schema.entity.userId, userId));
 
-const imageToUrl = (image: EntityRow["image"]) => (image?.type === "remote" ? image.url : null);
-
 const toListedEntity = (row: EntityRow) => ({
 	id: row.id,
 	name: row.name,
+	image: row.image,
 	properties: row.properties,
 	externalId: row.externalId,
-	image: imageToUrl(row.image),
 	entitySchemaId: row.entitySchemaId,
 	sandboxScriptId: row.sandboxScriptId,
 	createdAt: row.createdAt.toISOString(),
@@ -334,10 +334,10 @@ export class EntitiesRepository extends Effect.Service<EntitiesRepository>()("En
 		createOrUpdateGlobalEntity: (input: {
 			name: string;
 			externalId: string;
-			image: string | null;
 			entitySchemaId: string;
 			sandboxScriptId: string;
 			populatedAt: Date | null;
+			image: StoredEntityImage | null;
 			properties: Record<string, unknown>;
 		}) =>
 			Effect.gen(function* () {
@@ -345,12 +345,12 @@ export class EntitiesRepository extends Effect.Service<EntitiesRepository>()("En
 				const values = {
 					userId: null,
 					name: input.name,
+					image: input.image,
 					properties: input.properties,
 					externalId: input.externalId,
 					populatedAt: input.populatedAt,
 					entitySchemaId: input.entitySchemaId,
 					sandboxScriptId: input.sandboxScriptId,
-					image: input.image ? { type: "remote" as const, url: input.image } : null,
 				};
 
 				const inserted = yield* dbEffect(() =>
@@ -386,9 +386,9 @@ export class EntitiesRepository extends Effect.Service<EntitiesRepository>()("En
 							.update(schema.entity)
 							.set({
 								name: input.name,
+								image: input.image,
 								properties: input.properties,
 								populatedAt: input.populatedAt,
-								image: input.image ? { type: "remote" as const, url: input.image } : null,
 							})
 							.where(and(eq(schema.entity.id, existing.id), isNull(schema.entity.populatedAt)))
 							.returning(entitySelection),
@@ -405,9 +405,9 @@ export class EntitiesRepository extends Effect.Service<EntitiesRepository>()("En
 			name: string;
 			userId: string;
 			externalId?: string;
-			image: string | null;
 			entitySchemaId: string;
 			sandboxScriptId?: string;
+			image: StoredEntityImage | null;
 			properties: Record<string, unknown>;
 		}) =>
 			Effect.gen(function* () {
@@ -416,12 +416,12 @@ export class EntitiesRepository extends Effect.Service<EntitiesRepository>()("En
 				const sandboxScriptId = input.sandboxScriptId;
 				const values = {
 					name: input.name,
+					image: input.image,
 					userId: input.userId,
 					properties: input.properties,
 					externalId: externalId ?? null,
 					entitySchemaId: input.entitySchemaId,
 					sandboxScriptId: sandboxScriptId ?? null,
-					image: input.image ? { type: "remote" as const, url: input.image } : null,
 				};
 
 				if (externalId && sandboxScriptId) {
