@@ -1,4 +1,5 @@
 import type { AppPropertyDefinition, AppSchema } from "@ryot/contract/schema/property-schema";
+import { isAppPropertyRequired } from "@ryot/contract/schema/property-schema";
 import type { PluginManifest } from "@ryot/plugin-kit/manifest";
 import { stableStringify } from "@ryot/ts-utils/json";
 import { Data, Effect } from "effect";
@@ -23,8 +24,6 @@ type PropertySchemaDefinition = {
 	readonly slug: string;
 	readonly propertiesSchema: AppSchema;
 };
-
-const isRequired = (property: AppPropertyDefinition) => property.validation?.required === true;
 
 const comparableProperty = (property: AppPropertyDefinition) => {
 	if (property.type === "enum" || property.type === "enum-array") {
@@ -86,7 +85,7 @@ const compareFields = (
 		compareProperty(propertyPath, previousProperty, nextProperty, issues);
 	}
 	for (const [key, nextProperty] of Object.entries(next)) {
-		if (!previous[key] && isRequired(nextProperty)) {
+		if (!previous[key] && isAppPropertyRequired(nextProperty)) {
 			issues.push({ code: "required_property_added", path: `${path}.${key}` });
 		}
 	}
