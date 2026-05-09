@@ -11,7 +11,6 @@ export interface CreateTrackerOptions {
 
 export async function createTracker(
 	client: Client,
-	cookies: string,
 	options: CreateTrackerOptions = {},
 ) {
 	const {
@@ -24,7 +23,6 @@ export async function createTracker(
 
 	const tracker = await client.run(
 		(c) => c.trackers.create({ payload: { icon, name, slug, accentColor, description } }),
-		{ Cookie: cookies },
 	);
 
 	return {
@@ -35,25 +33,23 @@ export async function createTracker(
 
 export async function listTrackers(
 	client: Client,
-	cookies: string,
 	options: { includeDisabled?: boolean } = {},
 ) {
 	return client.run(
 		(c) => c.trackers.list({ urlParams: { includeDisabled: options.includeDisabled ?? false } }),
-		{ Cookie: cookies },
 	);
 }
 
-export async function findBuiltinTracker(client: Client, cookies: string) {
-	const trackers = await listTrackers(client, cookies, {
+export async function findBuiltinTracker(client: Client) {
+	const trackers = await listTrackers(client, {
 		includeDisabled: true,
 	});
 	const builtinTracker = trackers.find((tracker) => tracker.isBuiltin);
 	return requirePresent(builtinTracker, "Built-in tracker not found");
 }
 
-export async function findBuiltinTrackerBySlug(client: Client, cookies: string, slug: string) {
-	const trackers = await listTrackers(client, cookies, {
+export async function findBuiltinTrackerBySlug(client: Client, slug: string) {
+	const trackers = await listTrackers(client, {
 		includeDisabled: true,
 	});
 	const tracker = trackers.find((entry) => entry.isBuiltin && entry.slug === slug);
@@ -62,7 +58,6 @@ export async function findBuiltinTrackerBySlug(client: Client, cookies: string, 
 
 export async function disableTracker(input: {
 	trackerId: string;
-	cookies: string;
 	client: Client;
 }) {
 	return input.client.run(
@@ -71,6 +66,5 @@ export async function disableTracker(input: {
 				payload: { isDisabled: true },
 				path: { trackerId: input.trackerId },
 			}),
-		{ Cookie: input.cookies },
 	);
 }

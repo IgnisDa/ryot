@@ -54,9 +54,9 @@ type WorkoutTemplateProperties = {
 
 describe("Workout Templates E2E", () => {
 	it("links the built-in workout-template schema to the fitness tracker", async () => {
-		const { client, cookies } = await createAuthenticatedClient();
-		const fitnessTracker = await findBuiltinTrackerBySlug(client, cookies, "fitness");
-		const schemas = await listEntitySchemas(client, cookies, {
+		const { client } = await createAuthenticatedClient();
+		const fitnessTracker = await findBuiltinTrackerBySlug(client, "fitness");
+		const schemas = await listEntitySchemas(client, {
 			trackerId: fitnessTracker.id,
 		});
 		const workoutTemplateSchema = schemas.find((schema) => schema.slug === "workout-template");
@@ -68,10 +68,9 @@ describe("Workout Templates E2E", () => {
 	});
 
 	it("exposes the workout-template schema properties", async () => {
-		const { client, cookies } = await createAuthenticatedClient();
+		const { client } = await createAuthenticatedClient();
 		const { schema: workoutTemplateSchema } = await findBuiltinSchemaBySlug(
 			client,
-			cookies,
 			"workout-template",
 		);
 
@@ -149,9 +148,9 @@ describe("Workout Templates E2E", () => {
 	});
 
 	it("creates the built-in All Workout Templates saved view with workout-template defaults", async () => {
-		const { client, cookies } = await createAuthenticatedClient();
-		const fitnessTracker = await findBuiltinTrackerBySlug(client, cookies, "fitness");
-		const views = await listSavedViews(client, cookies, {
+		const { client } = await createAuthenticatedClient();
+		const fitnessTracker = await findBuiltinTrackerBySlug(client, "fitness");
+		const views = await listSavedViews(client, {
 			trackerId: fitnessTracker.id,
 		});
 		const allWorkoutTemplatesView = views.find((view) => view.name === "All Workout Templates");
@@ -192,10 +191,9 @@ describe("Workout Templates E2E", () => {
 			},
 		});
 
-		const { workoutTemplate } = await createWorkoutTemplateEntityFixture(client, cookies);
+		const { workoutTemplate } = await createWorkoutTemplateEntityFixture(client);
 		const result = await executeQueryEngine(
 			client,
-			cookies,
 			buildGridRequest({
 				scope: ["workout-template"],
 				pagination: { page: 1, limit: 10 },
@@ -216,12 +214,9 @@ describe("Workout Templates E2E", () => {
 	});
 
 	it("creates a workout-template entity and retrieves it by id", async () => {
-		const { client, cookies } = await createAuthenticatedClient();
-		const { workoutTemplate, workoutTemplateId } = await createWorkoutTemplateEntityFixture(
-			client,
-			cookies,
-		);
-		const entity = await getEntity(client, cookies, workoutTemplateId);
+		const { client } = await createAuthenticatedClient();
+		const { workoutTemplate, workoutTemplateId } = await createWorkoutTemplateEntityFixture(client);
+		const entity = await getEntity(client, workoutTemplateId);
 
 		expect(entity.id).toBe(workoutTemplateId);
 		expect(entity.name).toBe(workoutTemplate.name);
@@ -229,13 +224,12 @@ describe("Workout Templates E2E", () => {
 	});
 
 	it("persists omitted optional fields and multiple nested exercises", async () => {
-		const { client, cookies } = await createAuthenticatedClient();
+		const { client } = await createAuthenticatedClient();
 		const { schema: workoutTemplateSchema } = await findBuiltinSchemaBySlug(
 			client,
-			cookies,
 			"workout-template",
 		);
-		const exerciseIds = await waitForSeededExerciseIds(client, cookies, 2);
+		const exerciseIds = await waitForSeededExerciseIds(client, 2);
 		const firstExerciseId = exerciseIds[0];
 		const secondExerciseId = exerciseIds[1];
 		assertPresent(firstExerciseId, "Missing seeded exercise ids for workout template fixture");
@@ -274,14 +268,14 @@ describe("Workout Templates E2E", () => {
 			],
 		} satisfies WorkoutTemplateProperties;
 
-		const workoutTemplate = await createEntity(client, cookies, {
+		const workoutTemplate = await createEntity(client, {
 			image: null,
 			properties: workoutTemplateProperties,
 			entitySchemaId: workoutTemplateSchema.id,
 			name: `Workout Template ${crypto.randomUUID()}`,
 		});
 
-		const entity = await getEntity(client, cookies, workoutTemplate.id);
+		const entity = await getEntity(client, workoutTemplate.id);
 
 		expect(entity.properties).toMatchObject(workoutTemplateProperties);
 		expect(entity.properties).not.toHaveProperty("comment");
@@ -294,19 +288,17 @@ describe("Workout Templates E2E", () => {
 	});
 
 	it("allows workout templates to be added to a collection", async () => {
-		const { client, cookies } = await createAuthenticatedClient();
-		const collection = await createCollection(client, cookies, {
+		const { client } = await createAuthenticatedClient();
+		const collection = await createCollection(client, {
 			name: "Workout Templates",
 			description: "Templates for the training plan",
 		});
-		const { workoutTemplateId } = await createWorkoutTemplateEntityFixture(client, cookies);
+		const { workoutTemplateId } = await createWorkoutTemplateEntityFixture(client);
 
-		const data = await client.run(
-			(c) =>
-				c.collections.createMembership({
-					payload: { entityId: workoutTemplateId, collectionId: collection.id },
-				}),
-			{ Cookie: cookies },
+		const data = await client.run((c) =>
+			c.collections.createMembership({
+				payload: { entityId: workoutTemplateId, collectionId: collection.id },
+			}),
 		);
 
 		expect(data.memberOf.sourceEntityId).toBe(workoutTemplateId);
@@ -314,14 +306,11 @@ describe("Workout Templates E2E", () => {
 	});
 
 	it("joins a workout to its template through the seeded relationship schema", async () => {
-		const { client, cookies, userId } = await createAuthenticatedClient();
-		const { schema: workoutSchema } = await findBuiltinSchemaBySlug(client, cookies, "workout");
-		const { workoutTemplateId, workoutTemplate } = await createWorkoutTemplateEntityFixture(
-			client,
-			cookies,
-		);
+		const { client, userId } = await createAuthenticatedClient();
+		const { schema: workoutSchema } = await findBuiltinSchemaBySlug(client, "workout");
+		const { workoutTemplateId, workoutTemplate } = await createWorkoutTemplateEntityFixture(client);
 		const workoutName = `Workout ${crypto.randomUUID()}`;
-		const { id: workoutId } = await createEntity(client, cookies, {
+		const { id: workoutId } = await createEntity(client, {
 			image: null,
 			name: workoutName,
 			entitySchemaId: workoutSchema.id,
@@ -343,7 +332,7 @@ describe("Workout Templates E2E", () => {
 			targetEntityId: workoutTemplateId,
 		});
 
-		const { data } = await executeQueryEngine(client, cookies, {
+		const { data } = await executeQueryEngine(client, {
 			eventJoins: [],
 			mode: "entities",
 			computedFields: [],
@@ -388,14 +377,11 @@ describe("Workout Templates E2E", () => {
 	});
 
 	it("joins a workout from the template side through the seeded relationship schema", async () => {
-		const { client, cookies, userId } = await createAuthenticatedClient();
-		const { schema: workoutSchema } = await findBuiltinSchemaBySlug(client, cookies, "workout");
-		const { workoutTemplateId, workoutTemplate } = await createWorkoutTemplateEntityFixture(
-			client,
-			cookies,
-		);
+		const { client, userId } = await createAuthenticatedClient();
+		const { schema: workoutSchema } = await findBuiltinSchemaBySlug(client, "workout");
+		const { workoutTemplateId, workoutTemplate } = await createWorkoutTemplateEntityFixture(client);
 		const workoutName = `Workout ${crypto.randomUUID()}`;
-		const { id: workoutId } = await createEntity(client, cookies, {
+		const { id: workoutId } = await createEntity(client, {
 			image: null,
 			name: workoutName,
 			entitySchemaId: workoutSchema.id,
@@ -417,7 +403,7 @@ describe("Workout Templates E2E", () => {
 			targetEntityId: workoutTemplateId,
 		});
 
-		const { data } = await executeQueryEngine(client, cookies, {
+		const { data } = await executeQueryEngine(client, {
 			eventJoins: [],
 			mode: "entities",
 			computedFields: [],

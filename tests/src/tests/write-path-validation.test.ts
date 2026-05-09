@@ -14,8 +14,8 @@ import { assertTaggedError } from "../test-support/assertions";
 
 describe("Entity write path — propertiesSchema validation", () => {
 	it("rejects entity creation when a required field is missing", async () => {
-		const { client, cookies } = await createAuthenticatedClient();
-		const { schemaId } = await createTrackerWithSchema(client, cookies, {
+		const { client } = await createAuthenticatedClient();
+		const { schemaId } = await createTrackerWithSchema(client, {
 			name: "Required Field Schema",
 			propertiesSchema: {
 				fields: {
@@ -29,12 +29,10 @@ describe("Entity write path — propertiesSchema validation", () => {
 			},
 		});
 
-		const error = await client.runError(
-			(c) =>
-				c.entities.create({
-					payload: { properties: {}, name: "Missing Required", entitySchemaId: schemaId },
-				}),
-			{ Cookie: cookies },
+		const error = await client.runError((c) =>
+			c.entities.create({
+				payload: { properties: {}, name: "Missing Required", entitySchemaId: schemaId },
+			}),
 		);
 
 		assertTaggedError(error, "BadRequest");
@@ -42,8 +40,8 @@ describe("Entity write path — propertiesSchema validation", () => {
 	});
 
 	it("rejects entity creation when a field has the wrong type", async () => {
-		const { client, cookies } = await createAuthenticatedClient();
-		const { schemaId } = await createTrackerWithSchema(client, cookies, {
+		const { client } = await createAuthenticatedClient();
+		const { schemaId } = await createTrackerWithSchema(client, {
 			name: "Type Check Schema",
 			propertiesSchema: {
 				fields: {
@@ -57,31 +55,29 @@ describe("Entity write path — propertiesSchema validation", () => {
 			},
 		});
 
-		const error = await client.runError(
-			(c) =>
-				c.entities.create({
-					payload: {
-						name: "Wrong Type",
-						entitySchemaId: schemaId,
-						properties: { count: "not-a-number" },
-					},
-				}),
-			{ Cookie: cookies },
+		const error = await client.runError((c) =>
+			c.entities.create({
+				payload: {
+					name: "Wrong Type",
+					entitySchemaId: schemaId,
+					properties: { count: "not-a-number" },
+				},
+			}),
 		);
 
 		assertTaggedError(error, "BadRequest");
 	});
 
 	it("ignores undeclared entity properties when the schema does not opt into strict unknown keys", async () => {
-		const { client, cookies } = await createAuthenticatedClient();
-		const { schemaId } = await createTrackerWithSchema(client, cookies, {
+		const { client } = await createAuthenticatedClient();
+		const { schemaId } = await createTrackerWithSchema(client, {
 			name: "Strict Schema",
 			propertiesSchema: {
 				fields: { title: { label: "Title", description: "Title", type: "string" as const } },
 			},
 		});
 
-		const entity = await createEntity(client, cookies, {
+		const entity = await createEntity(client, {
 			image: null,
 			name: "Extra Field",
 			entitySchemaId: schemaId,
@@ -92,8 +88,8 @@ describe("Entity write path — propertiesSchema validation", () => {
 	});
 
 	it("accepts entity creation when properties match the schema exactly", async () => {
-		const { client, cookies } = await createAuthenticatedClient();
-		const { schemaId } = await createTrackerWithSchema(client, cookies, {
+		const { client } = await createAuthenticatedClient();
+		const { schemaId } = await createTrackerWithSchema(client, {
 			name: "Valid Schema",
 			propertiesSchema: {
 				fields: {
@@ -108,7 +104,7 @@ describe("Entity write path — propertiesSchema validation", () => {
 			},
 		});
 
-		const entity = await createEntity(client, cookies, {
+		const entity = await createEntity(client, {
 			image: null,
 			name: "Valid Entity",
 			entitySchemaId: schemaId,
@@ -122,12 +118,11 @@ describe("Entity write path — propertiesSchema validation", () => {
 
 describe("Event write path — propertiesSchema validation", () => {
 	it("rejects event creation when a required field is missing", async () => {
-		const { client, cookies } = await createAuthenticatedClient();
-		const { entityId, eventSchemaId } = await createEventTestFixture(client, cookies);
+		const { client } = await createAuthenticatedClient();
+		const { entityId, eventSchemaId } = await createEventTestFixture(client);
 
-		const error = await client.runError(
-			(c) => c.events.create({ payload: [{ entityId, eventSchemaId, properties: {} }] }),
-			{ Cookie: cookies },
+		const error = await client.runError((c) =>
+			c.events.create({ payload: [{ entityId, eventSchemaId, properties: {} }] }),
 		);
 
 		assertTaggedError(error, "BadRequest");
@@ -135,45 +130,40 @@ describe("Event write path — propertiesSchema validation", () => {
 	});
 
 	it("rejects event creation when a field has the wrong type", async () => {
-		const { client, cookies } = await createAuthenticatedClient();
-		const { entityId, eventSchemaId } = await createEventTestFixture(client, cookies);
+		const { client } = await createAuthenticatedClient();
+		const { entityId, eventSchemaId } = await createEventTestFixture(client);
 
-		const error = await client.runError(
-			(c) =>
-				c.events.create({
-					payload: [{ entityId, eventSchemaId, properties: { rating: "not-a-number" } }],
-				}),
-			{ Cookie: cookies },
+		const error = await client.runError((c) =>
+			c.events.create({
+				payload: [{ entityId, eventSchemaId, properties: { rating: "not-a-number" } }],
+			}),
 		);
 
 		assertTaggedError(error, "BadRequest");
 	});
 
 	it("ignores undeclared event properties when the schema does not opt into strict unknown keys", async () => {
-		const { client, cookies } = await createAuthenticatedClient();
-		const { entityId, eventSchemaId } = await createEventTestFixture(client, cookies);
+		const { client } = await createAuthenticatedClient();
+		const { entityId, eventSchemaId } = await createEventTestFixture(client);
 
-		const data = await client.run(
-			(c) =>
-				c.events.create({
-					payload: [{ entityId, eventSchemaId, properties: { rating: 4, undeclaredField: "bad" } }],
-				}),
-			{ Cookie: cookies },
+		const data = await client.run((c) =>
+			c.events.create({
+				payload: [{ entityId, eventSchemaId, properties: { rating: 4, undeclaredField: "bad" } }],
+			}),
 		);
 
 		expect(data.count).toBe(1);
 
-		const [event] = await waitForEventCount(client, cookies, entityId, 1);
+		const [event] = await waitForEventCount(client, entityId, 1);
 		expect(event?.properties).toEqual({ rating: 4 });
 	});
 
 	it("accepts event creation when properties match the schema", async () => {
-		const { client, cookies } = await createAuthenticatedClient();
-		const { entityId, eventSchemaId } = await createEventTestFixture(client, cookies);
+		const { client } = await createAuthenticatedClient();
+		const { entityId, eventSchemaId } = await createEventTestFixture(client);
 
-		const data = await client.run(
-			(c) => c.events.create({ payload: [{ entityId, eventSchemaId, properties: { rating: 5 } }] }),
-			{ Cookie: cookies },
+		const data = await client.run((c) =>
+			c.events.create({ payload: [{ entityId, eventSchemaId, properties: { rating: 5 } }] }),
 		);
 
 		expect(data.count).toBe(1);
@@ -194,8 +184,8 @@ describe("Collection entity write path — propertiesSchema validation", () => {
 	});
 
 	it("accepts collection creation with a valid description string", async () => {
-		const { client, cookies } = await createAuthenticatedClient();
-		const collection = await createCollection(client, cookies, {
+		const { client } = await createAuthenticatedClient();
+		const collection = await createCollection(client, {
 			name: "Valid Collection",
 			description: "A perfectly valid description",
 		});
@@ -207,8 +197,8 @@ describe("Collection entity write path — propertiesSchema validation", () => {
 	});
 
 	it("accepts collection creation with a valid membershipPropertiesSchema", async () => {
-		const { client, cookies } = await createAuthenticatedClient();
-		const collection = await createCollection(client, cookies, {
+		const { client } = await createAuthenticatedClient();
+		const collection = await createCollection(client, {
 			name: "Schema Collection",
 			membershipPropertiesSchema: {
 				fields: { notes: { type: "string", label: "Notes", description: "Notes" } },
@@ -222,8 +212,8 @@ describe("Collection entity write path — propertiesSchema validation", () => {
 
 describe("Collection membership — member-of relationship propertiesSchema validation", () => {
 	it("accepts membership add with properties matching the collection schema", async () => {
-		const { client, cookies } = await createAuthenticatedClient();
-		const collection = await createCollection(client, cookies, {
+		const { client } = await createAuthenticatedClient();
+		const collection = await createCollection(client, {
 			name: "Rated Collection",
 			membershipPropertiesSchema: {
 				fields: {
@@ -236,22 +226,20 @@ describe("Collection membership — member-of relationship propertiesSchema vali
 				},
 			},
 		});
-		const { entityId } = await createTrackerWithSchemaAndEntity(client, cookies);
+		const { entityId } = await createTrackerWithSchemaAndEntity(client);
 
-		const data = await client.run(
-			(c) =>
-				c.collections.createMembership({
-					payload: { entityId, collectionId: collection.id, properties: { score: 8 } },
-				}),
-			{ Cookie: cookies },
+		const data = await client.run((c) =>
+			c.collections.createMembership({
+				payload: { entityId, collectionId: collection.id, properties: { score: 8 } },
+			}),
 		);
 
 		expect(data.memberOf.properties).toMatchObject({ score: 8 });
 	});
 
 	it("rejects membership add when properties fail the collection's membershipPropertiesSchema", async () => {
-		const { client, cookies } = await createAuthenticatedClient();
-		const collection = await createCollection(client, cookies, {
+		const { client } = await createAuthenticatedClient();
+		const collection = await createCollection(client, {
 			name: "Strict Score Collection",
 			membershipPropertiesSchema: {
 				fields: {
@@ -264,14 +252,12 @@ describe("Collection membership — member-of relationship propertiesSchema vali
 				},
 			},
 		});
-		const { entityId } = await createTrackerWithSchemaAndEntity(client, cookies);
+		const { entityId } = await createTrackerWithSchemaAndEntity(client);
 
-		const error = await client.runError(
-			(c) =>
-				c.collections.createMembership({
-					payload: { entityId, collectionId: collection.id, properties: { score: 999 } },
-				}),
-			{ Cookie: cookies },
+		const error = await client.runError((c) =>
+			c.collections.createMembership({
+				payload: { entityId, collectionId: collection.id, properties: { score: 999 } },
+			}),
 		);
 
 		assertTaggedError(error, "BadRequest");
@@ -279,20 +265,18 @@ describe("Collection membership — member-of relationship propertiesSchema vali
 	});
 
 	it("accepts membership add with arbitrary properties when no membershipPropertiesSchema is set", async () => {
-		const { client, cookies } = await createAuthenticatedClient();
-		const collection = await createCollection(client, cookies, { name: "Open Collection" });
-		const { entityId } = await createTrackerWithSchemaAndEntity(client, cookies);
+		const { client } = await createAuthenticatedClient();
+		const collection = await createCollection(client, { name: "Open Collection" });
+		const { entityId } = await createTrackerWithSchemaAndEntity(client);
 
-		const data = await client.run(
-			(c) =>
-				c.collections.createMembership({
-					payload: {
-						entityId,
-						collectionId: collection.id,
-						properties: { arbitrary: "any-value", number: 42 },
-					},
-				}),
-			{ Cookie: cookies },
+		const data = await client.run((c) =>
+			c.collections.createMembership({
+				payload: {
+					entityId,
+					collectionId: collection.id,
+					properties: { arbitrary: "any-value", number: 42 },
+				},
+			}),
 		);
 
 		expect(data.memberOf.properties).toMatchObject({ arbitrary: "any-value", number: 42 });

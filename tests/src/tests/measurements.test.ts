@@ -21,9 +21,9 @@ import {
 
 describe("Measurements E2E", () => {
 	it("links the built-in measurement schema to the fitness tracker", async () => {
-		const { client, cookies } = await createAuthenticatedClient();
-		const fitnessTracker = await findBuiltinTrackerBySlug(client, cookies, "fitness");
-		const schemas = await listEntitySchemas(client, cookies, {
+		const { client } = await createAuthenticatedClient();
+		const fitnessTracker = await findBuiltinTrackerBySlug(client, "fitness");
+		const schemas = await listEntitySchemas(client, {
 			trackerId: fitnessTracker.id,
 		});
 		const measurementSchema = schemas.find((schema) => schema.slug === "measurement");
@@ -35,12 +35,8 @@ describe("Measurements E2E", () => {
 	});
 
 	it("exposes the measurement schema properties with uniform statistics", async () => {
-		const { client, cookies } = await createAuthenticatedClient();
-		const { schema: measurementSchema } = await findBuiltinSchemaBySlug(
-			client,
-			cookies,
-			"measurement",
-		);
+		const { client } = await createAuthenticatedClient();
+		const { schema: measurementSchema } = await findBuiltinSchemaBySlug(client, "measurement");
 
 		expect(measurementSchema.propertiesSchema.fields).toMatchObject({
 			comment: {
@@ -63,9 +59,9 @@ describe("Measurements E2E", () => {
 	});
 
 	it("creates the built-in All Measurements saved view with recordedAt sort and comment subtitle", async () => {
-		const { client, cookies } = await createAuthenticatedClient();
-		const fitnessTracker = await findBuiltinTrackerBySlug(client, cookies, "fitness");
-		const views = await listSavedViews(client, cookies, {
+		const { client } = await createAuthenticatedClient();
+		const fitnessTracker = await findBuiltinTrackerBySlug(client, "fitness");
+		const views = await listSavedViews(client, {
 			trackerId: fitnessTracker.id,
 		});
 		const allMeasurementsView = views.find((view) => view.name === "All Measurements");
@@ -95,9 +91,9 @@ describe("Measurements E2E", () => {
 	});
 
 	it("creates a measurement entity with statistics and retrieves it by id", async () => {
-		const { client, cookies } = await createAuthenticatedClient();
-		const { measurementId } = await createMeasurementEntityFixture(client, cookies);
-		const entity = await getEntity(client, cookies, measurementId);
+		const { client } = await createAuthenticatedClient();
+		const { measurementId } = await createMeasurementEntityFixture(client);
+		const entity = await getEntity(client, measurementId);
 
 		expect(entity.id).toBe(measurementId);
 		expect(entity.name).toBe("Measurement - 2026-04-27 08:00");
@@ -109,12 +105,11 @@ describe("Measurements E2E", () => {
 	});
 
 	it("shows measurement entities through the query engine", async () => {
-		const { client, cookies } = await createAuthenticatedClient();
-		await createMeasurementEntityFixture(client, cookies);
+		const { client } = await createAuthenticatedClient();
+		await createMeasurementEntityFixture(client);
 
 		const result = await executeQueryEngine(
 			client,
-			cookies,
 			buildGridRequest({
 				scope: ["measurement"],
 				pagination: { page: 1, limit: 10 },

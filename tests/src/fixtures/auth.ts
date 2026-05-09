@@ -57,6 +57,6 @@ export async function createTestUser() {
 export async function createAuthenticatedClient() {
 	const { cookies, email } = await createTestUser();
 	const userId = await getUserIdByEmail(email);
-	const client = makeSession();
+	const client = makeSession(getBackendUrl(), { Cookie: cookies });
 	return { client, cookies, email, userId };
 }

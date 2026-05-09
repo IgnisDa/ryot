@@ -23,8 +23,8 @@ const toIso = (value: ReturnType<typeof currentTime>) => DateTime.formatIso(valu
 
 describe("time-series mode", () => {
 	it("returns day buckets with correct event counts and fills empty buckets with 0", async () => {
-		const { client, cookies } = await createAuthenticatedClient();
-		const { trackerId } = await createTracker(client, cookies, {
+		const { client } = await createAuthenticatedClient();
+		const { trackerId } = await createTracker(client, {
 			name: "TimeSeries Tracker",
 		});
 		const minimalPropertiesSchema = {
@@ -36,12 +36,12 @@ describe("time-series mode", () => {
 				},
 			},
 		};
-		const schema = await createEntitySchema(client, cookies, {
+		const schema = await createEntitySchema(client, {
 			trackerId,
 			name: "TSItem",
 			propertiesSchema: minimalPropertiesSchema,
 		});
-		const reviewSchema = await createEventSchema(client, cookies, {
+		const reviewSchema = await createEventSchema(client, {
 			name: "Review",
 			slug: "review",
 			entitySchemaId: schema.schemaId,
@@ -49,7 +49,6 @@ describe("time-series mode", () => {
 		});
 		const entityId = await createQueryEngineEntity({
 			client,
-			cookies,
 			properties: {},
 			name: "TS Entity",
 			entitySchemaId: schema.schemaId,
@@ -58,14 +57,12 @@ describe("time-series mode", () => {
 		// Create 2 events now. They will fall in today's bucket.
 		await createQueryEngineEvent({
 			client,
-			cookies,
 			entityId,
 			properties: {},
 			eventSchemaId: reviewSchema.id,
 		});
 		await createQueryEngineEvent({
 			client,
-			cookies,
 			entityId,
 			properties: {},
 			eventSchemaId: reviewSchema.id,
@@ -75,21 +72,19 @@ describe("time-series mode", () => {
 		const startAt = toIso(startOfDay());
 		const endAt = toIso(add(startOfDay(), "3 days"));
 
-		const data = await client.run(
-			(c) =>
-				c.queryEngine.execute({
-					payload: {
-						filter: null,
-						bucket: "day",
-						mode: "timeSeries",
-						computedFields: [],
-						scope: [schema.slug],
-						metric: { type: "count" },
-						dateRange: { startAt, endAt },
-						eventSchemas: [reviewSchema.slug],
-					},
-				}),
-			{ Cookie: cookies },
+		const data = await client.run((c) =>
+			c.queryEngine.execute({
+				payload: {
+					filter: null,
+					bucket: "day",
+					mode: "timeSeries",
+					computedFields: [],
+					scope: [schema.slug],
+					metric: { type: "count" },
+					dateRange: { startAt, endAt },
+					eventSchemas: [reviewSchema.slug],
+				},
+			}),
 		);
 
 		expect(data.mode).toBe("timeSeries");
@@ -103,8 +98,8 @@ describe("time-series mode", () => {
 	});
 
 	it("returns timeSeries mode discriminant in response", async () => {
-		const { client, cookies } = await createAuthenticatedClient();
-		const { trackerId } = await createTracker(client, cookies, {
+		const { client } = await createAuthenticatedClient();
+		const { trackerId } = await createTracker(client, {
 			name: "TimeSeries Mode Check",
 		});
 		const minimalPropertiesSchema = {
@@ -116,12 +111,12 @@ describe("time-series mode", () => {
 				},
 			},
 		};
-		const schema = await createEntitySchema(client, cookies, {
+		const schema = await createEntitySchema(client, {
 			trackerId,
 			name: "ModeCheckItem",
 			propertiesSchema: minimalPropertiesSchema,
 		});
-		const reviewSchema = await createEventSchema(client, cookies, {
+		const reviewSchema = await createEventSchema(client, {
 			name: "Review",
 			slug: "review",
 			entitySchemaId: schema.schemaId,
@@ -131,21 +126,19 @@ describe("time-series mode", () => {
 		const startAt = toIso(startOfDay());
 		const endAt = toIso(add(startOfDay(), Duration.days(1)));
 
-		const data = await client.run(
-			(c) =>
-				c.queryEngine.execute({
-					payload: {
-						filter: null,
-						bucket: "hour",
-						mode: "timeSeries",
-						computedFields: [],
-						scope: [schema.slug],
-						metric: { type: "count" },
-						dateRange: { startAt, endAt },
-						eventSchemas: [reviewSchema.slug],
-					},
-				}),
-			{ Cookie: cookies },
+		const data = await client.run((c) =>
+			c.queryEngine.execute({
+				payload: {
+					filter: null,
+					bucket: "hour",
+					mode: "timeSeries",
+					computedFields: [],
+					scope: [schema.slug],
+					metric: { type: "count" },
+					dateRange: { startAt, endAt },
+					eventSchemas: [reviewSchema.slug],
+				},
+			}),
 		);
 
 		expect(data.mode).toBe("timeSeries");
@@ -154,8 +147,8 @@ describe("time-series mode", () => {
 	});
 
 	it("rejects requests where startAt is not before endAt", async () => {
-		const { client, cookies } = await createAuthenticatedClient();
-		const { trackerId } = await createTracker(client, cookies, {
+		const { client } = await createAuthenticatedClient();
+		const { trackerId } = await createTracker(client, {
 			name: "TimeSeries DateRange Check",
 		});
 		const minimalPropertiesSchema = {
@@ -167,12 +160,12 @@ describe("time-series mode", () => {
 				},
 			},
 		};
-		const schema = await createEntitySchema(client, cookies, {
+		const schema = await createEntitySchema(client, {
 			trackerId,
 			name: "DateRangeItem",
 			propertiesSchema: minimalPropertiesSchema,
 		});
-		const reviewSchema = await createEventSchema(client, cookies, {
+		const reviewSchema = await createEventSchema(client, {
 			name: "Review",
 			slug: "review",
 			entitySchemaId: schema.schemaId,
@@ -181,30 +174,28 @@ describe("time-series mode", () => {
 
 		const currentIso = toIso(currentTime());
 
-		const error = await client.runError(
-			(c) =>
-				c.queryEngine.execute({
-					payload: {
-						filter: null,
-						bucket: "day",
-						mode: "timeSeries",
-						computedFields: [],
-						scope: [schema.slug],
-						metric: { type: "count" },
-						eventSchemas: [reviewSchema.slug],
-						// endAt before startAt
-						dateRange: { startAt: currentIso, endAt: currentIso },
-					},
-				}),
-			{ Cookie: cookies },
+		const error = await client.runError((c) =>
+			c.queryEngine.execute({
+				payload: {
+					filter: null,
+					bucket: "day",
+					mode: "timeSeries",
+					computedFields: [],
+					scope: [schema.slug],
+					metric: { type: "count" },
+					eventSchemas: [reviewSchema.slug],
+					// endAt before startAt
+					dateRange: { startAt: currentIso, endAt: currentIso },
+				},
+			}),
 		);
 
 		assertTaggedError(error, "ParseError");
 	});
 
 	it("returns zero for a partial bucket range that excludes the event", async () => {
-		const { client, cookies } = await createAuthenticatedClient();
-		const { trackerId } = await createTracker(client, cookies, {
+		const { client } = await createAuthenticatedClient();
+		const { trackerId } = await createTracker(client, {
 			name: "TimeSeries Single Bucket",
 		});
 		const minimalPropertiesSchema = {
@@ -216,12 +207,12 @@ describe("time-series mode", () => {
 				},
 			},
 		};
-		const schema = await createEntitySchema(client, cookies, {
+		const schema = await createEntitySchema(client, {
 			trackerId,
 			name: "SingleBucketItem",
 			propertiesSchema: minimalPropertiesSchema,
 		});
-		const reviewSchema = await createEventSchema(client, cookies, {
+		const reviewSchema = await createEventSchema(client, {
 			name: "Review",
 			slug: "review",
 			entitySchemaId: schema.schemaId,
@@ -229,7 +220,6 @@ describe("time-series mode", () => {
 		});
 		const entityId = await createQueryEngineEntity({
 			client,
-			cookies,
 			properties: {},
 			name: "Single Bucket Entity",
 			entitySchemaId: schema.schemaId,
@@ -237,7 +227,6 @@ describe("time-series mode", () => {
 
 		await createQueryEngineEvent({
 			client,
-			cookies,
 			entityId,
 			properties: {},
 			eventSchemaId: reviewSchema.id,
@@ -250,21 +239,19 @@ describe("time-series mode", () => {
 		const startAt = toIso(add(futureDay, "10 hours"));
 		const endAt = toIso(add(futureDay, "12 hours"));
 
-		const data = await client.run(
-			(c) =>
-				c.queryEngine.execute({
-					payload: {
-						filter: null,
-						bucket: "day",
-						mode: "timeSeries",
-						computedFields: [],
-						scope: [schema.slug],
-						metric: { type: "count" },
-						dateRange: { startAt, endAt },
-						eventSchemas: [reviewSchema.slug],
-					},
-				}),
-			{ Cookie: cookies },
+		const data = await client.run((c) =>
+			c.queryEngine.execute({
+				payload: {
+					filter: null,
+					bucket: "day",
+					mode: "timeSeries",
+					computedFields: [],
+					scope: [schema.slug],
+					metric: { type: "count" },
+					dateRange: { startAt, endAt },
+					eventSchemas: [reviewSchema.slug],
+				},
+			}),
 		);
 
 		const buckets = data.mode === "timeSeries" ? data.data.buckets : [];
@@ -273,19 +260,19 @@ describe("time-series mode", () => {
 	});
 
 	it("filters by occurredAt not createdAt when applying dateRange", async () => {
-		const { client, cookies } = await createAuthenticatedClient();
-		const { trackerId } = await createTracker(client, cookies, {
+		const { client } = await createAuthenticatedClient();
+		const { trackerId } = await createTracker(client, {
 			name: "TimeSeries OccurredAt Filter",
 		});
 		const minimalSchema = {
 			fields: { title: { type: "string" as const, label: "Title", description: "Title" } },
 		};
-		const schema = await createEntitySchema(client, cookies, {
+		const schema = await createEntitySchema(client, {
 			trackerId,
 			name: "OccurredAtItem",
 			propertiesSchema: minimalSchema,
 		});
-		const reviewSchema = await createEventSchema(client, cookies, {
+		const reviewSchema = await createEventSchema(client, {
 			name: "Review",
 			slug: "review",
 			entitySchemaId: schema.schemaId,
@@ -293,7 +280,6 @@ describe("time-series mode", () => {
 		});
 		const entityId = await createQueryEngineEntity({
 			client,
-			cookies,
 			properties: {},
 			name: "OccurredAt Entity",
 			entitySchemaId: schema.schemaId,
@@ -308,7 +294,6 @@ describe("time-series mode", () => {
 		);
 		await createQueryEngineEvent({
 			client,
-			cookies,
 			entityId,
 			properties: {},
 			occurredAt: pastOccurredAt,
@@ -319,7 +304,6 @@ describe("time-series mode", () => {
 		// It should be included in today's dateRange.
 		await createQueryEngineEvent({
 			client,
-			cookies,
 			entityId,
 			properties: {},
 			eventSchemaId: reviewSchema.id,
@@ -328,21 +312,19 @@ describe("time-series mode", () => {
 		const startAt = toIso(startOfDay());
 		const endAt = toIso(add(startOfDay(), Duration.days(1)));
 
-		const data = await client.run(
-			(c) =>
-				c.queryEngine.execute({
-					payload: {
-						filter: null,
-						bucket: "day",
-						mode: "timeSeries",
-						computedFields: [],
-						scope: [schema.slug],
-						metric: { type: "count" },
-						dateRange: { startAt, endAt },
-						eventSchemas: [reviewSchema.slug],
-					},
-				}),
-			{ Cookie: cookies },
+		const data = await client.run((c) =>
+			c.queryEngine.execute({
+				payload: {
+					filter: null,
+					bucket: "day",
+					mode: "timeSeries",
+					computedFields: [],
+					scope: [schema.slug],
+					metric: { type: "count" },
+					dateRange: { startAt, endAt },
+					eventSchemas: [reviewSchema.slug],
+				},
+			}),
 		);
 
 		const buckets = data.mode === "timeSeries" ? data.data.buckets : [];
@@ -353,19 +335,19 @@ describe("time-series mode", () => {
 	});
 
 	it("counts explicit occurredAt in the matching past bucket", async () => {
-		const { client, cookies } = await createAuthenticatedClient();
-		const { trackerId } = await createTracker(client, cookies, {
+		const { client } = await createAuthenticatedClient();
+		const { trackerId } = await createTracker(client, {
 			name: "TimeSeries OccurredAt Bucket",
 		});
 		const minimalSchema = {
 			fields: { title: { type: "string" as const, label: "Title", description: "Title" } },
 		};
-		const schema = await createEntitySchema(client, cookies, {
+		const schema = await createEntitySchema(client, {
 			trackerId,
 			name: "OccurredAtBucketItem",
 			propertiesSchema: minimalSchema,
 		});
-		const reviewSchema = await createEventSchema(client, cookies, {
+		const reviewSchema = await createEventSchema(client, {
 			name: "Review",
 			slug: "review",
 			entitySchemaId: schema.schemaId,
@@ -373,7 +355,6 @@ describe("time-series mode", () => {
 		});
 		const entityId = await createQueryEngineEntity({
 			client,
-			cookies,
 			properties: {},
 			name: "OccurredAt Bucket Entity",
 			entitySchemaId: schema.schemaId,
@@ -385,7 +366,6 @@ describe("time-series mode", () => {
 		);
 		await createQueryEngineEvent({
 			client,
-			cookies,
 			entityId,
 			properties: {},
 			eventSchemaId: reviewSchema.id,
@@ -395,21 +375,19 @@ describe("time-series mode", () => {
 		const startAt = toIso(pastBucketStart);
 		const endAt = toIso(add(pastBucketStart, Duration.days(1)));
 
-		const data = await client.run(
-			(c) =>
-				c.queryEngine.execute({
-					payload: {
-						filter: null,
-						bucket: "day",
-						mode: "timeSeries",
-						computedFields: [],
-						scope: [schema.slug],
-						metric: { type: "count" },
-						dateRange: { startAt, endAt },
-						eventSchemas: [reviewSchema.slug],
-					},
-				}),
-			{ Cookie: cookies },
+		const data = await client.run((c) =>
+			c.queryEngine.execute({
+				payload: {
+					filter: null,
+					bucket: "day",
+					mode: "timeSeries",
+					computedFields: [],
+					scope: [schema.slug],
+					metric: { type: "count" },
+					dateRange: { startAt, endAt },
+					eventSchemas: [reviewSchema.slug],
+				},
+			}),
 		);
 
 		const buckets = data.mode === "timeSeries" ? data.data.buckets : [];
@@ -419,19 +397,19 @@ describe("time-series mode", () => {
 	});
 
 	it("filters events before bucketing with an event property filter", async () => {
-		const { client, cookies } = await createAuthenticatedClient();
-		const { trackerId } = await createTracker(client, cookies, {
+		const { client } = await createAuthenticatedClient();
+		const { trackerId } = await createTracker(client, {
 			name: "TimeSeries Filter Tracker",
 		});
 		const minimalPropertiesSchema = {
 			fields: { title: { label: "Title", description: "Title", type: "string" as const } },
 		};
-		const schema = await createEntitySchema(client, cookies, {
+		const schema = await createEntitySchema(client, {
 			trackerId,
 			name: "FilterItem",
 			propertiesSchema: minimalPropertiesSchema,
 		});
-		const reviewSchema = await createEventSchema(client, cookies, {
+		const reviewSchema = await createEventSchema(client, {
 			name: "Review",
 			slug: "review",
 			entitySchemaId: schema.schemaId,
@@ -441,7 +419,6 @@ describe("time-series mode", () => {
 		});
 		const entityId = await createQueryEngineEntity({
 			client,
-			cookies,
 			properties: {},
 			name: "Filter Entity",
 			entitySchemaId: schema.schemaId,
@@ -450,21 +427,18 @@ describe("time-series mode", () => {
 		// Create 3 events: 2 with rating=5, 1 with rating=3
 		await createQueryEngineEvent({
 			client,
-			cookies,
 			entityId,
 			properties: { rating: 5 },
 			eventSchemaId: reviewSchema.id,
 		});
 		await createQueryEngineEvent({
 			client,
-			cookies,
 			entityId,
 			properties: { rating: 5 },
 			eventSchemaId: reviewSchema.id,
 		});
 		await createQueryEngineEvent({
 			client,
-			cookies,
 			entityId,
 			properties: { rating: 3 },
 			eventSchemaId: reviewSchema.id,
@@ -473,33 +447,31 @@ describe("time-series mode", () => {
 		const startAt = toIso(startOfDay());
 		const endAt = toIso(add(startOfDay(), Duration.days(1)));
 
-		const data = await client.run(
-			(c) =>
-				c.queryEngine.execute({
-					payload: {
-						bucket: "day",
-						mode: "timeSeries",
-						computedFields: [],
-						scope: [schema.slug],
-						metric: { type: "count" },
-						dateRange: { startAt, endAt },
-						eventSchemas: [reviewSchema.slug],
-						filter: {
-							operator: "gte",
-							type: "comparison",
-							right: literalExpression(5),
-							left: {
-								type: "reference",
-								reference: {
-									type: "event",
-									path: ["properties", "rating"],
-									eventSchemaSlug: reviewSchema.slug,
-								},
+		const data = await client.run((c) =>
+			c.queryEngine.execute({
+				payload: {
+					bucket: "day",
+					mode: "timeSeries",
+					computedFields: [],
+					scope: [schema.slug],
+					metric: { type: "count" },
+					dateRange: { startAt, endAt },
+					eventSchemas: [reviewSchema.slug],
+					filter: {
+						operator: "gte",
+						type: "comparison",
+						right: literalExpression(5),
+						left: {
+							type: "reference",
+							reference: {
+								type: "event",
+								path: ["properties", "rating"],
+								eventSchemaSlug: reviewSchema.slug,
 							},
 						},
 					},
-				}),
-			{ Cookie: cookies },
+				},
+			}),
 		);
 
 		const buckets = data.mode === "timeSeries" ? data.data.buckets : [];
@@ -508,19 +480,19 @@ describe("time-series mode", () => {
 	});
 
 	it("rejects event-join references in time-series mode", async () => {
-		const { client, cookies } = await createAuthenticatedClient();
-		const { trackerId } = await createTracker(client, cookies, {
+		const { client } = await createAuthenticatedClient();
+		const { trackerId } = await createTracker(client, {
 			name: "TimeSeries Ref Rejection",
 		});
 		const minimalPropertiesSchema = {
 			fields: { title: { label: "Title", description: "Title", type: "string" as const } },
 		};
-		const schema = await createEntitySchema(client, cookies, {
+		const schema = await createEntitySchema(client, {
 			trackerId,
 			name: "RefRejection",
 			propertiesSchema: minimalPropertiesSchema,
 		});
-		const reviewSchema = await createEventSchema(client, cookies, {
+		const reviewSchema = await createEventSchema(client, {
 			name: "Review",
 			slug: "review",
 			entitySchemaId: schema.schemaId,
@@ -530,27 +502,25 @@ describe("time-series mode", () => {
 		const startAt = toIso(startOfDay());
 		const endAt = toIso(add(startOfDay(), Duration.days(1)));
 
-		const error = await client.runError(
-			(c) =>
-				c.queryEngine.execute({
-					payload: {
-						filter: null,
-						bucket: "day",
-						mode: "timeSeries",
-						computedFields: [],
-						scope: [schema.slug],
-						dateRange: { startAt, endAt },
-						eventSchemas: [reviewSchema.slug],
-						metric: {
-							type: "sum",
-							expression: {
-								type: "reference",
-								reference: { joinKey: "review", type: "event-join", path: ["createdAt"] },
-							},
+		const error = await client.runError((c) =>
+			c.queryEngine.execute({
+				payload: {
+					filter: null,
+					bucket: "day",
+					mode: "timeSeries",
+					computedFields: [],
+					scope: [schema.slug],
+					dateRange: { startAt, endAt },
+					eventSchemas: [reviewSchema.slug],
+					metric: {
+						type: "sum",
+						expression: {
+							type: "reference",
+							reference: { joinKey: "review", type: "event-join", path: ["createdAt"] },
 						},
 					},
-				}),
-			{ Cookie: cookies },
+				},
+			}),
 		);
 
 		assertTaggedError(error, "BadRequest");
@@ -558,19 +528,19 @@ describe("time-series mode", () => {
 	});
 
 	it("rejects non-numeric sum metric expressions", async () => {
-		const { client, cookies } = await createAuthenticatedClient();
-		const { trackerId } = await createTracker(client, cookies, {
+		const { client } = await createAuthenticatedClient();
+		const { trackerId } = await createTracker(client, {
 			name: "TimeSeries Sum Type Rejection",
 		});
 		const minimalPropertiesSchema = {
 			fields: { title: { label: "Title", description: "Title", type: "string" as const } },
 		};
-		const schema = await createEntitySchema(client, cookies, {
+		const schema = await createEntitySchema(client, {
 			trackerId,
 			name: "SumTypeRejection",
 			propertiesSchema: minimalPropertiesSchema,
 		});
-		const reviewSchema = await createEventSchema(client, cookies, {
+		const reviewSchema = await createEventSchema(client, {
 			name: "Review",
 			slug: "review",
 			entitySchemaId: schema.schemaId,
@@ -580,24 +550,22 @@ describe("time-series mode", () => {
 		const startAt = toIso(startOfDay());
 		const endAt = toIso(add(startOfDay(), Duration.days(1)));
 
-		const error = await client.runError(
-			(c) =>
-				c.queryEngine.execute({
-					payload: {
-						filter: null,
-						bucket: "day",
-						mode: "timeSeries",
-						computedFields: [],
-						scope: [schema.slug],
-						dateRange: { startAt, endAt },
-						eventSchemas: [reviewSchema.slug],
-						metric: {
-							type: "sum",
-							expression: { type: "reference", reference: { type: "event", path: ["createdAt"] } },
-						},
+		const error = await client.runError((c) =>
+			c.queryEngine.execute({
+				payload: {
+					filter: null,
+					bucket: "day",
+					mode: "timeSeries",
+					computedFields: [],
+					scope: [schema.slug],
+					dateRange: { startAt, endAt },
+					eventSchemas: [reviewSchema.slug],
+					metric: {
+						type: "sum",
+						expression: { type: "reference", reference: { type: "event", path: ["createdAt"] } },
 					},
-				}),
-			{ Cookie: cookies },
+				},
+			}),
 		);
 
 		// createdAt is a datetime, not a number

@@ -22,25 +22,22 @@ type CreateIntegrationBody = ContractPayload<"integrations", "create">;
 
 export async function createIntegration(
 	client: Client,
-	cookies: string,
 	body: CreateIntegrationBody,
 ) {
-	const result = await client.run((c) => c.integrations.create({ payload: body }), {
-		Cookie: cookies,
-	});
+	const result = await client.run((c) => c.integrations.create({ payload: body }));
 	requirePresent(result.id, "Failed to create integration");
 	return result;
 }
 
-export async function createKodiIntegration(client: Client, cookies: string) {
-	return createIntegration(client, cookies, {
+export async function createKodiIntegration(client: Client) {
+	return createIntegration(client, {
 		provider: "kodi",
 		providerSpecifics: { kind: "kodi" },
 	});
 }
 
-export async function createAudiobookshelfIntegration(client: Client, cookies: string) {
-	return createIntegration(client, cookies, {
+export async function createAudiobookshelfIntegration(client: Client) {
+	return createIntegration(client, {
 		isDisabled: true,
 		provider: "audiobookshelf",
 		providerSpecifics: {
@@ -53,22 +50,17 @@ export async function createAudiobookshelfIntegration(client: Client, cookies: s
 
 export async function listIntegrations(
 	client: Client,
-	cookies: string,
 	query?: ContractUrlParams<"integrations", "list">,
 ) {
-	return client.run((c) => c.integrations.list({ urlParams: query ?? {} }), { Cookie: cookies });
+	return client.run((c) => c.integrations.list({ urlParams: query ?? {} }));
 }
 
-export async function getIntegration(client: Client, cookies: string, id: string) {
-	return client.run((c) => c.integrations.get({ path: { integrationId: id } }), {
-		Cookie: cookies,
-	});
+export async function getIntegration(client: Client, id: string) {
+	return client.run((c) => c.integrations.get({ path: { integrationId: id } }));
 }
 
-export async function deleteIntegration(client: Client, cookies: string, id: string) {
-	return client.run((c) => c.integrations.delete({ path: { integrationId: id } }), {
-		Cookie: cookies,
-	});
+export async function deleteIntegration(client: Client, id: string) {
+	return client.run((c) => c.integrations.delete({ path: { integrationId: id } }));
 }
 
 export async function postIntegrationWebhook(
