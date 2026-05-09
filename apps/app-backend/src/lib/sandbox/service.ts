@@ -380,7 +380,7 @@ export class SandboxService {
 	}
 }
 
-type SandboxExecutionOptions = Pick<
+export type SandboxExecutionOptions = Pick<
 	SandboxRunJobData,
 	"context" | "maxHeapMB" | "timeoutMs" | "driverName" | "scriptId"
 > & {
