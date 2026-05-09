@@ -10,6 +10,7 @@
 		"web": "expo start --web",
 		"android": "expo run:android",
 		"dev": "expo start --port 3005",
+		"test": "bun test --only-failures",
 		"build": "expo export --platform web --output-dir dist"
 	},
 	"devDependencies": {
