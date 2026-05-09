@@ -1,13 +1,15 @@
 import type { ExpoConfig } from "expo/config";
 
+const isDebug = process.env.APP_VARIANT === "development";
+
 const config: ExpoConfig = {
-	name: "Ryot",
 	slug: "ryot",
 	scheme: "ryot",
 	version: "1.0.0",
 	orientation: "portrait",
 	userInterfaceStyle: "automatic",
 	icon: "./assets/images/icon.png",
+	name: isDebug ? "Ryot Debug" : "Ryot",
 	updates: { checkAutomatically: "NEVER" },
 	experiments: { typedRoutes: true, reactCompiler: true },
 	ios: { supportsTablet: true, bundleIdentifier: "io.ryot.app" },
