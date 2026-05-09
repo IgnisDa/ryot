@@ -66,14 +66,12 @@ describe("POST /collections", () => {
 			body: {
 				name: "Invalid Collection",
 				description: "Should fail",
-				membershipPropertiesSchema: {
-					fields: { invalidField: { type: "invalid_type" } },
-				},
-			} as unknown as { name: string; description?: string },
+				membershipPropertiesSchema: { fields: { invalidField: { type: "invalid_type" } } },
+			},
 		});
 
 		expect(response.status).toBe(400);
-		expect(error?.error?.message).toContain("Invalid input");
+		expect(error?.error.message).toContain("Invalid input");
 	});
 
 	it("rejects unauthenticated requests", async () => {
@@ -201,11 +199,11 @@ describe("POST /collections", () => {
 							},
 						},
 					},
-				} as unknown as { name: string; description?: string },
+				},
 			});
 
 			expect(response.status).toBe(400);
-			expect(error?.error?.message).toContain(
+			expect(error?.error.message).toContain(
 				"membershipPropertiesSchema must be a valid AppSchema",
 			);
 		});
@@ -216,21 +214,16 @@ describe("POST /collections", () => {
 			const { response, error } = await client.POST("/collections", {
 				headers: { Cookie: cookies },
 				body: {
-					name: "Invalid Array Collection",
 					description: "Should fail",
+					name: "Invalid Array Collection",
 					membershipPropertiesSchema: {
-						fields: {
-							tags: {
-								type: "array" as const,
-								items: { type: "unknown_type" },
-							},
-						},
+						fields: { tags: { type: "array" as const, items: { type: "unknown_type" } } },
 					},
-				} as unknown as { name: string; description?: string },
+				},
 			});
 
 			expect(response.status).toBe(400);
-			expect(error?.error?.message).toContain(
+			expect(error?.error.message).toContain(
 				"membershipPropertiesSchema must be a valid AppSchema",
 			);
 		});
@@ -330,10 +323,10 @@ describe("POST /collections", () => {
 			});
 
 			expect(response.status).toBe(200);
-			expect(data?.data?.memberOf?.id).toBeDefined();
-			expect(data?.data?.memberOf?.relationshipSchemaId).toBeDefined();
-			expect(data?.data?.memberOf?.sourceEntityId).toBe(childCollection.id);
-			expect(data?.data?.memberOf?.targetEntityId).toBe(parentCollection.id);
+			expect(data?.data.memberOf.id).toBeDefined();
+			expect(data?.data.memberOf.relationshipSchemaId).toBeDefined();
+			expect(data?.data.memberOf.sourceEntityId).toBe(childCollection.id);
+			expect(data?.data.memberOf.targetEntityId).toBe(parentCollection.id);
 		});
 
 		it("returns validation error when trying to add a collection to itself", async () => {
@@ -352,7 +345,7 @@ describe("POST /collections", () => {
 			});
 
 			expect(response.status).toBe(400);
-			expect(error?.error?.message).toContain("Cannot add a collection to itself");
+			expect(error?.error.message).toContain("Cannot add a collection to itself");
 		});
 
 		it("adds an entity to a collection", async () => {
@@ -374,10 +367,10 @@ describe("POST /collections", () => {
 			});
 
 			expect(response.status).toBe(200);
-			expect(data?.data?.memberOf?.id).toBeDefined();
-			expect(data?.data?.memberOf?.relationshipSchemaId).toBeDefined();
-			expect(data?.data?.memberOf?.sourceEntityId).toBe(entityId);
-			expect(data?.data?.memberOf?.targetEntityId).toBe(collection.id);
+			expect(data?.data.memberOf.id).toBeDefined();
+			expect(data?.data.memberOf.relationshipSchemaId).toBeDefined();
+			expect(data?.data.memberOf.sourceEntityId).toBe(entityId);
+			expect(data?.data.memberOf.targetEntityId).toBe(collection.id);
 		});
 
 		it("adds a global entity to a collection and upserts in_library", async () => {
@@ -406,8 +399,8 @@ describe("POST /collections", () => {
 			});
 
 			expect(response.status).toBe(200);
-			expect(data?.data?.memberOf?.sourceEntityId).toBe(entity.id);
-			expect(data?.data?.memberOf?.targetEntityId).toBe(collection.id);
+			expect(data?.data.memberOf.sourceEntityId).toBe(entity.id);
+			expect(data?.data.memberOf.targetEntityId).toBe(collection.id);
 
 			const membership = await queryInLibraryRelationship(entity.id, email);
 
@@ -447,7 +440,7 @@ describe("POST /collections", () => {
 			});
 
 			expect(response.status).toBe(200);
-			expect(data?.data?.memberOf?.properties).toMatchObject({
+			expect(data?.data.memberOf.properties).toMatchObject({
 				rating: 5,
 				recommendedBy: "John",
 			});
@@ -492,8 +485,8 @@ describe("POST /collections", () => {
 
 			expect(first.response.status).toBe(200);
 			expect(second.response.status).toBe(200);
-			expect(second.data?.data?.memberOf?.id).toBe(first.data?.data?.memberOf?.id);
-			expect(second.data?.data?.memberOf?.properties).toMatchObject({
+			expect(second.data?.data.memberOf.id).toBe(first.data?.data.memberOf.id);
+			expect(second.data?.data.memberOf.properties).toMatchObject({
 				rating: 5,
 				recommendedBy: "Bob",
 			});
@@ -515,7 +508,7 @@ describe("POST /collections", () => {
 			});
 
 			expect(response.status).toBe(404);
-			expect(error?.error?.message).toContain("Collection not found");
+			expect(error?.error.message).toContain("Collection not found");
 		});
 
 		it("returns 404 when entity does not exist", async () => {
@@ -537,7 +530,7 @@ describe("POST /collections", () => {
 			});
 
 			expect(response.status).toBe(404);
-			expect(error?.error?.message).toContain("Entity not found");
+			expect(error?.error.message).toContain("Entity not found");
 		});
 
 		it("returns 404 when trying to add to another user's collection", async () => {
@@ -561,7 +554,7 @@ describe("POST /collections", () => {
 			});
 
 			expect(response.status).toBe(404);
-			expect(error?.error?.message).toContain("Collection not found");
+			expect(error?.error.message).toContain("Collection not found");
 		});
 
 		it("rejects unauthenticated requests", async () => {
@@ -597,7 +590,7 @@ describe("POST /collections", () => {
 		});
 
 		expect(addResponse.status).toBe(200);
-		expect(addData?.data?.memberOf?.relationshipSchemaId).toBeDefined();
+		expect(addData?.data.memberOf.relationshipSchemaId).toBeDefined();
 
 		// Now remove the entity from the collection
 		const { data: removeData, response: removeResponse } = await client.DELETE(
@@ -609,9 +602,9 @@ describe("POST /collections", () => {
 		);
 
 		expect(removeResponse.status).toBe(200);
-		expect(removeData?.data?.memberOf?.relationshipSchemaId).toBeDefined();
-		expect(removeData?.data?.memberOf?.sourceEntityId).toBe(entityId);
-		expect(removeData?.data?.memberOf?.targetEntityId).toBe(collection.id);
+		expect(removeData?.data.memberOf.relationshipSchemaId).toBeDefined();
+		expect(removeData?.data.memberOf.sourceEntityId).toBe(entityId);
+		expect(removeData?.data.memberOf.targetEntityId).toBe(collection.id);
 	});
 
 	it("returns 404 when removing entity not in collection", async () => {
@@ -633,7 +626,7 @@ describe("POST /collections", () => {
 		});
 
 		expect(response.status).toBe(404);
-		expect(error?.error?.message).toContain("Entity is not in collection");
+		expect(error?.error.message).toContain("Entity is not in collection");
 	});
 
 	it("returns 404 when collection does not exist", async () => {
@@ -652,7 +645,7 @@ describe("POST /collections", () => {
 		});
 
 		expect(response.status).toBe(404);
-		expect(error?.error?.message).toContain("Collection not found");
+		expect(error?.error.message).toContain("Collection not found");
 	});
 
 	it("returns 404 when trying to remove from another user's collection", async () => {
@@ -676,7 +669,7 @@ describe("POST /collections", () => {
 		});
 
 		expect(response.status).toBe(404);
-		expect(error?.error?.message).toContain("Collection not found");
+		expect(error?.error.message).toContain("Collection not found");
 	});
 
 	it("rejects unauthenticated requests", async () => {

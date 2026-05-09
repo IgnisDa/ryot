@@ -26,7 +26,7 @@ export async function createTracker(
 		body: { icon, name, slug, accentColor, description },
 	});
 
-	if (response.status !== 200 || !data?.data?.id) {
+	if (response.status !== 200 || !data?.data.id) {
 		throw new Error(`Failed to create tracker '${name}'`);
 	}
 

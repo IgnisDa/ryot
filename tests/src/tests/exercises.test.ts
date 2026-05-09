@@ -50,7 +50,7 @@ const waitForSeededExercise = async (client: Client, cookies: string) => {
 				}),
 			);
 
-			if (response.status !== 200 || !data?.data) {
+			if (response.status !== 200) {
 				throw new Error("Failed to query seeded exercises");
 			}
 
