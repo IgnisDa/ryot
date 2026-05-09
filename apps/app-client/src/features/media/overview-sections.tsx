@@ -127,7 +127,7 @@ export type ActivityItem = {
 export function StatPill({ color, label }: { color: string; label: string }) {
 	return (
 		<Box className="rounded-full px-2.5 py-1" style={{ backgroundColor: hexToRgba(color, 0.12) }}>
-			<Text className="text-[11px] font-sans-medium" style={{ color }}>
+			<Text className="text-[11px] font-sans-medium web:text-[13px]" style={{ color }}>
 				{label}
 			</Text>
 		</Box>
@@ -144,10 +144,13 @@ export function StatCard({ color, count, label }: { color: string; count: number
 				backgroundColor: hexToRgba(color, 0.09),
 			}}
 		>
-			<Text className="text-[30px] font-heading-semibold leading-[32px]" style={{ color }}>
+			<Text
+				className="text-[30px] font-heading-semibold leading-[32px] web:text-[36px] web:leading-[40px]"
+				style={{ color }}
+			>
 				{count}
 			</Text>
-			<Text className="mt-0.5 text-[10px] font-sans-medium uppercase tracking-[1px] text-muted-foreground">
+			<Text className="mt-0.5 text-[10px] font-sans-medium uppercase tracking-[1px] text-muted-foreground web:text-xs">
 				{label}
 			</Text>
 		</Box>
@@ -158,7 +161,10 @@ function SectionLabel({ color, label }: { color: string; label: string }) {
 	return (
 		<Box className="mb-4 mt-8 flex-row items-center gap-3">
 			<Box className="h-px flex-1" style={{ backgroundColor: hexToRgba(color, 0.35) }} />
-			<Text className="text-[10px] font-sans-semibold uppercase tracking-[2px]" style={{ color }}>
+			<Text
+				className="text-[10px] font-sans-semibold uppercase tracking-[2px] web:text-xs"
+				style={{ color }}
+			>
 				{label}
 			</Text>
 			<Box className="h-px flex-1" style={{ backgroundColor: hexToRgba(color, 0.35) }} />
@@ -264,14 +270,14 @@ function StoryRing({
 				</Box>
 			</Box>
 			<Text
-				className="mt-1 text-center text-[8px] font-mono text-muted-foreground"
+				className="mt-1 text-center text-[8px] font-mono text-muted-foreground web:text-[10px]"
 				style={{ width: ringWidth }}
 				numberOfLines={1}
 			>
 				{item.labels.progress}
 			</Text>
 			<Text
-				className="mt-0.5 text-center text-[10px] font-sans-medium text-foreground"
+				className="mt-0.5 text-center text-[10px] font-sans-medium text-foreground web:text-xs"
 				style={{ width: ringWidth }}
 				numberOfLines={2}
 			>
@@ -343,7 +349,7 @@ export function UpNextSection({ items }: { items: UpNextItem[] }) {
 								) : (
 									<Box className="flex-1 items-center justify-center px-3">
 										<Text
-											className="text-center text-[10px] font-sans-medium uppercase tracking-[1px]"
+											className="text-center text-[10px] font-sans-medium uppercase tracking-[1px] web:text-xs"
 											style={{ color }}
 											numberOfLines={4}
 										>
@@ -356,7 +362,7 @@ export function UpNextSection({ items }: { items: UpNextItem[] }) {
 									style={{ backgroundColor: hexToRgba(color, 0.32) }}
 								>
 									<Text
-										className="text-[8px] font-sans-medium uppercase tracking-[0.5px]"
+										className="text-[8px] font-sans-medium uppercase tracking-[0.5px] web:text-[10px]"
 										style={{ color }}
 									>
 										{item.entitySchemaSlug}
@@ -364,13 +370,13 @@ export function UpNextSection({ items }: { items: UpNextItem[] }) {
 								</Box>
 							</Box>
 							<Text
-								className="mt-1.5 text-[11px] font-sans-medium text-foreground"
+								className="mt-1.5 text-[11px] font-sans-medium text-foreground web:text-[13px]"
 								numberOfLines={2}
 							>
 								{item.title}
 							</Text>
 							{item.subtitle.label ? (
-								<Text className="text-[10px] font-mono text-muted-foreground">
+								<Text className="text-[10px] font-mono text-muted-foreground web:text-xs">
 									{item.subtitle.label}
 								</Text>
 							) : null}
@@ -421,7 +427,7 @@ function RateCard({ item, onNext }: { item: RateItem; onNext: () => void }) {
 							style={{ backgroundColor: hexToRgba(color, 0.38) }}
 						>
 							<Text
-								className="text-[9px] font-sans-medium uppercase tracking-[0.5px]"
+								className="text-[9px] font-sans-medium uppercase tracking-[0.5px] web:text-[11px]"
 								style={{ color }}
 							>
 								{item.entitySchemaSlug}
@@ -439,7 +445,7 @@ function RateCard({ item, onNext }: { item: RateItem; onNext: () => void }) {
 			</Box>
 			{/* Action area */}
 			<Box className="px-4 py-4">
-				<Text className="mb-3 text-[11px] font-sans text-muted-foreground">
+				<Text className="mb-3 text-[11px] font-sans text-muted-foreground web:text-[13px]">
 					How would you rate this?
 				</Text>
 				<Box className="flex-row items-center justify-between">
@@ -447,7 +453,7 @@ function RateCard({ item, onNext }: { item: RateItem; onNext: () => void }) {
 					<Pressable onPress={onNext} hitSlop={8}>
 						<Text
 							className={clsx(
-								"text-[12px] font-sans-medium",
+								"text-[12px] font-sans-medium web:text-sm",
 								rating > 0 ? "font-sans-semibold" : "text-muted-foreground",
 							)}
 							style={rating > 0 ? { color } : undefined}
@@ -473,7 +479,9 @@ export function RateTheseSection({ items }: { items: RateItem[] }) {
 			<SectionLabel color={SECTION_ACCENTS.rateThese} label="Rate These" />
 			{idx >= items.length ? (
 				<Box className="items-center py-6">
-					<Text className="text-[13px] font-sans text-muted-foreground">All caught up ✓</Text>
+					<Text className="text-[13px] font-sans text-muted-foreground web:text-[15px]">
+						All caught up ✓
+					</Text>
 				</Box>
 			) : (
 				<Box style={{ paddingBottom: 10 }}>
@@ -537,17 +545,17 @@ export function ActivitySection({ items }: { items: ActivityItem[] }) {
 						<Box className={clsx("flex-1 pl-3", isLast ? "pb-2" : "pb-4")}>
 							<Box className="flex-row items-baseline gap-2">
 								<Text
-									className="flex-1 text-[13px] font-sans-medium text-foreground"
+									className="flex-1 text-[13px] font-sans-medium text-foreground web:text-[15px]"
 									numberOfLines={1}
 								>
 									{item.entityName}
 								</Text>
-								<Text className="text-[10px] font-mono text-stone-400">
+								<Text className="text-[10px] font-mono text-stone-400 web:text-xs">
 									{timeAgo(item.occurredAt)}
 								</Text>
 							</Box>
 							<Box className="mt-0.5 flex-row items-center gap-1.5">
-								<Text className="text-[11px] font-sans-medium" style={{ color }}>
+								<Text className="text-[11px] font-sans-medium web:text-[13px]" style={{ color }}>
 									{activityLabel(item.eventSchemaSlug, item.rating)}
 								</Text>
 								<Box
@@ -555,7 +563,7 @@ export function ActivitySection({ items }: { items: ActivityItem[] }) {
 									style={{ backgroundColor: hexToRgba(color, 0.12) }}
 								>
 									<Text
-										className="text-[8px] font-sans-medium uppercase tracking-[0.5px]"
+										className="text-[8px] font-sans-medium uppercase tracking-[0.5px] web:text-[10px]"
 										style={{ color }}
 									>
 										{item.entitySchemaSlug}
