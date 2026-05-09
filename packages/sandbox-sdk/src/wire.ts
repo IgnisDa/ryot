@@ -28,6 +28,17 @@ export type SandboxHostError = Schema.Schema.Type<typeof sandboxHostErrorSchema>
 const hostFailureSchema = strictStruct({
 	error: Schema.String,
 	success: Schema.Literal(false),
+	data: Schema.optional(jsonValueSchema),
 });
+export type SandboxHostFailure = Schema.Schema.Type<typeof hostFailureSchema>;
+
+export const hostFailure = (error: string, data?: JsonValue) => ({
+	error,
+	success: false as const,
+	...(data === undefined ? {} : { data }),
+});
+
+export const hostSuccess = <Data>(data: Data) => ({ data, success: true as const });
+
 export const hostResultSchema = <Data extends Schema.Constraint>(data: Data) =>
 	Schema.Union([hostFailureSchema, strictStruct({ data, success: Schema.Literal(true) })]);
