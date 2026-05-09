@@ -1,6 +1,120 @@
 import { Schema } from "effect";
 
+import { PluginSlug } from "../../schema/brands";
+import { SandboxCompilationDiagnostic, SandboxExecutionError } from "../sandbox/schemas";
 import { PluginManifest } from "./manifest";
+
+const PluginValidationDiagnostic = Schema.Struct({
+	code: Schema.String,
+	message: Schema.String,
+	phase: Schema.Literal("validate"),
+	severity: Schema.Literal("error"),
+});
+
+const PluginCompilerDiagnostic = Schema.Struct({
+	...SandboxCompilationDiagnostic.fields,
+	phase: Schema.Literal("compile"),
+});
+
+const PluginRuntimeDiagnostic = Schema.Struct({
+	code: Schema.String,
+	line: SandboxExecutionError.fields.line,
+	severity: Schema.Literal("error"),
+	phase: SandboxExecutionError.fields.phase,
+	column: SandboxExecutionError.fields.column,
+	message: SandboxExecutionError.fields.message,
+});
+
+const PluginSchemaEvolutionIssue = Schema.Struct({
+	path: Schema.String,
+	code: Schema.Literals([
+		"enum-narrowed",
+		"schema-changed",
+		"schema-removed",
+		"property-changed",
+		"property-removed",
+		"property-type-changed",
+		"required-property-added",
+	]),
+});
+
+const PluginRequestFailureReason = Schema.Union([
+	Schema.Struct({
+		code: Schema.Literal("validation-failed"),
+		diagnostics: Schema.Array(PluginValidationDiagnostic),
+	}),
+	Schema.Struct({
+		code: Schema.Literal("compilation-failed"),
+		diagnostics: Schema.Array(PluginCompilerDiagnostic),
+	}),
+	Schema.Struct({
+		issues: Schema.Array(PluginSchemaEvolutionIssue),
+		code: Schema.Literal("schema-evolution-failed"),
+	}),
+	Schema.Struct({
+		pluginSlug: PluginSlug,
+		operationSlug: Schema.String,
+		code: Schema.Literal("invalid-operation-scope"),
+	}),
+]);
+
+const PluginConflictReason = Schema.Union([
+	Schema.Struct({ code: Schema.Literal("boot-configured"), pluginSlug: PluginSlug }),
+	Schema.Struct({ code: Schema.Literal("entity-referenced"), pluginSlug: PluginSlug }),
+	Schema.Struct({ code: Schema.Literal("workflow-referenced"), pluginSlug: PluginSlug }),
+	Schema.Struct({ code: Schema.Literal("integration-referenced"), pluginSlug: PluginSlug }),
+	Schema.Struct({
+		pluginSlug: PluginSlug,
+		code: Schema.Literal("definition-referenced"),
+		diagnostics: Schema.Array(PluginValidationDiagnostic),
+	}),
+]);
+
+const PluginNotFoundReason = Schema.Union([
+	Schema.Struct({ code: Schema.Literal("plugin-not-found"), pluginSlug: PluginSlug }),
+	Schema.Struct({
+		pluginSlug: PluginSlug,
+		operationSlug: Schema.String,
+		code: Schema.Literal("operation-not-found"),
+	}),
+	Schema.Struct({
+		pluginSlug: PluginSlug,
+		operationSlug: Schema.String,
+		code: Schema.Literal("operation-scope-not-found"),
+	}),
+]);
+
+const PluginInvocationFailureReason = Schema.Union([
+	Schema.Struct({
+		code: Schema.Literal("runtime-failed"),
+		diagnostics: Schema.Array(PluginRuntimeDiagnostic),
+	}),
+	Schema.Struct({
+		pluginSlug: PluginSlug,
+		operationSlug: Schema.String,
+		code: Schema.Literal("script-unavailable"),
+	}),
+]);
+
+export class PluginRequestError extends Schema.TaggedError<PluginRequestError>()(
+	"PluginRequestError",
+	{ reason: PluginRequestFailureReason },
+) {}
+
+export class PluginConflictError extends Schema.TaggedError<PluginConflictError>()(
+	"PluginConflictError",
+	{ reason: PluginConflictReason },
+) {}
+
+export class PluginNotFoundError extends Schema.TaggedError<PluginNotFoundError>()(
+	"PluginNotFoundError",
+	{ reason: PluginNotFoundReason },
+) {}
+
+export class PluginInvocationError extends Schema.TaggedError<PluginInvocationError>()(
+	"PluginInvocationError",
+	{ reason: PluginInvocationFailureReason },
+) {}
 
 export const InstallPluginBody = Schema.Struct({
 	manifest: PluginManifest,
