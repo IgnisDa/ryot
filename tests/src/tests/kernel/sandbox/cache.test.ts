@@ -57,6 +57,7 @@ export default defineProvider({
 
 const installCacheProviderScoped = (key: string, value: string) => {
 	const providerSlug = `cache-provider-${crypto.randomUUID()}`;
+	const entitySchemaSlug = `${providerSlug}-entity`;
 	const writerSlug = `${providerSlug}.details`;
 	const readerSlug = `${providerSlug}.search`;
 	const writerEntry = `scripts/${writerSlug}.sandbox.ts`;
@@ -107,10 +108,19 @@ const installCacheProviderScoped = (key: string, value: string) => {
 			providers: [
 				{
 					slug: providerSlug,
-					rootEntitySchemaSlug: "cache-entity",
 					name: "Cache provider",
 					information: { source: "e2e" },
+					rootEntitySchemaSlug: entitySchemaSlug,
 					operations: { details: writerSlug, search: readerSlug },
+				},
+			],
+			entitySchemas: [
+				{
+					icon: "box",
+					eventSchemas: [],
+					name: "Cache entity",
+					slug: entitySchemaSlug,
+					propertiesSchema: { fields: {}, unknownKeys: "strict" },
 				},
 			],
 		}),
