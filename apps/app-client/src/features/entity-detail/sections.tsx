@@ -7,6 +7,7 @@ import { Box } from "@/components/ui/box";
 import { Text } from "@/components/ui/text";
 import { hexToRgba } from "@/features/media/overview-utils";
 
+import type { RelatedCompany } from "./companies";
 import { formatMinutes, formatSeconds } from "./duration";
 import { ExpandableText } from "./expandable-text";
 import { formatRoleLabel, getPrimaryCreator } from "./people";
@@ -104,6 +105,61 @@ export function CreatorsSection(props: { creators: UnlinkedCreator[] }) {
 								className="mt-0.5 text-center text-[11px] italic text-muted-foreground web:text-[13px]"
 							>
 								{formatRoleLabel(creator.role)}
+							</Text>
+						</Box>
+					);
+				})}
+			</ScrollView>
+		</Box>
+	);
+}
+
+export function CompaniesSection(props: { companies: RelatedCompany[] }) {
+	if (props.companies.length === 0) {
+		return null;
+	}
+
+	return (
+		<Box className="mt-8">
+			<Text className="mb-3 font-heading-semibold text-[16px] text-foreground web:text-[18px]">
+				Companies
+			</Text>
+			<ScrollView
+				horizontal
+				contentContainerStyle={{ gap: 16 }}
+				showsHorizontalScrollIndicator={false}
+			>
+				{props.companies.map((company) => {
+					const imageUrl = company.image?.type === "remote" ? company.image.url : null;
+					return (
+						<Box
+							key={company.id ?? `${company.name}-${company.role}`}
+							className="items-center"
+							style={{ width: 110 }}
+						>
+							<Box
+								className="overflow-hidden rounded-lg"
+								style={{
+									width: 80,
+									height: 80,
+									backgroundColor: hexToRgba(ACCENT, 0.07),
+								}}
+							>
+								{imageUrl ? (
+									<Image source={{ uri: imageUrl }} className="h-full w-full" resizeMode="cover" />
+								) : null}
+							</Box>
+							<Text
+								numberOfLines={1}
+								className="mt-2 text-center text-[13px] font-sans-semibold text-foreground web:text-[15px]"
+							>
+								{company.name}
+							</Text>
+							<Text
+								numberOfLines={1}
+								className="mt-0.5 text-center text-[11px] italic text-muted-foreground web:text-[13px]"
+							>
+								{formatRoleLabel(company.role)}
 							</Text>
 						</Box>
 					);
