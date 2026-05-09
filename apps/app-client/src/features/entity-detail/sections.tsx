@@ -2,6 +2,7 @@ import { dayjs } from "@ryot/ts-utils";
 import { ChevronDown, ChevronUp, Library } from "lucide-react-native";
 import { useState } from "react";
 import { Image, ScrollView } from "react-native";
+import { match } from "ts-pattern";
 
 import { Box } from "@/components/ui/box";
 import { Pressable } from "@/components/ui/pressable";
@@ -84,22 +85,12 @@ export function AboutSection({ entity }: { entity: EntityDetail }) {
 	}
 
 	const primaryCreator = getPrimaryCreator(entity);
-	const creatorLabel = (() => {
-		switch (entity.entitySchemaSlug) {
-			case "movie":
-				return "Directed by";
-			case "show":
-				return "Created by";
-			case "book":
-			case "comic-book":
-			case "audiobook":
-				return "Written by";
-			case "podcast":
-				return "Hosted by";
-			default:
-				return "By";
-		}
-	})();
+	const creatorLabel = match(entity.entitySchemaSlug)
+		.with("movie", () => "Directed by")
+		.with("show", () => "Created by")
+		.with("book", "comic-book", "audiobook", () => "Written by")
+		.with("podcast", () => "Hosted by")
+		.otherwise(() => "By");
 
 	return (
 		<Box>
