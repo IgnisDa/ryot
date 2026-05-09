@@ -34,8 +34,15 @@ const EntitySearchItem = Schema.Struct({
 	titleProperty: Schema.Struct({ value: Schema.NonEmptyString, kind: Schema.Literal("text") }),
 	primarySubtitleProperty: Schema.optional(
 		Schema.Union(
-			Schema.Struct({ kind: Schema.Literal("null"), value: Schema.Null }),
-			Schema.Struct({ kind: Schema.Literal("number"), value: Schema.Number }),
+			Schema.Struct({ kind: Schema.Literal("null"), value: Schema.Null }).pipe(
+				Schema.annotations({ identifier: "NullSubtitleProperty", title: "Null Subtitle Property" }),
+			),
+			Schema.Struct({ kind: Schema.Literal("number"), value: Schema.Number }).pipe(
+				Schema.annotations({
+					identifier: "NumberSubtitleProperty",
+					title: "Number Subtitle Property",
+				}),
+			),
 		),
 	),
 });

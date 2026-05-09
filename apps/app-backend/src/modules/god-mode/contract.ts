@@ -28,13 +28,20 @@ const ProvisionUserBody = Schema.Union(
 		email: Email,
 		name: Schema.String,
 		provider: Schema.Literal("credential"),
-	}),
+	}).pipe(
+		Schema.annotations({
+			identifier: "CredentialProvisionUserBody",
+			title: "Credential Provision User",
+		}),
+	),
 	Schema.Struct({
 		email: Email,
 		name: Schema.String,
 		oidcIssuerId: Schema.String,
 		provider: Schema.Literal("oidc"),
-	}),
+	}).pipe(
+		Schema.annotations({ identifier: "OidcProvisionUserBody", title: "OIDC Provision User" }),
+	),
 );
 
 export type ProvisionUserBody = Schema.Schema.Type<typeof ProvisionUserBody>;
