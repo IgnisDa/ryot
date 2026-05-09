@@ -76,8 +76,8 @@ pub async fn sink_progress(
         .clone();
 
     let lot = match payload.item.item_type.as_str() {
-        "Episode" => MediaLot::Show,
         "Movie" => MediaLot::Movie,
+        "Episode" => MediaLot::Show,
         _ => return Ok(None),
     };
 
