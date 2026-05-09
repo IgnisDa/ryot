@@ -1,5 +1,6 @@
 import clsx from "clsx";
-import { useAtom, useAtomValue, useSetAtom } from "jotai";
+import { router, usePathname } from "expo-router";
+import { useAtomValue } from "jotai";
 import { Plus } from "lucide-react-native";
 import Animated, {
 	FadeIn,
@@ -10,26 +11,21 @@ import Animated, {
 import { Box } from "@/components/ui/box";
 import { Pressable } from "@/components/ui/pressable";
 import { Text } from "@/components/ui/text";
-import {
-	activeSubItemAtom,
-	activeTrackerIdAtom,
-	subFlyoutOpenAtom,
-	trackersAtom,
-} from "@/lib/navigation";
+import { trackersAtom } from "@/lib/navigation";
 import { RAIL_WIDTH } from "./rail";
 
 export const FLYOUT_WIDTH = 220;
 
 type Props = {
 	pinned?: boolean;
-	onNavigate: () => void;
 };
 
-export function SpineSubFlyout({ onNavigate, pinned = false }: Props) {
+export function SpineSubFlyout({ pinned = false }: Props) {
 	const trackers = useAtomValue(trackersAtom);
-	const activeTrackerId = useAtomValue(activeTrackerIdAtom);
-	const [activeSubItem, setActiveSubItem] = useAtom(activeSubItemAtom);
-	const setSubFlyoutOpen = useSetAtom(subFlyoutOpenAtom);
+	const pathname = usePathname();
+	const segments = pathname.split("/").filter(Boolean);
+	const activeTrackerId = segments[0] || "home";
+	const activeSubItem = segments[1] || null;
 
 	const activeTracker = trackers.find((t) => t.id === activeTrackerId);
 	const subItems = activeTracker?.subItems ?? [];
@@ -39,9 +35,7 @@ export function SpineSubFlyout({ onNavigate, pinned = false }: Props) {
 	}
 
 	function handleSubItemPress(item: string) {
-		setActiveSubItem(item);
-		setSubFlyoutOpen(false);
-		onNavigate();
+		router.push(`/${activeTrackerId}/${item}`);
 	}
 
 	const content = (
