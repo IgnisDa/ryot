@@ -105,8 +105,8 @@ describe("GET /entity-schemas", () => {
 		const { client } = await createAuthenticatedClient();
 
 		const nonExistentId = "00000000-0000-0000-0000-000000000000";
-		const error = await client.runError(
-			(c) => c.entitySchemas.list({ payload: { trackerId: nonExistentId } }),
+		const error = await client.runError((c) =>
+			c.entitySchemas.list({ payload: { trackerId: nonExistentId } }),
 		);
 
 		assertTaggedError(error, "NotFound");
@@ -185,8 +185,8 @@ describe("GET /entity-schemas", () => {
 			slug: "only-schema",
 		});
 
-		const data = await client.run(
-			(c) => c.entitySchemas.list({ payload: { slugs: ["only-schema"] } }),
+		const data = await client.run((c) =>
+			c.entitySchemas.list({ payload: { slugs: ["only-schema"] } }),
 		);
 
 		expect(data.length).toBe(1);
@@ -278,22 +278,21 @@ describe("POST /entity-schemas", () => {
 
 		const builtinTracker = await findBuiltinTracker(client);
 
-		const error = await client.runError(
-			(c) =>
-				c.entitySchemas.create({
-					payload: {
-						icon: "test",
-						slug: "hacked",
-						name: "Hacked Schema",
-						accentColor: "#FF0000",
-						trackerId: builtinTracker.id,
-						propertiesSchema: {
-							fields: {
-								field: { type: "string", label: "Field", description: "Field" },
-							},
+		const error = await client.runError((c) =>
+			c.entitySchemas.create({
+				payload: {
+					icon: "test",
+					slug: "hacked",
+					name: "Hacked Schema",
+					accentColor: "#FF0000",
+					trackerId: builtinTracker.id,
+					propertiesSchema: {
+						fields: {
+							field: { type: "string", label: "Field", description: "Field" },
 						},
 					},
-				}),
+				},
+			}),
 		);
 
 		assertTaggedError(error, "BadRequest");
@@ -307,23 +306,22 @@ describe("POST /entity-schemas", () => {
 			name: "Custom Tracker",
 		});
 
-		const data = await client.run(
-			(c) =>
-				c.entitySchemas.create({
-					payload: {
-						trackerId,
-						icon: "star",
-						name: "My Schema",
-						slug: "my-schema",
-						accentColor: "#00FF00",
-						propertiesSchema: {
-							fields: {
-								year: { type: "number", label: "Year", description: "Year" },
-								title: { type: "string", label: "Title", description: "Title" },
-							},
+		const data = await client.run((c) =>
+			c.entitySchemas.create({
+				payload: {
+					trackerId,
+					icon: "star",
+					name: "My Schema",
+					slug: "my-schema",
+					accentColor: "#00FF00",
+					propertiesSchema: {
+						fields: {
+							year: { type: "number", label: "Year", description: "Year" },
+							title: { type: "string", label: "Title", description: "Title" },
 						},
 					},
-				}),
+				},
+			}),
 		);
 
 		expect(data.name).toBe("My Schema");
@@ -336,22 +334,21 @@ describe("POST /entity-schemas", () => {
 		const { client } = await createAuthenticatedClient();
 
 		const nonExistentId = "00000000-0000-0000-0000-000000000000";
-		const error = await client.runError(
-			(c) =>
-				c.entitySchemas.create({
-					payload: {
-						icon: "test",
-						name: "Schema",
-						slug: "schema",
-						accentColor: "#FF0000",
-						trackerId: nonExistentId,
-						propertiesSchema: {
-							fields: {
-								field: { type: "string", label: "Field", description: "Field" },
-							},
+		const error = await client.runError((c) =>
+			c.entitySchemas.create({
+				payload: {
+					icon: "test",
+					name: "Schema",
+					slug: "schema",
+					accentColor: "#FF0000",
+					trackerId: nonExistentId,
+					propertiesSchema: {
+						fields: {
+							field: { type: "string", label: "Field", description: "Field" },
 						},
 					},
-				}),
+				},
+			}),
 		);
 
 		assertTaggedError(error, "NotFound");
@@ -366,22 +363,21 @@ describe("POST /entity-schemas", () => {
 			name: "User 1 Tracker",
 		});
 
-		const error = await client2.runError(
-			(c) =>
-				c.entitySchemas.create({
-					payload: {
-						trackerId,
-						icon: "test",
-						slug: "hacked",
-						name: "Hacked Schema",
-						accentColor: "#FF0000",
-						propertiesSchema: {
-							fields: {
-								field: { type: "string", label: "Field", description: "Field" },
-							},
+		const error = await client2.runError((c) =>
+			c.entitySchemas.create({
+				payload: {
+					trackerId,
+					icon: "test",
+					slug: "hacked",
+					name: "Hacked Schema",
+					accentColor: "#FF0000",
+					propertiesSchema: {
+						fields: {
+							field: { type: "string", label: "Field", description: "Field" },
 						},
 					},
-				}),
+				},
+			}),
 		);
 
 		assertTaggedError(error, "NotFound");
@@ -401,22 +397,21 @@ describe("POST /entity-schemas", () => {
 			slug: "duplicate-slug",
 		});
 
-		const error = await client.runError(
-			(c) =>
-				c.entitySchemas.create({
-					payload: {
-						trackerId,
-						icon: "test",
-						name: "Second Schema",
-						slug: "duplicate-slug",
-						accentColor: "#FF0000",
-						propertiesSchema: {
-							fields: {
-								field: { type: "string", label: "Field", description: "Field" },
-							},
+		const error = await client.runError((c) =>
+			c.entitySchemas.create({
+				payload: {
+					trackerId,
+					icon: "test",
+					name: "Second Schema",
+					slug: "duplicate-slug",
+					accentColor: "#FF0000",
+					propertiesSchema: {
+						fields: {
+							field: { type: "string", label: "Field", description: "Field" },
 						},
 					},
-				}),
+				},
+			}),
 		);
 
 		assertTaggedError(error, "BadRequest");
@@ -430,22 +425,21 @@ describe("POST /entity-schemas", () => {
 			name: "Tracker",
 		});
 
-		const error = await client.runError(
-			(c) =>
-				c.entitySchemas.create({
-					payload: {
-						trackerId,
-						icon: "folders",
-						name: "Collection",
-						slug: "collection",
-						accentColor: "#F59E0B",
-						propertiesSchema: {
-							fields: {
-								title: { type: "string", label: "Title", description: "Title" },
-							},
+		const error = await client.runError((c) =>
+			c.entitySchemas.create({
+				payload: {
+					trackerId,
+					icon: "folders",
+					name: "Collection",
+					slug: "collection",
+					accentColor: "#F59E0B",
+					propertiesSchema: {
+						fields: {
+							title: { type: "string", label: "Title", description: "Title" },
 						},
 					},
-				}),
+				},
+			}),
 		);
 
 		assertTaggedError(error, "BadRequest");
@@ -493,8 +487,8 @@ describe("GET /entity-schemas/:entitySchemaId", () => {
 		const { client } = await createAuthenticatedClient();
 
 		const nonExistentId = "00000000-0000-0000-0000-000000000000";
-		const error = await client.runError(
-			(c) => c.entitySchemas.get({ path: { entitySchemaId: nonExistentId } }),
+		const error = await client.runError((c) =>
+			c.entitySchemas.get({ path: { entitySchemaId: nonExistentId } }),
 		);
 
 		assertTaggedError(error, "NotFound");
@@ -514,8 +508,8 @@ describe("GET /entity-schemas/:entitySchemaId", () => {
 			name: "User 1 Schema",
 		});
 
-		const error = await client2.runError(
-			(c) => c.entitySchemas.get({ path: { entitySchemaId: schemaId } }),
+		const error = await client2.runError((c) =>
+			c.entitySchemas.get({ path: { entitySchemaId: schemaId } }),
 		);
 
 		assertTaggedError(error, "NotFound");
@@ -536,8 +530,8 @@ describe("POST /entity-schemas/search", () => {
 	it("returns 404 when the scriptId does not exist", async () => {
 		const { client } = await createAuthenticatedClient();
 
-		const error = await client.runError(
-			(c) => c.entitySchemas.search({ payload: { scriptId: crypto.randomUUID() } }),
+		const error = await client.runError((c) =>
+			c.entitySchemas.search({ payload: { scriptId: crypto.randomUUID() } }),
 		);
 
 		assertTaggedError(error, "NotFound");
@@ -572,8 +566,8 @@ describe("GET /entity-schemas/search/{jobId}", () => {
 	it("returns 404 for a non-existent job id", async () => {
 		const { client } = await createAuthenticatedClient();
 
-		const error = await client.runError(
-			(c) => c.entitySchemas.getSearchResult({ path: { jobId: crypto.randomUUID() } }),
+		const error = await client.runError((c) =>
+			c.entitySchemas.getSearchResult({ path: { jobId: crypto.randomUUID() } }),
 		);
 
 		assertTaggedError(error, "NotFound");
@@ -592,8 +586,8 @@ describe("GET /entity-schemas/search/{jobId}", () => {
 			context: { page: 1, pageSize: 5, query: "test" },
 		});
 
-		const error = await clientB.runError(
-			(c) => c.entitySchemas.getSearchResult({ path: { jobId } }),
+		const error = await clientB.runError((c) =>
+			c.entitySchemas.getSearchResult({ path: { jobId } }),
 		);
 
 		assertTaggedError(error, "NotFound");
@@ -661,8 +655,8 @@ describe("GET /entities/import/{jobId}", () => {
 	it("returns 404 for a non-existent job id", async () => {
 		const { client } = await createAuthenticatedClient();
 
-		const error = await client.runError(
-			(c) => c.entities.getImportResult({ path: { jobId: crypto.randomUUID() } }),
+		const error = await client.runError((c) =>
+			c.entities.getImportResult({ path: { jobId: crypto.randomUUID() } }),
 		);
 
 		assertTaggedError(error, "NotFound");

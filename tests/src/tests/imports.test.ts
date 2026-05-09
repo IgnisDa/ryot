@@ -49,8 +49,8 @@ describe("OpenScale Import E2E", () => {
 	it("returns 404 for unknown run id", async () => {
 		const { client } = await createAuthenticatedClient();
 
-		const error = await client.runError(
-			(c) => c.imports.getRun({ path: { runId: "nonexistent-run-id" }, urlParams: {} }),
+		const error = await client.runError((c) =>
+			c.imports.getRun({ path: { runId: "nonexistent-run-id" }, urlParams: {} }),
 		);
 
 		assertTaggedError(error, "NotFound");
@@ -59,8 +59,8 @@ describe("OpenScale Import E2E", () => {
 	it("rejects an invalid upload token", async () => {
 		const { client } = await createAuthenticatedClient();
 
-		const error = await client.runError(
-			(c) => c.imports.createRun({ payload: { source: "open_scale", uploadToken: "bogus-token" } }),
+		const error = await client.runError((c) =>
+			c.imports.createRun({ payload: { source: "open_scale", uploadToken: "bogus-token" } }),
 		);
 
 		assertTaggedError(error, "BadRequest");
@@ -76,8 +76,8 @@ describe("OpenScale Import E2E", () => {
 			"application/octet-stream",
 		);
 
-		const error = await client.runError(
-			(c) => c.imports.createRun({ payload: { source: "open_scale", uploadToken } }),
+		const error = await client.runError((c) =>
+			c.imports.createRun({ payload: { source: "open_scale", uploadToken } }),
 		);
 
 		assertTaggedError(error, "BadRequest");
@@ -89,8 +89,8 @@ describe("OpenScale Import E2E", () => {
 
 		await client.run((c) => c.imports.deleteRun({ path: { runId } }));
 
-		const error = await client.runError(
-			(c) => c.imports.getRun({ path: { runId }, urlParams: {} }),
+		const error = await client.runError((c) =>
+			c.imports.getRun({ path: { runId }, urlParams: {} }),
 		);
 
 		assertTaggedError(error, "NotFound");
@@ -110,8 +110,8 @@ describe("OpenScale Import E2E", () => {
 		expect(completedRun.failedItems).toBeGreaterThan(0);
 		expect(completedRun.importedItems).toBeGreaterThan(0);
 
-		const runData = await client.run(
-			(c) => c.imports.getRun({ path: { runId }, urlParams: { page: 1, limit: 20 } }),
+		const runData = await client.run((c) =>
+			c.imports.getRun({ path: { runId }, urlParams: { page: 1, limit: 20 } }),
 		);
 
 		expect(runData.failures.items.length).toBeGreaterThan(0);

@@ -8,25 +8,21 @@ export interface CreateCollectionOptions {
 	membershipPropertiesSchema?: AppSchema;
 }
 
-export async function createCollection(
-	client: Client,
-	options: CreateCollectionOptions = {},
-) {
+export async function createCollection(client: Client, options: CreateCollectionOptions = {}) {
 	const {
 		name = `Test Collection ${crypto.randomUUID()}`,
 		description = "A test collection",
 		membershipPropertiesSchema,
 	} = options;
 
-	const collection = await client.run(
-		(c) =>
-			c.collections.create({
-				payload: {
-					name,
-					description,
-					...(membershipPropertiesSchema && { membershipPropertiesSchema }),
-				},
-			}),
+	const collection = await client.run((c) =>
+		c.collections.create({
+			payload: {
+				name,
+				description,
+				...(membershipPropertiesSchema && { membershipPropertiesSchema }),
+			},
+		}),
 	);
 
 	requirePresent(collection.id, `Failed to create collection '${name}'`);

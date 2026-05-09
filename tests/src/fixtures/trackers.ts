@@ -9,10 +9,7 @@ export interface CreateTrackerOptions {
 	description?: string;
 }
 
-export async function createTracker(
-	client: Client,
-	options: CreateTrackerOptions = {},
-) {
+export async function createTracker(client: Client, options: CreateTrackerOptions = {}) {
 	const {
 		icon = "rocket",
 		name = "Test Tracker",
@@ -21,8 +18,8 @@ export async function createTracker(
 		description = "Test tracker description",
 	} = options;
 
-	const tracker = await client.run(
-		(c) => c.trackers.create({ payload: { icon, name, slug, accentColor, description } }),
+	const tracker = await client.run((c) =>
+		c.trackers.create({ payload: { icon, name, slug, accentColor, description } }),
 	);
 
 	return {
@@ -31,12 +28,9 @@ export async function createTracker(
 	};
 }
 
-export async function listTrackers(
-	client: Client,
-	options: { includeDisabled?: boolean } = {},
-) {
-	return client.run(
-		(c) => c.trackers.list({ urlParams: { includeDisabled: options.includeDisabled ?? false } }),
+export async function listTrackers(client: Client, options: { includeDisabled?: boolean } = {}) {
+	return client.run((c) =>
+		c.trackers.list({ urlParams: { includeDisabled: options.includeDisabled ?? false } }),
 	);
 }
 
@@ -56,15 +50,11 @@ export async function findBuiltinTrackerBySlug(client: Client, slug: string) {
 	return requirePresent(tracker, `Built-in tracker '${slug}' not found`);
 }
 
-export async function disableTracker(input: {
-	trackerId: string;
-	client: Client;
-}) {
-	return input.client.run(
-		(c) =>
-			c.trackers.update({
-				payload: { isDisabled: true },
-				path: { trackerId: input.trackerId },
-			}),
+export async function disableTracker(input: { trackerId: string; client: Client }) {
+	return input.client.run((c) =>
+		c.trackers.update({
+			payload: { isDisabled: true },
+			path: { trackerId: input.trackerId },
+		}),
 	);
 }

@@ -252,10 +252,7 @@ export async function findBuiltinSavedView(client: Client) {
 	return requirePresent(builtinView, "Built-in saved view not found");
 }
 
-export async function getSavedView(
-	client: Client,
-	viewSlug: string,
-): Promise<SavedViewRecord> {
+export async function getSavedView(client: Client, viewSlug: string): Promise<SavedViewRecord> {
 	return client.run((c) => c.savedViews.get({ path: { viewSlug } }));
 }
 
@@ -272,17 +269,11 @@ export async function updateSavedView(
 	);
 }
 
-export async function cloneSavedView(
-	client: Client,
-	viewSlug: string,
-): Promise<SavedViewRecord> {
+export async function cloneSavedView(client: Client, viewSlug: string): Promise<SavedViewRecord> {
 	return client.run((c) => c.savedViews.clone({ path: { viewSlug } }));
 }
 
-export async function deleteSavedView(
-	client: Client,
-	viewSlug: string,
-): Promise<SavedViewRecord> {
+export async function deleteSavedView(client: Client, viewSlug: string): Promise<SavedViewRecord> {
 	return client.run((c) => c.savedViews.delete({ path: { viewSlug } }));
 }
 

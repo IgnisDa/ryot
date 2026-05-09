@@ -405,8 +405,8 @@ describe("Saved views E2E", () => {
 		const { client } = await createAuthenticatedClient();
 		const builtinView = await findBuiltinSavedView(client);
 
-		const error = await client.runError(
-			(c) => c.savedViews.delete({ path: { viewSlug: builtinView.slug } }),
+		const error = await client.runError((c) =>
+			c.savedViews.delete({ path: { viewSlug: builtinView.slug } }),
 		);
 
 		assertTaggedError(error, "BadRequest");
@@ -417,15 +417,14 @@ describe("Saved views E2E", () => {
 		const { client } = await createAuthenticatedClient();
 		const builtinView = await findBuiltinSavedView(client);
 
-		const invalidUpdateError = await client.runError(
-			(c) =>
-				c.savedViews.update({
-					path: { viewSlug: builtinView.slug },
-					payload: buildUpdatedSavedViewBody({
-						isDisabled: true,
-						name: "Attempted Rename",
-					}),
+		const invalidUpdateError = await client.runError((c) =>
+			c.savedViews.update({
+				path: { viewSlug: builtinView.slug },
+				payload: buildUpdatedSavedViewBody({
+					isDisabled: true,
+					name: "Attempted Rename",
 				}),
+			}),
 		);
 
 		assertTaggedError(invalidUpdateError, "BadRequest");
@@ -470,21 +469,20 @@ describe("Saved views E2E", () => {
 	it("returns 404 for missing views across read, update, clone, and delete", async () => {
 		const { client } = await createAuthenticatedClient();
 
-		const readError = await client.runError(
-			(c) => c.savedViews.get({ path: { viewSlug: missingViewSlug } }),
+		const readError = await client.runError((c) =>
+			c.savedViews.get({ path: { viewSlug: missingViewSlug } }),
 		);
-		const updateError = await client.runError(
-			(c) =>
-				c.savedViews.update({
-					path: { viewSlug: missingViewSlug },
-					payload: buildUpdatedSavedViewBody(),
-				}),
+		const updateError = await client.runError((c) =>
+			c.savedViews.update({
+				path: { viewSlug: missingViewSlug },
+				payload: buildUpdatedSavedViewBody(),
+			}),
 		);
-		const cloneError = await client.runError(
-			(c) => c.savedViews.clone({ path: { viewSlug: missingViewSlug } }),
+		const cloneError = await client.runError((c) =>
+			c.savedViews.clone({ path: { viewSlug: missingViewSlug } }),
 		);
-		const deleteError = await client.runError(
-			(c) => c.savedViews.delete({ path: { viewSlug: missingViewSlug } }),
+		const deleteError = await client.runError((c) =>
+			c.savedViews.delete({ path: { viewSlug: missingViewSlug } }),
 		);
 
 		for (const error of [readError, updateError, cloneError, deleteError]) {
@@ -697,11 +695,10 @@ describe("Saved views E2E", () => {
 			name: `Top Scope View ${crypto.randomUUID()}`,
 		});
 
-		const error = await client.runError(
-			(c) =>
-				c.savedViews.reorder({
-					payload: { trackerId, viewSlugs: [tracked.slug, standalone.slug] },
-				}),
+		const error = await client.runError((c) =>
+			c.savedViews.reorder({
+				payload: { trackerId, viewSlugs: [tracked.slug, standalone.slug] },
+			}),
 		);
 
 		assertTaggedError(error, "BadRequest");
@@ -714,35 +711,33 @@ describe("Saved views E2E", () => {
 			name: "Sort Guard View",
 		});
 
-		const createError = await client.runError(
-			(c) =>
-				c.savedViews.create({
-					payload: buildSavedViewBody({
-						name: "Broken Sort View",
-						queryDefinition: {
-							filter: null,
-							eventJoins: [],
-							computedFields: [],
-							scope: ["book"],
-							sort: { expression: literalExpression(null), direction: "asc" },
-						},
-					}),
+		const createError = await client.runError((c) =>
+			c.savedViews.create({
+				payload: buildSavedViewBody({
+					name: "Broken Sort View",
+					queryDefinition: {
+						filter: null,
+						eventJoins: [],
+						computedFields: [],
+						scope: ["book"],
+						sort: { expression: literalExpression(null), direction: "asc" },
+					},
 				}),
+			}),
 		);
-		const updateError = await client.runError(
-			(c) =>
-				c.savedViews.update({
-					path: { viewSlug: createdView.slug },
-					payload: buildUpdatedSavedViewBody({
-						queryDefinition: {
-							filter: null,
-							eventJoins: [],
-							computedFields: [],
-							scope: ["book"],
-							sort: { expression: literalExpression(null), direction: "asc" },
-						},
-					}),
+		const updateError = await client.runError((c) =>
+			c.savedViews.update({
+				path: { viewSlug: createdView.slug },
+				payload: buildUpdatedSavedViewBody({
+					queryDefinition: {
+						filter: null,
+						eventJoins: [],
+						computedFields: [],
+						scope: ["book"],
+						sort: { expression: literalExpression(null), direction: "asc" },
+					},
 				}),
+			}),
 		);
 		const refreshedView = await getSavedView(client, createdView.slug);
 		if (!("sort" in refreshedView.queryDefinition)) {
@@ -778,14 +773,13 @@ describe("Saved views E2E", () => {
 				}),
 			);
 
-		const error = await client.runError(
-			(c) =>
-				c.savedViews.create({
-					payload: buildSavedViewBody({
-						name: "Aggregate Stats View",
-						queryDefinition: aggregateQueryDefinition,
-					}),
+		const error = await client.runError((c) =>
+			c.savedViews.create({
+				payload: buildSavedViewBody({
+					name: "Aggregate Stats View",
+					queryDefinition: aggregateQueryDefinition,
 				}),
+			}),
 		);
 
 		assertTaggedError(error, "ParseError");
@@ -957,18 +951,16 @@ describe("Saved views E2E", () => {
 			],
 		} satisfies NonNullable<SavedViewBodyOverrides["queryDefinition"]>;
 
-		const createError = await client.runError(
-			(c) =>
-				c.savedViews.create({
-					payload: buildSavedViewBody({ queryDefinition: invalidQueryDefinition }),
-				}),
+		const createError = await client.runError((c) =>
+			c.savedViews.create({
+				payload: buildSavedViewBody({ queryDefinition: invalidQueryDefinition }),
+			}),
 		);
-		const updateError = await client.runError(
-			(c) =>
-				c.savedViews.update({
-					path: { viewSlug: createdView.slug },
-					payload: buildUpdatedSavedViewBody({ queryDefinition: invalidQueryDefinition }),
-				}),
+		const updateError = await client.runError((c) =>
+			c.savedViews.update({
+				path: { viewSlug: createdView.slug },
+				payload: buildUpdatedSavedViewBody({ queryDefinition: invalidQueryDefinition }),
+			}),
 		);
 
 		assertTaggedError(createError, "BadRequest");
@@ -1003,18 +995,16 @@ describe("Saved views E2E", () => {
 			],
 		} satisfies NonNullable<SavedViewBodyOverrides["queryDefinition"]>;
 
-		const createError = await client.runError(
-			(c) =>
-				c.savedViews.create({
-					payload: buildSavedViewBody({ queryDefinition: invalidQueryDefinition }),
-				}),
+		const createError = await client.runError((c) =>
+			c.savedViews.create({
+				payload: buildSavedViewBody({ queryDefinition: invalidQueryDefinition }),
+			}),
 		);
-		const updateError = await client.runError(
-			(c) =>
-				c.savedViews.update({
-					path: { viewSlug: createdView.slug },
-					payload: buildUpdatedSavedViewBody({ queryDefinition: invalidQueryDefinition }),
-				}),
+		const updateError = await client.runError((c) =>
+			c.savedViews.update({
+				path: { viewSlug: createdView.slug },
+				payload: buildUpdatedSavedViewBody({ queryDefinition: invalidQueryDefinition }),
+			}),
 		);
 
 		assertTaggedError(createError, "BadRequest");
@@ -1048,24 +1038,22 @@ describe("Saved views E2E", () => {
 				}),
 			);
 
-		const createError = await client.runError(
-			(c) =>
-				c.savedViews.create({
-					payload: {
-						...buildSavedViewBody({ name: "Broken Qualification View" }),
-						queryDefinition: unqualifiedQueryDefinition,
-					},
-				}),
+		const createError = await client.runError((c) =>
+			c.savedViews.create({
+				payload: {
+					...buildSavedViewBody({ name: "Broken Qualification View" }),
+					queryDefinition: unqualifiedQueryDefinition,
+				},
+			}),
 		);
-		const updateError = await client.runError(
-			(c) =>
-				c.savedViews.update({
-					path: { viewSlug: createdView.slug },
-					payload: {
-						...buildUpdatedSavedViewBody(),
-						queryDefinition: unqualifiedQueryDefinition,
-					},
-				}),
+		const updateError = await client.runError((c) =>
+			c.savedViews.update({
+				path: { viewSlug: createdView.slug },
+				payload: {
+					...buildUpdatedSavedViewBody(),
+					queryDefinition: unqualifiedQueryDefinition,
+				},
+			}),
 		);
 
 		assertTaggedError(createError, "ParseError");
@@ -1088,19 +1076,17 @@ describe("Saved views E2E", () => {
 			},
 		} satisfies NonNullable<SavedViewBodyOverrides["queryDefinition"]>;
 
-		const createError = await client.runError(
-			(c) =>
-				c.savedViews.create({
-					payload: buildSavedViewBody({ queryDefinition: invalidQueryDefinition }),
-				}),
+		const createError = await client.runError((c) =>
+			c.savedViews.create({
+				payload: buildSavedViewBody({ queryDefinition: invalidQueryDefinition }),
+			}),
 		);
 		const createdView = await createSavedView(client);
-		const updateError = await client.runError(
-			(c) =>
-				c.savedViews.update({
-					path: { viewSlug: createdView.slug },
-					payload: buildUpdatedSavedViewBody({ queryDefinition: invalidQueryDefinition }),
-				}),
+		const updateError = await client.runError((c) =>
+			c.savedViews.update({
+				path: { viewSlug: createdView.slug },
+				payload: buildUpdatedSavedViewBody({ queryDefinition: invalidQueryDefinition }),
+			}),
 		);
 
 		assertTaggedError(createError, "BadRequest");
@@ -1114,24 +1100,23 @@ describe("Saved views E2E", () => {
 		const createBody = buildSavedViewBody();
 		const invalidTitleProperty = JSON.parse("null");
 
-		const error = await client.runError(
-			(c) =>
-				c.savedViews.create({
-					payload: {
-						...createBody,
-						displayConfiguration: {
-							...createBody.displayConfiguration,
-							grid: {
-								...createBody.displayConfiguration.grid,
-								titleProperty: invalidTitleProperty,
-							},
-							list: {
-								...createBody.displayConfiguration.list,
-								titleProperty: invalidTitleProperty,
-							},
+		const error = await client.runError((c) =>
+			c.savedViews.create({
+				payload: {
+					...createBody,
+					displayConfiguration: {
+						...createBody.displayConfiguration,
+						grid: {
+							...createBody.displayConfiguration.grid,
+							titleProperty: invalidTitleProperty,
+						},
+						list: {
+							...createBody.displayConfiguration.list,
+							titleProperty: invalidTitleProperty,
 						},
 					},
-				}),
+				},
+			}),
 		);
 
 		assertTaggedError(error, "ParseError");
@@ -1142,31 +1127,30 @@ describe("Saved views E2E", () => {
 	it("rejects a view with no table columns in the display config", async () => {
 		const { client } = await createAuthenticatedClient();
 
-		const error = await client.runError(
-			(c) =>
-				c.savedViews.create({
-					payload: buildSavedViewBody({
-						displayConfiguration: {
-							table: { columns: [] },
-							grid: {
-								imageProperty: null,
-								calloutProperty: null,
-								eyebrowProperty: null,
-								primarySubtitleProperty: null,
-								secondarySubtitleProperty: null,
-								titleProperty: [entityField("book", "name")],
-							},
-							list: {
-								imageProperty: null,
-								calloutProperty: null,
-								eyebrowProperty: null,
-								primarySubtitleProperty: null,
-								secondarySubtitleProperty: null,
-								titleProperty: [entityField("book", "name")],
-							},
+		const error = await client.runError((c) =>
+			c.savedViews.create({
+				payload: buildSavedViewBody({
+					displayConfiguration: {
+						table: { columns: [] },
+						grid: {
+							imageProperty: null,
+							calloutProperty: null,
+							eyebrowProperty: null,
+							primarySubtitleProperty: null,
+							secondarySubtitleProperty: null,
+							titleProperty: [entityField("book", "name")],
 						},
-					}),
+						list: {
+							imageProperty: null,
+							calloutProperty: null,
+							eyebrowProperty: null,
+							primarySubtitleProperty: null,
+							secondarySubtitleProperty: null,
+							titleProperty: [entityField("book", "name")],
+						},
+					},
 				}),
+			}),
 		);
 
 		assertTaggedError(error, "BadRequest");
@@ -1177,17 +1161,16 @@ describe("Saved views E2E", () => {
 		const { client } = await createAuthenticatedClient();
 		const createBody = buildSavedViewBody();
 
-		const error = await client.runError(
-			(c) =>
-				c.savedViews.create({
-					payload: {
-						...createBody,
-						displayConfiguration: {
-							...createBody.displayConfiguration,
-							entityIdProperty: createEntityColumnExpression("book", "nam"),
-						},
+		const error = await client.runError((c) =>
+			c.savedViews.create({
+				payload: {
+					...createBody,
+					displayConfiguration: {
+						...createBody.displayConfiguration,
+						entityIdProperty: createEntityColumnExpression("book", "nam"),
 					},
-				}),
+				},
+			}),
 		);
 
 		assertTaggedError(error, "BadRequest");
@@ -1221,33 +1204,31 @@ describe("Saved views E2E", () => {
 		const invalidEntityIdProperty = JSON.parse('{"type":"literal","value":1}');
 
 		const createBody = buildSavedViewBody();
-		const createError = await client.runError(
-			(c) =>
-				c.savedViews.create({
-					payload: {
-						...createBody,
-						displayConfiguration: {
-							...createBody.displayConfiguration,
-							entityIdProperty: invalidEntityIdProperty,
-						},
+		const createError = await client.runError((c) =>
+			c.savedViews.create({
+				payload: {
+					...createBody,
+					displayConfiguration: {
+						...createBody.displayConfiguration,
+						entityIdProperty: invalidEntityIdProperty,
 					},
-				}),
+				},
+			}),
 		);
 
 		const createdView = await createSavedView(client);
 		const updateBody = buildUpdatedSavedViewBody();
-		const updateError = await client.runError(
-			(c) =>
-				c.savedViews.update({
-					path: { viewSlug: createdView.slug },
-					payload: {
-						...updateBody,
-						displayConfiguration: {
-							...updateBody.displayConfiguration,
-							entityIdProperty: invalidEntityIdProperty,
-						},
+		const updateError = await client.runError((c) =>
+			c.savedViews.update({
+				path: { viewSlug: createdView.slug },
+				payload: {
+					...updateBody,
+					displayConfiguration: {
+						...updateBody.displayConfiguration,
+						entityIdProperty: invalidEntityIdProperty,
 					},
-				}),
+				},
+			}),
 		);
 
 		assertTaggedError(createError, "BadRequest");
@@ -1259,8 +1240,7 @@ describe("Saved views E2E", () => {
 	});
 
 	it("executes saved-view grid and table requests through the query engine", async () => {
-		const { client, entityIdsByName, schema } =
-			await createSingleSchemaQueryEngineFixture();
+		const { client, entityIdsByName, schema } = await createSingleSchemaQueryEngineFixture();
 		const createdView = await createSavedView(client, {
 			name: `Runtime Coverage ${crypto.randomUUID()}`,
 			queryDefinition: {
@@ -1403,22 +1383,21 @@ describe("Saved views E2E", () => {
 	it("rejects a view referencing a schema slug that does not exist", async () => {
 		const { client } = await createAuthenticatedClient();
 
-		const error = await client.runError(
-			(c) =>
-				c.savedViews.create({
-					payload: buildSavedViewBody({
-						queryDefinition: {
-							filter: null,
-							eventJoins: [],
-							computedFields: [],
-							scope: ["does-not-exist"],
-							sort: {
-								direction: "asc",
-								expression: createEntityColumnExpression("does-not-exist", "name"),
-							},
+		const error = await client.runError((c) =>
+			c.savedViews.create({
+				payload: buildSavedViewBody({
+					queryDefinition: {
+						filter: null,
+						eventJoins: [],
+						computedFields: [],
+						scope: ["does-not-exist"],
+						sort: {
+							direction: "asc",
+							expression: createEntityColumnExpression("does-not-exist", "name"),
 						},
-					}),
+					},
 				}),
+			}),
 		);
 
 		assertTaggedError(error, "BadRequest");
