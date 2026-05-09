@@ -69,6 +69,34 @@ describe("umamiRequestBody", () => {
 		expect(body.payload).toMatchObject({ os: "iOS", device: "mobile" });
 	});
 
+	it("omits the distinct id when nobody is signed in", () => {
+		const body = umamiRequestBody({ settings, environment, event: { url: "/settings" } });
+		expect(body.payload).not.toHaveProperty("id");
+	});
+
+	it("carries the distinct id on events so they attribute to the account", () => {
+		const body = umamiRequestBody({
+			settings,
+			environment,
+			distinctId: "user-id",
+			event: { url: "/imports", name: "Deploy Import" },
+		});
+		expect(body).toMatchObject({ type: "event", payload: { id: "user-id" } });
+	});
+
+	it("builds an identify body that links the session to the account", () => {
+		const body = umamiRequestBody({
+			settings,
+			environment,
+			type: "identify",
+			distinctId: "user-id",
+			event: { url: "/settings" },
+		});
+		expect(body.type).toBe("identify");
+		expect(body.payload).toMatchObject({ id: "user-id", website: "website-id" });
+		expect(body.payload).not.toHaveProperty("name");
+	});
+
 	it("prefers an explicit title over the url", () => {
 		const body = umamiRequestBody({
 			settings,
