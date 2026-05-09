@@ -22,7 +22,6 @@ import { useMediaOverviewData } from "./use-overview-data";
 export function MediaTrackerOverview() {
 	const insets = useSafeAreaInsets();
 	const { width } = useWindowDimensions();
-	const isTablet = width >= 768;
 	const isDesktop = width >= 1024;
 	const setNavSheetOpen = useSetNavSheetOpen();
 
@@ -49,24 +48,22 @@ export function MediaTrackerOverview() {
 				showsVerticalScrollIndicator={false}
 				contentContainerStyle={{ paddingBottom: insets.bottom + 96 }}
 			>
-				<Box className="w-full web:mx-auto web:max-w-screen-xl">
+				<Box className="w-full web:mx-auto web:max-w-7xl">
 					<Box className="px-[28]" style={{ paddingTop: insets.top + 16 }}>
-						{!isTablet && (
-							<Box className="flex-row justify-end">
-								<Pressable
-									className="-mr-1 p-1"
-									accessibilityLabel="Open navigation"
-									accessibilityRole="button"
-									onPress={() => setNavSheetOpen(true)}
-								>
-									<Menu color="#78716c" size={20} strokeWidth={1.5} />
-								</Pressable>
-							</Box>
-						)}
+						<Box className="flex-row justify-end md:hidden">
+							<Pressable
+								className="-mr-1 p-1"
+								accessibilityRole="button"
+								accessibilityLabel="Open navigation"
+								onPress={() => setNavSheetOpen(true)}
+							>
+								<Menu color="#78716c" size={20} strokeWidth={1.5} />
+							</Pressable>
+						</Box>
 						<Text className="mt-2 text-xs font-sans uppercase tracking-[2px] text-muted-foreground web:text-[14px]">
 							Media
 						</Text>
-						<Text className="mt-1 text-[38px] font-heading-semibold leading-[42px] tracking-[-0.5px] text-foreground web:text-[58px] web:leading-[62px]">
+						<Text className="mt-1 text-[38px] font-heading-semibold leading-10.5 tracking-[-0.5px] text-foreground web:text-[58px] web:leading-15.5">
 							Overview
 						</Text>
 						{isDesktop ? (
@@ -191,18 +188,16 @@ export function MediaTrackerOverview() {
 				</Box>
 			</ScrollView>
 
-			{!isDesktop && (
-				<Pressable
-					className="absolute flex-row items-center gap-2 rounded-full bg-primary px-5 py-3 shadow-lg"
-					style={{ bottom: insets.bottom + 16, right: 20 }}
-					onPress={() => console.log("Track Something pressed")}
-				>
-					<Plus color="#1c1917" size={16} strokeWidth={2} />
-					<Text className="text-[15px] font-sans-semibold text-primary-foreground web:text-[17px]">
-						Track Something
-					</Text>
-				</Pressable>
-			)}
+			<Pressable
+				style={{ bottom: insets.bottom + 16, right: 20 }}
+				onPress={() => console.log("Track Something pressed")}
+				className="absolute flex-row items-center gap-2 rounded-full bg-primary px-5 py-3 shadow-lg lg:hidden"
+			>
+				<Plus color="#1c1917" size={16} strokeWidth={2} />
+				<Text className="text-[15px] font-sans-semibold text-primary-foreground web:text-[17px]">
+					Track Something
+				</Text>
+			</Pressable>
 		</Box>
 	);
 }
