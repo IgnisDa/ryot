@@ -3,9 +3,9 @@
 	"private": true,
 	"type": "module",
 	"scripts": {
-		"typecheck": "tsc",
 		"build": "vitepress build",
 		"dev": "vitepress dev --port 3002",
+		"typecheck": "tsc && oxlint . --type-aware",
 		"lint": "oxlint . --fix && oxfmt . --write"
 	},
 	"devDependencies": {
