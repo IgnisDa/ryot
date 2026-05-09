@@ -12,6 +12,9 @@ export const PROVIDER_IMPORT_FAILED_MESSAGE =
 export const PROVIDER_IMPORT_UNAVAILABLE_MESSAGE =
 	"The import could not be started. Check your connection and try again.";
 
+export const PROVIDER_LIBRARY_ADD_FAILED_MESSAGE =
+	"The item was imported but could not be added to your library. Try again.";
+
 export const PROVIDER_IMPORT_TIMEOUT_MESSAGE =
 	"The import is taking longer than expected. Check your library in a few minutes.";
 
@@ -72,7 +75,7 @@ const pollProviderEntityImport = (
 export const importProviderEntity = (input: {
 	readonly start: Effect.Effect<{ readonly jobId: string }, unknown>;
 	readonly poll: (jobId: string) => Effect.Effect<ImportEntityRunResult, unknown>;
-	readonly onImported?: ((entityId: EntityId) => Effect.Effect<void>) | undefined;
+	readonly onImported?: ((entityId: EntityId) => Effect.Effect<void, unknown>) | undefined;
 }) =>
 	Effect.gen(function* () {
 		const started = yield* input.start.pipe(Effect.catch(() => Effect.succeed(undefined)));
@@ -81,7 +84,12 @@ export const importProviderEntity = (input: {
 		}
 		const entry = yield* pollProviderEntityImport(input.poll, started.jobId);
 		if (entry.status === "imported" && input.onImported !== undefined) {
-			yield* input.onImported(entry.entityId);
+			return yield* input.onImported(entry.entityId).pipe(
+				Effect.match({
+					onSuccess: () => entry,
+					onFailure: () => failedEntry(PROVIDER_LIBRARY_ADD_FAILED_MESSAGE),
+				}),
+			);
 		}
 		return entry;
 	});
