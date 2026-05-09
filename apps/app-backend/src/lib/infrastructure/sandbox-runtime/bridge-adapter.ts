@@ -43,43 +43,20 @@ const hasInvalidArgumentCount = (error: Schema.SchemaError) => {
 	);
 };
 
-const invalidArguments = (fnName: string, error: Schema.SchemaError, message: string) =>
-	hasInvalidArgumentCount(error)
-		? hostFailure(`${fnName} received an invalid number of arguments`)
-		: hostFailure(message);
+const formatSchemaError = (error: Schema.SchemaError) =>
+	parseIssues(error)
+		.map((issue) => {
+			const path = (issue.path ?? []).map(pathKey).join(".");
+			return path ? `${path}: ${issue.message}` : issue.message;
+		})
+		.join("; ") || "Invalid arguments";
 
-const invalidHttpCallArguments = (error: Schema.SchemaError) => {
-	if (hasInvalidArgumentCount(error)) {
-		return hostFailure("httpCall received an invalid number of arguments");
-	}
-
-	const issue = parseIssues(error)[0];
-	const [position, field] = issue?.path?.map(pathKey) ?? [];
-	if (position === 0) {
-		return hostFailure("httpCall expects a non-empty method string");
-	}
-	if (position === 1) {
-		return hostFailure("httpCall expects a non-empty URL string");
-	}
-	if (position === 2 && parseIssueTags(error)[0]?.message === "UnexpectedKey") {
-		return hostFailure(`httpCall options.${String(field ?? "value")} is not supported`);
-	}
-	if (position === 2 && field === "body") {
-		return hostFailure("httpCall options.body must be a string");
-	}
-	if (position === 2 && field === "headers") {
-		return hostFailure(
-			(issue?.path?.length ?? 0) > 2
-				? "httpCall headers must be string values"
-				: "httpCall options.headers must be an object",
-		);
-	}
-	if (position === 2 && field === "allowInsecureConnections") {
-		return hostFailure("httpCall options.allowInsecureConnections must be a boolean");
-	}
-
-	return hostFailure("httpCall options must be an object");
-};
+const invalidArguments = (fnName: string, error: Schema.SchemaError) =>
+	hostFailure(
+		hasInvalidArgumentCount(error)
+			? `${fnName} received an invalid number of arguments`
+			: formatSchemaError(error),
+	);
 
 const normalizeOptionalNull = (args: ReadonlyArray<unknown>, index: number) => {
 	if (args[index] !== null) {
@@ -119,21 +96,8 @@ const bindHostFunction =
 			Effect.flatMap(Schema.encodeUnknownEffect(contract.result)),
 		);
 
-const defaultFailure = (fnName: string, message: string) => (error: Schema.SchemaError) =>
-	invalidArguments(fnName, error, message);
-
-const cacheInvalidArguments =
-	(fnName: string, ttlMessage: string) => (error: Schema.SchemaError) => {
-		const segment = parseIssues(error)[0]?.path?.[0];
-		const position = segment === undefined ? undefined : pathKey(segment);
-		let message = `${fnName} ${ttlMessage}`;
-		if (position === 0) {
-			message = `${fnName} expects a non-empty key string`;
-		} else if (position === 1) {
-			message = `${fnName} value must be JSON-serializable`;
-		}
-		return invalidArguments(fnName, error, message);
-	};
+const defaultFailure = (fnName: string) => (error: Schema.SchemaError) =>
+	invalidArguments(fnName, error);
 
 const preserveHttpFailureDetails = (error: SandboxHostError) =>
 	hostFailure(error.message, error.data);
@@ -145,127 +109,109 @@ export const bindSandboxHostFunctions = (
 	emitSignal: bindHostFunction(
 		automationSandboxHostContracts.emitSignal,
 		(...args) => implementations.emitSignal(input, ...args),
-		defaultFailure("emitSignal", "emitSignal expects a valid signal request"),
+		defaultFailure("emitSignal"),
 	),
 	getEntitySchemas: bindHostFunction(
 		domainSandboxHostContracts.getEntitySchemas,
 		(...args) => implementations.getEntitySchemas(input, ...args),
-		defaultFailure(
-			"getEntitySchemas",
-			"getEntitySchemas expects an array of non-empty entitySchemaSlug strings",
-		),
+		defaultFailure("getEntitySchemas"),
 	),
 	getCurrentIntegration: bindHostFunction(
 		domainSandboxHostContracts.getCurrentIntegration,
 		(...args) => implementations.getCurrentIntegration(input, ...args),
-		defaultFailure("getCurrentIntegration", "getCurrentIntegration received invalid arguments"),
+		defaultFailure("getCurrentIntegration"),
 	),
 	listEventSchemas: bindHostFunction(
 		domainSandboxHostContracts.listEventSchemas,
 		(...args) => implementations.listEventSchemas(input, ...args),
-		defaultFailure(
-			"listEventSchemas",
-			"listEventSchemas expects an array of non-empty entitySchemaSlug strings",
-		),
+		defaultFailure("listEventSchemas"),
 	),
 	listIntegrations: bindHostFunction(
 		domainSandboxHostContracts.listIntegrations,
 		(...args) => implementations.listIntegrations(input, ...args),
-		defaultFailure("listIntegrations", "listIntegrations received invalid options"),
+		defaultFailure("listIntegrations"),
 		(args) => normalizeOptionalNull(args, 0),
 	),
 	createEvents: bindHostFunction(
 		domainSandboxHostContracts.createEvents,
 		(...args) => implementations.createEvents(input, ...args),
-		defaultFailure("createEvents", "createEvents expects an array of event items"),
+		defaultFailure("createEvents"),
 	),
 	changeUserRelationships: bindHostFunction(
 		domainSandboxHostContracts.changeUserRelationships,
 		(...args) => implementations.changeUserRelationships(input, ...args),
-		defaultFailure(
-			"changeUserRelationships",
-			"changeUserRelationships expects an array of valid change batches",
-		),
+		defaultFailure("changeUserRelationships"),
 	),
 	ensureUserEntities: bindHostFunction(
 		domainSandboxHostContracts.ensureUserEntities,
 		(...args) => implementations.ensureUserEntities(input, ...args),
-		defaultFailure(
-			"ensureUserEntities",
-			"ensureUserEntities expects an array of valid entity items",
-		),
+		defaultFailure("ensureUserEntities"),
 	),
 	upsertGlobalEntities: bindHostFunction(
 		domainSandboxHostContracts.upsertGlobalEntities,
 		(...args) => implementations.upsertGlobalEntities(input, ...args),
-		defaultFailure(
-			"upsertGlobalEntities",
-			"upsertGlobalEntities expects an array of valid entity items",
-		),
+		defaultFailure("upsertGlobalEntities"),
 	),
 	executeQueryEngine: bindHostFunction(
 		domainSandboxHostContracts.executeQueryEngine,
 		(...args) => implementations.executeQueryEngine(input, ...args),
-		defaultFailure("executeQueryEngine", "executeQueryEngine expects a JSON query document"),
+		defaultFailure("executeQueryEngine"),
 	),
 	upsertGlobalRelationships: bindHostFunction(
 		domainSandboxHostContracts.upsertGlobalRelationships,
 		(...args) => implementations.upsertGlobalRelationships(input, ...args),
-		defaultFailure(
-			"upsertGlobalRelationships",
-			"upsertGlobalRelationships expects an array of valid reconciliation groups",
-		),
+		defaultFailure("upsertGlobalRelationships"),
 	),
 	getCachedValue: bindHostFunction(
 		coreSandboxHostContracts.getCachedValue,
 		(...args) => implementations.getCachedValue(input, ...args),
-		defaultFailure("getCachedValue", "getCachedValue expects a non-empty key string"),
+		defaultFailure("getCachedValue"),
 	),
 	log: bindHostFunction(
 		coreSandboxHostContracts.log,
 		(...args) => implementations.log(input, ...args),
-		defaultFailure("log", "log expects an array of valid log entries"),
+		defaultFailure("log"),
 	),
 	span: bindHostFunction(
 		coreSandboxHostContracts.span,
 		(...args) => implementations.span(input, ...args),
-		defaultFailure("span", "span expects an array of valid span entries"),
+		defaultFailure("span"),
 	),
 	httpCall: bindHostFunction(
 		coreSandboxHostContracts.httpCall,
 		(...args) => implementations.httpCall(input, ...args),
-		invalidHttpCallArguments,
+		defaultFailure("httpCall"),
 		(args) => normalizeOptionalNull(args, 2),
 		preserveHttpFailureDetails,
 	),
 	setCachedValue: bindHostFunction(
 		coreSandboxHostContracts.setCachedValue,
 		(...args) => implementations.setCachedValue(input, ...args),
-		cacheInvalidArguments("setCachedValue", "expects a positive integer expiry in seconds"),
+		defaultFailure("setCachedValue"),
 	),
 	claimPersistentValue: bindHostFunction(
 		coreSandboxHostContracts.claimPersistentValue,
 		(...args) => implementations.claimPersistentValue(input, ...args),
-		cacheInvalidArguments("claimPersistentValue", "expects a positive integer ttlSeconds"),
+		defaultFailure("claimPersistentValue"),
 	),
 	getPluginConfig: bindHostFunction(
 		coreSandboxHostContracts.getPluginConfig,
 		(...args) => implementations.getPluginConfig(input, ...args),
-		defaultFailure("getPluginConfig", "getPluginConfig expects non-empty key strings"),
+		defaultFailure("getPluginConfig"),
 	),
 	getSystemConfig: bindHostFunction(
 		coreSandboxHostContracts.getSystemConfig,
 		(...args) => implementations.getSystemConfig(input, ...args),
-		defaultFailure("getSystemConfig", "getSystemConfig expects non-empty key strings"),
+		defaultFailure("getSystemConfig"),
 	),
 	getUserPreferences: bindHostFunction(
 		coreSandboxHostContracts.getUserPreferences,
 		(...args) => implementations.getUserPreferences(input, ...args),
-		defaultFailure("getUserPreferences", "getUserPreferences received invalid arguments"),
+		defaultFailure("getUserPreferences"),
 	),
 	sendNotification: bindHostFunction(
 		automationSandboxHostContracts.sendNotification,
 		(...args) => implementations.sendNotification(input, ...args),
-		defaultFailure("sendNotification", "sendNotification expects a non-empty message string"),
+		defaultFailure("sendNotification"),
 	),
 });
