@@ -8,7 +8,7 @@ import {
 	QueryRelationshipJoin,
 	SavedViewSort,
 } from "#lib/query-language";
-import { strictStruct } from "#lib/schema-utils";
+import { strictStruct } from "#lib/schema/utils";
 
 const SavedViewQueryDefinition = strictStruct({
 	scope: Schema.Array(Schema.String),

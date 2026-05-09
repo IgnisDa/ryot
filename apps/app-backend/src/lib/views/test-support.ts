@@ -1,10 +1,10 @@
-import type { AppSchema } from "#lib/property-schema";
 import {
 	createEntityColumnExpression,
 	createLiteralExpression,
 	type QueryExpression,
 	type QueryFilter,
 } from "#lib/query-language";
+import type { AppSchema } from "#lib/schema";
 
 import {
 	buildEventJoinMap,

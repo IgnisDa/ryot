@@ -10,7 +10,7 @@ The model is:
 
 ## Main components
 
-- `src/lib/sandbox-runner-source.txt`: source code executed by Deno for each run. The runtime writes it to a temp `.mjs` file at startup and passes that path to every subprocess.
+- `src/lib/sandbox/runner-source.txt`: source code executed by Deno for each run. The runtime writes it to a temp `.mjs` file at startup and passes that path to every subprocess.
 - `providers/`: sandbox provider scripts for different media types and services.
 - `triggers/`: sandbox trigger scripts for event automation.
 - `shared/`: shared utility scripts used by providers and triggers.
