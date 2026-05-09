@@ -16,7 +16,6 @@ export type SavedViewSearch = {
 
 export function SavedViewSearchField(props: {
 	readonly name: string;
-	readonly disabled?: boolean;
 	readonly className?: string;
 	readonly showShortcut?: boolean;
 	readonly search: SavedViewSearch;
@@ -27,14 +26,12 @@ export function SavedViewSearchField(props: {
 			className={clsx(
 				"h-9 min-w-0 flex-row items-center gap-2 rounded-lg border border-border-strong bg-bg px-2.5",
 				props.className,
-				props.disabled && "opacity-50",
 			)}
 		>
 			<AppIcon className="shrink-0 text-text-muted" name="search" size={15} />
 			<TextInput
 				returnKeyType="go"
 				ref={props.inputRef}
-				editable={!props.disabled}
 				value={props.search.value}
 				onChangeText={props.search.onChange}
 				placeholder={`Search ${props.name}`}
@@ -64,9 +61,6 @@ export function SavedViewSearchField(props: {
 	);
 }
 
-export const useSavedViewSearchShortcut = (
-	inputRef: RefObject<TextInput | null>,
-	enabled: boolean,
-) => {
-	useHotkey("/", () => inputRef.current?.focus(), { enabled, stopPropagation: false });
+export const useSavedViewSearchShortcut = (inputRef: RefObject<TextInput | null>) => {
+	useHotkey("/", () => inputRef.current?.focus(), { stopPropagation: false });
 };
