@@ -177,6 +177,33 @@ export const validateAppSchemaDefinition = (
 		return collectConditionDefinitionIssues(schema.fields, rule.when, [...path, "when"]);
 	});
 
+const collectUnresolvedDynamicChoiceIssues = (
+	property: AppPropertyDefinition,
+	path: ReadonlyArray<string>,
+): ReadonlyArray<PropertyValidationIssue> => {
+	if (
+		(property.type === "enum" || property.type === "enum-array") &&
+		property.choices.kind === "dynamic"
+	) {
+		const field = path.join(".");
+		return [
+			{
+				path: [...path, "choices", "source"],
+				message: `Dynamic choices for '${field}' must be materialized before property parsing`,
+			},
+		];
+	}
+	if (property.type === "array") {
+		return collectUnresolvedDynamicChoiceIssues(property.items, [...path, "items"]);
+	}
+	if (property.type === "object") {
+		return Object.entries(property.properties).flatMap(([key, value]) =>
+			collectUnresolvedDynamicChoiceIssues(value, [...path, key]),
+		);
+	}
+	return [];
+};
+
 const evaluateRuleCondition = (
 	condition: AppSchemaRuleCondition,
 	input: Record<string, unknown>,
@@ -391,21 +418,35 @@ const createPropertyValueSchema = (property: AppPropertyDefinition): PropertyVal
 		return isAppPropertyRequired(property) ? value : Schema.NullOr(value);
 	}
 	if (property.type === "enum") {
+		if (property.choices.kind === "dynamic") {
+			return Schema.String.pipe(
+				Schema.check(
+					Schema.makeFilter(() => "Dynamic choices must be materialized before property parsing"),
+				),
+			);
+		}
+		const choices = new Set(property.choices.values.map((choice) => choice.value));
 		const value = Schema.String.pipe(
 			Schema.check(
-				Schema.makeFilter(
-					(item) => property.options.includes(item) || "Expected one of the enum options",
-				),
+				Schema.makeFilter((item) => choices.has(item) || "Expected one of the enum choices"),
 			),
 		);
 		return isAppPropertyRequired(property) ? value : Schema.NullOr(value);
 	}
 	if (property.type === "enum-array") {
+		if (property.choices.kind === "dynamic") {
+			return Schema.Array(
+				Schema.String.pipe(
+					Schema.check(
+						Schema.makeFilter(() => "Dynamic choices must be materialized before property parsing"),
+					),
+				),
+			);
+		}
+		const choices = new Set(property.choices.values.map((choice) => choice.value));
 		const item = Schema.String.pipe(
 			Schema.check(
-				Schema.makeFilter(
-					(value) => property.options.includes(value) || "Expected one of the enum options",
-				),
+				Schema.makeFilter((value) => choices.has(value) || "Expected one of the enum choices"),
 			),
 		);
 		const value = applyArrayValidation(Schema.Array(item), property.validation);
@@ -469,6 +510,12 @@ export const parseAppSchemaPropertiesSafe = (input: {
 				},
 			],
 		};
+	}
+	const dynamicChoiceIssues = Object.entries(input.propertiesSchema.fields).flatMap(
+		([key, property]) => collectUnresolvedDynamicChoiceIssues(property, [key]),
+	);
+	if (dynamicChoiceIssues.length > 0) {
+		return { success: false, issues: dynamicChoiceIssues };
 	}
 	const decoded = Schema.decodeUnknownResult(createPropertiesValueSchema(input.propertiesSchema))(
 		input.properties,

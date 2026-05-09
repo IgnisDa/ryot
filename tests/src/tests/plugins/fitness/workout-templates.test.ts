@@ -144,8 +144,16 @@ describe("Workout Templates E2E", () => {
 										setLot: {
 											type: "enum",
 											label: "Set Lot",
-											options: ["normal", "warm_up", "drop", "failure"],
 											description: "Set type: normal, warm_up, drop, or failure",
+											choices: {
+												kind: "static",
+												values: [
+													{ value: "normal" },
+													{ value: "warm_up" },
+													{ value: "drop" },
+													{ value: "failure" },
+												],
+											},
 										},
 									},
 								},

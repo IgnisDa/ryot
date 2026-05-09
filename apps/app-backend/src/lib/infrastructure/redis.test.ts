@@ -29,4 +29,13 @@ describe("sandbox cache keys", () => {
 			redisKeys.sandboxRunCache("run-1", "user-1", "script-1", "key"),
 		);
 	});
+
+	it("keys provider search options by provider and script", () => {
+		expect(redisKeys.providerSearchOptions("provider-1", "script-1")).toBe(
+			"ryot:provider:search-options:provider-1:script-1",
+		);
+		expect(redisKeys.providerSearchOptions("provider-1", "script-1")).not.toBe(
+			redisKeys.providerSearchOptions("provider-1", "script-2"),
+		);
+	});
 });

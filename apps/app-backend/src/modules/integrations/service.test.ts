@@ -41,8 +41,8 @@ describe("update", () => {
 	it.effect("preserves a stored secret omitted from a provider settings update", () => {
 		const registered = {
 			lot: "yank",
-			name: "Audiobookshelf",
 			pluginSlug: "media",
+			name: "Audiobookshelf",
 			slug: "audiobookshelf",
 			description: "Test yank",
 			scriptSlug: "integration.audiobookshelf",
@@ -51,22 +51,22 @@ describe("update", () => {
 					kind: {
 						type: "enum",
 						label: "Provider kind",
-						options: ["audiobookshelf"],
-						description: "Integration provider discriminator",
 						validation: { required: true },
+						description: "Integration provider discriminator",
+						choices: { kind: "static", values: [{ value: "audiobookshelf" }] },
 					},
 					baseUrl: {
 						type: "string",
 						label: "Base URL",
-						description: "Audiobookshelf instance URL",
 						validation: { required: true },
+						description: "Audiobookshelf instance URL",
 					},
 					token: {
-						type: "string",
 						secret: true,
+						type: "string",
 						label: "Token",
-						description: "Audiobookshelf access token",
 						validation: { required: true },
+						description: "Audiobookshelf access token",
 					},
 				},
 			},

@@ -128,7 +128,7 @@ it.effect("returns bad request when create properties violate the relationship s
 							label: "Status",
 							type: "enum" as const,
 							description: "Status",
-							options: ["active", "inactive"],
+							choices: { kind: "static", values: [{ value: "active" }, { value: "inactive" }] },
 						},
 					},
 				},

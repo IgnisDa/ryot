@@ -15,9 +15,13 @@ type ScriptRow = typeof schema.sandboxScript.$inferSelect;
 type PersistedScript = Omit<NormalizedPluginScript, "entry">;
 
 const toProviderOperation = (operation: string): PluginProviderOperation | undefined => {
+	if (operation === "searchOptions") {
+		return "search-options";
+	}
 	if (
 		operation === "details" ||
 		operation === "search" ||
+		operation === "search-options" ||
 		operation === "resolve" ||
 		operation === "translate"
 	) {
@@ -44,13 +48,13 @@ const toStoredPlugin = Effect.fn(function* (row: PluginRow, scripts: ReadonlyArr
 		const { entry, ...metadata } = script;
 		currentScripts.push({
 			entry,
+			metadata,
 			contentHash,
 			slug: stored.slug,
 			name: stored.name,
 			source: stored.source,
 			compiledCode: stored.compiledCode,
 			compiledFormat: stored.compiledFormat,
-			metadata,
 		});
 	}
 	return {

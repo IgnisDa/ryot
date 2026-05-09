@@ -69,7 +69,15 @@ describe("GET /event-schemas", () => {
 						type: "enum",
 						label: "Set Lot",
 						description: "Set type: normal, warm_up, drop, or failure",
-						options: ["normal", "warm_up", "drop", "failure"],
+						choices: {
+							kind: "static",
+							values: [
+								{ value: "normal" },
+								{ value: "warm_up" },
+								{ value: "drop" },
+								{ value: "failure" },
+							],
+						},
 					},
 					distance: {
 						type: "number",

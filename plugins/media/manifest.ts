@@ -27,7 +27,7 @@ const creditRelationshipSlugs = relationshipSchemas
 		return isCreditSource && isCreditTarget;
 	})
 	.map(({ slug }) => slug);
-type ProviderOperation = "details" | "resolve" | "search" | "translate";
+type ProviderOperation = "details" | "resolve" | "search" | "search-options" | "translate";
 const provider = (
 	rootEntitySchemaSlug: string,
 	slug: string,
@@ -44,6 +44,7 @@ const provider = (
 		details: `${slug}.details`,
 		...(operations.includes("resolve") ? { resolve: `${slug}.resolve` } : {}),
 		...(operations.includes("search") ? { search: `${slug}.search` } : {}),
+		...(operations.includes("search-options") ? { searchOptions: `${slug}.search-options` } : {}),
 		...(operations.includes("translate") ? { translate: `${slug}.translate` } : {}),
 	},
 });
@@ -190,7 +191,11 @@ const mediaProviders = [
 	]),
 	provider("video-game-group", "video-game-group.igdb", "IGDB", "igdb", ["details", "search"]),
 	provider("video-game", "video-game.giant-bomb", "GiantBomb", "giant-bomb", ["details", "search"]),
-	provider("video-game", "video-game.igdb", "IGDB", "igdb", ["details", "search"]),
+	provider("video-game", "video-game.igdb", "IGDB", "igdb", [
+		"details",
+		"search",
+		"search-options",
+	]),
 	provider("visual-novel", "visual-novel.vndb", "VNDB", "vndb", ["details", "search"]),
 ] as const;
 
@@ -202,12 +207,12 @@ const stringSetting = (label: string, description: string, required = true, secr
 	...(required ? { validation: { required: true as const } } : {}),
 });
 const kindSetting = (kind: string) => ({
-	options: [kind],
 	defaultValue: kind,
 	type: "enum" as const,
 	label: "Provider kind",
 	validation: { required: true as const },
 	description: "Integration provider discriminator",
+	choices: { kind: "static" as const, values: [{ value: kind }] },
 });
 const providerSettings = (kind: string, fields = {}) => ({
 	fields: { kind: kindSetting(kind), ...fields },
@@ -234,7 +239,7 @@ const integrationProviders = [
 			metadataProvider: {
 				type: "enum",
 				defaultValue: "tmdb",
-				options: ["tmdb", "tvdb"],
+				choices: { kind: "static", values: [{ value: "tmdb" }, { value: "tvdb" }] },
 				label: "Metadata provider",
 				description: "Provider used to identify Jellyfin media",
 			},

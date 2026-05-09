@@ -63,12 +63,18 @@ describe("Exercises E2E", () => {
 			expect(exerciseSchema?.propertiesSchema.fields.muscles).toMatchObject({
 				label: "Muscles",
 				type: "enum-array",
-				options: expect.arrayContaining(["abdominals", "lower_back"]),
+				choices: {
+					kind: "static",
+					values: expect.arrayContaining([{ value: "abdominals" }, { value: "lower_back" }]),
+				},
 			});
 			expect(exerciseSchema?.propertiesSchema.fields.equipment).toMatchObject({
 				type: "enum",
 				label: "Equipment",
-				options: expect.arrayContaining(["body_only", "ez_curl_bar"]),
+				choices: {
+					kind: "static",
+					values: expect.arrayContaining([{ value: "body_only" }, { value: "ez_curl_bar" }]),
+				},
 			});
 			expect(exerciseSchema?.propertiesSchema.fields.images).toMatchObject({
 				type: "array",

@@ -19,6 +19,17 @@ export const ProviderEntitiesRoutesLive = HttpApiBuilder.group(
 					return yield* service.search(user, payload).pipe(dieOnDbError);
 				}),
 			)
+			.handle("searchOptions", ({ payload }) =>
+				Effect.gen(function* () {
+					const user = yield* CurrentUser;
+					const service = yield* ProviderEntitySearchService;
+					return {
+						schema: yield* service
+							.resolveSearchOptionsSchema(user, payload.providerId)
+							.pipe(dieOnDbError),
+					};
+				}),
+			)
 			.handle("import", ({ payload }) =>
 				Effect.gen(function* () {
 					const user = yield* CurrentUser;
