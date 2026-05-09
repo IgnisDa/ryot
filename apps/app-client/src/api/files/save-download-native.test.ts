@@ -2,61 +2,67 @@ import { describe, expect, it } from "vitest";
 
 import { saveNativeDownload, shouldPruneTransferDirectory } from "./save-download-native";
 
-const chunks = async function* (...values: number[][]) {
-	await Promise.resolve();
-	for (const value of values) {
-		yield new Uint8Array(value);
-	}
-};
-
-const failingChunks = async function* () {
-	await Promise.resolve();
-	yield new Uint8Array([1]);
-	throw new Error("network lost");
-};
-
-const input = (body: AsyncIterable<Uint8Array>) => ({
-	chunks: body,
+const input = {
 	fileName: "backup.zip",
 	contentType: "application/zip",
-	target: { kind: "native" } as const,
-});
+	url: "https://ryot.test/api/backups/runs/run_1/download",
+	headers: () => Promise.resolve({ Cookie: "session=abc" }),
+};
 
 describe("native download saving", () => {
-	it("writes response chunks directly, closes the handle, and shares the file", async () => {
+	it("downloads with the resolved headers and shares the file", async () => {
 		const events: unknown[] = [];
-		const outcome = await saveNativeDownload(input(chunks([1, 2], [3])), {
+		const outcome = await saveNativeDownload(input, {
 			discard: () => events.push("discarded"),
 			sharingAvailable: () => Promise.resolve(true),
 			share: () => {
 				events.push("shared");
 				return Promise.resolve();
 			},
-			open: () => ({
-				write: (chunk) => events.push([...chunk]),
-				close: () => events.push("closed"),
-			}),
+			download: (headers) => {
+				events.push(headers);
+				return Promise.resolve();
+			},
 		});
 
 		expect(outcome).toEqual({ kind: "saved" });
-		expect(events).toEqual([[1, 2], [3], "closed", "shared"]);
+		expect(events).toEqual([{ Cookie: "session=abc" }, "shared"]);
 	});
 
-	it("closes the handle and deletes a partial file when streaming fails", async () => {
+	it("discards the transfer and fails when sharing is unavailable", async () => {
+		const events: string[] = [];
+		const outcome = await saveNativeDownload(input, {
+			discard: () => events.push("discarded"),
+			sharingAvailable: () => Promise.resolve(false),
+			download: () => {
+				events.push("downloaded");
+				return Promise.resolve();
+			},
+			share: () => {
+				events.push("shared");
+				return Promise.resolve();
+			},
+		});
+
+		expect(outcome).toEqual({
+			kind: "failed",
+			message: "Saving files is not supported on this device.",
+		});
+		expect(events).toEqual(["downloaded", "discarded"]);
+	});
+
+	it("discards the transfer and rethrows when the download fails", async () => {
 		const events: string[] = [];
 
 		await expect(
-			saveNativeDownload(input(failingChunks()), {
+			saveNativeDownload(input, {
 				share: () => Promise.resolve(),
-				sharingAvailable: () => Promise.resolve(true),
 				discard: () => events.push("discarded"),
-				open: () => ({
-					write: () => events.push("written"),
-					close: () => events.push("closed"),
-				}),
+				sharingAvailable: () => Promise.resolve(true),
+				download: () => Promise.reject(new Error("network lost")),
 			}),
 		).rejects.toThrow("network lost");
-		expect(events).toEqual(["written", "closed", "discarded"]);
+		expect(events).toEqual(["discarded"]);
 	});
 
 	it("prunes only stale Ryot transfer directories", () => {
