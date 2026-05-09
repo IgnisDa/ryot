@@ -48,11 +48,7 @@ const authClientAtom = atom((get) => {
 	const plugins =
 		Platform.OS !== "web"
 			? [
-					expoClient({
-						scheme: "ryot",
-						storagePrefix: "ryot",
-						storage: nativeStorage,
-					}),
+					expoClient({ storagePrefix: "ryot", storage: nativeStorage }),
 					apiKeyClient(),
 				]
 			: [apiKeyClient()];
@@ -62,3 +58,9 @@ const authClientAtom = atom((get) => {
 export type AuthClient = ReturnType<typeof createAuthClient>;
 
 export const useAuthClient = () => useAtomValue(authClientAtom);
+
+export function useUser() {
+	const authClient = useAuthClient();
+	const { data: session } = authClient.useSession();
+	return session?.user ?? null;
+}
