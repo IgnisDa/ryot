@@ -84,6 +84,7 @@ const choiceLabel = (choice: AppChoice) => choice.label ?? choice.value;
 
 function SearchableMultiSelect(props: {
 	readonly label: string;
+	readonly placeholder: string;
 	readonly selected: readonly string[];
 	readonly choices: readonly AppChoice[];
 	readonly onChange: (value: readonly string[]) => void;
@@ -113,7 +114,7 @@ function SearchableMultiSelect(props: {
 		);
 	const triggerText = (() => {
 		if (selectedLabels.length === 0) {
-			return "Select options";
+			return props.placeholder || "Select options";
 		}
 		if (selectedLabels.length < 3) {
 			return selectedLabels.join(", ");
@@ -281,6 +282,7 @@ function OptionControl(props: {
 				selected={selected}
 				label={props.field.label}
 				onChange={props.onChange}
+				placeholder={props.description}
 			/>
 		)),
 		Match.orElse(() => (
@@ -288,6 +290,7 @@ function OptionControl(props: {
 				returnKeyType="go"
 				value={optionText(props.value)}
 				accessibilityLabel={props.field.label}
+				placeholder={props.description || undefined}
 				keyboardType={isNumericField(props.field) ? "numeric" : "default"}
 				onSubmitEditing={() => Keyboard.dismiss()}
 				className="rounded-lg border border-border bg-raised px-3 py-2 font-ui text-sm text-text"
@@ -305,6 +308,7 @@ function OptionFieldRow(props: {
 	readonly error: string | undefined;
 	readonly onChange: (value: OptionValue) => void;
 }) {
+	const hasPlaceholder = props.field.type !== "boolean" && props.field.type !== "enum";
 	return (
 		<View className="gap-1.5">
 			<Text className="font-ui-medium text-xs text-text-muted">
@@ -312,12 +316,12 @@ function OptionFieldRow(props: {
 				{props.field.required ? <Text className="text-danger"> *</Text> : null}
 			</Text>
 			<OptionControl
-				description={props.field.description}
 				field={props.field}
 				value={props.value}
 				onChange={props.onChange}
+				description={props.field.description}
 			/>
-			{props.field.type === "boolean" || props.field.description === "" ? null : (
+			{hasPlaceholder || props.field.description === "" ? null : (
 				<Text className="font-ui text-xs text-text-subtle">{props.field.description}</Text>
 			)}
 			{props.error === undefined ? null : (
