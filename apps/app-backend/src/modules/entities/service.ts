@@ -7,10 +7,10 @@ import { AppConfig } from "#lib/config";
 import { DbRunner, TransactionRunner } from "#lib/db";
 import type { BadRequest, DbError, NotFound } from "#lib/errors";
 import { badRequest, notFound } from "#lib/errors";
+import { createWorkflowJobId, resolveWorkflowExecutionId } from "#lib/job-id";
 import { parseAppSchemaProperties } from "#lib/property-schema-runtime";
 import { requireText, trimToNull } from "#lib/validation";
 import { RelationshipSchemasRepository } from "#modules/relationship-schemas/repository";
-import { createSandboxJobId, resolveSandboxExecutionId } from "#modules/sandbox/job-id";
 import { SandboxRepository } from "#modules/sandbox/repository";
 
 import { EntitiesRepository, type SavedRelationship } from "./repository";
@@ -262,7 +262,7 @@ export class EntitiesService extends Effect.Service<EntitiesService>()("Entities
 						})
 						.pipe(Effect.orDie);
 
-					return { jobId: createSandboxJobId(jobIdSecret, executionId, user.id) };
+					return { jobId: createWorkflowJobId(jobIdSecret, executionId, user.id) };
 				}),
 			getImportResult: (user: CurrentUserValue, jobId: string) =>
 				Effect.gen(function* () {
@@ -271,7 +271,7 @@ export class EntitiesService extends Effect.Service<EntitiesService>()("Entities
 						return yield* notFound(importJobNotFoundError);
 					}
 
-					const executionId = resolveSandboxExecutionId(jobIdSecret, user.id, resolvedJobId);
+					const executionId = resolveWorkflowExecutionId(jobIdSecret, user.id, resolvedJobId);
 					if (!executionId) {
 						return yield* notFound(importJobNotFoundError);
 					}
