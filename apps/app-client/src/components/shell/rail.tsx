@@ -12,7 +12,13 @@ import { Text } from "@/components/ui/text";
 import { useAuthClient, useUser } from "@/lib/atoms";
 import { TrackerIcon } from "@/lib/icons";
 import type { NavigationItem } from "@/lib/navigation";
-import { navHref, useActiveNav, useNavigationData, useSetSubFlyoutOpen } from "@/lib/navigation";
+import {
+	navHref,
+	useActiveNav,
+	useNavigationData,
+	useOpenFlyout,
+	useScheduleFlyoutClose,
+} from "@/lib/navigation";
 
 export const RAIL_WIDTH = 168;
 export const SPRING_CONFIG = { damping: 22, stiffness: 280 };
@@ -25,17 +31,23 @@ type Props = {
 
 function RailItem({
 	item,
-	isActive,
 	onPress,
+	isActive,
+	onHoverIn,
+	onHoverOut,
 }: {
-	item: NavigationItem;
 	isActive: boolean;
 	onPress: () => void;
+	item: NavigationItem;
+	onHoverIn?: () => void;
+	onHoverOut?: () => void;
 }) {
 	return (
 		<Pressable
 			key={item.key}
 			onPress={onPress}
+			onHoverIn={onHoverIn}
+			onHoverOut={onHoverOut}
 			accessibilityRole="button"
 			accessibilityLabel={item.name}
 			className="min-h-11 py-2.5 flex-row items-center px-2 relative"
@@ -69,7 +81,8 @@ function RailItem({
 export function ShellRail({ translateX, onClose, pinned = false }: Props) {
 	const user = useUser();
 	const authClient = useAuthClient();
-	const setSubFlyoutOpen = useSetSubFlyoutOpen();
+	const openFlyout = useOpenFlyout();
+	const scheduleFlyoutClose = useScheduleFlyoutClose();
 	const { trackers, libraryViews, userItem, isLoading } = useNavigationData(user?.name);
 	const { isViewPath, activeTrackerSlug, activeSubItemSlug } = useActiveNav();
 
@@ -78,12 +91,6 @@ export function ShellRail({ translateX, onClose, pinned = false }: Props) {
 	}));
 
 	function handlePress(item: NavigationItem) {
-		if (item.slug === activeTrackerSlug) {
-			if (item.subItems.length > 0) {
-				setSubFlyoutOpen((prev) => !prev);
-			}
-			return;
-		}
 		router.push(navHref(item));
 		if (!pinned && translateX) {
 			translateX.value = withSpring(RAIL_WIDTH, SPRING_CONFIG, () => {
@@ -115,10 +122,12 @@ export function ShellRail({ translateX, onClose, pinned = false }: Props) {
 				<>
 					{trackers.map((tracker) => (
 						<RailItem
-							key={tracker.key}
 							item={tracker}
+							key={tracker.key}
 							onPress={() => handlePress(tracker)}
 							isActive={tracker.slug === activeTrackerSlug}
+							onHoverOut={tracker.subItems.length > 0 ? scheduleFlyoutClose : undefined}
+							onHoverIn={tracker.subItems.length > 0 ? () => openFlyout(tracker.slug) : undefined}
 						/>
 					))}
 
@@ -131,8 +140,8 @@ export function ShellRail({ translateX, onClose, pinned = false }: Props) {
 							</Box>
 							{libraryViews.map((view) => (
 								<RailItem
-									key={view.key}
 									item={view}
+									key={view.key}
 									onPress={() => handlePress(view)}
 									isActive={isViewPath && view.slug === activeSubItemSlug}
 								/>
@@ -153,9 +162,9 @@ export function ShellRail({ translateX, onClose, pinned = false }: Props) {
 				<Text className="text-[13px] text-muted-foreground font-sans">{userItem.name}</Text>
 			</Box>
 			<Pressable
-				onPress={() => void handleLogout()}
 				accessibilityRole="button"
 				accessibilityLabel="Log Out"
+				onPress={() => void handleLogout()}
 				className="flex-row items-center gap-2 min-h-8"
 			>
 				<Box className="opacity-50">
@@ -172,8 +181,8 @@ export function ShellRail({ translateX, onClose, pinned = false }: Props) {
 				<Box className="flex-1">{items}</Box>
 				{userSection}
 				<Box
-					className="absolute top-0 left-0 w-px bottom-0 opacity-[0.08] bg-foreground"
 					pointerEvents="none"
+					className="absolute top-0 left-0 w-px bottom-0 opacity-[0.08] bg-foreground"
 				/>
 			</Box>
 		);
