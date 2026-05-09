@@ -13,12 +13,8 @@ export default function ViewScreen() {
 	return (
 		<PageHeader eyebrow={viewName} title="Entries">
 			<Box className={gridStyles.grid}>
-				{Array.from({ length: 6 }).map((_, i) => (
-					<Box
-						key={`skeleton-${i}`}
-						className={gridStyles.card}
-						style={{ opacity: 0.85 - i * 0.08 }}
-					/>
+				{["one", "two", "three", "four", "five", "six"].map((skeletonKey, i) => (
+					<Box key={skeletonKey} className={gridStyles.card} style={{ opacity: 0.85 - i * 0.08 }} />
 				))}
 			</Box>
 		</PageHeader>
