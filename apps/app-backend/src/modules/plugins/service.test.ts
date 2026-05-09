@@ -295,6 +295,69 @@ it.effect("validates, compiles, content-addresses, persists, loads, and publishe
 	}).pipe(Effect.provide(makeLayer({ persisted, published })));
 });
 
+it.effect("preserves provider search options metadata through ingestion", () => {
+	const persisted: Array<NormalizedPlugin> = [];
+	return Effect.gen(function* () {
+		const ingestion = yield* PluginIngestionService;
+		const fixture = fixtureManifest();
+		const searchOptionsSchema = {
+			unknownKeys: "strict" as const,
+			fields: {
+				passRawQuery: {
+					label: "Pass raw query",
+					type: "boolean" as const,
+					description: "Pass the query without modification",
+				},
+			},
+		};
+		const manifest = {
+			...fixture,
+			providers: [
+				{
+					name: "Fixture Provider",
+					slug: "fixture.provider",
+					information: { source: "Fixture" },
+					operations: { search: "fixture.provider.search", details: "fixture.provider.details" },
+				},
+			],
+			scripts: [
+				...fixture.scripts,
+				{
+					kind: "provider" as const,
+					capabilities: [] as const,
+					name: "Fixture Provider Details",
+					slug: "fixture.provider.details",
+					providerSlug: "fixture.provider",
+					providerOperation: "details" as const,
+					requiredPluginConfigKeys: [] as const,
+					requiredSystemConfigKeys: [] as const,
+					entry: "scripts/provider-details.sandbox.ts",
+				},
+				{
+					searchOptionsSchema,
+					kind: "provider" as const,
+					capabilities: [] as const,
+					name: "Fixture Provider Search",
+					slug: "fixture.provider.search",
+					providerSlug: "fixture.provider",
+					providerOperation: "search" as const,
+					requiredPluginConfigKeys: [] as const,
+					requiredSystemConfigKeys: [] as const,
+					entry: "scripts/provider-search.sandbox.ts",
+				},
+			],
+		} satisfies PluginManifest;
+		const source = yield* loadPluginSource(fixturePackageRoot(), manifest);
+		const plugin = yield* ingestion.ingestPlugin(source);
+		const searchScript = plugin.scripts.find(({ slug }) => slug === "fixture.provider.search");
+
+		expect(searchScript?.metadata).toMatchObject({ searchOptionsSchema });
+		expect(
+			persisted[0]?.scripts.find(({ slug }) => slug === "fixture.provider.search")?.metadata,
+		).toMatchObject({ searchOptionsSchema });
+	}).pipe(Effect.provide(makeLayer({ persisted })));
+});
+
 it.effect("returns a committed install when Redis publication fails", () => {
 	const persisted: Array<NormalizedPlugin> = [];
 	return Effect.gen(function* () {

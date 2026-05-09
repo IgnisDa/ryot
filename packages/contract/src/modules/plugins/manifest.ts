@@ -280,6 +280,7 @@ export const PluginScript = Schema.Union([
 		capabilities: PluginScriptCapabilities,
 		kind: Schema.Literal("provider"),
 		providerOperation: PluginProviderOperation,
+		searchOptionsSchema: Schema.optional(PluginAppSchema),
 	}),
 ]);
 
