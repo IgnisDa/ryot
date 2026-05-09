@@ -32,37 +32,60 @@ export function* encodeNdjson<A, I>(
 	}
 }
 
+export class NdjsonDecoder<A, I> {
+	#line = 0;
+	#buffered = "";
+	readonly #path: string;
+	readonly #codec: Schema.Codec<A, I>;
+	readonly #decoder = new TextDecoder("utf-8", { fatal: true });
+
+	constructor(codec: Schema.Codec<A, I>, path: string) {
+		this.#path = path;
+		this.#codec = codec;
+	}
+
+	*push(chunk: Uint8Array): Generator<A, void, undefined> {
+		try {
+			this.#buffered += this.#decoder.decode(chunk, { stream: true });
+			let newline = this.#buffered.indexOf("\n");
+			while (newline >= 0) {
+				const text = this.#buffered.slice(0, newline);
+				this.#buffered = this.#buffered.slice(newline + 1);
+				this.#line += 1;
+				if (text.length === 0) {
+					throw archiveError("invalid_entry", `Empty NDJSON line ${this.#line}`, this.#path);
+				}
+				yield Schema.decodeUnknownSync(this.#codec)(JSON.parse(text));
+				newline = this.#buffered.indexOf("\n");
+			}
+		} catch (error) {
+			if (error instanceof BackupArchiveError) {
+				throw error;
+			}
+			throw archiveError("invalid_entry", `Invalid NDJSON at line ${this.#line + 1}`, this.#path);
+		}
+	}
+
+	end() {
+		try {
+			this.#buffered += this.#decoder.decode();
+		} catch {
+			throw archiveError("invalid_entry", `Invalid NDJSON at line ${this.#line + 1}`, this.#path);
+		}
+		if (this.#buffered.length > 0) {
+			throw archiveError("truncated_ndjson", "NDJSON must end with a newline", this.#path);
+		}
+	}
+}
+
 export function* decodeNdjson<A, I>(
 	chunks: Iterable<Uint8Array>,
 	codec: Schema.Codec<A, I>,
 	path = "ndjson",
 ): Generator<A, void, undefined> {
-	const decoder = new TextDecoder("utf-8", { fatal: true });
-	let buffered = "";
-	let line = 0;
-	try {
-		for (const chunk of chunks) {
-			buffered += decoder.decode(chunk, { stream: true });
-			let newline = buffered.indexOf("\n");
-			while (newline >= 0) {
-				const text = buffered.slice(0, newline);
-				buffered = buffered.slice(newline + 1);
-				line += 1;
-				if (text.length === 0) {
-					throw archiveError("invalid_entry", `Empty NDJSON line ${line}`, path);
-				}
-				yield Schema.decodeUnknownSync(codec)(JSON.parse(text));
-				newline = buffered.indexOf("\n");
-			}
-		}
-		buffered += decoder.decode();
-	} catch (error) {
-		if (error instanceof BackupArchiveError) {
-			throw error;
-		}
-		throw archiveError("invalid_entry", `Invalid NDJSON at line ${line + 1}`, path);
+	const decoder = new NdjsonDecoder(codec, path);
+	for (const chunk of chunks) {
+		yield* decoder.push(chunk);
 	}
-	if (buffered.length > 0) {
-		throw archiveError("truncated_ndjson", "NDJSON must end with a newline", path);
-	}
+	decoder.end();
 }

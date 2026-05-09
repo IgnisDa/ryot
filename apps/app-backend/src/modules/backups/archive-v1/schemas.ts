@@ -226,7 +226,6 @@ export const V1_CODECS = {
 
 export type V1ArchiveRecords = {
 	readonly profile: V1Profile;
-	readonly events: ReadonlyArray<V1Event>;
 	readonly entities: ReadonlyArray<V1UserEntity>;
 	readonly savedViews: ReadonlyArray<V1SavedView>;
 	readonly pluginState: ReadonlyArray<V1PluginState>;
