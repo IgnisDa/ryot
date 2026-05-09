@@ -106,6 +106,7 @@ export const makeAppConfigLayer = (
 		frontendUrl: "http://localhost:3000",
 		redisUrl: Redacted.make("unused"),
 		frontend: { oidcButtonLabel: Option.none() },
+		sandbox: { denoDir: "/tmp", processMode: "on-demand" },
 		users: { allowRegistration: true, disableLocalAuth: false },
 		scheduler: {
 			disableDispatchers: false,
@@ -116,11 +117,6 @@ export const makeAppConfigLayer = (
 			poolMax: 10,
 			connectionTimeoutMs: 10_000,
 			url: Redacted.make("unused"),
-		},
-		sandbox: {
-			denoDir: "/tmp",
-			processMode: "on-demand",
-			jobIdSecret: Redacted.make("test-secret"),
 		},
 		fileStorage: {
 			url: Option.none(),
@@ -137,7 +133,7 @@ export const makeAppConfigLayer = (
 			corsOrigins: Option.none(),
 			otlpEndpoint: Option.none(),
 			disableNotifications: false,
-			adminAccessToken: Redacted.make("unused"),
+			adminAccessToken: Redacted.make("test-admin-token"),
 			oidc: { clientId: Option.none(), issuerUrl: Option.none(), clientSecret: Option.none() },
 			smtp: {
 				user: Option.none(),

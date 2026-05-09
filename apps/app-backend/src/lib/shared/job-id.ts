@@ -1,6 +1,7 @@
 import { hmacSha256Base64Url } from "@ryot/ts-utils/crypto";
 
 const separator = ".";
+const keyDomain = "sandbox-job-id";
 const textEncoder = new TextEncoder();
 
 const createSignature = (secret: string, executionId: string, userId: string) =>
@@ -18,6 +19,9 @@ const signaturesMatch = (actual: string, expected: string) => {
 
 	return mismatch === 0;
 };
+
+export const deriveJobIdSecret = (adminAccessToken: string) =>
+	hmacSha256Base64Url(adminAccessToken, keyDomain);
 
 export const createWorkflowJobId = (secret: string, executionId: string, userId: string) =>
 	`${executionId}${separator}${createSignature(secret, executionId, userId)}`;
