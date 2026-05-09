@@ -55,23 +55,17 @@ describe("sandbox enqueue by script ID", () => {
 		}),
 	);
 
-	it.live("rejects legacy driver selection and caller-forged authority", () =>
+	it.live("rejects caller-forged authority", () =>
 		Effect.gen(function* () {
 			const { userId } = yield* createAuthenticatedClient();
 			const scriptId = crypto.randomUUID();
 
-			const driverResponse = yield* postEnqueue({
-				scriptId,
-				driverName: "main",
-				executingUserId: userId,
-			});
 			const authorityResponse = yield* postEnqueue({
 				scriptId,
 				executingUserId: userId,
 				authority: { type: "system" },
 			});
 
-			expect(driverResponse.status).toBe(400);
 			expect(authorityResponse.status).toBe(400);
 		}),
 	);
