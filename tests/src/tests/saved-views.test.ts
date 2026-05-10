@@ -115,7 +115,7 @@ describe("Saved views E2E", () => {
 			},
 		});
 
-		await insertLibraryMembership({
+		await insertLibraryMembership(client, {
 			userId,
 			mediaEntityId: entity.id,
 		});
@@ -203,7 +203,7 @@ describe("Saved views E2E", () => {
 			},
 		});
 
-		await insertLibraryMembership({
+		await insertLibraryMembership(client, {
 			userId,
 			mediaEntityId: entity.id,
 		});

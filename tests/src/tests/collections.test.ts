@@ -365,7 +365,7 @@ describe("POST /collections", () => {
 			expect(data.memberOf.sourceEntityId).toBe(entity.id);
 			expect(data.memberOf.targetEntityId).toBe(collection.id);
 
-			const membership = await queryInLibraryRelationship(entity.id, email);
+			const membership = await queryInLibraryRelationship(client, entity.id, email);
 
 			expect(membership.rowCount).toBe(1);
 		});

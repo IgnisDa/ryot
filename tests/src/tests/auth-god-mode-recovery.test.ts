@@ -57,9 +57,10 @@ async function createApiKey(cookies: string) {
 }
 
 async function createNoAccountUser(name: string) {
+	const pg = getPgClient();
 	const userId = randomUUID();
 	const email = `${name.toLowerCase()}-${uniqueTimestamp()}@example.com`;
-	await getPgClient().query(
+	await pg.query(
 		`INSERT INTO "user" (id, name, email, email_verified, preferences, created_at, updated_at)
 		 VALUES ($1, $2, $3, true, '{}', NOW(), NOW())`,
 		[userId, name, email],
@@ -179,10 +180,10 @@ describe("User listing with correct admin token", () => {
 	});
 
 	it("classifies mixed auth users as 'mixed'", async () => {
+		const pg = getPgClient();
 		const client = getBackendClient();
 		const { email } = await createTestUser();
 
-		const pg = getPgClient();
 		const result = await pg.query<{ id: string }>(`SELECT id FROM "user" WHERE email = $1`, [
 			email,
 		]);
@@ -192,7 +193,7 @@ describe("User listing with correct admin token", () => {
 		}
 		const userId = row.id;
 
-		await getPgClient().query(
+		await pg.query(
 			`INSERT INTO "account" (id, account_id, provider_id, user_id, created_at, updated_at)
 			 VALUES ($1, $2, 'oidc', $3, NOW(), NOW())`,
 			[randomUUID(), `oidc-sub-${uniqueTimestamp()}`, userId],
@@ -457,12 +458,13 @@ describe("OIDC user restrictions", () => {
 
 describe("Mixed auth user restrictions", () => {
 	it("rejects password reset for mixed auth users", async () => {
+		const pg = getPgClient();
 		const client = getBackendClient();
 		const { email } = await createTestUser();
 
 		const userId = await getUserIdByEmail(email);
 
-		await getPgClient().query(
+		await pg.query(
 			`INSERT INTO "account" (id, account_id, provider_id, user_id, created_at, updated_at)
 			 VALUES ($1, $2, 'oidc', $3, NOW(), NOW())`,
 			[randomUUID(), `oidc-sub-${uniqueTimestamp()}`, userId],
