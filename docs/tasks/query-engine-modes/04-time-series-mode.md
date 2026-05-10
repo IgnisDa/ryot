@@ -145,7 +145,7 @@ Validate that `startAt` < `endAt`. Both must be valid ISO 8601 timestamps. No ha
 - [x] UTC bucketing is consistent (no timezone-dependent bucket boundaries)
 - [x] Unit tests cover the time-series query builder (all bucket types, both metrics, empty buckets, filters)
 - [x] E2E tests exercise time-series mode through the HTTP endpoint
-- [x] `bun run check`, `bun run test`, and `bun run format` pass
+- [x] `bun run check` and `bun run test` pass
 
 ## User stories addressed
 

@@ -4,9 +4,8 @@
 	"type": "module",
 	"scripts": {
 		"build": "vitepress build",
-		"format": "oxfmt . --write",
 		"dev": "vitepress dev --port 3002",
-		"check": "tsc && oxlint . --type-aware --fix"
+		"check": "tsc && oxfmt . --write && oxlint . --type-aware --fix"
 	},
 	"devDependencies": {
 		"vitepress": "2.0.0-alpha.15"
