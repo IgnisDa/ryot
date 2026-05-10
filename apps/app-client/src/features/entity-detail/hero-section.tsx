@@ -78,15 +78,15 @@ export function HeroSection({ entity }: { entity: EntityDetail }) {
 						)}
 
 						{/* Meta */}
-						<Box className="min-w-0 flex-1">
+						<Box className="min-w-0 grow">
 							{/* Schema slug badge */}
 							<Box
 								className="mb-2 self-start rounded px-2 py-0.5"
 								style={{ backgroundColor: "rgba(201,148,58,0.35)" }}
 							>
 								<Text
-									className="text-[11px] font-sans-semibold uppercase tracking-[1px] web:text-[13px]"
 									style={{ color: ACCENT }}
+									className="text-[11px] font-sans-semibold uppercase tracking-[1px] web:text-[13px]"
 								>
 									{changeCase(entity.entitySchemaSlug)}
 								</Text>
