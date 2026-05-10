@@ -14,7 +14,9 @@ export function ExternalLink({ href, ...props }: React.ComponentProps<typeof Lin
 					// Prevent the default behavior of linking to the default browser on native.
 					e.preventDefault();
 					// Open the link in an in-app browser.
-					WebBrowser.openBrowserAsync(href as string);
+					if (typeof href === "string") {
+						void WebBrowser.openBrowserAsync(href);
+					}
 				}
 			}}
 		/>

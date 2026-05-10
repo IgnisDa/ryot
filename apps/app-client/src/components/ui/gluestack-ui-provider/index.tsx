@@ -2,7 +2,7 @@ import { OverlayProvider } from "@gluestack-ui/core/overlay/creator";
 import { ToastProvider } from "@gluestack-ui/core/toast/creator";
 import type React from "react";
 import { useEffect } from "react";
-import { Appearance, type ColorSchemeName, View, type ViewProps } from "react-native";
+import { Appearance, View, type ViewProps } from "react-native";
 
 export type ModeType = "light" | "dark" | "system";
 
@@ -15,7 +15,9 @@ export function GluestackUIProvider({
 	style?: ViewProps["style"];
 }) {
 	useEffect(() => {
-		Appearance.setColorScheme(mode as ColorSchemeName);
+		if (mode !== "system") {
+			Appearance.setColorScheme(mode);
+		}
 	}, [mode]);
 
 	return (

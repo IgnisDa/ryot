@@ -62,7 +62,7 @@ function SubmitButton(props: SubmitButtonProps) {
 			{([canSubmit, isSubmitting]) => (
 				<Button
 					onPress={() => void form.handleSubmit()}
-					disabled={props.disabled || isSubmitting || !canSubmit}
+					disabled={(props.disabled ?? false) || isSubmitting || !canSubmit}
 				>
 					{isSubmitting && <ButtonSpinner />}
 					<ButtonText>
