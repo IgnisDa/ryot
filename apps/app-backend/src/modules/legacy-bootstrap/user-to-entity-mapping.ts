@@ -1,4 +1,4 @@
-import { quoteSqlString } from "./shared";
+import { buildReportSql, quoteSqlString } from "./shared";
 
 export const buildUserToEntityInLibraryMigrationSql = (
 	inLibraryRelationshipSchemaSlug: string,
@@ -16,8 +16,6 @@ BEGIN
 	IF to_regclass('"user_to_entity"') IS NULL THEN
 		RAISE EXCEPTION 'Expected user_to_entity table to exist in a V1 database but it was not found';
 	END IF;
-
-	RAISE NOTICE 'user_to_entity -> in-library relationship: migration started (% seconds elapsed)', 0.0;
 
 	LOOP
 		WITH batch AS (
@@ -61,8 +59,6 @@ BEGIN
 		cursor_id := next_cursor_id;
 	END LOOP;
 
-	RAISE NOTICE 'user_to_entity -> in-library relationship: % row(s) migrated total (% seconds elapsed)',
-		rows_inserted,
-		round(extract(epoch from clock_timestamp() - started_at)::numeric, 1);
+	${buildReportSql("user_to_entity -> in-library relationship", [{ message: "row(s) migrated total", count: "rows_inserted" }])}
 END $$;
 `;

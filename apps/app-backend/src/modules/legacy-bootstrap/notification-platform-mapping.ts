@@ -1,3 +1,5 @@
+import { buildReportSql } from "./shared";
+
 export const buildNotificationPlatformMigrationSql = () => `
 DO $$
 DECLARE
@@ -52,8 +54,6 @@ BEGIN
 	IF invalid_platform_ids IS NOT NULL THEN
 		RAISE EXCEPTION 'Legacy notification platforms with invalid specifics: %', invalid_platform_ids;
 	END IF;
-
-	RAISE NOTICE 'old_notification_platform -> notification_channel: migration started (% seconds elapsed)', 0.0;
 
 	INSERT INTO "notification_channel" (
 		"id",
@@ -146,8 +146,6 @@ BEGIN
 	ON CONFLICT ("id") DO NOTHING;
 
 	GET DIAGNOSTICS rows_inserted = ROW_COUNT;
-	RAISE NOTICE 'old_notification_platform -> notification_channel: % row(s) migrated (% seconds elapsed)',
-		rows_inserted,
-		round(extract(epoch from clock_timestamp() - started_at)::numeric, 1);
+	${buildReportSql("old_notification_platform -> notification_channel", [{ message: "row(s) migrated", count: "rows_inserted" }])}
 END $$;
 `;
