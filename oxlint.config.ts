@@ -1,22 +1,24 @@
-{
-	"env": { "node": true, "browser": true },
-	"settings": { "react": { "version": "19.0.0" } },
-	"$schema": "./node_modules/oxlint/configuration_schema.json",
-	"categories": { "perf": "warn", "suspicious": "warn", "correctness": "error" },
-	"plugins": ["react", "typescript", "unicorn", "import", "oxc", "node", "promise"],
-	"overrides": [
+import { defineConfig } from "oxlint";
+
+export default defineConfig({
+	env: { node: true, browser: true },
+	settings: { react: { version: "19.0.0" } },
+	$schema: "./node_modules/oxlint/configuration_schema.json",
+	categories: { perf: "warn", suspicious: "warn", correctness: "error" },
+	plugins: ["react", "typescript", "unicorn", "import", "oxc", "node", "promise"],
+	overrides: [
 		{
-			"files": ["*.test.ts", "*.test.tsx", "*.spec.ts", "*.spec.tsx"],
-			"rules": {
+			files: ["*.test.ts", "*.test.tsx", "*.spec.ts", "*.spec.tsx"],
+			rules: {
 				"typescript/no-unsafe-argument": "off",
 				"typescript/no-misused-promises": "off",
 				"typescript/no-inferrable-types": "off",
 				"typescript/no-unsafe-assignment": "off",
-				"typescript/no-floating-promises": "off"
-			}
-		}
+				"typescript/no-floating-promises": "off",
+			},
+		},
 	],
-	"ignorePatterns": [
+	ignorePatterns: [
 		"**/out/**",
 		"**/dist/**",
 		"**/.wxt/**",
@@ -25,15 +27,15 @@
 		"libs/generated/**",
 		"apps/frontend/app/styles/*.css",
 		"apps/app-frontend/src/routeTree.gen.ts",
-		"apps/docs/src/includes/export-schema.ts"
+		"apps/docs/src/includes/export-schema.ts",
 	],
-	"rules": {
-		"curly": "error",
+	rules: {
+		curly: "error",
 		"no-else-return": "warn",
+		eqeqeq: ["error", "smart"],
 		"import/no-cycle": "error",
 		"react-in-jsx-scope": "off",
 		"no-param-reassign": "error",
-		"eqeqeq": ["error", "smart"],
 		"default-param-last": "error",
 		"react/rules-of-hooks": "error",
 		"import/no-duplicates": "error",
@@ -69,10 +71,10 @@
 		"typescript/no-unused-vars": [
 			"error",
 			{
-				"varsIgnorePattern": "^_",
-				"argsIgnorePattern": "^_",
-				"caughtErrorsIgnorePattern": "^_"
-			}
-		]
-	}
-}
+				varsIgnorePattern: "^_",
+				argsIgnorePattern: "^_",
+				caughtErrorsIgnorePattern: "^_",
+			},
+		],
+	},
+});
