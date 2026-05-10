@@ -17,7 +17,7 @@ BEGIN
 	FROM "old_integration"
 	WHERE provider NOT IN (
 		'audiobookshelf', 'komga', 'plex_yank', 'youtube_music',
-		'kodi', 'emby', 'plex_sink', 'jellyfin_sink', 'generic_json', 'ryot_browser_extension',
+		'kodi', 'emby', 'plex_sink', 'jellyfin_sink', 'ryot_browser_extension',
 		'radarr', 'sonarr', 'jellyfin_push'
 	);
 	IF unknown_providers IS NOT NULL THEN
@@ -114,7 +114,6 @@ BEGIN
 			)
 			WHEN 'kodi' THEN jsonb_build_object('kind', 'kodi')
 			WHEN 'emby' THEN jsonb_build_object('kind', 'emby')
-			WHEN 'generic_json' THEN jsonb_build_object('kind', 'generic_json')
 			WHEN 'plex_sink' THEN jsonb_build_object('kind', 'plex_sink')
 				|| (CASE WHEN oi.provider_specifics->>'plex_sink_username' IS NOT NULL
 					THEN jsonb_build_object('username', oi.provider_specifics->>'plex_sink_username')

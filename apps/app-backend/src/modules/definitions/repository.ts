@@ -1,11 +1,13 @@
 import type { UserId } from "@ryot/contract/schema/brands";
-import { and, eq } from "drizzle-orm";
+import { and, asc, eq } from "drizzle-orm";
 import { Context, Effect, Layer } from "effect";
 
 import * as schema from "#lib/infrastructure/db/schema/tables/combined";
 import { Database, mapDatabaseErrors } from "#lib/infrastructure/db/service";
 
 export type PluginStateRow = typeof schema.pluginState.$inferSelect;
+
+type RestorePluginStateInput = Omit<PluginStateRow, "userId"> & { readonly userId: UserId };
 
 export class DefinitionsRepository extends Context.Service<DefinitionsRepository>()(
 	"DefinitionsRepository",
@@ -14,8 +16,18 @@ export class DefinitionsRepository extends Context.Service<DefinitionsRepository
 			const listPluginStates = Effect.fn(function* (userId: UserId) {
 				const db = yield* Database;
 				return yield* mapDatabaseErrors(
-					db.select().from(schema.pluginState).where(eq(schema.pluginState.userId, userId)),
+					db
+						.select()
+						.from(schema.pluginState)
+						.where(eq(schema.pluginState.userId, userId))
+						.orderBy(asc(schema.pluginState.id)),
 				);
+			});
+			const restorePluginState = Effect.fn("DefinitionsRepository.restorePluginState")(function* (
+				input: RestorePluginStateInput,
+			) {
+				const db = yield* Database;
+				yield* mapDatabaseErrors(db.insert(schema.pluginState).values(input));
 			});
 			const upsertPluginState = Effect.fn(function* (input: {
 				userId: UserId;
@@ -57,7 +69,7 @@ export class DefinitionsRepository extends Context.Service<DefinitionsRepository
 				);
 				return row ?? null;
 			});
-			return { getPluginState, listPluginStates, upsertPluginState };
+			return { getPluginState, listPluginStates, restorePluginState, upsertPluginState };
 		}),
 	},
 ) {
