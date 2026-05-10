@@ -126,6 +126,15 @@ export const TestSupportOperationalPressure = Schema.Struct({
 	}),
 });
 
+export const TestSupportSandboxRuntimeMetrics = Schema.Struct({
+	totalSpawned: Schema.Number,
+	totalCompleted: Schema.Number,
+	workerRssBytes: Schema.Number,
+	backendRssBytes: Schema.Number,
+	activeProcessCount: Schema.Number,
+	workers: Schema.Array(Schema.Struct({ pid: Schema.Number, rssBytes: Schema.Number })),
+});
+
 export const TestSupportGlobalRelationship = Schema.Struct({
 	id: RelationshipId,
 	sourceEntityId: EntityId,

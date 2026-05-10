@@ -50,6 +50,7 @@
 
 | App Config Key | Variable | Description | Required | Sensitive | Default |
 |---|---|---|---|---|---|
+| `sandbox.processMode` | `SANDBOX_PROCESS_MODE` | Spawn processes on demand or keep a warm pool ready for executions | No | No | `on-demand` |
 | `sandbox.denoDir` | `SANDBOX_DENO_DIR` | Directory used for the local sandbox dependency runtime and Deno cache | No | No | `/tmp/ryot-sandbox` |
 | `sandbox.jobIdSecret` | `SANDBOX_JOB_ID_SECRET` | Secret used to sign sandbox job identifiers | No | Yes | `changeme` |
 
