@@ -597,7 +597,9 @@ export default defineOperation({
 `;
 }
 
-export function integrationReadOperationSandboxSource(input: SandboxSourceIdentity) {
+export function integrationReadOperationSandboxSource(
+	input: SandboxSourceIdentity & { readonly providerSlug: string },
+) {
 	return `
 import { defineManifest } from "@ryot/sandbox-sdk/driver";
 import { defineOperation } from "@ryot/sandbox-sdk/operation";
@@ -622,7 +624,7 @@ export default defineOperation({
   }),
   run: (_input, host) => Effect.gen(function* () {
     const current = yield* host.getCurrentIntegration();
-    const enabled = yield* host.listIntegrations({ provider: "kodi", isDisabled: false });
+    const enabled = yield* host.listIntegrations({ provider: ${JSON.stringify(input.providerSlug)}, isDisabled: false });
     return { current, enabled };
   }),
 });

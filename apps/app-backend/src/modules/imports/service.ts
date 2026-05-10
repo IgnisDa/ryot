@@ -21,7 +21,6 @@ import {
 	ImportSourceCatalog,
 	type RegisteredImportSource,
 } from "#modules/plugins/import-source-catalog";
-import { PluginRuntimeResolver } from "#modules/plugins/runtime-resolver";
 import { UploadIntentsService } from "#modules/uploads/intents/service";
 
 import { ImportRunFailuresService, type ImportRunFailureDetails } from "./failure-service";
@@ -42,6 +41,7 @@ import { ImportWorkflowPinning } from "./workflow-pinning";
 export type CreateImportRunInput = {
 	userId: UserId;
 	source: ImportRunSource;
+	pluginInstallationId: string;
 	integrationId?: IntegrationId | null;
 	inputSummary: Record<string, unknown>;
 };
@@ -72,7 +72,6 @@ export class ImportsService extends Context.Service<ImportsService>()("ImportsSe
 		const uploads = yield* UploadIntentsService;
 		const repository = yield* ImportsRepository;
 		const importSources = yield* ImportSourceCatalog;
-		const pluginRuntime = yield* PluginRuntimeResolver;
 		const workflowPinning = yield* ImportWorkflowPinning;
 		const failureService = yield* ImportRunFailuresService;
 
@@ -123,6 +122,7 @@ export class ImportsService extends Context.Service<ImportsService>()("ImportsSe
 			const created = yield* create({
 				userId: user.id,
 				source: body.source,
+				pluginInstallationId: registered.installationId,
 				inputSummary: buildImportInputSummary(body.source, {}),
 			}).pipe(Effect.result);
 			if (Result.isFailure(created)) {
@@ -190,8 +190,8 @@ export class ImportsService extends Context.Service<ImportsService>()("ImportsSe
 				.preRegister({
 					executingUserId: user.id,
 					scriptId: workflowScriptId,
+					pluginId: registered.pluginId,
 					executionId: sandboxExecutionId,
-					pluginSlug: registered.pluginSlug,
 				})
 				.pipe(Effect.result);
 			if (Result.isFailure(pin)) {
@@ -209,8 +209,9 @@ export class ImportsService extends Context.Service<ImportsService>()("ImportsSe
 					workflowScriptId,
 					namedArtifactPaths,
 					source: body.source,
-					pluginSlug: registered.pluginSlug,
+					pluginId: registered.pluginId,
 					uploadIntentIds: claimedUploadIntentIds,
+					pluginInstallationId: registered.installationId,
 				},
 			}).pipe(Effect.provideService(RedisService, redis), Effect.exit);
 			if (Exit.isFailure(stored)) {
@@ -259,7 +260,12 @@ export class ImportsService extends Context.Service<ImportsService>()("ImportsSe
 			) {
 				const inputSummary = buildImportInputSummary(body.source, {});
 				const sourcePayload = buildImportSourcePayload(properties, registered) ?? {};
-				const run = yield* create({ inputSummary, userId: user.id, source: body.source });
+				const run = yield* create({
+					inputSummary,
+					userId: user.id,
+					source: body.source,
+					pluginInstallationId: registered.installationId,
+				});
 				const sandboxExecutionId = `${run.id}-import`;
 
 				const pin = yield* workflowPinning
@@ -267,7 +273,7 @@ export class ImportsService extends Context.Service<ImportsService>()("ImportsSe
 						executingUserId: user.id,
 						scriptId: workflowScriptId,
 						executionId: sandboxExecutionId,
-						pluginSlug: registered.pluginSlug,
+						pluginId: registered.pluginId,
 					})
 					.pipe(Effect.result);
 				if (Result.isFailure(pin)) {
@@ -285,7 +291,8 @@ export class ImportsService extends Context.Service<ImportsService>()("ImportsSe
 						source: body.source,
 						uploadIntentIds: [],
 						namedArtifactPaths: {},
-						pluginSlug: registered.pluginSlug,
+						pluginId: registered.pluginId,
+						pluginInstallationId: registered.installationId,
 					},
 				}).pipe(Effect.provideService(RedisService, redis), Effect.exit);
 				if (Exit.isFailure(stored)) {
@@ -327,23 +334,14 @@ export class ImportsService extends Context.Service<ImportsService>()("ImportsSe
 			user: CurrentUserValue,
 			body: CreateImportRunBody,
 		) {
-			const resolution = importSources.resolve(body.source);
+			const resolution = yield* importSources.resolveForUser(user.id, body.source);
 			if (!resolution) {
 				return yield* new ImportRequestError({
 					reason: { code: "source-not-found", source: body.source },
 				});
 			}
 			const registered = resolution.source;
-			const isSystemPluginAvailableToUser = yield* pluginRuntime.isSystemPluginAvailableToUser(
-				user.id,
-				registered.pluginSlug,
-			);
-			if (!isSystemPluginAvailableToUser) {
-				return yield* new ImportRequestError({
-					reason: { code: "source-not-found", source: body.source },
-				});
-			}
-			const workflowScript = yield* resolution.script;
+			const workflowScript = resolution.script;
 			if (!workflowScript) {
 				return yield* new ImportRequestError({
 					reason: { code: "workflow-unavailable", source: body.source },
@@ -378,14 +376,19 @@ export class ImportsService extends Context.Service<ImportsService>()("ImportsSe
 		const listImportSources = Effect.fn("ImportsService.listImportSources")(function* (
 			user: CurrentUserValue,
 		) {
-			const sources = yield* importSources.listWithWorkflowStatus;
-			const available = yield* Effect.filter(sources, ({ source }) =>
-				pluginRuntime.isSystemPluginAvailableToUser(user.id, source.pluginSlug),
-			);
-			return yield* Effect.forEach(available, ({ source, hasActiveWorkflow }) =>
+			const sources = yield* importSources.listForUser(user.id);
+			return yield* Effect.forEach(sources, ({ source, hasActiveWorkflow }) =>
 				Effect.gen(function* () {
 					const missingPluginConfigKeys = yield* registryImportSourceMissingConfigKeys(source);
-					const { configSchema: _configSchema, pluginSlug, ...manifestSource } = source;
+					const {
+						pluginSlug,
+						pluginId: _pluginId,
+						pluginScope: _pluginScope,
+						configSchema: _configSchema,
+						configContext: _configContext,
+						installationId: _installationId,
+						...manifestSource
+					} = source;
 					return {
 						...manifestSource,
 						pluginSlug,
@@ -429,6 +432,7 @@ export class ImportsService extends Context.Service<ImportsService>()("ImportsSe
 			userId: UserId;
 			source: ImportRunSource;
 			integrationId: IntegrationId;
+			pluginInstallationId: string;
 			inputSummary: Record<string, unknown>;
 		}) => create(input);
 

@@ -82,6 +82,7 @@ const makeLayer = (input?: {
 	readonly removedGenerated?: Array<string>;
 	readonly hasDefinitionReferences?: boolean;
 	readonly hasIntegrationReferences?: boolean;
+	readonly integrationFences?: Array<unknown>;
 	readonly privatePlugins?: Array<StoredPlugin>;
 	readonly created?: Array<Record<string, unknown>>;
 	readonly updated?: Array<Record<string, unknown>>;
@@ -108,7 +109,11 @@ const makeLayer = (input?: {
 			Effect.succeed((input?.privatePlugins ?? []).find(({ id }) => id === pluginId) ?? null),
 		hasEntityReferences: () => Effect.succeed(input?.hasEntityReferences ?? false),
 		hasDefinitionReferences: () => Effect.succeed(input?.hasDefinitionReferences ?? false),
-		hasIntegrationReferences: () => Effect.succeed(input?.hasIntegrationReferences ?? false),
+		hasIntegrationReferences: (fence) =>
+			Effect.sync(() => {
+				input?.integrationFences?.push(fence);
+				return input?.hasIntegrationReferences ?? false;
+			}),
 		deactivate: (pluginId) => Effect.sync(() => void input?.deactivated?.push(pluginId)),
 		listActiveManifests: () =>
 			Effect.succeed((input?.systemPlugins ?? []).map(({ manifest }) => manifest)),
@@ -605,6 +610,35 @@ it.effect("uninstalls a private plugin the caller owns", () => {
 				installations,
 				removedGenerated,
 				removed: removedIds,
+				privatePlugins: [privatePlugin],
+			}),
+		),
+	);
+});
+
+it.effect("fences a private uninstall on the exact installation being removed", () => {
+	const deactivated: Array<string> = [];
+	const integrationFences: Array<unknown> = [];
+	const privatePlugin = storedPrivatePlugin(privateManifest());
+	const installations = [installationRow({ pluginId: privatePlugin.id })];
+	return Effect.gen(function* () {
+		const service = yield* PluginInstallationService;
+		const failure = failureOf(
+			yield* Effect.exit(service.uninstallPlugin(userId, privatePlugin.slug)),
+		);
+		assert(failure instanceof PluginConflictError);
+		expect(failure.reason.code).toBe("integration-referenced");
+		expect(integrationFences).toEqual([
+			{ pluginId: privatePlugin.id, pluginInstallationId: installations[0]?.id },
+		]);
+		expect(deactivated).toEqual([]);
+	}).pipe(
+		Effect.provide(
+			makeLayer({
+				deactivated,
+				installations,
+				integrationFences,
+				hasIntegrationReferences: true,
 				privatePlugins: [privatePlugin],
 			}),
 		),

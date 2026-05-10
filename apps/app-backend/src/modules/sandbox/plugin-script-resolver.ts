@@ -1,5 +1,5 @@
 import type { DbError } from "@ryot/contract/errors";
-import type { SandboxScriptId } from "@ryot/contract/schema/brands";
+import type { SandboxScriptId, UserId } from "@ryot/contract/schema/brands";
 import { Context, type Effect } from "effect";
 
 import type { Database } from "#lib/infrastructure/db/service";
@@ -14,6 +14,11 @@ export type SandboxPluginScriptResolverValue = {
 		readonly pluginSlug: string;
 		readonly workflowSlug: string;
 	}) => Effect.Effect<ActiveSandboxScript | null, DbError, Database>;
+	findWorkflowScriptAvailableToUser: (
+		userId: UserId,
+		pluginId: string,
+		workflowSlug: string,
+	) => Effect.Effect<ActiveSandboxScript | null, DbError, Database>;
 };
 
 export class SandboxPluginScriptResolver extends Context.Service<

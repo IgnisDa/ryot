@@ -104,7 +104,7 @@ const toSandboxExecutionResult = (
 export const establishSandboxWorkflowPin = Effect.fn("establishSandboxWorkflowPin")(function* (
 	payload: SandboxScriptWorkflowPayloadValue,
 	executionId: string,
-	expectedPluginSlug?: string,
+	expectedPluginId?: string,
 ) {
 	const database = yield* Database;
 	const repository = yield* SandboxRepository;
@@ -127,9 +127,9 @@ export const establishSandboxWorkflowPin = Effect.fn("establishSandboxWorkflowPi
 				if (!pinned) {
 					return yield* sandboxFailure("Sandbox workflow script not found");
 				}
-				if (expectedPluginSlug && pinned.pluginSlug !== expectedPluginSlug) {
+				if (expectedPluginId && pinned.pluginId !== expectedPluginId) {
 					return yield* sandboxFailure(
-						`Sandbox workflow script is not owned by plugin '${expectedPluginSlug}'`,
+						`Sandbox workflow script is not owned by plugin '${expectedPluginId}'`,
 					);
 				}
 				const registrationStatus = pinned.pluginId
