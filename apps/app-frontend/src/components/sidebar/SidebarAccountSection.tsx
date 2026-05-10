@@ -125,7 +125,7 @@ export function SidebarAccountSection(props: { account: SidebarAccount }) {
 							radius="md"
 							color="accent"
 							variant="light"
-							src={props.account.image || undefined}
+							src={props.account.image ?? undefined}
 						>
 							{initials}
 						</Avatar>

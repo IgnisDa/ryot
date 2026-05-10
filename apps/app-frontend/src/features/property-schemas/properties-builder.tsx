@@ -78,7 +78,7 @@ export function PropertySchemasBuilder(props: PropertySchemasBuilderProps) {
 		<props.form.AppField name="properties" mode="array">
 			{(propertiesField) => {
 				const arrayField = propertiesField as PropertySchemaArrayField;
-				const properties = arrayField.state.value as CreatePropertySchemaFormValues["properties"];
+				const properties = arrayField.state.value;
 				const propertiesError = !arrayField.state.meta.isValid
 					? getErrorMessage(arrayField.state.meta.errors)
 					: undefined;
@@ -164,7 +164,7 @@ export function PropertySchemasBuilder(props: PropertySchemasBuilderProps) {
 														disabled={props.isLoading}
 														data={propertySchemaTypeOptions}
 														onChange={(value) =>
-															field.handleChange((value ?? "string") as PropertySchemaType)
+															field.handleChange((value ?? "string"))
 														}
 													/>
 												);
