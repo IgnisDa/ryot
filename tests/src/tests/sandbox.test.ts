@@ -222,19 +222,19 @@ driver("main", async function() {
 		expect(result.error).toContain("Schema 'does-not-exist' not found");
 	});
 
-	it("completes a script that uses getSystemConfig", async () => {
+	it("completes a script that uses getAppConfigValue", async () => {
 		const { client } = await createAuthenticatedClient();
 		const { id: scriptId } = await createSandboxScript(client, {
-			name: "get-system-config",
-			slug: `get-system-config-${crypto.randomUUID()}`,
-			metadata: { allowedHostFunctions: ["getSystemConfig"] },
+			name: "get-app-config-value",
+			slug: `get-app-config-value-${crypto.randomUUID()}`,
+			metadata: { allowedHostFunctions: ["getAppConfigValue"] },
 			code: `
 driver("main", async function() {
-  const result = await getSystemConfig();
+  const result = await getAppConfigValue("scheduler.progressUpdateThresholdHours");
   if (!result.success) {
     throw new Error(result.error);
   }
-  return result.data.auth;
+  return result.data;
 });
 `,
 		});
@@ -243,13 +243,9 @@ driver("main", async function() {
 			driverName: "main",
 		});
 
-		const value = requireObjectRecord(
-			requireCompletedSandboxValue(await pollSandboxResult(client, jobId)),
-			"Expected system config sandbox result to be an object",
-		);
-		expect(typeof value.localAuthDisabled).toBe("boolean");
-		expect(typeof value.oidcEnabled).toBe("boolean");
-		expect(typeof value.signupAllowed).toBe("boolean");
+		const value = requireCompletedSandboxValue(await pollSandboxResult(client, jobId));
+		expect(typeof value).toBe("number");
+		expect(value).toBeGreaterThan(0);
 	});
 
 	it("completes a script that uses getUserPreferences", async () => {
