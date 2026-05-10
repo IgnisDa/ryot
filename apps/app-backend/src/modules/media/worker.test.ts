@@ -83,11 +83,7 @@ describe("hasImportedEntityDetails", () => {
 	it("returns false for empty placeholder entities", () => {
 		expect(
 			hasImportedEntityDetails(
-				createListedEntity({
-					image: null,
-					properties: {},
-					populatedAt: new Date(0),
-				}),
+				createListedEntity({ image: null, properties: {}, populatedAt: null }),
 			),
 		).toBe(false);
 	});
@@ -328,9 +324,9 @@ describe("processGroupPopulateJob", () => {
 								image: null,
 								id: "group_1",
 								properties: {},
+								populatedAt: null,
 								externalId: "ext_1",
 								sandboxScriptId: "script_1",
-								populatedAt: new Date(0),
 							}),
 						),
 				}),
@@ -398,8 +394,8 @@ describe("processPersonPopulateJob", () => {
 								image: null,
 								id: "person_1",
 								properties: {},
+								populatedAt: null,
 								externalId: "ext_1",
-								populatedAt: new Date(0),
 								sandboxScriptId: "person_script_1",
 							}),
 						),
@@ -468,9 +464,9 @@ describe("processPersonPopulateJob", () => {
 								image: null,
 								id: "media_1",
 								properties: {},
+								populatedAt: null,
 								externalId: "ext_1",
 								sandboxScriptId: "script_1",
-								populatedAt: new Date(0),
 							}),
 						}),
 					updateGlobalEntityById: () => {
@@ -500,10 +496,10 @@ describe("processPersonStubs", () => {
 	const personScript = { id: "person_script_1" };
 	const personEntity = createListedEntity({
 		properties: {},
+		populatedAt: null,
 		id: "person_entity_1",
 		externalId: "person_ext_1",
 		sandboxScriptId: "person_script_1",
-		populatedAt: new Date(0),
 	});
 
 	const baseInput = {
