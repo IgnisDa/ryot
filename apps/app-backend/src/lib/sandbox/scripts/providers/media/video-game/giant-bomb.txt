@@ -100,6 +100,53 @@ function collectNames(items) {
     .filter((name) => name !== null && name.length > 0);
 }
 
+function collectCompanies(developers, publishers) {
+  const companies = [];
+  const seen = new Set();
+
+  const addCompany = (items, role) => {
+    if (!Array.isArray(items)) {
+      return;
+    }
+    for (const item of items) {
+      if (!item || typeof item !== "object") {
+        continue;
+      }
+      const guid =
+        typeof item.guid === "string" && item.guid.trim()
+          ? item.guid.trim()
+          : null;
+      if (!guid) {
+        continue;
+      }
+      if (seen.has(guid)) {
+        continue;
+      }
+      seen.add(guid);
+
+      const name =
+        typeof item.name === "string" && item.name.trim()
+          ? item.name.trim()
+          : null;
+      if (!name) {
+        continue;
+      }
+
+      companies.push({
+        name,
+        role,
+        externalId: guid,
+        scriptSlug: "company.giant-bomb",
+      });
+    }
+  };
+
+  addCompany(developers, "Developer");
+  addCompany(publishers, "Publisher");
+
+  return companies;
+}
+
 // GiantBomb's /game/ endpoint only provides platform names in the platforms
 // list; per-platform release dates and regions require a separate /releases/
 // sub-resource call. releaseDate and releaseRegion are reserved for richer
@@ -256,6 +303,8 @@ driver("details", async function(context) {
     "genres",
     "themes",
     "platforms",
+    "developers",
+    "publishers",
     "image",
     "original_release_date",
     "site_detail_url",
@@ -316,6 +365,7 @@ driver("details", async function(context) {
       platformReleases,
       publishYear: extractYear(game.original_release_date),
       description: combineDescription(game.deck, game.description),
+      companies: collectCompanies(game.developers, game.publishers),
       sourceUrl:
         typeof game.site_detail_url === "string" && game.site_detail_url.trim()
           ? game.site_detail_url.trim()
