@@ -12,6 +12,16 @@ type ApiResponseContent<TResponses> = {
 
 type ApiDataValue<TValue> = TValue extends { data: infer TData } ? TData : never;
 
+export type ApiResponseEnvelope<TOperation> = TOperation extends {
+	responses: infer TResponses;
+}
+	? ApiResponseContent<TResponses>
+	: never;
+
+export type ApiPostResponseEnvelope<TPath extends keyof paths> = ApiResponseEnvelope<
+	NonNullable<paths[TPath]["post"]>
+>;
+
 export type ApiRequestBody<TOperation> = TOperation extends {
 	requestBody?: infer TRequestBody;
 }

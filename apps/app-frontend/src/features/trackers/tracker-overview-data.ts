@@ -2,7 +2,11 @@ import { dayjs } from "@ryot/ts-utils";
 import { useQueries } from "@tanstack/react-query";
 
 import type { AppEntity } from "~/features/entities/model";
-import { createEntityRuntimeRequest, toAppEntity } from "~/features/entities/model";
+import {
+	createEntityRuntimeRequest,
+	isQueryEngineEntitiesResponse,
+	toAppEntity,
+} from "~/features/entities/model";
 import type { AppEntitySchema } from "~/features/entity-schemas/model";
 import type { AppEventSchema } from "~/features/event-schemas/model";
 import { sortEventSchemas } from "~/features/event-schemas/model";
@@ -56,7 +60,7 @@ export interface TrackerOverviewData {
 }
 
 function sortEntitiesByRecent(entities: AppEntity[]) {
-	return entities.toSorted((a, b) => {
+	return [...entities].toSorted((a, b) => {
 		const updatedAtDiff = dayjs(b.updatedAt).valueOf() - dayjs(a.updatedAt).valueOf();
 		if (updatedAtDiff !== 0) {
 			return updatedAtDiff;
@@ -127,7 +131,7 @@ export function useTrackerOverviewData(input: {
 			return [];
 		}
 
-		const payload = query.data?.data;
+		const payload = isQueryEngineEntitiesResponse(query.data) ? query.data : undefined;
 		const items = payload?.mode === "entities" ? payload.data.items : [];
 
 		return items.map((entity) => ({
@@ -168,7 +172,7 @@ export function useTrackerOverviewData(input: {
 
 		eventSchemasBySchemaId.set(
 			schema.id,
-			sortEventSchemas((query.data?.data as AppEventSchema[] | undefined) ?? []),
+			sortEventSchemas(Array.isArray(query.data?.data) ? query.data.data : []),
 		);
 	});
 
@@ -192,14 +196,10 @@ export function useTrackerOverviewData(input: {
 		.toSorted((a, b) => dayjs(b.date).valueOf() - dayjs(a.date).valueOf())
 		.slice(0, 5);
 
-	const recentEntityCards = recentEntities
-		.map((entity) => {
-			const schema = schemaById.get(entity.entitySchemaId ?? "") ?? input.entitySchemas[0];
-			return schema
-				? { entity, latestEvent: eventsByEntityId.get(entity.id)?.[0], schema }
-				: undefined;
-		})
-		.filter((card) => card !== undefined);
+	const recentEntityCards: TrackerOverviewEntityCard[] = recentEntities.flatMap((entity) => {
+		const schema = schemaById.get(entity.entitySchemaId ?? "") ?? input.entitySchemas[0];
+		return schema ? [{ entity, latestEvent: eventsByEntityId.get(entity.id)?.[0], schema }] : [];
+	});
 
 	const schemaSummaries = input.entitySchemas.map((schema) => {
 		const entities = entitiesWithSchema

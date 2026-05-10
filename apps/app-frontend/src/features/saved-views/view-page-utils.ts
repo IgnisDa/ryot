@@ -5,20 +5,19 @@ import {
 } from "@ryot/ts-utils";
 import { match } from "ts-pattern";
 
-import { createEntityIdentityFields } from "~/features/entities/model";
+import {
+	createEntityIdentityFields,
+	type QueryEngineEntitiesItem,
+} from "~/features/entities/model";
 import type { AppEntitySavedView } from "~/features/saved-views/model";
-import type { ApiPostRequestBody, ApiPostResponseData } from "~/lib/api/types";
+import type { ApiPostRequestBody } from "~/lib/api/types";
 
 type SavedView = AppEntitySavedView;
 type QueryEngineRequest = Extract<
 	ApiPostRequestBody<"/query-engine/execute">,
 	{ mode: "entities" }
 >;
-type QueryEngineResponse = Extract<
-	ApiPostResponseData<"/query-engine/execute">,
-	{ mode: "entities" }
->;
-type RuntimeItem = QueryEngineResponse["data"]["items"][number];
+type RuntimeItem = QueryEngineEntitiesItem;
 type RuntimeField = RuntimeItem[number];
 type RuntimeRequestField = NonNullable<QueryEngineRequest["fields"]>[number];
 type ViewExpression = RuntimeRequestField["expression"];
@@ -179,5 +178,8 @@ export function formatRuntimeValue(value: unknown) {
 	if (typeof value === "boolean") {
 		return value ? "Yes" : "No";
 	}
-	return String(value);
+	if (typeof value === "string" || typeof value === "number" || typeof value === "bigint") {
+		return `${value}`;
+	}
+	return JSON.stringify(value) ?? "";
 }
