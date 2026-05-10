@@ -1,10 +1,13 @@
 import type { EntitySchemaSlug } from "@ryot/contract/schema/brands";
 import type { SavedViewRecord } from "@ryot/ryotql-recipes/saved-view-records";
 import clsx from "clsx";
-import { Platform, Pressable, Text, View } from "react-native";
+import { useRef, type ReactNode } from "react";
+import type { TextInput } from "react-native";
+import { ActivityIndicator, Platform, Pressable, Text, View } from "react-native";
 
 import { AppIcon } from "@/modules/icons";
 import { ProviderAddHost, useProviderAddFlow } from "@/modules/provider-add/add-flow-host";
+import { usePreferredProvider } from "@/modules/provider-add/use-preferred-provider";
 
 import { SavedViewFrame } from "./saved-view-frame";
 import { SavedViewGrid } from "./saved-view-grid";
@@ -12,6 +15,11 @@ import { SavedViewLayoutSelector, useSavedViewLayout } from "./saved-view-layout
 import { SavedViewList } from "./saved-view-list";
 import { SavedViewPagination } from "./saved-view-pagination";
 import { SavedViewResultCount } from "./saved-view-result-count";
+import {
+	SavedViewSearchField,
+	type SavedViewSearch,
+	useSavedViewSearchShortcut,
+} from "./saved-view-search";
 import { SavedViewTable } from "./saved-view-table";
 import type { SavedViewActiveData, SavedViewResultState } from "./state";
 import { SavedViewRuntime } from "./use-saved-view";
@@ -46,6 +54,70 @@ function EmptyState(props: {
 	);
 }
 
+function SearchProviderAction(props: {
+	query: string;
+	onPress: () => void;
+	entitySchemaSlug: EntitySchemaSlug;
+}) {
+	const provider = usePreferredProvider(props.entitySchemaSlug);
+	if (!provider) {
+		return null;
+	}
+	return (
+		<View className="w-full max-w-md items-center gap-2">
+			<Pressable
+				onPress={props.onPress}
+				accessibilityRole="button"
+				className="w-full flex-row items-center gap-2 rounded-lg border border-border bg-surface-2 px-3 py-2.5"
+			>
+				<AppIcon className="text-accent-text" name="globe" size={16} />
+				<Text numberOfLines={1} className="min-w-0 flex-1 font-ui-medium text-sm text-text">
+					Search {provider.providerName} for “{props.query}”
+				</Text>
+				<AppIcon className="text-text-subtle" name="arrow-right" size={15} />
+			</Pressable>
+			<Text className="hidden text-center font-ui text-xs text-text-subtle md:flex">
+				Opens online search. Results come from one provider and get added to your library.
+			</Text>
+		</View>
+	);
+}
+
+function SearchEmptyState(props: {
+	name: string;
+	query: string;
+	onAdd?: () => void;
+	entitySchemaSlug: EntitySchemaSlug | null;
+}) {
+	return (
+		<View className="min-h-96 items-center justify-center gap-3 px-6">
+			<AppIcon className="text-text-subtle" name="search-x" size={36} />
+			<Text className="text-center font-ui-semibold text-xl text-text">
+				No matches in {props.name}
+			</Text>
+			<Text className="text-center font-ui text-sm text-text-muted">
+				Nothing in this view matches “{props.query}”.
+			</Text>
+			{props.onAdd && props.entitySchemaSlug ? (
+				<SearchProviderAction
+					query={props.query}
+					onPress={props.onAdd}
+					entitySchemaSlug={props.entitySchemaSlug}
+				/>
+			) : null}
+		</View>
+	);
+}
+
+function SearchingState() {
+	return (
+		<View className="min-h-96 items-center justify-center gap-3 px-6">
+			<ActivityIndicator accessibilityLabel="Searching saved view" />
+			<Text className="font-ui text-sm text-text-muted">Searching...</Text>
+		</View>
+	);
+}
+
 function SavedViewItems(props: SavedViewActiveData & { managedUrls: ReadonlyMap<string, string> }) {
 	if (props.layout === "grid") {
 		return <SavedViewGrid items={props.data.items} managedUrls={props.managedUrls} />;
@@ -61,29 +133,22 @@ function SavedViewWebActions(props: {
 	readonly viewName: string;
 	readonly viewSlug: string;
 	readonly onAdd?: () => void;
-	readonly entitySchemaSlug: EntitySchemaSlug | null;
+	readonly search: SavedViewSearch;
 }) {
 	const [layout, setLayout] = useSavedViewLayout(props.viewSlug);
+	const searchInputRef = useRef<TextInput>(null);
+	const isUnavailable = props.isEmpty && props.search.query === "";
+	useSavedViewSearchShortcut(searchInputRef, !isUnavailable);
 	return (
 		<View className="hidden flex-row items-center gap-2.5 md:flex">
-			<Pressable
-				disabled={props.isEmpty}
-				onPress={() => undefined}
-				accessibilityRole="button"
-				accessibilityLabel={`Search ${props.viewName}`}
-				className={clsx(
-					"h-8.5 w-60 flex-row items-center gap-2 rounded-md border border-border-strong bg-bg px-2.5",
-					props.isEmpty && "opacity-50",
-				)}
-			>
-				<AppIcon className="text-text-muted" name="search" size={15} />
-				<Text numberOfLines={1} className="min-w-0 flex-1 font-ui text-[13px] text-text-muted">
-					Search {props.viewName}
-				</Text>
-				<View className="rounded-md border border-border bg-surface-2 px-1.5 py-0.5">
-					<Text className="font-mono text-[11px] text-text-subtle">/</Text>
-				</View>
-			</Pressable>
+			<SavedViewSearchField
+				showShortcut
+				name={props.viewName}
+				search={props.search}
+				disabled={isUnavailable}
+				inputRef={searchInputRef}
+				className="h-8.5 w-60 rounded-md"
+			/>
 			<SavedViewLayoutSelector value={layout} onChange={setLayout} />
 			<Pressable
 				disabled={props.isEmpty}
@@ -118,19 +183,55 @@ function SavedViewWebActions(props: {
 
 function SavedViewDisplay(
 	props: SavedViewActiveData & {
+		readonly onAdd?: () => void;
 		readonly refresh: () => void;
 		readonly loadMore: () => void;
 		readonly isLoadingMore: boolean;
 		readonly record: SavedViewRecord;
-		readonly onAdd?: () => void;
+		readonly search: SavedViewSearch;
 		readonly managedUrls: ReadonlyMap<string, string>;
 	},
 ) {
 	const { items, pageInfo } = props.data;
+	let content: ReactNode;
+	if (items.length > 0) {
+		content = (
+			<>
+				<SavedViewItems {...props} />
+				<SavedViewPagination
+					loaded={items.length}
+					name={props.record.name}
+					hasMore={pageInfo.hasMore}
+					onLoadMore={props.loadMore}
+					isLoading={props.isLoadingMore}
+				/>
+			</>
+		);
+	} else if (props.search.isSearching) {
+		content = <SearchingState />;
+	} else if (props.search.query !== "") {
+		content = (
+			<SearchEmptyState
+				onAdd={props.onAdd}
+				name={props.record.name}
+				query={props.search.query}
+				entitySchemaSlug={props.record.entitySchemaSlug}
+			/>
+		);
+	} else {
+		content = (
+			<EmptyState
+				onAdd={props.onAdd}
+				name={props.record.name}
+				entitySchemaSlug={props.record.entitySchemaSlug}
+			/>
+		);
+	}
 	return (
 		<SavedViewFrame
-			viewSlug={props.record.slug}
 			onAdd={props.onAdd}
+			search={props.search}
+			viewSlug={props.record.slug}
 			title={{
 				loaded: items.length,
 				icon: props.record.icon,
@@ -162,32 +263,15 @@ function SavedViewDisplay(
 						/>
 					</View>
 					<SavedViewWebActions
+						onAdd={props.onAdd}
+						search={props.search}
 						isEmpty={items.length === 0}
 						viewName={props.record.name}
 						viewSlug={props.record.slug}
-						onAdd={props.onAdd}
-						entitySchemaSlug={props.record.entitySchemaSlug}
 					/>
 				</View>
 
-				{items.length === 0 ? (
-					<EmptyState
-						name={props.record.name}
-						onAdd={props.onAdd}
-						entitySchemaSlug={props.record.entitySchemaSlug}
-					/>
-				) : (
-					<>
-						<SavedViewItems {...props} />
-						<SavedViewPagination
-							loaded={items.length}
-							name={props.record.name}
-							hasMore={pageInfo.hasMore}
-							onLoadMore={props.loadMore}
-							isLoading={props.isLoadingMore}
-						/>
-					</>
-				)}
+				{content}
 			</View>
 		</SavedViewFrame>
 	);
@@ -198,6 +282,7 @@ export function SavedViewReadyContent(props: {
 	readonly loadMore: () => void;
 	readonly isLoadingMore: boolean;
 	readonly record: SavedViewRecord;
+	readonly search: SavedViewSearch;
 	readonly state: Extract<SavedViewResultState, { status: "ready" }>;
 }) {
 	const providerAdd = useProviderAddFlow();
@@ -212,6 +297,7 @@ export function SavedViewReadyContent(props: {
 			{props.record.entitySchemaSlug === null ? null : (
 				<ProviderAddHost
 					onImported={props.refresh}
+					initialQuery={props.search.query}
 					entitySchemaSlug={props.record.entitySchemaSlug}
 				/>
 			)}
