@@ -46,13 +46,7 @@ const runIntegrationImport = Effect.fn("runIntegrationImport")(function* (
 			pluginInstallationId: integration.pluginInstallationId,
 		})
 		.pipe(Effect.mapError(toIntegrationWorkflowError));
-	const integrationContext: JsonValue =
-		integration.lot === "sink"
-			? {
-					rawBody: payload.rawBody ?? "",
-					contentType: payload.contentType ?? "application/json",
-				}
-			: {};
+	const integrationContext: JsonValue = payload.webhook ?? {};
 	const input: JsonValue = {
 		runId: payload.runId,
 		source: integration.provider,
@@ -67,11 +61,7 @@ const runIntegrationImport = Effect.fn("runIntegrationImport")(function* (
 			input,
 			scriptId,
 			executionId: `${executionId}-import`,
-			authority: {
-				type: "user",
-				userId: integration.userId,
-				integrationId: integration.id,
-			},
+			authority: { type: "user", userId: integration.userId, integrationId: integration.id },
 		})
 		.pipe(withoutWorkflowParent, Effect.mapError(toIntegrationWorkflowError));
 });
