@@ -61,6 +61,18 @@ Mobile headers are driven by route role: workspace homes and saved views use the
 
 Feature state maps transport and decoder failures to stable user-facing copy. Internal causes may be logged for diagnosis, but must not be rendered or serialized into the UI.
 
+`src/api/request-failure.ts` owns that mapping. `requestFailureCopy` turns a classified failure into a title and detail, distinguishing an unreachable server from an answer this app version cannot display; pass a noun-phrase `subject` naming what failed to load. `badRequestMessage` extracts a `BadRequest` message from a cause, and `resolveRequestFailure` maps that message onto the wizard step that can fix it so a submission failure returns the user to the field at fault rather than a dead end.
+
+## Plugin Catalog Flows
+
+Import sources and integration providers are both catalogs of services contributed by server-side plugins, configured through a schema the server declares. They share their machinery rather than duplicating it:
+
+- `src/modules/ui/plugin-catalog/` — `CatalogEntry` is the normalized row both features map onto; `groupCatalogEntries` handles grouping by plugin, search and sorting, and `CatalogPicker` renders the list along with its loading, error and empty states. A feature supplies only a `toEntry` mapping, a `chooseLabel`, and its own copy.
+- `src/modules/ui/wizard/` — the pick → configure → review state machine and the wizard chrome. Steps are named generically; features supply their own headings.
+- `src/modules/ui/search-param-modal.tsx` — keeps a full-screen flow in the URL so native back and web history close it. Use it for any flow that would otherwise hold open/closed state in a component.
+
+A feature module keeps only what is genuinely its own: the domain type it lists, how a row maps onto a `CatalogEntry`, the copy, and the request payload it builds.
+
 ## Entity Interest
 
 The provider owns the authenticated stream lifecycle. The coordinator unions mounted interests, sends replace-style declarations sequentially, retries the latest declaration with bounded backoff, and cancels stale work when the stream, server, user, or provider changes.

@@ -6,7 +6,11 @@ import { Pressable, Text } from "react-native";
 
 import type { SchemaFileUpload } from "./file-upload";
 import { SchemaForm, useSchemaForm } from "./schema-form";
-import { initialSchemaFormValues, type SchemaFormValues } from "./schema-form-state";
+import {
+	initialSchemaFormValues,
+	type SchemaFormMode,
+	type SchemaFormValues,
+} from "./schema-form-state";
 
 const schema = {
 	fields: {
@@ -81,20 +85,56 @@ const uploadSchema = {
 	},
 } satisfies AppSchema;
 
+const credentialsSchema = {
+	fields: {
+		apiKey: {
+			secret: true,
+			type: "string",
+			label: "API key",
+			description: "API key",
+			validation: { required: true },
+		},
+		baseUrl: {
+			type: "string",
+			label: "Base URL",
+			description: "Base URL",
+			validation: { required: true },
+		},
+	},
+} satisfies AppSchema;
+
+const listSchema = {
+	fields: {
+		sites: {
+			type: "array",
+			label: "Sites",
+			validation: { maxItems: 2 },
+			description: "Ignored sites",
+			items: { type: "string", label: "Site", description: "Hostname" },
+		},
+	},
+} satisfies AppSchema;
+
 const uploadNothing: SchemaFileUpload = () =>
 	Promise.resolve({ kind: "uploaded", token: "upload-token" });
 
 function SchemaFormHarness(props: {
-	onSubmit: (values: SchemaFormValues) => void;
 	schema?: AppSchema;
+	mode?: SchemaFormMode;
+	onSubmit: (values: SchemaFormValues) => void;
 }) {
 	const selectedSchema = props.schema ?? schema;
-	const form = useSchemaForm({ schema: selectedSchema, onSubmit: props.onSubmit });
+	const form = useSchemaForm({
+		mode: props.mode,
+		onSubmit: props.onSubmit,
+		schemas: [selectedSchema],
+	});
 	useEffect(() => form.reset(initialSchemaFormValues(selectedSchema)), [form, selectedSchema]);
 	return (
 		<>
 			<SchemaForm
 				form={form}
+				mode={props.mode}
 				schema={selectedSchema}
 				uploadFile={uploadNothing}
 				onChange={() => undefined}
@@ -188,5 +228,68 @@ describe("schema form", () => {
 		expect(
 			screen.queryByText("Some fields are not supported in this app version."),
 		).not.toBeOnTheScreen();
+	});
+
+	it("lets a blank required secret stand for the stored value when editing", async () => {
+		const user = userEvent.setup();
+		const submitted: SchemaFormValues[] = [];
+		const submit = (values: SchemaFormValues) => submitted.push(values);
+		await render(<SchemaFormHarness mode="edit" schema={credentialsSchema} onSubmit={submit} />);
+
+		expect(screen.getByText("Leave blank to keep the current value.")).toBeOnTheScreen();
+
+		await user.type(screen.getByLabelText("Base URL"), "https://a.example");
+		await user.press(screen.getByRole("button", { name: "Search" }));
+
+		expect(submitted).toEqual([{ apiKey: undefined, baseUrl: "https://a.example" }]);
+	});
+
+	it("still demands a required secret when creating", async () => {
+		const user = userEvent.setup();
+		const submitted: SchemaFormValues[] = [];
+		const submit = (values: SchemaFormValues) => submitted.push(values);
+		await render(<SchemaFormHarness schema={credentialsSchema} onSubmit={submit} />);
+
+		expect(screen.queryByText("Leave blank to keep the current value.")).not.toBeOnTheScreen();
+
+		await user.type(screen.getByLabelText("Base URL"), "https://a.example");
+		await user.press(screen.getByRole("button", { name: "Search" }));
+
+		expect(screen.getByText("API key is required")).toBeOnTheScreen();
+		expect(submitted).toEqual([]);
+	});
+
+	it("adds, edits and removes list rows within the declared bounds", async () => {
+		const user = userEvent.setup();
+		const submitted: SchemaFormValues[] = [];
+		const submit = (values: SchemaFormValues) => submitted.push(values);
+		await render(<SchemaFormHarness schema={listSchema} onSubmit={submit} />);
+
+		await user.press(screen.getByRole("button", { name: "Add Sites item" }));
+		await user.type(screen.getByLabelText("Sites item 1"), "a.example");
+		await user.press(screen.getByRole("button", { name: "Add Sites item" }));
+		await user.type(screen.getByLabelText("Sites item 2"), "b.example");
+
+		expect(screen.getByRole("button", { name: "Add Sites item" })).toBeDisabled();
+
+		await user.press(screen.getByRole("button", { name: "Remove Sites item 1" }));
+		await user.press(screen.getByRole("button", { name: "Search" }));
+
+		expect(screen.queryByLabelText("Sites item 2")).not.toBeOnTheScreen();
+		expect(submitted).toEqual([{ sites: ["b.example"] }]);
+	});
+
+	it("submits an emptied list so a stored list can be cleared", async () => {
+		const user = userEvent.setup();
+		const submitted: SchemaFormValues[] = [];
+		const submit = (values: SchemaFormValues) => submitted.push(values);
+		await render(<SchemaFormHarness schema={listSchema} onSubmit={submit} />);
+
+		await user.press(screen.getByRole("button", { name: "Add Sites item" }));
+		await user.type(screen.getByLabelText("Sites item 1"), "a.example");
+		await user.press(screen.getByRole("button", { name: "Remove Sites item 1" }));
+		await user.press(screen.getByRole("button", { name: "Search" }));
+
+		expect(submitted).toEqual([{ sites: [] }]);
 	});
 });

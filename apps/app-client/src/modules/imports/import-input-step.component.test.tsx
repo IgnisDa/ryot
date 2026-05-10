@@ -31,7 +31,7 @@ function InputStepHarness(props: {
 	readonly onSubmit?: (values: SchemaFormValues) => void;
 }) {
 	const form = useSchemaForm({
-		schema: props.source.inputSchema,
+		schemas: [props.source.inputSchema],
 		onSubmit: (values) => props.onSubmit?.(values),
 	});
 	return (

@@ -6,17 +6,21 @@ import { useState } from "react";
 import { useApiScope } from "@/api/scope";
 import { useInternalRequestFailureLogging } from "@/api/use-internal-request-failure-logging";
 import { liveImportRun } from "@/modules/import-runs/run-presentation";
+import {
+	IMPORT_LIST_POLL_MS,
+	useImportRunPolling,
+} from "@/modules/import-runs/use-import-run-polling";
 import { SettingsSectionFrame } from "@/modules/settings/settings-section-frame";
+import { SearchParamModalHost, useSearchParamModal } from "@/modules/ui/search-param-modal";
 
 import { IMPORT_RUNS_PAGE_SIZE, importRunsAtom, importSourcesAtom } from "./atoms";
 import { ImportDataView } from "./import-data-view";
-import { ImportStartHost, useImportStartFlow } from "./import-start-host";
+import { IMPORT_WIZARD_TITLE, ImportStartWizard } from "./import-start-wizard";
 import { mapImportRunList, mapImportSourceNames } from "./state";
-import { IMPORT_LIST_POLL_MS, useImportRunPolling } from "./use-import-run-polling";
 
 export function ImportDataScreen() {
 	const scope = useApiScope();
-	const startFlow = useImportStartFlow();
+	const startModal = useSearchParamModal("start");
 	const [limit, setLimit] = useState(IMPORT_RUNS_PAGE_SIZE);
 	const runsAtom = importRunsAtom({ limit, scope });
 	const result = useAtomValue(runsAtom);
@@ -44,7 +48,7 @@ export function ImportDataScreen() {
 				state={state}
 				onRetry={refresh}
 				nowMs={Date.now()}
-				onStartImport={startFlow.open}
+				onStartImport={startModal.open}
 				sourceNames={mapImportSourceNames(sources)}
 				isLoadingOlder={result.waiting && loaded.length < limit}
 				onShowOlder={() => setLimit(limit + IMPORT_RUNS_PAGE_SIZE)}
@@ -53,7 +57,14 @@ export function ImportDataScreen() {
 					router.push({ params: { runId }, pathname: "/settings/import-data/[runId]" })
 				}
 			/>
-			<ImportStartHost />
+			<SearchParamModalHost
+				isOpen={startModal.isOpen}
+				onClose={startModal.close}
+				title={IMPORT_WIZARD_TITLE}
+				closeLabel="Close the import wizard"
+			>
+				<ImportStartWizard onClose={startModal.close} />
+			</SearchParamModalHost>
 		</SettingsSectionFrame>
 	);
 }
