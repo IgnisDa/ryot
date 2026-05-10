@@ -24,6 +24,7 @@ import { useApiScope } from "@/api/scope";
 import { userSettingsAtom } from "@/modules/user-settings/atoms";
 
 import { EntityInterestCoordinator, type EntityInterestPriority } from "./coordinator";
+import { normalizeEntityIds } from "./entity-ids";
 
 type CoordinatorEffect = Effect.Effect<void, never, EntityInterestCoordinator>;
 
@@ -180,8 +181,17 @@ export function useEntityInterest(
 	onUpdate: (message: EntityInterestEntityUpdatedMessage) => void,
 ) {
 	const bridge = useContext(InterestContext);
+	const normalizedEntityIds = normalizeEntityIds(entityIds);
+	const entityIdsKey = JSON.stringify(normalizedEntityIds);
 	const handleUpdate = useEffectEvent((message: EntityInterestEntityUpdatedMessage) =>
 		onUpdate(message),
+	);
+	const setInterest = useEffectEvent(() =>
+		bridge?.run(
+			Effect.flatMap(EntityInterestCoordinator, (coordinator) =>
+				coordinator.setInterest(owner, normalizedEntityIds, priority, handleUpdate),
+			),
+		),
 	);
 
 	if (!bridge) {
@@ -199,10 +209,6 @@ export function useEntityInterest(
 		[bridge, owner],
 	);
 	useEffect(() => {
-		bridge.run(
-			Effect.flatMap(EntityInterestCoordinator, (coordinator) =>
-				coordinator.setInterest(owner, entityIds, priority, handleUpdate),
-			),
-		);
-	}, [bridge, entityIds, owner, priority]);
+		setInterest();
+	}, [bridge, entityIdsKey, owner, priority]);
 }
