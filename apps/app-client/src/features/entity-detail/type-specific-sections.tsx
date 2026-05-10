@@ -1,6 +1,7 @@
 import { dayjs } from "@ryot/ts-utils";
 import { ChevronDown, ChevronUp } from "lucide-react-native";
 import { useState } from "react";
+import { Image } from "react-native";
 
 import { Box } from "@/components/ui/box";
 import { Pressable } from "@/components/ui/pressable";
@@ -56,18 +57,19 @@ export function ShowSeasonsList(props: { entity: ShowDetail }) {
 			<SectionLabel label="Seasons" />
 			{seasons.map((season) => {
 				const isOpen = openId === season.id;
+				const seasonPoster = season.posterImages[0] ?? null;
 				return (
 					<Box key={season.id} className="mb-2">
 						<Pressable
+							onPress={() => setOpenId(isOpen ? null : season.id)}
 							className="flex-row items-center justify-between rounded-xl px-4 py-3"
 							style={{
 								borderWidth: 1,
 								borderColor: hexToRgba(ACCENT, 0.14),
 								backgroundColor: hexToRgba(ACCENT, 0.07),
 							}}
-							onPress={() => setOpenId(isOpen ? null : season.id)}
 						>
-							<Box>
+							<Box className="mr-3 min-w-0 flex-1">
 								<Text className="text-[14px] font-sans-semibold text-foreground web:text-[16px]">
 									{season.name}
 								</Text>
@@ -76,39 +78,84 @@ export function ShowSeasonsList(props: { entity: ShowDetail }) {
 									{season.publishDate ? ` · ${dayjs(season.publishDate).format("YYYY")}` : ""}
 								</Text>
 							</Box>
-							{isOpen ? (
-								<ChevronUp size={16} color={ACCENT} strokeWidth={2} />
-							) : (
-								<ChevronDown size={16} color={ACCENT} strokeWidth={2} />
-							)}
+							<Box className="flex-row items-center gap-3">
+								{seasonPoster ? (
+									<Box className="overflow-hidden rounded" style={{ width: 36, height: 54 }}>
+										<Image
+											resizeMode="cover"
+											source={{ uri: seasonPoster }}
+											style={{ width: 36, height: 54 }}
+										/>
+									</Box>
+								) : null}
+								{isOpen ? (
+									<ChevronUp size={16} color={ACCENT} strokeWidth={2} />
+								) : (
+									<ChevronDown size={16} color={ACCENT} strokeWidth={2} />
+								)}
+							</Box>
 						</Pressable>
 						{isOpen && (
 							<Box
 								className="mx-1 rounded-b-xl px-4 pb-2"
 								style={{ backgroundColor: hexToRgba(ACCENT, 0.04) }}
 							>
-								{season.episodes.map((episode) => (
-									<Box
-										key={episode.id}
-										className="flex-row items-baseline justify-between border-b py-2.5"
-										style={{ borderColor: hexToRgba(ACCENT, 0.1) }}
+								{season.overview ? (
+									<Text
+										numberOfLines={3}
+										className="mb-1 mt-3 text-[12px] font-sans leading-relaxed text-muted-foreground web:text-[14px]"
 									>
-										<Text className="mr-2 w-8 text-[12px] font-mono text-muted-foreground web:text-[14px]">
-											{`E${String(episode.episodeNumber).padStart(2, "0")}`}
-										</Text>
-										<Text
-											numberOfLines={1}
-											className="flex-1 text-[13px] font-sans text-foreground web:text-[15px]"
+										{season.overview}
+									</Text>
+								) : null}
+								{season.episodes.map((episode) => {
+									const episodePoster = episode.posterImages[0] ?? null;
+									return (
+										<Box
+											key={episode.id}
+											className="border-b py-2.5"
+											style={{ borderColor: hexToRgba(ACCENT, 0.1) }}
 										>
-											{episode.name}
-										</Text>
-										{episode.runtime != null ? (
-											<Text className="ml-2 text-[12px] font-mono text-muted-foreground web:text-[14px]">
-												{formatMinutes(episode.runtime)}
-											</Text>
-										) : null}
-									</Box>
-								))}
+											<Box className="flex-row items-start gap-3">
+												{episodePoster ? (
+													<Box
+														className="overflow-hidden rounded"
+														style={{ width: 72, height: 41, flexShrink: 0 }}
+													>
+														<Image
+															resizeMode="cover"
+															source={{ uri: episodePoster }}
+															style={{ width: 72, height: 41 }}
+														/>
+													</Box>
+												) : null}
+												<Box className="min-w-0 flex-1">
+													<Box className="flex-row items-baseline">
+														<Text className="mr-2 w-8 shrink-0 text-[12px] font-mono text-muted-foreground web:text-[14px]">
+															{`E${String(episode.episodeNumber).padStart(2, "0")}`}
+														</Text>
+														<Text
+															numberOfLines={1}
+															className="flex-1 text-[13px] font-sans text-foreground web:text-[15px]"
+														>
+															{episode.name}
+														</Text>
+														{episode.runtime != null ? (
+															<Text className="ml-2 shrink-0 text-[12px] font-mono text-muted-foreground web:text-[14px]">
+																{formatMinutes(episode.runtime)}
+															</Text>
+														) : null}
+													</Box>
+												</Box>
+											</Box>
+											{episode.overview ? (
+												<Text className="mt-2 text-[12px] font-sans leading-relaxed text-muted-foreground web:text-[13px]">
+													{episode.overview}
+												</Text>
+											) : null}
+										</Box>
+									);
+								})}
 							</Box>
 						)}
 					</Box>
