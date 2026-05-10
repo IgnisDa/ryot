@@ -1,5 +1,6 @@
 import type { RouteConfig } from "@hono/zod-openapi";
 import { z } from "@hono/zod-openapi";
+import { resolveDataOrError } from "@ryot/ts-utils";
 
 import { requireAuth } from "~/lib/auth/middleware";
 import type { ServiceResult } from "~/lib/result";
@@ -94,14 +95,12 @@ export const createCustomEntityAccessErrorResult = (input: {
 const resolveValidationResult = <T>(
 	callback: () => T,
 	fallback: string,
-): { data: T } | { error: string } => {
-	try {
-		return { data: callback() } as const;
-	} catch (error) {
-		const message = error instanceof Error ? error.message : fallback;
-		return { error: message } as const;
-	}
-};
+): { data: T } | { error: string } =>
+	resolveDataOrError({
+		callback,
+		fallback,
+		onError: (error) => ({ error }) as const,
+	});
 
 export const resolveValidationData = <T>(
 	callback: () => T,

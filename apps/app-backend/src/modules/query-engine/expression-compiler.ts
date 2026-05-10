@@ -1,3 +1,4 @@
+import type { RuntimeRef } from "@ryot/ts-utils";
 import { sql } from "drizzle-orm";
 import { match } from "ts-pattern";
 
@@ -29,14 +30,18 @@ import {
 	type SqlExpression,
 } from "./sql-expression-helpers";
 
-export const createScalarExpressionCompiler = (input: {
-	alias: string;
-	context: QueryEngineContext;
-	computedFields?: ViewComputedField[];
+type ReferenceResolver = (input: {
+	reference: RuntimeRef;
+	targetType?: PropertyType;
+	compile: CompiledExpression;
+}) => SqlExpression;
+
+type CompiledExpression = (expression: ViewExpression, targetType?: PropertyType) => SqlExpression;
+
+export const createExpressionCompilerCore = (input: {
+	resolveReference: ReferenceResolver;
 	getTypeInfo: (expression: ViewExpression) => ViewExpressionTypeInfo;
-}) => {
-	const computedFieldMap = buildComputedFieldMap(input.computedFields);
-	const expressionCache = new Map<string, SqlExpression>();
+}): ExpressionCompiler => {
 	const { getTypeInfo } = input;
 
 	const compile = (expression: ViewExpression, targetType?: PropertyType): SqlExpression => {
@@ -130,84 +135,92 @@ export const createScalarExpressionCompiler = (input: {
 				return sql`case when ${predicate} then ${whenTrue} else ${whenFalse} end`;
 			})
 			.with({ type: "reference" }, (expr) =>
-				match(expr.reference)
-					.with({ type: "computed-field" }, (ref) => {
-						const cacheKey = `${ref.key}:${targetType ?? "base"}`;
-						const cached = expressionCache.get(cacheKey);
-						if (cached) {
-							return cached;
-						}
-
-						const computedField = getComputedFieldOrThrow(computedFieldMap, ref.key);
-
-						const compiled = compile(computedField.expression, targetType);
-						expressionCache.set(cacheKey, compiled);
-						return compiled;
-					})
-					.with({ type: "entity" }, (ref) =>
-						buildEntityExpression({
-							targetType,
-							reference: ref,
-							alias: input.alias,
-							context: input.context,
-						}),
-					)
-					.with({ type: "entity-schema" }, (ref) =>
-						buildEntitySchemaExpression({
-							targetType,
-							reference: ref,
-							alias: input.alias,
-						}),
-					)
-					.with({ type: "event-aggregate" }, (ref) =>
-						buildEventAggregateExpression({
-							targetType,
-							reference: ref,
-							alias: input.alias,
-							context: input.context,
-						}),
-					)
-					.with({ type: "event-join" }, (ref) =>
-						buildEventJoinExpression({
-							targetType,
-							reference: ref,
-							alias: input.alias,
-							context: input.context,
-						}),
-					)
-					.with({ type: "relationship-join" }, (ref) =>
-						buildRelationshipJoinExpression({
-							targetType,
-							reference: ref,
-							alias: input.alias,
-							context: input.context,
-						}),
-					)
-					.with({ type: "event" }, (ref) =>
-						buildEventExpression({
-							targetType,
-							reference: ref,
-							alias: input.alias,
-							context: input.context,
-						}),
-					)
-					.with({ type: "event-schema" }, (ref) =>
-						buildEventSchemaExpression({
-							targetType,
-							reference: ref,
-							alias: input.alias,
-						}),
-					)
-					.exhaustive(),
+				input.resolveReference({ compile, targetType, reference: expr.reference }),
 			)
 			.exhaustive();
 	};
+
+	return { compile, getTypeInfo };
+};
+
+export const createScalarExpressionCompiler = (input: {
+	alias: string;
+	context: QueryEngineContext;
+	computedFields?: ViewComputedField[];
+	getTypeInfo: (expression: ViewExpression) => ViewExpressionTypeInfo;
+}): { compile: CompiledExpression } => {
+	const computedFieldMap = buildComputedFieldMap(input.computedFields);
+	const expressionCache = new Map<string, SqlExpression>();
+	const { compile } = createExpressionCompilerCore({
+		getTypeInfo: input.getTypeInfo,
+		resolveReference: ({ compile: compileExpression, reference, targetType }) =>
+			match(reference)
+				.with({ type: "computed-field" }, (ref) => {
+					const cacheKey = `${ref.key}:${targetType ?? "base"}`;
+					const cached = expressionCache.get(cacheKey);
+					if (cached) {
+						return cached;
+					}
+
+					const computedField = getComputedFieldOrThrow(computedFieldMap, ref.key);
+					const compiled = compileExpression(computedField.expression, targetType);
+					expressionCache.set(cacheKey, compiled);
+					return compiled;
+				})
+				.with({ type: "entity" }, (ref) =>
+					buildEntityExpression({
+						targetType,
+						reference: ref,
+						alias: input.alias,
+						context: input.context,
+					}),
+				)
+				.with({ type: "entity-schema" }, (ref) =>
+					buildEntitySchemaExpression({ targetType, reference: ref, alias: input.alias }),
+				)
+				.with({ type: "event-aggregate" }, (ref) =>
+					buildEventAggregateExpression({
+						targetType,
+						reference: ref,
+						alias: input.alias,
+						context: input.context,
+					}),
+				)
+				.with({ type: "event-join" }, (ref) =>
+					buildEventJoinExpression({
+						targetType,
+						reference: ref,
+						alias: input.alias,
+						context: input.context,
+					}),
+				)
+				.with({ type: "relationship-join" }, (ref) =>
+					buildRelationshipJoinExpression({
+						targetType,
+						reference: ref,
+						alias: input.alias,
+						context: input.context,
+					}),
+				)
+				.with({ type: "event" }, (ref) =>
+					buildEventExpression({
+						targetType,
+						reference: ref,
+						alias: input.alias,
+						context: input.context,
+					}),
+				)
+				.with({ type: "event-schema" }, (ref) =>
+					buildEventSchemaExpression({ targetType, reference: ref, alias: input.alias }),
+				)
+				.exhaustive(),
+	});
 
 	return { compile };
 };
 
 export type ExpressionCompiler = {
-	compile: ReturnType<typeof createScalarExpressionCompiler>["compile"];
+	compile: CompiledExpression;
 	getTypeInfo: (expression: ViewExpression) => ViewExpressionTypeInfo;
 };
 
