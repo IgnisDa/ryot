@@ -284,8 +284,8 @@ driver("details", async function(context) {
       sourceUrl,
       publishYear,
       description,
-      unlinkedCreators,
       providerRating,
+      unlinkedCreators,
       genres: [...genreSet],
     },
   };
