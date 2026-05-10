@@ -609,13 +609,13 @@ describe("POST /entity-schemas/search — provider entity search", () => {
 	});
 });
 
-describe("POST /entities/import — provider entity import", () => {
+describe("POST /entity-import — provider entity import", () => {
 	it("returns 404 when the script does not exist", async () => {
 		const { client } = await createAuthenticatedClient();
 		const { schema } = await findBuiltinSchemaWithProviders(client);
 
 		const error = await client.runError((c) =>
-			c.entities.import({
+			c.entityImport.import({
 				payload: {
 					scriptId: SandboxScriptId.make(crypto.randomUUID()),
 					externalId: "some-external-id",
@@ -633,7 +633,7 @@ describe("POST /entities/import — provider entity import", () => {
 		const scriptId = getFirstProviderScriptId(schema);
 
 		const error = await client.runError((c) =>
-			c.entities.import({
+			c.entityImport.import({
 				payload: {
 					scriptId,
 					externalId: "some-external-id",
@@ -649,7 +649,7 @@ describe("POST /entities/import — provider entity import", () => {
 		const { client } = await createAuthenticatedClient();
 
 		const error = await client.runError((c) =>
-			c.entities.getImportResult({ path: { jobId: crypto.randomUUID() } }),
+			c.entityImport.getImportResult({ path: { jobId: crypto.randomUUID() } }),
 		);
 
 		assertTaggedError(error, "NotFound");
@@ -660,7 +660,7 @@ describe("POST /entities/import — provider entity import", () => {
 		const client = getBackendClient();
 
 		const error = await client.runError((c) =>
-			c.entities.import({
+			c.entityImport.import({
 				payload: {
 					externalId: "some-id",
 					scriptId: SandboxScriptId.make(crypto.randomUUID()),
@@ -673,7 +673,7 @@ describe("POST /entities/import — provider entity import", () => {
 	});
 });
 
-describe("GET /entities/import/:jobId — provider entity import result", () => {
+describe("GET /entity-import/:jobId — provider entity import result", () => {
 	it("enqueues a provider import and adds entity to library when completed", async () => {
 		const { client, email } = await createAuthenticatedClient();
 		const { schema } = await findBuiltinSchemaBySlug(client, "audiobook");
