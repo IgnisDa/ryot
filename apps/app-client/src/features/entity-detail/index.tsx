@@ -1,6 +1,4 @@
 import { useQuery } from "@tanstack/react-query";
-import { ScrollView } from "react-native";
-import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { Box } from "@/components/ui/box";
 import { Pressable } from "@/components/ui/pressable";
@@ -8,16 +6,9 @@ import { Text } from "@/components/ui/text";
 import { useApiClient } from "@/lib/api-client";
 
 import { loadRelatedCollections } from "./collections";
-import { HeroSection } from "./hero-section";
 import { isEntitySchemaSlug, toEntityDetail } from "./model";
 import { loadRelatedCreators, mergeCreators } from "./people";
-import {
-	AboutSection,
-	CollectionsSection,
-	CreatorsSection,
-	DetailsSection,
-	TypeSpecificSection,
-} from "./sections";
+import { EntityDetailTabs } from "./tabs";
 
 function ScreenState(props: {
 	title: string;
@@ -46,7 +37,6 @@ function ScreenState(props: {
 
 export function EntityDetailScreen(props: { entityId: string }) {
 	const apiClient = useApiClient();
-	const insets = useSafeAreaInsets();
 	const entityId = props.entityId.trim();
 
 	const entityQuery = useQuery({
@@ -170,26 +160,10 @@ export function EntityDetailScreen(props: { entityId: string }) {
 	}
 
 	return (
-		<Box className="flex-1 bg-background">
-			<ScrollView
-				showsVerticalScrollIndicator={false}
-				contentContainerStyle={{ paddingBottom: insets.bottom + 96 }}
-			>
-				<HeroSection entity={entity} creators={people} />
-				<Box className="web:mx-auto web:max-w-7xl">
-					<Box className="px-7 pt-8 md:grid md:grid-cols-[2fr_1fr] md:items-start md:gap-10 md:px-10">
-						<Box>
-							<AboutSection entity={entity} creators={people} />
-							<CreatorsSection creators={people} />
-							<TypeSpecificSection entity={entity} />
-						</Box>
-						<Box>
-							<DetailsSection entity={entity} creators={people} />
-							<CollectionsSection collections={relatedCollectionsQuery.data ?? null} />
-						</Box>
-					</Box>
-				</Box>
-			</ScrollView>
-		</Box>
+		<EntityDetailTabs
+			entity={entity}
+			creators={people}
+			collections={relatedCollectionsQuery.data ?? null}
+		/>
 	);
 }
