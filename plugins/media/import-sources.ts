@@ -1,9 +1,8 @@
-import { TemporaryUploadToken } from "@ryot/contract/modules/uploads/schemas";
 import { HttpUrl, strictStruct } from "@ryot/contract/schema/utils";
 import { Schema } from "effect";
 
 const uploadTokenInput = <const Source extends string>(source: Source) =>
-	strictStruct({ source: Schema.Literal(source), uploadToken: TemporaryUploadToken }).pipe(
+	strictStruct({ source: Schema.Literal(source), uploadToken: Schema.NonEmptyString }).pipe(
 		Schema.annotate({ identifier: `MediaImportInput_${source}` }),
 	);
 
@@ -43,29 +42,29 @@ export const MediaCreateImportRunBody = Schema.Union([
 	traktListInput,
 	strictStruct({
 		collection: Schema.NonEmptyString,
-		uploadToken: TemporaryUploadToken,
+		uploadToken: Schema.NonEmptyString,
 		source: Schema.Literal("igdb"),
 	}).pipe(Schema.annotate({ identifier: "MediaImportInput_igdb" })),
 	strictStruct({
-		uploadToken: TemporaryUploadToken,
+		uploadToken: Schema.NonEmptyString,
 		source: Schema.Literal("netflix"),
 		profileName: Schema.optional(Schema.NullOr(Schema.String)),
 	}).pipe(Schema.annotate({ identifier: "MediaImportInput_netflix" })),
 	strictStruct({
 		source: Schema.Literal("movary"),
-		historyUploadToken: TemporaryUploadToken,
-		ratingsUploadToken: TemporaryUploadToken,
-		watchlistUploadToken: TemporaryUploadToken,
+		historyUploadToken: Schema.NonEmptyString,
+		ratingsUploadToken: Schema.NonEmptyString,
+		watchlistUploadToken: Schema.NonEmptyString,
 	}).pipe(Schema.annotate({ identifier: "MediaImportInput_movary" })),
 	strictStruct({
 		mode: Schema.Literal("export"),
 		source: Schema.Literal("trakt"),
-		exportUploadToken: TemporaryUploadToken,
+		exportUploadToken: Schema.NonEmptyString,
 	}).pipe(Schema.annotate({ identifier: "MediaImportInput_trakt_export" })),
 	strictStruct({
 		source: Schema.Literal("myanimelist"),
-		animeUploadToken: Schema.optional(TemporaryUploadToken),
-		mangaUploadToken: Schema.optional(TemporaryUploadToken),
+		animeUploadToken: Schema.optional(Schema.NonEmptyString),
+		mangaUploadToken: Schema.optional(Schema.NonEmptyString),
 	}).pipe(
 		Schema.check(
 			Schema.makeFilter(({ animeUploadToken, mangaUploadToken }) =>
