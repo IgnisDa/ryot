@@ -3,9 +3,8 @@ import type { AssetLocator } from "@ryot/contract/modules/uploads/schemas";
 import type { AppPropertyDefinition, AppSchema } from "@ryot/contract/schema/property-schema";
 import { Effect } from "effect";
 
-import type { V1Event, V1Relationship, V1UserEntity } from "#modules/backups/v1-codec";
-
-import { archiveError, type BackupArchiveError } from "./archive-error";
+import { archiveError, type BackupArchiveError } from "./error";
+import { isV1JsonObject, type V1Event, type V1Relationship, type V1UserEntity } from "./schemas";
 
 type JsonObject = Record<string, JsonValue>;
 type ReferenceMap = ReadonlyMap<string, string>;
@@ -28,6 +27,34 @@ export const backupV1EntityReferenceRules = [
 		entitySchemaSlug: ["work", "out-template"].join(""),
 	},
 ] as const;
+
+export const collectV1EmbeddedEntityIds = (
+	entities: ReadonlyArray<{
+		readonly entitySchemaSlug: string;
+		readonly properties: Record<string, unknown>;
+	}>,
+) => {
+	const ids = new Set<string>();
+	for (const entity of entities) {
+		const rule = backupV1EntityReferenceRules.find(
+			({ entitySchemaSlug }) => entitySchemaSlug === entity.entitySchemaSlug,
+		);
+		if (!rule) {
+			continue;
+		}
+		const items = entity.properties[rule.itemsProperty];
+		if (!Array.isArray(items)) {
+			continue;
+		}
+		for (const item of items) {
+			const reference = isV1JsonObject(item) ? item[rule.referenceProperty] : undefined;
+			if (typeof reference === "string") {
+				ids.add(reference);
+			}
+		}
+	}
+	return [...ids].sort();
+};
 
 const lookup = (mapping: ReferenceMap, id: string) => mapping.get(id);
 
@@ -107,8 +134,8 @@ export const rewriteV1EntityEmbeddedReferences = Effect.fn(function* (
 	}
 	const rewritten: JsonValue[] = [];
 	for (const item of items) {
-		const reference = isJsonObject(item) ? item[rule.referenceProperty] : undefined;
-		if (!isJsonObject(item) || typeof reference !== "string") {
+		const reference = isV1JsonObject(item) ? item[rule.referenceProperty] : undefined;
+		if (!isV1JsonObject(item) || typeof reference !== "string") {
 			return yield* archiveError("invalid_entry", "Embedded entity reference must be a string");
 		}
 		rewritten.push({
@@ -118,9 +145,6 @@ export const rewriteV1EntityEmbeddedReferences = Effect.fn(function* (
 	}
 	return { ...entity, properties: { ...entity.properties, [rule.itemsProperty]: rewritten } };
 });
-
-const isJsonObject = (value: JsonValue): value is JsonObject =>
-	typeof value === "object" && value !== null && !Array.isArray(value);
 
 type V1ManagedAssetLocator = Exclude<AssetLocator, { readonly type: "remote" }>;
 
@@ -132,7 +156,7 @@ export const rewriteV1AssetLocatorForArchive = (
 ): AssetLocator => (locator.type === "remote" ? locator : { type: locator.type, key: sha256 });
 
 const readAssetLocator = (value: JsonValue): AssetLocator | null => {
-	if (!isJsonObject(value)) {
+	if (!isV1JsonObject(value)) {
 		return null;
 	}
 	if (value["type"] === "remote" && typeof value["url"] === "string") {
@@ -168,7 +192,7 @@ const rewritePropertyAssets = (
 				}
 				return replacement;
 			}
-			if (!isJsonObject(value)) {
+			if (!isV1JsonObject(value)) {
 				return value;
 			}
 			const rewritten: JsonObject = { ...value };
@@ -213,7 +237,7 @@ const redactProperty = (
 	path: string,
 	paths: string[],
 ): JsonValue => {
-	if (definition.type === "object" && isJsonObject(value)) {
+	if (definition.type === "object" && isV1JsonObject(value)) {
 		return redactFields(definition.properties, value, path, paths);
 	}
 	if (definition.type === "array" && Array.isArray(value)) {

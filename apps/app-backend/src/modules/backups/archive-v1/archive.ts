@@ -1,9 +1,7 @@
 import { Schema, Effect, Stream, FileSystem, type PlatformError } from "effect";
 import { Zip, Unzip, ZipDeflate, UnzipInflate, ZipPassThrough, UnzipPassThrough } from "fflate";
 
-import { archiveError, BackupArchiveError } from "#modules/backup-data/archive-error";
-
-import { decodeNdjson, encodeNdjson, IncrementalSha256 } from "./streaming";
+import { archiveError, BackupArchiveError } from "./error";
 import {
 	V1_CODECS,
 	V1Manifest,
@@ -15,7 +13,8 @@ import {
 	type V1RequiredPlugin,
 	type V1SectionManifest,
 	type V1SectionPath,
-} from "./v1-codec";
+} from "./schemas";
+import { decodeNdjson, encodeNdjson, IncrementalSha256 } from "./streaming";
 
 const ZIP_EOCD_BYTES = 22;
 const MAX_ZIP_PATH_BYTES = 71;
@@ -33,11 +32,11 @@ export const V1_ARCHIVE_LIMITS = {
 	maxTotalUncompressedBytes: 1024 * 1024 * 1024,
 } as const;
 
-export type V1ArchiveLimits = {
+type V1ArchiveLimits = {
 	readonly [K in keyof typeof V1_ARCHIVE_LIMITS]: number;
 };
 
-export type V1ArchiveAssetInput = {
+type V1ArchiveAssetInput = {
 	readonly metadata: V1AssetManifest;
 	readonly chunks: Iterable<Uint8Array> | AsyncIterable<Uint8Array>;
 };
@@ -53,7 +52,7 @@ export type CreateV1ArchiveInput = {
 	readonly requiredPlugins: ReadonlyArray<V1RequiredPlugin>;
 };
 
-export type V1ZipEntryInput = {
+type V1ZipEntryInput = {
 	readonly path: string;
 	readonly compression: "deflate" | "store";
 	readonly chunks: Iterable<Uint8Array> | AsyncIterable<Uint8Array>;
@@ -463,10 +462,7 @@ class VerifiedAssetChunks implements AsyncIterableIterator<Uint8Array> {
 	}
 }
 
-export const createV1Archive = (
-	input: CreateV1ArchiveInput,
-	overrides: Partial<V1ArchiveLimits> = {},
-) => {
+const createV1Archive = (input: CreateV1ArchiveInput, overrides: Partial<V1ArchiveLimits> = {}) => {
 	const limits = { ...V1_ARCHIVE_LIMITS, ...overrides };
 	const records = sortV1ArchiveRecords(input.records);
 	const manifest = buildManifest(input, records, limits);
@@ -516,12 +512,12 @@ type ExtractedEntry = {
 	chunks?: Uint8Array[] | undefined;
 };
 
-export type ValidatedV1Asset = V1AssetManifest & {
+type ValidatedV1Asset = V1AssetManifest & {
 	readonly filePath: string;
 	readonly stream: Stream.Stream<Uint8Array, PlatformError.PlatformError>;
 };
 
-export type ValidatedV1Archive = {
+type ValidatedV1Archive = {
 	readonly manifest: V1Manifest;
 	readonly records: V1ArchiveRecords;
 	readonly assets: ReadonlyArray<ValidatedV1Asset>;
