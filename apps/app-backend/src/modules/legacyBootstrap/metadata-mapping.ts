@@ -150,41 +150,75 @@ const metadataMigrationTargetValuesSql = sql.join(
 
 export const buildMetadataMigrationSql = (targets: ResolvedLotEntityMigrationTarget[]) => `
 DO $$
-DECLARE rows_inserted int;
+DECLARE
+	batch_size constant int := 10000;
+	batch_rows_inserted int;
+	cursor_id text := '';
+	next_cursor_id text;
+	rows_inserted int := 0;
+	started_at timestamptz := clock_timestamp();
 BEGIN
-	WITH metadata_targets (lot, source, entity_schema_id, sandbox_script_id) AS (
-		VALUES ${buildLotEntityTargetValuesSql(targets)}
-	)
-	INSERT INTO entity (
-		"id",
-		"external_id",
-		"name",
-		"image",
-		"created_at",
-		"populated_at",
-		"user_id",
-		"properties",
-		"entity_schema_id",
-		"sandbox_script_id",
-		"updated_at"
-	)
-	SELECT
-		metadata.id,
-		metadata.identifier,
-		metadata.title,
-		${buildPrimaryImageSql("metadata")},
-		metadata.created_on,
-		NULL,
-		NULL,
-		'{}'::jsonb,
-		metadata_targets.entity_schema_id,
-		metadata_targets.sandbox_script_id,
-		metadata.last_updated_on
-	FROM metadata
-	INNER JOIN metadata_targets ON metadata_targets.lot = metadata.lot AND metadata_targets.source = metadata.source
-	ON CONFLICT ("id") DO NOTHING;
-	GET DIAGNOSTICS rows_inserted = ROW_COUNT;
-	RAISE NOTICE 'metadata -> entity: % row(s) migrated', rows_inserted;
+	RAISE NOTICE 'metadata -> entity: migration started (% seconds elapsed)', 0.0;
+
+	LOOP
+		WITH metadata_targets (lot, source, entity_schema_id, sandbox_script_id) AS (
+			VALUES ${buildLotEntityTargetValuesSql(targets)}
+		), batch AS (
+			SELECT metadata.id::text AS id
+			FROM metadata
+			INNER JOIN metadata_targets ON metadata_targets.lot = metadata.lot AND metadata_targets.source = metadata.source
+			WHERE metadata.id::text > cursor_id
+			ORDER BY metadata.id::text
+			LIMIT batch_size
+		)
+		SELECT MAX(batch.id) INTO next_cursor_id FROM batch;
+
+		EXIT WHEN next_cursor_id IS NULL;
+
+		WITH metadata_targets (lot, source, entity_schema_id, sandbox_script_id) AS (
+			VALUES ${buildLotEntityTargetValuesSql(targets)}
+		)
+		INSERT INTO entity (
+			"id",
+			"external_id",
+			"name",
+			"image",
+			"created_at",
+			"populated_at",
+			"user_id",
+			"properties",
+			"entity_schema_id",
+			"sandbox_script_id",
+			"updated_at"
+		)
+		SELECT
+			metadata.id,
+			metadata.identifier,
+			metadata.title,
+			${buildPrimaryImageSql("metadata")},
+			metadata.created_on,
+			NULL,
+			NULL,
+			'{}'::jsonb,
+			metadata_targets.entity_schema_id,
+			metadata_targets.sandbox_script_id,
+			metadata.last_updated_on
+		FROM metadata
+		INNER JOIN metadata_targets ON metadata_targets.lot = metadata.lot AND metadata_targets.source = metadata.source
+		WHERE metadata.id::text > cursor_id AND metadata.id::text <= next_cursor_id
+		ON CONFLICT ("id") DO NOTHING;
+		GET DIAGNOSTICS batch_rows_inserted = ROW_COUNT;
+
+		rows_inserted := rows_inserted + batch_rows_inserted;
+		cursor_id := next_cursor_id;
+		RAISE NOTICE 'metadata -> entity: % row(s) migrated so far (% seconds elapsed)',
+			rows_inserted,
+			round(extract(epoch from clock_timestamp() - started_at)::numeric, 1);
+	END LOOP;
+
+	RAISE NOTICE 'metadata -> entity: % row(s) migrated total (% seconds elapsed)',
+		rows_inserted,
+		round(extract(epoch from clock_timestamp() - started_at)::numeric, 1);
 END $$;
 `;
 
