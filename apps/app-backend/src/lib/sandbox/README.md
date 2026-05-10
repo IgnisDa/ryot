@@ -2,178 +2,95 @@
 
 This folder implements the backend sandbox runtime used by `sandboxApi`.
 
-The model is:
+The sandbox runs untrusted user code in single-use Deno subprocesses, exposes selected app capabilities through a localhost bridge, and keeps subprocess startup costs low with a pre-warmed pool.
 
-- Run untrusted user code in a pre-warmed, single-use Deno subprocess drawn from a persistent pool.
-- Keep a long-lived localhost bridge server in the backend process.
-- Expose selected host functions (for example `httpCall`) to user code through bridge RPC calls.
+## Components
 
-## Main components
+- `service.ts`: builds execution payloads, registers bridge sessions, checks out Deno subprocesses, and returns sandbox results.
+- `runtime.ts`: owns the Deno runner file, process pool, package cache, and bridge server.
+- `runner-source.txt`: source executed by each Deno subprocess.
+- `host-functions.ts`: app-bound bridge functions for user, entity, event, integration, query-engine, and config access.
+- `providers/`, `triggers/`, `shared/`: sandbox scripts and script-side helpers.
 
-- `src/lib/sandbox/runner-source.txt`: source code executed by Deno for each run. The runtime writes it to a temp `.mjs` file at startup and passes that path to every subprocess.
-- `providers/`: sandbox provider scripts for different media types and services.
-- `triggers/`: sandbox trigger scripts for event automation.
-- `shared/`: shared utility scripts used by providers and triggers.
+## Execution Flow
 
-The sandbox service infrastructure is still being migrated to Effect patterns.
+1. A script is stored via `POST /sandbox/scripts` and enqueued via `POST /sandbox/enqueue` with a `scriptId`, `driverName`, and optional `context`.
+2. The workflow loads the script, validates `metadata.allowedHostFunctions`, and calls `SandboxService.executeQueuedRun(...)`.
+3. The service registers a bridge session keyed by `executionId`. Redis stores `{ token, expiresAt }` with a TTL, and memory stores the allowed host-function handlers for that run.
+4. A pre-warmed Deno process is checked out, or a fresh one is spawned if the pool is empty. Each process handles exactly one execution.
+5. The service writes one JSON payload to stdin containing the script code, driver name, context, bridge URL, token, function names, execution id, and script id.
+6. The runner captures console calls into `logs`, creates host-function stubs, runs the requested `driver(name, fn)`, and writes the final JSON result to stdout.
+7. Host-function stubs call `POST /rpc/:executionId/:fnName`; the bridge validates expiry, bearer token, request body, and function name before dispatching.
+8. The service adds server timing, removes the bridge session with an Effect finalizer, and returns the job result.
 
-## How one execution works
+## API Shape
 
-1. User creates a script via `POST /sandbox/scripts` with `{ name, slug?, code, metadata? }`. `metadata` defaults to `{}` when omitted. Returns `{ data: { id, name, slug, code, metadata } }`.
-2. User enqueues via `POST /sandbox/enqueue` with `{ scriptId, driverName, context? }`. Returns a pollable `jobId` immediately.
-3. The route verifies the script belongs to the user, starts a top-level sandbox workflow, and passes `{ userId, scriptId, driverName, context, executionId }` into that workflow.
-4. The sandbox workflow processes one bounded durable queue item, which calls `SandboxService.executeQueuedRun(...)`, fetches the script by `scriptId`, parses its `metadata`, and builds `apiFunctionDescriptors` from `allowedHostFunctions`.
-5. The service constructs bound host functions from the static registry, then creates a unique `executionId` and one-time bearer token.
-6. The bridge session is registered:
-   - Redis stores `{ token, expiresAt }` under `sandbox:session:<executionId>` with TTL.
-   - An in-memory map stores the bound host functions for that execution.
-7. A pre-warmed Deno subprocess is checked out from the pool. If the pool is empty (burst exceeds capacity), a fresh subprocess is spawned instead. Either way, the subprocess has already paid the V8/Deno startup cost — it is blocked on stdin awaiting a payload. After checkout, the pool immediately spawns a replacement in the background.
-8. The service sends one JSON payload over stdin (`code`, `driverName`, `context`, bridge URL, token, function names, execution id, script id) and closes stdin.
-9. Inside Deno (`scripts/runner-source.txt`):
-   - payload is parsed,
-   - `console.log`, `console.warn`, `console.error`, `console.info`, and `console.debug` are redirected to stderr,
-   - host-function stubs are created so user code can call `await someHostFn(...)`,
-   - user code runs in an async wrapper, which registers drivers via `driver(name, fn)`,
-   - the named driver is looked up and called with `context` and optional `meta`,
-   - final result (including timing and memory metrics) is written as JSON to stdout.
-10. Bridge calls from stubs hit `POST /rpc/:executionId/:fnName`:
-    - execution and expiry are checked,
-    - bearer token is validated,
-    - body is parsed (`{ args: [...] }`),
-    - mapped host function is executed,
-    - `{ result }` or `{ error }` is returned.
-11. The service collects:
-    - `stdout` -> final sandbox result JSON,
-    - `stderr` -> `logs`.
-12. Session is removed in `finally`.
+- `POST /sandbox/scripts`: creates a stored script with `{ name, slug?, code, metadata? }`.
+- `POST /sandbox/enqueue`: enqueues a stored script with `{ scriptId, driverName, context? }` and returns `{ data: { jobId } }`.
+- `GET /sandbox/result/:jobId`: returns `pending`, `failed`, or `completed` with `{ logs, value, error, timing }`.
 
-## API shape
+`metadata.allowedHostFunctions` defaults to no host functions when omitted. `timing` is `{ totalMs, executionMs }` for completed runs.
 
-- `POST /sandbox/scripts` creates a stored script with `{ name, slug?, code, metadata? }`. `metadata.allowedHostFunctions` is authoritative and defaults to no host functions when omitted. Returns `{ data: { id, name, slug, code, metadata } }`.
-- `POST /sandbox/enqueue` enqueues a stored script by `scriptId` with `{ scriptId, driverName, context? }`. Returns `{ data: { jobId } }`.
-- `GET /sandbox/result/:jobId` returns one of:
-  - `{ data: { status: "pending" } }`
-  - `{ data: { status: "completed", logs, value, error, timings, denoMetrics } }`
-  - `{ data: { status: "failed", error } }`
+## Security
 
-`timings` contains server-side execution phases: `{ totalMs, processMs, hostSetupMs, poolHit, cpuUserMs, cpuSystemMs }`. `denoMetrics` contains Deno-side measurements: `{ startupMs, scriptExecMs, memoryRssBytes, memoryHeapUsedBytes }`. Both fields are `null` when the job did not complete normally.
+- User code runs in a separate Deno process per execution.
+- Deno denies subprocess, env, FFI, write, prompt, and remote module access.
+- Deno can only read the generated runner file and call the localhost bridge port.
+- External network access must go through explicit host functions such as `httpCall`.
+- Bridge calls require the per-execution bearer token and expire through Redis TTL.
+- Timeouts terminate the process with `SIGTERM`, then `SIGKILL`.
+- Deno heap size is capped with `--v8-flags=--max-heap-size=<maxHeapMB>`.
+- Bridge request bodies are capped by `requestBodyLimit`.
+- Sandbox processes receive only `PATH` and `DENO_DIR`; user code cannot read env values because `--deny-env` is enabled.
 
-## Security and isolation
+## Process Pool
 
-- **Process isolation:** user code runs in a single-use Deno subprocess per execution. Even though subprocesses are drawn from a pre-warmed pool, each subprocess handles exactly one execution and then exits — the OS process boundary is preserved.
-- **Deno restrictions:**
-  - denied: `--deny-run`, `--deny-env`, `--deny-ffi`, `--deny-write`, `--no-prompt`, `--no-remote`
-  - allowed: `--allow-read=<runner-file>`, `--allow-net=127.0.0.1:<bridge-port>`
-  - import enforcement: `--cached-only` (only pre-approved packages loadable; see **Vendored packages**)
-- **Network boundary:** sandbox can only talk to the local bridge; external network access must go through explicit host functions. `--allow-net` is bridge-only, so even code inside imported packages cannot reach external hosts.
-- **Auth boundary:** each execution has a random bearer token checked by bridge routes.
-- **Timeout enforcement:** timeout guard sends `SIGTERM`, then `SIGKILL` after a short delay.
-- **Memory limit:** Deno runs with `--v8-flags=--max-heap-size=<maxHeapMB>`.
-- **Input limit:** bridge request body is capped (`requestBodyLimit`, currently 128 KB).
-- **Environment leakage:** sandbox process only receives a minimal env (`PATH`, `DENO_DIR`). `DENO_DIR` is read by the Deno runtime itself before the `--deny-env` sandbox applies, so user code cannot access it.
+`ProcessPool` keeps `sandboxWorkerConcurrency + 2` idle Deno subprocesses ready. A pooled process has loaded Deno and is blocked on stdin waiting for its payload. On checkout, the pool immediately starts a replacement in the background.
 
-## Process pool
+The pool preserves process isolation because every subprocess is still single-use. Reusing a process across executions would allow global state pollution and weaken per-process memory limits.
 
-At startup, `ProcessPool` fills a pool of `sandboxWorkerConcurrency + 2` idle Deno subprocesses (controlled by `SANDBOX_WORKER_CONCURRENCY`, default `5`, so a default pool size of `7`). Each subprocess:
+## Vendored Packages
 
-1. Starts with the same restricted permission flags used for every execution.
-2. Loads V8 and initialises the Deno runtime.
-3. Reaches `await new Response(Deno.stdin.readable).arrayBuffer()` and blocks — waiting for a payload.
+User scripts can dynamically import only packages listed in `vendoredPackages` in `runtime.ts`. At startup, `PackageCacheManager` runs `deno cache --no-config` into `SANDBOX_DENO_DIR` and records a marker file for the cached package list. Deno then runs with `--cached-only`, so imports outside the allowlist fail.
 
-When a job arrives, `execute()` checks out an idle process from the pool in O(1), writes the payload to its stdin, and waits for it to exit. The pool immediately spawns a replacement subprocess in the background. If the pool is empty under a burst, execution falls back to a fresh spawn (identical to the original behaviour).
+To add a package, append its specifier to `vendoredPackages` and restart the service. In Docker deployments, mount `SANDBOX_DENO_DIR` as a volume to avoid re-downloading packages on each restart.
 
-**Memory cost:** each idle subprocess uses roughly 40–55 MB RSS. With the default pool size of 7 that is ~280–385 MB pinned while the service is running.
+## Host Functions
 
-**Why single-use:** reusing a subprocess across executions would allow user code to pollute global state (prototype mutations, lingering timers) and eliminates per-process memory limits. Single-use preserves the full isolation guarantee while still amortising the ~200 ms V8 startup cost.
+Host functions are bridge handlers exposed only when listed in `metadata.allowedHostFunctions`.
 
-## Vendored packages
+| Scope   | Functions                                                                                                                                                          |
+| ------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Runtime | `httpCall`, `getSystemConfig`                                                                                                                                      |
+| Script  | `getAppConfigValue`, `getCachedValue`, `setCachedValue`, `claimCachedValue`                                                                                        |
+| User    | `createEvents`, `executeQueryEngine`, `getEntity`, `getEntitySchema`, `getIntegration`, `getUserPreferences`, `listEventSchemas`, `listEvents`, `listIntegrations` |
 
-User scripts can import a curated set of pre-cached npm packages via dynamic `import()`:
+Script-scoped functions use execution metadata such as `scriptId`. User-scoped functions require `userId` and are unavailable for system executions. `claimCachedValue` atomically writes a script-scoped cached value only when the key does not already exist.
 
-```js
-driver("parse", async function (context) {
-	const { load } = await import("npm:cheerio");
-	const dayjs = (await import("npm:dayjs")).default;
-	const { z } = await import("npm:zod");
-	// ...
-});
-```
+### Adding A Host Function
 
-The allowlist is `vendoredPackages` in `src/lib/sandbox/runtime.ts`. At service startup, `PackageCacheManager` runs `deno cache --no-config` with all packages into `SANDBOX_DENO_DIR` (default: `/tmp/ryot-sandbox-deno`). A marker file (`.ryot-sandbox-cache-complete`) records the cached package list so the download is skipped on subsequent restarts if the list is unchanged. The `--cached-only` Deno flag then enforces that only cached packages can be imported — attempting to import anything not in the allowlist fails with a clear error surfaced in the sandbox result.
+1. Implement the bridge handler as `(...args) => Promise<unknown>` in `service.ts` for core runtime functions or in `host-functions.ts` for app-bound functions.
+2. Use `requireSandboxRunInput(args, expectedArgCount, fnName)` for script-scoped functions.
+3. Use `requireUserSandboxRunInput(args, expectedArgCount, fnName)` for user-scoped functions.
+4. Add the function name to this section and to any script metadata that should be allowed to call it.
 
-### Adding a new vendored package
+## Driver Functions
 
-1. Append the specifier (e.g. `"npm:cheerio"`) to `vendoredPackages` in `src/lib/sandbox/runtime.ts`.
-2. Restart the service. `PackageCacheManager` downloads the new package on startup (the marker file content changes, triggering a re-download).
-3. If the cache refresh fails but an existing marker is present, the service logs a warning and continues with the existing cache.
+Sandbox scripts must register at least one driver with `driver(name, fn)`. The enqueue request chooses which driver to run with `driverName`.
 
-### Cache directory
-
-The cache persists across restarts. In Docker deployments, mount the cache directory as a volume so packages do not need to be re-downloaded on every container start.
-
-## Runtime behaviour notes
-
-- The bridge server and runner file are created once on service startup and reused across all executions.
-- Pool subprocesses are initialised once on startup; each execution checks one out, uses it, and discards it. The pool replenishes itself after every checkout so idle capacity is maintained.
-- Redis session metadata allows TTL-based expiry and explicit cleanup on shutdown for bridge RPC calls.
-- The worker fetches the script by `scriptId` at execution time and rebuilds host-function descriptors from the stored `metadata`, so any worker instance can reconstruct them without descriptor serialisation in the job payload.
-- Scripts are stored in the database, referenced by `scriptId` at enqueue time.
-
-## Host functions
-
-- `httpCall` performs outbound HTTP requests.
-- `createEvents` submits user-scoped event writes through the app event pipeline.
-- `executeQueryEngine` runs query-engine requests for the current user.
-- `getEntity`, `getEntitySchema`, and `getIntegration` read app-owned records for the current user.
-- `getCachedValue` and `setCachedValue` provide script-scoped cache access.
-- `claimCachedValue` atomically sets a cached value only if the key does not already exist (SETNX). Returns `{ claimed: true }` when the key was newly set, or `{ claimed: false, value }` with the existing value when the key was already present.
-- `getSystemConfig` returns the masked system config exposed by the app API.
-- `getAppConfigValue` reads server configuration values exposed to sandbox scripts.
-- `getUserPreferences` reads the current user's stored preferences.
-- `listEventSchemas`, `listEvents`, and `listIntegrations` expose filtered read APIs for the current user.
-
-`allowedHostFunctions` is authoritative. Scripts with no `allowedHostFunctions` entry receive no host functions.
-
-## Adding a new host function
-
-1. Implement the host function with the signature `(context, ...args) => Promise<unknown>`.
-2. Register it in `hostFunctionRegistry` in `function-registry.ts`.
-3. Add a case for it in `buildFunctionContext` in `function-registry.ts` to bind the appropriate per-execution context (e.g. `userId`, `scriptId`).
-
-For stateless functions use an empty context object. For stateful functions, bind per-execution data (such as `userId` or `scriptId`) into the context object inside `buildFunctionContext`.
-
-User-scoped host functions bind the executing `userId` into the descriptor context. Script-scoped cache functions bind the executing `scriptId`. Stateless functions use an empty context object.
-
-## Driver functions
-
-Driver functions are the only entry points in sandbox scripts. Every script must register at least one driver using `driver(name, fn)`, and the caller must supply a matching `driverName` when enqueueing.
-
-A driver receives two arguments:
-
-1. `context` — user-provided execution context containing input data (e.g., search query, page size)
-2. `meta` — system-provided metadata object containing `{ sandboxScriptId: string }` when running from a stored script
+Drivers receive `(context, meta)`. `context` is caller-provided input. `meta` includes `{ sandboxScriptId }` when running from a stored script.
 
 ```js
 driver("search", async function (context, meta) {
-	// meta.sandboxScriptId contains the script ID
 	const response = await httpCall("GET", "https://api.example.com/search");
-	return response;
+	return { response, scriptId: meta.sandboxScriptId };
 });
 ```
 
-## Error handling
+## Errors And Debugging
 
-Errors are caught at multiple layers and surfaced in the job result:
-
-- **Host function errors**: Bridge catches exceptions and returns HTTP 500 `{ error }`. The runner stub re-throws so user code sees a normal JS error.
-- **Script errors**: Runner wraps uncaught throws into `{ success: false, error }` on stdout.
-- **Bridge validation**: Invalid token → 401, expired session → 410, unknown function → 404, bad body → 400.
-- **Timeouts**: SIGTERM then SIGKILL. Result: `"Sandbox timed out after ${timeoutMs}ms"`.
-- **Memory/import failures**: V8 heap limit or `--cached-only` rejection causes process exit; error surfaces in job result.
-- **Invalid metadata**: Unknown function in `allowedHostFunctions` fails before sandbox starts.
-
-## Debugging
-
-- **Logs**: All console output is redirected to stderr and stored as the `logs` field in the job result.
-- **Job status**: Poll `GET /sandbox/result/:jobId` → `pending`, `completed` (with `logs`, `value`, `error`, `timing`), or `failed`.
-- **Timing**: `timing.totalMs` vs `timing.executionMs` distinguishes slow host functions from slow user code.
+- Host-function exceptions are returned by the bridge and re-thrown by the runner stub.
+- Script exceptions produce `{ success: false, error }` in the sandbox result.
+- Bridge validation returns 400 for bad body, 401 for invalid token, 404 for unknown function, and 410 for expired session.
+- Timeout, memory, and import failures surface as job errors.
+- Console calls are captured in the completed result's `logs` field.
