@@ -11,6 +11,7 @@ export * from "./measurements";
 export * from "./media";
 export * from "./query-engine";
 export * from "./relationship-schemas";
+export * from "./relationships";
 export * from "./sandbox";
 export * from "./saved-views";
 export * from "./trackers";

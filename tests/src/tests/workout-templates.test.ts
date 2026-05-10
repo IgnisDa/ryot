@@ -306,7 +306,7 @@ describe("Workout Templates E2E", () => {
 	});
 
 	it("joins a workout to its template through the seeded relationship schema", async () => {
-		const { client, userId } = await createAuthenticatedClient();
+		const { client } = await createAuthenticatedClient();
 		const { schema: workoutSchema } = await findBuiltinSchemaBySlug(client, "workout");
 		const { workoutTemplateId, workoutTemplate } = await createWorkoutTemplateEntityFixture(client);
 		const workoutName = `Workout ${crypto.randomUUID()}`;
@@ -326,8 +326,7 @@ describe("Workout Templates E2E", () => {
 			"workout-to-workout-template",
 		);
 
-		await insertRelationshipRow({
-			userId,
+		await insertRelationshipRow(client, {
 			relationshipSchemaId,
 			sourceEntityId: workoutId,
 			targetEntityId: workoutTemplateId,
@@ -378,7 +377,7 @@ describe("Workout Templates E2E", () => {
 	});
 
 	it("joins a workout from the template side through the seeded relationship schema", async () => {
-		const { client, userId } = await createAuthenticatedClient();
+		const { client } = await createAuthenticatedClient();
 		const { schema: workoutSchema } = await findBuiltinSchemaBySlug(client, "workout");
 		const { workoutTemplateId, workoutTemplate } = await createWorkoutTemplateEntityFixture(client);
 		const workoutName = `Workout ${crypto.randomUUID()}`;
@@ -398,8 +397,7 @@ describe("Workout Templates E2E", () => {
 			"workout-to-workout-template",
 		);
 
-		await insertRelationshipRow({
-			userId,
+		await insertRelationshipRow(client, {
 			relationshipSchemaId,
 			sourceEntityId: workoutId,
 			targetEntityId: workoutTemplateId,
