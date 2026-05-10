@@ -4,6 +4,7 @@ import { getPgClient } from "../setup";
 import { requirePresent } from "../test-support/assertions";
 import type { Client } from "./auth";
 import { findBuiltinSchemaWithProviders, getFirstProviderScriptId } from "./entity-schemas";
+import { pollUntil, type PollOptions } from "./polling";
 import { listRelationshipSchemas, requireRelationshipSchemaBySlug } from "./relationship-schemas";
 import { createRelationship } from "./relationships";
 
@@ -41,6 +42,22 @@ export async function queryInLibraryRelationship(client: Client, entityId: strin
 		   and library_schema.slug = 'library'
 		 limit 1`,
 		[inLibrarySchema.id, entityId, email],
+	);
+}
+
+export async function waitForInLibraryRelationship(
+	client: Client,
+	entityId: string,
+	email: string,
+	options: PollOptions = {},
+) {
+	return pollUntil(
+		`in-library relationship for entity ${entityId}`,
+		async () => {
+			const result = await queryInLibraryRelationship(client, entityId, email);
+			return (result.rowCount ?? 0) >= 1 ? result : null;
+		},
+		{ timeoutMs: 5000, intervalMs: 200, ...options },
 	);
 }
 
