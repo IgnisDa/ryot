@@ -4,7 +4,7 @@
 
 **Type:** AFK
 
-**Status:** todo
+**Status:** completed
 
 ## What to build
 
@@ -12,11 +12,11 @@ Add end-to-end tests in `tests/` that verify the schema slug collision rules enf
 
 ## Acceptance criteria
 
-- [ ] `tests/src/tests/entity-schemas.test.ts` contains a test that calls `POST /entity-schemas` with a slug matching a built-in entity schema slug and asserts a 400 validation error is returned.
-- [ ] `tests/src/tests/event-schemas.test.ts` contains a test that calls `POST /event-schemas` with a slug that conflicts with an existing event schema for the same entity schema and asserts a 400 validation error is returned.
-- [ ] Tests use existing auth and fixture helpers from `tests/src/fixtures/` rather than duplicating setup logic.
-- [ ] No new fixtures are introduced unless the test genuinely needs data that no existing helper provides.
-- [ ] Tests do not test implementation details; they assert only HTTP status codes and error message shapes returned by the API.
+- [x] `tests/src/tests/entity-schemas.test.ts` contains a test that calls `POST /entity-schemas` with a slug matching a built-in entity schema slug and asserts a 400 validation error is returned.
+- [x] `tests/src/tests/event-schemas.test.ts` contains a test that calls `POST /event-schemas` with a slug that conflicts with an existing event schema for the same entity schema and asserts a 400 validation error is returned.
+- [x] Tests use existing auth and fixture helpers from `tests/src/fixtures/` rather than duplicating setup logic.
+- [x] No new fixtures are introduced unless the test genuinely needs data that no existing helper provides.
+- [x] Tests do not test implementation details; they assert only HTTP status codes and error message shapes returned by the API.
 
 ## User stories addressed
 

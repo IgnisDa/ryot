@@ -4,6 +4,7 @@ import { checkCustomAccess, checkReadAccess } from "~/lib/access";
 import { isUniqueConstraintError } from "~/lib/app/postgres";
 import { type ServiceResult, serviceData, serviceError, wrapServiceValidator } from "~/lib/result";
 
+import { authenticationBuiltinEntitySchemas } from "../authentication/bootstrap/manifests";
 import { parseLabeledPropertySchemaInput } from "../property-schemas/service";
 import {
 	createEventSchemaForUser,
@@ -56,6 +57,23 @@ export const resolveEventSchemaSlug = (input: Pick<CreateEventSchemaBody, "name"
 		slug: input.slug,
 		label: "Event schema",
 	});
+};
+
+export const validateEventSchemaSlugNotReserved = (
+	slug: string,
+	entitySchemaSlug: string,
+): void => {
+	const builtinEntitySchemas = authenticationBuiltinEntitySchemas();
+	const entitySchema = builtinEntitySchemas.find((s) => s.slug === entitySchemaSlug);
+
+	if (!entitySchema) {
+		return;
+	}
+
+	const reservedSlugs = entitySchema.eventSchemas.map((s) => s.slug);
+	if (reservedSlugs.includes(slug)) {
+		throw new Error(`Event schema slug "${slug}" is reserved for built-in schemas`);
+	}
 };
 
 export const parseEventSchemaPropertiesSchema = (input: unknown) =>
@@ -139,6 +157,15 @@ export const createEventSchema = async (
 	});
 	if ("error" in eventSchemaInput) {
 		return eventSchemaInput;
+	}
+
+	const reservedSlugResult = wrapServiceValidator(
+		() =>
+			validateEventSchemaSlugNotReserved(eventSchemaInput.data.slug, entitySchemaResult.data.slug),
+		"Event schema payload is invalid",
+	);
+	if ("error" in reservedSlugResult) {
+		return reservedSlugResult;
 	}
 
 	const existingEventSchema = await deps.getEventSchemaBySlugForUser({
