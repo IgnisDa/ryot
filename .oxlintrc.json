@@ -4,18 +4,6 @@
 	"$schema": "./node_modules/oxlint/configuration_schema.json",
 	"categories": { "perf": "warn", "suspicious": "warn", "correctness": "error" },
 	"plugins": ["react", "typescript", "unicorn", "import", "oxc", "node", "promise"],
-	"overrides": [
-		{
-			"files": ["*.test.ts", "*.test.tsx", "*.spec.ts", "*.spec.tsx"],
-			"rules": {
-				"typescript/no-unsafe-argument": "off",
-				"typescript/no-misused-promises": "off",
-				"typescript/no-inferrable-types": "off",
-				"typescript/no-unsafe-assignment": "off",
-				"typescript/no-floating-promises": "off"
-			}
-		}
-	],
 	"ignorePatterns": [
 		"**/out/**",
 		"**/dist/**",
