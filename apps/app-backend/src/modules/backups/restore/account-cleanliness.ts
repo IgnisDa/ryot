@@ -26,7 +26,7 @@ import { RelationshipsRepository } from "#modules/relationships/repository";
 import { SavedViewsRepository } from "#modules/saved-views/repository";
 import { ManagedAssetsService } from "#modules/uploads/managed-assets/service";
 
-import { V1_BOOTSTRAP_SOURCE } from "../archive-v1/schemas";
+import { V2_BOOTSTRAP_SOURCE } from "../archive-v2/schemas";
 
 type StructuralEntity = Pick<
 	PortableEntityRecord,
@@ -144,9 +144,15 @@ export const classifyAccountCleanliness = (
 		}),
 	);
 	const expectedSavedViews = state.expectedSavedViews.map((view) => ({
-		...view,
+		slug: view.slug,
+		name: view.name,
 		isBuiltin: true,
+		icon: view.icon,
 		isDisabled: false,
+		layouts: view.layouts,
+		sortOrder: view.sortOrder,
+		pluginSlug: view.pluginSlug,
+		entitySchemaSlug: view.entitySchemaSlug,
 	}));
 	if (!sameUnorderedRecords(savedViews, expectedSavedViews)) {
 		return "saved-views";
@@ -204,10 +210,10 @@ export class BackupAccountCleanliness extends Context.Service<BackupAccountClean
 					const hasIntegrations = yield* integrations.hasAnyForUser(userId);
 					const hasNotificationChannels = yield* notifications.hasAnyForUser(userId);
 					const snapshot = definitions.getSnapshot();
-					const sourceDefinition = snapshot.entitySchemas[V1_BOOTSTRAP_SOURCE.entitySchemaSlug];
+					const sourceDefinition = snapshot.entitySchemas[V2_BOOTSTRAP_SOURCE.entitySchemaSlug];
 					if (
-						sourceDefinition?.pluginSlug !== V1_BOOTSTRAP_SOURCE.pluginSlug ||
-						sourceDefinition.name !== V1_BOOTSTRAP_SOURCE.name
+						sourceDefinition?.pluginSlug !== V2_BOOTSTRAP_SOURCE.pluginSlug ||
+						sourceDefinition.name !== V2_BOOTSTRAP_SOURCE.name
 					) {
 						return yield* new BackupBadRequest({
 							reason: { code: "bootstrap-definition-unavailable" },
@@ -236,8 +242,8 @@ export class BackupAccountCleanliness extends Context.Service<BackupAccountClean
 								properties: {},
 								externalId: null,
 								populatedAt: null,
-								name: V1_BOOTSTRAP_SOURCE.name,
-								entitySchemaSlug: V1_BOOTSTRAP_SOURCE.entitySchemaSlug,
+								name: V2_BOOTSTRAP_SOURCE.name,
+								entitySchemaSlug: V2_BOOTSTRAP_SOURCE.entitySchemaSlug,
 							},
 						],
 					});
