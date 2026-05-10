@@ -23,6 +23,21 @@ import { openConfirmationModal } from "~/lib/shared/ui-utils";
 import { EditHistoryItemModal } from "../modals/edit-history-modal";
 import type { History } from "../types";
 
+const resolveMangaExtraInformation = (
+	mangaExtraInformation: { chapter?: string | number; volume?: number } | undefined,
+): string | null => {
+	const { chapter, volume } = mangaExtraInformation || {};
+	if (chapter != null) {
+		const chapterNum = isString(chapter) ? Number.parseFloat(chapter) : chapter;
+		if (!Number.isNaN(chapterNum)) {
+			const isWholeNumber = isInteger(chapterNum);
+			return `CH-${isWholeNumber ? Math.floor(chapterNum) : chapterNum}`;
+		}
+	}
+	if (isNumber(volume)) return `VOL-${volume}`;
+	return null;
+};
+
 export const HistoryItem = (props: {
 	index: number;
 	history: History;
@@ -87,22 +102,9 @@ export const HistoryItem = (props: {
 	const displayAnimeExtraInformation = isNumber(props.history.animeExtraInformation?.episode)
 		? `EP-${props.history.animeExtraInformation.episode}`
 		: null;
-	const displayMangaExtraInformation = (() => {
-		const { chapter, volume } = props.history.mangaExtraInformation || {};
-
-		if (chapter != null) {
-			const chapterNum = isString(chapter) ? Number.parseFloat(chapter) : chapter;
-
-			if (!Number.isNaN(chapterNum)) {
-				const isWholeNumber = isInteger(chapterNum);
-				return `CH-${isWholeNumber ? Math.floor(chapterNum) : chapterNum}`;
-			}
-		}
-
-		if (isNumber(volume)) return `VOL-${volume}`;
-
-		return null;
-	})();
+	const displayMangaExtraInformation = resolveMangaExtraInformation(
+		props.history.mangaExtraInformation,
+	);
 	const watchedOnInformation = props.history.providersConsumedOn?.length
 		? props.history.providersConsumedOn.join(", ")
 		: null;
