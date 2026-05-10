@@ -1,14 +1,14 @@
-export type EntityImage = { kind: "s3"; key: string } | { kind: "remote"; url: string } | null;
+export type EntityImage = { type: "s3"; key: string } | { type: "remote"; url: string } | null;
 
 export function toEntityImage(raw: unknown): EntityImage {
 	if (!raw || typeof raw !== "object") {
 		return null;
 	}
-	if ("kind" in raw && raw.kind === "s3" && "key" in raw && typeof raw.key === "string") {
-		return { kind: "s3", key: raw.key };
+	if ("type" in raw && raw.type === "s3" && "key" in raw && typeof raw.key === "string") {
+		return { type: "s3", key: raw.key };
 	}
-	if ("kind" in raw && raw.kind === "remote" && "url" in raw && typeof raw.url === "string") {
-		return { kind: "remote", url: raw.url };
+	if ("type" in raw && raw.type === "remote" && "url" in raw && typeof raw.url === "string") {
+		return { type: "remote", url: raw.url };
 	}
 	return null;
 }

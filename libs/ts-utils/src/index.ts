@@ -206,6 +206,7 @@ export {
 	entityBuiltinColumns,
 	entitySchemaBuiltinColumns,
 	eventJoinBuiltinColumns,
+	relationshipJoinBuiltinColumns,
 	type RuntimeRef,
 	type RuntimeReferenceExpression,
 	type TransformExpression,

@@ -215,7 +215,7 @@ driver("search", async function(context) {
         imageProperty:
           image === null
             ? { kind: "null", value: null }
-            : { kind: "image", value: { kind: "remote", url: image } },
+            : { kind: "image", value: { type: "remote", url: image } },
       };
     })
     .filter((item) => item !== null);
@@ -305,7 +305,7 @@ driver("details", async function(context) {
   const images = [];
   const primaryImage = getPrioritizedImage(game.image);
   if (primaryImage) {
-    images.push({ kind: "remote", url: primaryImage });
+    images.push({ type: "remote", url: primaryImage });
   }
 
   return {

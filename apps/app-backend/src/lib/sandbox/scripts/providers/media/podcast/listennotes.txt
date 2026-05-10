@@ -97,7 +97,7 @@ async function listennotesGet(path, params) {
 
 function getRemoteImage(value) {
   const image = getNullableString(value);
-  return image ? { kind: "image", value: { kind: "remote", url: image } } : null;
+  return image ? { kind: "image", value: { type: "remote", url: image } } : null;
 }
 
 function mapSearchItem(item, dayjs) {
@@ -346,7 +346,7 @@ driver("details", async function(context) {
       providerRating: getNullableNumber(podcast?.listen_score),
       description: getNullableString(podcast?.description),
       sourceUrl: getSourceUrl(title, externalId),
-      images: image ? [{ kind: "remote", url: image }] : [],
+      images: image ? [{ type: "remote", url: image }] : [],
       freeCreators: publisher ? [{ role: "Publishing", name: publisher }] : [],
       totalEpisodes: totalEpisodes ?? episodes.length,
       episodes,

@@ -82,7 +82,7 @@ describe("alignDateRangeToBucket", () => {
 	});
 
 	it("aligns a partial week range to the surrounding week boundaries", () => {
-		// 2026-04-30 is a Thursday; week start (dayjs default: Sunday) = 2026-04-26
+		// 2026-04-30 is a Thursday; ISO week start is Monday, 2026-04-27.
 		expect(
 			alignDateRangeToBucket({
 				bucket: "week",
@@ -92,25 +92,25 @@ describe("alignDateRangeToBucket", () => {
 				},
 			}),
 		).toEqual({
-			endAt: "2026-05-03T00:00:00.000Z",
-			startAt: "2026-04-26T00:00:00.000Z",
+			endAt: "2026-05-04T00:00:00.000Z",
+			startAt: "2026-04-27T00:00:00.000Z",
 		});
 	});
 
 	it("spans two week boundaries when the range crosses a week boundary", () => {
-		// 2026-04-28 is Tuesday (week start: 2026-04-26 Sun)
-		// 2026-05-05 is Tuesday of next week (week start: 2026-05-03 Sun)
+		// 2026-04-28 is Tuesday (ISO week start: 2026-04-27 Mon)
+		// 2026-05-05 is Tuesday of the following ISO week.
 		expect(
 			alignDateRangeToBucket({
 				bucket: "week",
 				dateRange: {
-					endAt: "2026-05-04T00:00:00.000Z",
+					endAt: "2026-05-05T00:00:00.000Z",
 					startAt: "2026-04-28T00:00:00.000Z",
 				},
 			}),
 		).toEqual({
-			endAt: "2026-05-10T00:00:00.000Z",
-			startAt: "2026-04-26T00:00:00.000Z",
+			endAt: "2026-05-11T00:00:00.000Z",
+			startAt: "2026-04-27T00:00:00.000Z",
 		});
 	});
 

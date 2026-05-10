@@ -16,7 +16,7 @@ const ACCENT = "#C9943A";
 export function HeroSection({ entity }: { entity: EntityDetail }) {
 	const insets = useSafeAreaInsets();
 	const firstImage = entity.images[0];
-	const imageUrl = firstImage?.kind === "remote" ? firstImage.url : undefined;
+	const imageUrl = firstImage?.type === "remote" ? firstImage.url : undefined;
 	const primaryCreator = getPrimaryCreator(entity);
 	const runtime = "runtime" in entity ? entity.runtime : undefined;
 	const providerRating = entity.providerRating ?? undefined;
