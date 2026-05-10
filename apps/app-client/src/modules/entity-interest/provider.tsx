@@ -6,6 +6,7 @@ import {
 	type EntityInterestServerMessage,
 } from "@ryot/contract/modules/entity-interest/messages";
 import { Cause, Duration, Effect, Exit, Fiber, ManagedRuntime, Match, Queue, Result } from "effect";
+import { AsyncResult } from "effect/unstable/reactivity";
 import {
 	createContext,
 	type ReactNode,
@@ -20,6 +21,7 @@ import {
 import { appClient, appRevalidationSignal } from "@/api/client";
 import { makeEntityInterestSocket } from "@/api/entity-interest-socket";
 import { useApiScope } from "@/api/scope";
+import { userSettingsAtom } from "@/modules/user-settings/atoms";
 
 import { EntityInterestCoordinator, type EntityInterestPriority } from "./coordinator";
 
@@ -36,7 +38,11 @@ const MAX_RECONNECT_DELAY = Duration.seconds(30);
 
 export function EntityInterestProvider(props: { children: ReactNode }) {
 	const scope = useApiScope();
+	const settings = useAtomValue(userSettingsAtom(scope));
 	const revalidationVersion = useAtomValue(appRevalidationSignal);
+	const preferredLanguage = AsyncResult.isSuccess(settings)
+		? settings.value.preferences.language
+		: undefined;
 	const runtimeRef = useRef<
 		ManagedRuntime.ManagedRuntime<EntityInterestCoordinator, never> | undefined
 	>(undefined);
@@ -72,6 +78,9 @@ export function EntityInterestProvider(props: { children: ReactNode }) {
 	}, [bridge, scope]);
 
 	useEffect(() => {
+		if (preferredLanguage === undefined) {
+			return undefined;
+		}
 		const runtime = runtimeRef.current;
 		if (!runtime) {
 			return undefined;
@@ -159,7 +168,7 @@ export function EntityInterestProvider(props: { children: ReactNode }) {
 		return () => {
 			void Effect.runPromise(Fiber.interrupt(connection));
 		};
-	}, [revalidationVersion, scope]);
+	}, [preferredLanguage, revalidationVersion, scope]);
 
 	return <InterestContext.Provider value={bridge}>{props.children}</InterestContext.Provider>;
 }
