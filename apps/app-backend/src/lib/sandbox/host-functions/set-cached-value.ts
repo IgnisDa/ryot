@@ -1,3 +1,5 @@
+import { extractErrorMessage } from "@ryot/ts-utils";
+
 import { redis } from "~/lib/redis";
 import {
 	apiFailure,
@@ -41,6 +43,6 @@ export const setCachedValue: HostFunction<CachedValueContext> = async (
 		await redis.setex(`sandbox:cache:${context.scriptId}:${key.trim()}`, expiry, serialized);
 		return apiSuccess(null);
 	} catch (error) {
-		return apiFailure(error instanceof Error ? error.message : "setCachedValue failed");
+		return apiFailure(extractErrorMessage(error, "setCachedValue failed"));
 	}
 };

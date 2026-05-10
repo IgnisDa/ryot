@@ -1,4 +1,4 @@
-import { dayjs } from "@ryot/ts-utils";
+import { dayjs, extractErrorMessage } from "@ryot/ts-utils";
 import { generateId } from "better-auth";
 import { type Job, Worker } from "bullmq";
 
@@ -157,7 +157,7 @@ export class SandboxService {
 		} catch (error) {
 			return {
 				success: false,
-				error: error instanceof Error ? error.message : "Failed to resolve host functions",
+				error: extractErrorMessage(error, "Failed to resolve host functions"),
 			};
 		}
 
@@ -326,7 +326,7 @@ export class SandboxService {
 		} catch (error) {
 			return {
 				success: false,
-				error: error instanceof Error ? error.message : String(error),
+				error: extractErrorMessage(error, String(error)),
 			};
 		} finally {
 			await this.bridgeServer.removeSession(executionId);

@@ -1,18 +1,15 @@
 import { describe, expect, it } from "bun:test";
 
 import { createEntityPropertyExpression, createEntitySchemaExpression } from "@ryot/ts-utils";
-import { PgDialect } from "drizzle-orm/pg-core";
 
 import { createSmartphoneSchema, createTabletSchema, literalExpression } from "~/lib/test-fixtures";
 import type { ViewComputedField, ViewExpression } from "~/lib/views/expression";
 import { buildEventJoinMap, buildRelationshipJoinMap, buildSchemaMap } from "~/lib/views/reference";
 
-import { createQueryCompiler } from "./expression-compiler";
-import { createExpressionTypeResolver } from "./expression-type-resolver";
 import type { QueryEngineContext } from "./schemas";
 import { buildSortExpression } from "./sort-builder";
+import { createQueryTestCompiler, dialect } from "./test-support";
 
-const dialect = new PgDialect();
 const tabletSchema = createTabletSchema();
 const smartphoneSchema = createSmartphoneSchema();
 const schemaMap = buildSchemaMap([smartphoneSchema, tabletSchema]);
@@ -45,16 +42,7 @@ type SortTestInput = {
 };
 
 const buildSort = (input: SortTestInput) => {
-	const getTypeInfo = createExpressionTypeResolver({
-		context: input.context,
-		computedFields: input.computedFields,
-	});
-	const compiler = createQueryCompiler({
-		getTypeInfo,
-		alias: input.alias,
-		context: input.context,
-		computedFields: input.computedFields,
-	});
+	const compiler = createQueryTestCompiler(input);
 	return buildSortExpression({
 		compiler,
 		context: input.context,

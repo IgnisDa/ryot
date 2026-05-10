@@ -6,17 +6,6 @@ function parseJsonResponse(responseBody) {
   }
 }
 
-function toTitleCase(value) {
-  const words = value
-    .toLowerCase()
-    .split(/\s+/)
-    .filter((word) => word.length > 0);
-
-  return words
-    .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
-    .join(" ");
-}
-
 function parseReleaseYear(releaseDate, dayjs) {
   if (typeof releaseDate !== "string" || !releaseDate.trim()) return null;
   const d = dayjs(releaseDate.trim());
