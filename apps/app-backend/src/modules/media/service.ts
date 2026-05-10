@@ -171,11 +171,11 @@ const toNullableImage = (value: unknown): BuiltInMediaOverviewSourceItem["image"
 	if (!value || typeof value !== "object") {
 		return null;
 	}
-	if ("kind" in value && value.kind === "s3" && "key" in value) {
-		return typeof value.key === "string" ? { kind: "s3", key: value.key } : null;
+	if ("type" in value && value.type === "s3" && "key" in value) {
+		return typeof value.key === "string" ? { type: "s3", key: value.key } : null;
 	}
-	if ("kind" in value && value.kind === "remote" && "url" in value) {
-		return typeof value.url === "string" ? { kind: "remote", url: value.url } : null;
+	if ("type" in value && value.type === "remote" && "url" in value) {
+		return typeof value.url === "string" ? { type: "remote", url: value.url } : null;
 	}
 
 	return null;
@@ -207,7 +207,15 @@ const buildBaseRequest = (): Omit<EntityQueryEngineRequest, "filter" | "paginati
 	return {
 		mode: "entities",
 		scope: [...builtinMediaEntitySchemaSlugs],
-		relationships: [{ relationshipSchemaSlug: "in-library" }],
+		relationshipJoins: [
+			{
+				required: true,
+				key: "inLibrary",
+				direction: "outgoing",
+				kind: "latestRelationship",
+				relationshipSchemaSlug: "in-library",
+			},
+		],
 		eventJoins: [
 			{ key: "review", kind: "latestEvent", eventSchemaSlug: "review" },
 			{ key: "backlog", kind: "latestEvent", eventSchemaSlug: "backlog" },
@@ -670,7 +678,15 @@ export const getLibraryStats = async (userId: string, deps: MediaServiceDeps = d
 		computedFields: [],
 		eventJoins: mediaLibraryEventJoins,
 		scope: [...builtinMediaEntitySchemaSlugs],
-		relationships: [{ relationshipSchemaSlug: "in-library" }],
+		relationshipJoins: [
+			{
+				required: true,
+				key: "inLibrary",
+				direction: "outgoing",
+				kind: "latestRelationship",
+				relationshipSchemaSlug: "in-library",
+			},
+		],
 		aggregations: [
 			{ key: "total", aggregation: { type: "count" } },
 			{
@@ -686,17 +702,14 @@ export const getLibraryStats = async (userId: string, deps: MediaServiceDeps = d
 				aggregation: { type: "countWhere", predicate: completedPredicate },
 			},
 			{
+				key: "bySchema",
+				aggregation: { type: "countBy", groupBy: entitySchemaExpression("slug") },
+			},
+			{
 				key: "avgRating",
 				aggregation: {
 					type: "avg",
 					expression: eventJoinPropertyExpression("review", "rating"),
-				},
-			},
-			{
-				key: "bySchema",
-				aggregation: {
-					type: "countBy",
-					groupBy: entitySchemaExpression("slug"),
 				},
 			},
 		],

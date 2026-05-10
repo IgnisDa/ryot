@@ -189,7 +189,7 @@ function ImageField(props: ImageFieldProps) {
 					throw new Error("Failed to upload file to S3");
 				}
 
-				field.handleChange({ kind: "s3", key });
+				field.handleChange({ type: "s3", key });
 			} catch (error) {
 				const errorMsg = error instanceof Error ? error.message : "Upload failed";
 				setUploadError(errorMsg);
@@ -206,7 +206,7 @@ function ImageField(props: ImageFieldProps) {
 	const handleUrlChange = (url: string) => {
 		setTempUrl(url);
 		if (url.trim()) {
-			field.handleChange({ kind: "remote", url: url.trim() });
+			field.handleChange({ type: "remote", url: url.trim() });
 		} else {
 			field.handleChange(null);
 		}

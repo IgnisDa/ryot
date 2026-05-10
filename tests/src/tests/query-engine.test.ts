@@ -14,7 +14,10 @@ import {
 	buildComputedField,
 	buildGridDisplayConfiguration,
 	buildGridRequest,
+	buildInLibraryRelationshipJoin,
+	buildLatestRelationshipJoin,
 	buildQueryEngineField,
+	buildRequiredLatestRelationshipJoin,
 	buildTableDisplayConfiguration,
 	buildTableRequest,
 	createAuthenticatedClient,
@@ -24,6 +27,7 @@ import {
 	createEventSchema,
 	createQueryEngineEntity,
 	createQueryEngineEvent,
+	createRelationshipSchema,
 	createSingleSchemaQueryEngineFixture,
 	createTracker,
 	entityField,
@@ -32,15 +36,17 @@ import {
 	findBuiltinSchemaWithProviders,
 	getQueryEngineFieldOrThrow,
 	insertLibraryMembership,
+	insertRelationshipRow,
 	listEventSchemas,
 	literalExpression,
+	relationshipJoinField,
 	seedMediaEntity,
 	waitForEventCount,
 } from "../fixtures";
 import { registerQueryEnginePresentationAndErrorTests } from "../test-support/query-engine-suite";
 
 type QueryEngineItems = Extract<
-	paths["/query-engine/execute"]["post"]["responses"][200]["content"]["application/json"]["data"],
+	paths["/query-engine/execute"]["post"]["responses"][200]["content"]["application/json"],
 	{ mode: "entities" }
 >["data"]["items"];
 
@@ -50,13 +56,8 @@ const getItemFieldValue = (item: Parameters<typeof getQueryEngineFieldOrThrow>[0
 const getItemTitles = (items: QueryEngineItems | undefined) =>
 	items?.map((item) => getItemFieldValue(item, "title"));
 
-const getAggregateValue = (
-	values:
-		| Extract<
-				paths["/query-engine/execute"]["post"]["responses"][200]["content"]["application/json"]["data"],
-				{ mode: "aggregate" }
-		  >["data"]["values"]
-		| undefined,
+const getAggregateValue = <T extends { key: string; value?: unknown }>(
+	values: readonly T[] | undefined,
 	key: string,
 ) => values?.find((value) => value.key === key);
 
@@ -85,7 +86,7 @@ describe("Query engine E2E", () => {
 			cookies,
 			buildGridRequest({
 				scope: [schema.slug],
-				relationships: [{ relationshipSchemaSlug: "in-library" }],
+				relationshipJoins: [buildInLibraryRelationshipJoin()],
 				displayConfiguration: buildGridDisplayConfiguration(
 					{
 						calloutProperty: null,
@@ -183,7 +184,7 @@ describe("Query engine E2E", () => {
 
 		const request = buildGridRequest({
 			scope: [schema.slug],
-			relationships: [{ relationshipSchemaSlug: "in-library" }],
+			relationshipJoins: [buildInLibraryRelationshipJoin()],
 			displayConfiguration: buildGridDisplayConfiguration(
 				{
 					primarySubtitleProperty: null,
@@ -246,7 +247,7 @@ describe("Query engine E2E", () => {
 
 		const request = buildGridRequest({
 			scope: [schema.slug],
-			relationships: [{ relationshipSchemaSlug: "in-library" }],
+			relationshipJoins: [buildInLibraryRelationshipJoin()],
 			displayConfiguration: buildGridDisplayConfiguration(
 				{
 					calloutProperty: null,
@@ -305,9 +306,13 @@ describe("Query engine E2E", () => {
 			cookies,
 			buildGridRequest({
 				scope: [schema.slug],
-				relationships: [
-					{ relationshipSchemaSlug: "in-library" },
-					{ relationshipSchemaSlug: "member-of" },
+				relationshipJoins: [
+					buildInLibraryRelationshipJoin(),
+					buildRequiredLatestRelationshipJoin({
+						key: "memberOf",
+						direction: "outgoing",
+						relationshipSchemaSlug: "member-of",
+					}),
 				],
 				displayConfiguration: buildGridDisplayConfiguration(
 					{
@@ -333,32 +338,1359 @@ describe("Query engine E2E", () => {
 		const aggregateResult = await client.POST("/query-engine/execute", {
 			headers: { Cookie: cookies },
 			body: {
-				mode: "aggregate",
-				scope: [schema.slug],
-				filter: {
-					type: "comparison",
-					operator: "eq",
-					left: createEntityColumnExpression(schema.slug, "name"),
-					right: literalExpression(entity.name),
-				},
 				eventJoins: [],
-				relationships: [
-					{ relationshipSchemaSlug: "in-library" },
-					{ relationshipSchemaSlug: "member-of" },
-				],
+				mode: "aggregate",
 				computedFields: [],
+				scope: [schema.slug],
 				aggregations: [{ key: "total", aggregation: { type: "count" } }],
+				filter: {
+					operator: "eq",
+					type: "comparison",
+					right: literalExpression(entity.name),
+					left: createEntityColumnExpression(schema.slug, "name"),
+				},
+				relationshipJoins: [
+					buildInLibraryRelationshipJoin(),
+					buildRequiredLatestRelationshipJoin({
+						key: "memberOf",
+						direction: "outgoing",
+						relationshipSchemaSlug: "member-of",
+					}),
+				],
 			},
 		});
 
 		expect(aggregateResult.response.status).toBe(200);
 		const aggregateValues =
-			aggregateResult.data?.data.mode === "aggregate" ? aggregateResult.data.data.data.values : [];
+			aggregateResult.data?.mode === "aggregate" ? aggregateResult.data.data.values : [];
 		expect(getAggregateValue(aggregateValues, "total")).toEqual({
+			value: 1,
 			key: "total",
 			kind: "number",
-			value: 1,
 		});
+	});
+
+	it("optional join produces null values without excluding the entity", async () => {
+		const { client, cookies, userId } = await createAuthenticatedClient();
+		const { trackerId } = await createTracker(client, cookies, { name: "Optional Join Tracker" });
+		const schema = await createEntitySchema(client, cookies, {
+			trackerId,
+			name: "Optional Join Entity",
+			propertiesSchema: {
+				fields: { title: { type: "string", label: "Title", description: "Title" } },
+			},
+		});
+		await createQueryEngineEntity({
+			client,
+			cookies,
+			image: null,
+			properties: {},
+			entitySchemaId: schema.schemaId,
+			name: `Optional Join Entity ${crypto.randomUUID()}`,
+		});
+		const relSchema = await createRelationshipSchema({
+			userId,
+			name: "Optional Rel",
+			propertiesSchema: { fields: {} },
+			slug: `optional-rel-${crypto.randomUUID()}`,
+		});
+
+		const { data, response } = await executeQueryEngine(client, cookies, {
+			eventJoins: [],
+			mode: "entities",
+			computedFields: [],
+			scope: [schema.slug],
+			pagination: { page: 1, limit: 10 },
+			sort: {
+				direction: "asc",
+				expression: createEntityColumnExpression(schema.slug, "name"),
+			},
+			relationshipJoins: [
+				buildLatestRelationshipJoin({
+					key: "optRel",
+					required: false,
+					direction: "outgoing",
+					relationshipSchemaSlug: relSchema.slug,
+				}),
+			],
+			fields: [
+				buildQueryEngineField("title", [entityField(schema.slug, "name")]),
+				buildQueryEngineField("relCreatedAt", [relationshipJoinField("optRel", "createdAt")]),
+			],
+		});
+
+		expect(response.status).toBe(200);
+		expect(data.data.items.length).toBeGreaterThan(0);
+		const relCreatedAtField = getQueryEngineFieldOrThrow(data.data.items[0], "relCreatedAt");
+		expect(relCreatedAtField).toEqual({ key: "relCreatedAt", kind: "null", value: null });
+	});
+
+	it("required join excludes entities with no matching relationship row", async () => {
+		const { client, cookies, userId } = await createAuthenticatedClient();
+		const { trackerId } = await createTracker(client, cookies, {
+			name: "Required Join Tracker",
+		});
+		const schema = await createEntitySchema(client, cookies, {
+			trackerId,
+			name: "Required Join Entity",
+			propertiesSchema: {
+				fields: { title: { type: "string", label: "Title", description: "Title" } },
+			},
+		});
+		const relSchema = await createRelationshipSchema({
+			userId,
+			name: "Required Rel",
+			propertiesSchema: { fields: {} },
+			slug: `required-rel-${crypto.randomUUID()}`,
+		});
+		const nameA = `With Rel ${crypto.randomUUID()}`;
+		const nameB = `No Rel ${crypto.randomUUID()}`;
+		const entityAId = await createQueryEngineEntity({
+			client,
+			cookies,
+			name: nameA,
+			image: null,
+			properties: {},
+			entitySchemaId: schema.schemaId,
+		});
+		await createQueryEngineEntity({
+			client,
+			cookies,
+			name: nameB,
+			image: null,
+			properties: {},
+			entitySchemaId: schema.schemaId,
+		});
+
+		const targetId = await createQueryEngineEntity({
+			client,
+			cookies,
+			image: null,
+			properties: {},
+			entitySchemaId: schema.schemaId,
+			name: `Target ${crypto.randomUUID()}`,
+		});
+		await insertRelationshipRow({
+			userId,
+			targetEntityId: targetId,
+			sourceEntityId: entityAId,
+			relationshipSchemaId: relSchema.id,
+		});
+
+		const { data, response } = await executeQueryEngine(client, cookies, {
+			eventJoins: [],
+			mode: "entities",
+			computedFields: [],
+			scope: [schema.slug],
+			pagination: { page: 1, limit: 50 },
+			sort: { direction: "asc", expression: createEntityColumnExpression(schema.slug, "name") },
+			relationshipJoins: [
+				buildLatestRelationshipJoin({
+					required: true,
+					key: "requiredRel",
+					direction: "outgoing",
+					relationshipSchemaSlug: relSchema.slug,
+				}),
+			],
+			fields: [buildQueryEngineField("title", [entityField(schema.slug, "name")])],
+			filter: {
+				type: "or",
+				predicates: [
+					{
+						operator: "eq",
+						type: "comparison",
+						right: literalExpression(nameA),
+						left: createEntityColumnExpression(schema.slug, "name"),
+					},
+					{
+						operator: "eq",
+						type: "comparison",
+						right: literalExpression(nameB),
+						left: createEntityColumnExpression(schema.slug, "name"),
+					},
+				],
+			},
+		});
+
+		expect(response.status).toBe(200);
+		const titles = data.data.items.map((i) => getQueryEngineFieldOrThrow(i, "title").value);
+		expect(titles).toContain(nameA);
+		expect(titles).not.toContain(nameB);
+	});
+
+	it("returns a relationship built-in createdAt as a display field", async () => {
+		const { client, cookies, userId } = await createAuthenticatedClient();
+		const { schema } = await findBuiltinSchemaWithProviders(client, cookies);
+		const provider = schema.providers[0];
+		if (!provider) {
+			throw new Error("No provider found");
+		}
+
+		const entity = await seedMediaEntity({
+			image: null,
+			userId: null,
+			properties: {},
+			entitySchemaId: schema.id,
+			sandboxScriptId: provider.scriptId,
+			externalId: `rel-createdat-${crypto.randomUUID()}`,
+			name: `Rel CreatedAt Entity ${crypto.randomUUID()}`,
+		});
+		await insertLibraryMembership({ userId, mediaEntityId: entity.id });
+
+		const { data, response } = await executeQueryEngine(client, cookies, {
+			eventJoins: [],
+			mode: "entities",
+			computedFields: [],
+			scope: [schema.slug],
+			pagination: { page: 1, limit: 10 },
+			relationshipJoins: [buildInLibraryRelationshipJoin(true)],
+			sort: { direction: "asc", expression: createEntityColumnExpression(schema.slug, "name") },
+			fields: [
+				buildQueryEngineField("title", [entityField(schema.slug, "name")]),
+				buildQueryEngineField("libCreatedAt", [relationshipJoinField("inLibrary", "createdAt")]),
+			],
+			filter: {
+				operator: "eq",
+				type: "comparison",
+				right: literalExpression(entity.name),
+				left: createEntityColumnExpression(schema.slug, "name"),
+			},
+		});
+
+		expect(response.status).toBe(200);
+		expect(data.data.items).toHaveLength(1);
+		const createdAtField = getQueryEngineFieldOrThrow(data.data.items[0], "libCreatedAt");
+		expect(createdAtField.kind).toBe("date");
+		expect(typeof createdAtField.value).toBe("string");
+	});
+
+	it("returns a relationship property as a display field", async () => {
+		const { client, cookies, userId } = await createAuthenticatedClient();
+		const { trackerId } = await createTracker(client, cookies, {
+			name: "Rel Property Tracker",
+		});
+		const schema = await createEntitySchema(client, cookies, {
+			trackerId,
+			name: "Rel Property Entity",
+			propertiesSchema: {
+				fields: { title: { type: "string", label: "Title", description: "Title" } },
+			},
+		});
+		const relSchema = await createRelationshipSchema({
+			userId,
+			name: "Rating Rel",
+			slug: `rating-rel-${crypto.randomUUID()}`,
+			propertiesSchema: {
+				fields: { rating: { type: "integer", label: "Rating", description: "Rating" } },
+			},
+		});
+		const entityName = `Rated Entity ${crypto.randomUUID()}`;
+		const entityId = await createQueryEngineEntity({
+			client,
+			cookies,
+			image: null,
+			properties: {},
+			name: entityName,
+			entitySchemaId: schema.schemaId,
+		});
+		const targetId = await createQueryEngineEntity({
+			client,
+			cookies,
+			image: null,
+			properties: {},
+			entitySchemaId: schema.schemaId,
+			name: `Rating Target ${crypto.randomUUID()}`,
+		});
+		await insertRelationshipRow({
+			userId,
+			sourceEntityId: entityId,
+			targetEntityId: targetId,
+			properties: { rating: 8 },
+			relationshipSchemaId: relSchema.id,
+		});
+
+		const { data, response } = await executeQueryEngine(client, cookies, {
+			eventJoins: [],
+			mode: "entities",
+			computedFields: [],
+			scope: [schema.slug],
+			pagination: { page: 1, limit: 10 },
+			sort: { direction: "asc", expression: createEntityColumnExpression(schema.slug, "name") },
+			relationshipJoins: [
+				buildLatestRelationshipJoin({
+					required: true,
+					key: "ratingRel",
+					direction: "outgoing",
+					relationshipSchemaSlug: relSchema.slug,
+				}),
+			],
+			fields: [
+				buildQueryEngineField("title", [entityField(schema.slug, "name")]),
+				buildQueryEngineField("rating", [
+					relationshipJoinField("ratingRel", "properties", "rating"),
+				]),
+			],
+			filter: {
+				operator: "eq",
+				type: "comparison",
+				right: literalExpression(entityName),
+				left: createEntityColumnExpression(schema.slug, "name"),
+			},
+		});
+
+		expect(response.status).toBe(200);
+		expect(data.data.items).toHaveLength(1);
+		expect(getQueryEngineFieldOrThrow(data.data.items[0], "rating")).toEqual({
+			value: 8,
+			key: "rating",
+			kind: "number",
+		});
+	});
+
+	it("sorts by a relationship-derived scalar", async () => {
+		const { client, cookies, userId } = await createAuthenticatedClient();
+		const { trackerId } = await createTracker(client, cookies, {
+			name: "Rel Sort Tracker",
+		});
+		const schema = await createEntitySchema(client, cookies, {
+			trackerId,
+			name: "Rel Sort Entity",
+			propertiesSchema: {
+				fields: { title: { type: "string", label: "Title", description: "Title" } },
+			},
+		});
+		const relSchema = await createRelationshipSchema({
+			userId,
+			name: "Sort Rating Rel",
+			slug: `sort-rating-rel-${crypto.randomUUID()}`,
+			propertiesSchema: {
+				fields: { rating: { type: "integer", label: "Rating", description: "Rating" } },
+			},
+		});
+		const nameLow = `Sort Low ${crypto.randomUUID()}`;
+		const nameHigh = `Sort High ${crypto.randomUUID()}`;
+		const lowId = await createQueryEngineEntity({
+			client,
+			cookies,
+			image: null,
+			name: nameLow,
+			properties: {},
+			entitySchemaId: schema.schemaId,
+		});
+		const highId = await createQueryEngineEntity({
+			client,
+			cookies,
+			image: null,
+			name: nameHigh,
+			properties: {},
+			entitySchemaId: schema.schemaId,
+		});
+		const targetId = await createQueryEngineEntity({
+			client,
+			cookies,
+			image: null,
+			properties: {},
+			entitySchemaId: schema.schemaId,
+			name: `Sort Target ${crypto.randomUUID()}`,
+		});
+		await insertRelationshipRow({
+			userId,
+			sourceEntityId: lowId,
+			targetEntityId: targetId,
+			properties: { rating: 2 },
+			relationshipSchemaId: relSchema.id,
+		});
+		await insertRelationshipRow({
+			userId,
+			sourceEntityId: highId,
+			targetEntityId: targetId,
+			properties: { rating: 9 },
+			relationshipSchemaId: relSchema.id,
+		});
+
+		const ratingRef = {
+			type: "reference" as const,
+			reference: {
+				joinKey: "sortRatingRel",
+				path: ["properties", "rating"],
+				type: "relationship-join" as const,
+			},
+		};
+
+		const { data, response } = await executeQueryEngine(client, cookies, {
+			eventJoins: [],
+			mode: "entities",
+			computedFields: [],
+			scope: [schema.slug],
+			pagination: { page: 1, limit: 50 },
+			sort: { direction: "asc", expression: ratingRef },
+			relationshipJoins: [
+				buildLatestRelationshipJoin({
+					required: true,
+					key: "sortRatingRel",
+					direction: "outgoing",
+					relationshipSchemaSlug: relSchema.slug,
+				}),
+			],
+			fields: [
+				buildQueryEngineField("title", [entityField(schema.slug, "name")]),
+				buildQueryEngineField("rating", [
+					relationshipJoinField("sortRatingRel", "properties", "rating"),
+				]),
+			],
+			filter: {
+				type: "or",
+				predicates: [
+					{
+						operator: "eq",
+						type: "comparison",
+						right: literalExpression(nameLow),
+						left: createEntityColumnExpression(schema.slug, "name"),
+					},
+					{
+						operator: "eq",
+						type: "comparison",
+						right: literalExpression(nameHigh),
+						left: createEntityColumnExpression(schema.slug, "name"),
+					},
+				],
+			},
+		});
+
+		expect(response.status).toBe(200);
+		expect(data.data.items).toHaveLength(2);
+		expect(getQueryEngineFieldOrThrow(data.data.items[0], "rating").value).toBe(2);
+		expect(getQueryEngineFieldOrThrow(data.data.items[1], "rating").value).toBe(9);
+	});
+
+	it("filters by a relationship property using a comparison operator", async () => {
+		const { client, cookies, userId } = await createAuthenticatedClient();
+		const { trackerId } = await createTracker(client, cookies, {
+			name: "Rel Filter Tracker",
+		});
+		const schema = await createEntitySchema(client, cookies, {
+			trackerId,
+			name: "Rel Filter Entity",
+			propertiesSchema: {
+				fields: { title: { type: "string", label: "Title", description: "Title" } },
+			},
+		});
+		const relSchema = await createRelationshipSchema({
+			userId,
+			name: "Filter Rating Rel",
+			slug: `filter-rating-rel-${crypto.randomUUID()}`,
+			propertiesSchema: {
+				fields: { rating: { type: "integer", label: "Rating", description: "Rating" } },
+			},
+		});
+		const nameA = `Filter A ${crypto.randomUUID()}`;
+		const nameB = `Filter B ${crypto.randomUUID()}`;
+		const nameC = `Filter C ${crypto.randomUUID()}`;
+		const targetId = await createQueryEngineEntity({
+			client,
+			cookies,
+			image: null,
+			properties: {},
+			entitySchemaId: schema.schemaId,
+			name: `Filter Target ${crypto.randomUUID()}`,
+		});
+		const idA = await createQueryEngineEntity({
+			client,
+			cookies,
+			name: nameA,
+			image: null,
+			properties: {},
+			entitySchemaId: schema.schemaId,
+		});
+		const idB = await createQueryEngineEntity({
+			client,
+			cookies,
+			name: nameB,
+			image: null,
+			properties: {},
+			entitySchemaId: schema.schemaId,
+		});
+		const idC = await createQueryEngineEntity({
+			client,
+			cookies,
+			name: nameC,
+			image: null,
+			properties: {},
+			entitySchemaId: schema.schemaId,
+		});
+		await insertRelationshipRow({
+			userId,
+			sourceEntityId: idA,
+			targetEntityId: targetId,
+			properties: { rating: 3 },
+			relationshipSchemaId: relSchema.id,
+		});
+		await insertRelationshipRow({
+			userId,
+			sourceEntityId: idB,
+			targetEntityId: targetId,
+			properties: { rating: 7 },
+			relationshipSchemaId: relSchema.id,
+		});
+		await insertRelationshipRow({
+			userId,
+			sourceEntityId: idC,
+			targetEntityId: targetId,
+			properties: { rating: 10 },
+			relationshipSchemaId: relSchema.id,
+		});
+
+		const ratingRef = {
+			type: "reference" as const,
+			reference: {
+				joinKey: "filterRatingRel",
+				path: ["properties", "rating"],
+				type: "relationship-join" as const,
+			},
+		};
+
+		const { data, response } = await executeQueryEngine(client, cookies, {
+			eventJoins: [],
+			mode: "entities",
+			computedFields: [],
+			scope: [schema.slug],
+			pagination: { page: 1, limit: 50 },
+			sort: { direction: "asc", expression: createEntityColumnExpression(schema.slug, "name") },
+			relationshipJoins: [
+				buildLatestRelationshipJoin({
+					required: true,
+					direction: "outgoing",
+					key: "filterRatingRel",
+					relationshipSchemaSlug: relSchema.slug,
+				}),
+			],
+			fields: [
+				buildQueryEngineField("title", [entityField(schema.slug, "name")]),
+				buildQueryEngineField("rating", [
+					relationshipJoinField("filterRatingRel", "properties", "rating"),
+				]),
+			],
+			filter: {
+				type: "and",
+				predicates: [
+					{
+						operator: "gte",
+						left: ratingRef,
+						type: "comparison",
+						right: literalExpression(7),
+					},
+					{
+						type: "or",
+						predicates: [
+							{
+								operator: "eq",
+								type: "comparison",
+								right: literalExpression(nameA),
+								left: createEntityColumnExpression(schema.slug, "name"),
+							},
+							{
+								operator: "eq",
+								type: "comparison",
+								right: literalExpression(nameB),
+								left: createEntityColumnExpression(schema.slug, "name"),
+							},
+							{
+								operator: "eq",
+								type: "comparison",
+								right: literalExpression(nameC),
+								left: createEntityColumnExpression(schema.slug, "name"),
+							},
+						],
+					},
+				],
+			},
+		});
+
+		expect(response.status).toBe(200);
+		const ratings = data.data.items.map((i) => getQueryEngineFieldOrThrow(i, "rating").value);
+		expect(ratings).toContain(7);
+		expect(ratings).toContain(10);
+		expect(ratings).not.toContain(3);
+	});
+
+	it("filters by a relationship array property using contains", async () => {
+		const { client, cookies, userId } = await createAuthenticatedClient();
+		const { trackerId } = await createTracker(client, cookies, {
+			name: "Rel Array Filter Tracker",
+		});
+		const schema = await createEntitySchema(client, cookies, {
+			trackerId,
+			name: "Rel Array Filter Entity",
+			propertiesSchema: {
+				fields: { title: { type: "string", label: "Title", description: "Title" } },
+			},
+		});
+		const relSchema = await createRelationshipSchema({
+			userId,
+			name: "Roles Rel",
+			slug: `roles-rel-${crypto.randomUUID()}`,
+			propertiesSchema: {
+				fields: {
+					roles: {
+						type: "array",
+						label: "Roles",
+						description: "Roles",
+						items: { type: "string", label: "Role", description: "Role" },
+					},
+				},
+			},
+		});
+		const directorName = `Director Entity ${crypto.randomUUID()}`;
+		const actorName = `Actor Entity ${crypto.randomUUID()}`;
+		const targetId = await createQueryEngineEntity({
+			client,
+			cookies,
+			image: null,
+			properties: {},
+			entitySchemaId: schema.schemaId,
+			name: `Roles Target ${crypto.randomUUID()}`,
+		});
+		const directorId = await createQueryEngineEntity({
+			client,
+			cookies,
+			image: null,
+			properties: {},
+			name: directorName,
+			entitySchemaId: schema.schemaId,
+		});
+		const actorId = await createQueryEngineEntity({
+			client,
+			cookies,
+			image: null,
+			properties: {},
+			name: actorName,
+			entitySchemaId: schema.schemaId,
+		});
+		await insertRelationshipRow({
+			userId,
+			targetEntityId: targetId,
+			sourceEntityId: directorId,
+			relationshipSchemaId: relSchema.id,
+			properties: { roles: ["director"] },
+		});
+		await insertRelationshipRow({
+			userId,
+			sourceEntityId: actorId,
+			targetEntityId: targetId,
+			properties: { roles: ["actor"] },
+			relationshipSchemaId: relSchema.id,
+		});
+
+		const rolesRef = {
+			type: "reference" as const,
+			reference: {
+				joinKey: "rolesRel",
+				path: ["properties", "roles"],
+				type: "relationship-join" as const,
+			},
+		};
+
+		const { data, response } = await executeQueryEngine(client, cookies, {
+			eventJoins: [],
+			mode: "entities",
+			computedFields: [],
+			scope: [schema.slug],
+			pagination: { page: 1, limit: 50 },
+			sort: { direction: "asc", expression: createEntityColumnExpression(schema.slug, "name") },
+			relationshipJoins: [
+				buildLatestRelationshipJoin({
+					required: true,
+					key: "rolesRel",
+					direction: "outgoing",
+					relationshipSchemaSlug: relSchema.slug,
+				}),
+			],
+			fields: [buildQueryEngineField("title", [entityField(schema.slug, "name")])],
+			filter: {
+				type: "and",
+				predicates: [
+					{
+						type: "contains",
+						expression: rolesRef,
+						value: literalExpression("director"),
+					},
+					{
+						type: "or",
+						predicates: [
+							{
+								operator: "eq",
+								type: "comparison",
+								right: literalExpression(directorName),
+								left: createEntityColumnExpression(schema.slug, "name"),
+							},
+							{
+								operator: "eq",
+								type: "comparison",
+								right: literalExpression(actorName),
+								left: createEntityColumnExpression(schema.slug, "name"),
+							},
+						],
+					},
+				],
+			},
+		});
+
+		expect(response.status).toBe(200);
+		const titles = data.data.items.map((i) => getQueryEngineFieldOrThrow(i, "title").value);
+		expect(titles).toContain(directorName);
+		expect(titles).not.toContain(actorName);
+	});
+
+	it("join-local filter selects from pre-filtered rows, not latest overall", async () => {
+		const { client, cookies, userId } = await createAuthenticatedClient();
+		const { trackerId } = await createTracker(client, cookies, {
+			name: "Join Local Filter Tracker",
+		});
+		const schema = await createEntitySchema(client, cookies, {
+			trackerId,
+			name: "Join Local Filter Entity",
+			propertiesSchema: {
+				fields: { title: { type: "string", label: "Title", description: "Title" } },
+			},
+		});
+		const relSchema = await createRelationshipSchema({
+			userId,
+			name: "Local Filter Rel",
+			slug: `local-filter-rel-${crypto.randomUUID()}`,
+			propertiesSchema: {
+				fields: { rating: { type: "integer", label: "Rating", description: "Rating" } },
+			},
+		});
+		const entityName = `Local Filter Entity ${crypto.randomUUID()}`;
+		const entityId = await createQueryEngineEntity({
+			client,
+			cookies,
+			image: null,
+			properties: {},
+			name: entityName,
+			entitySchemaId: schema.schemaId,
+		});
+		const target1Id = await createQueryEngineEntity({
+			client,
+			cookies,
+			image: null,
+			properties: {},
+			entitySchemaId: schema.schemaId,
+			name: `Local Filter Target 1 ${crypto.randomUUID()}`,
+		});
+		const target2Id = await createQueryEngineEntity({
+			client,
+			cookies,
+			image: null,
+			properties: {},
+			entitySchemaId: schema.schemaId,
+			name: `Local Filter Target 2 ${crypto.randomUUID()}`,
+		});
+		await insertRelationshipRow({
+			userId,
+			sourceEntityId: entityId,
+			targetEntityId: target1Id,
+			properties: { rating: 1 },
+			relationshipSchemaId: relSchema.id,
+			createdAt: new Date(Date.now() - 10000),
+		});
+		await insertRelationshipRow({
+			userId,
+			sourceEntityId: entityId,
+			targetEntityId: target2Id,
+			properties: { rating: 5 },
+			relationshipSchemaId: relSchema.id,
+		});
+
+		const localFilterRef = {
+			type: "reference" as const,
+			reference: {
+				joinKey: "localFilterRel",
+				path: ["properties", "rating"],
+				type: "relationship-join" as const,
+			},
+		};
+
+		const { data, response } = await executeQueryEngine(client, cookies, {
+			eventJoins: [],
+			mode: "entities",
+			computedFields: [],
+			scope: [schema.slug],
+			pagination: { page: 1, limit: 10 },
+			sort: { direction: "asc", expression: createEntityColumnExpression(schema.slug, "name") },
+			relationshipJoins: [
+				buildLatestRelationshipJoin({
+					required: true,
+					key: "localFilterRel",
+					direction: "outgoing",
+					relationshipSchemaSlug: relSchema.slug,
+					filter: {
+						operator: "eq",
+						type: "comparison",
+						left: localFilterRef,
+						right: literalExpression(1),
+					},
+				}),
+			],
+			fields: [
+				buildQueryEngineField("title", [entityField(schema.slug, "name")]),
+				buildQueryEngineField("rating", [
+					relationshipJoinField("localFilterRel", "properties", "rating"),
+				]),
+			],
+			filter: {
+				operator: "eq",
+				type: "comparison",
+				right: literalExpression(entityName),
+				left: createEntityColumnExpression(schema.slug, "name"),
+			},
+		});
+
+		expect(response.status).toBe(200);
+		expect(data.data.items).toHaveLength(1);
+		expect(getQueryEngineFieldOrThrow(data.data.items[0], "rating")).toEqual({
+			value: 1,
+			key: "rating",
+			kind: "number",
+		});
+	});
+
+	it("sourceEntityId constraint filters relationship rows to a specific source", async () => {
+		const { client, cookies, userId } = await createAuthenticatedClient();
+		const { trackerId } = await createTracker(client, cookies, {
+			name: "Source Entity Id Tracker",
+		});
+		const entitySchema = await createEntitySchema(client, cookies, {
+			trackerId,
+			name: "Source Entity Id Entity",
+			propertiesSchema: {
+				fields: { title: { type: "string", label: "Title", description: "Title" } },
+			},
+		});
+		const relSchema = await createRelationshipSchema({
+			userId,
+			name: "Source Id Rel",
+			propertiesSchema: { fields: {} },
+			slug: `source-id-rel-${crypto.randomUUID()}`,
+		});
+		const memberName = `Source Member ${crypto.randomUUID()}`;
+		const memberId = await createQueryEngineEntity({
+			client,
+			cookies,
+			image: null,
+			properties: {},
+			name: memberName,
+			entitySchemaId: entitySchema.schemaId,
+		});
+		const collBName = `Source Coll B ${crypto.randomUUID()}`;
+		const collBId = await createQueryEngineEntity({
+			client,
+			cookies,
+			image: null,
+			properties: {},
+			name: collBName,
+			entitySchemaId: entitySchema.schemaId,
+		});
+		const collCId = await createQueryEngineEntity({
+			client,
+			cookies,
+			image: null,
+			properties: {},
+			entitySchemaId: entitySchema.schemaId,
+			name: `Source Coll C ${crypto.randomUUID()}`,
+		});
+		await insertRelationshipRow({
+			userId,
+			targetEntityId: collBId,
+			sourceEntityId: memberId,
+			relationshipSchemaId: relSchema.id,
+		});
+		await insertRelationshipRow({
+			userId,
+			targetEntityId: collCId,
+			sourceEntityId: memberId,
+			relationshipSchemaId: relSchema.id,
+		});
+
+		const { data, response } = await executeQueryEngine(client, cookies, {
+			eventJoins: [],
+			mode: "entities",
+			computedFields: [],
+			scope: [entitySchema.slug],
+			pagination: { page: 1, limit: 50 },
+			sort: {
+				direction: "asc",
+				expression: createEntityColumnExpression(entitySchema.slug, "name"),
+			},
+			relationshipJoins: [
+				buildLatestRelationshipJoin({
+					required: true,
+					key: "sourceIdRel",
+					direction: "outgoing",
+					targetEntityId: collBId,
+					relationshipSchemaSlug: relSchema.slug,
+				}),
+			],
+			fields: [
+				buildQueryEngineField("title", [entityField(entitySchema.slug, "name")]),
+				buildQueryEngineField("targetId", [relationshipJoinField("sourceIdRel", "targetEntityId")]),
+			],
+			filter: {
+				operator: "eq",
+				type: "comparison",
+				left: createEntityColumnExpression(entitySchema.slug, "name"),
+				right: literalExpression(memberName),
+			},
+		});
+
+		expect(response.status).toBe(200);
+		expect(data.data.items).toHaveLength(1);
+		expect(getQueryEngineFieldOrThrow(data.data.items[0], "targetId")).toEqual({
+			kind: "text",
+			value: collBId,
+			key: "targetId",
+		});
+	});
+
+	it("targetEntityId constraint returns entity with the correct relationship target", async () => {
+		const { client, cookies, userId } = await createAuthenticatedClient();
+		const { trackerId } = await createTracker(client, cookies, {
+			name: "Target Entity Id Tracker",
+		});
+		const entitySchema = await createEntitySchema(client, cookies, {
+			trackerId,
+			name: "Target Entity Id Entity",
+			propertiesSchema: {
+				fields: { title: { type: "string", label: "Title", description: "Title" } },
+			},
+		});
+		const relSchema = await createRelationshipSchema({
+			userId,
+			name: "Target Id Rel",
+			propertiesSchema: { fields: {} },
+			slug: `target-id-rel-${crypto.randomUUID()}`,
+		});
+		const memberName = `Target Member ${crypto.randomUUID()}`;
+		const memberId = await createQueryEngineEntity({
+			client,
+			cookies,
+			image: null,
+			properties: {},
+			name: memberName,
+			entitySchemaId: entitySchema.schemaId,
+		});
+		const collBId = await createQueryEngineEntity({
+			client,
+			cookies,
+			image: null,
+			properties: {},
+			entitySchemaId: entitySchema.schemaId,
+			name: `Target Coll B ${crypto.randomUUID()}`,
+		});
+		const collCId = await createQueryEngineEntity({
+			client,
+			cookies,
+			image: null,
+			properties: {},
+			entitySchemaId: entitySchema.schemaId,
+			name: `Target Coll C ${crypto.randomUUID()}`,
+		});
+		await insertRelationshipRow({
+			userId,
+			targetEntityId: collBId,
+			sourceEntityId: memberId,
+			relationshipSchemaId: relSchema.id,
+		});
+		await insertRelationshipRow({
+			userId,
+			targetEntityId: collCId,
+			sourceEntityId: memberId,
+			relationshipSchemaId: relSchema.id,
+		});
+
+		const { data, response } = await executeQueryEngine(client, cookies, {
+			eventJoins: [],
+			mode: "entities",
+			computedFields: [],
+			scope: [entitySchema.slug],
+			pagination: { page: 1, limit: 50 },
+			sort: {
+				direction: "asc",
+				expression: createEntityColumnExpression(entitySchema.slug, "name"),
+			},
+			relationshipJoins: [
+				buildLatestRelationshipJoin({
+					required: true,
+					key: "targetIdRel",
+					direction: "outgoing",
+					targetEntityId: collCId,
+					relationshipSchemaSlug: relSchema.slug,
+				}),
+			],
+			fields: [
+				buildQueryEngineField("title", [entityField(entitySchema.slug, "name")]),
+				buildQueryEngineField("targetId", [relationshipJoinField("targetIdRel", "targetEntityId")]),
+			],
+			filter: {
+				operator: "eq",
+				type: "comparison",
+				right: literalExpression(memberName),
+				left: createEntityColumnExpression(entitySchema.slug, "name"),
+			},
+		});
+
+		expect(response.status).toBe(200);
+		expect(data.data.items).toHaveLength(1);
+		expect(getQueryEngineFieldOrThrow(data.data.items[0], "targetId")).toEqual({
+			kind: "text",
+			value: collCId,
+			key: "targetId",
+		});
+	});
+
+	it("incoming direction returns the collection entity when a member entity is added", async () => {
+		const { client, cookies } = await createAuthenticatedClient();
+
+		const collection = await createCollection(client, cookies, {
+			name: `Incoming Dir Collection ${crypto.randomUUID()}`,
+		});
+
+		const { schema: collectionEntitySchema } = await findBuiltinSchemaBySlug(
+			client,
+			cookies,
+			"collection",
+		);
+
+		const { trackerId } = await createTracker(client, cookies, {
+			name: "Incoming Dir Tracker",
+		});
+		const memberSchema = await createEntitySchema(client, cookies, {
+			trackerId,
+			name: "Incoming Dir Member",
+			propertiesSchema: {
+				fields: { title: { type: "string", label: "Title", description: "Title" } },
+			},
+		});
+		const memberName = `Incoming Member ${crypto.randomUUID()}`;
+		const memberId = await createQueryEngineEntity({
+			client,
+			cookies,
+			image: null,
+			properties: {},
+			name: memberName,
+			entitySchemaId: memberSchema.schemaId,
+		});
+
+		const addResult = await client.POST("/collections/memberships", {
+			headers: { Cookie: cookies },
+			body: { entityId: memberId, collectionId: collection.id },
+		});
+		expect(addResult.response.status).toBe(200);
+
+		const { data, response } = await executeQueryEngine(client, cookies, {
+			eventJoins: [],
+			mode: "entities",
+			computedFields: [],
+			pagination: { page: 1, limit: 50 },
+			scope: [collectionEntitySchema.slug],
+			sort: {
+				direction: "asc",
+				expression: createEntityColumnExpression(collectionEntitySchema.slug, "name"),
+			},
+			relationshipJoins: [
+				buildLatestRelationshipJoin({
+					required: true,
+					direction: "incoming",
+					key: "memberOfIncoming",
+					relationshipSchemaSlug: "member-of",
+				}),
+			],
+			fields: [buildQueryEngineField("title", [entityField(collectionEntitySchema.slug, "name")])],
+			filter: {
+				operator: "eq",
+				type: "comparison",
+				right: literalExpression(collection.name),
+				left: createEntityColumnExpression(collectionEntitySchema.slug, "name"),
+			},
+		});
+
+		expect(response.status).toBe(200);
+		const titles = data.data.items.map((i) => getQueryEngineFieldOrThrow(i, "title").value);
+		expect(titles).toContain(collection.name);
+	});
+
+	it("returns related entity built-in targetEntity.name as a display field", async () => {
+		const { client, cookies } = await createAuthenticatedClient();
+
+		const collectionName = `Target Name Collection ${crypto.randomUUID()}`;
+		const collection = await createCollection(client, cookies, { name: collectionName });
+
+		const { trackerId } = await createTracker(client, cookies, {
+			name: "Target Name Tracker",
+		});
+		const schema = await createEntitySchema(client, cookies, {
+			trackerId,
+			name: "Target Name Entity",
+			propertiesSchema: {
+				fields: { title: { type: "string", label: "Title", description: "Title" } },
+			},
+		});
+		const entityName = `Target Name Member ${crypto.randomUUID()}`;
+		const entityId = await createQueryEngineEntity({
+			client,
+			cookies,
+			image: null,
+			properties: {},
+			name: entityName,
+			entitySchemaId: schema.schemaId,
+		});
+
+		const addResult = await client.POST("/collections/memberships", {
+			headers: { Cookie: cookies },
+			body: { entityId, collectionId: collection.id },
+		});
+		expect(addResult.response.status).toBe(200);
+
+		const { data, response } = await executeQueryEngine(client, cookies, {
+			eventJoins: [],
+			mode: "entities",
+			computedFields: [],
+			scope: [schema.slug],
+			pagination: { page: 1, limit: 10 },
+			sort: { direction: "asc", expression: createEntityColumnExpression(schema.slug, "name") },
+			relationshipJoins: [
+				buildRequiredLatestRelationshipJoin({
+					key: "memberOfRel",
+					direction: "outgoing",
+					relationshipSchemaSlug: "member-of",
+				}),
+			],
+			fields: [
+				buildQueryEngineField("title", [entityField(schema.slug, "name")]),
+				buildQueryEngineField("collectionName", [
+					relationshipJoinField("memberOfRel", "targetEntity", "name"),
+				]),
+			],
+			filter: {
+				operator: "eq",
+				type: "comparison",
+				right: literalExpression(entityName),
+				left: createEntityColumnExpression(schema.slug, "name"),
+			},
+		});
+
+		expect(response.status).toBe(200);
+		expect(data.data.items).toHaveLength(1);
+		expect(getQueryEngineFieldOrThrow(data.data.items[0], "collectionName")).toEqual({
+			kind: "text",
+			key: "collectionName",
+			value: collectionName,
+		});
+	});
+
+	it("sorts by related entity built-in targetEntity.name", async () => {
+		const { client, cookies } = await createAuthenticatedClient();
+
+		const zCollection = await createCollection(client, cookies, {
+			name: `Zulu Sort Collection ${crypto.randomUUID()}`,
+		});
+		const aCollection = await createCollection(client, cookies, {
+			name: `Alpha Sort Collection ${crypto.randomUUID()}`,
+		});
+
+		const { trackerId } = await createTracker(client, cookies, {
+			name: "Target Name Sort Tracker",
+		});
+		const schema = await createEntitySchema(client, cookies, {
+			trackerId,
+			name: "Target Name Sort Entity",
+			propertiesSchema: {
+				fields: { title: { type: "string", label: "Title", description: "Title" } },
+			},
+		});
+		const zEntityName = `Target Name Z Member ${crypto.randomUUID()}`;
+		const aEntityName = `Target Name A Member ${crypto.randomUUID()}`;
+		const zEntityId = await createQueryEngineEntity({
+			client,
+			cookies,
+			image: null,
+			properties: {},
+			name: zEntityName,
+			entitySchemaId: schema.schemaId,
+		});
+		const aEntityId = await createQueryEngineEntity({
+			client,
+			cookies,
+			image: null,
+			properties: {},
+			name: aEntityName,
+			entitySchemaId: schema.schemaId,
+		});
+
+		const membershipPairs = [
+			[zEntityId, zCollection.id],
+			[aEntityId, aCollection.id],
+		] as const;
+		const addResults = await Promise.all(
+			membershipPairs.map(([entityId, collectionId]) =>
+				client.POST("/collections/memberships", {
+					headers: { Cookie: cookies },
+					body: { entityId, collectionId },
+				}),
+			),
+		);
+		for (const addResult of addResults) {
+			expect(addResult.response.status).toBe(200);
+		}
+
+		const { data, response } = await executeQueryEngine(client, cookies, {
+			eventJoins: [],
+			mode: "entities",
+			computedFields: [],
+			scope: [schema.slug],
+			pagination: { page: 1, limit: 10 },
+			sort: {
+				direction: "asc",
+				expression: {
+					type: "reference",
+					reference: {
+						joinKey: "memberOfRel",
+						type: "relationship-join",
+						path: ["targetEntity", "name"],
+					},
+				},
+			},
+			relationshipJoins: [
+				buildRequiredLatestRelationshipJoin({
+					key: "memberOfRel",
+					direction: "outgoing",
+					relationshipSchemaSlug: "member-of",
+				}),
+			],
+			fields: [
+				buildQueryEngineField("title", [entityField(schema.slug, "name")]),
+				buildQueryEngineField("collectionName", [
+					relationshipJoinField("memberOfRel", "targetEntity", "name"),
+				]),
+			],
+			filter: null,
+		});
+
+		expect(response.status).toBe(200);
+		expect(data.data.items.map((item) => getItemFieldValue(item, "title"))).toEqual([
+			aEntityName,
+			zEntityName,
+		]);
+		expect(data.data.items.map((item) => getItemFieldValue(item, "collectionName"))).toEqual([
+			aCollection.name,
+			zCollection.name,
+		]);
+	});
+
+	it("rejects a relationship-join reference in events mode", async () => {
+		const { client, cookies } = await createAuthenticatedClient();
+		const { trackerId } = await createTracker(client, cookies, {
+			name: "Events Mode Rel Join Rejection Tracker",
+		});
+		const schema = await createEntitySchema(client, cookies, {
+			trackerId,
+			name: "Events Mode Rel Join Entity",
+			propertiesSchema: {
+				fields: { title: { type: "string", label: "Title", description: "Title" } },
+			},
+		});
+		const eventSchema = await createEventSchema(client, cookies, {
+			name: "Test Event",
+			slug: "test-event",
+			entitySchemaId: schema.schemaId,
+			propertiesSchema: {
+				fields: { note: { type: "string", label: "Note", description: "Note" } },
+			},
+		});
+
+		const { response } = await client.POST("/query-engine/execute", {
+			headers: { Cookie: cookies },
+			body: {
+				mode: "events",
+				scope: [schema.slug],
+				eventSchemas: [eventSchema.slug],
+				pagination: { page: 1, limit: 10 },
+				sort: {
+					direction: "asc",
+					expression: createEntityColumnExpression(schema.slug, "name"),
+				},
+				fields: [
+					{
+						key: "relField",
+						expression: {
+							type: "reference",
+							reference: {
+								joinKey: "someRel",
+								path: ["createdAt"],
+								type: "relationship-join",
+							},
+						},
+					},
+				],
+			},
+		});
+
+		expect(response.status).toBe(400);
+	});
+
+	it("rejects join-local filter referencing a computed field", async () => {
+		const { client, cookies, userId } = await createAuthenticatedClient();
+		const { trackerId } = await createTracker(client, cookies, {
+			name: "Local Filter Computed Rejection Tracker",
+		});
+		const schema = await createEntitySchema(client, cookies, {
+			trackerId,
+			name: "Local Filter Computed Entity",
+			propertiesSchema: {
+				fields: { title: { type: "string", label: "Title", description: "Title" } },
+			},
+		});
+		const relSchema = await createRelationshipSchema({
+			userId,
+			name: "Computed Filter Rel",
+			propertiesSchema: { fields: {} },
+			slug: `computed-filter-rel-${crypto.randomUUID()}`,
+		});
+
+		const { response } = await client.POST("/query-engine/execute", {
+			headers: { Cookie: cookies },
+			body: {
+				eventJoins: [],
+				mode: "entities",
+				scope: [schema.slug],
+				pagination: { page: 1, limit: 10 },
+				sort: { direction: "asc", expression: createEntityColumnExpression(schema.slug, "name") },
+				computedFields: [
+					{ key: "computedTitle", expression: createEntityColumnExpression(schema.slug, "name") },
+				],
+				relationshipJoins: [
+					{
+						required: false,
+						direction: "outgoing",
+						key: "computedFilterRel",
+						kind: "latestRelationship",
+						relationshipSchemaSlug: relSchema.slug,
+						filter: {
+							operator: "eq",
+							type: "comparison",
+							right: literalExpression("test"),
+							left: {
+								type: "reference",
+								reference: { key: "computedTitle", type: "computed-field" },
+							},
+						},
+					},
+				],
+				fields: [buildQueryEngineField("title", [entityField(schema.slug, "name")])],
+			},
+		});
+
+		expect(response.status).toBe(400);
 	});
 
 	it("executes a simple single-schema query with the full response shape", async () => {
@@ -375,23 +1707,23 @@ describe("Query engine E2E", () => {
 		expect(result.items).toHaveLength(5);
 		expect(getItemFieldValue(firstItem, "title")).toBe("Alpha Phone");
 		expect(getItemFieldValue(firstItem, "image")).toEqual({
-			kind: "remote",
+			type: "remote",
 			url: "https://example.com/alpha-phone.png",
 		});
 		expect(getQueryEngineFieldOrThrow(firstItem, "callout")).toEqual({
-			key: "callout",
 			kind: "text",
 			value: "phone",
+			key: "callout",
 		});
 		expect(getQueryEngineFieldOrThrow(firstItem, "primarySubtitle")).toEqual({
-			key: "primarySubtitle",
-			kind: "number",
 			value: 2018,
+			kind: "number",
+			key: "primarySubtitle",
 		});
 		expect(getQueryEngineFieldOrThrow(firstItem, "secondarySubtitle")).toEqual({
-			key: "secondarySubtitle",
-			kind: "null",
 			value: null,
+			kind: "null",
+			key: "secondarySubtitle",
 		});
 		expect(getQueryEngineFieldOrThrow(firstItem, "title")).toEqual({
 			key: "title",
@@ -401,10 +1733,7 @@ describe("Query engine E2E", () => {
 		expect(getQueryEngineFieldOrThrow(firstItem, "image")).toEqual({
 			key: "image",
 			kind: "image",
-			value: {
-				kind: "remote",
-				url: "https://example.com/alpha-phone.png",
-			},
+			value: { type: "remote", url: "https://example.com/alpha-phone.png" },
 		});
 		expect(result.meta.pagination).toEqual({
 			page: 1,
@@ -424,9 +1753,9 @@ describe("Query engine E2E", () => {
 			body: {
 				eventJoins: [],
 				mode: "aggregate",
-				relationships: [],
 				computedFields: [],
 				scope: [schema.slug],
+				relationshipJoins: [],
 				filter: {
 					type: "in",
 					expression: createEntityPropertyExpression(schema.slug, "category"),
@@ -439,10 +1768,10 @@ describe("Query engine E2E", () => {
 						aggregation: {
 							type: "countWhere",
 							predicate: {
-								type: "comparison",
 								operator: "gte",
-								left: createEntityPropertyExpression(schema.slug, "year"),
+								type: "comparison",
 								right: literalExpression(2020),
+								left: createEntityPropertyExpression(schema.slug, "year"),
 							},
 						},
 					},
@@ -479,32 +1808,32 @@ describe("Query engine E2E", () => {
 		});
 
 		expect(response.status).toBe(200);
-		expect(data?.data.mode).toBe("aggregate");
-		const values = data?.data.mode === "aggregate" ? data.data.data.values : [];
+		expect(data?.mode).toBe("aggregate");
+		const values = data?.mode === "aggregate" ? data.data.values : [];
 		expect(getAggregateValue(values, "total")).toEqual({
+			value: 3,
 			key: "total",
 			kind: "number",
-			value: 3,
 		});
 		expect(getAggregateValue(values, "recent")).toEqual({
+			value: 2,
 			key: "recent",
 			kind: "number",
-			value: 2,
 		});
 		expect(getAggregateValue(values, "sumYear")).toEqual({
+			value: 6059,
 			key: "sumYear",
 			kind: "number",
-			value: 6059,
 		});
 		expect(getAggregateValue(values, "minYear")).toEqual({
+			value: 2018,
 			key: "minYear",
 			kind: "number",
-			value: 2018,
 		});
 		expect(getAggregateValue(values, "maxYear")).toEqual({
+			value: 2021,
 			key: "maxYear",
 			kind: "number",
-			value: 2021,
 		});
 		expect(Number(getAggregateValue(values, "avgYear")?.value)).toBeCloseTo(2019.6666666667, 6);
 	});
@@ -515,12 +1844,12 @@ describe("Query engine E2E", () => {
 		const aggregateResult = await client.POST("/query-engine/execute", {
 			headers: { Cookie: cookies },
 			body: {
-				mode: "aggregate",
-				scope: [schema.slug],
 				filter: null,
 				eventJoins: [],
-				relationships: [],
+				mode: "aggregate",
 				computedFields: [],
+				scope: [schema.slug],
+				relationshipJoins: [],
 				aggregations: [
 					{
 						key: "byCategory",
@@ -535,7 +1864,7 @@ describe("Query engine E2E", () => {
 
 		expect(aggregateResult.response.status).toBe(200);
 		const aggregateValues =
-			aggregateResult.data?.data.mode === "aggregate" ? aggregateResult.data.data.data.values : [];
+			aggregateResult.data?.mode === "aggregate" ? aggregateResult.data.data.values : [];
 		expect(getAggregateValue(aggregateValues, "byCategory")).toEqual({
 			key: "byCategory",
 			kind: "json",
@@ -545,17 +1874,17 @@ describe("Query engine E2E", () => {
 		const emptyResult = await client.POST("/query-engine/execute", {
 			headers: { Cookie: cookies },
 			body: {
-				mode: "aggregate",
-				scope: [schema.slug],
-				filter: {
-					type: "comparison",
-					operator: "eq",
-					left: createEntityColumnExpression(schema.slug, "name"),
-					right: literalExpression("Missing Device"),
-				},
 				eventJoins: [],
-				relationships: [],
+				mode: "aggregate",
 				computedFields: [],
+				scope: [schema.slug],
+				relationshipJoins: [],
+				filter: {
+					operator: "eq",
+					type: "comparison",
+					right: literalExpression("Missing Device"),
+					left: createEntityColumnExpression(schema.slug, "name"),
+				},
 				aggregations: [
 					{ key: "total", aggregation: { type: "count" } },
 					{
@@ -577,8 +1906,7 @@ describe("Query engine E2E", () => {
 		});
 
 		expect(emptyResult.response.status).toBe(200);
-		const emptyValues =
-			emptyResult.data?.data.mode === "aggregate" ? emptyResult.data.data.data.values : [];
+		const emptyValues = emptyResult.data?.mode === "aggregate" ? emptyResult.data.data.values : [];
 		expect(getAggregateValue(emptyValues, "total")).toEqual({
 			value: 0,
 			key: "total",
@@ -604,10 +1932,10 @@ describe("Query engine E2E", () => {
 			body: {
 				filter: null,
 				eventJoins: [],
-				relationships: [],
 				mode: "aggregate",
 				computedFields: [],
 				scope: [schema.slug],
+				relationshipJoins: [],
 				aggregations: [
 					{
 						key: "sumName",
@@ -631,22 +1959,17 @@ describe("Query engine E2E", () => {
 			slug: "review",
 			entitySchemaId: schema.schemaId,
 			propertiesSchema: {
-				fields: {
-					label: { type: "string", label: "Label", description: "Label" },
-				},
+				fields: { label: { type: "string", label: "Label", description: "Label" } },
 			},
 		});
 
 		const { error, response } = await executeQueryEngine(client, cookies, {
+			filter: null,
 			eventJoins: [],
+			computedFields: [],
 			scope: [schema.slug],
 			pagination: { page: 1, limit: 5 },
-			sort: {
-				direction: "asc",
-				expression: createEntityColumnExpression(schema.slug, "name"),
-			},
-			filter: null,
-			computedFields: [],
+			sort: { direction: "asc", expression: createEntityColumnExpression(schema.slug, "name") },
 			fields: [
 				buildQueryEngineField(
 					"avgReviewLabel",
@@ -670,18 +1993,15 @@ describe("Query engine E2E", () => {
 				filter: null,
 				eventJoins: [],
 				mode: "aggregate",
-				relationships: [],
 				computedFields: [],
 				scope: [schema.slug],
+				relationshipJoins: [],
 				aggregations: [
 					{
 						key: "byEvent",
 						aggregation: {
 							type: "countBy",
-							groupBy: {
-								type: "reference",
-								reference: { type: "event", path: ["createdAt"] },
-							},
+							groupBy: { type: "reference", reference: { type: "event", path: ["createdAt"] } },
 						},
 					},
 				],
@@ -697,13 +2017,10 @@ describe("Query engine E2E", () => {
 	it("accepts literal and coalesce expressions in raw runtime fields", async () => {
 		const { client, cookies, schema } = await createSingleSchemaQueryEngineFixture();
 		const { data, response } = await executeQueryEngine(client, cookies, {
-			scope: [schema.slug],
 			eventJoins: [],
+			scope: [schema.slug],
 			pagination: { page: 1, limit: 1 },
-			sort: {
-				direction: "asc",
-				expression: createEntityColumnExpression(schema.slug, "name"),
-			},
+			sort: { direction: "asc", expression: createEntityColumnExpression(schema.slug, "name") },
 			fields: [
 				buildQueryEngineField("label", { type: "literal", value: "Pinned" }),
 				buildQueryEngineField("yearOrFallback", {
@@ -712,11 +2029,7 @@ describe("Query engine E2E", () => {
 						{ type: "literal", value: null },
 						{
 							type: "reference",
-							reference: {
-								slug: schema.slug,
-								type: "entity",
-								path: ["properties", "year"],
-							},
+							reference: { type: "entity", slug: schema.slug, path: ["properties", "year"] },
 						},
 						{ type: "literal", value: 0 },
 					],
@@ -748,30 +2061,21 @@ describe("Query engine E2E", () => {
 		const { data, response } = await executeQueryEngine(client, cookies, {
 			scope: [schema.slug],
 			pagination: { page: 1, limit: 5 },
-			sort: {
-				expression: createEntityColumnExpression(schema.slug, "name"),
-				direction: "asc",
-			},
+			eventJoins: [{ key: "review", kind: "latestEvent", eventSchemaSlug: "review" }],
+			sort: { direction: "asc", expression: createEntityColumnExpression(schema.slug, "name") },
 			fields: [
 				buildQueryEngineField("title", ["computed.entityLabel"]),
 				buildQueryEngineField("badge", ["computed.reviewOrLabel"]),
 				buildQueryEngineField("rawReview", ["computed.reviewLabel"]),
 			],
-			eventJoins: [{ key: "review", kind: "latestEvent", eventSchemaSlug: "review" }],
 			computedFields: [
 				buildComputedField("entityLabel", [entityField(schema.slug, "name")]),
 				buildComputedField("reviewLabel", ["event.review.properties.label"]),
 				buildComputedField("reviewOrLabel", {
 					type: "coalesce",
 					values: [
-						{
-							type: "reference",
-							reference: { key: "reviewLabel", type: "computed-field" },
-						},
-						{
-							type: "reference",
-							reference: { key: "entityLabel", type: "computed-field" },
-						},
+						{ type: "reference", reference: { key: "reviewLabel", type: "computed-field" } },
+						{ type: "reference", reference: { key: "entityLabel", type: "computed-field" } },
 					],
 				}),
 			],
@@ -2397,8 +3701,8 @@ describe("Query engine E2E", () => {
 			});
 
 			expect(response.status).toBe(200);
-			expect(data?.data.mode).toBe("events");
-			const result = data?.data.mode === "events" ? data.data.data : undefined;
+			expect(data?.mode).toBe("events");
+			const result = data?.mode === "events" ? data.data : undefined;
 			expect(result?.items).toHaveLength(2);
 			expect(result?.meta.pagination.total).toBe(2);
 			expect(result?.meta.pagination.hasNextPage).toBe(false);
@@ -2491,7 +3795,7 @@ describe("Query engine E2E", () => {
 			});
 
 			expect(response.status).toBe(200);
-			const result = data?.data.mode === "events" ? data.data.data : undefined;
+			const result = data?.mode === "events" ? data.data : undefined;
 			expect(result?.items).toHaveLength(1);
 			expect(result?.items[0]?.find((f) => f.key === "schemaSlug")?.value).toBe(watchSchema.slug);
 		});
@@ -2595,7 +3899,7 @@ describe("Query engine E2E", () => {
 			});
 
 			expect(response.status).toBe(200);
-			const items = data?.data.mode === "events" ? data.data.data.items : [];
+			const items = data?.mode === "events" ? data.data.items : [];
 			expect(items).toHaveLength(3);
 			const ratings = items.map((item) => item.find((f) => f.key === "rating")?.value);
 			expect(ratings).toEqual([5, 3, 1]);
@@ -2700,7 +4004,7 @@ describe("Query engine E2E", () => {
 			});
 
 			expect(response.status).toBe(200);
-			const items = data?.data.mode === "events" ? data.data.data.items : [];
+			const items = data?.mode === "events" ? data.data.items : [];
 			expect(items).toHaveLength(1);
 			const firstItem = items[0] ?? [];
 			expect(firstItem.find((f) => f.key === "entityName")?.value).toBe("Named Entity");
@@ -2808,8 +4112,8 @@ describe("Query engine E2E", () => {
 				},
 			});
 
-			const result1 = page1.data?.data.mode === "events" ? page1.data.data.data : undefined;
-			const result3 = page3.data?.data.mode === "events" ? page3.data.data.data : undefined;
+			const result1 = page1.data?.mode === "events" ? page1.data.data : undefined;
+			const result3 = page3.data?.mode === "events" ? page3.data.data : undefined;
 
 			expect(page1.response.status).toBe(200);
 			expect(result1?.items).toHaveLength(2);
@@ -2957,7 +4261,7 @@ describe("Query engine E2E", () => {
 			});
 
 			expect(response.status).toBe(200);
-			const items = data?.data.mode === "events" ? data.data.data.items : [];
+			const items = data?.mode === "events" ? data.data.items : [];
 			// Both watch events should have the latest review rating attached
 			expect(items).toHaveLength(2);
 			for (const item of items) {
@@ -3045,7 +4349,7 @@ describe("Query engine E2E", () => {
 			});
 
 			expect(response.status).toBe(200);
-			const items = data?.data.mode === "events" ? data.data.data.items : [];
+			const items = data?.mode === "events" ? data.data.items : [];
 			expect(items).toHaveLength(2);
 			const ratings = items.map((item) => item.find((f) => f.key === "rating")?.value);
 			expect(ratings).toEqual([4, 5]);
@@ -3368,8 +4672,8 @@ describe("Query engine E2E", () => {
 			});
 
 			expect(response.status).toBe(200);
-			expect(data?.data.mode).toBe("timeSeries");
-			const buckets = data?.data.mode === "timeSeries" ? data.data.data.buckets : [];
+			expect(data?.mode).toBe("timeSeries");
+			const buckets = data?.mode === "timeSeries" ? data.data.buckets : [];
 			expect(buckets).toHaveLength(3);
 			// Today's bucket should have our 2 events
 			expect(buckets[0]?.value).toBe(2);
@@ -3424,8 +4728,8 @@ describe("Query engine E2E", () => {
 			});
 
 			expect(response.status).toBe(200);
-			expect(data?.data.mode).toBe("timeSeries");
-			const buckets = data?.data.mode === "timeSeries" ? data.data.data.buckets : [];
+			expect(data?.mode).toBe("timeSeries");
+			const buckets = data?.mode === "timeSeries" ? data.data.buckets : [];
 			expect(buckets).toHaveLength(24);
 		});
 
@@ -3475,7 +4779,7 @@ describe("Query engine E2E", () => {
 			expect(response.status).toBe(400);
 		});
 
-		it("includes the current bucket when the range stays within a single bucket", async () => {
+		it("returns zero for a partial bucket range that excludes the event", async () => {
 			const { client, cookies } = await createAuthenticatedClient();
 			const { trackerId } = await createTracker(client, cookies, {
 				name: "TimeSeries Single Bucket",
@@ -3516,8 +4820,8 @@ describe("Query engine E2E", () => {
 				eventSchemaId: reviewSchema.id,
 			});
 
-			const startAt = dayjs.utc().startOf("day").add(10, "hour").toISOString();
-			const endAt = dayjs.utc().startOf("day").add(12, "hour").toISOString();
+			const startAt = dayjs.utc().add(1, "year").startOf("day").add(10, "hour").toISOString();
+			const endAt = dayjs.utc().add(1, "year").startOf("day").add(12, "hour").toISOString();
 
 			const { data, response } = await client.POST("/query-engine/execute", {
 				headers: { Cookie: cookies },
@@ -3534,9 +4838,9 @@ describe("Query engine E2E", () => {
 			});
 
 			expect(response.status).toBe(200);
-			const buckets = data?.data.mode === "timeSeries" ? data.data.data.buckets : [];
+			const buckets = data?.mode === "timeSeries" ? data.data.buckets : [];
 			expect(buckets).toHaveLength(1);
-			expect(buckets[0]?.value).toBe(1);
+			expect(buckets[0]?.value).toBe(0);
 		});
 
 		it("filters events before bucketing with an event property filter", async () => {
@@ -3629,7 +4933,7 @@ describe("Query engine E2E", () => {
 			});
 
 			expect(response.status).toBe(200);
-			const buckets = data?.data.mode === "timeSeries" ? data.data.data.buckets : [];
+			const buckets = data?.mode === "timeSeries" ? data.data.buckets : [];
 			// Only the 2 events with rating >= 5 should be counted
 			expect(buckets[0]?.value).toBe(2);
 		});
@@ -3726,18 +5030,15 @@ describe("Query engine E2E", () => {
 				headers: { Cookie: cookies },
 				body: {
 					filter: null,
+					bucket: "day",
 					mode: "timeSeries",
 					computedFields: [],
 					scope: [schema.slug],
 					dateRange: { startAt, endAt },
 					eventSchemas: [reviewSchema.slug],
-					bucket: "day",
 					metric: {
 						type: "sum",
-						expression: {
-							type: "reference",
-							reference: { type: "event", path: ["createdAt"] },
-						},
+						expression: { type: "reference", reference: { type: "event", path: ["createdAt"] } },
 					},
 				},
 			});

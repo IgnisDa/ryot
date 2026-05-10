@@ -5,14 +5,23 @@ import { db } from "~/lib/db";
 import { buildQueryContext, type PreparedQueryContext } from "./context";
 import { buildBaseEntitiesCte } from "./entity-query-ctes";
 import { buildJoinedEntitiesCte, buildLatestEventJoinCte } from "./event-join-ctes";
-import { createScalarExpressionCompiler, type ExpressionCompiler } from "./expression-compiler";
+import {
+	createQueryCompiler,
+	createScalarExpressionCompiler,
+	type ExpressionCompiler,
+} from "./expression-compiler";
 import { createExpressionTypeResolver } from "./expression-type-resolver";
 import { buildFilterWhereClause } from "./filter-builder";
+import { ENTITY_CTE_ALIASES } from "./query-cte-shared";
+import {
+	buildLatestRelationshipJoinCte,
+	buildRequiredJoinWhereClause,
+} from "./relationship-join-ctes";
 import type {
 	AggregateQueryEngineRequest,
+	QueryEngineAggregateResponseData,
 	QueryEngineAggregateResponse,
 	QueryEngineContext,
-	ResolvedDisplayValue,
 } from "./schemas";
 import { sanitizeIdentifier } from "./sql-expression-helpers";
 
@@ -28,6 +37,8 @@ const buildCountByAggregationExpression = (input: {
 	const safeAlias = sanitizeIdentifier(input.alias, "table alias");
 	const groupByExpression = input.compiler.compile(input.expression.groupBy);
 
+	// CountBy response keys are always strings regardless of input expression
+	// type, since the SQL builder casts values to ::text for JSONB map keys.
 	return sql`coalesce((
 		select jsonb_object_agg(gk, gc)
 		from (
@@ -59,7 +70,7 @@ const buildAggregationExpression = (input: {
 			predicate: input.aggregation.predicate,
 		});
 
-		return sql`to_jsonb(count(*) filter (where ${predicateClause ?? sql`true`})::integer)`;
+		return sql`to_jsonb(count(*) filter (where ${predicateClause})::integer)`;
 	}
 
 	if (input.aggregation.type === "countBy") {
@@ -87,10 +98,15 @@ const buildAggregationExpression = (input: {
 	return sql`to_jsonb(max(${valueExpression}))`;
 };
 
-type AggregateValue = {
-	key: string;
-	value: unknown;
-	kind: ResolvedDisplayValue["kind"];
+type AggregateValue = QueryEngineAggregateResponseData["values"][number];
+
+const isNumberRecord = (value: unknown): value is Record<string, number> => {
+	return (
+		typeof value === "object" &&
+		value !== null &&
+		!Array.isArray(value) &&
+		Object.values(value).every((item) => typeof item === "number")
+	);
 };
 
 export const mapAggregateValue = (input: {
@@ -99,12 +115,17 @@ export const mapAggregateValue = (input: {
 	type: AggregateQueryEngineRequest["aggregations"][number]["aggregation"]["type"];
 }): AggregateValue => {
 	if (input.type === "countBy") {
-		return { kind: "json", key: input.key, value: input.value ?? {} };
+		const value = input.value;
+		return {
+			kind: "json",
+			key: input.key,
+			value: isNumberRecord(value) ? value : {},
+		};
 	}
 	if (input.value === null) {
 		return { kind: "null", key: input.key, value: null };
 	}
-	return { kind: "number", key: input.key, value: input.value };
+	return { kind: "number", key: input.key, value: Number(input.value) };
 };
 
 export const executeAggregateQuery = async (input: {
@@ -117,25 +138,26 @@ export const executeAggregateQuery = async (input: {
 		context: queryContext,
 		computedFields: input.request.computedFields,
 	});
-	const createCompiler = (alias: string) => {
-		const { compile } = createScalarExpressionCompiler({
-			alias,
-			getTypeInfo,
-			context: queryContext,
-			computedFields: input.request.computedFields,
-		});
-		return { compile, getTypeInfo };
-	};
 	const baseEntitiesCte = buildBaseEntitiesCte({
 		userId: input.userId,
-		relationshipSchemaIds: input.context.relationshipSchemaIds,
 		entitySchemaIds: input.context.runtimeSchemas.map((schema) => schema.id),
 	});
 	const latestEventJoinCtes = input.context.eventJoins.map((join) => {
 		return buildLatestEventJoinCte({ join, userId: input.userId });
 	});
-	const joinedEntitiesCte = buildJoinedEntitiesCte(input.context.eventJoins);
-	const filterCompiler = createCompiler("joined_entities");
+	const latestRelationshipJoinCtes = input.context.relationshipJoins.map((join) => {
+		return buildLatestRelationshipJoinCte({ join, userId: input.userId });
+	});
+	const joinedEntitiesCte = buildJoinedEntitiesCte({
+		eventJoins: input.context.eventJoins,
+		relationshipJoins: input.context.relationshipJoins,
+	});
+	const filterCompiler = createQueryCompiler({
+		getTypeInfo,
+		context: queryContext,
+		alias: ENTITY_CTE_ALIASES.joined,
+		computedFields: input.request.computedFields,
+	});
 	const filterWhereClause = buildFilterWhereClause({
 		context: queryContext,
 		compiler: filterCompiler,
@@ -145,35 +167,46 @@ export const executeAggregateQuery = async (input: {
 	const aggregationCompiler = createScalarExpressionCompiler({
 		getTypeInfo,
 		context: queryContext,
-		alias: "filtered_entities",
+		alias: ENTITY_CTE_ALIASES.filtered,
 		computedFields: input.request.computedFields,
 	});
-	const aggregationExpressionCompiler = createCompiler("filtered_entities");
+	const aggregationExpressionCompiler = createQueryCompiler({
+		getTypeInfo,
+		context: queryContext,
+		alias: ENTITY_CTE_ALIASES.filtered,
+		computedFields: input.request.computedFields,
+	});
 	const selectExpressions = input.request.aggregations.map((aggregationField, index) => {
 		const columnName = `aggregation_${index}`;
 		const expression = buildAggregationExpression({
 			context: queryContext,
-			alias: "filtered_entities",
 			compiler: aggregationCompiler,
-			expressionCompiler: aggregationExpressionCompiler,
+			alias: ENTITY_CTE_ALIASES.filtered,
 			aggregation: aggregationField.aggregation,
 			computedFields: input.request.computedFields,
+			expressionCompiler: aggregationExpressionCompiler,
 		});
 
 		return sql`${expression} as ${sql.raw(sanitizeIdentifier(columnName, "column alias"))}`;
 	});
-	const filterClause = filterWhereClause ?? sql`true`;
-	const cteList = sql.join([baseEntitiesCte, ...latestEventJoinCtes, joinedEntitiesCte], sql`, `);
+	const requiredJoinClause = buildRequiredJoinWhereClause(input.context.relationshipJoins);
+	const filterClause = requiredJoinClause
+		? sql`${filterWhereClause} and ${requiredJoinClause}`
+		: filterWhereClause;
+	const cteList = sql.join(
+		[baseEntitiesCte, ...latestEventJoinCtes, ...latestRelationshipJoinCtes, joinedEntitiesCte],
+		sql`, `,
+	);
 	const result = await db.execute<AggregateRow>(sql`
 		with
 			${cteList},
-			filtered_entities as (
+			${sql.raw(ENTITY_CTE_ALIASES.filtered)} as (
 				select *
-				from joined_entities
+				from ${sql.raw(ENTITY_CTE_ALIASES.joined)}
 				where ${filterClause}
 			)
 		select ${sql.join(selectExpressions, sql`, `)}
-		from filtered_entities
+		from ${sql.raw(ENTITY_CTE_ALIASES.filtered)}
 	`);
 	const row = result.rows[0] ?? {};
 

@@ -101,7 +101,7 @@ driver("search", async function (context) {
         imageProperty:
           thumb === null
             ? { kind: "null", value: null }
-            : { kind: "image", value: { kind: "remote", url: thumb } },
+            : { kind: "image", value: { type: "remote", url: thumb } },
       });
     }
   }
@@ -159,7 +159,7 @@ driver("details", async function (context) {
       publishYear,
       byVariousArtists,
       sourceUrl: `https://music.youtube.com/watch?v=${externalId}`,
-      images: getThumbnailUrls(trackItem.thumbnail).map((url) => ({ kind: "remote", url })),
+      images: getThumbnailUrls(trackItem.thumbnail).map((url) => ({ type: "remote", url })),
     },
   };
 });

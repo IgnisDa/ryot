@@ -485,11 +485,11 @@ export interface paths {
                                     image: {
                                         key: string;
                                         /** @enum {string} */
-                                        kind: "s3";
+                                        type: "s3";
                                     } | {
                                         url: string;
                                         /** @enum {string} */
-                                        kind: "remote";
+                                        type: "remote";
                                     } | unknown;
                                     subtitle: {
                                         raw?: number | null;
@@ -583,11 +583,11 @@ export interface paths {
                                     image: {
                                         key: string;
                                         /** @enum {string} */
-                                        kind: "s3";
+                                        type: "s3";
                                     } | {
                                         url: string;
                                         /** @enum {string} */
-                                        kind: "remote";
+                                        type: "remote";
                                     } | unknown;
                                     subtitle: {
                                         raw?: number | null;
@@ -686,11 +686,11 @@ export interface paths {
                                     image: {
                                         key: string;
                                         /** @enum {string} */
-                                        kind: "s3";
+                                        type: "s3";
                                     } | {
                                         url: string;
                                         /** @enum {string} */
-                                        kind: "remote";
+                                        type: "remote";
                                     } | unknown;
                                     subtitle: {
                                         raw?: number | null;
@@ -790,11 +790,11 @@ export interface paths {
                                         image: {
                                             key: string;
                                             /** @enum {string} */
-                                            kind: "s3";
+                                            type: "s3";
                                         } | {
                                             url: string;
                                             /** @enum {string} */
-                                            kind: "remote";
+                                            type: "remote";
                                         } | unknown;
                                         /** @enum {string} */
                                         entitySchemaSlug: "book" | "comic-book" | "anime" | "manga" | "audiobook" | "podcast" | "movie" | "show" | "video-game" | "visual-novel" | "music";
@@ -1437,11 +1437,11 @@ export interface paths {
                                     image: {
                                         key: string;
                                         /** @enum {string} */
-                                        kind: "s3";
+                                        type: "s3";
                                     } | {
                                         url: string;
                                         /** @enum {string} */
-                                        kind: "remote";
+                                        type: "remote";
                                     } | unknown;
                                     externalId: string | null;
                                     properties: {
@@ -2007,11 +2007,11 @@ export interface paths {
                                 image: {
                                     key: string;
                                     /** @enum {string} */
-                                    kind: "s3";
+                                    type: "s3";
                                 } | {
                                     url: string;
                                     /** @enum {string} */
-                                    kind: "remote";
+                                    type: "remote";
                                 } | unknown;
                                 externalId: string | null;
                                 properties: {
@@ -2088,11 +2088,11 @@ export interface paths {
                         image: {
                             key: string;
                             /** @enum {string} */
-                            kind: "s3";
+                            type: "s3";
                         } | {
                             url: string;
                             /** @enum {string} */
-                            kind: "remote";
+                            type: "remote";
                         } | unknown;
                         name: string;
                         properties: {
@@ -2125,11 +2125,11 @@ export interface paths {
                                 image: {
                                     key: string;
                                     /** @enum {string} */
-                                    kind: "s3";
+                                    type: "s3";
                                 } | {
                                     url: string;
                                     /** @enum {string} */
-                                    kind: "remote";
+                                    type: "remote";
                                 } | unknown;
                                 externalId: string | null;
                                 properties: {
@@ -2705,11 +2705,21 @@ export interface paths {
                                         kind: "latestEvent";
                                         eventSchemaSlug: string;
                                     }[];
-                                    /** @default [] */
-                                    relationships: {
-                                        relationshipSchemaSlug: string;
-                                    }[];
                                     filter?: components["schemas"]["NullableViewPredicate"];
+                                    /** @default [] */
+                                    relationshipJoins: {
+                                        key: string;
+                                        sourceEntityId?: string;
+                                        targetEntityId?: string;
+                                        /** @enum {string} */
+                                        kind: "latestRelationship";
+                                        filter?: components["schemas"]["NullableViewPredicate"];
+                                        /** @enum {string} */
+                                        direction: "outgoing" | "incoming";
+                                        relationshipSchemaSlug: string;
+                                        /** @default false */
+                                        required: boolean;
+                                    }[];
                                     sort: {
                                         expression: components["schemas"]["ViewExpression"];
                                         /** @enum {string} */
@@ -2727,11 +2737,21 @@ export interface paths {
                                         kind: "latestEvent";
                                         eventSchemaSlug: string;
                                     }[];
-                                    /** @default [] */
-                                    relationships: {
-                                        relationshipSchemaSlug: string;
-                                    }[];
                                     filter?: components["schemas"]["NullableViewPredicate"];
+                                    /** @default [] */
+                                    relationshipJoins: {
+                                        key: string;
+                                        sourceEntityId?: string;
+                                        targetEntityId?: string;
+                                        /** @enum {string} */
+                                        kind: "latestRelationship";
+                                        filter?: components["schemas"]["NullableViewPredicate"];
+                                        /** @enum {string} */
+                                        direction: "outgoing" | "incoming";
+                                        relationshipSchemaSlug: string;
+                                        /** @default false */
+                                        required: boolean;
+                                    }[];
                                     sort: {
                                         expression: components["schemas"]["ViewExpression"];
                                         /** @enum {string} */
@@ -2755,8 +2775,8 @@ export interface paths {
                                     };
                                     table: {
                                         columns: {
-                                            label: string;
                                             expression: components["schemas"]["ViewExpression"];
+                                            label: string;
                                         }[];
                                     };
                                 };
@@ -2811,11 +2831,21 @@ export interface paths {
                                 kind: "latestEvent";
                                 eventSchemaSlug: string;
                             }[];
-                            /** @default [] */
-                            relationships?: {
-                                relationshipSchemaSlug: string;
-                            }[];
                             filter?: components["schemas"]["NullableViewPredicate"];
+                            /** @default [] */
+                            relationshipJoins?: {
+                                key: string;
+                                sourceEntityId?: string;
+                                targetEntityId?: string;
+                                /** @enum {string} */
+                                kind: "latestRelationship";
+                                filter?: components["schemas"]["NullableViewPredicate"];
+                                /** @enum {string} */
+                                direction: "outgoing" | "incoming";
+                                relationshipSchemaSlug: string;
+                                /** @default false */
+                                required?: boolean;
+                            }[];
                             sort: {
                                 expression: components["schemas"]["ViewExpression"];
                                 /** @enum {string} */
@@ -2833,11 +2863,21 @@ export interface paths {
                                 kind: "latestEvent";
                                 eventSchemaSlug: string;
                             }[];
-                            /** @default [] */
-                            relationships?: {
-                                relationshipSchemaSlug: string;
-                            }[];
                             filter?: components["schemas"]["NullableViewPredicate"];
+                            /** @default [] */
+                            relationshipJoins?: {
+                                key: string;
+                                sourceEntityId?: string;
+                                targetEntityId?: string;
+                                /** @enum {string} */
+                                kind: "latestRelationship";
+                                filter?: components["schemas"]["NullableViewPredicate"];
+                                /** @enum {string} */
+                                direction: "outgoing" | "incoming";
+                                relationshipSchemaSlug: string;
+                                /** @default false */
+                                required?: boolean;
+                            }[];
                             sort: {
                                 expression: components["schemas"]["ViewExpression"];
                                 /** @enum {string} */
@@ -2861,8 +2901,8 @@ export interface paths {
                             };
                             table: {
                                 columns: {
-                                    label: string;
                                     expression: components["schemas"]["ViewExpression"];
+                                    label: string;
                                 }[];
                             };
                         };
@@ -2906,11 +2946,21 @@ export interface paths {
                                         kind: "latestEvent";
                                         eventSchemaSlug: string;
                                     }[];
-                                    /** @default [] */
-                                    relationships: {
-                                        relationshipSchemaSlug: string;
-                                    }[];
                                     filter?: components["schemas"]["NullableViewPredicate"];
+                                    /** @default [] */
+                                    relationshipJoins: {
+                                        key: string;
+                                        sourceEntityId?: string;
+                                        targetEntityId?: string;
+                                        /** @enum {string} */
+                                        kind: "latestRelationship";
+                                        filter?: components["schemas"]["NullableViewPredicate"];
+                                        /** @enum {string} */
+                                        direction: "outgoing" | "incoming";
+                                        relationshipSchemaSlug: string;
+                                        /** @default false */
+                                        required: boolean;
+                                    }[];
                                     sort: {
                                         expression: components["schemas"]["ViewExpression"];
                                         /** @enum {string} */
@@ -2928,11 +2978,21 @@ export interface paths {
                                         kind: "latestEvent";
                                         eventSchemaSlug: string;
                                     }[];
-                                    /** @default [] */
-                                    relationships: {
-                                        relationshipSchemaSlug: string;
-                                    }[];
                                     filter?: components["schemas"]["NullableViewPredicate"];
+                                    /** @default [] */
+                                    relationshipJoins: {
+                                        key: string;
+                                        sourceEntityId?: string;
+                                        targetEntityId?: string;
+                                        /** @enum {string} */
+                                        kind: "latestRelationship";
+                                        filter?: components["schemas"]["NullableViewPredicate"];
+                                        /** @enum {string} */
+                                        direction: "outgoing" | "incoming";
+                                        relationshipSchemaSlug: string;
+                                        /** @default false */
+                                        required: boolean;
+                                    }[];
                                     sort: {
                                         expression: components["schemas"]["ViewExpression"];
                                         /** @enum {string} */
@@ -2956,8 +3016,8 @@ export interface paths {
                                     };
                                     table: {
                                         columns: {
-                                            label: string;
                                             expression: components["schemas"]["ViewExpression"];
+                                            label: string;
                                         }[];
                                     };
                                 };
@@ -3046,11 +3106,21 @@ export interface paths {
                                         kind: "latestEvent";
                                         eventSchemaSlug: string;
                                     }[];
-                                    /** @default [] */
-                                    relationships: {
-                                        relationshipSchemaSlug: string;
-                                    }[];
                                     filter?: components["schemas"]["NullableViewPredicate"];
+                                    /** @default [] */
+                                    relationshipJoins: {
+                                        key: string;
+                                        sourceEntityId?: string;
+                                        targetEntityId?: string;
+                                        /** @enum {string} */
+                                        kind: "latestRelationship";
+                                        filter?: components["schemas"]["NullableViewPredicate"];
+                                        /** @enum {string} */
+                                        direction: "outgoing" | "incoming";
+                                        relationshipSchemaSlug: string;
+                                        /** @default false */
+                                        required: boolean;
+                                    }[];
                                     sort: {
                                         expression: components["schemas"]["ViewExpression"];
                                         /** @enum {string} */
@@ -3068,11 +3138,21 @@ export interface paths {
                                         kind: "latestEvent";
                                         eventSchemaSlug: string;
                                     }[];
-                                    /** @default [] */
-                                    relationships: {
-                                        relationshipSchemaSlug: string;
-                                    }[];
                                     filter?: components["schemas"]["NullableViewPredicate"];
+                                    /** @default [] */
+                                    relationshipJoins: {
+                                        key: string;
+                                        sourceEntityId?: string;
+                                        targetEntityId?: string;
+                                        /** @enum {string} */
+                                        kind: "latestRelationship";
+                                        filter?: components["schemas"]["NullableViewPredicate"];
+                                        /** @enum {string} */
+                                        direction: "outgoing" | "incoming";
+                                        relationshipSchemaSlug: string;
+                                        /** @default false */
+                                        required: boolean;
+                                    }[];
                                     sort: {
                                         expression: components["schemas"]["ViewExpression"];
                                         /** @enum {string} */
@@ -3096,8 +3176,8 @@ export interface paths {
                                     };
                                     table: {
                                         columns: {
-                                            label: string;
                                             expression: components["schemas"]["ViewExpression"];
+                                            label: string;
                                         }[];
                                     };
                                 };
@@ -3157,11 +3237,21 @@ export interface paths {
                                 kind: "latestEvent";
                                 eventSchemaSlug: string;
                             }[];
-                            /** @default [] */
-                            relationships?: {
-                                relationshipSchemaSlug: string;
-                            }[];
                             filter?: components["schemas"]["NullableViewPredicate"];
+                            /** @default [] */
+                            relationshipJoins?: {
+                                key: string;
+                                sourceEntityId?: string;
+                                targetEntityId?: string;
+                                /** @enum {string} */
+                                kind: "latestRelationship";
+                                filter?: components["schemas"]["NullableViewPredicate"];
+                                /** @enum {string} */
+                                direction: "outgoing" | "incoming";
+                                relationshipSchemaSlug: string;
+                                /** @default false */
+                                required?: boolean;
+                            }[];
                             sort: {
                                 expression: components["schemas"]["ViewExpression"];
                                 /** @enum {string} */
@@ -3179,11 +3269,21 @@ export interface paths {
                                 kind: "latestEvent";
                                 eventSchemaSlug: string;
                             }[];
-                            /** @default [] */
-                            relationships?: {
-                                relationshipSchemaSlug: string;
-                            }[];
                             filter?: components["schemas"]["NullableViewPredicate"];
+                            /** @default [] */
+                            relationshipJoins?: {
+                                key: string;
+                                sourceEntityId?: string;
+                                targetEntityId?: string;
+                                /** @enum {string} */
+                                kind: "latestRelationship";
+                                filter?: components["schemas"]["NullableViewPredicate"];
+                                /** @enum {string} */
+                                direction: "outgoing" | "incoming";
+                                relationshipSchemaSlug: string;
+                                /** @default false */
+                                required?: boolean;
+                            }[];
                             sort: {
                                 expression: components["schemas"]["ViewExpression"];
                                 /** @enum {string} */
@@ -3207,8 +3307,8 @@ export interface paths {
                             };
                             table: {
                                 columns: {
-                                    label: string;
                                     expression: components["schemas"]["ViewExpression"];
+                                    label: string;
                                 }[];
                             };
                         };
@@ -3252,11 +3352,21 @@ export interface paths {
                                         kind: "latestEvent";
                                         eventSchemaSlug: string;
                                     }[];
-                                    /** @default [] */
-                                    relationships: {
-                                        relationshipSchemaSlug: string;
-                                    }[];
                                     filter?: components["schemas"]["NullableViewPredicate"];
+                                    /** @default [] */
+                                    relationshipJoins: {
+                                        key: string;
+                                        sourceEntityId?: string;
+                                        targetEntityId?: string;
+                                        /** @enum {string} */
+                                        kind: "latestRelationship";
+                                        filter?: components["schemas"]["NullableViewPredicate"];
+                                        /** @enum {string} */
+                                        direction: "outgoing" | "incoming";
+                                        relationshipSchemaSlug: string;
+                                        /** @default false */
+                                        required: boolean;
+                                    }[];
                                     sort: {
                                         expression: components["schemas"]["ViewExpression"];
                                         /** @enum {string} */
@@ -3274,11 +3384,21 @@ export interface paths {
                                         kind: "latestEvent";
                                         eventSchemaSlug: string;
                                     }[];
-                                    /** @default [] */
-                                    relationships: {
-                                        relationshipSchemaSlug: string;
-                                    }[];
                                     filter?: components["schemas"]["NullableViewPredicate"];
+                                    /** @default [] */
+                                    relationshipJoins: {
+                                        key: string;
+                                        sourceEntityId?: string;
+                                        targetEntityId?: string;
+                                        /** @enum {string} */
+                                        kind: "latestRelationship";
+                                        filter?: components["schemas"]["NullableViewPredicate"];
+                                        /** @enum {string} */
+                                        direction: "outgoing" | "incoming";
+                                        relationshipSchemaSlug: string;
+                                        /** @default false */
+                                        required: boolean;
+                                    }[];
                                     sort: {
                                         expression: components["schemas"]["ViewExpression"];
                                         /** @enum {string} */
@@ -3302,8 +3422,8 @@ export interface paths {
                                     };
                                     table: {
                                         columns: {
-                                            label: string;
                                             expression: components["schemas"]["ViewExpression"];
+                                            label: string;
                                         }[];
                                     };
                                 };
@@ -3391,11 +3511,21 @@ export interface paths {
                                         kind: "latestEvent";
                                         eventSchemaSlug: string;
                                     }[];
-                                    /** @default [] */
-                                    relationships: {
-                                        relationshipSchemaSlug: string;
-                                    }[];
                                     filter?: components["schemas"]["NullableViewPredicate"];
+                                    /** @default [] */
+                                    relationshipJoins: {
+                                        key: string;
+                                        sourceEntityId?: string;
+                                        targetEntityId?: string;
+                                        /** @enum {string} */
+                                        kind: "latestRelationship";
+                                        filter?: components["schemas"]["NullableViewPredicate"];
+                                        /** @enum {string} */
+                                        direction: "outgoing" | "incoming";
+                                        relationshipSchemaSlug: string;
+                                        /** @default false */
+                                        required: boolean;
+                                    }[];
                                     sort: {
                                         expression: components["schemas"]["ViewExpression"];
                                         /** @enum {string} */
@@ -3413,11 +3543,21 @@ export interface paths {
                                         kind: "latestEvent";
                                         eventSchemaSlug: string;
                                     }[];
-                                    /** @default [] */
-                                    relationships: {
-                                        relationshipSchemaSlug: string;
-                                    }[];
                                     filter?: components["schemas"]["NullableViewPredicate"];
+                                    /** @default [] */
+                                    relationshipJoins: {
+                                        key: string;
+                                        sourceEntityId?: string;
+                                        targetEntityId?: string;
+                                        /** @enum {string} */
+                                        kind: "latestRelationship";
+                                        filter?: components["schemas"]["NullableViewPredicate"];
+                                        /** @enum {string} */
+                                        direction: "outgoing" | "incoming";
+                                        relationshipSchemaSlug: string;
+                                        /** @default false */
+                                        required: boolean;
+                                    }[];
                                     sort: {
                                         expression: components["schemas"]["ViewExpression"];
                                         /** @enum {string} */
@@ -3441,8 +3581,8 @@ export interface paths {
                                     };
                                     table: {
                                         columns: {
-                                            label: string;
                                             expression: components["schemas"]["ViewExpression"];
+                                            label: string;
                                         }[];
                                     };
                                 };
@@ -3543,11 +3683,21 @@ export interface paths {
                                         kind: "latestEvent";
                                         eventSchemaSlug: string;
                                     }[];
-                                    /** @default [] */
-                                    relationships: {
-                                        relationshipSchemaSlug: string;
-                                    }[];
                                     filter?: components["schemas"]["NullableViewPredicate"];
+                                    /** @default [] */
+                                    relationshipJoins: {
+                                        key: string;
+                                        sourceEntityId?: string;
+                                        targetEntityId?: string;
+                                        /** @enum {string} */
+                                        kind: "latestRelationship";
+                                        filter?: components["schemas"]["NullableViewPredicate"];
+                                        /** @enum {string} */
+                                        direction: "outgoing" | "incoming";
+                                        relationshipSchemaSlug: string;
+                                        /** @default false */
+                                        required: boolean;
+                                    }[];
                                     sort: {
                                         expression: components["schemas"]["ViewExpression"];
                                         /** @enum {string} */
@@ -3565,11 +3715,21 @@ export interface paths {
                                         kind: "latestEvent";
                                         eventSchemaSlug: string;
                                     }[];
-                                    /** @default [] */
-                                    relationships: {
-                                        relationshipSchemaSlug: string;
-                                    }[];
                                     filter?: components["schemas"]["NullableViewPredicate"];
+                                    /** @default [] */
+                                    relationshipJoins: {
+                                        key: string;
+                                        sourceEntityId?: string;
+                                        targetEntityId?: string;
+                                        /** @enum {string} */
+                                        kind: "latestRelationship";
+                                        filter?: components["schemas"]["NullableViewPredicate"];
+                                        /** @enum {string} */
+                                        direction: "outgoing" | "incoming";
+                                        relationshipSchemaSlug: string;
+                                        /** @default false */
+                                        required: boolean;
+                                    }[];
                                     sort: {
                                         expression: components["schemas"]["ViewExpression"];
                                         /** @enum {string} */
@@ -3593,8 +3753,8 @@ export interface paths {
                                     };
                                     table: {
                                         columns: {
-                                            label: string;
                                             expression: components["schemas"]["ViewExpression"];
+                                            label: string;
                                         }[];
                                     };
                                 };
@@ -3760,11 +3920,11 @@ export interface paths {
                                 image: {
                                     key: string;
                                     /** @enum {string} */
-                                    kind: "s3";
+                                    type: "s3";
                                 } | {
                                     url: string;
                                     /** @enum {string} */
-                                    kind: "remote";
+                                    type: "remote";
                                 } | unknown;
                                 externalId: string | null;
                                 properties: {
@@ -3998,6 +4158,7 @@ export interface paths {
                     "application/json": {
                         scope: string[];
                         computedFields?: components["schemas"]["ViewComputedField"][];
+                        filter?: components["schemas"]["NullableViewPredicate"];
                         /** @default [] */
                         eventJoins?: {
                             key: string;
@@ -4006,10 +4167,19 @@ export interface paths {
                             eventSchemaSlug: string;
                         }[];
                         /** @default [] */
-                        relationships?: {
+                        relationshipJoins?: {
+                            key: string;
+                            sourceEntityId?: string;
+                            targetEntityId?: string;
+                            /** @enum {string} */
+                            kind: "latestRelationship";
+                            filter?: components["schemas"]["NullableViewPredicate"];
+                            /** @enum {string} */
+                            direction: "outgoing" | "incoming";
                             relationshipSchemaSlug: string;
+                            /** @default false */
+                            required?: boolean;
                         }[];
-                        filter?: components["schemas"]["NullableViewPredicate"];
                         sort: {
                             expression: components["schemas"]["ViewExpression"];
                             /** @enum {string} */
@@ -4027,6 +4197,16 @@ export interface paths {
                             key: string;
                         }[];
                     } | {
+                        scope: string[];
+                        computedFields?: components["schemas"]["ViewComputedField"][];
+                        filter?: components["schemas"]["NullableViewPredicate"];
+                        /** @default [] */
+                        eventJoins?: {
+                            key: string;
+                            /** @enum {string} */
+                            kind: "latestEvent";
+                            eventSchemaSlug: string;
+                        }[];
                         sort: {
                             expression: components["schemas"]["ViewExpression"];
                             /** @enum {string} */
@@ -4036,27 +4216,18 @@ export interface paths {
                             page: number;
                             limit: number;
                         };
-                        scope: string[];
                         /** @enum {string} */
                         mode: "events";
-                        eventSchemas: string[];
                         /** @default [] */
                         fields?: {
                             expression: components["schemas"]["ViewExpression"];
                             key: string;
                         }[];
-                        computedFields?: components["schemas"]["ViewComputedField"][];
-                        /** @default [] */
-                        eventJoins?: {
-                            key: string;
-                            /** @enum {string} */
-                            kind: "latestEvent";
-                            eventSchemaSlug: string;
-                        }[];
-                        filter?: components["schemas"]["NullableViewPredicate"];
+                        eventSchemas?: string[];
                     } | {
                         scope: string[];
                         computedFields?: components["schemas"]["ViewComputedField"][];
+                        filter?: components["schemas"]["NullableViewPredicate"];
                         /** @default [] */
                         eventJoins?: {
                             key: string;
@@ -4065,10 +4236,19 @@ export interface paths {
                             eventSchemaSlug: string;
                         }[];
                         /** @default [] */
-                        relationships?: {
+                        relationshipJoins?: {
+                            key: string;
+                            sourceEntityId?: string;
+                            targetEntityId?: string;
+                            /** @enum {string} */
+                            kind: "latestRelationship";
+                            filter?: components["schemas"]["NullableViewPredicate"];
+                            /** @enum {string} */
+                            direction: "outgoing" | "incoming";
                             relationshipSchemaSlug: string;
+                            /** @default false */
+                            required?: boolean;
                         }[];
-                        filter?: components["schemas"]["NullableViewPredicate"];
                         /** @enum {string} */
                         mode: "aggregate";
                         aggregations: {
@@ -4076,10 +4256,6 @@ export interface paths {
                             aggregation: {
                                 /** @enum {string} */
                                 type: "count";
-                            } | {
-                                predicate: components["schemas"]["ViewPredicate"];
-                                /** @enum {string} */
-                                type: "countWhere";
                             } | {
                                 /** @enum {string} */
                                 type: "sum";
@@ -4100,10 +4276,16 @@ export interface paths {
                                 /** @enum {string} */
                                 type: "countBy";
                                 groupBy: components["schemas"]["ViewExpression"];
+                            } | {
+                                predicate: components["schemas"]["ViewPredicate"];
+                                /** @enum {string} */
+                                type: "countWhere";
                             };
                         }[];
                     } | {
                         scope: string[];
+                        computedFields?: components["schemas"]["ViewComputedField"][];
+                        filter?: components["schemas"]["NullableViewPredicate"];
                         metric: {
                             /** @enum {string} */
                             type: "count";
@@ -4112,11 +4294,9 @@ export interface paths {
                             type: "sum";
                             expression: components["schemas"]["ViewExpression"];
                         };
-                        eventSchemas: string[];
                         /** @enum {string} */
                         mode: "timeSeries";
-                        computedFields?: components["schemas"]["ViewComputedField"][];
-                        filter?: components["schemas"]["NullableViewPredicate"];
+                        eventSchemas?: string[];
                         /** @enum {string} */
                         bucket: "day" | "hour" | "month" | "week";
                         dateRange: {
@@ -4129,74 +4309,94 @@ export interface paths {
                 };
             };
             responses: {
-                /** @description Entities for the requested query-engine request */
+                /** @description Result for the requested query-engine request */
                 200: {
                     headers: {
                         [name: string]: unknown;
                     };
                     content: {
                         "application/json": {
+                            /** @enum {string} */
+                            mode: "entities";
                             data: {
-                                /** @enum {string} */
-                                mode: "entities";
-                                data: {
-                                    items: {
-                                        value?: unknown;
-                                        /** @enum {string} */
-                                        kind: "json" | "null" | "date" | "text" | "image" | "number" | "boolean";
-                                        key: string;
-                                    }[][];
-                                    meta: {
-                                        pagination: {
-                                            page: number;
-                                            total: number;
-                                            limit: number;
-                                            hasNextPage: boolean;
-                                            totalPages: number;
-                                            hasPreviousPage: boolean;
-                                        };
+                                items: {
+                                    value: string | number | boolean | unknown[] | {
+                                        [key: string]: unknown;
+                                    } | unknown;
+                                    /** @enum {string} */
+                                    kind: "json" | "null" | "date" | "text" | "image" | "number" | "boolean";
+                                    key: string;
+                                }[][];
+                                meta: {
+                                    pagination: {
+                                        page: number;
+                                        total: number;
+                                        limit: number;
+                                        hasNextPage: boolean;
+                                        totalPages: number;
+                                        hasPreviousPage: boolean;
                                     };
                                 };
-                            } | {
-                                /** @enum {string} */
-                                mode: "aggregate";
-                                data: {
-                                    values: {
-                                        value?: unknown;
-                                        /** @enum {string} */
-                                        kind: "json" | "null" | "date" | "text" | "image" | "number" | "boolean";
-                                        key: string;
-                                    }[];
-                                };
-                            } | {
-                                /** @enum {string} */
-                                mode: "events";
-                                data: {
-                                    items: {
-                                        value?: unknown;
-                                        /** @enum {string} */
-                                        kind: "json" | "null" | "date" | "text" | "image" | "number" | "boolean";
-                                        key: string;
-                                    }[][];
-                                    meta: {
-                                        pagination: {
-                                            page: number;
-                                            total: number;
-                                            limit: number;
-                                            hasNextPage: boolean;
-                                            totalPages: number;
-                                            hasPreviousPage: boolean;
-                                        };
+                            };
+                        } | {
+                            /** @enum {string} */
+                            mode: "aggregate";
+                            data: {
+                                values: ({
+                                    key: string;
+                                    value: number;
+                                    /** @enum {string} */
+                                    kind: "number";
+                                } | {
+                                    key: string;
+                                    /** @enum {string} */
+                                    kind: "json";
+                                    value: {
+                                        [key: string]: number;
+                                    };
+                                } | {
+                                    key: string;
+                                    /** @enum {string} */
+                                    kind: "null";
+                                    value: unknown;
+                                })[];
+                            };
+                        } | {
+                            /** @enum {string} */
+                            mode: "events";
+                            data: {
+                                items: {
+                                    value: string | number | boolean | unknown[] | {
+                                        [key: string]: unknown;
+                                    } | unknown;
+                                    /** @enum {string} */
+                                    kind: "json" | "null" | "date" | "text" | "image" | "number" | "boolean";
+                                    key: string;
+                                }[][];
+                                meta: {
+                                    pagination: {
+                                        page: number;
+                                        total: number;
+                                        limit: number;
+                                        hasNextPage: boolean;
+                                        totalPages: number;
+                                        hasPreviousPage: boolean;
                                     };
                                 };
-                            } | {
-                                /** @enum {string} */
-                                mode: "timeSeries";
-                                data: {
-                                    buckets: {
-                                        date: string;
-                                        value: number;
-                                    }[];
+                            };
+                        } | {
+                            /** @enum {string} */
+                            mode: "timeSeries";
+                            data: {
+                                buckets: {
+                                    date: string;
+                                    value: number;
+                                }[];
+                                meta: {
+                                    alignedDateRange: {
+                                        endAt: string;
+                                        startAt: string;
+                                    };
                                 };
                             };
                         };
@@ -4481,6 +4681,8 @@ export interface components {
             value: unknown;
             /** @enum {string} */
             type: "literal";
+            /** @enum {string} */
+            literalType?: "date";
         } | {
             reference: components["schemas"]["QueryEngineReference"];
             /** @enum {string} */
@@ -4536,6 +4738,11 @@ export interface components {
             joinKey: string;
             path: string[];
         } | {
+            joinKey: string;
+            /** @enum {string} */
+            type: "relationship-join";
+            path: string[];
+        } | {
             /** @enum {string} */
             type: "event";
             eventSchemaSlug?: string;
@@ -4550,7 +4757,7 @@ export interface components {
             eventSchemaSlug: string;
             /** @enum {string} */
             aggregation: "avg" | "count" | "max" | "min" | "sum";
-            path: string[];
+            path?: string[];
         } | {
             /** @enum {string} */
             type: "event-schema";

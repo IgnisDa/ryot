@@ -32,39 +32,41 @@ For concrete executable examples, see:
 - `sort.expression`: a single expression used for ordering (`entities` and `events` only)
 - `sort.direction`: `asc` or `desc` (`entities` and `events` only)
 - `pagination.page`: 1-based integer (`entities` and `events` only)
-- `pagination.limit`: positive integer (`entities` and `events` only)
-- `scope`: one or more entity schema slugs included in the query
+- `pagination.limit`: integer from 1 to 1000 (`entities` and `events` only)
+- `scope`: one or more unique, trimmed, non-empty entity schema slugs included in the query
 - `filter`: a predicate AST or `null`
 - `eventJoins`: zero or more event join definitions (`entities`, `aggregate`, and `events` only)
-- `relationships`: zero or more relationship schema slugs; non-user-owned entities are included by default, and when relationship slugs are provided, only those non-user-owned entities where the user has a matching relationship are included (`entities` and `aggregate` only)
+- `relationshipJoins`: zero or more relationship join definitions (`entities` and `aggregate` only)
 - `computedFields`: zero or more named reusable expressions (may be omitted)
 - `fields`: ordered list of output fields (`entities` and `events` only)
-- `eventSchemas`: one or more event schema slugs (`events` and `timeSeries` only, required)
+- `eventSchemas`: one or more unique, trimmed, non-empty event schema slugs (`events` and `timeSeries` only, required)
 - `aggregations`: one or more aggregation field definitions (`aggregate` only, required)
 - `metric`: `{ type: "count" }` or `{ type: "sum", expression }` (`timeSeries` only)
 - `bucket`: `"day"` | `"hour"` | `"week"` | `"month"` — time bucket size (`timeSeries` only)
-- `dateRange`: `{ startAt, endAt }` — ISO 8601 UTC datetime strings, `startAt` must be before `endAt` (`timeSeries` only)
+- `dateRange`: `{ startAt, endAt }` — ISO 8601 UTC datetime strings with no more than millisecond precision, `startAt` must be before `endAt` (`timeSeries` only)
 
 In `aggregate` mode:
 
 - `sort`, `pagination`, and `fields` are omitted.
 - `aggregations` is required.
-- The filtered entity set is still defined by `scope`, `filter`, `eventJoins`, `relationships`, and `computedFields`.
-- `countBy.groupBy` must resolve to a comparable scalar value.
+- The filtered entity set is still defined by `scope`, `filter`, `eventJoins`, `relationshipJoins`, and `computedFields`.
+- `countBy.groupBy` must resolve to a comparable scalar value. Response keys are always strings (values are cast to `::text` for JSONB map keys).
 
 In `events` mode:
 
 - Each result row is an event record, not an entity.
-- `relationships` is not supported (events are always user-owned).
+- `relationshipJoins` is not supported.
 - `event`, `event-schema`, and `event-join` reference types are all available.
 - Entity fields are accessible via prefixed column overrides (e.g. `entity.book.properties.title` resolves from the joined entity row).
 
 In `timeSeries` mode:
 
-- No `sort`, `pagination`, `fields`, `eventJoins`, or `relationships`.
+- No `sort`, `pagination`, `fields`, `eventJoins`, or `relationshipJoins`.
 - `generate_series` fills every bucket in the date range with 0 where no events exist.
 - All bucketing is in UTC.
-- `event-join` references are not supported; use `event` references for event-row fields.
+- `dateRange` is exact event inclusion `[startAt, endAt)`; bucket display expands to aligned bucket boundaries.
+- `week` buckets use ISO/Monday-start weeks.
+- `event` and `event-schema` references are supported; `event-join` references are not supported.
 
 ## Field Selection
 
@@ -82,6 +84,12 @@ Named expressions declared once and reused anywhere expressions are accepted.
 ## Expression Kinds
 
 Supported expression nodes: `literal`, `reference`, `coalesce`, `arithmetic`, `round`, `floor`, `integer`, `concat`, `conditional`, `transform`.
+
+Literal expressions support simple JSON literals (`{ "type": "literal", "value": "text" }`) and explicit typed literals. Use typed date literals for date comparisons; dates are not inferred from arbitrary strings:
+
+```json
+{ "type": "literal", "literalType": "date", "value": "2026-01-01T00:00:00.000Z" }
+```
 
 **`conditional`** — takes `condition`, `whenTrue`, and `whenFalse`:
 
@@ -123,11 +131,11 @@ Reference types:
 - `{ "type": "entity-schema", "path": [...] }` — field on the entity's associated schema (no slug needed)
 - `{ "type": "event-join", "joinKey": "...", "path": [...] }` — event join field (requires a declared `eventJoins` entry)
 - `{ "type": "event", "path": [...], "eventSchemaSlug": "..." }` — primary event row field (`events` and `timeSeries` modes). `eventSchemaSlug` is optional for property paths; when provided, enables schema-aware type inference.
-- `{ "type": "event-schema", "path": [...] }` — the event's own schema metadata (`events` mode only)
+- `{ "type": "event-schema", "path": [...] }` — the event's own schema metadata (`events` and `timeSeries` modes only)
 - `{ "type": "event-aggregate", "eventSchemaSlug": "...", "path": [...], "aggregation": "..." }` — aggregate across a user's events per entity (`entities` and `aggregate` modes)
 - `{ "type": "computed-field", "key": "..." }` — declared computed field
 
-The `path` array: a leading `"properties"` segment navigates into the JSONB `properties` column; any other first segment is a built-in system column (e.g. `"name"`, `"createdAt"`). Deep nested paths extend the array (e.g. `["properties", "metadata", "source"]`).
+The `path` array: a leading `"properties"` segment navigates into the JSONB `properties` column; any other first segment is a built-in system column (e.g. `"name"`, `"createdAt"`). Deep nested paths are valid only under `properties` (e.g. `["properties", "metadata", "source"]`). Built-in paths must be exactly one segment. Relationship related entity property paths like `["sourceEntity", "properties", "name"]` and `["targetEntity", "properties", "name"]` may nest under `properties`; related entity built-ins like `["sourceEntity", "name"]` are not nestable.
 
 ### Entity Built-Ins
 
@@ -179,7 +187,7 @@ Aggregations: `avg`, `count`, `max`, `min`, `sum`. Type inference returns `integ
 
 - Scoped to the authenticated user — user A sees only their own aggregates.
 - `eventSchemaSlug` must be valid for the entity schemas in the query.
-- For `count`, `path` is required by the schema but ignored in SQL — it counts all matching events.
+- For `count`, `path` may be omitted — it counts all matching events.
 - For non-`count`, `path` must reference a numeric property; non-numeric values are treated as NULL.
 - Do not require an `eventJoins` entry — run via correlated subquery.
 - Usable anywhere expressions are accepted.
@@ -194,6 +202,106 @@ Aggregations: `avg`, `count`, `max`, `min`, `sum`. Type inference returns `integ
 - `latestEvent`: uses the latest matching event per entity.
 - Event-join references only work when the join is declared in `eventJoins`.
 - The event schema must be available for the entity schemas in `scope`.
+
+## Relationship Joins
+
+```json
+[
+	{
+		"key": "inLibrary",
+		"kind": "latestRelationship",
+		"relationshipSchemaSlug": "in-library",
+		"direction": "outgoing",
+		"required": true,
+		"filter": null
+	}
+]
+```
+
+- `key` is your local alias used in relationship references.
+- `kind`: only `latestRelationship` is supported.
+- `relationshipSchemaSlug`: the slug of the relationship schema to join.
+- `direction`: `outgoing` (base entity is the relationship source) or `incoming` (base entity is the relationship target).
+- `required`: when `true`, entities without a matching relationship row are filtered out. Defaults to `false`.
+- `sourceEntityId` and `targetEntityId`: optional literal constraints on the actual relationship row sides, independent of direction.
+- `filter`: an optional predicate applied to candidate relationship rows before `latestRelationship` selection. Defaults to `null`.
+- Relationship joins match both user-owned and global (no user) relationship rows.
+- `latestRelationship` selects one row per base entity ordered by `createdAt` desc, then `id` desc.
+- Only supported in `entities` and `aggregate` modes.
+
+### Relationship Join Reference Paths
+
+Relationship join references use the `relationship-join` type with `joinKey` matching the join declaration:
+
+- `{ "type": "relationship-join", "joinKey": "...", "path": ["id"] }`
+- `{ "type": "relationship-join", "joinKey": "...", "path": ["createdAt"] }`
+- `{ "type": "relationship-join", "joinKey": "...", "path": ["sourceEntityId"] }`
+- `{ "type": "relationship-join", "joinKey": "...", "path": ["targetEntityId"] }`
+- `{ "type": "relationship-join", "joinKey": "...", "path": ["properties", "fieldName"] }`
+
+Related entity data:
+
+- `{ "type": "relationship-join", "joinKey": "...", "path": ["sourceEntity", "name"] }` — built-ins: `id`, `name`, `image`, `createdAt`, `updatedAt`, `externalId`, `sandboxScriptId`
+- `{ "type": "relationship-join", "joinKey": "...", "path": ["sourceEntity", "properties", "fieldName"] }` — when the relationship schema defines a source entity schema
+- `{ "type": "relationship-join", "joinKey": "...", "path": ["targetEntity", "name"] }`
+- `{ "type": "relationship-join", "joinKey": "...", "path": ["targetEntity", "properties", "fieldName"] }` — when the relationship schema defines a target entity schema
+
+Related entity `image` is display-only, not filterable or sortable.
+
+### Join-Local Filters
+
+The optional `filter` on a relationship join is evaluated against candidate rows before `latestRelationship` picks the latest one. This means "latest director credit" selects from director rows rather than picking the latest credit and then checking whether it is a director row.
+
+Join-local filters are limited:
+
+- May reference only literals and the current relationship join by its own `joinKey`.
+- Cannot reference computed fields, entity fields, event joins, primary events, event aggregates, other relationship joins, or related entity data (`sourceEntity` / `targetEntity`).
+
+### Relationship Join Examples
+
+Return a relationship property as a field:
+
+```json
+{
+	"type": "reference",
+	"reference": {
+		"type": "relationship-join",
+		"joinKey": "memberOf",
+		"path": ["properties", "rating"]
+	}
+}
+```
+
+Filter by a relationship property:
+
+```json
+{
+	"type": "comparison",
+	"operator": "gte",
+	"left": {
+		"type": "reference",
+		"reference": {
+			"type": "relationship-join",
+			"joinKey": "memberOf",
+			"path": ["properties", "rating"]
+		}
+	},
+	"right": { "type": "literal", "value": 4 }
+}
+```
+
+Sort by a related target entity name:
+
+```json
+{
+	"type": "reference",
+	"reference": {
+		"type": "relationship-join",
+		"joinKey": "memberOf",
+		"path": ["targetEntity", "name"]
+	}
+}
+```
 
 ## Filters
 
@@ -321,7 +429,7 @@ Time-series mode:
 }
 ```
 
-- `buckets` always covers every interval in `dateRange` — missing buckets are filled with `0`.
+- `buckets` covers every aligned interval touched by `dateRange` — missing buckets are filled with `0`.
 - `date` is an ISO 8601 UTC string truncated to the requested `bucket` granularity.
 
 Field result kinds: `text`, `number`, `boolean`, `date`, `image`, `json`, `null`.
@@ -351,6 +459,8 @@ Field result kinds: `text`, `number`, `boolean`, `date`, `image`, `json`, `null`
 - Filters apply before bucketing; only matching events are counted/summed.
 - Empty buckets always return `0`, never `null`.
 - The `endAt` bucket is exclusive — events at exactly `endAt` are not included.
+- `dateRange.startAt` and `dateRange.endAt` reject fractional seconds beyond milliseconds.
+- `event-schema.*` references are valid in filters, computed fields, and sum metrics.
 
 ## Gotchas
 
@@ -359,8 +469,9 @@ Field result kinds: `text`, `number`, `boolean`, `date`, `image`, `json`, `null`
 - `event-join.*` references require the join to be declared in `eventJoins`.
 - `event-aggregate` references do not require an entry in `eventJoins`.
 - `event` and `event-schema` references are only valid in `events` and `timeSeries` modes (where `eventSchemas` is present).
+- Built-in reference paths must be exactly one segment; only `properties` paths support nesting.
 - `event-join` references are not valid in `timeSeries` mode.
-- `relationships` is not supported in `events` mode.
+- `relationshipJoins` is not supported in `events` or `timeSeries` modes.
 - Sort/filter references must point to schemas included in `scope`.
 - `image` is display-only, not filterable.
 - Duplicate field keys are rejected.

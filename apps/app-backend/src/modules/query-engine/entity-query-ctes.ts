@@ -1,9 +1,8 @@
 import { sql } from "drizzle-orm";
 
-import { entity, entitySchema, relationship } from "~/lib/db/schema";
+import { entity, entitySchema } from "~/lib/db/schema";
 
 import { buildEntitySchemaDataExpression } from "./query-cte-shared";
-import type { SqlExpression } from "./sql-expression-helpers";
 
 const buildEntitySelectColumns = () => {
 	const entitySchemaData = buildEntitySchemaDataExpression();
@@ -20,36 +19,7 @@ const buildEntitySelectColumns = () => {
 	`;
 };
 
-const buildNonUserOwnedWhereClause = (input: {
-	userId: string;
-	entitySchemaIdList: SqlExpression;
-	relationshipSchemaIds: string[];
-}) => {
-	if (input.relationshipSchemaIds.length === 0) {
-		return sql`${entity.userId} is null
-			and ${entity.entitySchemaId} in (${input.entitySchemaIdList})`;
-	}
-
-	const relationshipSchemaIdList = sql.join(
-		input.relationshipSchemaIds.map((id) => sql`${id}`),
-		sql`, `,
-	);
-	return sql`${entity.userId} is null
-		and ${entity.entitySchemaId} in (${input.entitySchemaIdList})
-		and exists (
-			select 1
-			from ${relationship}
-			where ${relationship.sourceEntityId} = ${entity.id}
-				and ${relationship.userId} = ${input.userId}
-				and ${relationship.relationshipSchemaId} in (${relationshipSchemaIdList})
-		)`;
-};
-
-export const buildBaseEntitiesCte = (input: {
-	userId: string;
-	entitySchemaIds: string[];
-	relationshipSchemaIds: string[];
-}) => {
+export const buildBaseEntitiesCte = (input: { userId: string; entitySchemaIds: string[] }) => {
 	const entitySchemaIdList = sql.join(
 		input.entitySchemaIds.map((entitySchemaId) => sql`${entitySchemaId}`),
 		sql`, `,
@@ -66,12 +36,6 @@ export const buildBaseEntitiesCte = (input: {
 			and ${entity.entitySchemaId} in (${entitySchemaIdList})
 	`;
 
-	const nonUserOwnedClause = buildNonUserOwnedWhereClause({
-		userId: input.userId,
-		entitySchemaIdList,
-		relationshipSchemaIds: input.relationshipSchemaIds,
-	});
-
 	return sql`
 		base_entities as (
 			${userOwnedEntities}
@@ -80,7 +44,8 @@ export const buildBaseEntitiesCte = (input: {
 			from ${entity}
 			inner join ${entitySchema}
 				on ${entity.entitySchemaId} = ${entitySchema.id}
-			where ${nonUserOwnedClause}
+			where ${entity.userId} is null
+				and ${entity.entitySchemaId} in (${entitySchemaIdList})
 		)
 	`;
 };

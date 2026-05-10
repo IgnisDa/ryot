@@ -18,6 +18,7 @@ import {
 	buildEventSchemaExpression,
 } from "./event-reference-compilers";
 import { buildPredicateClause } from "./predicate-clause-builder";
+import { buildRelationshipJoinExpression } from "./relationship-reference-compilers";
 import type { QueryEngineContext } from "./schemas";
 import {
 	buildCoalescedExpression,
@@ -40,7 +41,9 @@ export const createScalarExpressionCompiler = (input: {
 
 	const compile = (expression: ViewExpression, targetType?: PropertyType): SqlExpression => {
 		return match(expression)
-			.with({ type: "literal" }, (expr) => buildLiteralExpression(expr.value, targetType))
+			.with({ type: "literal" }, (expr) =>
+				buildLiteralExpression({ literalType: expr.literalType, value: expr.value }, targetType),
+			)
 			.with({ type: "coalesce" }, (expr) => {
 				const typeInfo = getTypeInfo(expr);
 				const coalesceTargetType =
@@ -172,6 +175,14 @@ export const createScalarExpressionCompiler = (input: {
 							context: input.context,
 						}),
 					)
+					.with({ type: "relationship-join" }, (ref) =>
+						buildRelationshipJoinExpression({
+							targetType,
+							reference: ref,
+							alias: input.alias,
+							context: input.context,
+						}),
+					)
 					.with({ type: "event" }, (ref) =>
 						buildEventExpression({
 							targetType,
@@ -198,4 +209,19 @@ export const createScalarExpressionCompiler = (input: {
 export type ExpressionCompiler = {
 	compile: ReturnType<typeof createScalarExpressionCompiler>["compile"];
 	getTypeInfo: (expression: ViewExpression) => ViewExpressionTypeInfo;
+};
+
+export const createQueryCompiler = (input: {
+	alias: string;
+	context: QueryEngineContext;
+	computedFields?: ViewComputedField[];
+	getTypeInfo: (expression: ViewExpression) => ViewExpressionTypeInfo;
+}): ExpressionCompiler => {
+	const { compile } = createScalarExpressionCompiler({
+		alias: input.alias,
+		context: input.context,
+		getTypeInfo: input.getTypeInfo,
+		computedFields: input.computedFields,
+	});
+	return { compile, getTypeInfo: input.getTypeInfo };
 };

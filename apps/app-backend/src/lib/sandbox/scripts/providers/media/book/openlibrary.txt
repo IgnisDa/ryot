@@ -131,7 +131,7 @@ driver("search", async function(context) {
         imageProperty:
           imageUrl === null
             ? { kind: "null", value: null }
-            : { kind: "image", value: { kind: "remote", url: imageUrl } },
+            : { kind: "image", value: { type: "remote", url: imageUrl } },
       };
     })
     .filter((item) => item !== null);
@@ -309,7 +309,7 @@ driver("details", async function(context) {
       description: parseDescription(workPayload?.description),
       sourceUrl: `https://openlibrary.org/works/${externalId}/${title}`,
       images: [...coverIdSet].map((coverId) => ({
-        kind: "remote",
+        type: "remote",
         url: `https://covers.openlibrary.org/b/id/${coverId}-M.jpg?default=false`,
       })),
     },

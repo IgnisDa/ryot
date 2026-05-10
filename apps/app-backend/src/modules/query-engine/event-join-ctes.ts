@@ -3,8 +3,14 @@ import { sql } from "drizzle-orm";
 import { event } from "~/lib/db/schema";
 import type { QueryEngineEventJoinLike } from "~/lib/views/reference";
 
+import type { LoadedRelationshipJoin } from "./context";
 import { getEventJoinCteName } from "./query-cte-shared";
-import { getEventJoinColumnName, sanitizeIdentifier } from "./sql-expression-helpers";
+import {
+	getEventJoinColumnName,
+	getRelationshipJoinCteName,
+	getRelationshipJoinColumnName,
+	sanitizeIdentifier,
+} from "./sql-expression-helpers";
 
 export const buildLatestEventJoinCte = (input: {
 	join: QueryEngineEventJoinLike;
@@ -39,20 +45,34 @@ export const buildJoinedCte = (input: {
 	baseCte: string;
 	entityIdColumn: string;
 	eventJoins: QueryEngineEventJoinLike[];
+	relationshipJoins?: LoadedRelationshipJoin[];
 }) => {
 	sanitizeIdentifier(input.cteName, "CTE name");
 	sanitizeIdentifier(input.baseCte, "CTE name");
 	sanitizeIdentifier(input.entityIdColumn, "column name");
-	const selectJoins = input.eventJoins.map((join) => {
+	const selectEventJoins = input.eventJoins.map((join) => {
 		sanitizeIdentifier(join.key, "event join key");
 		return sql`${sql.raw(getEventJoinCteName(join.key))}.latest_event as ${sql.raw(getEventJoinColumnName(join.key))}`;
 	});
-	const leftJoins = input.eventJoins.map((join) => {
+	const selectRelationshipJoins = (input.relationshipJoins ?? []).map((join) => {
+		sanitizeIdentifier(join.key, "relationship join key");
+		return sql`${sql.raw(getRelationshipJoinCteName(join.key))}.latest_relationship as ${sql.raw(getRelationshipJoinColumnName(join.key))}`;
+	});
+	const selectJoins = [...selectEventJoins, ...selectRelationshipJoins];
+
+	const leftEventJoins = input.eventJoins.map((join) => {
 		return sql`
 			left join ${sql.raw(getEventJoinCteName(join.key))}
 				on ${sql.raw(getEventJoinCteName(join.key))}.entity_id = ${sql.raw(input.baseCte)}.${sql.raw(input.entityIdColumn)}
 		`;
 	});
+	const leftRelationshipJoins = (input.relationshipJoins ?? []).map((join) => {
+		return sql`
+			left join ${sql.raw(getRelationshipJoinCteName(join.key))}
+				on ${sql.raw(getRelationshipJoinCteName(join.key))}.entity_id = ${sql.raw(input.baseCte)}.${sql.raw(input.entityIdColumn)}
+		`;
+	});
+	const leftJoins = [...leftEventJoins, ...leftRelationshipJoins];
 
 	return sql`
 		${sql.raw(input.cteName)} as (
@@ -64,10 +84,14 @@ export const buildJoinedCte = (input: {
 	`;
 };
 
-export const buildJoinedEntitiesCte = (eventJoins: QueryEngineEventJoinLike[]) =>
+export const buildJoinedEntitiesCte = (input: {
+	eventJoins: QueryEngineEventJoinLike[];
+	relationshipJoins?: LoadedRelationshipJoin[];
+}) =>
 	buildJoinedCte({
-		eventJoins,
 		entityIdColumn: "id",
 		baseCte: "base_entities",
 		cteName: "joined_entities",
+		eventJoins: input.eventJoins,
+		relationshipJoins: input.relationshipJoins,
 	});

@@ -140,7 +140,7 @@ driver("search", async function (context) {
         imageProperty:
           image === null
             ? { kind: "null", value: null }
-            : { kind: "image", value: { kind: "remote", url: image } },
+            : { kind: "image", value: { type: "remote", url: image } },
       };
     })
     .filter((item) => item !== null);
@@ -207,7 +207,7 @@ driver("details", async function (context) {
     typeof vn.image.url === "string" &&
     vn.image.url.trim()
   ) {
-    images.push({ kind: "remote", url: vn.image.url.trim() });
+    images.push({ type: "remote", url: vn.image.url.trim() });
   }
   if (Array.isArray(vn.screenshots)) {
     for (const shot of vn.screenshots) {
@@ -219,7 +219,7 @@ driver("details", async function (context) {
       ) {
         const url = shot.url.trim();
         if (!images.some((image) => image.url === url)) {
-          images.push({ kind: "remote", url });
+          images.push({ type: "remote", url });
         }
       }
     }

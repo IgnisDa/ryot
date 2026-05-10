@@ -84,15 +84,15 @@ const s3ImageKeySchema = z.string().trim().min(1, "Entity image s3 key is requir
 
 export const remoteImageSchema = z.strictObject({
 	url: remoteImageUrlSchema,
-	kind: z.literal("remote"),
+	type: z.literal("remote"),
 });
 
 export const s3ImageSchema = z.strictObject({
 	key: s3ImageKeySchema,
-	kind: z.literal("s3"),
+	type: z.literal("s3"),
 });
 
-export const ImageSchema = z.discriminatedUnion("kind", [s3ImageSchema, remoteImageSchema]);
+export const ImageSchema = z.discriminatedUnion("type", [s3ImageSchema, remoteImageSchema]);
 
 export type ImageSchemaType = z.infer<typeof ImageSchema>;
 

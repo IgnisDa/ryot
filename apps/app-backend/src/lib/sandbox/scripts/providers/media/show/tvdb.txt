@@ -94,7 +94,7 @@ function collectImages(mainImage, artworks) {
 	const addImage = (url) => {
 		if (typeof url === "string" && url.trim() && !seen.has(url)) {
 			seen.add(url);
-			images.push({ kind: "remote", url });
+			images.push({ type: "remote", url });
 		}
 	};
 
@@ -315,7 +315,7 @@ driver("search", async function (context) {
 				imageProperty:
 					image === null
 						? { kind: "null", value: null }
-						: { kind: "image", value: { kind: "remote", url: image } },
+						: { kind: "image", value: { type: "remote", url: image } },
 			};
 		})
 		.filter((item) => item !== null);
