@@ -1,3 +1,5 @@
+export { getTrackerScopeForUser } from "./repository";
+export { createBuiltinTrackersForUser } from "./repository";
 export type {
 	CreateTrackerBody,
 	ListedTracker,
