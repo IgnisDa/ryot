@@ -2,6 +2,7 @@ import { WorkflowEngine } from "@effect/workflow/WorkflowEngine";
 import { eq } from "drizzle-orm";
 import { Effect, Option, Runtime, Schema } from "effect";
 
+import { EntityId, EntitySchemaId, IntegrationId, UserId } from "#lib/schema/brands";
 import { EntitiesRepository } from "#modules/entities/repository";
 import { EntitySchemasRepository } from "#modules/entity-schemas/repository";
 import { EventSchemasRepository } from "#modules/event-schemas/repository";
@@ -117,7 +118,7 @@ export const makeAdditionalSandboxApiFunctions = (): Effect.Effect<
 
 		const runPromise = Runtime.runPromise(runtime);
 
-		const requireReadableEntity = (userId: string, entityId: string, notFoundMessage: string) =>
+		const requireReadableEntity = (userId: UserId, entityId: EntityId, notFoundMessage: string) =>
 			runWithDb(
 				entitiesRepository
 					.getEntityScopeForUser({ userId, entityId })
@@ -128,7 +129,7 @@ export const makeAdditionalSandboxApiFunctions = (): Effect.Effect<
 					),
 			);
 
-		const readUserPreferences = (userId: string) =>
+		const readUserPreferences = (userId: UserId) =>
 			runWithDb(
 				Effect.gen(function* () {
 					const db = yield* CurrentDb;
@@ -147,7 +148,7 @@ export const makeAdditionalSandboxApiFunctions = (): Effect.Effect<
 				}),
 			);
 
-		const createEvents = (userId: string, payload: ReadonlyArray<CreateEventItem>) =>
+		const createEvents = (userId: UserId, payload: ReadonlyArray<CreateEventItem>) =>
 			payload.length === 0
 				? Effect.succeed({ count: 0 })
 				: runEventCreate({ userId, origin: "sandbox", payload }).pipe(
@@ -208,7 +209,7 @@ export const makeAdditionalSandboxApiFunctions = (): Effect.Effect<
 				return runHostEffect(
 					runPromise,
 					decodeCreateEventsPayload(body).pipe(
-						Effect.flatMap((payload) => createEvents(input.userId, payload)),
+						Effect.flatMap((payload) => createEvents(UserId.make(input.userId), payload)),
 					),
 				);
 			},
@@ -230,12 +231,17 @@ export const makeAdditionalSandboxApiFunctions = (): Effect.Effect<
 				return runHostEffect(
 					runPromise,
 					requireNonEmptyString(entityId, "getEntity expects a non-empty entityId").pipe(
-						Effect.flatMap((resolvedEntityId) =>
+						Effect.flatMap((rawEntityId) =>
 							Effect.gen(function* () {
-								yield* requireReadableEntity(input.userId, resolvedEntityId, entityNotFoundError);
+								const resolvedEntityId = EntityId.make(rawEntityId);
+								yield* requireReadableEntity(
+									UserId.make(input.userId),
+									resolvedEntityId,
+									entityNotFoundError,
+								);
 								const entity = yield* runWithDb(
 									entitiesRepository.getByIdForUser({
-										userId: input.userId,
+										userId: UserId.make(input.userId),
 										entityId: resolvedEntityId,
 									}),
 								);
@@ -262,8 +268,8 @@ export const makeAdditionalSandboxApiFunctions = (): Effect.Effect<
 							runWithDb(
 								entitySchemasRepository
 									.getByIdForUser({
-										userId: input.userId,
-										entitySchemaId: resolvedEntitySchemaId,
+										userId: UserId.make(input.userId),
+										entitySchemaId: EntitySchemaId.make(resolvedEntitySchemaId),
 									})
 									.pipe(
 										Effect.flatMap((schemaValue) =>
@@ -290,8 +296,8 @@ export const makeAdditionalSandboxApiFunctions = (): Effect.Effect<
 							runWithDb(
 								integrationsRepository
 									.getForUser({
-										userId: input.userId,
-										integrationId: resolvedIntegrationId,
+										userId: UserId.make(input.userId),
+										integrationId: IntegrationId.make(resolvedIntegrationId),
 									})
 									.pipe(
 										Effect.flatMap((integration) =>
@@ -326,7 +332,7 @@ export const makeAdditionalSandboxApiFunctions = (): Effect.Effect<
 				),
 			getUserPreferences: (...args) => {
 				const input = requireUserSandboxRunInput(args, 0, "getUserPreferences");
-				return runHostEffect(runPromise, readUserPreferences(input.userId));
+				return runHostEffect(runPromise, readUserPreferences(UserId.make(input.userId)));
 			},
 			listEventSchemas: (...args) => {
 				const entitySchemaId = args[0];
@@ -341,8 +347,8 @@ export const makeAdditionalSandboxApiFunctions = (): Effect.Effect<
 							Effect.gen(function* () {
 								const entitySchema = yield* runWithDb(
 									eventSchemasRepository.getEntitySchemaScopeById({
-										userId: input.userId,
-										entitySchemaId: resolvedEntitySchemaId,
+										userId: UserId.make(input.userId),
+										entitySchemaId: EntitySchemaId.make(resolvedEntitySchemaId),
 									}),
 								);
 								if (!entitySchema) {
@@ -351,8 +357,8 @@ export const makeAdditionalSandboxApiFunctions = (): Effect.Effect<
 
 								return yield* runWithDb(
 									eventSchemasRepository.listByEntitySchemaForUser({
-										userId: input.userId,
-										entitySchemaId: resolvedEntitySchemaId,
+										userId: UserId.make(input.userId),
+										entitySchemaId: EntitySchemaId.make(resolvedEntitySchemaId),
 									}),
 								);
 							}),
@@ -372,24 +378,36 @@ export const makeAdditionalSandboxApiFunctions = (): Effect.Effect<
 									return yield* Effect.fail(listScopeRequiredError);
 								}
 
-								if (parsedQuery.entityId) {
+								const entityId = parsedQuery.entityId
+									? EntityId.make(parsedQuery.entityId)
+									: undefined;
+								const sessionEntityId = parsedQuery.sessionEntityId
+									? EntityId.make(parsedQuery.sessionEntityId)
+									: undefined;
+
+								if (entityId) {
 									yield* requireReadableEntity(
-										input.userId,
-										parsedQuery.entityId,
+										UserId.make(input.userId),
+										entityId,
 										entityNotFoundError,
 									);
 								}
 
-								if (parsedQuery.sessionEntityId) {
+								if (sessionEntityId) {
 									yield* requireReadableEntity(
-										input.userId,
-										parsedQuery.sessionEntityId,
+										UserId.make(input.userId),
+										sessionEntityId,
 										sessionEntityNotFoundError,
 									);
 								}
 
 								return yield* runWithDb(
-									eventsRepository.listForUser({ userId: input.userId, ...parsedQuery }),
+									eventsRepository.listForUser({
+										entityId,
+										sessionEntityId,
+										userId: UserId.make(input.userId),
+										eventSchemaSlug: parsedQuery.eventSchemaSlug,
+									}),
 								);
 							}),
 						),
@@ -421,7 +439,7 @@ export const makeAdditionalSandboxApiFunctions = (): Effect.Effect<
 					runPromise,
 					runWithDb(
 						integrationsRepository.listForUser({
-							userId: input.userId,
+							userId: UserId.make(input.userId),
 							...(typeof provider === "string" ? { provider } : {}),
 							...(typeof isDisabled === "boolean" ? { isDisabled } : {}),
 						}),

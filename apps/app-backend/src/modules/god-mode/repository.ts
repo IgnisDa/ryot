@@ -4,6 +4,7 @@ import { Effect } from "effect";
 import { defaultUserPreferences } from "#lib/builtins/bootstrap";
 import { CurrentDb, dbEffect } from "#lib/db";
 import * as schema from "#lib/db/schema/auth";
+import type { UserId } from "#lib/schema/brands";
 
 const userSearchClause = (search?: string) =>
 	search ? ilike(schema.user.email, `%${search.trim()}%`) : undefined;
@@ -63,7 +64,7 @@ export class GodModeRepository extends Effect.Service<GodModeRepository>()("GodM
 					.where(inArray(schema.account.userId, userIds)),
 			);
 		}),
-		findUserById: Effect.fn("GodModeRepository.findUserById")(function* (userId: string) {
+		findUserById: Effect.fn("GodModeRepository.findUserById")(function* (userId: UserId) {
 			const db = yield* CurrentDb;
 			const [row] = yield* dbEffect(() =>
 				db
@@ -85,7 +86,7 @@ export class GodModeRepository extends Effect.Service<GodModeRepository>()("GodM
 			);
 			return row ?? null;
 		}),
-		findUserBanState: Effect.fn("GodModeRepository.findUserBanState")(function* (userId: string) {
+		findUserBanState: Effect.fn("GodModeRepository.findUserBanState")(function* (userId: UserId) {
 			const db = yield* CurrentDb;
 			const [row] = yield* dbEffect(() =>
 				db
@@ -113,7 +114,7 @@ export class GodModeRepository extends Effect.Service<GodModeRepository>()("GodM
 			);
 		}),
 		insertOidcAccount: Effect.fn("GodModeRepository.insertOidcAccount")(function* (input: {
-			userId: string;
+			userId: UserId;
 			oidcIssuerId: string;
 		}) {
 			const db = yield* CurrentDb;
@@ -127,7 +128,7 @@ export class GodModeRepository extends Effect.Service<GodModeRepository>()("GodM
 			);
 		}),
 		updateUserBan: Effect.fn("GodModeRepository.updateUserBan")(function* (input: {
-			userId: string;
+			userId: UserId;
 			bannedAt: Date | null;
 			updatedAt: Date;
 		}) {

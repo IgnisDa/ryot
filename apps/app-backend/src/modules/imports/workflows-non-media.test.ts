@@ -3,6 +3,7 @@ import { WorkflowEngine, WorkflowInstance } from "@effect/workflow/WorkflowEngin
 import { Effect, Layer } from "effect";
 
 import { badRequest } from "#lib/errors";
+import { EntityId, EntitySchemaId, ImportRunId, UserId } from "#lib/schema/brands";
 import {
 	dbRunnerLayer,
 	makeAppConfigLayer,
@@ -29,7 +30,7 @@ const makeListedEntity = (
 	overrides: Partial<Omit<ListedEntity, "properties">> = {},
 ): Omit<ListedEntity, "properties"> & { properties: Record<string, unknown> } => ({
 	image: null,
-	id: "entity-1",
+	id: EntityId.make("entity-1"),
 	createdAt: now,
 	updatedAt: now,
 	properties: {},
@@ -37,7 +38,7 @@ const makeListedEntity = (
 	populatedAt: null,
 	name: "Entity One",
 	sandboxScriptId: null,
-	entitySchemaId: "schema-1",
+	entitySchemaId: EntitySchemaId.make("schema-1"),
 	...overrides,
 });
 
@@ -177,10 +178,10 @@ const openScaleItem = (overrides: { itemIndex: number; sourceLabel: string }) =>
 });
 
 const measurementPayload = {
-	runId: "run-1",
-	userId: "user-1",
+	userId: UserId.make("user-1"),
 	source: "open_scale",
 	filePath: "/tmp/open-scale.csv",
+	runId: ImportRunId.make("run-1"),
 };
 
 it.effect("orchestrates open-scale measurement imports through workflow-owned phases", () => {
@@ -205,7 +206,9 @@ it.effect("orchestrates open-scale measurement imports through workflow-owned ph
 				createCalls.push(payload);
 				return createCalls.length === 2
 					? Effect.fail(badRequest("Measurement rejected"))
-					: Effect.succeed(makeListedEntity({ id: `measurement-${createCalls.length}` }));
+					: Effect.succeed(
+							makeListedEntity({ id: EntityId.make(`measurement-${createCalls.length}`) }),
+						);
 			},
 		}),
 	} satisfies TestLayerOptions;
@@ -337,10 +340,10 @@ it.effect("fails the open-scale run when the measurement entity schema is missin
 });
 
 const workoutPayload = {
-	runId: "run-2",
-	userId: "user-1",
+	userId: UserId.make("user-1"),
 	source: "hevy",
 	filePath: "/tmp/hevy.csv",
+	runId: ImportRunId.make("run-2"),
 };
 
 const workoutItem = {
@@ -378,7 +381,7 @@ it.effect("orchestrates workout imports through workflow-owned phases", () => {
 					makeListedEntity({
 						name: payload.name,
 						entitySchemaId: payload.entitySchemaId,
-						id: `${payload.entitySchemaId}-entity`,
+						id: EntityId.make(`${payload.entitySchemaId}-entity`),
 					}),
 				);
 			},

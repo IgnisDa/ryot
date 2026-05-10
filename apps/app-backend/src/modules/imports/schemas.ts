@@ -1,5 +1,7 @@
 import { Either, Schema } from "effect";
 
+import { ImportRunId } from "#lib/schema/brands";
+
 import { importRunFailureStages, importRunStatuses } from "./types";
 
 export const ImportRunStatus = Schema.Literal(...importRunStatuses);
@@ -9,7 +11,7 @@ export const ImportRunFailureStage = Schema.Literal(...importRunFailureStages);
 const InputSummary = Schema.Record({ key: Schema.String, value: Schema.Unknown });
 
 export const ListedImportRun = Schema.Struct({
-	id: Schema.String,
+	id: ImportRunId,
 	source: Schema.String,
 	status: ImportRunStatus,
 	progress: Schema.Number,
@@ -29,7 +31,7 @@ export type ListedImportRun = typeof ListedImportRun.Type;
 
 export const ListedImportRunFailure = Schema.Struct({
 	id: Schema.String,
-	runId: Schema.String,
+	runId: ImportRunId,
 	message: Schema.String,
 	createdAt: Schema.String,
 	itemIndex: Schema.Number,

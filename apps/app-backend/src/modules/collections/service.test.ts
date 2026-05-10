@@ -5,6 +5,13 @@ import { Cause, Effect, Exit, Layer, Option } from "effect";
 import type { CurrentUserValue } from "#lib/auth-middleware";
 import { BadRequest, NotFound } from "#lib/errors";
 import {
+	EntityId,
+	EntitySchemaId,
+	RelationshipId,
+	RelationshipSchemaId,
+	UserId,
+} from "#lib/schema/brands";
+import {
 	dbRunnerLayer,
 	makeMock,
 	makeWorkflowEngine,
@@ -19,15 +26,19 @@ import { CollectionsService } from "./service";
 
 const now = "2026-06-14T00:00:00.000Z";
 
-const user: CurrentUserValue = { id: "user-id", name: "Test User", email: "user@example.com" };
+const user: CurrentUserValue = {
+	id: UserId.make("user-id"),
+	name: "Test User",
+	email: "user@example.com",
+};
 
 const memberOfSchema = {
 	isBuiltin: true,
 	slug: "member-of",
 	name: "Member Of",
-	id: "member-of-schema-id",
 	sourceEntitySchemaId: null,
 	targetEntitySchemaId: null,
+	id: RelationshipSchemaId.make("member-of-schema-id"),
 	propertiesSchema: { fields: {}, unknownKeys: "passthrough" as const },
 };
 
@@ -35,15 +46,15 @@ const inLibrarySchema = {
 	isBuiltin: true,
 	slug: "in-library",
 	name: "In Library",
-	id: "in-library-schema-id",
 	sourceEntitySchemaId: null,
 	targetEntitySchemaId: null,
 	propertiesSchema: { fields: {} },
+	id: RelationshipSchemaId.make("in-library-schema-id"),
 };
 
 const collectionEntitySchema = {
 	id: "collection-schema-id",
-	entitySchemaId: "collection-schema-id",
+	entitySchemaId: EntitySchemaId.make("collection-schema-id"),
 	propertiesSchema: {
 		fields: {
 			description: { label: "Description", type: "string", description: "Description" },
@@ -206,9 +217,9 @@ it.effect("creates a collection with valid inputs", () => {
 					externalId: null,
 					name: "Favorites",
 					populatedAt: null,
-					id: "collection-id",
+					id: EntityId.make("collection-id"),
 					sandboxScriptId: null,
-					entitySchemaId: "collection-schema-id",
+					entitySchemaId: EntitySchemaId.make("collection-schema-id"),
 					properties: { description: "My favorites" },
 				});
 			},
@@ -231,7 +242,10 @@ it.effect("rejects adding a collection to itself", () => {
 	return Effect.gen(function* () {
 		const service = yield* CollectionsService;
 		const exit = yield* Effect.exit(
-			service.addToCollection(user, { entityId: "same-id", collectionId: "same-id" }),
+			service.addToCollection(user, {
+				entityId: EntityId.make("same-id"),
+				collectionId: EntityId.make("same-id"),
+			}),
 		);
 
 		expect(exit).toEqual(
@@ -250,7 +264,10 @@ it.effect("returns not found when collection does not exist for user", () => {
 	return Effect.gen(function* () {
 		const service = yield* CollectionsService;
 		const exit = yield* Effect.exit(
-			service.addToCollection(user, { entityId: "entity-id", collectionId: "missing-id" }),
+			service.addToCollection(user, {
+				entityId: EntityId.make("entity-id"),
+				collectionId: EntityId.make("missing-id"),
+			}),
 		);
 
 		expect(exit).toEqual(Exit.fail(new NotFound({ message: "Collection not found" })));
@@ -265,13 +282,13 @@ it.effect("returns not found when entity does not exist", () => {
 				Effect.succeed({
 					image: null,
 					name: "Coll",
-					id: "coll-id",
+					id: EntityId.make("coll-id"),
 					createdAt: now,
 					updatedAt: now,
 					properties: {},
 					externalId: null,
 					sandboxScriptId: null,
-					entitySchemaId: "collection-schema-id",
+					entitySchemaId: EntitySchemaId.make("collection-schema-id"),
 				}),
 		}),
 	});
@@ -279,7 +296,10 @@ it.effect("returns not found when entity does not exist", () => {
 	return Effect.gen(function* () {
 		const service = yield* CollectionsService;
 		const exit = yield* Effect.exit(
-			service.addToCollection(user, { entityId: "missing-id", collectionId: "coll-id" }),
+			service.addToCollection(user, {
+				entityId: EntityId.make("missing-id"),
+				collectionId: EntityId.make("coll-id"),
+			}),
 		);
 
 		expect(exit).toEqual(Exit.fail(new NotFound({ message: "Entity not found" })));
@@ -290,13 +310,13 @@ it.effect("creates membership event only on first add, not on upsert", () => {
 	let queuedEventCount = 0;
 
 	const membership = {
-		id: "rel-id",
+		id: RelationshipId.make("rel-id"),
 		createdAt: now,
 		properties: {},
 		wasInserted: true,
-		targetEntityId: "coll-id",
-		sourceEntityId: "entity-id",
-		relationshipSchemaId: "member-of-schema-id",
+		targetEntityId: EntityId.make("coll-id"),
+		sourceEntityId: EntityId.make("entity-id"),
+		relationshipSchemaId: RelationshipSchemaId.make("member-of-schema-id"),
 	};
 	const workflowEngine = makeWorkflowEngine({
 		execute: (_workflow, options) => {
@@ -309,18 +329,22 @@ it.effect("creates membership event only on first add, not on upsert", () => {
 		workflowEngine,
 		collectionsRepository: makeCollectionsRepository({
 			getEntityForMembership: () =>
-				Effect.succeed({ id: "entity-id", userId: user.id, entitySchemaSlug: "book" }),
+				Effect.succeed({
+					id: EntityId.make("entity-id"),
+					userId: user.id,
+					entitySchemaSlug: "book",
+				}),
 			getCollectionById: () =>
 				Effect.succeed({
 					image: null,
 					name: "Coll",
-					id: "coll-id",
+					id: EntityId.make("coll-id"),
 					createdAt: now,
 					updatedAt: now,
 					properties: {},
 					externalId: null,
 					sandboxScriptId: null,
-					entitySchemaId: "collection-schema-id",
+					entitySchemaId: EntitySchemaId.make("collection-schema-id"),
 				}),
 		}),
 		relationshipsRepository: makeRelationshipsRepository({
@@ -330,7 +354,10 @@ it.effect("creates membership event only on first add, not on upsert", () => {
 
 	return Effect.gen(function* () {
 		const service = yield* CollectionsService;
-		yield* service.addToCollection(user, { entityId: "entity-id", collectionId: "coll-id" });
+		yield* service.addToCollection(user, {
+			entityId: EntityId.make("entity-id"),
+			collectionId: EntityId.make("coll-id"),
+		});
 
 		expect(queuedEventCount).toBe(1);
 	}).pipe(Effect.provide(layer));
@@ -340,13 +367,13 @@ it.effect("does not create membership event on upsert update", () => {
 	let queuedEventCount = 0;
 
 	const membership = {
-		id: "rel-id",
+		id: RelationshipId.make("rel-id"),
 		createdAt: now,
 		properties: {},
 		wasInserted: false,
-		targetEntityId: "coll-id",
-		sourceEntityId: "entity-id",
-		relationshipSchemaId: "member-of-schema-id",
+		targetEntityId: EntityId.make("coll-id"),
+		sourceEntityId: EntityId.make("entity-id"),
+		relationshipSchemaId: RelationshipSchemaId.make("member-of-schema-id"),
 	};
 	const workflowEngine = makeWorkflowEngine({
 		execute: (_workflow, options) => {
@@ -362,25 +389,32 @@ it.effect("does not create membership event on upsert update", () => {
 		}),
 		collectionsRepository: makeCollectionsRepository({
 			getEntityForMembership: () =>
-				Effect.succeed({ id: "entity-id", userId: user.id, entitySchemaSlug: "book" }),
+				Effect.succeed({
+					id: EntityId.make("entity-id"),
+					userId: user.id,
+					entitySchemaSlug: "book",
+				}),
 			getCollectionById: () =>
 				Effect.succeed({
 					image: null,
 					name: "Coll",
-					id: "coll-id",
+					id: EntityId.make("coll-id"),
 					createdAt: now,
 					updatedAt: now,
 					properties: {},
 					externalId: null,
 					sandboxScriptId: null,
-					entitySchemaId: "collection-schema-id",
+					entitySchemaId: EntitySchemaId.make("collection-schema-id"),
 				}),
 		}),
 	});
 
 	return Effect.gen(function* () {
 		const service = yield* CollectionsService;
-		yield* service.addToCollection(user, { entityId: "entity-id", collectionId: "coll-id" });
+		yield* service.addToCollection(user, {
+			entityId: EntityId.make("entity-id"),
+			collectionId: EntityId.make("coll-id"),
+		});
 
 		expect(queuedEventCount).toBe(0);
 	}).pipe(Effect.provide(layer));
@@ -393,18 +427,22 @@ it.effect("returns not found when removing entity not in collection", () => {
 		}),
 		collectionsRepository: makeCollectionsRepository({
 			getEntityForMembership: () =>
-				Effect.succeed({ id: "entity-id", userId: user.id, entitySchemaSlug: "book" }),
+				Effect.succeed({
+					id: EntityId.make("entity-id"),
+					userId: user.id,
+					entitySchemaSlug: "book",
+				}),
 			getCollectionById: () =>
 				Effect.succeed({
 					image: null,
 					name: "Coll",
-					id: "coll-id",
+					id: EntityId.make("coll-id"),
 					createdAt: now,
 					updatedAt: now,
 					properties: {},
 					externalId: null,
 					sandboxScriptId: null,
-					entitySchemaId: "collection-schema-id",
+					entitySchemaId: EntitySchemaId.make("collection-schema-id"),
 				}),
 		}),
 	});
@@ -412,7 +450,10 @@ it.effect("returns not found when removing entity not in collection", () => {
 	return Effect.gen(function* () {
 		const service = yield* CollectionsService;
 		const exit = yield* Effect.exit(
-			service.removeFromCollection(user, { entityId: "entity-id", collectionId: "coll-id" }),
+			service.removeFromCollection(user, {
+				entityId: EntityId.make("entity-id"),
+				collectionId: EntityId.make("coll-id"),
+			}),
 		);
 
 		expect(exit).toEqual(Exit.fail(new NotFound({ message: "Entity is not in collection" })));
@@ -423,12 +464,12 @@ it.effect("creates remove event on successful membership deletion", () => {
 	let queuedEventCount = 0;
 
 	const deletedMembership = {
-		id: "rel-id",
+		id: RelationshipId.make("rel-id"),
 		createdAt: now,
 		properties: {},
-		targetEntityId: "coll-id",
-		sourceEntityId: "entity-id",
-		relationshipSchemaId: "member-of-schema-id",
+		targetEntityId: EntityId.make("coll-id"),
+		sourceEntityId: EntityId.make("entity-id"),
+		relationshipSchemaId: RelationshipSchemaId.make("member-of-schema-id"),
 	};
 	const workflowEngine = makeWorkflowEngine({
 		execute: (_workflow, options) => {
@@ -444,18 +485,22 @@ it.effect("creates remove event on successful membership deletion", () => {
 		}),
 		collectionsRepository: makeCollectionsRepository({
 			getEntityForMembership: () =>
-				Effect.succeed({ id: "entity-id", userId: user.id, entitySchemaSlug: "book" }),
+				Effect.succeed({
+					id: EntityId.make("entity-id"),
+					userId: user.id,
+					entitySchemaSlug: "book",
+				}),
 			getCollectionById: () =>
 				Effect.succeed({
 					name: "Coll",
-					id: "coll-id",
+					id: EntityId.make("coll-id"),
 					image: null,
 					createdAt: now,
 					updatedAt: now,
 					properties: {},
 					externalId: null,
 					sandboxScriptId: null,
-					entitySchemaId: "collection-schema-id",
+					entitySchemaId: EntitySchemaId.make("collection-schema-id"),
 				}),
 		}),
 	});
@@ -463,8 +508,8 @@ it.effect("creates remove event on successful membership deletion", () => {
 	return Effect.gen(function* () {
 		const service = yield* CollectionsService;
 		const result = yield* service.removeFromCollection(user, {
-			entityId: "entity-id",
-			collectionId: "coll-id",
+			entityId: EntityId.make("entity-id"),
+			collectionId: EntityId.make("coll-id"),
 		});
 
 		expect(queuedEventCount).toBe(1);
@@ -477,7 +522,7 @@ it.effect("merges ownership sources when marking an entity owned in the library"
 
 	const layer = makeServiceLayer({
 		collectionsRepository: makeCollectionsRepository({
-			getUserLibraryEntityId: () => Effect.succeed("library-entity-id"),
+			getUserLibraryEntityId: () => Effect.succeed(EntityId.make("library-entity-id")),
 		}),
 		relationshipsRepository: makeRelationshipsRepository({
 			findRelationshipProperties: () =>
@@ -485,13 +530,13 @@ it.effect("merges ownership sources when marking an entity owned in the library"
 			upsertRelationship: (input: { properties: Record<string, unknown> }) => {
 				upserted = input;
 				return Effect.succeed({
-					id: "rel-id",
+					id: RelationshipId.make("rel-id"),
 					createdAt: now,
 					wasInserted: true,
-					sourceEntityId: "entity-id",
+					sourceEntityId: EntityId.make("entity-id"),
 					properties: input.properties,
-					targetEntityId: "library-entity-id",
-					relationshipSchemaId: "in-library-schema-id",
+					targetEntityId: EntityId.make("library-entity-id"),
+					relationshipSchemaId: RelationshipSchemaId.make("in-library-schema-id"),
 				});
 			},
 		}),
@@ -502,8 +547,8 @@ it.effect("merges ownership sources when marking an entity owned in the library"
 		yield* service.markEntityOwnedInLibrary({
 			syncedAt: now,
 			provider: "komga",
-			userId: "user-id",
-			entityId: "entity-id",
+			userId: UserId.make("user-id"),
+			entityId: EntityId.make("entity-id"),
 		});
 
 		expect(upserted?.properties).toEqual({

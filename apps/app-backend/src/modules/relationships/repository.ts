@@ -4,6 +4,8 @@ import { Effect } from "effect";
 import { CurrentDb, dbEffect } from "#lib/db";
 import * as schema from "#lib/db/schema/tables";
 import { DbError } from "#lib/errors";
+import type { UserId } from "#lib/schema/brands";
+import { EntityId, RelationshipId, RelationshipSchemaId } from "#lib/schema/brands";
 
 type RelationshipRow = Pick<
 	typeof schema.relationship.$inferSelect,
@@ -18,12 +20,12 @@ type MembershipRow = Pick<
 >;
 
 export type SavedRelationship = {
-	readonly id: string;
+	readonly id: RelationshipId;
 	readonly createdAt: string;
 	readonly wasInserted: boolean;
-	readonly sourceEntityId: string;
-	readonly targetEntityId: string;
-	readonly relationshipSchemaId: string;
+	readonly sourceEntityId: EntityId;
+	readonly targetEntityId: EntityId;
+	readonly relationshipSchemaId: RelationshipSchemaId;
 	readonly properties: Record<string, unknown>;
 };
 
@@ -38,22 +40,22 @@ const relationshipSelection = {
 };
 
 const toSavedRelationship = (row: RelationshipRow) => ({
-	id: row.id,
+	id: RelationshipId.make(row.id),
 	properties: row.properties,
 	wasInserted: row.wasInserted,
-	sourceEntityId: row.sourceEntityId,
-	targetEntityId: row.targetEntityId,
+	sourceEntityId: EntityId.make(row.sourceEntityId),
+	targetEntityId: EntityId.make(row.targetEntityId),
 	createdAt: row.createdAt.toISOString(),
-	relationshipSchemaId: row.relationshipSchemaId,
+	relationshipSchemaId: RelationshipSchemaId.make(row.relationshipSchemaId),
 });
 
 const toMembershipRelationship = (row: MembershipRow) => ({
-	id: row.id,
+	id: RelationshipId.make(row.id),
 	properties: row.properties,
-	sourceEntityId: row.sourceEntityId,
-	targetEntityId: row.targetEntityId,
+	sourceEntityId: EntityId.make(row.sourceEntityId),
+	targetEntityId: EntityId.make(row.targetEntityId),
 	createdAt: row.createdAt.toISOString(),
-	relationshipSchemaId: row.relationshipSchemaId,
+	relationshipSchemaId: RelationshipSchemaId.make(row.relationshipSchemaId),
 });
 
 export class RelationshipsRepository extends Effect.Service<RelationshipsRepository>()(
@@ -62,10 +64,10 @@ export class RelationshipsRepository extends Effect.Service<RelationshipsReposit
 		sync: () => ({
 			findRelationshipProperties: Effect.fn("RelationshipsRepository.findRelationshipProperties")(
 				function* (input: {
-					userId: string;
-					sourceEntityId: string;
-					targetEntityId: string;
-					relationshipSchemaId: string;
+					userId: UserId;
+					sourceEntityId: EntityId;
+					targetEntityId: EntityId;
+					relationshipSchemaId: RelationshipSchemaId;
 				}) {
 					const db = yield* CurrentDb;
 					const [row] = yield* dbEffect(() =>
@@ -87,10 +89,10 @@ export class RelationshipsRepository extends Effect.Service<RelationshipsReposit
 			),
 			insertRelationship: Effect.fn("RelationshipsRepository.insertRelationship")(
 				function* (input: {
-					userId: string;
-					sourceEntityId: string;
-					targetEntityId: string;
-					relationshipSchemaId: string;
+					userId: UserId;
+					sourceEntityId: EntityId;
+					targetEntityId: EntityId;
+					relationshipSchemaId: RelationshipSchemaId;
 					properties: Record<string, unknown>;
 				}) {
 					const db = yield* CurrentDb;
@@ -117,10 +119,10 @@ export class RelationshipsRepository extends Effect.Service<RelationshipsReposit
 			),
 			upsertRelationship: Effect.fn("RelationshipsRepository.upsertRelationship")(
 				function* (input: {
-					userId: string;
-					sourceEntityId: string;
-					targetEntityId: string;
-					relationshipSchemaId: string;
+					userId: UserId;
+					sourceEntityId: EntityId;
+					targetEntityId: EntityId;
+					relationshipSchemaId: RelationshipSchemaId;
 					properties: Record<string, unknown>;
 				}) {
 					const db = yield* CurrentDb;
@@ -155,9 +157,9 @@ export class RelationshipsRepository extends Effect.Service<RelationshipsReposit
 			),
 			upsertEntityRelationship: Effect.fn("RelationshipsRepository.upsertEntityRelationship")(
 				function* (input: {
-					sourceEntityId: string;
-					targetEntityId: string;
-					relationshipSchemaId: string;
+					sourceEntityId: EntityId;
+					targetEntityId: EntityId;
+					relationshipSchemaId: RelationshipSchemaId;
 					properties: Record<string, unknown>;
 				}) {
 					const db = yield* CurrentDb;
@@ -185,7 +187,7 @@ export class RelationshipsRepository extends Effect.Service<RelationshipsReposit
 			),
 			deleteUserRelationshipsForEntity: Effect.fn(
 				"RelationshipsRepository.deleteUserRelationshipsForEntity",
-			)(function* (input: { userId: string; entityId: string }) {
+			)(function* (input: { userId: UserId; entityId: EntityId }) {
 				const db = yield* CurrentDb;
 				const rows = yield* dbEffect(() =>
 					db
@@ -206,7 +208,7 @@ export class RelationshipsRepository extends Effect.Service<RelationshipsReposit
 			}),
 			moveUserRelationshipsBetweenEntities: Effect.fn(
 				"RelationshipsRepository.moveUserRelationshipsBetweenEntities",
-			)(function* (input: { userId: string; mergeFrom: string; mergeInto: string }) {
+			)(function* (input: { userId: UserId; mergeFrom: EntityId; mergeInto: EntityId }) {
 				const db = yield* CurrentDb;
 				const result = yield* dbEffect(() =>
 					db.execute<{ count: string }>(sql`
@@ -271,10 +273,10 @@ export class RelationshipsRepository extends Effect.Service<RelationshipsReposit
 				return Number(result.rows[0]?.count ?? 0);
 			}),
 			upsertMembership: Effect.fn("RelationshipsRepository.upsertMembership")(function* (input: {
-				userId: string;
-				entityId: string;
-				collectionId: string;
-				relationshipSchemaId: string;
+				userId: UserId;
+				entityId: EntityId;
+				collectionId: EntityId;
+				relationshipSchemaId: RelationshipSchemaId;
 				properties: Record<string, unknown>;
 			}) {
 				const db = yield* CurrentDb;
@@ -310,10 +312,10 @@ export class RelationshipsRepository extends Effect.Service<RelationshipsReposit
 				};
 			}),
 			deleteMembership: Effect.fn("RelationshipsRepository.deleteMembership")(function* (input: {
-				userId: string;
-				entityId: string;
-				collectionId: string;
-				relationshipSchemaId: string;
+				userId: UserId;
+				entityId: EntityId;
+				collectionId: EntityId;
+				relationshipSchemaId: RelationshipSchemaId;
 			}) {
 				const db = yield* CurrentDb;
 				const [row] = yield* dbEffect(() =>

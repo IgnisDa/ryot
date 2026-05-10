@@ -3,10 +3,11 @@ import { Schema } from "effect";
 
 import { AuthMiddleware } from "#lib/auth-middleware";
 import { BadRequest, NotFound, RateLimited, Unauthorized } from "#lib/errors";
+import { EntityId } from "#lib/schema/brands";
 
 import { CreateEntityBody, ImportEntityBody, ImportEntityRunResult, ListedEntity } from "./schemas";
 
-const entityIdParam = HttpApiSchema.param("entityId", Schema.String);
+const entityIdParam = HttpApiSchema.param("entityId", EntityId);
 const jobIdParam = HttpApiSchema.param("jobId", Schema.String);
 
 export const EntitiesGroup = HttpApiGroup.make("entities")

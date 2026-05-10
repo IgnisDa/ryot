@@ -3,13 +3,14 @@ import { Effect, Exit, Layer } from "effect";
 
 import type { CurrentUserValue } from "#lib/auth-middleware";
 import { BadRequest, Conflict, NotFound } from "#lib/errors";
+import { EntitySchemaId, EventSchemaId, UserId } from "#lib/schema/brands";
 import { dbRunnerLayer, makeMock } from "#lib/test-support/effect";
 
 import { EventSchemasRepository } from "./repository";
 import { EventSchemasService } from "./service";
 
 const user = {
-	id: "user-id",
+	id: UserId.make("user-id"),
 	name: "Test User",
 	email: "user@example.com",
 } satisfies CurrentUserValue;
@@ -38,7 +39,9 @@ it.effect("returns not found when entity schema does not exist during list", () 
 
 	return Effect.gen(function* () {
 		const service = yield* EventSchemasService;
-		const exit = yield* Effect.exit(service.list(user, { entitySchemaId: "schema-id" }));
+		const exit = yield* Effect.exit(
+			service.list(user, { entitySchemaId: EntitySchemaId.make("schema-id") }),
+		);
 
 		expect(exit).toEqual(Exit.fail(new NotFound({ message: "Entity schema not found" })));
 	}).pipe(Effect.provide(layer));
@@ -48,7 +51,12 @@ it.effect("returns bad request when entity schema is built-in during creation", 
 	const layer = makeEventSchemasServiceLayer(
 		makeEventSchemasRepository({
 			getEntitySchemaScopeById: () =>
-				Effect.succeed({ slug: "book", userId: null, isBuiltin: true, id: "schema-id" }),
+				Effect.succeed({
+					slug: "book",
+					userId: null,
+					isBuiltin: true,
+					id: EntitySchemaId.make("schema-id"),
+				}),
 		}),
 	);
 
@@ -58,7 +66,7 @@ it.effect("returns bad request when entity schema is built-in during creation", 
 			service.create(user, {
 				name: "My Event",
 				slug: "my-event",
-				entitySchemaId: "schema-id",
+				entitySchemaId: EntitySchemaId.make("schema-id"),
 				propertiesSchema: {
 					fields: { note: { type: "string", label: "Note", description: "Note" } },
 				},
@@ -78,7 +86,12 @@ it.effect("returns bad request for invalid properties schema", () => {
 		makeEventSchemasRepository({
 			findBySlugForUser: () => Effect.succeed(null),
 			getEntitySchemaScopeById: () =>
-				Effect.succeed({ id: "schema-id", slug: "custom", userId: user.id, isBuiltin: false }),
+				Effect.succeed({
+					id: EntitySchemaId.make("schema-id"),
+					slug: "custom",
+					userId: user.id,
+					isBuiltin: false,
+				}),
 		}),
 	);
 
@@ -88,7 +101,7 @@ it.effect("returns bad request for invalid properties schema", () => {
 			service.create(user, {
 				name: "My Event",
 				slug: "my-event",
-				entitySchemaId: "schema-id",
+				entitySchemaId: EntitySchemaId.make("schema-id"),
 				propertiesSchema: {
 					fields: { status: { type: "string", label: "Status", description: "Status" } },
 					rules: [
@@ -112,9 +125,14 @@ it.effect("returns bad request for invalid properties schema", () => {
 it.effect("returns conflict when event schema slug already exists", () => {
 	const layer = makeEventSchemasServiceLayer(
 		makeEventSchemasRepository({
-			findBySlugForUser: () => Effect.succeed({ id: "existing-id" }),
+			findBySlugForUser: () => Effect.succeed({ id: EventSchemaId.make("existing-id") }),
 			getEntitySchemaScopeById: () =>
-				Effect.succeed({ id: "schema-id", slug: "custom", userId: user.id, isBuiltin: false }),
+				Effect.succeed({
+					id: EntitySchemaId.make("schema-id"),
+					slug: "custom",
+					userId: user.id,
+					isBuiltin: false,
+				}),
 		}),
 	);
 
@@ -123,7 +141,7 @@ it.effect("returns conflict when event schema slug already exists", () => {
 		const exit = yield* Effect.exit(
 			service.create(user, {
 				name: "My Event",
-				entitySchemaId: "schema-id",
+				entitySchemaId: EntitySchemaId.make("schema-id"),
 				slug: "duplicate-event-slug",
 				propertiesSchema: {
 					fields: { note: { type: "string", label: "Note", description: "Note" } },
@@ -139,7 +157,12 @@ it.effect("returns bad request for reserved slug", () => {
 	const layer = makeEventSchemasServiceLayer(
 		makeEventSchemasRepository({
 			getEntitySchemaScopeById: () =>
-				Effect.succeed({ slug: "book", userId: user.id, id: "schema-id", isBuiltin: false }),
+				Effect.succeed({
+					slug: "book",
+					userId: user.id,
+					id: EntitySchemaId.make("schema-id"),
+					isBuiltin: false,
+				}),
 		}),
 	);
 
@@ -149,7 +172,7 @@ it.effect("returns bad request for reserved slug", () => {
 			service.create(user, {
 				name: "My Event",
 				slug: "progress",
-				entitySchemaId: "schema-id",
+				entitySchemaId: EntitySchemaId.make("schema-id"),
 				propertiesSchema: {
 					fields: { note: { type: "string", label: "Note", description: "Note" } },
 				},
@@ -175,7 +198,7 @@ it.effect("normalizes slugs before creating event schemas", () => {
 				Effect.sync(() => {
 					createdSlug = input.slug;
 					return {
-						id: "schema-id",
+						id: EventSchemaId.make("schema-id"),
 						name: input.name,
 						slug: input.slug,
 						entitySchemaId: input.entitySchemaId,
@@ -184,7 +207,12 @@ it.effect("normalizes slugs before creating event schemas", () => {
 				}),
 			findBySlugForUser: () => Effect.succeed(null),
 			getEntitySchemaScopeById: () =>
-				Effect.succeed({ slug: "custom", id: "schema-id", userId: user.id, isBuiltin: false }),
+				Effect.succeed({
+					slug: "custom",
+					id: EntitySchemaId.make("schema-id"),
+					userId: user.id,
+					isBuiltin: false,
+				}),
 		}),
 	);
 
@@ -192,7 +220,7 @@ it.effect("normalizes slugs before creating event schemas", () => {
 		const service = yield* EventSchemasService;
 		const schema = yield* service.create(user, {
 			name: " My Cool Event ",
-			entitySchemaId: "schema-id",
+			entitySchemaId: EntitySchemaId.make("schema-id"),
 			propertiesSchema: {
 				fields: { note: { type: "string", label: "Note", description: "Note" } },
 			},

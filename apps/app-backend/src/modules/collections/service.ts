@@ -5,6 +5,7 @@ import type { CurrentUserValue } from "#lib/auth-middleware";
 import { DbRunner, TransactionRunner } from "#lib/db";
 import type { BadRequest, DbError, NotFound } from "#lib/errors";
 import { badRequest, notFound } from "#lib/errors";
+import type { EntityId, EntitySchemaId, EventSchemaId, UserId } from "#lib/schema/brands";
 import { decodeStoredAppSchema } from "#lib/schema/core";
 import {
 	parseAppSchemaProperties,
@@ -53,7 +54,7 @@ type CollectionsServiceShape = {
 		payload: CreateCollectionBody,
 	) => Effect.Effect<CollectionResponse, BadRequest | DbError | NotFound>;
 	readonly getOrCreateCollection: (
-		userId: string,
+		userId: UserId,
 		name: string,
 	) => Effect.Effect<CollectionResponse, DbError>;
 	readonly addToCollection: (
@@ -65,16 +66,16 @@ type CollectionsServiceShape = {
 		payload: DeleteMembershipBody,
 	) => Effect.Effect<MembershipResponse, BadRequest | DbError | NotFound>;
 	readonly ensureLibraryEntityForUser: (
-		userId: string,
-		entitySchemaId: string,
-	) => Effect.Effect<{ id: string }, DbError>;
+		userId: UserId,
+		entitySchemaId: EntitySchemaId,
+	) => Effect.Effect<{ id: EntityId }, DbError>;
 	readonly ensureEntityInLibrary: (
-		userId: string,
-		entityId: string,
+		userId: UserId,
+		entityId: EntityId,
 	) => Effect.Effect<void, DbError>;
 	readonly markEntityOwnedInLibrary: (input: {
-		userId: string;
-		entityId: string;
+		userId: UserId;
+		entityId: EntityId;
 		provider: string;
 		syncedAt: string;
 	}) => Effect.Effect<void, DbError>;
@@ -155,10 +156,10 @@ export class CollectionsService extends Effect.Service<CollectionsService>()("Co
 		);
 
 		const queueCollectionEvent = (input: {
-			readonly userId: string;
-			readonly entityId: string;
+			readonly userId: UserId;
+			readonly entityId: EntityId;
 			readonly occurredAt: string;
-			readonly eventSchemaId: string;
+			readonly eventSchemaId: EventSchemaId;
 			readonly properties: Record<string, unknown>;
 		}) =>
 			enqueueEventCreate({
@@ -226,7 +227,7 @@ export class CollectionsService extends Effect.Service<CollectionsService>()("Co
 			}),
 
 			getOrCreateCollection: Effect.fn("CollectionsService.getOrCreateCollection")(function* (
-				userId: string,
+				userId: UserId,
 				name: string,
 			) {
 				const entitySchema = yield* collectionEntitySchema;
@@ -406,7 +407,7 @@ export class CollectionsService extends Effect.Service<CollectionsService>()("Co
 			}),
 
 			ensureLibraryEntityForUser: Effect.fn("CollectionsService.ensureLibraryEntityForUser")(
-				function* (userId: string, entitySchemaId: string) {
+				function* (userId: UserId, entitySchemaId: EntitySchemaId) {
 					return yield* runWithDb(
 						Effect.gen(function* () {
 							const existing = yield* repository.findLibraryEntityForUser({
@@ -431,8 +432,8 @@ export class CollectionsService extends Effect.Service<CollectionsService>()("Co
 			),
 
 			ensureEntityInLibrary: Effect.fn("CollectionsService.ensureEntityInLibrary")(function* (
-				userId: string,
-				entityId: string,
+				userId: UserId,
+				entityId: EntityId,
 			) {
 				const libraryEntityId = yield* runWithDb(repository.getUserLibraryEntityId({ userId }));
 				if (!libraryEntityId) {
@@ -454,8 +455,8 @@ export class CollectionsService extends Effect.Service<CollectionsService>()("Co
 
 			markEntityOwnedInLibrary: Effect.fn("CollectionsService.markEntityOwnedInLibrary")(
 				function* (input: {
-					userId: string;
-					entityId: string;
+					userId: UserId;
+					entityId: EntityId;
 					provider: string;
 					syncedAt: string;
 				}) {

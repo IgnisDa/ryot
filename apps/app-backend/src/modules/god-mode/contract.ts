@@ -3,6 +3,7 @@ import { Schema } from "effect";
 
 import { AdminMiddleware } from "#lib/auth-middleware";
 import { BadRequest, InternalError, Unauthorized } from "#lib/errors";
+import { UserId } from "#lib/schema/brands";
 
 const UserAuthState = Schema.Literal("credential", "oidc", "none", "mixed");
 
@@ -46,7 +47,7 @@ const ProvisionUserBody = Schema.Union(
 
 export type ProvisionUserBody = Schema.Schema.Type<typeof ProvisionUserBody>;
 
-const ProvisionUserResponse = Schema.Struct({ userId: Schema.String });
+const ProvisionUserResponse = Schema.Struct({ userId: UserId });
 
 const ResetPasswordResponse = Schema.Struct({
 	email: Schema.String,
@@ -60,7 +61,7 @@ const SetBanResponse = Schema.Struct({
 	bannedAt: Schema.NullOr(Schema.String),
 });
 
-const userIdParam = HttpApiSchema.param("userId", Schema.String);
+const userIdParam = HttpApiSchema.param("userId", UserId);
 
 export const GodModeGroup = HttpApiGroup.make("godMode")
 	.addError(Unauthorized, { status: 401 })

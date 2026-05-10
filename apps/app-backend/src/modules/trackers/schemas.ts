@@ -1,7 +1,9 @@
 import { Schema } from "effect";
 
+import { TrackerId } from "#lib/schema/brands";
+
 export const ListedTracker = Schema.Struct({
-	id: Schema.String,
+	id: TrackerId,
 	slug: Schema.String,
 	name: Schema.String,
 	icon: Schema.String,
@@ -36,13 +38,13 @@ export const UpdateTrackerBody = Schema.Struct({
 export type UpdateTrackerBody = typeof UpdateTrackerBody.Type;
 
 export const ReorderTrackersBody = Schema.Struct({
-	trackerIds: Schema.Array(Schema.String),
+	trackerIds: Schema.Array(TrackerId),
 });
 
 export type ReorderTrackersBody = typeof ReorderTrackersBody.Type;
 
 export const ReorderTrackersResponse = Schema.Struct({
-	trackerIds: Schema.Array(Schema.String),
+	trackerIds: Schema.Array(TrackerId),
 });
 
 export type ReorderTrackersResponse = typeof ReorderTrackersResponse.Type;

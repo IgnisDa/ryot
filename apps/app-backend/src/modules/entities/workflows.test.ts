@@ -3,6 +3,13 @@ import { WorkflowEngine, WorkflowInstance } from "@effect/workflow/WorkflowEngin
 import type { Context } from "effect";
 import { Effect, Layer } from "effect";
 
+import {
+	EntityId,
+	EntitySchemaId,
+	RelationshipSchemaId,
+	SandboxScriptId,
+	UserId,
+} from "#lib/schema/brands";
 import { dbRunnerLayer, makeMock, makeWorkflowActivityEngine } from "#lib/test-support/effect";
 import { RelationshipSchemasRepository } from "#modules/relationship-schemas/repository";
 import { RelationshipsRepository } from "#modules/relationships/repository";
@@ -18,12 +25,12 @@ const baseEntity = {
 	image: null,
 	createdAt: now,
 	updatedAt: now,
-	id: "entity-1",
+	id: EntityId.make("entity-1"),
 	populatedAt: now,
 	name: "Test Book",
 	externalId: "ext-1",
-	entitySchemaId: "schema-1",
-	sandboxScriptId: "script-1",
+	entitySchemaId: EntitySchemaId.make("schema-1"),
+	sandboxScriptId: SandboxScriptId.make("script-1"),
 	properties: { title: "Test Book" },
 } satisfies ListedEntity;
 
@@ -118,11 +125,11 @@ const withTestLayer = <A, E, R>(
 };
 
 const importPayload = {
-	userId: "user-1",
+	userId: UserId.make("user-1"),
 	externalId: "ext-1",
-	scriptId: "script-1",
 	executionId: "exec-1",
-	entitySchemaId: "schema-1",
+	entitySchemaId: EntitySchemaId.make("schema-1"),
+	scriptId: SandboxScriptId.make("script-1"),
 };
 
 it.effect("populates entity, writes related entities, and ensures library membership", () => {
@@ -134,29 +141,29 @@ it.effect("populates entity, writes related entities, and ensures library member
 
 	const payload = { ...importPayload, executionId: "exec-full" };
 	const relatedEntitySchemaScript = {
-		entitySchemaId: "schema-person",
-		sandboxScriptId: "person-script",
+		entitySchemaId: EntitySchemaId.make("schema-person"),
+		sandboxScriptId: SandboxScriptId.make("person-script"),
 	};
 	const relationshipSchema = {
 		isBuiltin: true,
-		id: "rel-schema-1",
+		id: RelationshipSchemaId.make("rel-schema-1"),
 		slug: "authored-by",
 		name: "Authored By",
 		propertiesSchema: { fields: {} },
-		sourceEntitySchemaId: "schema-1",
-		targetEntitySchemaId: "schema-person",
+		sourceEntitySchemaId: EntitySchemaId.make("schema-1"),
+		targetEntitySchemaId: EntitySchemaId.make("schema-person"),
 	};
 	const relatedEntity = {
 		image: null,
-		id: "person-1",
+		id: EntityId.make("person-1"),
 		name: "Author",
 		createdAt: now,
 		updatedAt: now,
 		properties: {},
 		populatedAt: null,
 		externalId: "person-ext-1",
-		entitySchemaId: "schema-person",
-		sandboxScriptId: "person-script-id",
+		entitySchemaId: EntitySchemaId.make("schema-person"),
+		sandboxScriptId: SandboxScriptId.make("person-script-id"),
 	} satisfies ListedEntity;
 	const options = {
 		relationshipSchemasRepository: makeRelationshipSchemasRepository({
@@ -328,11 +335,11 @@ it.effect("fails workflow when related relationship properties are invalid", () 
 			findGlobalBySchemaIds: () =>
 				Effect.succeed({
 					isBuiltin: true,
-					id: "rel-schema-1",
+					id: RelationshipSchemaId.make("rel-schema-1"),
 					slug: "authored-by",
 					name: "Authored By",
-					sourceEntitySchemaId: "schema-1",
-					targetEntitySchemaId: "schema-person",
+					sourceEntitySchemaId: EntitySchemaId.make("schema-1"),
+					targetEntitySchemaId: EntitySchemaId.make("schema-person"),
 					propertiesSchema: {
 						fields: {
 							rating: {
@@ -348,7 +355,10 @@ it.effect("fails workflow when related relationship properties are invalid", () 
 		entitiesRepository: makeEntitiesRepository({
 			findGlobalEntityByExternalId: () => Effect.succeed(storedEntity),
 			findEntitySchemaScriptBySlug: () =>
-				Effect.succeed({ entitySchemaId: "schema-person", sandboxScriptId: "person-script" }),
+				Effect.succeed({
+					entitySchemaId: EntitySchemaId.make("schema-person"),
+					sandboxScriptId: SandboxScriptId.make("person-script"),
+				}),
 			createOrUpdateGlobalEntity: (input) => {
 				const nextEntity = {
 					...baseEntity,
@@ -358,7 +368,7 @@ it.effect("fails workflow when related relationship properties are invalid", () 
 					entitySchemaId: input.entitySchemaId,
 					sandboxScriptId: input.sandboxScriptId,
 					populatedAt: input.populatedAt?.toISOString() ?? null,
-					id: input.entitySchemaId === "schema-1" ? "entity-1" : "person-1",
+					id: EntityId.make(input.entitySchemaId === "schema-1" ? "entity-1" : "person-1"),
 				};
 				if (input.entitySchemaId === "schema-1") {
 					storedEntity = nextEntity;
@@ -423,17 +433,20 @@ it.effect("fails workflow when related relationship properties are not objects",
 			findGlobalBySchemaIds: () =>
 				Effect.succeed({
 					isBuiltin: true,
-					id: "rel-schema-1",
+					id: RelationshipSchemaId.make("rel-schema-1"),
 					slug: "authored-by",
 					name: "Authored By",
 					propertiesSchema: { fields: {} },
-					sourceEntitySchemaId: "schema-1",
-					targetEntitySchemaId: "schema-person",
+					sourceEntitySchemaId: EntitySchemaId.make("schema-1"),
+					targetEntitySchemaId: EntitySchemaId.make("schema-person"),
 				}),
 		}),
 		entitiesRepository: makeEntitiesRepository({
 			findEntitySchemaScriptBySlug: () =>
-				Effect.succeed({ entitySchemaId: "schema-person", sandboxScriptId: "person-script" }),
+				Effect.succeed({
+					entitySchemaId: EntitySchemaId.make("schema-person"),
+					sandboxScriptId: SandboxScriptId.make("person-script"),
+				}),
 		}),
 		relationshipsRepository: makeRelationshipsRepository({
 			upsertEntityRelationship: () =>
@@ -492,11 +505,11 @@ it.effect("retries related writes after a failed related validation", () => {
 			findGlobalBySchemaIds: () =>
 				Effect.succeed({
 					isBuiltin: true,
-					id: "rel-schema-1",
+					id: RelationshipSchemaId.make("rel-schema-1"),
 					slug: "authored-by",
 					name: "Authored By",
-					sourceEntitySchemaId: "schema-1",
-					targetEntitySchemaId: "schema-person",
+					sourceEntitySchemaId: EntitySchemaId.make("schema-1"),
+					targetEntitySchemaId: EntitySchemaId.make("schema-person"),
 					propertiesSchema: {
 						fields: {
 							rating: {
@@ -512,7 +525,10 @@ it.effect("retries related writes after a failed related validation", () => {
 		entitiesRepository: makeEntitiesRepository({
 			findGlobalEntityByExternalId: () => Effect.succeed(storedEntity),
 			findEntitySchemaScriptBySlug: () =>
-				Effect.succeed({ entitySchemaId: "schema-person", sandboxScriptId: "person-script" }),
+				Effect.succeed({
+					entitySchemaId: EntitySchemaId.make("schema-person"),
+					sandboxScriptId: SandboxScriptId.make("person-script"),
+				}),
 			createOrUpdateGlobalEntity: (input) => {
 				const nextEntity = {
 					...baseEntity,
@@ -522,7 +538,7 @@ it.effect("retries related writes after a failed related validation", () => {
 					entitySchemaId: input.entitySchemaId,
 					sandboxScriptId: input.sandboxScriptId,
 					populatedAt: input.populatedAt?.toISOString() ?? null,
-					id: input.entitySchemaId === "schema-1" ? "entity-1" : "person-1",
+					id: EntityId.make(input.entitySchemaId === "schema-1" ? "entity-1" : "person-1"),
 				};
 				if (input.entitySchemaId === "schema-1") {
 					storedEntity = nextEntity;
