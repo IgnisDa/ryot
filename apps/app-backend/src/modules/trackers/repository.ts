@@ -123,7 +123,7 @@ export const createTrackerForUser = async (input: {
 		.from(tracker)
 		.where(eq(tracker.userId, input.userId));
 
-	const nextSortOrder = Number(orderRow?.maxSortOrder ?? -1) + 1;
+	const nextSortOrder = (orderRow?.maxSortOrder ?? -1) + 1;
 
 	const [createdTracker] = await db
 		.insert(tracker)

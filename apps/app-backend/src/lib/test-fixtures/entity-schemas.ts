@@ -41,23 +41,26 @@ export const createListedEntitySchema = (
 export const createEntitySchemaDeps = (
 	overrides: Partial<EntitySchemaServiceDeps> = {},
 ): EntitySchemaServiceDeps => ({
-	getEntitySchemaByIdForUser: async () => undefined,
-	getEntitySchemaBySlugForUser: async () => undefined,
-	listEntitySchemasForUser: async () => [createListedEntitySchema()],
-	getTrackerScopeForUser: async (input) => ({
-		isBuiltin: false,
-		id: input.trackerId,
-		userId: input.userId,
-	}),
-	createEntitySchemaForUser: async (input) =>
-		createListedEntitySchema({
-			name: input.name,
-			slug: input.slug,
-			icon: input.icon,
-			trackerId: input.trackerId,
-			accentColor: input.accentColor,
-			propertiesSchema: input.propertiesSchema,
+	getEntitySchemaByIdForUser: () => Promise.resolve(undefined),
+	getEntitySchemaBySlugForUser: () => Promise.resolve(undefined),
+	listEntitySchemasForUser: () => Promise.resolve([createListedEntitySchema()]),
+	getTrackerScopeForUser: (input) =>
+		Promise.resolve({
+			isBuiltin: false,
+			id: input.trackerId,
+			userId: input.userId,
 		}),
+	createEntitySchemaForUser: (input) =>
+		Promise.resolve(
+			createListedEntitySchema({
+				name: input.name,
+				slug: input.slug,
+				icon: input.icon,
+				trackerId: input.trackerId,
+				accentColor: input.accentColor,
+				propertiesSchema: input.propertiesSchema,
+			}),
+		),
 	...overrides,
 });
 
@@ -68,15 +71,16 @@ const entitySearchPendingResult: PollSandboxResult = { status: "pending" };
 export const createEntitySearchDeps = (
 	overrides: Partial<EntitySearchDeps> = {},
 ): EntitySearchDeps => ({
-	enqueueSandboxJob: async () => ({ data: entitySearchEnqueueResult }),
-	getSandboxJobResult: async () => ({ data: entitySearchPendingResult }),
+	enqueueSandboxJob: () => Promise.resolve({ data: entitySearchEnqueueResult }),
+	getSandboxJobResult: () => Promise.resolve({ data: entitySearchPendingResult }),
 	...overrides,
 });
 
 const entityImportPendingJob = {
 	failedReason: undefined,
+	// oxlint-disable-next-line no-unsafe-type-assertion
 	returnvalue: {} as ListedEntity,
-	getState: async () => "waiting" as const,
+	getState: () => Promise.resolve("waiting" as const),
 	data: {
 		userId: "user_1",
 		scriptId: "script_1",
@@ -88,7 +92,7 @@ const entityImportPendingJob = {
 export const createEntityImportDeps = (
 	overrides: Partial<EntityImportDeps> = {},
 ): EntityImportDeps => ({
-	addJobToQueue: async () => {},
-	getJobFromQueue: async () => entityImportPendingJob,
+	addJobToQueue: () => Promise.resolve(),
+	getJobFromQueue: () => Promise.resolve(entityImportPendingJob),
 	...overrides,
 });
