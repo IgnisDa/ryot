@@ -5,6 +5,8 @@ description: Create a PRD through user interview, codebase exploration, and modu
 
 This skill will be invoked when the user wants to create a PRD. You may skip steps if you don't consider them necessary.
 
+**Core principle:** The finished PRD must be entirely self-contained. A fresh agent with no prior context must be able to read it and have everything needed to understand the problem, the technical decisions, and what to implement — without exploring the codebase or asking follow-up questions.
+
 1. Ask the user for a long, detailed description of the problem they want to solve and any potential ideas for solutions.
 
 2. Explore the repo to verify their assertions and understand the current state of the codebase.
@@ -43,7 +45,7 @@ This list of user stories should be extremely extensive and cover all aspects of
 
 ## Implementation Decisions
 
-A list of implementation decisions that were made. This can include:
+A list of implementation decisions that were made. This section must be thorough enough that a fresh agent can implement the feature without needing to ask follow-up questions or explore the codebase. Include:
 
 - The modules that will be built/modified
 - The interfaces of those modules that will be modified
