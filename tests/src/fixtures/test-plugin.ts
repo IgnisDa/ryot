@@ -28,13 +28,15 @@ type TestPluginManifestInput = Partial<
 		| "configSchema"
 		| "importSources"
 		| "entitySchemas"
+		| "userBootstrap"
 		| "httpRateLimits"
 		| "relationshipSchemas"
 		| "integrationProviders"
 	>
 > & {
-	pluginSlug: TestPluginManifest["metadata"]["slug"];
 	providers?: ReadonlyArray<PluginProvider>;
+	bindings?: Partial<TestPluginManifest["bindings"]>;
+	pluginSlug: TestPluginManifest["metadata"]["slug"];
 	eventAutomations?: TestPluginManifest["bindings"]["eventAutomations"];
 };
 
@@ -43,29 +45,29 @@ export type InstalledTestPlugin = {
 	active: boolean;
 	pluginSlug: PluginSlug;
 	scriptId: SandboxScriptId;
-	scriptIds: Record<string, SandboxScriptId>;
-	files: InstallPluginPayload["files"];
 	manifest: TestPluginManifest;
+	files: InstallPluginPayload["files"];
+	scriptIds: Record<string, SandboxScriptId>;
 };
 
 type InstalledScriptRegistration = {
-	installed: InstalledTestPlugin;
 	targetSlug: string;
+	installed: InstalledTestPlugin;
 };
 
-const installedByScriptId = new Map<string, InstalledScriptRegistration>();
 const definitionManifests = new Map<string, TestPluginManifest>();
+const installedByScriptId = new Map<string, InstalledScriptRegistration>();
 
 export const testPluginManifest = (input: TestPluginManifestInput): TestPluginManifest => ({
-	userBootstrap: [],
 	signalSchemas: [],
 	boot: input.boot ?? [],
 	crons: input.crons ?? [],
 	scripts: input.scripts ?? [],
 	workflows: input.workflows ?? [],
-	providers: [...(input.providers ?? [])],
 	savedViews: input.savedViews ?? [],
 	operations: input.operations ?? [],
+	providers: [...(input.providers ?? [])],
+	userBootstrap: input.userBootstrap ?? [],
 	importSources: input.importSources ?? [],
 	entitySchemas: input.entitySchemas ?? [],
 	httpRateLimits: input.httpRateLimits ?? [],
@@ -85,6 +87,7 @@ export const testPluginManifest = (input: TestPluginManifestInput): TestPluginMa
 		relationshipAutomations: [],
 		providerEntityImportAutomations: [],
 		eventAutomations: input.eventAutomations ?? [],
+		...input.bindings,
 	},
 });
 

@@ -9,7 +9,6 @@ import type {
 	PluginProviderOperation,
 } from "@ryot/contract/modules/plugins/manifest";
 import type { ExecutionAuthority } from "@ryot/contract/modules/sandbox/schemas";
-import type { UserId } from "@ryot/contract/schema/brands";
 import {
 	AutomationRuleId,
 	EntitySchemaSlug,
@@ -18,6 +17,7 @@ import {
 	SandboxProviderId,
 	SandboxScriptId,
 	SignalSchemaSlug,
+	UserId,
 } from "@ryot/contract/schema/brands";
 import { and, desc, eq, inArray, isNotNull, isNull, or, type SQL, sql } from "drizzle-orm";
 import { Context, Data, Effect, Layer } from "effect";
@@ -37,6 +37,7 @@ import {
 	mergeManifestDefinitions,
 	PluginLoader,
 	PluginLoaderLive,
+	type PluginRegistryEntry,
 	type PluginRegistrySnapshot,
 } from "./loader";
 
@@ -48,8 +49,10 @@ export type AutomationRuleTarget =
 
 type BindingAutomation = {
 	name: string;
+	pluginId: string;
 	pluginSlug: string;
 	scriptSlug: string;
+	contentHash: string;
 	position: number | null;
 	kind: AutomationRuleKind;
 	target: AutomationRuleTarget;
@@ -98,6 +101,17 @@ export type AvailablePlugin = {
 	readonly config: Readonly<Record<string, unknown>>;
 };
 
+type BindingPlugin = Pick<AvailablePlugin, "id" | "slug" | "manifest" | "compiledHashes">;
+
+const bindingPluginFromEntry = (plugin: PluginRegistryEntry): BindingPlugin => ({
+	id: plugin.id,
+	slug: plugin.slug,
+	manifest: plugin.manifest,
+	compiledHashes: Object.fromEntries(
+		plugin.scripts.map((script) => [script.slug, script.contentHash]),
+	),
+});
+
 export const pluginConfigContextFor = (plugin: AvailablePlugin): PluginConfigContext =>
 	plugin.scope === "system"
 		? {
@@ -120,7 +134,7 @@ const bindingId = (binding: BindingAutomation) =>
 	AutomationRuleId.make(
 		[
 			"binding",
-			binding.pluginSlug,
+			binding.pluginId,
 			binding.kind,
 			binding.target.kind,
 			binding.target.id,
@@ -131,14 +145,14 @@ const bindingId = (binding: BindingAutomation) =>
 
 const providerEntityImportBindingId = (input: {
 	index: number;
-	pluginSlug: string;
+	pluginId: string;
 	scriptSlug: string;
 	entitySchemaSlug: string;
 }) =>
 	AutomationRuleId.make(
 		[
 			"binding",
-			input.pluginSlug,
+			input.pluginId,
 			"provider_entity_import",
 			input.entitySchemaSlug,
 			input.scriptSlug,
@@ -212,6 +226,24 @@ const findCompiledScriptRow = Effect.fn("PluginRuntimeResolver.findCompiledScrip
 	},
 );
 
+const privateCronInstallation = {
+	pluginId: schema.plugin.id,
+	pluginSlug: schema.plugin.slug,
+	manifest: schema.plugin.manifest,
+	userId: schema.pluginInstallation.userId,
+	installationId: schema.pluginInstallation.id,
+	compiledHashes: schema.plugin.compiledHashes,
+};
+
+const activePrivateInstallation = (where?: SQL) =>
+	and(
+		where,
+		eq(schema.plugin.scope, "user"),
+		eq(schema.plugin.status, "active"),
+		eq(schema.pluginInstallation.health, "ready"),
+		eq(schema.pluginInstallation.isDisabled, false),
+	);
+
 const findActivePluginRow = Effect.fn("PluginRuntimeResolver.findActivePluginRow")(function* (
 	where: SQL | undefined,
 ) {
@@ -250,7 +282,11 @@ export class PluginRuntimeResolver extends Context.Service<PluginRuntimeResolver
 				const included = new Set(
 					states
 						.filter((state) =>
-							includeUnavailable ? true : state.health === "ready" && !state.isDisabled,
+							includeUnavailable
+								? true
+								: // A private installation runs its user-bootstrap entries while it is still
+									// installing, and those scripts must be able to read their own schemas.
+									(state.health === "ready" || state.health === "installing") && !state.isDisabled,
 						)
 						.map(({ pluginId }) => pluginId),
 				);
@@ -316,14 +352,9 @@ export class PluginRuntimeResolver extends Context.Service<PluginRuntimeResolver
 					}
 					available.push({
 						config: {},
-						id: plugin.id,
-						slug: plugin.slug,
 						scope: "system",
-						manifest: plugin.manifest,
 						installationId: state.id,
-						compiledHashes: Object.fromEntries(
-							plugin.scripts.map((script) => [script.slug, script.contentHash]),
-						),
+						...bindingPluginFromEntry(plugin),
 					});
 				}
 				const db = yield* Database;
@@ -521,6 +552,112 @@ export class PluginRuntimeResolver extends Context.Service<PluginRuntimeResolver
 					return script ? { cron, script } : null;
 				},
 			);
+			const listPrivateCronSchedules = Effect.fn("PluginRuntimeResolver.listPrivateCronSchedules")(
+				function* () {
+					const db = yield* Database;
+					const rows = yield* mapDatabaseErrors(
+						db
+							.select(privateCronInstallation)
+							.from(schema.pluginInstallation)
+							.innerJoin(schema.plugin, eq(schema.plugin.id, schema.pluginInstallation.pluginId))
+							.where(activePrivateInstallation()),
+					);
+					return rows
+						.flatMap((row) =>
+							row.manifest.crons.map((cron) => ({
+								cron,
+								pluginId: row.pluginId,
+								pluginSlug: row.pluginSlug,
+								installationId: row.installationId,
+								userId: UserId.make(row.userId),
+							})),
+						)
+						.sort(
+							(left, right) =>
+								left.pluginSlug.localeCompare(right.pluginSlug) ||
+								left.cron.slug.localeCompare(right.cron.slug) ||
+								left.installationId.localeCompare(right.installationId),
+						);
+				},
+			);
+
+			const resolvePrivatePluginCron = Effect.fn("PluginRuntimeResolver.resolvePrivatePluginCron")(
+				function* (input: { installationId: string; cronSlug: string }) {
+					const db = yield* Database;
+					const [row] = yield* mapDatabaseErrors(
+						db
+							.select(privateCronInstallation)
+							.from(schema.pluginInstallation)
+							.innerJoin(schema.plugin, eq(schema.plugin.id, schema.pluginInstallation.pluginId))
+							.where(
+								activePrivateInstallation(eq(schema.pluginInstallation.id, input.installationId)),
+							)
+							.limit(1),
+					);
+					const cron = row?.manifest.crons.find(({ slug }) => slug === input.cronSlug);
+					const contentHash = cron ? row?.compiledHashes[cron.scriptSlug] : undefined;
+					if (!row || !cron || !contentHash) {
+						return null;
+					}
+					const script = yield* findCompiledScriptRow({
+						contentHash,
+						pluginId: row.pluginId,
+						scriptSlug: cron.scriptSlug,
+					});
+					return script
+						? { cron, script, pluginSlug: row.pluginSlug, userId: UserId.make(row.userId) }
+						: null;
+				},
+			);
+
+			const resolvePrivateInstallationBootstrap = Effect.fn(
+				"PluginRuntimeResolver.resolvePrivateInstallationBootstrap",
+			)(function* (installationId: string) {
+				const db = yield* Database;
+				const [row] = yield* mapDatabaseErrors(
+					db
+						.select({
+							pluginId: schema.plugin.id,
+							pluginScope: schema.plugin.scope,
+							manifest: schema.plugin.manifest,
+							userId: schema.pluginInstallation.userId,
+							health: schema.pluginInstallation.health,
+							compiledHashes: schema.plugin.compiledHashes,
+						})
+						.from(schema.pluginInstallation)
+						.innerJoin(schema.plugin, eq(schema.plugin.id, schema.pluginInstallation.pluginId))
+						.where(
+							and(
+								eq(schema.plugin.status, "active"),
+								eq(schema.pluginInstallation.id, installationId),
+							),
+						)
+						.limit(1),
+				);
+				if (!row) {
+					return null;
+				}
+				const entries = yield* Effect.forEach(row.manifest.userBootstrap, (entry) =>
+					Effect.gen(function* () {
+						const contentHash = row.compiledHashes[entry.scriptSlug];
+						const script = contentHash
+							? yield* findCompiledScriptRow({
+									contentHash,
+									pluginId: row.pluginId,
+									scriptSlug: entry.scriptSlug,
+								})
+							: null;
+						return { slug: entry.slug, scriptId: script?.id ?? null };
+					}),
+				);
+				return {
+					entries,
+					health: row.health,
+					pluginScope: row.pluginScope,
+					userId: UserId.make(row.userId),
+				};
+			});
+
 			const resolveActivePluginUserBootstrap = Effect.fn(
 				"PluginRuntimeResolver.resolveActivePluginUserBootstrap",
 			)(function* (input: { pluginSlug: string; bootstrapSlug: string }) {
@@ -1133,17 +1270,29 @@ export class PluginRuntimeResolver extends Context.Service<PluginRuntimeResolver
 			const resolveUserSearchOptionsScript = resolveUserProviderOperation("search-options");
 
 			const automationBindings = (
-				snapshot: PluginRegistrySnapshot,
+				plugins: ReadonlyArray<BindingPlugin>,
 			): ReadonlyArray<BindingAutomation> => {
 				const bindings: BindingAutomation[] = [];
-				for (const [pluginSlug, plugin] of Object.entries(snapshot.plugins)) {
+				for (const plugin of plugins) {
 					const nameBySlug = new Map(
 						plugin.manifest.scripts.map((script) => [script.slug, script.name]),
 					);
 					const name = (scriptSlug: string) => nameBySlug.get(scriptSlug) ?? scriptSlug;
+					const add = (
+						binding: Omit<BindingAutomation, "pluginId" | "pluginSlug" | "contentHash">,
+					) => {
+						const contentHash = plugin.compiledHashes[binding.scriptSlug];
+						if (contentHash) {
+							bindings.push({
+								...binding,
+								contentHash,
+								pluginId: plugin.id,
+								pluginSlug: plugin.slug,
+							});
+						}
+					};
 					for (const binding of plugin.manifest.bindings.entityAutomations) {
-						bindings.push({
-							pluginSlug,
+						add({
 							position: null,
 							metadata: null,
 							kind: "subscription",
@@ -1157,13 +1306,12 @@ export class PluginRuntimeResolver extends Context.Service<PluginRuntimeResolver
 						});
 					}
 					for (const binding of plugin.manifest.bindings.relationshipAutomations) {
-						bindings.push({
-							pluginSlug,
+						add({
 							position: null,
 							metadata: null,
 							kind: "subscription",
-							name: name(binding.scriptSlug),
 							operation: binding.operation,
+							name: name(binding.scriptSlug),
 							scriptSlug: binding.scriptSlug,
 							target: {
 								kind: "relationship_schema",
@@ -1172,8 +1320,7 @@ export class PluginRuntimeResolver extends Context.Service<PluginRuntimeResolver
 						});
 					}
 					for (const binding of plugin.manifest.bindings.eventAutomations) {
-						bindings.push({
-							pluginSlug,
+						add({
 							kind: binding.kind,
 							operation: "create",
 							name: name(binding.scriptSlug),
@@ -1194,8 +1341,7 @@ export class PluginRuntimeResolver extends Context.Service<PluginRuntimeResolver
 						});
 					}
 					for (const binding of plugin.manifest.bindings.signalAutomations) {
-						bindings.push({
-							pluginSlug,
+						add({
 							position: null,
 							metadata: null,
 							operation: "signal",
@@ -1212,17 +1358,22 @@ export class PluginRuntimeResolver extends Context.Service<PluginRuntimeResolver
 				return bindings;
 			};
 
+			const bindingPlugins = Effect.fn("PluginRuntimeResolver.bindingPlugins")(function* (
+				userId: UserId | null,
+			) {
+				return userId === null
+					? Object.values(loader.getSnapshot().plugins).map(bindingPluginFromEntry)
+					: yield* listPluginsAvailableToUser(userId);
+			});
+
 			const resolveAutomation = Effect.fn("PluginRuntimeResolver.resolveAutomation")(function* (
-				snapshot: PluginRegistrySnapshot,
 				binding: BindingAutomation,
 			) {
-				const active = activeScripts(snapshot).find(({ slug }) => slug === binding.scriptSlug);
-				const script = active
-					? yield* findActiveScriptInPluginSnapshot(snapshot, {
-							scriptSlug: active.slug,
-							pluginSlug: active.pluginSlug,
-						})
-					: null;
+				const script = yield* findCompiledScriptRow({
+					pluginId: binding.pluginId,
+					scriptSlug: binding.scriptSlug,
+					contentHash: binding.contentHash,
+				});
 				if (!script) {
 					return null;
 				}
@@ -1248,31 +1399,22 @@ export class PluginRuntimeResolver extends Context.Service<PluginRuntimeResolver
 				target: AutomationRuleTarget;
 				operation: AutomationOperation;
 			}) {
-				const snapshot = loader.getSnapshot();
-				const availablePluginIds = input.userId
-					? yield* availablePluginIdsForUser(input.userId)
-					: null;
-				const bindings = automationBindings(snapshot).filter(
+				const bindings = automationBindings(yield* bindingPlugins(input.userId)).filter(
 					(binding) =>
-						(availablePluginIds === null ||
-							availablePluginIds.has(snapshot.plugins[binding.pluginSlug]?.id ?? "")) &&
 						binding.kind === input.kind &&
 						binding.operation === input.operation &&
 						binding.target.kind === input.target.kind &&
 						binding.target.id === input.target.id,
 				);
-				const forEachBindings = Effect.forEach(bindings, (binding) =>
-					resolveAutomation(snapshot, binding),
-				).pipe(Effect.map((resolved) => resolved.filter((value) => value !== null)));
-				return yield* forEachBindings;
+				const resolved = yield* Effect.forEach(bindings, resolveAutomation);
+				return resolved.filter((value) => value !== null);
 			});
 
 			const listProviderEntityImportAutomations = Effect.fn(
 				"PluginRuntimeResolver.listProviderEntityImportAutomations",
-			)(function* (entitySchemaSlug: EntitySchemaSlug) {
-				const snapshot = loader.getSnapshot();
+			)(function* (userId: UserId | null, entitySchemaSlug: EntitySchemaSlug) {
 				const resolved: ResolvedProviderEntityImportAutomation[] = [];
-				for (const [pluginSlug, plugin] of Object.entries(snapshot.plugins)) {
+				for (const plugin of yield* bindingPlugins(userId)) {
 					for (const [
 						index,
 						binding,
@@ -1280,28 +1422,34 @@ export class PluginRuntimeResolver extends Context.Service<PluginRuntimeResolver
 						if (binding.entitySchemaSlug !== entitySchemaSlug) {
 							continue;
 						}
-						const declared = plugin.scripts.find(({ slug }) => slug === binding.scriptSlug);
+						const declared = plugin.manifest.scripts.find(
+							({ slug }) => slug === binding.scriptSlug,
+						);
 						if (!declared) {
 							return yield* new InvalidProviderEntityImportAutomationError({
-								pluginSlug,
 								reason: "missing_script",
+								pluginSlug: plugin.slug,
 								scriptSlug: binding.scriptSlug,
 							});
 						}
-						if (declared.metadata.kind !== "automation") {
+						if (declared.kind !== "automation") {
 							return yield* new InvalidProviderEntityImportAutomationError({
-								pluginSlug,
+								pluginSlug: plugin.slug,
 								reason: "wrong_script_kind",
 								scriptSlug: binding.scriptSlug,
 							});
 						}
-						const script = yield* findActiveScriptInPluginSnapshot(snapshot, {
-							pluginSlug,
-							scriptSlug: binding.scriptSlug,
-						});
+						const contentHash = plugin.compiledHashes[binding.scriptSlug];
+						const script = contentHash
+							? yield* findCompiledScriptRow({
+									contentHash,
+									pluginId: plugin.id,
+									scriptSlug: binding.scriptSlug,
+								})
+							: null;
 						if (!script) {
 							return yield* new InvalidProviderEntityImportAutomationError({
-								pluginSlug,
+								pluginSlug: plugin.slug,
 								reason: "inactive_script",
 								scriptSlug: binding.scriptSlug,
 							});
@@ -1310,8 +1458,8 @@ export class PluginRuntimeResolver extends Context.Service<PluginRuntimeResolver
 							sandboxScriptId: script.id,
 							ruleId: providerEntityImportBindingId({
 								index,
-								pluginSlug,
 								entitySchemaSlug,
+								pluginId: plugin.id,
 								scriptSlug: binding.scriptSlug,
 							}),
 						});
@@ -1321,13 +1469,13 @@ export class PluginRuntimeResolver extends Context.Service<PluginRuntimeResolver
 			});
 
 			const findAutomation = Effect.fn("PluginRuntimeResolver.findAutomation")(function* (
+				userId: UserId | null,
 				id: AutomationRuleId,
 			) {
-				const snapshot = loader.getSnapshot();
-				const binding = automationBindings(snapshot).find(
+				const binding = automationBindings(yield* bindingPlugins(userId)).find(
 					(candidate) => bindingId(candidate) === id,
 				);
-				return binding ? yield* resolveAutomation(snapshot, binding) : null;
+				return binding ? yield* resolveAutomation(binding) : null;
 			});
 
 			return {
@@ -1349,21 +1497,21 @@ export class PluginRuntimeResolver extends Context.Service<PluginRuntimeResolver
 				getEffectiveDefinitions,
 				resolveActivePluginBoot,
 				resolveActivePluginCron,
+				resolvePrivatePluginCron,
+				listPrivateCronSchedules,
 				findSchemaProviderBySlug,
 				resolveUserDetailsScript,
 				findActiveWorkflowScript,
 				resolveSystemQueryScript,
 				findScriptAvailableToUser,
 				findPluginAvailableToUser,
-				findScriptInAvailablePlugin,
 				listPluginsAvailableToUser,
-				findOperationAvailableToUser,
-				findWorkflowScriptAvailableToUser,
-				findWorkflowScriptInAvailablePlugin,
 				resolvePluginConfigContext,
 				resolveUserTranslateScript,
 				resolveSearchOptionsScript,
+				findScriptInAvailablePlugin,
 				findProviderAvailableToUser,
+				findOperationAvailableToUser,
 				isSystemPluginAvailableToUser,
 				resolveUserSearchOptionsScript,
 				isSystemProviderAvailableToUser,
@@ -1371,6 +1519,9 @@ export class PluginRuntimeResolver extends Context.Service<PluginRuntimeResolver
 				resolveActivePluginUserBootstrap,
 				findProviderAvailableToUserBySlug,
 				resolveTrustedUserBootstrapCaller,
+				findWorkflowScriptAvailableToUser,
+				resolvePrivateInstallationBootstrap,
+				findWorkflowScriptInAvailablePlugin,
 				listProviderEntityImportAutomations,
 			};
 		}),

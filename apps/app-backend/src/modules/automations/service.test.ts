@@ -323,13 +323,19 @@ it.effect("returns no rules for a disabled row owner", () => {
 });
 
 it.effect("does not insert a run after its rule was deactivated or deleted", () => {
+	let bindingOwner: UserId | null | undefined;
 	const layer = makeLayer(
 		makeRepository({
 			findRunById: () => Effect.succeed(null),
 			lockActiveNotificationSubscription: () => Effect.succeed(null),
 			insertRun: () => Effect.die("unexpected insert"),
 		}),
-		{ findAutomation: () => Effect.succeed(null) },
+		{
+			findAutomation: (owner) => {
+				bindingOwner = owner;
+				return Effect.succeed(null);
+			},
+		},
 	);
 
 	return Effect.gen(function* () {
@@ -344,6 +350,7 @@ it.effect("does not insert a run after its rule was deactivated or deleted", () 
 				occurrenceId: "occurrence-1",
 			}),
 		).toBeNull();
+		expect(bindingOwner).toBe(userId);
 	}).pipe(Effect.provide(layer));
 });
 
