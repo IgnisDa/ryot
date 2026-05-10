@@ -43,6 +43,7 @@ import audiblePersonScriptCode from "~/lib/sandbox/scripts/providers/person/audi
 import hardcoverPersonScriptCode from "~/lib/sandbox/scripts/providers/person/hardcover.txt";
 import metronPersonScriptCode from "~/lib/sandbox/scripts/providers/person/metron.txt";
 import musicbrainzPersonScriptCode from "~/lib/sandbox/scripts/providers/person/musicbrainz.txt";
+import openLibraryPersonScriptCode from "~/lib/sandbox/scripts/providers/person/openlibrary.txt";
 import spotifyPersonScriptCode from "~/lib/sandbox/scripts/providers/person/spotify.txt";
 import tmdbPersonScriptCode from "~/lib/sandbox/scripts/providers/person/tmdb.txt";
 import tvdbPersonScriptCode from "~/lib/sandbox/scripts/providers/person/tvdb.txt";
@@ -113,6 +114,7 @@ export const builtinSandboxScripts = (): BuiltinScriptEntry[] => [
 	script("MangaUpdates", "manga.manga-updates", mangaUpdatesMangaScriptCode),
 	script("MusicBrainz", "music.musicbrainz", musicbrainzMusicScriptCode),
 	script("MusicBrainz", "person.musicbrainz", musicbrainzPersonScriptCode),
+	script("OpenLibrary", "person.openlibrary", openLibraryPersonScriptCode),
 	script("YouTube Music", "music.youtube-music", youtubeMusicScriptCode),
 	script("YouTube Music", "person.youtube-music", youtubeMusicPersonScriptCode),
 	script("Hardcover", "book.hardcover", withTitleCaseHelper(hardcoverBookScriptCode), [
@@ -305,6 +307,7 @@ export const personSchemaScriptLinks = () =>
 		{ schemaSlug: "person", scriptSlug: "person.hardcover" },
 		{ schemaSlug: "person", scriptSlug: "person.metron" },
 		{ schemaSlug: "person", scriptSlug: "person.musicbrainz" },
+		{ schemaSlug: "person", scriptSlug: "person.openlibrary" },
 		{ schemaSlug: "person", scriptSlug: "person.spotify" },
 		{ schemaSlug: "person", scriptSlug: "person.tmdb" },
 		{ schemaSlug: "person", scriptSlug: "person.tvdb" },

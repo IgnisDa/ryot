@@ -111,8 +111,7 @@ function collectNames(items) {
 }
 
 function collectCompanies(developers, publishers) {
-  const companies = [];
-  const seen = new Set();
+  const companyByKey = new Map();
 
   const addCompany = (items, role) => {
     if (!Array.isArray(items)) {
@@ -129,24 +128,35 @@ function collectCompanies(developers, publishers) {
       if (!guid) {
         continue;
       }
-      if (seen.has(guid)) {
-        continue;
-      }
-      seen.add(guid);
 
       const name =
         typeof item.name === "string" && item.name.trim()
           ? item.name.trim()
-          : null;
-      if (!name) {
+          : "Loading...";
+
+      const key = `company.giant-bomb:${guid}`;
+      const existing = companyByKey.get(key);
+      if (existing) {
+        const roles = new Set([
+          ...(Array.isArray(existing.relationshipProperties.roles)
+            ? existing.relationshipProperties.roles
+            : []),
+          role,
+        ]);
+        existing.relationshipProperties.roles = [...roles];
+        if (existing.name === "Loading..." && name !== "Loading...") {
+          existing.name = name;
+        }
         continue;
       }
 
-      companies.push({
+      companyByKey.set(key, {
         name,
-        role,
         externalId: guid,
         scriptSlug: "company.giant-bomb",
+        relationshipProperties: {
+          roles: [role],
+        },
       });
     }
   };
@@ -154,7 +164,45 @@ function collectCompanies(developers, publishers) {
   addCompany(developers, "Developer");
   addCompany(publishers, "Publisher");
 
-  return companies;
+  return [...companyByKey.values()];
+}
+
+function collectGroups(franchises) {
+  if (!Array.isArray(franchises)) {
+    return [];
+  }
+
+  const groupByKey = new Map();
+  for (const franchise of franchises) {
+    const externalId = extractGiantBombGuid(franchise?.api_detail_url);
+    if (!externalId) {
+      continue;
+    }
+
+    const name =
+      typeof franchise?.name === "string" && franchise.name.trim()
+        ? franchise.name.trim()
+        : "Loading...";
+    const key = `video-game-group.giant-bomb:${externalId}`;
+    const existing = groupByKey.get(key);
+    if (existing) {
+      if (existing.name === "Loading..." && name !== "Loading...") {
+        existing.name = name;
+      }
+      continue;
+    }
+
+    groupByKey.set(key, {
+      name,
+      externalId,
+      scriptSlug: "video-game-group.giant-bomb",
+      relationshipProperties: {
+        roles: ["Member"],
+      },
+    });
+  }
+
+  return [...groupByKey.values()];
 }
 
 // GiantBomb's /game/ endpoint only provides platform names in the platforms
@@ -369,39 +417,24 @@ driver("details", async function(context) {
     images.push({ type: "remote", url: primaryImage });
   }
 
-  const groups = Array.isArray(game.franchises)
-    ? game.franchises
-      .map((franchise) => {
-        const externalId = extractGiantBombGuid(franchise?.api_detail_url);
-        const name =
-          typeof franchise?.name === "string" && franchise.name.trim()
-            ? franchise.name.trim()
-            : null;
-        if (!externalId || !name) return null;
-
-        return {
-          name,
-          externalId,
-          scriptSlug: "video-game-group.giant-bomb",
-        };
-      })
-      .filter((group) => group !== null)
-    : [];
+  const relatedEntities = [
+    ...collectCompanies(game.developers, game.publishers),
+    ...collectGroups(game.franchises),
+  ];
 
   return {
     name,
     properties: {
       images,
       genres,
-      groups,
       platformReleases,
       publishYear: extractYear(game.original_release_date),
       description: combineDescription(game.deck, game.description),
-      companies: collectCompanies(game.developers, game.publishers),
       sourceUrl:
         typeof game.site_detail_url === "string" && game.site_detail_url.trim()
           ? game.site_detail_url.trim()
           : null,
     },
+    relatedEntities,
   };
 });
