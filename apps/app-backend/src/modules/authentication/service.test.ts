@@ -6,7 +6,6 @@ import { createDefaultDisplayConfiguration } from "~/modules/saved-views";
 import {
 	buildAuthenticationSavedViewInputs,
 	buildAuthenticationTrackerEntitySchemaLinks,
-	buildAuthenticationTrackerInputs,
 	buildLibraryEntityInput,
 	resolveAuthenticationName,
 } from "./service";
@@ -22,29 +21,6 @@ describe("resolveAuthenticationName", () => {
 });
 
 describe("authentication bootstrap helpers", () => {
-	it("builds built-in tracker inputs from manifests", () => {
-		expect(
-			buildAuthenticationTrackerInputs({
-				trackers: [
-					{
-						icon: "film",
-						slug: "media",
-						name: "Media",
-						accentColor: "#5B7FFF",
-					},
-				],
-			}),
-		).toEqual([
-			{
-				icon: "film",
-				slug: "media",
-				name: "Media",
-				accentColor: "#5B7FFF",
-				description: undefined,
-			},
-		]);
-	});
-
 	it("builds tracker entity schema links from built-in manifests", () => {
 		expect(
 			buildAuthenticationTrackerEntitySchemaLinks({
