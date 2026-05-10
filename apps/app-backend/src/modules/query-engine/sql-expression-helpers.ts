@@ -23,6 +23,11 @@ export const sanitizeIdentifier = (name: string, label: string) => {
 
 export const getEventJoinColumnName = (joinKey: string) => `event_join_${joinKey}`;
 
+export const getRelationshipJoinCteName = (joinKey: string) =>
+	`latest_relationship_join_${joinKey}`;
+
+export const getRelationshipJoinColumnName = (joinKey: string) => `relationship_join_${joinKey}`;
+
 export const buildPropertyPathExpression = (
 	base: SqlExpression,
 	propertyPath: string[],
@@ -42,9 +47,31 @@ export const buildPropertyPathExpression = (
 	return mode === "text" ? sql`${current} ->> ${last}` : sql`${current} -> ${last}`;
 };
 
-export const buildLiteralExpression = (value: unknown, targetType?: PropertyType) => {
+export const buildLiteralExpression = (input: unknown, targetType?: PropertyType) => {
+	const literalType =
+		typeof input === "object" && input !== null
+			? "literalType" in input && typeof input.literalType === "string"
+				? input.literalType
+				: "kind" in input && typeof input.kind === "string"
+					? input.kind
+					: undefined
+			: undefined;
+	const literalInput = (() => {
+		if (typeof input !== "object" || input === null) {
+			return { value: input };
+		}
+		if ("value" in input && ("literalType" in input || "kind" in input || "type" in input)) {
+			return { literalType, value: input.value };
+		}
+		return { value: input };
+	})();
+	const { value } = literalInput;
 	if (value === null) {
 		return sql`null`;
+	}
+
+	if (literalInput.literalType === "date") {
+		return sql`cast(${value} as timestamptz)`;
 	}
 
 	const inferredLiteralType = (() => {
@@ -89,22 +116,22 @@ export const buildLiteralExpression = (value: unknown, targetType?: PropertyType
 		});
 };
 
+export const buildIntegerNormalizationExpression = (expression: SqlExpression) => {
+	return sql`trunc((${expression})::numeric)::integer`;
+};
+
 export const castExpressionToType = (expression: SqlExpression, targetType: PropertyType) => {
 	return match(targetType)
 		.with("number", () => sql`(${expression})::numeric`)
 		.with("boolean", () => sql`(${expression})::boolean`)
 		.with("date", () => sql`(${expression})::timestamptz`)
 		.with("array", "object", () => sql`to_jsonb(${expression})`)
-		.with("integer", () => sql`trunc((${expression})::numeric)::integer`)
+		.with("integer", () => buildIntegerNormalizationExpression(expression))
 		.otherwise(() => sql`(${expression})::text`);
 };
 
 export const buildTextValueExpression = (expression: SqlExpression) => {
 	return sql`coalesce((${expression})::text, '')`;
-};
-
-export const buildIntegerNormalizationExpression = (expression: SqlExpression) => {
-	return sql`trunc((${expression})::numeric)::integer`;
 };
 
 export const buildJsonNullNormalizedExpression = (input: {

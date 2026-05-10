@@ -4,7 +4,7 @@ import { isUniqueConstraintError } from "~/lib/app/postgres";
 import { buildReorderedIds } from "~/lib/reorder";
 import { type ServiceResult, serviceData, serviceError, wrapServiceValidator } from "~/lib/result";
 import { QueryEngineNotFoundError, QueryEngineValidationError } from "~/lib/views/errors";
-import { prepareForValidation } from "~/modules/query-engine";
+import { loadAndValidateQueryContext } from "~/modules/query-engine";
 
 import {
 	countSavedViewsBySlugForUser,
@@ -39,14 +39,14 @@ type PrepareSavedViewValidationInput = Pick<
 type PrepareForValidation = (input: PrepareSavedViewValidationInput) => Promise<void>;
 
 export type SavedViewServiceDeps = {
-	prepareForValidation: PrepareForValidation;
+	loadAndValidateQueryContext: PrepareForValidation;
 	createSavedViewForUser: typeof createSavedViewForUser;
 	getSavedViewBySlugForUser: typeof getSavedViewBySlugForUser;
 	deleteSavedViewBySlugForUser: typeof deleteSavedViewBySlugForUser;
 	updateSavedViewBySlugForUser: typeof updateSavedViewBySlugForUser;
 	countSavedViewsBySlugForUser: typeof countSavedViewsBySlugForUser;
-	listUserSavedViewSlugsInOrder: typeof listUserSavedViewSlugsInOrder;
 	persistSavedViewOrderForUser: typeof persistSavedViewOrderForUser;
+	listUserSavedViewSlugsInOrder: typeof listUserSavedViewSlugsInOrder;
 	updateSavedViewDisabledBySlugForUser: typeof updateSavedViewDisabledBySlugForUser;
 };
 
@@ -55,9 +55,9 @@ export type SavedViewServiceResult<T> = ServiceResult<T, "builtin" | "not_found"
 type SavedViewValidationResult<T> = ServiceResult<T, "validation">;
 
 const savedViewServiceDeps: SavedViewServiceDeps = {
-	prepareForValidation,
 	createSavedViewForUser,
 	getSavedViewBySlugForUser,
+	loadAndValidateQueryContext,
 	countSavedViewsBySlugForUser,
 	deleteSavedViewBySlugForUser,
 	persistSavedViewOrderForUser,
@@ -163,7 +163,7 @@ const validateDefinition = async (
 	deps: SavedViewServiceDeps,
 ): Promise<Extract<SavedViewValidationResult<never>, { error: "validation" }> | undefined> => {
 	try {
-		await deps.prepareForValidation({
+		await deps.loadAndValidateQueryContext({
 			displayConfiguration: input.displayConfiguration,
 			queryDefinition: input.queryDefinition,
 			userId: input.userId,

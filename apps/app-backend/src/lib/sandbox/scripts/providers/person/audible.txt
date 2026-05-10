@@ -109,7 +109,7 @@ driver("details", async function(context) {
       sourceUrl,
       description,
       alternateNames: [],
-      images: image ? [{ kind: "remote", url: image }] : [],
+      images: image ? [{ type: "remote", url: image }] : [],
     },
   };
 });

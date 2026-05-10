@@ -5,6 +5,7 @@ import { dayjs } from "@ryot/ts-utils";
 import {
 	createAuthenticatedClient,
 	findBuiltinTracker,
+	insertLibraryMembership,
 	listEntitySchemas,
 	listEventSchemas,
 	seedMediaEntity,
@@ -86,6 +87,8 @@ describe("GET /media/overview/continue", () => {
 			externalId: `manga-${crypto.randomUUID()}`,
 		});
 
+		await insertLibraryMembership({ userId, mediaEntityId: continueBook.id });
+		await insertLibraryMembership({ userId, mediaEntityId: unknownTotalManga.id });
 		await createBuiltInMediaEvent({
 			client,
 			cookies,
@@ -151,6 +154,7 @@ describe("GET /media/overview/continue", () => {
 			properties: { publishYear: 2024, pages: 300 },
 		});
 
+		await insertLibraryMembership({ userId, mediaEntityId: testBook.id });
 		await createBuiltInMediaEvent({
 			client,
 			cookies,
@@ -206,6 +210,7 @@ describe("GET /media/overview/up-next", () => {
 			properties: { publishYear: 2024, episodes: 24 },
 		});
 
+		await insertLibraryMembership({ userId, mediaEntityId: upNextAnime.id });
 		await createBuiltInMediaEvent({
 			client,
 			cookies,
@@ -255,6 +260,7 @@ describe("GET /media/overview/up-next", () => {
 			externalId: `anime-completed-${crypto.randomUUID()}`,
 		});
 
+		await insertLibraryMembership({ userId, mediaEntityId: completedAnime.id });
 		await createBuiltInMediaEvent({
 			client,
 			cookies,
@@ -314,6 +320,7 @@ describe("GET /media/overview/up-next", () => {
 			externalId: `anime-midnight-${crypto.randomUUID()}`,
 		});
 
+		await insertLibraryMembership({ userId, mediaEntityId: testAnime.id });
 		await createBuiltInMediaEvent({
 			client,
 			cookies,
@@ -368,6 +375,7 @@ describe("GET /media/overview/review", () => {
 			properties: { publishYear: 2020, episodes: 12 },
 		});
 
+		await insertLibraryMembership({ userId, mediaEntityId: rateAnime.id });
 		await createBuiltInMediaEvent({
 			client,
 			cookies,
@@ -430,7 +438,7 @@ describe("GET /media/overview/activity", () => {
 			sandboxScriptId: animeProvider.scriptId,
 			properties: { publishYear: 2024, episodes: 24 },
 			externalId: `anime-activity-${crypto.randomUUID()}`,
-			image: { kind: "remote", url: "https://example.com/anime.png" },
+			image: { type: "remote", url: "https://example.com/anime.png" },
 		});
 		const reviewedManga = await seedMediaEntity({
 			userId,
@@ -486,7 +494,7 @@ describe("GET /media/overview/activity", () => {
 						entitySchemaSlug: "anime",
 						name: "Recent Activity Anime",
 						image: {
-							kind: "remote",
+							type: "remote",
 							url: "https://example.com/anime.png",
 						},
 					},
@@ -622,6 +630,9 @@ describe("GET /media/overview/library", () => {
 			externalId: `book-complete-${crypto.randomUUID()}`,
 		});
 
+		await insertLibraryMembership({ userId, mediaEntityId: backlogBook.id });
+		await insertLibraryMembership({ userId, mediaEntityId: completedBook.id });
+		await insertLibraryMembership({ userId, mediaEntityId: inProgressManga.id });
 		// Add events
 		await createBuiltInMediaEvent({
 			client,
@@ -699,6 +710,7 @@ describe("GET /media/overview/library", () => {
 			externalId: `book-backlog-${crypto.randomUUID()}`,
 		});
 
+		await insertLibraryMembership({ userId, mediaEntityId: backlogBook.id });
 		await createBuiltInMediaEvent({
 			client,
 			cookies,
