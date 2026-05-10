@@ -17,7 +17,7 @@ export type ViewExpression = Extract<
 export type ViewPredicate = NonNullable<CreateSavedViewBody["queryDefinition"]["filter"]>;
 export type ExpressionInput = ViewExpression | string[];
 
-export const literalExpression = (value: unknown | null): ViewExpression => ({
+export const literalExpression = (value: unknown): ViewExpression => ({
 	value,
 	type: "literal",
 });
