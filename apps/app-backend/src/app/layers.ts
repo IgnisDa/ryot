@@ -11,16 +11,10 @@ import { RedisService } from "#lib/redis";
 import { S3Service } from "#lib/s3";
 import { SandboxService } from "#lib/sandbox/service";
 import { PersistedQueueLive, WorkflowEngineLive } from "#lib/workflow";
-import {
-	EntityImportHookLive,
-	GlobalEntityReferenceHookLive,
-} from "#modules/collections/event-hooks";
 import { CollectionsRepository } from "#modules/collections/repository";
 import { CollectionsService } from "#modules/collections/service";
 import { EntitiesRepository } from "#modules/entities/repository";
 import { EntitiesService } from "#modules/entities/service";
-import { EntityImportService } from "#modules/entity-import/service";
-import { EntityImportWorkflowDefinitionsLive } from "#modules/entity-import/workflows";
 import { EntitySchemasRepository } from "#modules/entity-schemas/repository";
 import { EntitySchemasService } from "#modules/entity-schemas/service";
 import { EventSchemasRepository } from "#modules/event-schemas/repository";
@@ -38,6 +32,9 @@ import { IntegrationsRepository } from "#modules/integrations/repository";
 import { IntegrationsSchedulerLive } from "#modules/integrations/scheduler";
 import { IntegrationsService } from "#modules/integrations/service";
 import { IntegrationWorkflowDefinitionsLive } from "#modules/integrations/workflows";
+import { GlobalEntityReferencedWorkerLive } from "#modules/library/global-reference-worker";
+import { LibraryImportService } from "#modules/library/service";
+import { LibraryEntityImportWorkflowDefinitionsLive } from "#modules/library/workflows";
 import { QueryEngineService } from "#modules/query-engine/service";
 import { RelationshipSchemasRepository } from "#modules/relationship-schemas/repository";
 import { RelationshipSchemasService } from "#modules/relationship-schemas/service";
@@ -111,7 +108,7 @@ const SavedViewsServiceLive = Layer.provide(SavedViewsService.Default, QueryEngi
 const ServicesNeedingCollectionsScopeLive = Layer.mergeAll(
 	AuthService.Default,
 	EntitiesService.Default,
-	EntityImportService.Default,
+	LibraryImportService.Default,
 	EntitySchemasService.Default,
 	EventSchemasService.Default,
 	EventsService.Default,
@@ -130,14 +127,9 @@ const ServicesNeedingCollectionsScopeLive = Layer.mergeAll(
 	UserStateService.Default,
 );
 
-const CollectionsServicesLive = Layer.provideMerge(
-	Layer.mergeAll(EntityImportHookLive, GlobalEntityReferenceHookLive),
-	CollectionsService.Default,
-);
-
 const ServicesBaseLive = Layer.provideMerge(
 	ServicesNeedingCollectionsScopeLive,
-	CollectionsServicesLive,
+	CollectionsService.Default,
 );
 
 const ServicesLive = Layer.provideMerge(ServicesBaseLive, SandboxServicesLive);
@@ -146,7 +138,8 @@ const ServiceDependenciesLive = Layer.provide(ServicesLive, ApplicationInfrastru
 
 const RuntimeLive = Layer.mergeAll(
 	EventCreateWorkflowDefinitionsLive,
-	EntityImportWorkflowDefinitionsLive,
+	LibraryEntityImportWorkflowDefinitionsLive,
+	GlobalEntityReferencedWorkerLive,
 	BuiltinEntityPreloaderLive,
 	ImportWorkflowDefinitionsLive,
 	IntegrationWorkflowDefinitionsLive,
