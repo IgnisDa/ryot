@@ -9,10 +9,7 @@ import {
 } from "../../media/book/shared";
 import { parseDateTime } from "../../media/dates";
 import { getOrCreateMediaEntityGroup } from "../../media/groups";
-import type {
-	MediaImportAdapterFailure,
-	MediaImportAdapterResult,
-} from "../../media/import-processor";
+import type { MediaImportAdapterFailure } from "../../media/import-processor";
 import type { ImportMediaEntityGroup, ResolvedImportEntityRef } from "../../media/types";
 import { parseCsvText, readRequiredCsvCell } from "../../runtime/csv";
 import {
@@ -230,7 +227,7 @@ const parseMyListRow = (row: Record<string, string>, itemIndex: number) => {
 	return { title, sourceLabel, ok: true as const };
 };
 
-export const adaptNetflixExports = (
+export const adaptNetflixExports = Effect.fn("netflixAdapter.adaptExports")(function* (
 	input: {
 		myListCsv: string;
 		ratingsCsv: string;
@@ -239,215 +236,213 @@ export const adaptNetflixExports = (
 		viewingActivityCsv: string;
 	},
 	lookupTitle: NetflixLookupTitle,
-): Effect.Effect<MediaImportAdapterResult, string> =>
-	Effect.gen(function* () {
-		const { myListData, ratingsData, viewingData } = yield* Effect.try({
-			catch: getParseErrorMessage,
-			try: () => {
-				const parsedMyListData = parseCsvText(input.myListCsv);
-				const parsedRatingsData = parseCsvText(input.ratingsCsv);
-				const parsedViewingData = parseCsvText(input.viewingActivityCsv);
-				assertRequiredHeaders(
-					parsedViewingData.headers,
-					["Title", "Start Time", "Profile Name"],
-					"Netflix ViewingActivity",
-				);
-				assertRequiredHeaders(
-					parsedRatingsData.headers,
-					["Title Name", "Profile Name"],
-					"Netflix Ratings",
-				);
-				assertRequiredHeaders(
-					parsedMyListData.headers,
-					["Title Name", "Profile Name"],
-					"Netflix MyList",
-				);
-				return {
-					myListData: parsedMyListData,
-					ratingsData: parsedRatingsData,
-					viewingData: parsedViewingData,
-				};
-			},
-		});
+) {
+	const { myListData, ratingsData, viewingData } = yield* Effect.try({
+		catch: getParseErrorMessage,
+		try: () => {
+			const parsedMyListData = parseCsvText(input.myListCsv);
+			const parsedRatingsData = parseCsvText(input.ratingsCsv);
+			const parsedViewingData = parseCsvText(input.viewingActivityCsv);
+			assertRequiredHeaders(
+				parsedViewingData.headers,
+				["Title", "Start Time", "Profile Name"],
+				"Netflix ViewingActivity",
+			);
+			assertRequiredHeaders(
+				parsedRatingsData.headers,
+				["Title Name", "Profile Name"],
+				"Netflix Ratings",
+			);
+			assertRequiredHeaders(
+				parsedMyListData.headers,
+				["Title Name", "Profile Name"],
+				"Netflix MyList",
+			);
+			return {
+				myListData: parsedMyListData,
+				ratingsData: parsedRatingsData,
+				viewingData: parsedViewingData,
+			};
+		},
+	});
 
-		const failures: MediaImportAdapterFailure[] = [];
-		const groupMap = new Map<string, ImportMediaEntityGroup>();
-		const importedAt = input.importedAt;
-		const titleContext = new Map<string, "movie" | "show">();
+	const failures: MediaImportAdapterFailure[] = [];
+	const groupMap = new Map<string, ImportMediaEntityGroup>();
+	const importedAt = input.importedAt;
+	const titleContext = new Map<string, "movie" | "show">();
 
-		for (const row of viewingData.rows) {
-			if (shouldSkipViewingEntry(row)) {
-				continue;
-			}
-			if (!matchesProfileFilter(row["Profile Name"], input.profileName)) {
-				continue;
-			}
-			const title = row.Title?.trim();
-			if (!title) {
-				continue;
-			}
-			const baseTitle = extractNetflixBaseTitle(title);
-			if (!baseTitle) {
-				continue;
-			}
-			titleContext.set(baseTitle, hasNetflixShowIndicators(title) ? "show" : "movie");
+	for (const row of viewingData.rows) {
+		if (shouldSkipViewingEntry(row)) {
+			continue;
+		}
+		if (!matchesProfileFilter(row["Profile Name"], input.profileName)) {
+			continue;
+		}
+		const title = row.Title?.trim();
+		if (!title) {
+			continue;
+		}
+		const baseTitle = extractNetflixBaseTitle(title);
+		if (!baseTitle) {
+			continue;
+		}
+		titleContext.set(baseTitle, hasNetflixShowIndicators(title) ? "show" : "movie");
+	}
+
+	let itemIndex = 0;
+	for (const row of viewingData.rows) {
+		const currentItemIndex = itemIndex;
+		itemIndex += 1;
+		if (
+			shouldSkipViewingEntry(row) ||
+			!matchesProfileFilter(row["Profile Name"], input.profileName)
+		) {
+			continue;
 		}
 
-		let itemIndex = 0;
-		for (const row of viewingData.rows) {
-			const currentItemIndex = itemIndex;
-			itemIndex += 1;
-			if (
-				shouldSkipViewingEntry(row) ||
-				!matchesProfileFilter(row["Profile Name"], input.profileName)
-			) {
-				continue;
-			}
+		const rowResult = parseViewingActivityRow(row, currentItemIndex);
+		if (!rowResult.ok) {
+			failures.push(rowResult.failure);
+			continue;
+		}
 
-			const rowResult = parseViewingActivityRow(row, currentItemIndex);
-			if (!rowResult.ok) {
-				failures.push(rowResult.failure);
-				continue;
-			}
-
-			const lookup = yield* lookupNetflixTitle({
-				lookupTitle,
-				title: rowResult.title,
-				preferredEntitySchemaSlug: hasNetflixShowIndicators(rowResult.title) ? "show" : undefined,
-			});
-			if ("error" in lookup) {
-				failures.push(
-					createLookupFailure({
-						message: lookup.error,
-						itemIndex: currentItemIndex,
-						sourceIdentifier: rowResult.title,
-						sourceLabel: rowResult.sourceLabel,
-					}),
-				);
-				continue;
-			}
-
-			if (lookup.entityRef.entitySchemaSlug === "show") {
-				if (!rowResult.episodeInfo) {
-					failures.push(
-						createLookupFailure({
-							itemIndex: currentItemIndex,
-							sourceIdentifier: rowResult.title,
-							sourceLabel: rowResult.sourceLabel,
-							message:
-								"Viewing activity matched a show but no season or episode could be extracted",
-						}),
-					);
-					continue;
-				}
-				const group = getOrCreateMediaEntityGroup(groupMap, lookup.entityRef, currentItemIndex);
-				group.events.push({
-					eventSchemaSlug: "progress",
-					occurredAt: rowResult.occurredAt,
-					properties: {
-						progressPercent: 100,
-						showSeason: rowResult.episodeInfo.season,
-						showEpisode: rowResult.episodeInfo.episode,
-					},
-				});
-				continue;
-			}
-
-			const group = getOrCreateMediaEntityGroup(groupMap, lookup.entityRef, currentItemIndex);
-			group.events.push(
-				createCompleteEvent({
-					occurredAt: rowResult.occurredAt,
-					completedOn: rowResult.occurredAt,
+		const lookup = yield* lookupNetflixTitle({
+			lookupTitle,
+			title: rowResult.title,
+			preferredEntitySchemaSlug: hasNetflixShowIndicators(rowResult.title) ? "show" : undefined,
+		});
+		if ("error" in lookup) {
+			failures.push(
+				createLookupFailure({
+					message: lookup.error,
+					itemIndex: currentItemIndex,
+					sourceIdentifier: rowResult.title,
+					sourceLabel: rowResult.sourceLabel,
 				}),
 			);
+			continue;
 		}
 
-		for (const row of ratingsData.rows) {
-			const currentItemIndex = itemIndex;
-			itemIndex += 1;
-			if (!matchesProfileFilter(row["Profile Name"], input.profileName)) {
-				continue;
-			}
-
-			const title = row["Title Name"]?.trim() ?? "";
-			if (shouldSkipTitle(title)) {
-				continue;
-			}
-			const rowResult = parseRatingRow(row, currentItemIndex, importedAt);
-			if ("skip" in rowResult) {
-				continue;
-			}
-			if (!rowResult.ok) {
-				failures.push(rowResult.failure);
-				continue;
-			}
-
-			const lookup = yield* lookupNetflixTitle({
-				lookupTitle,
-				title: rowResult.title,
-				preferredEntitySchemaSlug: titleContext.get(extractNetflixBaseTitle(rowResult.title)),
-			});
-			if ("error" in lookup) {
+		if (lookup.entityRef.entitySchemaSlug === "show") {
+			if (!rowResult.episodeInfo) {
 				failures.push(
 					createLookupFailure({
-						message: lookup.error,
 						itemIndex: currentItemIndex,
 						sourceIdentifier: rowResult.title,
 						sourceLabel: rowResult.sourceLabel,
+						message: "Viewing activity matched a show but no season or episode could be extracted",
 					}),
 				);
 				continue;
 			}
-
-			const reviewEvent = createReviewEvent({
-				rating: rowResult.rating,
+			const group = getOrCreateMediaEntityGroup(groupMap, lookup.entityRef, currentItemIndex);
+			group.events.push({
+				eventSchemaSlug: "progress",
 				occurredAt: rowResult.occurredAt,
+				properties: {
+					progressPercent: 100,
+					showSeason: rowResult.episodeInfo.season,
+					showEpisode: rowResult.episodeInfo.episode,
+				},
 			});
-			if (!reviewEvent) {
-				continue;
-			}
-
-			const group = getOrCreateMediaEntityGroup(groupMap, lookup.entityRef, currentItemIndex);
-			group.events.push(reviewEvent);
+			continue;
 		}
 
-		for (const row of myListData.rows) {
-			const currentItemIndex = itemIndex;
-			itemIndex += 1;
-			if (!matchesProfileFilter(row["Profile Name"], input.profileName)) {
-				continue;
-			}
+		const group = getOrCreateMediaEntityGroup(groupMap, lookup.entityRef, currentItemIndex);
+		group.events.push(
+			createCompleteEvent({
+				occurredAt: rowResult.occurredAt,
+				completedOn: rowResult.occurredAt,
+			}),
+		);
+	}
 
-			const title = row["Title Name"]?.trim() ?? "";
-			if (shouldSkipTitle(title)) {
-				continue;
-			}
-			const rowResult = parseMyListRow(row, currentItemIndex);
-			if (!rowResult.ok) {
-				failures.push(rowResult.failure);
-				continue;
-			}
-
-			const lookup = yield* lookupNetflixTitle({
-				lookupTitle,
-				title: rowResult.title,
-				preferredEntitySchemaSlug: titleContext.get(extractNetflixBaseTitle(rowResult.title)),
-			});
-			if ("error" in lookup) {
-				failures.push(
-					createLookupFailure({
-						message: lookup.error,
-						itemIndex: currentItemIndex,
-						sourceIdentifier: rowResult.title,
-						sourceLabel: rowResult.sourceLabel,
-					}),
-				);
-				continue;
-			}
-
-			const group = getOrCreateMediaEntityGroup(groupMap, lookup.entityRef, currentItemIndex);
-			group.events.push(createBacklogEvent(importedAt));
+	for (const row of ratingsData.rows) {
+		const currentItemIndex = itemIndex;
+		itemIndex += 1;
+		if (!matchesProfileFilter(row["Profile Name"], input.profileName)) {
+			continue;
 		}
 
-		return { entityGroups: finalizeEntityGroups(groupMap), failures };
-	});
+		const title = row["Title Name"]?.trim() ?? "";
+		if (shouldSkipTitle(title)) {
+			continue;
+		}
+		const rowResult = parseRatingRow(row, currentItemIndex, importedAt);
+		if ("skip" in rowResult) {
+			continue;
+		}
+		if (!rowResult.ok) {
+			failures.push(rowResult.failure);
+			continue;
+		}
+
+		const lookup = yield* lookupNetflixTitle({
+			lookupTitle,
+			title: rowResult.title,
+			preferredEntitySchemaSlug: titleContext.get(extractNetflixBaseTitle(rowResult.title)),
+		});
+		if ("error" in lookup) {
+			failures.push(
+				createLookupFailure({
+					message: lookup.error,
+					itemIndex: currentItemIndex,
+					sourceIdentifier: rowResult.title,
+					sourceLabel: rowResult.sourceLabel,
+				}),
+			);
+			continue;
+		}
+
+		const reviewEvent = createReviewEvent({
+			rating: rowResult.rating,
+			occurredAt: rowResult.occurredAt,
+		});
+		if (!reviewEvent) {
+			continue;
+		}
+
+		const group = getOrCreateMediaEntityGroup(groupMap, lookup.entityRef, currentItemIndex);
+		group.events.push(reviewEvent);
+	}
+
+	for (const row of myListData.rows) {
+		const currentItemIndex = itemIndex;
+		itemIndex += 1;
+		if (!matchesProfileFilter(row["Profile Name"], input.profileName)) {
+			continue;
+		}
+
+		const title = row["Title Name"]?.trim() ?? "";
+		if (shouldSkipTitle(title)) {
+			continue;
+		}
+		const rowResult = parseMyListRow(row, currentItemIndex);
+		if (!rowResult.ok) {
+			failures.push(rowResult.failure);
+			continue;
+		}
+
+		const lookup = yield* lookupNetflixTitle({
+			lookupTitle,
+			title: rowResult.title,
+			preferredEntitySchemaSlug: titleContext.get(extractNetflixBaseTitle(rowResult.title)),
+		});
+		if ("error" in lookup) {
+			failures.push(
+				createLookupFailure({
+					message: lookup.error,
+					itemIndex: currentItemIndex,
+					sourceIdentifier: rowResult.title,
+					sourceLabel: rowResult.sourceLabel,
+				}),
+			);
+			continue;
+		}
+
+		const group = getOrCreateMediaEntityGroup(groupMap, lookup.entityRef, currentItemIndex);
+		group.events.push(createBacklogEvent(importedAt));
+	}
+
+	return { entityGroups: finalizeEntityGroups(groupMap), failures };
+});

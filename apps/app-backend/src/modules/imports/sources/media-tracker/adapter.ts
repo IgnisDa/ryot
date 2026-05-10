@@ -226,175 +226,100 @@ const createLifecycleEvent = (input: { occurredAt: string; lifecycle: string }) 
 	return undefined;
 };
 
-export const adaptMediaTrackerData = (input: MediaTrackerAdapterInput) =>
-	Effect.gen(function* () {
-		const importedAt = nowIso();
-		const headers = createHeaders(input.apiKey);
-		const host = new URL(input.apiUrl).host;
-		const failures: MediaImportAdapterFailure[] = [];
-		const groupMap = new Map<string, ImportMediaEntityGroup>();
-		const baseUrl = input.apiUrl.endsWith("/api") ? input.apiUrl : `${input.apiUrl}/api`;
+export const adaptMediaTrackerData = Effect.fn("mediaTrackerAdapter.adaptData")(function* (
+	input: MediaTrackerAdapterInput,
+) {
+	const importedAt = nowIso();
+	const headers = createHeaders(input.apiKey);
+	const host = new URL(input.apiUrl).host;
+	const failures: MediaImportAdapterFailure[] = [];
+	const groupMap = new Map<string, ImportMediaEntityGroup>();
+	const baseUrl = input.apiUrl.endsWith("/api") ? input.apiUrl : `${input.apiUrl}/api`;
 
-		const fetchJson = (path: string, query?: Record<string, string | number>) =>
-			requestSourceJson({
-				path,
-				query,
-				headers,
-				baseUrl,
-				sourceName: "MediaTracker",
-				allowInsecureConnections: input.allowInsecureConnections,
-			});
+	const fetchJson = (path: string, query?: Record<string, string | number>) =>
+		requestSourceJson({
+			path,
+			query,
+			headers,
+			baseUrl,
+			sourceName: "MediaTracker",
+			allowInsecureConnections: input.allowInsecureConnections,
+		});
 
-		const userResponse = yield* fetchJson("user").pipe(Effect.flatMap(decodeUser));
-		const lists = yield* fetchJson("lists", { userId: userResponse.id }).pipe(
-			Effect.flatMap(decodeLists),
-		);
+	const userResponse = yield* fetchJson("user").pipe(Effect.flatMap(decodeUser));
+	const lists = yield* fetchJson("lists", { userId: userResponse.id }).pipe(
+		Effect.flatMap(decodeLists),
+	);
 
-		const detailCache = new Map<number, MediaTrackerDetails>();
-		const getItemDetails = (itemId: number) =>
-			Effect.gen(function* () {
-				const cached = detailCache.get(itemId);
-				if (cached) {
-					return cached;
-				}
-				const details = yield* fetchJson(`details/${itemId}`).pipe(Effect.flatMap(decodeDetails));
-				detailCache.set(itemId, details);
-				return details;
-			});
-
-		let nextItemIndex = 0;
-		for (const list of lists) {
-			const startItemIndex = nextItemIndex;
-			const listItemsResult = yield* fetchJson("list/items", { listId: list.id }).pipe(
-				Effect.flatMap(decodeListItems),
-				Effect.either,
-			);
-			if (Either.isLeft(listItemsResult)) {
-				failures.push(
-					createSourceFetchFailure({
-						host,
-						sourceLabel: list.name,
-						itemIndex: startItemIndex,
-						error: listItemsResult.left,
-						sourceIdentifier: String(list.id),
-						message: "Failed to fetch MediaTracker list items",
-					}),
-				);
-				continue;
+	const detailCache = new Map<number, MediaTrackerDetails>();
+	const getItemDetails = (itemId: number) =>
+		Effect.gen(function* () {
+			const cached = detailCache.get(itemId);
+			if (cached) {
+				return cached;
 			}
+			const details = yield* fetchJson(`details/${itemId}`).pipe(Effect.flatMap(decodeDetails));
+			detailCache.set(itemId, details);
+			return details;
+		});
 
-			const listItems = listItemsResult.right;
-			const listFailures = yield* Effect.forEach(
-				listItems,
-				(listItem, offset) =>
-					Effect.gen(function* () {
-						const itemIndex = startItemIndex + offset;
-						const mediaType = listItem.mediaItem.mediaType;
-						if (!mediaType) {
-							return {
-								itemIndex,
-								stage: "input_transformation",
-								message: "MediaTracker list item has no media type",
-								sourceIdentifier: String(listItem.mediaItem.id),
-							} satisfies MediaImportAdapterFailure;
-						}
-
-						const details = yield* getItemDetails(listItem.mediaItem.id).pipe(Effect.either);
-						if (Either.isLeft(details)) {
-							return createSourceFetchFailure({
-								host,
-								itemIndex,
-								error: details.left,
-								sourceLabel: list.name,
-								sourceIdentifier: String(listItem.mediaItem.id),
-								message: "Failed to fetch MediaTracker item details",
-							});
-						}
-
-						const sourceLabel = getMediaTrackerLabel(
-							listItem.mediaItem.id,
-							mediaType,
-							details.right,
-						);
-						const ref = getEntityRef({ details: details.right, mediaType, sourceLabel });
-						if (ref === "goodreads_unsupported") {
-							return {
-								itemIndex,
-								sourceLabel,
-								stage: "input_transformation",
-								sourceIdentifier: String(listItem.mediaItem.id),
-								message: "MediaTracker book uses an unsupported Goodreads identifier",
-							} satisfies MediaImportAdapterFailure;
-						}
-						if (!ref) {
-							return {
-								itemIndex,
-								sourceLabel,
-								stage: "input_transformation",
-								sourceIdentifier: String(listItem.mediaItem.id),
-								message: `MediaTracker ${mediaType} item is missing a supported provider identifier`,
-							} satisfies MediaImportAdapterFailure;
-						}
-
-						const group = getOrCreateMediaEntityGroup(groupMap, ref, itemIndex);
-						const lifecycle = normalizeLifecycleStatus(list.name);
-						if (lifecycle) {
-							const event = createLifecycleEvent({
-								lifecycle,
-								occurredAt: getFallbackOccurredAt(details.right, importedAt),
-							});
-							if (event) {
-								group.events.push(event);
-							}
-							return null;
-						}
-
-						addCollectionMembership(group, list.name);
-						return null;
-					}),
-				{ concurrency: MEDIA_TRACKER_CONCURRENCY },
+	let nextItemIndex = 0;
+	for (const list of lists) {
+		const startItemIndex = nextItemIndex;
+		const listItemsResult = yield* fetchJson("list/items", { listId: list.id }).pipe(
+			Effect.flatMap(decodeListItems),
+			Effect.either,
+		);
+		if (Either.isLeft(listItemsResult)) {
+			failures.push(
+				createSourceFetchFailure({
+					host,
+					sourceLabel: list.name,
+					itemIndex: startItemIndex,
+					error: listItemsResult.left,
+					sourceIdentifier: String(list.id),
+					message: "Failed to fetch MediaTracker list items",
+				}),
 			);
-
-			failures.push(...listFailures.filter(isNotNullAdapterFailure));
-			nextItemIndex += listItems.length;
+			continue;
 		}
 
-		const seenItems = yield* fetchJson("items").pipe(Effect.flatMap(decodeItems));
-		const seenStartIndex = nextItemIndex;
-		const seenFailures = yield* Effect.forEach(
-			seenItems,
-			(item, offset) =>
+		const listItems = listItemsResult.right;
+		const listFailures = yield* Effect.forEach(
+			listItems,
+			(listItem, offset) =>
 				Effect.gen(function* () {
-					const itemIndex = seenStartIndex + offset;
-					const mediaType = item.mediaType;
+					const itemIndex = startItemIndex + offset;
+					const mediaType = listItem.mediaItem.mediaType;
 					if (!mediaType) {
 						return {
 							itemIndex,
 							stage: "input_transformation",
-							sourceIdentifier: String(item.id),
-							message: "MediaTracker item has no media type",
+							message: "MediaTracker list item has no media type",
+							sourceIdentifier: String(listItem.mediaItem.id),
 						} satisfies MediaImportAdapterFailure;
 					}
 
-					const details = yield* getItemDetails(item.id).pipe(Effect.either);
+					const details = yield* getItemDetails(listItem.mediaItem.id).pipe(Effect.either);
 					if (Either.isLeft(details)) {
 						return createSourceFetchFailure({
 							host,
 							itemIndex,
 							error: details.left,
-							sourceIdentifier: String(item.id),
+							sourceLabel: list.name,
+							sourceIdentifier: String(listItem.mediaItem.id),
 							message: "Failed to fetch MediaTracker item details",
 						});
 					}
 
-					const sourceLabel = getMediaTrackerLabel(item.id, mediaType, details.right);
+					const sourceLabel = getMediaTrackerLabel(listItem.mediaItem.id, mediaType, details.right);
 					const ref = getEntityRef({ details: details.right, mediaType, sourceLabel });
 					if (ref === "goodreads_unsupported") {
 						return {
 							itemIndex,
 							sourceLabel,
 							stage: "input_transformation",
-							sourceIdentifier: String(item.id),
+							sourceIdentifier: String(listItem.mediaItem.id),
 							message: "MediaTracker book uses an unsupported Goodreads identifier",
 						} satisfies MediaImportAdapterFailure;
 					}
@@ -403,74 +328,146 @@ export const adaptMediaTrackerData = (input: MediaTrackerAdapterInput) =>
 							itemIndex,
 							sourceLabel,
 							stage: "input_transformation",
-							sourceIdentifier: String(item.id),
+							sourceIdentifier: String(listItem.mediaItem.id),
 							message: `MediaTracker ${mediaType} item is missing a supported provider identifier`,
 						} satisfies MediaImportAdapterFailure;
 					}
 
 					const group = getOrCreateMediaEntityGroup(groupMap, ref, itemIndex);
-					if (mediaType === "tv") {
-						for (const seen of details.right.seenHistory) {
-							const occurredAt = parseDateInput(seen.date);
-							if (!occurredAt || !seen.episodeId) {
-								continue;
-							}
-							const episode = details.right.seasons
-								.flatMap((season) => season.episodes)
-								.find((candidate) => candidate.id === seen.episodeId);
-							if (!episode) {
-								failures.push({
-									itemIndex,
-									sourceLabel,
-									stage: "input_transformation",
-									sourceIdentifier: String(item.id),
-									message: "MediaTracker show history item is missing episode coverage",
-								});
-								continue;
-							}
-							group.events.push({
-								occurredAt,
-								eventSchemaSlug: "progress",
-								properties: {
-									progressPercent: 100,
-									showSeason: episode.seasonNumber,
-									showEpisode: episode.episodeNumber,
-								},
-							});
+					const lifecycle = normalizeLifecycleStatus(list.name);
+					if (lifecycle) {
+						const event = createLifecycleEvent({
+							lifecycle,
+							occurredAt: getFallbackOccurredAt(details.right, importedAt),
+						});
+						if (event) {
+							group.events.push(event);
 						}
-					} else {
-						for (const seen of details.right.seenHistory) {
-							const occurredAt = parseDateInput(seen.date);
-							if (!occurredAt) {
-								continue;
-							}
-							group.events.push(createCompleteEvent({ occurredAt, completedOn: occurredAt }));
-						}
+						return null;
 					}
 
-					const reviewEvent = createReviewEvent({
-						text: details.right.userRating?.review,
-						rating:
-							typeof details.right.userRating?.rating === "number"
-								? Math.round(Math.min(details.right.userRating.rating * 20, 100) * 100) / 100
-								: null,
-						occurredAt:
-							parseDateInput(details.right.userRating?.date) ??
-							getFallbackOccurredAt(details.right, importedAt),
-					});
-					if (reviewEvent) {
-						group.events.push(reviewEvent);
-					}
-
+					addCollectionMembership(group, list.name);
 					return null;
 				}),
 			{ concurrency: MEDIA_TRACKER_CONCURRENCY },
 		);
 
-		failures.push(...seenFailures.filter(isNotNullAdapterFailure));
+		failures.push(...listFailures.filter(isNotNullAdapterFailure));
+		nextItemIndex += listItems.length;
+	}
 
-		return {
-			failures,
-			entityGroups: finalizeEntityGroups(groupMap),
-		} satisfies MediaImportAdapterResult;
-	});
+	const seenItems = yield* fetchJson("items").pipe(Effect.flatMap(decodeItems));
+	const seenStartIndex = nextItemIndex;
+	const seenFailures = yield* Effect.forEach(
+		seenItems,
+		(item, offset) =>
+			Effect.gen(function* () {
+				const itemIndex = seenStartIndex + offset;
+				const mediaType = item.mediaType;
+				if (!mediaType) {
+					return {
+						itemIndex,
+						stage: "input_transformation",
+						sourceIdentifier: String(item.id),
+						message: "MediaTracker item has no media type",
+					} satisfies MediaImportAdapterFailure;
+				}
+
+				const details = yield* getItemDetails(item.id).pipe(Effect.either);
+				if (Either.isLeft(details)) {
+					return createSourceFetchFailure({
+						host,
+						itemIndex,
+						error: details.left,
+						sourceIdentifier: String(item.id),
+						message: "Failed to fetch MediaTracker item details",
+					});
+				}
+
+				const sourceLabel = getMediaTrackerLabel(item.id, mediaType, details.right);
+				const ref = getEntityRef({ details: details.right, mediaType, sourceLabel });
+				if (ref === "goodreads_unsupported") {
+					return {
+						itemIndex,
+						sourceLabel,
+						stage: "input_transformation",
+						sourceIdentifier: String(item.id),
+						message: "MediaTracker book uses an unsupported Goodreads identifier",
+					} satisfies MediaImportAdapterFailure;
+				}
+				if (!ref) {
+					return {
+						itemIndex,
+						sourceLabel,
+						stage: "input_transformation",
+						sourceIdentifier: String(item.id),
+						message: `MediaTracker ${mediaType} item is missing a supported provider identifier`,
+					} satisfies MediaImportAdapterFailure;
+				}
+
+				const group = getOrCreateMediaEntityGroup(groupMap, ref, itemIndex);
+				if (mediaType === "tv") {
+					for (const seen of details.right.seenHistory) {
+						const occurredAt = parseDateInput(seen.date);
+						if (!occurredAt || !seen.episodeId) {
+							continue;
+						}
+						const episode = details.right.seasons
+							.flatMap((season) => season.episodes)
+							.find((candidate) => candidate.id === seen.episodeId);
+						if (!episode) {
+							failures.push({
+								itemIndex,
+								sourceLabel,
+								stage: "input_transformation",
+								sourceIdentifier: String(item.id),
+								message: "MediaTracker show history item is missing episode coverage",
+							});
+							continue;
+						}
+						group.events.push({
+							occurredAt,
+							eventSchemaSlug: "progress",
+							properties: {
+								progressPercent: 100,
+								showSeason: episode.seasonNumber,
+								showEpisode: episode.episodeNumber,
+							},
+						});
+					}
+				} else {
+					for (const seen of details.right.seenHistory) {
+						const occurredAt = parseDateInput(seen.date);
+						if (!occurredAt) {
+							continue;
+						}
+						group.events.push(createCompleteEvent({ occurredAt, completedOn: occurredAt }));
+					}
+				}
+
+				const reviewEvent = createReviewEvent({
+					text: details.right.userRating?.review,
+					rating:
+						typeof details.right.userRating?.rating === "number"
+							? Math.round(Math.min(details.right.userRating.rating * 20, 100) * 100) / 100
+							: null,
+					occurredAt:
+						parseDateInput(details.right.userRating?.date) ??
+						getFallbackOccurredAt(details.right, importedAt),
+				});
+				if (reviewEvent) {
+					group.events.push(reviewEvent);
+				}
+
+				return null;
+			}),
+		{ concurrency: MEDIA_TRACKER_CONCURRENCY },
+	);
+
+	failures.push(...seenFailures.filter(isNotNullAdapterFailure));
+
+	return {
+		failures,
+		entityGroups: finalizeEntityGroups(groupMap),
+	} satisfies MediaImportAdapterResult;
+});

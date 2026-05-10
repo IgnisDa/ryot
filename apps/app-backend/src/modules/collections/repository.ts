@@ -44,8 +44,8 @@ export class CollectionsRepository extends Effect.Service<CollectionsRepository>
 	"CollectionsRepository",
 	{
 		sync: () => ({
-			getBuiltinCollectionSchema: () =>
-				Effect.gen(function* () {
+			getBuiltinCollectionSchema: Effect.fn("CollectionsRepository.getBuiltinCollectionSchema")(
+				function* () {
 					const db = yield* CurrentDb;
 					const [row] = yield* dbEffect(() =>
 						db
@@ -66,10 +66,11 @@ export class CollectionsRepository extends Effect.Service<CollectionsRepository>
 					);
 
 					return row ?? null;
-				}),
+				},
+			),
 
-			findLibraryEntityForUser: (input: { userId: string; entitySchemaId: string }) =>
-				Effect.gen(function* () {
+			findLibraryEntityForUser: Effect.fn("CollectionsRepository.findLibraryEntityForUser")(
+				function* (input: { userId: string; entitySchemaId: string }) {
 					const db = yield* CurrentDb;
 					const [row] = yield* dbEffect(() =>
 						db
@@ -87,10 +88,11 @@ export class CollectionsRepository extends Effect.Service<CollectionsRepository>
 					);
 
 					return row ?? null;
-				}),
+				},
+			),
 
-			getUserLibraryEntityId: (input: { userId: string }) =>
-				Effect.gen(function* () {
+			getUserLibraryEntityId: Effect.fn("CollectionsRepository.getUserLibraryEntityId")(
+				function* (input: { userId: string }) {
 					const db = yield* CurrentDb;
 					const [row] = yield* dbEffect(() =>
 						db
@@ -111,14 +113,11 @@ export class CollectionsRepository extends Effect.Service<CollectionsRepository>
 					);
 
 					return row?.id ?? null;
-				}),
+				},
+			),
 
-			findCollectionByNameForUser: (input: {
-				name: string;
-				userId: string;
-				entitySchemaId: string;
-			}) =>
-				Effect.gen(function* () {
+			findCollectionByNameForUser: Effect.fn("CollectionsRepository.findCollectionByNameForUser")(
+				function* (input: { name: string; userId: string; entitySchemaId: string }) {
 					const db = yield* CurrentDb;
 					const [row] = yield* dbEffect(() =>
 						db
@@ -137,63 +136,68 @@ export class CollectionsRepository extends Effect.Service<CollectionsRepository>
 					);
 
 					return row ? toCollectionResponse(row) : null;
-				}),
+				},
+			),
 
-			getCollectionById: (collectionId: string, userId: string) =>
-				Effect.gen(function* () {
-					const db = yield* CurrentDb;
-					const [row] = yield* dbEffect(() =>
-						db
-							.select(collectionSelection)
-							.from(schema.entity)
-							.innerJoin(
-								schema.entitySchema,
-								eq(schema.entity.entitySchemaId, schema.entitySchema.id),
-							)
-							.where(
-								and(
-									eq(schema.entity.id, collectionId),
-									eq(schema.entity.userId, userId),
-									eq(schema.entitySchema.slug, "collection"),
-									eq(schema.entitySchema.isBuiltin, true),
-								),
-							)
-							.limit(1),
-					);
+			getCollectionById: Effect.fn("CollectionsRepository.getCollectionById")(function* (
+				collectionId: string,
+				userId: string,
+			) {
+				const db = yield* CurrentDb;
+				const [row] = yield* dbEffect(() =>
+					db
+						.select(collectionSelection)
+						.from(schema.entity)
+						.innerJoin(
+							schema.entitySchema,
+							eq(schema.entity.entitySchemaId, schema.entitySchema.id),
+						)
+						.where(
+							and(
+								eq(schema.entity.id, collectionId),
+								eq(schema.entity.userId, userId),
+								eq(schema.entitySchema.slug, "collection"),
+								eq(schema.entitySchema.isBuiltin, true),
+							),
+						)
+						.limit(1),
+				);
 
-					return row ? toCollectionResponse(row) : null;
-				}),
+				return row ? toCollectionResponse(row) : null;
+			}),
 
-			getEntityForMembership: (entityId: string, userId: string) =>
-				Effect.gen(function* () {
-					const db = yield* CurrentDb;
-					const [row] = yield* dbEffect(() =>
-						db
-							.select({
-								id: schema.entity.id,
-								userId: schema.entity.userId,
-								entitySchemaSlug: schema.entitySchema.slug,
-							})
-							.from(schema.entity)
-							.innerJoin(
-								schema.entitySchema,
-								eq(schema.entity.entitySchemaId, schema.entitySchema.id),
-							)
-							.where(
-								and(
-									eq(schema.entity.id, entityId),
-									or(isNull(schema.entity.userId), eq(schema.entity.userId, userId)),
-									or(isNull(schema.entitySchema.userId), eq(schema.entitySchema.userId, userId)),
-								),
-							)
-							.limit(1),
-					);
+			getEntityForMembership: Effect.fn("CollectionsRepository.getEntityForMembership")(function* (
+				entityId: string,
+				userId: string,
+			) {
+				const db = yield* CurrentDb;
+				const [row] = yield* dbEffect(() =>
+					db
+						.select({
+							id: schema.entity.id,
+							userId: schema.entity.userId,
+							entitySchemaSlug: schema.entitySchema.slug,
+						})
+						.from(schema.entity)
+						.innerJoin(
+							schema.entitySchema,
+							eq(schema.entity.entitySchemaId, schema.entitySchema.id),
+						)
+						.where(
+							and(
+								eq(schema.entity.id, entityId),
+								or(isNull(schema.entity.userId), eq(schema.entity.userId, userId)),
+								or(isNull(schema.entitySchema.userId), eq(schema.entitySchema.userId, userId)),
+							),
+						)
+						.limit(1),
+				);
 
-					return row ?? null;
-				}),
+				return row ?? null;
+			}),
 
-			findBuiltinEventSchemaBySlug: (entitySchemaId: string, slug: string) =>
-				Effect.gen(function* () {
+			findBuiltinEventSchemaBySlug: Effect.fn("CollectionsRepository.findBuiltinEventSchemaBySlug")(
+				function* (entitySchemaId: string, slug: string) {
 					const db = yield* CurrentDb;
 					const [row] = yield* dbEffect(() =>
 						db
@@ -214,7 +218,8 @@ export class CollectionsRepository extends Effect.Service<CollectionsRepository>
 					);
 
 					return row ?? null;
-				}),
+				},
+			),
 		}),
 	},
 ) {}

@@ -37,14 +37,6 @@ export type CreatedEventWithContext = ListedEvent & {
 	readonly entitySchemaSlug: string;
 };
 
-type CreateEventsCoreContext =
-	| DbRunner
-	| WorkflowEngine
-	| EventsRepository
-	| SandboxRepository
-	| EntitiesRepository
-	| EventSchemasRepository;
-
 type CreateEventsCoreServices = {
 	readonly dbRunner: DbRunner["Type"];
 	readonly eventsRepository: EventsRepository;
@@ -75,17 +67,20 @@ const resolveOccurredAt = (occurredAt?: string): Effect.Effect<Date, BadRequest>
 	return Effect.succeed(DateTime.toDate(parsed.value));
 };
 
-const requireReadableEntity = (userId: string, entityId: string, notFoundMessage: string) =>
-	Effect.gen(function* () {
-		const runWithDb = yield* DbRunner;
-		const entitiesRepository = yield* EntitiesRepository;
-		const scope = yield* runWithDb(entitiesRepository.getEntityScopeForUser({ userId, entityId }));
-		if (!scope) {
-			return yield* notFound(notFoundMessage);
-		}
+const requireReadableEntity = Effect.fn(function* (
+	userId: string,
+	entityId: string,
+	notFoundMessage: string,
+) {
+	const runWithDb = yield* DbRunner;
+	const entitiesRepository = yield* EntitiesRepository;
+	const scope = yield* runWithDb(entitiesRepository.getEntityScopeForUser({ userId, entityId }));
+	if (!scope) {
+		return yield* notFound(notFoundMessage);
+	}
 
-		return scope;
-	});
+	return scope;
+});
 
 const validateEventCreateItem = (input: {
 	readonly item: CreateEventItem;
@@ -130,40 +125,39 @@ const validateEventCreateItem = (input: {
 		return yield* Effect.void;
 	});
 
-const runBeforeCreateTrigger = (
+const runBeforeCreateTrigger = Effect.fn(function* (
 	userId: string,
 	trigger: BeforeCreateTriggerRow,
 	context: unknown,
 	runSandboxScript: RunSandboxScript,
-) =>
-	Effect.gen(function* () {
-		const runWithDb = yield* DbRunner;
-		const sandboxRepository = yield* SandboxRepository;
-		const script = yield* runWithDb(
-			sandboxRepository.getScriptForUser({ userId, scriptId: trigger.sandboxScriptId }),
-		);
-		if (!script) {
-			return yield* badRequest("Before trigger script not found");
-		}
+) {
+	const runWithDb = yield* DbRunner;
+	const sandboxRepository = yield* SandboxRepository;
+	const script = yield* runWithDb(
+		sandboxRepository.getScriptForUser({ userId, scriptId: trigger.sandboxScriptId }),
+	);
+	if (!script) {
+		return yield* badRequest("Before trigger script not found");
+	}
 
-		const result = yield* runSandboxScript({
-			userId,
-			context,
-			code: script.code,
-			scriptId: script.id,
-			driverName: "trigger",
-			executionId: generateId(),
-			allowedHostFunctions: script.metadata.allowedHostFunctions ?? [],
-		}).pipe(Effect.mapError((error) => badRequest(`Before trigger failed: ${error.message}`)));
+	const result = yield* runSandboxScript({
+		userId,
+		context,
+		code: script.code,
+		scriptId: script.id,
+		driverName: "trigger",
+		executionId: generateId(),
+		allowedHostFunctions: script.metadata.allowedHostFunctions ?? [],
+	}).pipe(Effect.mapError((error) => badRequest(`Before trigger failed: ${error.message}`)));
 
-		if (!result.success) {
-			return yield* badRequest(`Before trigger failed: ${result.error ?? "Execution failed"}`);
-		}
+	if (!result.success) {
+		return yield* badRequest(`Before trigger failed: ${result.error ?? "Execution failed"}`);
+	}
 
-		return yield* decodeBeforeTriggerResult(result.value).pipe(
-			Effect.mapError(() => badRequest("Before trigger returned invalid shape")),
-		);
-	});
+	return yield* decodeBeforeTriggerResult(result.value).pipe(
+		Effect.mapError(() => badRequest("Before trigger returned invalid shape")),
+	);
+});
 
 const dispatchAfterCreateTriggers = (
 	userId: string,
@@ -249,7 +243,7 @@ export const validateEventCreateSubmission = (input: {
 		discard: true,
 	});
 
-export const createEventsForUser = (
+export const createEventsForUser = Effect.fn("createEventsForUser")(function* (
 	input: {
 		readonly userId: string;
 		readonly importRunId?: string;
@@ -259,147 +253,146 @@ export const createEventsForUser = (
 	},
 	runSandboxScript: RunSandboxScript,
 	onGlobalEntityReferenced?: OnGlobalEntityReferenced,
-): Effect.Effect<{ count: number }, EventValidationError, CreateEventsCoreContext> =>
-	Effect.gen(function* () {
-		const runWithDb = yield* DbRunner;
-		const eventsRepository = yield* EventsRepository;
-		const createdEvents: CreatedEventWithContext[] = [];
-		const eventSchemasRepository = yield* EventSchemasRepository;
-		const { userId, origin, payload, importRunId, integrationId } = input;
+) {
+	const runWithDb = yield* DbRunner;
+	const eventsRepository = yield* EventsRepository;
+	const createdEvents: CreatedEventWithContext[] = [];
+	const eventSchemasRepository = yield* EventSchemasRepository;
+	const { userId, origin, payload, importRunId, integrationId } = input;
 
-		for (const item of payload) {
-			const entityId = yield* requireText(item.entityId, "Entity id is required");
-			const eventSchemaId = yield* requireText(item.eventSchemaId, "Event schema id is required");
+	for (const item of payload) {
+		const entityId = yield* requireText(item.entityId, "Entity id is required");
+		const eventSchemaId = yield* requireText(item.eventSchemaId, "Event schema id is required");
 
-			const entityScope = yield* requireReadableEntity(userId, entityId, entityNotFoundError);
+		const entityScope = yield* requireReadableEntity(userId, entityId, entityNotFoundError);
 
-			const eventSchemaScope = yield* runWithDb(
-				eventSchemasRepository.getScopeForUser({ userId, eventSchemaId }),
+		const eventSchemaScope = yield* runWithDb(
+			eventSchemasRepository.getScopeForUser({ userId, eventSchemaId }),
+		);
+		if (!eventSchemaScope) {
+			return yield* notFound(eventSchemaNotFoundError);
+		}
+
+		if (eventSchemaScope.entitySchemaId !== entityScope.entitySchemaId) {
+			return yield* badRequest(eventSchemaMismatchError);
+		}
+
+		let sessionEntityId: string | undefined;
+		if (item.sessionEntityId) {
+			const sessionScope = yield* requireReadableEntity(
+				userId,
+				item.sessionEntityId,
+				sessionEntityNotFoundError,
 			);
-			if (!eventSchemaScope) {
-				return yield* notFound(eventSchemaNotFoundError);
-			}
+			sessionEntityId = sessionScope.entityId;
+		}
 
-			if (eventSchemaScope.entitySchemaId !== entityScope.entitySchemaId) {
-				return yield* badRequest(eventSchemaMismatchError);
-			}
+		let rawOccurredAt = yield* resolveOccurredAt(item.occurredAt);
+		let rawProperties: unknown = item.properties;
+		let rawSessionEntityId = sessionEntityId;
 
-			let sessionEntityId: string | undefined;
-			if (item.sessionEntityId) {
-				const sessionScope = yield* requireReadableEntity(
+		const beforeTriggers = yield* runWithDb(
+			eventsRepository.getActiveBeforeCreateTriggers({
+				userId,
+				eventSchemaIds: [eventSchemaScope.id],
+			}),
+		);
+
+		let skipped = false;
+		for (const trigger of beforeTriggers) {
+			const triggerContext = {
+				trigger: {
 					userId,
-					item.sessionEntityId,
-					sessionEntityNotFoundError,
-				);
-				sessionEntityId = sessionScope.entityId;
-			}
-
-			let rawOccurredAt = yield* resolveOccurredAt(item.occurredAt);
-			let rawProperties: unknown = item.properties;
-			let rawSessionEntityId = sessionEntityId;
-
-			const beforeTriggers = yield* runWithDb(
-				eventsRepository.getActiveBeforeCreateTriggers({
-					userId,
-					eventSchemaIds: [eventSchemaScope.id],
-				}),
-			);
-
-			let skipped = false;
-			for (const trigger of beforeTriggers) {
-				const triggerContext = {
-					trigger: {
-						userId,
-						origin,
-						phase: "before_create",
-						properties: rawProperties,
-						entityId: entityScope.entityId,
-						eventSchemaId: eventSchemaScope.id,
-						sessionEntityId: rawSessionEntityId,
-						eventSchemaSlug: eventSchemaScope.slug,
-						occurredAt: rawOccurredAt.toISOString(),
-						...(importRunId ? { importRunId } : {}),
-						entitySchemaId: entityScope.entitySchemaId,
-						...(integrationId ? { integrationId } : {}),
-						entitySchemaSlug: entityScope.entitySchemaSlug,
-					},
-				};
-
-				const triggerResult = yield* runBeforeCreateTrigger(
-					userId,
-					trigger,
-					triggerContext,
-					runSandboxScript,
-				);
-
-				if (triggerResult.action === "skip") {
-					skipped = true;
-					break;
-				}
-
-				if (triggerResult.action === "replace") {
-					if (triggerResult.body.properties !== undefined) {
-						rawProperties = triggerResult.body.properties;
-					}
-					if (triggerResult.body.occurredAt !== undefined) {
-						const replaced = DateTime.make(triggerResult.body.occurredAt);
-						if (Option.isSome(replaced)) {
-							rawOccurredAt = DateTime.toDate(replaced.value);
-						}
-					}
-					if (triggerResult.body.sessionEntityId !== undefined) {
-						rawSessionEntityId = triggerResult.body.sessionEntityId ?? undefined;
-					}
-				}
-			}
-
-			if (skipped) {
-				continue;
-			}
-
-			const properties = yield* parseAppSchemaProperties({
-				kind: "Event",
-				properties: rawProperties,
-				propertiesSchema: eventSchemaScope.propertiesSchema,
-			}).pipe(Effect.mapError((error) => badRequest(error.message)));
-
-			const createdEvent = yield* runWithDb(
-				eventsRepository.createEvent({
-					userId,
-					properties,
-					occurredAt: rawOccurredAt,
+					origin,
+					phase: "before_create",
+					properties: rawProperties,
 					entityId: entityScope.entityId,
 					eventSchemaId: eventSchemaScope.id,
 					sessionEntityId: rawSessionEntityId,
-					eventSchemaName: eventSchemaScope.name,
 					eventSchemaSlug: eventSchemaScope.slug,
-				}),
+					occurredAt: rawOccurredAt.toISOString(),
+					...(importRunId ? { importRunId } : {}),
+					entitySchemaId: entityScope.entitySchemaId,
+					...(integrationId ? { integrationId } : {}),
+					entitySchemaSlug: entityScope.entitySchemaSlug,
+				},
+			};
+
+			const triggerResult = yield* runBeforeCreateTrigger(
+				userId,
+				trigger,
+				triggerContext,
+				runSandboxScript,
 			);
 
-			if (entityScope.entityUserId === null && onGlobalEntityReferenced) {
-				yield* onGlobalEntityReferenced(userId, entityScope.entityId);
+			if (triggerResult.action === "skip") {
+				skipped = true;
+				break;
 			}
 
-			createdEvents.push({
-				...createdEvent,
-				entitySchemaId: entityScope.entitySchemaId,
-				entitySchemaSlug: entityScope.entitySchemaSlug,
-			});
-		}
-
-		if (createdEvents.length > 0) {
-			const uniqueSchemaIds = [...new Set(createdEvents.map((event) => event.eventSchemaId))];
-			const afterTriggers = yield* runWithDb(
-				eventsRepository.getActiveAfterCreateTriggers({
-					userId,
-					eventSchemaIds: uniqueSchemaIds,
-				}),
-			);
-
-			if (afterTriggers.length > 0) {
-				yield* dispatchAfterCreateTriggers(userId, createdEvents, afterTriggers);
+			if (triggerResult.action === "replace") {
+				if (triggerResult.body.properties !== undefined) {
+					rawProperties = triggerResult.body.properties;
+				}
+				if (triggerResult.body.occurredAt !== undefined) {
+					const replaced = DateTime.make(triggerResult.body.occurredAt);
+					if (Option.isSome(replaced)) {
+						rawOccurredAt = DateTime.toDate(replaced.value);
+					}
+				}
+				if (triggerResult.body.sessionEntityId !== undefined) {
+					rawSessionEntityId = triggerResult.body.sessionEntityId ?? undefined;
+				}
 			}
 		}
 
-		return { count: createdEvents.length };
-	});
+		if (skipped) {
+			continue;
+		}
+
+		const properties = yield* parseAppSchemaProperties({
+			kind: "Event",
+			properties: rawProperties,
+			propertiesSchema: eventSchemaScope.propertiesSchema,
+		}).pipe(Effect.mapError((error) => badRequest(error.message)));
+
+		const createdEvent = yield* runWithDb(
+			eventsRepository.createEvent({
+				userId,
+				properties,
+				occurredAt: rawOccurredAt,
+				entityId: entityScope.entityId,
+				eventSchemaId: eventSchemaScope.id,
+				sessionEntityId: rawSessionEntityId,
+				eventSchemaName: eventSchemaScope.name,
+				eventSchemaSlug: eventSchemaScope.slug,
+			}),
+		);
+
+		if (entityScope.entityUserId === null && onGlobalEntityReferenced) {
+			yield* onGlobalEntityReferenced(userId, entityScope.entityId);
+		}
+
+		createdEvents.push({
+			...createdEvent,
+			entitySchemaId: entityScope.entitySchemaId,
+			entitySchemaSlug: entityScope.entitySchemaSlug,
+		});
+	}
+
+	if (createdEvents.length > 0) {
+		const uniqueSchemaIds = [...new Set(createdEvents.map((event) => event.eventSchemaId))];
+		const afterTriggers = yield* runWithDb(
+			eventsRepository.getActiveAfterCreateTriggers({
+				userId,
+				eventSchemaIds: uniqueSchemaIds,
+			}),
+		);
+
+		if (afterTriggers.length > 0) {
+			yield* dispatchAfterCreateTriggers(userId, createdEvents, afterTriggers);
+		}
+	}
+
+	return { count: createdEvents.length };
+});

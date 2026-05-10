@@ -23,24 +23,22 @@ import {
 import type { WorkoutAdapterResult, WorkoutImportItem } from "./domain";
 import { commitWorkoutItem, loadWorkoutImportContext } from "./processor";
 
-export const loadWorkoutAdapterResult =
-	(input: {
-		sourceName: string;
-		adapt: (csvText: string, timezone: string) => WorkoutAdapterResult;
-	}) =>
-	(payload: ImportRunJobData) =>
-		Effect.gen(function* () {
-			const config = yield* AppConfig;
-			const { text, cleanupPaths } = yield* loadNonMediaImportText(payload);
-			const result = yield* Effect.try({
-				try: () => input.adapt(text, config.timezone),
-				catch: (error) => ({
-					cleanupPaths,
-					message: sanitizeErrorMessage(error, `Could not parse ${input.sourceName} CSV`),
-				}),
-			});
-			return { cleanupPaths, items: result.items, failures: result.failures };
+export const loadWorkoutAdapterResult = (input: {
+	sourceName: string;
+	adapt: (csvText: string, timezone: string) => WorkoutAdapterResult;
+}) =>
+	Effect.fn("imports.loadWorkoutAdapterResult")(function* (payload: ImportRunJobData) {
+		const config = yield* AppConfig;
+		const { text, cleanupPaths } = yield* loadNonMediaImportText(payload);
+		const result = yield* Effect.try({
+			try: () => input.adapt(text, config.timezone),
+			catch: (error) => ({
+				cleanupPaths,
+				message: sanitizeErrorMessage(error, `Could not parse ${input.sourceName} CSV`),
+			}),
 		});
+		return { cleanupPaths, items: result.items, failures: result.failures };
+	});
 
 export const prepareWorkoutWrites = (
 	payload: ImportRunJobData,

@@ -1,3 +1,4 @@
+import { Effect } from "effect";
 import { describe, expect, it } from "vitest";
 
 import { makeIntegration } from "../test-support";
@@ -60,11 +61,8 @@ describe("parseKodiSinkPayload", () => {
 
 describe("getSinkAdapterResult", () => {
 	it("parses a Kodi webhook raw body", () => {
-		const result = getSinkAdapterResult(
-			makeIntegration(),
-			JSON.stringify({ lot: "movie", progress: 30, identifier: "603" }),
-			json,
-		);
+		const rawBody = JSON.stringify({ lot: "movie", progress: 30, identifier: "603" });
+		const result = Effect.runSync(getSinkAdapterResult(makeIntegration(), rawBody, json));
 
 		expect(result.failures).toEqual([]);
 		expect(result.entityGroups[0]?.entityRef).toMatchObject({
@@ -75,10 +73,12 @@ describe("getSinkAdapterResult", () => {
 	});
 
 	it("returns a source_fetch failure for unsupported sink providers", () => {
-		const result = getSinkAdapterResult(
-			makeIntegration({ provider: "generic_json", providerSpecifics: { kind: "generic_json" } }),
-			"{}",
-			json,
+		const result = Effect.runSync(
+			getSinkAdapterResult(
+				makeIntegration({ provider: "generic_json", providerSpecifics: { kind: "generic_json" } }),
+				"{}",
+				json,
+			),
 		);
 
 		expect(result.entityGroups).toEqual([]);
@@ -92,18 +92,21 @@ describe("getSinkAdapterResult", () => {
 	});
 
 	it("maps an Emby episode webhook to a TMDB show ref", () => {
-		const result = getSinkAdapterResult(
-			makeIntegration({ provider: "emby", providerSpecifics: { kind: "emby" } }),
-			JSON.stringify({
-				IndexNumber: 3,
-				PositionTicks: 50,
-				RunTimeTicks: 100,
-				ItemType: "Episode",
-				ParentIndexNumber: 1,
-				SeriesName: "Severance",
-				SeriesProvider_tmdb: "95396",
-			}),
-			json,
+		const rawBody = JSON.stringify({
+			IndexNumber: 3,
+			PositionTicks: 50,
+			RunTimeTicks: 100,
+			ItemType: "Episode",
+			ParentIndexNumber: 1,
+			SeriesName: "Severance",
+			SeriesProvider_tmdb: "95396",
+		});
+		const result = Effect.runSync(
+			getSinkAdapterResult(
+				makeIntegration({ provider: "emby", providerSpecifics: { kind: "emby" } }),
+				rawBody,
+				json,
+			),
 		);
 
 		expect(result.failures).toEqual([]);
@@ -116,19 +119,22 @@ describe("getSinkAdapterResult", () => {
 	});
 
 	it("skips a Jellyfin webhook when the username does not match", () => {
-		const result = getSinkAdapterResult(
-			makeIntegration({
-				provider: "jellyfin_sink",
-				providerSpecifics: { kind: "jellyfin_sink", username: "alice" },
-			}),
-			JSON.stringify({
-				ItemType: "Movie",
-				PositionTicks: 50,
-				RunTimeTicks: 100,
-				Provider_tmdb: "603",
-				User: { Name: "bob" },
-			}),
-			json,
+		const rawBody = JSON.stringify({
+			ItemType: "Movie",
+			PositionTicks: 50,
+			RunTimeTicks: 100,
+			Provider_tmdb: "603",
+			User: { Name: "bob" },
+		});
+		const result = Effect.runSync(
+			getSinkAdapterResult(
+				makeIntegration({
+					provider: "jellyfin_sink",
+					providerSpecifics: { kind: "jellyfin_sink", username: "alice" },
+				}),
+				rawBody,
+				json,
+			),
 		);
 
 		expect(result.entityGroups).toEqual([]);
@@ -141,11 +147,12 @@ describe("getSinkAdapterResult", () => {
 			Metadata: { type: "movie", title: "Inception", Guid: [{ id: "tmdb://27205" }] },
 		});
 		const rawBody = `--abc\r\nContent-Disposition: form-data; name="payload"\r\n\r\n${payload}\r\n--abc--`;
-
-		const result = getSinkAdapterResult(
-			makeIntegration({ provider: "plex_sink", providerSpecifics: { kind: "plex_sink" } }),
-			rawBody,
-			"multipart/form-data; boundary=abc",
+		const result = Effect.runSync(
+			getSinkAdapterResult(
+				makeIntegration({ provider: "plex_sink", providerSpecifics: { kind: "plex_sink" } }),
+				rawBody,
+				"multipart/form-data; boundary=abc",
+			),
 		);
 
 		expect(result.failures).toEqual([]);
@@ -156,16 +163,19 @@ describe("getSinkAdapterResult", () => {
 	});
 
 	it("ignores browser extension events from disabled sites", () => {
-		const result = getSinkAdapterResult(
-			makeIntegration({
-				provider: "ryot_browser_extension",
-				providerSpecifics: { kind: "ryot_browser_extension", disabledSites: ["youtube.com"] },
-			}),
-			JSON.stringify({
-				url: "https://www.youtube.com/watch?v=1",
-				data: { progress: 80, lot: "movie", identifier: "12345" },
-			}),
-			json,
+		const rawBody = JSON.stringify({
+			url: "https://www.youtube.com/watch?v=1",
+			data: { progress: 80, lot: "movie", identifier: "12345" },
+		});
+		const result = Effect.runSync(
+			getSinkAdapterResult(
+				makeIntegration({
+					provider: "ryot_browser_extension",
+					providerSpecifics: { kind: "ryot_browser_extension", disabledSites: ["youtube.com"] },
+				}),
+				rawBody,
+				json,
+			),
 		);
 
 		expect(result.entityGroups).toEqual([]);

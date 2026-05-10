@@ -1,3 +1,5 @@
+import { Effect } from "effect";
+
 import { buildMovieOrShowImportRef } from "#modules/imports/sources/shared/provider-refs";
 
 import {
@@ -22,8 +24,8 @@ const getEntitySchemaSlug = (itemType: string | undefined) => {
 	return undefined;
 };
 
-export const parseJellyfinSink: SinkParser = (input) => {
-	try {
+export const parseJellyfinSink: SinkParser = (input) =>
+	Effect.try(() => {
 		const payload = parseJsonRecord(input.rawBody);
 		const specs = input.integration.providerSpecifics;
 		if (specs.kind !== "jellyfin_sink") {
@@ -133,8 +135,8 @@ export const parseJellyfinSink: SinkParser = (input) => {
 					}
 				: {}),
 		});
-	} catch {
-		return {
+	}).pipe(
+		Effect.orElseSucceed(() => ({
 			...emptySinkResult(),
 			failures: [
 				createSinkFailure({
@@ -142,6 +144,5 @@ export const parseJellyfinSink: SinkParser = (input) => {
 					message: "Could not parse Jellyfin webhook payload",
 				}),
 			],
-		};
-	}
-};
+		})),
+	);

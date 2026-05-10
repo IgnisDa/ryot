@@ -1,3 +1,5 @@
+import { Effect } from "effect";
+
 import { buildMovieOrShowImportRef } from "#modules/imports/sources/shared/provider-refs";
 
 import {
@@ -22,8 +24,8 @@ const getEntitySchemaSlug = (itemType: string | undefined) => {
 	return undefined;
 };
 
-export const parseEmbySink: SinkParser = (input) => {
-	try {
+export const parseEmbySink: SinkParser = (input) =>
+	Effect.try(() => {
 		const payload = parseJsonRecord(input.rawBody);
 		const entitySchemaSlug = getEntitySchemaSlug(
 			getNestedString(payload, ["ItemType", "Type", "MediaType"]),
@@ -107,8 +109,8 @@ export const parseEmbySink: SinkParser = (input) => {
 					}
 				: {}),
 		});
-	} catch {
-		return {
+	}).pipe(
+		Effect.orElseSucceed(() => ({
 			...emptySinkResult(),
 			failures: [
 				createSinkFailure({
@@ -116,6 +118,5 @@ export const parseEmbySink: SinkParser = (input) => {
 					message: "Could not parse Emby webhook payload",
 				}),
 			],
-		};
-	}
-};
+		})),
+	);

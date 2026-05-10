@@ -70,41 +70,41 @@ export class EventsService extends Effect.Service<EventsService>()("EventsServic
 			});
 
 		return {
-			list: (user, query) =>
-				Effect.gen(function* () {
-					if (!query.entityId && !query.sessionEntityId) {
-						return yield* badRequest(listScopeRequiredError);
-					}
+			list: Effect.fn("EventsService.list")(function* (
+				user: CurrentUserValue,
+				query: { entityId?: string; sessionEntityId?: string; eventSchemaSlug?: string },
+			) {
+				if (!query.entityId && !query.sessionEntityId) {
+					return yield* badRequest(listScopeRequiredError);
+				}
 
-					if (query.entityId) {
-						yield* requireReadableEntity(user.id, query.entityId, entityNotFoundError);
-					}
+				if (query.entityId) {
+					yield* requireReadableEntity(user.id, query.entityId, entityNotFoundError);
+				}
 
-					if (query.sessionEntityId) {
-						yield* requireReadableEntity(
-							user.id,
-							query.sessionEntityId,
-							sessionEntityNotFoundError,
-						);
-					}
+				if (query.sessionEntityId) {
+					yield* requireReadableEntity(user.id, query.sessionEntityId, sessionEntityNotFoundError);
+				}
 
-					return yield* runWithDb(repository.listForUser({ userId: user.id, ...query }));
-				}),
-			create: (user, payload) =>
-				Effect.gen(function* () {
-					if (payload.length === 0) {
-						return { count: 0 };
-					}
+				return yield* runWithDb(repository.listForUser({ userId: user.id, ...query }));
+			}),
+			create: Effect.fn("EventsService.create")(function* (
+				user: CurrentUserValue,
+				payload: ReadonlyArray<CreateEventItem>,
+			) {
+				if (payload.length === 0) {
+					return { count: 0 };
+				}
 
-					yield* provideValidationContext(
-						validateEventCreateSubmission({ userId: user.id, payload }),
-					);
-					yield* provideWorkflowEngine(
-						enqueueEventCreate({ userId: user.id, origin: "api", payload }),
-					);
+				yield* provideValidationContext(
+					validateEventCreateSubmission({ userId: user.id, payload }),
+				);
+				yield* provideWorkflowEngine(
+					enqueueEventCreate({ userId: user.id, origin: "api", payload }),
+				);
 
-					return { count: payload.length };
-				}),
+				return { count: payload.length };
+			}),
 			createForImport: (userId, payload, importRunId) =>
 				payload.length === 0
 					? Effect.succeed({ count: 0 })

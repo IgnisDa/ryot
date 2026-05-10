@@ -1,3 +1,5 @@
+import { Effect } from "effect";
+
 import type { MediaImportAdapterResult } from "#modules/imports/media/import-processor";
 
 import type { IntegrationRecord } from "../repository";
@@ -22,7 +24,7 @@ export const getSinkAdapterResult = (
 	integration: IntegrationRecord,
 	rawBody: string,
 	contentType: string,
-): MediaImportAdapterResult => {
+): Effect.Effect<MediaImportAdapterResult> => {
 	const input: SinkParserInput = { rawBody, contentType, integration };
 	const kind = integration.providerSpecifics.kind;
 	if (kind === "kodi") {
@@ -40,5 +42,5 @@ export const getSinkAdapterResult = (
 	if (kind === "ryot_browser_extension") {
 		return parseBrowserExtensionSink(input);
 	}
-	return unsupportedSinkResult(integration.provider);
+	return Effect.succeed(unsupportedSinkResult(integration.provider));
 };

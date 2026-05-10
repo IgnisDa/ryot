@@ -28,36 +28,35 @@ const toScript = (row: SandboxScriptRow) => ({
 
 export class SandboxRepository extends Effect.Service<SandboxRepository>()("SandboxRepository", {
 	sync: () => ({
-		createScript: (input: CreateScriptInput) =>
-			Effect.gen(function* () {
-				const db = yield* CurrentDb;
-				const [row] = yield* dbEffect(() =>
-					db
-						.insert(schema.sandboxScript)
-						.values({
-							isBuiltin: false,
-							slug: input.slug,
-							name: input.name,
-							code: input.code,
-							userId: input.userId,
-							metadata: input.metadata,
-						})
-						.returning(),
-				).pipe(
-					Effect.mapError((error) =>
-						isUniqueConstraintError(sandboxScriptUserSlugConstraint)(error)
-							? conflict("A sandbox script with this slug already exists")
-							: error,
-					),
-				);
-				if (!row) {
-					return yield* new DbError({ message: "Sandbox script insert returned no row" });
-				}
+		createScript: Effect.fn("SandboxRepository.createScript")(function* (input: CreateScriptInput) {
+			const db = yield* CurrentDb;
+			const [row] = yield* dbEffect(() =>
+				db
+					.insert(schema.sandboxScript)
+					.values({
+						isBuiltin: false,
+						slug: input.slug,
+						name: input.name,
+						code: input.code,
+						userId: input.userId,
+						metadata: input.metadata,
+					})
+					.returning(),
+			).pipe(
+				Effect.mapError((error) =>
+					isUniqueConstraintError(sandboxScriptUserSlugConstraint)(error)
+						? conflict("A sandbox script with this slug already exists")
+						: error,
+				),
+			);
+			if (!row) {
+				return yield* new DbError({ message: "Sandbox script insert returned no row" });
+			}
 
-				return toScript(row);
-			}),
-		findScriptBySlugForUser: (input: { readonly slug: string; readonly userId: string }) =>
-			Effect.gen(function* () {
+			return toScript(row);
+		}),
+		findScriptBySlugForUser: Effect.fn("SandboxRepository.findScriptBySlugForUser")(
+			function* (input: { readonly slug: string; readonly userId: string }) {
 				const db = yield* CurrentDb;
 				const [row] = yield* dbEffect(() =>
 					db
@@ -73,34 +72,37 @@ export class SandboxRepository extends Effect.Service<SandboxRepository>()("Sand
 				);
 
 				return row ?? null;
-			}),
-		getScriptForUser: (input: { readonly scriptId: string; readonly userId: string | null }) =>
-			Effect.gen(function* () {
-				const db = yield* CurrentDb;
-				const [row] = yield* dbEffect(() =>
-					db
-						.select({
-							id: schema.sandboxScript.id,
-							code: schema.sandboxScript.code,
-							userId: schema.sandboxScript.userId,
-							metadata: schema.sandboxScript.metadata,
-						})
-						.from(schema.sandboxScript)
-						.where(
-							and(
-								eq(schema.sandboxScript.id, input.scriptId),
-								input.userId === null
-									? isNull(schema.sandboxScript.userId)
-									: or(
-											isNull(schema.sandboxScript.userId),
-											eq(schema.sandboxScript.userId, input.userId),
-										),
-							),
-						)
-						.limit(1),
-				);
+			},
+		),
+		getScriptForUser: Effect.fn("SandboxRepository.getScriptForUser")(function* (input: {
+			readonly scriptId: string;
+			readonly userId: string | null;
+		}) {
+			const db = yield* CurrentDb;
+			const [row] = yield* dbEffect(() =>
+				db
+					.select({
+						id: schema.sandboxScript.id,
+						code: schema.sandboxScript.code,
+						userId: schema.sandboxScript.userId,
+						metadata: schema.sandboxScript.metadata,
+					})
+					.from(schema.sandboxScript)
+					.where(
+						and(
+							eq(schema.sandboxScript.id, input.scriptId),
+							input.userId === null
+								? isNull(schema.sandboxScript.userId)
+								: or(
+										isNull(schema.sandboxScript.userId),
+										eq(schema.sandboxScript.userId, input.userId),
+									),
+						),
+					)
+					.limit(1),
+			);
 
-				return row ?? null;
-			}),
+			return row ?? null;
+		}),
 	}),
 }) {}

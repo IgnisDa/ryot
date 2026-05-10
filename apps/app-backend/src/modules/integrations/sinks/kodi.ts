@@ -1,7 +1,9 @@
+import { Effect } from "effect";
+
 import type { MediaImportAdapterResult } from "#modules/imports/media/import-processor";
 import { buildMovieOrShowImportRef } from "#modules/imports/sources/shared/provider-refs";
 
-import { createSinkFailure, emptySinkResult, type SinkParser } from "./shared";
+import { createSinkFailure, emptySinkResult, parseJsonRecord, type SinkParser } from "./shared";
 
 const isObjectRecord = (value: unknown): value is Record<string, unknown> =>
 	typeof value === "object" && value !== null && !Array.isArray(value);
@@ -84,10 +86,7 @@ export const parseKodiSinkPayload = (payload: unknown): MediaImportAdapterResult
 	};
 };
 
-export const parseKodiSink: SinkParser = (input) => {
-	try {
-		return parseKodiSinkPayload(JSON.parse(input.rawBody));
-	} catch {
-		return invalidKodiPayloadResult();
-	}
-};
+export const parseKodiSink: SinkParser = (input) =>
+	Effect.try(() => parseKodiSinkPayload(parseJsonRecord(input.rawBody))).pipe(
+		Effect.orElseSucceed(() => invalidKodiPayloadResult()),
+	);

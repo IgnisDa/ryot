@@ -88,59 +88,55 @@ export const validateUniqueSchemaSlugs = (
 	});
 };
 
-const loadVisibleEventSchemaRows = (input: {
+const loadVisibleEventSchemaRows = Effect.fn(function* (input: {
 	userId: string;
 	eventSchemaSlugs: ReadonlyArray<string>;
 	runtimeSchemas: QueryEngineSchemaRow[];
-}): Effect.Effect<VisibleEventSchemaRow[], DbError | BadRequest, CurrentDb> =>
-	Effect.gen(function* () {
-		const uniqueSlugs = [...new Set(input.eventSchemaSlugs)];
-		if (!uniqueSlugs.length) {
-			return [];
-		}
+}) {
+	const uniqueSlugs = [...new Set(input.eventSchemaSlugs)];
+	if (!uniqueSlugs.length) {
+		return [];
+	}
 
-		const db = yield* CurrentDb;
-		const rows = yield* dbEffect(() =>
-			db
-				.select({
-					id: schema.eventSchema.id,
-					slug: schema.eventSchema.slug,
-					entitySchemaSlug: schema.entitySchema.slug,
-					entitySchemaId: schema.eventSchema.entitySchemaId,
-					propertiesSchema: schema.eventSchema.propertiesSchema,
-				})
-				.from(schema.eventSchema)
-				.innerJoin(
-					schema.entitySchema,
-					eq(schema.eventSchema.entitySchemaId, schema.entitySchema.id),
-				)
-				.where(
-					and(
-						inArray(
-							schema.eventSchema.entitySchemaId,
-							input.runtimeSchemas.map((s) => s.id),
-						),
-						inArray(schema.eventSchema.slug, uniqueSlugs),
-						or(isNull(schema.eventSchema.userId), eq(schema.eventSchema.userId, input.userId)),
+	const db = yield* CurrentDb;
+	const rows = yield* dbEffect(() =>
+		db
+			.select({
+				id: schema.eventSchema.id,
+				slug: schema.eventSchema.slug,
+				entitySchemaSlug: schema.entitySchema.slug,
+				entitySchemaId: schema.eventSchema.entitySchemaId,
+				propertiesSchema: schema.eventSchema.propertiesSchema,
+			})
+			.from(schema.eventSchema)
+			.innerJoin(schema.entitySchema, eq(schema.eventSchema.entitySchemaId, schema.entitySchema.id))
+			.where(
+				and(
+					inArray(
+						schema.eventSchema.entitySchemaId,
+						input.runtimeSchemas.map((s) => s.id),
 					),
-				),
-		);
-
-		return yield* Effect.all(
-			rows.map((row) =>
-				decodeStoredAppSchema(
-					row.propertiesSchema,
-					"Invalid event schema properties in database",
-				).pipe(
-					Effect.map((propertiesSchema) => ({
-						...row,
-						propertiesSchema,
-						entitySchemaSlug: row.entitySchemaSlug,
-					})),
+					inArray(schema.eventSchema.slug, uniqueSlugs),
+					or(isNull(schema.eventSchema.userId), eq(schema.eventSchema.userId, input.userId)),
 				),
 			),
-		);
-	});
+	);
+
+	return yield* Effect.all(
+		rows.map((row) =>
+			decodeStoredAppSchema(
+				row.propertiesSchema,
+				"Invalid event schema properties in database",
+			).pipe(
+				Effect.map((propertiesSchema) => ({
+					...row,
+					propertiesSchema,
+					entitySchemaSlug: row.entitySchemaSlug,
+				})),
+			),
+		),
+	);
+});
 
 export const validateVisibleEventJoins = (
 	eventJoins: ReadonlyArray<QueryEventJoin>,
@@ -203,72 +199,70 @@ export const validateVisibleRelationshipSchemaRows = (
 	});
 };
 
-export const loadVisibleSchemas = (input: {
+export const loadVisibleSchemas = Effect.fn("loadVisibleSchemas")(function* (input: {
 	userId: string;
 	scope: ReadonlyArray<string>;
-}): QueryEngineLoadEffect<QueryEngineSchemaRow[]> =>
-	Effect.gen(function* () {
-		const uniqueSlugs = [...new Set(input.scope)];
-		const db = yield* CurrentDb;
-		const rows = yield* dbEffect(() =>
-			db
-				.select({
-					id: schema.entitySchema.id,
-					slug: schema.entitySchema.slug,
-					propertiesSchema: schema.entitySchema.propertiesSchema,
-				})
-				.from(schema.entitySchema)
-				.where(
-					and(
-						inArray(schema.entitySchema.slug, uniqueSlugs),
-						or(isNull(schema.entitySchema.userId), eq(schema.entitySchema.userId, input.userId)),
-					),
+}) {
+	const uniqueSlugs = [...new Set(input.scope)];
+	const db = yield* CurrentDb;
+	const rows = yield* dbEffect(() =>
+		db
+			.select({
+				id: schema.entitySchema.id,
+				slug: schema.entitySchema.slug,
+				propertiesSchema: schema.entitySchema.propertiesSchema,
+			})
+			.from(schema.entitySchema)
+			.where(
+				and(
+					inArray(schema.entitySchema.slug, uniqueSlugs),
+					or(isNull(schema.entitySchema.userId), eq(schema.entitySchema.userId, input.userId)),
 				),
-		);
-
-		const schemas = yield* Effect.all(
-			rows.map((row) =>
-				decodeStoredAppSchema(
-					row.propertiesSchema,
-					"Invalid entity schema properties in database",
-				).pipe(Effect.map((propertiesSchema) => ({ ...row, propertiesSchema }))),
 			),
-		);
+	);
 
-		yield* tryQueryEngineSync(() => {
-			validateUniqueSchemaSlugs(uniqueSlugs, schemas);
-		});
+	const schemas = yield* Effect.all(
+		rows.map((row) =>
+			decodeStoredAppSchema(
+				row.propertiesSchema,
+				"Invalid entity schema properties in database",
+			).pipe(Effect.map((propertiesSchema) => ({ ...row, propertiesSchema }))),
+		),
+	);
 
-		return schemas;
+	yield* tryQueryEngineSync(() => {
+		validateUniqueSchemaSlugs(uniqueSlugs, schemas);
 	});
 
-export const loadVisibleEventJoins = (input: {
+	return schemas;
+});
+
+export const loadVisibleEventJoins = Effect.fn("loadVisibleEventJoins")(function* (input: {
 	userId: string;
 	eventJoins: ReadonlyArray<QueryEventJoin>;
 	runtimeSchemas: QueryEngineSchemaRow[];
-}): QueryEngineLoadEffect<QueryEngineEventJoinLike[]> =>
-	Effect.gen(function* () {
-		if (!input.eventJoins.length) {
-			return [];
-		}
+}) {
+	if (!input.eventJoins.length) {
+		return [];
+	}
 
-		const visibleEventSchemas = yield* loadVisibleEventSchemaRows({
-			userId: input.userId,
-			runtimeSchemas: input.runtimeSchemas,
-			eventSchemaSlugs: input.eventJoins.map((join) => join.eventSchemaSlug),
-		});
-
-		return yield* tryQueryEngineSync(() =>
-			validateVisibleEventJoins(input.eventJoins, visibleEventSchemas),
-		);
+	const visibleEventSchemas = yield* loadVisibleEventSchemaRows({
+		userId: input.userId,
+		runtimeSchemas: input.runtimeSchemas,
+		eventSchemaSlugs: input.eventJoins.map((join) => join.eventSchemaSlug),
 	});
 
-export const loadVisibleRelationshipJoins = (input: {
-	userId: string;
-	runtimeSchemas?: QueryEngineSchemaRow[];
-	relationshipJoins: ReadonlyArray<QueryRelationshipJoin>;
-}): QueryEngineLoadEffect<LoadedRelationshipJoin[]> =>
-	Effect.gen(function* () {
+	return yield* tryQueryEngineSync(() =>
+		validateVisibleEventJoins(input.eventJoins, visibleEventSchemas),
+	);
+});
+
+export const loadVisibleRelationshipJoins = Effect.fn("loadVisibleRelationshipJoins")(
+	function* (input: {
+		userId: string;
+		runtimeSchemas?: QueryEngineSchemaRow[];
+		relationshipJoins: ReadonlyArray<QueryRelationshipJoin>;
+	}) {
 		if (!input.relationshipJoins.length) {
 			return [];
 		}
@@ -387,35 +381,35 @@ export const loadVisibleRelationshipJoins = (input: {
 				}),
 			),
 		);
-	});
+	},
+);
 
-export const loadEventSchemaSlugs = (input: {
+export const loadEventSchemaSlugs = Effect.fn("loadEventSchemaSlugs")(function* (input: {
 	userId: string;
 	runtimeSchemas: QueryEngineSchemaRow[];
-}): Effect.Effect<ReadonlySet<string>, DbError, CurrentDb> =>
-	Effect.gen(function* () {
-		if (!input.runtimeSchemas.length) {
-			return new Set();
-		}
+}) {
+	if (!input.runtimeSchemas.length) {
+		return new Set<string>();
+	}
 
-		const db = yield* CurrentDb;
-		const rows = yield* dbEffect(() =>
-			db
-				.selectDistinct({ slug: schema.eventSchema.slug })
-				.from(schema.eventSchema)
-				.where(
-					and(
-						inArray(
-							schema.eventSchema.entitySchemaId,
-							input.runtimeSchemas.map((s) => s.id),
-						),
-						or(isNull(schema.eventSchema.userId), eq(schema.eventSchema.userId, input.userId)),
+	const db = yield* CurrentDb;
+	const rows = yield* dbEffect(() =>
+		db
+			.selectDistinct({ slug: schema.eventSchema.slug })
+			.from(schema.eventSchema)
+			.where(
+				and(
+					inArray(
+						schema.eventSchema.entitySchemaId,
+						input.runtimeSchemas.map((s) => s.id),
 					),
+					or(isNull(schema.eventSchema.userId), eq(schema.eventSchema.userId, input.userId)),
 				),
-		);
+			),
+	);
 
-		return new Set(rows.map((r) => r.slug));
-	});
+	return new Set(rows.map((r) => r.slug));
+});
 
 export const loadEventSchemasBySlug = (input: {
 	userId: string;

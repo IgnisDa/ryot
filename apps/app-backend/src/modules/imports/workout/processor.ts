@@ -44,35 +44,34 @@ const matchExerciseCandidate = (
 	});
 };
 
-const findOrCreateExercise = (input: {
+const findOrCreateExercise = Effect.fn(function* (input: {
 	user: CurrentUserValue;
 	exerciseSchemaId: string;
 	entities: EntitiesService;
 	exercise: WorkoutImportExercise;
 	candidates: ReadonlyArray<ListedEntity>;
 	exerciseCache: Map<string, ListedEntity>;
-}) =>
-	Effect.gen(function* () {
-		const key = exerciseIdentityKey(input.exercise);
-		const cached = input.exerciseCache.get(key);
-		if (cached) {
-			return cached;
-		}
+}) {
+	const key = exerciseIdentityKey(input.exercise);
+	const cached = input.exerciseCache.get(key);
+	if (cached) {
+		return cached;
+	}
 
-		const existing = matchExerciseCandidate(input.exercise, input.candidates);
-		if (existing) {
-			input.exerciseCache.set(key, existing);
-			return existing;
-		}
+	const existing = matchExerciseCandidate(input.exercise, input.candidates);
+	if (existing) {
+		input.exerciseCache.set(key, existing);
+		return existing;
+	}
 
-		const created = yield* input.entities.create(input.user, {
-			name: input.exercise.name,
-			entitySchemaId: input.exerciseSchemaId,
-			properties: { images: [], muscles: [], instructions: [], kind: input.exercise.kind },
-		});
-		input.exerciseCache.set(key, created);
-		return created;
+	const created = yield* input.entities.create(input.user, {
+		name: input.exercise.name,
+		entitySchemaId: input.exerciseSchemaId,
+		properties: { images: [], muscles: [], instructions: [], kind: input.exercise.kind },
 	});
+	input.exerciseCache.set(key, created);
+	return created;
+});
 
 const buildWorkoutEntityProperties = (workout: WorkoutImportItem): Record<string, unknown> => {
 	const properties: Record<string, unknown> = { startedAt: workout.startedAt };
@@ -85,7 +84,7 @@ const buildWorkoutEntityProperties = (workout: WorkoutImportItem): Record<string
 	return properties;
 };
 
-export const commitWorkoutItem = (input: {
+export const commitWorkoutItem = Effect.fn("imports.commitWorkoutItem")(function* (input: {
 	runId: string;
 	events: EventsService;
 	user: CurrentUserValue;
@@ -94,110 +93,110 @@ export const commitWorkoutItem = (input: {
 	workout: WorkoutImportItem;
 	candidates: ReadonlyArray<ListedEntity>;
 	exerciseCache: Map<string, ListedEntity>;
-}) =>
-	Effect.gen(function* () {
-		const drafts = input.workout.exercises.flatMap((exercise, exerciseOrder) =>
-			exercise.sets.map((set, setOrder) => ({
+}) {
+	const drafts = input.workout.exercises.flatMap((exercise, exerciseOrder) =>
+		exercise.sets.map((set, setOrder) => ({
+			exerciseOrder,
+			properties: buildWorkoutSetEventProperties({
+				set,
+				setOrder,
 				exerciseOrder,
-				properties: buildWorkoutSetEventProperties({
-					set,
-					setOrder,
-					exerciseOrder,
-					exerciseKind: exercise.kind,
-				}),
-			})),
-		);
+				exerciseKind: exercise.kind,
+			}),
+		})),
+	);
 
-		for (const draft of drafts) {
-			const validation = parseAppSchemaPropertiesSafe({
-				kind: "Event",
-				properties: draft.properties,
-				propertiesSchema: input.schemas.workoutSetEventPropertiesSchema,
-			});
-			if (!validation.success) {
-				return yield* badRequest("Invalid workout set event properties");
-			}
-		}
-
-		const exerciseEntities: ListedEntity[] = [];
-		for (let exerciseOrder = 0; exerciseOrder < input.workout.exercises.length; exerciseOrder++) {
-			const exercise = input.workout.exercises[exerciseOrder];
-			if (!exercise) {
-				continue;
-			}
-			exerciseEntities[exerciseOrder] = yield* findOrCreateExercise({
-				exercise,
-				user: input.user,
-				entities: input.entities,
-				candidates: input.candidates,
-				exerciseCache: input.exerciseCache,
-				exerciseSchemaId: input.schemas.exerciseSchemaId,
-			});
-		}
-
-		const workoutEntity = yield* input.entities.create(input.user, {
-			name: input.workout.name,
-			entitySchemaId: input.schemas.workoutSchemaId,
-			properties: buildWorkoutEntityProperties(input.workout),
+	for (const draft of drafts) {
+		const validation = parseAppSchemaPropertiesSafe({
+			kind: "Event",
+			properties: draft.properties,
+			propertiesSchema: input.schemas.workoutSetEventPropertiesSchema,
 		});
-
-		const eventBody: CreateEventItem[] = [];
-		for (const draft of drafts) {
-			const exerciseEntity = exerciseEntities[draft.exerciseOrder];
-			if (!exerciseEntity) {
-				return yield* badRequest("Workout import is missing a resolved exercise entity");
-			}
-			eventBody.push({
-				entityId: exerciseEntity.id,
-				properties: draft.properties,
-				sessionEntityId: workoutEntity.id,
-				occurredAt: input.workout.startedAt,
-				eventSchemaId: input.schemas.workoutSetEventSchemaId,
-			});
+		if (!validation.success) {
+			return yield* badRequest("Invalid workout set event properties");
 		}
+	}
 
-		return yield* input.events.createForImport(input.user.id, eventBody, input.runId);
+	const exerciseEntities: ListedEntity[] = [];
+	for (let exerciseOrder = 0; exerciseOrder < input.workout.exercises.length; exerciseOrder++) {
+		const exercise = input.workout.exercises[exerciseOrder];
+		if (!exercise) {
+			continue;
+		}
+		exerciseEntities[exerciseOrder] = yield* findOrCreateExercise({
+			exercise,
+			user: input.user,
+			entities: input.entities,
+			candidates: input.candidates,
+			exerciseCache: input.exerciseCache,
+			exerciseSchemaId: input.schemas.exerciseSchemaId,
+		});
+	}
+
+	const workoutEntity = yield* input.entities.create(input.user, {
+		name: input.workout.name,
+		entitySchemaId: input.schemas.workoutSchemaId,
+		properties: buildWorkoutEntityProperties(input.workout),
 	});
+
+	const eventBody: CreateEventItem[] = [];
+	for (const draft of drafts) {
+		const exerciseEntity = exerciseEntities[draft.exerciseOrder];
+		if (!exerciseEntity) {
+			return yield* badRequest("Workout import is missing a resolved exercise entity");
+		}
+		eventBody.push({
+			entityId: exerciseEntity.id,
+			properties: draft.properties,
+			sessionEntityId: workoutEntity.id,
+			occurredAt: input.workout.startedAt,
+			eventSchemaId: input.schemas.workoutSetEventSchemaId,
+		});
+	}
+
+	return yield* input.events.createForImport(input.user.id, eventBody, input.runId);
+});
 
 export type WorkoutImportContext = {
 	schemas: WorkoutSchemas;
 	candidates: ReadonlyArray<ListedEntity>;
 };
 
-export const loadWorkoutImportContext = (userId: string) =>
-	Effect.gen(function* () {
-		const runWithDb = yield* DbRunner;
-		const eventSchemas = yield* EventSchemasRepository;
-		const entitySchemas = yield* EntitySchemasRepository;
-		const entitiesRepository = yield* EntitiesRepository;
+export const loadWorkoutImportContext = Effect.fn("imports.loadWorkoutImportContext")(function* (
+	userId: string,
+) {
+	const runWithDb = yield* DbRunner;
+	const eventSchemas = yield* EventSchemasRepository;
+	const entitySchemas = yield* EntitySchemasRepository;
+	const entitiesRepository = yield* EntitiesRepository;
 
-		const exerciseSchema = yield* runWithDb(entitySchemas.getBuiltinBySlug("exercise"));
-		const workoutSchema = yield* runWithDb(entitySchemas.getBuiltinBySlug("workout"));
-		if (!exerciseSchema || !workoutSchema) {
-			return null;
-		}
+	const exerciseSchema = yield* runWithDb(entitySchemas.getBuiltinBySlug("exercise"));
+	const workoutSchema = yield* runWithDb(entitySchemas.getBuiltinBySlug("workout"));
+	if (!exerciseSchema || !workoutSchema) {
+		return null;
+	}
 
-		const workoutSetEventSchema = yield* runWithDb(
-			eventSchemas.getBuiltinBySlug({ entitySchemaId: exerciseSchema.id, slug: "workout-set" }),
-		);
-		if (!workoutSetEventSchema) {
-			return null;
-		}
+	const workoutSetEventSchema = yield* runWithDb(
+		eventSchemas.getBuiltinBySlug({ entitySchemaId: exerciseSchema.id, slug: "workout-set" }),
+	);
+	if (!workoutSetEventSchema) {
+		return null;
+	}
 
-		const candidates = yield* runWithDb(
-			entitiesRepository.listMatchCandidatesBySchema({
-				userId,
-				entitySchemaId: exerciseSchema.id,
-			}),
-		);
+	const candidates = yield* runWithDb(
+		entitiesRepository.listMatchCandidatesBySchema({
+			userId,
+			entitySchemaId: exerciseSchema.id,
+		}),
+	);
 
-		return {
-			candidates,
-			schemas: {
-				workoutSchemaId: workoutSchema.id,
-				exerciseSchemaId: exerciseSchema.id,
-				workoutSetEventSchemaId: workoutSetEventSchema.id,
-				workoutSetEventPropertiesSchema: workoutSetEventSchema.propertiesSchema,
-			},
-		} satisfies WorkoutImportContext;
-	});
+	return {
+		candidates,
+		schemas: {
+			workoutSchemaId: workoutSchema.id,
+			exerciseSchemaId: exerciseSchema.id,
+			workoutSetEventSchemaId: workoutSetEventSchema.id,
+			workoutSetEventPropertiesSchema: workoutSetEventSchema.propertiesSchema,
+		},
+	} satisfies WorkoutImportContext;
+});
