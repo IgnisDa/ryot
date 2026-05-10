@@ -193,16 +193,16 @@ CREATE TABLE "notification_subscription_state" (
 );
 --> statement-breakpoint
 CREATE TABLE "plugin" (
+	"slug" text NOT NULL,
 	"status" text NOT NULL,
 	"version" text NOT NULL,
-	"slug" text NOT NULL,
 	"source_hash" text NOT NULL,
 	"scope" text NOT NULL,
 	"manifest" jsonb NOT NULL,
-	"owner_id" text,
 	"source_files" jsonb NOT NULL,
 	"compiled_hashes" jsonb NOT NULL,
 	"ingested_at" timestamp with time zone DEFAULT now() NOT NULL,
+	"owner_id" text,
 	"id" text PRIMARY KEY,
 	CONSTRAINT "plugin_scope_owner_check" CHECK (("scope" = 'system' and "owner_id" is null) or ("scope" = 'user' and "owner_id" is not null))
 );
@@ -216,8 +216,8 @@ CREATE TABLE "plugin_installation" (
 	"user_id" text NOT NULL,
 	"plugin_id" text NOT NULL,
 	"health" text DEFAULT 'ready' NOT NULL,
-	"id" text PRIMARY KEY,
 	"updated_at" timestamp with time zone DEFAULT now() NOT NULL,
+	"id" text PRIMARY KEY,
 	CONSTRAINT "plugin_installation_user_plugin_unique" UNIQUE("user_id","plugin_id")
 );
 --> statement-breakpoint
@@ -274,6 +274,7 @@ CREATE TABLE "sandbox_script" (
 CREATE TABLE "sandbox_workflow_reference" (
 	"content_hash" text NOT NULL,
 	"execution_id" text PRIMARY KEY,
+	"plugin_installation_id" text,
 	"plugin_id" text NOT NULL,
 	"script_id" text NOT NULL
 );
@@ -457,6 +458,7 @@ CREATE INDEX "sandbox_script_plugin_id_idx" ON "sandbox_script" ("plugin_id");--
 CREATE UNIQUE INDEX "sandbox_script_kernel_slug_content_hash_unique" ON "sandbox_script" ("slug","content_hash") WHERE "plugin_id" is null;--> statement-breakpoint
 CREATE INDEX "sandbox_workflow_reference_plugin_id_idx" ON "sandbox_workflow_reference" ("plugin_id");--> statement-breakpoint
 CREATE INDEX "sandbox_workflow_reference_script_id_idx" ON "sandbox_workflow_reference" ("script_id");--> statement-breakpoint
+CREATE INDEX "sandbox_workflow_reference_plugin_installation_id_idx" ON "sandbox_workflow_reference" ("plugin_installation_id");--> statement-breakpoint
 CREATE INDEX "saved_view_user_id_idx" ON "saved_view" ("user_id");--> statement-breakpoint
 CREATE INDEX "saved_view_plugin_slug_idx" ON "saved_view" ("plugin_slug");--> statement-breakpoint
 CREATE INDEX "session_userId_idx" ON "session" ("user_id");--> statement-breakpoint
@@ -498,6 +500,7 @@ ALTER TABLE "sandbox_provider_operation" ADD CONSTRAINT "sandbox_provider_operat
 ALTER TABLE "sandbox_provider_operation" ADD CONSTRAINT "sandbox_provider_operation_provider_id_sandbox_provider_id_fkey" FOREIGN KEY ("provider_id") REFERENCES "sandbox_provider"("id") ON DELETE CASCADE;--> statement-breakpoint
 ALTER TABLE "sandbox_script" ADD CONSTRAINT "sandbox_script_plugin_id_plugin_id_fkey" FOREIGN KEY ("plugin_id") REFERENCES "plugin"("id") ON DELETE CASCADE;--> statement-breakpoint
 ALTER TABLE "sandbox_script" ADD CONSTRAINT "sandbox_script_provider_id_sandbox_provider_id_fkey" FOREIGN KEY ("provider_id") REFERENCES "sandbox_provider"("id") ON DELETE CASCADE;--> statement-breakpoint
+ALTER TABLE "sandbox_workflow_reference" ADD CONSTRAINT "sandbox_workflow_reference_NZbiTLiwtL2v_fkey" FOREIGN KEY ("plugin_installation_id") REFERENCES "plugin_installation"("id") ON DELETE RESTRICT;--> statement-breakpoint
 ALTER TABLE "sandbox_workflow_reference" ADD CONSTRAINT "sandbox_workflow_reference_plugin_id_plugin_id_fkey" FOREIGN KEY ("plugin_id") REFERENCES "plugin"("id") ON DELETE CASCADE;--> statement-breakpoint
 ALTER TABLE "sandbox_workflow_reference" ADD CONSTRAINT "sandbox_workflow_reference_script_id_sandbox_script_id_fkey" FOREIGN KEY ("script_id") REFERENCES "sandbox_script"("id") ON DELETE CASCADE;--> statement-breakpoint
 ALTER TABLE "saved_view" ADD CONSTRAINT "saved_view_user_id_user_id_fkey" FOREIGN KEY ("user_id") REFERENCES "user"("id") ON DELETE CASCADE;--> statement-breakpoint

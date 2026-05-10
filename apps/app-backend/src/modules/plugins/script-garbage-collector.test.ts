@@ -59,6 +59,7 @@ const withCollector = <A, E, R>(
 	const repositoryLayer = Layer.mock(PluginRepository)({
 		lockIngestion: input.lockIngestion ?? (() => Effect.void),
 		hasIntegrationReferences: () => Effect.succeed(false),
+		deleteInactiveUnreferencedPlugins: () => Effect.succeed([]),
 		deleteUnreferencedScripts: input.deleteScripts ?? (() => Effect.succeed([])),
 		listPersistedLivenessContentHashes: () =>
 			Effect.succeed([...(input.persistedLivenessHashes ?? [])]),
@@ -70,6 +71,7 @@ const withCollector = <A, E, R>(
 					contentHash,
 					pluginId: "historical",
 					executionId: `execution-${index}`,
+					pluginInstallationId: `installation-${index}`,
 					scriptId: SandboxScriptId.make(`script-${index}`),
 				})),
 			),
