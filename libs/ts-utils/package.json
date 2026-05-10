@@ -3,9 +3,9 @@
 	"main": "src/index.ts",
 	"scripts": {
 		"build": "tsc",
+		"format": "oxfmt . --write",
 		"test": "bun test --only-failures",
-		"typecheck": "tsc && oxlint . --type-aware",
-		"lint": "oxlint . --fix && oxfmt . --write"
+		"check": "tsc && oxlint . --type-aware --fix"
 	},
 	"dependencies": {
 		"@conform-to/zod": "1.19.0",
