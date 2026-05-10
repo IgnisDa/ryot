@@ -130,7 +130,7 @@ export const runOneTimeMediaImportWorkflow = <
 
 		const config = yield* AppConfig;
 		const initialCleanupPaths = payload.filePath
-			? resolveImportPath(payload.filePath, config.tmpDir)
+			? yield* resolveImportPath(payload.filePath, config.tmpDir)
 			: [];
 		let cleanupPaths: ReadonlyArray<string> = initialCleanupPaths;
 		const { cleanupArtifactsBestEffort, failRunAndCleanup } = createImportRunLifecycle(
