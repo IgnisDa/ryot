@@ -106,12 +106,10 @@ describe("exercise.free-exercise-db sandbox script", () => {
 			assertJsonRecord(metadata);
 			expect(metadataCall.ttlSeconds).toBe(86400);
 			expect(metadata["chunkCount"]).toBe(1);
-			const version = metadata["version"];
-			assert(typeof version === "string");
-			expect(version).toBe(execution.startedAt);
+			expect(metadata["version"]).toBe(execution.startedAt);
 
 			const chunkKeys = setCalls.map((call) => call.key).filter((key) => key !== CACHE_KEY);
-			expect(chunkKeys).toEqual([`${CACHE_KEY}:${version}:chunk:0`]);
+			expect(chunkKeys).toEqual([`${CACHE_KEY}:${execution.startedAt}:chunk:0`]);
 			return undefined;
 		});
 	});
