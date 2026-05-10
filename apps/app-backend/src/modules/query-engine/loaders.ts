@@ -1,7 +1,8 @@
 import { and, eq, inArray, isNull, or } from "drizzle-orm";
 import { Effect } from "effect";
 
-import { CurrentDb, dbEffect, schema } from "#lib/db";
+import { CurrentDb, dbEffect } from "#lib/db";
+import * as schema from "#lib/db/schema/tables";
 import type { DbError } from "#lib/errors";
 import { BadRequest, NotFound } from "#lib/errors";
 import type { QueryEventJoin, QueryRelationshipJoin } from "#lib/query-language";

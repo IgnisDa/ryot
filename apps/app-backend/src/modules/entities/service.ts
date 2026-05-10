@@ -2,13 +2,13 @@ import { WorkflowEngine } from "@effect/workflow/WorkflowEngine";
 import { generateId } from "better-auth";
 import { Effect, Redacted } from "effect";
 
-import type { CurrentUserValue } from "#lib/auth";
+import type { CurrentUserValue } from "#lib/auth-middleware";
 import { AppConfig } from "#lib/config";
 import { DbRunner } from "#lib/db";
 import type { BadRequest, DbError, NotFound } from "#lib/errors";
 import { badRequest, notFound } from "#lib/errors";
 import { createWorkflowJobId, resolveWorkflowExecutionId } from "#lib/job-id";
-import { parseAppSchemaProperties } from "#lib/schema/core";
+import { parseAppSchemaProperties } from "#lib/schema/property-schema-runtime";
 import { requireText, trimToNull } from "#lib/validation";
 import { RelationshipSchemasRepository } from "#modules/relationship-schemas/repository";
 import { RelationshipsRepository, type SavedRelationship } from "#modules/relationships/repository";

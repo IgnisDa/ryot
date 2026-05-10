@@ -2,8 +2,8 @@ import type { Config } from "effect";
 import { ConfigError, Effect, Option, Redacted } from "effect";
 
 import type { GroupMeta } from "./builder";
-import { providerConfigDefinition } from "./definition";
-import { SystemConfigSource, systemConfigDefinition, type SystemConfigValue } from "./system";
+import { providerConfigDefinition, systemConfigDefinition } from "./definition";
+import { SystemConfigSource, type SystemConfigValue } from "./system";
 
 const isNonEmpty = (opt: Option.Option<string>) => Option.isSome(opt) && opt.value.length > 0;
 
@@ -68,7 +68,3 @@ export class AppConfig extends Effect.Service<AppConfig>()("AppConfig", {
 }) {}
 
 export type AppConfigValue = SystemConfigValue & { providers: ProviderConfigValue };
-
-export { SystemConfigSource };
-
-export type { SystemConfigValue };

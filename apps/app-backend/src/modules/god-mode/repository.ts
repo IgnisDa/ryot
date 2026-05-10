@@ -2,7 +2,8 @@ import { asc, eq, ilike, inArray, sql } from "drizzle-orm";
 import { Effect } from "effect";
 
 import { defaultUserPreferences } from "#lib/builtins/bootstrap";
-import { CurrentDb, dbEffect, schema } from "#lib/db";
+import { CurrentDb, dbEffect } from "#lib/db";
+import * as schema from "#lib/db/schema/auth";
 
 const userSearchClause = (search?: string) =>
 	search ? ilike(schema.user.email, `%${search.trim()}%`) : undefined;

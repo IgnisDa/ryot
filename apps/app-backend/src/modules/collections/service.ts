@@ -1,15 +1,15 @@
 import { WorkflowEngine } from "@effect/workflow/WorkflowEngine";
 import { Cause, DateTime, Effect } from "effect";
 
-import type { CurrentUserValue } from "#lib/auth";
+import type { CurrentUserValue } from "#lib/auth-middleware";
 import { DbRunner, TransactionRunner } from "#lib/db";
 import type { BadRequest, DbError, NotFound } from "#lib/errors";
 import { badRequest, notFound } from "#lib/errors";
+import { decodeStoredAppSchema } from "#lib/schema/core";
 import {
-	decodeStoredAppSchema,
 	parseAppSchemaProperties,
 	parseLabeledPropertySchemaInput,
-} from "#lib/schema/core";
+} from "#lib/schema/property-schema-runtime";
 import { requireText } from "#lib/validation";
 import { EntitiesRepository } from "#modules/entities/repository";
 import type { ListedEntity } from "#modules/entities/schemas";

@@ -3,7 +3,7 @@ import { FileSystem } from "@effect/platform";
 import { generateId } from "better-auth";
 import { Effect, Schema } from "effect";
 
-import type { CurrentUserValue } from "#lib/auth";
+import type { CurrentUserValue } from "#lib/auth-middleware";
 import { AppConfig } from "#lib/config";
 import { type BadRequest, badRequest } from "#lib/errors";
 import { RedisService, redisKeys } from "#lib/redis";

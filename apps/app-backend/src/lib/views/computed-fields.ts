@@ -4,8 +4,6 @@ import type { QueryComputedField, QueryExpression, QueryFilter } from "#lib/quer
 
 import { QueryEngineValidationError } from "./errors";
 
-export { QueryComputedField as ViewComputedField };
-
 export const buildComputedFieldMap = (computedFields: ReadonlyArray<QueryComputedField> = []) => {
 	const computedFieldMap = new Map<string, QueryComputedField>();
 

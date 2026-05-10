@@ -4,12 +4,12 @@ import { describe } from "vitest";
 
 import { exercisePropertiesSchema } from "./builtins/fitness-property-schemas";
 import { bookPropertiesSchema } from "./builtins/media-property-schemas";
+import { PropertyValidationError } from "./schema/property-schema";
 import {
 	formatPropertyIssues,
 	parseAppSchemaPropertiesSafe,
 	parseLabeledPropertySchemaInput,
-	PropertyValidationError,
-} from "./schema/core";
+} from "./schema/property-schema-runtime";
 
 describe("property schema DSL", () => {
 	it.effect("parses a valid schema definition", () =>
