@@ -1,6 +1,4 @@
 import type { AppSchema } from "@ryot/ts-utils/app-schema";
-import { normalizeSlug } from "@ryot/ts-utils/slug";
-import { createEntityColumnExpression } from "@ryot/ts-utils/view-language";
 import { match } from "ts-pattern";
 
 import { exercisePropertiesJsonSchema } from "~/lib/fitness/exercise";
@@ -12,10 +10,6 @@ import { audiobookPropertiesJsonSchema } from "~/lib/media/audiobook";
 import { bookPropertiesJsonSchema } from "~/lib/media/book";
 import { comicBookPropertiesJsonSchema } from "~/lib/media/comic-book";
 import { companyPropertiesJsonSchema } from "~/lib/media/company";
-import {
-	type BuiltinMediaEntitySchemaSlug,
-	builtinMediaEntitySchemaSlugs,
-} from "~/lib/media/constants";
 import { mangaPropertiesJsonSchema } from "~/lib/media/manga";
 import { mediaGroupPropertiesJsonSchema } from "~/lib/media/media-group";
 import { moviePropertiesJsonSchema } from "~/lib/media/movie";
@@ -25,41 +19,14 @@ import { podcastPropertiesJsonSchema } from "~/lib/media/podcast";
 import { showPropertiesJsonSchema } from "~/lib/media/show";
 import { videoGamePropertiesJsonSchema } from "~/lib/media/video-game";
 import { visualNovelPropertiesJsonSchema } from "~/lib/media/visual-novel";
-import {
-	createDefaultDisplayConfiguration,
-	createDefaultQueryDefinition,
-} from "~/modules/saved-views";
-import type {
-	DisplayConfiguration,
-	LatestRelationshipJoinDefinition,
-	SavedViewQueryDefinition,
-} from "~/modules/saved-views";
-
-export const authenticationBuiltinTrackers = () => [
-	{
-		icon: "film",
-		slug: "media",
-		name: "Media",
-		accentColor: "#5B7FFF",
-		description:
-			"Track media across movies, shows, books, comic books, anime, manga, audiobooks, podcasts, video games, and music.",
-	},
-	{
-		slug: "fitness",
-		name: "Fitness",
-		icon: "heart-pulse",
-		accentColor: "#2DD4BF",
-		description: "Track workouts, measurements, and progress.",
-	},
-];
 
 const progressPercentPropertiesSchema = () => ({
 	fields: {
 		progressPercent: {
 			type: "number" as const,
 			label: "Progress Percent",
-			description: "Percentage of the media completed so far (0–100)",
 			transform: { round: { mode: "half_up" as const, scale: 2 } },
+			description: "Percentage of the media completed so far (0 to 100)",
 			validation: {
 				maximum: 100,
 				exclusiveMinimum: 0,
@@ -196,9 +163,9 @@ const mediaLifecycleEventSchemas = (entitySchemaSlug?: string) => [
 				},
 				rating: {
 					label: "Rating",
-					description: "Your personal rating from 1 (lowest) to 5 (highest)",
 					type: "integer" as const,
 					validation: { maximum: 5, minimum: 1, required: true as const },
+					description: "Your personal rating from 1 (lowest) to 5 (highest)",
 				},
 			},
 		},
@@ -220,7 +187,7 @@ const buildMediaGroupEntitySchema = (
 	eventSchemas: mediaLifecycleEventSchemas(slug).filter((s) => s.slug === "review"),
 });
 
-export const authenticationBuiltinEntitySchemas = () => [
+export const builtinEntitySchemas = () => [
 	{
 		slug: "library",
 		name: "Library",
@@ -422,237 +389,4 @@ export const authenticationBuiltinEntitySchemas = () => [
 		accentColor: "#6366F1",
 		propertiesSchema: measurementPropertiesJsonSchema,
 	},
-];
-
-const getBuiltInSavedViewName = (slug: BuiltinMediaEntitySchemaSlug) => {
-	return match(slug)
-		.with("book", () => "All Books")
-		.with("show", () => "All Shows")
-		.with("anime", () => "All Anime")
-		.with("manga", () => "All Manga")
-		.with("music", () => "All Music")
-		.with("movie", () => "All Movies")
-		.with("podcast", () => "All Podcasts")
-		.with("audiobook", () => "All Audiobooks")
-		.with("book-group", () => "All Book Series")
-		.with("comic-book", () => "All Comic Books")
-		.with("video-game", () => "All Video Games")
-		.with("movie-group", () => "All Movie Series")
-		.with("music-group", () => "All Music Albums")
-		.with("visual-novel", () => "All Visual Novels")
-		.with("audiobook-group", () => "All Audiobook Series")
-		.with("comic-book-group", () => "All Comic Book Series")
-		.with("video-game-group", () => "All Video Game Franchises")
-		.exhaustive();
-};
-
-const inLibraryRelationshipJoin = {
-	required: true,
-	key: "inLibrary",
-	direction: "outgoing" as const,
-	kind: "latestRelationship" as const,
-	relationshipSchemaSlug: "in-library" as const,
-};
-
-type AuthenticationBuiltinSavedView = {
-	slug: string;
-	name: string;
-	icon?: string;
-	trackerSlug?: string;
-	accentColor?: string;
-	entitySchemaSlug?: string;
-	queryDefinition?: SavedViewQueryDefinition;
-	displayConfiguration: DisplayConfiguration;
-	relationshipJoins?: LatestRelationshipJoinDefinition[];
-};
-
-export const authenticationBuiltinSavedViews = (): AuthenticationBuiltinSavedView[] => [
-	{
-		slug: "collections",
-		name: "Collections",
-		entitySchemaSlug: "collection",
-		displayConfiguration: createDefaultDisplayConfiguration("collection"),
-	},
-	{
-		slug: "all-persons",
-		name: "All Persons",
-		trackerSlug: "media",
-		entitySchemaSlug: "person",
-		relationshipJoins: [inLibraryRelationshipJoin],
-		displayConfiguration: createDefaultDisplayConfiguration("person"),
-	},
-	{
-		trackerSlug: "media",
-		slug: "all-companies",
-		name: "All Companies",
-		entitySchemaSlug: "company",
-		relationshipJoins: [inLibraryRelationshipJoin],
-		displayConfiguration: createDefaultDisplayConfiguration("company"),
-	},
-	{
-		slug: "all-exercises",
-		name: "All Exercises",
-		trackerSlug: "fitness",
-		entitySchemaSlug: "exercise",
-		displayConfiguration: createDefaultDisplayConfiguration("exercise"),
-	},
-	{
-		slug: "all-workouts",
-		name: "All Workouts",
-		trackerSlug: "fitness",
-		entitySchemaSlug: "workout",
-		displayConfiguration: createDefaultDisplayConfiguration("workout"),
-	},
-	{
-		trackerSlug: "fitness",
-		slug: "all-measurements",
-		name: "All Measurements",
-		entitySchemaSlug: "measurement",
-		displayConfiguration: createDefaultDisplayConfiguration("measurement"),
-	},
-	{
-		trackerSlug: "fitness",
-		slug: "all-workout-templates",
-		name: "All Workout Templates",
-		entitySchemaSlug: "workout-template",
-		displayConfiguration: createDefaultDisplayConfiguration("workout-template"),
-		queryDefinition: {
-			...createDefaultQueryDefinition(["workout-template"]),
-			sort: {
-				direction: "desc",
-				expression: createEntityColumnExpression("workout-template", "createdAt"),
-			},
-		},
-	},
-	...builtinMediaEntitySchemaSlugs.map((slug) => ({
-		trackerSlug: "media",
-		entitySchemaSlug: slug,
-		name: getBuiltInSavedViewName(slug),
-		relationshipJoins: [inLibraryRelationshipJoin],
-		slug: normalizeSlug(getBuiltInSavedViewName(slug)),
-		displayConfiguration: createDefaultDisplayConfiguration(slug),
-	})),
-];
-
-type BuiltinRelationshipSchema = {
-	slug: string;
-	name: string;
-	propertiesSchema: AppSchema;
-	sourceEntitySchemaSlug: string | null;
-	targetEntitySchemaSlug: string | null;
-};
-
-const groupRolesPropertiesSchema = {
-	fields: {
-		roles: {
-			label: "Roles",
-			type: "array" as const,
-			description: "Roles this group filled in this media",
-			items: {
-				label: "Role",
-				type: "string" as const,
-				description: "A specific role name",
-			},
-		},
-	},
-};
-
-const buildCreditRelationshipSchemas = (input: {
-	sourceSlug: string;
-	orderDescription: string;
-	rolesDescription: string;
-	rolesItemDescription: string;
-	characterDescription?: string;
-}) =>
-	builtinMediaEntitySchemaSlugs.map((mediaSlug) => ({
-		sourceEntitySchemaSlug: input.sourceSlug,
-		targetEntitySchemaSlug: mediaSlug,
-		slug: normalizeSlug(`${input.sourceSlug} to ${mediaSlug}`),
-		name: `${input.sourceSlug.charAt(0).toUpperCase() + input.sourceSlug.slice(1)} to ${mediaSlug.charAt(0).toUpperCase() + mediaSlug.slice(1)}`,
-		propertiesSchema: {
-			fields: {
-				...(input.characterDescription !== undefined
-					? {
-							character: {
-								label: "Character",
-								type: "string" as const,
-								description: input.characterDescription,
-							},
-						}
-					: {}),
-				order: {
-					label: "Order",
-					type: "number" as const,
-					description: input.orderDescription,
-				},
-				roles: {
-					label: "Roles",
-					type: "array" as const,
-					description: input.rolesDescription,
-					items: {
-						label: "Role",
-						type: "string" as const,
-						description: input.rolesItemDescription,
-					},
-				},
-			},
-		},
-	}));
-
-export const authenticationBuiltinRelationshipSchemas = (): BuiltinRelationshipSchema[] => [
-	{
-		slug: "in-library",
-		name: "In Library",
-		sourceEntitySchemaSlug: null,
-		propertiesSchema: { fields: {} },
-		targetEntitySchemaSlug: "library",
-	},
-	{
-		slug: "member-of",
-		name: "Member Of",
-		sourceEntitySchemaSlug: null,
-		targetEntitySchemaSlug: "collection",
-		propertiesSchema: { fields: {}, unknownKeys: "passthrough" as const },
-	},
-	{
-		propertiesSchema: { fields: {} },
-		sourceEntitySchemaSlug: "workout",
-		slug: "workout-to-workout-template",
-		name: "Workout to Workout Template",
-		targetEntitySchemaSlug: "workout-template",
-	},
-	...buildCreditRelationshipSchemas({
-		sourceSlug: "person",
-		characterDescription: "Character played by this person in this production",
-		orderDescription: "Display order of this person in the production credits",
-		rolesItemDescription: "A specific role name (e.g. Director, Actor, Writer)",
-		rolesDescription: "Roles this person filled in this production (e.g. Director, Actor, Writer)",
-	}),
-	...buildCreditRelationshipSchemas({
-		sourceSlug: "company",
-		orderDescription: "Display order of this company in the production credits",
-		rolesItemDescription: "A specific role name (e.g. Developer, Publisher, Studio)",
-		rolesDescription:
-			"Roles this company filled in this production (e.g. Developer, Publisher, Studio)",
-	}),
-	...(
-		[
-			{ group: "book-group", media: "book", name: "Book Series to Book" },
-			{ group: "music-group", media: "music", name: "Music Album to Music" },
-			{ group: "movie-group", media: "movie", name: "Movie Collection to Movie" },
-			{ group: "audiobook-group", media: "audiobook", name: "Audiobook Series to Audiobook" },
-			{ group: "comic-book-group", media: "comic-book", name: "Comic Book Series to Comic Book" },
-			{
-				media: "video-game",
-				group: "video-game-group",
-				name: "Video Game Collection to Video Game",
-			},
-		] as const
-	).map(({ group, media, name }) => ({
-		name,
-		slug: `${group}-to-${media}`,
-		sourceEntitySchemaSlug: group,
-		targetEntitySchemaSlug: media,
-		propertiesSchema: groupRolesPropertiesSchema,
-	})),
 ];

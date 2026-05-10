@@ -9,7 +9,7 @@ import { getQueues } from "~/lib/queue";
 import { resolveJobPollState } from "~/lib/queue/utils";
 import { type ServiceResult, serviceData, serviceError, wrapServiceValidator } from "~/lib/result";
 import { sandboxScriptMetadataSchema } from "~/lib/sandbox/types";
-import { authenticationBuiltinEntitySchemas } from "~/modules/authentication";
+import { builtinEntitySchemas } from "~/modules/builtins";
 import type { ListedEntity } from "~/modules/entities";
 import { type MediaImportJobData, mediaImportJobData, mediaImportJobName } from "~/modules/media";
 import { parseLabeledPropertySchemaInput } from "~/modules/property-schemas";
@@ -114,8 +114,8 @@ export const parseEntitySchemaPropertiesSchema = (input: unknown): EntitySchemaP
 };
 
 export const validateSlugNotReserved = (slug: string): void => {
-	const builtinEntitySchemas = authenticationBuiltinEntitySchemas();
-	const reservedSlugs = builtinEntitySchemas.map((s) => s.slug);
+	const reservedEntitySchemas = builtinEntitySchemas();
+	const reservedSlugs = reservedEntitySchemas.map((s) => s.slug);
 
 	if (reservedSlugs.includes(slug)) {
 		throw new Error(`Entity schema slug "${slug}" is reserved for built-in schemas`);
