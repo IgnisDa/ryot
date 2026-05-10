@@ -1,4 +1,4 @@
-import { dayjs } from "@ryot/ts-utils";
+import { dayjs, sortBy } from "@ryot/ts-utils";
 import { match } from "ts-pattern";
 
 import type {
@@ -191,7 +191,7 @@ export const buildBuiltInMediaOverviewResponse = (input: {
 export const buildUpNextSectionResponse = (
 	items: UpNextSourceItem[],
 ): BuiltInMediaOverviewUpNextResponse => {
-	const upNextItems = items.toSorted(compareUpNextSourceItems).map((item) => ({
+	const upNextItems = [...items].sort(compareUpNextSourceItems).map((item) => ({
 		id: item.id,
 		title: item.title,
 		image: item.image,
@@ -207,7 +207,7 @@ export const buildUpNextSectionResponse = (
 export const buildContinueSectionResponse = (
 	items: ContinueSourceItem[],
 ): BuiltInMediaOverviewContinueResponse => {
-	const continueItems = items.toSorted(compareContinueSourceItems).map((item) => {
+	const continueItems = [...items].sort(compareContinueSourceItems).map((item) => {
 		const currentUnits = resolveCurrentUnits({
 			totalUnits: item.totalUnits,
 			progressPercent: item.progressPercent,
@@ -243,7 +243,7 @@ export const buildContinueSectionResponse = (
 export const buildRateTheseSectionResponse = (
 	items: RateTheseSourceItem[],
 ): BuiltInMediaOverviewRateTheseResponse => {
-	const rateTheseItems = items.toSorted(compareRateTheseSourceItems).map((item) => ({
+	const rateTheseItems = [...items].sort(compareRateTheseSourceItems).map((item) => ({
 		id: item.id,
 		title: item.title,
 		image: item.image,
@@ -261,7 +261,7 @@ export const buildRecentActivitySectionResponse = (
 	items: RecentActivitySourceItem[],
 ): BuiltInMediaOverviewRecentActivityResponse => {
 	const activityItems = [...items]
-		.toSorted((left, right) => {
+		.sort((left, right) => {
 			const occurredAtDiff = dayjs(right.occurredAt).valueOf() - dayjs(left.occurredAt).valueOf();
 			if (occurredAtDiff !== 0) {
 				return occurredAtDiff;
@@ -284,12 +284,10 @@ export const buildRecentActivitySectionResponse = (
 export const buildWeekActivitySectionResponse = (input: {
 	items: WeekActivitySourceItem[];
 }): BuiltInMediaOverviewWeekActivityResponse => {
-	const weekItems = [...input.items]
-		.toSorted((left, right) => dayjs(left.date).valueOf() - dayjs(right.date).valueOf())
-		.map((item) => ({
-			count: item.count,
-			dayLabel: dayjs.utc(item.date).format("ddd"),
-		}));
+	const weekItems = sortBy(input.items, (item) => dayjs(item.date).valueOf()).map((item) => ({
+		count: item.count,
+		dayLabel: dayjs.utc(item.date).format("ddd"),
+	}));
 
 	return { items: weekItems, count: weekItems.length };
 };
