@@ -364,20 +364,20 @@ After implementation, run the relevant verification for each touched package.
 
 Backend:
 
-- `bun run typecheck`
+- `bun run check`
 - `bun run test`
-- `bun run lint`
+- `bun run format`
 
 Frontend:
 
-- `bun turbo --filter=@ryot/app-frontend typecheck`
-- `bun turbo --filter=@ryot/app-frontend lint -- --write`
+- `bun turbo --filter=@ryot/app-frontend check`
+- `bun turbo --filter=@ryot/app-frontend format -- --write`
 
 Tests package:
 
-- `bun run typecheck`
+- `bun run check`
 - `bun run test`
-- `bun run lint`
+- `bun run format`
 
 If OpenAPI-derived types need regeneration for the new response schema, that regeneration should be included before final verification.
 
