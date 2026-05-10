@@ -1,3 +1,4 @@
+import { FileSystem } from "@effect/platform";
 import { Effect } from "effect";
 
 import { DbRunner } from "#lib/db";
@@ -187,11 +188,12 @@ export const buildNetflixAdapterResult = Effect.fn("netflixProcessor.buildResult
 		viewingActivityPath: string;
 		searchResponses: ReadonlyArray<NetflixSearchResponse>;
 	}) {
+		const fs = yield* FileSystem.FileSystem;
 		const [viewingActivityCsv, ratingsCsv, myListCsv] = yield* Effect.all(
 			[
-				Effect.promise(() => Bun.file(input.viewingActivityPath).text()),
-				Effect.promise(() => Bun.file(input.ratingsPath).text()),
-				Effect.promise(() => Bun.file(input.myListPath).text()),
+				fs.readFileString(input.viewingActivityPath),
+				fs.readFileString(input.ratingsPath),
+				fs.readFileString(input.myListPath),
 			],
 			{ concurrency: 3 },
 		).pipe(Effect.mapError(() => "Could not read import file"));

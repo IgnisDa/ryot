@@ -6,7 +6,7 @@ import type { CurrentUserValue } from "#lib/auth";
 import { BadRequest } from "#lib/errors";
 import { RedisService, redisKeys } from "#lib/redis";
 import { S3Service } from "#lib/s3";
-import { makeMock } from "#lib/test-support/effect";
+import { makeAppConfigLayer, makeMock } from "#lib/test-support/effect";
 
 import { UploadsService } from "./service";
 
@@ -16,7 +16,7 @@ const user: CurrentUserValue = {
 	email: "user@example.com",
 };
 
-Bun.env.TMPDIR = "/tmp/ryot-test-uploads";
+const TEST_TMP_DIR = "/tmp/ryot-test-uploads";
 
 const fakeFile = (name: string, contentType: string): Multipart.PersistedFile => ({
 	name,
@@ -83,6 +83,7 @@ const makeUploadsLayer = (
 	UploadsService.Default.pipe(
 		Layer.provide(
 			Layer.mergeAll(
+				makeAppConfigLayer({ tmpDir: TEST_TMP_DIR }),
 				Layer.succeed(S3Service, options.s3Service ?? makeS3Mock()),
 				Layer.succeed(RedisService, options.redisService ?? makeRedisMock()),
 				options.fsLayer ?? makeFsLayer(),

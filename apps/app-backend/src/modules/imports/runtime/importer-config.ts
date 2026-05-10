@@ -1,53 +1,31 @@
-const readEnv = (name: string): string | undefined => {
-	const value = Bun.env[name];
-	return value && value.trim().length > 0 ? value.trim() : undefined;
+import { Option, Redacted } from "effect";
+
+import type { AppConfigValue } from "#lib/config";
+
+const toValue = (option: Option.Option<string>): string | undefined =>
+	Option.getOrUndefined(option);
+
+const toSecret = (option: Option.Option<Redacted.Redacted>): string | undefined =>
+	Option.match(option, { onNone: () => undefined, onSome: Redacted.value });
+
+export const makeImporterConfig = (config: AppConfigValue) => {
+	const providers = config.providers;
+	return {
+		trakt: { clientId: toValue(providers.traktClientId) },
+		animeAndManga: { mal: { clientId: toValue(providers.malClientId) } },
+		moviesAndShows: { tmdb: { accessToken: toSecret(providers.tmdbAccessToken) } },
+		books: {
+			hardcover: { apiKey: toSecret(providers.hardcoverApiKey) },
+			googleBooks: { apiKey: toSecret(providers.googleBooksApiKey) },
+		},
+		videoGames: {
+			giantBomb: { apiKey: toSecret(providers.giantBombApiKey) },
+			twitch: {
+				clientId: toValue(providers.twitchClientId),
+				clientSecret: toSecret(providers.twitchClientSecret),
+			},
+		},
+	};
 };
 
-export const importerConfig = {
-	trakt: {
-		get clientId() {
-			return readEnv("SERVER_IMPORTER_TRAKT_CLIENT_ID");
-		},
-	},
-	books: {
-		hardcover: {
-			get apiKey() {
-				return readEnv("BOOKS_HARDCOVER_API_KEY");
-			},
-		},
-		googleBooks: {
-			get apiKey() {
-				return readEnv("BOOKS_GOOGLE_BOOKS_API_KEY");
-			},
-		},
-	},
-	animeAndManga: {
-		mal: {
-			get clientId() {
-				return readEnv("ANIME_AND_MANGA_MAL_CLIENT_ID");
-			},
-		},
-	},
-	moviesAndShows: {
-		tmdb: {
-			get accessToken() {
-				return readEnv("MOVIES_AND_SHOWS_TMDB_ACCESS_TOKEN");
-			},
-		},
-	},
-	videoGames: {
-		giantBomb: {
-			get apiKey() {
-				return readEnv("VIDEO_GAMES_GIANT_BOMB_API_KEY");
-			},
-		},
-		twitch: {
-			get clientId() {
-				return readEnv("VIDEO_GAMES_TWITCH_CLIENT_ID");
-			},
-			get clientSecret() {
-				return readEnv("VIDEO_GAMES_TWITCH_CLIENT_SECRET");
-			},
-		},
-	},
-};
+export type ImporterConfig = ReturnType<typeof makeImporterConfig>;

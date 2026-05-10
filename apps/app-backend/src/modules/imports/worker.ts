@@ -2,6 +2,7 @@ import { FileSystem } from "@effect/platform";
 import { Workflow } from "@effect/workflow";
 import { Effect, Schema } from "effect";
 
+import { AppConfig } from "#lib/config";
 import { unknownToMessage } from "#lib/errors";
 
 import { ImportRunJobData } from "./jobs";
@@ -20,7 +21,7 @@ import {
 	searchSandboxEntities,
 } from "./media/workflow-operations";
 import { failImportRun } from "./runtime/failures";
-import { getTemporaryDirectory, resolveSafeImportFilePath } from "./runtime/files";
+import { resolveSafeImportFilePath } from "./runtime/files";
 import { deleteImportSourcePayload } from "./runtime/source-payload-store";
 import { ImportRunError } from "./runtime/workflow-helpers";
 import { adaptHevyCsv } from "./sources/hevy/adapter";
@@ -34,8 +35,9 @@ const cleanupImportArtifacts = Effect.fn(function* (input: {
 	sourcePayloadKey?: string;
 	cleanupPaths: ReadonlyArray<string>;
 }) {
+	const config = yield* AppConfig;
 	const fs = yield* FileSystem.FileSystem;
-	const tempDir = getTemporaryDirectory();
+	const tempDir = config.tmpDir;
 
 	if (input.sourcePayloadKey) {
 		yield* deleteImportSourcePayload(input.sourcePayloadKey);
