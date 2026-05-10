@@ -35,7 +35,6 @@ Keep your webhook urls private to prevent abuse.
 - [Emby](./emby.md) - Automatically add new Emby movie and show plays
 - [Plex Sink](./plex-sink.md) - Automatically add Plex show and movie plays
 - [Kodi](./kodi.md) - Sync current movie or TV show you are watching
-- [Generic Json](./generic-json.md) - Import data using generic JSON format
 
 ## Yank integrations
 

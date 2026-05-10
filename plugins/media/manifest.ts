@@ -289,14 +289,6 @@ const integrationProviders = [
 		}),
 	},
 	{
-		lot: "sink",
-		slug: "generic_json",
-		name: "Generic JSON",
-		scriptSlug: "integration.generic-json",
-		description: "Receive generic JSON playback webhooks",
-		settingsSchema: providerSettings("generic_json"),
-	},
-	{
 		lot: "yank",
 		slug: "komga",
 		name: "Komga",
