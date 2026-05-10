@@ -24,15 +24,13 @@ import type { EntityDetail } from "./types";
 // Slugs that have fake data (excludes "person" which is not a media entity type yet)
 const DEMO_SLUGS = MEDIA_SCOPE_SLUGS.filter((s) => FAKE_ENTITY_DATA[s] !== undefined);
 
-function hasFreeCreators(
-	entity: EntityDetail,
-): entity is EntityDetail & { freeCreators: Array<{ name: string; role: string }> } {
+function hasFreeCreators(entity: EntityDetail) {
 	return "freeCreators" in entity;
 }
 
 function TypeSwitcherFab({
-	activeSlug,
 	onSelect,
+	activeSlug,
 }: {
 	activeSlug: string;
 	onSelect: (slug: string) => void;
