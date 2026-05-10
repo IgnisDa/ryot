@@ -59,7 +59,6 @@ describe.skipIf(!RUN_OPERATIONAL_GATES)("media population operational gate", () 
 				let finalPressure = baseline;
 				let maxWaitingAdvisoryLocks = 0;
 				let maxConcurrentPendingRuns = 0;
-				let maxAppPoolWaitingRequests = 0;
 				let maxActiveSandboxExecutions = 0;
 				let finalResults = yield* Effect.all(runs.map(getMediaPopulationGateResult), {
 					concurrency: "unbounded",
@@ -84,10 +83,6 @@ describe.skipIf(!RUN_OPERATIONAL_GATES)("media population operational gate", () 
 					maxWaitingAdvisoryLocks = Math.max(
 						maxWaitingAdvisoryLocks,
 						pressure.locks.waitingAdvisoryLocks,
-					);
-					maxAppPoolWaitingRequests = Math.max(
-						maxAppPoolWaitingRequests,
-						pressure.database.appPoolWaitingRequests,
 					);
 					maxActiveSandboxExecutions = Math.max(
 						maxActiveSandboxExecutions,
@@ -122,7 +117,6 @@ describe.skipIf(!RUN_OPERATIONAL_GATES)("media population operational gate", () 
 				expect(resultCounts).toEqual([ITEM_COUNT, ITEM_COUNT]);
 				expect(maxConcurrentPendingRuns).toBe(2);
 				expect(maxActiveSandboxExecutions).toBeGreaterThanOrEqual(2);
-				expect(maxAppPoolWaitingRequests).toBe(0);
 				expect(maxWaitingAdvisoryLocks).toBe(0);
 				expect(deadlockCount).toBe(0);
 				expect(finalPressure.redis.projectionErrors).toBe(0);

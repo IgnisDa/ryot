@@ -8,7 +8,7 @@ import { Effect, Layer } from "effect";
 import { assert, describe, it as vitestIt } from "vitest";
 
 import * as schema from "#lib/infrastructure/db/schema/tables/auth";
-import { CurrentDb, DbRunner, DbService, TransactionRunner } from "#lib/infrastructure/db/service";
+import { Database } from "#lib/infrastructure/db/service";
 import { RedisService } from "#lib/infrastructure/redis";
 import { assertExitFails } from "#lib/test-utils/assertions";
 import { makeAppConfigLayer, makeRedisService } from "#lib/test-utils/effect";
@@ -111,42 +111,35 @@ const makeBootstrapDb = () =>
 	Object.assign(Object.create(null), {
 		insert: () => ({
 			values: () =>
-				Object.assign(Promise.resolve({}), {
-					onConflictDoNothing: () => Promise.resolve({}),
-					onConflictDoUpdate: () => Promise.resolve({}),
+				Object.assign(Effect.succeed({}), {
+					onConflictDoNothing: () => Effect.succeed({}),
+					onConflictDoUpdate: () => Effect.succeed({}),
 				}),
 		}),
 		select: () => ({
 			from: () => ({
 				where: () =>
-					Object.assign(Promise.resolve([]), {
-						for: () => Promise.resolve([]),
-						limit: () => Promise.resolve([]),
+					Object.assign(Effect.succeed([]), {
+						for: () => Effect.succeed([]),
+						limit: () => Effect.succeed([]),
 					}),
 			}),
 		}),
 		update: () => ({
 			set: () => ({
-				where: () => Promise.resolve({}),
+				where: () => Effect.succeed({}),
 			}),
 		}),
-		execute: () => Promise.resolve({}),
+		execute: () => Effect.succeed({}),
 	});
 
-const makeDbRunnerLayer = (db: object) =>
-	Layer.succeed(DbRunner, <A, E, R>(effect: Effect.Effect<A, E, R>) =>
-		Effect.provideService(effect, CurrentDb, Object.assign(Object.create(null), db)),
-	);
-
-const makeDbServiceLayer = (db: object) =>
+const makeDatabaseLayer = (db: object, transactionDb = db) =>
 	Layer.succeed(
-		DbService,
-		Object.assign(Object.create(null), { db: Object.assign(Object.create(null), db), pool: {} }),
-	);
-
-const makeTransactionLayer = (db: object) =>
-	Layer.succeed(TransactionRunner, <A, E, R>(effect: Effect.Effect<A, E, R>) =>
-		Effect.provideService(effect, CurrentDb, Object.assign(Object.create(null), db)),
+		Database,
+		Object.assign(Object.create(null), db, {
+			transaction: (callback: (database: Database["Service"]) => Effect.Effect<unknown>) =>
+				callback(Object.assign(Object.create(null), transactionDb)),
+		}),
 	);
 
 const bootstrapEntitiesServiceLayer = Layer.mock(EntitiesService)({
@@ -168,17 +161,27 @@ const makeServiceLayer = (
 	authState?: Parameters<typeof makeAuthMock>[0],
 	transactionDb = makeBootstrapDb(),
 	auth: ReturnType<typeof makeAuthMock> = makeAuthMock(authState),
-): Layer.Layer<GodModeService> =>
+) =>
 	GodModeService.layer.pipe(
-		Layer.provide(
+		Layer.provideMerge(
 			Layer.mergeAll(
-				makeDbRunnerLayer(db),
-				makeDbServiceLayer(db),
-				makeTransactionLayer(transactionDb),
+				makeDatabaseLayer(db, transactionDb),
 				DefinitionRegistry.layer,
 				GodModeRepository.layer,
 				makeAppConfigLayer({ users: { disableLocalAuth } }),
-				Layer.succeed(AuthService, auth),
+				Layer.succeed(
+					AuthService,
+					Object.assign(auth, {
+						transaction: <A, E>(
+							callback: (operations: {
+								createAuthUser: typeof auth.createAuthUser;
+							}) => Effect.Effect<A, E, Database>,
+						) =>
+							callback({ createAuthUser: auth.createAuthUser }).pipe(
+								Effect.provideService(Database, Object.assign(Object.create(null), transactionDb)),
+							),
+					}),
+				),
 				Layer.succeed(RedisService, makeRedisMock()),
 				bootstrapEntitiesServiceLayer,
 				bootstrapNotificationSubscriptionsServiceLayer,
@@ -188,16 +191,11 @@ const makeServiceLayer = (
 		),
 	);
 
-const makeProvisionLayer = (
-	db: object,
-	auth: ReturnType<typeof makeProvisionAuthMock>,
-): Layer.Layer<GodModeService> =>
+const makeProvisionLayer = (db: object, auth: ReturnType<typeof makeProvisionAuthMock>) =>
 	GodModeService.layer.pipe(
-		Layer.provide(
+		Layer.provideMerge(
 			Layer.mergeAll(
-				makeDbRunnerLayer(db),
-				makeDbServiceLayer(db),
-				makeTransactionLayer(makeBootstrapDb()),
+				makeDatabaseLayer(db, makeBootstrapDb()),
 				DefinitionRegistry.layer,
 				GodModeRepository.layer,
 				makeAppConfigLayer(),
@@ -229,20 +227,20 @@ const makeListUsersDb = (options: {
 						where: (condition: SearchWhere | undefined) => {
 							state.userWhere = condition;
 							if (isCountQuery) {
-								return Promise.resolve([{ count: options.total }]);
+								return Effect.succeed([{ count: options.total }]);
 							}
 
-							return Object.assign(Promise.resolve(options.users), {
+							return Object.assign(Effect.succeed(options.users), {
 								limit: (limit: number) => {
 									state.limit = limit;
-									return Object.assign(Promise.resolve(options.users), {
+									return Object.assign(Effect.succeed(options.users), {
 										offset: (offset: number) => {
 											state.offset = offset;
-											return Object.assign(Promise.resolve(options.users), {
+											return Object.assign(Effect.succeed(options.users), {
 												orderBy: () =>
 													options.listError
-														? Promise.reject(options.listError)
-														: Promise.resolve(options.users),
+														? Effect.fail(new DbError({ message: options.listError.message }))
+														: Effect.succeed(options.users),
 											});
 										},
 									});
@@ -256,8 +254,8 @@ const makeListUsersDb = (options: {
 					return {
 						where: () =>
 							options.accountError
-								? Promise.reject(options.accountError)
-								: Promise.resolve(options.accounts),
+								? Effect.fail(options.accountError)
+								: Effect.succeed(options.accounts),
 					};
 				}
 
@@ -274,8 +272,8 @@ const makeSetUserDisabledDb = (options: { user: Pick<UserRow, "disabledAt" | "id
 		select: () => ({
 			from: () => ({
 				where: () =>
-					Object.assign(Promise.resolve(options.user ? [options.user] : []), {
-						limit: () => Promise.resolve(options.user ? [options.user] : []),
+					Object.assign(Effect.succeed(options.user ? [options.user] : []), {
+						limit: () => Effect.succeed(options.user ? [options.user] : []),
 					}),
 			}),
 		}),
@@ -299,10 +297,10 @@ const makeProvisionUserDb = (options?: {
 			from: () => ({
 				where: () =>
 					Object.assign(
-						Promise.resolve(options?.existingUserId ? [{ id: options.existingUserId }] : []),
+						Effect.succeed(options?.existingUserId ? [{ id: options.existingUserId }] : []),
 						{
 							limit: () =>
-								Promise.resolve(options?.existingUserId ? [{ id: options.existingUserId }] : []),
+								Effect.succeed(options?.existingUserId ? [{ id: options.existingUserId }] : []),
 						},
 					),
 			}),
@@ -361,9 +359,9 @@ const makeSnapshotDb = (snapshot: {
 				}
 				return {
 					where: () =>
-						Object.assign(Promise.resolve(rows), {
-							for: () => Promise.resolve(rows),
-							limit: () => Promise.resolve(rows),
+						Object.assign(Effect.succeed(rows), {
+							for: () => Effect.succeed(rows),
+							limit: () => Effect.succeed(rows),
 						}),
 				};
 			},

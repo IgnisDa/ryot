@@ -3,7 +3,6 @@ import type { SandboxExecutionPayload } from "@ryot/contract/modules/sandbox/sch
 import type { UserId } from "@ryot/contract/schema/brands";
 import { Context, Effect, Layer } from "effect";
 
-import { DbRunner } from "#lib/infrastructure/db/service";
 import { bootConfiguredPluginSlugs } from "#modules/plugins/boot-sources";
 import { PluginLoader } from "#modules/plugins/loader";
 import { PluginRuntimeResolver } from "#modules/plugins/runtime-resolver";
@@ -22,7 +21,6 @@ export const makePluginUserBootstrapDispatcher = (
 	) => Effect.Effect<{ readonly error: null | { readonly message: string } }, unknown>,
 ) =>
 	Effect.gen(function* () {
-		const runWithDb = yield* DbRunner;
 		const loader = yield* PluginLoader;
 		const runtime = yield* PluginRuntimeResolver;
 
@@ -41,12 +39,10 @@ export const makePluginUserBootstrapDispatcher = (
 				);
 
 			for (const entry of entries) {
-				const resolved = yield* runWithDb(
-					runtime.resolveActivePluginUserBootstrap({
-						pluginSlug: entry.pluginSlug,
-						bootstrapSlug: entry.bootstrap.slug,
-					}),
-				);
+				const resolved = yield* runtime.resolveActivePluginUserBootstrap({
+					pluginSlug: entry.pluginSlug,
+					bootstrapSlug: entry.bootstrap.slug,
+				});
 				if (!resolved) {
 					return yield* new SandboxRunError({
 						message: `Plugin user bootstrap script not found: ${entry.pluginSlug}/${entry.bootstrap.slug}`,
@@ -86,7 +82,6 @@ export class PluginUserBootstrapDispatcher extends Context.Service<PluginUserBoo
 	"PluginUserBootstrapDispatcher",
 	{
 		make: Effect.gen(function* () {
-			const runWithDb = yield* DbRunner;
 			const loader = yield* PluginLoader;
 			const sandbox = yield* SandboxExecutionService;
 			const runtime = yield* PluginRuntimeResolver;
@@ -98,7 +93,6 @@ export class PluginUserBootstrapDispatcher extends Context.Service<PluginUserBoo
 					executionId: payload.executionId,
 				}),
 			).pipe(
-				Effect.provideService(DbRunner, runWithDb),
 				Effect.provideService(PluginLoader, loader),
 				Effect.provideService(PluginRuntimeResolver, runtime),
 			);

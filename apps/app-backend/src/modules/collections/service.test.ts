@@ -15,11 +15,10 @@ import { WorkflowEngine, WorkflowInstance } from "effect/unstable/workflow/Workf
 
 import { assertExitFails } from "#lib/test-utils/assertions";
 import {
+	databaseLayer,
 	type MockOverrides,
-	dbRunnerLayer,
 	makeWorkflowActivityEngine,
 	makeWorkflowEngine,
-	transactionLayer,
 } from "#lib/test-utils/effect";
 import { LifecycleDispatchNoop } from "#modules/entities/lifecycle-dispatch";
 import { EntitiesRepository } from "#modules/entities/repository";
@@ -161,27 +160,29 @@ const makeServiceLayer = (
 	const relationshipsRepository = options.relationshipsRepository ?? makeRelationshipsRepository();
 
 	const entitiesServiceLayer = EntitiesService.layer.pipe(
-		Layer.provide(
-			Layer.mergeAll(dbRunnerLayer, LifecycleDispatchNoop, makeRyotQL(), entitiesRepository),
+		Layer.provideMerge(
+			Layer.mergeAll(databaseLayer, LifecycleDispatchNoop, makeRyotQL(), entitiesRepository),
 		),
 	);
 
 	const relationshipsServiceLayer = RelationshipsService.layer.pipe(
-		Layer.provide(Layer.mergeAll(dbRunnerLayer, relationshipsRepository)),
+		Layer.provide(Layer.mergeAll(databaseLayer, relationshipsRepository)),
 	);
 
-	return CollectionsService.layer.pipe(
-		Layer.provide(
-			Layer.mergeAll(
-				dbRunnerLayer,
-				transactionLayer,
-				entitiesServiceLayer,
-				relationshipsRepository,
-				relationshipsServiceLayer,
-				options.eventsService ?? makeEventsService(),
-				options.collectionsRepository ?? makeCollectionsRepository(),
-				options.relationshipSchemasRepository ?? makeRelationshipSchemasRepository(),
-				Layer.succeed(WorkflowEngine, options.workflowEngine ?? makeWorkflowEngine()),
+	return Layer.mergeAll(
+		databaseLayer,
+		CollectionsService.layer.pipe(
+			Layer.provide(
+				Layer.mergeAll(
+					databaseLayer,
+					entitiesServiceLayer,
+					relationshipsRepository,
+					relationshipsServiceLayer,
+					options.eventsService ?? makeEventsService(),
+					options.collectionsRepository ?? makeCollectionsRepository(),
+					options.relationshipSchemasRepository ?? makeRelationshipSchemasRepository(),
+					Layer.succeed(WorkflowEngine, options.workflowEngine ?? makeWorkflowEngine()),
+				),
 			),
 		),
 	);
@@ -198,7 +199,7 @@ const runAddWorkflow = (input: {
 	collectionId: EntityId;
 	eventResults?: unknown[];
 	dispatches?: CapturedDispatch[];
-	layer: Layer.Layer<CollectionsService>;
+	layer: ReturnType<typeof makeServiceLayer>;
 }) => {
 	const executionId = input.executionId ?? "add-workflow-execution-id";
 	const instance = WorkflowInstance.initial(AddEntityToCollectionWorkflow, executionId);
@@ -214,7 +215,10 @@ const runAddWorkflow = (input: {
 				: Effect.succeed(input.eventResults?.shift() ?? input.eventResult ?? options.executionId);
 		},
 	});
-	const operations = AddEntityToCollectionWorkflowOperationsLive.pipe(Layer.provide(input.layer));
+	const operations = Layer.mergeAll(
+		databaseLayer,
+		AddEntityToCollectionWorkflowOperationsLive.pipe(Layer.provide(input.layer)),
+	);
 	return runAddEntityToCollectionWorkflow(
 		{
 			executionId,

@@ -4,7 +4,6 @@ import type { ProviderTranslateResult } from "@ryot/sandbox-sdk/provider";
 import { DateTime, Effect, Schema } from "effect";
 import { Activity } from "effect/unstable/workflow";
 
-import { DbRunner } from "#lib/infrastructure/db/service";
 import { redisKeys, RedisService } from "#lib/infrastructure/redis";
 import type { DurableSchema } from "#lib/infrastructure/workflow";
 import { decodeProviderTranslateResult } from "#modules/sandbox/provider-contracts";
@@ -22,7 +21,6 @@ const writeTranslationOverlay = Effect.fn("writeTranslationOverlay")(function* (
 	translation: ProviderTranslateResult,
 ) {
 	const redis = yield* RedisService;
-	const runWithDb = yield* DbRunner;
 	const translations = yield* TranslationsService;
 	const repository = yield* TranslationsRepository;
 
@@ -39,9 +37,9 @@ const writeTranslationOverlay = Effect.fn("writeTranslationOverlay")(function* (
 				name: translation.name ?? null,
 				properties: translation.properties ?? null,
 			};
-			const existing = yield* runWithDb(
-				repository.findOverlay({ entityId: input.entityId, language: input.language }),
-			).pipe(dieOnDbError);
+			const existing = yield* repository
+				.findOverlay({ entityId: input.entityId, language: input.language })
+				.pipe(dieOnDbError);
 
 			const write = existing
 				? translations.update(input)

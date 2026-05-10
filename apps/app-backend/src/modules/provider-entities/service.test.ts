@@ -7,11 +7,10 @@ import { WorkflowEngine } from "effect/unstable/workflow/WorkflowEngine";
 
 import { createWorkflowJobId } from "#lib/shared/job-id";
 import {
+	databaseLayer,
 	type MockOverrides,
-	dbRunnerLayer,
 	makeAppConfigLayer,
 	makeWorkflowEngine,
-	transactionLayer,
 } from "#lib/test-utils/effect";
 import { EntitiesRepository } from "#modules/entities/repository";
 import { PluginRuntimeResolver } from "#modules/plugins/runtime-resolver";
@@ -58,10 +57,9 @@ const makeServiceLayer = (
 	activeProvider: typeof provider | null = provider,
 ) =>
 	EntityImportService.layer.pipe(
-		Layer.provide(
+		Layer.provideMerge(
 			Layer.mergeAll(
-				dbRunnerLayer,
-				transactionLayer,
+				databaseLayer,
 				makeAppConfigLayer(),
 				Layer.succeed(WorkflowEngine, engine),
 				entitiesRepo,

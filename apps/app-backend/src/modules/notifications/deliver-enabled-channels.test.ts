@@ -2,7 +2,7 @@ import { expect, it } from "@effect/vitest";
 import { NotificationChannelId, UserId } from "@ryot/contract/schema/brands";
 import { Effect, Layer } from "effect";
 
-import { dbRunnerLayer } from "#lib/test-utils/effect";
+import { databaseLayer } from "#lib/test-utils/effect";
 
 import { deliverEnabledChannels } from "./deliver-enabled-channels";
 import { NotificationDeliveryService } from "./delivery";
@@ -83,7 +83,7 @@ it.effect(
 				{ channel: "apprise", channelId: first.id, status: "failed" },
 				{ channel: "apprise", channelId: second.id, status: "sent" },
 			]);
-		}).pipe(Effect.provide(Layer.mergeAll(dbRunnerLayer, repositoryLayer, deliveryLayer)));
+		}).pipe(Effect.provide(Layer.mergeAll(databaseLayer, repositoryLayer, deliveryLayer)));
 	},
 );
 
@@ -103,7 +103,7 @@ it.effect("sends a per-channel test message", () => {
 
 		expect(requests).toEqual([{ userId }]);
 		expect(result).toEqual([{ channel: "apprise", channelId: channel.id, status: "sent" }]);
-	}).pipe(Effect.provide(Layer.mergeAll(dbRunnerLayer, repositoryLayer, deliveryLayer)));
+	}).pipe(Effect.provide(Layer.mergeAll(databaseLayer, repositoryLayer, deliveryLayer)));
 });
 
 it.effect("preserves the message for every enabled channel", () => {
@@ -132,7 +132,7 @@ it.effect("preserves the message for every enabled channel", () => {
 			{ channel: "apprise", channelId: first.id, status: "sent" },
 			{ channel: "email", channelId: second.id, status: "sent" },
 		]);
-	}).pipe(Effect.provide(Layer.mergeAll(dbRunnerLayer, repositoryLayer, deliveryLayer)));
+	}).pipe(Effect.provide(Layer.mergeAll(databaseLayer, repositoryLayer, deliveryLayer)));
 });
 
 it.effect("completes message delivery when no channels are enabled", () => {
@@ -151,7 +151,7 @@ it.effect("completes message delivery when no channels are enabled", () => {
 		expect(calls).toEqual([]);
 		expect(requests).toEqual([{ userId }]);
 		expect(result).toEqual([]);
-	}).pipe(Effect.provide(Layer.mergeAll(dbRunnerLayer, repositoryLayer, deliveryLayer)));
+	}).pipe(Effect.provide(Layer.mergeAll(databaseLayer, repositoryLayer, deliveryLayer)));
 });
 
 it.effect("reports an unavailable delivery as failed", () => {
@@ -172,5 +172,5 @@ it.effect("reports an unavailable delivery as failed", () => {
 		});
 
 		expect(result).toEqual([{ channel: "email", channelId: channel.id, status: "failed" }]);
-	}).pipe(Effect.provide(Layer.mergeAll(dbRunnerLayer, repositoryLayer, deliveryLayer)));
+	}).pipe(Effect.provide(Layer.mergeAll(databaseLayer, repositoryLayer, deliveryLayer)));
 });

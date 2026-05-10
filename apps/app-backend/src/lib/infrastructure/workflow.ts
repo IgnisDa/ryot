@@ -1,5 +1,4 @@
 import { BunRedis } from "@effect/platform-bun";
-import { PgClient } from "@effect/sql-pg";
 import type { Schema } from "effect";
 import { Context, Duration, Effect, Layer, Redacted } from "effect";
 import { ClusterWorkflowEngine, SingleRunner } from "effect/unstable/cluster";
@@ -7,17 +6,9 @@ import { PersistedQueue } from "effect/unstable/persistence";
 import { WorkflowEngine, WorkflowInstance } from "effect/unstable/workflow/WorkflowEngine";
 
 import { AppConfig } from "./config/service";
+import { PgClientLive } from "./db/service";
 
 export type DurableSchema = Schema.ConstraintCodec<unknown, unknown>;
-
-const WorkflowPgClientLive = Layer.unwrap(
-	Effect.map(AppConfig, (config) =>
-		PgClient.layer({
-			url: config.database.url,
-			maxConnections: config.database.workflowPoolMax,
-		}),
-	),
-);
 
 // TODO: https://github.com/Effect-TS/effect/issues/6294
 // A workflow awaiting more than one child resumes its 2nd+ child only via this
@@ -34,7 +25,7 @@ const ClusterWorkflowEngineLive = ClusterWorkflowEngine.layer.pipe(
 			},
 		}),
 	),
-	Layer.provide(WorkflowPgClientLive),
+	Layer.provide(PgClientLive),
 );
 
 // TODO: https://github.com/Effect-TS/effect/issues/6294

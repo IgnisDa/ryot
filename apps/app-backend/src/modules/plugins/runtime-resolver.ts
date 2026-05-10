@@ -18,7 +18,7 @@ import { and, desc, eq, inArray, isNotNull, isNull, sql } from "drizzle-orm";
 import { Context, Data, Effect, Layer } from "effect";
 
 import * as schema from "#lib/infrastructure/db/schema/tables/combined";
-import { CurrentDb, dbEffect } from "#lib/infrastructure/db/service";
+import { Database, mapDatabaseErrors } from "#lib/infrastructure/db/service";
 
 import { bootConfiguredPluginSlugs } from "./boot-sources";
 import { PluginLoader, PluginLoaderLive, type PluginRegistrySnapshot } from "./loader";
@@ -93,8 +93,8 @@ export const findActiveScriptInPluginSnapshot = Effect.fn(
 	if (!active) {
 		return null;
 	}
-	const db = yield* CurrentDb;
-	const [row] = yield* dbEffect(() =>
+	const db = yield* Database;
+	const [row] = yield* mapDatabaseErrors(
 		db
 			.select()
 			.from(schema.sandboxScript)
@@ -217,8 +217,8 @@ export class PluginRuntimeResolver extends Context.Service<PluginRuntimeResolver
 			const findActiveScriptByIdInSnapshot = Effect.fn(
 				"PluginRuntimeResolver.findActiveScriptByIdInSnapshot",
 			)(function* (snapshot: PluginRegistrySnapshot, scriptId: SandboxScriptId) {
-				const db = yield* CurrentDb;
-				const [stored] = yield* dbEffect(() =>
+				const db = yield* Database;
+				const [stored] = yield* mapDatabaseErrors(
 					db
 						.select({
 							slug: schema.sandboxScript.slug,
@@ -237,7 +237,7 @@ export class PluginRuntimeResolver extends Context.Service<PluginRuntimeResolver
 				if (!active) {
 					return null;
 				}
-				const [row] = yield* dbEffect(() =>
+				const [row] = yield* mapDatabaseErrors(
 					db
 						.select()
 						.from(schema.sandboxScript)
@@ -262,8 +262,8 @@ export class PluginRuntimeResolver extends Context.Service<PluginRuntimeResolver
 				"PluginRuntimeResolver.resolveTrustedUserBootstrapCaller",
 			)(function* (scriptId: SandboxScriptId) {
 				const snapshot = loader.getSnapshot();
-				const db = yield* CurrentDb;
-				const [stored] = yield* dbEffect(() =>
+				const db = yield* Database;
+				const [stored] = yield* mapDatabaseErrors(
 					db
 						.select({
 							slug: schema.sandboxScript.slug,
@@ -312,8 +312,8 @@ export class PluginRuntimeResolver extends Context.Service<PluginRuntimeResolver
 			const resolveSystemQueryScript = Effect.fn("PluginRuntimeResolver.resolveSystemQueryScript")(
 				function* (scriptId: SandboxScriptId) {
 					const snapshot = loader.getSnapshot();
-					const db = yield* CurrentDb;
-					const [script] = yield* dbEffect(() =>
+					const db = yield* Database;
+					const [script] = yield* mapDatabaseErrors(
 						db
 							.select()
 							.from(schema.sandboxScript)
@@ -348,8 +348,8 @@ export class PluginRuntimeResolver extends Context.Service<PluginRuntimeResolver
 			const findKernelScript = Effect.fn("PluginRuntimeResolver.findKernelScript")(function* (
 				scriptSlug: string,
 			) {
-				const db = yield* CurrentDb;
-				const [row] = yield* dbEffect(() =>
+				const db = yield* Database;
+				const [row] = yield* mapDatabaseErrors(
 					db
 						.select()
 						.from(schema.sandboxScript)
@@ -375,8 +375,8 @@ export class PluginRuntimeResolver extends Context.Service<PluginRuntimeResolver
 				if (!active) {
 					return null;
 				}
-				const db = yield* CurrentDb;
-				const [row] = yield* dbEffect(() =>
+				const db = yield* Database;
+				const [row] = yield* mapDatabaseErrors(
 					db
 						.select()
 						.from(schema.sandboxProvider)
@@ -394,8 +394,8 @@ export class PluginRuntimeResolver extends Context.Service<PluginRuntimeResolver
 			const findActiveProviderByIdInSnapshot = Effect.fn(
 				"PluginRuntimeResolver.findActiveProviderByIdInSnapshot",
 			)(function* (snapshot: PluginRegistrySnapshot, providerId: SandboxProviderId) {
-				const db = yield* CurrentDb;
-				const [row] = yield* dbEffect(() =>
+				const db = yield* Database;
+				const [row] = yield* mapDatabaseErrors(
 					db
 						.select()
 						.from(schema.sandboxProvider)
@@ -455,9 +455,9 @@ export class PluginRuntimeResolver extends Context.Service<PluginRuntimeResolver
 				entitySchemaSlugs?: ReadonlyArray<string>,
 			) {
 				const snapshot = loader.getSnapshot();
-				const db = yield* CurrentDb;
+				const db = yield* Database;
 				const activePluginSlugs = Object.keys(snapshot.plugins);
-				const rows = yield* dbEffect(() =>
+				const rows = yield* mapDatabaseErrors(
 					db
 						.select()
 						.from(schema.sandboxProvider)
@@ -499,8 +499,8 @@ export class PluginRuntimeResolver extends Context.Service<PluginRuntimeResolver
 				if (!provider) {
 					return { provider: null, script: null, reason: "inactive_provider" as const };
 				}
-				const db = yield* CurrentDb;
-				const [row] = yield* dbEffect(() =>
+				const db = yield* Database;
+				const [row] = yield* mapDatabaseErrors(
 					db
 						.select({
 							optionsSchema: schema.sandboxProviderOperation.optionsSchema,

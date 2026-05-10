@@ -6,7 +6,7 @@ import { WorkflowEngine } from "effect/unstable/workflow/WorkflowEngine";
 
 import { assertExitFails } from "#lib/test-utils/assertions";
 import type { MockOverrides } from "#lib/test-utils/effect";
-import { dbRunnerLayer, makeWorkflowEngine } from "#lib/test-utils/effect";
+import { databaseLayer, makeWorkflowEngine } from "#lib/test-utils/effect";
 
 import { TranslationsRepository, type TranslationOverlayInput } from "./repository";
 import { TranslationsService } from "./service";
@@ -38,7 +38,9 @@ const makeServiceLayer = (
 	engine = makeWorkflowEngine(),
 ) =>
 	TranslationsService.layer.pipe(
-		Layer.provide(Layer.mergeAll(dbRunnerLayer, Layer.succeed(WorkflowEngine, engine), repository)),
+		Layer.provideMerge(
+			Layer.mergeAll(databaseLayer, Layer.succeed(WorkflowEngine, engine), repository),
+		),
 	);
 
 it.effect("preserves provider provenance when enqueueing a translation fill", () => {

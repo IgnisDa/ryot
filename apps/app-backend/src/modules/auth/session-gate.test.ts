@@ -4,7 +4,9 @@ import type { Result } from "effect";
 import { Effect } from "effect";
 import { describe } from "vitest";
 
-import { gateSessionCreation, type SessionGateDeps } from "./session-gate";
+import { Database } from "#lib/infrastructure/db/service";
+
+import { gateSessionCreation } from "./session-gate";
 
 const completedAt = new Date("2026-01-01T00:00:00Z");
 const disabledAt = new Date("2026-01-01T00:00:00Z");
@@ -15,38 +17,37 @@ function assertApiError(error: unknown): asserts error is APIError {
 	}
 }
 
-const makeMockDb = (row: { disabledAt: Date | null; bootstrapCompletedAt: Date | null }) =>
-	Object.assign(Object.create(null), {
-		select: () => ({
-			from: () => ({
-				where: () =>
-					Object.assign(Promise.resolve([row]), {
-						limit: () => Promise.resolve([row]),
-					}),
+const makeMockDb = (
+	rows: ReadonlyArray<{
+		disabledAt: Date | null;
+		bootstrapCompletedAt: Date | null;
+	}>,
+) =>
+	Database.of(
+		Object.assign(Object.create(null), {
+			select: () => ({
+				from: () => ({
+					where: () => ({ limit: () => Effect.succeed(rows) }),
+				}),
 			}),
 		}),
-	});
+	);
 
 const makeDeps = (
 	row: { disabledAt: Date | null; bootstrapCompletedAt: Date | null },
-	runBootstrap: (userId: string) => Promise<void> = () => Promise.resolve(),
-): SessionGateDeps => ({
-	db: makeMockDb(row),
-	runBootstrap,
-});
+	runBootstrap: (userId: string) => Effect.Effect<void, unknown> = () => Effect.void,
+) => [makeMockDb([row]), runBootstrap] as const;
 
-const runGate = (deps: SessionGateDeps, userId: string) =>
-	Effect.tryPromise({
-		try: () => gateSessionCreation(deps, userId),
-		catch: (error) => {
-			assertApiError(error);
-			return error;
-		},
-	}).pipe(Effect.result);
+const runGate = (deps: ReturnType<typeof makeDeps>, userId: string) =>
+	gateSessionCreation(userId, deps[1]).pipe(
+		Effect.provideService(Database, deps[0]),
+		Effect.result,
+	);
 
-const extractError = (either: Result.Result<void, APIError>) => {
+const extractError = (either: Result.Result<void, unknown>) => {
 	expect(either._tag).toBe("Failure");
 	if (either._tag === "Failure") {
+		assertApiError(either.failure);
 		return either.failure;
 	}
 	throw new Error("Expected gate failure but gate succeeded");
@@ -58,7 +59,7 @@ describe("gateSessionCreation", () => {
 			let called = false;
 			const deps = makeDeps({ disabledAt: null, bootstrapCompletedAt: completedAt }, () => {
 				called = true;
-				return Promise.resolve();
+				return Effect.void;
 			});
 
 			const either = yield* runGate(deps, "user-1");
@@ -72,7 +73,7 @@ describe("gateSessionCreation", () => {
 			let called = false;
 			const deps = makeDeps({ disabledAt: null, bootstrapCompletedAt: null }, () => {
 				called = true;
-				return Promise.resolve();
+				return Effect.void;
 			});
 
 			const either = yield* runGate(deps, "user-1");
@@ -84,7 +85,7 @@ describe("gateSessionCreation", () => {
 	it.effect("throws USER_INITIALIZING (503) when the marker is null and bootstrap rejects", () =>
 		Effect.gen(function* () {
 			const deps = makeDeps({ disabledAt: null, bootstrapCompletedAt: null }, () =>
-				Promise.reject(new Error("db down")),
+				Effect.fail("db down"),
 			);
 
 			const either = yield* runGate(deps, "user-1");
@@ -99,7 +100,7 @@ describe("gateSessionCreation", () => {
 			let called = false;
 			const deps = makeDeps({ disabledAt, bootstrapCompletedAt: null }, () => {
 				called = true;
-				return Promise.resolve();
+				return Effect.void;
 			});
 
 			const either = yield* runGate(deps, "user-1");
@@ -113,22 +114,13 @@ describe("gateSessionCreation", () => {
 	it.effect("resolves without calling runBootstrap when the user row is not found", () =>
 		Effect.gen(function* () {
 			let called = false;
-			const deps: SessionGateDeps = {
-				db: Object.assign(Object.create(null), {
-					select: () => ({
-						from: () => ({
-							where: () =>
-								Object.assign(Promise.resolve([]), {
-									limit: () => Promise.resolve([]),
-								}),
-						}),
-					}),
-				}),
-				runBootstrap: () => {
+			const deps = [
+				makeMockDb([]),
+				() => {
 					called = true;
-					return Promise.resolve();
+					return Effect.void;
 				},
-			};
+			] as const;
 
 			const either = yield* runGate(deps, "missing-user");
 			expect(either._tag).toBe("Success");

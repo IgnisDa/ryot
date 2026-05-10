@@ -4,7 +4,7 @@ import { PgDialect } from "drizzle-orm/pg-core";
 import { Effect, Layer } from "effect";
 
 import * as schema from "#lib/infrastructure/db/schema/tables/combined";
-import { CurrentDb } from "#lib/infrastructure/db/service";
+import { Database } from "#lib/infrastructure/db/service";
 import { assertExitFails } from "#lib/test-utils/assertions";
 
 import {
@@ -30,7 +30,7 @@ const makeRegisterLayer = (options: {
 		execute: (statement: Parameters<typeof dialect.sqlToQuery>[0]) => {
 			const query = dialect.sqlToQuery(statement);
 			options.events.push(`lock:${query.sql}:${query.params.join(":")}`);
-			return Promise.resolve();
+			return Effect.void;
 		},
 		select: () => ({
 			from: (table: unknown) => ({
@@ -38,9 +38,9 @@ const makeRegisterLayer = (options: {
 					limit: () => {
 						options.events.push(table === schema.plugin ? "plugin" : "existing");
 						if (table === schema.plugin) {
-							return Promise.resolve(options.active ? [{ slug: input.pluginSlug }] : []);
+							return Effect.succeed(options.active ? [{ slug: input.pluginSlug }] : []);
 						}
-						return Promise.resolve(options.existing ? [options.existing] : []);
+						return Effect.succeed(options.existing ? [options.existing] : []);
 					},
 				}),
 			}),
@@ -50,7 +50,7 @@ const makeRegisterLayer = (options: {
 				onConflictDoNothing: () => ({
 					returning: () => {
 						options.events.push("insert");
-						return Promise.resolve(options.inserted === false ? [] : [input]);
+						return Effect.succeed(options.inserted === false ? [] : [input]);
 					},
 				}),
 			}),
@@ -58,7 +58,7 @@ const makeRegisterLayer = (options: {
 	};
 	const executor = Object.assign(Object.create(null), db);
 	return SandboxWorkflowReferenceRepository.layer.pipe(
-		Layer.provideMerge(Layer.succeed(CurrentDb, executor)),
+		Layer.provideMerge(Layer.succeed(Database, executor)),
 	);
 };
 
@@ -114,11 +114,11 @@ it.effect("exposes reusable reference liveness queries and idempotent release", 
 			from: () => {
 				if (selection) {
 					return {
-						where: () => ({ limit: () => Promise.resolve(rows.slice(0, 1)) }),
+						where: () => ({ limit: () => Effect.succeed(rows.slice(0, 1)) }),
 					};
 				}
-				return Object.assign(Promise.resolve(rows), {
-					where: () => Promise.resolve(rows),
+				return Object.assign(Effect.succeed(rows), {
+					where: () => Effect.succeed(rows),
 				});
 			},
 		}),
@@ -126,12 +126,12 @@ it.effect("exposes reusable reference liveness queries and idempotent release", 
 			where: () => {
 				releases += 1;
 				rows = [];
-				return Promise.resolve();
+				return Effect.void;
 			},
 		}),
 	};
 	const layer = SandboxWorkflowReferenceRepository.layer.pipe(
-		Layer.provideMerge(Layer.succeed(CurrentDb, Object.assign(Object.create(null), db))),
+		Layer.provideMerge(Layer.succeed(Database, Object.assign(Object.create(null), db))),
 	);
 	return Effect.gen(function* () {
 		const repository = yield* SandboxWorkflowReferenceRepository;

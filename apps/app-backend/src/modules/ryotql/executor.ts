@@ -20,7 +20,7 @@ import { sql } from "drizzle-orm";
 import { PgDialect } from "drizzle-orm/pg-core";
 import { DateTime, Effect, Option, Schema } from "effect";
 
-import { CurrentDb, dbEffect } from "#lib/infrastructure/db/service";
+import { Database, mapDatabaseErrors } from "#lib/infrastructure/db/service";
 
 import {
 	getCatalogTable,
@@ -1033,12 +1033,12 @@ const TIME_SERIES_BUCKET_STEPS: Record<TimeSeriesOutput["time"]["bucket"], strin
 const pgDialect = new PgDialect();
 
 const executeSql = Effect.fn("executeRyotQLSql")(function* (query: SqlFragment, queryName: string) {
-	const db = yield* CurrentDb;
+	const db = yield* Database;
 	const { sql: statement } = pgDialect.sqlToQuery(query);
 	yield* Effect.logTrace("RyotQL SQL generated").pipe(
 		Effect.annotateLogs({ queryName, sql: statement }),
 	);
-	return yield* dbEffect(() => db.execute(query));
+	return yield* mapDatabaseErrors(db.execute(query, "objects"));
 });
 
 const timeSeriesBucketStart = (bucket: TimeSeriesOutput["time"]["bucket"], value: SqlFragment) =>
@@ -1187,7 +1187,7 @@ const executeAggregateQuery = Effect.fn("executeRyotQLAggregateQuery")(function*
 	queryName: string,
 ) {
 	const raw = yield* executeSql(compileAggregateQuery(query, executionScope), queryName);
-	const rows = raw.rows as readonly Record<string, unknown>[];
+	const rows = raw;
 	const groups = query.output.groupBy ?? [];
 	const scope = buildScope(query, executionScope, "");
 	const items = rows.map((row) =>
@@ -1214,7 +1214,7 @@ const executeTimeSeriesQuery = Effect.fn("executeRyotQLTimeSeriesQuery")(functio
 	queryName: string,
 ) {
 	const raw = yield* executeSql(compileTimeSeriesQuery(query, executionScope), queryName);
-	const buckets = (raw.rows as readonly Record<string, unknown>[]).map((row) => {
+	const buckets = raw.map((row) => {
 		const startAt = normalizeValue(row["startAt"], "date");
 		const endAt = normalizeValue(row["endAt"], "date");
 		if (typeof startAt !== "string" || typeof endAt !== "string") {
@@ -1253,7 +1253,7 @@ export const executeNamedQuery = Effect.fn("executeRyotQLNamedQuery")(function* 
 		? yield* decodeCursor(rowsQuery.output.pagination.after, orderKinds, orderDirections)
 		: undefined;
 	const raw = yield* executeSql(compileRowsQuery(rowsQuery, executionScope, cursor), queryName);
-	const rows = raw.rows as readonly Record<string, unknown>[];
+	const rows = raw;
 	const { limit } = rowsQuery.output.pagination;
 	const hasMore = rows.length > limit;
 	const returnedRows = rows.slice(0, limit);

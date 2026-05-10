@@ -10,7 +10,7 @@ import {
 import { Effect, Result, Layer, Schema } from "effect";
 import { WorkflowEngine, WorkflowInstance } from "effect/unstable/workflow/WorkflowEngine";
 
-import { makeWorkflowActivityEngine } from "#lib/test-utils/effect";
+import { databaseLayer, makeWorkflowActivityEngine } from "#lib/test-utils/effect";
 import type { ResolvedAutomationRule } from "#modules/plugins/runtime-resolver";
 import { SignalDispatch } from "#modules/signals/dispatch";
 
@@ -72,9 +72,9 @@ it.effect("matches shared signals once per global rule and recipient-owned rule"
 			return Effect.succeed([globalRule, rowUserId === userId ? firstUserRule : secondUserRule]);
 		},
 	});
-	const layer = Layer.provide(
+	const layer = Layer.provideMerge(
 		SignalDispatchLive,
-		Layer.mergeAll(automations, Layer.succeed(WorkflowEngine, engine)),
+		Layer.mergeAll(databaseLayer, automations, Layer.succeed(WorkflowEngine, engine)),
 	);
 
 	return Effect.gen(function* () {
@@ -108,9 +108,9 @@ it.effect("attempts every sibling workflow when one enqueue fails", () => {
 	const automations = Layer.mock(AutomationsService, {
 		resolveActive: () => Effect.succeed([firstRule, secondRule]),
 	});
-	const layer = Layer.provide(
+	const layer = Layer.provideMerge(
 		SignalDispatchLive,
-		Layer.mergeAll(automations, Layer.succeed(WorkflowEngine, engine)),
+		Layer.mergeAll(databaseLayer, automations, Layer.succeed(WorkflowEngine, engine)),
 	);
 
 	return Effect.gen(function* () {

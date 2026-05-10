@@ -12,7 +12,7 @@ import {
 	type ProviderHttpAdmissionToken,
 } from "#lib/infrastructure/provider-http-admission";
 import { SandboxHostImplementations } from "#lib/infrastructure/sandbox-runtime/host-implementations";
-import { dbRunnerLayer, makeWorkflowActivityEngine } from "#lib/test-utils/effect";
+import { databaseLayer, makeWorkflowActivityEngine } from "#lib/test-utils/effect";
 import { NotificationDeliveryWorkflow } from "#modules/notifications/notification-delivery-workflow";
 import {
 	type HttpRateLimitAuthorityResolution,
@@ -96,7 +96,7 @@ it.effect("dispatches workflow-owned capabilities through their deterministic ch
 	const layer = SandboxDurableHostDispatcherLive.pipe(
 		Layer.provide(
 			Layer.mergeAll(
-				dbRunnerLayer,
+				databaseLayer,
 				Layer.succeed(WorkflowEngine, engine),
 				Layer.succeed(WorkflowInstance, instance),
 				Layer.succeed(SandboxHostImplementations, implementations),
@@ -278,7 +278,7 @@ const makeHttpHarness = (options: {
 	const layer = SandboxDurableHostDispatcherLive.pipe(
 		Layer.provide(
 			Layer.mergeAll(
-				dbRunnerLayer,
+				databaseLayer,
 				Layer.succeed(WorkflowEngine, engine),
 				Layer.succeed(WorkflowInstance, instance),
 				Layer.succeed(SandboxHostImplementations, httpImplementations),
@@ -572,7 +572,7 @@ it.effect("does not swallow coordination interruption", () => {
 	const layer = SandboxDurableHostDispatcherLive.pipe(
 		Layer.provide(
 			Layer.mergeAll(
-				dbRunnerLayer,
+				databaseLayer,
 				Layer.succeed(WorkflowEngine, engine),
 				Layer.succeed(WorkflowInstance, instance),
 				Layer.succeed(SandboxHostImplementations, implementations),

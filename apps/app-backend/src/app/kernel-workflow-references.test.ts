@@ -11,7 +11,7 @@ import {
 import { Effect, Layer } from "effect";
 import { WorkflowEngine } from "effect/unstable/workflow/WorkflowEngine";
 
-import { dbRunnerLayer, makeWorkflowEngine } from "#lib/test-utils/effect";
+import { databaseLayer, makeWorkflowEngine } from "#lib/test-utils/effect";
 import { ImportsRepository } from "#modules/imports/repository";
 import { IntegrationsRepository } from "#modules/integrations/repository";
 import { PluginRuntimeResolver } from "#modules/plugins/runtime-resolver";
@@ -37,7 +37,7 @@ const unownedRepositories = Layer.mergeAll(
 const referencesLayer = (repositories: Layer.Layer<ImportsRepository | IntegrationsRepository>) =>
 	Layer.provide(
 		KernelWorkflowReferencesLive,
-		Layer.mergeAll(dbRunnerLayer, repositories, Layer.mock(PluginRuntimeResolver)({})),
+		Layer.mergeAll(databaseLayer, repositories, Layer.mock(PluginRuntimeResolver)({})),
 	);
 
 const populationReferencesLayer = (
@@ -46,7 +46,7 @@ const populationReferencesLayer = (
 	Layer.provide(
 		KernelWorkflowReferencesLive,
 		Layer.mergeAll(
-			dbRunnerLayer,
+			databaseLayer,
 			unownedRepositories,
 			Layer.mock(PluginRuntimeResolver)({
 				findActiveScriptById: () =>
@@ -151,7 +151,7 @@ it.effect("resolves plugin provider slugs before dispatching entity imports", ()
 	const layer = Layer.provide(
 		KernelWorkflowReferencesLive,
 		Layer.mergeAll(
-			dbRunnerLayer,
+			databaseLayer,
 			unownedRepositories,
 			Layer.mock(PluginRuntimeResolver)({
 				findSchemaProviderBySlug: () =>

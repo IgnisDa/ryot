@@ -2,7 +2,7 @@ import { describe, expect, it } from "@effect/vitest";
 import { Effect, Layer } from "effect";
 import { WorkflowEngine } from "effect/unstable/workflow/WorkflowEngine";
 
-import { dbRunnerLayer, makeWorkflowEngine, transactionLayer } from "#lib/test-utils/effect";
+import { databaseLayer, makeWorkflowEngine } from "#lib/test-utils/effect";
 import { ImportsService } from "#modules/imports/service";
 import {
 	IntegrationProviderCatalog,
@@ -97,10 +97,9 @@ describe("update", () => {
 			resolveOwned: () => ({ provider: registered, script: Effect.succeed(null) }),
 		});
 		const layer = IntegrationsService.layer.pipe(
-			Layer.provide(
+			Layer.provideMerge(
 				Layer.mergeAll(
-					dbRunnerLayer,
-					transactionLayer,
+					databaseLayer,
 					repository,
 					providerCatalog,
 					Layer.mock(ImportsService, {}),
@@ -157,10 +156,9 @@ describe("update", () => {
 			list: () => [replacement],
 		});
 		const layer = IntegrationsService.layer.pipe(
-			Layer.provide(
+			Layer.provideMerge(
 				Layer.mergeAll(
-					dbRunnerLayer,
-					transactionLayer,
+					databaseLayer,
 					repository,
 					providerCatalog,
 					Layer.mock(ImportsService, {}),

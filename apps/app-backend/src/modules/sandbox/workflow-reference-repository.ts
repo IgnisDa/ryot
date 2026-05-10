@@ -4,7 +4,7 @@ import { Context, Effect, Layer, Schema } from "effect";
 
 import { PLUGIN_INGESTION_ADVISORY_LOCK_KEY } from "#lib/infrastructure/db/advisory-locks";
 import * as schema from "#lib/infrastructure/db/schema/tables/combined";
-import { CurrentDb, dbEffect } from "#lib/infrastructure/db/service";
+import { Database, mapDatabaseErrors } from "#lib/infrastructure/db/service";
 
 type WorkflowReferenceRow = typeof schema.sandboxWorkflowReference.$inferSelect;
 
@@ -25,6 +25,7 @@ const toReference = (row: WorkflowReferenceRow): SandboxWorkflowReference => ({
 	scriptId: SandboxScriptId.make(row.scriptId),
 });
 
+/** @effect-expect-leaking Database */
 export class SandboxWorkflowReferenceRepository extends Context.Service<SandboxWorkflowReferenceRepository>()(
 	"SandboxWorkflowReferenceRepository",
 	{
@@ -32,8 +33,8 @@ export class SandboxWorkflowReferenceRepository extends Context.Service<SandboxW
 			const lockIngestionShared = Effect.fn(
 				"SandboxWorkflowReferenceRepository.lockIngestionShared",
 			)(function* () {
-				const db = yield* CurrentDb;
-				yield* dbEffect(() =>
+				const db = yield* Database;
+				yield* mapDatabaseErrors(
 					db.execute(
 						sql`select pg_advisory_xact_lock_shared(hashtext(${PLUGIN_INGESTION_ADVISORY_LOCK_KEY}))`,
 					),
@@ -48,8 +49,8 @@ export class SandboxWorkflowReferenceRepository extends Context.Service<SandboxW
 				contentHash: string;
 				scriptId: SandboxScriptId;
 			}) {
-				const db = yield* CurrentDb;
-				const [plugin] = yield* dbEffect(() =>
+				const db = yield* Database;
+				const [plugin] = yield* mapDatabaseErrors(
 					db
 						.select({ slug: schema.plugin.slug })
 						.from(schema.plugin)
@@ -64,7 +65,7 @@ export class SandboxWorkflowReferenceRepository extends Context.Service<SandboxW
 						message: `Plugin '${input.pluginSlug}' is not active`,
 					});
 				}
-				const inserted = yield* dbEffect(() =>
+				const inserted = yield* mapDatabaseErrors(
 					db
 						.insert(schema.sandboxWorkflowReference)
 						.values(input)
@@ -74,7 +75,7 @@ export class SandboxWorkflowReferenceRepository extends Context.Service<SandboxW
 				if (inserted.length > 0) {
 					return { status: "registered" } as const;
 				}
-				const [existing] = yield* dbEffect(() =>
+				const [existing] = yield* mapDatabaseErrors(
 					db
 						.select()
 						.from(schema.sandboxWorkflowReference)
@@ -97,8 +98,8 @@ export class SandboxWorkflowReferenceRepository extends Context.Service<SandboxW
 			const release = Effect.fn("SandboxWorkflowReferenceRepository.release")(function* (
 				executionId: string,
 			) {
-				const db = yield* CurrentDb;
-				yield* dbEffect(() =>
+				const db = yield* Database;
+				yield* mapDatabaseErrors(
 					db
 						.delete(schema.sandboxWorkflowReference)
 						.where(eq(schema.sandboxWorkflowReference.executionId, executionId)),
@@ -107,8 +108,8 @@ export class SandboxWorkflowReferenceRepository extends Context.Service<SandboxW
 
 			const hasReferences = Effect.fn("SandboxWorkflowReferenceRepository.hasReferences")(
 				function* (pluginSlug: string) {
-					const db = yield* CurrentDb;
-					const [row] = yield* dbEffect(() =>
+					const db = yield* Database;
+					const [row] = yield* mapDatabaseErrors(
 						db
 							.select({ executionId: schema.sandboxWorkflowReference.executionId })
 							.from(schema.sandboxWorkflowReference)
@@ -121,9 +122,9 @@ export class SandboxWorkflowReferenceRepository extends Context.Service<SandboxW
 
 			const listReferences = Effect.fn("SandboxWorkflowReferenceRepository.listReferences")(
 				function* (pluginSlug?: string) {
-					const db = yield* CurrentDb;
+					const db = yield* Database;
 					const query = db.select().from(schema.sandboxWorkflowReference);
-					const rows = yield* dbEffect(() =>
+					const rows = yield* mapDatabaseErrors(
 						pluginSlug
 							? query.where(eq(schema.sandboxWorkflowReference.pluginSlug, pluginSlug))
 							: query,

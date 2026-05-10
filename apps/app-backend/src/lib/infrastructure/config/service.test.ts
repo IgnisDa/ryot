@@ -72,23 +72,23 @@ describe("system log level config", () => {
 	});
 });
 
-describe("validateSystemConfig workflow-pool capacity", () => {
-	it("passes with default workflow pool capacity", () => {
+describe("validateSystemConfig shared application/workflow pool capacity", () => {
+	it("passes with default shared application/workflow pool capacity", () => {
 		expect(Exit.isSuccess(validate())).toBe(true);
 	});
 
-	it("fails when workflow pool cannot support fixed sandbox worker capacity", () => {
-		const result = validate({ database: { workflowPoolMax: 5 } });
+	it("fails when shared application/workflow pool cannot support fixed sandbox worker capacity", () => {
+		const result = validate({ database: { poolMax: 5 } });
 		expect(Exit.isFailure(result)).toBe(true);
 		if (Exit.isFailure(result)) {
 			const message = JSON.stringify(result.cause);
 			expect(message).toContain("SANDBOX_LIMITS.workerConcurrency");
-			expect(message).toContain("DATABASE_WORKFLOW_POOL_MAX");
+			expect(message).toContain("DATABASE_POOL_MAX");
 		}
 	});
 
-	it("passes when workflow pool matches fixed sandbox worker capacity", () => {
-		const result = validate({ database: { workflowPoolMax: 6 } });
+	it("passes when shared application/workflow pool matches fixed sandbox worker capacity", () => {
+		const result = validate({ database: { poolMax: 6 } });
 		expect(Exit.isSuccess(result)).toBe(true);
 	});
 });

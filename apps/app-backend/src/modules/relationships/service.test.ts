@@ -9,10 +9,9 @@ import {
 } from "@ryot/contract/schema/brands";
 import { Cause, Effect, Exit, Layer } from "effect";
 
-import { CurrentDb, TransactionRunner } from "#lib/infrastructure/db/service";
+import { Database } from "#lib/infrastructure/db/service";
 import { assertExitFails } from "#lib/test-utils/assertions";
 import type { MockOverrides } from "#lib/test-utils/effect";
-import { dbRunnerLayer } from "#lib/test-utils/effect";
 import { DefinitionRegistry, makeDefinitionRegistry } from "#modules/definition-registry/service";
 import { EntitiesRepository } from "#modules/entities/repository";
 
@@ -53,8 +52,7 @@ const makeRelationshipsRepository = (
 
 const makeServiceLayer = (
 	overrides: Parameters<typeof makeRelationshipsRepository>[0] = {},
-	runInTransaction: TransactionRunner["Service"] = <A, E, R>(effect: Effect.Effect<A, E, R>) =>
-		Effect.provideService(effect, CurrentDb, Object.create(null)),
+	transaction: Database["Service"]["transaction"] = (callback) => callback(Object.create(null)),
 	getEntityScopeForUser: GetEntityScopeForUser = ({ entityId }) =>
 		Effect.succeed({
 			entityId,
@@ -67,12 +65,11 @@ const makeServiceLayer = (
 	Layer.provideMerge(
 		RelationshipsService.layer,
 		Layer.mergeAll(
-			dbRunnerLayer,
+			Layer.succeed(Database, Database.of(Object.assign(Object.create(null), { transaction }))),
 			makeRelationshipsRepository(overrides),
 			Layer.mock(EntitiesRepository)({
 				getEntityScopeForUser,
 			}),
-			Layer.succeed(TransactionRunner, runInTransaction),
 			Layer.succeed(DefinitionRegistry, {
 				...makeDefinitionRegistry(),
 				getRelationshipSchema: () => ({
@@ -252,18 +249,18 @@ it.effect("atomically ensures and deletes generic user relationship batches", ()
 		{
 			createRelationship: (input) =>
 				Effect.gen(function* () {
-					transactionDatabases.push(yield* CurrentDb);
+					transactionDatabases.push(yield* Database);
 					created.push(input);
 					return { ...relationship, ...input };
 				}),
 			deleteRelationship: (input) =>
 				Effect.gen(function* () {
-					transactionDatabases.push(yield* CurrentDb);
+					transactionDatabases.push(yield* Database);
 					deleted.push(input);
 					return { ...relationship, ...input };
 				}),
 		},
-		(effect) => Effect.provideService(effect, CurrentDb, Object.create(null)),
+		(callback) => callback(Object.create(null)),
 	);
 
 	return Effect.gen(function* () {
@@ -324,16 +321,16 @@ it.effect("treats existing creates and missing deletes as successful no-ops", ()
 		{
 			createRelationship: () =>
 				Effect.gen(function* () {
-					transactionDatabases.push(yield* CurrentDb);
+					transactionDatabases.push(yield* Database);
 					return { ...relationship, wasInserted: false };
 				}),
 			deleteRelationship: () =>
 				Effect.gen(function* () {
-					transactionDatabases.push(yield* CurrentDb);
+					transactionDatabases.push(yield* Database);
 					return null;
 				}),
 		},
-		(effect) => Effect.provideService(effect, CurrentDb, Object.create(null)),
+		(callback) => callback(Object.create(null)),
 	);
 
 	return Effect.gen(function* () {

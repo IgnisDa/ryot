@@ -13,7 +13,7 @@ import type { ImportRunId, IntegrationId, UserId } from "@ryot/contract/schema/b
 import { Context, Effect, Result, Layer, Schema } from "effect";
 import { WorkflowEngine } from "effect/unstable/workflow/WorkflowEngine";
 
-import { DbRunner, TransactionRunner } from "#lib/infrastructure/db/service";
+import { Database, mapDatabaseErrors } from "#lib/infrastructure/db/service";
 import {
 	formatPropertyIssues,
 	parseAppSchemaProperties,
@@ -86,11 +86,10 @@ export class IntegrationsService extends Context.Service<IntegrationsService>()(
 	"IntegrationsService",
 	{
 		make: Effect.gen(function* () {
-			const runWithDb = yield* DbRunner;
 			const engine = yield* WorkflowEngine;
+			const database = yield* Database;
 			const importsService = yield* ImportsService;
 			const repository = yield* IntegrationsRepository;
-			const runInTransaction = yield* TransactionRunner;
 			const providerCatalog = yield* IntegrationProviderCatalog;
 
 			const failCreatedRun = (runId: ImportRunId, message: string) =>
@@ -100,7 +99,7 @@ export class IntegrationsService extends Context.Service<IntegrationsService>()(
 				userId: UserId,
 				integrationId: IntegrationId,
 			) {
-				const integration = yield* runWithDb(repository.getForUser({ userId, integrationId }));
+				const integration = yield* repository.getForUser({ userId, integrationId });
 				if (!integration) {
 					return yield* notFound("Integration not found");
 				}
@@ -128,21 +127,19 @@ export class IntegrationsService extends Context.Service<IntegrationsService>()(
 					return yield* badRequest(thresholdError);
 				}
 
-				const created = yield* runWithDb(
-					repository.createForUser({
-						userId: user.id,
-						name: body.name ?? null,
-						provider: body.provider,
-						pluginSlug: registered.pluginSlug,
-						isDisabled: body.isDisabled ?? false,
-						providerSpecifics: body.providerSpecifics,
-						syncOwnership: body.syncOwnership ?? false,
-						minimumProgress: String(minimumProgress),
-						maximumProgress: String(maximumProgress),
-						extraSettings: body.extraSettings ?? defaultExtraSettings,
-						lot,
-					}),
-				);
+				const created = yield* repository.createForUser({
+					userId: user.id,
+					name: body.name ?? null,
+					provider: body.provider,
+					pluginSlug: registered.pluginSlug,
+					isDisabled: body.isDisabled ?? false,
+					providerSpecifics: body.providerSpecifics,
+					syncOwnership: body.syncOwnership ?? false,
+					minimumProgress: String(minimumProgress),
+					maximumProgress: String(maximumProgress),
+					extraSettings: body.extraSettings ?? defaultExtraSettings,
+					lot,
+				});
 
 				return { id: created.id };
 			});
@@ -174,22 +171,20 @@ export class IntegrationsService extends Context.Service<IntegrationsService>()(
 					}
 				}
 
-				const updated = yield* runWithDb(
-					repository.updateForUser({
-						userId,
-						integrationId,
-						name: body.name,
-						providerSpecifics,
-						isDisabled: body.isDisabled,
-						extraSettings: body.extraSettings,
-						syncOwnership: body.syncOwnership,
-						lastFinishedAt: body.lastFinishedAt,
-						minimumProgress:
-							body.minimumProgress !== undefined ? String(body.minimumProgress) : undefined,
-						maximumProgress:
-							body.maximumProgress !== undefined ? String(body.maximumProgress) : undefined,
-					}),
-				);
+				const updated = yield* repository.updateForUser({
+					userId,
+					integrationId,
+					name: body.name,
+					providerSpecifics,
+					isDisabled: body.isDisabled,
+					extraSettings: body.extraSettings,
+					syncOwnership: body.syncOwnership,
+					lastFinishedAt: body.lastFinishedAt,
+					minimumProgress:
+						body.minimumProgress !== undefined ? String(body.minimumProgress) : undefined,
+					maximumProgress:
+						body.maximumProgress !== undefined ? String(body.maximumProgress) : undefined,
+				});
 
 				if (!updated) {
 					return yield* notFound("Integration not found");
@@ -203,18 +198,23 @@ export class IntegrationsService extends Context.Service<IntegrationsService>()(
 				integrationId: IntegrationId,
 				importRunId: ImportRunId,
 			) {
-				return yield* runInTransaction(
-					Effect.gen(function* () {
-						if (yield* repository.hasAutoDisableClaim(importRunId)) {
+				return yield* mapDatabaseErrors(
+					database.transaction((transaction) =>
+						Effect.gen(function* () {
+							if (yield* repository.hasAutoDisableClaim(importRunId)) {
+								return true;
+							}
+							const disabled = yield* repository.disableForUserIfEnabled({
+								userId,
+								integrationId,
+							});
+							if (!disabled) {
+								return yield* repository.hasAutoDisableClaim(importRunId);
+							}
+							yield* repository.insertAutoDisableClaim({ importRunId, integrationId });
 							return true;
-						}
-						const disabled = yield* repository.disableForUserIfEnabled({ userId, integrationId });
-						if (!disabled) {
-							return yield* repository.hasAutoDisableClaim(importRunId);
-						}
-						yield* repository.insertAutoDisableClaim({ importRunId, integrationId });
-						return true;
-					}),
+						}).pipe(Effect.provideService(Database, transaction)),
+					),
 				);
 			});
 
@@ -223,7 +223,7 @@ export class IntegrationsService extends Context.Service<IntegrationsService>()(
 				integrationId: IntegrationId,
 			) {
 				yield* requireIntegration(user.id, integrationId);
-				yield* runWithDb(repository.deleteForUser({ userId: user.id, integrationId }));
+				yield* repository.deleteForUser({ userId: user.id, integrationId });
 				return { id: integrationId };
 			});
 
@@ -232,7 +232,7 @@ export class IntegrationsService extends Context.Service<IntegrationsService>()(
 				integrationId: IntegrationId;
 			}) {
 				const { integrationId, payload } = input;
-				const integration = yield* runWithDb(repository.getByIdAnyUser({ integrationId }));
+				const integration = yield* repository.getByIdAnyUser({ integrationId });
 				if (!integration) {
 					return yield* notFound("Integration not found");
 				}
@@ -254,9 +254,9 @@ export class IntegrationsService extends Context.Service<IntegrationsService>()(
 					return { runId: run.id };
 				}
 
-				const disableIntegrations = yield* runWithDb(
-					repository.getUserDisableIntegrations({ userId: integration.userId }),
-				);
+				const disableIntegrations = yield* repository.getUserDisableIntegrations({
+					userId: integration.userId,
+				});
 				if (disableIntegrations) {
 					yield* failCreatedRun(run.id, "Integrations are disabled for this user");
 					return { runId: run.id };
@@ -288,13 +288,13 @@ export class IntegrationsService extends Context.Service<IntegrationsService>()(
 
 			const prepareScheduledYankRuns = Effect.fn("IntegrationsService.prepareScheduledYankRuns")(
 				function* () {
-					const integrations = yield* runWithDb(repository.listEnabledYankIntegrations());
+					const integrations = yield* repository.listEnabledYankIntegrations();
 					const runs: IntegrationReconciliationRun[] = [];
 
 					for (const integration of integrations) {
-						const disableIntegrations = yield* runWithDb(
-							repository.getUserDisableIntegrations({ userId: integration.userId }),
-						);
+						const disableIntegrations = yield* repository.getUserDisableIntegrations({
+							userId: integration.userId,
+						});
 						if (disableIntegrations) {
 							continue;
 						}

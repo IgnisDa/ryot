@@ -14,7 +14,6 @@ import { Context, Effect, Option, Schema } from "effect";
 import { Workflow } from "effect/unstable/workflow";
 import type { WorkflowEngine, WorkflowInstance } from "effect/unstable/workflow/WorkflowEngine";
 
-import { DbRunner } from "#lib/infrastructure/db/service";
 import { bindSandboxHostFunctions } from "#lib/infrastructure/sandbox-runtime/bridge-adapter";
 import { SandboxHostImplementations } from "#lib/infrastructure/sandbox-runtime/host-implementations";
 
@@ -94,11 +93,10 @@ const loadDispatchInput = Effect.fn("loadSandboxDurableHostDispatchInput")(funct
 	executionId: string,
 	startedAt: string,
 ) {
-	const runWithDb = yield* DbRunner;
 	const repository = yield* SandboxRepository;
-	const script = yield* runWithDb(repository.getScript(payload.scriptId)).pipe(
-		Effect.mapError((error) => new SandboxRunError({ message: unknownToMessage(error) })),
-	);
+	const script = yield* repository
+		.getScript(payload.scriptId)
+		.pipe(Effect.mapError((error) => new SandboxRunError({ message: unknownToMessage(error) })));
 	if (!script) {
 		return yield* new SandboxRunError({ message: "Sandbox durable host script not found" });
 	}

@@ -4,7 +4,7 @@ import { and, eq } from "drizzle-orm";
 import { Context, Effect, Layer } from "effect";
 
 import * as schema from "#lib/infrastructure/db/schema/tables/combined";
-import { CurrentDb, dbEffect } from "#lib/infrastructure/db/service";
+import { Database, mapDatabaseErrors } from "#lib/infrastructure/db/service";
 
 const storedScriptSelection = {
 	id: schema.sandboxScript.id,
@@ -34,13 +34,14 @@ export const isWorkflowCallTargetKind = (
 	((request.kind === "child" || request.kind === "workflow-child") && kind === "workflow") ||
 	(request.kind === "activity" && kind === "script");
 
+/** @effect-expect-leaking Database */
 export class SandboxRepository extends Context.Service<SandboxRepository>()("SandboxRepository", {
 	make: Effect.sync(() => {
 		const getScript = Effect.fn("SandboxRepository.getScript")(function* (
 			scriptId: SandboxScriptId,
 		) {
-			const db = yield* CurrentDb;
-			const [row] = yield* dbEffect(() =>
+			const db = yield* Database;
+			const [row] = yield* mapDatabaseErrors(
 				db
 					.select({
 						id: schema.sandboxScript.id,
@@ -64,8 +65,8 @@ export class SandboxRepository extends Context.Service<SandboxRepository>()("San
 		const isPluginScript = Effect.fn("SandboxRepository.isPluginScript")(function* (
 			scriptId: SandboxScriptId,
 		) {
-			const db = yield* CurrentDb;
-			const [row] = yield* dbEffect(() =>
+			const db = yield* Database;
+			const [row] = yield* mapDatabaseErrors(
 				db
 					.select({ pluginSlug: schema.sandboxScript.pluginSlug })
 					.from(schema.sandboxScript)
@@ -78,8 +79,8 @@ export class SandboxRepository extends Context.Service<SandboxRepository>()("San
 		const getScriptPin = Effect.fn("SandboxRepository.getScriptPin")(function* (
 			scriptId: SandboxScriptId,
 		) {
-			const db = yield* CurrentDb;
-			const [row] = yield* dbEffect(() =>
+			const db = yield* Database;
+			const [row] = yield* mapDatabaseErrors(
 				db
 					.select({
 						id: schema.sandboxScript.id,
@@ -110,8 +111,8 @@ export class SandboxRepository extends Context.Service<SandboxRepository>()("San
 				) {
 					return null;
 				}
-				const db = yield* CurrentDb;
-				const [owner] = yield* dbEffect(() =>
+				const db = yield* Database;
+				const [owner] = yield* mapDatabaseErrors(
 					db
 						.select({ pluginSlug: schema.sandboxScript.pluginSlug })
 						.from(schema.sandboxScript)
@@ -122,7 +123,7 @@ export class SandboxRepository extends Context.Service<SandboxRepository>()("San
 					return null;
 				}
 				const ownerPluginSlug = owner.pluginSlug;
-				const [plugin] = yield* dbEffect(() =>
+				const [plugin] = yield* mapDatabaseErrors(
 					db
 						.select({
 							manifest: schema.plugin.manifest,
@@ -147,7 +148,7 @@ export class SandboxRepository extends Context.Service<SandboxRepository>()("San
 				if (!contentHash) {
 					return null;
 				}
-				const [target] = yield* dbEffect(() =>
+				const [target] = yield* mapDatabaseErrors(
 					db
 						.select({ id: schema.sandboxScript.id, metadata: schema.sandboxScript.metadata })
 						.from(schema.sandboxScript)
@@ -170,8 +171,8 @@ export class SandboxRepository extends Context.Service<SandboxRepository>()("San
 		const getStoredScript = Effect.fn("SandboxRepository.getStoredScript")(function* (
 			scriptId: SandboxScriptId,
 		) {
-			const db = yield* CurrentDb;
-			const [row] = yield* dbEffect(() =>
+			const db = yield* Database;
+			const [row] = yield* mapDatabaseErrors(
 				db
 					.select(storedScriptSelection)
 					.from(schema.sandboxScript)
@@ -182,8 +183,8 @@ export class SandboxRepository extends Context.Service<SandboxRepository>()("San
 		});
 
 		const listStoredScripts = Effect.fn("SandboxRepository.listStoredScripts")(function* () {
-			const db = yield* CurrentDb;
-			const rows = yield* dbEffect(() =>
+			const db = yield* Database;
+			const rows = yield* mapDatabaseErrors(
 				db.select(storedScriptSelection).from(schema.sandboxScript),
 			);
 			return rows.map(toStoredScript);

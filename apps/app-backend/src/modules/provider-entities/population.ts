@@ -8,7 +8,6 @@ import {
 import type { ProviderDetailsChildEntity } from "@ryot/sandbox-sdk/provider";
 import { DateTime, Effect, Schema } from "effect";
 
-import { DbRunner } from "#lib/infrastructure/db/service";
 import { EntityMutationOutcome } from "#modules/entities/mutation-outcomes";
 import { EntitiesService } from "#modules/entities/service";
 import { EntitySchemasRepository } from "#modules/entity-schemas/repository";
@@ -44,7 +43,6 @@ export const writeChildEntitySet = Effect.fn("writeChildEntitySet")(function* (i
 	childEntities: ReadonlyArray<ProviderDetailsChildEntity>;
 	expectedChildEntitySchemaSlug?: string | undefined;
 }) {
-	const runWithDb = yield* DbRunner;
 	const entities = yield* EntitiesService;
 	const entitySchemasRepository = yield* EntitySchemasRepository;
 	const relationshipSchemasRepository = yield* RelationshipSchemasRepository;
@@ -69,9 +67,9 @@ export const writeChildEntitySet = Effect.fn("writeChildEntitySet")(function* (i
 	}
 	const childEntitySchemaSlug = input.expectedChildEntitySchemaSlug ?? rowChildEntitySchemaSlug;
 	const childEntitySchema = childEntitySchemaSlug
-		? yield* runWithDb(entitySchemasRepository.getBuiltinBySlug(childEntitySchemaSlug)).pipe(
-				mapDbErrorToSandbox,
-			)
+		? yield* entitySchemasRepository
+				.getBuiltinBySlug(childEntitySchemaSlug)
+				.pipe(mapDbErrorToSandbox)
 		: null;
 	if (childEntitySchemaSlug && !childEntitySchema) {
 		return yield* new SandboxRunError({
@@ -85,12 +83,12 @@ export const writeChildEntitySet = Effect.fn("writeChildEntitySet")(function* (i
 		if (!targetEntitySchemaSlug) {
 			return null;
 		}
-		const relationshipSchema = yield* runWithDb(
-			relationshipSchemasRepository.findGlobalBySchemaIds({
+		const relationshipSchema = yield* relationshipSchemasRepository
+			.findGlobalBySchemaIds({
 				sourceEntitySchemaSlug: input.parentEntitySchemaSlug,
 				targetEntitySchemaSlug,
-			}),
-		).pipe(mapDbErrorToSandbox);
+			})
+			.pipe(mapDbErrorToSandbox);
 		if (!relationshipSchema) {
 			return yield* new SandboxRunError({
 				message: `Child relationship schema not found: ${input.parentEntitySchemaSlug} -> ${targetEntitySchemaSlug}`,

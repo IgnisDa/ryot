@@ -7,7 +7,6 @@ import { Context, Effect, Layer, Option, Redacted } from "effect";
 import { WorkflowEngine } from "effect/unstable/workflow/WorkflowEngine";
 
 import { AppConfig } from "#lib/infrastructure/config/service";
-import { DbRunner } from "#lib/infrastructure/db/service";
 import { createWorkflowJobId, resolveWorkflowExecutionId } from "#lib/shared/job-id";
 import { trimToNull } from "#lib/shared/validation";
 import { EntitiesRepository } from "#modules/entities/repository";
@@ -24,7 +23,6 @@ export class EntityImportService extends Context.Service<EntityImportService>()(
 	{
 		make: Effect.gen(function* () {
 			const config = yield* AppConfig;
-			const runWithDb = yield* DbRunner;
 			const engine = yield* WorkflowEngine;
 			const repository = yield* EntitiesRepository;
 			const pluginRuntime = yield* PluginRuntimeResolver;
@@ -42,15 +40,16 @@ export class EntityImportService extends Context.Service<EntityImportService>()(
 				}
 
 				const providerId = SandboxProviderId.make(trimmedProviderId);
-				const provider = yield* runWithDb(pluginRuntime.findActiveProviderById(providerId));
+				const provider = yield* pluginRuntime.findActiveProviderById(providerId);
 				if (!provider) {
 					return yield* notFound("Provider not found");
 				}
 				const entitySchemaSlug = EntitySchemaSlug.make(provider.rootEntitySchemaSlug);
 
-				const entitySchemaScope = yield* runWithDb(
-					repository.getEntitySchemaScopeForUser({ userId: user.id, entitySchemaSlug }),
-				);
+				const entitySchemaScope = yield* repository.getEntitySchemaScopeForUser({
+					userId: user.id,
+					entitySchemaSlug,
+				});
 				if (!entitySchemaScope) {
 					return yield* notFound(entitySchemaNotFoundError);
 				}

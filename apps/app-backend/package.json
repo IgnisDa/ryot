@@ -34,7 +34,7 @@
 		"@ryot/transactional": "workspace:*",
 		"@ryot/ts-utils": "workspace:*",
 		"better-auth": "1.7.0-rc.6",
-		"drizzle-orm": "1.0.0-rc.4",
+		"drizzle-orm": "1.0.0-rc.5-169397b",
 		"effect": "4.0.0-beta.107",
 		"ioredis": "5.11.1",
 		"nodemailer": "8.0.10",
@@ -50,7 +50,7 @@
 		"@types/nodemailer": "8.0.0",
 		"@types/pg": "8.20.0",
 		"bun-types": "1.3.14",
-		"drizzle-kit": "1.0.0-rc.4",
+		"drizzle-kit": "1.0.0-rc.5-ab785fc",
 		"vitest": "4.1.9"
 	}
 }

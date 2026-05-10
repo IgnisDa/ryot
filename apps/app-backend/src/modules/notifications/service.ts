@@ -8,8 +8,6 @@ import type { NotificationChannelId, UserId } from "@ryot/contract/schema/brands
 import { Context, Effect, Layer } from "effect";
 import { WorkflowEngine } from "effect/unstable/workflow/WorkflowEngine";
 
-import { DbRunner } from "#lib/infrastructure/db/service";
-
 import { enqueueNotificationDelivery } from "./notification-delivery-workflow";
 import { NotificationsRepository } from "./repository";
 
@@ -17,7 +15,6 @@ export class NotificationsService extends Context.Service<NotificationsService>(
 	"NotificationsService",
 	{
 		make: Effect.gen(function* () {
-			const runWithDb = yield* DbRunner;
 			const engine = yield* WorkflowEngine;
 			const repository = yield* NotificationsRepository;
 
@@ -32,14 +29,12 @@ export class NotificationsService extends Context.Service<NotificationsService>(
 					return yield* badRequest("channel must match channelSpecifics.kind");
 				}
 
-				const channel = yield* runWithDb(
-					repository.createForUser({
-						userId: user.id,
-						channel: body.channel,
-						isDisabled: body.isDisabled ?? false,
-						channelSpecifics: body.channelSpecifics,
-					}),
-				);
+				const channel = yield* repository.createForUser({
+					userId: user.id,
+					channel: body.channel,
+					isDisabled: body.isDisabled ?? false,
+					channelSpecifics: body.channelSpecifics,
+				});
 				return { id: channel.id };
 			});
 
@@ -48,9 +43,7 @@ export class NotificationsService extends Context.Service<NotificationsService>(
 				channelId: NotificationChannelId,
 				body: UpdateNotificationChannelBody,
 			) {
-				const channel = yield* runWithDb(
-					repository.updateForUser({ body, channelId, userId: user.id }),
-				);
+				const channel = yield* repository.updateForUser({ body, channelId, userId: user.id });
 				if (!channel) {
 					return yield* notFound("Notification channel not found");
 				}
@@ -61,7 +54,7 @@ export class NotificationsService extends Context.Service<NotificationsService>(
 				user: CurrentUserValue,
 				channelId: NotificationChannelId,
 			) {
-				const deleted = yield* runWithDb(repository.deleteForUser({ channelId, userId: user.id }));
+				const deleted = yield* repository.deleteForUser({ channelId, userId: user.id });
 				if (!deleted) {
 					return yield* notFound("Notification channel not found");
 				}
