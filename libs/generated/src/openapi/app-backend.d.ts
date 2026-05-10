@@ -4218,12 +4218,12 @@ export interface paths {
                         };
                         /** @enum {string} */
                         mode: "events";
+                        eventSchemas: string[];
                         /** @default [] */
                         fields?: {
                             expression: components["schemas"]["ViewExpression"];
                             key: string;
                         }[];
-                        eventSchemas?: string[];
                     } | {
                         scope: string[];
                         computedFields?: components["schemas"]["ViewComputedField"][];
@@ -4294,9 +4294,9 @@ export interface paths {
                             type: "sum";
                             expression: components["schemas"]["ViewExpression"];
                         };
+                        eventSchemas: string[];
                         /** @enum {string} */
                         mode: "timeSeries";
-                        eventSchemas?: string[];
                         /** @enum {string} */
                         bucket: "day" | "hour" | "month" | "week";
                         dateRange: {
@@ -4319,15 +4319,6 @@ export interface paths {
                             /** @enum {string} */
                             mode: "entities";
                             data: {
-                                items: {
-                                    [key: string]: {
-                                        value: string | number | boolean | unknown[] | {
-                                            [key: string]: unknown;
-                                        } | unknown;
-                                        /** @enum {string} */
-                                        kind: "json" | "null" | "date" | "text" | "image" | "number" | "boolean";
-                                    };
-                                }[];
                                 meta: {
                                     pagination: {
                                         page: number;
@@ -4339,6 +4330,15 @@ export interface paths {
                                     };
                                     fieldOrder: string[];
                                 };
+                                items: {
+                                    [key: string]: {
+                                        value: string | number | boolean | unknown[] | {
+                                            [key: string]: unknown;
+                                        } | unknown;
+                                        /** @enum {string} */
+                                        kind: "json" | "null" | "date" | "text" | "image" | "number" | "boolean";
+                                    };
+                                }[];
                             };
                         } | {
                             /** @enum {string} */
@@ -4367,15 +4367,6 @@ export interface paths {
                             /** @enum {string} */
                             mode: "events";
                             data: {
-                                items: {
-                                    [key: string]: {
-                                        value: string | number | boolean | unknown[] | {
-                                            [key: string]: unknown;
-                                        } | unknown;
-                                        /** @enum {string} */
-                                        kind: "json" | "null" | "date" | "text" | "image" | "number" | "boolean";
-                                    };
-                                }[];
                                 meta: {
                                     pagination: {
                                         page: number;
@@ -4387,6 +4378,15 @@ export interface paths {
                                     };
                                     fieldOrder: string[];
                                 };
+                                items: {
+                                    [key: string]: {
+                                        value: string | number | boolean | unknown[] | {
+                                            [key: string]: unknown;
+                                        } | unknown;
+                                        /** @enum {string} */
+                                        kind: "json" | "null" | "date" | "text" | "image" | "number" | "boolean";
+                                    };
+                                }[];
                             };
                         } | {
                             /** @enum {string} */

@@ -127,13 +127,6 @@ export const appendRequiredJoinFilterClause = (
 	return requiredJoinClause ? sql`${filterClause} and ${requiredJoinClause}` : filterClause;
 };
 
-export const resolveRequestedEventSchemaSlugs = (
-	requested: string[] | undefined,
-	available: ReadonlySet<string>,
-) => {
-	return requested?.length ? requested : [...available];
-};
-
 export const buildSortDirection = (
 	direction: EntityQueryEngineRequest["sort"]["direction"],
 ): SqlExpression => {
