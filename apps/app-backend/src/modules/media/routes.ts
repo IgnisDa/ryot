@@ -107,6 +107,7 @@ const getMediaOverviewRecentActivityRoute = createAuthRoute(
 	}),
 );
 
+// TODO: Delete when app-frontend is removed. app-client does not use this endpoint.
 const getMediaOverviewWeekActivityRoute = createAuthRoute(
 	createRoute({
 		method: "get",
@@ -127,6 +128,7 @@ const getMediaOverviewWeekActivityRoute = createAuthRoute(
 	}),
 );
 
+// TODO: Delete when app-frontend is removed. app-client does not use this endpoint.
 const getMediaOverviewLibraryRoute = createAuthRoute(
 	createRoute({
 		method: "get",
@@ -196,6 +198,7 @@ export const mediaApi = new OpenAPIHono<{ Variables: AuthType }>()
 		const response = createSuccessResult(result.data);
 		return c.json(response.body, response.status);
 	})
+	// TODO: Delete when app-frontend is removed. app-client does not use this endpoint.
 	.openapi(getMediaOverviewWeekActivityRoute, async (c) => {
 		const user = c.get("user");
 
@@ -208,6 +211,7 @@ export const mediaApi = new OpenAPIHono<{ Variables: AuthType }>()
 		const response = createSuccessResult(result.data);
 		return c.json(response.body, response.status);
 	})
+	// TODO: Delete when app-frontend is removed. app-client does not use this endpoint.
 	.openapi(getMediaOverviewLibraryRoute, async (c) => {
 		const user = c.get("user");
 
