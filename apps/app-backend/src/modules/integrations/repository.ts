@@ -7,7 +7,7 @@ import type {
 import type { IntegrationLot } from "@ryot/contract/modules/integrations/types";
 import type { ImportRunId } from "@ryot/contract/schema/brands";
 import { IntegrationId, UserId } from "@ryot/contract/schema/brands";
-import { and, asc, desc, eq } from "drizzle-orm";
+import { and, asc, desc, eq, sql } from "drizzle-orm";
 import { Context, Effect, Layer } from "effect";
 
 import { AppConfig } from "#lib/infrastructure/config/service";
@@ -16,6 +16,7 @@ import * as schema from "#lib/infrastructure/db/schema/tables/combined";
 import { Database, mapDatabaseErrors } from "#lib/infrastructure/db/service";
 
 type IntegrationRow = typeof schema.integration.$inferSelect;
+type SelectedIntegrationRow = IntegrationRow & { readonly pluginSlug: string };
 
 export type IntegrationRecord = ListedIntegration & {
 	readonly userId: UserId;
@@ -30,7 +31,12 @@ const integrationSelection = {
 	provider: schema.integration.provider,
 	createdAt: schema.integration.createdAt,
 	updatedAt: schema.integration.updatedAt,
-	pluginSlug: schema.integration.pluginSlug,
+	pluginSlug: sql<string>`(
+		select ${schema.plugin.slug}
+		from ${schema.pluginInstallation}
+		inner join ${schema.plugin} on ${schema.plugin.id} = ${schema.pluginInstallation.pluginId}
+		where ${schema.pluginInstallation.id} = ${schema.integration.pluginInstallationId}
+	)`,
 	isDisabled: schema.integration.isDisabled,
 	extraSettings: schema.integration.extraSettings,
 	syncOwnership: schema.integration.syncOwnership,
@@ -41,7 +47,10 @@ const integrationSelection = {
 	pluginInstallationId: schema.integration.pluginInstallationId,
 };
 
-const normalizeIntegration = (frontendUrl: string, row: IntegrationRow): IntegrationRecord => ({
+const normalizeIntegration = (
+	frontendUrl: string,
+	row: SelectedIntegrationRow,
+): IntegrationRecord => ({
 	lot: row.lot,
 	name: row.name,
 	provider: row.provider,
@@ -85,7 +94,6 @@ export class IntegrationsRepository extends Context.Service<IntegrationsReposito
 
 			const createForUser = Effect.fn("IntegrationsRepository.createForUser")(function* (input: {
 				userId: UserId;
-				pluginSlug: string;
 				lot: IntegrationLot;
 				isDisabled: boolean;
 				name?: string | null;
@@ -106,7 +114,6 @@ export class IntegrationsRepository extends Context.Service<IntegrationsReposito
 							userId: input.userId,
 							name: input.name ?? null,
 							provider: input.provider,
-							pluginSlug: input.pluginSlug,
 							isDisabled: input.isDisabled,
 							extraSettings: input.extraSettings,
 							syncOwnership: input.syncOwnership,
@@ -234,7 +241,6 @@ export class IntegrationsRepository extends Context.Service<IntegrationsReposito
 				readonly userId: UserId;
 				readonly createdAt: Date;
 				readonly updatedAt: Date;
-				readonly pluginSlug: string;
 				readonly lot: IntegrationLot;
 				readonly name: string | null;
 				readonly isDisabled: boolean;

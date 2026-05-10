@@ -22,7 +22,7 @@ type PluginManifest = ContractPayload<"plugins", "install">["manifest"];
 type PluginEntitySchema = PluginManifest["entitySchemas"][number];
 
 export const makeEntitySchemaSlug = Brand.nominal<EntitySchemaInputSlug>();
-export type CreateEntitySchemaOptions = Partial<
+type CreateEntitySchemaOptions = Partial<
 	Pick<PluginEntitySchema, "icon" | "name" | "slug" | "propertiesSchema">
 > & {
 	pluginSlug: PluginManifest["metadata"]["slug"];
@@ -118,17 +118,6 @@ export const getEntitySchema = (client: Client, entitySchemaSlug: string) =>
 	Effect.gen(function* () {
 		const schemas = yield* listEntitySchemas(client, { slugs: [entitySchemaSlug] });
 		return requirePresent(schemas[0], `Entity schema '${entitySchemaSlug}' not found`);
-	});
-
-export const findBuiltinEntitySchema = (client: Client) =>
-	Effect.gen(function* () {
-		const { schemas, builtinPlugin } = yield* listBuiltinEntitySchemas(client);
-		const firstSchema = schemas[0];
-
-		return {
-			builtinPlugin,
-			schema: requirePresent(firstSchema, "No built-in entity schema found"),
-		};
 	});
 
 export const findBuiltinSchemaBySlug = (client: Client, slug: string) =>

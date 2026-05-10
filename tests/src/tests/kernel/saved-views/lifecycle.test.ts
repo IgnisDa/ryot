@@ -4,19 +4,32 @@ import {
 	buildUpdatedSavedViewBody,
 	cloneSavedView,
 	createAuthenticatedClient,
-	createSavedView,
 	createPluginScope,
+	createSavedView,
 	deleteSavedView,
 	findBuiltinSavedView,
 	getSavedView,
+	installPrivatePlugin,
 	listSavedViews,
+	PRIVATE_PLUGIN_CONFIG_KEY,
 	reorderSavedViews,
+	type Client,
 	updateSavedView,
 } from "~/fixtures";
 import { assertTaggedError } from "~/support/assertions";
 import { describe, expect, it } from "~/support/effect-test";
 
 const missingViewSlug = "non-existent-view-slug";
+
+const installPluginScope = Effect.fn(function* (client: Client) {
+	const pluginSlug = createPluginScope();
+	yield* installPrivatePlugin({
+		client,
+		pluginSlug,
+		config: { [PRIVATE_PLUGIN_CONFIG_KEY]: "saved-view-scope" },
+	});
+	return pluginSlug;
+});
 
 describe("Saved views lifecycle E2E", () => {
 	it.live("lists built-in and user-created views together", () =>
@@ -305,7 +318,7 @@ describe("Saved views lifecycle E2E", () => {
 		() =>
 			Effect.gen(function* () {
 				const { client } = yield* createAuthenticatedClient();
-				const pluginSlug = createPluginScope();
+				const pluginSlug = yield* installPluginScope(client);
 				const enabledTracked = yield* createSavedView(client, {
 					pluginSlug,
 					name: `Enabled Tracked ${crypto.randomUUID()}`,
@@ -330,7 +343,7 @@ describe("Saved views lifecycle E2E", () => {
 	it.live("reorders saved views only within the requested plugin scope", () =>
 		Effect.gen(function* () {
 			const { client } = yield* createAuthenticatedClient();
-			const pluginSlug = createPluginScope();
+			const pluginSlug = yield* installPluginScope(client);
 			const first = yield* createSavedView(client, {
 				pluginSlug,
 				name: `Tracker View A ${crypto.randomUUID()}`,
@@ -361,7 +374,7 @@ describe("Saved views lifecycle E2E", () => {
 			const { client } = yield* createAuthenticatedClient();
 			const first = yield* createSavedView(client, { name: `Top View A ${crypto.randomUUID()}` });
 			const second = yield* createSavedView(client, { name: `Top View B ${crypto.randomUUID()}` });
-			const pluginSlug = createPluginScope();
+			const pluginSlug = yield* installPluginScope(client);
 			const tracked = yield* createSavedView(client, {
 				pluginSlug,
 				name: `Tracked Scope View ${crypto.randomUUID()}`,
@@ -383,7 +396,7 @@ describe("Saved views lifecycle E2E", () => {
 	it.live("moves a saved view to top-level when pluginSlug is omitted on update", () =>
 		Effect.gen(function* () {
 			const { client } = yield* createAuthenticatedClient();
-			const pluginSlug = createPluginScope();
+			const pluginSlug = yield* installPluginScope(client);
 			const movedView = yield* createSavedView(client, {
 				pluginSlug,
 				name: `Movable View ${crypto.randomUUID()}`,
@@ -407,7 +420,7 @@ describe("Saved views lifecycle E2E", () => {
 	it.live("rejects reorder requests containing saved views from another scope", () =>
 		Effect.gen(function* () {
 			const { client } = yield* createAuthenticatedClient();
-			const pluginSlug = createPluginScope();
+			const pluginSlug = yield* installPluginScope(client);
 			const tracked = yield* createSavedView(client, {
 				pluginSlug,
 				name: `Scoped View ${crypto.randomUUID()}`,

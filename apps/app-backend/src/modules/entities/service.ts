@@ -90,6 +90,7 @@ type EnsuredUserEntity = {
 
 type ValidatedGlobalEntityItem = Omit<UpsertGlobalEntityItem, "properties"> & {
 	properties: Record<string, unknown>;
+	entitySchemaPluginId: string | null;
 };
 
 const toMutationSnapshot = (entity: ListedEntity): EntityMutationSnapshot => ({
@@ -154,6 +155,7 @@ export class EntitiesService extends Context.Service<EntitiesService>()("Entitie
 					externalId: input.externalId,
 					providerId: input.providerId,
 					entitySchemaSlug: input.entitySchemaSlug,
+					entitySchemaPluginId: scope.pluginId ?? null,
 				});
 				if (existing) {
 					return existing;
@@ -375,7 +377,12 @@ export class EntitiesService extends Context.Service<EntitiesService>()("Entitie
 						});
 					}
 					const properties = yield* parseEntityProperties(input.properties, scope.propertiesSchema);
-					return { ...input, name, properties } satisfies ValidatedGlobalEntityItem;
+					return {
+						...input,
+						name,
+						properties,
+						entitySchemaPluginId: scope.pluginId ?? null,
+					} satisfies ValidatedGlobalEntityItem;
 				}),
 			);
 
@@ -405,21 +412,31 @@ export class EntitiesService extends Context.Service<EntitiesService>()("Entitie
 			return yield* mapDatabaseErrors(
 				database.transaction((transaction) =>
 					Effect.gen(function* () {
-						const scopeSlugs = [...new Set(validated.map((item) => item.entitySchemaSlug))].sort();
-						for (const entitySchemaSlug of scopeSlugs) {
+						const scopes = [
+							...new Map(
+								validated.map((item) => [
+									`${item.entitySchemaSlug}:${item.entitySchemaPluginId ?? "kernel"}`,
+									{
+										entitySchemaSlug: item.entitySchemaSlug,
+										entitySchemaPluginId: item.entitySchemaPluginId,
+									},
+								]),
+							).entries(),
+						].sort(([left], [right]) => left.localeCompare(right));
+						for (const [, scope] of scopes) {
 							yield* repository.lockGlobalEntityProvenanceScope({
-								entitySchemaSlug,
+								...scope,
 								providerId,
 							});
 						}
 
-						const counts = new Map<EntitySchemaSlug, number>();
-						for (const entitySchemaSlug of scopeSlugs) {
+						const counts = new Map<string, number>();
+						for (const [key, scope] of scopes) {
 							counts.set(
-								entitySchemaSlug,
+								key,
 								yield* repository.countGlobalEntitiesByProvenanceScope({
+									...scope,
 									providerId,
-									entitySchemaSlug,
 								}),
 							);
 						}
@@ -430,19 +447,21 @@ export class EntitiesService extends Context.Service<EntitiesService>()("Entitie
 									providerId,
 									externalId: input.externalId,
 									entitySchemaSlug: input.entitySchemaSlug,
+									entitySchemaPluginId: input.entitySchemaPluginId,
 								});
 								if (existing) {
 									return { wasInserted: false, entityId: existing.id, status: "upserted" as const };
 								}
 
-								const currentCount = counts.get(input.entitySchemaSlug) ?? 0;
+								const scopeKey = `${input.entitySchemaSlug}:${input.entitySchemaPluginId ?? "kernel"}`;
+								const currentCount = counts.get(scopeKey) ?? 0;
 								if (currentCount >= maximumTotal) {
 									return { status: "skipped" as const };
 								}
 
 								const saved = yield* save(input);
 								if (saved.wasInserted) {
-									counts.set(input.entitySchemaSlug, currentCount + 1);
+									counts.set(scopeKey, currentCount + 1);
 								}
 								return {
 									entityId: saved.entity.id,

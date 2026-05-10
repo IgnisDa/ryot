@@ -2,10 +2,12 @@ import { tmpdir } from "node:os";
 
 import { BunFileSystem } from "@effect/platform-bun";
 import { expect, it } from "@effect/vitest";
+import { BadRequest } from "@ryot/contract/errors";
 import { UserId } from "@ryot/contract/schema/brands";
 import type { AppSchema } from "@ryot/contract/schema/property-schema";
 import { Effect, Layer } from "effect";
 
+import { assertExitFails } from "#lib/test-utils/assertions";
 import { databaseLayer } from "#lib/test-utils/effect";
 import { AuthRepository } from "#modules/auth/repository";
 import { AutomationsRepository } from "#modules/automations/repository";
@@ -27,6 +29,8 @@ import { ManagedAssetsService } from "#modules/uploads/managed-assets/service";
 import {
 	BackupExportSnapshot,
 	collectManagedAssetLocators,
+	definitionForPlugin,
+	requirePluginKey,
 	requireV2NotificationMetadataSchema,
 } from "./snapshot";
 
@@ -89,6 +93,27 @@ it.effect("rejects non-null notification metadata without its signal schema", ()
 	}),
 );
 
+it.effect("resolves archive keys from persisted plugin IDs", () =>
+	Effect.gen(function* () {
+		const keys = new Map([
+			["persisted-plugin", "user:persisted:source-hash"],
+			["current-plugin", "user:current:source-hash"],
+		]);
+		expect(yield* requirePluginKey(keys, "persisted-plugin")).toBe("user:persisted:source-hash");
+		assertExitFails(
+			yield* Effect.exit(requirePluginKey(keys, "unavailable-plugin")),
+			new BadRequest({ message: "Backup references unavailable plugin 'unavailable-plugin'" }),
+		);
+	}),
+);
+
+it("uses current definitions only when their owner matches persisted provenance", () => {
+	const definition = { pluginId: "current-plugin", propertiesSchema: { fields: {} } };
+	expect(definitionForPlugin(definition, "current-plugin")).toBe(definition);
+	expect(definitionForPlugin(definition, "persisted-plugin")).toBeUndefined();
+	expect(definitionForPlugin(undefined, "persisted-plugin")).toBeUndefined();
+});
+
 const userId = UserId.make("user-1");
 
 const installationRow = (input: {
@@ -108,128 +133,103 @@ const installationRow = (input: {
 	updatedAt: new Date("2026-08-24T12:00:00.000Z"),
 });
 
-it.effect("exports active installation state and secret-safe private packages", () => {
-	const eventsPath = `${tmpdir()}/backup-export-installations-${crypto.randomUUID()}.ndjson`;
-	const systemInstallation = installationRow({
-		pluginScope: "system",
-		id: "installation-system",
-		pluginSlug: "system-plugin",
-		pluginId: "system-plugin-id",
-	});
-	const configuredSystemInstallation = {
-		...systemInstallation,
-		config: { locale: "source-only", token: "source-system-secret" },
-	};
-	const unavailableSystemInstallation = installationRow({
-		pluginScope: "system",
-		id: "installation-unavailable",
-		pluginSlug: "unavailable-plugin",
-		pluginId: "unavailable-plugin-id",
-	});
-	const defaultSystemInstallation = installationRow({
-		pluginScope: "system",
-		id: "installation-default",
-		pluginSlug: "default-plugin",
-		pluginId: "default-plugin-id",
-	});
-	const privateInstallation = {
-		...installationRow({
-			pluginScope: "user",
-			id: "installation-private",
-			pluginSlug: "private-plugin",
-			pluginId: "private-plugin-id",
-		}),
-		config: {
-			unit: "minutes",
-			credentials: { token: "secret", region: "local" },
-			accounts: [{ token: "array-secret", label: "primary" }],
-		},
-	};
-	const privateManifest = {
-		...fixtureManifest(),
-		crons: [],
-		scripts: [],
-		workflows: [],
-		providers: [],
-		operations: [],
-		savedViews: [],
-		entitySchemas: [
-			{
-				icon: "box",
-				name: "Private Record",
-				slug: "private-record",
-				eventSchemas: [],
-				propertiesSchema: {
-					fields: { title: { label: "Title", description: "Title", type: "string" as const } },
-				},
+it.effect(
+	"exports private records from their persisted package when effective ownership differs",
+	() => {
+		const eventsPath = `${tmpdir()}/backup-export-installations-${crypto.randomUUID()}.ndjson`;
+		const systemInstallation = installationRow({
+			pluginScope: "system",
+			id: "installation-system",
+			pluginSlug: "system-plugin",
+			pluginId: "system-plugin-id",
+		});
+		const configuredSystemInstallation = {
+			...systemInstallation,
+			config: { locale: "source-only", token: "source-system-secret" },
+		};
+		const unavailableSystemInstallation = installationRow({
+			pluginScope: "system",
+			id: "installation-unavailable",
+			pluginSlug: "unavailable-plugin",
+			pluginId: "unavailable-plugin-id",
+		});
+		const defaultSystemInstallation = installationRow({
+			pluginScope: "system",
+			id: "installation-default",
+			pluginSlug: "default-plugin",
+			pluginId: "default-plugin-id",
+		});
+		const privateInstallation = {
+			...installationRow({
+				pluginScope: "user",
+				id: "installation-private",
+				pluginSlug: "private-plugin",
+				pluginId: "private-plugin-id",
+			}),
+			health: "incompatible" as const,
+			config: {
+				unit: "minutes",
+				credentials: { token: "secret", region: "local" },
+				accounts: [{ token: "array-secret", label: "primary" }],
 			},
-		],
-		signalSchemas: [],
-		userBootstrap: [],
-		relationshipSchemas: [],
-		metadata: { ...fixtureManifest().metadata, slug: "private-plugin" },
-		bindings: {
-			eventAutomations: [],
-			entityAutomations: [],
-			signalAutomations: [],
-			relationshipAutomations: [],
-			providerEntityImportAutomations: [],
-		},
-		configSchema: {
-			unknownKeys: "strict" as const,
-			fields: {
-				accounts: {
-					label: "Accounts",
-					type: "array" as const,
-					description: "Accounts",
-					items: {
-						label: "Account",
-						description: "Account",
-						type: "object" as const,
-						properties: {
-							label: { type: "string" as const, label: "Label", description: "Label" },
+		};
+		const privateManifest = {
+			...fixtureManifest(),
+			crons: [],
+			scripts: [],
+			workflows: [],
+			providers: [],
+			operations: [],
+			savedViews: [],
+			entitySchemas: [
+				{
+					icon: "box",
+					name: "Private Record",
+					slug: "private-record",
+					eventSchemas: [],
+					propertiesSchema: {
+						fields: {
+							title: { label: "Title", description: "Title", type: "string" as const },
 							token: {
+								secret: true as const,
 								label: "Token",
 								description: "Token",
-								secret: true as const,
 								type: "string" as const,
-								validation: { required: true as const },
+							},
+							relatedEntityId: {
+								label: "Related entity",
+								description: "Related entity",
+								type: "string" as const,
+								reference: { kind: "entity-id" as const },
 							},
 						},
 					},
 				},
-				credentials: {
-					label: "Credentials",
-					type: "object" as const,
-					description: "Credentials",
-					properties: {
-						region: { type: "string" as const, label: "Region", description: "Region" },
-						token: {
-							label: "Token",
-							description: "Token",
-							secret: true as const,
-							type: "string" as const,
-							validation: { required: true as const },
-						},
-					},
-				},
-				unit: { label: "Unit", validation: {}, description: "Unit", type: "string" as const },
+			],
+			signalSchemas: [],
+			userBootstrap: [],
+			relationshipSchemas: [],
+			metadata: { ...fixtureManifest().metadata, slug: "private-plugin" },
+			bindings: {
+				eventAutomations: [],
+				entityAutomations: [],
+				signalAutomations: [],
+				relationshipAutomations: [],
+				providerEntityImportAutomations: [],
 			},
-		},
-		integrationProviders: [
-			{
-				lot: "push" as const,
-				slug: "private-push",
-				name: "Private Push",
-				description: "Private push integration",
-				settingsSchema: {
-					unknownKeys: "strict" as const,
-					fields: {
-						credentials: {
-							label: "Credentials",
+			configSchema: {
+				unknownKeys: "strict" as const,
+				fields: {
+					accounts: {
+						label: "Accounts",
+						type: "array" as const,
+						description: "Accounts",
+						items: {
+							label: "Account",
+							description: "Account",
 							type: "object" as const,
-							description: "Credentials",
 							properties: {
+								label: { type: "string" as const, label: "Label", description: "Label" },
 								token: {
 									label: "Token",
 									description: "Token",
@@ -239,158 +239,39 @@ it.effect("exports active installation state and secret-safe private packages", 
 								},
 							},
 						},
-						endpoint: {
-							validation: {},
-							label: "Endpoint",
-							description: "Endpoint",
-							type: "string" as const,
+					},
+					credentials: {
+						label: "Credentials",
+						type: "object" as const,
+						description: "Credentials",
+						properties: {
+							region: { type: "string" as const, label: "Region", description: "Region" },
+							token: {
+								label: "Token",
+								description: "Token",
+								secret: true as const,
+								type: "string" as const,
+								validation: { required: true as const },
+							},
 						},
 					},
+					unit: { label: "Unit", validation: {}, description: "Unit", type: "string" as const },
 				},
 			},
-		],
-	};
-	const privateSourceHash = pluginSourceHash(privateManifest, {});
-	let effectiveDefinitionReads = 0;
-	const effectiveDefinitions = buildDefinitionSnapshot(
-		mergeManifestDefinitions(
-			{ savedViews: [], entitySchemas: [], signalSchemas: [], relationshipSchemas: [] },
-			[{ id: "private-plugin-id", slug: "private-plugin", manifest: privateManifest }],
-		),
-	);
-	const layer = BackupExportSnapshot.layer.pipe(
-		Layer.provide(
-			Layer.mergeAll(
-				databaseLayer,
-				BunFileSystem.layer,
-				Layer.mock(PluginRuntimeResolver, {
-					getEffectiveDefinitions: (_userId, includeUnavailable) =>
-						Effect.sync(() => {
-							effectiveDefinitionReads += 1;
-							expect(includeUnavailable).toBe(true);
-							return effectiveDefinitions;
-						}),
-				}),
-				Layer.mock(AuthRepository, {
-					getPortableProfile: () => Effect.succeed({ name: "Owner", image: null, preferences: {} }),
-				}),
-				Layer.mock(EventsRepository, { listUserEventsForBackup: () => Effect.succeed([]) }),
-				Layer.mock(IntegrationsRepository, {
-					listForBackup: () =>
-						Effect.succeed([
-							{
-								userId,
-								isDisabled: false,
-								id: "integration-1",
-								name: "Private push",
-								lot: "push" as const,
-								syncOwnership: false,
-								minimumProgress: "2",
-								lastFinishedAt: null,
-								maximumProgress: "95",
-								provider: "private-push",
-								pluginSlug: "private-plugin",
-								pluginInstallationId: "installation-private",
-								createdAt: new Date("2026-08-24T12:00:00.000Z"),
-								updatedAt: new Date("2026-08-24T12:00:00.000Z"),
-								extraSettings: { disableOnContinuousErrors: true },
-								providerSpecifics: {
-									endpoint: "local",
-									credentials: { token: "integration-secret" },
-								},
-							},
-						]),
-				}),
-				Layer.mock(EntitiesRepository, {
-					getByIdsForUser: () => Effect.succeed([]),
-					listUserEntitiesForBackup: () =>
-						Effect.succeed([
-							{
-								provider: null,
-								externalId: null,
-								populatedAt: null,
-								id: "private-entity",
-								name: "Private entity",
-								properties: { title: "Private title" },
-								entitySchemaSlug: "private-record",
-								entitySchemaPluginId: "private-plugin-id",
-								createdAt: new Date("2026-08-24T12:00:00.000Z"),
-								updatedAt: new Date("2026-08-24T12:00:00.000Z"),
-							},
-						]),
-					listGlobalEntitiesByIdsForBackup: () => Effect.succeed([]),
-					listReferencedGlobalEntitiesForBackup: () => Effect.succeed([]),
-				}),
-				Layer.mock(SavedViewsRepository, { listForBackup: () => Effect.succeed([]) }),
-				Layer.mock(TranslationsRepository, { listForBackup: () => Effect.succeed([]) }),
-				Layer.mock(RelationshipsRepository, {
-					listUserRelationshipsForBackup: () => Effect.succeed([]),
-				}),
-				Layer.mock(AutomationsRepository, {
-					listNotificationSubscriptionsForBackup: () => Effect.succeed([]),
-				}),
-				Layer.mock(ManagedAssetsService, {
-					verifyManagedAssetOwnership: () => Effect.succeed([]),
-				}),
-				Layer.mock(PluginRepository, {
-					listPrivateForUser: () =>
-						Effect.succeed([
-							{
-								scripts: [],
-								ownerId: userId,
-								sourceFiles: {},
-								slug: "private-plugin",
-								scope: "user" as const,
-								id: "private-plugin-id",
-								status: "active" as const,
-								manifest: privateManifest,
-								sourceHash: privateSourceHash,
-							},
-						]),
-					listPortablePluginMetadata: () =>
-						Effect.succeed([
-							{
-								version: "1.0.0",
-								signalSchemaSlugs: [],
-								slug: "default-plugin",
-								id: "default-plugin-id",
-								integrationProviders: [],
-								sourceHash: "b".repeat(64),
-								relationshipSchemaSlugs: [],
-								configSchema: { fields: {}, unknownKeys: "strict" as const },
-								metadata: {
-									icon: "box",
-									version: "1.0.0",
-									name: "Default Plugin",
-									slug: "default-plugin",
-									description: "Default plugin",
-								},
-							},
-							{
-								version: "1.0.0",
-								slug: "system-plugin",
-								signalSchemaSlugs: [],
-								id: "system-plugin-id",
-								integrationProviders: [],
-								sourceHash: "a".repeat(64),
-								relationshipSchemaSlugs: [],
-								metadata: {
-									icon: "box",
-									version: "1.0.0",
-									name: "System Plugin",
-									slug: "system-plugin",
-									description: "System plugin",
-								},
-								configSchema: {
-									unknownKeys: "strict" as const,
-									fields: {
-										locale: {
-											validation: {},
-											label: "Locale",
-											description: "Locale",
-											type: "string" as const,
-										},
-									},
+			integrationProviders: [
+				{
+					lot: "push" as const,
+					slug: "private-push",
+					name: "Private Push",
+					description: "Private push integration",
+					settingsSchema: {
+						unknownKeys: "strict" as const,
+						fields: {
+							credentials: {
+								label: "Credentials",
+								type: "object" as const,
+								description: "Credentials",
+								properties: {
 									token: {
 										label: "Token",
 										description: "Token",
@@ -400,62 +281,274 @@ it.effect("exports active installation state and secret-safe private packages", 
 									},
 								},
 							},
-						]),
-				}),
-				Layer.mock(PluginInstallationRepository, {
-					listSystemForUser: () => Effect.succeed([configuredSystemInstallation]),
-					listForUser: () =>
-						Effect.succeed([
-							configuredSystemInstallation,
-							defaultSystemInstallation,
-							unavailableSystemInstallation,
-							privateInstallation,
-						]),
-				}),
+							endpoint: {
+								validation: {},
+								label: "Endpoint",
+								description: "Endpoint",
+								type: "string" as const,
+							},
+						},
+					},
+				},
+			],
+		};
+		const privateSourceHash = pluginSourceHash(privateManifest, {});
+		const differentOwnerManifest = {
+			...privateManifest,
+			entitySchemas: privateManifest.entitySchemas.map((definition) => ({
+				...definition,
+				propertiesSchema: {
+					fields: { title: { label: "Title", description: "Title", type: "string" as const } },
+				},
+			})),
+		};
+		let effectiveDefinitionReads = 0;
+		const effectiveDefinitions = buildDefinitionSnapshot(
+			mergeManifestDefinitions(
+				{ savedViews: [], entitySchemas: [], signalSchemas: [], relationshipSchemas: [] },
+				[{ id: "different-plugin-id", slug: "private-plugin", manifest: differentOwnerManifest }],
 			),
-		),
-	);
-	return Effect.gen(function* () {
-		const snapshot = yield* BackupExportSnapshot;
-		const prepared = yield* snapshot.prepareExportSnapshot(userId, eventsPath);
-		expect(effectiveDefinitionReads).toBe(1);
-		expect(prepared.records.installations.map(({ packageKey }) => packageKey)).toEqual([
-			`system:system-plugin:${"a".repeat(64)}`,
-			`user:private-plugin:${privateSourceHash}`,
-		]);
-		expect(prepared.records.privatePlugins).toEqual([
-			expect.objectContaining({ files: {}, slug: "private-plugin", sourceHash: privateSourceHash }),
-		]);
-		expect(prepared.records.entities).toEqual([
-			expect.objectContaining({
-				id: "private-entity",
-				properties: { title: "Private title" },
-				entitySchemaPluginKey: `user:private-plugin:${privateSourceHash}`,
-			}),
-		]);
-		expect(prepared.records.installations[0]).toMatchObject({
-			config: {},
-			configuredSecretPaths: [],
-		});
-		expect(prepared.records.installations[1]?.config).toEqual({
-			unit: "minutes",
-			accounts: [{ label: "primary" }],
-			credentials: { region: "local" },
-		});
-		expect(prepared.records.installations[1]?.configuredSecretPaths).toEqual([
-			"/accounts/0/token",
-			"/credentials/token",
-		]);
-		expect(prepared.records.integrations).toEqual([
-			expect.objectContaining({
-				configuredSecretPaths: ["/credentials/token"],
-				packageKey: `user:private-plugin:${privateSourceHash}`,
-				providerSpecifics: { endpoint: "local", credentials: {} },
-			}),
-		]);
-		expect(prepared.redactions.some((path) => path.includes("installation-system"))).toBe(false);
-		expect(prepared.requiredPlugins).toEqual([
-			{ slug: "system-plugin", sourceHash: "a".repeat(64), version: "1.0.0" },
-		]);
-	}).pipe(Effect.provide(Layer.mergeAll(layer, databaseLayer)));
-});
+		);
+		const privateTimestamp = new Date("2026-08-24T12:00:00.000Z");
+		let embeddedDependencyIds: ReadonlyArray<string> = [];
+		const layer = BackupExportSnapshot.layer.pipe(
+			Layer.provide(
+				Layer.mergeAll(
+					databaseLayer,
+					BunFileSystem.layer,
+					Layer.mock(PluginRuntimeResolver, {
+						getEffectiveDefinitions: (_userId, includeUnavailable) =>
+							Effect.sync(() => {
+								effectiveDefinitionReads += 1;
+								expect(includeUnavailable).toBe(true);
+								return effectiveDefinitions;
+							}),
+					}),
+					Layer.mock(AuthRepository, {
+						getPortableProfile: () =>
+							Effect.succeed({ name: "Owner", image: null, preferences: {} }),
+					}),
+					Layer.mock(EventsRepository, { listUserEventsForBackup: () => Effect.succeed([]) }),
+					Layer.mock(IntegrationsRepository, {
+						listForBackup: () =>
+							Effect.succeed([
+								{
+									userId,
+									isDisabled: false,
+									id: "integration-1",
+									name: "Private push",
+									lot: "push" as const,
+									syncOwnership: false,
+									minimumProgress: "2",
+									lastFinishedAt: null,
+									maximumProgress: "95",
+									provider: "private-push",
+									pluginSlug: "private-plugin",
+									pluginInstallationId: "installation-private",
+									createdAt: new Date("2026-08-24T12:00:00.000Z"),
+									updatedAt: new Date("2026-08-24T12:00:00.000Z"),
+									extraSettings: { disableOnContinuousErrors: true },
+									providerSpecifics: {
+										endpoint: "local",
+										credentials: { token: "integration-secret" },
+									},
+								},
+							]),
+					}),
+					Layer.mock(EntitiesRepository, {
+						getByIdsForUser: () => Effect.succeed([]),
+						listUserEntitiesForBackup: () =>
+							Effect.succeed([
+								{
+									provider: null,
+									externalId: null,
+									populatedAt: null,
+									id: "private-entity",
+									name: "Private entity",
+									properties: {
+										token: "entity-secret",
+										title: "Private title",
+										relatedEntityId: "private-dependency",
+									},
+									entitySchemaSlug: "private-record",
+									entitySchemaPluginId: "private-plugin-id",
+									createdAt: new Date("2026-08-24T12:00:00.000Z"),
+									updatedAt: new Date("2026-08-24T12:00:00.000Z"),
+								},
+							]),
+						listGlobalEntitiesByIdsForBackup: (ids) =>
+							Effect.sync(() => {
+								embeddedDependencyIds = ids;
+								return [
+									{
+										provider: null,
+										externalId: null,
+										populatedAt: null,
+										id: "private-dependency",
+										name: "Private dependency",
+										properties: { token: "dependency-secret", title: "Dependency" },
+										entitySchemaSlug: "private-record",
+										entitySchemaPluginId: "private-plugin-id",
+										createdAt: privateTimestamp,
+										updatedAt: privateTimestamp,
+									},
+								];
+							}),
+						listReferencedGlobalEntitiesForBackup: () => Effect.succeed([]),
+					}),
+					Layer.mock(SavedViewsRepository, { listForBackup: () => Effect.succeed([]) }),
+					Layer.mock(TranslationsRepository, { listForBackup: () => Effect.succeed([]) }),
+					Layer.mock(RelationshipsRepository, {
+						listUserRelationshipsForBackup: () => Effect.succeed([]),
+					}),
+					Layer.mock(AutomationsRepository, {
+						listNotificationSubscriptionsForBackup: () => Effect.succeed([]),
+					}),
+					Layer.mock(ManagedAssetsService, {
+						verifyManagedAssetOwnership: () => Effect.succeed([]),
+					}),
+					Layer.mock(PluginRepository, {
+						listPrivateForUser: () =>
+							Effect.succeed([
+								{
+									scripts: [],
+									ownerId: userId,
+									sourceFiles: {},
+									slug: "private-plugin",
+									scope: "user" as const,
+									id: "private-plugin-id",
+									status: "active" as const,
+									manifest: privateManifest,
+									sourceHash: privateSourceHash,
+								},
+							]),
+						listPortablePluginMetadata: () =>
+							Effect.succeed([
+								{
+									version: "1.0.0",
+									signalSchemaSlugs: [],
+									slug: "default-plugin",
+									id: "default-plugin-id",
+									integrationProviders: [],
+									sourceHash: "b".repeat(64),
+									relationshipSchemaSlugs: [],
+									configSchema: { fields: {}, unknownKeys: "strict" as const },
+									metadata: {
+										icon: "box",
+										version: "1.0.0",
+										name: "Default Plugin",
+										slug: "default-plugin",
+										description: "Default plugin",
+									},
+								},
+								{
+									version: "1.0.0",
+									slug: "system-plugin",
+									signalSchemaSlugs: [],
+									id: "system-plugin-id",
+									integrationProviders: [],
+									sourceHash: "a".repeat(64),
+									relationshipSchemaSlugs: [],
+									metadata: {
+										icon: "box",
+										version: "1.0.0",
+										name: "System Plugin",
+										slug: "system-plugin",
+										description: "System plugin",
+									},
+									configSchema: {
+										unknownKeys: "strict" as const,
+										fields: {
+											locale: {
+												validation: {},
+												label: "Locale",
+												description: "Locale",
+												type: "string" as const,
+											},
+										},
+										token: {
+											label: "Token",
+											description: "Token",
+											secret: true as const,
+											type: "string" as const,
+											validation: { required: true as const },
+										},
+									},
+								},
+							]),
+					}),
+					Layer.mock(PluginInstallationRepository, {
+						listSystemForUser: () => Effect.succeed([configuredSystemInstallation]),
+						listForUser: () =>
+							Effect.succeed([
+								configuredSystemInstallation,
+								defaultSystemInstallation,
+								unavailableSystemInstallation,
+								privateInstallation,
+							]),
+					}),
+				),
+			),
+		);
+		return Effect.gen(function* () {
+			const snapshot = yield* BackupExportSnapshot;
+			const prepared = yield* snapshot.prepareExportSnapshot(userId, eventsPath);
+			expect(effectiveDefinitionReads).toBe(1);
+			expect(embeddedDependencyIds).toEqual(["private-dependency"]);
+			expect(prepared.records.installations.map(({ packageKey }) => packageKey)).toEqual([
+				`system:system-plugin:${"a".repeat(64)}`,
+				`user:private-plugin:${privateSourceHash}`,
+			]);
+			expect(prepared.records.privatePlugins).toEqual([
+				expect.objectContaining({
+					files: {},
+					slug: "private-plugin",
+					sourceHash: privateSourceHash,
+					key: `user:private-plugin:${privateSourceHash}`,
+				}),
+			]);
+			expect(prepared.records.entities).toEqual([
+				expect.objectContaining({
+					id: "private-entity",
+					properties: { title: "Private title", relatedEntityId: "private-dependency" },
+					entitySchemaPluginKey: `user:private-plugin:${privateSourceHash}`,
+				}),
+			]);
+			expect(prepared.records.entityDependencies).toEqual([
+				expect.objectContaining({
+					id: "private-dependency",
+					properties: { title: "Dependency" },
+					entitySchemaPluginKey: `user:private-plugin:${privateSourceHash}`,
+				}),
+			]);
+			expect(prepared.redactions).toContain("/entities/private-entity/properties/token");
+			expect(prepared.redactions).toContain(
+				"/entity-dependencies/private-dependency/properties/token",
+			);
+			expect(prepared.records.installations[0]).toMatchObject({
+				config: {},
+				configuredSecretPaths: [],
+			});
+			expect(prepared.records.installations[1]?.config).toEqual({
+				unit: "minutes",
+				accounts: [{ label: "primary" }],
+				credentials: { region: "local" },
+			});
+			expect(prepared.records.installations[1]?.configuredSecretPaths).toEqual([
+				"/accounts/0/token",
+				"/credentials/token",
+			]);
+			expect(prepared.records.integrations).toEqual([
+				expect.objectContaining({
+					configuredSecretPaths: ["/credentials/token"],
+					packageKey: `user:private-plugin:${privateSourceHash}`,
+					providerSpecifics: { endpoint: "local", credentials: {} },
+				}),
+			]);
+			expect(prepared.redactions.some((path) => path.includes("installation-system"))).toBe(false);
+			expect(prepared.requiredPlugins).toEqual([
+				{ slug: "system-plugin", sourceHash: "a".repeat(64), version: "1.0.0" },
+			]);
+		}).pipe(Effect.provide(Layer.mergeAll(layer, databaseLayer)));
+	},
+);

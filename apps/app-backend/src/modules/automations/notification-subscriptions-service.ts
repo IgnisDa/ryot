@@ -6,13 +6,10 @@ import {
 } from "@ryot/contract/modules/automations/schemas";
 import type { AutomationRuleId, SignalSchemaSlug, UserId } from "@ryot/contract/schema/brands";
 import { SignalSchemaSlug as SignalSchemaSlugBrand } from "@ryot/contract/schema/brands";
-import { Context, Effect, Layer, Option } from "effect";
+import { Context, Effect, Layer } from "effect";
 
 import { Database, mapDatabaseErrors } from "#lib/infrastructure/db/service";
-import {
-	DefinitionRegistry,
-	type SignalSchemaDefinition,
-} from "#modules/definition-registry/service";
+import type { SignalSchemaDefinition } from "#modules/definition-registry/service";
 import { PluginRuntimeResolver } from "#modules/plugins/runtime-resolver";
 
 import { AutomationsRepository, type StoredNotificationSubscription } from "./repository";
@@ -40,15 +37,10 @@ export class NotificationSubscriptionsService extends Context.Service<Notificati
 	"NotificationSubscriptionsService",
 	{
 		make: Effect.gen(function* () {
-			const definitions = yield* DefinitionRegistry;
 			const repository = yield* AutomationsRepository;
-			const pluginRuntime = Option.getOrUndefined(
-				yield* Effect.serviceOption(PluginRuntimeResolver),
-			);
+			const pluginRuntime = yield* PluginRuntimeResolver;
 			const effectiveForUser = (userId: UserId, includeUnavailable = false) =>
-				pluginRuntime
-					? pluginRuntime.getEffectiveDefinitions(userId, includeUnavailable)
-					: Effect.succeed(definitions.getSnapshot());
+				pluginRuntime.getEffectiveDefinitions(userId, includeUnavailable);
 
 			const resolveStateSignalSchema = Effect.fn(function* (state: StoredNotificationSubscription) {
 				const effective = yield* effectiveForUser(state.userId, true);
@@ -59,8 +51,8 @@ export class NotificationSubscriptionsService extends Context.Service<Notificati
 			});
 
 			const listCatalog = Effect.fn("NotificationSubscriptionsService.listCatalog")(
-				(userId?: UserId) =>
-					(userId ? effectiveForUser(userId) : Effect.succeed(definitions.getSnapshot())).pipe(
+				(userId: UserId) =>
+					effectiveForUser(userId).pipe(
 						Effect.map((effectiveDefinitions) =>
 							Object.values(effectiveDefinitions.signalSchemas)
 								.filter(({ catalogState }) => catalogState === "active")

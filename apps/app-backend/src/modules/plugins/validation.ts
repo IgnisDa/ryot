@@ -127,10 +127,6 @@ export const validatePluginPackageLimits = (
 		return yield* Effect.void;
 	});
 
-// TODO(plugins): Task 11 owns per-installation HTTP rate limits. `PluginHttpRateLimitAuthority`
-// builds instance-global policy from `listActiveManifests()`, so a private declaration has nowhere
-// to live yet. `boot` stays rejected permanently: private code must never run with instance
-// authority at startup.
 const privateRejectedCollections = ["boot", "httpRateLimits"] as const satisfies ReadonlyArray<
 	{
 		[Key in keyof PluginManifestValue]: PluginManifestValue[Key] extends ReadonlyArray<unknown>

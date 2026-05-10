@@ -1,5 +1,6 @@
 import { BunFileSystem } from "@effect/platform-bun";
 import { assert, expect, it } from "@effect/vitest";
+import { ascending, column, document, field, rows, table } from "@ryot/ryotql";
 import { stableStringify } from "@ryot/ts-utils/json";
 import { Effect, FileSystem, Schema, Stream } from "effect";
 import { unzipSync, Zip, zipSync, ZipPassThrough } from "fflate";
@@ -20,9 +21,55 @@ const fixtureRoot = new URL(
 	"../../../../../../packages/contract/src/modules/backups/fixtures/v2/",
 	import.meta.url,
 );
+const savedViewEntity = table("entity", "fixture");
+const savedViewQuery = document({
+	savedView: rows(savedViewEntity, {
+		orderBy: [ascending(column(savedViewEntity, "name"))],
+		fields: [
+			field("id", column(savedViewEntity, "id")),
+			field("name", column(savedViewEntity, "name")),
+		],
+	}),
+});
+const savedViewCard = {
+	callout: null,
+	overline: null,
+	imageField: null,
+	titleField: "name",
+	entityIdField: "id",
+	queryDocument: savedViewQuery,
+	primaryMetadata: null,
+	secondaryMetadata: null,
+} as const;
 const records: V2ArchiveRecords = {
 	entities: [],
-	savedViews: [],
+	savedViews: [
+		{
+			id: "view-1",
+			icon: "list",
+			name: "Fixture",
+			slug: "fixture",
+			pluginKey: null,
+			sortOrder: 0,
+			isBuiltin: false,
+			isDisabled: false,
+			kind: "custom",
+			createdAt: timestamp,
+			updatedAt: timestamp,
+			entitySchemaSlug: null,
+			entitySchemaPluginKey: null,
+			layouts: {
+				grid: savedViewCard,
+				list: savedViewCard,
+				table: {
+					queryDocument: savedViewQuery,
+					imageField: null,
+					entityIdField: "id",
+					columns: [{ label: "Name", field: "name", displayKind: "text" }],
+				},
+			},
+		},
+	],
 	integrations: [],
 	installations: [],
 	relationships: [],

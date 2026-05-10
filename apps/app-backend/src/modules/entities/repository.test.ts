@@ -30,22 +30,32 @@ const makeLayer = (db: object, pluginRuntime = makePluginRuntime()) =>
 	);
 
 const makeDb = () => {
-	let row: Record<string, unknown> | undefined;
+	const rows: Record<string, unknown>[] = [];
 	let forUpdateCalls = 0;
 	const insert = () => ({
 		values: (values: Record<string, unknown>) => ({
 			onConflictDoNothing: () => ({
 				returning: () => {
-					if (row) {
+					if (
+						rows.some(
+							(row) =>
+								row["userId"] === values["userId"] &&
+								row["externalId"] === values["externalId"] &&
+								row["providerId"] === values["providerId"] &&
+								row["entitySchemaSlug"] === values["entitySchemaSlug"] &&
+								row["entitySchemaPluginId"] === values["entitySchemaPluginId"],
+						)
+					) {
 						return Effect.succeed([]);
 					}
 
-					row = {
+					const row = {
 						...values,
-						id: "entity-1",
+						id: `entity-${rows.length + 1}`,
 						createdAt: new Date("2026-07-20T00:00:00.000Z"),
 						updatedAt: new Date("2026-07-20T00:00:00.000Z"),
 					};
+					rows.push(row);
 					return Effect.succeed([row]);
 				},
 			}),
@@ -57,14 +67,14 @@ const makeDb = () => {
 				limit: () => ({
 					for: () => {
 						forUpdateCalls += 1;
-						return Effect.succeed(row ? [row] : []);
+						return Effect.succeed(rows.slice(0, 1));
 					},
 				}),
 			}),
 		}),
 	});
 
-	return { db: { insert, select }, getForUpdateCalls: () => forUpdateCalls };
+	return { db: { insert, select }, rows, getForUpdateCalls: () => forUpdateCalls };
 };
 
 it.effect("resolves provider identity and its active details executable", () => {
@@ -114,6 +124,30 @@ it.effect("resolves provider identity and its active details executable", () => 
 	}).pipe(Effect.provide(makeLayer({}, pluginRuntime)));
 });
 
+it.effect("keeps kernel and plugin entities with the same natural key separate", () => {
+	const { db, rows } = makeDb();
+	const input = {
+		name: "Entity",
+		populatedAt: null,
+		scope: "global" as const,
+		externalId: "external-1",
+		properties: { status: "active" },
+		providerId: SandboxProviderId.make("provider-1"),
+		entitySchemaSlug: EntitySchemaSlug.make("schema-1"),
+	};
+
+	return Effect.gen(function* () {
+		const repository = yield* EntitiesRepository;
+		yield* repository.insertEntity({ ...input, entitySchemaPluginId: null });
+		yield* repository.insertEntity({ ...input, entitySchemaPluginId: "plugin-1" });
+
+		expect(rows.map(({ entitySchemaPluginId }) => entitySchemaPluginId)).toEqual([
+			null,
+			"plugin-1",
+		]);
+	}).pipe(Effect.provide(makeLayer(db)));
+});
+
 it.effect("distinguishes an insert from a locked conflict row", () => {
 	const { db, getForUpdateCalls } = makeDb();
 	const layer = makeLayer(db);
@@ -125,6 +159,7 @@ it.effect("distinguishes an insert from a locked conflict row", () => {
 		properties: { status: "active" },
 		providerId: SandboxProviderId.make("provider-1"),
 		entitySchemaSlug: EntitySchemaSlug.make("schema-1"),
+		entitySchemaPluginId: null,
 	};
 
 	return Effect.gen(function* () {
@@ -156,6 +191,7 @@ it.effect("locks and counts the complete global provenance scope", () => {
 		const input = {
 			providerId: SandboxProviderId.make("provider-1"),
 			entitySchemaSlug: EntitySchemaSlug.make("person"),
+			entitySchemaPluginId: "plugin-1",
 		};
 		yield* repository.lockGlobalEntityProvenanceScope(input);
 		const total = yield* repository.countGlobalEntitiesByProvenanceScope(input);
@@ -163,7 +199,7 @@ it.effect("locks and counts the complete global provenance scope", () => {
 		expect(total).toBe(7);
 		expect(executed).toHaveLength(1);
 		expect(executed[0]).toContain("pg_advisory_xact_lock");
-		expect(executed[0]).toContain("global-entities:person:provider-1");
+		expect(executed[0]).toContain("global-entities:person:plugin-1:provider-1");
 	}).pipe(Effect.provide(makeLayer(db)));
 });
 
@@ -219,6 +255,7 @@ it.effect("resolves restore globals by portable schema, plugin, provider, and ex
 			yield* repository.findGlobalEntityForRestore({
 				externalId: "external-id",
 				entitySchemaSlug: EntitySchemaSlug.make("book"),
+				entitySchemaPluginId: null,
 				provider: { pluginSlug: "media", providerSlug: "open-library" },
 			}),
 		).toEqual({ id: "existing-global", entitySchemaSlug: "book" });
