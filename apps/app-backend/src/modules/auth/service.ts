@@ -23,7 +23,6 @@ import type Redis from "ioredis";
 import { AppConfig, type AppConfigValue, isOidcEnabled } from "#lib/infrastructure/config/service";
 import * as schemaAuth from "#lib/infrastructure/db/schema/tables/auth";
 import * as schemaTables from "#lib/infrastructure/db/schema/tables/combined";
-import * as schemaRelations from "#lib/infrastructure/db/schema/tables/relations";
 import {
 	CurrentDb,
 	DbService,
@@ -34,7 +33,7 @@ import { redisKeys, RedisService } from "#lib/infrastructure/redis";
 
 import { gateSessionCreation } from "./session-gate";
 
-const schema = { ...schemaAuth, ...schemaTables, ...schemaRelations };
+const schema = { ...schemaAuth, ...schemaTables };
 
 const stripSearchAndHash = (url: string) => {
 	const queryIndex = url.indexOf("?");
@@ -293,7 +292,7 @@ export class AuthService extends Context.Service<AuthService>()("AuthService", {
 					const currentDb = yield* Effect.serviceOption(CurrentDb);
 					if (Option.isNone(currentDb)) {
 						return yield* withInternalAdapter(({ internalAdapter }) =>
-							internalAdapter.createUser(user),
+							internalAdapter.createUser(user, { method: "admin" }),
 						);
 					}
 
@@ -320,6 +319,7 @@ export class AuthService extends Context.Service<AuthService>()("AuthService", {
 			linkAuthAccount: (account: {
 				id: string;
 				userId: string;
+				issuer: string;
 				accountId: string;
 				providerId: string;
 			}) => withInternalAdapter(({ internalAdapter }) => internalAdapter.linkAccount(account)),
