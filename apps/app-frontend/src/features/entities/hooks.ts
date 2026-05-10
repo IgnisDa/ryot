@@ -4,7 +4,12 @@ import { useApiClient } from "~/hooks/api";
 import type { ApiPostRequestBody } from "~/lib/api/types";
 import { getErrorMessage } from "~/lib/errors";
 
-import { createEntityRuntimeRequest, sortEntities, toAppEntity } from "./model";
+import {
+	createEntityRuntimeRequest,
+	isQueryEngineEntitiesResponse,
+	sortEntities,
+	toAppEntity,
+} from "./model";
 
 export type CreateWithCollectionResult = {
 	entity: { id: string; name: string };
@@ -19,12 +24,11 @@ export function useEntitiesQuery(entitySchemaSlug: string, enabled = true) {
 		{ body: createEntityRuntimeRequest(entitySchemaSlug) },
 		{ enabled },
 	);
+	const payload = isQueryEngineEntitiesResponse(query.data) ? query.data : undefined;
 
 	return {
 		...query,
-		entities: sortEntities(
-			query.data?.mode === "entities" ? query.data.data.items.map(toAppEntity) : [],
-		),
+		entities: sortEntities(payload?.mode === "entities" ? payload.data.items.map(toAppEntity) : []),
 	};
 }
 
@@ -74,10 +78,6 @@ export function useEntityMutations(entitySchemaSlug: string) {
 	): Promise<CreateWithCollectionResult> => {
 		const createResult = await create.mutateAsync({ body });
 		const entity = createResult.data;
-
-		if (!entity) {
-			throw new Error("Failed to create entity");
-		}
 
 		if (collectionId) {
 			try {
