@@ -1,8 +1,9 @@
-import { buildReportSql, quoteSqlString } from "./shared";
+import type { QualifiedSchema } from "./migration-resolution";
+import { buildReportSql, quoteNullableSqlString, quoteSqlString } from "./shared";
 
 export const buildUserToEntityInLibraryMigrationSql = (
-	inLibraryRelationshipSchemaSlug: string,
-	libraryEntitySchemaSlug: string,
+	inLibraryRelationshipSchema: QualifiedSchema,
+	libraryEntitySchema: QualifiedSchema,
 ) => `
 DO $$
 DECLARE
@@ -35,6 +36,7 @@ BEGIN
 			"source_entity_id",
 			"target_entity_id",
 			"relationship_schema_slug",
+			"relationship_schema_plugin_id",
 			"properties",
 			"created_at"
 		)
@@ -43,13 +45,15 @@ BEGIN
 			ute.user_id,
 			ute.entity_id,
 			lib.id,
-			${quoteSqlString(inLibraryRelationshipSchemaSlug)},
+			${quoteSqlString(inLibraryRelationshipSchema.slug)},
+			${quoteNullableSqlString(inLibraryRelationshipSchema.pluginId)},
 			'{}'::jsonb,
 			ute.created_on
 		FROM "user_to_entity" ute
 		INNER JOIN "entity" src ON src.id = ute.entity_id AND src.user_id IS NULL
 		INNER JOIN "entity" lib ON lib.user_id = ute.user_id
-			AND lib.entity_schema_slug = ${quoteSqlString(libraryEntitySchemaSlug)}
+			AND lib.entity_schema_slug = ${quoteSqlString(libraryEntitySchema.slug)}
+			AND lib.entity_schema_plugin_id IS NOT DISTINCT FROM ${quoteNullableSqlString(libraryEntitySchema.pluginId)}
 		WHERE ute.id::text > cursor_id
 		  AND ute.id::text <= next_cursor_id
 		ON CONFLICT DO NOTHING;

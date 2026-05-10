@@ -1,5 +1,6 @@
 import { buildLegacyImagesSql, buildLegacyVideosSql } from "./asset-mapping";
-import { buildReportSql, quoteSqlString } from "./shared";
+import type { QualifiedSchema } from "./migration-resolution";
+import { buildReportSql, quoteNullableSqlString, quoteSqlString } from "./shared";
 
 // V1 Option<Decimal> is a rust_decimal JSON string; cast to float8.
 const buildDecimalStatField = (statAlias: string, field: string) =>
@@ -8,7 +9,7 @@ const buildDecimalStatField = (statAlias: string, field: string) =>
 // Workout templates use the same set structure as workouts but a simplified per-set shape: the
 // per-set statistics/totals/timers/personal_bests and per-exercise lot/unit_system/total are
 // dropped while per-exercise media is preserved.
-export const buildWorkoutTemplateMigrationSql = (workoutTemplateEntitySchemaSlug: string) => `
+export const buildWorkoutTemplateMigrationSql = (schema: QualifiedSchema) => `
 DO $$
 DECLARE
 	batch_size constant int := 10000;
@@ -39,6 +40,7 @@ BEGIN
 			"name",
 			"user_id",
 			"entity_schema_slug",
+			"entity_schema_plugin_id",
 			"properties",
 			"created_at",
 			"updated_at"
@@ -47,7 +49,8 @@ BEGIN
 			wt.id,
 			wt.name,
 			wt.user_id,
-			${quoteSqlString(workoutTemplateEntitySchemaSlug)},
+			${quoteSqlString(schema.slug)},
+			${quoteNullableSqlString(schema.pluginId)},
 			jsonb_strip_nulls(jsonb_build_object(
 				'comment',  NULLIF(wt.information ->> 'comment', ''),
 				'images',   ${buildLegacyImagesSql("wt.information -> 'assets'")},
@@ -110,7 +113,7 @@ END $$;
 // Dropped fields: workout.duration (derivable from endedAt - startedAt), workout.summary
 // (computed aggregate, not stored in V2).
 // Timestamps are converted to ISO 8601 UTC strings via to_char(...AT TIME ZONE 'UTC', ...).
-export const buildWorkoutMigrationSql = (workoutEntitySchemaSlug: string) => `
+export const buildWorkoutMigrationSql = (schema: QualifiedSchema) => `
 DO $$
 DECLARE
 	batch_size constant int := 10000;
@@ -141,6 +144,7 @@ BEGIN
 			"name",
 			"user_id",
 			"entity_schema_slug",
+			"entity_schema_plugin_id",
 			"properties",
 			"created_at",
 			"updated_at"
@@ -149,7 +153,8 @@ BEGIN
 			w.id,
 			w.name,
 			w.user_id,
-			${quoteSqlString(workoutEntitySchemaSlug)},
+			${quoteSqlString(schema.slug)},
+			${quoteNullableSqlString(schema.pluginId)},
 			jsonb_strip_nulls(jsonb_build_object(
 				'startedAt',     to_char(w.start_time AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS"Z"'),
 				'endedAt',       to_char(w.end_time   AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS"Z"'),
@@ -182,7 +187,7 @@ END $$;
 // Each V1 set becomes one event: entity_id = exercise id, session_entity_id = workout id, with a
 // deterministic id md5(workout_id ':' exercise_idx ':' set_idx) for restart-safety (the event table
 // has no unique constraint beyond the PK). unit_system is lowercased to V2 values.
-export const buildWorkoutSetEventMigrationSql = (workoutSetEventSchemaSlug: string) => `
+export const buildWorkoutSetEventMigrationSql = (schema: QualifiedSchema) => `
 DO $$
 DECLARE
 	batch_size constant int := 1000;
@@ -214,6 +219,7 @@ BEGIN
 			"entity_id",
 			"session_entity_id",
 			"event_schema_slug",
+			"event_schema_plugin_id",
 			"properties",
 			"created_at",
 			"occurred_at"
@@ -223,7 +229,8 @@ BEGIN
 			w.user_id,
 			ex.value ->> 'id',
 			w.id,
-			${quoteSqlString(workoutSetEventSchemaSlug)},
+			${quoteSqlString(schema.slug)},
+			${quoteNullableSqlString(schema.pluginId)},
 			jsonb_strip_nulls(jsonb_build_object(
 				'setLot',             s.value ->> 'lot',
 				'setOrder',           (s.ordinality - 1)::int,
@@ -266,9 +273,7 @@ END $$;
 `;
 
 // Deterministic relationship id md5(workout_id ':workout-to-workout-template') for restart-safety.
-export const buildWorkoutToTemplateRelationshipMigrationSql = (
-	workoutToWorkoutTemplateRelationshipSchemaSlug: string,
-) => `
+export const buildWorkoutToTemplateRelationshipMigrationSql = (schema: QualifiedSchema) => `
 DO $$
 DECLARE
 	rows_inserted int;
@@ -284,6 +289,7 @@ BEGIN
 		"source_entity_id",
 		"target_entity_id",
 		"relationship_schema_slug",
+		"relationship_schema_plugin_id",
 		"properties"
 	)
 	SELECT
@@ -291,7 +297,8 @@ BEGIN
 		w.user_id,
 		w.id,
 		w.template_id,
-		${quoteSqlString(workoutToWorkoutTemplateRelationshipSchemaSlug)},
+		${quoteSqlString(schema.slug)},
+		${quoteNullableSqlString(schema.pluginId)},
 		'{}'::jsonb
 	FROM "workout" w
 	WHERE w.template_id IS NOT NULL
@@ -303,9 +310,7 @@ END $$;
 `;
 
 // Deterministic relationship id md5(workout_id ':workout-repeated-from') for restart-safety.
-export const buildWorkoutRepeatedFromRelationshipMigrationSql = (
-	workoutRepeatedFromRelationshipSchemaSlug: string,
-) => `
+export const buildWorkoutRepeatedFromRelationshipMigrationSql = (schema: QualifiedSchema) => `
 DO $$
 DECLARE
 	rows_inserted int;
@@ -321,6 +326,7 @@ BEGIN
 		"source_entity_id",
 		"target_entity_id",
 		"relationship_schema_slug",
+		"relationship_schema_plugin_id",
 		"properties"
 	)
 	SELECT
@@ -328,7 +334,8 @@ BEGIN
 		w.user_id,
 		w.id,
 		w.repeated_from,
-		${quoteSqlString(workoutRepeatedFromRelationshipSchemaSlug)},
+		${quoteSqlString(schema.slug)},
+		${quoteNullableSqlString(schema.pluginId)},
 		'{}'::jsonb
 	FROM "workout" w
 	WHERE w.repeated_from IS NOT NULL

@@ -169,7 +169,7 @@ DECLARE
 	started_at timestamptz := clock_timestamp();
 BEGIN
 	LOOP
-		WITH metadata_group_targets (lot, source, entity_schema_slug, provider_id) AS (
+		WITH metadata_group_targets (lot, source, entity_schema_slug, entity_schema_plugin_id, provider_id) AS (
 			VALUES ${buildLotEntityTargetValuesSql(targets)}
 		), batch AS (
 			SELECT mg.id::text AS id
@@ -187,7 +187,7 @@ BEGIN
 
 		EXIT WHEN next_cursor_id IS NULL;
 
-		WITH metadata_group_targets (lot, source, entity_schema_slug, provider_id) AS (
+		WITH metadata_group_targets (lot, source, entity_schema_slug, entity_schema_plugin_id, provider_id) AS (
 			VALUES ${buildLotEntityTargetValuesSql(targets)}
 		)
 		INSERT INTO entity (
@@ -199,6 +199,7 @@ BEGIN
 			"user_id",
 			"properties",
 			"entity_schema_slug",
+			"entity_schema_plugin_id",
 			"provider_id",
 			"updated_at"
 		)
@@ -214,6 +215,7 @@ BEGIN
 				ELSE '{}'::jsonb
 			END,
 			mgt.entity_schema_slug,
+			mgt.entity_schema_plugin_id,
 			mgt.provider_id,
 			mg.last_updated_on
 		FROM "metadata_group" mg
@@ -252,7 +254,7 @@ DECLARE
 	started_at timestamptz := clock_timestamp();
 BEGIN
 	IF EXISTS (
-		WITH lot_to_relationship_schema (lot, relationship_schema_slug) AS (
+		WITH lot_to_relationship_schema (lot, relationship_schema_slug, relationship_schema_plugin_id) AS (
 			VALUES ${buildRelationshipTargetValuesSql(targets)}
 		)
 		SELECT 1
@@ -268,7 +270,7 @@ BEGIN
 		RAISE EXCEPTION 'metadata_group -> relationship: found relationship between entities owned by different users';
 	END IF;
 
-	WITH lot_to_relationship_schema (lot, relationship_schema_slug) AS (
+	WITH lot_to_relationship_schema (lot, relationship_schema_slug, relationship_schema_plugin_id) AS (
 		VALUES ${buildRelationshipTargetValuesSql(targets)}
 	), legacy_relationships AS (
 		SELECT
@@ -276,6 +278,7 @@ BEGIN
 			m2mg.metadata_id,
 			m2mg.metadata_group_id,
 			lrs.relationship_schema_slug,
+			lrs.relationship_schema_plugin_id,
 			CASE
 				WHEN mg.created_by_user_id IS NULL THEN metadata.created_by_user_id
 				WHEN metadata.created_by_user_id IS NULL THEN mg.created_by_user_id
@@ -292,6 +295,7 @@ BEGIN
 		"source_entity_id",
 		"target_entity_id",
 		"relationship_schema_slug",
+		"relationship_schema_plugin_id",
 		"properties",
 		"user_id",
 		"created_at"
@@ -301,6 +305,7 @@ BEGIN
 		legacy_relationships.metadata_group_id,
 		legacy_relationships.metadata_id,
 		legacy_relationships.relationship_schema_slug,
+		legacy_relationships.relationship_schema_plugin_id,
 		CASE
 			WHEN legacy_relationships.part IS NULL THEN '{}'::jsonb
 			WHEN legacy_relationships.part <= 0 THEN jsonb_build_object('order', 1)
