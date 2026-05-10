@@ -104,7 +104,7 @@ describe("Query engine E2E", () => {
 		);
 
 		expect(response.status).toBe(200);
-		expect(getItemTitles(data?.data.items)).toEqual([entity.name]);
+		expect(getItemTitles(data.data.items)).toEqual([entity.name]);
 	});
 
 	it("computes entity averageRating from the current user's review events only", async () => {
@@ -209,12 +209,12 @@ describe("Query engine E2E", () => {
 
 		expect(userAResult.response.status).toBe(200);
 		expect(userBResult.response.status).toBe(200);
-		expect(getQueryEngineFieldOrThrow(userAResult.data?.data.items[0], "callout")).toEqual({
+		expect(getQueryEngineFieldOrThrow(userAResult.data.data.items[0], "callout")).toEqual({
 			value: 3,
 			key: "callout",
 			kind: "number",
 		});
-		expect(getQueryEngineFieldOrThrow(userBResult.data?.data.items[0], "callout")).toEqual({
+		expect(getQueryEngineFieldOrThrow(userBResult.data.data.items[0], "callout")).toEqual({
 			value: 5,
 			key: "callout",
 			kind: "number",
@@ -267,9 +267,9 @@ describe("Query engine E2E", () => {
 		const userBResult = await executeQueryEngine(userB.client, userB.cookies, request);
 
 		expect(userAResult.response.status).toBe(200);
-		expect(getItemTitles(userAResult.data?.data.items)).toEqual([entity.name]);
+		expect(getItemTitles(userAResult.data.data.items)).toEqual([entity.name]);
 		expect(userBResult.response.status).toBe(200);
-		expect(userBResult.data?.data.items).toEqual([]);
+		expect(userBResult.data.data.items).toEqual([]);
 	});
 
 	it("deduplicates global entities that match multiple relationship filters", async () => {
@@ -327,8 +327,8 @@ describe("Query engine E2E", () => {
 		);
 
 		expect(response.status).toBe(200);
-		expect(getItemTitles(data?.data.items)).toEqual([entity.name]);
-		expect(data?.data.meta.pagination.total).toBe(1);
+		expect(getItemTitles(data.data.items)).toEqual([entity.name]);
+		expect(data.data.meta.pagination.total).toBe(1);
 
 		const aggregateResult = await client.POST("/query-engine/execute", {
 			headers: { Cookie: cookies },
@@ -368,11 +368,11 @@ describe("Query engine E2E", () => {
 			cookies,
 			buildGridRequest({ scope: [schema.slug] }),
 		);
-		const result = data?.data;
-		const firstItem = result?.items[0];
+		const result = data.data;
+		const firstItem = result.items[0];
 
 		expect(response.status).toBe(200);
-		expect(result?.items).toHaveLength(5);
+		expect(result.items).toHaveLength(5);
 		expect(getItemFieldValue(firstItem, "title")).toBe("Alpha Phone");
 		expect(getItemFieldValue(firstItem, "image")).toEqual({
 			kind: "remote",
@@ -406,7 +406,7 @@ describe("Query engine E2E", () => {
 				url: "https://example.com/alpha-phone.png",
 			},
 		});
-		expect(result?.meta.pagination).toEqual({
+		expect(result.meta.pagination).toEqual({
 			page: 1,
 			total: 5,
 			limit: 10,
@@ -656,7 +656,7 @@ describe("Query engine E2E", () => {
 		});
 
 		expect(response.status).toBe(400);
-		expect(error?.error?.message).toBe(
+		expect(error?.error.message).toBe(
 			"avg event aggregate requires a numeric property, received 'string'",
 		);
 	});
@@ -725,7 +725,7 @@ describe("Query engine E2E", () => {
 		});
 
 		expect(response.status).toBe(200);
-		expect(data?.data.items[0]).toEqual([
+		expect(data.data.items[0]).toEqual([
 			{ key: "label", kind: "text", value: "Pinned" },
 			{ key: "yearOrFallback", kind: "number", value: 2018 },
 		]);
@@ -778,7 +778,7 @@ describe("Query engine E2E", () => {
 		});
 
 		expect(response.status).toBe(200);
-		expect(data?.data.items[0]).toEqual([
+		expect(data.data.items[0]).toEqual([
 			{ key: "title", kind: "text", value: "Alpha Phone" },
 			{ key: "badge", kind: "text", value: "Alpha Phone" },
 			{ key: "rawReview", kind: "null", value: null },
@@ -827,15 +827,15 @@ describe("Query engine E2E", () => {
 		});
 
 		expect(response.status).toBe(200);
-		expect(data?.data.items.map((item) => getItemFieldValue(item, "label"))).toEqual([
+		expect(data.data.items.map((item) => getItemFieldValue(item, "label"))).toEqual([
 			"Release 2022",
 			"Release 2021",
 		]);
-		expect(data?.data.items[0]).toEqual([
+		expect(data.data.items[0]).toEqual([
 			{ key: "label", kind: "text", value: "Release 2022" },
 			{ key: "nextYear", kind: "number", value: 2022 },
 		]);
-		expect(data?.data.items[1]).toEqual([
+		expect(data.data.items[1]).toEqual([
 			{ key: "label", kind: "text", value: "Release 2021" },
 			{ key: "nextYear", kind: "number", value: 2021 },
 		]);
@@ -872,11 +872,11 @@ describe("Query engine E2E", () => {
 		});
 
 		expect(missingComputedFieldResult.response.status).toBe(400);
-		expect(missingComputedFieldResult.error?.error?.message).toBe(
+		expect(missingComputedFieldResult.error?.error.message).toBe(
 			"Computed field 'missingLabel' is not part of this runtime request",
 		);
 		expect(cycleResult.response.status).toBe(400);
-		expect(cycleResult.error?.error?.message).toBe(
+		expect(cycleResult.error?.error.message).toBe(
 			"Computed field dependency cycle detected: first -> second -> first",
 		);
 	});
@@ -936,11 +936,11 @@ describe("Query engine E2E", () => {
 		});
 
 		expect(imageSortResult.response.status).toBe(400);
-		expect(imageSortResult.error?.error?.message).toBe(
+		expect(imageSortResult.error?.error.message).toBe(
 			"Image expressions are display-only and cannot be used in sorting",
 		);
 		expect(mismatchedFilterResult.response.status).toBe(400);
-		expect(mismatchedFilterResult.error?.error?.message).toBe(
+		expect(mismatchedFilterResult.error?.error.message).toBe(
 			"Filter operator 'eq' requires compatible expression types, received 'integer' and 'string'",
 		);
 	});
@@ -954,7 +954,7 @@ describe("Query engine E2E", () => {
 		);
 
 		expect(result.response.status).toBe(404);
-		expect(result.error?.error?.message).toContain("Schema 'does-not-exist' not found");
+		expect(result.error?.error.message).toContain("Schema 'does-not-exist' not found");
 	});
 
 	it("supports arithmetic, normalization, concat, and conditionals in runtime expressions", async () => {
@@ -1033,7 +1033,7 @@ describe("Query engine E2E", () => {
 		});
 
 		expect(response.status).toBe(200);
-		expect(data?.data.items[0]).toEqual([
+		expect(data.data.items[0]).toEqual([
 			{ key: "nextYear", kind: "number", value: 2021 },
 			{ key: "rounded", kind: "number", value: 673 },
 			{ key: "floored", kind: "number", value: 673 },
@@ -1075,7 +1075,7 @@ describe("Query engine E2E", () => {
 		});
 
 		expect(response.status).toBe(200);
-		expect(data?.data.items[0]).toEqual([
+		expect(data.data.items[0]).toEqual([
 			{ key: "titleCased", kind: "text", value: "Phone" },
 			{ key: "kebabCased", kind: "text", value: "phone" },
 		]);
@@ -1114,7 +1114,7 @@ describe("Query engine E2E", () => {
 		});
 
 		expect(response.status).toBe(200);
-		expect(data?.data.items[0]).toEqual([{ key: "integerNormalized", kind: "number", value: 5 }]);
+		expect(data.data.items[0]).toEqual([{ key: "integerNormalized", kind: "number", value: 5 }]);
 	});
 
 	it("supports eq, neq, gt, gte, lt, lte, in, isNull, and isNotNull filters", async () => {
@@ -1210,7 +1210,7 @@ describe("Query engine E2E", () => {
 			);
 
 			expect(response.status).toBe(200);
-			expect(getItemTitles(data?.data.items)).toEqual(scenario.expected);
+			expect(getItemTitles(data.data.items)).toEqual(scenario.expected);
 		}
 	});
 
@@ -1234,7 +1234,7 @@ describe("Query engine E2E", () => {
 		);
 
 		expect(response.status).toBe(200);
-		expect(getItemTitles(data?.data.items)).toEqual(["Beta Tablet", "Delta Watch"]);
+		expect(getItemTitles(data.data.items)).toEqual(["Beta Tablet", "Delta Watch"]);
 	});
 
 	it("ands multiple filters within a single schema", async () => {
@@ -1265,7 +1265,7 @@ describe("Query engine E2E", () => {
 		);
 
 		expect(response.status).toBe(200);
-		expect(getItemTitles(data?.data.items)).toEqual(["Gamma Phone"]);
+		expect(getItemTitles(data.data.items)).toEqual(["Gamma Phone"]);
 	});
 
 	it("applies explicit entity name filters across every schema", async () => {
@@ -1303,7 +1303,7 @@ describe("Query engine E2E", () => {
 		);
 
 		expect(response.status).toBe(200);
-		expect(getItemTitles(data?.data.items)).toEqual(["Alpha Phone", "Delta Tablet"]);
+		expect(getItemTitles(data.data.items)).toEqual(["Alpha Phone", "Delta Tablet"]);
 	});
 
 	it("ors schema-qualified filters across different schemas", async () => {
@@ -1343,7 +1343,7 @@ describe("Query engine E2E", () => {
 		);
 
 		expect(response.status).toBe(200);
-		expect(getItemTitles(data?.data.items)).toEqual(["Delta Tablet", "Gamma Phone", "Omega Phone"]);
+		expect(getItemTitles(data.data.items)).toEqual(["Delta Tablet", "Gamma Phone", "Omega Phone"]);
 	});
 
 	it("sorts by name in both directions and by schema properties", async () => {
@@ -1376,21 +1376,21 @@ describe("Query engine E2E", () => {
 			}),
 		);
 
-		expect(getItemTitles(ascResult.data?.data.items)).toEqual([
+		expect(getItemTitles(ascResult.data.data.items)).toEqual([
 			"Alpha Phone",
 			"Beta Tablet",
 			"Delta Watch",
 			"Gamma Phone",
 			"Omega Prototype",
 		]);
-		expect(getItemTitles(descResult.data?.data.items)).toEqual([
+		expect(getItemTitles(descResult.data.data.items)).toEqual([
 			"Omega Prototype",
 			"Gamma Phone",
 			"Delta Watch",
 			"Beta Tablet",
 			"Alpha Phone",
 		]);
-		expect(getItemTitles(yearResult.data?.data.items)).toEqual([
+		expect(getItemTitles(yearResult.data.data.items)).toEqual([
 			"Alpha Phone",
 			"Beta Tablet",
 			"Gamma Phone",
@@ -1430,8 +1430,8 @@ describe("Query engine E2E", () => {
 		);
 
 		expect(response.status).toBe(200);
-		expect(data?.data.items).toHaveLength(1);
-		expect(data?.data.items[0]).toEqual([
+		expect(data.data.items).toHaveLength(1);
+		expect(data.data.items[0]).toEqual([
 			{ key: "column_0", kind: "text", value: targetId },
 			{ key: "column_1", kind: "text", value: "Gamma Phone" },
 		]);
@@ -1468,8 +1468,8 @@ describe("Query engine E2E", () => {
 		);
 
 		expect(response.status).toBe(200);
-		expect(getItemTitles(data?.data.items)).toEqual(["Beta Tablet"]);
-		expect(getQueryEngineFieldOrThrow(data?.data.items[0], "callout")).toEqual({
+		expect(getItemTitles(data.data.items)).toEqual(["Beta Tablet"]);
+		expect(getQueryEngineFieldOrThrow(data.data.items[0], "callout")).toEqual({
 			key: "callout",
 			kind: "text",
 			value: targetId,
@@ -1526,7 +1526,7 @@ describe("Query engine E2E", () => {
 		);
 
 		expect(coalesceResult.response.status).toBe(200);
-		expect(getItemTitles(coalesceResult.data?.data.items)).toEqual([
+		expect(getItemTitles(coalesceResult.data.data.items)).toEqual([
 			"Alpha Phone",
 			"Beta Tablet",
 			"Gamma Phone",
@@ -1534,7 +1534,7 @@ describe("Query engine E2E", () => {
 			"Omega Phone",
 		]);
 		expect(nullsLastResult.response.status).toBe(200);
-		expect(getItemFieldValue(nullsLastResult.data?.data.items.at(-1), "title")).toBe("Null Tablet");
+		expect(getItemFieldValue(nullsLastResult.data.data.items.at(-1), "title")).toBe("Null Tablet");
 	});
 
 	it("returns correct pagination metadata for first, middle, and last pages", async () => {
@@ -1590,8 +1590,8 @@ describe("Query engine E2E", () => {
 			);
 
 			expect(response.status).toBe(200);
-			expect(getItemTitles(data?.data.items)).toEqual(scenario.expectedNames);
-			expect(data?.data.meta.pagination).toEqual(scenario.expectedMeta);
+			expect(getItemTitles(data.data.items)).toEqual(scenario.expectedNames);
+			expect(data.data.meta.pagination).toEqual(scenario.expectedMeta);
 		}
 	});
 
@@ -1620,8 +1620,8 @@ describe("Query engine E2E", () => {
 		);
 
 		expect(emptyPageResult.response.status).toBe(200);
-		expect(emptyPageResult.data?.data.items).toEqual([]);
-		expect(emptyPageResult.data?.data.meta.pagination).toEqual({
+		expect(emptyPageResult.data.data.items).toEqual([]);
+		expect(emptyPageResult.data.data.meta.pagination).toEqual({
 			total: 5,
 			limit: 2,
 			page: 100,
@@ -1631,8 +1631,8 @@ describe("Query engine E2E", () => {
 		});
 
 		expect(emptyResult.response.status).toBe(200);
-		expect(emptyResult.data?.data.items).toHaveLength(0);
-		expect(emptyResult.data?.data.meta.pagination).toEqual({
+		expect(emptyResult.data.data.items).toHaveLength(0);
+		expect(emptyResult.data.data.meta.pagination).toEqual({
 			page: 1,
 			total: 0,
 			limit: 10,
@@ -1674,8 +1674,8 @@ describe("Query engine E2E", () => {
 		);
 
 		expect(outOfRangeFilteredResult.response.status).toBe(200);
-		expect(outOfRangeFilteredResult.data?.data.items).toEqual([]);
-		expect(outOfRangeFilteredResult.data?.data.meta.pagination).toEqual({
+		expect(outOfRangeFilteredResult.data.data.items).toEqual([]);
+		expect(outOfRangeFilteredResult.data.data.meta.pagination).toEqual({
 			page: 2,
 			total: 2,
 			limit: 5,
@@ -1685,8 +1685,8 @@ describe("Query engine E2E", () => {
 		});
 
 		expect(zeroResultsLaterPage.response.status).toBe(200);
-		expect(zeroResultsLaterPage.data?.data.items).toEqual([]);
-		expect(zeroResultsLaterPage.data?.data.meta.pagination).toEqual({
+		expect(zeroResultsLaterPage.data.data.items).toEqual([]);
+		expect(zeroResultsLaterPage.data.data.meta.pagination).toEqual({
 			page: 3,
 			total: 0,
 			limit: 2,
@@ -1708,7 +1708,7 @@ describe("Query engine E2E", () => {
 		);
 
 		expect(result.response.status).toBe(400);
-		expect(result.error?.error?.message).toContain(
+		expect(result.error?.error.message).toContain(
 			"Sort expressions must resolve to a sortable scalar value",
 		);
 	});
@@ -1742,10 +1742,10 @@ describe("Query engine E2E", () => {
 		);
 
 		expect(nameResult.response.status).toBe(200);
-		expect(getItemTitles(nameResult.data?.data.items)).toEqual(["Alpha Phone", "Gamma Phone"]);
+		expect(getItemTitles(nameResult.data.data.items)).toEqual(["Alpha Phone", "Gamma Phone"]);
 
 		expect(categoryResult.response.status).toBe(200);
-		expect(getItemTitles(categoryResult.data?.data.items)).toEqual(["Alpha Phone", "Gamma Phone"]);
+		expect(getItemTitles(categoryResult.data.data.items)).toEqual(["Alpha Phone", "Gamma Phone"]);
 	});
 
 	it("filters with contains using jsonb containment for array properties", async () => {
@@ -1815,7 +1815,7 @@ describe("Query engine E2E", () => {
 		);
 
 		expect(response.status).toBe(200);
-		expect(getItemTitles(data?.data.items)).toEqual(["Action Movie", "Sci-Fi Movie"]);
+		expect(getItemTitles(data.data.items)).toEqual(["Action Movie", "Sci-Fi Movie"]);
 	});
 
 	it("treats % and _ as literals in contains filters, not as ilike wildcards", async () => {
@@ -1893,10 +1893,10 @@ describe("Query engine E2E", () => {
 		);
 
 		expect(percentResult.response.status).toBe(200);
-		expect(getItemTitles(percentResult.data?.data.items)).toEqual(["Percent Item"]);
+		expect(getItemTitles(percentResult.data.data.items)).toEqual(["Percent Item"]);
 
 		expect(underscoreResult.response.status).toBe(200);
-		expect(getItemTitles(underscoreResult.data?.data.items)).toEqual(["Underscore Item"]);
+		expect(getItemTitles(underscoreResult.data.data.items)).toEqual(["Underscore Item"]);
 	});
 
 	it("rejects contains filter on array property when the value is itself an array", async () => {
@@ -1938,7 +1938,7 @@ describe("Query engine E2E", () => {
 		);
 
 		expect(result.response.status).toBe(400);
-		expect(result.error?.error?.message).toContain("requires a scalar or object item expression");
+		expect(result.error?.error.message).toContain("requires a scalar or object item expression");
 	});
 
 	it("displays and filters by externalId and sandboxScriptId on global entities", async () => {
@@ -1986,8 +1986,8 @@ describe("Query engine E2E", () => {
 		);
 
 		expect(response.status).toBe(200);
-		expect(data?.data.items).toHaveLength(1);
-		expect(data?.data.items[0]).toEqual([
+		expect(data.data.items).toHaveLength(1);
+		expect(data.data.items[0]).toEqual([
 			{ key: "column_0", kind: "text", value: externalId },
 			{ key: "column_1", kind: "text", value: provider.scriptId },
 		]);
@@ -2022,8 +2022,8 @@ describe("Query engine E2E", () => {
 		);
 
 		expect(response.status).toBe(200);
-		expect(data?.data.items).toHaveLength(1);
-		expect(data?.data.items[0]).toEqual([
+		expect(data.data.items).toHaveLength(1);
+		expect(data.data.items[0]).toEqual([
 			{ key: "column_0", kind: "null", value: null },
 			{ key: "column_1", kind: "null", value: null },
 		]);
@@ -2050,8 +2050,8 @@ describe("Query engine E2E", () => {
 		);
 
 		expect(response.status).toBe(200);
-		expect(data?.data.items.length).toBeGreaterThan(0);
-		for (const item of data?.data.items ?? []) {
+		expect(data.data.items.length).toBeGreaterThan(0);
+		for (const item of data.data.items) {
 			expect(getQueryEngineFieldOrThrow(item, "callout").kind).toBe("null");
 		}
 	});
@@ -2141,12 +2141,12 @@ describe("Query engine E2E", () => {
 		);
 
 		expect(response.status).toBe(200);
-		expect(data?.data.items).toHaveLength(2);
+		expect(data.data.items).toHaveLength(2);
 
-		const globalItem = data?.data.items.find(
+		const globalItem = data.data.items.find(
 			(item) => getItemFieldValue(item, "column_1") === externalId,
 		);
-		const userItem = data?.data.items.find(
+		const userItem = data.data.items.find(
 			(item) => getItemFieldValue(item, "column_0") === userEntityName,
 		);
 
@@ -2169,7 +2169,7 @@ describe("Query engine E2E", () => {
 			});
 
 			expect(response.status).toBe(200);
-			const field = getQueryEngineFieldOrThrow(data?.data.items[0], "entitySchemaSlug");
+			const field = getQueryEngineFieldOrThrow(data.data.items[0], "entitySchemaSlug");
 			expect(field.kind).toBe("text");
 			expect(field.value).toBe(schema.slug);
 		});
@@ -2188,7 +2188,7 @@ describe("Query engine E2E", () => {
 			});
 
 			expect(response.status).toBe(200);
-			expect(data?.data.items[0]).toEqual([
+			expect(data.data.items[0]).toEqual([
 				{ key: "entitySchemaName", kind: "text", value: schema.data.name },
 			]);
 		});
@@ -2207,7 +2207,7 @@ describe("Query engine E2E", () => {
 			});
 
 			expect(response.status).toBe(200);
-			expect(data?.data.items[0]).toEqual([{ key: "isBuiltin", kind: "boolean", value: false }]);
+			expect(data.data.items[0]).toEqual([{ key: "isBuiltin", kind: "boolean", value: false }]);
 		});
 
 		it("returns correct entity schema slug per entity in multi-schema queries", async () => {
@@ -2225,10 +2225,10 @@ describe("Query engine E2E", () => {
 			});
 
 			expect(response.status).toBe(200);
-			const slugs = data?.data.items.map((item) => getItemFieldValue(item, "entitySchemaSlug"));
-			expect(slugs?.every((slug) => slug === smartphoneSlug || slug === tabletSlug)).toBe(true);
-			expect(slugs?.some((slug) => slug === smartphoneSlug)).toBe(true);
-			expect(slugs?.some((slug) => slug === tabletSlug)).toBe(true);
+			const slugs = data.data.items.map((item) => getItemFieldValue(item, "entitySchemaSlug"));
+			expect(slugs.every((slug) => slug === smartphoneSlug || slug === tabletSlug)).toBe(true);
+			expect(slugs.some((slug) => slug === smartphoneSlug)).toBe(true);
+			expect(slugs.some((slug) => slug === tabletSlug)).toBe(true);
 		});
 
 		it("can filter by entity schema slug", async () => {
@@ -2251,7 +2251,7 @@ describe("Query engine E2E", () => {
 			});
 
 			expect(response.status).toBe(200);
-			expect(data?.data.items.length).toBeGreaterThan(0);
+			expect(data.data.items.length).toBeGreaterThan(0);
 		});
 
 		it("can sort by entity schema name", async () => {
@@ -2269,8 +2269,8 @@ describe("Query engine E2E", () => {
 			});
 
 			expect(response.status).toBe(200);
-			const names = data?.data.items.map((item) => getItemFieldValue(item, "entitySchemaName"));
-			expect(names?.length).toBeGreaterThan(1);
+			const names = data.data.items.map((item) => getItemFieldValue(item, "entitySchemaName"));
+			expect(names.length).toBeGreaterThan(1);
 		});
 
 		it("rejects invalid entity schema columns", async () => {
@@ -2303,7 +2303,7 @@ describe("Query engine E2E", () => {
 			});
 
 			expect(response.status).toBe(400);
-			expect(error?.error?.message).toBe(
+			expect(error?.error.message).toBe(
 				"Unsupported entity schema column 'entity-schema.externalId'",
 			);
 		});
@@ -3216,7 +3216,7 @@ describe("Query engine E2E", () => {
 			});
 
 			expect(response.status).toBe(400);
-			expect(error?.error?.message).toBe(
+			expect(error?.error.message).toBe(
 				"Primary event references are not supported in this query mode",
 			);
 		});
@@ -3293,7 +3293,7 @@ describe("Query engine E2E", () => {
 			});
 
 			expect(response.status).toBe(400);
-			expect(error?.error?.message).toBe(
+			expect(error?.error.message).toBe(
 				"Primary event property references in this context must specify eventSchemaSlug",
 			);
 		});
