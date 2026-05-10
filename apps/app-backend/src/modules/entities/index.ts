@@ -2,7 +2,7 @@ export {
 	createGlobalEntity,
 	findGlobalEntityByExternalId,
 	updateGlobalEntityById,
-	upsertPersonRelationship,
+	upsertEntityRelationship,
 } from "./repository";
 export {
 	getEntitySchemaScopeForUser,
