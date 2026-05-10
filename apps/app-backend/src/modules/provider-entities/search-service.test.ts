@@ -30,7 +30,7 @@ const providerId = SandboxProviderId.make("provider-1");
 const provider = {
 	name: "Books",
 	id: providerId,
-	pluginSlug: "books",
+	pluginId: "books",
 	slug: "books.provider",
 	rootEntitySchemaSlug: "book",
 	createdAt: new Date(0),
@@ -64,8 +64,8 @@ const dynamicOptionsSchema = {
 const searchScript = {
 	providerId,
 	source: "source",
+	pluginId: "books",
 	compiledFormat: 1,
-	pluginSlug: "books",
 	name: "Books search",
 	slug: "books.search",
 	compiledCode: "compiled",

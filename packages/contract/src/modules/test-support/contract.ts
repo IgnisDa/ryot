@@ -6,6 +6,7 @@ import {
 	EntityId,
 	EntitySchemaSlug,
 	ImportRunId,
+	PluginSlug,
 	RelationshipSchemaSlug,
 	SandboxProviderId,
 	SandboxScriptId,
@@ -13,11 +14,14 @@ import {
 	UserId,
 } from "../../schema/brands";
 import { ListedEntity } from "../entities/schemas";
+import { PluginConflictError, PluginNotFoundError, PluginRequestError } from "../plugins/schemas";
 import { RelationshipScope } from "../relationships/schemas";
 import { SandboxRunResult } from "../sandbox/schemas";
 import {
 	TestSupportBuiltinEntitySchema,
 	TestSupportEntityTranslation,
+	TestSupportInstallSystemPluginBody,
+	TestSupportSystemPlugin,
 	TestSupportGlobalRelationship,
 	TestSupportSignal,
 	TestSupportEnqueueSandboxBody,
@@ -284,5 +288,33 @@ export const TestSupportGroup = HttpApiGroup.make("testSupport")
 			error: testSupportErrors,
 			payload: Schema.Struct({ executionUserId: UserId, signalId: Schema.optional(SignalId) }),
 		}).annotate(OpenApi.Description, "Lists subscription runs for an execution user"),
+	)
+	.add(
+		HttpApiEndpoint.post("installSystemPlugin", "/test-support/system-plugins", {
+			payload: TestSupportInstallSystemPluginBody,
+			success: TestSupportSystemPlugin.pipe(HttpApiSchema.status(201)),
+			error: [
+				...testSupportErrors,
+				PluginRequestError.pipe(HttpApiSchema.status(400)),
+				PluginConflictError.pipe(HttpApiSchema.status(409)),
+			],
+		}).annotate(OpenApi.Description, "Installs a trusted system plugin"),
+	)
+	.add(
+		HttpApiEndpoint.get("listSystemPlugins", "/test-support/system-plugins", {
+			success: Schema.Array(TestSupportSystemPlugin),
+			error: testSupportErrors,
+		}).annotate(OpenApi.Description, "Lists active system plugins"),
+	)
+	.add(
+		HttpApiEndpoint.delete("uninstallSystemPlugin", "/test-support/system-plugins/:pluginSlug", {
+			success: TestSupportSystemPlugin,
+			params: { pluginSlug: PluginSlug },
+			error: [
+				...testSupportErrors,
+				PluginConflictError.pipe(HttpApiSchema.status(409)),
+				PluginNotFoundError.pipe(HttpApiSchema.status(404)),
+			],
+		}).annotate(OpenApi.Description, "Uninstalls a system plugin"),
 	)
 	.middleware(AdminMiddleware);

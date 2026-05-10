@@ -4,13 +4,13 @@ import type { PluginHttpRateLimit } from "@ryot/contract/modules/plugins/manifes
 import { makeDefinitionRegistry } from "#modules/definition-registry/service";
 
 import { makePluginLoader } from "./loader";
-import { fixtureManifest } from "./test-support";
-import type { NormalizedPlugin } from "./types";
+import { fixtureManifest, fixturePluginIdentity } from "./test-support";
 
-const plugin = (slug: string, httpRateLimits: Array<PluginHttpRateLimit>): NormalizedPlugin => {
+const plugin = (slug: string, httpRateLimits: Array<PluginHttpRateLimit>) => {
 	const manifest = fixtureManifest();
 	return {
 		scripts: [],
+		...fixturePluginIdentity(slug),
 		sourceHash: `${slug}-source`,
 		manifest: {
 			...manifest,

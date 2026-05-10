@@ -2,7 +2,7 @@ import { Schema } from "effect";
 
 import { PluginSlug } from "../../schema/brands";
 import { SandboxCompilationDiagnostic, SandboxExecutionError } from "../sandbox/schemas";
-import { PluginManifest } from "./manifest";
+import { PluginConfigSchema, PluginManifest } from "./manifest";
 
 const PluginValidationDiagnostic = Schema.Struct({
 	code: Schema.String,
@@ -39,6 +39,7 @@ const PluginSchemaEvolutionIssue = Schema.Struct({
 });
 
 const PluginRequestFailureReason = Schema.Union([
+	Schema.Struct({ code: Schema.Literal("slug-reserved"), pluginSlug: PluginSlug }),
 	Schema.Struct({
 		code: Schema.Literal("validation-failed"),
 		diagnostics: Schema.Array(PluginValidationDiagnostic),
@@ -46,6 +47,14 @@ const PluginRequestFailureReason = Schema.Union([
 	Schema.Struct({
 		code: Schema.Literal("compilation-failed"),
 		diagnostics: Schema.Array(PluginCompilerDiagnostic),
+	}),
+	Schema.Struct({
+		code: Schema.Literal("package-limit-exceeded"),
+		limit: Schema.Literals(["file-count", "total-bytes", "script-count"]),
+	}),
+	Schema.Struct({
+		surfaces: Schema.Array(Schema.String),
+		code: Schema.Literal("unsupported-manifest-surface"),
 	}),
 	Schema.Struct({
 		issues: Schema.Array(PluginSchemaEvolutionIssue),
@@ -59,7 +68,9 @@ const PluginRequestFailureReason = Schema.Union([
 ]);
 
 const PluginConflictReason = Schema.Union([
+	Schema.Struct({ code: Schema.Literal("system-plugin"), pluginSlug: PluginSlug }),
 	Schema.Struct({ code: Schema.Literal("boot-configured"), pluginSlug: PluginSlug }),
+	Schema.Struct({ code: Schema.Literal("already-installed"), pluginSlug: PluginSlug }),
 	Schema.Struct({ code: Schema.Literal("entity-referenced"), pluginSlug: PluginSlug }),
 	Schema.Struct({ code: Schema.Literal("workflow-referenced"), pluginSlug: PluginSlug }),
 	Schema.Struct({ code: Schema.Literal("integration-referenced"), pluginSlug: PluginSlug }),
@@ -116,25 +127,48 @@ export class PluginInvocationError extends Schema.TaggedError<PluginInvocationEr
 	{ reason: PluginInvocationFailureReason },
 ) {}
 
-export const InstallPluginBody = Schema.Struct({
+export const PluginPackage = Schema.Struct({
 	manifest: PluginManifest,
 	files: Schema.Record(Schema.String, Schema.String),
 });
 
-export type InstallPluginBody = Schema.Schema.Type<typeof InstallPluginBody>;
+export type PluginPackage = Schema.Schema.Type<typeof PluginPackage>;
 
-export const PluginListItem = Schema.Struct({
-	icon: Schema.String,
-	name: Schema.String,
-	slug: Schema.String,
-	version: Schema.String,
-	sourceHash: Schema.String,
-	description: Schema.String,
+export const InstallPluginBody = Schema.Struct({
+	...PluginPackage.fields,
+	config: Schema.Record(Schema.String, Schema.Unknown),
 });
 
-export type PluginListItem = Schema.Schema.Type<typeof PluginListItem>;
+export type InstallPluginBody = Schema.Schema.Type<typeof InstallPluginBody>;
 
-export const PluginList = Schema.Array(PluginListItem);
+export const PluginInstallationHealth = Schema.Literals([
+	"ready",
+	"failed",
+	"installing",
+	"incompatible",
+	"needs-configuration",
+]);
+
+export const PluginInstallationItem = Schema.Struct({
+	slug: PluginSlug,
+	icon: Schema.String,
+	name: Schema.String,
+	version: Schema.String,
+	sortOrder: Schema.Number,
+	sourceHash: Schema.String,
+	isDisabled: Schema.Boolean,
+	description: Schema.String,
+	configSchema: PluginConfigSchema,
+	health: PluginInstallationHealth,
+	healthReason: Schema.NullOr(Schema.String),
+	scope: Schema.Literals(["system", "user"]),
+	configuredSecrets: Schema.Array(Schema.String),
+	config: Schema.Record(Schema.String, Schema.Unknown),
+});
+
+export type PluginInstallationItem = Schema.Schema.Type<typeof PluginInstallationItem>;
+
+export const PluginInstallationList = Schema.Array(PluginInstallationItem);
 
 export const PluginInvokeBody = Schema.Struct({ payload: Schema.Unknown });
 

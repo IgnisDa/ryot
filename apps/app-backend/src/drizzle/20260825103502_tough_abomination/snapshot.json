@@ -1,7 +1,7 @@
 {
 	"version": "8",
 	"dialect": "postgres",
-	"id": "9f33dd60-d787-4ecf-87df-cec91efe5978",
+	"id": "1729cd3b-8d23-4847-8c84-95699eff74fa",
 	"prevIds": ["00000000-0000-0000-0000-000000000000"],
 	"ddl": [
 		{
@@ -96,7 +96,7 @@
 		},
 		{
 			"isRlsEnabled": false,
-			"name": "plugin_state",
+			"name": "plugin_installation",
 			"entityType": "tables",
 			"schema": "public"
 		},
@@ -653,19 +653,6 @@
 			"table": "apikey"
 		},
 		{
-			"type": "jsonb",
-			"typeSchema": null,
-			"notNull": false,
-			"dimensions": 0,
-			"default": null,
-			"generated": null,
-			"identity": null,
-			"name": "failure",
-			"entityType": "columns",
-			"schema": "public",
-			"table": "backup_run"
-		},
-		{
 			"type": "text",
 			"typeSchema": null,
 			"notNull": false,
@@ -674,6 +661,19 @@
 			"generated": null,
 			"identity": null,
 			"name": "artifact_key",
+			"entityType": "columns",
+			"schema": "public",
+			"table": "backup_run"
+		},
+		{
+			"type": "jsonb",
+			"typeSchema": null,
+			"notNull": false,
+			"dimensions": 0,
+			"default": null,
+			"generated": null,
+			"identity": null,
+			"name": "failure",
 			"entityType": "columns",
 			"schema": "public",
 			"table": "backup_run"
@@ -1160,19 +1160,6 @@
 			"table": "event"
 		},
 		{
-			"type": "jsonb",
-			"typeSchema": null,
-			"notNull": false,
-			"dimensions": 0,
-			"default": null,
-			"generated": null,
-			"identity": null,
-			"name": "failure_reason",
-			"entityType": "columns",
-			"schema": "public",
-			"table": "import_run"
-		},
-		{
 			"type": "integer",
 			"typeSchema": null,
 			"notNull": false,
@@ -1272,6 +1259,19 @@
 			"generated": null,
 			"identity": null,
 			"name": "processed_items",
+			"entityType": "columns",
+			"schema": "public",
+			"table": "import_run"
+		},
+		{
+			"type": "jsonb",
+			"typeSchema": null,
+			"notNull": false,
+			"dimensions": 0,
+			"default": null,
+			"generated": null,
+			"identity": null,
+			"name": "failure_reason",
 			"entityType": "columns",
 			"schema": "public",
 			"table": "import_run"
@@ -1420,19 +1420,6 @@
 			"table": "import_run_failure"
 		},
 		{
-			"type": "jsonb",
-			"typeSchema": null,
-			"notNull": true,
-			"dimensions": 0,
-			"default": null,
-			"generated": null,
-			"identity": null,
-			"name": "reason",
-			"entityType": "columns",
-			"schema": "public",
-			"table": "import_run_failure"
-		},
-		{
 			"type": "integer",
 			"typeSchema": null,
 			"notNull": true,
@@ -1454,6 +1441,19 @@
 			"generated": null,
 			"identity": null,
 			"name": "stage",
+			"entityType": "columns",
+			"schema": "public",
+			"table": "import_run_failure"
+		},
+		{
+			"type": "jsonb",
+			"typeSchema": null,
+			"notNull": true,
+			"dimensions": 0,
+			"default": null,
+			"generated": null,
+			"identity": null,
+			"name": "reason",
 			"entityType": "columns",
 			"schema": "public",
 			"table": "import_run_failure"
@@ -2161,6 +2161,19 @@
 			"table": "plugin"
 		},
 		{
+			"type": "text",
+			"typeSchema": null,
+			"notNull": true,
+			"dimensions": 0,
+			"default": null,
+			"generated": null,
+			"identity": null,
+			"name": "scope",
+			"entityType": "columns",
+			"schema": "public",
+			"table": "plugin"
+		},
+		{
 			"type": "jsonb",
 			"typeSchema": null,
 			"notNull": true,
@@ -2169,6 +2182,32 @@
 			"generated": null,
 			"identity": null,
 			"name": "manifest",
+			"entityType": "columns",
+			"schema": "public",
+			"table": "plugin"
+		},
+		{
+			"type": "text",
+			"typeSchema": null,
+			"notNull": false,
+			"dimensions": 0,
+			"default": null,
+			"generated": null,
+			"identity": null,
+			"name": "owner_id",
+			"entityType": "columns",
+			"schema": "public",
+			"table": "plugin"
+		},
+		{
+			"type": "jsonb",
+			"typeSchema": null,
+			"notNull": true,
+			"dimensions": 0,
+			"default": null,
+			"generated": null,
+			"identity": null,
+			"name": "source_files",
 			"entityType": "columns",
 			"schema": "public",
 			"table": "plugin"
@@ -2207,10 +2246,23 @@
 			"default": null,
 			"generated": null,
 			"identity": null,
-			"name": "plugin_slug",
+			"name": "id",
 			"entityType": "columns",
 			"schema": "public",
-			"table": "plugin_state"
+			"table": "plugin"
+		},
+		{
+			"type": "text",
+			"typeSchema": null,
+			"notNull": false,
+			"dimensions": 0,
+			"default": null,
+			"generated": null,
+			"identity": null,
+			"name": "health_reason",
+			"entityType": "columns",
+			"schema": "public",
+			"table": "plugin_installation"
 		},
 		{
 			"type": "integer",
@@ -2223,7 +2275,7 @@
 			"name": "sort_order",
 			"entityType": "columns",
 			"schema": "public",
-			"table": "plugin_state"
+			"table": "plugin_installation"
 		},
 		{
 			"type": "boolean",
@@ -2236,7 +2288,7 @@
 			"name": "is_disabled",
 			"entityType": "columns",
 			"schema": "public",
-			"table": "plugin_state"
+			"table": "plugin_installation"
 		},
 		{
 			"type": "timestamp with time zone",
@@ -2249,7 +2301,7 @@
 			"name": "created_at",
 			"entityType": "columns",
 			"schema": "public",
-			"table": "plugin_state"
+			"table": "plugin_installation"
 		},
 		{
 			"type": "jsonb",
@@ -2262,7 +2314,7 @@
 			"name": "config",
 			"entityType": "columns",
 			"schema": "public",
-			"table": "plugin_state"
+			"table": "plugin_installation"
 		},
 		{
 			"type": "text",
@@ -2275,7 +2327,33 @@
 			"name": "user_id",
 			"entityType": "columns",
 			"schema": "public",
-			"table": "plugin_state"
+			"table": "plugin_installation"
+		},
+		{
+			"type": "text",
+			"typeSchema": null,
+			"notNull": true,
+			"dimensions": 0,
+			"default": null,
+			"generated": null,
+			"identity": null,
+			"name": "plugin_id",
+			"entityType": "columns",
+			"schema": "public",
+			"table": "plugin_installation"
+		},
+		{
+			"type": "text",
+			"typeSchema": null,
+			"notNull": true,
+			"dimensions": 0,
+			"default": "'ready'",
+			"generated": null,
+			"identity": null,
+			"name": "health",
+			"entityType": "columns",
+			"schema": "public",
+			"table": "plugin_installation"
 		},
 		{
 			"type": "text",
@@ -2288,7 +2366,7 @@
 			"name": "id",
 			"entityType": "columns",
 			"schema": "public",
-			"table": "plugin_state"
+			"table": "plugin_installation"
 		},
 		{
 			"type": "timestamp with time zone",
@@ -2301,7 +2379,7 @@
 			"name": "updated_at",
 			"entityType": "columns",
 			"schema": "public",
-			"table": "plugin_state"
+			"table": "plugin_installation"
 		},
 		{
 			"type": "text",
@@ -2467,7 +2545,7 @@
 			"default": null,
 			"generated": null,
 			"identity": null,
-			"name": "plugin_slug",
+			"name": "plugin_id",
 			"entityType": "columns",
 			"schema": "public",
 			"table": "sandbox_provider"
@@ -2701,7 +2779,7 @@
 			"default": null,
 			"generated": null,
 			"identity": null,
-			"name": "plugin_slug",
+			"name": "plugin_id",
 			"entityType": "columns",
 			"schema": "public",
 			"table": "sandbox_script"
@@ -2779,7 +2857,7 @@
 			"default": null,
 			"generated": null,
 			"identity": null,
-			"name": "plugin_slug",
+			"name": "plugin_id",
 			"entityType": "columns",
 			"schema": "public",
 			"table": "sandbox_workflow_reference"
@@ -3708,19 +3786,6 @@
 			"table": "user"
 		},
 		{
-			"type": "jsonb",
-			"typeSchema": null,
-			"notNull": false,
-			"dimensions": 0,
-			"default": null,
-			"generated": null,
-			"identity": null,
-			"name": "failure",
-			"entityType": "columns",
-			"schema": "public",
-			"table": "user_lifecycle_operation"
-		},
-		{
 			"type": "text",
 			"typeSchema": null,
 			"notNull": true,
@@ -3807,6 +3872,19 @@
 			"generated": null,
 			"identity": null,
 			"name": "workflow_attempt",
+			"entityType": "columns",
+			"schema": "public",
+			"table": "user_lifecycle_operation"
+		},
+		{
+			"type": "jsonb",
+			"typeSchema": null,
+			"notNull": false,
+			"dimensions": 0,
+			"default": null,
+			"generated": null,
+			"identity": null,
+			"name": "failure",
 			"entityType": "columns",
 			"schema": "public",
 			"table": "user_lifecycle_operation"
@@ -4902,6 +4980,76 @@
 			"nameExplicit": true,
 			"columns": [
 				{
+					"value": "owner_id",
+					"isExpression": false,
+					"asc": true,
+					"nullsFirst": false,
+					"opclass": null
+				}
+			],
+			"isUnique": false,
+			"where": null,
+			"with": "",
+			"method": "btree",
+			"concurrently": false,
+			"name": "plugin_owner_id_idx",
+			"entityType": "indexes",
+			"schema": "public",
+			"table": "plugin"
+		},
+		{
+			"nameExplicit": true,
+			"columns": [
+				{
+					"value": "slug",
+					"isExpression": false,
+					"asc": true,
+					"nullsFirst": false,
+					"opclass": null
+				}
+			],
+			"isUnique": true,
+			"where": "\"scope\" = 'system'",
+			"with": "",
+			"method": "btree",
+			"concurrently": false,
+			"name": "plugin_system_slug_unique",
+			"entityType": "indexes",
+			"schema": "public",
+			"table": "plugin"
+		},
+		{
+			"nameExplicit": true,
+			"columns": [
+				{
+					"value": "owner_id",
+					"isExpression": false,
+					"asc": true,
+					"nullsFirst": false,
+					"opclass": null
+				},
+				{
+					"value": "slug",
+					"isExpression": false,
+					"asc": true,
+					"nullsFirst": false,
+					"opclass": null
+				}
+			],
+			"isUnique": true,
+			"where": "\"scope\" = 'user'",
+			"with": "",
+			"method": "btree",
+			"concurrently": false,
+			"name": "plugin_owner_slug_unique",
+			"entityType": "indexes",
+			"schema": "public",
+			"table": "plugin"
+		},
+		{
+			"nameExplicit": true,
+			"columns": [
+				{
 					"value": "user_id",
 					"isExpression": false,
 					"asc": true,
@@ -4914,10 +5062,31 @@
 			"with": "",
 			"method": "btree",
 			"concurrently": false,
-			"name": "plugin_state_user_id_idx",
+			"name": "plugin_installation_user_id_idx",
 			"entityType": "indexes",
 			"schema": "public",
-			"table": "plugin_state"
+			"table": "plugin_installation"
+		},
+		{
+			"nameExplicit": true,
+			"columns": [
+				{
+					"value": "plugin_id",
+					"isExpression": false,
+					"asc": true,
+					"nullsFirst": false,
+					"opclass": null
+				}
+			],
+			"isUnique": false,
+			"where": null,
+			"with": "",
+			"method": "btree",
+			"concurrently": false,
+			"name": "plugin_installation_plugin_id_idx",
+			"entityType": "indexes",
+			"schema": "public",
+			"table": "plugin_installation"
 		},
 		{
 			"nameExplicit": true,
@@ -5042,7 +5211,7 @@
 			"nameExplicit": true,
 			"columns": [
 				{
-					"value": "plugin_slug",
+					"value": "plugin_id",
 					"isExpression": false,
 					"asc": true,
 					"nullsFirst": false,
@@ -5054,7 +5223,7 @@
 			"with": "",
 			"method": "btree",
 			"concurrently": false,
-			"name": "sandbox_provider_plugin_slug_idx",
+			"name": "sandbox_provider_plugin_id_idx",
 			"entityType": "indexes",
 			"schema": "public",
 			"table": "sandbox_provider"
@@ -5147,7 +5316,7 @@
 			"nameExplicit": true,
 			"columns": [
 				{
-					"value": "plugin_slug",
+					"value": "plugin_id",
 					"isExpression": false,
 					"asc": true,
 					"nullsFirst": false,
@@ -5159,7 +5328,7 @@
 			"with": "",
 			"method": "btree",
 			"concurrently": false,
-			"name": "sandbox_script_plugin_slug_idx",
+			"name": "sandbox_script_plugin_id_idx",
 			"entityType": "indexes",
 			"schema": "public",
 			"table": "sandbox_script"
@@ -5183,7 +5352,7 @@
 				}
 			],
 			"isUnique": true,
-			"where": "\"plugin_slug\" is null",
+			"where": "\"plugin_id\" is null",
 			"with": "",
 			"method": "btree",
 			"concurrently": false,
@@ -5196,7 +5365,7 @@
 			"nameExplicit": true,
 			"columns": [
 				{
-					"value": "plugin_slug",
+					"value": "plugin_id",
 					"isExpression": false,
 					"asc": true,
 					"nullsFirst": false,
@@ -5208,7 +5377,7 @@
 			"with": "",
 			"method": "btree",
 			"concurrently": false,
-			"name": "sandbox_workflow_reference_plugin_slug_idx",
+			"name": "sandbox_workflow_reference_plugin_id_idx",
 			"entityType": "indexes",
 			"schema": "public",
 			"table": "sandbox_workflow_reference"
@@ -5730,16 +5899,42 @@
 		},
 		{
 			"nameExplicit": false,
+			"columns": ["owner_id"],
+			"schemaTo": "public",
+			"tableTo": "user",
+			"columnsTo": ["id"],
+			"onUpdate": "NO ACTION",
+			"onDelete": "CASCADE",
+			"name": "plugin_owner_id_user_id_fkey",
+			"entityType": "fks",
+			"schema": "public",
+			"table": "plugin"
+		},
+		{
+			"nameExplicit": false,
 			"columns": ["user_id"],
 			"schemaTo": "public",
 			"tableTo": "user",
 			"columnsTo": ["id"],
 			"onUpdate": "NO ACTION",
 			"onDelete": "CASCADE",
-			"name": "plugin_state_user_id_user_id_fkey",
+			"name": "plugin_installation_user_id_user_id_fkey",
 			"entityType": "fks",
 			"schema": "public",
-			"table": "plugin_state"
+			"table": "plugin_installation"
+		},
+		{
+			"nameExplicit": false,
+			"columns": ["plugin_id"],
+			"schemaTo": "public",
+			"tableTo": "plugin",
+			"columnsTo": ["id"],
+			"onUpdate": "NO ACTION",
+			"onDelete": "CASCADE",
+			"name": "plugin_installation_plugin_id_plugin_id_fkey",
+			"entityType": "fks",
+			"schema": "public",
+			"table": "plugin_installation"
 		},
 		{
 			"nameExplicit": false,
@@ -5782,13 +5977,13 @@
 		},
 		{
 			"nameExplicit": false,
-			"columns": ["plugin_slug"],
+			"columns": ["plugin_id"],
 			"schemaTo": "public",
 			"tableTo": "plugin",
-			"columnsTo": ["slug"],
+			"columnsTo": ["id"],
 			"onUpdate": "NO ACTION",
-			"onDelete": "RESTRICT",
-			"name": "sandbox_provider_plugin_slug_plugin_slug_fkey",
+			"onDelete": "CASCADE",
+			"name": "sandbox_provider_plugin_id_plugin_id_fkey",
 			"entityType": "fks",
 			"schema": "public",
 			"table": "sandbox_provider"
@@ -5821,13 +6016,13 @@
 		},
 		{
 			"nameExplicit": false,
-			"columns": ["plugin_slug"],
+			"columns": ["plugin_id"],
 			"schemaTo": "public",
 			"tableTo": "plugin",
-			"columnsTo": ["slug"],
+			"columnsTo": ["id"],
 			"onUpdate": "NO ACTION",
-			"onDelete": "RESTRICT",
-			"name": "sandbox_script_plugin_slug_plugin_slug_fkey",
+			"onDelete": "CASCADE",
+			"name": "sandbox_script_plugin_id_plugin_id_fkey",
 			"entityType": "fks",
 			"schema": "public",
 			"table": "sandbox_script"
@@ -5847,13 +6042,13 @@
 		},
 		{
 			"nameExplicit": false,
-			"columns": ["plugin_slug"],
+			"columns": ["plugin_id"],
 			"schemaTo": "public",
 			"tableTo": "plugin",
-			"columnsTo": ["slug"],
+			"columnsTo": ["id"],
 			"onUpdate": "NO ACTION",
-			"onDelete": "RESTRICT",
-			"name": "sandbox_workflow_reference_plugin_slug_plugin_slug_fkey",
+			"onDelete": "CASCADE",
+			"name": "sandbox_workflow_reference_plugin_id_plugin_id_fkey",
 			"entityType": "fks",
 			"schema": "public",
 			"table": "sandbox_workflow_reference"
@@ -5865,7 +6060,7 @@
 			"tableTo": "sandbox_script",
 			"columnsTo": ["id"],
 			"onUpdate": "NO ACTION",
-			"onDelete": "RESTRICT",
+			"onDelete": "CASCADE",
 			"name": "sandbox_workflow_reference_script_id_sandbox_script_id_fkey",
 			"entityType": "fks",
 			"schema": "public",
@@ -6109,7 +6304,7 @@
 			"entityType": "pks"
 		},
 		{
-			"columns": ["slug"],
+			"columns": ["id"],
 			"nameExplicit": false,
 			"name": "plugin_pkey",
 			"schema": "public",
@@ -6119,9 +6314,9 @@
 		{
 			"columns": ["id"],
 			"nameExplicit": false,
-			"name": "plugin_state_pkey",
+			"name": "plugin_installation_pkey",
 			"schema": "public",
-			"table": "plugin_state",
+			"table": "plugin_installation",
 			"entityType": "pks"
 		},
 		{
@@ -6248,12 +6443,12 @@
 		},
 		{
 			"nameExplicit": true,
-			"columns": ["user_id", "plugin_slug"],
+			"columns": ["user_id", "plugin_id"],
 			"nullsNotDistinct": false,
-			"name": "plugin_state_user_slug_unique",
+			"name": "plugin_installation_user_plugin_unique",
 			"entityType": "uniques",
 			"schema": "public",
-			"table": "plugin_state"
+			"table": "plugin_installation"
 		},
 		{
 			"nameExplicit": true,
@@ -6266,9 +6461,9 @@
 		},
 		{
 			"nameExplicit": true,
-			"columns": ["plugin_slug", "slug"],
+			"columns": ["plugin_id", "slug"],
 			"nullsNotDistinct": false,
-			"name": "sandbox_provider_plugin_slug_unique",
+			"name": "sandbox_provider_plugin_id_unique",
 			"entityType": "uniques",
 			"schema": "public",
 			"table": "sandbox_provider"
@@ -6293,9 +6488,9 @@
 		},
 		{
 			"nameExplicit": true,
-			"columns": ["plugin_slug", "slug", "content_hash"],
+			"columns": ["plugin_id", "slug", "content_hash"],
 			"nullsNotDistinct": false,
-			"name": "sandbox_script_plugin_slug_content_hash_unique",
+			"name": "sandbox_script_plugin_id_content_hash_unique",
 			"entityType": "uniques",
 			"schema": "public",
 			"table": "sandbox_script"
@@ -6333,6 +6528,13 @@
 			"entityType": "checks",
 			"schema": "public",
 			"table": "migration_report"
+		},
+		{
+			"value": "(\"scope\" = 'system' and \"owner_id\" is null) or (\"scope\" = 'user' and \"owner_id\" is not null)",
+			"name": "plugin_scope_owner_check",
+			"entityType": "checks",
+			"schema": "public",
+			"table": "plugin"
 		},
 		{
 			"value": "\"operation\" in ('create', 'update', 'delete', 'signal')",

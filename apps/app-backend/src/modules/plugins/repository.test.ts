@@ -12,6 +12,8 @@ import { PluginRepository } from "./repository";
 import { fixtureManifest } from "./test-support";
 import type { NormalizedPlugin } from "./types";
 
+const systemIdentity = { slug: "fixture", ownerId: null, scope: "system" } as const;
+
 const makeLayer = (input: {
 	statuses?: Array<string>;
 	entityRows?: ReadonlyArray<{ id: string }>;
@@ -89,7 +91,7 @@ it.effect("resolves a provider by portable plugin and provider slugs", () => {
 		const repository = yield* PluginRepository;
 		expect(
 			yield* repository.resolveProviderBySlugs({
-				pluginSlug: "media",
+				pluginId: "media",
 				providerSlug: "tmdb",
 			}),
 		).toEqual({ id: SandboxProviderId.make("provider-id"), entitySchemaSlug: "book" });
@@ -107,7 +109,7 @@ it.effect("detects entity references to plugin schema slugs", () =>
 		const repository = yield* PluginRepository;
 		expect(
 			yield* repository.hasEntityReferences({
-				pluginSlug: "fixture",
+				pluginId: "fixture",
 				entitySchemaSlugs: ["fixture-entity"],
 			}),
 		).toBe(true);
@@ -119,7 +121,7 @@ it.effect("detects entities referencing a plugin provider", () =>
 		const repository = yield* PluginRepository;
 		expect(
 			yield* repository.hasEntityReferences({
-				pluginSlug: "fixture",
+				pluginId: "fixture",
 				entitySchemaSlugs: [],
 			}),
 		).toBe(true);
@@ -174,6 +176,9 @@ it.effect(
 					}
 					return {
 						onConflictDoUpdate: () => {
+							if (table === schema.plugin) {
+								return { returning: () => Effect.succeed([{ id: "fixture-plugin-id" }]) };
+							}
 							if (table === schema.sandboxProvider) {
 								return {
 									returning: () =>
@@ -223,6 +228,7 @@ it.effect(
 			providerSlug: "fixture-provider",
 		};
 		const plugin: NormalizedPlugin = {
+			sourceFiles: {},
 			sourceHash: "source-hash",
 			manifest: {
 				...manifest,
@@ -256,8 +262,8 @@ it.effect(
 		);
 		return Effect.gen(function* () {
 			const repository = yield* PluginRepository;
-			yield* repository.persist(plugin);
-			yield* repository.persist({ ...plugin, sourceHash: "updated-source-hash" });
+			yield* repository.persist(plugin, systemIdentity);
+			yield* repository.persist({ ...plugin, sourceHash: "updated-source-hash" }, systemIdentity);
 			expect(scriptRows).toEqual([
 				expect.objectContaining({ providerId: null, slug: automation.slug }),
 				expect.objectContaining({ providerId: "stable-provider-id", slug: providerScript.slug }),
@@ -286,6 +292,9 @@ it.effect("persists provider operation bindings and search options separately", 
 				}
 				return {
 					onConflictDoUpdate: () => {
+						if (table === schema.plugin) {
+							return { returning: () => Effect.succeed([{ id: "fixture-plugin-id" }]) };
+						}
 						if (table === schema.sandboxProvider) {
 							return {
 								returning: () => Effect.succeed([{ id: "provider-id", slug: "fixture-provider" }]),
@@ -359,6 +368,7 @@ it.effect("persists provider operation bindings and search options separately", 
 		providerOperation: "search-options" as const,
 	};
 	const normalized: NormalizedPlugin = {
+		sourceFiles: {},
 		sourceHash: "source-hash",
 		manifest: {
 			...manifest,
@@ -397,7 +407,7 @@ it.effect("persists provider operation bindings and search options separately", 
 
 	return Effect.gen(function* () {
 		const repository = yield* PluginRepository;
-		yield* repository.persist(normalized);
+		yield* repository.persist(normalized, systemIdentity);
 		expect(operationValues).toEqual([
 			expect.objectContaining({
 				operation: "details",
@@ -464,13 +474,13 @@ it.effect("lists persisted source-zero and pinned-plugin script hashes as live",
 	const dialect = new PgDialect();
 	const db = {
 		select: () => ({
-			from: () => ({
+			from: (table: SQLWrapper) => ({
 				where: (condition: SQLWrapper) => {
 					statements.push(dialect.sqlToQuery(condition.getSQL()));
-					return Effect.succeed([
-						{ contentHash: "kernel-history" },
-						{ contentHash: "plugin-history" },
-					]);
+					return Object.assign(
+						Effect.succeed([{ contentHash: "kernel-history" }, { contentHash: "plugin-history" }]),
+						{ getSQL: () => sql`select 1 from ${table} where ${condition}`.getSQL() },
+					);
 				},
 			}),
 		}),
@@ -481,11 +491,13 @@ it.effect("lists persisted source-zero and pinned-plugin script hashes as live",
 
 	return Effect.gen(function* () {
 		const repository = yield* PluginRepository;
-		expect(
-			yield* repository.listPersistedLivenessContentHashes(new Set(["pinned-plugin"])),
-		).toEqual(["kernel-history", "plugin-history"]);
-		expect(statements[0]?.sql).toContain('"sandbox_script"."plugin_slug" is null');
-		expect(statements[0]?.sql).toContain('"sandbox_script"."plugin_slug" in');
-		expect(statements[0]?.params).toEqual(["pinned-plugin"]);
+		expect(yield* repository.listPersistedLivenessContentHashes()).toEqual([
+			"kernel-history",
+			"plugin-history",
+		]);
+		const liveness = statements.at(-1);
+		expect(liveness?.sql).toContain('"sandbox_script"."plugin_id" is null');
+		expect(liveness?.sql).toContain('"plugin"."status" =');
+		expect(liveness?.sql).toContain('"sandbox_workflow_reference"');
 	}).pipe(Effect.provide(layer));
 });

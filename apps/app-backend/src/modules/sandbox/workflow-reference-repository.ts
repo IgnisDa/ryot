@@ -43,7 +43,7 @@ export class SandboxWorkflowReferenceRepository extends Context.Service<SandboxW
 			const registerInTransaction = Effect.fn(
 				"SandboxWorkflowReferenceRepository.registerInTransaction",
 			)(function* (input: {
-				pluginSlug: string;
+				pluginId: string;
 				executionId: string;
 				contentHash: string;
 				scriptId: SandboxScriptId;
@@ -53,15 +53,13 @@ export class SandboxWorkflowReferenceRepository extends Context.Service<SandboxW
 					db
 						.select({ slug: schema.plugin.slug })
 						.from(schema.plugin)
-						.where(
-							and(eq(schema.plugin.slug, input.pluginSlug), eq(schema.plugin.status, "active")),
-						)
+						.where(and(eq(schema.plugin.id, input.pluginId), eq(schema.plugin.status, "active")))
 						.limit(1),
 				);
 				if (!plugin) {
 					return yield* new SandboxWorkflowReferenceRegistrationError({
 						reason: "plugin-inactive",
-						message: `Plugin '${input.pluginSlug}' is not active`,
+						message: `Plugin '${input.pluginId}' is not active`,
 					});
 				}
 				const inserted = yield* mapDatabaseErrors(
@@ -82,7 +80,7 @@ export class SandboxWorkflowReferenceRepository extends Context.Service<SandboxW
 						.limit(1),
 				);
 				if (
-					existing?.pluginSlug === input.pluginSlug &&
+					existing?.pluginId === input.pluginId &&
 					existing.scriptId === input.scriptId &&
 					existing.contentHash === input.contentHash
 				) {
@@ -106,13 +104,13 @@ export class SandboxWorkflowReferenceRepository extends Context.Service<SandboxW
 			});
 
 			const hasReferences = Effect.fn("SandboxWorkflowReferenceRepository.hasReferences")(
-				function* (pluginSlug: string) {
+				function* (pluginId: string) {
 					const db = yield* Database;
 					const [row] = yield* mapDatabaseErrors(
 						db
 							.select({ executionId: schema.sandboxWorkflowReference.executionId })
 							.from(schema.sandboxWorkflowReference)
-							.where(eq(schema.sandboxWorkflowReference.pluginSlug, pluginSlug))
+							.where(eq(schema.sandboxWorkflowReference.pluginId, pluginId))
 							.limit(1),
 					);
 					return row !== undefined;
@@ -120,13 +118,11 @@ export class SandboxWorkflowReferenceRepository extends Context.Service<SandboxW
 			);
 
 			const listReferences = Effect.fn("SandboxWorkflowReferenceRepository.listReferences")(
-				function* (pluginSlug?: string) {
+				function* (pluginId?: string) {
 					const db = yield* Database;
 					const query = db.select().from(schema.sandboxWorkflowReference);
 					const rows = yield* mapDatabaseErrors(
-						pluginSlug
-							? query.where(eq(schema.sandboxWorkflowReference.pluginSlug, pluginSlug))
-							: query,
+						pluginId ? query.where(eq(schema.sandboxWorkflowReference.pluginId, pluginId)) : query,
 					);
 					return rows.map(toReference);
 				},

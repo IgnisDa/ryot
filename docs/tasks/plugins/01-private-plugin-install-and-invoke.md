@@ -2,7 +2,7 @@
 
 **Parent Plan:** [User-Owned Plugins](./README.md)
 
-**Status:** todo
+**Status:** done
 
 ## What to build
 
@@ -14,16 +14,16 @@ The installation path in this slice may use a fixture with no boot, cron, bootst
 
 ## Acceptance criteria
 
-- [ ] The database represents stable plugin identity, explicit scope and owner, current source package, and per-user installation with enforced ownership constraints.
-- [ ] Two users can install different private packages with the same slug and version without database, compiler-registry, or runtime collisions.
-- [ ] One user cannot list, inspect, invoke, update, or otherwise resolve another user's private plugin or installation.
-- [ ] Authenticated install validates package limits, manifest, source paths, compilation, compiled metadata, source hash, effective-registry collisions, and complete initial config before activation.
-- [ ] Ordinary install and list endpoints use user authentication and no longer require or accept administrator ownership semantics.
-- [ ] Listing returns safe installation metadata, scope, lifecycle state, disabled state, order, source hash, version, and secret-safe config information.
-- [ ] A declared user-authenticated operation resolves through the caller's exact installation and runs with that user's authority and config.
-- [ ] A slug that exists only in another user's registry returns not found rather than leaking its existence.
-- [ ] Existing system plugin startup remains functional while the explicit system provisioning behavior is completed in Task 02.
-- [ ] Repository, service, registry, contract, operation, and end-to-end tests cover the complete private install/list/invoke path and same-slug isolation.
+- [x] The database represents stable plugin identity, explicit scope and owner, current source package, and per-user installation with enforced ownership constraints.
+- [x] Two users can install different private packages with the same slug and version without database, compiler-registry, or runtime collisions.
+- [x] One user cannot list, inspect, invoke, update, or otherwise resolve another user's private plugin or installation.
+- [x] Authenticated install validates package limits, manifest, source paths, compilation, compiled metadata, source hash, effective-registry collisions, and complete initial config before activation.
+- [x] Ordinary install and list endpoints use user authentication and no longer require or accept administrator ownership semantics.
+- [x] Listing returns safe installation metadata, scope, lifecycle state, disabled state, order, source hash, version, and secret-safe config information.
+- [x] A declared user-authenticated operation resolves through the caller's exact installation and runs with that user's authority and config.
+- [x] A slug that exists only in another user's registry returns not found rather than leaking its existence.
+- [x] Existing system plugin startup remains functional while the explicit system provisioning behavior is completed in Task 02.
+- [x] Repository, service, registry, contract, operation, and end-to-end tests cover the complete private install/list/invoke path and same-slug isolation.
 
 ## User stories addressed
 
@@ -44,3 +44,41 @@ The installation path in this slice may use a fixture with no boot, cron, bootst
 ## Implementor Notes
 
 Keep plugin ID, installation ID, and script content identity separate. Route handlers stay thin; ownership checks and transaction boundaries belong to services, and repositories remain the only table writers.
+
+## Implementation Notes
+
+- The process-wide `PluginLoader` snapshot holds system plugins only. Private plugins resolve from the
+  database on demand, so `PluginRepository.list`, `listActiveManifests`, and `listPortablePluginMetadata`
+  are system-scoped. Script garbage-collection liveness therefore no longer derives from `list` and
+  instead reads content hashes for every active plugin, kernel scripts, and workflow-referenced scripts.
+- Private manifests may declare only `metadata`, `configSchema`, `scripts` of kind `operation`, and
+  `operations` with `auth: "user"`. Every other surface is rejected with `unsupported-manifest-surface`.
+  Tasks 05-07 shorten that list as they activate each surface; `boot` stays rejected permanently.
+- Trusted system ingestion moved off `POST /plugins` to admin-gated `testSupport.installSystemPlugin`,
+  `listSystemPlugins`, and `uninstallSystemPlugin`. Task 11 should consider gating that module behind
+  configuration.
+- The plugin-owned foreign-key subtree cascades on delete so a user owning a private plugin, its
+  scripts, and live workflow references can still be deleted.
+- System-slug reservation was pulled forward from Task 02 because a user holding both a system and a
+  private plugin under one slug makes listing and invocation ambiguous.
+- The baseline migration was regenerated rather than extended, per the parent plan's allowance.
+
+## Known Follow-Ups
+
+- Slug shadowing is checked in one direction only. Private install rejects an existing system slug, but
+  system ingestion does not reject a slug already used by a private plugin. Because operation
+  resolution is system-first, a later system plugin would silently shadow an owner's private operation
+  and misattribute its installation state. Task 02 owns system provisioning and should close this.
+- `PluginRepository.hasIntegrationReferences` still matches `integration.plugin_slug` across all users.
+  Unreachable while private plugins cannot declare integration providers; Task 06 must make it
+  owner-scoped when it lifts that restriction, otherwise one user's integration could block another's
+  uninstall.
+- Duplicate-slug detection happens before the install transaction, so two concurrent installs of one
+  slug by the same user upsert instead of returning `already-installed`. Data stays consistent; only
+  the error contract is lossy.
+- Private scripts may declare `httpCall` but cannot declare `httpRateLimits`, and an undeclared origin
+  is currently unthrottled. Accepted deliberately.
+- Uninstall deactivates the plugin but leaves the installation row, and backup restore requires a clean
+  account, so a user who has ever installed a private plugin cannot restore into that account until
+  Task 04 lands the real delete. The same already applies to any user who has patched per-user plugin
+  state, so this is not new behaviour, but Task 04 should close it.

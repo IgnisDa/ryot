@@ -158,7 +158,9 @@ async function installSeedDefinitions(
 		...input.entitySchemas,
 	];
 	const manifest = testPluginManifest({ pluginSlug: input.pluginSlug, entitySchemas });
-	await apiClient.runAdmin((c) => c.plugins.install({ payload: { files: {}, manifest } }));
+	await apiClient.runAdmin((c) =>
+		c.testSupport.installSystemPlugin({ payload: { files: {}, manifest } }),
+	);
 	seedPluginManifests.set(input.pluginSlug, manifest);
 }
 
@@ -200,7 +202,7 @@ export default defineScript({
 		],
 	});
 	await apiClient.runAdmin((c) =>
-		c.plugins.install({ payload: { files: { [entry]: source }, manifest } }),
+		c.testSupport.installSystemPlugin({ payload: { files: { [entry]: source }, manifest } }),
 	);
 	const scripts = await apiClient.runAdmin((c) => c.testSupport.listSandboxScripts({ query: {} }));
 	const script = requirePresent(

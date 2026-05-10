@@ -1,7 +1,8 @@
 import { builtinMediaEntitySchemaSlugs } from "@ryot/media-plugin/schemas/media-schema-slugs";
+import { eq } from "drizzle-orm";
 import { Clock, Effect } from "effect";
 
-import { sandboxProvider } from "#lib/infrastructure/db/schema/tables/combined";
+import { plugin, sandboxProvider } from "#lib/infrastructure/db/schema/tables/combined";
 import { Database, mapDatabaseErrors } from "#lib/infrastructure/db/service";
 import { DefinitionRegistry } from "#modules/definition-registry/service";
 import { PluginLoader } from "#modules/plugins/loader";
@@ -116,17 +117,18 @@ export const migrateLegacyTables = Effect.gen(function* () {
 			.select({
 				id: sandboxProvider.id,
 				slug: sandboxProvider.slug,
-				pluginSlug: sandboxProvider.pluginSlug,
+				pluginSlug: plugin.slug,
 			})
-			.from(sandboxProvider),
+			.from(sandboxProvider)
+			.innerJoin(plugin, eq(plugin.id, sandboxProvider.pluginId)),
 	);
 
 	// A persisted `sandbox_provider` row is only live when the active loader snapshot's plugin still
 	// declares it; repository upserts never remove stale declarations. Mirrors `findActiveProvider`
 	// in `#modules/plugins/runtime-resolver`.
 	const declaredProviderKeys = new Set(
-		Object.entries(loader.getSnapshot().plugins).flatMap(([pluginSlug, plugin]) =>
-			plugin.manifest.providers.map(({ slug }) => `${pluginSlug}|${slug}`),
+		Object.values(loader.getSnapshot().plugins).flatMap((entry) =>
+			entry.manifest.providers.map(({ slug }) => `${entry.slug}|${slug}`),
 		),
 	);
 	const activeProviders = persistedProviders.filter((provider) =>
