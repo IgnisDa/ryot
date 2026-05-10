@@ -335,7 +335,7 @@ export function RateCard(props: RateCardProps) {
 									onMouseEnter={() => setHovered(star)}
 									onClick={() => {
 										setSelected(star);
-										void saveRating(star);
+										 saveRating(star);
 									}}
 								>
 									<Star
