@@ -12,17 +12,19 @@ const entity = table("entity", "entity");
 const entityColumn = (name: string) => column(entity, name);
 const entityProperty = (property: string) => jsonPath(column(entity, "properties"), property);
 const entityImage = () => castJson(jsonPath(column(entity, "properties"), "images", 0));
+const text = (expression: ScalarExpression) => ({ expression, displayKind: "text" as const });
+const date = (expression: ScalarExpression) => ({ expression, displayKind: "date" as const });
 
 const cardExpressions = (slug: string, schemaName: string): ViewExpressions["grid"] => {
-	const overline = literal(schemaName);
+	const overline = text(literal(schemaName));
 	if (slug === "exercise") {
 		return {
 			overline,
 			image: entityImage(),
 			title: entityColumn("name"),
-			callout: titleCase(entityProperty("level")),
-			primaryMetadata: titleCase(entityProperty("kind")),
-			secondaryMetadata: titleCase(entityProperty("equipment")),
+			callout: text(titleCase(entityProperty("level"))),
+			primaryMetadata: text(titleCase(entityProperty("kind"))),
+			secondaryMetadata: text(titleCase(entityProperty("equipment"))),
 		};
 	}
 	let primaryMetadata: ScalarExpression = entityProperty("recordedAt");
@@ -35,39 +37,40 @@ const cardExpressions = (slug: string, schemaName: string): ViewExpressions["gri
 		overline,
 		image: null,
 		callout: null,
-		primaryMetadata,
+		primaryMetadata: date(primaryMetadata),
 		title: entityColumn("name"),
-		secondaryMetadata: slug === "workout" ? entityProperty("endedAt") : entityProperty("comment"),
+		secondaryMetadata:
+			slug === "workout" ? date(entityProperty("endedAt")) : text(entityProperty("comment")),
 	};
 };
 
 const tableColumns = (slug: string): ViewExpressions["table"]["columns"] => {
-	const name = { label: "Name", expression: entityColumn("name") };
+	const name = { label: "Name", ...text(entityColumn("name")) };
 	if (slug === "exercise") {
 		return [
 			name,
-			{ label: "Level", expression: titleCase(entityProperty("level")) },
-			{ label: "Equipment", expression: titleCase(entityProperty("equipment")) },
+			{ label: "Level", ...text(titleCase(entityProperty("level"))) },
+			{ label: "Equipment", ...text(titleCase(entityProperty("equipment"))) },
 		];
 	}
 	if (slug === "workout") {
 		return [
 			name,
-			{ label: "Started At", expression: entityProperty("startedAt") },
-			{ label: "Ended At", expression: entityProperty("endedAt") },
+			{ label: "Started At", ...date(entityProperty("startedAt")) },
+			{ label: "Ended At", ...date(entityProperty("endedAt")) },
 		];
 	}
 	if (slug === "workout-template") {
 		return [
 			name,
-			{ label: "Created At", expression: entityColumn("createdAt") },
-			{ label: "Comment", expression: entityProperty("comment") },
+			{ label: "Created At", ...date(entityColumn("createdAt")) },
+			{ label: "Comment", ...text(entityProperty("comment")) },
 		];
 	}
 	return [
 		name,
-		{ label: "Comment", expression: entityProperty("comment") },
-		{ label: "Recorded At", expression: entityProperty("recordedAt") },
+		{ label: "Comment", ...text(entityProperty("comment")) },
+		{ label: "Recorded At", ...date(entityProperty("recordedAt")) },
 	];
 };
 

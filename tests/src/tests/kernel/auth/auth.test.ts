@@ -7,8 +7,8 @@ import {
 	executeRyotQL,
 	getBackendClient,
 	makeSession,
-	requireRyotQLFieldValue,
-	requireRyotQLTextField,
+	requireRyotQLText,
+	requireRyotQLValue,
 	requireRows,
 	listNotificationSubscriptionStates,
 	signInWithPassword,
@@ -73,11 +73,8 @@ describe("Email sign-up", () => {
 				expect(libraries.items).toHaveLength(1);
 				const libraryRow = libraries.items[0];
 				assert(libraryRow);
-				expect(requireRyotQLTextField(libraryRow, "name")).toBe("Library");
-				expect(requireRyotQLFieldValue(libraryRow, "properties")).toEqual({
-					kind: "json",
-					value: {},
-				});
+				expect(requireRyotQLText(libraryRow, "name")).toBe("Library");
+				expect(requireRyotQLValue(libraryRow, "properties")).toEqual({});
 			}),
 	);
 

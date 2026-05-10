@@ -1,10 +1,7 @@
 import { defineManifest, defineScript } from "@ryot/sandbox-sdk/driver";
-import { Effect } from "@ryot/sandbox-sdk/effect";
+import { executeRyotqlRecipe } from "@ryot/sandbox-sdk/ryotql";
 
-import {
-	buildMediaMonitoringSweepDocument,
-	decodeMediaMonitoringSweep,
-} from "../../media-monitoring-ryotql";
+import { mediaMonitoringSweepRecipe } from "../../media-monitoring-ryotql";
 import {
 	MediaMonitoringTargetsActivityInput,
 	MediaMonitoringTargetsActivityOutput,
@@ -24,7 +21,5 @@ export default defineScript({
 	input: MediaMonitoringTargetsActivityInput,
 	output: MediaMonitoringTargetsActivityOutput,
 	run: (input, host) =>
-		host
-			.executeRyotql(buildMediaMonitoringSweepDocument(input.after, input.limit))
-			.pipe(Effect.map(decodeMediaMonitoringSweep)),
+		executeRyotqlRecipe(host.executeRyotql, mediaMonitoringSweepRecipe(input.after, input.limit)),
 });

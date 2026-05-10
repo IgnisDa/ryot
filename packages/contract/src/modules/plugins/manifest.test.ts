@@ -22,11 +22,11 @@ const queryDocument = {
 
 const cardMapping = {
 	imageField: null,
-	calloutField: null,
+	callout: null,
 	titleField: "title",
-	overlineField: null,
-	primaryMetadataField: null,
-	secondaryMetadataField: null,
+	overline: null,
+	primaryMetadata: null,
+	secondaryMetadata: null,
 } as const;
 
 const manifest = definePlugin({
@@ -60,7 +60,7 @@ const manifest = definePlugin({
 					queryDocument,
 					imageField: null,
 					entityIdField: "entityId",
-					columns: [{ label: "Title", field: "title" }],
+					columns: [{ label: "Title", field: "title", displayKind: "text" }],
 				},
 			},
 		},

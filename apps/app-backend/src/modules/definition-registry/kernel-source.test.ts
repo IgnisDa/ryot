@@ -13,8 +13,8 @@ it("keeps source zero limited to generic kernel definitions", () => {
 	expect(savedView).toMatchObject({ entitySchemaSlug: null });
 	expect(savedView.layouts.grid.queryDocument).not.toBe(savedView.layouts.list.queryDocument);
 	expect(savedView.layouts.list.queryDocument).not.toBe(savedView.layouts.table.queryDocument);
-	const gridQuery = savedView.layouts.grid.queryDocument.queries["collections"];
-	const tableQuery = savedView.layouts.table.queryDocument.queries["collections"];
+	const gridQuery = savedView.layouts.grid.queryDocument.queries["savedView"];
+	const tableQuery = savedView.layouts.table.queryDocument.queries["savedView"];
 	assert(gridQuery?.output.type === "rows");
 	assert(tableQuery?.output.type === "rows");
 	expect(gridQuery.output.fields).toMatchObject([

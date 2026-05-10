@@ -3,9 +3,12 @@ import type { RyotQLDocument } from "@ryot/contract/modules/ryotql/language";
 import type { SavedViewRecord } from "@ryot/ryotql-recipes/saved-view-records";
 import { Effect } from "effect";
 
+import { RyotQLMalformedResultError } from "@/api/ryotql";
+
 import {
 	canRefreshSavedView,
 	createSavedViewControllerState,
+	executeSavedViewRequest,
 	fetchSavedViewPages,
 	savedViewControllerReducer,
 	savedViewControllerResult,
@@ -53,21 +56,21 @@ const searchQuery = {
 } satisfies RyotQLDocument;
 
 const cardLayout = {
+	callout: null,
+	overline: null,
 	imageField: null,
-	calloutField: null,
 	titleField: "title",
-	overlineField: null,
 	entityIdField: "entityId",
-	primaryMetadataField: null,
+	primaryMetadata: null,
 	queryDocument: searchQuery,
-	secondaryMetadataField: null,
+	secondaryMetadata: null,
 } satisfies SavedViewRecord["layouts"]["grid"];
 
 const tableLayout = {
 	imageField: null,
 	entityIdField: "entityId",
 	queryDocument: searchQuery,
-	columns: [{ field: "title", label: "Title" }],
+	columns: [{ field: "title", label: "Title", displayKind: "text" }],
 } satisfies SavedViewRecord["layouts"]["table"];
 
 const card = (entityId: string, title = entityId): SavedViewCardItem => ({
@@ -102,6 +105,17 @@ const token = (
 	layout: SavedViewOperationToken["layout"] = "grid",
 	generation = 1,
 ): SavedViewOperationToken => ({ identity, layout, generation });
+
+it.effect("classifies recipe decode failures as malformed", () =>
+	Effect.gen(function* () {
+		const failure = yield* executeSavedViewRequest({
+			queryDocument: baseQuery,
+			execute: () => Effect.fail(new RyotQLMalformedResultError("invalid")),
+		}).pipe(Effect.flip);
+
+		expect(failure.status).toBe("malformed");
+	}),
+);
 
 it("splits saved-view search terms and combines them with AND", () => {
 	const searched = withSavedViewSearch(
@@ -209,13 +223,13 @@ it.effect("loads pages in order with fresh cursors and deduplicates materialized
 		const data = yield* fetchSavedViewPages({
 			pagesToLoad: 2,
 			queryDocument: baseQuery,
-			decode: () => {
+			execute: (queryDocument) => {
+				documents.push(queryDocument);
 				const response = responses.shift();
 				return response
 					? Effect.succeed(response)
 					: Effect.fail({ status: "malformed", cause: new Error("Missing response") });
 			},
-			execute: (queryDocument) => Effect.sync(() => void documents.push(queryDocument)),
 		});
 
 		expect(documents[0]).toBe(baseQuery);
@@ -264,8 +278,10 @@ it.effect("appends load-more and fully replaces an already loaded multi-page ran
 			initialData: loaded,
 			pagesToLoad: 1,
 			queryDocument: withSavedViewCursor(baseQuery, "cursor-3"),
-			decode: () => Effect.succeed(ready([card("entity-3", "Updated"), card("entity-4")], null)),
-			execute: (queryDocument) => Effect.sync(() => void documents.push(queryDocument)),
+			execute: (queryDocument) => {
+				documents.push(queryDocument);
+				return Effect.succeed(ready([card("entity-3", "Updated"), card("entity-4")], null));
+			},
 		});
 		expect(documents[0]?.queries.view.output).toMatchObject({
 			pagination: { after: "cursor-3", limit: 2 },
@@ -297,13 +313,12 @@ it.effect("appends load-more and fully replaces an already loaded multi-page ran
 		const replacement = yield* fetchSavedViewPages({
 			pagesToLoad: state.layouts.grid?.data.pages.length ?? 0,
 			queryDocument: baseQuery,
-			decode: () => {
+			execute: () => {
 				const response = responses.shift();
 				return response
 					? Effect.succeed(response)
 					: Effect.fail({ status: "malformed", cause: new Error("Missing response") });
 			},
-			execute: () => Effect.void,
 		});
 		const refresh = token(state.identity, "grid", state.generation + 1);
 		state = savedViewControllerReducer(state, {

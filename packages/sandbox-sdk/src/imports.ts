@@ -16,13 +16,13 @@ export const SANDBOX_RUNTIME_SDK_IMPORTS = [
 	"@ryot/sandbox-sdk/fflate",
 	"@ryot/sandbox-sdk/papaparse",
 	"@ryot/sandbox-sdk/fast-xml-parser",
+	"@ryot/sandbox-sdk/ryotql",
 ] as const;
 
 export const SANDBOX_SDK_IMPORTS = [
 	SANDBOX_SDK_ROOT_IMPORT,
 	SANDBOX_SDK_AUTOMATION_IMPORT,
 	SANDBOX_SDK_PROVIDER_IMPORT,
-	"@ryot/sandbox-sdk/ryotql",
 	SANDBOX_SDK_WORKFLOW_IMPORT,
 	SANDBOX_SDK_FILESYSTEM_IMPORT,
 	SANDBOX_SDK_IMPORT_WIRE_IMPORT,

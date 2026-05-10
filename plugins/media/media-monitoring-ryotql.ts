@@ -1,55 +1,29 @@
-import { Schema } from "@ryot/sandbox-sdk/effect";
+import { Result, Schema } from "@ryot/sandbox-sdk/effect";
 import {
 	and,
 	ascending,
 	column,
-	decodeRyotqlQuery,
-	document,
+	defineRecipe,
 	eq,
 	exists,
-	field,
 	inArray,
-	include,
 	isNotNull,
 	isNull,
 	literal,
-	rows,
-	ryotqlIncludeResultSchema,
-	ryotqlRowsResultSchema,
-	ryotqlTextFieldValueSchema,
+	selectedField,
+	selectedInclude,
+	selectedRows,
 	table,
+	type Recipe,
 } from "@ryot/sandbox-sdk/ryotql";
 
 import { builtinMediaEntitySchemaSlugs } from "./schemas/media-schema-slugs";
-import type { MediaMonitoringTarget as MediaMonitoringTargetSchema } from "./workflows/schemas";
 
 const mediaMonitorableEntitySchemaSlugs = [
 	"company",
 	"person",
 	...builtinMediaEntitySchemaSlugs,
 ] as const;
-
-const strictStruct = <Fields extends Schema.Struct.Fields>(fields: Fields) =>
-	Schema.Struct(fields).annotate({ parseOptions: { onExcessProperty: "error" as const } });
-
-const targetRowSchema = strictStruct({
-	entityId: ryotqlTextFieldValueSchema,
-	externalId: ryotqlTextFieldValueSchema,
-	providerId: ryotqlTextFieldValueSchema,
-	entitySchemaSlug: ryotqlTextFieldValueSchema,
-	monitoringLibraries: ryotqlIncludeResultSchema(
-		strictStruct({ libraryEntityId: ryotqlTextFieldValueSchema }),
-	),
-});
-
-const sweepRowSchema = strictStruct({
-	entityId: ryotqlTextFieldValueSchema,
-	externalId: ryotqlTextFieldValueSchema,
-	providerId: ryotqlTextFieldValueSchema,
-	entitySchemaSlug: ryotqlTextFieldValueSchema,
-});
-
-const libraryRowSchema = strictStruct({ entityId: ryotqlTextFieldValueSchema });
 
 const providerBackedFilter = (entity: ReturnType<typeof table>) =>
 	and(
@@ -62,12 +36,12 @@ const providerBackedFilter = (entity: ReturnType<typeof table>) =>
 		),
 	);
 
-const targetFields = (entity: ReturnType<typeof table>) => [
-	field("entityId", column(entity, "id")),
-	field("externalId", column(entity, "externalId")),
-	field("providerId", column(entity, "providerId")),
-	field("entitySchemaSlug", column(entity, "entitySchemaSlug")),
-];
+const targetSelection = (entity: ReturnType<typeof table>) => ({
+	entityId: selectedField(column(entity, "id"), Schema.String),
+	externalId: selectedField(column(entity, "externalId"), Schema.String),
+	providerId: selectedField(column(entity, "providerId"), Schema.String),
+	entitySchemaSlug: selectedField(column(entity, "entitySchemaSlug"), Schema.String),
+});
 
 const monitoringRelationshipFilter = (
 	entity: ReturnType<typeof table>,
@@ -79,99 +53,74 @@ const monitoringRelationshipFilter = (
 		eq(column(relationship, "relationshipSchemaSlug"), literal("media-monitoring")),
 	);
 
-export const buildMediaMonitoringTargetsDocument = (entityIds: readonly string[]) => {
+export const mediaMonitoringTargetsRecipe = defineRecipe((entityIds: readonly string[]) => {
 	if (entityIds.length === 0) {
 		throw new Error("At least one entity id is required");
 	}
 	const entity = table("entity", "entity");
 	const relationship = table("relationship", "monitoringRelationship");
-	return document({
-		targets: rows(entity, {
-			limit: entityIds.length,
-			fields: targetFields(entity),
-			orderBy: [ascending(column(entity, "id"))],
-			where: and(
-				providerBackedFilter(entity),
-				inArray(
-					column(entity, "id"),
-					entityIds.map((entityId) => literal(entityId)),
-				),
-			),
-			include: [
-				include(relationship, {
-					limit: 1,
-					key: "monitoringLibraries",
-					where: monitoringRelationshipFilter(entity, relationship),
-					orderBy: [ascending(column(relationship, "targetEntityId"))],
-					fields: [field("libraryEntityId", column(relationship, "targetEntityId"))],
-				}),
-			],
-		}),
-	});
-};
-
-export const buildUserLibraryDocument = () => {
-	const library = table("entity", "library");
-	return document({
-		library: rows(library, {
-			limit: 1,
-			fields: [field("entityId", column(library, "id"))],
-			orderBy: [ascending(column(library, "id"))],
-			where: and(
-				eq(column(library, "entitySchemaSlug"), literal("library")),
-				isNotNull(column(library, "userId")),
-			),
-		}),
-	});
-};
-
-export const buildMediaMonitoringSweepDocument = (after: string | undefined, limit: number) => {
-	const entity = table("entity", "entity");
-	const relationship = table("relationship", "monitoringRelationship");
-	return document({
-		targets: rows(entity, {
-			after,
-			limit,
-			fields: targetFields(entity),
-			orderBy: [ascending(column(entity, "id"))],
-			where: and(
-				providerBackedFilter(entity),
-				exists(relationship, {
-					where: monitoringRelationshipFilter(entity, relationship),
-				}),
-			),
-		}),
-	});
-};
-
-export type MediaMonitoringTarget = typeof MediaMonitoringTargetSchema.Type & {
-	readonly monitoringLibraryId: string | null;
-};
-
-export const decodeMediaMonitoringTargets = (response: unknown): MediaMonitoringTarget[] =>
-	decodeRyotqlQuery(response, "targets", ryotqlRowsResultSchema(targetRowSchema)).items.map(
-		(row) => ({
-			entityId: row.entityId.value,
-			externalId: row.externalId.value,
-			providerId: row.providerId.value,
-			entitySchemaSlug: row.entitySchemaSlug.value,
-			monitoringLibraryId: row.monitoringLibraries.items[0]?.libraryEntityId.value ?? null,
-		}),
-	);
-
-export const decodeMediaMonitoringSweep = (response: unknown) => {
-	const result = decodeRyotqlQuery(response, "targets", ryotqlRowsResultSchema(sweepRowSchema));
 	return {
-		items: result.items.map((row) => ({
-			entityId: row.entityId.value,
-			externalId: row.externalId.value,
-			providerId: row.providerId.value,
-			entitySchemaSlug: row.entitySchemaSlug.value,
-		})),
-		nextCursor: result.pageInfo.nextCursor,
+		queries: {
+			targets: selectedRows(entity, {
+				limit: entityIds.length,
+				selection: targetSelection(entity),
+				orderBy: [ascending(column(entity, "id"))],
+				where: and(
+					providerBackedFilter(entity),
+					inArray(
+						column(entity, "id"),
+						entityIds.map((entityId) => literal(entityId)),
+					),
+				),
+				include: {
+					monitoringLibraries: selectedInclude(relationship, {
+						limit: 1,
+						where: monitoringRelationshipFilter(entity, relationship),
+						orderBy: [ascending(column(relationship, "targetEntityId"))],
+						selection: {
+							libraryEntityId: selectedField(column(relationship, "targetEntityId"), Schema.String),
+						},
+					}),
+				},
+			}),
+		},
+		map: ({ targets }) =>
+			Result.succeed(
+				targets.items.map((target) => ({
+					entityId: target.entityId,
+					externalId: target.externalId,
+					providerId: target.providerId,
+					entitySchemaSlug: target.entitySchemaSlug,
+					monitoringLibraryId: target.monitoringLibraries.items[0]?.libraryEntityId ?? null,
+				})),
+			),
 	};
-};
+});
 
-export const decodeUserLibraryId = (response: unknown) =>
-	decodeRyotqlQuery(response, "library", ryotqlRowsResultSchema(libraryRowSchema)).items[0]
-		?.entityId.value ?? null;
+export const mediaMonitoringSweepRecipe = defineRecipe(
+	(after: string | undefined, limit: number) => {
+		const entity = table("entity", "entity");
+		const relationship = table("relationship", "monitoringRelationship");
+		return {
+			queries: {
+				targets: selectedRows(entity, {
+					after,
+					limit,
+					selection: targetSelection(entity),
+					orderBy: [ascending(column(entity, "id"))],
+					where: and(
+						providerBackedFilter(entity),
+						exists(relationship, {
+							where: monitoringRelationshipFilter(entity, relationship),
+						}),
+					),
+				}),
+			},
+			map: ({ targets }) =>
+				Result.succeed({ items: targets.items, nextCursor: targets.pageInfo.nextCursor }),
+		};
+	},
+);
+
+export type MediaMonitoringTarget = Recipe.Success<typeof mediaMonitoringTargetsRecipe>[number];
+export type MediaMonitoringSweep = Recipe.Success<typeof mediaMonitoringSweepRecipe>;

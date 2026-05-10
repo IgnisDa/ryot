@@ -38,13 +38,13 @@ import {
 	createPluginEntitySchema,
 	executeRyotQL,
 	requireRows,
-	requireRyotQLFieldValue,
+	requireRyotQLValue,
 } from "~/fixtures";
 import { assertPresent } from "~/support/assertions";
 import { describe, expect, it } from "~/support/effect-test";
 
 const findByName = (items: readonly RowItem[], name: string) => {
-	const item = items.find((value) => requireRyotQLFieldValue(value, "name").value === name);
+	const item = items.find((value) => requireRyotQLValue(value, "name") === name);
 	assertPresent(item, `Expected '${name}' row`);
 	return item;
 };
@@ -230,39 +230,31 @@ describe("RyotQL correlated expressions", () => {
 			const allCourses = requireRows(result.data["allCourses"], "allCourses");
 			expect(allCourses.items).toHaveLength(3);
 			const advanced = findByName(allCourses.items, "Advanced Course");
-			expect(requireRyotQLFieldValue(advanced, "totalLessons").value).toBe(2);
-			expect(requireRyotQLFieldValue(advanced, "completedLessons").value).toBe(2);
-			expect(requireRyotQLFieldValue(advanced, "completionRatio").value).toBe(1);
-			expect(requireRyotQLFieldValue(advanced, "latestCompletionAt").kind).toBe("date");
-			expect(requireRyotQLFieldValue(advanced, "firstModuleName").value).toBe(
-				"Advanced Course Module 1",
-			);
-			expect(requireRyotQLFieldValue(advanced, "lessonCount").value).toBe(2);
-			expect(requireRyotQLFieldValue(advanced, "distinctLessonCount").value).toBe(2);
-			expect(requireRyotQLFieldValue(advanced, "totalDuration").value).toBe(100);
-			expect(requireRyotQLFieldValue(advanced, "averageDuration").value).toBe(50);
-			expect(requireRyotQLFieldValue(advanced, "minimumDuration").value).toBe(35);
-			expect(requireRyotQLFieldValue(advanced, "maximumDuration").value).toBe(65);
+			expect(requireRyotQLValue(advanced, "totalLessons")).toBe(2);
+			expect(requireRyotQLValue(advanced, "completedLessons")).toBe(2);
+			expect(requireRyotQLValue(advanced, "completionRatio")).toBe(1);
+			expect(requireRyotQLValue(advanced, "latestCompletionAt")).toEqual(expect.any(String));
+			expect(requireRyotQLValue(advanced, "firstModuleName")).toBe("Advanced Course Module 1");
+			expect(requireRyotQLValue(advanced, "lessonCount")).toBe(2);
+			expect(requireRyotQLValue(advanced, "distinctLessonCount")).toBe(2);
+			expect(requireRyotQLValue(advanced, "totalDuration")).toBe(100);
+			expect(requireRyotQLValue(advanced, "averageDuration")).toBe(50);
+			expect(requireRyotQLValue(advanced, "minimumDuration")).toBe(35);
+			expect(requireRyotQLValue(advanced, "maximumDuration")).toBe(65);
 
 			const incomplete = findByName(allCourses.items, "Long Incomplete Course");
-			expect(requireRyotQLFieldValue(incomplete, "completedLessons").value).toBe(0);
-			expect(requireRyotQLFieldValue(incomplete, "completionRatio").value).toBe(0);
-			expect(requireRyotQLFieldValue(incomplete, "latestCompletionAt")).toEqual({
-				kind: "null",
-				value: null,
-			});
-			expect(requireRyotQLFieldValue(incomplete, "latestCompletionIdOrFallback")).toEqual({
-				kind: "text",
-				value: "none",
-			});
+			expect(requireRyotQLValue(incomplete, "completedLessons")).toBe(0);
+			expect(requireRyotQLValue(incomplete, "completionRatio")).toBe(0);
+			expect(requireRyotQLValue(incomplete, "latestCompletionAt")).toBeNull();
+			expect(requireRyotQLValue(incomplete, "latestCompletionIdOrFallback")).toBe("none");
 			expect(
-				requireRows(result.data["completedCourses"], "completedCourses").items.map(
-					(item) => requireRyotQLFieldValue(item, "name").value,
+				requireRows(result.data["completedCourses"], "completedCourses").items.map((item) =>
+					requireRyotQLValue(item, "name"),
 				),
 			).toEqual(["Advanced Course"]);
 			expect(
-				requireRows(result.data["longCourses"], "longCourses").items.map(
-					(item) => requireRyotQLFieldValue(item, "name").value,
+				requireRows(result.data["longCourses"], "longCourses").items.map((item) =>
+					requireRyotQLValue(item, "name"),
 				),
 			).toEqual(["Advanced Course", "Long Incomplete Course"]);
 		}),
@@ -342,21 +334,15 @@ describe("RyotQL correlated expressions", () => {
 
 			const item = requireRows(result.data["courses"], "courses").items[0];
 			assertPresent(item, "Expected arithmetic course");
-			expect(requireRyotQLFieldValue(item, "ratio")).toEqual({ kind: "null", value: null });
-			expect(requireRyotQLFieldValue(item, "invalid")).toEqual({ kind: "null", value: null });
-			expect(requireRyotQLFieldValue(item, "sum").value).toBe(5);
-			expect(requireRyotQLFieldValue(item, "product").value).toBe(6);
-			expect(requireRyotQLFieldValue(item, "difference").value).toBe(2);
-			expect(requireRyotQLFieldValue(item, "coalescedRatio").value).toBe(3);
-			expect(requireRyotQLFieldValue(item, "invalidCoalescedRatio")).toEqual({
-				kind: "null",
-				value: null,
-			});
-			expect(requireRyotQLFieldValue(item, "firstCoalescedRatio").value).toBe(3);
-			expect(requireRyotQLFieldValue(item, "invalidFirstCoalescedRatio")).toEqual({
-				kind: "null",
-				value: null,
-			});
+			expect(requireRyotQLValue(item, "ratio")).toBeNull();
+			expect(requireRyotQLValue(item, "invalid")).toBeNull();
+			expect(requireRyotQLValue(item, "sum")).toBe(5);
+			expect(requireRyotQLValue(item, "product")).toBe(6);
+			expect(requireRyotQLValue(item, "difference")).toBe(2);
+			expect(requireRyotQLValue(item, "coalescedRatio")).toBe(3);
+			expect(requireRyotQLValue(item, "invalidCoalescedRatio")).toBeNull();
+			expect(requireRyotQLValue(item, "firstCoalescedRatio")).toBe(3);
+			expect(requireRyotQLValue(item, "invalidFirstCoalescedRatio")).toBeNull();
 		}),
 	);
 
@@ -427,25 +413,16 @@ describe("RyotQL correlated expressions", () => {
 
 			const item = requireRows(result.data["entities"], "entities").items[0];
 			assertPresent(item, "Expected visible root");
-			expect(requireRyotQLFieldValue(item, "exists")).toEqual({
-				kind: "boolean",
-				value: false,
-			});
-			expect(requireRyotQLFieldValue(item, "count")).toEqual({ kind: "number", value: 0 });
-			expect(requireRyotQLFieldValue(item, "sum")).toEqual({ kind: "null", value: null });
-			expect(requireRyotQLFieldValue(item, "average")).toEqual({ kind: "null", value: null });
-			expect(requireRyotQLFieldValue(item, "minimum")).toEqual({ kind: "null", value: null });
-			expect(requireRyotQLFieldValue(item, "maximum")).toEqual({ kind: "null", value: null });
-			expect(requireRyotQLFieldValue(item, "first")).toEqual({ kind: "null", value: null });
-			expect(requireRyotQLFieldValue(item, "joinedExists")).toEqual({
-				kind: "boolean",
-				value: false,
-			});
-			expect(requireRyotQLFieldValue(item, "joinedCount")).toEqual({ kind: "number", value: 0 });
-			expect(requireRyotQLFieldValue(item, "joinedFirst")).toEqual({
-				kind: "null",
-				value: null,
-			});
+			expect(requireRyotQLValue(item, "exists")).toBe(false);
+			expect(requireRyotQLValue(item, "count")).toBe(0);
+			expect(requireRyotQLValue(item, "sum")).toBeNull();
+			expect(requireRyotQLValue(item, "average")).toBeNull();
+			expect(requireRyotQLValue(item, "minimum")).toBeNull();
+			expect(requireRyotQLValue(item, "maximum")).toBeNull();
+			expect(requireRyotQLValue(item, "first")).toBeNull();
+			expect(requireRyotQLValue(item, "joinedExists")).toBe(false);
+			expect(requireRyotQLValue(item, "joinedCount")).toBe(0);
+			expect(requireRyotQLValue(item, "joinedFirst")).toBeNull();
 		}),
 	);
 });

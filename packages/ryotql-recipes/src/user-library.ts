@@ -1,49 +1,30 @@
-import { TextFieldValue, rowsResultSchema } from "@ryot/contract/modules/ryotql/language";
 import { EntityId } from "@ryot/contract/schema/brands";
-import { strictStruct } from "@ryot/contract/schema/utils";
 import {
 	and,
 	ascending,
 	column,
-	document,
 	eq,
-	field,
 	isNotNull,
 	literal,
-	rows,
+	defineRecipe,
+	selectedField,
+	selectedRow,
 	table,
 } from "@ryot/ryotql";
-import { Result, Schema } from "effect";
+import { Result } from "effect";
 
-const userLibraryResponse = strictStruct({
-	data: strictStruct({ library: rowsResultSchema(strictStruct({ entityId: TextFieldValue })) }),
-});
+const entityLibrary = table("entity", "library");
 
-export const UserLibrary = strictStruct({ entityId: EntityId });
-export type UserLibrary = typeof UserLibrary.Type;
-
-export const buildUserLibraryDocument = () => {
-	const library = table("entity", "library");
-
-	return document({
-		library: rows(library, {
-			limit: 1,
-			orderBy: [ascending(column(library, "id"))],
-			fields: [field("entityId", column(library, "id"))],
+export const userLibraryRecipe = defineRecipe(() => ({
+	queries: {
+		library: selectedRow(entityLibrary, {
+			orderBy: [ascending(column(entityLibrary, "id"))],
+			selection: { entityId: selectedField(column(entityLibrary, "id"), EntityId) },
 			where: and(
-				eq(column(library, "entitySchemaSlug"), literal("library")),
-				isNotNull(column(library, "userId")),
+				eq(column(entityLibrary, "entitySchemaSlug"), literal("library")),
+				isNotNull(column(entityLibrary, "userId")),
 			),
 		}),
-	});
-};
-
-const decodeUserLibraryResult = Schema.decodeUnknownResult(userLibraryResponse);
-
-export const decodeUserLibraryResponse = (response: unknown) =>
-	Result.flatMap(decodeUserLibraryResult(response), ({ data }) => {
-		const row = data.library.items[0];
-		return row
-			? Result.succeed({ entityId: EntityId.make(row.entityId.value) } satisfies UserLibrary)
-			: Result.fail(new Error("User library entity not found"));
-	});
+	},
+	map: ({ library }) => Result.succeed(library),
+}));

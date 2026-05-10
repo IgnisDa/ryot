@@ -38,12 +38,12 @@ const queryDocument = document({
 const cardLayout = {
 	queryDocument,
 	titleField: "name",
-	calloutField: null,
+	callout: null,
 	imageField: "image",
 	entityIdField: "id",
-	overlineField: null,
-	primaryMetadataField: null,
-	secondaryMetadataField: null,
+	overline: null,
+	primaryMetadata: null,
+	secondaryMetadata: null,
 } as const;
 
 const layouts = {
@@ -53,7 +53,7 @@ const layouts = {
 		queryDocument,
 		imageField: "image",
 		entityIdField: "id",
-		columns: [{ label: "Name", field: "name" }],
+		columns: [{ label: "Name", field: "name", displayKind: "text" }],
 	},
 } satisfies SavedViewLayouts;
 
@@ -98,7 +98,7 @@ it("validates mappings against only their layout projection", () => {
 		table: {
 			...layouts.table,
 			queryDocument: tableDocument,
-			columns: [{ label: "Name", field: "name" }],
+			columns: [{ label: "Name", field: "name", displayKind: "text" }],
 		},
 	} satisfies SavedViewLayouts;
 

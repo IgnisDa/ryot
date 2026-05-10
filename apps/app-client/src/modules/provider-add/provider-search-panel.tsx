@@ -1,6 +1,5 @@
 import { useAtomSet, useAtomValue } from "@effect/atom-react";
 import type { EntitySchemaSlug, SandboxProviderId } from "@ryot/contract/schema/brands";
-import type { ProviderSearchSummary } from "@ryot/ryotql-recipes/provider-search";
 import clsx from "clsx";
 import { Cause, Effect, Match } from "effect";
 import { useEffect, useEffectEvent, useReducer, useRef, useState } from "react";
@@ -40,7 +39,12 @@ import {
 	providerSearchReducer,
 	type ProviderSearchState,
 } from "./search-controller";
-import { mapProviderEntityLinks, mapProviderSummaries, providerAddError } from "./state";
+import {
+	mapProviderEntityLinks,
+	mapProviderSummaries,
+	providerAddError,
+	type ProviderSearchSummary,
+} from "./state";
 import { selectPreferredProvider } from "./use-preferred-provider";
 
 const SEARCH_DEBOUNCE_MS = 350;

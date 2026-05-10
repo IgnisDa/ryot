@@ -19,7 +19,7 @@ import {
 	mergeUserState,
 	queryInLibraryRelationship,
 	queryUserEntityStateCounts,
-	requireRyotQLTextField,
+	requireRyotQLText,
 	requireEventSchemaBySlug,
 	requireRelationshipSchemaBySlug,
 	pollUntil,
@@ -68,7 +68,7 @@ const getLibraryEntityId = (client: Client) =>
 		const libraries = requireRows(result.data.libraries, "libraries");
 		const libraryRow = libraries.items[0];
 		assertPresent(libraryRow, "Missing library entity");
-		return EntityId.make(requireRyotQLTextField(libraryRow, "id"));
+		return EntityId.make(requireRyotQLText(libraryRow, "id"));
 	});
 
 describe("DELETE /user-state/clear/:id", () => {

@@ -8,11 +8,13 @@ class SandboxRuntimeDependencyError extends Data.TaggedError("SandboxRuntimeDepe
 
 const SANDBOX_RUNTIME_DEPENDENCY_FORMAT = 1 as const;
 
+const EFFECT_RUNTIME_FILE = "effect-4.0.0-beta.107.mjs";
+
 export const SANDBOX_APPROVED_DEPENDENCIES = [
 	{
 		name: "effect",
 		version: "4.0.0-beta.107",
-		runtimeFile: "effect-4.0.0-beta.107.mjs",
+		runtimeFile: EFFECT_RUNTIME_FILE,
 		sdkImport: SANDBOX_RUNTIME_SDK_IMPORTS[0],
 	},
 	{
@@ -45,6 +47,12 @@ export const SANDBOX_APPROVED_DEPENDENCIES = [
 		runtimeFile: "fast-xml-parser-5.8.0.mjs",
 		sdkImport: SANDBOX_RUNTIME_SDK_IMPORTS[5],
 	},
+	{
+		name: "ryotql",
+		version: "workspace",
+		runtimeFile: "ryotql-workspace.mjs",
+		sdkImport: SANDBOX_RUNTIME_SDK_IMPORTS[6],
+	},
 ] as const;
 
 const legacyYoutubeiRuntime = {
@@ -53,6 +61,16 @@ const legacyYoutubeiRuntime = {
 	packageImport: "youtubei.js/package.json",
 	entryRelativePath: "dist/src/platform/deno.js",
 } as const;
+
+const runtimeModuleSource = (name: string) => {
+	if (name === "effect") {
+		return 'import * as Effect from "effect/Effect"; import * as Schema from "effect/Schema"; import * as DateTime from "effect/DateTime"; import * as Duration from "effect/Duration"; import * as Result from "effect/Result"; import * as Option from "effect/Option"; import * as SchemaGetter from "effect/SchemaGetter"; import * as SchemaIssue from "effect/SchemaIssue"; import * as SchemaTransformation from "effect/SchemaTransformation"; export { DateTime, Duration, Effect, Option, Result, Schema, SchemaGetter, SchemaIssue, SchemaTransformation };';
+	}
+	if (name === "ryotql") {
+		return 'export * from "@ryot/sandbox-sdk/ryotql";';
+	}
+	return null;
+};
 
 const runtimeModules = SANDBOX_APPROVED_DEPENDENCIES.map((dependency) =>
 	dependency.name === "youtubei"
@@ -68,10 +86,7 @@ const runtimeModules = SANDBOX_APPROVED_DEPENDENCIES.map((dependency) =>
 				resolveFromSdk: false,
 				entryRelativePath: null,
 				sourceImport: dependency.sdkImport,
-				runtimeSource:
-					dependency.name === "effect"
-						? 'import * as Effect from "effect/Effect"; import * as Schema from "effect/Schema"; import * as DateTime from "effect/DateTime"; import * as Duration from "effect/Duration"; import * as Result from "effect/Result"; import * as Option from "effect/Option"; import * as SchemaGetter from "effect/SchemaGetter"; import * as SchemaIssue from "effect/SchemaIssue"; import * as SchemaTransformation from "effect/SchemaTransformation"; export { DateTime, Duration, Effect, Option, Result, Schema, SchemaGetter, SchemaIssue, SchemaTransformation };'
-						: null,
+				runtimeSource: runtimeModuleSource(dependency.name),
 			},
 );
 
@@ -80,9 +95,12 @@ const runtimeDirectoryPrefix = `runtime-v${SANDBOX_RUNTIME_DEPENDENCY_FORMAT}-${
 ).join("_")}`;
 
 const runtimeImportMap = {
-	imports: Object.fromEntries(
-		runtimeModules.map(({ runtimeFile, sdkImport }) => [sdkImport, `./${runtimeFile}`]),
-	),
+	imports: {
+		...Object.fromEntries(
+			runtimeModules.map(({ runtimeFile, sdkImport }) => [sdkImport, `./${runtimeFile}`]),
+		),
+		effect: `./${EFFECT_RUNTIME_FILE}`,
+	},
 };
 
 export const SANDBOX_RUNTIME_IMPORT_MAP_CONTENT = `${JSON.stringify(
@@ -157,6 +175,7 @@ const runtimeMatches = (
 	);
 
 const buildRuntimeModule = (
+	name: string,
 	entrypoint: string,
 	outputDirectory: string,
 	runtimeFile: string,
@@ -193,6 +212,12 @@ const buildRuntimeModule = (
 										external: true,
 										path: "@ryot/sandbox-sdk/effect",
 									}));
+									if (name !== "effect") {
+										builder.onResolve({ filter: /^effect$/ }, () => ({
+											path: "effect",
+											external: true,
+										}));
+									}
 									if (runtimeFile.startsWith("youtubei-")) {
 										builder.onResolve({ filter: /^youtubei\.js\/web$/ }, () => ({
 											path: entrypoint,
@@ -338,6 +363,7 @@ export const ensureSandboxRuntimeDependencies = (denoDir: string) =>
 						: resolved;
 					return {
 						entrypoint,
+						name: runtimeModule.name,
 						runtimeFile: runtimeModule.runtimeFile,
 						runtimeSource: runtimeModule.runtimeSource,
 					};
@@ -356,8 +382,9 @@ export const ensureSandboxRuntimeDependencies = (denoDir: string) =>
 					yield* fs.makeDirectory(`${temporaryDirectory}/${runtimeModuleDirectoryName}`);
 					yield* Effect.forEach(
 						entries,
-						({ entrypoint, runtimeFile, runtimeSource }) =>
+						({ entrypoint, name, runtimeFile, runtimeSource }) =>
 							buildRuntimeModule(
+								name,
 								entrypoint,
 								temporaryDirectory,
 								runtimeFile,

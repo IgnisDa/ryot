@@ -1,12 +1,9 @@
 import type { RyotQLDocument } from "@ryot/contract/modules/ryotql/language";
-import {
-	buildSavedViewCountDocument,
-	decodeSavedViewCountResponse,
-} from "@ryot/ryotql-recipes/saved-views";
+import { savedViewCountRecipe } from "@ryot/ryotql-recipes/saved-views";
 import { Effect, Result } from "effect";
 import { useEffect, useEffectEvent, useRef, useState } from "react";
 
-import { appClient, retryQueryResponse } from "@/api/client";
+import { appClient } from "@/api/client";
 import { useApiScope } from "@/api/scope";
 import { useInternalRequestFailureLogging } from "@/api/use-internal-request-failure-logging";
 
@@ -26,8 +23,8 @@ const countDocumentKey = (countDocument: RyotQLDocument | null): SavedViewCountK
 
 export function useSavedViewCount(queryDocument: RyotQLDocument) {
 	const scope = useApiScope();
-	const countDocument = buildSavedViewCountDocument(queryDocument);
-	const key = countDocumentKey(countDocument);
+	const countRecipe = savedViewCountRecipe(queryDocument);
+	const key = countDocumentKey(Result.isFailure(countRecipe) ? null : countRecipe.success.document);
 	const [runtime, setRuntime] = useState<SavedViewCountRuntimeState>(() => ({
 		key,
 		state: { status: "idle" },
@@ -53,7 +50,7 @@ export function useSavedViewCount(queryDocument: RyotQLDocument) {
 		if (!mountedAtStart || activeRequest.current?.key === key || state.status === "counting") {
 			return;
 		}
-		if (countDocument === null || key === null) {
+		if (Result.isFailure(countRecipe) || key === null) {
 			setRuntime({ key, state: { cause: invalidCountDocumentError, status: "failed" } });
 			return;
 		}
@@ -62,20 +59,14 @@ export function useSavedViewCount(queryDocument: RyotQLDocument) {
 		activeRequest.current = request;
 		setRuntime({ key, state: { status: "counting" } });
 		const result = await Effect.runPromise(
-			appClient(scope).request.pipe(
-				Effect.flatMap((client) => client.ryotql.execute({ payload: countDocument })),
-				retryQueryResponse,
-				Effect.flatMap((response) => {
-					const decoded = decodeSavedViewCountResponse(response);
-					return Result.isFailure(decoded)
-						? Effect.fail(decoded.failure)
-						: Effect.succeed(decoded.success);
-				}),
-				Effect.match({
-					onFailure: (cause) => ({ cause }) as const,
-					onSuccess: (total) => ({ total }) as const,
-				}),
-			),
+			appClient(scope)
+				.ryotql.execute(countRecipe.success)
+				.pipe(
+					Effect.match({
+						onFailure: (cause) => ({ cause }) as const,
+						onSuccess: (total) => ({ total }) as const,
+					}),
+				),
 		);
 		if (
 			!mounted.current ||

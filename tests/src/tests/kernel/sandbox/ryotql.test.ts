@@ -19,8 +19,8 @@ import {
 	pollSandboxResult,
 	pollUntil,
 	providerSandboxSource,
-	requireRyotQLFieldValue,
-	requireRyotQLTextField,
+	requireRyotQLText,
+	requireRyotQLValue,
 	requireRows,
 	systemRyotqlProbeSandboxSource,
 	uninstallTestPlugin,
@@ -258,7 +258,7 @@ describe("sandbox RyotQL reads", () => {
 							return null;
 						}
 						return entityRowsResult.items.some(
-							(row) => requireRyotQLTextField(row, "name") === "RyotQL system probe",
+							(row) => requireRyotQLText(row, "name") === "RyotQL system probe",
 						)
 							? result
 							: null;
@@ -268,16 +268,13 @@ describe("sandbox RyotQL reads", () => {
 			const entityRowsResult = requireRows(response.data.entities, "entities");
 			const marker = requirePresent(
 				entityRowsResult.items.find(
-					(row) => requireRyotQLTextField(row, "name") === "RyotQL system probe",
+					(row) => requireRyotQLText(row, "name") === "RyotQL system probe",
 				),
 				"Expected system RyotQL marker",
 			);
-			globalEntityIds.push(EntityId.make(requireRyotQLTextField(marker, "id")));
-			const properties = requireRyotQLFieldValue(marker, "properties");
-			expect(properties.kind).toBe("json");
-			if (properties.kind === "json") {
-				expect(properties.value).toEqual({ rowCount: 1 });
-			}
+			globalEntityIds.push(EntityId.make(requireRyotQLText(marker, "id")));
+			const properties = requireRyotQLValue(marker, "properties");
+			expect(properties).toEqual({ rowCount: 1 });
 		}),
 	);
 });

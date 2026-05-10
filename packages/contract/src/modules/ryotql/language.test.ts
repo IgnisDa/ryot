@@ -242,8 +242,12 @@ describe("RyotQLDocument", () => {
 					pageInfo: { limit: 10, hasMore: false },
 					items: [
 						{
-							count: { kind: "number", value: 2 },
-							difficulty: { kind: "text", value: "advanced" },
+							active: true,
+							count: 2,
+							createdAt: "2026-01-01T00:00:00.000Z",
+							difficulty: "advanced",
+							metadata: { source: "catalog" },
+							optional: null,
 						},
 					],
 				},
@@ -402,8 +406,12 @@ describe("RyotQLDocument", () => {
 					pageInfo: { limit: 20, hasMore: false, nextCursor: null },
 					items: [
 						{
-							id: { kind: "text", value: "course-1" },
+							active: false,
+							createdAt: "2026-01-01T00:00:00.000Z",
+							id: "course-1",
+							metadata: { source: "catalog" },
 							modules: { items: [], pageInfo: { limit: 10, hasMore: false } },
+							optional: null,
 						},
 					],
 				},

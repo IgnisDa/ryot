@@ -2,20 +2,16 @@ import type { ContractPayload } from "@ryot/contract/client";
 import { EntitySchemaSlug } from "@ryot/contract/schema/brands";
 import { castJson, column, jsonPath, literal, table } from "@ryot/ryotql";
 import {
-	buildSavedViewRecordDocument,
-	buildSavedViewRecordsDocument,
-	decodeSavedViewRecordResponse,
-	decodeSavedViewRecordsResponse,
+	savedViewRecordRecipe,
+	savedViewRecordsRecipe,
 } from "@ryot/ryotql-recipes/saved-view-records";
-import {
-	buildSavedViewDocument,
-	buildSavedViewLayoutProjections,
-} from "@ryot/ryotql-recipes/saved-views";
+import { buildSavedViewLayoutProjections, savedViewRecipe } from "@ryot/ryotql-recipes/saved-views";
 import { Data, Effect } from "effect";
 
-import { requirePresent, resultToEffect } from "~/support/assertions";
+import { requirePresent } from "~/support/assertions";
 
 import type { Client } from "./auth";
+import { executeRyotQLRecipe } from "./ryotql";
 
 type CreateSavedViewBody = ContractPayload<"savedViews", "create">;
 type UpdateSavedViewBody = ContractPayload<"savedViews", "update">;
@@ -41,9 +37,9 @@ const defaultProjections = buildSavedViewLayoutProjections({
 		card: {
 			callout: null,
 			secondaryMetadata: null,
-			overline: literal("Book"),
+			overline: { displayKind: "text", expression: literal("Book") },
 			title: column(entity, "name"),
-			primaryMetadata: entityProperty("publishYear"),
+			primaryMetadata: { displayKind: "number", expression: entityProperty("publishYear") },
 			image: castJson(entityProperty("images", 0)),
 		},
 	},
@@ -52,9 +48,9 @@ const defaultProjections = buildSavedViewLayoutProjections({
 		card: {
 			callout: null,
 			secondaryMetadata: null,
-			overline: literal("Book list"),
+			overline: { displayKind: "text", expression: literal("Book list") },
 			title: column(entity, "name"),
-			primaryMetadata: entityProperty("publishYear"),
+			primaryMetadata: { displayKind: "number", expression: entityProperty("publishYear") },
 			image: castJson(entityProperty("images", 0)),
 		},
 	},
@@ -62,16 +58,29 @@ const defaultProjections = buildSavedViewLayoutProjections({
 		entityId: column(entity, "id"),
 		image: castJson(entityProperty("images", 0)),
 		columns: [
-			{ label: "Name", expression: column(entity, "name") },
-			{ label: "Year", expression: entityProperty("publishYear") },
+			{ label: "Name", displayKind: "text", expression: column(entity, "name") },
+			{ label: "Year", displayKind: "number", expression: entityProperty("publishYear") },
 		],
 	},
 });
 
-const layoutDocument = (
-	fields: readonly (typeof defaultProjections.grid.fields)[number][],
+const cardLayoutDocument = (
+	projection: typeof defaultProjections.grid,
 	entitySchemaSlugs: readonly [string, ...string[]],
-) => buildSavedViewDocument({ limit: 2, entitySchemaSlugs, fields });
+) =>
+	savedViewRecipe({
+		layout: { type: "card", mapping: projection.mappings },
+		source: { type: "generated", limit: 2, entitySchemaSlugs, fields: projection.fields },
+	}).document;
+
+const tableLayoutDocument = (
+	projection: typeof defaultProjections.table,
+	entitySchemaSlugs: readonly [string, ...string[]],
+) =>
+	savedViewRecipe({
+		layout: { type: "table", mapping: projection.mappings },
+		source: { type: "generated", limit: 2, entitySchemaSlugs, fields: projection.fields },
+	}).document;
 
 export function buildSavedViewLayouts(
 	documents: Partial<Record<keyof SavedViewLayouts, SavedViewQueryDocument>> = {},
@@ -81,17 +90,17 @@ export function buildSavedViewLayouts(
 		grid: {
 			...defaultProjections.grid.mappings,
 			queryDocument:
-				documents.grid ?? layoutDocument(defaultProjections.grid.fields, entitySchemaSlugs),
+				documents.grid ?? cardLayoutDocument(defaultProjections.grid, entitySchemaSlugs),
 		},
 		list: {
 			...defaultProjections.list.mappings,
 			queryDocument:
-				documents.list ?? layoutDocument(defaultProjections.list.fields, entitySchemaSlugs),
+				documents.list ?? cardLayoutDocument(defaultProjections.list, entitySchemaSlugs),
 		},
 		table: {
 			...defaultProjections.table.mappings,
 			queryDocument:
-				documents.table ?? layoutDocument(defaultProjections.table.fields, entitySchemaSlugs),
+				documents.table ?? tableLayoutDocument(defaultProjections.table, entitySchemaSlugs),
 		},
 	};
 }
@@ -134,7 +143,7 @@ export function buildUpdatedSavedViewBody(
 	};
 }
 
-export function buildSavedViewGridDocumentBody(
+export function savedViewGridDocumentBody(
 	queryDocument: SavedViewQueryDocument,
 	overrides: CreateSavedViewInput = {},
 ): CreateSavedViewBody {
@@ -144,7 +153,7 @@ export function buildSavedViewGridDocumentBody(
 	});
 }
 
-export function buildUpdatedSavedViewGridDocumentBody(
+export function updatedSavedViewGridDocumentBody(
 	queryDocument: SavedViewQueryDocument,
 	overrides: UpdateSavedViewInput = {},
 ): UpdateSavedViewBody {
@@ -163,7 +172,7 @@ export const createSavedViewWithGridDocument = (
 	overrides: CreateSavedViewInput = {},
 ) =>
 	client.call((c) =>
-		c.savedViews.create({ payload: buildSavedViewGridDocumentBody(queryDocument, overrides) }),
+		c.savedViews.create({ payload: savedViewGridDocumentBody(queryDocument, overrides) }),
 	);
 
 export const listSavedViews = (
@@ -171,18 +180,15 @@ export const listSavedViews = (
 	options: { pluginSlug?: string; includeDisabled?: boolean } = {},
 ) =>
 	Effect.gen(function* () {
-		const response = yield* client.call((c) =>
-			c.ryotql.execute({
-				payload: buildSavedViewRecordsDocument({
-					limit: 100,
-					pluginSlug: options.pluginSlug,
-					includeDisabled: options.includeDisabled,
-				}),
+		const result = yield* executeRyotQLRecipe(
+			client,
+			savedViewRecordsRecipe({
+				limit: 100,
+				pluginSlug: options.pluginSlug,
+				includeDisabled: options.includeDisabled,
 			}),
 		);
-		const decoded = yield* resultToEffect(decodeSavedViewRecordsResponse(response));
-
-		return decoded.items;
+		return result.items;
 	});
 
 export const findBuiltinSavedView = (client: Client) =>
@@ -195,10 +201,7 @@ export const findBuiltinSavedView = (client: Client) =>
 
 export const getSavedView = (client: Client, viewSlug: string) =>
 	Effect.gen(function* () {
-		const response = yield* client.call((c) =>
-			c.ryotql.execute({ payload: buildSavedViewRecordDocument({ slug: viewSlug }) }),
-		);
-		const decoded = yield* resultToEffect(decodeSavedViewRecordResponse(response));
+		const decoded = yield* executeRyotQLRecipe(client, savedViewRecordRecipe({ slug: viewSlug }));
 		if (!decoded) {
 			return yield* new SavedViewFixtureError({ message: `Saved view '${viewSlug}' not found` });
 		}
@@ -227,7 +230,7 @@ export const updateSavedViewWithGridDocument = (
 	client.call((c) =>
 		c.savedViews.update({
 			params: { viewSlug },
-			payload: buildUpdatedSavedViewGridDocumentBody(queryDocument, overrides),
+			payload: updatedSavedViewGridDocumentBody(queryDocument, overrides),
 		}),
 	);
 
