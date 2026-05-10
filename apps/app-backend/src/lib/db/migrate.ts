@@ -1,6 +1,6 @@
 import { migrate } from "drizzle-orm/node-postgres/migrator";
 
-import { migrateLegacyUsers, renameConflictingTables } from "~/modules/_migration";
+import { renameLegacyTables, migrateLegacyTables } from "~/modules/_migration";
 
 import { db } from "./index";
 import { seedInitialDatabase } from "./seed";
@@ -8,8 +8,8 @@ import { seedInitialDatabase } from "./seed";
 const migrationsFolder = `${process.cwd()}/src/drizzle`;
 
 export const migrateDB = async () => {
-	await renameConflictingTables(db);
+	await renameLegacyTables(db);
 	await migrate(db, { migrationsFolder });
-	await migrateLegacyUsers(db);
+	await migrateLegacyTables(db);
 	await seedInitialDatabase(db);
 };
