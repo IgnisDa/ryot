@@ -6,12 +6,18 @@ import { useInternalRequestFailureLogging } from "@/api/use-internal-request-fai
 import { useAuthClient } from "@/modules/auth/client";
 import { navigationAtom, scopedWorkspaceAtom } from "@/modules/navigation/atoms";
 
-import { getNavigationHref, getWorkspaceHref, type NavigationItem } from "./navigation-data";
+import {
+	getNavigationHref,
+	getSettingsHref,
+	getWorkspaceHref,
+	type NavigationItem,
+} from "./navigation-data";
 import { mapNavigationState, type ReadyNavigationState } from "./navigation-state";
 
 export type ReadyWorkspaceNavigation = ReadyNavigationState & {
 	accountName: string;
 	accountEmail: string;
+	openSettings: () => void;
 	accountImage: string | null;
 	selectWorkspace: (slug: string) => void;
 	navigate: (item: NavigationItem) => void;
@@ -54,6 +60,7 @@ export function useWorkspaceNavigation(): WorkspaceNavigation {
 		accountImage: session?.user.image ?? null,
 		accountEmail: session?.user.email ?? "Email unavailable",
 		accountName: session?.user.name ?? session?.user.email ?? "Account",
+		openSettings: () => router.navigate(getSettingsHref(state.workspace.slug)),
 		navigate: (item) => router.navigate(getNavigationHref(state.workspace.slug, item)),
 		selectWorkspace: (slug) => {
 			if (!state.data.workspaces.some((item) => item.slug === slug)) {
