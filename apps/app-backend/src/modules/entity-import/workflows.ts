@@ -1,4 +1,5 @@
-import { Activity, DurableQueue, Workflow } from "@effect/workflow";
+import type { Workflow } from "@effect/workflow";
+import { Activity, DurableQueue } from "@effect/workflow";
 import { Cause, DateTime, Effect, Exit, Match, Option, Schema } from "effect";
 
 import { DbRunner } from "#lib/db";
@@ -10,7 +11,6 @@ import { EntityImage, ListedEntity } from "#modules/entities/schemas";
 import { SandboxExecutionQueue } from "#modules/sandbox/durable-queues";
 import type { SandboxCompletedResult as SandboxCompletedResultValue } from "#modules/sandbox/schemas";
 
-import { EntityImportHook } from "./entity-import-hook";
 import {
 	EntityDetailsRelatedEntity,
 	decodeEntityDetailsResult,
@@ -29,14 +29,6 @@ export const EntityImportPayload = Schema.Struct({
 export type EntityImportPayload = typeof EntityImportPayload.Type;
 
 export type EntityImportRunResult = typeof ImportEntityRunResult.Type;
-
-export const EntityImportWorkflow = Workflow.make({
-	success: ListedEntity,
-	error: SandboxRunError,
-	name: "EntityImportWorkflow",
-	payload: EntityImportPayload,
-	idempotencyKey: ({ executionId }) => executionId,
-});
 
 const toWorkflowError = (cause: unknown) =>
 	cause instanceof SandboxRunError
@@ -96,7 +88,7 @@ const ValidatedEntityDetails = Schema.Struct({
 	validatedProperties: Schema.Record({ key: Schema.String, value: Schema.Unknown }),
 });
 
-const processSandboxEntityDetails = (payload: EntityImportPayload, executionId: string) =>
+export const processSandboxEntityDetails = (payload: EntityImportPayload, executionId: string) =>
 	DurableQueue.process(SandboxExecutionQueue, {
 		driverName: "details",
 		userId: payload.userId,
@@ -112,10 +104,9 @@ export const runEntityImportWorkflow = Effect.fn("runEntityImportWorkflow")(func
 		payload: EntityImportPayload,
 		executionId: string,
 	) => Effect.Effect<SandboxCompletedResultValue, SandboxRunError, R>,
-	options: { activityPrefix?: string; skipLibraryMembership?: boolean } = {},
+	options: { activityPrefix?: string } = {},
 ) {
 	const runWithDb = yield* DbRunner;
-	const importHook = yield* EntityImportHook;
 	const repository = yield* EntitiesRepository;
 	const activityName = (name: string) =>
 		options.activityPrefix ? `${options.activityPrefix}${name}` : name;
@@ -133,12 +124,6 @@ export const runEntityImportWorkflow = Effect.fn("runEntityImportWorkflow")(func
 	});
 
 	if (existing && existing.populatedAt !== null) {
-		if (!options.skipLibraryMembership) {
-			yield* Activity.make({
-				name: activityName("ensure-library-membership"),
-				execute: importHook.onEntityImported(payload.userId, existing.id).pipe(dieOnDbError),
-			});
-		}
 		return existing;
 	}
 
@@ -232,18 +217,5 @@ export const runEntityImportWorkflow = Effect.fn("runEntityImportWorkflow")(func
 		}),
 	});
 
-	if (!options.skipLibraryMembership) {
-		yield* Activity.make({
-			name: activityName("ensure-library-membership"),
-			execute: importHook.onEntityImported(payload.userId, populatedEntity.id).pipe(dieOnDbError),
-		});
-	}
-
 	return populatedEntity;
 });
-
-const EntityImportWorkflowLive = EntityImportWorkflow.toLayer((payload, executionId) =>
-	runEntityImportWorkflow(payload, executionId, processSandboxEntityDetails),
-);
-
-export const EntityImportWorkflowDefinitionsLive = EntityImportWorkflowLive;
