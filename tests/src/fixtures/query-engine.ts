@@ -27,6 +27,12 @@ type QueryEngineResponseItem = Extract<
 	{ mode: "entities" }
 >["data"]["items"][number];
 
+type QueryEngineField = {
+	key: string;
+	kind: QueryEngineResponseItem[string]["kind"];
+	value: QueryEngineResponseItem[string]["value"];
+};
+
 type RuntimeField = {
 	key: string;
 	expression: ViewExpression;
@@ -49,6 +55,12 @@ type RuntimeFieldsInput =
 			layout: "grid" | "list";
 			displayConfiguration: CardDisplayConfiguration;
 	  };
+
+export function toQueryEngineItem(fields: QueryEngineField[]): QueryEngineResponseItem {
+	return Object.fromEntries(
+		fields.map(({ key, ...field }) => [key, field]),
+	) as QueryEngineResponseItem;
+}
 
 interface CreateEntityInput {
 	name: string;
