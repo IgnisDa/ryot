@@ -1,5 +1,4 @@
 import { useQuery } from "@tanstack/react-query";
-import type { Href } from "expo-router";
 import { usePathname } from "expo-router";
 import { atom, useAtomValue, useSetAtom } from "jotai";
 import { useMemo } from "react";
@@ -7,12 +6,14 @@ import { useMemo } from "react";
 import { useApiClient } from "@/lib/api-client";
 import {
 	buildNavigationItems,
+	navHref,
 	type NavigationItem,
 	type NavigationSubItem,
 	unwrapData,
 } from "@/lib/navigation-data";
 
 export type { NavigationItem, NavigationSubItem };
+export { navHref };
 
 const navSheetOpenAtom = atom(false);
 const subFlyoutOpenAtom = atom(false);
@@ -95,16 +96,6 @@ export function useNavigationData(userName?: string): UseNavigationDataResult {
 		trackers: allTrackers,
 		libraryViews: data.libraryViews,
 	};
-}
-
-export function navHref(item: NavigationItem): Href {
-	if (item.kind === "home") {
-		return "/";
-	}
-	if (item.kind === "view") {
-		return `/views/${item.slug}` as Href;
-	}
-	return `/tracker/${item.slug}` as Href;
 }
 
 export function useActiveNav() {
