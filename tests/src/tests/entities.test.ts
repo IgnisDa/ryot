@@ -29,38 +29,9 @@ import {
 	queryUserEntityStateCounts,
 	requireEventSchemaBySlug,
 } from "../fixtures";
+import { pollUntil } from "../fixtures/polling";
 import { getPgClient } from "../setup";
 import { assertTaggedError } from "../test-support/assertions";
-
-async function insertUserEvent(input: {
-	userId: string;
-	entityId: string;
-	eventSchemaId: string;
-	sessionEntityId?: string;
-	properties: Record<string, unknown>;
-}) {
-	const pg = getPgClient();
-
-	await pg.query(
-		`insert into event (
-			id,
-			user_id,
-			entity_id,
-			event_schema_id,
-			session_entity_id,
-			occurred_at,
-			properties
-		) values ($1, $2, $3, $4, $5, now(), $6::jsonb)`,
-		[
-			crypto.randomUUID(),
-			input.userId,
-			input.entityId,
-			input.eventSchemaId,
-			input.sessionEntityId ?? null,
-			JSON.stringify(input.properties),
-		],
-	);
-}
 
 async function insertUserRelationship(input: {
 	userId: string;
@@ -419,18 +390,28 @@ describe("DELETE /user-state/clear/:id", () => {
 
 		const { entityId: extraTargetEntityId } = await createTrackerWithSchemaAndEntity(userA.client);
 
-		await insertUserEvent({
-			entityId: entity.id,
-			userId: userA.userId,
-			eventSchemaId: reviewEventSchema.id,
-			properties: { rating: 4, text: "User A review" },
-		});
-		await insertUserEvent({
-			entityId: entity.id,
-			userId: userB.userId,
-			eventSchemaId: reviewEventSchema.id,
-			properties: { rating: 5, text: "User B review" },
-		});
+		await userA.client.run((c) =>
+			c.events.create({
+				payload: [
+					{
+						entityId: entity.id,
+						eventSchemaId: reviewEventSchema.id,
+						properties: { rating: 4, text: "User A review" },
+					},
+				],
+			}),
+		);
+		await userB.client.run((c) =>
+			c.events.create({
+				payload: [
+					{
+						entityId: entity.id,
+						eventSchemaId: reviewEventSchema.id,
+						properties: { rating: 5, text: "User B review" },
+					},
+				],
+			}),
+		);
 
 		await insertLibraryMembership({ userId: userB.userId, mediaEntityId: entity.id });
 		await insertLibraryMembership({ userId: userA.userId, mediaEntityId: entity.id });
@@ -441,12 +422,20 @@ describe("DELETE /user-state/clear/:id", () => {
 			relationshipSchemaSlug: "member-of",
 		});
 
-		expect(await queryUserEntityStateCounts({ userId: userA.userId, entityId: entity.id })).toEqual(
-			{ eventCount: 1, relationshipCount: 2 },
-		);
-		expect(await queryUserEntityStateCounts({ userId: userB.userId, entityId: entity.id })).toEqual(
-			{ eventCount: 1, relationshipCount: 1 },
-		);
+		await pollUntil("user A event setup", async () => {
+			const counts = await queryUserEntityStateCounts({
+				userId: userA.userId,
+				entityId: entity.id,
+			});
+			return counts.eventCount === 1 && counts.relationshipCount === 2 ? counts : null;
+		});
+		await pollUntil("user B event setup", async () => {
+			const counts = await queryUserEntityStateCounts({
+				userId: userB.userId,
+				entityId: entity.id,
+			});
+			return counts.eventCount === 1 && counts.relationshipCount === 1 ? counts : null;
+		});
 
 		const result = await clearEntityUserState(userA.client, entity.id);
 
@@ -522,12 +511,17 @@ describe("POST /user-state/merge", () => {
 			properties: { title: "Related" },
 		});
 
-		await insertUserEvent({
-			userId,
-			entityId: source.id,
-			eventSchemaId: eventSchema.id,
-			properties: { note: "moves" },
-		});
+		await client.run((c) =>
+			c.events.create({
+				payload: [
+					{
+						entityId: source.id,
+						eventSchemaId: eventSchema.id,
+						properties: { note: "moves" },
+					},
+				],
+			}),
+		);
 		await insertUserRelationship({
 			userId,
 			sourceEntityId: source.id,
@@ -539,6 +533,10 @@ describe("POST /user-state/merge", () => {
 			sourceEntityId: target.id,
 			targetEntityId: related.id,
 			relationshipSchemaSlug: "member-of",
+		});
+		await pollUntil("source event setup", async () => {
+			const counts = await queryUserEntityStateCounts({ userId, entityId: source.id });
+			return counts.eventCount === 1 && counts.relationshipCount === 1 ? counts : null;
 		});
 
 		const result = await mergeUserState(client, { mergeFrom: source.id, mergeInto: target.id });
