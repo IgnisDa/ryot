@@ -1,6 +1,6 @@
 import clsx from "clsx";
 import { router } from "expo-router";
-import { ChevronRight, LogOut } from "lucide-react-native";
+import { ChevronRight, LogOut, Settings } from "lucide-react-native";
 import { ScrollView } from "react-native";
 import type { SharedValue } from "react-native-reanimated";
 import Animated, { useAnimatedStyle, withSpring } from "react-native-reanimated";
@@ -74,14 +74,14 @@ function RailItem(props: {
 }
 
 export function ShellRail(props: Props) {
-	const { translateX, onClose, pinned = false } = props;
 	const user = useUser();
 	const authClient = useAuthClient();
 	const openFlyout = useOpenFlyout();
 	const scheduleFlyoutClose = useScheduleFlyoutClose();
-	const { trackers, libraryViews, userItem, isLoading } = useNavigationData(user?.name);
 	const { isViewPath, activeTrackerSlug, activeSubItemSlug } = useActiveNav();
+	const { trackers, libraryViews, isLoading } = useNavigationData(user?.name);
 
+	const { translateX, onClose, pinned = false } = props;
 	const railStyle = useAnimatedStyle(() => ({
 		transform: [{ translateX: translateX?.value ?? 0 }],
 	}));
@@ -102,6 +102,7 @@ export function ShellRail(props: Props) {
 
 	const items = (
 		<ScrollView
+			showsVerticalScrollIndicator={false}
 			contentContainerStyle={{
 				gap: 4,
 				paddingTop: 64,
@@ -110,7 +111,6 @@ export function ShellRail(props: Props) {
 				flexDirection: "row",
 				paddingHorizontal: 16,
 			}}
-			showsVerticalScrollIndicator={false}
 		>
 			{isLoading ? (
 				<Text className="text-[14px] text-muted-foreground font-heading px-2">Loading...</Text>
@@ -151,12 +151,19 @@ export function ShellRail(props: Props) {
 
 	const userSection = (
 		<Box className="border-t-[0.5px] border-t-border px-4 py-3 gap-2">
-			<Box className="flex-row items-center gap-2">
+			<Pressable
+				accessibilityRole="button"
+				accessibilityLabel="Open settings"
+				className="flex-row items-center gap-2"
+				onPress={() => {
+					router.push("/settings");
+				}}
+			>
 				<Box className="opacity-50">
-					<TrackerIcon icon="user" size={14} />
+					<Settings size={14} strokeWidth={1.5} color="#78716c" />
 				</Box>
-				<Text className="text-[13px] text-muted-foreground font-sans">{userItem.name}</Text>
-			</Box>
+				<Text className="text-[13px] text-muted-foreground font-sans">Settings</Text>
+			</Pressable>
 			<Pressable
 				accessibilityRole="button"
 				accessibilityLabel="Log Out"
