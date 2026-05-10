@@ -268,7 +268,7 @@ it.effect("rejects temporary uploads claimed from S3 storage", () => {
 
 it.effect("claims and queues registry-declared named artifacts under stable keys", () => {
 	const executed: unknown[] = [];
-	const claimedTokens: string[] = [];
+	const claims: Array<{ claimId: string | undefined; token: string }> = [];
 	const deletedIntentIds: string[] = [];
 	const source = {
 		lot: "named",
@@ -306,9 +306,9 @@ it.effect("claims and queues registry-declared named artifacts under stable keys
 		Layer.mergeAll(
 			makeImportSourceCatalog(source),
 			mockUploadsService({
-				claimTemporaryUpload: (token) =>
+				claimTemporaryUpload: (token, _userId, claimId) =>
 					Effect.sync(() => {
-						claimedTokens.push(token);
+						claims.push({ claimId, token });
 						return {
 							leaseExpiresAt: now,
 							intentId: `intent-${token}`,
@@ -343,7 +343,11 @@ it.effect("claims and queues registry-declared named artifacts under stable keys
 			watchlistUploadToken: "watchlist",
 		});
 
-		expect(claimedTokens).toEqual(["history", "ratings", "watchlist"]);
+		expect(claims).toEqual([
+			{ claimId: "run-1", token: "history" },
+			{ claimId: "run-1", token: "ratings" },
+			{ claimId: "run-1", token: "watchlist" },
+		]);
 		expect(deletedIntentIds).toEqual([]);
 		expect(executed[0]).toMatchObject({
 			payload: {

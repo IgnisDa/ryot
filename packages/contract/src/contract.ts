@@ -1,6 +1,7 @@
 import { HttpApi, OpenApi } from "effect/unstable/httpapi";
 
 import { AutomationsGroup } from "./modules/automations/contract";
+import { BackupsGroup } from "./modules/backups/contract";
 import { CollectionsGroup } from "./modules/collections/contract";
 import { DefinitionsGroup } from "./modules/definitions/contract";
 import { EntitiesGroup } from "./modules/entities/contract";
@@ -24,6 +25,7 @@ import { UserStateGroup } from "./modules/user-state/contract";
 export const AppContract = HttpApi.make("ryot")
 	.add(SystemGroup)
 	.add(AutomationsGroup)
+	.add(BackupsGroup)
 	.add(DefinitionsGroup)
 	.add(RelationshipsGroup)
 	.add(EntitiesGroup)

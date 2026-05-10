@@ -115,6 +115,15 @@ export class LocalStorageService extends Context.Service<LocalStorageService>()(
 								),
 							),
 				);
+			const requireSigningConfigured = Effect.suspend(() =>
+				signingConfigured
+					? Effect.void
+					: Effect.fail(
+							badRequest(
+								"Local storage signing is not configured. Set FILE_STORAGE_LOCAL_SIGNING_SECRET.",
+							),
+						),
+			);
 
 			const resolveKey = (key: string) => {
 				const namespace = key.split("/", 1)[0] ?? "";
@@ -178,7 +187,7 @@ export class LocalStorageService extends Context.Service<LocalStorageService>()(
 				intentId: string,
 				now: number,
 			) {
-				yield* requireConfigured("temporary");
+				yield* requireSigningConfigured;
 				const expiresAt = now + UPLOAD_URL_EXPIRY_SECONDS;
 				const pathname = localUploadPath(intentId);
 				const signature = yield* sign("PUT", pathname, expiresAt);
@@ -194,7 +203,7 @@ export class LocalStorageService extends Context.Service<LocalStorageService>()(
 				url: string,
 				now: number,
 			) {
-				yield* requireConfigured("temporary");
+				yield* requireSigningConfigured;
 				const parsed = yield* Effect.try({
 					try: () => new URL(url, "http://local.invalid"),
 					catch: () => badRequest("Local upload target is malformed"),
@@ -332,6 +341,7 @@ export class LocalStorageService extends Context.Service<LocalStorageService>()(
 				key: string,
 				stream: Stream.Stream<Uint8Array, unknown>,
 				contentLength: string | undefined,
+				maxBytes = UPLOAD_MAX_FILE_BYTES,
 			) {
 				const target = yield* resolvePath(key);
 				const declaredLength = contentLength === undefined ? null : Number(contentLength);
@@ -341,10 +351,8 @@ export class LocalStorageService extends Context.Service<LocalStorageService>()(
 				) {
 					return yield* badRequest("Content-Length is invalid");
 				}
-				if (declaredLength !== null && declaredLength > UPLOAD_MAX_FILE_BYTES) {
-					return yield* badRequest(
-						`Upload exceeds maximum allowed size of ${UPLOAD_MAX_FILE_BYTES} bytes`,
-					);
+				if (declaredLength !== null && declaredLength > maxBytes) {
+					return yield* badRequest(`Upload exceeds maximum allowed size of ${maxBytes} bytes`);
 				}
 				const staged = `${target}.part`;
 				yield* fs.remove(target, { force: true }).pipe(Effect.orDie);
@@ -353,12 +361,8 @@ export class LocalStorageService extends Context.Service<LocalStorageService>()(
 				const bounded = stream.pipe(
 					Stream.mapEffect((chunk) => {
 						size += chunk.byteLength;
-						return size > UPLOAD_MAX_FILE_BYTES
-							? Effect.fail(
-									badRequest(
-										`Upload exceeds maximum allowed size of ${UPLOAD_MAX_FILE_BYTES} bytes`,
-									),
-								)
+						return size > maxBytes
+							? Effect.fail(badRequest(`Upload exceeds maximum allowed size of ${maxBytes} bytes`))
 							: Effect.succeed(chunk);
 					}),
 				);
@@ -399,6 +403,15 @@ export class LocalStorageService extends Context.Service<LocalStorageService>()(
 				return void 0;
 			});
 
+			const openObject = Effect.fn("LocalStorageService.openObject")(function* (key: string) {
+				const target = yield* existingPath(key).pipe(
+					Effect.mapError(() => badRequest("Local upload object is missing or invalid")),
+				);
+				return fs
+					.stream(target)
+					.pipe(Stream.mapError(() => badRequest("Local upload object is missing or invalid")));
+			});
+
 			const statObject = Effect.fn("LocalStorageService.statObject")(function* (key: string) {
 				const target = yield* existingPath(key);
 				return yield* fs
@@ -419,6 +432,7 @@ export class LocalStorageService extends Context.Service<LocalStorageService>()(
 			});
 
 			return {
+				openObject,
 				statObject,
 				writeObject,
 				deleteObject,

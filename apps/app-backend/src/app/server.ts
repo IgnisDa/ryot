@@ -14,6 +14,7 @@ import { HttpApiBuilder, HttpApiError, HttpApiScalar } from "effect/unstable/htt
 import { AppConfig } from "#lib/infrastructure/config/service";
 import { AdminMiddlewareLive, AuthMiddlewareLive, AuthService } from "#modules/auth/service";
 import { AutomationsRoutesLive } from "#modules/automations/routes";
+import { BackupsRoutesLive } from "#modules/backups/routes";
 import { CollectionsRoutesLive } from "#modules/collections/routes";
 import { DefinitionsRoutesLive } from "#modules/definitions/routes";
 import { EntitiesRoutesLive } from "#modules/entities/routes";
@@ -79,6 +80,7 @@ const decodeErrorsAsBadRequest = Effect.catchCause((cause) => {
 const ApiLive = HttpApiBuilder.layer(AppContract).pipe(
 	Layer.provide(Layer.mergeAll(SystemRoutesLive, AutomationsRoutesLive)),
 	Layer.provide(DefinitionsRoutesLive),
+	Layer.provide(BackupsRoutesLive),
 	Layer.provide(RelationshipsRoutesLive),
 	Layer.provide(EntitiesRoutesLive),
 	Layer.provide(ProviderEntitiesRoutesLive),

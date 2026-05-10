@@ -1,4 +1,5 @@
 import { expect, it } from "@effect/vitest";
+import { SandboxProviderId } from "@ryot/contract/schema/brands";
 import { sql, type SQLWrapper } from "drizzle-orm";
 import { PgDialect } from "drizzle-orm/pg-core";
 import { Effect, Layer } from "effect";
@@ -70,6 +71,36 @@ const makeScriptCleanupLayer = (input: {
 		Layer.provideMerge(Layer.succeed(Database, Object.assign(Object.create(null), db))),
 	);
 };
+
+it.effect("resolves a provider by portable plugin and provider slugs", () => {
+	const db = {
+		select: () => ({
+			from: () => ({
+				innerJoin: () => ({
+					where: () => ({
+						limit: () => Effect.succeed([{ id: "provider-id", entitySchemaSlug: "book" }]),
+					}),
+				}),
+			}),
+		}),
+	};
+
+	return Effect.gen(function* () {
+		const repository = yield* PluginRepository;
+		expect(
+			yield* repository.resolveProviderBySlugs({
+				pluginSlug: "media",
+				providerSlug: "tmdb",
+			}),
+		).toEqual({ id: SandboxProviderId.make("provider-id"), entitySchemaSlug: "book" });
+	}).pipe(
+		Effect.provide(
+			PluginRepository.layer.pipe(
+				Layer.provideMerge(Layer.succeed(Database, Object.assign(Object.create(null), db))),
+			),
+		),
+	);
+});
 
 it.effect("detects entity references to plugin schema slugs", () =>
 	Effect.gen(function* () {
