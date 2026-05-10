@@ -84,8 +84,7 @@ export class FirstPartyPluginBootstrap extends Context.Service<FirstPartyPluginB
 					);
 					yield* sourceEffect;
 				}
-				// TODO(plugins): Task 08 owns durable fan-out of system user-bootstrap entries to users backfilled here.
-				yield* installations.provisionSystemInstallationsForAllUsers();
+				yield* installations.reconcileSystemInstallations();
 				yield* scriptGarbageCollector.collect();
 			});
 
