@@ -24,8 +24,8 @@ import type { EntityDetail } from "./types";
 // Slugs that have fake data (excludes "person" which is not a media entity type yet)
 const DEMO_SLUGS = MEDIA_SCOPE_SLUGS.filter((s) => FAKE_ENTITY_DATA[s] !== undefined);
 
-function hasFreeCreators(entity: EntityDetail) {
-	return "freeCreators" in entity;
+function hasUnlinkedCreators(entity: EntityDetail) {
+	return "unlinkedCreators" in entity;
 }
 
 function TypeSwitcherFab({
@@ -109,7 +109,9 @@ export function EntityDetailScreen() {
 					<Box className="px-7 pt-8 md:grid md:grid-cols-[2fr_1fr] md:items-start md:gap-10 md:px-10">
 						<Box>
 							<AboutSection entity={entity} />
-							{hasFreeCreators(entity) && <CreatorsSection creators={entity.freeCreators} />}
+							{hasUnlinkedCreators(entity) && (
+								<CreatorsSection creators={entity.unlinkedCreators} />
+							)}
 							<TypeSpecificSection entity={entity} />
 						</Box>
 						<Box>

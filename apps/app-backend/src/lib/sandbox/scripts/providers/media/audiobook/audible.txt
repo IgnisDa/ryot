@@ -224,7 +224,7 @@ driver("details", async function(context) {
   }
 
   const people = [];
-  const freeCreators = [];
+  const unlinkedCreators = [];
 
   const authors = Array.isArray(product?.authors) ? product.authors : [];
   for (const author of authors) {
@@ -244,7 +244,7 @@ driver("details", async function(context) {
         scriptSlug: "person.audible",
       });
     } else {
-      freeCreators.push({ role: "Author", name });
+      unlinkedCreators.push({ role: "Author", name });
     }
   }
 
@@ -268,7 +268,7 @@ driver("details", async function(context) {
         scriptSlug: "person.audible",
       });
     } else {
-      freeCreators.push({ role: "Narrator", name });
+      unlinkedCreators.push({ role: "Narrator", name });
     }
   }
 
@@ -284,7 +284,7 @@ driver("details", async function(context) {
       sourceUrl,
       publishYear,
       description,
-      freeCreators,
+      unlinkedCreators,
       providerRating,
       genres: [...genreSet],
     },
