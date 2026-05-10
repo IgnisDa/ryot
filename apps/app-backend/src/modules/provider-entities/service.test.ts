@@ -40,6 +40,7 @@ const provider = {
 	updatedAt: new Date(0),
 	information: { source: "provider" },
 	rootEntitySchemaSlug: entitySchemaSlug,
+	pluginScope: "system" as "system" | "user",
 };
 
 const mockEntitiesRepository = Layer.mock(EntitiesRepository);
@@ -68,8 +69,7 @@ const makeServiceLayer = (
 				Layer.succeed(WorkflowEngine, engine),
 				entitiesRepo,
 				Layer.mock(PluginRuntimeResolver)({
-					isSystemProviderAvailableToUser: () => Effect.succeed(true),
-					findActiveProviderById: () => Effect.succeed(activeProvider),
+					findProviderAvailableToUser: () => Effect.succeed(activeProvider),
 				}),
 			),
 		),
@@ -157,7 +157,7 @@ it.effect("derives the root entity schema before dispatching the import workflow
 		expect(typeof result.jobId).toBe("string");
 		expect(executeCalls).toHaveLength(1);
 		expect(executeCalls[0]).toMatchObject({
-			payload: { providerId, externalId, entitySchemaSlug },
+			payload: { providerId, externalId, entityScope: "global", entitySchemaSlug },
 		});
 	}).pipe(
 		Effect.provide(
@@ -171,6 +171,27 @@ it.effect("derives the root entity schema before dispatching the import workflow
 						return Effect.void;
 					},
 				}),
+			),
+		),
+	);
+});
+
+it.effect("dispatches private provider imports with user-owned entity scope", () => {
+	const executeCalls: unknown[] = [];
+	return Effect.gen(function* () {
+		const service = yield* EntityImportService;
+		yield* service.import(user, { providerId, externalId });
+		expect(executeCalls[0]).toMatchObject({ payload: { entityScope: "user", userId: user.id } });
+	}).pipe(
+		Effect.provide(
+			makeServiceLayer(
+				makeEntitiesRepository({
+					getEntitySchemaScopeForUser: () => Effect.succeed(fakeEntitySchemaScope),
+				}),
+				makeWorkflowEngine({
+					execute: (_workflow, options) => Effect.sync(() => void executeCalls.push(options)),
+				}),
+				{ ...provider, pluginScope: "user" },
 			),
 		),
 	);

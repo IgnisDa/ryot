@@ -1,11 +1,9 @@
 import {
 	ascending,
-	castText,
 	column,
 	defineRecipe,
 	eq,
 	join,
-	jsonPath,
 	literal,
 	table,
 	selectedField,
@@ -18,7 +16,6 @@ const plugin = table("plugin", "plugin");
 const installation = table("pluginInstallation", "installation");
 const collection = table("entity", "collection");
 const savedView = table("savedView", "savedView");
-const metadata = jsonPath(column(plugin, "manifest"), "metadata");
 
 export const navigationRecipe = defineRecipe(() => ({
 	queries: {
@@ -31,8 +28,8 @@ export const navigationRecipe = defineRecipe(() => ({
 			],
 			selection: {
 				slug: selectedField(column(plugin, "slug"), Schema.String),
-				name: selectedField(castText(jsonPath(metadata, "name")), Schema.String),
-				icon: selectedField(castText(jsonPath(metadata, "icon")), Schema.String),
+				name: selectedField(column(plugin, "name"), Schema.String),
+				icon: selectedField(column(plugin, "icon"), Schema.String),
 				sortOrder: selectedField(column(installation, "sortOrder"), Schema.NullOr(Schema.Number)),
 				isDisabled: selectedField(
 					column(installation, "isDisabled"),

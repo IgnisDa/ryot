@@ -22,6 +22,7 @@ export type EventSchemaDefinition = {
 	readonly name: string;
 	readonly slug: string;
 	readonly propertiesSchema: AppSchema;
+	readonly pluginId?: string | null | undefined;
 };
 
 export type EntitySchemaDefinition = {
@@ -30,6 +31,7 @@ export type EntitySchemaDefinition = {
 	readonly slug: string;
 	readonly pluginSlug: string | null;
 	readonly propertiesSchema: AppSchema;
+	readonly pluginId?: string | null | undefined;
 	readonly userState?: PluginEntitySchema["userState"];
 	readonly mergeIdentityProperties: ReadonlyArray<string>;
 	readonly eventSchemas: ReadonlyArray<EventSchemaDefinition>;
@@ -43,6 +45,7 @@ export type RelationshipSchemaDefinition = {
 	readonly name: string;
 	readonly slug: string;
 	readonly propertiesSchema: AppSchema;
+	readonly pluginId?: string | null | undefined;
 	readonly sourceEntitySchemaSlug: string | null;
 	readonly targetEntitySchemaSlug: string | null;
 };
@@ -51,8 +54,8 @@ export type SignalAudiencePolicy =
 	| { readonly kind: "actor" }
 	| {
 			readonly kind: "related_users";
-			readonly subjectSide: "source" | "target";
 			readonly relationshipSchemaSlug: string;
+			readonly subjectSide: "source" | "target";
 	  };
 
 export type SignalSchemaDefinition = {
@@ -61,6 +64,7 @@ export type SignalSchemaDefinition = {
 	readonly propertiesSchema: AppSchema;
 	readonly notificationScriptSlug: string;
 	readonly catalogState: "active" | "hidden";
+	readonly pluginId?: string | null | undefined;
 	readonly audiencePolicy: SignalAudiencePolicy;
 };
 
@@ -72,13 +76,23 @@ export type SavedViewDefinition = {
 	readonly pluginSlug: string | null;
 	readonly layouts: SavedViewLayouts;
 	readonly entitySchemaSlug: string | null;
+	readonly pluginId?: string | null | undefined;
+};
+
+type SourceDefinition<Definition> = Omit<Definition, "pluginId"> & {
+	readonly pluginId?: string | null | undefined;
 };
 
 export type DefinitionSource = {
-	readonly savedViews: ReadonlyArray<SavedViewDefinition>;
-	readonly signalSchemas: ReadonlyArray<SignalSchemaDefinition>;
-	readonly entitySchemas: ReadonlyArray<EntitySchemaSourceDefinition>;
-	readonly relationshipSchemas: ReadonlyArray<RelationshipSchemaDefinition>;
+	readonly savedViews: ReadonlyArray<SourceDefinition<SavedViewDefinition>>;
+	readonly signalSchemas: ReadonlyArray<SourceDefinition<SignalSchemaDefinition>>;
+	readonly relationshipSchemas: ReadonlyArray<SourceDefinition<RelationshipSchemaDefinition>>;
+	readonly entitySchemas: ReadonlyArray<
+		Omit<EntitySchemaSourceDefinition, "eventSchemas" | "pluginId"> & {
+			readonly pluginId?: string | null | undefined;
+			readonly eventSchemas: ReadonlyArray<SourceDefinition<EventSchemaDefinition>>;
+		}
+	>;
 };
 
 type EntitySchemaSnapshot = Omit<EntitySchemaDefinition, "eventSchemas"> & {
@@ -348,16 +362,37 @@ export const buildDefinitionSnapshot = (source: DefinitionSource): DefinitionSna
 	validateDefinitionSource(source);
 	const cloned = structuredClone(source);
 	return deepFreeze({
-		savedViews: toRecord(cloned.savedViews),
-		signalSchemas: toRecord(cloned.signalSchemas),
-		relationshipSchemas: toRecord(cloned.relationshipSchemas),
+		savedViews: toRecord(
+			cloned.savedViews.map((definition) => ({
+				...definition,
+				pluginId: definition.pluginId ?? null,
+			})),
+		),
+		signalSchemas: toRecord(
+			cloned.signalSchemas.map((definition) => ({
+				...definition,
+				pluginId: definition.pluginId ?? null,
+			})),
+		),
+		relationshipSchemas: toRecord(
+			cloned.relationshipSchemas.map((definition) => ({
+				...definition,
+				pluginId: definition.pluginId ?? null,
+			})),
+		),
 		entitySchemas: Object.fromEntries(
 			cloned.entitySchemas.map(({ eventSchemas, ...entitySchema }) => [
 				entitySchema.slug,
 				{
 					...entitySchema,
-					eventSchemas: toRecord(eventSchemas),
+					pluginId: entitySchema.pluginId ?? null,
 					mergeIdentityProperties: entitySchema.mergeIdentityProperties ?? [],
+					eventSchemas: toRecord(
+						eventSchemas.map((definition) => ({
+							...definition,
+							pluginId: definition.pluginId ?? entitySchema.pluginId ?? null,
+						})),
+					),
 				},
 			]),
 		),

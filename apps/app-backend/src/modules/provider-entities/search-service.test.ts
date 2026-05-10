@@ -35,6 +35,7 @@ const provider = {
 	rootEntitySchemaSlug: "book",
 	createdAt: new Date(0),
 	updatedAt: new Date(0),
+	pluginScope: "system" as const,
 	information: { source: "books" },
 };
 
@@ -116,10 +117,9 @@ const makeLayer = (input?: {
 			Layer.mergeAll(
 				databaseLayer,
 				Layer.mock(PluginRuntimeResolver)({
-					isSystemProviderAvailableToUser: () => Effect.succeed(true),
-					findActiveProviderById: () =>
+					findProviderAvailableToUser: () =>
 						Effect.succeed(input?.provider === undefined ? provider : input.provider),
-					resolveSearchScript: () =>
+					resolveUserSearchScript: () =>
 						input?.searchError
 							? Effect.fail(
 									new UnsupportedProviderOperationError({
@@ -130,7 +130,7 @@ const makeLayer = (input?: {
 									}),
 								)
 							: Effect.succeed({ ...searchScript, optionsSchema: input?.optionsSchema ?? null }),
-					resolveSearchOptionsScript: () =>
+					resolveUserSearchOptionsScript: () =>
 						input?.searchOptionsError
 							? Effect.fail(
 									new UnsupportedProviderOperationError({

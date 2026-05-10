@@ -121,6 +121,7 @@ export class EventsRepository extends Context.Service<EventsRepository>()("Event
 			entityId: EntityId;
 			eventSchemaName: string;
 			eventSchemaSlug: EventSchemaSlug;
+			eventSchemaPluginId: string | null;
 			properties: Record<string, unknown>;
 			sessionEntityId?: EntityId | undefined;
 		}) {
@@ -136,6 +137,7 @@ export class EventsRepository extends Context.Service<EventsRepository>()("Event
 						occurredAt: input.occurredAt,
 						eventSchemaSlug: input.eventSchemaSlug,
 						sessionEntityId: input.sessionEntityId ?? null,
+						eventSchemaPluginId: input.eventSchemaPluginId,
 					})
 					.onConflictDoNothing()
 					.returning(createdEventSelection),

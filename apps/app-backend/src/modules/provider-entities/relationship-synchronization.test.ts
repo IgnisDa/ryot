@@ -1,5 +1,10 @@
 import { assert, expect, it } from "@effect/vitest";
-import { EntityId, RelationshipId, RelationshipSchemaSlug } from "@ryot/contract/schema/brands";
+import {
+	EntityId,
+	RelationshipId,
+	RelationshipSchemaSlug,
+	UserId,
+} from "@ryot/contract/schema/brands";
 import { Effect, Layer } from "effect";
 
 import { databaseLayer } from "#lib/test-utils/effect";
@@ -15,6 +20,57 @@ const entityId = (value: string) => EntityId.make(value);
 const assertRecord: (value: unknown) => asserts value is Record<string, unknown> = (value) => {
 	assert(typeof value === "object" && value !== null && !Array.isArray(value));
 };
+
+it.effect("creates user-owned relationships with exact plugin provenance", () => {
+	const userId = UserId.make("user-1");
+	const created: unknown[] = [];
+	const layer = Layer.mergeAll(
+		databaseLayer,
+		Layer.mock(EntitiesRepository)({
+			listEntityReferencesByIds: (ids) =>
+				Effect.succeed(ids.map((id) => ({ id, name: String(id), entitySchemaSlug: "entity" }))),
+		}),
+		Layer.mock(RelationshipsRepository)({
+			listUserRelationshipsForEntityWithProvenance: () => Effect.succeed([]),
+		}),
+		Layer.mock(RelationshipsService)({
+			create: (input) => {
+				created.push(input);
+				return Effect.succeed(
+					relationship({
+						id: "created",
+						properties: {},
+						target: "related",
+						wasInserted: true,
+						createdAt: "2026-01-01T00:00:00.000Z",
+					}),
+				);
+			},
+		}),
+	);
+
+	return Effect.gen(function* () {
+		yield* synchronizeGlobalRelationships({
+			userId,
+			scope: "user",
+			anchorEntityId,
+			direction: "outgoing",
+			relationshipSchemaSlug,
+			synchronization: "additive",
+			onConflict: "preserveExisting",
+			propertiesSchema: { fields: {} },
+			relationshipSchemaPluginId: "private-plugin-id",
+			entries: [{ entityId: entityId("related"), properties: {} }],
+		});
+		expect(created).toMatchObject([
+			{
+				userId,
+				scope: "user",
+				relationshipSchemaPluginId: "private-plugin-id",
+			},
+		]);
+	}).pipe(Effect.provide(layer));
+});
 
 const relationship = (input: {
 	id: string;

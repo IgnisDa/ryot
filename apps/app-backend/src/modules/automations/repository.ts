@@ -1,3 +1,4 @@
+import type { DbError } from "@ryot/contract/errors";
 import {
 	AutomationRuleMetadata,
 	type AutomationOperation,
@@ -35,11 +36,12 @@ export type StoredNotificationSubscription = {
 	id: AutomationRuleId;
 	signalSchemaSlug: SignalSchemaSlug;
 	metadata: AutomationRuleMetadataValue | null;
+	signalSchemaPluginId?: string | null | undefined;
 };
 
 export type InsertNotificationSubscriptionInput = Pick<
 	StoredNotificationSubscription,
-	"isActive" | "metadata" | "signalSchemaSlug" | "userId"
+	"isActive" | "metadata" | "signalSchemaPluginId" | "signalSchemaSlug" | "userId"
 >;
 
 export type InsertSubscriptionRunInput = {
@@ -65,7 +67,9 @@ export type FinishSubscriptionRunInput = {
 	returnedValue: AutomationRuleMetadataValue | null;
 };
 
-const toStoredNotificationSubscription = Effect.fn(function* (
+const toStoredNotificationSubscription: (
+	row: NotificationSubscriptionStateRow,
+) => Effect.Effect<StoredNotificationSubscription, DbError> = Effect.fn(function* (
 	row: NotificationSubscriptionStateRow,
 ) {
 	const metadata =
@@ -80,10 +84,13 @@ const toStoredNotificationSubscription = Effect.fn(function* (
 		metadata,
 		isActive: row.isActive,
 		userId: UserId.make(row.userId),
-		id: AutomationRuleId.make(row.id),
 		createdAt: row.createdAt.toISOString(),
 		updatedAt: row.updatedAt.toISOString(),
+		id: AutomationRuleId.make(row.id),
 		signalSchemaSlug: SignalSchemaSlug.make(row.signalSchemaSlug),
+		...(row.signalSchemaPluginId === null
+			? {}
+			: { signalSchemaPluginId: row.signalSchemaPluginId }),
 	};
 });
 
@@ -91,8 +98,8 @@ const toStoredRun = (row: SubscriptionRunRow) => ({
 	...row,
 	queuedAt: row.queuedAt.toISOString(),
 	id: SubscriptionRunId.make(row.id),
-	ruleId: AutomationRuleId.make(row.ruleId),
 	startedAt: row.startedAt?.toISOString() ?? null,
+	ruleId: AutomationRuleId.make(row.ruleId),
 	finishedAt: row.finishedAt?.toISOString() ?? null,
 	scriptUpdatedAt: row.scriptUpdatedAt?.toISOString() ?? null,
 	sandboxScriptId: SandboxScriptId.make(row.sandboxScriptId),

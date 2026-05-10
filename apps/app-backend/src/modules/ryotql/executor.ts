@@ -524,6 +524,27 @@ const authorizedTable = (table: CatalogTable, scope: RyotQLExecutionScope): SqlF
 		if (policy.type === "public") {
 			return sql`(SELECT * FROM ${sql.raw(table.name)})`;
 		}
+		if (policy.type === "effectivePlugin") {
+			const pluginColumn = sql.raw(`${table.name}.${policy.pluginColumn}`);
+			return sql`(SELECT * FROM ${sql.raw(table.name)} WHERE EXISTS (
+				SELECT 1 FROM plugin_installation
+				WHERE plugin_installation.plugin_id = ${pluginColumn}
+					AND plugin_installation.user_id = ${scope.userId}
+					AND plugin_installation.health = 'ready'
+					AND plugin_installation.is_disabled = false
+			))`;
+		}
+		if (policy.type === "effectiveProviderPlugin") {
+			const providerColumn = sql.raw(`${table.name}.${policy.providerColumn}`);
+			return sql`(SELECT * FROM ${sql.raw(table.name)} WHERE EXISTS (
+				SELECT 1 FROM sandbox_provider provider
+				INNER JOIN plugin_installation ON plugin_installation.plugin_id = provider.plugin_id
+				WHERE provider.id = ${providerColumn}
+					AND plugin_installation.user_id = ${scope.userId}
+					AND plugin_installation.health = 'ready'
+					AND plugin_installation.is_disabled = false
+			))`;
+		}
 		if (policy.type === "parentOwned") {
 			const column = sql.raw(`${table.name}.${policy.column}`);
 			const parentTable = sql.raw(policy.parentTable);
