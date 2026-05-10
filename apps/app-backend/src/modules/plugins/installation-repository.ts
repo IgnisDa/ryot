@@ -1,5 +1,5 @@
 import type { UserId } from "@ryot/contract/schema/brands";
-import { and, asc, eq } from "drizzle-orm";
+import { and, asc, eq, sql } from "drizzle-orm";
 import { Context, Effect, Layer } from "effect";
 
 import * as schema from "#lib/infrastructure/db/schema/tables/combined";
@@ -18,6 +18,17 @@ type RestoreInstallationInput = Omit<
 	PluginInstallationRow,
 	"userId" | "health" | "healthReason"
 > & { readonly userId: UserId };
+
+const provisionSystemInstallations = (userId: UserId | null) => sql`
+	insert into ${schema.pluginInstallation} (id, user_id, plugin_id)
+	select gen_random_uuid()::text, ${schema.user.id}, ${schema.plugin.id}
+	from ${schema.user}
+	cross join ${schema.plugin}
+	where ${schema.plugin.scope} = 'system'
+		and ${schema.plugin.status} = 'active'
+		${userId === null ? sql`` : sql`and ${schema.user.id} = ${userId}`}
+	on conflict (user_id, plugin_id) do nothing
+`;
 
 const installationState = {
 	pluginSlug: schema.plugin.slug,
@@ -148,11 +159,41 @@ export class PluginInstallationRepository extends Context.Service<PluginInstalla
 				return row;
 			});
 
+			const provisionSystemInstallationsForUser = Effect.fn(
+				"PluginInstallationRepository.provisionSystemInstallationsForUser",
+			)(function* (userId: UserId) {
+				const db = yield* Database;
+				yield* mapDatabaseErrors(db.execute(provisionSystemInstallations(userId)));
+			});
+
+			const provisionSystemInstallationsForAllUsers = Effect.fn(
+				"PluginInstallationRepository.provisionSystemInstallationsForAllUsers",
+			)(function* () {
+				const db = yield* Database;
+				yield* mapDatabaseErrors(db.execute(provisionSystemInstallations(null)));
+			});
+
+			// TODO(plugins): Task 09 owns archive format v2; this upsert last-wins on duplicate archive
+			// entries for one plugin instead of rejecting them.
 			const restore = Effect.fn("PluginInstallationRepository.restore")(function* (
 				input: RestoreInstallationInput,
 			) {
 				const db = yield* Database;
-				yield* mapDatabaseErrors(db.insert(schema.pluginInstallation).values(input));
+				yield* mapDatabaseErrors(
+					db
+						.insert(schema.pluginInstallation)
+						.values(input)
+						.onConflictDoUpdate({
+							target: [schema.pluginInstallation.userId, schema.pluginInstallation.pluginId],
+							set: {
+								config: input.config,
+								sortOrder: input.sortOrder,
+								createdAt: input.createdAt,
+								updatedAt: input.updatedAt,
+								isDisabled: input.isDisabled,
+							},
+						}),
+				);
 			});
 
 			return {
@@ -163,6 +204,8 @@ export class PluginInstallationRepository extends Context.Service<PluginInstalla
 				updateHealth,
 				listSystemForUser,
 				findByUserAndPlugin,
+				provisionSystemInstallationsForUser,
+				provisionSystemInstallationsForAllUsers,
 			};
 		}),
 	},

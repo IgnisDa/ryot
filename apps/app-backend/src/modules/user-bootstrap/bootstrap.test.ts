@@ -6,6 +6,7 @@ import { Effect, Layer } from "effect";
 import * as schema from "#lib/infrastructure/db/schema/tables/combined";
 import { Database } from "#lib/infrastructure/db/service";
 import { NotificationSubscriptionsService } from "#modules/automations/notification-subscriptions-service";
+import { PluginInstallationService } from "#modules/plugins/installation-service";
 import { SavedViewsService } from "#modules/saved-views/service";
 
 import { performBootstrap } from "./bootstrap";
@@ -50,6 +51,7 @@ const makeLayer = (options: {
 	db?: object;
 	onDefaultRules?: (userId: UserId) => void;
 	onBuiltinViews?: (userId: UserId) => void;
+	onProvisionInstallations?: (userId: UserId) => void;
 	dispatch: (userId: UserId) => Effect.Effect<undefined, SandboxRunError>;
 }) => {
 	const db = options.db ?? makeBootstrapDb();
@@ -65,6 +67,10 @@ const makeLayer = (options: {
 		Layer.mock(PluginUserBootstrapDispatcher)({
 			dispatchAll: options.dispatch,
 		}),
+		Layer.mock(PluginInstallationService)({
+			provisionSystemInstallations: (inputUserId) =>
+				Effect.sync(() => options.onProvisionInstallations?.(inputUserId)),
+		}),
 		Layer.mock(NotificationSubscriptionsService)({
 			ensureDefaultRules: (inputUserId) => Effect.sync(() => options.onDefaultRules?.(inputUserId)),
 		}),
@@ -78,27 +84,36 @@ it.effect(
 	"dispatches plugin bootstrap, ensures default rules, and sets the completion marker",
 	() => {
 		let markerUpdated = false;
+		const order: string[] = [];
 		const dispatchedUserIds: UserId[] = [];
 		const defaultRuleUserIds: UserId[] = [];
 		const builtinViewUserIds: UserId[] = [];
+		const provisionedUserIds: UserId[] = [];
 
 		return Effect.gen(function* () {
 			yield* performBootstrap(userId);
 
+			expect(order).toEqual(["provision", "dispatch"]);
 			expect(dispatchedUserIds).toEqual([userId]);
+			expect(provisionedUserIds).toEqual([userId]);
 			expect(builtinViewUserIds).toEqual([userId]);
 			expect(defaultRuleUserIds).toEqual([userId]);
 			expect(markerUpdated).toBe(true);
 		}).pipe(
 			Effect.provide(
 				makeLayer({
-					dispatch: (inputUserId) =>
-						Effect.sync(() => {
-							dispatchedUserIds.push(inputUserId);
-						}).pipe(Effect.as(undefined)),
 					db: makeBootstrapDb({ onMarkComplete: () => (markerUpdated = true) }),
 					onDefaultRules: (inputUserId) => defaultRuleUserIds.push(inputUserId),
 					onBuiltinViews: (inputUserId) => builtinViewUserIds.push(inputUserId),
+					onProvisionInstallations: (inputUserId) => {
+						order.push("provision");
+						provisionedUserIds.push(inputUserId);
+					},
+					dispatch: (inputUserId) =>
+						Effect.sync(() => {
+							order.push("dispatch");
+							dispatchedUserIds.push(inputUserId);
+						}).pipe(Effect.as(undefined)),
 				}),
 			),
 		);

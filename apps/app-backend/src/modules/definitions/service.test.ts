@@ -1,6 +1,9 @@
 import { expect, it } from "@effect/vitest";
 import type { CurrentUserValue } from "@ryot/contract/auth-middleware";
-import { DefinitionNotFound } from "@ryot/contract/modules/definitions/schemas";
+import {
+	DefinitionNotFound,
+	type UpdatePluginStateBody,
+} from "@ryot/contract/modules/definitions/schemas";
 import { PluginSlug, UserId } from "@ryot/contract/schema/brands";
 import { Effect, Layer } from "effect";
 
@@ -91,7 +94,7 @@ it.effect("lists plugins with user state overlaid", () => {
 		makeRepository({
 			listForUser: () =>
 				Effect.succeed([
-					makeState({ config: { layout: "compact" }, sortOrder: 5 }),
+					makeState({ sortOrder: 5 }),
 					makeState({ pluginSlug: "other", isDisabled: true, sortOrder: 0 }),
 				]),
 		}),
@@ -109,8 +112,8 @@ it.effect("lists plugins with user state overlaid", () => {
 			slug: "fixture",
 			name: "Fixture",
 			isDisabled: false,
-			config: { layout: "compact" },
 		});
+		expect(visible[0]).not.toHaveProperty("config");
 		expect(all.map(({ slug }) => slug)).toEqual(["other", "fixture"]);
 	}).pipe(Effect.provide(layer));
 });
@@ -149,8 +152,34 @@ it.effect("updates state while preserving omitted overlay values", () => {
 			slug: "fixture",
 			name: "Fixture",
 			isDisabled: true,
-			config: { unit: "minutes" },
 		});
+		expect(plugin).not.toHaveProperty("config");
+	}).pipe(Effect.provide(layer));
+});
+
+it.effect("ignores configuration supplied to a system plugin state update", () => {
+	let persisted:
+		| Parameters<NonNullable<MockOverrides<typeof mockRepository>["upsertState"]>>[0]
+		| undefined;
+	const layer = makeServiceLayer(
+		makeRepository({
+			findByUserAndPlugin: () => Effect.succeed(makeState({ config: { unit: "minutes" } })),
+			upsertState: (input) =>
+				Effect.sync(() => {
+					persisted = input;
+					return makeState(input);
+				}),
+		}),
+	);
+
+	return Effect.gen(function* () {
+		const service = yield* DefinitionsService;
+		yield* service.updatePluginState(user, PluginSlug.make("fixture"), {
+			sortOrder: 2,
+			config: { unit: "seconds" },
+		} as UpdatePluginStateBody);
+
+		expect(persisted?.config).toEqual({ unit: "minutes" });
 	}).pipe(Effect.provide(layer));
 });
 

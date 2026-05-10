@@ -79,6 +79,14 @@ export class PluginInstallationService extends Context.Service<PluginInstallatio
 			const installations = yield* PluginInstallationRepository;
 			const workflowReferences = yield* SandboxWorkflowReferenceRepository;
 
+			const provisionSystemInstallations = Effect.fn(
+				"PluginInstallationService.provisionSystemInstallations",
+			)((userId: UserId) => installations.provisionSystemInstallationsForUser(userId));
+
+			const provisionSystemInstallationsForAllUsers = Effect.fn(
+				"PluginInstallationService.provisionSystemInstallationsForAllUsers",
+			)(() => installations.provisionSystemInstallationsForAllUsers());
+
 			const listInstallations = Effect.fn("PluginInstallationService.listInstallations")(function* (
 				userId: UserId,
 			) {
@@ -256,7 +264,13 @@ export class PluginInstallationService extends Context.Service<PluginInstallatio
 				});
 			});
 
-			return { listInstallations, uninstallPlugin, installPrivatePlugin };
+			return {
+				uninstallPlugin,
+				listInstallations,
+				installPrivatePlugin,
+				provisionSystemInstallations,
+				provisionSystemInstallationsForAllUsers,
+			};
 		}),
 	},
 ) {

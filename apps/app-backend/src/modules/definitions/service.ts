@@ -20,7 +20,6 @@ const merge = (
 	defaultSortOrder = 0,
 ) => ({
 	...metadata,
-	config: state?.config ?? {},
 	isDisabled: state?.isDisabled ?? false,
 	slug: PluginSlug.make(metadata.slug),
 	sortOrder: state?.sortOrder ?? defaultSortOrder,
@@ -64,7 +63,7 @@ export class DefinitionsService extends Context.Service<DefinitionsService>()(
 				const state = yield* repository.upsertState({
 					userId: user.id,
 					pluginId: plugin.id,
-					config: payload.config ?? current?.config ?? {},
+					config: current?.config ?? {},
 					isDisabled: payload.isDisabled ?? current?.isDisabled ?? false,
 					sortOrder: payload.sortOrder ?? current?.sortOrder ?? defaultSortOrder,
 				});

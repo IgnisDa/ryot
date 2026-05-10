@@ -3,8 +3,8 @@ import type { SandboxExecutionPayload } from "@ryot/contract/modules/sandbox/sch
 import type { UserId } from "@ryot/contract/schema/brands";
 import { Context, Effect, Layer } from "effect";
 
-import { bootConfiguredPluginSlugs } from "#modules/plugins/boot-sources";
-import { PluginLoader } from "#modules/plugins/loader";
+import { PluginInstallationRepository } from "#modules/plugins/installation-repository";
+import { findPluginEntryById, PluginLoader } from "#modules/plugins/loader";
 import { PluginRuntimeResolver } from "#modules/plugins/runtime-resolver";
 import { SandboxExecutionService } from "#modules/sandbox/service";
 
@@ -23,15 +23,23 @@ export const makePluginUserBootstrapDispatcher = (
 	Effect.gen(function* () {
 		const loader = yield* PluginLoader;
 		const runtime = yield* PluginRuntimeResolver;
+		const installations = yield* PluginInstallationRepository;
 
 		const dispatchAll = Effect.fn("PluginUserBootstrapDispatcher.dispatchAll")(function* (
 			userId: UserId,
 		) {
-			const entries = Object.entries(loader.getSnapshot().plugins)
-				.filter(([pluginSlug]) => bootConfiguredPluginSlugs.has(pluginSlug))
-				.flatMap(([pluginSlug, plugin]) =>
-					plugin.manifest.userBootstrap.map((bootstrap) => ({ bootstrap, pluginSlug })),
-				)
+			const snapshot = loader.getSnapshot();
+			const installed = yield* installations.listSystemForUser(userId);
+			const entries = installed
+				.flatMap((installation) => {
+					const plugin = findPluginEntryById(snapshot, installation.pluginId);
+					return plugin
+						? plugin.manifest.userBootstrap.map((bootstrap) => ({
+								bootstrap,
+								pluginSlug: plugin.slug,
+							}))
+						: [];
+				})
 				.sort(
 					(left, right) =>
 						left.pluginSlug.localeCompare(right.pluginSlug) ||
@@ -85,6 +93,7 @@ export class PluginUserBootstrapDispatcher extends Context.Service<PluginUserBoo
 			const loader = yield* PluginLoader;
 			const sandbox = yield* SandboxExecutionService;
 			const runtime = yield* PluginRuntimeResolver;
+			const installations = yield* PluginInstallationRepository;
 			return yield* makePluginUserBootstrapDispatcher((payload) =>
 				sandbox.executeScript({
 					input: payload.context,
@@ -95,6 +104,7 @@ export class PluginUserBootstrapDispatcher extends Context.Service<PluginUserBoo
 			).pipe(
 				Effect.provideService(PluginLoader, loader),
 				Effect.provideService(PluginRuntimeResolver, runtime),
+				Effect.provideService(PluginInstallationRepository, installations),
 			);
 		}),
 	},
