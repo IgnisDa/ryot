@@ -47,7 +47,7 @@ const pushShowToSonarr = (
 		rootFolderPath: specifics["rootFolderPath"],
 		addOptions: { searchForMissingEpisodes: true },
 		qualityProfileId: Number(specifics["profileId"]),
-		tags: typeof specifics["tagIds"] === "number" ? [specifics["tagIds"]] : [],
+		tags: Array.isArray(specifics["tagIds"]) ? specifics["tagIds"] : [],
 	};
 
 	return host

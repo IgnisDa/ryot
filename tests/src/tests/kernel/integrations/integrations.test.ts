@@ -4,6 +4,7 @@ import { Effect } from "effect";
 import {
 	createAudiobookshelfIntegration,
 	createAuthenticatedClient,
+	createIntegration,
 	createKodiIntegration,
 	deleteIntegration,
 	getIntegration,
@@ -26,20 +27,66 @@ import { describe, expect, it } from "~/support/effect-test";
 const kodiPayload = { identifier: "tt1234567", lot: "movie", progress: 50 };
 
 describe("Integration CRUD", () => {
+	it.live("lists integration providers with server-owned form schemas", () =>
+		Effect.gen(function* () {
+			const { client } = yield* createAuthenticatedClient();
+			const providers = yield* client.call((c) => c.integrations.listProviders());
+			const radarr = requirePresent(
+				providers.find(({ slug }) => slug === "radarr"),
+				"Expected Radarr provider",
+			);
+			const kodi = requirePresent(
+				providers.find(({ slug }) => slug === "kodi"),
+				"Expected Kodi provider",
+			);
+
+			expect(radarr.lot).toBe("push");
+			expect(radarr.isCreatable).toBe(true);
+			expect(radarr.commonSchema.fields).not.toHaveProperty("minimumProgress");
+			expect(kodi.lot).toBe("sink");
+			expect(kodi.isCreatable).toBe(true);
+			expect(kodi.commonSchema.fields.minimumProgress).toMatchObject({
+				type: "number",
+				defaultValue: 2,
+			});
+		}),
+	);
+
 	it.live("creates with correct defaults", () =>
 		Effect.gen(function* () {
 			const { client } = yield* createAuthenticatedClient();
-			const { id } = yield* createKodiIntegration(client);
-			const integration = requirePresent(
-				yield* getIntegration(client, id),
-				"Expected created integration",
-			);
+			const integration = yield* createKodiIntegration(client);
 
 			expect(integration.isDisabled).toBe(false);
 			expect(integration.syncOwnership).toBe(false);
 			expect(integration.minimumProgress).toBe(2);
 			expect(integration.maximumProgress).toBe(95);
 			expect(integration.extraSettings.disableOnContinuousErrors).toBe(false);
+			expect(integration.webhookUrl).toContain(`/_i/${integration.id}`);
+		}),
+	);
+
+	it.live("creates a push integration without an integration script", () =>
+		Effect.gen(function* () {
+			const { client } = yield* createAuthenticatedClient();
+			const integration = yield* createIntegration(client, {
+				provider: "radarr",
+				providerSpecifics: {
+					kind: "radarr",
+					profileId: "1",
+					tagIds: [3, 7],
+					apiKey: "radarr-secret",
+					rootFolderPath: "/movies",
+					baseUrl: "https://radarr.test",
+					syncCollectionIds: ["collection-1"],
+				},
+			});
+
+			expect(integration.lot).toBe("push");
+			expect(integration.provider).toBe("radarr");
+			expect(integration.webhookUrl).toBeUndefined();
+			expect(integration.providerSpecifics).not.toHaveProperty("apiKey");
+			expect(integration.providerSpecifics.tagIds).toEqual([3, 7]);
 		}),
 	);
 

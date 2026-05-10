@@ -5,7 +5,7 @@ import {
 	failedRunRow,
 	preparingRunRow,
 	runningRunRow,
-} from "./import-fixture";
+} from "../imports/import-fixture";
 import {
 	canDeleteImportRun,
 	formatImportDuration,
