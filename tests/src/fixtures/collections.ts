@@ -17,24 +17,14 @@ export async function createCollection(
 		membershipPropertiesSchema,
 	} = options;
 
-	const body = {
-		name,
-		description,
-		...(membershipPropertiesSchema && { membershipPropertiesSchema }),
-	} as unknown as { name: string; description?: string };
-
 	const { data, response } = await client.POST("/collections", {
-		body,
 		headers: { Cookie: cookies },
+		body: { name, description, ...(membershipPropertiesSchema && { membershipPropertiesSchema }) },
 	});
 
-	if (response.status !== 200 || !data?.data?.id) {
+	if (response.status !== 200 || !data?.data.id) {
 		throw new Error(`Failed to create collection '${name}'`);
 	}
 
-	return data.data as {
-		id: string;
-		name: string;
-		properties: Record<string, unknown>;
-	};
+	return data.data;
 }

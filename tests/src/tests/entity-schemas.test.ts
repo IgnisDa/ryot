@@ -107,7 +107,7 @@ describe("GET /entity-schemas", () => {
 
 		expect(response.status).toBe(404);
 		expect(error?.error).toBeDefined();
-		expect(error?.error?.message).toBe("Tracker not found");
+		expect(error?.error.message).toBe("Tracker not found");
 	});
 
 	it("returns empty array for custom tracker with no schemas", async () => {
@@ -138,7 +138,7 @@ describe("GET /entity-schemas", () => {
 
 		expect(response.status).toBe(404);
 		expect(error?.error).toBeDefined();
-		expect(error?.error?.message).toBe("Tracker not found");
+		expect(error?.error.message).toBe("Tracker not found");
 	});
 
 	it("lists multiple custom schemas ordered by name and createdAt", async () => {
@@ -192,8 +192,8 @@ describe("GET /entity-schemas", () => {
 		});
 
 		expect(response.status).toBe(200);
-		expect(data?.data?.length).toBe(1);
-		expect(data?.data?.[0]?.slug).toBe("only-schema");
+		expect(data?.data.length).toBe(1);
+		expect(data?.data[0]?.slug).toBe("only-schema");
 	});
 
 	it("lists schemas by slug across accessible trackers", async () => {
@@ -247,8 +247,8 @@ describe("GET /entity-schemas", () => {
 
 		expect(response.status).toBe(200);
 		expect(data?.data).toBeDefined();
-		expect(data?.data?.some((schema) => schema.slug === "custom-entry")).toBe(true);
-		expect(data?.data?.length).toBeGreaterThanOrEqual(builtinSchemas.length + 1);
+		expect(data?.data.some((schema) => schema.slug === "custom-entry")).toBe(true);
+		expect(data?.data.length).toBeGreaterThanOrEqual(builtinSchemas.length + 1);
 	});
 
 	it("built-in schemas with linked scripts have non-empty providers", async () => {
@@ -304,7 +304,7 @@ describe("POST /entity-schemas", () => {
 
 		expect(response.status).toBe(400);
 		expect(error?.error).toBeDefined();
-		expect(error?.error?.message).toBe("Built-in trackers do not support entity schema creation");
+		expect(error?.error.message).toBe("Built-in trackers do not support entity schema creation");
 	});
 
 	it("successfully creates schema for custom tracker", async () => {
@@ -333,10 +333,10 @@ describe("POST /entity-schemas", () => {
 
 		expect(response.status).toBe(200);
 		expect(data?.data).toBeDefined();
-		expect(data?.data?.name).toBe("My Schema");
-		expect(data?.data?.slug).toBe("my-schema");
-		expect(data?.data?.trackerId).toBe(trackerId);
-		expect(data?.data?.isBuiltin).toBe(false);
+		expect(data?.data.name).toBe("My Schema");
+		expect(data?.data.slug).toBe("my-schema");
+		expect(data?.data.trackerId).toBe(trackerId);
+		expect(data?.data.isBuiltin).toBe(false);
 	});
 
 	it("returns 404 when tracker does not exist", async () => {
@@ -361,7 +361,7 @@ describe("POST /entity-schemas", () => {
 
 		expect(response.status).toBe(404);
 		expect(error?.error).toBeDefined();
-		expect(error?.error?.message).toBe("Tracker not found");
+		expect(error?.error.message).toBe("Tracker not found");
 	});
 
 	it("returns 404 when attempting to create schema for another user's tracker", async () => {
@@ -390,7 +390,7 @@ describe("POST /entity-schemas", () => {
 
 		expect(response.status).toBe(404);
 		expect(error?.error).toBeDefined();
-		expect(error?.error?.message).toBe("Tracker not found");
+		expect(error?.error.message).toBe("Tracker not found");
 	});
 
 	it("returns 400 when slug already exists for user", async () => {
@@ -424,7 +424,7 @@ describe("POST /entity-schemas", () => {
 
 		expect(response.status).toBe(400);
 		expect(error?.error).toBeDefined();
-		expect(error?.error?.message).toBe("Entity schema slug already exists");
+		expect(error?.error.message).toBe("Entity schema slug already exists");
 	});
 
 	it("returns 400 when attempting to create the reserved collection schema slug", async () => {
@@ -452,7 +452,7 @@ describe("POST /entity-schemas", () => {
 
 		expect(response.status).toBe(400);
 		expect(error?.error).toBeDefined();
-		expect(error?.error?.message).toBe(
+		expect(error?.error.message).toBe(
 			'Entity schema slug "collection" is reserved for built-in schemas',
 		);
 	});
@@ -504,7 +504,7 @@ describe("GET /entity-schemas/:entitySchemaId", () => {
 		});
 
 		expect(response.status).toBe(404);
-		expect(error?.error?.message).toBe("Entity schema not found");
+		expect(error?.error.message).toBe("Entity schema not found");
 	});
 
 	it("returns 404 when accessing another user's entity schema", async () => {
@@ -526,7 +526,7 @@ describe("GET /entity-schemas/:entitySchemaId", () => {
 		});
 
 		expect(response.status).toBe(404);
-		expect(error?.error?.message).toBe("Entity schema not found");
+		expect(error?.error.message).toBe("Entity schema not found");
 	});
 });
 
@@ -550,7 +550,7 @@ describe("POST /entity-schemas/search", () => {
 		});
 
 		expect(response.status).toBe(404);
-		expect(error?.error?.message).toBe("Sandbox script not found");
+		expect(error?.error.message).toBe("Sandbox script not found");
 	});
 
 	it("returns 200 with a jobId when given a valid builtin script", async () => {
@@ -588,7 +588,7 @@ describe("GET /entity-schemas/search/{jobId}", () => {
 		});
 
 		expect(response.status).toBe(404);
-		expect(error?.error?.message).toBe("Sandbox job not found");
+		expect(error?.error.message).toBe("Sandbox job not found");
 	});
 
 	it("returns 404 when another user polls the job", async () => {
@@ -609,7 +609,7 @@ describe("GET /entity-schemas/search/{jobId}", () => {
 		});
 
 		expect(response.status).toBe(404);
-		expect(error?.error?.message).toBe("Sandbox job not found");
+		expect(error?.error.message).toBe("Sandbox job not found");
 	});
 
 	it("reaches a terminal state for a builtin search script", async () => {
@@ -679,7 +679,7 @@ describe("GET /entity-schemas/import/{jobId}", () => {
 		});
 
 		expect(response.status).toBe(404);
-		expect(error?.error?.message).toBe("Entity import job not found");
+		expect(error?.error.message).toBe("Entity import job not found");
 	});
 
 	it("returns 404 when another user polls the import job", async () => {
@@ -701,7 +701,7 @@ describe("GET /entity-schemas/import/{jobId}", () => {
 		});
 
 		expect(response.status).toBe(404);
-		expect(error?.error?.message).toBe("Entity import job not found");
+		expect(error?.error.message).toBe("Entity import job not found");
 	});
 
 	it("reaches a terminal state for a builtin details script", async () => {
