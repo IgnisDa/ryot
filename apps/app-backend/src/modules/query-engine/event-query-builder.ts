@@ -83,6 +83,9 @@ export const executeEventQuery = async (input: {
 
 	return {
 		mode: "events",
-		data: { meta: { pagination }, items },
+		data: {
+			items,
+			meta: { pagination, fieldOrder: input.request.fields.map((field) => field.key) },
+		},
 	} satisfies QueryEngineEventsResponse;
 };
