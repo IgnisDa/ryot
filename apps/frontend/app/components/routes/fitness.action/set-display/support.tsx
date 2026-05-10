@@ -20,13 +20,14 @@ export const EditSetRestTimer = (props: {
 	const [value, setValue] = useDebouncedState(props.defaultDuration, 500);
 
 	useDidUpdate(() => {
-		if (currentWorkout && value)
+		if (currentWorkout && value) {
 			setCurrentWorkout(
 				produce(currentWorkout, (draft) => {
 					const exercise = draft.exercises[props.exerciseIdx];
 					exercise.sets[props.setIdx].restTimer = { duration: value };
 				}),
 			);
+		}
 	}, [value]);
 
 	useEffect(() => {
@@ -35,7 +36,9 @@ export const EditSetRestTimer = (props: {
 
 	useOnClickOutside(editRestTimerRef as RefObject<HTMLDivElement>, props.onClickOutside);
 
-	if (!currentWorkout) return null;
+	if (!currentWorkout) {
+		return null;
+	}
 
 	return (
 		<NumberInput
@@ -45,7 +48,9 @@ export const EditSetRestTimer = (props: {
 			ref={editRestTimerRef}
 			value={props.defaultDuration}
 			onChange={(v) => {
-				if (!v) return;
+				if (!v) {
+					return;
+				}
 				setValue(Number.parseInt(v.toString(), 10));
 			}}
 		/>
@@ -65,10 +70,18 @@ export const DisplaySetRestTimer = (props: {
 	const progressPercentage = Math.max(0, Math.min(100, rawPercentage));
 
 	const getColorIndex = () => {
-		if (progressPercentage > 80) return 5;
-		if (progressPercentage > 60) return 6;
-		if (progressPercentage > 40) return 7;
-		if (progressPercentage > 20) return 8;
+		if (progressPercentage > 80) {
+			return 5;
+		}
+		if (progressPercentage > 60) {
+			return 6;
+		}
+		if (progressPercentage > 40) {
+			return 7;
+		}
+		if (progressPercentage > 20) {
+			return 8;
+		}
 		return 9;
 	};
 

@@ -32,13 +32,17 @@ export const MetadataInProgressUpdateForm = (props: MetadataInProgressFormProps)
 		initialValues: { progress: Number(props.inProgress.progress) },
 		validate: {
 			progress: (value) => {
-				if (value < 0 || value > 100) return "Progress must be between 0 and 100";
+				if (value < 0 || value > 100) {
+					return "Progress must be between 0 and 100";
+				}
 				return null;
 			},
 		},
 	});
 
-	if (!metadataToUpdate || !metadataDetails) return null;
+	if (!metadataToUpdate || !metadataDetails) {
+		return null;
+	}
 
 	const total =
 		metadataDetails.bookSpecifics?.pages ||
@@ -97,7 +101,9 @@ export const MetadataInProgressUpdateForm = (props: MetadataInProgressFormProps)
 							onFocus={(e) => e.target.select()}
 							rightSection={<IconPercentage size={16} />}
 							onChange={(v) => {
-								if (isNumber(v)) form.setFieldValue("progress", v);
+								if (isNumber(v)) {
+									form.setFieldValue("progress", v);
+								}
 							}}
 						/>
 					</Group>

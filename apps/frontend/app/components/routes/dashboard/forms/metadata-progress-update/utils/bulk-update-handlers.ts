@@ -26,7 +26,7 @@ export const createCustomDatesCompletedChange = (params: {
 			createNewCompleted: {
 				startedAndFinishedOnDate: {
 					...params.commonFields,
-					...(params.additionalFields || {}),
+					...params.additionalFields,
 					startedOn: params.startDateFormatted,
 					timestamp: params.finishDateFormatted,
 				},
@@ -38,7 +38,7 @@ export const createCustomDatesCompletedChange = (params: {
 			createNewCompleted: {
 				startedOnDate: {
 					...params.commonFields,
-					...(params.additionalFields || {}),
+					...params.additionalFields,
 					timestamp: params.startDateFormatted,
 				},
 			},
@@ -49,7 +49,7 @@ export const createCustomDatesCompletedChange = (params: {
 			createNewCompleted: {
 				finishedOnDate: {
 					...params.commonFields,
-					...(params.additionalFields || {}),
+					...params.additionalFields,
 					timestamp: params.finishDateFormatted,
 				},
 			},
@@ -216,7 +216,9 @@ const handleShowBulkUpdates = (context: BulkUpdateContext) => {
 				e.episodeNumber === context.metadataToUpdate.showEpisodeNumber,
 		);
 
-		if (!selectedEpisode) return;
+		if (!selectedEpisode) {
+			return;
+		}
 
 		const seenEpisodes = new Set<string>();
 		for (const historyItem of context.history) {
@@ -228,19 +230,27 @@ const handleShowBulkUpdates = (context: BulkUpdateContext) => {
 		}
 
 		const episodeComesAfterOrIs = (episodeA: EpisodeWithSeason, episodeB: EpisodeWithSeason) => {
-			if (episodeA.seasonNumber > episodeB.seasonNumber) return true;
-			if (episodeA.seasonNumber === episodeB.seasonNumber)
+			if (episodeA.seasonNumber > episodeB.seasonNumber) {
+				return true;
+			}
+			if (episodeA.seasonNumber === episodeB.seasonNumber) {
 				return episodeA.episodeNumber >= episodeB.episodeNumber;
+			}
 			return false;
 		};
 
 		const episodesToConsider = allEpisodesInShow.filter((episode) => {
-			if (episodeComesAfterOrIs(episode, selectedEpisode)) return false;
+			if (episodeComesAfterOrIs(episode, selectedEpisode)) {
+				return false;
+			}
 
-			if (context.metadataToUpdate.showSeasonEpisodesBefore)
+			if (context.metadataToUpdate.showSeasonEpisodesBefore) {
 				if (episode.seasonNumber !== selectedEpisode.seasonNumber) return false;
+			}
 
-			if (episode.seasonNumber === 0 && selectedEpisode.seasonNumber !== 0) return false;
+			if (episode.seasonNumber === 0 && selectedEpisode.seasonNumber !== 0) {
+				return false;
+			}
 
 			return true;
 		});
