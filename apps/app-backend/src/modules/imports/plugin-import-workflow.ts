@@ -25,21 +25,9 @@ export const runPluginImportWorkflow = Effect.fn("runPluginImportWorkflow")(func
 	const artifactOwnerExecutionId = `${executionId}-import`;
 	const artifactReferenceExecutionId = `${executionId}-import-orchestrator`;
 	const artifactDispatchReferenceExecutionId = `${executionId}-import-dispatch`;
-	const namedArtifactPaths: Record<string, string> = {};
-	let artifactPath: string | undefined;
-	if (payload.namedArtifactPaths) {
-		for (const [key, suppliedPath] of Object.entries(payload.namedArtifactPaths)) {
-			namedArtifactPaths[key] = suppliedPath;
-		}
-	} else if (payload.filePath) {
-		artifactPath = payload.filePath;
-	}
-	let grants: SandboxExecutionGrants | undefined;
-	if (artifactPath) {
-		grants = { artifactPath };
-	} else if (Object.keys(namedArtifactPaths).length > 0) {
-		grants = { namedArtifactPaths };
-	}
+	const grants: SandboxExecutionGrants | undefined = payload.namedArtifactPaths
+		? { namedArtifactPaths: { ...payload.namedArtifactPaths } }
+		: undefined;
 	const { failRunAndCleanup, cleanupArtifactsBestEffort, cleanupUploadsBestEffort } =
 		createImportRunLifecycle(payload);
 	const releaseImportWorkflowPin = Activity.make({

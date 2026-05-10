@@ -57,6 +57,11 @@ it.each([
 		{ mode: "list", collection: "Favorites", url: "https://trakt.tv/users/alice/lists/favorites" },
 		{ mode: "list", collection: "Favorites", url: "https://trakt.tv/users/alice/lists/favorites" },
 	],
+	[
+		"export mode",
+		{ mode: "export", exportUploadToken: "exportUploadToken" },
+		{ mode: "export", hasExportFile: true },
+	],
 ])("passes Trakt $0 fields to its parser activity", async (_, sourcePayload, input) => {
 	const envelope = await Effect.runPromise(
 		workflow.run(
@@ -111,13 +116,13 @@ it("passes credentialed source payload fields to its parser activity", async () 
 	});
 });
 
-it("selects optional MyAnimeList artifacts from source payload path identities", async () => {
+it("selects optional MyAnimeList artifacts from source payload field markers", async () => {
 	const envelope = await Effect.runPromise(
 		workflow.run(
 			{
 				runId: "run-mal",
 				source: "myanimelist",
-				sourcePayload: { mangaFilePath: "/tmp/manga.xml" },
+				sourcePayload: { mangaUploadToken: "mangaUploadToken" },
 			},
 			{ replayJournal: () => Effect.succeed([]) } satisfies WorkflowReplayHost,
 			{ metadata: {}, sandboxScriptId: "media-import" },

@@ -1,6 +1,6 @@
 import { defineManifest, defineScript } from "@ryot/sandbox-sdk/driver";
 import { Effect } from "@ryot/sandbox-sdk/effect";
-import { readArtifact } from "@ryot/sandbox-sdk/filesystem";
+import { readNamedArtifact } from "@ryot/sandbox-sdk/filesystem";
 
 import { MediaImportAdapterBatch, MediaImportParserInput } from "../../imports/schemas";
 import { adaptWatcharrExportBatch } from "../../imports/watcharr";
@@ -21,7 +21,7 @@ export default defineScript({
 	input: MediaImportParserInput,
 	output: MediaImportAdapterBatch,
 	run: (input) =>
-		readArtifact().pipe(
+		readNamedArtifact("uploadToken").pipe(
 			Effect.map(decoder.decode.bind(decoder)),
 			Effect.map((text) => adaptWatcharrExportBatch(text, input.start, input.limit)),
 		),

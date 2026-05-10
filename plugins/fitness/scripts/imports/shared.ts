@@ -1,5 +1,5 @@
 import { Effect } from "@ryot/sandbox-sdk/effect";
-import { readArtifact, writeScratchChunks } from "@ryot/sandbox-sdk/filesystem";
+import { readNamedArtifact, writeScratchChunks } from "@ryot/sandbox-sdk/filesystem";
 import type {
 	GenericImportChunk,
 	GenericImportFailure,
@@ -10,7 +10,7 @@ const decoder = new TextDecoder();
 const CHUNK_SIZE = 50;
 
 export const readImportArtifactText = () =>
-	readArtifact().pipe(Effect.map(decoder.decode.bind(decoder)));
+	readNamedArtifact("uploadToken").pipe(Effect.map(decoder.decode.bind(decoder)));
 
 export const writeImportChunks = (
 	failures: ReadonlyArray<GenericImportFailure>,
