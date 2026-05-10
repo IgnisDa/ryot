@@ -13,6 +13,7 @@ export * from "./query-engine";
 export * from "./sandbox";
 export * from "./saved-views";
 export * from "./trackers";
+export * from "./user-state";
 export * from "./view-language";
 export * from "./workouts";
 export * from "./workout-templates";

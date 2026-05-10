@@ -9,16 +9,23 @@ import {
 import type { Client } from "../fixtures";
 import {
 	buildGridRequest,
+	createEntity,
 	createAuthenticatedClient,
+	createWorkoutEntityFixture,
 	entityField,
 	executeQueryEngine,
 	findBuiltinTrackerBySlug,
+	findBuiltinSchemaBySlug,
+	findWorkoutSetEventSchema,
 	getQueryEngineFieldOrThrow,
 	listEntitySchemas,
 	listSavedViews,
 	literalExpression,
+	mergeUserState,
 } from "../fixtures";
 import { pollUntil } from "../fixtures/polling";
+import { getPgClient } from "../setup";
+import { assertTaggedError } from "../test-support/assertions";
 
 const seededExerciseName = "3/4 Sit-Up";
 const seededExerciseImageUrl =
@@ -54,6 +61,35 @@ const waitForSeededExercise = async (client: Client) => {
 		{ intervalMs: 1000, timeoutMs: 60000 },
 	);
 };
+
+async function insertWorkoutSetEvent(input: {
+	userId: string;
+	entityId: string;
+	sessionEntityId: string;
+	eventSchemaId: string;
+}) {
+	const pg = getPgClient();
+
+	await pg.query(
+		`insert into event (
+			id,
+			user_id,
+			entity_id,
+			event_schema_id,
+			session_entity_id,
+			occurred_at,
+			properties
+		) values ($1, $2, $3, $4, $5, now(), $6::jsonb)`,
+		[
+			crypto.randomUUID(),
+			input.userId,
+			input.entityId,
+			input.eventSchemaId,
+			input.sessionEntityId,
+			JSON.stringify({ setOrder: 0, exerciseOrder: 0 }),
+		],
+	);
+}
 
 describe("Exercises E2E", () => {
 	it("links the built-in exercise schema to the fitness tracker", async () => {
@@ -201,5 +237,68 @@ describe("Exercises E2E", () => {
 			value: "body_only",
 			key: "secondarySubtitle",
 		});
+	});
+
+	it("merges workout-set events between exercises with the same kind", async () => {
+		const { client, userId } = await createAuthenticatedClient();
+		const { schema: exerciseSchema } = await findBuiltinSchemaBySlug(client, "exercise");
+		const { workoutId } = await createWorkoutEntityFixture(client);
+		const { workoutSetEventSchema } = await findWorkoutSetEventSchema(client);
+		const source = await createEntity(client, {
+			image: null,
+			name: "Source Exercise",
+			entitySchemaId: exerciseSchema.id,
+			properties: { kind: "reps", muscles: ["abdominals"] },
+		});
+		const target = await createEntity(client, {
+			image: null,
+			name: "Target Exercise",
+			entitySchemaId: exerciseSchema.id,
+			properties: { kind: "reps", muscles: ["abdominals"] },
+		});
+
+		await insertWorkoutSetEvent({
+			userId,
+			entityId: source.id,
+			sessionEntityId: workoutId,
+			eventSchemaId: workoutSetEventSchema.id,
+		});
+
+		const result = await mergeUserState(client, { mergeFrom: source.id, mergeInto: target.id });
+		const sourceEvents = await client.run((c) =>
+			c.events.list({ urlParams: { entityId: source.id } }),
+		);
+		const targetEvents = await client.run((c) =>
+			c.events.list({ urlParams: { entityId: target.id } }),
+		);
+
+		expect(result.movedEventsCount).toBe(1);
+		expect(sourceEvents).toHaveLength(0);
+		expect(targetEvents).toHaveLength(1);
+		expect(targetEvents[0]?.sessionEntityId).toBe(workoutId);
+	});
+
+	it("rejects merging exercises with different kinds", async () => {
+		const { client } = await createAuthenticatedClient();
+		const { schema: exerciseSchema } = await findBuiltinSchemaBySlug(client, "exercise");
+		const source = await createEntity(client, {
+			image: null,
+			name: "Source Reps Exercise",
+			entitySchemaId: exerciseSchema.id,
+			properties: { kind: "reps", muscles: ["abdominals"] },
+		});
+		const target = await createEntity(client, {
+			image: null,
+			name: "Target Duration Exercise",
+			entitySchemaId: exerciseSchema.id,
+			properties: { kind: "duration", muscles: ["abdominals"] },
+		});
+
+		const error = await client.runError((c) =>
+			c.userState.mergeUserState({ payload: { mergeFrom: source.id, mergeInto: target.id } }),
+		);
+
+		assertTaggedError(error, "BadRequest");
+		expect(error.message).toBe("Exercises must have the same kind");
 	});
 });

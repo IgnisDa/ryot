@@ -38,6 +38,10 @@ export type EntityScope = {
 	readonly entityUserId: string | null;
 };
 
+export type EntityMergeScope = EntityScope & {
+	readonly properties: Record<string, unknown>;
+};
+
 export type EntitySchemaScriptScope = {
 	readonly entitySchemaId: string;
 	readonly sandboxScriptId: string;
@@ -145,6 +149,32 @@ export class EntitiesRepository extends Effect.Service<EntitiesRepository>()("En
 						.select({
 							entityId: schema.entity.id,
 							entityUserId: schema.entity.userId,
+							isBuiltin: schema.entitySchema.isBuiltin,
+							entitySchemaSlug: schema.entitySchema.slug,
+							entitySchemaId: schema.entity.entitySchemaId,
+						})
+						.from(schema.entity)
+						.innerJoin(
+							schema.entitySchema,
+							eq(schema.entity.entitySchemaId, schema.entitySchema.id),
+						)
+						.where(
+							and(eq(schema.entity.id, input.entityId), entityVisibleToUserClause(input.userId)),
+						)
+						.limit(1),
+				);
+
+				return row ?? null;
+			}),
+		getEntityMergeScopeForUser: (input: { userId: string; entityId: string }) =>
+			Effect.gen(function* () {
+				const db = yield* CurrentDb;
+				const [row] = yield* dbEffect(() =>
+					db
+						.select({
+							entityId: schema.entity.id,
+							entityUserId: schema.entity.userId,
+							properties: schema.entity.properties,
 							isBuiltin: schema.entitySchema.isBuiltin,
 							entitySchemaSlug: schema.entitySchema.slug,
 							entitySchemaId: schema.entity.entitySchemaId,
