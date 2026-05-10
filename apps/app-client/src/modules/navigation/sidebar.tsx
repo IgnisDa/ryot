@@ -7,10 +7,6 @@ import { AppIcon as NavigationIcon } from "@/modules/icons";
 
 import { getWorkspaceSummary, type NavigationItem, type NavigationItems } from "./navigation-data";
 
-const VIEWS_HEIGHT = 238;
-const COLLECTIONS_HEIGHT = 148;
-const SAVED_VIEWS_HEIGHT = 148;
-
 function NavigationRow(props: { isActive: boolean; onPress: () => void; item: NavigationItem }) {
 	return (
 		<Pressable
@@ -18,11 +14,11 @@ function NavigationRow(props: { isActive: boolean; onPress: () => void; item: Na
 			accessibilityRole="button"
 			accessibilityLabel={props.item.name}
 			className={clsx(
-				"min-h-7 flex-row items-center gap-2 rounded-md px-2",
+				"min-h-8 flex-row items-center gap-2.5 rounded-lg px-2.5",
 				props.isActive && "bg-nav-indicator",
 			)}
 		>
-			<NavigationIcon className="text-text-muted" name={props.item.icon} size={15} />
+			<NavigationIcon className="text-text-muted" name={props.item.icon} size={16} />
 			<Text
 				className={clsx(
 					"flex-1 font-ui text-base",
@@ -32,7 +28,7 @@ function NavigationRow(props: { isActive: boolean; onPress: () => void; item: Na
 				{props.item.name}
 			</Text>
 			{props.item.kind !== "home" && (
-				<NavigationIcon className="text-text-subtle" name="chevron-right" size={14} />
+				<NavigationIcon className="text-text-subtle" name="chevron-right" size={15} />
 			)}
 		</Pressable>
 	);
@@ -68,10 +64,10 @@ function WorkspaceTrigger(props: {
 			onPress={props.onPress}
 			accessibilityRole="button"
 			accessibilityLabel="Switch workspace"
-			className="flex-row items-center gap-2 rounded-lg border border-border bg-surface px-2.5 py-2"
+			className="flex-row items-center gap-2.5 rounded-lg border border-border bg-surface px-2.5 py-2.5"
 		>
-			<View className="h-7 w-7 items-center justify-center rounded-md bg-accent-soft">
-				<NavigationIcon className="text-accent-text" name={workspace.icon} size={15} />
+			<View className="h-8 w-8 items-center justify-center rounded-md bg-accent-soft">
+				<NavigationIcon className="text-accent-text" name={workspace.icon} size={16} />
 			</View>
 			<View className="min-w-0 flex-1">
 				<Text className="font-ui-medium text-sm text-text">{workspace.name}</Text>
@@ -101,32 +97,32 @@ export function Sidebar(props: {
 			<ScrollView
 				className="flex-1"
 				showsVerticalScrollIndicator={false}
-				contentContainerClassName="gap-2 px-3 pb-5 pt-[18px]"
+				contentContainerClassName="gap-2.5 px-3 pb-5 pt-[18px]"
 			>
 				<WorkspaceTrigger
 					workspace={props.workspace}
 					onPress={props.onWorkspaceOpen}
 					summary={getWorkspaceSummary(items)}
 				/>
-				<View className="h-8 flex-row items-center gap-2 rounded-md border border-border bg-bg px-2.5">
-					<NavigationIcon className="text-text-muted" name="search" size={15} />
+				<View className="h-10 flex-row items-center gap-2.5 rounded-lg border border-border bg-bg px-2.5">
+					<NavigationIcon className="text-text-muted" name="search" size={16} />
 					<TextInput
 						placeholder="Search"
 						returnKeyType="search"
 						accessibilityLabel="Search navigation"
-						className="min-w-0 flex-1 py-0 font-ui text-xs text-text"
+						className="min-w-0 flex-1 py-0 font-ui text-sm text-text"
 					/>
 					<View className="rounded border border-border px-1.5 py-0.5">
 						<Text className="font-mono text-xs text-text-subtle">⌘K</Text>
 					</View>
 				</View>
 
-				<View className="mt-2 gap-1">
+				<View className="mt-2 gap-1.5">
 					<SectionHeader title="Views" />
 					<ScrollView
 						nestedScrollEnabled
+						className="max-h-83.5"
 						showsVerticalScrollIndicator
-						style={{ height: VIEWS_HEIGHT }}
 						contentContainerClassName="gap-0.5"
 					>
 						{items.views.map((item) => (
@@ -145,36 +141,13 @@ export function Sidebar(props: {
 				</View>
 
 				<View className="my-2 h-px bg-border" />
-				<View className="gap-1">
-					<SectionHeader title="Collections" count={items.collections.length} />
-					<ScrollView
-						nestedScrollEnabled
-						showsVerticalScrollIndicator
-						contentContainerClassName="gap-0.5"
-						style={{ height: COLLECTIONS_HEIGHT }}
-					>
-						{items.collections.length === 0 ? (
-							<EmptyNavigationSection message="No collections yet." />
-						) : (
-							items.collections.map((item) => (
-								<NavigationRow
-									item={item}
-									key={item.slug}
-									onPress={() => props.onNavigate(item)}
-									isActive={props.activeKey === `collection:${item.slug}`}
-								/>
-							))
-						)}
-					</ScrollView>
-				</View>
-
-				<View className="gap-1">
+				<View className="gap-1.5">
 					<SectionHeader title="Saved Views" count={items.savedViews.length} />
 					<ScrollView
 						nestedScrollEnabled
+						className="max-h-52"
 						showsVerticalScrollIndicator
 						contentContainerClassName="gap-0.5"
-						style={{ height: SAVED_VIEWS_HEIGHT }}
 					>
 						{items.savedViews.length === 0 ? (
 							<EmptyNavigationSection message="No saved views yet." />
@@ -190,18 +163,42 @@ export function Sidebar(props: {
 						)}
 					</ScrollView>
 				</View>
+
+				<View className="my-2 h-px bg-border" />
+				<View className="gap-1.5">
+					<SectionHeader title="Collections" count={items.collections.length} />
+					<ScrollView
+						nestedScrollEnabled
+						className="max-h-52"
+						showsVerticalScrollIndicator
+						contentContainerClassName="gap-0.5"
+					>
+						{items.collections.length === 0 ? (
+							<EmptyNavigationSection message="No collections yet." />
+						) : (
+							items.collections.map((item) => (
+								<NavigationRow
+									item={item}
+									key={item.slug}
+									onPress={() => props.onNavigate(item)}
+									isActive={props.activeKey === `collection:${item.slug}`}
+								/>
+							))
+						)}
+					</ScrollView>
+				</View>
 			</ScrollView>
 			<View className="border-t border-border px-3 py-3">
-				<View className="flex-row items-center gap-2 rounded-md px-2 py-1.5">
+				<View className="flex-row items-center gap-2.5 rounded-md px-2 py-2">
 					{props.accountImage !== null ? (
-						<Image source={{ uri: props.accountImage }} className="h-7 w-7 rounded-full" />
+						<Image source={{ uri: props.accountImage }} className="h-8 w-8 rounded-full" />
 					) : (
-						<View className="h-7 w-7 items-center justify-center rounded-full bg-surface-2">
-							<NavigationIcon className="text-text-muted" name="user" size={15} />
+						<View className="h-8 w-8 items-center justify-center rounded-full bg-surface-2">
+							<NavigationIcon className="text-text-muted" name="user" size={16} />
 						</View>
 					)}
 					<View className="flex-1">
-						<Text className="font-ui-medium text-xs text-text">{props.accountName}</Text>
+						<Text className="font-ui-medium text-sm text-text">{props.accountName}</Text>
 						<Text className="font-ui text-xs text-text-muted">{props.accountEmail}</Text>
 					</View>
 					<Pressable
