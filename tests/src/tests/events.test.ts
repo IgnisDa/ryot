@@ -1,5 +1,6 @@
 import { describe, expect, it } from "bun:test";
 
+import { EntityId } from "@ryot/app-backend/schema/brands";
 import { sortBy } from "@ryot/ts-utils/lodash";
 
 import {
@@ -97,7 +98,7 @@ describe("Events bulk POST", () => {
 		const { client: apiClient } = await createAuthenticatedClient();
 
 		const error = await apiClient.runError((c) =>
-			c.events.list({ urlParams: { entityId: crypto.randomUUID() } }),
+			c.events.list({ urlParams: { entityId: EntityId.make(crypto.randomUUID()) } }),
 		);
 
 		assertTaggedError(error, "NotFound");

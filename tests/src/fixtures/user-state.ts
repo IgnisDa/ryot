@@ -1,3 +1,5 @@
+import { EntityId } from "@ryot/app-backend/schema/brands";
+
 import { getPgClient } from "../setup";
 import { requirePresent } from "../test-support/assertions";
 import type { Client } from "./auth";
@@ -19,7 +21,9 @@ export async function clearEntityUserState(
 	client: Client,
 	entityId: string,
 ): Promise<ClearEntityUserStateData> {
-	return client.run((c) => c.userState.clearUserState({ path: { entityId } }));
+	return client.run((c) =>
+		c.userState.clearUserState({ path: { entityId: EntityId.make(entityId) } }),
+	);
 }
 
 export async function queryUserEntityStateCounts(input: { userId: string; entityId: string }) {

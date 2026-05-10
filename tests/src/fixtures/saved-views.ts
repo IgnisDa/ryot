@@ -4,6 +4,7 @@ import {
 	createEntitySchemaExpression,
 	type DisplayConfiguration,
 } from "@ryot/app-backend/query-language";
+import { TrackerId } from "@ryot/app-backend/schema/brands";
 
 import { requirePresent } from "../test-support/assertions";
 import type { Client } from "./auth";
@@ -239,7 +240,7 @@ export async function listSavedViews(
 		c.savedViews.list({
 			urlParams: {
 				includeDisabled: options.includeDisabled ?? false,
-				trackerId: options.trackerId,
+				trackerId: options.trackerId ? TrackerId.make(options.trackerId) : undefined,
 			},
 		}),
 	);
