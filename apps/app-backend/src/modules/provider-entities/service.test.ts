@@ -68,6 +68,7 @@ const makeServiceLayer = (
 				Layer.succeed(WorkflowEngine, engine),
 				entitiesRepo,
 				Layer.mock(PluginRuntimeResolver)({
+					isSystemProviderAvailableToUser: () => Effect.succeed(true),
 					findActiveProviderById: () => Effect.succeed(activeProvider),
 				}),
 			),

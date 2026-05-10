@@ -51,6 +51,11 @@ export class EntityImportService extends Context.Service<EntityImportService>()(
 				}
 
 				const providerId = SandboxProviderId.make(trimmedProviderId);
+				if (!(yield* pluginRuntime.isSystemProviderAvailableToUser(user.id, providerId))) {
+					return yield* new ProviderEntityNotFound({
+						reason: { code: "provider-not-found", providerId },
+					});
+				}
 				const provider = yield* pluginRuntime.findActiveProviderById(providerId);
 				if (!provider) {
 					return yield* new ProviderEntityNotFound({

@@ -107,12 +107,12 @@ describe("Plugin Import Public Boundary", () => {
 
 	it.live("pins an accepted plugin import until terminal completion", () =>
 		Effect.gen(function* () {
-			const { client } = yield* createAuthenticatedClient();
 			const { plugin, source } = yield* Effect.acquireRelease(
 				installTestImportPinningPlugin,
 				({ plugin: installedPlugin }) =>
 					uninstallWhenReleased(installedPlugin).pipe(Effect.asVoid, Effect.orDie),
 			);
+			const { client } = yield* createAuthenticatedClient();
 
 			const created = yield* client.call((c) => c.imports.createRun({ payload: { source } }));
 
@@ -136,10 +136,10 @@ describe("Plugin Import Public Boundary", () => {
 
 	it.live("resolves workflow-lifetime opaque harvest handles", () =>
 		Effect.gen(function* () {
-			const { client } = yield* createAuthenticatedClient();
 			yield* Effect.acquireRelease(installTestHarvestHandleImportPlugin, (installed) =>
 				uninstallWhenReleased(installed).pipe(Effect.asVoid, Effect.orDie),
 			);
+			const { client } = yield* createAuthenticatedClient();
 
 			const created = yield* client.call((c) =>
 				c.imports.createRun({ payload: { source: FIXTURE_HANDLE_IMPORT_SOURCE } }),
@@ -320,10 +320,21 @@ describe("Plugin Import Public Boundary", () => {
 			expect((yield* listManualImportRuns(client, undefined, 20)).items).toEqual([]);
 
 			fixtureImportPlugin = yield* installTestImportPlugin;
-			const created = yield* client.call((c) =>
-				c.imports.createRun({ payload: { source: FIXTURE_IMPORT_SOURCE, archiveUploadToken } }),
+			const reinstalled = yield* createAuthenticatedClient();
+			const reinstalledToken = yield* uploadImportFile(
+				reinstalled.cookies,
+				"fixture",
+				"fixture.csv",
+				"text/csv",
 			);
-			expect((yield* pollImportRunUntilTerminal(client, created.id)).status).toBe("completed");
+			const created = yield* reinstalled.client.call((c) =>
+				c.imports.createRun({
+					payload: { source: FIXTURE_IMPORT_SOURCE, archiveUploadToken: reinstalledToken },
+				}),
+			);
+			expect((yield* pollImportRunUntilTerminal(reinstalled.client, created.id)).status).toBe(
+				"completed",
+			);
 		}),
 	);
 });

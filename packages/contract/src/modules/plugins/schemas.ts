@@ -1,6 +1,7 @@
 import { Schema } from "effect";
 
 import { PluginSlug } from "../../schema/brands";
+import { strictStruct } from "../../schema/utils";
 import { SandboxCompilationDiagnostic, SandboxExecutionError } from "../sandbox/schemas";
 import { PluginConfigSchema, PluginManifest } from "./manifest";
 
@@ -76,6 +77,11 @@ const PluginConflictReason = Schema.Union([
 	Schema.Struct({ code: Schema.Literal("integration-referenced"), pluginSlug: PluginSlug }),
 	Schema.Struct({
 		pluginSlug: PluginSlug,
+		code: Schema.Literal("installation-not-ready"),
+		health: Schema.Literals(["failed", "installing", "incompatible", "needs-configuration"]),
+	}),
+	Schema.Struct({
+		pluginSlug: PluginSlug,
 		code: Schema.Literal("definition-referenced"),
 		diagnostics: Schema.Array(PluginValidationDiagnostic),
 	}),
@@ -140,6 +146,19 @@ export const InstallPluginBody = Schema.Struct({
 });
 
 export type InstallPluginBody = Schema.Schema.Type<typeof InstallPluginBody>;
+
+export const UpdatePluginInstallationBody = strictStruct({
+	isDisabled: Schema.optional(Schema.Boolean),
+	unsetConfigKeys: Schema.optional(Schema.Array(Schema.String)),
+	config: Schema.optional(Schema.Record(Schema.String, Schema.Unknown)),
+	sortOrder: Schema.optional(
+		Schema.Int.pipe(
+			Schema.check(Schema.isBetween({ minimum: -2_147_483_648, maximum: 2_147_483_647 })),
+		),
+	),
+});
+
+export type UpdatePluginInstallationBody = typeof UpdatePluginInstallationBody.Type;
 
 export const PluginInstallationHealth = Schema.Literals([
 	"ready",
