@@ -9,7 +9,7 @@ function parseJsonResponse(responseBody) {
 const HARDCOVER_GQL_URL = "https://api.hardcover.app/v1/graphql";
 
 async function getHardcoverApiKey() {
-  const resp = await getAppConfigValue("books.hardcover.apiKey");
+  const resp = await getAppConfigValue("providers.hardcoverApiKey");
   if (!resp?.success) {
     throw new Error(resp?.error ?? "Could not load Hardcover API key");
   }

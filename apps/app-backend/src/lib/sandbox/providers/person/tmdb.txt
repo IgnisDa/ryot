@@ -18,7 +18,7 @@ async function getUserIsNsfw() {
 }
 
 async function getTmdbAccessToken() {
-	const resp = await getAppConfigValue("moviesAndShows.tmdb.accessToken");
+	const resp = await getAppConfigValue("providers.tmdbAccessToken");
 	if (!resp?.success) {
 		throw new Error(resp?.error ?? "Failed to retrieve TMDB access token");
 	}

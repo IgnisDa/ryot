@@ -133,7 +133,7 @@ function pickImage(imageLinks) {
 
 async function getGoogleBooksApiKey() {
   const configValueResponse = await getAppConfigValue(
-    "books.googleBooks.apiKey",
+    "providers.googleBooksApiKey",
   );
   if (!configValueResponse?.success) {
     throw new Error(

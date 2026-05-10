@@ -32,6 +32,7 @@ const allowedHostFunctions = new Set([
 	"listEventSchemas",
 	"listIntegrations",
 	"claimCachedValue",
+	"getAppConfigValue",
 	"getUserPreferences",
 	"executeQueryEngine",
 ]);

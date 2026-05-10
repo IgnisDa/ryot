@@ -147,6 +147,7 @@ const runBeforeCreateTrigger = Effect.fn(function* (
 		scriptId: script.id,
 		driverName: "trigger",
 		executionId: generateId(),
+		scriptIsBuiltin: script.isBuiltin,
 		allowedHostFunctions: script.metadata.allowedHostFunctions ?? [],
 	}).pipe(Effect.mapError((error) => badRequest(`Before trigger failed: ${error.message}`)));
 

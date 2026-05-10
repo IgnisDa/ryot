@@ -23,6 +23,7 @@ const toScript = (row: SandboxScriptRow) => ({
 	slug: row.slug,
 	code: row.code,
 	name: row.name,
+	isBuiltin: row.isBuiltin,
 	metadata: row.metadata,
 });
 
@@ -86,6 +87,7 @@ export class SandboxRepository extends Effect.Service<SandboxRepository>()("Sand
 						code: schema.sandboxScript.code,
 						userId: schema.sandboxScript.userId,
 						metadata: schema.sandboxScript.metadata,
+						isBuiltin: schema.sandboxScript.isBuiltin,
 					})
 					.from(schema.sandboxScript)
 					.where(

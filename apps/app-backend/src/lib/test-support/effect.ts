@@ -70,14 +70,20 @@ export const makeAppConfigLayer = (overrides?: Partial<AppConfigValue>): Layer.L
 			secretAccessKey: Option.none(),
 		},
 		providers: {
+			tvdbApiKey: Option.none(),
 			malClientId: Option.none(),
 			traktClientId: Option.none(),
+			metronUsername: Option.none(),
 			twitchClientId: Option.none(),
 			tmdbAccessToken: Option.none(),
+			metronPassword: Option.none(),
 			hardcoverApiKey: Option.none(),
+			spotifyClientId: Option.none(),
 			giantBombApiKey: Option.none(),
 			googleBooksApiKey: Option.none(),
+			listennotesApiKey: Option.none(),
 			twitchClientSecret: Option.none(),
+			spotifyClientSecret: Option.none(),
 		},
 	};
 	return Layer.succeed(AppConfig, { ...defaults, ...overrides });

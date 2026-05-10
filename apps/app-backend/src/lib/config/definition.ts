@@ -85,6 +85,10 @@ const fields = {
 	traktClientId: optField(
 		strField("SERVER_IMPORTER_TRAKT_CLIENT_ID", "Trakt client ID for the Trakt importer"),
 	),
+	tvdbApiKey: optField(secretField("MOVIES_AND_SHOWS_TVDB_API_KEY", "TVDB API key")),
+	spotifyClientId: optField(strField("MUSIC_SPOTIFY_CLIENT_ID", "Spotify client ID")),
+	metronUsername: optField(strField("COMIC_BOOK_METRON_USERNAME", "Metron username")),
+	listennotesApiKey: optField(secretField("PODCASTS_LISTENNOTES_API_KEY", "ListenNotes API key")),
 	malClientId: optField(
 		strField("ANIME_AND_MANGA_MAL_CLIENT_ID", "MyAnimeList client ID for anime and manga lookups"),
 	),
@@ -96,6 +100,10 @@ const fields = {
 	),
 	googleBooksApiKey: optField(
 		secretField("BOOKS_GOOGLE_BOOKS_API_KEY", "Google Books API key for ISBN book lookups"),
+	),
+	metronPassword: optField(secretField("COMIC_BOOK_METRON_PASSWORD", "Metron password")),
+	spotifyClientSecret: optField(
+		secretField("MUSIC_SPOTIFY_CLIENT_SECRET", "Spotify client secret"),
 	),
 	giantBombApiKey: optField(
 		secretField("VIDEO_GAMES_GIANT_BOMB_API_KEY", "Giant Bomb API key for the Grouvee importer"),
@@ -122,6 +130,7 @@ const tmpDir: ConfigLeaf<string, FieldMeta> = {
 	),
 	meta: {
 		hidden: true,
+		sensitive: false,
 		kind: "field",
 		default: "/tmp",
 		required: false,
@@ -259,23 +268,35 @@ export const systemConfigDefinition = group(
 export const providerConfigDefinition = group(
 	"Provider integration configuration",
 	Config.all({
+		tvdbApiKey: fields.tvdbApiKey.config,
 		malClientId: fields.malClientId.config,
 		traktClientId: fields.traktClientId.config,
+		metronUsername: fields.metronUsername.config,
 		twitchClientId: fields.twitchClientId.config,
+		metronPassword: fields.metronPassword.config,
 		tmdbAccessToken: fields.tmdbAccessToken.config,
 		hardcoverApiKey: fields.hardcoverApiKey.config,
+		spotifyClientId: fields.spotifyClientId.config,
 		giantBombApiKey: fields.giantBombApiKey.config,
 		googleBooksApiKey: fields.googleBooksApiKey.config,
+		listennotesApiKey: fields.listennotesApiKey.config,
 		twitchClientSecret: fields.twitchClientSecret.config,
+		spotifyClientSecret: fields.spotifyClientSecret.config,
 	}),
 	{
+		tvdbApiKey: fields.tvdbApiKey.meta,
 		malClientId: fields.malClientId.meta,
 		traktClientId: fields.traktClientId.meta,
+		metronUsername: fields.metronUsername.meta,
 		twitchClientId: fields.twitchClientId.meta,
+		metronPassword: fields.metronPassword.meta,
 		tmdbAccessToken: fields.tmdbAccessToken.meta,
 		hardcoverApiKey: fields.hardcoverApiKey.meta,
+		spotifyClientId: fields.spotifyClientId.meta,
 		giantBombApiKey: fields.giantBombApiKey.meta,
 		googleBooksApiKey: fields.googleBooksApiKey.meta,
+		listennotesApiKey: fields.listennotesApiKey.meta,
 		twitchClientSecret: fields.twitchClientSecret.meta,
+		spotifyClientSecret: fields.spotifyClientSecret.meta,
 	},
 );
