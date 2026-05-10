@@ -1,5 +1,5 @@
 {
-	"id": "81c85e19-951e-4d53-8fe6-3f598998b640",
+	"id": "dcbf6e2e-6338-45df-8bed-2110e79a9d17",
 	"prevId": "00000000-0000-0000-0000-000000000000",
 	"version": "7",
 	"dialect": "postgresql",
@@ -341,13 +341,6 @@
 					"primaryKey": false,
 					"notNull": false
 				},
-				"properties": {
-					"name": "properties",
-					"type": "jsonb",
-					"primaryKey": false,
-					"notNull": true,
-					"default": "'{}'::jsonb"
-				},
 				"created_at": {
 					"name": "created_at",
 					"type": "timestamp with time zone",
@@ -367,6 +360,13 @@
 					"type": "text",
 					"primaryKey": false,
 					"notNull": false
+				},
+				"properties": {
+					"name": "properties",
+					"type": "jsonb",
+					"primaryKey": false,
+					"notNull": true,
+					"default": "'{}'::jsonb"
 				},
 				"entity_schema_id": {
 					"name": "entity_schema_id",
@@ -590,18 +590,18 @@
 					"primaryKey": false,
 					"notNull": true
 				},
-				"properties_schema": {
-					"name": "properties_schema",
-					"type": "jsonb",
-					"primaryKey": false,
-					"notNull": true
-				},
 				"is_builtin": {
 					"name": "is_builtin",
 					"type": "boolean",
 					"primaryKey": false,
 					"notNull": true,
 					"default": false
+				},
+				"properties_schema": {
+					"name": "properties_schema",
+					"type": "jsonb",
+					"primaryKey": false,
+					"notNull": true
 				},
 				"created_at": {
 					"name": "created_at",
@@ -813,6 +813,12 @@
 					"primaryKey": false,
 					"notNull": true
 				},
+				"session_entity_id": {
+					"name": "session_entity_id",
+					"type": "text",
+					"primaryKey": false,
+					"notNull": false
+				},
 				"updated_at": {
 					"name": "updated_at",
 					"type": "timestamp with time zone",
@@ -867,6 +873,21 @@
 					"method": "btree",
 					"with": {}
 				},
+				"event_session_entity_id_idx": {
+					"name": "event_session_entity_id_idx",
+					"columns": [
+						{
+							"expression": "session_entity_id",
+							"isExpression": false,
+							"asc": true,
+							"nulls": "last"
+						}
+					],
+					"isUnique": false,
+					"concurrently": false,
+					"method": "btree",
+					"with": {}
+				},
 				"event_properties_idx": {
 					"name": "event_properties_idx",
 					"columns": [
@@ -880,6 +901,33 @@
 					"isUnique": false,
 					"concurrently": false,
 					"method": "gin",
+					"with": {}
+				},
+				"event_user_entity_schema_idx": {
+					"name": "event_user_entity_schema_idx",
+					"columns": [
+						{
+							"expression": "user_id",
+							"isExpression": false,
+							"asc": true,
+							"nulls": "last"
+						},
+						{
+							"expression": "entity_id",
+							"isExpression": false,
+							"asc": true,
+							"nulls": "last"
+						},
+						{
+							"expression": "event_schema_id",
+							"isExpression": false,
+							"asc": true,
+							"nulls": "last"
+						}
+					],
+					"isUnique": false,
+					"concurrently": false,
+					"method": "btree",
 					"with": {}
 				}
 			},
@@ -910,6 +958,15 @@
 					"columnsTo": ["id"],
 					"onDelete": "cascade",
 					"onUpdate": "no action"
+				},
+				"event_session_entity_id_entity_id_fk": {
+					"name": "event_session_entity_id_entity_id_fk",
+					"tableFrom": "event",
+					"tableTo": "entity",
+					"columnsFrom": ["session_entity_id"],
+					"columnsTo": ["id"],
+					"onDelete": "cascade",
+					"onUpdate": "no action"
 				}
 			},
 			"compositePrimaryKeys": {},
@@ -934,18 +991,18 @@
 					"primaryKey": false,
 					"notNull": true
 				},
-				"properties_schema": {
-					"name": "properties_schema",
-					"type": "jsonb",
-					"primaryKey": false,
-					"notNull": true
-				},
 				"is_builtin": {
 					"name": "is_builtin",
 					"type": "boolean",
 					"primaryKey": false,
 					"notNull": true,
 					"default": false
+				},
+				"properties_schema": {
+					"name": "properties_schema",
+					"type": "jsonb",
+					"primaryKey": false,
+					"notNull": true
 				},
 				"created_at": {
 					"name": "created_at",
@@ -1213,13 +1270,6 @@
 			"name": "relationship",
 			"schema": "",
 			"columns": {
-				"properties": {
-					"name": "properties",
-					"type": "jsonb",
-					"primaryKey": false,
-					"notNull": true,
-					"default": "'{}'::jsonb"
-				},
 				"created_at": {
 					"name": "created_at",
 					"type": "timestamp with time zone",
@@ -1232,6 +1282,13 @@
 					"type": "text",
 					"primaryKey": false,
 					"notNull": false
+				},
+				"properties": {
+					"name": "properties",
+					"type": "jsonb",
+					"primaryKey": false,
+					"notNull": true,
+					"default": "'{}'::jsonb"
 				},
 				"source_entity_id": {
 					"name": "source_entity_id",
@@ -1414,18 +1471,18 @@
 					"primaryKey": false,
 					"notNull": true
 				},
-				"properties_schema": {
-					"name": "properties_schema",
-					"type": "jsonb",
-					"primaryKey": false,
-					"notNull": true
-				},
 				"is_builtin": {
 					"name": "is_builtin",
 					"type": "boolean",
 					"primaryKey": false,
 					"notNull": true,
 					"default": false
+				},
+				"properties_schema": {
+					"name": "properties_schema",
+					"type": "jsonb",
+					"primaryKey": false,
+					"notNull": true
 				},
 				"created_at": {
 					"name": "created_at",
@@ -1592,18 +1649,18 @@
 					"primaryKey": false,
 					"notNull": true
 				},
-				"metadata": {
-					"name": "metadata",
-					"type": "jsonb",
-					"primaryKey": false,
-					"notNull": true
-				},
 				"is_builtin": {
 					"name": "is_builtin",
 					"type": "boolean",
 					"primaryKey": false,
 					"notNull": true,
 					"default": false
+				},
+				"metadata": {
+					"name": "metadata",
+					"type": "jsonb",
+					"primaryKey": false,
+					"notNull": true
 				},
 				"created_at": {
 					"name": "created_at",
@@ -1700,18 +1757,6 @@
 					"primaryKey": false,
 					"notNull": true
 				},
-				"query_definition": {
-					"name": "query_definition",
-					"type": "jsonb",
-					"primaryKey": false,
-					"notNull": true
-				},
-				"display_configuration": {
-					"name": "display_configuration",
-					"type": "jsonb",
-					"primaryKey": false,
-					"notNull": true
-				},
 				"sort_order": {
 					"name": "sort_order",
 					"type": "integer",
@@ -1732,6 +1777,18 @@
 					"primaryKey": false,
 					"notNull": true,
 					"default": false
+				},
+				"query_definition": {
+					"name": "query_definition",
+					"type": "jsonb",
+					"primaryKey": false,
+					"notNull": true
+				},
+				"display_configuration": {
+					"name": "display_configuration",
+					"type": "jsonb",
+					"primaryKey": false,
+					"notNull": true
 				},
 				"created_at": {
 					"name": "created_at",
@@ -2154,6 +2211,59 @@
 			"checkConstraints": {},
 			"isRLSEnabled": false
 		},
+		"public.two_factor": {
+			"name": "two_factor",
+			"schema": "",
+			"columns": {
+				"id": {
+					"name": "id",
+					"type": "text",
+					"primaryKey": true,
+					"notNull": true
+				},
+				"secret": {
+					"name": "secret",
+					"type": "text",
+					"primaryKey": false,
+					"notNull": true
+				},
+				"backup_codes": {
+					"name": "backup_codes",
+					"type": "text",
+					"primaryKey": false,
+					"notNull": true
+				},
+				"verified": {
+					"name": "verified",
+					"type": "boolean",
+					"primaryKey": false,
+					"notNull": true
+				},
+				"user_id": {
+					"name": "user_id",
+					"type": "text",
+					"primaryKey": false,
+					"notNull": true
+				}
+			},
+			"indexes": {},
+			"foreignKeys": {
+				"two_factor_user_id_user_id_fk": {
+					"name": "two_factor_user_id_user_id_fk",
+					"tableFrom": "two_factor",
+					"tableTo": "user",
+					"columnsFrom": ["user_id"],
+					"columnsTo": ["id"],
+					"onDelete": "cascade",
+					"onUpdate": "no action"
+				}
+			},
+			"compositePrimaryKeys": {},
+			"uniqueConstraints": {},
+			"policies": {},
+			"checkConstraints": {},
+			"isRLSEnabled": false
+		},
 		"public.user": {
 			"name": "user",
 			"schema": "",
@@ -2176,15 +2286,21 @@
 					"primaryKey": true,
 					"notNull": true
 				},
-				"preferences": {
-					"name": "preferences",
-					"type": "jsonb",
+				"two_factor_enabled": {
+					"name": "two_factor_enabled",
+					"type": "boolean",
 					"primaryKey": false,
-					"notNull": true
+					"notNull": false
 				},
 				"email": {
 					"name": "email",
 					"type": "text",
+					"primaryKey": false,
+					"notNull": true
+				},
+				"preferences": {
+					"name": "preferences",
+					"type": "jsonb",
 					"primaryKey": false,
 					"notNull": true
 				},
