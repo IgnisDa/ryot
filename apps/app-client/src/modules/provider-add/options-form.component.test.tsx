@@ -31,12 +31,33 @@ const schema = {
 	},
 } satisfies AppSchema;
 
-function OptionsHarness(props: { onSubmit: (values: OptionValues) => void }) {
-	const form = useProviderOptionsForm({ schema, onSubmit: props.onSubmit });
-	useEffect(() => form.reset(initialOptionValues(schema)), [form]);
+const visibilitySchema = {
+	rules: [
+		{
+			path: ["secret"],
+			kind: "visibility",
+			visibility: { hidden: true },
+			when: { operator: "neq", path: ["advanced"], value: true },
+		},
+	],
+	fields: {
+		secret: { type: "string", label: "Secret", description: "Secret value" },
+		advanced: {
+			type: "boolean",
+			label: "Advanced",
+			defaultValue: false,
+			description: "Show advanced options",
+		},
+	},
+} satisfies AppSchema;
+
+function OptionsHarness(props: { onSubmit: (values: OptionValues) => void; schema?: AppSchema }) {
+	const selectedSchema = props.schema ?? schema;
+	const form = useProviderOptionsForm({ schema: selectedSchema, onSubmit: props.onSubmit });
+	useEffect(() => form.reset(initialOptionValues(selectedSchema)), [form, selectedSchema]);
 	return (
 		<>
-			<ProviderSearchOptionsForm form={form} schema={schema} onChange={() => undefined} />
+			<ProviderSearchOptionsForm form={form} schema={selectedSchema} onChange={() => undefined} />
 			<Pressable accessibilityRole="button" onPress={() => void form.handleSubmit()}>
 				<Text>Search</Text>
 			</Pressable>
@@ -67,5 +88,16 @@ describe("provider search options form", () => {
 		await user.press(screen.getByRole("button", { name: "Search" }));
 
 		expect(submitted).toEqual([{ adult: false, region: "us", title: "Dune" }]);
+	});
+
+	it("recomputes visible fields from current form values", async () => {
+		const user = userEvent.setup();
+		await render(<OptionsHarness schema={visibilitySchema} onSubmit={() => undefined} />);
+
+		expect(screen.queryByLabelText("Secret")).toBeNull();
+		await user.press(screen.getByRole("switch", { name: "Advanced" }));
+		expect(screen.getByLabelText("Secret")).toBeOnTheScreen();
+		await user.press(screen.getByRole("switch", { name: "Advanced" }));
+		expect(screen.queryByLabelText("Secret")).toBeNull();
 	});
 });
