@@ -30,6 +30,7 @@ const renderView = (
 		readonly onRetry?: () => void;
 		readonly onShowOlder?: () => void;
 		readonly isLoadingOlder?: boolean;
+		readonly onStartImport?: () => void;
 		readonly onOpenIntegrations?: () => void;
 		readonly onOpenRun?: (runId: string) => void;
 	} = {},
@@ -43,6 +44,7 @@ const renderView = (
 			isLoadingOlder={overrides.isLoadingOlder ?? false}
 			onOpenRun={overrides.onOpenRun ?? (() => undefined)}
 			onShowOlder={overrides.onShowOlder ?? (() => undefined)}
+			onStartImport={overrides.onStartImport ?? (() => undefined)}
 			onOpenIntegrations={overrides.onOpenIntegrations ?? (() => undefined)}
 		/>,
 	);
@@ -70,12 +72,27 @@ describe("import data screen", () => {
 		expect(retries).toEqual([1]);
 	});
 
-	it("explains an untouched history without offering a control that does not exist", async () => {
-		await renderView(readyState({ runs: [] }));
+	it("explains an untouched history and offers the one action that fills it", async () => {
+		const user = userEvent.setup();
+		const starts: number[] = [];
+		await renderView(readyState({ runs: [] }), { onStartImport: () => starts.push(1) });
 
 		expect(screen.getByText("No imports yet")).toBeOnTheScreen();
-		expect(screen.queryByRole("button", { name: /Start/ })).not.toBeOnTheScreen();
 		expect(screen.queryByText("Recent")).not.toBeOnTheScreen();
+
+		await user.press(screen.getByRole("button", { name: "Start an import" }));
+
+		expect(starts).toEqual([1]);
+	});
+
+	it("leads the filled page with the import action", async () => {
+		const user = userEvent.setup();
+		const starts: number[] = [];
+		await renderView(readyState(), { onStartImport: () => starts.push(1) });
+
+		await user.press(screen.getByRole("button", { name: "Start an import" }));
+
+		expect(starts).toEqual([1]);
 	});
 
 	it("leads with a live run, its counts, and where it keeps running", async () => {
