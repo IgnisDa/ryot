@@ -58,6 +58,7 @@ const installHttpScriptScoped = (input: {
 	});
 	return Effect.acquireRelease(
 		installTestPlugin({
+			scope: "system",
 			source,
 			pluginSlug: input.pluginSlug,
 			httpRateLimits: input.httpRateLimits,
@@ -145,6 +146,7 @@ describe("deployment-global sandbox HTTP rate limiting", () => {
 			});
 			const conflict = yield* Effect.flip(
 				installTestPlugin({
+					scope: "system",
 					source: conflictingSource,
 					pluginSlug: conflictingPluginSlug,
 					httpRateLimits: [{ ...declaration, intervalMs: 1_600 }],

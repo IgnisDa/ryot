@@ -18,7 +18,6 @@ import {
 	seedMediaEntity,
 	seedPopulatedProviderEntity,
 	setUserLanguage,
-	waitForEntityPopulated,
 	type Client,
 } from "~/fixtures";
 import type { InstalledTestProvider } from "~/fixtures/sandbox-provider";
@@ -31,6 +30,8 @@ const TRANSLATED_ES_DESCRIPTION = "Descripción traducida E2E.";
 const POPULATED_NAME = "E2E Populated Movie";
 
 let provider: InstalledTestProvider;
+let providerClient: Client;
+let providerUserId: string;
 
 const seedPopulatedMovie = (client: Client, name: string) =>
 	Effect.gen(function* () {
@@ -55,7 +56,9 @@ describe("entity translation via client-declared interest", () => {
 	beforeAll(async () => {
 		provider = await Effect.runPromise(
 			Effect.gen(function* () {
-				const { client } = yield* createAuthenticatedClient();
+				const { client, userId } = yield* createAuthenticatedClient();
+				providerClient = client;
+				providerUserId = userId;
 				const { schema } = yield* findBuiltinSchemaBySlug(client, "movie");
 				return yield* installTestProvider({
 					client,
@@ -83,15 +86,17 @@ describe("entity translation via client-declared interest", () => {
 
 	it.live("executes the installed resolve operation independently", () =>
 		Effect.gen(function* () {
-			const { userId } = yield* createAuthenticatedClient();
 			const resolveScriptId = provider.resolveScriptId;
 			assertPresent(resolveScriptId, "Installed provider resolve script not found");
-			const { jobId } = yield* enqueueSandboxScript(userId, {
+			const { jobId } = yield* enqueueSandboxScript(providerUserId, {
 				scriptId: resolveScriptId,
 				context: { value: "tt-e2e", identifierType: "imdb" },
 			});
 			const value = requireObjectRecord(
-				requireCompletedSandboxValue(yield* pollSandboxResult(userId, jobId), "resolve job"),
+				requireCompletedSandboxValue(
+					yield* pollSandboxResult(providerUserId, jobId),
+					"resolve job",
+				),
 				"Expected resolve result to be an object",
 			);
 			expect(value.externalId).toBe("resolved-e2e-movie");
@@ -100,7 +105,7 @@ describe("entity translation via client-declared interest", () => {
 
 	it.live("reports pending, translates on interest, then shares the overlay across users", () =>
 		Effect.gen(function* () {
-			const auth = yield* createAuthenticatedClient();
+			const auth = { client: providerClient };
 			const { client } = auth;
 			const movie = yield* seedPopulatedMovie(client, "Canonical Fight Club");
 
@@ -131,7 +136,7 @@ describe("entity translation via client-declared interest", () => {
 
 	it.live("negative-caches when the provider has no translation and does not refetch", () =>
 		Effect.gen(function* () {
-			const auth = yield* createAuthenticatedClient();
+			const auth = { client: providerClient };
 			const { client } = auth;
 			const movie = yield* seedPopulatedMovie(client, "Canonical The Godfather");
 
@@ -196,7 +201,7 @@ describe("entity translation via client-declared interest", () => {
 
 	it.live("populates then translates an unpopulated entity from one interest declaration", () =>
 		Effect.gen(function* () {
-			const auth = yield* createAuthenticatedClient();
+			const auth = { client: providerClient };
 			const { client } = auth;
 			const { schema } = yield* findBuiltinSchemaBySlug(client, "movie");
 			const provenance = {
@@ -206,7 +211,8 @@ describe("entity translation via client-declared interest", () => {
 			};
 
 			const seeded = yield* seedMediaEntity({
-				userId: null,
+				client,
+				userId: providerUserId,
 				properties: {},
 				entitySchemaSlug: schema.id,
 				name: "Partial Pulp Fiction",
@@ -233,7 +239,7 @@ describe("entity translation via client-declared interest", () => {
 				.map((frame) => frame.reason);
 			expect(reasons).toEqual(["populated", "translated"]);
 
-			const populated = yield* waitForEntityPopulated(client, provenance);
+			const populated = yield* getEntity(client, seeded.id);
 			expect(populated.populatedAt).not.toBeNull();
 			const localized = yield* pollEntityUntilTranslationStatus(client, seeded.id, "ready");
 			expect(localized.name).toBe(TRANSLATED_ES_NAME);

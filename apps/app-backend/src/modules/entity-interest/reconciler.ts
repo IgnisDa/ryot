@@ -50,6 +50,7 @@ export class InterestReconciler extends Context.Service<InterestReconciler>()(
 							row.providerId !== null
 						) {
 							yield* translations.requestFill({
+								userId: user.id,
 								entityId: row.id,
 								externalId: row.externalId,
 								properties: row.properties,

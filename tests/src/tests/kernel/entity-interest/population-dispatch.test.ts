@@ -33,6 +33,7 @@ describe("entity population via client-declared interest", () => {
 				const { schema } = yield* findBuiltinSchemaBySlug(client, "company");
 				return yield* installTestProvider({
 					client,
+					scope: "system",
 					rootEntitySchemaSlug: schema.id,
 					information: { source: "e2e", canonicalLanguage: "en" },
 					details: fakeProviderDetailsResult({

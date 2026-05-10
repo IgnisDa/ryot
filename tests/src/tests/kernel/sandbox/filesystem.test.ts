@@ -13,9 +13,10 @@ import { describe, expect, it } from "~/support/effect-test";
 describe("sandbox filesystem grants", () => {
 	it.live("fails bounded retries when scratch entry count exceeds kernel limits", () =>
 		Effect.gen(function* () {
-			const { userId } = yield* createAuthenticatedClient();
+			const { client, userId } = yield* createAuthenticatedClient();
 			const slug = `scratch-entry-limit-${crypto.randomUUID()}`;
 			const { scriptId } = yield* installSandboxScriptScoped({
+				client,
 				slug,
 				capabilities: ["scratch"],
 				name: "Scratch entry limit",
@@ -36,9 +37,10 @@ describe("sandbox filesystem grants", () => {
 
 	it.live("does not expose harvested storage metadata in public sandbox results", () =>
 		Effect.gen(function* () {
-			const { userId } = yield* createAuthenticatedClient();
+			const { client, userId } = yield* createAuthenticatedClient();
 			const slug = `scratch-result-boundary-${crypto.randomUUID()}`;
 			const { scriptId } = yield* installSandboxScriptScoped({
+				client,
 				slug,
 				capabilities: ["scratch"],
 				name: "Scratch result boundary",

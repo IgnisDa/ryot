@@ -53,12 +53,14 @@ describe("company and media-group association variants", () => {
 			]);
 			const companyProvider = yield* installTestProvider({
 				client,
+				scope: "system",
 				rootEntitySchemaSlug: companySchemaId,
 				slug: `company.association-variant-e2e-${crypto.randomUUID()}`,
 				details: fakeProviderDetailsResult({ name: companyName }),
 			});
 			const movieProvider = yield* installTestProvider({
 				client,
+				scope: "system",
 				slug: `movie.association-variant-e2e-${crypto.randomUUID()}`,
 				rootEntitySchemaSlug: movieSchemaId,
 				details: fakeProviderDetailsResult({
@@ -128,18 +130,21 @@ describe("company and media-group association variants", () => {
 			]);
 			const personProvider = yield* installTestProvider({
 				client,
+				scope: "system",
 				rootEntitySchemaSlug: personSchemaId,
 				slug: `person.media-group-e2e-${crypto.randomUUID()}`,
 				details: fakeProviderDetailsResult({ name: personName }),
 			});
 			const companyProvider = yield* installTestProvider({
 				client,
+				scope: "system",
 				rootEntitySchemaSlug: companySchemaId,
 				slug: `company.media-group-e2e-${crypto.randomUUID()}`,
 				details: fakeProviderDetailsResult({ name: companyName }),
 			});
 			const musicGroupProvider = yield* installTestProvider({
 				client,
+				scope: "system",
 				rootEntitySchemaSlug: musicGroupSchemaId,
 				slug: `music-group.media-group-e2e-${crypto.randomUUID()}`,
 				details: fakeProviderDetailsResult({

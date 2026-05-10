@@ -219,6 +219,7 @@ Please note that this is a greenfield project with no production user data so br
 ### HTTP Contract
 
 - Plugin management endpoints use normal authenticated user middleware instead of administrator middleware.
+- Entity and relationship definition endpoints return the current user's effective kernel, system-plugin, and private-plugin catalogs. They never read the process-wide system registry directly.
 - Listing returns the current user's effective installations, including scope, metadata, version, source hash, lifecycle health, safe diagnostic reason, disabled state, order, non-secret configuration, configured-secret indicators, and configuration schema needed by future clients.
 - Installation creates a private plugin for the current user from manifest, files, and config. It returns the installation resource after durable installation dispatch.
 - Package update addresses the current user's private plugin by slug and accepts the complete manifest and file map plus a configuration patch. System plugins cannot be updated through this endpoint.

@@ -726,6 +726,7 @@ describe("Media episodic lifecycle query recipes", () => {
 						],
 					});
 				const provider = yield* installTestProvider({
+					scope: "system",
 					name: providerName,
 					client: auth.client,
 					slug: providerSlug,

@@ -2,6 +2,7 @@ import { createLocalAccountIssuer, createOAuthAccountIssuer } from "@better-auth
 import type {
 	TestSupportEnqueueSandboxBody,
 	TestSupportStoredSandboxScript,
+	TestSupportTriggerPluginBootBody,
 	TestSupportTriggerPluginCronBody,
 } from "@ryot/contract/modules/test-support/schemas";
 import { TestSupportBadRequest } from "@ryot/contract/modules/test-support/schemas";
@@ -185,11 +186,12 @@ export class TestSupportService extends Context.Service<TestSupportService>()(
 				yield* pluginInstallations.dispatchPendingInstallationLifecycle();
 			});
 
-			const triggerPluginBoot = Effect.gen(function* () {
-				const executionId = `plugin-boot-manual-${generateId()}`;
-				yield* pluginBoots.triggerAll(executionId);
-				return { executionId };
-			});
+			const triggerPluginBoot = (input: TestSupportTriggerPluginBootBody) =>
+				Effect.gen(function* () {
+					const executionId = `plugin-boot-manual-${generateId()}`;
+					yield* pluginBoots.trigger(input, executionId);
+					return { executionId };
+				});
 
 			const countAutomationRules = Effect.fn("TestSupportService.countAutomationRules")(function* (
 				userId: UserId,

@@ -33,6 +33,7 @@ import {
 	TestSupportStartWorkflowLoadGateBody,
 	TestSupportStoredSandboxScript,
 	TestSupportSubscriptionRun,
+	TestSupportTriggerPluginBootBody,
 	TestSupportTriggerPluginCronBody,
 	TestSupportWorkflowLoadGateResult,
 	TestSupportWorkflowLoadGateRun,
@@ -256,9 +257,10 @@ export const TestSupportGroup = HttpApiGroup.make("testSupport")
 	)
 	.add(
 		HttpApiEndpoint.post("triggerPluginBoot", "/test-support/plugin-boot", {
-			success: TriggerPluginBootResponse,
 			error: testSupportErrors,
-		}).annotate(OpenApi.Description, "Triggers all installed plugin boot drivers"),
+			success: TriggerPluginBootResponse,
+			payload: TestSupportTriggerPluginBootBody,
+		}).annotate(OpenApi.Description, "Triggers one active plugin boot driver"),
 	)
 	.add(
 		HttpApiEndpoint.post(

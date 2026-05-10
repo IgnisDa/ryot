@@ -14,9 +14,10 @@ import { describe, expect, it } from "~/support/effect-test";
 describe("sandbox result observability", () => {
 	it.live("completed result includes host observability logs and timing", () =>
 		Effect.gen(function* () {
-			const { userId } = yield* createAuthenticatedClient();
+			const { client, userId } = yield* createAuthenticatedClient();
 			const slug = `observability-check-${crypto.randomUUID()}`;
 			const { scriptId } = yield* installSandboxScriptScoped({
+				client,
 				slug,
 				name: "Observability check",
 				capabilities: ["log", "span"],
@@ -47,9 +48,10 @@ describe("sandbox result observability", () => {
 describe("sandbox process failures", () => {
 	it.live("includes Deno stderr when process exits before returning a result", () =>
 		Effect.gen(function* () {
-			const { userId } = yield* createAuthenticatedClient();
+			const { client, userId } = yield* createAuthenticatedClient();
 			const slug = `process-failure-${crypto.randomUUID()}`;
 			const { scriptId } = yield* installSandboxScriptScoped({
+				client,
 				slug,
 				name: "Process failure",
 				source: processFailureSandboxSource({ name: "Process failure", slug }),

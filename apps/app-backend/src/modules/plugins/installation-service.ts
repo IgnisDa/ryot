@@ -832,11 +832,6 @@ export class PluginInstallationService extends Context.Service<PluginInstallatio
 					installation: PluginInstallationRow,
 					pluginSlug: PluginSlug,
 				) {
-					if (yield* workflowReferences.hasInstallationReferences(installation.id)) {
-						return yield* new PluginConflictError({
-							reason: { code: "workflow-referenced", pluginSlug },
-						});
-					}
 					if (
 						yield* repository.hasIntegrationReferences({
 							pluginId: plugin.id,
@@ -856,6 +851,11 @@ export class PluginInstallationService extends Context.Service<PluginInstallatio
 					if (yield* repository.hasDefinitionReferences(plugin.id)) {
 						return yield* new PluginConflictError({
 							reason: { code: "entity-referenced", pluginSlug },
+						});
+					}
+					if (yield* workflowReferences.hasInstallationReferences(installation.id)) {
+						return yield* new PluginConflictError({
+							reason: { code: "workflow-referenced", pluginSlug },
 						});
 					}
 					return yield* Effect.void;
