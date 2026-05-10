@@ -40,6 +40,7 @@ import {
 	listEventSchemas,
 	literalExpression,
 	relationshipJoinField,
+	toQueryEngineItem,
 	seedMediaEntity,
 	waitForEventCount,
 } from "../fixtures";
@@ -2038,10 +2039,12 @@ describe("Query engine E2E", () => {
 		});
 
 		expect(response.status).toBe(200);
-		expect(data.data.items[0]).toEqual([
-			{ key: "label", kind: "text", value: "Pinned" },
-			{ key: "yearOrFallback", kind: "number", value: 2018 },
-		]);
+		expect(data.data.items[0]).toEqual(
+			toQueryEngineItem([
+				{ key: "label", kind: "text", value: "Pinned" },
+				{ key: "yearOrFallback", kind: "number", value: 2018 },
+			]),
+		);
 	});
 
 	it("reuses computed fields in raw output and preserves null latest-event values", async () => {
@@ -2082,11 +2085,13 @@ describe("Query engine E2E", () => {
 		});
 
 		expect(response.status).toBe(200);
-		expect(data.data.items[0]).toEqual([
-			{ key: "title", kind: "text", value: "Alpha Phone" },
-			{ key: "badge", kind: "text", value: "Alpha Phone" },
-			{ key: "rawReview", kind: "null", value: null },
-		]);
+		expect(data.data.items[0]).toEqual(
+			toQueryEngineItem([
+				{ key: "title", kind: "text", value: "Alpha Phone" },
+				{ key: "badge", kind: "text", value: "Alpha Phone" },
+				{ key: "rawReview", kind: "null", value: null },
+			]),
+		);
 	});
 
 	it("sorts and filters by computed fields in raw runtime requests", async () => {
@@ -2135,14 +2140,18 @@ describe("Query engine E2E", () => {
 			"Release 2022",
 			"Release 2021",
 		]);
-		expect(data.data.items[0]).toEqual([
-			{ key: "label", kind: "text", value: "Release 2022" },
-			{ key: "nextYear", kind: "number", value: 2022 },
-		]);
-		expect(data.data.items[1]).toEqual([
-			{ key: "label", kind: "text", value: "Release 2021" },
-			{ key: "nextYear", kind: "number", value: 2021 },
-		]);
+		expect(data.data.items[0]).toEqual(
+			toQueryEngineItem([
+				{ key: "label", kind: "text", value: "Release 2022" },
+				{ key: "nextYear", kind: "number", value: 2022 },
+			]),
+		);
+		expect(data.data.items[1]).toEqual(
+			toQueryEngineItem([
+				{ key: "label", kind: "text", value: "Release 2021" },
+				{ key: "nextYear", kind: "number", value: 2021 },
+			]),
+		);
 	});
 
 	it("rejects invalid computed field references and cycles in raw runtime requests", async () => {
@@ -2337,14 +2346,16 @@ describe("Query engine E2E", () => {
 		});
 
 		expect(response.status).toBe(200);
-		expect(data.data.items[0]).toEqual([
-			{ key: "nextYear", kind: "number", value: 2021 },
-			{ key: "rounded", kind: "number", value: 673 },
-			{ key: "floored", kind: "number", value: 673 },
-			{ key: "wholeYear", kind: "number", value: 2020 },
-			{ key: "label", kind: "text", value: "Gamma / phone / 2020" },
-			{ key: "badge", kind: "text", value: "modern" },
-		]);
+		expect(data.data.items[0]).toEqual(
+			toQueryEngineItem([
+				{ key: "nextYear", kind: "number", value: 2021 },
+				{ key: "rounded", kind: "number", value: 673 },
+				{ key: "floored", kind: "number", value: 673 },
+				{ key: "wholeYear", kind: "number", value: 2020 },
+				{ key: "label", kind: "text", value: "Gamma / phone / 2020" },
+				{ key: "badge", kind: "text", value: "modern" },
+			]),
+		);
 	});
 
 	it("supports titleCase and kebabCase transforms in runtime expressions", async () => {
@@ -2379,10 +2390,12 @@ describe("Query engine E2E", () => {
 		});
 
 		expect(response.status).toBe(200);
-		expect(data.data.items[0]).toEqual([
-			{ key: "titleCased", kind: "text", value: "Phone" },
-			{ key: "kebabCased", kind: "text", value: "phone" },
-		]);
+		expect(data.data.items[0]).toEqual(
+			toQueryEngineItem([
+				{ key: "titleCased", kind: "text", value: "Phone" },
+				{ key: "kebabCased", kind: "text", value: "phone" },
+			]),
+		);
 	});
 
 	it("truncates integer normalization toward zero for fractional values", async () => {
@@ -2418,7 +2431,9 @@ describe("Query engine E2E", () => {
 		});
 
 		expect(response.status).toBe(200);
-		expect(data.data.items[0]).toEqual([{ key: "integerNormalized", kind: "number", value: 5 }]);
+		expect(data.data.items[0]).toEqual(
+			toQueryEngineItem([{ key: "integerNormalized", kind: "number", value: 5 }]),
+		);
 	});
 
 	it("supports eq, neq, gt, gte, lt, lte, in, isNull, and isNotNull filters", async () => {
@@ -2735,10 +2750,13 @@ describe("Query engine E2E", () => {
 
 		expect(response.status).toBe(200);
 		expect(data.data.items).toHaveLength(1);
-		expect(data.data.items[0]).toEqual([
-			{ key: "column_0", kind: "text", value: targetId },
-			{ key: "column_1", kind: "text", value: "Gamma Phone" },
-		]);
+		expect(data.data.meta.fieldOrder).toEqual(["column_0", "column_1"]);
+		expect(data.data.items[0]).toEqual(
+			toQueryEngineItem([
+				{ key: "column_0", kind: "text", value: targetId },
+				{ key: "column_1", kind: "text", value: "Gamma Phone" },
+			]),
+		);
 	});
 
 	it("filters entity @id with contains", async () => {
@@ -3291,10 +3309,12 @@ describe("Query engine E2E", () => {
 
 		expect(response.status).toBe(200);
 		expect(data.data.items).toHaveLength(1);
-		expect(data.data.items[0]).toEqual([
-			{ key: "column_0", kind: "text", value: externalId },
-			{ key: "column_1", kind: "text", value: provider.scriptId },
-		]);
+		expect(data.data.items[0]).toEqual(
+			toQueryEngineItem([
+				{ key: "column_0", kind: "text", value: externalId },
+				{ key: "column_1", kind: "text", value: provider.scriptId },
+			]),
+		);
 	});
 
 	it("resolves externalId and sandboxScriptId as null for regular user entities", async () => {
@@ -3327,10 +3347,12 @@ describe("Query engine E2E", () => {
 
 		expect(response.status).toBe(200);
 		expect(data.data.items).toHaveLength(1);
-		expect(data.data.items[0]).toEqual([
-			{ key: "column_0", kind: "null", value: null },
-			{ key: "column_1", kind: "null", value: null },
-		]);
+		expect(data.data.items[0]).toEqual(
+			toQueryEngineItem([
+				{ key: "column_0", kind: "null", value: null },
+				{ key: "column_1", kind: "null", value: null },
+			]),
+		);
 	});
 
 	it("filters with isNull on externalId to find entities without an external id", async () => {
@@ -3492,9 +3514,9 @@ describe("Query engine E2E", () => {
 			});
 
 			expect(response.status).toBe(200);
-			expect(data.data.items[0]).toEqual([
-				{ key: "entitySchemaName", kind: "text", value: schema.data.name },
-			]);
+			expect(data.data.items[0]).toEqual(
+				toQueryEngineItem([{ key: "entitySchemaName", kind: "text", value: schema.data.name }]),
+			);
 		});
 
 		it("returns entity schema isBuiltin as a boolean field", async () => {
@@ -3511,7 +3533,9 @@ describe("Query engine E2E", () => {
 			});
 
 			expect(response.status).toBe(200);
-			expect(data.data.items[0]).toEqual([{ key: "isBuiltin", kind: "boolean", value: false }]);
+			expect(data.data.items[0]).toEqual(
+				toQueryEngineItem([{ key: "isBuiltin", kind: "boolean", value: false }]),
+			);
 		});
 
 		it("returns correct entity schema slug per entity in multi-schema queries", async () => {
@@ -3706,9 +3730,9 @@ describe("Query engine E2E", () => {
 			expect(result?.items).toHaveLength(2);
 			expect(result?.meta.pagination.total).toBe(2);
 			expect(result?.meta.pagination.hasNextPage).toBe(false);
+			expect(result?.meta.fieldOrder).toEqual(["eventId"]);
 			for (const item of result?.items ?? []) {
-				const idField = item.find((f) => f.key === "eventId");
-				expect(typeof idField?.value).toBe("string");
+				expect(typeof getItemFieldValue(item, "eventId")).toBe("string");
 			}
 		});
 
@@ -3797,7 +3821,7 @@ describe("Query engine E2E", () => {
 			expect(response.status).toBe(200);
 			const result = data?.mode === "events" ? data.data : undefined;
 			expect(result?.items).toHaveLength(1);
-			expect(result?.items[0]?.find((f) => f.key === "schemaSlug")?.value).toBe(watchSchema.slug);
+			expect(getItemFieldValue(result?.items[0], "schemaSlug")).toBe(watchSchema.slug);
 		});
 
 		it("sorts events by a numeric event property expression", async () => {
@@ -3901,7 +3925,7 @@ describe("Query engine E2E", () => {
 			expect(response.status).toBe(200);
 			const items = data?.mode === "events" ? data.data.items : [];
 			expect(items).toHaveLength(3);
-			const ratings = items.map((item) => item.find((f) => f.key === "rating")?.value);
+			const ratings = items.map((item) => getItemFieldValue(item, "rating"));
 			expect(ratings).toEqual([5, 3, 1]);
 		});
 
@@ -4006,10 +4030,10 @@ describe("Query engine E2E", () => {
 			expect(response.status).toBe(200);
 			const items = data?.mode === "events" ? data.data.items : [];
 			expect(items).toHaveLength(1);
-			const firstItem = items[0] ?? [];
-			expect(firstItem.find((f) => f.key === "entityName")?.value).toBe("Named Entity");
-			expect(firstItem.find((f) => f.key === "eventSchemaSlug")?.value).toBe(reviewSchema.slug);
-			expect(firstItem.find((f) => f.key === "rating")?.value).toBe(4);
+			const firstItem = items[0] ?? {};
+			expect(getItemFieldValue(firstItem, "entityName")).toBe("Named Entity");
+			expect(getItemFieldValue(firstItem, "eventSchemaSlug")).toBe(reviewSchema.slug);
+			expect(getItemFieldValue(firstItem, "rating")).toBe(4);
 		});
 
 		it("returns correct paginated results and metadata in events mode", async () => {
@@ -4125,7 +4149,7 @@ describe("Query engine E2E", () => {
 				hasNextPage: true,
 				hasPreviousPage: false,
 			});
-			expect(result1?.items[0]?.find((f) => f.key === "seq")?.value).toBe(1);
+			expect(getItemFieldValue(result1?.items[0], "seq")).toBe(1);
 
 			expect(page3.response.status).toBe(200);
 			expect(result3?.items).toHaveLength(1);
@@ -4137,7 +4161,7 @@ describe("Query engine E2E", () => {
 				hasNextPage: false,
 				hasPreviousPage: true,
 			});
-			expect(result3?.items[0]?.find((f) => f.key === "seq")?.value).toBe(5);
+			expect(getItemFieldValue(result3?.items[0], "seq")).toBe(5);
 		});
 
 		it("attaches event-join data to each event row via a lateral join", async () => {
@@ -4265,7 +4289,7 @@ describe("Query engine E2E", () => {
 			// Both watch events should have the latest review rating attached
 			expect(items).toHaveLength(2);
 			for (const item of items) {
-				expect(item.find((f) => f.key === "latestRating")?.value).toBe(7);
+				expect(getItemFieldValue(item, "latestRating")).toBe(7);
 			}
 		});
 
@@ -4351,7 +4375,7 @@ describe("Query engine E2E", () => {
 			expect(response.status).toBe(200);
 			const items = data?.mode === "events" ? data.data.items : [];
 			expect(items).toHaveLength(2);
-			const ratings = items.map((item) => item.find((f) => f.key === "rating")?.value);
+			const ratings = items.map((item) => getItemFieldValue(item, "rating"));
 			expect(ratings).toEqual([4, 5]);
 		});
 

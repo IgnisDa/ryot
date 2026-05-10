@@ -16,9 +16,9 @@ import {
 
 describe("extractMembershipPropertiesSchema", () => {
 	it("returns null when fields do not contain membershipPropertiesSchema", () => {
-		const fields: { key: string; kind: "text" | "json"; value: unknown }[] = [
-			{ key: "name", kind: "text", value: "Some Name" },
-		];
+		const fields = createQueryEngineCollectionFixture({
+			fields: [{ key: "name", kind: "text", value: "Some Name" }],
+		});
 
 		const result = extractMembershipPropertiesSchema(fields);
 
@@ -26,7 +26,9 @@ describe("extractMembershipPropertiesSchema", () => {
 	});
 
 	it("returns null when membershipPropertiesSchema field is not json kind", () => {
-		const fields = [{ key: "membershipPropertiesSchema", kind: "text" as const, value: "{}" }];
+		const fields = createQueryEngineCollectionFixture({
+			fields: [{ key: "membershipPropertiesSchema", kind: "text" as const, value: "{}" }],
+		});
 
 		const result = extractMembershipPropertiesSchema(fields);
 
@@ -34,13 +36,15 @@ describe("extractMembershipPropertiesSchema", () => {
 	});
 
 	it("returns null when schema has no fields property", () => {
-		const fields = [
-			{
-				key: "membershipPropertiesSchema",
-				kind: "json" as const,
-				value: { type: "string" },
-			},
-		];
+		const fields = createQueryEngineCollectionFixture({
+			fields: [
+				{
+					key: "membershipPropertiesSchema",
+					kind: "json" as const,
+					value: { type: "string" },
+				},
+			],
+		});
 
 		const result = extractMembershipPropertiesSchema(fields);
 
@@ -54,13 +58,15 @@ describe("extractMembershipPropertiesSchema", () => {
 				notes: { type: "string", label: "Notes", description: "Notes" },
 			},
 		};
-		const fields = [
-			{
-				key: "membershipPropertiesSchema",
-				kind: "json" as const,
-				value: schema,
-			},
-		];
+		const fields = createQueryEngineCollectionFixture({
+			fields: [
+				{
+					key: "membershipPropertiesSchema",
+					kind: "json" as const,
+					value: schema,
+				},
+			],
+		});
 
 		const result = extractMembershipPropertiesSchema(fields);
 

@@ -65,25 +65,17 @@ describe("mapQueryRowToItem", () => {
 			mapQueryRowToItem({
 				total: 1,
 				row_id: "entity-1",
-				fields: [
-					{ key: "title", kind: "text", value: "" },
-					{ key: "image", kind: "null", value: null },
-				],
+				fields: { title: { kind: "text", value: "" }, image: { kind: "null", value: null } },
 			}),
-		).toEqual([
-			{ key: "title", kind: "text", value: "" },
-			{ key: "image", kind: "null", value: null },
-		]);
+		).toEqual({ title: { kind: "text", value: "" }, image: { kind: "null", value: null } });
+	});
+
+	it("returns an empty object when there are no resolved fields", () => {
+		expect(mapQueryRowToItem({ total: 1, fields: {}, row_id: "entity-1" })).toEqual({});
 	});
 
 	it("drops the left join sentinel row", () => {
-		expect(
-			mapQueryRowToItem({
-				total: 0,
-				row_id: null,
-				fields: null,
-			}),
-		).toBeNull();
+		expect(mapQueryRowToItem({ total: 0, row_id: null, fields: null })).toBeNull();
 	});
 
 	it("maps rows to ordered resolved fields", () => {
@@ -91,14 +83,14 @@ describe("mapQueryRowToItem", () => {
 			mapQueryRowToItem({
 				total: 1,
 				row_id: "entity-1",
-				fields: [
-					{ key: "column_0", kind: "text", value: "Entity" },
-					{ key: "column_1", kind: "number", value: 2024 },
-				],
+				fields: {
+					column_1: { kind: "number", value: 2024 },
+					column_0: { kind: "text", value: "Entity" },
+				},
 			}),
-		).toEqual([
-			{ key: "column_0", kind: "text", value: "Entity" },
-			{ key: "column_1", kind: "number", value: 2024 },
-		]);
+		).toEqual({
+			column_1: { kind: "number", value: 2024 },
+			column_0: { kind: "text", value: "Entity" },
+		});
 	});
 });

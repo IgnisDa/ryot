@@ -4320,13 +4320,14 @@ export interface paths {
                             mode: "entities";
                             data: {
                                 items: {
-                                    value: string | number | boolean | unknown[] | {
-                                        [key: string]: unknown;
-                                    } | unknown;
-                                    /** @enum {string} */
-                                    kind: "json" | "null" | "date" | "text" | "image" | "number" | "boolean";
-                                    key: string;
-                                }[][];
+                                    [key: string]: {
+                                        value: string | number | boolean | unknown[] | {
+                                            [key: string]: unknown;
+                                        } | unknown;
+                                        /** @enum {string} */
+                                        kind: "json" | "null" | "date" | "text" | "image" | "number" | "boolean";
+                                    };
+                                }[];
                                 meta: {
                                     pagination: {
                                         page: number;
@@ -4336,6 +4337,7 @@ export interface paths {
                                         totalPages: number;
                                         hasPreviousPage: boolean;
                                     };
+                                    fieldOrder: string[];
                                 };
                             };
                         } | {
@@ -4366,13 +4368,14 @@ export interface paths {
                             mode: "events";
                             data: {
                                 items: {
-                                    value: string | number | boolean | unknown[] | {
-                                        [key: string]: unknown;
-                                    } | unknown;
-                                    /** @enum {string} */
-                                    kind: "json" | "null" | "date" | "text" | "image" | "number" | "boolean";
-                                    key: string;
-                                }[][];
+                                    [key: string]: {
+                                        value: string | number | boolean | unknown[] | {
+                                            [key: string]: unknown;
+                                        } | unknown;
+                                        /** @enum {string} */
+                                        kind: "json" | "null" | "date" | "text" | "image" | "number" | "boolean";
+                                    };
+                                }[];
                                 meta: {
                                     pagination: {
                                         page: number;
@@ -4382,6 +4385,7 @@ export interface paths {
                                         totalPages: number;
                                         hasPreviousPage: boolean;
                                     };
+                                    fieldOrder: string[];
                                 };
                             };
                         } | {
