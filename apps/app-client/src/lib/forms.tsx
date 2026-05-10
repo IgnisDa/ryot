@@ -1,5 +1,6 @@
 import { createFormHook, createFormHookContexts } from "@tanstack/react-form";
-import type { ComponentProps } from "react";
+import type { ComponentProps, Ref } from "react";
+import type { TextInputProps } from "react-native";
 
 import { Box } from "@/components/ui/box";
 import { Button, ButtonSpinner, ButtonText } from "@/components/ui/button";
@@ -17,16 +18,22 @@ type TextFieldProps = Pick<
 	| "returnKeyType"
 	| "autoCapitalize"
 	| "secureTextEntry"
+	| "submitBehavior"
+	| "blurOnSubmit"
 	| "onSubmitEditing"
->;
+> & {
+	inputRef?: Ref<TextInputProps>;
+};
 
 function TextField(props: TextFieldProps) {
 	const field = useFieldContext<string>();
+	const { inputRef, ...inputProps } = props;
 	return (
 		<Box className="gap-1">
 			<Input>
 				<InputField
-					{...props}
+					{...inputProps}
+					ref={inputRef}
 					value={field.state.value}
 					onBlur={field.handleBlur}
 					onChangeText={field.handleChange}
