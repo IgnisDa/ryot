@@ -2,7 +2,7 @@
 
 ## Overview
 
-This document captures what remains to port from V1 (`apps/backend`, Rust) to V2 (`apps/app-backend`, TypeScript), as of 2026-06-20. As items are completed they should be removed.
+This document captures what remains to port from V1 (`apps/backend`, Rust) to V2 (`apps/app-backend`, TypeScript), as of 2026-06-20. As items are completed they should be removed and added to the baseline.
 
 It was produced by mapping V1's full API surface — 116 GraphQL operations across 18 resolver crates under `crates/resolvers/` — against V2's modules and routes under `apps/app-backend/src/modules/`. V1 is a behavior reference only; V2 deliberately replaces V1's domain-specific resolvers with a generic `entity_schema → entity → event → relationship` model queried through `modules/query-engine`.
 
@@ -12,21 +12,22 @@ The remaining backlog below is all user-confirmed in-scope. Items the rewrite in
 
 These V1 areas have a working home in V2 and are not part of the backlog.
 
-| V1 area                                                                         | V2 home                                                                                                         |
-| ------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------- |
-| 18 metadata providers (AniList, Audible, TMDB, IGDB, Hardcover, MusicBrainz, …) | `lib/sandbox/scripts/providers/*`                                                                               |
-| Provider search (`metadata_search`, `people_search`, `metadata_group_search`)   | 60 sandbox `search` drivers via `entity-schemas/search` + `entities/import`                                     |
-| Integrations: sinks, yanks, pushes, webhook, sync scheduler                     | `modules/integrations` (+ push as sandbox triggers)                                                             |
-| ~19 importers                                                                   | `modules/imports/sources/*`                                                                                     |
-| Seen/progress history                                                           | Lifecycle events (`backlog`/`progress`/`complete`/`dropped`/`on_hold`/`review`); state derived via query-engine |
-| Reviews & ratings                                                               | Built-in `review` entity-schema                                                                                 |
-| Collections                                                                     | `modules/collections`                                                                                           |
-| Filter presets                                                                  | `modules/saved-views`                                                                                           |
-| Custom metadata/person/group/exercise                                           | `modules/entities` (`createEntity`)                                                                             |
-| Auth: register/login/2FA (TOTP)/OIDC/API keys                                   | `lib/auth` (Better Auth)                                                                                        |
-| File storage                                                                    | `modules/uploads`                                                                                               |
-| Admin user management                                                           | `modules/god-mode` (list/provision/ban/reset-password)                                                          |
-| Core details / config                                                           | `modules/system` (config/health/metrics)                                                                        |
+| V1 area                                                                             | V2 home                                                                                                         |
+| ----------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------- |
+| 18 metadata providers (AniList, Audible, TMDB, IGDB, Hardcover, MusicBrainz, …)     | `lib/sandbox/scripts/providers/*`                                                                               |
+| Provider search (`metadata_search`, `people_search`, `metadata_group_search`)       | 60 sandbox `search` drivers via `entity-schemas/search` + `entities/import`                                     |
+| Integrations: sinks, yanks, pushes, webhook, sync scheduler                         | `modules/integrations` (+ push as sandbox triggers)                                                             |
+| ~19 importers                                                                       | `modules/imports/sources/*`                                                                                     |
+| Seen/progress history                                                               | Lifecycle events (`backlog`/`progress`/`complete`/`dropped`/`on_hold`/`review`); state derived via query-engine |
+| Reviews & ratings                                                                   | Built-in `review` entity-schema                                                                                 |
+| Collections                                                                         | `modules/collections`                                                                                           |
+| Filter presets                                                                      | `modules/saved-views`                                                                                           |
+| Custom metadata/person/group/exercise                                               | `modules/entities` (`createEntity`)                                                                             |
+| Auth: register/login/2FA (TOTP)/OIDC/API keys                                       | `lib/auth` (Better Auth)                                                                                        |
+| File storage                                                                        | `modules/uploads`                                                                                               |
+| Admin user management                                                               | `modules/god-mode` (list/provision/ban/reset-password)                                                          |
+| Core details / config                                                               | `modules/system` (config/health/metrics)                                                                        |
+| User state operations (`merge_metadata`, `merge_exercise`, `disassociate_metadata`) | `modules/user-state` (`POST /user-state/merge`, `DELETE /user-state/clear/:entityId`)                           |
 
 ## Remaining Backlog (In-Scope)
 
