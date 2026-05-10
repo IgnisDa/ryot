@@ -11,6 +11,7 @@ import {
 	type UserId,
 } from "@ryot/contract/schema/brands";
 import type { AppPropertyDefinition, AppSchema } from "@ryot/contract/schema/property-schema";
+import { isEqual } from "@ryot/ts-utils/lodash";
 import { Context, Effect, Layer, Schema } from "effect";
 
 import { AuthRepository } from "#modules/auth/repository";
@@ -41,7 +42,7 @@ import { RelationshipsRepository } from "#modules/relationships/repository";
 import { SavedViewsRepository } from "#modules/saved-views/repository";
 import { UploadsService } from "#modules/uploads/service";
 
-import { classifyAccountCleanliness, structurallyEqual } from "./account-cleanliness";
+import { classifyAccountCleanliness } from "./account-cleanliness";
 import {
 	backupV1EntityReferenceRules,
 	backupV1EventReferenceRules,
@@ -341,7 +342,7 @@ export class BackupDataService extends Context.Service<BackupDataService>()("Bac
 					pluginSlug: view.pluginSlug,
 					entitySchemaSlug: view.entitySchemaSlug,
 				};
-				return expected && structurallyEqual(actual, expected)
+				return expected && isEqual(actual, expected)
 					? []
 					: [{ ...view, kind: "builtin-override" as const, isBuiltin: true as const }];
 			});
