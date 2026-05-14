@@ -11,7 +11,7 @@ use supporting_service::SupportingService;
 use traits::MediaProvider;
 
 use crate::{
-    base::TvdbService,
+    base::{TvdbService, json_response},
     models::{TvdbCompanyExtendedResponse, TvdbPersonExtendedResponse, URL},
 };
 
@@ -65,14 +65,15 @@ impl MediaProvider for NonMediaTvdbService {
         source_specifics: &Option<PersonSourceSpecifics>,
     ) -> Result<PersonDetails> {
         if let Some(true) = source_specifics.as_ref().and_then(|s| s.is_tvdb_company) {
-            let details: TvdbCompanyExtendedResponse = self
-                .0
-                .client
-                .get(format!("{URL}/companies/{identifier}"))
-                .send()
-                .await?
-                .json()
-                .await?;
+            let details: TvdbCompanyExtendedResponse = json_response(
+                self.0
+                    .client
+                    .get(format!("{URL}/companies/{identifier}"))
+                    .send()
+                    .await?,
+                "company details",
+            )
+            .await?;
 
             let company_data = details.data;
             let name = company_data.name.unwrap_or_default();
@@ -97,14 +98,15 @@ impl MediaProvider for NonMediaTvdbService {
             return Ok(resp);
         }
 
-        let details: TvdbPersonExtendedResponse = self
-            .0
-            .client
-            .get(format!("{URL}/people/{identifier}/extended"))
-            .send()
-            .await?
-            .json()
-            .await?;
+        let details: TvdbPersonExtendedResponse = json_response(
+            self.0
+                .client
+                .get(format!("{URL}/people/{identifier}/extended"))
+                .send()
+                .await?,
+            "person extended",
+        )
+        .await?;
 
         let person_data = details.data;
         let name = person_data.name.unwrap_or_default();
