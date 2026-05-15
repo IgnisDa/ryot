@@ -1,4 +1,4 @@
-import { getQueryEngineField, normalizeSlug } from "@ryot/ts-utils";
+import { getQueryEngineField, normalizeSlug, sortBy } from "@ryot/ts-utils";
 
 import { toEntityImage } from "@/lib/entity-image";
 
@@ -108,26 +108,6 @@ function readRelatedCreator(item: QueryEngineEntityItem, position: number): Rela
 	};
 }
 
-function compareRelatedCreators(a: RelatedCreator, b: RelatedCreator) {
-	if (a.order !== null || b.order !== null) {
-		if (a.order === null) {
-			return 1;
-		}
-		if (b.order === null) {
-			return -1;
-		}
-		if (a.order !== b.order) {
-			return a.order - b.order;
-		}
-	}
-
-	if (a.createdAt && b.createdAt && a.createdAt !== b.createdAt) {
-		return a.createdAt.localeCompare(b.createdAt);
-	}
-
-	return a.position - b.position;
-}
-
 export async function loadRelatedCreators(
 	apiClient: QueryEngineClient,
 	input: { entityId: string; entitySchemaSlug: string },
@@ -221,7 +201,11 @@ export async function loadRelatedCreators(
 		mapItem: (item, position) => readRelatedCreator(item, position),
 	});
 
-	return creators.toSorted(compareRelatedCreators).map(({ id, image, name, role }) => ({
+	return sortBy(creators, [
+		(c) => (c.order ?? Number.POSITIVE_INFINITY),
+		(c) => c.createdAt ?? "",
+		(c) => c.position,
+	]).map(({ id, image, name, role }) => ({
 		id,
 		image,
 		name,
