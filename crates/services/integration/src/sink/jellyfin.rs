@@ -1,12 +1,9 @@
-use std::sync::Arc;
-
 use anyhow::{Result, anyhow};
 use dependent_models::{ImportCompletedItem, ImportOrExportMetadataItem, ImportResult};
 use enum_models::{MediaLot, MediaSource};
 use media_models::ImportOrExportMetadataItemSeen;
 use rust_decimal::{Decimal, dec};
 use serde::{Deserialize, Serialize};
-use supporting_service::SupportingService;
 
 mod models {
     use super::*;
@@ -56,10 +53,8 @@ mod models {
 
 pub async fn sink_progress(
     payload: String,
-    ss: &Arc<SupportingService>,
     jellyfin_sink_username: Option<String>,
 ) -> Result<Option<ImportResult>> {
-    println!("Received Jellyfin webhook payload: {}", payload);
     let payload = serde_json::from_str::<models::JellyfinWebhookPayload>(&payload)?;
     if let Some(jellyfin_sink_username) = jellyfin_sink_username
         && payload.user.as_ref().and_then(|u| u.name.as_ref()) != Some(&jellyfin_sink_username)
