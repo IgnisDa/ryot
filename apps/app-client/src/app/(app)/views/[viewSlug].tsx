@@ -5,8 +5,8 @@ import { Box } from "@/components/ui/box";
 import { useNavigationData } from "@/lib/navigation";
 
 export default function ViewScreen() {
-	const { viewSlug } = useLocalSearchParams<{ viewSlug: string }>();
 	const { trackers } = useNavigationData();
+	const { viewSlug } = useLocalSearchParams<"/(app)/views/[viewSlug]">();
 	const subItem = trackers.flatMap((t) => t.subItems).find((s) => s.slug === viewSlug);
 	const viewName = subItem?.name ?? viewSlug;
 
