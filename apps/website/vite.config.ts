@@ -8,8 +8,7 @@ export default defineConfig({
 	server: { allowedHosts: true },
 	plugins: [
 		reactRouter(),
-		// oxlint-disable-next-line typescript/no-explicit-any
-		safeRoutes() as any,
+		safeRoutes(),
 		tailwindcss(),
 		tsconfigPaths({ ignoreConfigErrors: true }),
 	],
