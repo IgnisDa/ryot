@@ -11,10 +11,6 @@ For concrete executable examples, see:
 - `tests/src/tests/query-engine-field-resolution.test.ts` (field selector resolution)
 - `tests/src/tests/query-engine-entity-schema-fields.test.ts` (schema metadata fields)
 
-The authoritative model for the query language is the PRD at
-`docs/tasks/query-engine-hierarchical-results/README.md`. This guide documents the
-currently implemented subset.
-
 ## Mental Model
 
 `/query-engine/execute` accepts a `QueryDocument` and returns a typed response whose
