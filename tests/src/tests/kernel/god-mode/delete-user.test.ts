@@ -12,7 +12,7 @@ import {
 	enqueueEntityImport,
 	fakeProviderDetailsResult,
 	findBuiltinSchemaBySlug,
-	findBuiltinWorkspaceBySlug,
+	findBuiltinPluginBySlug,
 	getAutomationRuleCount,
 	getBackendClient,
 	getBuiltinEntitySchemaSlug,
@@ -26,13 +26,13 @@ import {
 	installTestProvider,
 	seedMediaEntity,
 	startFakeAppriseServerScoped,
-	updatePluginWorkspaceState,
+	updatePluginState,
 } from "~/fixtures";
 import { assertCompleted, assertTaggedError } from "~/support/assertions";
 import { describe, expect, it } from "~/support/effect-test";
 
 const WRONG_TOKEN = "wrong-token";
-const workspaceListQuery = { includeDisabled: false };
+const pluginListQuery = { includeDisabled: false };
 
 describe("Delete user admin token enforcement", () => {
 	it.live("rejects deletion without an admin token", () =>
@@ -86,17 +86,17 @@ describe("Delete user", () => {
 			} = yield* createAuthenticatedClient();
 			const userId = UserId.make(rawUserId);
 			const { client: observerClient } = yield* createAuthenticatedClient();
-			const workspace = yield* findBuiltinWorkspaceBySlug(userClient, "media");
-			const configuredWorkspace = yield* updatePluginWorkspaceState(userClient, workspace.slug, {
+			const plugin = yield* findBuiltinPluginBySlug(userClient, "media");
+			const configuredPlugin = yield* updatePluginState(userClient, plugin.slug, {
 				config: { fixture: true },
 			});
-			expect(configuredWorkspace.config).toEqual({ fixture: true });
+			expect(configuredPlugin.config).toEqual({ fixture: true });
 			const apiKey = yield* createApiKey(cookies);
 
-			yield* client.call((c) => c.definitions.listWorkspaces({ query: workspaceListQuery }), {
+			yield* client.call((c) => c.definitions.listPlugins({ query: pluginListQuery }), {
 				Cookie: cookies,
 			});
-			yield* client.call((c) => c.definitions.listWorkspaces({ query: workspaceListQuery }), {
+			yield* client.call((c) => c.definitions.listPlugins({ query: pluginListQuery }), {
 				"X-Api-Key": apiKey,
 			});
 
@@ -112,20 +112,20 @@ describe("Delete user", () => {
 			);
 			expect(listed.users).toHaveLength(0);
 
-			const workspaces = yield* observerClient.call((c) =>
-				c.definitions.listWorkspaces({ query: { includeDisabled: true } }),
+			const plugins = yield* observerClient.call((c) =>
+				c.definitions.listPlugins({ query: { includeDisabled: true } }),
 			);
-			expect(workspaces.some((candidate) => candidate.slug === workspace.slug)).toBe(true);
+			expect(plugins.some((candidate) => candidate.slug === plugin.slug)).toBe(true);
 
 			const revokedSession = yield* Effect.flip(
-				client.call((c) => c.definitions.listWorkspaces({ query: workspaceListQuery }), {
+				client.call((c) => c.definitions.listPlugins({ query: pluginListQuery }), {
 					Cookie: cookies,
 				}),
 			);
 			assertTaggedError(revokedSession, "Unauthorized");
 
 			const revokedApiKey = yield* Effect.flip(
-				client.call((c) => c.definitions.listWorkspaces({ query: workspaceListQuery }), {
+				client.call((c) => c.definitions.listPlugins({ query: pluginListQuery }), {
 					"X-Api-Key": apiKey,
 				}),
 			);
