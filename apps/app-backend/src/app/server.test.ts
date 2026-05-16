@@ -8,8 +8,7 @@ registerInternalAppRequestHandler(null);
 const app = getServer();
 const frontendOrigin = process.env.FRONTEND_URL ?? "https://frontend.example.com";
 const additionalOrigin =
-	process.env.SERVER_CORS_ORIGINS
-		?.split(",")
+	process.env.SERVER_CORS_ORIGINS?.split(",")
 		.map((origin) => origin.trim())
 		.filter(Boolean)
 		.find((origin) => origin !== frontendOrigin) ?? "https://studio.example.com";
