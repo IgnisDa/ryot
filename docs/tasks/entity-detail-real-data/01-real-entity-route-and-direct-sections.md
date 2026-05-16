@@ -4,7 +4,7 @@
 
 **Type:** AFK
 
-**Status:** todo
+**Status:** completed
 
 ## What to build
 
@@ -16,11 +16,11 @@ Follow the parent PRD decisions for supporting all built-in media types currentl
 
 ## Acceptance criteria
 
-- [ ] The page loads real entity data from `GET /entities/{entityId}` instead of fake demo objects.
-- [ ] The entity schema lookup is used to resolve the current media type and drive the direct sections.
-- [ ] The hero, about, details, and type-specific sections render correctly for all built-in media types currently represented in the demo.
-- [ ] The type-switching FAB is removed.
-- [ ] Any direct creator metadata already present on the entity payload is rendered from backend data.
+- [x] The page loads real entity data from `GET /entities/{entityId}` instead of fake demo objects.
+- [x] The entity schema lookup is used to resolve the current media type and drive the direct sections.
+- [x] The hero, about, details, and type-specific sections render correctly for all built-in media types currently represented in the demo.
+- [x] The type-switching FAB is removed.
+- [x] Any direct creator metadata already present on the entity payload is rendered from backend data.
 
 ## User stories addressed
 

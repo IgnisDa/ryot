@@ -4,7 +4,7 @@
 
 **Type:** AFK
 
-**Status:** todo
+**Status:** done
 
 ## What to build
 
@@ -16,11 +16,11 @@ Where the entity payload already contains direct creator metadata, keep that dat
 
 ## Acceptance criteria
 
-- [ ] The people section is backed by `POST /query-engine/execute`, not fake client data.
-- [ ] The correct person-to-media relationship schema is used for the current entity type.
-- [ ] The loader fetches all related people rows, not just the first page.
-- [ ] The UI shows one combined people list and does not expose separate cast and crew sections.
-- [ ] The section renders the backend role metadata for each person and preserves a stable order.
+- [x] The people section is backed by `POST /query-engine/execute`, not fake client data.
+- [x] The correct person-to-media relationship schema is used for the current entity type.
+- [x] The loader fetches all related people rows, not just the first page.
+- [x] The UI shows one combined people list and does not expose separate cast and crew sections.
+- [x] The section renders the backend role metadata for each person and preserves a stable order.
 
 ## User stories addressed
 
