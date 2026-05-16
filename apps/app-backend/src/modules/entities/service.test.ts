@@ -222,6 +222,7 @@ it.effect("does not reuse the bootstrap service with its no-op lifecycle dispatc
 it.effect(
 	"dispatches ensured entity lifecycle work after persistence with durable identity",
 	() => {
+		const inserts: unknown[] = [];
 		const dispatched: unknown[] = [];
 		const repository = makeEntitiesRepository({
 			lockUserEntityEnsureScopes: () => Effect.void,
@@ -234,20 +235,23 @@ it.effect(
 					propertiesSchema: { fields: {} },
 					id: EntitySchemaSlug.make("workout"),
 				}),
-			insertEntity: () =>
-				Effect.succeed({
-					wasInserted: true,
-					entity: {
-						createdAt: now,
-						updatedAt: now,
-						properties: {},
-						name: "Workout",
-						externalId: null,
-						providerId: null,
-						populatedAt: null,
-						id: EntityId.make("workout-1"),
-						entitySchemaSlug: EntitySchemaSlug.make("workout"),
-					},
+			insertEntity: (input) =>
+				Effect.sync(() => {
+					inserts.push(input);
+					return {
+						wasInserted: true,
+						entity: {
+							createdAt: now,
+							updatedAt: now,
+							properties: {},
+							name: "Workout",
+							externalId: null,
+							providerId: null,
+							populatedAt: null,
+							id: EntityId.make("workout-1"),
+							entitySchemaSlug: EntitySchemaSlug.make("workout"),
+						},
+					};
 				}),
 		});
 		const layer = Layer.mergeAll(
@@ -274,13 +278,25 @@ it.effect(
 					{ occurredAt: now, executionId: "sandbox-host-2" },
 				),
 			).toEqual([{ entityId: "workout-1", wasInserted: true }]);
-			expect(dispatched).toMatchObject([
+			expect(inserts).toEqual([
 				{
-					occurredAt: now,
-					recordId: "workout-1",
-					occurrenceId: "sandbox-host-2-ensure-user-entity-0",
+					scope: "user",
+					properties: {},
+					name: "Workout",
+					userId: user.id,
+					entitySchemaPluginId: null,
+					origin: { kind: "bootstrap" },
+					entitySchemaSlug: EntitySchemaSlug.make("workout"),
 				},
 			]);
+			expect(dispatched).toContainEqual(
+				expect.objectContaining({
+					occurredAt: now,
+					recordId: "workout-1",
+					origin: { kind: "bootstrap" },
+					occurrenceId: "sandbox-host-2-ensure-user-entity-0",
+				}),
+			);
 		}).pipe(Effect.provide(layer));
 	},
 );

@@ -26,13 +26,7 @@ import { RelationshipsRepository } from "#modules/relationships/repository";
 import { SavedViewsRepository } from "#modules/saved-views/repository";
 import { ManagedAssetsService } from "#modules/uploads/managed-assets/service";
 
-import { V2_BOOTSTRAP_SOURCE } from "../archive-v2/schemas";
 import { isDefaultSystemInstallation } from "../installation-state";
-
-type StructuralEntity = Pick<
-	PortableEntityRecord,
-	"name" | "properties" | "externalId" | "populatedAt" | "provider" | "entitySchemaSlug"
->;
 
 type StructuralRelationship = {
 	readonly sourceEntityId: string;
@@ -65,7 +59,6 @@ export type AccountCleanlinessState = {
 	readonly pluginState: ReadonlyArray<PluginInstallationState>;
 	readonly relationships: ReadonlyArray<StructuralRelationship>;
 	readonly expectedSavedViews: ReadonlyArray<SavedViewDefinition>;
-	readonly expectedBootstrapEntities: ReadonlyArray<StructuralEntity>;
 	readonly expectedNotificationSubscriptionSlugs: ReadonlyArray<string>;
 	readonly expectedBootstrapRelationships: ReadonlyArray<StructuralRelationship>;
 	readonly notificationSubscriptions: ReadonlyArray<StoredNotificationSubscription>;
@@ -98,17 +91,7 @@ export const classifyAccountCleanliness = (
 	if (!sameUnorderedRecords(state.relationships, state.expectedBootstrapRelationships)) {
 		return "relationships";
 	}
-	const entities = state.entities.map(
-		({ name, properties, externalId, populatedAt, provider, entitySchemaSlug }) => ({
-			name,
-			provider,
-			properties,
-			externalId,
-			populatedAt,
-			entitySchemaSlug,
-		}),
-	);
-	if (!sameUnorderedRecords(entities, state.expectedBootstrapEntities)) {
+	if (!state.entities.every(({ origin }) => origin?.kind === "bootstrap")) {
 		return "entities";
 	}
 	if (state.hasManagedAssets) {
@@ -204,15 +187,6 @@ export class BackupAccountCleanliness extends Context.Service<BackupAccountClean
 					const hasIntegrations = yield* integrations.hasAnyForUser(userId);
 					const hasNotificationChannels = yield* notifications.hasAnyForUser(userId);
 					const snapshot = definitions.getSnapshot();
-					const sourceDefinition = snapshot.entitySchemas[V2_BOOTSTRAP_SOURCE.entitySchemaSlug];
-					if (
-						sourceDefinition?.pluginSlug !== V2_BOOTSTRAP_SOURCE.pluginSlug ||
-						sourceDefinition.name !== V2_BOOTSTRAP_SOURCE.name
-					) {
-						return yield* new BackupBadRequest({
-							reason: { code: "bootstrap-definition-unavailable" },
-						});
-					}
 					const category = classifyAccountCleanliness({
 						profile,
 						hasEvents,
@@ -230,16 +204,6 @@ export class BackupAccountCleanliness extends Context.Service<BackupAccountClean
 						expectedNotificationSubscriptionSlugs: Object.values(snapshot.signalSchemas)
 							.filter(({ catalogState }) => catalogState === "active")
 							.map(({ slug }) => slug),
-						expectedBootstrapEntities: [
-							{
-								provider: null,
-								properties: {},
-								externalId: null,
-								populatedAt: null,
-								name: V2_BOOTSTRAP_SOURCE.name,
-								entitySchemaSlug: V2_BOOTSTRAP_SOURCE.entitySchemaSlug,
-							},
-						],
 					});
 					if (category) {
 						return yield* new BackupConflict({ reason: { code: "account-not-clean", category } });

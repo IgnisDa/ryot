@@ -138,19 +138,5 @@ describe("kernel purity", () => {
 			violations: [finding],
 			errors: ["Allowlist entry 1 exceeds the boot-wiring permanent scope"],
 		});
-		expect(
-			applyPurityAllowlist(
-				[finding],
-				[
-					{
-						term: "library",
-						kind: "permanent",
-						category: "v2-backup-bootstrap",
-						reason: "Wrong V1 compatibility scope",
-						path: "apps/app-backend/src/example.ts",
-					},
-				],
-			).errors,
-		).toEqual(["Allowlist entry 1 exceeds the v2-backup-bootstrap permanent scope"]);
 	});
 });

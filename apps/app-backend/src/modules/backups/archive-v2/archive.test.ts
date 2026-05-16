@@ -177,12 +177,13 @@ const eventsInput = (events: ReadonlyArray<V2Event>) => {
 };
 
 const entity = (): V2ArchiveRecords["entities"][number] => ({
+	origin: null,
+	id: "entity-1",
+	name: "Entity",
 	properties: {},
 	provider: null,
 	externalId: null,
 	populatedAt: null,
-	id: "entity-1",
-	name: "Entity",
 	createdAt: timestamp,
 	updatedAt: timestamp,
 	entitySchemaSlug: "entity",
@@ -233,6 +234,19 @@ it.effect("creates deterministic V2 archives and validates the round trip", () =
 		const validated = yield* validateV2Archive(asChunks(first));
 		expect(validated.manifest.version).toBe(2);
 		expect(validated.records).toEqual(records);
+		yield* validated.cleanup;
+	}).pipe(Effect.provide(BunFileSystem.layer)),
+);
+
+it.effect("encodes and retains entity creation origin", () =>
+	Effect.gen(function* () {
+		const origin = { kind: "bootstrap" as const };
+		const archive = yield* archiveBytes({
+			...input(),
+			records: { ...records, entities: [{ ...entity(), origin }] },
+		});
+		const validated = yield* validateV2Archive(asChunks(archive));
+		expect(validated.records.entities[0]?.origin).toEqual(origin);
 		yield* validated.cleanup;
 	}).pipe(Effect.provide(BunFileSystem.layer)),
 );

@@ -121,7 +121,7 @@ export class EntitiesService extends Context.Service<EntitiesService>()("Entitie
 
 		const createEntity = Effect.fn("EntitiesService.createEntity")(function* (
 			input: CreateAnyEntityInput,
-			origin?: AutomationOrigin,
+			origin = input.origin,
 		) {
 			if (input.scope === "user") {
 				const hasExternalId = input.externalId !== undefined;
@@ -153,6 +153,7 @@ export class EntitiesService extends Context.Service<EntitiesService>()("Entitie
 			const saved = yield* repository.insertEntity({
 				...input,
 				name,
+				origin,
 				properties,
 				entitySchemaPluginId: scope.pluginId ?? null,
 			});
@@ -213,6 +214,7 @@ export class EntitiesService extends Context.Service<EntitiesService>()("Entitie
 												scope: "user",
 												name: item.name,
 												properties: item.properties,
+												origin: { kind: "bootstrap" },
 												entitySchemaSlug: item.entitySchemaSlug,
 											});
 											return { entity, wasInserted: true } satisfies EnsuredUserEntity;

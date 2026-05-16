@@ -360,20 +360,21 @@ it.effect(
 						listUserEntitiesForBackup: () =>
 							Effect.succeed([
 								{
+									origin: null,
 									provider: null,
 									externalId: null,
 									populatedAt: null,
 									id: "private-entity",
 									name: "Private entity",
+									entitySchemaSlug: "private-record",
+									entitySchemaPluginId: "private-plugin-id",
+									createdAt: new Date("2026-08-24T12:00:00.000Z"),
+									updatedAt: new Date("2026-08-24T12:00:00.000Z"),
 									properties: {
 										token: "entity-secret",
 										title: "Private title",
 										relatedEntityId: "private-dependency",
 									},
-									entitySchemaSlug: "private-record",
-									entitySchemaPluginId: "private-plugin-id",
-									createdAt: new Date("2026-08-24T12:00:00.000Z"),
-									updatedAt: new Date("2026-08-24T12:00:00.000Z"),
 								},
 							]),
 						listGlobalEntitiesByIdsForBackup: (ids) =>
@@ -381,16 +382,17 @@ it.effect(
 								embeddedDependencyIds = ids;
 								return [
 									{
+										origin: null,
 										provider: null,
 										externalId: null,
 										populatedAt: null,
 										id: "private-dependency",
 										name: "Private dependency",
-										properties: { token: "dependency-secret", title: "Dependency" },
-										entitySchemaSlug: "private-record",
-										entitySchemaPluginId: "private-plugin-id",
 										createdAt: privateTimestamp,
 										updatedAt: privateTimestamp,
+										entitySchemaSlug: "private-record",
+										entitySchemaPluginId: "private-plugin-id",
+										properties: { token: "dependency-secret", title: "Dependency" },
 									},
 								];
 							}),
@@ -509,9 +511,10 @@ it.effect(
 			]);
 			expect(prepared.records.entities).toEqual([
 				expect.objectContaining({
+					origin: null,
 					id: "private-entity",
-					properties: { title: "Private title", relatedEntityId: "private-dependency" },
 					entitySchemaPluginKey: `user:private-plugin:${privateSourceHash}`,
+					properties: { title: "Private title", relatedEntityId: "private-dependency" },
 				}),
 			]);
 			expect(prepared.records.entityDependencies).toEqual([
