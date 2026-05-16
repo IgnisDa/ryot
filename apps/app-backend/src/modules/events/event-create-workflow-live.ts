@@ -1,9 +1,9 @@
 import type { SandboxRunError } from "@ryot/contract/errors";
-import { badRequest } from "@ryot/contract/errors";
 import { AutomationProperties } from "@ryot/contract/modules/automations/schemas";
-import type {
-	EventCreateFailureReason,
-	EventCreateItemOutcome,
+import {
+	EventCreateItemError,
+	type EventCreateFailureReason,
+	type EventCreateItemOutcome,
 } from "@ryot/contract/modules/events/schemas";
 import type { SandboxExecutionPayload } from "@ryot/contract/modules/sandbox/schemas";
 import { EntityId, EntitySchemaSlug, EventId, EventSchemaSlug } from "@ryot/contract/schema/brands";
@@ -119,7 +119,12 @@ const prepareItem = Effect.fn("prepareEventCreateItem")(function* (
 				kind: "Event",
 				properties: item.properties,
 				propertiesSchema: eventSchemaScope.propertiesSchema,
-			}).pipe(Effect.mapError((error) => badRequest(error.message)));
+			}).pipe(
+				Effect.tapError((error) =>
+					Effect.logWarning("invalid event properties", { issues: error.issues }),
+				),
+				Effect.mapError(() => new EventCreateItemError({ reason: { code: "invalid-properties" } })),
+			);
 			const properties = yield* decodeEventPolicyProperties(parsedProperties);
 
 			const policies = yield* automations.resolveActivePolicies({
@@ -257,18 +262,9 @@ export const runEventCreateWorkflow = Effect.fn("EventCreateWorkflow")(
 				);
 				return { policyResult, prepared, kind: "prepared" as const };
 			}).pipe(
-				Effect.catchTags({
-					BadRequest: (error) =>
-						Effect.succeed({
-							kind: "failed" as const,
-							reason: { kind: "bad_request" as const, message: error.message },
-						}),
-					NotFound: (error) =>
-						Effect.succeed({
-							kind: "failed" as const,
-							reason: { kind: "not_found" as const, message: error.message },
-						}),
-				}),
+				Effect.catchTag("EventCreateItemError", (error) =>
+					Effect.succeed({ kind: "failed" as const, reason: error.reason }),
+				),
 			);
 			if (attempt.kind === "failed") {
 				failure = { index: itemIndex, reason: attempt.reason };

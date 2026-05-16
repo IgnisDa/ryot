@@ -1,4 +1,4 @@
-import { BadRequest, InternalError, internalError } from "@ryot/contract/errors";
+import { InternalError, internalError } from "@ryot/contract/errors";
 import { BackupRunId, UserId } from "@ryot/contract/schema/brands";
 import { Context, DateTime, Effect, FileSystem, Layer, Result, Schema, Stream } from "effect";
 import { Activity, Workflow } from "effect/unstable/workflow";
@@ -9,7 +9,6 @@ import type { DurableSchema } from "#lib/infrastructure/workflow";
 import { ObjectStorageService } from "#modules/uploads/object-storage/service";
 
 import { createV1ArchiveStream, V1_ARCHIVE_LIMITS } from "../archive-v1/archive";
-import { BackupArchiveError } from "../archive-v1/error";
 import { BackupsRepository } from "../runs/repository";
 import { BackupExportSnapshot } from "./snapshot";
 
@@ -38,24 +37,15 @@ export const ExportBackupWorkflow = Workflow.make("ExportBackupWorkflow", {
 	payload: ExportBackupWorkflowPayload satisfies DurableSchema,
 });
 
-const safeMessage = (error: unknown) => {
-	if (error instanceof BackupArchiveError) {
-		return `${error.message} (${error.reason})`;
-	}
-	return error instanceof BadRequest ? error.message : null;
-};
-
-const asInternal = <A, E, R>(
-	effect: Effect.Effect<A, E, R>,
-	message: string,
-	preserveSafeMessage = false,
-) =>
+const asInternal = <A, E, R>(effect: Effect.Effect<A, E, R>, message: string) =>
 	effect.pipe(
-		Effect.mapError((error) => {
-			const safe = preserveSafeMessage ? safeMessage(error) : null;
-			return internalError(safe === null ? message : safe.slice(0, 500));
-		}),
-		Effect.catchDefect(() => Effect.fail(internalError(message))),
+		Effect.tapError((error) => Effect.logError("backup export operation failed", error)),
+		Effect.mapError(() => internalError(message)),
+		Effect.catchDefect((defect) =>
+			Effect.logError("backup export operation defect", defect).pipe(
+				Effect.andThen(Effect.fail(internalError(message))),
+			),
+		),
 	);
 
 type ExportBackupWorkflowOperationsValue = {
@@ -198,7 +188,6 @@ export const ExportBackupWorkflowOperationsLive = Layer.effect(
 					return { key, provider, expiresAt: expiresAt.toISOString() };
 				}).pipe(Effect.scoped),
 				"Backup export failed",
-				true,
 			);
 
 		const complete = (payload: ExportBackupWorkflowPayload, artifact: ExportArtifact) =>
@@ -221,7 +210,7 @@ export const ExportBackupWorkflowOperationsLive = Layer.effect(
 
 		const fail = (
 			payload: ExportBackupWorkflowPayload,
-			error: InternalError,
+			_error: InternalError,
 			artifact?: ExportArtifact,
 		) =>
 			asInternal(
@@ -235,7 +224,10 @@ export const ExportBackupWorkflowOperationsLive = Layer.effect(
 							.pipe(Effect.ignore);
 					}
 					if (!committed) {
-						yield* repository.failRun({ ...payload, error: error.message });
+						yield* repository.failRun({
+							...payload,
+							failure: { code: "unexpected-failure", operation: "export" },
+						});
 					}
 				}),
 				"Backup export failure could not be recorded",

@@ -1,6 +1,14 @@
 import { expect, it } from "@effect/vitest";
 import type { CurrentUserValue } from "@ryot/contract/auth-middleware";
-import { BadRequest, DbError, NotFound } from "@ryot/contract/errors";
+import { DbError } from "@ryot/contract/errors";
+import {
+	CollectionBadRequest,
+	CollectionNotFound,
+} from "@ryot/contract/modules/collections/schemas";
+import {
+	type CreateEventsResponse,
+	EventCreateItemError,
+} from "@ryot/contract/modules/events/schemas";
 import {
 	EntityId,
 	EntitySchemaSlug,
@@ -10,7 +18,7 @@ import {
 	UserId,
 } from "@ryot/contract/schema/brands";
 import type { AppSchema } from "@ryot/contract/schema/property-schema";
-import { Cause, Effect, Exit, Layer, Option } from "effect";
+import { Cause, Effect, Exit, Layer } from "effect";
 import { WorkflowEngine, WorkflowInstance } from "effect/unstable/workflow/WorkflowEngine";
 
 import { assertExitFails } from "#lib/test-utils/assertions";
@@ -195,11 +203,11 @@ const runAddWorkflow = (input: {
 	entityId: EntityId;
 	executionId?: string;
 	properties?: unknown;
-	eventError?: unknown;
-	eventResult?: unknown;
 	collectionId: EntityId;
-	eventResults?: unknown[];
 	dispatches?: CapturedDispatch[];
+	eventError?: EventCreateItemError;
+	eventResult?: CreateEventsResponse;
+	eventResults?: CreateEventsResponse[];
 	layer: ReturnType<typeof makeServiceLayer>;
 }) => {
 	const executionId = input.executionId ?? "add-workflow-execution-id";
@@ -243,7 +251,10 @@ it.effect("rejects creating a collection with an empty name", () => {
 		const service = yield* CollectionsService;
 		const exit = yield* Effect.exit(service.create(user, { name: "  " }));
 
-		assertExitFails(exit, new BadRequest({ message: "Collection name is required" }));
+		assertExitFails(
+			exit,
+			new CollectionBadRequest({ reason: { code: "name-required", field: "name" } }),
+		);
 	}).pipe(Effect.provide(layer));
 });
 
@@ -259,20 +270,15 @@ it.effect("rejects creating a collection with invalid membershipPropertiesSchema
 			}),
 		);
 
-		const errorMessage = exit.pipe(
-			Exit.match({
-				onSuccess: () => Option.none(),
-				onFailure: (cause) =>
-					Cause.findErrorOption(cause).pipe(
-						Option.map((e) => (e as { message?: string }).message ?? ""),
-					),
-			}),
-		);
-
-		expect(Option.isSome(errorMessage)).toBe(true);
-		expect(Option.getOrNull(errorMessage)).toContain(
-			"membershipPropertiesSchema must be a valid AppSchema",
-		);
+		expect(Exit.isFailure(exit)).toBe(true);
+		if (Exit.isFailure(exit)) {
+			expect(Cause.findErrorOption(exit.cause)).toMatchObject({
+				value: {
+					_tag: "CollectionBadRequest",
+					reason: { code: "invalid-membership-schema", field: "membershipPropertiesSchema" },
+				},
+			});
+		}
 	}).pipe(Effect.provide(layer));
 });
 
@@ -323,7 +329,7 @@ it.effect("rejects adding a collection to itself", () => {
 			}),
 		);
 
-		assertExitFails(exit, new BadRequest({ message: "Cannot add a collection to itself" }));
+		assertExitFails(exit, new CollectionBadRequest({ reason: { code: "circular-membership" } }));
 	});
 });
 
@@ -343,7 +349,12 @@ it.effect("returns not found when collection does not exist for user", () => {
 			}),
 		);
 
-		assertExitFails(exit, new NotFound({ message: "Collection not found" }));
+		assertExitFails(
+			exit,
+			new CollectionNotFound({
+				reason: { code: "collection-not-found", collectionId: EntityId.make("missing-id") },
+			}),
+		);
 	});
 });
 
@@ -354,12 +365,12 @@ it.effect("returns not found when entity does not exist", () => {
 			getCollectionById: () =>
 				Effect.succeed({
 					name: "Coll",
-					id: EntityId.make("coll-id"),
 					createdAt: now,
 					updatedAt: now,
 					properties: {},
 					externalId: null,
 					providerId: null,
+					id: EntityId.make("coll-id"),
 					entitySchemaSlug: EntitySchemaSlug.make("collection-schema-id"),
 				}),
 		}),
@@ -374,7 +385,12 @@ it.effect("returns not found when entity does not exist", () => {
 			}),
 		);
 
-		assertExitFails(exit, new NotFound({ message: "Entity not found" }));
+		assertExitFails(
+			exit,
+			new CollectionNotFound({
+				reason: { code: "entity-not-found", entityId: EntityId.make("missing-id") },
+			}),
+		);
 	});
 });
 
@@ -544,12 +560,15 @@ it.effect("compensates a newly inserted membership when the awaited policy fails
 				eventResult: {
 					count: 0,
 					outcomes: [],
-					failure: { index: 0, reason: { kind: "bad_request", message: "policy failed" } },
+					failure: { index: 0, reason: { code: "policy-failed" } },
 				},
 			}),
 		);
 
-		assertExitFails(exit, new BadRequest({ message: "policy failed" }));
+		assertExitFails(
+			exit,
+			new CollectionBadRequest({ reason: { code: "membership-event-failed" } }),
+		);
 		expect(compensations).toEqual([{ userId: user.id, relationshipId: "rel-id" }]);
 	});
 });
@@ -597,11 +616,14 @@ it.effect("compensates when child workflow execution fails", () => {
 				layer,
 				entityId: EntityId.make("entity-id"),
 				collectionId: EntityId.make("coll-id"),
-				eventError: new NotFound({ message: "child failed" }),
+				eventError: new EventCreateItemError({ reason: { code: "policy-failed" } }),
 			}),
 		);
 
-		assertExitFails(exit, new NotFound({ message: "child failed" }));
+		assertExitFails(
+			exit,
+			new CollectionBadRequest({ reason: { code: "membership-event-failed" } }),
+		);
 		expect(compensatedIds).toEqual(["rel-id"]);
 	});
 });
@@ -653,12 +675,15 @@ it.effect("compensates a non-inserting caller when the shared child fails", () =
 				eventResult: {
 					count: 0,
 					outcomes: [],
-					failure: { index: 0, reason: { kind: "bad_request", message: "policy failed" } },
+					failure: { index: 0, reason: { code: "policy-failed" } },
 				},
 			}),
 		);
 
-		assertExitFails(exit, new BadRequest({ message: "policy failed" }));
+		assertExitFails(
+			exit,
+			new CollectionBadRequest({ reason: { code: "membership-event-failed" } }),
+		);
 		expect(compensatedIds).toEqual(["other-request-rel-id"]);
 	});
 });
@@ -714,13 +739,13 @@ it.effect("can insert and run policy again after a compensated failure", () => {
 				}),
 		}),
 	});
-	const eventResults = [
+	const eventResults: CreateEventsResponse[] = [
 		{
 			count: 0,
 			outcomes: [],
-			failure: { index: 0, reason: { kind: "bad_request", message: "policy failed" } },
+			failure: { index: 0, reason: { code: "policy-failed" } },
 		},
-		{ count: 1, outcomes: [{ index: 0, status: "written", eventId: "event-1" }], failure: null },
+		{ count: 1, outcomes: [], failure: null },
 	];
 
 	return Effect.gen(function* () {
@@ -734,7 +759,10 @@ it.effect("can insert and run policy again after a compensated failure", () => {
 				collectionId: EntityId.make("coll-id"),
 			}),
 		);
-		assertExitFails(firstExit, new BadRequest({ message: "policy failed" }));
+		assertExitFails(
+			firstExit,
+			new CollectionBadRequest({ reason: { code: "membership-event-failed" } }),
+		);
 
 		const retried = yield* runAddWorkflow({
 			layer,
@@ -800,17 +828,9 @@ it.effect("retries compensation after a prior compensation failure", () => {
 				}),
 		}),
 	});
-	const eventResults = [
-		{
-			count: 0,
-			outcomes: [],
-			failure: { index: 0, reason: { kind: "bad_request", message: "policy failed" } },
-		},
-		{
-			count: 0,
-			outcomes: [],
-			failure: { index: 0, reason: { kind: "bad_request", message: "policy failed" } },
-		},
+	const eventResults: CreateEventsResponse[] = [
+		{ count: 0, outcomes: [], failure: { index: 0, reason: { code: "policy-failed" } } },
+		{ count: 0, outcomes: [], failure: { index: 0, reason: { code: "policy-failed" } } },
 	];
 
 	return Effect.gen(function* () {
@@ -837,7 +857,10 @@ it.effect("retries compensation after a prior compensation failure", () => {
 			}),
 		);
 
-		assertExitFails(retryExit, new BadRequest({ message: "policy failed" }));
+		assertExitFails(
+			retryExit,
+			new CollectionBadRequest({ reason: { code: "membership-event-failed" } }),
+		);
 		expect(deleteAttempts).toBe(2);
 		expect(currentRelationship).toBeNull();
 		expect(dispatches.map(({ executionId }) => executionId)).toEqual([
@@ -928,7 +951,16 @@ it.effect("returns not found when removing entity not in collection", () => {
 			}),
 		);
 
-		assertExitFails(exit, new NotFound({ message: "Entity is not in collection" }));
+		assertExitFails(
+			exit,
+			new CollectionNotFound({
+				reason: {
+					code: "membership-not-found",
+					entityId: EntityId.make("entity-id"),
+					collectionId: EntityId.make("coll-id"),
+				},
+			}),
+		);
 	}).pipe(Effect.provide(layer));
 });
 

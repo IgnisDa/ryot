@@ -1,7 +1,8 @@
 import { BunFileSystem } from "@effect/platform-bun";
 import { assert, expect, it } from "@effect/vitest";
-import { Conflict } from "@ryot/contract/errors";
 import type { PluginManifest } from "@ryot/contract/modules/plugins/manifest";
+import { PluginConflictError } from "@ryot/contract/modules/plugins/schemas";
+import { PluginSlug } from "@ryot/contract/schema/brands";
 import { Cause, Context, Deferred, Effect, Exit, Fiber, Layer, Option, Queue, Ref } from "effect";
 
 import { Database } from "#lib/infrastructure/db/service";
@@ -25,6 +26,11 @@ import {
 import { loadPluginSource } from "./source";
 import { fixtureManifest, fixturePackageRoot } from "./test-support";
 import type { NormalizedPlugin, StoredPlugin } from "./types";
+
+const failureOf = (exit: Exit.Exit<unknown, unknown>) => {
+	assert(Exit.isFailure(exit));
+	return Option.getOrThrow(Cause.findErrorOption(exit.cause));
+};
 
 const mockRepository = Layer.mock(PluginRepository);
 
@@ -406,10 +412,10 @@ it.effect("rejects user bootstrap declarations through ordinary runtime ingestio
 		});
 		const exit = yield* Effect.exit(ingestion.installPlugin(source));
 
-		expect(Exit.isFailure(exit)).toBe(true);
-		expect(String(exit)).toContain(
-			"User bootstrap declarations are allowed only for boot-configured trusted plugins",
-		);
+		expect(failureOf(exit)).toMatchObject({
+			_tag: "PluginRequestError",
+			reason: { code: "validation-failed" },
+		});
 		expect(persisted).toEqual([]);
 	}).pipe(Effect.provide(makeLayer({ persisted })));
 });
@@ -443,10 +449,10 @@ it.effect("rejects user bootstrap declarations for non-configured trusted plugin
 		const source = yield* loadPluginSource(fixturePackageRoot(), userBootstrapManifest());
 		const exit = yield* Effect.exit(ingestion.ingestTrustedPlugin(source));
 
-		expect(Exit.isFailure(exit)).toBe(true);
-		expect(String(exit)).toContain(
-			"User bootstrap declarations are allowed only for boot-configured trusted plugins",
-		);
+		expect(failureOf(exit)).toMatchObject({
+			_tag: "PluginRequestError",
+			reason: { code: "validation-failed" },
+		});
 		expect(persisted).toEqual([]);
 	}).pipe(Effect.provide(makeLayer({ persisted })));
 });
@@ -505,9 +511,10 @@ it.effect("rejects plugin signals that reference a kernel source-zero formatter"
 		});
 
 		const exit = yield* Effect.exit(ingestion.ingestPlugin(source));
-		expect(String(exit)).toContain(
-			"cannot reference kernel source-zero formatter: automation.notification",
-		);
+		expect(failureOf(exit)).toMatchObject({
+			_tag: "PluginRequestError",
+			reason: { code: "validation-failed" },
+		});
 	}).pipe(Effect.provide(makeLayer()));
 });
 
@@ -529,11 +536,10 @@ it.effect("rejects missing and non-automation notification formatters", () =>
 			});
 
 			const exit = yield* Effect.exit(ingestion.ingestPlugin(source));
-			expect(Exit.isFailure(exit)).toBe(true);
-			expect(String(exit)).toContain("BadRequest");
-			expect(String(exit)).toContain(
-				kind === "missing" ? "references missing script" : "automation script",
-			);
+			expect(failureOf(exit)).toMatchObject({
+				_tag: "PluginRequestError",
+				reason: { code: "validation-failed" },
+			});
 		}).pipe(Effect.provide(makeLayer())),
 	),
 );
@@ -550,7 +556,10 @@ it.effect("rejects plugin scripts that collide with kernel source zero", () => {
 		});
 
 		const exit = yield* Effect.exit(ingestion.ingestPlugin(source));
-		expect(String(exit)).toContain("Duplicate script slug: automation.notification");
+		expect(failureOf(exit)).toMatchObject({
+			_tag: "PluginRequestError",
+			reason: { code: "validation-failed" },
+		});
 	}).pipe(Effect.provide(makeLayer()));
 });
 
@@ -768,9 +777,8 @@ it.effect("fences uninstall while a queued import workflow references the plugin
 
 		assertExitFails(
 			refused,
-			new Conflict({
-				message:
-					"Plugin 'fixture' cannot be uninstalled while running or suspended workflows reference it",
+			new PluginConflictError({
+				reason: { code: "workflow-referenced", pluginSlug: PluginSlug.make("fixture") },
 			}),
 		);
 		expect(events).toEqual(["lock", "lock", "workflow-reference"]);
@@ -898,9 +906,8 @@ it.effect("serializes workflow pin registration with refused and successful unin
 				if (hasExistingReference) {
 					assertExitFails(
 						uninstallExit,
-						new Conflict({
-							message:
-								"Plugin 'fixture' cannot be uninstalled while running or suspended workflows reference it",
+						new PluginConflictError({
+							reason: { code: "workflow-referenced", pluginSlug: PluginSlug.make("fixture") },
 						}),
 					);
 					expect(dispatchExit).toEqual(Exit.succeed({ status: "registered" }));
@@ -944,8 +951,10 @@ it.effect("refuses uninstall while entities reference a declared schema", () => 
 		const ingestion = yield* PluginIngestionService;
 		const exit = yield* Effect.exit(ingestion.uninstallPlugin("fixture"));
 
-		expect(String(exit)).toContain("Conflict");
-		expect(String(exit)).toContain("entities reference its schemas");
+		expect(failureOf(exit)).toMatchObject({
+			_tag: "PluginConflictError",
+			reason: { code: "entity-referenced", pluginSlug: "fixture" },
+		});
 		expect(deactivated).toEqual([]);
 	}).pipe(
 		Effect.provide(
@@ -963,8 +972,8 @@ it.effect("refuses uninstall while integrations are owned by the plugin", () => 
 
 		assertExitFails(
 			exit,
-			new Conflict({
-				message: "Plugin 'fixture' cannot be uninstalled while integrations reference it",
+			new PluginConflictError({
+				reason: { code: "integration-referenced", pluginSlug: PluginSlug.make("fixture") },
 			}),
 		);
 		expect(deactivated).toEqual([]);
@@ -983,8 +992,10 @@ it.effect("refuses uninstall while another active plugin binds to its definition
 		const ingestion = yield* PluginIngestionService;
 		const exit = yield* Effect.exit(ingestion.uninstallPlugin("fixture"));
 
-		expect(String(exit)).toContain("Conflict");
-		expect(String(exit)).toContain("active plugin bindings reference its definitions");
+		expect(failureOf(exit)).toMatchObject({
+			_tag: "PluginConflictError",
+			reason: { code: "definition-referenced", pluginSlug: "fixture" },
+		});
 		expect(deactivated).toEqual([]);
 	}).pipe(Effect.provide(makeLayer({ deactivated, initialInstalled: [owner, dependent] })));
 });
@@ -1006,8 +1017,10 @@ it.effect("refuses uninstall while another active signal references its formatte
 		const ingestion = yield* PluginIngestionService;
 		const exit = yield* Effect.exit(ingestion.uninstallPlugin("formatter-owner"));
 
-		expect(String(exit)).toContain("Conflict");
-		expect(String(exit)).toContain("references missing script");
+		expect(failureOf(exit)).toMatchObject({
+			_tag: "PluginConflictError",
+			reason: { code: "definition-referenced", pluginSlug: "formatter-owner" },
+		});
 		expect(deactivated).toEqual([]);
 	}).pipe(Effect.provide(makeLayer({ deactivated, initialInstalled: [owner, dependent] })));
 });
@@ -1032,9 +1045,11 @@ it.effect("refuses uninstall while another plugin relationship targets its entit
 		expect(Exit.isFailure(exit)).toBe(true);
 		if (Exit.isFailure(exit)) {
 			const error = Option.getOrThrow(Cause.findErrorOption(exit.cause));
-			expect(error).toBeInstanceOf(Conflict);
+			expect(error).toMatchObject({
+				_tag: "PluginConflictError",
+				reason: { code: "definition-referenced", pluginSlug: "fixture" },
+			});
 		}
-		expect(String(exit)).toContain("active plugin schemas reference its definitions");
 		expect(loader.getSnapshot()).toBe(snapshot);
 		expect(yield* ingestion.listPlugins()).toEqual(plugins);
 		expect(deactivated).toEqual([]);
@@ -1051,8 +1066,10 @@ it.effect("refuses uninstall for a boot-configured plugin", () => {
 		const ingestion = yield* PluginIngestionService;
 		const exit = yield* Effect.exit(ingestion.uninstallPlugin(manifest.metadata.slug));
 
-		expect(String(exit)).toContain("Conflict");
-		expect(String(exit)).toContain("Boot-configured plugin");
+		expect(failureOf(exit)).toMatchObject({
+			_tag: "PluginConflictError",
+			reason: { code: "boot-configured", pluginSlug: "media" },
+		});
 	}).pipe(Effect.provide(makeLayer({ initialInstalled: [stored] })));
 });
 
@@ -1108,8 +1125,10 @@ it.effect("validates the full authoritative active set before exposing a cached 
 		const source = yield* loadPluginSource(fixturePackageRoot("diagnostic"), cachedManifest);
 		const exit = yield* Effect.exit(ingestion.ingestPlugin(source));
 
-		expect(String(exit)).toContain("BadRequest");
-		expect(String(exit)).toContain("Conflicting HTTP rate limit key 'catalog.shared'");
+		expect(failureOf(exit)).toMatchObject({
+			_tag: "PluginRequestError",
+			reason: { code: "validation-failed" },
+		});
 		expect(events).toEqual(["lock"]);
 		expect(loader.getSnapshot()).toBe(original);
 		expect(published).toEqual([]);
@@ -1126,10 +1145,15 @@ it.effect("validates the full authoritative active set before exposing a cached 
 	);
 });
 
-it.effect("rejects manifest, slash, collision, dangling binding, and compiler failures", () => {
-	const cases: ReadonlyArray<{ manifest: unknown; packageRoot: string }> = [
-		{ manifest: {}, packageRoot: fixturePackageRoot() },
+it.effect("returns structured validation and compiler diagnostics", () => {
+	const cases: ReadonlyArray<{
+		manifest: unknown;
+		packageRoot: string;
+		reasonCode: "validation-failed" | "compilation-failed";
+	}> = [
+		{ manifest: {}, packageRoot: fixturePackageRoot(), reasonCode: "validation-failed" },
 		{
+			reasonCode: "validation-failed",
 			packageRoot: fixturePackageRoot(),
 			manifest: {
 				...fixtureManifest(),
@@ -1137,6 +1161,7 @@ it.effect("rejects manifest, slash, collision, dangling binding, and compiler fa
 			},
 		},
 		{
+			reasonCode: "validation-failed",
 			packageRoot: fixturePackageRoot(),
 			manifest: {
 				...fixtureManifest(),
@@ -1144,6 +1169,7 @@ it.effect("rejects manifest, slash, collision, dangling binding, and compiler fa
 			},
 		},
 		{
+			reasonCode: "validation-failed",
 			packageRoot: fixturePackageRoot(),
 			manifest: {
 				...fixtureManifest(),
@@ -1155,7 +1181,11 @@ it.effect("rejects manifest, slash, collision, dangling binding, and compiler fa
 				},
 			},
 		},
-		{ manifest: fixtureManifest(), packageRoot: fixturePackageRoot("diagnostic") },
+		{
+			manifest: fixtureManifest(),
+			reasonCode: "compilation-failed",
+			packageRoot: fixturePackageRoot("diagnostic"),
+		},
 	];
 
 	return Effect.forEach(cases, (testCase) =>
@@ -1163,8 +1193,26 @@ it.effect("rejects manifest, slash, collision, dangling binding, and compiler fa
 			const ingestion = yield* PluginIngestionService;
 			const source = yield* loadPluginSource(testCase.packageRoot, testCase.manifest);
 			const exit = yield* Effect.exit(ingestion.ingestPlugin(source));
-			expect(Exit.isFailure(exit)).toBe(true);
-			expect(String(exit)).toContain("BadRequest");
+			const failure = failureOf(exit);
+			expect(failure).toMatchObject({
+				_tag: "PluginRequestError",
+				reason: { code: testCase.reasonCode, diagnostics: expect.any(Array) },
+			});
+			if (testCase.reasonCode === "compilation-failed") {
+				expect(failure).toMatchObject({
+					reason: {
+						diagnostics: [
+							{
+								line: 14,
+								code: "TS2322",
+								phase: "compile",
+								severity: "error",
+								file: "scripts/fixture.sandbox.ts",
+							},
+						],
+					},
+				});
+			}
 		}).pipe(Effect.provide(makeLayer())),
 	);
 });
@@ -1174,16 +1222,16 @@ it.effect("rejects non-canonical and missing plugin source paths as bad requests
 	const entry = manifest.scripts[0]?.entry;
 	assert(entry);
 	const cases = [
-		{ path: "", expected: "must not be empty", scriptEntry: entry },
-		{ path: "/script.ts", expected: "must be relative", scriptEntry: entry },
-		{ path: "scripts\\script.ts", expected: "must use POSIX separators", scriptEntry: entry },
-		{ path: "scripts//script.ts", expected: "must not contain empty", scriptEntry: entry },
-		{ path: "scripts/./script.ts", expected: "must not contain empty", scriptEntry: entry },
-		{ path: "scripts/../script.ts", expected: "must not contain empty", scriptEntry: entry },
-		{ path: entry, expected: "is missing from files", scriptEntry: "scripts/missing.ts" },
+		{ path: "", scriptEntry: entry },
+		{ path: "/script.ts", scriptEntry: entry },
+		{ path: "scripts\\script.ts", scriptEntry: entry },
+		{ path: "scripts//script.ts", scriptEntry: entry },
+		{ path: "scripts/./script.ts", scriptEntry: entry },
+		{ path: "scripts/../script.ts", scriptEntry: entry },
+		{ path: entry, scriptEntry: "scripts/missing.ts" },
 	] as const;
 
-	return Effect.forEach(cases, ({ expected, path, scriptEntry }) =>
+	return Effect.forEach(cases, ({ path, scriptEntry }) =>
 		Effect.gen(function* () {
 			const ingestion = yield* PluginIngestionService;
 			const source = yield* loadPluginSource(fixturePackageRoot(), manifest);
@@ -1195,23 +1243,28 @@ it.effect("rejects non-canonical and missing plugin source paths as bad requests
 					manifest: { ...manifest, scripts: [{ ...script, entry: scriptEntry }] },
 				}),
 			);
-			expect(Exit.isFailure(exit)).toBe(true);
-			expect(String(exit)).toContain("BadRequest");
-			expect(String(exit)).toContain(expected);
+			expect(failureOf(exit)).toMatchObject({
+				_tag: "PluginRequestError",
+				reason: { code: "validation-failed" },
+			});
 		}).pipe(Effect.provide(makeLayer())),
 	);
 });
 
 it.effect("rejects script slug collisions with another active plugin", () => {
-	const existingManifest = fixtureManifest();
-	existingManifest.metadata.slug = "other-plugin";
+	const manifest = fixtureManifest();
+	const existingManifest = {
+		...manifest,
+		metadata: { ...manifest.metadata, slug: "other-plugin" },
+	};
 	const existing = makeStoredPlugin(existingManifest, "existing-source-hash");
 	return Effect.gen(function* () {
 		const ingestion = yield* PluginIngestionService;
 		const source = yield* loadPluginSource(fixturePackageRoot(), fixtureManifest());
 		const exit = yield* Effect.exit(ingestion.ingestPlugin(source));
-		expect(Exit.isFailure(exit)).toBe(true);
-		expect(String(exit)).toContain("BadRequest");
-		expect(String(exit)).toContain("Duplicate script slug 'fixture.automation'");
+		expect(failureOf(exit)).toMatchObject({
+			reason: { code: "validation-failed" },
+			_tag: "PluginRequestError",
+		});
 	}).pipe(Effect.provide(makeLayer({ initialInstalled: [existing] })));
 });

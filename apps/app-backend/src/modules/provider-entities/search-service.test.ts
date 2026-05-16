@@ -1,6 +1,9 @@
 import { assert, expect, it } from "@effect/vitest";
 import type { CurrentUserValue } from "@ryot/contract/auth-middleware";
-import { BadRequest, NotFound } from "@ryot/contract/errors";
+import {
+	ProviderEntityBadRequest,
+	ProviderEntityNotFound,
+} from "@ryot/contract/modules/provider-entities/schemas";
 import { SandboxProviderId, SandboxScriptId, UserId } from "@ryot/contract/schema/brands";
 import type { AppSchema } from "@ryot/contract/schema/property-schema";
 import { Cause, Effect, Exit, Layer, Option } from "effect";
@@ -156,7 +159,7 @@ const makeLayer = (input?: {
 
 const assertFailureInstance = <A, E>(
 	exit: Exit.Exit<A, E>,
-	error: typeof BadRequest | typeof NotFound,
+	error: typeof ProviderEntityBadRequest | typeof ProviderEntityNotFound,
 ) => {
 	assert(Exit.isFailure(exit));
 	const failure = Cause.findErrorOption(exit.cause);
@@ -257,7 +260,7 @@ it.effect("keeps required static options validation for omitted options", () =>
 		const exit = yield* Effect.exit(
 			service.search(user, { page: 1, providerId, pageSize: 20, query: "book" }),
 		);
-		assertFailureInstance(exit, BadRequest);
+		assertFailureInstance(exit, ProviderEntityBadRequest);
 	}).pipe(
 		Effect.provide(
 			makeLayer({
@@ -420,7 +423,7 @@ it.effect("does not cache malformed or unmaterializable search-options results",
 		return Effect.gen(function* () {
 			const service = yield* ProviderEntitySearchService;
 			const exit = yield* Effect.exit(service.resolveSearchOptionsSchema(user, providerId));
-			assertFailureInstance(exit, BadRequest);
+			assertFailureInstance(exit, ProviderEntityBadRequest);
 			expect(redis.getWrites()).toBe(0);
 		}).pipe(
 			Effect.provide(
@@ -474,7 +477,7 @@ it.effect("rejects filtered dynamic searches when options resolution fails", () 
 				options: { status: "active" },
 			}),
 		);
-		assertFailureInstance(exit, BadRequest);
+		assertFailureInstance(exit, ProviderEntityBadRequest);
 	}).pipe(
 		Effect.provide(
 			makeLayer({ optionsSchema: dynamicOptionsSchema, searchOptionsError: "script_unavailable" }),
@@ -496,7 +499,7 @@ it.effect("validates dynamic option membership before provider search execution"
 				options: { status: "unknown" },
 			}),
 		);
-		assertFailureInstance(exit, BadRequest);
+		assertFailureInstance(exit, ProviderEntityBadRequest);
 		expect(executions).toHaveLength(1);
 		expect(executions[0]?.scriptId).toBe(searchOptionsScript.id);
 	}).pipe(
@@ -535,7 +538,7 @@ it.effect("rejects invalid provider search options before execution", () => {
 				options: { passRawQuery: "yes" },
 			}),
 		);
-		assertFailureInstance(exit, BadRequest);
+		assertFailureInstance(exit, ProviderEntityBadRequest);
 		expect(executions).toBe(0);
 	}).pipe(
 		Effect.provide(
@@ -561,7 +564,7 @@ it.effect("rejects options when the provider operation has no options schema", (
 		const exit = yield* Effect.exit(
 			service.search(user, { page: 1, providerId, options: {}, pageSize: 20, query: "book" }),
 		);
-		assertFailureInstance(exit, BadRequest);
+		assertFailureInstance(exit, ProviderEntityBadRequest);
 	}).pipe(Effect.provide(makeLayer())),
 );
 
@@ -571,7 +574,7 @@ it.effect("rejects a missing provider", () =>
 		const exit = yield* Effect.exit(
 			service.search(user, { providerId, query: "book", page: 1, pageSize: 20 }),
 		);
-		assertFailureInstance(exit, NotFound);
+		assertFailureInstance(exit, ProviderEntityNotFound);
 	}).pipe(Effect.provide(makeLayer({ provider: null }))),
 );
 
@@ -581,7 +584,7 @@ it.effect("rejects an inactive provider", () =>
 		const exit = yield* Effect.exit(
 			service.search(user, { providerId, query: "book", page: 1, pageSize: 20 }),
 		);
-		assertFailureInstance(exit, NotFound);
+		assertFailureInstance(exit, ProviderEntityNotFound);
 	}).pipe(Effect.provide(makeLayer({ searchError: "inactive_provider" }))),
 );
 
@@ -591,7 +594,7 @@ it.effect("rejects a provider without a search operation", () =>
 		const exit = yield* Effect.exit(
 			service.search(user, { providerId, query: "book", page: 1, pageSize: 20 }),
 		);
-		assertFailureInstance(exit, BadRequest);
+		assertFailureInstance(exit, ProviderEntityBadRequest);
 	}).pipe(Effect.provide(makeLayer({ searchError: "unsupported_operation" }))),
 );
 
@@ -601,7 +604,7 @@ it.effect("fails the whole request when provider execution fails", () =>
 		const exit = yield* Effect.exit(
 			service.search(user, { page: 1, providerId, pageSize: 20, query: "book" }),
 		);
-		assertFailureInstance(exit, BadRequest);
+		assertFailureInstance(exit, ProviderEntityBadRequest);
 	}).pipe(
 		Effect.provide(
 			makeLayer({
@@ -623,7 +626,7 @@ it.effect("fails the whole request when provider output cannot be decoded", () =
 		const exit = yield* Effect.exit(
 			service.search(user, { providerId, query: "book", page: 1, pageSize: 20 }),
 		);
-		assertFailureInstance(exit, BadRequest);
+		assertFailureInstance(exit, ProviderEntityBadRequest);
 	}).pipe(
 		Effect.provide(
 			makeLayer({

@@ -240,13 +240,13 @@ it.effect(
 				expect.objectContaining({
 					itemIndex: 0,
 					stage: "source_fetch",
-					message: "Could not parse date/time value",
+					reason: { code: "source-fetch-failed" },
 				}),
 				expect.objectContaining({
 					itemIndex: 2,
 					stage: "database_commit",
 					entitySchemaSlug: "show",
-					message: "membership write failed",
+					reason: { code: "database-commit-failed" },
 				}),
 			]);
 			expect(entities).toEqual([
@@ -537,14 +537,8 @@ it.effect("validates relationship endpoint schemas before generic import writes"
 
 		expect(result).toEqual({ failedItems: 2, importedItems: 1, processedItems: 3 });
 		expect(failures).toEqual([
-			expect.objectContaining({
-				itemIndex: 0,
-				message: "Import relationship source entity schema does not match",
-			}),
-			expect.objectContaining({
-				itemIndex: 1,
-				message: "Import relationship target entity schema does not match",
-			}),
+			expect.objectContaining({ itemIndex: 0, reason: { code: "database-commit-failed" } }),
+			expect.objectContaining({ itemIndex: 1, reason: { code: "database-commit-failed" } }),
 		]);
 		expect(entityWrites).toEqual(["source-2", "target-2"]);
 		expect(relationshipWrites).toEqual([

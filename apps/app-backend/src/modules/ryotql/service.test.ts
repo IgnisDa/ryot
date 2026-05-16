@@ -230,7 +230,7 @@ it.effect("validates the complete document before opening a transaction", () => 
 		const service = yield* RyotQLService;
 		const error = yield* Effect.flip(service.executeForUser("user-1", null, invalid));
 
-		expect(error.message).toBe("Query 'invalid': Unknown table 'auth'");
+		expect(error).toMatchObject({ reason: { code: "invalid-query" } });
 		expect(statements).toEqual([]);
 	}).pipe(Effect.provide(makeServiceLayer(statements)));
 });
@@ -870,9 +870,7 @@ it.effect("denies application tables to plugin execution before opening a transa
 			),
 		);
 
-		expect(error.message).toBe(
-			"Query 'plugins': Table 'plugin' is not available to plugin execution",
-		);
+		expect(error).toMatchObject({ reason: { code: "invalid-query" } });
 		expect(statements).toEqual([]);
 	}).pipe(Effect.provide(makeServiceLayer(statements)));
 });
@@ -1237,6 +1235,6 @@ it.effect("maps statement timeouts to a bad request", () => {
 			service.executeForUser("user-1", null, allCollectionsRecipe().document),
 		);
 
-		expect(error.message).toBe("Query exceeded the maximum execution time of 30000ms");
+		expect(error).toMatchObject({ reason: { code: "query-timeout", limitMs: 30_000 } });
 	}).pipe(Effect.provide(layer));
 });

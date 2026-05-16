@@ -1,9 +1,11 @@
-import { BadRequest, DbError, NotFound } from "@ryot/contract/errors";
+import { DbError } from "@ryot/contract/errors";
 import { AutomationOrigin } from "@ryot/contract/modules/automations/schemas";
 import {
 	CreateEventItem,
 	CreateEventsResponse,
 	EventCreateOrigin,
+	EventCreateItemError,
+	EventsBadRequest,
 } from "@ryot/contract/modules/events/schemas";
 import { ImportRunId, IntegrationId, UserId } from "@ryot/contract/schema/brands";
 import { generateId } from "better-auth";
@@ -12,7 +14,11 @@ import { Workflow } from "effect/unstable/workflow";
 
 import type { DurableSchema } from "#lib/infrastructure/workflow";
 
-export const EventCreateWorkflowError = Schema.Union([BadRequest, DbError, NotFound]);
+export const EventCreateWorkflowError = Schema.Union([
+	DbError,
+	EventCreateItemError,
+	EventsBadRequest,
+]);
 
 export const EventCreateWorkflowPayload = Schema.Struct({
 	userId: UserId,

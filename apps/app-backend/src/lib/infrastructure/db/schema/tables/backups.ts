@@ -1,19 +1,28 @@
 import type {
 	BackupRunArtifactProvider,
+	BackupRunFailure,
 	BackupRunKind,
 } from "@ryot/contract/modules/backups/schemas";
 import type { RunStatus } from "@ryot/contract/schema/run-status";
 import { generateId } from "better-auth";
 import { sql } from "drizzle-orm";
-import { index, integer, snakeCase, text, timestamp, uniqueIndex } from "drizzle-orm/pg-core";
+import {
+	index,
+	integer,
+	jsonb,
+	snakeCase,
+	text,
+	timestamp,
+	uniqueIndex,
+} from "drizzle-orm/pg-core";
 
 import { user } from "./auth";
 
 export const backupRun = snakeCase.table(
 	"backup_run",
 	{
-		error: text(),
 		artifactKey: text(),
+		failure: jsonb().$type<BackupRunFailure>(),
 		kind: text().notNull().$type<BackupRunKind>(),
 		progress: integer().notNull().default(0),
 		expiresAt: timestamp({ withTimezone: true }),

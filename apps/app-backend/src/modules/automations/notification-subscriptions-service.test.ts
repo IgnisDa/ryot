@@ -1,6 +1,9 @@
 import { expect, it } from "@effect/vitest";
-import { Conflict, NotFound } from "@ryot/contract/errors";
-import { InstallNotificationRuleBody } from "@ryot/contract/modules/automations/schemas";
+import {
+	AutomationConflictError,
+	AutomationNotFoundError,
+	InstallNotificationRuleBody,
+} from "@ryot/contract/modules/automations/schemas";
 import {
 	AutomationRuleId,
 	SandboxScriptId,
@@ -126,7 +129,12 @@ it.effect("rejects hidden catalog schemas and duplicate installs", () => {
 				hiddenLayer,
 			),
 		);
-		assertExitFails(hidden, new NotFound({ message: "Signal schema not found" }));
+		assertExitFails(
+			hidden,
+			new AutomationNotFoundError({
+				reason: { code: "signal-schema-not-found", signalSchemaSlug },
+			}),
+		);
 
 		const duplicate = yield* Effect.exit(
 			Effect.provide(
@@ -136,7 +144,10 @@ it.effect("rejects hidden catalog schemas and duplicate installs", () => {
 				duplicateLayer,
 			),
 		);
-		assertExitFails(duplicate, new Conflict({ message: "Notification rule already installed" }));
+		assertExitFails(
+			duplicate,
+			new AutomationConflictError({ reason: { code: "rule-already-installed", signalSchemaSlug } }),
+		);
 	});
 });
 
@@ -155,7 +166,7 @@ it.effect("does not reveal inaccessible notification state through mutations", (
 		]) {
 			assertExitFails(
 				yield* Effect.exit(mutation),
-				new NotFound({ message: "Automation rule not found" }),
+				new AutomationNotFoundError({ reason: { code: "rule-not-found", ruleId } }),
 			);
 		}
 	}).pipe(Effect.provide(layer));
@@ -178,7 +189,7 @@ it.effect("does not mutate state whose signal definition is no longer registered
 		const service = yield* NotificationSubscriptionsService;
 		assertExitFails(
 			yield* Effect.exit(service.setRuleActive({ userId, ruleId, isActive: false })),
-			new NotFound({ message: "Automation rule not found" }),
+			new AutomationNotFoundError({ reason: { code: "rule-not-found", ruleId } }),
 		);
 		expect(mutationAttempted).toBe(false);
 	}).pipe(Effect.provide(layer));

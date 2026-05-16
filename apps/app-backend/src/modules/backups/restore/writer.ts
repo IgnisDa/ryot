@@ -8,7 +8,7 @@ import {
 	type UserId,
 } from "@ryot/contract/schema/brands";
 import type { AppSchema } from "@ryot/contract/schema/property-schema";
-import { Context, Effect, Layer, Stream } from "effect";
+import { Context, Data, Effect, Layer, Stream } from "effect";
 
 import { AuthRepository } from "#modules/auth/repository";
 import { AutomationsRepository } from "#modules/automations/repository";
@@ -39,6 +39,10 @@ import {
 	type V1ArchiveRecords,
 	type V1EntityDependency,
 } from "../archive-v1/schemas";
+
+export class RequiredBackupPluginUnavailable extends Data.TaggedError(
+	"RequiredBackupPluginUnavailable",
+)<{ readonly pluginSlug: string; readonly requiredVersion: string }> {}
 
 const parseDate = (value: string) => new Date(value);
 
@@ -128,9 +132,10 @@ export class BackupRestoreWriter extends Context.Service<BackupRestoreWriter>()(
 					const declared = new Map(required.map(({ slug, version }) => [slug, version]));
 					for (const plugin of required) {
 						if (installed.get(plugin.slug) !== plugin.version) {
-							return yield* badRequest(
-								`Backup requires plugin '${plugin.slug}' at version '${plugin.version}'`,
-							);
+							return yield* new RequiredBackupPluginUnavailable({
+								pluginSlug: plugin.slug,
+								requiredVersion: plugin.version,
+							});
 						}
 					}
 					const referenced = new Set<string>();
