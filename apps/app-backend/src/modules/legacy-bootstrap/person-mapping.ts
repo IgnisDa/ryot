@@ -110,6 +110,7 @@ export const companyEntityTargets = [
 		sandboxScriptSlug: "company.giant-bomb",
 	},
 	{ source: "hardcover", entitySchemaSlug: "company", sandboxScriptSlug: "company.hardcover" },
+	{ source: "igdb", entitySchemaSlug: "company", sandboxScriptSlug: "company.igdb" },
 	{ source: "tmdb", entitySchemaSlug: "company", sandboxScriptSlug: "company.tmdb" },
 	{ source: "tvdb", entitySchemaSlug: "company", sandboxScriptSlug: "company.tvdb" },
 ] as const satisfies readonly EntityMigrationTarget[];
