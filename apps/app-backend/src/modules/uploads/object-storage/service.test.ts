@@ -12,38 +12,30 @@ import { ObjectStorageService } from "./service";
 const mockLocalStorage = Layer.mock(LocalStorageService);
 const mockS3 = Layer.mock(S3Service);
 
-const makeSelectionLayer = (
-	isLocalConfigured: (kind: "permanent" | "temporary") => boolean,
-	isS3Configured: boolean,
-) =>
+const makeSelectionLayer = (isS3Configured: boolean) =>
 	ObjectStorageService.layer.pipe(
-		Layer.provide(
-			Layer.mergeAll(
-				mockLocalStorage({ isConfiguredForKind: isLocalConfigured }),
-				mockS3({ isConfigured: isS3Configured }),
-			),
-		),
+		Layer.provide(Layer.mergeAll(mockLocalStorage({}), mockS3({ isConfigured: isS3Configured }))),
 	);
 
 it.effect("always selects local storage for temporary uploads", () =>
 	Effect.gen(function* () {
 		const service = yield* ObjectStorageService;
 		expect(yield* service.selectStorageProvider("temporary")).toBe("local");
-	}).pipe(Effect.provide(makeSelectionLayer(() => true, true))),
+	}).pipe(Effect.provide(makeSelectionLayer(true))),
 );
 
 it.effect("prefers S3 storage for permanent uploads", () =>
 	Effect.gen(function* () {
 		const service = yield* ObjectStorageService;
 		expect(yield* service.selectStorageProvider("permanent")).toBe("s3");
-	}).pipe(Effect.provide(makeSelectionLayer(() => true, true))),
+	}).pipe(Effect.provide(makeSelectionLayer(true))),
 );
 
 it.effect("falls back to local storage for permanent uploads", () =>
 	Effect.gen(function* () {
 		const service = yield* ObjectStorageService;
 		expect(yield* service.selectStorageProvider("permanent")).toBe("local");
-	}).pipe(Effect.provide(makeSelectionLayer(() => true, false))),
+	}).pipe(Effect.provide(makeSelectionLayer(false))),
 );
 
 it.effect("bounds S3 writes and deletes a partial object", () => {
@@ -51,7 +43,7 @@ it.effect("bounds S3 writes and deletes a partial object", () => {
 	const layer = ObjectStorageService.layer.pipe(
 		Layer.provide(
 			Layer.mergeAll(
-				mockLocalStorage({ isConfiguredForKind: () => true }),
+				mockLocalStorage({}),
 				mockS3({
 					isConfigured: true,
 					writeObject: (_key, stream) =>

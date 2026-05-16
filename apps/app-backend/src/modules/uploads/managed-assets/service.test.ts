@@ -29,7 +29,7 @@ const makeLayer = (locators: ReadonlyArray<{ key: string; type: "local" | "s3" }
 		Layer.provide(
 			Layer.mergeAll(
 				databaseLayer,
-				mockLocalStorage({ isConfiguredForKind: () => true }),
+				mockLocalStorage({}),
 				mockObjectStorage({}),
 				mockS3({ isConfigured: true }),
 				mockUserLifecycleGuard({ isActive: () => Effect.succeed(false) }),
@@ -88,7 +88,7 @@ it.effect("assigns concurrent staging ownership only to the conditional-create w
 		Layer.provide(
 			Layer.mergeAll(
 				databaseLayer,
-				mockLocalStorage({ isConfiguredForKind: () => true }),
+				mockLocalStorage({}),
 				mockS3({ isConfigured: true }),
 				mockUserLifecycleGuard({ isActive: () => Effect.succeed(false) }),
 				mockManagedAssetsRepository({ getByLocator: () => Effect.succeed(null) }),
@@ -181,7 +181,7 @@ it.effect("blocks managed asset registration while the owner lifecycle is active
 		Layer.provide(
 			Layer.mergeAll(
 				Layer.succeed(Database, database),
-				mockLocalStorage({ isConfiguredForKind: () => true }),
+				mockLocalStorage({}),
 				mockObjectStorage({}),
 				mockS3({ isConfigured: true }),
 				mockUserLifecycleGuard({ isActive: () => Effect.succeed(true) }),
@@ -235,7 +235,7 @@ it.effect(
 			Layer.provide(
 				Layer.mergeAll(
 					Layer.succeed(Database, database),
-					mockLocalStorage({ isConfiguredForKind: () => true }),
+					mockLocalStorage({}),
 					mockS3({ isConfigured: true }),
 					mockUserLifecycleGuard({ isActive: () => Effect.succeed(false) }),
 					mockManagedAssetsRepository({
