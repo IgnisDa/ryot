@@ -4,7 +4,7 @@
 
 **Type:** AFK
 
-**Status:** todo
+**Status:** done
 
 ## What to build
 
@@ -14,13 +14,13 @@ This slice proves relationship-centric querying directly, separate from nested r
 
 ## Acceptance criteria
 
-- [ ] A root relationship source can return relationship rows for one or more relationship schemas.
-- [ ] Relationship root sources require both `sourceEntity` and `targetEntity` endpoint declarations.
-- [ ] Relationship row fields can reference the relationship alias and endpoint entity aliases.
-- [ ] Relationship properties require schema-qualified property field selectors.
-- [ ] Relationship system fields such as ID, source entity ID, target entity ID, and created timestamp are supported.
-- [ ] Relationship sources enforce visibility on relationship rows and both endpoint entities.
-- [ ] E2E tests query relationship rows, project endpoint names, sort by relationship created timestamp, and verify user isolation.
+- [x] A root relationship source can return relationship rows for one or more relationship schemas.
+- [x] Relationship root sources require both `sourceEntity` and `targetEntity` endpoint declarations.
+- [x] Relationship row fields can reference the relationship alias and endpoint entity aliases.
+- [x] Relationship properties require schema-qualified property field selectors.
+- [x] Relationship system fields such as ID, source entity ID, target entity ID, and created timestamp are supported.
+- [x] Relationship sources enforce visibility on relationship rows and both endpoint entities.
+- [x] E2E tests query relationship rows, project endpoint names, sort by relationship created timestamp, and verify user isolation.
 
 ## User stories addressed
 
