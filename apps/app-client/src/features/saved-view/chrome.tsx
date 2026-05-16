@@ -72,9 +72,6 @@ export function SavedViewHeader(props: {
 
 	return (
 		<Box>
-			<Text className="text-[10px] font-sans uppercase tracking-[2px] text-muted-foreground">
-				Saved view
-			</Text>
 			<Text className="mt-1 text-[32px] leading-[36px] font-heading-semibold tracking-[-0.4px] text-foreground">
 				{props.name}
 			</Text>
