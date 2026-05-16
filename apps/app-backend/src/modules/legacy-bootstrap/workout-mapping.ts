@@ -138,8 +138,7 @@ END $$;
 `;
 
 // Dropped fields: workout.duration (derivable from endedAt - startedAt), workout.summary
-// (computed aggregate, not stored in V2), workout.repeated_from (no V2 relationship schema —
-// see AGENTS.md "Ignored For Now (workout)").
+// (computed aggregate, not stored in V2).
 // Timestamps are converted to ISO 8601 UTC strings via to_char(...AT TIME ZONE 'UTC', ...).
 export const buildWorkoutMigrationSql = (workoutEntitySchemaId: string) => `
 DO $$
@@ -350,6 +349,49 @@ BEGIN
 	GET DIAGNOSTICS rows_inserted = ROW_COUNT;
 
 	RAISE NOTICE 'workout -> workout-to-workout-template relationship: % row(s) migrated (% seconds elapsed)',
+		rows_inserted,
+		round(extract(epoch from clock_timestamp() - started_at)::numeric, 1);
+END $$;
+`;
+
+// Deterministic relationship id = md5(workout_id ':workout-repeated-from') for
+// restart-safety. The relationship table unique constraint on (user_id, source_entity_id,
+// target_entity_id, relationship_schema_id) also catches duplicates via ON CONFLICT DO NOTHING.
+export const buildWorkoutRepeatedFromRelationshipMigrationSql = (
+	workoutRepeatedFromRelationshipSchemaId: string,
+) => `
+DO $$
+DECLARE
+	rows_inserted int;
+	started_at timestamptz := clock_timestamp();
+BEGIN
+	IF to_regclass('"workout"') IS NULL THEN
+		RAISE EXCEPTION 'Expected workout table to exist in a V1 database but it was not found';
+	END IF;
+
+	RAISE NOTICE 'workout -> workout-repeated-from relationship: migration started (% seconds elapsed)', 0.0;
+
+	INSERT INTO "relationship" (
+		"id",
+		"user_id",
+		"source_entity_id",
+		"target_entity_id",
+		"relationship_schema_id",
+		"properties"
+	)
+	SELECT
+		md5(w.id || ':workout-repeated-from'),
+		w.user_id,
+		w.id,
+		w.repeated_from,
+		${quoteSqlString(workoutRepeatedFromRelationshipSchemaId)},
+		'{}'::jsonb
+	FROM "workout" w
+	WHERE w.repeated_from IS NOT NULL
+	ON CONFLICT DO NOTHING;
+	GET DIAGNOSTICS rows_inserted = ROW_COUNT;
+
+	RAISE NOTICE 'workout -> workout-repeated-from relationship: % row(s) migrated (% seconds elapsed)',
 		rows_inserted,
 		round(extract(epoch from clock_timestamp() - started_at)::numeric, 1);
 END $$;
