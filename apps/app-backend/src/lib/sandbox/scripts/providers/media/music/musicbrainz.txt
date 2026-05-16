@@ -223,6 +223,22 @@ driver("details", async function (context) {
     .filter((p) => p !== null);
 
   const releases = Array.isArray(data?.releases) ? data.releases : [];
+  const groups = [];
+  const seenGroups = new Set();
+  for (const release of releases) {
+    const releaseGroup = release?.["release-group"];
+    const releaseGroupId = getString(releaseGroup?.id);
+    const releaseGroupTitle = getString(releaseGroup?.title);
+    if (!releaseGroupId || !releaseGroupTitle || seenGroups.has(releaseGroupId)) {
+      continue;
+    }
+    seenGroups.add(releaseGroupId);
+    groups.push({
+      name: releaseGroupTitle,
+      externalId: releaseGroupId,
+      scriptSlug: "music-group.musicbrainz",
+    });
+  }
   const coverUrl = await findCoverArtFromReleases(releases);
 
   const durationMs =
@@ -236,6 +252,7 @@ driver("details", async function (context) {
     name: title,
     properties: {
       people,
+      groups,
       duration,
       genres: [],
       publishYear,
