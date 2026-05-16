@@ -2,10 +2,21 @@ import { assert, expect, it } from "@effect/vitest";
 import type { CurrentUserValue } from "@ryot/contract/auth-middleware";
 import { BadRequest } from "@ryot/contract/errors";
 import { UserId } from "@ryot/contract/schema/brands";
-import { Cause, Effect, Exit, Inspectable, Layer, Option, FileSystem } from "effect";
+import {
+	Cause,
+	Effect,
+	Exit,
+	Inspectable,
+	Layer,
+	Option,
+	FileSystem,
+	Path,
+	Redacted,
+} from "effect";
 import { Multipart } from "effect/unstable/http";
 import Redis from "ioredis";
 
+import { LocalStorageService } from "#lib/infrastructure/local-storage";
 import { RedisService, redisKeys } from "#lib/infrastructure/redis";
 import { S3Service } from "#lib/infrastructure/s3";
 import { assertExitFails } from "#lib/test-utils/assertions";
@@ -35,6 +46,7 @@ const fakeFile = (name: string, contentType: string): Multipart.PersistedFile =>
 });
 
 const mockS3Service = Layer.mock(S3Service);
+const mockLocalStorageService = Layer.mock(LocalStorageService);
 
 type S3Overrides = Omit<Parameters<typeof mockS3Service>[0], "_tag" | "isConfigured"> & {
 	isConfigured?: Parameters<typeof mockS3Service>[0]["isConfigured"];
@@ -42,6 +54,14 @@ type S3Overrides = Omit<Parameters<typeof mockS3Service>[0], "_tag" | "isConfigu
 
 const makeS3Layer = (overrides: S3Overrides = {}) =>
 	mockS3Service({ isConfigured: true, ...overrides });
+
+type LocalStorageOverrides = Omit<
+	Parameters<typeof mockLocalStorageService>[0],
+	"_tag" | "isConfigured"
+> & { isConfigured?: Parameters<typeof mockLocalStorageService>[0]["isConfigured"] };
+
+const makeLocalStorageLayer = (overrides: LocalStorageOverrides = {}) =>
+	mockLocalStorageService({ isConfigured: true, ...overrides });
 
 const makeRedisClient = (): RedisService["Service"]["client"] =>
 	Object.assign(Object.create(Redis.prototype), {
@@ -79,20 +99,147 @@ const defaultFileInfo = {
 const makeUploadsLayer = (
 	options: {
 		fsLayer?: ReturnType<typeof makeFsLayer>;
-		redisService?: ReturnType<typeof makeRedisLayer>;
 		s3Service?: ReturnType<typeof makeS3Layer>;
+		redisService?: ReturnType<typeof makeRedisLayer>;
+		config?: Parameters<typeof makeAppConfigLayer>[0];
+		localStorageService?: ReturnType<typeof makeLocalStorageLayer>;
 	} = {},
-) =>
-	UploadsService.layer.pipe(
+) => {
+	const appConfig = makeAppConfigLayer({ ...options.config, tmpDir: TEST_TMP_DIR });
+	const fsLayer = options.fsLayer ?? makeFsLayer();
+	const localStorage = LocalStorageService.layer.pipe(
+		Layer.provide(Layer.mergeAll(appConfig, fsLayer, Path.layer)),
+	);
+	return UploadsService.layer.pipe(
 		Layer.provide(
 			Layer.mergeAll(
-				makeAppConfigLayer({ tmpDir: TEST_TMP_DIR }),
+				appConfig,
+				fsLayer,
 				options.s3Service ?? makeS3Layer(),
 				options.redisService ?? makeRedisLayer(),
-				options.fsLayer ?? makeFsLayer(),
+				options.localStorageService ?? localStorage,
 			),
 		),
 	);
+};
+
+it.effect("creates and indexes a local permanent upload intent", () => {
+	const stored = new Map<string, string>();
+	const indexed: Array<{ key: string; score: number; member: string }> = [];
+
+	return Effect.gen(function* () {
+		const service = yield* UploadsService;
+		const result = yield* service.createUploadIntent(user, {
+			provider: "local",
+			kind: "permanent",
+			fileName: "photo.png",
+			contentType: "image/png",
+		});
+
+		expect(result.intentId).toBeTypeOf("string");
+		expect(result.method).toBe("PUT");
+		expect(result.uploadUrl).toMatch(
+			new RegExp(`^/uploads/local/${result.intentId}\\?expires=\\d+&signature=signature$`),
+		);
+		expect(result.headers).toEqual({ "content-type": "image/png" });
+		expect(result.expiresAt).toMatch(/^\d{4}-\d{2}-\d{2}T/);
+		expect(indexed).toHaveLength(1);
+		const intent = stored.get(redisKeys.uploadIntent(result.intentId));
+		expect(intent).toContain(`"intentId":"${result.intentId}"`);
+		expect(intent).toContain('"userId":"user-id"');
+		expect(intent).toContain('"provider":"local"');
+		expect(intent).toContain('"kind":"permanent"');
+		expect(intent).toContain('"contentType":"image/png"');
+		expect(intent).toContain('"state":"pending"');
+		expect(intent).toMatch(/"objectKey":"permanent\/.+\.png"/);
+		expect(indexed[0]).toMatchObject({
+			key: redisKeys.uploadIntentExpiry,
+			member: result.intentId,
+		});
+	}).pipe(
+		Effect.provide(
+			makeUploadsLayer({
+				config: {
+					fileStorage: {
+						localDir: Option.some(TEST_TMP_DIR),
+						localSigningSecret: Option.some(Redacted.make("secret")),
+					},
+				},
+				localStorageService: makeLocalStorageLayer({
+					createUploadTarget: (intentId) =>
+						Effect.succeed({
+							expiresAt: 1700000900,
+							method: "PUT" as const,
+							uploadUrl: `/uploads/local/${intentId}?expires=1700000900&signature=signature`,
+						}),
+				}),
+				redisService: makeRedisLayer({
+					setAndIndex: (key, value, indexKey, score, member) => {
+						stored.set(key, value);
+						indexed.push({ key: indexKey, score, member });
+						return Effect.void;
+					},
+				}),
+			}),
+		),
+	);
+});
+
+it.effect("rejects unsupported local intent combinations", () =>
+	Effect.gen(function* () {
+		const service = yield* UploadsService;
+		const exit = yield* Effect.exit(
+			service.createUploadIntent(user, {
+				provider: "s3",
+				kind: "permanent",
+				fileName: "photo.png",
+				contentType: "image/png",
+			}),
+		);
+		assertExitFails(
+			exit,
+			new BadRequest({ message: "Only permanent local upload intents are currently supported" }),
+		);
+	}).pipe(Effect.provide(makeUploadsLayer())),
+);
+
+it.effect("completes a local intent idempotently and removes its expiry index", () => {
+	const intentId = "intent-id";
+	const intentKey = redisKeys.uploadIntent(intentId);
+	const stored = new Map([
+		[
+			intentKey,
+			'{"intentId":"intent-id","userId":"user-id","provider":"local","kind":"permanent","objectKey":"permanent/object.png","contentType":"image/png","state":"pending","createdAt":1700000000,"expiresAt":4102444800}',
+		],
+	]);
+	const removed: string[] = [];
+
+	return Effect.gen(function* () {
+		const service = yield* UploadsService;
+		const first = yield* service.completeUploadIntent(user, intentId);
+		const second = yield* service.completeUploadIntent(user, intentId);
+		expect(first).toEqual({ type: "local", key: "permanent/object.png" });
+		expect(second).toEqual(first);
+		expect(removed).toEqual([intentId]);
+		expect(stored.get(intentKey)).toContain('"state":"completed"');
+	}).pipe(
+		Effect.provide(
+			makeUploadsLayer({
+				redisService: makeRedisLayer({
+					get: (key) => Effect.succeed(stored.get(key) ?? null),
+					setAndRemoveFromIndex: (key, value, _indexKey, member) => {
+						stored.set(key, value);
+						removed.push(member);
+						return Effect.void;
+					},
+				}),
+				localStorageService: makeLocalStorageLayer({
+					statObject: () => Effect.succeed(defaultFileInfo),
+				}),
+			}),
+		),
+	);
+});
 
 it.effect("rejects unsupported content types for presigned upload", () =>
 	Effect.gen(function* () {

@@ -32,7 +32,7 @@ import { RelationshipsRoutesLive } from "#modules/relationships/routes";
 import { SavedViewsRoutesLive } from "#modules/saved-views/routes";
 import { SystemRoutesLive } from "#modules/system/routes";
 import { TestSupportRoutesLive } from "#modules/test-support/routes";
-import { UploadsRoutesLive } from "#modules/uploads/routes";
+import { LocalUploadsRoutesLive, UploadsRoutesLive } from "#modules/uploads/routes";
 import { UserPreferencesRoutesLive } from "#modules/user-preferences/routes";
 import { UserStateRoutesLive } from "#modules/user-state/routes";
 
@@ -89,6 +89,7 @@ const ApiLive = HttpApiBuilder.layer(AppContract).pipe(
 	Layer.provide(Layer.mergeAll(UserStateRoutesLive, UserPreferencesRoutesLive)),
 	Layer.provide(EventsRoutesLive),
 	Layer.provide(UploadsRoutesLive),
+	Layer.provide(LocalUploadsRoutesLive),
 	Layer.provide(SavedViewsRoutesLive),
 	Layer.provide(PluginsRoutesLive),
 	Layer.provide(CollectionsRoutesLive),
