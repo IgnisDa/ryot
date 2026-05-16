@@ -1,5 +1,6 @@
 import { apiKeyClient } from "@better-auth/api-key/client";
 import { expoClient } from "@better-auth/expo/client";
+import { genericOAuthClient } from "better-auth/client/plugins";
 import { createAuthClient } from "better-auth/react";
 import * as SecureStore from "expo-secure-store";
 import { atom, useAtomValue, useSetAtom } from "jotai";
@@ -49,8 +50,12 @@ const authClientAtom = atom((get) => {
 	const serverUrl = get(serverUrlAtom) ?? CLOUD_URL;
 	const plugins =
 		Platform.OS !== "web"
-			? [expoClient({ storagePrefix: STORAGE_PREFIX, storage: nativeStorage }), apiKeyClient()]
-			: [apiKeyClient()];
+			? [
+					expoClient({ storagePrefix: STORAGE_PREFIX, storage: nativeStorage }),
+					apiKeyClient(),
+					genericOAuthClient(),
+				]
+			: [apiKeyClient(), genericOAuthClient()];
 	return createAuthClient({ baseURL: serverUrl, plugins });
 });
 
