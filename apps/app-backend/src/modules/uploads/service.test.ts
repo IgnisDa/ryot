@@ -19,12 +19,14 @@ describe("createPresignedUpload", () => {
 				{ contentType: "image/png" },
 				{
 					generateObjectId: () => "image_123",
-					signUploadUrl: ({ key }) => Promise.resolve(`https://example.com/${key}`),
+					signUploadUrl: ({ key }) => Promise.resolve({ data: `https://example.com/${key}` }),
 				},
 			),
 		).resolves.toEqual({
-			key: "uploads/image_123.png",
-			uploadUrl: "https://example.com/uploads/image_123.png",
+			data: {
+				key: "uploads/image_123.png",
+				uploadUrl: "https://example.com/uploads/image_123.png",
+			},
 		});
 	});
 
@@ -34,12 +36,14 @@ describe("createPresignedUpload", () => {
 				{ contentType: "image/jpeg" },
 				{
 					generateObjectId: () => "image_456",
-					signUploadUrl: ({ key }) => Promise.resolve(`https://example.com/${key}`),
+					signUploadUrl: ({ key }) => Promise.resolve({ data: `https://example.com/${key}` }),
 				},
 			),
 		).resolves.toEqual({
-			key: "uploads/image_456.jpg",
-			uploadUrl: "https://example.com/uploads/image_456.jpg",
+			data: {
+				key: "uploads/image_456.jpg",
+				uploadUrl: "https://example.com/uploads/image_456.jpg",
+			},
 		});
 	});
 });
@@ -49,17 +53,19 @@ describe("createPresignedDownloads", () => {
 		return expect(
 			createPresignedDownloads(
 				{ keys: ["uploads/image_123.png", "uploads/image_456.jpg"] },
-				{ signDownloadUrl: (k: string) => Promise.resolve(`https://example.com/${k}`) },
+				{ signDownloadUrl: (k: string) => Promise.resolve({ data: `https://example.com/${k}` }) },
 			),
-		).resolves.toEqual([
-			{
-				key: "uploads/image_123.png",
-				downloadUrl: "https://example.com/uploads/image_123.png",
-			},
-			{
-				key: "uploads/image_456.jpg",
-				downloadUrl: "https://example.com/uploads/image_456.jpg",
-			},
-		]);
+		).resolves.toEqual({
+			data: [
+				{
+					key: "uploads/image_123.png",
+					downloadUrl: "https://example.com/uploads/image_123.png",
+				},
+				{
+					key: "uploads/image_456.jpg",
+					downloadUrl: "https://example.com/uploads/image_456.jpg",
+				},
+			],
+		});
 	});
 });

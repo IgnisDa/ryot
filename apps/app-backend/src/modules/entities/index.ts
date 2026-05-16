@@ -1,4 +1,10 @@
 export {
+	createGlobalEntity,
+	findGlobalEntityByExternalId,
+	updateGlobalEntityById,
+	upsertPersonRelationship,
+} from "./repository";
+export {
 	getEntitySchemaScopeForUser,
 	getUserLibraryEntityId,
 	upsertInLibraryRelationship,

@@ -1,6 +1,7 @@
 import { resolveRequiredString } from "@ryot/ts-utils";
 import { generateId } from "better-auth";
 
+import { type ServiceResult, serviceData, serviceError, wrapServiceValidator } from "~/lib/result";
 import { s3, s3BucketName } from "~/lib/s3";
 
 import type { GetPresignedDownloadUrlBody, GetPresignedUploadUrlBody } from "./schemas";
@@ -17,13 +18,17 @@ type SignUploadUrlInput = {
 	contentType: UploadContentType;
 };
 
+type UploadServiceError = "validation" | "internal";
+
+export type UploadServiceResult<T> = ServiceResult<T, UploadServiceError>;
+
 type CreatePresignedDownloadDeps = {
-	signDownloadUrl?: (key: string) => Promise<string>;
+	signDownloadUrl?: (key: string) => Promise<UploadServiceResult<string>>;
 };
 
 type CreatePresignedUploadDeps = {
 	generateObjectId?: () => string;
-	signUploadUrl?: (input: SignUploadUrlInput) => Promise<string>;
+	signUploadUrl?: (input: SignUploadUrlInput) => Promise<UploadServiceResult<string>>;
 };
 
 const resolveContentType = (contentType: string) => {
@@ -43,64 +48,99 @@ const resolveContentType = (contentType: string) => {
 export const resolvePresignedUploadInput = (
 	input: GetPresignedUploadUrlBody,
 ): ResolvedPresignedUploadInput => {
-	return {
-		contentType: resolveContentType(input.contentType),
-	};
+	return { contentType: resolveContentType(input.contentType) };
 };
 
 const resolveExtension = (contentType: UploadContentType) =>
 	uploadContentTypeExtensions[contentType][0];
 
-const signUploadUrl = (input: SignUploadUrlInput) => {
+const signUploadUrl = (input: SignUploadUrlInput): Promise<UploadServiceResult<string>> => {
 	if (!s3 || !s3BucketName) {
-		throw new Error("S3 uploads are not configured for app-backend");
+		return Promise.resolve(
+			serviceError("internal", "S3 uploads are not configured for app-backend"),
+		);
 	}
 
-	return s3.file(input.key).presign({
-		method: "PUT",
-		type: input.contentType,
-		expiresIn: uploadUrlExpirySeconds,
-	});
+	return Promise.resolve(
+		serviceData(
+			s3.file(input.key).presign({
+				method: "PUT",
+				type: input.contentType,
+				expiresIn: uploadUrlExpirySeconds,
+			}),
+		),
+	);
 };
 
-const signDownloadUrl = (key: string) => {
+const signDownloadUrl = (key: string): Promise<UploadServiceResult<string>> => {
 	if (!s3 || !s3BucketName) {
-		throw new Error("S3 uploads are not configured for app-backend");
+		return Promise.resolve(
+			serviceError("internal", "S3 uploads are not configured for app-backend"),
+		);
 	}
 
-	return s3.file(key).presign({
-		expiresIn: uploadUrlExpirySeconds,
-	});
+	return Promise.resolve(serviceData(s3.file(key).presign({ expiresIn: uploadUrlExpirySeconds })));
 };
 
 export const createPresignedUpload = async (
 	input: GetPresignedUploadUrlBody,
 	deps: CreatePresignedUploadDeps = {},
-) => {
-	const resolvedInput = resolvePresignedUploadInput(input);
+): Promise<UploadServiceResult<{ key: string; uploadUrl: string }>> => {
+	const resolvedInputResult = wrapServiceValidator(
+		() => resolvePresignedUploadInput(input),
+		"Could not create presigned upload URL",
+	);
+	if ("error" in resolvedInputResult) {
+		return resolvedInputResult;
+	}
+
+	const resolvedInput = resolvedInputResult.data;
 	const generateObjectId = deps.generateObjectId ?? generateId;
 	const signUploadUrlFn = deps.signUploadUrl ?? signUploadUrl;
 	const extension = resolveExtension(resolvedInput.contentType);
 	const key = `uploads/${generateObjectId()}.${extension}`;
-	const uploadUrl = await signUploadUrlFn({
+	const uploadUrlResult = await signUploadUrlFn({
 		key,
 		contentType: resolvedInput.contentType,
 	});
+	if ("error" in uploadUrlResult) {
+		return uploadUrlResult;
+	}
 
-	return { key, uploadUrl };
+	return serviceData({ key, uploadUrl: uploadUrlResult.data });
 };
 
 export const createPresignedDownloads = async (
 	input: GetPresignedDownloadUrlBody,
 	deps: CreatePresignedDownloadDeps = {},
-) => {
-	const signDownloadUrlFn = deps.signDownloadUrl ?? signDownloadUrl;
+): Promise<UploadServiceResult<Array<{ key: string; downloadUrl: string }>>> => {
+	const resolvedKeysResult = wrapServiceValidator(
+		() => input.keys.map((key) => resolveRequiredString(key, "Upload key")),
+		"Could not create presigned download URLs",
+	);
+	if ("error" in resolvedKeysResult) {
+		return resolvedKeysResult;
+	}
 
-	return Promise.all(
-		input.keys.map(async (key) => {
-			const resolvedKey = resolveRequiredString(key, "Upload key");
-			const downloadUrl = await signDownloadUrlFn(resolvedKey);
-			return { key: resolvedKey, downloadUrl };
+	const resolvedKeys = resolvedKeysResult.data;
+	const signDownloadUrlFn = deps.signDownloadUrl ?? signDownloadUrl;
+	const results = await Promise.all(
+		resolvedKeys.map(async (key) => {
+			const downloadUrlResult = await signDownloadUrlFn(key);
+			if ("error" in downloadUrlResult) {
+				return downloadUrlResult;
+			}
+
+			return serviceData({ key, downloadUrl: downloadUrlResult.data });
 		}),
 	);
+
+	const failedResult = results.find((result) => "error" in result);
+	if (failedResult && "error" in failedResult) {
+		return failedResult;
+	}
+
+	// oxlint-disable-next-line no-unsafe-type-assertion
+	const successfulResults = results as Array<{ data: { key: string; downloadUrl: string } }>;
+	return serviceData(successfulResults.map((result) => result.data));
 };

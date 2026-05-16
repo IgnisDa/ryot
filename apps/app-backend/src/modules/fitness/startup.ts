@@ -3,7 +3,7 @@ import { and, eq, isNull, sql } from "drizzle-orm";
 import { db } from "~/lib/db";
 import { entity } from "~/lib/db/schema";
 import { getQueues } from "~/lib/queue";
-import { getBuiltinEntitySchemaBySlug } from "~/modules/entity-schemas/repository";
+import { getBuiltinEntitySchemaBySlug } from "~/modules/entity-schemas";
 
 import { exerciseSeedJobName } from "./jobs";
 

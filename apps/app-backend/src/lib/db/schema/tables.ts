@@ -13,6 +13,9 @@ import {
 	uniqueIndex,
 } from "drizzle-orm/pg-core";
 
+import type { SandboxScriptMetadata } from "~/lib/sandbox/types";
+import type { DisplayConfiguration, SavedViewQueryDefinition } from "~/modules/saved-views";
+
 import type { ImageSchemaType } from "../../zod";
 import { user } from "./auth";
 
@@ -139,8 +142,8 @@ export const sandboxScript = pgTable(
 		slug: text().notNull(),
 		name: text().notNull(),
 		code: text().notNull(),
-		metadata: jsonb().notNull(),
 		isBuiltin: boolean().notNull().default(false),
+		metadata: jsonb().$type<SandboxScriptMetadata>().notNull(),
 		createdAt: timestamp({ withTimezone: true }).defaultNow().notNull(),
 		userId: text().references(() => user.id, { onDelete: "cascade" }),
 		id: text()
@@ -279,8 +282,8 @@ export const relationshipSchema = pgTable(
 	{
 		slug: text().notNull(),
 		name: text().notNull(),
-		propertiesSchema: jsonb().notNull(),
 		isBuiltin: boolean().notNull().default(false),
+		propertiesSchema: jsonb().$type<AppSchema>().notNull(),
 		createdAt: timestamp({ withTimezone: true }).defaultNow().notNull(),
 		userId: text().references(() => user.id, { onDelete: "cascade" }),
 		sourceEntitySchemaId: text().references(() => entitySchema.id, {
@@ -390,11 +393,11 @@ export const savedView = pgTable(
 		name: text().notNull(),
 		icon: text().notNull(),
 		accentColor: text().notNull(),
-		queryDefinition: jsonb().notNull(),
-		displayConfiguration: jsonb().notNull(),
 		sortOrder: integer().notNull().default(0),
 		isBuiltin: boolean().default(false).notNull(),
 		isDisabled: boolean().notNull().default(false),
+		queryDefinition: jsonb().$type<SavedViewQueryDefinition>().notNull(),
+		displayConfiguration: jsonb().$type<DisplayConfiguration>().notNull(),
 		createdAt: timestamp({ withTimezone: true }).defaultNow().notNull(),
 		trackerId: text().references(() => tracker.id, { onDelete: "set null" }),
 		id: text()

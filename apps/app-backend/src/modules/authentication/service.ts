@@ -1,11 +1,11 @@
 import { resolveRequiredString } from "@ryot/ts-utils";
 
-import { createDefaultQueryDefinition } from "../saved-views/constants";
+import { createDefaultQueryDefinition } from "~/modules/saved-views";
 import type {
 	DisplayConfiguration,
 	LatestRelationshipJoinDefinition,
 	SavedViewQueryDefinition,
-} from "../saved-views/schemas";
+} from "~/modules/saved-views";
 
 export const buildLibraryEntityInput = (input: {
 	entitySchemas: Array<{ id: string; slug: string }>;

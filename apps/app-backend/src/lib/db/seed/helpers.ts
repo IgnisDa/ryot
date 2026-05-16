@@ -11,6 +11,7 @@ import {
 	relationshipSchema,
 	sandboxScript,
 } from "~/lib/db/schema";
+import type { SandboxScriptMetadata } from "~/lib/sandbox/types";
 
 export const ensureBuiltinEntitySchema = async (input: {
 	slug: string;
@@ -115,8 +116,8 @@ export const ensureBuiltinSandboxScript = async (input: {
 	code: string;
 	name: string;
 	slug: string;
-	metadata: unknown;
 	database: DbClient;
+	metadata: SandboxScriptMetadata;
 }) => {
 	const [existingScript] = await input.database
 		.select({
@@ -154,7 +155,7 @@ export const ensureBuiltinRelationshipSchema = async (input: {
 	slug: string;
 	name: string;
 	database: DbClient;
-	propertiesSchema: unknown;
+	propertiesSchema: AppSchema;
 	sourceEntitySchemaId?: string;
 	targetEntitySchemaId?: string;
 }) => {

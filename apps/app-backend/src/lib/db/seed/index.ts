@@ -5,7 +5,7 @@ import { eventSchema as eventSchemaTable } from "~/lib/db/schema";
 import {
 	authenticationBuiltinEntitySchemas,
 	authenticationBuiltinRelationshipSchemas,
-} from "~/modules/authentication/bootstrap/manifests";
+} from "~/modules/authentication";
 
 import {
 	ensureBuiltinEntitySchema,
