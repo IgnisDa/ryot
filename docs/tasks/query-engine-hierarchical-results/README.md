@@ -1714,9 +1714,9 @@ The implementation should keep file sizes maintainable and split modules when th
 
 ## Tasks
 
-**Overall Progress:** 6 of 12 tasks completed
+**Overall Progress:** 7 of 12 tasks completed
 
-**Current Task:** [Task 07](./07-aggregate-returns.md) (todo)
+**Current Task:** [Task 08](./08-relationship-root-sources.md) (todo)
 
 ### Task List
 
@@ -1728,7 +1728,7 @@ The implementation should keep file sizes maintainable and split modules when th
 | 04  | [Deep Includes And Event Existence](./04-deep-includes-and-event-existence.md)                 | AFK  | done   |
 | 05  | [Event Roots And First Expressions](./05-event-roots-and-first-expressions.md)                 | AFK  | done   |
 | 06  | [Descendant Source Filters](./06-descendant-source-filters.md)                                 | AFK  | done   |
-| 07  | [Aggregate Returns](./07-aggregate-returns.md)                                                 | AFK  | todo   |
+| 07  | [Aggregate Returns](./07-aggregate-returns.md)                                                 | AFK  | done   |
 | 08  | [Relationship Root Sources](./08-relationship-root-sources.md)                                 | AFK  | todo   |
 | 09  | [Time Series Returns](./09-time-series-returns.md)                                             | AFK  | todo   |
 | 10  | [Saved Views Full Query Documents](./10-saved-views-full-query-documents.md)                   | AFK  | todo   |
