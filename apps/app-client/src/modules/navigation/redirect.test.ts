@@ -46,6 +46,8 @@ describe("redirect destinations", () => {
 	});
 
 	it("uses the fallback without a safe destination", () => {
-		expect(getRedirectDestination(undefined, "/(app)")).toBe("/(app)");
+		expect(getRedirectDestination(undefined, "/(app)/(shell)/(drawer)")).toBe(
+			"/(app)/(shell)/(drawer)",
+		);
 	});
 });
