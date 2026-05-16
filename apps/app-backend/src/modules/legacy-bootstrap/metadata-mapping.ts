@@ -336,7 +336,7 @@ BEGIN
 			${buildPrimaryImageSql("metadata")},
 			metadata.created_on,
 			NULL,
-			NULL,
+			metadata.created_by_user_id,
 			${buildMetadataPropertiesSql()},
 			metadata_targets.entity_schema_id,
 			metadata_targets.sandbox_script_id,
@@ -345,8 +345,13 @@ BEGIN
 		INNER JOIN metadata_targets ON metadata_targets.lot = metadata.lot AND metadata_targets.source = metadata.source
 		WHERE metadata.id::text > cursor_id AND metadata.id::text <= next_cursor_id
 		ON CONFLICT ("id") DO UPDATE
-			SET "properties" = EXCLUDED."properties"
-			WHERE entity."properties" = '{}'::jsonb;
+			SET
+				"properties" = CASE
+					WHEN entity."properties" = '{}'::jsonb THEN EXCLUDED."properties"
+					ELSE entity."properties"
+				END,
+				"user_id" = COALESCE(entity."user_id", EXCLUDED."user_id")
+			WHERE entity."properties" = '{}'::jsonb OR entity."user_id" IS NULL;
 		GET DIAGNOSTICS batch_rows_inserted = ROW_COUNT;
 
 		rows_inserted := rows_inserted + batch_rows_inserted;
