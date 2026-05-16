@@ -6,8 +6,8 @@ import { z } from "zod";
 import type { ApiPostRequestBody } from "~/lib/api/types";
 
 const entityImageSchema = z.union([
-	z.object({ kind: z.literal("s3"), key: z.string() }),
-	z.object({ kind: z.literal("remote"), url: z.string() }),
+	z.object({ type: z.literal("s3"), key: z.string() }),
+	z.object({ type: z.literal("remote"), url: z.string() }),
 	z.null(),
 	z.undefined(),
 ]);

@@ -129,7 +129,7 @@ driver("main", async function() {
   if (!result.success) {
     throw new Error(result.error);
   }
-  return result.data.body.data.data.items.map((fields) => Object.fromEntries(fields.map((field) => [field.key, field.value])));
+  return result.data.body.data.items.map((fields) => Object.fromEntries(fields.map((field) => [field.key, field.value])));
 });
 `,
 		});

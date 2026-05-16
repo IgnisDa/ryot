@@ -36,9 +36,16 @@ const buildLiteralValueExpression = (value: unknown) => {
 	return sql`${JSON.stringify(value)}::jsonb`;
 };
 
-const getLiteralDisplayKind = (value: unknown): ResolvedDisplayValue["kind"] => {
+const getLiteralDisplayKind = (
+	input: Extract<ViewExpression, { type: "literal" }>,
+): ResolvedDisplayValue["kind"] => {
+	const { value } = input;
 	if (value === null) {
 		return "null";
+	}
+
+	if (input.literalType === "date") {
+		return "date";
 	}
 
 	if (typeof value === "string") {
@@ -119,7 +126,7 @@ const createDisplayExpressionResolver = (input: {
 	const buildResolvedDisplayValueExpression = (expression: ViewExpression): SqlExpression => {
 		if (expression.type === "literal") {
 			return buildResolvedDisplayValueObject({
-				kind: getLiteralDisplayKind(expression.value),
+				kind: getLiteralDisplayKind(expression),
 				value: buildLiteralValueExpression(expression.value),
 			});
 		}

@@ -122,7 +122,7 @@ driver("search", async function(context) {
         imageProperty:
           image === null
             ? { kind: "null", value: null }
-            : { kind: "image", value: { kind: "remote", url: image } },
+            : { kind: "image", value: { type: "remote", url: image } },
       };
     })
     .filter((item) => item !== null);
@@ -162,7 +162,7 @@ driver("details", async function(context) {
       birthDate: getString(payload?.birth),
       deathDate: getString(payload?.death),
       description: getString(payload?.desc),
-      images: image ? [{ kind: "remote", url: image }] : [],
+      images: image ? [{ type: "remote", url: image }] : [],
       sourceUrl: `https://metron.cloud/creator/${externalId}`,
     },
   };

@@ -8,12 +8,11 @@ import {
 	jsonResponse,
 	notFoundResponse,
 	payloadErrorResponse,
-	successResponse,
 } from "~/lib/openapi";
 import { QueryEngineNotFoundError, QueryEngineValidationError } from "~/lib/views/errors";
 
 import { prepareAndExecute } from "./preparer";
-import { executeQueryEngineResponseSchema, queryEngineRequestSchema } from "./schemas";
+import { queryEngineRequestSchema, queryEngineResponseDataSchema } from "./schemas";
 
 const executeQueryEngineRoute = createAuthRoute(
 	createRoute({
@@ -30,8 +29,8 @@ const executeQueryEngineRoute = createAuthRoute(
 			400: payloadErrorResponse(),
 			404: notFoundResponse("Entity schema does not exist for this user"),
 			200: jsonResponse(
-				"Entities for the requested query-engine request",
-				executeQueryEngineResponseSchema,
+				"Result for the requested query-engine request",
+				queryEngineResponseDataSchema,
 			),
 		},
 	}),
@@ -45,7 +44,7 @@ export const queryEngineApi = new OpenAPIHono<{
 
 	try {
 		const result = await prepareAndExecute({ userId: user.id, request: body });
-		return c.json(successResponse(result), 200);
+		return c.json(result, 200);
 	} catch (error) {
 		if (error instanceof QueryEngineNotFoundError) {
 			const result = createNotFoundErrorResult(error.message);
