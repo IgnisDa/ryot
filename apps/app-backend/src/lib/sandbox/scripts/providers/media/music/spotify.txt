@@ -21,6 +21,13 @@ function getPublishYear(releaseDateStr, dayjs) {
   return d.isValid() && d.year() > 0 ? d.year() : null;
 }
 
+function getPublishDate(releaseDateStr) {
+  if (typeof releaseDateStr !== "string" || !releaseDateStr.trim()) return null;
+  const trimmed = releaseDateStr.trim();
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(trimmed)) return null;
+  return trimmed;
+}
+
 function getImagesSortedBySize(images) {
   if (!Array.isArray(images) || images.length === 0) {
     return [];
@@ -285,6 +292,7 @@ driver("details", async function(context) {
       publishYear,
       byVariousArtists,
       providerRating: popularity,
+      publishDate: getPublishDate(album?.release_date),
       images: getImagesSortedBySize(albumImages).map((url) => ({ type: "remote", url })),
     },
   };
