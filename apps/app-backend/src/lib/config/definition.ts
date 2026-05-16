@@ -22,6 +22,10 @@ export const systemConfigDef = group("Core system configuration", {
 		description: "Runtime environment (development | production)",
 	}),
 	server: group("Server settings", {
+		corsOrigins: field("SERVER_CORS_ORIGINS", {
+			optional: true,
+			description: "Comma-separated list of additional allowed CORS origins",
+		}),
 		adminAccessToken: field("SERVER_ADMIN_ACCESS_TOKEN", {
 			sensitive: true,
 			description: "Secret token required for admin API operations",
