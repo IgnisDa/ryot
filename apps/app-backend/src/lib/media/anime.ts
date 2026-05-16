@@ -21,3 +21,7 @@ export const animePropertiesSchema = mediaPropertiesSchema.extend({
 });
 
 export const animePropertiesJsonSchema = toAppSchemaProperties(animePropertiesSchema);
+
+export type AnimeAiringScheduleItem = z.infer<typeof animeAiringScheduleSpecificsSchema>;
+
+export type AnimeProperties = z.infer<typeof animePropertiesSchema>;
