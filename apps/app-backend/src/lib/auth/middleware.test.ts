@@ -7,6 +7,7 @@ import { resolveAuthenticatedUser } from "./middleware";
 
 const authUser: NonNullable<MaybeAuthType["user"]> = {
 	id: "user_1",
+	bannedAt: null,
 	preferences: {},
 	image: undefined,
 	name: "Test User",
@@ -65,7 +66,7 @@ describe("resolveAuthenticatedUser", () => {
 		expect(result).toBeNull();
 	});
 
-	it("falls back to session auth when request is not internal", async () => {
+	it("returns the persisted user for session auth when request is not internal", async () => {
 		const request = new Request("http://ryot.internal/a", {
 			headers: { cookie: "session=1" },
 		});
@@ -76,8 +77,9 @@ describe("resolveAuthenticatedUser", () => {
 				return Promise.resolve({ user: authUser });
 			},
 			getInternalRequestAuth: () => null,
-			getUserById: () => {
-				throw new Error("should not be called");
+			getUserById: (userId: string) => {
+				expect(userId).toBe("user_1");
+				return Promise.resolve(authUser);
 			},
 		});
 
