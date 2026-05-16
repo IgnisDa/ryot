@@ -32,7 +32,6 @@ services:
       - FRONTEND_URL=https://ryot.your-domain.com # IP address is fine too
       - DATABASE_URL=postgres://postgres:postgres@ryot-db:5432/postgres # REQUIRED
       - SERVER_ADMIN_ACCESS_TOKEN=28ebb3ae554fa9867ba0 # REQUIRED: set to a long random string
-      - FILE_STORAGE_LOCAL_SIGNING_SECRET=replace-with-a-long-random-secret # REQUIRED
     volumes:
       - ryot_storage:/home/ryot/storage
 

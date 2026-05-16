@@ -130,7 +130,6 @@ export const makeAppConfigLayer = (
 			localDir: "/home/ryot/storage",
 			secretAccessKey: Option.none(),
 			localTempDir: "/home/ryot/work",
-			localSigningSecret: Redacted.make("test-local-signing-secret"),
 		},
 		server: {
 			logLevel: "Info",
