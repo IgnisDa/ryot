@@ -38,11 +38,15 @@ Keep your webhook urls private to prevent abuse.
 
 ## Yank integrations
 
+Use **Sync all** on the Integrations settings page when you want Ryot to check your connected
+services immediately. This checks active Yank integrations. Webhook and Push integrations respond
+to activity in their connected services instead.
+
 You can configure the interval at which the data is fetched from the external source using
 the `SCHEDULER_FREQUENT_CRON_JOBS_SCHEDULE` environment variable. Defaults to `every 5 minutes`.
 
-If you have enabled the `Sync to owned collection` option, the integration will also run
-at night to add all media in your instance to your "Owned" collection.
+If you enable **Sync ownership** for a Yank integration, its regular and manual checks also add
+matching media to your "Owned" collection.
 
 - [Audiobookshelf](./audiobookshelf.md) - Sync media from Audiobookshelf
 - [Komga](./komga.md) - Sync media from Komga
