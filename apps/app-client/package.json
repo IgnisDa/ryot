@@ -21,6 +21,7 @@
 		"@expo/html-elements": "^0.12.5",
 		"@gluestack-ui/core": "^5.0.0-alpha.0",
 		"@gluestack-ui/utils": "^5.0.1-alpha.0",
+		"@legendapp/list": "2.0.19",
 		"@legendapp/motion": "^2.4.0",
 		"@react-aria/dialog": "3.6.0",
 		"@react-aria/focus": "3.22.0",
