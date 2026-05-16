@@ -101,7 +101,7 @@ export function ShowSeasonsList(props: { entity: ShowDetail }) {
 								<Text className="text-[14px] font-sans-semibold text-foreground web:text-[16px]">
 									{season.name}
 								</Text>
-								<Text className="mt-0.5 text-[12px] font-mono text-muted-foreground web:text-[14px]">
+								<Text className="mt-0.5 text-[12px] font-sans text-muted-foreground web:text-[14px]">
 									{season.episodes.length} episodes
 									{season.publishDate
 										? ` · ${dayjs(season.publishDate).format("MMM D, YYYY")}`
@@ -161,7 +161,7 @@ export function ShowSeasonsList(props: { entity: ShowDetail }) {
 												) : null}
 												<Box className="min-w-0 flex-1">
 													<Box className="flex-row items-baseline">
-														<Text className="mr-2 w-8 shrink-0 text-[12px] font-mono text-muted-foreground web:text-[14px]">
+														<Text className="mr-2 w-8 shrink-0 text-[12px] font-sans text-muted-foreground web:text-[14px]">
 															{`E${String(episode.episodeNumber).padStart(2, "0")}`}
 														</Text>
 														<Text
@@ -172,7 +172,7 @@ export function ShowSeasonsList(props: { entity: ShowDetail }) {
 														</Text>
 													</Box>
 													{episode.publishDate || episode.runtime != null ? (
-														<Text className="mt-0.5 text-[11px] font-mono text-muted-foreground web:text-[13px]">
+														<Text className="mt-0.5 text-[11px] font-sans text-muted-foreground web:text-[13px]">
 															{[
 																episode.publishDate
 																	? dayjs(episode.publishDate).format("MMM D, YYYY")
@@ -235,7 +235,7 @@ export function PodcastEpisodesList(props: { entity: PodcastDetail }) {
 							</Text>
 							<Text
 								numberOfLines={1}
-								className="mt-1 text-[11px] font-mono text-muted-foreground web:text-[13px]"
+								className="mt-1 text-[11px] font-sans text-muted-foreground web:text-[13px]"
 							>
 								{`Episode ${episode.number} · ${dayjs(episode.publishDate).format("MMM D, YYYY")}${episode.runtime != null ? ` · ${formatMinutes(episode.runtime)}` : ""}`}
 							</Text>
@@ -291,7 +291,7 @@ export function VideoGameStats(props: { entity: VideoGameDetail }) {
 								{platform.name}
 							</Text>
 							{platform.releaseDate ? (
-								<Text className="text-[12px] font-mono text-muted-foreground web:text-[14px]">
+								<Text className="text-[12px] font-sans text-muted-foreground web:text-[14px]">
 									{dayjs(platform.releaseDate).format("MMM D, YYYY")}
 								</Text>
 							) : null}
@@ -324,7 +324,7 @@ export function AnimeAiringSchedule(props: { entity: AnimeDetail }) {
 					<Text className="text-[13px] font-sans-medium text-foreground web:text-[15px]">
 						{`Episode ${item.episode}`}
 					</Text>
-					<Text className="text-[12px] font-mono text-muted-foreground web:text-[14px]">
+					<Text className="text-[12px] font-sans text-muted-foreground web:text-[14px]">
 						{dayjs(item.airingAt).format("MMM D, YYYY")}
 					</Text>
 				</Box>
