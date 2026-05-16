@@ -201,6 +201,8 @@ export class SandboxService {
 		const t1 = performance.now();
 		const cpuBefore = process.cpuUsage();
 
+		let internalMetrics: InternalExecutionMetrics | null = null;
+
 		try {
 			let timedOut = false;
 
@@ -255,6 +257,8 @@ export class SandboxService {
 			const cpuUserMs = Math.round(cpuDelta.user / 1000);
 			const cpuSystemMs = Math.round(cpuDelta.system / 1000);
 
+			internalMetrics = { poolHit, cpuUserMs, processMs, cpuSystemMs, hostSetupMs };
+
 			const logs = stderrText.trim() || undefined;
 			const resultText = stdoutText.trim();
 
@@ -263,13 +267,6 @@ export class SandboxService {
 				const outcome = "timeout";
 				sandboxExecutionsTotal.inc({ outcome });
 				sandboxExecutionDurationSeconds.observe({ outcome }, totalMs / 1000);
-				recordInternalMetrics({
-					poolHit,
-					cpuUserMs,
-					processMs,
-					cpuSystemMs,
-					hostSetupMs,
-				});
 				return {
 					logs,
 					timing: { totalMs, executionMs: 0 },
@@ -288,13 +285,6 @@ export class SandboxService {
 				if (executionMs > 0) {
 					sandboxScriptExecutionDurationSeconds.observe(executionMs / 1000);
 				}
-				recordInternalMetrics({
-					poolHit,
-					cpuUserMs,
-					processMs,
-					cpuSystemMs,
-					hostSetupMs,
-				});
 				return {
 					logs,
 					value: parsed.value,
@@ -306,13 +296,6 @@ export class SandboxService {
 				const outcome = "error";
 				sandboxExecutionsTotal.inc({ outcome });
 				sandboxExecutionDurationSeconds.observe({ outcome }, totalMs / 1000);
-				recordInternalMetrics({
-					poolHit,
-					cpuUserMs,
-					processMs,
-					cpuSystemMs,
-					hostSetupMs,
-				});
 				return {
 					logs,
 					success: false,
@@ -329,6 +312,9 @@ export class SandboxService {
 				error: extractErrorMessage(error, String(error)),
 			};
 		} finally {
+			if (internalMetrics) {
+				recordInternalMetrics(internalMetrics);
+			}
 			await this.bridgeServer.removeSession(executionId);
 		}
 	}
