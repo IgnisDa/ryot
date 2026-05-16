@@ -1,7 +1,15 @@
 import clsx from "clsx";
 import { GlassView } from "expo-glass-effect";
-import { BookOpen, Clock, Sparkles } from "lucide-react-native";
-import { useEffect, useState } from "react";
+import {
+	BookOpen,
+	CalendarDays,
+	Clock,
+	Gamepad2,
+	Layers,
+	Mic,
+	Sparkles,
+} from "lucide-react-native";
+import { useEffect, useMemo, useState } from "react";
 import { Image, Platform, ScrollView } from "react-native";
 import Animated, {
 	FadeIn,
@@ -19,16 +27,22 @@ import { Text } from "@/components/ui/text";
 
 import type { loadRelatedCollections } from "./collections";
 import { HeroSection } from "./hero-section";
+import { AboutSection, CollectionsSection, CreatorsSection, DetailsSection } from "./sections";
 import {
-	AboutSection,
-	CollectionsSection,
-	CreatorsSection,
-	DetailsSection,
-	TypeSpecificSection,
-} from "./sections";
+	AnimeAiringSchedule,
+	PodcastEpisodesList,
+	ShowSeasonsList,
+	VideoGameStats,
+} from "./type-specific-sections";
 import type { EntityDetail, UnlinkedCreator } from "./types";
 
 type Collections = Awaited<ReturnType<typeof loadRelatedCollections>>;
+
+type TabConfig = {
+	key: string;
+	label: string;
+	Icon: React.ComponentType<{ size?: number; strokeWidth?: number; color?: string }>;
+};
 
 const ACCENT = "#C9943A";
 const INACTIVE_COLOR = Platform.select({
@@ -36,11 +50,14 @@ const INACTIVE_COLOR = Platform.select({
 	default: "rgba(0,0,0,0.5)",
 });
 
-const TABS = [
-	{ key: "overview", label: "Overview", Icon: BookOpen },
-	{ key: "history", label: "History", Icon: Clock },
-	{ key: "similar", label: "Similar", Icon: Sparkles },
-] as const;
+function getTypeSpecificTab(slug: EntityDetail["entitySchemaSlug"]): TabConfig | null {
+	return match(slug)
+		.with("show", () => ({ key: "seasons", label: "Seasons", Icon: Layers }))
+		.with("podcast", () => ({ key: "episodes", label: "Episodes", Icon: Mic }))
+		.with("anime", () => ({ key: "schedule", label: "Schedule", Icon: CalendarDays }))
+		.with("video-game", () => ({ key: "platforms", label: "Platforms", Icon: Gamepad2 }))
+		.otherwise(() => null);
+}
 
 function OverviewTab(props: {
 	entity: EntityDetail;
@@ -53,13 +70,25 @@ function OverviewTab(props: {
 				<Box>
 					<AboutSection entity={props.entity} creators={props.creators} />
 					<CreatorsSection creators={props.creators} />
-					<TypeSpecificSection entity={props.entity} />
 				</Box>
 				<Box>
 					<DetailsSection entity={props.entity} creators={props.creators} />
 					<CollectionsSection collections={props.collections} />
 				</Box>
 			</Box>
+		</Box>
+	);
+}
+
+function TypeSpecificTab(props: { entity: EntityDetail }) {
+	return (
+		<Box className="px-7 pt-8 web:mx-auto web:w-full web:max-w-7xl md:px-10">
+			{match(props.entity)
+				.with({ entitySchemaSlug: "show" }, (e) => <ShowSeasonsList entity={e} />)
+				.with({ entitySchemaSlug: "podcast" }, (e) => <PodcastEpisodesList entity={e} />)
+				.with({ entitySchemaSlug: "anime" }, (e) => <AnimeAiringSchedule entity={e} />)
+				.with({ entitySchemaSlug: "video-game" }, (e) => <VideoGameStats entity={e} />)
+				.otherwise(() => null)}
 		</Box>
 	);
 }
@@ -98,7 +127,7 @@ function PlaceholderTab(props: { seed: number }) {
 	);
 }
 
-function TabItem(props: { tab: (typeof TABS)[number]; active: boolean; onPress: () => void }) {
+function TabItem(props: { tab: TabConfig; active: boolean; onPress: () => void }) {
 	const isNative = Platform.OS !== "web";
 	const progress = useSharedValue(isNative && !props.active ? 0 : 1);
 
@@ -140,7 +169,11 @@ function TabItem(props: { tab: (typeof TABS)[number]; active: boolean; onPress: 
 	);
 }
 
-function TabBar(props: { activeIndex: number; onTabChange: (i: number) => void }) {
+function TabBar(props: {
+	tabs: TabConfig[];
+	activeKey: string;
+	onTabChange: (key: string) => void;
+}) {
 	const insets = useSafeAreaInsets();
 	return (
 		<Box
@@ -157,12 +190,12 @@ function TabBar(props: { activeIndex: number; onTabChange: (i: number) => void }
 				className="android:border android:border-white/10 android:bg-card/90 web:bg-card/80 web:backdrop-blur-md"
 			>
 				<Box className="flex-row px-2 py-1.5">
-					{TABS.map((tab, i) => (
+					{props.tabs.map((tab) => (
 						<TabItem
 							tab={tab}
 							key={tab.key}
-							active={i === props.activeIndex}
-							onPress={() => props.onTabChange(i)}
+							active={tab.key === props.activeKey}
+							onPress={() => props.onTabChange(tab.key)}
 						/>
 					))}
 				</Box>
@@ -177,17 +210,30 @@ export function EntityDetailTabs(props: {
 	collections: Collections | null;
 }) {
 	const insets = useSafeAreaInsets();
-	const [activeIndex, setActiveIndex] = useState(0);
+	const [activeKey, setActiveKey] = useState("overview");
 
-	const tabContent = match(activeIndex)
-		.with(0, () => (
+	const tabs = useMemo(() => {
+		const typeTab = getTypeSpecificTab(props.entity.entitySchemaSlug);
+		return [
+			{ key: "overview", label: "Overview", Icon: BookOpen },
+			...(typeTab ? [typeTab] : []),
+			{ key: "history", label: "History", Icon: Clock },
+			{ key: "similar", label: "Similar", Icon: Sparkles },
+		] satisfies TabConfig[];
+	}, [props.entity.entitySchemaSlug]);
+
+	const tabContent = match(activeKey)
+		.with("history", () => <PlaceholderTab seed={42} />)
+		.with("seasons", "episodes", "schedule", "platforms", () => (
+			<TypeSpecificTab entity={props.entity} />
+		))
+		.with("overview", () => (
 			<OverviewTab
 				entity={props.entity}
 				creators={props.creators}
 				collections={props.collections}
 			/>
 		))
-		.with(1, () => <PlaceholderTab seed={42} />)
 		.otherwise(() => <PlaceholderTab seed={99} />);
 
 	return (
@@ -197,11 +243,11 @@ export function EntityDetailTabs(props: {
 				contentContainerStyle={{ paddingBottom: insets.bottom + 120 }}
 			>
 				<HeroSection entity={props.entity} creators={props.creators} />
-				<Animated.View key={activeIndex} entering={FadeIn.duration(200)}>
+				<Animated.View key={activeKey} entering={FadeIn.duration(200)}>
 					{tabContent}
 				</Animated.View>
 			</ScrollView>
-			<TabBar activeIndex={activeIndex} onTabChange={setActiveIndex} />
+			<TabBar tabs={tabs} activeKey={activeKey} onTabChange={setActiveKey} />
 		</Box>
 	);
 }

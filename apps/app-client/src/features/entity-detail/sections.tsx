@@ -11,7 +11,6 @@ import { formatMinutes, formatSeconds } from "./duration";
 import { ExpandableText } from "./expandable-text";
 import { formatRoleLabel, getPrimaryCreator } from "./people";
 import type { EntityDetail, UnlinkedCreator } from "./types";
-export { TypeSpecificSection } from "./type-specific-sections";
 
 const ACCENT = "#C9943A";
 
