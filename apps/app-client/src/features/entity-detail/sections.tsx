@@ -199,12 +199,12 @@ export function CollectionsSection(props: {
 }
 
 const GROUP_SECTION_LABEL: Record<string, string> = {
-	music: "Albums",
 	book: "Series",
+	movie: "Series",
+	music: "Albums",
 	audiobook: "Series",
-	movie: "Collections",
 	"comic-book": "Series",
-	"video-game": "Collections",
+	"video-game": "Franchises",
 };
 
 export function GroupsSection(props: {
