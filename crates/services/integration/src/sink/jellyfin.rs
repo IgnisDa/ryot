@@ -67,16 +67,10 @@ pub async fn sink_progress(
     let (identifier, source) = match use_tvdb {
         true => {
             let id = payload
-                .item
-                .provider_ids
-                .tvdb
+                .series
                 .as_ref()
-                .or_else(|| {
-                    payload
-                        .series
-                        .as_ref()
-                        .and_then(|s| s.provider_ids.tvdb.as_ref())
-                })
+                .and_then(|s| s.provider_ids.tvdb.as_ref())
+                .or(payload.item.provider_ids.tvdb.as_ref())
                 .ok_or_else(|| anyhow!("No TVDB ID associated with this media"))?
                 .clone();
             (id, MediaSource::Tvdb)
