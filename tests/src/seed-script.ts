@@ -344,7 +344,6 @@ function savedViewQueryDocument(scope: readonly string[]): SavedViewQueryDocumen
 	};
 
 	return {
-		version: 2,
 		source: { type: "entities", alias: first, schemas, where: null },
 		output: {
 			type: "rows",

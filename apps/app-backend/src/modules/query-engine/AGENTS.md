@@ -2,7 +2,7 @@
 
 ## Module Purpose
 
-Accepts a v2 `QueryDocument` (a JSON-serializable, source-based query language), validates it, enforces authenticated visibility for every source and traversal, executes it, and serializes rows, aggregate, or time-series responses with typed field values.
+Accepts a `QueryDocument` (a JSON-serializable, source-based query language), validates it, enforces authenticated visibility for every source and traversal, executes it, and serializes rows, aggregate, or time-series responses with typed field values.
 
 ## Abstraction Boundaries
 

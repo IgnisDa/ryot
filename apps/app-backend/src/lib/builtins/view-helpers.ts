@@ -239,7 +239,6 @@ export const buildDefaultQueryDocument = (
 		: null;
 
 	return {
-		version: 2 as const,
 		source: { type: "entities" as const, alias: "entity", schemas: scope, where },
 		output: {
 			type: "rows" as const,

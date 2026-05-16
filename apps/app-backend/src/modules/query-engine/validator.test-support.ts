@@ -44,7 +44,6 @@ export const descendantSource = (
 });
 
 export const makeDoc = (overrides: Partial<RowsQueryDocument> = {}): RowsQueryDocument => ({
-	version: 2,
 	source: { alias: "e", where: null, type: "entities", schemas: ["books"] },
 	output: {
 		fields: [],
