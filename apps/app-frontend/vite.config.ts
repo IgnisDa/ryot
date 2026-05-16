@@ -5,7 +5,7 @@ import { defineConfig } from "vite";
 
 const config = defineConfig({
 	resolve: { tsconfigPaths: true },
-	server: { host: true, port: 3005, strictPort: true, allowedHosts: true },
+	server: { host: true, port: 5000, strictPort: true, allowedHosts: true },
 	plugins: [devtools(), tanstackStart({ spa: { enabled: true } }), viteReact()],
 });
 
