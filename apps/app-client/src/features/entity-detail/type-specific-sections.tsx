@@ -1,7 +1,9 @@
 import { dayjs } from "@ryot/ts-utils";
 import { ChevronDown, ChevronUp } from "lucide-react-native";
-import { useState } from "react";
+import type React from "react";
+import { useEffect, useState } from "react";
 import { Image } from "react-native";
+import Animated, { useAnimatedStyle, useSharedValue, withTiming } from "react-native-reanimated";
 
 import { Box } from "@/components/ui/box";
 import { Pressable } from "@/components/ui/pressable";
@@ -45,6 +47,33 @@ function StatBlock(props: { label: string; value: string }) {
 				{props.label}
 			</Text>
 		</Box>
+	);
+}
+
+function CollapsibleContent(props: { isOpen: boolean; children: React.ReactNode }) {
+	const heightAnim = useSharedValue(0);
+	const [naturalHeight, setNaturalHeight] = useState(0);
+
+	useEffect(() => {
+		heightAnim.value = withTiming(props.isOpen ? naturalHeight : 0, { duration: 250 });
+	}, [props.isOpen, naturalHeight, heightAnim]);
+
+	const animStyle = useAnimatedStyle(() => ({ overflow: "hidden", height: heightAnim.value }));
+
+	return (
+		<Animated.View style={animStyle}>
+			<Box
+				style={{ position: "absolute", width: "100%" }}
+				onLayout={(e) => {
+					const h = e.nativeEvent.layout.height;
+					if (h > 0) {
+						setNaturalHeight(h);
+					}
+				}}
+			>
+				{props.children}
+			</Box>
+		</Animated.View>
 	);
 }
 
@@ -95,7 +124,7 @@ export function ShowSeasonsList(props: { entity: ShowDetail }) {
 								)}
 							</Box>
 						</Pressable>
-						{isOpen && (
+						<CollapsibleContent isOpen={isOpen}>
 							<Box
 								className="mx-1 rounded-b-xl px-4 pb-2"
 								style={{ backgroundColor: hexToRgba(ACCENT, 0.04) }}
@@ -157,7 +186,7 @@ export function ShowSeasonsList(props: { entity: ShowDetail }) {
 									);
 								})}
 							</Box>
-						)}
+						</CollapsibleContent>
 					</Box>
 				);
 			})}
