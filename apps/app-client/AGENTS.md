@@ -5,6 +5,12 @@
 - Use `clsx` for conditional/dynamic `className`. Never template strings or bare ternaries.
 - Prefer Tailwind responsive variants (`sm:`, `md:`, `lg:`) and CSS utilities over JS layout (`useWindowDimensions`, `onLayout`, manual pixel math). Fall back to JS only when layout depends on runtime data.
 
+## Type Safety
+
+- Prefer derived types (`ReturnType`, indexed access types, `z.infer`) and canonical imported backend/generated types over handwritten mirrors.
+- If multiple client files need the same shape, export it from one module and reuse it.
+- Avoid local aliases that only re-declare OpenAPI/backend shapes.
+
 ## Forms
 
 - All text inputs must be submittable via Enter. Last field: `onSubmitEditing` + `returnKeyType="go"`. Intermediate fields: `returnKeyType="next"` with focus forwarding.
