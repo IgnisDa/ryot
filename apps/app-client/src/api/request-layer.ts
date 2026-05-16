@@ -31,7 +31,7 @@ const makeRequestLayer = (options: {
 	serverUrl: string;
 	useExpoFetch?: boolean;
 	authenticated?: boolean;
-	headers?: RequestHeaders;
+	headers?: () => RequestHeaders;
 }) => {
 	const serverUrl = normalizeServerOrigin(options.serverUrl);
 	return Layer.effect(
@@ -48,7 +48,7 @@ const makeRequestLayer = (options: {
 						return request.pipe(
 							HttpClientRequest.prependUrl(serverApiUrl(serverUrl)),
 							HttpClientRequest.setHeaders({
-								...options.headers,
+								...options.headers?.(),
 								...(authCookie ? { Cookie: authCookie } : {}),
 							}),
 						);
@@ -71,11 +71,17 @@ export const publicRequestLayer = (serverUrl: string) => makeRequestLayer({ serv
 export const authenticatedRequestLayer = (serverUrl: string) =>
 	makeRequestLayer({ serverUrl, authenticated: true });
 
-export const adminTokenRequestLayer = (serverUrl: string, adminToken: string) =>
+export const adminTokenRequestLayer = (
+	serverUrl: string,
+	resolveAdminToken: () => string | undefined,
+) =>
 	makeRequestLayer({
 		serverUrl,
 		authenticated: true,
-		headers: { "Admin-Access-Token": adminToken },
+		headers: (): RequestHeaders => {
+			const adminToken = resolveAdminToken();
+			return adminToken === undefined ? {} : { "Admin-Access-Token": adminToken };
+		},
 	});
 
 export const authenticatedExpoRequestLayer = (serverUrl: string) =>

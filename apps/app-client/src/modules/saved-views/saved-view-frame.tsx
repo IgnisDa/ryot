@@ -8,9 +8,9 @@ import { HeaderAction, HeaderLeadingControl } from "@/modules/navigation/header/
 import { HeaderFrame } from "@/modules/navigation/header/header-frame";
 import { HeaderSearchRow } from "@/modules/navigation/header/header-search-row";
 import { useWorkspaceDrawer } from "@/modules/navigation/workspace-drawer";
+import type { AppSearchState } from "@/modules/ui/search-field";
 
 import { SavedViewFilterSheet } from "./saved-view-filter-sheet";
-import type { SavedViewSearch } from "./saved-view-search";
 
 const FAB_WEB_HIDDEN = Platform.OS === "web" ? "md:hidden" : null;
 
@@ -20,7 +20,7 @@ export function SavedViewFrame(props: {
 	meta?: ReactNode;
 	children: ReactNode;
 	onAdd?: () => void;
-	search?: SavedViewSearch;
+	search?: AppSearchState;
 	initialScrollOffset?: number;
 	onScrollOffsetChange?: (offset: number) => void;
 }) {
