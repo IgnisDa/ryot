@@ -78,6 +78,7 @@ type ReportEntry = {
 const decodeReportRows = Schema.decodeUnknownEffect(Schema.Array(ReportRow));
 
 const allowedWarningReports = new Set([
+	"legacy S3 assets -> managed_asset|asset locator(s) could not be resolved or registered; original locators were retained",
 	"review -> event|show/podcast review(s) skipped because their episode could not be resolved positionally; these reviews were not migrated",
 	"seen -> event|show/podcast row(s) skipped because their episode could not be resolved positionally; progress/completion for them was not migrated",
 ]);
