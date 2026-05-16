@@ -3,20 +3,18 @@ import clsx from "clsx";
 import { ActivityIndicator, Pressable, Text, View } from "react-native";
 
 import { AppIcon } from "@/modules/icons";
-import { ImportProgressBar } from "@/modules/import-runs/import-progress-bar";
-import { ImportStatusGlyph, ImportStatusPill } from "@/modules/import-runs/import-status-pill";
 import {
-	formatImportRelativeTime,
 	importRunCountsLabel,
-	importRunDurationLabel,
 	importRunOutcomeLabel,
 	importRunProgress,
 	importRunProgressValue,
-	importRunStartedLabel,
 	importSourceName,
 	liveImportRun,
 } from "@/modules/import-runs/run-presentation";
 import { AppButton } from "@/modules/ui/button";
+import { RunProgressBar } from "@/modules/ui/run/run-progress-bar";
+import { formatRelativeTime, runDurationLabel, runStartedLabel } from "@/modules/ui/run/run-status";
+import { RunStatusGlyph, RunStatusPill } from "@/modules/ui/run/run-status-pill";
 import { AppStatusState } from "@/modules/ui/status-state";
 
 import { importRunListError, type ImportRunListState } from "./state";
@@ -44,10 +42,10 @@ function LiveImportRunCard(props: {
 				<Text numberOfLines={1} className="min-w-0 flex-1 font-ui-semibold text-base text-text">
 					{props.sourceName}
 				</Text>
-				<ImportStatusPill status={props.run.status} />
+				<RunStatusPill status={props.run.status} />
 			</View>
 			<View className="gap-2">
-				<ImportProgressBar progress={progress} value={importRunProgressValue(props.run)} />
+				<RunProgressBar progress={progress} value={importRunProgressValue(props.run)} />
 				<View className="flex-row items-center justify-between gap-3">
 					<Text className="font-ui text-xs tabular-nums text-text-muted">
 						{importRunCountsLabel(props.run)}
@@ -56,7 +54,7 @@ function LiveImportRunCard(props: {
 				</View>
 			</View>
 			<Text className="font-ui text-xs text-text-subtle">
-				{importRunStartedLabel(props.run, props.nowMs)}
+				{runStartedLabel(props.run, props.nowMs)}
 			</Text>
 			<Text className="font-ui text-xs text-text-muted">
 				This keeps running on your server, even if you close Ryot.
@@ -72,8 +70,8 @@ function ImportHistoryRow(props: {
 	readonly onPress: () => void;
 	readonly run: ImportRunSummary;
 }) {
-	const duration = importRunDurationLabel(props.run, props.nowMs);
-	const relative = formatImportRelativeTime(props.run.createdAt, props.nowMs);
+	const duration = runDurationLabel(props.run, props.nowMs);
+	const relative = formatRelativeTime(props.run.createdAt, props.nowMs);
 	return (
 		<Pressable
 			onPress={props.onPress}
@@ -84,7 +82,7 @@ function ImportHistoryRow(props: {
 				props.isFirst && "border-t",
 			)}
 		>
-			<ImportStatusGlyph status={props.run.status} />
+			<RunStatusGlyph status={props.run.status} />
 			<View className="min-w-0 flex-1 gap-0.5">
 				<Text numberOfLines={1} className="font-ui-medium text-sm text-text">
 					{props.sourceName}

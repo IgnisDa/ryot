@@ -1,20 +1,20 @@
-import type { ImportRunStatus } from "@ryot/contract/modules/imports/types";
+import type { RunStatus } from "@ryot/contract/schema/run-status";
 import clsx from "clsx";
 import { Text, View } from "react-native";
 
 import { AppIcon } from "@/modules/icons";
 
-import { importRunStatusPill, type ImportRunStatusTone } from "./run-presentation";
+import { runStatusPill, type RunStatusTone } from "./run-status";
 
-const toneClassName: Record<ImportRunStatusTone, string> = {
+const toneClassName: Record<RunStatusTone, string> = {
 	info: "text-info",
 	danger: "text-danger",
 	success: "text-success",
 	muted: "text-text-muted",
 };
 
-export function ImportStatusPill(props: { readonly status: ImportRunStatus }) {
-	const pill = importRunStatusPill(props.status);
+export function RunStatusPill(props: { readonly status: RunStatus }) {
+	const pill = runStatusPill(props.status);
 	return (
 		<View className="h-6 flex-row items-center gap-1.5 rounded-pill border border-border px-2">
 			<AppIcon size={12} name={pill.icon} className={toneClassName[pill.tone]} />
@@ -25,8 +25,8 @@ export function ImportStatusPill(props: { readonly status: ImportRunStatus }) {
 	);
 }
 
-export function ImportStatusGlyph(props: { readonly status: ImportRunStatus }) {
-	const pill = importRunStatusPill(props.status);
+export function RunStatusGlyph(props: { readonly status: RunStatus }) {
+	const pill = runStatusPill(props.status);
 	return (
 		<View accessibilityRole="image" accessibilityLabel={pill.label}>
 			<AppIcon size={16} name={pill.icon} className={toneClassName[pill.tone]} />

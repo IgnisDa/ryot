@@ -1,4 +1,4 @@
-import { BadRequest } from "@ryot/contract/errors";
+import { BadRequest, Conflict, NotFound } from "@ryot/contract/errors";
 import { Cause, Option } from "effect";
 
 export type RequestFailureState = { readonly status: "transport-error" | "malformed" };
@@ -19,9 +19,11 @@ export const requestFailureCopy = (
 			: `${copy.subject} came back in a form that could not be displayed. Try again later.`,
 });
 
-export const badRequestMessage = (cause: Cause.Cause<unknown>) =>
+export const requestFailureMessage = (cause: Cause.Cause<unknown>) =>
 	Option.flatMap(Cause.findErrorOption(cause), (error) =>
-		error instanceof BadRequest ? Option.some(error.message) : Option.none(),
+		error instanceof BadRequest || error instanceof Conflict || error instanceof NotFound
+			? Option.some(error.message)
+			: Option.none(),
 	).pipe(Option.getOrUndefined);
 
 export type RequestFailureRule<Step extends string> = {
