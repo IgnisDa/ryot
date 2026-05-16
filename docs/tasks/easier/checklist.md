@@ -25,7 +25,7 @@
   - Owner: I01 Configuration
   - Scope: Decode expiry to `DateTime`, compare with `DateTime.now` each verification
 
-- [ ] **6. Atomic translation upsert** [H/S/N]
+- [x] **6. Atomic translation upsert** [H/S/N]
   - Owner: D11 Entity translation
   - Scope: Single `INSERT ... ON CONFLICT DO UPDATE RETURNING`
 
