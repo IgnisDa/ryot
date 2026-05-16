@@ -69,6 +69,10 @@ export class GodModeService extends Context.Service<GodModeService>()("GodModeSe
 			return { total, users };
 		});
 
+		const getMigrationReport = Effect.fn("GodModeService.getMigrationReport")(function* () {
+			return { entries: yield* repository.listMigrationReportEntries() };
+		});
+
 		const provisionUser = Effect.fn("GodModeService.provisionUser")(function* (
 			input: ProvisionUserBody,
 		) {
@@ -153,6 +157,7 @@ export class GodModeService extends Context.Service<GodModeService>()("GodModeSe
 			provisionUser,
 			setUserDisabled,
 			resetUserPassword,
+			getMigrationReport,
 			resetUser: lifecycle.resetUser,
 			deleteUser: lifecycle.deleteUser,
 			getUserLifecycleOperation: lifecycle.getOperation,

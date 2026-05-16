@@ -7,6 +7,12 @@ import { GodModeService } from "./service";
 
 export const GodModeRoutesLive = HttpApiBuilder.group(AppContract, "godMode", (handlers) =>
 	handlers
+		.handle("getMigrationReport", () =>
+			Effect.gen(function* () {
+				const service = yield* GodModeService;
+				return yield* service.getMigrationReport().pipe(dieOnDbError);
+			}),
+		)
 		.handle("listUsers", ({ query }) =>
 			Effect.gen(function* () {
 				const service = yield* GodModeService;

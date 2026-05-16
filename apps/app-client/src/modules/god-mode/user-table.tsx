@@ -1,8 +1,7 @@
 import { useAtomRefresh, useAtomSet, useAtomValue } from "@effect/atom-react";
-import clsx from "clsx";
 import { AsyncResult } from "effect/unstable/reactivity";
 import { useEffect, useEffectEvent, useState } from "react";
-import { ActivityIndicator, Text, View } from "react-native";
+import { ActivityIndicator, View } from "react-native";
 
 import {
 	deleteUserAtom,
@@ -21,6 +20,7 @@ import { AppIcon } from "@/modules/icons";
 import { AppButton } from "@/modules/ui/button";
 import { AppLoadMore } from "@/modules/ui/pagination";
 import { AppStatusState } from "@/modules/ui/status-state";
+import { AppTableHeader } from "@/modules/ui/table-header";
 
 const headers = [
 	{ label: "Email", className: godModeUserColumns.email },
@@ -135,18 +135,7 @@ export function GodModeUserTable(props: { readonly search: string }) {
 
 	return (
 		<View className="w-full">
-			<View className="h-8.5 flex-row items-center gap-3 border-b border-border md:gap-4">
-				{headers.map((header) => (
-					<View key={header.label} className={clsx(header.className, "justify-center")}>
-						<Text
-							numberOfLines={1}
-							className="font-ui-semibold text-[11.5px] uppercase tracking-[0.6px] text-text-subtle"
-						>
-							{header.label}
-						</Text>
-					</View>
-				))}
-			</View>
+			<AppTableHeader columns={headers} />
 			{offsets.map((offset, index) => (
 				<UsersPage
 					key={offset}
