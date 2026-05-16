@@ -102,9 +102,36 @@ driver("details", async function (context) {
   }
 
   const entities = Array.isArray(data?.entities) ? data.entities : [];
-  const parts = entities.filter(
+  const movieEntities = entities.filter(
     (e) => e && typeof e === "object" && e.movieId != null,
-  ).length;
+  );
+  const parts = movieEntities.length;
+
+  const relatedEntities = movieEntities
+    .sort((a, b) => {
+      const orderA = typeof a.order === "number" ? a.order : 0;
+      const orderB = typeof b.order === "number" ? b.order : 0;
+      return orderA - orderB;
+    })
+    .map((entity, idx) => {
+      const memberId =
+        typeof entity.movieId === "string" && entity.movieId.trim()
+          ? entity.movieId.trim()
+          : null;
+      if (!memberId) return null;
+      const memberName =
+        typeof entity.name === "string" && entity.name.trim()
+          ? entity.name.trim()
+          : "Loading...";
+      return {
+        name: memberName,
+        externalId: memberId,
+        reverseDirection: true,
+        scriptSlug: "movie.tvdb",
+        relationshipProperties: { order: idx + 1 },
+      };
+    })
+    .filter((e) => e !== null);
 
   const sourceUrl =
     typeof data?.url === "string" && data.url.trim()
@@ -113,6 +140,7 @@ driver("details", async function (context) {
 
   return {
     name: title,
+    relatedEntities,
     properties: {
       parts,
       images,

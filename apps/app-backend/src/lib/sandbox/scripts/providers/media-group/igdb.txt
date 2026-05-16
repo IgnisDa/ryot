@@ -218,10 +218,30 @@ driver("details", async function (context) {
   );
   const parts = games.length;
 
+  const relatedEntities = games
+    .map((game, idx) => {
+      const memberId =
+        typeof game?.id === "number" ? String(Math.trunc(game.id)) : null;
+      if (!memberId) return null;
+      const memberName =
+        typeof game?.name === "string" && game.name.trim()
+          ? game.name.trim()
+          : "Loading...";
+      return {
+        name: memberName,
+        externalId: memberId,
+        reverseDirection: true,
+        scriptSlug: "video-game.igdb",
+        relationshipProperties: { order: idx + 1 },
+      };
+    })
+    .filter((e) => e !== null);
+
   const sourceUrl = `https://www.igdb.com/collection/${toSlug(title)}`;
 
   return {
     name: title,
+    relatedEntities,
     properties: {
       parts,
       sourceUrl,
