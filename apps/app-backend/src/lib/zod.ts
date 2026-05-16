@@ -1,4 +1,5 @@
 import { z } from "@hono/zod-openapi";
+import { zodNonEmptyTrimmedString } from "@ryot/ts-utils";
 
 export const nullableStringSchema = z.string().nullish();
 export const nullableNumberSchema = z.number().nullish();
@@ -8,7 +9,7 @@ export const positiveIntSchema = z.number().int().positive();
 export const stringArraySchema = z.array(z.string());
 export const sortOrderSchema = z.number().int().nonnegative();
 export const nonEmptyStringSchema = z.string().min(1);
-export const nonEmptyTrimmedStringSchema = z.string().trim().min(1);
+export const nonEmptyTrimmedStringSchema = zodNonEmptyTrimmedString("Required");
 export const stringUnknownRecordSchema = z.record(z.string(), z.unknown());
 export const applicationIconNameSchema = nonEmptyTrimmedStringSchema.describe(
 	"A Lucide icon name (e.g., 'book', 'dumbbell', 'gamepad-2'). See https://lucide.dev/icons/",

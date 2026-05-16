@@ -2,7 +2,6 @@ import { describe, expect, it } from "bun:test";
 
 import type { AppSchema } from "@ryot/ts-utils";
 import { createComputedFieldExpression, createEntityPropertyExpression } from "@ryot/ts-utils";
-import { PgDialect } from "drizzle-orm/pg-core";
 
 import {
 	comparisonPredicate as comparison,
@@ -14,11 +13,8 @@ import {
 import type { ViewComputedField, ViewPredicate } from "~/lib/views/expression";
 import { buildEventJoinMap, buildRelationshipJoinMap, buildSchemaMap } from "~/lib/views/reference";
 
-import { createQueryCompiler } from "./expression-compiler";
-import { createExpressionTypeResolver } from "./expression-type-resolver";
 import { buildFilterWhereClause } from "./filter-builder";
-
-const dialect = new PgDialect();
+import { createQueryTestCompiler, dialect } from "./test-support";
 
 const tabletSchema = createTabletSchema();
 const smartphoneSchema = createSmartphoneSchema();
@@ -103,8 +99,11 @@ const context = {
 };
 
 const serializeClause = (predicate: ViewPredicate, computedFields?: ViewComputedField[]) => {
-	const getTypeInfo = createExpressionTypeResolver({ context, computedFields });
-	const compiler = createQueryCompiler({ context, getTypeInfo, computedFields, alias: "entities" });
+	const compiler = createQueryTestCompiler({
+		context,
+		computedFields,
+		alias: "entities",
+	});
 	const clause = buildFilterWhereClause({ context, compiler, predicate, computedFields });
 	return dialect.sqlToQuery(clause);
 };

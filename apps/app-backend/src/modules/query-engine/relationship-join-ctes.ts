@@ -6,11 +6,8 @@ import { entity, relationship } from "~/lib/db/schema";
 import { QueryEngineValidationError } from "~/lib/views/errors";
 import type { ViewExpression } from "~/lib/views/expression";
 import {
-	assertConcatCompatibleExpression,
-	assertNumericExpression,
 	inferViewExpressionType,
 	normalizeExpressionPropertyType,
-	type ViewExpressionTypeInfo,
 } from "~/lib/views/expression-analysis";
 import type { PropertyType } from "~/lib/views/reference";
 import {
@@ -19,16 +16,12 @@ import {
 } from "~/lib/views/reference";
 
 import type { LoadedRelationshipJoin } from "./context";
-import type { ExpressionCompiler } from "./expression-compiler";
+import { createExpressionCompilerCore, type ExpressionCompiler } from "./expression-compiler";
 import { buildPredicateClause } from "./predicate-clause-builder";
+import { buildEntityDataObjectExpression } from "./query-cte-shared";
 import {
 	buildCastedValueExpression,
-	buildCoalescedExpression,
-	buildIntegerNormalizationExpression,
 	buildJsonColumnPropertyExpression,
-	buildJsonNullNormalizedExpression,
-	buildLiteralExpression,
-	buildTextValueExpression,
 	getRelationshipJoinCteName,
 	getRelationshipJoinColumnName,
 	sanitizeIdentifier,
@@ -93,135 +86,32 @@ const buildRelationshipJoinLocalExpression = (input: {
 const createJoinLocalFilterCompiler = (join: LoadedRelationshipJoin): ExpressionCompiler => {
 	const relationshipJoinMap = new Map([[join.key, join]]);
 
-	const getTypeInfo = (expression: ViewExpression): ViewExpressionTypeInfo => {
+	const getTypeInfo = (expression: ViewExpression) => {
 		return inferViewExpressionType({
 			expression,
 			context: { relationshipJoinMap, schemaMap: new Map(), eventJoinMap: new Map() },
 		});
 	};
 
-	const compile = (expression: ViewExpression, targetType?: PropertyType): SqlExpression => {
-		return match(expression)
-			.with({ type: "literal" }, (expr) =>
-				buildLiteralExpression({ literalType: expr.literalType, value: expr.value }, targetType),
-			)
-			.with({ type: "reference" }, (expr) => {
-				if (expr.reference.type !== "relationship-join") {
-					throw new QueryEngineValidationError(
-						`Join-local filter may only reference the current relationship join, received '${expr.reference.type}'`,
-					);
-				}
-				if (expr.reference.joinKey !== join.key) {
-					throw new QueryEngineValidationError(
-						`Join-local filter cannot reference relationship join '${expr.reference.joinKey}'`,
-					);
-				}
-				return buildRelationshipJoinLocalExpression({
-					join,
-					targetType,
-					reference: expr.reference,
-				});
-			})
-			.with({ type: "coalesce" }, (expr) => {
-				const typeInfo = getTypeInfo(expr);
-				const coalesceTargetType =
-					targetType ?? (typeInfo.kind === "property" ? typeInfo.propertyType : undefined);
-				return buildCoalescedExpression(
-					expr.values.map((value) => {
-						const compiledValue = compile(value, coalesceTargetType);
-						return buildJsonNullNormalizedExpression({
-							expression: compiledValue,
-							targetType: coalesceTargetType,
-							typeInfo: getTypeInfo(value),
-						});
-					}),
+	return createExpressionCompilerCore({
+		getTypeInfo,
+		resolveReference: ({ reference, targetType }) => {
+			if (reference.type !== "relationship-join") {
+				throw new QueryEngineValidationError(
+					`Join-local filter may only reference the current relationship join, received '${reference.type}'`,
 				);
-			})
-			.with({ type: "arithmetic" }, (expr) => {
-				const leftType = getTypeInfo(expr.left);
-				const rightType = getTypeInfo(expr.right);
-				assertNumericExpression(leftType, "Arithmetic");
-				assertNumericExpression(rightType, "Arithmetic");
-				const arithmeticTargetType =
-					targetType ??
-					(expr.operator === "divide" ||
-					(leftType.kind === "property" && leftType.propertyType === "number") ||
-					(rightType.kind === "property" && rightType.propertyType === "number")
-						? "number"
-						: "integer");
-				const left = compile(expr.left, arithmeticTargetType);
-				const right = compile(expr.right, arithmeticTargetType);
+			}
 
-				return match(expr.operator)
-					.with("add", () => sql`(${left}) + (${right})`)
-					.with("subtract", () => sql`(${left}) - (${right})`)
-					.with("multiply", () => sql`(${left}) * (${right})`)
-					.with("divide", () => sql`(${left}) / nullif((${right}), 0)`)
-					.exhaustive();
-			})
-			.with({ type: "round" }, (expr) => {
-				const expressionType = getTypeInfo(expr.expression);
-				assertNumericExpression(expressionType, "Numeric normalization");
-				const compiled = compile(expr.expression, "number");
-				return sql`round(${compiled})::integer`;
-			})
-			.with({ type: "floor" }, (expr) => {
-				const expressionType = getTypeInfo(expr.expression);
-				assertNumericExpression(expressionType, "Numeric normalization");
-				const compiled = compile(expr.expression, "number");
-				return sql`floor(${compiled})::integer`;
-			})
-			.with({ type: "integer" }, (expr) => {
-				const expressionType = getTypeInfo(expr.expression);
-				assertNumericExpression(expressionType, "Numeric normalization");
-				return buildIntegerNormalizationExpression(compile(expr.expression, "number"));
-			})
-			.with({ type: "concat" }, (expr) => {
-				for (const value of expr.values) {
-					assertConcatCompatibleExpression(getTypeInfo(value));
-				}
-				return sql`concat(${sql.join(
-					expr.values.map((value) => buildTextValueExpression(compile(value))),
-					sql`, `,
-				)})`;
-			})
-			.with({ type: "transform" }, (expr) => {
-				assertConcatCompatibleExpression(getTypeInfo(expr.expression));
-				const textExpr = buildTextValueExpression(compile(expr.expression));
-				return match(expr.name)
-					.with("titleCase", () => sql`initcap(replace(replace(${textExpr}, '_', ' '), '-', ' '))`)
-					.with("kebabCase", () => sql`lower(replace(replace(${textExpr}, '_', '-'), ' ', '-'))`)
-					.exhaustive();
-			})
-			.with({ type: "conditional" }, (expr) => {
-				const typeInfo = getTypeInfo(expr);
-				const conditionalTargetType =
-					targetType ?? (typeInfo.kind === "property" ? typeInfo.propertyType : undefined);
-				const predicate = buildPredicateClause({
-					predicate: expr.condition,
-					compiler: { compile, getTypeInfo },
-				});
-				const whenTrue = compile(expr.whenTrue, conditionalTargetType);
-				const whenFalse = compile(expr.whenFalse, conditionalTargetType);
-				return sql`case when ${predicate} then ${whenTrue} else ${whenFalse} end`;
-			})
-			.exhaustive();
-	};
+			if (reference.joinKey !== join.key) {
+				throw new QueryEngineValidationError(
+					`Join-local filter cannot reference relationship join '${reference.joinKey}'`,
+				);
+			}
 
-	return { compile, getTypeInfo };
+			return buildRelationshipJoinLocalExpression({ join, reference, targetType });
+		},
+	});
 };
-
-const buildRelatedEntityDataObject = (alias: string) =>
-	sql`jsonb_build_object(
-		'id', ${sql.raw(`${alias}.id`)},
-		'name', ${sql.raw(`${alias}.name`)},
-		'image', ${sql.raw(`${alias}.image`)},
-		'createdAt', ${sql.raw(`${alias}.created_at`)},
-		'updatedAt', ${sql.raw(`${alias}.updated_at`)},
-		'externalId', ${sql.raw(`${alias}.external_id`)},
-		'sandboxScriptId', ${sql.raw(`${alias}.sandbox_script_id`)},
-		'properties', ${sql.raw(`${alias}.properties`)}
-	)`;
 
 export const buildLatestRelationshipJoinCte = (input: {
 	join: LoadedRelationshipJoin;
@@ -258,8 +148,8 @@ export const buildLatestRelationshipJoinCte = (input: {
 					'sourceEntityId', ${relationship.sourceEntityId},
 					'targetEntityId', ${relationship.targetEntityId},
 					'properties', ${relationship.properties},
-					'sourceEntity', ${buildRelatedEntityDataObject(sourceAlias)},
-					'targetEntity', ${buildRelatedEntityDataObject(targetAlias)}
+					'sourceEntity', ${buildEntityDataObjectExpression(sourceAlias)},
+					'targetEntity', ${buildEntityDataObjectExpression(targetAlias)}
 				) as latest_relationship
 			from ${relationship}
 			left join ${entity} ${sql.raw(sourceAlias)} on ${relationship.sourceEntityId} = ${sql.raw(`${sourceAlias}.id`)}

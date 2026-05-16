@@ -14,27 +14,103 @@ const parseAppSchema = (value: unknown) => {
 	return propertySchemaObjectSchema.parse(value);
 };
 
+const groupRowsBySlug = <TRow extends { slug: string }>(rows: TRow[]) => {
+	const rowsBySlug = new Map<string, TRow[]>();
+	for (const row of rows) {
+		const existing = rowsBySlug.get(row.slug) ?? [];
+		existing.push(row);
+		rowsBySlug.set(row.slug, existing);
+	}
+	return rowsBySlug;
+};
+
+const validateUniqueVisibleSlugs = <TRow extends { slug: string }>(input: {
+	rows: TRow[];
+	slugs: string[];
+	onMissing: (slug: string) => Error;
+	onDuplicate: (slug: string) => Error;
+}) => {
+	const rowsBySlug = groupRowsBySlug(input.rows);
+	for (const slug of input.slugs) {
+		const found = rowsBySlug.get(slug);
+		if (!found?.length) {
+			throw input.onMissing(slug);
+		}
+
+		if (found.length > 1) {
+			throw input.onDuplicate(slug);
+		}
+	}
+	return rowsBySlug;
+};
+
+const validatePresentSlugs = <TRow extends { slug: string }>(input: {
+	rows: TRow[];
+	slugs: string[];
+	onMissing: (slug: string) => Error;
+}) => {
+	const rowsBySlug = groupRowsBySlug(input.rows);
+	for (const slug of input.slugs) {
+		if (!rowsBySlug.has(slug)) {
+			throw input.onMissing(slug);
+		}
+	}
+	return rowsBySlug;
+};
+
+type VisibleEventSchemaRow = QueryEngineEventSchemaLike & {
+	entitySchemaSlug: string;
+};
+
+const loadVisibleEventSchemaRows = async (input: {
+	userId: string;
+	eventSchemaSlugs: string[];
+	runtimeSchemas: QueryEngineSchemaRow[];
+}): Promise<VisibleEventSchemaRow[]> => {
+	const uniqueSlugs = [...new Set(input.eventSchemaSlugs)];
+	if (!uniqueSlugs.length) {
+		return [];
+	}
+
+	const rows = await db
+		.select({
+			id: eventSchema.id,
+			slug: eventSchema.slug,
+			entitySchemaSlug: entitySchema.slug,
+			entitySchemaId: eventSchema.entitySchemaId,
+			propertiesSchema: eventSchema.propertiesSchema,
+		})
+		.from(eventSchema)
+		.innerJoin(entitySchema, eq(eventSchema.entitySchemaId, entitySchema.id))
+		.where(
+			and(
+				inArray(
+					eventSchema.entitySchemaId,
+					input.runtimeSchemas.map((schema) => schema.id),
+				),
+				inArray(eventSchema.slug, uniqueSlugs),
+				or(isNull(eventSchema.userId), eq(eventSchema.userId, input.userId)),
+			),
+		);
+
+	return rows.map((row) =>
+		Object.assign(row, {
+			propertiesSchema: parseAppSchema(row.propertiesSchema),
+		}),
+	);
+};
+
 export const validateUniqueSchemaSlugs = (
 	uniqueSlugs: string[],
 	schemas: QueryEngineSchemaRow[],
 ) => {
-	const schemasBySlug = new Map<string, QueryEngineSchemaRow[]>();
-	for (const schema of schemas) {
-		const existing = schemasBySlug.get(schema.slug) ?? [];
-		existing.push(schema);
-		schemasBySlug.set(schema.slug, existing);
-	}
-
-	for (const slug of uniqueSlugs) {
-		const found = schemasBySlug.get(slug);
-		if (!found?.length) {
-			throw new QueryEngineNotFoundError(`Schema '${slug}' not found`);
-		}
-
-		if (found.length > 1) {
-			throw new QueryEngineValidationError(`Schema '${slug}' resolves to multiple visible schemas`);
-		}
-	}
+	validateUniqueVisibleSlugs({
+		rows: schemas,
+		slugs: uniqueSlugs,
+		onMissing: (slug) => new QueryEngineNotFoundError(`Schema '${slug}' not found`),
+		onDuplicate: (slug) =>
+			new QueryEngineValidationError(`Schema '${slug}' resolves to multiple visible schemas`),
+	});
 };
 
 export const validateVisibleEventJoins = (
@@ -74,37 +150,29 @@ export const validateVisibleEventJoins = (
 };
 
 export const validateEventSchemaSlugs = (uniqueSlugs: string[], rows: { slug: string }[]) => {
-	for (const slug of uniqueSlugs) {
-		if (!rows.some((r) => r.slug === slug)) {
-			throw new QueryEngineValidationError(
+	validatePresentSlugs({
+		rows,
+		slugs: uniqueSlugs,
+		onMissing: (slug) =>
+			new QueryEngineValidationError(
 				`Event schema '${slug}' not found for the requested entity schemas`,
-			);
-		}
-	}
+			),
+	});
 };
 
 export const validateVisibleRelationshipSchemaRows = (
 	slugs: string[],
 	rows: { id: string; slug: string }[],
 ) => {
-	const rowsBySlug = new Map<string, { id: string; slug: string }[]>();
-	for (const row of rows) {
-		const existing = rowsBySlug.get(row.slug) ?? [];
-		existing.push(row);
-		rowsBySlug.set(row.slug, existing);
-	}
-
-	for (const slug of slugs) {
-		const found = rowsBySlug.get(slug);
-		if (!found?.length) {
-			throw new QueryEngineValidationError(`Relationship schema '${slug}' not found`);
-		}
-		if (found.length > 1) {
-			throw new QueryEngineValidationError(
+	validateUniqueVisibleSlugs({
+		rows,
+		slugs,
+		onMissing: (slug) => new QueryEngineValidationError(`Relationship schema '${slug}' not found`),
+		onDuplicate: (slug) =>
+			new QueryEngineValidationError(
 				`Relationship schema '${slug}' resolves to multiple visible schemas`,
-			);
-		}
-	}
+			),
+	});
 };
 
 export const loadVisibleSchemas = async (input: {
@@ -145,33 +213,11 @@ export const loadVisibleEventJoins = async (input: {
 		return [];
 	}
 
-	const uniqueEventSchemaSlugs = [...new Set(input.eventJoins.map((join) => join.eventSchemaSlug))];
-	const rows = await db
-		.select({
-			id: eventSchema.id,
-			slug: eventSchema.slug,
-			entitySchemaSlug: entitySchema.slug,
-			entitySchemaId: eventSchema.entitySchemaId,
-			propertiesSchema: eventSchema.propertiesSchema,
-		})
-		.from(eventSchema)
-		.innerJoin(entitySchema, eq(eventSchema.entitySchemaId, entitySchema.id))
-		.where(
-			and(
-				inArray(
-					eventSchema.entitySchemaId,
-					input.runtimeSchemas.map((schema) => schema.id),
-				),
-				inArray(eventSchema.slug, uniqueEventSchemaSlugs),
-				or(isNull(eventSchema.userId), eq(eventSchema.userId, input.userId)),
-			),
-		);
-
-	const visibleEventSchemas = rows.map((row) =>
-		Object.assign(row, {
-			propertiesSchema: parseAppSchema(row.propertiesSchema),
-		}),
-	);
+	const visibleEventSchemas = await loadVisibleEventSchemaRows({
+		userId: input.userId,
+		runtimeSchemas: input.runtimeSchemas,
+		eventSchemaSlugs: input.eventJoins.map((join) => join.eventSchemaSlug),
+	});
 
 	return validateVisibleEventJoins(input.eventJoins, visibleEventSchemas);
 };
@@ -304,37 +350,17 @@ export const loadEventSchemasBySlug = async (input: {
 	}
 
 	const uniqueSlugs = [...new Set(input.eventSchemaSlugs)];
-	const rows = await db
-		.select({
-			id: eventSchema.id,
-			slug: eventSchema.slug,
-			entitySchemaSlug: entitySchema.slug,
-			entitySchemaId: eventSchema.entitySchemaId,
-			propertiesSchema: eventSchema.propertiesSchema,
-		})
-		.from(eventSchema)
-		.innerJoin(entitySchema, eq(eventSchema.entitySchemaId, entitySchema.id))
-		.where(
-			and(
-				inArray(
-					eventSchema.entitySchemaId,
-					input.runtimeSchemas.map((s) => s.id),
-				),
-				inArray(eventSchema.slug, uniqueSlugs),
-				or(isNull(eventSchema.userId), eq(eventSchema.userId, input.userId)),
-			),
-		);
-
+	const rows = await loadVisibleEventSchemaRows({
+		userId: input.userId,
+		eventSchemaSlugs: uniqueSlugs,
+		runtimeSchemas: input.runtimeSchemas,
+	});
 	validateEventSchemaSlugs(uniqueSlugs, rows);
 
 	const eventSchemaMap = new Map<string, QueryEngineEventSchemaLike[]>();
 	for (const row of rows) {
-		const parsedRow = {
-			...row,
-			propertiesSchema: parseAppSchema(row.propertiesSchema),
-		};
 		const existing = eventSchemaMap.get(row.slug) ?? [];
-		existing.push(parsedRow);
+		existing.push(row);
 		eventSchemaMap.set(row.slug, existing);
 	}
 
