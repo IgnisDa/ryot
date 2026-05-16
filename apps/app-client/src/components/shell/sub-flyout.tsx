@@ -51,7 +51,7 @@ export function ShellSubFlyout() {
 				<Text className="text-[10px] text-muted-foreground tracking-[2px] pb-3.5 font-sans px-6 uppercase">
 					{activeTracker?.name} · {subItems.length} {subItems.length === 1 ? "view" : "views"}
 				</Text>
-				<ScrollView style={{ flex: 1 }}>
+				<ScrollView className="flex-1">
 					<Box className="gap-1 px-4">
 						{subItems.map((item) => {
 							const isActive = item.slug === activeSubItemSlug;
