@@ -165,6 +165,30 @@ describe("Expr", () => {
 		expect(result.type).toBe("exists");
 	});
 
+	it("decodes an 'aggregate' expression with count distinctBy", () => {
+		const result = decodeSync(Expr)({
+			type: "aggregate",
+			aggregation: {
+				function: "count",
+				distinctBy: { type: "ref", sourceAlias: "lesson", field: { type: "system", name: "id" } },
+			},
+			source: {
+				where: null,
+				alias: "lesson",
+				type: "entities",
+				schemas: ["lesson"],
+				via: {
+					entityRef: "module",
+					alias: "moduleLesson",
+					direction: "outgoing",
+					schema: "module-lesson",
+				},
+			},
+		});
+
+		expect(result.type).toBe("aggregate");
+	});
+
 	it("decodes a 'first' expression over an ordered event source", () => {
 		const result = decodeSync(Expr)({
 			type: "first",

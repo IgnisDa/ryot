@@ -43,6 +43,107 @@ const buildRowsDoc = (
 	};
 };
 
+const createCourseLessonFilterFixture = async () => {
+	const { client } = await createAuthenticatedClient();
+	const { schemaId: courseSchemaId, slug: courseSlug } = await createV2TrackerAndSchema(client, {
+		schemaName: "FilterCourse",
+	});
+	const { schemaId: moduleSchemaId, slug: moduleSlug } = await createV2TrackerAndSchema(client, {
+		schemaName: "FilterModule",
+	});
+	const { schemaId: lessonSchemaId, slug: lessonSlug } = await createV2TrackerAndSchema(client, {
+		schemaName: "FilterLesson",
+		propertiesSchema: {
+			fields: {
+				durationMinutes: {
+					type: "integer",
+					label: "Duration Minutes",
+					description: "Lesson duration in minutes",
+				},
+			},
+		},
+	});
+	const completeSlug = `filter-complete-${crypto.randomUUID()}`;
+	const completeSchema = await createEventSchema(client, {
+		slug: completeSlug,
+		name: "Filter Complete",
+		entitySchemaId: lessonSchemaId,
+		propertiesSchema: {
+			fields: { note: { type: "string", label: "Note", description: "Completion note" } },
+		},
+	});
+	const courseModuleSlug = `filter-course-module-${crypto.randomUUID()}`;
+	const moduleLessonSlug = `filter-module-lesson-${crypto.randomUUID()}`;
+	const courseModuleSchema = await createRelationshipSchema(client, {
+		slug: courseModuleSlug,
+		name: "Filter Course Module",
+		propertiesSchema: { fields: {} },
+		targetEntitySchemaId: moduleSchemaId,
+		sourceEntitySchemaId: courseSchemaId,
+	});
+	const moduleLessonSchema = await createRelationshipSchema(client, {
+		slug: moduleLessonSlug,
+		name: "Filter Module Lesson",
+		propertiesSchema: { fields: {} },
+		targetEntitySchemaId: lessonSchemaId,
+		sourceEntitySchemaId: moduleSchemaId,
+	});
+
+	const createCourse = async (
+		name: string,
+		lessons: readonly { durationMinutes: number; complete: boolean }[],
+	) => {
+		const course = await createV2Entity(client, { name, entitySchemaId: courseSchemaId });
+		await Promise.all(
+			lessons.map(async (lessonInput, index) => {
+				const [module, lesson] = await Promise.all([
+					createV2Entity(client, {
+						entitySchemaId: moduleSchemaId,
+						name: `${name} Module ${index + 1}`,
+					}),
+					createV2Entity(client, {
+						entitySchemaId: lessonSchemaId,
+						name: `${name} Lesson ${index + 1}`,
+						properties: { durationMinutes: lessonInput.durationMinutes },
+					}),
+				]);
+				await Promise.all([
+					createRelationship(client, {
+						targetEntityId: module.id,
+						sourceEntityId: course.id,
+						relationshipSchemaId: courseModuleSchema.id,
+					}),
+					createRelationship(client, {
+						targetEntityId: lesson.id,
+						sourceEntityId: module.id,
+						relationshipSchemaId: moduleLessonSchema.id,
+					}),
+				]);
+				if (lessonInput.complete) {
+					await createV2Event(client, { entityId: lesson.id, eventSchemaId: completeSchema.id });
+				}
+			}),
+		);
+	};
+
+	await createCourse("Advanced Course", [
+		{ complete: true, durationMinutes: 35 },
+		{ complete: true, durationMinutes: 65 },
+	]);
+	await createCourse("Short Course", [{ complete: true, durationMinutes: 30 }]);
+	await createCourse("Long Incomplete Course", [{ complete: false, durationMinutes: 90 }]);
+
+	return {
+		client,
+		courseSlug,
+		moduleSlug,
+		lessonSlug,
+		completeSlug,
+		moduleLessonSlug,
+		courseModuleSlug,
+	};
+};
+
 describe("Query Engine V2 E2E", () => {
 	describe("Single-schema entity rows query", () => {
 		it("returns entities with system field values", async () => {
@@ -617,6 +718,154 @@ describe("Query Engine V2 E2E", () => {
 				value: false,
 				kind: "boolean",
 			});
+		});
+	});
+
+	describe("Descendant source filters", () => {
+		it("filters courses by descendant completed lesson count", async () => {
+			const {
+				client,
+				courseSlug,
+				moduleSlug,
+				lessonSlug,
+				completeSlug,
+				moduleLessonSlug,
+				courseModuleSlug,
+			} = await createCourseLessonFilterFixture();
+			const completedLessonModulesSource = (suffix: string) =>
+				({
+					type: "entities",
+					schemas: [moduleSlug],
+					alias: `module${suffix}`,
+					via: {
+						entityRef: "course",
+						direction: "outgoing",
+						schema: courseModuleSlug,
+						alias: `courseModule${suffix}`,
+					},
+					where: {
+						type: "exists",
+						source: {
+							type: "entities",
+							schemas: [lessonSlug],
+							alias: `lesson${suffix}`,
+							via: {
+								direction: "outgoing",
+								schema: moduleLessonSlug,
+								entityRef: `module${suffix}`,
+								alias: `moduleLesson${suffix}`,
+							},
+							where: {
+								type: "exists",
+								source: {
+									where: null,
+									type: "events",
+									schemas: [completeSlug],
+									entityRef: `lesson${suffix}`,
+									alias: `completion${suffix}`,
+								},
+							},
+						},
+					},
+				}) as const;
+			const doc = buildRowsDoc({
+				alias: "course",
+				schemas: [courseSlug],
+				fields: [
+					{ key: "name", expr: systemRef("course", "name") },
+					{
+						key: "completedLessonCount",
+						expr: {
+							type: "coalesce",
+							values: [
+								{
+									type: "aggregate",
+									aggregation: { function: "count" },
+									source: completedLessonModulesSource("Field"),
+								},
+								{ type: "literal", value: 0 },
+							],
+						},
+					},
+				],
+				source: {
+					alias: "course",
+					type: "entities",
+					schemas: [courseSlug],
+					where: {
+						operator: "gte",
+						type: "comparison",
+						right: { type: "literal", value: 2 },
+						left: {
+							type: "aggregate",
+							aggregation: { function: "count" },
+							source: completedLessonModulesSource("Filter"),
+						},
+					},
+				},
+			});
+
+			const result = await executeQueryEngineV2(client, doc);
+
+			expect(result.data.items).toHaveLength(1);
+			const course = result.data.items[0];
+			assertPresent(course, "Expected filtered course row");
+			expect(requireV2FieldValue(course, "name").value).toBe("Advanced Course");
+			expect(requireV2FieldValue(course, "completedLessonCount").value).toBe(2);
+		});
+
+		it("filters courses by a descendant lesson duration threshold", async () => {
+			const { client, courseSlug, moduleSlug, lessonSlug, moduleLessonSlug, courseModuleSlug } =
+				await createCourseLessonFilterFixture();
+			const doc = buildRowsDoc({
+				alias: "course",
+				schemas: [courseSlug],
+				fields: [{ key: "name", expr: systemRef("course", "name") }],
+				source: {
+					alias: "course",
+					type: "entities",
+					schemas: [courseSlug],
+					where: {
+						type: "exists",
+						source: {
+							alias: "module",
+							where: {
+								type: "exists",
+								source: {
+									alias: "lesson",
+									type: "entities",
+									schemas: [lessonSlug],
+									where: {
+										operator: "gt",
+										type: "comparison",
+										right: { type: "literal", value: 45 },
+										left: propertyRef("lesson", lessonSlug, "durationMinutes"),
+									},
+									via: {
+										entityRef: "module",
+										alias: "moduleLesson",
+										direction: "outgoing",
+										schema: moduleLessonSlug,
+									},
+								},
+							},
+							type: "entities",
+							schemas: [moduleSlug],
+							via: {
+								entityRef: "course",
+								alias: "courseModule",
+								direction: "outgoing",
+								schema: courseModuleSlug,
+							},
+						},
+					},
+				},
+			});
+
+			const result = await executeQueryEngineV2(client, doc);
+
+			const names = result.data.items.map((item) => requireV2FieldValue(item, "name").value);
+			expect(names).toEqual(["Advanced Course", "Long Incomplete Course"]);
 		});
 	});
 

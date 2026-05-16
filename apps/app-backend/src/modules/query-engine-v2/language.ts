@@ -30,24 +30,29 @@ export type Expr =
 	| { readonly type: "isNull"; readonly expr: Expr }
 	| { readonly type: "isNotNull"; readonly expr: Expr }
 	| { readonly type: "exists"; readonly source: SourceV2 }
-	| {
-			type: "first";
-			readonly source: SourceV2;
-			readonly select: Expr;
-			readonly orderBy: readonly [typeof OrderByEntry.Type, ...Array<typeof OrderByEntry.Type>];
-	  }
 	| { readonly type: "or"; readonly values: readonly [Expr, ...Expr[]] }
 	| { readonly type: "and"; readonly values: readonly [Expr, ...Expr[]] }
 	| { readonly type: "contains"; readonly left: Expr; readonly right: Expr }
 	| { readonly type: "coalesce"; readonly values: readonly [Expr, ...Expr[]] }
 	| { readonly type: "literal"; readonly value: unknown; readonly valueType?: "date" }
 	| { readonly type: "ref"; readonly sourceAlias: string; readonly field: FieldSelector }
+	| { readonly type: "aggregate"; readonly source: SourceV2; readonly aggregation: AggregationSpec }
+	| {
+			type: "first";
+			readonly select: Expr;
+			readonly source: SourceV2;
+			readonly orderBy: readonly [typeof OrderByEntry.Type, ...Array<typeof OrderByEntry.Type>];
+	  }
 	| {
 			readonly left: Expr;
 			readonly right: Expr;
 			readonly type: "comparison";
 			readonly operator: "eq" | "neq" | "gt" | "gte" | "lt" | "lte";
 	  };
+
+export type AggregationSpec =
+	| { readonly function: "count"; readonly distinctBy?: Expr }
+	| { readonly function: "sum" | "average" | "minimum" | "maximum"; readonly expr: Expr };
 
 const LiteralExpr = strictStruct({
 	value: Schema.Unknown,
@@ -69,16 +74,21 @@ export const Expr: Schema.Schema<Expr> = Schema.suspend(() =>
 		strictStruct({ expr: Expr, type: Schema.Literal("isNull") }),
 		strictStruct({ expr: Expr, type: Schema.Literal("isNotNull") }),
 		strictStruct({ source: SourceV2, type: Schema.Literal("exists") }),
+		strictStruct({ left: Expr, right: Expr, type: Schema.Literal("contains") }),
+		strictStruct({ type: Schema.Literal("or"), values: Schema.NonEmptyArray(Expr) }),
+		strictStruct({ type: Schema.Literal("and"), values: Schema.NonEmptyArray(Expr) }),
+		strictStruct({ type: Schema.Literal("coalesce"), values: Schema.NonEmptyArray(Expr) }),
+		strictStruct({
+			source: SourceV2,
+			aggregation: AggregationSpec,
+			type: Schema.Literal("aggregate"),
+		}),
 		strictStruct({
 			select: Expr,
 			source: SourceV2,
 			type: Schema.Literal("first"),
 			orderBy: Schema.NonEmptyArray(OrderByEntry),
 		}),
-		strictStruct({ left: Expr, right: Expr, type: Schema.Literal("contains") }),
-		strictStruct({ type: Schema.Literal("or"), values: Schema.NonEmptyArray(Expr) }),
-		strictStruct({ type: Schema.Literal("and"), values: Schema.NonEmptyArray(Expr) }),
-		strictStruct({ type: Schema.Literal("coalesce"), values: Schema.NonEmptyArray(Expr) }),
 		strictStruct({
 			left: Expr,
 			right: Expr,
@@ -87,6 +97,13 @@ export const Expr: Schema.Schema<Expr> = Schema.suspend(() =>
 		}),
 	),
 ).annotations({ identifier: "Expr" });
+
+export const AggregationSpec: Schema.Schema<AggregationSpec> = Schema.suspend(() =>
+	Schema.Union(
+		strictStruct({ function: Schema.Literal("count"), distinctBy: Schema.optional(Expr) }),
+		strictStruct({ expr: Expr, function: Schema.Literal("sum", "average", "minimum", "maximum") }),
+	),
+).annotations({ identifier: "AggregationSpec" });
 
 const RelationshipViaV2 = strictStruct({
 	alias: Schema.String,
