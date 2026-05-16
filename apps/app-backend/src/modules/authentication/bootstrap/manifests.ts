@@ -417,12 +417,12 @@ const getBuiltInSavedViewName = (slug: BuiltinMediaEntitySchemaSlug) => {
 		.with("book-group", () => "All Book Series")
 		.with("comic-book", () => "All Comic Books")
 		.with("video-game", () => "All Video Games")
-		.with("movie-group", () => "All Movie Collections")
+		.with("movie-group", () => "All Movie Series")
 		.with("music-group", () => "All Music Albums")
 		.with("visual-novel", () => "All Visual Novels")
 		.with("audiobook-group", () => "All Audiobook Series")
 		.with("comic-book-group", () => "All Comic Book Series")
-		.with("video-game-group", () => "All Video Game Collections")
+		.with("video-game-group", () => "All Video Game Franchises")
 		.exhaustive();
 };
 
