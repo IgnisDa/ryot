@@ -5,13 +5,17 @@ import {
 } from "~/lib/test-fixtures/fixture-helpers";
 import {
 	createAnimeProgressPropertiesSchema,
+	createAnimeReviewPropertiesSchema,
 	createCompletePropertiesSchema,
 	createMangaProgressPropertiesSchema,
+	createMangaReviewPropertiesSchema,
 	createNoteAndRatingPropertiesSchema,
 	createPodcastProgressPropertiesSchema,
+	createPodcastReviewPropertiesSchema,
 	createProgressPercentPropertiesSchema,
 	createReviewPropertiesSchema,
 	createShowProgressPropertiesSchema,
+	createShowReviewPropertiesSchema,
 	createWorkoutSetPropertiesSchema,
 } from "~/lib/test-fixtures/property-schemas";
 import type { CreateEventBody, EventServiceDeps, ListedEvent } from "~/modules/events";
@@ -260,6 +264,82 @@ export const createBuiltinReviewEventDeps = (
 					eventSchemaSlug: "review",
 					eventSchemaId: input.eventSchemaId,
 					propertiesSchema: createReviewPropertiesSchema(),
+				}),
+			),
+		...overrides,
+	});
+
+export const createBuiltinShowReviewEventDeps = (
+	overrides: Partial<EventServiceDeps> = {},
+): EventServiceDeps =>
+	createEventDeps({
+		getEventCreateScopeForUser: (input) =>
+			Promise.resolve(
+				createEventCreateScope({
+					isBuiltin: true,
+					entitySchemaSlug: "show",
+					entityId: input.entityId,
+					eventSchemaName: "Review",
+					eventSchemaSlug: "review",
+					eventSchemaId: input.eventSchemaId,
+					propertiesSchema: createShowReviewPropertiesSchema(),
+				}),
+			),
+		...overrides,
+	});
+
+export const createBuiltinAnimeReviewEventDeps = (
+	overrides: Partial<EventServiceDeps> = {},
+): EventServiceDeps =>
+	createEventDeps({
+		getEventCreateScopeForUser: (input) =>
+			Promise.resolve(
+				createEventCreateScope({
+					isBuiltin: true,
+					entitySchemaSlug: "anime",
+					entityId: input.entityId,
+					eventSchemaName: "Review",
+					eventSchemaSlug: "review",
+					eventSchemaId: input.eventSchemaId,
+					propertiesSchema: createAnimeReviewPropertiesSchema(),
+				}),
+			),
+		...overrides,
+	});
+
+export const createBuiltinMangaReviewEventDeps = (
+	overrides: Partial<EventServiceDeps> = {},
+): EventServiceDeps =>
+	createEventDeps({
+		getEventCreateScopeForUser: (input) =>
+			Promise.resolve(
+				createEventCreateScope({
+					isBuiltin: true,
+					entitySchemaSlug: "manga",
+					entityId: input.entityId,
+					eventSchemaName: "Review",
+					eventSchemaSlug: "review",
+					eventSchemaId: input.eventSchemaId,
+					propertiesSchema: createMangaReviewPropertiesSchema(),
+				}),
+			),
+		...overrides,
+	});
+
+export const createBuiltinPodcastReviewEventDeps = (
+	overrides: Partial<EventServiceDeps> = {},
+): EventServiceDeps =>
+	createEventDeps({
+		getEventCreateScopeForUser: (input) =>
+			Promise.resolve(
+				createEventCreateScope({
+					isBuiltin: true,
+					entityId: input.entityId,
+					entitySchemaSlug: "podcast",
+					eventSchemaName: "Review",
+					eventSchemaSlug: "review",
+					eventSchemaId: input.eventSchemaId,
+					propertiesSchema: createPodcastReviewPropertiesSchema(),
 				}),
 			),
 		...overrides,
