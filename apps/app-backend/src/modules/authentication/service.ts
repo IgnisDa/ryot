@@ -20,24 +20,6 @@ export const buildLibraryEntityInput = (input: {
 export const resolveAuthenticationName = (name: string) =>
 	resolveRequiredString(name, "Signup name");
 
-export const buildAuthenticationTrackerInputs = (input: {
-	trackers: Array<{
-		slug: string;
-		icon: string;
-		name: string;
-		accentColor: string;
-		description?: string;
-	}>;
-}) => {
-	return input.trackers.map((tracker) => ({
-		slug: tracker.slug,
-		name: tracker.name,
-		icon: tracker.icon,
-		accentColor: tracker.accentColor,
-		description: tracker.description,
-	}));
-};
-
 export const buildAuthenticationTrackerEntitySchemaLinks = (input: {
 	trackers: Array<{ id: string; slug: string }>;
 	entitySchemas: Array<{ id: string; slug: string }>;
