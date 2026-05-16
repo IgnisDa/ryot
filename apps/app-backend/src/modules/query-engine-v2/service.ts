@@ -4,7 +4,7 @@ import type { CurrentUserValue } from "#lib/auth-middleware";
 import { DbRunner } from "#lib/db";
 import { BadRequest, dieOnDbError } from "#lib/errors";
 
-import { executeEntityRowsQuery } from "./executor";
+import { executeRowsQuery } from "./executor";
 import type { QueryDocumentV2 } from "./language";
 import { validateQueryDocumentV2 } from "./validator";
 
@@ -24,7 +24,7 @@ export class QueryEngineV2Service extends Effect.Service<QueryEngineV2Service>()
 						return yield* new BadRequest({ message: validationError });
 					}
 
-					return yield* runWithDb(executeEntityRowsQuery(user.id, doc));
+					return yield* runWithDb(executeRowsQuery(user.id, doc));
 				}, dieOnDbError),
 			};
 		}),

@@ -4,7 +4,7 @@
 
 **Type:** AFK
 
-**Status:** todo
+**Status:** done
 
 ## What to build
 
@@ -14,13 +14,13 @@ This slice should prove event history rows and latest-event-style scalar project
 
 ## Acceptance criteria
 
-- [ ] A root event source can return rows ordered by an event system field such as `occurredAt`.
-- [ ] Root event rows can project event system fields, event property fields, attached entity fields, and event schema metadata fields.
-- [ ] Root event source attached entity aliases are referenceable and visibility-enforced.
-- [ ] `first` over an ordered event source returns the selected scalar from the first matching row.
-- [ ] `first` returns null when its source has no visible rows.
-- [ ] `first` rejects empty orderBy and invalid alias references.
-- [ ] E2E tests cover root event rows and a latest completion timestamp field derived from `first`.
+- [x] A root event source can return rows ordered by an event system field such as `occurredAt`.
+- [x] Root event rows can project event system fields, event property fields, attached entity fields, and event schema metadata fields.
+- [x] Root event source attached entity aliases are referenceable and visibility-enforced.
+- [x] `first` over an ordered event source returns the selected scalar from the first matching row.
+- [x] `first` returns null when its source has no visible rows.
+- [x] `first` rejects empty orderBy and invalid alias references.
+- [x] E2E tests cover root event rows and a latest completion timestamp field derived from `first`.
 
 ## User stories addressed
 
