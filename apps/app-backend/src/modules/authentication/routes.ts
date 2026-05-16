@@ -11,7 +11,6 @@ import {
 	successResponse,
 } from "~/lib/openapi";
 
-import { bootstrapNewUser } from "./bootstrap/sign-up";
 import { defaultUserPreferences, signUpBody, signUpResponseSchema } from "./schemas";
 import { resolveAuthenticationName } from "./service";
 
@@ -45,9 +44,8 @@ export const authenticationApi = new OpenAPIHono().openapi(signUpRoute, async (c
 		return c.json(nameResult.body, nameResult.status);
 	}
 
-	let userId!: string;
 	try {
-		const result = await auth.api.signUpEmail({
+		await auth.api.signUpEmail({
 			body: {
 				email: body.email,
 				name: nameResult.data,
@@ -55,7 +53,6 @@ export const authenticationApi = new OpenAPIHono().openapi(signUpRoute, async (c
 				preferences: defaultUserPreferences,
 			},
 		});
-		userId = result.user.id;
 	} catch (error) {
 		if (isAPIError(error)) {
 			const response = createValidationErrorResult(error.message || "Could not create account");
@@ -63,8 +60,6 @@ export const authenticationApi = new OpenAPIHono().openapi(signUpRoute, async (c
 		}
 		throw error;
 	}
-
-	await bootstrapNewUser(userId);
 
 	return c.json(successResponse({ created: true as const }), 200);
 });
