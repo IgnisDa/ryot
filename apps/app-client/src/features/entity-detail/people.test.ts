@@ -1,16 +1,12 @@
 import { describe, expect, it } from "bun:test";
 
-import type { paths } from "@ryot/generated/openapi/app-backend";
-
 import { formatRoleLabel, loadRelatedCreators, mergeCreators } from "./people";
-import type { QueryEngineClient } from "./query-engine";
-
-type QueryEngineRequestBody = Parameters<QueryEngineClient["POST"]>[1]["body"];
-type QueryEngineEntitiesRequestBody = Extract<QueryEngineRequestBody, { mode: "entities" }>;
-type QueryEngineResponse = NonNullable<
-	paths["/query-engine/execute"]["post"]["responses"][200]["content"]["application/json"]
->;
-type QueryEngineEntitiesResponse = Extract<QueryEngineResponse, { mode: "entities" }>;
+import type {
+	QueryEngineClient,
+	QueryEngineEntitiesRequestBody,
+	QueryEngineEntitiesResponse,
+	QueryEngineRequestBody,
+} from "./query-engine";
 
 describe("entity-detail people helpers", () => {
 	it("formats role slugs into readable labels", () => {
@@ -25,16 +21,21 @@ describe("entity-detail people helpers", () => {
 				[
 					{
 						id: "person-1",
-						image: "query.jpg",
 						name: "Denis Villeneuve",
 						role: "Director, Writer",
+						image: { type: "remote", url: "query.jpg" },
 					},
 					{ id: "person-2", name: "Denis Villeneuve", role: "Actor" },
 				],
 			),
 		).toEqual([
 			{ name: "Denis Villeneuve", role: "Director" },
-			{ id: "person-1", name: "Denis Villeneuve", role: "Director, Writer", image: "query.jpg" },
+			{
+				id: "person-1",
+				name: "Denis Villeneuve",
+				role: "Director, Writer",
+				image: { type: "remote", url: "query.jpg" },
+			},
 			{ id: "person-2", name: "Denis Villeneuve", role: "Actor" },
 		]);
 	});
@@ -144,13 +145,13 @@ describe("entity-detail people helpers", () => {
 				name: "Alice",
 				id: "person-1",
 				role: "Writer, Editor",
-				image: "https://example.com/alice.jpg",
+				image: { type: "remote", url: "https://example.com/alice.jpg" },
 			},
 			{
 				name: "Bob",
 				id: "person-2",
 				role: "Director",
-				image: "https://example.com/bob.jpg",
+				image: { type: "remote", url: "https://example.com/bob.jpg" },
 			},
 		]);
 	});

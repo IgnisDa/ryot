@@ -7,7 +7,7 @@ import {
 	type QueryEngineClient,
 	type QueryEngineEntityItem,
 } from "./query-engine";
-import type { EntityDetail, UnlinkedCreator } from "./types";
+import type { UnlinkedCreator } from "./types";
 
 export function formatRoleLabel(role: string) {
 	return role
@@ -64,15 +64,12 @@ function matchesPrimaryCreatorRole(role: string) {
 	);
 }
 
-export function getPrimaryCreator(entity: EntityDetail): UnlinkedCreator | undefined {
-	if (entity.unlinkedCreators.length === 0) {
+export function getPrimaryCreator(creators: UnlinkedCreator[]): UnlinkedCreator | undefined {
+	if (creators.length === 0) {
 		return undefined;
 	}
 
-	return (
-		entity.unlinkedCreators.find((creator) => matchesPrimaryCreatorRole(creator.role)) ??
-		entity.unlinkedCreators[0]
-	);
+	return creators.find((creator) => matchesPrimaryCreatorRole(creator.role)) ?? creators[0];
 }
 
 type RelatedCreator = UnlinkedCreator & {
@@ -104,7 +101,7 @@ function readRelatedCreator(item: QueryEngineEntityItem, position: number): Rela
 		name,
 		role,
 		position,
-		image: image?.type === "remote" ? image.url : undefined,
+		image: image ?? undefined,
 		id: typeof personIdValue === "string" ? personIdValue : undefined,
 		createdAt: typeof createdAtValue === "string" ? createdAtValue : null,
 		order: typeof orderValue === "number" && Number.isFinite(orderValue) ? orderValue : null,

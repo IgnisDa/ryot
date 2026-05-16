@@ -10,17 +10,18 @@ import { Text } from "@/components/ui/text";
 
 import { formatMinutes } from "./duration";
 import { getPrimaryCreator } from "./people";
-import type { EntityDetail } from "./types";
+import type { EntityDetail, UnlinkedCreator } from "./types";
 
 const ACCENT = "#C9943A";
 
-export function HeroSection({ entity }: { entity: EntityDetail }) {
+export function HeroSection(props: { creators: UnlinkedCreator[]; entity: EntityDetail }) {
+	const entity = props.entity;
 	const insets = useSafeAreaInsets();
-	const firstImage = entity.images[0];
-	const imageUrl = firstImage?.type === "remote" ? firstImage.url : undefined;
-	const primaryCreator = getPrimaryCreator(entity);
-	const runtime = "runtime" in entity ? entity.runtime : undefined;
-	const providerRating = entity.providerRating ?? undefined;
+	const primaryCreator = getPrimaryCreator(props.creators);
+	const firstImage = entity.image ?? entity.properties.images[0];
+	const providerRating = entity.properties.providerRating ?? null;
+	const imageUrl = firstImage.type === "remote" ? firstImage.url : undefined;
+	const runtime = "runtime" in entity.properties ? (entity.properties.runtime ?? null) : null;
 
 	return (
 		<Box className="relative w-full overflow-hidden min-h-100 md:min-h-120">
@@ -37,20 +38,20 @@ export function HeroSection({ entity }: { entity: EntityDetail }) {
 			)}
 
 			<LinearGradient
-				colors={["transparent", "rgba(0,0,0,0.5)", "rgba(0,0,0,0.82)"]}
 				locations={[0.3, 0.7, 1]}
 				style={{ position: "absolute", inset: 0 }}
+				colors={["transparent", "rgba(0,0,0,0.5)", "rgba(0,0,0,0.82)"]}
 			/>
 
 			<LinearGradient
-				colors={["rgba(10,10,15,0.85)", "rgba(10,10,15,0.3)", "transparent"]}
-				locations={[0, 0.6, 1]}
-				start={{ x: 0, y: 0 }}
 				end={{ x: 1, y: 0 }}
+				start={{ x: 0, y: 0 }}
+				locations={[0, 0.6, 1]}
 				style={{ position: "absolute", inset: 0 }}
+				colors={["rgba(10,10,15,0.85)", "rgba(10,10,15,0.3)", "transparent"]}
 			/>
 
-			<Box className="relative z-10 justify-end pt-10 pb-6 px-7 md:pt-16 md:pb-10 md:px-10 web:mx-auto web:max-w-7xl web:w-full">
+			<Box className="relative z-10 justify-end px-7 pb-6 pt-10 md:px-10 md:pb-10 md:pt-16 web:mx-auto web:max-w-7xl web:w-full">
 				<Box style={{ paddingTop: insets.top }}>
 					<Box className="flex flex-col items-start gap-5 md:flex-row md:items-end md:gap-10">
 						{imageUrl && (
@@ -88,7 +89,7 @@ export function HeroSection({ entity }: { entity: EntityDetail }) {
 
 							<Text
 								numberOfLines={3}
-								className="font-heading-semibold leading-tight text-white text-[28px] md:text-[36px] lg:text-[42px]"
+								className="text-[28px] font-heading-semibold leading-tight text-white md:text-[36px] lg:text-[42px]"
 								style={{
 									textShadowRadius: 20,
 									textShadowColor: "rgba(0,0,0,0.4)",
@@ -99,18 +100,18 @@ export function HeroSection({ entity }: { entity: EntityDetail }) {
 							</Text>
 
 							<Box className="mt-3 flex-row flex-wrap items-center gap-3">
-								{entity.publishYear && (
+								{entity.properties.publishYear != null && (
 									<Text
 										className="text-[13px] web:text-[15px]"
 										style={{ color: "rgba(255,255,255,0.7)" }}
 									>
-										{entity.publishYear}
+										{entity.properties.publishYear}
 									</Text>
 								)}
-								{entity.publishYear && runtime && (
+								{entity.properties.publishYear != null && runtime !== null && (
 									<Text style={{ color: "rgba(255,255,255,0.4)" }}>·</Text>
 								)}
-								{runtime && (
+								{runtime !== null && (
 									<Text
 										className="text-[13px] web:text-[15px]"
 										style={{ color: "rgba(255,255,255,0.7)" }}
@@ -131,11 +132,11 @@ export function HeroSection({ entity }: { entity: EntityDetail }) {
 								)}
 							</Box>
 
-							{entity.genres.length > 0 && (
+							{entity.properties.genres.length > 0 && (
 								<Box className="mt-4 flex-row flex-wrap gap-2">
-									{entity.genres.map((g) => (
+									{entity.properties.genres.map((genre) => (
 										<Box
-											key={g}
+											key={genre}
 											className="rounded-full border px-2.5 py-1"
 											style={{
 												borderColor: "rgba(255,255,255,0.1)",
@@ -143,17 +144,17 @@ export function HeroSection({ entity }: { entity: EntityDetail }) {
 											}}
 										>
 											<Text
-												style={{ color: "rgba(255,255,255,0.85)" }}
 												className="text-[11px] font-sans-medium web:text-[13px]"
+												style={{ color: "rgba(255,255,255,0.85)" }}
 											>
-												{g}
+												{genre}
 											</Text>
 										</Box>
 									))}
 								</Box>
 							)}
 
-							{providerRating && (
+							{providerRating !== null && (
 								<Box className="mt-5 flex-row flex-wrap items-center gap-6 border-t border-white/12 pt-4">
 									<Box className="flex-row items-center gap-2">
 										<Check size={16} color="#4ade80" strokeWidth={2} />

@@ -1,3 +1,4 @@
+import type { z } from "@hono/zod-openapi";
 import { toAppSchemaProperties } from "@ryot/ts-utils";
 
 import { imagesSchema, nullableIntSchema } from "../zod";
@@ -9,3 +10,5 @@ export const audiobookPropertiesSchema = mediaWithUnlinkedCreatorsPropertiesSche
 });
 
 export const audiobookPropertiesJsonSchema = toAppSchemaProperties(audiobookPropertiesSchema);
+
+export type AudiobookProperties = z.infer<typeof audiobookPropertiesSchema>;
