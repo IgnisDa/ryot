@@ -4,6 +4,7 @@ import { createAuthClient } from "better-auth/client";
 import type createClient from "openapi-fetch";
 
 import { getBackendClient, getBackendUrl, getPgClient } from "../setup";
+import { cookieHeaderFromSetCookies } from "./auth-2fa";
 
 export type Client = ReturnType<typeof createClient<paths>>;
 
@@ -50,12 +51,13 @@ export async function createTestUser() {
 		throw new Error(`Sign in failed: ${error}`);
 	}
 
-	const cookies = signInResponse.headers.get("set-cookie");
-	if (!cookies) {
+	const setCookies = signInResponse.headers.getSetCookie();
+	if (!setCookies.length) {
 		throw new Error("Failed to get auth cookies");
 	}
+	const cookies = cookieHeaderFromSetCookies(setCookies);
 
-	return { cookies, email };
+	return { cookies, email, password };
 }
 
 export async function createAuthenticatedClient() {
