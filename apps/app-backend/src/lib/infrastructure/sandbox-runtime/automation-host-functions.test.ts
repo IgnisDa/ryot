@@ -15,7 +15,7 @@ import { NotificationsRepository } from "#modules/notifications/repository";
 import { NotificationsService } from "#modules/notifications/service";
 import { SignalEmissionService, type EmitSignalInput } from "#modules/signals/service";
 
-import { makeAutomationSandboxApiFunctions } from "./automation-sandbox-host-functions";
+import { makeAutomationSandboxApiFunctions } from "./automation-host-functions";
 
 const userId = UserId.make("user-1");
 const occurredAt = "2026-07-20T10:00:00.000Z";
