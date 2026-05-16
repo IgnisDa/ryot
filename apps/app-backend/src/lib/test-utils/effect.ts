@@ -75,6 +75,7 @@ export const makeRedisService = (
 		del: () => Effect.die("unused"),
 		get: () => Effect.die("unused"),
 		set: () => Effect.die("unused"),
+		zadd: () => Effect.die("unused"),
 		zrem: () => Effect.die("unused"),
 		publish: () => Effect.die("unused"),
 		renewLease: () => Effect.die("unused"),
