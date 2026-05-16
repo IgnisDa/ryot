@@ -1,8 +1,4 @@
-import {
-	type SaveDownloadInput,
-	type SaveDownloadOutcome,
-	writeDownloadChunks,
-} from "./save-download-payload";
+import type { SaveDownloadInput, SaveDownloadOutcome } from "./save-download-payload";
 
 export const shouldPruneTransferDirectory = (input: {
 	readonly uri: string;
@@ -17,19 +13,11 @@ export const saveNativeDownload = async (
 		readonly discard: () => void;
 		readonly share: () => Promise<void>;
 		readonly sharingAvailable: () => Promise<boolean>;
-		readonly open: () => {
-			readonly close: () => void;
-			readonly write: (chunk: Uint8Array) => void;
-		};
+		readonly download: (headers: Record<string, string>) => Promise<void>;
 	},
 ): Promise<SaveDownloadOutcome> => {
 	try {
-		const handle = environment.open();
-		try {
-			await writeDownloadChunks(input.chunks, (chunk) => handle.write(chunk));
-		} finally {
-			handle.close();
-		}
+		await environment.download(await input.headers());
 		if (!(await environment.sharingAvailable())) {
 			environment.discard();
 			return { kind: "failed", message: "Saving files is not supported on this device." };
