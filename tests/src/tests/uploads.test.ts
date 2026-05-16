@@ -2,7 +2,7 @@ import { describe, expect, it } from "bun:test";
 
 import { PutObjectCommand } from "@aws-sdk/client-s3";
 
-import { createAuthenticatedClient, getBackendClient } from "../fixtures";
+import { createAuthenticatedClient, getBackendClient, postBackendJson } from "../fixtures";
 import { getBackendUrl, getS3BucketName, getS3Client } from "../setup";
 import { assertTaggedError } from "../test-support/assertions";
 
@@ -20,17 +20,6 @@ async function postTemporaryUploads(files: File[], cookies?: string) {
 		body: formData,
 		method: "POST",
 		headers: cookies ? { Cookie: cookies } : undefined,
-	});
-}
-
-async function postPresignedDownload(body: unknown, cookies?: string) {
-	return await fetch(`${getBackendUrl()}/uploads/presigned/download`, {
-		body: JSON.stringify(body),
-		method: "POST",
-		headers: {
-			"Content-Type": "application/json",
-			...(cookies ? { Cookie: cookies } : {}),
-		},
 	});
 }
 
@@ -79,20 +68,20 @@ describe("POST /uploads/presigned/download", () => {
 
 	it("returns 400 when keys array is empty", async () => {
 		const { cookies } = await createAuthenticatedClient();
-		const response = await postPresignedDownload({ keys: [] }, cookies);
+		const response = await postBackendJson("/uploads/presigned/download", { keys: [] }, cookies);
 		expect(response.status).toBe(400);
 
 		const error: unknown = await response.json();
-		expect(error).toMatchObject({ _tag: "HttpApiDecodeError" });
+		expect(error).toMatchObject({ _tag: "BadRequest" });
 	});
 
 	it("returns 400 when keys is missing", async () => {
 		const { cookies } = await createAuthenticatedClient();
-		const response = await postPresignedDownload({}, cookies);
+		const response = await postBackendJson("/uploads/presigned/download", {}, cookies);
 		expect(response.status).toBe(400);
 
 		const error: unknown = await response.json();
-		expect(error).toMatchObject({ _tag: "HttpApiDecodeError" });
+		expect(error).toMatchObject({ _tag: "BadRequest" });
 	});
 
 	it("returns presigned download URLs for existing keys", async () => {

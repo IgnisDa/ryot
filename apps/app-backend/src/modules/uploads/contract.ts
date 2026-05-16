@@ -1,10 +1,4 @@
-import {
-	HttpApiEndpoint,
-	HttpApiError,
-	HttpApiGroup,
-	HttpApiSchema,
-	Multipart,
-} from "@effect/platform";
+import { HttpApiEndpoint, HttpApiGroup, HttpApiSchema, Multipart } from "@effect/platform";
 import { Option, Schema } from "effect";
 
 import { AuthMiddleware } from "#lib/auth-middleware";
@@ -15,7 +9,6 @@ import { PresignedDownloadResponse, PresignedUploadResponse } from "./schemas";
 import { TEMPORARY_UPLOAD_MAX_FILE_BYTES, TEMPORARY_UPLOAD_MAX_REQUEST_BYTES } from "./shared";
 
 export const UploadsGroup = HttpApiGroup.make("uploads")
-	.addError(HttpApiError.HttpApiDecodeError, { status: 400 })
 	.addError(Unauthorized, { status: 401 })
 	.addError(RateLimited, { status: 429 })
 	.middleware(AuthMiddleware)
