@@ -12,6 +12,13 @@ function parsePublishYear(startDate, dayjs) {
   return d.isValid() ? d.year() : null;
 }
 
+function parsePublishDate(startDate) {
+  if (typeof startDate !== "string" || !startDate.trim()) return null;
+  const trimmed = startDate.trim();
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(trimmed)) return null;
+  return trimmed;
+}
+
 function parseIsNsfw(nsfw) {
   if (typeof nsfw !== "string" || !nsfw.trim()) {
     return null;
@@ -277,9 +284,10 @@ driver("details", async function(context) {
       isNsfw: parseIsNsfw(payload?.nsfw),
       productionStatus: productionStatus,
       genres: collectGenres(payload?.genres),
+      images: collectImages(payload?.main_picture),
+      publishDate: parsePublishDate(payload?.start_date),
       publishYear: parsePublishYear(payload?.start_date, dayjs),
       airingSchedule: parseAiringSchedule(payload?.start_date, dayjs),
-      images: collectImages(payload?.main_picture),
       description: typeof payload?.synopsis === "string" ? payload.synopsis : null,
       providerRating:
         typeof payload?.mean === "number" && Number.isFinite(payload.mean)
