@@ -10,18 +10,20 @@ import {
 	validateV1Archive,
 	validateV1ArchiveStream,
 	zipChunks,
+	type V1_ARCHIVE_LIMITS,
 	type CreateV1ArchiveInput,
 } from "./archive";
 import { BackupArchiveError } from "./error";
 import { redactV1SchemaSecrets } from "./references";
 import {
+	V1Event,
 	V1Manifest,
 	V1Profile,
 	V1EntityDependency,
 	V1_SECTION_PATHS,
 	type V1ArchiveRecords,
 } from "./schemas";
-import { IncrementalSha256 } from "./streaming";
+import { encodeNdjson, IncrementalSha256 } from "./streaming";
 
 const timestamp = "2026-08-23T12:00:00.000Z";
 const encoder = new TextEncoder();
@@ -57,7 +59,6 @@ const concat = (chunks: Iterable<Uint8Array>) => {
 };
 
 const emptyRecords = (): V1ArchiveRecords => ({
-	events: [],
 	entities: [],
 	savedViews: [],
 	pluginState: [],
@@ -67,12 +68,33 @@ const emptyRecords = (): V1ArchiveRecords => ({
 	profile: { image: null, name: "Test User", preferences: { locale: "en" } },
 });
 
-const archiveInput = (records = emptyRecords()): CreateV1ArchiveInput => {
+const event = (id: string): V1Event => ({
+	id,
+	properties: {},
+	entityId: "entity-1",
+	createdAt: timestamp,
+	updatedAt: timestamp,
+	occurredAt: timestamp,
+	sessionEntityId: null,
+	eventSchemaSlug: "review",
+});
+
+const eventsInput = (records: ReadonlyArray<V1Event> = []) => {
+	const chunks = [...encodeNdjson(records, V1Event)];
+	const hash = new IncrementalSha256();
+	for (const chunk of chunks) {
+		hash.update(chunk);
+	}
+	return { chunks, count: records.length, ...hash.digest() };
+};
+
+const archiveInput = (records = emptyRecords(), events = eventsInput()): CreateV1ArchiveInput => {
 	const asset = encoder.encode("streamed asset bytes");
 	const hash = new IncrementalSha256();
 	hash.update(asset);
 	const measured = hash.digest();
 	return {
+		events,
 		records,
 		appVersion: "1.2.3",
 		createdAt: timestamp,
@@ -147,6 +169,13 @@ const validationError = Effect.fn(function* <E>(stream: Stream.Stream<Uint8Array
 		Effect.provide(BunFileSystem.layer),
 		Effect.flip,
 	);
+});
+
+const creationError = Effect.fn(function* (
+	input: CreateV1ArchiveInput,
+	overrides: Partial<Record<keyof typeof V1_ARCHIVE_LIMITS, number>> = {},
+) {
+	return yield* Stream.runDrain(createV1ArchiveStream(input, overrides)).pipe(Effect.flip);
 });
 
 const dependency = (
@@ -243,20 +272,21 @@ describe("V1 streaming ZIP validation", () => {
 			expect(validated.records.pluginState).toEqual([]);
 			expect(validated.records.entities).toEqual([
 				{
-					id: "00000000-0000-4000-8000-000000000001",
-					name: "Library",
-					properties: {},
-					createdAt: timestamp,
-					updatedAt: timestamp,
 					provider: null,
-					entitySchemaSlug: "library",
+					properties: {},
+					name: "Library",
 					externalId: null,
 					populatedAt: null,
+					createdAt: timestamp,
+					updatedAt: timestamp,
+					entitySchemaSlug: "library",
+					id: "00000000-0000-4000-8000-000000000001",
 				},
 			]);
 			expect(validated.records.entityDependencies).toEqual([]);
 			expect(validated.records.relationships).toEqual([]);
-			expect(validated.records.events).toEqual([]);
+			expect(validated.events.count).toBe(0);
+			expect(yield* Stream.runCollect(validated.events.read())).toEqual([]);
 			expect(validated.records.savedViews).toEqual([]);
 			expect(validated.records.notificationSubscriptions).toEqual([]);
 			expect(validated.assets).toEqual([]);
@@ -270,6 +300,7 @@ describe("V1 streaming ZIP validation", () => {
 				const fs = yield* FileSystem.FileSystem;
 				return yield* validateV1Archive(fixtureArchive(fs));
 			}).pipe(Effect.provide(BunFileSystem.layer));
+			const archivedEvents = yield* Stream.runCollect(validated.events.read());
 			const roundTripped = yield* validateV1ArchiveStream(
 				createV1ArchiveStream({
 					assets: [],
@@ -278,10 +309,12 @@ describe("V1 streaming ZIP validation", () => {
 					createdAt: validated.manifest.createdAt,
 					appVersion: validated.manifest.appVersion,
 					redactions: validated.manifest.redactions,
+					events: eventsInput(archivedEvents),
 					requiredPlugins: validated.manifest.requiredPlugins,
 				}),
 			).pipe(Effect.provide(BunFileSystem.layer));
 			expect(roundTripped.records).toEqual(validated.records);
+			expect(yield* Stream.runCollect(roundTripped.events.read())).toEqual(archivedEvents);
 			expect(roundTripped.manifest).toMatchObject({
 				version: 1,
 				format: "ryot-backup",
@@ -384,15 +417,16 @@ describe("V1 streaming ZIP validation", () => {
 		}),
 	);
 
-	it("rejects duplicate required plugin slugs when creating an archive", () => {
-		const input = archiveInput();
-		expect(() =>
-			createV1ArchiveStream({
+	it.effect("rejects duplicate required plugin slugs when creating an archive", () =>
+		Effect.gen(function* () {
+			const input = archiveInput();
+			const error = yield* creationError({
 				...input,
 				requiredPlugins: [...input.requiredPlugins, { slug: "a-plugin", version: "2.0.0" }],
-			}),
-		).toThrow("Duplicate required plugin slug 'a-plugin'");
-	});
+			});
+			expect(error.message).toContain("Duplicate required plugin slug 'a-plugin'");
+		}),
+	);
 
 	it.effect("rejects missing ZIP structures, truncated payloads, and trailing bytes", () =>
 		Effect.gen(function* () {
@@ -517,19 +551,50 @@ describe("V1 streaming ZIP validation", () => {
 				const manifestFile = files["manifest.json"];
 				assert(manifestFile !== undefined);
 				const manifest = decodeManifest(manifestFile);
-				const events = manifest.sections.findIndex((section) => section.path === "events.ndjson");
-				assert(events >= 0);
+				const entities = manifest.sections.findIndex(
+					(section) => section.path === "entities.ndjson",
+				);
+				assert(entities >= 0);
 				files["manifest.json"] = encoder.encode(
 					`${JSON.stringify({
 						...manifest,
 						sections: manifest.sections.map((section, index) =>
-							index === events ? Object.assign({}, section, { count: 1 }) : section,
+							index === entities ? Object.assign({}, section, { count: 1 }) : section,
 						),
 					})}\n`,
 				);
 			});
 			const countError = yield* validationError(Stream.make(countArchive));
 			expect(countError.reason).toBe("count_mismatch");
+		}),
+	);
+
+	it.effect("reports a spooled events count mismatch when the section is read", () =>
+		Effect.gen(function* () {
+			const archive = yield* mutateArchive(
+				archiveInput(emptyRecords(), eventsInput([event("event-1")])),
+				(files) => {
+					const manifestFile = files["manifest.json"];
+					assert(manifestFile !== undefined);
+					const manifest = decodeManifest(manifestFile);
+					files["manifest.json"] = encoder.encode(
+						`${JSON.stringify({
+							...manifest,
+							sections: manifest.sections.map((section) =>
+								section.path === "events.ndjson"
+									? Object.assign({}, section, { count: 2 })
+									: section,
+							),
+						})}\n`,
+					);
+				},
+			);
+			const validated = yield* validateV1ArchiveStream(Stream.make(archive)).pipe(
+				Effect.provide(BunFileSystem.layer),
+			);
+			const error = yield* Stream.runDrain(validated.events.read()).pipe(Effect.flip);
+			expect(error).toMatchObject({ reason: "count_mismatch", path: "events.ndjson" });
+			yield* validated.cleanup;
 		}),
 	);
 
@@ -543,45 +608,47 @@ describe("V1 streaming ZIP validation", () => {
 		}),
 	);
 
-	it("rejects duplicate record IDs while creating an archive", () => {
-		const duplicate = {
-			id: "entity-1",
-			name: "Entity",
-			properties: {},
-			provider: null,
-			externalId: null,
-			populatedAt: null,
-			createdAt: timestamp,
-			updatedAt: timestamp,
-			entitySchemaSlug: "collection",
-		} as const;
-		const records = emptyRecords();
-		expect(() =>
-			createV1ArchiveStream(archiveInput({ ...records, entities: [duplicate, { ...duplicate }] })),
-		).toThrow("Duplicate record id 'entity-1'");
-	});
+	it.effect("rejects duplicate record IDs while creating an archive", () =>
+		Effect.gen(function* () {
+			const duplicate = {
+				id: "entity-1",
+				name: "Entity",
+				properties: {},
+				provider: null,
+				externalId: null,
+				populatedAt: null,
+				createdAt: timestamp,
+				updatedAt: timestamp,
+				entitySchemaSlug: "collection",
+			} as const;
+			const records = emptyRecords();
+			const error = yield* creationError(
+				archiveInput({ ...records, entities: [duplicate, { ...duplicate }] }),
+			);
+			expect(error.message).toContain("Duplicate record id 'entity-1'");
+		}),
+	);
 
-	it("enforces creation limits and preserves already sorted arrays", () => {
-		const records = emptyRecords();
-		const sorted = sortV1ArchiveRecords(records);
-		expect(sorted.events).toBe(records.events);
-		expect(sorted.entities).toBe(records.entities);
-		expect(sorted.entityDependencies).toBe(records.entityDependencies);
-		expect(sorted.notificationSubscriptions).toBe(records.notificationSubscriptions);
-		expect(() => createV1ArchiveStream(archiveInput(), { maxEntryCount: 1 })).toThrow(
-			"ZIP entry limit exceeded",
-		);
-		expect(() => createV1ArchiveStream(archiveInput(), { maxMetadataEntryBytes: 1 })).toThrow(
-			"ZIP entry is too large",
-		);
-		expect(() => createV1ArchiveStream(archiveInput(), { maxEntryBytes: 1 })).toThrow(
-			"ZIP entry is too large",
-		);
-		expect(() => createV1ArchiveStream(archiveInput(), { maxTotalUncompressedBytes: 1 })).toThrow(
-			"ZIP total size limit exceeded",
-		);
-		expect(() =>
-			createV1ArchiveStream(
+	it.effect("enforces creation limits and preserves already sorted arrays", () =>
+		Effect.gen(function* () {
+			const records = emptyRecords();
+			const sorted = sortV1ArchiveRecords(records);
+			expect(sorted.entities).toBe(records.entities);
+			expect(sorted.entityDependencies).toBe(records.entityDependencies);
+			expect(sorted.notificationSubscriptions).toBe(records.notificationSubscriptions);
+			expect((yield* creationError(archiveInput(), { maxEntryCount: 1 })).message).toContain(
+				"ZIP entry limit exceeded",
+			);
+			expect(
+				(yield* creationError(archiveInput(), { maxMetadataEntryBytes: 1 })).message,
+			).toContain("ZIP entry is too large");
+			expect((yield* creationError(archiveInput(), { maxEntryBytes: 1 })).message).toContain(
+				"ZIP entry is too large",
+			);
+			expect(
+				(yield* creationError(archiveInput(), { maxTotalUncompressedBytes: 1 })).message,
+			).toContain("ZIP total size limit exceeded");
+			const overLimit = yield* creationError(
 				archiveInput({
 					...records,
 					entities: [
@@ -599,14 +666,45 @@ describe("V1 streaming ZIP validation", () => {
 					],
 				}),
 				{ maxRecordsPerSection: 0 },
-			),
-		).toThrow("Section record limit exceeded");
-	});
+			);
+			expect(overLimit).toMatchObject({
+				path: "entities.ndjson",
+				message: "Section record limit exceeded",
+			});
+		}),
+	);
 
-	it("rejects global translation IDs and per-dependency languages while creating", () => {
-		const records = emptyRecords();
-		expect(() =>
-			createV1ArchiveStream(
+	it.effect("exempts the streamed events section from the bounded section record limit", () =>
+		Effect.gen(function* () {
+			const events = Array.from({ length: 64 }, (_, index) =>
+				event(`event-${index.toString().padStart(4, "0")}`),
+			);
+			const validated = yield* validateV1ArchiveStream(
+				createV1ArchiveStream(archiveInput(emptyRecords(), eventsInput(events)), {
+					maxRecordsPerSection: 1,
+				}),
+				{ limits: { maxRecordsPerSection: 1 } },
+			).pipe(Effect.provide(BunFileSystem.layer));
+			expect(validated.events.count).toBe(events.length);
+			expect(yield* Stream.runCollect(validated.events.read())).toEqual(events);
+			yield* validated.cleanup;
+		}),
+	);
+
+	it.effect("rejects an event stream that differs from its manifest metadata", () =>
+		Effect.gen(function* () {
+			const declared = eventsInput([event("event-1")]);
+			const error = yield* creationError(
+				archiveInput(emptyRecords(), { ...declared, chunks: [...encodeNdjson([], V1Event)] }),
+			);
+			expect(error).toMatchObject({ reason: "checksum_mismatch", path: "events.ndjson" });
+		}),
+	);
+
+	it.effect("rejects global translation IDs and per-dependency languages while creating", () =>
+		Effect.gen(function* () {
+			const records = emptyRecords();
+			const duplicateId = yield* creationError(
 				archiveInput({
 					...records,
 					entityDependencies: [
@@ -614,19 +712,19 @@ describe("V1 streaming ZIP validation", () => {
 						dependency("two", [translation("translation", "fr")]),
 					],
 				}),
-			),
-		).toThrow("Duplicate translation id 'translation'");
-		expect(() =>
-			createV1ArchiveStream(
+			);
+			expect(duplicateId.message).toContain("Duplicate translation id 'translation'");
+			const duplicateLanguage = yield* creationError(
 				archiveInput({
 					...records,
 					entityDependencies: [
 						dependency("one", [translation("one", "en"), translation("two", "en")]),
 					],
 				}),
-			),
-		).toThrow("Duplicate translation language 'en'");
-	});
+			);
+			expect(duplicateLanguage.message).toContain("Duplicate translation language 'en'");
+		}),
+	);
 
 	it.effect("rejects duplicate translation IDs and languages during validation", () =>
 		Effect.gen(function* () {
@@ -721,7 +819,7 @@ describe("V1 streaming ZIP validation", () => {
 	it.effect("honors lower test entry limits", () =>
 		Effect.gen(function* () {
 			const error = yield* validateV1ArchiveStream(createV1ArchiveStream(archiveInput()), {
-				maxEntryCount: 1,
+				limits: { maxEntryCount: 1 },
 			}).pipe(Effect.provide(BunFileSystem.layer), Effect.flip);
 			expect(error.reason).toBe("entry_count_exceeded");
 		}),
