@@ -11,6 +11,7 @@ import {
 	executeAggregateQueryEngineV2,
 	executeQueryEngineV2,
 	executeQueryEngineV2Error,
+	executeTimeSeriesQueryEngineV2,
 	propertyRef,
 	requireV2IncludeValue,
 	requireV2FieldValue,
@@ -1379,6 +1380,194 @@ describe("Query Engine V2 E2E", () => {
 			const itemB = resultB.data.items[0];
 			assertPresent(itemB, "Expected User B's relationship row");
 			expect(requireV2FieldValue(itemB, "memberName").value).toBe("User B Member");
+		});
+	});
+
+	describe("Time series returns", () => {
+		it("returns event buckets with half-open range filtering and zero fill", async () => {
+			const { client } = await createAuthenticatedClient();
+			const { schemaId: lessonSchemaId, slug: lessonSlug } = await createV2TrackerAndSchema(
+				client,
+				{ schemaName: "TimeSeriesEventLesson" },
+			);
+			const completeSlug = `time-series-complete-${crypto.randomUUID()}`;
+			const completeSchema = await createEventSchema(client, {
+				slug: completeSlug,
+				name: "Time Series Complete",
+				entitySchemaId: lessonSchemaId,
+				propertiesSchema: {
+					fields: { note: { type: "string", label: "Note", description: "Completion note" } },
+				},
+			});
+			const lesson = await createV2Entity(client, {
+				name: "Time Series Lesson",
+				entitySchemaId: lessonSchemaId,
+			});
+
+			await createV2Event(client, {
+				entityId: lesson.id,
+				properties: { note: "included" },
+				eventSchemaId: completeSchema.id,
+				occurredAt: "2026-01-01T12:00:00.000Z",
+			});
+			await createV2Event(client, {
+				entityId: lesson.id,
+				properties: { note: "excluded" },
+				eventSchemaId: completeSchema.id,
+				occurredAt: "2026-01-03T00:00:00.000Z",
+			});
+
+			const doc: V2ExecutePayload = {
+				version: 2,
+				source: {
+					where: null,
+					type: "events",
+					alias: "completion",
+					schemas: [completeSlug],
+					entity: { alias: "lesson", schemas: [lessonSlug] },
+				},
+				output: {
+					type: "timeSeries",
+					measure: { aggregation: { function: "count" } },
+					time: {
+						bucket: "day",
+						expr: systemRef("completion", "occurredAt"),
+						range: { endAt: "2026-01-03T00:00:00.000Z", startAt: "2026-01-01T00:00:00.000Z" },
+					},
+				},
+			};
+
+			const result = await executeTimeSeriesQueryEngineV2(client, doc);
+
+			expect(result.data.buckets).toEqual([
+				{ value: 1, endAt: "2026-01-02T00:00:00.000Z", startAt: "2026-01-01T00:00:00.000Z" },
+				{ value: 0, endAt: "2026-01-03T00:00:00.000Z", startAt: "2026-01-02T00:00:00.000Z" },
+			]);
+		});
+
+		it("returns entity buckets using a date property", async () => {
+			const { client } = await createAuthenticatedClient();
+			const { schemaId, slug } = await createV2TrackerAndSchema(client, {
+				schemaName: "TimeSeriesEntity",
+				propertiesSchema: {
+					fields: {
+						publishedAt: { type: "datetime", label: "Published At", description: "Published at" },
+					},
+				},
+			});
+			await Promise.all([
+				createV2Entity(client, {
+					name: "Entity One",
+					entitySchemaId: schemaId,
+					properties: { publishedAt: "2026-01-01T12:00:00.000Z" },
+				}),
+				createV2Entity(client, {
+					name: "Entity Two",
+					entitySchemaId: schemaId,
+					properties: { publishedAt: "2026-01-01T13:00:00.000Z" },
+				}),
+			]);
+
+			const doc: V2ExecutePayload = {
+				version: 2,
+				source: { where: null, type: "entities", alias: "entity", schemas: [slug] },
+				output: {
+					type: "timeSeries",
+					measure: { aggregation: { function: "count" } },
+					time: {
+						bucket: "day",
+						expr: propertyRef("entity", slug, "publishedAt"),
+						range: { endAt: "2026-01-03T00:00:00.000Z", startAt: "2026-01-01T00:00:00.000Z" },
+					},
+				},
+			};
+
+			const result = await executeTimeSeriesQueryEngineV2(client, doc);
+
+			expect(result.data.buckets).toHaveLength(2);
+			expect(result.data.buckets[0]?.value).toBe(2);
+			expect(result.data.buckets[1]?.value).toBe(0);
+		});
+
+		it("returns relationship buckets using relationship createdAt", async () => {
+			const { client } = await createAuthenticatedClient();
+			const { schemaId: memberSchemaId, slug: memberSlug } = await createV2TrackerAndSchema(
+				client,
+				{ schemaName: "TimeSeriesRelMember" },
+			);
+			const { schemaId: collectionSchemaId, slug: collectionSlug } = await createV2TrackerAndSchema(
+				client,
+				{ schemaName: "TimeSeriesRelCollection" },
+			);
+			const relationshipSlug = `time-series-membership-${crypto.randomUUID()}`;
+			const relationshipSchema = await createRelationshipSchema(client, {
+				slug: relationshipSlug,
+				name: "Time Series Membership",
+				propertiesSchema: { fields: {} },
+				sourceEntitySchemaId: memberSchemaId,
+				targetEntitySchemaId: collectionSchemaId,
+			});
+			const member = await createV2Entity(client, {
+				name: "Time Series Member",
+				entitySchemaId: memberSchemaId,
+			});
+			const collection = await createV2Entity(client, {
+				name: "Time Series Collection",
+				entitySchemaId: collectionSchemaId,
+			});
+			await createRelationship(client, {
+				sourceEntityId: member.id,
+				targetEntityId: collection.id,
+				relationshipSchemaId: relationshipSchema.id,
+			});
+
+			const doc: V2ExecutePayload = {
+				version: 2,
+				output: {
+					type: "timeSeries",
+					measure: { aggregation: { function: "count" } },
+					time: {
+						bucket: "month",
+						expr: systemRef("membership", "createdAt"),
+						range: { endAt: "2031-01-01T00:00:00.000Z", startAt: "2020-01-01T00:00:00.000Z" },
+					},
+				},
+				source: {
+					where: null,
+					alias: "membership",
+					type: "relationships",
+					schemas: [relationshipSlug],
+					sourceEntity: { alias: "memberEntity", schemas: [memberSlug] },
+					targetEntity: { alias: "collectionEntity", schemas: [collectionSlug] },
+				},
+			};
+
+			const result = await executeTimeSeriesQueryEngineV2(client, doc);
+
+			expect(result.data.buckets.some((bucket) => bucket.value === 1)).toBe(true);
+		});
+
+		it("rejects date ranges that produce more than 1000 buckets", async () => {
+			const { client } = await createAuthenticatedClient();
+			const { slug } = await createV2TrackerAndSchema(client, {
+				schemaName: "TimeSeriesBucketCap",
+			});
+			const doc: V2ExecutePayload = {
+				version: 2,
+				source: { where: null, type: "entities", alias: "entity", schemas: [slug] },
+				output: {
+					type: "timeSeries",
+					measure: { aggregation: { function: "count" } },
+					time: {
+						bucket: "day",
+						expr: systemRef("entity", "createdAt"),
+						range: { endAt: "2028-10-01T00:00:00.000Z", startAt: "2026-01-01T00:00:00.000Z" },
+					},
+				},
+			};
+
+			const error = await executeQueryEngineV2Error(client, doc);
+			expect(error).toMatchObject({ _tag: "BadRequest" });
 		});
 	});
 
