@@ -3,7 +3,7 @@ import {
 	UserCalendarEventsDocument,
 	type UserCalendarEventsQuery,
 } from "@ryot/generated/graphql/backend/graphql";
-import { sum } from "@ryot/ts-utils";
+import { sum } from "@ryot/ts-utils/lodash";
 import { IconChevronLeft, IconChevronRight } from "@tabler/icons-react";
 import { useQuery } from "@tanstack/react-query";
 import { parseAsString } from "nuqs";

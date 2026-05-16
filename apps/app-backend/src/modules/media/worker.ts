@@ -1,5 +1,6 @@
 import { z } from "@hono/zod-openapi";
-import { dayjs, normalizeSlug } from "@ryot/ts-utils";
+import { dayjs } from "@ryot/ts-utils/dayjs";
+import { normalizeSlug } from "@ryot/ts-utils/slug";
 import { type Job, WaitingChildrenError, Worker } from "bullmq";
 import { and, eq, isNull } from "drizzle-orm";
 

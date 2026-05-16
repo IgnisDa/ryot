@@ -1,5 +1,5 @@
 import { z } from "@hono/zod-openapi";
-import type { RuntimeRef } from "@ryot/ts-utils";
+import type { RuntimeRef } from "@ryot/ts-utils/view-language";
 
 import { createNullableOpenApiRefSchema } from "~/lib/openapi";
 import { nonEmptyTrimmedStringSchema } from "~/lib/zod";

@@ -1,4 +1,4 @@
-import { dayjs } from "@ryot/ts-utils";
+import { dayjs } from "@ryot/ts-utils/dayjs";
 import { type Job, Worker } from "bullmq";
 import { sql } from "drizzle-orm";
 

@@ -1,4 +1,4 @@
-import { normalizeSlug } from "@ryot/ts-utils";
+import { normalizeSlug } from "@ryot/ts-utils/slug";
 
 export interface ResolveNextSlugInput {
 	name: string;

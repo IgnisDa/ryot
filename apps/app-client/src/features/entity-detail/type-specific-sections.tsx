@@ -1,4 +1,4 @@
-import { dayjs } from "@ryot/ts-utils";
+import { dayjs } from "@ryot/ts-utils/dayjs";
 import { ChevronDown, ChevronUp } from "lucide-react-native";
 import type React from "react";
 import { useEffect, useState } from "react";

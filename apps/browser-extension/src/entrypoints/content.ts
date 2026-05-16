@@ -1,4 +1,5 @@
-import { debounce, throttle } from "@ryot/ts-utils";
+import { debounce } from "@ryot/ts-utils/lodash";
+import { throttle } from "@ryot/ts-utils/lodash";
 
 import { storage } from "#imports";
 

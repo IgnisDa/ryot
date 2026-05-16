@@ -13,7 +13,9 @@ import {
 import { useDebouncedState, useDidUpdate } from "@mantine/hooks";
 import { notifications } from "@mantine/notifications";
 import { type ExerciseDurationUnit, SetLot } from "@ryot/generated/graphql/backend/graphql";
-import { isString, snakeCase, startCase } from "@ryot/ts-utils";
+import { isString } from "@ryot/ts-utils/lodash";
+import { snakeCase } from "@ryot/ts-utils/lodash";
+import { startCase } from "@ryot/ts-utils/lodash";
 import { IconClipboard, IconHeartSpark, IconTrash, IconZzz } from "@tabler/icons-react";
 import clsx from "clsx";
 import { produce } from "immer";
