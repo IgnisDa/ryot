@@ -164,7 +164,7 @@ function SavedViewWebActions(props: {
 				<AppIcon className="text-text-muted" name="sliders-horizontal" size={15} />
 				<Text className="font-ui text-[13px] text-text">Filters</Text>
 				<View className="rounded-pill bg-accent-soft px-1.5 py-px">
-					<Text className="font-ui text-[11px] text-accent-text">3</Text>
+					<Text className="font-ui text-[11px] text-accent-text">0</Text>
 				</View>
 			</Pressable>
 			{props.onAdd ? (
@@ -190,8 +190,10 @@ function SavedViewDisplay(
 		readonly isLoadingMore: boolean;
 		readonly record: SavedViewRecord;
 		readonly search: SavedViewSearch;
+		readonly initialScrollOffset: number;
 		readonly queryDocument: RyotQLDocument;
 		readonly managedUrls: ReadonlyMap<string, string>;
+		readonly onScrollOffsetChange: (offset: number) => void;
 	},
 ) {
 	const { items, pageInfo } = props.data;
@@ -233,14 +235,18 @@ function SavedViewDisplay(
 		<SavedViewFrame
 			onAdd={props.onAdd}
 			search={props.search}
+			title={props.record.name}
 			viewSlug={props.record.slug}
-			title={{
-				loaded: items.length,
-				icon: props.record.icon,
-				name: props.record.name,
-				hasMore: pageInfo.hasMore,
-				queryDocument: props.queryDocument,
-			}}
+			initialScrollOffset={props.initialScrollOffset}
+			onScrollOffsetChange={props.onScrollOffsetChange}
+			meta={
+				<SavedViewResultCount
+					loaded={items.length}
+					hasMore={pageInfo.hasMore}
+					queryDocument={props.queryDocument}
+					textClassName="font-ui text-[13px]"
+				/>
+			}
 		>
 			<View className="w-full gap-5">
 				<View
@@ -287,7 +293,9 @@ export function SavedViewReadyContent(props: {
 	readonly isLoadingMore: boolean;
 	readonly record: SavedViewRecord;
 	readonly search: SavedViewSearch;
+	readonly initialScrollOffset: number;
 	readonly queryDocument: RyotQLDocument;
+	readonly onScrollOffsetChange: (offset: number) => void;
 	readonly state: Extract<SavedViewResultState, { status: "ready" }>;
 }) {
 	const providerAdd = useProviderAddFlow();

@@ -34,6 +34,7 @@ function getDrawerWidth(screenWidth: number) {
 
 type WorkspaceDrawerValue = {
 	openDrawer: () => void;
+	suspendEdgeSwipe: () => () => void;
 	navigation: ReadyWorkspaceNavigation;
 };
 
@@ -47,6 +48,13 @@ export function useWorkspaceDrawer() {
 	return value;
 }
 
+export function useSuspendedDrawerEdgeSwipe() {
+	const drawer = useContext(WorkspaceDrawerContext);
+	const suspend = drawer?.suspendEdgeSwipe;
+
+	useEffect(() => suspend?.(), [suspend]);
+}
+
 export function WorkspaceDrawer(props: {
 	children: ReactNode;
 	navigation: ReadyWorkspaceNavigation;
@@ -56,6 +64,7 @@ export function WorkspaceDrawer(props: {
 	const progress = useSharedValue(0);
 	const drawerWidth = getDrawerWidth(width);
 	const [isOpen, setIsOpen] = useState(false);
+	const [suspendCount, setSuspendCount] = useState(0);
 	const [sheet, setSheet] = useState<"workspace" | null>(null);
 	const edgeSwipe = useMemo(
 		() =>
@@ -112,6 +121,10 @@ export function WorkspaceDrawer(props: {
 				setIsOpen(true);
 				progress.value = withTiming(1, DRAWER_TIMING);
 			},
+			suspendEdgeSwipe: () => {
+				setSuspendCount((count) => count + 1);
+				return () => setSuspendCount((count) => count - 1);
+			},
 		}),
 		[progress, props.navigation],
 	);
@@ -147,7 +160,7 @@ export function WorkspaceDrawer(props: {
 				>
 					{props.children}
 				</Animated.View>
-				{Platform.OS !== "web" && props.navigation.activeKey === "home" && !isOpen && (
+				{Platform.OS !== "web" && !isOpen && suspendCount === 0 && (
 					<View
 						style={{ width: EDGE_SWIPE_WIDTH }}
 						className="absolute inset-y-0 left-0 z-20"
