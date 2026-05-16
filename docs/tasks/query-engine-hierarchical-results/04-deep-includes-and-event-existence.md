@@ -4,7 +4,7 @@
 
 **Type:** AFK
 
-**Status:** todo
+**Status:** done
 
 ## What to build
 
@@ -14,13 +14,13 @@ The implementation must use the shared source validation, source visibility, exp
 
 ## Acceptance criteria
 
-- [ ] Rows returns can include nested entity sources through depth 2, using one relationship edge per include level.
-- [ ] Nested lessons can be ordered by a schema-qualified lesson property.
-- [ ] Lesson output fields can include `exists` over an event source attached to the lesson alias with `entityRef`.
-- [ ] `exists` returns false for zero matching visible events and true for at least one matching visible event.
-- [ ] Nested event sources enforce the same user/global visibility rules as root sources.
-- [ ] Include depth greater than 3 fails validation.
-- [ ] E2E tests fetch courses with modules and lessons, verify lesson ordering, and verify per-lesson completion booleans.
+- [x] Rows returns can include nested entity sources through depth 2, using one relationship edge per include level.
+- [x] Nested lessons can be ordered by a schema-qualified lesson property.
+- [x] Lesson output fields can include `exists` over an event source attached to the lesson alias with `entityRef`.
+- [x] `exists` returns false for zero matching visible events and true for at least one matching visible event.
+- [x] Nested event sources enforce the same user/global visibility rules as root sources.
+- [x] Include depth greater than 3 fails validation.
+- [x] E2E tests fetch courses with modules and lessons, verify lesson ordering, and verify per-lesson completion booleans.
 
 ## User stories addressed
 

@@ -1,4 +1,4 @@
-import { EntitySchemaId } from "@ryot/app-backend/schema/brands";
+import { EntityId, EntitySchemaId, EventSchemaId } from "@ryot/app-backend/schema/brands";
 
 import type { Client } from "./auth";
 import type { ContractPayload, ContractSuccess } from "./contract-client";
@@ -52,6 +52,23 @@ export async function createV2Entity(
 		properties: input.properties ?? {},
 		entitySchemaId: EntitySchemaId.make(input.entitySchemaId),
 	});
+}
+
+export async function createV2Event(
+	client: Client,
+	input: { entityId: string; eventSchemaId: string; properties?: Record<string, unknown> },
+) {
+	return client.run((c) =>
+		c.events.create({
+			payload: [
+				{
+					entityId: EntityId.make(input.entityId),
+					properties: input.properties ?? {},
+					eventSchemaId: EventSchemaId.make(input.eventSchemaId),
+				},
+			],
+		}),
+	);
 }
 
 export const systemRef = (

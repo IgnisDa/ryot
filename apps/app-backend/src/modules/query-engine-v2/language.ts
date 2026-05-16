@@ -29,6 +29,7 @@ export type Expr =
 	| { readonly type: "not"; readonly expr: Expr }
 	| { readonly type: "isNull"; readonly expr: Expr }
 	| { readonly type: "isNotNull"; readonly expr: Expr }
+	| { readonly type: "exists"; readonly source: SourceV2 }
 	| { readonly type: "or"; readonly values: readonly [Expr, ...Expr[]] }
 	| { readonly type: "and"; readonly values: readonly [Expr, ...Expr[]] }
 	| { readonly type: "contains"; readonly left: Expr; readonly right: Expr }
@@ -61,6 +62,7 @@ export const Expr: Schema.Schema<Expr> = Schema.suspend(() =>
 		strictStruct({ expr: Expr, type: Schema.Literal("not") }),
 		strictStruct({ expr: Expr, type: Schema.Literal("isNull") }),
 		strictStruct({ expr: Expr, type: Schema.Literal("isNotNull") }),
+		strictStruct({ source: SourceV2, type: Schema.Literal("exists") }),
 		strictStruct({ left: Expr, right: Expr, type: Schema.Literal("contains") }),
 		strictStruct({ type: Schema.Literal("or"), values: Schema.NonEmptyArray(Expr) }),
 		strictStruct({ type: Schema.Literal("and"), values: Schema.NonEmptyArray(Expr) }),
@@ -91,6 +93,20 @@ export const EntitySourceV2 = strictStruct({
 }).annotations({ identifier: "EntitySourceV2" });
 export type EntitySourceV2 = typeof EntitySourceV2.Type;
 
+export const EventSourceV2 = strictStruct({
+	alias: Schema.String,
+	entityRef: Schema.String,
+	type: Schema.Literal("events"),
+	where: Schema.NullOr(Expr),
+	schemas: Schema.NonEmptyArray(Schema.String),
+}).annotations({ identifier: "EventSourceV2" });
+export type EventSourceV2 = typeof EventSourceV2.Type;
+
+export const SourceV2 = Schema.Union(EntitySourceV2, EventSourceV2).annotations({
+	identifier: "SourceV2",
+});
+export type SourceV2 = typeof SourceV2.Type;
+
 const Pagination = strictStruct({
 	page: Schema.Int.pipe(Schema.positive()),
 	limit: Schema.Int.pipe(Schema.positive()),
@@ -104,21 +120,32 @@ const FieldDef = strictStruct({ expr: Expr, key: Schema.String }).annotations({
 	identifier: "FieldDef",
 });
 
-export const IncludeEntryV2 = strictStruct({
-	key: Schema.String,
-	limit: Schema.Int.pipe(Schema.positive()),
-	source: EntitySourceV2,
-	fields: Schema.Array(FieldDef),
-	orderBy: Schema.NonEmptyArray(OrderByEntry),
-}).annotations({ identifier: "IncludeEntryV2" });
-export type IncludeEntryV2 = typeof IncludeEntryV2.Type;
+export type IncludeEntryV2 = {
+	readonly key: string;
+	readonly limit: number;
+	readonly source: EntitySourceV2;
+	readonly include?: readonly IncludeEntryV2[];
+	readonly fields: readonly (typeof FieldDef.Type)[];
+	readonly orderBy: readonly [typeof OrderByEntry.Type, ...Array<typeof OrderByEntry.Type>];
+};
+
+export const IncludeEntryV2: Schema.Schema<IncludeEntryV2> = Schema.suspend(() =>
+	strictStruct({
+		key: Schema.String,
+		source: EntitySourceV2,
+		fields: Schema.Array(FieldDef),
+		limit: Schema.Int.pipe(Schema.positive()),
+		orderBy: Schema.NonEmptyArray(OrderByEntry),
+		include: Schema.optional(Schema.Array(IncludeEntryV2)),
+	}),
+).annotations({ identifier: "IncludeEntryV2" });
 
 export const RowsOutputV2 = strictStruct({
 	pagination: Pagination,
 	type: Schema.Literal("rows"),
 	fields: Schema.Array(FieldDef),
-	include: Schema.optional(Schema.Array(IncludeEntryV2)),
 	orderBy: Schema.NonEmptyArray(OrderByEntry),
+	include: Schema.optional(Schema.Array(IncludeEntryV2)),
 }).annotations({ identifier: "RowsOutputV2" });
 export type RowsOutputV2 = typeof RowsOutputV2.Type;
 

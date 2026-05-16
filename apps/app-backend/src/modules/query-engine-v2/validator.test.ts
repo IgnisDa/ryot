@@ -450,9 +450,126 @@ describe("relationship includes", () => {
 		return { ...base, ...overrides };
 	};
 
+	const lessonInclude = (overrides: Partial<IncludeEntryV2> = {}): IncludeEntryV2 => {
+		const base: IncludeEntryV2 = {
+			limit: 10,
+			key: "lessons",
+			fields: [{ key: "name", expr: nameRef("lesson") }],
+			orderBy: [{ order: "asc", expr: propertyRef("lesson", "lessons", ["lessonNumber"]) }],
+			source: {
+				where: null,
+				alias: "lesson",
+				type: "entities",
+				schemas: ["lessons"],
+				via: {
+					entityRef: "module",
+					alias: "moduleLesson",
+					direction: "outgoing",
+					schema: "module-lesson",
+				},
+			},
+		};
+		return { ...base, ...overrides };
+	};
+
 	it("accepts a one-hop entity include", () => {
 		const doc = makeDoc({ output: { ...makeDoc().output, include: [moduleInclude()] } });
 		expect(validateQueryDocumentV2(doc)).toBeNull();
+	});
+
+	it("accepts nested entity includes", () => {
+		const doc = makeDoc({
+			output: {
+				...makeDoc().output,
+				include: [moduleInclude({ include: [lessonInclude()] })],
+			},
+		});
+		expect(validateQueryDocumentV2(doc)).toBeNull();
+	});
+
+	it("accepts exists over an event source attached to the included entity", () => {
+		const doc = makeDoc({
+			output: {
+				...makeDoc().output,
+				include: [
+					moduleInclude({
+						include: [
+							lessonInclude({
+								fields: [
+									{
+										key: "isComplete",
+										expr: {
+											type: "exists",
+											source: {
+												where: null,
+												type: "events",
+												alias: "completion",
+												entityRef: "lesson",
+												schemas: ["complete"],
+											},
+										},
+									},
+								],
+							}),
+						],
+					}),
+				],
+			},
+		});
+		expect(validateQueryDocumentV2(doc)).toBeNull();
+	});
+
+	it("rejects include depth greater than 3", () => {
+		const doc = makeDoc({
+			output: {
+				...makeDoc().output,
+				include: [
+					moduleInclude({
+						include: [
+							lessonInclude({
+								include: [
+									lessonInclude({
+										key: "parts",
+										fields: [{ key: "name", expr: nameRef("part") }],
+										orderBy: [{ order: "asc", expr: nameRef("part") }],
+										source: {
+											...lessonInclude().source,
+											alias: "part",
+											schemas: ["parts"],
+											via: {
+												entityRef: "lesson",
+												alias: "lessonPart",
+												direction: "outgoing",
+												schema: "lesson-part",
+											},
+										},
+										include: [
+											lessonInclude({
+												key: "segments",
+												fields: [{ key: "name", expr: nameRef("segment") }],
+												orderBy: [{ order: "asc", expr: nameRef("segment") }],
+												source: {
+													...lessonInclude().source,
+													alias: "segment",
+													schemas: ["segments"],
+													via: {
+														entityRef: "part",
+														alias: "partSegment",
+														direction: "outgoing",
+														schema: "part-segment",
+													},
+												},
+											}),
+										],
+									}),
+								],
+							}),
+						],
+					}),
+				],
+			},
+		});
+		expect(validateQueryDocumentV2(doc)).toMatch(/Include depth exceeds maximum of 3/);
 	});
 
 	it("accepts relationship edge fields in include output", () => {
