@@ -1282,6 +1282,7 @@ export type IntegrationProviderSpecifics = {
   jellyfinPushBaseUrl?: Maybe<Scalars['String']['output']>;
   jellyfinPushPassword?: Maybe<Scalars['String']['output']>;
   jellyfinPushUsername?: Maybe<Scalars['String']['output']>;
+  jellyfinSinkMetadataProvider?: Maybe<Scalars['String']['output']>;
   jellyfinSinkUsername?: Maybe<Scalars['String']['output']>;
   komgaApiKey?: Maybe<Scalars['String']['output']>;
   komgaBaseUrl?: Maybe<Scalars['String']['output']>;
@@ -1311,6 +1312,7 @@ export type IntegrationSourceSpecificsInput = {
   jellyfinPushBaseUrl?: InputMaybe<Scalars['String']['input']>;
   jellyfinPushPassword?: InputMaybe<Scalars['String']['input']>;
   jellyfinPushUsername?: InputMaybe<Scalars['String']['input']>;
+  jellyfinSinkMetadataProvider?: InputMaybe<Scalars['String']['input']>;
   jellyfinSinkUsername?: InputMaybe<Scalars['String']['input']>;
   komgaApiKey?: InputMaybe<Scalars['String']['input']>;
   komgaBaseUrl?: InputMaybe<Scalars['String']['input']>;
