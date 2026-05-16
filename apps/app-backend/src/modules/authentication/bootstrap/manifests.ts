@@ -1,10 +1,12 @@
 import type { AppSchema } from "@ryot/ts-utils/app-schema";
 import { normalizeSlug } from "@ryot/ts-utils/slug";
+import { createEntityColumnExpression } from "@ryot/ts-utils/view-language";
 import { match } from "ts-pattern";
 
 import { exercisePropertiesJsonSchema } from "~/lib/fitness/exercise";
 import { measurementPropertiesJsonSchema } from "~/lib/fitness/measurement";
 import { workoutPropertiesJsonSchema, workoutSetPropertiesJsonSchema } from "~/lib/fitness/workout";
+import { workoutTemplatePropertiesJsonSchema } from "~/lib/fitness/workout-template";
 import { animePropertiesJsonSchema } from "~/lib/media/anime";
 import { audiobookPropertiesJsonSchema } from "~/lib/media/audiobook";
 import { bookPropertiesJsonSchema } from "~/lib/media/book";
@@ -23,7 +25,15 @@ import { podcastPropertiesJsonSchema } from "~/lib/media/podcast";
 import { showPropertiesJsonSchema } from "~/lib/media/show";
 import { videoGamePropertiesJsonSchema } from "~/lib/media/video-game";
 import { visualNovelPropertiesJsonSchema } from "~/lib/media/visual-novel";
-import { createDefaultDisplayConfiguration } from "~/modules/saved-views";
+import {
+	createDefaultDisplayConfiguration,
+	createDefaultQueryDefinition,
+} from "~/modules/saved-views";
+import type {
+	DisplayConfiguration,
+	LatestRelationshipJoinDefinition,
+	SavedViewQueryDefinition,
+} from "~/modules/saved-views";
 
 export const authenticationBuiltinTrackers = () => [
 	{
@@ -395,6 +405,15 @@ export const authenticationBuiltinEntitySchemas = () => [
 		propertiesSchema: workoutPropertiesJsonSchema,
 	},
 	{
+		eventSchemas: [],
+		icon: "clipboard-list",
+		trackerSlug: "fitness",
+		accentColor: "#A3E635",
+		slug: "workout-template",
+		name: "Workout Template",
+		propertiesSchema: workoutTemplatePropertiesJsonSchema,
+	},
+	{
 		icon: "ruler",
 		eventSchemas: [],
 		slug: "measurement",
@@ -435,7 +454,19 @@ const inLibraryRelationshipJoin = {
 	relationshipSchemaSlug: "in-library" as const,
 };
 
-export const authenticationBuiltinSavedViews = () => [
+type AuthenticationBuiltinSavedView = {
+	slug: string;
+	name: string;
+	icon?: string;
+	trackerSlug?: string;
+	accentColor?: string;
+	entitySchemaSlug?: string;
+	queryDefinition?: SavedViewQueryDefinition;
+	displayConfiguration: DisplayConfiguration;
+	relationshipJoins?: LatestRelationshipJoinDefinition[];
+};
+
+export const authenticationBuiltinSavedViews = (): AuthenticationBuiltinSavedView[] => [
 	{
 		slug: "collections",
 		name: "Collections",
@@ -447,16 +478,16 @@ export const authenticationBuiltinSavedViews = () => [
 		name: "All Persons",
 		trackerSlug: "media",
 		entitySchemaSlug: "person",
-		displayConfiguration: createDefaultDisplayConfiguration("person"),
 		relationshipJoins: [inLibraryRelationshipJoin],
+		displayConfiguration: createDefaultDisplayConfiguration("person"),
 	},
 	{
 		trackerSlug: "media",
 		slug: "all-companies",
 		name: "All Companies",
 		entitySchemaSlug: "company",
-		displayConfiguration: createDefaultDisplayConfiguration("company"),
 		relationshipJoins: [inLibraryRelationshipJoin],
+		displayConfiguration: createDefaultDisplayConfiguration("company"),
 	},
 	{
 		slug: "all-exercises",
@@ -479,13 +510,27 @@ export const authenticationBuiltinSavedViews = () => [
 		entitySchemaSlug: "measurement",
 		displayConfiguration: createDefaultDisplayConfiguration("measurement"),
 	},
+	{
+		trackerSlug: "fitness",
+		slug: "all-workout-templates",
+		name: "All Workout Templates",
+		entitySchemaSlug: "workout-template",
+		displayConfiguration: createDefaultDisplayConfiguration("workout-template"),
+		queryDefinition: {
+			...createDefaultQueryDefinition(["workout-template"]),
+			sort: {
+				direction: "desc",
+				expression: createEntityColumnExpression("workout-template", "createdAt"),
+			},
+		},
+	},
 	...builtinMediaEntitySchemaSlugs.map((slug) => ({
 		trackerSlug: "media",
 		entitySchemaSlug: slug,
 		name: getBuiltInSavedViewName(slug),
+		relationshipJoins: [inLibraryRelationshipJoin],
 		slug: normalizeSlug(getBuiltInSavedViewName(slug)),
 		displayConfiguration: createDefaultDisplayConfiguration(slug),
-		relationshipJoins: [inLibraryRelationshipJoin],
 	})),
 ];
 
@@ -558,6 +603,13 @@ export const authenticationBuiltinRelationshipSchemas = (): BuiltinRelationshipS
 		sourceEntitySchemaSlug: null,
 		propertiesSchema: { fields: {} },
 		targetEntitySchemaSlug: "collection",
+	},
+	{
+		propertiesSchema: { fields: {} },
+		sourceEntitySchemaSlug: "workout",
+		slug: "workout-to-workout-template",
+		name: "Workout to Workout Template",
+		targetEntitySchemaSlug: "workout-template",
 	},
 	...buildCreditRelationshipSchemas({
 		sourceSlug: "person",
