@@ -100,7 +100,9 @@ export const action = async ({ request }: Route.ActionArgs) => {
 			await serverGqlService.authenticatedRequest(
 				request,
 				CreateOrUpdateUserIntegrationDocument,
-				{ input: submission },
+				{
+					input: submission,
+				},
 			);
 
 			const isUpdate = Boolean(submission.integrationId);
@@ -607,6 +609,18 @@ const PROVIDER_CONFIGS: Record<IntegrationProvider, ProviderConfig> = {
 				description:
 					"If specified, only webhooks for this user will be processed. Leave empty to process webhooks for all users.",
 			},
+			{
+				type: "select",
+				notRequired: true,
+				label: "Metadata Provider",
+				name: "jellyfinSinkMetadataProvider",
+				description:
+					"The metadata provider used to match media. Defaults to TMDB.",
+				options: [
+					{ label: "TMDB", value: "tmdb" },
+					{ label: "TVDB", value: "tvdb" },
+				],
+			},
 		],
 	},
 	[IntegrationProvider.Kodi]: {
@@ -730,7 +744,9 @@ const ProviderField = (props: {
 					defaultValue={
 						props.field.name === "youtubeMusicTimezone" && !value
 							? Intl.DateTimeFormat().resolvedOptions().timeZone
-							: (value as string) || undefined
+							: props.field.name === "jellyfinSinkMetadataProvider" && !value
+								? "tmdb"
+								: (value as string) || undefined
 					}
 				/>
 			);
