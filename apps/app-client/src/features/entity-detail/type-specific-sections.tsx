@@ -220,27 +220,18 @@ export function PodcastEpisodesList(props: { entity: PodcastDetail }) {
 							</Box>
 						) : null}
 						<Box className="flex-1">
-							<Box className="flex-row items-start">
-								<Text className="mr-3 w-8 text-[13px] font-mono text-muted-foreground web:text-[15px]">
-									{episode.number}
-								</Text>
-								<Text
-									numberOfLines={2}
-									className="flex-1 text-[13px] font-sans-medium text-foreground web:text-[15px]"
-								>
-									{episode.title}
-								</Text>
-							</Box>
-							<Box className="mt-1 flex-row gap-3">
-								<Text className="text-[11px] font-mono text-muted-foreground web:text-[13px]">
-									{dayjs(episode.publishDate).format("MMM D, YYYY")}
-								</Text>
-								{episode.runtime != null ? (
-									<Text className="text-[11px] font-mono text-muted-foreground web:text-[13px]">
-										{formatMinutes(episode.runtime)}
-									</Text>
-								) : null}
-							</Box>
+							<Text
+								numberOfLines={2}
+								className="text-[13px] font-sans-medium text-foreground web:text-[15px]"
+							>
+								{episode.title}
+							</Text>
+							<Text
+								numberOfLines={1}
+								className="mt-1 text-[11px] font-mono text-muted-foreground web:text-[13px]"
+							>
+								{`Episode ${episode.number} · ${dayjs(episode.publishDate).format("MMM D, YYYY")}${episode.runtime != null ? ` · ${formatMinutes(episode.runtime)}` : ""}`}
+							</Text>
 						</Box>
 					</Box>
 					{episode.overview ? (
