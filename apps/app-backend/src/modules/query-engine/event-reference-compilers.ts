@@ -1,4 +1,4 @@
-import type { RuntimeRef } from "@ryot/ts-utils";
+import type { AppSchema, RuntimeRef } from "@ryot/ts-utils";
 import { sql } from "drizzle-orm";
 import { match } from "ts-pattern";
 
@@ -123,6 +123,24 @@ export const buildEventAggregateExpression = (input: {
 		: castExpressionToType(subquery, actualType);
 };
 
+const resolveEventPropertyType = (
+	eventSchemaSlug: string | undefined,
+	eventSchemaMap: Map<string, { slug: string; propertiesSchema: AppSchema }[]> | undefined,
+	propertyPath: string[],
+): PropertyType => {
+	if (eventSchemaSlug && eventSchemaMap) {
+		const eventSchemas = eventSchemaMap.get(eventSchemaSlug);
+		const [schema] = eventSchemas ?? [];
+		if (schema) {
+			return getPropertyType(schema, propertyPath) ?? "string";
+		}
+		throw new QueryEngineValidationError(
+			`Event schema '${eventSchemaSlug}' is not available for the requested entity schemas`,
+		);
+	}
+	return "string" as const;
+};
+
 export const buildEventExpression = (input: {
 	alias: string;
 	targetType?: PropertyType;
@@ -135,22 +153,11 @@ export const buildEventExpression = (input: {
 		const propertyPath = input.reference.path.slice(1);
 		const { eventSchemaSlug } = input.reference;
 
-		const propertyType = (() => {
-			if (eventSchemaSlug && input.context.eventSchemaMap) {
-				const eventSchemas = input.context.eventSchemaMap.get(eventSchemaSlug);
-				const [schema] = eventSchemas ?? [];
-				if (schema) {
-					return getPropertyType(schema, propertyPath) ?? "string";
-				}
-
-				throw new QueryEngineValidationError(
-					`Event schema '${eventSchemaSlug}' is not available for the requested entity schemas`,
-				);
-			}
-
-			// No eventSchemaSlug provided — display-only path without type inference
-			return "string" as const;
-		})();
+		const propertyType = resolveEventPropertyType(
+			eventSchemaSlug,
+			input.context.eventSchemaMap,
+			propertyPath,
+		);
 
 		const valueExpression = buildJsonColumnPropertyExpression({
 			propertyPath,
