@@ -1,5 +1,5 @@
 import { dayjs } from "@ryot/ts-utils";
-import { Library } from "lucide-react-native";
+import { Layers, Library } from "lucide-react-native";
 import { Image, ScrollView } from "react-native";
 import { match } from "ts-pattern";
 
@@ -190,6 +190,33 @@ export function CollectionsSection(props: {
 						<Library size={14} color={ACCENT} strokeWidth={2} />
 						<Text className="text-[13px] font-sans-medium text-foreground web:text-[15px]">
 							{collection.name}
+						</Text>
+					</Box>
+				))}
+			</Box>
+		</Box>
+	);
+}
+
+export function GroupsSection(props: { groups: Array<{ id: string; name: string }> | null }) {
+	if (!props.groups || props.groups.length === 0) {
+		return null;
+	}
+
+	return (
+		<Box className="mt-8">
+			<Text className="mb-3 font-heading-semibold text-[16px] text-foreground web:text-[18px]">
+				Series
+			</Text>
+			<Box className="flex-row flex-wrap gap-2">
+				{props.groups.map((group) => (
+					<Box
+						key={group.id}
+						className="flex-row items-center gap-2 rounded-full bg-muted px-3 py-2"
+					>
+						<Layers size={14} color={ACCENT} strokeWidth={2} />
+						<Text className="text-[13px] font-sans-medium text-foreground web:text-[15px]">
+							{group.name}
 						</Text>
 					</Box>
 				))}
