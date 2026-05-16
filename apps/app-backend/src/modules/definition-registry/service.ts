@@ -4,7 +4,11 @@ import type {
 	RyotQLDocument,
 	RowSelection,
 } from "@ryot/contract/modules/ryotql/language";
-import type { SavedViewLayouts } from "@ryot/contract/modules/saved-views/schemas";
+import type {
+	SavedViewDefinitionIssue,
+	SavedViewLayoutName,
+	SavedViewLayouts,
+} from "@ryot/contract/modules/saved-views/schemas";
 import type { AppSchema, PropertyValidationError } from "@ryot/contract/schema/property-schema";
 import { Context, Data, Effect, Layer } from "effect";
 
@@ -174,36 +178,57 @@ const displayExpression = (fields: readonly FieldSelection[], field: string) =>
 
 type SavedViewLayout = SavedViewLayouts[keyof SavedViewLayouts];
 
-const getLayoutValidationError = (
+export type SavedViewValidationIssue = {
+	readonly field?: string;
+	readonly diagnostic: string;
+	readonly layout: SavedViewLayoutName;
+	readonly issue: SavedViewDefinitionIssue;
+};
+
+type LayoutValidationIssue = Omit<SavedViewValidationIssue, "layout">;
+
+const missingMappingField = (field: string): LayoutValidationIssue => ({
+	field,
+	issue: "mapping-field-missing",
+	diagnostic: `mapping field '${field}' is not in its root projection`,
+});
+
+const getLayoutValidationIssue = (
 	layoutName: keyof SavedViewLayouts,
 	layout: SavedViewLayout,
-): string | null => {
+): LayoutValidationIssue | null => {
 	const queryDocument = layout.queryDocument;
 	const queries = Object.entries(queryDocument.queries);
 	if (queries.length !== 1) {
-		return "must contain exactly one named query";
+		return { issue: "query-count", diagnostic: "must contain exactly one named query" };
 	}
 
 	const query = queries[0]?.[1];
 	if (query?.output.type !== "rows") {
-		return "query must have rows output";
+		return { issue: "output-kind", diagnostic: "query must have rows output" };
 	}
 	if ("after" in query.output.pagination) {
-		return "query pagination must not contain a cursor";
+		return {
+			issue: "cursor-pagination",
+			diagnostic: "query pagination must not contain a cursor",
+		};
 	}
 	if (query.output.fields.some((selection) => !isFieldSelection(selection))) {
-		return "query must use explicit field selections";
+		return {
+			issue: "explicit-fields-required",
+			diagnostic: "query must use explicit field selections",
+		};
 	}
 	if (query.output.include !== undefined) {
-		return "query must not include nested results";
+		return { issue: "nested-results", diagnostic: "query must not include nested results" };
 	}
 	if (layoutName === "table" && "columns" in layout && layout.columns.length === 0) {
-		return "must have at least one column";
+		return { issue: "columns-empty", diagnostic: "must have at least one column" };
 	}
 
 	const semanticError = validateRyotQLDocument(queryDocument);
 	if (semanticError) {
-		return semanticError;
+		return { issue: "query-invalid", diagnostic: semanticError };
 	}
 
 	const rootFields = query.output.fields.filter(isFieldSelection);
@@ -217,7 +242,7 @@ const getLayoutValidationError = (
 			continue;
 		}
 		if (!projectionKeys.has(field)) {
-			return `mapping field '${field}' is not in its root projection`;
+			return missingMappingField(field);
 		}
 	}
 
@@ -229,10 +254,10 @@ const getLayoutValidationError = (
 	for (const { field, slot } of textFields) {
 		const selection = displayExpression(rootFields, field);
 		if (!selection) {
-			return `mapping field '${field}' is not in its root projection`;
+			return missingMappingField(field);
 		}
 		if (expressionKind(selection.expr, scope) !== "text") {
-			return `${slot} must resolve to text`;
+			return { field: slot, issue: "field-kind", diagnostic: `${slot} must resolve to text` };
 		}
 	}
 	const entityIdSelection = displayExpression(rootFields, layout.entityIdField);
@@ -245,7 +270,11 @@ const getLayoutValidationError = (
 		entityIdTable?.name !== "entity" ||
 		entityIdSelection.expr.field !== entityIdTable.primaryKey
 	) {
-		return "entityIdField must project an entity primary key";
+		return {
+			field: "entityIdField",
+			issue: "entity-id-source",
+			diagnostic: "entityIdField must project an entity primary key",
+		};
 	}
 	const imageField = layout.imageField;
 	for (const { field, slot } of imageField === null
@@ -253,25 +282,34 @@ const getLayoutValidationError = (
 		: [{ field: imageField, slot: "imageField" }]) {
 		const selection = displayExpression(rootFields, field);
 		if (!selection) {
-			return `mapping field '${field}' is not in its root projection`;
+			return missingMappingField(field);
 		}
 		if (selection.expr.type !== "cast" || selection.expr.target !== "json") {
-			return `${slot} must use an explicit JSON cast for AssetLocator`;
+			return {
+				field: slot,
+				issue: "image-cast",
+				diagnostic: `${slot} must use an explicit JSON cast for AssetLocator`,
+			};
 		}
 	}
 
 	return null;
 };
 
-export const getSavedViewValidationError = (input: { readonly layouts: SavedViewLayouts }) => {
-	for (const layoutName of ["grid", "list", "table"] as const) {
-		const error = getLayoutValidationError(layoutName, input.layouts[layoutName]);
-		if (error) {
-			return `${layoutName[0]?.toUpperCase()}${layoutName.slice(1)} layout: ${error}`;
+export const validateSavedViewLayouts = (input: {
+	readonly layouts: SavedViewLayouts;
+}): SavedViewValidationIssue | null => {
+	for (const layout of ["grid", "list", "table"] as const) {
+		const issue = getLayoutValidationIssue(layout, input.layouts[layout]);
+		if (issue) {
+			return { ...issue, layout };
 		}
 	}
 	return null;
 };
+
+export const formatSavedViewValidationIssue = ({ layout, diagnostic }: SavedViewValidationIssue) =>
+	`${layout[0]?.toUpperCase()}${layout.slice(1)} layout: ${diagnostic}`;
 
 const validateDefinitionSource = (source: DefinitionSource) => {
 	assertUniqueSlugs("entity schema", source.entitySchemas);
@@ -283,9 +321,11 @@ const validateDefinitionSource = (source: DefinitionSource) => {
 	const relationshipSchemaSlugs = new Set(source.relationshipSchemas.map(({ slug }) => slug));
 
 	for (const savedView of source.savedViews) {
-		const validationError = getSavedViewValidationError(savedView);
-		if (validationError) {
-			throw new Error(`Invalid saved view ${savedView.slug}: ${validationError}`);
+		const validationIssue = validateSavedViewLayouts(savedView);
+		if (validationIssue) {
+			throw new Error(
+				`Invalid saved view ${savedView.slug}: ${formatSavedViewValidationIssue(validationIssue)}`,
+			);
 		}
 		if (savedView.entitySchemaSlug !== null && !entitySchemaSlugs.has(savedView.entitySchemaSlug)) {
 			throw new Error(
