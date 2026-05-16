@@ -931,60 +931,57 @@ describe("createEvent", () => {
 	});
 
 	it("accepts 100 progress percent values", async () => {
-		const result = await createEvent(
-			{
-				userId: "user_1",
-				body: createEventBody({ properties: { progressPercent: 100 } }),
-			},
-			createBuiltinProgressEventDeps(),
+		const createdEvent = expectDataResult(
+			await createEvent(
+				{
+					userId: "user_1",
+					body: createEventBody({ properties: { progressPercent: 100 } }),
+				},
+				createBuiltinProgressEventDeps(),
+			),
 		);
 
-		expect(result).not.toHaveProperty("error");
-		if ("data" in result) {
-			expect(result.data.eventSchemaSlug).toBe("progress");
-			expect(result.data.properties).toEqual({ progressPercent: 100 });
-		}
+		expect(createdEvent.eventSchemaSlug).toBe("progress");
+		expect(createdEvent.properties).toEqual({ progressPercent: 100 });
 	});
 
 	it("creates repeated built-in progress events in bulk", async () => {
-		const result = await createEvents(
-			{
-				userId: "user_1",
-				body: [
-					createEventBody({ properties: { progressPercent: 12.341 } }),
-					createEventBody({ properties: { progressPercent: 65.678 } }),
-				],
-			},
-			createBuiltinProgressEventDeps(),
+		const result = expectDataResult(
+			await createEvents(
+				{
+					userId: "user_1",
+					body: [
+						createEventBody({ properties: { progressPercent: 12.341 } }),
+						createEventBody({ properties: { progressPercent: 65.678 } }),
+					],
+				},
+				createBuiltinProgressEventDeps(),
+			),
 		);
 
-		expect(result).not.toHaveProperty("error");
-		if ("data" in result) {
-			expect(result.data.count).toBe(2);
-		}
+		expect(result.count).toBe(2);
 	});
 
 	it("creates repeated built-in complete events in bulk", async () => {
-		const result = await createEvents(
-			{
-				userId: "user_1",
-				body: [
-					createEventBody({ properties: { completionMode: "just_now" } }),
-					createEventBody({
-						properties: {
-							completedOn: "2026-03-27T18:30:00Z",
-							completionMode: "custom_timestamps",
-						},
-					}),
-				],
-			},
-			createBuiltinCompleteEventDeps(),
+		const result = expectDataResult(
+			await createEvents(
+				{
+					userId: "user_1",
+					body: [
+						createEventBody({ properties: { completionMode: "just_now" } }),
+						createEventBody({
+							properties: {
+								completedOn: "2026-03-27T18:30:00Z",
+								completionMode: "custom_timestamps",
+							},
+						}),
+					],
+				},
+				createBuiltinCompleteEventDeps(),
+			),
 		);
 
-		expect(result).not.toHaveProperty("error");
-		if ("data" in result) {
-			expect(result.data.count).toBe(2);
-		}
+		expect(result.count).toBe(2);
 	});
 
 	it("creates a builtin review event before completion exists", async () => {
@@ -1042,29 +1039,27 @@ describe("createEvent", () => {
 
 describe("createEvents", () => {
 	it("returns count equal to the number of items on success", async () => {
-		const result = await createEvents(
-			{
-				userId: "user_1",
-				body: [createEventBody(), createEventBody(), createEventBody()],
-			},
-			createEventDeps(),
+		const result = expectDataResult(
+			await createEvents(
+				{
+					userId: "user_1",
+					body: [createEventBody(), createEventBody(), createEventBody()],
+				},
+				createEventDeps(),
+			),
 		);
 
-		expect(result).not.toHaveProperty("error");
-		if ("data" in result) {
-			expect(result.data.count).toBe(3);
-			expect(result.data.createdEvents).toHaveLength(3);
-		}
+		expect(result.count).toBe(3);
+		expect(result.createdEvents).toHaveLength(3);
 	});
 
 	it("returns count of zero and empty createdEvents for an empty array", async () => {
-		const result = await createEvents({ userId: "user_1", body: [] }, createEventDeps());
+		const result = expectDataResult(
+			await createEvents({ userId: "user_1", body: [] }, createEventDeps()),
+		);
 
-		expect(result).not.toHaveProperty("error");
-		if ("data" in result) {
-			expect(result.data.count).toBe(0);
-			expect(result.data.createdEvents).toHaveLength(0);
-		}
+		expect(result.count).toBe(0);
+		expect(result.createdEvents).toHaveLength(0);
 	});
 
 	it("fails fast and returns the error when any item fails validation", async () => {
@@ -1082,13 +1077,12 @@ describe("createEvents", () => {
 		});
 	});
 
-	it("chunks large arrays and counts all committed events", async () => {
+	it("processes large arrays and counts all committed events", async () => {
 		const items = Array.from({ length: 2500 }, () => createEventBody());
-		const result = await createEvents({ userId: "user_1", body: items }, createEventDeps());
+		const result = expectDataResult(
+			await createEvents({ userId: "user_1", body: items }, createEventDeps()),
+		);
 
-		expect(result).not.toHaveProperty("error");
-		if ("data" in result) {
-			expect(result.data.count).toBe(2500);
-		}
+		expect(result.count).toBe(2500);
 	});
 });
