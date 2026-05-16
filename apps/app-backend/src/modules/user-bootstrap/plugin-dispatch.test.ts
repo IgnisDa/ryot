@@ -42,6 +42,7 @@ const normalizedPlugin = (
 			entityAutomations: [],
 			signalAutomations: [],
 			relationshipAutomations: [],
+			providerEntityImportAutomations: [],
 		},
 	};
 	return {

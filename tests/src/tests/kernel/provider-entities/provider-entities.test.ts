@@ -1,6 +1,5 @@
-import { EntityId, RelationshipSchemaSlug, SandboxProviderId } from "@ryot/contract/schema/brands";
+import { SandboxProviderId } from "@ryot/contract/schema/brands";
 import { providerEntityLinksRecipe } from "@ryot/ryotql-recipes/provider-entity-links";
-import { userLibraryRecipe } from "@ryot/ryotql-recipes/user-library";
 import { Effect } from "effect";
 
 import {
@@ -29,6 +28,7 @@ const PLUGIN_SLUG = `provider-entities-${crypto.randomUUID()}`;
 const PROVIDER_SLUG = `audiobook.provider-entities-${crypto.randomUUID()}`;
 
 let provider: InstalledTestProvider;
+let workoutProvider: InstalledTestProvider;
 
 beforeAll(async () => {
 	await Effect.runPromise(
@@ -36,25 +36,36 @@ beforeAll(async () => {
 			const { client } = yield* createAuthenticatedClient();
 			const { schema } = yield* findBuiltinSchemaBySlug(client, "audiobook");
 			provider = yield* installTestProvider({
-				pluginSlug: PLUGIN_SLUG,
-				slug: PROVIDER_SLUG,
 				client,
+				slug: PROVIDER_SLUG,
+				pluginSlug: PLUGIN_SLUG,
 				rootEntitySchemaSlug: schema.id,
-				search: fakeProviderSearchResult([
-					{ externalId: IMPORT_EXTERNAL_ID, title: "E2E Audiobook One", subtitle: null },
-					{ externalId: "e2e-audiobook-2", title: "E2E Audiobook Two", subtitle: 2 },
-				]),
 				details: fakeProviderDetailsResult({
 					name: IMPORTED_NAME,
 					properties: { description: "Imported by the e2e fake provider." },
 				}),
+				search: fakeProviderSearchResult([
+					{ externalId: IMPORT_EXTERNAL_ID, title: "E2E Audiobook One", subtitle: null },
+					{ externalId: "e2e-audiobook-2", title: "E2E Audiobook Two", subtitle: 2 },
+				]),
+			});
+			const { schema: workoutSchema } = yield* findBuiltinSchemaBySlug(client, "workout");
+			workoutProvider = yield* installTestProvider({
+				client,
+				rootEntitySchemaSlug: workoutSchema.id,
+				details: fakeProviderDetailsResult({ name: "E2E Imported Workout", properties: {} }),
 			});
 		}),
 	);
 });
 
 afterAll(async () => {
-	await Effect.runPromise(uninstallTestProvider(provider));
+	await Effect.runPromise(
+		Effect.gen(function* () {
+			yield* uninstallTestProvider(workoutProvider);
+			yield* uninstallTestProvider(provider);
+		}),
+	);
 });
 
 describe("provider entity search", () => {
@@ -137,7 +148,7 @@ describe("POST /provider-entities/imports — provider entity import", () => {
 });
 
 describe("GET /provider-entities/imports/:jobId — provider entity import result", () => {
-	it.live("reports provider results only when the user has library membership", () =>
+	it.live("adds imported media entities to the user's library", () =>
 		Effect.gen(function* () {
 			const { client } = yield* createAuthenticatedClient();
 			const { schema } = yield* findBuiltinSchemaBySlug(client, "audiobook");
@@ -149,31 +160,6 @@ describe("GET /provider-entities/imports/:jobId — provider entity import resul
 			});
 			const result = yield* pollProviderEntityImportResult(client, jobId);
 			assertCompleted(result, "entity import");
-
-			const withoutMembership = yield* executeRyotQLRecipe(
-				client,
-				providerEntityLinksRecipe({
-					externalIds: [externalId],
-					entitySchemaSlug: schema.id,
-					providerId: provider.providerId,
-				}),
-			);
-			expect(withoutMembership).toHaveLength(0);
-
-			const libraryRow = yield* executeRyotQLRecipe(client, userLibraryRecipe());
-			assertPresent(libraryRow, "Missing user library");
-			const libraryEntityId = libraryRow.entityId;
-
-			yield* client.call((c) =>
-				c.relationships.create({
-					payload: {
-						properties: {},
-						sourceEntityId: result.data.id,
-						targetEntityId: EntityId.make(libraryEntityId),
-						relationshipSchemaSlug: RelationshipSchemaSlug.make("in-library"),
-					},
-				}),
-			);
 
 			const withMembership = yield* executeRyotQLRecipe(
 				client,
@@ -187,21 +173,21 @@ describe("GET /provider-entities/imports/:jobId — provider entity import resul
 		}),
 	);
 
-	it.live("populates an entity without adding it to the media library", () =>
+	it.live("does not add schemas without a provider-import automation to the library", () =>
 		Effect.gen(function* () {
 			const { client } = yield* createAuthenticatedClient();
-			const { schema } = yield* findBuiltinSchemaBySlug(client, "audiobook");
+			const { schema } = yield* findBuiltinSchemaBySlug(client, "workout");
 
 			const { jobId } = yield* enqueueProviderEntityImport(client, {
-				externalId: IMPORT_EXTERNAL_ID,
-				providerId: provider.providerId,
+				providerId: workoutProvider.providerId,
+				externalId: `e2e-workout-${crypto.randomUUID()}`,
 			});
 
 			const result = yield* pollProviderEntityImportResult(client, jobId);
 
 			assertCompleted(result, "import job");
 			expect(result.data.id).toBeDefined();
-			expect(result.data.name).toBe(IMPORTED_NAME);
+			expect(result.data.name).toBe("E2E Imported Workout");
 			expect(result.data.entitySchemaSlug).toBe(schema.id);
 
 			const inLibrary = yield* queryInLibraryRelationship(client, result.data.id, schema.slug);

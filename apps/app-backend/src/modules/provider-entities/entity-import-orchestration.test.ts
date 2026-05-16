@@ -1,4 +1,5 @@
 import { expect, it } from "@effect/vitest";
+import { SandboxRunError } from "@ryot/contract/errors";
 import {
 	EntityId,
 	EntitySchemaSlug,
@@ -10,7 +11,12 @@ import { WorkflowEngine, WorkflowInstance } from "effect/unstable/workflow/Workf
 
 import { makeWorkflowActivityEngine } from "#lib/test-utils/effect";
 
-import { EntityImportWorkflow, runEntityImportWorkflow } from "./entity-import-workflow";
+import {
+	EntityImportError,
+	EntityImportWorkflow,
+	runEntityImportWorkflow,
+} from "./entity-import-workflow";
+import { EntityImportWorkflowOperations } from "./operations-workflow";
 
 const importWithoutMembership = (entitySchemaSlug: string) => {
 	const executionId = `${entitySchemaSlug}-import`;
@@ -47,6 +53,7 @@ const importWithoutMembership = (entitySchemaSlug: string) => {
 				name: "ProviderEntityPopulationWorkflow",
 				options: expect.objectContaining({ executionId: `${executionId}-provider-population` }),
 			}),
+			{ name: "provider-import-automation", options: { executionId } },
 		]);
 	}).pipe(
 		Effect.provideService(
@@ -60,13 +67,73 @@ const importWithoutMembership = (entitySchemaSlug: string) => {
 			}),
 		),
 		Effect.provideService(WorkflowInstance, instance),
+		Effect.provideService(EntityImportWorkflowOperations, {
+			processSandbox: () => Effect.die("unused"),
+			runProviderImportAutomations: (_payload, _entity, hookExecutionId) =>
+				Effect.sync(() => {
+					calls.push({
+						name: "provider-import-automation",
+						options: { executionId: hookExecutionId },
+					});
+				}),
+		}),
 	);
 };
 
-it.effect("imports an unrelated provider entity without domain membership work", () =>
+it.effect("runs provider-import automations after provider population", () =>
 	importWithoutMembership("unrelated-fixture"),
 );
 
 it.effect("imports a fitness entity without media membership work", () =>
 	importWithoutMembership("workout"),
 );
+
+it.effect("fails the import when a provider-import automation fails", () => {
+	const executionId = "failed-import";
+	const instance = WorkflowInstance.initial(EntityImportWorkflow, executionId);
+	const entity = {
+		properties: {},
+		name: "Fixture",
+		externalId: "external-1",
+		id: EntityId.make("fixture-1"),
+		createdAt: "2026-01-01T00:00:00.000Z",
+		updatedAt: "2026-01-01T00:00:00.000Z",
+		populatedAt: "2026-01-01T00:00:00.000Z",
+		entitySchemaSlug: EntitySchemaSlug.make("book"),
+		providerId: SandboxProviderId.make("provider-1"),
+	};
+
+	return Effect.gen(function* () {
+		const error = yield* Effect.flip(
+			runEntityImportWorkflow(
+				{
+					executionId,
+					externalId: "external-1",
+					origin: { kind: "import" },
+					userId: UserId.make("user-1"),
+					entitySchemaSlug: EntitySchemaSlug.make("book"),
+					providerId: SandboxProviderId.make("provider-1"),
+				},
+				executionId,
+			),
+		);
+		expect(error).toBeInstanceOf(EntityImportError);
+		expect(error).toMatchObject({
+			message: "membership hook failed",
+			stage: "provider-import-automation",
+		});
+	}).pipe(
+		Effect.provideService(
+			WorkflowEngine,
+			makeWorkflowActivityEngine(instance, {
+				execute: () => Effect.succeed(entity),
+			}),
+		),
+		Effect.provideService(WorkflowInstance, instance),
+		Effect.provideService(EntityImportWorkflowOperations, {
+			processSandbox: () => Effect.die("unused"),
+			runProviderImportAutomations: () =>
+				Effect.fail(new SandboxRunError({ message: "membership hook failed" })),
+		}),
+	);
+});

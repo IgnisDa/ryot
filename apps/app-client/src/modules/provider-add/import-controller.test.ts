@@ -7,7 +7,6 @@ import { TestClock } from "effect/testing";
 import {
 	importProviderEntity,
 	PROVIDER_IMPORT_FAILED_MESSAGE,
-	PROVIDER_LIBRARY_ADD_FAILED_MESSAGE,
 	PROVIDER_IMPORT_TIMEOUT_MESSAGE,
 	PROVIDER_IMPORT_UNAVAILABLE_MESSAGE,
 } from "./import-controller";
@@ -32,13 +31,11 @@ const scripted = (results: readonly ImportEntityRunResult[]) => {
 	return () => Effect.sync(() => pending.shift() ?? ({ status: "pending" } as const));
 };
 
-it.effect("polls a pending job until it completes and notifies the caller", () =>
+it.effect("polls a pending job until it completes", () =>
 	Effect.gen(function* () {
-		const imported: string[] = [];
 		const fiber = yield* Effect.forkChild(
 			importProviderEntity({
 				start: Effect.succeed({ jobId: "job-1" }),
-				onImported: (entityId) => Effect.sync(() => void imported.push(entityId)),
 				poll: scripted([{ status: "pending" }, { status: "pending" }, completed]),
 			}),
 		);
@@ -47,7 +44,6 @@ it.effect("polls a pending job until it completes and notifies the caller", () =
 		yield* TestClock.adjust("2 seconds");
 
 		expect(yield* Fiber.join(fiber)).toEqual({ status: "imported", entityId: "entity-1" });
-		expect(imported).toEqual(["entity-1"]);
 	}),
 );
 
@@ -59,18 +55,6 @@ it.effect("surfaces a failed run result without waiting further", () =>
 		});
 
 		expect(entry).toEqual({ status: "failed", message: PROVIDER_IMPORT_FAILED_MESSAGE });
-	}),
-);
-
-it.effect("reports a stable failure when adding an imported entity to the library fails", () =>
-	Effect.gen(function* () {
-		const entry = yield* importProviderEntity({
-			poll: scripted([completed]),
-			start: Effect.succeed({ jobId: "job-1" }),
-			onImported: () => Effect.fail("library unavailable"),
-		});
-
-		expect(entry).toEqual({ status: "failed", message: PROVIDER_LIBRARY_ADD_FAILED_MESSAGE });
 	}),
 );
 
