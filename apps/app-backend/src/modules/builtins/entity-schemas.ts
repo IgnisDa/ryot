@@ -239,6 +239,16 @@ const mediaLifecycleEventSchemas = (entitySchemaSlug?: string) => [
 		slug: "review",
 		propertiesSchema: reviewPropertiesSchemaByEntity(entitySchemaSlug),
 	},
+	{
+		name: "Dropped",
+		slug: "dropped",
+		propertiesSchema: progressPropertiesSchemaByEntity(entitySchemaSlug),
+	},
+	{
+		name: "On Hold",
+		slug: "on_hold",
+		propertiesSchema: progressPropertiesSchemaByEntity(entitySchemaSlug),
+	},
 ];
 
 const buildMediaGroupEntitySchema = (
