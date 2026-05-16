@@ -18,11 +18,12 @@
 	"rules": {
 		"curly": "error",
 		"no-else-return": "warn",
-		"eqeqeq": ["error", "smart"],
 		"import/no-cycle": "error",
 		"react-in-jsx-scope": "off",
+		"eqeqeq": ["error", "smart"],
 		"no-param-reassign": "error",
 		"default-param-last": "error",
+		"unicorn/no-array-sort": "off",
 		"react/rules-of-hooks": "error",
 		"import/no-duplicates": "error",
 		"import/no-self-import": "error",
@@ -54,6 +55,13 @@
 		"react/jsx-no-constructed-context-values": "warn",
 		"typescript/switch-exhaustiveness-check": "error",
 		"typescript/no-unnecessary-type-assertion": "warn",
+		"no-restricted-properties": [
+			"error",
+			{
+				"property": "toSorted",
+				"message": "Array.prototype.toSorted is not supported in Hermes (React Native). Use sortBy from @ryot/ts-utils instead."
+			}
+		],
 		"typescript/no-unused-vars": [
 			"error",
 			{

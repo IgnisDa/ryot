@@ -14,7 +14,7 @@ describe("compareContinueItems", () => {
 			{ entityId: "c", progressAt: date("2024-01-01") },
 		];
 
-		expect(items.toSorted(compareContinueItems).map((item) => item.entityId)).toEqual([
+		expect([...items].sort(compareContinueItems).map((item) => item.entityId)).toEqual([
 			"a",
 			"b",
 			"c",
@@ -30,7 +30,7 @@ describe("compareUpNextItems", () => {
 			{ entityId: "c", backlogAt: date("2024-01-01") },
 		];
 
-		expect(items.toSorted(compareUpNextItems).map((item) => item.entityId)).toEqual([
+		expect([...items].sort(compareUpNextItems).map((item) => item.entityId)).toEqual([
 			"a",
 			"b",
 			"c",
@@ -49,7 +49,7 @@ describe("compareRateTheseItems", () => {
 			},
 			{ entityId: "c", completeAt: date("2024-01-01"), completedOn: null },
 		];
-		expect(items.toSorted(compareRateTheseItems).map((item) => item.entityId)).toEqual([
+		expect([...items].sort(compareRateTheseItems).map((item) => item.entityId)).toEqual([
 			"a",
 			"b",
 			"c",
