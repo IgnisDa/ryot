@@ -17,7 +17,8 @@ For concrete executable examples, see:
 - Query definitions can also declare reusable `computedFields`.
 - The same expression and predicate language is used by saved views under `queryDefinition`.
 - Each field has a `key` and a single `expression`.
-- The response returns an ordered array of resolved field arrays, where each inner array contains `{ key, kind, value }` entries for the requested fields only.
+- The response returns an ordered array of keyed row objects, with each field key mapping to `{ kind, value }`.
+- `meta.fieldOrder` preserves the request field order when consumers need a stable layout.
 
 ## Modes
 
@@ -355,13 +356,14 @@ Entity mode:
 					"totalPages": 3,
 					"hasNextPage": true,
 					"hasPreviousPage": false
-				}
+				},
+				"fieldOrder": ["title", "rating"]
 			},
 			"items": [
-				[
-					{ "key": "title", "kind": "text", "value": "Dune" },
-					{ "key": "rating", "kind": "number", "value": 5 }
-				]
+				{
+					"title": { "kind": "text", "value": "Dune" },
+					"rating": { "kind": "number", "value": 5 }
+				}
 			]
 		}
 	}
@@ -399,13 +401,14 @@ Events mode (same shape as entity mode, each row is an event):
 					"totalPages": 1,
 					"hasNextPage": false,
 					"hasPreviousPage": false
-				}
+				},
+				"fieldOrder": ["rating", "reviewedAt"]
 			},
 			"items": [
-				[
-					{ "key": "rating", "kind": "number", "value": 5 },
-					{ "key": "reviewedAt", "kind": "date", "value": "2024-01-15T00:00:00.000Z" }
-				]
+				{
+					"rating": { "kind": "number", "value": 5 },
+					"reviewedAt": { "kind": "date", "value": "2024-01-15T00:00:00.000Z" }
+				}
 			]
 		}
 	}
@@ -435,8 +438,10 @@ Time-series mode:
 Field result kinds: `text`, `number`, `boolean`, `date`, `image`, `json`, `null`.
 
 - `items` is always an array.
-- Each `items[n]` entry is always an array.
+- Each `items[n]` entry is always an object keyed by field name.
+- `meta.fieldOrder` preserves the request field order and is always returned in `entities` and `events` mode.
 - A field resolving to null returns `{ "kind": "null", "value": null }`.
+- This is a breaking wire change from array rows to keyed records; sandbox scripts and external callers must read fields by key.
 
 ## Event Query Notes
 

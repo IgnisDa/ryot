@@ -1,8 +1,13 @@
 import { describe, expect, it } from "bun:test";
 
-import { createEntitySavedViewFixture } from "~/features/test-fixtures";
+import { createEntityFixture, createEntitySavedViewFixture } from "~/features/test-fixtures";
 
-import { createQueryEngineRequest } from "./view-page-utils";
+import {
+	createQueryEngineRequest,
+	formatRuntimeValue,
+	getRuntimeField,
+	isRuntimeField,
+} from "./view-page-utils";
 
 describe("createQueryEngineRequest", () => {
 	it("does not request hidden entityImage for table layouts", () => {
@@ -52,5 +57,48 @@ describe("createQueryEngineRequest", () => {
 				required: true,
 			},
 		]);
+	});
+});
+
+describe("runtime field helpers", () => {
+	it("reads runtime fields from the wrapped entity record", () => {
+		const item = createEntityFixture({
+			fields: {
+				title: { kind: "text", value: "Dune" },
+				image: { kind: "image", value: { type: "remote", url: "https://example.com/dune.png" } },
+			},
+		});
+
+		expect(getRuntimeField(item, "title")).toEqual({
+			key: "title",
+			kind: "text",
+			value: "Dune",
+		});
+		expect(getRuntimeField(item, "missing")).toBeUndefined();
+	});
+
+	it("reads runtime fields from a raw query-engine record", () => {
+		const item = {
+			fields: { kind: "text", value: "should not win" },
+			title: { kind: "text", value: "Dune" },
+		} as const;
+
+		expect(getRuntimeField(item, "title")).toEqual({
+			key: "title",
+			kind: "text",
+			value: "Dune",
+		});
+	});
+
+	it("distinguishes runtime fields from plain values", () => {
+		expect(isRuntimeField({ key: "count", kind: "number", value: 12 })).toBe(true);
+		expect(isRuntimeField({ value: 12 })).toBe(false);
+		expect(isRuntimeField(null)).toBe(false);
+	});
+
+	it("formats runtime values for display", () => {
+		expect(formatRuntimeValue("")).toBe("-");
+		expect(formatRuntimeValue(false)).toBe("No");
+		expect(formatRuntimeValue({ foo: "bar" })).toBe('{"foo":"bar"}');
 	});
 });

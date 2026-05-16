@@ -291,7 +291,7 @@ export function SavedViewResults(props: {
 
 			return (
 				<Text size="sm" c={textSecondary}>
-					{formatRuntimeValue(field.value)}
+					{formatRuntimeValue(field?.value)}
 				</Text>
 			);
 		},
