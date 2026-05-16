@@ -9,9 +9,10 @@ import type { SandboxScript } from "~/modules/sandbox";
 import { mediaJobWaitingForSandboxStep } from "./jobs";
 import {
 	hasImportedEntityDetails,
-	processMediaImportJob,
 	processGroupPopulateJob,
+	processMediaImportJob,
 	processPersonPopulateJob,
+	processPersonStubs,
 } from "./worker";
 
 const createJob = (data: unknown): Job =>
@@ -34,6 +35,8 @@ const createMediaDeps = (
 	findGlobalEntityByExternalId: () => Promise.resolve(undefined),
 	getBuiltinEntitySchemaBySlug: () => Promise.resolve(undefined),
 	getBuiltinSandboxScriptBySlug: () => Promise.resolve(undefined),
+	writeEntityRelationship: () => Promise.resolve({ data: undefined }),
+	getBuiltinRelationshipSchemaBySlug: () => Promise.resolve(undefined),
 	// oxlint-disable-next-line no-unsafe-type-assertion
 	getSandboxScriptForUser: () => Promise.resolve({ id: "script_1" } as never),
 	createGlobalEntity: () => {
@@ -59,6 +62,8 @@ const createPersonDeps = (
 	getSandboxScriptForUser: () => Promise.resolve({ id: "script_1" } as never),
 	// oxlint-disable-next-line no-unsafe-type-assertion
 	getBuiltinSandboxScriptBySlug: () => Promise.resolve({ id: "person_script_1" } as never),
+	getBuiltinRelationshipSchemaBySlug: () => Promise.resolve(undefined),
+	writeEntityRelationship: () => Promise.resolve({ data: undefined }),
 	createGlobalEntity: () => {
 		throw new Error("createGlobalEntity should not be called");
 	},
@@ -480,5 +485,74 @@ describe("processPersonPopulateJob", () => {
 		).rejects.toThrow("update failed");
 
 		expect(linkedMediaEntityId).toBeUndefined();
+	});
+});
+
+describe("processPersonStubs", () => {
+	const personSchema = {
+		id: "person_schema_1",
+		propertiesSchema: { fields: {} },
+	};
+	const relSchema = {
+		id: "rel_schema_person_to_movie",
+		propertiesSchema: { fields: {} },
+	};
+	const personScript = { id: "person_script_1" };
+	const personEntity = createListedEntity({
+		properties: {},
+		id: "person_entity_1",
+		externalId: "person_ext_1",
+		sandboxScriptId: "person_script_1",
+		populatedAt: new Date(0),
+	});
+
+	const baseInput = {
+		userId: "user_1",
+		mediaEntityId: "media_1",
+		mediaEntitySchemaSlug: "movie",
+		rawProperties: {
+			people: [
+				{
+					role: "Director",
+					name: "Jane Smith",
+					externalId: "person_ext_1",
+					scriptSlug: "person.tmdb",
+				},
+			],
+		},
+	};
+
+	const baseDeps = () => ({
+		writeEntityRelationship: () => Promise.resolve({ data: undefined }),
+		getBuiltinRelationshipSchemaBySlug: () => Promise.resolve(relSchema),
+		// oxlint-disable-next-line no-unsafe-type-assertion
+		getBuiltinEntitySchemaBySlug: () => Promise.resolve(personSchema as never),
+		// oxlint-disable-next-line no-unsafe-type-assertion
+		getBuiltinSandboxScriptBySlug: () => Promise.resolve(personScript as never),
+		createGlobalEntity: () => Promise.resolve({ isNew: false, entity: personEntity }),
+	});
+
+	it("skips a stub that fails relationship schema validation rather than throwing", async () => {
+		let writeCallCount = 0;
+
+		await processPersonStubs(baseInput, {
+			...baseDeps(),
+			writeEntityRelationship: () => {
+				writeCallCount++;
+				return Promise.resolve({ error: "validation" as const, message: "Invalid properties" });
+			},
+		});
+
+		expect(writeCallCount).toBe(1);
+	});
+
+	it("throws for non-validation relationship errors", () => {
+		expect(
+			processPersonStubs(baseInput, {
+				...baseDeps(),
+				writeEntityRelationship: () =>
+					Promise.resolve({ error: "not_found" as const, message: "Schema not found" }),
+			}),
+		).rejects.toThrow("Failed to write person-to-media relationship: Schema not found");
 	});
 });
