@@ -7,6 +7,7 @@ let sharedRedisConnection: Redis | null = null;
 
 export const getRedisConnection = () => {
 	if (sharedRedisConnection) {
+		// oxlint-disable-next-line no-unsafe-type-assertion
 		return sharedRedisConnection as ConnectionOptions;
 	}
 
@@ -15,6 +16,7 @@ export const getRedisConnection = () => {
 		maxRetriesPerRequest: null,
 	});
 
+	// oxlint-disable-next-line no-unsafe-type-assertion
 	return sharedRedisConnection as ConnectionOptions;
 };
 
