@@ -85,7 +85,7 @@ export const providerSearchResultItemSchema = strictStruct({
 export const providerSearchResultSchema = strictStruct({
 	items: Schema.Array(providerSearchResultItemSchema),
 	details: Schema.optional(
-		strictStruct({ totalItems: Schema.Number, nextPage: Schema.NullOr(Schema.Number) }),
+		strictStruct({ totalItems: Schema.Finite, nextPage: Schema.NullOr(Schema.Finite) }),
 	),
 });
 export const providerSearchOptionsInputSchema = strictStruct({});
@@ -130,7 +130,7 @@ export const providerDetailsChildEntitySchema: Schema.Codec<
 		expectedChildEntitySchemaSlug: Schema.optional(Schema.String),
 		childEntities: Schema.optional(Schema.Array(providerDetailsChildEntitySchema)),
 	}),
-);
+).pipe(Schema.annotate({ identifier: "ProviderDetailsChildEntity" }));
 export const providerDetailsResultSchema = strictStruct({
 	name: Schema.String,
 	properties: jsonValueSchema,
