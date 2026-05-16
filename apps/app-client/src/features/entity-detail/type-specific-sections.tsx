@@ -2,7 +2,7 @@ import { dayjs } from "@ryot/ts-utils";
 import { ChevronDown, ChevronUp } from "lucide-react-native";
 import type React from "react";
 import { useEffect, useState } from "react";
-import { Image } from "react-native";
+import { Image, View } from "react-native";
 import Animated, { useAnimatedStyle, useSharedValue, withTiming } from "react-native-reanimated";
 
 import { Box } from "@/components/ui/box";
@@ -62,7 +62,7 @@ function CollapsibleContent(props: { isOpen: boolean; children: React.ReactNode 
 
 	return (
 		<Animated.View style={animStyle}>
-			<Box
+			<View
 				style={{ position: "absolute", width: "100%" }}
 				onLayout={(e) => {
 					const h = e.nativeEvent.layout.height;
@@ -72,7 +72,7 @@ function CollapsibleContent(props: { isOpen: boolean; children: React.ReactNode 
 				}}
 			>
 				{props.children}
-			</Box>
+			</View>
 		</Animated.View>
 	);
 }
