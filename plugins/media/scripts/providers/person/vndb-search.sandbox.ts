@@ -5,8 +5,8 @@ import { search } from "./vndb";
 
 export const manifest = defineManifest({
 	kind: "provider",
-	name: "VNDB Company Search",
-	slug: "company.vndb.search",
+	name: "VNDB Person Search",
+	slug: "person.vndb.search",
 	capabilities: ["httpCall"],
 	requiredPluginConfigKeys: [],
 	requiredSystemConfigKeys: [],
