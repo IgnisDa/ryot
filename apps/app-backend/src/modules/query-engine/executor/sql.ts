@@ -1,9 +1,11 @@
 import { sql } from "drizzle-orm";
 
 import type {
+	EntitySource,
 	Expr,
 	FieldSelector,
 	IncludeEntry,
+	NestedEventSource,
 	RelationshipSource,
 	RootEventSource,
 	RowsOutput,
@@ -30,14 +32,15 @@ export const systemFieldSql = (name: string, alias = "e"): ReturnType<typeof sql
 		return relationshipColumnMap[name] ?? null;
 	}
 
+	const table = sql.raw(alias);
 	const columnMap: Record<string, ReturnType<typeof sql>> = {
-		id: sql`e.id`,
-		name: sql`e.name`,
-		image: sql`e.image`,
-		createdAt: sql`e.created_at`,
-		updatedAt: sql`e.updated_at`,
-		externalId: sql`e.external_id`,
-		sandboxScriptId: sql`e.sandbox_script_id`,
+		id: sql`${table}.id`,
+		name: sql`${table}.name`,
+		image: sql`${table}.image`,
+		createdAt: sql`${table}.created_at`,
+		updatedAt: sql`${table}.updated_at`,
+		externalId: sql`${table}.external_id`,
+		sandboxScriptId: sql`${table}.sandbox_script_id`,
 	};
 	return columnMap[name] ?? null;
 };
@@ -51,39 +54,25 @@ export const fieldSelectorToOrderSql = (
 		return systemFieldSql(field.name, alias);
 	}
 
+	const schemaTable = sql.raw(`${alias}s`);
+
 	if (field.type === "property") {
 		const pathArgs = field.path.map((key) => sql`${key}`);
-		const propertiesExpr =
-			alias === "r" ? sql`r.properties` : alias === "ev" ? sql`ev.properties` : sql`e.properties`;
+		const propertiesExpr = sql`${sql.raw(alias)}.properties`;
 		const jsonbExpr = sql`jsonb_extract_path_text(${propertiesExpr}, ${sql.join(pathArgs, sql`, `)})`;
 
 		if (alias === "r" || sourceSchemas.length === 1) {
 			return jsonbExpr;
 		}
 
-		const schemaSlugExpr = alias === "ev" ? sql`evs.slug` : sql`es.slug`;
-		return sql`CASE WHEN ${schemaSlugExpr} = ${field.schema} THEN ${jsonbExpr} END`;
+		return sql`CASE WHEN ${schemaTable}.slug = ${field.schema} THEN ${jsonbExpr} END`;
 	}
 
-	if (alias === "r") {
-		return field.name === "slug"
-			? sql`rs.slug`
-			: field.name === "isBuiltin"
-				? sql`rs.is_builtin`
-				: sql`rs.name`;
-	}
-	if (alias === "ev") {
-		return field.name === "slug"
-			? sql`evs.slug`
-			: field.name === "isBuiltin"
-				? sql`evs.is_builtin`
-				: sql`evs.name`;
-	}
 	return field.name === "slug"
-		? sql`es.slug`
+		? sql`${schemaTable}.slug`
 		: field.name === "isBuiltin"
-			? sql`es.is_builtin`
-			: sql`es.name`;
+			? sql`${schemaTable}.is_builtin`
+			: sql`${schemaTable}.name`;
 };
 
 export const exprToOrderSql = (
@@ -146,15 +135,37 @@ export const relationshipRootSelectSql = (
 		AND (te.user_id = ${userId} OR te.user_id IS NULL)
 `;
 
-export const includeOrderSql = (include: IncludeEntry): ReturnType<typeof sql> => {
-	const viaAlias = include.source.via?.alias;
-	const orderParts = include.orderBy.map((entry) => {
+export const includeOrderSql = (
+	source: EntitySource,
+	orderBy: IncludeEntry["orderBy"],
+): ReturnType<typeof sql> => {
+	const viaAlias = source.via?.alias;
+	const orderParts = orderBy.map((entry) => {
 		if (entry.expr.type !== "ref") {
 			return sql`1`;
 		}
 
 		const sourceAlias = entry.expr.sourceAlias === viaAlias ? "r" : "e";
-		const exprSql = fieldSelectorToOrderSql(entry.expr.field, include.source.schemas, sourceAlias);
+		const exprSql = fieldSelectorToOrderSql(entry.expr.field, source.schemas, sourceAlias);
+		if (!exprSql) {
+			return sql`1`;
+		}
+		return entry.order === "asc" ? sql`${exprSql} ASC` : sql`${exprSql} DESC`;
+	});
+	return sql.join(orderParts, sql`, `);
+};
+
+export const eventIncludeOrderSql = (
+	source: NestedEventSource,
+	orderBy: IncludeEntry["orderBy"],
+): ReturnType<typeof sql> => {
+	const orderParts = orderBy.map((entry) => {
+		if (entry.expr.type !== "ref") {
+			return sql`1`;
+		}
+
+		const alias = entry.expr.sourceAlias === source.alias ? "ev" : "e";
+		const exprSql = fieldSelectorToOrderSql(entry.expr.field, source.schemas, alias);
 		if (!exprSql) {
 			return sql`1`;
 		}
@@ -165,10 +176,21 @@ export const includeOrderSql = (include: IncludeEntry): ReturnType<typeof sql> =
 
 export const relationshipRootOrderSql = (source: RelationshipSource, output: RowsOutput) => {
 	const orderParts = output.orderBy.map((entry) => {
-		if (entry.expr.type !== "ref" || entry.expr.sourceAlias !== source.alias) {
+		if (entry.expr.type !== "ref") {
 			return sql`1`;
 		}
-		const exprSql = fieldSelectorToOrderSql(entry.expr.field, source.schemas, "r");
+		const target =
+			entry.expr.sourceAlias === source.alias
+				? { alias: "r", schemas: source.schemas }
+				: entry.expr.sourceAlias === source.sourceEntity.alias
+					? { alias: "se", schemas: source.sourceEntity.schemas }
+					: entry.expr.sourceAlias === source.targetEntity.alias
+						? { alias: "te", schemas: source.targetEntity.schemas }
+						: null;
+		if (!target) {
+			return sql`1`;
+		}
+		const exprSql = fieldSelectorToOrderSql(entry.expr.field, target.schemas, target.alias);
 		if (!exprSql) {
 			return sql`1`;
 		}

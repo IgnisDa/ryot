@@ -39,6 +39,50 @@ describe("expression validation coverage", () => {
 		expect(validateQueryDocument(doc)).toMatch(/Unknown source alias 'bad'/);
 	});
 
+	it("accepts an arithmetic expression with valid operands", () => {
+		const doc = makeDoc({
+			output: {
+				type: "rows",
+				pagination: { page: 1, limit: 10 },
+				orderBy: [{ order: "asc", expr: nameRef("e") }],
+				fields: [
+					{
+						key: "ratio",
+						expr: {
+							operator: "divide",
+							type: "arithmetic",
+							right: literal(10),
+							left: propertyRef("e", "books", ["pages"]),
+						},
+					},
+				],
+			},
+		});
+		expect(validateQueryDocument(doc)).toBeNull();
+	});
+
+	it("validates both sides of an arithmetic expression", () => {
+		const doc = makeDoc({
+			output: {
+				type: "rows",
+				pagination: { page: 1, limit: 10 },
+				orderBy: [{ order: "asc", expr: nameRef("e") }],
+				fields: [
+					{
+						key: "sum",
+						expr: {
+							operator: "add",
+							type: "arithmetic",
+							left: nameRef("e"),
+							right: nameRef("bad"),
+						},
+					},
+				],
+			},
+		});
+		expect(validateQueryDocument(doc)).toMatch(/Unknown source alias 'bad'/);
+	});
+
 	it("validates all values in an 'and' expression", () => {
 		const doc = makeDoc({
 			output: {

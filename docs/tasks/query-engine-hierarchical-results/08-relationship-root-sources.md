@@ -31,3 +31,22 @@ Reference by number from the parent PRD:
 - User story 19
 - User story 30
 - User story 32
+
+## Follow-up (post-review)
+
+A review found two relationship-root gaps that are now closed:
+
+1. Root relationship sources support `where`. The pure validator validates the `where`
+   expression in scope (relationship alias and both endpoint entity aliases are
+   referenceable), and the rows execution path applies the filter in-app, mirroring the
+   entity and event root paths (ordered candidate scan bounded by the root filter scan cap,
+   `total` reflects matched rows, pagination slices the filtered set).
+2. Relationship rows can be ordered by source or target endpoint entity fields, not just the
+   relationship's own fields. The relationship SELECT already joins both endpoint entities,
+   so endpoint ordering is SQL-expressible and is now emitted instead of being silently
+   dropped to an unordered constant.
+
+Arbitrary non-`ref` `orderBy` expressions (e.g. `exists`, `aggregate`, `arithmetic`) remain
+out of scope for relationship rows. `orderBy` stays `ref`-based because in-app sorting would
+conflict with SQL pagination; this follow-up only makes in-scope endpoint refs actually
+order results.

@@ -4,8 +4,38 @@ import { Effect } from "effect";
 import { CurrentDb, dbEffect } from "#lib/db";
 import * as dbSchema from "#lib/db/schema/tables";
 import { type DbError, NotFound } from "#lib/errors";
+import type { AppSchema } from "#lib/schema/property-schema";
 
 import type { VisibleEventSchema, VisibleRelationshipSchema, VisibleSchema } from "./types";
+
+export type VisibleEntityPropertySchema = { slug: string; propertiesSchema: AppSchema };
+
+export const loadVisibleEntityPropertySchemas = (
+	userId: string,
+	slugs: readonly string[],
+): Effect.Effect<VisibleEntityPropertySchema[], DbError, CurrentDb> =>
+	Effect.gen(function* () {
+		const uniqueSlugs = [...new Set(slugs)];
+		if (uniqueSlugs.length === 0) {
+			return [];
+		}
+
+		const db = yield* CurrentDb;
+		return yield* dbEffect(() =>
+			db
+				.select({
+					slug: dbSchema.entitySchema.slug,
+					propertiesSchema: dbSchema.entitySchema.propertiesSchema,
+				})
+				.from(dbSchema.entitySchema)
+				.where(
+					and(
+						inArray(dbSchema.entitySchema.slug, uniqueSlugs),
+						or(eq(dbSchema.entitySchema.userId, userId), isNull(dbSchema.entitySchema.userId)),
+					),
+				),
+		);
+	});
 
 export const loadVisibleEntitySchemas = (
 	userId: string,

@@ -38,3 +38,43 @@ Reference by number from the parent PRD:
 - User story 19
 - User story 31
 - User story 33
+
+## Follow-up (post-review)
+
+A review found the engine did no parse-time type-compatibility validation: the PRD's
+"Expression Semantics" rules ("Comparisons must be type-compatible", "Ordering comparisons
+are valid only for comparable scalar values", "Arithmetic operands must be numeric",
+contains "Other operand combinations fail validation") were unenforced, and the runtime
+silently returned false/null for mismatched operands.
+
+This is now implemented in a new DB-aware phase, `validator/type-check.ts`
+(`validateQueryDocumentTypeCompatibility`), invoked from `validator/references.ts` via
+`validateQueryDocumentReferencesAndTypes`. It infers a coarse type for every operand
+(`number | string | boolean | date | unknown`) from the system-field maps, schema-metadata
+maps, and entity property schemas (loaded with the same visibility query that
+`saved-views` uses, exposed as `loadVisibleEntityPropertySchemas`), then rejects only
+known-incompatible combinations as `BadRequest`.
+
+The guiding principle is zero false positives: any operand whose type cannot be confidently
+determined is `unknown`, and `unknown` always passes. Concrete boundaries:
+
+- Ordering (`gt`/`gte`/`lt`/`lte`) is rejected only when both operand types are known and
+  not both numeric and not both comparable string/date (string and date are treated as
+  mutually comparable because the runtime compares ISO strings).
+- `eq`/`neq` are never rejected (cross-type equality is false, not invalid).
+- Arithmetic rejects a known non-numeric operand.
+- `contains` rejects known scalar pairs that are not string/string (array/object literals
+  infer to `unknown`, so only scalar mismatches are caught).
+- Event and relationship **property** operands are always treated as `unknown` because
+  their property schemas are not loaded in this phase; only entity property types are
+  checked. Aggregate `sum`/`average`/`minimum`/`maximum` and `measureRef` are also
+  `unknown`.
+
+Wiring: the saved-view create/update `validate` path runs the full references + type-check
+phase. `QueryEngineService.execute` additionally runs the type-check phase before
+execution (pure validation, then `validateQueryDocumentTypeCompatibility`, then the
+executor), so direct `/query-engine/execute` calls also reject type errors up front.
+`execute` intentionally does not run the visibility/reference phase (the executor already
+enforces visibility and surfaces `NotFound`); the type-check loads only visible schemas, so
+queries against invisible schemas still reach the executor and return `NotFound` rather
+than being masked as `BadRequest`.

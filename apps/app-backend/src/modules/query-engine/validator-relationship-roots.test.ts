@@ -135,11 +135,28 @@ describe("relationship root sources", () => {
 		expect(validateQueryDocument(doc)).toMatch(/Duplicate alias 'shared'/);
 	});
 
-	it("rejects a non-null where clause on a root relationship source", () => {
+	it("accepts a where referencing the relationship alias", () => {
+		const doc = makeRelationshipDoc({
+			source: {
+				...makeRelationshipDoc().source,
+				where: propertyRef("membership", "member-of", ["position"]),
+			},
+		});
+		expect(validateQueryDocument(doc)).toBeNull();
+	});
+
+	it("accepts a where referencing an endpoint entity alias", () => {
 		const doc = makeRelationshipDoc({
 			source: { ...makeRelationshipDoc().source, where: nameRef("memberEntity") },
 		});
-		expect(validateQueryDocument(doc)).toMatch(/does not support where yet/);
+		expect(validateQueryDocument(doc)).toBeNull();
+	});
+
+	it("rejects a where referencing an unknown alias", () => {
+		const doc = makeRelationshipDoc({
+			source: { ...makeRelationshipDoc().source, where: nameRef("ghost") },
+		});
+		expect(validateQueryDocument(doc)).toMatch(/Unknown source alias 'ghost'/);
 	});
 
 	it("rejects include on relationship root rows", () => {

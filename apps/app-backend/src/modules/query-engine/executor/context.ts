@@ -1,4 +1,9 @@
-import type { IncludeEntry, RelationshipSource, RootEventSource } from "../language";
+import type {
+	IncludeEntry,
+	NestedEventSource,
+	RelationshipSource,
+	RootEventSource,
+} from "../language";
 import type {
 	BaseEntityQueryRow,
 	EventQueryRow,
@@ -65,10 +70,26 @@ export const makeRelationshipRootContext = (
 	]),
 });
 
-export const makeIncludeContext = (include: IncludeEntry, row: IncludeQueryRow): RowContext => {
-	const context = makeEntityContext(include.source.alias, row);
-	if (include.source.via !== undefined) {
+export const makeIncludeContext = (
+	include: IncludeEntry,
+	row: IncludeQueryRow,
+	parentContext: RowContext,
+): RowContext => {
+	const context = cloneContext(parentContext);
+	context.entities.set(include.source.alias, row);
+	if (include.source.type === "entities" && include.source.via !== undefined) {
 		context.relationships.set(include.source.via.alias, row);
 	}
+	return context;
+};
+
+export const makeEventIncludeContext = (
+	source: NestedEventSource,
+	row: EventQueryRow,
+	parentContext: RowContext,
+): RowContext => {
+	const context = cloneContext(parentContext);
+	context.events.set(source.alias, row);
+	context.entities.set(source.entityRef, eventSourceEntityRow(row));
 	return context;
 };

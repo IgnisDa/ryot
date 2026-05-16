@@ -1,6 +1,11 @@
 import { PgDialect } from "drizzle-orm/pg-core";
+import { Effect } from "effect";
 import { assert, describe, expect, it } from "vitest";
 
+import { CurrentDb } from "#lib/db";
+
+import { makeEmptyContext } from "./executor/context";
+import { evalExprValue } from "./executor/expr";
 import {
 	evalExprForField,
 	evalFieldSelector,
@@ -8,17 +13,46 @@ import {
 	getNestedValue,
 	valueToFieldValue,
 } from "./executor/field-values";
+import { entityFirstOrderSql, eventFirstOrderSql } from "./executor/first";
 import { serializeRow } from "./executor/serialize";
 import {
 	entityJsonbObjectSql,
+	eventIncludeOrderSql,
 	exprToOrderSql,
 	fieldSelectorToOrderSql,
+	includeOrderSql,
 	relationshipRootOrderSql,
 } from "./executor/sql";
 import type { EntityQueryRow } from "./executor/types";
-import type { FieldSelector, RelationshipSource, RowsOutput } from "./language";
+import type {
+	EntitySource,
+	Expr,
+	FieldSelector,
+	IncludeEntry,
+	NestedEventSource,
+	RelationshipSource,
+	RowsOutput,
+} from "./language";
 
 const dialect = new PgDialect();
+
+const evalExpr = (expr: Expr) =>
+	Effect.runSync(
+		evalExprValue("user-1", expr, makeEmptyContext()).pipe(
+			Effect.provideService(CurrentDb, Object.create(null)),
+		),
+	);
+
+const arithmeticExpr = (
+	operator: "add" | "subtract" | "multiply" | "divide",
+	left: number,
+	right: number,
+): Expr => ({
+	operator,
+	type: "arithmetic",
+	left: { type: "literal", value: left },
+	right: { type: "literal", value: right },
+});
 
 const baseRow: EntityQueryRow = {
 	id: "row-1",
@@ -219,6 +253,72 @@ describe("evalExprForField", () => {
 	});
 });
 
+describe("evalExprValue date literal", () => {
+	it("resolves a date literal to {kind: 'date'} keeping the string value", () => {
+		expect(
+			evalExpr({ type: "literal", value: "2026-01-01T00:00:00.000Z", valueType: "date" }),
+		).toEqual({ kind: "date", value: "2026-01-01T00:00:00.000Z" });
+	});
+
+	it("resolves a non-date string literal to {kind: 'text'}", () => {
+		expect(evalExpr({ type: "literal", value: "2026-01-01T00:00:00.000Z" })).toEqual({
+			kind: "text",
+			value: "2026-01-01T00:00:00.000Z",
+		});
+	});
+
+	it("resolves a null date literal to {kind: 'null'}", () => {
+		expect(evalExpr({ type: "literal", value: null, valueType: "date" })).toEqual({
+			kind: "null",
+			value: null,
+		});
+	});
+});
+
+describe("evalExprValue arithmetic", () => {
+	it("adds two numbers", () => {
+		expect(evalExpr(arithmeticExpr("add", 3, 4))).toEqual({ kind: "number", value: 7 });
+	});
+
+	it("subtracts two numbers", () => {
+		expect(evalExpr(arithmeticExpr("subtract", 10, 4))).toEqual({ kind: "number", value: 6 });
+	});
+
+	it("multiplies two numbers", () => {
+		expect(evalExpr(arithmeticExpr("multiply", 6, 7))).toEqual({ kind: "number", value: 42 });
+	});
+
+	it("divides two numbers", () => {
+		expect(evalExpr(arithmeticExpr("divide", 9, 3))).toEqual({ kind: "number", value: 3 });
+	});
+
+	it("returns null for division by zero", () => {
+		expect(evalExpr(arithmeticExpr("divide", 9, 0))).toEqual({ kind: "null", value: null });
+	});
+
+	it("returns null when the left operand is not numeric", () => {
+		expect(
+			evalExpr({
+				operator: "add",
+				type: "arithmetic",
+				left: { type: "literal", value: "ten" },
+				right: { type: "literal", value: 5 },
+			}),
+		).toEqual({ kind: "null", value: null });
+	});
+
+	it("returns null when the right operand is null", () => {
+		expect(
+			evalExpr({
+				operator: "multiply",
+				type: "arithmetic",
+				left: { type: "literal", value: 5 },
+				right: { type: "literal", value: null },
+			}),
+		).toEqual({ kind: "null", value: null });
+	});
+});
+
 describe("serializeRow", () => {
 	it("returns an empty object when fields is empty", () => {
 		expect(serializeRow(baseRow, [])).toEqual({});
@@ -404,7 +504,7 @@ describe("relationshipRootOrderSql", () => {
 		expect(query.sql.toUpperCase()).toContain("ASC");
 	});
 
-	it("falls back to a constant for refs to the source entity alias", () => {
+	it("orders by the source entity alias system field via se", () => {
 		const output = makeRelationshipRootOrderOutput([
 			{
 				order: "asc",
@@ -412,13 +512,14 @@ describe("relationshipRootOrderSql", () => {
 			},
 		]);
 		const query = dialect.sqlToQuery(relationshipRootOrderSql(source, output));
-		expect(query.sql.trim()).toBe("1");
+		expect(query.sql).toContain("se.name");
+		expect(query.sql.toUpperCase()).toContain("ASC");
 	});
 
-	it("falls back to a constant for refs to the target entity alias", () => {
+	it("orders by the target entity alias system field via te", () => {
 		const output = makeRelationshipRootOrderOutput([
 			{
-				order: "asc",
+				order: "desc",
 				expr: {
 					type: "ref",
 					sourceAlias: "collectionEntity",
@@ -427,7 +528,44 @@ describe("relationshipRootOrderSql", () => {
 			},
 		]);
 		const query = dialect.sqlToQuery(relationshipRootOrderSql(source, output));
-		expect(query.sql.trim()).toBe("1");
+		expect(query.sql).toContain("te.name");
+		expect(query.sql.toUpperCase()).toContain("DESC");
+	});
+
+	it("orders by a source entity property via ses metadata for multi-schema endpoints", () => {
+		const multiSchemaSource: RelationshipSource = {
+			...source,
+			sourceEntity: { alias: "memberEntity", schemas: ["books", "movies"] },
+		};
+		const output = makeRelationshipRootOrderOutput([
+			{
+				order: "asc",
+				expr: {
+					type: "ref",
+					sourceAlias: "memberEntity",
+					field: { type: "property", schema: "books", path: ["author"] },
+				},
+			},
+		]);
+		const query = dialect.sqlToQuery(relationshipRootOrderSql(multiSchemaSource, output));
+		expect(query.sql.toLowerCase()).toContain("case when");
+		expect(query.sql).toContain("ses.slug");
+		expect(query.sql).toContain("se.properties");
+	});
+
+	it("orders by a target entity schema metadata field via tes", () => {
+		const output = makeRelationshipRootOrderOutput([
+			{
+				order: "asc",
+				expr: {
+					type: "ref",
+					sourceAlias: "collectionEntity",
+					field: { type: "schema", name: "slug" },
+				},
+			},
+		]);
+		const query = dialect.sqlToQuery(relationshipRootOrderSql(source, output));
+		expect(query.sql).toContain("tes.slug");
 	});
 
 	it("falls back to a constant for non-ref expressions", () => {
@@ -435,6 +573,185 @@ describe("relationshipRootOrderSql", () => {
 			{ order: "asc", expr: { type: "literal", value: 1 } },
 		]);
 		const query = dialect.sqlToQuery(relationshipRootOrderSql(source, output));
+		expect(query.sql.trim()).toBe("1");
+	});
+});
+
+describe("includeOrderSql", () => {
+	const entitySource: EntitySource = {
+		where: null,
+		alias: "module",
+		type: "entities",
+		schemas: ["modules"],
+		via: {
+			entityRef: "course",
+			alias: "courseModule",
+			direction: "outgoing",
+			schema: "course-module",
+		},
+	};
+
+	it("orders child entity refs by the child entity column", () => {
+		const orderBy: IncludeEntry["orderBy"] = [
+			{
+				order: "asc",
+				expr: { type: "ref", sourceAlias: "module", field: { type: "system", name: "name" } },
+			},
+		];
+		const query = dialect.sqlToQuery(includeOrderSql(entitySource, orderBy));
+		expect(query.sql).toContain("e.name");
+		expect(query.sql.toUpperCase()).toContain("ASC");
+	});
+
+	it("orders relationship edge refs by the relationship alias", () => {
+		const orderBy: IncludeEntry["orderBy"] = [
+			{
+				order: "desc",
+				expr: {
+					type: "ref",
+					sourceAlias: "courseModule",
+					field: { type: "property", schema: "course-module", path: ["position"] },
+				},
+			},
+		];
+		const query = dialect.sqlToQuery(includeOrderSql(entitySource, orderBy));
+		expect(query.sql).toContain("r.properties");
+		expect(query.sql.toUpperCase()).toContain("DESC");
+	});
+});
+
+describe("eventIncludeOrderSql", () => {
+	const eventSource: NestedEventSource = {
+		where: null,
+		type: "events",
+		entityRef: "lesson",
+		alias: "completion",
+		schemas: ["complete"],
+	};
+
+	it("orders event refs by the event column", () => {
+		const orderBy: IncludeEntry["orderBy"] = [
+			{
+				order: "desc",
+				expr: {
+					type: "ref",
+					sourceAlias: "completion",
+					field: { type: "system", name: "occurredAt" },
+				},
+			},
+		];
+		const query = dialect.sqlToQuery(eventIncludeOrderSql(eventSource, orderBy));
+		expect(query.sql).toContain("ev.occurred_at");
+		expect(query.sql.toUpperCase()).toContain("DESC");
+	});
+
+	it("orders attached-entity refs by the entity column", () => {
+		const orderBy: IncludeEntry["orderBy"] = [
+			{
+				order: "asc",
+				expr: { type: "ref", sourceAlias: "lesson", field: { type: "system", name: "name" } },
+			},
+		];
+		const query = dialect.sqlToQuery(eventIncludeOrderSql(eventSource, orderBy));
+		expect(query.sql).toContain("e.name");
+	});
+
+	it("falls back to a constant for non-ref expressions", () => {
+		const orderBy: IncludeEntry["orderBy"] = [
+			{ order: "asc", expr: { type: "literal", value: 1 } },
+		];
+		const query = dialect.sqlToQuery(eventIncludeOrderSql(eventSource, orderBy));
+		expect(query.sql.trim()).toBe("1");
+	});
+});
+
+describe("eventFirstOrderSql", () => {
+	const eventSource: NestedEventSource = {
+		where: null,
+		type: "events",
+		entityRef: "lesson",
+		alias: "completion",
+		schemas: ["complete"],
+	};
+
+	it("orders the top-1 event by its own column", () => {
+		const orderBy: IncludeEntry["orderBy"] = [
+			{
+				order: "desc",
+				expr: {
+					type: "ref",
+					sourceAlias: "completion",
+					field: { type: "system", name: "occurredAt" },
+				},
+			},
+		];
+		const query = dialect.sqlToQuery(eventFirstOrderSql(eventSource, orderBy));
+		expect(query.sql).toContain("ev.occurred_at");
+		expect(query.sql.toUpperCase()).toContain("DESC");
+	});
+
+	it("falls back to a constant when ordering by the anchor entity alias", () => {
+		const orderBy: IncludeEntry["orderBy"] = [
+			{
+				order: "asc",
+				expr: { type: "ref", sourceAlias: "lesson", field: { type: "system", name: "name" } },
+			},
+		];
+		const query = dialect.sqlToQuery(eventFirstOrderSql(eventSource, orderBy));
+		expect(query.sql.trim()).toBe("1");
+	});
+});
+
+describe("entityFirstOrderSql", () => {
+	const entitySource: EntitySource = {
+		where: null,
+		alias: "module",
+		type: "entities",
+		schemas: ["modules"],
+		via: {
+			entityRef: "course",
+			alias: "courseModule",
+			direction: "outgoing",
+			schema: "course-module",
+		},
+	};
+
+	it("orders the top-1 child entity by its own column", () => {
+		const orderBy: IncludeEntry["orderBy"] = [
+			{
+				order: "asc",
+				expr: { type: "ref", sourceAlias: "module", field: { type: "system", name: "name" } },
+			},
+		];
+		const query = dialect.sqlToQuery(entityFirstOrderSql(entitySource, orderBy));
+		expect(query.sql).toContain("e.name");
+		expect(query.sql.toUpperCase()).toContain("ASC");
+	});
+
+	it("orders the top-1 child entity by the relationship edge alias", () => {
+		const orderBy: IncludeEntry["orderBy"] = [
+			{
+				order: "desc",
+				expr: {
+					type: "ref",
+					sourceAlias: "courseModule",
+					field: { type: "property", schema: "course-module", path: ["position"] },
+				},
+			},
+		];
+		const query = dialect.sqlToQuery(entityFirstOrderSql(entitySource, orderBy));
+		expect(query.sql).toContain("r.properties");
+		expect(query.sql.toUpperCase()).toContain("DESC");
+	});
+
+	it("falls back to a constant when ordering by the anchor entity alias", () => {
+		const orderBy: IncludeEntry["orderBy"] = [
+			{
+				order: "asc",
+				expr: { type: "ref", sourceAlias: "course", field: { type: "system", name: "name" } },
+			},
+		];
+		const query = dialect.sqlToQuery(entityFirstOrderSql(entitySource, orderBy));
 		expect(query.sql.trim()).toBe("1");
 	});
 });
