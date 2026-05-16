@@ -15,6 +15,7 @@
 		"@ryot/ts-utils": "workspace:*",
 		"@testcontainers/postgresql": "11.14.0",
 		"@types/pg": "8.20.0",
+		"better-auth": "1.6.5",
 		"dotenv": "17.4.2",
 		"get-port": "7.2.0",
 		"openapi-fetch": "0.17.0",
