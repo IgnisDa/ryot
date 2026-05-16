@@ -8,7 +8,8 @@ import {
 	SeenState,
 	UserToMediaReason,
 } from "@ryot/generated/graphql/backend/graphql";
-import { changeCase, snakeCase } from "@ryot/ts-utils";
+import { snakeCase } from "@ryot/ts-utils/lodash";
+import { changeCase } from "@ryot/ts-utils/string";
 import { type ReactNode, useMemo } from "react";
 import { $path } from "safe-routes";
 

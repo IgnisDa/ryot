@@ -29,12 +29,9 @@ import {
 	UserNotificationPlatformsDocument,
 	type UserNotificationPlatformsQuery,
 } from "@ryot/generated/graphql/backend/graphql";
-import {
-	changeCase,
-	getActionIntent,
-	processSubmission,
-	zodCheckboxAsString,
-} from "@ryot/ts-utils";
+import { getActionIntent, processSubmission } from "@ryot/ts-utils/request";
+import { changeCase } from "@ryot/ts-utils/string";
+import { zodCheckboxAsString } from "@ryot/ts-utils/zod";
 import { IconPencil, IconTrash } from "@tabler/icons-react";
 import { data, Form, useLoaderData } from "react-router";
 import { match } from "ts-pattern";

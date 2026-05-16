@@ -6,7 +6,7 @@ import {
 	EntityLot,
 	FilterPresetContextType,
 } from "@ryot/generated/graphql/backend/graphql";
-import { cloneDeep } from "@ryot/ts-utils";
+import { cloneDeep } from "@ryot/ts-utils/lodash";
 import {
 	IconBucketDroplet,
 	IconEdit,

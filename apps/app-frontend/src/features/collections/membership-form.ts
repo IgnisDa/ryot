@@ -1,5 +1,5 @@
-import type { AppPropertyDefinition, AppSchema } from "@ryot/ts-utils";
-import { getDefaultPropertyLabel, isAppPropertyRequired } from "@ryot/ts-utils";
+import type { AppPropertyDefinition, AppSchema } from "@ryot/ts-utils/app-schema";
+import { getDefaultPropertyLabel, isAppPropertyRequired } from "@ryot/ts-utils/app-schema";
 import { z } from "zod";
 
 import type { AppEntity } from "~/features/entities/model";

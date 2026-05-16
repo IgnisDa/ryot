@@ -1,4 +1,4 @@
-import type { AppPropertyDefinition } from "@ryot/ts-utils";
+import type { AppPropertyDefinition } from "@ryot/ts-utils/app-schema";
 import { match } from "ts-pattern";
 
 import { getComputedFieldOrThrow } from "./computed-fields";

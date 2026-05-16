@@ -1,4 +1,4 @@
-import { dayjs } from "@ryot/ts-utils";
+import { dayjs } from "@ryot/ts-utils/dayjs";
 
 import type { ApiPostRequestBody } from "~/lib/api/types";
 

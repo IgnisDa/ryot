@@ -1,6 +1,11 @@
 {
 	"name": "@ryot/ts-utils",
-	"main": "src/index.ts",
+	"exports": {
+		"./*": {
+			"types": "./src/*.ts",
+			"default": "./src/*.ts"
+		}
+	},
 	"scripts": {
 		"build": "tsc",
 		"format": "oxfmt . --write",

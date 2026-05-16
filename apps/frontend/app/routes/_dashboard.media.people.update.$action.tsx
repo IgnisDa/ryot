@@ -4,7 +4,7 @@ import {
 	CreateCustomPersonDocument,
 	UpdateCustomPersonDocument,
 } from "@ryot/generated/graphql/backend/graphql";
-import { parseParameters, parseSearchQuery } from "@ryot/ts-utils";
+import { parseParameters, parseSearchQuery } from "@ryot/ts-utils/request";
 import { IconCalendar } from "@tabler/icons-react";
 import { useEffect } from "react";
 import { useLoaderData } from "react-router";
