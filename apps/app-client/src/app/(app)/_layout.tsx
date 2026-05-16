@@ -1,5 +1,4 @@
-import { router, Stack } from "expo-router";
-import { useEffect } from "react";
+import { Redirect, Stack } from "expo-router";
 
 import { ShellNavigation } from "@/components/shell";
 import { Box } from "@/components/ui/box";
@@ -10,12 +9,6 @@ import { useAuthClient } from "@/lib/atoms";
 export default function AppLayout() {
 	const authClient = useAuthClient();
 	const { data: session, isPending } = authClient.useSession();
-
-	useEffect(() => {
-		if (!isPending && !session) {
-			router.replace("/auth");
-		}
-	}, [session, isPending]);
 
 	if (isPending) {
 		return (
@@ -28,7 +21,7 @@ export default function AppLayout() {
 	}
 
 	if (!session) {
-		return null;
+		return <Redirect href="/auth" />;
 	}
 
 	return (
