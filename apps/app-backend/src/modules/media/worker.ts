@@ -1,5 +1,5 @@
 import { z } from "@hono/zod-openapi";
-import { normalizeSlug } from "@ryot/ts-utils";
+import { dayjs, normalizeSlug } from "@ryot/ts-utils";
 import { type Job, WaitingChildrenError, Worker } from "bullmq";
 import { and, eq, isNull } from "drizzle-orm";
 
@@ -15,18 +15,16 @@ import { onWorkerError } from "~/lib/queue/utils";
 import { sandboxRunJobName, sandboxRunJobResult } from "~/lib/sandbox/jobs";
 import { imagesSchema } from "~/lib/zod";
 import {
+	createGlobalEntity,
+	findGlobalEntityByExternalId,
 	getEntitySchemaScopeForUser,
 	getUserLibraryEntityId,
 	type ListedEntity,
-	upsertInLibraryRelationship,
-} from "~/modules/entities";
-import {
-	createGlobalEntity,
-	findGlobalEntityByExternalId,
 	updateGlobalEntityById,
+	upsertInLibraryRelationship,
 	upsertPersonRelationship,
-} from "~/modules/entities/repository";
-import { getBuiltinEntitySchemaBySlug } from "~/modules/entity-schemas/repository";
+} from "~/modules/entities";
+import { getBuiltinEntitySchemaBySlug } from "~/modules/entity-schemas";
 import { getBuiltinRelationshipSchemaBySlug } from "~/modules/relationship-schemas";
 import { getBuiltinSandboxScriptBySlug, getSandboxScriptForUser } from "~/modules/sandbox";
 
@@ -469,7 +467,7 @@ export const processMediaImportJob = async (
 		entityId: mediaEntity.id,
 		removePropertyKeys: ["assets"],
 		properties: validatedProperties,
-		populatedAt: isNew ? new Date() : mediaEntity.populatedAt,
+		populatedAt: isNew ? dayjs().toDate() : mediaEntity.populatedAt,
 	});
 
 	await upsertMediaEntityInLibrary({ userId, mediaEntityId: mediaEntity.id }, deps);
@@ -581,7 +579,7 @@ export const processPersonPopulateJob = async (
 	await deps.updateGlobalEntityById({
 		image,
 		name: details.name,
-		populatedAt: new Date(),
+		populatedAt: dayjs().toDate(),
 		entityId: personEntityId,
 		removePropertyKeys: ["assets"],
 		entitySchemaId: personSchema.id,
@@ -681,7 +679,7 @@ export const processCompanyPopulateJob = async (
 	await deps.updateGlobalEntityById({
 		image,
 		name: details.name,
-		populatedAt: new Date(),
+		populatedAt: dayjs().toDate(),
 		entityId: companyEntityId,
 		removePropertyKeys: ["assets"],
 		entitySchemaId: companySchema.id,

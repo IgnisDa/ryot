@@ -70,6 +70,11 @@ export const createValidationServiceErrorResult = (result: {
 	message: string;
 }) => createValidationErrorResult(result.message);
 
+export const createInternalErrorResult = (message: string) => ({
+	status: 500 as const,
+	body: errorResponse(ERROR_CODES.INTERNAL_ERROR, message),
+});
+
 export const createServiceErrorResult = <E extends string>(
 	result: Extract<ServiceResult<never, E>, { error: E }>,
 	input?: { notFoundErrors?: readonly E[] },
