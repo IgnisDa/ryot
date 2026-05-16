@@ -1,7 +1,7 @@
 import { Effect, Match } from "effect";
 
 import type { CurrentDb } from "#lib/db";
-import { BadRequest, type DbError, type NotFound } from "#lib/errors";
+import type { BadRequest, DbError, NotFound } from "#lib/errors";
 
 import type {
 	AggregateOutput,
@@ -132,11 +132,6 @@ const evalAggregate = (
 ): Effect.Effect<FieldValue, BadRequest | NotFound | DbError, CurrentDb> =>
 	Effect.gen(function* () {
 		const matches = yield* executeSourceMatches(userId, context, source, evalExprAsBoolean);
-		if (matches.length > MAX_AGGREGATE_EXPRESSION_SOURCE_ROWS) {
-			return yield* new BadRequest({
-				message: `Aggregate expression source matched rows exceeds maximum of ${MAX_AGGREGATE_EXPRESSION_SOURCE_ROWS}`,
-			});
-		}
 
 		if (aggregation.function === "count") {
 			if (aggregation.distinctBy === undefined) {
@@ -198,7 +193,9 @@ export const evalExprValue = (
 				context,
 				expr.source,
 				evalExprAsBoolean,
-				expr.source.where === null ? 1 : null,
+				expr.source.where === null
+					? { mode: "probe", limit: 1 }
+					: { mode: "cap", cap: MAX_AGGREGATE_EXPRESSION_SOURCE_ROWS },
 			);
 			return { kind: "boolean" as const, value: matches.length > 0 };
 		}

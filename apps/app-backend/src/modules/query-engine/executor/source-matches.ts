@@ -2,7 +2,7 @@ import { sql } from "drizzle-orm";
 import { Effect } from "effect";
 
 import { CurrentDb, dbEffect } from "#lib/db";
-import type { BadRequest, DbError, NotFound } from "#lib/errors";
+import { BadRequest, type DbError, type NotFound } from "#lib/errors";
 
 import type {
 	EntitySource,
@@ -45,12 +45,35 @@ export type EvalExprAsBoolean = (
 	context: RowContext,
 ) => Effect.Effect<boolean, BadRequest | NotFound | DbError, CurrentDb>;
 
+// How many candidate rows an expression source may pull from the database.
+// `unbounded` is for root aggregate/time-series sources that span the user's full
+// dataset; `probe` is an `exists` short-circuit (top-N); `cap` bounds correlated
+// expression sources and fails rather than silently considering a truncated set.
+type FetchBound =
+	| { mode: "unbounded" }
+	| { mode: "probe"; limit: number }
+	| { mode: "cap"; cap: number };
+
+const fetchBoundLimitSql = (bound: FetchBound) =>
+	bound.mode === "unbounded"
+		? sql``
+		: bound.mode === "probe"
+			? sql`LIMIT ${bound.limit}`
+			: sql`LIMIT ${bound.cap + 1}`;
+
+const fetchBoundOverflow = (bound: FetchBound, fetched: number) =>
+	bound.mode === "cap" && fetched > bound.cap
+		? new BadRequest({
+				message: `Expression source candidate rows exceeds maximum of ${bound.cap}`,
+			})
+		: null;
+
 const executeEntitySourceMatches = (
 	userId: string,
 	context: RowContext,
 	source: EntitySource,
 	evalBoolean: EvalExprAsBoolean,
-	limit: number | null,
+	bound: FetchBound,
 ): Effect.Effect<SourceMatch[], BadRequest | NotFound | DbError, CurrentDb> =>
 	Effect.gen(function* () {
 		const visibleSchemas = yield* loadVisibleEntitySchemas(userId, source.schemas);
@@ -58,7 +81,7 @@ const executeEntitySourceMatches = (
 			visibleSchemas.map((schema) => sql`${schema.id}`),
 			sql`, `,
 		);
-		const limitSql = limit === null ? sql`` : sql`LIMIT ${limit}`;
+		const limitSql = fetchBoundLimitSql(bound);
 		const db = yield* CurrentDb;
 		let rows: IncludeQueryRow[] | EntityQueryRow[];
 
@@ -139,6 +162,11 @@ const executeEntitySourceMatches = (
 			rows = rawRows.rows;
 		}
 
+		const overflow = fetchBoundOverflow(bound, rows.length);
+		if (overflow) {
+			return yield* overflow;
+		}
+
 		const matches: SourceMatch[] = [];
 		for (const row of rows) {
 			const nextContext = cloneContext(context);
@@ -159,7 +187,7 @@ const executeEventSourceMatches = (
 	context: RowContext,
 	source: NestedEventSource,
 	evalBoolean: EvalExprAsBoolean,
-	limit: number | null,
+	bound: FetchBound,
 ): Effect.Effect<SourceMatch[], BadRequest | NotFound | DbError, CurrentDb> =>
 	Effect.gen(function* () {
 		const entityRow = context.entities.get(source.entityRef);
@@ -172,7 +200,7 @@ const executeEventSourceMatches = (
 			eventSchemas.map((schema) => sql`${schema.id}`),
 			sql`, `,
 		);
-		const limitSql = limit === null ? sql`` : sql`LIMIT ${limit}`;
+		const limitSql = fetchBoundLimitSql(bound);
 		const db = yield* CurrentDb;
 		const rawRows = yield* dbEffect(() =>
 			db.execute<EventQueryRow>(sql`
@@ -211,6 +239,11 @@ const executeEventSourceMatches = (
 				${limitSql}
 			`),
 		);
+
+		const overflow = fetchBoundOverflow(bound, rawRows.rows.length);
+		if (overflow) {
+			return yield* overflow;
+		}
 
 		const matches: SourceMatch[] = [];
 		for (const row of rawRows.rows) {
@@ -353,7 +386,9 @@ export const executeRootSourceMatches = (
 	evalBoolean: EvalExprAsBoolean,
 ): Effect.Effect<SourceMatch[], BadRequest | NotFound | DbError, CurrentDb> => {
 	if (source.type === "entities") {
-		return executeEntitySourceMatches(userId, makeEmptyContext(), source, evalBoolean, null);
+		return executeEntitySourceMatches(userId, makeEmptyContext(), source, evalBoolean, {
+			mode: "unbounded",
+		});
 	}
 	if (source.type === "events") {
 		return executeRootEventSourceMatches(userId, source, evalBoolean);
@@ -366,8 +401,8 @@ export const executeSourceMatches = (
 	context: RowContext,
 	source: Source,
 	evalBoolean: EvalExprAsBoolean,
-	limit: number | null = source.where === null ? MAX_AGGREGATE_EXPRESSION_SOURCE_ROWS + 1 : null,
+	bound: FetchBound = { mode: "cap", cap: MAX_AGGREGATE_EXPRESSION_SOURCE_ROWS },
 ) =>
 	source.type === "entities"
-		? executeEntitySourceMatches(userId, context, source, evalBoolean, limit)
-		: executeEventSourceMatches(userId, context, source, evalBoolean, limit);
+		? executeEntitySourceMatches(userId, context, source, evalBoolean, bound)
+		: executeEventSourceMatches(userId, context, source, evalBoolean, bound);
