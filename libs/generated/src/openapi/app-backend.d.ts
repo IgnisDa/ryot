@@ -2766,16 +2766,18 @@ export interface paths {
                                 };
                                 displayConfiguration: {
                                     grid: {
+                                        titleProperty: components["schemas"]["ViewExpression"];
                                         imageProperty: components["schemas"]["NullableViewExpression"];
-                                        titleProperty: components["schemas"]["NullableViewExpression"];
                                         calloutProperty: components["schemas"]["NullableViewExpression"];
+                                        eyebrowProperty: components["schemas"]["NullableViewExpression"];
                                         primarySubtitleProperty: components["schemas"]["NullableViewExpression"];
                                         secondarySubtitleProperty: components["schemas"]["NullableViewExpression"];
                                     };
                                     list: {
+                                        titleProperty: components["schemas"]["ViewExpression"];
                                         imageProperty: components["schemas"]["NullableViewExpression"];
-                                        titleProperty: components["schemas"]["NullableViewExpression"];
                                         calloutProperty: components["schemas"]["NullableViewExpression"];
+                                        eyebrowProperty: components["schemas"]["NullableViewExpression"];
                                         primarySubtitleProperty: components["schemas"]["NullableViewExpression"];
                                         secondarySubtitleProperty: components["schemas"]["NullableViewExpression"];
                                     };
@@ -2785,6 +2787,7 @@ export interface paths {
                                             label: string;
                                         }[];
                                     };
+                                    entityIdProperty: components["schemas"]["ViewExpression"];
                                 };
                             }[];
                         };
@@ -2892,16 +2895,18 @@ export interface paths {
                         };
                         displayConfiguration: {
                             grid: {
+                                titleProperty: components["schemas"]["ViewExpression"];
                                 imageProperty: components["schemas"]["NullableViewExpression"];
-                                titleProperty: components["schemas"]["NullableViewExpression"];
                                 calloutProperty: components["schemas"]["NullableViewExpression"];
+                                eyebrowProperty: components["schemas"]["NullableViewExpression"];
                                 primarySubtitleProperty: components["schemas"]["NullableViewExpression"];
                                 secondarySubtitleProperty: components["schemas"]["NullableViewExpression"];
                             };
                             list: {
+                                titleProperty: components["schemas"]["ViewExpression"];
                                 imageProperty: components["schemas"]["NullableViewExpression"];
-                                titleProperty: components["schemas"]["NullableViewExpression"];
                                 calloutProperty: components["schemas"]["NullableViewExpression"];
+                                eyebrowProperty: components["schemas"]["NullableViewExpression"];
                                 primarySubtitleProperty: components["schemas"]["NullableViewExpression"];
                                 secondarySubtitleProperty: components["schemas"]["NullableViewExpression"];
                             };
@@ -2911,6 +2916,7 @@ export interface paths {
                                     label: string;
                                 }[];
                             };
+                            entityIdProperty: components["schemas"]["ViewExpression"];
                         };
                         trackerId?: string;
                         /** @description A Lucide icon name (e.g., 'book', 'dumbbell', 'gamepad-2'). See https://lucide.dev/icons/ */
@@ -3007,16 +3013,18 @@ export interface paths {
                                 };
                                 displayConfiguration: {
                                     grid: {
+                                        titleProperty: components["schemas"]["ViewExpression"];
                                         imageProperty: components["schemas"]["NullableViewExpression"];
-                                        titleProperty: components["schemas"]["NullableViewExpression"];
                                         calloutProperty: components["schemas"]["NullableViewExpression"];
+                                        eyebrowProperty: components["schemas"]["NullableViewExpression"];
                                         primarySubtitleProperty: components["schemas"]["NullableViewExpression"];
                                         secondarySubtitleProperty: components["schemas"]["NullableViewExpression"];
                                     };
                                     list: {
+                                        titleProperty: components["schemas"]["ViewExpression"];
                                         imageProperty: components["schemas"]["NullableViewExpression"];
-                                        titleProperty: components["schemas"]["NullableViewExpression"];
                                         calloutProperty: components["schemas"]["NullableViewExpression"];
+                                        eyebrowProperty: components["schemas"]["NullableViewExpression"];
                                         primarySubtitleProperty: components["schemas"]["NullableViewExpression"];
                                         secondarySubtitleProperty: components["schemas"]["NullableViewExpression"];
                                     };
@@ -3026,6 +3034,7 @@ export interface paths {
                                             label: string;
                                         }[];
                                     };
+                                    entityIdProperty: components["schemas"]["ViewExpression"];
                                 };
                             };
                         };
@@ -3167,16 +3176,18 @@ export interface paths {
                                 };
                                 displayConfiguration: {
                                     grid: {
+                                        titleProperty: components["schemas"]["ViewExpression"];
                                         imageProperty: components["schemas"]["NullableViewExpression"];
-                                        titleProperty: components["schemas"]["NullableViewExpression"];
                                         calloutProperty: components["schemas"]["NullableViewExpression"];
+                                        eyebrowProperty: components["schemas"]["NullableViewExpression"];
                                         primarySubtitleProperty: components["schemas"]["NullableViewExpression"];
                                         secondarySubtitleProperty: components["schemas"]["NullableViewExpression"];
                                     };
                                     list: {
+                                        titleProperty: components["schemas"]["ViewExpression"];
                                         imageProperty: components["schemas"]["NullableViewExpression"];
-                                        titleProperty: components["schemas"]["NullableViewExpression"];
                                         calloutProperty: components["schemas"]["NullableViewExpression"];
+                                        eyebrowProperty: components["schemas"]["NullableViewExpression"];
                                         primarySubtitleProperty: components["schemas"]["NullableViewExpression"];
                                         secondarySubtitleProperty: components["schemas"]["NullableViewExpression"];
                                     };
@@ -3186,6 +3197,7 @@ export interface paths {
                                             label: string;
                                         }[];
                                     };
+                                    entityIdProperty: components["schemas"]["ViewExpression"];
                                 };
                             };
                         };
@@ -3298,16 +3310,18 @@ export interface paths {
                         };
                         displayConfiguration: {
                             grid: {
+                                titleProperty: components["schemas"]["ViewExpression"];
                                 imageProperty: components["schemas"]["NullableViewExpression"];
-                                titleProperty: components["schemas"]["NullableViewExpression"];
                                 calloutProperty: components["schemas"]["NullableViewExpression"];
+                                eyebrowProperty: components["schemas"]["NullableViewExpression"];
                                 primarySubtitleProperty: components["schemas"]["NullableViewExpression"];
                                 secondarySubtitleProperty: components["schemas"]["NullableViewExpression"];
                             };
                             list: {
+                                titleProperty: components["schemas"]["ViewExpression"];
                                 imageProperty: components["schemas"]["NullableViewExpression"];
-                                titleProperty: components["schemas"]["NullableViewExpression"];
                                 calloutProperty: components["schemas"]["NullableViewExpression"];
+                                eyebrowProperty: components["schemas"]["NullableViewExpression"];
                                 primarySubtitleProperty: components["schemas"]["NullableViewExpression"];
                                 secondarySubtitleProperty: components["schemas"]["NullableViewExpression"];
                             };
@@ -3317,6 +3331,7 @@ export interface paths {
                                     label: string;
                                 }[];
                             };
+                            entityIdProperty: components["schemas"]["ViewExpression"];
                         };
                         trackerId?: string;
                         /** @description A Lucide icon name (e.g., 'book', 'dumbbell', 'gamepad-2'). See https://lucide.dev/icons/ */
@@ -3413,16 +3428,18 @@ export interface paths {
                                 };
                                 displayConfiguration: {
                                     grid: {
+                                        titleProperty: components["schemas"]["ViewExpression"];
                                         imageProperty: components["schemas"]["NullableViewExpression"];
-                                        titleProperty: components["schemas"]["NullableViewExpression"];
                                         calloutProperty: components["schemas"]["NullableViewExpression"];
+                                        eyebrowProperty: components["schemas"]["NullableViewExpression"];
                                         primarySubtitleProperty: components["schemas"]["NullableViewExpression"];
                                         secondarySubtitleProperty: components["schemas"]["NullableViewExpression"];
                                     };
                                     list: {
+                                        titleProperty: components["schemas"]["ViewExpression"];
                                         imageProperty: components["schemas"]["NullableViewExpression"];
-                                        titleProperty: components["schemas"]["NullableViewExpression"];
                                         calloutProperty: components["schemas"]["NullableViewExpression"];
+                                        eyebrowProperty: components["schemas"]["NullableViewExpression"];
                                         primarySubtitleProperty: components["schemas"]["NullableViewExpression"];
                                         secondarySubtitleProperty: components["schemas"]["NullableViewExpression"];
                                     };
@@ -3432,6 +3449,7 @@ export interface paths {
                                             label: string;
                                         }[];
                                     };
+                                    entityIdProperty: components["schemas"]["ViewExpression"];
                                 };
                             };
                         };
@@ -3572,16 +3590,18 @@ export interface paths {
                                 };
                                 displayConfiguration: {
                                     grid: {
+                                        titleProperty: components["schemas"]["ViewExpression"];
                                         imageProperty: components["schemas"]["NullableViewExpression"];
-                                        titleProperty: components["schemas"]["NullableViewExpression"];
                                         calloutProperty: components["schemas"]["NullableViewExpression"];
+                                        eyebrowProperty: components["schemas"]["NullableViewExpression"];
                                         primarySubtitleProperty: components["schemas"]["NullableViewExpression"];
                                         secondarySubtitleProperty: components["schemas"]["NullableViewExpression"];
                                     };
                                     list: {
+                                        titleProperty: components["schemas"]["ViewExpression"];
                                         imageProperty: components["schemas"]["NullableViewExpression"];
-                                        titleProperty: components["schemas"]["NullableViewExpression"];
                                         calloutProperty: components["schemas"]["NullableViewExpression"];
+                                        eyebrowProperty: components["schemas"]["NullableViewExpression"];
                                         primarySubtitleProperty: components["schemas"]["NullableViewExpression"];
                                         secondarySubtitleProperty: components["schemas"]["NullableViewExpression"];
                                     };
@@ -3591,6 +3611,7 @@ export interface paths {
                                             label: string;
                                         }[];
                                     };
+                                    entityIdProperty: components["schemas"]["ViewExpression"];
                                 };
                             };
                         };
@@ -3744,16 +3765,18 @@ export interface paths {
                                 };
                                 displayConfiguration: {
                                     grid: {
+                                        titleProperty: components["schemas"]["ViewExpression"];
                                         imageProperty: components["schemas"]["NullableViewExpression"];
-                                        titleProperty: components["schemas"]["NullableViewExpression"];
                                         calloutProperty: components["schemas"]["NullableViewExpression"];
+                                        eyebrowProperty: components["schemas"]["NullableViewExpression"];
                                         primarySubtitleProperty: components["schemas"]["NullableViewExpression"];
                                         secondarySubtitleProperty: components["schemas"]["NullableViewExpression"];
                                     };
                                     list: {
+                                        titleProperty: components["schemas"]["ViewExpression"];
                                         imageProperty: components["schemas"]["NullableViewExpression"];
-                                        titleProperty: components["schemas"]["NullableViewExpression"];
                                         calloutProperty: components["schemas"]["NullableViewExpression"];
+                                        eyebrowProperty: components["schemas"]["NullableViewExpression"];
                                         primarySubtitleProperty: components["schemas"]["NullableViewExpression"];
                                         secondarySubtitleProperty: components["schemas"]["NullableViewExpression"];
                                     };
@@ -3763,6 +3786,7 @@ export interface paths {
                                             label: string;
                                         }[];
                                     };
+                                    entityIdProperty: components["schemas"]["ViewExpression"];
                                 };
                             };
                         };

@@ -4,7 +4,7 @@
 
 **Type:** AFK
 
-**Status:** todo
+**Status:** done
 
 ## What to build
 
@@ -16,14 +16,14 @@ Add app-client utilities for layout persistence using the existing Jotai/platfor
 
 ## Acceptance criteria
 
-- [ ] A saved-view feature module exists in app-client for request building and runtime utilities
-- [ ] Grid query-engine requests include saved query definition fields, pagination, `entityIdProperty`, and grid display slots
-- [ ] List query-engine requests include saved query definition fields, pagination, `entityIdProperty`, and list display slots
-- [ ] Table query-engine requests include saved query definition fields, pagination, `entityIdProperty`, and ordered `column_N` fields
-- [ ] Runtime requests do not add hidden visible fallbacks such as entity name or entity image outside display configuration
-- [ ] Layout preference is represented through app-client's existing platform-backed storage pattern
-- [ ] Page size is 20 for grid, list, and table
-- [ ] Pure utility tests cover request construction, field-key mapping, value formatting, image extraction, and infinite page flattening
+- [x] A saved-view feature module exists in app-client for request building and runtime utilities
+- [x] Grid query-engine requests include saved query definition fields, pagination, `entityIdProperty`, and grid display slots
+- [x] List query-engine requests include saved query definition fields, pagination, `entityIdProperty`, and list display slots
+- [x] Table query-engine requests include saved query definition fields, pagination, `entityIdProperty`, and ordered `column_N` fields
+- [x] Runtime requests do not add hidden visible fallbacks such as entity name or entity image outside display configuration
+- [x] Layout preference is represented through app-client's existing platform-backed storage pattern
+- [x] Page size is 20 for grid, list, and table
+- [x] Pure utility tests cover request construction, field-key mapping, value formatting, image extraction, and infinite page flattening
 
 ## User stories addressed
 
