@@ -12,7 +12,6 @@ import type { UserPreferences } from "../schemas";
 import {
 	buildAuthenticationSavedViewInputs,
 	buildAuthenticationTrackerEntitySchemaLinks,
-	buildAuthenticationTrackerInputs,
 	buildLibraryEntityInput,
 } from "../service";
 import {
@@ -41,9 +40,7 @@ export const signUpAndInitializeUser = async (input: {
 			const createdTrackers = await createBuiltinTrackersForUser({
 				database: tx,
 				userId: signUpResult.user.id,
-				trackers: buildAuthenticationTrackerInputs({
-					trackers: authenticationBuiltinTrackers(),
-				}),
+				trackers: authenticationBuiltinTrackers(),
 			});
 
 			const builtinEntitySchemaRows = await listBuiltinEntitySchemas({
