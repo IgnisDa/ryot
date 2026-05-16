@@ -115,22 +115,19 @@ export const eventsQueryEngineRequestSchema = queryEngineRequestWithEventJoinsSc
 		sort: sortDefinitionSchema,
 		pagination: paginationSchema,
 		mode: z.literal("events"),
+		eventSchemas: eventSchemasSchema,
 		fields: entityQueryEngineFieldsSchema,
-		eventSchemas: eventSchemasSchema.optional(),
 	})
 	.strict();
 
 export const timeSeriesQueryEngineRequestSchema = queryEngineRequestCoreSchema
 	.extend({
 		metric: timeSeriesMetricSchema,
+		eventSchemas: eventSchemasSchema,
 		mode: z.literal("timeSeries"),
-		eventSchemas: eventSchemasSchema.optional(),
 		bucket: z.enum(["day", "hour", "month", "week"]),
 		dateRange: z
-			.object({
-				endAt: dateRangeDateTimeSchema,
-				startAt: dateRangeDateTimeSchema,
-			})
+			.object({ endAt: dateRangeDateTimeSchema, startAt: dateRangeDateTimeSchema })
 			.strict()
 			.refine(
 				(range) => new Date(range.startAt) < new Date(range.endAt),
