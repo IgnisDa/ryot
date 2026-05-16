@@ -9,15 +9,7 @@ TypeScript backend (`apps/app-backend`) during startup.
 
 Every step in this module must fail loudly on unexpected state. Use `throw new Error(...)` in TypeScript and `RAISE EXCEPTION '...'` in PL/pgSQL DO blocks — never `RETURN` from a DO block when the missing object signals an error rather than an already-completed step.
 
-The only permitted silent-skip patterns are:
-
-- **Idempotent guards**: skipping work that has already been done on a previous startup (e.g., `IF to_regclass('"old_user"') IS NOT NULL THEN RETURN; END IF;` in the rename block — `old_user` already exists means the rename already ran).
-- **`ON CONFLICT … DO NOTHING`**: all INSERT statements use this for restart-safety; do not remove them.
-- **`DROP TABLE IF EXISTS`**: used in `drop-tables.ts` for restart-safety (drops `seaql_migrations`, `metadata_to_metadata_group`, `metadata_group_to_person`, `metadata_to_person`, `metadata`, `metadata_group`, `person`, `exercise`, `workout`, `workout_template`, `old_user`, `collection`).
-- **`shouldRunLegacyBootstrap` returning `false`**: the three top-level `if (!(await shouldRunLegacyBootstrap(database))) return;` guards in `rename-tables.ts`, `migrate-data.ts`, and `drop-tables.ts` are the intentional main gate — no V1 data present, skip everything.
-- **Documented data-level exceptions**: the intentional skips listed in the "Ignored For Now" sections below (metadata group lots without V2 schemas, 2FA, OIDC, sessions, etc.).
-
-Everything else must throw. Do not add new `RETURN` statements inside DO blocks to silently skip unexpected-missing tables or columns.
+Permitted silent-skip patterns: idempotent guards (work already done on a previous startup), `ON CONFLICT … DO NOTHING` on all inserts (restart-safety), `DROP TABLE IF EXISTS` in `drop-tables.ts` (restart-safety), `shouldRunLegacyBootstrap` returning `false` (main gate — no V1 data present), and the intentional data-level skips listed in "Ignored For Now" below. Everything else must throw.
 
 ## Boundaries
 
@@ -28,9 +20,7 @@ Everything else must throw. Do not add new `RETURN` statements inside DO blocks 
 - Run the legacy table data copy after Drizzle migrations have created the new tables.
 - Prefer SQL for set-based work. Use TypeScript only for orchestration.
 - **Never hardcode `public.` as a schema prefix in SQL statements.** The V1 backend (SeaORM) used bare table names that resolve through PostgreSQL's `search_path`, so V1 tables may live in a non-public schema. Use quoted bare table names (e.g., `"old_user"`, `"metadata"`) instead of `public.table_name` to resolve correctly regardless of schema. See #1372.
-- Progress reporting for bulk legacy migration steps currently uses PostgreSQL `DO $$ ... $$` blocks with `RAISE NOTICE` so row counts can be emitted from SQL via `GET DIAGNOSTICS ... ROW_COUNT`.
-- Because PostgreSQL `DO` blocks do not accept external query parameters, SQL value lists embedded in those blocks must be inlined. Only use this pattern with controlled values owned by this module (hardcoded mappings and IDs already read from our own database), not user input.
-- If a `PoolClient` gets a temporary `notice` listener for legacy bootstrap logging, always remove that listener before releasing the client back to the pool.
+- SQL value lists inlined into DO blocks must go through `quoteSqlString`/`quoteNullableSqlString` from `shared.ts` and must only contain controlled values (hardcoded mappings and IDs already read from our own database) — never user input.
 
 ## Current Decisions
 
@@ -38,28 +28,13 @@ Everything else must throw. Do not add new `RETURN` statements inside DO blocks 
 - Preserve legacy ids. Derive new emails from the old user name as `name@ryot.local`, with normalization and a stable fallback for collisions. New users get `email_verified = true`.
 - All V1 entities (`metadata`, `metadata_group`, `person`, `collection`, `exercise`, `workout_template`, `workout`) are migrated to the V2 `entity` table with `entity_schema_id`/`sandbox_script_id` derived from the V1 `lot`/`source`. Relationship tables are migrated to V2 `relationship` rows. Workout sets become `event` rows. The authoritative field-level mappings live in the migration SQL — do not duplicate them here.
 
-## Ignored For Now (metadata_group)
-
-- `metadata_group_to_person`: migrated for music and video game groups only (`person-to-music-group`, `person-to-video-game-group`). Other group lots (`anime`, `manga`, `show`, `podcast`, `visual_novel`) are skipped because they do not make any product sense and no V2 group entity schemas exist for them.
-- Group `properties` fields (`parts`, `description`, `source_url`): deferred to re-population from the source provider, matching the same decision made for `metadata`.
-- Metadata groups for lots without V2 group entity schemas (`anime`, `manga`, `show`, `podcast`, `visual_novel`): silently skipped, no V2 schema exists for them.
-
-## Ignored For Now (review)
-
-- `review.visibility`: V2 events have no visibility concept. The public/private distinction is dropped; all reviews are migrated without it.
-- `review.comments`: V2 has no comments concept on events. All review comment threads (including commenter identity, like counts, and timestamps) are dropped.
-- `review.rating > 100`: V1 had no upper bound on ratings; values above 100 are clamped to 100 on migration. No normalization is attempted.
-
 ## Ignored For Now
 
-- OAuth redirect URL (V1 used `{frontend_url}/api/auth`; V2 uses Better Auth's default `/api/auth/oauth2/callback/oidc`).
-- Sessions.
-- `USERS_TOKEN_VALID_FOR_DAYS`: intentionally not ported into the V2 auth stack. Better Auth owns session lifetime separately; legacy bootstrap must not emulate the V1 token-duration knob.
-- `extra_information`.
-- `is_disabled`.
-- Legacy admin `lot`.
-- 2FA payloads: reason is that the data contained in the old schema is not enough to construct valid better 2FA credentials. This means that after the migration, all users will have 2FA disabled and will need to set it up again. This is a known limitation, but given the complexity of the migration and the fact that 2FA can be easily re-enabled by users, we have decided to proceed with this approach for now.
-- OIDC identities: similar reasoning to 2FA. The old schema does not contain enough information to construct valid OIDC credentials, so all users will have OIDC disabled after the migration and will need to set it up again if they wish to use it.
+**metadata_group**: Groups for lots without V2 entity schemas (`anime`, `manga`, `show`, `podcast`, `visual_novel`) are silently skipped. `metadata_group_to_person` is migrated only for music and video game groups (`person-to-music-group`, `person-to-video-game-group`). Group `properties` fields (`parts`, `description`, `source_url`) are deferred to re-population from the source provider.
+
+**review**: `visibility` (V2 has no visibility concept), `comments` (V2 has no comments on events). Ratings above 100 are clamped to 100.
+
+**user**: OAuth redirect URL, sessions, `USERS_TOKEN_VALID_FOR_DAYS` (Better Auth owns session lifetime), `extra_information`, `is_disabled`, legacy admin `lot`. 2FA and OIDC identities are dropped — the V1 schema lacks sufficient data to reconstruct valid credentials; users must re-enroll after migration.
 
 ## Local Testing
 
@@ -69,8 +44,7 @@ Everything else must throw. Do not add new `RETURN` statements inside DO blocks 
 export PGHOST=localhost PGDATABASE=postgres PGPASSWORD=postgres PGUSER=postgres && dropdb "$PGDATABASE" --force && createdb "$PGDATABASE" && pg_restore -d "$PGDATABASE" < tmp/file.sql
 ```
 
-The directory is `./tmp` and not `/tmp`. use `ls` to check instead of the grep tool. There is also `./tmp/file2.sql`
-which is a lot bigger and allows catching even more edge cases. Please use it to be doubly sure that the migration works as expected.
+Use `ls tmp/` to confirm file names. `tmp/file2.sql` is a larger dump useful for catching edge cases — test with both before finalizing changes.
 
 2. Run the app backend:
 
