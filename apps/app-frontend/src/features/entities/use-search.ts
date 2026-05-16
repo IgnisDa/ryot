@@ -12,6 +12,7 @@ import {
 	createEntityRuntimeRequest,
 	queryEngineEntityFieldKeys,
 	type SearchResultItem,
+	type QueryEngineEntitiesResponse,
 } from "./model";
 
 type AddStatus = "idle" | "loading" | "done" | "error" | "partial_error";
@@ -323,12 +324,12 @@ export function useEntitySearch(props: { entitySchema: AppEntitySchema }) {
 	);
 
 	const trackedExternalIds = useMemo(() => {
-		const payload = trackedEntitiesQuery.data?.data;
+		const payload = trackedEntitiesQuery.data as QueryEngineEntitiesResponse | undefined;
 		const items = payload?.mode === "entities" ? payload.data.items : [];
 		return new Set(
 			items
 				.map((item) => getQueryEngineField(item, queryEngineEntityFieldKeys.externalId)?.value)
-				.filter((id): id is string => id !== null),
+				.filter((id): id is string => typeof id === "string"),
 		);
 	}, [trackedEntitiesQuery.data]);
 
