@@ -1,11 +1,10 @@
-import { Menu, Plus } from "lucide-react-native";
+import { Plus } from "lucide-react-native";
 import { ScrollView, useWindowDimensions } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { Box } from "@/components/ui/box";
 import { Pressable } from "@/components/ui/pressable";
 import { Text } from "@/components/ui/text";
-import { useSetNavSheetOpen } from "@/lib/navigation";
 
 import {
 	ActivitySection,
@@ -23,7 +22,6 @@ export function MediaTrackerOverview() {
 	const insets = useSafeAreaInsets();
 	const { width } = useWindowDimensions();
 	const isDesktop = width >= 1024;
-	const setNavSheetOpen = useSetNavSheetOpen();
 
 	const {
 		isLoading,
@@ -50,16 +48,7 @@ export function MediaTrackerOverview() {
 			>
 				<Box className="w-full web:mx-auto web:max-w-7xl">
 					<Box className="px-[28]" style={{ paddingTop: insets.top + 16 }}>
-						<Box className="flex-row justify-end md:hidden">
-							<Pressable
-								className="-mr-1 p-1"
-								accessibilityRole="button"
-								accessibilityLabel="Open navigation"
-								onPress={() => setNavSheetOpen(true)}
-							>
-								<Menu color="#78716c" size={20} strokeWidth={1.5} />
-							</Pressable>
-						</Box>
+						<Box className="h-7 md:hidden" />
 						<Text className="mt-2 text-xs font-sans uppercase tracking-[2px] text-muted-foreground web:text-[14px]">
 							Media
 						</Text>
