@@ -85,7 +85,7 @@
   - Owner: D24 Durable sandbox
   - Scope: Remove `requestIndex`, derive all from `request.index`
 
-- [ ] **20. Reuse provider search resolution** [M/S/N]
+- [x] **20. Reuse provider search resolution** [M/S/N]
   - Owner: D20 Provider entities
   - Scope: Accept already-resolved provider/script context
 

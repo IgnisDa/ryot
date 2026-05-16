@@ -8,7 +8,7 @@ import {
 	ProviderEntityNotFound,
 } from "@ryot/contract/modules/provider-entities/schemas";
 import { EntitySchemaSlug } from "@ryot/contract/schema/brands";
-import { materializeAppSchemaChoices } from "@ryot/contract/schema/property-schema";
+import { materializeAppSchemaChoices, type AppSchema } from "@ryot/contract/schema/property-schema";
 import {
 	providerSearchOptionsResultSchema,
 	providerSearchResultSchema,
@@ -74,15 +74,14 @@ export class ProviderEntitySearchService extends Context.Service<ProviderEntityS
 				return { provider, resolved };
 			});
 
-			const resolveSearchOptionsSchema = Effect.fn(
-				"ProviderEntitySearchService.resolveSearchOptionsSchema",
-			)(function* (user: CurrentUserValue, providerId: SearchProviderEntitiesBody["providerId"]) {
-				const { provider, resolved } = yield* resolveSearch(user.id, providerId);
-				if (resolved.optionsSchema === null) {
-					return null;
-				}
-
-				const staticSchema = materializeAppSchemaChoices(resolved.optionsSchema, {});
+			const materializeSearchOptionsSchema = Effect.fn(
+				"ProviderEntitySearchService.materializeSearchOptionsSchema",
+			)(function* (
+				user: CurrentUserValue,
+				providerId: SearchProviderEntitiesBody["providerId"],
+				optionsSchema: AppSchema,
+			) {
+				const staticSchema = materializeAppSchemaChoices(optionsSchema, {});
 				if (Result.isSuccess(staticSchema)) {
 					return staticSchema.success;
 				}
@@ -99,10 +98,10 @@ export class ProviderEntitySearchService extends Context.Service<ProviderEntityS
 								: error,
 						),
 					);
-				const cacheKey = redisKeys.providerSearchOptions(provider.id, searchOptionsScript.id);
+				const cacheKey = redisKeys.providerSearchOptions(providerId, searchOptionsScript.id);
 				const cachedSources = decodeCachedSources(yield* redis.get(cacheKey));
 				if (cachedSources !== null) {
-					const materialized = materializeAppSchemaChoices(resolved.optionsSchema, cachedSources);
+					const materialized = materializeAppSchemaChoices(optionsSchema, cachedSources);
 					if (Result.isSuccess(materialized)) {
 						return materialized.success;
 					}
@@ -137,10 +136,7 @@ export class ProviderEntitySearchService extends Context.Service<ProviderEntityS
 						reason: { code: "search-options-unavailable" },
 					});
 				}
-				const materialized = materializeAppSchemaChoices(
-					resolved.optionsSchema,
-					decoded.success.sources,
-				);
+				const materialized = materializeAppSchemaChoices(optionsSchema, decoded.success.sources);
 				if (Result.isFailure(materialized)) {
 					yield* Effect.logError(
 						"provider search options result could not be materialized",
@@ -155,6 +151,15 @@ export class ProviderEntitySearchService extends Context.Service<ProviderEntityS
 				)(decoded.success).pipe(Effect.orDie);
 				yield* redis.set(cacheKey, encoded, PROVIDER_SEARCH_OPTIONS_CACHE_TTL_SECONDS);
 				return materialized.success;
+			});
+
+			const resolveSearchOptionsSchema = Effect.fn(
+				"ProviderEntitySearchService.resolveSearchOptionsSchema",
+			)(function* (user: CurrentUserValue, providerId: SearchProviderEntitiesBody["providerId"]) {
+				const { resolved } = yield* resolveSearch(user.id, providerId);
+				return resolved.optionsSchema === null
+					? null
+					: yield* materializeSearchOptionsSchema(user, providerId, resolved.optionsSchema);
 			});
 
 			const search = Effect.fn("ProviderEntitySearchService.search")(function* (
@@ -178,8 +183,11 @@ export class ProviderEntitySearchService extends Context.Service<ProviderEntityS
 					const schema =
 						input.options === undefined
 							? resolved.optionsSchema
-							: ((yield* resolveSearchOptionsSchema(user, input.providerId)) ??
-								resolved.optionsSchema);
+							: yield* materializeSearchOptionsSchema(
+									user,
+									input.providerId,
+									resolved.optionsSchema,
+								);
 					options = yield* parseAppSchemaProperties({
 						propertiesSchema: schema,
 						kind: "Provider search options",
