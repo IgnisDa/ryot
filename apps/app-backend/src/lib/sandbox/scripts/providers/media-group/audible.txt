@@ -1,0 +1,98 @@
+function parseJsonResponse(responseBody) {
+  try {
+    return JSON.parse(responseBody);
+  } catch {
+    throw new Error("Audible returned invalid JSON");
+  }
+}
+
+const LOCALE_SUFFIX_MAP = {
+  AU: "com.au",
+  CA: "ca",
+  DE: "de",
+  ES: "es",
+  FR: "fr",
+  GB: "co.uk",
+  IN: "co.in",
+  IT: "it",
+  JP: "co.jp",
+  UK: "co.uk",
+  US: "com",
+};
+
+async function getAudibleLocale() {
+  const prefsResult = await getUserPreferences();
+  if (!prefsResult?.success) return "com";
+  const providers = prefsResult?.data?.languages?.providers;
+  if (!Array.isArray(providers)) return "com";
+  const audiblePref = providers.find(
+    (p) => p && typeof p === "object" && p.source === "audible",
+  );
+  const lang =
+    audiblePref &&
+    typeof audiblePref.preferredLanguage === "string" &&
+    audiblePref.preferredLanguage.trim()
+      ? audiblePref.preferredLanguage.trim().toUpperCase()
+      : "US";
+  return LOCALE_SUFFIX_MAP[lang] ?? "com";
+}
+
+driver("search", async function () {
+  throw new Error("Audible does not support audiobook group search");
+});
+
+driver("details", async function (context) {
+  const { z } = await import("npm:zod");
+
+  const { externalId } = z
+    .object({ externalId: z.string().trim().min(1, "externalId is required") })
+    .parse(context ?? {});
+
+  const localeSuffix = await getAudibleLocale();
+  const baseUrl = `https://api.audible.${localeSuffix}/1.0/catalog/products`;
+
+  // Fetch the series ASIN to get its relationships (the member items).
+  const seriesParams = new URLSearchParams({
+    response_groups: "media,product_attrs,relationships",
+  });
+  const seriesResp = await httpCall(
+    "GET",
+    `${baseUrl}/${externalId}?${seriesParams.toString()}`,
+  );
+  if (!seriesResp?.success) {
+    throw new Error(seriesResp?.error ?? "Audible series request failed");
+  }
+  const seriesPayload = parseJsonResponse(seriesResp.data.body);
+  const product = seriesPayload?.product;
+  if (!product || typeof product !== "object") {
+    throw new Error("Audible returned no product data for this series");
+  }
+
+  const title = typeof product.title === "string" ? product.title : "";
+  if (!title) throw new Error("Audible series product is missing title");
+
+  // Relationships are the member items, sorted by `sort` field.
+  const rawRelationships = Array.isArray(product.relationships)
+    ? product.relationships
+    : [];
+  const sortedAsins = rawRelationships
+    .filter((r) => r && typeof r === "object" && typeof r.asin === "string")
+    .sort((a, b) => {
+      const sa = typeof a.sort === "string" ? parseInt(a.sort, 10) : 0;
+      const sb = typeof b.sort === "string" ? parseInt(b.sort, 10) : 0;
+      return sa - sb;
+    })
+    .map((r) => r.asin);
+
+  const parts = sortedAsins.length;
+
+  return {
+    name: title,
+    properties: {
+      parts,
+      images: [],
+      description: null,
+      sourceUrl: `https://www.audible.com/series/${externalId}/${title}`,
+    },
+  };
+});

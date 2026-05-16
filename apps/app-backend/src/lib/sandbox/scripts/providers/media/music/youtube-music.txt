@@ -142,18 +142,33 @@ driver("details", async function (context) {
   const people = (trackItem.artists ?? [])
     .filter((a) => a.name && a.channel_id)
     .map((a) => ({
-      role: "Artist",
       name: a.name,
+      role: "Artist",
       externalId: a.channel_id,
       scriptSlug: "person.youtube-music",
     }));
 
   const byVariousArtists = people.length === 0 ? null : people.length > 1;
 
+  const album = trackItem.album;
+  const groups =
+    album && typeof album === "object" &&
+    typeof album.id === "string" && album.id.trim() &&
+    typeof album.name === "string" && album.name.trim()
+      ? [
+        {
+          name: album.name.trim(),
+          externalId: album.id.trim(),
+          scriptSlug: "music-group.youtube-music",
+        },
+      ]
+      : [];
+
   return {
     name: title,
     properties: {
       people,
+      groups,
       duration,
       genres: [],
       publishYear,
