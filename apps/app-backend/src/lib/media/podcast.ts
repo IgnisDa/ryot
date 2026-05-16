@@ -2,7 +2,7 @@ import { z } from "@hono/zod-openapi";
 import { toAppSchemaProperties } from "@ryot/ts-utils";
 
 import { imagesSchema, nullableIntSchema, nullableStringSchema } from "../zod";
-import { mediaWithFreeCreatorsPropertiesSchema } from "./common";
+import { mediaWithUnlinkedCreatorsPropertiesSchema } from "./common";
 
 const podcastEpisodeSchema = z
 	.object({
@@ -16,7 +16,7 @@ const podcastEpisodeSchema = z
 	})
 	.strict();
 
-export const podcastPropertiesSchema = mediaWithFreeCreatorsPropertiesSchema.extend({
+export const podcastPropertiesSchema = mediaWithUnlinkedCreatorsPropertiesSchema.extend({
 	images: imagesSchema.describe("Cover and promotional images for this podcast"),
 	totalEpisodes: nullableIntSchema.describe("Total number of episodes published by this podcast"),
 	episodes: z.array(podcastEpisodeSchema).describe("List of podcast episodes"),
