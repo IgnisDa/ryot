@@ -2,7 +2,7 @@ import { HttpApiEndpoint, HttpApiGroup, HttpApiSchema } from "@effect/platform";
 import { Schema } from "effect";
 
 import { AuthMiddleware } from "#lib/auth-middleware";
-import { BadRequest, NotFound, RateLimited, Unauthorized } from "#lib/errors";
+import { NotFound, RateLimited, Unauthorized } from "#lib/errors";
 import { TrackerId } from "#lib/schema/brands";
 
 import {
@@ -34,8 +34,7 @@ export const SavedViewsGroup = HttpApiGroup.make("savedViews")
 	.add(
 		HttpApiEndpoint.post("create", "/saved-views")
 			.setPayload(CreateSavedViewBody)
-			.addSuccess(ListedSavedView, { status: 201 })
-			.addError(BadRequest, { status: 400 }),
+			.addSuccess(ListedSavedView, { status: 201 }),
 	)
 	.add(
 		HttpApiEndpoint.get("get")`/saved-views/${viewSlugParam}`
@@ -46,24 +45,20 @@ export const SavedViewsGroup = HttpApiGroup.make("savedViews")
 		HttpApiEndpoint.put("update")`/saved-views/${viewSlugParam}`
 			.setPayload(UpdateSavedViewBody)
 			.addSuccess(ListedSavedView)
-			.addError(NotFound, { status: 404 })
-			.addError(BadRequest, { status: 400 }),
+			.addError(NotFound, { status: 404 }),
 	)
 	.add(
 		HttpApiEndpoint.del("delete")`/saved-views/${viewSlugParam}`
 			.addSuccess(ListedSavedView)
-			.addError(NotFound, { status: 404 })
-			.addError(BadRequest, { status: 400 }),
+			.addError(NotFound, { status: 404 }),
 	)
 	.add(
 		HttpApiEndpoint.post("clone")`/saved-views/${viewSlugParam}/clone`
 			.addSuccess(ListedSavedView, { status: 201 })
-			.addError(NotFound, { status: 404 })
-			.addError(BadRequest, { status: 400 }),
+			.addError(NotFound, { status: 404 }),
 	)
 	.add(
 		HttpApiEndpoint.post("reorder", "/saved-views/reorder")
 			.setPayload(ReorderSavedViewsBody)
-			.addSuccess(ReorderSavedViewsResponse)
-			.addError(BadRequest, { status: 400 }),
+			.addSuccess(ReorderSavedViewsResponse),
 	);

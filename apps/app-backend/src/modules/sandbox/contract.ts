@@ -2,7 +2,7 @@ import { HttpApiEndpoint, HttpApiGroup, HttpApiSchema } from "@effect/platform";
 import { Schema } from "effect";
 
 import { AuthMiddleware } from "#lib/auth-middleware";
-import { BadRequest, Conflict, NotFound, RateLimited, Unauthorized } from "#lib/errors";
+import { Conflict, NotFound, RateLimited, Unauthorized } from "#lib/errors";
 
 import {
 	CreateSandboxScriptBody,
@@ -22,7 +22,6 @@ export const SandboxGroup = HttpApiGroup.make("sandbox")
 		HttpApiEndpoint.post("createScript", "/sandbox/scripts")
 			.setPayload(CreateSandboxScriptBody)
 			.addSuccess(SandboxScript, { status: 201 })
-			.addError(BadRequest, { status: 400 })
 			.addError(Conflict, { status: 409 }),
 	)
 	.add(
