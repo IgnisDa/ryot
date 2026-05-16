@@ -195,12 +195,17 @@ const mediaLifecycleEventSchemas = (entitySchemaSlug?: string) => [
 	},
 ];
 
-const buildMediaGroupEntitySchema = (slug: string, name: string, accentColor: string) => ({
+const buildMediaGroupEntitySchema = (
+	slug: string,
+	name: string,
+	accentColor: string,
+	icon: string,
+) => ({
 	slug,
 	name,
 	accentColor,
 	trackerSlug: "media",
-	icon: "layers" as const,
+	icon,
 	propertiesSchema: mediaGroupPropertiesJsonSchema,
 	eventSchemas: mediaLifecycleEventSchemas(slug).filter((s) => s.slug === "review"),
 });
@@ -234,12 +239,12 @@ export const authenticationBuiltinEntitySchemas = () => [
 			(schema) => schema.slug === "review",
 		),
 	},
-	buildMediaGroupEntitySchema("movie-group", "Movie Collection", "#FACC15"),
-	buildMediaGroupEntitySchema("audiobook-group", "Audiobook Series", "#F97316"),
-	buildMediaGroupEntitySchema("book-group", "Book Series", "#3B82F6"),
-	buildMediaGroupEntitySchema("comic-book-group", "Comic Book Series", "#FF6B35"),
-	buildMediaGroupEntitySchema("music-group", "Music Album", "#EC4899"),
-	buildMediaGroupEntitySchema("video-game-group", "Video Game Collection", "#10B981"),
+	buildMediaGroupEntitySchema("movie-group", "Movie Collection", "#FACC15", "film"),
+	buildMediaGroupEntitySchema("audiobook-group", "Audiobook Series", "#F97316", "mic"),
+	buildMediaGroupEntitySchema("book-group", "Book Series", "#3B82F6", "book-copy"),
+	buildMediaGroupEntitySchema("comic-book-group", "Comic Book Series", "#FF6B35", "sparkles"),
+	buildMediaGroupEntitySchema("music-group", "Music Album", "#EC4899", "disc-3"),
+	buildMediaGroupEntitySchema("video-game-group", "Video Game Collection", "#10B981", "joystick"),
 	{
 		slug: "book",
 		name: "Book",
