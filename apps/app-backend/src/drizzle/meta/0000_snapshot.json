@@ -1,5 +1,5 @@
 {
-	"id": "29b8b677-aa9b-4887-996d-56fd50543f3d",
+	"id": "9ca4c5fb-a2b7-42c8-85e8-64e7d29f7aeb",
 	"prevId": "00000000-0000-0000-0000-000000000000",
 	"version": "7",
 	"dialect": "postgresql",
@@ -1977,24 +1977,18 @@
 					"notNull": true,
 					"default": false
 				},
+				"query_document": {
+					"name": "query_document",
+					"type": "jsonb",
+					"primaryKey": false,
+					"notNull": true
+				},
 				"created_at": {
 					"name": "created_at",
 					"type": "timestamp with time zone",
 					"primaryKey": false,
 					"notNull": true,
 					"default": "now()"
-				},
-				"query_definition": {
-					"name": "query_definition",
-					"type": "jsonb",
-					"primaryKey": false,
-					"notNull": true
-				},
-				"query_document": {
-					"name": "query_document",
-					"type": "jsonb",
-					"primaryKey": false,
-					"notNull": true
 				},
 				"display_configuration": {
 					"name": "display_configuration",

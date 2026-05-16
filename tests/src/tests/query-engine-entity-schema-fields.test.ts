@@ -1,166 +1,143 @@
 import { describe, expect, it } from "bun:test";
 
 import {
-	createEntityColumnExpression,
-	createEntitySchemaExpression,
-} from "@ryot/app-backend/query-language";
-
-import {
-	buildQueryEngineField,
-	createCrossSchemaQueryEngineFixture,
-	createSingleSchemaQueryEngineFixture,
+	buildEntityRowsQueryDocument,
+	createAuthenticatedClient,
+	createQueryEngineEntity,
+	createQueryEngineTrackerAndSchema,
 	executeQueryEngine,
 	executeQueryEngineError,
-	getQueryEngineFieldOrThrow,
-	getQueryEngineFieldValue,
-	literalExpression,
-	toQueryEngineItem,
+	requireQueryEngineFieldValue,
+	schemaMetaRef,
+	systemRef,
 } from "../fixtures";
-import { assertTaggedError } from "../test-support/assertions";
+import { assertPresent, assertTaggedError } from "../test-support/assertions";
 
-describe("entity-schema fields", () => {
-	it("returns entity schema slug as a field", async () => {
-		const { client, schema } = await createSingleSchemaQueryEngineFixture();
-		const { data } = await executeQueryEngine(client, {
-			eventJoins: [],
-			scope: [schema.slug],
-			pagination: { page: 1, limit: 1 },
-			sort: {
-				direction: "asc",
-				expression: createEntityColumnExpression(schema.slug, "name"),
-			},
-			fields: [buildQueryEngineField("entitySchemaSlug", createEntitySchemaExpression("slug"))],
+describe("entity schema fields", () => {
+	it("returns entity schema slug, name, and isBuiltin fields", async () => {
+		const { client } = await createAuthenticatedClient();
+		const { schemaId, slug } = await createQueryEngineTrackerAndSchema(client, {
+			schemaName: "SchemaFieldsItem",
+		});
+		await createQueryEngineEntity(client, {
+			name: "Schema Fields Entity",
+			entitySchemaId: schemaId,
 		});
 
-		const field = getQueryEngineFieldOrThrow(data.data.items[0], "entitySchemaSlug");
-		expect(field.kind).toBe("text");
-		expect(field.value).toBe(schema.slug);
-	});
-
-	it("returns entity schema name as a field", async () => {
-		const { client, schema } = await createSingleSchemaQueryEngineFixture();
-		const { data } = await executeQueryEngine(client, {
-			eventJoins: [],
-			scope: [schema.slug],
-			pagination: { page: 1, limit: 1 },
-			sort: {
-				direction: "asc",
-				expression: createEntityColumnExpression(schema.slug, "name"),
-			},
-			fields: [buildQueryEngineField("entitySchemaName", createEntitySchemaExpression("name"))],
-		});
-
-		expect(data.data.items[0]).toEqual(
-			toQueryEngineItem([{ key: "entitySchemaName", kind: "text", value: schema.data.name }]),
+		const result = await executeQueryEngine(
+			client,
+			buildEntityRowsQueryDocument({
+				alias: "item",
+				schemas: [slug],
+				fields: [
+					{ key: "schemaSlug", expr: schemaMetaRef("item", "slug") },
+					{ key: "schemaName", expr: schemaMetaRef("item", "name") },
+					{ key: "schemaIsBuiltin", expr: schemaMetaRef("item", "isBuiltin") },
+				],
+			}),
 		);
-	});
 
-	it("returns entity schema isBuiltin as a boolean field", async () => {
-		const { client, schema } = await createSingleSchemaQueryEngineFixture();
-		const { data } = await executeQueryEngine(client, {
-			eventJoins: [],
-			scope: [schema.slug],
-			pagination: { page: 1, limit: 1 },
-			sort: {
-				direction: "asc",
-				expression: createEntityColumnExpression(schema.slug, "name"),
-			},
-			fields: [buildQueryEngineField("isBuiltin", createEntitySchemaExpression("isBuiltin"))],
+		const item = result.data.items[0];
+		assertPresent(item, "Missing schema fields row");
+		expect(requireQueryEngineFieldValue(item, "schemaSlug").value).toBe(slug);
+		expect(requireQueryEngineFieldValue(item, "schemaName").value).toBe("SchemaFieldsItem");
+		expect(requireQueryEngineFieldValue(item, "schemaIsBuiltin")).toEqual({
+			kind: "boolean",
+			value: false,
 		});
-
-		expect(data.data.items[0]).toEqual(
-			toQueryEngineItem([{ key: "isBuiltin", kind: "boolean", value: false }]),
-		);
-	});
-
-	it("returns correct entity schema slug per entity in multi-schema queries", async () => {
-		const { client, smartphoneSlug, tabletSlug } = await createCrossSchemaQueryEngineFixture();
-		const { data } = await executeQueryEngine(client, {
-			eventJoins: [],
-			pagination: { page: 1, limit: 20 },
-			scope: [smartphoneSlug, tabletSlug],
-			sort: {
-				direction: "asc",
-				expression: createEntityColumnExpression(smartphoneSlug, "name"),
-			},
-			fields: [buildQueryEngineField("entitySchemaSlug", createEntitySchemaExpression("slug"))],
-		});
-
-		const slugs = data.data.items.map((item) => getQueryEngineFieldValue(item, "entitySchemaSlug"));
-		expect(slugs.every((slug) => slug === smartphoneSlug || slug === tabletSlug)).toBe(true);
-		expect(slugs.some((slug) => slug === smartphoneSlug)).toBe(true);
-		expect(slugs.some((slug) => slug === tabletSlug)).toBe(true);
 	});
 
 	it("can filter by entity schema slug", async () => {
-		const { client, schema } = await createSingleSchemaQueryEngineFixture();
-		const { data } = await executeQueryEngine(client, {
-			fields: [],
-			eventJoins: [],
-			scope: [schema.slug],
-			pagination: { page: 1, limit: 10 },
-			sort: {
-				direction: "asc",
-				expression: createEntityColumnExpression(schema.slug, "name"),
-			},
-			filter: {
-				operator: "eq",
-				type: "comparison",
-				left: createEntitySchemaExpression("slug"),
-				right: literalExpression(schema.slug),
-			},
+		const { client } = await createAuthenticatedClient();
+		const alpha = await createQueryEngineTrackerAndSchema(client, {
+			schemaName: "AlphaFilterItem",
 		});
+		const beta = await createQueryEngineTrackerAndSchema(client, { schemaName: "BetaFilterItem" });
+		await createQueryEngineEntity(client, { name: "Alpha Entity", entitySchemaId: alpha.schemaId });
+		await createQueryEngineEntity(client, { name: "Beta Entity", entitySchemaId: beta.schemaId });
 
-		expect(data.data.items.length).toBeGreaterThan(0);
+		const result = await executeQueryEngine(
+			client,
+			buildEntityRowsQueryDocument({
+				alias: "item",
+				schemas: [alpha.slug, beta.slug],
+				fields: [{ key: "name", expr: systemRef("item", "name") }],
+				where: {
+					left: schemaMetaRef("item", "slug"),
+					right: { type: "literal", value: alpha.slug },
+					type: "comparison",
+					operator: "eq",
+				},
+			}),
+		);
+
+		expect(result.data.items).toHaveLength(1);
+		const item = result.data.items[0];
+		assertPresent(item, "Missing filtered row");
+		expect(requireQueryEngineFieldValue(item, "name").value).toBe("Alpha Entity");
 	});
 
-	it("can sort by entity schema name", async () => {
-		const { client, smartphoneSlug, tabletSlug } = await createCrossSchemaQueryEngineFixture();
-		const { data } = await executeQueryEngine(client, {
-			scope: [smartphoneSlug, tabletSlug],
-			eventJoins: [],
-			pagination: { page: 1, limit: 20 },
-			sort: {
-				direction: "asc",
-				expression: createEntitySchemaExpression("name"),
-			},
-			fields: [buildQueryEngineField("entitySchemaName", createEntitySchemaExpression("name"))],
-		});
+	it("sorts multi-schema rows by entity schema name", async () => {
+		const { client } = await createAuthenticatedClient();
+		const zebra = await createQueryEngineTrackerAndSchema(client, { schemaName: "ZebraSchema" });
+		const alpha = await createQueryEngineTrackerAndSchema(client, { schemaName: "AlphaSchema" });
+		await createQueryEngineEntity(client, { name: "Zebra Entity", entitySchemaId: zebra.schemaId });
+		await createQueryEngineEntity(client, { name: "Alpha Entity", entitySchemaId: alpha.schemaId });
 
-		const names = data.data.items.map((item) => getQueryEngineFieldValue(item, "entitySchemaName"));
-		expect(names.length).toBeGreaterThan(1);
+		const result = await executeQueryEngine(
+			client,
+			buildEntityRowsQueryDocument({
+				alias: "item",
+				schemas: [zebra.slug, alpha.slug],
+				fields: [{ key: "schemaName", expr: schemaMetaRef("item", "name") }],
+				orderBy: [{ order: "asc", expr: schemaMetaRef("item", "name") }],
+			}),
+		);
+
+		expect(
+			result.data.items.map((item) => requireQueryEngineFieldValue(item, "schemaName").value),
+		).toEqual(["AlphaSchema", "ZebraSchema"]);
 	});
 
 	it("rejects invalid entity schema columns", async () => {
-		const { client, schema } = await createSingleSchemaQueryEngineFixture();
-		const error = await executeQueryEngineError(client, {
-			eventJoins: [],
-			scope: [schema.slug],
-			pagination: { page: 1, limit: 1 },
-			sort: {
-				direction: "asc",
-				expression: createEntityColumnExpression(schema.slug, "name"),
-			},
-			fields: [buildQueryEngineField("bad", createEntitySchemaExpression("propertiesSchema"))],
+		const { client } = await createAuthenticatedClient();
+		const { slug } = await createQueryEngineTrackerAndSchema(client, {
+			schemaName: "InvalidSchemaColItem",
 		});
+		const invalidSchemaField = JSON.parse(
+			'{"type":"ref","sourceAlias":"item","field":{"type":"schema","name":"propertiesSchema"}}',
+		);
 
-		assertTaggedError(error, "BadRequest");
+		const error = await executeQueryEngineError(
+			client,
+			buildEntityRowsQueryDocument({
+				alias: "item",
+				schemas: [slug],
+				fields: [{ key: "bad", expr: invalidSchemaField }],
+			}),
+		);
+
+		assertTaggedError(error, "ParseError");
 	});
 
 	it("rejects entity builtins masquerading as entity-schema columns", async () => {
-		const { client, schema } = await createSingleSchemaQueryEngineFixture();
-		const error = await executeQueryEngineError(client, {
-			eventJoins: [],
-			scope: [schema.slug],
-			pagination: { page: 1, limit: 1 },
-			sort: {
-				direction: "asc",
-				expression: createEntityColumnExpression(schema.slug, "name"),
-			},
-			fields: [buildQueryEngineField("bad", createEntitySchemaExpression("externalId"))],
+		const { client } = await createAuthenticatedClient();
+		const { slug } = await createQueryEngineTrackerAndSchema(client, {
+			schemaName: "MasqueradeItem",
 		});
+		const masqueradeField = JSON.parse(
+			'{"type":"ref","sourceAlias":"item","field":{"type":"schema","name":"externalId"}}',
+		);
 
-		assertTaggedError(error, "BadRequest");
-		expect(error.message).toBe("Unsupported entity schema column 'entity-schema.externalId'");
+		const error = await executeQueryEngineError(
+			client,
+			buildEntityRowsQueryDocument({
+				alias: "item",
+				schemas: [slug],
+				fields: [{ key: "bad", expr: masqueradeField }],
+			}),
+		);
+
+		assertTaggedError(error, "ParseError");
 	});
 });

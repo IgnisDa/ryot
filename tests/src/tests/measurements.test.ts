@@ -6,10 +6,9 @@ import {
 } from "@ryot/app-backend/query-language";
 
 import {
-	buildGridRequest,
+	buildEntityRowsQueryDocument,
 	createAuthenticatedClient,
 	createMeasurementEntityFixture,
-	entityField,
 	executeQueryEngine,
 	findBuiltinSchemaBySlug,
 	findBuiltinTrackerBySlug,
@@ -17,6 +16,8 @@ import {
 	getQueryEngineFieldOrThrow,
 	listEntitySchemas,
 	listSavedViews,
+	propertyRef,
+	systemRef,
 } from "../fixtures";
 
 describe("Measurements E2E", () => {
@@ -71,11 +72,19 @@ describe("Measurements E2E", () => {
 			isBuiltin: true,
 			name: "All Measurements",
 			trackerId: fitnessTracker.id,
-			queryDefinition: {
-				scope: ["measurement"],
-				sort: {
-					direction: "desc",
-					expression: createEntityPropertyExpression("measurement", "recordedAt"),
+			queryDocument: {
+				source: { schemas: ["measurement"] },
+				output: {
+					orderBy: [
+						{
+							order: "desc",
+							expr: {
+								type: "ref",
+								sourceAlias: "entity",
+								field: { type: "property", schema: "measurement", path: ["recordedAt"] },
+							},
+						},
+					],
 				},
 			},
 			displayConfiguration: {
@@ -110,21 +119,26 @@ describe("Measurements E2E", () => {
 
 		const result = await executeQueryEngine(
 			client,
-			buildGridRequest({
-				scope: ["measurement"],
-				pagination: { page: 1, limit: 10 },
-				displayConfiguration: {
-					calloutProperty: null,
-					titleProperty: [entityField("measurement", "name")],
-					imageProperty: [entityField("measurement", "image")],
-					primarySubtitleProperty: [entityField("measurement", "recordedAt")],
-					secondarySubtitleProperty: [entityField("measurement", "comment")],
-				},
+			buildEntityRowsQueryDocument({
+				alias: "measurement",
+				schemas: ["measurement"],
+				fields: [
+					{ key: "title", expr: systemRef("measurement", "name") },
+					{ key: "image", expr: systemRef("measurement", "image") },
+					{
+						key: "primarySubtitle",
+						expr: propertyRef("measurement", "measurement", "recordedAt"),
+					},
+					{
+						key: "secondarySubtitle",
+						expr: propertyRef("measurement", "measurement", "comment"),
+					},
+				],
 			}),
 		);
 
-		expect(result.data.data.items.length).toBeGreaterThan(0);
-		expect(getQueryEngineFieldOrThrow(result.data.data.items[0], "primarySubtitle").key).toBe(
+		expect(result.data.items.length).toBeGreaterThan(0);
+		expect(getQueryEngineFieldOrThrow(result.data.items[0], "primarySubtitle").key).toBe(
 			"primarySubtitle",
 		);
 	});

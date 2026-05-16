@@ -6,10 +6,9 @@ import {
 } from "@ryot/app-backend/query-language";
 
 import {
-	buildGridRequest,
+	buildEntityRowsQueryDocument,
 	createAuthenticatedClient,
 	createWorkoutEntityFixture,
-	entityField,
 	executeQueryEngine,
 	findBuiltinRelationshipSchemaId,
 	findBuiltinSchemaBySlug,
@@ -20,6 +19,8 @@ import {
 	insertRelationshipRow,
 	listEntitySchemas,
 	listSavedViews,
+	propertyRef,
+	systemRef,
 	waitForEventCount,
 	waitForSeededExerciseId,
 	waitForSessionEventCount,
@@ -83,13 +84,7 @@ describe("Workouts E2E", () => {
 			isBuiltin: true,
 			name: "All Workouts",
 			trackerId: fitnessTracker.id,
-			queryDefinition: {
-				scope: ["workout"],
-				sort: {
-					direction: "asc",
-					expression: createEntityColumnExpression("workout", "name"),
-				},
-			},
+			queryDocument: { source: { schemas: ["workout"] } },
 			displayConfiguration: {
 				grid: {
 					calloutProperty: null,
@@ -120,21 +115,20 @@ describe("Workouts E2E", () => {
 
 		const result = await executeQueryEngine(
 			client,
-			buildGridRequest({
-				scope: ["workout"],
-				pagination: { page: 1, limit: 10 },
-				displayConfiguration: {
-					calloutProperty: null,
-					titleProperty: [entityField("workout", "name")],
-					imageProperty: [entityField("workout", "image")],
-					primarySubtitleProperty: [entityField("workout", "startedAt")],
-					secondarySubtitleProperty: [entityField("workout", "endedAt")],
-				},
+			buildEntityRowsQueryDocument({
+				alias: "workout",
+				schemas: ["workout"],
+				fields: [
+					{ key: "title", expr: systemRef("workout", "name") },
+					{ key: "image", expr: systemRef("workout", "image") },
+					{ key: "primarySubtitle", expr: propertyRef("workout", "workout", "startedAt") },
+					{ key: "secondarySubtitle", expr: propertyRef("workout", "workout", "endedAt") },
+				],
 			}),
 		);
 
-		expect(result.data.data.items.length).toBeGreaterThan(0);
-		expect(getQueryEngineFieldOrThrow(result.data.data.items[0], "primarySubtitle").key).toBe(
+		expect(result.data.items.length).toBeGreaterThan(0);
+		expect(getQueryEngineFieldOrThrow(result.data.items[0], "primarySubtitle").key).toBe(
 			"primarySubtitle",
 		);
 	});

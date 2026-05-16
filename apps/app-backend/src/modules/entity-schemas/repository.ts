@@ -1,4 +1,4 @@
-import { and, asc, eq, inArray, isNull } from "drizzle-orm";
+import { and, asc, eq, inArray, isNull, or } from "drizzle-orm";
 import { Effect } from "effect";
 
 import { CurrentDb, dbEffect, isUniqueConstraintError } from "#lib/db";
@@ -94,6 +94,31 @@ export class EntitySchemasRepository extends Effect.Service<EntitySchemasReposit
 	"EntitySchemasRepository",
 	{
 		sync: () => ({
+			listVisibleBySlugs: Effect.fn("EntitySchemasRepository.listVisibleBySlugs")(function* (
+				userId: UserId,
+				slugs: readonly [string, ...string[]],
+			) {
+				const db = yield* CurrentDb;
+				const rows = yield* dbEffect(() =>
+					db
+						.select({
+							slug: schema.entitySchema.slug,
+							propertiesSchema: schema.entitySchema.propertiesSchema,
+						})
+						.from(schema.entitySchema)
+						.where(
+							and(
+								inArray(schema.entitySchema.slug, [...new Set(slugs)]),
+								or(eq(schema.entitySchema.userId, userId), isNull(schema.entitySchema.userId)),
+							),
+						),
+				);
+
+				return rows.map((row) => ({
+					propertiesSchema: row.propertiesSchema,
+					slug: row.slug,
+				}));
+			}),
 			listByUser: Effect.fn("EntitySchemasRepository.listByUser")(function* (input: {
 				userId: UserId;
 				trackerId?: TrackerId;

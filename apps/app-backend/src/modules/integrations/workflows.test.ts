@@ -163,6 +163,7 @@ const makeEntitySchemasRepository = (overrides: Partial<EntitySchemasRepository>
 			createEntitySchema: () => Effect.die("unused"),
 			updateEntitySchema: () => Effect.die("unused"),
 			deleteEntitySchema: () => Effect.die("unused"),
+			listVisibleBySlugs: () => Effect.die("unused"),
 			getBuiltinBySlug: () => Effect.succeed({ id: "builtin-schema" }),
 		},
 		overrides,
