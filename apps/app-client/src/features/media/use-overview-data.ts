@@ -86,6 +86,8 @@ export function useMediaOverviewData() {
 					pagination: { page: 1, limit: 6 },
 					eventJoins: [
 						{ key: "backlog", kind: "latestEvent", eventSchemaSlug: "backlog" },
+						{ key: "dropped", kind: "latestEvent", eventSchemaSlug: "dropped" },
+						{ key: "on_hold", kind: "latestEvent", eventSchemaSlug: "on_hold" },
 						{ key: "progress", kind: "latestEvent", eventSchemaSlug: "progress" },
 						{ key: "complete", kind: "latestEvent", eventSchemaSlug: "complete" },
 					],
@@ -159,6 +161,54 @@ export function useMediaOverviewData() {
 										right: {
 											type: "reference",
 											reference: { type: "event-join", joinKey: "complete", path: ["createdAt"] },
+										},
+									},
+								],
+							},
+							{
+								type: "or",
+								predicates: [
+									{
+										type: "isNull",
+										expression: {
+											type: "reference",
+											reference: { type: "event-join", path: ["createdAt"], joinKey: "dropped" },
+										},
+									},
+									{
+										operator: "gt",
+										type: "comparison",
+										left: {
+											type: "reference",
+											reference: { type: "event-join", joinKey: "backlog", path: ["createdAt"] },
+										},
+										right: {
+											type: "reference",
+											reference: { type: "event-join", joinKey: "dropped", path: ["createdAt"] },
+										},
+									},
+								],
+							},
+							{
+								type: "or",
+								predicates: [
+									{
+										type: "isNull",
+										expression: {
+											type: "reference",
+											reference: { type: "event-join", path: ["createdAt"], joinKey: "on_hold" },
+										},
+									},
+									{
+										operator: "gt",
+										type: "comparison",
+										left: {
+											type: "reference",
+											reference: { type: "event-join", joinKey: "backlog", path: ["createdAt"] },
+										},
+										right: {
+											type: "reference",
+											reference: { type: "event-join", joinKey: "on_hold", path: ["createdAt"] },
 										},
 									},
 								],
@@ -245,6 +295,8 @@ export function useMediaOverviewData() {
 						},
 					],
 					eventJoins: [
+						{ key: "dropped", kind: "latestEvent", eventSchemaSlug: "dropped" },
+						{ key: "on_hold", kind: "latestEvent", eventSchemaSlug: "on_hold" },
 						{ key: "progress", kind: "latestEvent", eventSchemaSlug: "progress" },
 						{ key: "complete", kind: "latestEvent", eventSchemaSlug: "complete" },
 					],
@@ -286,6 +338,54 @@ export function useMediaOverviewData() {
 										right: {
 											type: "reference",
 											reference: { type: "event-join", joinKey: "complete", path: ["createdAt"] },
+										},
+									},
+								],
+							},
+							{
+								type: "or",
+								predicates: [
+									{
+										type: "isNull",
+										expression: {
+											type: "reference",
+											reference: { type: "event-join", joinKey: "dropped", path: ["createdAt"] },
+										},
+									},
+									{
+										type: "comparison",
+										operator: "gt",
+										left: {
+											type: "reference",
+											reference: { type: "event-join", joinKey: "progress", path: ["createdAt"] },
+										},
+										right: {
+											type: "reference",
+											reference: { type: "event-join", joinKey: "dropped", path: ["createdAt"] },
+										},
+									},
+								],
+							},
+							{
+								type: "or",
+								predicates: [
+									{
+										type: "isNull",
+										expression: {
+											type: "reference",
+											reference: { type: "event-join", joinKey: "on_hold", path: ["createdAt"] },
+										},
+									},
+									{
+										type: "comparison",
+										operator: "gt",
+										left: {
+											type: "reference",
+											reference: { type: "event-join", joinKey: "progress", path: ["createdAt"] },
+										},
+										right: {
+											type: "reference",
+											reference: { type: "event-join", joinKey: "on_hold", path: ["createdAt"] },
 										},
 									},
 								],
