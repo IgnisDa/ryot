@@ -33,7 +33,7 @@ export default function HomeScreen() {
 						<Text className="text-[15px] mt-[18] leading-5.5 text-muted-foreground font-sans text-center">
 							Add your first tracker to start.{"\n"}Built-in: Media, Fitness. Or build your own.
 						</Text>
-						<Button className="mt-9 rounded" size="lg">
+						<Button className="mt-9 rounded opacity-50" disabled size="lg">
 							<ButtonIcon as={Plus} />
 							<ButtonText>Add a tracker</ButtonText>
 						</Button>

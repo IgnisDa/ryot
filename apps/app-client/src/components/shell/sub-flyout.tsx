@@ -14,6 +14,7 @@ import {
 	useOpenFlyout,
 	useScheduleFlyoutClose,
 } from "@/lib/navigation";
+import { viewHref } from "@/lib/navigation-data";
 
 import { RAIL_WIDTH } from "./rail";
 
@@ -41,7 +42,7 @@ export function ShellSubFlyout() {
 			className="absolute top-0 bottom-0 z-25 bg-background w-55 border-l-[0.5px] border-l-border"
 		>
 			<Pressable
-				onPress={() => {}}
+				onPress={closeFlyout}
 				className="flex-1 pt-16 pb-20"
 				onHoverOut={scheduleFlyoutClose}
 				onHoverIn={() => openFlyout(effectiveSlug)}
@@ -61,7 +62,7 @@ export function ShellSubFlyout() {
 								onHoverIn={() => openFlyout(effectiveSlug)}
 								className="min-h-11 py-2 px-2 flex-row items-center relative"
 								onPress={() => {
-									router.push(`/views/${item.slug}`);
+									router.push(viewHref(item.slug));
 									closeFlyout();
 								}}
 							>

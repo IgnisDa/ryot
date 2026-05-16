@@ -1,5 +1,7 @@
+import { dayjs } from "@ryot/ts-utils";
 import { Library } from "lucide-react-native";
 import { Image, ScrollView } from "react-native";
+import { match } from "ts-pattern";
 
 import { Box } from "@/components/ui/box";
 import { Text } from "@/components/ui/text";
@@ -158,87 +160,88 @@ export function DetailsSection(props: { creators: UnlinkedCreator[]; entity: Ent
 	const primaryCreator = getPrimaryCreator(props.creators);
 
 	if (entity.properties.publishDate != null) {
-		const [year, month, day] = entity.properties.publishDate.split("-").map(Number);
-		const d = new Date(year, month - 1, day);
-		const formatted = d.toLocaleDateString("en-US", {
-			month: "long",
-			day: "numeric",
-			year: "numeric",
+		rows.push({
+			label: "Released",
+			value: dayjs(entity.properties.publishDate).format("MMMM D, YYYY"),
 		});
-		rows.push({ label: "Released", value: formatted });
 	} else if (entity.properties.publishYear != null) {
 		rows.push({ label: "Year", value: String(entity.properties.publishYear) });
 	}
 
-	switch (entity.entitySchemaSlug) {
-		case "movie":
-		case "audiobook":
-			if ("runtime" in entity.properties && entity.properties.runtime != null) {
-				rows.push({ label: "Runtime", value: formatMinutes(entity.properties.runtime) });
-			}
-			break;
-		case "show": {
-			const episodes = entity.properties.showSeasons.reduce(
-				(count, season) => count + season.episodes.length,
-				0,
-			);
-			rows.push({ label: "Seasons", value: String(entity.properties.showSeasons.length) });
-			rows.push({ label: "Episodes", value: String(episodes) });
-			break;
-		}
-		case "anime":
-			if (entity.properties.episodes != null) {
-				rows.push({ label: "Episodes", value: String(entity.properties.episodes) });
-			}
-			break;
-		case "manga":
-			if (entity.properties.volumes != null) {
-				rows.push({ label: "Volumes", value: String(entity.properties.volumes) });
-			}
-			if (entity.properties.chapters != null) {
-				rows.push({ label: "Chapters", value: String(entity.properties.chapters) });
-			}
-			break;
-		case "book":
-			if (entity.properties.pages != null) {
-				rows.push({ label: "Pages", value: String(entity.properties.pages) });
-			}
-			if (entity.properties.isCompilation) {
-				rows.push({ label: "Compilation", value: "Yes" });
-			}
-			break;
-		case "comic-book":
-			if (entity.properties.pages != null) {
-				rows.push({ label: "Pages", value: String(entity.properties.pages) });
-			}
-			break;
-		case "podcast":
-			if (entity.properties.totalEpisodes != null) {
-				rows.push({ label: "Episodes", value: String(entity.properties.totalEpisodes) });
-			}
-			break;
-		case "music":
-			if (entity.properties.duration != null) {
-				rows.push({ label: "Duration", value: formatSeconds(entity.properties.duration) });
-			}
-			if (entity.properties.byVariousArtists) {
-				rows.push({ label: "Artists", value: "Various" });
-			}
-			break;
-		case "video-game":
-			if (entity.properties.timeToBeat?.normally != null) {
-				rows.push({
-					label: "Time to Beat",
-					value: formatMinutes(entity.properties.timeToBeat.normally),
-				});
-			}
-			break;
-		case "visual-novel":
-			if (entity.properties.lengthMinutes != null) {
-				rows.push({ label: "Est. Length", value: formatMinutes(entity.properties.lengthMinutes) });
-			}
-			break;
-	}
+	rows.push(
+		...match(entity)
+			.with({ entitySchemaSlug: "movie" }, (movie) =>
+				movie.properties.runtime != null
+					? [{ label: "Runtime", value: formatMinutes(movie.properties.runtime) }]
+					: [],
+			)
+			.with({ entitySchemaSlug: "audiobook" }, (audiobook) =>
+				audiobook.properties.runtime != null
+					? [{ label: "Runtime", value: formatMinutes(audiobook.properties.runtime) }]
+					: [],
+			)
+			.with({ entitySchemaSlug: "show" }, (show) => {
+				const episodes = show.properties.showSeasons.reduce(
+					(count: number, season) => count + season.episodes.length,
+					0,
+				);
+				return [
+					{ label: "Seasons", value: String(show.properties.showSeasons.length) },
+					{ label: "Episodes", value: String(episodes) },
+				];
+			})
+			.with({ entitySchemaSlug: "anime" }, (anime) =>
+				anime.properties.episodes != null
+					? [{ label: "Episodes", value: String(anime.properties.episodes) }]
+					: [],
+			)
+			.with({ entitySchemaSlug: "manga" }, (manga) => [
+				...(manga.properties.volumes != null
+					? [{ label: "Volumes", value: String(manga.properties.volumes) }]
+					: []),
+				...(manga.properties.chapters != null
+					? [{ label: "Chapters", value: String(manga.properties.chapters) }]
+					: []),
+			])
+			.with({ entitySchemaSlug: "book" }, (book) => [
+				...(book.properties.pages != null
+					? [{ label: "Pages", value: String(book.properties.pages) }]
+					: []),
+				...(book.properties.isCompilation ? [{ label: "Compilation", value: "Yes" }] : []),
+			])
+			.with({ entitySchemaSlug: "comic-book" }, (comicBook) =>
+				comicBook.properties.pages != null
+					? [{ label: "Pages", value: String(comicBook.properties.pages) }]
+					: [],
+			)
+			.with({ entitySchemaSlug: "podcast" }, (podcast) =>
+				podcast.properties.totalEpisodes != null
+					? [{ label: "Episodes", value: String(podcast.properties.totalEpisodes) }]
+					: [],
+			)
+			.with({ entitySchemaSlug: "music" }, (music) => [
+				...(music.properties.duration != null
+					? [{ label: "Duration", value: formatSeconds(music.properties.duration) }]
+					: []),
+				...(music.properties.byVariousArtists ? [{ label: "Artists", value: "Various" }] : []),
+			])
+			.with({ entitySchemaSlug: "video-game" }, (videoGame) =>
+				videoGame.properties.timeToBeat?.normally != null
+					? [
+							{
+								label: "Time to Beat",
+								value: formatMinutes(videoGame.properties.timeToBeat.normally),
+							},
+						]
+					: [],
+			)
+			.with({ entitySchemaSlug: "visual-novel" }, (visualNovel) =>
+				visualNovel.properties.lengthMinutes != null
+					? [{ label: "Est. Length", value: formatMinutes(visualNovel.properties.lengthMinutes) }]
+					: [],
+			)
+			.otherwise(() => []),
+	);
 
 	if (primaryCreator) {
 		const label =

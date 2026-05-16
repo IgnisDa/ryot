@@ -13,7 +13,7 @@ import { useAuthClient, useUser } from "@/lib/atoms";
 import { TrackerIcon } from "@/lib/icons";
 import { useActiveNav, useNavigationData, useSetNavSheetOpen } from "@/lib/navigation";
 import type { NavigationItem, NavigationSubItem } from "@/lib/navigation-data";
-import { navHref } from "@/lib/navigation-data";
+import { navHref, viewHref } from "@/lib/navigation-data";
 
 export function TrackerSheet() {
 	const user = useUser();
@@ -43,7 +43,7 @@ export function TrackerSheet() {
 	}
 
 	function handleSubItemPress(subItem: NavigationSubItem) {
-		router.push(`/views/${subItem.slug}`);
+		router.push(viewHref(subItem.slug));
 		close();
 	}
 

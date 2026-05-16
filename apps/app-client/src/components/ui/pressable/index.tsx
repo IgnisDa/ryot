@@ -9,8 +9,9 @@ type IPressableProps = React.ComponentPropsWithoutRef<typeof UIPressable> & {
 };
 
 const Pressable = React.forwardRef<React.ComponentRef<typeof UIPressable>, IPressableProps>(
-	function Pressable({ className, ...props }, ref) {
-		return <UIPressable ref={ref} {...props} className={className} />;
+	function Pressable(props, ref) {
+		const { className, ...rest } = props;
+		return <UIPressable ref={ref} {...rest} className={className} />;
 	},
 );
 

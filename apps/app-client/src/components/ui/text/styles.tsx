@@ -1,4 +1,5 @@
 import { isWeb, tva } from "@gluestack-ui/utils/nativewind-utils";
+import clsx from "clsx";
 
 // oxlint-disable-next-line typescript-eslint/no-unnecessary-condition
 const baseStyle = isWeb
@@ -6,7 +7,7 @@ const baseStyle = isWeb
 	: "";
 
 export const textStyle = tva({
-	base: `text-foreground font-body ${baseStyle}`,
+	base: clsx("text-foreground font-body", baseStyle),
 
 	variants: {
 		isTruncated: {
