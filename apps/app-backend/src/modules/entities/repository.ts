@@ -241,7 +241,7 @@ export const updateGlobalEntityById = async (input: {
 	return updated;
 };
 
-export const buildPersonRelationshipProperties = (
+export const buildEntityRelationshipProperties = (
 	existing: Record<string, unknown> | undefined,
 	role: string,
 	extraProperties: Record<string, unknown>,
@@ -252,7 +252,7 @@ export const buildPersonRelationshipProperties = (
 	return { ...existing, ...extraProperties, roles: mergedRoles };
 };
 
-export const upsertPersonRelationship = async (input: {
+export const upsertEntityRelationship = async (input: {
 	role: string;
 	sourceEntityId: string;
 	targetEntityId: string;
@@ -275,7 +275,7 @@ export const upsertPersonRelationship = async (input: {
 			.limit(1);
 
 		const existingProperties = existing?.properties;
-		const mergedProperties = buildPersonRelationshipProperties(
+		const mergedProperties = buildEntityRelationshipProperties(
 			existingProperties,
 			input.role,
 			input.extraProperties,

@@ -6,8 +6,9 @@ import { and, eq, isNull } from "drizzle-orm";
 import { parseAppSchemaProperties } from "~/lib/app/schema-validation";
 import { db } from "~/lib/db";
 import { entity, entitySchema } from "~/lib/db/schema";
-import { companyStubSchema, personStubSchema } from "~/lib/media/common";
+import { companyStubSchema, groupStubSchema, personStubSchema } from "~/lib/media/common";
 import { companyPropertiesSchema } from "~/lib/media/company";
+import { mediaGroupPropertiesSchema } from "~/lib/media/media-group";
 import { personPropertiesSchema } from "~/lib/media/person";
 import { getQueues } from "~/lib/queue";
 import { getRedisConnection } from "~/lib/queue/connection";
@@ -22,7 +23,7 @@ import {
 	type ListedEntity,
 	updateGlobalEntityById,
 	upsertInLibraryRelationship,
-	upsertPersonRelationship,
+	upsertEntityRelationship,
 } from "~/modules/entities";
 import { getBuiltinEntitySchemaBySlug } from "~/modules/entity-schemas";
 import { getBuiltinRelationshipSchemaBySlug } from "~/modules/relationship-schemas";
@@ -31,6 +32,8 @@ import { getBuiltinSandboxScriptBySlug, getSandboxScriptForUser } from "~/module
 import {
 	companyPopulateJobData,
 	companyPopulateJobName,
+	groupPopulateJobData,
+	groupPopulateJobName,
 	mediaImportJobData,
 	mediaImportJobName,
 	mediaJobWaitingForSandboxStep,
@@ -49,6 +52,11 @@ const personDetailsResultSchema = z.object({
 });
 
 const companyDetailsResultSchema = z.object({
+	name: z.string(),
+	properties: z.record(z.string(), z.unknown()),
+});
+
+const groupDetailsResultSchema = z.object({
 	name: z.string(),
 	properties: z.record(z.string(), z.unknown()),
 });
@@ -244,7 +252,7 @@ const processPersonStubs = async (input: {
 		}
 
 		// oxlint-disable-next-line no-await-in-loop
-		await upsertPersonRelationship({
+		await upsertEntityRelationship({
 			role: roleSlug,
 			extraProperties,
 			targetEntityId: input.mediaEntityId,
@@ -333,7 +341,7 @@ const processCompanyStubs = async (input: {
 		}
 
 		// oxlint-disable-next-line no-await-in-loop
-		await upsertPersonRelationship({
+		await upsertEntityRelationship({
 			role: roleSlug,
 			extraProperties,
 			targetEntityId: input.mediaEntityId,
@@ -352,6 +360,92 @@ const processCompanyStubs = async (input: {
 					companyEntityId: existingOrCreated.id,
 				},
 				{ jobId: `company-populate-${existingOrCreated.id}` },
+			);
+		}
+	}
+};
+
+const processGroupStubs = async (input: {
+	userId: string;
+	mediaEntityId: string;
+	rawProperties: Record<string, unknown>;
+}) => {
+	const rawGroups = input.rawProperties.groups;
+	if (!Array.isArray(rawGroups) || rawGroups.length === 0) {
+		return;
+	}
+
+	const [mediaEntityRow] = await db
+		.select({ entitySchemaSlug: entitySchema.slug })
+		.from(entity)
+		.innerJoin(entitySchema, eq(entity.entitySchemaId, entitySchema.id))
+		.where(and(eq(entity.id, input.mediaEntityId), isNull(entity.userId)))
+		.limit(1);
+
+	if (!mediaEntityRow) {
+		return;
+	}
+
+	const groupSchemaSlug = normalizeSlug(`${mediaEntityRow.entitySchemaSlug}-group`);
+	const groupSchema = await getBuiltinEntitySchemaBySlug(groupSchemaSlug);
+	if (!groupSchema) {
+		return;
+	}
+
+	const groupToMediaSlug = normalizeSlug(
+		`${groupSchemaSlug} to ${mediaEntityRow.entitySchemaSlug}`,
+	);
+	const mediaRelSchema = await getBuiltinRelationshipSchemaBySlug(groupToMediaSlug);
+
+	if (!mediaRelSchema) {
+		throw new Error(
+			`No group relationship schema seeded for media type "${mediaEntityRow.entitySchemaSlug}" (slug: "${groupToMediaSlug}") — check bootstrap manifests`,
+		);
+	}
+
+	for (const rawStub of rawGroups) {
+		const stubResult = groupStubSchema.safeParse(rawStub);
+		if (!stubResult.success) {
+			continue;
+		}
+
+		const stub = stubResult.data;
+
+		// oxlint-disable-next-line no-await-in-loop
+		const groupScript = await getBuiltinSandboxScriptBySlug(stub.scriptSlug);
+		if (!groupScript) {
+			continue;
+		}
+
+		// oxlint-disable-next-line no-await-in-loop
+		const { entity: existingOrCreated, isNew } = await createGlobalEntity({
+			name: stub.name,
+			externalId: stub.externalId,
+			entitySchemaId: groupSchema.id,
+			sandboxScriptId: groupScript.id,
+		});
+
+		// oxlint-disable-next-line no-await-in-loop
+		await upsertEntityRelationship({
+			role: "member",
+			extraProperties: {},
+			targetEntityId: input.mediaEntityId,
+			sourceEntityId: existingOrCreated.id,
+			relationshipSchemaId: mediaRelSchema.id,
+		});
+
+		if (isNew || !hasImportedEntityDetails(existingOrCreated)) {
+			// oxlint-disable-next-line no-await-in-loop
+			await getQueues().mediaQueue.add(
+				groupPopulateJobName,
+				{
+					groupSchemaSlug,
+					userId: input.userId,
+					scriptSlug: stub.scriptSlug,
+					externalId: stub.externalId,
+					groupEntityId: existingOrCreated.id,
+				},
+				{ jobId: `group-populate-${existingOrCreated.id}` },
 			);
 		}
 	}
@@ -479,6 +573,12 @@ export const processMediaImportJob = async (
 	});
 
 	await processCompanyStubs({
+		userId,
+		mediaEntityId: mediaEntity.id,
+		rawProperties: details.properties,
+	});
+
+	await processGroupStubs({
 		userId,
 		mediaEntityId: mediaEntity.id,
 		rawProperties: details.properties,
@@ -687,6 +787,106 @@ export const processCompanyPopulateJob = async (
 	});
 };
 
+export const processGroupPopulateJob = async (
+	job: Job,
+	token?: string,
+	deps: MediaWorkerDeps = mediaWorkerDeps,
+) => {
+	const parsed = groupPopulateJobData.safeParse(job.data);
+	if (!parsed.success) {
+		throw new Error("Group populate job payload is invalid");
+	}
+
+	const { userId, scriptSlug, externalId, groupEntityId, groupSchemaSlug } = parsed.data;
+	const groupScript = await deps.getBuiltinSandboxScriptBySlug(scriptSlug);
+	if (!groupScript) {
+		throw new Error("Group script not found");
+	}
+
+	const groupSchema = await deps.getBuiltinEntitySchemaBySlug(groupSchemaSlug);
+	if (!groupSchema) {
+		throw new Error("Group entity schema not found");
+	}
+
+	const existingEntity = await findImportedGlobalEntity(
+		{
+			externalId,
+			entitySchemaId: groupSchema.id,
+			sandboxScriptId: groupScript.id,
+		},
+		deps,
+	);
+	if (existingEntity) {
+		return;
+	}
+
+	let step = parsed.data.step;
+	if (!step) {
+		await queueSandboxChildRun({
+			job,
+			childJobId: `${job.id}_sandbox`,
+			jobData: {
+				...parsed.data,
+				step: mediaJobWaitingForSandboxStep,
+			},
+			sandboxJobData: {
+				userId,
+				driverName: "details",
+				context: { externalId },
+				scriptId: groupScript.id,
+			},
+		});
+		step = mediaJobWaitingForSandboxStep;
+	}
+
+	// oxlint-disable-next-line no-unnecessary-condition
+	if (step !== mediaJobWaitingForSandboxStep) {
+		throw new Error(`Unsupported group populate job step: ${String(step)}`);
+	}
+
+	await waitForSandboxChildRun(job, token);
+
+	const sandboxResult = await getSandboxChildRunResult(job);
+
+	if (!sandboxResult.success) {
+		throw new Error(sandboxResult.error ?? "Group details script failed");
+	}
+	if (sandboxResult.error) {
+		throw new Error(sandboxResult.error);
+	}
+
+	const detailsParsed = groupDetailsResultSchema.safeParse(sandboxResult.value);
+	if (!detailsParsed.success) {
+		throw new Error("Group details script returned an unexpected shape");
+	}
+
+	const details = detailsParsed.data;
+	const schemaFieldKeys = Object.keys(groupSchema.propertiesSchema.fields);
+	const filteredProperties: Record<string, unknown> = {};
+	for (const key of schemaFieldKeys) {
+		if (details.properties[key] !== undefined) {
+			filteredProperties[key] = details.properties[key];
+		}
+	}
+
+	const validatedProperties = mediaGroupPropertiesSchema.partial().safeParse(filteredProperties);
+	if (!validatedProperties.success) {
+		throw new Error("Group details properties are invalid");
+	}
+
+	const image = extractPrimaryImage(validatedProperties.data.images);
+
+	await deps.updateGlobalEntityById({
+		image,
+		name: details.name,
+		entityId: groupEntityId,
+		populatedAt: dayjs().toDate(),
+		removePropertyKeys: ["assets"],
+		entitySchemaId: groupSchema.id,
+		properties: { ...validatedProperties.data },
+	});
+};
+
 const processMediaJob = async (job: Job, token?: string) => {
 	if (job.name === mediaImportJobName) {
 		return processMediaImportJob(job, token);
@@ -698,6 +898,10 @@ const processMediaJob = async (job: Job, token?: string) => {
 
 	if (job.name === companyPopulateJobName) {
 		return processCompanyPopulateJob(job, token);
+	}
+
+	if (job.name === groupPopulateJobName) {
+		return processGroupPopulateJob(job, token);
 	}
 
 	throw new Error(`Unsupported media job: ${job.name}`);
