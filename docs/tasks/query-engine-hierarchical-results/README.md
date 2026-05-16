@@ -1714,15 +1714,15 @@ The implementation should keep file sizes maintainable and split modules when th
 
 ## Tasks
 
-**Overall Progress:** 0 of 12 tasks completed
+**Overall Progress:** 1 of 12 tasks completed
 
-**Current Task:** [Task 01](./01-v2-entity-rows-api.md) (todo)
+**Current Task:** [Task 02](./02-core-validation-guardrails.md) (todo)
 
 ### Task List
 
 | #   | Task                                                                                          | Type | Status |
 | --- | --------------------------------------------------------------------------------------------- | ---- | ------ |
-| 01  | [V2 Entity Rows API](./01-v2-entity-rows-api.md)                                               | AFK  | todo   |
+| 01  | [V2 Entity Rows API](./01-v2-entity-rows-api.md)                                               | AFK  | done   |
 | 02  | [Core Validation Guardrails](./02-core-validation-guardrails.md)                               | AFK  | todo   |
 | 03  | [Relationship Includes](./03-relationship-includes.md)                                         | AFK  | todo   |
 | 04  | [Deep Includes And Event Existence](./04-deep-includes-and-event-existence.md)                 | AFK  | todo   |
