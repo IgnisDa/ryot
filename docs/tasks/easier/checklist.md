@@ -52,7 +52,7 @@
   - Owner: D03 Backup archive
   - Scope: Scoped resource ownership for spool directory
 
-- [ ] **12. Centralize import dispatch and rollback** [M/M/M]
+- [x] **12. Centralize import dispatch and rollback** [M/M/M]
   - Owner: D14 Imports
   - Scope: Single post-admission dispatch operation
 
