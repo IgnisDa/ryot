@@ -1,0 +1,274 @@
+function parseJsonResponse(responseBody) {
+  try {
+    return JSON.parse(responseBody);
+  } catch {
+    throw new Error("IGDB returned invalid JSON");
+  }
+}
+
+async function getCredentials() {
+  const [clientIdResp, clientSecretResp] = await Promise.all([
+    getAppConfigValue("videoGames.twitch.clientId"),
+    getAppConfigValue("videoGames.twitch.clientSecret"),
+  ]);
+
+  if (!clientIdResp?.success) {
+    throw new Error(
+      clientIdResp?.error ?? "Failed to retrieve Twitch Client ID",
+    );
+  }
+  if (!clientSecretResp?.success) {
+    throw new Error(
+      clientSecretResp?.error ?? "Failed to retrieve Twitch Client Secret",
+    );
+  }
+
+  const clientId =
+    typeof clientIdResp.data === "string" ? clientIdResp.data.trim() : null;
+  const clientSecret =
+    typeof clientSecretResp.data === "string"
+      ? clientSecretResp.data.trim()
+      : null;
+
+  if (!clientId) {
+    throw new Error(
+      "Twitch Client ID is not configured. Set VIDEO_GAMES_TWITCH_CLIENT_ID in your environment.",
+    );
+  }
+  if (!clientSecret) {
+    throw new Error(
+      "Twitch Client Secret is not configured. Set VIDEO_GAMES_TWITCH_CLIENT_SECRET in your environment.",
+    );
+  }
+
+  return { clientId, clientSecret };
+}
+
+const TOKEN_CACHE_KEY = "access_token";
+const BASE_URL = "https://api.igdb.com/v4";
+const AUTH_URL = "https://id.twitch.tv/oauth2/token";
+const IMAGE_BASE_URL = "https://images.igdb.com/igdb/image/upload/t_logo_med";
+
+async function getAccessToken() {
+  const { z } = await import("npm:zod");
+
+  const cached = await getCachedValue(TOKEN_CACHE_KEY);
+  if (cached?.success && cached.data !== null) {
+    const TokenSchema = z.object({
+      accessToken: z.string(),
+      clientId: z.string(),
+    });
+    const parsed = TokenSchema.safeParse(cached.data);
+    if (parsed.success) return parsed.data;
+  }
+
+  const { clientId, clientSecret } = await getCredentials();
+
+  const authUrl = `${AUTH_URL}?grant_type=client_credentials&client_id=${encodeURIComponent(clientId)}&client_secret=${encodeURIComponent(clientSecret)}`;
+  const response = await httpCall("POST", authUrl, {
+    headers: { "Content-Type": "application/x-www-form-urlencoded" },
+  });
+
+  if (!response?.success) {
+    throw new Error(response?.error ?? "Twitch OAuth token request failed");
+  }
+
+  const payload = parseJsonResponse(response.data.body);
+
+  if (!payload.access_token) {
+    throw new Error("Twitch OAuth returned no access token");
+  }
+
+  const rawTokenType =
+    typeof payload.token_type === "string" ? payload.token_type : "bearer";
+  const tokenType =
+    rawTokenType.charAt(0).toUpperCase() + rawTokenType.slice(1);
+  const accessToken = `${tokenType} ${payload.access_token}`;
+  const expiresIn =
+    typeof payload.expires_in === "number" && payload.expires_in > 0
+      ? payload.expires_in
+      : 3600;
+  const expiryWithBuffer = Math.max(60, expiresIn - 300);
+
+  const cacheResult = await setCachedValue(
+    TOKEN_CACHE_KEY,
+    { accessToken, clientId },
+    expiryWithBuffer,
+  );
+  if (!cacheResult?.success) {
+    console.warn(`IGDB token cache write failed: ${cacheResult?.error}`);
+  }
+
+  return { accessToken, clientId };
+}
+
+function getImageUrl(imageId) {
+  return `${IMAGE_BASE_URL}/${imageId}.jpg`;
+}
+
+async function makeIgdbRequest(path, body) {
+  const { accessToken, clientId } = await getAccessToken();
+
+  const response = await httpCall("POST", `${BASE_URL}/${path}`, {
+    body,
+    headers: {
+      Accept: "application/json",
+      "Client-ID": clientId,
+      "Content-Type": "text/plain",
+      Authorization: accessToken,
+    },
+  });
+
+  if (!response?.success) {
+    throw new Error(response?.error ?? `IGDB ${path} request failed`);
+  }
+
+  return { data: parseJsonResponse(response.data.body), headers: response.data.headers };
+}
+
+driver("search", async function(context) {
+  const { z } = await import("npm:zod");
+
+  const { query, page: currentPage, pageSize } = z.object({
+    query: z.string().trim().min(1, "query is required"),
+    page: z.coerce.number().min(1).transform(Math.floor).catch(1),
+    pageSize: z.coerce.number().min(1).max(100).transform(Math.floor).catch(20),
+  }).parse(context ?? {});
+
+  const offset = (currentPage - 1) * pageSize;
+
+  const body = [
+    "fields id, name, logo.image_id;",
+    `search "${query}";`,
+    `limit ${pageSize};`,
+    `offset ${offset};`,
+  ].join("\n");
+
+  const { data: results, headers } = await makeIgdbRequest("companies", body);
+
+  if (!Array.isArray(results)) {
+    throw new Error("IGDB company search returned unexpected response format");
+  }
+
+  const totalItems =
+    typeof headers["x-count"] === "string" &&
+    Number.isFinite(Number(headers["x-count"]))
+      ? Number(headers["x-count"])
+      : results.length + offset;
+
+  const items = results
+    .map((company) => {
+      if (!company || typeof company !== "object") {
+        return null;
+      }
+
+      const externalId =
+        typeof company.id === "number" ? String(company.id) : null;
+      if (!externalId) {
+        return null;
+      }
+
+      const name =
+        typeof company.name === "string" && company.name.trim()
+          ? company.name.trim()
+          : null;
+      if (!name) {
+        return null;
+      }
+
+      const image =
+        company.logo && typeof company.logo.image_id === "string"
+          ? getImageUrl(company.logo.image_id)
+          : null;
+
+      return {
+        externalId,
+        calloutProperty: { kind: "null", value: null },
+        titleProperty: { kind: "text", value: name },
+        primarySubtitleProperty: { kind: "null", value: null },
+        secondarySubtitleProperty: { kind: "null", value: null },
+        imageProperty:
+          image === null
+            ? { kind: "null", value: null }
+            : { kind: "image", value: { type: "remote", url: image } },
+      };
+    })
+    .filter((item) => item !== null);
+
+  return {
+    items,
+    details: {
+      totalItems,
+      nextPage: offset + results.length < totalItems ? currentPage + 1 : null,
+    },
+  };
+});
+
+driver("details", async function(context) {
+  const { z } = await import("npm:zod");
+  const dayjs = (await import("npm:dayjs")).default;
+
+  const { externalId } = z.object({
+    externalId: z.string().trim().min(1, "externalId is required"),
+  }).parse(context ?? {});
+
+  if (!/^\d+$/.test(externalId)) {
+    throw new Error("externalId must be a numeric IGDB company ID");
+  }
+
+  const body = [
+    "fields id, name, description, logo.image_id, start_date, websites.url, country, url;",
+    `where id = ${externalId};`,
+  ].join("\n");
+
+  const { data: results } = await makeIgdbRequest("companies", body);
+
+  if (!Array.isArray(results) || results.length === 0) {
+    throw new Error("IGDB returned no company data for this externalId");
+  }
+
+  const company = results[0];
+
+  const name =
+    typeof company.name === "string" && company.name.trim()
+      ? company.name.trim()
+      : null;
+  if (!name) {
+    throw new Error("IGDB company payload is missing name");
+  }
+
+  const images = [];
+  if (company.logo && typeof company.logo.image_id === "string") {
+    images.push({ type: "remote", url: getImageUrl(company.logo.image_id) });
+  }
+
+  const foundedYear =
+    typeof company.start_date === "number" && Number.isFinite(company.start_date)
+      ? dayjs.unix(company.start_date).year()
+      : null;
+
+  const website =
+    Array.isArray(company.websites) && company.websites.length > 0 &&
+    typeof company.websites[0]?.url === "string"
+      ? company.websites[0].url.trim()
+      : typeof company.url === "string" && company.url.trim()
+        ? company.url.trim()
+        : null;
+
+  const description =
+    typeof company.description === "string" && company.description.trim()
+      ? company.description.trim()
+      : null;
+
+  return {
+    name,
+    properties: {
+      images,
+      website,
+      description,
+      foundedYear,
+      alternateNames: [],
+      sourceUrl: `https://www.igdb.com/companies/${externalId}`,
+    },
+  };
+});

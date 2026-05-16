@@ -1,0 +1,200 @@
+function parseJsonResponse(responseBody) {
+  try {
+    return JSON.parse(responseBody);
+  } catch {
+    throw new Error("Hardcover returned invalid JSON");
+  }
+}
+
+async function getHardcoverApiKey() {
+  const configValueResponse = await getAppConfigValue("books.hardcover.apiKey");
+  if (!configValueResponse?.success) {
+    throw new Error(
+      configValueResponse?.error ?? "Could not load Hardcover API key",
+    );
+  }
+
+  const apiKey =
+    typeof configValueResponse.data === "string"
+      ? configValueResponse.data.trim()
+      : "";
+  if (!apiKey) {
+    throw new Error("BOOKS_HARDCOVER_API_KEY is not configured");
+  }
+
+  return apiKey;
+}
+
+driver("search", async function(context) {
+  const { z } = await import("npm:zod");
+  const { query, page: currentPage, pageSize } = z.object({
+    query: z.string().trim().min(1, "query is required"),
+    page: z.coerce.number().min(1).transform(Math.floor).catch(1),
+    pageSize: z.coerce.number().min(1).max(100).transform(Math.floor).catch(20),
+  }).parse(context ?? {});
+
+  const apiKey = await getHardcoverApiKey();
+
+  // Hardcover uses a GraphQL publishers query since there is no search API for publishers.
+  const graphqlQuery = `
+query {
+  publishers(
+    limit: ${pageSize},
+    offset: ${(currentPage - 1) * pageSize},
+    where: { name: { _ilike: "%${query.replace(/"/g, '\\"').replace(/%/g, "\\%")}%" } }
+  ) {
+    id
+    name
+  }
+}
+`;
+
+  const response = await httpCall(
+    "POST",
+    "https://api.hardcover.app/v1/graphql",
+    {
+      body: JSON.stringify({ query: graphqlQuery }),
+      headers: {
+        Authorization: apiKey,
+        "Content-Type": "application/json",
+      },
+    },
+  );
+
+  if (!response?.success) {
+    throw new Error(response?.error ?? "Hardcover publisher search request failed");
+  }
+
+  const payload = parseJsonResponse(response.data.body);
+
+  if (Array.isArray(payload?.errors) && payload.errors.length > 0) {
+    const msg = payload.errors[0]?.message ?? "unknown GraphQL error";
+    throw new Error(`Hardcover GraphQL error: ${msg}`);
+  }
+
+  const publishers = Array.isArray(payload?.data?.publishers)
+    ? payload.data.publishers
+    : [];
+
+  const items = publishers
+    .map((pub) => {
+      if (!pub || typeof pub !== "object") {
+        return null;
+      }
+
+      const externalId = pub.id != null ? String(pub.id) : null;
+      if (!externalId) {
+        return null;
+      }
+
+      const name =
+        typeof pub.name === "string" && pub.name.trim()
+          ? pub.name.trim()
+          : null;
+      if (!name) {
+        return null;
+      }
+
+      return {
+        externalId,
+        calloutProperty: { kind: "null", value: null },
+        titleProperty: { kind: "text", value: name },
+        primarySubtitleProperty: { kind: "null", value: null },
+        secondarySubtitleProperty: { kind: "null", value: null },
+        imageProperty: { kind: "null", value: null },
+      };
+    })
+    .filter((item) => item !== null);
+
+  return {
+    items,
+    details: {
+      totalItems: items.length + (currentPage - 1) * pageSize,
+      nextPage: items.length === pageSize ? currentPage + 1 : null,
+    },
+  };
+});
+
+driver("details", async function(context) {
+  const { z } = await import("npm:zod");
+
+  const { externalId: contextIdentifier } = z.object({
+    externalId: z.string().trim().min(1, "externalId is required"),
+  }).parse(context ?? {});
+
+  if (!/^\d+$/.test(contextIdentifier)) {
+    throw new Error("externalId must be a numeric Hardcover publisher id");
+  }
+
+  const publisherId = Number(contextIdentifier);
+  if (!Number.isSafeInteger(publisherId)) {
+    throw new Error("externalId must be a safe integer Hardcover publisher id");
+  }
+
+  const apiKey = await getHardcoverApiKey();
+
+  const graphqlQuery = `
+query GetHardcoverPublisherDetails($id: Int!) {
+  publishers_by_pk(id: $id) {
+    id
+    name
+    url
+  }
+}
+`;
+
+  const response = await httpCall(
+    "POST",
+    "https://api.hardcover.app/v1/graphql",
+    {
+      body: JSON.stringify({ query: graphqlQuery, variables: { id: publisherId } }),
+      headers: {
+        Authorization: apiKey,
+        "Content-Type": "application/json",
+      },
+    },
+  );
+
+  if (!response?.success) {
+    throw new Error(response?.error ?? "Hardcover publisher details request failed");
+  }
+
+  const payload = parseJsonResponse(response.data.body);
+
+  if (Array.isArray(payload?.errors) && payload.errors.length > 0) {
+    const msg = payload.errors[0]?.message ?? "unknown GraphQL error";
+    throw new Error(`Hardcover publisher details GraphQL error: ${msg}`);
+  }
+
+  const publisherData =
+    payload?.data?.publishers_by_pk &&
+    typeof payload.data.publishers_by_pk === "object"
+      ? payload.data.publishers_by_pk
+      : null;
+
+  if (!publisherData) {
+    throw new Error("Hardcover returned no publisher data");
+  }
+
+  const name =
+    typeof publisherData.name === "string" && publisherData.name.trim()
+      ? publisherData.name.trim()
+      : null;
+  if (!name) {
+    throw new Error("Hardcover publisher data is missing name");
+  }
+
+  const website =
+    typeof publisherData.url === "string" && publisherData.url.trim()
+      ? publisherData.url.trim()
+      : null;
+
+  return {
+    name,
+    properties: {
+      website,
+      images: [],
+      alternateNames: [],
+    },
+  };
+});

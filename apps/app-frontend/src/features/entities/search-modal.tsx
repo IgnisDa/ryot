@@ -104,6 +104,7 @@ export function SearchEntityModalContent(props: {
 	>({});
 
 	const isPersonSchema = props.entitySchema.slug === "person";
+	const isCompanySchema = props.entitySchema.slug === "company";
 	const isEpisodicEntity = ["show", "anime", "manga", "podcast"].includes(props.entitySchema.slug);
 	const accentColor = props.entitySchema.accentColor ?? "#8C7560";
 	const activeProvider = props.entitySchema.providers[selectedProviderIndex];
@@ -112,7 +113,7 @@ export function SearchEntityModalContent(props: {
 			return "Lifecycle actions failed to load.";
 		}
 
-		if (isPersonSchema) {
+		if (isPersonSchema || isCompanySchema) {
 			const hasReviewSchema = eventSchemasQuery.eventSchemas.some((s) => s.slug === "review");
 			return hasReviewSchema
 				? null
@@ -120,7 +121,7 @@ export function SearchEntityModalContent(props: {
 		}
 
 		return getMediaLifecycleUnavailableMessage(eventSchemasQuery.eventSchemas);
-	}, [isPersonSchema, eventSchemasQuery.isError, eventSchemasQuery.eventSchemas]);
+	}, [isPersonSchema, isCompanySchema, eventSchemasQuery.isError, eventSchemasQuery.eventSchemas]);
 
 	const getActionState = useCallback(
 		(externalId: string) => actionStateById[externalId] ?? defaultSearchResultRowActionState,
@@ -604,6 +605,7 @@ export function SearchEntityModalContent(props: {
 											key={item.externalId}
 											accentColor={accentColor}
 											isPersonSchema={isPersonSchema}
+											isCompanySchema={isCompanySchema}
 											collectionState={collectionState}
 											onAdd={() => void handleAdd(item)}
 											addError={addError[item.externalId]}

@@ -62,3 +62,13 @@ export const personStubSchema = z
 		order: z.number().int().optional(),
 	})
 	.strict();
+
+export const companyStubSchema = z
+	.object({
+		role: z.string(),
+		name: z.string(),
+		scriptSlug: z.string(),
+		externalId: z.string(),
+		order: z.number().int().optional(),
+	})
+	.strict();

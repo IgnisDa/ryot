@@ -281,6 +281,12 @@ query GetHardcoverBookDetails($id: Int!) {
       author_id
       author { name }
     }
+    book_series {
+      publisher {
+        id
+        name
+      }
+    }
   }
 }
 `;
@@ -352,12 +358,42 @@ query GetHardcoverBookDetails($id: Int!) {
     ? `https://hardcover.app/books/${slug}`
     : `https://hardcover.app/books/${externalId}`;
 
+  const publishers = [];
+  if (Array.isArray(bookData.book_series)) {
+    const seen = new Set();
+    for (const series of bookData.book_series) {
+      const pub = series?.publisher;
+      if (!pub || typeof pub !== "object") {
+        continue;
+      }
+      const pubId = pub.id != null ? String(pub.id) : null;
+      if (!pubId || seen.has(pubId)) {
+        continue;
+      }
+      seen.add(pubId);
+      const pubName =
+        typeof pub.name === "string" && pub.name.trim()
+          ? pub.name.trim()
+          : null;
+      if (!pubName) {
+        continue;
+      }
+      publishers.push({
+        name: pubName,
+        role: "Publisher",
+        externalId: pubId,
+        scriptSlug: "company.hardcover",
+      });
+    }
+  }
+
   return {
     name: title,
     properties: {
       pages,
-      unlinkedCreators: [],
       sourceUrl: sourceUrl,
+      unlinkedCreators: [],
+      companies: publishers,
       publishDate: releaseDate,
       publishYear: releaseYear,
       genres: collectGenres(bookData.cached_tags),

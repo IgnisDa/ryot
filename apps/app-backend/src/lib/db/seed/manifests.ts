@@ -1,4 +1,11 @@
 import type { AppConfigPath } from "~/lib/config";
+import anilistCompanyScriptCode from "~/lib/sandbox/scripts/providers/company/anilist.txt";
+import giantBombCompanyScriptCode from "~/lib/sandbox/scripts/providers/company/giant-bomb.txt";
+import hardcoverCompanyScriptCode from "~/lib/sandbox/scripts/providers/company/hardcover.txt";
+import igdbCompanyScriptCode from "~/lib/sandbox/scripts/providers/company/igdb.txt";
+import tmdbCompanyScriptCode from "~/lib/sandbox/scripts/providers/company/tmdb.txt";
+import tvdbCompanyScriptCode from "~/lib/sandbox/scripts/providers/company/tvdb.txt";
+import vndbCompanyScriptCode from "~/lib/sandbox/scripts/providers/company/vndb.txt";
 import anilistAnimeScriptCode from "~/lib/sandbox/scripts/providers/media/anime/anilist.txt";
 import myanimelistAnimeScriptCode from "~/lib/sandbox/scripts/providers/media/anime/myanimelist.txt";
 import audibleAudiobookScriptCode from "~/lib/sandbox/scripts/providers/media/audiobook/audible.txt";
@@ -29,7 +36,6 @@ import musicbrainzPersonScriptCode from "~/lib/sandbox/scripts/providers/person/
 import spotifyPersonScriptCode from "~/lib/sandbox/scripts/providers/person/spotify.txt";
 import tmdbPersonScriptCode from "~/lib/sandbox/scripts/providers/person/tmdb.txt";
 import tvdbPersonScriptCode from "~/lib/sandbox/scripts/providers/person/tvdb.txt";
-import vndbPersonScriptCode from "~/lib/sandbox/scripts/providers/person/vndb.txt";
 import youtubeMusicPersonScriptCode from "~/lib/sandbox/scripts/providers/person/youtube-music.txt";
 import titleCaseDelimiterHelperCode from "~/lib/sandbox/scripts/shared/title-case-delimiters.txt";
 import titleCaseHelperCode from "~/lib/sandbox/scripts/shared/title-case.txt";
@@ -80,9 +86,20 @@ export const builtinSandboxScripts = (): BuiltinScriptEntry[] => [
 	script("VNDB", "visual-novel.vndb", vndbVisualNovelScriptCode),
 	script("Anilist", "anime.anilist", withDelimiterTitleCaseHelper(anilistAnimeScriptCode)),
 	script("Anilist", "manga.anilist", withDelimiterTitleCaseHelper(anilistMangaScriptCode)),
+	script("Anilist", "company.anilist", anilistCompanyScriptCode),
+	script("GiantBomb", "company.giant-bomb", giantBombCompanyScriptCode, [
+		"videoGames.giantBomb.apiKey",
+	]),
+	script("Hardcover", "company.hardcover", hardcoverCompanyScriptCode, ["books.hardcover.apiKey"]),
+	script("IGDB", "company.igdb", igdbCompanyScriptCode, [
+		"videoGames.twitch.clientId",
+		"videoGames.twitch.clientSecret",
+	]),
+	script("TMDB", "company.tmdb", tmdbCompanyScriptCode, ["moviesAndShows.tmdb.accessToken"]),
+	script("TVDB", "company.tvdb", tvdbCompanyScriptCode, ["moviesAndShows.tvdb.apiKey"]),
+	script("VNDB", "company.vndb", vndbCompanyScriptCode),
 	script("Anilist", "person.anilist", anilistPersonScriptCode),
 	script("Audible", "person.audible", audiblePersonScriptCode),
-	script("VNDB", "person.vndb", vndbPersonScriptCode),
 	script("MangaUpdates", "manga.manga-updates", mangaUpdatesMangaScriptCode),
 	script("MusicBrainz", "music.musicbrainz", musicbrainzMusicScriptCode),
 	script("MusicBrainz", "person.musicbrainz", musicbrainzPersonScriptCode),
@@ -259,5 +276,15 @@ export const personSchemaScriptLinks = () =>
 		{ schemaSlug: "person", scriptSlug: "person.tmdb" },
 		{ schemaSlug: "person", scriptSlug: "person.tvdb" },
 		{ schemaSlug: "person", scriptSlug: "person.youtube-music" },
-		{ schemaSlug: "person", scriptSlug: "person.vndb" },
+	] as const;
+
+export const companySchemaScriptLinks = () =>
+	[
+		{ schemaSlug: "company", scriptSlug: "company.anilist" },
+		{ schemaSlug: "company", scriptSlug: "company.giant-bomb" },
+		{ schemaSlug: "company", scriptSlug: "company.hardcover" },
+		{ schemaSlug: "company", scriptSlug: "company.igdb" },
+		{ schemaSlug: "company", scriptSlug: "company.tmdb" },
+		{ schemaSlug: "company", scriptSlug: "company.tvdb" },
+		{ schemaSlug: "company", scriptSlug: "company.vndb" },
 	] as const;

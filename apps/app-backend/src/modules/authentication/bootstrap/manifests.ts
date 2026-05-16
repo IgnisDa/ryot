@@ -9,6 +9,7 @@ import { animePropertiesJsonSchema } from "~/lib/media/anime";
 import { audiobookPropertiesJsonSchema } from "~/lib/media/audiobook";
 import { bookPropertiesJsonSchema } from "~/lib/media/book";
 import { comicBookPropertiesJsonSchema } from "~/lib/media/comic-book";
+import { companyPropertiesJsonSchema } from "~/lib/media/company";
 import {
 	type BuiltinMediaEntitySchemaSlug,
 	builtinMediaEntitySchemaSlugs,
@@ -212,6 +213,17 @@ export const authenticationBuiltinEntitySchemas = () => [
 		eventSchemas: mediaLifecycleEventSchemas("person").filter((schema) => schema.slug === "review"),
 	},
 	{
+		slug: "company",
+		name: "Company",
+		icon: "building-2",
+		trackerSlug: "media",
+		accentColor: "#6B7280",
+		propertiesSchema: companyPropertiesJsonSchema,
+		eventSchemas: mediaLifecycleEventSchemas("company").filter(
+			(schema) => schema.slug === "review",
+		),
+	},
+	{
 		slug: "book",
 		name: "Book",
 		icon: "book-open",
@@ -398,6 +410,7 @@ export const authenticationBuiltinSavedViews = () => [
 		name: "All Persons",
 		trackerSlug: "media",
 		entitySchemaSlug: "person",
+		displayConfiguration: createDefaultDisplayConfiguration("person"),
 		relationshipJoins: [
 			{
 				required: true,
@@ -407,7 +420,22 @@ export const authenticationBuiltinSavedViews = () => [
 				relationshipSchemaSlug: "in-library" as const,
 			},
 		],
-		displayConfiguration: createDefaultDisplayConfiguration("person"),
+	},
+	{
+		trackerSlug: "media",
+		slug: "all-companies",
+		name: "All Companies",
+		entitySchemaSlug: "company",
+		displayConfiguration: createDefaultDisplayConfiguration("company"),
+		relationshipJoins: [
+			{
+				required: true,
+				key: "inLibrary",
+				direction: "outgoing" as const,
+				kind: "latestRelationship" as const,
+				relationshipSchemaSlug: "in-library" as const,
+			},
+		],
 	},
 	{
 		slug: "all-exercises",
@@ -435,16 +463,16 @@ export const authenticationBuiltinSavedViews = () => [
 		entitySchemaSlug: slug,
 		name: getBuiltInSavedViewName(slug),
 		slug: normalizeSlug(getBuiltInSavedViewName(slug)),
+		displayConfiguration: createDefaultDisplayConfiguration(slug),
 		relationshipJoins: [
 			{
+				required: true,
 				key: "inLibrary",
+				direction: "outgoing" as const,
 				kind: "latestRelationship" as const,
 				relationshipSchemaSlug: "in-library" as const,
-				direction: "outgoing" as const,
-				required: true,
 			},
 		],
-		displayConfiguration: createDefaultDisplayConfiguration(slug),
 	})),
 ];
 
@@ -472,12 +500,33 @@ export const authenticationBuiltinRelationshipSchemas = () => [
 			fields: {
 				roles: {
 					label: "Roles",
-					description: "Roles this person filled in this production (e.g. Director, Actor, Writer)",
 					type: "array" as const,
+					description: "Roles this person filled in this production (e.g. Director, Actor, Writer)",
 					items: {
 						label: "Role",
-						description: "A specific role name (e.g. Director, Actor, Writer)",
 						type: "string" as const,
+						description: "A specific role name (e.g. Director, Actor, Writer)",
+					},
+				},
+			},
+		},
+	})),
+	...builtinMediaEntitySchemaSlugs.map((mediaSlug) => ({
+		sourceEntitySchemaSlug: "company",
+		targetEntitySchemaSlug: mediaSlug,
+		slug: normalizeSlug(`company to ${mediaSlug}`),
+		name: `Company to ${mediaSlug.charAt(0).toUpperCase() + mediaSlug.slice(1)}`,
+		propertiesSchema: {
+			fields: {
+				roles: {
+					label: "Roles",
+					type: "array" as const,
+					description:
+						"Roles this company filled in this production (e.g. Developer, Publisher, Studio)",
+					items: {
+						label: "Role",
+						type: "string" as const,
+						description: "A specific role name (e.g. Developer, Publisher, Studio)",
 					},
 				},
 			},
