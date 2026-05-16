@@ -198,15 +198,29 @@ export function CollectionsSection(props: {
 	);
 }
 
-export function GroupsSection(props: { groups: Array<{ id: string; name: string }> | null }) {
+const GROUP_SECTION_LABEL: Record<string, string> = {
+	music: "Albums",
+	book: "Series",
+	audiobook: "Series",
+	movie: "Collections",
+	"comic-book": "Series",
+	"video-game": "Collections",
+};
+
+export function GroupsSection(props: {
+	groups: Array<{ id: string; name: string }> | null;
+	entitySchemaSlug: string;
+}) {
 	if (!props.groups || props.groups.length === 0) {
 		return null;
 	}
 
+	const label = GROUP_SECTION_LABEL[props.entitySchemaSlug] ?? "Groups";
+
 	return (
 		<Box className="mt-8">
 			<Text className="mb-3 font-heading-semibold text-[16px] text-foreground web:text-[18px]">
-				Series
+				{label}
 			</Text>
 			<Box className="flex-row flex-wrap gap-2">
 				{props.groups.map((group) => (

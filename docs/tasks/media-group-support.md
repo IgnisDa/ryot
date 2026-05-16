@@ -1,5 +1,17 @@
 # Media Group Support
 
+The internal abstraction uses `-group` slugs and `groupStub`/`groupPopulate` naming, but the
+user-facing labels are domain-specific:
+
+| Internal slug | User-facing label |
+|---|---|
+| `movie-group` | Movie Collection |
+| `audiobook-group` | Audiobook Series |
+| `book-group` | Book Series |
+| `comic-book-group` | Comic Book Series |
+| `music-group` | Music Album |
+| `video-game-group` | Video Game Collection |
+
 ## Background
 
 The V1 Ryot implementation had first-class support for metadata groups (movie collections, book
