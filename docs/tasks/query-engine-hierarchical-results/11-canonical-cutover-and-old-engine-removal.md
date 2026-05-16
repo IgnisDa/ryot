@@ -10,7 +10,7 @@
 
 After the side-by-side v2 engine satisfies the PRD proof criteria, cut consumers over to the v2 query document shape and v2 execution path, delete the old engine and obsolete supporting code/tests, and rename the v2 module, schema, route group, fixtures, and tests to canonical query-engine names. This task should not start until the v2 implementation is independently proven by E2E tests.
 
-Do not keep both query engines long-term. Do not preserve old request-shape compatibility unless a concrete shipped-data requirement is discovered and explicitly handled.
+Do not keep both query engines long-term. Do not preserve old request-shape compatibility unless a concrete shipped-data requirement is discovered and explicitly handled. Make sure to change all names to their correct counterparts, for example: `SourceV2` to `Source` etc.
 
 ## Acceptance criteria
 
