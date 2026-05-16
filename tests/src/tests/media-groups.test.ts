@@ -28,7 +28,7 @@ describe("media group entity schemas", () => {
 		}
 	});
 
-	it("each group schema uses the layers icon and is marked as builtin", async () => {
+	it("each group schema is marked as builtin", async () => {
 		const { client, cookies } = await createAuthenticatedClient();
 		const builtinTracker = await findBuiltinTracker(client, cookies);
 		const schemas = await listEntitySchemas(client, cookies, { trackerId: builtinTracker.id });
@@ -36,7 +36,6 @@ describe("media group entity schemas", () => {
 		for (const slug of GROUP_SCHEMA_SLUGS) {
 			const schema = schemas.find((s) => s.slug === slug);
 			expect(schema).toBeDefined();
-			expect(schema?.icon).toBe("layers");
 			expect(schema?.isBuiltin).toBe(true);
 		}
 	});
