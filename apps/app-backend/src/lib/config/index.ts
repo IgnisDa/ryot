@@ -34,6 +34,11 @@ export const config = {
 	databaseUrl: requireField(rawSystem.databaseUrl, "DATABASE_URL"),
 	frontendUrl: requireField(rawSystem.frontendUrl, "FRONTEND_URL"),
 	server: {
+		corsOrigins:
+			rawSystem.server.corsOrigins
+				?.split(",")
+				.map((origin) => origin.trim())
+				.filter(Boolean) ?? [],
 		adminAccessToken: requireField(rawSystem.server.adminAccessToken, "SERVER_ADMIN_ACCESS_TOKEN"),
 	},
 };
