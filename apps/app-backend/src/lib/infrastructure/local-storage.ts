@@ -1,12 +1,17 @@
 import { BadRequest, badRequest } from "@ryot/contract/errors";
 import { UPLOAD_MAX_FILE_BYTES } from "@ryot/contract/modules/uploads/upload-policy";
-import { Context, Effect, FileSystem, Layer, Path, Redacted, Stream } from "effect";
+import { Context, Effect, FileSystem, Layer, Path, PlatformError, Redacted, Stream } from "effect";
 
 import { AppConfig } from "./config/service";
 
 const UPLOAD_URL_EXPIRY_SECONDS = 15 * 60;
 const localUploadPath = (intentId: string) => `/uploads/local/${intentId}`;
 const localDownloadPath = "/uploads/local/download";
+
+const hasSystemErrorReason = (error: unknown, reason: "AlreadyExists") =>
+	error instanceof PlatformError.PlatformError &&
+	error.reason instanceof PlatformError.SystemError &&
+	error.reason._tag === reason;
 
 const base64UrlEncode = (bytes: Uint8Array) => {
 	let value = "";
@@ -57,73 +62,47 @@ export class LocalStorageService extends Context.Service<LocalStorageService>()(
 			const fs = yield* FileSystem.FileSystem;
 			const localDir = config.fileStorage.localDir;
 			const localTempDir = config.fileStorage.localTempDir;
-			const signingSecret =
-				config.fileStorage.localSigningSecret._tag === "Some"
-					? Redacted.value(config.fileStorage.localSigningSecret.value)
-					: null;
-			const signingConfigured = signingSecret !== null && signingSecret.length > 0;
-			const permanentConfigured = localDir.length > 0 && signingConfigured;
-			const temporaryConfigured = localTempDir.length > 0 && signingConfigured;
-			const signingKey = signingConfigured
-				? yield* Effect.tryPromise(() =>
-						crypto.subtle.importKey(
-							"raw",
-							new TextEncoder().encode(signingSecret),
-							{ name: "HMAC", hash: "SHA-256" },
-							false,
-							["sign", "verify"],
-						),
-					).pipe(Effect.orDie)
+			const signingSecret = Redacted.value(config.fileStorage.localSigningSecret);
+			const permanentConfigured = localDir.length > 0;
+			const signingKey = yield* Effect.tryPromise(() =>
+				crypto.subtle.importKey(
+					"raw",
+					new TextEncoder().encode(signingSecret),
+					{ name: "HMAC", hash: "SHA-256" },
+					false,
+					["sign", "verify"],
+				),
+			).pipe(Effect.orDie);
+			const resolveRoot = (directory: string) =>
+				Effect.gen(function* () {
+					yield* fs.makeDirectory(directory, { recursive: true });
+					const root = yield* fs.realPath(directory);
+					const probe = yield* fs.makeTempDirectory({
+						directory: root,
+						prefix: ".ryot-write-test-",
+					});
+					yield* fs.remove(probe, { recursive: true, force: true });
+					return root;
+				});
+			const permanentRoot = permanentConfigured
+				? yield* resolveRoot(localDir).pipe(Effect.orDie)
 				: null;
-			const resolveRoot = (directory: string | null) =>
-				directory === null
-					? Effect.succeed(null)
-					: Effect.gen(function* () {
-							yield* fs.makeDirectory(directory, { recursive: true });
-							const root = yield* fs.realPath(directory);
-							const probe = yield* fs.makeTempDirectory({
-								directory: root,
-								prefix: ".ryot-write-test-",
-							});
-							yield* fs.remove(probe, { recursive: true, force: true });
-							return root;
-						});
-			const permanentRoot = yield* resolveRoot(permanentConfigured ? localDir : null).pipe(
-				Effect.orDie,
-			);
-			const temporaryRoot = yield* resolveRoot(temporaryConfigured ? localTempDir : null).pipe(
-				Effect.orDie,
-			);
-			if (
-				permanentRoot !== null &&
-				temporaryRoot !== null &&
-				rootsOverlap(paths, permanentRoot, temporaryRoot)
-			) {
+			const temporaryRoot = yield* resolveRoot(localTempDir).pipe(Effect.orDie);
+			if (permanentRoot !== null && rootsOverlap(paths, permanentRoot, temporaryRoot)) {
 				return yield* Effect.fail(
 					badRequest("FILE_STORAGE_LOCAL_DIR and FILE_STORAGE_LOCAL_TEMP_DIR must not overlap."),
 				).pipe(Effect.orDie);
 			}
 			const requireConfigured = (kind: "permanent" | "temporary") =>
 				Effect.suspend(() =>
-					(kind === "permanent" ? permanentConfigured : temporaryConfigured)
+					(kind === "permanent" ? permanentConfigured : true)
 						? Effect.void
 						: Effect.fail(
 								badRequest(
-									kind === "permanent"
-										? "Local permanent storage is not configured. Set FILE_STORAGE_LOCAL_SIGNING_SECRET."
-										: "Local temporary storage is not configured. Set FILE_STORAGE_LOCAL_SIGNING_SECRET.",
+									"Local permanent storage is not configured. Set FILE_STORAGE_LOCAL_DIR.",
 								),
 							),
 				);
-			const requireSigningConfigured = Effect.suspend(() =>
-				signingConfigured
-					? Effect.void
-					: Effect.fail(
-							badRequest(
-								"Local storage signing is not configured. Set FILE_STORAGE_LOCAL_SIGNING_SECRET.",
-							),
-						),
-			);
 
 			const resolveKey = (key: string) => {
 				const namespace = key.split("/", 1)[0] ?? "";
@@ -169,16 +148,13 @@ export class LocalStorageService extends Context.Service<LocalStorageService>()(
 				});
 
 			const sign = (method: string, pathname: string, expiresAt: number) =>
-				Effect.tryPromise(() => {
-					if (signingKey === null) {
-						throw new Error("Local storage signing is not configured");
-					}
-					return crypto.subtle.sign(
+				Effect.tryPromise(() =>
+					crypto.subtle.sign(
 						"HMAC",
 						signingKey,
 						new TextEncoder().encode(`${method}\n${pathname}\n${expiresAt}`),
-					);
-				}).pipe(
+					),
+				).pipe(
 					Effect.map((value) => base64UrlEncode(new Uint8Array(value))),
 					Effect.orDie,
 				);
@@ -187,7 +163,6 @@ export class LocalStorageService extends Context.Service<LocalStorageService>()(
 				intentId: string,
 				now: number,
 			) {
-				yield* requireSigningConfigured;
 				const expiresAt = now + UPLOAD_URL_EXPIRY_SECONDS;
 				const pathname = localUploadPath(intentId);
 				const signature = yield* sign("PUT", pathname, expiresAt);
@@ -203,7 +178,6 @@ export class LocalStorageService extends Context.Service<LocalStorageService>()(
 				url: string,
 				now: number,
 			) {
-				yield* requireSigningConfigured;
 				const parsed = yield* Effect.try({
 					try: () => new URL(url, "http://local.invalid"),
 					catch: () => badRequest("Local upload target is malformed"),
@@ -226,17 +200,14 @@ export class LocalStorageService extends Context.Service<LocalStorageService>()(
 				if (actualBytes === null) {
 					return yield* badRequest("Local upload target is invalid or expired");
 				}
-				const valid = yield* Effect.tryPromise(() => {
-					if (signingKey === null) {
-						throw new Error("Local storage signing is not configured");
-					}
-					return crypto.subtle.verify(
+				const valid = yield* Effect.tryPromise(() =>
+					crypto.subtle.verify(
 						"HMAC",
 						signingKey,
 						actualBytes,
 						new TextEncoder().encode(`${method}\n${parsed.pathname}\n${expiresAt}`),
-					);
-				}).pipe(Effect.orDie);
+					),
+				).pipe(Effect.orDie);
 				if (!valid) {
 					return yield* badRequest("Local upload target is invalid or expired");
 				}
@@ -300,19 +271,16 @@ export class LocalStorageService extends Context.Service<LocalStorageService>()(
 				if (actualBytes === null) {
 					return yield* badRequest("Local download target is invalid or expired");
 				}
-				const valid = yield* Effect.tryPromise(() => {
-					if (signingKey === null) {
-						throw new Error("Local storage signing is not configured");
-					}
-					return crypto.subtle.verify(
+				const valid = yield* Effect.tryPromise(() =>
+					crypto.subtle.verify(
 						"HMAC",
 						signingKey,
 						actualBytes,
 						new TextEncoder().encode(
 							`GET,HEAD\n${parsed.pathname}\n${key}\n${contentType}\n${expiresAt}`,
 						),
-					);
-				}).pipe(Effect.orDie);
+					),
+				).pipe(Effect.orDie);
 				if (!valid) {
 					return yield* badRequest("Local download target is invalid or expired");
 				}
@@ -337,7 +305,7 @@ export class LocalStorageService extends Context.Service<LocalStorageService>()(
 					return canonicalTarget;
 				});
 
-			const writeObject = Effect.fn("LocalStorageService.writeObject")(function* (
+			const writeStagedObject = Effect.fn("LocalStorageService.writeStagedObject")(function* (
 				key: string,
 				stream: Stream.Stream<Uint8Array, unknown>,
 				contentLength: string | undefined,
@@ -354,9 +322,7 @@ export class LocalStorageService extends Context.Service<LocalStorageService>()(
 				if (declaredLength !== null && declaredLength > maxBytes) {
 					return yield* badRequest(`Upload exceeds maximum allowed size of ${maxBytes} bytes`);
 				}
-				const staged = `${target}.part`;
-				yield* fs.remove(target, { force: true }).pipe(Effect.orDie);
-				yield* fs.remove(staged, { force: true }).pipe(Effect.ignore);
+				const staged = `${target}.${crypto.randomUUID()}.part`;
 				let size = 0;
 				const bounded = stream.pipe(
 					Stream.mapEffect((chunk) => {
@@ -383,6 +349,17 @@ export class LocalStorageService extends Context.Service<LocalStorageService>()(
 							),
 					),
 				);
+				return { staged, target };
+			});
+
+			const writeObject = Effect.fn("LocalStorageService.writeObject")(function* (
+				key: string,
+				stream: Stream.Stream<Uint8Array, unknown>,
+				contentLength: string | undefined,
+				maxBytes = UPLOAD_MAX_FILE_BYTES,
+			) {
+				const { staged, target } = yield* writeStagedObject(key, stream, contentLength, maxBytes);
+				yield* fs.remove(target, { force: true }).pipe(Effect.orDie);
 				yield* fs.rename(staged, target).pipe(
 					Effect.mapError(() => badRequest("Local upload could not be finalized")),
 					Effect.catch((error) =>
@@ -401,6 +378,24 @@ export class LocalStorageService extends Context.Service<LocalStorageService>()(
 					),
 				);
 				return void 0;
+			});
+
+			const writeObjectIfAbsent = Effect.fn("LocalStorageService.writeObjectIfAbsent")(function* (
+				key: string,
+				stream: Stream.Stream<Uint8Array, unknown>,
+				contentLength: string | undefined,
+				maxBytes = UPLOAD_MAX_FILE_BYTES,
+			) {
+				const { staged, target } = yield* writeStagedObject(key, stream, contentLength, maxBytes);
+				return yield* fs.link(staged, target).pipe(
+					Effect.as(true),
+					Effect.catchIf(
+						(error) => hasSystemErrorReason(error, "AlreadyExists"),
+						() => Effect.succeed(false),
+					),
+					Effect.mapError(() => badRequest("Local upload could not be finalized")),
+					Effect.ensuring(fs.remove(staged, { force: true }).pipe(Effect.ignore)),
+				);
 			});
 
 			const openObject = Effect.fn("LocalStorageService.openObject")(function* (key: string) {
@@ -439,10 +434,11 @@ export class LocalStorageService extends Context.Service<LocalStorageService>()(
 				resolveObjectPath,
 				createUploadTarget,
 				verifyUploadTarget,
+				writeObjectIfAbsent,
 				createDownloadTarget,
 				verifyDownloadTarget,
 				isConfiguredForKind: (kind: "permanent" | "temporary") =>
-					kind === "permanent" ? permanentConfigured : temporaryConfigured,
+					kind === "permanent" ? permanentConfigured : true,
 			};
 		}),
 	},

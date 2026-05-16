@@ -8,10 +8,15 @@ import { Text, View } from "react-native";
 
 import { useApiScope } from "@/api/scope";
 import { useInternalRequestFailureLogging } from "@/api/use-internal-request-failure-logging";
-import { canDeleteImportRun, importSourceName } from "@/modules/import-runs/run-presentation";
+import {
+	canDeleteImportRun,
+	importRunDeleteConfirmation,
+	importSourceName,
+} from "@/modules/imports/run-presentation";
 import { ChildScreenFrame } from "@/modules/navigation/child-screen-frame";
 import type { HeaderOverflowItem } from "@/modules/navigation/header/header-overflow-menu";
 import { copyTextToClipboard } from "@/modules/ui/clipboard";
+import { DestructiveActionSheet } from "@/modules/ui/destructive-action-sheet";
 import {
 	isTerminalRunStatus,
 	runDurationLabel,
@@ -27,7 +32,6 @@ import {
 	importRunReactivityKeys,
 	importSourcesAtom,
 } from "./atoms";
-import { ImportRunDeleteSheet } from "./import-run-delete-sheet";
 import { ImportRunView } from "./import-run-view";
 import { mapImportRunDetail, mapImportSourceNames } from "./state";
 
@@ -93,11 +97,19 @@ export function ImportRunScreen(props: { runId: string }) {
 			overflowItems={overflowItems}
 			overlay={
 				isConfirming && run !== undefined ? (
-					<ImportRunDeleteSheet
-						run={run}
+					<DestructiveActionSheet
+						snapPoints={[300]}
 						pending={isDeleting}
+						pendingLabel="Deleting..."
+						actionLabel="Delete record"
+						title="Delete this import record?"
+						detail={importRunDeleteConfirmation(run)}
 						onConfirm={() => void confirmDelete()}
-						hasFailed={deleteFailure !== undefined}
+						errorMessage={
+							deleteFailure === undefined
+								? undefined
+								: "This record could not be deleted. Try again."
+						}
 						onClose={() => {
 							setDeleteFailure(undefined);
 							setIsConfirming(false);

@@ -264,6 +264,34 @@ describe("V1 streaming ZIP validation", () => {
 		}),
 	);
 
+	it.effect("round trips the checked-in V1 fixture without changing its records", () =>
+		Effect.gen(function* () {
+			const validated = yield* Effect.gen(function* () {
+				const fs = yield* FileSystem.FileSystem;
+				return yield* validateV1Archive(fixtureArchive(fs));
+			}).pipe(Effect.provide(BunFileSystem.layer));
+			const roundTripped = yield* validateV1ArchiveStream(
+				createV1ArchiveStream({
+					assets: [],
+					records: validated.records,
+					archiveId: validated.manifest.archiveId,
+					createdAt: validated.manifest.createdAt,
+					appVersion: validated.manifest.appVersion,
+					redactions: validated.manifest.redactions,
+					requiredPlugins: validated.manifest.requiredPlugins,
+				}),
+			).pipe(Effect.provide(BunFileSystem.layer));
+			expect(roundTripped.records).toEqual(validated.records);
+			expect(roundTripped.manifest).toMatchObject({
+				version: 1,
+				format: "ryot-backup",
+				archiveId: validated.manifest.archiveId,
+			});
+			yield* roundTripped.cleanup;
+			yield* validated.cleanup;
+		}),
+	);
+
 	it.effect("round trips records and spools asset bytes", () =>
 		Effect.gen(function* () {
 			const validated = yield* validateV1ArchiveStream(createV1ArchiveStream(archiveInput())).pipe(

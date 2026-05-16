@@ -1,15 +1,19 @@
-import { DbError } from "@ryot/contract/errors";
+import { conflict, DbError } from "@ryot/contract/errors";
 import type {
 	BackupRun,
 	BackupRunArtifactProvider,
 	BackupRunKind,
 } from "@ryot/contract/modules/backups/schemas";
 import { BackupRunId, UserId } from "@ryot/contract/schema/brands";
-import { and, asc, desc, eq, inArray, isNotNull, lte, ne } from "drizzle-orm";
+import { and, asc, desc, eq, inArray, isNotNull, lte, notInArray } from "drizzle-orm";
 import { Context, DateTime, Effect, Layer } from "effect";
 
 import * as schema from "#lib/infrastructure/db/schema/tables/backups";
-import { Database, mapDatabaseErrors } from "#lib/infrastructure/db/service";
+import {
+	Database,
+	isUniqueConstraintError,
+	mapDatabaseErrors,
+} from "#lib/infrastructure/db/service";
 
 type BackupRunRow = typeof schema.backupRun.$inferSelect;
 
@@ -70,6 +74,10 @@ export class BackupsRepository extends Context.Service<BackupsRepository>()("Bac
 					.insert(schema.backupRun)
 					.values({ userId: input.userId, kind: input.kind, status: "pending", progress: 0 })
 					.returning(),
+			).pipe(
+				Effect.catchIf(isUniqueConstraintError("backup_run_user_active_unique"), () =>
+					conflict("A backup operation is already pending or running"),
+				),
 			);
 			if (!row) {
 				return yield* new DbError({ message: "Backup run insert returned no row" });
@@ -286,7 +294,7 @@ export class BackupsRepository extends Context.Service<BackupsRepository>()("Bac
 						and(
 							eq(schema.backupRun.id, input.runId),
 							eq(schema.backupRun.userId, input.userId),
-							ne(schema.backupRun.status, "running"),
+							notInArray(schema.backupRun.status, ["pending", "running"]),
 						),
 					)
 					.returning(),

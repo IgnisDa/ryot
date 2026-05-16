@@ -82,10 +82,16 @@ export type AppStringPropertyFormat =
 	| { readonly kind: "email" }
 	| { readonly kind: "upload"; readonly allowedFileExtensions: ReadonlyArray<string> };
 
+export type AppStringPropertyReference = {
+	readonly kind: "entity-id" | "relationship-id";
+	readonly required?: true | undefined;
+};
+
 export type AppStringProperty = AppPropertyBase<AppStringPropertyValidation> & {
 	readonly type: "string";
 	readonly defaultValue?: string | undefined;
 	readonly format?: AppStringPropertyFormat | undefined;
+	readonly reference?: AppStringPropertyReference | undefined;
 };
 
 export type AppNumberProperty = AppPropertyBase<AppNumberPropertyValidation> & {
@@ -340,6 +346,11 @@ const stringPropertyFormatSchema = Schema.Union([
 	}),
 ]);
 
+const stringPropertyReferenceSchema = strictStruct({
+	required: Schema.optional(Schema.Literal(true)),
+	kind: Schema.Literals(["entity-id", "relationship-id"]),
+});
+
 export const AppChoiceSchema = strictStruct({
 	value: nonEmptyTrimmedString,
 	label: Schema.optional(nonEmptyTrimmedString),
@@ -503,9 +514,10 @@ const enumArrayPropertySchema = strictStruct({
 const stringPropertySchema = strictStruct({
 	...propertyBaseFields,
 	type: Schema.Literal("string"),
-	format: Schema.optional(stringPropertyFormatSchema),
 	defaultValue: Schema.optional(Schema.String),
 	validation: Schema.optional(stringValidationSchema),
+	format: Schema.optional(stringPropertyFormatSchema),
+	reference: Schema.optional(stringPropertyReferenceSchema),
 }).pipe(
 	Schema.check(
 		Schema.makeFilter(

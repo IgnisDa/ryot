@@ -33,8 +33,17 @@ Open _Settings_ → _Backups_ and choose _Create a backup_. Your server packs th
 background, so you can leave the page or close Ryot while it runs. The backup appears in the list
 on that page with its progress, and becomes downloadable once it finishes.
 
+Only one backup operation can be pending or running for an account. This applies to both exports
+and restores. Starting another operation before the current one reaches a terminal state is
+rejected; wait for the existing run to finish or fail.
+
 Choose _Download_ on a finished backup to save the `.zip` archive. On a phone or tablet, Ryot
 hands the archive to the system share sheet so you can save it wherever you keep your files.
+
+Downloads are streamed to native files and to browsers that provide a save-file picker. A browser
+without a save-file picker uses a non-streaming Blob fallback, which accepts downloads up to 50
+MiB and rejects larger archives. Use a native client or a browser with a save-file picker for a
+larger backup.
 
 You can also delete a backup from this page. Deleting removes the record and the stored archive;
 it never touches the data in your account.
@@ -49,8 +58,11 @@ safe place. A backup can contain private history and copies of files you uploade
 A backup can only be restored to a clean account. A clean account is new or has been reset and
 contains no personal data or custom settings.
 
-The same required plugins and providers must be available on the destination Ryot server. You
-do not need to configure integrations again until after the restore.
+The archive records the exact required plugin version for each plugin. Every required plugin must
+be installed on the destination server at the same version; a missing plugin or version mismatch
+causes the restore to fail. This also applies to plugins referenced by the archived state or data.
+Ryot does not install or upgrade plugins during restore. You do not need to configure integrations
+again until after the restore.
 
 To restore, open _Settings_ → _Backups_ on the destination account, choose _Restore from a
 backup_, and upload the `.zip` archive. Ryot checks the archive before it writes anything, so a
@@ -58,6 +70,13 @@ damaged or incomplete file is rejected without changing your account. The restor
 your server, and its progress appears in the same list as your backups.
 
 Restore is separate from importing. Do not upload a Ryot backup through the Imports page.
+
+## Archive compatibility
+
+The backup is a versioned Ryot archive, not an arbitrary ZIP file. The current portable format is
+`ryot-backup` version 1. Ryot validates its manifest, section checksums, paths, record counts, and
+asset checksums, and rejects an unsupported format or version. Restore compatibility therefore
+requires a valid version-1 archive and the exact plugin versions declared in its manifest.
 
 After a successful restore, the account is no longer clean, so the same or another backup cannot
 be restored again without resetting the account first.

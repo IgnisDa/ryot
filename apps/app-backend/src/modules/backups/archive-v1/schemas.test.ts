@@ -4,11 +4,8 @@ import { Effect, Result, Schema } from "effect";
 
 import { BackupArchiveError } from "./error";
 import {
-	backupV1EntityReferenceRules,
-	backupV1EventReferenceRules,
 	redactV1SchemaSecrets,
 	rewriteV1AssetLocatorForArchive,
-	rewriteV1EntityEmbeddedReferences,
 	rewriteV1EventReferences,
 	rewriteV1ManagedAssetLocators,
 	rewriteV1RelationshipReferences,
@@ -19,7 +16,6 @@ import {
 	V1NotificationSubscription,
 	V1_SECTION_PATHS,
 	type V1Event,
-	type V1UserEntity,
 } from "./schemas";
 import { decodeNdjson, encodeNdjson } from "./streaming";
 
@@ -34,18 +30,6 @@ const event = (properties: V1Event["properties"] = {}): V1Event => ({
 	occurredAt: timestamp,
 	sessionEntityId: "session-1",
 	eventSchemaSlug: "collection:add-entity-to-collection",
-});
-
-const entity = (properties: V1UserEntity["properties"]): V1UserEntity => ({
-	properties,
-	provider: null,
-	id: "template-1",
-	name: "Template",
-	externalId: null,
-	populatedAt: null,
-	createdAt: timestamp,
-	updatedAt: timestamp,
-	entitySchemaSlug: "workout-template",
 });
 
 describe("V1 codecs", () => {
@@ -108,12 +92,11 @@ describe("V1 codecs", () => {
 });
 
 describe("V1 reference rewrites", () => {
-	it.effect("rewrites relationship, event, collection, and workout-template references", () =>
+	it.effect("rewrites relationship, event, and schema-declared property references", () =>
 		Effect.gen(function* () {
 			const entityIds = new Map([
 				["entity-1", "new-entity-1"],
 				["session-1", "new-session-1"],
-				["exercise-1", "new-exercise-1"],
 			]);
 			const relationship = yield* rewriteV1RelationshipReferences(
 				{
@@ -133,22 +116,29 @@ describe("V1 reference rewrites", () => {
 			});
 			const rewrittenEvent = yield* rewriteV1EventReferences(
 				event({ entityId: "entity-1", relationshipId: "relationship-1" }),
+				{
+					fields: {
+						entityId: {
+							type: "string",
+							label: "Entity ID",
+							description: "Entity reference",
+							reference: { kind: "entity-id" },
+						},
+						relationshipId: {
+							type: "string",
+							label: "Relationship ID",
+							description: "Relationship reference",
+							reference: { kind: "relationship-id" },
+						},
+					},
+				},
 				entityIds,
 				new Map([["relationship-1", "new-relationship-1"]]),
-				backupV1EventReferenceRules,
 			);
 			expect(rewrittenEvent).toMatchObject({
 				entityId: "new-entity-1",
 				sessionEntityId: "new-session-1",
 				properties: { entityId: "new-entity-1", relationshipId: "new-relationship-1" },
-			});
-			const template = yield* rewriteV1EntityEmbeddedReferences(
-				entity({ exercises: [{ exerciseId: "exercise-1", notes: [] }] }),
-				entityIds,
-				backupV1EntityReferenceRules,
-			);
-			expect(template.properties).toMatchObject({
-				exercises: [{ exerciseId: "new-exercise-1" }],
 			});
 		}),
 	);

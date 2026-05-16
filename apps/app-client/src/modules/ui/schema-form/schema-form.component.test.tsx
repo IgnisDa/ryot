@@ -4,7 +4,7 @@ import { render, screen, userEvent } from "@testing-library/react-native";
 import { useEffect } from "react";
 import { Pressable, Text } from "react-native";
 
-import type { SchemaFileUpload } from "./file-upload";
+import type { SchemaFileUpload } from "./file/file-upload";
 import { SchemaForm, useSchemaForm } from "./schema-form";
 import {
 	initialSchemaFormValues,
@@ -103,6 +103,17 @@ const credentialsSchema = {
 	},
 } satisfies AppSchema;
 
+const scalarValidationSchema = {
+	fields: {
+		handle: {
+			type: "string",
+			label: "Handle",
+			description: "Handle",
+			validation: { minLength: 3 },
+		},
+	},
+} satisfies AppSchema;
+
 const listSchema = {
 	fields: {
 		sites: {
@@ -169,6 +180,23 @@ describe("schema form", () => {
 		await user.press(screen.getByRole("button", { name: "Search" }));
 
 		expect(submitted).toEqual([{ adult: false, region: "us", title: "Dune" }]);
+	});
+
+	it("routes scalar property validation errors to their field", async () => {
+		const user = userEvent.setup();
+		const submitted: SchemaFormValues[] = [];
+		await render(
+			<SchemaFormHarness
+				schema={scalarValidationSchema}
+				onSubmit={(values) => submitted.push(values)}
+			/>,
+		);
+
+		await user.type(screen.getByLabelText("Handle"), "ab");
+		await user.press(screen.getByRole("button", { name: "Search" }));
+
+		expect(await screen.findByRole("alert")).toHaveTextContent("Handle is too short");
+		expect(submitted).toEqual([]);
 	});
 
 	it("recomputes visible fields from current form values", async () => {

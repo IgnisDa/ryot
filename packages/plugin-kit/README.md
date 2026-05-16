@@ -259,37 +259,64 @@ direct definition — `{ manifest, input, output, run }` — with the `defineOpe
 
 ## Import Sources
 
-File-backed import sources declare either one artifact or a set of named artifacts:
+Import sources declare a strict `inputSchema`. Upload fields are top-level string fields with an
+upload format. A source with one upload can use a field such as `uploadToken`:
 
 ```ts
 importSources: [
 	{
-		input: "file",
-		lot: "single",
-		allowedFileExtensions: ["csv"],
-		// slug, name, description, workflowSlug, requiredPluginConfigKeys
-	},
-	{
-		input: "file",
-		lot: "named",
-		artifacts: [
-			{
-				key: "historyFilePath",
-				required: true,
-				allowedFileExtensions: ["csv"],
-				uploadTokenField: "historyUploadToken",
+		slug: "goodreads",
+		name: "Goodreads",
+		workflowSlug: "import",
+		description: "Import a Goodreads export",
+		requiredPluginConfigKeys: [],
+		inputSchema: {
+			unknownKeys: "strict",
+			fields: {
+				uploadToken: {
+					position: 0,
+					type: "string",
+					label: "Export file",
+					description: "Goodreads library export CSV",
+					validation: { minLength: 1, required: true },
+					format: { kind: "upload", allowedFileExtensions: ["csv"] },
+				},
 			},
-		],
-		// slug, name, description, workflowSlug, requiredPluginConfigKeys
+		},
 	},
 ];
 ```
 
-The kernel claims and validates each upload using its declaration, then exposes only declared
-artifacts to the sandbox. Single-file scripts use `readArtifact()`. Named-file scripts use
-`readNamedArtifact(key)`, where `key` is also the stable source-payload path identity. Named keys
-and upload-token fields must be unique within a source. Payload-only sources use `input: "payload"`
-and have no file lot.
+For multiple uploads, declare one top-level upload field per artifact in the same `inputSchema`:
+
+```ts
+inputSchema: {
+	unknownKeys: "strict",
+	fields: {
+		historyUploadToken: {
+			position: 0,
+			type: "string",
+			label: "History export",
+			description: "History CSV",
+			validation: { minLength: 1, required: true },
+			format: { kind: "upload", allowedFileExtensions: ["csv"] },
+		},
+		ratingsUploadToken: {
+			position: 1,
+			type: "string",
+			label: "Ratings export",
+			description: "Ratings CSV",
+			validation: { minLength: 1, required: true },
+			format: { kind: "upload", allowedFileExtensions: ["csv"] },
+		},
+	},
+},
+```
+
+The kernel validates each upload using its field declaration, then exposes the declared artifact
+to the sandbox under the input-schema field name. Import scripts use `readNamedArtifact(key)` for
+that field name. Payload-only sources use an `inputSchema` with ordinary non-upload fields and no
+file fields.
 
 ## Recipes
 

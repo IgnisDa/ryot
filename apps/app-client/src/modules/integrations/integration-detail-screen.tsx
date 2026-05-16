@@ -6,13 +6,14 @@ import { router } from "expo-router";
 import { useEffect, useEffectEvent, useState } from "react";
 import { Text, View } from "react-native";
 
+import { temporaryFileUploadOperation } from "@/api/files/upload";
 import { requestFailureMessage } from "@/api/request-failure";
 import { useApiScope } from "@/api/scope";
-import { temporaryFileUploadOperation } from "@/api/uploads";
 import { useInternalRequestFailureLogging } from "@/api/use-internal-request-failure-logging";
 import { ChildScreenFrame } from "@/modules/navigation/child-screen-frame";
 import type { HeaderOverflowItem } from "@/modules/navigation/header/header-overflow-menu";
 import { copyTextToClipboard } from "@/modules/ui/clipboard";
+import { DestructiveActionSheet } from "@/modules/ui/destructive-action-sheet";
 import { isTerminalRunStatus } from "@/modules/ui/run/run-status";
 import { RUN_LIST_POLL_MS, useRunPolling } from "@/modules/ui/run/use-run-polling";
 import { useSchemaForm } from "@/modules/ui/schema-form/schema-form";
@@ -28,7 +29,6 @@ import {
 	updateIntegrationAtom,
 } from "./atoms";
 import { integrationSaveFailure } from "./create-failure";
-import { IntegrationDeleteSheet } from "./integration-delete-sheet";
 import { IntegrationDetailView } from "./integration-detail-view";
 import { updateIntegrationBody, storedIntegrationFormValues } from "./integration-payload";
 import { integrationDeleteConfirmation, integrationTitle } from "./integration-presentation";
@@ -51,6 +51,7 @@ const returnToList = () => {
 export function IntegrationDetailScreen(props: { integrationId: string }) {
 	const scope = useApiScope();
 	const [saving, setSaving] = useState(false);
+	const [deleting, setDeleting] = useState(false);
 	const [isConfirming, setIsConfirming] = useState(false);
 	const [saveCause, setSaveCause] = useState<unknown>();
 	const [deleteFailure, setDeleteFailure] = useState<unknown>();
@@ -130,11 +131,16 @@ export function IntegrationDetailScreen(props: { integrationId: string }) {
 	}, [integration?.id, provider?.slug, integration?.updatedAt]);
 
 	async function confirmDelete() {
+		if (deleting) {
+			return;
+		}
+		setDeleting(true);
 		setDeleteFailure(undefined);
 		const exit = await deleteIntegration({
 			reactivityKeys: integrationReactivityKeys(scope),
 			params: { integrationId: IntegrationId.make(props.integrationId) },
 		});
+		setDeleting(false);
 		if (Exit.isFailure(exit)) {
 			setDeleteFailure(exit.cause);
 			return;
@@ -169,11 +175,19 @@ export function IntegrationDetailScreen(props: { integrationId: string }) {
 			}
 			overlay={
 				isConfirming && integration !== undefined ? (
-					<IntegrationDeleteSheet
-						pending={saving}
-						onConfirm={() => void confirmDelete()}
-						hasFailed={deleteFailure !== undefined}
+					<DestructiveActionSheet
+						snapPoints={[300]}
+						pending={deleting}
+						pendingLabel="Deleting..."
+						actionLabel="Delete integration"
+						title="Delete this integration?"
 						detail={integrationDeleteConfirmation(integration, providerNames)}
+						errorMessage={
+							deleteFailure === undefined
+								? undefined
+								: "This integration could not be deleted. Try again."
+						}
+						onConfirm={() => void confirmDelete()}
 						onClose={() => {
 							setDeleteFailure(undefined);
 							setIsConfirming(false);

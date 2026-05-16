@@ -11,7 +11,7 @@ import {
 	importRunProgressValue,
 	importRunProvenanceLabel,
 	importSourceName,
-} from "@/modules/import-runs/run-presentation";
+} from "@/modules/imports/run-presentation";
 import { AppButton } from "@/modules/ui/button";
 import { RunProgressBar } from "@/modules/ui/run/run-progress-bar";
 import { formatRunCount, runDurationLabel, runTimestampLabel } from "@/modules/ui/run/run-status";
