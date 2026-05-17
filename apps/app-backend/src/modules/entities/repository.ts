@@ -1,4 +1,3 @@
-import { dayjs } from "@ryot/ts-utils/dayjs";
 import { and, asc, eq, isNull, or, sql } from "drizzle-orm";
 
 import { assertPersisted, type DbClient, db } from "~/lib/db";
@@ -35,8 +34,6 @@ const entitySchemaScopeSelection = {
 	...entitySchemaAccessScopeSelection,
 	propertiesSchema: entitySchema.propertiesSchema,
 };
-
-const unpopulatedGlobalEntityDate = dayjs(0).toDate();
 
 export const getEntitySchemaScopeForUser = async (input: {
 	userId: string;
@@ -181,7 +178,6 @@ export const createGlobalEntity = async (input: {
 		.values({
 			image: null,
 			userId: null,
-			populatedAt: unpopulatedGlobalEntityDate,
 			properties: {},
 			name: input.name,
 			externalId: input.externalId,

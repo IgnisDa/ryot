@@ -194,8 +194,8 @@ export const entity = pgTable(
 		externalId: text(),
 		name: text().notNull(),
 		image: jsonb().$type<ImageSchemaType>(),
+		populatedAt: timestamp({ withTimezone: true }),
 		createdAt: timestamp({ withTimezone: true }).defaultNow().notNull(),
-		populatedAt: timestamp({ withTimezone: true }).defaultNow().notNull(),
 		userId: text().references(() => user.id, { onDelete: "cascade" }),
 		properties: jsonb().$type<Record<string, unknown>>().notNull().default({}),
 		entitySchemaId: text()
