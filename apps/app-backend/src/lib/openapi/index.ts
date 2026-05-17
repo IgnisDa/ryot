@@ -1,8 +1,6 @@
-import type { RouteConfig } from "@hono/zod-openapi";
 import { z } from "@hono/zod-openapi";
 import { resolveDataOrError } from "@ryot/ts-utils/error";
 
-import { requireAuth } from "~/lib/auth/middleware";
 import type { ServiceResult } from "~/lib/result";
 
 import { ERROR_CODES, errorResponse } from "./errors";
@@ -181,11 +179,4 @@ const jsonContent = <TSchema extends z.ZodType>(schema: TSchema) => ({
 export const jsonResponse = <TSchema extends z.ZodType>(description: string, schema: TSchema) => ({
 	description,
 	content: jsonContent(schema),
-});
-
-export const createAuthRoute = <TRoute extends RouteConfig>(route: TRoute) => ({
-	...route,
-	middleware: [requireAuth],
-	security: [{ "X-Api-Key": [] }],
-	responses: { 401: unauthenticatedResponse(), ...route.responses },
 });
