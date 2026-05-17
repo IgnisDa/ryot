@@ -1,4 +1,5 @@
 import { getPgClient } from "../setup";
+import { requirePresent } from "../test-support/assertions";
 
 export async function createRelationshipSchema(input: {
 	slug: string;
@@ -142,9 +143,7 @@ export async function insertLibraryMembership(input: { userId: string; mediaEnti
 		[input.userId],
 	);
 	const libraryEntityId = libraryResult.rows[0]?.id;
-	if (!libraryEntityId) {
-		throw new Error(`Missing library entity for user '${input.userId}'`);
-	}
+	requirePresent(libraryEntityId, `Missing library entity for user '${input.userId}'`);
 
 	const schemaResult = await pg.query<{ id: string }>(
 		`select id from relationship_schema
@@ -152,9 +151,7 @@ export async function insertLibraryMembership(input: { userId: string; mediaEnti
 		 limit 1`,
 	);
 	const inLibrarySchemaId = schemaResult.rows[0]?.id;
-	if (!inLibrarySchemaId) {
-		throw new Error("Missing in-library relationship schema");
-	}
+	requirePresent(inLibrarySchemaId, "Missing in-library relationship schema");
 
 	await pg.query(
 		`insert into relationship (

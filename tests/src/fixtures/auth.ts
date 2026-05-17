@@ -4,6 +4,7 @@ import { createAuthClient } from "better-auth/client";
 import type createClient from "openapi-fetch";
 
 import { getBackendClient, getBackendUrl, getPgClient } from "../setup";
+import { requireNonEmptyArray, requirePresent } from "../test-support/assertions";
 import { cookieHeaderFromSetCookies } from "./auth-2fa";
 
 export type Client = ReturnType<typeof createClient<paths>>;
@@ -17,11 +18,7 @@ async function getUserIdByEmail(email: string) {
 		[email],
 	);
 	const row = result.rows[0];
-	if (!row) {
-		throw new Error(`Failed to find user '${email}'`);
-	}
-
-	return row.id;
+	return requirePresent(row, `Failed to find user '${email}'`).id;
 }
 
 export async function createTestUser() {
@@ -52,10 +49,9 @@ export async function createTestUser() {
 	}
 
 	const setCookies = signInResponse.headers.getSetCookie();
-	if (!setCookies.length) {
-		throw new Error("Failed to get auth cookies");
-	}
-	const cookies = cookieHeaderFromSetCookies(setCookies);
+	const cookies = cookieHeaderFromSetCookies(
+		requireNonEmptyArray(setCookies, "Failed to get auth cookies"),
+	);
 
 	return { cookies, email, password };
 }
