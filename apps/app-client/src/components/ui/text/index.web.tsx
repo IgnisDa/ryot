@@ -5,6 +5,7 @@ import { textStyle } from "./styles";
 
 type ITextProps = React.ComponentProps<"span"> &
 	VariantProps<typeof textStyle> & {
+		selectable?: boolean;
 		numberOfLines?: number;
 	};
 
@@ -17,6 +18,7 @@ const Text = React.forwardRef<React.ComponentRef<"span">, ITextProps>(function T
 		className,
 		underline,
 		highlight,
+		selectable,
 		isTruncated,
 		size = "md",
 		strikeThrough,
@@ -35,11 +37,24 @@ const Text = React.forwardRef<React.ComponentRef<"span">, ITextProps>(function T
 				}
 			: undefined;
 
+	const selectableStyle: React.CSSProperties | undefined =
+		selectable === false
+			? { userSelect: "none" }
+			: selectable === true
+				? { userSelect: "text" }
+				: undefined;
+
+	const mergedStyle = {
+		...style,
+		...clampStyle,
+		...selectableStyle,
+	};
+
 	return (
 		<span
 			{...props}
 			ref={ref}
-			style={clampStyle ? { ...style, ...clampStyle } : style}
+			style={Object.keys(mergedStyle).length > 0 ? mergedStyle : undefined}
 			className={textStyle({
 				sub,
 				size,
