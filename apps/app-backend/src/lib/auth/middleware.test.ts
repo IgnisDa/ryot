@@ -13,6 +13,7 @@ const authUser: NonNullable<MaybeAuthType["user"]> = {
 	createdAt: new Date(),
 	updatedAt: new Date(),
 	emailVerified: false,
+	twoFactorEnabled: false,
 	email: "test@example.com",
 };
 
