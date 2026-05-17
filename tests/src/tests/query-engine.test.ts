@@ -4699,12 +4699,10 @@ describe("Query engine E2E", () => {
 			expect(data?.mode).toBe("timeSeries");
 			const buckets = data?.mode === "timeSeries" ? data.data.buckets : [];
 			expect(buckets).toHaveLength(3);
-			// Today's bucket should have our 2 events
 			expect(buckets[0]?.value).toBe(2);
 			// Future buckets should be 0 (empty bucket fill)
 			expect(buckets[1]?.value).toBe(0);
 			expect(buckets[2]?.value).toBe(0);
-			// Dates should be ISO 8601 UTC strings
 			expect(typeof buckets[0]?.date).toBe("string");
 		});
 
