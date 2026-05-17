@@ -350,7 +350,11 @@ export const builtinEntitySchemas = () => [
 		trackerSlug: undefined,
 		accentColor: "#C4B5FD",
 		propertiesSchema: showEpisodePropertiesSchema,
-		eventSchemas: [lifecycleEventSchemaBySlug("progress"), lifecycleEventSchemaBySlug("complete")],
+		eventSchemas: [
+			lifecycleEventSchemaBySlug("progress"),
+			lifecycleEventSchemaBySlug("review"),
+			lifecycleEventSchemaBySlug("complete"),
+		],
 	},
 	{
 		slug: "manga",
@@ -388,7 +392,11 @@ export const builtinEntitySchemas = () => [
 		trackerSlug: undefined,
 		accentColor: "#67E8F9",
 		propertiesSchema: podcastEpisodePropertiesSchema,
-		eventSchemas: [lifecycleEventSchemaBySlug("progress"), lifecycleEventSchemaBySlug("complete")],
+		eventSchemas: [
+			lifecycleEventSchemaBySlug("progress"),
+			lifecycleEventSchemaBySlug("review"),
+			lifecycleEventSchemaBySlug("complete"),
+		],
 	},
 	{
 		icon: "gamepad-2",
