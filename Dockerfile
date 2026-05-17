@@ -58,6 +58,8 @@ RUN apt-get update && apt-get install -y --no-install-recommends ca-certificates
     apt-get autoremove -y && \
     rm -rf /var/lib/apt/lists/*
 ENV SANDBOX_DENO_DIR=/home/ryot/tmp
+ENV FRONTEND_UMAMI_HOST_URL="https://umami.diptesh.me"
+ENV FRONTEND_UMAMI_WEBSITE_ID="5ecd6915-d542-4fda-aa5f-70f09f04e2e0"
 WORKDIR /home/ryot
 RUN mkdir -p /home/ryot/storage /home/ryot/work && chown -R ryot:ryot /home/ryot/storage /home/ryot/work
 COPY --chown=ryot:ryot apps/app-backend/src/drizzle ./src/drizzle
