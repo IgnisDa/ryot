@@ -1,5 +1,5 @@
 import { expect, it } from "@effect/vitest";
-import { SandboxScriptId } from "@ryot/contract/schema/brands";
+import { SandboxProviderId, SandboxScriptId } from "@ryot/contract/schema/brands";
 import { Effect, Layer } from "effect";
 
 import { SandboxService as RuntimeSandboxService } from "#lib/infrastructure/sandbox-runtime/service";
@@ -16,9 +16,16 @@ import { SandboxRepository } from "./repository";
 it("uses the sandbox execution id as the durable queue identity", () => {
 	const payload = {
 		context: {},
-		authority: { type: "system" as const },
-		scriptId: SandboxScriptId.make("historical-script-id"),
 		executionId: "execution-id",
+		principal: {
+			metadata: {},
+			providerId: null,
+			pluginRevision: null,
+			scriptSlug: "workflow",
+			contentHash: "historical-hash",
+			subject: { type: "system" as const },
+			scriptId: SandboxScriptId.make("historical-script-id"),
+		},
 	};
 
 	expect(SandboxExecutionQueue.idempotencyKey(payload)).toBe("execution-id");
@@ -41,7 +48,7 @@ esac
 		context: {},
 		executionId: "execution-id",
 		scriptId: historicalScriptId,
-		authority: { type: "system" as const },
+		subject: { type: "system" as const },
 	};
 	const script = (id: typeof historicalScriptId, compiledCode: string) => ({
 		id,
@@ -86,7 +93,7 @@ esac
 			run: (input) =>
 				Effect.sync(() => {
 					executedContent.push(input.compiledCode);
-					executedHashes.push(input.contentHash);
+					executedHashes.push(input.principal.contentHash);
 					let value = "completed:active-v2";
 					if (input.compiledCode === historicalContent) {
 						value = input.executionId.endsWith("-replay-0")
@@ -108,15 +115,26 @@ esac
 
 	return Effect.gen(function* () {
 		const pinned = yield* resolveSandboxExecutionPayload(payload, "active");
+		const principal = {
+			providerId: null,
+			pluginRevision: null,
+			subject: pinned.subject,
+			scriptId: pinned.scriptId,
+			scriptSlug: historical.slug,
+			metadata: historical.metadata,
+			contentHash: historical.contentHash,
+		};
 		const pending = yield* executeSandboxExecution({
-			...pinned,
+			principal,
+			context: pinned.context,
 			executionId: "execution-id-replay-0",
 		});
 		expect(pending.value).toBe("pending:pinned-v1");
 
 		activeId = activeScriptId;
 		const replayed = yield* executeSandboxExecution({
-			...pinned,
+			principal,
+			context: pinned.context,
 			executionId: "execution-id-replay-1",
 		});
 		expect(replayed.value).toBe("completed:pinned-v1");
@@ -148,9 +166,9 @@ it.effect("executes the exact queued row and preserves provider identity", () =>
 		run: (input) =>
 			Effect.sync(() => {
 				executedCode = input.compiledCode;
-				executedHashes.push(input.contentHash);
-				executedScriptIds.push(input.scriptId);
-				executedProviderIds.push(input.providerId);
+				executedHashes.push(input.principal.contentHash);
+				executedScriptIds.push(input.principal.scriptId);
+				executedProviderIds.push(input.principal.providerId);
 				return {
 					logs: [],
 					error: null,
@@ -167,15 +185,29 @@ it.effect("executes the exact queued row and preserves provider identity", () =>
 	return Effect.gen(function* () {
 		const result = yield* executeSandboxExecution({
 			context: {},
-			scriptId: queuedScriptId,
 			executionId: "execution-id",
-			authority: { type: "system" },
+			principal: {
+				metadata: {},
+				scriptSlug: "queued",
+				pluginRevision: null,
+				scriptId: queuedScriptId,
+				contentHash: "queued-hash",
+				subject: { type: "system" },
+				providerId: SandboxProviderId.make("provider-id"),
+			},
 		});
 		yield* executeSandboxExecution({
 			context: {},
-			scriptId: kernelScriptId,
-			authority: { type: "system" },
 			executionId: "kernel-execution-id",
+			principal: {
+				metadata: {},
+				providerId: null,
+				scriptSlug: "kernel",
+				pluginRevision: null,
+				scriptId: kernelScriptId,
+				contentHash: "kernel-hash",
+				subject: { type: "system" },
+			},
 		});
 
 		expect(executedCode).toBe("queued-version");

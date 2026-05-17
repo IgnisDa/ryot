@@ -26,6 +26,7 @@ import {
 	validateIntegrationProviderSettingsSchemas,
 	validateImportSourceInputSchemas,
 	validatePluginExecutableScripts,
+	validatePluginManifestPolicy,
 	validatePluginManifestReferences,
 	validatePluginSourcePaths,
 	validateSignalSchemaFormatterReferences,
@@ -136,125 +137,115 @@ export class PluginIngestionService extends Context.Service<PluginIngestionServi
 						),
 			);
 
-			const ingestPluginUnlocked = Effect.fn("PluginIngestionService.ingestPluginUnlocked")(
-				function* (source: PluginSource, trusted: boolean) {
-					const manifest = yield* decodePluginManifest(source.manifest);
-					if (manifest.userBootstrap.length > 0 && !trusted) {
-						return yield* new PluginValidationError({
-							issues: ["User bootstrap declarations are allowed only for trusted system plugins"],
-						});
-					}
-					const files = source.files;
-					yield* validatePluginSourcePaths(files, manifest.scripts);
-					const sourceHash = pluginSourceHash(manifest, files);
-					const slug = manifest.metadata.slug;
-					const existing = loader.getSnapshot().plugins[slug];
-					const candidate = {
-						slug,
-						sourceHash,
-						scripts: [],
-						ownerId: null,
-						sourceFiles: files,
-						scope: "system" as const,
-						id: existing?.id ?? `pending:${slug}`,
-						manifest: { ...manifest, httpRateLimits: [] },
-					} satisfies PluginRegistryEntry;
-					const prospectiveSnapshot = yield* Effect.try({
-						try: () => loader.preview(candidate),
-						catch: (error) => new PluginValidationError({ issues: [String(error)] }),
-					});
-					yield* validateSnapshot(prospectiveSnapshot, false);
+			const ingestSystemPluginUnlocked = Effect.fn(
+				"PluginIngestionService.ingestSystemPluginUnlocked",
+			)(function* (source: PluginSource) {
+				const manifest = yield* decodePluginManifest(source.manifest);
+				yield* validatePluginManifestPolicy(manifest, { scope: "system" });
+				const files = source.files;
+				yield* validatePluginSourcePaths(files, manifest.scripts);
+				const sourceHash = pluginSourceHash(manifest, files);
+				const slug = manifest.metadata.slug;
+				const existing = loader.getSnapshot().plugins[slug];
+				const candidate = {
+					slug,
+					manifest,
+					sourceHash,
+					scripts: [],
+					ownerId: null,
+					sourceFiles: files,
+					scope: "system" as const,
+					id: existing?.id ?? `pending:${slug}`,
+				} satisfies PluginRegistryEntry;
+				const prospectiveSnapshot = yield* Effect.try({
+					try: () => loader.preview(candidate),
+					catch: (error) => new PluginValidationError({ issues: [String(error)] }),
+				});
+				yield* validateSnapshot(prospectiveSnapshot, false);
 
-					const cached = yield* repository.findBySourceHash({
-						slug,
-						sourceHash,
-						ownerId: null,
-						scope: "system",
-					});
-					if (cached) {
-						const committed = yield* Effect.uninterruptible(
-							mapDatabaseErrors(
-								database.transaction((transaction) =>
-									Effect.gen(function* () {
-										yield* repository.lockIngestion();
-										const installed = yield* repository.list();
-										const authoritative = installed.find(
-											(plugin) => plugin.slug === slug && plugin.sourceHash === sourceHash,
-										);
-										if (!authoritative) {
-											return null;
-										}
-										const snapshot = yield* Effect.try({
-											try: () => loader.previewAll(installed),
-											catch: (error) => new PluginValidationError({ issues: [String(error)] }),
-										});
-										yield* validateSnapshot(snapshot);
-										return { plugin: authoritative, snapshot };
-									}).pipe(Effect.provideService(Database, transaction)),
-								),
-							).pipe(
-								Effect.tap((result) =>
-									result ? Effect.sync(() => loader.replace(result.snapshot)) : Effect.void,
-								),
-							),
-						);
-						if (committed) {
-							yield* publishInvalidation(stableStringify({ slug, sourceHash }));
-							return committed.plugin;
-						}
-					}
-
-					const normalized = yield* compilePluginPackage({ files, manifest, sourceHash });
-					const stored = yield* Effect.uninterruptible(
+				const cached = yield* repository.findBySourceHash({
+					slug,
+					sourceHash,
+					ownerId: null,
+					scope: "system",
+				});
+				if (cached) {
+					const committed = yield* Effect.uninterruptible(
 						mapDatabaseErrors(
 							database.transaction((transaction) =>
 								Effect.gen(function* () {
 									yield* repository.lockIngestion();
 									const installed = yield* repository.list();
-									const previous = installed.find((plugin) => plugin.slug === slug);
-									if (previous) {
-										yield* validateAdditiveSchemaEvolution(previous.manifest, manifest);
+									const authoritative = installed.find(
+										(plugin) => plugin.slug === slug && plugin.sourceHash === sourceHash,
+									);
+									if (!authoritative) {
+										return null;
 									}
-									const pluginId = yield* repository.persist(normalized, {
-										slug,
-										ownerId: null,
-										scope: "system",
-									});
-									const entry = {
-										...normalized,
-										slug,
-										id: pluginId,
-										ownerId: null,
-										scope: "system" as const,
-									} satisfies PluginRegistryEntry;
-									const nextInstalled = [
-										...installed.filter((plugin) => plugin.slug !== slug),
-										entry,
-									];
 									const snapshot = yield* Effect.try({
-										try: () => loader.previewAll(nextInstalled),
+										try: () => loader.previewAll(installed),
 										catch: (error) => new PluginValidationError({ issues: [String(error)] }),
 									});
 									yield* validateSnapshot(snapshot);
-									return { entry, snapshot };
+									return { plugin: authoritative, snapshot };
 								}).pipe(Effect.provideService(Database, transaction)),
 							),
-						).pipe(Effect.tap(({ snapshot }) => Effect.sync(() => loader.replace(snapshot)))),
+						).pipe(
+							Effect.tap((result) =>
+								result ? Effect.sync(() => loader.replace(result.snapshot)) : Effect.void,
+							),
+						),
 					);
-					yield* publishInvalidation(stableStringify({ slug, sourceHash }));
-					return stored.entry;
-				},
-			);
-			const ingestPlugin = Effect.fn("PluginIngestionService.ingestPlugin")(
+					if (committed) {
+						yield* publishInvalidation(stableStringify({ slug, sourceHash }));
+						return committed.plugin;
+					}
+				}
+
+				const normalized = yield* compilePluginPackage({ files, manifest, sourceHash });
+				const stored = yield* Effect.uninterruptible(
+					mapDatabaseErrors(
+						database.transaction((transaction) =>
+							Effect.gen(function* () {
+								yield* repository.lockIngestion();
+								const installed = yield* repository.list();
+								const previous = installed.find((plugin) => plugin.slug === slug);
+								if (previous) {
+									yield* validateAdditiveSchemaEvolution(previous.manifest, manifest);
+								}
+								const pluginId = yield* repository.persist(normalized, {
+									slug,
+									ownerId: null,
+									scope: "system",
+								});
+								const entry = {
+									...normalized,
+									slug,
+									id: pluginId,
+									ownerId: null,
+									scope: "system" as const,
+								} satisfies PluginRegistryEntry;
+								const nextInstalled = [
+									...installed.filter((plugin) => plugin.slug !== slug),
+									entry,
+								];
+								const snapshot = yield* Effect.try({
+									try: () => loader.previewAll(nextInstalled),
+									catch: (error) => new PluginValidationError({ issues: [String(error)] }),
+								});
+								yield* validateSnapshot(snapshot);
+								return { entry, snapshot };
+							}).pipe(Effect.provideService(Database, transaction)),
+						),
+					).pipe(Effect.tap(({ snapshot }) => Effect.sync(() => loader.replace(snapshot)))),
+				);
+				yield* publishInvalidation(stableStringify({ slug, sourceHash }));
+				return stored.entry;
+			});
+			const ingestSystemPlugin = Effect.fn("PluginIngestionService.ingestSystemPlugin")(
 				(source: PluginSource) =>
 					mutationLock.withPermits(1)(
-						ingestPluginUnlocked(source, false).pipe(structurePluginFailure),
-					),
-			);
-			const ingestTrustedPlugin = Effect.fn("PluginIngestionService.ingestTrustedPlugin")(
-				(source: PluginSource) =>
-					mutationLock.withPermits(1)(
-						ingestPluginUnlocked(source, true).pipe(structurePluginFailure),
+						ingestSystemPluginUnlocked(source).pipe(structurePluginFailure),
 					),
 			);
 
@@ -266,7 +257,7 @@ export class PluginIngestionService extends Context.Service<PluginIngestionServi
 			const installPlugin = Effect.fn("PluginIngestionService.installPlugin")(function* (
 				source: PluginSource,
 			) {
-				return toSystemPluginItem(yield* ingestPlugin(source));
+				return toSystemPluginItem(yield* ingestSystemPlugin(source));
 			});
 
 			const uninstallPluginUnlocked = Effect.fn("PluginIngestionService.uninstallPluginUnlocked")(
@@ -362,10 +353,9 @@ export class PluginIngestionService extends Context.Service<PluginIngestionServi
 				rebuild,
 				reconcile,
 				listPlugins,
-				ingestPlugin,
 				installPlugin,
 				uninstallPlugin,
-				ingestTrustedPlugin,
+				ingestSystemPlugin,
 			};
 		}),
 	},

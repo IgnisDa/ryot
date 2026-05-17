@@ -1,6 +1,6 @@
 import { unknownToMessage } from "@ryot/contract/errors";
 import type { PluginCron } from "@ryot/contract/modules/plugins/manifest";
-import type { ExecutionAuthority } from "@ryot/contract/modules/sandbox/schemas";
+import type { SandboxExecutionSubject } from "@ryot/contract/modules/sandbox/schemas";
 import type { PluginSlug } from "@ryot/contract/schema/brands";
 import { Cause, Clock, Context, Cron, Duration, Effect, Result, Layer } from "effect";
 import { WorkflowEngine } from "effect/unstable/workflow/WorkflowEngine";
@@ -66,7 +66,9 @@ export class PluginCronService extends Context.Service<PluginCronService>()("Plu
 					cronSlug: entry.cronSlug,
 					pluginSlug: entry.pluginSlug,
 				});
-				return system && { ...system, authority: { type: "system" } satisfies ExecutionAuthority };
+				return (
+					system && { ...system, subject: { type: "system" } satisfies SandboxExecutionSubject }
+				);
 			}
 			const owned = yield* runtime.resolvePrivatePluginCron({
 				cronSlug: entry.cronSlug,
@@ -75,10 +77,7 @@ export class PluginCronService extends Context.Service<PluginCronService>()("Plu
 			return (
 				owned && {
 					...owned,
-					authority: {
-						type: "user",
-						userId: owned.userId,
-					} satisfies ExecutionAuthority,
+					subject: { type: "user", userId: owned.userId } satisfies SandboxExecutionSubject,
 				}
 			);
 		});
@@ -105,8 +104,8 @@ export class PluginCronService extends Context.Service<PluginCronService>()("Plu
 						input: {},
 						executionId,
 						resolutionMode: "exact",
+						subject: resolved.subject,
 						scriptId: resolved.script.id,
-						authority: resolved.authority,
 					},
 				}),
 			);
