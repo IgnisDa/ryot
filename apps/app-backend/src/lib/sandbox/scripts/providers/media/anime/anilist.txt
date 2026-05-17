@@ -429,39 +429,41 @@ query MediaDetailsQuery($id: Int!) {
     media.studios?.nodes && Array.isArray(media.studios.nodes)
       ? media.studios.nodes
       : [];
-  const companies = studioNodes
-    .map((studio) => {
-      if (!studio || typeof studio !== "object") {
-        return null;
-      }
-      const studioId =
-        typeof studio.id === "number" && Number.isFinite(studio.id)
-          ? Math.trunc(studio.id)
-          : null;
-      if (studioId === null) {
-        return null;
-      }
-      const studioName =
-        typeof studio.name === "string" && studio.name.trim()
-          ? studio.name.trim()
-          : null;
-      if (!studioName) {
-        return null;
-      }
-      return {
-        name: studioName,
-        role: "Animation Studio",
-        externalId: String(studioId),
-        scriptSlug: "company.anilist",
-      };
-    })
-    .filter((s) => s !== null);
+  const relatedEntities = [];
+  const seenStudios = new Set();
+  for (const studio of studioNodes) {
+    if (!studio || typeof studio !== "object") {
+      continue;
+    }
+
+    const studioId =
+      typeof studio.id === "number" && Number.isFinite(studio.id)
+        ? Math.trunc(studio.id)
+        : null;
+    if (studioId === null || seenStudios.has(studioId)) {
+      continue;
+    }
+    seenStudios.add(studioId);
+
+    const studioName =
+      typeof studio.name === "string" && studio.name.trim()
+        ? studio.name.trim()
+        : "Loading...";
+
+    relatedEntities.push({
+      name: studioName,
+      externalId: String(studioId),
+      scriptSlug: "company.anilist",
+      relationshipProperties: {
+        roles: ["Animation Studio"],
+      },
+    });
+  }
 
   return {
     name: title,
     properties: {
       episodes,
-      companies,
       productionStatus: productionStatus,
       publishYear: parsePublishYear(media.startDate),
       genres: collectGenres(media.genres, media.tags),
@@ -480,5 +482,6 @@ query MediaDetailsQuery($id: Int!) {
           ? media.averageScore
           : null,
     },
+    relatedEntities,
   };
 });

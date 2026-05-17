@@ -92,7 +92,29 @@ function buildPeople(credits) {
     return [];
   }
 
-  const people = [];
+  const relatedEntityByKey = new Map();
+  const addRelatedEntity = (relatedEntity) => {
+    const key = `${relatedEntity.scriptSlug}:${relatedEntity.externalId}`;
+    const existing = relatedEntityByKey.get(key);
+    if (!existing) {
+      relatedEntityByKey.set(key, relatedEntity);
+      return;
+    }
+
+    const roles = new Set([
+      ...(Array.isArray(existing.relationshipProperties.roles)
+        ? existing.relationshipProperties.roles
+        : []),
+      ...(Array.isArray(relatedEntity.relationshipProperties.roles)
+        ? relatedEntity.relationshipProperties.roles
+        : []),
+    ]);
+    existing.relationshipProperties.roles = [...roles];
+    if (existing.name === "Loading..." && relatedEntity.name !== "Loading...") {
+      existing.name = relatedEntity.name;
+    }
+  };
+
   const seen = new Set();
 
   for (const credit of credits) {
@@ -101,8 +123,8 @@ function buildPeople(credits) {
     }
 
     const externalId = getIdentifier(credit.id);
-    const name = getString(credit.creator);
-    if (!externalId || !name) {
+    const name = getString(credit.creator) ?? "Loading...";
+    if (!externalId) {
       continue;
     }
 
@@ -122,16 +144,18 @@ function buildPeople(credits) {
       }
 
       seen.add(key);
-      people.push({
-        role,
+      addRelatedEntity({
         name,
         externalId,
         scriptSlug: "person.metron",
+        relationshipProperties: {
+          roles: [role],
+        },
       });
     }
   }
 
-  return people;
+  return [...relatedEntityByKey.values()];
 }
 
 driver("search", async function(context) {
@@ -218,29 +242,36 @@ driver("details", async function(context) {
       ? Math.trunc(payload.page_count)
       : null;
   const image = getString(payload?.image);
-  const groups =
+  const relatedEntities = buildPeople(payload?.credits);
+  const groupRelatedEntities =
     payload?.series && typeof payload.series === "object"
       ? [
         {
           scriptSlug: "comic-book-group.metron",
           externalId: getIdentifier(payload.series.id),
-          name: getString(payload.series.name) ?? "Unknown Series",
+          name: getString(payload.series.name) ?? "Loading...",
+          relationshipProperties: {
+            roles: ["Member"],
+          },
         },
       ].filter((group) => group.externalId !== null)
       : [];
 
+  for (const groupRelatedEntity of groupRelatedEntities) {
+    relatedEntities.push(groupRelatedEntity);
+  }
+
   return {
     name: title,
     properties: {
-      groups,
       genres: [],
       pages: pageCount,
-      people: buildPeople(payload?.credits),
       description: getString(payload?.desc),
       publishDate: parsePublishDate(payload?.cover_date),
       images: image ? [{ type: "remote", url: image }] : [],
       sourceUrl: `https://metron.cloud/issue/${externalId}`,
       publishYear: parsePublishYear(payload?.cover_date, dayjs),
     },
+    relatedEntities,
   };
 });

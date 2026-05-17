@@ -2,6 +2,7 @@ import { z } from "@hono/zod-openapi";
 
 import { nonEmptyStringSchema } from "~/lib/zod";
 
+// TODO: rename this job when the media worker is renamed for generic entity import.
 export const mediaImportJobName = "media-import";
 
 export const mediaJobWaitingForSandboxStep = "waiting_for_sandbox";
@@ -15,40 +16,3 @@ export const mediaImportJobData = z.object({
 });
 
 export type MediaImportJobData = z.infer<typeof mediaImportJobData>;
-
-export const personPopulateJobName = "person-populate";
-
-export const personPopulateJobData = z.object({
-	userId: nonEmptyStringSchema,
-	scriptSlug: nonEmptyStringSchema,
-	externalId: nonEmptyStringSchema,
-	personEntityId: nonEmptyStringSchema,
-	step: z.literal(mediaJobWaitingForSandboxStep).optional(),
-});
-
-export type PersonPopulateJobData = z.infer<typeof personPopulateJobData>;
-
-export const companyPopulateJobName = "company-populate";
-
-export const companyPopulateJobData = z.object({
-	userId: nonEmptyStringSchema,
-	scriptSlug: nonEmptyStringSchema,
-	externalId: nonEmptyStringSchema,
-	companyEntityId: nonEmptyStringSchema,
-	step: z.literal(mediaJobWaitingForSandboxStep).optional(),
-});
-
-export type CompanyPopulateJobData = z.infer<typeof companyPopulateJobData>;
-
-export const groupPopulateJobName = "group-populate";
-
-export const groupPopulateJobData = z.object({
-	userId: nonEmptyStringSchema,
-	scriptSlug: nonEmptyStringSchema,
-	externalId: nonEmptyStringSchema,
-	groupEntityId: nonEmptyStringSchema,
-	groupSchemaSlug: nonEmptyStringSchema,
-	step: z.literal(mediaJobWaitingForSandboxStep).optional(),
-});
-
-export type GroupPopulateJobData = z.infer<typeof groupPopulateJobData>;
