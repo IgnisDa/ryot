@@ -150,17 +150,11 @@ const makeLoadOutcomeSchema = <Item>(itemSchema: Schema.Schema<Item>) =>
 		}),
 	);
 
-export const runOneTimeNonMediaImportWorkflow = <
-	Item extends NonMediaImportItem,
-	RLoad,
-	RPrepare,
-	RWrite,
-	RCleanup,
->(
-	payload: ImportRunJobData,
-	operations: NonMediaImportOperations<Item, RLoad, RPrepare, RWrite, RCleanup>,
-) =>
-	Effect.gen(function* () {
+export const runOneTimeNonMediaImportWorkflow = Effect.fn("runOneTimeNonMediaImportWorkflow")(
+	function* <Item extends NonMediaImportItem, RLoad, RPrepare, RWrite, RCleanup>(
+		payload: ImportRunJobData,
+		operations: NonMediaImportOperations<Item, RLoad, RPrepare, RWrite, RCleanup>,
+	) {
 		const runWithDb = yield* DbRunner;
 		const config = yield* AppConfig;
 		const repository = yield* ImportsRepository;
@@ -352,4 +346,5 @@ export const runOneTimeNonMediaImportWorkflow = <
 				}),
 			),
 		);
-	});
+	},
+);

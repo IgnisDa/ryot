@@ -406,43 +406,44 @@ const collectDisplayExpressions = (displayConfig: DisplayConfiguration): QueryEx
 	return expressions;
 };
 
-export const validateDisplayConfiguration = <E>(input: {
+export const validateDisplayConfiguration = Effect.fn("validateDisplayConfiguration")(function* <
+	E,
+>(input: {
 	displayConfig: DisplayConfiguration;
 	doc: QueryDocument;
 	loadSchemas: (
 		slugs: readonly [string, ...string[]],
 	) => Effect.Effect<readonly DisplayEntitySchema[], E>;
-}): Effect.Effect<void, BadRequest | E> =>
-	Effect.gen(function* () {
-		if (input.displayConfig.table.columns.length === 0) {
-			return yield* badRequest("At least one table column is required");
-		}
+}) {
+	if (input.displayConfig.table.columns.length === 0) {
+		return yield* badRequest("At least one table column is required");
+	}
 
-		const sourceSchemas = getQueryDocSourceSchemas(input.doc);
-		const badSlug = collectDisplayConfigEntitySlugs(input.displayConfig).find(
-			(slug) => !sourceSchemas.has(slug),
+	const sourceSchemas = getQueryDocSourceSchemas(input.doc);
+	const badSlug = collectDisplayConfigEntitySlugs(input.displayConfig).find(
+		(slug) => !sourceSchemas.has(slug),
+	);
+	if (badSlug) {
+		return yield* badRequest(
+			`Display configuration references entity schema '${badSlug}' which is not in the query document source`,
 		);
-		if (badSlug) {
-			return yield* badRequest(
-				`Display configuration references entity schema '${badSlug}' which is not in the query document source`,
-			);
-		}
+	}
 
-		const schemaRows = yield* input.loadSchemas(getQueryDocSourceSchemaList(input.doc));
-		const schemaMap = new Map(schemaRows.map((schema) => [schema.slug, schema]));
-		for (const expression of collectDisplayExpressions(input.displayConfig)) {
-			yield* inferDisplayExpressionType(expression, schemaMap);
-		}
+	const schemaRows = yield* input.loadSchemas(getQueryDocSourceSchemaList(input.doc));
+	const schemaMap = new Map(schemaRows.map((schema) => [schema.slug, schema]));
+	for (const expression of collectDisplayExpressions(input.displayConfig)) {
+		yield* inferDisplayExpressionType(expression, schemaMap);
+	}
 
-		const entityIdType = yield* inferDisplayExpressionType(
-			input.displayConfig.entityIdProperty,
-			schemaMap,
+	const entityIdType = yield* inferDisplayExpressionType(
+		input.displayConfig.entityIdProperty,
+		schemaMap,
+	);
+	if (entityIdType !== "string") {
+		return yield* badRequest(
+			"displayConfiguration.entityIdProperty must resolve to a string expression",
 		);
-		if (entityIdType !== "string") {
-			return yield* badRequest(
-				"displayConfiguration.entityIdProperty must resolve to a string expression",
-			);
-		}
+	}
 
-		return yield* Effect.void;
-	});
+	return yield* Effect.void;
+});
