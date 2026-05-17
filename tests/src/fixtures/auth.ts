@@ -51,12 +51,12 @@ export async function createTestUser() {
 		throw new Error("Failed to get auth cookies");
 	}
 
-	return { cookies, email, password };
+	return { cookies, email };
 }
 
 export async function createAuthenticatedClient() {
 	const client = getBackendClient();
-	const { cookies, email, password } = await createTestUser();
+	const { cookies, email } = await createTestUser();
 	const userId = await getUserIdByEmail(email);
-	return { client, cookies, email, password, userId };
+	return { client, cookies, email, userId };
 }
