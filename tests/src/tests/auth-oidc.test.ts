@@ -290,8 +290,10 @@ describe("Registration gating for OIDC (Backend C)", () => {
 		}
 		const [stateCookie] = stateCookieHeader.split(";");
 
+		const resolvedClaims = { name: username, email: `${username}@example.com` };
 		const formBody = new URLSearchParams();
 		formBody.set("username", username);
+		formBody.set("claims", JSON.stringify(resolvedClaims));
 		const step2Response = await fetch(authorizeUrl, {
 			method: "POST",
 			redirect: "manual",
