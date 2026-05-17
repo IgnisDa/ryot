@@ -19,7 +19,7 @@ use supporting_service::SupportingService;
 use traits::MediaProvider;
 
 use crate::{
-    base::{TvdbService, json_response},
+    base::TvdbService,
     models::{TvdbSeasonExtendedResponse, TvdbShowExtendedResponse, URL},
 };
 
@@ -50,8 +50,7 @@ impl MediaProvider for TvdbShowService {
             .get(format!("{URL}/series/{identifier}/extended"))
             .send()
             .await?;
-        let series_data: TvdbShowExtendedResponse =
-            json_response(series_rsp, "series extended").await?;
+        let series_data: TvdbShowExtendedResponse = series_rsp.json().await?;
         let show_data = series_data.data;
 
         let title = show_data.common.name.unwrap_or_default();
@@ -180,8 +179,7 @@ impl MediaProvider for TvdbShowService {
                     .get(format!("{URL}/seasons/{season_id}/extended"))
                     .send()
                     .await?;
-                let season_data: TvdbSeasonExtendedResponse =
-                    json_response(rsp, "season extended").await?;
+                let season_data: TvdbSeasonExtendedResponse = rsp.json().await?;
                 Ok::<TvdbSeasonExtendedResponse, anyhow::Error>(season_data)
             })
             .buffer_unordered(5)

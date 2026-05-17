@@ -19,7 +19,7 @@ use supporting_service::SupportingService;
 use traits::MediaProvider;
 
 use crate::{
-    base::{TvdbService, json_response},
+    base::TvdbService,
     models::{TvdbListDetailsResponse, TvdbMovieExtendedResponse, URL},
 };
 
@@ -50,7 +50,7 @@ impl MediaProvider for TvdbMovieService {
             .get(format!("{URL}/movies/{identifier}/extended"))
             .send()
             .await?;
-        let data: TvdbMovieExtendedResponse = json_response(rsp, "movie extended").await?;
+        let data: TvdbMovieExtendedResponse = rsp.json().await?;
         let movie_data = data.data;
 
         let title = movie_data
@@ -225,7 +225,7 @@ impl MediaProvider for TvdbMovieService {
             .get(format!("{URL}/lists/{identifier}/extended"))
             .send()
             .await?;
-        let data: TvdbListDetailsResponse = json_response(rsp, "list extended").await?;
+        let data: TvdbListDetailsResponse = rsp.json().await?;
         let list_data = data.data;
 
         let mut images = vec![];

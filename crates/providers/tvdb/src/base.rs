@@ -2,7 +2,7 @@ use std::sync::Arc;
 
 use anyhow::{Result, bail};
 use common_models::SearchDetails;
-use common_utils::{PAGE_SIZE, get_base_http_client, ryot_log};
+use common_utils::{PAGE_SIZE, get_base_http_client};
 use dependent_models::{
     ApplicationCacheKey, ApplicationCacheValue, ProviderSupportedLanguageInformation,
     SearchResults, TvdbSettings,
@@ -23,24 +23,6 @@ use crate::models::{
 pub struct TvdbService {
     pub client: Client,
     pub settings: TvdbSettings,
-}
-
-pub(crate) async fn json_response<T>(response: reqwest::Response, label: &str) -> Result<T>
-where
-    T: serde::de::DeserializeOwned,
-{
-    let status = response.status();
-    let body = response.bytes().await?;
-
-    ryot_log!(
-        debug,
-        "TVDB {} response body ({}): {}",
-        label,
-        status,
-        String::from_utf8_lossy(&body)
-    );
-
-    Ok(serde_json::from_slice(&body)?)
 }
 
 impl TvdbService {
@@ -93,7 +75,7 @@ impl TvdbService {
             ])
             .send()
             .await?;
-        let search: TvdbSearchResponse = json_response(rsp, "search").await?;
+        let search: TvdbSearchResponse = rsp.json().await?;
 
         let next_page = search
             .links
@@ -140,7 +122,7 @@ impl TvdbService {
             ))
             .send()
             .await?;
-        let response: TvdbItemTranslationResponse = json_response(response, "translation").await?;
+        let response: TvdbItemTranslationResponse = response.json().await?;
 
         if response.status != "success" {
             bail!("Translation not found");
@@ -174,8 +156,7 @@ async fn get_settings(ss: &Arc<SupportingService>) -> Result<TvdbSettings> {
             )]));
 
             let resp = client.get(format!("{URL}/languages")).send().await?;
-            let languages_response: TvdbLanguagesApiResponse =
-                json_response(resp, "languages").await?;
+            let languages_response: TvdbLanguagesApiResponse = resp.json().await?;
 
             let settings = TvdbSettings {
                 access_token,
