@@ -1,3 +1,5 @@
+import { gunzipSync } from "node:zlib";
+
 import type { Job } from "bullmq";
 
 import { temporaryUploadMaxFileBytes } from "~/lib/upload";
@@ -32,18 +34,30 @@ const myanimelistImportProcessorDeps: MyanimelistImportProcessorDeps = {
 	adaptMyanimelistExports,
 };
 
+const isTooLargeGunzipError = (error: unknown): error is { code: string } =>
+	typeof error === "object" &&
+	error !== null &&
+	"code" in error &&
+	error.code === "ERR_BUFFER_TOO_LARGE";
+
 const decodeMyanimelistFile = async (
 	filePath: string,
 	deps: MyanimelistImportProcessorDeps,
 ): Promise<string> => {
-	const bytes = await deps.readImportFileBytes(filePath);
-	const decodedBytes = filePath.toLowerCase().endsWith(".gz")
-		? Bun.gunzipSync(new Uint8Array(bytes))
-		: bytes;
-	if (decodedBytes.byteLength > deps.maxFileBytes) {
-		throw new Error(
-			`Import file exceeds maximum allowed size of ${deps.maxFileBytes} bytes (file is ${decodedBytes.byteLength} bytes)`,
-		);
+	const bytes = await deps.readImportFileBytes(filePath, deps.maxFileBytes);
+	let decodedBytes = bytes;
+	if (filePath.toLowerCase().endsWith(".gz")) {
+		try {
+			decodedBytes = new Uint8Array(gunzipSync(bytes, { maxOutputLength: deps.maxFileBytes }));
+		} catch (error) {
+			if (isTooLargeGunzipError(error)) {
+				throw new Error(
+					`Import file exceeds maximum allowed size of ${deps.maxFileBytes} bytes after decompression`,
+					{ cause: error },
+				);
+			}
+			throw error;
+		}
 	}
 	return new TextDecoder().decode(decodedBytes);
 };
