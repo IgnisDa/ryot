@@ -2,7 +2,7 @@ import { sql } from "drizzle-orm";
 
 import type { DbClient } from "~/lib/db";
 
-const renameConflictingTablesSql = sql`
+const renameLegacyTablesSql = sql`
 DO $$
 BEGIN
 	IF to_regclass('public.old_user') IS NULL
@@ -23,7 +23,7 @@ BEGIN
 END $$;
 `;
 
-const migrateLegacyUsersSql = sql`
+const migrateLegacyTablesSql = sql`
 DO $$
 BEGIN
 	IF to_regclass('public.old_user') IS NULL THEN
@@ -89,10 +89,10 @@ BEGIN
 END $$;
 `;
 
-export const renameConflictingTables = async (database: DbClient) => {
-	await database.execute(renameConflictingTablesSql);
+export const renameLegacyTables = async (database: DbClient) => {
+	await database.execute(renameLegacyTablesSql);
 };
 
-export const migrateLegacyUsers = async (database: DbClient) => {
-	await database.execute(migrateLegacyUsersSql);
+export const migrateLegacyTables = async (database: DbClient) => {
+	await database.execute(migrateLegacyTablesSql);
 };

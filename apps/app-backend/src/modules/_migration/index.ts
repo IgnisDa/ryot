@@ -1,1 +1,1 @@
-export { migrateLegacyUsers, renameConflictingTables } from "./legacy-user";
+export { renameLegacyTables, migrateLegacyTables } from "./legacy-tables";
