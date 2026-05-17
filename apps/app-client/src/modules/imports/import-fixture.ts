@@ -17,7 +17,7 @@ export const completedRunRow = {
 	progress: 100,
 	failedItems: 31,
 	totalItems: 2_045,
-	errorSummary: null,
+	failureReason: null,
 	status: "completed",
 	source: "open_scale",
 	importedItems: 2_014,
@@ -36,7 +36,7 @@ export const runningRunRow = {
 	finishedAt: null,
 	totalItems: 1_204,
 	status: "running",
-	errorSummary: null,
+	failureReason: null,
 	importedItems: 396,
 	processedItems: 412,
 	source: "goodreads",
@@ -56,7 +56,7 @@ export const preparingRunRow = {
 	importedItems: 0,
 	processedItems: 0,
 	status: "pending",
-	errorSummary: null,
+	failureReason: null,
 	id: "run-pending-1",
 	inputSummary: { source: "trakt" },
 	createdAt: "2026-03-13T09:00:00.000Z",
@@ -78,7 +78,7 @@ export const failedRunRow = {
 	startedAt: "2026-03-10T08:00:00.000Z",
 	finishedAt: "2026-03-10T08:00:30.000Z",
 	inputSummary: { source: "strong_app" },
-	errorSummary: "ETIMEDOUT while polling upstream chunk 4",
+	failureReason: { code: "source-fetch-failed" },
 };
 
 export const unreadableFailureRow = {
@@ -91,12 +91,10 @@ export const unreadableFailureRow = {
 	sourceLabel: "The Long Way Home",
 	sourceIdentifier: "goodreads:8231",
 	createdAt: "2026-03-12T21:41:00.000Z",
-	message: "The rating column was not a number",
-	context: { column: "My Rating", rawValue: "four stars" },
+	reason: { code: "input-transformation-failed" },
 };
 
 export const unmatchedFailureRow = {
-	context: null,
 	itemIndex: 11,
 	sourceLabel: null,
 	eventSchemaSlug: null,
@@ -106,7 +104,7 @@ export const unmatchedFailureRow = {
 	id: "failure-unmatched-1",
 	stage: "provider_resolution",
 	createdAt: "2026-03-12T21:42:00.000Z",
-	message: "No provider match was found",
+	reason: { code: "provider-resolution-failed" },
 };
 
 export const decodeImportRunList = (

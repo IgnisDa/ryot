@@ -1,3 +1,5 @@
+import { ImportRequestError } from "@ryot/contract/modules/imports/schemas";
+import { Cause } from "effect";
 import { describe, expect, it } from "vitest";
 
 import { importStartFailure } from "./start-failure";
@@ -5,7 +7,11 @@ import { importStartFailure } from "./start-failure";
 describe("import start failure", () => {
 	it("sends a rejected file extension back to the inputs", () => {
 		const failure = importStartFailure(
-			"Import file must have one of the following extensions: csv, json",
+			Cause.fail(
+				new ImportRequestError({
+					reason: { code: "unsupported-file-extension", allowedExtensions: ["csv", "json"] },
+				}),
+			),
 		);
 
 		expect(failure.step).toBe("configure");
@@ -15,19 +21,11 @@ describe("import start failure", () => {
 	});
 
 	it("sends field problems back to the inputs without repeating the server wording", () => {
-		const invalid = importStartFailure("Import source input is invalid: apiKey is required");
-		const undeclared = importStartFailure(
-			"Import source does not declare upload token field: extraUploadToken",
-		);
-		const reserved = importStartFailure(
-			"Import source payload field is reserved: integrationScriptSlug",
+		const invalid = importStartFailure(
+			Cause.fail(new ImportRequestError({ reason: { code: "invalid-input", field: "apiKey" } })),
 		);
 
-		expect([invalid.step, undeclared.step, reserved.step]).toEqual([
-			"configure",
-			"configure",
-			"configure",
-		]);
+		expect(invalid.step).toBe("configure");
 		expect(invalid.detail).toBe(
 			"Some of these details could not be used. Check them and try again.",
 		);
@@ -36,10 +34,26 @@ describe("import start failure", () => {
 
 	it("sends configuration and availability problems back to the service choice", () => {
 		const unconfigured = importStartFailure(
-			"Archive importer is not configured. Set RYOT_PLUGIN_MEDIA_TOKEN.",
+			Cause.fail(
+				new ImportRequestError({
+					reason: {
+						source: "archive",
+						code: "source-not-configured",
+						missingConfigKeys: ["RYOT_PLUGIN_MEDIA_TOKEN"],
+					},
+				}),
+			),
 		);
-		const missing = importStartFailure("Import source is not available");
-		const workflow = importStartFailure("Import source workflow is not available");
+		const missing = importStartFailure(
+			Cause.fail(
+				new ImportRequestError({ reason: { code: "source-not-found", source: "archive" } }),
+			),
+		);
+		const workflow = importStartFailure(
+			Cause.fail(
+				new ImportRequestError({ reason: { code: "workflow-unavailable", source: "archive" } }),
+			),
+		);
 
 		expect([unconfigured.step, missing.step, workflow.step]).toEqual(["pick", "pick", "pick"]);
 		expect(unconfigured.detail).toBe(
@@ -51,12 +65,11 @@ describe("import start failure", () => {
 	});
 
 	it("falls back to one plain sentence and stays where it is", () => {
-		const unmapped = importStartFailure("Could not queue the import job; please try again");
+		const unmapped = importStartFailure(Cause.fail(new Error("internal diagnostic")));
 
 		expect(unmapped).toEqual({
 			step: undefined,
 			detail: "This import could not be started. Try again.",
 		});
-		expect(importStartFailure(undefined)).toEqual(unmapped);
 	});
 });
