@@ -23,13 +23,18 @@ const decodeSdkTranslate = SandboxSchema.decodeUnknownEffect(providerTranslateRe
 it.effect("keeps Effect provider decoders in parity with SDK encoded results", () =>
 	Effect.gen(function* () {
 		const rawSearch = {
-			items: [{ externalId: " show-1 ", titleProperty: { kind: "text", value: " Show " } }],
+			items: [
+				{
+					title: " Show ",
+					externalId: " show-1 ",
+					metadata: [" 2024 ", 2024],
+					imageUrl: " https://images.test/show.jpg ",
+				},
+			],
 		};
 		expect(yield* decodeProviderSearchResult(rawSearch)).toEqual(yield* decodeSdkSearch(rawSearch));
 		const excessSearch = {
-			items: [
-				{ extra: true, externalId: "show-1", titleProperty: { kind: "text", value: "Show" } },
-			],
+			items: [{ extra: true, externalId: "show-1", title: "Show" }],
 		};
 		expect((yield* Effect.exit(decodeSdkSearch(excessSearch)))._tag).toBe("Failure");
 		expect((yield* Effect.exit(decodeProviderSearchResult(excessSearch)))._tag).toBe("Failure");
@@ -38,10 +43,10 @@ it.effect("keeps Effect provider decoders in parity with SDK encoded results", (
 			details: { totalItems: 1, nextPage: null },
 			items: [
 				{
+					title: "Show",
 					externalId: "show-1",
-					imageProperty: { kind: "null", value: null },
-					titleProperty: { kind: "text", value: "Show" },
-					primarySubtitleProperty: { kind: "number", value: 2024 },
+					metadata: ["Author", 2024],
+					imageUrl: "https://images.test/show.jpg",
 				},
 			],
 		});
@@ -74,8 +79,8 @@ it.effect("keeps Effect provider decoders in parity with SDK encoded results", (
 					entities: [
 						{
 							name: "Creator",
-							externalId: "person-1",
 							providerSlug: "tmdb",
+							externalId: "person-1",
 							relationshipProperties: { roles: ["Creator"] },
 						},
 					],

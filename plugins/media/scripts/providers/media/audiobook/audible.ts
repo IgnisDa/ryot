@@ -117,17 +117,10 @@ export const search = defineProvider({
 					const imageUrl = productImageUrl(record, ["500", "2400"]);
 					return [
 						{
+							title,
 							externalId,
-							titleProperty: { kind: "text" as const, value: title },
-							calloutProperty: { kind: "null" as const, value: null },
-							secondarySubtitleProperty: { kind: "null" as const, value: null },
-							imageProperty: imageUrl
-								? { kind: "image" as const, value: { type: "remote" as const, url: imageUrl } }
-								: { kind: "null" as const, value: null },
-							primarySubtitleProperty:
-								publishYear === null
-									? { kind: "null" as const, value: null }
-									: { kind: "number" as const, value: publishYear },
+							...(imageUrl === null ? {} : { imageUrl }),
+							...(publishYear === null ? {} : { metadata: [publishYear] as const }),
 						},
 					];
 				});

@@ -125,11 +125,9 @@ describe("manga.manga-updates sandbox script", () => {
 					expect(result.items).toEqual([
 						{
 							externalId: "9",
-							calloutProperty: { kind: "null", value: null },
-							titleProperty: { kind: "text", value: "Hit Title" },
-							secondarySubtitleProperty: { kind: "null", value: null },
-							primarySubtitleProperty: { kind: "number", value: 2019 },
-							imageProperty: { kind: "image", value: { type: "remote", url: "https://img/9.jpg" } },
+							metadata: [2019],
+							title: "Hit Title",
+							imageUrl: "https://img/9.jpg",
 						},
 					]);
 					expect(result.details).toEqual({ totalItems: 25, nextPage: 2 });

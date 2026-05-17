@@ -63,18 +63,7 @@ query {
 								return [];
 							}
 							const image = stringValue(asRecord(doc["image"])?.["url"]);
-							return [
-								{
-									externalId,
-									titleProperty: { kind: "text" as const, value: name },
-									calloutProperty: { kind: "null" as const, value: null },
-									primarySubtitleProperty: { kind: "null" as const, value: null },
-									secondarySubtitleProperty: { kind: "null" as const, value: null },
-									imageProperty: image
-										? { kind: "image" as const, value: { type: "remote" as const, url: image } }
-										: { kind: "null" as const, value: null },
-								},
-							];
+							return [{ externalId, title: name, ...(image === null ? {} : { imageUrl: image }) }];
 						});
 						return {
 							items,

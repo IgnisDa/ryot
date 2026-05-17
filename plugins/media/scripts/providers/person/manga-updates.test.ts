@@ -35,16 +35,7 @@ describe("person.manga-updates sandbox script", () => {
 			execution,
 		).pipe(
 			Effect.map((result) => {
-				expect(result.items).toEqual([
-					{
-						externalId: "4",
-						imageProperty: { kind: "null", value: null },
-						calloutProperty: { kind: "null", value: null },
-						titleProperty: { kind: "text", value: "Author Name" },
-						primarySubtitleProperty: { kind: "null", value: null },
-						secondarySubtitleProperty: { kind: "null", value: null },
-					},
-				]);
+				expect(result.items).toEqual([{ externalId: "4", title: "Author Name" }]);
 				expect(result.details).toEqual({ totalItems: 1, nextPage: null });
 				return undefined;
 			}),

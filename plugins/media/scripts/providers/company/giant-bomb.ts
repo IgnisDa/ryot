@@ -10,7 +10,6 @@ import {
 	getPrioritizedImage,
 	GUID_PATTERN,
 	giantBombRequest,
-	imageProperty,
 	paginate,
 	readResults,
 	readTotalItems,
@@ -66,16 +65,8 @@ export const search = defineProvider({
 					if (!externalId || !name) {
 						return [];
 					}
-					return [
-						{
-							externalId,
-							calloutProperty: { kind: "null" as const, value: null },
-							titleProperty: { kind: "text" as const, value: name },
-							primarySubtitleProperty: { kind: "null" as const, value: null },
-							secondarySubtitleProperty: { kind: "null" as const, value: null },
-							imageProperty: imageProperty(getPrioritizedImage(record?.["image"])),
-						},
-					];
+					const image = getPrioritizedImage(record?.["image"]);
+					return [{ externalId, title: name, ...(image === null ? {} : { imageUrl: image }) }];
 				});
 				return { items, details: paginate(input.page, input.pageSize, readTotalItems(payload)) };
 			}),

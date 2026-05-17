@@ -72,24 +72,18 @@ export const providerSearchInputSchema = strictStruct({
 	),
 });
 
-const nullPropertySchema = strictStruct({ kind: Schema.Literal("null"), value: Schema.Null });
-const numberPropertySchema = strictStruct({ kind: Schema.Literal("number"), value: Schema.Number });
-const textPropertySchema = strictStruct({
-	kind: Schema.Literal("text"),
-	value: trimmedNonEmptyString,
-});
-export const providerSearchItemSchema = strictStruct({
+const providerSearchResultMetadataValueSchema = Schema.Union([
+	Schema.Finite,
+	trimmedNonEmptyString,
+]);
+export const providerSearchResultItemSchema = strictStruct({
+	title: trimmedNonEmptyString,
 	externalId: trimmedNonEmptyString,
-	titleProperty: textPropertySchema,
-	imageProperty: Schema.optional(jsonValueSchema),
-	calloutProperty: Schema.optional(jsonValueSchema),
-	secondarySubtitleProperty: Schema.optional(jsonValueSchema),
-	primarySubtitleProperty: Schema.optional(
-		Schema.Union([nullPropertySchema, numberPropertySchema]),
-	),
+	imageUrl: Schema.optional(trimmedNonEmptyString),
+	metadata: Schema.optional(Schema.NonEmptyArray(providerSearchResultMetadataValueSchema)),
 });
 export const providerSearchResultSchema = strictStruct({
-	items: Schema.Array(providerSearchItemSchema),
+	items: Schema.Array(providerSearchResultItemSchema),
 	details: Schema.optional(
 		strictStruct({ totalItems: Schema.Number, nextPage: Schema.NullOr(Schema.Number) }),
 	),
@@ -110,10 +104,10 @@ export const providerDetailsRelatedEntitySchema = strictStruct({
 	relationshipProperties: Schema.optional(jsonValueSchema),
 });
 export const providerDetailsRelatedEntityGroupSchema = strictStruct({
+	relationshipSchemaSlug: Schema.String,
 	direction: Schema.Literals(["incoming", "outgoing"]),
 	entities: Schema.Array(providerDetailsRelatedEntitySchema),
 	synchronization: Schema.Literals(["authoritative", "additive"]),
-	relationshipSchemaSlug: Schema.String,
 });
 
 export type ProviderDetailsChildEntity = {
@@ -173,7 +167,7 @@ export const providerOperationContracts = {
 	},
 } as const;
 
-export type ProviderSearchItem = Schema.Schema.Type<typeof providerSearchItemSchema>;
+export type ProviderSearchResultItem = Schema.Schema.Type<typeof providerSearchResultItemSchema>;
 export type ProviderSearchInput = Schema.Schema.Type<typeof providerSearchInputSchema>;
 export type ProviderSearchResult = Schema.Schema.Type<typeof providerSearchResultSchema>;
 export type ProviderSearchOptionsInput = Schema.Schema.Type<

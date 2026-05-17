@@ -166,18 +166,10 @@ export const searchMal = (
 						const publishYear = parsePublishYear(node["start_date"]);
 						return [
 							{
+								title,
 								externalId: String(nodeId),
-								titleProperty: { kind: "text" as const, value: title },
-								calloutProperty: { kind: "null" as const, value: null },
-								secondarySubtitleProperty: { kind: "null" as const, value: null },
-								primarySubtitleProperty:
-									publishYear === null
-										? { kind: "null" as const, value: null }
-										: { kind: "number" as const, value: publishYear },
-								imageProperty:
-									image === null
-										? { kind: "null" as const, value: null }
-										: { kind: "image" as const, value: { type: "remote" as const, url: image } },
+								...(image === null ? {} : { imageUrl: image }),
+								...(publishYear === null ? {} : { metadata: [publishYear] as const }),
 							},
 						];
 					});
