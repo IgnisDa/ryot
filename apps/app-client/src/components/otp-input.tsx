@@ -13,9 +13,9 @@ type OtpInputProps = {
 };
 
 export function OtpInput(props: OtpInputProps) {
+	const [focusedIndex, setFocusedIndex] = useState(-1);
 	const refs = useRef<(TextInput | null)[]>(Array(DIGIT_COUNT).fill(null));
 	const [digits, setDigits] = useState(Array<string>(DIGIT_COUNT).fill(""));
-	const [focusedIndex, setFocusedIndex] = useState(-1);
 
 	function handleChangeText(index: number, value: string) {
 		const filtered = value.replace(/\D/g, "");
@@ -69,16 +69,15 @@ export function OtpInput(props: OtpInputProps) {
 					)}
 				>
 					<TextInput
-						textAlign="center"
 						value={digits[pos]}
 						autoFocus={pos === 0}
 						keyboardType="number-pad"
 						editable={!props.disabled}
-						style={{ textAlignVertical: "center" }}
 						onBlur={() => setFocusedIndex(-1)}
 						onFocus={() => setFocusedIndex(pos)}
-						className="flex-1 text-xl font-semibold text-foreground"
+						className="text-xl font-semibold text-foreground"
 						onChangeText={(val) => handleChangeText(pos, val)}
+						style={{ flex: 1, textAlign: "center", textAlignVertical: "center" }}
 						onKeyPress={({ nativeEvent }) => handleKeyPress(pos, nativeEvent.key)}
 						ref={(el) => {
 							refs.current[pos] = el;
