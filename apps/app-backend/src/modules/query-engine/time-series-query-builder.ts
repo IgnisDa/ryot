@@ -114,7 +114,7 @@ export const executeTimeSeriesQuery = async (input: {
 			),
 			${sql.raw(TIMESERIES_CTE_ALIASES.bucketed)} as (
 				select
-					date_trunc(${input.request.bucket}, created_at at time zone 'UTC') as bucket,
+					date_trunc(${input.request.bucket}, occurred_at at time zone 'UTC') as bucket,
 					${metricExpression} as value
 				from ${sql.raw(TIMESERIES_CTE_ALIASES.filteredEvents)}
 				group by 1

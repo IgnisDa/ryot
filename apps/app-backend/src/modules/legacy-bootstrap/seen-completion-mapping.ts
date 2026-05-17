@@ -223,7 +223,8 @@ BEGIN
 					"entity_id",
 					"event_schema_id",
 					"properties",
-					"created_at"
+					"created_at",
+					"occurred_at"
 				)
 				VALUES (
 					md5(
@@ -241,6 +242,7 @@ BEGIN
 						),
 						'consumedOn',     progress_rec.consumed_on
 					)),
+					progress_rec.created_at,
 					progress_rec.created_at
 				)
 				ON CONFLICT DO NOTHING;

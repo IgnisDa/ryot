@@ -32,6 +32,7 @@ import {
 	resolveEventCreateInput,
 	resolveEventEntityId,
 	resolveEventSchemaId,
+	resolveOccurredAt,
 	resolveSessionEntityId,
 } from "./service";
 
@@ -1284,5 +1285,33 @@ describe("createEvents", () => {
 		);
 
 		expect(result.count).toBe(2500);
+	});
+});
+
+describe("resolveOccurredAt", () => {
+	it("returns parsed explicit occurredAt when provided", () => {
+		const iso = "2025-06-15T10:00:00.000Z";
+		const result = resolveOccurredAt({ occurredAt: iso });
+
+		expect(result.toISOString()).toBe(iso);
+	});
+
+	it("defaults to now when occurredAt is omitted", () => {
+		const before = Date.now();
+		const result = resolveOccurredAt({});
+		const after = Date.now();
+
+		expect(result.getTime()).toBeGreaterThanOrEqual(before);
+		expect(result.getTime()).toBeLessThanOrEqual(after);
+	});
+
+	it("defaults to now for a complete event with custom_timestamps and completedOn when occurredAt is omitted", () => {
+		const before = Date.now();
+		const result = resolveOccurredAt({});
+		const after = Date.now();
+
+		// completedOn must not be read — the service does not inspect properties
+		expect(result.getTime()).toBeGreaterThanOrEqual(before);
+		expect(result.getTime()).toBeLessThanOrEqual(after);
 	});
 });

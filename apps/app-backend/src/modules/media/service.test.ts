@@ -415,7 +415,7 @@ describe("getUpNextItems", () => {
 						reference: {
 							type: "event-join",
 							joinKey: "backlog",
-							path: ["createdAt"],
+							path: ["occurredAt"],
 						},
 					},
 				},
@@ -429,7 +429,7 @@ describe("getUpNextItems", () => {
 								reference: {
 									type: "event-join",
 									joinKey: "progress",
-									path: ["createdAt"],
+									path: ["occurredAt"],
 								},
 							},
 						},
@@ -441,7 +441,7 @@ describe("getUpNextItems", () => {
 								reference: {
 									type: "event-join",
 									joinKey: "backlog",
-									path: ["createdAt"],
+									path: ["occurredAt"],
 								},
 							},
 							right: {
@@ -449,7 +449,7 @@ describe("getUpNextItems", () => {
 								reference: {
 									type: "event-join",
 									joinKey: "progress",
-									path: ["createdAt"],
+									path: ["occurredAt"],
 								},
 							},
 						},
@@ -465,7 +465,7 @@ describe("getUpNextItems", () => {
 								reference: {
 									type: "event-join",
 									joinKey: "complete",
-									path: ["createdAt"],
+									path: ["occurredAt"],
 								},
 							},
 						},
@@ -477,7 +477,7 @@ describe("getUpNextItems", () => {
 								reference: {
 									type: "event-join",
 									joinKey: "backlog",
-									path: ["createdAt"],
+									path: ["occurredAt"],
 								},
 							},
 							right: {
@@ -485,7 +485,7 @@ describe("getUpNextItems", () => {
 								reference: {
 									type: "event-join",
 									joinKey: "complete",
-									path: ["createdAt"],
+									path: ["occurredAt"],
 								},
 							},
 						},
@@ -695,11 +695,10 @@ const makeEventsItem = (opts: {
 	eventId: string;
 	entityId: string;
 	entityName: string;
-	eventCreatedAt: Date;
+	eventOccurredAt: Date;
 	eventSchemaSlug: string;
 	entitySchemaSlug: string;
 	eventRating?: number | null;
-	eventCompletedOn?: Date | null;
 	entityImage?: { type: "remote"; url: string } | null;
 }): QueryEngineItem =>
 	toQueryEngineItem([
@@ -709,8 +708,7 @@ const makeEventsItem = (opts: {
 		makeImageField("entityImage", opts.entityImage ?? null),
 		{ key: "entitySchemaSlug", kind: "text", value: opts.entitySchemaSlug },
 		{ key: "eventSchemaSlug", kind: "text", value: opts.eventSchemaSlug },
-		makeDateField("eventCreatedAt", opts.eventCreatedAt),
-		makeDateField("eventCompletedOn", opts.eventCompletedOn),
+		makeDateField("eventOccurredAt", opts.eventOccurredAt),
 		makeNumberField("eventRating", opts.eventRating),
 	]);
 
@@ -727,7 +725,7 @@ describe("getRecentActivityItems", () => {
 								entityName: "Test Book",
 								entitySchemaSlug: "book",
 								eventSchemaSlug: "progress",
-								eventCreatedAt: date("2024-03-20T12:00:00Z"),
+								eventOccurredAt: date("2024-03-20T12:00:00Z"),
 							}),
 							makeEventsItem({
 								eventRating: 5,
@@ -736,7 +734,7 @@ describe("getRecentActivityItems", () => {
 								entityName: "Test Manga",
 								entitySchemaSlug: "manga",
 								eventSchemaSlug: "review",
-								eventCreatedAt: date("2024-03-21T12:00:00Z"),
+								eventOccurredAt: date("2024-03-21T12:00:00Z"),
 							}),
 						]),
 					),
@@ -752,9 +750,8 @@ describe("getRecentActivityItems", () => {
 		});
 	});
 
-	it("uses completedOn as occurredAt for complete events", async () => {
-		const completedOn = date("2024-03-15T00:00:00Z");
-		const createdAt = date("2024-03-20T12:00:00Z");
+	it("uses eventOccurredAt as occurredAt directly", async () => {
+		const occurredAt = date("2024-03-15T00:00:00Z");
 
 		const result = expectDataResult(
 			await getRecentActivityItems("user_1", {
@@ -765,33 +762,8 @@ describe("getRecentActivityItems", () => {
 								eventId: "event-1",
 								entityId: "entity-1",
 								entityName: "Test Movie",
-								eventCreatedAt: createdAt,
+								eventOccurredAt: occurredAt,
 								entitySchemaSlug: "movie",
-								eventSchemaSlug: "complete",
-								eventCompletedOn: completedOn,
-							}),
-						]),
-					),
-			}),
-		);
-
-		expect(result.items[0]?.occurredAt).toEqual(completedOn);
-	});
-
-	it("falls back to eventCreatedAt as occurredAt when completedOn is absent for complete events", async () => {
-		const createdAt = date("2024-03-20T12:00:00Z");
-
-		const result = expectDataResult(
-			await getRecentActivityItems("user_1", {
-				executeQuery: () =>
-					Promise.resolve(
-						makeEventsResult([
-							makeEventsItem({
-								eventId: "event-1",
-								entityId: "entity-1",
-								entityName: "Test Movie",
-								entitySchemaSlug: "movie",
-								eventCreatedAt: createdAt,
 								eventSchemaSlug: "complete",
 							}),
 						]),
@@ -799,7 +771,7 @@ describe("getRecentActivityItems", () => {
 			}),
 		);
 
-		expect(result.items[0]?.occurredAt).toEqual(createdAt);
+		expect(result.items[0]?.occurredAt).toEqual(occurredAt);
 	});
 
 	it("sends events mode request with limit 12", async () => {
@@ -856,7 +828,7 @@ describe("getRecentActivityItems", () => {
 								entityName: "Test Book",
 								entitySchemaSlug: "book",
 								eventSchemaSlug: "unknown-event",
-								eventCreatedAt: date("2024-03-20T12:00:00Z"),
+								eventOccurredAt: date("2024-03-20T12:00:00Z"),
 							}),
 						]),
 					),
@@ -878,7 +850,7 @@ describe("getRecentActivityItems", () => {
 								entityName: "Test Thing",
 								eventSchemaSlug: "review",
 								entitySchemaSlug: "unknown-entity",
-								eventCreatedAt: date("2024-03-20T12:00:00Z"),
+								eventOccurredAt: date("2024-03-20T12:00:00Z"),
 							}),
 						]),
 					),
@@ -888,23 +860,23 @@ describe("getRecentActivityItems", () => {
 		expect(result.items).toHaveLength(0);
 	});
 
-	it("drops items with null eventCreatedAt", async () => {
+	it("drops items with null eventOccurredAt", async () => {
 		const item = makeEventsItem({
 			eventId: "event-1",
 			entityId: "entity-1",
 			entityName: "Test Book",
 			entitySchemaSlug: "book",
 			eventSchemaSlug: "progress",
-			eventCreatedAt: date("2024-03-20T12:00:00Z"),
+			eventOccurredAt: date("2024-03-20T12:00:00Z"),
 		});
-		const itemWithNullCreatedAt = {
+		const itemWithNullOccurredAt = {
 			...item,
-			eventCreatedAt: { kind: "null" as const, value: null },
+			eventOccurredAt: { kind: "null" as const, value: null },
 		};
 
 		const result = expectDataResult(
 			await getRecentActivityItems("user_1", {
-				executeQuery: () => Promise.resolve(makeEventsResult([itemWithNullCreatedAt])),
+				executeQuery: () => Promise.resolve(makeEventsResult([itemWithNullOccurredAt])),
 			}),
 		);
 
