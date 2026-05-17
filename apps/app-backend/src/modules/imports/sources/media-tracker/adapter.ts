@@ -19,11 +19,15 @@ import type {
 	MediaImportAdapterResult,
 } from "../../media/import-processor";
 import {
-	createImportSourceFailure,
 	mapWithConcurrency,
 	requestSourceJson,
 	type SourceJsonRequestInput,
 } from "../../runtime/source-api";
+import {
+	createSourceFetchFailure,
+	isNotNullAdapterFailure,
+	parseDateInput,
+} from "../shared/adapter-utils";
 
 const MEDIA_TRACKER_CONCURRENCY = 5;
 
@@ -104,18 +108,6 @@ const createHeaders = (apiKey: string): Record<string, string> => ({
 	"access-token": apiKey,
 });
 
-const parseOccurredAt = (value: number | string | null | undefined): string | null => {
-	if (typeof value === "number") {
-		const parsed = dayjs(value);
-		return parsed.isValid() ? parsed.toISOString() : null;
-	}
-	if (typeof value === "string") {
-		const parsed = dayjs(value);
-		return parsed.isValid() ? parsed.toISOString() : null;
-	}
-	return null;
-};
-
 const parseOpenlibraryKey = (value: string): string | undefined => {
 	const normalized = value.trim();
 	if (!normalized) {
@@ -139,8 +131,8 @@ const getMediaTrackerLabel = (
 
 const getFallbackOccurredAt = (details: MediaTrackerDetails, importedAt: string): string => {
 	const timestamps = [
-		...details.seenHistory.map((entry) => parseOccurredAt(entry.date)),
-		parseOccurredAt(details.userRating?.date),
+		...details.seenHistory.map((entry) => parseDateInput(entry.date)),
+		parseDateInput(details.userRating?.date),
 	].filter((value): value is string => Boolean(value));
 
 	if (timestamps.length === 0) {
@@ -244,28 +236,6 @@ const createLifecycleEvent = (input: { occurredAt: string; lifecycle: string }) 
 	return undefined;
 };
 
-const createMediaTrackerItemFailure = (input: {
-	error: unknown;
-	host: string;
-	message: string;
-	itemIndex: number;
-	sourceLabel?: string;
-	sourceIdentifier?: string;
-}): MediaImportAdapterFailure =>
-	createImportSourceFailure({
-		error: input.error,
-		host: input.host,
-		message: input.message,
-		itemIndex: input.itemIndex,
-		stage: "source_fetch",
-		sourceLabel: input.sourceLabel,
-		sourceIdentifier: input.sourceIdentifier,
-	});
-
-const isAdapterFailure = (
-	value: MediaImportAdapterFailure | null,
-): value is MediaImportAdapterFailure => value !== null;
-
 export const adaptMediaTrackerData = async (
 	input: MediaTrackerAdapterInput,
 	deps: MediaTrackerImportAdapterDeps = mediaTrackerImportAdapterDeps,
@@ -338,7 +308,7 @@ export const adaptMediaTrackerData = async (
 			);
 		} catch (error) {
 			failures.push(
-				createMediaTrackerItemFailure({
+				createSourceFetchFailure({
 					error,
 					host,
 					itemIndex: nextItemIndex,
@@ -369,7 +339,7 @@ export const adaptMediaTrackerData = async (
 				try {
 					details = await getItemDetails(listItem.mediaItem.id);
 				} catch (error) {
-					return createMediaTrackerItemFailure({
+					return createSourceFetchFailure({
 						error,
 						host,
 						itemIndex,
@@ -418,7 +388,7 @@ export const adaptMediaTrackerData = async (
 			},
 		);
 
-		failures.push(...listFailures.filter(isAdapterFailure));
+		failures.push(...listFailures.filter(isNotNullAdapterFailure));
 		nextItemIndex += listItems.length;
 	}
 	// oxlint-enable no-await-in-loop
@@ -452,7 +422,7 @@ export const adaptMediaTrackerData = async (
 			try {
 				details = await getItemDetails(item.id);
 			} catch (error) {
-				return createMediaTrackerItemFailure({
+				return createSourceFetchFailure({
 					error,
 					host,
 					itemIndex,
@@ -485,7 +455,7 @@ export const adaptMediaTrackerData = async (
 			const group = getOrCreateMediaEntityGroup(groupMap, ref, itemIndex);
 			if (mediaType === "tv") {
 				for (const seen of details.seenHistory) {
-					const occurredAt = parseOccurredAt(seen.date);
+					const occurredAt = parseDateInput(seen.date);
 					if (!occurredAt || !seen.episodeId) {
 						continue;
 					}
@@ -514,7 +484,7 @@ export const adaptMediaTrackerData = async (
 				}
 			} else {
 				for (const seen of details.seenHistory) {
-					const occurredAt = parseOccurredAt(seen.date);
+					const occurredAt = parseDateInput(seen.date);
 					if (!occurredAt) {
 						continue;
 					}
@@ -529,7 +499,7 @@ export const adaptMediaTrackerData = async (
 						? Math.round(Math.min(details.userRating.rating * 20, 100) * 100) / 100
 						: null,
 				occurredAt:
-					parseOccurredAt(details.userRating?.date) ?? getFallbackOccurredAt(details, importedAt),
+					parseDateInput(details.userRating?.date) ?? getFallbackOccurredAt(details, importedAt),
 			});
 			if (reviewEvent) {
 				group.events.push(reviewEvent);
@@ -539,7 +509,7 @@ export const adaptMediaTrackerData = async (
 		},
 	);
 
-	failures.push(...seenFailures.filter(isAdapterFailure));
+	failures.push(...seenFailures.filter(isNotNullAdapterFailure));
 
 	return {
 		failures,

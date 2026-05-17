@@ -84,24 +84,6 @@ export const getEntityByIdForUser = async (input: { userId: string; entityId: st
 	return foundEntity;
 };
 
-export const listEntitiesByEntitySchemaForUser = async (input: {
-	userId: string;
-	entitySchemaId: string;
-}) => {
-	const rows = await db
-		.select(entitySelection)
-		.from(entity)
-		.where(
-			and(
-				or(isNull(entity.userId), eq(entity.userId, input.userId)),
-				eq(entity.entitySchemaId, input.entitySchemaId),
-			),
-		)
-		.orderBy(asc(entity.name), asc(entity.createdAt));
-
-	return rows;
-};
-
 export const listEntityMatchCandidatesBySchemaForUser = async (input: {
 	userId: string;
 	entitySchemaId: string;

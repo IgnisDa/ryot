@@ -4,11 +4,14 @@ import { createEntity } from "~/modules/entities";
 import { getBuiltinEntitySchemaBySlug } from "~/modules/entity-schemas";
 
 import { updateImportRun } from "../repository";
-import { failImportRun, recordImportRunFailure, sanitizeErrorMessage } from "../runtime/failures";
+import {
+	PROGRESS_UPDATE_INTERVAL,
+	failImportRun,
+	recordImportRunFailure,
+	sanitizeErrorMessage,
+} from "../runtime/failures";
 import { cleanupImportFile, readImportFile } from "../runtime/files";
 import { adaptOpenScaleCsv, type OpenScaleNormalizedItem } from "../sources/open-scale/adapter";
-
-const PROGRESS_UPDATE_INTERVAL = 10;
 
 const commitMeasurementEntity = async (
 	userId: string,

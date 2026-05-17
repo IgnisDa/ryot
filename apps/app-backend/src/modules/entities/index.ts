@@ -13,11 +13,9 @@ export type {
 } from "./schemas";
 export { listedEntitySchema } from "./schemas";
 export type {
-	EnsureEntityInLibraryDeps,
 	EntityImportDeps,
 	EntityMatchCandidate,
 	EntityServiceDeps,
-	EntityServiceResult,
 	WriteEntityRelationshipDeps,
 	WriteRelationshipDeps,
 } from "./service";
@@ -28,12 +26,7 @@ export {
 	getEntityImportResult,
 	importEntity,
 	listEntityMatchCandidates,
-	parseEntityImage,
-	parseEntityProperties,
 	resolveEntityCreateInput,
-	resolveEntityId,
-	resolveEntityName,
-	resolveEntitySchemaId,
 	writeEntityRelationship,
 	writeRelationship,
 } from "./service";
