@@ -71,7 +71,7 @@ export default function Auth() {
 				throw new Error(error.message ?? "Invalid email or password");
 			}
 		},
-		onSuccess: () => router.replace("/(app)"),
+		onSuccess: () => router.replace("/"),
 	});
 
 	const form = useAppForm({
@@ -84,12 +84,12 @@ export default function Auth() {
 
 	const handleOidcSignIn = useCallback(async () => {
 		setOidcError(null);
-		const { error } = await authClient.signIn.oauth2({ providerId: "oidc", callbackURL: "/(app)" });
+		const { error } = await authClient.signIn.oauth2({ providerId: "oidc", callbackURL: "/" });
 		if (error) {
 			setOidcError(error.message ?? "OIDC sign-in failed");
 			return;
 		}
-		router.replace("/(app)");
+		router.replace("/");
 	}, [authClient]);
 
 	useEffect(() => {
