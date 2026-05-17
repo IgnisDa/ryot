@@ -34,6 +34,8 @@ import {
 	personEntityTargets,
 } from "./person-mapping";
 import { buildReviewMigrationSql } from "./review-mapping";
+import { buildSeenEpisodicCompletionMigrationSql } from "./seen-completion-mapping";
+import { buildSeenMigrationSql } from "./seen-mapping";
 import {
 	buildUniqueSlugMap,
 	shouldRunLegacyBootstrap,
@@ -408,6 +410,8 @@ export const migrateLegacyTables = async (database: DbClient) => {
 			buildWorkoutRepeatedFromRelationshipMigrationSql(workoutRepeatedFromRelationshipSchemaId),
 		);
 		await client.query(buildReviewMigrationSql());
+		await client.query(buildSeenMigrationSql());
+		await client.query(buildSeenEpisodicCompletionMigrationSql());
 		await client.query(`
 			DO $$
 			DECLARE
