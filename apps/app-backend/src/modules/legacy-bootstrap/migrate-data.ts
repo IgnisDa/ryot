@@ -1,7 +1,7 @@
 import { and, eq, isNull } from "drizzle-orm";
 
 import type { DbClient } from "~/lib/db";
-import { entitySchema, relationshipSchema, sandboxScript } from "~/lib/db/schema";
+import { entitySchema, eventSchema, relationshipSchema, sandboxScript } from "~/lib/db/schema";
 
 import { buildCollectionEntityMigrationSql } from "./collection-mapping";
 import {
@@ -37,6 +37,12 @@ import {
 	shouldRunLegacyBootstrap,
 	withLegacyBootstrapNoticeClient,
 } from "./shared";
+import {
+	buildWorkoutMigrationSql,
+	buildWorkoutSetEventMigrationSql,
+	buildWorkoutTemplateMigrationSql,
+	buildWorkoutToTemplateRelationshipMigrationSql,
+} from "./workout-mapping";
 
 const migrateUserTableSql = `
 DO $$
@@ -195,6 +201,11 @@ export const migrateLegacyTables = async (database: DbClient) => {
 		.from(entitySchema)
 		.where(isNull(entitySchema.userId));
 
+	const workoutSetEventSchemaResult = await database
+		.select({ id: eventSchema.id })
+		.from(eventSchema)
+		.where(and(isNull(eventSchema.userId), eq(eventSchema.slug, "workout-set")));
+
 	const sandboxScripts = await database
 		.select({
 			id: sandboxScript.id,
@@ -270,6 +281,29 @@ export const migrateLegacyTables = async (database: DbClient) => {
 		throw new Error('Missing entity schema id for collection slug "collection"');
 	}
 
+	const workoutEntitySchemaId = entitySchemaIds.get("workout");
+	if (workoutEntitySchemaId === undefined) {
+		throw new Error('Missing entity schema id for slug "workout"');
+	}
+
+	const workoutTemplateEntitySchemaId = entitySchemaIds.get("workout-template");
+	if (workoutTemplateEntitySchemaId === undefined) {
+		throw new Error('Missing entity schema id for slug "workout-template"');
+	}
+
+	const workoutSetEventSchemaRow = workoutSetEventSchemaResult[0];
+	if (workoutSetEventSchemaRow === undefined) {
+		throw new Error('Missing event schema for slug "workout-set"');
+	}
+	const workoutSetEventSchemaId = workoutSetEventSchemaRow.id;
+
+	const workoutToWorkoutTemplateRelationshipSchemaId = relationshipSchemaIds.get(
+		"workout-to-workout-template",
+	);
+	if (workoutToWorkoutTemplateRelationshipSchemaId === undefined) {
+		throw new Error('Missing relationship schema id for slug "workout-to-workout-template"');
+	}
+
 	const unsupportedMetadataSources = await getUnsupportedMetadataSources(database);
 	if (unsupportedMetadataSources.length > 0) {
 		throw new Error(
@@ -342,6 +376,12 @@ export const migrateLegacyTables = async (database: DbClient) => {
 		await client.query(buildCompanyEntityMigrationSql(resolvedCompanyEntityTargets));
 		await client.query(buildCollectionEntityMigrationSql(collectionEntitySchemaId));
 		await client.query(buildExerciseMigrationSql(resolvedExerciseTargets));
+		await client.query(buildWorkoutTemplateMigrationSql(workoutTemplateEntitySchemaId));
+		await client.query(buildWorkoutMigrationSql(workoutEntitySchemaId));
+		await client.query(buildWorkoutSetEventMigrationSql(workoutSetEventSchemaId));
+		await client.query(
+			buildWorkoutToTemplateRelationshipMigrationSql(workoutToWorkoutTemplateRelationshipSchemaId),
+		);
 		await client.query(`
 			DO $$
 			DECLARE
