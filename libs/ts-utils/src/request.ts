@@ -1,7 +1,7 @@
 import { parseWithZod } from "@conform-to/zod/v4";
 import type { Params } from "react-router";
 import invariant from "tiny-invariant";
-import { type output, z } from "zod";
+import type { output, z } from "zod";
 
 export const processSubmission = <Schema extends z.ZodType>(formData: FormData, schema: Schema) => {
 	const submission = parseWithZod(formData, { schema });

@@ -562,6 +562,7 @@ const buildCreditRelationshipSchemas = (input: {
 	orderDescription: string;
 	rolesDescription: string;
 	rolesItemDescription: string;
+	characterDescription?: string;
 }) =>
 	builtinMediaEntitySchemaSlugs.map((mediaSlug) => ({
 		sourceEntitySchemaSlug: input.sourceSlug,
@@ -570,6 +571,15 @@ const buildCreditRelationshipSchemas = (input: {
 		name: `${input.sourceSlug.charAt(0).toUpperCase() + input.sourceSlug.slice(1)} to ${mediaSlug.charAt(0).toUpperCase() + mediaSlug.slice(1)}`,
 		propertiesSchema: {
 			fields: {
+				...(input.characterDescription !== undefined
+					? {
+							character: {
+								label: "Character",
+								type: "string" as const,
+								description: input.characterDescription,
+							},
+						}
+					: {}),
 				order: {
 					label: "Order",
 					type: "number" as const,
@@ -601,8 +611,8 @@ export const authenticationBuiltinRelationshipSchemas = (): BuiltinRelationshipS
 		slug: "member-of",
 		name: "Member Of",
 		sourceEntitySchemaSlug: null,
-		propertiesSchema: { fields: {} },
 		targetEntitySchemaSlug: "collection",
+		propertiesSchema: { fields: {}, unknownKeys: "passthrough" as const },
 	},
 	{
 		propertiesSchema: { fields: {} },
@@ -613,16 +623,17 @@ export const authenticationBuiltinRelationshipSchemas = (): BuiltinRelationshipS
 	},
 	...buildCreditRelationshipSchemas({
 		sourceSlug: "person",
+		characterDescription: "Character played by this person in this production",
 		orderDescription: "Display order of this person in the production credits",
-		rolesDescription: "Roles this person filled in this production (e.g. Director, Actor, Writer)",
 		rolesItemDescription: "A specific role name (e.g. Director, Actor, Writer)",
+		rolesDescription: "Roles this person filled in this production (e.g. Director, Actor, Writer)",
 	}),
 	...buildCreditRelationshipSchemas({
 		sourceSlug: "company",
 		orderDescription: "Display order of this company in the production credits",
+		rolesItemDescription: "A specific role name (e.g. Developer, Publisher, Studio)",
 		rolesDescription:
 			"Roles this company filled in this production (e.g. Developer, Publisher, Studio)",
-		rolesItemDescription: "A specific role name (e.g. Developer, Publisher, Studio)",
 	}),
 	...(
 		[

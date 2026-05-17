@@ -321,18 +321,26 @@ export const getUserLibraryEntityId = async (
 	return found?.id;
 };
 
-type InLibraryRelationshipValues = {
+/**
+ * Inserts a user-scoped relationship row. Silently skips if the row already exists
+ * (ON CONFLICT DO NOTHING). Callers must not assume the write occurred on success.
+ */
+export const insertRelationship = async (input: {
 	userId: string;
 	sourceEntityId: string;
 	targetEntityId: string;
 	relationshipSchemaId: string;
 	properties: Record<string, unknown>;
-};
-
-const insertInLibraryRelationship = async (values: InLibraryRelationshipValues) => {
+}) => {
 	await db
 		.insert(relationship)
-		.values(values)
+		.values({
+			userId: input.userId,
+			properties: input.properties,
+			sourceEntityId: input.sourceEntityId,
+			targetEntityId: input.targetEntityId,
+			relationshipSchemaId: input.relationshipSchemaId,
+		})
 		.onConflictDoNothing({
 			target: [
 				relationship.userId,
@@ -345,7 +353,7 @@ const insertInLibraryRelationship = async (values: InLibraryRelationshipValues) 
 
 export const upsertInLibraryRelationship = async (
 	input: { userId: string; mediaEntityId: string; libraryEntityId: string },
-	insert: (values: InLibraryRelationshipValues) => Promise<void> = insertInLibraryRelationship,
+	insert: typeof insertRelationship = insertRelationship,
 ) => {
 	const found = await getBuiltinRelationshipSchemaBySlug("in-library");
 	if (!found) {
