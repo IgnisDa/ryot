@@ -19,7 +19,7 @@ import {
 	testPluginManifest,
 	type ContractSession,
 	uninstallTestPlugin,
-} from "~/fixtures";
+} from "~/fixtures/kernel";
 import { assertTaggedError, requireObjectRecord, requirePresent } from "~/support/assertions";
 import { afterAll, beforeAll, describe, expect, it } from "~/support/effect-test";
 

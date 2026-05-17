@@ -26,7 +26,7 @@ import {
 	requireRows,
 	requireRyotQLValue,
 	type Client,
-} from "~/fixtures";
+} from "~/fixtures/kernel";
 import { assertPresent } from "~/support/assertions";
 import { describe, expect, it } from "~/support/effect-test";
 

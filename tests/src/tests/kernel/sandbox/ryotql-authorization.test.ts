@@ -24,7 +24,7 @@ import {
 } from "@ryot/ryotql";
 import { Effect } from "effect";
 
-import type { RyotQLResponse } from "~/fixtures";
+import type { RyotQLResponse } from "~/fixtures/kernel";
 import {
 	adminHeaders,
 	createAuthenticatedClient,
@@ -42,7 +42,7 @@ import {
 	requireRyotQLValue,
 	requireRows,
 	uninstallTestPlugin,
-} from "~/fixtures";
+} from "~/fixtures/kernel";
 import {
 	requireArray,
 	requireObjectRecord,

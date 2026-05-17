@@ -20,7 +20,7 @@ import {
 	systemConfigSandboxSource,
 	throwingSandboxSource,
 	userPreferencesSandboxSource,
-} from "~/fixtures";
+} from "~/fixtures/kernel";
 import {
 	assertCompleted,
 	requireArray,

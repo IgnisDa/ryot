@@ -7,7 +7,7 @@ import {
 	deleteIntegration,
 	installTestIntegrationProvider,
 	uninstallTestPluginStrict,
-} from "~/fixtures";
+} from "~/fixtures/kernel";
 import { assertTaggedError } from "~/support/assertions";
 import { describe, expect, it } from "~/support/effect-test";
 

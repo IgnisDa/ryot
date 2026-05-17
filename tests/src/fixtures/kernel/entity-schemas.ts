@@ -160,9 +160,6 @@ export const listBuiltinEntitySchemas = (client: Client) =>
 		return { schemas, builtinPlugin };
 	});
 
-export const findBuiltinSchemaWithProviders = (client: Client) =>
-	findBuiltinSchemaBySlug(client, "book");
-
 export const searchProviderEntities = (client: Client, body: SearchProviderEntitiesBody) =>
 	client.call((c) => c.providerEntities.search({ payload: body }));
 

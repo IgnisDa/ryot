@@ -5,11 +5,10 @@ import {
 	getImportRun,
 	listEventSlugs,
 	pollImportRunUntilTerminal,
-	queryInLibraryRelationship,
-	seedGlobalShowEpisodeTree,
 	uploadImportFile,
 	waitForEventSlugs,
-} from "~/fixtures";
+} from "~/fixtures/kernel";
+import { queryInLibraryRelationship, seedGlobalShowEpisodeTree } from "~/fixtures/plugins/media";
 import { describe, expect, it } from "~/support/effect-test";
 
 describe("Watcharr Show Import E2E (episode resolution)", () => {

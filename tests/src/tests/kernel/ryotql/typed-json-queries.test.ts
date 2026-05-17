@@ -36,7 +36,7 @@ import {
 	executeRyotQL,
 	requireRows,
 	requireRyotQLValue,
-} from "~/fixtures";
+} from "~/fixtures/kernel";
 import { describe, expect, it } from "~/support/effect-test";
 
 const createSchema = (client: Parameters<typeof createPluginEntitySchema>[0], name: string) =>

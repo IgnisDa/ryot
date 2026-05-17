@@ -9,12 +9,14 @@ import {
 	getImportRun,
 	listManualImportRuns,
 	pollImportRunUntilTerminal,
-	queryInLibraryRelationship,
+	uploadImportFile,
+} from "~/fixtures/kernel";
+import {
 	runHevyImportFixture,
 	runOpenScaleImportFixture,
 	startOpenScaleImport,
-	uploadImportFile,
-} from "~/fixtures";
+} from "~/fixtures/plugins/fitness";
+import { queryInLibraryRelationship } from "~/fixtures/plugins/media";
 import { assertTaggedError, requirePresent } from "~/support/assertions";
 import { describe, expect, it } from "~/support/effect-test";
 

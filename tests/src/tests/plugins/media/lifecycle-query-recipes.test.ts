@@ -12,13 +12,11 @@ import {
 	adminHeaders,
 	createAuthenticatedClient,
 	createEventFixture,
-	enableMediaMonitoring,
 	executeRyotQL,
 	executeRyotQLRecipe,
 	fakeProviderDetailsResult,
 	getBackendClient,
 	getBuiltinEntitySchemaSlug,
-	getGlobalEntityByProvenance,
 	insertGlobalRelationship,
 	installTestProvider,
 	listEventSchemas,
@@ -31,11 +29,15 @@ import {
 	requireRows,
 	requireRyotQLDate,
 	requireRyotQLText,
-	seedMediaEntity,
-	triggerCronAndWaitForEntity,
 	type Client,
 	waitForEventCount,
-} from "~/fixtures";
+} from "~/fixtures/kernel";
+import {
+	enableMediaMonitoring,
+	getGlobalEntityByProvenance,
+	seedMediaEntity,
+	triggerCronAndWaitForEntity,
+} from "~/fixtures/plugins/media";
 import { assertPresent } from "~/support/assertions";
 import { describe, expect, it } from "~/support/effect-test";
 

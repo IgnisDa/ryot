@@ -7,7 +7,7 @@ import {
 	getBuiltinEntitySchemaSlug,
 	listBuiltinEntitySchemas,
 	listEventSchemas,
-} from "~/fixtures";
+} from "~/fixtures/kernel";
 import { assertPresent, requireObjectRecord } from "~/support/assertions";
 import { describe, expect, it } from "~/support/effect-test";
 

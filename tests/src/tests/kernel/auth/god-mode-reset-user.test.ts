@@ -17,7 +17,7 @@ import {
 	resetUserAndWait,
 	signInWithPassword,
 	updatePluginState,
-} from "~/fixtures";
+} from "~/fixtures/kernel";
 import { assertPresent, assertTaggedError, requirePresent } from "~/support/assertions";
 import { describe, expect, it } from "~/support/effect-test";
 

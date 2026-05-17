@@ -1,13 +1,13 @@
 import { Effect } from "effect";
 
-import type { TestPluginScript } from "~/fixtures";
+import type { TestPluginScript } from "~/fixtures/kernel";
 import {
 	adminHeaders,
 	getBackendClient,
 	installTestPluginBundle,
 	uninstallTestPlugin,
 	userPreferencesSandboxSource,
-} from "~/fixtures";
+} from "~/fixtures/kernel";
 import { assert, describe, expect, it } from "~/support/effect-test";
 
 describe("sandbox capability authorization", () => {
