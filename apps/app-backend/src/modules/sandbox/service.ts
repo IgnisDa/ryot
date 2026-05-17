@@ -15,7 +15,11 @@ import { WorkflowEngine } from "effect/unstable/workflow/WorkflowEngine";
 
 import { AppConfig } from "#lib/infrastructure/config/service";
 import { sandboxContextError } from "#lib/infrastructure/sandbox-runtime/limits";
-import { createWorkflowJobId, resolveWorkflowExecutionId } from "#lib/shared/job-id";
+import {
+	createWorkflowJobId,
+	deriveJobIdSecret,
+	resolveWorkflowExecutionId,
+} from "#lib/shared/job-id";
 import { trimToNull } from "#lib/shared/validation";
 import { toWorkflowRunResult } from "#lib/shared/workflow-result";
 
@@ -70,7 +74,7 @@ export class SandboxExecutionService extends Context.Service<SandboxExecutionSer
 			const engine = yield* WorkflowEngine;
 			const repository = yield* SandboxRepository;
 			const pluginScriptResolver = yield* SandboxPluginScriptResolver;
-			const jobIdSecret = Redacted.value(config.sandbox.jobIdSecret);
+			const jobIdSecret = deriveJobIdSecret(Redacted.value(config.server.adminAccessToken));
 			const workflowReferences = yield* SandboxWorkflowReferenceRepository;
 
 			const enqueue = Effect.fn("SandboxExecutionService.enqueue")(function* (

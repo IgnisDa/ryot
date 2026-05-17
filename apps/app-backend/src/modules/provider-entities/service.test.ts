@@ -8,7 +8,7 @@ import { EntitySchemaSlug, SandboxProviderId, UserId } from "@ryot/contract/sche
 import { Cause, Effect, Exit, Layer, Option } from "effect";
 import { WorkflowEngine } from "effect/unstable/workflow/WorkflowEngine";
 
-import { createWorkflowJobId } from "#lib/shared/job-id";
+import { createWorkflowJobId, deriveJobIdSecret } from "#lib/shared/job-id";
 import {
 	databaseLayer,
 	type MockOverrides,
@@ -199,7 +199,7 @@ it.effect("returns NotFound for a jobId with an invalid signature", () =>
 
 it.effect("returns pending status when the workflow has not completed", () =>
 	Effect.gen(function* () {
-		const secret = "test-secret";
+		const secret = deriveJobIdSecret("test-admin-token");
 		const executionId = "exec-abc";
 		const service = yield* EntityImportService;
 		const jobId = createWorkflowJobId(secret, executionId, user.id);
