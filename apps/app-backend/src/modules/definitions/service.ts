@@ -22,7 +22,6 @@ const merge = (
 	sortOrder: state?.sortOrder ?? defaultSortOrder,
 });
 
-/** @effect-expect-leaking Database */
 export class DefinitionsService extends Context.Service<DefinitionsService>()(
 	"DefinitionsService",
 	{

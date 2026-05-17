@@ -18,7 +18,6 @@ import { SavedViewsRepository } from "./repository";
 const savedViewNotFound = "Saved view not found";
 const builtinViewMutationMessage = "Cannot modify built-in saved views";
 
-/** @effect-expect-leaking Database */
 export class SavedViewsService extends Context.Service<SavedViewsService>()("SavedViewsService", {
 	make: Effect.gen(function* () {
 		const definitions = yield* DefinitionRegistry;

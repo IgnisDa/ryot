@@ -28,7 +28,6 @@ type AddEntityToCollectionWorkflowOperationsValue = {
 	compensateMembership: CollectionsService["Service"]["compensateMembership"];
 };
 
-/** @effect-expect-leaking Database */
 export class AddEntityToCollectionWorkflowOperations extends Context.Service<
 	AddEntityToCollectionWorkflowOperations,
 	AddEntityToCollectionWorkflowOperationsValue

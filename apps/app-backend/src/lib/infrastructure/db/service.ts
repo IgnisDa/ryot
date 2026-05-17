@@ -27,6 +27,7 @@ export const PgClientLive = Layer.unwrap(
 	),
 );
 
+/** @effect-leakable-service */
 export class Database extends Context.Service<Database, PgDrizzle.EffectPgDatabase>()("Database") {
 	static readonly layer = Layer.effect(this, PgDrizzle.makeWithDefaults());
 }
