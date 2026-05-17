@@ -4,7 +4,6 @@ import { useState } from "react";
 import { z } from "zod";
 
 import { getNameFromEmail } from "~/features/authentication/model";
-import { useApiClient } from "~/hooks/api";
 import { useAppForm } from "~/hooks/forms";
 import { authClient } from "~/lib/auth";
 
@@ -47,13 +46,9 @@ const schema = z.object({
 
 function StartPage() {
 	const search = Route.useSearch();
-	const apiClient = useApiClient();
 	const navigate = Route.useNavigate();
 	const [mode, setMode] = useState<AuthMode>("login");
 	const [submitError, setSubmitError] = useState<string | null>(null);
-	const signupMutation = apiClient.useMutation("post", "/authentication/email", {
-		onError: (error) => setSubmitError(error.error.message),
-	});
 
 	const authForm = useAppForm({
 		validators: { onChange: schema },
@@ -65,11 +60,13 @@ function StartPage() {
 			const password = value.password;
 
 			if (mode === "signup") {
-				try {
-					await signupMutation.mutateAsync({
-						body: { email, password, name: getNameFromEmail(email) },
-					});
-				} catch {
+				const { error } = await authClient.signUp.email({
+					email,
+					password,
+					name: getNameFromEmail(email),
+				});
+				if (error) {
+					setSubmitError(error.message ?? "An unknown error occurred");
 					return;
 				}
 

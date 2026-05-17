@@ -4,7 +4,6 @@ import { HTTPException } from "hono/http-exception";
 
 import { auth, type MaybeAuthType } from "~/lib/auth";
 import { ERROR_CODES, errorResponse } from "~/lib/openapi/errors";
-import { authenticationApi } from "~/modules/authentication/routes";
 import { collectionsApi } from "~/modules/collections/routes";
 import { entitiesApi } from "~/modules/entities/routes";
 import { entitySchemasApi } from "~/modules/entity-schemas/routes";
@@ -104,7 +103,6 @@ const baseApp = new OpenAPIHono<{ Variables: MaybeAuthType }>()
 		return c.json(errorResponse(ERROR_CODES.INTERNAL_ERROR, "An unexpected error occurred"), 500);
 	})
 	.route("/system", systemApi)
-	.route("/authentication", authenticationApi)
 	.route("/sandbox", sandboxApi)
 	.route("/media", mediaApi)
 	.route("/trackers", trackersApi)

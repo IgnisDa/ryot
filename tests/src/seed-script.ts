@@ -3,6 +3,7 @@
 import { faker } from "@faker-js/faker";
 import type { components, paths } from "@ryot/generated/openapi/app-backend";
 import { dayjs } from "@ryot/ts-utils/dayjs";
+import { createAuthClient } from "better-auth/client";
 import createClient from "openapi-fetch";
 
 const API_BASE_URL = process.env.API_BASE_URL ?? "http://localhost:8000/api";
@@ -14,16 +15,16 @@ async function createAndSignIn(): Promise<{
 }> {
 	const email = `seed-${dayjs().valueOf()}@example.com`;
 	const password = email;
+	const authClient = createAuthClient({ baseURL: new URL(API_BASE_URL).origin });
 
-	const signUpResponse = await fetch(`${API_BASE_URL}/authentication/email`, {
-		method: "POST",
-		headers: { "Content-Type": "application/json" },
-		body: JSON.stringify({ email, name: "Seed User", password }),
+	const { error: signUpError } = await authClient.signUp.email({
+		email,
+		name: "Seed User",
+		password,
 	});
 
-	if (!signUpResponse.ok) {
-		const error = await signUpResponse.text();
-		throw new Error(`Sign up failed: ${error}`);
+	if (signUpError) {
+		throw new Error(`Sign up failed: ${signUpError.message}`);
 	}
 
 	const signInResponse = await fetch(`${API_BASE_URL}/auth/sign-in/email`, {

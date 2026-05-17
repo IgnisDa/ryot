@@ -19,8 +19,7 @@ export const auth = betterAuth({
 	secret: config.server.adminAccessToken,
 	secondaryStorage: redisStorage({ client: redis }),
 	database: drizzleAdapter(db, { provider: "pg", schema }),
-	// Sign-up is handled by our custom POST /authentication/email route.
-	disabledPaths: ["/sign-up/email", ...(config.users.disableLocalAuth ? ["/sign-in/email"] : [])],
+	disabledPaths: config.users.disableLocalAuth ? ["/sign-in/email"] : [],
 	account: {
 		// TEMP(9179): Expo/native OAuth state cookie round-trip fails here.
 		// https://github.com/better-auth/better-auth/issues/9179
@@ -41,7 +40,7 @@ export const auth = betterAuth({
 	emailAndPassword: {
 		enabled: true,
 		autoSignIn: false,
-		disableSignUp: !config.users.allowRegistration,
+		disableSignUp: !config.users.allowRegistration || config.users.disableLocalAuth,
 	},
 	databaseHooks: {
 		user: {

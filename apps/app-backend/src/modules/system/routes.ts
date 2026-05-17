@@ -111,9 +111,9 @@ export const systemApi = new OpenAPIHono()
 			providers: masked.providers as Record<string, unknown>,
 			auth: {
 				oidcEnabled: oidc.enabled,
-				signupAllowed: config.users.allowRegistration,
-				localAuthDisabled: config.users.disableLocalAuth,
 				oidcButtonLabel: config.frontend.oidcButtonLabel,
+				localAuthDisabled: config.users.disableLocalAuth,
+				signupAllowed: config.users.allowRegistration && !config.users.disableLocalAuth,
 			},
 		});
 		return c.json(response.body, response.status);

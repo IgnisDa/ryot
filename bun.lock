@@ -393,6 +393,9 @@
     },
     "tests": {
       "name": "@ryot/tests",
+      "dependencies": {
+        "better-auth": "1.6.5",
+      },
       "devDependencies": {
         "@aws-sdk/client-s3": "3.1032.0",
         "@faker-js/faker": "10.4.0",

@@ -1,7 +1,7 @@
 import { describe, expect, it } from "bun:test";
 
-import { createTestUser } from "../fixtures/auth";
-import { getBackendClient, getBackendUrl, getPgClient } from "../setup";
+import { createTestAuthClient, createTestUser } from "../fixtures/auth";
+import { getBackendClient, getPgClient } from "../setup";
 
 describe("GET /system/config auth block defaults", () => {
 	it("returns correct auth defaults", async () => {
@@ -24,14 +24,13 @@ describe("Email sign-up", () => {
 		expect(Number(result.rows[0]?.count)).toBeGreaterThan(0);
 	});
 
-	it("returns a non-200 status for a duplicate email sign-up", async () => {
+	it("returns an error for a duplicate email sign-up", async () => {
 		const { email } = await createTestUser();
-		const baseUrl = getBackendUrl();
-		const second = await fetch(`${baseUrl}/authentication/email`, {
-			method: "POST",
-			headers: { "Content-Type": "application/json" },
-			body: JSON.stringify({ email, name: "Test User", password: "password123" }),
+		const { error } = await createTestAuthClient().signUp.email({
+			email,
+			name: "Test User",
+			password: "password123",
 		});
-		expect(second.ok).toBe(false);
+		expect(error).toBeDefined();
 	});
 });
