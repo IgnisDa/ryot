@@ -4,6 +4,7 @@ import { importEntityRefKey, type ImportMediaEntityGroup, type ImportRunJobData 
 import { createImportRunFailure, updateImportRun } from "../repository";
 import { failImportRun, recordImportRunFailure, sanitizeErrorMessage } from "../runtime/failures";
 import { populateMediaEntityRefs } from "./populate";
+import { resolveMediaEntityRefs } from "./resolve";
 import { writeMediaEntityGroups } from "./write";
 
 export type MediaImportAdapterFailure = {
@@ -27,17 +28,22 @@ export type MediaImportJobInput = Pick<
 	| "providerEntityIds"
 	| "mediaEntityGroups"
 	| "providerEntityRefs"
+	| "resolveEntityIndex"
 	| "adapterFailureCount"
 	| "providerEntityIndex"
+	| "resolveSandboxJobId"
 	| "providerSandboxJobId"
 	| "mediaWriteGroupIndex"
+	| "resolveFailedIndices"
 	| "providerFailedIndices"
+	| "resolveCandidateIndex"
 	| "mediaWriteFailedItems"
 	| "mediaWriteImportedItems"
 >;
 
 export type MediaImportProcessorDeps = {
 	updateImportRun: typeof updateImportRun;
+	resolveMediaEntityRefs: typeof resolveMediaEntityRefs;
 	createImportRunFailure: typeof createImportRunFailure;
 	writeMediaEntityGroups: typeof writeMediaEntityGroups;
 	populateMediaEntityRefs: typeof populateMediaEntityRefs;
@@ -45,6 +51,7 @@ export type MediaImportProcessorDeps = {
 
 const mediaImportProcessorDeps: MediaImportProcessorDeps = {
 	updateImportRun,
+	resolveMediaEntityRefs,
 	createImportRunFailure,
 	writeMediaEntityGroups,
 	populateMediaEntityRefs,
@@ -71,66 +78,124 @@ export const processMediaImport = async (
 		let providerEntityIds = input.providerEntityIds ?? [];
 		let adapterFailureCount = input.adapterFailureCount ?? 0;
 		let mediaWriteGroupIndex = input.mediaWriteGroupIndex ?? 0;
+		let resolveFailedIndices = input.resolveFailedIndices ?? [];
 		let mediaWriteFailedItems = input.mediaWriteFailedItems ?? 0;
 		let providerFailedIndices = input.providerFailedIndices ?? [];
 		let mediaWriteImportedItems = input.mediaWriteImportedItems ?? 0;
 
-		if (!importStep || importStep === "populating_entities") {
-			if (!providerEntityRefs || !mediaEntityGroups) {
-				let adapterResult: MediaImportAdapterResult;
-				try {
-					adapterResult = await input.loadAdapterResult();
-				} catch (error) {
-					await failImportRun(
-						runId,
-						sanitizeErrorMessage(error, input.adapterErrorFallback),
-						deps.updateImportRun,
-					);
-					return;
-				}
-
-				for (const failure of adapterResult.failures) {
-					// oxlint-disable-next-line no-await-in-loop
-					await recordImportRunFailure(
-						{
-							runId,
-							message: failure.message,
-							itemIndex: failure.itemIndex,
-							stage: "input_transformation",
-							context: failure.context ?? null,
-							sourceLabel: failure.sourceLabel,
-							sourceIdentifier: failure.sourceIdentifier,
-						},
-						deps.createImportRunFailure,
-					);
-				}
-
-				mediaEntityGroups = adapterResult.entityGroups;
-				adapterFailureCount = adapterResult.failures.length;
-				mediaWriteFailedItems = 0;
-				mediaWriteGroupIndex = 0;
-				mediaWriteImportedItems = 0;
-				providerEntityRefs = mediaEntityGroups.map((group) => group.entityRef);
-				const totalItems = providerEntityRefs.length + adapterFailureCount;
-				await deps.updateImportRun({ runId, totalItems });
-
-				await job.updateData({
-					...input.jobData,
+		if (!mediaEntityGroups) {
+			let adapterResult: MediaImportAdapterResult;
+			try {
+				adapterResult = await input.loadAdapterResult();
+			} catch (error) {
+				await failImportRun(
 					runId,
-					userId,
-					mediaEntityGroups,
-					providerEntityRefs,
-					adapterFailureCount,
-					mediaWriteGroupIndex,
-					providerEntityIds: [],
-					mediaWriteFailedItems,
-					providerEntityIndex: 0,
-					mediaWriteImportedItems,
-					providerFailedIndices: [],
-					importStep: "populating_entities" as const,
-				});
+					sanitizeErrorMessage(error, input.adapterErrorFallback),
+					deps.updateImportRun,
+				);
+				return;
 			}
 
+			for (const failure of adapterResult.failures) {
+				// oxlint-disable-next-line no-await-in-loop
+				await recordImportRunFailure(
+					{
+						runId,
+						message: failure.message,
+						itemIndex: failure.itemIndex,
+						stage: "input_transformation",
+						context: failure.context ?? null,
+						sourceLabel: failure.sourceLabel,
+						sourceIdentifier: failure.sourceIdentifier,
+					},
+					deps.createImportRunFailure,
+				);
+			}
+
+			mediaWriteGroupIndex = 0;
+			mediaWriteFailedItems = 0;
+			resolveFailedIndices = [];
+			mediaWriteImportedItems = 0;
+			mediaEntityGroups = adapterResult.entityGroups;
+			adapterFailureCount = adapterResult.failures.length;
+			providerEntityRefs = mediaEntityGroups.map((group) => group.entityRef);
+
+			const totalItems = providerEntityRefs.length + adapterFailureCount;
+			await deps.updateImportRun({ runId, totalItems });
+
+			importStep = "resolving_entities";
+			await job.updateData({
+				...input.jobData,
+				runId,
+				userId,
+				mediaEntityGroups,
+				providerEntityRefs,
+				adapterFailureCount,
+				mediaWriteGroupIndex,
+				providerEntityIds: [],
+				resolveEntityIndex: 0,
+				mediaWriteFailedItems,
+				providerEntityIndex: 0,
+				resolveCandidateIndex: 0,
+				resolveFailedIndices: [],
+				mediaWriteImportedItems,
+				providerFailedIndices: [],
+				importStep: "resolving_entities" as const,
+			});
+		}
+
+		if (!providerEntityRefs) {
+			await failImportRun(
+				runId,
+				`Import job is missing normalized ${input.sourceName} data`,
+				deps.updateImportRun,
+			);
+			return;
+		}
+
+		if (!importStep || importStep === "resolving_entities") {
+			const totalItems = providerEntityRefs.length + adapterFailureCount;
+			const resolveResult = await deps.resolveMediaEntityRefs(job, token, {
+				runId,
+				userId,
+				adapterFailureCount,
+				jobData: input.jobData,
+				entityGroups: mediaEntityGroups,
+				failedIndices: resolveFailedIndices,
+				currentSandboxJobId: input.resolveSandboxJobId,
+				startEntityIndex: input.resolveEntityIndex ?? 0,
+				startCandidateIndex: input.resolveCandidateIndex ?? 0,
+				onEntityProcessed: async (processedCount) => {
+					const progress = totalItems > 0 ? Math.round((processedCount / totalItems) * 30) : 0;
+					await deps.updateImportRun({ runId, progress });
+				},
+			});
+
+			importStep = "populating_entities";
+			mediaEntityGroups = resolveResult.entityGroups;
+			resolveFailedIndices = resolveResult.failedIndices;
+			providerFailedIndices = resolveResult.failedIndices;
+			providerEntityRefs = mediaEntityGroups.map((group) => group.entityRef);
+
+			await job.updateData({
+				...input.jobData,
+				runId,
+				userId,
+				importStep,
+				mediaEntityGroups,
+				providerEntityRefs,
+				adapterFailureCount,
+				mediaWriteGroupIndex,
+				resolveFailedIndices,
+				providerEntityIds: [],
+				mediaWriteFailedItems,
+				providerFailedIndices,
+				providerEntityIndex: 0,
+				mediaWriteImportedItems,
+			});
+		}
+
+		if (importStep === "populating_entities") {
 			const totalItems = providerEntityRefs.length + adapterFailureCount;
 			const result = await deps.populateMediaEntityRefs(job, token, {
 				runId,
@@ -144,14 +209,15 @@ export const processMediaImport = async (
 				startIndex: input.providerEntityIndex ?? 0,
 				currentSandboxJobId: input.providerSandboxJobId,
 				onEntityProcessed: async (processedCount) => {
-					const progress = totalItems > 0 ? Math.round((processedCount / totalItems) * 90) : 0;
+					const progress =
+						totalItems > 0 ? 30 + Math.round((processedCount / totalItems) * 60) : 30;
 					await deps.updateImportRun({ runId, processedItems: processedCount, progress });
 				},
 			});
 
-			providerFailedIndices = result.failedIndices;
-			providerEntityIds = result.entityIds;
 			importStep = "writing_events";
+			providerEntityIds = result.entityIds;
+			providerFailedIndices = result.failedIndices;
 
 			await job.updateData({
 				...input.jobData,
@@ -163,20 +229,17 @@ export const processMediaImport = async (
 				providerEntityRefs,
 				adapterFailureCount,
 				mediaWriteGroupIndex,
+				resolveFailedIndices,
 				mediaWriteFailedItems,
 				providerFailedIndices,
 				mediaWriteImportedItems,
 			});
 		}
 
-		if (
-			!mediaEntityGroups ||
-			!providerEntityRefs ||
-			providerEntityIds.length < providerEntityRefs.length
-		) {
+		if (providerEntityIds.length < providerEntityRefs.length) {
 			await failImportRun(
 				runId,
-				`Import job is missing normalized or populated ${input.sourceName} data`,
+				`Import job is missing populated ${input.sourceName} data`,
 				deps.updateImportRun,
 			);
 			return;
@@ -225,6 +288,7 @@ export const processMediaImport = async (
 					providerEntityRefs,
 					adapterFailureCount,
 					mediaWriteGroupIndex,
+					resolveFailedIndices,
 					providerFailedIndices,
 					mediaWriteFailedItems,
 					mediaWriteImportedItems,

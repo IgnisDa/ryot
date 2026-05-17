@@ -61,7 +61,6 @@ export const startImportRun = async (input: {
 			return serviceError("validation", claimResult.error);
 		}
 
-		// Defense-in-depth: verify the claimed path is still within the temp directory.
 		const safePathResult = resolveSafeImportFilePath(claimResult.resolvedPath, tempDir);
 		if ("error" in safePathResult) {
 			await cleanupImportFile(claimResult.resolvedPath);

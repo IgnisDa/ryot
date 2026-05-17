@@ -5,29 +5,23 @@ import { adaptGoodreadsCsv } from "./adapter";
 const GOODREADS_HEADERS = "Title,ISBN13,My Rating,Date Read,Bookshelves,My Review,Read Count";
 
 describe("adaptGoodreadsCsv", () => {
-	it("maps completed history, reviews, and custom shelves to normalized groups", async () => {
+	it("maps completed history, reviews, and custom shelves to unresolved groups", () => {
 		const csv = [
 			GOODREADS_HEADERS,
 			'Book One,9780140328721,4,2026/01/02,"read,favorites,science-fiction",Loved it,2',
 		].join("\n");
 
-		const result = await adaptGoodreadsCsv(csv, {
-			resolveBookEntityRef: () =>
-				Promise.resolve({
-					externalId: "OL123W",
-					sourceLabel: "Book One",
-					entitySchemaSlug: "book",
-					scriptSlug: "book.openlibrary",
-				}),
-		});
+		const result = adaptGoodreadsCsv(csv);
 
 		expect(result.failures).toEqual([]);
 		expect(result.entityGroups).toHaveLength(1);
 		expect(result.entityGroups[0]).toMatchObject({
 			entityRef: {
-				externalId: "OL123W",
+				kind: "unresolved",
+				sourceLabel: "Book One",
+				identifierType: "isbn",
 				entitySchemaSlug: "book",
-				scriptSlug: "book.openlibrary",
+				identifierValue: "9780140328721",
 			},
 			collectionMemberships: [
 				{ collectionName: "Favorites" },
@@ -59,39 +53,50 @@ describe("adaptGoodreadsCsv", () => {
 		]);
 	});
 
-	it("maps current and want-to-read shelves to lifecycle events", async () => {
+	it("maps current and want-to-read shelves to lifecycle events across distinct ISBNs", () => {
 		const csv = [
 			GOODREADS_HEADERS,
 			'Current Book,9780140328721,,,"currently-reading",,0',
-			'TBR Book,9780140328721,,,"to-read",,0',
+			'TBR Book,9780743273565,,,"to-read",,0',
 		].join("\n");
 
-		let callCount = 0;
-		const result = await adaptGoodreadsCsv(csv, {
-			resolveBookEntityRef: ({ sourceLabel }) => {
-				callCount += 1;
-				return Promise.resolve({
-					sourceLabel,
-					entitySchemaSlug: "book",
-					externalId: `OL${callCount}W`,
-					scriptSlug: "book.openlibrary",
-				});
-			},
-		});
+		const result = adaptGoodreadsCsv(csv);
 
 		expect(result.failures).toEqual([]);
+		expect(result.entityGroups.map((group) => group.entityRef)).toMatchObject([
+			{ kind: "unresolved", identifierValue: "9780140328721" },
+			{ kind: "unresolved", identifierValue: "9780743273565" },
+		]);
 		expect(result.entityGroups.map((group) => group.events[0]?.eventSchemaSlug)).toEqual([
 			"progress",
 			"backlog",
 		]);
 	});
 
-	it("records row-level failures when the ISBN cannot be resolved", async () => {
+	it("collapses duplicate ISBNs into a single group before resolution", () => {
+		const csv = [
+			GOODREADS_HEADERS,
+			"First Copy,9780140328721,,2026/01/02,read,,1",
+			"Second Copy,9780140328721,,,currently-reading,,0",
+		].join("\n");
+
+		const result = adaptGoodreadsCsv(csv);
+
+		expect(result.entityGroups).toHaveLength(1);
+		expect(result.entityGroups[0]?.entityRef).toMatchObject({
+			sourceLabel: "First Copy",
+			identifierValue: "9780140328721",
+		});
+		expect(result.entityGroups[0]?.events.map((event) => event.eventSchemaSlug)).toEqual([
+			"complete",
+			"progress",
+		]);
+	});
+
+	it("records row-level failures when the ISBN is empty", () => {
 		const csv = [GOODREADS_HEADERS, "Broken Book,,4,2026/01/02,read,,1"].join("\n");
 
-		const result = await adaptGoodreadsCsv(csv, {
-			resolveBookEntityRef: () => Promise.resolve(null),
-		});
+		const result = adaptGoodreadsCsv(csv);
 
 		expect(result.entityGroups).toEqual([]);
 		expect(result.failures).toEqual([
@@ -99,14 +104,10 @@ describe("adaptGoodreadsCsv", () => {
 		]);
 	});
 
-	it("rejects invalid Goodreads ISBN values before provider lookup", async () => {
+	it("rejects invalid Goodreads ISBN values", () => {
 		const csv = [GOODREADS_HEADERS, "Broken Book,abc123,4,2026/01/02,read,,1"].join("\n");
 
-		const result = await adaptGoodreadsCsv(csv, {
-			resolveBookEntityRef: () => {
-				throw new Error("should not be called");
-			},
-		});
+		const result = adaptGoodreadsCsv(csv);
 
 		expect(result.entityGroups).toEqual([]);
 		expect(result.failures).toEqual([

@@ -43,9 +43,7 @@ const processWithFailureHandling = async (
 		const message = sanitizeErrorMessage(error, "Import job failed unexpectedly");
 		try {
 			await failImportRun(runId, message);
-		} catch {
-			// best effort
-		}
+		} catch {}
 		throw error;
 	}
 };
