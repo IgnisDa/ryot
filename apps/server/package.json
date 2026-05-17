@@ -14,6 +14,7 @@
 		"@ryot/kernel-backend": "workspace:*",
 		"@ryot/sandbox-compiler": "workspace:*",
 		"@ryot/sandbox-sdk": "workspace:*",
+		"@ryot/v10-rust-migration": "workspace:*",
 		"effect": "4.0.0-rc.111"
 	},
 	"devDependencies": {

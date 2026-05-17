@@ -137,6 +137,7 @@
         "@ryot/kernel-backend": "workspace:*",
         "@ryot/sandbox-compiler": "workspace:*",
         "@ryot/sandbox-sdk": "workspace:*",
+        "@ryot/v10-rust-migration": "workspace:*",
         "effect": "4.0.0-rc.111",
       },
       "devDependencies": {
@@ -334,6 +335,20 @@
         "tailwindcss": "^4.1.13",
         "test-renderer": "1.2.0",
         "vitest": "4.1.9",
+      },
+    },
+    "migrations/v10-rust": {
+      "name": "@ryot/v10-rust-migration",
+      "dependencies": {
+        "@better-auth/core": "1.7.0-rc.6",
+        "@effect/sql-pg": "4.0.0-beta.107",
+        "@ryot/contract": "workspace:*",
+        "@ryot/kernel-backend": "workspace:*",
+        "drizzle-orm": "1.0.0-rc.5-169397b",
+        "effect": "4.0.0-rc.111",
+      },
+      "devDependencies": {
+        "bun-types": "1.4.0",
       },
     },
     "packages/cli": {
@@ -1745,6 +1760,8 @@
     "@ryot/transactional": ["@ryot/transactional@workspace:packages/transactional"],
 
     "@ryot/ts-utils": ["@ryot/ts-utils@workspace:packages/ts-utils"],
+
+    "@ryot/v10-rust-migration": ["@ryot/v10-rust-migration@workspace:migrations/v10-rust"],
 
     "@ryot/website": ["@ryot/website@workspace:apps/website"],
 
