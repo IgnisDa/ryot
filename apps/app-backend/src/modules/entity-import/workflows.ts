@@ -1,5 +1,4 @@
-import type { Workflow } from "@effect/workflow";
-import { Activity, DurableQueue } from "@effect/workflow";
+import { Activity, DurableQueue, Workflow } from "@effect/workflow";
 import { Cause, DateTime, Effect, Exit, Match, Option, Schema } from "effect";
 
 import { DbRunner } from "#lib/db";
@@ -21,11 +20,11 @@ import {
 import type { ImportEntityRunResult } from "./schemas";
 
 export const EntityImportPayload = Schema.Struct({
-	userId: UserId,
 	scriptId: SandboxScriptId,
 	externalId: Schema.String,
 	executionId: Schema.String,
 	entitySchemaId: EntitySchemaId,
+	userId: Schema.NullOr(UserId),
 });
 
 export type EntityImportPayload = typeof EntityImportPayload.Type;
@@ -211,3 +210,18 @@ export const runEntityImportWorkflow = Effect.fn("runEntityImportWorkflow")(func
 
 	return populatedEntity;
 });
+
+export const BuiltinEntityImportWorkflow = Workflow.make({
+	success: ListedEntity,
+	error: SandboxRunError,
+	payload: EntityImportPayload,
+	name: "BuiltinEntityImportWorkflow",
+	idempotencyKey: ({ executionId }) => executionId,
+});
+
+const BuiltinEntityImportWorkflowLive = BuiltinEntityImportWorkflow.toLayer(
+	(payload, executionId) =>
+		runEntityImportWorkflow(payload, executionId, processSandboxEntityDetails),
+);
+
+export const BuiltinEntityImportWorkflowDefinitionsLive = BuiltinEntityImportWorkflowLive;
