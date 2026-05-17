@@ -1,12 +1,11 @@
-import { defineActivity } from "@ryot/sandbox-sdk/activity";
-import { defineManifest } from "@ryot/sandbox-sdk/driver";
+import { defineManifest, defineScript } from "@ryot/sandbox-sdk/driver";
 import { Effect } from "@ryot/sandbox-sdk/effect";
 
 import { MediaIntegrationAdapterResult } from "../../../imports/schemas";
 import { failureResult, SinkInput } from "../shared";
 
 export const manifest = defineManifest({
-	kind: "activity",
+	kind: "script",
 	name: "Generic JSON sink",
 	requiredPluginConfigKeys: [],
 	requiredSystemConfigKeys: [],
@@ -14,7 +13,7 @@ export const manifest = defineManifest({
 	capabilities: ["getCurrentIntegration"],
 });
 
-export default defineActivity({
+export default defineScript({
 	manifest,
 	input: SinkInput,
 	output: MediaIntegrationAdapterResult,

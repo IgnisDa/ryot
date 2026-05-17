@@ -1,5 +1,4 @@
-import { defineActivity } from "@ryot/sandbox-sdk/activity";
-import { defineManifest } from "@ryot/sandbox-sdk/driver";
+import { defineManifest, defineScript } from "@ryot/sandbox-sdk/driver";
 import { Effect, Option, Schema } from "@ryot/sandbox-sdk/effect";
 
 import type { ImportEntityRef } from "../../../imports/schemas";
@@ -8,7 +7,7 @@ import { movieOrShowImportRef, sourceFetchFailure } from "../../../imports/sourc
 import { baseUrl, requestJson, specifics } from "../shared";
 
 export const manifest = defineManifest({
-	kind: "activity",
+	kind: "script",
 	name: "Plex yank",
 	requiredPluginConfigKeys: [],
 	requiredSystemConfigKeys: [],
@@ -53,7 +52,7 @@ const refFor = (item: typeof Item.Type, lot: "movie" | "show"): ImportEntityRef 
 	});
 };
 
-export default defineActivity({
+export default defineScript({
 	manifest,
 	input: Input,
 	output: MediaIntegrationAdapterResult,
