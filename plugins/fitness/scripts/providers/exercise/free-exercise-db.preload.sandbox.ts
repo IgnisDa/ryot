@@ -22,5 +22,5 @@ export default defineScript({
 	manifest,
 	input: Schema.Unknown,
 	output: preloadResultSchema,
-	run: (_, host) => preloadExercises(host),
+	run: (_, host, execution) => preloadExercises(host, execution),
 });
