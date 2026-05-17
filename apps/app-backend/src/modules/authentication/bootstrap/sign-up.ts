@@ -53,10 +53,7 @@ export const signUpAndInitializeUser = async (input: {
 					trackers: createdTrackers,
 					entitySchemas: builtinEntitySchemaRows,
 					schemaLinks: authenticationBuiltinEntitySchemas()
-						.filter(
-							(schema): schema is typeof schema & { trackerSlug: string } =>
-								typeof (schema as { trackerSlug?: string }).trackerSlug === "string",
-						)
+						.filter((schema) => typeof schema.trackerSlug === "string")
 						.map((schema) => ({
 							slug: schema.slug,
 							trackerSlug: schema.trackerSlug,
