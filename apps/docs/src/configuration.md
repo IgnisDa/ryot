@@ -3,7 +3,7 @@
 You can specify configuration options via environment variables. Each option is documented
 [below](#all-parameters) with what it does and a default (if any).
 
-Ryot serves the final configuration loaded at the `/backend/config` endpoint as JSON
+Ryot serves the final configuration loaded at the `/api/system/config` endpoint as JSON
 ([example](https://demo.ryot.io/backend/config)). Sensitive variables are redacted.
 
 ## Important parameters
@@ -29,4 +29,4 @@ The `/health` endpoint can be used for checking service healthiness. More inform
 Please refer to the `@env` annotations to know which environment variable to use for a
 given configuration option.
 
-<<< @/includes/app-backend-config-schema.md
+<!--@include: @/includes/app-backend-config-schema.md{5,}-->
