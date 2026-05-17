@@ -9,8 +9,7 @@ import {
 } from "@ryot/contract/modules/uploads/upload-policy";
 import { UserId } from "@ryot/contract/schema/brands";
 import { generateId } from "better-auth";
-import type { Stream } from "effect";
-import { Clock, Context, DateTime, Effect, Layer, Schema, FileSystem } from "effect";
+import { Clock, Context, DateTime, Effect, FileSystem, Layer, Schema, Stream } from "effect";
 import type { Multipart } from "effect/unstable/http";
 
 import { AppConfig } from "#lib/infrastructure/config/service";
@@ -20,6 +19,8 @@ import { S3Service } from "#lib/infrastructure/s3";
 
 const UPLOAD_TOKEN_TTL_SECONDS = 15 * 60;
 const UPLOAD_URL_EXPIRY_SECONDS = 15 * 60;
+const PROCESSING_LEASE_SECONDS = 24 * 60 * 60;
+const CLEANUP_LEASE_SECONDS = 60;
 
 const UploadIntentMetadata = Schema.Struct({
 	userId: UserId,
@@ -28,19 +29,23 @@ const UploadIntentMetadata = Schema.Struct({
 	createdAt: Schema.Finite,
 	expiresAt: Schema.Finite,
 	contentType: Schema.String,
+	claimedAt: Schema.optional(Schema.Finite),
+	cleaningAt: Schema.optional(Schema.Finite),
 	provider: Schema.Literals(["local", "s3"]),
-	state: Schema.Literals(["pending", "completed"]),
 	kind: Schema.Literals(["temporary", "permanent"]),
+	state: Schema.Literals(["pending", "completed", "claimed", "cleaning"]),
 	completion: Schema.optional(
 		Schema.Union([
-			Schema.Struct({ key: Schema.String, type: Schema.Literal("local") }),
+			Schema.Struct({ expiresAt: Schema.Finite, token: Schema.String }),
 			Schema.Struct({ key: Schema.String, type: Schema.Literal("s3") }),
+			Schema.Struct({ key: Schema.String, type: Schema.Literal("local") }),
 		]),
 	),
 });
 type UploadIntentMetadata = typeof UploadIntentMetadata.Type;
 
-const UploadTokenValue = Schema.Struct({ userId: UserId, resolvedPath: Schema.String });
+const UploadTokenValue = Schema.Struct({ intentId: Schema.String, userId: UserId });
+const LegacyUploadTokenValue = Schema.Struct({ userId: UserId, resolvedPath: Schema.String });
 
 const resolveExtension = (contentType: UploadContentType) =>
 	uploadContentTypeExtensions[contentType][0];
@@ -121,23 +126,25 @@ export class UploadsService extends Context.Service<UploadsService>()("UploadsSe
 			user: CurrentUserValue,
 			input: typeof UploadIntentInput.Type,
 		) {
-			if (input.kind !== "permanent") {
-				return yield* badRequest("Only permanent upload intents are currently supported");
+			if (input.kind === "temporary" && input.provider !== "local") {
+				return yield* badRequest("Temporary upload intents currently support local storage only");
 			}
 			if (input.provider === "s3" && !s3Service.isConfigured) {
 				return yield* badRequest(
 					"S3 file storage is not configured. Set the FILE_STORAGE_S3_* settings.",
 				);
 			}
-			if (input.provider === "local" && !localStorage.isConfigured) {
+			if (input.provider === "local" && !localStorage.isConfiguredForKind(input.kind)) {
 				return yield* badRequest(
-					"Local file storage is not configured. Set FILE_STORAGE_LOCAL_DIR and FILE_STORAGE_LOCAL_SIGNING_SECRET.",
+					input.kind === "temporary"
+						? "Local temporary storage is not configured. Set FILE_STORAGE_LOCAL_TEMP_DIR and FILE_STORAGE_LOCAL_SIGNING_SECRET."
+						: "Local permanent storage is not configured. Set FILE_STORAGE_LOCAL_DIR and FILE_STORAGE_LOCAL_SIGNING_SECRET.",
 				);
 			}
 			const fileName = yield* resolveFileName(input.fileName);
 			const contentType = yield* resolveIntentContentType(input.contentType, fileName);
 			const intentId = generateId();
-			const objectKey = `permanent/${generateId()}.${resolveExtension(contentType)}`;
+			const objectKey = `${input.kind}/${generateId()}.${resolveExtension(contentType)}`;
 			const now = Math.floor((yield* Clock.currentTimeMillis) / 1000);
 			const expiresAt = now + UPLOAD_URL_EXPIRY_SECONDS;
 			const target =
@@ -200,7 +207,8 @@ export class UploadsService extends Context.Service<UploadsService>()("UploadsSe
 			intentId: string,
 		) {
 			const lockKey = redisKeys.uploadIntentLock(intentId);
-			if (!(yield* redis.claim(lockKey, 60))) {
+			const lease = yield* redis.acquireLease(lockKey, UPLOAD_URL_EXPIRY_SECONDS);
+			if (lease === null) {
 				return yield* badRequest("Upload intent is currently being processed");
 			}
 			return yield* Effect.gen(function* () {
@@ -208,10 +216,18 @@ export class UploadsService extends Context.Service<UploadsService>()("UploadsSe
 				if (metadata.userId !== user.id) {
 					return yield* badRequest("Upload intent does not belong to this user");
 				}
-				if (metadata.state === "completed" && metadata.completion) {
-					return metadata.completion;
+				if (metadata.state !== "pending" && metadata.completion) {
+					return "token" in metadata.completion
+						? {
+								token: metadata.completion.token,
+								expiresAt: DateTime.formatIso(
+									DateTime.makeUnsafe(metadata.completion.expiresAt * 1000),
+								),
+							}
+						: metadata.completion;
 				}
-				if (metadata.expiresAt < Math.floor((yield* Clock.currentTimeMillis) / 1000)) {
+				const now = Math.floor((yield* Clock.currentTimeMillis) / 1000);
+				if (metadata.expiresAt <= now) {
 					return yield* badRequest("Upload intent is invalid or has expired");
 				}
 				const info =
@@ -233,19 +249,54 @@ export class UploadsService extends Context.Service<UploadsService>()("UploadsSe
 				) {
 					return yield* badRequest("Upload content type does not match the upload intent");
 				}
-				const completion = { type: metadata.provider, key: metadata.objectKey };
-				const completed = { ...metadata, state: "completed" as const, completion };
+				const completion =
+					metadata.kind === "temporary"
+						? {
+								token: generateId(),
+								expiresAt: DateTime.formatIso(
+									DateTime.makeUnsafe((now + UPLOAD_TOKEN_TTL_SECONDS) * 1000),
+								),
+							}
+						: { type: metadata.provider, key: metadata.objectKey };
+				const storedCompletion =
+					metadata.kind === "temporary"
+						? { expiresAt: now + UPLOAD_TOKEN_TTL_SECONDS, token: completion.token }
+						: completion;
+				const completed = {
+					...metadata,
+					state: "completed" as const,
+					completion: storedCompletion,
+					expiresAt:
+						metadata.kind === "temporary" ? now + UPLOAD_TOKEN_TTL_SECONDS : metadata.expiresAt,
+				};
 				const encoded = yield* Schema.encodeUnknownEffect(
 					Schema.fromJsonString(UploadIntentMetadata),
 				)(completed).pipe(Effect.orDie);
-				yield* redis.setAndRemoveFromIndex(
-					redisKeys.uploadIntent(intentId),
-					encoded,
-					redisKeys.uploadIntentExpiry,
-					intentId,
-				);
+				if (metadata.kind === "temporary") {
+					const completionToken = "token" in completion ? completion.token : "";
+					const tokenValue = yield* Schema.encodeUnknownEffect(
+						Schema.fromJsonString(UploadTokenValue),
+					)({ intentId, userId: user.id }).pipe(Effect.orDie);
+					yield* redis.setAndIndexAndSet(
+						redisKeys.uploadIntent(intentId),
+						encoded,
+						redisKeys.uploadIntentExpiry,
+						completed.expiresAt,
+						intentId,
+						redisKeys.uploadToken(completionToken),
+						tokenValue,
+						UPLOAD_TOKEN_TTL_SECONDS,
+					);
+				} else {
+					yield* redis.setAndRemoveFromIndex(
+						redisKeys.uploadIntent(intentId),
+						encoded,
+						redisKeys.uploadIntentExpiry,
+						intentId,
+					);
+				}
 				return completion;
-			}).pipe(Effect.ensuring(redis.del(lockKey)));
+			}).pipe(Effect.ensuring(redis.releaseLease(lockKey, lease)));
 		});
 
 		const putLocalIntent = Effect.fn("UploadsService.putLocalIntent")(function* (
@@ -261,36 +312,55 @@ export class UploadsService extends Context.Service<UploadsService>()("UploadsSe
 				url,
 				Math.floor((yield* Clock.currentTimeMillis) / 1000),
 			);
-			const raw = yield* redis.get(redisKeys.uploadIntent(intentId));
-			if (!raw) {
-				return;
+			const lockKey = redisKeys.uploadIntentLock(intentId);
+			const lease = yield* redis.acquireLease(lockKey, UPLOAD_URL_EXPIRY_SECONDS);
+			if (lease === null) {
+				return yield* badRequest("Upload intent is currently being processed");
 			}
-			const metadata = yield* Schema.decodeUnknownEffect(
-				Schema.fromJsonString(UploadIntentMetadata),
-			)(raw).pipe(Effect.mapError(() => badRequest("Upload intent is invalid")));
-			if (metadata.state === "completed") {
-				return;
-			}
-			if (metadata.provider !== "local") {
-				return yield* badRequest("Upload intent does not target local storage");
-			}
-			if (
-				metadata.state !== "pending" ||
-				metadata.expiresAt < Math.floor((yield* Clock.currentTimeMillis) / 1000)
-			) {
-				return yield* badRequest("Upload intent is invalid or has expired");
-			}
-			const normalizedContentType = contentType?.split(";")[0]?.trim().toLowerCase();
-			if (normalizedContentType !== metadata.contentType) {
-				return yield* badRequest("Upload content type does not match the upload intent");
-			}
-			yield* localStorage
-				.writeObject(metadata.objectKey, stream, contentLength)
-				.pipe(
-					Effect.mapError((error) =>
-						error instanceof Error ? badRequest(error.message) : badRequest("Local upload failed"),
+			return yield* Effect.gen(function* () {
+				const raw = yield* redis.get(redisKeys.uploadIntent(intentId));
+				if (!raw) {
+					return yield* badRequest("Upload intent is invalid or has expired");
+				}
+				const metadata = yield* Schema.decodeUnknownEffect(
+					Schema.fromJsonString(UploadIntentMetadata),
+				)(raw).pipe(Effect.mapError(() => badRequest("Upload intent is invalid")));
+				if (metadata.state !== "pending") {
+					return yield* badRequest("Upload intent is invalid or has expired");
+				}
+				if (metadata.provider !== "local") {
+					return yield* badRequest("Upload intent does not target local storage");
+				}
+				if (metadata.expiresAt <= Math.floor((yield* Clock.currentTimeMillis) / 1000)) {
+					return yield* badRequest("Upload intent is invalid or has expired");
+				}
+				const normalizedContentType = contentType?.split(";")[0]?.trim().toLowerCase();
+				if (normalizedContentType !== metadata.contentType) {
+					return yield* badRequest("Upload content type does not match the upload intent");
+				}
+				const renewedStream = stream.pipe(
+					Stream.mapEffect((chunk) =>
+						redis
+							.renewLease(lockKey, lease, UPLOAD_URL_EXPIRY_SECONDS)
+							.pipe(
+								Effect.flatMap((renewed) =>
+									renewed
+										? Effect.succeed(chunk)
+										: Effect.fail(badRequest("Upload intent is no longer active")),
+								),
+							),
 					),
 				);
+				yield* localStorage
+					.writeObject(metadata.objectKey, renewedStream, contentLength)
+					.pipe(
+						Effect.mapError((error) =>
+							error instanceof Error
+								? badRequest(error.message)
+								: badRequest("Local upload failed"),
+						),
+					);
+			}).pipe(Effect.ensuring(redis.releaseLease(lockKey, lease)));
 		});
 
 		const removeUploadIntent = Effect.fn("UploadsService.removeUploadIntent")(function* (
@@ -307,6 +377,9 @@ export class UploadsService extends Context.Service<UploadsService>()("UploadsSe
 			yield* metadata.provider === "local"
 				? localStorage.deleteObject(metadata.objectKey)
 				: s3Service.deleteObject(metadata.objectKey);
+			if (metadata.completion && "token" in metadata.completion) {
+				yield* redis.del(redisKeys.uploadToken(metadata.completion.token));
+			}
 			yield* redis.del(redisKeys.uploadIntent(intentId));
 			yield* redis.zrem(redisKeys.uploadIntentExpiry, intentId);
 		});
@@ -371,23 +444,68 @@ export class UploadsService extends Context.Service<UploadsService>()("UploadsSe
 			const intentIds = yield* redis.zrangeByScore(redisKeys.uploadIntentExpiry, now, max);
 			yield* Effect.forEach(intentIds, (intentId) =>
 				Effect.gen(function* () {
-					const raw = yield* redis.get(redisKeys.uploadIntent(intentId));
-					if (!raw) {
-						yield* redis.zrem(redisKeys.uploadIntentExpiry, intentId);
+					const cleanupLock = redisKeys.uploadIntentCleanupLock(intentId);
+					const cleanupLease = yield* redis.acquireLease(cleanupLock, CLEANUP_LEASE_SECONDS);
+					if (cleanupLease === null) {
 						return;
 					}
-					const metadata = yield* Schema.decodeUnknownEffect(
-						Schema.fromJsonString(UploadIntentMetadata),
-					)(raw).pipe(Effect.mapError(() => badRequest("Upload intent is invalid")));
-					if (metadata.state !== "pending" || metadata.expiresAt > now) {
-						yield* redis.zrem(redisKeys.uploadIntentExpiry, intentId);
+					const intentLock = redisKeys.uploadIntentLock(intentId);
+					const intentLease = yield* redis.acquireLease(intentLock, CLEANUP_LEASE_SECONDS);
+					if (intentLease === null) {
+						yield* redis.releaseLease(cleanupLock, cleanupLease);
 						return;
 					}
-					if (!(yield* redis.claim(redisKeys.uploadIntentLock(intentId), 60))) {
-						return;
-					}
-					yield* removeUploadIntent(intentId).pipe(
-						Effect.ensuring(redis.del(redisKeys.uploadIntentLock(intentId))),
+					return yield* Effect.gen(function* () {
+						const raw = yield* redis.get(redisKeys.uploadIntent(intentId));
+						if (!raw) {
+							yield* redis.zrem(redisKeys.uploadIntentExpiry, intentId);
+							return;
+						}
+						const metadata = yield* Schema.decodeUnknownEffect(
+							Schema.fromJsonString(UploadIntentMetadata),
+						)(raw).pipe(Effect.mapError(() => badRequest("Upload intent is invalid")));
+						if (
+							!(["pending", "completed", "claimed", "cleaning"] as const).includes(
+								metadata.state,
+							) ||
+							metadata.expiresAt > now
+						) {
+							yield* redis.zrem(redisKeys.uploadIntentExpiry, intentId);
+							return;
+						}
+						const cleaning = { ...metadata, state: "cleaning" as const, cleaningAt: now };
+						const cleaningEncoded = yield* Schema.encodeUnknownEffect(
+							Schema.fromJsonString(UploadIntentMetadata),
+						)(cleaning).pipe(Effect.orDie);
+						yield* redis.setAndIndex(
+							redisKeys.uploadIntent(intentId),
+							cleaningEncoded,
+							redisKeys.uploadIntentExpiry,
+							now,
+							intentId,
+						);
+						yield* removeUploadIntent(intentId).pipe(
+							Effect.catchCause((cause) =>
+								Schema.encodeUnknownEffect(Schema.fromJsonString(UploadIntentMetadata))(
+									metadata,
+								).pipe(
+									Effect.orDie,
+									Effect.flatMap((encoded) =>
+										redis.setAndIndex(
+											redisKeys.uploadIntent(intentId),
+											encoded,
+											redisKeys.uploadIntentExpiry,
+											now + CLEANUP_LEASE_SECONDS,
+											intentId,
+										),
+									),
+									Effect.andThen(Effect.failCause(cause)),
+								),
+							),
+						);
+					}).pipe(
+						Effect.ensuring(redis.releaseLease(intentLock, intentLease)),
+						Effect.ensuring(redis.releaseLease(cleanupLock, cleanupLease)),
 					);
 				}).pipe(
 					Effect.catchCause((cause) =>
@@ -399,6 +517,81 @@ export class UploadsService extends Context.Service<UploadsService>()("UploadsSe
 			);
 		});
 
+		const claimTemporaryUpload = Effect.fn("UploadsService.claimTemporaryUpload")(function* (
+			token: string,
+			userId: UserId,
+		) {
+			const rawToken = yield* redis.get(redisKeys.uploadToken(token));
+			if (!rawToken) {
+				return yield* badRequest("Upload token is invalid or has expired");
+			}
+			const tokenValue = yield* Schema.decodeUnknownEffect(Schema.fromJsonString(UploadTokenValue))(
+				rawToken,
+			).pipe(Effect.mapError(() => badRequest("Upload token is invalid or has expired")));
+			if (tokenValue.userId !== userId) {
+				return yield* badRequest("Upload token does not belong to this user");
+			}
+			const lockKey = redisKeys.uploadIntentLock(tokenValue.intentId);
+			const lease = yield* redis.acquireLease(lockKey, CLEANUP_LEASE_SECONDS);
+			if (lease === null) {
+				return yield* badRequest("Upload token is currently being processed");
+			}
+			return yield* Effect.gen(function* () {
+				const metadata = yield* getIntent(tokenValue.intentId);
+				const now = Math.floor((yield* Clock.currentTimeMillis) / 1000);
+				if (
+					metadata.userId !== userId ||
+					metadata.provider !== "local" ||
+					metadata.kind !== "temporary" ||
+					metadata.state !== "completed" ||
+					metadata.expiresAt <= now ||
+					!metadata.completion ||
+					!("token" in metadata.completion) ||
+					metadata.completion.token !== token
+				) {
+					return yield* badRequest("Upload token is invalid or has expired");
+				}
+				const resolvedPath = yield* localStorage
+					.resolveObjectPath(metadata.objectKey)
+					.pipe(Effect.mapError(() => badRequest("Upload object is missing or invalid")));
+				const leaseExpiresAt = now + PROCESSING_LEASE_SECONDS;
+				const claimed = {
+					...metadata,
+					expiresAt: leaseExpiresAt,
+					state: "claimed" as const,
+					claimedAt: now,
+				};
+				const encoded = yield* Schema.encodeUnknownEffect(
+					Schema.fromJsonString(UploadIntentMetadata),
+				)(claimed).pipe(Effect.orDie);
+				yield* redis.setAndIndexAndDelete(
+					redisKeys.uploadIntent(tokenValue.intentId),
+					encoded,
+					redisKeys.uploadIntentExpiry,
+					leaseExpiresAt,
+					tokenValue.intentId,
+					redisKeys.uploadToken(token),
+				);
+				return {
+					resolvedPath,
+					intentId: tokenValue.intentId,
+					leaseExpiresAt: DateTime.formatIso(DateTime.makeUnsafe(leaseExpiresAt * 1000)),
+					locator: { type: "local" as const, key: metadata.objectKey },
+				};
+			}).pipe(Effect.ensuring(redis.releaseLease(lockKey, lease)));
+		});
+
+		const deleteTemporaryUpload = Effect.fn("UploadsService.deleteTemporaryUpload")(function* (
+			intentId: string,
+		) {
+			const lockKey = redisKeys.uploadIntentLock(intentId);
+			const lease = yield* redis.acquireLease(lockKey, CLEANUP_LEASE_SECONDS);
+			if (lease === null) {
+				return yield* badRequest("Upload is currently being processed");
+			}
+			yield* removeUploadIntent(intentId).pipe(Effect.ensuring(redis.releaseLease(lockKey, lease)));
+		});
+
 		const uploadTemporary = Effect.fn("UploadsService.uploadTemporary")(function* (
 			user: CurrentUserValue,
 			files: ReadonlyArray<Multipart.PersistedFile>,
@@ -407,7 +600,7 @@ export class UploadsService extends Context.Service<UploadsService>()("UploadsSe
 				return yield* badRequest("At least one upload file is required");
 			}
 
-			const tempDir = config.tmpDir;
+			const tempDir = config.fileStorage.localTempDir;
 			const resolvedFiles = yield* Effect.forEach(files, (file) =>
 				Effect.gen(function* () {
 					const fileName = yield* resolveFileName(file.name);
@@ -433,7 +626,7 @@ export class UploadsService extends Context.Service<UploadsService>()("UploadsSe
 			const tokens = yield* Effect.forEach(resolvedFiles, ({ id, destPath }) =>
 				Effect.gen(function* () {
 					const encoded = yield* Schema.encodeUnknownEffect(
-						Schema.fromJsonString(UploadTokenValue),
+						Schema.fromJsonString(LegacyUploadTokenValue),
 					)({
 						userId: user.id,
 						resolvedPath: destPath,
@@ -455,9 +648,9 @@ export class UploadsService extends Context.Service<UploadsService>()("UploadsSe
 			if (!raw) {
 				return yield* badRequest("Upload token is invalid or has expired");
 			}
-			const value = yield* Schema.decodeUnknownEffect(Schema.fromJsonString(UploadTokenValue))(
-				raw,
-			).pipe(Effect.mapError(() => badRequest("Upload token is invalid or has expired")));
+			const value = yield* Schema.decodeUnknownEffect(
+				Schema.fromJsonString(LegacyUploadTokenValue),
+			)(raw).pipe(Effect.mapError(() => badRequest("Upload token is invalid or has expired")));
 			if (value.userId !== userId) {
 				return yield* badRequest("Upload token does not belong to this user");
 			}
@@ -473,6 +666,8 @@ export class UploadsService extends Context.Service<UploadsService>()("UploadsSe
 			createUploadIntent,
 			completeUploadIntent,
 			resolveLocalDownload,
+			claimTemporaryUpload,
+			deleteTemporaryUpload,
 			cleanupPendingIntents,
 		};
 	}),
