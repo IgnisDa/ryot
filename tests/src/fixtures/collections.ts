@@ -1,3 +1,4 @@
+import { requirePresent, requireResponseData } from "../test-support/assertions";
 import type { Client } from "./auth";
 
 export interface CreateCollectionOptions {
@@ -22,9 +23,7 @@ export async function createCollection(
 		body: { name, description, ...(membershipPropertiesSchema && { membershipPropertiesSchema }) },
 	});
 
-	if (response.status !== 200 || !data?.data.id) {
-		throw new Error(`Failed to create collection '${name}'`);
-	}
-
-	return data.data;
+	const collection = requireResponseData(response, data, `Failed to create collection '${name}'`);
+	requirePresent(collection.id, `Failed to create collection '${name}'`);
+	return collection;
 }
