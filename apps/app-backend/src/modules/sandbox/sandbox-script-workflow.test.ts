@@ -841,7 +841,6 @@ it.effect("dispatches plugin children as child workflows with an exact script pi
 				scriptId: SandboxScriptId.make("parent-script"),
 			},
 			"parent",
-			2,
 		);
 		expect(result).toEqual({ child: true });
 		expect(capturedWorkflow).toBe(SandboxScriptWorkflow);
@@ -900,7 +899,6 @@ it.effect("dispatches migrated script activity requests as child workflows", () 
 				scriptId: SandboxScriptId.make("workflow-script"),
 			},
 			"parent",
-			0,
 		);
 
 		expect(result).toEqual({ child: true });
@@ -944,7 +942,6 @@ it.effect("dispatches library imports with the parent workflow authority", () =>
 				authority: { type: "user", userId: UserId.make("trusted-user") },
 			},
 			"parent",
-			4,
 		);
 
 		expect(result).toEqual({ status: "completed", entity: { id: "entity-1" } });
