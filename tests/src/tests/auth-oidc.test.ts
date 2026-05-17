@@ -385,6 +385,9 @@ describe("OIDC account linking (Backend A)", () => {
 		expect(localResult.rows.length).toBe(1);
 		const localUserId = localResult.rows[0]?.id;
 
+		// `signUp.email` leaves the row unverified, and Better Auth only auto-links verified local users.
+		await pg.query(`UPDATE "user" SET email_verified = true WHERE email = $1`, [email]);
+
 		const sessionCookie = await oidcSignIn(username, getBackendUrlA(), {
 			email,
 			name: "Test User",
