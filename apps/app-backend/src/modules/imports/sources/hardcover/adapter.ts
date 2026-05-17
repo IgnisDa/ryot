@@ -1,6 +1,10 @@
 import { dayjs } from "@ryot/ts-utils/dayjs";
 
 import { parseCsvText } from "../../csv";
+import type {
+	MediaImportAdapterFailure,
+	MediaImportAdapterResult,
+} from "../../media/import-processor";
 import {
 	addCollectionMembership,
 	assertRequiredHeaders,
@@ -19,17 +23,15 @@ import {
 	parseDateTime,
 	parseDateWithFormat,
 	splitCommaList,
-	type BookCsvAdapterFailure,
-	type BookCsvAdapterResult,
 } from "../book/shared";
 
 const sanitizeListName = (value: string): string => value.replace(/\s*\(#\d+\)\s*$/, "").trim();
 
-export const adaptHardcoverCsv = (csvText: string): BookCsvAdapterResult => {
+export const adaptHardcoverCsv = (csvText: string): MediaImportAdapterResult => {
 	const { headers, rows } = parseCsvText(csvText);
 	assertRequiredHeaders(headers, ["Title", "Status", "Hardcover Book ID"], "Hardcover");
 
-	const failures: BookCsvAdapterFailure[] = [];
+	const failures: MediaImportAdapterFailure[] = [];
 	const groupMap = new Map<string, ReturnType<typeof getOrCreateGroup>>();
 
 	for (let itemIndex = 0; itemIndex < rows.length; itemIndex++) {
