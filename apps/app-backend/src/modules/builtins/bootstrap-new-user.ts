@@ -1,5 +1,5 @@
 import { db } from "~/lib/db";
-import { createLibraryEntityForUser } from "~/modules/collections";
+import { ensureLibraryEntityForUser } from "~/modules/collections";
 import { createTrackerEntitySchemas, listBuiltinEntitySchemas } from "~/modules/entity-schemas";
 import { createSavedViewsForUser } from "~/modules/saved-views";
 import { createBuiltinTrackersForUser } from "~/modules/trackers";
@@ -52,6 +52,6 @@ export const bootstrapNewUser = async (userId: string) => {
 		const libraryEntityInput = buildLibraryEntityInput({
 			entitySchemas: builtinEntitySchemaRows,
 		});
-		await createLibraryEntityForUser({ userId, ...libraryEntityInput }, tx);
+		await ensureLibraryEntityForUser({ userId, database: tx, ...libraryEntityInput });
 	});
 };
