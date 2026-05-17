@@ -45,7 +45,7 @@ it.effect("reuses the row insertEntity resolves for an existing provenance confl
 		makeEntitiesRepository({
 			getEntitySchemaScopeForUser: () =>
 				Effect.succeed({
-					slug: "book",
+					slug: "record",
 					userId: user.id,
 					isBuiltin: false,
 					id: EntitySchemaSlug.make("schema-id"),
@@ -99,7 +99,7 @@ it.effect("validates provenance creation input before inserting", () => {
 				}),
 			getEntitySchemaScopeForUser: () =>
 				Effect.succeed({
-					slug: "book",
+					slug: "record",
 					userId: user.id,
 					isBuiltin: false,
 					id: EntitySchemaSlug.make("schema-id"),
@@ -166,11 +166,11 @@ it.effect("does not reuse the bootstrap service with its no-op lifecycle dispatc
 	const repository = makeEntitiesRepository({
 		getEntitySchemaScopeForUser: () =>
 			Effect.succeed({
-				slug: "workout",
+				slug: "routine",
 				userId: user.id,
 				isBuiltin: true,
 				propertiesSchema: { fields: {} },
-				id: EntitySchemaSlug.make("workout"),
+				id: EntitySchemaSlug.make("routine"),
 			}),
 		insertEntity: () =>
 			Effect.succeed({
@@ -179,12 +179,12 @@ it.effect("does not reuse the bootstrap service with its no-op lifecycle dispatc
 					createdAt: now,
 					updatedAt: now,
 					properties: {},
-					name: "Workout",
+					name: "Routine",
 					externalId: null,
 					providerId: null,
 					populatedAt: null,
-					id: EntityId.make("workout-1"),
-					entitySchemaSlug: EntitySchemaSlug.make("workout"),
+					id: EntityId.make("routine-1"),
+					entitySchemaSlug: EntitySchemaSlug.make("routine"),
 				},
 			}),
 	});
@@ -209,10 +209,10 @@ it.effect("does not reuse the bootstrap service with its no-op lifecycle dispatc
 		yield* service.create({
 			scope: "user",
 			properties: {},
-			name: "Workout",
+			name: "Routine",
 			userId: user.id,
 			origin: { kind: "api" },
-			entitySchemaSlug: EntitySchemaSlug.make("workout"),
+			entitySchemaSlug: EntitySchemaSlug.make("routine"),
 		});
 
 		expect(dispatched).toBe(true);
@@ -229,11 +229,11 @@ it.effect(
 			findUserEntityWithoutProvenance: () => Effect.succeed(null),
 			getEntitySchemaScopeForUser: () =>
 				Effect.succeed({
-					slug: "workout",
+					slug: "routine",
 					userId: user.id,
 					isBuiltin: true,
 					propertiesSchema: { fields: {} },
-					id: EntitySchemaSlug.make("workout"),
+					id: EntitySchemaSlug.make("routine"),
 				}),
 			insertEntity: (input) =>
 				Effect.sync(() => {
@@ -244,12 +244,12 @@ it.effect(
 							createdAt: now,
 							updatedAt: now,
 							properties: {},
-							name: "Workout",
+							name: "Routine",
 							externalId: null,
 							providerId: null,
 							populatedAt: null,
-							id: EntityId.make("workout-1"),
-							entitySchemaSlug: EntitySchemaSlug.make("workout"),
+							id: EntityId.make("routine-1"),
+							entitySchemaSlug: EntitySchemaSlug.make("routine"),
 						},
 					};
 				}),
@@ -274,25 +274,25 @@ it.effect(
 			expect(
 				yield* service.ensureUserEntities(
 					user.id,
-					[{ name: "Workout", properties: {}, entitySchemaSlug: EntitySchemaSlug.make("workout") }],
+					[{ name: "Routine", properties: {}, entitySchemaSlug: EntitySchemaSlug.make("routine") }],
 					{ occurredAt: now, executionId: "sandbox-host-2" },
 				),
-			).toEqual([{ entityId: "workout-1", wasInserted: true }]);
+			).toEqual([{ entityId: "routine-1", wasInserted: true }]);
 			expect(inserts).toEqual([
 				{
 					scope: "user",
 					properties: {},
-					name: "Workout",
+					name: "Routine",
 					userId: user.id,
 					entitySchemaPluginId: null,
 					origin: { kind: "bootstrap" },
-					entitySchemaSlug: EntitySchemaSlug.make("workout"),
+					entitySchemaSlug: EntitySchemaSlug.make("routine"),
 				},
 			]);
 			expect(dispatched).toContainEqual(
 				expect.objectContaining({
 					occurredAt: now,
-					recordId: "workout-1",
+					recordId: "routine-1",
 					origin: { kind: "bootstrap" },
 					occurrenceId: "sandbox-host-2-ensure-user-entity-0",
 				}),

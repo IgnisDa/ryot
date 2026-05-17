@@ -10,7 +10,7 @@ import { Database } from "#lib/infrastructure/db/service";
 import { SavedViewsRepository } from "./repository";
 
 const userId = UserId.make("user-1");
-const entity = table("entity", "book");
+const entity = table("entity", "record");
 const queryDocument = document({
 	savedView: rows(entity, {
 		orderBy: [ascending(column(entity, "name"))],
@@ -52,7 +52,7 @@ const savedViewRow = (input: {
 	sortOrder: 9,
 	isDisabled: true,
 	pluginSlug: "private",
-	entitySchemaSlug: "book",
+	entitySchemaSlug: "record",
 	createdAt: new Date(0),
 	updatedAt: new Date(0),
 	entitySchemaPluginId: "plugin-id",
@@ -88,7 +88,7 @@ const desiredView = {
 	slug: "generated",
 	entitySchemaPluginId: "plugin-id",
 	pluginInstallationId: "installation-id",
-	entitySchemaSlug: EntitySchemaSlug.make("book"),
+	entitySchemaSlug: EntitySchemaSlug.make("record"),
 };
 
 it.effect("reconciles generated views while preserving user-controlled state", () => {

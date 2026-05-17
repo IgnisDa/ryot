@@ -159,7 +159,7 @@ const makeTestLayer = (options: TestLayerOptions) =>
 		Layer.mock(SandboxExecutionService)({
 			resolveWorkflowScript: (input) => {
 				options.workflowResolutions?.push(input);
-				return Effect.succeed(SandboxScriptId.make("workflow.media-import"));
+				return Effect.succeed(SandboxScriptId.make("workflow.example-import"));
 			},
 			executeWorkflow: (input) => {
 				options.sandboxCalls?.push({ executionId: input.executionId, payload: input.input });
@@ -211,7 +211,7 @@ const sinkPayload = {
 	integrationId: IntegrationId.make("int_1"),
 	webhook: {
 		contentType: "application/json",
-		rawBody: JSON.stringify({ lot: "movie", progress: 30, identifier: "603" }),
+		rawBody: JSON.stringify({ lot: "item", progress: 30, identifier: "603" }),
 	},
 };
 

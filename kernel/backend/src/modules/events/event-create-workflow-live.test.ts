@@ -35,7 +35,7 @@ const createdAt = "2026-01-02T00:00:00.000Z";
 const entityId = EntityId.make("entity-1");
 const sessionEntityId = EntityId.make("session-1");
 const eventSchemaSlug = EventSchemaSlug.make("review");
-const entitySchemaSlug = EntitySchemaSlug.make("book");
+const entitySchemaSlug = EntitySchemaSlug.make("record");
 
 const payload = {
 	userId,
@@ -50,7 +50,7 @@ const entityScope = {
 	entityName: "Dune",
 	entityUserId: userId,
 	propertiesSchema: { fields: {} },
-	entitySchemaSlug: EntitySchemaSlug.make("book"),
+	entitySchemaSlug: EntitySchemaSlug.make("record"),
 };
 
 const eventSchemaScope = {
@@ -255,7 +255,7 @@ it.effect(
 					sessionEntityId,
 					eventSchemaSlug: "review",
 					id: EventId.make("event-1"),
-					subject: { id: entityId, name: "Dune", entitySchemaSlug: "book" },
+					subject: { id: entityId, name: "Dune", entitySchemaSlug: "record" },
 				},
 			});
 		}).pipe(

@@ -21,15 +21,15 @@ import { assertExitFails } from "#lib/test-utils/assertions";
 
 import { validateSavedViewDefinition } from "./definition-validation";
 
-const book = table("entity", "book");
+const record = table("entity", "record");
 const queryDocument = document({
-	savedView: rows(book, {
-		orderBy: [ascending(column(book, "name"))],
+	savedView: rows(record, {
+		orderBy: [ascending(column(record, "name"))],
 		fields: [
-			field("id", column(book, "id")),
-			field("name", column(book, "name")),
-			field("image", castJson(jsonPath(column(book, "properties"), "images", 0))),
-			field("imageUrl", jsonPath(column(book, "properties"), "images", 0, "url")),
+			field("id", column(record, "id")),
+			field("name", column(record, "name")),
+			field("image", castJson(jsonPath(column(record, "properties"), "images", 0))),
+			field("imageUrl", jsonPath(column(record, "properties"), "images", 0, "url")),
 			field("textId", literal("not-an-entity-id")),
 			field("count", literal(1)),
 		],
@@ -102,8 +102,8 @@ it.effect("requires the entity ID mapping to project an entity primary key", () 
 
 it.effect("validates mappings against only their layout projection", () => {
 	const tableDocument = document({
-		savedView: rows(book, {
-			fields: [field("id", column(book, "id")), field("tableName", column(book, "name"))],
+		savedView: rows(record, {
+			fields: [field("id", column(record, "id")), field("tableName", column(record, "name"))],
 		}),
 	});
 	const invalid = {
@@ -213,11 +213,11 @@ it.effect("reports semantic query errors as an unstructured query diagnostic", (
 		list: {
 			...layouts.list,
 			queryDocument: document({
-				savedView: rows(book, {
+				savedView: rows(record, {
 					fields: [
-						field("id", column(book, "id")),
-						field("name", column(book, "name")),
-						field("image", castJson(jsonPath(column(book, "missingColumn"), "images", 0))),
+						field("id", column(record, "id")),
+						field("name", column(record, "name")),
+						field("image", castJson(jsonPath(column(record, "missingColumn"), "images", 0))),
 					],
 				}),
 			}),

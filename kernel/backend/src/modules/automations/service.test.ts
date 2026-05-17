@@ -284,7 +284,7 @@ it.effect("treats state with no live formatter as inert", () => {
 });
 
 it.effect("resolves global lifecycle bindings without reading automation rules", () => {
-	const lifecycleTarget = { kind: "entity_schema" as const, id: EntitySchemaSlug.make("movie") };
+	const lifecycleTarget = { kind: "entity_schema" as const, id: EntitySchemaSlug.make("item") };
 	const binding = storedRule({
 		userId: null,
 		isBuiltin: true,
