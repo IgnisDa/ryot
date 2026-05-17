@@ -17,28 +17,28 @@ import {
 import { assertPresent } from "../test-support/assertions";
 
 const buildEventRowsDoc = (input: {
-	entityAlias: string;
-	eventAlias: string;
-	entitySchemas: [string, ...string[]];
-	eventSchemas: [string, ...string[]];
-	fields: Extract<QueryEnginePayload["output"], { type: "rows" }>["fields"];
-	orderBy: Extract<QueryEnginePayload["output"], { type: "rows" }>["orderBy"];
-	where?: Extract<QueryEnginePayload["source"], { type: "events" }>["where"];
 	page?: number;
 	limit?: number;
+	eventAlias: string;
+	entityAlias: string;
+	eventSchemas: [string, ...string[]];
+	entitySchemas: [string, ...string[]];
+	fields: Extract<QueryEnginePayload["output"], { type: "rows" }>["fields"];
+	where?: Extract<QueryEnginePayload["source"], { type: "events" }>["where"];
+	orderBy: Extract<QueryEnginePayload["output"], { type: "rows" }>["orderBy"];
 }): QueryEnginePayload => ({
+	output: {
+		type: "rows",
+		fields: input.fields,
+		orderBy: input.orderBy,
+		pagination: { page: input.page ?? 1, limit: input.limit ?? 10 },
+	},
 	source: {
 		type: "events",
 		alias: input.eventAlias,
 		where: input.where ?? null,
 		schemas: input.eventSchemas,
 		entity: { alias: input.entityAlias, schemas: input.entitySchemas },
-	},
-	output: {
-		type: "rows",
-		fields: input.fields,
-		orderBy: input.orderBy,
-		pagination: { page: input.page ?? 1, limit: input.limit ?? 10 },
 	},
 });
 
@@ -51,17 +51,15 @@ describe("event root rows", () => {
 		const reviewSlug = `event-filter-review-${crypto.randomUUID()}`;
 		const reviewSchema = await createEventSchema(client, {
 			slug: reviewSlug,
-			name: "Event Filter Review",
 			entitySchemaId: schemaId,
+			name: "Event Filter Review",
 			propertiesSchema: {
-				fields: {
-					rating: { type: "integer", label: "Rating", description: "Rating" },
-				},
+				fields: { rating: { type: "integer", label: "Rating", description: "Rating" } },
 			},
 		});
 		const entity = await createQueryEngineEntity(client, {
-			name: "Event Filter Entity",
 			entitySchemaId: schemaId,
+			name: "Event Filter Entity",
 		});
 
 		await Promise.all(
@@ -78,17 +76,17 @@ describe("event root rows", () => {
 		const result = await executeQueryEngine(
 			client,
 			buildEventRowsDoc({
-				fields: [{ key: "rating", expr: ratingRef }],
-				orderBy: [{ order: "asc", expr: ratingRef }],
 				entityAlias: "item",
 				eventAlias: "review",
 				entitySchemas: [slug],
 				eventSchemas: [reviewSlug],
+				fields: [{ key: "rating", expr: ratingRef }],
+				orderBy: [{ order: "asc", expr: ratingRef }],
 				where: {
 					left: ratingRef,
-					right: { type: "literal", value: 4 },
-					type: "comparison",
 					operator: "gte",
+					type: "comparison",
+					right: { type: "literal", value: 4 },
 				},
 			}),
 		);
@@ -106,17 +104,15 @@ describe("event root rows", () => {
 		const reviewSlug = `event-sort-review-${crypto.randomUUID()}`;
 		const reviewSchema = await createEventSchema(client, {
 			slug: reviewSlug,
-			name: "Event Sort Review",
 			entitySchemaId: schemaId,
+			name: "Event Sort Review",
 			propertiesSchema: {
-				fields: {
-					rating: { type: "integer", label: "Rating", description: "Rating" },
-				},
+				fields: { rating: { type: "integer", label: "Rating", description: "Rating" } },
 			},
 		});
 		const entity = await createQueryEngineEntity(client, {
-			name: "Event Sort Entity",
 			entitySchemaId: schemaId,
+			name: "Event Sort Entity",
 		});
 
 		await Promise.all(
@@ -133,12 +129,12 @@ describe("event root rows", () => {
 		const result = await executeQueryEngine(
 			client,
 			buildEventRowsDoc({
-				fields: [{ key: "rating", expr: ratingRef }],
-				orderBy: [{ order: "desc", expr: ratingRef }],
 				entityAlias: "item",
 				eventAlias: "review",
 				entitySchemas: [slug],
 				eventSchemas: [reviewSlug],
+				fields: [{ key: "rating", expr: ratingRef }],
+				orderBy: [{ order: "desc", expr: ratingRef }],
 			}),
 		);
 
@@ -155,24 +151,24 @@ describe("event root rows", () => {
 		const watchSlug = `event-watch-${crypto.randomUUID()}`;
 		const reviewSlug = `event-review-${crypto.randomUUID()}`;
 		const watchSchema = await createEventSchema(client, {
-			slug: watchSlug,
 			name: "Watch",
+			slug: watchSlug,
 			entitySchemaId: schemaId,
 			propertiesSchema: {
 				fields: { note: { type: "string", label: "Note", description: "Note" } },
 			},
 		});
 		const reviewSchema = await createEventSchema(client, {
-			slug: reviewSlug,
 			name: "Review",
+			slug: reviewSlug,
 			entitySchemaId: schemaId,
 			propertiesSchema: {
 				fields: { note: { type: "string", label: "Note", description: "Note" } },
 			},
 		});
 		const entity = await createQueryEngineEntity(client, {
-			name: "Schema Filter Entity",
 			entitySchemaId: schemaId,
+			name: "Schema Filter Entity",
 		});
 
 		await createQueryEngineEvent(client, { entityId: entity.id, eventSchemaId: watchSchema.id });
@@ -181,12 +177,12 @@ describe("event root rows", () => {
 		const result = await executeQueryEngine(
 			client,
 			buildEventRowsDoc({
-				fields: [{ key: "eventSchema", expr: schemaMetaRef("event", "slug") }],
-				orderBy: [{ order: "asc", expr: systemRef("event", "createdAt") }],
 				entityAlias: "item",
 				eventAlias: "event",
 				entitySchemas: [slug],
 				eventSchemas: [watchSlug],
+				fields: [{ key: "eventSchema", expr: schemaMetaRef("event", "slug") }],
+				orderBy: [{ order: "asc", expr: systemRef("event", "createdAt") }],
 			}),
 		);
 
@@ -204,15 +200,15 @@ describe("event root rows", () => {
 		const watchSlug = `primary-row-watch-${crypto.randomUUID()}`;
 		const watchSchema = await createEventSchema(client, {
 			slug: watchSlug,
-			name: "Primary Row Watch",
 			entitySchemaId: schemaId,
+			name: "Primary Row Watch",
 			propertiesSchema: {
 				fields: { note: { type: "string", label: "Note", description: "Note" } },
 			},
 		});
 		const entity = await createQueryEngineEntity(client, {
-			name: "Primary Row Entity",
 			entitySchemaId: schemaId,
+			name: "Primary Row Entity",
 		});
 
 		await createQueryEngineEvent(client, { entityId: entity.id, eventSchemaId: watchSchema.id });
@@ -221,12 +217,12 @@ describe("event root rows", () => {
 		const result = await executeQueryEngine(
 			client,
 			buildEventRowsDoc({
-				fields: [{ key: "eventId", expr: systemRef("watch", "id") }],
-				orderBy: [{ order: "asc", expr: systemRef("watch", "createdAt") }],
 				entityAlias: "item",
 				eventAlias: "watch",
 				entitySchemas: [slug],
 				eventSchemas: [watchSlug],
+				fields: [{ key: "eventId", expr: systemRef("watch", "id") }],
+				orderBy: [{ order: "asc", expr: systemRef("watch", "createdAt") }],
 			}),
 		);
 
@@ -266,16 +262,16 @@ describe("event root rows", () => {
 		const result = await executeQueryEngine(
 			client,
 			buildEventRowsDoc({
+				entityAlias: "item",
+				eventAlias: "review",
+				entitySchemas: [slug],
+				eventSchemas: [reviewSlug],
+				orderBy: [{ order: "asc", expr: systemRef("review", "createdAt") }],
 				fields: [
 					{ key: "entityName", expr: systemRef("item", "name") },
 					{ key: "eventSchemaSlug", expr: schemaMetaRef("review", "slug") },
 					{ key: "rating", expr: propertyRef("review", reviewSlug, "rating") },
 				],
-				orderBy: [{ order: "asc", expr: systemRef("review", "createdAt") }],
-				entityAlias: "item",
-				eventAlias: "review",
-				entitySchemas: [slug],
-				eventSchemas: [reviewSlug],
 			}),
 		);
 
@@ -295,11 +291,9 @@ describe("event root rows", () => {
 		const watchSlug = `event-pagination-watch-${crypto.randomUUID()}`;
 		const watchSchema = await createEventSchema(client, {
 			slug: watchSlug,
-			name: "Event Pagination Watch",
 			entitySchemaId: schemaId,
-			propertiesSchema: {
-				fields: { seq: { type: "integer", label: "Seq", description: "Seq" } },
-			},
+			name: "Event Pagination Watch",
+			propertiesSchema: { fields: { seq: { type: "integer", label: "Seq", description: "Seq" } } },
 		});
 		const entity = await createQueryEngineEntity(client, {
 			name: "Pagination Entity",
@@ -321,27 +315,27 @@ describe("event root rows", () => {
 		const page1 = await executeQueryEngine(
 			client,
 			buildEventRowsDoc({
-				fields: [{ key: "seq", expr: seqRef }],
-				orderBy: [{ order: "asc", expr: seqRef }],
+				page: 1,
+				limit: 2,
 				entityAlias: "item",
 				eventAlias: "watch",
 				entitySchemas: [slug],
 				eventSchemas: [watchSlug],
-				page: 1,
-				limit: 2,
+				fields: [{ key: "seq", expr: seqRef }],
+				orderBy: [{ order: "asc", expr: seqRef }],
 			}),
 		);
 		const page3 = await executeQueryEngine(
 			client,
 			buildEventRowsDoc({
-				fields: [{ key: "seq", expr: seqRef }],
-				orderBy: [{ order: "asc", expr: seqRef }],
+				page: 3,
+				limit: 2,
 				entityAlias: "item",
 				eventAlias: "watch",
 				entitySchemas: [slug],
 				eventSchemas: [watchSlug],
-				page: 3,
-				limit: 2,
+				fields: [{ key: "seq", expr: seqRef }],
+				orderBy: [{ order: "asc", expr: seqRef }],
 			}),
 		);
 
@@ -362,35 +356,35 @@ describe("event root rows", () => {
 		const watchSlug = `event-join-watch-${crypto.randomUUID()}`;
 		const reviewSlug = `event-join-review-${crypto.randomUUID()}`;
 		const watchSchema = await createEventSchema(client, {
-			slug: watchSlug,
 			name: "Watch",
+			slug: watchSlug,
 			entitySchemaId: schemaId,
 			propertiesSchema: {
 				fields: { note: { type: "string", label: "Note", description: "Note" } },
 			},
 		});
 		const reviewSchema = await createEventSchema(client, {
-			slug: reviewSlug,
 			name: "Review",
+			slug: reviewSlug,
 			entitySchemaId: schemaId,
 			propertiesSchema: {
 				fields: { rating: { type: "integer", label: "Rating", description: "Rating" } },
 			},
 		});
 		const entity = await createQueryEngineEntity(client, {
-			name: "Event Join Entity",
 			entitySchemaId: schemaId,
+			name: "Event Join Entity",
 		});
 
 		await createQueryEngineEvent(client, {
 			entityId: entity.id,
-			properties: { note: "first watch" },
 			eventSchemaId: watchSchema.id,
+			properties: { note: "first watch" },
 		});
 		await createQueryEngineEvent(client, {
 			entityId: entity.id,
-			properties: { note: "second watch" },
 			eventSchemaId: watchSchema.id,
+			properties: { note: "second watch" },
 		});
 		await createQueryEngineEvent(client, {
 			entityId: entity.id,
@@ -402,6 +396,11 @@ describe("event root rows", () => {
 		const result = await executeQueryEngine(
 			client,
 			buildEventRowsDoc({
+				entityAlias: "item",
+				eventAlias: "watch",
+				entitySchemas: [slug],
+				eventSchemas: [watchSlug],
+				orderBy: [{ order: "asc", expr: systemRef("watch", "createdAt") }],
 				fields: [
 					{
 						key: "latestRating",
@@ -412,18 +411,13 @@ describe("event root rows", () => {
 							source: {
 								where: null,
 								type: "events",
-								alias: "latestReview",
 								entityRef: "item",
+								alias: "latestReview",
 								schemas: [reviewSlug],
 							},
 						},
 					},
 				],
-				orderBy: [{ order: "asc", expr: systemRef("watch", "createdAt") }],
-				entityAlias: "item",
-				eventAlias: "watch",
-				entitySchemas: [slug],
-				eventSchemas: [watchSlug],
 			}),
 		);
 
