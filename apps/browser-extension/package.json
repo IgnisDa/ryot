@@ -4,11 +4,10 @@
 	"private": true,
 	"type": "module",
 	"scripts": {
-		"format": "oxfmt . --write",
 		"build-chrome": "wxt zip -b chrome",
 		"build-firefox": "wxt zip -b firefox",
-		"check": "tsc && oxlint . --type-aware --fix",
-		"build": "bun run build-chrome && bun run build-firefox"
+		"build": "bun run build-chrome && bun run build-firefox",
+		"check": "tsc && oxfmt . --write && oxlint . --type-aware --fix"
 	},
 	"dependencies": {
 		"@ryot/generated": "workspace:*",
