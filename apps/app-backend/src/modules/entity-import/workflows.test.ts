@@ -8,6 +8,7 @@ import {
 	EntityId,
 	EntitySchemaId,
 	RelationshipSchemaId,
+	RemoteImageUrl,
 	SandboxScriptId,
 	UserId,
 } from "#lib/schema/brands";
@@ -141,19 +142,25 @@ const importPayload = {
 it.effect("populates entity and writes related entities", () => {
 	let relationshipWritten = false;
 	let globalEntityWritten = false;
+	let relatedEntityImage: unknown;
 	let relatedEntityWritten = false;
+	const primaryImages: Array<ListedEntity["image"]> = [];
 
 	const payload = { ...importPayload, executionId: "exec-full" };
+	const expectedImage = {
+		type: "remote" as const,
+		url: RemoteImageUrl.make("https://example.com/image.jpg"),
+	};
 	const relatedEntitySchemaScript = {
 		entitySchemaId: EntitySchemaId.make("schema-person"),
 		sandboxScriptId: SandboxScriptId.make("person-script"),
 	};
 	const relationshipSchema = {
 		isBuiltin: true,
-		id: RelationshipSchemaId.make("rel-schema-1"),
 		slug: "authored-by",
 		name: "Authored By",
 		propertiesSchema: { fields: {} },
+		id: RelationshipSchemaId.make("rel-schema-1"),
 		sourceEntitySchemaId: EntitySchemaId.make("schema-1"),
 		targetEntitySchemaId: EntitySchemaId.make("schema-person"),
 	};
@@ -182,9 +189,15 @@ it.effect("populates entity and writes related entities", () => {
 		entitiesRepository: makeEntitiesRepository({
 			createOrUpdateGlobalEntity: (input) => {
 				if (input.entitySchemaId === "schema-1") {
+					primaryImages.push(input.image);
 					globalEntityWritten = true;
-					return Effect.succeed(baseEntity);
+					return Effect.succeed({
+						...baseEntity,
+						image: input.image,
+						populatedAt: input.populatedAt === null ? null : now,
+					});
 				}
+				relatedEntityImage = input.image;
 				relatedEntityWritten = true;
 				return Effect.succeed(relatedEntity);
 			},
@@ -203,6 +216,7 @@ it.effect("populates entity and writes related entities", () => {
 					status: "completed" as const,
 					value: {
 						name: "Test Book",
+						image: expectedImage,
 						properties: { title: "Test Book" },
 						relatedEntities: [
 							{
@@ -218,10 +232,50 @@ it.effect("populates entity and writes related entities", () => {
 
 			expect(result.id).toBe("entity-1");
 			expect(result.name).toBe("Test Book");
+			expect(result.image).toEqual(expectedImage);
 			expect(result.populatedAt).toBe(now);
+			expect(primaryImages).toEqual([null, expectedImage]);
+			expect(relatedEntityImage).toBeNull();
 			expect(globalEntityWritten).toBe(true);
 			expect(relatedEntityWritten).toBe(true);
 			expect(relationshipWritten).toBe(true);
+		}),
+	);
+});
+
+it.effect("uses explicit details image for the primary entity", () => {
+	const primaryImages: Array<ListedEntity["image"]> = [];
+
+	const payload = { ...importPayload, executionId: "exec-explicit-image" };
+	const explicitImage = { type: "s3" as const, key: "entities/test-book.jpg" };
+	const options = {
+		entitiesRepository: makeEntitiesRepository({
+			createOrUpdateGlobalEntity: (input) => {
+				primaryImages.push(input.image);
+				return Effect.succeed({
+					...baseEntity,
+					image: input.image,
+					populatedAt: input.populatedAt === null ? null : now,
+				});
+			},
+		}),
+	} satisfies TestLayerOptions;
+
+	return withTestLayer(
+		options,
+		payload.executionId,
+		Effect.gen(function* () {
+			const result = yield* runEntityImportWorkflow(payload, payload.executionId, () =>
+				Effect.succeed({
+					logs: [],
+					error: null,
+					status: "completed" as const,
+					value: { name: "Test Book", image: explicitImage, properties: { title: "Test Book" } },
+				}),
+			);
+
+			expect(result.image).toEqual(explicitImage);
+			expect(primaryImages).toEqual([null, explicitImage]);
 		}),
 	);
 });
