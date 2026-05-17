@@ -47,7 +47,7 @@ describe("Delete user admin token enforcement", () => {
 					c.godMode.deleteUser({ params: { userId: UserId.make("any-id") } }),
 				),
 			);
-			assertTaggedError(error, "Unauthorized");
+			assertTaggedError(error, "AuthUnauthorized");
 		}),
 	);
 
@@ -59,7 +59,7 @@ describe("Delete user admin token enforcement", () => {
 					adminAccessTokenHeaders(WRONG_TOKEN),
 				),
 			);
-			assertTaggedError(error, "Unauthorized");
+			assertTaggedError(error, "AuthUnauthorized");
 		}),
 	);
 });
@@ -76,7 +76,8 @@ describe("Delete user", () => {
 					adminAccessTokenHeaders(ADMIN_TOKEN),
 				),
 			);
-			assertTaggedError(error, "NotFound");
+			assertTaggedError(error, "GodModeNotFound");
+			expect(error.reason.code).toBe("user-not-found");
 		}),
 	);
 
@@ -122,18 +123,18 @@ describe("Delete user", () => {
 					Cookie: cookies,
 				}),
 			);
-			assertTaggedError(revokedSession, "Unauthorized");
+			assertTaggedError(revokedSession, "AuthUnauthorized");
 
 			const revokedApiKey = yield* Effect.flip(
 				client.call((c) => c.definitions.listPlugins({ query: pluginListQuery }), {
 					"X-Api-Key": apiKey,
 				}),
 			);
-			assertTaggedError(revokedApiKey, "Unauthorized");
+			assertTaggedError(revokedApiKey, "AuthUnauthorized");
 
 			const deleted = yield* pollUserLifecycleOperation(accepted.id);
 			expect(deleted).toMatchObject({
-				error: null,
+				failure: null,
 				kind: "delete",
 				status: "completed",
 				userId,

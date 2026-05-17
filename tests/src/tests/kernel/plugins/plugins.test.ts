@@ -350,7 +350,8 @@ export default defineAutomation({
 					adminHeaders,
 				),
 			);
-			assertTaggedError(refusal, "Conflict");
+			assertTaggedError(refusal, "PluginConflictError");
+			expect(refusal.reason.code).toBe("entity-referenced");
 
 			const deleted = yield* getBackendClient().call(
 				(c) =>
@@ -368,7 +369,7 @@ export default defineAutomation({
 						(c) => c.plugins.uninstall({ params: { pluginSlug: provider.pluginSlug } }),
 						adminHeaders,
 					)
-					.pipe(Effect.catchTag("Conflict", () => Effect.succeed(null))),
+					.pipe(Effect.catchTag("PluginConflictError", () => Effect.succeed(null))),
 			);
 			provider.active = false;
 			expect(uninstalled).toEqual(reingestedPlugin);
@@ -382,7 +383,11 @@ export default defineAutomation({
 			const historicalFailure = yield* Effect.flip(
 				enqueueSandboxScript(userId, { context: {}, scriptId: reingestedSearchScriptId }),
 			);
-			assertTaggedError(historicalFailure, "NotFound");
+			assertTaggedError(historicalFailure, "TestSupportNotFound");
+			expect(historicalFailure.reason).toEqual({
+				code: "resource-not-found",
+				diagnostic: "Sandbox script not found",
+			});
 		}),
 	);
 
@@ -402,7 +407,7 @@ export default defineAutomation({
 				),
 			]);
 			for (const failure of failures) {
-				assertTaggedError(failure, "Unauthorized");
+				assertTaggedError(failure, "AuthUnauthorized");
 			}
 		}),
 	);

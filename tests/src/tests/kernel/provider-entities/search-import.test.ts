@@ -136,7 +136,7 @@ describe("POST /provider-entities/imports", () => {
 				),
 			);
 
-			assertTaggedError(error, "Unauthorized");
+			assertTaggedError(error, "AuthUnauthorized");
 		}),
 	);
 
@@ -165,7 +165,7 @@ describe("GET /provider-entities/imports/{jobId}", () => {
 				),
 			);
 
-			assertTaggedError(error, "Unauthorized");
+			assertTaggedError(error, "AuthUnauthorized");
 		}),
 	);
 
@@ -179,8 +179,8 @@ describe("GET /provider-entities/imports/{jobId}", () => {
 				),
 			);
 
-			assertTaggedError(error, "NotFound");
-			expect(error.message).toBe("Entity import job not found");
+			assertTaggedError(error, "ProviderEntityNotFound");
+			expect(error.reason.code).toBe("import-job-not-found");
 		}),
 	);
 
@@ -198,8 +198,8 @@ describe("GET /provider-entities/imports/{jobId}", () => {
 				clientB.call((c) => c.providerEntities.getImportResult({ params: { jobId } })),
 			);
 
-			assertTaggedError(error, "NotFound");
-			expect(error.message).toBe("Entity import job not found");
+			assertTaggedError(error, "ProviderEntityNotFound");
+			expect(error.reason).toEqual({ code: "import-job-not-found", jobId });
 		}),
 	);
 

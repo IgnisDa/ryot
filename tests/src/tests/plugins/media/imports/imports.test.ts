@@ -65,7 +65,7 @@ describe("Watcharr Show Import E2E (episode resolution)", () => {
 					membership.data.entity?.type === "rows" ? membership.data.entity.items : [],
 				).toHaveLength(1);
 
-				expect(completedRun).toMatchObject({ status: "completed", errorSummary: null });
+				expect(completedRun).toMatchObject({ status: "completed", failureReason: null });
 				expect(completedRun.progress).toBe(100);
 
 				// The resolvable episode's progress lands on the episode, never the show.
@@ -76,8 +76,11 @@ describe("Watcharr Show Import E2E (episode resolution)", () => {
 
 				// The unresolvable locator is reported as a failure, not mis-attached.
 				const runWithFailures = yield* getImportRun(client, created.id, undefined, 20);
-				const failureMessages = runWithFailures.failures.items.map((failure) => failure.message);
-				expect(failureMessages.some((message) => message.includes("S1E99"))).toBe(true);
+				expect(
+					runWithFailures.failures.items.some(
+						(failure) => failure.reason.code === "provider-resolution-failed",
+					),
+				).toBe(true);
 			}),
 	);
 });

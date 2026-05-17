@@ -68,7 +68,7 @@ describe("God-mode admin token enforcement", () => {
 			const error = yield* Effect.flip(
 				client.call((c) => c.godMode.listUsers({ query: godModeListQuery() })),
 			);
-			assertTaggedError(error, "Unauthorized");
+			assertTaggedError(error, "AuthUnauthorized");
 		}),
 	);
 
@@ -81,7 +81,7 @@ describe("God-mode admin token enforcement", () => {
 					adminAccessTokenHeaders(WRONG_TOKEN),
 				),
 			);
-			assertTaggedError(error, "Unauthorized");
+			assertTaggedError(error, "AuthUnauthorized");
 		}),
 	);
 
@@ -93,7 +93,7 @@ describe("God-mode admin token enforcement", () => {
 					c.godMode.resetUserPassword({ params: { userId: UserId.make("any-id") } }),
 				),
 			);
-			assertTaggedError(error, "Unauthorized");
+			assertTaggedError(error, "AuthUnauthorized");
 		}),
 	);
 
@@ -106,7 +106,7 @@ describe("God-mode admin token enforcement", () => {
 					adminAccessTokenHeaders(WRONG_TOKEN),
 				),
 			);
-			assertTaggedError(error, "Unauthorized");
+			assertTaggedError(error, "AuthUnauthorized");
 		}),
 	);
 
@@ -121,7 +121,7 @@ describe("God-mode admin token enforcement", () => {
 					}),
 				),
 			);
-			assertTaggedError(error, "Unauthorized");
+			assertTaggedError(error, "AuthUnauthorized");
 		}),
 	);
 
@@ -138,7 +138,7 @@ describe("God-mode admin token enforcement", () => {
 					adminAccessTokenHeaders(WRONG_TOKEN),
 				),
 			);
-			assertTaggedError(error, "Unauthorized");
+			assertTaggedError(error, "AuthUnauthorized");
 		}),
 	);
 });
@@ -275,7 +275,8 @@ describe("User provisioning", () => {
 					adminAccessTokenHeaders(ADMIN_TOKEN),
 				),
 			);
-			assertTaggedError(error, "BadRequest");
+			assertTaggedError(error, "GodModeRequestFailure");
+			expect(error.reason.code).toBe("user-already-exists");
 		}),
 	);
 });
@@ -313,14 +314,14 @@ describe("God-mode disable set", () => {
 					Cookie: cookies,
 				}),
 			);
-			assertTaggedError(revokedSession, "Unauthorized");
+			assertTaggedError(revokedSession, "AuthUnauthorized");
 
 			const blockedApiKey = yield* Effect.flip(
 				client.call((c) => c.definitions.listPlugins({ query: pluginListQuery }), {
 					"X-Api-Key": apiKey,
 				}),
 			);
-			assertTaggedError(blockedApiKey, "Unauthorized");
+			assertTaggedError(blockedApiKey, "AuthUnauthorized");
 
 			const blockedSignIn = yield* signInWithPassword(email, password);
 			expect(blockedSignIn.error?.status).toBe(403);
@@ -408,7 +409,7 @@ describe("Reset link generation and completion for credential user", () => {
 					Cookie: cookies,
 				}),
 			);
-			assertTaggedError(oldSessionError, "Unauthorized");
+			assertTaggedError(oldSessionError, "AuthUnauthorized");
 
 			const signInRes = yield* signInWithPassword(email, newPassword);
 			expect(signInRes.error).toBeNull();
@@ -468,8 +469,8 @@ describe("OIDC user restrictions", () => {
 					adminAccessTokenHeaders(ADMIN_TOKEN),
 				),
 			);
-			assertTaggedError(error, "BadRequest");
-			expect(error.message).toMatch(/oidc/i);
+			assertTaggedError(error, "GodModeRequestFailure");
+			expect(error.reason).toEqual({ code: "password-reset-unsupported", authState: "oidc" });
 		}),
 	);
 });
@@ -499,8 +500,8 @@ describe("Mixed auth user restrictions", () => {
 					adminAccessTokenHeaders(ADMIN_TOKEN),
 				),
 			);
-			assertTaggedError(error, "BadRequest");
-			expect(error.message).toMatch(/mixed/i);
+			assertTaggedError(error, "GodModeRequestFailure");
+			expect(error.reason).toEqual({ code: "password-reset-unsupported", authState: "mixed" });
 		}),
 	);
 });

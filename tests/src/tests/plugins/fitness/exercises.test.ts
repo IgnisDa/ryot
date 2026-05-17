@@ -246,8 +246,8 @@ describe("Exercises E2E", () => {
 				),
 			);
 
-			assertTaggedError(error, "BadRequest");
-			expect(error.message).toBe("Entities must have the same 'kind' property");
+			assertTaggedError(error, "UserStateBadRequest");
+			expect(error.reason).toEqual({ code: "identity-property-mismatch", property: "kind" });
 		}),
 	);
 });
