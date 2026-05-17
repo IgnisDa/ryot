@@ -7,7 +7,7 @@ use common_models::{
     EntityAssets, EntityRemoteVideo, EntityRemoteVideoSource, IdAndNamedObject, IdObject,
     NamedObject, PersonSourceSpecifics, SearchDetails,
 };
-use common_utils::{PAGE_SIZE, compute_next_page, get_base_http_client, ryot_log};
+use common_utils::{PAGE_SIZE, compute_next_page, get_base_http_client};
 use convert_case::{Case, Casing};
 use database_models::metadata_group::MetadataGroupWithoutId;
 use dependent_models::{
@@ -216,52 +216,6 @@ fn extract_count_from_response(rsp: &Response) -> Result<u64> {
         .ok_or_else(|| anyhow!("Failed to extract count from response headers"))
 }
 
-async fn json_response<T>(response: Response, label: &str) -> Result<T>
-where
-    T: DeserializeOwned,
-{
-    let status = response.status();
-    let body = response.bytes().await?;
-
-    ryot_log!(
-        debug,
-        "IGDB {} response body ({}): {}",
-        label,
-        status,
-        String::from_utf8_lossy(&body)
-    );
-
-    Ok(serde_json::from_slice(&body)?)
-}
-
-async fn json_response_redacted<T>(response: Response, label: &str) -> Result<T>
-where
-    T: DeserializeOwned,
-{
-    let status = response.status();
-    let body = response.bytes().await?;
-    let log_body = match serde_json::from_slice::<serde_json::Value>(&body) {
-        Ok(mut value) => {
-            if let Some(access_token) = value.get_mut("access_token") {
-                *access_token = serde_json::Value::String("[redacted]".to_owned());
-            }
-            serde_json::to_string(&value)
-                .unwrap_or_else(|_| String::from_utf8_lossy(&body).into_owned())
-        }
-        Err(_) => String::from_utf8_lossy(&body).into_owned(),
-    };
-
-    ryot_log!(
-        debug,
-        "IGDB {} response body ({}): {}",
-        label,
-        status,
-        log_body
-    );
-
-    Ok(serde_json::from_slice(&body)?)
-}
-
 #[async_trait]
 impl MediaProvider for IgdbService {
     #[allow(unused_variables)]
@@ -290,7 +244,7 @@ offset: {offset};
             .send()
             .await?;
         let total_items = extract_count_from_response(&rsp)?;
-        let details: Vec<IgdbItemResponse> = json_response(rsp, "collections").await?;
+        let details: Vec<IgdbItemResponse> = rsp.json().await?;
         let resp = details
             .into_iter()
             .map(|d| MetadataGroupSearchItem {
@@ -321,14 +275,16 @@ offset: {offset};
 where id = {identifier};
             "
         );
-        let rsp = client
+        let details: IgdbItemResponse = client
             .post(format!("{URL}/collections"))
             .body(req_body)
             .send()
-            .await?;
-        let mut details: Vec<IgdbItemResponse> = json_response(rsp, "collection details").await?;
-        let detail = details.pop().unwrap();
-        let items = detail
+            .await?
+            .json::<Vec<_>>()
+            .await?
+            .pop()
+            .unwrap();
+        let items = details
             .games
             .unwrap_or_default()
             .into_iter()
@@ -347,13 +303,13 @@ where id = {identifier};
                 }
             })
             .collect_vec();
-        let title = detail.name.unwrap_or_default();
+        let title = details.name.unwrap_or_default();
         Ok((
             MetadataGroupWithoutId {
                 title: title.clone(),
                 lot: MediaLot::VideoGame,
                 source: MediaSource::Igdb,
-                identifier: detail.id.to_string(),
+                identifier: details.id.to_string(),
                 parts: items.len().try_into().unwrap(),
                 source_url: Some(format!(
                     "https://www.igdb.com/collection/{}",
@@ -391,7 +347,7 @@ offset: {offset};
             .send()
             .await?;
         let total_items = extract_count_from_response(&rsp)?;
-        let details: Vec<IgdbCompany> = json_response(rsp, "companies").await?;
+        let details: Vec<IgdbCompany> = rsp.json().await?;
         let resp = details
             .into_iter()
             .map(|ic| {
@@ -431,8 +387,7 @@ where id = {identity};
             .body(req_body)
             .send()
             .await?;
-        let mut details: Vec<IgdbInvolvedCompany> =
-            json_response(rsp, "involved companies").await?;
+        let mut details: Vec<IgdbInvolvedCompany> = rsp.json().await?;
         let detail = details
             .pop()
             .map(|ic| ic.company)
@@ -511,8 +466,8 @@ where id = {identity};
         )?;
 
         let (mut details, ttb_details) = try_join!(
-            json_response::<Vec<IgdbItemResponse>>(details_rsp, "games details"),
-            json_response::<Vec<VideoGameSpecificsTimeToBeat>>(ttb_rsp, "game time to beat")
+            details_rsp.json::<Vec<IgdbItemResponse>>(),
+            ttb_rsp.json::<Vec<VideoGameSpecificsTimeToBeat>>()
         )?;
 
         let detail = details.pop().ok_or_else(|| anyhow!("No details found"))?;
@@ -617,7 +572,7 @@ offset: {offset};
             .await?;
 
         let total_items = extract_count_from_response(&rsp)?;
-        let search: Vec<IgdbItemResponse> = json_response(rsp, "games search").await?;
+        let search: Vec<IgdbItemResponse> = rsp.json().await?;
 
         let resp = search
             .into_iter()
@@ -668,7 +623,7 @@ impl IgdbService {
             ])
             .send()
             .await?;
-        let access = json_response_redacted::<AccessResponse>(access_res, "auth").await?;
+        let access = access_res.json::<AccessResponse>().await?;
         Ok(format!("{} {}", access.token_type, access.access_token))
     }
 
@@ -825,8 +780,7 @@ impl IgdbService {
                 .send()
                 .await?;
 
-            let label = format!("{endpoint} page {offset}");
-            let page_items: Vec<T> = json_response(rsp, &label).await?;
+            let page_items = rsp.json::<Vec<T>>().await?;
             let page_size = page_items.len();
             items.extend(page_items);
 
