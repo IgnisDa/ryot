@@ -4,7 +4,7 @@
 
 **Type:** AFK
 
-**Status:** todo
+**Status:** done
 
 ## What to build
 
@@ -28,7 +28,7 @@ keep the test and drop the obsolete sub-assertion only if it adds nothing.
 
 ## Acceptance criteria
 
-- [ ] The task is executed using the `codebase-cleanup` skill
-- [ ] The cleanup pass covers all files touched by this plan and any directly affected modules
-- [ ] Any removals or simplifications are reflected in the changed code before the plan is considered complete
-- [ ] Transition-verification tests (added only to confirm old logic was removed) are deleted, while behavior tests and regression guards for still-valid behavior are retained
+- [x] The task is executed using the `codebase-cleanup` skill
+- [x] The cleanup pass covers all files touched by this plan and any directly affected modules
+- [x] Any removals or simplifications are reflected in the changed code before the plan is considered complete
+- [x] Transition-verification tests (added only to confirm old logic was removed) are deleted, while behavior tests and regression guards for still-valid behavior are retained

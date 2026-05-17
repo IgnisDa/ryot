@@ -482,9 +482,9 @@ deferred).
 
 ## Tasks
 
-**Overall Progress:** 5 of 6 tasks completed
+**Overall Progress:** 6 of 6 tasks completed
 
-**Current Task:** [Task 06](./06-codebase-cleanup.md) (todo)
+**Current Task:** none (all tasks complete)
 
 ### Task List
 
@@ -495,4 +495,4 @@ deferred).
 | 03  | [Show live integrations → episodes](./03-show-live-integrations-to-episodes.md)                | AFK  | done   |
 | 04  | [Podcast episodes end-to-end](./04-podcast-episodes-end-to-end.md)                             | AFK  | done   |
 | 05  | [Legacy data migration → episodes](./05-legacy-data-migration-to-episodes.md)                  | AFK  | done   |
-| 06  | [Codebase cleanup](./06-codebase-cleanup.md)                                                   | AFK  | todo   |
+| 06  | [Codebase cleanup](./06-codebase-cleanup.md)                                                   | AFK  | done   |
