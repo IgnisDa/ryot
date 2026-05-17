@@ -222,11 +222,31 @@ driver("details", async function (context) {
     images.push({ type: "remote", url: primaryImage });
   }
 
+  const franchiseGames = Array.isArray(franchise.games) ? franchise.games : [];
+  const relatedEntities = franchiseGames
+    .map((game, idx) => {
+      const memberId = extractGiantBombGuid(game?.api_detail_url);
+      if (!memberId) return null;
+      const memberName =
+        typeof game?.name === "string" && game.name.trim()
+          ? game.name.trim()
+          : "Loading...";
+      return {
+        name: memberName,
+        externalId: memberId,
+        reverseDirection: true,
+        scriptSlug: "video-game.giant-bomb",
+        relationshipProperties: { order: idx + 1 },
+      };
+    })
+    .filter((e) => e !== null);
+
   return {
     name,
+    relatedEntities,
     properties: {
       images,
-      parts: Array.isArray(franchise.games) ? franchise.games.length : 0,
+      parts: franchiseGames.length,
       description: combineDescription(franchise.deck, franchise.description),
       sourceUrl:
         typeof franchise.site_detail_url === "string" && franchise.site_detail_url.trim()
