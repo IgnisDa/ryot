@@ -10,6 +10,7 @@ import type { RowItem } from "@ryot/contract/modules/query-engine/language";
 import { EntityId, EntitySchemaSlug, SandboxProviderId } from "@ryot/contract/schema/brands";
 import type { UserId } from "@ryot/contract/schema/brands";
 import { buildEntityDetailQueryDocument } from "@ryot/query-engine/recipes/app";
+import { isObjectRecord } from "@ryot/ts-utils/predicates";
 import { generateId } from "better-auth";
 import { Context, DateTime, Effect, Layer, Schema } from "effect";
 
@@ -84,6 +85,16 @@ export type EnsureUserEntityItem = {
 	name: string;
 	properties: unknown;
 	entitySchemaSlug: EntitySchemaSlug;
+};
+
+type EnsureUserEntitiesLifecycleIdentity = {
+	readonly occurredAt: string;
+	readonly executionId: string;
+};
+
+type EnsuredUserEntity = {
+	readonly entity: ListedEntity;
+	readonly wasInserted: boolean;
 };
 
 type ValidatedGlobalEntityItem = Omit<UpsertGlobalEntityItem, "properties"> & {
@@ -177,15 +188,13 @@ export class EntitiesService extends Context.Service<EntitiesService>()("Entitie
 
 			const name = yield* requireText(input.name, "Entity name is required");
 			const properties = yield* parseEntityProperties(input.properties, scope.propertiesSchema);
-			const occurrenceId = `occ_${generateId()}`;
-
 			const saved = yield* runWithDb(repository.insertEntity({ ...input, name, properties }));
 
 			if (origin && saved.wasInserted) {
 				yield* lifecycleDispatch.dispatch({
 					origin,
-					occurrenceId,
 					recordId: saved.entity.id,
+					occurrenceId: `occ_${generateId()}`,
 					occurredAt: (yield* DateTime.nowAsDate).toISOString(),
 					rowUserId: input.scope === "user" ? input.userId : null,
 					source: {
@@ -210,38 +219,66 @@ export class EntitiesService extends Context.Service<EntitiesService>()("Entitie
 		const ensureUserEntities = Effect.fn("EntitiesService.ensureUserEntities")(function* (
 			userId: UserId,
 			items: ReadonlyArray<EnsureUserEntityItem>,
+			lifecycleIdentity?: EnsureUserEntitiesLifecycleIdentity,
 		) {
-			yield* runWithDb(
-				repository.lockUserEntityEnsureScopes({
-					userId,
-					entitySchemaSlugs: items.map(({ entitySchemaSlug }) => entitySchemaSlug),
+			const runInTransaction = yield* TransactionRunner;
+			const saved = yield* runInTransaction(
+				Effect.gen(function* () {
+					yield* repository.lockUserEntityEnsureScopes({
+						userId,
+						entitySchemaSlugs: items.map(({ entitySchemaSlug }) => entitySchemaSlug),
+					});
+					return yield* Effect.forEach(items, (item) =>
+						repository
+							.findUserEntityWithoutProvenance({
+								userId,
+								entitySchemaSlug: item.entitySchemaSlug,
+							})
+							.pipe(
+								Effect.flatMap((existing) =>
+									Effect.gen(function* () {
+										if (existing) {
+											return { entity: existing, wasInserted: false } satisfies EnsuredUserEntity;
+										}
+										const entity = yield* createEntity({
+											userId,
+											scope: "user",
+											name: item.name,
+											properties: item.properties,
+											entitySchemaSlug: item.entitySchemaSlug,
+										});
+										return { entity, wasInserted: true } satisfies EnsuredUserEntity;
+									}),
+								),
+							),
+					);
 				}),
 			);
-			return yield* Effect.forEach(items, (item) =>
-				runWithDb(
-					repository
-						.findUserEntityWithoutProvenance({
-							userId,
-							entitySchemaSlug: item.entitySchemaSlug,
-						})
-						.pipe(
-							Effect.flatMap((existing) =>
-								existing
-									? Effect.succeed({ entityId: existing.id, wasInserted: false })
-									: createEntity(
-											{
-												userId,
-												scope: "user",
-												name: item.name,
-												properties: item.properties,
-												entitySchemaSlug: item.entitySchemaSlug,
-											},
-											{ kind: "bootstrap" },
-										).pipe(Effect.map((entity) => ({ entityId: entity.id, wasInserted: true }))),
-							),
-						),
-				),
+			const occurredAt = lifecycleIdentity?.occurredAt ?? (yield* DateTime.nowAsDate).toISOString();
+			yield* Effect.forEach(
+				saved,
+				({ entity, wasInserted }, index) =>
+					wasInserted
+						? lifecycleDispatch.dispatch({
+								occurredAt,
+								rowUserId: userId,
+								recordId: entity.id,
+								origin: { kind: "bootstrap" },
+								occurrenceId: lifecycleIdentity
+									? `${lifecycleIdentity.executionId}-ensure-user-entity-${index}`
+									: `occ_${generateId()}`,
+								source: {
+									kind: "entity",
+									after: {
+										...toMutationSnapshot(entity),
+										properties: isObjectRecord(entity.properties) ? entity.properties : {},
+									},
+								},
+							})
+						: Effect.void,
+				{ discard: true },
 			);
+			return saved.map(({ entity, wasInserted }) => ({ entityId: entity.id, wasInserted }));
 		});
 
 		const createGlobal = Effect.fn("EntitiesService.createGlobal")(function* (

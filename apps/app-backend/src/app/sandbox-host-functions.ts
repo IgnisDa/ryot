@@ -232,15 +232,18 @@ export const makeAdditionalSandboxApiFunctions: Effect.Effect<
 							);
 						}
 					}
-					return yield* runInTransaction(
-						entities.ensureUserEntities(
+					return yield* entities
+						.ensureUserEntities(
 							UserId.make(input.authority.userId),
 							items.map((item) => ({
 								...item,
 								entitySchemaSlug: EntitySchemaSlug.make(item.entitySchemaSlug),
 							})),
-						),
-					);
+							input.workflowExecutionId && input.startedAt
+								? { occurredAt: input.startedAt, executionId: input.executionId }
+								: undefined,
+						)
+						.pipe(Effect.provideService(TransactionRunner, runInTransaction));
 				}),
 			),
 		createEvents: (rawInput, body) =>

@@ -101,10 +101,32 @@ describe("sandbox observability host functions", () => {
 			]),
 		).toBeNull();
 		expect(collector.record("span", [{ name: "provider.run" }])).toBeNull();
-		expect(mergeSandboxExecutionLogs(["console"], collector)).toEqual([
-			"console",
+		expect(mergeSandboxExecutionLogs(["console token=console-secret"], collector)).toEqual([
+			"console token=[REDACTED]",
 			'{"attributes":{"a":{"b":"value","y":true},"z":1},"kind":"log","level":"info","message":"ready"}',
 			'{"kind":"span","name":"provider.run"}',
+		]);
+	});
+
+	it("redacts credential-shaped attributes recursively", () => {
+		const collector = makeSandboxObservabilityCollector();
+
+		expect(
+			collector.record("log", [
+				{
+					level: "info",
+					message: "request complete authorization=Bearer message-secret",
+					attributes: {
+						apiKey: "api-secret",
+						request: { authorization: "Bearer secret", status: 200 },
+					},
+				},
+			]),
+		).toBeNull();
+		expect(collector.record("span", [{ name: "provider token=span-secret" }])).toBeNull();
+		expect(collector.logs).toEqual([
+			'{"attributes":{"apiKey":"[REDACTED]","request":{"authorization":"[REDACTED]","status":200}},"kind":"log","level":"info","message":"request complete authorization=[REDACTED]"}',
+			'{"kind":"span","name":"provider token=[REDACTED]"}',
 		]);
 	});
 

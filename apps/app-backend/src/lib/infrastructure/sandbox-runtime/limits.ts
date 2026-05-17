@@ -150,6 +150,15 @@ export const sandboxRunnerRequestError = (request: string) =>
 		? `Sandbox runner request exceeds ${SANDBOX_LIMITS.execution.requestBytes} UTF-8 bytes`
 		: null;
 
+export const sandboxWorkflowJournalByteError = (
+	journalBytes: number,
+	entryBytes: number,
+	entryCount: number,
+) =>
+	journalBytes + entryBytes + (entryCount === 0 ? 0 : 1) > WORKFLOW_SANDBOX_LIMITS.journalBytes
+		? `Sandbox workflow durable journal exceeds ${WORKFLOW_SANDBOX_LIMITS.journalBytes} UTF-8 bytes`
+		: null;
+
 export const sandboxContextError = (context: unknown, metadata?: unknown, durable = false) => {
 	const bytes = jsonByteLength(context);
 	const limit =
