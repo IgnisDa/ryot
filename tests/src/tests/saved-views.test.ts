@@ -4,16 +4,20 @@ import {
 	createComputedFieldExpression,
 	createEntityColumnExpression,
 	createEntityPropertyExpression,
+	createEntitySchemaExpression,
 	createEventAggregateExpression,
 } from "@ryot/ts-utils";
 
 import {
+	buildQueryEngineField,
 	buildGridRequest,
 	buildSavedViewBody,
+	buildTableRequest,
 	buildUpdatedSavedViewBody,
 	cloneSavedView,
 	createAuthenticatedClient,
 	createSavedView,
+	createSingleSchemaQueryEngineFixture,
 	createTracker,
 	deleteSavedView,
 	entityField,
@@ -327,10 +331,7 @@ describe("Saved views E2E", () => {
 				eventJoins: [],
 				computedFields: [],
 				scope: ["anime", "manga"],
-				sort: {
-					direction: "desc",
-					expression: createEntityColumnExpression("anime", "createdAt"),
-				},
+				sort: { direction: "desc", expression: createEntityColumnExpression("anime", "createdAt") },
 				filter: {
 					operator: "eq",
 					type: "comparison",
@@ -339,19 +340,20 @@ describe("Saved views E2E", () => {
 				},
 			},
 			displayConfiguration: {
+				entityIdProperty: [entityField("anime", "id"), entityField("manga", "id")],
 				grid: {
 					imageProperty: null,
-					titleProperty: null,
 					calloutProperty: null,
 					primarySubtitleProperty: null,
 					secondarySubtitleProperty: null,
+					titleProperty: [entityField("anime", "name"), entityField("manga", "name")],
 				},
 				list: {
-					calloutProperty: [entityField("anime", "productionStatus")],
-					imageProperty: [entityField("anime", "image"), entityField("manga", "image")],
-					primarySubtitleProperty: [entityField("manga", "publishYear")],
 					secondarySubtitleProperty: null,
+					calloutProperty: [entityField("anime", "productionStatus")],
+					primarySubtitleProperty: [entityField("manga", "publishYear")],
 					titleProperty: [entityField("anime", "name"), entityField("manga", "name")],
+					imageProperty: [entityField("anime", "image"), entityField("manga", "image")],
 				},
 				table: {
 					columns: [
@@ -359,10 +361,7 @@ describe("Saved views E2E", () => {
 							label: "Name",
 							property: [entityField("anime", "name"), entityField("manga", "name")],
 						},
-						{
-							label: "Status",
-							property: [entityField("anime", "productionStatus")],
-						},
+						{ label: "Status", property: [entityField("anime", "productionStatus")] },
 					],
 				},
 			},
@@ -1107,7 +1106,29 @@ describe("Saved views E2E", () => {
 		expect(updateResult.error?.error.message).toContain("not found in schema");
 	});
 
-	it("rejects a view with an invalid built-in column in the display config", async () => {
+	it("rejects a view with a null title property in the display config", async () => {
+		const { client, cookies } = await createAuthenticatedClient();
+		const createBody = buildSavedViewBody();
+		const invalidTitleProperty = JSON.parse("null");
+
+		const result = await client.POST("/saved-views", {
+			headers: { Cookie: cookies },
+			body: {
+				...createBody,
+				displayConfiguration: {
+					...createBody.displayConfiguration,
+					grid: { ...createBody.displayConfiguration.grid, titleProperty: invalidTitleProperty },
+					list: { ...createBody.displayConfiguration.list, titleProperty: invalidTitleProperty },
+				},
+			},
+		});
+
+		expect(result.response.status).toBe(400);
+		expect(result.error?.error.message).toContain("displayConfiguration");
+		expect(result.error?.error.message).toContain("titleProperty");
+	});
+
+	it("rejects a view with no table columns in the display config", async () => {
 		const { client, cookies } = await createAuthenticatedClient();
 
 		const result = await client.POST("/saved-views", {
@@ -1118,13 +1139,15 @@ describe("Saved views E2E", () => {
 					grid: {
 						imageProperty: null,
 						calloutProperty: null,
+						eyebrowProperty: null,
 						primarySubtitleProperty: null,
 						secondarySubtitleProperty: null,
-						titleProperty: createEntityColumnExpression("book", "nam"),
+						titleProperty: [entityField("book", "name")],
 					},
 					list: {
 						imageProperty: null,
 						calloutProperty: null,
+						eyebrowProperty: null,
 						primarySubtitleProperty: null,
 						secondarySubtitleProperty: null,
 						titleProperty: [entityField("book", "name")],
@@ -1134,7 +1157,232 @@ describe("Saved views E2E", () => {
 		});
 
 		expect(result.response.status).toBe(400);
+		expect(result.error?.error.message).toContain("At least one table column is required");
+	});
+
+	it("rejects a view with an invalid built-in column in the display config", async () => {
+		const { client, cookies } = await createAuthenticatedClient();
+		const createBody = buildSavedViewBody();
+
+		const result = await client.POST("/saved-views", {
+			headers: { Cookie: cookies },
+			body: {
+				...createBody,
+				displayConfiguration: {
+					...createBody.displayConfiguration,
+					entityIdProperty: createEntityColumnExpression("book", "nam"),
+				},
+			},
+		});
+
+		expect(result.response.status).toBe(400);
 		expect(result.error?.error.message).toContain("Unsupported entity column 'entity.book.nam'");
+	});
+
+	it("persists entityIdProperty and eyebrowProperty through create and refetch", async () => {
+		const { client, cookies } = await createAuthenticatedClient();
+		const entityIdProperty = createEntityColumnExpression("book", "id");
+		const eyebrowProperty = createEntitySchemaExpression("name");
+
+		const createdView = await createSavedView(client, cookies, {
+			name: `Display Contract ${crypto.randomUUID()}`,
+			displayConfiguration: {
+				entityIdProperty,
+				grid: { eyebrowProperty },
+				list: { eyebrowProperty },
+				table: { columns: [{ label: "Name", expression: [entityField("book", "name")] }] },
+			},
+		});
+		const fetchedView = await getSavedView(client, cookies, createdView.slug);
+
+		expect(createdView.displayConfiguration.entityIdProperty).toEqual(entityIdProperty);
+		expect(fetchedView.displayConfiguration.entityIdProperty).toEqual(entityIdProperty);
+		expect(fetchedView.displayConfiguration.grid.eyebrowProperty).toEqual(eyebrowProperty);
+		expect(fetchedView.displayConfiguration.list.eyebrowProperty).toEqual(eyebrowProperty);
+	});
+
+	it("rejects invalid entityIdProperty on create and update", async () => {
+		const { client, cookies } = await createAuthenticatedClient();
+		const invalidEntityIdProperty = JSON.parse('{"type":"literal","value":1}');
+
+		const createBody = buildSavedViewBody();
+		const createResult = await client.POST("/saved-views", {
+			headers: { Cookie: cookies },
+			body: {
+				...createBody,
+				displayConfiguration: {
+					...createBody.displayConfiguration,
+					entityIdProperty: invalidEntityIdProperty,
+				},
+			},
+		});
+
+		const createdView = await createSavedView(client, cookies);
+		const updateBody = buildUpdatedSavedViewBody();
+		const updateResult = await client.PUT("/saved-views/{viewSlug}", {
+			headers: { Cookie: cookies },
+			params: { path: { viewSlug: createdView.slug } },
+			body: {
+				...updateBody,
+				displayConfiguration: {
+					...updateBody.displayConfiguration,
+					entityIdProperty: invalidEntityIdProperty,
+				},
+			},
+		});
+
+		expect(createResult.response.status).toBe(400);
+		expect(updateResult.response.status).toBe(400);
+		expect(createResult.error?.error.message).toContain("entityIdProperty");
+		expect(updateResult.error?.error.message).toContain("entityIdProperty");
+		expect(createResult.error?.error.message).toContain("string expression");
+		expect(updateResult.error?.error.message).toContain("string expression");
+	});
+
+	it("executes saved-view grid and table requests through the query engine", async () => {
+		const { client, cookies, entityIdsByName, schema } =
+			await createSingleSchemaQueryEngineFixture();
+		const createdView = await createSavedView(client, cookies, {
+			name: `Runtime Coverage ${crypto.randomUUID()}`,
+			queryDefinition: {
+				filter: null,
+				eventJoins: [],
+				computedFields: [],
+				scope: [schema.slug],
+				relationshipJoins: [],
+				sort: { direction: "asc", expression: createEntityColumnExpression(schema.slug, "name") },
+			},
+			displayConfiguration: {
+				entityIdProperty: createEntityColumnExpression(schema.slug, "id"),
+				table: {
+					columns: [
+						{ label: "Name", expression: [entityField(schema.slug, "name")] },
+						{ label: "Year", expression: [entityField(schema.slug, "year")] },
+					],
+				},
+				grid: {
+					eyebrowProperty: createEntitySchemaExpression("name"),
+					titleProperty: [entityField(schema.slug, "name")],
+					imageProperty: createEntityColumnExpression(schema.slug, "image"),
+					calloutProperty: [entityField(schema.slug, "category")],
+					primarySubtitleProperty: [entityField(schema.slug, "year")],
+					secondarySubtitleProperty: [entityField(schema.slug, "category")],
+				},
+				list: {
+					eyebrowProperty: createEntitySchemaExpression("name"),
+					titleProperty: [entityField(schema.slug, "name")],
+					imageProperty: createEntityColumnExpression(schema.slug, "image"),
+					calloutProperty: [entityField(schema.slug, "category")],
+					primarySubtitleProperty: [entityField(schema.slug, "year")],
+					secondarySubtitleProperty: [entityField(schema.slug, "category")],
+				},
+			},
+		});
+		const runtimeQueryDefinition = createdView.queryDefinition;
+		const gridRequest = buildGridRequest({
+			...runtimeQueryDefinition,
+			displayConfiguration: createdView.displayConfiguration.grid,
+			pagination: { limit: 20, page: 1 },
+		});
+		const tableRequest = buildTableRequest({
+			...runtimeQueryDefinition,
+			pagination: { limit: 20, page: 1 },
+			displayConfiguration: createdView.displayConfiguration.table,
+		});
+
+		const gridResult = await executeQueryEngine(client, cookies, {
+			...gridRequest,
+			fields: [
+				buildQueryEngineField("entityId", createdView.displayConfiguration.entityIdProperty),
+				(() => {
+					const eyebrowProperty = createdView.displayConfiguration.grid.eyebrowProperty;
+					if (eyebrowProperty === null) {
+						throw new Error("Missing eyebrow property for saved view runtime test");
+					}
+
+					return buildQueryEngineField("eyebrow", eyebrowProperty);
+				})(),
+				...gridRequest.fields,
+			],
+		});
+		const tableResult = await executeQueryEngine(client, cookies, {
+			...tableRequest,
+			fields: [
+				buildQueryEngineField("entityId", createdView.displayConfiguration.entityIdProperty),
+				...tableRequest.fields,
+			],
+		});
+
+		expect(gridResult.response.status).toBe(200);
+		expect(tableResult.response.status).toBe(200);
+		expect(gridResult.data.data.meta.fieldOrder).toEqual([
+			"entityId",
+			"eyebrow",
+			"image",
+			"title",
+			"primarySubtitle",
+			"secondarySubtitle",
+			"callout",
+		]);
+		expect(tableResult.data.data.meta.fieldOrder).toEqual(["entityId", "column_0", "column_1"]);
+
+		const gridItem = gridResult.data.data.items[0];
+		const tableItem = tableResult.data.data.items[0];
+		const alphaId = entityIdsByName["Alpha Phone"];
+		if (!alphaId) {
+			throw new Error("Missing runtime entity fixture id for saved view test");
+		}
+
+		expect(getQueryEngineFieldOrThrow(gridItem, "entityId")).toEqual({
+			kind: "text",
+			value: alphaId,
+			key: "entityId",
+		});
+		expect(getQueryEngineFieldOrThrow(gridItem, "eyebrow")).toEqual({
+			kind: "text",
+			key: "eyebrow",
+			value: schema.data.name,
+		});
+		expect(getQueryEngineFieldOrThrow(gridItem, "title")).toEqual({
+			key: "title",
+			kind: "text",
+			value: "Alpha Phone",
+		});
+		expect(getQueryEngineFieldOrThrow(gridItem, "image")).toEqual({
+			key: "image",
+			kind: "image",
+			value: { type: "remote", url: "https://example.com/alpha-phone.png" },
+		});
+		expect(getQueryEngineFieldOrThrow(gridItem, "primarySubtitle")).toEqual({
+			value: 2018,
+			kind: "number",
+			key: "primarySubtitle",
+		});
+		expect(getQueryEngineFieldOrThrow(gridItem, "secondarySubtitle")).toEqual({
+			kind: "text",
+			value: "phone",
+			key: "secondarySubtitle",
+		});
+		expect(getQueryEngineFieldOrThrow(gridItem, "callout")).toEqual({
+			kind: "text",
+			key: "callout",
+			value: "phone",
+		});
+		expect(getQueryEngineFieldOrThrow(tableItem, "entityId")).toEqual({
+			kind: "text",
+			value: alphaId,
+			key: "entityId",
+		});
+		expect(getQueryEngineFieldOrThrow(tableItem, "column_0")).toEqual({
+			kind: "text",
+			key: "column_0",
+			value: "Alpha Phone",
+		});
+		expect(getQueryEngineFieldOrThrow(tableItem, "column_1")).toEqual({
+			value: 2018,
+			kind: "number",
+			key: "column_1",
+		});
 	});
 
 	it("rejects a view referencing a schema slug that does not exist", async () => {
