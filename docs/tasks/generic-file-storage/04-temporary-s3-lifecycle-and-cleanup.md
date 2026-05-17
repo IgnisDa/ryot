@@ -2,7 +2,7 @@
 
 **Parent Plan:** [Generic File Storage](./README.md)
 
-**Status:** todo
+**Status:** done
 
 ## What to build
 
@@ -20,16 +20,16 @@ Task 05.
 
 ## Acceptance criteria
 
-- [ ] Create intent and completion support the `s3` plus `temporary` combination
-- [ ] Temporary S3 uploads use absolute presigned PUT targets and are verified at completion
-- [ ] Completion rejects and cleans oversized, missing, or metadata-mismatched S3 objects
-- [ ] A completed S3 temporary upload returns the same token and 15-minute lifetime shape as local storage
-- [ ] Generic claim returns an S3 provider/key locator and never downloads the object locally
-- [ ] S3 claims are single-use, user-bound, atomic with cleanup, and protected by the 24-hour processing lease
-- [ ] Cleanup covers incomplete S3 intents, uploaded-but-uncompleted objects, unclaimed temporary objects, and expired claimed objects
-- [ ] Missing S3 objects are treated as successful idempotent deletion and transient S3 errors remain retryable
-- [ ] Provider-neutral lifecycle tests run equivalent local and S3 behavior where appropriate
-- [ ] End-to-end tests exercise temporary S3 intent, direct PUT, completion, token issuance, resolution behavior, and the 50 MiB completion limit
+- [x] Create intent and completion support the `s3` plus `temporary` combination
+- [x] Temporary S3 uploads use absolute presigned PUT targets and are verified at completion
+- [x] Completion rejects and cleans oversized, missing, or metadata-mismatched S3 objects
+- [x] A completed S3 temporary upload returns the same token and 15-minute lifetime shape as local storage
+- [x] Generic claim returns an S3 provider/key locator and never downloads the object locally
+- [x] S3 claims are single-use, user-bound, atomic with cleanup, and protected by the 24-hour processing lease
+- [x] Cleanup covers incomplete S3 intents, uploaded-but-uncompleted objects, unclaimed temporary objects, and expired claimed objects
+- [x] Missing S3 objects are treated as successful idempotent deletion and transient S3 errors remain retryable
+- [x] Provider-neutral lifecycle tests run equivalent local and S3 behavior where appropriate
+- [x] End-to-end tests exercise temporary S3 intent, direct PUT, completion, token issuance, resolution behavior, and the 50 MiB completion limit
 
 ## User stories addressed
 
