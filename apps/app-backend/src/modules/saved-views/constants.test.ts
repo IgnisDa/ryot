@@ -88,4 +88,30 @@ describe("createDefaultDisplayConfiguration", () => {
 			},
 		]);
 	});
+
+	it("builds workout template defaults from template properties instead of workout fields", () => {
+		const displayConfiguration = createDefaultDisplayConfiguration("workout-template");
+
+		expect(displayConfiguration.grid.calloutProperty).toBeNull();
+		expect(displayConfiguration.grid.primarySubtitleProperty).toEqual(
+			createEntityColumnExpression("workout-template", "createdAt"),
+		);
+		expect(displayConfiguration.grid.secondarySubtitleProperty).toEqual(
+			createEntityPropertyExpression("workout-template", "comment"),
+		);
+		expect(displayConfiguration.table.columns).toEqual([
+			{
+				label: "Name",
+				expression: createEntityColumnExpression("workout-template", "name"),
+			},
+			{
+				label: "Created At",
+				expression: createEntityColumnExpression("workout-template", "createdAt"),
+			},
+			{
+				label: "Comment",
+				expression: createEntityPropertyExpression("workout-template", "comment"),
+			},
+		]);
+	});
 });
