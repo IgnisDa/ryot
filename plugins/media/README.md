@@ -84,6 +84,8 @@ Podcast coverage has the same cycle rules and requires at least one connected ep
 
 ### Recording Flows
 
+`progressPercent` is normalized with half-up rounding to two decimal places before validation.
+
 - Historical completion: create one `complete` event with `completionMode: "custom_timestamps"` when dates are known, otherwise `"unknown"`. Set top-level `occurredAt` to historical completion time.
 - Immediate completion: create one `complete` event with `completionMode: "just_now"`.
 - Active tracking: begin with progress, append progress events, and finish with `progressPercent: 100`; use `dropped` or `on_hold` to stop early.

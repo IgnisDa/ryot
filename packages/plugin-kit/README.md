@@ -167,8 +167,11 @@ There is no separate per-user standalone-script authoring path.
 Every manifest declares a `configSchema` for plugin-owned environment configuration. It uses the
 canonical `AppSchema` format with `unknownKeys: "strict"` and top-level string, number, integer,
 boolean, or enum fields. Fields support labels, descriptions, secrets, defaults, and their ordinary
-validation. Nested values, arrays, dates, translation, transforms, and schema rules are not allowed.
+validation. Nested values, arrays, dates, translation, normalization, and schema rules are not allowed.
 Every `requiredPluginConfigKeys` entry on a script or import source must name a declared field.
+
+Other manifest property schemas may declare numeric `normalize.round.scale`; decoding applies
+half-up rounding before validation.
 Scripts separately declare `requiredSystemConfigKeys` for host-owned configuration.
 
 ## Entity Merge Identity
