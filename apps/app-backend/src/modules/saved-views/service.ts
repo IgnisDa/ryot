@@ -96,13 +96,16 @@ export class SavedViewsService extends Context.Service<SavedViewsService>()("Sav
 			payload: UpdateSavedViewBody & { sortOrder?: number | undefined },
 		) {
 			const current = yield* requireSavedView(user, viewSlug);
+			const layouts = payload.layouts ?? current.layouts;
+			const entitySchemaSlug = payload.entitySchemaSlug ?? current.entitySchemaSlug;
 			if (current.isBuiltin) {
 				if (
 					payload.name !== current.name ||
 					payload.icon !== current.icon ||
 					(payload.pluginSlug ?? null) !== current.pluginSlug ||
-					payload.entitySchemaSlug !== current.entitySchemaSlug ||
-					!Bun.deepEquals(payload.layouts, current.layouts)
+					(payload.entitySchemaSlug !== undefined &&
+						payload.entitySchemaSlug !== current.entitySchemaSlug) ||
+					(payload.layouts !== undefined && !Bun.deepEquals(payload.layouts, current.layouts))
 				) {
 					return yield* badRequest(builtinViewMutationMessage);
 				}
@@ -119,17 +122,14 @@ export class SavedViewsService extends Context.Service<SavedViewsService>()("Sav
 			if (!name) {
 				return yield* badRequest("Saved view name is required");
 			}
-			yield* validateSavedViewDefinition(payload);
-			if (
-				payload.entitySchemaSlug !== null &&
-				!definitions.getEntitySchema(payload.entitySchemaSlug)
-			) {
+			yield* validateSavedViewDefinition({ layouts });
+			if (entitySchemaSlug !== null && !definitions.getEntitySchema(entitySchemaSlug)) {
 				return yield* badRequest("Entity schema not found");
 			}
 			const updated = yield* repository.updateBySlug(
 				user.id,
 				viewSlug,
-				{ ...payload, name, sortOrder: payload.sortOrder },
+				{ ...payload, layouts, name, entitySchemaSlug, sortOrder: payload.sortOrder },
 				current.pluginSlug,
 			);
 			return updated ?? (yield* notFound(savedViewNotFound));
@@ -158,19 +158,22 @@ export class SavedViewsService extends Context.Service<SavedViewsService>()("Sav
 
 		const reorder = Effect.fn(function* (user: CurrentUserValue, payload: ReorderSavedViewsBody) {
 			const views = yield* list(user, { pluginSlug: payload.pluginSlug, includeDisabled: true });
+			const scoped = views.filter(
+				(view) => (view.pluginSlug ?? null) === (payload.pluginSlug ?? null),
+			);
 			const requested = payload.viewSlugs.map((slug) => slug.trim()).filter(Boolean);
 			if (requested.length === 0 || new Set(requested).size !== requested.length) {
 				return yield* badRequest("View slugs are required and must be unique");
 			}
-			if (requested.some((slug) => !views.some((view) => view.slug === slug))) {
+			if (requested.some((slug) => !scoped.some((view) => view.slug === slug))) {
 				return yield* badRequest("Saved view slugs contain unknown saved views");
 			}
 			const reordered = [
 				...requested,
-				...views.map((view) => view.slug).filter((slug) => !requested.includes(slug)),
+				...scoped.map((view) => view.slug).filter((slug) => !requested.includes(slug)),
 			];
 			for (const [sortOrder, slug] of reordered.entries()) {
-				const view = views.find((item) => item.slug === slug);
+				const view = scoped.find((item) => item.slug === slug);
 				if (!view) {
 					continue;
 				}
