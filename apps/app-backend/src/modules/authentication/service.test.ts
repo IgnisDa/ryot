@@ -132,7 +132,7 @@ describe("authentication bootstrap helpers", () => {
 
 	it("builds built-in saved views without trackers", () => {
 		const queryDefinition = createQueryDefinition({ scope: [] });
-		const displayConfiguration = createDefaultDisplayConfiguration();
+		const displayConfiguration = createDefaultDisplayConfiguration("collection");
 
 		expect(
 			buildAuthenticationSavedViewInputs({

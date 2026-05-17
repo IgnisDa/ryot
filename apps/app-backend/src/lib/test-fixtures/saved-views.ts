@@ -1,4 +1,7 @@
-import { createEntityColumnExpression } from "@ryot/ts-utils/src/view-language";
+import {
+	createEntityColumnExpression,
+	createEntitySchemaExpression,
+} from "@ryot/ts-utils/src/view-language";
 
 import {
 	createCreatedAt,
@@ -21,25 +24,19 @@ const queryDefinitionDefaults: SavedViewQueryDefinition = {
 	scope: ["books"],
 	computedFields: [],
 	relationshipJoins: [],
-	sort: {
-		direction: "asc",
-		expression: createEntityColumnExpression("books", "name"),
-	},
+	sort: { direction: "asc", expression: createEntityColumnExpression("books", "name") },
 };
 
 const displayConfigurationDefaults: CreateSavedViewBody["displayConfiguration"] = {
+	entityIdProperty: createEntityColumnExpression("books", "id"),
 	table: {
-		columns: [
-			{
-				label: "Name",
-				expression: createEntityColumnExpression("books", "name"),
-			},
-		],
+		columns: [{ label: "Name", expression: createEntityColumnExpression("books", "name") }],
 	},
 	grid: {
 		calloutProperty: null,
 		primarySubtitleProperty: null,
 		secondarySubtitleProperty: null,
+		eyebrowProperty: createEntitySchemaExpression("name"),
 		titleProperty: createEntityColumnExpression("books", "name"),
 		imageProperty: createEntityColumnExpression("books", "image"),
 	},
@@ -47,6 +44,7 @@ const displayConfigurationDefaults: CreateSavedViewBody["displayConfiguration"] 
 		calloutProperty: null,
 		primarySubtitleProperty: null,
 		secondarySubtitleProperty: null,
+		eyebrowProperty: createEntitySchemaExpression("name"),
 		titleProperty: createEntityColumnExpression("books", "name"),
 		imageProperty: createEntityColumnExpression("books", "image"),
 	},

@@ -11,13 +11,22 @@ import {
 	createSmartphoneSchema,
 	literalExpression,
 } from "~/lib/test-fixtures";
+import { createListedEntitySchema } from "~/lib/test-fixtures/entity-schemas";
+import { createDefaultDisplayConfiguration } from "~/modules/saved-views";
 
 import { buildRelationshipJoinMap, buildSchemaMap, displayBuiltins } from "./reference";
-import { validateQueryEngineReferences, validateRuntimeReferenceAgainstSchemas } from "./validator";
+import {
+	validateQueryEngineReferences,
+	validateRuntimeReferenceAgainstSchemas,
+	validateSavedViewDisplayConfiguration,
+} from "./validator";
 
 const context = {
 	eventJoinMap: new Map(),
-	schemaMap: buildSchemaMap([createSmartphoneSchema()]),
+	schemaMap: buildSchemaMap([
+		createSmartphoneSchema(),
+		createListedEntitySchema({ slug: "collection" }),
+	]),
 };
 
 describe("validateRuntimeReferenceAgainstSchemas", () => {
@@ -163,6 +172,18 @@ describe("validateRuntimeReferenceAgainstSchemas", () => {
 				},
 			),
 		).not.toThrow();
+	});
+
+	it("rejects saved view entity ids that do not resolve to string values", () => {
+		expect(() =>
+			validateSavedViewDisplayConfiguration(
+				{
+					...createDefaultDisplayConfiguration("collection"),
+					entityIdProperty: { type: "literal", value: 1 },
+				},
+				context,
+			),
+		).toThrow("Saved view entityIdProperty requires a string expression");
 	});
 
 	it("accepts primary event property references when matching event schemas share a compatible definition", () => {
