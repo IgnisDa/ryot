@@ -1,5 +1,7 @@
 import type { Job } from "bullmq";
 
+import { temporaryUploadMaxFileBytes } from "~/lib/upload";
+
 import {
 	processMediaImport,
 	type MediaImportAdapterResult,
@@ -14,7 +16,8 @@ import { adaptMyanimelistExports } from "./adapter";
 
 const MYANIMELIST_EXTENSIONS = ["gz", "xml"];
 
-type MyanimelistImportProcessorDeps = {
+export type MyanimelistImportProcessorDeps = {
+	maxFileBytes: number;
 	cleanupImportFile: typeof cleanupImportFile;
 	processMediaImport: typeof processMediaImport;
 	readImportFileBytes: typeof readImportFileBytes;
@@ -22,6 +25,7 @@ type MyanimelistImportProcessorDeps = {
 };
 
 const myanimelistImportProcessorDeps: MyanimelistImportProcessorDeps = {
+	maxFileBytes: temporaryUploadMaxFileBytes,
 	cleanupImportFile,
 	processMediaImport,
 	readImportFileBytes,
@@ -36,6 +40,11 @@ const decodeMyanimelistFile = async (
 	const decodedBytes = filePath.toLowerCase().endsWith(".gz")
 		? Bun.gunzipSync(new Uint8Array(bytes))
 		: bytes;
+	if (decodedBytes.byteLength > deps.maxFileBytes) {
+		throw new Error(
+			`Import file exceeds maximum allowed size of ${deps.maxFileBytes} bytes (file is ${decodedBytes.byteLength} bytes)`,
+		);
+	}
 	return new TextDecoder().decode(decodedBytes);
 };
 
