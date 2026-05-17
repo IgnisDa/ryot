@@ -200,7 +200,7 @@ describe("setUserBan", () => {
 
 	it("bans an unbanned user and deletes sessions", async () => {
 		let updatedInput: unknown;
-		let deletedUserId = [] as string[];
+		let deletedUserId = "";
 
 		const result = await setUserBan(
 			"user_1",
@@ -208,8 +208,8 @@ describe("setUserBan", () => {
 			{
 				now: () => now,
 				findUserById: () => Promise.resolve(baseUser),
-				deleteSessions: (ids) => {
-					deletedUserId = ids;
+				deleteUserSessions: (id) => {
+					deletedUserId = id;
 					return Promise.resolve();
 				},
 				updateUser: (_id, input) => {
@@ -220,7 +220,7 @@ describe("setUserBan", () => {
 		);
 
 		expect(result).toEqual({ data: { id: "user_1", bannedAt: "2024-03-04T05:06:07.000Z" } });
-		expect(deletedUserId).toBe(["user_1"]);
+		expect(deletedUserId).toBe("user_1");
 		expect(updatedInput).toEqual({ updatedAt: now, bannedAt: now });
 	});
 
@@ -235,7 +235,7 @@ describe("setUserBan", () => {
 				now: () => now,
 				updateUser: () => Promise.resolve({}),
 				findUserById: () => Promise.resolve({ ...baseUser, bannedAt: existingBannedAt }),
-				deleteSessions: () => {
+				deleteUserSessions: () => {
 					deleted = true;
 					return Promise.resolve();
 				},
@@ -243,7 +243,7 @@ describe("setUserBan", () => {
 		);
 
 		expect(result).toEqual({ data: { id: "user_1", bannedAt: "2024-01-02T00:00:00.000Z" } });
-		expect(deleted).toBe(false);
+		expect(deleted).toBe(true);
 	});
 
 	it("unbans a banned user without deleting sessions", async () => {
@@ -257,7 +257,7 @@ describe("setUserBan", () => {
 				now: () => now,
 				findUserById: () =>
 					Promise.resolve({ ...baseUser, bannedAt: new Date("2024-01-02T00:00:00Z") }),
-				deleteSessions: () => {
+				deleteUserSessions: () => {
 					deleted = true;
 					return Promise.resolve();
 				},
@@ -283,7 +283,7 @@ describe("setUserBan", () => {
 				now: () => now,
 				updateUser: () => Promise.resolve({}),
 				findUserById: () => Promise.resolve(baseUser),
-				deleteSessions: () => {
+				deleteUserSessions: () => {
 					deleted = true;
 					return Promise.resolve();
 				},
@@ -301,7 +301,7 @@ describe("setUserBan", () => {
 				{ banned: true },
 				{
 					now: () => now,
-					deleteSessions: () => Promise.resolve(),
+					deleteUserSessions: () => Promise.resolve(),
 					updateUser: () => Promise.resolve({}),
 					findUserById: () => Promise.resolve(null),
 				},
@@ -316,7 +316,7 @@ describe("setUserBan", () => {
 				{ banned: true },
 				{
 					now: () => now,
-					deleteSessions: () => Promise.resolve(),
+					deleteUserSessions: () => Promise.resolve(),
 					findUserById: () => Promise.resolve(baseUser),
 					updateUser: () => Promise.reject(new Error("db down")),
 				},
