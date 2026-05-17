@@ -71,7 +71,7 @@ export default function Auth() {
 				throw new Error(error.message ?? "Invalid email or password");
 			}
 		},
-		onSuccess: () => router.replace("/"),
+		onSuccess: () => router.replace("/(app)"),
 	});
 
 	const form = useAppForm({
@@ -89,7 +89,7 @@ export default function Auth() {
 			setOidcError(error.message ?? "OIDC sign-in failed");
 			return;
 		}
-		router.replace("/");
+		router.replace("/(app)");
 	}, [authClient]);
 
 	useEffect(() => {
