@@ -59,7 +59,6 @@ RUN apt-get update && apt-get install -y --no-install-recommends ca-certificates
     apt-get remove -y curl unzip && \
     apt-get autoremove -y && \
     rm -rf /var/lib/apt/lists/*
-ENV SANDBOX_DENO_DIR=/home/ryot/tmp
 ENV FRONTEND_UMAMI_HOST_URL="https://umami.diptesh.me"
 ENV FRONTEND_UMAMI_WEBSITE_ID="5ecd6915-d542-4fda-aa5f-70f09f04e2e0"
 WORKDIR /home/ryot

@@ -2,7 +2,7 @@ import { defineManifest } from "@ryot/sandbox-sdk/driver";
 import { Effect } from "@ryot/sandbox-sdk/effect";
 import { defineProvider } from "@ryot/sandbox-sdk/provider";
 
-import { numberValue, recordsValue, stringValue } from "../../script-helpers/records";
+import { numberValue, recordsValue, stringValue } from "../../../shared/records";
 import {
 	collectImages,
 	firstTranslationValue,

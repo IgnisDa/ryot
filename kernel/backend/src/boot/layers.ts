@@ -96,7 +96,7 @@ import { NotificationDeliveryWorkflowDefinitionsLive } from "#modules/notificati
 import { NotificationsRepository } from "#modules/notifications/repository";
 import { NotificationsService } from "#modules/notifications/service";
 import { PluginBackupRestore } from "#modules/plugins/backup-restore";
-import { FirstPartyPluginBootstrap } from "#modules/plugins/boot";
+import { SystemPluginBootstrap } from "#modules/plugins/boot";
 import { PluginHttpRateLimitAuthority } from "#modules/plugins/http-rate-limit-authority";
 import { ImportSourceCatalogLive } from "#modules/plugins/import-source-catalog";
 import { PluginInstallationRepository } from "#modules/plugins/installation-repository";
@@ -116,6 +116,7 @@ import { PluginRuntimeResolverLive } from "#modules/plugins/runtime-resolver";
 import { PluginSandboxScriptResolverLive } from "#modules/plugins/sandbox-plugin-script-resolver-live";
 import { ScriptGarbageCollector } from "#modules/plugins/script-garbage-collector";
 import { PluginIngestionService, PluginInvalidationSubscriber } from "#modules/plugins/service";
+import { SystemPlugins } from "#modules/plugins/system";
 import { EntityImportWorkflowDefinitionsLive } from "#modules/provider-entities/entity-import-workflow";
 import { EntityImportWorkflowOperationsLive } from "#modules/provider-entities/operations-workflow";
 import { EntityPopulationTriggerLive } from "#modules/provider-entities/population-trigger-live";
@@ -230,6 +231,7 @@ const PluginIngestionServiceLive = Layer.provide(
 		PluginLoaderLive,
 		PluginRepository.layer,
 		ScriptGarbageCollectorLive,
+		SystemPlugins.layer,
 		SandboxWorkflowReferenceRepository.layer,
 	),
 );
@@ -580,12 +582,13 @@ export const RuntimeLive = Layer.mergeAll(
 	PluginCronSchedulerLive,
 );
 
-const FirstPartyPluginBootstrapLive = FirstPartyPluginBootstrap.layer.pipe(
+const SystemPluginBootstrapLive = SystemPluginBootstrap.layer.pipe(
 	Layer.provide([
 		PluginIngestionServiceLive,
 		PluginRepository.layer,
 		ScriptGarbageCollectorLive,
 		PluginInstallationServiceLive,
+		SystemPlugins.layer,
 	]),
 );
 
@@ -602,7 +605,7 @@ const MigrationBootstrapServicesLive = Layer.mergeAll(
 ).pipe(Layer.provideMerge(PluginLoaderLive), Layer.provide(MigrationBootstrapDependenciesLive));
 
 const MigrationSequenceLive = MigrationsComplete.layer.pipe(
-	Layer.flatMap(() => FirstPartyPluginBootstrapLive),
+	Layer.flatMap(() => SystemPluginBootstrapLive),
 	Layer.flatMap(() => LegacyBootstrapMigrateDrop.layer),
 );
 

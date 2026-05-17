@@ -2,8 +2,8 @@ import { defineManifest } from "@ryot/sandbox-sdk/driver";
 import { Effect } from "@ryot/sandbox-sdk/effect";
 import { defineProvider } from "@ryot/sandbox-sdk/provider";
 
-import { asRecord, numberValue, recordsValue, stringValue } from "../../script-helpers/records";
-import type { RoleRelatedEntity } from "../../script-helpers/role-accumulator";
+import { asRecord, numberValue, recordsValue, stringValue } from "../../../shared/records";
+import type { RoleRelatedEntity } from "../../../shared/role-accumulator";
 import {
 	bcp47ToTvdb,
 	buildTranslationResult,

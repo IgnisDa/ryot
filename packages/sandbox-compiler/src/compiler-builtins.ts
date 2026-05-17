@@ -206,7 +206,7 @@ export const compileSandboxPackageEntries = (
 			}
 
 			const extracted = extractSandboxManifest(sourceFile, inspection.manifestHelpers);
-			if ("diagnostic" in extracted) {
+			if (extracted.diagnostic) {
 				return sandboxCompilationFailure([extracted.diagnostic]);
 			}
 			const definitionMismatch = sandboxDefinitionMismatch(inspection, extracted.manifest);

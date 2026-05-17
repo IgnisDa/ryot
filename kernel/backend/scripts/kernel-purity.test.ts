@@ -1,7 +1,7 @@
 import type { PluginManifest } from "@ryot/contract/modules/plugins/manifest";
-import fitnessPlugin from "@ryot/fitness-plugin";
 import { assert, describe, expect, it } from "vitest";
 
+import { fixtureManifest } from "../src/modules/plugins/test-support";
 import {
 	applyPurityAllowlist,
 	deriveDomainVocabulary,
@@ -68,7 +68,7 @@ describe("kernel purity", () => {
 
 	it("derives newly declared ownership vocabulary without banning generic values", () => {
 		const synthetic = {
-			...fitnessPlugin,
+			...fixtureManifest(),
 			userBootstrap: [
 				{
 					slug: "new-domain-bootstrap",
@@ -77,7 +77,7 @@ describe("kernel purity", () => {
 				},
 			],
 			operations: [
-				...fitnessPlugin.operations,
+				...fixtureManifest().operations,
 				{
 					auth: "user",
 					slug: "new-domain-operation",
@@ -92,7 +92,7 @@ describe("kernel purity", () => {
 		expect(vocabulary).toContain("operation.new-domain-operation");
 		expect(vocabulary).toContain("new-domain-bootstrap");
 		expect(vocabulary).toContain("bootstrap.new-domain");
-		expect(vocabulary).toContain("exercise");
+		expect(vocabulary).toContain("fixture-entity");
 		expect(vocabulary).not.toContain("Generic description must not become vocabulary");
 		expect(vocabulary).not.toContain("import");
 		expect(vocabulary).not.toContain("user");

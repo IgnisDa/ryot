@@ -18,8 +18,6 @@ import { SANDBOX_LIMITS, SANDBOX_RUNNER_LIMITS } from "#lib/infrastructure/sandb
 import type { SandboxRunnerLimits } from "#lib/infrastructure/sandbox-runtime/runner-utilities.sandbox";
 import { sandboxRunnerSource } from "#lib/infrastructure/sandbox-runtime/runner.generated";
 import { kernelScripts } from "#modules/definition-registry/kernel-source";
-import { bootPluginSources } from "#modules/plugins/boot-sources";
-import { loadPluginSource } from "#modules/plugins/source";
 import { SandboxCompiler } from "#modules/sandbox/compiler";
 
 let dependencyRuntimeRoot: string | undefined;
@@ -696,19 +694,18 @@ const runInDenoRequest = ({ compiled, context, options = {} }: RunnerRequest) =>
 const runInDeno = (compiled: RunnerCompiledModule, context: unknown, options: RunnerOptions = {}) =>
 	runInDenoRequest({ compiled, context, options });
 
-const compileBootPluginScript = (slug: string) =>
-	Effect.gen(function* () {
-		const plugin = bootPluginSources.find(({ manifest }) =>
-			manifest.scripts.some((script) => script.slug === slug),
-		);
-		assert(plugin, slug);
-		const script = plugin.manifest.scripts.find((candidate) => candidate.slug === slug);
-		assert(script, slug);
-		const pluginSource = yield* loadPluginSource(plugin.packageRoot, plugin.manifest);
-		const [output] = yield* compilePluginSandboxSourceEntries(pluginSource.files, [script]);
-		assert(output, slug);
-		return output.compiled;
-	});
+const compileHostBridgeFixture = Effect.gen(function* () {
+	const fs = yield* FileSystem.FileSystem;
+	const path = yield* Path.Path;
+	const entry = "test-fixtures/host-bridge.sandbox.ts";
+	const sourcePath = yield* path.fromFileUrl(new URL(`./${entry}`, import.meta.url));
+	const source = yield* fs.readFileString(sourcePath);
+	const [output] = yield* compilePluginSandboxSourceEntries({ [entry]: source }, [
+		{ entry, kind: "script" },
+	]);
+	assert(output);
+	return output.compiled;
+});
 
 const startCoreHostBridge = (
 	options: {
@@ -1156,21 +1153,12 @@ it("rejects malformed private host wire responses", () =>
 	));
 
 it(
-	"loads every boot-configured and kernel script in Deno",
+	"loads every kernel script in Deno",
 	() =>
 		Effect.runPromise(
 			Effect.gen(function* () {
 				const fs = yield* FileSystem.FileSystem;
 				const path = yield* Path.Path;
-				const pluginOutputs = yield* Effect.forEach(bootPluginSources, (plugin) =>
-					Effect.gen(function* () {
-						const pluginSource = yield* loadPluginSource(plugin.packageRoot, plugin.manifest);
-						return yield* compilePluginSandboxSourceEntries(
-							pluginSource.files,
-							plugin.manifest.scripts,
-						);
-					}),
-				);
 				const kernelFiles = Object.fromEntries(
 					yield* Effect.forEach(kernelScripts, (script) =>
 						Effect.gen(function* () {
@@ -1183,10 +1171,8 @@ it(
 					),
 				);
 				const kernelOutputs = yield* compilePluginSandboxSourceEntries(kernelFiles, kernelScripts);
-				const outputs = [...pluginOutputs.flat(), ...kernelOutputs];
-
 				yield* Effect.forEach(
-					outputs,
+					kernelOutputs,
 					({ compiled }) =>
 						Effect.gen(function* () {
 							const slug = compiled.manifest.slug;
@@ -1208,53 +1194,19 @@ it(
 );
 
 it(
-	"executes the compiled AniList anime provider in Deno with bundled helpers",
+	"executes a kernel-owned compiled host bridge fixture in Deno",
 	() =>
 		Effect.runPromise(
 			Effect.scoped(
 				Effect.gen(function* () {
 					const bridge = yield* startCoreHostBridge({
-						httpResponse: (url) => {
-							expect(new URL(url).host).toBe("graphql.anilist.co");
-							return {
-								data: {
-									Media: {
-										id: 7,
-										episodes: 12,
-										type: "ANIME",
-										isAdult: false,
-										averageScore: 83,
-										bannerImage: null,
-										status: "FINISHED",
-										genres: ["Action"],
-										nextAiringEpisode: null,
-										tags: [{ name: "Space" }],
-										startDate: { year: 2020 },
-										description: "Line one<br>Line two",
-										title: { english: "Compiled Anime" },
-										coverImage: { extraLarge: "https://img.example/cover.jpg" },
-										studios: { nodes: [{ id: 11, name: "Compiled Studio" }] },
-										airingSchedule: { nodes: [{ episode: 1, airingAt: 1_700_000_000 }] },
-										recommendations: {
-											nodes: [
-												{
-													mediaRecommendation: {
-														id: 8,
-														type: "MANGA",
-														title: { english: "Suggested Manga" },
-													},
-												},
-											],
-										},
-									},
-								},
-							};
-						},
+						pluginConfigValue: "configured",
+						httpResponse: () => ({ ready: true }),
 					});
-					const compiled = yield* compileBootPluginScript("anime.anilist.details");
+					const compiled = yield* compileHostBridgeFixture;
 					const result = yield* runInDeno(
 						compiled,
-						{ externalId: "7" },
+						{},
 						{
 							apiBase: `http://127.0.0.1:${bridge.port}`,
 							apiFunctions: compiled.manifest.capabilities,
@@ -1263,62 +1215,11 @@ it(
 					assert(result !== null && typeof result === "object");
 					expect(result).toMatchObject({ success: true });
 					expect(Reflect.get(result, "value")).toMatchObject({
-						name: "Compiled Anime",
-						properties: {
-							description: "Line one\nLine two",
-							sourceUrl: "https://anilist.co/anime/7/Compiled%20Anime",
-						},
-					});
-				}).pipe(Effect.provide(BunServices.layer)),
-			),
-		),
-	120_000,
-);
-
-it(
-	"executes the compiled TVDB show provider in Deno through the token flow",
-	() =>
-		Effect.runPromise(
-			Effect.scoped(
-				Effect.gen(function* () {
-					const bridge = yield* startCoreHostBridge({
-						pluginConfigValue: "tvdb-api-key",
-						httpResponse: (url) => {
-							const path = new URL(url).pathname;
-							if (path === "/v4/login") {
-								return { status: "success", data: { token: "compiled-token" } };
-							}
-							expect(path).toBe("/v4/search");
-							return {
-								status: "success",
-								links: { next: null, total_items: 1 },
-								data: [
-									{
-										tvdb_id: "42",
-										name: "Compiled Series",
-										poster: "https://example.com/poster.jpg",
-									},
-								],
-							};
-						},
-					});
-					const compiled = yield* compileBootPluginScript("show.tvdb.search");
-					const result = yield* runInDeno(
-						compiled,
-						{ query: "Compiled", page: 1, pageSize: 20 },
-						{
-							apiBase: `http://127.0.0.1:${bridge.port}`,
-							apiFunctions: compiled.manifest.capabilities,
-						},
-					);
-					assert(result !== null && typeof result === "object");
-					expect(result).toMatchObject({ success: true });
-					expect(Reflect.get(result, "value")).toMatchObject({
-						details: { totalItems: 1, nextPage: null },
-						items: [{ externalId: "42", title: "Compiled Series" }],
+						cached: null,
+						config: { fixtureValue: "configured" },
 					});
 					const cacheWrite = bridge.calls.find((call) => call.fnName === "setCachedValue");
-					expect(cacheWrite?.args).toEqual(["tvdb_access_token", "Bearer compiled-token", 82_800]);
+					expect(cacheWrite?.args).toEqual(["fixture-key", { ready: true }, 60]);
 				}).pipe(Effect.provide(BunServices.layer)),
 			),
 		),

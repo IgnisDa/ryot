@@ -1,4 +1,5 @@
 import type { ChildProcess } from "node:child_process";
+import { spawnSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
 
 import getPort from "get-port";
@@ -24,6 +25,14 @@ const S3_BUCKET_NAME = "ryot-test";
 const backendCwd = fileURLToPath(new URL("../apps/server", import.meta.url));
 
 export default async function ({ provide }: TestProject) {
+	const assembly = spawnSync("bun", ["run", "assemble"], {
+		cwd: backendCwd,
+		stdio: "inherit",
+	});
+	if (assembly.status !== 0) {
+		throw new Error(`Server assembly failed with exit code ${assembly.status ?? "unknown"}`);
+	}
+
 	const [backendPort, frontendPort, coreInfrastructure] = await Promise.all([
 		getPort(),
 		getPort(),

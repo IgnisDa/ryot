@@ -1,6 +1,6 @@
 import type { AppSchema } from "@ryot/contract/schema/property-schema";
 
-import { slugify } from "../../shared/slug";
+import { slugify } from "../shared/slug";
 import { builtinMediaEntitySchemaSlugs } from "./media-schema-slugs";
 
 type BuiltinRelationshipSchema = {
