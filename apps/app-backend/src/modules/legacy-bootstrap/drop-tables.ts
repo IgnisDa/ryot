@@ -13,6 +13,7 @@ BEGIN
 	DROP TABLE IF EXISTS "metadata" CASCADE;
 	DROP TABLE IF EXISTS "metadata_group" CASCADE;
 	DROP TABLE IF EXISTS "person" CASCADE;
+	DROP TABLE IF EXISTS "exercise" CASCADE;
 	DROP TABLE IF EXISTS "old_user" CASCADE;
 	DROP TABLE IF EXISTS "collection" CASCADE;
 	RAISE NOTICE 'legacy tables dropped (% seconds elapsed)',
