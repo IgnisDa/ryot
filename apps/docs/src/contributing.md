@@ -15,8 +15,8 @@
   DATABASE_URL=postgres://postgres:postgres@localhost:5432/postgres
   ```
 
-  `UNKEY_ROOT_KEY` also needs to be set in `apps/app-backend/.env` (a separate file); it is
-  what `apps/app-backend` uses to verify a [Pro key](./concepts/pro-key.md) in development. A
+  `UNKEY_ROOT_KEY` also needs to be set in `apps/server/.env` (a separate file); it is
+  what `apps/server` uses to verify a [Pro key](./concepts/pro-key.md) in development. A
   dummy value is fine here too — verification simply fails and the server runs as the
   community version.
 

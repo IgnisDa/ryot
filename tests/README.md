@@ -79,7 +79,7 @@ Resolve plugin-owned definition fixtures by plugin slug and definition slug; def
 
 ## Entity Interest WebSocket Fixture
 
-`src/fixtures/interest-websocket.ts` requests a short-lived ticket, opens a real authenticated WebSocket, sends the ticket as its first frame, and exposes the `ready.sessionId` for admin test support. It sends revisioned `replace` and `update` commands, waits for matching `applied` acknowledgements, buffers validated `entity-updated` messages, responds to application heartbeats, and exposes scoped close and completion-wait helpers. It fails tests on malformed server messages, unexpected close, rejected commands, or acknowledgement timeout. Protocol is documented in `apps/app-backend/src/modules/entity-interest/README.md`.
+`src/fixtures/interest-websocket.ts` requests a short-lived ticket, opens a real authenticated WebSocket, sends the ticket as its first frame, and exposes the `ready.sessionId` for admin test support. It sends revisioned `replace` and `update` commands, waits for matching `applied` acknowledgements, buffers validated `entity-updated` messages, responds to application heartbeats, and exposes scoped close and completion-wait helpers. It fails tests on malformed server messages, unexpected close, rejected commands, or acknowledgement timeout. Protocol is documented in `kernel/backend/src/modules/entity-interest/README.md`.
 
 ## OIDC
 
