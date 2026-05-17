@@ -245,7 +245,7 @@ async function createCompletionEvent(trigger, completeSchema) {
       {
         entityId: trigger.entityId,
         eventSchemaId: completeSchema.id,
-        properties: { completionMode: "just_now" },
+        properties: Object.assign({ completionMode: "just_now" }, trigger.inheritedProperties),
       },
     ],
   });
