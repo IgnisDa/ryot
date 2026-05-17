@@ -28,7 +28,7 @@ export const loader = async ({ request }: Route.LoaderArgs) => {
 		GetOidcTokenDocument,
 		input,
 	);
-	console.log("OIDC token response:", { getOidcToken });
+
 	const oidcInput = {
 		email: getOidcToken.email,
 		issuerId: getOidcToken.subject,
