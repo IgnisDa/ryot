@@ -114,6 +114,41 @@ it.effect("executes an installed script as the explicit user", () => {
 	}).pipe(Effect.provide(layer));
 });
 
+it.effect("executes provider scripts through the universal workflow", () => {
+	let capturedWorkflow: unknown;
+	let capturedOptions: Parameters<WorkflowEngine["Service"]["execute"]>[1] | undefined;
+	const layer = makeServiceLayer(
+		makeRepository({
+			getScript: () => Effect.succeed({ ...storedScript, metadata: { kind: "provider" as const } }),
+			isPluginScript: () => Effect.succeed(false),
+		}),
+		makePluginRuntime(),
+		Layer.succeed(
+			WorkflowEngine,
+			makeWorkflowEngine({
+				execute: (workflow, options) => {
+					capturedWorkflow = workflow;
+					capturedOptions = options;
+					return Effect.succeed(null);
+				},
+			}),
+		),
+	);
+
+	return Effect.gen(function* () {
+		const service = yield* SandboxExecutionService;
+		yield* service.enqueue(executingUserId, { scriptId, context: {} });
+
+		expect(capturedWorkflow).toBe(SandboxScriptWorkflow);
+		expect(capturedOptions?.payload).toMatchObject({
+			scriptId,
+			input: {},
+			resolutionMode: "exact",
+			authority: { type: "user", userId: executingUserId },
+		});
+	}).pipe(Effect.provide(layer));
+});
+
 it.effect("returns a failure-bearing result when universal script execution fails", () => {
 	let capturedOptions: Parameters<WorkflowEngine["Service"]["execute"]>[1] | undefined;
 	const layer = makeServiceLayer(

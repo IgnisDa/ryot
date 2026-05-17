@@ -103,6 +103,28 @@ export class SandboxExecutionService extends Context.Service<SandboxExecutionSer
 					Effect.provideService(SandboxPluginScriptResolver, pluginScriptResolver),
 					Effect.catchTag("SandboxRunError", () => notFound(sandboxScriptNotFoundError)),
 				);
+				if (script.metadata.kind === "provider") {
+					const input = yield* Schema.decodeUnknownEffect(jsonValueSchema)(context).pipe(
+						Effect.mapError(() => badRequest("Sandbox definition context must be JSON")),
+					);
+					yield* engine
+						.execute(SandboxScriptWorkflow, {
+							executionId,
+							discard: true,
+							payload: {
+								input,
+								executionId,
+								resolutionMode: "exact",
+								scriptId: resolvedPayload.scriptId,
+								authority: resolvedPayload.authority,
+							},
+						})
+						.pipe(Effect.orDie);
+					return {
+						executionId,
+						jobId: createWorkflowJobId(jobIdSecret, executionId, executingUserId),
+					};
+				}
 				yield* engine
 					.execute(SandboxSubmissionWorkflow, {
 						executionId,
