@@ -3,11 +3,15 @@ import { expect, it } from "@effect/vitest";
 import { SandboxRunError, unknownToMessage } from "@ryot/contract/errors";
 import type { SandboxExecutionPayload } from "@ryot/contract/modules/sandbox/schemas";
 import { SandboxScriptId, UserId } from "@ryot/contract/schema/brands";
-import { jsonValueSchema } from "@ryot/sandbox-sdk/wire";
-import { workflowReplayEnvelopeSchema } from "@ryot/sandbox-sdk/workflow";
+import {
+	workflowDurableResultSchema,
+	workflowReplayJournalEntrySchema,
+	workflowReplayEnvelopeSchema,
+} from "@ryot/sandbox-sdk/workflow";
+import type { Exit } from "effect";
 import { Deferred, Effect, Layer, Schema, Stream } from "effect";
 import { ChildProcess } from "effect/unstable/process";
-import { Workflow } from "effect/unstable/workflow";
+import { Activity, Workflow } from "effect/unstable/workflow";
 import { WorkflowEngine, WorkflowInstance } from "effect/unstable/workflow/WorkflowEngine";
 
 import { RedisService } from "#lib/infrastructure/redis";
@@ -23,6 +27,7 @@ import {
 	transactionLayer,
 } from "#lib/test-utils/effect";
 
+import { SandboxDurableHostDispatcher } from "./durable-host-dispatcher";
 import { executeSandboxExecution } from "./durable-queues";
 import {
 	KernelWorkflowReferences,
@@ -47,8 +52,9 @@ import {
 const makeProjectionRedis = () =>
 	makeRedisService({
 		client: Object.assign(Object.create(null), {
-			hget: () => Promise.resolve(null),
+			hmget: () => Promise.resolve([]),
 			expire: () => Promise.resolve(1),
+			hget: () => Promise.resolve(null),
 			pipeline: () => ({
 				hset: () => undefined,
 				expire: () => undefined,
@@ -69,6 +75,9 @@ const controlledWorkflowDependencies = Layer.mergeAll(
 	}),
 	Layer.mock(KernelWorkflowReferences)({
 		execute: () => Effect.die("unused"),
+	}),
+	Layer.mock(SandboxDurableHostDispatcher)({
+		dispatch: () => Effect.die("unused"),
 	}),
 );
 
@@ -209,7 +218,10 @@ fi
 	const instance = WorkflowInstance.initial(SandboxScriptWorkflow, executionId);
 	const engine = makeWorkflowActivityEngine(instance);
 	const durableCallsResult = Schema.decodeUnknownEffect(
-		Schema.Struct({ data: Schema.Array(jsonValueSchema), success: Schema.Literal(true) }),
+		Schema.Struct({
+			success: Schema.Literal(true),
+			data: Schema.Array(workflowReplayJournalEntrySchema),
+		}),
 	);
 	const encodeJson = Schema.encodeSync(Schema.fromJsonString(Schema.Unknown));
 	const decodeEnvelope = Schema.decodeUnknownEffect(
@@ -273,7 +285,10 @@ fi
 					const journal = yield* durableCalls([]).pipe(Effect.flatMap(durableCallsResult));
 					const output = yield* Effect.gen(function* () {
 						const process = yield* ChildProcess.make("/bin/sh", ["-c", input.compiledCode], {
-							env: { JOURNAL: encodeJson(journal.data), REQUEST: encodeJson(request) },
+							env: {
+								REQUEST: encodeJson(request),
+								JOURNAL: encodeJson(journal.data.map(({ value }) => value)),
+							},
 						});
 						return yield* process.stdout.pipe(
 							Stream.decodeText(),
@@ -308,6 +323,9 @@ fi
 					kernelCallerScriptId = callerScriptId;
 					return { kernel: "recorded" };
 				}),
+		}),
+		Layer.mock(SandboxDurableHostDispatcher)({
+			dispatch: () => Effect.die("unused"),
 		}),
 	);
 	const payload = {
@@ -403,7 +421,12 @@ it.effect("retains a plugin workflow reference while durably suspended", () => {
 						value: {
 							state: "pending" as const,
 							requests: [
-								{ index: 0, name: "wait", kind: "sleep" as const, args: { durationMs: 1 } },
+								{
+									index: 0,
+									kind: "host" as const,
+									name: "getCachedValue",
+									args: { capability: "getCachedValue" as const, args: ["key"] },
+								},
 							],
 						},
 					}),
@@ -413,6 +436,109 @@ it.effect("retains a plugin workflow reference while durably suspended", () => {
 		expect(registrations).toBe(1);
 		expect(releases).toBe(0);
 	}).pipe(Effect.provide(layer));
+});
+
+it.effect("reconstructs a completed host write after interruption without repeating it", () => {
+	const executionId = "interrupted-host-write";
+	const scriptId = SandboxScriptId.make("operation-script");
+	const request = {
+		index: 0,
+		kind: "host" as const,
+		name: "setCachedValue",
+		args: { capability: "setCachedValue" as const, args: ["write-key", { value: 1 }, 60] as const },
+	};
+	const activityExits = new Map<string, Exit.Exit<unknown, unknown>>();
+	let suspendAfterWrite = true;
+	let writes = 0;
+	const makeEngine = (instance: WorkflowInstance["Service"]) =>
+		makeWorkflowActivityEngine(instance, {
+			activityExecute: (activity) => {
+				if (activity.name === "observe-sandbox-workflow-replay-1" && suspendAfterWrite) {
+					suspendAfterWrite = false;
+					return Effect.succeed(new Workflow.Suspended());
+				}
+				const cached = activityExits.get(activity.name);
+				if (cached) {
+					return Effect.succeed(new Workflow.Complete({ exit: cached }));
+				}
+				return Effect.map(Effect.exit(activity.execute), (exit) => {
+					activityExits.set(activity.name, exit);
+					return new Workflow.Complete({ exit });
+				});
+			},
+		});
+	const dependencies = (instance: WorkflowInstance["Service"]) =>
+		Layer.mergeAll(
+			dbRunnerLayer,
+			transactionLayer,
+			Layer.succeed(WorkflowInstance, instance),
+			Layer.succeed(WorkflowEngine, makeEngine(instance)),
+			Layer.succeed(RedisService, makeProjectionRedis()),
+			Layer.mock(SandboxHarvestHandleStore)({ release: () => Effect.void }),
+			Layer.mock(SandboxPluginScriptResolver)({ findActiveScriptById: () => Effect.die("unused") }),
+			Layer.mock(KernelWorkflowReferences)({ execute: () => Effect.die("unused") }),
+			Layer.mock(SandboxRepository)({
+				resolveWorkflowCallScript: () => Effect.succeed(null),
+				getScriptPin: () =>
+					Effect.succeed({ scriptId, pluginSlug: null, contentHash: "operation-hash" }),
+			}),
+			Layer.mock(SandboxWorkflowReferenceRepository)({
+				lockIngestionShared: () => Effect.void,
+				registerInTransaction: () => Effect.die("unused"),
+				release: () => Effect.die("unused"),
+			}),
+			Layer.mock(SandboxDurableHostDispatcher)({
+				dispatch: () =>
+					Activity.make({
+						error: SandboxRunError,
+						success: workflowDurableResultSchema,
+						name: "sandbox-host-0-setCachedValue",
+						execute: Effect.sync(() => {
+							writes += 1;
+							return { state: "success" as const, value: null };
+						}),
+					}),
+			}),
+		);
+	const payload = {
+		scriptId,
+		input: {},
+		executionId,
+		resolutionMode: "exact" as const,
+		authority: { type: "user" as const, userId: UserId.make("interrupted-user") },
+	};
+	const processReplay = (sandboxPayload: SandboxExecutionPayload) =>
+		Effect.succeed({
+			logs: [],
+			error: null,
+			harvest: null,
+			status: "completed" as const,
+			value:
+				sandboxPayload.executionId === `${executionId}-replay-0`
+					? { state: "pending" as const, requests: [request] }
+					: {
+							requests: [request],
+							state: "completed" as const,
+							output: { completed: true },
+						},
+		});
+
+	return Effect.gen(function* () {
+		const firstInstance = WorkflowInstance.initial(SandboxScriptWorkflow, executionId);
+		const first = yield* Workflow.intoResult(
+			runSandboxScriptWorkflowBody(payload, executionId, processReplay),
+		).pipe(Effect.provide(dependencies(firstInstance)));
+		expect(first._tag).toBe("Suspended");
+		expect(writes).toBe(1);
+
+		const secondInstance = WorkflowInstance.initial(SandboxScriptWorkflow, executionId);
+		expect(
+			yield* runSandboxScriptWorkflowBody(payload, executionId, processReplay).pipe(
+				Effect.provide(dependencies(secondInstance)),
+			),
+		).toEqual({ completed: true });
+		expect(writes).toBe(1);
+	});
 });
 
 it.effect("releases a plugin workflow reference before returning terminal failure", () => {
@@ -553,6 +679,39 @@ it.effect("registers every missing request after validating its full prefix", ()
 				[{ value: null, request: first }],
 			),
 		).toEqual({ state: "pending", requests: [{ request: pending }, { request: third }] });
+	});
+});
+
+it.effect("retries after a replay bootstraps from a stale projection", () => {
+	const first = { index: 0, name: "first", kind: "sleep" as const, args: { durationMs: 10 } };
+	const second = { index: 1, name: "second", kind: "sleep" as const, args: { durationMs: 20 } };
+	return Effect.gen(function* () {
+		expect(
+			yield* validateWorkflowReplayEnvelope(
+				{ journalLength: 0, state: "pending", requests: [first] },
+				[
+					{ value: null, request: first },
+					{ value: null, request: second },
+				],
+			),
+		).toEqual({ state: "projection-stale" });
+	});
+});
+
+it.effect("rejects a completed replay that only forges a stale length marker", () => {
+	const first = { index: 0, name: "first", kind: "sleep" as const, args: { durationMs: 10 } };
+	const second = { index: 1, name: "second", kind: "sleep" as const, args: { durationMs: 20 } };
+	return Effect.gen(function* () {
+		const exit = yield* Effect.exit(
+			validateWorkflowReplayEnvelope(
+				{ output: null, journalLength: 0, state: "completed", requests: [first] },
+				[
+					{ value: null, request: first },
+					{ value: null, request: second },
+				],
+			),
+		);
+		expect(exit.toString()).toContain("replay ended before recorded journal[1]");
 	});
 });
 

@@ -31,7 +31,7 @@ export const isWorkflowCallTargetKind = (
 	request: WorkflowDurableCallRequest,
 	kind: StoredScriptRow["metadata"]["kind"],
 ) =>
-	(request.kind === "child" && kind === "workflow") ||
+	((request.kind === "child" || request.kind === "workflow-child") && kind === "workflow") ||
 	(request.kind === "activity" && kind === "activity");
 
 export class SandboxRepository extends Context.Service<SandboxRepository>()("SandboxRepository", {
@@ -91,7 +91,7 @@ export class SandboxRepository extends Context.Service<SandboxRepository>()("San
 					.where(eq(schema.sandboxScript.id, scriptId))
 					.limit(1),
 			);
-			return row?.metadata.kind === "workflow"
+			return row
 				? {
 						pluginSlug: row.pluginSlug,
 						contentHash: row.contentHash,
@@ -103,8 +103,10 @@ export class SandboxRepository extends Context.Service<SandboxRepository>()("San
 		const resolveWorkflowCallScript = Effect.fn("SandboxRepository.resolveWorkflowCallScript")(
 			function* (workflowScriptId: SandboxScriptId, request: WorkflowDurableCallRequest) {
 				if (
+					request.kind === "host" ||
 					request.kind === "sleep" ||
-					(request.kind === "child" && request.args.workflowSlug.startsWith("kernel:"))
+					((request.kind === "child" || request.kind === "workflow-child") &&
+						request.args.workflowSlug.startsWith("kernel:"))
 				) {
 					return null;
 				}

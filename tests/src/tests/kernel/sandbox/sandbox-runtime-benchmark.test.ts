@@ -47,8 +47,8 @@ type BenchmarkSample = {
 	moduleLoads: number;
 	bodyReplays: number;
 	orchestrationMs: number;
-	sandboxExecutions: number;
 	itemsPerSecond?: number;
+	sandboxExecutions: number;
 	sandboxExecutionMs?: number;
 	redisProjectionKeys: number;
 	maxWorkflowActivityChildRoundTrips: number;
@@ -129,12 +129,12 @@ import { defineManifest } from "@ryot/sandbox-sdk/driver";
 import { Effect } from "@ryot/sandbox-sdk/effect";
 
 export const manifest = defineManifest({
-  kind: "automation",
-  name: "Benchmark no-host automation",
-  slug: ${JSON.stringify(AUTOMATION_NO_HOST_SLUG)},
   capabilities: [],
+  kind: "automation",
   requiredPluginConfigKeys: [],
   requiredSystemConfigKeys: [],
+  name: "Benchmark no-host automation",
+  slug: ${JSON.stringify(AUTOMATION_NO_HOST_SLUG)},
 });
 
 export default defineAutomation({
@@ -153,11 +153,11 @@ import { Effect } from "@ryot/sandbox-sdk/effect";
 
 export const manifest = defineManifest({
   kind: "automation",
+  requiredPluginConfigKeys: [],
+  requiredSystemConfigKeys: [],
   name: "Benchmark full automation",
   slug: ${JSON.stringify(AUTOMATION_FULL_SLUG)},
   capabilities: ["getUserPreferences", "setCachedValue"],
-  requiredPluginConfigKeys: [],
-  requiredSystemConfigKeys: [],
 });
 
 export default defineAutomation({
@@ -183,11 +183,11 @@ import { defineProvider } from "@ryot/sandbox-sdk/provider";
 
 export const manifest = defineManifest({
   kind: "provider",
-  name: "Benchmark controlled HTTP provider",
-  slug: ${JSON.stringify(PROVIDER_SEARCH_SLUG)},
   capabilities: ["httpCall"],
   requiredPluginConfigKeys: [],
   requiredSystemConfigKeys: [],
+  name: "Benchmark controlled HTTP provider",
+  slug: ${JSON.stringify(PROVIDER_SEARCH_SLUG)},
 });
 
 export default defineProvider({
@@ -210,11 +210,11 @@ import { Innertube } from "@ryot/sandbox-sdk/youtubei";
 
 export const manifest = defineManifest({
   kind: "provider",
-  name: "Benchmark Youtubei provider",
-  slug: ${JSON.stringify(PROVIDER_DETAILS_SLUG)},
   capabilities: ["httpCall"],
   requiredPluginConfigKeys: [],
   requiredSystemConfigKeys: [],
+  name: "Benchmark Youtubei provider",
+  slug: ${JSON.stringify(PROVIDER_DETAILS_SLUG)},
 });
 
 type YoutubeiHost = SandboxHost<readonly ["httpCall"]>;
@@ -284,14 +284,14 @@ const automationContext = (progressPercent: number) => ({
 		source: {
 			kind: "event",
 			after: {
-				properties: { progressPercent },
 				id: crypto.randomUUID(),
-				occurredAt: "2026-08-06T00:00:00.000Z",
 				eventSchemaSlug: "progress",
+				properties: { progressPercent },
+				occurredAt: "2026-08-06T00:00:00.000Z",
 				subject: {
+					id: crypto.randomUUID(),
 					name: "Benchmark entity",
 					entitySchemaSlug: "benchmark",
-					id: crypto.randomUUID(),
 				},
 			},
 		},
@@ -317,35 +317,38 @@ const pollSandboxResult = (executingUserId: string, jobId: string) =>
 	});
 
 const runDirectSample = (input: {
-	context: unknown;
 	userId: string;
-	scriptId: Parameters<typeof enqueueSandboxScript>[1]["scriptId"];
+	context: unknown;
+	durable?: boolean;
 	upstreamDelayMs: number;
+	scriptId: Parameters<typeof enqueueSandboxScript>[1]["scriptId"];
 }) =>
 	Effect.gen(function* () {
-		const pressureProbe = `benchmark-direct-${crypto.randomUUID()}`;
-		const before = yield* sampleOperationalPressure([pressureProbe]);
+		const before = yield* sampleOperationalPressure([`benchmark-direct-${crypto.randomUUID()}`]);
 		const startedAt = yield* Clock.currentTimeMillis;
-		const { jobId } = yield* enqueueSandboxScript(input.userId, {
+		const { executionId, jobId } = yield* enqueueSandboxScript(input.userId, {
 			context: input.context,
 			scriptId: input.scriptId,
+			...(input.durable ? { durable: true } : {}),
 		});
 		const result = yield* pollSandboxResult(input.userId, jobId);
 		const latencyMs = (yield* Clock.currentTimeMillis) - startedAt;
-		const after = yield* sampleOperationalPressure([pressureProbe]);
+		const after = yield* sampleOperationalPressure([executionId]);
 		assertCompleted(result, "sandbox benchmark sample");
 		expect(result.error).toBeNull();
-		assertPresent(result.timing, "Sandbox benchmark result did not include timing");
+		if (!input.durable) {
+			assertPresent(result.timing, "Sandbox benchmark result did not include timing");
+		}
 		const sandboxExecutions = after.sandbox.totalExecutions - before.sandbox.totalExecutions;
 		return {
 			latencyMs,
+			sandboxExecutions,
 			bodyReplays: sandboxExecutions,
 			moduleLoads: sandboxExecutions,
-			sandboxExecutions,
-			redisProjectionKeys: 0,
-			sandboxExecutionMs: result.timing.totalMs,
-			maxWorkflowActivityChildRoundTrips: 0,
+			...(result.timing ? { sandboxExecutionMs: result.timing.totalMs } : {}),
 			orchestrationMs: Math.max(0, latencyMs - input.upstreamDelayMs),
+			maxWorkflowActivityChildRoundTrips: input.durable ? after.redis.maxHighWater : 0,
+			redisProjectionKeys: Math.max(0, after.redis.projectionCount - before.redis.projectionCount),
 		} satisfies BenchmarkSample;
 	});
 
@@ -361,8 +364,8 @@ const runPopulationSample = (input: {
 		const startedAt = yield* Clock.currentTimeMillis;
 		const run = yield* startMediaPopulationGate({
 			itemCount: IMPORT_ITEM_COUNT,
-			executingUserId: input.userId,
 			providerId: input.providerId,
+			executingUserId: input.userId,
 			entitySchemaSlug: input.entitySchemaSlug,
 			identifierPrefix: `benchmark-${crypto.randomUUID()}`,
 		});
@@ -377,10 +380,10 @@ const runPopulationSample = (input: {
 		const sandboxExecutions = after.sandbox.totalExecutions - before.sandbox.totalExecutions;
 		return {
 			latencyMs,
-			bodyReplays: sandboxExecutions,
-			moduleLoads: sandboxExecutions,
 			sandboxExecutions,
 			orchestrationMs: latencyMs,
+			bodyReplays: sandboxExecutions,
+			moduleLoads: sandboxExecutions,
 			redisProjectionKeys: after.redis.projectionCount,
 			itemsPerSecond: IMPORT_ITEM_COUNT / (latencyMs / 1_000),
 			maxWorkflowActivityChildRoundTrips: after.redis.maxHighWater,
@@ -413,44 +416,44 @@ describe.skipIf(!RUN_SANDBOX_BENCHMARKS)("current sandbox runtime benchmark", ()
 				});
 				const scripts = [
 					{
-						kind: "automation" as const,
-						name: "Benchmark no-host automation",
-						slug: AUTOMATION_NO_HOST_SLUG,
 						capabilities: [],
-						entry: "scripts/automation-no-host.sandbox.ts",
-						requiredPluginConfigKeys: [],
-						requiredSystemConfigKeys: [],
-					},
-					{
 						kind: "automation" as const,
-						name: "Benchmark full automation",
+						requiredPluginConfigKeys: [],
+						requiredSystemConfigKeys: [],
+						slug: AUTOMATION_NO_HOST_SLUG,
+						name: "Benchmark no-host automation",
+						entry: "scripts/automation-no-host.sandbox.ts",
+					},
+					{
 						slug: AUTOMATION_FULL_SLUG,
-						capabilities: ["getUserPreferences", "setCachedValue"],
+						kind: "automation" as const,
+						requiredPluginConfigKeys: [],
+						requiredSystemConfigKeys: [],
+						name: "Benchmark full automation",
 						entry: "scripts/automation-full.sandbox.ts",
-						requiredPluginConfigKeys: [],
-						requiredSystemConfigKeys: [],
+						capabilities: ["getUserPreferences", "setCachedValue"],
 					},
 					{
 						kind: "provider" as const,
-						name: "Benchmark Youtubei provider",
-						providerSlug: "benchmark-provider",
-						providerOperation: "details" as const,
-						slug: PROVIDER_DETAILS_SLUG,
 						capabilities: ["httpCall"],
-						entry: "scripts/provider-details.sandbox.ts",
+						slug: PROVIDER_DETAILS_SLUG,
 						requiredPluginConfigKeys: [],
 						requiredSystemConfigKeys: [],
+						providerSlug: "benchmark-provider",
+						name: "Benchmark Youtubei provider",
+						providerOperation: "details" as const,
+						entry: "scripts/provider-details.sandbox.ts",
 					},
 					{
 						kind: "provider" as const,
-						name: "Benchmark controlled HTTP provider",
-						providerSlug: "benchmark-provider",
-						providerOperation: "search" as const,
 						slug: PROVIDER_SEARCH_SLUG,
 						capabilities: ["httpCall"],
-						entry: "scripts/provider-search.sandbox.ts",
 						requiredPluginConfigKeys: [],
 						requiredSystemConfigKeys: [],
+						providerSlug: "benchmark-provider",
+						providerOperation: "search" as const,
+						name: "Benchmark controlled HTTP provider",
+						entry: "scripts/provider-search.sandbox.ts",
 					},
 				];
 				const benchmarkPlugin = yield* Effect.acquireRelease(
@@ -460,18 +463,15 @@ describe.skipIf(!RUN_SANDBOX_BENCHMARKS)("current sandbox runtime benchmark", ()
 						files: {
 							"scripts/automation-full.sandbox.ts": fullAutomationSource,
 							"scripts/automation-no-host.sandbox.ts": noHostAutomationSource,
-							"scripts/provider-details.sandbox.ts": youtubeiDetailsSource(httpServer.url),
 							"scripts/provider-search.sandbox.ts": providerSearchSource(httpServer.url),
+							"scripts/provider-details.sandbox.ts": youtubeiDetailsSource(httpServer.url),
 						},
 						providers: [
 							{
 								name: "Benchmark provider",
 								slug: "benchmark-provider",
 								information: { source: "benchmark" },
-								operations: {
-									details: PROVIDER_DETAILS_SLUG,
-									search: PROVIDER_SEARCH_SLUG,
-								},
+								operations: { search: PROVIDER_SEARCH_SLUG, details: PROVIDER_DETAILS_SLUG },
 							},
 						],
 					}),
@@ -511,8 +511,8 @@ describe.skipIf(!RUN_SANDBOX_BENCHMARKS)("current sandbox runtime benchmark", ()
 					runDirectSample({
 						userId,
 						upstreamDelayMs: 0,
-						context: automationContext(100),
 						scriptId: scriptId(AUTOMATION_FULL_SLUG),
+						context: automationContext(100),
 					}),
 				);
 				const provider = yield* collectSamples(
@@ -520,9 +520,20 @@ describe.skipIf(!RUN_SANDBOX_BENCHMARKS)("current sandbox runtime benchmark", ()
 					SAMPLE_COUNT,
 					runDirectSample({
 						userId,
-						context: { page: 1, pageSize: 1, query: "benchmark" },
 						upstreamDelayMs: UPSTREAM_DELAY_MS * 2,
 						scriptId: scriptId(PROVIDER_SEARCH_SLUG),
+						context: { page: 1, pageSize: 1, query: "benchmark" },
+					}),
+				);
+				const durableProvider = yield* collectSamples(
+					WARM_UP_COUNT,
+					SAMPLE_COUNT,
+					runDirectSample({
+						userId,
+						durable: true,
+						upstreamDelayMs: UPSTREAM_DELAY_MS * 2,
+						scriptId: scriptId(PROVIDER_SEARCH_SLUG),
+						context: { page: 1, pageSize: 1, query: "benchmark" },
 					}),
 				);
 				const youtubei = yield* collectSamples(
@@ -545,7 +556,7 @@ describe.skipIf(!RUN_SANDBOX_BENCHMARKS)("current sandbox runtime benchmark", ()
 					}),
 				);
 
-				expect(httpServer.requests.length).toBe((WARM_UP_COUNT + SAMPLE_COUNT) * 4);
+				expect(httpServer.requests.length).toBe((WARM_UP_COUNT + SAMPLE_COUNT) * 6);
 				yield* Effect.log(
 					"SANDBOX_RUNTIME_BASELINE",
 					JSON.stringify(
@@ -555,27 +566,28 @@ describe.skipIf(!RUN_SANDBOX_BENCHMARKS)("current sandbox runtime benchmark", ()
 								platform: os.platform(),
 								bunVersion: Bun.version,
 								cpuCount: os.cpus().length,
-								cpuModel: os.cpus()[0]?.model ?? "unknown",
 								totalMemoryBytes: os.totalmem(),
+								cpuModel: os.cpus()[0]?.model ?? "unknown",
 							},
 							configuration: {
 								warmBackend: true,
 								warmSandboxPool: true,
-								fixedUpstreamDelayMs: UPSTREAM_DELAY_MS,
-								warmUpCount: WARM_UP_COUNT,
 								sampleCount: SAMPLE_COUNT,
+								warmUpCount: WARM_UP_COUNT,
 								importItemCount: IMPORT_ITEM_COUNT,
-								importWarmUpCount: IMPORT_WARM_UP_COUNT,
 								importSampleCount: IMPORT_SAMPLE_COUNT,
+								importWarmUpCount: IMPORT_WARM_UP_COUNT,
+								fixedUpstreamDelayMs: UPSTREAM_DELAY_MS,
 								workflowRedisCounterCaveat:
 									"The current runtime exposes journal projection keys and maximum high-water only; exact workflow-engine and Redis transport round trips are not instrumented without changing production runtime code.",
 							},
 							workloads: {
 								noHostAutomation: summarize(noHost),
-								fullAutomation: summarize(fullAutomation),
-								controlledHttpProvider: summarize(provider),
 								youtubeiProvider: summarize(youtubei),
 								boundedPopulation: summarize(population),
+								fullAutomation: summarize(fullAutomation),
+								controlledHttpProvider: summarize(provider),
+								durableControlledHttpProvider: summarize(durableProvider),
 							},
 						},
 						null,

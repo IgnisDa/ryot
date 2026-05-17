@@ -18,7 +18,7 @@ const provider = defineProvider({
 	operation: "resolve",
 	run: (input, host) => {
 		const inputType: Expect<Equal<typeof input.value, string>> = true;
-		const hostType: Expect<Equal<keyof typeof host, "getCachedValue">> = true;
+		const hostType: Expect<Equal<keyof typeof host, "executeWorkflow" | "getCachedValue">> = true;
 		void inputType;
 		void hostType;
 		return Effect.succeed({ externalId: null });

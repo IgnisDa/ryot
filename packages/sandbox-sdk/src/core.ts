@@ -573,6 +573,12 @@ export const automationSandboxHostContracts = {
 		result: hostResultSchema(Schema.Null),
 	},
 } as const;
+
+export const sandboxHostContracts = {
+	...coreSandboxHostContracts,
+	...domainSandboxHostContracts,
+	...automationSandboxHostContracts,
+} as const;
 export type AutomationSandboxHostMethodMap = SandboxHostMethodMapFromContracts<
 	typeof automationSandboxHostContracts
 >;
@@ -698,6 +704,7 @@ export type OperationManifest = Extract<SandboxManifest, { readonly kind: "opera
 
 export const executionMetadataSchema = strictStruct({
 	metadata: jsonValueSchema,
+	startedAt: Schema.optional(nonEmptyString),
 	sandboxScriptId: nonEmptyString,
 });
 
@@ -705,6 +712,27 @@ export type ExecutionMetadata = Schema.Schema.Type<typeof executionMetadataSchem
 
 // Filesystem grants are per-execution Deno permissions, never callable host functions, so they are
 // excluded from the host surface a script sees.
+export type SandboxWorkflowReference<
+	Input extends Schema.Constraint,
+	Output extends Schema.ConstraintDecoder<unknown>,
+> = {
+	readonly input: Input;
+	readonly output: Output;
+	readonly workflowSlug: string;
+};
+
+export type SandboxWorkflowHost = {
+	readonly executeWorkflow?: <
+		Input extends Schema.Constraint,
+		Output extends Schema.ConstraintDecoder<unknown>,
+	>(
+		name: string,
+		reference: SandboxWorkflowReference<Input, Output>,
+		input: Input["Type"],
+	) => Effect.Effect<Output["Type"], SandboxHostError>;
+};
+
 export type SandboxHost<Capabilities extends readonly SandboxHostCapability[]> = Readonly<
-	Pick<SandboxHostMethodMap, Exclude<Capabilities[number], FilesystemGrantSandboxCapability>>
+	Pick<SandboxHostMethodMap, Exclude<Capabilities[number], FilesystemGrantSandboxCapability>> &
+		SandboxWorkflowHost
 >;

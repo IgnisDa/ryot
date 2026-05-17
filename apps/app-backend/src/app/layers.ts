@@ -115,6 +115,7 @@ import { UserStateService } from "#modules/user-state/service";
 import { makeAutomationSandboxApiFunctions } from "./automation-sandbox-host-functions";
 import { FrequentCronWorkflowDefinitionsLive } from "./cron-workflow-definitions";
 import { KernelWorkflowReferencesLive } from "./kernel-workflow-references";
+import { SandboxDurableHostDispatcherLive } from "./sandbox-durable-host-dispatcher";
 import { makeAdditionalSandboxApiFunctions } from "./sandbox-host-functions";
 import { ServerLive } from "./server";
 
@@ -464,6 +465,7 @@ const MigrationBootstrapServicesLive = Layer.provide(
 
 export const RuntimeDependenciesLive = Layer.provideMerge(
 	Layer.mergeAll(
+		Layer.provide(SandboxDurableHostDispatcherLive, SandboxHostImplementationsLive),
 		Layer.provideMerge(
 			Layer.mergeAll(
 				AddEntityToCollectionWorkflowOperationsLive,
