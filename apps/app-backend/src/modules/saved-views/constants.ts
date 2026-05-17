@@ -16,6 +16,8 @@ import type {
 	TableConfig,
 } from "./schemas";
 
+export const buildBuiltinSavedViewName = (entitySchemaName: string) => `All ${entitySchemaName}s`;
+
 const buildConditionalConcatProperty = (
 	schemaSlug: string,
 	property: string,
