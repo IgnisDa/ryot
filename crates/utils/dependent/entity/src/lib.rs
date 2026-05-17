@@ -200,6 +200,7 @@ pub async fn change_metadata_associations(
             ..Default::default()
         };
         MetadataToMetadata::insert(intermediate)
+            .on_conflict(OnConflict::new().do_nothing().to_owned())
             .exec_without_returning(&ss.db)
             .await?;
     }
