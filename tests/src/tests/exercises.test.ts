@@ -76,7 +76,11 @@ describe("Exercises E2E", () => {
 		expect(exerciseSchema?.isBuiltin).toBe(true);
 		expect(exerciseSchema?.trackerId).toBe(fitnessTracker.id);
 		expect(exerciseSchema?.accentColor).toBe("#14B8A6");
-		expect(exerciseSchema?.providers).toEqual([]);
+		expect(exerciseSchema?.providers).toHaveLength(1);
+		expect(exerciseSchema?.providers[0]).toMatchObject({
+			name: "Free Exercise DB",
+			scriptId: expect.any(String),
+		});
 		expect(exerciseSchema?.propertiesSchema.fields.muscles).toMatchObject({
 			label: "Muscles",
 			type: "enum-array",
