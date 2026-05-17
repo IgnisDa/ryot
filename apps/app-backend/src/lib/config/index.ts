@@ -34,6 +34,7 @@ export const config = {
 	redisUrl: requireField(rawSystem.redisUrl, "REDIS_URL"),
 	databaseUrl: requireField(rawSystem.databaseUrl, "DATABASE_URL"),
 	frontendUrl: requireField(rawSystem.frontendUrl, "FRONTEND_URL"),
+	timezone: rawSystem.timezone ?? systemConfigDef.children.timezone.default ?? "Etc/GMT",
 	users: {
 		disableLocalAuth: rawSystem.users.disableLocalAuth === "true",
 		allowRegistration: rawSystem.users.allowRegistration === "true",
