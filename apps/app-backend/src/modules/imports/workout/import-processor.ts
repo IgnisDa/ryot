@@ -1,3 +1,5 @@
+import { config } from "~/lib/config";
+
 import { updateImportRun } from "../repository";
 import { failImportRun, sanitizeErrorMessage } from "../runtime/failures";
 import { cleanupImportFile, readImportFile } from "../runtime/files";
@@ -29,7 +31,10 @@ export const processWorkoutCsvImport = async (
 		userId: string;
 		filePath: string;
 		sourceName: string;
-		adapt: (csvText: string) => Promise<WorkoutAdapterResult> | WorkoutAdapterResult;
+		adapt: (
+			csvText: string,
+			timezone: string,
+		) => Promise<WorkoutAdapterResult> | WorkoutAdapterResult;
 	},
 	deps: WorkoutCsvImportProcessorDeps = workoutCsvImportProcessorDeps,
 ): Promise<void> => {
@@ -46,7 +51,7 @@ export const processWorkoutCsvImport = async (
 
 		let adapterResult: WorkoutAdapterResult;
 		try {
-			adapterResult = await input.adapt(csvText);
+			adapterResult = await input.adapt(csvText, config.timezone);
 		} catch (error) {
 			await failImportRun(
 				input.runId,

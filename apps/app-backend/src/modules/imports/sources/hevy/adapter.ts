@@ -77,14 +77,14 @@ const parseHevyRow = (row: Record<string, string>, rowIdx: number): HevyRow => {
 
 const HEVY_DATE_FORMATS = ["DD MMM YYYY, HH:mm", "MMM DD YYYY, HH:mm"];
 
-const parseHevyDate = (value: string): ReturnType<typeof dayjs> => {
+const parseHevyDate = (value: string, timezone: string): ReturnType<typeof dayjs> => {
 	for (const fmt of HEVY_DATE_FORMATS) {
 		const parsed = dayjs(value, fmt, true);
 		if (parsed.isValid()) {
-			return parsed;
+			return dayjs.tz(parsed.format("YYYY-MM-DDTHH:mm:ss"), timezone);
 		}
 	}
-	return dayjs(value);
+	return dayjs.tz(value, timezone);
 };
 
 const toWorkoutSet = (row: HevyRow): WorkoutImportSet => {
@@ -121,7 +121,7 @@ const sourceLabelForWorkout = (row: HevyRow): string => `${row.title} (${row.sta
 const sourceIdentifierForWorkout = (row: Pick<HevyRow, "startTime" | "title">): string =>
 	`${row.startTime}:${row.title}`;
 
-export const adaptHevyCsv = (csvText: string): WorkoutAdapterResult => {
+export const adaptHevyCsv = (csvText: string, timezone: string): WorkoutAdapterResult => {
 	const { headers, rows } = parseCsvText(csvText);
 	if (headers.length === 0) {
 		throw new Error("Hevy CSV is empty or has no header row");
@@ -162,7 +162,7 @@ export const adaptHevyCsv = (csvText: string): WorkoutAdapterResult => {
 		}
 
 		const sourceLabel = sourceLabelForWorkout(firstRow);
-		const startedAt = parseHevyDate(firstRow.startTime);
+		const startedAt = parseHevyDate(firstRow.startTime, timezone);
 		if (!startedAt.isValid()) {
 			failures.push({
 				sourceLabel,
@@ -173,7 +173,7 @@ export const adaptHevyCsv = (csvText: string): WorkoutAdapterResult => {
 			continue;
 		}
 
-		const endedAtParsed = parseHevyDate(firstRow.endTime);
+		const endedAtParsed = parseHevyDate(firstRow.endTime, timezone);
 		const endedAt = endedAtParsed.isValid() ? endedAtParsed.toISOString() : null;
 
 		const exercisesByName = new Map<string, HevyRow[]>();
