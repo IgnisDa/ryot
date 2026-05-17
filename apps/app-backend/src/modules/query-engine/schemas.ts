@@ -18,7 +18,7 @@ import {
 	relationshipJoinDefinitionArraySchema,
 	sortDefinitionSchema,
 	timeSeriesMetricSchema,
-} from "~/modules/saved-views/schemas";
+} from "~/modules/saved-views";
 
 export type QueryEngineContext = QueryEngineReferenceContext<
 	QueryEngineSchemaLike,

@@ -1,4 +1,5 @@
 import type { RuntimeRef } from "@ryot/ts-utils/view-language";
+import { match } from "ts-pattern";
 
 import type { QueryEngineRequest } from "~/modules/query-engine";
 import type { DisplayConfiguration, LatestRelationshipJoinDefinition } from "~/modules/saved-views";
@@ -649,63 +650,64 @@ const validateJoinLocalFilterExpression = (
 	join: QueryEngineRelationshipJoinLike,
 	context: QueryEngineReferenceContext<ValidationSchemaRow, ValidationEventJoinRow>,
 ): void => {
-	switch (expression.type) {
-		case "literal":
-			return;
-		case "reference": {
-			if (expression.reference.type !== "relationship-join") {
+	match(expression)
+		.with({ type: "literal" }, () => undefined)
+		.with({ type: "reference" }, (referenceExpression) => {
+			if (referenceExpression.reference.type !== "relationship-join") {
 				throw new QueryEngineValidationError(
-					`Join-local filter may only reference the current relationship join, received '${expression.reference.type}'`,
+					`Join-local filter may only reference the current relationship join, received '${referenceExpression.reference.type}'`,
 				);
 			}
-			if (expression.reference.joinKey !== joinKey) {
+			if (referenceExpression.reference.joinKey !== joinKey) {
 				throw new QueryEngineValidationError(
-					`Join-local filter cannot reference relationship join '${expression.reference.joinKey}'`,
+					`Join-local filter cannot reference relationship join '${referenceExpression.reference.joinKey}'`,
 				);
 			}
-			const [pathRoot] = expression.reference.path;
+			const [pathRoot] = referenceExpression.reference.path;
 			if (pathRoot === "sourceEntity" || pathRoot === "targetEntity") {
 				throw new QueryEngineValidationError(
-					`Join-local filter cannot reference related entity data '${pathRoot}' on join '${expression.reference.joinKey}'`,
+					`Join-local filter cannot reference related entity data '${pathRoot}' on join '${referenceExpression.reference.joinKey}'`,
 				);
 			}
 			if (pathRoot === "properties") {
-				const propertyPath = expression.reference.path.slice(1);
+				const propertyPath = referenceExpression.reference.path.slice(1);
 				getRelationshipJoinPropertyType(join, propertyPath);
 				return;
 			}
 			validateBuiltinPathHasSingleSegment({
-				path: expression.reference.path,
+				path: referenceExpression.reference.path,
 				label: "Relationship join column",
 			});
-			return;
-		}
-		case "coalesce":
-			for (const value of expression.values) {
+		})
+		.with({ type: "coalesce" }, (coalesceExpression) => {
+			for (const value of coalesceExpression.values) {
 				validateJoinLocalFilterExpression(value, joinKey, join, context);
 			}
-			return;
-		case "arithmetic":
-			validateJoinLocalFilterExpression(expression.left, joinKey, join, context);
-			validateJoinLocalFilterExpression(expression.right, joinKey, join, context);
-			return;
-		case "round":
-		case "floor":
-		case "integer":
-		case "transform":
-			validateJoinLocalFilterExpression(expression.expression, joinKey, join, context);
-			return;
-		case "concat":
-			for (const value of expression.values) {
+		})
+		.with({ type: "arithmetic" }, (arithmeticExpression) => {
+			validateJoinLocalFilterExpression(arithmeticExpression.left, joinKey, join, context);
+			validateJoinLocalFilterExpression(arithmeticExpression.right, joinKey, join, context);
+		})
+		.with(
+			{ type: "round" },
+			{ type: "floor" },
+			{ type: "integer" },
+			{ type: "transform" },
+			(nestedExpression) => {
+				validateJoinLocalFilterExpression(nestedExpression.expression, joinKey, join, context);
+			},
+		)
+		.with({ type: "concat" }, (concatExpression) => {
+			for (const value of concatExpression.values) {
 				validateJoinLocalFilterExpression(value, joinKey, join, context);
 			}
-			return;
-		case "conditional":
-			validateJoinLocalFilterExpression(expression.whenTrue, joinKey, join, context);
-			validateJoinLocalFilterExpression(expression.whenFalse, joinKey, join, context);
-			validateJoinLocalFilterPredicate(expression.condition, joinKey, join, context);
-			return;
-	}
+		})
+		.with({ type: "conditional" }, (conditionalExpression) => {
+			validateJoinLocalFilterExpression(conditionalExpression.whenTrue, joinKey, join, context);
+			validateJoinLocalFilterExpression(conditionalExpression.whenFalse, joinKey, join, context);
+			validateJoinLocalFilterPredicate(conditionalExpression.condition, joinKey, join, context);
+		})
+		.exhaustive();
 };
 
 const validateJoinLocalFilterPredicate = (

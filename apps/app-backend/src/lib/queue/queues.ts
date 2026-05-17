@@ -10,7 +10,7 @@ const defaultJobOptions = {
 
 export const createQueues = () => {
 	const connection = getRedisConnection();
-	const eventsQueue = new Queue("events", { connection, defaultJobOptions });
+	const eventsQueue = new Queue("event", { connection, defaultJobOptions });
 	const sandboxQueue = new Queue("sandbox", { connection, defaultJobOptions });
 	const mediaQueue = new Queue("media", {
 		connection,
