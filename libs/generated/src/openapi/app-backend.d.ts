@@ -4597,13 +4597,17 @@ export interface paths {
             requestBody?: {
                 content: {
                     "application/json": {
-                        filePath: string;
-                        /** @enum {string} */
-                        source: "open_scale";
-                    } | {
+                        username: string;
                         /** @enum {string} */
                         source: "trakt";
-                        username: string;
+                    } | {
+                        /** @enum {string} */
+                        source: "open_scale";
+                        uploadToken: string;
+                    } | {
+                        /** @enum {string} */
+                        source: "strong_app";
+                        uploadToken: string;
                     };
                 };
             };
