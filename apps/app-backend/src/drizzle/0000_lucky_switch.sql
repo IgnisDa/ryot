@@ -43,10 +43,10 @@ CREATE TABLE "entity" (
 	"external_id" text,
 	"name" text NOT NULL,
 	"image" jsonb,
-	"properties" jsonb DEFAULT '{}'::jsonb NOT NULL,
 	"created_at" timestamp with time zone DEFAULT now() NOT NULL,
 	"populated_at" timestamp with time zone DEFAULT now() NOT NULL,
 	"user_id" text,
+	"properties" jsonb DEFAULT '{}'::jsonb NOT NULL,
 	"entity_schema_id" text NOT NULL,
 	"sandbox_script_id" text,
 	"id" text PRIMARY KEY NOT NULL,
@@ -59,8 +59,8 @@ CREATE TABLE "entity_schema" (
 	"name" text NOT NULL,
 	"icon" text NOT NULL,
 	"accent_color" text NOT NULL,
-	"properties_schema" jsonb NOT NULL,
 	"is_builtin" boolean DEFAULT false NOT NULL,
+	"properties_schema" jsonb NOT NULL,
 	"created_at" timestamp with time zone DEFAULT now() NOT NULL,
 	"user_id" text,
 	"id" text PRIMARY KEY NOT NULL,
@@ -84,14 +84,15 @@ CREATE TABLE "event" (
 	"id" text PRIMARY KEY NOT NULL,
 	"event_schema_id" text NOT NULL,
 	"entity_id" text NOT NULL,
+	"session_entity_id" text,
 	"updated_at" timestamp with time zone DEFAULT now() NOT NULL
 );
 --> statement-breakpoint
 CREATE TABLE "event_schema" (
 	"slug" text NOT NULL,
 	"name" text NOT NULL,
-	"properties_schema" jsonb NOT NULL,
 	"is_builtin" boolean DEFAULT false NOT NULL,
+	"properties_schema" jsonb NOT NULL,
 	"created_at" timestamp with time zone DEFAULT now() NOT NULL,
 	"user_id" text,
 	"entity_schema_id" text NOT NULL,
@@ -114,9 +115,9 @@ CREATE TABLE "event_schema_trigger" (
 );
 --> statement-breakpoint
 CREATE TABLE "relationship" (
-	"properties" jsonb DEFAULT '{}'::jsonb NOT NULL,
 	"created_at" timestamp with time zone DEFAULT now() NOT NULL,
 	"user_id" text,
+	"properties" jsonb DEFAULT '{}'::jsonb NOT NULL,
 	"source_entity_id" text NOT NULL,
 	"target_entity_id" text NOT NULL,
 	"relationship_schema_id" text NOT NULL,
@@ -127,8 +128,8 @@ CREATE TABLE "relationship" (
 CREATE TABLE "relationship_schema" (
 	"slug" text NOT NULL,
 	"name" text NOT NULL,
-	"properties_schema" jsonb NOT NULL,
 	"is_builtin" boolean DEFAULT false NOT NULL,
+	"properties_schema" jsonb NOT NULL,
 	"created_at" timestamp with time zone DEFAULT now() NOT NULL,
 	"user_id" text,
 	"source_entity_schema_id" text,
@@ -142,8 +143,8 @@ CREATE TABLE "sandbox_script" (
 	"slug" text NOT NULL,
 	"name" text NOT NULL,
 	"code" text NOT NULL,
-	"metadata" jsonb NOT NULL,
 	"is_builtin" boolean DEFAULT false NOT NULL,
+	"metadata" jsonb NOT NULL,
 	"created_at" timestamp with time zone DEFAULT now() NOT NULL,
 	"user_id" text,
 	"id" text PRIMARY KEY NOT NULL,
@@ -156,11 +157,11 @@ CREATE TABLE "saved_view" (
 	"name" text NOT NULL,
 	"icon" text NOT NULL,
 	"accent_color" text NOT NULL,
-	"query_definition" jsonb NOT NULL,
-	"display_configuration" jsonb NOT NULL,
 	"sort_order" integer DEFAULT 0 NOT NULL,
 	"is_builtin" boolean DEFAULT false NOT NULL,
 	"is_disabled" boolean DEFAULT false NOT NULL,
+	"query_definition" jsonb NOT NULL,
+	"display_configuration" jsonb NOT NULL,
 	"created_at" timestamp with time zone DEFAULT now() NOT NULL,
 	"tracker_id" text,
 	"id" text PRIMARY KEY NOT NULL,
@@ -207,12 +208,21 @@ CREATE TABLE "tracker_entity_schema" (
 	CONSTRAINT "tracker_entity_schema_unique" UNIQUE("tracker_id","entity_schema_id")
 );
 --> statement-breakpoint
+CREATE TABLE "two_factor" (
+	"id" text PRIMARY KEY NOT NULL,
+	"secret" text NOT NULL,
+	"backup_codes" text NOT NULL,
+	"verified" boolean NOT NULL,
+	"user_id" text NOT NULL
+);
+--> statement-breakpoint
 CREATE TABLE "user" (
 	"image" text,
 	"name" text NOT NULL,
 	"id" text PRIMARY KEY NOT NULL,
-	"preferences" jsonb NOT NULL,
+	"two_factor_enabled" boolean,
 	"email" text NOT NULL,
+	"preferences" jsonb NOT NULL,
 	"email_verified" boolean DEFAULT false NOT NULL,
 	"created_at" timestamp with time zone DEFAULT now() NOT NULL,
 	"updated_at" timestamp with time zone DEFAULT now() NOT NULL,
@@ -238,6 +248,7 @@ ALTER TABLE "entity_schema_script" ADD CONSTRAINT "entity_schema_script_sandbox_
 ALTER TABLE "event" ADD CONSTRAINT "event_user_id_user_id_fk" FOREIGN KEY ("user_id") REFERENCES "public"."user"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "event" ADD CONSTRAINT "event_event_schema_id_event_schema_id_fk" FOREIGN KEY ("event_schema_id") REFERENCES "public"."event_schema"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "event" ADD CONSTRAINT "event_entity_id_entity_id_fk" FOREIGN KEY ("entity_id") REFERENCES "public"."entity"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "event" ADD CONSTRAINT "event_session_entity_id_entity_id_fk" FOREIGN KEY ("session_entity_id") REFERENCES "public"."entity"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "event_schema" ADD CONSTRAINT "event_schema_user_id_user_id_fk" FOREIGN KEY ("user_id") REFERENCES "public"."user"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "event_schema" ADD CONSTRAINT "event_schema_entity_schema_id_entity_schema_id_fk" FOREIGN KEY ("entity_schema_id") REFERENCES "public"."entity_schema"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "event_schema_trigger" ADD CONSTRAINT "event_schema_trigger_user_id_user_id_fk" FOREIGN KEY ("user_id") REFERENCES "public"."user"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
@@ -257,6 +268,7 @@ ALTER TABLE "session" ADD CONSTRAINT "session_user_id_user_id_fk" FOREIGN KEY ("
 ALTER TABLE "tracker" ADD CONSTRAINT "tracker_user_id_user_id_fk" FOREIGN KEY ("user_id") REFERENCES "public"."user"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "tracker_entity_schema" ADD CONSTRAINT "tracker_entity_schema_tracker_id_tracker_id_fk" FOREIGN KEY ("tracker_id") REFERENCES "public"."tracker"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "tracker_entity_schema" ADD CONSTRAINT "tracker_entity_schema_entity_schema_id_entity_schema_id_fk" FOREIGN KEY ("entity_schema_id") REFERENCES "public"."entity_schema"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "two_factor" ADD CONSTRAINT "two_factor_user_id_user_id_fk" FOREIGN KEY ("user_id") REFERENCES "public"."user"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 CREATE INDEX "account_userId_idx" ON "account" USING btree ("user_id");--> statement-breakpoint
 CREATE INDEX "apikey_configId_idx" ON "apikey" USING btree ("config_id");--> statement-breakpoint
 CREATE INDEX "apikey_referenceId_idx" ON "apikey" USING btree ("reference_id");--> statement-breakpoint
@@ -274,7 +286,9 @@ CREATE INDEX "entity_schema_script_sandbox_script_id_idx" ON "entity_schema_scri
 CREATE INDEX "event_user_id_idx" ON "event" USING btree ("user_id");--> statement-breakpoint
 CREATE INDEX "event_entity_id_idx" ON "event" USING btree ("entity_id");--> statement-breakpoint
 CREATE INDEX "event_event_schema_id_idx" ON "event" USING btree ("event_schema_id");--> statement-breakpoint
+CREATE INDEX "event_session_entity_id_idx" ON "event" USING btree ("session_entity_id");--> statement-breakpoint
 CREATE INDEX "event_properties_idx" ON "event" USING gin ("properties");--> statement-breakpoint
+CREATE INDEX "event_user_entity_schema_idx" ON "event" USING btree ("user_id","entity_id","event_schema_id");--> statement-breakpoint
 CREATE INDEX "event_schema_entity_schema_id_idx" ON "event_schema" USING btree ("entity_schema_id");--> statement-breakpoint
 CREATE UNIQUE INDEX "event_schema_builtin_entity_schema_slug_unique" ON "event_schema" USING btree ("entity_schema_id","slug") WHERE "event_schema"."user_id" is null;--> statement-breakpoint
 CREATE INDEX "event_schema_trigger_user_id_idx" ON "event_schema_trigger" USING btree ("user_id");--> statement-breakpoint
