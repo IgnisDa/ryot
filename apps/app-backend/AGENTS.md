@@ -58,43 +58,15 @@ BullMQ with Redis. Infrastructure in `src/lib/queue/` and `src/lib/sandbox/`.
 
 ### Testing
 
-- Run `bun run check`, `bun run test`, and `bun run format` after changes.
 - Shared fixtures in `src/lib/test-fixtures`. Module-specific fixtures preferred; cross-module primitives only in shared helpers.
-- E2E tests go in `<root>/tests/src`.
 
 ### Code Review
 
 After meaningful backend work, launch `backend-code-reviewer` via the Task tool before committing. Skip for trivial changes. Ensure tests pass before and after review.
 
-## Type/Schema/Relationship Write Path
+## Schema Write Path
 
-### The `<type>` / `<type>_schema` pattern
-
-Three instance types are validated against their corresponding schema's `propertiesSchema` on every write:
-
-| Instance       | Schema table          | propertiesSchema column                                                                |
-| -------------- | --------------------- | -------------------------------------------------------------------------------------- |
-| `entity`       | `entity_schema`       | validated via `entities/service.ts:createEntity`                                       |
-| `event`        | `event_schema`        | validated via `events/service.ts:createEvent`                                          |
-| `relationship` | `relationship_schema` | validated via `writeRelationship` / `writeEntityRelationship` in `entities/service.ts` |
-
-### Relationship writers
-
-Two canonical service functions in `modules/entities/service.ts`:
-
-- **`writeRelationship`** — validates `properties` against `relationship_schema.propertiesSchema` then calls `insertRelationship` (ON CONFLICT DO NOTHING). Used for simple user-scoped relationships.
-- **`writeEntityRelationship`** — validates `extraProperties + role` then calls `upsertEntityRelationship` (roles accumulation with transaction lock). Used by the media worker for person/company/group credit relationships.
-
-For collection membership (`member-of`), validation against `member-of.propertiesSchema` happens inside `collections/service.ts:addToCollection` after the collection-level `membershipPropertiesSchema` check.
-
-### AppSchema top-level `unknownKeys`
-
-`AppSchema` (in `@ryot/ts-utils/app-schema`) now accepts an optional top-level `unknownKeys?: "strip" | "strict" | "passthrough"`. Pass it to make `fromAppSchemaObject` produce a passthrough/strip Zod schema instead of the default strict one. The `member-of` and any other relationship schemas whose `propertiesSchema` must accept arbitrary top-level keys should use `unknownKeys: "passthrough"`.
-
-### Collection entity properties
-
-Collection entities store `{ description?, membershipPropertiesSchema? }` in their `properties` column. The builtin `collection` entity schema's `propertiesSchema` defines both fields (`description` as string, `membershipPropertiesSchema` as passthrough object). All collection entity writes are validated against this schema in `collections/service.ts:createCollection`.
-
-### person-to-media relationship schemas
-
-Person credit relationships include an optional `character` field (the role/character a person played). This field is declared in the person-to-media relationship schema's `propertiesSchema`. Company credit relationships do NOT have a `character` field.
+- `entity`, `event`, and `relationship` writes must validate `properties` against the matching schema table's `propertiesSchema`.
+- Use the canonical relationship writers in `modules/entities/service.ts`; collection membership validation belongs in `collections/service.ts:addToCollection`.
+- Use `AppSchema.unknownKeys: "passthrough"` only when relationship/collection property schemas must accept arbitrary top-level keys.
+- Keep collection properties and person/company relationship properties aligned with their built-in schemas.
