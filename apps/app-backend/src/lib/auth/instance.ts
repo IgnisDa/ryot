@@ -67,6 +67,7 @@ export const auth = betterAuth({
 								clientId: oidc.clientId ?? "",
 								clientSecret: oidc.clientSecret ?? "",
 								scopes: ["openid", "email", "profile"],
+								disableSignUp: !config.users.allowRegistration,
 								discoveryUrl: `${oidc.issuerUrl?.replace(/\/$/, "")}/.well-known/openid-configuration`,
 							},
 						],

@@ -26,7 +26,6 @@ const S3_BUCKET_NAME = "ryot-oidc-test";
 const OIDC_CLIENT_SECRET = "test-secret";
 const OIDC_BUTTON_LABEL = "Sign in with TestOIDC";
 
-let coreInfrastructure: Awaited<ReturnType<typeof startCoreTestInfrastructure>> | undefined;
 let backendPortA: number;
 let backendPortB: number;
 let backendPortC: number;
@@ -36,6 +35,7 @@ let backendProcessA: ChildProcess | undefined;
 let backendProcessB: ChildProcess | undefined;
 let backendProcessC: ChildProcess | undefined;
 let oidcContainer: StartedTestContainer | undefined;
+let coreInfrastructure: Awaited<ReturnType<typeof startCoreTestInfrastructure>> | undefined;
 
 function getBackendUrlA() {
 	return `http://127.0.0.1:${backendPortA}/api`;
@@ -66,8 +66,8 @@ function requireOidcPgClient(): PgClient {
 
 beforeAll(async () => {
 	coreInfrastructure = await startCoreTestInfrastructure({
-		bucketName: S3_BUCKET_NAME,
 		logPrefix: "OIDC Setup",
+		bucketName: S3_BUCKET_NAME,
 	});
 
 	oidcContainer = await new GenericContainer("ghcr.io/navikt/mock-oauth2-server:2.1.10")
@@ -98,11 +98,11 @@ beforeAll(async () => {
 	) => {
 		const proc = spawnBackendProcess(
 			buildBackendEnv({
-				dbUrl: infrastructure.dbUrl,
-				frontendUrl,
 				port,
-				redisUrl: infrastructure.redisUrl,
+				frontendUrl,
+				dbUrl: infrastructure.dbUrl,
 				s3BucketName: S3_BUCKET_NAME,
+				redisUrl: infrastructure.redisUrl,
 				s3Endpoint: infrastructure.s3Endpoint,
 				extraEnv: { ...sharedEnv, ...extraEnv },
 			}),
@@ -293,9 +293,9 @@ describe("Registration gating for OIDC (Backend C)", () => {
 		const formBody = new URLSearchParams();
 		formBody.set("username", username);
 		const step2Response = await fetch(authorizeUrl, {
-			body: formBody.toString(),
 			method: "POST",
 			redirect: "manual",
+			body: formBody.toString(),
 			headers: { "Content-Type": "application/x-www-form-urlencoded" },
 		});
 		const callbackUrl = step2Response.headers.get("location");
@@ -324,6 +324,30 @@ describe("Registration gating for OIDC (Backend C)", () => {
 			Number(result.rows[0]?.count),
 			"No user row must be created when registration is disabled",
 		).toBe(0);
+	});
+
+	it("existing OIDC users can still sign in when registration is disabled", async () => {
+		const username = `user-${crypto.randomUUID()}`;
+		const email = `${username}@example.com`;
+		const pg = requireOidcPgClient();
+
+		await oidcSignIn(username, getBackendUrlA());
+		const beforeResult = await pg.query<{ id: string }>(`SELECT id FROM "user" WHERE email = $1`, [
+			email,
+		]);
+		expect(beforeResult.rows.length).toBe(1);
+		const userId = beforeResult.rows[0]?.id;
+
+		const sessionCookie = await oidcSignIn(username, getBackendUrlC());
+		const client = createClient<paths>({ baseUrl: getBackendUrlC() });
+		const { response } = await client.GET("/trackers", { headers: { Cookie: sessionCookie } });
+		expect(response.status).toBe(200);
+
+		const afterResult = await pg.query<{ id: string }>(`SELECT id FROM "user" WHERE email = $1`, [
+			email,
+		]);
+		expect(afterResult.rows.length).toBe(1);
+		expect(afterResult.rows[0]?.id).toBe(userId);
 	});
 });
 
