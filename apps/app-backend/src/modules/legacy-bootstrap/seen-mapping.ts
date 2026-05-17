@@ -63,6 +63,7 @@ DECLARE
 	next_cursor_id text;
 	prog_inserted  int          := 0;
 	term_inserted  int          := 0;
+	unresolved_episode_rows int := 0;
 	batch_count    int;
 	started_at     timestamptz  := clock_timestamp();
 BEGIN
@@ -441,6 +442,35 @@ BEGIN
 
 		cursor_id := next_cursor_id;
 	END LOOP;
+
+	SELECT count(*) INTO unresolved_episode_rows
+	FROM "seen" s
+	INNER JOIN "entity" e ON e.id = s.metadata_id
+	INNER JOIN "entity_schema" es ON es.id = e.entity_schema_id
+	LEFT JOIN _legacy_show_episode_resolution show_episode
+		ON es.slug = 'show'
+		AND show_episode.parent_entity_id = s.metadata_id
+		AND show_episode.season_number = s.show_extra_information ->> 'season'
+		AND show_episode.episode_number = s.show_extra_information ->> 'episode'
+	LEFT JOIN _legacy_podcast_episode_resolution podcast_episode
+		ON es.slug = 'podcast'
+		AND podcast_episode.parent_entity_id = s.metadata_id
+		AND podcast_episode.episode_number = s.podcast_extra_information ->> 'episode'
+	WHERE (
+			es.slug = 'show'
+			AND (s.show_extra_information ->> 'season') ~ '^[0-9]+$'
+			AND (s.show_extra_information ->> 'episode') ~ '^[0-9]+$'
+			AND show_episode.entity_id IS NULL
+		)
+		OR (
+			es.slug = 'podcast'
+			AND (s.podcast_extra_information ->> 'episode') ~ '^[0-9]+$'
+			AND podcast_episode.entity_id IS NULL
+		);
+
+	IF unresolved_episode_rows > 0 THEN
+		RAISE WARNING 'seen -> event: % show/podcast row(s) skipped because their episode could not be resolved positionally; progress/completion for them was not migrated', unresolved_episode_rows;
+	END IF;
 
 	RAISE NOTICE 'seen -> event: % progress + % terminal events total (% seconds elapsed)',
 		prog_inserted,
