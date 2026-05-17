@@ -10,6 +10,7 @@ export type RegisteredIntegrationProvider = {
 	readonly name: string;
 	readonly pluginSlug: string;
 	readonly description: string;
+	readonly requiresProKey?: boolean;
 	readonly settingsSchema: AppSchema;
 	readonly scriptSlug: string | null;
 	readonly lot: PluginIntegrationProvider["lot"];
@@ -27,6 +28,7 @@ const fromSnapshot = (
 				name: provider.name,
 				description: provider.description,
 				settingsSchema: provider.settingsSchema,
+				requiresProKey: provider.requiresProKey ?? false,
 				scriptSlug: provider.lot === "push" ? null : provider.scriptSlug,
 			})),
 		)

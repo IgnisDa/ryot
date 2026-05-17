@@ -88,9 +88,9 @@ export const testPluginManifest = (input: TestPluginManifestInput): TestPluginMa
 	},
 });
 
-const findInstalledScriptId = (scriptSlug: string, source: string) =>
+const findInstalledScriptId = (scriptSlug: string, source: string, baseUrl?: string) =>
 	Effect.gen(function* () {
-		const scripts = yield* getBackendClient().call(
+		const scripts = yield* getBackendClient(baseUrl).call(
 			(c) => c.testSupport.listSandboxScripts({ query: {} }),
 			adminHeaders,
 		);
@@ -153,6 +153,7 @@ export const installTestPlugin = (input: {
 
 export const installTestPluginBundle = (input: {
 	pluginSlug?: string;
+	baseUrl?: string;
 	crons?: TestPluginManifest["crons"];
 	files: InstallPluginPayload["files"];
 	scripts: TestPluginManifest["scripts"];
@@ -187,14 +188,14 @@ export const installTestPluginBundle = (input: {
 			relationshipSchemas: input.relationshipSchemas,
 			integrationProviders: input.integrationProviders,
 		});
-		yield* getBackendClient().call(
+		yield* getBackendClient(input.baseUrl).call(
 			(c) => c.plugins.install({ payload: { files: input.files, manifest } }),
 			adminHeaders,
 		);
 		const scriptIds = Object.fromEntries(
 			yield* Effect.all(
 				input.scripts.map((script) =>
-					findInstalledScriptId(script.slug, input.files[script.entry] ?? "").pipe(
+					findInstalledScriptId(script.slug, input.files[script.entry] ?? "", input.baseUrl).pipe(
 						Effect.map((scriptId) => [script.slug, scriptId] as const),
 					),
 				),

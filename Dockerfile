@@ -19,6 +19,8 @@ COPY --from=prepare /app/out/full/ .
 COPY --from=prepare /app/tsconfig.options.json ./tsconfig.options.json
 
 FROM builder-base AS backend-builder
+ARG UNKEY_ROOT_KEY=""
+ENV UNKEY_ROOT_KEY=$UNKEY_ROOT_KEY
 RUN bun turbo --filter=@ryot/app-backend build
 
 FROM builder-base AS client-builder
