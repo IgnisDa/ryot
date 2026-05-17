@@ -8,9 +8,9 @@ class RunnerGenerationError extends Data.TaggedError("RunnerGenerationError")<{
 	message: string;
 }> {}
 
-const encodeRunnerSource = Schema.encodeSync(Schema.fromJsonString(Schema.String));
+const encodeGeneratedString = Schema.encodeSync(Schema.fromJsonString(Schema.String));
 
-const walkRunnerSources = (
+const walkSandboxSources = (
 	directory: string,
 	root: string,
 ): Effect.Effect<Readonly<Record<string, string>>, unknown, FileSystem.FileSystem | Path.Path> =>
@@ -22,12 +22,34 @@ const walkRunnerSources = (
 			const absolutePath = path.join(directory, entry);
 			const info = yield* fs.stat(absolutePath);
 			if (info.type === "Directory") {
-				Object.assign(files, yield* walkRunnerSources(absolutePath, root));
+				Object.assign(files, yield* walkSandboxSources(absolutePath, root));
 			} else if (entry.endsWith(".sandbox.ts")) {
-				files[path.relative(root, absolutePath)] = yield* fs.readFileString(absolutePath);
+				const relativePath = path.relative(root, absolutePath).split(path.sep).join("/");
+				files[relativePath] = yield* fs.readFileString(absolutePath);
 			}
 		}
 		return files;
+	});
+
+const embedKernelScripts = (kernelDirectory: string) =>
+	Effect.gen(function* () {
+		const fs = yield* FileSystem.FileSystem;
+		const path = yield* Path.Path;
+		const scripts = yield* walkSandboxSources(
+			path.join(kernelDirectory, "src/modules/definition-registry/kernel-scripts"),
+			kernelDirectory,
+		);
+		const entries = Object.entries(scripts)
+			.sort(([left], [right]) => left.localeCompare(right))
+			.map(
+				([entry, source]) => `\t${encodeGeneratedString(entry)}: ${encodeGeneratedString(source)},`,
+			)
+			.join("\n");
+		yield* fs.writeFileString(
+			path.join(kernelDirectory, "src/modules/definition-registry/kernel-scripts.generated.ts"),
+			`export const kernelScriptSources = {\n${entries}\n} as const;\n`,
+		);
+		yield* Effect.logInfo("Embedded kernel sandbox scripts");
 	});
 
 const compileRunner = (sandboxRuntimeDirectory: string) =>
@@ -58,7 +80,7 @@ const compileRunner = (sandboxRuntimeDirectory: string) =>
 		const javascript = yield* Effect.promise(() => output.text());
 		yield* fs.writeFileString(
 			`${sandboxRuntimeDirectory}/runner.generated.ts`,
-			`export const sandboxRunnerSource = ${encodeRunnerSource(javascript)};\n`,
+			`export const sandboxRunnerSource = ${encodeGeneratedString(javascript)};\n`,
 		);
 		yield* Effect.logInfo("Compiled Deno sandbox runner");
 		return yield* Effect.void;
@@ -78,29 +100,48 @@ const fingerprint = (files: Readonly<Record<string, string>>) => {
 const program = Effect.gen(function* () {
 	const path = yield* Path.Path;
 	const scriptPath = yield* path.fromFileUrl(new URL(import.meta.url));
+	const kernelDirectory = path.resolve(path.dirname(scriptPath), "..");
+	const kernelScriptsDirectory = path.join(
+		kernelDirectory,
+		"src/modules/definition-registry/kernel-scripts",
+	);
 	const sandboxRuntimeDirectory = path.resolve(
-		path.dirname(scriptPath),
-		"..",
+		kernelDirectory,
 		"src",
 		"lib",
 		"infrastructure",
 		"sandbox-runtime",
 	);
 	if (!process.argv.includes("--skip-initial")) {
-		yield* compileRunner(sandboxRuntimeDirectory);
+		yield* Effect.all(
+			[compileRunner(sandboxRuntimeDirectory), embedKernelScripts(kernelDirectory)],
+			{
+				discard: true,
+			},
+		);
 	}
 	if (!process.argv.includes("--watch")) {
 		return yield* Effect.void;
 	}
 
-	const sources = yield* walkRunnerSources(sandboxRuntimeDirectory, sandboxRuntimeDirectory);
+	const sources = {
+		...(yield* walkSandboxSources(sandboxRuntimeDirectory, sandboxRuntimeDirectory)),
+		...(yield* walkSandboxSources(kernelScriptsDirectory, kernelDirectory)),
+	};
 	const currentFingerprint = yield* Ref.make(fingerprint(sources));
 	return yield* Effect.gen(function* () {
 		yield* Effect.sleep("250 millis");
-		const nextSources = yield* walkRunnerSources(sandboxRuntimeDirectory, sandboxRuntimeDirectory);
+		const nextSources = {
+			...(yield* walkSandboxSources(sandboxRuntimeDirectory, sandboxRuntimeDirectory)),
+			...(yield* walkSandboxSources(kernelScriptsDirectory, kernelDirectory)),
+		};
 		const nextFingerprint = fingerprint(nextSources);
 		if (nextFingerprint !== (yield* Ref.get(currentFingerprint))) {
-			const compiled = yield* Effect.result(compileRunner(sandboxRuntimeDirectory));
+			const compiled = yield* Effect.result(
+				Effect.all([compileRunner(sandboxRuntimeDirectory), embedKernelScripts(kernelDirectory)], {
+					discard: true,
+				}),
+			);
 			if (compiled._tag === "Success") {
 				yield* Ref.set(currentFingerprint, nextFingerprint);
 			} else {
