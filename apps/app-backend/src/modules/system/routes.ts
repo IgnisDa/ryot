@@ -2,7 +2,7 @@ import { createRoute, OpenAPIHono, z } from "@hono/zod-openapi";
 import { extractErrorMessage } from "@ryot/ts-utils/error";
 import { sql } from "drizzle-orm";
 
-import { appConfigEnvIndex, getMaskedConfig, systemConfigEnvIndex } from "~/lib/config";
+import { appConfigEnvIndex, config, getMaskedConfig, systemConfigEnvIndex } from "~/lib/config";
 import { db } from "~/lib/db";
 import {
 	commonErrors,
@@ -50,6 +50,12 @@ const configResponseSchema = dataSchema(
 	z.object({
 		system: z.record(z.string(), z.unknown()),
 		providers: z.record(z.string(), z.unknown()),
+		auth: z.object({
+			oidcEnabled: z.boolean(),
+			signupAllowed: z.boolean(),
+			localAuthDisabled: z.boolean(),
+			oidcButtonLabel: z.string().optional(),
+		}),
 	}),
 );
 
@@ -97,11 +103,18 @@ export const systemApi = new OpenAPIHono()
 			system: systemConfigEnvIndex,
 			providers: appConfigEnvIndex,
 		});
+		const { oidc } = config.server;
 		const response = createSuccessResult({
 			// oxlint-disable-next-line no-unsafe-type-assertion
 			system: masked.system as Record<string, unknown>,
 			// oxlint-disable-next-line no-unsafe-type-assertion
 			providers: masked.providers as Record<string, unknown>,
+			auth: {
+				oidcEnabled: oidc.enabled,
+				signupAllowed: config.users.allowRegistration,
+				localAuthDisabled: config.users.disableLocalAuth,
+				oidcButtonLabel: config.frontend.oidcButtonLabel,
+			},
 		});
 		return c.json(response.body, response.status);
 	});

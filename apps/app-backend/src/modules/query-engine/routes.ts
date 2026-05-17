@@ -1,8 +1,7 @@
 import { createRoute, OpenAPIHono } from "@hono/zod-openapi";
 
-import type { AuthType } from "~/lib/auth";
+import { createAuthRoute, type AuthType } from "~/lib/auth";
 import {
-	createAuthRoute,
 	createNotFoundErrorResult,
 	createValidationErrorResult,
 	jsonResponse,
