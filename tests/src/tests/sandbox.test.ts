@@ -16,6 +16,7 @@ import {
 	pollSandboxResult,
 } from "../fixtures";
 import {
+	assertCondition,
 	assertPresent,
 	assertTaggedError,
 	requireArray,
@@ -25,9 +26,7 @@ import {
 
 const requireCompletedSandboxValue = (result: Awaited<ReturnType<typeof pollSandboxResult>>) => {
 	expect(result.status).toBe("completed");
-	if (result.status !== "completed") {
-		throw new Error("Expected sandbox job to complete");
-	}
+	assertCondition(result.status === "completed", "Expected sandbox job to complete");
 
 	expect(result.error).toBeNull();
 	return result.value;
@@ -68,9 +67,7 @@ describe("sandbox async flow", () => {
 		const result = await pollSandboxResult(client, jobId);
 
 		expect(result.status).toBe("completed");
-		if (result.status !== "completed") {
-			throw new Error("Expected sandbox job to complete");
-		}
+		assertCondition(result.status === "completed", "Expected sandbox job to complete");
 
 		expect(result.value).toBe(42);
 		expect(result.error).toBeNull();
@@ -214,9 +211,7 @@ driver("main", async function() {
 		const result = await pollSandboxResult(client, jobId);
 
 		expect(result.status).toBe("completed");
-		if (result.status !== "completed") {
-			throw new Error("Expected sandbox job to complete");
-		}
+		assertCondition(result.status === "completed", "Expected sandbox job to complete");
 
 		expect(result.error).toContain("Entity schema 'does-not-exist' not found");
 	});
@@ -291,9 +286,7 @@ driver("main", async function() {
 		const result = await pollSandboxResult(client, jobId);
 
 		expect(result.status).toBe("completed");
-		if (result.status !== "completed") {
-			throw new Error("Expected sandbox job to complete");
-		}
+		assertCondition(result.status === "completed", "Expected sandbox job to complete");
 
 		expect(result.value).toBeNull();
 		expect(result.error).toContain("intentional");
@@ -311,9 +304,7 @@ driver("main", async function() {
 		const result = await pollSandboxResult(client, jobId);
 
 		expect(result.status).toBe("completed");
-		if (result.status !== "completed") {
-			throw new Error("Expected sandbox job to complete");
-		}
+		assertCondition(result.status === "completed", "Expected sandbox job to complete");
 
 		expect(result.error).toBeTruthy();
 	});
@@ -553,9 +544,7 @@ describe("sandbox enqueue by script ID", () => {
 
 		const result = await pollSandboxResult(client, jobId);
 		expect(result.status).toBe("completed");
-		if (result.status !== "completed") {
-			throw new Error("Expected sandbox job to complete");
-		}
+		assertCondition(result.status === "completed", "Expected sandbox job to complete");
 
 		expect(result.error).toContain("executeQueryEngine is not defined");
 	});
@@ -573,9 +562,7 @@ describe("sandbox result observability", () => {
 
 		const result = await pollSandboxResult(client, jobId);
 		expect(result.status).toBe("completed");
-		if (result.status !== "completed") {
-			throw new Error("Expected sandbox job to complete");
-		}
+		assertCondition(result.status === "completed", "Expected sandbox job to complete");
 
 		assertPresent(result.timing, "Expected timing to be present");
 		expect(result.timing.totalMs).toBeGreaterThan(0);

@@ -2,7 +2,7 @@ import { expect, it } from "@effect/vitest";
 import type { ilike } from "drizzle-orm";
 import { PgDialect } from "drizzle-orm/pg-core";
 import { Effect, Exit, Layer } from "effect";
-import { describe, it as vitestIt } from "vitest";
+import { assert, describe, it as vitestIt } from "vitest";
 
 import { AuthService } from "#lib/auth";
 import { defaultUserPreferences } from "#lib/builtins/bootstrap";
@@ -413,9 +413,7 @@ it.effect("applies the search filter to user queries", () => {
 
 		expect(state.limit).toBe(10);
 		expect(state.offset).toBe(5);
-		if (!state.userWhere) {
-			throw new Error("Expected user query filter");
-		}
+		assert(state.userWhere !== undefined, "Expected user query filter");
 		const query = dialect.sqlToQuery(state.userWhere);
 		expect(query.sql.toLowerCase()).toContain(" ilike ");
 		expect(query.params).toContain("%john%");
@@ -429,9 +427,7 @@ it.effect("trims whitespace from the search input", () => {
 		const service = yield* GodModeService;
 		yield* service.listUsers({ limit: 10, offset: 0, search: "  john  " });
 
-		if (!state.userWhere) {
-			throw new Error("Expected user query filter");
-		}
+		assert(state.userWhere !== undefined, "Expected user query filter");
 		const query = dialect.sqlToQuery(state.userWhere);
 		expect(query.params).toContain("%john%");
 	}).pipe(Effect.provide(makeServiceLayer(db)));

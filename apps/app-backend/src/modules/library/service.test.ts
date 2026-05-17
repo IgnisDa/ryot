@@ -2,6 +2,7 @@ import { expect, it } from "@effect/vitest";
 import { WorkflowEngine } from "@effect/workflow/WorkflowEngine";
 import type { Exit } from "effect";
 import { Effect, Layer } from "effect";
+import { assert } from "vitest";
 
 import type { CurrentUserValue } from "#lib/auth-middleware";
 import { BadRequest, NotFound } from "#lib/errors";
@@ -95,9 +96,7 @@ const makeServiceLayer = (
 
 const getFailureCause = <A, E>(result: Exit.Exit<A, E>) => {
 	expect(result._tag).toBe("Failure");
-	if (result._tag !== "Failure") {
-		throw new Error("Expected effect to fail");
-	}
+	assert(result._tag === "Failure", "Expected effect to fail");
 
 	return result.cause;
 };
