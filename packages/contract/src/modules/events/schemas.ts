@@ -38,11 +38,30 @@ export const CreateEventItem = Schema.Struct({
 export type CreateEventItem = typeof CreateEventItem.Type;
 
 export const EventCreateFailureReason = Schema.Union([
-	strictStruct({ kind: Schema.Literal("not_found"), message: Schema.String }),
-	strictStruct({ kind: Schema.Literal("bad_request"), message: Schema.String }),
+	strictStruct({ code: Schema.Literal("policy-failed") }),
+	strictStruct({ code: Schema.Literal("entity-id-required") }),
+	strictStruct({ code: Schema.Literal("invalid-properties") }),
+	strictStruct({ code: Schema.Literal("event-schema-slug-required") }),
+	strictStruct({ code: Schema.Literal("entity-not-found"), entityId: EntityId }),
+	strictStruct({ code: Schema.Literal("session-entity-not-found"), entityId: EntityId }),
+	strictStruct({ code: Schema.Literal("invalid-occurred-at"), occurredAt: Schema.String }),
+	strictStruct({
+		eventSchemaSlug: EventSchemaSlug,
+		code: Schema.Literal("event-schema-not-found"),
+	}),
+	strictStruct({
+		entityId: EntityId,
+		eventSchemaSlug: EventSchemaSlug,
+		code: Schema.Literal("event-schema-mismatch"),
+	}),
 ]);
 
 export type EventCreateFailureReason = typeof EventCreateFailureReason.Type;
+
+export class EventCreateItemError extends Schema.TaggedError<EventCreateItemError>()(
+	"EventCreateItemError",
+	{ reason: EventCreateFailureReason },
+) {}
 
 export const EventCreateItemOutcome = Schema.Union([
 	strictStruct({ index: Schema.Number, status: Schema.Literal("written"), eventId: EventId }),
@@ -62,3 +81,12 @@ export const CreateEventsResponse = strictStruct({
 });
 
 export type CreateEventsResponse = typeof CreateEventsResponse.Type;
+
+export class EventsBadRequest extends Schema.TaggedError<EventsBadRequest>()("EventsBadRequest", {
+	reason: strictStruct({ code: Schema.Literal("integration-id-required") }),
+}) {}
+
+export class EventsInternalError extends Schema.TaggedError<EventsInternalError>()(
+	"EventsInternalError",
+	{ reason: strictStruct({ code: Schema.Literal("unexpected-error") }) },
+) {}

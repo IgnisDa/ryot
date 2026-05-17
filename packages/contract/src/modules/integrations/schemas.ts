@@ -6,6 +6,41 @@ import { integrationLots } from "./types";
 
 const IntegrationLot = Schema.Literals([...integrationLots]);
 
+export const IntegrationRequestFailureReason = Schema.Union([
+	Schema.Struct({ code: Schema.Literal("provider-not-found"), provider: Schema.String }),
+	Schema.Struct({ code: Schema.Literal("invalid-provider-settings"), provider: Schema.String }),
+	Schema.Struct({ code: Schema.Literal("integration-not-found"), integrationId: IntegrationId }),
+	Schema.Struct({ code: Schema.Literal("queue-unavailable"), operation: Schema.String }),
+	Schema.Struct({
+		value: Schema.Number,
+		code: Schema.Literal("progress-out-of-range"),
+		field: Schema.Literals(["minimumProgress", "maximumProgress"]),
+	}),
+	Schema.Struct({
+		minimumProgress: Schema.Number,
+		maximumProgress: Schema.Number,
+		code: Schema.Literal("invalid-progress-range"),
+	}),
+	Schema.Struct({
+		actual: IntegrationLot,
+		expected: IntegrationLot,
+		integrationId: IntegrationId,
+		code: Schema.Literal("wrong-integration-lot"),
+	}),
+]);
+
+export type IntegrationRequestFailureReason = typeof IntegrationRequestFailureReason.Type;
+
+export class IntegrationRequestError extends Schema.TaggedError<IntegrationRequestError>()(
+	"IntegrationRequestError",
+	{ reason: IntegrationRequestFailureReason },
+) {}
+
+export class IntegrationNotFoundError extends Schema.TaggedError<IntegrationNotFoundError>()(
+	"IntegrationNotFoundError",
+	{ reason: IntegrationRequestFailureReason },
+) {}
+
 export const IntegrationProvider = Schema.String;
 
 export type IntegrationProvider = typeof IntegrationProvider.Type;

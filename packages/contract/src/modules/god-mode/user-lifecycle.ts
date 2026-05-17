@@ -13,6 +13,15 @@ export const UserLifecycleOperationStatus = Schema.Literals([
 ]);
 export type UserLifecycleOperationStatus = typeof UserLifecycleOperationStatus.Type;
 
+export const UserLifecycleOperationFailure = Schema.Union([
+	Schema.Struct({ code: Schema.Literal("operation-start-failed") }),
+	Schema.Struct({ code: Schema.Literal("object-cleanup-failed") }),
+	Schema.Struct({ code: Schema.Literal("database-cleanup-failed") }),
+	Schema.Struct({ code: Schema.Literal("reset-user-recreation-failed") }),
+	Schema.Struct({ code: Schema.Literal("operation-completion-failed") }),
+]);
+export type UserLifecycleOperationFailure = typeof UserLifecycleOperationFailure.Type;
+
 export const UserResetResult = Schema.Struct({
 	userId: UserId,
 	email: Schema.String,
@@ -26,9 +35,9 @@ export const UserLifecycleOperation = Schema.Struct({
 	createdAt: Schema.String,
 	kind: UserLifecycleOperationKind,
 	status: UserLifecycleOperationStatus,
-	error: Schema.NullOr(Schema.String),
 	startedAt: Schema.NullOr(Schema.String),
 	finishedAt: Schema.NullOr(Schema.String),
 	resetResult: Schema.NullOr(UserResetResult),
+	failure: Schema.NullOr(UserLifecycleOperationFailure),
 });
 export type UserLifecycleOperation = typeof UserLifecycleOperation.Type;

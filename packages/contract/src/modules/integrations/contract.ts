@@ -2,10 +2,11 @@ import { Schema } from "effect";
 import { HttpApiEndpoint, HttpApiGroup, HttpApiSchema, OpenApi } from "effect/unstable/httpapi";
 
 import { AuthMiddleware } from "../../auth-middleware";
-import { BadRequest, NotFound } from "../../errors";
 import { ImportRunId, IntegrationId } from "../../schema/brands";
 import {
 	CreateIntegrationBody,
+	IntegrationNotFoundError,
+	IntegrationRequestError,
 	IntegrationWebhookPayload,
 	ListedIntegration,
 	ListedIntegrationProvider,
@@ -23,13 +24,13 @@ export const IntegrationsGroup = HttpApiGroup.make("integrations")
 		HttpApiEndpoint.get("get", "/integrations/:integrationId", {
 			success: ListedIntegration,
 			params: { integrationId: IntegrationId },
-			error: [NotFound.pipe(HttpApiSchema.status(404))],
+			error: [IntegrationNotFoundError.pipe(HttpApiSchema.status(404))],
 		}).annotate(OpenApi.Description, "Get an integration by ID."),
 	)
 	.add(
 		HttpApiEndpoint.post("create", "/integrations", {
 			payload: CreateIntegrationBody,
-			error: [BadRequest.pipe(HttpApiSchema.status(400))],
+			error: [IntegrationRequestError.pipe(HttpApiSchema.status(400))],
 			success: ListedIntegration.pipe(HttpApiSchema.status(201)),
 		}).annotate(OpenApi.Description, "Create an external service integration."),
 	)
@@ -38,19 +39,22 @@ export const IntegrationsGroup = HttpApiGroup.make("integrations")
 			success: ListedIntegration,
 			payload: UpdateIntegrationBody,
 			params: { integrationId: IntegrationId },
-			error: [BadRequest.pipe(HttpApiSchema.status(400)), NotFound.pipe(HttpApiSchema.status(404))],
+			error: [
+				IntegrationRequestError.pipe(HttpApiSchema.status(400)),
+				IntegrationNotFoundError.pipe(HttpApiSchema.status(404)),
+			],
 		}).annotate(OpenApi.Description, "Update an integration by ID."),
 	)
 	.add(
 		HttpApiEndpoint.delete("delete", "/integrations/:integrationId", {
 			params: { integrationId: IntegrationId },
 			success: Schema.Struct({ id: Schema.String }),
-			error: [BadRequest.pipe(HttpApiSchema.status(400)), NotFound.pipe(HttpApiSchema.status(404))],
+			error: [IntegrationNotFoundError.pipe(HttpApiSchema.status(404))],
 		}).annotate(OpenApi.Description, "Delete an integration by ID."),
 	)
 	.add(
 		HttpApiEndpoint.post("sync", "/integrations/sync", {
-			error: [BadRequest.pipe(HttpApiSchema.status(400))],
+			error: [IntegrationRequestError.pipe(HttpApiSchema.status(400))],
 			success: Schema.Struct({ executionId: Schema.String }).pipe(HttpApiSchema.status(202)),
 		}).annotate(OpenApi.Description, "Start synchronization for the current user's integrations."),
 	)
@@ -60,6 +64,9 @@ export const IntegrationsGroup = HttpApiGroup.make("integrations")
 			payload: IntegrationWebhookPayload,
 			params: { integrationId: IntegrationId },
 			success: Schema.Struct({ runId: ImportRunId }).pipe(HttpApiSchema.status(202)),
-			error: [BadRequest.pipe(HttpApiSchema.status(400)), NotFound.pipe(HttpApiSchema.status(404))],
+			error: [
+				IntegrationRequestError.pipe(HttpApiSchema.status(400)),
+				IntegrationNotFoundError.pipe(HttpApiSchema.status(404)),
+			],
 		}).annotate(OpenApi.Description, "Receive a webhook payload for an integration."),
 	);

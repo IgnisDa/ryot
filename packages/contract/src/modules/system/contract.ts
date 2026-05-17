@@ -1,7 +1,15 @@
 import { Schema } from "effect";
 import { HttpApiEndpoint, HttpApiGroup, HttpApiSchema, OpenApi } from "effect/unstable/httpapi";
 
-import { BadRequest, HealthCheckFailedError } from "../../errors";
+const SystemHealthFailureReason = Schema.Union([
+	Schema.Struct({ code: Schema.Literal("database-unavailable") }),
+	Schema.Struct({ code: Schema.Literal("redis-unavailable") }),
+]);
+
+export class SystemHealthFailure extends Schema.TaggedError<SystemHealthFailure>()(
+	"SystemHealthFailure",
+	{ reason: SystemHealthFailureReason },
+) {}
 
 const HealthResponse = Schema.Struct({ status: Schema.Literal("healthy") });
 
@@ -31,15 +39,11 @@ export const SystemGroup = HttpApiGroup.make("system")
 	.add(
 		HttpApiEndpoint.get("health", "/system/health", {
 			success: HealthResponse.pipe(HttpApiSchema.status(200)),
-			error: [
-				BadRequest.pipe(HttpApiSchema.status(400)),
-				HealthCheckFailedError.pipe(HttpApiSchema.status(503)),
-			],
+			error: SystemHealthFailure.pipe(HttpApiSchema.status(503)),
 		}).annotate(OpenApi.Description, "Checks whether the system is healthy."),
 	)
 	.add(
 		HttpApiEndpoint.get("config", "/system/config", {
-			error: BadRequest.pipe(HttpApiSchema.status(400)),
 			success: SystemConfigResponse.pipe(HttpApiSchema.status(200)),
 		}).annotate(OpenApi.Description, "Returns the public system configuration."),
 	);

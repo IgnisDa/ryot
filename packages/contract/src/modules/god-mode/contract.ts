@@ -2,12 +2,49 @@ import { Schema, Effect, SchemaGetter } from "effect";
 import { HttpApiEndpoint, HttpApiGroup, HttpApiSchema, OpenApi } from "effect/unstable/httpapi";
 
 import { AdminMiddleware } from "../../auth-middleware";
-import { BadRequest, InternalError, NotFound } from "../../errors";
 import { UserId } from "../../schema/brands";
 import { Email } from "../../schema/utils";
 import { UserLifecycleOperation } from "./user-lifecycle";
 
 const UserAuthState = Schema.Literals(["credential", "oidc", "none", "mixed"]);
+
+const GodModeRequestFailureReason = Schema.Union([
+	Schema.Struct({ code: Schema.Literal("user-already-exists"), email: Email }),
+	Schema.Struct({ code: Schema.Literal("local-auth-disabled") }),
+	Schema.Struct({ code: Schema.Literal("password-reset-in-progress") }),
+	Schema.Struct({ code: Schema.Literal("password-reset-unsupported"), authState: UserAuthState }),
+	Schema.Struct({ code: Schema.Literal("mixed-auth-reset-unsupported") }),
+]);
+const GodModeNotFoundReason = Schema.Union([
+	Schema.Struct({ code: Schema.Literal("user-not-found"), userId: UserId }),
+	Schema.Struct({
+		operationId: Schema.String,
+		code: Schema.Literal("lifecycle-operation-not-found"),
+	}),
+]);
+const GodModeInternalFailureReason = Schema.Union([
+	Schema.Struct({ code: Schema.Literal("persistence-failed") }),
+	Schema.Struct({ code: Schema.Literal("access-revocation-failed") }),
+	Schema.Struct({ code: Schema.Literal("lifecycle-dispatch-failed") }),
+	Schema.Struct({ code: Schema.Literal("lifecycle-state-conflict") }),
+	Schema.Struct({ code: Schema.Literal("password-reset-failed") }),
+]);
+
+export class GodModeRequestFailure extends Schema.TaggedError<GodModeRequestFailure>()(
+	"GodModeRequestFailure",
+	{ reason: GodModeRequestFailureReason },
+) {}
+export class GodModeNotFound extends Schema.TaggedError<GodModeNotFound>()("GodModeNotFound", {
+	reason: GodModeNotFoundReason,
+}) {}
+export class GodModeInternalFailure extends Schema.TaggedError<GodModeInternalFailure>()(
+	"GodModeInternalFailure",
+	{ reason: GodModeInternalFailureReason },
+) {}
+
+const requestFailure = GodModeRequestFailure.pipe(HttpApiSchema.status(400));
+const notFoundFailure = GodModeNotFound.pipe(HttpApiSchema.status(404));
+const internalFailure = GodModeInternalFailure.pipe(HttpApiSchema.status(500));
 
 export const MigrationReportLevel = Schema.Literals(["info", "warning"]);
 export type MigrationReportLevel = Schema.Schema.Type<typeof MigrationReportLevel>;
@@ -81,6 +118,7 @@ export const GodModeGroup = HttpApiGroup.make("godMode")
 	)
 	.add(
 		HttpApiEndpoint.get("getMigrationReport", "/god-mode/migration-report", {
+			error: internalFailure,
 			success: MigrationReportResponse,
 		})
 			.middleware(AdminMiddleware)
@@ -112,7 +150,7 @@ export const GodModeGroup = HttpApiGroup.make("godMode")
 				),
 			},
 			success: ListUsersResponse,
-			error: [BadRequest.pipe(HttpApiSchema.status(400))],
+			error: internalFailure,
 		})
 			.middleware(AdminMiddleware)
 			.annotate(OpenApi.Description, "Lists users with pagination and optional search"),
@@ -120,11 +158,8 @@ export const GodModeGroup = HttpApiGroup.make("godMode")
 	.add(
 		HttpApiEndpoint.post("provisionUser", "/god-mode/users/provision", {
 			payload: ProvisionUserBody,
+			error: [requestFailure, internalFailure],
 			success: ProvisionUserResponse.pipe(HttpApiSchema.status(201)),
-			error: [
-				BadRequest.pipe(HttpApiSchema.status(400)),
-				InternalError.pipe(HttpApiSchema.status(500)),
-			],
 		})
 			.middleware(AdminMiddleware)
 			.annotate(OpenApi.Description, "Provisions a credential or OIDC user"),
@@ -132,12 +167,8 @@ export const GodModeGroup = HttpApiGroup.make("godMode")
 	.add(
 		HttpApiEndpoint.post("resetUser", "/god-mode/users/:userId/reset", {
 			params: { userId: UserId },
+			error: [requestFailure, notFoundFailure, internalFailure],
 			success: UserLifecycleOperation.pipe(HttpApiSchema.status(202)),
-			error: [
-				BadRequest.pipe(HttpApiSchema.status(400)),
-				NotFound.pipe(HttpApiSchema.status(404)),
-				InternalError.pipe(HttpApiSchema.status(500)),
-			],
 		})
 			.middleware(AdminMiddleware)
 			.annotate(OpenApi.Description, "Resets a user account"),
@@ -146,23 +177,17 @@ export const GodModeGroup = HttpApiGroup.make("godMode")
 		HttpApiEndpoint.post("resetUserPassword", "/god-mode/users/:userId/reset-password", {
 			params: { userId: UserId },
 			success: ResetPasswordResponse,
-			error: [
-				BadRequest.pipe(HttpApiSchema.status(400)),
-				InternalError.pipe(HttpApiSchema.status(500)),
-			],
+			error: [requestFailure, notFoundFailure, internalFailure],
 		})
 			.middleware(AdminMiddleware)
 			.annotate(OpenApi.Description, "Creates a password reset URL for a user"),
 	)
 	.add(
 		HttpApiEndpoint.post("setUserDisabled", "/god-mode/users/:userId/disable/set", {
-			params: { userId: UserId },
 			payload: SetDisabledBody,
+			params: { userId: UserId },
 			success: SetDisabledResponse,
-			error: [
-				BadRequest.pipe(HttpApiSchema.status(400)),
-				InternalError.pipe(HttpApiSchema.status(500)),
-			],
+			error: [notFoundFailure, internalFailure],
 		})
 			.middleware(AdminMiddleware)
 			.annotate(OpenApi.Description, "Enables or disables a user account"),
@@ -170,12 +195,8 @@ export const GodModeGroup = HttpApiGroup.make("godMode")
 	.add(
 		HttpApiEndpoint.delete("deleteUser", "/god-mode/users/:userId", {
 			params: { userId: UserId },
+			error: [requestFailure, notFoundFailure, internalFailure],
 			success: UserLifecycleOperation.pipe(HttpApiSchema.status(202)),
-			error: [
-				BadRequest.pipe(HttpApiSchema.status(400)),
-				NotFound.pipe(HttpApiSchema.status(404)),
-				InternalError.pipe(HttpApiSchema.status(500)),
-			],
 		})
 			.middleware(AdminMiddleware)
 			.annotate(OpenApi.Description, "Deletes a user account"),
@@ -187,10 +208,7 @@ export const GodModeGroup = HttpApiGroup.make("godMode")
 			{
 				success: UserLifecycleOperation,
 				params: { operationId: Schema.String },
-				error: [
-					NotFound.pipe(HttpApiSchema.status(404)),
-					InternalError.pipe(HttpApiSchema.status(500)),
-				],
+				error: [notFoundFailure, internalFailure],
 			},
 		)
 			.middleware(AdminMiddleware)
