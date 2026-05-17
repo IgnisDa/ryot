@@ -10,6 +10,7 @@ import {
 	createTracker,
 	enqueueSandboxScript,
 	findBuiltinSchemaWithProviders,
+	getFirstProviderScriptId,
 	pollSandboxResult,
 } from "../fixtures";
 import { getBackendClient } from "../setup";
@@ -458,9 +459,6 @@ describe("sandbox cache functions", () => {
 	it("built-in scripts share a cache partition across users for the same key", async () => {
 		const { client: clientA, cookies: cookiesA } = await createAuthenticatedClient();
 		const { client: clientB, cookies: cookiesB } = await createAuthenticatedClient();
-		const { schema } = await findBuiltinSchemaWithProviders(clientA, cookiesA);
-		const builtinScriptId = schema.providers[0]?.scriptId;
-		assertPresent(builtinScriptId, "No built-in provider script found");
 
 		const cacheKey = `builtin-shared-cache-${crypto.randomUUID()}`;
 
@@ -526,8 +524,7 @@ describe("sandbox enqueue by script ID", () => {
 	it("enqueues a built-in script and reaches a terminal state", async () => {
 		const { client, cookies } = await createAuthenticatedClient();
 		const { schema } = await findBuiltinSchemaWithProviders(client, cookies);
-		const searchScriptId = schema.providers[0]?.scriptId;
-		assertPresent(searchScriptId, "No search provider found");
+		const searchScriptId = getFirstProviderScriptId(schema);
 
 		const { jobId } = await enqueueSandboxScript(client, cookies, {
 			driverName: "search",
