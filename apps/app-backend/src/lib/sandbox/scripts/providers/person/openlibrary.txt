@@ -1,0 +1,104 @@
+function parseJsonResponse(responseBody) {
+  try {
+    return JSON.parse(responseBody);
+  } catch {
+    throw new Error("OpenLibrary returned invalid JSON");
+  }
+}
+
+function getKeySegment(value) {
+  if (typeof value !== "string") {
+    return "";
+  }
+  const segments = value.split("/").filter(Boolean);
+  return segments.length > 0 ? segments[segments.length - 1] : "";
+}
+
+function parseDescription(value) {
+  if (typeof value === "string") {
+    return value;
+  }
+  if (value && typeof value === "object" && typeof value.value === "string") {
+    return value.value;
+  }
+  return null;
+}
+
+async function loadOpenLibraryJson(url, errorPrefix) {
+  const response = await httpCall("GET", url);
+  if (!response?.success) {
+    throw new Error(response?.error ?? `${errorPrefix} request failed`);
+  }
+
+  return parseJsonResponse(response.data.body);
+}
+
+driver("details", async function(context) {
+  const { z } = await import("npm:zod");
+
+  const { externalId: contextIdentifier } = z.object({
+    externalId: z.string().trim().min(1, "externalId is required"),
+  }).parse(context ?? {});
+
+  const requestedIdentifier = getKeySegment(contextIdentifier);
+  if (!requestedIdentifier) {
+    throw new Error("externalId is required");
+  }
+
+  const authorPayload = await loadOpenLibraryJson(
+    `https://openlibrary.org/authors/${requestedIdentifier}.json`,
+    "OpenLibrary author",
+  );
+
+  const name = typeof authorPayload?.name === "string" ? authorPayload.name.trim() : "";
+  if (!name) {
+    throw new Error("OpenLibrary author payload is missing name");
+  }
+
+  const alternateNames = [];
+  const addAlternateName = (value) => {
+    if (typeof value !== "string") {
+      return;
+    }
+
+    const trimmed = value.trim();
+    if (trimmed && !alternateNames.includes(trimmed)) {
+      alternateNames.push(trimmed);
+    }
+  };
+
+  addAlternateName(authorPayload?.personal_name);
+  if (Array.isArray(authorPayload?.alternate_names)) {
+    for (const alternateName of authorPayload.alternate_names) {
+      addAlternateName(alternateName);
+    }
+  }
+
+  let website = null;
+  if (Array.isArray(authorPayload?.links)) {
+    for (const link of authorPayload.links) {
+      if (
+        link &&
+        typeof link === "object" &&
+        typeof link.url === "string" &&
+        link.url.trim()
+      ) {
+        website = link.url.trim();
+        break;
+      }
+    }
+  }
+
+  return {
+    name,
+    properties: {
+      website,
+      images: [],
+      alternateNames,
+      description: parseDescription(authorPayload?.bio),
+      sourceUrl: `https://openlibrary.org/authors/${requestedIdentifier}`,
+      birthDate: typeof authorPayload?.birth_date === "string" ? authorPayload.birth_date.trim() || null : null,
+      deathDate: typeof authorPayload?.death_date === "string" ? authorPayload.death_date.trim() || null : null,
+    },
+  };
+});

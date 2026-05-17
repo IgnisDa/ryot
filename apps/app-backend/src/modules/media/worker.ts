@@ -4,10 +4,7 @@ import { normalizeSlug } from "@ryot/ts-utils/slug";
 import { type Job, WaitingChildrenError, Worker } from "bullmq";
 
 import { parseAppSchemaProperties } from "~/lib/app/schema-validation";
-import { companyStubSchema, groupStubSchema, personStubSchema } from "~/lib/media/common";
-import { companyPropertiesSchema } from "~/lib/media/company";
-import { mediaGroupPropertiesSchema } from "~/lib/media/media-group";
-import { personPropertiesSchema } from "~/lib/media/person";
+import { relatedEntityReferenceSchema } from "~/lib/media/common";
 import { getQueues } from "~/lib/queue";
 import { getRedisConnection } from "~/lib/queue/connection";
 import { onWorkerError } from "~/lib/queue/utils";
@@ -23,40 +20,19 @@ import {
 	upsertInLibraryRelationship,
 	writeEntityRelationship,
 } from "~/modules/entities";
-import { getBuiltinEntitySchemaBySlug } from "~/modules/entity-schemas";
+import {
+	getBuiltinEntitySchemaBySandboxScriptId,
+	getBuiltinEntitySchemaBySlug,
+} from "~/modules/entity-schemas";
 import { getBuiltinRelationshipSchemaBySlug } from "~/modules/relationship-schemas";
 import { getBuiltinSandboxScriptBySlug, getSandboxScriptForUser } from "~/modules/sandbox";
 
-import {
-	companyPopulateJobData,
-	companyPopulateJobName,
-	groupPopulateJobData,
-	groupPopulateJobName,
-	mediaImportJobData,
-	mediaImportJobName,
-	mediaJobWaitingForSandboxStep,
-	personPopulateJobData,
-	personPopulateJobName,
-} from "./jobs";
+import { mediaImportJobData, mediaImportJobName, mediaJobWaitingForSandboxStep } from "./jobs";
 
 const mediaDetailsResultSchema = z.object({
 	name: z.string(),
 	properties: z.record(z.string(), z.unknown()),
-});
-
-const personDetailsResultSchema = z.object({
-	name: z.string(),
-	properties: z.record(z.string(), z.unknown()),
-});
-
-const companyDetailsResultSchema = z.object({
-	name: z.string(),
-	properties: z.record(z.string(), z.unknown()),
-});
-
-const groupDetailsResultSchema = z.object({
-	name: z.string(),
-	properties: z.record(z.string(), z.unknown()),
+	relatedEntities: z.array(relatedEntityReferenceSchema).default([]),
 });
 
 const extractPrimaryImage = (images: unknown) => {
@@ -64,14 +40,8 @@ const extractPrimaryImage = (images: unknown) => {
 	return parsedImages.success ? (parsedImages.data[0] ?? null) : null;
 };
 
-export const hasImportedEntityDetails = (
-	entityRow: Pick<ListedEntity, "image" | "properties" | "populatedAt">,
-) => {
-	if (entityRow.populatedAt === null) {
-		return false;
-	}
-
-	return entityRow.image !== null || Object.keys(entityRow.properties).length > 0;
+export const hasImportedEntityDetails = (entityRow: Pick<ListedEntity, "populatedAt">) => {
+	return entityRow.populatedAt !== null;
 };
 
 export type MediaWorkerDeps = {
@@ -79,13 +49,14 @@ export type MediaWorkerDeps = {
 	updateGlobalEntityById: typeof updateGlobalEntityById;
 	getUserLibraryEntityId: typeof getUserLibraryEntityId;
 	getSandboxScriptForUser: typeof getSandboxScriptForUser;
+	writeEntityRelationship: typeof writeEntityRelationship;
 	getEntitySchemaScopeForUser: typeof getEntitySchemaScopeForUser;
 	upsertInLibraryRelationship: typeof upsertInLibraryRelationship;
 	findGlobalEntityByExternalId: typeof findGlobalEntityByExternalId;
 	getBuiltinEntitySchemaBySlug: typeof getBuiltinEntitySchemaBySlug;
 	getBuiltinSandboxScriptBySlug: typeof getBuiltinSandboxScriptBySlug;
 	getBuiltinRelationshipSchemaBySlug: typeof getBuiltinRelationshipSchemaBySlug;
-	writeEntityRelationship: typeof writeEntityRelationship;
+	getBuiltinEntitySchemaBySandboxScriptId: typeof getBuiltinEntitySchemaBySandboxScriptId;
 };
 
 const mediaWorkerDeps: MediaWorkerDeps = {
@@ -93,13 +64,14 @@ const mediaWorkerDeps: MediaWorkerDeps = {
 	updateGlobalEntityById,
 	getUserLibraryEntityId,
 	getSandboxScriptForUser,
+	writeEntityRelationship,
 	getEntitySchemaScopeForUser,
 	upsertInLibraryRelationship,
 	findGlobalEntityByExternalId,
 	getBuiltinEntitySchemaBySlug,
 	getBuiltinSandboxScriptBySlug,
 	getBuiltinRelationshipSchemaBySlug,
-	writeEntityRelationship,
+	getBuiltinEntitySchemaBySandboxScriptId,
 };
 
 const findImportedGlobalEntity = async (
@@ -185,287 +157,74 @@ const getSandboxChildRunResult = async (job: Job) => {
 	return parsed.data;
 };
 
-export const processPersonStubs = async (
+export const processRelatedEntities = async (
 	input: {
-		userId: string;
 		mediaEntityId: string;
 		mediaEntitySchemaSlug: string;
-		rawProperties: Record<string, unknown>;
+		relatedEntities: Array<z.infer<typeof relatedEntityReferenceSchema>>;
 	},
 	deps: Pick<
 		MediaWorkerDeps,
 		| "createGlobalEntity"
-		| "getBuiltinEntitySchemaBySlug"
+		| "getBuiltinEntitySchemaBySandboxScriptId"
 		| "getBuiltinRelationshipSchemaBySlug"
 		| "getBuiltinSandboxScriptBySlug"
 		| "writeEntityRelationship"
 	> = mediaWorkerDeps,
 ) => {
-	const rawPeople = input.rawProperties.people;
-	if (!Array.isArray(rawPeople) || rawPeople.length === 0) {
+	if (input.relatedEntities.length === 0) {
 		return;
 	}
 
-	const personSchema = await deps.getBuiltinEntitySchemaBySlug("person");
-	if (!personSchema) {
-		return;
-	}
+	// oxlint-disable no-await-in-loop
+	for (const relatedEntity of input.relatedEntities) {
+		const relatedScript = await deps.getBuiltinSandboxScriptBySlug(relatedEntity.scriptSlug);
+		if (!relatedScript) {
+			throw new Error(`Related sandbox script not found for slug "${relatedEntity.scriptSlug}"`);
+		}
 
-	const personToMediaSlug = normalizeSlug(`person to ${input.mediaEntitySchemaSlug}`);
-	const mediaRelSchema = await deps.getBuiltinRelationshipSchemaBySlug(personToMediaSlug);
+		const relatedSchema = await deps.getBuiltinEntitySchemaBySandboxScriptId(relatedScript.id);
+		if (!relatedSchema) {
+			throw new Error(
+				`Related entity schema not found for sandbox script slug "${relatedEntity.scriptSlug}"`,
+			);
+		}
 
-	if (!mediaRelSchema) {
-		throw new Error(
-			`No person relationship schema seeded for media type "${input.mediaEntitySchemaSlug}" (slug: "${personToMediaSlug}") — check bootstrap manifests`,
+		const relationshipSchemaSlug = normalizeSlug(
+			`${relatedSchema.slug} to ${input.mediaEntitySchemaSlug}`,
 		);
-	}
-
-	for (const rawStub of rawPeople) {
-		const stubResult = personStubSchema.safeParse(rawStub);
-		if (!stubResult.success) {
-			continue;
-		}
-
-		const stub = stubResult.data;
 
 		// oxlint-disable-next-line no-await-in-loop
-		const personScript = await deps.getBuiltinSandboxScriptBySlug(stub.scriptSlug);
-		if (!personScript) {
-			continue;
+		const relationshipSchema =
+			await deps.getBuiltinRelationshipSchemaBySlug(relationshipSchemaSlug);
+		if (!relationshipSchema) {
+			throw new Error(
+				`No relationship schema seeded for related type "${relatedSchema.slug}" and media type "${input.mediaEntitySchemaSlug}" (slug: "${relationshipSchemaSlug}") — check bootstrap manifests`,
+			);
 		}
 
 		// oxlint-disable-next-line no-await-in-loop
-		const { entity: existingOrCreated, isNew } = await deps.createGlobalEntity({
-			name: stub.name,
-			externalId: stub.externalId,
-			entitySchemaId: personSchema.id,
-			sandboxScriptId: personScript.id,
+		const { entity: existingOrCreated } = await deps.createGlobalEntity({
+			name: relatedEntity.name,
+			entitySchemaId: relatedSchema.id,
+			sandboxScriptId: relatedScript.id,
+			externalId: relatedEntity.externalId,
 		});
 
-		const roleSlug = normalizeSlug(stub.role);
-
-		const extraProperties: Record<string, unknown> = {};
-		if (stub.character !== undefined) {
-			extraProperties.character = stub.character;
-		}
-		if (stub.order !== undefined) {
-			extraProperties.order = stub.order;
-		}
-
 		// oxlint-disable-next-line no-await-in-loop
-		const personRelResult = await deps.writeEntityRelationship({
-			role: roleSlug,
-			extraProperties,
+		const relationshipResult = await deps.writeEntityRelationship({
+			properties: relatedEntity.relationshipProperties,
 			targetEntityId: input.mediaEntityId,
 			sourceEntityId: existingOrCreated.id,
-			relationshipSchemaId: mediaRelSchema.id,
+			relationshipSchemaId: relationshipSchema.id,
 		});
-		if ("error" in personRelResult) {
-			if (personRelResult.error === "validation") {
-				continue;
-			}
-			throw new Error(`Failed to write person-to-media relationship: ${personRelResult.message}`);
-		}
-
-		if (isNew || !hasImportedEntityDetails(existingOrCreated)) {
-			// oxlint-disable-next-line no-await-in-loop
-			await getQueues().mediaQueue.add(
-				personPopulateJobName,
-				{
-					userId: input.userId,
-					scriptSlug: stub.scriptSlug,
-					externalId: stub.externalId,
-					personEntityId: existingOrCreated.id,
-				},
-				{ jobId: `person-populate-${existingOrCreated.id}` },
+		if ("error" in relationshipResult) {
+			throw new Error(
+				`Failed to write ${relatedSchema.slug}-to-${input.mediaEntitySchemaSlug} relationship: ${relationshipResult.message}`,
 			);
 		}
 	}
-};
-
-export const processCompanyStubs = async (
-	input: {
-		userId: string;
-		mediaEntityId: string;
-		mediaEntitySchemaSlug: string;
-		rawProperties: Record<string, unknown>;
-	},
-	deps: Pick<
-		MediaWorkerDeps,
-		| "createGlobalEntity"
-		| "getBuiltinEntitySchemaBySlug"
-		| "getBuiltinRelationshipSchemaBySlug"
-		| "getBuiltinSandboxScriptBySlug"
-		| "writeEntityRelationship"
-	> = mediaWorkerDeps,
-) => {
-	const rawCompanies = input.rawProperties.companies;
-	if (!Array.isArray(rawCompanies) || rawCompanies.length === 0) {
-		return;
-	}
-
-	const companySchema = await deps.getBuiltinEntitySchemaBySlug("company");
-	if (!companySchema) {
-		return;
-	}
-
-	const companyToMediaSlug = normalizeSlug(`company to ${input.mediaEntitySchemaSlug}`);
-	const mediaRelSchema = await deps.getBuiltinRelationshipSchemaBySlug(companyToMediaSlug);
-
-	if (!mediaRelSchema) {
-		throw new Error(
-			`No company relationship schema seeded for media type "${input.mediaEntitySchemaSlug}" (slug: "${companyToMediaSlug}") — check bootstrap manifests`,
-		);
-	}
-
-	for (const rawStub of rawCompanies) {
-		const stubResult = companyStubSchema.safeParse(rawStub);
-		if (!stubResult.success) {
-			continue;
-		}
-
-		const stub = stubResult.data;
-
-		// oxlint-disable-next-line no-await-in-loop
-		const companyScript = await deps.getBuiltinSandboxScriptBySlug(stub.scriptSlug);
-		if (!companyScript) {
-			continue;
-		}
-
-		// oxlint-disable-next-line no-await-in-loop
-		const { entity: existingOrCreated, isNew } = await deps.createGlobalEntity({
-			name: stub.name,
-			externalId: stub.externalId,
-			entitySchemaId: companySchema.id,
-			sandboxScriptId: companyScript.id,
-		});
-
-		const roleSlug = normalizeSlug(stub.role);
-
-		const extraProperties: Record<string, unknown> = {};
-		if (stub.order !== undefined) {
-			extraProperties.order = stub.order;
-		}
-
-		// oxlint-disable-next-line no-await-in-loop
-		const companyRelResult = await deps.writeEntityRelationship({
-			role: roleSlug,
-			extraProperties,
-			targetEntityId: input.mediaEntityId,
-			sourceEntityId: existingOrCreated.id,
-			relationshipSchemaId: mediaRelSchema.id,
-		});
-		if ("error" in companyRelResult) {
-			if (companyRelResult.error === "validation") {
-				continue;
-			}
-			throw new Error(`Failed to write company-to-media relationship: ${companyRelResult.message}`);
-		}
-
-		if (isNew || !hasImportedEntityDetails(existingOrCreated)) {
-			// oxlint-disable-next-line no-await-in-loop
-			await getQueues().mediaQueue.add(
-				companyPopulateJobName,
-				{
-					userId: input.userId,
-					scriptSlug: stub.scriptSlug,
-					externalId: stub.externalId,
-					companyEntityId: existingOrCreated.id,
-				},
-				{ jobId: `company-populate-${existingOrCreated.id}` },
-			);
-		}
-	}
-};
-
-export const processGroupStubs = async (
-	input: {
-		userId: string;
-		mediaEntityId: string;
-		mediaEntitySchemaSlug: string;
-		rawProperties: Record<string, unknown>;
-	},
-	deps: Pick<
-		MediaWorkerDeps,
-		| "createGlobalEntity"
-		| "getBuiltinEntitySchemaBySlug"
-		| "getBuiltinRelationshipSchemaBySlug"
-		| "getBuiltinSandboxScriptBySlug"
-		| "writeEntityRelationship"
-	> = mediaWorkerDeps,
-) => {
-	const rawGroups = input.rawProperties.groups;
-	if (!Array.isArray(rawGroups) || rawGroups.length === 0) {
-		return;
-	}
-
-	const groupSchemaSlug = normalizeSlug(`${input.mediaEntitySchemaSlug}-group`);
-	const groupSchema = await deps.getBuiltinEntitySchemaBySlug(groupSchemaSlug);
-	if (!groupSchema) {
-		return;
-	}
-
-	const groupToMediaSlug = normalizeSlug(`${groupSchemaSlug} to ${input.mediaEntitySchemaSlug}`);
-	const mediaRelSchema = await deps.getBuiltinRelationshipSchemaBySlug(groupToMediaSlug);
-
-	if (!mediaRelSchema) {
-		throw new Error(
-			`No group relationship schema seeded for media type "${input.mediaEntitySchemaSlug}" (slug: "${groupToMediaSlug}") — check bootstrap manifests`,
-		);
-	}
-
-	for (const rawStub of rawGroups) {
-		const stubResult = groupStubSchema.safeParse(rawStub);
-		if (!stubResult.success) {
-			continue;
-		}
-
-		const stub = stubResult.data;
-
-		// oxlint-disable-next-line no-await-in-loop
-		const groupScript = await deps.getBuiltinSandboxScriptBySlug(stub.scriptSlug);
-		if (!groupScript) {
-			continue;
-		}
-
-		// oxlint-disable-next-line no-await-in-loop
-		const { entity: existingOrCreated, isNew } = await deps.createGlobalEntity({
-			name: stub.name,
-			externalId: stub.externalId,
-			entitySchemaId: groupSchema.id,
-			sandboxScriptId: groupScript.id,
-		});
-
-		// oxlint-disable-next-line no-await-in-loop
-		const groupRelResult = await deps.writeEntityRelationship({
-			role: "member",
-			extraProperties: {},
-			targetEntityId: input.mediaEntityId,
-			sourceEntityId: existingOrCreated.id,
-			relationshipSchemaId: mediaRelSchema.id,
-		});
-		if ("error" in groupRelResult) {
-			if (groupRelResult.error === "validation") {
-				continue;
-			}
-			throw new Error(`Failed to write group-to-media relationship: ${groupRelResult.message}`);
-		}
-
-		if (isNew || !hasImportedEntityDetails(existingOrCreated)) {
-			// oxlint-disable-next-line no-await-in-loop
-			await getQueues().mediaQueue.add(
-				groupPopulateJobName,
-				{
-					groupSchemaSlug,
-					userId: input.userId,
-					scriptSlug: stub.scriptSlug,
-					externalId: stub.externalId,
-					groupEntityId: existingOrCreated.id,
-				},
-				{ jobId: `group-populate-${existingOrCreated.id}` },
-			);
-		}
-	}
+	// oxlint-enable no-await-in-loop
 };
 
 export const processMediaImportJob = async (
@@ -571,349 +330,27 @@ export const processMediaImportJob = async (
 		sandboxScriptId: scriptId,
 	});
 
+	await processRelatedEntities(
+		{
+			mediaEntityId: mediaEntity.id,
+			mediaEntitySchemaSlug: scope.slug,
+			relatedEntities: details.relatedEntities,
+		},
+		deps,
+	);
+
 	const updatedEntity = await deps.updateGlobalEntityById({
 		image,
 		entitySchemaId,
 		name: details.name,
 		entityId: mediaEntity.id,
-		removePropertyKeys: ["assets"],
 		properties: validatedProperties,
 		populatedAt: isNew || !mediaEntity.populatedAt ? dayjs().toDate() : mediaEntity.populatedAt,
 	});
 
 	await upsertMediaEntityInLibrary({ userId, mediaEntityId: mediaEntity.id }, deps);
 
-	await processPersonStubs(
-		{
-			userId,
-			mediaEntityId: mediaEntity.id,
-			mediaEntitySchemaSlug: scope.slug,
-			rawProperties: details.properties,
-		},
-		deps,
-	);
-
-	await processCompanyStubs(
-		{
-			userId,
-			mediaEntityId: mediaEntity.id,
-			mediaEntitySchemaSlug: scope.slug,
-			rawProperties: details.properties,
-		},
-		deps,
-	);
-
-	await processGroupStubs(
-		{
-			userId,
-			mediaEntityId: mediaEntity.id,
-			mediaEntitySchemaSlug: scope.slug,
-			rawProperties: details.properties,
-		},
-		deps,
-	);
-
 	return updatedEntity;
-};
-
-export const processPersonPopulateJob = async (
-	job: Job,
-	token?: string,
-	deps: MediaWorkerDeps = mediaWorkerDeps,
-) => {
-	const parsed = personPopulateJobData.safeParse(job.data);
-	if (!parsed.success) {
-		throw new Error("Person populate job payload is invalid");
-	}
-
-	const { userId, scriptSlug, externalId, personEntityId } = parsed.data;
-	const personScript = await deps.getBuiltinSandboxScriptBySlug(scriptSlug);
-	if (!personScript) {
-		throw new Error("Person script not found");
-	}
-
-	const personSchema = await deps.getBuiltinEntitySchemaBySlug("person");
-	if (!personSchema) {
-		throw new Error("Person entity schema not found");
-	}
-
-	const existingEntity = await findImportedGlobalEntity(
-		{
-			externalId,
-			entitySchemaId: personSchema.id,
-			sandboxScriptId: personScript.id,
-		},
-		deps,
-	);
-	if (existingEntity) {
-		return;
-	}
-
-	let step = parsed.data.step;
-	if (!step) {
-		await queueSandboxChildRun({
-			job,
-			childJobId: `${job.id}_sandbox`,
-			jobData: {
-				...parsed.data,
-				step: mediaJobWaitingForSandboxStep,
-			},
-			sandboxJobData: {
-				userId,
-				driverName: "details",
-				context: { externalId },
-				scriptId: personScript.id,
-			},
-		});
-		step = mediaJobWaitingForSandboxStep;
-	}
-
-	// oxlint-disable-next-line no-unnecessary-condition
-	if (step !== mediaJobWaitingForSandboxStep) {
-		throw new Error(`Unsupported person populate job step: ${String(step)}`);
-	}
-
-	await waitForSandboxChildRun(job, token);
-
-	const sandboxResult = await getSandboxChildRunResult(job);
-
-	if (!sandboxResult.success) {
-		throw new Error(sandboxResult.error ?? "Person details script failed");
-	}
-	if (sandboxResult.error) {
-		throw new Error(sandboxResult.error);
-	}
-
-	const detailsParsed = personDetailsResultSchema.safeParse(sandboxResult.value);
-	if (!detailsParsed.success) {
-		throw new Error("Person details script returned an unexpected shape");
-	}
-
-	const details = detailsParsed.data;
-	const schemaFieldKeys = Object.keys(personSchema.propertiesSchema.fields);
-	const filteredProperties: Record<string, unknown> = {};
-	for (const key of schemaFieldKeys) {
-		if (details.properties[key] !== undefined) {
-			filteredProperties[key] = details.properties[key];
-		}
-	}
-
-	const validatedProperties = personPropertiesSchema.partial().safeParse(filteredProperties);
-	if (!validatedProperties.success) {
-		throw new Error("Person details properties are invalid");
-	}
-
-	const image = extractPrimaryImage(validatedProperties.data.images);
-
-	await deps.updateGlobalEntityById({
-		image,
-		name: details.name,
-		populatedAt: dayjs().toDate(),
-		entityId: personEntityId,
-		removePropertyKeys: ["assets"],
-		entitySchemaId: personSchema.id,
-		properties: { ...validatedProperties.data },
-	});
-};
-
-export const processCompanyPopulateJob = async (
-	job: Job,
-	token?: string,
-	deps: MediaWorkerDeps = mediaWorkerDeps,
-) => {
-	const parsed = companyPopulateJobData.safeParse(job.data);
-	if (!parsed.success) {
-		throw new Error("Company populate job payload is invalid");
-	}
-
-	const { userId, scriptSlug, externalId, companyEntityId } = parsed.data;
-	const companyScript = await deps.getBuiltinSandboxScriptBySlug(scriptSlug);
-	if (!companyScript) {
-		throw new Error("Company script not found");
-	}
-
-	const companySchema = await deps.getBuiltinEntitySchemaBySlug("company");
-	if (!companySchema) {
-		throw new Error("Company entity schema not found");
-	}
-
-	const existingEntity = await findImportedGlobalEntity(
-		{
-			externalId,
-			entitySchemaId: companySchema.id,
-			sandboxScriptId: companyScript.id,
-		},
-		deps,
-	);
-	if (existingEntity) {
-		return;
-	}
-
-	let step = parsed.data.step;
-	if (!step) {
-		await queueSandboxChildRun({
-			job,
-			childJobId: `${job.id}_sandbox`,
-			jobData: {
-				...parsed.data,
-				step: mediaJobWaitingForSandboxStep,
-			},
-			sandboxJobData: {
-				userId,
-				driverName: "details",
-				context: { externalId },
-				scriptId: companyScript.id,
-			},
-		});
-		step = mediaJobWaitingForSandboxStep;
-	}
-
-	// oxlint-disable-next-line no-unnecessary-condition
-	if (step !== mediaJobWaitingForSandboxStep) {
-		throw new Error(`Unsupported company populate job step: ${String(step)}`);
-	}
-
-	await waitForSandboxChildRun(job, token);
-
-	const sandboxResult = await getSandboxChildRunResult(job);
-
-	if (!sandboxResult.success) {
-		throw new Error(sandboxResult.error ?? "Company details script failed");
-	}
-	if (sandboxResult.error) {
-		throw new Error(sandboxResult.error);
-	}
-
-	const detailsParsed = companyDetailsResultSchema.safeParse(sandboxResult.value);
-	if (!detailsParsed.success) {
-		throw new Error("Company details script returned an unexpected shape");
-	}
-
-	const details = detailsParsed.data;
-	const schemaFieldKeys = Object.keys(companySchema.propertiesSchema.fields);
-	const filteredProperties: Record<string, unknown> = {};
-	for (const key of schemaFieldKeys) {
-		if (details.properties[key] !== undefined) {
-			filteredProperties[key] = details.properties[key];
-		}
-	}
-
-	const validatedProperties = companyPropertiesSchema.partial().safeParse(filteredProperties);
-	if (!validatedProperties.success) {
-		throw new Error("Company details properties are invalid");
-	}
-
-	const image = extractPrimaryImage(validatedProperties.data.images);
-
-	await deps.updateGlobalEntityById({
-		image,
-		name: details.name,
-		populatedAt: dayjs().toDate(),
-		entityId: companyEntityId,
-		removePropertyKeys: ["assets"],
-		entitySchemaId: companySchema.id,
-		properties: { ...validatedProperties.data },
-	});
-};
-
-export const processGroupPopulateJob = async (
-	job: Job,
-	token?: string,
-	deps: MediaWorkerDeps = mediaWorkerDeps,
-) => {
-	const parsed = groupPopulateJobData.safeParse(job.data);
-	if (!parsed.success) {
-		throw new Error("Group populate job payload is invalid");
-	}
-
-	const { userId, scriptSlug, externalId, groupEntityId, groupSchemaSlug } = parsed.data;
-	const groupScript = await deps.getBuiltinSandboxScriptBySlug(scriptSlug);
-	if (!groupScript) {
-		throw new Error("Group script not found");
-	}
-
-	const groupSchema = await deps.getBuiltinEntitySchemaBySlug(groupSchemaSlug);
-	if (!groupSchema) {
-		throw new Error("Group entity schema not found");
-	}
-
-	const existingEntity = await findImportedGlobalEntity(
-		{
-			externalId,
-			entitySchemaId: groupSchema.id,
-			sandboxScriptId: groupScript.id,
-		},
-		deps,
-	);
-	if (existingEntity) {
-		return;
-	}
-
-	let step = parsed.data.step;
-	if (!step) {
-		await queueSandboxChildRun({
-			job,
-			childJobId: `${job.id}_sandbox`,
-			jobData: {
-				...parsed.data,
-				step: mediaJobWaitingForSandboxStep,
-			},
-			sandboxJobData: {
-				userId,
-				driverName: "details",
-				context: { externalId },
-				scriptId: groupScript.id,
-			},
-		});
-		step = mediaJobWaitingForSandboxStep;
-	}
-
-	// oxlint-disable-next-line no-unnecessary-condition
-	if (step !== mediaJobWaitingForSandboxStep) {
-		throw new Error(`Unsupported group populate job step: ${String(step)}`);
-	}
-
-	await waitForSandboxChildRun(job, token);
-
-	const sandboxResult = await getSandboxChildRunResult(job);
-
-	if (!sandboxResult.success) {
-		throw new Error(sandboxResult.error ?? "Group details script failed");
-	}
-	if (sandboxResult.error) {
-		throw new Error(sandboxResult.error);
-	}
-
-	const detailsParsed = groupDetailsResultSchema.safeParse(sandboxResult.value);
-	if (!detailsParsed.success) {
-		throw new Error("Group details script returned an unexpected shape");
-	}
-
-	const details = detailsParsed.data;
-	const schemaFieldKeys = Object.keys(groupSchema.propertiesSchema.fields);
-	const filteredProperties: Record<string, unknown> = {};
-	for (const key of schemaFieldKeys) {
-		if (details.properties[key] !== undefined) {
-			filteredProperties[key] = details.properties[key];
-		}
-	}
-
-	const validatedProperties = mediaGroupPropertiesSchema.partial().safeParse(filteredProperties);
-	if (!validatedProperties.success) {
-		throw new Error("Group details properties are invalid");
-	}
-
-	const image = extractPrimaryImage(validatedProperties.data.images);
-
-	await deps.updateGlobalEntityById({
-		image,
-		name: details.name,
-		entityId: groupEntityId,
-		populatedAt: dayjs().toDate(),
-		removePropertyKeys: ["assets"],
-		entitySchemaId: groupSchema.id,
-		properties: { ...validatedProperties.data },
-	});
 };
 
 const processMediaJob = async (job: Job, token?: string) => {
@@ -921,22 +358,11 @@ const processMediaJob = async (job: Job, token?: string) => {
 		return processMediaImportJob(job, token);
 	}
 
-	if (job.name === personPopulateJobName) {
-		return processPersonPopulateJob(job, token);
-	}
-
-	if (job.name === companyPopulateJobName) {
-		return processCompanyPopulateJob(job, token);
-	}
-
-	if (job.name === groupPopulateJobName) {
-		return processGroupPopulateJob(job, token);
-	}
-
 	throw new Error(`Unsupported media job: ${job.name}`);
 };
 
 export const createMediaWorker = () => {
+	// TODO: move this worker into a generic entity import module once the refactor is complete.
 	const worker = new Worker("media", processMediaJob, {
 		connection: getRedisConnection(),
 	});
