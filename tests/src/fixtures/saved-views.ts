@@ -175,12 +175,12 @@ export function buildSavedViewBody(overrides: CreateSavedViewInput = {}): Create
 		: normalizeDisplayConfiguration(defaultDisplayConfiguration);
 
 	return {
-		...rest,
 		icon: "star",
 		displayConfiguration,
 		accentColor: "#FF5733",
 		name: `Saved View ${crypto.randomUUID()}`,
 		queryDefinition: queryDefinition ?? defaultQueryDefinition,
+		...rest,
 	};
 }
 
@@ -217,13 +217,13 @@ export function buildUpdatedSavedViewBody(
 			});
 
 	return {
-		...rest,
 		icon: "heart",
-		isDisabled: false,
 		displayConfiguration,
 		accentColor: "#00AA88",
 		name: `Updated View ${crypto.randomUUID()}`,
 		queryDefinition: queryDefinition ?? defaultUpdatedQueryDefinition,
+		isDisabled: false,
+		...rest,
 	};
 }
 
