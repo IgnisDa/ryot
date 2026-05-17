@@ -6,15 +6,17 @@ import {
 import { PluginSlug } from "@ryot/contract/schema/brands";
 import { Context, Effect, Layer } from "effect";
 
+import {
+	PluginInstallationRepository,
+	type PluginInstallationRow,
+} from "#modules/plugins/installation-repository";
 import { PluginLoader } from "#modules/plugins/loader";
-
-import { DefinitionsRepository, type PluginStateRow } from "./repository";
 
 const merge = (
 	metadata: ReturnType<
 		PluginLoader["Service"]["getSnapshot"]
 	>["plugins"][string]["manifest"]["metadata"],
-	state?: PluginStateRow | null,
+	state?: PluginInstallationRow | null,
 	defaultSortOrder = 0,
 ) => ({
 	...metadata,
@@ -29,13 +31,13 @@ export class DefinitionsService extends Context.Service<DefinitionsService>()(
 	{
 		make: Effect.gen(function* () {
 			const loader = yield* PluginLoader;
-			const repository = yield* DefinitionsRepository;
+			const repository = yield* PluginInstallationRepository;
 
 			const listPlugins = Effect.fn(function* (
 				user: Pick<CurrentUserValue, "id">,
 				includeDisabled: boolean,
 			) {
-				const states = yield* repository.listPluginStates(user.id);
+				const states = yield* repository.listForUser(user.id);
 				const bySlug = new Map(states.map((state) => [state.pluginSlug, state]));
 				return Object.values(loader.getSnapshot().plugins)
 					.map(({ manifest }, index) =>
@@ -57,11 +59,11 @@ export class DefinitionsService extends Context.Service<DefinitionsService>()(
 						reason: { code: "plugin-not-found", pluginSlug },
 					});
 				}
-				const current = yield* repository.getPluginState(user.id, pluginSlug);
+				const current = yield* repository.findByUserAndPlugin(user.id, plugin.id);
 				const defaultSortOrder = Object.keys(plugins).indexOf(pluginSlug);
-				const state = yield* repository.upsertPluginState({
-					pluginSlug,
+				const state = yield* repository.upsertState({
 					userId: user.id,
+					pluginId: plugin.id,
 					config: payload.config ?? current?.config ?? {},
 					isDisabled: payload.isDisabled ?? current?.isDisabled ?? false,
 					sortOrder: payload.sortOrder ?? current?.sortOrder ?? defaultSortOrder,

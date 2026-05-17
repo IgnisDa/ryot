@@ -107,17 +107,17 @@ it("exposes only approved relationship fields", () => {
 
 it("exposes only approved application-table fields", () => {
 	expect(new Set(Object.keys(getCatalogTable("plugin")?.fields ?? {}))).toEqual(
-		new Set(["slug", "status", "version", "manifest", "ingestedAt"]),
+		new Set(["id", "slug", "scope", "status", "version", "manifest", "ingestedAt"]),
 	);
-	expect(new Set(Object.keys(getCatalogTable("pluginState")?.fields ?? {}))).toEqual(
-		new Set(["id", "pluginSlug", "sortOrder", "isDisabled", "createdAt", "updatedAt"]),
+	expect(new Set(Object.keys(getCatalogTable("pluginInstallation")?.fields ?? {}))).toEqual(
+		new Set(["id", "health", "pluginId", "sortOrder", "isDisabled", "createdAt", "updatedAt"]),
 	);
 	expect(new Set(Object.keys(getCatalogTable("sandboxProvider")?.fields ?? {}))).toEqual(
 		new Set([
 			"id",
 			"slug",
 			"name",
-			"pluginSlug",
+			"pluginId",
 			"rootEntitySchemaSlug",
 			"information",
 			"createdAt",
@@ -266,9 +266,11 @@ it("exposes only approved application-table fields", () => {
 it("rejects hidden application-table fields", () => {
 	for (const [tableName, fieldName] of [
 		["plugin", "sourceHash"],
+		["plugin", "ownerId"],
+		["plugin", "sourceFiles"],
 		["plugin", "compiledHashes"],
-		["pluginState", "config"],
-		["pluginState", "userId"],
+		["pluginInstallation", "config"],
+		["pluginInstallation", "userId"],
 		["sandboxProviderOperation", "scriptId"],
 		["savedView", "userId"],
 		["notificationChannel", "userId"],

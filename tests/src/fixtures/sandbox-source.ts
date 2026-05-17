@@ -628,3 +628,34 @@ export default defineOperation({
 });
 `;
 }
+
+export function pluginConfigOperationSandboxSource(
+	input: SandboxSourceIdentity & { readonly configKey: string; readonly transform?: string },
+) {
+	const configKey = JSON.stringify(input.configKey);
+	return `
+import { defineManifest } from "@ryot/sandbox-sdk/driver";
+import { defineOperation } from "@ryot/sandbox-sdk/operation";
+import { Effect, Schema } from "@ryot/sandbox-sdk/effect";
+
+export const manifest = defineManifest({
+  kind: "operation",
+  requiredSystemConfigKeys: [],
+  capabilities: ["getPluginConfig"],
+  requiredPluginConfigKeys: [${configKey}],
+  name: ${JSON.stringify(input.name)},
+  slug: ${JSON.stringify(input.slug)},
+});
+
+export default defineOperation({
+  manifest,
+  input: Schema.Struct({ prefix: Schema.String }),
+  output: Schema.Struct({ label: Schema.String }),
+  run: (input, host) => Effect.gen(function* () {
+    const config = yield* host.getPluginConfig([${configKey}]);
+    const value = String(config[${configKey}]);
+    return { label: input.prefix + ":" + (${input.transform ?? "value"}) };
+  }),
+});
+`;
+}

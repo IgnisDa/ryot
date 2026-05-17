@@ -1,30 +1,41 @@
+import { CurrentUser } from "@ryot/contract/auth-middleware";
 import { AppContract } from "@ryot/contract/contract";
 import { dieOnDbError } from "@ryot/contract/errors";
 import { Effect } from "effect";
 import { HttpServerRequest } from "effect/unstable/http";
 import { HttpApiBuilder } from "effect/unstable/httpapi";
 
+import { PluginInstallationService } from "./installation-service";
 import { OperationsService } from "./operations-service";
-import { PluginIngestionService } from "./service";
 
 export const PluginsRoutesLive = HttpApiBuilder.group(AppContract, "plugins", (handlers) =>
 	handlers
 		.handle("list", () =>
 			Effect.gen(function* () {
-				const service = yield* PluginIngestionService;
-				return yield* service.listPlugins().pipe(dieOnDbError);
+				const user = yield* CurrentUser;
+				const service = yield* PluginInstallationService;
+				return yield* service.listInstallations(user.id).pipe(dieOnDbError);
 			}),
 		)
 		.handle("install", ({ payload }) =>
 			Effect.gen(function* () {
-				const service = yield* PluginIngestionService;
-				return yield* service.installPlugin(payload).pipe(dieOnDbError);
+				const user = yield* CurrentUser;
+				const service = yield* PluginInstallationService;
+				return yield* service
+					.installPrivatePlugin({
+						userId: user.id,
+						files: payload.files,
+						config: payload.config,
+						manifest: payload.manifest,
+					})
+					.pipe(dieOnDbError);
 			}),
 		)
 		.handle("uninstall", ({ params }) =>
 			Effect.gen(function* () {
-				const service = yield* PluginIngestionService;
-				return yield* service.uninstallPlugin(params.pluginSlug).pipe(dieOnDbError);
+				const user = yield* CurrentUser;
+				const service = yield* PluginInstallationService;
+				return yield* service.uninstallPlugin(user.id, params.pluginSlug).pipe(dieOnDbError);
 			}),
 		)
 		.handle("invoke", ({ params, payload }) =>

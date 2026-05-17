@@ -9,8 +9,7 @@ import { makeDefinitionRegistry } from "#modules/definition-registry/service";
 
 import { IntegrationProviderCatalog } from "./integration-provider-catalog";
 import { makePluginLoader, PluginLoader } from "./loader";
-import { fixtureManifest } from "./test-support";
-import type { NormalizedPlugin } from "./types";
+import { fixtureManifest, fixturePluginIdentity } from "./test-support";
 
 const settingsSchema = {
 	fields: { token: { type: "string", label: "Token", description: "API token", secret: true } },
@@ -22,7 +21,8 @@ assert(fixtureScript);
 const pluginWithProviders = (
 	slug: string,
 	integrationProviders: PluginManifest["integrationProviders"],
-): NormalizedPlugin => ({
+) => ({
+	...fixturePluginIdentity(slug),
 	sourceHash: `source-${slug}`,
 	manifest: {
 		...fixtureManifest(),

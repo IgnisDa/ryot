@@ -205,7 +205,10 @@ export default defineAutomation({
 					}),
 			);
 			const { client: installedClient } = yield* createAuthenticatedClient();
-			const listed = yield* getBackendClient().call((c) => c.plugins.list({}), adminHeaders);
+			const listed = yield* getBackendClient().call(
+				(c) => c.testSupport.listSystemPlugins({}),
+				adminHeaders,
+			);
 			const activePlugin = listed.find(({ slug }) => slug === provider.pluginSlug);
 			assertPresent(activePlugin, "Missing hot-installed lifecycle plugin");
 			expect(activePlugin).toMatchObject({
@@ -338,7 +341,7 @@ export default defineAutomation({
 				},
 			});
 			const reingestedPlugin = (yield* getBackendClient().call(
-				(c) => c.plugins.list({}),
+				(c) => c.testSupport.listSystemPlugins({}),
 				adminHeaders,
 			)).find(({ slug }) => slug === provider.pluginSlug);
 			assertPresent(reingestedPlugin, "Missing reingested lifecycle plugin");
@@ -346,7 +349,8 @@ export default defineAutomation({
 
 			const refusal = yield* Effect.flip(
 				getBackendClient().call(
-					(c) => c.plugins.uninstall({ params: { pluginSlug: provider.pluginSlug } }),
+					(c) =>
+						c.testSupport.uninstallSystemPlugin({ params: { pluginSlug: provider.pluginSlug } }),
 					adminHeaders,
 				),
 			);
@@ -366,14 +370,18 @@ export default defineAutomation({
 				`uninstall of '${provider.pluginSlug}' after workflow pin release`,
 				getBackendClient()
 					.call(
-						(c) => c.plugins.uninstall({ params: { pluginSlug: provider.pluginSlug } }),
+						(c) =>
+							c.testSupport.uninstallSystemPlugin({ params: { pluginSlug: provider.pluginSlug } }),
 						adminHeaders,
 					)
 					.pipe(Effect.catchTag("PluginConflictError", () => Effect.succeed(null))),
 			);
 			provider.active = false;
 			expect(uninstalled).toEqual(reingestedPlugin);
-			const after = yield* getBackendClient().call((c) => c.plugins.list({}), adminHeaders);
+			const after = yield* getBackendClient().call(
+				(c) => c.testSupport.listSystemPlugins({}),
+				adminHeaders,
+			);
 			expect(after.some(({ slug }) => slug === provider.pluginSlug)).toBe(false);
 			expect(
 				(yield* client.call((c) => c.definitions.listEntities({}))).some(
@@ -391,16 +399,33 @@ export default defineAutomation({
 		}),
 	);
 
-	it.live("rejects non-admin plugin administration", () =>
+	it.live("allows user plugin installation and rejects non-admin system administration", () =>
 		Effect.gen(function* () {
 			const { client } = yield* createAuthenticatedClient();
-			const manifest = testPluginManifest({ pluginSlug: `unauthorized-${crypto.randomUUID()}` });
+			const pluginSlug = `private-${crypto.randomUUID()}`;
+			const manifest = testPluginManifest({ pluginSlug, entitySchemas: [] });
+			const listed = yield* client.call((c) => c.plugins.list({}));
+			expect(listed.every(({ scope }) => scope === "system")).toBe(true);
+			const installed = yield* client.call((c) =>
+				c.plugins.install({ payload: { files: {}, config: {}, manifest } }),
+			);
+			expect(installed).toMatchObject({ config: {}, scope: "user", slug: pluginSlug });
+			const afterInstall = yield* client.call((c) => c.plugins.list({}));
+			expect(afterInstall.some(({ slug }) => slug === pluginSlug)).toBe(true);
+			const uninstalled = yield* client.call((c) =>
+				c.plugins.uninstall({ params: { pluginSlug: PluginSlug.make(pluginSlug) } }),
+			);
+			expect(uninstalled.slug).toBe(pluginSlug);
 			const failures = yield* Effect.all([
-				Effect.flip(client.call((c) => c.plugins.list({}))),
-				Effect.flip(client.call((c) => c.plugins.install({ payload: { files: {}, manifest } }))),
+				Effect.flip(client.call((c) => c.testSupport.listSystemPlugins({}))),
 				Effect.flip(
 					client.call((c) =>
-						c.plugins.uninstall({
+						c.testSupport.installSystemPlugin({ payload: { files: {}, manifest } }),
+					),
+				),
+				Effect.flip(
+					client.call((c) =>
+						c.testSupport.uninstallSystemPlugin({
 							params: { pluginSlug: PluginSlug.make(`unauthorized-${crypto.randomUUID()}`) },
 						}),
 					),

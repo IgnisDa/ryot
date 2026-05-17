@@ -8,9 +8,9 @@ import { assert } from "vitest";
 import { databaseLayer, makeAppConfigLayer, makeWorkflowEngine } from "#lib/test-utils/effect";
 import { makeDefinitionRegistry } from "#modules/definition-registry/service";
 import { makePluginLoader, PluginLoader } from "#modules/plugins/loader";
+import type { PluginRegistryEntry } from "#modules/plugins/loader";
 import { PluginRuntimeResolver } from "#modules/plugins/runtime-resolver";
 import { fixtureManifest } from "#modules/plugins/test-support";
-import type { NormalizedPlugin } from "#modules/plugins/types";
 
 import { pluginCronExecutionId, PluginCronService } from "./plugin-cron";
 
@@ -21,7 +21,7 @@ const testDate = new Date(0);
 const normalizedPlugin = (
 	pluginSlug: string,
 	schedule: PluginCron["schedule"] = { cron: "* * * * *" },
-): NormalizedPlugin => {
+): PluginRegistryEntry => {
 	const manifest = fixtureManifest();
 	const declared = manifest.scripts[0];
 	assert(declared);
@@ -53,6 +53,11 @@ const normalizedPlugin = (
 	} satisfies PluginManifest;
 	const { entry, ...metadata } = script;
 	return {
+		ownerId: null,
+		sourceFiles: {},
+		slug: pluginSlug,
+		id: `${pluginSlug}-id`,
+		scope: "system" as const,
 		manifest: normalizedManifest,
 		sourceHash: `${pluginSlug}-source`,
 		scripts: [
@@ -70,7 +75,7 @@ const normalizedPlugin = (
 	};
 };
 
-const normalizedWorkflowPlugin = (pluginSlug: string): NormalizedPlugin => {
+const normalizedWorkflowPlugin = (pluginSlug: string): PluginRegistryEntry => {
 	const plugin = normalizedPlugin(pluginSlug);
 	const script = plugin.manifest.scripts[0];
 	const compiled = plugin.scripts[0];
@@ -128,10 +133,10 @@ const makeLayer = (
 								script: {
 									slug,
 									name: slug,
-									pluginSlug,
 									source: "source",
 									providerId: null,
 									compiledFormat: 1,
+									pluginId: pluginSlug,
 									compiledCode: "compiled",
 									contentHash: `${slug}-hash`,
 									createdAt: new Date(0),
@@ -343,7 +348,7 @@ it.effect(
 							providerId: null,
 							createdAt: testDate,
 							updatedAt: testDate,
-							pluginSlug: identity.pluginSlug,
+							pluginId: identity.pluginSlug,
 							id: SandboxScriptId.make(`${script.contentHash}-id`),
 						},
 					};

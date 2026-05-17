@@ -8,10 +8,10 @@ import { Context, Effect, FileSystem, Layer } from "effect";
 import { AuthRepository } from "#modules/auth/repository";
 import { AutomationsRepository } from "#modules/automations/repository";
 import { DefinitionRegistry, type SavedViewDefinition } from "#modules/definition-registry/service";
-import { DefinitionsRepository } from "#modules/definitions/repository";
 import { EntitiesRepository, type PortableEntityRecord } from "#modules/entities/repository";
 import { TranslationsRepository } from "#modules/entity-translation/repository";
 import { EventsRepository } from "#modules/events/repository";
+import { PluginInstallationRepository } from "#modules/plugins/installation-repository";
 import { PluginRepository } from "#modules/plugins/repository";
 import { RelationshipsRepository } from "#modules/relationships/repository";
 import { SavedViewsRepository } from "#modules/saved-views/repository";
@@ -181,9 +181,9 @@ export class BackupExportSnapshot extends Context.Service<BackupExportSnapshot>(
 			const definitions = yield* DefinitionRegistry;
 			const savedViews = yield* SavedViewsRepository;
 			const automations = yield* AutomationsRepository;
-			const pluginState = yield* DefinitionsRepository;
 			const translations = yield* TranslationsRepository;
 			const relationships = yield* RelationshipsRepository;
+			const installations = yield* PluginInstallationRepository;
 
 			const readExportData = Effect.fn("BackupExportSnapshot.readExportData")(function* (
 				userId: UserId,
@@ -192,7 +192,7 @@ export class BackupExportSnapshot extends Context.Service<BackupExportSnapshot>(
 				if (!profile) {
 					return yield* badRequest("Backup user does not exist");
 				}
-				const storedPluginState = yield* pluginState.listPluginStates(userId);
+				const storedInstallations = yield* installations.listSystemForUser(userId);
 				const installedPlugins = yield* plugins.listPortablePluginMetadata();
 				const userEntities = yield* entities.listUserEntitiesForBackup(userId);
 				const referencedDependencies =
@@ -275,7 +275,7 @@ export class BackupExportSnapshot extends Context.Service<BackupExportSnapshot>(
 						isActive,
 						signalSchemaSlug,
 					}));
-				const pluginStateRecords: V1PluginState[] = storedPluginState.map((state) => ({
+				const pluginStateRecords: V1PluginState[] = storedInstallations.map((state) => ({
 					id: state.id,
 					sortOrder: state.sortOrder,
 					isDisabled: state.isDisabled,

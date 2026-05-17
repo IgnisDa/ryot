@@ -2,7 +2,7 @@ import { configFromAppSchema } from "@ryot/config";
 import { pluginConfigEnvironmentKey } from "@ryot/contract/modules/plugins/plugin-config";
 import type { AppSchema } from "@ryot/contract/schema/property-schema";
 import { isObjectRecord } from "@ryot/ts-utils/predicates";
-import { Effect, Option } from "effect";
+import { Effect, Match, Option } from "effect";
 
 import { parseAppSchemaProperties } from "../../property-schema/property-schema-runtime";
 import { appConfigDefinition } from "../config/definition";
@@ -36,11 +36,36 @@ const resolvePluginConfig = Effect.fn("resolvePluginConfig")(function* (input: {
 	});
 });
 
+export type PluginConfigContext =
+	| { readonly kind: "environment"; readonly pluginSlug: string; readonly configSchema: AppSchema }
+	| {
+			readonly kind: "installation";
+			readonly configSchema: AppSchema;
+			readonly config: Readonly<Record<string, unknown>>;
+	  };
+
+const resolveContextConfig = (context: PluginConfigContext) =>
+	Match.value(context).pipe(
+		Match.when({ kind: "environment" }, resolvePluginConfig),
+		Match.when({ kind: "installation" }, (installation) =>
+			parseAppSchemaProperties({
+				properties: installation.config,
+				kind: "Plugin installation config",
+				propertiesSchema: installation.configSchema,
+			}),
+		),
+		Match.exhaustive,
+	);
+
+const unconfiguredMessage = (context: PluginConfigContext, key: string) =>
+	context.kind === "environment"
+		? `Plugin config key "${key}" is not configured; set ${pluginConfigEnvironmentKey(context.pluginSlug, key)}`
+		: `Plugin config key "${key}" is not configured for this installation`;
+
 export const getPluginConfig = Effect.fn("getPluginConfig")(function* (input: {
-	keys: ReadonlyArray<string>;
 	metadata: unknown;
-	pluginSlug: string;
-	configSchema: AppSchema;
+	keys: ReadonlyArray<string>;
+	context: PluginConfigContext;
 }) {
 	const keys = [...new Set(input.keys)];
 	const declaredKeys = new Set(requiredKeys(input.metadata, "requiredPluginConfigKeys"));
@@ -48,7 +73,7 @@ export const getPluginConfig = Effect.fn("getPluginConfig")(function* (input: {
 		if (!declaredKeys.has(key)) {
 			return yield* Effect.fail(`Plugin config key "${key}" is not declared by this script`);
 		}
-		if (!Object.hasOwn(input.configSchema.fields, key)) {
+		if (!Object.hasOwn(input.context.configSchema.fields, key)) {
 			return yield* Effect.fail(`Plugin config key "${key}" does not exist`);
 		}
 	}
@@ -57,14 +82,12 @@ export const getPluginConfig = Effect.fn("getPluginConfig")(function* (input: {
 		return {};
 	}
 
-	const parsed = yield* resolvePluginConfig(input);
+	const parsed = yield* resolveContextConfig(input.context);
 	const values: Record<string, unknown> = {};
 	for (const key of keys) {
 		const value = parsed[key];
 		if (value === undefined) {
-			return yield* Effect.fail(
-				`Plugin config key "${key}" is not configured; set ${pluginConfigEnvironmentKey(input.pluginSlug, key)}`,
-			);
+			return yield* Effect.fail(unconfiguredMessage(input.context, key));
 		}
 		values[key] = value;
 	}

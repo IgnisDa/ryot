@@ -14,8 +14,7 @@ import { SandboxWorkflowReferenceRepository } from "#modules/sandbox/workflow-re
 import { makePluginLoader, PluginLoader } from "./loader";
 import { PluginRepository } from "./repository";
 import { ScriptGarbageCollector } from "./script-garbage-collector";
-import { fixtureManifest } from "./test-support";
-import type { NormalizedPlugin } from "./types";
+import { fixtureManifest, fixturePluginIdentity } from "./test-support";
 
 const hash = sha256Hex;
 
@@ -25,8 +24,6 @@ const withCollector = <A, E, R>(
 		readonly moduleDirectory: string;
 		readonly pluginHashes?: ReadonlyArray<string>;
 		readonly pinnedHashes?: ReadonlyArray<string>;
-		readonly repositoryHashes?: ReadonlyArray<string>;
-		readonly repositoryList?: PluginRepository["Service"]["list"];
 		readonly persistedLivenessHashes?: ReadonlyArray<string>;
 		readonly lockIngestion?: PluginRepository["Service"]["lockIngestion"];
 		readonly deleteScripts?: PluginRepository["Service"]["deleteUnreferencedScripts"];
@@ -37,6 +34,7 @@ const withCollector = <A, E, R>(
 	loader.rebuild([
 		{
 			manifest,
+			...fixturePluginIdentity(),
 			sourceHash: "active-source",
 			scripts: manifest.scripts.map((script, index) => {
 				const { entry, ...metadata } = script;
@@ -51,7 +49,7 @@ const withCollector = <A, E, R>(
 					contentHash: input.pluginHashes?.[index] ?? hash(`active-${index}`),
 				};
 			}),
-		} satisfies NormalizedPlugin,
+		},
 	]);
 	const loadedPlugin = loader.getSnapshot().plugins["fixture"];
 	assert(loadedPlugin);
@@ -64,31 +62,13 @@ const withCollector = <A, E, R>(
 		deleteUnreferencedScripts: input.deleteScripts ?? (() => Effect.succeed([])),
 		listPersistedLivenessContentHashes: () =>
 			Effect.succeed([...(input.persistedLivenessHashes ?? [])]),
-		list:
-			input.repositoryList ??
-			(() =>
-				Effect.succeed(
-					input.repositoryHashes
-						? [
-								{
-									...loadedPlugin,
-									status: "active" as const,
-									scripts: loadedPlugin.scripts.map((script, index) =>
-										Object.assign({}, script, {
-											contentHash: input.repositoryHashes?.[index] ?? script.contentHash,
-										}),
-									),
-								},
-							]
-						: [],
-				)),
 	});
 	const referencesLayer = Layer.mock(SandboxWorkflowReferenceRepository)({
 		listReferences: () =>
 			Effect.succeed(
 				(input.pinnedHashes ?? []).map((contentHash, index) => ({
 					contentHash,
-					pluginSlug: "historical",
+					pluginId: "historical",
 					executionId: `execution-${index}`,
 					scriptId: SandboxScriptId.make(`script-${index}`),
 				})),
@@ -155,8 +135,7 @@ it.effect(
 						moduleDirectory,
 						pluginHashes: [activeHash],
 						pinnedHashes: [pinnedHash],
-						repositoryHashes: [databaseHash],
-						persistedLivenessHashes: [pinnedHash],
+						persistedLivenessHashes: [pinnedHash, databaseHash],
 						lockIngestion: () => Ref.update(lockCount, (count) => count + 1),
 					},
 				);

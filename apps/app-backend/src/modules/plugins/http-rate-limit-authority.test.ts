@@ -8,7 +8,7 @@ import { makeDefinitionRegistry } from "#modules/definition-registry/service";
 import { PluginHttpRateLimitAuthority } from "./http-rate-limit-authority";
 import { makePluginLoader, PluginLoader } from "./loader";
 import { PluginRepository } from "./repository";
-import { fixtureManifest } from "./test-support";
+import { fixtureManifest, fixturePluginIdentity } from "./test-support";
 
 const manifest = (slug: string, key: string, origin: string) => {
 	const value = fixtureManifest();
@@ -76,7 +76,12 @@ it.effect("ignores a stale loader snapshot and resolves only database authority"
 		const loader = yield* PluginLoader;
 		const authority = yield* PluginHttpRateLimitAuthority;
 		const stale = manifest("stale", "stale.policy", "https://stale.example.com");
-		loader.load({ manifest: stale, scripts: [], sourceHash: "stale-source" });
+		loader.load({
+			scripts: [],
+			manifest: stale,
+			sourceHash: "stale-source",
+			...fixturePluginIdentity(),
+		});
 
 		expect(yield* authority.resolve("https://stale.example.com/request")).toMatchObject({
 			matched: false,

@@ -8,10 +8,10 @@ import { assertExitFails } from "#lib/test-utils/assertions";
 import type { MockOverrides } from "#lib/test-utils/effect";
 import { databaseLayer } from "#lib/test-utils/effect";
 import { makeDefinitionRegistry } from "#modules/definition-registry/service";
+import { PluginInstallationRepository } from "#modules/plugins/installation-repository";
 import { makePluginLoader, PluginLoader } from "#modules/plugins/loader";
-import { fixtureManifest } from "#modules/plugins/test-support";
+import { fixtureManifest, fixturePluginIdentity } from "#modules/plugins/test-support";
 
-import { DefinitionsRepository } from "./repository";
 import { DefinitionsService } from "./service";
 
 const user = {
@@ -22,7 +22,7 @@ const user = {
 	preferences: { allowNsfw: false, language: null, disableIntegrations: false },
 } satisfies CurrentUserValue;
 
-const mockRepository = Layer.mock(DefinitionsRepository);
+const mockRepository = Layer.mock(PluginInstallationRepository);
 
 const makeRepository = (overrides: MockOverrides<typeof mockRepository> = {}) =>
 	mockRepository({ ...overrides });
@@ -42,10 +42,11 @@ const makeLoader = () => {
 	manifest.signalSchemas = [];
 	manifest.scripts = [];
 	manifest.bindings.entityAutomations = [];
-	loader.load({ manifest, scripts: [], sourceHash: "fixture" });
+	loader.load({ manifest, scripts: [], sourceHash: "fixture", ...fixturePluginIdentity() });
 	loader.load({
 		scripts: [],
 		sourceHash: "other",
+		...fixturePluginIdentity("other"),
 		manifest: {
 			...manifest,
 			metadata: { ...manifest.metadata, name: "Other", slug: "other" },
@@ -63,6 +64,7 @@ const makeServiceLayer = (repository: ReturnType<typeof makeRepository>) =>
 
 const makeState = (
 	overrides: Partial<{
+		pluginId: string;
 		sortOrder: number;
 		pluginSlug: string;
 		isDisabled: boolean;
@@ -74,7 +76,11 @@ const makeState = (
 	id: "state-id",
 	userId: user.id,
 	isDisabled: false,
+	healthReason: null,
 	pluginSlug: "fixture",
+	health: "ready" as const,
+	pluginId: "fixture-plugin-id",
+	pluginScope: "system" as const,
 	createdAt: new Date("2026-01-01T00:00:00Z"),
 	updatedAt: new Date("2026-01-01T00:00:00Z"),
 	...overrides,
@@ -83,7 +89,7 @@ const makeState = (
 it.effect("lists plugins with user state overlaid", () => {
 	const layer = makeServiceLayer(
 		makeRepository({
-			listPluginStates: () =>
+			listForUser: () =>
 				Effect.succeed([
 					makeState({ config: { layout: "compact" }, sortOrder: 5 }),
 					makeState({ pluginSlug: "other", isDisabled: true, sortOrder: 0 }),
@@ -111,13 +117,13 @@ it.effect("lists plugins with user state overlaid", () => {
 
 it.effect("updates state while preserving omitted overlay values", () => {
 	let persisted:
-		| Parameters<NonNullable<MockOverrides<typeof mockRepository>["upsertPluginState"]>>[0]
+		| Parameters<NonNullable<MockOverrides<typeof mockRepository>["upsertState"]>>[0]
 		| undefined;
 	const current = makeState({ config: { unit: "minutes" }, sortOrder: 4 });
 	const layer = makeServiceLayer(
 		makeRepository({
-			getPluginState: () => Effect.succeed(current),
-			upsertPluginState: (input) =>
+			findByUserAndPlugin: () => Effect.succeed(current),
+			upsertState: (input) =>
 				Effect.sync(() => {
 					persisted = input;
 					return makeState(input);
@@ -135,8 +141,8 @@ it.effect("updates state while preserving omitted overlay values", () => {
 			sortOrder: 4,
 			userId: user.id,
 			isDisabled: true,
-			pluginSlug: "fixture",
 			config: { unit: "minutes" },
+			pluginId: "fixture-plugin-id",
 		});
 		expect(plugin).toMatchObject({
 			sortOrder: 4,
