@@ -1,18 +1,15 @@
 import { WorkflowEngine } from "@effect/workflow/WorkflowEngine";
-import { generateId } from "better-auth";
 import { DateTime, Effect, Option, Schema } from "effect";
 
 import { DbRunner } from "#lib/db";
-import type { BadRequest, DbError, NotFound, SandboxRunError, TimeoutError } from "#lib/errors";
+import type { BadRequest, DbError, NotFound } from "#lib/errors";
 import { badRequest, notFound, unknownToMessage } from "#lib/errors";
-import type { SandboxRunInput, SandboxRunOutput } from "#lib/sandbox/service";
 import { EntityId, EventSchemaId } from "#lib/schema/brands";
 import type { EntitySchemaId, ImportRunId, IntegrationId, UserId } from "#lib/schema/brands";
 import { parseAppSchemaProperties } from "#lib/schema/property-schema-runtime";
 import { requireText } from "#lib/validation";
 import { EntitiesRepository } from "#modules/entities/repository";
 import { EventSchemasRepository } from "#modules/event-schemas/repository";
-import { SandboxRepository } from "#modules/sandbox/repository";
 import { RunSandboxWorkflow } from "#modules/sandbox/workflow-definitions";
 
 import {
@@ -30,9 +27,6 @@ const invalidOccurredAtError = "occurredAt must be a valid date";
 const eventSchemaMismatchError = "Event schema does not belong to the entity schema";
 
 const decodeBeforeTriggerResult = Schema.decodeUnknown(BeforeTriggerResult);
-export type RunSandboxScript = (
-	input: SandboxRunInput,
-) => Effect.Effect<SandboxRunOutput, SandboxRunError | TimeoutError>;
 
 export type CreatedEventWithContext = ListedEvent & {
 	readonly entitySchemaId: EntitySchemaId;
@@ -42,7 +36,6 @@ export type CreatedEventWithContext = ListedEvent & {
 type CreateEventsCoreServices = {
 	readonly dbRunner: DbRunner["Type"];
 	readonly eventsRepository: EventsRepository;
-	readonly sandboxRepository: SandboxRepository;
 	readonly workflowEngine: WorkflowEngine["Type"];
 	readonly entitiesRepository: EntitiesRepository;
 	readonly eventSchemasRepository: EventSchemasRepository;
@@ -129,30 +122,27 @@ const runBeforeCreateTrigger = Effect.fn(function* (
 	userId: UserId,
 	trigger: BeforeCreateTriggerRow,
 	context: unknown,
-	runSandboxScript: RunSandboxScript,
+	executionId: string,
 ) {
-	const runWithDb = yield* DbRunner;
-	const sandboxRepository = yield* SandboxRepository;
-	const script = yield* runWithDb(
-		sandboxRepository.getScriptForUser({ userId, scriptId: trigger.sandboxScriptId }),
-	);
-	if (!script) {
-		return yield* badRequest("Before trigger script not found");
-	}
+	const workflowEngine = yield* WorkflowEngine;
 
-	const result = yield* runSandboxScript({
-		userId,
-		context,
-		code: script.code,
-		scriptId: script.id,
-		driverName: "trigger",
-		executionId: generateId(),
-		scriptIsBuiltin: script.isBuiltin,
-		allowedHostFunctions: script.metadata.allowedHostFunctions ?? [],
-	}).pipe(Effect.mapError((error) => badRequest(`Before trigger failed: ${error.message}`)));
+	const result = yield* workflowEngine
+		.execute(RunSandboxWorkflow, {
+			executionId,
+			payload: {
+				userId,
+				context,
+				executionId,
+				driverName: "trigger",
+				scriptId: trigger.sandboxScriptId,
+			},
+		})
+		.pipe(
+			Effect.mapError((error) => badRequest(`Before trigger failed: ${unknownToMessage(error)}`)),
+		);
 
-	if (!result.success) {
-		return yield* badRequest(`Before trigger failed: ${result.error ?? "Execution failed"}`);
+	if (result.error) {
+		return yield* badRequest(`Before trigger failed: ${result.error}`);
 	}
 
 	return yield* decodeBeforeTriggerResult(result.value).pipe(
@@ -228,7 +218,6 @@ export const provideCreateEventsContext = <A, E, R>(
 		Effect.provideService(DbRunner, services.dbRunner),
 		Effect.provideService(WorkflowEngine, services.workflowEngine),
 		Effect.provideService(EventsRepository, services.eventsRepository),
-		Effect.provideService(SandboxRepository, services.sandboxRepository),
 		Effect.provideService(EntitiesRepository, services.entitiesRepository),
 		Effect.provideService(EventSchemasRepository, services.eventSchemasRepository),
 	);
@@ -241,24 +230,22 @@ export const validateEventCreateSubmission = (input: {
 		discard: true,
 	});
 
-export const createEventsForUser = Effect.fn("createEventsForUser")(function* (
-	input: {
-		readonly userId: UserId;
-		readonly importRunId?: ImportRunId;
-		readonly integrationId?: IntegrationId;
-		readonly origin: EventCreateOrigin;
-		readonly payload: ReadonlyArray<CreateEventItem>;
-	},
-	runSandboxScript: RunSandboxScript,
-) {
+export const createEventsForUser = Effect.fn("createEventsForUser")(function* (input: {
+	readonly userId: UserId;
+	readonly executionId: string;
+	readonly origin: EventCreateOrigin;
+	readonly importRunId?: ImportRunId;
+	readonly integrationId?: IntegrationId;
+	readonly payload: ReadonlyArray<CreateEventItem>;
+}) {
 	const runWithDb = yield* DbRunner;
 	const eventsRepository = yield* EventsRepository;
 	const createdEvents: CreatedEventWithContext[] = [];
 	const referencedGlobalEntityIds = new Set<EntityId>();
 	const eventSchemasRepository = yield* EventSchemasRepository;
-	const { userId, origin, payload, importRunId, integrationId } = input;
+	const { userId, origin, payload, executionId, importRunId, integrationId } = input;
 
-	for (const item of payload) {
+	for (const [itemIndex, item] of payload.entries()) {
 		const entityId = EntityId.make(yield* requireText(item.entityId, "Entity id is required"));
 		const eventSchemaId = EventSchemaId.make(
 			yield* requireText(item.eventSchemaId, "Event schema id is required"),
@@ -322,7 +309,7 @@ export const createEventsForUser = Effect.fn("createEventsForUser")(function* (
 				userId,
 				trigger,
 				triggerContext,
-				runSandboxScript,
+				`${executionId}-before-${itemIndex}-${trigger.id}`,
 			);
 
 			if (triggerResult.action === "skip") {
