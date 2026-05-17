@@ -393,11 +393,17 @@ export const builtinEntitySchemas = () => [
 	},
 	{
 		icon: "folders",
-		eventSchemas: [],
 		slug: "collection",
 		name: "Collection",
 		trackerSlug: "media",
 		accentColor: "#F59E0B",
+		eventSchemas: [
+			{
+				name: "Review",
+				slug: "review",
+				propertiesSchema: reviewPropertiesSchemaByEntity("collection"),
+			},
+		],
 		propertiesSchema: {
 			fields: {
 				description: {
@@ -428,6 +434,11 @@ export const builtinEntitySchemas = () => [
 				name: "Workout Set",
 				slug: "workout-set",
 				propertiesSchema: workoutSetPropertiesJsonSchema,
+			},
+			{
+				name: "Review",
+				slug: "review",
+				propertiesSchema: reviewPropertiesSchemaByEntity("exercise"),
 			},
 		],
 	},
