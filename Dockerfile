@@ -3,9 +3,9 @@ WORKDIR /app
 
 FROM base AS prepare
 RUN --mount=type=cache,target=/root/.bun/install/cache \
-    bun install --global turbo@2.9.16
+    bun install --global turbo@2.10.12
 COPY . .
-RUN turbo prune @ryot/kernel-client @ryot/server --docker
+RUN turbo prune @ryot/fitness-plugin @ryot/kernel-client @ryot/media-plugin @ryot/server @ryot/v10-rust-migration --docker
 
 FROM base AS builder-base
 COPY --from=prepare /app/out/json/ .
@@ -22,6 +22,9 @@ FROM builder-base AS backend-builder
 ARG UNKEY_ROOT_KEY=""
 ENV UNKEY_ROOT_KEY=$UNKEY_ROOT_KEY
 RUN bun turbo --filter=@ryot/server build
+
+FROM builder-base AS plugin-builder
+RUN bun turbo --filter=@ryot/fitness-plugin --filter=@ryot/media-plugin build
 
 FROM builder-base AS client-builder
 # The Expo CLI requires Node: `bun run` only hands a `#!/usr/bin/env node` bin to Node
@@ -62,12 +65,14 @@ RUN apt-get update && apt-get install -y --no-install-recommends ca-certificates
 ENV FRONTEND_UMAMI_HOST_URL="https://umami.diptesh.me"
 ENV FRONTEND_UMAMI_WEBSITE_ID="5ecd6915-d542-4fda-aa5f-70f09f04e2e0"
 WORKDIR /home/ryot
-RUN mkdir -p /home/ryot/storage /home/ryot/work && chown -R ryot:ryot /home/ryot/storage /home/ryot/work
+RUN mkdir -p /home/ryot/plugins /home/ryot/storage /home/ryot/tmp /home/ryot/work && \
+    chown -R ryot:ryot /home/ryot/plugins /home/ryot/storage /home/ryot/tmp /home/ryot/work
 COPY --chown=ryot:ryot kernel/backend/src/drizzle ./src/drizzle
-COPY --chown=ryot:ryot plugins /plugins
 COPY --from=client-builder --chown=ryot:ryot /app/kernel/client/dist ./client
 COPY --from=backend-builder --chown=ryot:ryot /app/apps/server/dist ./dist
 COPY --from=backend-builder --chown=ryot:ryot /app/packages/sandbox-compiler/dist/compiler-worker.js* ./dist/
+COPY --from=plugin-builder --chown=ryot:ryot /app/plugins/fitness/dist/bundle ./plugins/fitness
+COPY --from=plugin-builder --chown=ryot:ryot /app/plugins/media/dist/bundle ./plugins/media
 COPY --from=sandbox-compiler-runtime --chown=ryot:ryot /app/node_modules ./node_modules
 COPY --from=sandbox-compiler-runtime --chown=ryot:ryot /app/packages ./packages
 USER ryot
