@@ -44,6 +44,7 @@ import {
 	withLegacyBootstrapNoticeClient,
 } from "./shared";
 import { buildLegacyUserAuthMigrationSql } from "./user-auth-mapping";
+import { buildMeasurementMigrationSql } from "./user-measurement-mapping";
 import {
 	buildWorkoutMigrationSql,
 	buildWorkoutRepeatedFromRelationshipMigrationSql,
@@ -254,6 +255,11 @@ export const migrateLegacyTables = async (database: DbClient) => {
 		throw new Error('Missing entity schema id for collection slug "collection"');
 	}
 
+	const measurementEntitySchemaId = entitySchemaIds.get("measurement");
+	if (measurementEntitySchemaId === undefined) {
+		throw new Error('Missing entity schema id for slug "measurement"');
+	}
+
 	const workoutEntitySchemaId = entitySchemaIds.get("workout");
 	if (workoutEntitySchemaId === undefined) {
 		throw new Error('Missing entity schema id for slug "workout"');
@@ -356,6 +362,7 @@ export const migrateLegacyTables = async (database: DbClient) => {
 		await client.query(buildCompanyEntityMigrationSql(resolvedCompanyEntityTargets));
 		await client.query(buildCollectionEntityMigrationSql(collectionEntitySchemaId));
 		await client.query(buildExerciseMigrationSql(resolvedExerciseTargets));
+		await client.query(buildMeasurementMigrationSql(measurementEntitySchemaId));
 		await client.query(buildWorkoutTemplateMigrationSql(workoutTemplateEntitySchemaId));
 		await client.query(buildWorkoutMigrationSql(workoutEntitySchemaId));
 		await client.query(buildWorkoutSetEventMigrationSql(workoutSetEventSchemaId));

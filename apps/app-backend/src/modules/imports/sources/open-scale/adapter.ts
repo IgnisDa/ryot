@@ -29,7 +29,7 @@ export type OpenScaleNormalizedItem = {
 	properties: {
 		recordedAt: string;
 		comment?: string | null;
-		statistics: Array<{ key: string; label: string; value: number; unit?: string | null }>;
+		statistics: Array<{ key: string; label: string; value: number }>;
 	};
 };
 
