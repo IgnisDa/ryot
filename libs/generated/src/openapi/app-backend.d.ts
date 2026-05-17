@@ -4634,6 +4634,11 @@ export interface paths {
                         /** @enum {string} */
                         source: "grouvee";
                     } | {
+                        uploadToken: string;
+                        /** @enum {string} */
+                        source: "netflix";
+                        profileName?: string;
+                    } | {
                         apiUrl: string;
                         username: string;
                         /** @enum {string} */
