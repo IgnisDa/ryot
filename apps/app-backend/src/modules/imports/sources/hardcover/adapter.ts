@@ -1,6 +1,7 @@
 import { dayjs } from "@ryot/ts-utils/dayjs";
 
 import { parseCsvText } from "../../csv";
+import { getOrCreateMediaEntityGroup } from "../../media/groups";
 import type {
 	MediaImportAdapterFailure,
 	MediaImportAdapterResult,
@@ -15,7 +16,6 @@ import {
 	createProgressEvent,
 	createReviewEvent,
 	finalizeEntityGroups,
-	getOrCreateGroup,
 	isLifecycleAlias,
 	normalizeBoolean,
 	normalizeLifecycleStatus,
@@ -32,7 +32,7 @@ export const adaptHardcoverCsv = (csvText: string): MediaImportAdapterResult => 
 	assertRequiredHeaders(headers, ["Title", "Status", "Hardcover Book ID"], "Hardcover");
 
 	const failures: MediaImportAdapterFailure[] = [];
-	const groupMap = new Map<string, ReturnType<typeof getOrCreateGroup>>();
+	const groupMap = new Map<string, ReturnType<typeof getOrCreateMediaEntityGroup>>();
 
 	for (let itemIndex = 0; itemIndex < rows.length; itemIndex++) {
 		const row = rows[itemIndex];
@@ -66,7 +66,7 @@ export const adaptHardcoverCsv = (csvText: string): MediaImportAdapterResult => 
 			entitySchemaSlug: "book",
 			scriptSlug: "book.hardcover",
 		};
-		const group = getOrCreateGroup(groupMap, entityRef);
+		const group = getOrCreateMediaEntityGroup(groupMap, entityRef);
 		const startedOn = parseDateWithFormat(row["Date Started"] ?? "", "YYYY-MM-DD");
 		const completedOn = parseDateWithFormat(row["Date Finished"] ?? "", "YYYY-MM-DD");
 		const reviewOccurredAt =
