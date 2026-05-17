@@ -1,7 +1,7 @@
 import { Match } from "effect";
 
 import type { Expr, FieldSelector, FieldValue } from "../language";
-import type { BaseEntityQueryRow, EntityQueryRow, EventFields, RelationshipFields } from "./types";
+import type { BaseEntityQueryRow, EventFields, RelationshipFields } from "./types";
 
 export const valueToFieldValue = (value: unknown): FieldValue => {
 	if (value === null || value === undefined) {
@@ -150,16 +150,6 @@ export const evalEventFieldSelector = (field: FieldSelector, row: EventFields): 
 					? row.eventSchemaIsBuiltin
 					: row.eventSchemaName,
 	};
-};
-
-export const evalExprForField = (expr: Expr, row: EntityQueryRow): FieldValue => {
-	if (expr.type === "ref") {
-		return evalFieldSelector(expr.field, row);
-	}
-	if (expr.type === "literal") {
-		return literalToFieldValue(expr);
-	}
-	return { kind: "null", value: null };
 };
 
 export const fieldValueScalar = (value: FieldValue) => value.value;
