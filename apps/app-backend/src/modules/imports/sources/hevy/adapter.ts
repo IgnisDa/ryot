@@ -30,6 +30,18 @@ type HevyRow = {
 	durationSeconds?: number;
 };
 
+const POUNDS_TO_KILOGRAMS = 0.45359237;
+
+const readHevyWeight = (row: Record<string, string>): number | undefined => {
+	const kilograms = readOptionalCsvNumber(row, ["weight_kg", "Weight (kg)"]);
+	if (kilograms !== undefined) {
+		return kilograms;
+	}
+
+	const pounds = readOptionalCsvNumber(row, ["weight_lbs", "Weight (lbs)"]);
+	return pounds !== undefined ? pounds * POUNDS_TO_KILOGRAMS : undefined;
+};
+
 const parseHevyRow = (row: Record<string, string>, rowIdx: number): HevyRow => {
 	const distanceM = readOptionalCsvNumber(row, ["distance_m", "Distance (m)"]);
 	const distanceKm = readOptionalCsvNumber(row, ["distance_km"]);
@@ -37,13 +49,13 @@ const parseHevyRow = (row: Record<string, string>, rowIdx: number): HevyRow => {
 	return {
 		distanceMeters,
 		itemIndex: rowIdx,
+		weight: readHevyWeight(row),
 		reps: readOptionalCsvNumber(row, ["reps", "Reps"]),
 		description: readCsvCell(row, ["description", "Description"]),
 		title: readRequiredCsvCell(row, ["title", "Title"], "Title"),
 		exerciseNotes: readCsvCell(row, ["exercise_notes", "Exercise Notes", "ExerciseNotes"]),
 		endTime: readRequiredCsvCell(row, ["end_time", "End Time", "EndTime"], "End Time"),
 		setType: readRequiredCsvCell(row, ["set_type", "Set Type", "SetType"], "Set Type"),
-		weight: readOptionalCsvNumber(row, ["weight_kg", "weight_lbs", "Weight (kg)", "Weight (lbs)"]),
 		durationSeconds: readOptionalCsvNumber(row, [
 			"duration_seconds",
 			"Duration (seconds)",

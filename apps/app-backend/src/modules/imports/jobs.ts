@@ -48,6 +48,7 @@ export type ImportCollectionMembership = z.infer<typeof importCollectionMembersh
 export const importMediaEntityGroupSchema = z.object({
 	entityRef: importEntityRefSchema,
 	events: z.array(importMediaEventSchema),
+	itemIndex: z.number().int().nonnegative().optional(),
 	collectionMemberships: z.array(importCollectionMembershipSchema),
 });
 export type ImportMediaEntityGroup = z.infer<typeof importMediaEntityGroupSchema>;
@@ -68,7 +69,6 @@ export const importRunJobData = z.object({
 	mediaWriteImportedItems: z.number().int().nonnegative().optional(),
 	providerEntityIds: z.array(z.string().nullable()).optional(),
 	providerEntityRefs: z.array(importEntityRefSchema).optional(),
-	providerStep: z.literal("waiting_for_entity_sandbox").optional(),
 	mediaEntityGroups: z.array(importMediaEntityGroupSchema).optional(),
 	sourcePayload: z.record(z.string(), z.unknown()).optional(),
 	resolveFailedIndices: z.array(z.number().int().nonnegative()).optional(),
