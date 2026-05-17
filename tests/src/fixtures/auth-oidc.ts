@@ -1,7 +1,6 @@
 export async function oidcSignIn(
 	username: string,
 	backendUrl: string,
-	_oidcBaseUrl: string,
 	claims?: Record<string, unknown>,
 ): Promise<string> {
 	// Step 1: POST to /auth/sign-in/oauth2 to get the authorization URL.
