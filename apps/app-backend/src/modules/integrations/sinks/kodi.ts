@@ -3,7 +3,14 @@ import { Effect } from "effect";
 import type { MediaImportAdapterResult } from "#modules/imports/media/import-processor";
 import { buildMovieOrShowImportRef } from "#modules/imports/sources/shared/provider-refs";
 
-import { createSinkFailure, emptySinkResult, parseJsonRecord, type SinkParser } from "./shared";
+import {
+	createProgressResult,
+	createShowEpisodeLocator,
+	createSinkFailure,
+	emptySinkResult,
+	parseJsonRecord,
+	type SinkParser,
+} from "./shared";
 
 const isObjectRecord = (value: unknown): value is Record<string, unknown> =>
 	typeof value === "object" && value !== null && !Array.isArray(value);
@@ -60,30 +67,31 @@ export const parseKodiSinkPayload = (payload: unknown): MediaImportAdapterResult
 		};
 	}
 
-	return {
-		failures: [],
-		entityGroups: [
-			{
-				itemIndex: 0,
-				entityRef: ref,
-				collectionMemberships: [],
-				events: [
-					{
-						eventSchemaSlug: "progress",
-						occurredAt: new Date().toISOString(),
-						properties: {
-							consumedOn: "kodi",
-							progressPercent: progress,
-							...(lot === "show" && Number.isInteger(rawSeason) ? { showSeason: rawSeason } : {}),
-							...(lot === "show" && Number.isInteger(rawEpisode)
-								? { showEpisode: rawEpisode }
-								: {}),
-						},
-					},
-				],
-			},
-		],
-	};
+	const episodeLocator =
+		lot === "show"
+			? createShowEpisodeLocator(
+					typeof rawSeason === "number" ? rawSeason : undefined,
+					typeof rawEpisode === "number" ? rawEpisode : undefined,
+				)
+			: undefined;
+	if (lot === "show" && !episodeLocator) {
+		return {
+			...emptySinkResult(),
+			failures: [
+				createSinkFailure({
+					stage: "input_transformation",
+					message: "Kodi webhook payload is missing show episode coordinates",
+				}),
+			],
+		};
+	}
+
+	return createProgressResult({
+		entityRef: ref,
+		consumedOn: "kodi",
+		progressPercent: progress,
+		...(episodeLocator ? { episodeLocator } : {}),
+	});
 };
 
 export const parseKodiSink: SinkParser = (input) =>

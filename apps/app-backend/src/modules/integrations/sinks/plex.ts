@@ -5,6 +5,7 @@ import { buildMovieOrShowImportRef } from "#modules/imports/sources/shared/provi
 import {
 	calculateProgressPercent,
 	createProgressResult,
+	createShowEpisodeLocator,
 	createSinkFailure,
 	emptySinkResult,
 	type SinkParser,
@@ -171,13 +172,27 @@ export const parsePlexSink: SinkParser = (input) =>
 			};
 		}
 
+		const episodeLocator =
+			entitySchemaSlug === "show"
+				? createShowEpisodeLocator(payload.Metadata.parentIndex, payload.Metadata.index)
+				: undefined;
+		if (entitySchemaSlug === "show" && !episodeLocator) {
+			return {
+				...emptySinkResult(),
+				failures: [
+					createSinkFailure({
+						stage: "input_transformation",
+						message: "Plex webhook payload is missing show episode coordinates",
+					}),
+				],
+			};
+		}
+
 		return createProgressResult({
 			entityRef: ref,
 			progressPercent,
 			consumedOn: "plex_sink",
-			...(entitySchemaSlug === "show"
-				? { showSeason: payload.Metadata.parentIndex, showEpisode: payload.Metadata.index }
-				: {}),
+			...(episodeLocator ? { episodeLocator } : {}),
 		});
 	}).pipe(
 		Effect.orElseSucceed(() => ({
