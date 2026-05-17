@@ -2,7 +2,7 @@
 
 **Parent Plan:** [Durable Sandbox - Phase 1](./README.md)
 
-**Status:** todo
+**Status:** done
 
 ## What to build
 
@@ -20,18 +20,43 @@ solely to imitate the removed activity execution model.
 
 ## Acceptance criteria
 
-- [ ] Every media automation, policy, operation, cron, and bootstrap body uses universal workflow
+- [x] Every media automation, policy, operation, cron, and bootstrap body uses universal workflow
       execution.
-- [ ] Auto-complete early return makes no unnecessary durable calls and remains inside the same
+- [x] Auto-complete early return makes no unnecessary durable calls and remains inside the same
       universal runtime.
-- [ ] Full automation branches replay query/schema reads and create business writes exactly once at
+- [x] Full automation branches replay query/schema reads and create business writes exactly once at
       their owning boundaries.
-- [ ] Parallel durable reads preserve deterministic ordering and current business outcomes.
-- [ ] Notification/signal/external-push semantics follow the completed write-host safety audit.
-- [ ] Manifest cron execution-mode selectors are migrated where no remaining consumer needs them.
-- [ ] Existing media lifecycle, monitoring, association, notification, and operation assertions are
+- [x] Parallel durable reads preserve deterministic ordering and current business outcomes.
+- [x] Notification/signal/external-push semantics follow the completed write-host safety audit.
+- [x] Manifest cron execution-mode selectors are migrated where no remaining consumer needs them.
+- [x] Existing media lifecycle, monitoring, association, notification, and operation assertions are
       preserved in plugin/backend tests and `tests/` E2E.
-- [ ] The no-host automation benchmark is rerun and material regressions are recorded for Task 15.
+- [x] The no-host automation benchmark is rerun and material regressions are recorded for Task 15.
+
+## Completion Notes
+
+- Migrated media automations, policies, operations, cron, boot, bootstrap, and event dispatch to the
+  universal sandbox workflow and removed obsolete cron execution-mode selectors.
+- Preserved the direct sandbox execution result contract, including logs, timing, and failure-bearing
+  results, so automation runs and plugin operations are finalized consistently.
+- Updated cron reporting to distinguish failed workflow executions from successful executions and to
+  log scheduled failures without stopping other due crons.
+
+## Verification
+
+The no-host benchmark was rerun on 2026-08-06 with the warm hermetic harness from the phase plan:
+
+```bash
+RUN_SANDBOX_BENCHMARKS=1 bun turbo --env-mode=loose --force --output-logs=full --filter=@ryot/tests test --only -- 'src/tests/kernel/sandbox/sandbox-runtime-benchmark.test.ts'
+```
+
+On the Apple M4 baseline host, the no-host automation measured 221/249 ms submission-to-terminal
+p50/p95 and 10/26 ms sandbox execution p50/p95 across 15 samples. The current-runtime baseline was
+221/266 ms, so this run shows no material no-host regression; the result is recorded for the Task 15
+comparison.
+
+The focused backend regression suite, full backend test suite, contract check, and affected media
+automation and trending-cron E2E files passed after the reviewer fixes.
 
 ## User stories addressed
 

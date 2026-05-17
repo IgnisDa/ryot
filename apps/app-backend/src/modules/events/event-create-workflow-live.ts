@@ -9,9 +9,7 @@ import type { SandboxExecutionPayload } from "@ryot/contract/modules/sandbox/sch
 import { EntityId, EntitySchemaSlug, EventId, EventSchemaSlug } from "@ryot/contract/schema/brands";
 import { AppSchema } from "@ryot/contract/schema/property-schema";
 import { Context, DateTime, Effect, Layer, Schema } from "effect";
-import { PersistedQueue } from "effect/unstable/persistence";
 import { Activity } from "effect/unstable/workflow";
-import type { WorkflowEngine, WorkflowInstance } from "effect/unstable/workflow/WorkflowEngine";
 
 import { DbRunner } from "#lib/infrastructure/db/service";
 import type { DurableSchema } from "#lib/infrastructure/workflow";
@@ -21,10 +19,8 @@ import {
 	LifecycleDispatch,
 	type LifecycleDispatchValue,
 } from "#modules/entities/lifecycle-dispatch";
-import { processSandboxExecution } from "#modules/sandbox/durable-queues";
 import type { SandboxExecutionResult } from "#modules/sandbox/execution-result";
-import { SandboxPluginScriptResolver } from "#modules/sandbox/plugin-script-resolver";
-import { SandboxRepository } from "#modules/sandbox/repository";
+import { SandboxExecutionService } from "#modules/sandbox/service";
 
 import {
 	EventCreateWorkflow,
@@ -72,14 +68,9 @@ export type EventCreateWorkflowOperationsValue = {
 	dispatchLifecycleOccurrence: LifecycleDispatchValue["dispatch"];
 	processSandboxExecution: (
 		payload: SandboxExecutionPayload,
-	) => Effect.Effect<SandboxExecutionResult, SandboxRunError, WorkflowEngine | WorkflowInstance>;
+	) => Effect.Effect<SandboxExecutionResult, SandboxRunError>;
 };
 
-/**
- * DurableQueue.process must run inside the calling workflow's own execution
- * context, so these requirements are intentionally pass-through.
- * @effect-expect-leaking WorkflowEngine WorkflowInstance
- */
 export class EventCreateWorkflowOperations extends Context.Service<
 	EventCreateWorkflowOperations,
 	EventCreateWorkflowOperationsValue
@@ -88,20 +79,17 @@ export class EventCreateWorkflowOperations extends Context.Service<
 export const EventCreateWorkflowOperationsLive = Layer.effect(
 	EventCreateWorkflowOperations,
 	Effect.gen(function* () {
-		const runWithDb = yield* DbRunner;
-		const repository = yield* SandboxRepository;
+		const sandbox = yield* SandboxExecutionService;
 		const lifecycleDispatch = yield* LifecycleDispatch;
-		const pluginScriptResolver = yield* SandboxPluginScriptResolver;
-		const queueFactory = yield* PersistedQueue.PersistedQueueFactory;
 		return {
 			dispatchLifecycleOccurrence: lifecycleDispatch.dispatch,
 			processSandboxExecution: (payload) =>
-				processSandboxExecution(payload).pipe(
-					Effect.provideService(DbRunner, runWithDb),
-					Effect.provideService(SandboxRepository, repository),
-					Effect.provideService(SandboxPluginScriptResolver, pluginScriptResolver),
-					Effect.provideService(PersistedQueue.PersistedQueueFactory, queueFactory),
-				),
+				sandbox.executeScript({
+					input: payload.context,
+					scriptId: payload.scriptId,
+					authority: payload.authority,
+					executionId: payload.executionId,
+				}),
 		} satisfies EventCreateWorkflowOperationsValue;
 	}),
 );

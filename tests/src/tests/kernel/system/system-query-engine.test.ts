@@ -466,10 +466,10 @@ export default defineScript({
   input: Schema.Unknown,
   output: Schema.Struct({ count: Schema.Number, queryEngineAvailable: Schema.Boolean }),
   run: (_input, host) => Effect.gen(function* () {
-    const queryEngineAvailable = typeof host.executeQueryEngine === "function";
-	const kindGate = queryEngineAvailable
-	  ? { ok: true, error: null, queryEngineAvailable }
-	  : { ok: false, error: "executeQueryEngine is unavailable to direct system cron scripts", queryEngineAvailable };
+			const queryEngineAvailable = typeof host.executeQueryEngine === "function";
+			const kindGate = queryEngineAvailable
+		  ? { ok: true, error: null, queryEngineAvailable }
+		  : { ok: false, error: "executeQueryEngine is unavailable to this system script", queryEngineAvailable };
     const items = [];
 ${cases
 	.map(
@@ -588,8 +588,9 @@ describe("system-authority query engine", () => {
 				};
 				installed = yield* installTestPluginBundle({
 					pluginSlug,
-					configSchema: { fields: {}, unknownKeys: "strict" },
 					linkToEntitySchemaSlug: markerSlug,
+					configSchema: { fields: {}, unknownKeys: "strict" },
+					workflows: [{ slug: workflowSlug, scriptSlug: workflowScriptSlug }],
 					files: {
 						[detailsEntry]: providerSandboxSource({
 							operation: "details",
@@ -611,17 +612,14 @@ describe("system-authority query engine", () => {
 							operations: { details: detailsSlug },
 						},
 					],
-					workflows: [{ slug: workflowSlug, scriptSlug: workflowScriptSlug }],
 					crons: [
 						{
-							workflowSlug,
-							lot: "workflow",
 							slug: workflowCronSlug,
+							scriptSlug: workflowScriptSlug,
 							schedule: { cron: "0 0 * * *" },
 							description: "Run system query activities",
 						},
 						{
-							lot: "script",
 							slug: collectorCronSlug,
 							scriptSlug: collectorSlug,
 							schedule: { cron: "0 0 * * *" },
@@ -1048,13 +1046,13 @@ describe("system-authority query engine", () => {
 		}),
 	);
 
-	it.live("withholds executeQueryEngine from a direct system cron script", () =>
+	it.live("exposes executeQueryEngine to a direct system script", () =>
 		Effect.sync(() => {
 			const payload = requireObjectRecord(markerPayload("kind-gate"), "Expected kind gate payload");
 			expect(payload).toEqual({
-				ok: false,
-				queryEngineAvailable: false,
-				error: "executeQueryEngine is unavailable to direct system cron scripts",
+				ok: true,
+				queryEngineAvailable: true,
+				error: null,
 			});
 		}),
 	);

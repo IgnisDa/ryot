@@ -65,8 +65,7 @@ export const TestSupportPluginCronResult = Schema.Union([
 		pluginSlug: PluginSlug,
 		cronSlug: Schema.String,
 		executionId: Schema.String,
-		status: Schema.Literal("executed"),
-		lot: Schema.Literals(["script", "workflow"]),
+		status: Schema.Literals(["executed", "failed"]),
 	}),
 ]);
 

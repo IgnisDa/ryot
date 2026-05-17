@@ -1,18 +1,23 @@
 import { expect, it } from "@effect/vitest";
-import { BadRequest, NotFound, Unauthorized, unauthorized } from "@ryot/contract/errors";
+import {
+	BadRequest,
+	NotFound,
+	SandboxRunError,
+	Unauthorized,
+	unauthorized,
+} from "@ryot/contract/errors";
 import { SandboxScriptId, UserId } from "@ryot/contract/schema/brands";
 import type { PluginManifest, PluginOperationAuth } from "@ryot/plugin-kit/manifest";
 import { Cause, Deferred, Effect, Exit, Fiber, Layer, Option } from "effect";
 import { Headers } from "effect/unstable/http";
 import { assert } from "vitest";
 
-import { SandboxService } from "#lib/infrastructure/sandbox-runtime/service";
 import { dbRunnerLayer } from "#lib/test-utils/effect";
 import { AuthService } from "#modules/auth/service";
 import { IntegrationOperationScopeResolverLive } from "#modules/integrations/operation-scope-resolver-live";
 import type { IntegrationRecord } from "#modules/integrations/repository";
 import { IntegrationsRepository } from "#modules/integrations/repository";
-import { SandboxRepository } from "#modules/sandbox/repository";
+import { SandboxExecutionService } from "#modules/sandbox/service";
 
 import { OperationsService } from "./operations-service";
 import { PluginRuntimeResolver } from "./runtime-resolver";
@@ -103,6 +108,7 @@ const makeLayer = (input: {
 	currentUserGate?: Effect.Effect<void>;
 	integration?: IntegrationRecord | null;
 	operationScript?: () => ReturnType<typeof makeActiveScript>;
+	sandboxError?: string;
 }) => {
 	const integrationsRepository = Layer.mock(IntegrationsRepository)({
 		getByIdAnyUser: () => Effect.succeed(input.integration ?? null),
@@ -150,31 +156,18 @@ const makeLayer = (input: {
 						);
 					},
 				}),
-				Layer.mock(SandboxService)({
-					run: (runInput) =>
+				Layer.mock(SandboxExecutionService)({
+					executeScript: (runInput) =>
 						Effect.sync(() => {
 							input.captured?.push(runInput);
 							return {
 								logs: [],
-								error: null,
 								value: "ok",
-								success: true,
-								harvest: null,
-								executionId: runInput.executionId,
-								timing: { totalMs: 1, executionMs: 1 },
+								status: "completed" as const,
+								error: input.sandboxError
+									? { phase: "execute" as const, message: input.sandboxError }
+									: null,
 							};
-						}),
-				}),
-				Layer.mock(SandboxRepository)({
-					isPluginScript: () => Effect.succeed(true),
-					getScript: (scriptId) =>
-						Effect.succeed({
-							id: scriptId,
-							providerId: null,
-							compiledFormat: 1,
-							compiledCode: "compiled",
-							contentHash: "compiled-hash",
-							metadata: { capabilities: [] },
 						}),
 				}),
 			),
@@ -294,6 +287,32 @@ it.effect("dispatches authenticated user operations without system authority", (
 		Effect.provide(makeLayer({ auth: "user", captured, currentUserId: UserId.make("user-1") })),
 	);
 });
+
+it.effect("propagates sandbox failures from operation scripts", () =>
+	Effect.gen(function* () {
+		const service = yield* OperationsService;
+		const exit = yield* Effect.exit(
+			service.invoke({
+				payload: {},
+				pluginSlug: "fixture",
+				headers: Headers.empty,
+				operationSlug: OPERATION_SLUG,
+			}),
+		);
+		expectError(exit, SandboxRunError);
+		assert(Exit.isFailure(exit));
+		const error = Option.getOrThrow(Cause.findErrorOption(exit.cause));
+		expect(error).toMatchObject({ message: "execute: operation failed" });
+	}).pipe(
+		Effect.provide(
+			makeLayer({
+				auth: "user",
+				sandboxError: "operation failed",
+				currentUserId: UserId.make("user-1"),
+			}),
+		),
+	),
+);
 
 it.effect("keeps operation script resolution stable while authentication is pending", () =>
 	Effect.gen(function* () {

@@ -10,12 +10,10 @@ import {
 } from "@ryot/contract/schema/brands";
 import type { AutomationInput } from "@ryot/sandbox-sdk/automation";
 import { Context, Effect, Layer, Schema } from "effect";
-import type { PersistedQueue } from "effect/unstable/persistence";
 import { Activity } from "effect/unstable/workflow";
-import type { WorkflowEngine, WorkflowInstance } from "effect/unstable/workflow/WorkflowEngine";
 
-import { processSandboxExecutionQueue } from "#modules/sandbox/durable-queues";
 import type { SandboxExecutionResult } from "#modules/sandbox/execution-result";
+import { SandboxExecutionService } from "#modules/sandbox/service";
 
 import { AutomationsService } from "./service";
 import {
@@ -42,11 +40,7 @@ const BeginSubscriptionRunResult = Schema.Union([
 export type SubscriptionExecutionWorkflowOperationsValue = {
 	runSandbox: (
 		payload: SandboxExecutionPayload,
-	) => Effect.Effect<
-		SandboxExecutionResult,
-		SandboxRunError,
-		WorkflowEngine | WorkflowInstance | PersistedQueue.PersistedQueueFactory
-	>;
+	) => Effect.Effect<SandboxExecutionResult, SandboxRunError>;
 };
 
 export class SubscriptionExecutionWorkflowOperations extends Context.Service<
@@ -54,11 +48,20 @@ export class SubscriptionExecutionWorkflowOperations extends Context.Service<
 	SubscriptionExecutionWorkflowOperationsValue
 >()("SubscriptionExecutionWorkflowOperations") {}
 
-export const SubscriptionExecutionWorkflowOperationsLive = Layer.succeed(
+export const SubscriptionExecutionWorkflowOperationsLive = Layer.effect(
 	SubscriptionExecutionWorkflowOperations,
-	{
-		runSandbox: processSandboxExecutionQueue,
-	},
+	Effect.gen(function* () {
+		const sandbox = yield* SandboxExecutionService;
+		return {
+			runSandbox: (payload: SandboxExecutionPayload) =>
+				sandbox.executeScript({
+					input: payload.context,
+					scriptId: payload.scriptId,
+					authority: payload.authority,
+					executionId: payload.executionId,
+				}),
+		} satisfies SubscriptionExecutionWorkflowOperationsValue;
+	}),
 );
 
 const prepareRun = Effect.fn("prepareSubscriptionRun")(function* (
@@ -181,12 +184,23 @@ export const runSubscriptionExecutionWorkflow = Effect.fn("SubscriptionExecution
 					},
 				}
 			: { type: "system" };
-		const result = yield* operations.runSandbox({
-			context,
-			authority,
-			scriptId: prepared.sandboxScriptId,
-			executionId: `${prepared.runId}-sandbox`,
-		});
+		const result = yield* operations
+			.runSandbox({
+				context,
+				authority,
+				scriptId: prepared.sandboxScriptId,
+				executionId: `${prepared.runId}-sandbox`,
+			})
+			.pipe(
+				Effect.catchTag("SandboxRunError", (error) =>
+					Effect.succeed({
+						logs: [],
+						value: null,
+						status: "completed" as const,
+						error: { phase: "execute" as const, message: error.message },
+					}),
+				),
+			);
 
 		yield* recordRunOutcome(prepared.runId, result);
 		return prepared.runId;
