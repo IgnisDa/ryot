@@ -25,79 +25,79 @@ import {
 	type SourceJsonRequestInput,
 } from "../../runtime/source-api";
 
-const MEDIATRACKER_CONCURRENCY = 5;
+const MEDIA_TRACKER_CONCURRENCY = 5;
 
-const mediatrackerMediaTypeSchema = z.enum(["audiobook", "book", "movie", "tv", "video_game"]);
+const mediaTrackerMediaTypeSchema = z.enum(["audiobook", "book", "movie", "tv", "video_game"]);
 
-const mediatrackerItemSchema = z.object({
+const mediaTrackerItemSchema = z.object({
 	id: z.number().int(),
-	mediaType: mediatrackerMediaTypeSchema.optional(),
+	mediaType: mediaTrackerMediaTypeSchema.optional(),
 });
 
-const mediatrackerListSchema = z.object({
+const mediaTrackerListSchema = z.object({
 	id: z.number().int(),
 	name: z.string(),
 	description: z.string().optional().nullable(),
 });
 
-const mediatrackerListItemSchema = z.object({ mediaItem: mediatrackerItemSchema });
+const mediaTrackerListItemSchema = z.object({ mediaItem: mediaTrackerItemSchema });
 
-const mediatrackerEpisodeSchema = z.object({
+const mediaTrackerEpisodeSchema = z.object({
 	id: z.number().int(),
 	seasonNumber: z.number().int(),
 	episodeNumber: z.number().int(),
 });
 
-const mediatrackerSeasonSchema = z.object({
-	episodes: z.array(mediatrackerEpisodeSchema).default([]),
+const mediaTrackerSeasonSchema = z.object({
+	episodes: z.array(mediaTrackerEpisodeSchema).default([]),
 });
 
-const mediatrackerSeenSchema = z.object({
+const mediaTrackerSeenSchema = z.object({
 	id: z.number().int(),
 	date: z.number().or(z.string()).optional().nullable(),
 	episodeId: z.number().int().optional().nullable(),
 });
 
-const mediatrackerReviewSchema = z.object({
+const mediaTrackerReviewSchema = z.object({
 	id: z.number().int(),
 	date: z.number().or(z.string()).optional().nullable(),
 	rating: z.number().optional().nullable(),
 	review: z.string().optional().nullable(),
 });
 
-const mediatrackerDetailsSchema = z.object({
+const mediaTrackerDetailsSchema = z.object({
 	id: z.number().int(),
 	name: z.string().optional(),
 	title: z.string().optional(),
 	asin: z.string().optional().nullable(),
 	igdbId: z.number().int().optional().nullable(),
 	tmdbId: z.number().int().optional().nullable(),
-	seasons: z.array(mediatrackerSeasonSchema).default([]),
+	seasons: z.array(mediaTrackerSeasonSchema).default([]),
 	goodreadsId: z.number().int().optional().nullable(),
 	openlibraryId: z.string().optional().nullable(),
-	userRating: mediatrackerReviewSchema.optional().nullable(),
-	seenHistory: z.array(mediatrackerSeenSchema).default([]),
+	userRating: mediaTrackerReviewSchema.optional().nullable(),
+	seenHistory: z.array(mediaTrackerSeenSchema).default([]),
 	audibleId: z.string().optional().nullable(),
 });
 
-type MediatrackerAdapterInput = {
+type MediaTrackerAdapterInput = {
 	apiKey: string;
 	apiUrl: string;
 	allowInsecureConnections?: boolean;
 };
 
-type MediatrackerImportAdapterDeps = {
+type MediaTrackerImportAdapterDeps = {
 	requestJson: <T>(input: SourceJsonRequestInput) => Promise<T>;
 	mapWithConcurrency: typeof mapWithConcurrency;
 };
 
-const mediatrackerImportAdapterDeps: MediatrackerImportAdapterDeps = {
+const mediaTrackerImportAdapterDeps: MediaTrackerImportAdapterDeps = {
 	requestJson: requestSourceJson,
 	mapWithConcurrency,
 };
 
-type MediatrackerDetails = z.infer<typeof mediatrackerDetailsSchema>;
-type MediatrackerMediaType = z.infer<typeof mediatrackerMediaTypeSchema>;
+type MediaTrackerDetails = z.infer<typeof mediaTrackerDetailsSchema>;
+type MediaTrackerMediaType = z.infer<typeof mediaTrackerMediaTypeSchema>;
 
 const createHeaders = (apiKey: string): Record<string, string> => ({
 	Accept: "application/json",
@@ -133,11 +133,11 @@ const parseOpenlibraryKey = (value: string): string | undefined => {
 
 const getMediaTrackerLabel = (
 	itemId: number,
-	mediaType: MediatrackerMediaType,
-	details?: MediatrackerDetails,
+	mediaType: MediaTrackerMediaType,
+	details?: MediaTrackerDetails,
 ) => details?.title ?? details?.name ?? `${toTitleCaseWords(mediaType)} ${itemId}`;
 
-const getFallbackOccurredAt = (details: MediatrackerDetails, importedAt: string): string => {
+const getFallbackOccurredAt = (details: MediaTrackerDetails, importedAt: string): string => {
 	const timestamps = [
 		...details.seenHistory.map((entry) => parseOccurredAt(entry.date)),
 		parseOccurredAt(details.userRating?.date),
@@ -154,8 +154,8 @@ const getFallbackOccurredAt = (details: MediatrackerDetails, importedAt: string)
 };
 
 const getEntityRef = (input: {
-	details: MediatrackerDetails;
-	mediaType: MediatrackerMediaType;
+	details: MediaTrackerDetails;
+	mediaType: MediaTrackerMediaType;
 	sourceLabel: string;
 }) => {
 	if (input.mediaType === "movie") {
@@ -244,7 +244,7 @@ const createLifecycleEvent = (input: { occurredAt: string; lifecycle: string }) 
 	return undefined;
 };
 
-const createMediatrackerItemFailure = (input: {
+const createMediaTrackerItemFailure = (input: {
 	error: unknown;
 	host: string;
 	message: string;
@@ -266,9 +266,9 @@ const isAdapterFailure = (
 	value: MediaImportAdapterFailure | null,
 ): value is MediaImportAdapterFailure => value !== null;
 
-export const adaptMediatrackerData = async (
-	input: MediatrackerAdapterInput,
-	deps: MediatrackerImportAdapterDeps = mediatrackerImportAdapterDeps,
+export const adaptMediaTrackerData = async (
+	input: MediaTrackerAdapterInput,
+	deps: MediaTrackerImportAdapterDeps = mediaTrackerImportAdapterDeps,
 ): Promise<MediaImportAdapterResult> => {
 	const failures: MediaImportAdapterFailure[] = [];
 	const importedAt = dayjs().toISOString();
@@ -287,7 +287,7 @@ export const adaptMediatrackerData = async (
 		}),
 	);
 
-	const lists = z.array(mediatrackerListSchema).parse(
+	const lists = z.array(mediaTrackerListSchema).parse(
 		await deps.requestJson({
 			headers,
 			baseUrl,
@@ -298,7 +298,7 @@ export const adaptMediatrackerData = async (
 		}),
 	);
 
-	const detailCache = new Map<string, Promise<MediatrackerDetails>>();
+	const detailCache = new Map<string, Promise<MediaTrackerDetails>>();
 	const getItemDetails = async (itemId: number) => {
 		const key = String(itemId);
 		let current = detailCache.get(key);
@@ -311,7 +311,7 @@ export const adaptMediatrackerData = async (
 					sourceName: "MediaTracker",
 					allowInsecureConnections: input.allowInsecureConnections,
 				})
-				.then((response) => mediatrackerDetailsSchema.parse(response))
+				.then((response) => mediaTrackerDetailsSchema.parse(response))
 				.catch((error) => {
 					detailCache.delete(key);
 					throw error;
@@ -324,9 +324,9 @@ export const adaptMediatrackerData = async (
 	let nextItemIndex = 0;
 	// oxlint-disable no-await-in-loop
 	for (const list of lists) {
-		let listItems: Array<z.infer<typeof mediatrackerListItemSchema>>;
+		let listItems: Array<z.infer<typeof mediaTrackerListItemSchema>>;
 		try {
-			listItems = z.array(mediatrackerListItemSchema).parse(
+			listItems = z.array(mediaTrackerListItemSchema).parse(
 				await deps.requestJson({
 					headers,
 					baseUrl,
@@ -338,7 +338,7 @@ export const adaptMediatrackerData = async (
 			);
 		} catch (error) {
 			failures.push(
-				createMediatrackerItemFailure({
+				createMediaTrackerItemFailure({
 					error,
 					host,
 					itemIndex: nextItemIndex,
@@ -352,7 +352,7 @@ export const adaptMediatrackerData = async (
 
 		const listFailures = await deps.mapWithConcurrency(
 			listItems,
-			MEDIATRACKER_CONCURRENCY,
+			MEDIA_TRACKER_CONCURRENCY,
 			async (listItem, offset) => {
 				const itemIndex = nextItemIndex + offset;
 				const mediaType = listItem.mediaItem.mediaType;
@@ -365,11 +365,11 @@ export const adaptMediatrackerData = async (
 					} satisfies MediaImportAdapterFailure;
 				}
 
-				let details: MediatrackerDetails;
+				let details: MediaTrackerDetails;
 				try {
 					details = await getItemDetails(listItem.mediaItem.id);
 				} catch (error) {
-					return createMediatrackerItemFailure({
+					return createMediaTrackerItemFailure({
 						error,
 						host,
 						itemIndex,
@@ -423,7 +423,7 @@ export const adaptMediatrackerData = async (
 	}
 	// oxlint-enable no-await-in-loop
 
-	const seenItems = z.array(mediatrackerItemSchema).parse(
+	const seenItems = z.array(mediaTrackerItemSchema).parse(
 		await deps.requestJson({
 			headers,
 			baseUrl,
@@ -435,7 +435,7 @@ export const adaptMediatrackerData = async (
 
 	const seenFailures = await deps.mapWithConcurrency(
 		seenItems,
-		MEDIATRACKER_CONCURRENCY,
+		MEDIA_TRACKER_CONCURRENCY,
 		async (item, offset) => {
 			const itemIndex = nextItemIndex + offset;
 			const mediaType = item.mediaType;
@@ -448,11 +448,11 @@ export const adaptMediatrackerData = async (
 				} satisfies MediaImportAdapterFailure;
 			}
 
-			let details: MediatrackerDetails;
+			let details: MediaTrackerDetails;
 			try {
 				details = await getItemDetails(item.id);
 			} catch (error) {
-				return createMediatrackerItemFailure({
+				return createMediaTrackerItemFailure({
 					error,
 					host,
 					itemIndex,
