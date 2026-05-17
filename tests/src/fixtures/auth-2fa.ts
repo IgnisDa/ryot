@@ -52,13 +52,18 @@ function generateTotpCode(secret: string) {
 
 export async function enableTwoFactorForSession(input: {
 	baseUrl: string;
+	origin?: string;
 	cookies: string;
 	issuer?: string;
 	password: string;
 }): Promise<TwoFactorSetupResult> {
 	const enableResponse = await fetch(`${input.baseUrl}/auth/two-factor/enable`, {
 		method: "POST",
-		headers: { Cookie: input.cookies, "Content-Type": "application/json" },
+		headers: {
+			Cookie: input.cookies,
+			"Content-Type": "application/json",
+			...(input.origin ? { Origin: input.origin } : {}),
+		},
 		body: JSON.stringify({ password: input.password, issuer: input.issuer ?? "Ryot" }),
 	});
 
@@ -91,8 +96,12 @@ export async function enableTwoFactorForSession(input: {
 
 	const verifyResponse = await fetch(`${input.baseUrl}/auth/two-factor/verify-totp`, {
 		method: "POST",
-		headers: { Cookie: input.cookies, "Content-Type": "application/json" },
 		body: JSON.stringify({ code: generateTotpCode(parseTotpSecret(totpURI)) }),
+		headers: {
+			Cookie: input.cookies,
+			"Content-Type": "application/json",
+			...(input.origin ? { Origin: input.origin } : {}),
+		},
 	});
 
 	if (!verifyResponse.ok) {
