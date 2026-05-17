@@ -7,7 +7,7 @@ import {
 	createNoteProgressPropertiesSchema,
 } from "~/lib/test-fixtures";
 import { expectDataResult } from "~/lib/test-helpers";
-import { authenticationBuiltinEntitySchemas } from "~/modules/authentication";
+import { builtinEntitySchemas as getBuiltinEntitySchemas } from "~/modules/builtins";
 
 import {
 	createEventSchema,
@@ -128,7 +128,7 @@ describe("resolveEventSchemaCreateInput", () => {
 });
 
 describe("validateEventSchemaSlugNotReserved", () => {
-	const builtinEntitySchemas = authenticationBuiltinEntitySchemas();
+	const builtinEntitySchemas = getBuiltinEntitySchemas();
 
 	it("throws for each built-in event schema slug", () => {
 		for (const entitySchema of builtinEntitySchemas) {

@@ -8,7 +8,7 @@ import { genericOAuth } from "better-auth/plugins";
 import { config, IS_DEVELOPMENT } from "~/lib/config";
 import { db, schema } from "~/lib/db";
 import { redis } from "~/lib/redis";
-import { bootstrapNewUser, defaultUserPreferences } from "~/modules/authentication";
+import { bootstrapNewUser, defaultUserPreferences } from "~/modules/builtins";
 
 export const OIDC_PROVIDER_ID = "oidc";
 
