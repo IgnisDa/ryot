@@ -24,23 +24,11 @@ Do not add functionality, abstractions, or generalization the user has not expli
 - **Return types**: Omit unless inference is insufficient.
 - **Field/variable ordering**: Ascending line length (shorter first). Exceptions for semantic grouping. Does not apply to imports or function parameters.
 
-```typescript
-const notification = {
-	color: "red",
-	title: "Invalid action",
-	message: "Changing preferences is disabled for demo users",
-};
-```
-
 ## Testing Philosophy
 
 - Test app-owned behavior and branching, not library behavior.
 - Keep assertions inline; extract duplicated setup, not test intent.
-- Anti-patterns to avoid:
-  - **Zod smoke tests**: `schema.safeParse(validInput)` asserting `success === true` only proves Zod works.
-  - **TypeScript-redundant tests**: asserting `object.field === "the value you just assigned"`. Giveaway: `X as string` casts to suppress TS errors.
-  - **Smoke-only integration assertions**: `expect(status).toBe(200)` + `expect(data).toBeDefined()` without verifying content.
-  - **Trivial library passthrough**: `typeof x === "function"` or `Array.isArray(x)` without checking behavior.
+- Avoid tests that only prove libraries or TypeScript work: Zod smoke parses, assigning then asserting the same value, status/data smoke checks, and `typeof`/`Array.isArray` passthroughs.
 
 ## Git Workflow
 
