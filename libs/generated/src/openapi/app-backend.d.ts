@@ -4597,6 +4597,10 @@ export interface paths {
             requestBody?: {
                 content: {
                     "application/json": {
+                        /** @enum {string} */
+                        source: "hevy";
+                        uploadToken: string;
+                    } | {
                         username: string;
                         /** @enum {string} */
                         source: "trakt";
