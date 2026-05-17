@@ -32,11 +32,15 @@ import {
 
 const migrateUserTableSql = `
 DO $$
-DECLARE rows_inserted int;
+DECLARE
+	rows_inserted int;
+	started_at timestamptz := clock_timestamp();
 BEGIN
 	IF to_regclass('"old_user"') IS NULL THEN
 		RETURN;
 	END IF;
+
+	RAISE NOTICE 'old_user -> user: migration started (% seconds elapsed)', 0.0;
 
 	WITH legacy_users AS (
 		SELECT
@@ -95,7 +99,9 @@ BEGIN
 	FROM legacy_users
 	ON CONFLICT ("id") DO NOTHING;
 	GET DIAGNOSTICS rows_inserted = ROW_COUNT;
-	RAISE NOTICE 'old_user -> user: % row(s) migrated', rows_inserted;
+	RAISE NOTICE 'old_user -> user: % row(s) migrated (% seconds elapsed)',
+		rows_inserted,
+		round(extract(epoch from clock_timestamp() - started_at)::numeric, 1);
 END $$;
 `;
 
