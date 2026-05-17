@@ -24,6 +24,71 @@ import {
 
 const date = (value: string) => dayjs.utc(value).toDate();
 
+const makeEventJoinColumnRef = (joinKey: string, column: "createdAt" | "id" | "occurredAt") => ({
+	type: "reference" as const,
+	reference: { joinKey, path: [column], type: "event-join" as const },
+});
+
+const makeEventJoinOccurredAtRef = (joinKey: string) =>
+	makeEventJoinColumnRef(joinKey, "occurredAt");
+
+const makeChronologicalComparisonPredicate = (leftJoinKey: string, rightJoinKey: string) => {
+	const leftOccurredAt = makeEventJoinColumnRef(leftJoinKey, "occurredAt");
+	const rightOccurredAt = makeEventJoinColumnRef(rightJoinKey, "occurredAt");
+	const leftCreatedAt = makeEventJoinColumnRef(leftJoinKey, "createdAt");
+	const rightCreatedAt = makeEventJoinColumnRef(rightJoinKey, "createdAt");
+	const leftId = makeEventJoinColumnRef(leftJoinKey, "id");
+	const rightId = makeEventJoinColumnRef(rightJoinKey, "id");
+
+	return {
+		type: "or" as const,
+		predicates: [
+			{ type: "isNull" as const, expression: rightOccurredAt },
+			{
+				left: leftOccurredAt,
+				right: rightOccurredAt,
+				operator: "gt" as const,
+				type: "comparison" as const,
+			},
+			{
+				type: "and" as const,
+				predicates: [
+					{
+						left: leftOccurredAt,
+						right: rightOccurredAt,
+						operator: "eq" as const,
+						type: "comparison" as const,
+					},
+					{
+						left: leftCreatedAt,
+						right: rightCreatedAt,
+						operator: "gt" as const,
+						type: "comparison" as const,
+					},
+				],
+			},
+			{
+				type: "and" as const,
+				predicates: [
+					{
+						left: leftOccurredAt,
+						right: rightOccurredAt,
+						operator: "eq" as const,
+						type: "comparison" as const,
+					},
+					{
+						left: leftCreatedAt,
+						right: rightCreatedAt,
+						operator: "eq" as const,
+						type: "comparison" as const,
+					},
+					{ left: leftId, right: rightId, operator: "gt" as const, type: "comparison" as const },
+				],
+			},
+		],
+	};
+};
+
 type SectionField =
 	| { key: string; value: Date; kind: "date" }
 	| { key: string; value: null; kind: "null" }
@@ -282,6 +347,30 @@ describe("getContinueItems", () => {
 		expect(result.items[0]?.id).toBe("book-1");
 	});
 
+	it("uses a lifecycle-aware filter so newer backlog, complete, dropped, or on_hold events remove items from Continue", async () => {
+		let capturedFilter: unknown;
+
+		await getContinueItems("user_1", {
+			executeQuery: (_userId, request) => {
+				if (request.mode === "entities") {
+					capturedFilter = request.filter;
+				}
+				return Promise.resolve(makeSectionResult([], { limit: 10 }));
+			},
+		});
+
+		expect(capturedFilter).toEqual({
+			type: "and",
+			predicates: [
+				{ type: "isNotNull", expression: makeEventJoinOccurredAtRef("progress") },
+				makeChronologicalComparisonPredicate("progress", "backlog"),
+				makeChronologicalComparisonPredicate("progress", "complete"),
+				makeChronologicalComparisonPredicate("progress", "dropped"),
+				makeChronologicalComparisonPredicate("progress", "on_hold"),
+			],
+		});
+	});
+
 	it("maps QueryEngineNotFoundError to not_found error", async () => {
 		const result = await getContinueItems("user_1", {
 			executeQuery: () => {
@@ -419,78 +508,10 @@ describe("getUpNextItems", () => {
 						},
 					},
 				},
-				{
-					type: "or",
-					predicates: [
-						{
-							type: "isNull",
-							expression: {
-								type: "reference",
-								reference: {
-									type: "event-join",
-									joinKey: "progress",
-									path: ["occurredAt"],
-								},
-							},
-						},
-						{
-							operator: "gt",
-							type: "comparison",
-							left: {
-								type: "reference",
-								reference: {
-									type: "event-join",
-									joinKey: "backlog",
-									path: ["occurredAt"],
-								},
-							},
-							right: {
-								type: "reference",
-								reference: {
-									type: "event-join",
-									joinKey: "progress",
-									path: ["occurredAt"],
-								},
-							},
-						},
-					],
-				},
-				{
-					type: "or",
-					predicates: [
-						{
-							type: "isNull",
-							expression: {
-								type: "reference",
-								reference: {
-									type: "event-join",
-									joinKey: "complete",
-									path: ["occurredAt"],
-								},
-							},
-						},
-						{
-							operator: "gt",
-							type: "comparison",
-							left: {
-								type: "reference",
-								reference: {
-									type: "event-join",
-									joinKey: "backlog",
-									path: ["occurredAt"],
-								},
-							},
-							right: {
-								type: "reference",
-								reference: {
-									type: "event-join",
-									joinKey: "complete",
-									path: ["occurredAt"],
-								},
-							},
-						},
-					],
-				},
+				makeChronologicalComparisonPredicate("backlog", "progress"),
+				makeChronologicalComparisonPredicate("backlog", "complete"),
+				makeChronologicalComparisonPredicate("backlog", "dropped"),
+				makeChronologicalComparisonPredicate("backlog", "on_hold"),
 			],
 		});
 	});
@@ -616,6 +637,31 @@ describe("getRateTheseItems", () => {
 
 		expect(result.items).toHaveLength(1);
 		expect(result.items[0]?.id).toBe("manga-1");
+	});
+
+	it("uses a lifecycle-aware filter so newer backlog, progress, dropped, or on_hold events remove items from Rate These", async () => {
+		let capturedFilter: unknown;
+
+		await getRateTheseItems("user_1", {
+			executeQuery: (_userId, request) => {
+				if (request.mode === "entities") {
+					capturedFilter = request.filter;
+				}
+				return Promise.resolve(makeSectionResult([], { limit: 10 }));
+			},
+		});
+
+		expect(capturedFilter).toEqual({
+			type: "and",
+			predicates: [
+				{ type: "isNotNull", expression: makeEventJoinOccurredAtRef("complete") },
+				makeChronologicalComparisonPredicate("complete", "backlog"),
+				makeChronologicalComparisonPredicate("complete", "progress"),
+				makeChronologicalComparisonPredicate("complete", "dropped"),
+				makeChronologicalComparisonPredicate("complete", "on_hold"),
+				makeChronologicalComparisonPredicate("complete", "review"),
+			],
+		});
 	});
 
 	it("maps QueryEngineNotFoundError to not_found error", async () => {
@@ -1063,6 +1109,50 @@ describe("getLibraryStats", () => {
 			"bySchema",
 			"avgRating",
 		]);
+	});
+
+	it("uses occurredAt lifecycle joins for aggregate stats", async () => {
+		let capturedRequest: AggregateQueryEngineRequest | undefined;
+
+		await getLibraryStats("user_1", {
+			executeQuery: (_userId, request) => {
+				if (request.mode === "aggregate") {
+					capturedRequest = request;
+				}
+				return Promise.resolve(
+					makeAggregateResult([
+						{ key: "total", kind: "number", value: 0 },
+						{ key: "inBacklog", kind: "number", value: 0 },
+						{ key: "inProgress", kind: "number", value: 0 },
+						{ key: "completed", kind: "number", value: 0 },
+						{ key: "avgRating", kind: "null", value: null },
+						{ key: "bySchema", kind: "json", value: {} },
+					]),
+				);
+			},
+		});
+
+		expect(capturedRequest?.eventJoins).toEqual([
+			{ key: "review", kind: "latestEvent", eventSchemaSlug: "review" },
+			{ key: "backlog", kind: "latestEvent", eventSchemaSlug: "backlog" },
+			{ key: "progress", kind: "latestEvent", eventSchemaSlug: "progress" },
+			{ key: "complete", kind: "latestEvent", eventSchemaSlug: "complete" },
+			{ key: "dropped", kind: "latestEvent", eventSchemaSlug: "dropped" },
+			{ key: "on_hold", kind: "latestEvent", eventSchemaSlug: "on_hold" },
+		]);
+		expect(capturedRequest?.aggregations.find((a) => a.key === "inBacklog")?.aggregation).toEqual({
+			type: "countWhere",
+			predicate: {
+				type: "and",
+				predicates: [
+					{ type: "isNotNull", expression: makeEventJoinOccurredAtRef("backlog") },
+					makeChronologicalComparisonPredicate("backlog", "progress"),
+					makeChronologicalComparisonPredicate("backlog", "complete"),
+					makeChronologicalComparisonPredicate("backlog", "dropped"),
+					makeChronologicalComparisonPredicate("backlog", "on_hold"),
+				],
+			},
+		});
 	});
 
 	it("uses in-library relationship filter", async () => {

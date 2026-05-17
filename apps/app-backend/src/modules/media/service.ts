@@ -52,7 +52,7 @@ const entityPropertyExpression = (slug: string, property: string) => ({
 	reference: { slug, path: ["properties", property], type: "entity" as const },
 });
 
-const eventJoinColumnExpression = (joinKey: string, column: "createdAt" | "occurredAt") => ({
+const eventJoinColumnExpression = (joinKey: string, column: "createdAt" | "id" | "occurredAt") => ({
 	type: "reference" as const,
 	reference: { joinKey, path: [column], type: "event-join" as const },
 });
@@ -64,6 +64,47 @@ const eventJoinPropertyExpression = (joinKey: string, property: string) => ({
 		type: "event-join" as const,
 		path: ["properties", property],
 	},
+});
+
+const lifecycleComparisonPredicate = (
+	left: ReturnType<typeof eventJoinColumnExpression>,
+	right: ReturnType<typeof eventJoinColumnExpression>,
+) => ({
+	type: "or" as const,
+	predicates: [
+		{ type: "isNull" as const, expression: right },
+		{ left, right, operator: "gt" as const, type: "comparison" as const },
+		{
+			type: "and" as const,
+			predicates: [
+				{ left, right, operator: "eq" as const, type: "comparison" as const },
+				{
+					left: eventJoinColumnExpression(left.reference.joinKey, "createdAt"),
+					right: eventJoinColumnExpression(right.reference.joinKey, "createdAt"),
+					operator: "gt" as const,
+					type: "comparison" as const,
+				},
+			],
+		},
+		{
+			type: "and" as const,
+			predicates: [
+				{ left, right, operator: "eq" as const, type: "comparison" as const },
+				{
+					left: eventJoinColumnExpression(left.reference.joinKey, "createdAt"),
+					right: eventJoinColumnExpression(right.reference.joinKey, "createdAt"),
+					operator: "eq" as const,
+					type: "comparison" as const,
+				},
+				{
+					left: eventJoinColumnExpression(left.reference.joinKey, "id"),
+					right: eventJoinColumnExpression(right.reference.joinKey, "id"),
+					operator: "gt" as const,
+					type: "comparison" as const,
+				},
+			],
+		},
+	],
 });
 
 const entitySchemaExpression = (column: string) => ({
@@ -216,12 +257,7 @@ const buildBaseRequest = (): Omit<EntityQueryEngineRequest, "filter" | "paginati
 				relationshipSchemaSlug: "in-library",
 			},
 		],
-		eventJoins: [
-			{ key: "review", kind: "latestEvent", eventSchemaSlug: "review" },
-			{ key: "backlog", kind: "latestEvent", eventSchemaSlug: "backlog" },
-			{ key: "progress", kind: "latestEvent", eventSchemaSlug: "progress" },
-			{ key: "complete", kind: "latestEvent", eventSchemaSlug: "complete" },
-		],
+		eventJoins: [...mediaLifecycleEventJoins],
 		computedFields: [
 			{ key: "totalUnits", expression: totalUnits },
 			{ key: "publishYear", expression: publishYear },
@@ -292,23 +328,18 @@ const requireEntitiesResult = (result: QueryEngineResponse) => {
 export const getContinueItems = async (userId: string, deps: MediaServiceDeps = defaultDeps) => {
 	const progressAtRef = eventJoinColumnExpression("progress", "occurredAt");
 	const completeAtRef = eventJoinColumnExpression("complete", "occurredAt");
+	const backlogAtRef = eventJoinColumnExpression("backlog", "occurredAt");
+	const droppedAtRef = eventJoinColumnExpression("dropped", "occurredAt");
+	const onHoldAtRef = eventJoinColumnExpression("on_hold", "occurredAt");
 
 	const filter = {
 		type: "and" as const,
 		predicates: [
 			{ expression: progressAtRef, type: "isNotNull" as const },
-			{
-				type: "or" as const,
-				predicates: [
-					{ type: "isNull" as const, expression: completeAtRef },
-					{
-						left: progressAtRef,
-						right: completeAtRef,
-						operator: "gt" as const,
-						type: "comparison" as const,
-					},
-				],
-			},
+			lifecycleComparisonPredicate(progressAtRef, backlogAtRef),
+			lifecycleComparisonPredicate(progressAtRef, completeAtRef),
+			lifecycleComparisonPredicate(progressAtRef, droppedAtRef),
+			lifecycleComparisonPredicate(progressAtRef, onHoldAtRef),
 		],
 	};
 
@@ -345,35 +376,17 @@ export const getUpNextItems = async (userId: string, deps: MediaServiceDeps = de
 	const backlogAtRef = eventJoinColumnExpression("backlog", "occurredAt");
 	const completeAtRef = eventJoinColumnExpression("complete", "occurredAt");
 	const progressAtRef = eventJoinColumnExpression("progress", "occurredAt");
+	const droppedAtRef = eventJoinColumnExpression("dropped", "occurredAt");
+	const onHoldAtRef = eventJoinColumnExpression("on_hold", "occurredAt");
 
 	const filter = {
 		type: "and" as const,
 		predicates: [
 			{ expression: backlogAtRef, type: "isNotNull" as const },
-			{
-				type: "or" as const,
-				predicates: [
-					{ type: "isNull" as const, expression: progressAtRef },
-					{
-						left: backlogAtRef,
-						right: progressAtRef,
-						operator: "gt" as const,
-						type: "comparison" as const,
-					},
-				],
-			},
-			{
-				type: "or" as const,
-				predicates: [
-					{ type: "isNull" as const, expression: completeAtRef },
-					{
-						left: backlogAtRef,
-						right: completeAtRef,
-						operator: "gt" as const,
-						type: "comparison" as const,
-					},
-				],
-			},
+			lifecycleComparisonPredicate(backlogAtRef, progressAtRef),
+			lifecycleComparisonPredicate(backlogAtRef, completeAtRef),
+			lifecycleComparisonPredicate(backlogAtRef, droppedAtRef),
+			lifecycleComparisonPredicate(backlogAtRef, onHoldAtRef),
 		],
 	};
 
@@ -409,23 +422,20 @@ export const getUpNextItems = async (userId: string, deps: MediaServiceDeps = de
 export const getRateTheseItems = async (userId: string, deps: MediaServiceDeps = defaultDeps) => {
 	const completeAtRef = eventJoinColumnExpression("complete", "occurredAt");
 	const reviewAtRef = eventJoinColumnExpression("review", "occurredAt");
+	const backlogAtRef = eventJoinColumnExpression("backlog", "occurredAt");
+	const progressAtRef = eventJoinColumnExpression("progress", "occurredAt");
+	const droppedAtRef = eventJoinColumnExpression("dropped", "occurredAt");
+	const onHoldAtRef = eventJoinColumnExpression("on_hold", "occurredAt");
 
 	const filter = {
 		type: "and" as const,
 		predicates: [
 			{ expression: completeAtRef, type: "isNotNull" as const },
-			{
-				type: "or" as const,
-				predicates: [
-					{ type: "isNull" as const, expression: reviewAtRef },
-					{
-						right: reviewAtRef,
-						left: completeAtRef,
-						operator: "gt" as const,
-						type: "comparison" as const,
-					},
-				],
-			},
+			lifecycleComparisonPredicate(completeAtRef, backlogAtRef),
+			lifecycleComparisonPredicate(completeAtRef, progressAtRef),
+			lifecycleComparisonPredicate(completeAtRef, droppedAtRef),
+			lifecycleComparisonPredicate(completeAtRef, onHoldAtRef),
+			lifecycleComparisonPredicate(completeAtRef, reviewAtRef),
 		],
 	};
 
@@ -599,23 +609,29 @@ export const getWeekActivity = async (userId: string, deps: MediaServiceDeps = d
 	}
 };
 
-const mediaLibraryEventJoins: AggregateQueryEngineRequest["eventJoins"] = [
+const mediaLifecycleEventJoins: AggregateQueryEngineRequest["eventJoins"] = [
 	{ key: "review", kind: "latestEvent", eventSchemaSlug: "review" },
 	{ key: "backlog", kind: "latestEvent", eventSchemaSlug: "backlog" },
 	{ key: "progress", kind: "latestEvent", eventSchemaSlug: "progress" },
 	{ key: "complete", kind: "latestEvent", eventSchemaSlug: "complete" },
+	{ key: "dropped", kind: "latestEvent", eventSchemaSlug: "dropped" },
+	{ key: "on_hold", kind: "latestEvent", eventSchemaSlug: "on_hold" },
 ];
 
-const backlogAtRef = eventJoinColumnExpression("backlog", "createdAt");
-const progressAtRef = eventJoinColumnExpression("progress", "createdAt");
-const completeAtRef = eventJoinColumnExpression("complete", "createdAt");
+const backlogAtRef = eventJoinColumnExpression("backlog", "occurredAt");
+const progressAtRef = eventJoinColumnExpression("progress", "occurredAt");
+const completeAtRef = eventJoinColumnExpression("complete", "occurredAt");
+const droppedAtRef = eventJoinColumnExpression("dropped", "occurredAt");
+const onHoldAtRef = eventJoinColumnExpression("on_hold", "occurredAt");
 
 const inBacklogPredicate = {
 	type: "and" as const,
 	predicates: [
 		{ type: "isNotNull" as const, expression: backlogAtRef },
-		{ type: "isNull" as const, expression: progressAtRef },
-		{ type: "isNull" as const, expression: completeAtRef },
+		lifecycleComparisonPredicate(backlogAtRef, progressAtRef),
+		lifecycleComparisonPredicate(backlogAtRef, completeAtRef),
+		lifecycleComparisonPredicate(backlogAtRef, droppedAtRef),
+		lifecycleComparisonPredicate(backlogAtRef, onHoldAtRef),
 	],
 };
 
@@ -623,18 +639,10 @@ const inProgressPredicate = {
 	type: "and" as const,
 	predicates: [
 		{ type: "isNotNull" as const, expression: progressAtRef },
-		{
-			type: "or" as const,
-			predicates: [
-				{ type: "isNull" as const, expression: completeAtRef },
-				{
-					left: progressAtRef,
-					right: completeAtRef,
-					operator: "gt" as const,
-					type: "comparison" as const,
-				},
-			],
-		},
+		lifecycleComparisonPredicate(progressAtRef, backlogAtRef),
+		lifecycleComparisonPredicate(progressAtRef, completeAtRef),
+		lifecycleComparisonPredicate(progressAtRef, droppedAtRef),
+		lifecycleComparisonPredicate(progressAtRef, onHoldAtRef),
 	],
 };
 
@@ -642,18 +650,10 @@ const completedPredicate = {
 	type: "and" as const,
 	predicates: [
 		{ type: "isNotNull" as const, expression: completeAtRef },
-		{
-			type: "or" as const,
-			predicates: [
-				{ type: "isNull" as const, expression: progressAtRef },
-				{
-					left: completeAtRef,
-					right: progressAtRef,
-					operator: "gt" as const,
-					type: "comparison" as const,
-				},
-			],
-		},
+		lifecycleComparisonPredicate(completeAtRef, backlogAtRef),
+		lifecycleComparisonPredicate(completeAtRef, progressAtRef),
+		lifecycleComparisonPredicate(completeAtRef, droppedAtRef),
+		lifecycleComparisonPredicate(completeAtRef, onHoldAtRef),
 	],
 };
 
@@ -662,7 +662,7 @@ export const getLibraryStats = async (userId: string, deps: MediaServiceDeps = d
 		filter: null,
 		mode: "aggregate",
 		computedFields: [],
-		eventJoins: mediaLibraryEventJoins,
+		eventJoins: mediaLifecycleEventJoins,
 		scope: [...builtinMediaEntitySchemaSlugs],
 		relationshipJoins: [
 			{
