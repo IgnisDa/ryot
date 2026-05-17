@@ -1,6 +1,6 @@
 import { useAutoAnimate } from "@formkit/auto-animate/react";
 import { Anchor, Avatar, Box, Flex, Group, Indicator, Stack, Text } from "@mantine/core";
-import { humanizeDuration } from "@ryot/ts-utils";
+import { humanizeDuration } from "@ryot/ts-utils/format";
 import type { ReactNode } from "react";
 
 import { dayjsLib } from "~/lib/shared/date-utils";

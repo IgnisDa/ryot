@@ -1,6 +1,6 @@
 import type { RouteConfig } from "@hono/zod-openapi";
 import { z } from "@hono/zod-openapi";
-import { resolveDataOrError } from "@ryot/ts-utils";
+import { resolveDataOrError } from "@ryot/ts-utils/error";
 
 import { requireAuth } from "~/lib/auth/middleware";
 import type { ServiceResult } from "~/lib/result";

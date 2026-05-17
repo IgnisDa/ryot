@@ -1,4 +1,5 @@
-import { type AppSchema, dayjs } from "@ryot/ts-utils";
+import type { AppSchema } from "@ryot/ts-utils/app-schema";
+import { dayjs } from "@ryot/ts-utils/dayjs";
 import { generateId } from "better-auth";
 import { isNull, sql } from "drizzle-orm";
 import {

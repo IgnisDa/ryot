@@ -4,7 +4,7 @@ import {
 	createComputedFieldExpression,
 	createEntityColumnExpression,
 	createEventAggregateExpression,
-} from "@ryot/ts-utils";
+} from "@ryot/ts-utils/view-language";
 
 import {
 	comparisonPredicate,

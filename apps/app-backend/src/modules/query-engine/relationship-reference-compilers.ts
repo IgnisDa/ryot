@@ -1,4 +1,4 @@
-import type { RuntimeRef } from "@ryot/ts-utils";
+import type { RuntimeRef } from "@ryot/ts-utils/view-language";
 import { sql } from "drizzle-orm";
 
 import { QueryEngineValidationError } from "~/lib/views/errors";
