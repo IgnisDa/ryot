@@ -1,7 +1,7 @@
 # Legacy Bootstrap Agent Notes
 
-The purpose of this module is to migrate legacy V1 Rust data (apps/backend) into the V2
-TypeScript backend (apps/app-backend) during startup.
+The purpose of this module is to migrate legacy V1 Rust data (`apps/backend`) into the V2
+TypeScript backend (`apps/app-backend`) during startup.
 
 ## Boundaries
 
