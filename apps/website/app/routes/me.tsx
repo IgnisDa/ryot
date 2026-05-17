@@ -250,18 +250,8 @@ export const action = async ({ request }: Route.ActionArgs) => {
 			}
 
 			try {
-				const { data: resetPasswordResponse, error } = await resetUserPassword(
-					UserId.make(customer.ryotUserId),
-				);
-
-				if (error) {
-					return data({ error: error.message });
-				}
-
-				return data({
-					email: resetPasswordResponse.email,
-					resetUrl: resetPasswordResponse.resetUrl,
-				});
+				const reset = await resetUserPassword(UserId.make(customer.ryotUserId));
+				return data({ email: reset.email, resetUrl: reset.resetUrl });
 			} catch {
 				return data({ error: "Failed to reach the backend server" });
 			}
