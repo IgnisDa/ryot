@@ -29,7 +29,9 @@ export function ShellNavigation(props: Props) {
 
 	return (
 		<Box className="relative flex-1 md:flex-row">
-			<Box className="flex-1">{props.children}</Box>
+			<Box className="flex-1">
+				<Box className="flex-1 web:mx-auto web:w-full web:max-w-4xl">{props.children}</Box>
+			</Box>
 			<Box className="hidden h-full self-stretch md:flex md:flex-none">
 				{subFlyoutOpen && <ShellSubFlyout />}
 				<ShellRail pinned onClose={() => {}} />
