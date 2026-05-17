@@ -6,6 +6,7 @@ import { KeyboardAvoidingView, Platform, type TextInputProps } from "react-nativ
 import { z } from "zod";
 
 import { Box } from "@/components/ui/box";
+import { Input, InputField } from "@/components/ui/input";
 import { Pressable } from "@/components/ui/pressable";
 import { Text } from "@/components/ui/text";
 import { useSystemConfig } from "@/lib/api-client";
@@ -37,15 +38,25 @@ const schema = z.object({
 	password: z.string().min(8, "Password must be at least 8 characters"),
 });
 
+type TwoFactorMethod = "totp" | "backupCode";
+
+function isTwoFactorRedirectData(
+	data: unknown,
+): data is { twoFactorMethods?: string[]; twoFactorRedirect: true } {
+	return Boolean(data && typeof data === "object" && "twoFactorRedirect" in data);
+}
+
 export default function Auth() {
 	const authClient = useAuthClient();
+	const configQuery = useSystemConfig();
 	const setServerUrl = useSetServerUrl();
 	const oidcAutoLaunched = useRef(false);
 	const [mode, setMode] = useState<AuthMode>("login");
+	const [twoFactorCode, setTwoFactorCode] = useState("");
 	const [oidcError, setOidcError] = useState<string | null>(null);
+	const [step, setStep] = useState<"credentials" | "twoFactor">("credentials");
+	const [twoFactorMethod, setTwoFactorMethod] = useState<TwoFactorMethod>("totp");
 	const passwordInputRef = useRef<(TextInputProps & { focus: () => void }) | null>(null);
-
-	const configQuery = useSystemConfig();
 
 	const authConfig = configQuery.data?.auth;
 	const oidcEnabled = authConfig?.oidcEnabled ?? false;
@@ -67,9 +78,39 @@ export default function Auth() {
 					throw new Error(error.message ?? "Could not create account");
 				}
 			}
-			const { error } = await authClient.signIn.email({ email, password });
+			const result = await authClient.signIn.email({ email, password });
+			if (result.error) {
+				throw new Error(result.error.message ?? "Invalid email or password");
+			}
+
+			return result;
+		},
+		onSuccess: (result) => {
+			if (isTwoFactorRedirectData(result.data)) {
+				const availableMethods = result.data.twoFactorMethods ?? [];
+				setTwoFactorMethod(availableMethods.includes("totp") ? "totp" : "backupCode");
+				setTwoFactorCode("");
+				setStep("twoFactor");
+				return;
+			}
+
+			router.replace("/(app)");
+		},
+	});
+
+	const twoFactorMutation = useMutation({
+		mutationFn: async (code: string) => {
+			if (twoFactorMethod === "backupCode") {
+				const { error } = await authClient.twoFactor.verifyBackupCode({ code });
+				if (error) {
+					throw new Error(error.message ?? "Could not verify the backup code");
+				}
+				return;
+			}
+
+			const { error } = await authClient.twoFactor.verifyTotp({ code });
 			if (error) {
-				throw new Error(error.message ?? "Invalid email or password");
+				throw new Error(error.message ?? "Could not verify the code");
 			}
 		},
 		onSuccess: () => router.replace("/(app)"),
@@ -106,10 +147,31 @@ export default function Auth() {
 		}
 	}, [signupAllowed, mode]);
 
+	function resetTwoFactorFlow() {
+		setStep("credentials");
+		setTwoFactorCode("");
+		setTwoFactorMethod("totp");
+		authMutation.reset();
+		twoFactorMutation.reset();
+	}
+
 	function switchMode(next: AuthMode) {
 		setMode(next);
-		authMutation.reset();
+		resetTwoFactorFlow();
 		form.setFieldValue("password", "");
+	}
+
+	async function handleTwoFactorSubmit() {
+		if (twoFactorMutation.isPending) {
+			return;
+		}
+
+		const code = twoFactorCode.trim();
+		if (!code) {
+			return;
+		}
+
+		await twoFactorMutation.mutateAsync(code);
 	}
 
 	async function handleChangeServer() {
@@ -144,6 +206,108 @@ export default function Auth() {
 					</Pressable>
 				</Box>
 			</Box>
+		);
+	}
+
+	if (step === "twoFactor") {
+		const isBackupCode = twoFactorMethod === "backupCode";
+
+		return (
+			<KeyboardAvoidingView
+				style={{ flex: 1 }}
+				behavior={Platform.OS === "ios" ? "padding" : "height"}
+			>
+				<Box className="flex-1 bg-background justify-center items-center">
+					<Box className="w-full max-w-md px-6 gap-8">
+						<Box className="gap-4">
+							<Box className="items-center gap-1">
+								<Text className="text-xl font-semibold text-foreground">
+									Two-factor authentication
+								</Text>
+								<Text className="text-muted-foreground text-sm text-center">
+									Enter a code from your authenticator app or one of your backup codes.
+								</Text>
+							</Box>
+							<Box className="flex-row rounded-lg border border-border overflow-hidden">
+								{(
+									[
+										["totp", "Authenticator app"],
+										["backupCode", "Backup code"],
+									] as const
+								).map(([method, label]) => (
+									<Pressable
+										key={method}
+										disabled={twoFactorMutation.isPending}
+										onPress={() => {
+											setTwoFactorMethod(method);
+											setTwoFactorCode("");
+											twoFactorMutation.reset();
+										}}
+										className={clsx(
+											"flex-1 py-2 items-center",
+											twoFactorMethod === method ? "bg-primary" : "bg-transparent",
+											twoFactorMutation.isPending && "opacity-50",
+										)}
+									>
+										<Text
+											className={clsx(
+												"text-sm font-medium",
+												twoFactorMethod === method
+													? "text-primary-foreground"
+													: "text-muted-foreground",
+											)}
+										>
+											{label}
+										</Text>
+									</Pressable>
+								))}
+							</Box>
+							<Text className="text-muted-foreground text-sm text-center">
+								{isBackupCode
+									? "Enter one of your backup codes."
+									: "Enter the 6-digit code from your authenticator app."}
+							</Text>
+							<Input>
+								<InputField
+									autoFocus
+									returnKeyType="go"
+									autoCorrect={false}
+									value={twoFactorCode}
+									key={twoFactorMethod}
+									autoCapitalize="none"
+									submitBehavior="submit"
+									onChangeText={setTwoFactorCode}
+									onSubmitEditing={() => void handleTwoFactorSubmit()}
+									placeholder={isBackupCode ? "Backup code" : "123456"}
+									keyboardType={isBackupCode ? "default" : "number-pad"}
+								/>
+							</Input>
+							{twoFactorMutation.error && (
+								<Text className="text-destructive text-sm">{twoFactorMutation.error.message}</Text>
+							)}
+							<Pressable
+								onPress={() => void handleTwoFactorSubmit()}
+								disabled={twoFactorMutation.isPending || !twoFactorCode.trim()}
+								className={clsx(
+									"w-full py-3 rounded-lg border border-border items-center",
+									(twoFactorMutation.isPending || !twoFactorCode.trim()) && "opacity-50",
+								)}
+							>
+								<Text className="text-sm font-medium text-foreground">
+									{isBackupCode ? "Verify backup code" : "Verify code"}
+								</Text>
+							</Pressable>
+							<Pressable
+								disabled={twoFactorMutation.isPending}
+								onPress={() => resetTwoFactorFlow()}
+								className={clsx("items-center", twoFactorMutation.isPending && "opacity-50")}
+							>
+								<Text className="text-muted-foreground text-sm">Back to login</Text>
+							</Pressable>
+						</Box>
+					</Box>
+				</Box>
+			</KeyboardAvoidingView>
 		);
 	}
 
