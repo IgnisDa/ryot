@@ -1,4 +1,4 @@
-import { createEntityColumnExpression } from "@ryot/ts-utils";
+import { createEntityColumnExpression, createEntitySchemaExpression } from "@ryot/ts-utils";
 
 import type { AppEntitySavedView, AppSavedView } from "~/features/saved-views/model";
 
@@ -14,10 +14,12 @@ const nameExpression = createEntityColumnExpression("schema-1", "name");
 const imageExpression = createEntityColumnExpression("schema-1", "image");
 
 export const defaultSavedViewDisplayConfiguration: AppSavedView["displayConfiguration"] = {
+	entityIdProperty: createEntityColumnExpression("schema-1", "id"),
 	table: {
 		columns: [{ label: "Name", expression: nameExpression }],
 	},
 	grid: {
+		eyebrowProperty: createEntitySchemaExpression("name"),
 		calloutProperty: nullExpression,
 		titleProperty: nameExpression,
 		imageProperty: imageExpression,
@@ -25,6 +27,7 @@ export const defaultSavedViewDisplayConfiguration: AppSavedView["displayConfigur
 		secondarySubtitleProperty: nullExpression,
 	},
 	list: {
+		eyebrowProperty: createEntitySchemaExpression("name"),
 		calloutProperty: nullExpression,
 		titleProperty: nameExpression,
 		imageProperty: imageExpression,
