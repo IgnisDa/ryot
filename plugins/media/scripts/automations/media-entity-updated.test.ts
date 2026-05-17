@@ -111,7 +111,7 @@ it("uses the parent show and season context for episode facts", () =>
 				properties: {
 					episodeNumber: 1,
 					publishDate: "2026-01-01",
-					images: [{ type: "remote", url: "old" }],
+					images: [{ type: "remote", url: "old", purpose: "still" }],
 				},
 			},
 			after: {
@@ -120,7 +120,7 @@ it("uses the parent show and season context for episode facts", () =>
 				properties: {
 					episodeNumber: 1,
 					publishDate: "2026-02-01",
-					images: [{ type: "remote", url: "new" }],
+					images: [{ type: "remote", url: "new", purpose: "still" }],
 				},
 			},
 		}),
@@ -246,8 +246,8 @@ it("treats image order and duplicates as equal and ignores null-sided dates", ()
 					episodeNumber: 1,
 					publishDate: null,
 					images: [
-						{ url: "a", type: "remote" },
-						{ url: "b", type: "remote" },
+						{ url: "a", type: "remote", purpose: "still" },
+						{ url: "b", type: "remote", purpose: "still" },
 					],
 				},
 			},
@@ -258,9 +258,9 @@ it("treats image order and duplicates as equal and ignores null-sided dates", ()
 					episodeNumber: 1,
 					publishDate: "2026-01-01",
 					images: [
-						{ type: "remote", url: "b" },
-						{ type: "remote", url: "a" },
-						{ type: "remote", url: "a" },
+						{ type: "remote", url: "b", purpose: "still" },
+						{ type: "remote", url: "a", purpose: "still" },
+						{ type: "remote", url: "a", purpose: "still" },
 					],
 				},
 			},

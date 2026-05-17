@@ -18,6 +18,7 @@ const getTranslationRequest = (input: ProviderTranslateInput) => {
 	if (input.entitySchemaSlug === "show") {
 		return {
 			imageKey: "posters",
+			purpose: "cover" as const,
 			imagesPath: `/tv/${input.externalId}/images`,
 			translationsPath: `/tv/${input.externalId}/translations`,
 		};
@@ -44,6 +45,7 @@ const getTranslationRequest = (input: ProviderTranslateInput) => {
 	if (input.entitySchemaSlug === "show-season") {
 		return {
 			imageKey: "posters",
+			purpose: "cover" as const,
 			imagesPath: `/tv/${parentShowExternalId}/season/${seasonNumber}/images`,
 			translationsPath: `/tv/${parentShowExternalId}/season/${seasonNumber}/translations`,
 		};
@@ -62,6 +64,7 @@ const getTranslationRequest = (input: ProviderTranslateInput) => {
 		}
 		return {
 			imageKey: "stills",
+			purpose: "still" as const,
 			imagesPath: `/tv/${parentShowExternalId}/season/${seasonNumber}/episode/${episodeNumber}/images`,
 			translationsPath: `/tv/${parentShowExternalId}/season/${seasonNumber}/episode/${episodeNumber}/translations`,
 		};
@@ -89,12 +92,15 @@ export const translateTmdbShow = (input: ProviderTranslateInput, host: TmdbHost,
 		);
 		const description = firstTranslationValue(candidates, (data) => data["overview"]);
 		const imageUrl = getLocalizedImageUrl(imagesData, request.imageKey, langCode);
-		const properties: Record<string, string | Array<{ type: "remote"; url: string }>> = {};
+		const properties: Record<
+			string,
+			string | Array<{ type: "remote"; url: string; purpose: "cover" | "still" }>
+		> = {};
 		if (description) {
 			properties["description"] = description;
 		}
 		if (imageUrl) {
-			properties["images"] = [{ type: "remote", url: imageUrl }];
+			properties["images"] = [{ type: "remote", url: imageUrl, purpose: request.purpose }];
 		}
 		return {
 			...(name ? { name } : {}),

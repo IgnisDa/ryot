@@ -75,7 +75,7 @@ describe("person.metron sandbox script", () => {
 					birthDate: "1980-05-01",
 					description: "A creator.",
 					sourceUrl: "https://metron.cloud/creator/3",
-					images: [{ type: "remote", url: "https://img/jane.jpg" }],
+					images: [{ type: "remote", url: "https://img/jane.jpg", purpose: "profile" }],
 				});
 				return undefined;
 			}),

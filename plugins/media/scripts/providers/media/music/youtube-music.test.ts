@@ -38,7 +38,7 @@ describe("music.youtube-music sandbox script", () => {
 						duration: 180,
 						publishYear: 2024,
 						byVariousArtists: false,
-						images: [{ type: "remote", url: "https://img/1.jpg" }],
+						images: [{ type: "remote", url: "https://img/1.jpg", purpose: "cover" }],
 						sourceUrl: "https://music.youtube.com/watch?v=track-1",
 					});
 					expect(details.relatedEntityGroups).toEqual([

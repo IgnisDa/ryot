@@ -58,7 +58,11 @@ export const details = defineProvider({
 				return yield* Effect.fail(new Error("TVDB returned no title for this movie"));
 			}
 
-			const images = collectImages([movie["image"], movie["image_url"]], movie["artworks"]);
+			const images = collectImages(
+				[movie["image"], movie["image_url"]],
+				movie["artworks"],
+				"cover",
+			);
 			const genres = collectGenres(movie["genres"]);
 			const firstAired = stringValue(movie["firstAired"]);
 			const publishYear = parsePublishYear(movie["year"]) ?? parsePublishYear(firstAired);
@@ -156,6 +160,7 @@ export const translate = defineProvider({
 				const image = getLocalizedArtwork(
 					detailsData ? asRecord(detailsData["data"])?.["artworks"] : null,
 					providerLanguage,
+					"cover",
 				);
 				return buildTranslationResult(translationData, image);
 			}),

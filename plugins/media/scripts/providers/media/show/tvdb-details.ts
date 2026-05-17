@@ -34,11 +34,8 @@ const buildSeason = (
 	const seasonNumber = seasonNumberValue === null ? 0 : Math.trunc(seasonNumberValue);
 	const year = stringValue(season["year"]);
 	const releaseDate = year && /^\d{4}$/.test(year) ? `${year}-01-01` : null;
-	const posterCandidates = [
-		stringValue(season["image"]),
-		...recordsValue(season["artwork"]).map((art) => stringValue(art["image"])),
-	].flatMap((url) => (url ? [url] : []));
-	const posterImage = posterCandidates[0] ?? null;
+	const seasonImages = collectImages([season["image"]], season["artwork"], "cover");
+	const [seasonImage] = seasonImages;
 	const childEntities = recordsValue(season["episodes"]).flatMap((episode) => {
 		const episodeIdValue = numberValue(episode["id"]);
 		if (episodeIdValue === null || episodeIdValue <= 0) {
@@ -62,7 +59,9 @@ const buildSeason = (
 					description: stringValue(episode["overview"]),
 					episodeNumber: epNumber,
 					publishDate: stringValue(episode["aired"]),
-					...(epImage ? { images: [{ type: "remote" as const, url: epImage }] } : {}),
+					...(epImage
+						? { images: [{ type: "remote" as const, url: epImage, purpose: "still" as const }] }
+						: {}),
 				},
 			},
 		];
@@ -77,7 +76,7 @@ const buildSeason = (
 			seasonNumber,
 			parentShowExternalId,
 			releaseDate,
-			...(posterImage ? { images: [{ type: "remote" as const, url: posterImage }] } : {}),
+			...(seasonImage ? { images: [seasonImage] } : {}),
 		},
 	};
 };
@@ -108,7 +107,7 @@ export const getTvdbShowDetails = (
 		if (!title) {
 			return yield* Effect.fail(new Error("TVDB returned no name for this series"));
 		}
-		const images = collectImages([show["image"]], show["artworks"]);
+		const images = collectImages([show["image"]], show["artworks"], "cover");
 		const genres = collectGenres(show["genres"]);
 		const people = collectPeople(show["characters"]);
 		const relatedEntities = people.relatedEntities.map((entity) => ({

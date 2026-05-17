@@ -261,6 +261,7 @@ export const details = defineProvider({
 					images: collectImages(volumeInfo?.["imageLinks"]).map((url) => ({
 						url,
 						type: "remote" as const,
+						purpose: "cover" as const,
 					})),
 				},
 			};

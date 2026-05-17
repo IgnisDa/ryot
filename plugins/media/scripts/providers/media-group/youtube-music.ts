@@ -85,7 +85,9 @@ export const buildAlbumDetails = (client: AlbumClient, externalId: string) =>
 		});
 
 		const coverUrl = getBestThumbnailUrl(albumRecord?.["thumbnail"] ?? headerRecord?.["thumbnail"]);
-		const images = coverUrl ? [{ type: "remote" as const, url: coverUrl }] : [];
+		const images = coverUrl
+			? [{ type: "remote" as const, url: coverUrl, purpose: "cover" as const }]
+			: [];
 		const playlistIdValue = albumRecord?.["playlist_id"];
 		const playlistId = typeof playlistIdValue === "string" ? playlistIdValue : null;
 		const sourceUrl = playlistId ? `https://music.youtube.com/playlist?list=${playlistId}` : null;

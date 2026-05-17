@@ -171,7 +171,7 @@ describe("music.spotify sandbox script", () => {
 						byVariousArtists: true,
 						publishDate: "2019-03-15",
 						sourceUrl: "https://open.spotify.com/track/t1",
-						images: [{ type: "remote", url: "https://img/cover.jpg" }],
+						images: [{ type: "remote", url: "https://img/cover.jpg", purpose: "cover" }],
 					});
 					return undefined;
 				}),
