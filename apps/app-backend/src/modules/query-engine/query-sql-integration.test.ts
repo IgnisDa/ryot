@@ -15,7 +15,7 @@ import {
 } from "~/lib/test-fixtures";
 import { buildEventJoinMap, buildSchemaMap } from "~/lib/views/reference";
 
-import { buildResolvedFieldsExpression } from "./display-builder";
+import { buildResolvedFieldsExpression } from "./display-sql-builder";
 import { createQueryCompiler, createScalarExpressionCompiler } from "./expression-compiler";
 import { createExpressionTypeResolver } from "./expression-type-resolver";
 import { buildFilterWhereClause } from "./filter-builder";

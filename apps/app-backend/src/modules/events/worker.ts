@@ -34,9 +34,9 @@ const processEventsJob = async (job: Job) => {
 };
 
 export const createEventsWorker = () => {
-	const worker = new Worker("events", processEventsJob, {
+	const worker = new Worker("event", processEventsJob, {
 		connection: getRedisConnection(),
 	});
-	worker.on("error", onWorkerError("events"));
+	worker.on("error", onWorkerError("event"));
 	return worker;
 };

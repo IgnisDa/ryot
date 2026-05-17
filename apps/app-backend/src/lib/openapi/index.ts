@@ -75,6 +75,11 @@ export const createInternalErrorResult = (message: string) => ({
 	body: errorResponse(ERROR_CODES.INTERNAL_ERROR, message),
 });
 
+export const createHealthCheckFailedErrorResult = (message: string) => ({
+	status: 503 as const,
+	body: errorResponse(ERROR_CODES.HEALTH_CHECK_FAILED, message),
+});
+
 export const createServiceErrorResult = <E extends string>(
 	result: Extract<ServiceResult<never, E>, { error: E }>,
 	input?: { notFoundErrors?: readonly E[] },

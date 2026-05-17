@@ -11,11 +11,7 @@ import { type ServiceResult, serviceData, serviceError, wrapServiceValidator } f
 import { sandboxScriptMetadataSchema } from "~/lib/sandbox/types";
 import { authenticationBuiltinEntitySchemas } from "~/modules/authentication";
 import type { ListedEntity } from "~/modules/entities";
-import {
-	type MediaImportJobData,
-	mediaImportJobData,
-	mediaImportJobName,
-} from "~/modules/media/jobs";
+import { type MediaImportJobData, mediaImportJobData, mediaImportJobName } from "~/modules/media";
 import { parseLabeledPropertySchemaInput } from "~/modules/property-schemas";
 import {
 	type EnqueueSandboxBody,
