@@ -1,6 +1,6 @@
 import { migrate } from "drizzle-orm/node-postgres/migrator";
 
-import { renameLegacyTables, migrateLegacyTables } from "~/modules/_migration";
+import { renameLegacyTables, migrateLegacyTables } from "~/modules/legacyBootstrap";
 
 import { db } from "./index";
 import { seedInitialDatabase } from "./seed";
