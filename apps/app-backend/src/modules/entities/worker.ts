@@ -1,16 +1,10 @@
 import { z } from "@hono/zod-openapi";
-import { dayjs } from "@ryot/ts-utils/dayjs";
-import { normalizeSlug } from "@ryot/ts-utils/slug";
-import { type Job, WaitingChildrenError, Worker } from "bullmq";
+import { type Job, Worker } from "bullmq";
 
-import { parseAppSchemaProperties } from "~/lib/app/schema-validation";
 import { sha1Hex } from "~/lib/bun";
-import { relatedEntityReferenceSchema } from "~/lib/media/common";
 import { getQueues } from "~/lib/queue";
 import { getRedisConnection } from "~/lib/queue/connection";
 import { onWorkerError } from "~/lib/queue/utils";
-import { sandboxRunJobName, sandboxRunJobResult } from "~/lib/sandbox/jobs";
-import { imagesSchema } from "~/lib/zod";
 import {
 	getBuiltinEntitySchemaBySandboxScriptId,
 	getBuiltinEntitySchemaBySlug,
@@ -27,6 +21,16 @@ import {
 	entityPreloadWaitingForSandboxStep,
 } from "./jobs";
 import {
+	type EntityPopulationDeps,
+	entityPopulationDeps,
+	getSandboxChildRunResult,
+	hasImportedEntityDetails,
+	populateGlobalEntity,
+	processRelatedEntities,
+	queueSandboxChildRun,
+	waitForSandboxChildRun,
+} from "./population";
+import {
 	createGlobalEntity,
 	findGlobalEntityByExternalId,
 	getEntitySchemaScopeForUser,
@@ -34,14 +38,7 @@ import {
 	updateGlobalEntityById,
 	upsertInLibraryRelationship,
 } from "./repository";
-import type { ListedEntity } from "./schemas";
 import { writeEntityRelationship } from "./service";
-
-const entityDetailsResultSchema = z.object({
-	name: z.string(),
-	properties: z.record(z.string(), z.unknown()),
-	relatedEntities: z.array(relatedEntityReferenceSchema).default([]),
-});
 
 const entitySearchResultSchema = z.object({
 	items: z.array(z.object({ externalId: z.string().min(1) })),
@@ -50,27 +47,11 @@ const entitySearchResultSchema = z.object({
 	}),
 });
 
-const extractPrimaryImage = (images: unknown) => {
-	const parsedImages = imagesSchema.safeParse(images);
-	return parsedImages.success ? (parsedImages.data[0] ?? null) : null;
-};
+export { hasImportedEntityDetails, processRelatedEntities };
 
-export const hasImportedEntityDetails = (entityRow: Pick<ListedEntity, "populatedAt">) =>
-	entityRow.populatedAt !== null;
-
-export type EntityImportWorkerDeps = {
-	createGlobalEntity: typeof createGlobalEntity;
-	updateGlobalEntityById: typeof updateGlobalEntityById;
-	getUserLibraryEntityId: typeof getUserLibraryEntityId;
+export type EntityImportWorkerDeps = EntityPopulationDeps & {
 	getSandboxScriptForUser: typeof getSandboxScriptForUser;
-	writeEntityRelationship: typeof writeEntityRelationship;
-	getEntitySchemaScopeForUser: typeof getEntitySchemaScopeForUser;
-	upsertInLibraryRelationship: typeof upsertInLibraryRelationship;
-	findGlobalEntityByExternalId: typeof findGlobalEntityByExternalId;
 	getBuiltinEntitySchemaBySlug: typeof getBuiltinEntitySchemaBySlug;
-	getBuiltinSandboxScriptBySlug: typeof getBuiltinSandboxScriptBySlug;
-	getBuiltinRelationshipSchemaBySlug: typeof getBuiltinRelationshipSchemaBySlug;
-	getBuiltinEntitySchemaBySandboxScriptId: typeof getBuiltinEntitySchemaBySandboxScriptId;
 	addEntityQueueJob: (input: {
 		name: string;
 		jobId?: string;
@@ -87,169 +68,21 @@ const addEntityQueueJob: EntityImportWorkerDeps["addEntityQueueJob"] = async (in
 };
 
 const entityImportWorkerDeps: EntityImportWorkerDeps = {
+	...entityPopulationDeps,
 	addEntityQueueJob,
+	getSandboxScriptForUser,
+	getBuiltinEntitySchemaBySlug,
+	// re-declare the shared deps explicitly so the spread above is clearly typed
 	createGlobalEntity,
 	updateGlobalEntityById,
 	getUserLibraryEntityId,
-	getSandboxScriptForUser,
 	writeEntityRelationship,
 	getEntitySchemaScopeForUser,
 	upsertInLibraryRelationship,
 	findGlobalEntityByExternalId,
-	getBuiltinEntitySchemaBySlug,
 	getBuiltinSandboxScriptBySlug,
 	getBuiltinRelationshipSchemaBySlug,
 	getBuiltinEntitySchemaBySandboxScriptId,
-};
-
-const findImportedGlobalEntity = async (
-	input: {
-		externalId: string;
-		entitySchemaId: string;
-		sandboxScriptId: string;
-	},
-	deps: Pick<EntityImportWorkerDeps, "findGlobalEntityByExternalId"> = entityImportWorkerDeps,
-) => {
-	const existingEntity = await deps.findGlobalEntityByExternalId(input);
-	if (!existingEntity || !hasImportedEntityDetails(existingEntity)) {
-		return null;
-	}
-
-	return existingEntity;
-};
-
-const upsertEntityInLibrary = async (
-	input: { userId: string; entityId: string },
-	deps: Pick<
-		EntityImportWorkerDeps,
-		"getUserLibraryEntityId" | "upsertInLibraryRelationship"
-	> = entityImportWorkerDeps,
-) => {
-	const libraryEntityId = await deps.getUserLibraryEntityId({
-		userId: input.userId,
-	});
-	if (!libraryEntityId) {
-		throw new Error("User library entity not found");
-	}
-
-	await deps.upsertInLibraryRelationship({
-		libraryEntityId,
-		userId: input.userId,
-		mediaEntityId: input.entityId,
-	});
-};
-
-const queueSandboxChildRun = async (input: {
-	job: Job;
-	childJobId: string;
-	jobData: Record<string, unknown>;
-	sandboxJobData: Record<string, unknown>;
-}) => {
-	if (!input.job.id) {
-		throw new Error("Entity import job id is missing");
-	}
-
-	await getQueues().sandboxQueue.add(sandboxRunJobName, input.sandboxJobData, {
-		jobId: input.childJobId,
-		parent: { id: input.job.id, queue: input.job.queueQualifiedName },
-	});
-	await input.job.updateData(input.jobData);
-};
-
-const waitForSandboxChildRun = async (job: Job, token: string | undefined) => {
-	if (!token) {
-		throw new Error("Entity import job token is missing");
-	}
-
-	const shouldWait = await job.moveToWaitingChildren(token);
-	if (shouldWait) {
-		throw new WaitingChildrenError();
-	}
-};
-
-const getSandboxChildRunResult = async (job: Job) => {
-	const childrenValues = await job.getChildrenValues();
-	const [childValue] = Object.values(childrenValues);
-	if (Object.keys(childrenValues).length !== 1) {
-		throw new Error("Sandbox child job did not complete successfully");
-	}
-
-	const parsed = sandboxRunJobResult.safeParse(childValue);
-	if (!parsed.success) {
-		throw new Error("Sandbox child job returned an invalid payload");
-	}
-
-	return parsed.data;
-};
-
-export const processRelatedEntities = async (
-	input: {
-		entityId: string;
-		entitySchemaSlug: string;
-		relatedEntities: Array<z.infer<typeof relatedEntityReferenceSchema>>;
-	},
-	deps: Pick<
-		EntityImportWorkerDeps,
-		| "createGlobalEntity"
-		| "getBuiltinEntitySchemaBySandboxScriptId"
-		| "getBuiltinRelationshipSchemaBySlug"
-		| "getBuiltinSandboxScriptBySlug"
-		| "writeEntityRelationship"
-	> = entityImportWorkerDeps,
-) => {
-	if (input.relatedEntities.length === 0) {
-		return;
-	}
-
-	// oxlint-disable no-await-in-loop
-	for (const relatedEntity of input.relatedEntities) {
-		const relatedScript = await deps.getBuiltinSandboxScriptBySlug(relatedEntity.scriptSlug);
-		if (!relatedScript) {
-			throw new Error(`Related sandbox script not found for slug "${relatedEntity.scriptSlug}"`);
-		}
-
-		const relatedSchema = await deps.getBuiltinEntitySchemaBySandboxScriptId(relatedScript.id);
-		if (!relatedSchema) {
-			throw new Error(
-				`Related entity schema not found for sandbox script slug "${relatedEntity.scriptSlug}"`,
-			);
-		}
-
-		const relationshipSchemaSlug = relatedEntity.reverseDirection
-			? normalizeSlug(`${input.entitySchemaSlug} to ${relatedSchema.slug}`)
-			: normalizeSlug(`${relatedSchema.slug} to ${input.entitySchemaSlug}`);
-
-		const relationshipSchema =
-			await deps.getBuiltinRelationshipSchemaBySlug(relationshipSchemaSlug);
-		if (!relationshipSchema) {
-			throw new Error(
-				`No relationship schema seeded for related type "${relatedSchema.slug}" and entity type "${input.entitySchemaSlug}" (slug: "${relationshipSchemaSlug}") — check bootstrap manifests`,
-			);
-		}
-
-		const { entity: existingOrCreated } = await deps.createGlobalEntity({
-			name: relatedEntity.name,
-			entitySchemaId: relatedSchema.id,
-			sandboxScriptId: relatedScript.id,
-			externalId: relatedEntity.externalId,
-		});
-
-		const sourceEntityId = relatedEntity.reverseDirection ? input.entityId : existingOrCreated.id;
-		const targetEntityId = relatedEntity.reverseDirection ? existingOrCreated.id : input.entityId;
-
-		const relationshipResult = await deps.writeEntityRelationship({
-			targetEntityId,
-			sourceEntityId,
-			relationshipSchemaId: relationshipSchema.id,
-			properties: relatedEntity.relationshipProperties,
-		});
-		if ("error" in relationshipResult) {
-			throw new Error(
-				`Failed to write ${relationshipSchemaSlug} relationship: ${relationshipResult.message}`,
-			);
-		}
-	}
-	// oxlint-enable no-await-in-loop
 };
 
 export const processEntityImportJob = async (
@@ -263,8 +96,8 @@ export const processEntityImportJob = async (
 	}
 
 	const { userId, scriptId, externalId, entitySchemaId, linkToLibrary } = parsed.data;
+	const step = parsed.data.step;
 
-	let step = parsed.data.step;
 	if (!step) {
 		const script = await deps.getSandboxScriptForUser({ userId, scriptId });
 		if (!script) {
@@ -272,104 +105,31 @@ export const processEntityImportJob = async (
 		}
 	}
 
-	const existingEntity = await findImportedGlobalEntity(
-		{ externalId, entitySchemaId, sandboxScriptId: scriptId },
-		deps,
-	);
-	if (existingEntity) {
-		if (linkToLibrary) {
-			await upsertEntityInLibrary({ userId, entityId: existingEntity.id }, deps);
-		}
-		return existingEntity;
-	}
+	const sandboxAlreadyQueued = step === entityImportWaitingForSandboxStep;
+	const sandboxChildJobId = `${job.id}_sandbox`;
+	const updatedJobData = { ...parsed.data, step: entityImportWaitingForSandboxStep };
 
-	if (!step) {
-		await queueSandboxChildRun({
-			job,
-			childJobId: `${job.id}_sandbox`,
-			jobData: { ...parsed.data, step: entityImportWaitingForSandboxStep },
-			sandboxJobData: { userId, scriptId, driverName: "details", context: { externalId } },
-		});
-		step = entityImportWaitingForSandboxStep;
-	}
-
-	// oxlint-disable-next-line no-unnecessary-condition
-	if (step !== entityImportWaitingForSandboxStep) {
-		throw new Error(`Unsupported entity import job step: ${String(step)}`);
-	}
-
-	await waitForSandboxChildRun(job, token);
-
-	const sandboxResult = await getSandboxChildRunResult(job);
-
-	if (!sandboxResult.success) {
-		throw new Error(sandboxResult.error ?? "Entity details script failed");
-	}
-	if (sandboxResult.error) {
-		throw new Error(sandboxResult.error);
-	}
-
-	const detailsParsed = entityDetailsResultSchema.safeParse(sandboxResult.value);
-	if (!detailsParsed.success) {
-		throw new Error("Entity details script returned an unexpected shape");
-	}
-
-	const details = detailsParsed.data;
-	const scope = await deps.getEntitySchemaScopeForUser({ userId, entitySchemaId });
-	if (!scope) {
-		throw new Error("Entity schema not found");
-	}
-	const schemaFieldKeys = Object.keys(scope.propertiesSchema.fields);
-	const properties: Record<string, unknown> = {};
-	for (const key of schemaFieldKeys) {
-		if (details.properties[key] !== undefined) {
-			properties[key] = details.properties[key];
-		}
-	}
-	const validatedProperties = parseAppSchemaProperties({
-		properties,
-		kind: "Entity",
-		propertiesSchema: scope.propertiesSchema,
-	});
-	const parsedImages = imagesSchema.safeParse(validatedProperties.images);
-	if (!parsedImages.success) {
-		throw new Error("Entity details images are invalid");
-	}
-	validatedProperties.images = parsedImages.data;
-
-	const image = extractPrimaryImage(validatedProperties.images);
-
-	const { entity: importedEntity, isNew } = await deps.createGlobalEntity({
-		externalId,
-		entitySchemaId,
-		name: details.name,
-		sandboxScriptId: scriptId,
-	});
-
-	await processRelatedEntities(
+	const result = await populateGlobalEntity(
+		job,
+		token,
 		{
-			entityId: importedEntity.id,
-			entitySchemaSlug: scope.slug,
-			relatedEntities: details.relatedEntities,
+			userId,
+			scriptId,
+			externalId,
+			linkToLibrary,
+			entitySchemaId,
+			updatedJobData,
+			sandboxChildJobId,
+			sandboxAlreadyQueued,
 		},
 		deps,
 	);
 
-	const updatedEntity = await deps.updateGlobalEntityById({
-		image,
-		entitySchemaId,
-		name: details.name,
-		entityId: importedEntity.id,
-		properties: validatedProperties,
-		populatedAt:
-			isNew || !importedEntity.populatedAt ? dayjs().toDate() : importedEntity.populatedAt,
-	});
-
-	if (linkToLibrary) {
-		await upsertEntityInLibrary({ userId, entityId: importedEntity.id }, deps);
+	if ("error" in result) {
+		throw new Error(result.error.message);
 	}
 
-	return updatedEntity;
+	return result.entity;
 };
 
 const createEntityQueueJobId = (prefix: string, input: Record<string, unknown>) => {
