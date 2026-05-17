@@ -1,5 +1,3 @@
-import { performance } from "node:perf_hooks";
-
 import { migrate } from "drizzle-orm/node-postgres/migrator";
 
 import {
