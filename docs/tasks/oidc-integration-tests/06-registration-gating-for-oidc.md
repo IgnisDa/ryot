@@ -4,7 +4,7 @@
 
 **Type:** AFK
 
-**Status:** todo
+**Status:** done
 
 ## What to build
 
@@ -41,10 +41,10 @@ Only test a **first-time** user on Backend C. A user who already exists (created
 
 ## Acceptance criteria
 
-- [ ] The test asserts that a first-time OIDC sign-in against a backend with `USERS_ALLOW_REGISTRATION=false` does not produce a valid session
-- [ ] The test asserts that no `user` row with the attempted email exists in the database after the failed flow
-- [ ] The unique `username` used in the test does not conflict with any other test in the file
-- [ ] `bun run check`, `bun run test`, and `bun run format` pass in the `tests` directory
+- [x] The test asserts that a first-time OIDC sign-in against a backend with `USERS_ALLOW_REGISTRATION=false` does not produce a valid session
+- [x] The test asserts that no `user` row with the attempted email exists in the database after the failed flow
+- [x] The unique `username` used in the test does not conflict with any other test in the file
+- [x] `bun run check`, `bun run test`, and `bun run format` pass in the `tests` directory
 
 ## User stories addressed
 
