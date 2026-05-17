@@ -38,12 +38,12 @@ export const config = {
 		allowRegistration: rawSystem.users.allowRegistration === "true",
 	},
 	server: {
+		adminAccessToken: requireField(rawSystem.server.adminAccessToken, "SERVER_ADMIN_ACCESS_TOKEN"),
 		corsOrigins:
 			rawSystem.server.corsOrigins
 				?.split(",")
 				.map((origin) => origin.trim())
 				.filter(Boolean) ?? [],
-		adminAccessToken: requireField(rawSystem.server.adminAccessToken, "SERVER_ADMIN_ACCESS_TOKEN"),
 		oidc: {
 			clientId: rawSystem.server.oidc.clientId,
 			issuerUrl: rawSystem.server.oidc.issuerUrl,
