@@ -5,6 +5,7 @@ import {
 	createAddToCollectionDeps,
 	createCollectionDeps,
 	createCollectionResponse,
+	createGetOrCreateCollectionDeps,
 	createRemoveFromCollectionDeps,
 } from "~/lib/test-fixtures";
 import { expectDataResult, expectErrorResult } from "~/lib/test-helpers";
@@ -12,6 +13,7 @@ import { expectDataResult, expectErrorResult } from "~/lib/test-helpers";
 import {
 	addToCollection,
 	createCollection,
+	getOrCreateCollection,
 	removeFromCollection,
 	resolveCollectionName,
 } from "./service";
@@ -451,14 +453,48 @@ describe("createCollection", () => {
 	});
 });
 
+describe("getOrCreateCollection", () => {
+	it("returns an existing collection with the same normalized name", async () => {
+		let wasCreateCalled = false;
+		const data = expectDataResult(
+			await getOrCreateCollection(
+				{ body: { name: " Existing " }, userId: "user-1" },
+				createGetOrCreateCollectionDeps({
+					findCollectionByNameForUser: (input) =>
+						Promise.resolve(
+							createCollectionResponse({ id: "collection_existing", name: input.name }),
+						),
+					createCollectionForUser: () => {
+						wasCreateCalled = true;
+						return Promise.resolve(createCollectionResponse());
+					},
+				}),
+			),
+		);
+
+		expect(data.id).toBe("collection_existing");
+		expect(data.name).toBe("Existing");
+		expect(wasCreateCalled).toBe(false);
+	});
+
+	it("creates the collection when no matching collection exists", async () => {
+		const data = expectDataResult(
+			await getOrCreateCollection(
+				{ body: { name: "New Collection" }, userId: "user-1" },
+				createGetOrCreateCollectionDeps(),
+			),
+		);
+
+		expect(data.name).toBe("New Collection");
+		expect(data.entitySchemaId).toBe("schema_collection");
+	});
+});
+
 describe("addToCollection", () => {
 	it("returns validation error when trying to add collection to itself", async () => {
 		const err = expectErrorResult(
 			await addToCollection(
-				{
-					userId: "user-1",
-					body: { collectionId: "same-id", entityId: "same-id" },
-				},
+				{ userId: "user-1", body: { collectionId: "same-id", entityId: "same-id" } },
 				createAddToCollectionDeps(),
 			),
 		);
@@ -470,10 +506,7 @@ describe("addToCollection", () => {
 	it("adds an entity to a collection and returns the membership", async () => {
 		const data = expectDataResult(
 			await addToCollection(
-				{
-					userId: "user-1",
-					body: { collectionId: "collection-1", entityId: "entity-1" },
-				},
+				{ userId: "user-1", body: { collectionId: "collection-1", entityId: "entity-1" } },
 				createAddToCollectionDeps(),
 			),
 		);
@@ -513,10 +546,7 @@ describe("addToCollection", () => {
 			),
 		);
 
-		expect(data.memberOf.properties).toEqual({
-			priority: "high",
-			notes: "Important item",
-		});
+		expect(data.memberOf.properties).toEqual({ priority: "high", notes: "Important item" });
 	});
 
 	it("upserts in-library when adding a global entity to a collection", async () => {
@@ -528,10 +558,7 @@ describe("addToCollection", () => {
 
 		expectDataResult(
 			await addToCollection(
-				{
-					userId: "user-1",
-					body: { collectionId: "collection-1", entityId: "entity-1" },
-				},
+				{ userId: "user-1", body: { collectionId: "collection-1", entityId: "entity-1" } },
 				createAddToCollectionDeps({
 					getUserLibraryEntityId: () => Promise.resolve("library-123"),
 					getEntityById: () => Promise.resolve({ id: "entity-1", userId: null }),
@@ -544,11 +571,7 @@ describe("addToCollection", () => {
 		);
 
 		expect(calls).toEqual([
-			{
-				userId: "user-1",
-				mediaEntityId: "entity-1",
-				libraryEntityId: "library-123",
-			},
+			{ userId: "user-1", mediaEntityId: "entity-1", libraryEntityId: "library-123" },
 		]);
 	});
 
@@ -557,10 +580,7 @@ describe("addToCollection", () => {
 
 		expectDataResult(
 			await addToCollection(
-				{
-					userId: "user-1",
-					body: { collectionId: "collection-1", entityId: "entity-1" },
-				},
+				{ userId: "user-1", body: { collectionId: "collection-1", entityId: "entity-1" } },
 				createAddToCollectionDeps({
 					getEntityById: () => Promise.resolve({ id: "entity-1", userId: null }),
 					upsertInLibraryRelationship: () => {
@@ -579,10 +599,7 @@ describe("addToCollection", () => {
 
 		expectDataResult(
 			await addToCollection(
-				{
-					userId: "user-1",
-					body: { collectionId: "collection-1", entityId: "entity-1" },
-				},
+				{ userId: "user-1", body: { collectionId: "collection-1", entityId: "entity-1" } },
 				createAddToCollectionDeps({
 					upsertInLibraryRelationship: () => {
 						upsertCalls++;
@@ -597,20 +614,14 @@ describe("addToCollection", () => {
 
 	it("fails clearly when a global entity is added without a library entity", async () => {
 		const result = await addToCollection(
-			{
-				userId: "user-1",
-				body: { collectionId: "collection-1", entityId: "entity-1" },
-			},
+			{ userId: "user-1", body: { collectionId: "collection-1", entityId: "entity-1" } },
 			createAddToCollectionDeps({
 				getUserLibraryEntityId: () => Promise.resolve(undefined),
 				getEntityById: () => Promise.resolve({ id: "entity-1", userId: null }),
 			}),
 		);
 
-		expect(result).toEqual({
-			error: "validation",
-			message: "User library entity not found",
-		});
+		expect(result).toEqual({ error: "validation", message: "User library entity not found" });
 	});
 
 	it("does not upsert in-library when membership properties are invalid", async () => {
@@ -632,13 +643,7 @@ describe("addToCollection", () => {
 						createCollectionResponse({
 							properties: {
 								membershipPropertiesSchema: {
-									fields: {
-										rating: {
-											type: "integer",
-											label: "Rating",
-											description: "Rating",
-										},
-									},
+									fields: { rating: { type: "integer", label: "Rating", description: "Rating" } },
 								},
 							},
 						}),
@@ -677,11 +682,7 @@ describe("addToCollection", () => {
 								properties: {
 									membershipPropertiesSchema: {
 										fields: {
-											rating: {
-												type: "integer",
-												label: "Rating",
-												description: "Rating",
-											},
+											rating: { type: "integer", label: "Rating", description: "Rating" },
 											recommendedBy: {
 												type: "string",
 												label: "Recommended By",
@@ -712,10 +713,7 @@ describe("addToCollection", () => {
 		);
 
 		expect(receivedProperties).toEqual({ recommendedBy: "John", rating: 5 });
-		expect(data.memberOf.properties).toEqual({
-			rating: 5,
-			recommendedBy: "John",
-		});
+		expect(data.memberOf.properties).toEqual({ rating: 5, recommendedBy: "John" });
 	});
 
 	it("returns validation error when properties don't match schema type", async () => {
@@ -735,13 +733,7 @@ describe("addToCollection", () => {
 							createCollectionResponse({
 								properties: {
 									membershipPropertiesSchema: {
-										fields: {
-											rating: {
-												type: "integer",
-												label: "Rating",
-												description: "Rating",
-											},
-										},
+										fields: { rating: { type: "integer", label: "Rating", description: "Rating" } },
 									},
 								},
 							}),
@@ -759,11 +751,7 @@ describe("addToCollection", () => {
 			await addToCollection(
 				{
 					userId: "user-1",
-					body: {
-						properties: {},
-						entityId: "entity-1",
-						collectionId: "collection-1",
-					},
+					body: { properties: {}, entityId: "entity-1", collectionId: "collection-1" },
 				},
 				createAddToCollectionDeps({
 					getCollectionById: () =>
@@ -798,11 +786,7 @@ describe("addToCollection", () => {
 				await addToCollection(
 					{
 						userId: "user-1",
-						body: {
-							properties: {},
-							entityId: "entity-1",
-							collectionId: "collection-1",
-						},
+						body: { properties: {}, entityId: "entity-1", collectionId: "collection-1" },
 					},
 					createAddToCollectionDeps({
 						getCollectionById: () =>
@@ -846,13 +830,7 @@ describe("addToCollection", () => {
 								createCollectionResponse({
 									properties: {
 										membershipPropertiesSchema: {
-											fields: {
-												score: {
-													type: "integer",
-													label: "Score",
-													description: "Score",
-												},
-											},
+											fields: { score: { label: "Score", type: "integer", description: "Score" } },
 										},
 									},
 								}),
@@ -869,11 +847,7 @@ describe("addToCollection", () => {
 				await addToCollection(
 					{
 						userId: "user-1",
-						body: {
-							properties: {},
-							entityId: "entity-1",
-							collectionId: "collection-1",
-						},
+						body: { properties: {}, entityId: "entity-1", collectionId: "collection-1" },
 					},
 					createAddToCollectionDeps({
 						getCollectionById: () =>
@@ -883,8 +857,8 @@ describe("addToCollection", () => {
 										membershipPropertiesSchema: {
 											fields: {
 												name: {
-													type: "string",
 													label: "Name",
+													type: "string",
 													description: "Name",
 													validation: { required: true },
 												},
@@ -930,11 +904,7 @@ describe("addToCollection", () => {
 													label: "Details",
 													description: "Details",
 													properties: {
-														score: {
-															type: "integer",
-															label: "Score",
-															description: "Score",
-														},
+														score: { label: "Score", type: "integer", description: "Score" },
 													},
 												},
 											},
@@ -972,10 +942,7 @@ describe("addToCollection", () => {
 			),
 		);
 
-		expect(receivedProperties).toEqual({
-			anyCustomField: "any value",
-			another: 123,
-		});
+		expect(receivedProperties).toEqual({ another: 123, anyCustomField: "any value" });
 	});
 
 	it("validates nested object properties against schema", async () => {
@@ -988,9 +955,7 @@ describe("addToCollection", () => {
 					body: {
 						entityId: "entity-1",
 						collectionId: "collection-1",
-						properties: {
-							recommendationDetails: { friend: "Alice", context: "Work lunch" },
-						},
+						properties: { recommendationDetails: { friend: "Alice", context: "Work lunch" } },
 					},
 				},
 				createAddToCollectionDeps({
@@ -1005,11 +970,7 @@ describe("addToCollection", () => {
 												label: "Recommendation Details",
 												description: "Recommendation details",
 												properties: {
-													friend: {
-														type: "string",
-														label: "Friend",
-														description: "Friend name",
-													},
+													friend: { type: "string", label: "Friend", description: "Friend name" },
 													context: {
 														type: "string",
 														label: "Context",
@@ -1057,9 +1018,7 @@ describe("addToCollection", () => {
 					body: {
 						entityId: "entity-1",
 						collectionId: "collection-1",
-						properties: {
-							recommendationDetails: { friend: "Alice", score: "not a number" },
-						},
+						properties: { recommendationDetails: { friend: "Alice", score: "not a number" } },
 					},
 				},
 				createAddToCollectionDeps({
@@ -1074,14 +1033,10 @@ describe("addToCollection", () => {
 												label: "Recommendation Details",
 												description: "Recommendation details",
 												properties: {
-													friend: {
-														type: "string",
-														label: "Friend",
-														description: "Friend name",
-													},
+													friend: { type: "string", label: "Friend", description: "Friend name" },
 													score: {
-														type: "integer",
 														label: "Score",
+														type: "integer",
 														description: "Recommendation score",
 													},
 												},
@@ -1104,10 +1059,7 @@ describe("addToCollection", () => {
 			await addToCollection(
 				{
 					userId: "user-1",
-					body: {
-						collectionId: "collection-1",
-						entityId: "entity-with-invisible-schema",
-					},
+					body: { collectionId: "collection-1", entityId: "entity-with-invisible-schema" },
 				},
 				createAddToCollectionDeps({ getEntityById: () => Promise.resolve(undefined) }),
 			),
@@ -1120,10 +1072,7 @@ describe("addToCollection", () => {
 	it("returns not_found error when collection does not exist", async () => {
 		const err = expectErrorResult(
 			await addToCollection(
-				{
-					userId: "user-1",
-					body: { collectionId: "nonexistent", entityId: "entity-1" },
-				},
+				{ userId: "user-1", body: { collectionId: "nonexistent", entityId: "entity-1" } },
 				createAddToCollectionDeps({ getCollectionById: () => Promise.resolve(undefined) }),
 			),
 		);
@@ -1135,10 +1084,7 @@ describe("addToCollection", () => {
 	it("returns not_found error when entity does not exist", async () => {
 		const err = expectErrorResult(
 			await addToCollection(
-				{
-					userId: "user-1",
-					body: { collectionId: "collection-1", entityId: "nonexistent" },
-				},
+				{ userId: "user-1", body: { collectionId: "collection-1", entityId: "nonexistent" } },
 				createAddToCollectionDeps({ getEntityById: () => Promise.resolve(undefined) }),
 			),
 		);
@@ -1152,10 +1098,7 @@ describe("addToCollection", () => {
 
 		expectDataResult(
 			await addToCollection(
-				{
-					userId: "user-1",
-					body: { collectionId: "collection-1", entityId: "entity-1" },
-				},
+				{ userId: "user-1", body: { collectionId: "collection-1", entityId: "entity-1" } },
 				createAddToCollectionDeps({
 					addEntityToCollection: (input) => {
 						receivedProperties = input.properties;
@@ -1197,10 +1140,7 @@ describe("addToCollection", () => {
 			),
 		);
 
-		expect(data.memberOf.properties).toEqual({
-			updated: true,
-			newProp: "value",
-		});
+		expect(data.memberOf.properties).toEqual({ updated: true, newProp: "value" });
 	});
 
 	it("prevents duplicate relationships by upserting", async () => {
@@ -1228,10 +1168,7 @@ describe("addToCollection", () => {
 		};
 
 		await addToCollection(
-			{
-				userId: "user-1",
-				body: { collectionId: "collection-1", entityId: "entity-1" },
-			},
+			{ userId: "user-1", body: { collectionId: "collection-1", entityId: "entity-1" } },
 			createAddToCollectionDeps({ addEntityToCollection }),
 		);
 
@@ -1255,10 +1192,7 @@ describe("addToCollection", () => {
 	it("propagates repository errors", () => {
 		return expect(
 			addToCollection(
-				{
-					userId: "user-1",
-					body: { collectionId: "collection-1", entityId: "entity-1" },
-				},
+				{ userId: "user-1", body: { collectionId: "collection-1", entityId: "entity-1" } },
 				createAddToCollectionDeps({
 					addEntityToCollection: () => {
 						throw new Error("Database connection lost");
@@ -1273,10 +1207,7 @@ describe("removeFromCollection", () => {
 	it("removes an entity from a collection and returns the deleted membership", async () => {
 		const data = expectDataResult(
 			await removeFromCollection(
-				{
-					userId: "user-1",
-					body: { collectionId: "collection-1", entityId: "entity-1" },
-				},
+				{ userId: "user-1", body: { collectionId: "collection-1", entityId: "entity-1" } },
 				createRemoveFromCollectionDeps(),
 			),
 		);
@@ -1288,10 +1219,7 @@ describe("removeFromCollection", () => {
 	it("returns not_found error when collection does not exist", async () => {
 		const err = expectErrorResult(
 			await removeFromCollection(
-				{
-					userId: "user-1",
-					body: { collectionId: "nonexistent", entityId: "entity-1" },
-				},
+				{ userId: "user-1", body: { collectionId: "nonexistent", entityId: "entity-1" } },
 				createRemoveFromCollectionDeps({
 					getCollectionById: () => Promise.resolve(undefined),
 				}),
@@ -1305,10 +1233,7 @@ describe("removeFromCollection", () => {
 	it("returns not_found error when entity does not exist", async () => {
 		const err = expectErrorResult(
 			await removeFromCollection(
-				{
-					userId: "user-1",
-					body: { collectionId: "collection-1", entityId: "nonexistent" },
-				},
+				{ userId: "user-1", body: { collectionId: "collection-1", entityId: "nonexistent" } },
 				createRemoveFromCollectionDeps({
 					getEntityById: () => Promise.resolve(undefined),
 				}),
@@ -1324,10 +1249,7 @@ describe("removeFromCollection", () => {
 			await removeFromCollection(
 				{
 					userId: "user-1",
-					body: {
-						collectionId: "collection-1",
-						entityId: "entity-with-invisible-schema",
-					},
+					body: { collectionId: "collection-1", entityId: "entity-with-invisible-schema" },
 				},
 				createRemoveFromCollectionDeps({
 					getEntityById: () => Promise.resolve(undefined),
@@ -1342,10 +1264,7 @@ describe("removeFromCollection", () => {
 	it("returns not_found error when entity is not in collection", async () => {
 		const err = expectErrorResult(
 			await removeFromCollection(
-				{
-					userId: "user-1",
-					body: { collectionId: "collection-1", entityId: "entity-1" },
-				},
+				{ userId: "user-1", body: { collectionId: "collection-1", entityId: "entity-1" } },
 				createRemoveFromCollectionDeps({
 					removeEntityFromCollection: () => Promise.resolve(undefined),
 				}),
@@ -1359,10 +1278,7 @@ describe("removeFromCollection", () => {
 	it("propagates repository errors", () => {
 		return expect(
 			removeFromCollection(
-				{
-					userId: "user-1",
-					body: { collectionId: "collection-1", entityId: "entity-1" },
-				},
+				{ userId: "user-1", body: { collectionId: "collection-1", entityId: "entity-1" } },
 				createRemoveFromCollectionDeps({
 					removeEntityFromCollection: () => {
 						throw new Error("Database connection lost");
