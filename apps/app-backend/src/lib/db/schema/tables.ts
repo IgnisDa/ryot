@@ -15,6 +15,7 @@ import {
 } from "drizzle-orm/pg-core";
 
 import type { EventSchemaTriggerMetadata, SandboxScriptMetadata } from "~/lib/sandbox/types";
+import type { ImportRunFailureStage, ImportRunSource, ImportRunStatus } from "~/modules/imports";
 import type { DisplayConfiguration, SavedViewQueryDefinition } from "~/modules/saved-views";
 
 import type { ImageSchemaType } from "../../zod";
@@ -387,6 +388,59 @@ export const eventSchemaTrigger = pgTable(
 			table.sandboxScriptId,
 		),
 	],
+);
+
+export const importRun = pgTable(
+	"import_run",
+	{
+		errorSummary: text(),
+		totalItems: integer(),
+		progress: integer().notNull().default(0),
+		source: text().notNull().$type<ImportRunSource>(),
+		failedItems: integer().notNull().default(0),
+		importedItems: integer().notNull().default(0),
+		startedAt: timestamp({ withTimezone: true }),
+		finishedAt: timestamp({ withTimezone: true }),
+		processedItems: integer().notNull().default(0),
+		status: text().notNull().$type<ImportRunStatus>().default("pending"),
+		createdAt: timestamp({ withTimezone: true }).defaultNow().notNull(),
+		inputSummary: jsonb().$type<Record<string, unknown>>().notNull().default({}),
+		userId: text()
+			.notNull()
+			.references(() => user.id, { onDelete: "cascade" }),
+		id: text()
+			.notNull()
+			.primaryKey()
+			.$defaultFn(() => /* @__PURE__ */ generateId()),
+		updatedAt: timestamp({ withTimezone: true })
+			.defaultNow()
+			.$onUpdate(() => /* @__PURE__ */ dayjs().toDate())
+			.notNull(),
+	},
+	(table) => [index("import_run_user_id_created_at_idx").on(table.userId, table.createdAt)],
+);
+
+export const importRunFailure = pgTable(
+	"import_run_failure",
+	{
+		sourceLabel: text(),
+		eventSchemaSlug: text(),
+		sourceIdentifier: text(),
+		entitySchemaSlug: text(),
+		message: text().notNull(),
+		itemIndex: integer().notNull(),
+		context: jsonb().$type<Record<string, unknown>>(),
+		stage: text().notNull().$type<ImportRunFailureStage>(),
+		createdAt: timestamp({ withTimezone: true }).defaultNow().notNull(),
+		runId: text()
+			.notNull()
+			.references(() => importRun.id, { onDelete: "cascade" }),
+		id: text()
+			.notNull()
+			.primaryKey()
+			.$defaultFn(() => /* @__PURE__ */ generateId()),
+	},
+	(table) => [index("import_run_failure_run_id_created_at_idx").on(table.runId, table.createdAt)],
 );
 
 export const savedView = pgTable(
