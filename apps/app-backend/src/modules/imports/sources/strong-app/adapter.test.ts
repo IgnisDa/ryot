@@ -2,7 +2,7 @@ import { describe, expect, it } from "bun:test";
 
 import { dayjs } from "@ryot/ts-utils/dayjs";
 
-import { adaptStrongAppCsv } from "./strong-app";
+import { adaptStrongAppCsv } from "./adapter";
 
 describe("adaptStrongAppCsv", () => {
 	it("groups semicolon StrongApp rows into normalized workouts and exercises", () => {
