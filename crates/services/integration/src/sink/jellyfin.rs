@@ -22,6 +22,7 @@ mod models {
     #[serde(rename_all = "PascalCase")]
     pub struct JellyfinWebhookItemProviderIdsPayload {
         pub tmdb: Option<String>,
+        pub tvdb: Option<String>,
     }
     #[derive(Serialize, Deserialize, Debug, Clone)]
     #[serde(rename_all = "PascalCase")]
@@ -54,6 +55,7 @@ mod models {
 pub async fn sink_progress(
     payload: String,
     jellyfin_sink_username: Option<String>,
+    jellyfin_sink_metadata_provider: Option<String>,
 ) -> Result<Option<ImportResult>> {
     let payload = serde_json::from_str::<models::JellyfinWebhookPayload>(&payload)?;
     if let Some(jellyfin_sink_username) = jellyfin_sink_username
@@ -61,19 +63,41 @@ pub async fn sink_progress(
     {
         return Ok(None);
     }
-    let identifier = payload
-        .item
-        .provider_ids
-        .tmdb
-        .as_ref()
-        .or_else(|| {
-            payload
-                .series
+    let use_tvdb = jellyfin_sink_metadata_provider.as_deref() == Some("tvdb");
+    let (identifier, source) = match use_tvdb {
+        true => {
+            let id = payload
+                .item
+                .provider_ids
+                .tvdb
                 .as_ref()
-                .and_then(|s| s.provider_ids.tmdb.as_ref())
-        })
-        .ok_or_else(|| anyhow!("No TMDb ID associated with this media"))?
-        .clone();
+                .or_else(|| {
+                    payload
+                        .series
+                        .as_ref()
+                        .and_then(|s| s.provider_ids.tvdb.as_ref())
+                })
+                .ok_or_else(|| anyhow!("No TVDB ID associated with this media"))?
+                .clone();
+            (id, MediaSource::Tvdb)
+        }
+        false => {
+            let id = payload
+                .item
+                .provider_ids
+                .tmdb
+                .as_ref()
+                .or_else(|| {
+                    payload
+                        .series
+                        .as_ref()
+                        .and_then(|s| s.provider_ids.tmdb.as_ref())
+                })
+                .ok_or_else(|| anyhow!("No TMDb ID associated with this media"))?
+                .clone();
+            (id, MediaSource::Tmdb)
+        }
+    };
 
     let lot = match payload.item.item_type.as_str() {
         "Movie" => MediaLot::Movie,
@@ -104,8 +128,8 @@ pub async fn sink_progress(
     let result = ImportResult {
         completed: vec![ImportCompletedItem::Metadata(ImportOrExportMetadataItem {
             lot,
+            source,
             identifier,
-            source: MediaSource::Tmdb,
             seen_history: vec![seen_item],
             ..Default::default()
         })],
