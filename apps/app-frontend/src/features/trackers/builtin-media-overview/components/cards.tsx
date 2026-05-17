@@ -12,7 +12,7 @@ import {
 } from "@mantine/core";
 import { useDebouncedCallback } from "@mantine/hooks";
 import { notifications } from "@mantine/notifications";
-import { dayjs } from "@ryot/ts-utils";
+import { dayjs } from "@ryot/ts-utils/dayjs";
 import { Link } from "@tanstack/react-router";
 import { Play, Star } from "lucide-react";
 import { useState } from "react";

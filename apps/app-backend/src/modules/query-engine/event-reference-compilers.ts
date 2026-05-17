@@ -1,4 +1,5 @@
-import type { AppSchema, RuntimeRef } from "@ryot/ts-utils";
+import type { AppSchema } from "@ryot/ts-utils/app-schema";
+import type { RuntimeRef } from "@ryot/ts-utils/view-language";
 import { sql } from "drizzle-orm";
 import { match } from "ts-pattern";
 

@@ -34,7 +34,9 @@ import {
 	type UserUnitSystem,
 	type WorkoutSupersetsInformation,
 } from "@ryot/generated/graphql/backend/graphql";
-import { changeCase, snakeCase, startCase } from "@ryot/ts-utils";
+import { snakeCase } from "@ryot/ts-utils/lodash";
+import { startCase } from "@ryot/ts-utils/lodash";
+import { changeCase } from "@ryot/ts-utils/string";
 import {
 	IconArrowLeftToArc,
 	IconClock,

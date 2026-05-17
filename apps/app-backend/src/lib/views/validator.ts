@@ -1,4 +1,4 @@
-import type { RuntimeRef } from "@ryot/ts-utils";
+import type { RuntimeRef } from "@ryot/ts-utils/view-language";
 
 import type { QueryEngineRequest } from "~/modules/query-engine";
 import type { DisplayConfiguration, LatestRelationshipJoinDefinition } from "~/modules/saved-views";

@@ -1,4 +1,4 @@
-import { changeCase } from "@ryot/ts-utils";
+import { changeCase } from "@ryot/ts-utils/string";
 import { LinearGradient } from "expo-linear-gradient";
 import { Check, Library, Plus } from "lucide-react-native";
 import { Image } from "react-native";

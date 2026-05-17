@@ -1,4 +1,4 @@
-import { cn } from "@ryot/ts-utils";
+import { cn } from "@ryot/ts-utils/cn";
 import { Star } from "lucide-react";
 import { Link } from "react-router";
 

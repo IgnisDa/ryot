@@ -1,10 +1,7 @@
-import type { AppSchema } from "@ryot/ts-utils";
-import {
-	appPropertyPrimitiveTypes,
-	trimmedOrUndefined,
-	zodNonEmptyTrimmedString,
-	zodRequiredName,
-} from "@ryot/ts-utils";
+import type { AppSchema } from "@ryot/ts-utils/app-schema";
+import { appPropertyPrimitiveTypes } from "@ryot/ts-utils/app-schema";
+import { trimmedOrUndefined } from "@ryot/ts-utils/string";
+import { zodNonEmptyTrimmedString, zodRequiredName } from "@ryot/ts-utils/zod";
 import { z } from "zod";
 
 import { resolveNextSlug } from "../../lib/slug-sync";

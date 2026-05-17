@@ -1,5 +1,5 @@
 import { Drawer, Stack, Text } from "@mantine/core";
-import { isNumber } from "@ryot/ts-utils";
+import { isNumber } from "@ryot/ts-utils/lodash";
 import { useMemo } from "react";
 import { Virtuoso } from "react-virtuoso";
 

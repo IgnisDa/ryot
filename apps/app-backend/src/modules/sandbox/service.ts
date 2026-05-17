@@ -1,4 +1,4 @@
-import { resolveRequiredSlug, resolveRequiredString } from "@ryot/ts-utils";
+import { resolveRequiredSlug, resolveRequiredString } from "@ryot/ts-utils/slug";
 
 import { isUniqueConstraintError } from "~/lib/app/postgres";
 import { resolveJobPollState } from "~/lib/queue/utils";

@@ -26,7 +26,9 @@ import {
 	UserMetadataListDocument,
 	type UserMetadataListInput,
 } from "@ryot/generated/graphql/backend/graphql";
-import { changeCase, cloneDeep, startCase } from "@ryot/ts-utils";
+import { cloneDeep } from "@ryot/ts-utils/lodash";
+import { startCase } from "@ryot/ts-utils/lodash";
+import { changeCase } from "@ryot/ts-utils/string";
 import { IconCheck, IconFilter, IconListCheck, IconSearch } from "@tabler/icons-react";
 import { useQuery } from "@tanstack/react-query";
 import {

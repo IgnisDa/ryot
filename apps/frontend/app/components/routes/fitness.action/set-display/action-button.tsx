@@ -1,6 +1,6 @@
 import { ActionIcon, Transition } from "@mantine/core";
 import { ExerciseLot } from "@ryot/generated/graphql/backend/graphql";
-import { isString } from "@ryot/ts-utils";
+import { isString } from "@ryot/ts-utils/lodash";
 import { IconCheck, IconPlayerPlay, IconStopwatch } from "@tabler/icons-react";
 import clsx from "clsx";
 import { produce } from "immer";

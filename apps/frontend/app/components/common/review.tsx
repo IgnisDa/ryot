@@ -23,7 +23,8 @@ import {
 	type ReviewItem,
 	UserReviewScale,
 } from "@ryot/generated/graphql/backend/graphql";
-import { getInitials, isNumber } from "@ryot/ts-utils";
+import { isNumber } from "@ryot/ts-utils/lodash";
+import { getInitials } from "@ryot/ts-utils/string";
 import {
 	IconArrowBigUp,
 	IconCheck,

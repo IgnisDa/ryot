@@ -1,10 +1,5 @@
-import {
-	trimmedOrNull,
-	trimmedOrUndefined,
-	zodNonEmptyTrimmedString,
-	zodRequiredName,
-	zodRequiredSlug,
-} from "@ryot/ts-utils";
+import { trimmedOrNull, trimmedOrUndefined } from "@ryot/ts-utils/string";
+import { zodNonEmptyTrimmedString, zodRequiredName, zodRequiredSlug } from "@ryot/ts-utils/zod";
 import { z } from "zod";
 
 import type { ApiPatchRequestBody, ApiPostRequestBody } from "~/lib/api/types";

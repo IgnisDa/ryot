@@ -1,6 +1,9 @@
 import { describe, expect, it } from "bun:test";
 
-import { createEntityPropertyExpression, createEntitySchemaExpression } from "@ryot/ts-utils";
+import {
+	createEntityPropertyExpression,
+	createEntitySchemaExpression,
+} from "@ryot/ts-utils/view-language";
 
 import { createSmartphoneSchema, createTabletSchema, literalExpression } from "~/lib/test-fixtures";
 import type { ViewComputedField, ViewExpression } from "~/lib/views/expression";

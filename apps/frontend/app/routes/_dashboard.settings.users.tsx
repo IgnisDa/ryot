@@ -25,7 +25,7 @@ import {
 	UserLot,
 	type UsersListQuery,
 } from "@ryot/generated/graphql/backend/graphql";
-import { changeCase } from "@ryot/ts-utils";
+import { changeCase } from "@ryot/ts-utils/string";
 import {
 	IconKey,
 	IconPlus,

@@ -14,7 +14,8 @@ import {
 	type UserUpcomingCalendarEventInput,
 	UserUpcomingCalendarEventsDocument,
 } from "@ryot/generated/graphql/backend/graphql";
-import { parseSearchQuery, zodBoolAsString } from "@ryot/ts-utils";
+import { parseSearchQuery } from "@ryot/ts-utils/request";
+import { zodBoolAsString } from "@ryot/ts-utils/zod";
 import { IconInfoCircle, IconPlayerPlay, IconRotateClockwise } from "@tabler/icons-react";
 import { skipToken, useQuery } from "@tanstack/react-query";
 import CryptoJS from "crypto-js";

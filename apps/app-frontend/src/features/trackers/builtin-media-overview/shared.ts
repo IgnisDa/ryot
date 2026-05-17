@@ -1,4 +1,4 @@
-import { type Dayjs, dayjs } from "@ryot/ts-utils";
+import { type Dayjs, dayjs } from "@ryot/ts-utils/dayjs";
 
 import type { ApiGetResponseData } from "~/lib/api/types";
 

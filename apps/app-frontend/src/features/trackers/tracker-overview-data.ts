@@ -1,4 +1,4 @@
-import { dayjs } from "@ryot/ts-utils";
+import { dayjs } from "@ryot/ts-utils/dayjs";
 import { useQueries } from "@tanstack/react-query";
 
 import type { AppEntity } from "~/features/entities/model";

@@ -6,7 +6,7 @@ import {
 	createEntitySchemaExpression,
 	createEventAggregateExpression,
 	createTransformExpression,
-} from "@ryot/ts-utils";
+} from "@ryot/ts-utils/view-language";
 
 import { createDefaultDisplayConfiguration } from "./constants";
 
