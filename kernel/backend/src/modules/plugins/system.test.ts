@@ -1,7 +1,7 @@
 import { BunServices } from "@effect/platform-bun";
-import { PluginManifest } from "@ryot/contract/modules/plugins/manifest";
+import { PluginArchiveError, writePluginArchive } from "@ryot/plugin-archive";
 import type { Path } from "effect";
-import { Effect, FileSystem, Schema } from "effect";
+import { Effect, FileSystem } from "effect";
 import { assert, expect, it } from "vitest";
 
 import { discoverSystemPlugins } from "./system";
@@ -18,27 +18,27 @@ const withRoot = <A, E>(
 		}),
 	).pipe(Effect.provide(BunServices.layer));
 
-const writeBundle = Effect.fn("writeBundle")(function* (root: string, directory: string) {
+const writeArchive = Effect.fn("writeArchive")(function* (root: string, slug: string) {
 	const fs = yield* FileSystem.FileSystem;
-	const bundle = `${root}/${directory}`;
 	const manifest = {
 		...fixtureManifest(),
-		metadata: { ...fixtureManifest().metadata, name: directory, slug: directory },
+		metadata: { ...fixtureManifest().metadata, name: slug, slug },
 	};
-	yield* fs.makeDirectory(`${bundle}/backend`, { recursive: true });
-	yield* fs.writeFileString(
-		`${bundle}/manifest.json`,
-		yield* Schema.encodeEffect(Schema.fromJsonString(PluginManifest))(manifest),
+	yield* fs.writeFile(
+		`${root}/${slug}.zip`,
+		writePluginArchive({
+			manifest,
+			files: { "backend/source.ts": "export const source = true;\n" },
+		}),
 	);
-	yield* fs.writeFileString(`${bundle}/backend/source.ts`, "export const source = true;\n");
 });
 
-it("discovers valid bundles in sorted directory order", () =>
+it("discovers valid archives in sorted filename order", () =>
 	Effect.runPromise(
 		withRoot((root) =>
 			Effect.gen(function* () {
-				yield* writeBundle(root, "zeta");
-				yield* writeBundle(root, "alpha");
+				yield* writeArchive(root, "zeta");
+				yield* writeArchive(root, "alpha");
 				const sources = yield* discoverSystemPlugins(root);
 
 				expect(sources.map(({ manifest }) => manifest.metadata.slug)).toEqual(["alpha", "zeta"]);
@@ -57,17 +57,30 @@ it("returns no plugins for absent and empty directories", () =>
 		),
 	));
 
-it("fails discovery for a malformed bundle manifest", () =>
+it("ignores non-archive entries", () =>
 	Effect.runPromise(
 		withRoot((root) =>
 			Effect.gen(function* () {
 				const fs = yield* FileSystem.FileSystem;
-				yield* fs.makeDirectory(`${root}/invalid`);
-				yield* fs.writeFileString(`${root}/invalid/manifest.json`, "{}");
+				yield* fs.writeFileString(`${root}/notes.txt`, "ignored");
+				yield* fs.makeDirectory(`${root}/directory.zip`);
+
+				expect(yield* discoverSystemPlugins(root)).toEqual([]);
+			}),
+		),
+	));
+
+it("fails discovery for a malformed archive", () =>
+	Effect.runPromise(
+		withRoot((root) =>
+			Effect.gen(function* () {
+				const fs = yield* FileSystem.FileSystem;
+				yield* fs.writeFileString(`${root}/invalid.zip`, "not a zip");
 				const result = yield* Effect.result(discoverSystemPlugins(root));
 
 				assert(result._tag === "Failure");
-				expect(result.failure.message).toContain("Invalid system plugin manifest");
+				expect(result.failure).toBeInstanceOf(PluginArchiveError);
+				expect(result.failure.reason).toBe("malformed-zip");
 			}),
 		),
 	));

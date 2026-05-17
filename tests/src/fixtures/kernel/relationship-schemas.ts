@@ -1,4 +1,4 @@
-import type { ContractPayload } from "@ryot/contract/client";
+import type { PluginPackage } from "@ryot/contract/modules/plugins/schemas";
 import { EntitySchemaSlug, RelationshipSchemaSlug } from "@ryot/contract/schema/brands";
 import { Effect } from "effect";
 
@@ -7,10 +7,7 @@ import { requirePresent } from "~/support/assertions";
 import type { Client } from "./auth";
 import { installTestDefinitions } from "./test-plugin";
 
-type PluginRelationshipSchema = ContractPayload<
-	"plugins",
-	"install"
->["manifest"]["relationshipSchemas"][number];
+type PluginRelationshipSchema = PluginPackage["manifest"]["relationshipSchemas"][number];
 
 type CreateRelationshipSchemaOptions = Pick<PluginRelationshipSchema, "name" | "slug"> &
 	Partial<

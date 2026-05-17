@@ -1,10 +1,12 @@
-import type { DbError } from "@ryot/contract/errors";
+import type { BadRequest, DbError } from "@ryot/contract/errors";
 import type { PluginManifest } from "@ryot/contract/modules/plugins/manifest";
 import {
 	PluginRequestError,
 	type PluginConflictError,
 } from "@ryot/contract/modules/plugins/schemas";
+import type { UploadBadRequest } from "@ryot/contract/modules/uploads/schemas";
 import { PluginSlug } from "@ryot/contract/schema/brands";
+import type { PluginArchiveError } from "@ryot/plugin-archive";
 import type { SandboxCompilerFailure } from "@ryot/sandbox-compiler/diagnostics";
 import { compilePluginSandboxSourceEntries } from "@ryot/sandbox-compiler/plugins";
 import { sha256Hex } from "@ryot/ts-utils/crypto";
@@ -171,6 +173,9 @@ const schemaEvolutionCode = (code: SchemaEvolutionError["issues"][number]["code"
 
 type StructurablePluginFailure =
 	| DbError
+	| BadRequest
+	| UploadBadRequest
+	| PluginArchiveError
 	| PluginSurfaceError
 	| PluginConflictError
 	| SchemaEvolutionError
@@ -184,6 +189,16 @@ export const structurePluginFailure = <A, R>(
 ) =>
 	effect.pipe(
 		Effect.catchTags({
+			BadRequest: () =>
+				Effect.fail(new PluginRequestError({ reason: { code: "upload-unavailable" } })),
+			UploadBadRequest: () =>
+				Effect.fail(new PluginRequestError({ reason: { code: "upload-unavailable" } })),
+			PluginArchiveError: (error: PluginArchiveError) =>
+				Effect.fail(
+					new PluginRequestError({
+						reason: { code: "package-archive-invalid", issue: error.reason },
+					}),
+				),
 			PluginSurfaceError: (error: PluginSurfaceError) =>
 				Effect.fail(
 					new PluginRequestError({

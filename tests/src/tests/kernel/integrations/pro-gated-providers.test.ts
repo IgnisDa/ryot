@@ -1,6 +1,6 @@
 import type { ChildProcess } from "node:child_process";
 
-import type { ContractPayload } from "@ryot/contract/client";
+import type { PluginPackage } from "@ryot/contract/modules/plugins/schemas";
 import { Effect } from "effect";
 import getPort from "get-port";
 
@@ -26,7 +26,7 @@ import {
 	waitForHealthCheck,
 } from "~/support/provisioning";
 
-type PluginManifest = ContractPayload<"plugins", "install">["manifest"];
+type PluginManifest = PluginPackage["manifest"];
 
 const S3_BUCKET_NAME = "ryot-pro-gated-providers-test";
 const PRO_KEY_ENV_VALUE = "e2e-pro-gated-key";

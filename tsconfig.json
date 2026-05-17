@@ -11,6 +11,7 @@
 		{ "path": "kernel/client" },
 		{ "path": "packages/contract" },
 		{ "path": "packages/graphql" },
+		{ "path": "packages/plugin-archive" },
 		{ "path": "packages/plugin-kit" },
 		{ "path": "packages/sandbox-compiler" },
 		{ "path": "packages/sandbox-sdk" },
