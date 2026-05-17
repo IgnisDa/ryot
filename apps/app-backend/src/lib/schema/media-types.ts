@@ -41,16 +41,6 @@ const AiringScheduleItemSchema = Schema.Struct({
 	episode: Schema.Number.pipe(Schema.int()),
 });
 
-const PodcastEpisodeSchema = Schema.Struct({
-	id: Schema.String,
-	title: Schema.String,
-	publishDate: Schema.String,
-	number: Schema.Number.pipe(Schema.int()),
-	overview: Schema.optional(Schema.NullOr(Schema.String)),
-	thumbnail: Schema.optional(Schema.NullOr(Schema.String)),
-	runtime: Schema.optional(Schema.NullOr(Schema.Number.pipe(Schema.int()))),
-});
-
 const TimeToBeatSchema = Schema.Struct({
 	hastily: Schema.optional(Schema.NullOr(Schema.Number.pipe(Schema.int()))),
 	normally: Schema.optional(Schema.NullOr(Schema.Number.pipe(Schema.int()))),
@@ -149,7 +139,6 @@ export type AudiobookProperties = typeof AudiobookPropertiesSchema.Type;
 
 export const PodcastPropertiesSchema = Schema.Struct({
 	...mediaWithCreatorsFields,
-	episodes: Schema.optional(Schema.NullOr(Schema.Array(PodcastEpisodeSchema))),
 	totalEpisodes: Schema.optional(Schema.NullOr(Schema.Number.pipe(Schema.int()))),
 });
 

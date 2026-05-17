@@ -1251,7 +1251,7 @@ async function getMediaLifecycleEventSchemas(apiClient: APIClient, entitySchemaI
 	const complete = schemas.find((s) => s.slug === "complete");
 	const review = schemas.find((s) => s.slug === "review");
 
-	if (!backlog || !progress || !complete || !review) {
+	if (!backlog || !complete || !review) {
 		throw new Error(`Missing lifecycle event schemas for entity schema ${entitySchemaId}`);
 	}
 
@@ -1371,7 +1371,7 @@ async function importMediaEntity(
 
 // ─── Episodic progress helpers ───────────────────────────────────────────────
 
-const EPISODIC_MEDIA_SLUGS = new Set<MediaEntitySchemaSlug>(["show", "anime", "manga", "podcast"]);
+const EPISODIC_MEDIA_SLUGS = new Set<MediaEntitySchemaSlug>(["show", "anime", "manga"]);
 
 function generateEpisodicProgressFields(slug: MediaEntitySchemaSlug): Record<string, unknown> {
 	if (slug === "show") {
@@ -1388,9 +1388,6 @@ function generateEpisodicProgressFields(slug: MediaEntitySchemaSlug): Record<str
 			fields.mangaVolume = randomInt(1, 30);
 		}
 		return fields;
-	}
-	if (slug === "podcast") {
-		return { podcastEpisode: randomInt(1, 200) };
 	}
 	return {};
 }
@@ -1518,7 +1515,7 @@ async function seedMedia(client: APIClient) {
 		// ~24% completed unrated (rate-these), ~28% completed + reviewed
 		const entityCount = entities.length;
 		const backlogCount = Math.ceil(entityCount * 0.28);
-		const progressCount = Math.ceil(entityCount * 0.2);
+		const progressCount = eventSchemas.progress ? Math.ceil(entityCount * 0.2) : 0;
 		const completeNoReviewCount = Math.ceil(entityCount * 0.24);
 
 		const backlogEntities = entities.slice(0, backlogCount);
@@ -1542,6 +1539,9 @@ async function seedMedia(client: APIClient) {
 		}
 
 		for (const entity of progressEntities) {
+			if (!eventSchemas.progress) {
+				continue;
+			}
 			const slug = schema.slug as MediaEntitySchemaSlug;
 			const episodicFields = EPISODIC_MEDIA_SLUGS.has(slug)
 				? generateEpisodicProgressFields(slug)
