@@ -4,20 +4,16 @@ import { toAppSchemaProperties } from "@ryot/ts-utils/app-schema";
 import { imagesSchema, nullableIntSchema, nullableStringSchema } from "../zod";
 import { mediaPropertiesSchema } from "./common";
 
-// All fields in minutes. Reserved for providers that expose time-to-beat data
-// (e.g., IGDB). GiantBomb does not provide this.
+// All fields in minutes
 const videoGameTimeToBeatSchema = z
 	.object({
-		hastily: nullableIntSchema.describe("Estimated minutes to rush through the main story"),
 		normally: nullableIntSchema.describe("Estimated minutes for a typical playthrough"),
+		hastily: nullableIntSchema.describe("Estimated minutes to rush through the main story"),
 		completely: nullableIntSchema.describe("Estimated minutes for a full 100% completion run"),
 	})
 	.strict()
 	.nullish();
 
-// releaseDate and releaseRegion are reserved for providers that expose
-// per-platform release details (e.g., IGDB). GiantBomb only provides platform
-// names; those fields will be null for GiantBomb-sourced entities.
 const videoGamePlatformReleaseSchema = z
 	.object({
 		name: z.string().describe("Platform name"),

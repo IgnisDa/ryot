@@ -12,8 +12,8 @@ const animeAiringScheduleSpecificsSchema = z
 	.strict();
 
 export const animePropertiesSchema = mediaPropertiesSchema.extend({
-	images: imagesSchema.describe("Cover and promotional images for this anime"),
 	episodes: nullableIntSchema.describe("Total number of episodes, if known"),
+	images: imagesSchema.describe("Cover and promotional images for this anime"),
 	airingSchedule: z
 		.array(animeAiringScheduleSpecificsSchema)
 		.nullish()
