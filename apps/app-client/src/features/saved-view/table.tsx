@@ -142,19 +142,22 @@ export function SavedViewTableResults(props: {
 					className="overflow-hidden rounded-[22px] border border-border bg-card"
 					style={{ width: tableWidth }}
 				>
-					<Box className="flex-row border-b border-border bg-stone-100/70">
-						{columns.map((column) => (
-							<SavedViewTableHeaderCell
-								label={column.label}
-								width={column.width}
-								key={column.fieldKey}
-							/>
-						))}
-					</Box>
 					<FlatList
 						data={props.rows}
+						stickyHeaderIndices={[0]}
 						style={{ width: tableWidth }}
 						showsVerticalScrollIndicator={false}
+						ListHeaderComponent={
+							<Box className="flex-row border-b border-border bg-stone-100/70">
+								{columns.map((column) => (
+									<SavedViewTableHeaderCell
+										label={column.label}
+										width={column.width}
+										key={column.fieldKey}
+									/>
+								))}
+							</Box>
+						}
 						keyExtractor={(item, index) => getEntityId(item) ?? `${props.layout}-${index}`}
 						ListEmptyComponent={
 							props.isFetching && props.rows.length === 0 ? (
