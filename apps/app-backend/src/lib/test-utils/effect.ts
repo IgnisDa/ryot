@@ -66,6 +66,7 @@ export const makeRedisService = (
 		getdel: () => Effect.die("unused"),
 		publish: () => Effect.die("unused"),
 		setAndIndex: () => Effect.die("unused"),
+		zrangeByScore: () => Effect.die("unused"),
 		setAndRemoveFromIndex: () => Effect.die("unused"),
 		...overrides,
 	});
