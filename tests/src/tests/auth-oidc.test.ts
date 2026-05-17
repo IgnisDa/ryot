@@ -65,7 +65,7 @@ beforeAll(async () => {
 		bucketName: S3_BUCKET_NAME,
 	});
 
-	oidcContainer = await new GenericContainer("ghcr.io/navikt/mock-oauth2-server:2.1.10")
+	oidcContainer = await new GenericContainer("ghcr.io/navikt/mock-oauth2-server:4.0.0")
 		.withExposedPorts(8080)
 		.withWaitStrategy(Wait.forHttp("/default/.well-known/openid-configuration", 8080))
 		.start();
