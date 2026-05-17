@@ -113,10 +113,10 @@ const toWorkoutSet = (row: StrongAppRow): WorkoutImportSet => {
 		set.reps = row.reps;
 	}
 	if (row.weight !== undefined) {
-		set.weight = row.weight;
+		set.weight = row.weight || 1;
 	}
 	if (row.seconds !== undefined) {
-		set.duration = row.seconds;
+		set.duration = row.seconds / 60;
 	}
 	if (row.distance !== undefined) {
 		set.distance = row.distance / 1000;
