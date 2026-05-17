@@ -106,7 +106,7 @@ it("declares the complete media-owned source", () => {
 		"https://coverartarchive.org",
 	);
 	expect(mediaPlugin.providers).toHaveLength(51);
-	expect(mediaPlugin.scripts).toHaveLength(181);
+	expect(mediaPlugin.scripts).toHaveLength(183);
 	expect(mediaPlugin.integrationProviders).toHaveLength(13);
 	expect(mediaPlugin.scripts.every((script) => !("providerInformation" in script))).toBe(true);
 	expect(mediaPlugin.scripts.find(({ slug }) => slug === "book.google-books.search")).toMatchObject(
@@ -314,4 +314,50 @@ it("binds provider imports to library membership for every eligible schema", () 
 			scriptSlug: "automation.media-library-membership-on-import",
 		})),
 	);
+});
+
+it("binds deterministic episodic sessions at policy position 200", () => {
+	const bindings = mediaPlugin.bindings.eventAutomations.filter(
+		({ scriptSlug }) => scriptSlug === "policy.media-episodic-session",
+	);
+
+	expect(bindings).toHaveLength(12);
+	expect(
+		bindings.every(
+			(binding) => binding.kind === "policy" && "position" in binding && binding.position === 200,
+		),
+	).toBe(true);
+	expect(bindings.map(({ eventSchemaSlug }) => eventSchemaSlug).sort()).toEqual(
+		[
+			"show:backlog",
+			"show:complete",
+			"show:dropped",
+			"show:on_hold",
+			"show-episode:progress",
+			"show-episode:complete",
+			"podcast:backlog",
+			"podcast:complete",
+			"podcast:dropped",
+			"podcast:on_hold",
+			"podcast-episode:progress",
+			"podcast-episode:complete",
+		].sort(),
+	);
+});
+
+it("binds episodic parent completion to child completions and parent updates", () => {
+	expect(
+		mediaPlugin.bindings.eventAutomations
+			.filter(({ scriptSlug }) => scriptSlug === "automation.media-auto-complete-episodic-parent")
+			.map(({ eventSchemaSlug }) => eventSchemaSlug)
+			.sort(),
+	).toEqual(["podcast-episode:complete", "show-episode:complete"]);
+	expect(
+		mediaPlugin.bindings.entityAutomations
+			.filter(({ scriptSlug }) => scriptSlug === "automation.media-auto-complete-episodic-parent")
+			.map(({ entitySchemaSlug, operation }) => ({ entitySchemaSlug, operation })),
+	).toEqual([
+		{ entitySchemaSlug: "show", operation: "update" },
+		{ entitySchemaSlug: "podcast", operation: "update" },
+	]);
 });

@@ -1,9 +1,11 @@
 import { expect, it } from "@effect/vitest";
 import {
+	AutomationRuleId,
 	EntityId,
 	EntitySchemaSlug,
 	EventId,
 	EventSchemaSlug,
+	SandboxScriptId,
 	UserId,
 } from "@ryot/contract/schema/brands";
 import { Effect, Layer } from "effect";
@@ -29,7 +31,9 @@ import { EventsRepository } from "./repository";
 
 const now = "2026-01-01T00:00:00.000Z";
 const userId = UserId.make("user-id");
+const createdAt = "2026-01-02T00:00:00.000Z";
 const entityId = EntityId.make("entity-1");
+const sessionEntityId = EntityId.make("session-1");
 const eventSchemaSlug = EventSchemaSlug.make("review");
 const entitySchemaSlug = EntitySchemaSlug.make("book");
 
@@ -45,15 +49,15 @@ const entityScope = {
 	isBuiltin: false,
 	entityName: "Dune",
 	entityUserId: userId,
-	entitySchemaSlug: EntitySchemaSlug.make("book"),
 	propertiesSchema: { fields: {} },
+	entitySchemaSlug: EntitySchemaSlug.make("book"),
 };
 
 const eventSchemaScope = {
-	eventSchemaSlug,
-	entitySchemaSlug,
 	name: "Review",
 	slug: "review",
+	eventSchemaSlug,
+	entitySchemaSlug,
 	id: eventSchemaSlug,
 	propertiesSchema: { fields: {} },
 };
@@ -171,7 +175,24 @@ it.effect(
 		const engine = makeCapturingWorkflowEngine(instance, activityNames);
 		const layer = Layer.mergeAll(
 			databaseLayer,
-			makeAutomationsService(),
+			makeAutomationsService({
+				resolveActivePolicies: () =>
+					Effect.succeed([
+						{
+							userId,
+							position: 100,
+							kind: "policy",
+							metadata: null,
+							isActive: true,
+							isBuiltin: true,
+							operation: "create",
+							name: "Session policy",
+							id: AutomationRuleId.make("session-policy"),
+							target: { id: eventSchemaSlug, kind: "event_schema" },
+							sandboxScriptId: SandboxScriptId.make("session-policy-script"),
+						},
+					]),
+			}),
 			Layer.mock(LifecycleDispatch, {
 				dispatch: (input) => {
 					dispatched.push(input);
@@ -183,10 +204,17 @@ it.effect(
 					dispatched.push(input);
 					return Effect.void;
 				},
-				executeSandboxScript: () => Effect.die("unused"),
+				executeSandboxScript: () =>
+					Effect.succeed({
+						logs: [],
+						error: null,
+						status: "completed" as const,
+						value: { action: "replace", body: { sessionEntityId } },
+					}),
 			}),
 			makeEntitiesRepository({
-				getEntityScopeForUser: () => Effect.succeed(entityScope),
+				getEntityScopeForUser: ({ entityId: requestedEntityId }) =>
+					Effect.succeed({ ...entityScope, entityId: requestedEntityId }),
 			}),
 			makeEventSchemasRepository({
 				getScopeForUser: () => Effect.succeed(eventSchemaScope),
@@ -194,7 +222,7 @@ it.effect(
 			makeEventsRepository({
 				createEvent: (input) =>
 					Effect.succeed({
-						createdAt: now,
+						createdAt,
 						updatedAt: now,
 						entityId: input.entityId,
 						properties: input.properties,
@@ -221,8 +249,10 @@ it.effect(
 			expect(occurrence?.source).toEqual({
 				kind: "event",
 				after: {
+					createdAt,
 					properties: {},
 					occurredAt: now,
+					sessionEntityId,
 					eventSchemaSlug: "review",
 					id: EventId.make("event-1"),
 					subject: { id: entityId, name: "Dune", entitySchemaSlug: "book" },

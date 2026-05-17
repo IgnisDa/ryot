@@ -1,4 +1,10 @@
-import { JsonValue } from "@ryot/contract/modules/ryotql/language";
+import {
+	JsonValue,
+	type Join,
+	type Predicate,
+	type ScalarExpression,
+	type TableReference,
+} from "@ryot/contract/modules/ryotql/language";
 import { EntityId, EntitySchemaSlug, EventId, EventSchemaSlug } from "@ryot/contract/schema/brands";
 import type { Recipe } from "@ryot/ryotql";
 import {
@@ -7,9 +13,12 @@ import {
 	defineRecipe,
 	descending,
 	eq,
+	first,
+	gt,
 	inArray,
 	join,
 	literal,
+	or,
 	selectedField,
 	selectedRows,
 	table,
@@ -17,6 +26,51 @@ import {
 import { Result, Schema } from "effect";
 
 import { IsoDateString } from "./codecs";
+
+type EventOrderExpressions = {
+	readonly id: ScalarExpression;
+	readonly createdAt: ScalarExpression;
+	readonly occurredAt: ScalarExpression;
+};
+
+const eventOrderExpressions = (event: TableReference): EventOrderExpressions => ({
+	id: column(event, "id"),
+	createdAt: column(event, "createdAt"),
+	occurredAt: column(event, "occurredAt"),
+});
+
+export const eventOrderDescending = (event: TableReference) =>
+	[
+		descending(column(event, "occurredAt")),
+		descending(column(event, "createdAt")),
+		descending(column(event, "id")),
+	] as const;
+
+export const eventIsAfter = (
+	event: TableReference,
+	boundary: TableReference | EventOrderExpressions,
+) => {
+	const current = eventOrderExpressions(event);
+	const previous = "alias" in boundary ? eventOrderExpressions(boundary) : boundary;
+	return or(
+		gt(current.occurredAt, previous.occurredAt),
+		and(eq(current.occurredAt, previous.occurredAt), gt(current.createdAt, previous.createdAt)),
+		and(
+			eq(current.occurredAt, previous.occurredAt),
+			eq(current.createdAt, previous.createdAt),
+			gt(current.id, previous.id),
+		),
+	);
+};
+
+export const latestEventField = (
+	event: TableReference,
+	input: {
+		readonly where?: Predicate | undefined;
+		readonly joins?: readonly Join[] | undefined;
+		readonly select: ScalarExpression;
+	},
+) => first(event, { ...input, orderBy: eventOrderDescending(event) });
 
 export const eventHistoryRecipe = defineRecipe(
 	(input: {
@@ -36,6 +90,7 @@ export const eventHistoryRecipe = defineRecipe(
 				events: selectedRows(event, {
 					after: input.after,
 					limit: input.limit ?? 100,
+					orderBy: eventOrderDescending(event),
 					joins: [join("inner", entity, eq(column(event, "entityId"), column(entity, "id")))],
 					where: and(
 						input.eventSchemaSlugs.length === 1
@@ -55,11 +110,6 @@ export const eventHistoryRecipe = defineRecipe(
 							? [eq(column(event, "sessionEntityId"), literal(input.sessionEntityId))]
 							: []),
 					),
-					orderBy: [
-						descending(column(event, "occurredAt")),
-						descending(column(event, "createdAt")),
-						descending(column(event, "id")),
-					],
 					selection: {
 						id: selectedField(column(event, "id"), EventId),
 						entityId: selectedField(column(event, "entityId"), EntityId),

@@ -11,12 +11,10 @@ import {
 	castDate,
 	castNumber,
 	column,
-	count,
 	descending,
 	defineRecipe,
 	eq,
 	exists,
-	gt,
 	join,
 	jsonPath,
 	literal,
@@ -33,6 +31,16 @@ import {
 import { savedViewRecipe } from "@ryot/ryotql-recipes/saved-views";
 import { Result, Schema } from "effect";
 
+import {
+	EpisodeLifecycleStateSchema,
+	EpisodicLifecycleStateSchema,
+	episodeLifecycleStateExpression,
+	episodicLifecycleExpressions,
+	podcastEpisodicKindConfig,
+	showEpisodicKindConfig,
+	type EpisodicLifecycleState,
+} from "./operations/lifecycle-recipes";
+
 type Table = ReturnType<typeof table>;
 
 const entityIdentitySelection = (entity: Table) => ({
@@ -48,16 +56,6 @@ const entityId = (entity: Table, id: string) => eq(column(entity, "id"), literal
 
 const propertyNumber = (entity: Table, property: string) =>
 	castNumber(jsonPath(column(entity, "properties"), property));
-
-const eventExists = (entity: Table, alias: string, schema: string) => {
-	const event = table("event", alias);
-	return exists(event, {
-		where: and(
-			eq(column(event, "entityId"), column(entity, "id")),
-			eq(column(event, "eventSchemaSlug"), literal(schema)),
-		),
-	});
-};
 
 const relationshipTo = (relationship: Table, parent: Table, child: Table, schema: string) =>
 	and(
@@ -112,15 +110,11 @@ const showSeasonInclude = (input: {
 				),
 				selection: {
 					...entityIdentitySelection(episode),
+					state: selectedField(
+						episodeLifecycleStateExpression(episode, "showEpisodeDetailLifecycle"),
+						EpisodeLifecycleStateSchema,
+					),
 					episodeNumber: selectedField(episodeNumber, Schema.Number),
-					hasProgress: selectedField(
-						eventExists(episode, "episodeProgress", "progress"),
-						Schema.Boolean,
-					),
-					isComplete: selectedField(
-						eventExists(episode, "episodeComplete", "complete"),
-						Schema.Boolean,
-					),
 				},
 			}),
 		},
@@ -149,83 +143,13 @@ const podcastEpisodeInclude = (episodeLimit: number) => {
 		],
 		selection: {
 			...entityIdentitySelection(episode),
+			state: selectedField(
+				episodeLifecycleStateExpression(episode, "podcastEpisodeDetailLifecycle"),
+				EpisodeLifecycleStateSchema,
+			),
 			episodeNumber: selectedField(episodeNumber, Schema.Number),
-			hasProgress: selectedField(
-				eventExists(episode, "episodeProgress", "progress"),
-				Schema.Boolean,
-			),
-			isComplete: selectedField(
-				eventExists(episode, "episodeComplete", "complete"),
-				Schema.Boolean,
-			),
 		},
 	});
-};
-
-const episodeCount = (input: {
-	readonly parent: Table;
-	readonly episodeAlias: string;
-	readonly eventSchemaSlug?: string;
-	readonly episodeSchemaSlug: string;
-	readonly relationshipAlias: string;
-	readonly relationshipSchemaSlug: string;
-}) => {
-	const episode = table("entity", input.episodeAlias);
-	const relationship = table("relationship", input.relationshipAlias);
-	return count(episode, {
-		joins: [
-			join(
-				"inner",
-				relationship,
-				eq(column(relationship, "targetEntityId"), column(episode, "id")),
-			),
-		],
-		where: and(
-			entitySchema(episode, input.episodeSchemaSlug),
-			relationshipTo(relationship, input.parent, episode, input.relationshipSchemaSlug),
-			...(input.eventSchemaSlug
-				? [eventExists(episode, `${input.episodeAlias}Event`, input.eventSchemaSlug)]
-				: []),
-		),
-	});
-};
-
-const showRegularSeasonCount = (input: {
-	readonly alias: string;
-	readonly parent: Table;
-	readonly completed: boolean;
-	readonly relationshipAlias: string;
-}) => {
-	const season = table("entity", input.alias);
-	const relationship = table("relationship", input.relationshipAlias);
-	const regularSeason = gt(propertyNumber(season, "seasonNumber"), literal(0));
-	const where = [
-		entitySchema(season, "show-season"),
-		relationshipTo(relationship, input.parent, season, "show-to-show-season"),
-		regularSeason,
-	];
-	if (input.completed) {
-		where.push(
-			eq(
-				episodeCount({
-					parent: season,
-					eventSchemaSlug: "complete",
-					episodeSchemaSlug: "show-episode",
-					episodeAlias: `${input.alias}CompletedEpisode`,
-					relationshipSchemaSlug: "show-season-to-show-episode",
-					relationshipAlias: `${input.alias}CompletedEpisodeRelationship`,
-				}),
-				episodeCount({
-					parent: season,
-					episodeSchemaSlug: "show-episode",
-					episodeAlias: `${input.alias}AllEpisode`,
-					relationshipSchemaSlug: "show-season-to-show-episode",
-					relationshipAlias: `${input.alias}AllEpisodeRelationship`,
-				}),
-			),
-		);
-	}
-	return { season, relationship, where };
 };
 
 const withEntityFilter = (
@@ -241,11 +165,19 @@ export const showDetailRecipe = defineRecipe(
 		readonly episodeLimit: number;
 	}) => {
 		const entity = table("entity", "entity");
+		const lifecycle = episodicLifecycleExpressions(
+			showEpisodicKindConfig,
+			entity,
+			"showDetailLifecycle",
+		);
 		return {
 			queries: {
 				show: selectedOptionalRow(entity, {
 					include: { seasons: showSeasonInclude(input) },
-					selection: entityIdentitySelection(entity),
+					selection: {
+						...entityIdentitySelection(entity),
+						state: selectedField(lifecycle.state, EpisodicLifecycleStateSchema),
+					},
 					orderBy: [ascending(column(entity, "id"))],
 					where: and(entitySchema(entity, "show"), entityId(entity, input.entityId)),
 				}),
@@ -255,129 +187,32 @@ export const showDetailRecipe = defineRecipe(
 	},
 );
 
-export const inProgressShowsRecipe = defineRecipe(
+export const showsByLifecycleStateRecipe = defineRecipe(
 	(input: {
+		readonly state: EpisodicLifecycleState;
 		readonly after?: string | undefined;
 		readonly limit?: number | undefined;
 		readonly entityId?: string | undefined;
 	}) => {
 		const entity = table("entity", "entity");
-		const season = table("entity", "watchingSeason");
-		const seasonRelationship = table("relationship", "watchingSeasonRelationship");
-		const episode = table("entity", "watchingEpisode");
-		const episodeRelationship = table("relationship", "watchingEpisodeRelationship");
+		const lifecycle = episodicLifecycleExpressions(
+			showEpisodicKindConfig,
+			entity,
+			"showListLifecycle",
+		);
 		return {
 			queries: {
 				shows: selectedRows(entity, {
 					after: input.after,
 					limit: input.limit,
-					selection: entityIdentitySelection(entity),
+					selection: {
+						...entityIdentitySelection(entity),
+						state: selectedField(lifecycle.state, EpisodicLifecycleStateSchema),
+					},
 					where: withEntityFilter(
 						entity,
 						input.entityId,
-						and(
-							entitySchema(entity, "show"),
-							not(eventExists(entity, "entityComplete", "complete")),
-							exists(season, {
-								joins: [
-									join(
-										"inner",
-										seasonRelationship,
-										eq(column(seasonRelationship, "targetEntityId"), column(season, "id")),
-									),
-								],
-								where: and(
-									entitySchema(season, "show-season"),
-									relationshipTo(seasonRelationship, entity, season, "show-to-show-season"),
-									exists(episode, {
-										joins: [
-											join(
-												"inner",
-												episodeRelationship,
-												eq(column(episodeRelationship, "targetEntityId"), column(episode, "id")),
-											),
-										],
-										where: and(
-											entitySchema(episode, "show-episode"),
-											relationshipTo(
-												episodeRelationship,
-												season,
-												episode,
-												"show-season-to-show-episode",
-											),
-											eventExists(episode, "watchingEpisodeProgress", "progress"),
-										),
-									}),
-								),
-							}),
-						),
-					),
-				}),
-			},
-			map: ({ shows }) => Result.succeed(shows),
-		};
-	},
-);
-
-export const completedShowsRecipe = defineRecipe(
-	(input: {
-		readonly after?: string | undefined;
-		readonly limit?: number | undefined;
-		readonly entityId?: string | undefined;
-	}) => {
-		const entity = table("entity", "entity");
-		const completed = showRegularSeasonCount({
-			parent: entity,
-			completed: true,
-			alias: "completedSeason",
-			relationshipAlias: "completedSeasonRelationship",
-		});
-		const regular = showRegularSeasonCount({
-			parent: entity,
-			completed: false,
-			alias: "regularSeason",
-			relationshipAlias: "regularSeasonRelationship",
-		});
-		return {
-			queries: {
-				shows: selectedRows(entity, {
-					after: input.after,
-					limit: input.limit,
-					selection: entityIdentitySelection(entity),
-					where: withEntityFilter(
-						entity,
-						input.entityId,
-						and(
-							entitySchema(entity, "show"),
-							eq(
-								count(completed.season, {
-									where: and(...completed.where),
-									joins: [
-										join(
-											"inner",
-											completed.relationship,
-											eq(
-												column(completed.relationship, "targetEntityId"),
-												column(completed.season, "id"),
-											),
-										),
-									],
-								}),
-								count(regular.season, {
-									where: and(...regular.where),
-									joins: [
-										join(
-											"inner",
-											regular.relationship,
-											eq(
-												column(regular.relationship, "targetEntityId"),
-												column(regular.season, "id"),
-											),
-										),
-									],
-								}),
-							),
-						),
+						and(entitySchema(entity, "show"), eq(lifecycle.state, literal(input.state))),
 					),
 				}),
 			},
@@ -389,10 +224,18 @@ export const completedShowsRecipe = defineRecipe(
 export const podcastDetailRecipe = defineRecipe(
 	(input: { readonly entityId: string; readonly episodeLimit: number }) => {
 		const entity = table("entity", "entity");
+		const lifecycle = episodicLifecycleExpressions(
+			podcastEpisodicKindConfig,
+			entity,
+			"podcastDetailLifecycle",
+		);
 		return {
 			queries: {
 				podcast: selectedOptionalRow(entity, {
-					selection: entityIdentitySelection(entity),
+					selection: {
+						...entityIdentitySelection(entity),
+						state: selectedField(lifecycle.state, EpisodicLifecycleStateSchema),
+					},
 					include: { episodes: podcastEpisodeInclude(input.episodeLimit) },
 					orderBy: [ascending(column(entity, "id"))],
 					where: and(entitySchema(entity, "podcast"), entityId(entity, input.entityId)),
@@ -403,90 +246,32 @@ export const podcastDetailRecipe = defineRecipe(
 	},
 );
 
-const podcastProgressRecipe = defineRecipe(
+export const podcastsByLifecycleStateRecipe = defineRecipe(
 	(input: {
-		readonly completed: boolean;
+		readonly state: EpisodicLifecycleState;
 		readonly after?: string | undefined;
 		readonly limit?: number | undefined;
 		readonly entityId?: string | undefined;
 	}) => {
 		const entity = table("entity", "entity");
-		const episode = table("entity", input.completed ? "completedEpisode" : "watchingEpisode");
-		const relationship = table(
-			"relationship",
-			input.completed ? "completedEpisodeRelationship" : "watchingEpisodeRelationship",
+		const lifecycle = episodicLifecycleExpressions(
+			podcastEpisodicKindConfig,
+			entity,
+			"podcastListLifecycle",
 		);
 		return {
 			queries: {
 				podcasts: selectedRows(entity, {
 					after: input.after,
 					limit: input.limit,
-					selection: entityIdentitySelection(entity),
+					selection: {
+						...entityIdentitySelection(entity),
+						state: selectedField(lifecycle.state, EpisodicLifecycleStateSchema),
+					},
 					where: withEntityFilter(
 						entity,
 						input.entityId,
-						and(
-							entitySchema(entity, "podcast"),
-							...(input.completed
-								? [
-										eq(
-											count(episode, {
-												joins: [
-													join(
-														"inner",
-														relationship,
-														eq(column(relationship, "targetEntityId"), column(episode, "id")),
-													),
-												],
-												where: and(
-													entitySchema(episode, "podcast-episode"),
-													relationshipTo(
-														relationship,
-														entity,
-														episode,
-														"podcast-to-podcast-episode",
-													),
-													eventExists(episode, "completedEpisodeEvent", "complete"),
-												),
-											}),
-											count(episode, {
-												joins: [
-													join(
-														"inner",
-														relationship,
-														eq(column(relationship, "targetEntityId"), column(episode, "id")),
-													),
-												],
-												where: and(
-													entitySchema(episode, "podcast-episode"),
-													relationshipTo(
-														relationship,
-														entity,
-														episode,
-														"podcast-to-podcast-episode",
-													),
-												),
-											}),
-										),
-									]
-								: [
-										not(eventExists(entity, "podcastComplete", "complete")),
-										exists(episode, {
-											joins: [
-												join(
-													"inner",
-													relationship,
-													eq(column(relationship, "targetEntityId"), column(episode, "id")),
-												),
-											],
-											where: and(
-												entitySchema(episode, "podcast-episode"),
-												relationshipTo(relationship, entity, episode, "podcast-to-podcast-episode"),
-												eventExists(episode, "watchingEpisodeProgress", "progress"),
-											),
-										}),
-									]),
-						),
+						and(entitySchema(entity, "podcast"), eq(lifecycle.state, literal(input.state))),
 					),
 				}),
 			},
@@ -494,18 +279,6 @@ const podcastProgressRecipe = defineRecipe(
 		};
 	},
 );
-
-export const inProgressPodcastsRecipe = (input: {
-	readonly after?: string | undefined;
-	readonly limit?: number | undefined;
-	readonly entityId?: string | undefined;
-}) => podcastProgressRecipe({ ...input, completed: false });
-
-export const completedPodcastsRecipe = (input: {
-	readonly after?: string | undefined;
-	readonly limit?: number | undefined;
-	readonly entityId?: string | undefined;
-}) => podcastProgressRecipe({ ...input, completed: true });
 
 const libraryExists = (entity: Table, alias: string) => {
 	const library = table("entity", alias);
@@ -695,11 +468,9 @@ export const defaultMediaSavedViewRecipe = (input: {
 };
 
 export type ShowDetailResult = Recipe.Success<typeof showDetailRecipe>;
-export type InProgressShowsResult = Recipe.Success<typeof inProgressShowsRecipe>;
-export type CompletedShowsResult = Recipe.Success<typeof completedShowsRecipe>;
+export type ShowsByLifecycleStateResult = Recipe.Success<typeof showsByLifecycleStateRecipe>;
 export type PodcastDetailResult = Recipe.Success<typeof podcastDetailRecipe>;
-export type InProgressPodcastsResult = Recipe.Success<typeof inProgressPodcastsRecipe>;
-export type CompletedPodcastsResult = Recipe.Success<typeof completedPodcastsRecipe>;
+export type PodcastsByLifecycleStateResult = Recipe.Success<typeof podcastsByLifecycleStateRecipe>;
 export type PersonalMediaSuggestionsResult = Recipe.Success<typeof personalMediaSuggestionsRecipe>;
 export type CollectionMediaSuggestionsResult = Recipe.Success<
 	typeof collectionMediaSuggestionsRecipe
