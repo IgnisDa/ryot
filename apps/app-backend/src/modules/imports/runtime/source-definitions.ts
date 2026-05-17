@@ -1,8 +1,8 @@
 import { config } from "~/lib/config";
 
-import { fileImportRunSources, type CreateImportRunBody } from "./schemas";
+import { fileImportRunSources, type CreateImportRunBody } from "../schemas";
 
-export const allowedExtensionsBySource = Object.fromEntries(
+const allowedExtensionsBySource = Object.fromEntries(
 	fileImportRunSources.map((source) => [source, ["csv"]]),
 ) satisfies Partial<Record<CreateImportRunBody["source"], string[]>>;
 

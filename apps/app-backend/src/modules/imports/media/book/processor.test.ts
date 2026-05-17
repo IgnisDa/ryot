@@ -2,7 +2,7 @@ import { describe, expect, it } from "bun:test";
 
 import { createJob } from "~/lib/test-fixtures";
 
-import type { MediaImportAdapterResult } from "../../media/import-processor";
+import type { MediaImportAdapterResult } from "../import-processor";
 import { processBookCsvImport, type BookImportProcessorDeps } from "./processor";
 
 const createDeps = (overrides: Partial<BookImportProcessorDeps> = {}): BookImportProcessorDeps => ({
