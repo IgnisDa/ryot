@@ -29,10 +29,14 @@ export const config = {
 	port: parsedPort,
 	fileStorage: rawSystem.fileStorage,
 	nodeEnv: rawSystem.nodeEnv ?? "production",
+	frontend: { oidcButtonLabel: rawSystem.frontend.oidcButtonLabel },
 	redisUrl: requireField(rawSystem.redisUrl, "REDIS_URL"),
-	users: { allowRegistration: rawSystem.users.allowRegistration === "true" },
 	databaseUrl: requireField(rawSystem.databaseUrl, "DATABASE_URL"),
 	frontendUrl: requireField(rawSystem.frontendUrl, "FRONTEND_URL"),
+	users: {
+		disableLocalAuth: rawSystem.users.disableLocalAuth === "true",
+		allowRegistration: rawSystem.users.allowRegistration === "true",
+	},
 	server: {
 		corsOrigins:
 			rawSystem.server.corsOrigins
@@ -40,10 +44,40 @@ export const config = {
 				.map((origin) => origin.trim())
 				.filter(Boolean) ?? [],
 		adminAccessToken: requireField(rawSystem.server.adminAccessToken, "SERVER_ADMIN_ACCESS_TOKEN"),
+		oidc: {
+			clientId: rawSystem.server.oidc.clientId,
+			issuerUrl: rawSystem.server.oidc.issuerUrl,
+			clientSecret: rawSystem.server.oidc.clientSecret,
+			enabled: !!(
+				rawSystem.server.oidc.clientId &&
+				rawSystem.server.oidc.issuerUrl &&
+				rawSystem.server.oidc.clientSecret
+			),
+		},
 	},
 };
 
 export const IS_DEVELOPMENT = config.nodeEnv === "development";
+
+const oidcFields = [
+	config.server.oidc.clientId,
+	config.server.oidc.issuerUrl,
+	config.server.oidc.clientSecret,
+];
+const oidcSetCount = oidcFields.filter(Boolean).length;
+if (oidcSetCount > 0 && oidcSetCount < 3) {
+	throw new Error(
+		"Partial OIDC configuration detected. " +
+			"Set all three of SERVER_OIDC_CLIENT_ID, SERVER_OIDC_ISSUER_URL, and SERVER_OIDC_CLIENT_SECRET, or none of them.",
+	);
+}
+
+if (config.users.disableLocalAuth && !config.server.oidc.enabled) {
+	throw new Error(
+		"USERS_DISABLE_LOCAL_AUTH is set but OIDC credentials are incomplete. " +
+			"Set SERVER_OIDC_CLIENT_ID, SERVER_OIDC_ISSUER_URL, and SERVER_OIDC_CLIENT_SECRET.",
+	);
+}
 
 export const appConfig = rawApp;
 export type AppConfig = typeof rawApp;

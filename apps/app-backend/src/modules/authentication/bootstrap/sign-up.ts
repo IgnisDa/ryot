@@ -1,14 +1,12 @@
-import { isAPIError } from "better-auth/api";
+import { eq } from "drizzle-orm";
 
-import { auth } from "~/lib/auth";
 import { db } from "~/lib/db";
-import { type ServiceResult, serviceData, serviceError } from "~/lib/result";
+import { tracker } from "~/lib/db/schema";
 import { createLibraryEntityForUser } from "~/modules/collections";
 import { createTrackerEntitySchemas, listBuiltinEntitySchemas } from "~/modules/entity-schemas";
 import { createSavedViewsForUser } from "~/modules/saved-views";
 import { createBuiltinTrackersForUser } from "~/modules/trackers";
 
-import type { UserPreferences } from "../schemas";
 import {
 	buildAuthenticationSavedViewInputs,
 	buildAuthenticationTrackerEntitySchemaLinks,
@@ -20,69 +18,55 @@ import {
 	authenticationBuiltinTrackers,
 } from "./manifests";
 
-export const signUpAndInitializeUser = async (input: {
-	name: string;
-	email: string;
-	password: string;
-	preferences: UserPreferences;
-}): Promise<ServiceResult<{ created: true }, "validation">> => {
-	try {
-		const signUpResult = await auth.api.signUpEmail({
-			body: {
-				name: input.name,
-				email: input.email,
-				password: input.password,
-				preferences: input.preferences,
-			},
-		});
+export const bootstrapNewUser = async (userId: string) => {
+	const [existingTracker] = await db
+		.select({ id: tracker.id })
+		.from(tracker)
+		.where(eq(tracker.userId, userId))
+		.limit(1);
 
-		await db.transaction(async (tx) => {
-			const createdTrackers = await createBuiltinTrackersForUser({
-				database: tx,
-				userId: signUpResult.user.id,
-				trackers: authenticationBuiltinTrackers(),
-			});
-
-			const builtinEntitySchemaRows = await listBuiltinEntitySchemas({
-				database: tx,
-			});
-
-			await createTrackerEntitySchemas({
-				database: tx,
-				links: buildAuthenticationTrackerEntitySchemaLinks({
-					trackers: createdTrackers,
-					entitySchemas: builtinEntitySchemaRows,
-					schemaLinks: authenticationBuiltinEntitySchemas()
-						.filter((schema) => typeof schema.trackerSlug === "string")
-						.map((schema) => ({
-							slug: schema.slug,
-							trackerSlug: schema.trackerSlug,
-						})),
-				}),
-			});
-
-			await createSavedViewsForUser({
-				database: tx,
-				userId: signUpResult.user.id,
-				views: buildAuthenticationSavedViewInputs({
-					trackers: createdTrackers,
-					entitySchemas: builtinEntitySchemaRows,
-					savedViews: authenticationBuiltinSavedViews(),
-				}),
-			});
-
-			const libraryEntityInput = buildLibraryEntityInput({
-				entitySchemas: builtinEntitySchemaRows,
-			});
-			await createLibraryEntityForUser({ userId: signUpResult.user.id, ...libraryEntityInput }, tx);
-		});
-
-		return serviceData({ created: true as const });
-	} catch (error) {
-		if (isAPIError(error)) {
-			return serviceError("validation", error.message || "Could not create account");
-		}
-
-		throw error;
+	if (existingTracker) {
+		return;
 	}
+
+	await db.transaction(async (tx) => {
+		const createdTrackers = await createBuiltinTrackersForUser({
+			userId,
+			database: tx,
+			trackers: authenticationBuiltinTrackers(),
+		});
+
+		const builtinEntitySchemaRows = await listBuiltinEntitySchemas({
+			database: tx,
+		});
+
+		await createTrackerEntitySchemas({
+			database: tx,
+			links: buildAuthenticationTrackerEntitySchemaLinks({
+				trackers: createdTrackers,
+				entitySchemas: builtinEntitySchemaRows,
+				schemaLinks: authenticationBuiltinEntitySchemas()
+					.filter((schema) => typeof schema.trackerSlug === "string")
+					.map((schema) => ({
+						slug: schema.slug,
+						trackerSlug: schema.trackerSlug,
+					})),
+			}),
+		});
+
+		await createSavedViewsForUser({
+			userId,
+			database: tx,
+			views: buildAuthenticationSavedViewInputs({
+				trackers: createdTrackers,
+				entitySchemas: builtinEntitySchemaRows,
+				savedViews: authenticationBuiltinSavedViews(),
+			}),
+		});
+
+		const libraryEntityInput = buildLibraryEntityInput({
+			entitySchemas: builtinEntitySchemaRows,
+		});
+		await createLibraryEntityForUser({ userId, ...libraryEntityInput }, tx);
+	});
 };
