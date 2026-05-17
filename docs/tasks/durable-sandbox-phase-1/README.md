@@ -2,9 +2,9 @@
 
 ## Tasks
 
-**Overall Progress:** 5 of 16 tasks completed
+**Overall Progress:** 6 of 16 tasks completed
 
-**Current Task:** [Task 06](./06-migrate-media-imports-and-workflows.md) (todo)
+**Current Task:** [Task 07](./07-migrate-media-integrations.md) (todo)
 
 ### Task List
 
@@ -15,7 +15,7 @@
 | 03  | [Make Youtubei and Approved Dependencies Replay-Safe](./03-make-youtubei-replay-safe.md)     | done   |
 | 04  | [Make Sandbox Artifacts Replay-Safe](./04-make-artifacts-replay-safe.md)                     | done   |
 | 05  | [Complete Durable Host Dispatch and Write Safety](./05-complete-durable-host-dispatch.md)    | done   |
-| 06  | [Migrate Media Imports and Named Workflows](./06-migrate-media-imports-and-workflows.md)     | todo   |
+| 06  | [Migrate Media Imports and Named Workflows](./06-migrate-media-imports-and-workflows.md)     | done   |
 | 07  | [Migrate Media Integration Scripts](./07-migrate-media-integrations.md)                      | todo   |
 | 08  | [Migrate Media Automations and Operations](./08-migrate-media-automations-and-operations.md) | todo   |
 | 09  | [Migrate the Fitness Plugin](./09-migrate-fitness-plugin.md)                                 | todo   |

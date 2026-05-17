@@ -1,5 +1,4 @@
-import { defineActivity } from "@ryot/sandbox-sdk/activity";
-import { defineManifest } from "@ryot/sandbox-sdk/driver";
+import { defineManifest, defineScript } from "@ryot/sandbox-sdk/driver";
 import { Effect } from "@ryot/sandbox-sdk/effect";
 
 import {
@@ -9,15 +8,15 @@ import {
 import { resolve } from "../providers/media/show/tmdb";
 
 export const manifest = defineManifest({
-	kind: "activity",
+	kind: "script",
+	requiredSystemConfigKeys: [],
 	name: "Resolve imported TMDB show",
-	slug: "activity.media-import-resolve.show.tmdb",
+	slug: "media-import-resolve.show.tmdb",
 	capabilities: ["httpCall", "getPluginConfig"],
 	requiredPluginConfigKeys: ["tmdbAccessToken"],
-	requiredSystemConfigKeys: [],
 });
 
-export default defineActivity({
+export default defineScript({
 	manifest,
 	input: MediaImportResolutionActivityInput,
 	output: MediaImportResolutionActivityResult,

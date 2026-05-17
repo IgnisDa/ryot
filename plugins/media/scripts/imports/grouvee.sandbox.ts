@@ -1,5 +1,4 @@
-import { defineActivity } from "@ryot/sandbox-sdk/activity";
-import { defineManifest } from "@ryot/sandbox-sdk/driver";
+import { defineManifest, defineScript } from "@ryot/sandbox-sdk/driver";
 import { Effect } from "@ryot/sandbox-sdk/effect";
 
 import { adaptGrouveeCsv } from "../../imports/grouvee";
@@ -8,14 +7,15 @@ import { MediaImportAdapterBatch, MediaImportParserInput } from "../../imports/s
 import { readImportArtifactText } from "./shared";
 
 export const manifest = defineManifest({
-	kind: "activity",
+	kind: "script",
+	slug: "import.grouvee",
 	name: "Parse Grouvee import",
 	requiredPluginConfigKeys: [],
 	requiredSystemConfigKeys: [],
-	slug: "activity.import.grouvee",
 	capabilities: ["artifact-read"],
 });
-export default defineActivity({
+
+export default defineScript({
 	manifest,
 	input: MediaImportParserInput,
 	output: MediaImportAdapterBatch,

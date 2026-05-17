@@ -11,9 +11,10 @@ const activity = {
 } satisfies WorkflowDurableCallRequest;
 
 describe("workflow call script resolution", () => {
-	it("dispatches activities only to exact activity scripts", () => {
+	it("dispatches activities to activity and migrated script definitions", () => {
 		expect(isWorkflowCallTargetKind(activity, "activity")).toBe(true);
-		for (const kind of ["script", "operation", "workflow", "provider", "automation"] as const) {
+		expect(isWorkflowCallTargetKind(activity, "script")).toBe(true);
+		for (const kind of ["operation", "workflow", "provider", "automation"] as const) {
 			expect(isWorkflowCallTargetKind(activity, kind)).toBe(false);
 		}
 	});
