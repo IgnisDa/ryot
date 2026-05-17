@@ -118,6 +118,38 @@ const showSeasonSource = (alias: string, where: QueryEnginePayload["source"]["wh
 		},
 	}) as const;
 
+const seasonEpisodeSource = (
+	seasonAlias: string,
+	episodeAlias: string,
+	where: QueryEnginePayload["source"]["where"],
+) =>
+	({
+		where,
+		type: "entities",
+		alias: episodeAlias,
+		schemas: ["show-episode"],
+		via: {
+			direction: "outgoing",
+			entityRef: seasonAlias,
+			alias: `${episodeAlias}Rel`,
+			schema: "show-season-to-show-episode",
+		},
+	}) as const;
+
+const podcastEpisodeSource = (episodeAlias: string, where: QueryEnginePayload["source"]["where"]) =>
+	({
+		where,
+		type: "entities",
+		alias: episodeAlias,
+		schemas: ["podcast-episode"],
+		via: {
+			entityRef: "podcast",
+			direction: "outgoing",
+			alias: `${episodeAlias}Rel`,
+			schema: "podcast-to-podcast-episode",
+		},
+	}) as const;
+
 const createCourseLessonFilterFixture = async () => {
 	const { client } = await createAuthenticatedClient();
 	const { schemaId: courseSchemaId, slug: courseSlug } = await createQueryEngineTrackerAndSchema(
@@ -1302,6 +1334,244 @@ describe("Query Engine E2E", () => {
 			expect(fullyWatchedResult.data.items).toHaveLength(1);
 		});
 
+		it("derives show fully-watched from per-episode completion across multi-episode seasons", async () => {
+			const { client } = await createAuthenticatedClient();
+			const { schema: showSchema } = await findBuiltinSchemaBySlug(client, "show");
+			const showSeasonSchemaId = await getBuiltinEntitySchemaId("show-season");
+			const showEpisodeSchemaId = await getBuiltinEntitySchemaId("show-episode");
+			const relationshipSchemas = await listRelationshipSchemas(client, {
+				slugs: ["show-to-show-season", "show-season-to-show-episode"],
+			});
+			const showSeasonRelationship = requireRelationshipSchemaBySlug(
+				relationshipSchemas,
+				"show-to-show-season",
+			);
+			const seasonEpisodeRelationship = requireRelationshipSchemaBySlug(
+				relationshipSchemas,
+				"show-season-to-show-episode",
+			);
+			const episodeEvents = await listEventSchemas(client, showEpisodeSchemaId);
+			const episodeCompleteSchema = requireEventSchemaBySlug(episodeEvents, "complete");
+
+			const fixtureSuffix = crypto.randomUUID();
+			const show = await seedMediaEntity({
+				image: null,
+				userId: null,
+				sandboxScriptId: null,
+				entitySchemaId: showSchema.id,
+				externalId: `show-${fixtureSuffix}`,
+				name: "Multi-Episode Derivation Show",
+				properties: {
+					images: [],
+					genres: [],
+					isNsfw: null,
+					sourceUrl: null,
+					totalSeasons: 2,
+					totalEpisodes: 3,
+					description: null,
+					publishYear: null,
+					publishDate: null,
+					providerRating: null,
+					productionStatus: null,
+				},
+			});
+			const specialSeason = await seedMediaEntity({
+				image: null,
+				userId: null,
+				name: "Specials",
+				sandboxScriptId: null,
+				entitySchemaId: showSeasonSchemaId,
+				externalId: `season-0-${fixtureSuffix}`,
+				properties: { seasonNumber: 0, description: "Specials", releaseDate: null },
+			});
+			const firstSeason = await seedMediaEntity({
+				image: null,
+				userId: null,
+				name: "Season 1",
+				sandboxScriptId: null,
+				entitySchemaId: showSeasonSchemaId,
+				externalId: `season-1-${fixtureSuffix}`,
+				properties: { seasonNumber: 1, description: "First", releaseDate: null },
+			});
+			const specialEpisode = await seedMediaEntity({
+				image: null,
+				userId: null,
+				sandboxScriptId: null,
+				name: "Special Episode",
+				entitySchemaId: showEpisodeSchemaId,
+				externalId: `episode-0-1-${fixtureSuffix}`,
+				properties: {
+					runtime: 10,
+					seasonNumber: 0,
+					episodeNumber: 1,
+					publishDate: null,
+					description: "Special",
+				},
+			});
+			const firstSeasonEpisodeOne = await seedMediaEntity({
+				image: null,
+				userId: null,
+				sandboxScriptId: null,
+				name: "Season 1 Episode One",
+				entitySchemaId: showEpisodeSchemaId,
+				externalId: `episode-1-1-${fixtureSuffix}`,
+				properties: {
+					runtime: 45,
+					seasonNumber: 1,
+					episodeNumber: 1,
+					publishDate: null,
+					description: "First",
+				},
+			});
+			const firstSeasonEpisodeTwo = await seedMediaEntity({
+				image: null,
+				userId: null,
+				sandboxScriptId: null,
+				name: "Season 1 Episode Two",
+				entitySchemaId: showEpisodeSchemaId,
+				externalId: `episode-1-2-${fixtureSuffix}`,
+				properties: {
+					runtime: 50,
+					seasonNumber: 1,
+					episodeNumber: 2,
+					publishDate: null,
+					description: "Second",
+				},
+			});
+
+			await insertGlobalRelationship({
+				sourceEntityId: show.id,
+				targetEntityId: specialSeason.id,
+				relationshipSchemaId: showSeasonRelationship.id,
+			});
+			await insertGlobalRelationship({
+				sourceEntityId: show.id,
+				targetEntityId: firstSeason.id,
+				relationshipSchemaId: showSeasonRelationship.id,
+			});
+			await insertGlobalRelationship({
+				sourceEntityId: specialSeason.id,
+				targetEntityId: specialEpisode.id,
+				relationshipSchemaId: seasonEpisodeRelationship.id,
+			});
+			await insertGlobalRelationship({
+				sourceEntityId: firstSeason.id,
+				targetEntityId: firstSeasonEpisodeOne.id,
+				relationshipSchemaId: seasonEpisodeRelationship.id,
+			});
+			await insertGlobalRelationship({
+				sourceEntityId: firstSeason.id,
+				targetEntityId: firstSeasonEpisodeTwo.id,
+				relationshipSchemaId: seasonEpisodeRelationship.id,
+			});
+
+			await createQueryEngineEvent(client, {
+				entityId: specialEpisode.id,
+				eventSchemaId: episodeCompleteSchema.id,
+				properties: { completionMode: "unknown" },
+			});
+			await createQueryEngineEvent(client, {
+				entityId: firstSeasonEpisodeOne.id,
+				eventSchemaId: episodeCompleteSchema.id,
+				properties: { completionMode: "unknown" },
+			});
+
+			const showNameWhere = {
+				operator: "eq" as const,
+				type: "comparison" as const,
+				left: systemRef("show", "id"),
+				right: { type: "literal" as const, value: show.id },
+			};
+			const completedRegularSeasonSource = (aliasSuffix: string) =>
+				showSeasonSource(`seasonCompleted${aliasSuffix}`, {
+					type: "and" as const,
+					values: [
+						{
+							operator: "gt" as const,
+							type: "comparison" as const,
+							right: { type: "literal" as const, value: 0 },
+							left: propertyRef(`seasonCompleted${aliasSuffix}`, "show-season", "seasonNumber"),
+						},
+						{
+							operator: "eq" as const,
+							type: "comparison" as const,
+							left: {
+								type: "aggregate" as const,
+								aggregation: { function: "count" as const },
+								source: seasonEpisodeSource(
+									`seasonCompleted${aliasSuffix}`,
+									`completedEpisode${aliasSuffix}`,
+									{
+										type: "exists" as const,
+										source: showEpisodeEventExistsSource(
+											`completedEpisode${aliasSuffix}`,
+											"complete",
+										),
+									},
+								),
+							},
+							right: {
+								type: "aggregate" as const,
+								aggregation: { function: "count" as const },
+								source: seasonEpisodeSource(
+									`seasonCompleted${aliasSuffix}`,
+									`allEpisode${aliasSuffix}`,
+									null,
+								),
+							},
+						},
+					],
+				});
+			const fullyWatchedDoc = buildRowsDoc({
+				limit: 10,
+				alias: "show",
+				schemas: ["show"],
+				fields: [{ key: "name", expr: systemRef("show", "name") }],
+				source: {
+					alias: "show",
+					type: "entities",
+					schemas: ["show"],
+					where: {
+						type: "and" as const,
+						values: [
+							showNameWhere,
+							{
+								operator: "eq" as const,
+								type: "comparison" as const,
+								left: {
+									type: "aggregate" as const,
+									aggregation: { function: "count" as const },
+									source: completedRegularSeasonSource("Filter"),
+								},
+								right: {
+									type: "aggregate" as const,
+									aggregation: { function: "count" as const },
+									source: showSeasonSource("seasonRegularFilter", {
+										operator: "gt" as const,
+										type: "comparison" as const,
+										right: { type: "literal" as const, value: 0 },
+										left: propertyRef("seasonRegularFilter", "show-season", "seasonNumber"),
+									}),
+								},
+							},
+						],
+					},
+				},
+			});
+
+			const incompleteResult = await executeQueryEngine(client, fullyWatchedDoc);
+			expect(incompleteResult.data.items).toHaveLength(0);
+
+			await createQueryEngineEvent(client, {
+				entityId: firstSeasonEpisodeTwo.id,
+				eventSchemaId: episodeCompleteSchema.id,
+				properties: { completionMode: "unknown" },
+			});
+
+			const completeResult = await executeQueryEngine(client, fullyWatchedDoc);
+			expect(completeResult.data.items).toHaveLength(1);
+		});
+
 		it("returns builtin podcast episodes with derived episode state", async () => {
 			const { client } = await createAuthenticatedClient();
 			const { schema: podcastSchema } = await findBuiltinSchemaBySlug(client, "podcast");
@@ -1464,6 +1734,189 @@ describe("Query Engine E2E", () => {
 				value: true,
 				kind: "boolean",
 			});
+		});
+
+		it("derives podcast fully-watched and currently-watching from per-episode state", async () => {
+			const { client } = await createAuthenticatedClient();
+			const { schema: podcastSchema } = await findBuiltinSchemaBySlug(client, "podcast");
+			const podcastEpisodeSchemaId = await getBuiltinEntitySchemaId("podcast-episode");
+			const relationshipSchemas = await listRelationshipSchemas(client, {
+				slugs: ["podcast-to-podcast-episode"],
+			});
+			const podcastEpisodeRelationship = requireRelationshipSchemaBySlug(
+				relationshipSchemas,
+				"podcast-to-podcast-episode",
+			);
+			const episodeEvents = await listEventSchemas(client, podcastEpisodeSchemaId);
+			const episodeProgressSchema = requireEventSchemaBySlug(episodeEvents, "progress");
+			const episodeCompleteSchema = requireEventSchemaBySlug(episodeEvents, "complete");
+			const podcastEvents = await listEventSchemas(client, podcastSchema.id);
+			const podcastCompleteSchema = requireEventSchemaBySlug(podcastEvents, "complete");
+
+			const fixtureSuffix = crypto.randomUUID();
+			const podcast = await seedMediaEntity({
+				image: null,
+				userId: null,
+				sandboxScriptId: null,
+				name: "Derivation Podcast",
+				entitySchemaId: podcastSchema.id,
+				externalId: `podcast-${fixtureSuffix}`,
+				properties: {
+					images: [],
+					genres: [],
+					isNsfw: null,
+					sourceUrl: null,
+					totalEpisodes: 2,
+					description: null,
+					publishYear: null,
+					publishDate: null,
+					providerRating: null,
+					unlinkedCreators: [],
+					productionStatus: null,
+				},
+			});
+			const firstEpisode = await seedMediaEntity({
+				image: null,
+				userId: null,
+				name: "Episode One",
+				sandboxScriptId: null,
+				entitySchemaId: podcastEpisodeSchemaId,
+				externalId: `podcast-episode-1-${fixtureSuffix}`,
+				properties: { runtime: 30, episodeNumber: 1, publishDate: null, description: "First" },
+			});
+			const secondEpisode = await seedMediaEntity({
+				image: null,
+				userId: null,
+				name: "Episode Two",
+				sandboxScriptId: null,
+				entitySchemaId: podcastEpisodeSchemaId,
+				externalId: `podcast-episode-2-${fixtureSuffix}`,
+				properties: { runtime: 40, episodeNumber: 2, publishDate: null, description: "Second" },
+			});
+
+			await insertGlobalRelationship({
+				sourceEntityId: podcast.id,
+				targetEntityId: firstEpisode.id,
+				relationshipSchemaId: podcastEpisodeRelationship.id,
+			});
+			await insertGlobalRelationship({
+				sourceEntityId: podcast.id,
+				targetEntityId: secondEpisode.id,
+				relationshipSchemaId: podcastEpisodeRelationship.id,
+			});
+
+			await createQueryEngineEvent(client, {
+				entityId: firstEpisode.id,
+				occurredAt: "2026-06-25T00:00:00.000Z",
+				eventSchemaId: episodeProgressSchema.id,
+				properties: { progressPercent: 100, consumedOn: "Audiobookshelf" },
+			});
+			await waitForEventCount(client, firstEpisode.id, 2);
+
+			const podcastIdWhere = {
+				operator: "eq" as const,
+				type: "comparison" as const,
+				left: systemRef("podcast", "id"),
+				right: { type: "literal" as const, value: podcast.id },
+			};
+			const currentlyWatchingDoc = buildRowsDoc({
+				limit: 10,
+				alias: "podcast",
+				schemas: ["podcast"],
+				fields: [{ key: "name", expr: systemRef("podcast", "name") }],
+				source: {
+					alias: "podcast",
+					type: "entities",
+					schemas: ["podcast"],
+					where: {
+						type: "and" as const,
+						values: [
+							podcastIdWhere,
+							{
+								type: "not" as const,
+								expr: {
+									type: "exists" as const,
+									source: {
+										where: null,
+										type: "events" as const,
+										entityRef: "podcast",
+										schemas: ["complete"],
+										alias: "podcastCompletion",
+									},
+								},
+							},
+							{
+								type: "exists" as const,
+								source: podcastEpisodeSource("episodeWatching", {
+									type: "exists" as const,
+									source: showEpisodeEventExistsSource("episodeWatching", "progress"),
+								}),
+							},
+						],
+					},
+				},
+			});
+			const fullyWatchedDoc = buildRowsDoc({
+				limit: 10,
+				alias: "podcast",
+				schemas: ["podcast"],
+				fields: [{ key: "name", expr: systemRef("podcast", "name") }],
+				source: {
+					alias: "podcast",
+					type: "entities",
+					schemas: ["podcast"],
+					where: {
+						type: "and" as const,
+						values: [
+							podcastIdWhere,
+							{
+								operator: "eq" as const,
+								type: "comparison" as const,
+								left: {
+									type: "aggregate" as const,
+									aggregation: { function: "count" as const },
+									source: podcastEpisodeSource("completedEpisode", {
+										type: "exists" as const,
+										source: showEpisodeEventExistsSource("completedEpisode", "complete"),
+									}),
+								},
+								right: {
+									type: "aggregate" as const,
+									aggregation: { function: "count" as const },
+									source: podcastEpisodeSource("allEpisode", null),
+								},
+							},
+						],
+					},
+				},
+			});
+
+			const phaseOneCurrentlyWatching = await executeQueryEngine(client, currentlyWatchingDoc);
+			expect(phaseOneCurrentlyWatching.data.items).toHaveLength(1);
+			const phaseOneFullyWatched = await executeQueryEngine(client, fullyWatchedDoc);
+			expect(phaseOneFullyWatched.data.items).toHaveLength(0);
+
+			await createQueryEngineEvent(client, {
+				entityId: secondEpisode.id,
+				eventSchemaId: episodeCompleteSchema.id,
+				properties: { completionMode: "unknown" },
+			});
+
+			const phaseTwoCurrentlyWatching = await executeQueryEngine(client, currentlyWatchingDoc);
+			expect(phaseTwoCurrentlyWatching.data.items).toHaveLength(1);
+			const phaseTwoFullyWatched = await executeQueryEngine(client, fullyWatchedDoc);
+			expect(phaseTwoFullyWatched.data.items).toHaveLength(1);
+
+			await createQueryEngineEvent(client, {
+				entityId: podcast.id,
+				eventSchemaId: podcastCompleteSchema.id,
+				properties: { completionMode: "unknown" },
+			});
+
+			const phaseThreeCurrentlyWatching = await executeQueryEngine(client, currentlyWatchingDoc);
+			expect(phaseThreeCurrentlyWatching.data.items).toHaveLength(0);
+			const phaseThreeFullyWatched = await executeQueryEngine(client, fullyWatchedDoc);
+			expect(phaseThreeFullyWatched.data.items).toHaveLength(1);
 		});
 
 		it("filters included child rows by a child property while keeping parents with zero matches", async () => {
