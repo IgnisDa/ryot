@@ -105,8 +105,8 @@ export const MetadataDisplayItem = (props: {
 		return false;
 	}, [
 		metadataDetails,
-		userMetadataDetails,
 		completedHistory,
+		userMetadataDetails,
 		props.calendarEventShowInfo,
 		props.calendarEventPodcastInfo,
 	]);
