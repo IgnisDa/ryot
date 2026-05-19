@@ -186,10 +186,8 @@ export const twoFactorSessionStorage = createCookieSessionStorage({
 	cookie: {
 		path: "/",
 		sameSite: "lax",
-		httpOnly: true,
 		maxAge: 60 * 10,
 		name: "TwoFactor",
-		secure: process.env.NODE_ENV === "production",
 		secrets: (process.env.SESSION_SECRET || "secret").split(","),
 	},
 });
