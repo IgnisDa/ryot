@@ -94,9 +94,19 @@ export const MetadataDisplayItem = (props: {
 			);
 			return (episodeProgress?.timesSeen ?? 0) > 0;
 		}
+		if (
+			metadataDetails &&
+			metadataDetails.lot !== MediaLot.Show &&
+			metadataDetails.lot !== MediaLot.Podcast &&
+			metadataDetails.lot !== MediaLot.Anime &&
+			metadataDetails.lot !== MediaLot.Manga
+		)
+			return completedHistory.length > 0;
 		return false;
 	}, [
+		metadataDetails,
 		userMetadataDetails,
+		completedHistory,
 		props.calendarEventShowInfo,
 		props.calendarEventPodcastInfo,
 	]);
