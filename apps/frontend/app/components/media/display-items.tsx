@@ -34,6 +34,7 @@ export const MetadataDisplayItem = (props: {
 	additionalInformation?: string;
 	shouldHighlightNameIfInteracted?: boolean;
 	onImageClickBehavior?: () => Promise<void>;
+	isCalendarEvent?: boolean;
 	calendarEventShowInfo?: SeenShowExtraInformationPartFragment;
 	calendarEventPodcastInfo?: SeenPodcastExtraInformationPartFragment;
 }) => {
@@ -95,6 +96,7 @@ export const MetadataDisplayItem = (props: {
 			return (episodeProgress?.timesSeen ?? 0) > 0;
 		}
 		if (
+			props.isCalendarEvent &&
 			metadataDetails &&
 			metadataDetails.lot !== MediaLot.Show &&
 			metadataDetails.lot !== MediaLot.Podcast &&
@@ -104,6 +106,7 @@ export const MetadataDisplayItem = (props: {
 			return completedHistory.length > 0;
 		return false;
 	}, [
+		props.isCalendarEvent,
 		metadataDetails,
 		completedHistory,
 		userMetadataDetails,
