@@ -113,9 +113,9 @@ describe("GET /event-schemas", () => {
 					progressPercent: {
 						type: "number",
 						label: "Progress Percent",
-						description: "Percentage of the media completed so far (0–100)",
 						transform: { round: { mode: "half_up", scale: 2 } },
 						validation: { maximum: 100, required: true, exclusiveMinimum: 0 },
+						description: "Percentage of the media completed so far (0 to 100)",
 					},
 				},
 			});
@@ -212,9 +212,9 @@ describe("GET /event-schemas", () => {
 				progressPercent: {
 					type: "number",
 					label: "Progress Percent",
-					description: "Percentage of the media completed so far (0–100)",
 					transform: { round: { mode: "half_up", scale: 2 } },
 					validation: { maximum: 100, required: true, exclusiveMinimum: 0 },
+					description: "Percentage of the media completed so far (0 to 100)",
 				},
 				showSeason: {
 					type: "integer",
@@ -249,7 +249,7 @@ describe("GET /event-schemas", () => {
 				progressPercent: {
 					type: "number",
 					label: "Progress Percent",
-					description: "Percentage of the media completed so far (0–100)",
+					description: "Percentage of the media completed so far (0 to 100)",
 				},
 				animeEpisode: {
 					type: "integer",
@@ -265,7 +265,7 @@ describe("GET /event-schemas", () => {
 				progressPercent: {
 					type: "number",
 					label: "Progress Percent",
-					description: "Percentage of the media completed so far (0–100)",
+					description: "Percentage of the media completed so far (0 to 100)",
 				},
 				mangaChapter: {
 					type: "number",
@@ -286,7 +286,7 @@ describe("GET /event-schemas", () => {
 				progressPercent: {
 					type: "number",
 					label: "Progress Percent",
-					description: "Percentage of the media completed so far (0–100)",
+					description: "Percentage of the media completed so far (0 to 100)",
 				},
 				podcastEpisode: {
 					type: "integer",
@@ -302,9 +302,9 @@ describe("GET /event-schemas", () => {
 				progressPercent: {
 					type: "number",
 					label: "Progress Percent",
-					description: "Percentage of the media completed so far (0–100)",
 					transform: { round: { mode: "half_up", scale: 2 } },
 					validation: { maximum: 100, required: true, exclusiveMinimum: 0 },
+					description: "Percentage of the media completed so far (0 to 100)",
 				},
 			},
 		});
