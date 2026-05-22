@@ -31,10 +31,10 @@ export const MetadataDisplayItem = (props: {
 	isFirstItem?: boolean;
 	imageClassName?: string;
 	centerElement?: ReactNode;
+	isCalendarEvent?: boolean;
 	additionalInformation?: string;
 	shouldHighlightNameIfInteracted?: boolean;
 	onImageClickBehavior?: () => Promise<void>;
-	isCalendarEvent?: boolean;
 	calendarEventShowInfo?: SeenShowExtraInformationPartFragment;
 	calendarEventPodcastInfo?: SeenPodcastExtraInformationPartFragment;
 }) => {
@@ -96,20 +96,20 @@ export const MetadataDisplayItem = (props: {
 			return (episodeProgress?.timesSeen ?? 0) > 0;
 		}
 		if (
-			props.isCalendarEvent &&
 			metadataDetails &&
+			props.isCalendarEvent &&
 			metadataDetails.lot !== MediaLot.Show &&
-			metadataDetails.lot !== MediaLot.Podcast &&
+			metadataDetails.lot !== MediaLot.Manga &&
 			metadataDetails.lot !== MediaLot.Anime &&
-			metadataDetails.lot !== MediaLot.Manga
+			metadataDetails.lot !== MediaLot.Podcast
 		)
 			return completedHistory.length > 0;
 		return false;
 	}, [
-		props.isCalendarEvent,
 		metadataDetails,
 		completedHistory,
 		userMetadataDetails,
+		props.isCalendarEvent,
 		props.calendarEventShowInfo,
 		props.calendarEventPodcastInfo,
 	]);
