@@ -31,6 +31,7 @@ export const MetadataDisplayItem = (props: {
 	isFirstItem?: boolean;
 	imageClassName?: string;
 	centerElement?: ReactNode;
+	isCalendarEvent?: boolean;
 	additionalInformation?: string;
 	shouldHighlightNameIfInteracted?: boolean;
 	onImageClickBehavior?: () => Promise<void>;
@@ -96,10 +97,11 @@ export const MetadataDisplayItem = (props: {
 		}
 		if (
 			metadataDetails &&
+			props.isCalendarEvent &&
 			metadataDetails.lot !== MediaLot.Show &&
-			metadataDetails.lot !== MediaLot.Podcast &&
+			metadataDetails.lot !== MediaLot.Manga &&
 			metadataDetails.lot !== MediaLot.Anime &&
-			metadataDetails.lot !== MediaLot.Manga
+			metadataDetails.lot !== MediaLot.Podcast
 		)
 			return completedHistory.length > 0;
 		return false;
@@ -107,6 +109,7 @@ export const MetadataDisplayItem = (props: {
 		metadataDetails,
 		completedHistory,
 		userMetadataDetails,
+		props.isCalendarEvent,
 		props.calendarEventShowInfo,
 		props.calendarEventPodcastInfo,
 	]);

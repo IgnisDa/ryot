@@ -118,6 +118,7 @@ const CalendarEventMetadata = (props: {
 
 	return (
 		<MetadataDisplayItem
+			isCalendarEvent
 			metadataId={props.item.metadataId}
 			additionalInformation={additionalInformation}
 			calendarEventShowInfo={props.item.showExtraInformation ?? undefined}
