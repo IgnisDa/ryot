@@ -1,9 +1,7 @@
 import { createDefaultQueryDefinition } from "~/modules/saved-views";
-import type {
-	DisplayConfiguration,
-	LatestRelationshipJoinDefinition,
-	SavedViewQueryDefinition,
-} from "~/modules/saved-views";
+import type { SavedViewQueryDefinition } from "~/modules/saved-views";
+
+import type { BuiltinSavedView } from "./saved-views";
 
 export const buildLibraryEntityInput = (input: {
 	entitySchemas: Array<{ id: string; slug: string }>;
@@ -15,7 +13,7 @@ export const buildLibraryEntityInput = (input: {
 	return { entitySchemaId: librarySchema.id };
 };
 
-export const buildAuthenticationTrackerEntitySchemaLinks = (input: {
+export const buildBuiltinTrackerEntitySchemaLinks = (input: {
 	trackers: Array<{ id: string; slug: string }>;
 	entitySchemas: Array<{ id: string; slug: string }>;
 	schemaLinks: Array<{ slug: string; trackerSlug: string }>;
@@ -32,31 +30,18 @@ export const buildAuthenticationTrackerEntitySchemaLinks = (input: {
 			throw new Error(`Missing built-in entity schema for tracker link ${schemaLink.slug}`);
 		}
 
-		return {
-			trackerId: tracker.id,
-			entitySchemaId: entitySchema.id,
-		};
+		return { trackerId: tracker.id, entitySchemaId: entitySchema.id };
 	});
 };
 
-export const buildAuthenticationSavedViewInputs = (input: {
+export const buildBuiltinSavedViewInputs = (input: {
+	savedViews: BuiltinSavedView[];
 	trackers: Array<{ id: string; slug: string }>;
 	entitySchemas: Array<{
 		id: string;
 		slug: string;
 		icon: string;
 		accentColor: string;
-	}>;
-	savedViews: Array<{
-		slug: string;
-		name: string;
-		icon?: string;
-		trackerSlug?: string;
-		accentColor?: string;
-		entitySchemaSlug?: string;
-		queryDefinition?: SavedViewQueryDefinition;
-		displayConfiguration: DisplayConfiguration;
-		relationshipJoins?: LatestRelationshipJoinDefinition[];
 	}>;
 }) => {
 	return input.savedViews.map((savedView) => {
