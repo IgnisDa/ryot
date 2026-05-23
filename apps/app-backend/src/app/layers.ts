@@ -132,9 +132,11 @@ const ServicesNeedingCollectionsScopeLive = Layer.mergeAll(
 	UserStateService.Default,
 );
 
+const CollectionsServiceLive = Layer.provide(CollectionsService.Default, EntitiesService.Default);
+
 const ServicesBaseLive = Layer.provideMerge(
 	ServicesNeedingCollectionsScopeLive,
-	CollectionsService.Default,
+	CollectionsServiceLive,
 );
 
 const ServicesLive = Layer.provideMerge(ServicesBaseLive, SandboxServicesLive);

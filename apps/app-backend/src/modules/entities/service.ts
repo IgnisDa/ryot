@@ -3,12 +3,33 @@ import { Effect } from "effect";
 import type { CurrentUserValue } from "#lib/auth-middleware";
 import { DbRunner } from "#lib/db";
 import { badRequest, notFound } from "#lib/errors";
-import { EntityId, EntitySchemaId, SandboxScriptId } from "#lib/schema/brands";
+import { EntityId, EntitySchemaId, SandboxScriptId, type UserId } from "#lib/schema/brands";
 import { parseAppSchemaProperties } from "#lib/schema/property-schema-runtime";
 import { requireText, trimToNull } from "#lib/validation";
 
 import { EntitiesRepository } from "./repository";
 import type { CreateEntityBody } from "./schemas";
+import type { StoredEntityImage } from "./types";
+
+type SaveEntityInput = {
+	name: string;
+	properties: unknown;
+	entitySchemaId: EntitySchemaId;
+	image: StoredEntityImage | null;
+} & (
+	| {
+			scope: "global";
+			externalId: string;
+			populatedAt: Date | null;
+			sandboxScriptId: SandboxScriptId;
+	  }
+	| {
+			scope: "user";
+			userId: UserId;
+			externalId?: string;
+			sandboxScriptId?: SandboxScriptId;
+	  }
+);
 
 const entityNotFoundError = "Entity not found";
 const entitySchemaNotFoundError = "Entity schema not found";
@@ -19,6 +40,36 @@ export class EntitiesService extends Effect.Service<EntitiesService>()("Entities
 	effect: Effect.gen(function* () {
 		const runWithDb = yield* DbRunner;
 		const repository = yield* EntitiesRepository;
+
+		const save = Effect.fn("EntitiesService.save")(function* (input: SaveEntityInput) {
+			if (input.scope === "user") {
+				const hasExternalId = input.externalId !== undefined;
+				const hasScriptId = input.sandboxScriptId !== undefined;
+				if (hasExternalId !== hasScriptId) {
+					return yield* badRequest(partialProvenanceError);
+				}
+			}
+
+			const scope = yield* input.scope === "user"
+				? runWithDb(
+						repository.getEntitySchemaScopeForUser({
+							userId: input.userId,
+							entitySchemaId: input.entitySchemaId,
+						}),
+					)
+				: runWithDb(repository.findEntitySchemaById(input.entitySchemaId));
+			if (!scope) {
+				return yield* notFound(entitySchemaNotFoundError);
+			}
+
+			const properties = yield* parseAppSchemaProperties({
+				kind: "Entity",
+				properties: input.properties,
+				propertiesSchema: scope.propertiesSchema,
+			}).pipe(Effect.mapError((error) => badRequest(error.message)));
+
+			return yield* runWithDb(repository.saveEntity({ ...input, properties }));
+		});
 
 		const create = Effect.fn("EntitiesService.create")(function* (
 			user: CurrentUserValue,
@@ -64,22 +115,15 @@ export class EntitiesService extends Effect.Service<EntitiesService>()("Entities
 
 			const name = yield* requireText(payload.name, "Entity name is required");
 
-			const properties = yield* parseAppSchemaProperties({
-				kind: "Entity",
+			return yield* save({
+				name,
+				scope: "user",
+				entitySchemaId,
+				userId: user.id,
+				image: payload.image ?? null,
 				properties: payload.properties,
-				propertiesSchema: scope.propertiesSchema,
-			}).pipe(Effect.mapError((error) => badRequest(error.message)));
-
-			return yield* runWithDb(
-				repository.createEntity({
-					name,
-					properties,
-					entitySchemaId,
-					userId: user.id,
-					image: payload.image ?? null,
-					...provenance,
-				}),
-			);
+				...provenance,
+			});
 		});
 
 		const getById = Effect.fn("EntitiesService.getById")(function* (
@@ -107,6 +151,6 @@ export class EntitiesService extends Effect.Service<EntitiesService>()("Entities
 			return entity;
 		});
 
-		return { create, getById };
+		return { save, create, getById };
 	}),
 }) {}
