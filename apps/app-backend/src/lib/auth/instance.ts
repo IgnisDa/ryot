@@ -25,7 +25,7 @@ export const auth = betterAuth({
 		// TEMP(9179): Expo/native OAuth state cookie round-trip fails here.
 		// https://github.com/better-auth/better-auth/issues/9179
 		skipStateCookieCheck: true,
-		accountLinking: { enabled: true, trustedProviders: ["email-password", OIDC_PROVIDER_ID] },
+		accountLinking: { enabled: false },
 	},
 	trustedOrigins: [
 		"ryot://",
