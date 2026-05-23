@@ -1,0 +1,224 @@
+function parseJsonResponse(responseBody) {
+  try {
+    return JSON.parse(responseBody);
+  } catch {
+    throw new Error("Spotify returned invalid JSON");
+  }
+}
+
+const SPOTIFY_TOKEN_URL = "https://accounts.spotify.com/api/token";
+const SPOTIFY_API_URL = "https://api.spotify.com/v1";
+const TOKEN_CACHE_KEY = "spotify_access_token";
+
+async function getCredentials() {
+  const [clientIdResp, clientSecretResp] = await Promise.all([
+    getAppConfigValue("music.spotify.clientId"),
+    getAppConfigValue("music.spotify.clientSecret"),
+  ]);
+  if (!clientIdResp?.success) {
+    throw new Error(clientIdResp?.error ?? "Failed to retrieve Spotify client ID");
+  }
+  if (!clientSecretResp?.success) {
+    throw new Error(clientSecretResp?.error ?? "Failed to retrieve Spotify client secret");
+  }
+  const clientId = typeof clientIdResp.data === "string" ? clientIdResp.data.trim() : null;
+  const clientSecret =
+    typeof clientSecretResp.data === "string" ? clientSecretResp.data.trim() : null;
+  if (!clientId) {
+    throw new Error(
+      "Spotify client ID is not configured. Set MUSIC_SPOTIFY_CLIENT_ID in your environment.",
+    );
+  }
+  if (!clientSecret) {
+    throw new Error(
+      "Spotify client secret is not configured. Set MUSIC_SPOTIFY_CLIENT_SECRET in your environment.",
+    );
+  }
+  return { clientId, clientSecret };
+}
+
+async function getAccessToken() {
+  const cached = await getCachedValue(TOKEN_CACHE_KEY);
+  if (cached?.success && typeof cached.data === "string" && cached.data) {
+    return cached.data;
+  }
+  const { clientId, clientSecret } = await getCredentials();
+  const credentials = btoa(`${clientId}:${clientSecret}`);
+  const response = await httpCall("POST", SPOTIFY_TOKEN_URL, {
+    body: "grant_type=client_credentials",
+    headers: {
+      Authorization: `Basic ${credentials}`,
+      "Content-Type": "application/x-www-form-urlencoded",
+    },
+  });
+  if (!response?.success) {
+    throw new Error(response?.error ?? "Spotify token request failed");
+  }
+  const payload = parseJsonResponse(response.data.body);
+  if (!payload?.access_token) {
+    throw new Error("Spotify token response did not include an access token");
+  }
+  const expiresIn =
+    typeof payload.expires_in === "number" && payload.expires_in > 0
+      ? payload.expires_in
+      : 3600;
+  const cacheResult = await setCachedValue(
+    TOKEN_CACHE_KEY,
+    payload.access_token,
+    Math.max(60, expiresIn - 300),
+  );
+  if (!cacheResult?.success) {
+    console.warn(`Spotify token cache write failed: ${cacheResult?.error}`);
+  }
+  return payload.access_token;
+}
+
+async function spotifyGet(path, params) {
+  const accessToken = await getAccessToken();
+  const search = params ? `?${new URLSearchParams(params).toString()}` : "";
+  const response = await httpCall("GET", `${SPOTIFY_API_URL}${path}${search}`, {
+    headers: { Authorization: `Bearer ${accessToken}` },
+  });
+  if (!response?.success) {
+    throw new Error(response?.error ?? `Spotify request failed: ${path}`);
+  }
+  return parseJsonResponse(response.data.body);
+}
+
+function getImagesSortedBySize(images) {
+  if (!Array.isArray(images) || images.length === 0) return [];
+  return [...images]
+    .sort((a, b) => {
+      const sizeA = (a.width || 0) * (a.height || 0);
+      const sizeB = (b.width || 0) * (b.height || 0);
+      return sizeB - sizeA;
+    })
+    .map((img) => img.url)
+    .filter((url) => typeof url === "string" && url);
+}
+
+driver("search", async function (context) {
+  const { z } = await import("npm:zod");
+
+  const { query, page: currentPage, pageSize } = z
+    .object({
+      query: z.string().trim().min(1, "query is required"),
+      page: z.coerce.number().min(1).transform(Math.floor).catch(1),
+      pageSize: z.coerce.number().min(1).max(100).transform(Math.floor).catch(20),
+    })
+    .parse(context ?? {});
+
+  const offset = (currentPage - 1) * pageSize;
+  const data = await spotifyGet("/search", {
+    q: query,
+    type: "album",
+    limit: String(pageSize),
+    offset: String(offset),
+  });
+
+  const albums = data?.albums;
+  const totalItems = typeof albums?.total === "number" ? albums.total : 0;
+  const albumItems = Array.isArray(albums?.items) ? albums.items : [];
+
+  const items = albumItems
+    .map((album) => {
+      const id =
+        typeof album?.id === "string" ? album.id.trim() : null;
+      if (!id) return null;
+      const name =
+        typeof album?.name === "string" && album.name.trim()
+          ? album.name.trim()
+          : null;
+      if (!name) return null;
+      const parts =
+        typeof album?.total_tracks === "number" ? album.total_tracks : null;
+      const imageUrls = getImagesSortedBySize(album?.images ?? []);
+      const imageUrl = imageUrls[0] ?? null;
+      return {
+        externalId: id,
+        calloutProperty: { kind: "null", value: null },
+        titleProperty: { kind: "text", value: name },
+        primarySubtitleProperty:
+          parts === null
+            ? { kind: "null", value: null }
+            : { kind: "number", value: parts },
+        secondarySubtitleProperty: { kind: "null", value: null },
+        imageProperty:
+          imageUrl === null
+            ? { kind: "null", value: null }
+            : { kind: "image", value: { type: "remote", url: imageUrl } },
+      };
+    })
+    .filter((item) => item !== null);
+
+  return {
+    items,
+    details: {
+      totalItems,
+      nextPage:
+        offset + albumItems.length < totalItems ? currentPage + 1 : null,
+    },
+  };
+});
+
+driver("details", async function (context) {
+  const { z } = await import("npm:zod");
+
+  const { externalId } = z
+    .object({ externalId: z.string().trim().min(1, "externalId is required") })
+    .parse(context ?? {});
+
+  const album = await spotifyGet(`/albums/${encodeURIComponent(externalId)}`);
+
+  const title =
+    typeof album?.name === "string" && album.name.trim() ? album.name.trim() : null;
+  if (!title) throw new Error("Spotify album is missing name");
+
+  const description =
+    typeof album?.description === "string" && album.description.trim()
+      ? album.description.trim()
+      : null;
+
+  const parts =
+    typeof album?.total_tracks === "number" ? album.total_tracks : null;
+
+  const trackItems = Array.isArray(album?.tracks?.items) ? album.tracks.items : [];
+  const relatedEntities = trackItems
+    .map((item, idx) => {
+      const track = item?.track ?? item;
+      const memberId =
+        typeof track?.id === "string" && track.id.trim() ? track.id.trim() : null;
+      if (!memberId) return null;
+      const memberName =
+        typeof track?.name === "string" && track.name.trim()
+          ? track.name.trim()
+          : "Loading...";
+      return {
+        name: memberName,
+        externalId: memberId,
+        reverseDirection: true,
+        scriptSlug: "music.spotify",
+        relationshipProperties: { order: idx + 1 },
+      };
+    })
+    .filter((e) => e !== null);
+
+  const imageUrls = getImagesSortedBySize(album?.images ?? []);
+  const images = imageUrls.map((url) => ({ type: "remote", url }));
+
+  const sourceUrl =
+    typeof album?.external_urls?.spotify === "string"
+      ? album.external_urls.spotify
+      : null;
+
+  return {
+    name: title,
+    relatedEntities,
+    properties: {
+      parts,
+      images,
+      sourceUrl,
+      description,
+    },
+  };
+});

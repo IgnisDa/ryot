@@ -1,0 +1,290 @@
+function parseJsonResponse(responseBody) {
+  try {
+    return JSON.parse(responseBody);
+  } catch {
+    throw new Error("VNDB returned invalid JSON");
+  }
+}
+
+// VNDB partial dates are "YYYY-MM-DD", "YYYY-MM", or "YYYY".
+function extractYear(released, dayjs) {
+  if (typeof released !== "string" || !released.trim()) return null;
+  const d = dayjs(released.trim());
+  return d.isValid() ? d.year() : null;
+}
+
+function extractDate(released) {
+  if (typeof released !== "string" || !released.trim()) return null;
+  const trimmed = released.trim();
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(trimmed)) return null;
+  return trimmed;
+}
+
+function devstatusToString(devstatus) {
+  if (devstatus === 0) return "Finished";
+  if (devstatus === 1) return "In development";
+  if (devstatus === 2) return "Cancelled";
+  return null;
+}
+
+// Collect unique developer objects that have both id and name.
+function collectDevelopers(developers) {
+  if (!Array.isArray(developers) || developers.length === 0) {
+    return [];
+  }
+
+  const seen = new Set();
+  const result = [];
+
+  for (const dev of developers) {
+    if (!dev || typeof dev !== "object") {
+      continue;
+    }
+
+    const id =
+      typeof dev.id === "string" && dev.id.trim() ? dev.id.trim() : null;
+    const name =
+      typeof dev.name === "string" && dev.name.trim()
+        ? dev.name.trim()
+        : null;
+
+    if (!id || !name) {
+      continue;
+    }
+
+    if (seen.has(id)) {
+      continue;
+    }
+    seen.add(id);
+
+    result.push({ id, name });
+  }
+
+  return result;
+}
+
+const BASE_URL = "https://api.vndb.org/kana";
+const SEARCH_FIELDS = "title,image.url,released";
+const DETAIL_FIELDS =
+  "title,image.url,released,screenshots.url,developers.id,developers.name," +
+  "length_minutes,tags.name,devstatus,description,rating";
+
+driver("search", async function (context) {
+  const { z } = await import("npm:zod");
+  const dayjs = (await import("npm:dayjs")).default;
+
+  const { query, page: currentPage, pageSize } = z.object({
+    query: z.string().trim().min(1, "query is required"),
+    page: z.coerce.number().min(1).transform(Math.floor).catch(1),
+    pageSize: z.coerce.number().min(1).max(100).transform(Math.floor).catch(20),
+  }).parse(context ?? {});
+
+  const response = await httpCall("POST", `${BASE_URL}/vn`, {
+    headers: {
+      Accept: "application/json",
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      page: currentPage,
+      count: true,
+      results: pageSize,
+      fields: SEARCH_FIELDS,
+      filters: ["search", "=", query],
+    }),
+  });
+
+  if (!response?.success) {
+    throw new Error(response?.error ?? "VNDB VN search request failed");
+  }
+
+  const payload = parseJsonResponse(response.data.body);
+
+  const totalItems =
+    typeof payload?.count === "number" && Number.isFinite(payload.count)
+      ? Math.max(0, Math.trunc(payload.count))
+      : 0;
+
+  const results = Array.isArray(payload?.results) ? payload.results : [];
+
+  const items = results
+    .map((vn) => {
+      if (!vn || typeof vn !== "object") {
+        return null;
+      }
+
+      const externalId =
+        typeof vn.id === "string" && vn.id.trim() ? vn.id.trim() : null;
+      if (!externalId) {
+        return null;
+      }
+
+      const name =
+        typeof vn.title === "string" && vn.title.trim()
+          ? vn.title.trim()
+          : null;
+      if (!name) {
+        return null;
+      }
+
+      const publishYear = extractYear(vn.released, dayjs);
+      const image =
+        vn.image &&
+        typeof vn.image === "object" &&
+        typeof vn.image.url === "string" &&
+        vn.image.url.trim()
+          ? vn.image.url.trim()
+          : null;
+
+      return {
+        externalId,
+        calloutProperty: { kind: "null", value: null },
+        titleProperty: { kind: "text", value: name },
+        primarySubtitleProperty:
+          publishYear === null
+            ? { kind: "null", value: null }
+            : { kind: "number", value: publishYear },
+        secondarySubtitleProperty: { kind: "null", value: null },
+        imageProperty:
+          image === null
+            ? { kind: "null", value: null }
+            : { kind: "image", value: { type: "remote", url: image } },
+      };
+    })
+    .filter((item) => item !== null);
+
+  return {
+    items,
+    details: {
+      totalItems,
+      nextPage: payload?.more === true ? currentPage + 1 : null,
+    },
+  };
+});
+
+driver("details", async function (context) {
+  const { z } = await import("npm:zod");
+  const dayjs = (await import("npm:dayjs")).default;
+
+  const { externalId } = z.object({
+    externalId: z.string().trim().min(1, "externalId is required"),
+  }).parse(context ?? {});
+
+  if (!/^v\d+$/.test(externalId)) {
+    throw new Error(
+      "externalId must be a VNDB VN ID (e.g., 'v17')",
+    );
+  }
+
+  const response = await httpCall("POST", `${BASE_URL}/vn`, {
+    headers: {
+      Accept: "application/json",
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      fields: DETAIL_FIELDS,
+      filters: ["id", "=", externalId],
+    }),
+  });
+
+  if (!response?.success) {
+    throw new Error(response?.error ?? "VNDB VN details request failed");
+  }
+
+  const payload = parseJsonResponse(response.data.body);
+  const results = Array.isArray(payload?.results) ? payload.results : [];
+
+  if (results.length === 0) {
+    throw new Error("VNDB returned no data for this externalId");
+  }
+
+  const vn = results[0];
+
+  const name =
+    typeof vn.title === "string" && vn.title.trim()
+      ? vn.title.trim()
+      : null;
+  if (!name) {
+    throw new Error("VNDB VN payload is missing title");
+  }
+
+  const images = [];
+  if (
+    vn.image &&
+    typeof vn.image === "object" &&
+    typeof vn.image.url === "string" &&
+    vn.image.url.trim()
+  ) {
+    images.push({ type: "remote", url: vn.image.url.trim() });
+  }
+  if (Array.isArray(vn.screenshots)) {
+    for (const shot of vn.screenshots) {
+      if (
+        shot &&
+        typeof shot === "object" &&
+        typeof shot.url === "string" &&
+        shot.url.trim()
+      ) {
+        const url = shot.url.trim();
+        if (!images.some((image) => image.url === url)) {
+          images.push({ type: "remote", url });
+        }
+      }
+    }
+  }
+
+  const genres = Array.isArray(vn.tags)
+    ? vn.tags
+        .map((t) =>
+          t && typeof t.name === "string" ? t.name.trim() : null,
+        )
+        .filter((g) => g !== null && g.length > 0)
+    : [];
+
+  const developers = collectDevelopers(vn.developers);
+  const relatedEntities = developers.map((dev) => ({
+    name: dev.name,
+    externalId: dev.id,
+    scriptSlug: "company.vndb",
+    relationshipProperties: {
+      roles: ["Developer"],
+    },
+  }));
+
+  const providerRating =
+    typeof vn.rating === "number" && Number.isFinite(vn.rating)
+      ? vn.rating
+      : null;
+
+  const description =
+    typeof vn.description === "string" && vn.description.trim()
+      ? vn.description.trim()
+      : null;
+
+  const lengthMinutes =
+    typeof vn.length_minutes === "number" &&
+    Number.isFinite(vn.length_minutes) &&
+    vn.length_minutes > 0
+      ? Math.trunc(vn.length_minutes)
+      : null;
+
+  const productionStatus =
+    typeof vn.devstatus === "number"
+      ? devstatusToString(vn.devstatus)
+      : null;
+
+  return {
+    name,
+    properties: {
+      images,
+      genres,
+      description,
+      lengthMinutes,
+      providerRating,
+      productionStatus,
+      publishDate: extractDate(vn.released),
+      sourceUrl: `https://vndb.org/${externalId}`,
+      publishYear: extractYear(vn.released, dayjs),
+    },
+    relatedEntities,
+  };
+});
