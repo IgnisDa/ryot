@@ -1,5 +1,6 @@
 import type { ExpoConfig } from "expo/config";
 
+const MAIN_COLOR = "#fd7e14";
 const isDebug = process.env.APP_VARIANT === "development";
 
 const config: ExpoConfig = {
@@ -12,15 +13,22 @@ const config: ExpoConfig = {
 	name: isDebug ? "Ryot Debug" : "Ryot",
 	updates: { checkAutomatically: "NEVER" },
 	experiments: { typedRoutes: true, reactCompiler: true },
-	plugins: ["expo-font", "expo-router", "expo-web-browser"],
+	plugins: [
+		"expo-font",
+		"expo-router",
+		"expo-web-browser",
+		[
+			"expo-splash-screen",
+			{
+				backgroundColor: MAIN_COLOR,
+				resizeMode: "contain" as const,
+				image: "./assets/images/splash-icon.png",
+			},
+		],
+	],
 	ios: {
 		supportsTablet: true,
 		bundleIdentifier: isDebug ? "io.ryot.app.dev" : "io.ryot.app",
-	},
-	splash: {
-		resizeMode: "contain",
-		backgroundColor: "#fd7e14",
-		image: "./assets/images/splash-icon.png",
 	},
 	web: {
 		bundler: "metro",
@@ -30,7 +38,7 @@ const config: ExpoConfig = {
 	android: {
 		package: isDebug ? "io.ryot.app.dev" : "io.ryot.app",
 		adaptiveIcon: {
-			backgroundColor: "#fd7e14",
+			backgroundColor: MAIN_COLOR,
 			foregroundImage: "./assets/images/adaptive-icon.png",
 		},
 	},
