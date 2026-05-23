@@ -35,6 +35,7 @@ export const eventSourceEntityRow = (row: EventQueryRow): BaseEntityQueryRow => 
 	id: row.id,
 	name: row.name,
 	image: row.image,
+	userId: row.userId,
 	schemaId: row.schemaId,
 	createdAt: row.createdAt,
 	updatedAt: row.updatedAt,
@@ -43,6 +44,7 @@ export const eventSourceEntityRow = (row: EventQueryRow): BaseEntityQueryRow => 
 	schemaSlug: row.schemaSlug,
 	schemaName: row.schemaName,
 	externalId: row.externalId,
+	populatedAt: row.populatedAt,
 	schemaIsBuiltin: row.schemaIsBuiltin,
 	sandboxScriptId: row.sandboxScriptId,
 });

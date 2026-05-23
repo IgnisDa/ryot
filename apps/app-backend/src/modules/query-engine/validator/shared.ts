@@ -7,15 +7,29 @@ export const MAX_TIME_SERIES_BUCKETS = 1000;
 export const MAX_EXPRESSION_SOURCE_DEPTH = 3;
 export const MAX_GROUPED_AGGREGATE_LIMIT = 1000;
 
-const EVENT_SYSTEM_FIELDS = new Set(["id", "occurredAt", "createdAt", "updatedAt"]);
+const EVENT_SYSTEM_FIELDS = new Set([
+	"id",
+	"userId",
+	"entityId",
+	"createdAt",
+	"updatedAt",
+	"occurredAt",
+	"properties",
+	"eventSchemaId",
+	"sessionEntityId",
+]);
 
 const ENTITY_SYSTEM_FIELDS = new Set([
 	"id",
 	"name",
 	"image",
+	"userId",
 	"createdAt",
 	"updatedAt",
+	"properties",
 	"externalId",
+	"populatedAt",
+	"entitySchemaId",
 	"sandboxScriptId",
 ]);
 
