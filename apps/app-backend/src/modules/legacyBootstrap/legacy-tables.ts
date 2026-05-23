@@ -8,15 +8,15 @@ SELECT to_regclass('public.seaql_migrations') IS NOT NULL AS "present";
 `;
 
 const dropLegacyMigrationsTableSql = sql`
-DROP TABLE IF EXISTS public.seaql_migrations;
+DROP TABLE IF EXISTS public.seaql_migrations CASCADE;
 `;
 
 const dropLegacyMetadataTableSql = sql`
-DROP TABLE IF EXISTS public.metadata;
+DROP TABLE IF EXISTS public.metadata CASCADE;
 `;
 
 const dropLegacyUserTableSql = sql`
-DROP TABLE IF EXISTS public.old_user;
+DROP TABLE IF EXISTS public.old_user CASCADE;
 `;
 
 type MetadataMigrationTarget = {
@@ -233,6 +233,23 @@ const shouldRunLegacyBootstrap = async (database: DbClient) => {
 	return hasLegacyMigrationsTable(database);
 };
 
+const getUnsupportedMetadataSources = async (database: DbClient) => {
+	const result = await database.execute<{ lot: string; source: string }>(sql`
+		WITH metadata_targets (lot, source, entity_schema_slug, sandbox_script_slug) AS (
+			VALUES ${metadataMigrationTargetValuesSql}
+		)
+		SELECT DISTINCT
+			metadata.lot AS lot,
+			metadata.source AS source
+		FROM metadata
+		LEFT JOIN metadata_targets ON metadata_targets.lot = metadata.lot AND metadata_targets.source = metadata.source
+		WHERE metadata_targets.lot IS NULL
+		ORDER BY metadata.lot, metadata.source
+	`);
+
+	return result.rows;
+};
+
 const dropLegacyMigrationsTable = async (database: DbClient) => {
 	await database.execute(dropLegacyMigrationsTableSql);
 };
@@ -320,30 +337,6 @@ END $$;
 `;
 
 const buildMetadataMigrationSql = (targets: ResolvedMetadataMigrationTarget[]) => sql`
-DO $$
-DECLARE
-	unsupported_source_combinations text;
-BEGIN
-	IF to_regclass('public.metadata') IS NULL THEN
-		RETURN;
-	END IF;
-
-	WITH metadata_targets (lot, source, entity_schema_slug, sandbox_script_slug) AS (
-		VALUES ${metadataMigrationTargetValuesSql}
-	)
-	SELECT string_agg(format('%s|%s', lot, source), ', ' ORDER BY lot, source)
-	INTO unsupported_source_combinations
-	FROM (
-		SELECT DISTINCT metadata.lot AS lot, metadata.source AS source
-		FROM metadata
-		LEFT JOIN metadata_targets ON metadata_targets.lot = metadata.lot AND metadata_targets.source = metadata.source
-		WHERE metadata_targets.lot IS NULL
-	) AS unsupported_targets;
-
-	IF unsupported_source_combinations IS NOT NULL THEN
-		RAISE EXCEPTION 'Unsupported legacy metadata sources: %', unsupported_source_combinations;
-	END IF;
-
 	WITH metadata_targets (lot, source, entity_schema_id, sandbox_script_id) AS (
 		VALUES ${buildMetadataMigrationTargetValuesSql(targets)}
 	)
@@ -385,7 +378,6 @@ BEGIN
 	FROM metadata
 	INNER JOIN metadata_targets ON metadata_targets.lot = metadata.lot AND metadata_targets.source = metadata.source
 	ON CONFLICT ("id") DO NOTHING;
-END $$;
 `;
 
 export const migrateLegacyTables = async (database: DbClient) => {
@@ -433,6 +425,15 @@ export const migrateLegacyTables = async (database: DbClient) => {
 			source: target.source,
 		};
 	});
+
+	const unsupportedMetadataSources = await getUnsupportedMetadataSources(database);
+	if (unsupportedMetadataSources.length > 0) {
+		throw new Error(
+			`Unsupported legacy metadata sources: ${unsupportedMetadataSources
+				.map(({ lot, source }) => `${lot}|${source}`)
+				.join(", ")}`,
+		);
+	}
 
 	await database.execute(buildMetadataMigrationSql(resolvedTargets));
 	await database.execute(migrateUserTableSql);
