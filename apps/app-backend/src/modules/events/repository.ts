@@ -149,6 +149,7 @@ export type ActiveEventSchemaTriggerRow = {
 	id: string;
 	eventSchemaId: string;
 	sandboxScriptId: string;
+	metadata: (typeof eventSchemaTrigger.$inferSelect)["metadata"];
 };
 
 export const getActiveEventSchemaTriggersForEventSchemas = async (input: {
@@ -162,6 +163,7 @@ export const getActiveEventSchemaTriggersForEventSchemas = async (input: {
 	return db
 		.select({
 			id: eventSchemaTrigger.id,
+			metadata: eventSchemaTrigger.metadata,
 			eventSchemaId: eventSchemaTrigger.eventSchemaId,
 			sandboxScriptId: eventSchemaTrigger.sandboxScriptId,
 		})
