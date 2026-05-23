@@ -107,17 +107,19 @@ describe("God-mode admin token enforcement", () => {
 		expect(response.status).toBe(401);
 	});
 
-	it("rejects ban toggle without auth header", async () => {
+	it("rejects ban set without auth header", async () => {
 		const client = getBackendClient();
-		const { response } = await client.POST("/god-mode/users/{userId}/ban/toggle", {
+		const { response } = await client.POST("/god-mode/users/{userId}/ban/set", {
+			body: { banned: true },
 			params: { path: { userId: "any-id" } },
 		});
 		expect(response.status).toBe(401);
 	});
 
-	it("rejects ban toggle with wrong admin token", async () => {
+	it("rejects ban set with wrong admin token", async () => {
 		const client = getBackendClient();
-		const { response } = await client.POST("/god-mode/users/{userId}/ban/toggle", {
+		const { response } = await client.POST("/god-mode/users/{userId}/ban/set", {
+			body: { banned: true },
 			params: { path: { userId: "any-id" } },
 			headers: adminAccessTokenHeaders(WRONG_TOKEN),
 		});
@@ -194,7 +196,7 @@ describe("User listing with correct admin token", () => {
 	});
 });
 
-describe("God-mode ban toggle", () => {
+describe("God-mode ban set", () => {
 	it("disables a user, revokes sessions, blocks API keys, and then enables the user", async () => {
 		const client = getBackendClient();
 		const { cookies, email, password } = await createTestUser();
@@ -212,8 +214,9 @@ describe("God-mode ban toggle", () => {
 		expect(apiKeyBefore.status).toBe(200);
 
 		const { data: banData, response: banResponse } = await client.POST(
-			"/god-mode/users/{userId}/ban/toggle",
+			"/god-mode/users/{userId}/ban/set",
 			{
+				body: { banned: true },
 				params: { path: { userId } },
 				headers: adminAccessTokenHeaders(ADMIN_TOKEN),
 			},
@@ -242,8 +245,9 @@ describe("God-mode ban toggle", () => {
 		expect(blockedSignIn.status).toBe(403);
 
 		const { data: enableData, response: enableResponse } = await client.POST(
-			"/god-mode/users/{userId}/ban/toggle",
+			"/god-mode/users/{userId}/ban/set",
 			{
+				body: { banned: false },
 				params: { path: { userId } },
 				headers: adminAccessTokenHeaders(ADMIN_TOKEN),
 			},
