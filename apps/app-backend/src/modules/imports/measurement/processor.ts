@@ -3,10 +3,10 @@ import { dayjs } from "@ryot/ts-utils/dayjs";
 import { createEntity } from "~/modules/entities";
 import { getBuiltinEntitySchemaBySlug } from "~/modules/entity-schemas";
 
-import { cleanupImportFile, readImportFile } from "../../files";
-import { failImportRun, recordImportRunFailure, sanitizeErrorMessage } from "../../helpers";
-import { updateImportRun } from "../../repository";
-import { adaptOpenScaleCsv, type OpenScaleNormalizedItem } from "./adapter";
+import { updateImportRun } from "../repository";
+import { failImportRun, recordImportRunFailure, sanitizeErrorMessage } from "../runtime/failures";
+import { cleanupImportFile, readImportFile } from "../runtime/files";
+import { adaptOpenScaleCsv, type OpenScaleNormalizedItem } from "../sources/open-scale/adapter";
 
 const PROGRESS_UPDATE_INTERVAL = 10;
 
