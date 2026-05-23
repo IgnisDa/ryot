@@ -34,7 +34,7 @@ TypeScript backend (`apps/app-backend`) during startup.
 1. Restore the prod dump into the local DB:
 
 ```bash
-export PGHOST=localhost PGDATABASE=postgres PGPASSWORD=postgres PGUSER=postgres && dropdb "$PGDATABASE" --force && createdb "$PGDATABASE" && pg_restore --verbose -d "$PGDATABASE" < tmp/file.sql
+export PGHOST=localhost PGDATABASE=postgres PGPASSWORD=postgres PGUSER=postgres && dropdb "$PGDATABASE" --force && createdb "$PGDATABASE" && pg_restore --verbose -d "$PGDATABASE" < /tmp/file.sql
 ```
 
 2. Run the app backend:
