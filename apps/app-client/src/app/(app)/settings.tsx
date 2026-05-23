@@ -38,13 +38,13 @@ export default function SettingsScreen() {
 			return data;
 		},
 	});
-	const hasCredentialAccount =
+	const canManageTwoFactor =
 		accountsQuery.data?.some((a) => a.providerId === "credential") ?? false;
 
 	const enableMutation = useMutation({
 		mutationFn: async () => {
 			const { data, error } = await authClient.twoFactor.enable({
-				password: hasCredentialAccount ? password : undefined,
+				password: canManageTwoFactor ? password : undefined,
 			});
 			if (error) {
 				throw new Error(error.message ?? "Could not start 2FA setup");
@@ -79,7 +79,7 @@ export default function SettingsScreen() {
 	const disableMutation = useMutation({
 		mutationFn: async () => {
 			const { error } = await authClient.twoFactor.disable({
-				password: hasCredentialAccount ? password : undefined,
+				password: canManageTwoFactor ? password : undefined,
 			});
 			if (error) {
 				throw new Error(error.message ?? "Could not disable 2FA");
@@ -95,7 +95,7 @@ export default function SettingsScreen() {
 	const generateCodesMutation = useMutation({
 		mutationFn: async () => {
 			const { data, error } = await authClient.twoFactor.generateBackupCodes({
-				password: hasCredentialAccount ? password : undefined,
+				password: canManageTwoFactor ? password : undefined,
 			});
 			if (error) {
 				throw new Error(error.message ?? "Could not generate backup codes");
@@ -112,7 +112,7 @@ export default function SettingsScreen() {
 	const anyPending =
 		enableMutation.isPending || disableMutation.isPending || generateCodesMutation.isPending;
 
-	if (step === "scan" && totpUri) {
+	if (canManageTwoFactor && step === "scan" && totpUri) {
 		return (
 			<PageHeader title="Set Up 2FA" eyebrow="Account">
 				<Box className="mt-6 gap-6">
@@ -178,7 +178,7 @@ export default function SettingsScreen() {
 		);
 	}
 
-	if (step === "verify") {
+	if (canManageTwoFactor && step === "verify") {
 		return (
 			<PageHeader title="Verify Setup" eyebrow="Account">
 				<Box className="mt-6 gap-6">
@@ -216,7 +216,7 @@ export default function SettingsScreen() {
 		);
 	}
 
-	if (step === "newCodes" && backupCodes) {
+	if (canManageTwoFactor && step === "newCodes" && backupCodes) {
 		return (
 			<PageHeader title="New Backup Codes" eyebrow="Account">
 				<Box className="mt-6 gap-4">
@@ -249,92 +249,100 @@ export default function SettingsScreen() {
 	return (
 		<PageHeader title="Settings" eyebrow="Account">
 			<Box className="mt-6 gap-6">
-				<Box className="gap-4">
-					<Box className="gap-2">
-						<Box className="flex-row items-center justify-between">
-							<Text className="text-[17px] font-semibold text-foreground">
-								Two-Factor Authentication
-							</Text>
-							{twoFactorEnabled && (
-								<Box className="flex-row items-center gap-1">
-									<Box className="w-2 h-2 rounded-full bg-green-500" />
-									<Text className="text-[13px] text-muted-foreground">Enabled</Text>
+				{canManageTwoFactor && (
+					<>
+						<Box className="gap-4">
+							<Box className="gap-2">
+								<Box className="flex-row items-center justify-between">
+									<Text className="text-[17px] font-semibold text-foreground">
+										Two-Factor Authentication
+									</Text>
+									{twoFactorEnabled && (
+										<Box className="flex-row items-center gap-1">
+											<Box className="w-2 h-2 rounded-full bg-green-500" />
+											<Text className="text-[13px] text-muted-foreground">Enabled</Text>
+										</Box>
+									)}
 								</Box>
-							)}
+								<Text className="text-[13px] leading-5 text-muted-foreground">
+									{twoFactorEnabled
+										? "Your account is protected with two-factor authentication."
+										: "Add an extra layer of security to your account by requiring a verification code at sign-in."}
+								</Text>
+							</Box>
 						</Box>
-						<Text className="text-[13px] leading-5 text-muted-foreground">
-							{twoFactorEnabled
-								? "Your account is protected with two-factor authentication."
-								: "Add an extra layer of security to your account by requiring a verification code at sign-in."}
-						</Text>
-					</Box>
-				</Box>
-				{hasCredentialAccount && (
-					<Box className="gap-1">
-						<Text className="text-[13px] text-muted-foreground">Current password</Text>
-						<Input>
-							<InputField
-								secureTextEntry
-								value={password}
-								returnKeyType="go"
-								onChangeText={setPassword}
-								autoComplete="current-password"
-								placeholder="Required to make changes"
-								onSubmitEditing={() => {
-									if (twoFactorEnabled) {
-										void disableMutation.mutateAsync();
-									} else {
-										void enableMutation.mutateAsync();
-									}
-								}}
-							/>
-						</Input>
-					</Box>
-				)}
-				{twoFactorEnabled ? (
-					<Box className="gap-3">
-						<Button
-							onPress={() => void generateCodesMutation.mutateAsync()}
-							disabled={anyPending || (hasCredentialAccount && !password.trim())}
-						>
-							{generateCodesMutation.isPending && <ButtonSpinner />}
-							<ButtonText>
-								{generateCodesMutation.isPending ? "Generating..." : "Generate new backup codes"}
-							</ButtonText>
-						</Button>
-						{generateCodesMutation.error && (
-							<Text className="text-destructive text-sm">
-								{generateCodesMutation.error.message}
-							</Text>
+						<Box className="gap-1">
+							<Text className="text-[13px] text-muted-foreground">Current password</Text>
+							<Input>
+								<InputField
+									secureTextEntry
+									value={password}
+									returnKeyType="go"
+									onChangeText={setPassword}
+									autoComplete="current-password"
+									placeholder="Required to make changes"
+									onSubmitEditing={() => {
+										if (twoFactorEnabled) {
+											void disableMutation.mutateAsync();
+										} else {
+											void enableMutation.mutateAsync();
+										}
+									}}
+								/>
+							</Input>
+						</Box>
+						{twoFactorEnabled ? (
+							<Box className="gap-3">
+								<Button
+									disabled={anyPending || !password.trim()}
+									onPress={() => void generateCodesMutation.mutateAsync()}
+								>
+									{generateCodesMutation.isPending && <ButtonSpinner />}
+									<ButtonText>
+										{generateCodesMutation.isPending
+											? "Generating..."
+											: "Generate new backup codes"}
+									</ButtonText>
+								</Button>
+								{generateCodesMutation.error && (
+									<Text className="text-destructive text-sm">
+										{generateCodesMutation.error.message}
+									</Text>
+								)}
+								<Button
+									disabled={anyPending || !password.trim()}
+									onPress={() => void disableMutation.mutateAsync()}
+								>
+									{disableMutation.isPending && <ButtonSpinner />}
+									<ButtonText>
+										{disableMutation.isPending
+											? "Disabling..."
+											: "Disable two-factor authentication"}
+									</ButtonText>
+								</Button>
+								{disableMutation.error && (
+									<Text className="text-destructive text-sm">{disableMutation.error.message}</Text>
+								)}
+							</Box>
+						) : (
+							<Box className="gap-3">
+								<Button
+									onPress={() => void enableMutation.mutateAsync()}
+									disabled={enableMutation.isPending || !password.trim()}
+								>
+									{enableMutation.isPending && <ButtonSpinner />}
+									<ButtonText>
+										{enableMutation.isPending
+											? "Setting up..."
+											: "Enable two-factor authentication"}
+									</ButtonText>
+								</Button>
+								{enableMutation.error && (
+									<Text className="text-destructive text-sm">{enableMutation.error.message}</Text>
+								)}
+							</Box>
 						)}
-						<Button
-							onPress={() => void disableMutation.mutateAsync()}
-							disabled={anyPending || (hasCredentialAccount && !password.trim())}
-						>
-							{disableMutation.isPending && <ButtonSpinner />}
-							<ButtonText>
-								{disableMutation.isPending ? "Disabling..." : "Disable two-factor authentication"}
-							</ButtonText>
-						</Button>
-						{disableMutation.error && (
-							<Text className="text-destructive text-sm">{disableMutation.error.message}</Text>
-						)}
-					</Box>
-				) : (
-					<Box className="gap-3">
-						<Button
-							onPress={() => void enableMutation.mutateAsync()}
-							disabled={enableMutation.isPending || (hasCredentialAccount && !password.trim())}
-						>
-							{enableMutation.isPending && <ButtonSpinner />}
-							<ButtonText>
-								{enableMutation.isPending ? "Setting up..." : "Enable two-factor authentication"}
-							</ButtonText>
-						</Button>
-						{enableMutation.error && (
-							<Text className="text-destructive text-sm">{enableMutation.error.message}</Text>
-						)}
-					</Box>
+					</>
 				)}
 			</Box>
 		</PageHeader>
