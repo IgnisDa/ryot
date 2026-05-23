@@ -1,8 +1,15 @@
 import { and, eq, isNull, sql } from "drizzle-orm";
 
 import type { DbClient } from "~/lib/db";
-import { entitySchema, sandboxScript } from "~/lib/db/schema";
+import { entitySchema, relationshipSchema, sandboxScript } from "~/lib/db/schema";
 
+import {
+	buildMetadataGroupEntityMigrationSql,
+	buildMetadataGroupRelationshipMigrationSql,
+	getUnsupportedMetadataGroupSources,
+	metadataGroupEntityTargets,
+	metadataGroupRelationshipTargets,
+} from "./metadata-group-mapping";
 import {
 	buildMetadataMigrationSql,
 	getUnsupportedMetadataSources,
@@ -97,10 +104,19 @@ export const migrateLegacyTables = async (database: DbClient) => {
 		.from(sandboxScript)
 		.where(and(isNull(sandboxScript.userId), eq(sandboxScript.isBuiltin, true)));
 
+	const relationshipSchemas = await database
+		.select({
+			id: relationshipSchema.id,
+			slug: relationshipSchema.slug,
+		})
+		.from(relationshipSchema)
+		.where(isNull(relationshipSchema.userId));
+
 	const entitySchemaIds = buildUniqueSlugMap(entitySchemas, "entity schema");
 	const sandboxScriptIds = buildUniqueSlugMap(sandboxScripts, "sandbox script");
+	const relationshipSchemaIds = buildUniqueSlugMap(relationshipSchemas, "relationship schema");
 
-	const resolvedTargets = metadataMigrationTargets.map((target) => {
+	const resolvedMetadataTargets = metadataMigrationTargets.map((target) => {
 		const entitySchemaId = entitySchemaIds.get(target.entitySchemaSlug);
 		if (entitySchemaId === undefined) {
 			throw new Error(`Missing entity schema id for slug "${target.entitySchemaSlug}"`);
@@ -122,6 +138,41 @@ export const migrateLegacyTables = async (database: DbClient) => {
 		};
 	});
 
+	const resolvedMetadataGroupEntityTargets = metadataGroupEntityTargets.map((target) => {
+		const entitySchemaId = entitySchemaIds.get(target.entitySchemaSlug);
+		if (entitySchemaId === undefined) {
+			throw new Error(`Missing entity schema id for group slug "${target.entitySchemaSlug}"`);
+		}
+
+		const sandboxScriptId: string | null =
+			target.sandboxScriptSlug === null
+				? null
+				: (sandboxScriptIds.get(target.sandboxScriptSlug) ?? null);
+		if (target.sandboxScriptSlug !== null && sandboxScriptId === null) {
+			throw new Error(`Missing sandbox script id for group slug "${target.sandboxScriptSlug}"`);
+		}
+
+		return {
+			entitySchemaId,
+			sandboxScriptId,
+			lot: target.lot,
+			source: target.source,
+		};
+	});
+
+	const resolvedMetadataGroupRelationshipTargets = metadataGroupRelationshipTargets.map(
+		(target) => {
+			const relationshipSchemaId = relationshipSchemaIds.get(target.relationshipSchemaSlug);
+			if (relationshipSchemaId === undefined) {
+				throw new Error(
+					`Missing relationship schema id for slug "${target.relationshipSchemaSlug}"`,
+				);
+			}
+
+			return { lot: target.lot, relationshipSchemaId };
+		},
+	);
+
 	const unsupportedMetadataSources = await getUnsupportedMetadataSources(database);
 	if (unsupportedMetadataSources.length > 0) {
 		throw new Error(
@@ -131,6 +182,19 @@ export const migrateLegacyTables = async (database: DbClient) => {
 		);
 	}
 
-	await database.execute(buildMetadataMigrationSql(resolvedTargets));
+	const unsupportedMetadataGroupSources = await getUnsupportedMetadataGroupSources(database);
+	if (unsupportedMetadataGroupSources.length > 0) {
+		throw new Error(
+			`Unsupported legacy metadata group sources: ${unsupportedMetadataGroupSources
+				.map(({ lot, source }) => `${lot}|${source}`)
+				.join(", ")}`,
+		);
+	}
+
+	await database.execute(buildMetadataMigrationSql(resolvedMetadataTargets));
+	await database.execute(buildMetadataGroupEntityMigrationSql(resolvedMetadataGroupEntityTargets));
+	await database.execute(
+		buildMetadataGroupRelationshipMigrationSql(resolvedMetadataGroupRelationshipTargets),
+	);
 	await database.execute(migrateUserTableSql);
 };
