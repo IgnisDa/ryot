@@ -12,6 +12,7 @@ import { RyotQLService } from "#modules/ryotql/service";
 import { InterestReconciler } from "./reconciler";
 
 const user = {
+	image: null,
 	name: "Test User",
 	email: "user@example.com",
 	id: UserId.make("user-1"),

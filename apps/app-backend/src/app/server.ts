@@ -32,7 +32,7 @@ import { SavedViewsRoutesLive } from "#modules/saved-views/routes";
 import { SystemRoutesLive } from "#modules/system/routes";
 import { TestSupportRoutesLive } from "#modules/test-support/routes";
 import { LocalUploadsRoutesLive, UploadsRoutesLive } from "#modules/uploads/routes";
-import { UserPreferencesRoutesLive } from "#modules/user-preferences/routes";
+import { UserSettingsRoutesLive } from "#modules/user-settings/routes";
 import { UserStateRoutesLive } from "#modules/user-state/routes";
 
 const mimeTypes: Record<string, string> = {
@@ -85,7 +85,7 @@ const ApiLive = HttpApiBuilder.layer(AppContract).pipe(
 	Layer.provide(RelationshipsRoutesLive),
 	Layer.provide(EntitiesRoutesLive),
 	Layer.provide(ProviderEntitiesRoutesLive),
-	Layer.provide(Layer.mergeAll(UserStateRoutesLive, UserPreferencesRoutesLive)),
+	Layer.provide(Layer.mergeAll(UserStateRoutesLive, UserSettingsRoutesLive)),
 	Layer.provide(EventsRoutesLive),
 	Layer.provide(UploadsRoutesLive),
 	Layer.provide(LocalUploadsRoutesLive),

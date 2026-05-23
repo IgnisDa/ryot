@@ -11,6 +11,7 @@ import { NotificationsRepository } from "./repository";
 import { NotificationsService } from "./service";
 
 const user = {
+	image: null,
 	name: "Test User",
 	email: "user@example.com",
 	id: UserId.make("user-1"),

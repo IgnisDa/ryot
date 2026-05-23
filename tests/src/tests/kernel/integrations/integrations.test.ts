@@ -12,7 +12,7 @@ import {
 	listManualImportRuns,
 	postIntegrationWebhookAndWait,
 	pollImportRunUntilTerminal,
-	updateUserPreferences,
+	updateUserSettingsPreferences,
 } from "~/fixtures";
 import {
 	assertTaggedError,
@@ -268,7 +268,7 @@ describe("Webhook routes", () => {
 			const { client } = yield* createAuthenticatedClient();
 			const { id } = yield* createKodiIntegration(client);
 
-			yield* updateUserPreferences(client, { disableIntegrations: true });
+			yield* updateUserSettingsPreferences(client, { disableIntegrations: true });
 
 			const { run } = yield* postIntegrationWebhookAndWait(client, id, kodiPayload);
 			expect(run.status).toBe("failed");
