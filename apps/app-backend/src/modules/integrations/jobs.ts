@@ -1,12 +1,18 @@
 import { ImportRunId, IntegrationId, UserId } from "@ryot/contract/schema/brands";
 import { Schema } from "effect";
 
+export const IntegrationWebhookDelivery = Schema.Struct({
+	rawBody: Schema.String,
+	contentType: Schema.String,
+});
+
+export type IntegrationWebhookDelivery = typeof IntegrationWebhookDelivery.Type;
+
 export const IntegrationRunJobData = Schema.Struct({
 	runId: ImportRunId,
 	userId: UserId,
 	integrationId: IntegrationId,
-	rawBody: Schema.optional(Schema.String),
-	contentType: Schema.optional(Schema.String),
+	webhook: Schema.optional(IntegrationWebhookDelivery),
 });
 
 export type IntegrationRunJobData = typeof IntegrationRunJobData.Type;

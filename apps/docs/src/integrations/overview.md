@@ -29,6 +29,10 @@ https://app.ryot.io/_i/int_a6cGGXEq6KOI # example
 Keep your webhook urls private to prevent abuse.
 :::
 
+Ryot hands the request body to the integration exactly as it was received, so services that post
+`multipart/form-data` (such as Plex) work alongside those that post `application/json`. Any other
+content type is rejected.
+
 - [Ryot Browser Extension](./ryot-browser-extension.md) - Automatically scrobble media from
   streaming services <Badge type="warning" text="PRO" />
 - [Jellyfin Sink](./jellyfin-sink.md) - Automatically add new Jellyfin movie and show plays
