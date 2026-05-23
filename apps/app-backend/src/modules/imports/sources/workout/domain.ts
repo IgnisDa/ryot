@@ -190,9 +190,9 @@ export const buildWorkoutSetEventProperties = (input: {
 	addNumberProperty({ key: "weight", properties, value: stats.weight });
 	addNumberProperty({ key: "duration", properties, value: stats.duration });
 	addNumberProperty({ key: "distance", properties, value: stats.distance });
-	addNumberProperty({ key: "pace", properties, value: calculateWorkoutSetPace(stats) });
-	addNumberProperty({ key: "oneRm", properties, value: calculateWorkoutSetOneRm(stats) });
-	addNumberProperty({ key: "volume", properties, value: calculateWorkoutSetVolume(stats) });
+	addNumberProperty({ key: "pace", properties, value: calculateWorkoutSetPace(input.set) });
+	addNumberProperty({ key: "oneRm", properties, value: calculateWorkoutSetOneRm(input.set) });
+	addNumberProperty({ key: "volume", properties, value: calculateWorkoutSetVolume(input.set) });
 
 	return properties;
 };
