@@ -18,6 +18,25 @@ const library = {
 	entitySchemaSlug: EntitySchemaSlug.make("library"),
 };
 
+const systemInstallation = (
+	overrides: Partial<AccountCleanlinessState["pluginState"][number]> = {},
+) =>
+	({
+		config: {},
+		sortOrder: 0,
+		id: "state-id",
+		health: "ready",
+		isDisabled: false,
+		healthReason: null,
+		pluginSlug: "media",
+		pluginScope: "system",
+		pluginId: "media-plugin-id",
+		createdAt: new Date(0),
+		updatedAt: new Date(0),
+		userId: UserId.make("user-id"),
+		...overrides,
+	}) as const;
+
 const cleanState = (overrides: Partial<AccountCleanlinessState> = {}): AccountCleanlinessState => ({
 	savedViews: [],
 	pluginState: [],
@@ -40,6 +59,19 @@ const cleanState = (overrides: Partial<AccountCleanlinessState> = {}): AccountCl
 describe("classifyAccountCleanliness", () => {
 	it("accepts the exact bootstrap account", () => {
 		expect(classifyAccountCleanliness(cleanState())).toBeNull();
+	});
+
+	it("accepts an account holding only default system installations", () => {
+		expect(
+			classifyAccountCleanliness(
+				cleanState({
+					pluginState: [
+						systemInstallation(),
+						systemInstallation({ pluginSlug: "fitness", pluginId: "fitness-plugin-id" }),
+					],
+				}),
+			),
+		).toBeNull();
 	});
 
 	it.each([
@@ -112,26 +144,13 @@ describe("classifyAccountCleanliness", () => {
 				],
 			},
 		],
+		["plugin-state", { pluginState: [systemInstallation({ isDisabled: true })] }],
+		["plugin-state", { pluginState: [systemInstallation({ sortOrder: 3 })] }],
+		["plugin-state", { pluginState: [systemInstallation({ config: { unit: "minutes" } })] }],
+		["plugin-state", { pluginState: [systemInstallation({ health: "needs-configuration" })] }],
 		[
 			"plugin-state",
-			{
-				pluginState: [
-					{
-						config: {},
-						sortOrder: 0,
-						id: "state-id",
-						health: "ready",
-						isDisabled: false,
-						healthReason: null,
-						pluginSlug: "media",
-						pluginScope: "system",
-						pluginId: "media-plugin-id",
-						createdAt: new Date(0),
-						updatedAt: new Date(0),
-						userId: UserId.make("user-id"),
-					} as const,
-				],
-			},
+			{ pluginState: [systemInstallation({ pluginScope: "user", pluginSlug: "private" })] },
 		],
 		["integrations", { hasIntegrations: true }],
 		["notification-channels", { hasNotificationChannels: true }],

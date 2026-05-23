@@ -138,14 +138,9 @@ export class PluginIngestionService extends Context.Service<PluginIngestionServi
 			const ingestPluginUnlocked = Effect.fn("PluginIngestionService.ingestPluginUnlocked")(
 				function* (source: PluginSource, trusted: boolean) {
 					const manifest = yield* decodePluginManifest(source.manifest);
-					if (
-						manifest.userBootstrap.length > 0 &&
-						(!trusted || !bootConfiguredPluginSlugs.has(manifest.metadata.slug))
-					) {
+					if (manifest.userBootstrap.length > 0 && !trusted) {
 						return yield* new PluginValidationError({
-							issues: [
-								"User bootstrap declarations are allowed only for boot-configured trusted plugins",
-							],
+							issues: ["User bootstrap declarations are allowed only for trusted system plugins"],
 						});
 					}
 					const files = source.files;
