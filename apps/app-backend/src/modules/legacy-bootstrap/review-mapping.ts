@@ -14,6 +14,8 @@
 // numeric JSONB representations safely.
 //
 // V1 rating had no upper bound; V2 enforces maximum: 100. Ratings above 100 are clamped to 100.
+// Ratings without a value produce no `rating` key in V2. Note: PostgreSQL's LEAST(NULL, 100)
+// returns 100 (NULLs are ignored), not NULL — the CASE WHEN guard is required.
 export const buildReviewMigrationSql = () => `
 DO $$
 DECLARE
@@ -56,7 +58,7 @@ BEGIN
 			r.entity_id,
 			es.id,
 			jsonb_strip_nulls(jsonb_build_object(
-				'rating',         LEAST(r.rating, 100),
+				'rating',         CASE WHEN r.rating IS NOT NULL THEN LEAST(r.rating, 100) END,
 				'text',           NULLIF(r.text, ''),
 				'isSpoiler',      r.is_spoiler,
 				'showSeason',     (r.show_extra_information ->> 'season')::int,
