@@ -210,11 +210,11 @@ describe("resolveEventCreateInput", () => {
 		const input = resolveEventCreateInput({
 			entityId: "entity_123",
 			eventSchemaId: "event_schema_123",
-			properties: { review: "Loved it", rating: 5 },
+			properties: { text: "Loved it", rating: 5 },
 			propertiesSchema: createReviewPropertiesSchema(),
 		});
 
-		expect(input.properties).toEqual({ review: "Loved it", rating: 5 });
+		expect(input.properties).toEqual({ text: "Loved it", rating: 5 });
 	});
 });
 
@@ -989,24 +989,19 @@ describe("createEvent", () => {
 			await createEvent(
 				{
 					userId: "user_1",
-					body: createEventBody({
-						properties: { review: "Loved it", rating: 5 },
-					}),
+					body: createEventBody({ properties: { text: "Loved it", rating: 5 } }),
 				},
 				createBuiltinReviewEventDeps(),
 			),
 		);
 
 		expect(createdEvent.eventSchemaSlug).toBe("review");
-		expect(createdEvent.properties).toEqual({ review: "Loved it", rating: 5 });
+		expect(createdEvent.properties).toEqual({ text: "Loved it", rating: 5 });
 	});
 
 	it("rejects built-in review ratings outside the accepted range", async () => {
 		const result = await createEvent(
-			{
-				userId: "user_1",
-				body: createEventBody({ properties: { rating: 6 } }),
-			},
+			{ userId: "user_1", body: createEventBody({ properties: { rating: 101 } }) },
 			createBuiltinReviewEventDeps(),
 		);
 
@@ -1022,9 +1017,7 @@ describe("createEvent", () => {
 				userId: "user_1",
 				body: [
 					createEventBody({ properties: { rating: 4 } }),
-					createEventBody({
-						properties: { review: "Better on re-watch", rating: 5 },
-					}),
+					createEventBody({ properties: { text: "Better on re-watch", rating: 5 } }),
 				],
 			},
 			createBuiltinReviewEventDeps(),
@@ -1035,16 +1028,70 @@ describe("createEvent", () => {
 			expect(result.data.count).toBe(2);
 		}
 	});
+
+	it("rejects built-in review ratings below the accepted range", async () => {
+		const result = await createEvent(
+			{ userId: "user_1", body: createEventBody({ properties: { rating: -1 } }) },
+			createBuiltinReviewEventDeps(),
+		);
+
+		expect(result).toEqual({
+			error: "validation",
+			message: expect.stringContaining("Event payload is invalid"),
+		});
+	});
+
+	it("accepts decimal ratings for built-in reviews", async () => {
+		const createdEvent = expectDataResult(
+			await createEvent(
+				{ userId: "user_1", body: createEventBody({ properties: { rating: 50.5 } }) },
+				createBuiltinReviewEventDeps(),
+			),
+		);
+
+		expect(createdEvent.properties).toEqual({ rating: 50.5 });
+	});
+
+	it("accepts rating at the minimum boundary", async () => {
+		const createdEvent = expectDataResult(
+			await createEvent(
+				{ userId: "user_1", body: createEventBody({ properties: { rating: 0 } }) },
+				createBuiltinReviewEventDeps(),
+			),
+		);
+
+		expect(createdEvent.properties).toEqual({ rating: 0 });
+	});
+
+	it("accepts rating at the maximum boundary", async () => {
+		const createdEvent = expectDataResult(
+			await createEvent(
+				{ userId: "user_1", body: createEventBody({ properties: { rating: 100 } }) },
+				createBuiltinReviewEventDeps(),
+			),
+		);
+
+		expect(createdEvent.properties).toEqual({ rating: 100 });
+	});
+
+	it("creates a builtin review event without a rating", async () => {
+		const createdEvent = expectDataResult(
+			await createEvent(
+				{ userId: "user_1", body: createEventBody({ properties: { text: "No rating needed" } }) },
+				createBuiltinReviewEventDeps(),
+			),
+		);
+
+		expect(createdEvent.eventSchemaSlug).toBe("review");
+		expect(createdEvent.properties).toEqual({ text: "No rating needed" });
+	});
 });
 
 describe("createEvents", () => {
 	it("returns count equal to the number of items on success", async () => {
 		const result = expectDataResult(
 			await createEvents(
-				{
-					userId: "user_1",
-					body: [createEventBody(), createEventBody(), createEventBody()],
-				},
+				{ userId: "user_1", body: [createEventBody(), createEventBody(), createEventBody()] },
 				createEventDeps(),
 			),
 		);
@@ -1071,10 +1118,7 @@ describe("createEvents", () => {
 			createEventDeps(),
 		);
 
-		expect(result).toEqual({
-			error: "validation",
-			message: "Entity id is required",
-		});
+		expect(result).toEqual({ error: "validation", message: "Entity id is required" });
 	});
 
 	it("processes large arrays and counts all committed events", async () => {

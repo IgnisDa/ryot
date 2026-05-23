@@ -154,12 +154,12 @@ describe("Query engine E2E", () => {
 				{
 					entityId: entity.id,
 					eventSchemaId: reviewEventSchemaId,
-					properties: { rating: 2, review: "Fine" },
+					properties: { rating: 2, text: "Fine" },
 				},
 				{
 					entityId: entity.id,
 					eventSchemaId: reviewEventSchemaId,
-					properties: { rating: 4, review: "Better" },
+					properties: { rating: 4, text: "Better" },
 				},
 			],
 		});
@@ -169,7 +169,7 @@ describe("Query engine E2E", () => {
 				{
 					entityId: entity.id,
 					eventSchemaId: reviewEventSchemaId,
-					properties: { rating: 5, review: "Excellent" },
+					properties: { rating: 5, text: "Excellent" },
 				},
 			],
 		});
@@ -243,11 +243,7 @@ describe("Query engine E2E", () => {
 			scope: [schema.slug],
 			relationshipJoins: [buildInLibraryRelationshipJoin()],
 			displayConfiguration: buildGridDisplayConfiguration(
-				{
-					calloutProperty: null,
-					primarySubtitleProperty: null,
-					secondarySubtitleProperty: null,
-				},
+				{ calloutProperty: null, primarySubtitleProperty: null, secondarySubtitleProperty: null },
 				[schema.slug],
 			),
 			filter: {
@@ -393,10 +389,7 @@ describe("Query engine E2E", () => {
 			computedFields: [],
 			scope: [schema.slug],
 			pagination: { page: 1, limit: 10 },
-			sort: {
-				direction: "asc",
-				expression: createEntityColumnExpression(schema.slug, "name"),
-			},
+			sort: { direction: "asc", expression: createEntityColumnExpression(schema.slug, "name") },
 			relationshipJoins: [
 				buildLatestRelationshipJoin({
 					key: "optRel",
