@@ -157,9 +157,12 @@ const RootRoutesLive = HttpRouter.use((router) =>
 		const api = yield* HttpRouter.toHttpEffect(ApiWithScalarLive);
 
 		const serveStatic = Effect.fn("serveStatic")(function* (pathname: string) {
-			const path = pathname === "/" ? "./client/index.html" : `./client${pathname}`;
+			const path =
+				pathname === "/"
+					? `${config.server.clientDir}/index.html`
+					: `${config.server.clientDir}${pathname}`;
 			const exists = yield* fs.exists(path);
-			const target = exists ? path : "./client/index.html";
+			const target = exists ? path : `${config.server.clientDir}/index.html`;
 			const bytes = yield* fs.readFile(target);
 			return HttpServerResponse.uint8Array(bytes, { contentType: mimeType(target) });
 		});
