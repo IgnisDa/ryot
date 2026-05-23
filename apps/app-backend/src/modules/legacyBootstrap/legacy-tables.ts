@@ -436,6 +436,9 @@ export const migrateLegacyTables = async (database: DbClient) => {
 
 	await database.execute(buildMetadataMigrationSql(resolvedTargets));
 	await database.execute(migrateUserTableSql);
+};
+
+export const dropLegacyTables = async (database: DbClient) => {
 	await dropLegacyMigrationsTable(database);
 	await dropLegacyMetadataTable(database);
 	await dropLegacyUserTable(database);
