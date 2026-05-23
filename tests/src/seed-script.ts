@@ -1,3 +1,5 @@
+import { fileURLToPath } from "node:url";
+
 /* oxlint-disable */
 // TODO: delete this file eventually
 import { faker } from "@faker-js/faker";
@@ -6,7 +8,6 @@ import { dayjs } from "@ryot/ts-utils/dayjs";
 import { createAuthClient } from "better-auth/client";
 import { config } from "dotenv";
 import createClient from "openapi-fetch";
-import { fileURLToPath } from "node:url";
 
 import { cookieHeaderFromSetCookies, enableTwoFactorForSession } from "./fixtures/auth-2fa";
 import { requirePresent } from "./test-support/assertions";
