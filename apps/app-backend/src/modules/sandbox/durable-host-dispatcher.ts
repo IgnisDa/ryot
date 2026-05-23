@@ -1,6 +1,10 @@
 import { SandboxRunError, unknownToMessage } from "@ryot/contract/errors";
 import { SandboxProviderId } from "@ryot/contract/schema/brands";
-import { sandboxHostContracts, type SandboxHostCapability } from "@ryot/sandbox-sdk/core";
+import {
+	httpCallArgsSchema,
+	sandboxHostContracts,
+	type SandboxHostCapability,
+} from "@ryot/sandbox-sdk/core";
 import { type JsonValue, jsonValueSchema } from "@ryot/sandbox-sdk/wire";
 import {
 	type WorkflowDurableCallRequest,
@@ -8,7 +12,7 @@ import {
 	workflowDurableResultSchema,
 	workflowHostRequestSchema,
 } from "@ryot/sandbox-sdk/workflow";
-import { Context, Effect, Schema } from "effect";
+import { Context, Effect, Option, Schema } from "effect";
 import { Workflow } from "effect/unstable/workflow";
 import type { WorkflowEngine, WorkflowInstance } from "effect/unstable/workflow/WorkflowEngine";
 
@@ -77,6 +81,14 @@ export const sandboxDurableHostDispatchStrategy = (capability: SandboxHostCapabi
 	}
 	return SANDBOX_DURABLE_HOST_DISPATCH[capability];
 };
+
+export const sandboxDurableHttpRequestUrl = (request: HostRequest) =>
+	Option.getOrNull(
+		Option.map(
+			Schema.decodeUnknownOption(httpCallArgsSchema)(request.args.args),
+			(args) => args[1],
+		),
+	);
 
 const loadDispatchInput = Effect.fn("loadSandboxDurableHostDispatchInput")(function* (
 	request: HostRequest,

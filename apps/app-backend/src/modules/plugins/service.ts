@@ -163,10 +163,10 @@ export class PluginIngestionService extends Context.Service<PluginIngestionServi
 							catch: (error) => new PluginValidationError({ issues: [String(error)] }),
 						});
 						yield* validateSnapshot(nextSnapshot);
-						loader.replace(nextSnapshot);
 						return nextSnapshot;
 					}),
 				);
+				loader.replace(snapshot);
 				yield* scriptGarbageCollector.collect();
 				return snapshot;
 			});
@@ -215,7 +215,11 @@ export class PluginIngestionService extends Context.Service<PluginIngestionServi
 					const files = source.files;
 					yield* validatePluginSourcePaths(files, manifest.scripts);
 					const sourceHash = digest(stableStringify({ files, manifest }));
-					const candidate = { manifest, sourceHash, scripts: [] } satisfies NormalizedPlugin;
+					const candidate = {
+						sourceHash,
+						scripts: [],
+						manifest: { ...manifest, httpRateLimits: [] },
+					} satisfies NormalizedPlugin;
 					const prospectiveSnapshot = yield* Effect.try({
 						try: () => loader.preview(candidate),
 						catch: (error) => new PluginValidationError({ issues: [String(error)] }),
@@ -226,16 +230,38 @@ export class PluginIngestionService extends Context.Service<PluginIngestionServi
 						repository.findBySourceHash({ slug: manifest.metadata.slug, sourceHash }),
 					);
 					if (cached) {
-						const snapshot = yield* Effect.try({
-							try: () => loader.preview(cached),
-							catch: (error) => new PluginValidationError({ issues: [String(error)] }),
-						});
-						yield* validateSnapshot(snapshot);
-						loader.replace(snapshot);
-						yield* publishInvalidation(
-							stableStringify({ slug: manifest.metadata.slug, sourceHash }),
+						const committed = yield* Effect.uninterruptible(
+							runTransaction(
+								Effect.gen(function* () {
+									yield* repository.lockIngestion();
+									const installed = yield* repository.list();
+									const authoritative = installed.find(
+										(plugin) =>
+											plugin.manifest.metadata.slug === manifest.metadata.slug &&
+											plugin.sourceHash === sourceHash,
+									);
+									if (!authoritative) {
+										return null;
+									}
+									const snapshot = yield* Effect.try({
+										try: () => loader.previewAll(installed),
+										catch: (error) => new PluginValidationError({ issues: [String(error)] }),
+									});
+									yield* validateSnapshot(snapshot);
+									return { plugin: authoritative, snapshot };
+								}),
+							).pipe(
+								Effect.tap((result) =>
+									result ? Effect.sync(() => loader.replace(result.snapshot)) : Effect.void,
+								),
+							),
 						);
-						return cached;
+						if (committed) {
+							yield* publishInvalidation(
+								stableStringify({ slug: manifest.metadata.slug, sourceHash }),
+							);
+							return committed.plugin;
+						}
 					}
 
 					const compilerScripts = manifest.scripts.map((script) => {
