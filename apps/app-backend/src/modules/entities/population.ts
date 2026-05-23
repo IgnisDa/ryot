@@ -94,10 +94,31 @@ export const waitForSandboxChildRun = async (job: Job, token: string | undefined
 	}
 };
 
-export const getSandboxChildRunResult = async (job: Job) => {
+const findSandboxChildValue = (
+	childrenValues: Record<string, unknown>,
+	sandboxChildJobId: string | undefined,
+) => {
+	const childEntries = Object.entries(childrenValues);
+	if (sandboxChildJobId) {
+		const matchingChildren = childEntries.filter(
+			([key]) => key === sandboxChildJobId || key.endsWith(`:${sandboxChildJobId}`),
+		);
+		if (matchingChildren.length === 1) {
+			return matchingChildren[0]?.[1];
+		}
+	}
+
+	if (childEntries.length === 1) {
+		return childEntries[0]?.[1];
+	}
+
+	return undefined;
+};
+
+export const getSandboxChildRunResult = async (job: Job, sandboxChildJobId?: string) => {
 	const childrenValues = await job.getChildrenValues();
-	const [childValue] = Object.values(childrenValues);
-	if (Object.keys(childrenValues).length !== 1) {
+	const childValue = findSandboxChildValue(childrenValues, sandboxChildJobId);
+	if (childValue === undefined) {
 		throw new Error("Sandbox child job did not complete successfully");
 	}
 
@@ -238,7 +259,7 @@ export const populateGlobalEntity = async (
 
 	await waitForSandboxChildRun(job, token);
 
-	const sandboxResult = await getSandboxChildRunResult(job);
+	const sandboxResult = await getSandboxChildRunResult(job, input.sandboxChildJobId);
 
 	if (!sandboxResult.success) {
 		return {

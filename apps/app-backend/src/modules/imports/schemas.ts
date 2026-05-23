@@ -44,7 +44,16 @@ export const openScaleRunInput = z.object({
 });
 export type OpenScaleRunInput = z.infer<typeof openScaleRunInput>;
 
-export const createImportRunBody = openScaleRunInput;
+export const traktRunInput = z.object({
+	username: nonEmptyStringSchema,
+	source: z.literal("trakt"),
+});
+export type TraktRunInput = z.infer<typeof traktRunInput>;
+
+export const createImportRunBody = z.discriminatedUnion("source", [
+	traktRunInput,
+	openScaleRunInput,
+]);
 export type CreateImportRunBody = z.infer<typeof createImportRunBody>;
 
 export const listedImportRunSchema = z.object({

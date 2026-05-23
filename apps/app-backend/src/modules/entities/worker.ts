@@ -150,6 +150,7 @@ export const processEntityPreloadJob = async (
 	const { userId, scriptId, entitySchemaId, page, pageSize } = parsed.data;
 
 	let step = parsed.data.step;
+	const sandboxChildJobId = `${job.id}_sandbox`;
 	if (!step) {
 		const script = await deps.getSandboxScriptForUser({ userId, scriptId });
 		if (!script) {
@@ -158,7 +159,7 @@ export const processEntityPreloadJob = async (
 
 		await queueSandboxChildRun({
 			job,
-			childJobId: `${job.id}_sandbox`,
+			childJobId: sandboxChildJobId,
 			jobData: { ...parsed.data, step: entityPreloadWaitingForSandboxStep },
 			sandboxJobData: {
 				userId,
@@ -177,7 +178,7 @@ export const processEntityPreloadJob = async (
 
 	await waitForSandboxChildRun(job, token);
 
-	const sandboxResult = await getSandboxChildRunResult(job);
+	const sandboxResult = await getSandboxChildRunResult(job, sandboxChildJobId);
 
 	if (!sandboxResult.success) {
 		throw new Error(sandboxResult.error ?? "Entity preload search script failed");

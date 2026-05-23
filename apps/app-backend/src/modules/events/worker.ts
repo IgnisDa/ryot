@@ -4,7 +4,7 @@ import { getRedisConnection } from "~/lib/queue/connection";
 import { onWorkerError } from "~/lib/queue/utils";
 
 import { createEventsJobData, createEventsJobName } from "./jobs";
-import { createEvents, processEventSchemaTriggers } from "./service";
+import { createEventsWithTriggers } from "./service";
 
 const processCreateEventsJob = async (job: Job) => {
 	const parsed = createEventsJobData.safeParse(job.data);
@@ -12,15 +12,10 @@ const processCreateEventsJob = async (job: Job) => {
 		throw new Error("Create events payload is invalid");
 	}
 
-	const result = await createEvents(parsed.data);
+	const result = await createEventsWithTriggers(parsed.data);
 	if ("error" in result) {
 		throw new Error(result.message);
 	}
-
-	await processEventSchemaTriggers({
-		userId: parsed.data.userId,
-		createdEvents: result.data.createdEvents,
-	});
 
 	return { count: result.data.count };
 };

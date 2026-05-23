@@ -30,6 +30,7 @@ export const config = {
 	fileStorage: rawSystem.fileStorage,
 	nodeEnv: rawSystem.nodeEnv ?? "production",
 	frontend: { oidcButtonLabel: rawSystem.frontend.oidcButtonLabel },
+	importer: { trakt: { clientId: rawSystem.importer.trakt.clientId } },
 	redisUrl: requireField(rawSystem.redisUrl, "REDIS_URL"),
 	databaseUrl: requireField(rawSystem.databaseUrl, "DATABASE_URL"),
 	frontendUrl: requireField(rawSystem.frontendUrl, "FRONTEND_URL"),
