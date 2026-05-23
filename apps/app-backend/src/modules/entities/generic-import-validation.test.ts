@@ -8,8 +8,7 @@ import {
 	createRelatedDeps,
 } from "~/lib/test-fixtures";
 
-import { entityImportWaitingForSandboxStep } from "./jobs";
-import { processEntityImportJob, processRelatedEntities } from "./worker";
+import { populateGlobalEntity, processRelatedEntities } from "./population";
 
 const createBookPropertiesSchema = () => ({
 	fields: {
@@ -32,50 +31,57 @@ const createBookPropertiesSchema = () => ({
 	},
 });
 
-describe("processEntityImportJob", () => {
-	it("rejects invalid primary properties", () => {
-		expect(
-			processEntityImportJob(
-				Object.assign(
-					createJob({
-						userId: "user_1",
-						externalId: "ext_1",
-						scriptId: "script_1",
-						entitySchemaId: "schema_1",
-						step: entityImportWaitingForSandboxStep,
+const makePopulationInput = (
+	overrides: Partial<Parameters<typeof populateGlobalEntity>[2]> = {},
+): Parameters<typeof populateGlobalEntity>[2] => ({
+	userId: "user_1",
+	externalId: "ext_1",
+	scriptId: "script_1",
+	linkToLibrary: false,
+	entitySchemaId: "schema_1",
+	sandboxAlreadyQueued: true,
+	sandboxChildJobId: "job_1_sandbox",
+	updatedJobData: { step: "waiting_for_sandbox" },
+	...overrides,
+});
+
+describe("populateGlobalEntity", () => {
+	it("returns invalid_details error for invalid primary properties", async () => {
+		const result = await populateGlobalEntity(
+			Object.assign(createJob({}), {
+				getChildrenValues: () =>
+					Promise.resolve({
+						child_1: {
+							logs: null,
+							error: null,
+							success: true,
+							value: { name: "Imported title", properties: { images: [], title: 123 } },
+						},
 					}),
-					{
-						getChildrenValues: () =>
-							Promise.resolve({
-								child_1: {
-									logs: null,
-									error: null,
-									success: true,
-									value: { name: "Imported title", properties: { images: [], title: 123 } },
-								},
-							}),
-					},
-				),
-				"token_1",
-				createEntityImportWorkerDeps({
-					getEntitySchemaScopeForUser: () =>
-						Promise.resolve(
-							// oxlint-disable-next-line no-unsafe-type-assertion
-							{
-								slug: "book",
-								id: "schema_1",
-								propertiesSchema: createBookPropertiesSchema(),
-							} as never,
-						),
-				}),
-			),
-		).rejects.toThrow("Entity payload is invalid");
+			}),
+			"token_1",
+			makePopulationInput(),
+			createEntityImportWorkerDeps({
+				getEntitySchemaScopeForUser: () =>
+					Promise.resolve(
+						// oxlint-disable-next-line no-unsafe-type-assertion
+						{
+							slug: "book",
+							id: "schema_1",
+							propertiesSchema: createBookPropertiesSchema(),
+						} as never,
+					),
+			}),
+		);
+
+		expect("error" in result && result.error.kind).toBe("invalid_details");
+		expect("error" in result && result.error.message).toContain("Entity payload is invalid");
 	});
 
 	it("continues populating an existing unpopulated entity", async () => {
 		let updateInput:
 			| Parameters<
-					NonNullable<Parameters<typeof processEntityImportJob>[2]>["updateGlobalEntityById"]
+					NonNullable<Parameters<typeof populateGlobalEntity>[3]>["updateGlobalEntityById"]
 			  >[0]
 			| undefined;
 
@@ -87,31 +93,23 @@ describe("processEntityImportJob", () => {
 			sandboxScriptId: "script_1",
 		});
 
-		await processEntityImportJob(
-			Object.assign(
-				createJob({
-					userId: "user_1",
-					externalId: "ext_1",
-					scriptId: "script_1",
-					entitySchemaId: "schema_1",
-					step: entityImportWaitingForSandboxStep,
-				}),
-				{
-					getChildrenValues: () =>
-						Promise.resolve({
-							child_1: {
-								logs: null,
-								error: null,
-								success: true,
-								value: {
-									name: "Imported title",
-									properties: { images: [], title: "Imported title" },
-								},
+		await populateGlobalEntity(
+			Object.assign(createJob({}), {
+				getChildrenValues: () =>
+					Promise.resolve({
+						child_1: {
+							logs: null,
+							error: null,
+							success: true,
+							value: {
+								name: "Imported title",
+								properties: { images: [], title: "Imported title" },
 							},
-						}),
-				},
-			),
+						},
+					}),
+			}),
 			"token_1",
+			makePopulationInput(),
 			createEntityImportWorkerDeps({
 				createGlobalEntity: () =>
 					Promise.resolve({
