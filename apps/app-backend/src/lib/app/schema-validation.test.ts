@@ -65,6 +65,64 @@ describe("parseAppSchemaProperties", () => {
 		).toEqual({ progressPercent: 25.56 });
 	});
 
+	it("fills in defaultValue when the field is absent from properties", () => {
+		expect(
+			parseAppSchemaProperties({
+				kind: "Event",
+				properties: {},
+				propertiesSchema: {
+					fields: {
+						source: {
+							type: "string",
+							label: "Source",
+							description: "Source",
+							defaultValue: "manual",
+						},
+					},
+				},
+			}),
+		).toEqual({ source: "manual" });
+	});
+
+	it("does not override an explicit value with defaultValue", () => {
+		expect(
+			parseAppSchemaProperties({
+				kind: "Event",
+				properties: { source: "import" },
+				propertiesSchema: {
+					fields: {
+						source: {
+							type: "string",
+							label: "Source",
+							description: "Source",
+							defaultValue: "manual",
+						},
+					},
+				},
+			}),
+		).toEqual({ source: "import" });
+	});
+
+	it("applies defaultValue for a required field when the field is absent", () => {
+		expect(
+			parseAppSchemaProperties({
+				kind: "Entity",
+				properties: {},
+				propertiesSchema: {
+					fields: {
+						status: {
+							type: "string",
+							label: "Status",
+							description: "Status",
+							defaultValue: "active",
+							validation: { required: true },
+						},
+					},
+				},
+			}),
+		).toEqual({ status: "active" });
+	});
+
 	it("applies conditional required rules after field parsing", () => {
 		expect(
 			parseAppSchemaProperties({
@@ -80,8 +138,8 @@ describe("parseAppSchemaProperties", () => {
 						status: {
 							type: "string",
 							label: "Status",
-							description: "Workflow status",
 							validation: { required: true },
+							description: "Workflow status",
 						},
 					},
 					rules: [
@@ -110,8 +168,8 @@ describe("parseAppSchemaProperties", () => {
 						status: {
 							type: "string",
 							label: "Status",
-							description: "Workflow status",
 							validation: { required: true },
+							description: "Workflow status",
 						},
 					},
 					rules: [
