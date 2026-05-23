@@ -7,7 +7,7 @@ import {
 	type UpdatePrivatePluginBody,
 	type UpdatePluginInstallationBody,
 } from "@ryot/contract/modules/plugins/schemas";
-import { PluginSlug, type UserId } from "@ryot/contract/schema/brands";
+import { PluginSlug, UserId } from "@ryot/contract/schema/brands";
 import type { AppPropertyDefinition, AppSchema } from "@ryot/contract/schema/property-schema";
 import { Context, Effect, Layer, Result } from "effect";
 
@@ -19,6 +19,7 @@ import {
 import {
 	buildDefinitionSnapshot,
 	definitionSourceFromSnapshot,
+	type DefinitionSnapshot,
 } from "#modules/definition-registry/service";
 import { SandboxWorkflowReferenceRepository } from "#modules/sandbox/workflow-reference-repository";
 
@@ -26,6 +27,7 @@ import { PluginDefinitionMaterializer } from "./definition-materializer";
 import {
 	PluginInstallationRepository,
 	type PluginInstallationRow,
+	type PluginPrivateInstallationRow,
 } from "./installation-repository";
 import { PluginInstallationLifecycleDispatcher } from "./installation-workflow";
 import { mergeManifestDefinitions, PluginLoader } from "./loader";
@@ -119,6 +121,58 @@ const validateEffectiveSurfaceSlugs = (
 				issues: [error instanceof Error ? error.message : String(error)],
 			}),
 	});
+
+const definitionClaimKinds = [
+	["savedViews", "saved view"],
+	["entitySchemas", "entity schema"],
+	["signalSchemas", "signal schema"],
+	["relationshipSchemas", "relationship schema"],
+] as const;
+
+const shippedConflictReason = (issue: string) =>
+	`Conflicts with the shipped plugin set: ${issue}`.slice(0, 240);
+
+const findShippedDefinitionClaim = (
+	manifest: PluginManifest,
+	systemDefinitions: DefinitionSnapshot,
+) => {
+	for (const [field, kind] of definitionClaimKinds) {
+		for (const { slug } of manifest[field]) {
+			if (Object.hasOwn(systemDefinitions[field], slug)) {
+				return `Shipped plugins already define the ${kind} '${slug}'`;
+			}
+		}
+	}
+	return null;
+};
+
+const detectShippedConflict = (
+	plugin: { readonly pluginSlug: string; readonly manifest: PluginManifest },
+	shipped: {
+		readonly systemSlugs: ReadonlySet<string>;
+		readonly systemDefinitions: DefinitionSnapshot;
+		readonly systemPlugins: ReadonlyArray<{
+			readonly slug: string;
+			readonly manifest: PluginManifest;
+		}>;
+	},
+) =>
+	Effect.gen(function* () {
+		yield* validatePrivateSlugAvailability(plugin.pluginSlug, shipped.systemSlugs);
+		yield* validateEffectiveSurfaceSlugs([
+			...shipped.systemPlugins,
+			{ slug: plugin.pluginSlug, manifest: plugin.manifest },
+		]);
+		const claimed = findShippedDefinitionClaim(plugin.manifest, shipped.systemDefinitions);
+		return claimed === null ? null : yield* new PluginValidationError({ issues: [claimed] });
+	}).pipe(
+		Effect.catchTags({
+			PluginValidationError: (error) =>
+				Effect.succeed(error.issues[0] ?? "Shipped plugin definitions conflict"),
+			PluginSlugReservedError: () =>
+				Effect.succeed(`Shipped plugins already use the slug '${plugin.pluginSlug}'`),
+		}),
+	);
 
 const isRecord = (value: unknown): value is Readonly<Record<string, unknown>> =>
 	typeof value === "object" && value !== null && !Array.isArray(value);
@@ -284,9 +338,125 @@ export class PluginInstallationService extends Context.Service<PluginInstallatio
 				"PluginInstallationService.provisionSystemInstallations",
 			)((userId: UserId) => installations.provisionSystemInstallationsForUser(userId));
 
-			const provisionSystemInstallationsForAllUsers = Effect.fn(
-				"PluginInstallationService.provisionSystemInstallationsForAllUsers",
-			)(() => installations.provisionSystemInstallationsForAllUsers());
+			const reconcilePrivateConflicts = Effect.fn(
+				"PluginInstallationService.reconcilePrivateConflicts",
+			)(function* () {
+				const rows = yield* installations.listPrivateInstallations();
+				const snapshot = loader.getSnapshot();
+				const systemDefinitions = snapshot.definitions;
+				const systemPlugins = Object.values(snapshot.plugins);
+				const systemSlugs = new Set(systemPlugins.map(({ slug }) => slug));
+				const owners = new Map<UserId, Array<PluginPrivateInstallationRow>>();
+				for (const row of rows) {
+					const userId = UserId.make(row.userId);
+					const owned = owners.get(userId);
+					if (owned) {
+						owned.push(row);
+					} else {
+						owners.set(userId, [row]);
+					}
+				}
+				for (const [userId, owned] of owners) {
+					const conflicts = new Map<string, string>();
+					const survivors: Array<PluginPrivateInstallationRow> = [];
+					for (const row of owned) {
+						const issue = yield* detectShippedConflict(row, {
+							systemSlugs,
+							systemPlugins,
+							systemDefinitions,
+						});
+						if (issue === null) {
+							survivors.push(row);
+						} else {
+							conflicts.set(row.installationId, issue);
+						}
+					}
+					const effective = yield* buildEffectiveDefinitions(
+						systemDefinitions,
+						survivors.map(({ manifest, pluginId, pluginSlug }) => ({
+							manifest,
+							id: pluginId,
+							slug: pluginSlug,
+						})),
+					).pipe(Effect.catchTag("PluginValidationError", () => Effect.succeed(null)));
+					if (effective === null) {
+						yield* Effect.logWarning(
+							"private plugin effective definitions could not be composed",
+						).pipe(Effect.annotateLogs({ userId }));
+					} else {
+						for (const row of survivors) {
+							const issue = yield* validatePluginManifestReferences(row.manifest, effective).pipe(
+								Effect.as(null),
+								Effect.catchTag("PluginValidationError", (error) =>
+									Effect.succeed(error.issues[0] ?? "Shipped plugin definitions conflict"),
+								),
+							);
+							if (issue !== null) {
+								conflicts.set(row.installationId, issue);
+							}
+						}
+					}
+					let healthChanged = false;
+					for (const row of owned) {
+						const issue = conflicts.get(row.installationId);
+						if (issue === undefined) {
+							if (row.health === "incompatible") {
+								yield* installations.updateHealth({
+									health: "ready",
+									healthReason: null,
+									id: row.installationId,
+								});
+								healthChanged = true;
+							}
+							continue;
+						}
+						yield* definitionMaterializer.removeGenerated(row.installationId);
+						if (row.health !== "ready" && row.health !== "incompatible") {
+							continue;
+						}
+						const healthReason = shippedConflictReason(issue);
+						if (row.health === "incompatible" && row.healthReason === healthReason) {
+							continue;
+						}
+						yield* installations.updateHealth({
+							healthReason,
+							health: "incompatible",
+							id: row.installationId,
+						});
+						healthChanged = true;
+					}
+					if (healthChanged) {
+						yield* definitionMaterializer.materialize(userId);
+					}
+				}
+			});
+
+			const reconcileSystemInstallations = Effect.fn(
+				"PluginInstallationService.reconcileSystemInstallations",
+			)(function* () {
+				yield* installations.provisionSystemInstallationsForAllUsers();
+				yield* reconcilePrivateConflicts();
+			});
+
+			const dispatchPendingInstallationLifecycle = Effect.fn(
+				"PluginInstallationService.dispatchPendingInstallationLifecycle",
+			)(function* () {
+				const pending = yield* installations.listPendingLifecycle();
+				yield* Effect.forEach(
+					pending,
+					(installationId) =>
+						lifecycleDispatcher
+							.dispatch(installationId)
+							.pipe(
+								Effect.catchCause((cause) =>
+									Effect.logError("plugin installation lifecycle sweep failed", cause).pipe(
+										Effect.annotateLogs({ installationId }),
+									),
+								),
+							),
+					{ discard: true, concurrency: 4 },
+				);
+			});
 
 			const listInstallations = Effect.fn("PluginInstallationService.listInstallations")(function* (
 				userId: UserId,
@@ -542,8 +712,18 @@ export class PluginInstallationService extends Context.Service<PluginInstallatio
 										sortOrder: currentInstallation.sortOrder,
 										isDisabled: currentInstallation.isDisabled,
 									});
+									const resolved = state ?? currentInstallation;
+									if (currentInstallation.health !== "incompatible") {
+										yield* definitionMaterializer.materialize(input.userId);
+										return resolved;
+									}
+									yield* installations.updateHealth({
+										healthReason: null,
+										health: "ready",
+										id: currentInstallation.id,
+									});
 									yield* definitionMaterializer.materialize(input.userId);
-									return state ?? currentInstallation;
+									return { ...resolved, healthReason: null, health: "ready" as const };
 								}).pipe(Effect.provideService(Database, transaction)),
 							),
 						),
@@ -687,12 +867,14 @@ export class PluginInstallationService extends Context.Service<PluginInstallatio
 				slug: string,
 			) {
 				const pluginSlug = PluginSlug.make(slug);
-				if (loader.getSnapshot().plugins[slug]) {
-					return yield* new PluginConflictError({ reason: { code: "system-plugin", pluginSlug } });
-				}
 				const owned = yield* repository.listPrivateForUser(userId);
 				const plugin = owned.find((candidate) => candidate.slug === slug);
 				if (!plugin) {
+					if (loader.getSnapshot().plugins[slug]) {
+						return yield* new PluginConflictError({
+							reason: { code: "system-plugin", pluginSlug },
+						});
+					}
 					return yield* new PluginNotFoundError({
 						reason: { code: "plugin-not-found", pluginSlug },
 					});
@@ -741,7 +923,8 @@ export class PluginInstallationService extends Context.Service<PluginInstallatio
 				updatePrivatePlugin,
 				installPrivatePlugin,
 				provisionSystemInstallations,
-				provisionSystemInstallationsForAllUsers,
+				reconcileSystemInstallations,
+				dispatchPendingInstallationLifecycle,
 			};
 		}),
 	},

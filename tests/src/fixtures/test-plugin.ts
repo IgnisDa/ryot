@@ -6,6 +6,7 @@ import { Effect } from "effect";
 
 import { adminHeaders } from "./admin";
 import { getBackendClient } from "./contract-client";
+import { buildSavedViewLayouts } from "./saved-views";
 
 type InstallPluginPayload = ContractPayload<"plugins", "install">;
 type TestPluginManifest = InstallPluginPayload["manifest"];
@@ -89,6 +90,19 @@ export const testPluginManifest = (input: TestPluginManifestInput): TestPluginMa
 		eventAutomations: input.eventAutomations ?? [],
 		...input.bindings,
 	},
+});
+
+export const testPluginSavedView = (input: {
+	readonly slug: string;
+	readonly name?: string;
+}): TestPluginManifest["savedViews"][number] => ({
+	icon: "star",
+	sortOrder: 0,
+	pluginSlug: null,
+	slug: input.slug,
+	entitySchemaSlug: null,
+	layouts: buildSavedViewLayouts(),
+	name: input.name ?? "E2E Plugin View",
 });
 
 const findInstalledScriptId = (scriptSlug: string, source: string, baseUrl?: string) =>
