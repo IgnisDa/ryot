@@ -3,6 +3,7 @@ import { and, eq, isNull } from "drizzle-orm";
 import type { DbClient } from "~/lib/db";
 import { entitySchema, relationshipSchema, sandboxScript } from "~/lib/db/schema";
 
+import { buildCollectionEntityMigrationSql } from "./collection-mapping";
 import {
 	buildMetadataGroupEntityMigrationSql,
 	buildMetadataGroupRelationshipMigrationSql,
@@ -257,6 +258,11 @@ export const migrateLegacyTables = async (database: DbClient) => {
 		relationshipSchemaIds,
 	});
 
+	const collectionEntitySchemaId = entitySchemaIds.get("collection");
+	if (collectionEntitySchemaId === undefined) {
+		throw new Error('Missing entity schema id for collection slug "collection"');
+	}
+
 	const unsupportedMetadataSources = await getUnsupportedMetadataSources(database);
 	if (unsupportedMetadataSources.length > 0) {
 		throw new Error(
@@ -293,6 +299,7 @@ export const migrateLegacyTables = async (database: DbClient) => {
 		await client.query(migrateUserTableSql);
 		await client.query(buildPersonEntityMigrationSql(resolvedPersonEntityTargets));
 		await client.query(buildCompanyEntityMigrationSql(resolvedCompanyEntityTargets));
+		await client.query(buildCollectionEntityMigrationSql(collectionEntitySchemaId));
 		await client.query(`
 			DO $$
 			DECLARE
