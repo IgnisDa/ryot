@@ -6,7 +6,7 @@ let queues: Queues | null = null;
 export const initializeQueues = async () => {
 	queues = createQueues();
 	await Promise.all([
-		queues.mediaQueue.waitUntilReady(),
+		queues.entityQueue.waitUntilReady(),
 		queues.eventsQueue.waitUntilReady(),
 		queues.sandboxQueue.waitUntilReady(),
 		queues.fitnessQueue.waitUntilReady(),
@@ -25,7 +25,7 @@ export const getQueues = () => {
 export const shutdownQueues = async () => {
 	if (queues) {
 		await Promise.all([
-			queues.mediaQueue.close(),
+			queues.entityQueue.close(),
 			queues.eventsQueue.close(),
 			queues.sandboxQueue.close(),
 			queues.fitnessQueue.close(),

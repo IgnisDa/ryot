@@ -633,10 +633,10 @@ describe("GET /entity-schemas/search/{jobId}", () => {
 	}, 30_000);
 });
 
-describe("POST /entity-schemas/import", () => {
+describe("POST /entities/import", () => {
 	it("returns 401 when unauthenticated", async () => {
 		const client = getBackendClient();
-		const { response, error } = await client.POST("/entity-schemas/import", {
+		const { response, error } = await client.POST("/entities/import", {
 			body: {
 				externalId: "test-id",
 				scriptId: crypto.randomUUID(),
@@ -664,10 +664,10 @@ describe("POST /entity-schemas/import", () => {
 	});
 });
 
-describe("GET /entity-schemas/import/{jobId}", () => {
+describe("GET /entities/import/{jobId}", () => {
 	it("returns 401 when unauthenticated", async () => {
 		const client = getBackendClient();
-		const { response, error } = await client.GET("/entity-schemas/import/{jobId}", {
+		const { response, error } = await client.GET("/entities/import/{jobId}", {
 			params: { path: { jobId: crypto.randomUUID() } },
 		});
 
@@ -678,7 +678,7 @@ describe("GET /entity-schemas/import/{jobId}", () => {
 	it("returns 404 for a non-existent job id", async () => {
 		const { client, cookies } = await createAuthenticatedClient();
 
-		const { response, error } = await client.GET("/entity-schemas/import/{jobId}", {
+		const { response, error } = await client.GET("/entities/import/{jobId}", {
 			headers: { Cookie: cookies },
 			params: { path: { jobId: crypto.randomUUID() } },
 		});
@@ -700,7 +700,7 @@ describe("GET /entity-schemas/import/{jobId}", () => {
 			entitySchemaId: schema.id,
 		});
 
-		const { response, error } = await clientB.GET("/entity-schemas/import/{jobId}", {
+		const { response, error } = await clientB.GET("/entities/import/{jobId}", {
 			params: { path: { jobId } },
 			headers: { Cookie: cookiesB },
 		});
