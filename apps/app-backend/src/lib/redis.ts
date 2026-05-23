@@ -5,6 +5,7 @@ import { AppConfig } from "./config";
 
 export const redisKeys = {
 	sandboxSession: (executionId: string) => `ryot:sandbox:session:${executionId}`,
+	uploadToken: (token: string) => `ryot:upload:token:${token}`,
 };
 
 export class RedisService extends Effect.Service<RedisService>()("RedisService", {
@@ -20,6 +21,7 @@ export class RedisService extends Effect.Service<RedisService>()("RedisService",
 		return {
 			client,
 			get: (key: string) => Effect.tryPromise(() => client.get(key)).pipe(Effect.orDie),
+			getdel: (key: string) => Effect.tryPromise(() => client.getdel(key)).pipe(Effect.orDie),
 			del: (...keys: ReadonlyArray<string>) =>
 				Effect.tryPromise(() => client.del(...keys)).pipe(Effect.orDie),
 			publish: (channel: string, message: string) =>
