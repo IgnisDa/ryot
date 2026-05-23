@@ -15,7 +15,7 @@ const makeHost = (httpCall: MyAnimeListMangaHost["httpCall"]) =>
 		httpCall,
 		getPluginConfig: (keys) =>
 			Effect.succeed(Object.fromEntries(keys.map((key) => [key, "client-id"]))),
-		getUserPreferences: () => Effect.succeed({ isNsfw: false, disableIntegrations: false }),
+		getUserPreferences: () => Effect.succeed({ allowNsfw: false, disableIntegrations: false }),
 	});
 const execution = { metadata: {}, sandboxScriptId: "script_test" };
 describe("manga.myanimelist sandbox script", () => {

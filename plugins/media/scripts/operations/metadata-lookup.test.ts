@@ -25,7 +25,7 @@ const createHost = (integration = integrationRecord({ provider: "ryot_browser_ex
 			getCurrentIntegration: () => Effect.succeed(integration),
 			getPluginConfig: (keys) =>
 				Effect.succeed(Object.fromEntries(keys.map((key) => [key, "token"]))),
-			getUserPreferences: () => Effect.succeed({ isNsfw: false, disableIntegrations: false }),
+			getUserPreferences: () => Effect.succeed({ allowNsfw: false, disableIntegrations: false }),
 			httpCall: (_method, url) => {
 				const requestUrl = new URL(url);
 				const query = requestUrl.searchParams.get("query") ?? "";

@@ -22,7 +22,7 @@ const makeHost = (httpCall: TmdbHost["httpCall"]) =>
 		httpCall,
 		getPluginConfig: (keys) =>
 			Effect.succeed(Object.fromEntries(keys.map((key) => [key, "token"]))),
-		getUserPreferences: () => Effect.succeed({ isNsfw: false, disableIntegrations: false }),
+		getUserPreferences: () => Effect.succeed({ allowNsfw: false, disableIntegrations: false }),
 	});
 const execution = { metadata: {}, sandboxScriptId: "script_test" };
 describe("show.tmdb sandbox script", () => {

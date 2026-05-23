@@ -2,7 +2,7 @@ import { defineManifest } from "@ryot/sandbox-sdk/driver";
 import { Effect, Schema } from "@ryot/sandbox-sdk/effect";
 import { defineProvider } from "@ryot/sandbox-sdk/provider";
 
-import { getUserIsNsfw } from "../../../script-helpers/host";
+import { getUserAllowNsfw } from "../../../script-helpers/host";
 import { parsePublishYear } from "../../../script-helpers/parse-publish-year";
 import { numberValue, recordsValue, stringValue } from "../../../script-helpers/records";
 import {
@@ -41,7 +41,7 @@ export const search = defineProvider({
 	run: (input, host) =>
 		Effect.gen(function* () {
 			const token = yield* getTmdbAccessToken(host);
-			const showNsfw = yield* getUserIsNsfw(host);
+			const allowNsfw = yield* getUserAllowNsfw(host);
 			const data = yield* tmdbGet(
 				host,
 				"/search/tv",
@@ -49,7 +49,7 @@ export const search = defineProvider({
 					language: "en-US",
 					query: input.query,
 					page: String(input.page),
-					include_adult: showNsfw ? "true" : "false",
+					include_adult: allowNsfw ? "true" : "false",
 				},
 				token,
 			);
