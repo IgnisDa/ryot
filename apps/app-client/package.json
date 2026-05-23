@@ -20,6 +20,8 @@
 		"@expo-google-fonts/outfit": "^0.4.3",
 		"@expo/ui": "~57.0.11",
 		"@ryot/contract": "workspace:*",
+		"@ryot/fitness-plugin": "workspace:*",
+		"@ryot/media-plugin": "workspace:*",
 		"@ryot/ryotql": "workspace:*",
 		"@ryot/ryotql-recipes": "workspace:*",
 		"@ryot/ts-utils": "workspace:*",
