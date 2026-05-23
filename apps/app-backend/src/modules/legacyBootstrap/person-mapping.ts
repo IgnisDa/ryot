@@ -2,23 +2,23 @@ import { sql } from "drizzle-orm";
 
 import type { DbClient } from "~/lib/db";
 
-import { quoteNullableSqlString, quoteSqlString } from "./shared";
+import {
+	type EntityMigrationTarget,
+	type ResolvedEntityMigrationTarget,
+	type ResolvedRelationshipTarget,
+	buildEntityTargetValuesSql,
+	buildPrimaryImageSql,
+	buildRelationshipTargetValuesSql,
+} from "./shared";
 
-type EntityMigrationTarget = {
-	source: string;
-	entitySchemaSlug: string;
-	sandboxScriptSlug: string | null;
+type RelationshipMigrationInput = {
+	kind: "person" | "company";
+	targets: ResolvedRelationshipTarget[];
 };
 
-type ResolvedEntityMigrationTarget = {
-	source: string;
-	entitySchemaId: string;
-	sandboxScriptId: string | null;
-};
-
-type ResolvedRelationshipMigrationTarget = {
-	lot: string;
-	relationshipSchemaId: string;
+type EntityMigrationInput = {
+	kind: "person" | "company";
+	targets: ResolvedEntityMigrationTarget[];
 };
 
 const legacyPersonCompanyPredicateSql = (tableAlias: string) => `(
@@ -55,18 +55,6 @@ const buildLegacyImageArraySql = (tableAlias: string) => `(
 	)
 )`;
 
-const buildLegacyPrimaryImageSql = (tableAlias: string) => `CASE
-	WHEN jsonb_array_length(COALESCE(${tableAlias}.assets -> 'remote_images', '[]'::jsonb)) > 0 THEN jsonb_build_object(
-		'type', 'remote',
-		'url', ${tableAlias}.assets -> 'remote_images' ->> 0
-	)
-	WHEN jsonb_array_length(COALESCE(${tableAlias}.assets -> 's3_images', '[]'::jsonb)) > 0 THEN jsonb_build_object(
-		'type', 's3',
-		'key', ${tableAlias}.assets -> 's3_images' ->> 0
-	)
-	ELSE NULL
-END`;
-
 const buildLegacyPersonPropertiesSql = (tableAlias: string) => `jsonb_build_object(
 	'images', ${buildLegacyImageArraySql(tableAlias)},
 	'gender', ${tableAlias}.gender,
@@ -89,32 +77,7 @@ const buildLegacyCompanyPropertiesSql = (tableAlias: string) => `jsonb_build_obj
 	'description', ${tableAlias}.description
 )`;
 
-const buildRawEntityTargetValuesSql = (targets: readonly EntityMigrationTarget[]) =>
-	targets
-		.map(
-			(target) =>
-				`(${quoteSqlString(target.source)}, ${quoteSqlString(target.entitySchemaSlug)}, ${quoteNullableSqlString(target.sandboxScriptSlug)})`,
-		)
-		.join(", ");
-
-const buildResolvedEntityTargetValuesSql = (targets: readonly ResolvedEntityMigrationTarget[]) =>
-	targets
-		.map(
-			(target) =>
-				`(${quoteSqlString(target.source)}, ${quoteSqlString(target.entitySchemaId)}, ${quoteNullableSqlString(target.sandboxScriptId)})`,
-		)
-		.join(", ");
-
-const buildResolvedRelationshipTargetValuesSql = (
-	targets: readonly ResolvedRelationshipMigrationTarget[],
-) =>
-	targets
-		.map(
-			(target) => `(${quoteSqlString(target.lot)}, ${quoteSqlString(target.relationshipSchemaId)})`,
-		)
-		.join(", ");
-
-const legacyPersonEntityTargetsRaw = [
+export const personEntityTargets = [
 	{ source: "anilist", entitySchemaSlug: "person", sandboxScriptSlug: "person.anilist" },
 	{ source: "audible", entitySchemaSlug: "person", sandboxScriptSlug: "person.audible" },
 	{ source: "custom", entitySchemaSlug: "person", sandboxScriptSlug: null },
@@ -135,7 +98,7 @@ const legacyPersonEntityTargetsRaw = [
 	},
 ] as const satisfies readonly EntityMigrationTarget[];
 
-const legacyCompanyEntityTargetsRaw = [
+export const companyEntityTargets = [
 	{ source: "anilist", entitySchemaSlug: "company", sandboxScriptSlug: "company.anilist" },
 	{
 		source: "giant_bomb",
@@ -147,28 +110,23 @@ const legacyCompanyEntityTargetsRaw = [
 	{ source: "tvdb", entitySchemaSlug: "company", sandboxScriptSlug: "company.tvdb" },
 ] as const satisfies readonly EntityMigrationTarget[];
 
-export const personEntityTargets = legacyPersonEntityTargetsRaw;
+const personEntityTargetValuesSql = sql.join(
+	personEntityTargets.map((t) => sql`(${t.source}, ${t.entitySchemaSlug}, ${t.sandboxScriptSlug})`),
+	sql`, `,
+);
 
-export const companyEntityTargets = legacyCompanyEntityTargetsRaw;
-
-type EntityMigrationKind = "person" | "company";
-
-type EntityMigrationInput = {
-	kind: EntityMigrationKind;
-	targets: ResolvedEntityMigrationTarget[];
-};
-
-type RelationshipMigrationInput = {
-	kind: EntityMigrationKind;
-	targets: ResolvedRelationshipMigrationTarget[];
-};
+const companyEntityTargetValuesSql = sql.join(
+	companyEntityTargets.map(
+		(t) => sql`(${t.source}, ${t.entitySchemaSlug}, ${t.sandboxScriptSlug})`,
+	),
+	sql`, `,
+);
 
 const buildLegacyEntityMigrationSql = ({ kind, targets }: EntityMigrationInput) => {
 	const isCompany = kind === "company";
 	const propertiesSql = isCompany
 		? buildLegacyCompanyPropertiesSql("legacy_person")
 		: buildLegacyPersonPropertiesSql("legacy_person");
-	const userIdSql = "legacy_person.created_by_user_id";
 	const kindNotice = isCompany ? "company" : "person";
 	const companyFilterSql = legacyPersonCompanyPredicateSql("legacy_person");
 
@@ -177,7 +135,7 @@ DO $$
 DECLARE rows_inserted int;
 BEGIN
 	WITH person_targets (source, entity_schema_id, sandbox_script_id) AS (
-		VALUES ${buildResolvedEntityTargetValuesSql(targets)}
+		VALUES ${buildEntityTargetValuesSql(targets)}
 	)
 	INSERT INTO entity (
 		"id",
@@ -196,10 +154,10 @@ BEGIN
 		legacy_person.id,
 		legacy_person.identifier,
 		legacy_person.name,
-		${buildLegacyPrimaryImageSql("legacy_person")},
+		${buildPrimaryImageSql("legacy_person")},
 		legacy_person.created_on,
 		NULL,
-		${userIdSql},
+		legacy_person.created_by_user_id,
 		${propertiesSql},
 		person_targets.entity_schema_id,
 		person_targets.sandbox_script_id,
@@ -214,18 +172,20 @@ END $$;
 `;
 };
 
-const buildLegacyRelationshipRollupsSql = ({ kind, targets }: RelationshipMigrationInput) => {
-	const userIdSql = "legacy_person.created_by_user_id";
+// Returns a complete WITH...AS CTE block (no trailing semicolon) ready to be prepended to an
+// INSERT statement. Must be repeated for each INSERT inside a DO block since CTE scope in
+// PL/pgSQL is limited to the single SQL statement the WITH clause is attached to.
+const buildRelationshipCtesSql = ({ kind, targets }: RelationshipMigrationInput) => {
 	const companyFilterSql = legacyPersonCompanyPredicateSql("legacy_person");
+	const isCompanyFilter = kind === "company" ? "TRUE" : "FALSE";
 
-	return `
-	WITH relationship_targets (lot, relationship_schema_id) AS (
-		VALUES ${buildResolvedRelationshipTargetValuesSql(targets)}
+	return `WITH relationship_targets (lot, relationship_schema_id) AS (
+		VALUES ${buildRelationshipTargetValuesSql(targets)}
 	),
 	legacy_people AS (
 		SELECT
 			legacy_person.id,
-			${userIdSql} AS user_id,
+			legacy_person.created_by_user_id AS user_id,
 			${companyFilterSql} AS is_company
 		FROM "person" legacy_person
 	),
@@ -242,7 +202,7 @@ const buildLegacyRelationshipRollupsSql = ({ kind, targets }: RelationshipMigrat
 		INNER JOIN legacy_people ON legacy_people.id = m2p.person_id
 		INNER JOIN "metadata" metadata ON metadata.id = m2p.metadata_id
 		INNER JOIN relationship_targets ON relationship_targets.lot = metadata.lot
-		WHERE legacy_people.is_company = ${kind === "company" ? "TRUE" : "FALSE"}
+		WHERE legacy_people.is_company = ${isCompanyFilter}
 	),
 	role_groups AS (
 		SELECT
@@ -278,91 +238,21 @@ const buildLegacyRelationshipRollupsSql = ({ kind, targets }: RelationshipMigrat
 			)[1] AS character
 		FROM legacy_relationships
 		GROUP BY metadata_id, person_id, relationship_schema_id, user_id
-	)
-`;
+	)`;
 };
 
 const buildLegacyRelationshipInsertSql = ({ kind, targets }: RelationshipMigrationInput) => {
 	const isCompany = kind === "company";
 	const kindNotice = isCompany ? "company" : "person";
-	const baseSql = buildLegacyRelationshipRollupsSql({ kind, targets });
-
-	if (isCompany) {
-		return `
-DO $$
-DECLARE rows_inserted int;
-BEGIN
-${baseSql}
-	INSERT INTO relationship (
-		"id",
-		"source_entity_id",
-		"target_entity_id",
-		"relationship_schema_id",
-		"properties",
-		"user_id",
-		"created_at"
-	)
-	SELECT
-		gen_random_uuid()::text,
-		rollups.person_id,
-		rollups.metadata_id,
-		rollups.relationship_schema_id,
-		jsonb_build_object(
-			'order', rollups.relationship_order,
-			'roles', roles_rollup.roles
-		),
-		NULL,
-		NOW()
-	FROM rollups
-	INNER JOIN roles_rollup ON rollups.metadata_id = roles_rollup.metadata_id
-		AND rollups.person_id = roles_rollup.person_id
-		AND rollups.relationship_schema_id = roles_rollup.relationship_schema_id
-		AND rollups.user_id IS NOT DISTINCT FROM roles_rollup.user_id
-	WHERE rollups.user_id IS NULL
-	ON CONFLICT ("source_entity_id", "target_entity_id", "relationship_schema_id") WHERE user_id IS NULL DO NOTHING;
-	GET DIAGNOSTICS rows_inserted = ROW_COUNT;
-	RAISE NOTICE '${kindNotice} -> relationship: % row(s) migrated', rows_inserted;
-
-	INSERT INTO relationship (
-		"id",
-		"source_entity_id",
-		"target_entity_id",
-		"relationship_schema_id",
-		"properties",
-		"user_id",
-		"created_at"
-	)
-	SELECT
-		gen_random_uuid()::text,
-		rollups.person_id,
-		rollups.metadata_id,
-		rollups.relationship_schema_id,
-		jsonb_strip_nulls(
-			jsonb_build_object(
-				'order', rollups.relationship_order,
-				'roles', roles_rollup.roles
-			)
-		),
-		rollups.user_id,
-		NOW()
-	FROM rollups
-	INNER JOIN roles_rollup ON rollups.metadata_id = roles_rollup.metadata_id
-		AND rollups.person_id = roles_rollup.person_id
-		AND rollups.relationship_schema_id = roles_rollup.relationship_schema_id
-		AND rollups.user_id IS NOT DISTINCT FROM roles_rollup.user_id
-	WHERE rollups.user_id IS NOT NULL
-	ON CONFLICT ("user_id", "source_entity_id", "target_entity_id", "relationship_schema_id") DO NOTHING;
-	GET DIAGNOSTICS rows_inserted = ROW_COUNT;
-	RAISE NOTICE '${kindNotice} -> relationship (user-scoped): % row(s) migrated', rows_inserted;
-END $$;
-`;
-	}
+	// character is preserved for person relationships; stripped from company relationships
+	const characterSql = isCompany ? "" : `,\n\t\t\t\t'character', rollups.character`;
+	const cteSql = buildRelationshipCtesSql({ kind, targets });
 
 	return `
 DO $$
 DECLARE rows_inserted int;
 BEGIN
-${baseSql}
+	${cteSql}
 	INSERT INTO relationship (
 		"id",
 		"source_entity_id",
@@ -380,8 +270,7 @@ ${baseSql}
 		jsonb_strip_nulls(
 			jsonb_build_object(
 				'order', rollups.relationship_order,
-				'roles', roles_rollup.roles,
-				'character', rollups.character
+				'roles', roles_rollup.roles${characterSql}
 			)
 		),
 		NULL,
@@ -396,6 +285,7 @@ ${baseSql}
 	GET DIAGNOSTICS rows_inserted = ROW_COUNT;
 	RAISE NOTICE '${kindNotice} -> relationship (global): % row(s) migrated', rows_inserted;
 
+	${cteSql}
 	INSERT INTO relationship (
 		"id",
 		"source_entity_id",
@@ -413,8 +303,7 @@ ${baseSql}
 		jsonb_strip_nulls(
 			jsonb_build_object(
 				'order', rollups.relationship_order,
-				'roles', roles_rollup.roles,
-				'character', rollups.character
+				'roles', roles_rollup.roles${characterSql}
 			)
 		),
 		rollups.user_id,
@@ -438,21 +327,19 @@ export const buildPersonEntityMigrationSql = (targets: ResolvedEntityMigrationTa
 export const buildCompanyEntityMigrationSql = (targets: ResolvedEntityMigrationTarget[]) =>
 	buildLegacyEntityMigrationSql({ kind: "company", targets });
 
-export const buildPersonRelationshipMigrationSql = (
-	targets: ResolvedRelationshipMigrationTarget[],
-) => buildLegacyRelationshipInsertSql({ kind: "person", targets });
+export const buildPersonRelationshipMigrationSql = (targets: ResolvedRelationshipTarget[]) =>
+	buildLegacyRelationshipInsertSql({ kind: "person", targets });
 
-export const buildCompanyRelationshipMigrationSql = (
-	targets: ResolvedRelationshipMigrationTarget[],
-) => buildLegacyRelationshipInsertSql({ kind: "company", targets });
+export const buildCompanyRelationshipMigrationSql = (targets: ResolvedRelationshipTarget[]) =>
+	buildLegacyRelationshipInsertSql({ kind: "company", targets });
 
 export const getUnsupportedPersonSources = async (database: DbClient) => {
 	const result = await database.execute<{ source: string; entity_kind: string }>(sql`
 		WITH person_targets (source, entity_schema_slug, sandbox_script_slug) AS (
-			VALUES ${sql.raw(buildRawEntityTargetValuesSql(legacyPersonEntityTargetsRaw))}
+			VALUES ${personEntityTargetValuesSql}
 		),
 		company_targets (source, entity_schema_slug, sandbox_script_slug) AS (
-			VALUES ${sql.raw(buildRawEntityTargetValuesSql(legacyCompanyEntityTargetsRaw))}
+			VALUES ${companyEntityTargetValuesSql}
 		),
 		supported_targets AS (
 			SELECT source, 'person' AS entity_kind FROM person_targets
