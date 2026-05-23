@@ -1,5 +1,4 @@
 import { expect as effectExpect, it as effectIt } from "@effect/vitest";
-import type { PluginManifest } from "@ryot/contract/modules/plugins/manifest";
 import { SandboxScriptId } from "@ryot/contract/schema/brands";
 import type { WorkflowDurableCallRequest } from "@ryot/sandbox-sdk/workflow";
 import type { SQL } from "drizzle-orm";
@@ -45,7 +44,7 @@ const manifest = {
 	relationshipSchemas: [],
 	scripts: [{ slug: "plugin.script", kind: "script" }],
 	userBootstrap: [{ slug: "bootstrap", scriptSlug: "plugin.script", description: "Bootstrap" }],
-} as unknown as PluginManifest;
+};
 
 const pluginPinRow = {
 	id: "script-id",
@@ -128,7 +127,7 @@ effectIt.effect("resolves first-observed children from the pinned plugin revisio
 			{ slug: "root", scriptSlug: "plugin.workflow" },
 			{ slug: "child", scriptSlug: "plugin.child" },
 		],
-	} as unknown as PluginManifest;
+	};
 	const root = {
 		...pluginPinRow,
 		id: rootId,
@@ -142,7 +141,8 @@ effectIt.effect("resolves first-observed children from the pinned plugin revisio
 	};
 	let selectedPinRow = root;
 	const dialect = new PgDialect();
-	const targetConditions: unknown[] = [];
+	type SQLCondition = { getSQL: () => SQL };
+	const targetConditions: SQLCondition[] = [];
 	const database = Object.assign(Object.create(null), {
 		select: () => ({
 			from: () => ({
@@ -151,7 +151,7 @@ effectIt.effect("resolves first-observed children from the pinned plugin revisio
 						where: () => ({ limit: () => Effect.succeed([selectedPinRow]) }),
 					}),
 				}),
-				where: (condition: unknown) => ({
+				where: (condition: SQLCondition) => ({
 					limit: () => {
 						targetConditions.push(condition);
 						return Effect.succeed([{ id: "child-v1-id", metadata: { kind: "workflow" as const } }]);
@@ -170,9 +170,7 @@ effectIt.effect("resolves first-observed children from the pinned plugin revisio
 		root.pluginManifest = {
 			...originalManifest,
 			workflows: [{ slug: "child", scriptSlug: "plugin.replacement" }],
-			entitySchemas: [
-				{ ...originalManifest.entitySchemas[0]!, slug: "replacement-entity", eventSchemas: [] },
-			],
+			entitySchemas: [{ slug: "replacement-entity", eventSchemas: [] }],
 		};
 		root.compiledHashes = { "plugin.child": "child-v2", "plugin.workflow": "workflow-v2" };
 		effectExpect(pin?.pluginRevision?.schemaScope.entitySchemaSlugs).toEqual(["original-entity"]);
@@ -185,7 +183,10 @@ effectIt.effect("resolves first-observed children from the pinned plugin revisio
 				args: { input: {}, workflowSlug: "child" },
 			}),
 		).toEqual({ kind: "workflow", scriptId: "child-v1-id" });
-		const condition = targetConditions[0] as { getSQL: () => SQL };
+		const condition = targetConditions[0];
+		if (condition === undefined) {
+			throw new Error("Expected workflow target condition");
+		}
 		effectExpect(dialect.sqlToQuery(condition.getSQL()).params).toEqual(
 			effectExpect.arrayContaining(["plugin-id", "plugin.child", "child-v1"]),
 		);
