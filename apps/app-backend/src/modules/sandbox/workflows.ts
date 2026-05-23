@@ -1,7 +1,8 @@
 import { DurableQueue, type Workflow } from "@effect/workflow";
 import { Cause, Effect, Exit, Layer, Match, Option } from "effect";
 
-import { SandboxRunError, unknownToMessage } from "#lib/errors";
+import type { SandboxRunError} from "#lib/errors";
+import { toSandboxRunError } from "#lib/errors";
 
 import { SandboxExecutionQueue, SandboxExecutionQueueWorkerLive } from "./durable-queues";
 import type {
@@ -9,11 +10,6 @@ import type {
 	SandboxRunResult,
 } from "./schemas";
 import { RunSandboxWorkflow } from "./workflow-definitions";
-
-const toWorkflowError = (cause: unknown) =>
-	cause instanceof SandboxRunError
-		? cause
-		: new SandboxRunError({ message: unknownToMessage(cause) });
 
 const workflowFailureResult = (
 	cause: Cause.Cause<SandboxRunError>,
@@ -42,7 +38,7 @@ export const toSandboxRunResult = (
 };
 
 const RunSandboxWorkflowLive = RunSandboxWorkflow.toLayer((payload) =>
-	DurableQueue.process(SandboxExecutionQueue, payload).pipe(Effect.mapError(toWorkflowError)),
+	DurableQueue.process(SandboxExecutionQueue, payload).pipe(Effect.mapError(toSandboxRunError)),
 );
 
 export const SandboxWorkflowDefinitionsLive = Layer.mergeAll(
