@@ -82,21 +82,34 @@ const buildEffectiveDefinitions = (
 			}),
 	});
 
-const validateEffectiveProviderSlugs = (
+const validateEffectiveSurfaceSlugs = (
 	plugins: ReadonlyArray<{ readonly slug: string; readonly manifest: PluginManifest }>,
 ) =>
 	Effect.try({
 		try: () => {
-			const ownerBySlug = new Map<string, string>();
+			const owners = {
+				provider: new Map<string, string>(),
+				"import source": new Map<string, string>(),
+				"integration provider": new Map<string, string>(),
+			};
+			const claim = (kind: keyof typeof owners, slug: string, pluginSlug: string) => {
+				const owner = owners[kind].get(slug);
+				if (owner) {
+					throw new Error(
+						`Duplicate ${kind} slug '${slug}' in effective plugins '${owner}' and '${pluginSlug}'`,
+					);
+				}
+				owners[kind].set(slug, pluginSlug);
+			};
 			for (const plugin of plugins) {
 				for (const provider of plugin.manifest.providers) {
-					const owner = ownerBySlug.get(provider.slug);
-					if (owner) {
-						throw new Error(
-							`Duplicate provider slug '${provider.slug}' in effective plugins '${owner}' and '${plugin.slug}'`,
-						);
-					}
-					ownerBySlug.set(provider.slug, plugin.slug);
+					claim("provider", provider.slug, plugin.slug);
+				}
+				for (const source of plugin.manifest.importSources) {
+					claim("import source", source.slug, plugin.slug);
+				}
+				for (const provider of plugin.manifest.integrationProviders) {
+					claim("integration provider", provider.slug, plugin.slug);
 				}
 			}
 		},
@@ -326,7 +339,7 @@ export class PluginInstallationService extends Context.Service<PluginInstallatio
 						loader.getSnapshot().definitions,
 						[...owned, { id: "private-plugin-candidate", slug, manifest }],
 					);
-					yield* validateEffectiveProviderSlugs([
+					yield* validateEffectiveSurfaceSlugs([
 						...Object.values(loader.getSnapshot().plugins),
 						...owned,
 						{ slug, manifest },
@@ -448,7 +461,7 @@ export class PluginInstallationService extends Context.Service<PluginInstallatio
 							{ id: plugin.id, slug: plugin.slug, manifest },
 						],
 					);
-					yield* validateEffectiveProviderSlugs([
+					yield* validateEffectiveSurfaceSlugs([
 						...Object.values(loader.getSnapshot().plugins),
 						...(yield* repository.listPrivateForUser(input.userId)).filter(
 							(candidate) => candidate.id !== plugin.id,
@@ -628,8 +641,8 @@ export class PluginInstallationService extends Context.Service<PluginInstallatio
 					}
 					if (
 						yield* repository.hasIntegrationReferences({
-							pluginSlug: plugin.slug,
-							userId: installation.userId,
+							pluginId: plugin.id,
+							pluginInstallationId: installation.id,
 						})
 					) {
 						return yield* new PluginConflictError({

@@ -14,6 +14,7 @@ import {
 	getSandboxRuntimeMetrics,
 } from "#lib/infrastructure/sandbox-runtime/runtime";
 import { ImportsService } from "#modules/imports/service";
+import { PluginRuntimeResolver } from "#modules/plugins/runtime-resolver";
 import { SandboxExecutionService } from "#modules/sandbox/service";
 
 const WORKFLOW_LOAD_GATE_CHUNK_SIZE = 1_000;
@@ -35,13 +36,25 @@ export class OperationalGateService extends Context.Service<OperationalGateServi
 			const redis = yield* RedisService;
 			const imports = yield* ImportsService;
 			const sandbox = yield* SandboxExecutionService;
+			const pluginRuntime = yield* PluginRuntimeResolver;
 
 			const startWorkflowLoad = Effect.fn("OperationalGateService.startWorkflowLoad")(function* (
 				input: TestSupportStartWorkflowLoadGateBody,
 			) {
+				const available = yield* pluginRuntime.listPluginsAvailableToUser(input.executingUserId);
+				const installation = available.find(({ slug }) => slug === input.pluginSlug);
+				if (!installation) {
+					return yield* new TestSupportBadRequest({
+						reason: {
+							code: "invalid-request",
+							diagnostic: `Plugin ${input.pluginSlug} is not installed for this user`,
+						},
+					});
+				}
 				const run = yield* imports.create({
 					source: input.source,
 					userId: input.executingUserId,
+					pluginInstallationId: installation.installationId,
 					inputSummary: { itemCount: input.itemCount, kind: "workflow-load-operational-gate" },
 				});
 				const startedAt = yield* DateTime.nowAsDate;

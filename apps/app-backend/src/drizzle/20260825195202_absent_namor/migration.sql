@@ -59,12 +59,12 @@ CREATE TABLE "entity" (
 	"external_id" text,
 	"name" text NOT NULL,
 	"entity_schema_slug" text NOT NULL,
-	"entity_schema_plugin_id" text,
 	"populated_at" timestamp with time zone,
 	"created_at" timestamp with time zone DEFAULT now() NOT NULL,
 	"user_id" text,
 	"properties" jsonb DEFAULT '{}' NOT NULL,
 	"provider_id" text,
+	"entity_schema_plugin_id" text,
 	"id" text PRIMARY KEY,
 	"updated_at" timestamp with time zone DEFAULT now() NOT NULL,
 	CONSTRAINT "entity_user_schema_provider_external_id_unique" UNIQUE("user_id","external_id","entity_schema_slug","provider_id")
@@ -83,15 +83,15 @@ CREATE TABLE "entity_translation" (
 );
 --> statement-breakpoint
 CREATE TABLE "event" (
+	"event_schema_slug" text NOT NULL,
 	"occurred_at" timestamp with time zone NOT NULL,
 	"created_at" timestamp with time zone DEFAULT now() NOT NULL,
 	"properties" jsonb DEFAULT '{}' NOT NULL,
-	"user_id" text NOT NULL,
-	"id" text PRIMARY KEY,
-	"event_schema_slug" text NOT NULL,
-	"event_schema_plugin_id" text,
-	"entity_id" text NOT NULL,
 	"session_entity_id" text,
+	"event_schema_plugin_id" text,
+	"user_id" text NOT NULL,
+	"entity_id" text NOT NULL,
+	"id" text PRIMARY KEY,
 	"updated_at" timestamp with time zone DEFAULT now() NOT NULL
 );
 --> statement-breakpoint
@@ -109,6 +109,7 @@ CREATE TABLE "import_run" (
 	"created_at" timestamp with time zone DEFAULT now() NOT NULL,
 	"input_summary" jsonb DEFAULT '{}' NOT NULL,
 	"integration_id" text,
+	"plugin_installation_id" text,
 	"user_id" text NOT NULL,
 	"id" text PRIMARY KEY,
 	"updated_at" timestamp with time zone DEFAULT now() NOT NULL
@@ -130,6 +131,7 @@ CREATE TABLE "import_run_failure" (
 CREATE TABLE "integration" (
 	"name" text,
 	"plugin_slug" text NOT NULL,
+	"plugin_installation_id" text NOT NULL,
 	"lot" text NOT NULL,
 	"is_disabled" boolean DEFAULT false NOT NULL,
 	"provider" text NOT NULL,
@@ -186,10 +188,10 @@ CREATE TABLE "notification_channel" (
 --> statement-breakpoint
 CREATE TABLE "notification_subscription_state" (
 	"signal_schema_slug" text NOT NULL,
-	"signal_schema_plugin_id" text,
 	"metadata" jsonb,
 	"is_active" boolean DEFAULT true NOT NULL,
 	"created_at" timestamp with time zone DEFAULT now() NOT NULL,
+	"signal_schema_plugin_id" text,
 	"user_id" text NOT NULL,
 	"id" text PRIMARY KEY,
 	"updated_at" timestamp with time zone DEFAULT now() NOT NULL
@@ -221,15 +223,16 @@ CREATE TABLE "plugin_installation" (
 	"health" text DEFAULT 'ready' NOT NULL,
 	"updated_at" timestamp with time zone DEFAULT now() NOT NULL,
 	"id" text PRIMARY KEY,
-	CONSTRAINT "plugin_installation_user_plugin_unique" UNIQUE("user_id","plugin_id")
+	CONSTRAINT "plugin_installation_user_plugin_unique" UNIQUE("user_id","plugin_id"),
+	CONSTRAINT "plugin_installation_id_user_id_unique" UNIQUE("id","user_id")
 );
 --> statement-breakpoint
 CREATE TABLE "relationship" (
 	"relationship_schema_slug" text NOT NULL,
-	"relationship_schema_plugin_id" text,
 	"created_at" timestamp with time zone DEFAULT now() NOT NULL,
 	"user_id" text,
 	"properties" jsonb DEFAULT '{}' NOT NULL,
+	"relationship_schema_plugin_id" text,
 	"source_entity_id" text NOT NULL,
 	"target_entity_id" text NOT NULL,
 	"id" text PRIMARY KEY,
@@ -289,13 +292,13 @@ CREATE TABLE "saved_view" (
 	"name" text NOT NULL,
 	"icon" text NOT NULL,
 	"entity_schema_slug" text,
-	"entity_schema_plugin_id" text,
-	"plugin_installation_id" text,
 	"sort_order" integer DEFAULT 0 NOT NULL,
 	"is_builtin" boolean DEFAULT false NOT NULL,
 	"layouts" jsonb NOT NULL,
 	"is_disabled" boolean DEFAULT false NOT NULL,
 	"created_at" timestamp with time zone DEFAULT now() NOT NULL,
+	"entity_schema_plugin_id" text,
+	"plugin_installation_id" text,
 	"id" text PRIMARY KEY,
 	"user_id" text NOT NULL,
 	"updated_at" timestamp with time zone DEFAULT now() NOT NULL,
@@ -316,13 +319,13 @@ CREATE TABLE "session" (
 CREATE TABLE "signal" (
 	"id" text PRIMARY KEY,
 	"signal_schema_slug" text NOT NULL,
-	"signal_schema_plugin_id" text,
 	"origin" jsonb NOT NULL,
 	"properties" jsonb NOT NULL,
 	"occurred_at" timestamp with time zone NOT NULL,
 	"created_at" timestamp with time zone DEFAULT now() NOT NULL,
 	"actor_user_id" text,
-	"subject_entity_id" text
+	"subject_entity_id" text,
+	"signal_schema_plugin_id" text
 );
 --> statement-breakpoint
 CREATE TABLE "signal_recipient" (
@@ -436,10 +439,12 @@ CREATE INDEX "event_user_entity_schema_order_idx" ON "event" ("user_id","entity_
 CREATE INDEX "event_user_session_order_idx" ON "event" ("user_id","session_entity_id","occurred_at" DESC NULLS LAST,"created_at" DESC NULLS LAST,"id" DESC NULLS LAST);--> statement-breakpoint
 CREATE INDEX "import_run_user_id_created_at_idx" ON "import_run" ("user_id","created_at" DESC NULLS LAST);--> statement-breakpoint
 CREATE INDEX "import_run_integration_id_created_at_idx" ON "import_run" ("integration_id","created_at" DESC NULLS LAST);--> statement-breakpoint
+CREATE INDEX "import_run_plugin_installation_id_idx" ON "import_run" ("plugin_installation_id");--> statement-breakpoint
 CREATE INDEX "import_run_failure_run_id_created_at_idx" ON "import_run_failure" ("run_id","created_at");--> statement-breakpoint
 CREATE INDEX "integration_user_id_created_at_idx" ON "integration" ("user_id","created_at" DESC NULLS LAST);--> statement-breakpoint
 CREATE INDEX "integration_user_id_provider_idx" ON "integration" ("user_id","provider");--> statement-breakpoint
 CREATE INDEX "integration_plugin_slug_idx" ON "integration" ("plugin_slug");--> statement-breakpoint
+CREATE INDEX "integration_plugin_installation_id_idx" ON "integration" ("plugin_installation_id");--> statement-breakpoint
 CREATE INDEX "integration_lot_is_disabled_idx" ON "integration" ("lot","is_disabled");--> statement-breakpoint
 CREATE INDEX "integration_provider_is_disabled_idx" ON "integration" ("provider","is_disabled");--> statement-breakpoint
 CREATE INDEX "integration_auto_disable_claim_integration_id_idx" ON "integration_auto_disable_claim" ("integration_id");--> statement-breakpoint
@@ -489,18 +494,20 @@ CREATE INDEX "verification_identifier_idx" ON "verification" ("identifier");--> 
 ALTER TABLE "account" ADD CONSTRAINT "account_user_id_user_id_fkey" FOREIGN KEY ("user_id") REFERENCES "user"("id") ON DELETE CASCADE;--> statement-breakpoint
 ALTER TABLE "apikey" ADD CONSTRAINT "apikey_reference_id_user_id_fkey" FOREIGN KEY ("reference_id") REFERENCES "user"("id") ON DELETE CASCADE;--> statement-breakpoint
 ALTER TABLE "backup_run" ADD CONSTRAINT "backup_run_user_id_user_id_fkey" FOREIGN KEY ("user_id") REFERENCES "user"("id") ON DELETE CASCADE;--> statement-breakpoint
-ALTER TABLE "entity" ADD CONSTRAINT "entity_entity_schema_plugin_id_plugin_id_fkey" FOREIGN KEY ("entity_schema_plugin_id") REFERENCES "plugin"("id") ON DELETE RESTRICT;--> statement-breakpoint
 ALTER TABLE "entity" ADD CONSTRAINT "entity_user_id_user_id_fkey" FOREIGN KEY ("user_id") REFERENCES "user"("id") ON DELETE CASCADE;--> statement-breakpoint
 ALTER TABLE "entity" ADD CONSTRAINT "entity_provider_id_sandbox_provider_id_fkey" FOREIGN KEY ("provider_id") REFERENCES "sandbox_provider"("id") ON DELETE CASCADE;--> statement-breakpoint
+ALTER TABLE "entity" ADD CONSTRAINT "entity_entity_schema_plugin_id_plugin_id_fkey" FOREIGN KEY ("entity_schema_plugin_id") REFERENCES "plugin"("id") ON DELETE RESTRICT;--> statement-breakpoint
 ALTER TABLE "entity_translation" ADD CONSTRAINT "entity_translation_entity_id_entity_id_fkey" FOREIGN KEY ("entity_id") REFERENCES "entity"("id") ON DELETE CASCADE;--> statement-breakpoint
-ALTER TABLE "event" ADD CONSTRAINT "event_user_id_user_id_fkey" FOREIGN KEY ("user_id") REFERENCES "user"("id") ON DELETE CASCADE;--> statement-breakpoint
-ALTER TABLE "event" ADD CONSTRAINT "event_event_schema_plugin_id_plugin_id_fkey" FOREIGN KEY ("event_schema_plugin_id") REFERENCES "plugin"("id") ON DELETE RESTRICT;--> statement-breakpoint
-ALTER TABLE "event" ADD CONSTRAINT "event_entity_id_entity_id_fkey" FOREIGN KEY ("entity_id") REFERENCES "entity"("id") ON DELETE CASCADE;--> statement-breakpoint
 ALTER TABLE "event" ADD CONSTRAINT "event_session_entity_id_entity_id_fkey" FOREIGN KEY ("session_entity_id") REFERENCES "entity"("id") ON DELETE CASCADE;--> statement-breakpoint
+ALTER TABLE "event" ADD CONSTRAINT "event_event_schema_plugin_id_plugin_id_fkey" FOREIGN KEY ("event_schema_plugin_id") REFERENCES "plugin"("id") ON DELETE RESTRICT;--> statement-breakpoint
+ALTER TABLE "event" ADD CONSTRAINT "event_user_id_user_id_fkey" FOREIGN KEY ("user_id") REFERENCES "user"("id") ON DELETE CASCADE;--> statement-breakpoint
+ALTER TABLE "event" ADD CONSTRAINT "event_entity_id_entity_id_fkey" FOREIGN KEY ("entity_id") REFERENCES "entity"("id") ON DELETE CASCADE;--> statement-breakpoint
 ALTER TABLE "import_run" ADD CONSTRAINT "import_run_integration_id_integration_id_fkey" FOREIGN KEY ("integration_id") REFERENCES "integration"("id") ON DELETE CASCADE;--> statement-breakpoint
+ALTER TABLE "import_run" ADD CONSTRAINT "import_run_plugin_installation_id_plugin_installation_id_fkey" FOREIGN KEY ("plugin_installation_id") REFERENCES "plugin_installation"("id") ON DELETE SET NULL;--> statement-breakpoint
 ALTER TABLE "import_run" ADD CONSTRAINT "import_run_user_id_user_id_fkey" FOREIGN KEY ("user_id") REFERENCES "user"("id") ON DELETE CASCADE;--> statement-breakpoint
 ALTER TABLE "import_run_failure" ADD CONSTRAINT "import_run_failure_run_id_import_run_id_fkey" FOREIGN KEY ("run_id") REFERENCES "import_run"("id") ON DELETE CASCADE;--> statement-breakpoint
 ALTER TABLE "integration" ADD CONSTRAINT "integration_user_id_user_id_fkey" FOREIGN KEY ("user_id") REFERENCES "user"("id") ON DELETE CASCADE;--> statement-breakpoint
+ALTER TABLE "integration" ADD CONSTRAINT "integration_Q1xPD5Jsz3qI_fkey" FOREIGN KEY ("plugin_installation_id","user_id") REFERENCES "plugin_installation"("id","user_id") ON DELETE CASCADE;--> statement-breakpoint
 ALTER TABLE "integration_auto_disable_claim" ADD CONSTRAINT "integration_auto_disable_claim_TMe6DSsXf5GU_fkey" FOREIGN KEY ("integration_id") REFERENCES "integration"("id") ON DELETE CASCADE;--> statement-breakpoint
 ALTER TABLE "managed_asset" ADD CONSTRAINT "managed_asset_owner_user_id_user_id_fkey" FOREIGN KEY ("owner_user_id") REFERENCES "user"("id") ON DELETE CASCADE;--> statement-breakpoint
 ALTER TABLE "notification_channel" ADD CONSTRAINT "notification_channel_user_id_user_id_fkey" FOREIGN KEY ("user_id") REFERENCES "user"("id") ON DELETE CASCADE;--> statement-breakpoint
@@ -509,8 +516,8 @@ ALTER TABLE "notification_subscription_state" ADD CONSTRAINT "notification_subsc
 ALTER TABLE "plugin" ADD CONSTRAINT "plugin_owner_id_user_id_fkey" FOREIGN KEY ("owner_id") REFERENCES "user"("id") ON DELETE CASCADE;--> statement-breakpoint
 ALTER TABLE "plugin_installation" ADD CONSTRAINT "plugin_installation_user_id_user_id_fkey" FOREIGN KEY ("user_id") REFERENCES "user"("id") ON DELETE CASCADE;--> statement-breakpoint
 ALTER TABLE "plugin_installation" ADD CONSTRAINT "plugin_installation_plugin_id_plugin_id_fkey" FOREIGN KEY ("plugin_id") REFERENCES "plugin"("id") ON DELETE CASCADE;--> statement-breakpoint
-ALTER TABLE "relationship" ADD CONSTRAINT "relationship_relationship_schema_plugin_id_plugin_id_fkey" FOREIGN KEY ("relationship_schema_plugin_id") REFERENCES "plugin"("id") ON DELETE RESTRICT;--> statement-breakpoint
 ALTER TABLE "relationship" ADD CONSTRAINT "relationship_user_id_user_id_fkey" FOREIGN KEY ("user_id") REFERENCES "user"("id") ON DELETE CASCADE;--> statement-breakpoint
+ALTER TABLE "relationship" ADD CONSTRAINT "relationship_relationship_schema_plugin_id_plugin_id_fkey" FOREIGN KEY ("relationship_schema_plugin_id") REFERENCES "plugin"("id") ON DELETE RESTRICT;--> statement-breakpoint
 ALTER TABLE "relationship" ADD CONSTRAINT "relationship_source_entity_id_entity_id_fkey" FOREIGN KEY ("source_entity_id") REFERENCES "entity"("id") ON DELETE CASCADE;--> statement-breakpoint
 ALTER TABLE "relationship" ADD CONSTRAINT "relationship_target_entity_id_entity_id_fkey" FOREIGN KEY ("target_entity_id") REFERENCES "entity"("id") ON DELETE CASCADE;--> statement-breakpoint
 ALTER TABLE "sandbox_provider" ADD CONSTRAINT "sandbox_provider_plugin_id_plugin_id_fkey" FOREIGN KEY ("plugin_id") REFERENCES "plugin"("id") ON DELETE CASCADE;--> statement-breakpoint
@@ -525,9 +532,9 @@ ALTER TABLE "saved_view" ADD CONSTRAINT "saved_view_entity_schema_plugin_id_plug
 ALTER TABLE "saved_view" ADD CONSTRAINT "saved_view_plugin_installation_id_plugin_installation_id_fkey" FOREIGN KEY ("plugin_installation_id") REFERENCES "plugin_installation"("id") ON DELETE RESTRICT;--> statement-breakpoint
 ALTER TABLE "saved_view" ADD CONSTRAINT "saved_view_user_id_user_id_fkey" FOREIGN KEY ("user_id") REFERENCES "user"("id") ON DELETE CASCADE;--> statement-breakpoint
 ALTER TABLE "session" ADD CONSTRAINT "session_user_id_user_id_fkey" FOREIGN KEY ("user_id") REFERENCES "user"("id") ON DELETE CASCADE;--> statement-breakpoint
-ALTER TABLE "signal" ADD CONSTRAINT "signal_signal_schema_plugin_id_plugin_id_fkey" FOREIGN KEY ("signal_schema_plugin_id") REFERENCES "plugin"("id") ON DELETE RESTRICT;--> statement-breakpoint
 ALTER TABLE "signal" ADD CONSTRAINT "signal_actor_user_id_user_id_fkey" FOREIGN KEY ("actor_user_id") REFERENCES "user"("id") ON DELETE CASCADE;--> statement-breakpoint
 ALTER TABLE "signal" ADD CONSTRAINT "signal_subject_entity_id_entity_id_fkey" FOREIGN KEY ("subject_entity_id") REFERENCES "entity"("id") ON DELETE SET NULL;--> statement-breakpoint
+ALTER TABLE "signal" ADD CONSTRAINT "signal_signal_schema_plugin_id_plugin_id_fkey" FOREIGN KEY ("signal_schema_plugin_id") REFERENCES "plugin"("id") ON DELETE RESTRICT;--> statement-breakpoint
 ALTER TABLE "signal_recipient" ADD CONSTRAINT "signal_recipient_user_id_user_id_fkey" FOREIGN KEY ("user_id") REFERENCES "user"("id") ON DELETE CASCADE;--> statement-breakpoint
 ALTER TABLE "signal_recipient" ADD CONSTRAINT "signal_recipient_signal_id_signal_id_fkey" FOREIGN KEY ("signal_id") REFERENCES "signal"("id") ON DELETE CASCADE;--> statement-breakpoint
 ALTER TABLE "subscription_run" ADD CONSTRAINT "subscription_run_signal_id_signal_id_fkey" FOREIGN KEY ("signal_id") REFERENCES "signal"("id") ON DELETE CASCADE;--> statement-breakpoint

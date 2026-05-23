@@ -123,6 +123,24 @@ type TestLayerOptions = {
 	importRunFailuresService?: Layer.Layer<ImportRunFailuresService>;
 };
 
+const registeredProvider = {
+	lot: "sink" as const,
+	name: "Test provider",
+	slug: "test-provider",
+	pluginSlug: "fixture",
+	installationId: "inst_1",
+	description: "Test provider",
+	pluginId: "fixture-plugin-id",
+	settingsSchema: { fields: {} },
+	pluginScope: "system" as const,
+	scriptSlug: "integration.test-provider",
+	configContext: {
+		pluginSlug: "fixture",
+		kind: "environment" as const,
+		configSchema: { fields: {} },
+	},
+};
+
 const makeTestLayer = (options: TestLayerOptions) =>
 	Layer.mergeAll(
 		databaseLayer,
@@ -130,30 +148,12 @@ const makeTestLayer = (options: TestLayerOptions) =>
 		BunFileSystem.layer,
 		makeRedisLayer(),
 		Layer.mock(IntegrationProviderCatalog)({
-			list: () => [],
-			resolveOwned: () => null,
-			find: () => ({
-				lot: "sink",
-				pluginSlug: "media",
-				name: "Test provider",
-				slug: "test-provider",
-				description: "Test provider",
-				settingsSchema: { fields: {} },
-				scriptSlug: "integration.test-provider",
-			}),
-			findOwned: (providerSlug, pluginSlug) => {
-				options.providerLookups?.push({ providerSlug, pluginSlug });
-				return pluginSlug === "fixture"
-					? {
-							lot: "sink",
-							name: "Test provider",
-							slug: "test-provider",
-							pluginSlug: "fixture",
-							description: "Test provider",
-							settingsSchema: { fields: {} },
-							scriptSlug: "integration.test-provider",
-						}
-					: null;
+			listForUser: () => Effect.succeed([]),
+			resolveOwnedForUser: () => Effect.succeed(null),
+			findForUser: () => Effect.succeed(registeredProvider),
+			findOwnedForUser: (_userId, providerSlug, installationId) => {
+				options.providerLookups?.push({ providerSlug, installationId });
+				return Effect.succeed(installationId === "inst_1" ? registeredProvider : null);
 			},
 		}),
 		Layer.mock(SandboxExecutionService)({
@@ -265,9 +265,16 @@ it.effect("persists the sink adapter result and dispatches the normalized child"
 					},
 				},
 			});
-			expect(providerLookups).toEqual([{ providerSlug: "test-provider", pluginSlug: "fixture" }]);
+			expect(providerLookups).toEqual([
+				{ providerSlug: "test-provider", installationId: "inst_1" },
+			]);
 			expect(workflowResolutions).toEqual([
-				{ executionId: "run_1", workflowSlug: "import", pluginSlug: "fixture" },
+				{
+					userId: "user_1",
+					executionId: "run_1",
+					workflowSlug: "import",
+					pluginId: "fixture-plugin-id",
+				},
 			]);
 
 			expect(recordedUpdates).toContainEqual(

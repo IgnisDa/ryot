@@ -3,7 +3,7 @@ import { expect, it } from "vitest";
 
 import type { RegisteredIntegrationProvider } from "#modules/plugins/integration-provider-catalog";
 
-import { redactIntegrationForClient, type RegisteredProviderLookup } from "./client-redaction";
+import { redactIntegrationForClient } from "./client-redaction";
 import type { IntegrationRecord } from "./repository";
 
 const integration = (): IntegrationRecord => ({
@@ -19,6 +19,7 @@ const integration = (): IntegrationRecord => ({
 	userId: UserId.make("user-1"),
 	createdAt: "2026-07-27T00:00:00.000Z",
 	updatedAt: "2026-07-27T00:00:00.000Z",
+	pluginInstallationId: "media-installation",
 	id: IntegrationId.make("integration-1"),
 	extraSettings: { disableOnContinuousErrors: false },
 	providerSpecifics: { token: "secret-token", endpoint: "https://provider.test" },
@@ -30,16 +31,15 @@ const registered = (
 	lot: "yank",
 	pluginSlug: "media",
 	name: "Test provider",
+	pluginScope: "system",
 	slug: "test-provider",
 	description: "Test yank",
 	settingsSchema: { fields },
+	pluginId: "media-plugin-id",
+	installationId: "media-installation",
 	scriptSlug: "integration.test-provider",
+	configContext: { kind: "environment", pluginSlug: "media", configSchema: { fields: {} } },
 });
-
-const lookup =
-	(provider: RegisteredIntegrationProvider | null): RegisteredProviderLookup =>
-	() =>
-		provider;
 
 it("omits top-level secret settings and keeps nonsecret siblings", () => {
 	const record = integration();
@@ -48,7 +48,7 @@ it("omits top-level secret settings and keeps nonsecret siblings", () => {
 		token: { secret: true, type: "string", label: "Token", description: "API token" },
 	});
 
-	expect(redactIntegrationForClient(lookup(provider), record).providerSpecifics).toEqual({
+	expect(redactIntegrationForClient(provider, record).providerSpecifics).toEqual({
 		endpoint: "https://provider.test",
 	});
 	expect(record.providerSpecifics).toMatchObject({ token: "secret-token" });
@@ -60,9 +60,9 @@ it("returns credentials when a registry-known provider does not mark them secret
 		endpoint: { type: "string", label: "Endpoint", description: "Server URL" },
 	});
 
-	expect(
-		redactIntegrationForClient(lookup(provider), integration()).providerSpecifics,
-	).toMatchObject({ token: "secret-token" });
+	expect(redactIntegrationForClient(provider, integration()).providerSpecifics).toMatchObject({
+		token: "secret-token",
+	});
 });
 
 it("omits nested object secrets and keeps nonsecret siblings", () => {
@@ -89,7 +89,7 @@ it("omits nested object secrets and keeps nonsecret siblings", () => {
 	});
 	const record = { ...integration(), providerSpecifics };
 
-	expect(redactIntegrationForClient(lookup(provider), record).providerSpecifics).toEqual({
+	expect(redactIntegrationForClient(provider, record).providerSpecifics).toEqual({
 		credentials: { username: "alice" },
 		endpoint: "https://provider.test",
 	});
@@ -127,7 +127,7 @@ it("omits secret array items and secrets inside array objects", () => {
 	});
 	const record = { ...integration(), providerSpecifics };
 
-	expect(redactIntegrationForClient(lookup(provider), record).providerSpecifics).toEqual({
+	expect(redactIntegrationForClient(provider, record).providerSpecifics).toEqual({
 		tokens: [],
 		accounts: [{ name: "first" }, { name: "second" }],
 	});
@@ -171,7 +171,7 @@ it("does not mutate nested stored settings while redacting", () => {
 		},
 	});
 
-	redactIntegrationForClient(lookup(provider), { ...integration(), providerSpecifics });
+	redactIntegrationForClient(provider, { ...integration(), providerSpecifics });
 
 	expect(providerSpecifics).toEqual(stored);
 });
@@ -184,7 +184,7 @@ it("keeps only a string kind when the registry provider is unavailable", () => {
 	};
 	const record = { ...integration(), providerSpecifics };
 
-	expect(redactIntegrationForClient(lookup(null), record).providerSpecifics).toEqual({
+	expect(redactIntegrationForClient(null, record).providerSpecifics).toEqual({
 		kind: "test-kind",
 	});
 	expect(providerSpecifics).toEqual({
@@ -198,6 +198,6 @@ it("removes all provider settings without a string kind when the registry provid
 	const providerSpecifics = { kind: 1, token: "secret-token" };
 	const record = { ...integration(), providerSpecifics };
 
-	expect(redactIntegrationForClient(lookup(null), record).providerSpecifics).toEqual({});
+	expect(redactIntegrationForClient(null, record).providerSpecifics).toEqual({});
 	expect(providerSpecifics).toEqual({ kind: 1, token: "secret-token" });
 });

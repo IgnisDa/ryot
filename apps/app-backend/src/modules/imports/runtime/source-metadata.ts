@@ -92,13 +92,13 @@ export const registryImportSourceMissingConfigKeys = Effect.fn(
 	"registryImportSourceMissingConfigKeys",
 )(function* (source: RegisteredImportSource) {
 	const missing = yield* Effect.filter(source.requiredPluginConfigKeys, (key) =>
-		isPluginConfigKeyConfigured({
-			key,
-			pluginSlug: source.pluginSlug,
-			configSchema: source.configSchema,
-		}).pipe(Effect.map((configured) => !configured)),
+		isPluginConfigKeyConfigured({ key, context: source.configContext }).pipe(
+			Effect.map((configured) => !configured),
+		),
 	);
-	return missing.map((key) => pluginConfigEnvironmentKey(source.pluginSlug, key));
+	return source.configContext.kind === "environment"
+		? missing.map((key) => pluginConfigEnvironmentKey(source.pluginSlug, key))
+		: missing;
 });
 
 export const buildImportSourcePayload = (

@@ -14,8 +14,9 @@ export const ENTITY_INTEREST_SESSION_RENEWAL_INTERVAL_SECONDS = 5 * 60;
 
 export const ImportSourceState = Schema.Struct({
 	source: Schema.String,
-	pluginSlug: Schema.String,
+	pluginId: Schema.String,
 	workflowScriptId: SandboxScriptId,
+	pluginInstallationId: Schema.String,
 	uploadIntentIds: Schema.Array(Schema.String),
 	sourcePayload: Schema.Record(Schema.String, jsonValueSchema),
 	namedArtifactPaths: Schema.Record(Schema.String, Schema.String),
@@ -35,8 +36,6 @@ export const redisKeys = {
 	uploadIntentLock: (intentId: string) => `ryot:upload:intent-lock:${intentId}`,
 	importAdapterResult: (runId: string) => `ryot:imports:adapter-result:${runId}`,
 	importSourceState: (stateId: string) => `ryot:imports:source-state:${stateId}`,
-	importSourceStateClaim: (stateId: string, claimId: string) =>
-		`ryot:imports:source-state:${stateId}:claim:${claimId}`,
 	godModeResetChannel: (correlationId: string) => `ryot:god-mode:reset:${correlationId}`,
 	entityInterestSession: (sessionId: string) => `ryot:entity-interest:session:${sessionId}`,
 	uploadIntentCleanupLock: (intentId: string) => `ryot:upload:intent-cleanup-lock:${intentId}`,
@@ -47,6 +46,8 @@ export const redisKeys = {
 		`ryot:entity-interest:session:${sessionId}:entities`,
 	integrationCache: (integrationId: string, key: string) =>
 		`ryot:integrations:cache:${integrationId}:${key}`,
+	importSourceStateClaim: (stateId: string, claimId: string) =>
+		`ryot:imports:source-state:${stateId}:claim:${claimId}`,
 	providerHttpAdmission: (policyKey: string) =>
 		`ryot:provider-http-admission:${encodeURIComponent(policyKey)}`,
 	providerSearchOptions: (providerId: string, scriptId: string) =>

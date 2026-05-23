@@ -89,6 +89,7 @@ export const pluginInstallation = snakeCase.table(
 		index("plugin_installation_user_id_idx").on(table.userId),
 		index("plugin_installation_plugin_id_idx").on(table.pluginId),
 		unique("plugin_installation_user_plugin_unique").on(table.userId, table.pluginId),
+		unique("plugin_installation_id_user_id_unique").on(table.id, table.userId),
 	],
 );
 
