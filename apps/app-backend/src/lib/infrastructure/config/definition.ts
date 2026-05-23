@@ -22,7 +22,8 @@ const scheduler = group(
 			defaultValue: "every 5 minutes",
 			label: "Frequent cron jobs schedule",
 			envKey: "SCHEDULER_FREQUENT_CRON_JOBS_SCHEDULE",
-			description: "Interval phrase for the frequent cron tier",
+			description:
+				"Interval phrase for the frequent cron tier; runs are aligned to interval boundaries rather than to process start time",
 		}),
 		infrequentCronJobsSchedule: stringField({
 			defaultValue: "0 0 * * *",
