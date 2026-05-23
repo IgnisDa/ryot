@@ -1,4 +1,4 @@
-import { and, eq, isNull, sql } from "drizzle-orm";
+import { and, eq, isNull } from "drizzle-orm";
 
 import type { DbClient } from "~/lib/db";
 import { entitySchema, relationshipSchema, sandboxScript } from "~/lib/db/schema";
@@ -15,10 +15,15 @@ import {
 	getUnsupportedMetadataSources,
 	metadataMigrationTargets,
 } from "./metadata-mapping";
-import { buildUniqueSlugMap, shouldRunLegacyBootstrap } from "./shared";
+import {
+	buildUniqueSlugMap,
+	shouldRunLegacyBootstrap,
+	withLegacyBootstrapNoticeClient,
+} from "./shared";
 
-const migrateUserTableSql = sql`
+const migrateUserTableSql = `
 DO $$
+DECLARE rows_inserted int;
 BEGIN
 	IF to_regclass('"old_user"') IS NULL THEN
 		RETURN;
@@ -80,6 +85,8 @@ BEGIN
 		COALESCE(legacy_users.last_login_on, legacy_users.created_on)
 	FROM legacy_users
 	ON CONFLICT ("id") DO NOTHING;
+	GET DIAGNOSTICS rows_inserted = ROW_COUNT;
+	RAISE NOTICE 'old_user -> user: % row(s) migrated', rows_inserted;
 END $$;
 `;
 
@@ -191,10 +198,12 @@ export const migrateLegacyTables = async (database: DbClient) => {
 		);
 	}
 
-	await database.execute(buildMetadataMigrationSql(resolvedMetadataTargets));
-	await database.execute(buildMetadataGroupEntityMigrationSql(resolvedMetadataGroupEntityTargets));
-	await database.execute(
-		buildMetadataGroupRelationshipMigrationSql(resolvedMetadataGroupRelationshipTargets),
-	);
-	await database.execute(migrateUserTableSql);
+	await withLegacyBootstrapNoticeClient(database, async (client) => {
+		await client.query(buildMetadataMigrationSql(resolvedMetadataTargets));
+		await client.query(buildMetadataGroupEntityMigrationSql(resolvedMetadataGroupEntityTargets));
+		await client.query(
+			buildMetadataGroupRelationshipMigrationSql(resolvedMetadataGroupRelationshipTargets),
+		);
+		await client.query(migrateUserTableSql);
+	});
 };
