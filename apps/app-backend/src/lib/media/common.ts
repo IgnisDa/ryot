@@ -37,8 +37,8 @@ export const mediaPropertiesSchema = z
 
 export const unlinkedCreatorSchema = z
 	.object({
-		role: z.string().describe("Role this creator held in the production"),
 		name: z.string().describe("Full name of the creator"),
+		role: z.string().describe("Role this creator held in the production"),
 	})
 	.strict();
 
