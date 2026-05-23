@@ -4,7 +4,7 @@
 
 **Type:** AFK
 
-**Status:** todo
+**Status:** done
 
 ## What to build
 
@@ -16,15 +16,15 @@ Relationship properties are always overwritten by the latest import result for t
 
 ## Acceptance criteria
 
-- [ ] The generic import processor rejects invalid primary entity properties with a failed import job.
-- [ ] The generic import processor rejects related entity references missing required identity or relationship fields.
-- [ ] The generic import processor fails the import job when a related `scriptSlug` cannot be resolved.
-- [ ] The generic import processor fails the import job when a related script has no usable entity schema association.
-- [ ] The generic import processor fails the import job when no relationship schema can be derived from related schema as source and primary schema as target.
-- [ ] The generic import processor rejects relationship properties that do not validate against the derived relationship schema.
-- [ ] Re-importing the same relationship overwrites the relationship `properties` object instead of merging with previous properties.
-- [ ] Existing primary entity idempotency behavior is preserved for populated and unpopulated global rows.
-- [ ] Focused backend tests cover the validation and overwrite cases without depending on private implementation details.
+- [x] The generic import processor rejects invalid primary entity properties with a failed import job.
+- [x] The generic import processor rejects related entity references missing required identity or relationship fields.
+- [x] The generic import processor fails the import job when a related `scriptSlug` cannot be resolved.
+- [x] The generic import processor fails the import job when a related script has no usable entity schema association.
+- [x] The generic import processor fails the import job when no relationship schema can be derived from related schema as source and primary schema as target.
+- [x] The generic import processor rejects relationship properties that do not validate against the derived relationship schema.
+- [x] Re-importing the same relationship overwrites the relationship `properties` object instead of merging with previous properties.
+- [x] Existing primary entity idempotency behavior is preserved for populated and unpopulated global rows.
+- [x] Focused backend tests cover the validation and overwrite cases without depending on private implementation details.
 
 ## User stories addressed
 
