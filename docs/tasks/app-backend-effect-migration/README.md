@@ -178,9 +178,9 @@ The module migration proceeds from infrastructure and leaf modules toward highly
 
 ## Tasks
 
-**Overall Progress:** 6 of 32 tasks completed
+**Overall Progress:** 7 of 32 tasks completed
 
-**Current Task:** [Task 07](./07-better-auth-email-sessions.md) (todo)
+**Current Task:** [Task 08](./08-auth-middleware-and-security-schemes.md) (todo)
 
 ### Task List
 
@@ -192,7 +192,7 @@ The module migration proceeds from infrastructure and leaf modules toward highly
 | 04  | [Config And System Endpoints](./04-config-and-system-endpoints.md)                                   | AFK  | done   |
 | 05  | [Real Schema Migrations And Transaction Layer](./05-real-schema-migrations-and-transaction-layer.md) | AFK  | done   |
 | 06  | [Static Builtins And Seed Manifests](./06-static-builtins-and-seed-manifests.md)                     | AFK  | done   |
-| 07  | [Better Auth Email Sessions](./07-better-auth-email-sessions.md)                                     | AFK  | todo   |
+| 07  | [Better Auth Email Sessions](./07-better-auth-email-sessions.md)                                     | AFK  | done   |
 | 08  | [Auth Middleware And Security Schemes](./08-auth-middleware-and-security-schemes.md)                 | AFK  | todo   |
 | 09  | [Trackers Domain Slice](./09-trackers-domain-slice.md)                                               | AFK  | todo   |
 | 10  | [User Bootstrap Tracer](./10-user-bootstrap-tracer.md)                                               | AFK  | todo   |
