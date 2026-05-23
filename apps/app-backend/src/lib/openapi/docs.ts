@@ -1,6 +1,3 @@
-import { mkdirSync, writeFileSync } from "node:fs";
-import { dirname } from "node:path";
-
 import openapiTS, { astToString } from "openapi-typescript";
 
 import { getAppBackendOpenApiDocument } from "../../app/api";
@@ -17,6 +14,5 @@ export const generateOpenApiTypes = async (outputPath: string, origin: string) =
 	const ast = await openapiTS(document);
 	const contents = generatedFileHeader + astToString(ast);
 
-	mkdirSync(dirname(outputPath), { recursive: true });
-	writeFileSync(outputPath, contents, "utf8");
+	await Bun.write(outputPath, contents);
 };

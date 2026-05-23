@@ -1,5 +1,3 @@
-import { join } from "node:path";
-
 import { serve } from "@hono/node-server";
 
 import { config, IS_DEVELOPMENT } from "~/lib/config";
@@ -15,13 +13,16 @@ import { initializeMetrics } from "~/modules/system";
 
 import { getServer } from "./server";
 
+const resolveRuntimePath = (relativePath: string) =>
+	Bun.fileURLToPath(new URL(relativePath, import.meta.url));
+
 export const startServer = async () => {
 	if (IS_DEVELOPMENT) {
-		generateConfigDocs(
-			join(import.meta.dir, "../../../../apps/docs/src/includes/app-backend-config-schema.md"),
+		await generateConfigDocs(
+			resolveRuntimePath("../../../../apps/docs/src/includes/app-backend-config-schema.md"),
 		);
 		await generateOpenApiTypes(
-			join(import.meta.dir, "../../../../libs/generated/src/openapi/app-backend.d.ts"),
+			resolveRuntimePath("../../../../libs/generated/src/openapi/app-backend.d.ts"),
 			`http://localhost:${config.port}`,
 		);
 	}
