@@ -137,11 +137,7 @@ const mediaLifecycleEventSchemas = (entitySchemaSlug?: string) => [
 					path: ["completedOn"],
 					kind: "validation" as const,
 					validation: { required: true as const },
-					when: {
-						operator: "eq" as const,
-						path: ["completionMode"],
-						value: "custom_timestamps",
-					},
+					when: { operator: "eq" as const, path: ["completionMode"], value: "custom_timestamps" },
 				},
 			],
 		},
@@ -158,8 +154,8 @@ const mediaLifecycleEventSchemas = (entitySchemaSlug?: string) => [
 			fields: {
 				review: {
 					label: "Review",
-					description: "Your written thoughts or notes about this media",
 					type: "string" as const,
+					description: "Your written thoughts or notes about this media",
 				},
 				rating: {
 					label: "Rating",
