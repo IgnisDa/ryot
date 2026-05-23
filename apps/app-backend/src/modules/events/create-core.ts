@@ -4,7 +4,7 @@ import { DateTime, Effect, Option, Schema } from "effect";
 import { DbRunner } from "#lib/db";
 import type { BadRequest, DbError, NotFound } from "#lib/errors";
 import { badRequest, notFound, unknownToMessage } from "#lib/errors";
-import { EntityId, EventSchemaId } from "#lib/schema/brands";
+import { EntityId, EventId, EventSchemaId } from "#lib/schema/brands";
 import type { EntitySchemaId, ImportRunId, IntegrationId, UserId } from "#lib/schema/brands";
 import { parseAppSchemaProperties } from "#lib/schema/property-schema-runtime";
 import { requireText } from "#lib/validation";
@@ -353,6 +353,7 @@ export const createEventsForUser = Effect.fn("createEventsForUser")(function* (i
 				sessionEntityId: rawSessionEntityId,
 				eventSchemaName: eventSchemaScope.name,
 				eventSchemaSlug: eventSchemaScope.slug,
+				id: EventId.make(`${executionId}-event-${itemIndex}`),
 			}),
 		);
 

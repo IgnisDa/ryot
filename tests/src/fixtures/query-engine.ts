@@ -95,6 +95,18 @@ export async function createQueryEngineEvent(
 		properties?: Record<string, unknown>;
 	},
 ) {
+	const countMatchingEvents = async () => {
+		const events = await client.run((c) =>
+			c.events.list({ urlParams: { entityId: EntityId.make(input.entityId) } }),
+		);
+		return events.filter(
+			(event) =>
+				event.eventSchemaId === input.eventSchemaId &&
+				(input.occurredAt === undefined || event.occurredAt === input.occurredAt),
+		).length;
+	};
+
+	const previousCount = await countMatchingEvents();
 	const result = await client.run((c) =>
 		c.events.create({
 			payload: [
@@ -111,16 +123,8 @@ export async function createQueryEngineEvent(
 	await pollUntil(
 		`query-engine event ${input.eventSchemaId} on entity ${input.entityId}`,
 		async () => {
-			const events = await client.run((c) =>
-				c.events.list({ urlParams: { entityId: EntityId.make(input.entityId) } }),
-			);
-			return (
-				events.find(
-					(event) =>
-						event.eventSchemaId === input.eventSchemaId &&
-						(input.occurredAt === undefined || event.occurredAt === input.occurredAt),
-				) ?? null
-			);
+			const count = await countMatchingEvents();
+			return count > previousCount ? count : null;
 		},
 		{ timeoutMs: 15000, intervalMs: 250 },
 	);
