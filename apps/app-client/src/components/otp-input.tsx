@@ -77,8 +77,8 @@ export function OtpInput(props: OtpInputProps) {
 						onFocus={() => setFocusedIndex(pos)}
 						className="text-xl font-semibold text-foreground"
 						onChangeText={(val) => handleChangeText(pos, val)}
-						style={{ flex: 1, textAlign: "center", textAlignVertical: "center" }}
 						onKeyPress={({ nativeEvent }) => handleKeyPress(pos, nativeEvent.key)}
+						style={{ flex: 1, lineHeight: 0, textAlign: "center", textAlignVertical: "center" }}
 						ref={(el) => {
 							refs.current[pos] = el;
 						}}
