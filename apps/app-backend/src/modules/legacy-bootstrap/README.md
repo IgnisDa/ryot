@@ -13,7 +13,9 @@ User-generated data migrates in full. Provider-sourced data migrates only when r
 - `_referenced_global_entity_ids` collects entities referenced by seen events, reviews, collections, library membership, and user-authored relationship endpoints.
 - Provider-derived relationships are rebuilt during population. Only user-authored relationship rows migrate.
 
-Provider targets resolve against active plugin-loader declarations. Persisted providers no longer declared by active plugins are stale; unresolved target provider slugs fail migration.
+After trusted system package ingestion, migration builds one package-resolution context from the active loader snapshot and matching active persisted `media` and `fitness` packages. The context qualifies definitions, providers, integration providers, and current scripts by stable plugin ID plus local slug. Provider targets never resolve by a globally unique slug; persisted providers no longer declared by their exact active package are stale, and missing, stale, or ambiguous required mappings fail migration.
+
+Legacy users are inserted before the context is completed. The context then creates deterministic, restart-safe, ready media and fitness installations for every legacy user and records each exact installation ID. Normal user bootstrap runs afterward with plugin bootstrap dispatch disabled, so it retains these installations while still creating ordinary built-in views and default notification subscriptions. Installation-owned migration work starts only after this step.
 
 ## Domain Decisions
 
@@ -21,7 +23,7 @@ Provider targets resolve against active plugin-loader declarations. Persisted pr
 
 - Preserve legacy IDs.
 - Use lowercased legacy username when it is an email; otherwise generate `<normalized-name>@ryot.local`. Resolve collisions with `+<id>` and mark migrated email verified.
-- Run each migrated user through `bootstrapNewUser` to create plugin state, saved views, library entity, and default notification subscriptions.
+- Run each migrated user through `bootstrapNewUser` after deterministic system installations and the library entity exist. Plugin user-bootstrap scripts remain disabled; ordinary built-in saved views and default notification subscriptions still run.
 - Migrate disabled users to `disabled_at`. Password users have no migrated credential account and use god-mode reset links. OIDC links migrate as minimal Better Auth account stubs.
 - Do not migrate sessions, 2FA, OAuth redirect URL, legacy admin lot, or legacy token lifetime.
 
@@ -58,16 +60,18 @@ Provider targets resolve against active plugin-loader declarations. Persisted pr
 
 ### Integrations, Notifications, And Preferences
 
-- Rename V1 `integration` before Drizzle creates V2 table. Convert provider settings using active manifest schema, skip removed `generic_json` rows with a report entry, and fail on other unknown providers or missing required fields. Omit trigger history.
-- Migrate unexpired integration completion debounce markers to V2 persistent Redis claims. Resolve show and podcast markers to migrated episode entities, normalize known integration provider labels, preserve the longest remaining expiry when V1 rows collapse to one V2 fingerprint, and skip reported unresolved targets or ambiguous browser-extension and removed-provider labels. The V1 threshold setting is external deployment configuration; set `RYOT_PLUGIN_MEDIA_PROGRESS_UPDATE_THRESHOLD_HOURS` separately when V2 should retain a non-default threshold after migrated claims expire.
-- Migrate unexpired YouTube Music listening cache rows to V2 persistent Redis claims for every matching user integration. A pending V1 row creates the `seen` claim; a completed row creates both `seen` and `completed`. Writes use the remaining V1 expiry and do not replace claims created by an earlier bootstrap attempt.
+- Rename V1 `integration` before Drizzle creates V2 table. Resolve every supported integration provider from the exact active media package, validate converted settings against that provider's current manifest schema, and attach each row to its owner's resolved media installation. Skip removed `generic_json` rows with a report entry, fail on other unknown providers or invalid settings, and omit trigger history.
+- Migrate unexpired integration completion debounce markers to V2 persistent Redis claims using the exact current media script and a verified owner media installation. Resolve show and podcast markers to migrated episode entities, normalize known integration provider labels, preserve the longest remaining expiry when V1 rows collapse to one V2 fingerprint, and skip reported unresolved targets or ambiguous browser-extension and removed-provider labels. The V1 threshold setting is external deployment configuration; set `RYOT_PLUGIN_MEDIA_PROGRESS_UPDATE_THRESHOLD_HOURS` separately when V2 should retain a non-default threshold after migrated claims expire.
+- Migrate unexpired YouTube Music listening cache rows to V2 persistent Redis claims for integrations owned by the resolved media installations and the exact current YouTube Music script. A pending V1 row creates the `seen` claim; a completed row creates both `seen` and `completed`. Writes use the remaining V1 expiry and do not replace claims created by an earlier bootstrap attempt.
 - Rename `notification_platform` and convert supported specifics into V2 channels. Drop credential-bearing descriptions and event filters; bootstrap installs default subscriptions.
 - Migrate V1 `general.display_nsfw` to `allowNsfw`, preserving V1's `true` default, and migrate `disableIntegrations`.
-- Migrate legacy feature preferences into built-in saved-view disabled state. Media parent and child flags control media-lot, people/company, and group views; fitness parent and child flags control fitness views; the collections flag controls the kernel collections view.
+- Migrate legacy feature preferences into built-in saved-view disabled state through each user's exact media and fitness installation IDs. Media parent and child flags control media-lot, people/company, and group views; fitness parent and child flags control fitness views; the collections flag controls the kernel collections view. Feature flags change view disablement only.
 - Do not migrate per-provider languages; V2 starts with global language `null` for canonical content.
 - Audible marketplace is fixed provider identity, not translation preference, and is not migrated.
 
 Mapping files in this directory own exact field transforms, clamping, deterministic IDs, and SQL statements.
+
+Plugin-defined entities, events, relationships, and views retain their qualified stable plugin provenance. Kernel definitions retain `NULL` plugin provenance. Referenced provider entities remain global system-provider skeletons, custom entities remain user-owned, and no private package or unsupported legacy plugin state is synthesized.
 
 ## Reporting
 
