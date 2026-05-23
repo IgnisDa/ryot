@@ -38,15 +38,12 @@ function requirePgClient() {
 beforeAll(async () => {
 	coreInfrastructure = await startCoreTestInfrastructure({
 		bucketName: S3_BUCKET_NAME,
-		logPrefix: "E2E Setup",
 	});
 
 	const frontendPort = await getPort();
 
 	backendPort = await getPort();
 	const infrastructure = requireCoreInfrastructure();
-
-	console.log(`[E2E Setup] Starting backend on port ${backendPort}...`);
 
 	backendProcess = spawnBackendProcess(
 		buildBackendEnv({
@@ -70,21 +67,14 @@ beforeAll(async () => {
 
 	pgClient = new PgClient({ connectionString: infrastructure.dbUrl });
 	await pgClient.connect();
-
-	console.log("[E2E Setup] Backend ready!");
 }, 120000);
 
 afterAll(async () => {
-	console.log("[E2E Teardown] Stopping services...");
-
 	if (backendProcess) {
 		await stopBackendProcess(backendProcess);
-		console.log("[E2E Teardown] Backend process stopped");
 	}
 
 	await Promise.all([pgClient?.end(), stopCoreTestInfrastructure(coreInfrastructure)]);
-
-	console.log("[E2E Teardown] Complete!");
 });
 
 export function getS3Client() {
