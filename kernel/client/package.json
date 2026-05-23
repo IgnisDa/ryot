@@ -1,0 +1,43 @@
+{
+	"name": "@ryot/kernel-client",
+	"private": true,
+	"type": "module",
+	"imports": {
+		"#/*": "./src/*"
+	},
+	"scripts": {
+		"build": "vite build",
+		"dev": "vite dev --port 3005",
+		"generate-routes": "tsr generate",
+		"test": "bun --bun run vitest run",
+		"check": "tsc && oxfmt . --write && oxlint . --type-aware --fix"
+	},
+	"dependencies": {
+		"@tailwindcss/vite": "^4.1.18",
+		"@tanstack/react-devtools": "latest",
+		"@tanstack/react-router": "latest",
+		"@tanstack/react-router-devtools": "latest",
+		"react": "^19.2.0",
+		"react-dom": "^19.2.0",
+		"tailwindcss": "^4.1.18"
+	},
+	"devDependencies": {
+		"@effect/vitest": "4.0.0-beta.107",
+		"@tanstack/devtools-vite": "latest",
+		"@tanstack/router-cli": "^1.132.0",
+		"@tanstack/router-plugin": "latest",
+		"@types/node": "^22.10.2",
+		"@types/react": "^19.2.0",
+		"@types/react-dom": "^19.2.0",
+		"@vitejs/plugin-react": "^6.0.1",
+		"typescript": "^6.0.2",
+		"vite": "^8.0.0",
+		"vitest": "4.1.9"
+	},
+	"pnpm": {
+		"onlyBuiltDependencies": [
+			"esbuild",
+			"lightningcss"
+		]
+	}
+}
