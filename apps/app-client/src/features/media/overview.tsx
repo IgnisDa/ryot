@@ -15,7 +15,6 @@ import {
 	StoryRingRow,
 	UpNextSection,
 } from "./overview-sections";
-import { hexToRgba } from "./overview-utils";
 import { useMediaOverviewData } from "./use-overview-data";
 
 export function MediaTrackerOverview() {
@@ -104,26 +103,16 @@ export function MediaTrackerOverview() {
 						</Box>
 					) : (
 						<>
-							<Box className="mt-6 hidden flex-row px-[28] lg:flex" style={{ gap: 32 }}>
+							<Box className="mt-6 hidden flex-row gap-8 px-[28] lg:flex">
 								<Box className="flex-1">
 									{continueItems.length > 0 && (
-										<Box
-											className="rounded-2xl p-5"
-											style={{
-												borderWidth: 1,
-												borderColor: hexToRgba(SECTION_ACCENTS.continue, 0.15),
-												backgroundColor: hexToRgba(SECTION_ACCENTS.continue, 0.06),
-											}}
-										>
-											<Text
-												className="mb-4 text-xs font-sans-semibold uppercase tracking-[2px] web:text-[14px]"
-												style={{ color: SECTION_ACCENTS.continue }}
-											>
+										<Box className="rounded-2xl border border-[rgba(201,148,58,0.15)] bg-[rgba(201,148,58,0.06)] p-5">
+											<Text className="mb-4 text-xs font-sans-semibold uppercase tracking-[2px] text-[#C9943A] web:text-[14px]">
 												In Progress
 											</Text>
 											<StoryRingRow
-												xlarge
 												wrap
+												xlarge
 												wrapGap={28}
 												items={continueItems}
 												imageUrls={imageUrlById}
@@ -137,7 +126,7 @@ export function MediaTrackerOverview() {
 										schemaColorMap={schemaColorMap}
 									/>
 								</Box>
-								<Box style={{ maxWidth: 400, width: "35%" }}>
+								<Box className="w-[35%] max-w-100">
 									<RateTheseSection
 										items={rateTheseItems}
 										imageUrls={imageUrlById}
@@ -176,8 +165,8 @@ export function MediaTrackerOverview() {
 
 			<Pressable
 				disabled
-				style={{ bottom: insets.bottom + 16, right: 20 }}
-				className="absolute flex-row items-center gap-2 rounded-full bg-primary px-5 py-3 opacity-50 shadow-lg lg:hidden"
+				style={{ bottom: insets.bottom + 16 }}
+				className="absolute right-5 flex-row items-center gap-2 rounded-full bg-primary px-5 py-3 opacity-50 shadow-lg lg:hidden"
 			>
 				<Plus color="#1c1917" size={16} strokeWidth={2} />
 				<Text className="text-[15px] font-sans-semibold text-primary-foreground web:text-[17px]">

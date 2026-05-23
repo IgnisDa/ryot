@@ -6,6 +6,7 @@ Ryot is a self-hosted personal tracker. Keep the UI warm, calm, compact, scannab
 
 - Use `clsx` for conditional/dynamic `className`. Never template strings or bare ternaries.
 - Prefer Tailwind responsive variants (`sm:`, `md:`, `lg:`) and CSS utilities over JS layout (`useWindowDimensions`, `onLayout`, manual pixel math). Fall back to JS only when layout depends on runtime data.
+- Prefer `className` for static layout, spacing, sizing, opacity, borders, and colors. Use inline `style` only for dynamic runtime values, safe-area insets, animation output, or native-only props that Tailwind cannot express.
 
 ## Type Safety
 
