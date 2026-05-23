@@ -13,6 +13,10 @@ import {
 	uniqueIndex,
 } from "drizzle-orm/pg-core";
 
+import type { ImportRunStatus } from "../../../modules/imports/types";
+import type { IntegrationLot } from "../../../modules/integrations/types";
+import type { DisplayConfiguration, SavedViewQueryDefinition } from "../../query-language";
+import type { AppSchema } from "../../schema";
 import { user } from "./auth";
 
 export const tracker = pgTable(
@@ -23,11 +27,11 @@ export const tracker = pgTable(
 		name: text().notNull(),
 		icon: text().notNull(),
 		accentColor: text().notNull(),
-		config: jsonb().notNull().default({}),
 		sortOrder: integer().notNull().default(0),
 		isBuiltin: boolean().notNull().default(false),
 		isDisabled: boolean().notNull().default(false),
 		createdAt: timestamp({ withTimezone: true }).defaultNow().notNull(),
+		config: jsonb().$type<Record<string, unknown>>().notNull().default({}),
 		userId: text()
 			.notNull()
 			.references(() => user.id, { onDelete: "cascade" }),
@@ -54,7 +58,7 @@ export const entitySchema = pgTable(
 		icon: text().notNull(),
 		accentColor: text().notNull(),
 		isBuiltin: boolean().notNull().default(false),
-		propertiesSchema: jsonb().$type<Record<string, unknown>>().notNull(),
+		propertiesSchema: jsonb().$type<AppSchema>().notNull(),
 		createdAt: timestamp({ withTimezone: true }).defaultNow().notNull(),
 		userId: text().references(() => user.id, { onDelete: "cascade" }),
 		id: text()
@@ -104,7 +108,7 @@ export const eventSchema = pgTable(
 		slug: text().notNull(),
 		name: text().notNull(),
 		isBuiltin: boolean().notNull().default(false),
-		propertiesSchema: jsonb().$type<Record<string, unknown>>().notNull(),
+		propertiesSchema: jsonb().$type<AppSchema>().notNull(),
 		createdAt: timestamp({ withTimezone: true }).defaultNow().notNull(),
 		userId: text().references(() => user.id, { onDelete: "cascade" }),
 		entitySchemaId: text()
@@ -139,6 +143,8 @@ export const sandboxScript = pgTable(
 		name: text().notNull(),
 		code: text().notNull(),
 		isBuiltin: boolean().notNull().default(false),
+		// TODO(effect-migration): restore a concrete SandboxScriptMetadata type once the
+		// new sandbox module defines its shared metadata schema in app-backend.
 		metadata: jsonb().$type<Record<string, unknown>>().notNull(),
 		createdAt: timestamp({ withTimezone: true }).defaultNow().notNull(),
 		userId: text().references(() => user.id, { onDelete: "cascade" }),
@@ -188,6 +194,8 @@ export const entity = pgTable(
 	{
 		externalId: text(),
 		name: text().notNull(),
+		// TODO(effect-migration): restore the stored entity image union once app-backend
+		// has a shared image type/schema again.
 		image: jsonb().$type<Record<string, unknown>>(),
 		populatedAt: timestamp({ withTimezone: true }),
 		createdAt: timestamp({ withTimezone: true }).defaultNow().notNull(),
@@ -280,7 +288,7 @@ export const relationshipSchema = pgTable(
 		slug: text().notNull(),
 		name: text().notNull(),
 		isBuiltin: boolean().notNull().default(false),
-		propertiesSchema: jsonb().$type<Record<string, unknown>>().notNull(),
+		propertiesSchema: jsonb().$type<AppSchema>().notNull(),
 		createdAt: timestamp({ withTimezone: true }).defaultNow().notNull(),
 		userId: text().references(() => user.id, { onDelete: "cascade" }),
 		sourceEntitySchemaId: text().references(() => entitySchema.id, {
@@ -354,6 +362,8 @@ export const eventSchemaTrigger = pgTable(
 		isActive: boolean().notNull().default(true),
 		isBuiltin: boolean().notNull().default(false),
 		phase: text().notNull().default("after_create"),
+		// TODO(effect-migration): restore a concrete EventSchemaTriggerMetadata type once
+		// the new sandbox trigger metadata schema exists in app-backend.
 		metadata: jsonb().$type<Record<string, unknown>>().notNull(),
 		createdAt: timestamp({ withTimezone: true }).defaultNow().notNull(),
 		userId: text().references(() => user.id, { onDelete: "cascade" }),
@@ -391,12 +401,14 @@ export const integration = pgTable(
 	{
 		name: text(),
 		provider: text().notNull(),
-		lot: text().notNull(),
+		lot: text().notNull().$type<IntegrationLot>(),
 		isDisabled: boolean().notNull().default(false),
 		syncOwnership: boolean().notNull().default(false),
 		minimumProgress: numeric().notNull().default("2"),
 		maximumProgress: numeric().notNull().default("95"),
 		lastFinishedAt: timestamp({ withTimezone: true }),
+		// TODO(effect-migration): restore concrete integration settings/provider types
+		// when the integration module ports them into app-backend.
 		extraSettings: jsonb().$type<Record<string, unknown>>().notNull(),
 		providerSpecifics: jsonb().$type<Record<string, unknown>>().notNull(),
 		createdAt: timestamp({ withTimezone: true }).defaultNow().notNull(),
@@ -426,13 +438,15 @@ export const importRun = pgTable(
 		errorSummary: text(),
 		totalItems: integer(),
 		progress: integer().notNull().default(0),
+		// TODO(effect-migration): replace with ImportRunSource once the imports module
+		// ports its source enum/types into app-backend.
 		source: text().notNull(),
 		failedItems: integer().notNull().default(0),
 		importedItems: integer().notNull().default(0),
 		startedAt: timestamp({ withTimezone: true }),
 		finishedAt: timestamp({ withTimezone: true }),
 		processedItems: integer().notNull().default(0),
-		status: text().notNull().default("pending"),
+		status: text().notNull().$type<ImportRunStatus>().default("pending"),
 		createdAt: timestamp({ withTimezone: true }).defaultNow().notNull(),
 		inputSummary: jsonb().$type<Record<string, unknown>>().notNull().default({}),
 		integrationId: text().references(() => integration.id, { onDelete: "cascade" }),
@@ -467,6 +481,8 @@ export const importRunFailure = pgTable(
 		message: text().notNull(),
 		itemIndex: integer().notNull(),
 		context: jsonb().$type<Record<string, unknown>>(),
+		// TODO(effect-migration): replace with ImportRunFailureStage once the imports
+		// module ports its failure-stage types into app-backend.
 		stage: text().notNull(),
 		createdAt: timestamp({ withTimezone: true }).defaultNow().notNull(),
 		runId: text()
@@ -490,9 +506,9 @@ export const savedView = pgTable(
 		sortOrder: integer().notNull().default(0),
 		isBuiltin: boolean().default(false).notNull(),
 		isDisabled: boolean().notNull().default(false),
-		queryDefinition: jsonb().$type<Record<string, unknown>>().notNull(),
-		displayConfiguration: jsonb().$type<Record<string, unknown>>().notNull(),
 		createdAt: timestamp({ withTimezone: true }).defaultNow().notNull(),
+		queryDefinition: jsonb().$type<typeof SavedViewQueryDefinition.Type>().notNull(),
+		displayConfiguration: jsonb().$type<typeof DisplayConfiguration.Type>().notNull(),
 		trackerId: text().references(() => tracker.id, { onDelete: "set null" }),
 		id: text()
 			.primaryKey()
