@@ -1,4 +1,5 @@
 import { assert, expect, it } from "@effect/vitest";
+import { DbError } from "@ryot/contract/errors";
 import type { PluginManifest } from "@ryot/contract/modules/plugins/manifest";
 import { PluginConflictError, PluginRequestError } from "@ryot/contract/modules/plugins/schemas";
 import { UserId } from "@ryot/contract/schema/brands";
@@ -8,6 +9,7 @@ import { databaseLayer } from "#lib/test-utils/effect";
 import { DefinitionRegistry, makeDefinitionRegistry } from "#modules/definition-registry/service";
 import { SandboxWorkflowReferenceRepository } from "#modules/sandbox/workflow-reference-repository";
 
+import { PluginDefinitionMaterializer } from "./definition-materializer";
 import {
 	PluginInstallationRepository,
 	type PluginInstallationState,
@@ -77,12 +79,15 @@ const makeLayer = (input?: {
 	readonly deactivated?: Array<string>;
 	readonly hasEntityReferences?: boolean;
 	readonly hasWorkflowReferences?: boolean;
+	readonly removedGenerated?: Array<string>;
+	readonly hasDefinitionReferences?: boolean;
 	readonly hasIntegrationReferences?: boolean;
 	readonly privatePlugins?: Array<StoredPlugin>;
 	readonly created?: Array<Record<string, unknown>>;
 	readonly updated?: Array<Record<string, unknown>>;
 	readonly systemPlugins?: Array<PluginRegistryEntry>;
 	readonly installations?: Array<PluginInstallationState>;
+	readonly materialize?: () => Effect.Effect<void, DbError>;
 	readonly persisted?: Array<{
 		plugin: StoredPlugin["manifest"];
 		identity: Record<string, unknown>;
@@ -102,6 +107,7 @@ const makeLayer = (input?: {
 		findPrivateByIdForUser: (pluginId) =>
 			Effect.succeed((input?.privatePlugins ?? []).find(({ id }) => id === pluginId) ?? null),
 		hasEntityReferences: () => Effect.succeed(input?.hasEntityReferences ?? false),
+		hasDefinitionReferences: () => Effect.succeed(input?.hasDefinitionReferences ?? false),
 		hasIntegrationReferences: () => Effect.succeed(input?.hasIntegrationReferences ?? false),
 		deactivate: (pluginId) => Effect.sync(() => void input?.deactivated?.push(pluginId)),
 		listActiveManifests: () =>
@@ -127,6 +133,11 @@ const makeLayer = (input?: {
 	const workflowReferenceLayer = Layer.mock(SandboxWorkflowReferenceRepository)({
 		hasInstallationReferences: () => Effect.succeed(input?.hasWorkflowReferences ?? false),
 	});
+	const definitionMaterializerLayer = Layer.succeed(PluginDefinitionMaterializer, {
+		materialize: () => input?.materialize?.() ?? Effect.void,
+		removeGenerated: (installationId) =>
+			Effect.sync(() => void input?.removedGenerated?.push(installationId)),
+	});
 	const serviceLayer = PluginInstallationService.layer.pipe(
 		Layer.provide(
 			Layer.mergeAll(
@@ -134,6 +145,7 @@ const makeLayer = (input?: {
 				databaseLayer,
 				repositoryLayer,
 				installationLayer,
+				definitionMaterializerLayer,
 				workflowReferenceLayer,
 			),
 		),
@@ -192,13 +204,7 @@ it.effect("rejects every unsupported private manifest surface at once", () =>
 		const failure = failureOf(exit);
 		assert(failure instanceof PluginRequestError);
 		assert(failure.reason.code === "unsupported-manifest-surface");
-		expect([...failure.reason.surfaces].sort()).toEqual([
-			"bindings.entityAutomations",
-			"entitySchemas",
-			"relationshipSchemas",
-			"scripts",
-			"signalSchemas",
-		]);
+		expect([...failure.reason.surfaces].sort()).toEqual(["bindings.entityAutomations"]);
 	}).pipe(Effect.provide(makeLayer())),
 );
 
@@ -582,6 +588,7 @@ it.effect("hides private plugins owned by another user", () =>
 it.effect("uninstalls a private plugin the caller owns", () => {
 	const removedIds: Array<string> = [];
 	const deactivated: Array<string> = [];
+	const removedGenerated: Array<string> = [];
 	const privatePlugin = storedPrivatePlugin(privateManifest());
 	const installations = [installationRow({ pluginId: privatePlugin.id })];
 	return Effect.gen(function* () {
@@ -590,12 +597,38 @@ it.effect("uninstalls a private plugin the caller owns", () => {
 		expect(removed.slug).toBe(privatePlugin.slug);
 		expect(deactivated).toEqual([privatePlugin.id]);
 		expect(removedIds).toEqual([installations[0]?.id]);
+		expect(removedGenerated).toEqual([installations[0]?.id]);
 	}).pipe(
 		Effect.provide(
 			makeLayer({
 				deactivated,
 				installations,
+				removedGenerated,
 				removed: removedIds,
+				privatePlugins: [privatePlugin],
+			}),
+		),
+	);
+});
+
+it.effect("keeps a private plugin referenced by persisted definitions", () => {
+	const deactivated: Array<string> = [];
+	const privatePlugin = storedPrivatePlugin(privateManifest());
+	const installations = [installationRow({ pluginId: privatePlugin.id })];
+	return Effect.gen(function* () {
+		const service = yield* PluginInstallationService;
+		const failure = failureOf(
+			yield* Effect.exit(service.uninstallPlugin(userId, privatePlugin.slug)),
+		);
+		assert(failure instanceof PluginConflictError);
+		expect(failure.reason.code).toBe("entity-referenced");
+		expect(deactivated).toEqual([]);
+	}).pipe(
+		Effect.provide(
+			makeLayer({
+				deactivated,
+				installations,
+				hasDefinitionReferences: true,
 				privatePlugins: [privatePlugin],
 			}),
 		),
@@ -713,6 +746,42 @@ it.effect("updates source while retaining plugin, installation, and omitted secr
 				persisted,
 				installations: [installation],
 				privatePlugins: [privatePlugin],
+			}),
+		),
+	);
+});
+
+it.effect("fails a package update when generated views cannot be materialized", () => {
+	const persisted: Array<{
+		plugin: StoredPlugin["manifest"];
+		identity: Record<string, unknown>;
+	}> = [];
+	const privatePlugin = storedPrivatePlugin(configuredManifest);
+	const installation = installationRow({
+		pluginId: privatePlugin.id,
+		config: { region: "us", token: "stored-secret" },
+	});
+	return Effect.gen(function* () {
+		const service = yield* PluginInstallationService;
+		const failure = failureOf(
+			yield* Effect.exit(
+				service.updatePrivatePlugin({
+					userId,
+					files: {},
+					manifest: configuredManifest,
+					pluginSlug: privatePlugin.slug,
+				}),
+			),
+		);
+		expect(failure).toMatchObject({ _tag: "DbError", message: "generated view conflict" });
+		expect(persisted).toHaveLength(1);
+	}).pipe(
+		Effect.provide(
+			makeLayer({
+				persisted,
+				installations: [installation],
+				privatePlugins: [privatePlugin],
+				materialize: () => Effect.fail(new DbError({ message: "generated view conflict" })),
 			}),
 		),
 	);

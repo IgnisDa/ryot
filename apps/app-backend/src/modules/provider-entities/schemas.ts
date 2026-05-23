@@ -9,6 +9,7 @@ export const EntityImportPayload = Schema.Struct({
 	providerId: SandboxProviderId,
 	entitySchemaSlug: EntitySchemaSlug,
 	userId: Schema.NullOr(UserId),
+	entityScope: Schema.optional(Schema.Literals(["global", "user"])),
 });
 
 export type EntityImportPayload = typeof EntityImportPayload.Type;

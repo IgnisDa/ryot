@@ -19,7 +19,6 @@ import { Context, DateTime, Effect, Layer, Schema } from "effect";
 
 import { Database, mapDatabaseErrors } from "#lib/infrastructure/db/service";
 import { SANDBOX_LIMITS } from "#lib/infrastructure/sandbox-runtime/limits";
-import { DefinitionRegistry } from "#modules/definition-registry/service";
 import {
 	PluginRuntimeResolver,
 	type ResolvedAutomationRule,
@@ -104,23 +103,24 @@ export class AutomationsService extends Context.Service<AutomationsService>()(
 	"AutomationsService",
 	{
 		make: Effect.gen(function* () {
-			const definitions = yield* DefinitionRegistry;
 			const repository = yield* AutomationsRepository;
 			const pluginRuntime = yield* PluginRuntimeResolver;
 
 			const resolveNotificationSubscription = Effect.fn(
 				"AutomationsService.resolveNotificationSubscription",
 			)(function* (state: StoredNotificationSubscription) {
-				const definition = definitions.getSignalSchema(state.signalSchemaSlug);
-				if (!definition) {
+				const effective = yield* pluginRuntime.getEffectiveDefinitions(state.userId);
+				const definition = effective.signalSchemas[state.signalSchemaSlug];
+				if (!definition || (definition.pluginId ?? null) !== (state.signalSchemaPluginId ?? null)) {
 					return null;
 				}
-				const activeScript = yield* pluginRuntime.findActiveScript(
-					definition.notificationScriptSlug,
-				);
-				const script =
-					activeScript ??
-					(yield* pluginRuntime.findKernelScript(definition.notificationScriptSlug));
+				const script = definition.pluginId
+					? yield* pluginRuntime.findScriptAvailableToUser(
+							state.userId,
+							definition.pluginId,
+							definition.notificationScriptSlug,
+						)
+					: yield* pluginRuntime.findKernelScript(definition.notificationScriptSlug);
 				if (!script) {
 					return null;
 				}

@@ -2,9 +2,9 @@
 
 ## Tasks
 
-**Overall Progress:** 4 of 11 tasks completed
+**Overall Progress:** 5 of 11 tasks completed
 
-**Current Task:** [Task 05](./05-qualified-definitions-and-providers.md) (todo)
+**Current Task:** [Task 06](./06-scoped-imports-and-integrations.md) (todo)
 
 ### Task List
 
@@ -14,7 +14,7 @@
 | 02  | [System Plugin Provisioning](./02-system-plugin-provisioning.md)                                 | done   |
 | 03  | [Installation Configuration And Controls](./03-installation-configuration-and-controls.md)       | done   |
 | 04  | [Plugin Update And Uninstall](./04-plugin-update-and-uninstall.md)                               | done   |
-| 05  | [Qualified Definitions And Providers](./05-qualified-definitions-and-providers.md)               | todo   |
+| 05  | [Qualified Definitions And Providers](./05-qualified-definitions-and-providers.md)               | done   |
 | 06  | [Scoped Imports And Integrations](./06-scoped-imports-and-integrations.md)                       | todo   |
 | 07  | [Private Automations And Lifecycle](./07-private-automations-and-lifecycle.md)                   | todo   |
 | 08  | [System Plugin Reconciliation And Conflicts](./08-system-plugin-reconciliation-and-conflicts.md) | todo   |

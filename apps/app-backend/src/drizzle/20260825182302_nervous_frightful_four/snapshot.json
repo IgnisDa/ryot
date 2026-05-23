@@ -1,7 +1,7 @@
 {
 	"version": "8",
 	"dialect": "postgres",
-	"id": "d2e4a6fa-3bb4-4ae9-b5f1-1bfee14d3017",
+	"id": "a09dbf02-bbb4-4ec6-977c-a3314bc3afe1",
 	"prevIds": ["00000000-0000-0000-0000-000000000000"],
 	"ddl": [
 		{
@@ -848,6 +848,19 @@
 			"table": "entity"
 		},
 		{
+			"type": "text",
+			"typeSchema": null,
+			"notNull": false,
+			"dimensions": 0,
+			"default": null,
+			"generated": null,
+			"identity": null,
+			"name": "entity_schema_plugin_id",
+			"entityType": "columns",
+			"schema": "public",
+			"table": "entity"
+		},
+		{
 			"type": "timestamp with time zone",
 			"typeSchema": null,
 			"notNull": false,
@@ -1116,6 +1129,19 @@
 			"generated": null,
 			"identity": null,
 			"name": "event_schema_slug",
+			"entityType": "columns",
+			"schema": "public",
+			"table": "event"
+		},
+		{
+			"type": "text",
+			"typeSchema": null,
+			"notNull": false,
+			"dimensions": 0,
+			"default": null,
+			"generated": null,
+			"identity": null,
+			"name": "event_schema_plugin_id",
 			"entityType": "columns",
 			"schema": "public",
 			"table": "event"
@@ -2031,6 +2057,19 @@
 			"table": "notification_subscription_state"
 		},
 		{
+			"type": "text",
+			"typeSchema": null,
+			"notNull": false,
+			"dimensions": 0,
+			"default": null,
+			"generated": null,
+			"identity": null,
+			"name": "signal_schema_plugin_id",
+			"entityType": "columns",
+			"schema": "public",
+			"table": "notification_subscription_state"
+		},
+		{
 			"type": "jsonb",
 			"typeSchema": null,
 			"notNull": false,
@@ -2390,6 +2429,19 @@
 			"generated": null,
 			"identity": null,
 			"name": "relationship_schema_slug",
+			"entityType": "columns",
+			"schema": "public",
+			"table": "relationship"
+		},
+		{
+			"type": "text",
+			"typeSchema": null,
+			"notNull": false,
+			"dimensions": 0,
+			"default": null,
+			"generated": null,
+			"identity": null,
+			"name": "relationship_schema_plugin_id",
 			"entityType": "columns",
 			"schema": "public",
 			"table": "relationship"
@@ -2954,6 +3006,32 @@
 			"table": "saved_view"
 		},
 		{
+			"type": "text",
+			"typeSchema": null,
+			"notNull": false,
+			"dimensions": 0,
+			"default": null,
+			"generated": null,
+			"identity": null,
+			"name": "entity_schema_plugin_id",
+			"entityType": "columns",
+			"schema": "public",
+			"table": "saved_view"
+		},
+		{
+			"type": "text",
+			"typeSchema": null,
+			"notNull": false,
+			"dimensions": 0,
+			"default": null,
+			"generated": null,
+			"identity": null,
+			"name": "plugin_installation_id",
+			"entityType": "columns",
+			"schema": "public",
+			"table": "saved_view"
+		},
+		{
 			"type": "integer",
 			"typeSchema": null,
 			"notNull": true,
@@ -3183,6 +3261,19 @@
 			"generated": null,
 			"identity": null,
 			"name": "signal_schema_slug",
+			"entityType": "columns",
+			"schema": "public",
+			"table": "signal"
+		},
+		{
+			"type": "text",
+			"typeSchema": null,
+			"notNull": false,
+			"dimensions": 0,
+			"default": null,
+			"generated": null,
+			"identity": null,
+			"name": "signal_schema_plugin_id",
 			"entityType": "columns",
 			"schema": "public",
 			"table": "signal"
@@ -4314,6 +4405,27 @@
 			"nameExplicit": true,
 			"columns": [
 				{
+					"value": "entity_schema_plugin_id",
+					"isExpression": false,
+					"asc": true,
+					"nullsFirst": false,
+					"opclass": null
+				}
+			],
+			"isUnique": false,
+			"where": null,
+			"with": "",
+			"method": "btree",
+			"concurrently": false,
+			"name": "entity_entity_schema_plugin_id_idx",
+			"entityType": "indexes",
+			"schema": "public",
+			"table": "entity"
+		},
+		{
+			"nameExplicit": true,
+			"columns": [
+				{
 					"value": "properties",
 					"isExpression": false,
 					"asc": true,
@@ -4474,6 +4586,27 @@
 			"method": "btree",
 			"concurrently": false,
 			"name": "event_event_schema_slug_idx",
+			"entityType": "indexes",
+			"schema": "public",
+			"table": "event"
+		},
+		{
+			"nameExplicit": true,
+			"columns": [
+				{
+					"value": "event_schema_plugin_id",
+					"isExpression": false,
+					"asc": true,
+					"nullsFirst": false,
+					"opclass": null
+				}
+			],
+			"isUnique": false,
+			"where": null,
+			"with": "",
+			"method": "btree",
+			"concurrently": false,
+			"name": "event_event_schema_plugin_id_idx",
 			"entityType": "indexes",
 			"schema": "public",
 			"table": "event"
@@ -4965,6 +5098,27 @@
 			"nameExplicit": true,
 			"columns": [
 				{
+					"value": "signal_schema_plugin_id",
+					"isExpression": false,
+					"asc": true,
+					"nullsFirst": false,
+					"opclass": null
+				}
+			],
+			"isUnique": false,
+			"where": null,
+			"with": "",
+			"method": "btree",
+			"concurrently": false,
+			"name": "notification_subscription_state_signal_schema_plugin_id_idx",
+			"entityType": "indexes",
+			"schema": "public",
+			"table": "notification_subscription_state"
+		},
+		{
+			"nameExplicit": true,
+			"columns": [
+				{
 					"value": "user_id",
 					"isExpression": false,
 					"asc": true,
@@ -5118,6 +5272,27 @@
 			"method": "btree",
 			"concurrently": false,
 			"name": "relationship_schema_slug_idx",
+			"entityType": "indexes",
+			"schema": "public",
+			"table": "relationship"
+		},
+		{
+			"nameExplicit": true,
+			"columns": [
+				{
+					"value": "relationship_schema_plugin_id",
+					"isExpression": false,
+					"asc": true,
+					"nullsFirst": false,
+					"opclass": null
+				}
+			],
+			"isUnique": false,
+			"where": null,
+			"with": "",
+			"method": "btree",
+			"concurrently": false,
+			"name": "relationship_schema_plugin_id_idx",
 			"entityType": "indexes",
 			"schema": "public",
 			"table": "relationship"
@@ -5483,6 +5658,48 @@
 			"nameExplicit": true,
 			"columns": [
 				{
+					"value": "entity_schema_plugin_id",
+					"isExpression": false,
+					"asc": true,
+					"nullsFirst": false,
+					"opclass": null
+				}
+			],
+			"isUnique": false,
+			"where": null,
+			"with": "",
+			"method": "btree",
+			"concurrently": false,
+			"name": "saved_view_entity_schema_plugin_id_idx",
+			"entityType": "indexes",
+			"schema": "public",
+			"table": "saved_view"
+		},
+		{
+			"nameExplicit": true,
+			"columns": [
+				{
+					"value": "plugin_installation_id",
+					"isExpression": false,
+					"asc": true,
+					"nullsFirst": false,
+					"opclass": null
+				}
+			],
+			"isUnique": false,
+			"where": null,
+			"with": "",
+			"method": "btree",
+			"concurrently": false,
+			"name": "saved_view_plugin_installation_id_idx",
+			"entityType": "indexes",
+			"schema": "public",
+			"table": "saved_view"
+		},
+		{
+			"nameExplicit": true,
+			"columns": [
+				{
 					"value": "user_id",
 					"isExpression": false,
 					"asc": true,
@@ -5538,6 +5755,27 @@
 			"method": "btree",
 			"concurrently": false,
 			"name": "signal_signal_schema_slug_idx",
+			"entityType": "indexes",
+			"schema": "public",
+			"table": "signal"
+		},
+		{
+			"nameExplicit": true,
+			"columns": [
+				{
+					"value": "signal_schema_plugin_id",
+					"isExpression": false,
+					"asc": true,
+					"nullsFirst": false,
+					"opclass": null
+				}
+			],
+			"isUnique": false,
+			"where": null,
+			"with": "",
+			"method": "btree",
+			"concurrently": false,
+			"name": "signal_signal_schema_plugin_id_idx",
 			"entityType": "indexes",
 			"schema": "public",
 			"table": "signal"
@@ -5751,6 +5989,19 @@
 		},
 		{
 			"nameExplicit": false,
+			"columns": ["entity_schema_plugin_id"],
+			"schemaTo": "public",
+			"tableTo": "plugin",
+			"columnsTo": ["id"],
+			"onUpdate": "NO ACTION",
+			"onDelete": "RESTRICT",
+			"name": "entity_entity_schema_plugin_id_plugin_id_fkey",
+			"entityType": "fks",
+			"schema": "public",
+			"table": "entity"
+		},
+		{
+			"nameExplicit": false,
 			"columns": ["user_id"],
 			"schemaTo": "public",
 			"tableTo": "user",
@@ -5797,6 +6048,19 @@
 			"onUpdate": "NO ACTION",
 			"onDelete": "CASCADE",
 			"name": "event_user_id_user_id_fkey",
+			"entityType": "fks",
+			"schema": "public",
+			"table": "event"
+		},
+		{
+			"nameExplicit": false,
+			"columns": ["event_schema_plugin_id"],
+			"schemaTo": "public",
+			"tableTo": "plugin",
+			"columnsTo": ["id"],
+			"onUpdate": "NO ACTION",
+			"onDelete": "RESTRICT",
+			"name": "event_event_schema_plugin_id_plugin_id_fkey",
 			"entityType": "fks",
 			"schema": "public",
 			"table": "event"
@@ -5920,6 +6184,19 @@
 		},
 		{
 			"nameExplicit": false,
+			"columns": ["signal_schema_plugin_id"],
+			"schemaTo": "public",
+			"tableTo": "plugin",
+			"columnsTo": ["id"],
+			"onUpdate": "NO ACTION",
+			"onDelete": "RESTRICT",
+			"name": "notification_subscription_state_6cYqs9dCUQns_fkey",
+			"entityType": "fks",
+			"schema": "public",
+			"table": "notification_subscription_state"
+		},
+		{
+			"nameExplicit": false,
 			"columns": ["user_id"],
 			"schemaTo": "public",
 			"tableTo": "user",
@@ -5969,6 +6246,19 @@
 			"entityType": "fks",
 			"schema": "public",
 			"table": "plugin_installation"
+		},
+		{
+			"nameExplicit": false,
+			"columns": ["relationship_schema_plugin_id"],
+			"schemaTo": "public",
+			"tableTo": "plugin",
+			"columnsTo": ["id"],
+			"onUpdate": "NO ACTION",
+			"onDelete": "RESTRICT",
+			"name": "relationship_relationship_schema_plugin_id_plugin_id_fkey",
+			"entityType": "fks",
+			"schema": "public",
+			"table": "relationship"
 		},
 		{
 			"nameExplicit": false,
@@ -6115,6 +6405,32 @@
 		},
 		{
 			"nameExplicit": false,
+			"columns": ["entity_schema_plugin_id"],
+			"schemaTo": "public",
+			"tableTo": "plugin",
+			"columnsTo": ["id"],
+			"onUpdate": "NO ACTION",
+			"onDelete": "RESTRICT",
+			"name": "saved_view_entity_schema_plugin_id_plugin_id_fkey",
+			"entityType": "fks",
+			"schema": "public",
+			"table": "saved_view"
+		},
+		{
+			"nameExplicit": false,
+			"columns": ["plugin_installation_id"],
+			"schemaTo": "public",
+			"tableTo": "plugin_installation",
+			"columnsTo": ["id"],
+			"onUpdate": "NO ACTION",
+			"onDelete": "RESTRICT",
+			"name": "saved_view_plugin_installation_id_plugin_installation_id_fkey",
+			"entityType": "fks",
+			"schema": "public",
+			"table": "saved_view"
+		},
+		{
+			"nameExplicit": false,
 			"columns": ["user_id"],
 			"schemaTo": "public",
 			"tableTo": "user",
@@ -6138,6 +6454,19 @@
 			"entityType": "fks",
 			"schema": "public",
 			"table": "session"
+		},
+		{
+			"nameExplicit": false,
+			"columns": ["signal_schema_plugin_id"],
+			"schemaTo": "public",
+			"tableTo": "plugin",
+			"columnsTo": ["id"],
+			"onUpdate": "NO ACTION",
+			"onDelete": "RESTRICT",
+			"name": "signal_signal_schema_plugin_id_plugin_id_fkey",
+			"entityType": "fks",
+			"schema": "public",
+			"table": "signal"
 		},
 		{
 			"nameExplicit": false,

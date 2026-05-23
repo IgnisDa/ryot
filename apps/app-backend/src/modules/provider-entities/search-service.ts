@@ -52,15 +52,12 @@ export class ProviderEntitySearchService extends Context.Service<ProviderEntityS
 				userId: CurrentUserValue["id"],
 				providerId: SearchProviderEntitiesBody["providerId"],
 			) {
-				if (!(yield* pluginRuntime.isSystemProviderAvailableToUser(userId, providerId))) {
-					return yield* providerNotFound(providerId);
-				}
-				const provider = yield* pluginRuntime.findActiveProviderById(providerId);
+				const provider = yield* pluginRuntime.findProviderAvailableToUser(userId, providerId);
 				if (!provider) {
 					return yield* providerNotFound(providerId);
 				}
 
-				const resolved = yield* pluginRuntime.resolveSearchScript(providerId).pipe(
+				const resolved = yield* pluginRuntime.resolveUserSearchScript(userId, providerId).pipe(
 					Effect.mapError((error) => {
 						if (!(error instanceof UnsupportedProviderOperationError)) {
 							return error;
@@ -90,7 +87,7 @@ export class ProviderEntitySearchService extends Context.Service<ProviderEntityS
 				}
 
 				const searchOptionsScript = yield* pluginRuntime
-					.resolveSearchOptionsScript(providerId)
+					.resolveUserSearchOptionsScript(user.id, providerId)
 					.pipe(
 						Effect.tapError((error) =>
 							Effect.logError("provider search options script resolution failed", error),

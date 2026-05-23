@@ -51,12 +51,7 @@ export class EntityImportService extends Context.Service<EntityImportService>()(
 				}
 
 				const providerId = SandboxProviderId.make(trimmedProviderId);
-				if (!(yield* pluginRuntime.isSystemProviderAvailableToUser(user.id, providerId))) {
-					return yield* new ProviderEntityNotFound({
-						reason: { code: "provider-not-found", providerId },
-					});
-				}
-				const provider = yield* pluginRuntime.findActiveProviderById(providerId);
+				const provider = yield* pluginRuntime.findProviderAvailableToUser(user.id, providerId);
 				if (!provider) {
 					return yield* new ProviderEntityNotFound({
 						reason: { code: "provider-not-found", providerId },
@@ -86,6 +81,7 @@ export class EntityImportService extends Context.Service<EntityImportService>()(
 							userId: user.id,
 							entitySchemaSlug,
 							origin: { kind: "api" },
+							entityScope: provider.pluginScope === "user" ? "user" : "global",
 						},
 					})
 					.pipe(Effect.orDie);

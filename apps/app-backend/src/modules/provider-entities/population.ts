@@ -3,14 +3,17 @@ import { ListedEntity } from "@ryot/contract/modules/entities/schemas";
 import {
 	EntitySchemaSlug,
 	type EntityId,
+	RelationshipSchemaSlug,
 	type SandboxProviderId,
+	type UserId,
 } from "@ryot/contract/schema/brands";
 import type { ProviderDetailsChildEntity } from "@ryot/sandbox-sdk/provider";
-import { DateTime, Effect, Schema } from "effect";
+import { DateTime, Effect, Option, Schema } from "effect";
 
 import { EntityMutationOutcome } from "#modules/entities/mutation-outcomes";
 import { EntitiesService } from "#modules/entities/service";
 import { EntitySchemasRepository } from "#modules/entity-schemas/repository";
+import { PluginRuntimeResolver } from "#modules/plugins/runtime-resolver";
 import { RelationshipSchemasRepository } from "#modules/relationship-schemas/repository";
 import {
 	RelationshipMutationOutcomes,
@@ -35,17 +38,24 @@ export const ChildEntitySetWriteResult = Schema.Struct({
 
 export type ChildEntitySetWriteResult = typeof ChildEntitySetWriteResult.Type;
 
-export const writeChildEntitySet = Effect.fn("writeChildEntitySet")(function* (input: {
-	syncExisting?: boolean;
-	parentEntityId: EntityId;
-	providerId: SandboxProviderId;
-	parentEntitySchemaSlug: EntitySchemaSlug;
-	childEntities: ReadonlyArray<ProviderDetailsChildEntity>;
-	expectedChildEntitySchemaSlug?: string | undefined;
-}) {
+export const writeChildEntitySet = Effect.fn("writeChildEntitySet")(function* (
+	input: {
+		syncExisting?: boolean;
+		parentEntityId: EntityId;
+		providerId: SandboxProviderId;
+		parentEntitySchemaSlug: EntitySchemaSlug;
+		expectedChildEntitySchemaSlug?: string | undefined;
+		childEntities: ReadonlyArray<ProviderDetailsChildEntity>;
+	} & ({ scope?: "global" } | { scope: "user"; userId: UserId }),
+) {
 	const entities = yield* EntitiesService;
 	const entitySchemasRepository = yield* EntitySchemasRepository;
 	const relationshipSchemasRepository = yield* RelationshipSchemasRepository;
+	const pluginRuntime = Option.getOrUndefined(yield* Effect.serviceOption(PluginRuntimeResolver));
+	const definitions =
+		input.scope === "user" && pluginRuntime
+			? yield* pluginRuntime.getEffectiveDefinitions(input.userId)
+			: null;
 
 	const childSchemaSlugs = new Set(
 		input.childEntities.map(({ entitySchemaSlug }) => entitySchemaSlug),
@@ -66,11 +76,18 @@ export const writeChildEntitySet = Effect.fn("writeChildEntitySet")(function* (i
 		});
 	}
 	const childEntitySchemaSlug = input.expectedChildEntitySchemaSlug ?? rowChildEntitySchemaSlug;
-	const childEntitySchema = childEntitySchemaSlug
-		? yield* entitySchemasRepository
+	let childEntitySchema: { id: EntitySchemaSlug } | null = null;
+	if (childEntitySchemaSlug) {
+		if (definitions) {
+			childEntitySchema = definitions.entitySchemas[childEntitySchemaSlug]
+				? { id: EntitySchemaSlug.make(childEntitySchemaSlug) }
+				: null;
+		} else {
+			childEntitySchema = yield* entitySchemasRepository
 				.getBuiltinBySlug(childEntitySchemaSlug)
-				.pipe(mapDbErrorToSandbox)
-		: null;
+				.pipe(mapDbErrorToSandbox);
+		}
+	}
 	if (childEntitySchemaSlug && !childEntitySchema) {
 		return yield* new SandboxRunError({
 			message: `Child entity schema not found: ${childEntitySchemaSlug}`,
@@ -83,12 +100,27 @@ export const writeChildEntitySet = Effect.fn("writeChildEntitySet")(function* (i
 		if (!targetEntitySchemaSlug) {
 			return null;
 		}
-		const relationshipSchema = yield* relationshipSchemasRepository
-			.findGlobalBySchemaIds({
-				sourceEntitySchemaSlug: input.parentEntitySchemaSlug,
-				targetEntitySchemaSlug,
-			})
-			.pipe(mapDbErrorToSandbox);
+		const relationshipDefinition = definitions
+			? Object.values(definitions.relationshipSchemas).find(
+					(definition) =>
+						definition.sourceEntitySchemaSlug === input.parentEntitySchemaSlug &&
+						definition.targetEntitySchemaSlug === targetEntitySchemaSlug,
+				)
+			: null;
+		let relationshipSchema = relationshipDefinition
+			? {
+					id: RelationshipSchemaSlug.make(relationshipDefinition.slug),
+					propertiesSchema: relationshipDefinition.propertiesSchema,
+				}
+			: null;
+		if (!definitions) {
+			relationshipSchema = yield* relationshipSchemasRepository
+				.findGlobalBySchemaIds({
+					targetEntitySchemaSlug,
+					sourceEntitySchemaSlug: input.parentEntitySchemaSlug,
+				})
+				.pipe(mapDbErrorToSandbox);
+		}
 		if (!relationshipSchema) {
 			return yield* new SandboxRunError({
 				message: `Child relationship schema not found: ${input.parentEntitySchemaSlug} -> ${targetEntitySchemaSlug}`,
@@ -106,6 +138,9 @@ export const writeChildEntitySet = Effect.fn("writeChildEntitySet")(function* (i
 		const populatedAt = yield* DateTime.nowAsDate;
 		const saved = yield* entities
 			.upsert({
+				...(input.scope === "user"
+					? { scope: "user" as const, userId: input.userId }
+					: { scope: "global" as const }),
 				populatedAt,
 				name: childEntity.name,
 				providerId: input.providerId,
@@ -133,6 +168,11 @@ export const writeChildEntitySet = Effect.fn("writeChildEntitySet")(function* (i
 			relationshipSchemaSlug: relationshipSchema.id,
 			propertiesSchema: relationshipSchema.propertiesSchema,
 			entries: processedChildren.map((child) => ({ properties: {}, entityId: child.entity.id })),
+			relationshipSchemaPluginId:
+				definitions?.relationshipSchemas[relationshipSchema.id]?.pluginId ?? null,
+			...(input.scope === "user"
+				? { scope: "user" as const, userId: input.userId }
+				: { scope: "global" as const }),
 		});
 	}
 	const now = yield* DateTime.nowAsDate;

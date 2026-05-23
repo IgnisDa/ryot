@@ -19,18 +19,19 @@ type EntityRow = Pick<
 >;
 
 export type EntitySchemaScope = {
-	readonly id: EntitySchemaSlug;
 	readonly slug: string;
 	readonly isBuiltin: boolean;
+	readonly id: EntitySchemaSlug;
 	readonly userId: UserId | null;
 	readonly propertiesSchema: AppSchema;
+	readonly pluginId?: string | null | undefined;
 };
 
 export type EntityScope = {
 	readonly entityId: EntityId;
 	readonly isBuiltin: boolean;
-	readonly entitySchemaSlug: EntitySchemaSlug;
 	readonly entityUserId: UserId | null;
+	readonly entitySchemaSlug: EntitySchemaSlug;
 };
 
 export type EntitySchemaProviderDetailsScope = {
