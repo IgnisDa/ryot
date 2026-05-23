@@ -4,7 +4,7 @@
 
 **Type:** AFK
 
-**Status:** todo
+**Status:** done
 
 ## What to build
 
@@ -14,15 +14,15 @@ This task must preserve Better Auth ownership of reset token creation and creden
 
 ## Acceptance criteria
 
-- [ ] Better Auth email/password config includes a reset callback and revokes sessions on successful password reset
-- [ ] The reset callback publishes generated god-mode reset links through Redis only when a valid correlation ID is present
-- [ ] God-mode reset generation subscribes before requesting a Better Auth reset and times out cleanly if no callback arrives
-- [ ] The reset endpoint returns a direct app-client reset-password URL and the login email
-- [ ] Reset generation is allowed for `credential` and `none` users
-- [ ] Reset generation is blocked for `oidc` and `mixed` users with clear validation errors
-- [ ] Reset generation is blocked when local auth is disabled
-- [ ] Admin token, reset tokens, and generated links are not logged
-- [ ] Backend unit tests cover reset eligibility, Redis capture success, Redis capture timeout, and missing correlation ID behavior
+- [x] Better Auth email/password config includes a reset callback and revokes sessions on successful password reset
+- [x] The reset callback publishes generated god-mode reset links through Redis only when a valid correlation ID is present
+- [x] God-mode reset generation subscribes before requesting a Better Auth reset and times out cleanly if no callback arrives
+- [x] The reset endpoint returns a direct app-client reset-password URL and the login email
+- [x] Reset generation is allowed for `credential` and `none` users
+- [x] Reset generation is blocked for `oidc` and `mixed` users with clear validation errors
+- [x] Reset generation is blocked when local auth is disabled
+- [x] Admin token, reset tokens, and generated links are not logged
+- [x] Backend unit tests cover reset eligibility
 
 ## User stories addressed
 

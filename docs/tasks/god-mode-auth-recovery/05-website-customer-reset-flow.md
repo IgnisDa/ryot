@@ -4,7 +4,7 @@
 
 **Type:** AFK
 
-**Status:** todo
+**Status:** done
 
 ## What to build
 
@@ -14,13 +14,13 @@ This is not a general cloud admin UI. It is scoped to the logged-in customer's o
 
 ## Acceptance criteria
 
-- [ ] Website account page exposes a reset-link action only when the customer has an associated app user ID
-- [ ] The website action calls the backend god-mode reset endpoint server-side with the admin bearer token
-- [ ] The website action only requests reset links for the authenticated customer's own app user ID
-- [ ] OIDC customers do not receive local password reset links
-- [ ] Backend god-mode validation errors are surfaced as safe website errors
-- [ ] The website does not expose `SERVER_ADMIN_ACCESS_TOKEN` to the browser
-- [ ] The website flow reuses the same backend reset operation as app-client god-mode
+- [x] Website account page exposes a reset-link action only when the customer has an associated app user ID
+- [x] The website action calls the backend god-mode reset endpoint server-side with the admin bearer token
+- [x] The website action only requests reset links for the authenticated customer's own app user ID
+- [x] OIDC customers do not receive local password reset links
+- [x] Backend god-mode validation errors are surfaced as safe website errors
+- [x] The website does not expose `SERVER_ADMIN_ACCESS_TOKEN` to the browser
+- [x] The website flow reuses the same backend reset operation as app-client god-mode
 
 ## User stories addressed
 
