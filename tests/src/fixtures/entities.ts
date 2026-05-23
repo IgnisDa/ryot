@@ -1,5 +1,6 @@
 import type { paths } from "@ryot/generated/openapi/app-backend";
 
+import { requirePresent, requireResponseData } from "../test-support/assertions";
 import type { Client } from "./auth";
 import { createTrackerWithSchema } from "./entity-schemas";
 
@@ -13,11 +14,9 @@ export async function createEntity(client: Client, cookies: string, body: Create
 		headers: { Cookie: cookies },
 	});
 
-	if (response.status !== 200 || !data?.data.id) {
-		throw new Error("Failed to create entity");
-	}
-
-	return data.data;
+	const entity = requireResponseData(response, data, "Failed to create entity");
+	requirePresent(entity.id, "Failed to create entity");
+	return entity;
 }
 
 export async function getEntity(client: Client, cookies: string, entityId: string) {
@@ -26,11 +25,7 @@ export async function getEntity(client: Client, cookies: string, entityId: strin
 		params: { path: { entityId } },
 	});
 
-	if (response.status !== 200 || !data?.data) {
-		throw new Error(`Failed to get entity '${entityId}'`);
-	}
-
-	return data.data;
+	return requireResponseData(response, data, `Failed to get entity '${entityId}'`);
 }
 
 export async function createTrackerWithSchemaAndEntity(client: Client, cookies: string) {

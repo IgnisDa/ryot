@@ -1,5 +1,6 @@
 import type { paths } from "@ryot/generated/openapi/app-backend";
 
+import { requirePresent, requireResponseData } from "../test-support/assertions";
 import type { Client } from "./auth";
 import type { AppSchema } from "./entity-schemas";
 
@@ -16,10 +17,7 @@ export function requireEventSchemaBySlug<T extends { slug: string }>(
 	slug: string,
 ): T {
 	const schema = schemas.find((s) => s.slug === slug);
-	if (!schema) {
-		throw new Error(`Event schema '${slug}' not found`);
-	}
-	return schema;
+	return requirePresent(schema, `Event schema '${slug}' not found`);
 }
 
 export async function createEventSchema(
@@ -32,11 +30,13 @@ export async function createEventSchema(
 		headers: { Cookie: cookies },
 	});
 
-	if (response.status !== 200 || !data?.data.id) {
-		throw new Error(`Failed to create event schema '${body.name}'`);
-	}
-
-	return data.data;
+	const eventSchema = requireResponseData(
+		response,
+		data,
+		`Failed to create event schema '${body.name}'`,
+	);
+	requirePresent(eventSchema.id, `Failed to create event schema '${body.name}'`);
+	return eventSchema;
 }
 
 export async function listEventSchemas(client: Client, cookies: string, entitySchemaId: string) {
@@ -45,9 +45,9 @@ export async function listEventSchemas(client: Client, cookies: string, entitySc
 		params: { query: { entitySchemaId } },
 	});
 
-	if (response.status !== 200 || !data?.data) {
-		throw new Error(`Failed to list event schemas for '${entitySchemaId}'`);
-	}
-
-	return data.data;
+	return requireResponseData(
+		response,
+		data,
+		`Failed to list event schemas for '${entitySchemaId}'`,
+	);
 }

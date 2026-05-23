@@ -1,3 +1,4 @@
+import { requireString } from "../test-support/assertions";
 import type { Client } from "./auth";
 import { createEntity } from "./entities";
 import { findBuiltinSchemaBySlug } from "./entity-schemas";
@@ -76,7 +77,11 @@ export async function waitForSeededExerciseId(client: Client, cookies: string) {
 			}
 
 			const idField = result.data.data.items[0]?.column_0;
-			return idField?.kind === "text" && typeof idField.value === "string" ? idField.value : null;
+			if (idField?.kind !== "text") {
+				return null;
+			}
+
+			return requireString(idField.value, "Expected seeded exercise id to be text");
 		},
 		{ intervalMs: 1000, timeoutMs: 60000 },
 	);
@@ -104,11 +109,11 @@ export async function waitForSeededExerciseIds(client: Client, cookies: string, 
 
 			const ids = result.data.data.items.flatMap((item) => {
 				const field = item.column_0;
-				if (field?.kind !== "text" || typeof field.value !== "string") {
+				if (field?.kind !== "text") {
 					return [];
 				}
 
-				return [field.value];
+				return [requireString(field.value, "Expected seeded exercise id to be text")];
 			});
 
 			return ids.length >= count ? ids.slice(0, count) : null;

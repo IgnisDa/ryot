@@ -27,6 +27,8 @@ import {
 	toRequiredExpression,
 } from "~/fixtures";
 
+import { assertPresent } from "./assertions";
+
 async function createImageFallbackFixture() {
 	const { client, cookies } = await createAuthenticatedClient();
 	const { trackerId } = await createTracker(client, cookies, {
@@ -62,9 +64,8 @@ async function createLatestEventJoinFixture() {
 	const { client, cookies, entityIdsByName, schema } = await createSingleSchemaQueryEngineFixture();
 	const alphaPhoneId = entityIdsByName["Alpha Phone"];
 	const gammaPhoneId = entityIdsByName["Gamma Phone"];
-	if (!alphaPhoneId || !gammaPhoneId) {
-		throw new Error("Missing runtime entity fixture ids for latest event join test");
-	}
+	assertPresent(alphaPhoneId, "Missing runtime entity fixture ids for latest event join test");
+	assertPresent(gammaPhoneId, "Missing runtime entity fixture ids for latest event join test");
 	const reviewSchema = await createEventSchema(client, cookies, {
 		name: "Review",
 		slug: "review",
@@ -107,9 +108,14 @@ async function createMixedLatestEventJoinFixture() {
 		await createCrossSchemaQueryEngineFixture();
 	const alphaPhoneId = entityIdsByName["Alpha Phone"];
 	const gammaPhoneId = entityIdsByName["Gamma Phone"];
-	if (!alphaPhoneId || !gammaPhoneId) {
-		throw new Error("Missing mixed runtime entity fixture ids for latest event join test");
-	}
+	assertPresent(
+		alphaPhoneId,
+		"Missing mixed runtime entity fixture ids for latest event join test",
+	);
+	assertPresent(
+		gammaPhoneId,
+		"Missing mixed runtime entity fixture ids for latest event join test",
+	);
 	const reviewSchema = await createEventSchema(client, cookies, {
 		name: "Review",
 		slug: "review",

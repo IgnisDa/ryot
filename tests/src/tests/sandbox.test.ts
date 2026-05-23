@@ -13,6 +13,7 @@ import {
 	pollSandboxResult,
 } from "../fixtures";
 import { getBackendClient } from "../setup";
+import { assertPresent } from "../test-support/assertions";
 
 let httpServerUrl: string;
 let httpServer: ReturnType<typeof Bun.serve>;
@@ -459,9 +460,7 @@ describe("sandbox cache functions", () => {
 		const { client: clientB, cookies: cookiesB } = await createAuthenticatedClient();
 		const { schema } = await findBuiltinSchemaWithProviders(clientA, cookiesA);
 		const builtinScriptId = schema.providers[0]?.scriptId;
-		if (!builtinScriptId) {
-			throw new Error("No built-in provider script found");
-		}
+		assertPresent(builtinScriptId, "No built-in provider script found");
 
 		const cacheKey = `builtin-shared-cache-${crypto.randomUUID()}`;
 
@@ -528,9 +527,7 @@ describe("sandbox enqueue by script ID", () => {
 		const { client, cookies } = await createAuthenticatedClient();
 		const { schema } = await findBuiltinSchemaWithProviders(client, cookies);
 		const searchScriptId = schema.providers[0]?.scriptId;
-		if (!searchScriptId) {
-			throw new Error("No search provider found");
-		}
+		assertPresent(searchScriptId, "No search provider found");
 
 		const { jobId } = await enqueueSandboxScript(client, cookies, {
 			driverName: "search",
@@ -613,9 +610,7 @@ describe("sandbox result observability", () => {
 			throw new Error("Expected sandbox job to complete");
 		}
 
-		if (!result.timing) {
-			throw new Error("Expected timing to be present");
-		}
+		assertPresent(result.timing, "Expected timing to be present");
 		expect(result.timing.totalMs).toBeGreaterThan(0);
 		expect(result.timing.executionMs).toBeGreaterThanOrEqual(0);
 	});

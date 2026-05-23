@@ -16,6 +16,7 @@ import {
 	pollEntitySearchResult,
 } from "../fixtures";
 import { getBackendClient } from "../setup";
+import { assertPresent } from "../test-support/assertions";
 
 describe("GET /entity-schemas", () => {
 	it("returns 200 and lists built-in entity schemas for built-in tracker", async () => {
@@ -708,9 +709,7 @@ describe("GET /entity-schemas/import/{jobId}", () => {
 		const { client, cookies } = await createAuthenticatedClient();
 		const { schema } = await findBuiltinSchemaWithProviders(client, cookies);
 		const detailsScriptId = schema.providers.find((p) => p.name === "OpenLibrary")?.scriptId;
-		if (!detailsScriptId) {
-			throw new Error("OpenLibrary provider script not found");
-		}
+		assertPresent(detailsScriptId, "OpenLibrary provider script not found");
 
 		const { jobId } = await enqueueEntityImport(client, cookies, {
 			externalId: "OL267933W",
@@ -729,9 +728,7 @@ describe("GET /entity-schemas/import/{jobId}", () => {
 		const { client, cookies } = await createAuthenticatedClient();
 		const { schema } = await findBuiltinSchemaWithProviders(client, cookies);
 		const detailsScriptId = schema.providers.find((p) => p.name === "OpenLibrary")?.scriptId;
-		if (!detailsScriptId) {
-			throw new Error("OpenLibrary provider script not found");
-		}
+		assertPresent(detailsScriptId, "OpenLibrary provider script not found");
 
 		const { jobId } = await enqueueEntityImport(client, cookies, {
 			externalId: "OL267933W",
@@ -756,9 +753,7 @@ describe("GET /entity-schemas/import/{jobId}", () => {
 		const { client, cookies } = await createAuthenticatedClient();
 		const { schema } = await findBuiltinSchemaWithProviders(client, cookies);
 		const detailsScriptId = schema.providers.find((p) => p.name === "OpenLibrary")?.scriptId;
-		if (!detailsScriptId) {
-			throw new Error("OpenLibrary provider script not found");
-		}
+		assertPresent(detailsScriptId, "OpenLibrary provider script not found");
 
 		const { jobId } = await enqueueEntityImport(client, cookies, {
 			externalId: "OL267933W",
@@ -776,9 +771,7 @@ describe("GET /entity-schemas/import/{jobId}", () => {
 
 		const entity = result.data as { populatedAt?: string };
 
-		if (!entity.populatedAt) {
-			throw new Error("Expected populatedAt to be present on the imported entity");
-		}
+		assertPresent(entity.populatedAt, "Expected populatedAt to be present on the imported entity");
 
 		expect(new Date(entity.populatedAt).toISOString()).toBe(entity.populatedAt);
 	}, 30_000);
