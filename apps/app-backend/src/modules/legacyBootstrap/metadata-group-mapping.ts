@@ -2,30 +2,18 @@ import { sql } from "drizzle-orm";
 
 import type { DbClient } from "~/lib/db";
 
-import { quoteNullableSqlString, quoteSqlString } from "./shared";
-
-type MetadataGroupEntityTarget = {
-	lot: string;
-	source: string;
-	entitySchemaSlug: string;
-	sandboxScriptSlug: string | null;
-};
-
-type ResolvedMetadataGroupEntityTarget = {
-	lot: string;
-	source: string;
-	entitySchemaId: string;
-	sandboxScriptId: string | null;
-};
+import {
+	type LotEntityMigrationTarget,
+	type ResolvedLotEntityMigrationTarget,
+	type ResolvedRelationshipTarget,
+	buildLotEntityTargetValuesSql,
+	buildPrimaryImageSql,
+	buildRelationshipTargetValuesSql,
+} from "./shared";
 
 type MetadataGroupRelationshipTarget = {
 	lot: string;
 	relationshipSchemaSlug: string;
-};
-
-type ResolvedMetadataGroupRelationshipTarget = {
-	lot: string;
-	relationshipSchemaId: string;
 };
 
 // Lots without a V2 group entity schema (anime, manga, show, podcast, visual_novel) are
@@ -114,7 +102,7 @@ export const metadataGroupEntityTargets = [
 		entitySchemaSlug: "video-game-group",
 		sandboxScriptSlug: "video-game-group.igdb",
 	},
-] as const satisfies readonly MetadataGroupEntityTarget[];
+] as const satisfies readonly LotEntityMigrationTarget[];
 
 export const metadataGroupRelationshipTargets = [
 	{ lot: "audio_book", relationshipSchemaSlug: "audiobook-group-to-audiobook" },
@@ -125,7 +113,7 @@ export const metadataGroupRelationshipTargets = [
 	{ lot: "video_game", relationshipSchemaSlug: "video-game-group-to-video-game" },
 ] as const satisfies readonly MetadataGroupRelationshipTarget[];
 
-const supportedGroupLots = metadataGroupEntityTargets.map((t) => t.lot);
+const supportedGroupLots = [...new Set(metadataGroupEntityTargets.map((t) => t.lot))];
 
 const metadataGroupEntityTargetValuesSql = sql.join(
 	metadataGroupEntityTargets.map(
@@ -134,29 +122,14 @@ const metadataGroupEntityTargetValuesSql = sql.join(
 	sql`, `,
 );
 
-const buildMetadataGroupEntityTargetValuesSql = (targets: ResolvedMetadataGroupEntityTarget[]) =>
-	targets
-		.map(
-			(t) =>
-				`(${quoteSqlString(t.lot)}, ${quoteSqlString(t.source)}, ${quoteSqlString(t.entitySchemaId)}, ${quoteNullableSqlString(t.sandboxScriptId)})`,
-		)
-		.join(", ");
-
-const buildMetadataGroupRelationshipTargetValuesSql = (
-	targets: ResolvedMetadataGroupRelationshipTarget[],
-) =>
-	targets
-		.map((t) => `(${quoteSqlString(t.lot)}, ${quoteSqlString(t.relationshipSchemaId)})`)
-		.join(", ");
-
 export const buildMetadataGroupEntityMigrationSql = (
-	targets: ResolvedMetadataGroupEntityTarget[],
+	targets: ResolvedLotEntityMigrationTarget[],
 ) => `
 DO $$
 DECLARE rows_inserted int;
 BEGIN
 	WITH metadata_group_targets (lot, source, entity_schema_id, sandbox_script_id) AS (
-		VALUES ${buildMetadataGroupEntityTargetValuesSql(targets)}
+		VALUES ${buildLotEntityTargetValuesSql(targets)}
 	)
 	INSERT INTO entity (
 		"id",
@@ -175,17 +148,7 @@ BEGIN
 		mg.id,
 		mg.identifier,
 		mg.title,
-		CASE
-			WHEN jsonb_array_length(mg.assets -> 'remote_images') > 0 THEN jsonb_build_object(
-				'type', 'remote',
-				'url', mg.assets -> 'remote_images' ->> 0
-			)
-			WHEN jsonb_array_length(mg.assets -> 's3_images') > 0 THEN jsonb_build_object(
-				'type', 's3',
-				'key', mg.assets -> 's3_images' ->> 0
-			)
-			ELSE NULL
-		END,
+		${buildPrimaryImageSql("mg")},
 		mg.last_updated_on,
 		NULL,
 		NULL,
@@ -202,13 +165,13 @@ END $$;
 `;
 
 export const buildMetadataGroupRelationshipMigrationSql = (
-	targets: ResolvedMetadataGroupRelationshipTarget[],
+	targets: ResolvedRelationshipTarget[],
 ) => `
 DO $$
 DECLARE rows_inserted int;
 BEGIN
 	WITH lot_to_relationship_schema (lot, relationship_schema_id) AS (
-		VALUES ${buildMetadataGroupRelationshipTargetValuesSql(targets)}
+		VALUES ${buildRelationshipTargetValuesSql(targets)}
 	)
 	INSERT INTO relationship (
 		"id",
@@ -245,7 +208,7 @@ export const getUnsupportedMetadataGroupSources = async (database: DbClient) => 
 		),
 		supported_lots (lot) AS (
 			VALUES ${sql.join(
-				[...new Set(supportedGroupLots)].map((lot) => sql`(${lot})`),
+				supportedGroupLots.map((lot) => sql`(${lot})`),
 				sql`, `,
 			)}
 		)
