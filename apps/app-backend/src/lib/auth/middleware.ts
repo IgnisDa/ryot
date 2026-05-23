@@ -3,6 +3,7 @@ import { eq } from "drizzle-orm";
 import { createMiddleware } from "hono/factory";
 
 import { getInternalRequestAuth } from "~/app/internal-auth";
+import { config } from "~/lib/config";
 import { db } from "~/lib/db";
 import { user } from "~/lib/db/schema";
 
@@ -10,6 +11,9 @@ import { ERROR_CODES, errorResponse } from "../openapi/errors";
 import { auth, type MaybeAuthType } from "./instance";
 
 type AuthenticatedUser = NonNullable<MaybeAuthType["user"]>;
+
+export const adminAccessTokenHeader = "Admin-Access-Token" as const;
+export const adminAccessTokenSecurityScheme = "admin-access-token" as const;
 
 const authUserSelection = {
 	id: user.id,
@@ -88,4 +92,12 @@ export const requireAuth = createMiddleware<{ Variables: MaybeAuthType }>(async 
 		}
 		return c.json(errorResponse(ERROR_CODES.UNAUTHENTICATED, "Authentication required"), 401);
 	}
+});
+
+export const requireAdminAccessToken = createMiddleware(async (c, next) => {
+	if (c.req.header(adminAccessTokenHeader)?.trim() !== config.server.adminAccessToken) {
+		return c.json(errorResponse(ERROR_CODES.UNAUTHENTICATED, "Authentication required"), 401);
+	}
+
+	return next();
 });
