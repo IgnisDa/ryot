@@ -361,8 +361,8 @@ const processMediaJob = async (job: Job, token?: string) => {
 	throw new Error(`Unsupported media job: ${job.name}`);
 };
 
+// TODO: Delete this file — superseded by ~/modules/entities/worker.ts.
 export const createMediaWorker = () => {
-	// TODO: move this worker into a generic entity import module once the refactor is complete.
 	const worker = new Worker("media", processMediaJob, {
 		connection: getRedisConnection(),
 	});

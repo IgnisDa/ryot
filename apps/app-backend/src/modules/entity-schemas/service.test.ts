@@ -1,7 +1,6 @@
 import { describe, expect, it } from "bun:test";
 
 import {
-	createEntityImportDeps,
 	createEntitySchemaBody,
 	createEntitySchemaDeps,
 	createEntitySearchDeps,
@@ -17,10 +16,8 @@ import { builtinEntitySchemas as getBuiltinEntitySchemas } from "~/modules/built
 import {
 	createEntitySchema,
 	enqueueEntitySearch,
-	getEntityImportResult,
 	getEntitySchemaById,
 	getEntitySearchResult,
-	importEntity,
 	listEntitySchemas,
 	parseEntitySchemaPropertiesSchema,
 	resolveEntitySchemaAccentColor,
@@ -528,140 +525,6 @@ describe("getEntitySearchResult", () => {
 		expect(result).toEqual({
 			error: "not_found",
 			message: "Sandbox job not found",
-		});
-	});
-});
-
-describe("importEntity", () => {
-	it("enqueues the job with the correct payload fields", async () => {
-		let capturedJobId: string | undefined;
-		let capturedPayload: Record<string, unknown> | undefined;
-		const deps = createEntityImportDeps({
-			addJobToQueue: ({ jobId, payload }) => {
-				capturedJobId = jobId;
-				capturedPayload = payload as Record<string, unknown>;
-				return Promise.resolve();
-			},
-		});
-
-		await importEntity(
-			{
-				userId: "user_1",
-				body: {
-					scriptId: "script_1",
-					externalId: "ext_123",
-					entitySchemaId: "schema_1",
-				},
-			},
-			deps,
-		);
-
-		expect(typeof capturedJobId).toBe("string");
-		expect(capturedJobId?.length).toBeGreaterThan(0);
-		expect(capturedPayload).toMatchObject({
-			userId: "user_1",
-			scriptId: "script_1",
-			externalId: "ext_123",
-			entitySchemaId: "schema_1",
-		});
-	});
-
-	it("returns the generated jobId", async () => {
-		const result = expectDataResult(
-			await importEntity(
-				{
-					userId: "user_1",
-					body: { scriptId: "s", externalId: "i", entitySchemaId: "e" },
-				},
-				createEntityImportDeps(),
-			),
-		);
-
-		expect(typeof result.jobId).toBe("string");
-		expect(result.jobId.length).toBeGreaterThan(0);
-	});
-});
-
-describe("getEntityImportResult", () => {
-	it("returns not_found when the job does not exist", async () => {
-		const result = await getEntityImportResult(
-			{ jobId: "missing", userId: "user_1" },
-			createEntityImportDeps({ getJobFromQueue: () => Promise.resolve(null) }),
-		);
-
-		expect(result).toEqual({
-			error: "not_found",
-			message: "Entity import job not found",
-		});
-	});
-
-	it("returns not_found when the job belongs to a different user", async () => {
-		const deps = createEntityImportDeps({
-			getJobFromQueue: () =>
-				Promise.resolve({
-					failedReason: undefined,
-					// oxlint-disable-next-line no-unsafe-type-assertion
-					returnvalue: {} as never,
-					getState: () => Promise.resolve("completed" as const),
-					data: {
-						scriptId: "s",
-						externalId: "i",
-						entitySchemaId: "e",
-						userId: "other_user",
-					},
-				}),
-		});
-
-		const result = await getEntityImportResult({ jobId: "job_1", userId: "user_1" }, deps);
-
-		expect(result).toEqual({
-			error: "not_found",
-			message: "Entity import job not found",
-		});
-	});
-
-	it("returns pending when the job is still queued", async () => {
-		const result = await getEntityImportResult(
-			{ jobId: "job_1", userId: "user_1" },
-			createEntityImportDeps(),
-		);
-
-		expect(result).toEqual({ data: { status: "pending" } });
-	});
-
-	it("returns failed with the job's failedReason", async () => {
-		const deps = createEntityImportDeps({
-			getJobFromQueue: () =>
-				Promise.resolve({
-					// oxlint-disable-next-line no-unsafe-type-assertion
-					returnvalue: {} as never,
-					getState: () => Promise.resolve("failed" as const),
-					failedReason: "Script threw an error",
-					data: {
-						scriptId: "s",
-						externalId: "i",
-						userId: "user_1",
-						entitySchemaId: "e",
-					},
-				}),
-		});
-
-		const result = await getEntityImportResult({ jobId: "job_1", userId: "user_1" }, deps);
-
-		expect(result).toEqual({
-			data: { status: "failed", error: "Script threw an error" },
-		});
-	});
-
-	it("returns validation when jobId is blank", async () => {
-		const result = await getEntityImportResult(
-			{ jobId: "   ", userId: "user_1" },
-			createEntityImportDeps(),
-		);
-
-		expect(result).toEqual({
-			error: "validation",
-			message: "Entity import job id is required",
 		});
 	});
 });

@@ -2,7 +2,7 @@ import { z } from "@hono/zod-openapi";
 
 import { nonEmptyStringSchema } from "~/lib/zod";
 
-// TODO: rename this job when the media worker is renamed for generic entity import.
+// TODO: Delete this file — superseded by ~/modules/entities/jobs.ts.
 export const mediaImportJobName = "media-import";
 
 export const mediaJobWaitingForSandboxStep = "waiting_for_sandbox";

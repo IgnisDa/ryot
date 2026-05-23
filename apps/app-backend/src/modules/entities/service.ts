@@ -1,5 +1,6 @@
 import type { AppSchema } from "@ryot/ts-utils/app-schema";
 import { resolveRequiredString } from "@ryot/ts-utils/slug";
+import { generateId } from "better-auth";
 
 import { checkReadAccess } from "~/lib/access";
 import { isUniqueConstraintError } from "~/lib/app/postgres";
@@ -8,10 +9,13 @@ import {
 	parseAppSchemaProperties,
 	parseAppSchemaPropertiesSafe,
 } from "~/lib/app/schema-validation";
+import { getQueues } from "~/lib/queue";
+import { resolveJobPollState } from "~/lib/queue/utils";
 import { type ServiceResult, serviceData, serviceError, wrapServiceValidator } from "~/lib/result";
 import { ImageSchema, type ImageSchemaType } from "~/lib/zod";
 import { getRelationshipSchemaById } from "~/modules/relationship-schemas";
 
+import { entityImportJobData, entityImportJobName } from "./jobs";
 import {
 	createEntityForUser,
 	findEntityByExternalIdForUser,
@@ -21,7 +25,12 @@ import {
 	insertRelationship,
 	upsertEntityRelationship,
 } from "./repository";
-import type { CreateEntityBody, ListedEntity } from "./schemas";
+import type {
+	CreateEntityBody,
+	ImportEntityBody,
+	ImportEntityResult,
+	ListedEntity,
+} from "./schemas";
 
 type EntityMutationError = "not_found" | "validation";
 
@@ -351,4 +360,90 @@ export const writeEntityRelationship = async (
 	});
 
 	return serviceData(undefined);
+};
+
+type EntityImportMutationError = "not_found" | "validation";
+
+const entityImportJobFailedMessage = "Entity import job failed";
+const entityImportJobNotFoundError = "Entity import job not found";
+
+type EntityQueueJob = {
+	data: unknown;
+	returnvalue: ListedEntity;
+	getState: () => Promise<string>;
+	failedReason: string | undefined;
+};
+
+export type EntityImportDeps = {
+	getJobFromQueue: (jobId: string) => Promise<EntityQueueJob | null | undefined>;
+	addJobToQueue: (input: {
+		jobId: string;
+		payload: ReturnType<typeof entityImportJobData.parse>;
+	}) => Promise<void>;
+};
+
+const defaultEntityImportDeps: EntityImportDeps = {
+	getJobFromQueue: async (jobId) => {
+		return getQueues().entityQueue.getJob(jobId);
+	},
+	addJobToQueue: async ({ jobId, payload }) => {
+		await getQueues().entityQueue.add(entityImportJobName, payload, { jobId });
+	},
+};
+
+const resolveEntityImportJobIdResult = (jobId: string) =>
+	wrapServiceValidator(
+		() => resolveRequiredString(jobId, "Entity import job id"),
+		"Entity import job id is required",
+	);
+
+export const importEntity = async (
+	input: { body: ImportEntityBody; userId: string },
+	deps: EntityImportDeps = defaultEntityImportDeps,
+): Promise<ServiceResult<{ jobId: string }, EntityImportMutationError>> => {
+	const jobId = generateId();
+	const payloadResult = wrapServiceValidator(
+		() =>
+			entityImportJobData.parse({
+				userId: input.userId,
+				scriptId: input.body.scriptId,
+				externalId: input.body.externalId,
+				entitySchemaId: input.body.entitySchemaId,
+			}),
+		"Entity import payload is invalid",
+	);
+	if ("error" in payloadResult) {
+		return payloadResult;
+	}
+
+	await deps.addJobToQueue({ jobId, payload: payloadResult.data });
+
+	return serviceData({ jobId });
+};
+
+export const getEntityImportResult = async (
+	input: { jobId: string; userId: string },
+	deps: EntityImportDeps = defaultEntityImportDeps,
+): Promise<ServiceResult<ImportEntityResult, EntityImportMutationError>> => {
+	const jobIdResult = resolveEntityImportJobIdResult(input.jobId);
+	if ("error" in jobIdResult) {
+		return jobIdResult;
+	}
+
+	const job = await deps.getJobFromQueue(jobIdResult.data);
+	if (!job) {
+		return serviceError("not_found", entityImportJobNotFoundError);
+	}
+
+	const parsed = entityImportJobData.safeParse(job.data);
+	if (!parsed.success || parsed.data.userId !== input.userId) {
+		return serviceError("not_found", entityImportJobNotFoundError);
+	}
+
+	return serviceData(
+		await resolveJobPollState(job, entityImportJobFailedMessage, () => ({
+			data: job.returnvalue,
+			status: "completed" as const,
+		})),
+	);
 };
