@@ -407,7 +407,7 @@ const transportHostCall =
 			},
 		);
 		const responseLimit =
-			fnName === "durableCalls"
+			fnName === "replayJournal"
 				? payload.limits.durableBridgeResponseBytes
 				: payload.limits.bridgeResponseBytes;
 		const responseBody = await readBridgeResponse(response, responseLimit);
@@ -538,7 +538,7 @@ const durableResult = (
 
 const createDurableHost = async (definition: SandboxDefinition, payload: SandboxRunnerPayload) => {
 	const transportHost = createHost(payload);
-	const bootstrap = transportHost.durableCalls;
+	const bootstrap = transportHost.replayJournal;
 	if (typeof bootstrap !== "function") {
 		throw new nativeError("Durable sandbox replay bootstrap is unavailable");
 	}
@@ -798,9 +798,7 @@ const executeDefinition = async (
 
 	setPhase("execute");
 	const durable =
-		typeof payload.workflowExecutionId === "string" &&
-		definition.manifest.kind !== "workflow" &&
-		definition.manifest.kind !== "activity"
+		typeof payload.workflowExecutionId === "string" && definition.manifest.kind !== "workflow"
 			? await createDurableHost(definition, payload)
 			: undefined;
 	const host = durable?.host ?? createHost(payload);

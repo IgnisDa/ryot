@@ -21,7 +21,6 @@ import {
 	jsonByteLength,
 	SANDBOX_LIMITS,
 	sandboxWorkflowJournalByteError,
-	WORKFLOW_SANDBOX_LIMITS,
 } from "#lib/infrastructure/sandbox-runtime/limits";
 import {
 	hashWorkflowCallArgs,
@@ -65,7 +64,6 @@ const ObservedWorkflowReplay = Schema.Union([
 			Schema.Struct({
 				request: workflowDurableCallRequestSchema,
 				targetScriptId: Schema.optional(SandboxScriptId),
-				targetScriptKind: Schema.optional(Schema.String),
 			}),
 		),
 	}),
@@ -148,27 +146,6 @@ export const establishSandboxWorkflowPin = Effect.fn("establishSandboxWorkflowPi
 
 const processPinnedSandbox = (payload: SandboxExecutionPayload) =>
 	processSandboxExecutionQueue(payload);
-
-const completedValue = (result: SandboxExecutionResult, label: string) => {
-	const output =
-		isObjectRecord(result.value) && result.value["state"] === "completed"
-			? result.value["output"]
-			: result.value;
-	return result.error
-		? Effect.fail(sandboxFailure(`${label} failed: ${result.error.phase}: ${result.error.message}`))
-		: Schema.decodeUnknownEffect(jsonValueSchema)(
-				result.harvest && isObjectRecord(output)
-					? (() => {
-							const { chunkFiles: _chunkFiles, ...value } = output;
-							return { ...value, chunkHandles: result.harvest.chunkHandles };
-						})()
-					: output,
-			).pipe(
-				Effect.mapError((error) =>
-					sandboxFailure(`${label} returned invalid JSON: ${unknownToMessage(error)}`),
-				),
-			);
-};
 
 export const sandboxWorkflowChildExecutionId = (
 	executionId: string,
@@ -298,27 +275,19 @@ const observeWorkflowReplay = (
 							`Workflow ${request.kind} reference could not be resolved`,
 						);
 					}
-					return target
-						? { request, targetScriptKind: target.kind, targetScriptId: target.scriptId }
-						: { request };
+					return target ? { request, targetScriptId: target.scriptId } : { request };
 				}),
 			);
 			return { requests, state: "pending" as const };
 		}).pipe(Effect.mapError((error) => sandboxFailure(unknownToMessage(error)))),
 	});
 
-export const performSandboxWorkflowRequest = Effect.fn("performSandboxWorkflowRequest")(function* <
-	R,
->(
+export const performSandboxWorkflowRequest = Effect.fn("performSandboxWorkflowRequest")(function* (
 	request: WorkflowDurableCallRequest,
 	targetScriptId: SandboxScriptId | undefined,
-	targetScriptKind: string | undefined,
 	payload: SandboxScriptWorkflowPayloadValue,
 	executionId: string,
 	requestIndex: number,
-	processSandbox: (
-		payload: SandboxExecutionPayload,
-	) => Effect.Effect<SandboxExecutionResult, SandboxRunError, R>,
 ) {
 	if (request.kind === "sleep") {
 		yield* DurableClock.sleep({
@@ -334,27 +303,17 @@ export const performSandboxWorkflowRequest = Effect.fn("performSandboxWorkflowRe
 	}
 
 	if (request.kind === "activity") {
-		if (targetScriptKind === "script") {
-			return yield* performSandboxWorkflowChild(
-				{
-					name: request.name,
-					index: request.index,
-					kind: "workflow-child",
-					args: { input: request.args.input, workflowSlug: request.args.scriptSlug },
-				},
-				targetScriptId,
-				payload,
-				executionId,
-				requestIndex,
-			);
-		}
-		return yield* performSandboxWorkflowActivity(
-			request,
+		return yield* performSandboxWorkflowChild(
+			{
+				name: request.name,
+				index: request.index,
+				kind: "workflow-child",
+				args: { input: request.args.input, workflowSlug: request.args.scriptSlug },
+			},
 			targetScriptId,
 			payload,
 			executionId,
 			requestIndex,
-			processSandbox,
 		);
 	}
 	const child = yield* Effect.exit(
@@ -376,32 +335,6 @@ export const performSandboxWorkflowRequest = Effect.fn("performSandboxWorkflowRe
 				error: { message: unknownToMessage(child.cause) },
 			} satisfies WorkflowDurableResult);
 });
-
-export const performSandboxWorkflowActivity = Effect.fn("performSandboxWorkflowActivity")(
-	function* <R>(
-		request: Extract<WorkflowDurableCallRequest, { readonly kind: "activity" }>,
-		targetScriptId: SandboxScriptId | undefined,
-		payload: SandboxScriptWorkflowPayloadValue,
-		executionId: string,
-		requestIndex: number,
-		processSandbox: (
-			payload: SandboxExecutionPayload,
-		) => Effect.Effect<SandboxExecutionResult, SandboxRunError, R>,
-	) {
-		if (!targetScriptId) {
-			return yield* sandboxFailure("Workflow activity script was not resolved");
-		}
-		const result = yield* processSandbox({
-			scriptId: targetScriptId,
-			context: request.args.input,
-			authority: payload.authority,
-			workflowExecutionId: executionId,
-			...(payload.grants ? { grants: payload.grants } : {}),
-			executionId: `${executionId}-activity-${requestIndex}`,
-		});
-		return yield* completedValue(result, `Workflow activity '${request.name}'`);
-	},
-);
 
 export const performSandboxWorkflowChild = Effect.fn("performSandboxWorkflowChild")(function* (
 	request: Extract<WorkflowDurableCallRequest, { readonly kind: "child" | "workflow-child" }>,
@@ -588,15 +521,13 @@ export const runSandboxScriptWorkflowBody = Effect.fn("SandboxScriptWorkflow")(f
 			}
 			const values = yield* Effect.forEach(
 				observed.requests,
-				({ request, targetScriptId, targetScriptKind }) =>
+				({ request, targetScriptId }) =>
 					performSandboxWorkflowRequest(
 						request,
 						targetScriptId,
-						targetScriptKind,
 						{ ...payload, scriptId: pin.scriptId, startedAt: pin.startedAt },
 						executionId,
 						request.index,
-						processReplay,
 					),
 				{ concurrency: SANDBOX_LIMITS.bridge.concurrentHostCalls },
 			);
@@ -621,7 +552,7 @@ export const runSandboxScriptWorkflowBody = Effect.fn("SandboxScriptWorkflow")(f
 				});
 				if (entryBytes === null) {
 					return yield* sandboxFailure(
-						`Sandbox workflow durable journal exceeds ${WORKFLOW_SANDBOX_LIMITS.journalBytes} UTF-8 bytes`,
+						`Sandbox workflow durable journal exceeds ${SANDBOX_LIMITS.journalBytes} UTF-8 bytes`,
 					);
 				}
 				const journalByteError = sandboxWorkflowJournalByteError(

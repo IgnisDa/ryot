@@ -188,12 +188,6 @@ export const PluginScript = Schema.Union([
 	strictStruct({
 		...PluginScriptFields,
 		capabilities: PluginScriptCapabilities,
-		kind: Schema.Literal("activity"),
-		providerSlug: Schema.optional(sandboxManifestSlug),
-	}),
-	strictStruct({
-		...PluginScriptFields,
-		capabilities: PluginScriptCapabilities,
 		kind: Schema.Literal("operation"),
 	}),
 	strictStruct({

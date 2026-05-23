@@ -44,7 +44,7 @@ const registryFingerprint = (
 const declaredScriptMetadata = (
 	script: PluginManifest["scripts"][number],
 ): PluginScriptMetadata => {
-	if (script.kind === "script" || script.kind === "activity") {
+	if (script.kind === "script") {
 		return {
 			slug: script.slug,
 			name: script.name,
@@ -88,7 +88,7 @@ const declaredScriptMetadata = (
 };
 
 const compiledScriptMetadata = (script: PluginManifest["scripts"][number]) => {
-	if (script.kind === "script" || script.kind === "activity") {
+	if (script.kind === "script") {
 		const { entry: _entry, providerSlug: _providerSlug, ...compiledMetadata } = script;
 		return compiledMetadata;
 	}
@@ -239,7 +239,7 @@ export class PluginIngestionService extends Context.Service<PluginIngestionServi
 					}
 
 					const compilerScripts = manifest.scripts.map((script) => {
-						if (script.kind === "script" || script.kind === "activity") {
+						if (script.kind === "script") {
 							const { providerSlug, ...genericScript } = script;
 							return providerSlug ? { ...genericScript, providerSlug } : genericScript;
 						}

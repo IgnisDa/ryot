@@ -320,10 +320,7 @@ export class PluginRuntimeResolver extends Context.Service<PluginRuntimeResolver
 							.where(eq(schema.sandboxScript.id, scriptId))
 							.limit(1),
 					);
-					if (
-						!script?.pluginSlug ||
-						(script.metadata.kind !== "activity" && script.metadata.kind !== "script")
-					) {
+					if (!script?.pluginSlug || script.metadata.kind !== "script") {
 						return null;
 					}
 					const plugin = snapshot.plugins[script.pluginSlug];
@@ -331,10 +328,7 @@ export class PluginRuntimeResolver extends Context.Service<PluginRuntimeResolver
 						(candidate) =>
 							candidate.slug === script.slug && candidate.contentHash === script.contentHash,
 					);
-					if (
-						!plugin ||
-						(active?.metadata.kind !== "activity" && active?.metadata.kind !== "script")
-					) {
+					if (!plugin || active?.metadata.kind !== "script") {
 						return null;
 					}
 					return {

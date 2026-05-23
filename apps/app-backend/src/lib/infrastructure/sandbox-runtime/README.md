@@ -90,11 +90,10 @@ Host functions are bridge handlers exposed only when listed in the compiled modu
 | Any non-workflow run                                 | `httpCall`, `log`, `span`, `getPluginConfig`, `getSystemConfig`, `getCachedValue`, `setCachedValue`, `claimPersistentValue`                                                |
 | User or subscription                                 | `changeUserRelationships`, `createEvents`, `executeQueryEngine`, `getCurrentIntegration`, `getEntitySchemas`, `getUserPreferences`, `listEventSchemas`, `listIntegrations` |
 | User only                                            | `ensureUserEntities`                                                                                                                                                       |
-| System activity                                      | `executeQueryEngine`                                                                                                                                                       |
-| System script                                        | `upsertGlobalEntities`, `upsertGlobalRelationships`                                                                                                                        |
+| System script                                        | `executeQueryEngine`, `upsertGlobalEntities`, `upsertGlobalRelationships`                                                                                                  |
 | Automation subscription or trusted system automation | `emitSignal`; `sendNotification` remains subscription-only                                                                                                                 |
 
-Script-scoped functions use execution metadata such as `scriptId`. User-scoped functions require the executing user's `userId` and are unavailable for system executions, except `executeQueryEngine` for system activities. Entity and event data reads use `executeQueryEngine`; schema functions expose metadata only. `claimPersistentValue` atomically writes a persistent value only when the key does not already exist.
+Script-scoped functions use execution metadata such as `scriptId`. User-scoped functions require the executing user's `userId` and are unavailable for system executions, except `executeQueryEngine` for system scripts. Entity and event data reads use `executeQueryEngine`; schema functions expose metadata only. `claimPersistentValue` atomically writes a persistent value only when the key does not already exist.
 
 `ensureUserEntities` is narrower than ordinary user scope: only a trusted boot-configured plugin's
 declared `userBootstrap` script receives it, and it may write only entity schemas owned by that plugin.
@@ -139,7 +138,7 @@ export default defineScript({
 });
 ```
 
-`defineActivity`, `defineAutomation`, `defineOperation`, `defineProvider`, and `defineWorkflow` are the kind-specific wrappers over the same shape. The SDK run function receives `(input, host, execution)`. `execution` contains `{ metadata, sandboxScriptId }` — the direct execution identity, which is distinct from the logical `providerId` used for provenance and cache isolation.
+`defineAutomation`, `defineOperation`, `defineProvider`, and `defineWorkflow` are the kind-specific wrappers over the same shape. The SDK run function receives `(input, host, execution)`. `execution` contains `{ metadata, sandboxScriptId }` — the direct execution identity, which is distinct from the logical `providerId` used for provenance and cache isolation.
 
 ## Errors And Debugging
 
@@ -156,9 +155,9 @@ export default defineScript({
 ## Durable Workflow Semantics
 
 The workflow shell pins its workflow script row before the first replay, so a hot swap cannot change
-that execution's workflow module. Activity and plugin-child targets are resolved when each durable
+that execution's workflow module. Durable script and plugin-child targets are resolved when each
 step is first observed and that exact target is then memoized with the step. A long-running workflow
-can therefore use activity versions from different active plugin installations when those steps are
+can therefore use script versions from different active plugin installations when those steps are
 first reached at different times; each individual step still executes exactly once against its
 resolved version.
 
@@ -189,15 +188,9 @@ fan out those independent child executions under the global sandbox worker bound
 
 `@ryot/sandbox-compiler/limits` owns compiler limits and UTF-8 measurement. `limits.ts` composes those values with the execution, bridge, HTTP, log, result, and cache limits used by the backend. Limits are fixed in this phase rather than exposed as environment settings.
 
-Profile selection follows the persisted definition kind, not the caller or execution path.
-`script`, `activity`, `provider`, `automation`, and `operation` use the standard profile; only
-`workflow` uses the workflow profile. `limits.ts` owns the fixed values. The standard timeout is
-10 seconds; workflows use the greater of that timeout and 30 seconds.
-
-| Profile  | Context | Final result | Host calls | HTTP calls | Durable calls |
-| -------- | ------- | ------------ | ---------- | ---------- | ------------- |
-| Standard | 256 KiB | 1 MiB        | 200        | 50         | None          |
-| Workflow | 64 KiB  | 4 MiB        | 1,000      | 0          | 1,000         |
+Every definition uses one universal execution profile. Local replay computation is bounded by a
+30-second timeout, 64 KiB context, 4 MiB final result, 1,000 host calls, 50 HTTP calls, and 1,000
+durable requests. Durable waits happen outside the sandbox process and bridge session.
 
 | Boundary                                              | Limit                         |
 | ----------------------------------------------------- | ----------------------------- |
@@ -212,16 +205,16 @@ Profile selection follows the persisted definition kind, not the caller or execu
 | Observability entry / count / total                   | 8 KiB / 500 / 256 KiB         |
 | Cache key / value / TTL                               | 256 bytes / 256 KiB / 30 days |
 
-These profile values are retained for distinct failure boundaries:
+These values retain distinct failure boundaries:
 
-| Resource              | Rationale                                                                                                                                                                                                                                                 | Limit and sizing symptoms                                                                                                                                                                                                                                        |
-| --------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Timeout               | Ten seconds bounds ordinary script work; workflow replay and orchestration need the 30-second floor.                                                                                                                                                      | A hit is a workflow-level `Sandbox timed out` job failure with a bounded Deno stderr tail when available, not a completed script error. Repeated valid work timing out indicates an undersized value; raising it lets runaway executions occupy capacity longer. |
-| Context               | The standard allowance supports data-bearing scripts. Measured workflow contexts were 99–136 bytes, so 64 KiB leaves substantial headroom while requiring bulk work to be split.                                                                          | Oversized or non-JSON context is rejected before execution. Valid dispatches rejected at this boundary indicate undersizing; routinely tiny workflow contexts provide no evidence for raising it.                                                                |
-| Final result          | One MiB bounds ordinary results. Workflow envelopes include orchestration state: a five-step workflow failed at 1 MiB and succeeded at 4 MiB.                                                                                                             | A hit is an `output`-phase oversized-result error and no partial value is returned. Valid envelopes failing indicate undersizing; a larger ceiling increases serialization, transfer, and retained-result cost.                                                  |
-| Host calls            | The standard total and HTTP subset bound bridge and network amplification. Workflows receive only deterministic durable access, with HTTP unavailable; replay reads the journal through one bulk `durableCalls` call rather than one host call per entry. | Exceeding either counter is an `execute`-phase error naming the exhausted budget. Valid bounded scripts failing indicate undersizing; workflow replay approaching 1,000 host calls indicates a bug, while higher ceilings increase amplification risk.           |
-| Durable calls         | One thousand supports established workflow fan-out while forcing larger batches into separate child executions.                                                                                                                                           | An attempt cannot emit more than 1,000 durable requests; hitting the ceiling means the input must be chunked before dispatch. A lower value breaks valid fan-out, while a higher value enlarges replay journals and result envelopes.                            |
-| Concurrent host calls | Four matches the largest observed intentional per-execution fan-out.                                                                                                                                                                                      | Additional calls wait instead of failing. Excess queueing that contributes to timeout indicates undersizing; raising the limit creates larger bridge and downstream bursts without an observed workload requiring them.                                          |
+| Resource              | Rationale                                                                                                                                                           | Limit and sizing symptoms                                                                                                                                                                                                                                        |
+| --------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Timeout               | Thirty seconds bounds local replay CPU and buggy code while leaving room for orchestration.                                                                         | A hit is a workflow-level `Sandbox timed out` job failure with a bounded Deno stderr tail when available, not a completed script error. Repeated valid work timing out indicates an undersized value; raising it lets runaway executions occupy capacity longer. |
+| Context               | The 64 KiB ceiling leaves headroom for measured workflow contexts while requiring bulk work to be split.                                                            | Oversized or non-JSON context is rejected before execution. Valid dispatches rejected at this boundary indicate undersizing; routinely tiny contexts provide no evidence for raising it.                                                                         |
+| Final result          | Workflow envelopes include orchestration state: a five-step workflow failed at 1 MiB and succeeded at 4 MiB.                                                        | A hit is an `output`-phase oversized-result error and no partial value is returned. Valid envelopes failing indicate undersizing; a larger ceiling increases serialization, transfer, and retained-result cost.                                                  |
+| Host calls            | The total and HTTP subset bound bridge and network amplification. Replay reads the journal through one internal bulk bootstrap rather than one host call per entry. | Exceeding either counter is an `execute`-phase error naming the exhausted budget. Valid bounded scripts failing indicate undersizing; replay approaching 1,000 host calls indicates a bug, while higher ceilings increase amplification risk.                    |
+| Durable calls         | One thousand supports established workflow fan-out while forcing larger batches into separate child executions.                                                     | An attempt cannot emit more than 1,000 durable requests; hitting the ceiling means the input must be chunked before dispatch. A lower value breaks valid fan-out, while a higher value enlarges replay journals and result envelopes.                            |
+| Concurrent host calls | Four matches the largest observed intentional per-execution fan-out.                                                                                                | Additional calls wait instead of failing. Excess queueing that contributes to timeout indicates undersizing; raising the limit creates larger bridge and downstream bursts without an observed workload requiring them.                                          |
 
 The compiler supervisor samples proportional set size for the Bun worker and its TypeScript descendants in the Linux production image. This avoids double-counting shared pages but is a sampled process supervisor, not a cgroup hard ceiling. Non-Linux development retains the process, timeout, and concurrency boundaries without claiming a portable memory ceiling; Bun's `--smol` flag reduces baseline memory but is not treated as enforcement.
 

@@ -7,14 +7,13 @@ import { dbRunnerLayer } from "#lib/test-utils/effect";
 
 import {
 	executeSandboxExecution,
-	makeSandboxExecutionResolutionActivity,
 	resolveSandboxExecutionPayload,
 	SandboxExecutionQueue,
 } from "./durable-queues";
 import { SandboxPluginScriptResolver } from "./plugin-script-resolver";
 import { SandboxRepository } from "./repository";
 
-it("journals plugin resolution without changing the durable queue identity", () => {
+it("uses the sandbox execution id as the durable queue identity", () => {
 	const payload = {
 		context: {},
 		authority: { type: "system" as const },
@@ -22,9 +21,6 @@ it("journals plugin resolution without changing the durable queue identity", () 
 		executionId: "execution-id",
 	};
 
-	expect(makeSandboxExecutionResolutionActivity(payload).name).toBe(
-		"resolve-sandbox-execution-execution-id",
-	);
 	expect(SandboxExecutionQueue.idempotencyKey(payload)).toBe("execution-id");
 });
 

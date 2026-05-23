@@ -1,5 +1,5 @@
 import type { JsonValue, SandboxHostError } from "@ryot/sandbox-sdk/wire";
-import type { WorkflowReplayEnvelope, WorkflowSandboxHost } from "@ryot/sandbox-sdk/workflow";
+import type { WorkflowReplayEnvelope, WorkflowReplayHost } from "@ryot/sandbox-sdk/workflow";
 import { Effect, Schema } from "effect";
 import { assert, expect, it } from "vitest";
 
@@ -10,7 +10,7 @@ import { MediaImportPopulationWorkflowOutput } from "./schemas";
 const completeReplay = async <Input extends JsonValue>(
 	run: (
 		input: Input,
-		host: WorkflowSandboxHost,
+		host: WorkflowReplayHost,
 		execution: { metadata: Record<string, JsonValue>; sandboxScriptId: string },
 	) => Effect.Effect<WorkflowReplayEnvelope, SandboxHostError>,
 	input: Input,
@@ -21,7 +21,7 @@ const completeReplay = async <Input extends JsonValue>(
 		Effect.runPromise(
 			run(
 				input,
-				{ durableCalls: () => Effect.succeed(journal) },
+				{ replayJournal: () => Effect.succeed(journal) },
 				{
 					metadata: {},
 					sandboxScriptId: "workflow-test",

@@ -55,7 +55,7 @@ type PolicyPreparation = {
 	policies: ReadonlyArray<typeof PreparedEventPolicy.Type>;
 };
 
-type ProcessSandboxExecution = (
+type ExecuteSandboxScript = (
 	payload: SandboxExecutionPayload,
 ) => Effect.Effect<SandboxExecutionResult, SandboxRunError, WorkflowEngine | WorkflowInstance>;
 
@@ -133,7 +133,7 @@ export const runEventCreatePolicies = Effect.fn(function* (
 	payload: EventCreateWorkflowPayload,
 	itemIndex: number,
 	prepared: PolicyPreparation,
-	processSandboxExecution: ProcessSandboxExecution,
+	executeSandboxScript: ExecuteSandboxScript,
 ) {
 	const { userId } = payload;
 	const policyOrigin = yield* resolvePolicyOrigin(payload);
@@ -170,7 +170,7 @@ export const runEventCreatePolicies = Effect.fn(function* (
 				},
 			},
 		} satisfies AutomationPolicyInput;
-		const sandboxResult = yield* processSandboxExecution({
+		const sandboxResult = yield* executeSandboxScript({
 			executionId,
 			context: policyContext,
 			scriptId: step.sandboxScriptId,

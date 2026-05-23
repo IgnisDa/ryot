@@ -14,17 +14,17 @@ import {
 	sandboxHttpRequestBodyError,
 	sandboxRunnerRequestError,
 	SANDBOX_LIMITS,
-	sandboxRunnerLimits,
+	SANDBOX_RUNNER_LIMITS,
 	sandboxWorkflowJournalByteError,
 	utf8ByteLength,
-	WORKFLOW_SANDBOX_LIMITS,
 } from "./limits";
 
 describe("sandbox limits", () => {
 	it("keeps every agreed resource limit in one production value", () => {
 		expect(SANDBOX_LIMITS).toEqual({
 			workerConcurrency: 5,
-			hostCalls: { http: 50, total: 200 },
+			journalBytes: 104_857_600,
+			hostCalls: { http: 50, total: 1_000 },
 			diagnostics: { stderrBytes: 65_536, stderrLines: 20 },
 			logs: { entryBytes: 8_192, entryCount: 500, totalBytes: 262_144 },
 			scratch: { maxDepth: 32, maxEntries: 4_096, totalBytes: 5_242_880 },
@@ -46,9 +46,9 @@ describe("sandbox limits", () => {
 			},
 			execution: {
 				denoHeapMiB: 256,
-				timeoutMs: 10_000,
-				contextBytes: 262_144,
-				resultBytes: 1_048_576,
+				timeoutMs: 30_000,
+				contextBytes: 65_536,
+				resultBytes: 4_194_304,
 				requestBytes: 2_097_152,
 			},
 			compiler: {
@@ -103,7 +103,7 @@ describe("sandbox limits", () => {
 		).toContain("2097152 UTF-8 bytes");
 		expect(sandboxContextError("a".repeat(SANDBOX_LIMITS.execution.contextBytes - 2))).toBeNull();
 		expect(sandboxContextError("🙂".repeat(SANDBOX_LIMITS.execution.contextBytes / 4))).toContain(
-			"262144 UTF-8 bytes",
+			"65536 UTF-8 bytes",
 		);
 		expect(sandboxContextError(circular)).toContain("must be JSON");
 	});
@@ -113,7 +113,7 @@ describe("sandbox limits", () => {
 		for (let index = 0; index < SANDBOX_LIMITS.hostCalls.total; index += 1) {
 			expect(consumeSandboxHostCall(totalBudget, "getCachedValue")).toBeNull();
 		}
-		expect(consumeSandboxHostCall(totalBudget, "getCachedValue")).toContain("200 host calls");
+		expect(consumeSandboxHostCall(totalBudget, "getCachedValue")).toContain("1000 host calls");
 
 		const httpBudget = { http: 0, total: 0 };
 		for (let index = 0; index < SANDBOX_LIMITS.hostCalls.http; index += 1) {
@@ -122,35 +122,22 @@ describe("sandbox limits", () => {
 		expect(consumeSandboxHostCall(httpBudget, "httpCall")).toContain("50 httpCall calls");
 	});
 
-	it("applies the distinct workflow execution profile without changing activity limits", () => {
-		expect(WORKFLOW_SANDBOX_LIMITS).toEqual({
-			timeoutMs: 30_000,
-			journalBytes: 104_857_600,
-			hostCalls: { http: 0, total: 1_000 },
-			execution: { contextBytes: 65_536, resultBytes: 4_194_304 },
-		});
-		expect(sandboxRunnerLimits({ kind: "workflow" })).toMatchObject({
+	it("applies one universal execution profile", () => {
+		expect(SANDBOX_RUNNER_LIMITS).toMatchObject({
 			hostCallCount: 1_000,
 			resultBytes: 4_194_304,
 			bridgeResponseBytes: 10_485_760,
 		});
-		expect(sandboxRunnerLimits({ kind: "activity" })).toEqual(sandboxRunnerLimits({}));
-		expect(sandboxContextError("a".repeat(65_535), { kind: "workflow" })).toContain(
-			"65536 UTF-8 bytes",
-		);
+		expect(sandboxContextError("a".repeat(65_535))).toContain("65536 UTF-8 bytes");
 	});
 
 	it("enforces the cumulative journal boundary including array separators", () => {
-		expect(
-			sandboxWorkflowJournalByteError(2, WORKFLOW_SANDBOX_LIMITS.journalBytes - 2, 0),
-		).toBeNull();
-		expect(
-			sandboxWorkflowJournalByteError(2, WORKFLOW_SANDBOX_LIMITS.journalBytes - 1, 0),
-		).toContain("104857600 UTF-8 bytes");
-		expect(
-			sandboxWorkflowJournalByteError(WORKFLOW_SANDBOX_LIMITS.journalBytes - 1, 0, 1),
-		).toBeNull();
-		expect(sandboxWorkflowJournalByteError(WORKFLOW_SANDBOX_LIMITS.journalBytes, 0, 1)).toContain(
+		expect(sandboxWorkflowJournalByteError(2, SANDBOX_LIMITS.journalBytes - 2, 0)).toBeNull();
+		expect(sandboxWorkflowJournalByteError(2, SANDBOX_LIMITS.journalBytes - 1, 0)).toContain(
+			"104857600 UTF-8 bytes",
+		);
+		expect(sandboxWorkflowJournalByteError(SANDBOX_LIMITS.journalBytes - 1, 0, 1)).toBeNull();
+		expect(sandboxWorkflowJournalByteError(SANDBOX_LIMITS.journalBytes, 0, 1)).toContain(
 			"104857600 UTF-8 bytes",
 		);
 	});

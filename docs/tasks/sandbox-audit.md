@@ -18,9 +18,9 @@ Host functions are assembled through `SandboxHostImplementations`, so orchestrat
 
 **Problem B — three-hop dispatch.** Workflow-owned callers previously used `processSandboxExecution` → resolution `Activity` → `RunSandboxWorkflow` → `DurableQueue.process(SandboxExecutionQueue)` → worker → `executeSandboxExecution` → `SandboxService.run`.
 
-`RunSandboxWorkflow` and `SandboxExecutionQueue` carried **the same** `idempotencyKey: ({executionId}) => executionId`, payload schema, error type, and success type. Workflow-owned callers now use a shared queue-processing helper directly. Top-level HTTP enqueue, plugin boot, and direct cron dispatch retain a narrowly scoped `SandboxSubmissionWorkflow` because `DurableQueue.process` requires a parent `WorkflowInstance` for durable result polling.
+`RunSandboxWorkflow` and `SandboxExecutionQueue` carried **the same** `idempotencyKey: ({executionId}) => executionId`, payload schema, error type, and success type. Workflow-owned callers use the queue only for local replay execution. Top-level HTTP enqueue, plugin boot, and cron dispatch now enter through `SandboxScriptWorkflow`.
 
-- [x] Remove `RunSandboxWorkflow` from workflow-owned callers, centralize queue timeout/retry behavior, and narrow the remaining top-level adapter to `SandboxSubmissionWorkflow`. Concurrency bounding remains the queue worker's job.
+- [x] Remove the submission wrappers, centralize replay queue behavior, and route every top-level sandbox dispatch through `SandboxScriptWorkflow`. Concurrency bounding remains the queue worker's job.
 
 ---
 
@@ -214,7 +214,7 @@ Confirmed by grep, non-test usage only:
 | Item                                          | Location                           | Note                                                                                                                              |
 | --------------------------------------------- | ---------------------------------- | --------------------------------------------------------------------------------------------------------------------------------- |
 | - [x] `scriptIsBuiltin`                       | shared.ts:17, durable-queues.ts:89 | Removed unused execution input and per-execution `repository.isPluginScript` query; resolution still uses that repository method. |
-| - [x] `RunSandboxWorkflowPayload`             | sandbox-submission-workflow.ts     | Removed redundant alias; `SandboxSubmissionWorkflow` uses `SandboxExecutionPayload` directly.                                     |
+| - [x] sandbox submission wrapper              | sandbox-submission-workflow.ts     | Deleted at the universal-runtime cutover; top-level dispatch now uses `SandboxScriptWorkflow`.                                    |
 | - [x] runner `for(;;)` + console save/restore | runner-source.sandbox.ts:503-583   | Runner now consumes one request and exits; integration harness no longer sends multiple payloads to one process.                  |
 | - [x] `Object.hasOwn` + null check            | runtime.ts:377-387                 | Explicit own-property and value guards reject prototype names and narrow indexed host-function access.                            |
 | - [x] `parseSandboxSession`                   | runtime.ts:100                     | Wrapper that only calls `decodeSandboxSession`. Moot if P1 lands.                                                                 |
