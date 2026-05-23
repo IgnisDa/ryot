@@ -83,7 +83,12 @@ export class SavedViewsRepository extends Context.Service<SavedViewsRepository>(
 						.where(eq(schema.savedView.userId, userId))
 						.orderBy(asc(schema.savedView.id)),
 				);
-				return rows.map(toListedSavedView);
+				return rows.map((row) =>
+					Object.assign(toListedSavedView(row), {
+						pluginInstallationId: row.pluginInstallationId,
+						entitySchemaPluginId: row.entitySchemaPluginId,
+					}),
+				);
 			});
 
 			const restoreCustomView = Effect.fn("SavedViewsRepository.restoreCustomView")(function* (
@@ -370,6 +375,22 @@ export class SavedViewsRepository extends Context.Service<SavedViewsRepository>(
 				);
 				return yield* Effect.void;
 			});
+
+			const restoreBuiltinViews = Effect.fn("SavedViewsRepository.restoreBuiltinViews")(function* (
+				userId: UserId,
+				views: ReadonlyArray<BuiltinSavedViewInput>,
+			) {
+				const db = yield* Database;
+				yield* Effect.forEach(
+					views,
+					(view) =>
+						mapDatabaseErrors(
+							db.insert(schema.savedView).values({ ...view, userId, isBuiltin: true }),
+						),
+					{ discard: true },
+				);
+			});
+
 			const deleteGeneratedByInstallation = Effect.fn(
 				"SavedViewsRepository.deleteGeneratedByInstallation",
 			)(function* (pluginInstallationId: string) {
@@ -397,6 +418,7 @@ export class SavedViewsRepository extends Context.Service<SavedViewsRepository>(
 				listForBackup,
 				restoreCustomView,
 				ensureBuiltinViews,
+				restoreBuiltinViews,
 				updateBuiltinStateBySlug,
 				deleteGeneratedByInstallation,
 			};

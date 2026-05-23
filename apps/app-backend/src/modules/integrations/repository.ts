@@ -7,7 +7,7 @@ import type {
 import type { IntegrationLot } from "@ryot/contract/modules/integrations/types";
 import type { ImportRunId } from "@ryot/contract/schema/brands";
 import { IntegrationId, UserId } from "@ryot/contract/schema/brands";
-import { and, desc, eq } from "drizzle-orm";
+import { and, asc, desc, eq } from "drizzle-orm";
 import { Context, Effect, Layer } from "effect";
 
 import { AppConfig } from "#lib/infrastructure/config/service";
@@ -216,6 +216,41 @@ export class IntegrationsRepository extends Context.Service<IntegrationsReposito
 				return rows.map((row) => normalizeIntegration(frontendUrl, row));
 			});
 
+			const listForBackup = Effect.fn("IntegrationsRepository.listForBackup")(function* (
+				userId: UserId,
+			) {
+				const db = yield* Database;
+				return yield* mapDatabaseErrors(
+					db
+						.select(integrationSelection)
+						.from(schema.integration)
+						.where(eq(schema.integration.userId, userId))
+						.orderBy(asc(schema.integration.id)),
+				);
+			});
+
+			const restoreForUser = Effect.fn("IntegrationsRepository.restoreForUser")(function* (input: {
+				readonly id: string;
+				readonly userId: UserId;
+				readonly createdAt: Date;
+				readonly updatedAt: Date;
+				readonly pluginSlug: string;
+				readonly lot: IntegrationLot;
+				readonly name: string | null;
+				readonly isDisabled: boolean;
+				readonly syncOwnership: boolean;
+				readonly minimumProgress: string;
+				readonly maximumProgress: string;
+				readonly lastFinishedAt: Date | null;
+				readonly pluginInstallationId: string;
+				readonly provider: IntegrationProvider;
+				readonly extraSettings: IntegrationExtraSettings;
+				readonly providerSpecifics: IntegrationProviderSettings;
+			}) {
+				const db = yield* Database;
+				yield* mapDatabaseErrors(db.insert(schema.integration).values(input));
+			});
+
 			const updateForUser = Effect.fn("IntegrationsRepository.updateForUser")(function* (input: {
 				userId: UserId;
 				integrationId: IntegrationId;
@@ -326,11 +361,13 @@ export class IntegrationsRepository extends Context.Service<IntegrationsReposito
 			return {
 				getForUser,
 				listForUser,
+				listForBackup,
 				createForUser,
+				hasAnyForUser,
 				updateForUser,
 				deleteForUser,
+				restoreForUser,
 				getByIdAnyUser,
-				hasAnyForUser,
 				hasAutoDisableClaim,
 				insertAutoDisableClaim,
 				disableForUserIfEnabled,

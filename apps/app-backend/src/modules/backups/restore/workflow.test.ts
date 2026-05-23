@@ -12,11 +12,12 @@ import {
 	makeWorkflowActivityEngine,
 	type MockOverrides,
 } from "#lib/test-utils/effect";
+import { PluginBackupRestore } from "#modules/plugins/backup-restore";
 import { UploadIntentsService } from "#modules/uploads/intents/service";
 import { ManagedAssetsService } from "#modules/uploads/managed-assets/service";
 import { ObjectStorageService } from "#modules/uploads/object-storage/service";
 
-import { createV1ArchiveStream } from "../archive-v1/archive";
+import { createV2ArchiveStream } from "../archive-v2/archive";
 import { BackupsRepository } from "../runs/repository";
 import { BackupAccountCleanliness } from "./account-cleanliness";
 import {
@@ -48,6 +49,7 @@ const runningRun = {
 
 const mockWriter = Layer.mock(BackupRestoreWriter);
 const mockRepository = Layer.mock(BackupsRepository);
+const mockPluginRestore = Layer.mock(PluginBackupRestore);
 const mockUploadIntents = Layer.mock(UploadIntentsService);
 const mockManagedAssets = Layer.mock(ManagedAssetsService);
 const mockObjectStorage = Layer.mock(ObjectStorageService);
@@ -58,6 +60,7 @@ const makeLayer = (input: {
 	writer?: MockOverrides<typeof mockWriter>;
 	fileSystem?: Layer.Layer<FileSystem.FileSystem>;
 	repository: MockOverrides<typeof mockRepository>;
+	pluginRestore?: MockOverrides<typeof mockPluginRestore>;
 	cleanliness?: MockOverrides<typeof mockCleanliness>;
 	uploadIntents?: MockOverrides<typeof mockUploadIntents>;
 	managedAssets?: MockOverrides<typeof mockManagedAssets>;
@@ -75,6 +78,18 @@ const makeLayer = (input: {
 				mockUploadIntents(input.uploadIntents ?? {}),
 				mockManagedAssets(input.managedAssets ?? {}),
 				mockObjectStorage(input.objectStorage ?? {}),
+				mockPluginRestore({
+					prepare: () => Effect.succeed([]),
+					persist: () => Effect.succeed(new Map()),
+					buildDefinitions: () =>
+						Effect.succeed({
+							savedViews: {},
+							entitySchemas: {},
+							signalSchemas: {},
+							relationshipSchemas: {},
+						}),
+					...input.pluginRestore,
+				}),
 			),
 		),
 	);
@@ -185,19 +200,21 @@ it.effect("completes before best-effort temporary cleanup", () => {
 
 it.effect("keeps a committed restore successful when spool cleanup fails", () => {
 	let committed = false;
-	const archive = createV1ArchiveStream({
+	const archive = createV2ArchiveStream({
 		assets: [],
 		redactions: [],
 		requiredPlugins: [],
 		archiveId: "archive-id",
-		appVersion: "backend-v1",
+		appVersion: "backend-v2",
 		createdAt: "2026-08-23T12:00:00.000Z",
 		events: { count: 0, bytes: 0, chunks: [], sha256: EMPTY_SHA256 },
 		records: {
 			entities: [],
 			savedViews: [],
-			pluginState: [],
+			integrations: [],
+			installations: [],
 			relationships: [],
+			privatePlugins: [],
 			entityDependencies: [],
 			notificationSubscriptions: [],
 			profile: { name: "User", image: null, preferences: {} },
@@ -238,7 +255,7 @@ it.effect("keeps a committed restore successful when spool cleanup fails", () =>
 					assertAccountIsClean: () => Effect.void.pipe(Effect.as(undefined)),
 				},
 				writer: {
-					assertRequiredPlugins: () => Effect.void.pipe(Effect.as(undefined)),
+					assertRequiredPlugins: () => Effect.succeed(new Map()),
 					restoreRecords: () => Effect.void.pipe(Effect.as(undefined)),
 				},
 				objectStorage: {
@@ -249,6 +266,82 @@ it.effect("keeps a committed restore successful when spool cleanup fails", () =>
 							),
 						),
 					selectStorageProvider: () => Effect.succeed("local" as const),
+				},
+			}),
+		),
+	);
+});
+
+it.effect("stops before plugin persistence and asset staging when package preflight fails", () => {
+	let staged = false;
+	let persisted = false;
+	const asset = new TextEncoder().encode("unstaged asset");
+	const sha256 = new CryptoHasher("sha256").update(asset).digest("hex");
+	const archive = createV2ArchiveStream({
+		redactions: [],
+		requiredPlugins: [],
+		archiveId: "archive-id",
+		appVersion: "backend-v2",
+		createdAt: "2026-08-23T12:00:00.000Z",
+		events: { count: 0, bytes: 0, chunks: [], sha256: EMPTY_SHA256 },
+		records: {
+			entities: [],
+			savedViews: [],
+			integrations: [],
+			installations: [],
+			relationships: [],
+			privatePlugins: [],
+			entityDependencies: [],
+			notificationSubscriptions: [],
+			profile: { name: "User", image: null, preferences: {} },
+		},
+		assets: [
+			{
+				chunks: [asset],
+				metadata: {
+					sha256,
+					size: asset.byteLength,
+					path: `assets/${sha256}`,
+					contentType: "application/octet-stream",
+				},
+			},
+		],
+	});
+	return Effect.gen(function* () {
+		const operations = yield* RestoreBackupWorkflowOperations;
+		yield* operations
+			.restore(payload, { provider: "local", intentId: "intent-id", key: "temporary/archive.zip" })
+			.pipe(Effect.flip);
+		expect(persisted).toBe(false);
+		expect(staged).toBe(false);
+	}).pipe(
+		Effect.provide(
+			makeLayer({
+				database: { transaction: () => Effect.die("preflight failure reached persistence") },
+				repository: { getRunById: () => Effect.succeed(runningRun) },
+				writer: { assertRequiredPlugins: () => Effect.succeed(new Map()) },
+				pluginRestore: {
+					prepare: () => Effect.fail(new BadRequest({ message: "Plugin compilation failed" })),
+					persist: () =>
+						Effect.sync(() => {
+							persisted = true;
+							return new Map();
+						}),
+				},
+				managedAssets: {
+					stageContentAddressedPermanentAsset: () =>
+						Effect.sync(() => {
+							staged = true;
+							return Effect.die("package failure staged an asset");
+						}).pipe(Effect.flatten),
+				},
+				objectStorage: {
+					openObject: () =>
+						Effect.succeed(
+							archive.pipe(
+								Stream.mapError(() => new BadRequest({ message: "archive stream failed" })),
+							),
+						),
 				},
 			}),
 		),
@@ -300,18 +393,20 @@ it.effect("rolls back managed assets and domain rows and removes newly staged ob
 	const managedAssets = new Set<string>();
 	const domainRows = new Set<string>();
 	const createdAt = new Date(0);
-	const archive = createV1ArchiveStream({
+	const archive = createV2ArchiveStream({
 		redactions: [],
 		requiredPlugins: [],
 		archiveId: "archive-id",
-		appVersion: "backend-v1",
+		appVersion: "backend-v2",
 		createdAt: "2026-08-23T12:00:00.000Z",
 		events: { count: 0, bytes: 0, chunks: [], sha256: EMPTY_SHA256 },
 		records: {
 			entities: [],
 			savedViews: [],
-			pluginState: [],
+			integrations: [],
+			installations: [],
 			relationships: [],
+			privatePlugins: [],
 			entityDependencies: [],
 			notificationSubscriptions: [],
 			profile: { name: "User", image: null, preferences: {} },
@@ -362,15 +457,15 @@ it.effect("rolls back managed assets and domain rows and removes newly staged ob
 		Effect.provide(
 			makeLayer({
 				database,
+				cleanliness: {
+					assertAccountIsClean: () => Effect.void.pipe(Effect.as(undefined)),
+				},
 				repository: {
 					getRunById: () => Effect.succeed(runningRun),
 					updateProgress: () => Effect.die("failed transaction must not checkpoint"),
 				},
-				cleanliness: {
-					assertAccountIsClean: () => Effect.void.pipe(Effect.as(undefined)),
-				},
 				writer: {
-					assertRequiredPlugins: () => Effect.void.pipe(Effect.as(undefined)),
+					assertRequiredPlugins: () => Effect.succeed(new Map()),
 					restoreRecords: () =>
 						Effect.sync(() => domainRows.add("domain-row")).pipe(
 							Effect.andThen(

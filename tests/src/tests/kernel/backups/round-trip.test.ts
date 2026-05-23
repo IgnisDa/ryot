@@ -30,7 +30,6 @@ import {
 	pollProviderEntityImportResult,
 	providerSandboxSource,
 	queryInLibraryRelationship,
-	replaceSandboxScriptCompiledRepresentation,
 	requireRows,
 	requireRyotQLText,
 	requireRyotQLValue,
@@ -99,17 +98,12 @@ const getRelationship = (client: Client, relationshipId: string) =>
 describe("backup export and restore round trip", () => {
 	it.live("restores portable user state into a clean account exactly once", () =>
 		Effect.gen(function* () {
-			const source = yield* createAuthenticatedClient();
-			const target = yield* createAuthenticatedClient();
+			const setup = yield* createAuthenticatedClient();
 			const suffix = crypto.randomUUID();
 			const pluginSlug = createPluginScope(`backup-round-trip-${suffix}`);
 			const entitySchemaSlug = `backup-entity-${suffix}`;
 			const eventSchemaSlug = `backup-event-${suffix}`;
 			const relationshipSchemaSlug = `backup-relationship-${suffix}`;
-			const sourceLibraryId = yield* getLibraryId(source.client);
-			const targetLibraryId = yield* getLibraryId(target.client);
-			expect(targetLibraryId).not.toBe(sourceLibraryId);
-
 			const entityPropertiesSchema = {
 				fields: {
 					details: {
@@ -146,13 +140,13 @@ describe("backup export and restore round trip", () => {
 					},
 				},
 			};
-			const entitySchema = yield* createEntitySchema(source.client, {
+			const entitySchema = yield* createEntitySchema(setup.client, {
 				pluginSlug,
 				slug: entitySchemaSlug,
 				name: "Backup Round Trip Entity",
 				propertiesSchema: entityPropertiesSchema,
 			});
-			const eventSchema = yield* createEventSchema(source.client, {
+			const eventSchema = yield* createEventSchema(setup.client, {
 				entitySchemaSlug: entitySchema.schemaId,
 				name: "Backup Round Trip Event",
 				slug: eventSchemaSlug,
@@ -174,7 +168,7 @@ describe("backup export and restore round trip", () => {
 					},
 				},
 			});
-			const relationshipSchema = yield* createRelationshipSchema(source.client, {
+			const relationshipSchema = yield* createRelationshipSchema(setup.client, {
 				slug: relationshipSchemaSlug,
 				name: "Backup Round Trip Relationship",
 				sourceEntitySchemaSlug: entitySchema.schemaId,
@@ -191,6 +185,11 @@ describe("backup export and restore round trip", () => {
 					},
 				},
 			});
+			const source = yield* createAuthenticatedClient();
+			const target = yield* createAuthenticatedClient();
+			const sourceLibraryId = yield* getLibraryId(source.client);
+			const targetLibraryId = yield* getLibraryId(target.client);
+			expect(targetLibraryId).not.toBe(sourceLibraryId);
 
 			const firstProperties = {
 				details: {
@@ -384,9 +383,6 @@ describe("backup export and restore round trip", () => {
 
 	it.live("maps an existing global provider entity by portable natural identity", () =>
 		Effect.gen(function* () {
-			const source = yield* createAuthenticatedClient();
-			const target = yield* createAuthenticatedClient();
-			const updater = yield* createAuthenticatedClient();
 			const suffix = crypto.randomUUID();
 			const externalId = `backup-provider-entity-${suffix}`;
 			const pluginSlug = `backup-provider-plugin-${suffix}`;
@@ -395,7 +391,6 @@ describe("backup export and restore round trip", () => {
 			const detailsScriptSlug = `${providerSlug}.details`;
 			const detailsEntry = `scripts/${detailsScriptSlug}.sandbox.ts`;
 			const archivedProperties = { description: "Archived provider state" };
-			const currentProperties = { description: "Current provider state" };
 			const installProvider = (name: string, properties: { description: string }) => {
 				const scriptSource = providerSandboxSource({
 					operation: "details",
@@ -448,6 +443,9 @@ describe("backup export and restore round trip", () => {
 				});
 			};
 			yield* installProvider("Archived Provider Entity", archivedProperties);
+			const source = yield* createAuthenticatedClient();
+			const target = yield* createAuthenticatedClient();
+			const updater = yield* createAuthenticatedClient();
 			const installedSchema = yield* getEntitySchema(source.client, entitySchemaSlug);
 			const providerId = requirePresent(
 				installedSchema.providers[0]?.providerId,
@@ -472,46 +470,14 @@ describe("backup export and restore round trip", () => {
 			const { bytes } = yield* exportAndDownloadBackup(source.client, source.cookies);
 			yield* deleteUserAndWait(source.userId);
 
-			const reinstalled = yield* installProvider("Current Provider Entity", currentProperties);
-			const reinstalledSchema = yield* getEntitySchema(updater.client, entitySchemaSlug);
-			const reinstalledProviderId = requirePresent(
-				reinstalledSchema.providers[0]?.providerId,
-				"Reinstalled backup provider ID is missing",
-			);
-			expect(reinstalledProviderId).toBe(providerId);
-			const currentImport = yield* enqueueProviderEntityImport(updater.client, {
-				externalId,
-				providerId: reinstalledProviderId,
-			});
-			const currentResult = yield* pollProviderEntityImportResult(
-				updater.client,
-				currentImport.jobId,
-			);
-			assertCompleted(currentResult, "current provider entity import");
-			expect(currentResult.data.id).toBe(archivedResult.data.id);
-			const existingBeforeRestore = yield* getEntity(updater.client, currentResult.data.id);
-			const detailsScriptId = requirePresent(
-				reinstalled.scriptIds[detailsScriptSlug],
-				"Reinstalled provider details script ID is missing",
-			);
-			yield* replaceSandboxScriptCompiledRepresentation(
-				updater.client,
-				detailsScriptId,
-				providerSandboxSource({
-					operation: "details",
-					slug: `${providerSlug}.details`,
-					name: "Failing Backup Provider details",
-					executionFailure: "backup restore must not execute provider details",
-					result: fakeProviderDetailsResult({ name: "Must Not Be Applied", properties: {} }),
-				}),
-			);
+			const existingBeforeRestore = yield* getEntity(updater.client, archivedResult.data.id);
 
 			const restored = yield* restoreBackup(target.client, bytes);
 			assertCompleted(restored.run, "provider natural-identity restore");
 			const globalEntity = yield* getGlobalEntityByProvenance(target.client, {
 				externalId,
 				entitySchemaSlug,
-				providerId: reinstalledProviderId,
+				providerId,
 			});
 			expect(globalEntity).toMatchObject({
 				id: archivedResult.data.id,

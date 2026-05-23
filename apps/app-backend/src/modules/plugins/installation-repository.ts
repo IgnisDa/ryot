@@ -26,10 +26,10 @@ export type PluginInstallationState = PluginInstallationRow & {
 	readonly pluginScope: "system" | "user";
 };
 
-type RestoreInstallationInput = Omit<
-	PluginInstallationRow,
-	"userId" | "health" | "healthReason"
-> & { readonly userId: UserId };
+type RestoreInstallationInput = Omit<PluginInstallationRow, "userId" | "healthReason"> & {
+	readonly userId: UserId;
+	readonly preserveExistingConfig: boolean;
+};
 
 const provisionSystemInstallations = (
 	userId: UserId | null,
@@ -268,28 +268,60 @@ export class PluginInstallationRepository extends Context.Service<PluginInstalla
 				return rows satisfies ReadonlyArray<PluginPrivateInstallationRow>;
 			});
 
-			// TODO(plugins): Task 09 owns archive format v2; this upsert last-wins on duplicate archive
-			// entries for one plugin instead of rejecting them.
 			const restore = Effect.fn("PluginInstallationRepository.restore")(function* (
 				input: RestoreInstallationInput,
 			) {
 				const db = yield* Database;
-				yield* mapDatabaseErrors(
+				const { preserveExistingConfig, ...values } = input;
+				const [row] = yield* mapDatabaseErrors(
 					db
 						.insert(schema.pluginInstallation)
-						.values(input)
+						.values(values)
 						.onConflictDoUpdate({
 							target: [schema.pluginInstallation.userId, schema.pluginInstallation.pluginId],
 							set: {
-								config: input.config,
+								healthReason: null,
+								...(preserveExistingConfig ? {} : { config: input.config }),
+								health: input.health,
 								sortOrder: input.sortOrder,
 								createdAt: input.createdAt,
 								updatedAt: input.updatedAt,
 								isDisabled: input.isDisabled,
 							},
-						}),
+						})
+						.returning(),
 				);
+				return row;
 			});
+
+			const activateRestored = Effect.fn("PluginInstallationRepository.activateRestored")(
+				function* (input: {
+					readonly id: string;
+					readonly updatedAt: Date;
+					readonly isDisabled: boolean;
+					readonly health: "ready" | "needs-configuration";
+				}) {
+					const db = yield* Database;
+					const [row] = yield* mapDatabaseErrors(
+						db
+							.update(schema.pluginInstallation)
+							.set({
+								health: input.health,
+								updatedAt: input.updatedAt,
+								healthReason: null,
+								isDisabled: input.isDisabled,
+							})
+							.where(
+								and(
+									eq(schema.pluginInstallation.id, input.id),
+									eq(schema.pluginInstallation.health, "installing"),
+								),
+							)
+							.returning({ id: schema.pluginInstallation.id }),
+					);
+					return row !== undefined;
+				},
+			);
 
 			return {
 				create,
@@ -299,6 +331,7 @@ export class PluginInstallationRepository extends Context.Service<PluginInstalla
 				updateState,
 				upsertState,
 				updateHealth,
+				activateRestored,
 				listSystemForUser,
 				findByUserAndPlugin,
 				listPendingLifecycle,

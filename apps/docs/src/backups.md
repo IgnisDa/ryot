@@ -11,6 +11,7 @@ A backup includes your:
 - Media, fitness, measurement, and collection data.
 - History, reviews, workouts, and other activity.
 - Custom views and notification preferences.
+- Integrations and their non-secret settings.
 - Uploaded images, videos, and other files managed by Ryot.
 
 Ryot also includes the information needed to identify catalog items without contacting their
@@ -21,7 +22,7 @@ providers during a restore.
 A backup does not include:
 
 - Passwords, sign-in sessions, connected accounts, or API keys.
-- Integrations or notification destinations.
+- Integration credentials or notification destination secrets.
 - Server settings and background task history.
 - Files linked from other websites.
 
@@ -53,11 +54,15 @@ safe place. A backup can contain private history and copies of files you uploade
 A backup can only be restored to a clean account. A clean account is new or has been reset and
 contains no personal data or custom settings.
 
-The archive records the exact required plugin version for each plugin. Every required plugin must
-be installed on the destination server at the same version; a missing plugin or version mismatch
-causes the restore to fail. This also applies to plugins referenced by the archived state or data.
-Ryot does not install or upgrade plugins during restore. You do not need to configure integrations
-again until after the restore.
+The archive records the exact version and source hash for each required system plugin. Every system
+requirement must match the destination server. Private plugins owned by the account are included as
+canonical manifests and complete source packages. Ryot validates and compiles them before restore.
+
+Plugin configuration and integration setting fields marked as secrets in the manifest are omitted.
+The archive records which secret fields were configured, but never their values. A restored plugin
+that lacks a required secret stays inactive with `needs-configuration` health; an integration missing
+a required secret is restored disabled. Plugin source is user-authored data and can contain embedded
+credentials; Ryot cannot reliably redact secrets written directly in source files.
 
 To restore, open _Settings_ → _Backups_ on the destination account, choose _Restore from a
 backup_, and upload the `.zip` archive. Ryot checks the archive before it writes anything, so a
@@ -69,9 +74,9 @@ Restore is separate from importing. Do not upload a Ryot backup through the Impo
 ## Archive compatibility
 
 The backup is a versioned Ryot archive, not an arbitrary ZIP file. The current portable format is
-`ryot-backup` version 1. Ryot validates its manifest, section checksums, paths, record counts, and
+`ryot-backup` version 2. Ryot validates its manifest, section checksums, paths, record counts, and
 asset checksums, and rejects an unsupported format or version. Restore compatibility therefore
-requires a valid version-1 archive and the exact plugin versions declared in its manifest.
+requires a valid version-2 archive and the exact system plugin requirements declared in its manifest.
 
 After a successful restore, the account is no longer clean, so the same or another backup cannot
 be restored again without resetting the account first.
