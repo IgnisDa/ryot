@@ -105,7 +105,7 @@ jobs:
       - name: Set up Bun
         uses: oven-sh/setup-bun@4bc047ad259df6fc24a6c9b0f9a0cb08cf17fbe5
         with:
-          bun-version: "1.3.9"
+          bun-version: "1.3.14"
       - name: Install dependencies
         run: bun install --frozen-lockfile
       - name: Build emails
@@ -279,7 +279,7 @@ jobs:
       - name: Set up Bun
         uses: oven-sh/setup-bun@4bc047ad259df6fc24a6c9b0f9a0cb08cf17fbe5
         with:
-          bun-version: "1.3.9"
+          bun-version: "1.3.14"
       - name: Install dependencies
         run: bun install --frozen-lockfile
       - name: Build browser extensions
@@ -305,7 +305,7 @@ jobs:
       - name: Set up Bun
         uses: oven-sh/setup-bun@4bc047ad259df6fc24a6c9b0f9a0cb08cf17fbe5
         with:
-          bun-version: "1.3.9"
+          bun-version: "1.3.14"
       - name: Install dependencies
         run: bun install --frozen-lockfile
       - name: Build documentation
