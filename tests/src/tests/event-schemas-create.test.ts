@@ -89,9 +89,6 @@ describe("POST /event-schemas", () => {
 			entitySchemaId,
 			name: "First Event",
 			slug: "duplicate-event-slug",
-			propertiesSchema: {
-				fields: { note: { type: "string", label: "Note", description: "Note" } },
-			},
 		});
 
 		const error = await client.runError((c) =>

@@ -39,7 +39,6 @@ describe("Relationship includes", () => {
 		const relationshipSchema = await createRelationshipSchema(client, {
 			name: "Where Course Module",
 			slug: relationshipSlug,
-			propertiesSchema: { fields: {} },
 			sourceEntitySchemaId: courseSchemaId,
 			targetEntitySchemaId: moduleSchemaId,
 		});

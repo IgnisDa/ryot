@@ -173,9 +173,6 @@ describe("POST /user-state/merge", () => {
 			entitySchemaId: schemaId,
 			name: "Merged Event",
 			slug: `merged-event-${crypto.randomUUID()}`,
-			propertiesSchema: {
-				fields: { note: { label: "Note", type: "string", description: "Merge note" } },
-			},
 		});
 		const source = await createEntity(client, {
 			image: null,
