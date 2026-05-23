@@ -3,15 +3,8 @@ export {
 	entityImportJobData,
 	entityImportJobName,
 	entityImportWaitingForSandboxStep,
+	entityPreloadImportJobName,
 } from "./jobs";
-export {
-	createGlobalEntity,
-	findGlobalEntityByExternalId,
-	getEntitySchemaScopeForUser,
-	getUserLibraryEntityId,
-	updateGlobalEntityById,
-	upsertInLibraryRelationship,
-} from "./repository";
 export type {
 	CreateEntityBody,
 	ImportEntityBody,
@@ -20,6 +13,7 @@ export type {
 } from "./schemas";
 export { listedEntitySchema } from "./schemas";
 export type {
+	EnsureEntityInLibraryDeps,
 	EntityImportDeps,
 	EntityServiceDeps,
 	EntityServiceResult,
@@ -28,6 +22,7 @@ export type {
 } from "./service";
 export {
 	createEntity,
+	ensureEntityInLibrary,
 	getEntityDetail,
 	getEntityImportResult,
 	importEntity,
@@ -37,7 +32,6 @@ export {
 	resolveEntityId,
 	resolveEntityName,
 	resolveEntitySchemaId,
-	upsertInLibraryIfGlobal,
 	writeEntityRelationship,
 	writeRelationship,
 } from "./service";
