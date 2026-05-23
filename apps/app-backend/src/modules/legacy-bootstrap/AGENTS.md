@@ -40,7 +40,7 @@ Everything else must throw. Do not add new `RETURN` statements inside DO blocks 
 
 ## Ignored For Now (metadata_group)
 
-- `metadata_group_to_person`: migrated for music and video game groups only (`person-to-music-group`, `person-to-video-game-group`). Other group lots (`anime`, `manga`, `show`, `podcast`, `visual_novel`) are skipped because no V2 group entity schemas exist for them.
+- `metadata_group_to_person`: migrated for music and video game groups only (`person-to-music-group`, `person-to-video-game-group`). Other group lots (`anime`, `manga`, `show`, `podcast`, `visual_novel`) are skipped because they do not make any product sense and no V2 group entity schemas exist for them.
 - Group `properties` fields (`parts`, `description`, `source_url`): deferred to re-population from the source provider, matching the same decision made for `metadata`.
 - Metadata groups for lots without V2 group entity schemas (`anime`, `manga`, `show`, `podcast`, `visual_novel`): silently skipped, no V2 schema exists for them.
 
