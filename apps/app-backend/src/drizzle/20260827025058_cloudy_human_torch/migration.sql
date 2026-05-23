@@ -96,6 +96,7 @@ CREATE TABLE "event" (
 --> statement-breakpoint
 CREATE TABLE "import_run" (
 	"total_items" integer,
+	"integration_lot" text,
 	"progress" integer DEFAULT 0 NOT NULL,
 	"source" text NOT NULL,
 	"failed_items" integer DEFAULT 0 NOT NULL,
@@ -442,6 +443,7 @@ CREATE INDEX "event_user_session_order_idx" ON "event" ("user_id","session_entit
 CREATE INDEX "import_run_user_id_created_at_idx" ON "import_run" ("user_id","created_at" DESC NULLS LAST);--> statement-breakpoint
 CREATE INDEX "import_run_integration_id_created_at_idx" ON "import_run" ("integration_id","created_at" DESC NULLS LAST);--> statement-breakpoint
 CREATE INDEX "import_run_plugin_installation_id_idx" ON "import_run" ("plugin_installation_id");--> statement-breakpoint
+CREATE UNIQUE INDEX "import_run_integration_active_unique" ON "import_run" ("integration_id") WHERE "integration_lot" = 'yank' and "status" in ('pending', 'running');--> statement-breakpoint
 CREATE INDEX "import_run_failure_run_id_created_at_idx" ON "import_run_failure" ("run_id","created_at");--> statement-breakpoint
 CREATE INDEX "integration_user_id_created_at_idx" ON "integration" ("user_id","created_at" DESC NULLS LAST);--> statement-breakpoint
 CREATE INDEX "integration_user_id_provider_idx" ON "integration" ("user_id","provider");--> statement-breakpoint
