@@ -1,7 +1,10 @@
 import type { AppSchema } from "@ryot/ts-utils/app-schema";
 import { normalizeSlug } from "@ryot/ts-utils/slug";
 
-import { builtinMediaEntitySchemaSlugs } from "~/lib/media/constants";
+import {
+	builtinMediaEntitySchemaSlugs,
+	builtinNonGroupMediaEntitySchemaSlugs,
+} from "~/lib/media/constants";
 
 type BuiltinRelationshipSchema = {
 	slug: string;
@@ -37,8 +40,9 @@ const buildCreditRelationshipSchemas = (input: {
 	rolesDescription: string;
 	rolesItemDescription: string;
 	characterDescription?: string;
+	targetEntitySchemaSlugs?: string[];
 }) =>
-	builtinMediaEntitySchemaSlugs.map((mediaSlug) => ({
+	(input.targetEntitySchemaSlugs ?? builtinMediaEntitySchemaSlugs).map((mediaSlug) => ({
 		sourceEntitySchemaSlug: input.sourceSlug,
 		targetEntitySchemaSlug: mediaSlug,
 		slug: normalizeSlug(`${input.sourceSlug} to ${mediaSlug}`),
@@ -104,6 +108,7 @@ export const builtinRelationshipSchemas = (): BuiltinRelationshipSchema[] => [
 	},
 	...buildCreditRelationshipSchemas({
 		sourceSlug: "person",
+		targetEntitySchemaSlugs: builtinNonGroupMediaEntitySchemaSlugs,
 		characterDescription: "Character played by this person in this production",
 		orderDescription: "Display order of this person in the production credits",
 		rolesItemDescription: "A specific role name (e.g. Director, Actor, Writer)",
@@ -111,11 +116,62 @@ export const builtinRelationshipSchemas = (): BuiltinRelationshipSchema[] => [
 	}),
 	...buildCreditRelationshipSchemas({
 		sourceSlug: "company",
+		targetEntitySchemaSlugs: builtinNonGroupMediaEntitySchemaSlugs,
 		orderDescription: "Display order of this company in the production credits",
 		rolesItemDescription: "A specific role name (e.g. Developer, Publisher, Studio)",
 		rolesDescription:
 			"Roles this company filled in this production (e.g. Developer, Publisher, Studio)",
 	}),
+	{
+		slug: "person-to-music-group",
+		name: "Person to Music Group",
+		sourceEntitySchemaSlug: "person",
+		targetEntitySchemaSlug: "music-group",
+		propertiesSchema: {
+			fields: {
+				order: {
+					label: "Order",
+					type: "number" as const,
+					description: "Display order of this person in the group credits",
+				},
+				roles: {
+					label: "Roles",
+					type: "array" as const,
+					description: "Roles this person filled in this group (e.g. Artist)",
+					items: {
+						label: "Role",
+						type: "string" as const,
+						description: "A specific role name (e.g. Artist)",
+					},
+				},
+			},
+		},
+	},
+	{
+		sourceEntitySchemaSlug: "person",
+		slug: "person-to-video-game-group",
+		name: "Person to Video Game Group",
+		targetEntitySchemaSlug: "video-game-group",
+		propertiesSchema: {
+			fields: {
+				order: {
+					label: "Order",
+					type: "number" as const,
+					description: "Display order of this person in the group credits",
+				},
+				roles: {
+					label: "Roles",
+					type: "array" as const,
+					description: "Roles this person filled in this group (e.g. Developer)",
+					items: {
+						label: "Role",
+						type: "string" as const,
+						description: "A specific role name (e.g. Developer)",
+					},
+				},
+			},
+		},
+	},
 	...(
 		[
 			{ group: "book-group", media: "book", name: "Book Series to Book" },

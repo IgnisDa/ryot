@@ -15,6 +15,10 @@ export const builtinMediaEntitySchemaSlugs = Array.from(
 	new Set(builtinMediaEntitySchemaSlugValues),
 );
 
+export const builtinNonGroupMediaEntitySchemaSlugs = Array.from(
+	new Set(entitySchemaScriptLinks().map((link) => link.schemaSlug)),
+);
+
 export const builtinMediaEntitySchemaSlugSet: ReadonlySet<BuiltinMediaEntitySchemaSlug> = new Set(
 	builtinMediaEntitySchemaSlugs,
 );
