@@ -8,7 +8,7 @@ import { TrackerId } from "@ryot/app-backend/schema/brands";
 import { requirePresent } from "../test-support/assertions";
 import type { Client } from "./auth";
 import type { ContractPayload, ContractSuccess } from "./contract-client";
-import { systemRef } from "./query-engine";
+import { systemRef } from "./query-engine-core";
 import { type ExpressionInput, entityField, toRequiredExpression } from "./view-language";
 
 type CardDisplayConfiguration = DisplayConfiguration["grid"];

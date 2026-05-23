@@ -1,17 +1,24 @@
 import { describe, expect, it } from "bun:test";
 
-import { EntityId } from "@ryot/app-backend/schema/brands";
-
 import {
 	createAuthenticatedClient,
 	createBuiltinMediaLifecycleFixture,
 	createEventTestFixture,
 	createRuleEventFixture,
+	listEventsForEntity,
 	waitForEventCount,
 } from "../fixtures";
 import { assertTaggedError } from "../test-support/assertions";
 
 describe("Events bulk POST", () => {
+	it("requires a scope when listing events", async () => {
+		const { client: apiClient } = await createAuthenticatedClient();
+
+		const error = await apiClient.runError((c) => c.events.list({ urlParams: {} }));
+
+		assertTaggedError(error, "BadRequest");
+	});
+
 	it("creates multiple events and returns the count", async () => {
 		const { client: apiClient } = await createAuthenticatedClient();
 		const { entityId, eventSchemaId } = await createEventTestFixture(apiClient);
@@ -87,16 +94,6 @@ describe("Events bulk POST", () => {
 		]);
 	});
 
-	it("returns 404 when listing events for a non-existent entity", async () => {
-		const { client: apiClient } = await createAuthenticatedClient();
-
-		const error = await apiClient.runError((c) =>
-			c.events.list({ urlParams: { entityId: EntityId.make(crypto.randomUUID()) } }),
-		);
-
-		assertTaggedError(error, "NotFound");
-	});
-
 	it("persists events and they appear in the list", async () => {
 		const { client: apiClient } = await createAuthenticatedClient();
 		const { entityId, eventSchemaId } = await createEventTestFixture(apiClient);
@@ -140,22 +137,22 @@ describe("Events bulk POST", () => {
 
 		await waitForEventCount(apiClient, entityId, 2);
 
-		const allEvents = await apiClient.run((c) => c.events.list({ urlParams: { entityId } }));
+		const allEvents = await listEventsForEntity(apiClient, entityId);
 		expect(allEvents).toHaveLength(2);
 
-		const progressEvents = await apiClient.run((c) =>
-			c.events.list({ urlParams: { entityId, eventSchemaSlug: "progress" } }),
-		);
+		const progressEvents = await listEventsForEntity(apiClient, entityId, {
+			eventSchemaSlug: "progress",
+		});
 		expect(progressEvents.map((event) => event.eventSchemaSlug)).toEqual(["progress"]);
 
-		const completeEvents = await apiClient.run((c) =>
-			c.events.list({ urlParams: { entityId, eventSchemaSlug: "complete" } }),
-		);
+		const completeEvents = await listEventsForEntity(apiClient, entityId, {
+			eventSchemaSlug: "complete",
+		});
 		expect(completeEvents.map((event) => event.eventSchemaSlug)).toEqual(["complete"]);
 
-		const missingEvents = await apiClient.run((c) =>
-			c.events.list({ urlParams: { entityId, eventSchemaSlug: "nonexistent" } }),
-		);
+		const missingEvents = await listEventsForEntity(apiClient, entityId, {
+			eventSchemaSlug: "nonexistent",
+		});
 		expect(missingEvents).toEqual([]);
 	});
 });
