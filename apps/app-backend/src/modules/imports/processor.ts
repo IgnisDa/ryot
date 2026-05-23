@@ -6,8 +6,11 @@ import { cleanupImportFile, resolveSafeImportFilePath, validateFileExtension } f
 import type { ImportEntityRef, ImportMediaEntityGroup, ImportRunJobData } from "./jobs";
 import { getImportRunById, updateImportRun } from "./repository";
 import { getKnownImportExtensions } from "./source-config";
+import { processGoodreadsImport } from "./sources/goodreads/processor";
+import { processHardcoverImport } from "./sources/hardcover/processor";
 import { processHevyImport } from "./sources/hevy/processor";
 import { processOpenScaleImport } from "./sources/open-scale/processor";
+import { processStorygraphImport } from "./sources/storygraph/processor";
 import { processStrongAppImport } from "./sources/strong-app/processor";
 import { processTraktImport } from "./sources/trakt/processor";
 
@@ -124,10 +127,61 @@ export const processImportJob = async (input: {
 	}
 
 	try {
-		if (run.source === "hevy") {
+		if (run.source === "goodreads") {
+			await processGoodreadsImport(input.job, input.token, {
+				runId,
+				userId,
+				filePath: safePath,
+				importStep: input.importStep,
+				mediaEntityGroups: input.mediaEntityGroups,
+				providerEntityIds: input.providerEntityIds,
+				providerEntityRefs: input.providerEntityRefs,
+				providerEntityIndex: input.providerEntityIndex,
+				adapterFailureCount: input.adapterFailureCount,
+				providerSandboxJobId: input.providerSandboxJobId,
+				mediaWriteGroupIndex: input.mediaWriteGroupIndex,
+				providerFailedIndices: input.providerFailedIndices,
+				mediaWriteFailedItems: input.mediaWriteFailedItems,
+				mediaWriteImportedItems: input.mediaWriteImportedItems,
+			});
+		} else if (run.source === "hardcover") {
+			await processHardcoverImport(input.job, input.token, {
+				runId,
+				userId,
+				filePath: safePath,
+				importStep: input.importStep,
+				mediaEntityGroups: input.mediaEntityGroups,
+				providerEntityIds: input.providerEntityIds,
+				providerEntityRefs: input.providerEntityRefs,
+				providerEntityIndex: input.providerEntityIndex,
+				adapterFailureCount: input.adapterFailureCount,
+				providerSandboxJobId: input.providerSandboxJobId,
+				mediaWriteGroupIndex: input.mediaWriteGroupIndex,
+				providerFailedIndices: input.providerFailedIndices,
+				mediaWriteFailedItems: input.mediaWriteFailedItems,
+				mediaWriteImportedItems: input.mediaWriteImportedItems,
+			});
+		} else if (run.source === "hevy") {
 			await processHevyImport({ runId, userId, filePath: safePath });
 		} else if (run.source === "open_scale") {
 			await processOpenScaleImport({ runId, userId, filePath: safePath });
+		} else if (run.source === "storygraph") {
+			await processStorygraphImport(input.job, input.token, {
+				runId,
+				userId,
+				filePath: safePath,
+				importStep: input.importStep,
+				mediaEntityGroups: input.mediaEntityGroups,
+				providerEntityIds: input.providerEntityIds,
+				providerEntityRefs: input.providerEntityRefs,
+				providerEntityIndex: input.providerEntityIndex,
+				adapterFailureCount: input.adapterFailureCount,
+				providerSandboxJobId: input.providerSandboxJobId,
+				mediaWriteGroupIndex: input.mediaWriteGroupIndex,
+				providerFailedIndices: input.providerFailedIndices,
+				mediaWriteFailedItems: input.mediaWriteFailedItems,
+				mediaWriteImportedItems: input.mediaWriteImportedItems,
+			});
 		} else if (run.source === "strong_app") {
 			await processStrongAppImport({ runId, userId, filePath: safePath });
 		} else {
@@ -139,6 +193,9 @@ export const processImportJob = async (input: {
 			});
 		}
 	} catch (error) {
+		if (error instanceof WaitingChildrenError) {
+			throw error;
+		}
 		const message = sanitizeErrorMessage(error, "Import job failed unexpectedly");
 		try {
 			await updateImportRun({

@@ -2,8 +2,11 @@ import type { CreateImportRunBody } from "./schemas";
 
 export const allowedExtensionsBySource = {
 	hevy: ["csv"],
+	goodreads: ["csv"],
+	hardcover: ["csv"],
 	open_scale: ["csv"],
 	strong_app: ["csv"],
+	storygraph: ["csv"],
 } satisfies Partial<Record<CreateImportRunBody["source"], string[]>>;
 
 export const getKnownImportExtensions = () => [
