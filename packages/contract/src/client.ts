@@ -19,19 +19,20 @@ export type ContractProgram<A, E> = (client: ContractClient) => Effect.Effect<A,
 
 export interface RunContractOptions {
 	baseUrl: string;
+	signal?: AbortSignal;
 	headers?: RequestHeaders;
 	credentials?: RequestCredentials;
 }
 
 export const runContract = <A, E>(
 	program: ContractProgram<A, E>,
-	{ baseUrl, headers = {}, credentials }: RunContractOptions,
+	{ baseUrl, headers = {}, credentials, signal }: RunContractOptions,
 ): Promise<A> => {
 	const program$ = makeContractClient(baseUrl, headers).pipe(Effect.flatMap(program));
 	const provisioned = credentials
 		? program$.pipe(Effect.provideService(FetchHttpClient.RequestInit, { credentials }))
 		: program$;
-	return provisioned.pipe(Effect.provide(FetchHttpClient.layer), Effect.runPromise);
+	return Effect.runPromise(provisioned.pipe(Effect.provide(FetchHttpClient.layer)), { signal });
 };
 
 export const runContractError = <A, E>(
