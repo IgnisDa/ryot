@@ -315,21 +315,8 @@ describe("GET /event-schemas", () => {
 					description: "Episode number within the current season",
 				},
 			},
-			rules: [
-				{
-					kind: "validation",
-					path: ["showSeason"],
-					validation: { required: true },
-					when: { operator: "exists", path: ["showEpisode"] },
-				},
-				{
-					kind: "validation",
-					path: ["showEpisode"],
-					validation: { required: true },
-					when: { operator: "exists", path: ["showSeason"] },
-				},
-			],
 		});
+		expect(showProgressSchema).not.toHaveProperty("rules");
 
 		const animeProgressSchema = await getProgressSchema("anime");
 		expect(animeProgressSchema).toMatchObject({
