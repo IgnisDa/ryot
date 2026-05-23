@@ -1,13 +1,11 @@
 import { and, asc, eq, inArray, isNull, sql } from "drizzle-orm";
 import { Effect } from "effect";
 
-import { buildDefaultQueryDocument, buildDisplayConfig } from "#lib/builtins/view-helpers";
 import { CurrentDb, dbEffect, isUniqueConstraintError } from "#lib/db";
 import * as schema from "#lib/db/schema/tables";
 import { DbError, conflict } from "#lib/errors";
 import type { UserId } from "#lib/schema/brands";
 import { SavedViewId, TrackerId } from "#lib/schema/brands";
-import { slugify } from "#lib/slug";
 
 type SavedViewRow = typeof schema.savedView.$inferSelect;
 
@@ -142,7 +140,7 @@ export class SavedViewsRepository extends Effect.Service<SavedViewsRepository>()
 				).pipe(
 					Effect.mapError((error) =>
 						isUniqueConstraintError(savedViewUserSlugConstraint)(error)
-							? new DbError({ message: "A saved view with this name already exists" })
+							? conflict("A saved view with this name already exists")
 							: error,
 					),
 				);
@@ -152,41 +150,6 @@ export class SavedViewsRepository extends Effect.Service<SavedViewsRepository>()
 				}
 
 				return toListedSavedView(row);
-			});
-
-			const createDefaultViewForSchema = Effect.fn(
-				"SavedViewsRepository.createDefaultViewForSchema",
-			)(function* (input: {
-				icon: string;
-				userId: UserId;
-				accentColor: string;
-				trackerId: TrackerId;
-				entitySchemaSlug: string;
-				entitySchemaName: string;
-			}) {
-				const db = yield* CurrentDb;
-				const name = `All ${input.entitySchemaName}s`;
-				const slug = slugify(`all ${input.entitySchemaSlug}`);
-
-				yield* dbEffect(() =>
-					db.insert(schema.savedView).values({
-						slug,
-						name,
-						isBuiltin: true,
-						icon: input.icon,
-						userId: input.userId,
-						trackerId: input.trackerId,
-						accentColor: input.accentColor,
-						displayConfiguration: buildDisplayConfig(input.entitySchemaSlug),
-						queryDocument: buildDefaultQueryDocument([input.entitySchemaSlug]),
-					}),
-				).pipe(
-					Effect.mapError((error) =>
-						isUniqueConstraintError(savedViewUserSlugConstraint)(error)
-							? conflict("Entity schema default saved view already exists")
-							: error,
-					),
-				);
 			});
 
 			const updateBySlug = Effect.fn("SavedViewsRepository.updateBySlug")(function* (
@@ -339,7 +302,6 @@ export class SavedViewsRepository extends Effect.Service<SavedViewsRepository>()
 				listByUser,
 				findBySlug,
 				create,
-				createDefaultViewForSchema,
 				updateBySlug,
 				updateDisabledBySlug,
 				deleteBySlug,
