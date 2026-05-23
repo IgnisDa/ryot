@@ -1,32 +1,21 @@
-import { Effect } from "effect";
-
 import { buildMovieOrShowImportRef } from "#modules/imports/sources/shared/provider-refs";
 
 import {
 	calculateProgressPercent,
 	createProgressResult,
 	createShowEpisodeLocator,
-	createSinkFailure,
 	emptySinkResult,
+	getMediaEntitySchemaSlug,
 	getNestedNumber,
 	getNestedString,
 	parseJsonRecord,
+	sinkFailureResult,
 	type SinkParser,
+	wrapSinkParser,
 } from "./shared";
 
-const getEntitySchemaSlug = (itemType: string | undefined) => {
-	const normalized = itemType?.trim().toLowerCase();
-	if (normalized === "movie") {
-		return "movie" as const;
-	}
-	if (normalized === "episode") {
-		return "show" as const;
-	}
-	return undefined;
-};
-
 export const parseJellyfinSink: SinkParser = (input) =>
-	Effect.try(() => {
+	wrapSinkParser("Jellyfin", () => {
 		const payload = parseJsonRecord(input.rawBody);
 		const specs = input.integration.providerSpecifics;
 		if (specs.kind !== "jellyfin_sink") {
@@ -39,19 +28,11 @@ export const parseJellyfinSink: SinkParser = (input) =>
 			return emptySinkResult();
 		}
 
-		const entitySchemaSlug = getEntitySchemaSlug(
+		const entitySchemaSlug = getMediaEntitySchemaSlug(
 			getNestedString(payload, ["ItemType", "Type", "MediaType"]),
 		);
 		if (!entitySchemaSlug) {
-			return {
-				...emptySinkResult(),
-				failures: [
-					createSinkFailure({
-						stage: "input_transformation",
-						message: "Jellyfin webhook payload has an unsupported media type",
-					}),
-				],
-			};
+			return sinkFailureResult("Jellyfin webhook payload has an unsupported media type");
 		}
 
 		const progressPercent = calculateProgressPercent(
@@ -59,15 +40,7 @@ export const parseJellyfinSink: SinkParser = (input) =>
 			getNestedNumber(payload, ["RunTimeTicks"]),
 		);
 		if (progressPercent === undefined) {
-			return {
-				...emptySinkResult(),
-				failures: [
-					createSinkFailure({
-						stage: "input_transformation",
-						message: "Jellyfin webhook payload is missing playback timing data",
-					}),
-				],
-			};
+			return sinkFailureResult("Jellyfin webhook payload is missing playback timing data");
 		}
 
 		const metadataProvider = specs.metadataProvider ?? "tmdb";
@@ -92,15 +65,9 @@ export const parseJellyfinSink: SinkParser = (input) =>
 						])
 					: getNestedString(payload, ["Provider_tmdb", "ProviderTmdb", "Tmdb"]);
 		if (!providerId) {
-			return {
-				...emptySinkResult(),
-				failures: [
-					createSinkFailure({
-						stage: "input_transformation",
-						message: `Jellyfin webhook payload is missing a ${metadataProvider.toUpperCase()} identifier`,
-					}),
-				],
-			};
+			return sinkFailureResult(
+				`Jellyfin webhook payload is missing a ${metadataProvider.toUpperCase()} identifier`,
+			);
 		}
 
 		const sourceLabel =
@@ -114,15 +81,9 @@ export const parseJellyfinSink: SinkParser = (input) =>
 			providerIds: metadataProvider === "tvdb" ? { tvdb: providerId } : { tmdb: providerId },
 		});
 		if (!ref) {
-			return {
-				...emptySinkResult(),
-				failures: [
-					createSinkFailure({
-						stage: "input_transformation",
-						message: `Jellyfin webhook payload is missing a ${metadataProvider.toUpperCase()} identifier`,
-					}),
-				],
-			};
+			return sinkFailureResult(
+				`Jellyfin webhook payload is missing a ${metadataProvider.toUpperCase()} identifier`,
+			);
 		}
 
 		const episodeLocator =
@@ -133,15 +94,7 @@ export const parseJellyfinSink: SinkParser = (input) =>
 					)
 				: undefined;
 		if (entitySchemaSlug === "show" && !episodeLocator) {
-			return {
-				...emptySinkResult(),
-				failures: [
-					createSinkFailure({
-						stage: "input_transformation",
-						message: "Jellyfin webhook payload is missing show episode coordinates",
-					}),
-				],
-			};
+			return sinkFailureResult("Jellyfin webhook payload is missing show episode coordinates");
 		}
 
 		return createProgressResult({
@@ -150,14 +103,4 @@ export const parseJellyfinSink: SinkParser = (input) =>
 			consumedOn: "jellyfin_sink",
 			...(episodeLocator ? { episodeLocator } : {}),
 		});
-	}).pipe(
-		Effect.orElseSucceed(() => ({
-			...emptySinkResult(),
-			failures: [
-				createSinkFailure({
-					stage: "input_transformation",
-					message: "Could not parse Jellyfin webhook payload",
-				}),
-			],
-		})),
-	);
+	});
