@@ -181,3 +181,77 @@ it.effect("checks custom references for the exact installation and user", () => 
 		expect(rendered.params).toEqual([userId, false, "installation-id"]);
 	}).pipe(Effect.provide(layer));
 });
+
+it.effect("reorders a scope with one set-based statement", () => {
+	const statements: Array<{
+		set: Parameters<PgDialect["sqlToQuery"]>[0];
+		where: Parameters<PgDialect["sqlToQuery"]>[0];
+	}> = [];
+	const database = Database.of(
+		Object.assign(Object.create(null), {
+			update: () => ({
+				set: (values: { sortOrder: Parameters<PgDialect["sqlToQuery"]>[0] }) => ({
+					where: (condition: Parameters<PgDialect["sqlToQuery"]>[0]) => ({
+						returning: () => {
+							statements.push({ set: values.sortOrder, where: condition });
+							return Effect.succeed([{ slug: "view-b" }, { slug: "view-a" }]);
+						},
+					}),
+				}),
+			}),
+		}),
+	);
+	const layer = Layer.mergeAll(
+		Layer.succeed(Database, database),
+		SavedViewsRepository.layer.pipe(Layer.provide(Layer.succeed(Database, database))),
+	);
+	return Effect.gen(function* () {
+		const repository = yield* SavedViewsRepository;
+		expect(yield* repository.reorderBySlugs(userId, "installation-id", ["view-b", "view-a"])).toBe(
+			2,
+		);
+		expect(statements).toHaveLength(1);
+		const [statement] = statements;
+		assert(statement);
+		const dialect = new PgDialect();
+		const ordering = dialect.sqlToQuery(statement.set);
+		expect(ordering.sql).toBe(
+			'case "saved_view"."slug" when $1 then $2::integer when $3 then $4::integer end',
+		);
+		expect(ordering.params).toEqual(["view-b", 0, "view-a", 1]);
+		const scope = dialect.sqlToQuery(statement.where);
+		expect(scope.sql).toContain('"saved_view"."plugin_installation_id" = $');
+		expect(scope.params).toEqual([userId, "view-b", "view-a", "installation-id"]);
+	}).pipe(Effect.provide(layer));
+});
+
+it.effect("restricts a top-level reorder to views without a plugin installation", () => {
+	const conditions: Array<Parameters<PgDialect["sqlToQuery"]>[0]> = [];
+	const database = Database.of(
+		Object.assign(Object.create(null), {
+			update: () => ({
+				set: () => ({
+					where: (condition: Parameters<PgDialect["sqlToQuery"]>[0]) => ({
+						returning: () => {
+							conditions.push(condition);
+							return Effect.succeed([{ slug: "view-a" }]);
+						},
+					}),
+				}),
+			}),
+		}),
+	);
+	const layer = Layer.mergeAll(
+		Layer.succeed(Database, database),
+		SavedViewsRepository.layer.pipe(Layer.provide(Layer.succeed(Database, database))),
+	);
+	return Effect.gen(function* () {
+		const repository = yield* SavedViewsRepository;
+		expect(yield* repository.reorderBySlugs(userId, null, ["view-a"])).toBe(1);
+		const [condition] = conditions;
+		assert(condition);
+		const rendered = new PgDialect().sqlToQuery(condition);
+		expect(rendered.sql).toContain('"saved_view"."plugin_installation_id" is null');
+		expect(rendered.params).toEqual([userId, "view-a"]);
+	}).pipe(Effect.provide(layer));
+});
