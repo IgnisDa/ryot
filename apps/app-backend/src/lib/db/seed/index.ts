@@ -17,6 +17,7 @@ import {
 	builtinSandboxScripts,
 	groupSchemaScriptLinks,
 	entitySchemaScriptLinks,
+	fitnessSchemaScriptLinks,
 	companySchemaScriptLinks,
 	personSchemaScriptLinks,
 } from "./manifests";
@@ -67,6 +68,7 @@ export const seedInitialDatabase = async (database: DbClient) => {
 
 		for (const link of [
 			...entitySchemaScriptLinks(),
+			...fitnessSchemaScriptLinks(),
 			...companySchemaScriptLinks(),
 			...personSchemaScriptLinks(),
 			...groupSchemaScriptLinks(),

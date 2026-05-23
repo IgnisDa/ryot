@@ -9,7 +9,6 @@ export const initializeQueues = async () => {
 		queues.entityQueue.waitUntilReady(),
 		queues.eventsQueue.waitUntilReady(),
 		queues.sandboxQueue.waitUntilReady(),
-		queues.fitnessQueue.waitUntilReady(),
 	]);
 	console.info("Queues initialized");
 	return queues;
@@ -28,7 +27,6 @@ export const shutdownQueues = async () => {
 			queues.entityQueue.close(),
 			queues.eventsQueue.close(),
 			queues.sandboxQueue.close(),
-			queues.fitnessQueue.close(),
 		]);
 		queues = null;
 		await shutdownQueueRedisConnection();

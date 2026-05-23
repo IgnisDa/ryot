@@ -6,6 +6,7 @@ import igdbCompanyScriptCode from "~/lib/sandbox/scripts/providers/company/igdb.
 import tmdbCompanyScriptCode from "~/lib/sandbox/scripts/providers/company/tmdb.txt";
 import tvdbCompanyScriptCode from "~/lib/sandbox/scripts/providers/company/tvdb.txt";
 import vndbCompanyScriptCode from "~/lib/sandbox/scripts/providers/company/vndb.txt";
+import freeExerciseDbScriptCode from "~/lib/sandbox/scripts/providers/fitness/exercise/free-exercise-db.txt";
 import audibleAudiobookGroupScriptCode from "~/lib/sandbox/scripts/providers/media-group/audible.txt";
 import giantBombVideoGameGroupScriptCode from "~/lib/sandbox/scripts/providers/media-group/giant-bomb.txt";
 import hardcoverBookGroupScriptCode from "~/lib/sandbox/scripts/providers/media-group/hardcover.txt";
@@ -91,6 +92,7 @@ const withTitleCaseHelper = (code: string) => `${titleCaseHelperCode}\n\n${code}
 const withDelimiterTitleCaseHelper = (code: string) => `${titleCaseDelimiterHelperCode}\n\n${code}`;
 
 export const builtinSandboxScripts = (): BuiltinScriptEntry[] => [
+	script("Free Exercise DB", "exercise.free-exercise-db", freeExerciseDbScriptCode),
 	script("OpenLibrary", "book.openlibrary", withTitleCaseHelper(openLibraryBookScriptCode)),
 	script("Audible", "audiobook.audible", withTitleCaseHelper(audibleAudiobookScriptCode)),
 	script("iTunes", "podcast.itunes", itunesPodcastScriptCode),
@@ -201,95 +203,32 @@ export const builtinSandboxScripts = (): BuiltinScriptEntry[] => [
 
 export const entitySchemaScriptLinks = () =>
 	[
-		{
-			schemaSlug: "book",
-			scriptSlug: "book.openlibrary",
-		},
-		{
-			schemaSlug: "book",
-			scriptSlug: "book.google-book",
-		},
-		{
-			schemaSlug: "book",
-			scriptSlug: "book.hardcover",
-		},
-		{
-			schemaSlug: "comic-book",
-			scriptSlug: "comic-book.metron",
-		},
-		{
-			schemaSlug: "anime",
-			scriptSlug: "anime.anilist",
-		},
-		{
-			schemaSlug: "manga",
-			scriptSlug: "manga.anilist",
-		},
-		{
-			schemaSlug: "anime",
-			scriptSlug: "anime.myanimelist",
-		},
-		{
-			schemaSlug: "manga",
-			scriptSlug: "manga.myanimelist",
-		},
-		{
-			schemaSlug: "manga",
-			scriptSlug: "manga.manga-updates",
-		},
-		{
-			schemaSlug: "audiobook",
-			scriptSlug: "audiobook.audible",
-		},
-		{
-			schemaSlug: "podcast",
-			scriptSlug: "podcast.itunes",
-		},
-		{
-			schemaSlug: "podcast",
-			scriptSlug: "podcast.listennotes",
-		},
-		{
-			schemaSlug: "movie",
-			scriptSlug: "movie.tmdb",
-		},
-		{
-			schemaSlug: "movie",
-			scriptSlug: "movie.tvdb",
-		},
-		{
-			schemaSlug: "show",
-			scriptSlug: "show.tmdb",
-		},
-		{
-			schemaSlug: "show",
-			scriptSlug: "show.tvdb",
-		},
-		{
-			schemaSlug: "video-game",
-			scriptSlug: "video-game.giant-bomb",
-		},
-		{
-			schemaSlug: "video-game",
-			scriptSlug: "video-game.igdb",
-		},
-		{
-			schemaSlug: "visual-novel",
-			scriptSlug: "visual-novel.vndb",
-		},
-		{
-			schemaSlug: "music",
-			scriptSlug: "music.musicbrainz",
-		},
-		{
-			schemaSlug: "music",
-			scriptSlug: "music.spotify",
-		},
-		{
-			schemaSlug: "music",
-			scriptSlug: "music.youtube-music",
-		},
+		{ schemaSlug: "show", scriptSlug: "show.tmdb" },
+		{ schemaSlug: "show", scriptSlug: "show.tvdb" },
+		{ schemaSlug: "movie", scriptSlug: "movie.tvdb" },
+		{ schemaSlug: "movie", scriptSlug: "movie.tmdb" },
+		{ schemaSlug: "music", scriptSlug: "music.spotify" },
+		{ schemaSlug: "manga", scriptSlug: "manga.anilist" },
+		{ schemaSlug: "anime", scriptSlug: "anime.anilist" },
+		{ schemaSlug: "book", scriptSlug: "book.hardcover" },
+		{ schemaSlug: "book", scriptSlug: "book.openlibrary" },
+		{ schemaSlug: "book", scriptSlug: "book.google-book" },
+		{ schemaSlug: "podcast", scriptSlug: "podcast.itunes" },
+		{ schemaSlug: "music", scriptSlug: "music.musicbrainz" },
+		{ schemaSlug: "anime", scriptSlug: "anime.myanimelist" },
+		{ schemaSlug: "manga", scriptSlug: "manga.myanimelist" },
+		{ schemaSlug: "manga", scriptSlug: "manga.manga-updates" },
+		{ schemaSlug: "music", scriptSlug: "music.youtube-music" },
+		{ schemaSlug: "video-game", scriptSlug: "video-game.igdb" },
+		{ schemaSlug: "audiobook", scriptSlug: "audiobook.audible" },
+		{ schemaSlug: "podcast", scriptSlug: "podcast.listennotes" },
+		{ schemaSlug: "comic-book", scriptSlug: "comic-book.metron" },
+		{ schemaSlug: "visual-novel", scriptSlug: "visual-novel.vndb" },
+		{ schemaSlug: "video-game", scriptSlug: "video-game.giant-bomb" },
 	] as const;
+
+export const fitnessSchemaScriptLinks = () =>
+	[{ schemaSlug: "exercise", scriptSlug: "exercise.free-exercise-db" }] as const;
 
 export const builtinEventSchemaTriggerLinks = () =>
 	[
@@ -302,39 +241,39 @@ export const builtinEventSchemaTriggerLinks = () =>
 
 export const personSchemaScriptLinks = () =>
 	[
-		{ schemaSlug: "person", scriptSlug: "person.anilist" },
-		{ schemaSlug: "person", scriptSlug: "person.audible" },
-		{ schemaSlug: "person", scriptSlug: "person.hardcover" },
-		{ schemaSlug: "person", scriptSlug: "person.metron" },
-		{ schemaSlug: "person", scriptSlug: "person.musicbrainz" },
-		{ schemaSlug: "person", scriptSlug: "person.openlibrary" },
-		{ schemaSlug: "person", scriptSlug: "person.spotify" },
 		{ schemaSlug: "person", scriptSlug: "person.tmdb" },
 		{ schemaSlug: "person", scriptSlug: "person.tvdb" },
+		{ schemaSlug: "person", scriptSlug: "person.metron" },
+		{ schemaSlug: "person", scriptSlug: "person.anilist" },
+		{ schemaSlug: "person", scriptSlug: "person.audible" },
+		{ schemaSlug: "person", scriptSlug: "person.spotify" },
+		{ schemaSlug: "person", scriptSlug: "person.hardcover" },
+		{ schemaSlug: "person", scriptSlug: "person.musicbrainz" },
+		{ schemaSlug: "person", scriptSlug: "person.openlibrary" },
 		{ schemaSlug: "person", scriptSlug: "person.youtube-music" },
 	] as const;
 
 export const companySchemaScriptLinks = () =>
 	[
-		{ schemaSlug: "company", scriptSlug: "company.anilist" },
-		{ schemaSlug: "company", scriptSlug: "company.giant-bomb" },
-		{ schemaSlug: "company", scriptSlug: "company.hardcover" },
 		{ schemaSlug: "company", scriptSlug: "company.igdb" },
 		{ schemaSlug: "company", scriptSlug: "company.tmdb" },
 		{ schemaSlug: "company", scriptSlug: "company.tvdb" },
 		{ schemaSlug: "company", scriptSlug: "company.vndb" },
+		{ schemaSlug: "company", scriptSlug: "company.anilist" },
+		{ schemaSlug: "company", scriptSlug: "company.hardcover" },
+		{ schemaSlug: "company", scriptSlug: "company.giant-bomb" },
 	] as const;
 
 export const groupSchemaScriptLinks = () =>
 	[
 		{ schemaSlug: "movie-group", scriptSlug: "movie-group.tmdb" },
 		{ schemaSlug: "movie-group", scriptSlug: "movie-group.tvdb" },
-		{ schemaSlug: "audiobook-group", scriptSlug: "audiobook-group.audible" },
 		{ schemaSlug: "book-group", scriptSlug: "book-group.hardcover" },
-		{ schemaSlug: "comic-book-group", scriptSlug: "comic-book-group.metron" },
 		{ schemaSlug: "music-group", scriptSlug: "music-group.spotify" },
 		{ schemaSlug: "music-group", scriptSlug: "music-group.musicbrainz" },
 		{ schemaSlug: "music-group", scriptSlug: "music-group.youtube-music" },
 		{ schemaSlug: "video-game-group", scriptSlug: "video-game-group.igdb" },
+		{ schemaSlug: "audiobook-group", scriptSlug: "audiobook-group.audible" },
+		{ schemaSlug: "comic-book-group", scriptSlug: "comic-book-group.metron" },
 		{ schemaSlug: "video-game-group", scriptSlug: "video-game-group.giant-bomb" },
 	] as const;

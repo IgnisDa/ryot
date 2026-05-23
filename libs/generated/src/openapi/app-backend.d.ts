@@ -441,7 +441,7 @@ export interface paths {
                                         label?: string | null;
                                     };
                                     /** @enum {string} */
-                                    entitySchemaSlug: "book" | "comic-book" | "anime" | "manga" | "audiobook" | "podcast" | "movie" | "show" | "video-game" | "visual-novel" | "music" | "movie-group" | "audiobook-group" | "book-group" | "comic-book-group" | "music-group" | "video-game-group";
+                                    entitySchemaSlug: "show" | "movie" | "music" | "manga" | "anime" | "book" | "podcast" | "video-game" | "audiobook" | "comic-book" | "visual-novel" | "movie-group" | "book-group" | "music-group" | "video-game-group" | "audiobook-group" | "comic-book-group";
                                     /** Format: date-time */
                                     backlogAt: string;
                                     labels: {
@@ -539,7 +539,7 @@ export interface paths {
                                         label?: string | null;
                                     };
                                     /** @enum {string} */
-                                    entitySchemaSlug: "book" | "comic-book" | "anime" | "manga" | "audiobook" | "podcast" | "movie" | "show" | "video-game" | "visual-novel" | "music" | "movie-group" | "audiobook-group" | "book-group" | "comic-book-group" | "music-group" | "video-game-group";
+                                    entitySchemaSlug: "show" | "movie" | "music" | "manga" | "anime" | "book" | "podcast" | "video-game" | "audiobook" | "comic-book" | "visual-novel" | "movie-group" | "book-group" | "music-group" | "video-game-group" | "audiobook-group" | "comic-book-group";
                                     /** Format: date-time */
                                     progressAt: string;
                                     labels: {
@@ -642,7 +642,7 @@ export interface paths {
                                         label?: string | null;
                                     };
                                     /** @enum {string} */
-                                    entitySchemaSlug: "book" | "comic-book" | "anime" | "manga" | "audiobook" | "podcast" | "movie" | "show" | "video-game" | "visual-novel" | "music" | "movie-group" | "audiobook-group" | "book-group" | "comic-book-group" | "music-group" | "video-game-group";
+                                    entitySchemaSlug: "show" | "movie" | "music" | "manga" | "anime" | "book" | "podcast" | "video-game" | "audiobook" | "comic-book" | "visual-novel" | "movie-group" | "book-group" | "music-group" | "video-game-group" | "audiobook-group" | "comic-book-group";
                                     /** Format: date-time */
                                     completedAt: string;
                                     /** Format: date-time */
@@ -742,7 +742,7 @@ export interface paths {
                                             type: "remote";
                                         } | unknown;
                                         /** @enum {string} */
-                                        entitySchemaSlug: "book" | "comic-book" | "anime" | "manga" | "audiobook" | "podcast" | "movie" | "show" | "video-game" | "visual-novel" | "music" | "movie-group" | "audiobook-group" | "book-group" | "comic-book-group" | "music-group" | "video-game-group";
+                                        entitySchemaSlug: "show" | "movie" | "music" | "manga" | "anime" | "book" | "podcast" | "video-game" | "audiobook" | "comic-book" | "visual-novel" | "movie-group" | "book-group" | "music-group" | "video-game-group" | "audiobook-group" | "comic-book-group";
                                     };
                                 }[];
                                 count: number;
@@ -901,23 +901,23 @@ export interface paths {
                                 completed: number;
                                 inProgress: number;
                                 entityTypeCounts: {
-                                    book?: number;
-                                    "comic-book"?: number;
-                                    anime?: number;
-                                    manga?: number;
-                                    audiobook?: number;
-                                    podcast?: number;
-                                    movie?: number;
                                     show?: number;
-                                    "video-game"?: number;
-                                    "visual-novel"?: number;
+                                    movie?: number;
                                     music?: number;
+                                    manga?: number;
+                                    anime?: number;
+                                    book?: number;
+                                    podcast?: number;
+                                    "video-game"?: number;
+                                    audiobook?: number;
+                                    "comic-book"?: number;
+                                    "visual-novel"?: number;
                                     "movie-group"?: number;
-                                    "audiobook-group"?: number;
                                     "book-group"?: number;
-                                    "comic-book-group"?: number;
                                     "music-group"?: number;
                                     "video-game-group"?: number;
+                                    "audiobook-group"?: number;
+                                    "comic-book-group"?: number;
                                 };
                             };
                         };
