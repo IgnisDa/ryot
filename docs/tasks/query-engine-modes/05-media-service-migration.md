@@ -96,7 +96,7 @@ Update media service tests to verify:
 - [x] No custom SQL remains for media overview sections that the query engine can now handle
 - [x] Media service tests pass with the new implementations
 - [x] The media overview API endpoints return equivalent responses (same data, possibly different internal flow)
-- [x] `bun run check`, `bun run test`, and `bun run format` pass
+- [x] `bun run check` and `bun run test` pass
 
 ## User stories addressed
 
