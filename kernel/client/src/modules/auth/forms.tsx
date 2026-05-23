@@ -54,15 +54,12 @@ export function CredentialsForm(props: {
 	}
 
 	return (
-		<div className="grid gap-4.5">
+		<div className="stack">
 			<div>
-				<h1
-					id="auth-title"
-					className="font-display text-[clamp(30px,7vw,42px)] leading-[1.18] font-semibold tracking-tight"
-				>
+				<h1 id="auth-title" className="heading-display">
 					{content.title}
 				</h1>
-				<p className="mt-3 text-text-muted">{content.subtitle}</p>
+				<p className="subtitle">{content.subtitle}</p>
 			</div>
 			{props.signupAllowed && (
 				<div
@@ -75,7 +72,7 @@ export function CredentialsForm(props: {
 						disabled={props.disabled}
 						onClick={() => changeMode("login")}
 						aria-pressed={props.mode === "login"}
-						className="min-h-9.5 cursor-pointer rounded-md font-semibold text-text-muted aria-pressed:bg-raised aria-pressed:text-text aria-pressed:shadow-sm"
+						className="button-switch"
 					>
 						Sign in
 					</button>
@@ -84,7 +81,7 @@ export function CredentialsForm(props: {
 						disabled={props.disabled}
 						onClick={() => changeMode("signup")}
 						aria-pressed={props.mode === "signup"}
-						className="min-h-9.5 cursor-pointer rounded-md font-semibold text-text-muted aria-pressed:bg-raised aria-pressed:text-text aria-pressed:shadow-sm"
+						className="button-switch"
 					>
 						Sign up
 					</button>
@@ -92,7 +89,7 @@ export function CredentialsForm(props: {
 			)}
 			<form
 				noValidate
-				className="grid gap-4.5"
+				className="stack"
 				onSubmit={(event) => {
 					event.preventDefault();
 					void form.handleSubmit();
@@ -112,7 +109,7 @@ export function CredentialsForm(props: {
 								]}
 							>
 								{(field) => (
-									<label className="grid gap-1.5 text-[13px] font-semibold text-text-muted">
+									<label className="field-label">
 										<span>Email address</span>
 										<input
 											autoFocus
@@ -122,7 +119,7 @@ export function CredentialsForm(props: {
 											autoComplete="email"
 											autoCapitalize="none"
 											placeholder="you@example.com"
-											className="min-h-12 w-full rounded-lg border border-border-strong bg-raised px-3.5 py-2.75 text-text aria-invalid:border-danger"
+											className="field-input"
 											aria-invalid={field.errors.length > 0}
 											disabled={props.disabled || isSubmitting}
 											aria-describedby={field.errors.length > 0 ? "email-error" : undefined}
@@ -139,11 +136,7 @@ export function CredentialsForm(props: {
 											}}
 										/>
 										{field.errors[0] && (
-											<small
-												id="email-error"
-												role="alert"
-												className="text-sm font-normal text-danger"
-											>
+											<small id="email-error" role="alert" className="field-error">
 												{field.errors[0].message}
 											</small>
 										)}
@@ -161,7 +154,7 @@ export function CredentialsForm(props: {
 								]}
 							>
 								{(field) => (
-									<label className="grid gap-1.5 text-[13px] font-semibold text-text-muted">
+									<label className="field-label">
 										<span>Password</span>
 										<input
 											type="password"
@@ -170,7 +163,7 @@ export function CredentialsForm(props: {
 											value={field.value}
 											placeholder="Password"
 											onBlur={field.handleBlur}
-											className="min-h-12 w-full rounded-lg border border-border-strong bg-raised px-3.5 py-2.75 text-text aria-invalid:border-danger"
+											className="field-input"
 											aria-invalid={field.errors.length > 0}
 											disabled={props.disabled || isSubmitting}
 											aria-describedby={field.errors.length > 0 ? "password-error" : undefined}
@@ -181,11 +174,7 @@ export function CredentialsForm(props: {
 											}}
 										/>
 										{field.errors[0] && (
-											<small
-												id="password-error"
-												role="alert"
-												className="text-sm font-normal text-danger"
-											>
+											<small id="password-error" role="alert" className="field-error">
 												{field.errors[0].message}
 											</small>
 										)}
@@ -196,7 +185,7 @@ export function CredentialsForm(props: {
 					)}
 				</form.Subscribe>
 				{serverError && (
-					<p className="text-sm font-normal text-danger" role="alert">
+					<p className="field-error" role="alert">
 						{serverError}
 					</p>
 				)}
@@ -204,7 +193,7 @@ export function CredentialsForm(props: {
 					{([canSubmit, isSubmitting]) => (
 						<button
 							type="submit"
-							className="min-h-11 w-full cursor-pointer rounded-lg border border-accent bg-accent px-4 py-2.5 font-semibold text-accent-ink"
+							className="button-primary w-full"
 							disabled={props.disabled || !canSubmit}
 						>
 							{isSubmitting ? content.pending : content.action}
@@ -245,15 +234,12 @@ export function TwoFactorForm(props: {
 	}
 
 	return (
-		<div className="grid gap-4.5">
+		<div className="stack">
 			<div>
-				<h1
-					id="auth-title"
-					className="font-display text-[clamp(30px,7vw,42px)] leading-[1.18] font-semibold tracking-tight"
-				>
+				<h1 id="auth-title" className="heading-display">
 					One more step
 				</h1>
-				<p className="mt-3 text-text-muted">
+				<p className="subtitle">
 					{usingBackupCode
 						? "Enter one of your saved backup codes."
 						: "Enter the 6-digit code from your authenticator app."}
@@ -261,7 +247,7 @@ export function TwoFactorForm(props: {
 			</div>
 			<form
 				noValidate
-				className="grid gap-4.5"
+				className="stack"
 				onSubmit={(event) => {
 					event.preventDefault();
 					void form.handleSubmit();
@@ -279,7 +265,7 @@ export function TwoFactorForm(props: {
 					]}
 				>
 					{(field) => (
-						<label className="grid gap-1.5 text-[13px] font-semibold text-text-muted">
+						<label className="field-label">
 							<span>{usingBackupCode ? "Backup code" : "Authenticator code"}</span>
 							<input
 								autoFocus
@@ -292,7 +278,7 @@ export function TwoFactorForm(props: {
 								maxLength={usingBackupCode ? undefined : 6}
 								inputMode={usingBackupCode ? "text" : "numeric"}
 								placeholder={usingBackupCode ? "Backup code" : "000000"}
-								className="min-h-12 w-full rounded-lg border border-border-strong bg-raised px-3.5 py-2.75 text-text aria-invalid:border-danger"
+								className="field-input"
 								aria-describedby={field.errors.length > 0 ? "code-error" : undefined}
 								onChange={(event) => {
 									field.handleChange(event.currentTarget.value);
@@ -300,7 +286,7 @@ export function TwoFactorForm(props: {
 								}}
 							/>
 							{field.errors[0] && (
-								<small id="code-error" role="alert" className="text-sm font-normal text-danger">
+								<small id="code-error" role="alert" className="field-error">
 									{field.errors[0].message}
 								</small>
 							)}
@@ -308,18 +294,14 @@ export function TwoFactorForm(props: {
 					)}
 				</form.Field>
 				{serverError && (
-					<p className="text-sm font-normal text-danger" role="alert">
+					<p className="field-error" role="alert">
 						{serverError}
 					</p>
 				)}
 				<form.Subscribe selector={(state) => [state.canSubmit, state.isSubmitting] as const}>
 					{([canSubmit, isSubmitting]) => (
 						<>
-							<button
-								className="min-h-11 w-full cursor-pointer rounded-lg border border-accent bg-accent px-4 py-2.5 font-semibold text-accent-ink"
-								type="submit"
-								disabled={!canSubmit}
-							>
+							<button className="button-primary w-full" type="submit" disabled={!canSubmit}>
 								{isSubmitting ? "Verifying..." : "Verify"}
 							</button>
 							{props.methods.length > 1 && (
@@ -327,7 +309,7 @@ export function TwoFactorForm(props: {
 									type="button"
 									onClick={changeMethod}
 									disabled={isSubmitting}
-									className="min-h-10 cursor-pointer font-semibold text-text-muted"
+									className="button-text"
 								>
 									{usingBackupCode ? "Use an authenticator code" : "Use a backup code"}
 								</button>
@@ -336,7 +318,7 @@ export function TwoFactorForm(props: {
 								type="button"
 								onClick={props.onBack}
 								disabled={isSubmitting}
-								className="min-h-10 cursor-pointer font-semibold text-text-muted"
+								className="button-text"
 							>
 								Back to sign in
 							</button>
