@@ -71,25 +71,6 @@ const resolveFileName = (name: string): Effect.Effect<string, BadRequest> => {
 	return Effect.succeed(fileName);
 };
 
-type UploadsServiceShape = {
-	readonly createPresignedUpload: (
-		user: CurrentUserValue,
-		contentType: string,
-	) => Effect.Effect<{ key: string; uploadUrl: string }, BadRequest>;
-	readonly createPresignedDownload: (
-		user: CurrentUserValue,
-		keys: readonly string[],
-	) => Effect.Effect<Array<{ key: string; downloadUrl: string }>, BadRequest>;
-	readonly uploadTemporary: (
-		user: CurrentUserValue,
-		files: ReadonlyArray<Multipart.PersistedFile>,
-	) => Effect.Effect<readonly string[], BadRequest>;
-	readonly claimUploadToken: (
-		token: string,
-		userId: UserId,
-	) => Effect.Effect<{ resolvedPath: string }, BadRequest>;
-};
-
 export class UploadsService extends Effect.Service<UploadsService>()("UploadsService", {
 	effect: Effect.gen(function* () {
 		const config = yield* AppConfig;
@@ -197,11 +178,6 @@ export class UploadsService extends Effect.Service<UploadsService>()("UploadsSer
 			return { resolvedPath: value.resolvedPath };
 		});
 
-		return {
-			uploadTemporary,
-			claimUploadToken,
-			createPresignedUpload,
-			createPresignedDownload,
-		} satisfies UploadsServiceShape;
+		return { uploadTemporary, claimUploadToken, createPresignedUpload, createPresignedDownload };
 	}),
 }) {}

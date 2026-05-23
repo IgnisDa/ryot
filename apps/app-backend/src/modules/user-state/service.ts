@@ -2,7 +2,6 @@ import { Effect } from "effect";
 
 import type { CurrentUserValue } from "#lib/auth-middleware";
 import { DbRunner, TransactionRunner } from "#lib/db";
-import type { BadRequest, DbError, NotFound } from "#lib/errors";
 import { badRequest, notFound } from "#lib/errors";
 import { EntityId } from "#lib/schema/brands";
 import { trimToNull } from "#lib/validation";
@@ -10,7 +9,7 @@ import { EntitiesRepository } from "#modules/entities/repository";
 import { EventsRepository } from "#modules/events/repository";
 import { RelationshipsRepository } from "#modules/relationships/repository";
 
-import type { ClearUserStateResponse, MergeUserStateBody, MergeUserStateResponse } from "./schemas";
+import type { MergeUserStateBody } from "./schemas";
 
 const entityNotFoundError = "Entity not found";
 const sameEntityMergeError = "Cannot merge an entity into itself";
@@ -22,17 +21,6 @@ const libraryEntityUserStateError = "Library entity user state cannot be cleared
 const getPropertyString = (properties: Record<string, unknown>, key: string) => {
 	const value = properties[key];
 	return typeof value === "string" ? value : null;
-};
-
-type UserStateServiceShape = {
-	readonly clearUserState: (
-		user: CurrentUserValue,
-		entityIdInput: EntityId,
-	) => Effect.Effect<ClearUserStateResponse, BadRequest | DbError | NotFound>;
-	readonly mergeUserState: (
-		user: CurrentUserValue,
-		payload: MergeUserStateBody,
-	) => Effect.Effect<MergeUserStateResponse, BadRequest | DbError | NotFound>;
 };
 
 export class UserStateService extends Effect.Service<UserStateService>()("UserStateService", {
@@ -151,6 +139,6 @@ export class UserStateService extends Effect.Service<UserStateService>()("UserSt
 			);
 		});
 
-		return { clearUserState, mergeUserState } satisfies UserStateServiceShape;
+		return { clearUserState, mergeUserState };
 	}),
 }) {}

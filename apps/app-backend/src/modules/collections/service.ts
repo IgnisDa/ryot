@@ -3,7 +3,6 @@ import { Cause, DateTime, Effect } from "effect";
 
 import type { CurrentUserValue } from "#lib/auth-middleware";
 import { DbRunner, TransactionRunner } from "#lib/db";
-import type { BadRequest, DbError, NotFound } from "#lib/errors";
 import { badRequest, notFound } from "#lib/errors";
 import type { EntityId, EntitySchemaId, EventSchemaId, UserId } from "#lib/schema/brands";
 import { decodeStoredAppSchema } from "#lib/schema/core";
@@ -18,13 +17,7 @@ import { RelationshipSchemasRepository } from "#modules/relationship-schemas/rep
 import { RelationshipsRepository } from "#modules/relationships/repository";
 
 import { CollectionsRepository } from "./repository";
-import type {
-	CollectionResponse,
-	CreateCollectionBody,
-	CreateMembershipBody,
-	DeleteMembershipBody,
-	MembershipResponse,
-} from "./schemas";
+import type { CreateCollectionBody, CreateMembershipBody, DeleteMembershipBody } from "./schemas";
 import {
 	circularReferenceError,
 	collectionNotFoundError,
@@ -34,39 +27,6 @@ import {
 	isPlainObject,
 	toCollectionResponse,
 } from "./service-core";
-
-type CollectionsServiceShape = {
-	readonly create: (
-		user: CurrentUserValue,
-		payload: CreateCollectionBody,
-	) => Effect.Effect<CollectionResponse, BadRequest | DbError | NotFound>;
-	readonly getOrCreateCollection: (
-		userId: UserId,
-		name: string,
-	) => Effect.Effect<CollectionResponse, DbError>;
-	readonly addToCollection: (
-		user: CurrentUserValue,
-		payload: CreateMembershipBody,
-	) => Effect.Effect<MembershipResponse, BadRequest | DbError | NotFound>;
-	readonly removeFromCollection: (
-		user: CurrentUserValue,
-		payload: DeleteMembershipBody,
-	) => Effect.Effect<MembershipResponse, BadRequest | DbError | NotFound>;
-	readonly ensureLibraryEntityForUser: (
-		userId: UserId,
-		entitySchemaId: EntitySchemaId,
-	) => Effect.Effect<{ id: EntityId }, DbError>;
-	readonly ensureEntityInLibrary: (
-		userId: UserId,
-		entityId: EntityId,
-	) => Effect.Effect<void, DbError>;
-	readonly markEntityOwnedInLibrary: (input: {
-		userId: UserId;
-		entityId: EntityId;
-		provider: string;
-		syncedAt: string;
-	}) => Effect.Effect<void, DbError>;
-};
 
 export class CollectionsService extends Effect.Service<CollectionsService>()("CollectionsService", {
 	effect: Effect.gen(function* () {
@@ -492,6 +452,6 @@ export class CollectionsService extends Effect.Service<CollectionsService>()("Co
 			ensureEntityInLibrary,
 			markEntityOwnedInLibrary,
 			ensureLibraryEntityForUser,
-		} satisfies CollectionsServiceShape;
+		};
 	}),
 }) {}
