@@ -38,7 +38,7 @@ DECLARE
 	started_at timestamptz := clock_timestamp();
 BEGIN
 	IF to_regclass('"old_user"') IS NULL THEN
-		RETURN;
+		RAISE EXCEPTION 'Expected old_user table to exist (created by renameLegacyTables) but it was not found';
 	END IF;
 
 	RAISE NOTICE 'old_user -> user: migration started (% seconds elapsed)', 0.0;
