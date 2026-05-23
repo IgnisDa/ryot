@@ -189,6 +189,7 @@ export const buildEventExpression = (input: {
 		.with("id", () => sql`${sql.raw(safeAlias)}.id`)
 		.with("createdAt", () => sql`${sql.raw(safeAlias)}.created_at`)
 		.with("updatedAt", () => sql`${sql.raw(safeAlias)}.updated_at`)
+		.with("occurredAt", () => sql`${sql.raw(safeAlias)}.occurred_at`)
 		.otherwise(() => {
 			throw new QueryEngineValidationError(`Unsupported event column 'event.${column}'`);
 		});

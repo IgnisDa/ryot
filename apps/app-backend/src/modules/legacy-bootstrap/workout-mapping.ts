@@ -253,7 +253,8 @@ BEGIN
 			"session_entity_id",
 			"event_schema_id",
 			"properties",
-			"created_at"
+			"created_at",
+			"occurred_at"
 		)
 		SELECT
 			md5(w.id || ':' || (ex.ordinality - 1)::text || ':' || (s.ordinality - 1)::text),
@@ -281,6 +282,7 @@ BEGIN
 				'duration',           ${buildDecimalStatField("s.value", "duration")},
 				'distance',           ${buildDecimalStatField("s.value", "distance")}
 			)),
+			w.start_time,
 			w.start_time
 		FROM "workout" w
 		CROSS JOIN LATERAL jsonb_array_elements(COALESCE(w.information -> 'exercises', '[]'::jsonb))
