@@ -85,9 +85,11 @@ export class RelationshipsService extends Effect.Service<RelationshipsService>()
 				}).pipe(Effect.mapError((error) => badRequest(error.message)));
 
 				return yield* runWithDb(
-					repository.upsertRelationship({
+					repository.saveRelationship({
 						properties,
+						scope: "user",
 						userId: user.id,
+						onConflict: "replaceProperties",
 						sourceEntityId: payload.sourceEntityId,
 						targetEntityId: payload.targetEntityId,
 						relationshipSchemaId: payload.relationshipSchemaId,

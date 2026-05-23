@@ -7,6 +7,7 @@ import { SandboxRunError } from "#lib/errors";
 import {
 	EntityId,
 	EntitySchemaId,
+	RelationshipId,
 	RelationshipSchemaId,
 	RemoteImageUrl,
 	SandboxScriptId,
@@ -45,6 +46,16 @@ const baseEntity = {
 	entitySchemaId: EntitySchemaId.make("schema-1"),
 	sandboxScriptId: SandboxScriptId.make("script-1"),
 } satisfies ListedEntity;
+
+const savedRelationship = {
+	properties: {},
+	createdAt: now,
+	wasInserted: true,
+	id: RelationshipId.make("relationship-1"),
+	sourceEntityId: EntityId.make("source-entity-id"),
+	targetEntityId: EntityId.make("target-entity-id"),
+	relationshipSchemaId: RelationshipSchemaId.make("relationship-schema-id"),
+};
 
 const baseEntitySchema = {
 	propertiesSchema: {
@@ -91,7 +102,10 @@ const makeEntitiesService = (overrides: Partial<EntitiesService> = {}) =>
 
 const makeRelationshipsRepository = (overrides: Partial<RelationshipsRepository> = {}) =>
 	makeMock<RelationshipsRepository>(
-		{ _tag: "RelationshipsRepository" as const, upsertEntityRelationship: () => Effect.void },
+		{
+			_tag: "RelationshipsRepository" as const,
+			saveRelationship: () => Effect.succeed(savedRelationship),
+		},
 		overrides,
 	);
 
@@ -220,9 +234,9 @@ it.effect("populates entity and writes related entities", () => {
 			findEntitySchemaScriptBySlug: () => Effect.succeed(relatedEntitySchemaScript),
 		}),
 		relationshipsRepository: makeRelationshipsRepository({
-			upsertEntityRelationship: () => {
+			saveRelationship: () => {
 				relationshipWritten = true;
-				return Effect.void;
+				return Effect.succeed(savedRelationship);
 			},
 		}),
 		entitiesService: makeEntitiesService({
@@ -374,11 +388,12 @@ it.effect("writes child entity trees idempotently", () => {
 			},
 		}),
 		relationshipsRepository: makeRelationshipsRepository({
-			upsertEntityRelationship: (input) =>
+			saveRelationship: (input) =>
 				Effect.sync(() => {
 					storedRelationships.add(
 						`${input.relationshipSchemaId}:${input.sourceEntityId}->${input.targetEntityId}`,
 					);
+					return savedRelationship;
 				}),
 		}),
 	} satisfies TestLayerOptions;
@@ -632,9 +647,10 @@ it.effect("fails workflow when related relationship properties are invalid", () 
 			},
 		}),
 		relationshipsRepository: makeRelationshipsRepository({
-			upsertEntityRelationship: () =>
+			saveRelationship: () =>
 				Effect.sync(() => {
 					relationshipWritten = true;
+					return savedRelationship;
 				}),
 		}),
 	} satisfies TestLayerOptions;
@@ -703,9 +719,10 @@ it.effect("fails workflow when related relationship properties are not objects",
 				}),
 		}),
 		relationshipsRepository: makeRelationshipsRepository({
-			upsertEntityRelationship: () =>
+			saveRelationship: () =>
 				Effect.sync(() => {
 					relationshipWritten = true;
+					return savedRelationship;
 				}),
 		}),
 	} satisfies TestLayerOptions;
@@ -809,9 +826,10 @@ it.effect("retries related writes after a failed related validation", () => {
 			},
 		}),
 		relationshipsRepository: makeRelationshipsRepository({
-			upsertEntityRelationship: () =>
+			saveRelationship: () =>
 				Effect.sync(() => {
 					relationshipWriteCount += 1;
+					return savedRelationship;
 				}),
 		}),
 	} satisfies TestLayerOptions;
