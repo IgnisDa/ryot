@@ -196,6 +196,24 @@ COALESCE(
 )
 `;
 
+// Non-obvious V1→V2 field transformations applied in the lot-specific CASE branches below:
+//
+// audio_book / book / podcast: V1 `free_creators` (Vec<{name, role}>) → V2 `unlinkedCreators`.
+//   Always emitted as COALESCE(free_creators, '[]') so the required array key is always present.
+//
+// book: V1 `book_specifics.is_compilation` renamed to V2 `isCompilation`.
+//
+// music: V1 `music_specifics.by_various_artists` renamed to V2 `byVariousArtists`.
+//
+// video_game: V1 `video_game_specifics.time_to_beat.*` values are in seconds (from IGDB);
+//   V2 `timeToBeat.*` stores minutes — divide by 60 and round.
+//   V1 `platform_releases[].release_date` / `release_region` renamed to camelCase
+//   `releaseDate` / `releaseRegion`.
+//
+// visual_novel: V1 `visual_novel_specifics.length` (already in minutes from VNDB) renamed to
+//   V2 `lengthMinutes` — no unit conversion.
+//
+// comic_book: V1 `comic_book_specifics.page_count` renamed to V2 `pages`.
 const buildMetadataLotSpecificPropertiesSql = () => `
 COALESCE(jsonb_strip_nulls(
 	CASE
@@ -272,7 +290,56 @@ COALESCE(jsonb_strip_nulls(
 					END
 				) AS episode(value)
 			), '[]'::jsonb),
-			'totalEpisodes', (metadata.podcast_specifics ->> 'total_episodes')::int
+			'totalEpisodes',    (metadata.podcast_specifics ->> 'total_episodes')::int,
+			'unlinkedCreators', COALESCE(metadata.free_creators, '[]'::jsonb)
+		)
+		WHEN metadata.lot = 'audio_book' THEN jsonb_build_object(
+			'runtime',          (metadata.audio_book_specifics ->> 'runtime')::int,
+			'unlinkedCreators', COALESCE(metadata.free_creators, '[]'::jsonb)
+		)
+		WHEN metadata.lot = 'book' THEN jsonb_build_object(
+			'pages',            (metadata.book_specifics ->> 'pages')::int,
+			'isCompilation',    (metadata.book_specifics ->> 'is_compilation')::boolean,
+			'unlinkedCreators', COALESCE(metadata.free_creators, '[]'::jsonb)
+		)
+		WHEN metadata.lot = 'movie' THEN jsonb_build_object(
+			'runtime', (metadata.movie_specifics ->> 'runtime')::int
+		)
+		WHEN metadata.lot = 'music' THEN jsonb_build_object(
+			'duration',         (metadata.music_specifics ->> 'duration')::int,
+			'byVariousArtists', (metadata.music_specifics ->> 'by_various_artists')::boolean
+		)
+		WHEN metadata.lot = 'video_game' THEN jsonb_build_object(
+			'timeToBeat', CASE
+				WHEN metadata.video_game_specifics -> 'time_to_beat' IS NOT NULL
+				THEN jsonb_build_object(
+					'hastily',    ROUND((metadata.video_game_specifics -> 'time_to_beat' ->> 'hastily')::float8 / 60)::int,
+					'normally',   ROUND((metadata.video_game_specifics -> 'time_to_beat' ->> 'normally')::float8 / 60)::int,
+					'completely', ROUND((metadata.video_game_specifics -> 'time_to_beat' ->> 'completely')::float8 / 60)::int
+				)
+				ELSE NULL
+			END,
+			'platformReleases', COALESCE(
+				(
+					SELECT jsonb_agg(
+						jsonb_strip_nulls(jsonb_build_object(
+							'name',          pr ->> 'name',
+							'releaseDate',   pr ->> 'release_date',
+							'releaseRegion', pr ->> 'release_region'
+						))
+					)
+					FROM jsonb_array_elements(
+						COALESCE(metadata.video_game_specifics -> 'platform_releases', '[]'::jsonb)
+					) AS pr
+				),
+				'[]'::jsonb
+			)
+		)
+		WHEN metadata.lot = 'visual_novel' THEN jsonb_build_object(
+			'lengthMinutes', (metadata.visual_novel_specifics ->> 'length')::int
+		)
+		WHEN metadata.lot = 'comic_book' THEN jsonb_build_object(
+			'pages', (metadata.comic_book_specifics ->> 'page_count')::int
 		)
 	END
 ), '{}'::jsonb)
