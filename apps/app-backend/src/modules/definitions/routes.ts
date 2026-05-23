@@ -10,7 +10,6 @@ import {
 import { Effect } from "effect";
 import { HttpApiBuilder } from "effect/unstable/httpapi";
 
-import { DefinitionRegistry } from "#modules/definition-registry/service";
 import { PluginInstallationService } from "#modules/plugins/installation-service";
 import { PluginRuntimeResolver } from "#modules/plugins/runtime-resolver";
 
@@ -21,12 +20,14 @@ export const DefinitionsRoutesLive = HttpApiBuilder.group(AppContract, "definiti
 		.handle("listEntities", () =>
 			Effect.gen(function* () {
 				const user = yield* CurrentUser;
-				const registry = yield* DefinitionRegistry;
 				const pluginRuntime = yield* PluginRuntimeResolver;
+				const definitions = yield* pluginRuntime
+					.getEffectiveDefinitions(user.id)
+					.pipe(dieOnDbError);
 				const schemaProviders = yield* pluginRuntime
 					.listSchemaProviders(undefined, user.id)
 					.pipe(dieOnDbError);
-				return Object.values(registry.getSnapshot().entitySchemas).map((definition) =>
+				return Object.values(definitions.entitySchemas).map((definition) =>
 					Object.assign({}, definition, {
 						slug: EntitySchemaSlug.make(definition.slug),
 						pluginSlug:
@@ -45,8 +46,12 @@ export const DefinitionsRoutesLive = HttpApiBuilder.group(AppContract, "definiti
 		)
 		.handle("listRelationships", () =>
 			Effect.gen(function* () {
-				const registry = yield* DefinitionRegistry;
-				return Object.values(registry.getSnapshot().relationshipSchemas).map((definition) =>
+				const user = yield* CurrentUser;
+				const pluginRuntime = yield* PluginRuntimeResolver;
+				const definitions = yield* pluginRuntime
+					.getEffectiveDefinitions(user.id)
+					.pipe(dieOnDbError);
+				return Object.values(definitions.relationshipSchemas).map((definition) =>
 					Object.assign({}, definition, {
 						slug: RelationshipSchemaSlug.make(definition.slug),
 						sourceEntitySchemaSlug:

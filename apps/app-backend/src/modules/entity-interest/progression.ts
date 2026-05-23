@@ -26,14 +26,14 @@ export class EntityInterestProgression extends Context.Service<EntityInterestPro
 				function* (entityId: EntityId) {
 					const sessionIds = yield* store.listInterestedSessions(entityId);
 					const metadata = yield* store.getSessionMetadata(sessionIds);
-					const languages = Array.from(
-						new Set(
-							metadata.flatMap(({ preferredLanguage }) =>
-								preferredLanguage === null ? [] : [preferredLanguage],
-							),
+					const interests = new Map(
+						metadata.flatMap(({ preferredLanguage, userId }) =>
+							preferredLanguage === null
+								? []
+								: [[`${userId}\0${preferredLanguage}`, { preferredLanguage, userId }] as const],
 						),
-					);
-					if (languages.length === 0) {
+					).values();
+					if (metadata.length === 0) {
 						return;
 					}
 
@@ -45,22 +45,27 @@ export class EntityInterestProgression extends Context.Service<EntityInterestPro
 					) {
 						return;
 					}
-					const provider = yield* providerResolver.findActiveProviderById(entity.providerId);
-					const canonicalLanguage = provider?.information.canonicalLanguage;
-					if (!canonicalLanguage) {
-						return;
-					}
-
-					for (const language of languages) {
-						if (language !== canonicalLanguage) {
+					const requestedLanguages = new Set<string>();
+					for (const { preferredLanguage, userId } of interests) {
+						if (requestedLanguages.has(preferredLanguage)) {
+							continue;
+						}
+						const provider = yield* providerResolver.findProviderAvailableToUser(
+							userId,
+							entity.providerId,
+						);
+						const canonicalLanguage = provider?.information.canonicalLanguage;
+						if (canonicalLanguage && preferredLanguage !== canonicalLanguage) {
 							yield* translations.requestFill({
-								language,
+								userId,
 								entityId,
+								language: preferredLanguage,
 								externalId: entity.externalId,
 								properties: entity.properties,
 								providerId: entity.providerId,
 								entitySchemaSlug: entity.entitySchemaSlug,
 							});
+							requestedLanguages.add(preferredLanguage);
 						}
 					}
 				},

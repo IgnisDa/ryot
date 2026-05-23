@@ -38,6 +38,7 @@ export default defineScript({
 
 	return installTestPluginBundle({
 		pluginSlug,
+		scope: "system",
 		baseUrl: options.baseUrl,
 		files: { [entry]: source },
 		scripts: [

@@ -1,6 +1,7 @@
 import { SandboxProviderId } from "@ryot/contract/schema/brands";
 import { DateTime, Effect } from "effect";
 
+import type { Client } from "~/fixtures";
 import {
 	uninstallTestProvider,
 	createAuthenticatedClient,
@@ -9,7 +10,7 @@ import {
 	fakeProviderSearchResult,
 	findBuiltinSchemaBySlug,
 	getBackendClient,
-	getGlobalEntityByProvenance,
+	getVisibleEntityByProvenance,
 	getRelationshipBySchemaSlug,
 	pollProviderEntityImportResult,
 	queryInLibraryRelationship,
@@ -32,6 +33,7 @@ const RELATED_COMPANY_EXTERNAL_ID = "e2e-company-1";
 const PLUGIN_SLUG = `provider-entities-search-${crypto.randomUUID()}`;
 const BOOK_PROVIDER_SLUG = `book.provider-entities-search-${crypto.randomUUID()}`;
 
+let providerClient: Client;
 let bookProvider: InstalledTestProvider;
 let animeProvider: InstalledTestProvider;
 let companyProvider: InstalledTestProvider;
@@ -40,6 +42,7 @@ beforeAll(async () => {
 	await Effect.runPromise(
 		Effect.gen(function* () {
 			const { client } = yield* createAuthenticatedClient();
+			providerClient = client;
 			const { schema: companySchema } = yield* findBuiltinSchemaBySlug(client, "company");
 			const { schema: animeSchema } = yield* findBuiltinSchemaBySlug(client, "anime");
 			const { schema: bookSchema } = yield* findBuiltinSchemaBySlug(client, "book");
@@ -105,8 +108,7 @@ afterAll(async () => {
 describe("provider entity search result", () => {
 	it.live("returns the result from the configured provider", () =>
 		Effect.gen(function* () {
-			const { client } = yield* createAuthenticatedClient();
-			const search = yield* searchProviderEntities(client, {
+			const search = yield* searchProviderEntities(providerClient, {
 				providerId: bookProvider.providerId,
 				query: "test",
 				page: 1,
@@ -142,15 +144,14 @@ describe("POST /provider-entities/imports", () => {
 
 	it.live("returns 200 with a jobId when given a valid provider", () =>
 		Effect.gen(function* () {
-			const { client } = yield* createAuthenticatedClient();
-			const { jobId } = yield* enqueueProviderEntityImport(client, {
+			const { jobId } = yield* enqueueProviderEntityImport(providerClient, {
 				providerId: bookProvider.providerId,
 				externalId: "e2e-book-1",
 			});
 
 			expect(typeof jobId).toBe("string");
 			expect(jobId.length).toBeGreaterThan(0);
-			yield* pollProviderEntityImportResult(client, jobId);
+			yield* pollProviderEntityImportResult(providerClient, jobId);
 		}),
 	);
 });
@@ -171,10 +172,8 @@ describe("GET /provider-entities/imports/{jobId}", () => {
 
 	it.live("returns 404 for a non-existent job id", () =>
 		Effect.gen(function* () {
-			const { client } = yield* createAuthenticatedClient();
-
 			const error = yield* Effect.flip(
-				client.call((c) =>
+				providerClient.call((c) =>
 					c.providerEntities.getImportResult({ params: { jobId: crypto.randomUUID() } }),
 				),
 			);
@@ -186,10 +185,9 @@ describe("GET /provider-entities/imports/{jobId}", () => {
 
 	it.live("returns 404 when another user polls the import job", () =>
 		Effect.gen(function* () {
-			const { client: clientA } = yield* createAuthenticatedClient();
 			const { client: clientB } = yield* createAuthenticatedClient();
 
-			const { jobId } = yield* enqueueProviderEntityImport(clientA, {
+			const { jobId } = yield* enqueueProviderEntityImport(providerClient, {
 				providerId: bookProvider.providerId,
 				externalId: "e2e-book-crossuser",
 			});
@@ -205,17 +203,16 @@ describe("GET /provider-entities/imports/{jobId}", () => {
 
 	it.live("completes an import for a valid details script", () =>
 		Effect.gen(function* () {
-			const { client } = yield* createAuthenticatedClient();
-			const { jobId } = yield* enqueueProviderEntityImport(client, {
+			const { jobId } = yield* enqueueProviderEntityImport(providerClient, {
 				providerId: bookProvider.providerId,
 				externalId: "e2e-book-terminal",
 			});
 
-			const result = yield* pollProviderEntityImportResult(client, jobId);
+			const result = yield* pollProviderEntityImportResult(providerClient, jobId);
 
 			assertCompleted(result, "import job");
 			expect(result.data.name).toBe(BOOK_IMPORT_NAME);
-			const inLibrary = yield* queryInLibraryRelationship(client, result.data.id, "book");
+			const inLibrary = yield* queryInLibraryRelationship(providerClient, result.data.id, "book");
 			expect(
 				inLibrary.data.entity?.type === "rows" ? inLibrary.data.entity.items : [],
 			).toHaveLength(1);
@@ -226,15 +223,14 @@ describe("GET /provider-entities/imports/{jobId}", () => {
 		"returns entity with populated properties and related entities in the completed result",
 		() =>
 			Effect.gen(function* () {
-				const { client } = yield* createAuthenticatedClient();
-				const { schema: companySchema } = yield* findBuiltinSchemaBySlug(client, "company");
+				const { schema: companySchema } = yield* findBuiltinSchemaBySlug(providerClient, "company");
 
-				const { jobId } = yield* enqueueProviderEntityImport(client, {
+				const { jobId } = yield* enqueueProviderEntityImport(providerClient, {
 					externalId: "e2e-anime-1",
 					providerId: animeProvider.providerId,
 				});
 
-				const result = yield* pollProviderEntityImportResult(client, jobId);
+				const result = yield* pollProviderEntityImportResult(providerClient, jobId);
 
 				assertCompleted(result, "import job");
 
@@ -245,7 +241,7 @@ describe("GET /provider-entities/imports/{jobId}", () => {
 				expect(properties).not.toEqual({});
 				expect(properties.populatedAt).toBeUndefined();
 
-				const relatedEntity = yield* getGlobalEntityByProvenance(client, {
+				const relatedEntity = yield* getVisibleEntityByProvenance(providerClient, {
 					entitySchemaSlug: companySchema.slug,
 					externalId: RELATED_COMPANY_EXTERNAL_ID,
 					providerId: companyProvider.providerId,
@@ -253,7 +249,7 @@ describe("GET /provider-entities/imports/{jobId}", () => {
 				expect(relatedEntity.name).toBe(RELATED_COMPANY_NAME);
 				expect(relatedEntity.populatedAt).toBeNull();
 
-				const relationship = yield* getRelationshipBySchemaSlug(client, {
+				const relationship = yield* getRelationshipBySchemaSlug(providerClient, {
 					targetEntityId: result.data.id,
 					sourceEntityId: relatedEntity.id,
 					relationshipSchemaSlug: "company-to-anime",
@@ -266,14 +262,12 @@ describe("GET /provider-entities/imports/{jobId}", () => {
 
 	it.live("sets populatedAt as a UTC ISO timestamp column on the imported entity", () =>
 		Effect.gen(function* () {
-			const { client } = yield* createAuthenticatedClient();
-
-			const { jobId } = yield* enqueueProviderEntityImport(client, {
+			const { jobId } = yield* enqueueProviderEntityImport(providerClient, {
 				providerId: bookProvider.providerId,
 				externalId: "e2e-book-populatedat",
 			});
 
-			const result = yield* pollProviderEntityImportResult(client, jobId);
+			const result = yield* pollProviderEntityImportResult(providerClient, jobId);
 
 			assertCompleted(result, "import job");
 

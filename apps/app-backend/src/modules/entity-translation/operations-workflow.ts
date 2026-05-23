@@ -1,9 +1,11 @@
-import type { SandboxRunError } from "@ryot/contract/errors";
-import { toSandboxRunError } from "@ryot/contract/errors";
+import { SandboxRunError, toSandboxRunError } from "@ryot/contract/errors";
+import { SandboxScriptId } from "@ryot/contract/schema/brands";
 import { Context, Effect, Layer } from "effect";
+import { Activity } from "effect/unstable/workflow";
 import type { WorkflowEngine, WorkflowInstance } from "effect/unstable/workflow/WorkflowEngine";
 
 import { Database } from "#lib/infrastructure/db/service";
+import type { DurableSchema } from "#lib/infrastructure/workflow";
 import {
 	PluginRuntimeResolver,
 	type UnsupportedProviderOperationError,
@@ -19,14 +21,20 @@ const processSandboxTranslation = Effect.fn("processSandboxTranslation")(functio
 ) {
 	const sandbox = yield* SandboxExecutionService;
 	const pluginRuntime = yield* PluginRuntimeResolver;
-	const script = yield* pluginRuntime
-		.resolveTranslateScript(payload.providerId)
-		.pipe(Effect.catchTag("DbError", (error) => Effect.fail(toSandboxRunError(error))));
+	const scriptId = yield* Activity.make({
+		error: SandboxRunError,
+		success: SandboxScriptId satisfies DurableSchema,
+		name: `resolve-provider-translate-script-${executionId}`,
+		execute: pluginRuntime.resolveUserTranslateScript(payload.userId, payload.providerId).pipe(
+			Effect.map(({ id }) => id),
+			Effect.mapError(toSandboxRunError),
+		),
+	});
 	return yield* sandbox
 		.executeScript({
-			scriptId: script.id,
-			authority: { type: "system" },
+			scriptId,
 			executionId: `${executionId}-sandbox-translate`,
+			authority: { type: "user", userId: payload.userId },
 			input: {
 				language: payload.language,
 				externalId: payload.externalId,

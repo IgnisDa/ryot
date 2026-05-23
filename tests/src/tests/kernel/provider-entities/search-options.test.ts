@@ -2,6 +2,7 @@ import type { AppSchema } from "@ryot/contract/schema/property-schema";
 import type { ProviderSearchOptionsResult } from "@ryot/sandbox-sdk/provider";
 import { Effect } from "effect";
 
+import type { Client } from "~/fixtures";
 import {
 	createAuthenticatedClient,
 	fakeProviderDetailsResult,
@@ -59,11 +60,13 @@ const STATIC_PROVIDER_SLUG = `static-search-options-${crypto.randomUUID()}`;
 let dynamicProvider: InstalledTestProvider;
 let failingProvider: InstalledTestProvider;
 let staticProvider: InstalledTestProvider;
+let providerClient: Client;
 
 beforeAll(async () => {
 	await Effect.runPromise(
 		Effect.gen(function* () {
 			const { client } = yield* createAuthenticatedClient();
+			providerClient = client;
 			const { schema } = yield* findBuiltinSchemaBySlug(client, "book");
 			dynamicProvider = yield* installTestProvider({
 				client,
@@ -117,8 +120,7 @@ afterAll(async () => {
 describe("POST /provider-entities/search-options", () => {
 	it.live("materializes dynamic enum-array choices with separate values and labels", () =>
 		Effect.gen(function* () {
-			const { client } = yield* createAuthenticatedClient();
-			const response = yield* client.call((c) =>
+			const response = yield* providerClient.call((c) =>
 				c.providerEntities.searchOptions({ payload: { providerId: dynamicProvider.providerId } }),
 			);
 
@@ -135,8 +137,7 @@ describe("POST /provider-entities/search-options", () => {
 
 	it.live("returns the static schema without a search-options provider operation", () =>
 		Effect.gen(function* () {
-			const { client } = yield* createAuthenticatedClient();
-			const response = yield* client.call((c) =>
+			const response = yield* providerClient.call((c) =>
 				c.providerEntities.searchOptions({ payload: { providerId: staticProvider.providerId } }),
 			);
 
@@ -161,8 +162,7 @@ describe("POST /provider-entities/search-options", () => {
 describe("POST /provider-entities/search — search option validation", () => {
 	it.live("accepts a known dynamic choice value and rejects an unknown value", () =>
 		Effect.gen(function* () {
-			const { client } = yield* createAuthenticatedClient();
-			const search = yield* searchProviderEntities(client, {
+			const search = yield* searchProviderEntities(providerClient, {
 				page: 1,
 				pageSize: 5,
 				query: "known",
@@ -172,7 +172,7 @@ describe("POST /provider-entities/search — search option validation", () => {
 			expect(search.items).toHaveLength(1);
 
 			const error = yield* Effect.flip(
-				searchProviderEntities(client, {
+				searchProviderEntities(providerClient, {
 					page: 1,
 					pageSize: 5,
 					query: "unknown",
@@ -189,8 +189,7 @@ describe("POST /provider-entities/search — search option validation", () => {
 describe("provider search-options execution failure", () => {
 	it.live("keeps plain search available and returns stable BadRequest for filtered search", () =>
 		Effect.gen(function* () {
-			const { client } = yield* createAuthenticatedClient();
-			const plainSearch = yield* searchProviderEntities(client, {
+			const plainSearch = yield* searchProviderEntities(providerClient, {
 				page: 1,
 				pageSize: 5,
 				query: "plain",
@@ -199,7 +198,7 @@ describe("provider search-options execution failure", () => {
 			expect(plainSearch.items).toHaveLength(1);
 
 			const filteredSearchError = yield* Effect.flip(
-				searchProviderEntities(client, {
+				searchProviderEntities(providerClient, {
 					page: 1,
 					pageSize: 5,
 					query: "filtered",
@@ -211,7 +210,7 @@ describe("provider search-options execution failure", () => {
 			expect(filteredSearchError.reason).toEqual({ code: "search-options-unavailable" });
 
 			const searchOptionsError = yield* Effect.flip(
-				client.call((c) =>
+				providerClient.call((c) =>
 					c.providerEntities.searchOptions({ payload: { providerId: failingProvider.providerId } }),
 				),
 			);

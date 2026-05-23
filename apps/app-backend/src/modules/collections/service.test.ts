@@ -32,6 +32,7 @@ import { LifecycleDispatchNoop } from "#modules/entities/lifecycle-dispatch";
 import { EntitiesRepository } from "#modules/entities/repository";
 import { EntitiesService } from "#modules/entities/service";
 import { EventsService } from "#modules/events/service";
+import { PluginRuntimeResolver } from "#modules/plugins/runtime-resolver";
 import { RelationshipSchemasRepository } from "#modules/relationship-schemas/repository";
 import { RelationshipsRepository } from "#modules/relationships/repository";
 import { RelationshipsService } from "#modules/relationships/service";
@@ -175,7 +176,23 @@ const makeServiceLayer = (
 	);
 
 	const relationshipsServiceLayer = RelationshipsService.layer.pipe(
-		Layer.provide(Layer.mergeAll(databaseLayer, relationshipsRepository)),
+		Layer.provide(
+			Layer.mergeAll(
+				databaseLayer,
+				relationshipsRepository,
+				Layer.mock(PluginRuntimeResolver)({
+					getEffectiveDefinitions: () =>
+						Effect.succeed({
+							savedViews: {},
+							entitySchemas: {},
+							signalSchemas: {},
+							relationshipSchemas: {
+								[memberOfSchema.id]: { ...memberOfSchema, slug: memberOfSchema.id },
+							},
+						}),
+				}),
+			),
+		),
 	);
 
 	return Layer.mergeAll(

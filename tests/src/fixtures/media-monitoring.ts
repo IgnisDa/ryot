@@ -40,7 +40,10 @@ export const triggerCronAndWaitForEntity = (auth: { client: Client }, entityId: 
 					}),
 				adminHeaders,
 			);
-			assertCondition(cron.status === "executed", "Media monitoring cron was not found");
+			assertCondition(
+				cron.status === "executed",
+				`Media monitoring cron failed: ${JSON.stringify(cron)}`,
+			);
 			yield* Effect.promise(() => socket.waitForEntityUpdated(entityId, "populated"));
 		}),
 	);
