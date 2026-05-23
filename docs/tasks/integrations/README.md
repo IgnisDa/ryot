@@ -333,7 +333,7 @@ Three new builtin after-create trigger scripts:
 **`trigger.radarr-push`** — attached to builtin `add-entity-to-collection` event schema on the collection entity schema, `position = 1000`:
 
 - If `trigger.properties.entitySchemaSlug !== "movie"` → no-op.
-- Fetch active Radarr integrations via `appApiCall("GET", "/api/integrations?provider=radarr&isDisabled=false")`.
+- Fetch active Radarr integrations via `listIntegrations({ provider: "radarr", isDisabled: false })`.
 - For each integration: check if `trigger.entityId` (collectionId) is in `providerSpecifics.syncCollectionIds`. If not, skip.
 - Fetch movie entity, extract externalId from `movie.tmdb` script. If entity is not from `movie.tmdb` → no-op.
 - Call Radarr API via `httpCall`.
@@ -345,7 +345,7 @@ Three new builtin after-create trigger scripts:
 **`trigger.jellyfin-push`** — attached to builtin `complete` event schemas for all media entity schemas, `position = 1000`:
 
 - If `trigger.entitySchemaSlug` is not `movie` or `show` → no-op.
-- Fetch active JellyfinPush integrations via `appApiCall("GET", "/api/integrations?provider=jellyfin_push&isDisabled=false")`.
+- Fetch active JellyfinPush integrations via `listIntegrations({ provider: "jellyfin_push", isDisabled: false })`.
 - Fetch entity. Search Jellyfin by title/TMDB ID. Mark item as played via `httpCall`.
 - If item not found in Jellyfin → no-op.
 
@@ -434,15 +434,15 @@ Script logic (executed before property validation; receives raw input):
 
 1. If `trigger.origin !== "integration"` → `allow` immediately (normal validation handles invalid user input).
 2. Parse `progressPercent` defensively (may be string, missing, etc.). If unparseable → `skip`.
-3. Fetch integration record via `appApiCall("GET", "/api/integrations/:integrationId")`. Get `minimumProgress` and `maximumProgress`.
+3. Fetch integration record via `getIntegration(integrationId)`. Get `minimumProgress` and `maximumProgress`.
 4. If `progressPercent < minimumProgress` → `skip(reason: "below_minimum_progress")`.
 5. If `progressPercent > maximumProgress` → `replace(properties: { ...existing, progressPercent: 100 })`.
 6. Build deduplication fingerprint from: `entityId + eventSchemaSlug + consumedOn + known subitem keys (showSeason, showEpisode, animeEpisode, mangaVolume, mangaChapter, podcastEpisode)`.
-7. Fetch recent progress events via `appApiCall("GET", "/events?entityId=...&eventSchemaSlug=progress")`. Filter in script by fingerprint identity keys.
+7. Fetch recent progress events via `listEvents({ entityId: ..., eventSchemaSlug: "progress" })`. Filter in script by fingerprint identity keys.
 8. If latest matching event has same `progressPercent` as current → `skip(reason: "duplicate_progress")`.
 9. If `progressPercent >= 100`:
    - Use `claimCachedValue(fingerprint, true, progressUpdateThresholdSeconds)` as race guard.
-   - If not claimed: check recent events for matching `progressPercent = 100` within threshold using `appApiCall` results.
+   - If not claimed: check recent events for matching `progressPercent = 100` within the threshold using `listEvents` results.
    - If recent matching completion exists → `skip(reason: "completed_recently")`.
 10. Otherwise → `allow` (possibly with replaced progressPercent from step 5).
 
