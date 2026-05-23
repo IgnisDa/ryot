@@ -116,6 +116,7 @@ export const seedInitialDatabase = async (database: DbClient) => {
 					eventSchemaId: es.id,
 					sandboxScriptId: scriptId,
 					name: triggerLink.triggerName,
+					metadata: triggerLink.metadata,
 				});
 			}
 		}

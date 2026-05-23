@@ -585,16 +585,13 @@ describe("Event trigger firing", () => {
 		expect(completeEvent.eventSchemaSlug).toBe("complete");
 	}, 20_000);
 
-	it("movie completion still fires twice when 100% progress is logged twice", async () => {
+	it("consumedOn from a progress event is propagated to the auto-generated complete event", async () => {
 		const { client, cookies } = await createAuthenticatedClient();
 
 		const { entityId, progressEventSchemaId } = await createBuiltinMediaLifecycleFixture(
 			client,
 			cookies,
-			{
-				entitySchemaSlug: "movie",
-				properties: { images: [] },
-			},
+			{ entitySchemaSlug: "movie", properties: { images: [] } },
 		);
 
 		await client.POST("/events", {
@@ -603,8 +600,53 @@ describe("Event trigger firing", () => {
 				{
 					entityId,
 					eventSchemaId: progressEventSchemaId,
-					properties: { progressPercent: 100 },
+					properties: { progressPercent: 100, consumedOn: "Jellyfin" },
 				},
+			],
+		});
+
+		const completeEvent = await pollForEventWithSchema(client, cookies, entityId, "complete");
+
+		expect(completeEvent.properties).toMatchObject({
+			consumedOn: "Jellyfin",
+			completionMode: "just_now",
+		});
+	}, 20_000);
+
+	it("complete event has no consumedOn when progress event omits it", async () => {
+		const { client, cookies } = await createAuthenticatedClient();
+
+		const { entityId, progressEventSchemaId } = await createBuiltinMediaLifecycleFixture(
+			client,
+			cookies,
+			{ entitySchemaSlug: "movie", properties: { images: [] } },
+		);
+
+		await client.POST("/events", {
+			headers: { Cookie: cookies },
+			body: [
+				{ entityId, properties: { progressPercent: 100 }, eventSchemaId: progressEventSchemaId },
+			],
+		});
+
+		const completeEvent = await pollForEventWithSchema(client, cookies, entityId, "complete");
+
+		expect(completeEvent.properties).not.toHaveProperty("consumedOn");
+	}, 20_000);
+
+	it("movie completion still fires twice when 100% progress is logged twice", async () => {
+		const { client, cookies } = await createAuthenticatedClient();
+
+		const { entityId, progressEventSchemaId } = await createBuiltinMediaLifecycleFixture(
+			client,
+			cookies,
+			{ entitySchemaSlug: "movie", properties: { images: [] } },
+		);
+
+		await client.POST("/events", {
+			headers: { Cookie: cookies },
+			body: [
+				{ entityId, properties: { progressPercent: 100 }, eventSchemaId: progressEventSchemaId },
 			],
 		});
 
@@ -613,11 +655,7 @@ describe("Event trigger firing", () => {
 		await client.POST("/events", {
 			headers: { Cookie: cookies },
 			body: [
-				{
-					entityId,
-					eventSchemaId: progressEventSchemaId,
-					properties: { progressPercent: 100 },
-				},
+				{ entityId, properties: { progressPercent: 100 }, eventSchemaId: progressEventSchemaId },
 			],
 		});
 
