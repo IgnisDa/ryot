@@ -9,6 +9,8 @@ import {
 } from "../../schema/brands";
 import { AppSchema } from "../../schema/property-schema";
 
+export { UpdatePluginInstallationBody as UpdatePluginStateBody } from "../plugins/schemas";
+
 const DefinitionNotFoundReason = Schema.Union([
 	Schema.Struct({ code: Schema.Literal("plugin-not-found"), pluginSlug: PluginSlug }),
 ]);
@@ -55,10 +57,3 @@ export const ListedPlugin = Schema.Struct({
 });
 
 export type ListedPlugin = typeof ListedPlugin.Type;
-
-export const UpdatePluginStateBody = Schema.Struct({
-	sortOrder: Schema.optional(Schema.Number),
-	isDisabled: Schema.optional(Schema.Boolean),
-});
-
-export type UpdatePluginStateBody = typeof UpdatePluginStateBody.Type;

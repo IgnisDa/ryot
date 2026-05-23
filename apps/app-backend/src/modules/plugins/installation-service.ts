@@ -2,10 +2,12 @@ import type { PluginManifest } from "@ryot/contract/modules/plugins/manifest";
 import {
 	PluginConflictError,
 	PluginNotFoundError,
+	PluginRequestError,
 	type PluginInstallationItem,
+	type UpdatePluginInstallationBody,
 } from "@ryot/contract/modules/plugins/schemas";
 import { PluginSlug, type UserId } from "@ryot/contract/schema/brands";
-import { collectSecretProperties } from "@ryot/contract/schema/property-schema";
+import type { AppPropertyDefinition, AppSchema } from "@ryot/contract/schema/property-schema";
 import { Context, Effect, Layer } from "effect";
 
 import { Database, mapDatabaseErrors } from "#lib/infrastructure/db/service";
@@ -49,23 +51,117 @@ type InstallationView = {
 	readonly state: PluginInstallationRow | null;
 };
 
+const isRecord = (value: unknown): value is Readonly<Record<string, unknown>> =>
+	typeof value === "object" && value !== null && !Array.isArray(value);
+
+const sanitizeConfigValue = (
+	definition: AppPropertyDefinition,
+	value: unknown,
+	path: string,
+	configuredSecrets: Set<string>,
+): unknown => {
+	if (definition.secret === true) {
+		if (value !== null && value !== undefined) {
+			configuredSecrets.add(path);
+		}
+		return undefined;
+	}
+	if (definition.type === "object" && isRecord(value)) {
+		return sanitizeConfig(definition.properties, value, path, configuredSecrets);
+	}
+	if (definition.type === "array" && Array.isArray(value)) {
+		return value.flatMap((item) => {
+			const sanitized = sanitizeConfigValue(definition.items, item, `${path}[]`, configuredSecrets);
+			return sanitized === undefined ? [] : [sanitized];
+		});
+	}
+	return value;
+};
+
+const sanitizeConfig = (
+	fields: AppSchema["fields"],
+	value: Readonly<Record<string, unknown>>,
+	prefix: string,
+	configuredSecrets: Set<string>,
+) => {
+	const sanitized = { ...value };
+	for (const [key, definition] of Object.entries(fields)) {
+		if (!Object.hasOwn(value, key)) {
+			continue;
+		}
+		const path = prefix ? `${prefix}.${key}` : key;
+		const field = sanitizeConfigValue(definition, value[key], path, configuredSecrets);
+		if (field === undefined) {
+			Reflect.deleteProperty(sanitized, key);
+		} else {
+			sanitized[key] = field;
+		}
+	}
+	return sanitized;
+};
+
+const sanitizeConfigDefinition = (definition: AppPropertyDefinition): AppPropertyDefinition => {
+	if (definition.type === "object") {
+		const { defaultValue, properties: _properties, ...withoutDefault } = definition;
+		const properties = Object.fromEntries(
+			Object.entries(definition.properties).map(([key, child]) => [
+				key,
+				sanitizeConfigDefinition(child),
+			]),
+		);
+		if (definition.secret === true || defaultValue === undefined) {
+			return { ...withoutDefault, properties };
+		}
+		return {
+			...withoutDefault,
+			properties,
+			defaultValue: sanitizeConfig(definition.properties, defaultValue, "", new Set()),
+		};
+	}
+	if (definition.type === "array") {
+		const { defaultValue, items: _items, ...withoutDefault } = definition;
+		const items = sanitizeConfigDefinition(definition.items);
+		if (definition.secret === true || defaultValue === undefined) {
+			return { ...withoutDefault, items };
+		}
+		const sanitizedDefault = defaultValue.flatMap((item) => {
+			const sanitized = sanitizeConfigValue(definition.items, item, "", new Set());
+			return sanitized === undefined ? [] : [sanitized];
+		});
+		return { ...withoutDefault, defaultValue: sanitizedDefault, items };
+	}
+	if (definition.secret === true) {
+		const { defaultValue: _defaultValue, ...withoutDefault } = definition;
+		return withoutDefault;
+	}
+	return definition;
+};
+
+const sanitizeConfigSchema = (schema: AppSchema): AppSchema => ({
+	...schema,
+	fields: Object.fromEntries(
+		Object.entries(schema.fields).map(([key, definition]) => [
+			key,
+			sanitizeConfigDefinition(definition),
+		]),
+	),
+});
+
 const toInstallationItem = (view: InstallationView): PluginInstallationItem => {
-	const secrets = new Set(collectSecretProperties(view.manifest.configSchema));
 	const storedConfig = view.scope === "system" ? {} : (view.state?.config ?? {});
+	const configuredSecrets = new Set<string>();
 	return {
 		...view.manifest.metadata,
 		scope: view.scope,
 		sourceHash: view.sourceHash,
 		health: view.state?.health ?? "ready",
-		configSchema: view.manifest.configSchema,
 		isDisabled: view.state?.isDisabled ?? false,
 		healthReason: view.state?.healthReason ?? null,
+		configuredSecrets: [...configuredSecrets].sort(),
 		slug: PluginSlug.make(view.manifest.metadata.slug),
 		sortOrder: view.state?.sortOrder ?? view.defaultSortOrder,
-		config: Object.fromEntries(Object.entries(storedConfig).filter(([key]) => !secrets.has(key))),
-		configuredSecrets: Object.entries(storedConfig).flatMap(([key, value]) =>
-			secrets.has(key) && value !== null && value !== undefined ? [key] : [],
-		),
+		configSchema: sanitizeConfigSchema(view.manifest.configSchema),
+		config: sanitizeConfig(view.manifest.configSchema.fields, storedConfig, "", configuredSecrets),
 	};
 };
 
@@ -209,6 +305,95 @@ export class PluginInstallationService extends Context.Service<PluginInstallatio
 					installPrivateUnlocked(input).pipe(structurePluginFailure),
 			);
 
+			const updateInstallationUnlocked = Effect.fn(
+				"PluginInstallationService.updateInstallationUnlocked",
+			)(function* (userId: UserId, slug: string, payload: UpdatePluginInstallationBody) {
+				const pluginSlug = PluginSlug.make(slug);
+				const systemPlugin = loader.getSnapshot().plugins[slug];
+				const privatePlugin = systemPlugin
+					? undefined
+					: (yield* repository.listPrivateForUser(userId)).find(
+							(candidate) => candidate.slug === slug,
+						);
+				const plugin = systemPlugin ?? privatePlugin;
+				if (!plugin) {
+					return yield* new PluginNotFoundError({
+						reason: { code: "plugin-not-found", pluginSlug },
+					});
+				}
+				const state = yield* installations.findByUserAndPlugin(userId, plugin.id);
+				if (!state) {
+					return yield* new PluginNotFoundError({
+						reason: { code: "plugin-not-found", pluginSlug },
+					});
+				}
+				if (
+					plugin.scope === "system" &&
+					(Object.hasOwn(payload, "config") || Object.hasOwn(payload, "unsetConfigKeys"))
+				) {
+					return yield* new PluginConflictError({ reason: { code: "system-plugin", pluginSlug } });
+				}
+				const isDisabled = payload.isDisabled ?? state.isDisabled;
+				if (payload.isDisabled === false && state.health !== "ready") {
+					return yield* new PluginConflictError({
+						reason: { code: "installation-not-ready", health: state.health, pluginSlug },
+					});
+				}
+				const mergedConfig = { ...state.config, ...payload.config };
+				for (const key of payload.unsetConfigKeys ?? []) {
+					delete mergedConfig[key];
+				}
+				const config =
+					plugin.scope === "system"
+						? {}
+						: yield* parseAppSchemaProperties({
+								kind: "Plugin config",
+								properties: mergedConfig,
+								propertiesSchema: plugin.manifest.configSchema,
+							}).pipe(
+								Effect.mapError(
+									(error) =>
+										new PluginValidationError({
+											issues: [`Plugin config is invalid: ${formatPropertyIssues(error.issues)}`],
+										}),
+								),
+							);
+				const updated = yield* installations.updateState({
+					config,
+					isDisabled,
+					id: state.id,
+					sortOrder: payload.sortOrder ?? state.sortOrder,
+				});
+				return toInstallationItem({
+					scope: plugin.scope,
+					state: updated ?? state,
+					manifest: plugin.manifest,
+					sourceHash: plugin.sourceHash,
+					defaultSortOrder: state.sortOrder,
+				});
+			});
+
+			const updateInstallation = Effect.fn("PluginInstallationService.updateInstallation")(
+				(userId: UserId, slug: string, payload: UpdatePluginInstallationBody) =>
+					updateInstallationUnlocked(userId, slug, payload).pipe(
+						Effect.catchTag("PluginValidationError", (error) =>
+							Effect.fail(
+								new PluginRequestError({
+									reason: {
+										code: "validation-failed",
+										diagnostics: error.issues.map((message) => ({
+											message,
+											phase: "validate" as const,
+											severity: "error" as const,
+											code: "plugin-validation-error",
+										})),
+									},
+								}),
+							),
+						),
+					),
+			);
+
 			const assertUnreferenced = Effect.fn("PluginInstallationService.assertUnreferenced")(
 				function* (plugin: StoredPlugin, pluginSlug: PluginSlug) {
 					if (yield* workflowReferences.hasReferences(plugin.id)) {
@@ -267,6 +452,7 @@ export class PluginInstallationService extends Context.Service<PluginInstallatio
 			return {
 				uninstallPlugin,
 				listInstallations,
+				updateInstallation,
 				installPrivatePlugin,
 				provisionSystemInstallations,
 				provisionSystemInstallationsForAllUsers,

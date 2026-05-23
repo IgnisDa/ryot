@@ -159,6 +159,27 @@ export class PluginInstallationRepository extends Context.Service<PluginInstalla
 				return row;
 			});
 
+			const updateState = Effect.fn("PluginInstallationRepository.updateState")(function* (input: {
+				id: string;
+				sortOrder: number;
+				isDisabled: boolean;
+				config: Record<string, unknown>;
+			}) {
+				const db = yield* Database;
+				const [row] = yield* mapDatabaseErrors(
+					db
+						.update(schema.pluginInstallation)
+						.set({
+							config: input.config,
+							sortOrder: input.sortOrder,
+							isDisabled: input.isDisabled,
+						})
+						.where(eq(schema.pluginInstallation.id, input.id))
+						.returning(),
+				);
+				return row;
+			});
+
 			const provisionSystemInstallationsForUser = Effect.fn(
 				"PluginInstallationRepository.provisionSystemInstallationsForUser",
 			)(function* (userId: UserId) {
@@ -200,6 +221,7 @@ export class PluginInstallationRepository extends Context.Service<PluginInstalla
 				create,
 				restore,
 				listForUser,
+				updateState,
 				upsertState,
 				updateHealth,
 				listSystemForUser,

@@ -14,6 +14,7 @@ import {
 	requireRows,
 	requireRyotQLText,
 	requireRyotQLValue,
+	updatePluginState,
 } from "~/fixtures";
 import { assertTaggedError, requirePresent } from "~/support/assertions";
 import { describe, expect, it } from "~/support/effect-test";
@@ -134,11 +135,95 @@ describe("private plugins", () => {
 		}),
 	);
 
+	it.live("patches config and controls without exposing or resubmitting secrets", () =>
+		Effect.gen(function* () {
+			const { client } = yield* createAuthenticatedClient();
+			const plugin = yield* installPrivatePlugin({
+				client,
+				config: {
+					[PRIVATE_PLUGIN_CONFIG_KEY]: "alpha",
+					[PRIVATE_PLUGIN_SECRET_KEY]: "token-alpha",
+				},
+			});
+
+			const patched = yield* updatePluginState(client, plugin.pluginSlug, {
+				sortOrder: 9,
+				config: { [PRIVATE_PLUGIN_CONFIG_KEY]: "beta" },
+			});
+			expect(patched).toMatchObject({
+				sortOrder: 9,
+				configuredSecrets: [PRIVATE_PLUGIN_SECRET_KEY],
+				config: { [PRIVATE_PLUGIN_CONFIG_KEY]: "beta" },
+			});
+			expect(JSON.stringify(patched)).not.toContain("token-alpha");
+			expect(
+				(yield* invokePrivatePluginOperation({
+					client,
+					prefix: "run",
+					pluginSlug: plugin.pluginSlug,
+					operationSlug: plugin.operationSlug,
+				})).result,
+			).toEqual({ label: "run:beta" });
+
+			yield* updatePluginState(client, plugin.pluginSlug, { isDisabled: true });
+			const failure = yield* Effect.flip(
+				invokePrivatePluginOperation({
+					client,
+					prefix: "run",
+					pluginSlug: plugin.pluginSlug,
+					operationSlug: plugin.operationSlug,
+				}),
+			);
+			assertTaggedError(failure, "PluginNotFoundError");
+
+			yield* updatePluginState(client, plugin.pluginSlug, { isDisabled: false });
+			expect(
+				(yield* invokePrivatePluginOperation({
+					client,
+					prefix: "run",
+					pluginSlug: plugin.pluginSlug,
+					operationSlug: plugin.operationSlug,
+				})).result,
+			).toEqual({ label: "run:beta" });
+		}),
+	);
+
+	it.live("rejects required unsets, system config, and another user's patch", () =>
+		Effect.gen(function* () {
+			const owner = yield* createAuthenticatedClient();
+			const outsider = yield* createAuthenticatedClient();
+			const plugin = yield* installPrivatePlugin({
+				client: owner.client,
+				config: {
+					[PRIVATE_PLUGIN_CONFIG_KEY]: "alpha",
+					[PRIVATE_PLUGIN_SECRET_KEY]: "token-alpha",
+				},
+			});
+
+			const unset = yield* Effect.flip(
+				updatePluginState(owner.client, plugin.pluginSlug, {
+					unsetConfigKeys: [PRIVATE_PLUGIN_CONFIG_KEY],
+				}),
+			);
+			assertTaggedError(unset, "PluginRequestError");
+			expect(unset.reason.code).toBe("validation-failed");
+
+			const foreign = yield* Effect.flip(
+				updatePluginState(outsider.client, plugin.pluginSlug, { sortOrder: 4 }),
+			);
+			assertTaggedError(foreign, "PluginNotFoundError");
+
+			const system = yield* Effect.flip(updatePluginState(owner.client, mediaSlug, { config: {} }));
+			assertTaggedError(system, "PluginConflictError");
+			expect(system.reason).toEqual({ code: "system-plugin", pluginSlug: mediaSlug });
+		}),
+	);
+
 	it.live("isolates two users installing different packages under the same slug", () =>
 		Effect.gen(function* () {
-			const sharedSlug = `e2e-private-shared-${crypto.randomUUID()}`;
 			const first = yield* createAuthenticatedClient();
 			const second = yield* createAuthenticatedClient();
+			const sharedSlug = `e2e-private-shared-${crypto.randomUUID()}`;
 
 			const firstPlugin = yield* installPrivatePlugin({
 				client: first.client,
@@ -254,10 +339,7 @@ describe("private plugins", () => {
 			);
 
 			assertTaggedError(failure, "PluginRequestError");
-			expect(failure.reason).toEqual({
-				surfaces: ["crons"],
-				code: "unsupported-manifest-surface",
-			});
+			expect(failure.reason).toEqual({ surfaces: ["crons"], code: "unsupported-manifest-surface" });
 		}),
 	);
 
@@ -279,10 +361,7 @@ describe("private plugins", () => {
 				),
 			);
 			assertTaggedError(foreign, "PluginNotFoundError");
-			expect(foreign.reason).toEqual({
-				code: "plugin-not-found",
-				pluginSlug: plugin.pluginSlug,
-			});
+			expect(foreign.reason).toEqual({ code: "plugin-not-found", pluginSlug: plugin.pluginSlug });
 
 			const system = yield* Effect.flip(
 				owner.client.call((c) => c.plugins.uninstall({ params: { pluginSlug: mediaSlug } })),

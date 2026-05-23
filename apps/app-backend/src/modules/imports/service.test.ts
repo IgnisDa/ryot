@@ -25,6 +25,7 @@ import {
 	ImportSourceCatalog,
 	type RegisteredImportSource,
 } from "#modules/plugins/import-source-catalog";
+import { PluginRuntimeResolver } from "#modules/plugins/runtime-resolver";
 import { UploadIntentsService } from "#modules/uploads/intents/service";
 
 import { ImportRunFailuresService } from "./failure-service";
@@ -119,6 +120,9 @@ const makeServiceLayer = (
 	),
 	pinning = importWorkflowPinningLayer,
 	redis = makeRedisService(),
+	pluginRuntime = Layer.mock(PluginRuntimeResolver)({
+		isSystemPluginAvailableToUser: () => Effect.succeed(true),
+	}),
 ) =>
 	ImportsService.layer.pipe(
 		Layer.provideMerge(
@@ -129,6 +133,7 @@ const makeServiceLayer = (
 				pinning,
 				Layer.succeed(RedisService, redis),
 				makeImportRunFailuresService(),
+				pluginRuntime,
 				dependencies,
 				repository,
 			),
@@ -460,7 +465,7 @@ it.effect("lists manifest sources with workflow and config availability", () => 
 	);
 
 	return Effect.gen(function* () {
-		const sources = yield* (yield* ImportsService).listImportSources();
+		const sources = yield* (yield* ImportsService).listImportSources(user);
 		expect(sources).toEqual([
 			{
 				name: "Goodreads",
@@ -490,9 +495,33 @@ it.effect("lists a configured source with an active workflow as startable", () =
 	);
 
 	return Effect.gen(function* () {
-		expect(yield* (yield* ImportsService).listImportSources()).toMatchObject([
+		expect(yield* (yield* ImportsService).listImportSources(user)).toMatchObject([
 			{ slug: "goodreads", isStartable: true, missingPluginConfigKeys: [] },
 		]);
+	}).pipe(Effect.provide(Layer.mergeAll(layer, makeConfigProviderLayer())));
+});
+
+it.effect("hides and rejects import sources from an unavailable system installation", () => {
+	const source = goodreadsSource();
+	const layer = makeServiceLayer(
+		makeImportsRepository(),
+		Layer.mergeAll(
+			makeImportSourceCatalog(source),
+			mockUploadsService({}),
+			Layer.succeed(WorkflowEngine, makeWorkflowEngine()),
+		),
+		importWorkflowPinningLayer,
+		makeRedisService(),
+		Layer.mock(PluginRuntimeResolver)({
+			isSystemPluginAvailableToUser: () => Effect.succeed(false),
+		}),
+	);
+
+	return Effect.gen(function* () {
+		const service = yield* ImportsService;
+		expect(yield* service.listImportSources(user)).toEqual([]);
+		const error = yield* Effect.flip(service.startImportRun(user, { source: source.slug }));
+		expect(error).toMatchObject({ reason: { code: "source-not-found", source: source.slug } });
 	}).pipe(Effect.provide(Layer.mergeAll(layer, makeConfigProviderLayer())));
 });
 
