@@ -4,6 +4,7 @@ import { shouldRunLegacyBootstrap, withLegacyBootstrapNoticeClient } from "./sha
 
 const dropLegacyTablesSql = `
 DO $$
+DECLARE started_at timestamptz := clock_timestamp();
 BEGIN
 	DROP TABLE IF EXISTS "seaql_migrations" CASCADE;
 	DROP TABLE IF EXISTS "metadata_to_metadata_group" CASCADE;
@@ -13,7 +14,8 @@ BEGIN
 	DROP TABLE IF EXISTS "metadata_group" CASCADE;
 	DROP TABLE IF EXISTS "person" CASCADE;
 	DROP TABLE IF EXISTS "old_user" CASCADE;
-	RAISE NOTICE 'legacy tables dropped';
+	RAISE NOTICE 'legacy tables dropped (% seconds elapsed)',
+		round(extract(epoch from clock_timestamp() - started_at)::numeric, 1);
 END $$;
 `;
 
