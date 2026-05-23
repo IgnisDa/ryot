@@ -56,7 +56,7 @@ const authClientAtom = atom((get) => {
 					genericOAuthClient(),
 					twoFactorClient(),
 				]
-			: [apiKeyClient(), genericOAuthClient()];
+			: [apiKeyClient(), genericOAuthClient(), twoFactorClient()];
 	return createAuthClient({ baseURL: serverUrl, plugins });
 });
 
