@@ -1,5 +1,5 @@
 import { assert, expect, it } from "@effect/vitest";
-import { Conflict, SandboxRunError } from "@ryot/contract/errors";
+import { SandboxRunError } from "@ryot/contract/errors";
 import { EntityId, SandboxProviderId, UserId } from "@ryot/contract/schema/brands";
 import { Cause, Effect, Exit, Layer, Option, Schema } from "effect";
 import { Workflow } from "effect/unstable/workflow";
@@ -19,7 +19,6 @@ import {
 	TranslateEntityWorkflowOperations,
 	type TranslateEntityWorkflowOperationsValue,
 } from "./operations-workflow";
-import { TranslationsRepository } from "./repository";
 import { TranslationsService } from "./service";
 
 const TestTranslateEntityWorkflow = Workflow.make("TestTranslateEntityWorkflow", {
@@ -40,32 +39,17 @@ const payload = {
 	providerId: SandboxProviderId.make("provider-1"),
 } satisfies TranslateEntityWorkflowPayload;
 
-const mockTranslationsRepository = Layer.mock(TranslationsRepository);
-
-const makeTranslationsRepository = (
-	overrides: MockOverrides<typeof mockTranslationsRepository> = {},
-) =>
-	mockTranslationsRepository({
-		createOverlay: () => Effect.sync(() => undefined),
-		findOverlay: () => Effect.succeed(null),
-		findUserLanguage: () => Effect.succeed(null),
-		updateOverlay: () => Effect.succeed("translation-1"),
-		...overrides,
-	});
-
 const mockTranslationsService = Layer.mock(TranslationsService);
 
 const makeTranslationsService = (overrides: MockOverrides<typeof mockTranslationsService> = {}) =>
 	mockTranslationsService({
 		requestFill: () => Effect.void,
-		create: () => Effect.sync(() => undefined),
-		update: () => Effect.sync(() => undefined),
+		upsert: () => Effect.sync(() => undefined),
 		...overrides,
 	});
 
 type TestLayerOptions = {
 	translationsService?: Layer.Layer<TranslationsService>;
-	translationsRepository?: Layer.Layer<TranslationsRepository>;
 	publishedMessages?: Array<{ channel: string; message: string }>;
 	processSandbox?: TranslateEntityWorkflowOperationsValue["processSandbox"];
 };
@@ -85,7 +69,6 @@ const makeTestLayer = (options: TestLayerOptions) =>
 		Layer.mock(TranslateEntityWorkflowOperations, {
 			processSandbox: options.processSandbox ?? (() => Effect.die("unused")),
 		}),
-		options.translationsRepository ?? makeTranslationsRepository(),
 		options.translationsService ?? makeTranslationsService(),
 	);
 
@@ -104,8 +87,8 @@ const withTestLayer = <A, E, R>(
 	);
 };
 
-it.effect("writes the translation overlay and publishes an update on success", () => {
-	let createdInput: unknown;
+it.effect("upserts the translation overlay and publishes an update on success", () => {
+	let upsertedInput: unknown;
 	const publishedMessages: Array<{ channel: string; message: string }> = [];
 
 	const options = {
@@ -118,8 +101,8 @@ it.effect("writes the translation overlay and publishes an update on success", (
 				value: { name: "Libro de Prueba", properties: { title: "Libro de Prueba" } },
 			}),
 		translationsService: makeTranslationsService({
-			create: (input) => {
-				createdInput = input;
+			upsert: (input) => {
+				upsertedInput = input;
 				return Effect.sync(() => undefined);
 			},
 		}),
@@ -131,79 +114,13 @@ it.effect("writes the translation overlay and publishes an update on success", (
 		Effect.gen(function* () {
 			yield* runTranslateEntityWorkflow(payload, payload.executionId);
 
-			expect(createdInput).toMatchObject({
+			expect(upsertedInput).toMatchObject({
 				language: "es",
 				entityId: "entity-1",
 				name: "Libro de Prueba",
 				properties: { title: "Libro de Prueba" },
 			});
 			expect(publishedMessages).toHaveLength(1);
-		}),
-	);
-});
-
-it.effect("updates an existing overlay instead of creating it", () => {
-	let updatedInput: unknown;
-	const options = {
-		processSandbox: () =>
-			Effect.succeed({
-				logs: [],
-				error: null,
-				status: "completed" as const,
-				value: { name: "Libro actualizado", properties: { title: "Libro actualizado" } },
-			}),
-		translationsRepository: makeTranslationsRepository({
-			findOverlay: () => Effect.succeed({ name: "Libro anterior", properties: {} }),
-		}),
-		translationsService: makeTranslationsService({
-			create: () => Effect.die("create should not be called"),
-			update: (input) => {
-				updatedInput = input;
-				return Effect.sync(() => undefined);
-			},
-		}),
-	} satisfies TestLayerOptions;
-
-	return withTestLayer(
-		options,
-		payload.executionId,
-		Effect.gen(function* () {
-			yield* runTranslateEntityWorkflow(payload, payload.executionId);
-			expect(updatedInput).toMatchObject({
-				language: "es",
-				entityId: "entity-1",
-				name: "Libro actualizado",
-				properties: { title: "Libro actualizado" },
-			});
-		}),
-	);
-});
-
-it.effect("falls back to update when a concurrent create wins", () => {
-	let updatedInput: unknown;
-	const options = {
-		processSandbox: () =>
-			Effect.succeed({
-				logs: [],
-				error: null,
-				status: "completed" as const,
-				value: { name: "Libro de Prueba", properties: { title: "Libro de Prueba" } },
-			}),
-		translationsService: makeTranslationsService({
-			create: () => Effect.fail(new Conflict({ message: "Translation overlay already exists" })),
-			update: (input) => {
-				updatedInput = input;
-				return Effect.sync(() => undefined);
-			},
-		}),
-	} satisfies TestLayerOptions;
-
-	return withTestLayer(
-		options,
-		payload.executionId,
-		Effect.gen(function* () {
-			yield* runTranslateEntityWorkflow(payload, payload.executionId);
-			expect(updatedInput).toMatchObject({ entityId: "entity-1", language: "es" });
 		}),
 	);
 });
