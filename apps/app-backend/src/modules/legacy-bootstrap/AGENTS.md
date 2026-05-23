@@ -26,7 +26,7 @@ Permitted silent-skip patterns: idempotent guards (work already done on a previo
 ## Current Decisions
 
 - V1 `user` is renamed to `old_user` so the new Drizzle `user` table can be created. The `old_user` migration runs before person inserts so user-scoped custom people can satisfy the new `entity.user_id` foreign key.
-- Preserve legacy ids. Derive new emails from the old user name as `name@ryot.local`, with normalization and a stable fallback for collisions. New users get `email_verified = true`.
+- Preserve legacy ids. Derive new emails from the old user name: if the name is a valid email address (`^[a-z0-9._%+-]+@[a-z0-9.-]+\.[a-z]{2,}$` after lowercasing), use it directly; otherwise synthesize `normalized_name@ryot.local`. Collisions (duplicate real emails or duplicate synthetic local parts) append `+{id}` before the `@`. New users get `email_verified = true`.
 - After `old_user` is migrated, each legacy user is passed through `bootstrapNewUser` so migrated accounts receive the built-in trackers, saved views, and library entity that auth-created users get.
 - All V1 entities (`metadata`, `metadata_group`, `person`, `collection`, `exercise`, `workout_template`, `workout`) are migrated to the V2 `entity` table with `entity_schema_id`/`sandbox_script_id` derived from the V1 `lot`/`source`. Relationship tables are migrated to V2 `relationship` rows. Workout sets become `event` rows. The authoritative field-level mappings live in the migration SQL — do not duplicate them here.
 - V1 `seen` rows become V2 `event` rows. Each row expands into one or more events; the full expansion and clamping logic is in `seen-mapping.ts`, and the episodic completion backfill is in `seen-completion-mapping.ts`.
