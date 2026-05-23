@@ -216,9 +216,9 @@ export const processRelatedEntities = async (
 			);
 		}
 
-		const relationshipSchemaSlug = normalizeSlug(
-			`${relatedSchema.slug} to ${input.entitySchemaSlug}`,
-		);
+		const relationshipSchemaSlug = relatedEntity.reverseDirection
+			? normalizeSlug(`${input.entitySchemaSlug} to ${relatedSchema.slug}`)
+			: normalizeSlug(`${relatedSchema.slug} to ${input.entitySchemaSlug}`);
 
 		const relationshipSchema =
 			await deps.getBuiltinRelationshipSchemaBySlug(relationshipSchemaSlug);
@@ -235,15 +235,18 @@ export const processRelatedEntities = async (
 			externalId: relatedEntity.externalId,
 		});
 
+		const sourceEntityId = relatedEntity.reverseDirection ? input.entityId : existingOrCreated.id;
+		const targetEntityId = relatedEntity.reverseDirection ? existingOrCreated.id : input.entityId;
+
 		const relationshipResult = await deps.writeEntityRelationship({
-			targetEntityId: input.entityId,
-			sourceEntityId: existingOrCreated.id,
+			targetEntityId,
+			sourceEntityId,
 			relationshipSchemaId: relationshipSchema.id,
 			properties: relatedEntity.relationshipProperties,
 		});
 		if ("error" in relationshipResult) {
 			throw new Error(
-				`Failed to write ${relatedSchema.slug}-to-${input.entitySchemaSlug} relationship: ${relationshipResult.message}`,
+				`Failed to write ${relationshipSchemaSlug} relationship: ${relationshipResult.message}`,
 			);
 		}
 	}

@@ -13,6 +13,11 @@ type BuiltinRelationshipSchema = {
 
 const groupRolesPropertiesSchema = {
 	fields: {
+		order: {
+			label: "Order",
+			type: "number" as const,
+			description: "Position of this media item within the group (1-based)",
+		},
 		roles: {
 			label: "Roles",
 			type: "array" as const,

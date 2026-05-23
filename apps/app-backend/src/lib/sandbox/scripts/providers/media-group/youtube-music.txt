@@ -139,6 +139,27 @@ driver("details", async function (context) {
   const tracks = Array.isArray(album?.contents) ? album.contents : [];
   const parts = tracks.length > 0 ? tracks.length : null;
 
+  const relatedEntities = tracks
+    .map((track, idx) => {
+      const memberId =
+        typeof track?.id === "string" && track.id.trim() ? track.id.trim() : null;
+      if (!memberId) return null;
+      const memberName =
+        typeof track?.title === "string" && track.title.trim()
+          ? track.title.trim()
+          : typeof track?.info?.title === "string" && track.info.title.trim()
+            ? track.info.title.trim()
+            : "Loading...";
+      return {
+        name: memberName,
+        externalId: memberId,
+        reverseDirection: true,
+        scriptSlug: "music.youtube-music",
+        relationshipProperties: { order: idx + 1 },
+      };
+    })
+    .filter((e) => e !== null);
+
   const coverUrl = getLargestThumbnailUrl(
     album?.thumbnail ?? album?.header?.thumbnail,
   );
@@ -151,6 +172,7 @@ driver("details", async function (context) {
     : null;
 
   return {
+    relatedEntities,
     name: String(title),
     properties: {
       parts,
