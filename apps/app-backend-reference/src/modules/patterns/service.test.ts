@@ -5,7 +5,7 @@ import type { CurrentUserValue } from "../../lib/auth";
 import { CurrentDb, TransactionRunner, type DbExecutor } from "../../lib/db";
 import { type DbError, PatternsDuplicateItem, PatternsRejected } from "../../lib/errors";
 import { PatternsRepository } from "./repository";
-import { PatternsService, PatternsServiceLive } from "./service";
+import { PatternsService } from "./service";
 
 const user = {
 	id: "user-id",
@@ -44,7 +44,7 @@ const makeTestLayer = () => {
 			return { id: `item-${queries.size}`, query };
 		});
 
-	const layer = PatternsServiceLive.pipe(
+	const layer = PatternsService.Default.pipe(
 		Layer.provide(
 			Layer.mergeAll(
 				Layer.succeed(
@@ -61,6 +61,7 @@ const makeTestLayer = () => {
 					},
 				),
 				Layer.mock(PatternsRepository, {
+					_tag: "PatternsRepository" as const,
 					createItem,
 					createRun: () => write("run:run-id").pipe(Effect.as({ id: "run-id" })),
 					createStep: () => write("step:step-id").pipe(Effect.as({ id: "step-id" })),

@@ -1,4 +1,4 @@
-import { ConfigError, Context, Effect, Layer, Option } from "effect";
+import { ConfigError, Effect, Option } from "effect";
 
 import { SystemConfigSource, type SystemConfigValue } from "./system";
 
@@ -34,12 +34,9 @@ const validateSystemConfig = (
 	return Effect.succeed(config);
 };
 
-export class AppConfig extends Context.Tag("AppConfig")<AppConfig, SystemConfigValue>() {}
-
-export const AppConfigLive = Layer.effect(
-	AppConfig,
-	Effect.flatMap(SystemConfigSource, validateSystemConfig),
-);
+export class AppConfig extends Effect.Service<AppConfig>()("AppConfig", {
+	effect: Effect.flatMap(SystemConfigSource, validateSystemConfig),
+}) {}
 
 export type AppConfigValue = SystemConfigValue;
 
