@@ -1,7 +1,11 @@
 {
-	"extends": "expo/tsconfig.base",
+	"extends": ["../../tsconfig.options.json", "expo/tsconfig.base"],
 	"include": ["**/*.ts", "**/*.tsx", ".expo/types/**/*.ts", "expo-env.d.ts", "nativewind-env.d.ts"],
 	"compilerOptions": {
+		"composite": false,
+		"declaration": false,
+		"declarationMap": false,
+		"emitDeclarationOnly": false,
 		"strict": true,
 		"types": ["bun-types"],
 		"paths": { "@/*": ["./src/*"] }
