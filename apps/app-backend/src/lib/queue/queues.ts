@@ -4,8 +4,9 @@ import { getRedisConnection } from "./connection";
 
 const defaultJobOptions = {
 	attempts: 1,
-	removeOnFail: { age: 86400, count: 1000 },
-	removeOnComplete: { age: 3600, count: 1000 },
+	removeOnFail: { age: 86400 },
+	removeOnComplete: { age: 3600 },
+	backoff: { type: "exponential", delay: 5000 },
 };
 
 export const createQueues = () => {
@@ -14,12 +15,7 @@ export const createQueues = () => {
 	const sandboxQueue = new Queue("sandbox", { connection, defaultJobOptions });
 	const entityQueue = new Queue("entity", {
 		connection,
-		defaultJobOptions: {
-			...defaultJobOptions,
-			attempts: 3,
-			backoff: { type: "exponential", delay: 5000 },
-			removeOnComplete: { age: 86400, count: 1000 },
-		},
+		defaultJobOptions: { ...defaultJobOptions, attempts: 3 },
 	});
 	return { eventsQueue, entityQueue, sandboxQueue };
 };
