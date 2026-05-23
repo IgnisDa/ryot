@@ -2,8 +2,8 @@ import type { Job } from "bullmq";
 
 import { config } from "~/lib/config";
 
-import type { ImportEntityRef, ImportMediaEntityGroup, ImportRunJobData } from "../../jobs";
-import { processMediaImport } from "../../media/import-processor";
+import { failImportRun } from "../../helpers";
+import { processMediaImport, type MediaImportJobInput } from "../../media/import-processor";
 import { updateImportRun } from "../../repository";
 import { adaptTraktData } from "./adapter";
 
@@ -29,43 +29,24 @@ const getTraktUsername = (sourcePayload: Record<string, unknown> | undefined): s
 export const processTraktImport = async (
 	job: Job,
 	token: string | undefined,
-	input: {
-		runId: string;
-		userId: string;
+	input: MediaImportJobInput & {
 		sourcePayload: Record<string, unknown> | undefined;
-		providerEntityIndex: number | undefined;
-		adapterFailureCount: number | undefined;
-		providerSandboxJobId: string | undefined;
-		mediaWriteGroupIndex: number | undefined;
-		mediaWriteFailedItems: number | undefined;
-		importStep: ImportRunJobData["importStep"];
-		providerFailedIndices: number[] | undefined;
-		mediaWriteImportedItems: number | undefined;
-		providerEntityRefs: ImportEntityRef[] | undefined;
-		providerEntityIds: Array<string | null> | undefined;
-		mediaEntityGroups: ImportMediaEntityGroup[] | undefined;
 	},
 	deps: TraktImportProcessorDeps = traktImportProcessorDeps,
 ): Promise<void> => {
 	const username = getTraktUsername(input.sourcePayload);
 	if (!username) {
-		await deps.updateImportRun({
-			runId: input.runId,
-			status: "failed",
-			finishedAt: new Date(),
-			errorSummary: "Import job is missing Trakt username",
-		});
+		await failImportRun(input.runId, "Import job is missing Trakt username", deps.updateImportRun);
 		return;
 	}
 
 	const clientId = deps.getTraktClientId();
 	if (!clientId) {
-		await deps.updateImportRun({
-			runId: input.runId,
-			status: "failed",
-			finishedAt: new Date(),
-			errorSummary: "Trakt importer is not configured. Set SERVER_IMPORTER_TRAKT_CLIENT_ID.",
-		});
+		await failImportRun(
+			input.runId,
+			"Trakt importer is not configured. Set SERVER_IMPORTER_TRAKT_CLIENT_ID.",
+			deps.updateImportRun,
+		);
 		return;
 	}
 

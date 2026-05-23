@@ -1,6 +1,7 @@
 import { dayjs } from "@ryot/ts-utils/dayjs";
 
 import { parseCsvText } from "../../csv";
+import { getOrCreateMediaEntityGroup } from "../../media/groups";
 import type {
 	MediaImportAdapterFailure,
 	MediaImportAdapterResult,
@@ -16,7 +17,6 @@ import {
 	createProgressEvent,
 	createReviewEvent,
 	finalizeEntityGroups,
-	getOrCreateGroup,
 	isValidIsbn,
 	isLifecycleAlias,
 	normalizeIsbn,
@@ -35,13 +35,6 @@ type GoodreadsAdapterDeps = {
 
 const goodreadsAdapterDeps: GoodreadsAdapterDeps = {
 	resolveBookEntityRef: resolveBookEntityRefByIsbn,
-};
-
-const recordFailure = (
-	failures: MediaImportAdapterFailure[],
-	input: MediaImportAdapterFailure,
-): void => {
-	failures.push(input);
 };
 
 const selectLifecycleStatus = (shelves: string[]): ReturnType<typeof normalizeLifecycleStatus> => {
@@ -72,7 +65,7 @@ export const adaptGoodreadsCsv = async (
 	assertRequiredHeaders(headers, ["Title", "ISBN13", "Bookshelves"], "Goodreads");
 
 	const failures: MediaImportAdapterFailure[] = [];
-	const groupMap = new Map<string, ReturnType<typeof getOrCreateGroup>>();
+	const groupMap = new Map<string, ReturnType<typeof getOrCreateMediaEntityGroup>>();
 
 	// oxlint-disable no-await-in-loop
 	for (let itemIndex = 0; itemIndex < rows.length; itemIndex++) {
@@ -88,11 +81,11 @@ export const adaptGoodreadsCsv = async (
 		}
 		const isbn = normalizeIsbn(row.ISBN13 ?? "");
 		if (!isbn) {
-			recordFailure(failures, { itemIndex, sourceLabel, message: "ISBN13 is empty" });
+			failures.push({ itemIndex, sourceLabel, message: "ISBN13 is empty" });
 			continue;
 		}
 		if (!isValidIsbn(isbn)) {
-			recordFailure(failures, {
+			failures.push({
 				itemIndex,
 				sourceLabel,
 				context: { isbn },
@@ -106,7 +99,7 @@ export const adaptGoodreadsCsv = async (
 		try {
 			entityRef = await deps.resolveBookEntityRef({ isbn, sourceLabel });
 		} catch (error) {
-			recordFailure(failures, {
+			failures.push({
 				itemIndex,
 				sourceLabel,
 				context: { isbn },
@@ -117,7 +110,7 @@ export const adaptGoodreadsCsv = async (
 		}
 
 		if (!entityRef) {
-			recordFailure(failures, {
+			failures.push({
 				itemIndex,
 				sourceLabel,
 				context: { isbn },
@@ -127,7 +120,7 @@ export const adaptGoodreadsCsv = async (
 			continue;
 		}
 
-		const group = getOrCreateGroup(groupMap, entityRef);
+		const group = getOrCreateMediaEntityGroup(groupMap, entityRef);
 		const shelves = splitCommaList(row.Bookshelves ?? "");
 		const lifecycleStatus = selectLifecycleStatus(shelves);
 		const completedOn = parseDateWithFormat(row["Date Read"] ?? "", "YYYY/MM/DD");

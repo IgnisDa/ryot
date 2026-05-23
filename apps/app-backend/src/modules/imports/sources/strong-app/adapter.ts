@@ -1,6 +1,6 @@
 import { dayjs } from "@ryot/ts-utils/dayjs";
 
-import { parseCsvText } from "../../csv";
+import { parseCsvText, readCsvCell, readOptionalCsvNumber, readRequiredCsvCell } from "../../csv";
 import {
 	determineWorkoutExerciseKind,
 	type WorkoutAdapterFailure,
@@ -24,57 +24,19 @@ type StrongAppRow = {
 	workoutDuration: string;
 };
 
-const normalizeHeader = (value: string): string => value.toLowerCase().replace(/[^a-z0-9]/g, "");
-
-const readCell = (row: Record<string, string>, aliases: string[]): string | undefined => {
-	const wanted = new Set(aliases.map(normalizeHeader));
-	for (const [key, value] of Object.entries(row)) {
-		if (wanted.has(normalizeHeader(key))) {
-			const trimmed = value.trim();
-			return trimmed.length > 0 ? trimmed : undefined;
-		}
-	}
-	return undefined;
-};
-
-const readRequiredCell = (
-	row: Record<string, string>,
-	aliases: string[],
-	label: string,
-): string => {
-	const value = readCell(row, aliases);
-	if (!value) {
-		throw new Error(`Row is missing ${label}`);
-	}
-	return value;
-};
-
-const readOptionalNumber = (row: Record<string, string>, aliases: string[]): number | undefined => {
-	const value = readCell(row, aliases);
-	if (!value) {
-		return undefined;
-	}
-	const normalized = value.includes(".") ? value : value.replace(",", ".");
-	const parsed = Number(normalized);
-	if (Number.isNaN(parsed)) {
-		throw new Error(`Could not parse numeric value "${value}"`);
-	}
-	return parsed;
-};
-
 const parseStrongAppRow = (row: Record<string, string>, rowIdx: number): StrongAppRow => ({
 	itemIndex: rowIdx,
-	notes: readCell(row, ["Notes"]),
-	reps: readOptionalNumber(row, ["Reps"]),
-	seconds: readOptionalNumber(row, ["Seconds"]),
-	date: readRequiredCell(row, ["Date"], "Date"),
-	weight: readOptionalNumber(row, ["Weight (kg)", "Weight"]),
-	workoutNotes: readCell(row, ["Workout Notes", "WorkoutNotes"]),
-	distance: readOptionalNumber(row, ["Distance (m)", "Distance"]),
-	setOrder: readRequiredCell(row, ["Set Order"], "Set Order"),
-	workoutName: readRequiredCell(row, ["Workout Name", "WorkoutName"], "Workout Name"),
-	exerciseName: readRequiredCell(row, ["Exercise Name", "ExerciseName"], "Exercise Name"),
-	workoutDuration: readRequiredCell(
+	notes: readCsvCell(row, ["Notes"]),
+	reps: readOptionalCsvNumber(row, ["Reps"]),
+	seconds: readOptionalCsvNumber(row, ["Seconds"]),
+	date: readRequiredCsvCell(row, ["Date"], "Date"),
+	weight: readOptionalCsvNumber(row, ["Weight (kg)", "Weight"]),
+	workoutNotes: readCsvCell(row, ["Workout Notes", "WorkoutNotes"]),
+	distance: readOptionalCsvNumber(row, ["Distance (m)", "Distance"]),
+	setOrder: readRequiredCsvCell(row, ["Set Order"], "Set Order"),
+	workoutName: readRequiredCsvCell(row, ["Workout Name", "WorkoutName"], "Workout Name"),
+	exerciseName: readRequiredCsvCell(row, ["Exercise Name", "ExerciseName"], "Exercise Name"),
+	workoutDuration: readRequiredCsvCell(
 		row,
 		["Duration (sec)", "Duration", "Workout Duration", "WorkoutDuration"],
 		"Duration",
@@ -162,23 +124,6 @@ const sourceLabelForWorkout = (row: StrongAppRow): string => `${row.workoutName}
 const sourceIdentifierForWorkout = (row: Pick<StrongAppRow, "date" | "workoutName">): string =>
 	`${row.date}:${row.workoutName}`;
 
-const pushFailure = (
-	failures: WorkoutAdapterFailure[],
-	input: {
-		message: string;
-		itemIndex: number;
-		sourceLabel: string;
-		sourceIdentifier: string;
-	},
-) => {
-	failures.push({
-		message: input.message,
-		itemIndex: input.itemIndex,
-		sourceLabel: input.sourceLabel,
-		sourceIdentifier: input.sourceIdentifier,
-	});
-};
-
 export const adaptStrongAppCsv = (csvText: string): WorkoutAdapterResult => {
 	const { headers, rows } = parseCsvText(csvText);
 	if (headers.length === 0) {
@@ -198,7 +143,7 @@ export const adaptStrongAppCsv = (csvText: string): WorkoutAdapterResult => {
 				parsedRows.push(parsed);
 			}
 		} catch (error) {
-			pushFailure(failures, {
+			failures.push({
 				itemIndex: rowIdx,
 				sourceLabel: `Row ${rowIdx + 1}`,
 				sourceIdentifier: String(rowIdx + 1),
@@ -226,7 +171,7 @@ export const adaptStrongAppCsv = (csvText: string): WorkoutAdapterResult => {
 		const sourceLabel = sourceLabelForWorkout(firstRow);
 		const startedAt = dayjs(date);
 		if (!startedAt.isValid()) {
-			pushFailure(failures, {
+			failures.push({
 				sourceLabel,
 				sourceIdentifier,
 				itemIndex: firstRow.itemIndex,
@@ -239,7 +184,7 @@ export const adaptStrongAppCsv = (csvText: string): WorkoutAdapterResult => {
 		try {
 			durationSeconds = parseWorkoutDurationSeconds(firstRow.workoutDuration);
 		} catch (error) {
-			pushFailure(failures, {
+			failures.push({
 				sourceLabel,
 				sourceIdentifier,
 				itemIndex: firstRow.itemIndex,
@@ -260,7 +205,7 @@ export const adaptStrongAppCsv = (csvText: string): WorkoutAdapterResult => {
 			const sets = exerciseRows.map(toWorkoutSet);
 			const kind = determineWorkoutExerciseKind(sets);
 			if (!kind) {
-				pushFailure(failures, {
+				failures.push({
 					sourceLabel: `Exercise: ${exerciseName}`,
 					sourceIdentifier: `${sourceIdentifier}:${exerciseName}`,
 					itemIndex: exerciseRows[0]?.itemIndex ?? firstRow.itemIndex,
@@ -272,7 +217,7 @@ export const adaptStrongAppCsv = (csvText: string): WorkoutAdapterResult => {
 		}
 
 		if (exercises.length === 0) {
-			pushFailure(failures, {
+			failures.push({
 				sourceLabel,
 				sourceIdentifier,
 				itemIndex: firstRow.itemIndex,
