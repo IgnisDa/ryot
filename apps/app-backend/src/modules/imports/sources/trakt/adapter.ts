@@ -5,7 +5,7 @@ import type {
 	ImportMediaEvent,
 	ImportMediaEntityGroup,
 	ImportCollectionMembership,
-} from "../jobs";
+} from "../../jobs";
 
 const TRAKT_API_VERSION = "2";
 const TRAKT_PAGE_LIMIT = "1000";
