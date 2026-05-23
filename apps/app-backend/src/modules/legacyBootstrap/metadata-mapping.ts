@@ -197,7 +197,7 @@ export const buildMetadataMigrationSql = (targets: ResolvedMetadataMigrationTarg
 			ELSE NULL
 		END,
 		metadata.created_on,
-		metadata.last_updated_on,
+		NULL,
 		NULL,
 		'{}'::jsonb,
 		metadata_targets.entity_schema_id,

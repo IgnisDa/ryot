@@ -12,10 +12,10 @@ const listedEntityDefaults: ListedEntity = {
 	name: "My Book",
 	externalId: null,
 	sandboxScriptId: null,
+	populatedAt: new Date(),
 	entitySchemaId: "schema_1",
 	createdAt: createCreatedAt(),
 	updatedAt: createUpdatedAt(),
-	populatedAt: createCreatedAt(),
 	properties: { title: "My Book" },
 };
 
