@@ -1,20 +1,21 @@
+import * as PersistedQueue from "@effect/experimental/PersistedQueue";
+import { HttpClient } from "@effect/platform";
 import { Activity, Workflow } from "@effect/workflow";
-import { Cause, DateTime, Effect, Either, Schema } from "effect";
+import type { WorkflowEngine, WorkflowInstance } from "@effect/workflow/WorkflowEngine";
+import { Cause, Context, DateTime, Effect, Either, Layer, Schema } from "effect";
 
 import { DbRunner } from "#lib/db";
 import type { SandboxRunError } from "#lib/errors";
 import { unknownToMessage } from "#lib/errors";
-import type { EntityId, EntitySchemaId, ImportRunId } from "#lib/schema/brands";
+import type { ImportRunId } from "#lib/schema/brands";
 import { SandboxScriptId, UserId } from "#lib/schema/brands";
 import { EntitiesRepository } from "#modules/entities/repository";
 import { MediaImportAdapterResultSchema } from "#modules/imports/media/import-processor";
-import {
-	importMediaEntityViaWorkflow,
-	resolveSandboxEntityExternalId,
-} from "#modules/imports/media/workflow-operations";
+import { MediaImportWorkflowOperationsLive } from "#modules/imports/media/workflow-operations";
 import { ImportsRepository } from "#modules/imports/repository";
 import { failImportRun, sanitizeErrorMessage } from "#modules/imports/runtime/failures";
-import { runOneTimeMediaImportWorkflow } from "#modules/imports/workflows";
+import { ImportRunArtifacts } from "#modules/imports/runtime/workflow-helpers";
+import { runLoadedMediaImportWorkflow } from "#modules/imports/workflows";
 import type { SandboxCompletedResult } from "#modules/sandbox/schemas";
 
 import { IntegrationRunError, IntegrationRunJobData } from "./jobs";
@@ -42,46 +43,45 @@ const IntegrationRecordSchema = Schema.Struct({
 const toWorkflowError = (cause: unknown) =>
 	new IntegrationRunError({ message: unknownToMessage(cause) });
 
-type SinkMediaOperations<RResolve, RImport> = {
-	resolveExternalId: (input: {
-		value: string;
-		userId: UserId;
-		scriptId: SandboxScriptId;
-		executionId: string;
-		identifierType: string;
-	}) => Effect.Effect<{ externalId: string | null }, SandboxRunError, RResolve>;
-	importEntity: (input: {
-		userId: UserId;
-		scriptId: SandboxScriptId;
-		externalId: string;
-		executionId: string;
-		entitySchemaId: EntitySchemaId;
-		activityPrefix: string;
-	}) => Effect.Effect<{ id: EntityId }, SandboxRunError, RImport>;
-};
-
-type YankMediaOperations<RYank, RHistory> = {
+export type IntegrationRunOperationsValue = {
 	loadYankAdapterResult: (integration: IntegrationRecord) => Effect.Effect<
 		{
 			cleanupPaths: ReadonlyArray<string>;
 			adapterResult: typeof MediaImportAdapterResultSchema.Type;
 		},
-		{ cleanupPaths: ReadonlyArray<string>; message: string },
-		RYank
+		{ cleanupPaths: ReadonlyArray<string>; message: string }
 	>;
 	runSandboxHistory: (input: {
 		userId: UserId;
-		scriptId: SandboxScriptId;
 		executionId: string;
+		scriptId: SandboxScriptId;
 		context: { authCookie: string; timezone: string };
-	}) => Effect.Effect<SandboxCompletedResult, SandboxRunError, RHistory>;
+	}) => Effect.Effect<SandboxCompletedResult, SandboxRunError, WorkflowEngine | WorkflowInstance>;
 };
 
-type IntegrationRunOperations<RResolve, RImport, RYank, RHistory> = SinkMediaOperations<
-	RResolve,
-	RImport
-> &
-	YankMediaOperations<RYank, RHistory>;
+export class IntegrationRunOperations extends Context.Tag("IntegrationRunOperations")<
+	IntegrationRunOperations,
+	IntegrationRunOperationsValue
+>() {}
+
+const IntegrationRunOperationsLive = Layer.effect(
+	IntegrationRunOperations,
+	Effect.gen(function* () {
+		const httpClient = yield* HttpClient.HttpClient;
+		const queueFactory = yield* PersistedQueue.PersistedQueueFactory;
+
+		return {
+			loadYankAdapterResult: (integration) =>
+				loadYankAdapterResult(integration).pipe(
+					Effect.provideService(HttpClient.HttpClient, httpClient),
+				),
+			runSandboxHistory: (input) =>
+				runYoutubeMusicHistorySandbox(input).pipe(
+					Effect.provideService(PersistedQueue.PersistedQueueFactory, queueFactory),
+				),
+		};
+	}),
+);
 
 const failRun = (name: string, runId: ImportRunId, message: string) =>
 	Activity.make({
@@ -90,37 +90,41 @@ const failRun = (name: string, runId: ImportRunId, message: string) =>
 		execute: failImportRun(runId, message).pipe(Effect.mapError(toWorkflowError)),
 	});
 
-const runMediaImportForIntegration = <RResolve, RImport, RLoad>(
-	integration: IntegrationRecord,
-	payload: IntegrationRunJobData,
-	executionId: string,
-	operations: SinkMediaOperations<RResolve, RImport>,
-	loadAdapterResult: () => Effect.Effect<
-		{
-			cleanupPaths: ReadonlyArray<string>;
-			adapterResult: typeof MediaImportAdapterResultSchema.Type;
-		},
-		{ cleanupPaths: ReadonlyArray<string>; message: string },
-		RLoad
-	>,
-) =>
-	runOneTimeMediaImportWorkflow(
-		{ runId: payload.runId, userId: integration.userId, source: integration.provider },
-		executionId,
-		{
-			loadAdapterResult,
-			cleanupArtifacts: () => Effect.void,
-			importEntity: operations.importEntity,
-			resolveExternalId: operations.resolveExternalId,
-		},
-		{ integrationId: integration.id, skipMarkStarted: true },
-	).pipe(Effect.mapError((error) => new IntegrationRunError({ message: error.message })));
+const IntegrationMediaLoadOutcome = Schema.Union(
+	Schema.TaggedStruct("failed", {
+		message: Schema.String,
+		cleanupPaths: Schema.Array(Schema.String),
+	}),
+	Schema.TaggedStruct("loaded", {
+		cleanupPaths: Schema.Array(Schema.String),
+		adapterResult: MediaImportAdapterResultSchema,
+	}),
+);
 
-const processSinkMedia = Effect.fn("processSinkMedia")(function* <RResolve, RImport>(
+const runMediaImportForIntegration = (
 	integration: IntegrationRecord,
 	payload: IntegrationRunJobData,
 	executionId: string,
-	operations: SinkMediaOperations<RResolve, RImport>,
+	loaded: {
+		cleanupPaths: ReadonlyArray<string>;
+		adapterResult: typeof MediaImportAdapterResultSchema.Type;
+	},
+) =>
+	runLoadedMediaImportWorkflow({
+		executionId,
+		cleanupOnSuccess: false,
+		cleanupPaths: loaded.cleanupPaths,
+		adapterResult: loaded.adapterResult,
+		payload: { runId: payload.runId, userId: integration.userId, source: integration.provider },
+		options: { integrationId: integration.id, skipMarkStarted: true },
+	}).pipe(
+		Effect.mapError((error) => new IntegrationRunError({ message: unknownToMessage(error) })),
+	);
+
+const processSinkMedia = Effect.fn("processSinkMedia")(function* (
+	integration: IntegrationRecord,
+	payload: IntegrationRunJobData,
+	executionId: string,
 ) {
 	const adapterResult = yield* Activity.make({
 		error: IntegrationRunError,
@@ -144,24 +148,20 @@ const processSinkMedia = Effect.fn("processSinkMedia")(function* <RResolve, RImp
 		return;
 	}
 
-	yield* runMediaImportForIntegration(integration, payload, executionId, operations, () =>
-		Effect.succeed({ adapterResult, cleanupPaths: [] }),
-	);
+	yield* runMediaImportForIntegration(integration, payload, executionId, {
+		adapterResult,
+		cleanupPaths: [],
+	});
 });
 
-const processYoutubeMusicYank = Effect.fn("processYoutubeMusicYank")(function* <
-	RResolve,
-	RImport,
-	RHistory,
->(
+const processYoutubeMusicYank = Effect.fn("processYoutubeMusicYank")(function* (
 	integration: IntegrationRecord,
 	payload: IntegrationRunJobData,
 	executionId: string,
-	operations: SinkMediaOperations<RResolve, RImport> &
-		Pick<YankMediaOperations<never, RHistory>, "runSandboxHistory">,
 	credentials: { authCookie: string; timezone: string },
 ) {
 	const runWithDb = yield* DbRunner;
+	const operations = yield* IntegrationRunOperations;
 	const entitiesRepository = yield* EntitiesRepository;
 
 	const adapterResult = yield* Effect.gen(function* () {
@@ -221,25 +221,21 @@ const processYoutubeMusicYank = Effect.fn("processYoutubeMusicYank")(function* <
 		return;
 	}
 
-	yield* runMediaImportForIntegration(integration, payload, executionId, operations, () =>
-		Effect.succeed({ adapterResult, cleanupPaths: [] }),
-	);
+	yield* runMediaImportForIntegration(integration, payload, executionId, {
+		adapterResult,
+		cleanupPaths: [],
+	});
 });
 
-const processYankMedia = Effect.fn("processYankMedia")(function* <
-	RResolve,
-	RImport,
-	RYank,
-	RHistory,
->(
+const processYankMedia = Effect.fn("processYankMedia")(function* (
 	integration: IntegrationRecord,
 	payload: IntegrationRunJobData,
 	executionId: string,
-	operations: IntegrationRunOperations<RResolve, RImport, RYank, RHistory>,
 ) {
+	const operations = yield* IntegrationRunOperations;
 	const specs = integration.providerSpecifics;
 	if (specs.kind === "youtube_music") {
-		yield* processYoutubeMusicYank(integration, payload, executionId, operations, {
+		yield* processYoutubeMusicYank(integration, payload, executionId, {
 			timezone: specs.timezone,
 			authCookie: specs.authCookie,
 		});
@@ -247,9 +243,37 @@ const processYankMedia = Effect.fn("processYankMedia")(function* <
 	}
 
 	if (specs.kind === "audiobookshelf" || specs.kind === "plex_yank" || specs.kind === "komga") {
-		yield* runMediaImportForIntegration(integration, payload, executionId, operations, () =>
-			operations.loadYankAdapterResult(integration),
-		);
+		const loadOutcome = yield* Activity.make({
+			name: "load-media-import-adapter-result",
+			success: IntegrationMediaLoadOutcome,
+			execute: operations.loadYankAdapterResult(integration).pipe(
+				Effect.map((loaded) => ({
+					_tag: "loaded" as const,
+					adapterResult: loaded.adapterResult,
+					cleanupPaths: [...loaded.cleanupPaths],
+				})),
+				Effect.catchAll((error) =>
+					Effect.succeed({
+						message: error.message,
+						_tag: "failed" as const,
+						cleanupPaths: [...error.cleanupPaths],
+					}),
+				),
+				Effect.catchAllCause((cause) =>
+					Effect.succeed({
+						cleanupPaths: [],
+						_tag: "failed" as const,
+						message: unknownToMessage(Cause.squash(cause)),
+					}),
+				),
+			),
+		});
+		if (loadOutcome._tag === "failed") {
+			yield* failRun("fail-import-run-on-load-error", payload.runId, loadOutcome.message);
+			return;
+		}
+
+		yield* runMediaImportForIntegration(integration, payload, executionId, loadOutcome);
 		return;
 	}
 
@@ -262,26 +286,19 @@ const processYankMedia = Effect.fn("processYankMedia")(function* <
 	});
 });
 
-const processIntegrationMedia = <RResolve, RImport, RYank, RHistory>(
+const processIntegrationMedia = (
 	integration: IntegrationRecord,
 	payload: IntegrationRunJobData,
 	executionId: string,
-	operations: IntegrationRunOperations<RResolve, RImport, RYank, RHistory>,
 ) =>
 	integration.lot === "sink"
-		? processSinkMedia(integration, payload, executionId, operations)
-		: processYankMedia(integration, payload, executionId, operations);
+		? processSinkMedia(integration, payload, executionId)
+		: processYankMedia(integration, payload, executionId);
 
-const runIntegrationRun = Effect.fn("runIntegrationRun")(function* <
-	RResolve,
-	RImport,
-	RYank,
-	RHistory,
->(
+const runIntegrationRun = Effect.fn("runIntegrationRun")(function* (
 	integration: IntegrationRecord,
 	payload: IntegrationRunJobData,
 	executionId: string,
-	operations: IntegrationRunOperations<RResolve, RImport, RYank, RHistory>,
 ) {
 	const runWithDb = yield* DbRunner;
 	const repository = yield* ImportsRepository;
@@ -295,7 +312,7 @@ const runIntegrationRun = Effect.fn("runIntegrationRun")(function* <
 		).pipe(Effect.mapError(toWorkflowError)),
 	});
 
-	yield* processIntegrationMedia(integration, payload, executionId, operations).pipe(
+	yield* processIntegrationMedia(integration, payload, executionId).pipe(
 		Effect.catchAllCause((cause) =>
 			failRun(
 				"fail-integration-run-unexpected",
@@ -314,15 +331,9 @@ const runIntegrationRun = Effect.fn("runIntegrationRun")(function* <
 	});
 });
 
-export const runIntegrationRunWorkflow = Effect.fn("runIntegrationRunWorkflow")(function* <
-	RResolve,
-	RImport,
-	RYank,
-	RHistory,
->(
+export const runIntegrationRunWorkflow = Effect.fn("runIntegrationRunWorkflow")(function* (
 	payload: IntegrationRunJobData,
 	executionId: string,
-	operations: IntegrationRunOperations<RResolve, RImport, RYank, RHistory>,
 ) {
 	const runWithDb = yield* DbRunner;
 	const integrationsRepository = yield* IntegrationsRepository;
@@ -341,7 +352,7 @@ export const runIntegrationRunWorkflow = Effect.fn("runIntegrationRunWorkflow")(
 		return;
 	}
 
-	yield* runIntegrationRun(integration, payload, executionId, operations);
+	yield* runIntegrationRun(integration, payload, executionId);
 });
 
 export const ProcessIntegrationRunWorkflow = Workflow.make({
@@ -353,13 +364,15 @@ export const ProcessIntegrationRunWorkflow = Workflow.make({
 });
 
 const ProcessIntegrationRunWorkflowLive = ProcessIntegrationRunWorkflow.toLayer(
-	(payload, executionId) =>
-		runIntegrationRunWorkflow(payload, executionId, {
-			loadYankAdapterResult,
-			importEntity: importMediaEntityViaWorkflow,
-			runSandboxHistory: runYoutubeMusicHistorySandbox,
-			resolveExternalId: resolveSandboxEntityExternalId,
-		}),
+	(payload, executionId) => runIntegrationRunWorkflow(payload, executionId),
 );
 
-export const IntegrationWorkflowDefinitionsLive = ProcessIntegrationRunWorkflowLive;
+export const IntegrationWorkflowDefinitionsLive = ProcessIntegrationRunWorkflowLive.pipe(
+	Layer.provide(
+		Layer.mergeAll(
+			ImportRunArtifacts.Default,
+			IntegrationRunOperationsLive,
+			MediaImportWorkflowOperationsLive,
+		),
+	),
+);

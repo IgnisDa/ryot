@@ -33,14 +33,6 @@ export type CreatedEventWithContext = ListedEvent & {
 	readonly entitySchemaSlug: string;
 };
 
-type CreateEventsCoreServices = {
-	readonly dbRunner: DbRunner["Type"];
-	readonly eventsRepository: EventsRepository;
-	readonly workflowEngine: WorkflowEngine["Type"];
-	readonly entitiesRepository: EntitiesRepository;
-	readonly eventSchemasRepository: EventSchemasRepository;
-};
-
 type EventValidationError = BadRequest | DbError | NotFound;
 
 type ValidateEventEffect = Effect.Effect<
@@ -209,18 +201,6 @@ const dispatchAfterCreateTriggers = Effect.fn("dispatchAfterCreateTriggers")(fun
 		{ discard: true },
 	);
 });
-
-export const provideCreateEventsContext = <A, E, R>(
-	effect: Effect.Effect<A, E, R>,
-	services: CreateEventsCoreServices,
-) =>
-	effect.pipe(
-		Effect.provideService(DbRunner, services.dbRunner),
-		Effect.provideService(WorkflowEngine, services.workflowEngine),
-		Effect.provideService(EventsRepository, services.eventsRepository),
-		Effect.provideService(EntitiesRepository, services.entitiesRepository),
-		Effect.provideService(EventSchemasRepository, services.eventSchemasRepository),
-	);
 
 export const validateEventCreateSubmission = (input: {
 	readonly userId: UserId;

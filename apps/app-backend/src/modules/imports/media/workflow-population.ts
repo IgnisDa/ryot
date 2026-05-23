@@ -1,9 +1,10 @@
 import { Activity } from "@effect/workflow";
 import { Effect, Schema } from "effect";
 
-import type { CurrentDb } from "#lib/db";
+import { DbRunner } from "#lib/db";
 import { unknownToMessage } from "#lib/errors";
-import type { EntityId, EntitySchemaId, SandboxScriptId } from "#lib/schema/brands";
+import { CollectionsService } from "#modules/collections/service";
+import { EntitiesRepository } from "#modules/entities/repository";
 
 import type { ImportRunJobData } from "../jobs";
 import { recordImportRunFailure } from "../runtime/failures";
@@ -16,39 +17,19 @@ import {
 	PopulationScript,
 	type EntityIdsByKey,
 	type ProgressReporter,
-	type RunWithDb,
 } from "./workflow-shared";
-import type { MediaImportWorkflowOperations } from "./workflow-types";
+import { MediaImportWorkflowOperations } from "./workflow-types";
 
-export const populateMediaEntityGroups = Effect.fn("populateMediaEntityGroups")(function* <
-	RLoad,
-	RResolve,
-	RImport,
-	RSearch = never,
-	RCleanup = never,
->(input: {
+export const populateMediaEntityGroups = Effect.fn("populateMediaEntityGroups")(function* (input: {
 	executionId: string;
-	runWithDb: RunWithDb;
 	reportProgress: ProgressReporter;
 	entityGroups: ImportMediaEntityGroup[];
 	payload: Pick<ImportRunJobData, "runId" | "userId">;
-	operations: MediaImportWorkflowOperations<RLoad, RResolve, RImport, RSearch, RCleanup>;
-	collections: {
-		ensureEntityInLibrary: (
-			userId: ImportRunJobData["userId"],
-			entityId: EntityId,
-		) => Effect.Effect<void, unknown>;
-	};
-	entitiesRepository: {
-		findEntitySchemaScriptBySlug: (
-			scriptSlug: string,
-		) => Effect.Effect<
-			{ entitySchemaId: EntitySchemaId; sandboxScriptId: SandboxScriptId } | null,
-			unknown,
-			CurrentDb
-		>;
-	};
 }) {
+	const runWithDb = yield* DbRunner;
+	const collections = yield* CollectionsService;
+	const entitiesRepository = yield* EntitiesRepository;
+	const operations = yield* MediaImportWorkflowOperations;
 	const entityIdsByKey: EntityIdsByKey = new Map();
 	let failures = 0;
 
@@ -65,16 +46,14 @@ export const populateMediaEntityGroups = Effect.fn("populateMediaEntityGroups")(
 			error: ImportRunError,
 			name: `load-population-script-${i}`,
 			success: Schema.NullOr(PopulationScript),
-			execute: input
-				.runWithDb(input.entitiesRepository.findEntitySchemaScriptBySlug(ref.scriptSlug))
-				.pipe(
-					Effect.map((found) =>
-						found
-							? { entitySchemaId: found.entitySchemaId, sandboxScriptId: found.sandboxScriptId }
-							: null,
-					),
-					Effect.mapError(toWorkflowError),
+			execute: runWithDb(entitiesRepository.findEntitySchemaScriptBySlug(ref.scriptSlug)).pipe(
+				Effect.map((found) =>
+					found
+						? { entitySchemaId: found.entitySchemaId, sandboxScriptId: found.sandboxScriptId }
+						: null,
 				),
+				Effect.mapError(toWorkflowError),
+			),
 		});
 
 		if (!script) {
@@ -97,10 +76,10 @@ export const populateMediaEntityGroups = Effect.fn("populateMediaEntityGroups")(
 			continue;
 		}
 
-		const populated = yield* input.operations
+		const populated = yield* operations
 			.importEntity({
-				userId: input.payload.userId,
 				externalId: ref.externalId,
+				userId: input.payload.userId,
 				scriptId: script.sandboxScriptId,
 				activityPrefix: `populate-${i}-`,
 				entitySchemaId: script.entitySchemaId,
@@ -116,8 +95,8 @@ export const populateMediaEntityGroups = Effect.fn("populateMediaEntityGroups")(
 				execute: recordImportRunFailure({
 					itemIndex,
 					context: null,
-					runId: input.payload.runId,
 					stage: "provider_details",
+					runId: input.payload.runId,
 					sourceLabel: ref.sourceLabel,
 					message: populated.left.message,
 					sourceIdentifier: ref.externalId,
@@ -131,12 +110,10 @@ export const populateMediaEntityGroups = Effect.fn("populateMediaEntityGroups")(
 		const libraryMembership = yield* Activity.make({
 			name: `ensure-library-membership-${i}`,
 			success: EnsureLibraryMembershipOutcome,
-			execute: input.collections
-				.ensureEntityInLibrary(input.payload.userId, populated.right.id)
-				.pipe(
-					Effect.as({ message: null }),
-					Effect.catchAll((error) => Effect.succeed({ message: unknownToMessage(error) })),
-				),
+			execute: collections.ensureEntityInLibrary(input.payload.userId, populated.right.id).pipe(
+				Effect.as({ message: null }),
+				Effect.catchAll((error) => Effect.succeed({ message: unknownToMessage(error) })),
+			),
 		});
 		if (libraryMembership.message) {
 			failures += 1;
@@ -146,8 +123,8 @@ export const populateMediaEntityGroups = Effect.fn("populateMediaEntityGroups")(
 				execute: recordImportRunFailure({
 					itemIndex,
 					context: null,
-					runId: input.payload.runId,
 					stage: "database_commit",
+					runId: input.payload.runId,
 					sourceLabel: ref.sourceLabel,
 					sourceIdentifier: ref.externalId,
 					message: libraryMembership.message,

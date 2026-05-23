@@ -26,7 +26,12 @@ import { EpisodeResolverService } from "#modules/episode-resolver/service";
 import { EventSchemasRepository } from "#modules/event-schemas/repository";
 import { EventsService } from "#modules/events/service";
 
+import {
+	MediaImportWorkflowOperations,
+	type MediaImportWorkflowOperationsValue,
+} from "./media/workflow-types";
 import { ImportsRepository } from "./repository";
+import { ImportRunArtifacts } from "./runtime/workflow-helpers";
 import { ProcessImportRunWorkflow } from "./worker";
 import { runOneTimeMediaImportWorkflow } from "./workflows";
 
@@ -153,14 +158,30 @@ const makeEntitySchemasRepository = (overrides: Partial<EntitySchemasRepository>
 		overrides,
 	);
 
+const makeMediaOperations = (
+	overrides: Partial<MediaImportWorkflowOperationsValue> = {},
+): MediaImportWorkflowOperationsValue => ({
+	importEntity: () => Effect.die("unused"),
+	searchEntities: () => Effect.die("unused"),
+	loadAdapterResult: () => Effect.die("unused"),
+	resolveExternalId: () => Effect.die("unused"),
+	...overrides,
+});
+
+const makeImportRunArtifacts = (
+	cleanupArtifacts: ImportRunArtifacts["cleanupArtifacts"] = () => Effect.void,
+) => makeMock<ImportRunArtifacts>({ cleanupArtifacts, _tag: "ImportRunArtifacts" as const });
+
 type TestLayerOptions = {
 	eventsService?: EventsService;
 	importsRepository?: ImportsRepository;
+	importRunArtifacts?: ImportRunArtifacts;
+	collectionsService?: CollectionsService;
 	entitiesRepository?: EntitiesRepository;
 	episodeResolverService?: EpisodeResolverService;
-	collectionsService?: CollectionsService;
 	eventSchemasRepository?: EventSchemasRepository;
 	entitySchemasRepository?: EntitySchemasRepository;
+	mediaOperations?: MediaImportWorkflowOperationsValue;
 };
 
 const makeTestLayer = (options: TestLayerOptions) =>
@@ -168,6 +189,8 @@ const makeTestLayer = (options: TestLayerOptions) =>
 		dbRunnerLayer,
 		makeAppConfigLayer(),
 		BunFileSystem.layer,
+		Layer.succeed(ImportRunArtifacts, options.importRunArtifacts ?? makeImportRunArtifacts()),
+		Layer.succeed(MediaImportWorkflowOperations, options.mediaOperations ?? makeMediaOperations()),
 		Layer.succeed(ImportsRepository, options.importsRepository ?? makeImportsRepository()),
 		Layer.succeed(EntitiesRepository, options.entitiesRepository ?? makeEntitiesRepository()),
 		Layer.succeed(CollectionsService, options.collectionsService ?? makeCollectionsService()),
@@ -230,6 +253,45 @@ it.effect("orchestrates one-time media imports through workflow-owned phases", (
 				return Effect.void;
 			},
 		}),
+		importRunArtifacts: makeImportRunArtifacts((input) =>
+			Effect.sync(() => {
+				cleanupCalls.push(input);
+			}),
+		),
+		mediaOperations: makeMediaOperations({
+			loadAdapterResult: () =>
+				Effect.succeed({
+					cleanupPaths: ["/tmp/import.csv"],
+					adapterResult: {
+						failures: [{ itemIndex: 0, message: "Bad source row" }],
+						entityGroups: [
+							{
+								itemIndex: 1,
+								ownershipProvider: "goodreads",
+								collectionMemberships: [{ collectionName: "Favorites" }],
+								events: [{ occurredAt: now, eventSchemaSlug: "read", properties: { rating: 5 } }],
+								entityRef: {
+									kind: "unresolved",
+									identifierType: "isbn",
+									sourceLabel: "Book One",
+									entitySchemaSlug: "book",
+									identifierValue: "9781234567890",
+								},
+							},
+						],
+					},
+				}),
+			resolveExternalId: (input) =>
+				Effect.sync(() => {
+					resolvedCalls.push(input);
+					return { externalId: "OL123M" };
+				}),
+			importEntity: (input) =>
+				Effect.sync(() => {
+					importedCalls.push(input);
+					return { id: EntityId.make("entity-1") };
+				}),
+		}),
 		entitiesRepository: makeEntitiesRepository({
 			findEntitySchemaScriptBySlug: (slug) =>
 				Effect.succeed(
@@ -255,8 +317,8 @@ it.effect("orchestrates one-time media imports through workflow-owned phases", (
 					updatedAt: now,
 					properties: {},
 					externalId: null,
-					id: EntityId.make(`${name}-id`),
 					sandboxScriptId: null,
+					id: EntityId.make(`${name}-id`),
 					entitySchemaId: EntitySchemaId.make("schema-collection"),
 				}),
 			addToCollection: (_user, payload) => {
@@ -265,9 +327,9 @@ it.effect("orchestrates one-time media imports through workflow-owned phases", (
 					memberOf: {
 						createdAt: now,
 						properties: {},
-						id: RelationshipId.make("membership-1"),
 						sourceEntityId: payload.entityId,
 						targetEntityId: payload.collectionId,
+						id: RelationshipId.make("membership-1"),
 						relationshipSchemaId: RelationshipSchemaId.make("relationship-1"),
 					},
 				});
@@ -285,45 +347,7 @@ it.effect("orchestrates one-time media imports through workflow-owned phases", (
 		options,
 		"workflow-1",
 		Effect.gen(function* () {
-			yield* runOneTimeMediaImportWorkflow(importPayload, "workflow-1", {
-				cleanupArtifacts: (input) =>
-					Effect.sync(() => {
-						cleanupCalls.push(input);
-					}),
-				loadAdapterResult: () =>
-					Effect.succeed({
-						cleanupPaths: ["/tmp/import.csv"],
-						adapterResult: {
-							failures: [{ itemIndex: 0, message: "Bad source row" }],
-							entityGroups: [
-								{
-									itemIndex: 1,
-									ownershipProvider: "goodreads",
-									collectionMemberships: [{ collectionName: "Favorites" }],
-									events: [{ occurredAt: now, eventSchemaSlug: "read", properties: { rating: 5 } }],
-									entityRef: {
-										kind: "unresolved",
-										identifierType: "isbn",
-										sourceLabel: "Book One",
-										entitySchemaSlug: "book",
-										identifierValue: "9781234567890",
-									},
-								},
-							],
-						},
-					}),
-				resolveExternalId: (input) =>
-					Effect.sync(() => {
-						resolvedCalls.push(input);
-						return { externalId: "OL123M" };
-					}),
-				searchEntities: () => Effect.die("unused"),
-				importEntity: (input) =>
-					Effect.sync(() => {
-						importedCalls.push(input);
-						return { id: EntityId.make("entity-1") };
-					}),
-			});
+			yield* runOneTimeMediaImportWorkflow(importPayload, "workflow-1");
 
 			expect(resolvedCalls).toEqual([
 				{
@@ -422,6 +446,43 @@ it.effect("resolves imported show episode progress and drops unresolved locators
 				return Effect.void;
 			},
 		}),
+		mediaOperations: makeMediaOperations({
+			importEntity: () => Effect.succeed({ id: EntityId.make("show-entity-1") }),
+			loadAdapterResult: () =>
+				Effect.succeed({
+					cleanupPaths: [],
+					adapterResult: {
+						failures: [],
+						entityGroups: [
+							{
+								itemIndex: 1,
+								collectionMemberships: [],
+								entityRef: {
+									kind: "resolved",
+									externalId: "show-1",
+									scriptSlug: "show.tmdb",
+									sourceLabel: "Test Show",
+									entitySchemaSlug: "show",
+								},
+								events: [
+									{
+										occurredAt: now,
+										eventSchemaSlug: "progress",
+										properties: { progressPercent: 100 },
+										episodeLocator: { type: "show", seasonNumber: 1, episodeNumber: 2 },
+									},
+									{
+										occurredAt: now,
+										eventSchemaSlug: "progress",
+										properties: { progressPercent: 100 },
+										episodeLocator: { type: "show", seasonNumber: 1, episodeNumber: 99 },
+									},
+								],
+							},
+						],
+					},
+				}),
+		}),
 		entitiesRepository: makeEntitiesRepository({
 			findEntitySchemaScriptBySlug: (slug) =>
 				Effect.succeed(
@@ -473,46 +534,7 @@ it.effect("resolves imported show episode progress and drops unresolved locators
 		options,
 		"workflow-show-episode-resolution",
 		Effect.gen(function* () {
-			yield* runOneTimeMediaImportWorkflow(importPayload, "workflow-show-episode-resolution", {
-				cleanupArtifacts: () => Effect.void,
-				searchEntities: () => Effect.die("unused"),
-				resolveExternalId: () => Effect.die("unused"),
-				importEntity: () => Effect.succeed({ id: EntityId.make("show-entity-1") }),
-				loadAdapterResult: () =>
-					Effect.succeed({
-						cleanupPaths: [],
-						adapterResult: {
-							failures: [],
-							entityGroups: [
-								{
-									itemIndex: 1,
-									collectionMemberships: [],
-									entityRef: {
-										kind: "resolved",
-										externalId: "show-1",
-										scriptSlug: "show.tmdb",
-										sourceLabel: "Test Show",
-										entitySchemaSlug: "show",
-									},
-									events: [
-										{
-											occurredAt: now,
-											eventSchemaSlug: "progress",
-											properties: { progressPercent: 100 },
-											episodeLocator: { type: "show", seasonNumber: 1, episodeNumber: 2 },
-										},
-										{
-											occurredAt: now,
-											eventSchemaSlug: "progress",
-											properties: { progressPercent: 100 },
-											episodeLocator: { type: "show", seasonNumber: 1, episodeNumber: 99 },
-										},
-									],
-								},
-							],
-						},
-					}),
-			});
+			yield* runOneTimeMediaImportWorkflow(importPayload, "workflow-show-episode-resolution");
 
 			expect(resolverCalls).toEqual([
 				{ seasonNumber: 1, episodeNumber: 2, userId: "user-1", showEntityId: "show-entity-1" },
@@ -571,6 +593,43 @@ it.effect("resolves imported podcast episode progress and drops unresolved locat
 				return Effect.void;
 			},
 		}),
+		mediaOperations: makeMediaOperations({
+			importEntity: () => Effect.succeed({ id: EntityId.make("podcast-entity-1") }),
+			loadAdapterResult: () =>
+				Effect.succeed({
+					cleanupPaths: [],
+					adapterResult: {
+						failures: [],
+						entityGroups: [
+							{
+								itemIndex: 1,
+								collectionMemberships: [],
+								entityRef: {
+									kind: "resolved",
+									externalId: "podcast-1",
+									sourceLabel: "Test Podcast",
+									entitySchemaSlug: "podcast",
+									scriptSlug: "podcast.itunes",
+								},
+								events: [
+									{
+										occurredAt: now,
+										eventSchemaSlug: "progress",
+										properties: { progressPercent: 100 },
+										episodeLocator: { type: "podcast", episodeNumber: 4 },
+									},
+									{
+										occurredAt: now,
+										eventSchemaSlug: "progress",
+										properties: { progressPercent: 100 },
+										episodeLocator: { type: "podcast", episodeNumber: 99 },
+									},
+								],
+							},
+						],
+					},
+				}),
+		}),
 		entitiesRepository: makeEntitiesRepository({
 			findEntitySchemaScriptBySlug: (slug) =>
 				Effect.succeed(
@@ -622,46 +681,7 @@ it.effect("resolves imported podcast episode progress and drops unresolved locat
 		options,
 		"workflow-podcast-episode-resolution",
 		Effect.gen(function* () {
-			yield* runOneTimeMediaImportWorkflow(importPayload, "workflow-podcast-episode-resolution", {
-				cleanupArtifacts: () => Effect.void,
-				searchEntities: () => Effect.die("unused"),
-				resolveExternalId: () => Effect.die("unused"),
-				importEntity: () => Effect.succeed({ id: EntityId.make("podcast-entity-1") }),
-				loadAdapterResult: () =>
-					Effect.succeed({
-						cleanupPaths: [],
-						adapterResult: {
-							failures: [],
-							entityGroups: [
-								{
-									itemIndex: 1,
-									collectionMemberships: [],
-									entityRef: {
-										kind: "resolved",
-										externalId: "podcast-1",
-										sourceLabel: "Test Podcast",
-										entitySchemaSlug: "podcast",
-										scriptSlug: "podcast.itunes",
-									},
-									events: [
-										{
-											occurredAt: now,
-											eventSchemaSlug: "progress",
-											properties: { progressPercent: 100 },
-											episodeLocator: { type: "podcast", episodeNumber: 4 },
-										},
-										{
-											occurredAt: now,
-											eventSchemaSlug: "progress",
-											properties: { progressPercent: 100 },
-											episodeLocator: { type: "podcast", episodeNumber: 99 },
-										},
-									],
-								},
-							],
-						},
-					}),
-			});
+			yield* runOneTimeMediaImportWorkflow(importPayload, "workflow-podcast-episode-resolution");
 
 			expect(resolverCalls).toEqual([
 				{ userId: "user-1", episodeNumber: 4, podcastEntityId: "podcast-entity-1" },
@@ -719,30 +739,31 @@ it.effect(
 					return Effect.void;
 				},
 			}),
+			importRunArtifacts: makeImportRunArtifacts((input) =>
+				Effect.sync(() => {
+					cleanupCalls.push(input);
+				}),
+			),
+			mediaOperations: makeMediaOperations({
+				loadAdapterResult: () => Effect.die("Source credentials failed"),
+				resolveExternalId: () =>
+					Effect.sync(() => {
+						resolveCalled = true;
+						return { externalId: null };
+					}),
+				importEntity: () =>
+					Effect.sync(() => {
+						importCalled = true;
+						return { id: EntityId.make("entity-1") };
+					}),
+			}),
 		} satisfies TestLayerOptions;
 
 		return withTestLayer(
 			options,
 			"workflow-failure",
 			Effect.gen(function* () {
-				yield* runOneTimeMediaImportWorkflow(defectPayload, "workflow-failure", {
-					cleanupArtifacts: (input) =>
-						Effect.sync(() => {
-							cleanupCalls.push(input);
-						}),
-					loadAdapterResult: () => Effect.die("Source credentials failed"),
-					resolveExternalId: () =>
-						Effect.sync(() => {
-							resolveCalled = true;
-							return { externalId: null };
-						}),
-					searchEntities: () => Effect.die("unused"),
-					importEntity: () =>
-						Effect.sync(() => {
-							importCalled = true;
-							return { id: EntityId.make("entity-1") };
-						}),
-				});
+				yield* runOneTimeMediaImportWorkflow(defectPayload, "workflow-failure");
 
 				expect(resolveCalled).toBe(false);
 				expect(importCalled).toBe(false);
@@ -776,26 +797,22 @@ it.effect("does not reintroduce invalid file paths during handled load failures"
 				return Effect.void;
 			},
 		}),
+		importRunArtifacts: makeImportRunArtifacts((input) =>
+			Effect.sync(() => {
+				cleanupCalls.push(input);
+			}),
+		),
+		mediaOperations: makeMediaOperations({
+			loadAdapterResult: () =>
+				Effect.fail({ cleanupPaths: [], message: "Import job has an invalid file path" }),
+		}),
 	} satisfies TestLayerOptions;
 
 	return withTestLayer(
 		options,
 		"workflow-invalid-load-path",
 		Effect.gen(function* () {
-			yield* runOneTimeMediaImportWorkflow(invalidPayload, "workflow-invalid-load-path", {
-				cleanupArtifacts: (input) =>
-					Effect.sync(() => {
-						cleanupCalls.push(input);
-					}),
-				loadAdapterResult: () =>
-					Effect.fail({
-						message: "Import job has an invalid file path",
-						cleanupPaths: [],
-					}),
-				resolveExternalId: () => Effect.die("unused"),
-				searchEntities: () => Effect.die("unused"),
-				importEntity: () => Effect.die("unused"),
-			});
+			yield* runOneTimeMediaImportWorkflow(invalidPayload, "workflow-invalid-load-path");
 
 			expect(cleanupCalls).toEqual([{ cleanupPaths: [], sourcePayloadKey: "payload-1" }]);
 			expect(recordedUpdates).toContainEqual(
@@ -821,22 +838,21 @@ it.effect("does not attempt cleanup for invalid file paths when adapter loading 
 				return Effect.void;
 			},
 		}),
+		importRunArtifacts: makeImportRunArtifacts((input) =>
+			Effect.sync(() => {
+				cleanupCalls.push(input);
+			}),
+		),
+		mediaOperations: makeMediaOperations({
+			loadAdapterResult: () => Effect.die("Source credentials failed"),
+		}),
 	} satisfies TestLayerOptions;
 
 	return withTestLayer(
 		options,
 		"workflow-invalid-load-path-defect",
 		Effect.gen(function* () {
-			yield* runOneTimeMediaImportWorkflow(invalidPayload, "workflow-invalid-load-path-defect", {
-				cleanupArtifacts: (input) =>
-					Effect.sync(() => {
-						cleanupCalls.push(input);
-					}),
-				loadAdapterResult: () => Effect.die("Source credentials failed"),
-				resolveExternalId: () => Effect.die("unused"),
-				searchEntities: () => Effect.die("unused"),
-				importEntity: () => Effect.die("unused"),
-			});
+			yield* runOneTimeMediaImportWorkflow(invalidPayload, "workflow-invalid-load-path-defect");
 
 			expect(cleanupCalls).toEqual([{ cleanupPaths: [], sourcePayloadKey: "payload-1" }]);
 			expect(recordedUpdates).toContainEqual(
