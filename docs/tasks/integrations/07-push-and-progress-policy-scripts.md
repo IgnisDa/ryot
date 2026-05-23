@@ -4,7 +4,7 @@
 
 **Type:** AFK
 
-**Status:** todo
+**Status:** done
 
 ## What to build
 
@@ -133,22 +133,22 @@ Sandbox script DB records for the new scripts must be seeded at startup alongsid
 
 ## Acceptance criteria
 
-- [ ] `trigger.integration-progress-policy` is a builtin before-create trigger on all `progress` event schemas at position 100.
-- [ ] Integration progress writes with `progressPercent < minimumProgress` are skipped without error.
-- [ ] Integration progress writes with `progressPercent > maximumProgress` are replaced with 100.
-- [ ] Duplicate progress events (same percentage, same entity, same provider) are skipped.
-- [ ] Completion events within `SERVER_PROGRESS_UPDATE_THRESHOLD` hours are skipped using `claimCachedValue` as race guard.
-- [ ] Non-integration progress events (`origin !== "integration"`) bypass the policy immediately.
-- [ ] `trigger.radarr-push` fires on collection add events and calls Radarr API for TMDB-sourced movies in configured sync collections.
-- [ ] `trigger.radarr-push` no-ops for non-movie entity schema slugs.
-- [ ] `trigger.radarr-push` no-ops when the entity is not from `movie.tmdb`.
-- [ ] `trigger.radarr-push` no-ops when the collection is not in the integration's `syncCollectionIds`.
-- [ ] `trigger.sonarr-push` same criteria but for shows with `show.tvdb`.
-- [ ] `trigger.jellyfin-push` fires on complete events for movies and shows, authenticates to Jellyfin, and marks item as played.
-- [ ] `trigger.jellyfin-push` no-ops when the item is not found in Jellyfin.
-- [ ] All push scripts no-op when `user.preferences.disableIntegrations = true`.
-- [ ] All four trigger links are seeded at startup with correct phase and position.
-- [ ] The existing `auto-complete-on-full-progress` trigger continues to function correctly with the updated seeding.
+- [x] `trigger.integration-progress-policy` is a builtin before-create trigger on all `progress` event schemas at position 100.
+- [x] Integration progress writes with `progressPercent < minimumProgress` are skipped without error.
+- [x] Integration progress writes with `progressPercent > maximumProgress` are replaced with 100.
+- [x] Duplicate progress events (same percentage, same entity, same provider) are skipped.
+- [x] Completion events within `SERVER_PROGRESS_UPDATE_THRESHOLD` hours are skipped using `claimCachedValue` as race guard.
+- [x] Non-integration progress events (`origin !== "integration"`) bypass the policy immediately.
+- [x] `trigger.radarr-push` fires on collection add events and calls Radarr API for TMDB-sourced movies in configured sync collections.
+- [x] `trigger.radarr-push` no-ops for non-movie entity schema slugs.
+- [x] `trigger.radarr-push` no-ops when the entity is not from `movie.tmdb`.
+- [x] `trigger.radarr-push` no-ops when the collection is not in the integration's `syncCollectionIds`.
+- [x] `trigger.sonarr-push` same criteria but for shows with `show.tvdb`.
+- [x] `trigger.jellyfin-push` fires on complete events for movies and shows, authenticates to Jellyfin, and marks item as played.
+- [x] `trigger.jellyfin-push` no-ops when the item is not found in Jellyfin.
+- [x] All push scripts no-op when `user.preferences.disableIntegrations = true`.
+- [x] All four trigger links are seeded at startup with correct phase and position.
+- [x] The existing `auto-complete-on-full-progress` trigger continues to function correctly with the updated seeding.
 
 ## User stories addressed
 
