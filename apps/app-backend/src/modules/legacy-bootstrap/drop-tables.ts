@@ -18,6 +18,7 @@ BEGIN
 	DROP TABLE IF EXISTS "workout_template" CASCADE;
 	DROP TABLE IF EXISTS "old_user" CASCADE;
 	DROP TABLE IF EXISTS "collection" CASCADE;
+	DROP TABLE IF EXISTS "review" CASCADE;
 	RAISE NOTICE 'legacy tables dropped (% seconds elapsed)',
 		round(extract(epoch from clock_timestamp() - started_at)::numeric, 1);
 END $$;

@@ -45,6 +45,7 @@ import {
 	buildWorkoutTemplateMigrationSql,
 	buildWorkoutToTemplateRelationshipMigrationSql,
 } from "./workout-mapping";
+import { buildReviewMigrationSql } from "./review-mapping";
 
 const migrateUserTableSql = `
 DO $$
@@ -406,6 +407,7 @@ export const migrateLegacyTables = async (database: DbClient) => {
 		await client.query(
 			buildWorkoutRepeatedFromRelationshipMigrationSql(workoutRepeatedFromRelationshipSchemaId),
 		);
+		await client.query(buildReviewMigrationSql());
 		await client.query(`
 			DO $$
 			DECLARE
