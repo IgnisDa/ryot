@@ -4,6 +4,7 @@ import {
 	PluginNotFoundError,
 	PluginRequestError,
 	type PluginInstallationItem,
+	type UpdatePrivatePluginBody,
 	type UpdatePluginInstallationBody,
 } from "@ryot/contract/modules/plugins/schemas";
 import { PluginSlug, type UserId } from "@ryot/contract/schema/brands";
@@ -24,6 +25,7 @@ import {
 import { PluginLoader } from "./loader";
 import { compilePluginPackage, pluginSourceHash, structurePluginFailure } from "./pipeline";
 import { PluginRepository } from "./repository";
+import { validateAdditiveSchemaEvolution } from "./schema-evolution";
 import type { StoredPlugin } from "./types";
 import {
 	decodePluginManifest,
@@ -41,6 +43,11 @@ type InstallPrivatePluginInput = {
 	readonly manifest: unknown;
 	readonly config: Record<string, unknown>;
 	readonly files: Readonly<Record<string, string>>;
+};
+
+type UpdatePrivatePluginInput = UpdatePrivatePluginBody & {
+	readonly userId: UserId;
+	readonly pluginSlug: string;
 };
 
 type InstallationView = {
@@ -150,8 +157,15 @@ const sanitizeConfigSchema = (schema: AppSchema): AppSchema => ({
 const toInstallationItem = (view: InstallationView): PluginInstallationItem => {
 	const storedConfig = view.scope === "system" ? {} : (view.state?.config ?? {});
 	const configuredSecrets = new Set<string>();
+	const config = sanitizeConfig(
+		view.manifest.configSchema.fields,
+		storedConfig,
+		"",
+		configuredSecrets,
+	);
 	return {
 		...view.manifest.metadata,
+		config,
 		scope: view.scope,
 		sourceHash: view.sourceHash,
 		health: view.state?.health ?? "ready",
@@ -161,7 +175,6 @@ const toInstallationItem = (view: InstallationView): PluginInstallationItem => {
 		slug: PluginSlug.make(view.manifest.metadata.slug),
 		sortOrder: view.state?.sortOrder ?? view.defaultSortOrder,
 		configSchema: sanitizeConfigSchema(view.manifest.configSchema),
-		config: sanitizeConfig(view.manifest.configSchema.fields, storedConfig, "", configuredSecrets),
 	};
 };
 
@@ -174,6 +187,34 @@ export class PluginInstallationService extends Context.Service<PluginInstallatio
 			const repository = yield* PluginRepository;
 			const installations = yield* PluginInstallationRepository;
 			const workflowReferences = yield* SandboxWorkflowReferenceRepository;
+
+			const validateConfigPatch = Effect.fn("PluginInstallationService.validateConfigPatch")(
+				function* (
+					manifest: PluginManifest,
+					stored: Record<string, unknown>,
+					payload: {
+						config?: Record<string, unknown> | undefined;
+						unsetConfigKeys?: ReadonlyArray<string> | undefined;
+					},
+				) {
+					const merged = { ...stored, ...payload.config };
+					for (const key of payload.unsetConfigKeys ?? []) {
+						delete merged[key];
+					}
+					return yield* parseAppSchemaProperties({
+						properties: merged,
+						kind: "Plugin config",
+						propertiesSchema: manifest.configSchema,
+					}).pipe(
+						Effect.mapError(
+							(error) =>
+								new PluginValidationError({
+									issues: [`Plugin config is invalid: ${formatPropertyIssues(error.issues)}`],
+								}),
+						),
+					);
+				},
+			);
 
 			const provisionSystemInstallations = Effect.fn(
 				"PluginInstallationService.provisionSystemInstallations",
@@ -305,6 +346,124 @@ export class PluginInstallationService extends Context.Service<PluginInstallatio
 					installPrivateUnlocked(input).pipe(structurePluginFailure),
 			);
 
+			const updatePrivateUnlocked = Effect.fn("PluginInstallationService.updatePrivateUnlocked")(
+				function* (input: UpdatePrivatePluginInput) {
+					const pluginSlug = PluginSlug.make(input.pluginSlug);
+					if (loader.getSnapshot().plugins[input.pluginSlug]) {
+						return yield* new PluginConflictError({
+							reason: { code: "system-plugin", pluginSlug },
+						});
+					}
+					const plugin = (yield* repository.listPrivateForUser(input.userId)).find(
+						(candidate) => candidate.slug === input.pluginSlug,
+					);
+					if (!plugin) {
+						return yield* new PluginNotFoundError({
+							reason: { code: "plugin-not-found", pluginSlug },
+						});
+					}
+					const installation = yield* installations.findByUserAndPlugin(input.userId, plugin.id);
+					if (!installation) {
+						return yield* new PluginNotFoundError({
+							reason: { code: "plugin-not-found", pluginSlug },
+						});
+					}
+					const manifest = yield* decodePluginManifest(input.manifest);
+					if (manifest.metadata.slug !== plugin.slug) {
+						return yield* new PluginValidationError({
+							issues: [
+								`Plugin slug cannot change from ${plugin.slug} to ${manifest.metadata.slug}`,
+							],
+						});
+					}
+					yield* validatePluginPackageLimits(input.files, manifest);
+					yield* validatePrivateManifestSurfaces(manifest);
+					yield* validatePluginSourcePaths(input.files, manifest.scripts);
+					yield* validatePluginManifestReferences(manifest, loader.getSnapshot().definitions);
+					yield* validateAdditiveSchemaEvolution(plugin.manifest, manifest);
+					yield* validateConfigPatch(manifest, installation.config, input);
+					const sourceHash = pluginSourceHash(manifest, input.files);
+					const normalized = yield* compilePluginPackage({
+						manifest,
+						sourceHash,
+						files: input.files,
+					});
+					yield* validatePluginExecutableScripts(normalized);
+
+					const updated = yield* Effect.uninterruptible(
+						mapDatabaseErrors(
+							database.transaction((transaction) =>
+								Effect.gen(function* () {
+									yield* repository.lockIngestion();
+									const current = yield* repository.findPrivateByIdForUser(plugin.id, input.userId);
+									const currentInstallation = yield* installations.findByUserAndPlugin(
+										input.userId,
+										plugin.id,
+									);
+									if (!current || currentInstallation?.id !== installation.id) {
+										return yield* new PluginNotFoundError({
+											reason: { code: "plugin-not-found", pluginSlug },
+										});
+									}
+									yield* validatePrivateSlugAvailability(
+										input.pluginSlug,
+										new Set(
+											(yield* repository.listActiveManifests()).map(
+												({ metadata }) => metadata.slug,
+											),
+										),
+									);
+									yield* validateAdditiveSchemaEvolution(current.manifest, manifest);
+									const config = yield* validateConfigPatch(
+										manifest,
+										currentInstallation.config,
+										input,
+									);
+									const persistedId = yield* repository.persist(normalized, {
+										scope: "user",
+										slug: current.slug,
+										ownerId: input.userId,
+									});
+									if (persistedId !== current.id) {
+										return yield* new PluginValidationError({
+											issues: ["Plugin update did not retain its stable identity"],
+										});
+									}
+									const state = yield* installations.updateState({
+										config,
+										id: currentInstallation.id,
+										sortOrder: currentInstallation.sortOrder,
+										isDisabled: currentInstallation.isDisabled,
+									});
+									return state ?? currentInstallation;
+								}).pipe(Effect.provideService(Database, transaction)),
+							),
+						),
+					);
+					return toInstallationItem({
+						manifest,
+						sourceHash,
+						scope: "user",
+						state: updated,
+						defaultSortOrder: updated.sortOrder,
+					});
+				},
+			);
+
+			const updatePrivatePlugin = Effect.fn("PluginInstallationService.updatePrivatePlugin")(
+				(input: UpdatePrivatePluginInput) =>
+					updatePrivateUnlocked(input).pipe(
+						Effect.map((value) => ({ value, found: true as const })),
+						Effect.catchTag("PluginNotFoundError", (error) =>
+							Effect.succeed({ error, found: false as const }),
+						),
+						structurePluginFailure,
+						Effect.flatMap((result) =>
+							result.found ? Effect.succeed(result.value) : Effect.fail(result.error),
+						),
+					),
+			);
+
 			const updateInstallationUnlocked = Effect.fn(
 				"PluginInstallationService.updateInstallationUnlocked",
 			)(function* (userId: UserId, slug: string, payload: UpdatePluginInstallationBody) {
@@ -339,25 +498,10 @@ export class PluginInstallationService extends Context.Service<PluginInstallatio
 						reason: { code: "installation-not-ready", health: state.health, pluginSlug },
 					});
 				}
-				const mergedConfig = { ...state.config, ...payload.config };
-				for (const key of payload.unsetConfigKeys ?? []) {
-					delete mergedConfig[key];
-				}
 				const config =
 					plugin.scope === "system"
 						? {}
-						: yield* parseAppSchemaProperties({
-								kind: "Plugin config",
-								properties: mergedConfig,
-								propertiesSchema: plugin.manifest.configSchema,
-							}).pipe(
-								Effect.mapError(
-									(error) =>
-										new PluginValidationError({
-											issues: [`Plugin config is invalid: ${formatPropertyIssues(error.issues)}`],
-										}),
-								),
-							);
+						: yield* validateConfigPatch(plugin.manifest, state.config, payload);
 				const updated = yield* installations.updateState({
 					config,
 					isDisabled,
@@ -395,13 +539,22 @@ export class PluginInstallationService extends Context.Service<PluginInstallatio
 			);
 
 			const assertUnreferenced = Effect.fn("PluginInstallationService.assertUnreferenced")(
-				function* (plugin: StoredPlugin, pluginSlug: PluginSlug) {
-					if (yield* workflowReferences.hasReferences(plugin.id)) {
+				function* (
+					plugin: StoredPlugin,
+					installation: PluginInstallationRow,
+					pluginSlug: PluginSlug,
+				) {
+					if (yield* workflowReferences.hasInstallationReferences(installation.id)) {
 						return yield* new PluginConflictError({
 							reason: { code: "workflow-referenced", pluginSlug },
 						});
 					}
-					if (yield* repository.hasIntegrationReferences(plugin.slug)) {
+					if (
+						yield* repository.hasIntegrationReferences({
+							pluginSlug: plugin.slug,
+							userId: installation.userId,
+						})
+					) {
 						return yield* new PluginConflictError({
 							reason: { code: "integration-referenced", pluginSlug },
 						});
@@ -424,7 +577,6 @@ export class PluginInstallationService extends Context.Service<PluginInstallatio
 				if (loader.getSnapshot().plugins[slug]) {
 					return yield* new PluginConflictError({ reason: { code: "system-plugin", pluginSlug } });
 				}
-				const states = yield* installations.listForUser(userId);
 				const owned = yield* repository.listPrivateForUser(userId);
 				const plugin = owned.find((candidate) => candidate.slug === slug);
 				if (!plugin) {
@@ -432,20 +584,39 @@ export class PluginInstallationService extends Context.Service<PluginInstallatio
 						reason: { code: "plugin-not-found", pluginSlug },
 					});
 				}
+				const installation = yield* installations.findByUserAndPlugin(userId, plugin.id);
+				if (!installation) {
+					return yield* new PluginNotFoundError({
+						reason: { code: "plugin-not-found", pluginSlug },
+					});
+				}
 				yield* mapDatabaseErrors(
 					database.transaction((transaction) =>
-						assertUnreferenced(plugin, pluginSlug).pipe(
-							Effect.andThen(repository.deactivate(plugin.id)),
-							Effect.provideService(Database, transaction),
-						),
+						Effect.gen(function* () {
+							yield* repository.lockIngestion();
+							const current = yield* repository.findPrivateByIdForUser(plugin.id, userId);
+							const currentInstallation = yield* installations.findByUserAndPlugin(
+								userId,
+								plugin.id,
+							);
+							if (!current || currentInstallation?.id !== installation.id) {
+								return yield* new PluginNotFoundError({
+									reason: { code: "plugin-not-found", pluginSlug },
+								});
+							}
+							yield* assertUnreferenced(current, currentInstallation, pluginSlug);
+							yield* installations.remove(currentInstallation.id);
+							yield* repository.deactivate(current.id);
+							return undefined;
+						}).pipe(Effect.provideService(Database, transaction)),
 					),
 				);
 				return toInstallationItem({
 					scope: "user",
+					state: installation,
 					manifest: plugin.manifest,
 					sourceHash: plugin.sourceHash,
-					defaultSortOrder: states.length,
-					state: states.find((state) => state.pluginId === plugin.id) ?? null,
+					defaultSortOrder: installation.sortOrder,
 				});
 			});
 
@@ -453,6 +624,7 @@ export class PluginInstallationService extends Context.Service<PluginInstallatio
 				uninstallPlugin,
 				listInstallations,
 				updateInstallation,
+				updatePrivatePlugin,
 				installPrivatePlugin,
 				provisionSystemInstallations,
 				provisionSystemInstallationsForAllUsers,

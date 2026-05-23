@@ -180,6 +180,13 @@ export class PluginInstallationRepository extends Context.Service<PluginInstalla
 				return row;
 			});
 
+			const remove = Effect.fn("PluginInstallationRepository.remove")(function* (id: string) {
+				const db = yield* Database;
+				yield* mapDatabaseErrors(
+					db.delete(schema.pluginInstallation).where(eq(schema.pluginInstallation.id, id)),
+				);
+			});
+
 			const provisionSystemInstallationsForUser = Effect.fn(
 				"PluginInstallationRepository.provisionSystemInstallationsForUser",
 			)(function* (userId: UserId) {
@@ -219,6 +226,7 @@ export class PluginInstallationRepository extends Context.Service<PluginInstalla
 
 			return {
 				create,
+				remove,
 				restore,
 				listForUser,
 				updateState,
