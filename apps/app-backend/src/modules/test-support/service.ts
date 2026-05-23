@@ -144,6 +144,7 @@ export class TestSupportService extends Context.Service<TestSupportService>()(
 						sourceEntityId: input.sourceEntityId,
 						targetEntityId: input.targetEntityId,
 						relationshipSchemaSlug: input.relationshipSchemaSlug,
+						relationshipSchemaPluginId: relationshipSchema.pluginId ?? null,
 						propertiesSchema: relationshipSchema.propertiesSchema,
 					});
 				},

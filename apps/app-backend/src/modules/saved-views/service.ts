@@ -5,7 +5,8 @@ import type {
 	UpdateSavedViewBody,
 } from "@ryot/contract/modules/saved-views/schemas";
 import { SavedViewBadRequest, SavedViewNotFound } from "@ryot/contract/modules/saved-views/schemas";
-import { EntitySchemaSlug, PluginSlug } from "@ryot/contract/schema/brands";
+import type { PluginSlug, UserId } from "@ryot/contract/schema/brands";
+import { EntitySchemaSlug } from "@ryot/contract/schema/brands";
 import { Context, Effect, Layer, Option } from "effect";
 
 import { slugify } from "#lib/shared/slug";
@@ -30,12 +31,33 @@ export class SavedViewsService extends Context.Service<SavedViewsService>()("Sav
 			pluginRuntime
 				? pluginRuntime.getEffectiveDefinitions(userId, includeUnavailable)
 				: Effect.succeed(definitions.getSnapshot());
+		const resolvePluginInstallation = Effect.fn(function* (
+			userId: CurrentUserValue["id"],
+			pluginSlug: PluginSlug,
+		) {
+			const available = pluginRuntime
+				? yield* pluginRuntime.listPluginsAvailableToUser(userId)
+				: [];
+			const plugin =
+				available.find(
+					(candidate) => candidate.scope === "system" && candidate.slug === pluginSlug,
+				) ?? available.find((candidate) => candidate.slug === pluginSlug);
+			return plugin
+				? plugin.installationId
+				: yield* new SavedViewBadRequest({ reason: { code: "plugin-not-found", pluginSlug } });
+		});
 
 		const list = Effect.fn(function* (
 			user: CurrentUserValue,
 			input: { pluginSlug?: PluginSlug | undefined; includeDisabled: boolean },
 		) {
-			return yield* repository.listByUser(user.id, input);
+			const pluginInstallationId = input.pluginSlug
+				? yield* resolvePluginInstallation(user.id, input.pluginSlug)
+				: undefined;
+			return yield* repository.listByUser(user.id, {
+				pluginInstallationId,
+				includeDisabled: input.includeDisabled,
+			});
 		});
 
 		const ensureBuiltinViews = Effect.fn(function* (userId: CurrentUserValue["id"]) {
@@ -49,27 +71,26 @@ export class SavedViewsService extends Context.Service<SavedViewsService>()("Sav
 			);
 			yield* repository.ensureBuiltinViews(
 				userId,
-				views.map(
-					({ slug, name, icon, layouts, sortOrder, pluginId, pluginSlug, entitySchemaSlug }) => ({
-						slug,
-						name,
-						icon,
-						layouts,
-						sortOrder,
-						pluginSlug: pluginSlug ? PluginSlug.make(pluginSlug) : null,
-						pluginInstallationId: pluginId ? (installationByPluginId.get(pluginId) ?? null) : null,
-						entitySchemaSlug:
-							entitySchemaSlug === null ? null : EntitySchemaSlug.make(entitySchemaSlug),
-						entitySchemaPluginId:
-							entitySchemaSlug === null
-								? null
-								: (effective.entitySchemas[entitySchemaSlug]?.pluginId ?? null),
-					}),
-				),
+				views.map(({ slug, name, icon, layouts, sortOrder, pluginId, entitySchemaSlug }) => ({
+					slug,
+					name,
+					icon,
+					layouts,
+					sortOrder,
+					pluginInstallationId: pluginId ? (installationByPluginId.get(pluginId) ?? null) : null,
+					entitySchemaSlug:
+						entitySchemaSlug === null ? null : EntitySchemaSlug.make(entitySchemaSlug),
+					entitySchemaPluginId:
+						entitySchemaSlug === null
+							? null
+							: (effective.entitySchemas[entitySchemaSlug]?.pluginId ?? null),
+				})),
 			);
 		});
 		const removeGenerated = (pluginInstallationId: string) =>
 			repository.deleteGeneratedByInstallation(pluginInstallationId);
+		const hasCustomInstallationReferences = (userId: UserId, pluginInstallationId: string) =>
+			repository.hasCustomInstallationReferences(userId, pluginInstallationId);
 
 		const requireSavedView = Effect.fn(function* (user: CurrentUserValue, viewSlug: string) {
 			const savedView = yield* repository.findBySlug(user.id, viewSlug);
@@ -111,9 +132,10 @@ export class SavedViewsService extends Context.Service<SavedViewsService>()("Sav
 				userId: user.id,
 				icon: payload.icon,
 				layouts: payload.layouts,
-				pluginInstallationId: null,
-				pluginSlug: payload.pluginSlug,
 				entitySchemaSlug: payload.entitySchemaSlug,
+				pluginInstallationId: payload.pluginSlug
+					? yield* resolvePluginInstallation(user.id, payload.pluginSlug)
+					: null,
 				entitySchemaPluginId:
 					payload.entitySchemaSlug === null
 						? null
@@ -175,12 +197,15 @@ export class SavedViewsService extends Context.Service<SavedViewsService>()("Sav
 					layouts,
 					entitySchemaSlug,
 					sortOrder: payload.sortOrder,
+					pluginInstallationId: payload.pluginSlug
+						? yield* resolvePluginInstallation(user.id, payload.pluginSlug)
+						: null,
 					entitySchemaPluginId:
 						entitySchemaSlug === null
 							? null
 							: (effective.entitySchemas[entitySchemaSlug]?.pluginId ?? null),
 				},
-				current.pluginSlug,
+				current.pluginInstallationId,
 			);
 			return (
 				updated ??
@@ -267,6 +292,7 @@ export class SavedViewsService extends Context.Service<SavedViewsService>()("Sav
 			update,
 			reorder,
 			removeGenerated,
+			hasCustomInstallationReferences,
 			delete: deleteView,
 			ensureBuiltinViews,
 		};
@@ -281,6 +307,10 @@ export const SavedViewPluginDefinitionMaterializerLive = Layer.effect(
 		const savedViews = yield* SavedViewsService;
 		return {
 			materialize: (userId: CurrentUserValue["id"]) => savedViews.ensureBuiltinViews(userId),
+			hasCustomSavedViewReferences: (
+				userId: CurrentUserValue["id"],
+				pluginInstallationId: string,
+			) => savedViews.hasCustomInstallationReferences(userId, pluginInstallationId),
 			removeGenerated: (pluginInstallationId: string) =>
 				savedViews.removeGenerated(pluginInstallationId),
 		};

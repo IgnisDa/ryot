@@ -9,6 +9,7 @@ export type SavedViewLayoutName = typeof SavedViewLayoutName.Type;
 
 const SavedViewBadRequestReason = Schema.Union([
 	Schema.Struct({ code: Schema.Literal("duplicate-name") }),
+	Schema.Struct({ code: Schema.Literal("plugin-not-found"), pluginSlug: PluginSlug }),
 	Schema.Struct({ code: Schema.Literal("builtin-view-immutable"), viewSlug: Schema.String }),
 	Schema.Struct({
 		entitySchemaSlug: EntitySchemaSlug,

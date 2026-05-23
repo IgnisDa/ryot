@@ -3,6 +3,7 @@ import type { UserId } from "@ryot/contract/schema/brands";
 import { stableStringify } from "@ryot/ts-utils/json";
 import { Context, Effect, Layer } from "effect";
 
+import type { V2PrivatePlugin } from "#modules/backups/archive-v2/schemas";
 import {
 	buildDefinitionSnapshot,
 	DefinitionRegistry,
@@ -24,16 +25,7 @@ import {
 	validatePrivateSlugAvailability,
 } from "./validation";
 
-export type BackupPrivatePluginPackage = {
-	readonly key: string;
-	readonly slug: string;
-	readonly files: Readonly<Record<string, string>>;
-	readonly manifest: unknown;
-	readonly version: string;
-	readonly sourceHash: string;
-};
-
-export type PreparedBackupPrivatePlugin = BackupPrivatePluginPackage & {
+export type PreparedBackupPrivatePlugin = V2PrivatePlugin & {
 	readonly normalized: NormalizedPlugin;
 };
 
@@ -48,7 +40,7 @@ export class PluginBackupRestore extends Context.Service<PluginBackupRestore>()(
 			const definitions = yield* DefinitionRegistry;
 
 			const prepare = Effect.fn("PluginBackupRestore.prepare")(function* (
-				packages: ReadonlyArray<BackupPrivatePluginPackage>,
+				packages: ReadonlyArray<V2PrivatePlugin>,
 			) {
 				const keys = new Set<string>();
 				const slugs = new Set<string>();

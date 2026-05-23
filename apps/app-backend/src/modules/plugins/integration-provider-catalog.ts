@@ -57,6 +57,21 @@ export class IntegrationProviderCatalog extends Context.Service<IntegrationProvi
 	{
 		make: Effect.gen(function* () {
 			const runtime = yield* PluginRuntimeResolver;
+			const listResolvedForUser = Effect.fn("IntegrationProviderCatalog.listResolvedForUser")(
+				function* (userId: UserId) {
+					const plugins = yield* runtime.listPluginsAvailableToUser(userId);
+					return yield* Effect.forEach(fromAvailablePlugins(plugins), (provider) =>
+						Effect.gen(function* () {
+							const plugin = plugins.find(({ id }) => id === provider.pluginId);
+							const script =
+								plugin && provider.scriptSlug
+									? yield* runtime.findScriptInAvailablePlugin(plugin, provider.scriptSlug)
+									: null;
+							return { provider, script };
+						}),
+					);
+				},
+			);
 
 			const listForUser = Effect.fn("IntegrationProviderCatalog.listForUser")(function* (
 				userId: UserId,
@@ -86,24 +101,22 @@ export class IntegrationProviderCatalog extends Context.Service<IntegrationProvi
 
 			const resolveOwnedForUser = Effect.fn("IntegrationProviderCatalog.resolveOwnedForUser")(
 				function* (userId: UserId, providerSlug: string, installationId: string) {
-					const plugins = yield* runtime.listPluginsAvailableToUser(userId);
-					const provider = fromAvailablePlugins(plugins).find(
-						(candidate) =>
-							candidate.slug === providerSlug && candidate.installationId === installationId,
+					return (
+						(yield* listResolvedForUser(userId)).find(
+							({ provider }) =>
+								provider.slug === providerSlug && provider.installationId === installationId,
+						) ?? null
 					);
-					if (!provider) {
-						return null;
-					}
-					const plugin = plugins.find(({ id }) => id === provider.pluginId);
-					const script =
-						plugin && provider.scriptSlug
-							? yield* runtime.findScriptInAvailablePlugin(plugin, provider.scriptSlug)
-							: null;
-					return { provider, script };
 				},
 			);
 
-			return { listForUser, findForUser, findOwnedForUser, resolveOwnedForUser };
+			return {
+				listForUser,
+				findForUser,
+				findOwnedForUser,
+				listResolvedForUser,
+				resolveOwnedForUser,
+			};
 		}),
 	},
 ) {

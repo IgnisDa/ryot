@@ -19,7 +19,6 @@ import { finalizeIntegrationRun } from "./worker";
 const IntegrationRecordSchema = Schema.Struct({
 	...ListedIntegration.fields,
 	userId: UserId,
-	pluginSlug: Schema.String,
 	pluginInstallationId: Schema.String,
 });
 
@@ -44,6 +43,7 @@ const runIntegrationImport = Effect.fn("runIntegrationImport")(function* (
 			workflowSlug: "import",
 			userId: integration.userId,
 			pluginId: provider.pluginId,
+			pluginInstallationId: integration.pluginInstallationId,
 		})
 		.pipe(Effect.mapError(toIntegrationWorkflowError));
 	const integrationContext: JsonValue =

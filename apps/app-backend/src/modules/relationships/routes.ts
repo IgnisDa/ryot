@@ -74,6 +74,7 @@ export const RelationshipsRoutesLive = HttpApiBuilder.group(
 					targetEntityId: payload.targetEntityId,
 					propertiesSchema: schema.propertiesSchema,
 					relationshipSchemaSlug: payload.relationshipSchemaSlug,
+					relationshipSchemaPluginId: schema.pluginId ?? null,
 				} as const;
 
 				const outcome = yield* mapDatabaseErrors(

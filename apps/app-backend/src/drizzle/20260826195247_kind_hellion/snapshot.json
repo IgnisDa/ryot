@@ -1,7 +1,7 @@
 {
 	"version": "8",
 	"dialect": "postgres",
-	"id": "4bda316d-4408-47d9-906d-8ba27c5aaefb",
+	"id": "c02cc2de-5d2e-4c27-8373-d9f466ba0a36",
 	"prevIds": ["00000000-0000-0000-0000-000000000000"],
 	"ddl": [
 		{
@@ -1557,19 +1557,6 @@
 			"default": null,
 			"generated": null,
 			"identity": null,
-			"name": "plugin_slug",
-			"entityType": "columns",
-			"schema": "public",
-			"table": "integration"
-		},
-		{
-			"type": "text",
-			"typeSchema": null,
-			"notNull": true,
-			"dimensions": 0,
-			"default": null,
-			"generated": null,
-			"identity": null,
 			"name": "plugin_installation_id",
 			"entityType": "columns",
 			"schema": "public",
@@ -2965,19 +2952,6 @@
 			"entityType": "columns",
 			"schema": "public",
 			"table": "sandbox_workflow_reference"
-		},
-		{
-			"type": "text",
-			"typeSchema": null,
-			"notNull": false,
-			"dimensions": 0,
-			"default": null,
-			"generated": null,
-			"identity": null,
-			"name": "plugin_slug",
-			"entityType": "columns",
-			"schema": "public",
-			"table": "saved_view"
 		},
 		{
 			"type": "text",
@@ -4473,6 +4447,62 @@
 			"nameExplicit": true,
 			"columns": [
 				{
+					"value": "user_id",
+					"isExpression": false,
+					"asc": true,
+					"nullsFirst": false,
+					"opclass": null
+				},
+				{
+					"value": "external_id",
+					"isExpression": false,
+					"asc": true,
+					"nullsFirst": false,
+					"opclass": null
+				},
+				{
+					"value": "entity_schema_slug",
+					"isExpression": false,
+					"asc": true,
+					"nullsFirst": false,
+					"opclass": null
+				},
+				{
+					"value": "provider_id",
+					"isExpression": false,
+					"asc": true,
+					"nullsFirst": false,
+					"opclass": null
+				},
+				{
+					"value": "entity_schema_plugin_id",
+					"isExpression": false,
+					"asc": true,
+					"nullsFirst": false,
+					"opclass": null
+				}
+			],
+			"isUnique": true,
+			"where": "\"user_id\" IS NOT NULL AND \"external_id\" IS NOT NULL AND \"provider_id\" IS NOT NULL AND \"entity_schema_plugin_id\" IS NOT NULL",
+			"with": "",
+			"method": "btree",
+			"concurrently": false,
+			"name": "entity_user_plugin_external_id_unique",
+			"entityType": "indexes",
+			"schema": "public",
+			"table": "entity"
+		},
+		{
+			"nameExplicit": true,
+			"columns": [
+				{
+					"value": "user_id",
+					"isExpression": false,
+					"asc": true,
+					"nullsFirst": false,
+					"opclass": null
+				},
+				{
 					"value": "external_id",
 					"isExpression": false,
 					"asc": true,
@@ -4495,11 +4525,123 @@
 				}
 			],
 			"isUnique": true,
-			"where": "(\"user_id\" is null)",
+			"where": "\"user_id\" IS NOT NULL AND \"external_id\" IS NOT NULL AND \"provider_id\" IS NOT NULL AND \"entity_schema_plugin_id\" IS NULL",
 			"with": "",
 			"method": "btree",
 			"concurrently": false,
-			"name": "entity_global_external_id_unique",
+			"name": "entity_user_kernel_external_id_unique",
+			"entityType": "indexes",
+			"schema": "public",
+			"table": "entity"
+		},
+		{
+			"nameExplicit": true,
+			"columns": [
+				{
+					"value": "external_id",
+					"isExpression": false,
+					"asc": true,
+					"nullsFirst": false,
+					"opclass": null
+				},
+				{
+					"value": "entity_schema_slug",
+					"isExpression": false,
+					"asc": true,
+					"nullsFirst": false,
+					"opclass": null
+				},
+				{
+					"value": "provider_id",
+					"isExpression": false,
+					"asc": true,
+					"nullsFirst": false,
+					"opclass": null
+				},
+				{
+					"value": "entity_schema_plugin_id",
+					"isExpression": false,
+					"asc": true,
+					"nullsFirst": false,
+					"opclass": null
+				}
+			],
+			"isUnique": true,
+			"where": "\"user_id\" IS NULL AND \"provider_id\" IS NOT NULL AND \"entity_schema_plugin_id\" IS NOT NULL",
+			"with": "",
+			"method": "btree",
+			"concurrently": false,
+			"name": "entity_global_plugin_external_id_unique",
+			"entityType": "indexes",
+			"schema": "public",
+			"table": "entity"
+		},
+		{
+			"nameExplicit": true,
+			"columns": [
+				{
+					"value": "external_id",
+					"isExpression": false,
+					"asc": true,
+					"nullsFirst": false,
+					"opclass": null
+				},
+				{
+					"value": "entity_schema_slug",
+					"isExpression": false,
+					"asc": true,
+					"nullsFirst": false,
+					"opclass": null
+				},
+				{
+					"value": "provider_id",
+					"isExpression": false,
+					"asc": true,
+					"nullsFirst": false,
+					"opclass": null
+				}
+			],
+			"isUnique": true,
+			"where": "\"user_id\" IS NULL AND \"provider_id\" IS NOT NULL AND \"entity_schema_plugin_id\" IS NULL",
+			"with": "",
+			"method": "btree",
+			"concurrently": false,
+			"name": "entity_global_kernel_external_id_unique",
+			"entityType": "indexes",
+			"schema": "public",
+			"table": "entity"
+		},
+		{
+			"nameExplicit": true,
+			"columns": [
+				{
+					"value": "external_id",
+					"isExpression": false,
+					"asc": true,
+					"nullsFirst": false,
+					"opclass": null
+				},
+				{
+					"value": "entity_schema_slug",
+					"isExpression": false,
+					"asc": true,
+					"nullsFirst": false,
+					"opclass": null
+				},
+				{
+					"value": "entity_schema_plugin_id",
+					"isExpression": false,
+					"asc": true,
+					"nullsFirst": false,
+					"opclass": null
+				}
+			],
+			"isUnique": true,
+			"where": "\"user_id\" IS NULL AND \"provider_id\" IS NULL AND \"entity_schema_plugin_id\" IS NOT NULL",
+			"with": "",
+			"method": "btree",
+			"concurrently": false,
+			"name": "entity_global_plugin_no_provider_external_id_unique",
 			"entityType": "indexes",
 			"schema": "public",
 			"table": "entity"
@@ -4523,11 +4665,11 @@
 				}
 			],
 			"isUnique": true,
-			"where": "\"user_id\" IS NULL AND \"provider_id\" IS NULL",
+			"where": "\"user_id\" IS NULL AND \"provider_id\" IS NULL AND \"entity_schema_plugin_id\" IS NULL",
 			"with": "",
 			"method": "btree",
 			"concurrently": false,
-			"name": "entity_global_no_provider_external_id_unique",
+			"name": "entity_global_kernel_no_provider_external_id_unique",
 			"entityType": "indexes",
 			"schema": "public",
 			"table": "entity"
@@ -4949,27 +5091,6 @@
 			"nameExplicit": true,
 			"columns": [
 				{
-					"value": "plugin_slug",
-					"isExpression": false,
-					"asc": true,
-					"nullsFirst": false,
-					"opclass": null
-				}
-			],
-			"isUnique": false,
-			"where": null,
-			"with": "",
-			"method": "btree",
-			"concurrently": false,
-			"name": "integration_plugin_slug_idx",
-			"entityType": "indexes",
-			"schema": "public",
-			"table": "integration"
-		},
-		{
-			"nameExplicit": true,
-			"columns": [
-				{
 					"value": "plugin_installation_id",
 					"isExpression": false,
 					"asc": true,
@@ -5187,34 +5308,6 @@
 			"nameExplicit": true,
 			"columns": [
 				{
-					"value": "user_id",
-					"isExpression": false,
-					"asc": true,
-					"nullsFirst": false,
-					"opclass": null
-				},
-				{
-					"value": "signal_schema_slug",
-					"isExpression": false,
-					"asc": true,
-					"nullsFirst": false,
-					"opclass": null
-				}
-			],
-			"isUnique": true,
-			"where": null,
-			"with": "",
-			"method": "btree",
-			"concurrently": false,
-			"name": "notification_subscription_state_user_signal_unique",
-			"entityType": "indexes",
-			"schema": "public",
-			"table": "notification_subscription_state"
-		},
-		{
-			"nameExplicit": true,
-			"columns": [
-				{
 					"value": "owner_id",
 					"isExpression": false,
 					"asc": true,
@@ -5424,41 +5517,6 @@
 			"method": "gin",
 			"concurrently": false,
 			"name": "relationship_properties_idx",
-			"entityType": "indexes",
-			"schema": "public",
-			"table": "relationship"
-		},
-		{
-			"nameExplicit": true,
-			"columns": [
-				{
-					"value": "source_entity_id",
-					"isExpression": false,
-					"asc": true,
-					"nullsFirst": false,
-					"opclass": null
-				},
-				{
-					"value": "target_entity_id",
-					"isExpression": false,
-					"asc": true,
-					"nullsFirst": false,
-					"opclass": null
-				},
-				{
-					"value": "relationship_schema_slug",
-					"isExpression": false,
-					"asc": true,
-					"nullsFirst": false,
-					"opclass": null
-				}
-			],
-			"isUnique": true,
-			"where": "(\"user_id\" is null)",
-			"with": "",
-			"method": "btree",
-			"concurrently": false,
-			"name": "relationship_global_source_target_schema_unique",
 			"entityType": "indexes",
 			"schema": "public",
 			"table": "relationship"
@@ -5697,27 +5755,6 @@
 			"method": "btree",
 			"concurrently": false,
 			"name": "saved_view_user_id_idx",
-			"entityType": "indexes",
-			"schema": "public",
-			"table": "saved_view"
-		},
-		{
-			"nameExplicit": true,
-			"columns": [
-				{
-					"value": "plugin_slug",
-					"isExpression": false,
-					"asc": true,
-					"nullsFirst": false,
-					"opclass": null
-				}
-			],
-			"isUnique": false,
-			"where": null,
-			"with": "",
-			"method": "btree",
-			"concurrently": false,
-			"name": "saved_view_plugin_slug_idx",
 			"entityType": "indexes",
 			"schema": "public",
 			"table": "saved_view"
@@ -6512,19 +6549,6 @@
 		},
 		{
 			"nameExplicit": false,
-			"columns": ["plugin_installation_id"],
-			"schemaTo": "public",
-			"tableTo": "plugin_installation",
-			"columnsTo": ["id"],
-			"onUpdate": "NO ACTION",
-			"onDelete": "RESTRICT",
-			"name": "saved_view_plugin_installation_id_plugin_installation_id_fkey",
-			"entityType": "fks",
-			"schema": "public",
-			"table": "saved_view"
-		},
-		{
-			"nameExplicit": false,
 			"columns": ["user_id"],
 			"schemaTo": "public",
 			"tableTo": "user",
@@ -6532,6 +6556,19 @@
 			"onUpdate": "NO ACTION",
 			"onDelete": "CASCADE",
 			"name": "saved_view_user_id_user_id_fkey",
+			"entityType": "fks",
+			"schema": "public",
+			"table": "saved_view"
+		},
+		{
+			"nameExplicit": true,
+			"columns": ["plugin_installation_id", "user_id"],
+			"schemaTo": "public",
+			"tableTo": "plugin_installation",
+			"columnsTo": ["id", "user_id"],
+			"onUpdate": "NO ACTION",
+			"onDelete": "RESTRICT",
+			"name": "saved_view_plugin_installation_owner_fk",
 			"entityType": "fks",
 			"schema": "public",
 			"table": "saved_view"
@@ -6895,21 +6932,21 @@
 		},
 		{
 			"nameExplicit": true,
-			"columns": ["user_id", "external_id", "entity_schema_slug", "provider_id"],
-			"nullsNotDistinct": false,
-			"name": "entity_user_schema_provider_external_id_unique",
-			"entityType": "uniques",
-			"schema": "public",
-			"table": "entity"
-		},
-		{
-			"nameExplicit": true,
 			"columns": ["entity_id", "language"],
 			"nullsNotDistinct": false,
 			"name": "entity_translation_entity_language_unique",
 			"entityType": "uniques",
 			"schema": "public",
 			"table": "entity_translation"
+		},
+		{
+			"nameExplicit": true,
+			"columns": ["user_id", "signal_schema_slug", "signal_schema_plugin_id"],
+			"nullsNotDistinct": true,
+			"name": "notification_subscription_state_user_signal_unique",
+			"entityType": "uniques",
+			"schema": "public",
+			"table": "notification_subscription_state"
 		},
 		{
 			"nameExplicit": true,
@@ -6931,9 +6968,15 @@
 		},
 		{
 			"nameExplicit": true,
-			"columns": ["user_id", "source_entity_id", "target_entity_id", "relationship_schema_slug"],
-			"nullsNotDistinct": false,
-			"name": "relationship_user_source_target_schema_unique",
+			"columns": [
+				"user_id",
+				"source_entity_id",
+				"target_entity_id",
+				"relationship_schema_slug",
+				"relationship_schema_plugin_id"
+			],
+			"nullsNotDistinct": true,
+			"name": "relationship_identity_unique",
 			"entityType": "uniques",
 			"schema": "public",
 			"table": "relationship"

@@ -1,7 +1,8 @@
 import { assert, expect, it } from "@effect/vitest";
 import type { SavedViewLayouts } from "@ryot/contract/modules/saved-views/schemas";
-import { EntitySchemaSlug, PluginSlug, UserId } from "@ryot/contract/schema/brands";
+import { EntitySchemaSlug, UserId } from "@ryot/contract/schema/brands";
 import { ascending, column, document, field, rows, table } from "@ryot/ryotql";
+import { PgDialect } from "drizzle-orm/pg-core";
 import { Cause, Effect, Exit, Layer, Option } from "effect";
 
 import { Database } from "#lib/infrastructure/db/service";
@@ -87,7 +88,6 @@ const desiredView = {
 	slug: "generated",
 	entitySchemaPluginId: "plugin-id",
 	pluginInstallationId: "installation-id",
-	pluginSlug: PluginSlug.make("private"),
 	entitySchemaSlug: EntitySchemaSlug.make("book"),
 };
 
@@ -146,5 +146,38 @@ it.effect("rejects a generated view slug owned by a custom view", () => {
 			message: "Saved view slug is owned by another view: generated",
 		});
 		expect(mutations).toEqual({ deletes: 0, inserts: [], updates: [] });
+	}).pipe(Effect.provide(layer));
+});
+
+it.effect("checks custom references for the exact installation and user", () => {
+	const conditions: Array<Parameters<PgDialect["sqlToQuery"]>[0]> = [];
+	const database = Database.of(
+		Object.assign(Object.create(null), {
+			select: () => ({
+				from: () => ({
+					where: (condition: Parameters<PgDialect["sqlToQuery"]>[0]) => ({
+						limit: () => {
+							conditions.push(condition);
+							return Effect.succeed([{ id: "custom-view" }]);
+						},
+					}),
+				}),
+			}),
+		}),
+	);
+	const layer = Layer.mergeAll(
+		Layer.succeed(Database, database),
+		SavedViewsRepository.layer.pipe(Layer.provide(Layer.succeed(Database, database))),
+	);
+	return Effect.gen(function* () {
+		const repository = yield* SavedViewsRepository;
+		expect(yield* repository.hasCustomInstallationReferences(userId, "installation-id")).toBe(true);
+		const [condition] = conditions;
+		assert(condition);
+		const rendered = new PgDialect().sqlToQuery(condition);
+		expect(rendered.sql).toContain('"saved_view"."user_id" = $1');
+		expect(rendered.sql).toContain('"saved_view"."is_builtin" = $2');
+		expect(rendered.sql).toContain('"saved_view"."plugin_installation_id" = $3');
+		expect(rendered.params).toEqual([userId, false, "installation-id"]);
 	}).pipe(Effect.provide(layer));
 });

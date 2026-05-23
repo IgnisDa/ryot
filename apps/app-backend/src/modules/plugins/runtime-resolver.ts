@@ -488,9 +488,16 @@ export class PluginRuntimeResolver extends Context.Service<PluginRuntimeResolver
 
 			const findWorkflowScriptAvailableToUser = Effect.fn(
 				"PluginRuntimeResolver.findWorkflowScriptAvailableToUser",
-			)(function* (userId: UserId, pluginId: string, workflowSlug: string) {
+			)(function* (
+				userId: UserId,
+				pluginId: string,
+				workflowSlug: string,
+				pluginInstallationId: string,
+			) {
 				const plugin = yield* findPluginAvailableToUser(userId, pluginId);
-				return plugin ? yield* findWorkflowScriptInAvailablePlugin(plugin, workflowSlug) : null;
+				return plugin?.installationId === pluginInstallationId
+					? yield* findWorkflowScriptInAvailablePlugin(plugin, workflowSlug)
+					: null;
 			});
 
 			const findOperationAvailableToUser = Effect.fn(
@@ -745,30 +752,6 @@ export class PluginRuntimeResolver extends Context.Service<PluginRuntimeResolver
 				});
 				return script ? { bootstrap, script } : null;
 			});
-			// TODO(plugins): Task 11 should delete findActiveOperation, isSystemPluginAvailableToUser and
-			// findUserOperation. All three lost their callers when operation dispatch moved to
-			// findOperationAvailableToUser. findActiveOperation is the dangerous one: it resolves an
-			// operation by slug from the system snapshot with no user at all, which is exactly the
-			// slug-only global lookup the parent plan forbids for private plugins.
-			const findActiveOperation = Effect.fn("PluginRuntimeResolver.findActiveOperation")(
-				(input: { pluginSlug: string; operationSlug: string }) =>
-					Effect.sync(() => {
-						const snapshot = loader.getSnapshot();
-						const operation = snapshot.plugins[input.pluginSlug]?.manifest.operations.find(
-							({ slug }) => slug === input.operationSlug,
-						);
-						return operation
-							? {
-									operation,
-									script: findActiveScriptInPluginSnapshot(snapshot, {
-										pluginSlug: input.pluginSlug,
-										scriptSlug: operation.scriptSlug,
-									}),
-								}
-							: null;
-					}),
-			);
-
 			const findActiveScriptByIdInSnapshot = Effect.fn(
 				"PluginRuntimeResolver.findActiveScriptByIdInSnapshot",
 			)(function* (snapshot: PluginRegistrySnapshot, scriptId: SandboxScriptId) {
@@ -901,16 +884,6 @@ export class PluginRuntimeResolver extends Context.Service<PluginRuntimeResolver
 					: null;
 			});
 
-			const isSystemPluginAvailableToUser = Effect.fn(
-				"PluginRuntimeResolver.isSystemPluginAvailableToUser",
-			)(function* (userId: UserId, pluginSlug: string) {
-				const plugin = loader.getSnapshot().plugins[pluginSlug];
-				if (!plugin) {
-					return false;
-				}
-				const installation = yield* installations.findByUserAndPlugin(userId, plugin.id);
-				return installation?.health === "ready" && !installation.isDisabled;
-			});
 			const isSystemProviderAvailableToUser = Effect.fn(
 				"PluginRuntimeResolver.isSystemProviderAvailableToUser",
 			)(function* (userId: UserId, providerId: SandboxProviderId) {
@@ -966,41 +939,6 @@ export class PluginRuntimeResolver extends Context.Service<PluginRuntimeResolver
 			const findProviderAvailableToUserBySlug = (userId: UserId, providerSlug: string) =>
 				findProviderAvailableToUserWhere(userId, eq(schema.sandboxProvider.slug, providerSlug));
 
-			const findUserOperation = Effect.fn("PluginRuntimeResolver.findUserOperation")(
-				function* (input: {
-					readonly userId: UserId;
-					readonly pluginSlug: string;
-					readonly operationSlug: string;
-				}) {
-					const plugin = yield* findActivePluginRow(
-						and(
-							eq(schema.plugin.scope, "user"),
-							eq(schema.plugin.slug, input.pluginSlug),
-							eq(schema.plugin.ownerId, input.userId),
-						),
-					);
-					if (!plugin) {
-						return null;
-					}
-					const installation = yield* installations.findByUserAndPlugin(input.userId, plugin.id);
-					if (!installation || installation.isDisabled || installation.health !== "ready") {
-						return null;
-					}
-					const operation = plugin.manifest.operations.find(
-						({ slug }) => slug === input.operationSlug,
-					);
-					const contentHash = operation ? plugin.compiledHashes[operation.scriptSlug] : undefined;
-					if (!operation || !contentHash) {
-						return null;
-					}
-					const script = yield* findCompiledScriptRow({
-						contentHash,
-						pluginId: plugin.id,
-						scriptSlug: operation.scriptSlug,
-					});
-					return script ? { operation, script } : null;
-				},
-			);
 			const resolveSystemQueryScript = Effect.fn("PluginRuntimeResolver.resolveSystemQueryScript")(
 				function* (scriptId: SandboxScriptId) {
 					const snapshot = loader.getSnapshot();
@@ -1553,9 +1491,7 @@ export class PluginRuntimeResolver extends Context.Service<PluginRuntimeResolver
 				listAutomations,
 				findKernelScript,
 				findActiveScript,
-				findUserOperation,
 				findDetailsScript,
-				findActiveOperation,
 				listSchemaProviders,
 				resolveSearchScript,
 				findActiveScriptById,
@@ -1583,7 +1519,6 @@ export class PluginRuntimeResolver extends Context.Service<PluginRuntimeResolver
 				findProviderAvailableToUser,
 				findOperationAvailableToUser,
 				resolveInstallationBootstrap,
-				isSystemPluginAvailableToUser,
 				resolveUserSearchOptionsScript,
 				isSystemProviderAvailableToUser,
 				findAuthorizedSchemaProviderById,
