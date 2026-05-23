@@ -19,7 +19,7 @@ type Customer = InferSelectModel<typeof customers>;
 
 type CloudAuthDetails = Extract<
 	NonNullable<PurchaseCompleteEmailProps["details"]>,
-	{ __typename: "cloud" }
+	{ kind: "cloud" }
 >["auth"];
 
 async function getCloudAuthDetails(
@@ -62,7 +62,7 @@ async function handleCloudPurchase(customer: Customer): Promise<{
 		return {
 			unkeyKeyId: null,
 			ryotUserId: customer.ryotUserId,
-			details: { auth, __typename: "cloud" },
+			details: { auth, kind: "cloud" },
 		};
 	}
 
@@ -82,8 +82,8 @@ async function handleCloudPurchase(customer: Customer): Promise<{
 
 	return {
 		unkeyKeyId: null,
+		details: { auth, kind: "cloud" },
 		ryotUserId: provisionData.data.userId,
-		details: { auth, __typename: "cloud" },
 	};
 }
 
@@ -111,10 +111,7 @@ async function handleSelfHostedPurchase(
 		return {
 			ryotUserId: null,
 			unkeyKeyId: customer.unkeyKeyId,
-			details: {
-				__typename: "self_hosted",
-				key: "API key reactivated with new expiry",
-			},
+			details: { kind: "self_hosted", key: "API key reactivated with new expiry" },
 		};
 	}
 
@@ -125,7 +122,7 @@ async function handleSelfHostedPurchase(
 	return {
 		ryotUserId: null,
 		unkeyKeyId: created.keyId,
-		details: { key: created.key, __typename: "self_hosted" },
+		details: { key: created.key, kind: "self_hosted" },
 	};
 }
 
