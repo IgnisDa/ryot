@@ -21,6 +21,11 @@ const FRONTEND_URL = requirePresent(
 );
 
 async function createAndSignIn(): Promise<{
+	totpCodes: {
+		past: string;
+		current: string;
+		future: string;
+	};
 	email: string;
 	cookies: string;
 	password: string;
@@ -64,7 +69,13 @@ async function createAndSignIn(): Promise<{
 		password,
 	});
 
-	return { cookies: twoFactor.cookies, email, password, backupCodes: twoFactor.backupCodes };
+	return {
+		cookies: twoFactor.cookies,
+		email,
+		password,
+		backupCodes: twoFactor.backupCodes,
+		totpCodes: twoFactor.totpCodes,
+	};
 }
 
 type Client = ReturnType<typeof createClient<paths>>;
@@ -3540,9 +3551,12 @@ async function main() {
 
 	console.log(`✓ API Base URL: ${API_BASE_URL}`);
 
-	const { backupCodes, cookies, email, password } = await createAndSignIn();
+	const { backupCodes, cookies, email, password, totpCodes } = await createAndSignIn();
 	console.log(`✓ Created and signed in as ${email}`);
 	console.log(`✓ Enabled two-factor authentication`);
+	console.log(`  Past TOTP:    ${totpCodes.past}`);
+	console.log(`  Current TOTP: ${totpCodes.current}`);
+	console.log(`  Future TOTP:  ${totpCodes.future}`);
 	console.log(`  Backup codes: ${backupCodes.join(", ")}`);
 
 	const client = new APIClient(cookies);

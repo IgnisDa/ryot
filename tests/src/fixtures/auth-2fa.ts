@@ -7,6 +7,7 @@ import { requireNonEmptyArray, requirePresent, requireString } from "../test-sup
 type TwoFactorSetupResult = {
 	cookies: string;
 	backupCodes: string[];
+	totpCodes: { past: string; current: string; future: string };
 };
 
 export function cookieHeaderFromSetCookies(setCookies: string[]) {
@@ -30,8 +31,8 @@ function decodeBase32(value: string) {
 	return Buffer.from(base32.parse(normalized, { loose: true }));
 }
 
-function generateTotpCode(secret: string) {
-	const counter = Math.floor(Date.now() / 1000 / 30);
+function generateTotpCode(secret: string, timeOffset = 0) {
+	const counter = Math.floor(Date.now() / 1000 / 30) + timeOffset;
 	const counterBuffer = Buffer.alloc(8);
 	const key = decodeBase32(secret);
 
@@ -48,6 +49,14 @@ function generateTotpCode(secret: string) {
 		((byte0 & 0x7f) << 24) | ((byte1 & 0xff) << 16) | ((byte2 & 0xff) << 8) | (byte3 & 0xff);
 
 	return (binaryCode % 1_000_000).toString().padStart(6, "0");
+}
+
+function generateTotpWindowCodes(secret: string) {
+	return {
+		current: generateTotpCode(secret),
+		past: generateTotpCode(secret, -1),
+		future: generateTotpCode(secret, 1),
+	};
 }
 
 export async function enableTwoFactorForSession(input: {
@@ -81,6 +90,8 @@ export async function enableTwoFactorForSession(input: {
 		enableData.totpURI,
 		"Two-factor enable succeeded but no TOTP URI was returned",
 	);
+	const totpSecret = parseTotpSecret(totpURI);
+	const totpCodes = generateTotpWindowCodes(totpSecret);
 
 	if (!Array.isArray(enableData.backupCodes)) {
 		throw new Error("Two-factor enable returned an invalid response");
@@ -96,7 +107,7 @@ export async function enableTwoFactorForSession(input: {
 
 	const verifyResponse = await fetch(`${input.baseUrl}/auth/two-factor/verify-totp`, {
 		method: "POST",
-		body: JSON.stringify({ code: generateTotpCode(parseTotpSecret(totpURI)) }),
+		body: JSON.stringify({ code: generateTotpCode(totpSecret) }),
 		headers: {
 			Cookie: input.cookies,
 			"Content-Type": "application/json",
@@ -112,6 +123,7 @@ export async function enableTwoFactorForSession(input: {
 	const setCookies = verifyResponse.headers.getSetCookie();
 
 	return {
+		totpCodes,
 		backupCodes,
 		cookies: setCookies.length ? cookieHeaderFromSetCookies(setCookies) : input.cookies,
 	};
