@@ -447,16 +447,16 @@ sources before porting every adapter.
 
 ## Tasks
 
-**Overall Progress:** 1 of 11 tasks completed
+**Overall Progress:** 2 of 11 tasks completed
 
-**Current Task:** [Task 02](./02-auto-complete-coverage-cycles.md) (todo)
+**Current Task:** [Task 03](./03-openscale-import-tracer-bullet.md) (todo)
 
 ### Task List
 
 | #   | Task                                                                               | Type | Status |
 | --- | ---------------------------------------------------------------------------------- | ---- | ------ |
 | 01  | [Event Occurrence Semantics](./01-event-occurrence-semantics.md)                   | AFK  | done   |
-| 02  | [Auto-Complete Coverage Cycles](./02-auto-complete-coverage-cycles.md)             | AFK  | todo   |
+| 02  | [Auto-Complete Coverage Cycles](./02-auto-complete-coverage-cycles.md)             | AFK  | done   |
 | 03  | [OpenScale Import Tracer Bullet](./03-openscale-import-tracer-bullet.md)           | AFK  | todo   |
 | 04  | [Shared Entity Population Refactor](./04-shared-entity-population-refactor.md)     | AFK  | todo   |
 | 05  | [Provider-Backed Media Import Tracer](./05-provider-backed-media-import-tracer.md) | AFK  | todo   |

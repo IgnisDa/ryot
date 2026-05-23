@@ -62,14 +62,25 @@ function getCoverageKeyFromProperties(entitySchemaSlug, properties) {
 }
 
 function getEventTimestamp(event) {
+  const value = event && typeof event.occurredAt === "string"
+    ? event.occurredAt
+    : event && event.createdAt;
+  const timestamp = typeof value === "string" ? Date.parse(value) : NaN;
+  return Number.isFinite(timestamp) ? timestamp : 0;
+}
+
+function getCreatedAtTimestamp(event) {
   const value = event && event.createdAt;
   const timestamp = typeof value === "string" ? Date.parse(value) : NaN;
   return Number.isFinite(timestamp) ? timestamp : 0;
 }
 
 function compareCoverageEvents(a, b) {
-  const timeDiff = getEventTimestamp(a) - getEventTimestamp(b);
-  if (timeDiff !== 0) return timeDiff;
+  const occurredAtDiff = getEventTimestamp(a) - getEventTimestamp(b);
+  if (occurredAtDiff !== 0) return occurredAtDiff;
+
+  const createdAtDiff = getCreatedAtTimestamp(a) - getCreatedAtTimestamp(b);
+  if (createdAtDiff !== 0) return createdAtDiff;
 
   const aId = a && typeof a.id === "string" ? a.id : "";
   const bId = b && typeof b.id === "string" ? b.id : "";
@@ -83,26 +94,39 @@ function getShowCoverageKeys(properties) {
     ? properties.showSeasons
     : [];
   const keys = [];
+  let hasIncompleteCoverage = false;
 
   seasons.forEach(function (season) {
     if (!season || typeof season !== "object") return;
     if (SHOW_SPECIAL_SEASON_NAMES.indexOf(season.name) !== -1) return;
 
     const seasonNumber = toPositiveInteger(season.seasonNumber);
-    if (seasonNumber === null) return;
-
     const episodes = Array.isArray(season.episodes) ? season.episodes : [];
+    if (seasonNumber === null || episodes.length === 0) {
+      hasIncompleteCoverage = true;
+      return;
+    }
+
+    let hasValidEpisode = false;
     episodes.forEach(function (episode) {
       if (!episode || typeof episode !== "object") return;
 
       const episodeNumber = toPositiveInteger(episode.episodeNumber);
-      if (episodeNumber === null) return;
+      if (episodeNumber === null) {
+        hasIncompleteCoverage = true;
+        return;
+      }
 
+      hasValidEpisode = true;
       keys.push(String(seasonNumber) + "-" + String(episodeNumber));
     });
+
+    if (!hasValidEpisode) {
+      hasIncompleteCoverage = true;
+    }
   });
 
-  return keys;
+  return hasIncompleteCoverage ? null : keys;
 }
 
 function getPodcastCoverageKeys(properties) {
@@ -146,42 +170,35 @@ function getRequiredCoverageKeys(entitySchemaSlug, properties) {
   return null;
 }
 
-function getCoveredCoverageKeys(entitySchemaSlug, events) {
-  const coveredKeys = new Set();
-
-  events.forEach(function (event) {
-    const coverageKey = getCoverageKeyFromProperties(
-      entitySchemaSlug,
-      event && event.properties,
-    );
-    if (coverageKey !== null) {
-      coveredKeys.add(coverageKey);
-    }
-  });
-
-  return coveredKeys;
-}
-
-function getCompletionTriggerEventId(entitySchemaSlug, requiredKeys, events) {
-  if (requiredKeys.length === 0) return null;
-
-  const coveredKeys = new Set();
+function getCompletionCandidates(entitySchemaSlug, requiredKeys, events) {
+  const completionCandidates = [];
+  let coveredKeys = new Set();
+  let cycleEvents = [];
   const orderedEvents = events.slice().sort(compareCoverageEvents);
 
-  for (const event of orderedEvents) {
+  orderedEvents.forEach(function (event) {
     const coverageKey = getCoverageKeyFromProperties(
       entitySchemaSlug,
       event && event.properties,
     );
-    if (coverageKey === null) continue;
+    if (coverageKey === null) return;
 
     coveredKeys.add(coverageKey);
-    if (hasCoverageForAllRequiredKeys(requiredKeys, coveredKeys)) {
-      return event && typeof event.id === "string" ? event.id : null;
-    }
-  }
+    cycleEvents.push(event);
+    if (!hasCoverageForAllRequiredKeys(requiredKeys, coveredKeys)) return;
 
-  return null;
+    if (event && typeof event.id === "string") {
+      completionCandidates.push({
+        completionEvent: event,
+        emitterEventId: event.id,
+      });
+    }
+
+    coveredKeys = new Set();
+    cycleEvents = [];
+  });
+
+  return completionCandidates;
 }
 
 function hasCoverageForAllRequiredKeys(requiredKeys, coveredKeys) {
@@ -239,13 +256,44 @@ async function getProgressEvents(entityId) {
   return Array.isArray(events) ? events : [];
 }
 
-async function createCompletionEvent(trigger, completeSchema) {
+function getCompletionOccurredAt(event) {
+  if (event && typeof event.occurredAt === "string") {
+    return event.occurredAt;
+  }
+
+  if (event && typeof event.createdAt === "string") {
+    return event.createdAt;
+  }
+
+  return null;
+}
+
+function getInheritedCompletionProperties(event) {
+  const properties = event && event.properties && typeof event.properties === "object"
+    ? event.properties
+    : {};
+  const inheritedProperties = event && event.inheritedProperties && typeof event.inheritedProperties === "object"
+    ? event.inheritedProperties
+    : {};
+  const consumedOn = typeof properties.consumedOn === "string"
+    ? properties.consumedOn
+    : inheritedProperties.consumedOn;
+
+  return typeof consumedOn === "string" ? { consumedOn } : {};
+}
+
+async function createCompletionEvent(trigger, completeSchema, sourceEvent) {
+  const occurredAt = getCompletionOccurredAt(sourceEvent) || trigger.occurredAt;
   const completionResult = await appApiCall("POST", "/events", {
     body: [
       {
         entityId: trigger.entityId,
         eventSchemaId: completeSchema.id,
-        properties: Object.assign({ completionMode: "just_now" }, trigger.inheritedProperties),
+        occurredAt: occurredAt,
+        properties: Object.assign({}, getInheritedCompletionProperties(sourceEvent), {
+          completionMode: "custom_timestamps",
+          completedOn: occurredAt,
+        }),
       },
     ],
   });
@@ -271,7 +319,7 @@ driver("trigger", async function (context) {
     trigger.entitySchemaSlug === "podcast";
 
   if (!isEpisodic) {
-    await createCompletionEvent(trigger, completeSchema);
+    await createCompletionEvent(trigger, completeSchema, trigger);
     return;
   }
 
@@ -281,25 +329,19 @@ driver("trigger", async function (context) {
     entityProperties,
   );
 
-  if (requiredKeys === null) {
-    await createCompletionEvent(trigger, completeSchema);
-    return;
-  }
+  if (requiredKeys === null || requiredKeys.length === 0) return;
 
   const progressEvents = await getProgressEvents(trigger.entityId);
-  const coveredKeys = getCoveredCoverageKeys(
-    trigger.entitySchemaSlug,
-    progressEvents,
-  );
-
-  if (!hasCoverageForAllRequiredKeys(requiredKeys, coveredKeys)) return;
-
-  const completionTriggerEventId = getCompletionTriggerEventId(
+  const completionCandidates = getCompletionCandidates(
     trigger.entitySchemaSlug,
     requiredKeys,
     progressEvents,
   );
-  if (requiredKeys.length > 0 && completionTriggerEventId !== trigger.eventId) return;
 
-  await createCompletionEvent(trigger, completeSchema);
+  const completionCandidate = completionCandidates.find(function (candidate) {
+    return candidate.emitterEventId === trigger.eventId;
+  });
+  if (!completionCandidate) return;
+
+  await createCompletionEvent(trigger, completeSchema, completionCandidate.completionEvent);
 });
