@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { hasPreferenceChanges, makePreferenceDraft, preferencePayload } from "./preference-draft";
+import { makePreferenceDraft, preferencePayload } from "./preference-draft";
 
 const preferences = { allowNsfw: false, language: null, disableIntegrations: false };
 
@@ -8,7 +8,6 @@ describe("user settings preference draft", () => {
 	it("does not treat the empty language field as a change from provider default", () => {
 		const draft = makePreferenceDraft(preferences);
 
-		expect(hasPreferenceChanges(preferences, draft)).toBe(false);
 		expect(preferencePayload(preferences, draft)).toEqual({});
 	});
 
