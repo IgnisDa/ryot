@@ -43,113 +43,114 @@ export class UserStateService extends Effect.Service<UserStateService>()("UserSt
 		const entitiesRepository = yield* EntitiesRepository;
 		const relationshipsRepository = yield* RelationshipsRepository;
 
-		return {
-			clearUserState: Effect.fn("UserStateService.clearUserState")(function* (
-				user: CurrentUserValue,
-				entityIdInput: EntityId,
-			) {
-				const trimmedEntityId = trimToNull(entityIdInput);
-				if (!trimmedEntityId) {
-					return yield* badRequest("Entity id is required");
-				}
+		const clearUserState = Effect.fn("UserStateService.clearUserState")(function* (
+			user: CurrentUserValue,
+			entityIdInput: EntityId,
+		) {
+			const trimmedEntityId = trimToNull(entityIdInput);
+			if (!trimmedEntityId) {
+				return yield* badRequest("Entity id is required");
+			}
 
-				const entityId = EntityId.make(trimmedEntityId);
-				const scope = yield* runWithDb(
-					entitiesRepository.getEntityScopeForUser({ userId: user.id, entityId }),
-				);
-				if (!scope) {
-					return yield* notFound(entityNotFoundError);
-				}
+			const entityId = EntityId.make(trimmedEntityId);
+			const scope = yield* runWithDb(
+				entitiesRepository.getEntityScopeForUser({ userId: user.id, entityId }),
+			);
+			if (!scope) {
+				return yield* notFound(entityNotFoundError);
+			}
 
-				if (scope.entitySchemaSlug === "library") {
-					return yield* badRequest(libraryEntityUserStateError);
-				}
+			if (scope.entitySchemaSlug === "library") {
+				return yield* badRequest(libraryEntityUserStateError);
+			}
 
-				return yield* runInTransaction(
-					Effect.gen(function* () {
-						const deletedEventsCount = yield* eventsRepository.deleteUserEventsForEntity({
+			return yield* runInTransaction(
+				Effect.gen(function* () {
+					const deletedEventsCount = yield* eventsRepository.deleteUserEventsForEntity({
+						entityId,
+						userId: user.id,
+					});
+					const deletedRelationshipsCount =
+						yield* relationshipsRepository.deleteUserRelationshipsForEntity({
 							entityId,
 							userId: user.id,
 						});
-						const deletedRelationshipsCount =
-							yield* relationshipsRepository.deleteUserRelationshipsForEntity({
-								entityId,
-								userId: user.id,
-							});
 
-						return { entityId, deletedEventsCount, deletedRelationshipsCount };
+					return { entityId, deletedEventsCount, deletedRelationshipsCount };
+				}),
+			);
+		});
+
+		const mergeUserState = Effect.fn("UserStateService.mergeUserState")(function* (
+			user: CurrentUserValue,
+			payload: MergeUserStateBody,
+		) {
+			const trimmedMergeFrom = trimToNull(payload.mergeFrom);
+			const trimmedMergeInto = trimToNull(payload.mergeInto);
+
+			if (!trimmedMergeFrom) {
+				return yield* badRequest("mergeFrom is required");
+			}
+			if (!trimmedMergeInto) {
+				return yield* badRequest("mergeInto is required");
+			}
+			if (trimmedMergeFrom === trimmedMergeInto) {
+				return yield* badRequest(sameEntityMergeError);
+			}
+
+			const mergeFrom = EntityId.make(trimmedMergeFrom);
+			const mergeInto = EntityId.make(trimmedMergeInto);
+
+			const [fromScope, intoScope] = yield* Effect.all([
+				runWithDb(
+					entitiesRepository.getEntityMergeScopeForUser({
+						userId: user.id,
+						entityId: mergeFrom,
 					}),
-				);
-			}),
-			mergeUserState: Effect.fn("UserStateService.mergeUserState")(function* (
-				user: CurrentUserValue,
-				payload: MergeUserStateBody,
+				),
+				runWithDb(
+					entitiesRepository.getEntityMergeScopeForUser({
+						userId: user.id,
+						entityId: mergeInto,
+					}),
+				),
+			]);
+			if (!fromScope || !intoScope) {
+				return yield* notFound(entityNotFoundError);
+			}
+			if (fromScope.entitySchemaSlug === "library" || intoScope.entitySchemaSlug === "library") {
+				return yield* badRequest(libraryEntityMergeError);
+			}
+			if (fromScope.entitySchemaId !== intoScope.entitySchemaId) {
+				return yield* badRequest(differentEntitySchemaError);
+			}
+			if (
+				fromScope.entitySchemaSlug === "exercise" &&
+				getPropertyString(fromScope.properties, "kind") !==
+					getPropertyString(intoScope.properties, "kind")
 			) {
-				const trimmedMergeFrom = trimToNull(payload.mergeFrom);
-				const trimmedMergeInto = trimToNull(payload.mergeInto);
+				return yield* badRequest(exerciseKindMismatchError);
+			}
 
-				if (!trimmedMergeFrom) {
-					return yield* badRequest("mergeFrom is required");
-				}
-				if (!trimmedMergeInto) {
-					return yield* badRequest("mergeInto is required");
-				}
-				if (trimmedMergeFrom === trimmedMergeInto) {
-					return yield* badRequest(sameEntityMergeError);
-				}
-
-				const mergeFrom = EntityId.make(trimmedMergeFrom);
-				const mergeInto = EntityId.make(trimmedMergeInto);
-
-				const [fromScope, intoScope] = yield* Effect.all([
-					runWithDb(
-						entitiesRepository.getEntityMergeScopeForUser({
-							userId: user.id,
-							entityId: mergeFrom,
-						}),
-					),
-					runWithDb(
-						entitiesRepository.getEntityMergeScopeForUser({
-							userId: user.id,
-							entityId: mergeInto,
-						}),
-					),
-				]);
-				if (!fromScope || !intoScope) {
-					return yield* notFound(entityNotFoundError);
-				}
-				if (fromScope.entitySchemaSlug === "library" || intoScope.entitySchemaSlug === "library") {
-					return yield* badRequest(libraryEntityMergeError);
-				}
-				if (fromScope.entitySchemaId !== intoScope.entitySchemaId) {
-					return yield* badRequest(differentEntitySchemaError);
-				}
-				if (
-					fromScope.entitySchemaSlug === "exercise" &&
-					getPropertyString(fromScope.properties, "kind") !==
-						getPropertyString(intoScope.properties, "kind")
-				) {
-					return yield* badRequest(exerciseKindMismatchError);
-				}
-
-				return yield* runInTransaction(
-					Effect.gen(function* () {
-						const movedEventsCount = yield* eventsRepository.moveUserEventsBetweenEntities({
+			return yield* runInTransaction(
+				Effect.gen(function* () {
+					const movedEventsCount = yield* eventsRepository.moveUserEventsBetweenEntities({
+						mergeFrom,
+						mergeInto,
+						userId: user.id,
+					});
+					const movedRelationshipsCount =
+						yield* relationshipsRepository.moveUserRelationshipsBetweenEntities({
 							mergeFrom,
 							mergeInto,
 							userId: user.id,
 						});
-						const movedRelationshipsCount =
-							yield* relationshipsRepository.moveUserRelationshipsBetweenEntities({
-								mergeFrom,
-								mergeInto,
-								userId: user.id,
-							});
 
-						return { mergeFrom, mergeInto, movedEventsCount, movedRelationshipsCount };
-					}),
-				);
-			}),
-		} satisfies UserStateServiceShape;
+					return { mergeFrom, mergeInto, movedEventsCount, movedRelationshipsCount };
+				}),
+			);
+		});
+
+		return { clearUserState, mergeUserState } satisfies UserStateServiceShape;
 	}),
 }) {}

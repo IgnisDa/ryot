@@ -44,33 +44,32 @@ export class QueryEngineService extends Effect.Service<QueryEngineService>()("Qu
 			return undefined;
 		}, dieOnDbError);
 
-		return {
-			validate,
-			execute: Effect.fn("QueryEngineService.execute")(function* (
-				user: CurrentUserValue,
-				doc: QueryDocument,
-			) {
-				const { error, scope } = validateQueryDocumentWithScope(doc);
-				if (error) {
-					return yield* new BadRequest({ message: error });
-				}
+		const execute = Effect.fn("QueryEngineService.execute")(function* (
+			user: CurrentUserValue,
+			doc: QueryDocument,
+		) {
+			const { error, scope } = validateQueryDocumentWithScope(doc);
+			if (error) {
+				return yield* new BadRequest({ message: error });
+			}
 
-				yield* runWithDb(validateQueryDocumentTypeCompatibility(user.id, doc, scope));
+			yield* runWithDb(validateQueryDocumentTypeCompatibility(user.id, doc, scope));
 
-				if (isRowsQueryDocument(doc)) {
-					return yield* runWithDb(executeRowsQuery(user.id, doc));
-				}
+			if (isRowsQueryDocument(doc)) {
+				return yield* runWithDb(executeRowsQuery(user.id, doc));
+			}
 
-				if (isAggregateQueryDocument(doc)) {
-					return yield* runWithDb(executeAggregateQuery(user.id, doc));
-				}
+			if (isAggregateQueryDocument(doc)) {
+				return yield* runWithDb(executeAggregateQuery(user.id, doc));
+			}
 
-				if (isTimeSeriesQueryDocument(doc)) {
-					return yield* runWithDb(executeTimeSeriesQuery(user.id, doc));
-				}
+			if (isTimeSeriesQueryDocument(doc)) {
+				return yield* runWithDb(executeTimeSeriesQuery(user.id, doc));
+			}
 
-				return yield* new BadRequest({ message: "Unsupported query output type" });
-			}, dieOnDbError),
-		};
+			return yield* new BadRequest({ message: "Unsupported query output type" });
+		}, dieOnDbError);
+
+		return { execute, validate };
 	}),
 }) {}

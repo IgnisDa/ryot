@@ -72,61 +72,65 @@ export class EventsService extends Effect.Service<EventsService>()("EventsServic
 				return scope;
 			});
 
-		return {
-			list: Effect.fn("EventsService.list")(function* (
-				user: CurrentUserValue,
-				query: { entityId?: EntityId; sessionEntityId?: EntityId; eventSchemaSlug?: string },
-			) {
-				if (!query.entityId && !query.sessionEntityId) {
-					return yield* badRequest(listScopeRequiredError);
-				}
+		const list = Effect.fn("EventsService.list")(function* (
+			user: CurrentUserValue,
+			query: { entityId?: EntityId; sessionEntityId?: EntityId; eventSchemaSlug?: string },
+		) {
+			if (!query.entityId && !query.sessionEntityId) {
+				return yield* badRequest(listScopeRequiredError);
+			}
 
-				if (query.entityId) {
-					yield* requireReadableEntity(user.id, query.entityId, entityNotFoundError);
-				}
+			if (query.entityId) {
+				yield* requireReadableEntity(user.id, query.entityId, entityNotFoundError);
+			}
 
-				if (query.sessionEntityId) {
-					yield* requireReadableEntity(user.id, query.sessionEntityId, sessionEntityNotFoundError);
-				}
+			if (query.sessionEntityId) {
+				yield* requireReadableEntity(user.id, query.sessionEntityId, sessionEntityNotFoundError);
+			}
 
-				return yield* runWithDb(repository.listForUser({ userId: user.id, ...query }));
-			}),
-			create: Effect.fn("EventsService.create")(function* (
-				user: CurrentUserValue,
-				payload: ReadonlyArray<CreateEventItem>,
-			) {
-				if (payload.length === 0) {
-					return { count: 0 };
-				}
+			return yield* runWithDb(repository.listForUser({ userId: user.id, ...query }));
+		});
 
-				yield* provideValidationContext(
-					validateEventCreateSubmission({ userId: user.id, payload }),
-				);
-				yield* provideWorkflowEngine(
-					enqueueEventCreate({ userId: user.id, origin: "api", payload }),
-				);
+		const create = Effect.fn("EventsService.create")(function* (
+			user: CurrentUserValue,
+			payload: ReadonlyArray<CreateEventItem>,
+		) {
+			if (payload.length === 0) {
+				return { count: 0 };
+			}
 
-				return { count: payload.length };
-			}),
-			createForImport: (userId, payload, importRunId, executionId) =>
-				payload.length === 0
-					? Effect.succeed({ count: 0 })
-					: provideWorkflowEngine(
-							runEventCreate({ userId, payload, importRunId, executionId, origin: "import" }),
-						),
-			createForIntegration: (input) =>
-				input.payload.length === 0
-					? Effect.succeed({ count: 0 })
-					: provideWorkflowEngine(
-							runEventCreate({
-								userId: input.userId,
-								origin: "integration",
-								payload: input.payload,
-								importRunId: input.importRunId,
-								executionId: input.executionId,
-								integrationId: input.integrationId,
-							}),
-						),
-		} satisfies EventsServiceShape;
+			yield* provideValidationContext(validateEventCreateSubmission({ userId: user.id, payload }));
+			yield* provideWorkflowEngine(enqueueEventCreate({ userId: user.id, origin: "api", payload }));
+
+			return { count: payload.length };
+		});
+
+		const createForImport: EventsServiceShape["createForImport"] = (
+			userId,
+			payload,
+			importRunId,
+			executionId,
+		) =>
+			payload.length === 0
+				? Effect.succeed({ count: 0 })
+				: provideWorkflowEngine(
+						runEventCreate({ userId, payload, importRunId, executionId, origin: "import" }),
+					);
+
+		const createForIntegration: EventsServiceShape["createForIntegration"] = (input) =>
+			input.payload.length === 0
+				? Effect.succeed({ count: 0 })
+				: provideWorkflowEngine(
+						runEventCreate({
+							userId: input.userId,
+							origin: "integration",
+							payload: input.payload,
+							importRunId: input.importRunId,
+							executionId: input.executionId,
+							integrationId: input.integrationId,
+						}),
+					);
+
+		return { list, create, createForImport, createForIntegration } satisfies EventsServiceShape;
 	}),
 }) {}

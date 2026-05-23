@@ -132,85 +132,85 @@ export class TrackersService extends Effect.Service<TrackersService>()("Trackers
 		const repository = yield* TrackersRepository;
 		const runInTransaction = yield* TransactionRunner;
 
-		return {
-			list: Effect.fn("TrackersService.list")(function* (
-				user: CurrentUserValue,
-				includeDisabled: boolean,
-			) {
-				return yield* runWithDb(repository.listByUser(user.id, includeDisabled));
-			}),
-			create: Effect.fn("TrackersService.create")(function* (
-				user: CurrentUserValue,
-				payload: CreateTrackerBody,
-			) {
-				const resolvedPayload = yield* resolveCreatePayload(payload);
+		const list = Effect.fn("TrackersService.list")(function* (
+			user: CurrentUserValue,
+			includeDisabled: boolean,
+		) {
+			return yield* runWithDb(repository.listByUser(user.id, includeDisabled));
+		});
 
-				const existing = yield* runWithDb(repository.findBySlug(user.id, resolvedPayload.slug));
-				if (existing) {
-					return yield* conflict("Tracker slug already exists");
-				}
+		const create = Effect.fn("TrackersService.create")(function* (
+			user: CurrentUserValue,
+			payload: CreateTrackerBody,
+		) {
+			const resolvedPayload = yield* resolveCreatePayload(payload);
 
-				return yield* runWithDb(repository.create(user.id, resolvedPayload));
-			}),
-			update: Effect.fn("TrackersService.update")(function* (
-				user: CurrentUserValue,
-				trackerId: TrackerId,
-				payload: UpdateTrackerBody,
-			) {
-				const trimmedTrackerId = trimToNull(trackerId);
-				if (!trimmedTrackerId) {
-					return yield* badRequest("Tracker id is required");
-				}
-				const resolvedTrackerId = TrackerId.make(trimmedTrackerId);
+			const existing = yield* runWithDb(repository.findBySlug(user.id, resolvedPayload.slug));
+			if (existing) {
+				return yield* conflict("Tracker slug already exists");
+			}
 
-				const current = yield* runWithDb(repository.getOwnedById(user.id, resolvedTrackerId));
-				if (!current) {
-					return yield* notFound("Tracker not found");
-				}
+			return yield* runWithDb(repository.create(user.id, resolvedPayload));
+		});
 
-				const resolvedPayload = yield* resolveUpdatePayload({ current, payload });
+		const update = Effect.fn("TrackersService.update")(function* (
+			user: CurrentUserValue,
+			trackerId: TrackerId,
+			payload: UpdateTrackerBody,
+		) {
+			const trimmedTrackerId = trimToNull(trackerId);
+			if (!trimmedTrackerId) {
+				return yield* badRequest("Tracker id is required");
+			}
+			const resolvedTrackerId = TrackerId.make(trimmedTrackerId);
 
-				const updated = yield* runWithDb(
-					repository.updateOwned({
-						userId: user.id,
-						trackerId: resolvedTrackerId,
-						isDisabled: payload.isDisabled,
-						...resolvedPayload,
-					}),
-				);
-				if (!updated) {
-					return yield* notFound("Tracker not found");
-				}
+			const current = yield* runWithDb(repository.getOwnedById(user.id, resolvedTrackerId));
+			if (!current) {
+				return yield* notFound("Tracker not found");
+			}
 
-				return updated;
-			}),
-			reorder: Effect.fn("TrackersService.reorder")(function* (
-				user: CurrentUserValue,
-				payload: ReorderTrackersBody,
-			) {
-				const trackerIds = yield* resolveTrackerIds(payload.trackerIds);
+			const resolvedPayload = yield* resolveUpdatePayload({ current, payload });
 
-				return yield* runInTransaction(
-					Effect.gen(function* () {
-						const visibleTrackerCount = yield* repository.countOwnedByIds(user.id, trackerIds);
-						if (visibleTrackerCount !== trackerIds.length) {
-							return yield* badRequest("Tracker ids contain unknown trackers");
-						}
+			const updated = yield* runWithDb(
+				repository.updateOwned({
+					userId: user.id,
+					trackerId: resolvedTrackerId,
+					isDisabled: payload.isDisabled,
+					...resolvedPayload,
+				}),
+			);
+			if (!updated) {
+				return yield* notFound("Tracker not found");
+			}
 
-						const currentTrackerIds = yield* repository.listIdsInOrder(user.id);
-						const reorderedTrackerIds = buildReorderedIds({
-							requestedIds: trackerIds,
-							currentIds: currentTrackerIds,
-						});
-						const persistedTrackerIds = yield* repository.persistOrder(
-							user.id,
-							reorderedTrackerIds,
-						);
+			return updated;
+		});
 
-						return { trackerIds: [...persistedTrackerIds] };
-					}),
-				);
-			}),
-		};
+		const reorder = Effect.fn("TrackersService.reorder")(function* (
+			user: CurrentUserValue,
+			payload: ReorderTrackersBody,
+		) {
+			const trackerIds = yield* resolveTrackerIds(payload.trackerIds);
+
+			return yield* runInTransaction(
+				Effect.gen(function* () {
+					const visibleTrackerCount = yield* repository.countOwnedByIds(user.id, trackerIds);
+					if (visibleTrackerCount !== trackerIds.length) {
+						return yield* badRequest("Tracker ids contain unknown trackers");
+					}
+
+					const currentTrackerIds = yield* repository.listIdsInOrder(user.id);
+					const reorderedTrackerIds = buildReorderedIds({
+						requestedIds: trackerIds,
+						currentIds: currentTrackerIds,
+					});
+					const persistedTrackerIds = yield* repository.persistOrder(user.id, reorderedTrackerIds);
+
+					return { trackerIds: [...persistedTrackerIds] };
+				}),
+			);
+		});
+
+		return { list, create, update, reorder };
 	}),
 }) {}

@@ -12,27 +12,28 @@ export class EpisodeResolverService extends Effect.Service<EpisodeResolverServic
 			const runWithDb = yield* DbRunner;
 			const repository = yield* EpisodeResolverRepository;
 
-			return {
-				resolvePodcastEpisode: Effect.fn("EpisodeResolverService.resolvePodcastEpisode")(
-					function* (input: { userId: UserId; episodeNumber: number; podcastEntityId: EntityId }) {
-						const candidates = yield* runWithDb(repository.findPodcastEpisodeCandidates(input));
+			const resolvePodcastEpisode = Effect.fn("EpisodeResolverService.resolvePodcastEpisode")(
+				function* (input: { userId: UserId; episodeNumber: number; podcastEntityId: EntityId }) {
+					const candidates = yield* runWithDb(repository.findPodcastEpisodeCandidates(input));
 
-						return candidates.length === 1 ? (candidates[0] ?? null) : null;
-					},
-				),
-				resolveShowEpisode: Effect.fn("EpisodeResolverService.resolveShowEpisode")(
-					function* (input: {
-						userId: UserId;
-						seasonNumber: number;
-						episodeNumber: number;
-						showEntityId: EntityId;
-					}) {
-						const candidates = yield* runWithDb(repository.findShowEpisodeCandidates(input));
+					return candidates.length === 1 ? (candidates[0] ?? null) : null;
+				},
+			);
 
-						return candidates.length === 1 ? (candidates[0] ?? null) : null;
-					},
-				),
-			};
+			const resolveShowEpisode = Effect.fn("EpisodeResolverService.resolveShowEpisode")(
+				function* (input: {
+					userId: UserId;
+					seasonNumber: number;
+					episodeNumber: number;
+					showEntityId: EntityId;
+				}) {
+					const candidates = yield* runWithDb(repository.findShowEpisodeCandidates(input));
+
+					return candidates.length === 1 ? (candidates[0] ?? null) : null;
+				},
+			);
+
+			return { resolveShowEpisode, resolvePodcastEpisode };
 		}),
 	},
 ) {}
