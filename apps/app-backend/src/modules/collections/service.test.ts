@@ -1,5 +1,4 @@
 import { expect, it } from "@effect/vitest";
-import { WorkflowEngine } from "@effect/workflow/WorkflowEngine";
 import { Cause, Effect, Exit, Layer, Option } from "effect";
 
 import type { CurrentUserValue } from "#lib/auth-middleware";
@@ -11,14 +10,10 @@ import {
 	RelationshipSchemaId,
 	UserId,
 } from "#lib/schema/brands";
-import {
-	dbRunnerLayer,
-	makeMock,
-	makeWorkflowEngine,
-	transactionLayer,
-} from "#lib/test-support/effect";
+import { dbRunnerLayer, makeMock, transactionLayer } from "#lib/test-support/effect";
 import { EntitiesRepository } from "#modules/entities/repository";
 import { EntitiesService } from "#modules/entities/service";
+import { EventsService } from "#modules/events/service";
 import { RelationshipSchemasRepository } from "#modules/relationship-schemas/repository";
 import { RelationshipsRepository } from "#modules/relationships/repository";
 
@@ -154,9 +149,20 @@ const makeRelationshipSchemasRepository = (
 		overrides,
 	);
 
+const makeEventsService = (overrides: Partial<EventsService> = {}) =>
+	makeMock<EventsService>(
+		{
+			_tag: "EventsService" as const,
+			list: () => Effect.die("unused"),
+			listForUser: () => Effect.die("unused"),
+			create: () => Effect.succeed({ count: 1 }),
+		},
+		overrides,
+	);
+
 const makeServiceLayer = (
 	options: {
-		workflowEngine?: WorkflowEngine["Type"];
+		eventsService?: EventsService;
 		entitiesRepository?: EntitiesRepository;
 		collectionsRepository?: CollectionsRepository;
 		relationshipsRepository?: RelationshipsRepository;
@@ -176,7 +182,7 @@ const makeServiceLayer = (
 				dbRunnerLayer,
 				transactionLayer,
 				entitiesServiceLayer,
-				Layer.succeed(WorkflowEngine, options.workflowEngine ?? makeWorkflowEngine()),
+				Layer.succeed(EventsService, options.eventsService ?? makeEventsService()),
 				Layer.succeed(
 					CollectionsRepository,
 					options.collectionsRepository ?? makeCollectionsRepository(),
@@ -341,40 +347,40 @@ it.effect("creates membership event only on first add, not on upsert", () => {
 	let queuedEventCount = 0;
 
 	const membership = {
-		id: RelationshipId.make("rel-id"),
 		createdAt: now,
 		properties: {},
 		wasInserted: true,
+		id: RelationshipId.make("rel-id"),
 		targetEntityId: EntityId.make("coll-id"),
 		sourceEntityId: EntityId.make("entity-id"),
 		relationshipSchemaId: RelationshipSchemaId.make("member-of-schema-id"),
 	};
-	const workflowEngine = makeWorkflowEngine({
-		execute: (_workflow, options) => {
+	const eventsService = makeEventsService({
+		create: () => {
 			queuedEventCount++;
-			return Effect.succeed(options.executionId);
+			return Effect.succeed({ count: 1 });
 		},
 	});
 
 	const layer = makeServiceLayer({
-		workflowEngine,
+		eventsService,
 		collectionsRepository: makeCollectionsRepository({
 			getEntityForMembership: () =>
 				Effect.succeed({
-					id: EntityId.make("entity-id"),
 					userId: user.id,
 					entitySchemaSlug: "book",
+					id: EntityId.make("entity-id"),
 				}),
 			getCollectionById: () =>
 				Effect.succeed({
 					image: null,
 					name: "Coll",
-					id: EntityId.make("coll-id"),
 					createdAt: now,
 					updatedAt: now,
 					properties: {},
 					externalId: null,
 					sandboxScriptId: null,
+					id: EntityId.make("coll-id"),
 					entitySchemaId: EntitySchemaId.make("collection-schema-id"),
 				}),
 		}),
@@ -406,15 +412,15 @@ it.effect("does not create membership event on upsert update", () => {
 		sourceEntityId: EntityId.make("entity-id"),
 		relationshipSchemaId: RelationshipSchemaId.make("member-of-schema-id"),
 	};
-	const workflowEngine = makeWorkflowEngine({
-		execute: (_workflow, options) => {
+	const eventsService = makeEventsService({
+		create: () => {
 			queuedEventCount++;
-			return Effect.succeed(options.executionId);
+			return Effect.succeed({ count: 1 });
 		},
 	});
 
 	const layer = makeServiceLayer({
-		workflowEngine,
+		eventsService,
 		relationshipsRepository: makeRelationshipsRepository({
 			saveRelationship: () => Effect.succeed(membership),
 		}),
@@ -495,22 +501,22 @@ it.effect("creates remove event on successful membership deletion", () => {
 	let queuedEventCount = 0;
 
 	const deletedMembership = {
-		id: RelationshipId.make("rel-id"),
 		createdAt: now,
 		properties: {},
+		id: RelationshipId.make("rel-id"),
 		targetEntityId: EntityId.make("coll-id"),
 		sourceEntityId: EntityId.make("entity-id"),
 		relationshipSchemaId: RelationshipSchemaId.make("member-of-schema-id"),
 	};
-	const workflowEngine = makeWorkflowEngine({
-		execute: (_workflow, options) => {
+	const eventsService = makeEventsService({
+		create: () => {
 			queuedEventCount++;
-			return Effect.succeed(options.executionId);
+			return Effect.succeed({ count: 1 });
 		},
 	});
 
 	const layer = makeServiceLayer({
-		workflowEngine,
+		eventsService,
 		relationshipsRepository: makeRelationshipsRepository({
 			deleteUserRelationship: () => Effect.succeed(deletedMembership),
 		}),
@@ -523,8 +529,8 @@ it.effect("creates remove event on successful membership deletion", () => {
 				}),
 			getCollectionById: () =>
 				Effect.succeed({
-					name: "Coll",
 					image: null,
+					name: "Coll",
 					createdAt: now,
 					updatedAt: now,
 					properties: {},
