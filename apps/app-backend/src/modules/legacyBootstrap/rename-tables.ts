@@ -4,6 +4,7 @@ import { shouldRunLegacyBootstrap, withLegacyBootstrapNoticeClient } from "./sha
 
 const renameLegacyTablesSql = `
 DO $$
+DECLARE started_at timestamptz := clock_timestamp();
 BEGIN
 	IF to_regclass('"old_user"') IS NULL
 		AND EXISTS (
@@ -18,7 +19,8 @@ BEGIN
 		ALTER INDEX IF EXISTS "user__oidc_issuer_id__index" RENAME TO "old_user__oidc_issuer_id__index";
 		ALTER INDEX IF EXISTS "user_is_disabled_idx" RENAME TO "old_user_is_disabled_idx";
 		ALTER INDEX IF EXISTS "user_name_trigram_idx" RENAME TO "old_user_name_trigram_idx";
-		RAISE NOTICE 'rename: user -> old_user (constraints and indexes updated)';
+		RAISE NOTICE 'rename: user -> old_user (constraints and indexes updated, % seconds elapsed)',
+			round(extract(epoch from clock_timestamp() - started_at)::numeric, 1);
 	END IF;
 END $$;
 `;
