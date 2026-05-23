@@ -472,3 +472,48 @@ query GetHardcoverBookDetails($id: Int!) {
     relatedEntities,
   };
 });
+
+driver("resolve", async function(context) {
+  if (!context || context.identifierType !== "isbn") {
+    throw new Error("Hardcover resolve supports only isbn identifiers");
+  }
+  const value = typeof context.value === "string" ? context.value.trim() : "";
+  if (!value) {
+    throw new Error("Hardcover resolve requires a non-empty isbn value");
+  }
+
+  const apiKey = await getHardcoverApiKey();
+
+  const isbnQueries = [
+    `query ResolveHardcoverBookByIsbn10($isbn: String!) { editions(where: { isbn_10: { _eq: $isbn } }) { book_id } }`,
+    `query ResolveHardcoverBookByIsbn13($isbn: String!) { editions(where: { isbn_13: { _eq: $isbn } }) { book_id } }`,
+  ];
+
+  for (const graphqlQuery of isbnQueries) {
+    const response = await httpCall(
+      "POST",
+      "https://api.hardcover.app/v1/graphql",
+      {
+        body: JSON.stringify({ query: graphqlQuery, variables: { isbn: value } }),
+        headers: {
+          Authorization: apiKey,
+          "Content-Type": "application/json",
+        },
+      },
+    );
+    if (!response?.success) {
+      throw new Error(response?.error ?? "Hardcover ISBN lookup failed");
+    }
+
+    const payload = parseJsonResponse(response.data.body);
+    const bookId = payload?.data?.editions?.[0]?.book_id;
+    if (bookId !== undefined && bookId !== null) {
+      const normalized = String(bookId).trim();
+      if (normalized) {
+        return { externalId: normalized };
+      }
+    }
+  }
+
+  return { externalId: null };
+});

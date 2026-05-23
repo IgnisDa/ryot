@@ -4,16 +4,34 @@ import { nonEmptyStringSchema } from "~/lib/zod";
 
 export const importRunJobName = "import-run";
 
-export const importEntityRefSchema = z.object({
+export const resolvedImportEntityRefSchema = z.object({
 	sourceLabel: z.string(),
 	externalId: nonEmptyStringSchema,
 	scriptSlug: nonEmptyStringSchema,
+	kind: z.literal("resolved"),
 	entitySchemaSlug: nonEmptyStringSchema,
 });
+export type ResolvedImportEntityRef = z.infer<typeof resolvedImportEntityRefSchema>;
+
+export const unresolvedImportEntityRefSchema = z.object({
+	sourceLabel: z.string(),
+	kind: z.literal("unresolved"),
+	identifierType: nonEmptyStringSchema,
+	identifierValue: nonEmptyStringSchema,
+	entitySchemaSlug: nonEmptyStringSchema,
+});
+export type UnresolvedImportEntityRef = z.infer<typeof unresolvedImportEntityRefSchema>;
+
+export const importEntityRefSchema = z.discriminatedUnion("kind", [
+	resolvedImportEntityRefSchema,
+	unresolvedImportEntityRefSchema,
+]);
 export type ImportEntityRef = z.infer<typeof importEntityRefSchema>;
 
 export const importEntityRefKey = (ref: ImportEntityRef) =>
-	`${ref.entitySchemaSlug}|${ref.scriptSlug}|${ref.externalId}`;
+	ref.kind === "resolved"
+		? `${ref.entitySchemaSlug}|${ref.scriptSlug}|${ref.externalId}`
+		: `${ref.entitySchemaSlug}|${ref.identifierType}|${ref.identifierValue}`;
 
 export const importMediaEventSchema = z.object({
 	occurredAt: nonEmptyStringSchema,
@@ -39,9 +57,11 @@ export const importRunJobData = z.object({
 	userId: nonEmptyStringSchema,
 	filePath: z.string().optional(),
 	traktUsername: z.string().optional(),
-	sourcePayload: z.record(z.string(), z.unknown()).optional(),
+	resolveSandboxJobId: z.string().optional(),
 	providerSandboxJobId: z.string().optional(),
 	providerEntityIndex: z.number().int().nonnegative().optional(),
+	resolveEntityIndex: z.number().int().nonnegative().optional(),
+	resolveCandidateIndex: z.number().int().nonnegative().optional(),
 	adapterFailureCount: z.number().int().nonnegative().optional(),
 	mediaWriteGroupIndex: z.number().int().nonnegative().optional(),
 	mediaWriteFailedItems: z.number().int().nonnegative().optional(),
@@ -50,8 +70,10 @@ export const importRunJobData = z.object({
 	providerEntityRefs: z.array(importEntityRefSchema).optional(),
 	providerStep: z.literal("waiting_for_entity_sandbox").optional(),
 	mediaEntityGroups: z.array(importMediaEntityGroupSchema).optional(),
+	sourcePayload: z.record(z.string(), z.unknown()).optional(),
+	resolveFailedIndices: z.array(z.number().int().nonnegative()).optional(),
 	providerFailedIndices: z.array(z.number().int().nonnegative()).optional(),
-	importStep: z.enum(["populating_entities", "writing_events"]).optional(),
+	importStep: z.enum(["resolving_entities", "populating_entities", "writing_events"]).optional(),
 });
 
 export type ImportRunJobData = z.infer<typeof importRunJobData>;
