@@ -5,7 +5,9 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { KeyboardAvoidingView, Platform, type TextInputProps } from "react-native";
 import { z } from "zod";
 
+import { OtpInput } from "@/components/otp-input";
 import { Box } from "@/components/ui/box";
+import { Button, ButtonText } from "@/components/ui/button";
 import { Input, InputField } from "@/components/ui/input";
 import { Pressable } from "@/components/ui/pressable";
 import { Text } from "@/components/ui/text";
@@ -51,6 +53,7 @@ export default function Auth() {
 	const configQuery = useSystemConfig();
 	const setServerUrl = useSetServerUrl();
 	const oidcAutoLaunched = useRef(false);
+	const [otpResetKey, setOtpResetKey] = useState(0);
 	const [mode, setMode] = useState<AuthMode>("login");
 	const [twoFactorCode, setTwoFactorCode] = useState("");
 	const [oidcError, setOidcError] = useState<string | null>(null);
@@ -99,6 +102,8 @@ export default function Auth() {
 	});
 
 	const twoFactorMutation = useMutation({
+		onSuccess: () => router.replace("/(app)"),
+		onError: () => setOtpResetKey((k) => k + 1),
 		mutationFn: async (code: string) => {
 			if (twoFactorMethod === "backupCode") {
 				const { error } = await authClient.twoFactor.verifyBackupCode({ code });
@@ -113,7 +118,6 @@ export default function Auth() {
 				throw new Error(error.message ?? "Could not verify the code");
 			}
 		},
-		onSuccess: () => router.replace("/(app)"),
 	});
 
 	const form = useAppForm({
@@ -218,89 +222,82 @@ export default function Auth() {
 				behavior={Platform.OS === "ios" ? "padding" : "height"}
 			>
 				<Box className="flex-1 bg-background justify-center items-center">
-					<Box className="w-full max-w-md px-6 gap-8">
-						<Box className="gap-4">
-							<Box className="items-center gap-1">
-								<Text className="text-xl font-semibold text-foreground">
-									Two-factor authentication
-								</Text>
-								<Text className="text-muted-foreground text-sm text-center">
-									Enter a code from your authenticator app or one of your backup codes.
-								</Text>
-							</Box>
-							<Box className="flex-row rounded-lg border border-border overflow-hidden">
-								{(
-									[
-										["totp", "Authenticator app"],
-										["backupCode", "Backup code"],
-									] as const
-								).map(([method, label]) => (
-									<Pressable
-										key={method}
-										disabled={twoFactorMutation.isPending}
-										onPress={() => {
-											setTwoFactorMethod(method);
-											setTwoFactorCode("");
-											twoFactorMutation.reset();
-										}}
-										className={clsx(
-											"flex-1 py-2 items-center",
-											twoFactorMethod === method ? "bg-primary" : "bg-transparent",
-											twoFactorMutation.isPending && "opacity-50",
-										)}
-									>
-										<Text
-											className={clsx(
-												"text-sm font-medium",
-												twoFactorMethod === method
-													? "text-primary-foreground"
-													: "text-muted-foreground",
-											)}
-										>
-											{label}
-										</Text>
-									</Pressable>
-								))}
-							</Box>
+					<Box className="w-full max-w-md px-6 gap-6">
+						<Box className="items-center gap-1">
+							<Text className="text-xl font-semibold text-foreground">
+								Two-factor authentication
+							</Text>
 							<Text className="text-muted-foreground text-sm text-center">
 								{isBackupCode
 									? "Enter one of your backup codes."
 									: "Enter the 6-digit code from your authenticator app."}
 							</Text>
-							<Input>
-								<InputField
-									autoFocus
-									returnKeyType="go"
-									autoCorrect={false}
-									value={twoFactorCode}
-									key={twoFactorMethod}
-									autoCapitalize="none"
-									submitBehavior="submit"
-									onChangeText={setTwoFactorCode}
-									onSubmitEditing={() => void handleTwoFactorSubmit()}
-									placeholder={isBackupCode ? "Backup code" : "123456"}
-									keyboardType={isBackupCode ? "default" : "number-pad"}
-								/>
-							</Input>
-							{twoFactorMutation.error && (
-								<Text className="text-destructive text-sm">{twoFactorMutation.error.message}</Text>
-							)}
-							<Pressable
-								onPress={() => void handleTwoFactorSubmit()}
-								disabled={twoFactorMutation.isPending || !twoFactorCode.trim()}
-								className={clsx(
-									"w-full py-3 rounded-lg border border-border items-center",
-									(twoFactorMutation.isPending || !twoFactorCode.trim()) && "opacity-50",
+						</Box>
+						{isBackupCode ? (
+							<Box className="gap-4">
+								<Input>
+									<InputField
+										autoFocus
+										returnKeyType="go"
+										autoCorrect={false}
+										value={twoFactorCode}
+										autoCapitalize="none"
+										submitBehavior="submit"
+										placeholder="Backup code"
+										onChangeText={setTwoFactorCode}
+										onSubmitEditing={() => void handleTwoFactorSubmit()}
+									/>
+								</Input>
+								{twoFactorMutation.error && (
+									<Text className="text-destructive text-sm">
+										{twoFactorMutation.error.message}
+									</Text>
 								)}
+								<Button
+									disabled={twoFactorMutation.isPending || !twoFactorCode.trim()}
+									onPress={() => void handleTwoFactorSubmit()}
+								>
+									<ButtonText>
+										{twoFactorMutation.isPending ? "Verifying..." : "Verify backup code"}
+									</ButtonText>
+								</Button>
+							</Box>
+						) : (
+							<Box className="gap-4 items-center">
+								<OtpInput
+									key={otpResetKey}
+									disabled={twoFactorMutation.isPending}
+									onComplete={(code) => {
+										if (!twoFactorMutation.isPending) {
+											void twoFactorMutation.mutateAsync(code);
+										}
+									}}
+								/>
+								{twoFactorMutation.error && (
+									<Text className="text-destructive text-sm">
+										{twoFactorMutation.error.message}
+									</Text>
+								)}
+							</Box>
+						)}
+						<Box className="items-center gap-3">
+							<Pressable
+								disabled={twoFactorMutation.isPending}
+								className={clsx(twoFactorMutation.isPending && "opacity-50")}
+								onPress={() => {
+									setTwoFactorMethod(isBackupCode ? "totp" : "backupCode");
+									setTwoFactorCode("");
+									twoFactorMutation.reset();
+								}}
 							>
-								<Text className="text-sm font-medium text-foreground">
-									{isBackupCode ? "Verify backup code" : "Verify code"}
+								<Text className="text-muted-foreground text-sm">
+									{isBackupCode ? "Use authenticator app instead" : "Use a backup code instead"}
 								</Text>
 							</Pressable>
 							<Pressable
-								disabled={twoFactorMutation.isPending}
 								onPress={() => resetTwoFactorFlow()}
-								className={clsx("items-center", twoFactorMutation.isPending && "opacity-50")}
+								disabled={twoFactorMutation.isPending}
+								className={clsx(twoFactorMutation.isPending && "opacity-50")}
 							>
 								<Text className="text-muted-foreground text-sm">Back to login</Text>
 							</Pressable>
