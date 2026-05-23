@@ -59,101 +59,100 @@ export class ImportsService extends Effect.Service<ImportsService>()("ImportsSer
 				{ discard: true },
 			);
 
-		const failRun = (runId: ImportRunId, errorSummary: string) =>
-			Effect.gen(function* () {
-				const finishedAt = yield* DateTime.nowAsDate;
-				yield* runWithDb(
-					repository.updateRun({ runId, status: "failed", errorSummary, finishedAt }),
-				);
-			});
+		const failRun = Effect.fn("ImportsService.failRun")(function* (
+			runId: ImportRunId,
+			errorSummary: string,
+		) {
+			const finishedAt = yield* DateTime.nowAsDate;
+			yield* runWithDb(repository.updateRun({ runId, status: "failed", errorSummary, finishedAt }));
+		});
 
-		const startFileImportRun = (
+		const startFileImportRun = Effect.fn("ImportsService.startFileImportRun")(function* (
 			user: CurrentUserValue,
 			body: CreateImportRunBody,
 			inputSummary: Record<string, unknown>,
 			sourceFileInputs: ReturnType<typeof getImportSourceFileInputs>,
-		) =>
-			Effect.gen(function* () {
-				const tempDir = config.tmpDir;
-				const queuedFilePaths: string[] = [];
-				const claimedFilePaths: string[] = [];
+		) {
+			const tempDir = config.tmpDir;
+			const queuedFilePaths: string[] = [];
+			const claimedFilePaths: string[] = [];
 
-				const sourcePayload = buildSourcePayload(body) ?? {};
+			const sourcePayload = buildSourcePayload(body) ?? {};
 
-				for (const sourceFileInput of sourceFileInputs) {
-					if (!sourceFileInput.uploadToken) {
-						if (sourceFileInput.required === false) {
-							continue;
-						}
-						yield* cleanupFiles(claimedFilePaths);
-						return yield* badRequest("Import source requires an upload token");
+			for (const sourceFileInput of sourceFileInputs) {
+				if (!sourceFileInput.uploadToken) {
+					if (sourceFileInput.required === false) {
+						continue;
 					}
-
-					const claim = yield* uploads
-						.claimUploadToken(sourceFileInput.uploadToken, user.id)
-						.pipe(Effect.either);
-					if (Either.isLeft(claim)) {
-						yield* cleanupFiles(claimedFilePaths);
-						return yield* claim.left;
-					}
-					claimedFilePaths.push(claim.right.resolvedPath);
-
-					const safePath = yield* resolveSafeImportFilePath(claim.right.resolvedPath, tempDir).pipe(
-						Effect.catchAll((message) =>
-							cleanupFiles(claimedFilePaths).pipe(Effect.flatMap(() => badRequest(message))),
-						),
-					);
-					claimedFilePaths[claimedFilePaths.length - 1] = safePath;
-
-					yield* validateFileExtension(safePath, sourceFileInput.allowedExtensions).pipe(
-						Effect.catchAll((message) =>
-							cleanupFiles(claimedFilePaths).pipe(Effect.flatMap(() => badRequest(message))),
-						),
-					);
-
-					queuedFilePaths.push(safePath);
-					if (sourceFileInput.payloadKey) {
-						sourcePayload[sourceFileInput.payloadKey] = safePath;
-					}
+					yield* cleanupFiles(claimedFilePaths);
+					return yield* badRequest("Import source requires an upload token");
 				}
 
-				const filePath = queuedFilePaths[0];
-				if (!filePath) {
-					return yield* badRequest("Import source requires at least one upload token");
+				const claim = yield* uploads
+					.claimUploadToken(sourceFileInput.uploadToken, user.id)
+					.pipe(Effect.either);
+				if (Either.isLeft(claim)) {
+					yield* cleanupFiles(claimedFilePaths);
+					return yield* claim.left;
 				}
+				claimedFilePaths.push(claim.right.resolvedPath);
 
-				const run = yield* runWithDb(
-					repository.createRun({ userId: user.id, source: body.source, inputSummary }),
+				const safePath = yield* resolveSafeImportFilePath(claim.right.resolvedPath, tempDir).pipe(
+					Effect.catchAll((message) =>
+						cleanupFiles(claimedFilePaths).pipe(Effect.flatMap(() => badRequest(message))),
+					),
+				);
+				claimedFilePaths[claimedFilePaths.length - 1] = safePath;
+
+				yield* validateFileExtension(safePath, sourceFileInput.allowedExtensions).pipe(
+					Effect.catchAll((message) =>
+						cleanupFiles(claimedFilePaths).pipe(Effect.flatMap(() => badRequest(message))),
+					),
 				);
 
-				const started = yield* engine
-					.execute(ProcessImportRunWorkflow, {
-						discard: true,
-						executionId: run.id,
-						payload: {
-							filePath,
-							runId: run.id,
-							userId: user.id,
-							source: body.source,
-							...(Object.keys(sourcePayload).length > 0 ? { sourcePayload } : {}),
-						},
-					})
-					.pipe(Effect.either);
-				if (Either.isLeft(started)) {
-					yield* failRun(run.id, "Failed to enqueue import job");
-					yield* cleanupFiles(claimedFilePaths);
-					return yield* badRequest("Could not queue the import job; please try again");
+				queuedFilePaths.push(safePath);
+				if (sourceFileInput.payloadKey) {
+					sourcePayload[sourceFileInput.payloadKey] = safePath;
 				}
+			}
 
-				return { id: run.id };
-			});
+			const filePath = queuedFilePaths[0];
+			if (!filePath) {
+				return yield* badRequest("Import source requires at least one upload token");
+			}
 
-		const startSourcePayloadImportRun = (
-			user: CurrentUserValue,
-			body: CreateImportRunBody,
-			inputSummary: Record<string, unknown>,
-		) =>
-			Effect.gen(function* () {
+			const run = yield* runWithDb(
+				repository.createRun({ userId: user.id, source: body.source, inputSummary }),
+			);
+
+			const started = yield* engine
+				.execute(ProcessImportRunWorkflow, {
+					discard: true,
+					executionId: run.id,
+					payload: {
+						filePath,
+						runId: run.id,
+						userId: user.id,
+						source: body.source,
+						...(Object.keys(sourcePayload).length > 0 ? { sourcePayload } : {}),
+					},
+				})
+				.pipe(Effect.either);
+			if (Either.isLeft(started)) {
+				yield* failRun(run.id, "Failed to enqueue import job");
+				yield* cleanupFiles(claimedFilePaths);
+				return yield* badRequest("Could not queue the import job; please try again");
+			}
+
+			return { id: run.id };
+		});
+
+		const startSourcePayloadImportRun = Effect.fn("ImportsService.startSourcePayloadImportRun")(
+			function* (
+				user: CurrentUserValue,
+				body: CreateImportRunBody,
+				inputSummary: Record<string, unknown>,
+			) {
 				const sourcePayload = buildSourcePayload(body);
 				const run = yield* runWithDb(
 					repository.createRun({ userId: user.id, source: body.source, inputSummary }),
@@ -190,7 +189,8 @@ export class ImportsService extends Effect.Service<ImportsService>()("ImportsSer
 				}
 
 				return { id: run.id };
-			});
+			},
+		);
 
 		const startImportRun = Effect.fn("ImportsService.startImportRun")(function* (
 			user: CurrentUserValue,
@@ -212,34 +212,35 @@ export class ImportsService extends Effect.Service<ImportsService>()("ImportsSer
 		const listImportRuns = (user: CurrentUserValue) =>
 			runWithDb(repository.listRunsByUser({ userId: user.id }));
 
-		const getImportRun = (
+		const getImportRun = Effect.fn("ImportsService.getImportRun")(function* (
 			user: CurrentUserValue,
 			runId: ImportRunId,
 			query: { page: number; limit: number },
-		) =>
-			Effect.gen(function* () {
-				const run = yield* runWithDb(repository.getRunById({ runId, userId: user.id }));
-				if (!run) {
-					return yield* notFound("Import run not found");
-				}
-				const failures = yield* runWithDb(
-					repository.listFailuresByRunId({ runId, page: query.page, limit: query.limit }),
-				);
-				return { ...run, failures: { ...failures, page: query.page, limit: query.limit } };
-			});
+		) {
+			const run = yield* runWithDb(repository.getRunById({ runId, userId: user.id }));
+			if (!run) {
+				return yield* notFound("Import run not found");
+			}
+			const failures = yield* runWithDb(
+				repository.listFailuresByRunId({ runId, page: query.page, limit: query.limit }),
+			);
+			return { ...run, failures: { ...failures, page: query.page, limit: query.limit } };
+		});
 
-		const removeImportRun = (user: CurrentUserValue, runId: ImportRunId) =>
-			Effect.gen(function* () {
-				const run = yield* runWithDb(repository.getRunById({ runId, userId: user.id }));
-				if (!run) {
-					return yield* notFound("Import run not found");
-				}
-				if (!isTerminalStatus(run.status)) {
-					return yield* badRequest("Can only delete completed or failed import runs");
-				}
-				yield* runWithDb(repository.deleteRunById({ runId, userId: user.id }));
-				return { id: runId };
-			});
+		const removeImportRun = Effect.fn("ImportsService.removeImportRun")(function* (
+			user: CurrentUserValue,
+			runId: ImportRunId,
+		) {
+			const run = yield* runWithDb(repository.getRunById({ runId, userId: user.id }));
+			if (!run) {
+				return yield* notFound("Import run not found");
+			}
+			if (!isTerminalStatus(run.status)) {
+				return yield* badRequest("Can only delete completed or failed import runs");
+			}
+			yield* runWithDb(repository.deleteRunById({ runId, userId: user.id }));
+			return { id: runId };
+		});
 
 		const listRunsByIntegrationId = (input: { userId: UserId; integrationId: IntegrationId }) =>
 			runWithDb(repository.listRunsByIntegrationId(input));
