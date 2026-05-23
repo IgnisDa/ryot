@@ -13,16 +13,17 @@
 		"plugins": [
 			{
 				"name": "@effect/language-service",
-				"diagnostics": {
+				"diagnosticSeverity": {
 					"newPromise": "warning",
-					"asyncFunction": "warning",
+					"asyncFunction": "off",
 					"processEnvInEffect": "error",
 					"nodeBuiltinImport": "warning",
 					"globalFetchInEffect": "error",
 					"globalDateInEffect": "warning",
 					"globalTimersInEffect": "warning",
 					"preferSchemaOverJson": "warning",
-					"globalConsoleInEffect": "warning"
+					"globalConsoleInEffect": "warning",
+					"leakingRequirements": "off"
 				}
 			}
 		]
