@@ -5,12 +5,11 @@
 	"main": "expo-router/entry",
 	"scripts": {
 		"ios": "expo run:ios",
-		"format": "oxfmt . --write",
 		"android": "expo run:android",
 		"dev": "expo start --port 3005",
 		"test": "bun test --only-failures",
-		"check": "tsc && oxlint . --type-aware --fix",
-		"build": "expo export --platform web --output-dir dist"
+		"build": "expo export --platform web --output-dir dist",
+		"check": "tsc && oxfmt . --write && oxlint . --type-aware --fix"
 	},
 	"dependencies": {
 		"@better-auth/api-key": "1.6.11",

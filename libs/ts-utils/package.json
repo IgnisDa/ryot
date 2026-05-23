@@ -8,9 +8,8 @@
 	},
 	"scripts": {
 		"build": "tsc",
-		"format": "oxfmt . --write",
 		"test": "bun test --only-failures",
-		"check": "tsc && oxlint . --type-aware --fix"
+		"check": "tsc && oxfmt . --write && oxlint . --type-aware --fix"
 	},
 	"dependencies": {
 		"@conform-to/zod": "1.19.0",
