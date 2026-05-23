@@ -1,7 +1,7 @@
 import { DateTime, Effect, Either } from "effect";
 
 import { AuthService } from "#lib/auth";
-import { bootstrapNewUser } from "#lib/builtins/bootstrap";
+import { defaultUserPreferences } from "#lib/builtins/bootstrap";
 import { AppConfig } from "#lib/config";
 import { DbRunner } from "#lib/db";
 import { badRequest, internalError } from "#lib/errors";
@@ -58,7 +58,7 @@ export class GodModeService extends Effect.Service<GodModeService>()("GodModeSer
 		const redis = yield* RedisService;
 		const runWithDb = yield* DbRunner;
 		const repository = yield* GodModeRepository;
-		const { auth, deleteUserSessions } = yield* AuthService;
+		const { auth, createAuthUser, deleteUserSessions, linkAuthAccount } = yield* AuthService;
 
 		const listUsers = Effect.fn("GodModeService.listUsers")(function* (input: {
 			limit: number;
@@ -111,25 +111,22 @@ export class GodModeService extends Effect.Service<GodModeService>()("GodModeSer
 
 			const userId = UserId.make(crypto.randomUUID());
 
-			yield* runWithDb(
-				Effect.gen(function* () {
-					yield* repository.insertUser({ id: userId, name: input.name, email: input.email });
+			yield* createAuthUser({
+				id: userId,
+				name: input.name,
+				email: input.email,
+				emailVerified: true,
+				preferences: defaultUserPreferences,
+			});
 
-					if (input.provider === "oidc") {
-						yield* repository.insertOidcAccount({
-							userId,
-							oidcIssuerId: input.oidcIssuerId,
-						});
-					}
-				}),
-			);
-
-			yield* bootstrapNewUser(userId).pipe(
-				Effect.tapErrorCause((cause) =>
-					Effect.logError("[god-mode] bootstrapNewUser failed for user", userId, cause),
-				),
-				Effect.catchAllCause(() => Effect.void),
-			);
+			if (input.provider === "oidc") {
+				yield* linkAuthAccount({
+					userId,
+					providerId: "oidc",
+					id: crypto.randomUUID(),
+					accountId: input.oidcIssuerId,
+				});
+			}
 
 			return { userId };
 		});

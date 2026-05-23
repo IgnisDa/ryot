@@ -1,7 +1,6 @@
 import { asc, eq, ilike, inArray, sql } from "drizzle-orm";
 import { Effect } from "effect";
 
-import { defaultUserPreferences } from "#lib/builtins/bootstrap";
 import { CurrentDb, dbEffect } from "#lib/db";
 import * as schema from "#lib/db/schema/auth";
 import type { UserId } from "#lib/schema/brands";
@@ -107,38 +106,6 @@ export class GodModeRepository extends Effect.Service<GodModeRepository>()("GodM
 			return row ?? null;
 		});
 
-		const insertUser = Effect.fn("GodModeRepository.insertUser")(function* (input: {
-			id: string;
-			name: string;
-			email: string;
-		}) {
-			const db = yield* CurrentDb;
-			yield* dbEffect(() =>
-				db.insert(schema.user).values({
-					id: input.id,
-					name: input.name,
-					email: input.email,
-					emailVerified: true,
-					preferences: defaultUserPreferences,
-				}),
-			);
-		});
-
-		const insertOidcAccount = Effect.fn("GodModeRepository.insertOidcAccount")(function* (input: {
-			userId: UserId;
-			oidcIssuerId: string;
-		}) {
-			const db = yield* CurrentDb;
-			yield* dbEffect(() =>
-				db.insert(schema.account).values({
-					providerId: "oidc",
-					userId: input.userId,
-					id: crypto.randomUUID(),
-					accountId: input.oidcIssuerId,
-				}),
-			);
-		});
-
 		const updateUserBan = Effect.fn("GodModeRepository.updateUserBan")(function* (input: {
 			userId: UserId;
 			bannedAt: Date | null;
@@ -156,13 +123,11 @@ export class GodModeRepository extends Effect.Service<GodModeRepository>()("GodM
 		return {
 			countUsers,
 			listUserRows,
-			listAccountsForUsers,
 			findUserById,
-			findUserIdByEmail,
-			findUserBanState,
-			insertUser,
-			insertOidcAccount,
 			updateUserBan,
+			findUserBanState,
+			findUserIdByEmail,
+			listAccountsForUsers,
 		};
 	},
 }) {}
