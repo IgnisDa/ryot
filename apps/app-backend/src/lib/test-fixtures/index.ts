@@ -4,7 +4,7 @@ export * from "~/lib/test-fixtures/entity-schemas";
 export * from "~/lib/test-fixtures/event-schemas";
 export * from "~/lib/test-fixtures/events";
 export * from "~/lib/test-fixtures/fixture-helpers";
-export * from "~/lib/test-fixtures/media-jobs";
+export * from "~/lib/test-fixtures/entity-import-jobs";
 export * from "~/lib/test-fixtures/property-schemas";
 export * from "~/lib/test-fixtures/query-engine";
 export * from "~/lib/test-fixtures/sandbox";

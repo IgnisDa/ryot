@@ -1,3 +1,9 @@
+export type { EntityImportJobData } from "./jobs";
+export {
+	entityImportJobData,
+	entityImportJobName,
+	entityImportWaitingForSandboxStep,
+} from "./jobs";
 export {
 	createGlobalEntity,
 	findGlobalEntityByExternalId,
@@ -6,9 +12,15 @@ export {
 	updateGlobalEntityById,
 	upsertInLibraryRelationship,
 } from "./repository";
-export type { CreateEntityBody, ListedEntity } from "./schemas";
+export type {
+	CreateEntityBody,
+	ImportEntityBody,
+	ImportEntityResult,
+	ListedEntity,
+} from "./schemas";
 export { listedEntitySchema } from "./schemas";
 export type {
+	EntityImportDeps,
 	EntityServiceDeps,
 	EntityServiceResult,
 	WriteEntityRelationshipDeps,
@@ -17,6 +29,8 @@ export type {
 export {
 	createEntity,
 	getEntityDetail,
+	getEntityImportResult,
+	importEntity,
 	parseEntityImage,
 	parseEntityProperties,
 	resolveEntityCreateInput,

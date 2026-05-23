@@ -1,13 +1,13 @@
+import { createEntityImportWorker } from "~/modules/entities/worker";
 import { createEventsWorker } from "~/modules/events";
 import { createFitnessWorker } from "~/modules/fitness";
-import { createMediaWorker } from "~/modules/media";
 
 import { getSandboxService } from "../sandbox";
 
 const createWorkers = () => ({
-	mediaWorker: createMediaWorker(),
 	eventsWorker: createEventsWorker(),
 	fitnessWorker: createFitnessWorker(),
+	entityImportWorker: createEntityImportWorker(),
 	sandboxWorker: getSandboxService().createWorker(),
 });
 
@@ -31,10 +31,10 @@ export const getWorkers = () => {
 export const shutdownWorkers = async () => {
 	if (workers) {
 		await Promise.all([
-			workers.mediaWorker.close(),
 			workers.eventsWorker.close(),
 			workers.fitnessWorker.close(),
 			workers.sandboxWorker.close(),
+			workers.entityImportWorker.close(),
 		]);
 		workers = null;
 		console.info("Workers shut down");
