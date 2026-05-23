@@ -1,5 +1,5 @@
-import { EntityId, UserId } from "@ryot/contract/schema/brands";
-import { Duration, Effect } from "effect";
+import { EntityId } from "@ryot/contract/schema/brands";
+import { Duration, Effect, Result } from "effect";
 
 import {
 	adminHeaders,
@@ -10,16 +10,14 @@ import {
 	getBackendClient,
 	getEntity,
 	getGlobalEntityByProvenance,
-	openInterestStreamScoped,
+	openInterestWebSocketScoped,
 	pollUntil,
-	postBackendJson,
 	installTestProvider,
 	seedMediaEntity,
 	seedPopulatedProviderEntity,
 	waitForEntityPopulated,
 } from "~/fixtures";
 import type { InstalledTestProvider } from "~/fixtures/sandbox-provider";
-import { assertPresent } from "~/support/assertions";
 import { afterAll, beforeAll, describe, expect, it } from "~/support/effect-test";
 
 const GRACE_WINDOW_MS = 3000;
@@ -79,15 +77,21 @@ describe("entity population via client-declared interest", () => {
 			const afterGrace = yield* getGlobalEntityByProvenance(client, provenance);
 			expect(afterGrace.populatedAt).toBeNull();
 
-			const stream = yield* openInterestStreamScoped(auth);
-			yield* Effect.promise(() => stream.declareInterest([seeded.id]));
+			const socket = yield* openInterestWebSocketScoped(auth);
+			expect(yield* Effect.promise(() => socket.replaceInterest([]))).toEqual({
+				revision: 1,
+				type: "applied",
+			});
+			expect(
+				yield* Effect.promise(() => socket.updateInterest({ add: [seeded.id], remove: [] })),
+			).toEqual({ type: "applied", revision: 2 });
 
 			const populated = yield* waitForEntityPopulated(client, provenance);
 			expect(populated.populatedAt).not.toBeNull();
 			expect(populated.name).toBe(POPULATED_NAME);
 
 			const event = yield* Effect.promise(() =>
-				stream.waitForEntityUpdated(seeded.id, "populated", { timeoutMs: 30_000 }),
+				socket.waitForEntityUpdated(seeded.id, "populated", { timeoutMs: 30_000 }),
 			);
 			expect(event.reason).toBe("populated");
 		}),
@@ -103,41 +107,53 @@ describe("entity population via client-declared interest", () => {
 			const entity = yield* seedPopulatedProviderEntity({
 				properties: {},
 				entitySchemaSlug: schema.id,
-				name: "Already Populated Studio",
 				providerId: provider.providerId,
+				name: "Already Populated Studio",
 				externalId: `e2e-catchup-${crypto.randomUUID()}`,
 			});
 
-			const stream = yield* openInterestStreamScoped(auth);
-			const terminal = yield* Effect.promise(() => stream.declareInterest([entity.id]));
-			const event = terminal.find((frame) => frame.entityId === entity.id);
-			assertPresent(event, `Expected an immediate catch-up frame for '${entity.id}'`);
+			const socket = yield* openInterestWebSocketScoped(auth);
+			expect(yield* Effect.promise(() => socket.replaceInterest([entity.id]))).toEqual({
+				type: "applied",
+				revision: 1,
+			});
+			const event = yield* Effect.promise(() =>
+				socket.waitForEntityUpdated(entity.id, "populated"),
+			);
 			expect(event.reason).toBe("populated");
 
-			stream.close();
+			yield* Effect.promise(() => socket.close());
 			yield* pollUntil(
-				`interest stream '${stream.streamId}' closed`,
+				`interest session '${socket.ready.sessionId}' closed`,
 				Effect.gen(function* () {
-					const response = yield* Effect.promise(() =>
-						postBackendJson(
-							"/entity-interest",
-							{ streamId: stream.streamId, entityIds: [entity.id] },
-							auth.cookies,
-						),
-					);
-					return response.status === 404 ? response : null;
+					const result = yield* getBackendClient()
+						.call(
+							(c) =>
+								c.testSupport.setEntityInterestMembership({
+									payload: {
+										sessionId: socket.ready.sessionId,
+										entityIds: [EntityId.make(entity.id)],
+									},
+								}),
+							adminHeaders,
+						)
+						.pipe(Effect.result);
+					return Result.isFailure(result) ? true : null;
 				}),
 			);
 
-			const reconnected = yield* openInterestStreamScoped(auth);
-			const reconnectedTerminal = yield* Effect.promise(() =>
-				reconnected.declareInterest([entity.id]),
-			);
-			expect(reconnectedTerminal).toEqual([{ entityId: entity.id, reason: "populated" }]);
+			const reconnected = yield* openInterestWebSocketScoped(auth);
+			expect(yield* Effect.promise(() => reconnected.replaceInterest([entity.id]))).toEqual({
+				revision: 1,
+				type: "applied",
+			});
+			expect(
+				yield* Effect.promise(() => reconnected.waitForEntityUpdated(entity.id, "populated")),
+			).toEqual({ type: "entity-updated", entityId: entity.id, reason: "populated" });
 		}),
 	);
 
-	it.live("stops delivery after interest is replaced", () =>
+	it.live("stops delivery after an incremental remove", () =>
 		Effect.gen(function* () {
 			const auth = yield* createAuthenticatedClient();
 			const { client } = auth;
@@ -156,22 +172,17 @@ describe("entity population via client-declared interest", () => {
 				externalId: provenance.externalId,
 			});
 
-			const replaced = yield* openInterestStreamScoped(auth);
-			yield* getBackendClient().call(
-				(c) =>
-					c.testSupport.setEntityInterest({
-						payload: {
-							streamId: replaced.streamId,
-							userId: UserId.make(auth.userId),
-							entityIds: [EntityId.make(entity.id)],
-						},
-					}),
-				adminHeaders,
-			);
-			expect(yield* Effect.promise(() => replaced.declareInterest([]))).toEqual([]);
+			const replaced = yield* openInterestWebSocketScoped(auth);
+			expect(yield* Effect.promise(() => replaced.replaceInterest([entity.id]))).toEqual({
+				revision: 1,
+				type: "applied",
+			});
+			expect(
+				yield* Effect.promise(() => replaced.updateInterest({ add: [], remove: [entity.id] })),
+			).toEqual({ type: "applied", revision: 2 });
 
-			const active = yield* openInterestStreamScoped(auth);
-			yield* Effect.promise(() => active.declareInterest([entity.id]));
+			const active = yield* openInterestWebSocketScoped(auth);
+			yield* Effect.promise(() => active.replaceInterest([entity.id]));
 			yield* Effect.promise(() =>
 				active.waitForEntityUpdated(entity.id, "populated", { timeoutMs: 30_000 }),
 			);

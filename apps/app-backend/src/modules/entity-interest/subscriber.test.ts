@@ -7,7 +7,7 @@ import Redis from "ioredis";
 import { RedisService } from "#lib/infrastructure/redis";
 import { databaseLayer, makeRedisService } from "#lib/test-utils/effect";
 
-import { LocalStreamConnections } from "./connections";
+import { LocalInterestSessions } from "./connections";
 import { EntityInterestProgression } from "./progression";
 import { EntityInterestStore } from "./store";
 import { EntityInterestSubscriber } from "./subscriber";
@@ -28,25 +28,25 @@ it.effect("routes valid messages and ignores malformed data", () => {
 	const progressed: string[] = [];
 	const dependencies = Layer.mergeAll(
 		databaseLayer,
-		LocalStreamConnections.layer,
+		LocalInterestSessions.layer,
 		Layer.succeed(RedisService, makeRedisService({ client })),
 		Layer.mock(EntityInterestProgression)({
 			populated: (entityId) => Effect.sync(() => progressed.push(entityId)),
 		}),
 		Layer.mock(EntityInterestStore)({
-			listInterestedStreams: (entityId) =>
+			listWatchingSessions: (entityId) =>
 				Effect.sync(() => {
 					lookedUp.push(entityId);
-					return ["stream-1", "remote-stream"];
+					return ["session-1", "remote-session"];
 				}),
 		}),
 	);
 
 	return Effect.gen(function* () {
-		const connections = yield* LocalStreamConnections;
+		const sessions = yield* LocalInterestSessions;
 		const interestSubscriber = yield* EntityInterestSubscriber;
 		const frames: unknown[] = [];
-		yield* connections.add("stream-1", (frame) => frames.push(frame));
+		yield* sessions.add("session-1", (frame) => frames.push(frame));
 
 		yield* interestSubscriber.dispatch("not-json");
 		yield* interestSubscriber.dispatch(
@@ -59,8 +59,8 @@ it.effect("routes valid messages and ignores malformed data", () => {
 		expect(lookedUp).toEqual(["entity-1", "entity-2"]);
 		expect(progressed).toEqual(["entity-2"]);
 		expect(frames).toEqual([
-			{ entityId: "entity-1", reason: "translated" },
-			{ entityId: "entity-2", reason: "populated" },
+			{ type: "entity-updated", entityId: "entity-1", reason: "translated" },
+			{ type: "entity-updated", entityId: "entity-2", reason: "populated" },
 		]);
 	}).pipe(Effect.provide(Layer.provideMerge(EntityInterestSubscriber.layer, dependencies)));
 });
@@ -70,10 +70,10 @@ it.effect("bounds progression retries and absorbs the final failure", () => {
 	const markedPending: unknown[] = [];
 	const dependencies = Layer.mergeAll(
 		databaseLayer,
-		LocalStreamConnections.layer,
+		LocalInterestSessions.layer,
 		Layer.succeed(RedisService, makeRedisService({ client })),
 		Layer.mock(EntityInterestStore)({
-			listInterestedStreams: () => Effect.succeed(["stream-1", "stale-stream"]),
+			listWatchingSessions: () => Effect.succeed(["session-1", "stale-session"]),
 			markPending: (input) => Effect.sync(() => markedPending.push(input)),
 		}),
 		Layer.mock(EntityInterestProgression)({
@@ -92,7 +92,40 @@ it.effect("bounds progression retries and absorbs the final failure", () => {
 
 		expect(attempts).toBe(3);
 		expect(markedPending).toEqual([
-			{ entityId: "entity-1", streamIds: ["stream-1", "stale-stream"] },
+			{ entityId: "entity-1", sessionIds: ["session-1", "stale-session"] },
+		]);
+	}).pipe(Effect.provide(Layer.provideMerge(EntityInterestSubscriber.layer, dependencies)));
+});
+
+it.effect("delivers a private publication only after watching membership is confirmed", () => {
+	let watching = false;
+	const dependencies = Layer.mergeAll(
+		databaseLayer,
+		LocalInterestSessions.layer,
+		Layer.succeed(RedisService, makeRedisService({ client })),
+		Layer.mock(EntityInterestProgression)({}),
+		Layer.mock(EntityInterestStore)({
+			listWatchingSessions: () => Effect.succeed(watching ? ["session-1"] : []),
+		}),
+	);
+
+	return Effect.gen(function* () {
+		const sessions = yield* LocalInterestSessions;
+		const interestSubscriber = yield* EntityInterestSubscriber;
+		const frames: unknown[] = [];
+		yield* sessions.add("session-1", (frame) => frames.push(frame));
+
+		yield* interestSubscriber.dispatch(
+			encodeEntityUpdatedMessage(EntityId.make("private-entity"), "translated"),
+		);
+		expect(frames).toEqual([]);
+
+		watching = true;
+		yield* interestSubscriber.dispatch(
+			encodeEntityUpdatedMessage(EntityId.make("private-entity"), "translated"),
+		);
+		expect(frames).toEqual([
+			{ type: "entity-updated", entityId: "private-entity", reason: "translated" },
 		]);
 	}).pipe(Effect.provide(Layer.provideMerge(EntityInterestSubscriber.layer, dependencies)));
 });

@@ -51,7 +51,7 @@ const row = (id: string, overrides: Partial<InterestItem> = {}): InterestItem =>
 	...overrides,
 });
 
-it.effect("reconciles missing IDs after all visible rows have been handled", () => {
+it.effect("omits IDs filtered from the visible rows", () => {
 	const populationRequests: unknown[] = [];
 	const layer = InterestReconciler.layer.pipe(
 		Layer.provide(
@@ -82,10 +82,7 @@ it.effect("reconciles missing IDs after all visible rows have been handled", () 
 		const reconciler = yield* InterestReconciler;
 		const result = yield* reconciler.reconcile(user, ["entity-1", "missing-entity"]);
 
-		expect(result).toEqual({
-			terminal: [],
-			reconciledEntityIds: ["entity-1", "missing-entity"],
-		});
+		expect(result).toEqual({ terminal: [], reconciledEntityIds: ["entity-1"] });
 		expect(populationRequests).toHaveLength(1);
 	}).pipe(Effect.provide(layer));
 });

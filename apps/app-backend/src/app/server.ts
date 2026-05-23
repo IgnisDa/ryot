@@ -1,8 +1,7 @@
 import { BunHttpServer } from "@effect/platform-bun";
 import { AppContract } from "@ryot/contract/contract";
 import { BadRequest } from "@ryot/contract/errors";
-import { Cause, Context, Effect, Layer, FileSystem, Result, Schema } from "effect";
-import type * as LayerTypes from "effect/Layer";
+import { Cause, Effect, FileSystem, Layer, Result, Schema } from "effect";
 import {
 	HttpEffect,
 	HttpRouter,
@@ -19,6 +18,7 @@ import { CollectionsRoutesLive } from "#modules/collections/routes";
 import { DefinitionsRoutesLive } from "#modules/definitions/routes";
 import { EntitiesRoutesLive } from "#modules/entities/routes";
 import { InterestRoutesLive } from "#modules/entity-interest/routes";
+import { InterestSocketRouteLive } from "#modules/entity-interest/socket-route";
 import { EventsRoutesLive } from "#modules/events/routes";
 import { GodModeRoutesLive } from "#modules/god-mode/routes";
 import { ImportsRoutesLive } from "#modules/imports/routes";
@@ -76,9 +76,6 @@ const decodeErrorsAsBadRequest = Effect.catchCause((cause) => {
 	return Effect.failCause(cause);
 });
 
-const buildWebhookForwardRequest = (request: Request, url: URL) =>
-	new Request(url.toString(), request);
-
 const ApiLive = HttpApiBuilder.layer(AppContract).pipe(
 	Layer.provide(Layer.mergeAll(SystemRoutesLive, AutomationsRoutesLive)),
 	Layer.provide(DefinitionsRoutesLive),
@@ -106,69 +103,83 @@ const DecodeErrorsAsBadRequestLive = HttpRouter.middleware(decodeErrorsAsBadRequ
 	global: true,
 });
 
-const ApiWithScalarLive = Layer.mergeAll(ApiLive, ScalarLive, DecodeErrorsAsBadRequestLive);
+const ApiWithScalarLive = Layer.mergeAll(
+	ApiLive,
+	ScalarLive,
+	InterestSocketRouteLive,
+	DecodeErrorsAsBadRequestLive,
+);
 
-type ApiRequirements = LayerTypes.Services<typeof ApiWithScalarLive>;
+export const registerRootRoutes = Effect.fn("registerRootRoutes")(function* <E, R, SE, SR>(
+	router: HttpRouter.HttpRouter,
+	api: Effect.Effect<HttpServerResponse.HttpServerResponse, E, R>,
+	authHandler: (request: Request) => Promise<Response>,
+	serveStatic: (pathname: string) => Effect.Effect<HttpServerResponse.HttpServerResponse, SE, SR>,
+	frontendUrl: string,
+) {
+	yield* router.add("*", "/api/auth/*", (request) =>
+		HttpEffect.fromWebHandler(authHandler).pipe(
+			Effect.provideService(HttpServerRequest.HttpServerRequest, request),
+		),
+	);
+	yield* router.add("*", "/_i/*", (request) => {
+		const [pathname, search = ""] = request.url.split("?", 2);
+		const rewritten = `/webhooks/integrations/${pathname?.slice(4) ?? ""}${search ? `?${search}` : ""}`;
+		return api.pipe(
+			Effect.provideService(
+				HttpServerRequest.HttpServerRequest,
+				request.modify({ url: rewritten }),
+			),
+		);
+	});
+	yield* router.prefixed("/api").add("*", "*", api);
+	yield* router.add("*", "*", (request) => {
+		const url = new URL(request.url, frontendUrl);
+		return serveStatic(url.pathname);
+	});
+});
 
-type ApiContext =
-	| HttpRouter.Request.Without<ApiRequirements>
-	| HttpRouter.Request.Only<"Requires", ApiRequirements>;
-
-export const ServerLive = Layer.effectDiscard(
+// oxlint-disable-next-line react-hooks/rules-of-hooks -- Effect router registration, not React.
+const RootRoutesLive = HttpRouter.use((router) =>
 	Effect.gen(function* () {
 		const auth = yield* AuthService;
 		const config = yield* AppConfig;
 		const fs = yield* FileSystem.FileSystem;
-		const apiContext = yield* Effect.map(
-			Effect.context<ApiContext>(),
-			Context.omit(HttpRouter.HttpRouter),
-		);
-		const { dispose, handler } = HttpRouter.toWebHandler(
-			ApiWithScalarLive.pipe(
-				Layer.provide(Layer.succeedContext(apiContext)),
-				Layer.provide(BunHttpServer.layerHttpServices),
-			),
-		);
-		yield* Effect.addFinalizer(() => Effect.promise(dispose));
+		const api = yield* HttpRouter.toHttpEffect(ApiWithScalarLive);
 
 		const serveStatic = Effect.fn("serveStatic")(function* (pathname: string) {
 			const path = pathname === "/" ? "./client/index.html" : `./client${pathname}`;
 			const exists = yield* fs.exists(path);
 			const target = exists ? path : "./client/index.html";
 			const bytes = yield* fs.readFile(target);
-			return new Response(new Uint8Array(bytes), { headers: { "Content-Type": mimeType(target) } });
+			return HttpServerResponse.uint8Array(bytes, { contentType: mimeType(target) });
 		});
 
-		const server = yield* BunHttpServer.make({ idleTimeout: 0, port: config.port });
-		yield* HttpServer.serveEffect(
-			Effect.gen(function* () {
-				const serverRequest = yield* HttpServerRequest.HttpServerRequest;
-				const serverUrl = new URL(serverRequest.url, config.frontendUrl);
-				if (
-					serverUrl.pathname.startsWith("/api/auth/") ||
-					serverUrl.pathname.startsWith("/_i/") ||
-					serverUrl.pathname.startsWith("/api/")
-				) {
-					return yield* HttpEffect.fromWebHandler((webRequest) => {
-						const webUrl = new URL(webRequest.url);
-						if (webUrl.pathname.startsWith("/api/auth/")) {
-							return auth.auth.handler(webRequest);
-						}
-						if (webUrl.pathname.startsWith("/_i/")) {
-							webUrl.pathname = `/webhooks/integrations/${webUrl.pathname.slice(4)}`;
-							return handler(buildWebhookForwardRequest(webRequest, webUrl), apiContext);
-						}
-						webUrl.pathname = webUrl.pathname.slice(4);
-						return handler(new Request(webUrl.toString(), webRequest), apiContext);
-					});
-				}
-				return HttpServerResponse.fromWeb(yield* serveStatic(serverUrl.pathname));
-			}),
-		).pipe(Effect.provideService(HttpServer.HttpServer, server));
+		yield* registerRootRoutes(router, api, auth.auth.handler, serveStatic, config.frontendUrl);
+	}),
+);
 
+const BunServerLive = Layer.unwrap(
+	Effect.map(AppConfig, (config) =>
+		BunHttpServer.layer({
+			idleTimeout: 60,
+			port: config.port,
+			websocket: { idleTimeout: 60, maxPayloadLength: 1024 * 1024 },
+		}),
+	),
+);
+
+const ListeningLive = Layer.effectDiscard(
+	Effect.gen(function* () {
+		const server = yield* HttpServer.HttpServer;
 		yield* Effect.logInfo("app backend listening").pipe(
 			Effect.annotateLogs({ url: HttpServer.formatAddress(server.address) }),
 		);
 		return yield* Effect.never;
 	}),
-).pipe(Layer.provide(BunHttpServer.layerHttpServices), Layer.provide(HttpRouter.layer));
+);
+
+export const ServerLive = Layer.mergeAll(
+	HttpRouter.serve(RootRoutesLive, { disableListenLog: true }),
+	ListeningLive,
+).pipe(Layer.provide(BunServerLive));
