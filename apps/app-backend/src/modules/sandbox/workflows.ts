@@ -1,7 +1,7 @@
 import { DurableQueue, type Workflow } from "@effect/workflow";
 import { Cause, Effect, Exit, Layer, Match, Option } from "effect";
 
-import type { SandboxRunError} from "#lib/errors";
+import type { SandboxRunError } from "#lib/errors";
 import { toSandboxRunError } from "#lib/errors";
 
 import { SandboxExecutionQueue, SandboxExecutionQueueWorkerLive } from "./durable-queues";
