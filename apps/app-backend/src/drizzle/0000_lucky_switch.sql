@@ -44,7 +44,7 @@ CREATE TABLE "entity" (
 	"name" text NOT NULL,
 	"image" jsonb,
 	"created_at" timestamp with time zone DEFAULT now() NOT NULL,
-	"populated_at" timestamp with time zone DEFAULT now() NOT NULL,
+	"populated_at" timestamp with time zone,
 	"user_id" text,
 	"properties" jsonb DEFAULT '{}'::jsonb NOT NULL,
 	"entity_schema_id" text NOT NULL,

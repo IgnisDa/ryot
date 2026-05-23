@@ -13,7 +13,6 @@ import { ImageSchema, type ImageSchemaType } from "~/lib/zod";
 import { getRelationshipSchemaById } from "~/modules/relationship-schemas";
 
 import {
-	buildEntityRelationshipProperties,
 	createEntityForUser,
 	findEntityByExternalIdForUser,
 	getEntityByIdForUser,
@@ -23,8 +22,6 @@ import {
 	upsertEntityRelationship,
 } from "./repository";
 import type { CreateEntityBody, ListedEntity } from "./schemas";
-
-export type EntityPropertiesShape = Record<string, unknown>;
 
 type EntityMutationError = "not_found" | "validation";
 
@@ -74,7 +71,7 @@ export const parseEntityProperties = (input: {
 		kind: "Entity",
 		properties: input.properties,
 		propertiesSchema: input.propertiesSchema,
-	}) as EntityPropertiesShape;
+	});
 
 export const parseEntityImage = (image: unknown): ImageSchemaType | null => {
 	if (image == null) {
@@ -323,11 +320,10 @@ const writeEntityRelationshipDeps: WriteEntityRelationshipDeps = {
 
 export const writeEntityRelationship = async (
 	input: {
-		role: string;
 		sourceEntityId: string;
 		targetEntityId: string;
 		relationshipSchemaId: string;
-		extraProperties: Record<string, unknown>;
+		properties: Record<string, unknown>;
 	},
 	deps: WriteEntityRelationshipDeps = writeEntityRelationshipDeps,
 ): Promise<ServiceResult<void, "not_found" | "validation">> => {
@@ -336,13 +332,8 @@ export const writeEntityRelationship = async (
 		return serviceError("not_found", relationshipSchemaNotFoundError);
 	}
 
-	const propertiesToValidate = buildEntityRelationshipProperties(
-		undefined,
-		input.role,
-		input.extraProperties,
-	);
 	const result = parseAppSchemaPropertiesSafe({
-		properties: propertiesToValidate,
+		properties: input.properties,
 		propertiesSchema: relSchema.propertiesSchema,
 	});
 	if (!result.success) {
@@ -352,12 +343,10 @@ export const writeEntityRelationship = async (
 		);
 	}
 
-	const { roles: _roles, ...validatedExtraProperties } = result.data;
 	await deps.upsertEntityRelationship({
-		role: input.role,
+		properties: result.data,
 		sourceEntityId: input.sourceEntityId,
 		targetEntityId: input.targetEntityId,
-		extraProperties: validatedExtraProperties,
 		relationshipSchemaId: input.relationshipSchemaId,
 	});
 
