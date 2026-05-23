@@ -1,6 +1,6 @@
 import { expect, it } from "@effect/vitest";
 import type { PluginCron, PluginManifest } from "@ryot/contract/modules/plugins/manifest";
-import { PluginSlug, SandboxScriptId } from "@ryot/contract/schema/brands";
+import { PluginSlug, SandboxScriptId, UserId } from "@ryot/contract/schema/brands";
 import { Deferred, Effect, Fiber, Layer } from "effect";
 import { WorkflowEngine } from "effect/unstable/workflow/WorkflowEngine";
 import { assert } from "vitest";
@@ -12,7 +12,11 @@ import type { PluginRegistryEntry } from "#modules/plugins/loader";
 import { PluginRuntimeResolver } from "#modules/plugins/runtime-resolver";
 import { fixtureManifest } from "#modules/plugins/test-support";
 
-import { pluginCronExecutionId, PluginCronService } from "./plugin-cron";
+import {
+	pluginCronExecutionId,
+	PluginCronService,
+	privatePluginCronExecutionId,
+} from "./plugin-cron";
 
 type CapturedRun = Parameters<WorkflowEngine["Service"]["execute"]>[1];
 
@@ -116,6 +120,7 @@ const makeLayer = (
 				databaseLayer,
 				Layer.succeed(PluginLoader, { ...loader }),
 				Layer.mock(PluginRuntimeResolver)({
+					listPrivateCronSchedules: () => Effect.succeed([]),
 					resolveActivePluginCron:
 						resolveActivePluginCron ??
 						(({ cronSlug, pluginSlug }) => {
@@ -395,5 +400,145 @@ it("builds stable execution ids", () => {
 	);
 	expect(pluginCronExecutionId("a", "b-c", 60_000)).not.toBe(
 		pluginCronExecutionId("a-b", "c", 60_000),
+	);
+});
+
+const privateCronSchedule = (installationId: string, userId: string) => ({
+	installationId,
+	pluginSlug: "private",
+	pluginId: "private-plugin-id",
+	userId: UserId.make(userId),
+	cron: {
+		slug: "private-cron",
+		description: "Private cron",
+		scriptSlug: "private-script",
+		schedule: { cron: "* * * * *" },
+	} satisfies PluginCron,
+});
+
+const privateCronScriptRow = (installationId: string) => ({
+	providerId: null,
+	source: "source",
+	compiledFormat: 1,
+	createdAt: testDate,
+	updatedAt: testDate,
+	name: "Private script",
+	slug: "private-script",
+	compiledCode: "compiled",
+	pluginId: "private-plugin-id",
+	contentHash: "private-script-hash",
+	id: SandboxScriptId.make(`${installationId}-script-id`),
+	metadata: {
+		capabilities: [],
+		name: "Private script",
+		slug: "private-script",
+		kind: "automation" as const,
+		requiredPluginConfigKeys: [],
+		requiredSystemConfigKeys: [],
+	},
+});
+
+const makePrivateCronLayer = (
+	captured: Array<CapturedRun>,
+	schedules: ReadonlyArray<ReturnType<typeof privateCronSchedule>>,
+	dispatchable: ReadonlyArray<string> = schedules.map(({ installationId }) => installationId),
+) =>
+	PluginCronService.layer.pipe(
+		Layer.provideMerge(
+			Layer.mergeAll(
+				databaseLayer,
+				makeAppConfigLayer({ scheduler: { infrequentCronJobsSchedule: "0 0 * * *" } }),
+				Layer.succeed(PluginLoader, { ...makePluginLoader(makeDefinitionRegistry()) }),
+				Layer.mock(PluginRuntimeResolver)({
+					listPrivateCronSchedules: () => Effect.succeed([...schedules]),
+					resolvePrivatePluginCron: ({ cronSlug, installationId }) => {
+						const schedule = schedules.find(
+							(candidate) =>
+								candidate.cron.slug === cronSlug && candidate.installationId === installationId,
+						);
+						return Effect.succeed(
+							schedule && dispatchable.includes(installationId)
+								? {
+										cron: schedule.cron,
+										userId: schedule.userId,
+										pluginSlug: schedule.pluginSlug,
+										script: privateCronScriptRow(installationId),
+									}
+								: null,
+						);
+					},
+				}),
+				Layer.succeed(
+					WorkflowEngine,
+					makeWorkflowEngine({
+						execute: (_workflow, options) =>
+							Effect.sync(() => {
+								captured.push(options);
+								return options.executionId;
+							}),
+					}),
+				),
+			),
+		),
+	);
+
+it.effect("dispatches one private cron per installation with its owner authority", () => {
+	const captured: Array<CapturedRun> = [];
+	const schedules = [
+		privateCronSchedule("installation-1", "user-1"),
+		privateCronSchedule("installation-2", "user-2"),
+	];
+
+	return Effect.gen(function* () {
+		const service = yield* PluginCronService;
+		yield* service.dispatchDue(60_000);
+		expect(captured).toEqual([
+			{
+				executionId: "private-plugin-cron-14-installation-1-12-private-cron-60000",
+				payload: {
+					input: {},
+					resolutionMode: "exact",
+					authority: { type: "user", userId: "user-1" },
+					scriptId: SandboxScriptId.make("installation-1-script-id"),
+					executionId: "private-plugin-cron-14-installation-1-12-private-cron-60000",
+				},
+			},
+			{
+				executionId: "private-plugin-cron-14-installation-2-12-private-cron-60000",
+				payload: {
+					input: {},
+					resolutionMode: "exact",
+					authority: { type: "user", userId: "user-2" },
+					scriptId: SandboxScriptId.make("installation-2-script-id"),
+					executionId: "private-plugin-cron-14-installation-2-12-private-cron-60000",
+				},
+			},
+		]);
+	}).pipe(Effect.provide(makePrivateCronLayer(captured, schedules)));
+});
+
+it.effect("does not dispatch a private cron whose installation stopped being available", () => {
+	const captured: Array<CapturedRun> = [];
+
+	return Effect.gen(function* () {
+		const service = yield* PluginCronService;
+		yield* service.dispatchDue(60_000);
+		expect(captured).toEqual([]);
+	}).pipe(
+		Effect.provide(
+			makePrivateCronLayer(captured, [privateCronSchedule("installation-1", "user-1")], []),
+		),
+	);
+});
+
+it("separates private and system cron execution id spaces", () => {
+	expect(privatePluginCronExecutionId("install-1", "trending", 60_000)).toBe(
+		"private-plugin-cron-9-install-1-8-trending-60000",
+	);
+	expect(privatePluginCronExecutionId("a", "b-c", 60_000)).not.toBe(
+		privatePluginCronExecutionId("a-b", "c", 60_000),
+	);
+	expect(privatePluginCronExecutionId("media", "trending", 60_000)).not.toBe(
+		pluginCronExecutionId("media", "trending", 60_000),
 	);
 });

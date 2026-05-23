@@ -1,11 +1,21 @@
 import { expect, it } from "@effect/vitest";
-import { Effect, Exit } from "effect";
+import { Cause, Effect, Exit, Option } from "effect";
 import { assert } from "vitest";
 
 import { makeDefinitionRegistry } from "#modules/definition-registry/service";
 
 import { fixtureManifest } from "./test-support";
-import { validatePluginManifestReferences } from "./validation";
+import {
+	PluginSurfaceError,
+	validatePluginManifestReferences,
+	validatePrivateManifestSurfaces,
+} from "./validation";
+
+const requireFixtureScript = () => {
+	const script = fixtureManifest().scripts[0];
+	assert(script);
+	return script;
+};
 
 const bootManifest = () => {
 	const manifest = fixtureManifest();
@@ -40,3 +50,37 @@ it.effect("rejects duplicate boot slugs and unknown scripts", () => {
 		});
 	});
 });
+
+it.effect("rejects a private boot declaration while allowing per-user surfaces", () =>
+	Effect.gen(function* () {
+		const script = { ...requireFixtureScript(), kind: "script" as const, slug: "fixture.script" };
+		const allowed = {
+			...fixtureManifest(),
+			scripts: [...fixtureManifest().scripts, script],
+			userBootstrap: [{ slug: "seed", scriptSlug: script.slug, description: "Seed" }],
+			crons: [
+				{
+					slug: "hourly",
+					description: "Hourly",
+					scriptSlug: script.slug,
+					schedule: { cron: "0 * * * *" } as const,
+				},
+			],
+		};
+		yield* validatePrivateManifestSurfaces(allowed);
+
+		const rejected = yield* Effect.exit(
+			validatePrivateManifestSurfaces({
+				...allowed,
+				boot: bootManifest().boot,
+				httpRateLimits: [
+					{ key: "outbound", requests: 1, intervalMs: 1_000, origins: ["https://example.com"] },
+				],
+			}),
+		);
+		assert(Exit.isFailure(rejected));
+		const failure = Option.getOrThrow(Cause.findErrorOption(rejected.cause));
+		assert(failure instanceof PluginSurfaceError);
+		expect([...failure.surfaces].sort()).toEqual(["boot", "httpRateLimits"]);
+	}),
+);

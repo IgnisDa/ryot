@@ -9,7 +9,7 @@ import {
 } from "@ryot/contract/modules/plugins/schemas";
 import { PluginSlug, type UserId } from "@ryot/contract/schema/brands";
 import type { AppPropertyDefinition, AppSchema } from "@ryot/contract/schema/property-schema";
-import { Context, Effect, Layer } from "effect";
+import { Context, Effect, Layer, Result } from "effect";
 
 import { Database, mapDatabaseErrors } from "#lib/infrastructure/db/service";
 import {
@@ -27,6 +27,7 @@ import {
 	PluginInstallationRepository,
 	type PluginInstallationRow,
 } from "./installation-repository";
+import { PluginInstallationLifecycleDispatcher } from "./installation-workflow";
 import { mergeManifestDefinitions, PluginLoader } from "./loader";
 import { compilePluginPackage, pluginSourceHash, structurePluginFailure } from "./pipeline";
 import { PluginRepository } from "./repository";
@@ -249,6 +250,7 @@ export class PluginInstallationService extends Context.Service<PluginInstallatio
 			const installations = yield* PluginInstallationRepository;
 			const definitionMaterializer = yield* PluginDefinitionMaterializer;
 			const workflowReferences = yield* SandboxWorkflowReferenceRepository;
+			const lifecycleDispatcher = yield* PluginInstallationLifecycleDispatcher;
 
 			const validateConfigPatch = Effect.fn("PluginInstallationService.validateConfigPatch")(
 				function* (
@@ -314,6 +316,21 @@ export class PluginInstallationService extends Context.Service<PluginInstallatio
 				return [...systemItems, ...privateItems].sort(
 					(left, right) => left.sortOrder - right.sortOrder || left.slug.localeCompare(right.slug),
 				);
+			});
+
+			const dispatchInstallationLifecycle = Effect.fn(
+				"PluginInstallationService.dispatchInstallationLifecycle",
+			)(function* (state: PluginInstallationRow) {
+				const dispatched = yield* Effect.result(lifecycleDispatcher.dispatch(state.id));
+				if (Result.isSuccess(dispatched)) {
+					return state;
+				}
+				yield* Effect.logError("plugin installation lifecycle dispatch failed").pipe(
+					Effect.annotateLogs({ installationId: state.id }),
+				);
+				const healthReason = "Installation lifecycle could not be started";
+				yield* installations.updateHealth({ healthReason, id: state.id, health: "failed" });
+				return { ...state, healthReason, health: "failed" as const };
 			});
 
 			const installPrivateUnlocked = Effect.fn("PluginInstallationService.installPrivateUnlocked")(
@@ -388,14 +405,15 @@ export class PluginInstallationService extends Context.Service<PluginInstallatio
 												sortOrder,
 												pluginId,
 												isDisabled: false,
+												health: "installing",
 												userId: input.userId,
 											})
 										: yield* installations.create({
 												config,
 												pluginId,
 												sortOrder,
-												health: "ready",
 												isDisabled: false,
+												health: "installing",
 												userId: input.userId,
 											});
 									yield* definitionMaterializer.materialize(input.userId);
@@ -409,7 +427,7 @@ export class PluginInstallationService extends Context.Service<PluginInstallatio
 						sourceHash,
 						scope: "user",
 						defaultSortOrder: 0,
-						state: state ?? null,
+						state: state ? yield* dispatchInstallationLifecycle(state) : null,
 					});
 				},
 			);
