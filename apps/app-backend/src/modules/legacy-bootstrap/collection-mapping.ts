@@ -7,7 +7,7 @@ DECLARE
 	started_at timestamptz := clock_timestamp();
 BEGIN
 	IF to_regclass('"collection"') IS NULL THEN
-		RETURN;
+		RAISE EXCEPTION 'Expected collection table to exist in a V1 database but it was not found';
 	END IF;
 
 	RAISE NOTICE 'collection -> entity: migration started (% seconds elapsed)', 0.0;

@@ -29,8 +29,12 @@ SELECT to_regclass('"seaql_migrations"') IS NOT NULL AS "present";
 
 export const hasLegacyMigrationsTable = async (database: DbClient) => {
 	const result = await database.execute(legacyMigrationsTableExistsSql);
+	const row = result.rows[0];
+	if (row === undefined) {
+		throw new Error("Unexpected: seaql_migrations presence check returned no rows");
+	}
 
-	return result.rows[0]?.present === true;
+	return row.present === true;
 };
 
 export const shouldRunLegacyBootstrap = async (database: DbClient) => {
