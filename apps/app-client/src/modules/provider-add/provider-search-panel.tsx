@@ -27,6 +27,7 @@ import {
 	isProviderOptionsRequestCurrent,
 	type ProviderOptionsState,
 } from "./options-state";
+import { selectPreferredProvider } from "./preferred-provider";
 import { ProviderSearchResultRow } from "./result-row";
 import {
 	buildSearchPayload,
@@ -43,7 +44,6 @@ import {
 	providerAddError,
 	type ProviderSearchSummary,
 } from "./state";
-import { selectPreferredProvider } from "./use-preferred-provider";
 
 const SEARCH_DEBOUNCE_MS = 350;
 
