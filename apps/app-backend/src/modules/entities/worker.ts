@@ -1,3 +1,5 @@
+import { createHash } from "node:crypto";
+
 import { z } from "@hono/zod-openapi";
 import { dayjs } from "@ryot/ts-utils/dayjs";
 import { normalizeSlug } from "@ryot/ts-utils/slug";
@@ -21,6 +23,9 @@ import {
 	entityImportJobData,
 	entityImportJobName,
 	entityImportWaitingForSandboxStep,
+	entityPreloadJobData,
+	entityPreloadJobName,
+	entityPreloadWaitingForSandboxStep,
 } from "./jobs";
 import {
 	createGlobalEntity,
@@ -39,14 +44,20 @@ const entityDetailsResultSchema = z.object({
 	relatedEntities: z.array(relatedEntityReferenceSchema).default([]),
 });
 
+const entitySearchResultSchema = z.object({
+	items: z.array(z.object({ externalId: z.string().min(1) })),
+	details: z.object({
+		nextPage: z.number().int().positive().nullable().optional(),
+	}),
+});
+
 const extractPrimaryImage = (images: unknown) => {
 	const parsedImages = imagesSchema.safeParse(images);
 	return parsedImages.success ? (parsedImages.data[0] ?? null) : null;
 };
 
-export const hasImportedEntityDetails = (entityRow: Pick<ListedEntity, "populatedAt">) => {
-	return entityRow.populatedAt !== null;
-};
+export const hasImportedEntityDetails = (entityRow: Pick<ListedEntity, "populatedAt">) =>
+	entityRow.populatedAt !== null;
 
 export type EntityImportWorkerDeps = {
 	createGlobalEntity: typeof createGlobalEntity;
@@ -61,9 +72,23 @@ export type EntityImportWorkerDeps = {
 	getBuiltinSandboxScriptBySlug: typeof getBuiltinSandboxScriptBySlug;
 	getBuiltinRelationshipSchemaBySlug: typeof getBuiltinRelationshipSchemaBySlug;
 	getBuiltinEntitySchemaBySandboxScriptId: typeof getBuiltinEntitySchemaBySandboxScriptId;
+	addEntityQueueJob: (input: {
+		name: string;
+		jobId?: string;
+		payload: Record<string, unknown>;
+	}) => Promise<void>;
+};
+
+const addEntityQueueJob: EntityImportWorkerDeps["addEntityQueueJob"] = async (input) => {
+	await getQueues().entityQueue.add(
+		input.name,
+		input.payload,
+		input.jobId ? { jobId: input.jobId } : {},
+	);
 };
 
 const entityImportWorkerDeps: EntityImportWorkerDeps = {
+	addEntityQueueJob,
 	createGlobalEntity,
 	updateGlobalEntityById,
 	getUserLibraryEntityId,
@@ -235,7 +260,7 @@ export const processEntityImportJob = async (
 		throw new Error("Entity import job payload is invalid");
 	}
 
-	const { userId, scriptId, externalId, entitySchemaId } = parsed.data;
+	const { userId, scriptId, externalId, entitySchemaId, linkToLibrary } = parsed.data;
 
 	let step = parsed.data.step;
 	if (!step) {
@@ -250,7 +275,9 @@ export const processEntityImportJob = async (
 		deps,
 	);
 	if (existingEntity) {
-		await upsertEntityInLibrary({ userId, entityId: existingEntity.id }, deps);
+		if (linkToLibrary) {
+			await upsertEntityInLibrary({ userId, entityId: existingEntity.id }, deps);
+		}
 		return existingEntity;
 	}
 
@@ -299,7 +326,7 @@ export const processEntityImportJob = async (
 	}
 	const validatedProperties = parseAppSchemaProperties({
 		properties,
-		kind: "Media",
+		kind: "Entity",
 		propertiesSchema: scope.propertiesSchema,
 	});
 	const parsedImages = imagesSchema.safeParse(validatedProperties.images);
@@ -336,14 +363,125 @@ export const processEntityImportJob = async (
 			isNew || !importedEntity.populatedAt ? dayjs().toDate() : importedEntity.populatedAt,
 	});
 
-	await upsertEntityInLibrary({ userId, entityId: importedEntity.id }, deps);
+	if (linkToLibrary) {
+		await upsertEntityInLibrary({ userId, entityId: importedEntity.id }, deps);
+	}
 
 	return updatedEntity;
+};
+
+const createEntityQueueJobId = (prefix: string, input: Record<string, unknown>) => {
+	const hash = createHash("sha1").update(JSON.stringify(input)).digest("hex");
+	return `${prefix}_${hash}`;
+};
+
+export const processEntityPreloadJob = async (
+	job: Job,
+	token?: string,
+	deps: EntityImportWorkerDeps = entityImportWorkerDeps,
+) => {
+	const parsed = entityPreloadJobData.safeParse(job.data);
+	if (!parsed.success) {
+		throw new Error("Entity preload job payload is invalid");
+	}
+
+	const { userId, scriptId, entitySchemaId, page, pageSize } = parsed.data;
+
+	let step = parsed.data.step;
+	if (!step) {
+		const script = await deps.getSandboxScriptForUser({ userId, scriptId });
+		if (!script) {
+			throw new Error("Sandbox script not found");
+		}
+
+		await queueSandboxChildRun({
+			job,
+			childJobId: `${job.id}_sandbox`,
+			jobData: { ...parsed.data, step: entityPreloadWaitingForSandboxStep },
+			sandboxJobData: {
+				userId,
+				scriptId,
+				driverName: "search",
+				context: { query: "", page, pageSize },
+			},
+		});
+		step = entityPreloadWaitingForSandboxStep;
+	}
+
+	// oxlint-disable-next-line no-unnecessary-condition
+	if (step !== entityPreloadWaitingForSandboxStep) {
+		throw new Error(`Unsupported entity preload job step: ${String(step)}`);
+	}
+
+	await waitForSandboxChildRun(job, token);
+
+	const sandboxResult = await getSandboxChildRunResult(job);
+
+	if (!sandboxResult.success) {
+		throw new Error(sandboxResult.error ?? "Entity preload search script failed");
+	}
+	if (sandboxResult.error) {
+		throw new Error(sandboxResult.error);
+	}
+
+	const searchParsed = entitySearchResultSchema.safeParse(sandboxResult.value);
+	if (!searchParsed.success) {
+		throw new Error("Entity preload search script returned an unexpected shape");
+	}
+
+	const uniqueExternalIds = [...new Set(searchParsed.data.items.map((item) => item.externalId))];
+	await Promise.all(
+		uniqueExternalIds.map((externalId) => {
+			const payload = entityImportJobData.parse({
+				userId,
+				scriptId,
+				externalId,
+				entitySchemaId,
+				linkToLibrary: false,
+			});
+			return deps.addEntityQueueJob({
+				payload,
+				name: entityImportJobName,
+				jobId: createEntityQueueJobId("entity_import", {
+					scriptId,
+					externalId,
+					entitySchemaId,
+					linkToLibrary: false,
+				}),
+			});
+		}),
+	);
+
+	const nextPage = searchParsed.data.details.nextPage ?? null;
+	if (nextPage !== null) {
+		const payload = entityPreloadJobData.parse({
+			userId,
+			pageSize,
+			scriptId,
+			page: nextPage,
+			entitySchemaId,
+		});
+		await deps.addEntityQueueJob({
+			payload,
+			name: entityPreloadJobName,
+			jobId: createEntityQueueJobId("entity_preload", {
+				pageSize,
+				scriptId,
+				nextPage,
+				entitySchemaId,
+			}),
+		});
+	}
+
+	return { nextPage, enqueuedImports: uniqueExternalIds.length };
 };
 
 const processEntityQueueJob = async (job: Job, token?: string) => {
 	if (job.name === entityImportJobName) {
 		return processEntityImportJob(job, token);
+	}
+	if (job.name === entityPreloadJobName) {
+		return processEntityPreloadJob(job, token);
 	}
 
 	throw new Error(`Unsupported entity import queue job: ${job.name}`);
