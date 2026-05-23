@@ -1,4 +1,5 @@
-import type { ComponentProps, ComponentRef } from "react";
+import clsx from "clsx";
+import type { ComponentRef } from "react";
 import { useEffect, useRef, useState } from "react";
 import { Platform } from "react-native";
 
@@ -9,12 +10,12 @@ export function ExpandableText(props: {
 	children: string;
 	className: string;
 	collapsedLines?: number;
-	toggleTextStyle?: ComponentProps<typeof Text>["style"];
+	toggleTextClassName?: string;
 }) {
-	const { children, className, toggleTextStyle, collapsedLines = 4 } = props;
 	const [expanded, setExpanded] = useState(false);
 	const [canExpand, setCanExpand] = useState(false);
 	const textRef = useRef<ComponentRef<typeof Text>>(null);
+	const { children, className, toggleTextClassName, collapsedLines = 4 } = props;
 
 	useEffect(() => {
 		if (Platform.OS !== "web") {
@@ -56,11 +57,10 @@ export function ExpandableText(props: {
 		<>
 			{Platform.OS !== "web" ? (
 				<Text
-					className={className}
 					accessibilityElementsHidden
 					importantForAccessibility="no-hide-descendants"
+					className={clsx(className, "absolute inset-x-0 opacity-0")}
 					onTextLayout={(event) => setCanExpand(event.nativeEvent.lines.length > collapsedLines)}
-					style={{ left: 0, right: 0, opacity: 0, position: "absolute" }}
 				>
 					{children}
 				</Text>
@@ -74,7 +74,9 @@ export function ExpandableText(props: {
 			</Text>
 			{canExpand ? (
 				<Pressable className="mt-2 self-start" onPress={() => setExpanded((value) => !value)}>
-					<Text className="text-[13px] font-sans-medium web:text-[15px]" style={toggleTextStyle}>
+					<Text
+						className={clsx("text-[13px] font-sans-medium web:text-[15px]", toggleTextClassName)}
+					>
 						{expanded ? "Show less" : "Read more"}
 					</Text>
 				</Pressable>

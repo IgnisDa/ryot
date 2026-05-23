@@ -127,7 +127,7 @@ function TypeSpecificTab(props: { entity: EntityDetail }) {
 function PlaceholderTab(props: { seed: number }) {
 	return (
 		<Box className="px-7 pt-8 web:mx-auto web:max-w-7xl">
-			<Box className="mb-6 overflow-hidden rounded-xl bg-muted" style={{ height: 200 }}>
+			<Box className="mb-6 h-50 overflow-hidden rounded-xl bg-muted">
 				<Image
 					resizeMode="cover"
 					className="h-full w-full"
@@ -147,7 +147,7 @@ function PlaceholderTab(props: { seed: number }) {
 				accusantium doloremque laudantium, totam rem aperiam, eaque ipsa quae ab illo inventore
 				veritatis et quasi architecto beatae vitae dicta sunt explicabo.
 			</Text>
-			<Box className="mt-6 overflow-hidden rounded-xl bg-muted" style={{ height: 160 }}>
+			<Box className="mt-6 h-40 overflow-hidden rounded-xl bg-muted">
 				<Image
 					resizeMode="cover"
 					className="h-full w-full"
@@ -177,6 +177,8 @@ function TabItem(props: { tab: TabConfig; active: boolean; onPress: () => void }
 	}));
 
 	const { Icon } = props.tab;
+	const inactiveTextClassName =
+		Platform.OS === "ios" ? "text-[rgba(255,255,255,0.82)]" : "text-[rgba(0,0,0,0.5)]";
 
 	return (
 		<Pressable
@@ -190,8 +192,10 @@ function TabItem(props: { tab: TabConfig; active: boolean; onPress: () => void }
 			<Animated.View style={labelStyle}>
 				<Text
 					numberOfLines={1}
-					className="text-[13px] font-sans-medium"
-					style={{ color: props.active ? ACCENT : INACTIVE_COLOR }}
+					className={clsx(
+						"text-[13px] font-sans-medium",
+						props.active ? "text-[#C9943A]" : inactiveTextClassName,
+					)}
 				>
 					{props.tab.label}
 				</Text>
@@ -217,8 +221,7 @@ function TabBar(props: {
 				colorScheme="dark"
 				glassEffectStyle="regular"
 				tintColor="rgba(10,10,14,0.55)"
-				style={{ borderRadius: 50, overflow: "hidden" }}
-				className="android:border android:border-white/10 android:bg-card/90 web:bg-card/80 web:backdrop-blur-md"
+				className="rounded-[50px] overflow-hidden android:border android:border-white/10 android:bg-card/90 web:bg-card/80 web:backdrop-blur-md"
 			>
 				<Box className="flex-row px-2 py-1.5">
 					{props.tabs.map((tab) => (
