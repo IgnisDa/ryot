@@ -3,9 +3,8 @@
 	"private": true,
 	"scripts": {
 		"build": "email export",
-		"format": "oxfmt . --write",
 		"dev": "email dev --port 6200",
-		"check": "tsc && oxlint . --type-aware --fix",
+		"check": "tsc && oxfmt . --write && oxlint . --type-aware --fix",
 		"copy-templates": "cp -r out/. ../../crates/services/notification/templates"
 	},
 	"dependencies": {

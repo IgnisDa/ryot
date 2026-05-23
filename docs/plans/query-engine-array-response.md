@@ -366,18 +366,15 @@ Backend:
 
 - `bun run check`
 - `bun run test`
-- `bun run format`
 
 Frontend:
 
 - `bun turbo --filter=@ryot/app-frontend check`
-- `bun turbo --filter=@ryot/app-frontend format -- --write`
 
 Tests package:
 
 - `bun run check`
 - `bun run test`
-- `bun run format`
 
 If OpenAPI-derived types need regeneration for the new response schema, that regeneration should be included before final verification.
 
