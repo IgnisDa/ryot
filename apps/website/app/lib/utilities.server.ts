@@ -6,7 +6,6 @@ import { and, desc, eq, isNull } from "drizzle-orm";
 import { createTransport } from "nodemailer";
 import * as openidClient from "openid-client";
 import type { ReactElement } from "react";
-import { data } from "react-router";
 import { match } from "ts-pattern";
 import z from "zod";
 
@@ -31,7 +30,7 @@ export const getClientIp = (request: Request): string | undefined => {
 	const xForwardedFor = request.headers.get("x-forwarded-for");
 	if (xForwardedFor) {
 		const firstIp = xForwardedFor.split(",")[0];
-		return firstIp?.trim();
+		return firstIp.trim();
 	}
 
 	return undefined;
@@ -40,7 +39,9 @@ export const getClientIp = (request: Request): string | undefined => {
 export const getProductAndPlanTypeByPriceId = (priceId: string) => {
 	for (const product of getPrices()) {
 		for (const price of product.prices) {
-			if (price.priceId === priceId) {return { productType: product.type, planType: price.name };}
+			if (price.priceId === priceId) {
+				return { productType: product.type, planType: price.name };
+			}
 		}
 	}
 	throw new Error("Price ID not found");
@@ -194,6 +195,6 @@ export const validateTurnstile = async (request: Request, token: string) => {
 		remoteIp: getClientIp(request),
 	});
 	if (!isTurnstileValid) {
-		throw data({ message: "CAPTCHA verification failed. Please try again." }, { status: 400 });
+		throw new Error("CAPTCHA verification failed. Please try again.");
 	}
 };
