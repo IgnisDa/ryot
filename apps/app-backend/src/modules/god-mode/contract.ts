@@ -45,6 +45,7 @@ const SetBanResponse = Schema.Struct({
 const userIdParam = HttpApiSchema.param("userId", Schema.String);
 
 export const GodModeGroup = HttpApiGroup.make("god-mode")
+	.addError(Unauthorized, { status: 401 })
 	.add(
 		HttpApiEndpoint.get("listUsers", "/god-mode/users")
 			.setUrlParams(
@@ -55,7 +56,6 @@ export const GodModeGroup = HttpApiGroup.make("god-mode")
 				}),
 			)
 			.addSuccess(ListUsersResponse)
-			.addError(Unauthorized, { status: 401 })
 			.middleware(AdminMiddleware),
 	)
 	.add(
@@ -64,7 +64,6 @@ export const GodModeGroup = HttpApiGroup.make("god-mode")
 			.addSuccess(ProvisionUserResponse, { status: 201 })
 			.addError(BadRequest, { status: 400 })
 			.addError(InternalError, { status: 500 })
-			.addError(Unauthorized, { status: 401 })
 			.middleware(AdminMiddleware),
 	)
 	.add(
@@ -72,7 +71,6 @@ export const GodModeGroup = HttpApiGroup.make("god-mode")
 			.addSuccess(ResetPasswordResponse)
 			.addError(BadRequest, { status: 400 })
 			.addError(InternalError, { status: 500 })
-			.addError(Unauthorized, { status: 401 })
 			.middleware(AdminMiddleware),
 	)
 	.add(
@@ -81,7 +79,6 @@ export const GodModeGroup = HttpApiGroup.make("god-mode")
 			.addSuccess(SetBanResponse)
 			.addError(BadRequest, { status: 400 })
 			.addError(InternalError, { status: 500 })
-			.addError(Unauthorized, { status: 401 })
 			.middleware(AdminMiddleware),
 	)
 	.addError(NotImplemented, { status: 501 });
