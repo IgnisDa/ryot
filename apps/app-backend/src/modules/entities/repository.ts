@@ -43,8 +43,8 @@ export type {
 } from "./repository-helpers";
 
 export class EntitiesRepository extends Effect.Service<EntitiesRepository>()("EntitiesRepository", {
-	sync: () => ({
-		listMatchCandidatesBySchema: Effect.fn("EntitiesRepository.listMatchCandidatesBySchema")(
+	sync: () => {
+		const listMatchCandidatesBySchema = Effect.fn("EntitiesRepository.listMatchCandidatesBySchema")(
 			function* (input: { userId: UserId; entitySchemaId: EntitySchemaId }) {
 				const db = yield* CurrentDb;
 				const rows = yield* dbEffect(() =>
@@ -65,8 +65,9 @@ export class EntitiesRepository extends Effect.Service<EntitiesRepository>()("En
 				);
 				return yield* Effect.forEach(rows, toListedEntity);
 			},
-		),
-		getEntitySchemaScopeForUser: Effect.fn("EntitiesRepository.getEntitySchemaScopeForUser")(
+		);
+
+		const getEntitySchemaScopeForUser = Effect.fn("EntitiesRepository.getEntitySchemaScopeForUser")(
 			function* (input: { userId: UserId; entitySchemaId: EntitySchemaId }) {
 				const db = yield* CurrentDb;
 				const [row] = yield* dbEffect(() =>
@@ -105,37 +106,43 @@ export class EntitiesRepository extends Effect.Service<EntitiesRepository>()("En
 					isBuiltin: row.isBuiltin,
 				};
 			},
-		),
-		getEntityScopeForUser: Effect.fn("EntitiesRepository.getEntityScopeForUser")(function* (input: {
-			userId: UserId;
-			entityId: EntityId;
-		}) {
-			const db = yield* CurrentDb;
-			const [row] = yield* dbEffect(() =>
-				db
-					.select({
-						entityId: schema.entity.id,
-						entityUserId: schema.entity.userId,
-						isBuiltin: schema.entitySchema.isBuiltin,
-						entitySchemaSlug: schema.entitySchema.slug,
-						entitySchemaId: schema.entity.entitySchemaId,
-					})
-					.from(schema.entity)
-					.innerJoin(schema.entitySchema, eq(schema.entity.entitySchemaId, schema.entitySchema.id))
-					.where(and(eq(schema.entity.id, input.entityId), entityVisibleToUserClause(input.userId)))
-					.limit(1),
-			);
+		);
 
-			return row
-				? {
-						...row,
-						entityId: EntityId.make(row.entityId),
-						entitySchemaId: EntitySchemaId.make(row.entitySchemaId),
-						entityUserId: row.entityUserId ? UserId.make(row.entityUserId) : null,
-					}
-				: null;
-		}),
-		getEntityMergeScopeForUser: Effect.fn("EntitiesRepository.getEntityMergeScopeForUser")(
+		const getEntityScopeForUser = Effect.fn("EntitiesRepository.getEntityScopeForUser")(
+			function* (input: { userId: UserId; entityId: EntityId }) {
+				const db = yield* CurrentDb;
+				const [row] = yield* dbEffect(() =>
+					db
+						.select({
+							entityId: schema.entity.id,
+							entityUserId: schema.entity.userId,
+							isBuiltin: schema.entitySchema.isBuiltin,
+							entitySchemaSlug: schema.entitySchema.slug,
+							entitySchemaId: schema.entity.entitySchemaId,
+						})
+						.from(schema.entity)
+						.innerJoin(
+							schema.entitySchema,
+							eq(schema.entity.entitySchemaId, schema.entitySchema.id),
+						)
+						.where(
+							and(eq(schema.entity.id, input.entityId), entityVisibleToUserClause(input.userId)),
+						)
+						.limit(1),
+				);
+
+				return row
+					? {
+							...row,
+							entityId: EntityId.make(row.entityId),
+							entitySchemaId: EntitySchemaId.make(row.entitySchemaId),
+							entityUserId: row.entityUserId ? UserId.make(row.entityUserId) : null,
+						}
+					: null;
+			},
+		);
+
+		const getEntityMergeScopeForUser = Effect.fn("EntitiesRepository.getEntityMergeScopeForUser")(
 			function* (input: { userId: UserId; entityId: EntityId }) {
 				const db = yield* CurrentDb;
 				const [row] = yield* dbEffect(() =>
@@ -168,8 +175,9 @@ export class EntitiesRepository extends Effect.Service<EntitiesRepository>()("En
 						}
 					: null;
 			},
-		),
-		getByIdForUser: Effect.fn("EntitiesRepository.getByIdForUser")(function* (input: {
+		);
+
+		const getByIdForUser = Effect.fn("EntitiesRepository.getByIdForUser")(function* (input: {
 			userId: UserId;
 			entityId: EntityId;
 		}) {
@@ -183,59 +191,62 @@ export class EntitiesRepository extends Effect.Service<EntitiesRepository>()("En
 			);
 
 			return row ? yield* toListedEntity(row) : null;
-		}),
-		findEntityByExternalIdForUser: Effect.fn("EntitiesRepository.findEntityByExternalIdForUser")(
-			function* (input: {
-				userId: UserId;
-				externalId: string;
-				entitySchemaId: EntitySchemaId;
-				sandboxScriptId: SandboxScriptId;
-			}) {
-				const db = yield* CurrentDb;
-				const [row] = yield* dbEffect(() =>
-					db
-						.select(entitySelection)
-						.from(schema.entity)
-						.where(
-							and(
-								entityVisibleToUserClause(input.userId),
-								eq(schema.entity.externalId, input.externalId),
-								eq(schema.entity.entitySchemaId, input.entitySchemaId),
-								eq(schema.entity.sandboxScriptId, input.sandboxScriptId),
-							),
-						)
-						.limit(1),
-				);
+		});
 
-				return row ? yield* toListedEntity(row) : null;
-			},
-		),
-		findGlobalEntityByExternalId: Effect.fn("EntitiesRepository.findGlobalEntityByExternalId")(
-			function* (input: {
-				externalId: string;
-				entitySchemaId: EntitySchemaId;
-				sandboxScriptId: SandboxScriptId;
-			}) {
-				const db = yield* CurrentDb;
-				const [row] = yield* dbEffect(() =>
-					db
-						.select(entitySelection)
-						.from(schema.entity)
-						.where(
-							and(
-								isNull(schema.entity.userId),
-								eq(schema.entity.externalId, input.externalId),
-								eq(schema.entity.entitySchemaId, input.entitySchemaId),
-								eq(schema.entity.sandboxScriptId, input.sandboxScriptId),
-							),
-						)
-						.limit(1),
-				);
+		const findEntityByExternalIdForUser = Effect.fn(
+			"EntitiesRepository.findEntityByExternalIdForUser",
+		)(function* (input: {
+			userId: UserId;
+			externalId: string;
+			entitySchemaId: EntitySchemaId;
+			sandboxScriptId: SandboxScriptId;
+		}) {
+			const db = yield* CurrentDb;
+			const [row] = yield* dbEffect(() =>
+				db
+					.select(entitySelection)
+					.from(schema.entity)
+					.where(
+						and(
+							entityVisibleToUserClause(input.userId),
+							eq(schema.entity.externalId, input.externalId),
+							eq(schema.entity.entitySchemaId, input.entitySchemaId),
+							eq(schema.entity.sandboxScriptId, input.sandboxScriptId),
+						),
+					)
+					.limit(1),
+			);
 
-				return row ? yield* toListedEntity(row) : null;
-			},
-		),
-		findEntitySchemaById: Effect.fn("EntitiesRepository.findEntitySchemaById")(function* (
+			return row ? yield* toListedEntity(row) : null;
+		});
+
+		const findGlobalEntityByExternalId = Effect.fn(
+			"EntitiesRepository.findGlobalEntityByExternalId",
+		)(function* (input: {
+			externalId: string;
+			entitySchemaId: EntitySchemaId;
+			sandboxScriptId: SandboxScriptId;
+		}) {
+			const db = yield* CurrentDb;
+			const [row] = yield* dbEffect(() =>
+				db
+					.select(entitySelection)
+					.from(schema.entity)
+					.where(
+						and(
+							isNull(schema.entity.userId),
+							eq(schema.entity.externalId, input.externalId),
+							eq(schema.entity.entitySchemaId, input.entitySchemaId),
+							eq(schema.entity.sandboxScriptId, input.sandboxScriptId),
+						),
+					)
+					.limit(1),
+			);
+
+			return row ? yield* toListedEntity(row) : null;
+		});
+
+		const findEntitySchemaById = Effect.fn("EntitiesRepository.findEntitySchemaById")(function* (
 			entitySchemaId: EntitySchemaId,
 		) {
 			const db = yield* CurrentDb;
@@ -257,37 +268,41 @@ export class EntitiesRepository extends Effect.Service<EntitiesRepository>()("En
 			);
 
 			return { propertiesSchema };
-		}),
-		findEntitySchemaScriptBySlug: Effect.fn("EntitiesRepository.findEntitySchemaScriptBySlug")(
-			function* (scriptSlug: string) {
-				const db = yield* CurrentDb;
-				const [row] = yield* dbEffect(() =>
-					db
-						.select({
-							entitySchemaId: schema.entitySchemaScript.entitySchemaId,
-							sandboxScriptId: schema.entitySchemaScript.sandboxScriptId,
-						})
-						.from(schema.sandboxScript)
-						.innerJoin(
-							schema.entitySchemaScript,
-							eq(schema.entitySchemaScript.sandboxScriptId, schema.sandboxScript.id),
-						)
-						.where(
-							and(eq(schema.sandboxScript.slug, scriptSlug), isNull(schema.sandboxScript.userId)),
-						)
-						.orderBy(desc(schema.sandboxScript.createdAt))
-						.limit(1),
-				);
+		});
 
-				return row
-					? {
-							entitySchemaId: EntitySchemaId.make(row.entitySchemaId),
-							sandboxScriptId: SandboxScriptId.make(row.sandboxScriptId),
-						}
-					: null;
-			},
-		),
-		saveEntity: Effect.fn("EntitiesRepository.saveEntity")(function* (input: SaveEntityInput) {
+		const findEntitySchemaScriptBySlug = Effect.fn(
+			"EntitiesRepository.findEntitySchemaScriptBySlug",
+		)(function* (scriptSlug: string) {
+			const db = yield* CurrentDb;
+			const [row] = yield* dbEffect(() =>
+				db
+					.select({
+						entitySchemaId: schema.entitySchemaScript.entitySchemaId,
+						sandboxScriptId: schema.entitySchemaScript.sandboxScriptId,
+					})
+					.from(schema.sandboxScript)
+					.innerJoin(
+						schema.entitySchemaScript,
+						eq(schema.entitySchemaScript.sandboxScriptId, schema.sandboxScript.id),
+					)
+					.where(
+						and(eq(schema.sandboxScript.slug, scriptSlug), isNull(schema.sandboxScript.userId)),
+					)
+					.orderBy(desc(schema.sandboxScript.createdAt))
+					.limit(1),
+			);
+
+			return row
+				? {
+						entitySchemaId: EntitySchemaId.make(row.entitySchemaId),
+						sandboxScriptId: SandboxScriptId.make(row.sandboxScriptId),
+					}
+				: null;
+		});
+
+		const saveEntity = Effect.fn("EntitiesRepository.saveEntity")(function* (
+			input: SaveEntityInput,
+		) {
 			const db = yield* CurrentDb;
 
 			if (input.scope === "global") {
@@ -421,6 +436,19 @@ export class EntitiesRepository extends Effect.Service<EntitiesRepository>()("En
 			}
 
 			return yield* toListedEntity(row);
-		}),
-	}),
+		});
+
+		return {
+			listMatchCandidatesBySchema,
+			getEntitySchemaScopeForUser,
+			getEntityScopeForUser,
+			getEntityMergeScopeForUser,
+			getByIdForUser,
+			findEntityByExternalIdForUser,
+			findGlobalEntityByExternalId,
+			findEntitySchemaById,
+			findEntitySchemaScriptBySlug,
+			saveEntity,
+		};
+	},
 }) {}

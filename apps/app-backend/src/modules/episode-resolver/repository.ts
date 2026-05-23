@@ -7,8 +7,8 @@ import { EntityId, type UserId } from "#lib/schema/brands";
 export class EpisodeResolverRepository extends Effect.Service<EpisodeResolverRepository>()(
 	"EpisodeResolverRepository",
 	{
-		sync: () => ({
-			findPodcastEpisodeCandidates: Effect.fn(
+		sync: () => {
+			const findPodcastEpisodeCandidates = Effect.fn(
 				"EpisodeResolverRepository.findPodcastEpisodeCandidates",
 			)(function* (input: { userId: UserId; episodeNumber: number; podcastEntityId: EntityId }) {
 				const db = yield* CurrentDb;
@@ -33,17 +33,19 @@ export class EpisodeResolverRepository extends Effect.Service<EpisodeResolverRep
 				);
 
 				return rows.rows.map((row) => EntityId.make(row.id));
-			}),
-			findShowEpisodeCandidates: Effect.fn("EpisodeResolverRepository.findShowEpisodeCandidates")(
-				function* (input: {
-					userId: UserId;
-					seasonNumber: number;
-					episodeNumber: number;
-					showEntityId: EntityId;
-				}) {
-					const db = yield* CurrentDb;
-					const rows = yield* dbEffect(() =>
-						db.execute<{ id: string }>(sql`
+			});
+
+			const findShowEpisodeCandidates = Effect.fn(
+				"EpisodeResolverRepository.findShowEpisodeCandidates",
+			)(function* (input: {
+				userId: UserId;
+				seasonNumber: number;
+				episodeNumber: number;
+				showEntityId: EntityId;
+			}) {
+				const db = yield* CurrentDb;
+				const rows = yield* dbEffect(() =>
+					db.execute<{ id: string }>(sql`
 						SELECT DISTINCT episode.id
 						FROM relationship show_season_rel
 						JOIN relationship_schema show_season_rs
@@ -74,11 +76,12 @@ export class EpisodeResolverRepository extends Effect.Service<EpisodeResolverRep
 							AND jsonb_extract_path(season.properties, 'seasonNumber') = to_jsonb(${input.seasonNumber}::int)
 							AND jsonb_extract_path(episode.properties, 'episodeNumber') = to_jsonb(${input.episodeNumber}::int)
 					`),
-					);
+				);
 
-					return rows.rows.map((row) => EntityId.make(row.id));
-				},
-			),
-		}),
+				return rows.rows.map((row) => EntityId.make(row.id));
+			});
+
+			return { findPodcastEpisodeCandidates, findShowEpisodeCandidates };
+		},
 	},
 ) {}
