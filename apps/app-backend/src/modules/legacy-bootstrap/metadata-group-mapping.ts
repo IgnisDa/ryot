@@ -207,7 +207,7 @@ BEGIN
 			${buildPrimaryImageSql("mg")},
 			mg.last_updated_on,
 			NULL,
-			NULL,
+			mg.created_by_user_id,
 			${buildMetadataGroupPropertiesSql("mg")},
 			mgt.entity_schema_id,
 			mgt.sandbox_script_id,
@@ -216,8 +216,13 @@ BEGIN
 		INNER JOIN metadata_group_targets mgt ON mgt.lot = mg.lot AND mgt.source = mg.source
 		WHERE mg.id::text > cursor_id AND mg.id::text <= next_cursor_id
 		ON CONFLICT ("id") DO UPDATE
-			SET "properties" = EXCLUDED."properties"
-			WHERE entity."properties" = '{}'::jsonb;
+			SET
+				"properties" = CASE
+					WHEN entity."properties" = '{}'::jsonb THEN EXCLUDED."properties"
+					ELSE entity."properties"
+				END,
+				"user_id" = COALESCE(entity."user_id", EXCLUDED."user_id")
+			WHERE entity."properties" = '{}'::jsonb OR entity."user_id" IS NULL;
 		GET DIAGNOSTICS batch_rows_inserted = ROW_COUNT;
 
 		rows_inserted := rows_inserted + batch_rows_inserted;
