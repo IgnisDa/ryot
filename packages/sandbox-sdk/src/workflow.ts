@@ -191,7 +191,7 @@ const stableJson = (value: unknown): string => {
 			.map(([key, entry]) => `${JSON.stringify(key)}:${stableJson(entry)}`)
 			.join(",")}}`;
 	}
-	return JSON.stringify(value) ?? "undefined";
+	return JSON.stringify(value);
 };
 
 const makeWorkflowReplay = (
