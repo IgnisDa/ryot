@@ -12,7 +12,7 @@ type SandboxWorkflowReference = Omit<WorkflowReferenceRow, "scriptId"> & {
 	readonly scriptId: SandboxScriptId;
 };
 
-export class SandboxWorkflowReferenceRegistrationError extends Schema.TaggedErrorClass<SandboxWorkflowReferenceRegistrationError>()(
+export class SandboxWorkflowReferenceRegistrationError extends Schema.TaggedError<SandboxWorkflowReferenceRegistrationError>()(
 	"SandboxWorkflowReferenceRegistrationError",
 	{
 		message: Schema.String,
