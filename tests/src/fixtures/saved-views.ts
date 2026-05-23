@@ -35,6 +35,38 @@ type UpdateSavedViewBody = ContractPayload<"savedViews", "update">;
 type ReorderSavedViewsBody = ContractPayload<"savedViews", "reorder">;
 export type SavedViewQueryDocument = CreateSavedViewBody["queryDocument"];
 
+export const rowsDocument: SavedViewQueryDocument = {
+	source: { type: "entities", alias: "book", schemas: ["book"], where: null },
+	output: {
+		type: "rows",
+		pagination: { page: 1, limit: 20 },
+		fields: [{ key: "name", expr: systemRef("book", "name") }],
+		orderBy: [{ order: "asc", expr: systemRef("book", "name") }],
+	},
+};
+
+export const aggregateDocument: SavedViewQueryDocument = {
+	source: { type: "entities", alias: "book", schemas: ["book"], where: null },
+	output: {
+		groupBy: [],
+		type: "aggregate",
+		measures: [{ key: "total", aggregation: { function: "count" } }],
+	},
+};
+
+export const timeSeriesDocument: SavedViewQueryDocument = {
+	source: { type: "entities", alias: "book", schemas: ["book"], where: null },
+	output: {
+		type: "timeSeries",
+		measure: { aggregation: { function: "count" } },
+		time: {
+			bucket: "month",
+			expr: systemRef("book", "createdAt"),
+			range: { startAt: "2020-01-01T00:00:00.000Z", endAt: "2020-07-01T00:00:00.000Z" },
+		},
+	},
+};
+
 type SavedViewRecord = ContractSuccess<"savedViews", "get">;
 
 type CreateSavedViewInput = Partial<Omit<CreateSavedViewBody, "displayConfiguration">> & {
@@ -131,15 +163,7 @@ const defaultDisplayConfiguration = {
 	},
 } satisfies DisplayConfigurationInput;
 
-const defaultQueryDocument: SavedViewQueryDocument = {
-	source: { type: "entities", alias: "book", schemas: ["book"], where: null },
-	output: {
-		type: "rows",
-		pagination: { page: 1, limit: 20 },
-		fields: [{ key: "name", expr: systemRef("book", "name") }],
-		orderBy: [{ order: "asc", expr: systemRef("book", "name") }],
-	},
-};
+const defaultQueryDocument = rowsDocument;
 
 export function buildSavedViewBody(overrides: CreateSavedViewInput = {}): CreateSavedViewBody {
 	const { displayConfiguration: displayOverride, queryDocument, ...rest } = overrides;
