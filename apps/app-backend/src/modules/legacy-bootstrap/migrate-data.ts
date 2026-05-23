@@ -1,7 +1,9 @@
 import { and, eq, isNull } from "drizzle-orm";
+import type { Client, PoolClient } from "pg";
 
 import type { DbClient } from "~/lib/db";
 import { entitySchema, eventSchema, relationshipSchema, sandboxScript } from "~/lib/db/schema";
+import { bootstrapNewUser } from "~/modules/builtins";
 
 import { buildCollectionEntityMigrationSql } from "./collection-mapping";
 import {
@@ -191,6 +193,33 @@ const resolveRelationshipMigrationTargets = (input: {
 	}
 
 	return targets;
+};
+
+type LegacyBootstrapNoticeClient = Client | PoolClient;
+
+const backfillBootstrapDataForLegacyUsers = async (client: LegacyBootstrapNoticeClient) => {
+	const migratedUsers = await client.query<{ id: string }>(`
+		SELECT "id"
+		FROM "old_user"
+		ORDER BY "created_on", "id"
+	`);
+
+	if (migratedUsers.rows.length === 0) {
+		return;
+	}
+
+	console.info(
+		`[legacy-bootstrap] backfilling V2 bootstrap data for ${migratedUsers.rows.length} migrated user(s)`,
+	);
+
+	for (const migratedUser of migratedUsers.rows) {
+		// oxlint-disable-next-line no-await-in-loop
+		await bootstrapNewUser(migratedUser.id);
+	}
+
+	console.info(
+		`[legacy-bootstrap] finished V2 bootstrap backfill for ${migratedUsers.rows.length} migrated user(s)`,
+	);
 };
 
 export const migrateLegacyTables = async (database: DbClient) => {
@@ -391,6 +420,7 @@ export const migrateLegacyTables = async (database: DbClient) => {
 
 	await withLegacyBootstrapNoticeClient(database, async (client) => {
 		await client.query(migrateUserTableSql);
+		await backfillBootstrapDataForLegacyUsers(client);
 		await client.query(buildMetadataMigrationSql(resolvedMetadataTargets));
 		await client.query(buildMetadataGroupEntityMigrationSql(resolvedMetadataGroupEntityTargets));
 		await client.query(
