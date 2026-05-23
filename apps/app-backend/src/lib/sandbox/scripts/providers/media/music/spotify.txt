@@ -241,27 +241,51 @@ driver("details", async function(context) {
   const byVariousArtists =
     artists.length === 0 ? null : artists.length > 1;
 
-  const people = artists
-    .map((artist) => {
-      const artistId = getString(artist?.id);
-      const artistName = getString(artist?.name);
-      if (!artistId || !artistName) {
-        return null;
-      }
+  const relatedEntityByKey = new Map();
+  const addRelatedEntity = (relatedEntity) => {
+    const key = `${relatedEntity.scriptSlug}:${relatedEntity.externalId}`;
+    const existing = relatedEntityByKey.get(key);
+    if (!existing) {
+      relatedEntityByKey.set(key, relatedEntity);
+      return;
+    }
 
-      return {
-        role: "Artist",
-        name: artistName,
-        externalId: artistId,
-        scriptSlug: "person.spotify",
-      };
-    })
-    .filter((p) => p !== null);
+    const roles = new Set([
+      ...(Array.isArray(existing.relationshipProperties.roles)
+        ? existing.relationshipProperties.roles
+        : []),
+      ...(Array.isArray(relatedEntity.relationshipProperties.roles)
+        ? relatedEntity.relationshipProperties.roles
+        : []),
+    ]);
+    existing.relationshipProperties.roles = [...roles];
+    if (existing.name === "Loading..." && relatedEntity.name !== "Loading...") {
+      existing.name = relatedEntity.name;
+    }
+  };
+
+  for (const artist of artists) {
+    const artistId = getString(artist?.id);
+    if (!artistId) {
+      continue;
+    }
+
+    const artistName = getString(artist?.name) ?? "Loading...";
+
+    addRelatedEntity({
+      name: artistName,
+      externalId: artistId,
+      scriptSlug: "person.spotify",
+      relationshipProperties: {
+        roles: ["Artist"],
+      },
+    });
+  }
 
   const album = track?.album;
   const albumImages = Array.isArray(album?.images) ? album.images : [];
   const publishYear = getPublishYear(album?.release_date, dayjs);
-  const groups =
+  const albumRelatedEntities =
     album && typeof album === "object" &&
     typeof album.id === "string" && album.id.trim() &&
     typeof album.name === "string" && album.name.trim()
@@ -270,9 +294,16 @@ driver("details", async function(context) {
           name: album.name.trim(),
           externalId: album.id.trim(),
           scriptSlug: "music-group.spotify",
+          relationshipProperties: {
+            roles: ["Member"],
+          },
         },
       ]
       : [];
+
+  for (const albumRelatedEntity of albumRelatedEntities) {
+    addRelatedEntity(albumRelatedEntity);
+  }
 
   const durationMs =
     typeof track?.duration_ms === "number" &&
@@ -296,8 +327,6 @@ driver("details", async function(context) {
   return {
     name: title,
     properties: {
-      people,
-      groups,
       isNsfw,
       duration,
       sourceUrl,
@@ -308,5 +337,6 @@ driver("details", async function(context) {
       publishDate: getPublishDate(album?.release_date),
       images: getImagesSortedBySize(albumImages).map((url) => ({ type: "remote", url })),
     },
+    relatedEntities: [...relatedEntityByKey.values()],
   };
 });

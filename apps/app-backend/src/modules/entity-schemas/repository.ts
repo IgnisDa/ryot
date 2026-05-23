@@ -193,13 +193,30 @@ export const getBuiltinEntitySchemaBySlug = async (slug: string) => {
 	return foundSchema;
 };
 
+export const getBuiltinEntitySchemaBySandboxScriptId = async (sandboxScriptId: string) => {
+	const [foundSchema] = await db
+		.select({
+			id: entitySchema.id,
+			slug: entitySchema.slug,
+			propertiesSchema: entitySchema.propertiesSchema,
+		})
+		.from(entitySchema)
+		.innerJoin(entitySchemaScript, eq(entitySchema.id, entitySchemaScript.entitySchemaId))
+		.where(
+			and(
+				eq(entitySchemaScript.sandboxScriptId, sandboxScriptId),
+				isNull(entitySchema.userId),
+				eq(entitySchema.isBuiltin, true),
+			),
+		)
+		.limit(1);
+
+	return foundSchema;
+};
+
 export const createTrackerEntitySchemas = async (input: {
 	database?: DbClient;
-	links: Array<{
-		trackerId: string;
-		entitySchemaId: string;
-		isDisabled?: boolean;
-	}>;
+	links: Array<{ trackerId: string; isDisabled?: boolean; entitySchemaId: string }>;
 }) => {
 	if (!input.links.length) {
 		return;

@@ -243,8 +243,7 @@ function collectCompanies(involvedCompanies) {
     return [];
   }
 
-  const companies = [];
-  const seen = new Set();
+  const companyByKey = new Map();
 
   for (const ic of involvedCompanies) {
     if (!ic || typeof ic !== "object" || !ic.company) {
@@ -262,10 +261,7 @@ function collectCompanies(involvedCompanies) {
     const name =
       typeof ic.company.name === "string" && ic.company.name.trim()
         ? ic.company.name.trim()
-        : null;
-    if (!name) {
-      continue;
-    }
+        : "Loading...";
 
     const role = ic.developer
       ? "Developer"
@@ -273,25 +269,70 @@ function collectCompanies(involvedCompanies) {
         ? "Publisher"
         : ic.porting
           ? "Porting"
-          : ic.supporting
-            ? "Supporting"
-            : "Developer";
+        : ic.supporting
+          ? "Supporting"
+          : "Developer";
 
-    const key = `${id}:${role}`;
-    if (seen.has(key)) {
+    const key = `company.igdb:${id}`;
+    const existing = companyByKey.get(key);
+    if (existing) {
+      const roles = new Set([
+        ...(Array.isArray(existing.relationshipProperties.roles)
+          ? existing.relationshipProperties.roles
+          : []),
+        role,
+      ]);
+      existing.relationshipProperties.roles = [...roles];
+      if (existing.name === "Loading..." && name !== "Loading...") {
+        existing.name = name;
+      }
       continue;
     }
-    seen.add(key);
 
-    companies.push({
+    companyByKey.set(key, {
       name,
-      role,
       externalId: String(id),
       scriptSlug: "company.igdb",
+      relationshipProperties: {
+        roles: [role],
+      },
     });
   }
 
-  return companies;
+  return [...companyByKey.values()];
+}
+
+function collectGroups(collections) {
+  if (!Array.isArray(collections)) {
+    return [];
+  }
+
+  const groupByKey = new Map();
+  for (const collection of collections) {
+    const externalId =
+      typeof collection?.id === "number"
+        ? String(Math.trunc(collection.id))
+        : null;
+    if (!externalId) {
+      continue;
+    }
+
+    const key = `video-game-group.igdb:${externalId}`;
+    if (groupByKey.has(key)) {
+      continue;
+    }
+
+    groupByKey.set(key, {
+      externalId,
+      name: "Loading...",
+      scriptSlug: "video-game-group.igdb",
+      relationshipProperties: {
+        roles: ["Member"],
+      },
+    });
+  }
+
+  return [...groupByKey.values()];
 }
 
 driver("search", async function(context) {
@@ -475,37 +516,23 @@ driver("details", async function(context) {
       ? game.slug.trim()
       : toSlug(name);
 
-  const groups = Array.isArray(game.collections)
-    ? game.collections
-      .map((collection) => {
-        const externalId =
-          typeof collection?.id === "number"
-            ? String(Math.trunc(collection.id))
-            : null;
-        if (!externalId) return null;
-
-        return {
-          externalId,
-          name: "Loading...",
-          scriptSlug: "video-game-group.igdb",
-        };
-      })
-      .filter((group) => group !== null)
-    : [];
+  const relatedEntities = [
+    ...collectGroups(game.collections),
+    ...collectCompanies(game.involved_companies),
+  ];
 
   return {
     name,
     properties: {
       images,
       genres,
-      groups,
       timeToBeat,
       description,
       providerRating,
       platformReleases,
       sourceUrl: `https://www.igdb.com/games/${gameSlug}`,
-      companies: collectCompanies(game.involved_companies),
       publishYear: extractYear(game.first_release_date, dayjs),
     },
+    relatedEntities,
   };
 });

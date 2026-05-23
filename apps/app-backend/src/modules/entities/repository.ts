@@ -11,8 +11,6 @@ import {
 import type { ImageSchemaType } from "~/lib/zod";
 import { getBuiltinRelationshipSchemaBySlug } from "~/modules/relationship-schemas";
 
-import type { EntityPropertiesShape } from "./service";
-
 const entitySchemaVisibleToUserClause = (userId: string) => {
 	return or(isNull(entitySchema.userId), eq(entitySchema.userId, userId));
 };
@@ -128,7 +126,7 @@ export const createEntityForUser = async (input: {
 	externalId?: string | null;
 	image: ImageSchemaType | null;
 	sandboxScriptId?: string | null;
-	properties: EntityPropertiesShape;
+	properties: Record<string, unknown>;
 }) => {
 	const [createdEntity] = await db
 		.insert(entity)
@@ -180,6 +178,7 @@ export const createGlobalEntity = async (input: {
 			userId: null,
 			properties: {},
 			name: input.name,
+			populatedAt: null,
 			externalId: input.externalId,
 			entitySchemaId: input.entitySchemaId,
 			sandboxScriptId: input.sandboxScriptId,
@@ -206,7 +205,7 @@ export const updateGlobalEntityById = async (input: {
 	entitySchemaId: string;
 	removePropertyKeys?: string[];
 	image: ImageSchemaType | null;
-	properties: EntityPropertiesShape;
+	properties: Record<string, unknown>;
 }) => {
 	const propertiesBase = (input.removePropertyKeys ?? []).reduce(
 		(acc, key) => sql`(${acc} - ${key})`,
@@ -237,64 +236,29 @@ export const updateGlobalEntityById = async (input: {
 	return updated;
 };
 
-export const buildEntityRelationshipProperties = (
-	existing: Record<string, unknown> | undefined,
-	role: string,
-	extraProperties: Record<string, unknown>,
-): Record<string, unknown> => {
-	// oxlint-disable-next-line no-unsafe-type-assertion
-	const existingRoles = (existing?.roles as string[] | undefined) ?? [];
-	const mergedRoles = Array.from(new Set([...existingRoles, role]));
-	return { ...existing, ...extraProperties, roles: mergedRoles };
-};
-
 export const upsertEntityRelationship = async (input: {
-	role: string;
 	sourceEntityId: string;
 	targetEntityId: string;
 	relationshipSchemaId: string;
-	extraProperties: Record<string, unknown>;
+	properties: Record<string, unknown>;
 }) => {
-	await db.transaction(async (tx) => {
-		const [existing] = await tx
-			.select({ properties: relationship.properties })
-			.from(relationship)
-			.where(
-				and(
-					isNull(relationship.userId),
-					eq(relationship.sourceEntityId, input.sourceEntityId),
-					eq(relationship.targetEntityId, input.targetEntityId),
-					eq(relationship.relationshipSchemaId, input.relationshipSchemaId),
-				),
-			)
-			.for("update")
-			.limit(1);
-
-		const existingProperties = existing?.properties;
-		const mergedProperties = buildEntityRelationshipProperties(
-			existingProperties,
-			input.role,
-			input.extraProperties,
-		);
-
-		await tx
-			.insert(relationship)
-			.values({
-				properties: mergedProperties,
-				sourceEntityId: input.sourceEntityId,
-				targetEntityId: input.targetEntityId,
-				relationshipSchemaId: input.relationshipSchemaId,
-			})
-			.onConflictDoUpdate({
-				set: { properties: mergedProperties },
-				targetWhere: isNull(relationship.userId),
-				target: [
-					relationship.sourceEntityId,
-					relationship.targetEntityId,
-					relationship.relationshipSchemaId,
-				],
-			});
-	});
+	await db
+		.insert(relationship)
+		.values({
+			properties: input.properties,
+			sourceEntityId: input.sourceEntityId,
+			targetEntityId: input.targetEntityId,
+			relationshipSchemaId: input.relationshipSchemaId,
+		})
+		.onConflictDoUpdate({
+			set: { properties: input.properties },
+			targetWhere: isNull(relationship.userId),
+			target: [
+				relationship.sourceEntityId,
+				relationship.targetEntityId,
+				relationship.relationshipSchemaId,
+			],
+		});
 };
 
 export const getUserLibraryEntityId = async (

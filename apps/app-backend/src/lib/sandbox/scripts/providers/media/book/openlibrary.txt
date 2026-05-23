@@ -224,7 +224,58 @@ driver("details", async function(context) {
 
   const publishYear = earliestDate ? earliestDate.getUTCFullYear() : null;
 
-  const people = [];
+  const relatedEntities = [];
+  const relatedEntityByKey = new Map();
+  const addRelatedEntity = (relatedEntity) => {
+    const key = `${relatedEntity.scriptSlug}:${relatedEntity.externalId}`;
+    const existing = relatedEntityByKey.get(key);
+    if (!existing) {
+      relatedEntityByKey.set(key, relatedEntity);
+      relatedEntities.push(relatedEntity);
+      return;
+    }
+
+    const roles = new Set([
+      ...(Array.isArray(existing.relationshipProperties.roles)
+        ? existing.relationshipProperties.roles
+        : []),
+      ...(Array.isArray(relatedEntity.relationshipProperties.roles)
+        ? relatedEntity.relationshipProperties.roles
+        : []),
+    ]);
+    existing.relationshipProperties.roles = [...roles];
+    if (existing.name === "Loading..." && relatedEntity.name !== "Loading...") {
+      existing.name = relatedEntity.name;
+    }
+  };
+  const authorNameByKey = new Map();
+  const loadAuthorName = async (authorKey) => {
+    const requestedIdentifier = getKeySegment(authorKey);
+    if (!requestedIdentifier) {
+      return "Loading...";
+    }
+
+    const cachedName = authorNameByKey.get(requestedIdentifier);
+    if (cachedName !== undefined) {
+      return cachedName;
+    }
+
+    try {
+      const authorPayload = await loadOpenLibraryJson(
+        `https://openlibrary.org/authors/${requestedIdentifier}.json`,
+        "OpenLibrary author",
+      );
+      const name =
+        typeof authorPayload?.name === "string" && authorPayload.name.trim()
+          ? authorPayload.name.trim()
+          : "Loading...";
+      authorNameByKey.set(requestedIdentifier, name);
+      return name;
+    } catch {
+      authorNameByKey.set(requestedIdentifier, "Loading...");
+      return "Loading...";
+    }
+  };
   const authors = Array.isArray(workPayload?.authors) ? workPayload.authors : [];
 
   for (const authorEntry of authors) {
@@ -232,7 +283,6 @@ driver("details", async function(context) {
       continue;
     }
 
-    let role = "Author";
     let authorKey = "";
 
     if (typeof authorEntry.key === "string") {
@@ -245,17 +295,6 @@ driver("details", async function(context) {
       ) {
         authorKey = authorEntry.author.key;
       }
-
-      const rolePayload = authorEntry.type ?? authorEntry.role;
-      if (
-        rolePayload &&
-        typeof rolePayload === "object" &&
-        typeof rolePayload.key === "string"
-      ) {
-        role = rolePayload.key;
-      } else if (typeof rolePayload === "string" && rolePayload.trim()) {
-        role = rolePayload;
-      }
     }
 
     const personIdentifier = getKeySegment(authorKey);
@@ -263,10 +302,21 @@ driver("details", async function(context) {
       continue;
     }
 
-    people.push({
-      role,
+    const inlineName =
+      typeof authorEntry.author?.name === "string" && authorEntry.author.name.trim()
+        ? authorEntry.author.name.trim()
+        : typeof authorEntry.name === "string" && authorEntry.name.trim()
+          ? authorEntry.name.trim()
+          : "";
+    const authorName = inlineName || (await loadAuthorName(authorKey));
+
+    addRelatedEntity({
+      name: authorName,
       externalId: personIdentifier,
       scriptSlug: "person.openlibrary",
+      relationshipProperties: {
+        roles: ["Author"],
+      },
     });
   }
 
@@ -292,7 +342,6 @@ driver("details", async function(context) {
     name: title,
     properties: {
       pages,
-      people,
       genres: [...genreSet],
       publishYear: publishYear,
       description: parseDescription(workPayload?.description),
@@ -302,5 +351,6 @@ driver("details", async function(context) {
         url: `https://covers.openlibrary.org/b/id/${coverId}-M.jpg?default=false`,
       })),
     },
+    relatedEntities,
   };
 });

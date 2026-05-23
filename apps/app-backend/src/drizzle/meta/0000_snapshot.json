@@ -352,8 +352,7 @@
 					"name": "populated_at",
 					"type": "timestamp with time zone",
 					"primaryKey": false,
-					"notNull": true,
-					"default": "now()"
+					"notNull": false
 				},
 				"user_id": {
 					"name": "user_id",

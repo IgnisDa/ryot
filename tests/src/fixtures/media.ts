@@ -83,6 +83,80 @@ export async function queryInLibraryRelationship(entityId: string, email: string
 	);
 }
 
+export async function deleteGlobalEntityByProvenance(input: {
+	externalId: string;
+	entitySchemaId: string;
+	sandboxScriptId: string;
+}) {
+	const pg = getPgClient();
+
+	await pg.query(
+		`delete from entity
+		 where external_id = $1
+		   and entity_schema_id = $2
+		   and sandbox_script_id = $3
+		   and user_id is null`,
+		[input.externalId, input.entitySchemaId, input.sandboxScriptId],
+	);
+}
+
+export async function getGlobalEntityByProvenance(input: {
+	externalId: string;
+	entitySchemaId: string;
+	sandboxScriptId: string;
+}) {
+	const pg = getPgClient();
+	const result = await pg.query<{
+		id: string;
+		name: string;
+		populatedAt: string | null;
+	}>(
+		`select e.id, e.name, e.populated_at::text as "populatedAt"
+		 from entity e
+		 where e.external_id = $1
+		   and e.entity_schema_id = $2
+		   and e.sandbox_script_id = $3
+		   and e.user_id is null
+		 limit 1`,
+		[input.externalId, input.entitySchemaId, input.sandboxScriptId],
+	);
+
+	return requirePresent(
+		result.rows[0],
+		`Missing global entity for external id '${input.externalId}'`,
+	);
+}
+
+export async function getRelationshipBySchemaSlug(input: {
+	sourceEntityId: string;
+	targetEntityId: string;
+	relationshipSchemaSlug: string;
+}) {
+	const pg = getPgClient();
+	const result = await pg.query<{
+		properties: Record<string, unknown>;
+		sourceEntityId: string;
+		targetEntityId: string;
+	}>(
+		`select r.properties,
+		        r.source_entity_id as "sourceEntityId",
+		        r.target_entity_id as "targetEntityId"
+		 from relationship r
+		 inner join relationship_schema rs on rs.id = r.relationship_schema_id
+		 where rs.slug = $1
+		   and r.source_entity_id = $2
+		   and r.target_entity_id = $3
+		   and r.user_id is null
+		 limit 1`,
+		[input.relationshipSchemaSlug, input.sourceEntityId, input.targetEntityId],
+	);
+
+	return requirePresent(
+		result.rows[0],
+		`Missing relationship '${input.relationshipSchemaSlug}' for '${input.sourceEntityId}' -> '${input.targetEntityId}'`,
+	);
+}
+
 export async function seedMediaEntity(input: {
 	name: string;
 	externalId: string;

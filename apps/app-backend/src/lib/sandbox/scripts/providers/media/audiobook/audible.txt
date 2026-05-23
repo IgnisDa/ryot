@@ -229,7 +229,29 @@ driver("details", async function(context) {
     }
   }
 
-  const people = [];
+  const relatedEntityByKey = new Map();
+  const addRelatedEntity = (relatedEntity) => {
+    const key = `${relatedEntity.scriptSlug}:${relatedEntity.externalId}`;
+    const existing = relatedEntityByKey.get(key);
+    if (!existing) {
+      relatedEntityByKey.set(key, relatedEntity);
+      return;
+    }
+
+    const roles = new Set([
+      ...(Array.isArray(existing.relationshipProperties.roles)
+        ? existing.relationshipProperties.roles
+        : []),
+      ...(Array.isArray(relatedEntity.relationshipProperties.roles)
+        ? relatedEntity.relationshipProperties.roles
+        : []),
+    ]);
+    existing.relationshipProperties.roles = [...roles];
+    if (existing.name === "Loading..." && relatedEntity.name !== "Loading...") {
+      existing.name = relatedEntity.name;
+    }
+  };
+
   const unlinkedCreators = [];
 
   const authors = Array.isArray(product?.authors) ? product.authors : [];
@@ -239,18 +261,18 @@ driver("details", async function(context) {
     }
     const name = typeof author.name === "string" ? author.name.trim() : "";
     const asin = typeof author.asin === "string" ? author.asin.trim() : "";
-    if (!name) {
-      continue;
-    }
+    const relatedName = name || "Loading...";
     if (asin) {
-      people.push({
-        role: "Author",
-        name,
+      addRelatedEntity({
+        name: relatedName,
         externalId: asin,
         scriptSlug: "person.audible",
+        relationshipProperties: {
+          roles: ["Author"],
+        },
       });
     } else {
-      unlinkedCreators.push({ role: "Author", name });
+      unlinkedCreators.push({ role: "Author", name: relatedName });
     }
   }
 
@@ -263,22 +285,22 @@ driver("details", async function(context) {
       typeof narrator.name === "string" ? narrator.name.trim() : "";
     const asin =
       typeof narrator.asin === "string" ? narrator.asin.trim() : "";
-    if (!name) {
-      continue;
-    }
+    const relatedName = name || "Loading...";
     if (asin) {
-      people.push({
-        role: "Narrator",
-        name,
+      addRelatedEntity({
+        name: relatedName,
         externalId: asin,
         scriptSlug: "person.audible",
+        relationshipProperties: {
+          roles: ["Narrator"],
+        },
       });
     } else {
-      unlinkedCreators.push({ role: "Narrator", name });
+      unlinkedCreators.push({ role: "Narrator", name: relatedName });
     }
   }
 
-  const groups = Array.isArray(product?.series)
+  const groupRelatedEntities = Array.isArray(product?.series)
     ? product.series
       .map((series) => {
         const externalId =
@@ -288,8 +310,8 @@ driver("details", async function(context) {
         const name =
           typeof series?.title === "string" && series.title.trim()
             ? series.title.trim()
-            : null;
-        if (!externalId || !name) {
+            : "Loading...";
+        if (!externalId) {
           return null;
         }
 
@@ -297,10 +319,17 @@ driver("details", async function(context) {
           name,
           externalId,
           scriptSlug: "audiobook-group.audible",
+          relationshipProperties: {
+            roles: ["Member"],
+          },
         };
       })
       .filter((group) => group !== null)
     : [];
+
+  for (const groupRelatedEntity of groupRelatedEntities) {
+    addRelatedEntity(groupRelatedEntity);
+  }
 
   const sourceUrl = `https://www.audible.${localeSuffix}/pd/${externalId}`;
 
@@ -308,8 +337,6 @@ driver("details", async function(context) {
     name: title,
     properties: {
       images,
-      people,
-      groups,
       isNsfw,
       runtime,
       sourceUrl,
@@ -320,5 +347,6 @@ driver("details", async function(context) {
       genres: [...genreSet],
       publishDate: parseReleaseDate(product?.release_date, dayjs),
     },
+    relatedEntities: [...relatedEntityByKey.values()],
   };
 });

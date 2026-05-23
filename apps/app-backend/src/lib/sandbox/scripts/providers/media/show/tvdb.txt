@@ -123,8 +123,7 @@ function collectCompanies(companiesObj) {
 		return [];
 	}
 
-	const companies = [];
-	const seen = new Set();
+	const companyByKey = new Map();
 
 	const roleMap = {
 		studio: "Studio",
@@ -148,46 +147,87 @@ function collectCompanies(companiesObj) {
 			if (id === null) {
 				continue;
 			}
-			if (seen.has(id)) {
-				continue;
-			}
-			seen.add(id);
 
 			const name =
 				typeof company?.name === "string" && company.name.trim()
 					? company.name.trim()
-					: null;
-			if (!name) {
+					: "Loading...";
+
+			const key = `company.tvdb:${id}`;
+			const existing = companyByKey.get(key);
+			if (existing) {
+				const roles = new Set([
+					...(Array.isArray(existing.relationshipProperties.roles)
+						? existing.relationshipProperties.roles
+						: []),
+					role,
+				]);
+				existing.relationshipProperties.roles = [...roles];
+				if (existing.name === "Loading..." && name !== "Loading...") {
+					existing.name = name;
+				}
 				continue;
 			}
 
-			companies.push({
+			companyByKey.set(key, {
 				name,
-				role,
 				externalId: String(id),
 				scriptSlug: "company.tvdb",
+				relationshipProperties: {
+					roles: [role],
+				},
 			});
 		}
 	}
 
-	return companies;
+	return [...companyByKey.values()];
 }
 
 function collectPeople(characters) {
 	if (!Array.isArray(characters)) {
-		return { people: [], unlinkedCreators: [] };
+		return { relatedEntities: [], unlinkedCreators: [] };
 	}
 
-	const people = [];
+	const relatedEntityByKey = new Map();
 	const unlinkedCreators = [];
-	const seen = new Set();
+	const unlinkedByKey = new Set();
+
+	const addRelatedEntity = (relatedEntity) => {
+		const key = `${relatedEntity.scriptSlug}:${relatedEntity.externalId}`;
+		const existing = relatedEntityByKey.get(key);
+		if (!existing) {
+			relatedEntityByKey.set(key, relatedEntity);
+			return;
+		}
+
+		const roles = new Set([
+			...(Array.isArray(existing.relationshipProperties.roles)
+				? existing.relationshipProperties.roles
+				: []),
+			...(Array.isArray(relatedEntity.relationshipProperties.roles)
+				? relatedEntity.relationshipProperties.roles
+				: []),
+		]);
+		existing.relationshipProperties.roles = [...roles];
+		if (existing.name === "Loading..." && relatedEntity.name !== "Loading...") {
+			existing.name = relatedEntity.name;
+		}
+	};
+
+	const addUnlinkedCreator = (name, role) => {
+		const key = `${name}:${role}`;
+		if (unlinkedByKey.has(key)) {
+			return;
+		}
+		unlinkedByKey.add(key);
+		unlinkedCreators.push({ name, role });
+	};
 
 	for (const chr of characters.slice(0, 20)) {
 		const name =
-			typeof chr?.personName === "string" ? chr.personName.trim() : "";
-		if (!name) {
-			continue;
-		}
+			typeof chr?.personName === "string" && chr.personName.trim()
+				? chr.personName.trim()
+				: "Loading...";
 		const role =
 			typeof chr?.peopleType === "string" && chr.peopleType.trim()
 				? chr.peopleType.trim()
@@ -196,24 +236,21 @@ function collectPeople(characters) {
 			typeof chr?.peopleId === "number" && Number.isFinite(chr.peopleId)
 				? Math.trunc(chr.peopleId)
 				: null;
-		const key = `${peopleId ?? name}:${role}`;
-		if (seen.has(key)) {
-			continue;
-		}
-		seen.add(key);
 		if (peopleId !== null) {
-			people.push({
+			addRelatedEntity({
 				name,
-				role,
 				externalId: String(peopleId),
 				scriptSlug: "person.tvdb",
+				relationshipProperties: {
+					roles: [role],
+				},
 			});
 		} else {
-			unlinkedCreators.push({ name, role });
+			addUnlinkedCreator(name, role);
 		}
 	}
 
-	return { people, unlinkedCreators };
+	return { relatedEntities: [...relatedEntityByKey.values()], unlinkedCreators };
 }
 
 function buildSeason(seasonData) {
@@ -414,7 +451,9 @@ driver("details", async function (context) {
 
 	const images = collectImages(show?.image, show?.artworks);
 	const genres = collectGenres(show?.genres);
-	const { people, unlinkedCreators } = collectPeople(show?.characters);
+	const { relatedEntities: peopleRelatedEntities, unlinkedCreators } = collectPeople(
+		show?.characters,
+	);
 
 	const firstAired =
 		typeof show?.firstAired === "string" && show.firstAired.trim()
@@ -478,21 +517,25 @@ driver("details", async function (context) {
 		? `https://thetvdb.com/series/${slug}`
 		: `https://thetvdb.com/series/${externalId}`;
 
+	const relatedEntities = [
+		...peopleRelatedEntities,
+		...collectCompanies(show?.companies),
+	];
+
 	return {
 		name: title,
 		properties: {
 			images,
-			people,
 			genres,
 			sourceUrl,
 			publishYear,
 			showSeasons,
 			unlinkedCreators,
-			companies: collectCompanies(show?.companies),
 			description:
 				typeof show?.overview === "string" && show.overview.trim()
 					? show.overview.trim()
 					: null,
 		},
+		relatedEntities,
 	};
 });
