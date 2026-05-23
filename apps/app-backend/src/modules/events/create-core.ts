@@ -69,7 +69,7 @@ const requireReadableEntity = Effect.fn(function* (
 	return scope;
 });
 
-const validateEventCreateItem = Effect.fn("validateEventCreateItem")(function* (input: {
+const resolveEventCreateItemScopes = Effect.fn("resolveEventCreateItemScopes")(function* (input: {
 	readonly item: CreateEventItem;
 	readonly userId: UserId;
 }) {
@@ -92,15 +92,26 @@ const validateEventCreateItem = Effect.fn("validateEventCreateItem")(function* (
 		return yield* badRequest(eventSchemaMismatchError);
 	}
 
+	let sessionEntityId: EntityId | undefined;
 	if (input.item.sessionEntityId) {
-		yield* requireReadableEntity(
+		const sessionScope = yield* requireReadableEntity(
 			input.userId,
 			input.item.sessionEntityId,
 			sessionEntityNotFoundError,
 		);
+		sessionEntityId = sessionScope.entityId;
 	}
 
-	yield* resolveOccurredAt(input.item.occurredAt);
+	const occurredAt = yield* resolveOccurredAt(input.item.occurredAt);
+
+	return { entityId, eventSchemaId, entityScope, eventSchemaScope, sessionEntityId, occurredAt };
+});
+
+const validateEventCreateItem = Effect.fn("validateEventCreateItem")(function* (input: {
+	readonly item: CreateEventItem;
+	readonly userId: UserId;
+}) {
+	const { eventSchemaScope } = yield* resolveEventCreateItemScopes(input);
 	yield* parseAppSchemaProperties({
 		kind: "Event",
 		properties: input.item.properties,
@@ -222,39 +233,13 @@ export const createEventsForUser = Effect.fn("createEventsForUser")(function* (i
 	const eventsRepository = yield* EventsRepository;
 	const createdEvents: CreatedEventWithContext[] = [];
 	const referencedGlobalEntityIds = new Set<EntityId>();
-	const eventSchemasRepository = yield* EventSchemasRepository;
 	const { userId, origin, payload, executionId, importRunId, integrationId } = input;
 
 	for (const [itemIndex, item] of payload.entries()) {
-		const entityId = EntityId.make(yield* requireText(item.entityId, "Entity id is required"));
-		const eventSchemaId = EventSchemaId.make(
-			yield* requireText(item.eventSchemaId, "Event schema id is required"),
-		);
+		const { entityScope, eventSchemaScope, sessionEntityId, occurredAt } =
+			yield* resolveEventCreateItemScopes({ item, userId });
 
-		const entityScope = yield* requireReadableEntity(userId, entityId, entityNotFoundError);
-
-		const eventSchemaScope = yield* runWithDb(
-			eventSchemasRepository.getScopeForUser({ userId, eventSchemaId }),
-		);
-		if (!eventSchemaScope) {
-			return yield* notFound(eventSchemaNotFoundError);
-		}
-
-		if (eventSchemaScope.entitySchemaId !== entityScope.entitySchemaId) {
-			return yield* badRequest(eventSchemaMismatchError);
-		}
-
-		let sessionEntityId: EntityId | undefined;
-		if (item.sessionEntityId) {
-			const sessionScope = yield* requireReadableEntity(
-				userId,
-				item.sessionEntityId,
-				sessionEntityNotFoundError,
-			);
-			sessionEntityId = sessionScope.entityId;
-		}
-
-		let rawOccurredAt = yield* resolveOccurredAt(item.occurredAt);
+		let rawOccurredAt = occurredAt;
 		let rawProperties: unknown = item.properties;
 		let rawSessionEntityId = sessionEntityId;
 
