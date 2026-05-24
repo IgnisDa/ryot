@@ -1,5 +1,48 @@
 import { quoteSqlString } from "./shared";
 
+export const buildCollectionToEntityRelationshipMigrationSql = (
+	memberOfRelationshipSchemaId: string,
+) => `
+DO $$
+DECLARE
+	rows_inserted int;
+	started_at timestamptz := clock_timestamp();
+BEGIN
+	IF to_regclass('"collection_to_entity"') IS NULL THEN
+		RAISE EXCEPTION 'Expected collection_to_entity table to exist in a V1 database but it was not found';
+	END IF;
+
+	RAISE NOTICE 'collection_to_entity -> relationship: migration started (% seconds elapsed)', 0.0;
+
+	INSERT INTO "relationship" (
+		"id",
+		"user_id",
+		"source_entity_id",
+		"target_entity_id",
+		"relationship_schema_id",
+		"properties",
+		"created_at"
+	)
+	SELECT
+		md5(cte.id::text || ':member-of'),
+		coll_entity.user_id,
+		cte.entity_id,
+		cte.collection_id,
+		${quoteSqlString(memberOfRelationshipSchemaId)},
+		COALESCE(cte.information, '{}'::jsonb) || jsonb_build_object('rank', cte.rank),
+		cte.created_on
+	FROM "collection_to_entity" cte
+	INNER JOIN "entity" src_entity ON src_entity.id = cte.entity_id
+	INNER JOIN "entity" coll_entity ON coll_entity.id = cte.collection_id
+	ON CONFLICT DO NOTHING;
+
+	GET DIAGNOSTICS rows_inserted = ROW_COUNT;
+	RAISE NOTICE 'collection_to_entity -> relationship: % row(s) migrated (% seconds elapsed)',
+		rows_inserted,
+		round(extract(epoch from clock_timestamp() - started_at)::numeric, 1);
+END $$;
+`;
+
 export const buildCollectionEntityMigrationSql = (entitySchemaId: string) => `
 DO $$
 DECLARE

@@ -90,7 +90,17 @@ export const builtinRelationshipSchemas = (): BuiltinRelationshipSchema[] => [
 		name: "Member Of",
 		sourceEntitySchemaSlug: null,
 		targetEntitySchemaSlug: "collection",
-		propertiesSchema: { fields: {}, unknownKeys: "passthrough" as const },
+		propertiesSchema: {
+			unknownKeys: "passthrough" as const,
+			fields: {
+				rank: {
+					label: "Rank",
+					defaultValue: 0,
+					type: "number" as const,
+					description: "Sort order of this entity within the collection",
+				},
+			},
+		},
 	},
 	{
 		slug: "workout-repeated-from",
