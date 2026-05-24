@@ -27,7 +27,7 @@
 	"scripts": {
 		"test": "bun --bun run vitest run",
 		"check": "tsc && oxfmt . --write && oxlint . --type-aware --fix",
-		"build": "tsc && bun build src/worker.ts --outdir dist --target bun --sourcemap"
+		"build": "tsc && bun build src/worker.ts --outdir dist --entry-naming client-plugin-compiler-worker.js --target bun --sourcemap"
 	},
 	"dependencies": {
 		"@ryot/client-plugin-sdk": "workspace:*",

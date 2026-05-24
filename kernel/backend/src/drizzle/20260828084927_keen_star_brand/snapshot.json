@@ -1,7 +1,7 @@
 {
 	"version": "8",
 	"dialect": "postgres",
-	"id": "c50293e2-8d28-431e-afea-8bb4014eaf0b",
+	"id": "d644f35b-6c40-4e78-92b8-6152a7901e90",
 	"prevIds": ["00000000-0000-0000-0000-000000000000"],
 	"ddl": [
 		{
@@ -2228,6 +2228,19 @@
 		{
 			"type": "text",
 			"typeSchema": null,
+			"notNull": false,
+			"dimensions": 0,
+			"default": null,
+			"generated": null,
+			"identity": null,
+			"name": "client_artifact_hash",
+			"entityType": "columns",
+			"schema": "public",
+			"table": "plugin"
+		},
+		{
+			"type": "text",
+			"typeSchema": null,
 			"notNull": true,
 			"dimensions": 0,
 			"default": null,
@@ -2260,6 +2273,19 @@
 			"generated": null,
 			"identity": null,
 			"name": "manifest",
+			"entityType": "columns",
+			"schema": "public",
+			"table": "plugin"
+		},
+		{
+			"type": "jsonb",
+			"typeSchema": null,
+			"notNull": false,
+			"dimensions": 0,
+			"default": null,
+			"generated": null,
+			"identity": null,
+			"name": "client_artifact",
 			"entityType": "columns",
 			"schema": "public",
 			"table": "plugin"
@@ -5368,6 +5394,27 @@
 			"method": "btree",
 			"concurrently": false,
 			"name": "plugin_owner_id_idx",
+			"entityType": "indexes",
+			"schema": "public",
+			"table": "plugin"
+		},
+		{
+			"nameExplicit": true,
+			"columns": [
+				{
+					"value": "client_artifact_hash",
+					"isExpression": false,
+					"asc": true,
+					"nullsFirst": false,
+					"opclass": null
+				}
+			],
+			"isUnique": false,
+			"where": null,
+			"with": "",
+			"method": "btree",
+			"concurrently": false,
+			"name": "plugin_client_artifact_hash_idx",
 			"entityType": "indexes",
 			"schema": "public",
 			"table": "plugin"
