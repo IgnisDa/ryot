@@ -28,18 +28,23 @@ describe("import run schema enums", () => {
 		expect(importRunFailureStage.options).toContain("database_commit");
 	});
 
-	it("importRunSource includes implemented file sources", () => {
+	it("importRunSource includes implemented import sources", () => {
 		expect(importRunSource.options).toContain("anilist");
+		expect(importRunSource.options).toContain("audiobookshelf");
 		expect(importRunSource.options).toContain("goodreads");
 		expect(importRunSource.options).toContain("grouvee");
 		expect(importRunSource.options).toContain("hardcover");
 		expect(importRunSource.options).toContain("hevy");
 		expect(importRunSource.options).toContain("igdb");
 		expect(importRunSource.options).toContain("imdb");
+		expect(importRunSource.options).toContain("jellyfin");
+		expect(importRunSource.options).toContain("mediatracker");
 		expect(importRunSource.options).toContain("myanimelist");
 		expect(importRunSource.options).toContain("open_scale");
+		expect(importRunSource.options).toContain("plex");
 		expect(importRunSource.options).toContain("strong_app");
 		expect(importRunSource.options).toContain("storygraph");
+		expect(importRunSource.options).toContain("trakt");
 		expect(importRunSource.options).toContain("watcharr");
 	});
 });

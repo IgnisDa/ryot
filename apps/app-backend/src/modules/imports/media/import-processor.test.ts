@@ -62,7 +62,10 @@ describe("processMediaImport", () => {
 				providerFailedIndices: undefined,
 				mediaWriteImportedItems: undefined,
 				adapterErrorFallback: "Could not load source data",
-				jobData: { sourcePayload: { username: "alice" } },
+				jobData: {
+					filePath: "/tmp/import.csv",
+					sourcePayload: { username: "alice", apiUrl: "https://example.com/private" },
+				},
 				cleanup: () => {
 					cleanedSources.push("trakt");
 					return Promise.resolve();
@@ -88,7 +91,7 @@ describe("processMediaImport", () => {
 					return Promise.resolve();
 				},
 				populateMediaEntityRefs: (_job, _token, input) => {
-					expect(input.jobData).toEqual({ sourcePayload: { username: "alice" } });
+					expect(input.jobData).toBeUndefined();
 					expect(input.mediaEntityGroups).toBe(groups);
 					expect(input.adapterFailureCount).toBe(1);
 					return Promise.resolve({ entityIds: ["entity_1", null], failedIndices: [1] });
@@ -117,13 +120,11 @@ describe("processMediaImport", () => {
 			adapterFailureCount: 1,
 			mediaEntityGroups: groups,
 			importStep: "resolving_entities",
-			sourcePayload: { username: "alice" },
 		});
 		expect(jobUpdates[1]).toMatchObject({
 			adapterFailureCount: 1,
 			mediaEntityGroups: groups,
 			importStep: "populating_entities",
-			sourcePayload: { username: "alice" },
 		});
 		expect(jobUpdates[2]).toMatchObject({
 			adapterFailureCount: 1,
@@ -143,5 +144,9 @@ describe("processMediaImport", () => {
 			processedItems: 3,
 			status: "completed",
 		});
+		for (const update of jobUpdates) {
+			expect(update).not.toHaveProperty("filePath");
+			expect(update).not.toHaveProperty("sourcePayload");
+		}
 	});
 });

@@ -44,7 +44,6 @@ export const resolveMediaEntityRefs = async (
 	const getProviderEntityRefs = () => entityGroups.map((group) => group.entityRef);
 
 	const baseSnapshot = {
-		...input.jobData,
 		runId: input.runId,
 		userId: input.userId,
 		mediaEntityGroups: entityGroups,
