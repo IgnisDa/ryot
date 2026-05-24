@@ -1,7 +1,7 @@
 import { HttpApiEndpoint, HttpApiGroup } from "@effect/platform";
 import { Schema } from "effect";
 
-import { AuthMiddleware } from "#lib/auth";
+import { AuthMiddleware } from "#lib/auth-middleware";
 import { BadRequest, NotFound, RateLimited, Unauthorized } from "#lib/errors";
 import { DateRange, QueryEngineRequest } from "#lib/query-language";
 
