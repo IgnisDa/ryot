@@ -176,9 +176,18 @@ export const builtinSandboxScripts = () => [
 		source: "tmdb",
 		canonicalLanguage: "en-US",
 	}),
-	script("TVDB", "movie.tvdb", tvdbMovieScriptCode, ["providers.tvdbApiKey"]),
-	script("TVDB", "show.tvdb", tvdbShowScriptCode, ["providers.tvdbApiKey"]),
-	script("TVDB", "person.tvdb", tvdbPersonScriptCode, ["providers.tvdbApiKey"]),
+	script("TVDB", "movie.tvdb", tvdbMovieScriptCode, ["providers.tvdbApiKey"], {
+		source: "tvdb",
+		canonicalLanguage: "eng",
+	}),
+	script("TVDB", "show.tvdb", tvdbShowScriptCode, ["providers.tvdbApiKey"], {
+		source: "tvdb",
+		canonicalLanguage: "eng",
+	}),
+	script("TVDB", "person.tvdb", tvdbPersonScriptCode, ["providers.tvdbApiKey"], {
+		source: "tvdb",
+		canonicalLanguage: "eng",
+	}),
 	script(
 		"MyAnimeList",
 		"anime.myanimelist",
@@ -215,7 +224,10 @@ export const builtinSandboxScripts = () => [
 		source: "tmdb",
 		canonicalLanguage: "en-US",
 	}),
-	script("TVDB", "movie-group.tvdb", tvdbMovieGroupScriptCode, ["providers.tvdbApiKey"]),
+	script("TVDB", "movie-group.tvdb", tvdbMovieGroupScriptCode, ["providers.tvdbApiKey"], {
+		source: "tvdb",
+		canonicalLanguage: "eng",
+	}),
 	script("Audible", "audiobook-group.audible", audibleAudiobookGroupScriptCode),
 	script("Hardcover", "book-group.hardcover", hardcoverBookGroupScriptCode, [
 		"providers.hardcoverApiKey",

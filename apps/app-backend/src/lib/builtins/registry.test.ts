@@ -33,6 +33,22 @@ describe("builtinSandboxScripts", () => {
 			source: "tmdb",
 			canonicalLanguage: "en-US",
 		});
+		expect(providerInformationFor("movie.tvdb")).toEqual({
+			source: "tvdb",
+			canonicalLanguage: "eng",
+		});
+		expect(providerInformationFor("show.tvdb")).toEqual({
+			source: "tvdb",
+			canonicalLanguage: "eng",
+		});
+		expect(providerInformationFor("person.tvdb")).toEqual({
+			source: "tvdb",
+			canonicalLanguage: "eng",
+		});
+		expect(providerInformationFor("movie-group.tvdb")).toEqual({
+			source: "tvdb",
+			canonicalLanguage: "eng",
+		});
 		expect(providerInformationFor("anime.anilist")).toEqual({
 			source: "anilist",
 			canonicalLanguage: "english",
