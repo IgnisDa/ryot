@@ -1,9 +1,10 @@
 import { expect, it } from "@effect/vitest";
 import { Effect, Exit, Layer } from "effect";
 
-import type { CurrentUserValue } from "../../lib/auth";
-import { CurrentDb, DbRunner } from "../../lib/db";
-import { BadRequest, Conflict, NotFound } from "../../lib/errors";
+import type { CurrentUserValue } from "~/lib/auth";
+import { CurrentDb, DbRunner } from "~/lib/db";
+import { BadRequest, Conflict, NotFound } from "~/lib/errors";
+
 import { EventSchemasRepository } from "./repository";
 import { EventSchemasService } from "./service";
 

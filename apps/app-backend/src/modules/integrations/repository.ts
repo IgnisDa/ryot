@@ -1,9 +1,9 @@
 import { and, eq } from "drizzle-orm";
 import { Effect } from "effect";
 
-import { AppConfig } from "../../lib/config";
-import { CurrentDb, dbEffect, schema } from "../../lib/db";
-import type { DbError } from "../../lib/errors";
+import { AppConfig } from "~/lib/config";
+import { CurrentDb, dbEffect, schema } from "~/lib/db";
+import type { DbError } from "~/lib/errors";
 
 const sinkProviders = new Set([
 	"kodi",

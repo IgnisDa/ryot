@@ -1,8 +1,8 @@
 import { HttpApiBuilder } from "@effect/platform";
 import { Effect } from "effect";
 
-import { AppContract } from "../../lib/contract";
-import { notImplemented } from "../../lib/errors";
+import { AppContract } from "~/lib/contract";
+import { notImplemented } from "~/lib/errors";
 
 export const ImportsRoutesLive = HttpApiBuilder.group(AppContract, "imports", (handlers) =>
 	handlers

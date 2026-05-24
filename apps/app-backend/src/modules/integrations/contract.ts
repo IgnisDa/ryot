@@ -1,9 +1,10 @@
 import { HttpApiEndpoint, HttpApiGroup, HttpApiSchema } from "@effect/platform";
 import { Schema } from "effect";
 
-import { AuthMiddleware } from "../../lib/auth";
-import { NotFound, NotImplemented, RateLimited, Unauthorized } from "../../lib/errors";
-import { ListedImportRun } from "../imports/contract";
+import { AuthMiddleware } from "~/lib/auth";
+import { NotFound, NotImplemented, RateLimited, Unauthorized } from "~/lib/errors";
+import { ListedImportRun } from "~/modules/imports/contract";
+
 import { integrationLots, type IntegrationLot as IntegrationLotType } from "./types";
 
 export const IntegrationLot = Schema.Literal(...integrationLots);
