@@ -3,11 +3,8 @@ import { describe, expect, it } from "bun:test";
 import { createListedEntity, createWorkoutSetPropertiesSchema } from "~/lib/test-fixtures";
 import type { CreateEventBulkBody } from "~/modules/events";
 
-import type { WorkoutAdapterResult } from "./sources/workout";
-import {
-	processWorkoutImportResultWithDeps,
-	type WorkoutImportProcessorDeps,
-} from "./workout-processor";
+import type { WorkoutAdapterResult } from "./domain";
+import { processWorkoutImportResultWithDeps, type WorkoutImportProcessorDeps } from "./processor";
 
 const emptyPropertiesSchema = { fields: {} };
 
