@@ -4,13 +4,6 @@ import {
 	hasNetflixShowIndicators,
 } from "./title-parsing";
 
-export {
-	extractNetflixBaseTitle,
-	extractNetflixSeasonEpisode,
-	extractNetflixYearFromTitle,
-	hasNetflixShowIndicators,
-} from "./title-parsing";
-
 export type NetflixTitleMatchCandidate = {
 	title: string;
 	externalId: string;

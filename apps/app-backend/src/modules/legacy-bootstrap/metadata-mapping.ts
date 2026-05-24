@@ -11,8 +11,6 @@ import {
 	quoteSqlString,
 } from "./shared";
 
-export { metadataMigrationTargets };
-
 const metadataMigrationTargetValuesSql = sql.join(
 	metadataMigrationTargets.map(
 		(target) =>
