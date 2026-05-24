@@ -1,3 +1,4 @@
+import { FetchHttpClient } from "@effect/platform";
 import { BunContext } from "@effect/platform-bun";
 import { Layer } from "effect";
 
@@ -46,6 +47,7 @@ const BaseInfrastructureLive = Layer.mergeAll(
 	DbService.Default,
 	RedisService.Default,
 	S3Service.Default,
+	FetchHttpClient.layer,
 ).pipe(Layer.provide(ConfigLive));
 
 const RepositoriesLive = Layer.mergeAll(
