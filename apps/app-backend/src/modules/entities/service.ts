@@ -17,6 +17,7 @@ import {
 } from "#modules/query-engine/response-helpers";
 import { QueryEngineService } from "#modules/query-engine/service";
 
+import { EntityPopulationTrigger } from "./population-trigger";
 import { EntitiesRepository } from "./repository";
 import { EntityImage, type CreateEntityBody } from "./schemas";
 import type { StoredEntityImage } from "./types";
@@ -119,6 +120,7 @@ export class EntitiesService extends Effect.Service<EntitiesService>()("Entities
 		const runWithDb = yield* DbRunner;
 		const repository = yield* EntitiesRepository;
 		const queryEngine = yield* QueryEngineService;
+		const populationTrigger = yield* EntityPopulationTrigger;
 
 		const save = Effect.fn("EntitiesService.save")(function* (input: SaveEntityInput) {
 			if (input.scope === "user") {
@@ -232,7 +234,23 @@ export class EntitiesService extends Effect.Service<EntitiesService>()("Entities
 				return yield* notFound(entityNotFoundError);
 			}
 
-			return yield* toListedEntity(row);
+			const entity = yield* toListedEntity(row);
+
+			if (
+				entity.populatedAt === null &&
+				entity.externalId !== null &&
+				entity.sandboxScriptId !== null
+			) {
+				yield* populationTrigger.request({
+					userId: user.id,
+					entityId: entity.id,
+					externalId: entity.externalId,
+					entitySchemaId: entity.entitySchemaId,
+					sandboxScriptId: entity.sandboxScriptId,
+				});
+			}
+
+			return entity;
 		});
 
 		return { save, create, getById };
