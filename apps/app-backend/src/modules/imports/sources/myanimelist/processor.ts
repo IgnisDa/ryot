@@ -1,0 +1,99 @@
+import node_path from "node:path";
+import { gunzipSync } from "node:zlib";
+
+import type { Job } from "bullmq";
+
+import { getTemporaryDirectory } from "~/lib/bun";
+
+import {
+	processMediaImport,
+	type MediaImportAdapterResult,
+	type MediaImportJobInput,
+} from "../../media/import-processor";
+import {
+	cleanupImportFile,
+	readImportFileBytes,
+	resolveSafeImportFilePath,
+	validateFileExtension,
+} from "../../runtime/files";
+import { adaptMyanimelistExports } from "./adapter";
+
+const MYANIMELIST_EXTENSIONS = ["gz", "xml"];
+
+type MyanimelistImportProcessorDeps = {
+	cleanupImportFile: typeof cleanupImportFile;
+	processMediaImport: typeof processMediaImport;
+	readImportFileBytes: typeof readImportFileBytes;
+	adaptMyanimelistExports: typeof adaptMyanimelistExports;
+};
+
+const myanimelistImportProcessorDeps: MyanimelistImportProcessorDeps = {
+	cleanupImportFile,
+	processMediaImport,
+	readImportFileBytes,
+	adaptMyanimelistExports,
+};
+
+const getValidatedOptionalPath = (value: unknown): string | undefined => {
+	if (typeof value !== "string" || value.trim().length === 0) {
+		return undefined;
+	}
+	const tempDir = getTemporaryDirectory();
+	const safePathResult = resolveSafeImportFilePath(value, tempDir);
+	if ("error" in safePathResult) {
+		throw new Error(safePathResult.error);
+	}
+	const extResult = validateFileExtension(safePathResult.path, MYANIMELIST_EXTENSIONS);
+	if ("error" in extResult) {
+		throw new Error(extResult.error);
+	}
+	return safePathResult.path;
+};
+
+const decodeMyanimelistFile = async (
+	filePath: string,
+	deps: MyanimelistImportProcessorDeps,
+): Promise<string> => {
+	const bytes = await deps.readImportFileBytes(filePath);
+	return node_path.extname(filePath).toLowerCase() === ".gz"
+		? gunzipSync(bytes).toString("utf8")
+		: new TextDecoder().decode(bytes);
+};
+
+export const processMyanimelistImport = async (
+	job: Job,
+	token: string | undefined,
+	input: MediaImportJobInput & { filePath: string; sourcePayload?: Record<string, unknown> },
+	deps: MyanimelistImportProcessorDeps = myanimelistImportProcessorDeps,
+): Promise<void> => {
+	const animeFilePath = getValidatedOptionalPath(input.sourcePayload?.animeFilePath);
+	const mangaFilePath = getValidatedOptionalPath(input.sourcePayload?.mangaFilePath);
+	const primaryFilePath = animeFilePath ?? mangaFilePath ?? input.filePath;
+	const resolvedAnimeFilePath = animeFilePath ?? (mangaFilePath ? undefined : primaryFilePath);
+	const cleanupPaths = [primaryFilePath, resolvedAnimeFilePath, mangaFilePath].filter(
+		(filePath): filePath is string => Boolean(filePath),
+	);
+
+	await deps.processMediaImport(job, token, {
+		...input,
+		sourceName: "MyAnimeList",
+		adapterErrorFallback: "Could not parse MyAnimeList export data",
+		jobData: {
+			filePath: input.filePath,
+			...(input.sourcePayload ? { sourcePayload: input.sourcePayload } : {}),
+		},
+		cleanup: async () => {
+			for (const filePath of new Set(cleanupPaths)) {
+				// oxlint-disable-next-line no-await-in-loop
+				await deps.cleanupImportFile(filePath);
+			}
+		},
+		loadAdapterResult: async (): Promise<MediaImportAdapterResult> => {
+			const animeXml = resolvedAnimeFilePath
+				? await decodeMyanimelistFile(resolvedAnimeFilePath, deps)
+				: undefined;
+			const mangaXml = mangaFilePath ? await decodeMyanimelistFile(mangaFilePath, deps) : undefined;
+			return deps.adaptMyanimelistExports({ animeXml, mangaXml });
+		},
+	});
+};
