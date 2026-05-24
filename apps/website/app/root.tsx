@@ -21,7 +21,7 @@ import { Button } from "./lib/components/ui/button";
 import { Toaster } from "./lib/components/ui/sonner";
 import { logoUrl, queryClient, startUrl, useConfigData } from "./lib/general";
 
-import "./tailwind.css";
+import _tailwind from "./tailwind.css";
 
 function HeaderActions() {
 	const { data: configData } = useConfigData();
@@ -242,8 +242,15 @@ export default function App() {
 }
 
 export function ErrorBoundary() {
-	const error = useRouteError() as Error;
-	const message = isRouteErrorResponse(error) ? error.data.message : error.message;
+	const error = useRouteError();
+	let message: string;
+	if (isRouteErrorResponse(error)) {
+		message = error.data.message;
+	} else if (error instanceof Error) {
+		message = error.message;
+	} else {
+		message = "An unexpected error occurred";
+	}
 
 	return (
 		<div>
