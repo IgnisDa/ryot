@@ -192,22 +192,25 @@ export async function waitForHealthCheck(
 	maxRetries = 30,
 	retryDelay = 1000,
 ) {
-	for (let i = 0; i < maxRetries; i++) {
+	const wait = () => new Promise((resolve) => setTimeout(resolve, retryDelay));
+
+	const attempt = async (remainingRetries: number): Promise<void> => {
 		try {
-			// oxlint-disable-next-line no-await-in-loop
 			const response = await fetch(url);
 			if (response.ok) {
 				return;
 			}
 		} catch {}
 
-		if (i < maxRetries - 1) {
-			// oxlint-disable-next-line no-await-in-loop
-			await new Promise((resolve) => setTimeout(resolve, retryDelay));
+		if (remainingRetries <= 1) {
+			throw new Error(`[${label}] Health check failed for ${url} after ${maxRetries} retries`);
 		}
-	}
 
-	throw new Error(`[${label}] Health check failed for ${url} after ${maxRetries} retries`);
+		await wait();
+		return attempt(remainingRetries - 1);
+	};
+
+	return attempt(maxRetries);
 }
 
 export async function stopBackendProcess(proc?: ChildProcess) {

@@ -45,12 +45,15 @@ describe("media group entity schemas", () => {
 		const { client, cookies } = await createAuthenticatedClient();
 		const builtinTracker = await findBuiltinTracker(client, cookies);
 		const schemas = await listEntitySchemas(client, cookies, { trackerId: builtinTracker.id });
+		const eventSchemasBySlug = await Promise.all(
+			GROUP_SCHEMA_SLUGS.map(async (slug) => {
+				const schema = schemas.find((s) => s.slug === slug);
+				assertPresent(schema, `Group schema '${slug}' not found`);
+				return { eventSchemas: await listEventSchemas(client, cookies, schema.id), slug };
+			}),
+		);
 
-		for (const slug of GROUP_SCHEMA_SLUGS) {
-			const schema = schemas.find((s) => s.slug === slug);
-			assertPresent(schema, `Group schema '${slug}' not found`);
-			// oxlint-disable-next-line no-await-in-loop
-			const eventSchemas = await listEventSchemas(client, cookies, schema.id);
+		for (const { eventSchemas } of eventSchemasBySlug) {
 			const eventSlugs = eventSchemas.map((e) => e.slug);
 
 			expect(eventSlugs).toContain("review");
