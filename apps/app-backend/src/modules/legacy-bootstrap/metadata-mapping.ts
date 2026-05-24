@@ -262,7 +262,26 @@ COALESCE(jsonb_strip_nulls(
 			), '[]'::jsonb)
 		)
 		WHEN metadata.lot = 'anime' THEN jsonb_build_object(
-			'episodes', (metadata.anime_specifics ->> 'episodes')::int
+			'episodes', (metadata.anime_specifics ->> 'episodes')::int,
+			'airingSchedule', (
+				SELECT jsonb_agg(
+					jsonb_build_object(
+						'episode', (schedule.value ->> 'episode')::int,
+						'airingAt', to_char(
+							(schedule.value ->> 'airing_at')::timestamp,
+							'YYYY-MM-DD"T"HH24:MI:SS"Z"'
+						)
+					)
+					ORDER BY (schedule.value ->> 'episode')::int
+				)
+				FROM jsonb_array_elements(
+					CASE
+						WHEN jsonb_typeof(metadata.anime_specifics -> 'airing_schedule') = 'array'
+						THEN metadata.anime_specifics -> 'airing_schedule'
+						ELSE '[]'::jsonb
+					END
+				) AS schedule(value)
+			)
 		)
 		WHEN metadata.lot = 'manga' THEN jsonb_build_object(
 			'volumes',  (metadata.manga_specifics ->> 'volumes')::int,
