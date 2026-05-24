@@ -1,7 +1,6 @@
 import type { SavedViewLayouts } from "@ryot/contract/modules/saved-views/schemas";
 import { SavedViewId } from "@ryot/contract/schema/brands";
 import type { SavedViewRecord } from "@ryot/ryotql-recipes/saved-view-records";
-import { Cause } from "effect";
 import { AsyncResult } from "effect/unstable/reactivity";
 import { describe, expect, it } from "vitest";
 
@@ -10,7 +9,6 @@ import { RyotQLMalformedResultError } from "@/api/ryotql";
 import type { SavedViewCardItem, SavedViewTableItem } from "./display-data";
 import {
 	appendSavedViewPage,
-	mapManagedAssetResolution,
 	mapSavedViewRecord,
 	materializeSavedViewData,
 	savedViewReadyState,
@@ -122,16 +120,6 @@ describe("saved-view application state", () => {
 			status: "ready",
 			data: { items: [{ image: { type: "unconfigured" } }] },
 		});
-	});
-
-	it("keeps managed asset loading and failure non-fatal", () => {
-		expect(mapManagedAssetResolution(AsyncResult.initial(), (url) => url)).toEqual({
-			urls: new Map(),
-			status: "loading",
-		});
-		expect(
-			mapManagedAssetResolution(AsyncResult.failure(Cause.fail("offline")), (url) => url),
-		).toMatchObject({ status: "unavailable", urls: new Map() });
 	});
 
 	it("deduplicates pages and keeps the latest item", () => {

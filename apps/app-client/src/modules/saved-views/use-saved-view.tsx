@@ -10,8 +10,10 @@ import { scopedRequestKey } from "@/api/request-key";
 import { useApiScope } from "@/api/scope";
 import { useInternalRequestFailureLogging } from "@/api/use-internal-request-failure-logging";
 import { useEntityUpdates } from "@/modules/entity-interest/use-entity-updates";
+import { managedAssetResolutionAtom } from "@/modules/ui/managed-asset-resolution";
+import type { ManagedAssetResolutionState } from "@/modules/ui/managed-assets";
 
-import { managedAssetResolutionAtom, savedViewRecordAtom } from "./atoms";
+import { savedViewRecordAtom } from "./atoms";
 import {
 	canRefreshSavedView,
 	createSavedViewControllerState,
@@ -29,11 +31,7 @@ import {
 } from "./controller";
 import type { collectManagedAssets } from "./display-data";
 import { useSavedViewLayout } from "./saved-view-layout-selector";
-import {
-	savedViewReadyState,
-	type SavedViewManagedAssetsState,
-	type SavedViewNormalizedState,
-} from "./state";
+import { savedViewReadyState, type SavedViewNormalizedState } from "./state";
 import type { SavedViewLayout } from "./storage";
 
 const REFRESH_RETRY_MS = 30_000;
@@ -274,7 +272,7 @@ export const useSavedViewResult = (record: SavedViewRecord, searchQuery = "") =>
 
 export function SavedViewRuntime(props: {
 	readonly assets: ReturnType<typeof collectManagedAssets>;
-	readonly children: (assets: SavedViewManagedAssetsState) => React.ReactNode;
+	readonly children: (assets: ManagedAssetResolutionState) => React.ReactNode;
 }) {
 	return props.assets.length === 0 ? (
 		<>{props.children({ status: "ready", urls: new Map() })}</>
@@ -285,7 +283,7 @@ export function SavedViewRuntime(props: {
 
 function SavedViewManagedAssets(props: {
 	readonly assets: ReturnType<typeof collectManagedAssets>;
-	readonly children: (assets: SavedViewManagedAssetsState) => React.ReactNode;
+	readonly children: (assets: ManagedAssetResolutionState) => React.ReactNode;
 }) {
 	const scope = useApiScope();
 	const state = useAtomValue(managedAssetResolutionAtom({ scope, assets: props.assets }));
