@@ -40,7 +40,7 @@
   - Scope: Use intent lock only, stop writing `cleaning`
   - Prereq: Drain/dual-decode Redis records
 
-- [ ] **9. Scope-own sandbox bridge sessions** [H/M/M]
+- [x] **9. Scope-own sandbox bridge sessions** [H/M/M]
   - Owner: I07 Sandbox runtime
   - Scope: Scoped registration with identity-aware deletion
 
