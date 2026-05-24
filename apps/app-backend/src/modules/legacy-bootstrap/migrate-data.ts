@@ -26,6 +26,7 @@ import {
 import {
 	buildCompanyEntityMigrationSql,
 	buildCompanyRelationshipMigrationSql,
+	buildGroupPersonRelationshipMigrationSql,
 	buildPersonEntityMigrationSql,
 	buildPersonRelationshipMigrationSql,
 	companyEntityTargets,
@@ -277,6 +278,19 @@ export const migrateLegacyTables = async (database: DbClient) => {
 		relationshipSchemaIds,
 	});
 
+	const groupPersonRelationshipLots = [
+		{ lot: "music", relationshipSchemaSlug: "person-to-music-group" },
+		{ lot: "video_game", relationshipSchemaSlug: "person-to-video-game-group" },
+	] as const;
+	const resolvedGroupPersonRelationshipTargets = groupPersonRelationshipLots.map((target) => {
+		const relationshipSchemaId = relationshipSchemaIds.get(target.relationshipSchemaSlug);
+		if (relationshipSchemaId === undefined) {
+			throw new Error(`Missing relationship schema id for slug "${target.relationshipSchemaSlug}"`);
+		}
+
+		return { lot: target.lot, relationshipSchemaId };
+	});
+
 	const collectionEntitySchemaId = entitySchemaIds.get("collection");
 	if (collectionEntitySchemaId === undefined) {
 		throw new Error('Missing entity schema id for collection slug "collection"');
@@ -409,5 +423,8 @@ export const migrateLegacyTables = async (database: DbClient) => {
 		`);
 		await client.query(buildPersonRelationshipMigrationSql(resolvedPersonRelationshipTargets));
 		await client.query(buildCompanyRelationshipMigrationSql(resolvedCompanyRelationshipTargets));
+		await client.query(
+			buildGroupPersonRelationshipMigrationSql(resolvedGroupPersonRelationshipTargets),
+		);
 	});
 };
