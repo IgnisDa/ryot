@@ -7,9 +7,10 @@ import { badRequest, conflict, notFound } from "../../lib/errors";
 import { parseLabeledPropertySchemaInput } from "../../lib/property-schema-runtime";
 import { slugify } from "../../lib/slug";
 import { requireText, trimToNull } from "../../lib/validation";
+import { SandboxApiService } from "../sandbox/service";
 import { TrackersRepository } from "../trackers/repository";
 import { EntitySchemasRepository } from "./repository";
-import type { CreateEntitySchemaBody } from "./schemas";
+import type { CreateEntitySchemaBody, SearchEntitySchemasBody } from "./schemas";
 
 const reservedEntitySchemaSlugs = new Set(builtinEntitySchemas().map((s) => s.slug));
 
@@ -48,6 +49,7 @@ export class EntitySchemasService extends Effect.Service<EntitySchemasService>()
 			const runWithDb = yield* DbRunner;
 			const runInTransaction = yield* TransactionRunner;
 			const repository = yield* EntitySchemasRepository;
+			const sandboxApiService = yield* SandboxApiService;
 			const trackersRepository = yield* TrackersRepository;
 
 			return {
@@ -157,6 +159,14 @@ export class EntitySchemasService extends Effect.Service<EntitySchemasService>()
 						}
 						return result;
 					}),
+				search: (user: CurrentUserValue, payload: SearchEntitySchemasBody) =>
+					sandboxApiService.enqueue(user, {
+						driverName: "search",
+						context: payload.context,
+						scriptId: payload.scriptId,
+					}),
+				getSearchResult: (user: CurrentUserValue, jobId: string) =>
+					sandboxApiService.getResult(user, jobId),
 			};
 		}),
 	},
