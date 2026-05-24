@@ -27,6 +27,9 @@ import { ImportsRepository } from "~/modules/imports/repository";
 import { ImportsService } from "~/modules/imports/service";
 import { ImportWorkflowDefinitionsLive } from "~/modules/imports/worker";
 import { IntegrationsRepository } from "~/modules/integrations/repository";
+import { IntegrationsSchedulerLive } from "~/modules/integrations/scheduler";
+import { IntegrationsService } from "~/modules/integrations/service";
+import { IntegrationWorkflowDefinitionsLive } from "~/modules/integrations/worker";
 import { QueryEngineService } from "~/modules/query-engine/service";
 import { RelationshipSchemasRepository } from "~/modules/relationship-schemas/repository";
 import { RelationshipSchemasService } from "~/modules/relationship-schemas/service";
@@ -97,6 +100,7 @@ const ServicesBaseLive = Layer.mergeAll(
 	EventsService.Default,
 	Layer.provide(GodModeService.Default, AuthService.Default),
 	Layer.provide(ImportsService.Default, UploadsService.Default),
+	IntegrationsService.Default,
 	QueryEngineService.Default,
 	RelationshipSchemasService.Default,
 	SavedViewsService.Default,
@@ -111,8 +115,10 @@ const ServiceDependenciesLive = Layer.provide(ServicesLive, ApplicationInfrastru
 const RuntimeLive = Layer.mergeAll(
 	EntityImportWorkflowDefinitionsLive,
 	ImportWorkflowDefinitionsLive,
+	IntegrationWorkflowDefinitionsLive,
 	SandboxWorkflowDefinitionsLive,
 	ServerLive,
+	IntegrationsSchedulerLive,
 );
 
 const RuntimeAfterMigrationsLive = MigrationsComplete.Default.pipe(

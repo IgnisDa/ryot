@@ -28,10 +28,10 @@ const appConfig = {
 	timezone: "Etc/GMT",
 	frontendUrl: "http://localhost:3000",
 	frontend: { oidcButtonLabel: Option.none() },
-	scheduler: { progressUpdateThresholdHours: 2 },
 	redisUrl: Redacted.make("redis://localhost:6379"),
 	users: { allowRegistration: true, disableLocalAuth: false },
 	databaseUrl: Redacted.make("postgres://postgres:postgres@localhost:5432/postgres"),
+	scheduler: { frequentCronJobsSchedule: "every 5 minutes", progressUpdateThresholdHours: 2 },
 	sandbox: {
 		timeoutMs: 10_000,
 		denoDir: "/tmp/ryot-sandbox-deno",
