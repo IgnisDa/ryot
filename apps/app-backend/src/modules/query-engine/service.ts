@@ -4,7 +4,9 @@ import type { CurrentUserValue } from "#lib/auth-middleware";
 import { DbRunner } from "#lib/db";
 import { BadRequest, NotFound, dieOnDbError } from "#lib/errors";
 
-import { executeAggregateQuery, executeRowsQuery, executeTimeSeriesQuery } from "./executor";
+import { executeAggregateQuery } from "./executor";
+import { executeRowsQuery } from "./executor/rows";
+import { executeTimeSeriesQuery } from "./executor/time-series";
 import type { AggregateOutput, QueryDocument, RowsOutput, TimeSeriesOutput } from "./language";
 import { validateQueryDocument, validateQueryDocumentWithScope } from "./validator";
 import { validateQueryDocumentReferencesAndTypes } from "./validator/references";
